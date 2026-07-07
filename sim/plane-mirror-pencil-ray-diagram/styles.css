@@ -17,6 +17,11 @@
   touch-action: pan-y;
 }
 
+[data-image-handle],
+[data-kind][data-id] {
+  touch-action: none;
+}
+
 .drag-preview {
   position: absolute;
   top: 0;
