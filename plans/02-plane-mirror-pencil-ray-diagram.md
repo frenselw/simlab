@@ -50,14 +50,17 @@ The student completes four ray bundles:
 - each bundle contains one incident ray, one reflected ray, and one backward
   extension line.
 
-After all four ray bundles are complete, the simulation shows two image-type
-choices:
+Once the learner has started drawing ray bundles, the simulation shows two
+image-type choices:
 
 - `實像`
 - `虛像`
 
-The student must choose `虛像`, then drag and resize a vertical image pencil to
-the correct position behind the mirror.
+The student chooses `虛像`, then drags and resizes a vertical image pencil to
+the correct position behind the mirror. The image tool is available before all
+four bundles are complete so students can compare the image position with their
+ray construction while they work. Submitting an incomplete diagram is allowed;
+missing ray bundles or image details simply score zero for those components.
 
 ## Interaction
 
@@ -90,8 +93,9 @@ Disable unavailable add buttons instead of showing an error:
   ray;
 - `延長線 +` is enabled only when at least one reflected ray has no extension
   line;
-- after four complete bundles exist, the ray add buttons are disabled and the
-  image-type choice appears.
+- ray add buttons are disabled only when their maximum count or dependency
+  rules are reached;
+- the image-type choice appears after at least one ray bundle has been started.
 
 Recommended mode flow:
 
@@ -124,13 +128,14 @@ Recommended mode flow:
      direction and draw the exact line.
 
 4. Place the image
-   - Show image-type choices only after all four ray bundles exist.
+   - Show image-type choices after at least one ray bundle has been started.
    - After the learner chooses an image type, show a draggable vertical image
      pencil.
    - Dragging the body moves the image.
    - Dragging the top or bottom handle changes image height.
    - The correct image is upright, virtual, same height as the pencil, and at
      the mirrored position behind the mirror.
+   - The learner may place the image before completing all four ray bundles.
 
 Phone behavior:
 
@@ -275,7 +280,7 @@ When the student submits:
 - show detailed feedback in the page;
 - save compact review data:
   - random scenario values;
-  - four ray bundles;
+  - submitted ray bundles;
   - selected image type;
   - placed image geometry;
   - score and feedback;
@@ -294,6 +299,7 @@ to the browser console.
 - Random pencil length is visible and leaves enough room to draw rays.
 - Student can complete the task without keyboard input.
 - All four ray bundles can be drawn on phone-width viewport.
+- The image can be placed before all four ray bundles are complete.
 - Snap helps but does not force an already-wrong line to score as correct unless
   it lands within the defined snap zone.
 - Submit produces a score from 0 to 100.
