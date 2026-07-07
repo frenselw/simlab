@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>平面鏡鉛筆成像光路圖</title>
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app">
+      <header class="sim-header">
+        <h1>平面鏡鉛筆成像光路圖</h1>
+        <p>題目：平面鏡的反射面會隨機在左方或右方。請由鉛筆頂端和底端作出光線，完成反射光線、延長線，並放置鉛筆的像。</p>
+      </header>
+
+      <div class="sim-shell">
+        <section class="sim-stage" aria-label="光路圖繪圖區">
+          <svg id="diagram" class="ray-diagram" viewBox="0 0 760 480" role="group" aria-label="平面鏡與鉛筆光路圖">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--grid-line)" stroke-width="1"></path>
+              </pattern>
+              <marker id="arrow-incident" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ray-incident)"></path>
+              </marker>
+              <marker id="arrow-reflected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ray-reflected)"></path>
+              </marker>
+            </defs>
+            <rect width="760" height="480" fill="url(#grid)"></rect>
+            <g id="sceneLayer"></g>
+            <g id="rayLayer"></g>
+            <g id="imageLayer"></g>
+          </svg>
+          <div id="dragPreview" class="drag-preview" aria-hidden="true">
+            <svg id="dragPreviewSvg" viewBox="0 0 120 76" focusable="false"></svg>
+            <div class="drag-preview-crosshair"></div>
+          </div>
+        </section>
+
+        <aside class="sim-panel" aria-label="操作面板">
+          <section class="panel-section">
+            <h2 class="section-title">光線工具</h2>
+            <div class="ray-controls">
+              <div class="ray-row" data-row="incident">
+                <div class="ray-name"><span>入射光線</span><b>I</b></div>
+                <div class="ray-stepper">
+                  <button type="button" data-segment="incident" data-action="remove" aria-label="減少入射光線">−</button>
+                  <output data-count="incident" aria-label="入射光線數量">0</output>
+                  <button type="button" data-segment="incident" data-action="add" aria-label="增加入射光線">+</button>
+                </div>
+              </div>
+              <div class="ray-row" data-row="reflected">
+                <div class="ray-name"><span>反射光線</span><b>R</b></div>
+                <div class="ray-stepper">
+                  <button type="button" data-segment="reflected" data-action="remove" aria-label="減少反射光線">−</button>
+                  <output data-count="reflected" aria-label="反射光線數量">0</output>
+                  <button type="button" data-segment="reflected" data-action="add" aria-label="增加反射光線">+</button>
+                </div>
+              </div>
+              <div class="ray-row" data-row="extension">
+                <div class="ray-name"><span>延長線</span><b>E</b></div>
+                <div class="ray-stepper">
+                  <button type="button" data-segment="extension" data-action="remove" aria-label="減少延長線">−</button>
+                  <output data-count="extension" aria-label="延長線數量">0</output>
+                  <button type="button" data-segment="extension" data-action="add" aria-label="增加延長線">+</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="imageChoicePanel" class="panel-section is-hidden">
+            <h2 class="section-title">像的性質</h2>
+            <div class="button-grid">
+              <button type="button" data-image-choice="real" aria-pressed="false">實像</button>
+              <button type="button" data-image-choice="virtual" aria-pressed="false">虛像</button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">提交評分</h2>
+            <div id="scorePanel" class="readout" aria-live="polite">
+              <div>目前分數</div>
+              <div class="score-value">--</div>
+              <div class="muted">完成後提交，系統會回傳分數到 Moodle。</div>
+            </div>
+            <button type="button" id="submitDiagram" class="primary-button submit-button" disabled>提交答案</button>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,360 @@
+:root {
+  --ray-incident: #2563eb;
+  --ray-reflected: #9333ea;
+  --ray-extension: #ef4444;
+  --mirror-stroke: #38bdf8;
+  --pencil-fill: #f59e0b;
+  --pencil-stroke: #92400e;
+  --image-stroke: #0f766e;
+}
+
+.ray-diagram {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--color-canvas);
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.drag-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 190px;
+  height: 120px;
+  display: none;
+  overflow: hidden;
+  border: 2px solid var(--color-accent);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
+  pointer-events: none;
+}
+
+.drag-preview.is-active {
+  display: block;
+}
+
+.drag-preview svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #ffffff;
+}
+
+.drag-preview-crosshair::before,
+.drag-preview-crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.drag-preview-crosshair::before {
+  width: 28px;
+  height: 1px;
+  left: calc(50% - 14px);
+  top: 50%;
+}
+
+.drag-preview-crosshair::after {
+  width: 1px;
+  height: 28px;
+  left: 50%;
+  top: calc(50% - 14px);
+}
+
+@media (max-width: 819px) {
+  .sim-shell {
+    grid-template-rows: auto auto;
+  }
+
+  .sim-stage {
+    aspect-ratio: 760 / 480;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 820px) {
+  .sim-app {
+    height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+.mirror-pane {
+  fill: rgba(56, 189, 248, 0.22);
+  stroke: rgba(14, 116, 144, 0.45);
+  stroke-width: 1;
+}
+
+.mirror-face {
+  stroke: rgba(14, 116, 144, 0.65);
+  stroke-width: 2;
+  stroke-linecap: square;
+}
+
+.mirror-back {
+  stroke: rgba(14, 116, 144, 0.35);
+  stroke-width: 1;
+}
+
+.mirror-hatch {
+  stroke: rgba(100, 116, 139, 0.55);
+  stroke-width: 2;
+}
+
+.pencil-body-shape {
+  fill: var(--pencil-fill);
+  stroke: var(--pencil-stroke);
+  stroke-width: 2;
+}
+
+.pencil-tip-shape {
+  fill: #111827;
+  stroke: var(--pencil-stroke);
+  stroke-width: 2;
+}
+
+.pencil-end-cap {
+  stroke: var(--pencil-stroke);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.image-pencil {
+  opacity: 0.55;
+}
+
+.source-dot {
+  fill: #ffffff;
+  stroke: var(--pencil-stroke);
+  stroke-width: 3;
+}
+
+.source-label,
+.ray-label,
+.image-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.ray-line {
+  stroke-width: 4;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.ray-line.incident {
+  stroke: var(--ray-incident);
+  marker-end: url(#arrow-incident);
+}
+
+.ray-line.reflected {
+  stroke: var(--ray-reflected);
+  marker-end: url(#arrow-reflected);
+}
+
+.ray-line.extension {
+  stroke: var(--ray-extension);
+  stroke-width: 2;
+  stroke-dasharray: 8 7;
+}
+
+.ray-group.is-selected .ray-line {
+  stroke-width: 6;
+}
+
+.ray-group.is-selected .ray-line.extension {
+  stroke-width: 2.5;
+}
+
+.normal-line {
+  stroke: #64748b;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.ray-hit {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+  cursor: move;
+  touch-action: none;
+}
+
+.mirror-point {
+  fill: #ffffff;
+  stroke: var(--ray-incident);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.image-pencil .pencil-body-shape {
+  fill: #5eead4;
+  stroke: var(--image-stroke);
+}
+
+.image-pencil .pencil-tip-shape {
+  fill: var(--image-stroke);
+  stroke: var(--image-stroke);
+}
+
+.image-pencil .pencil-end-cap {
+  stroke: var(--image-stroke);
+}
+
+.image-handle {
+  pointer-events: none;
+}
+
+.image-handle-hit,
+.image-body-hit {
+  pointer-events: all;
+  cursor: move;
+  touch-action: none;
+}
+
+.image-handle {
+  fill: #ffffff;
+  stroke: var(--image-stroke);
+  stroke-width: 3;
+}
+
+.image-handle-hit {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.image-body-hit {
+  stroke: transparent;
+  stroke-width: 44;
+}
+
+.ray-hit:focus-visible,
+.image-handle-hit:focus-visible {
+  fill: rgba(37, 99, 235, 0.14);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.image-body-hit:focus-visible {
+  stroke: rgba(37, 99, 235, 0.3);
+}
+
+.image-pencil:focus-visible .pencil-body-shape,
+.image-pencil:focus-visible .pencil-tip-shape,
+.image-pencil:focus-visible .pencil-end-cap {
+  stroke-width: 4;
+}
+
+.ray-controls {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ray-row {
+  display: grid;
+  grid-template-columns: minmax(5.25rem, max-content) max-content;
+  justify-content: start;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.ray-name {
+  min-width: 0;
+  padding-left: 0.25rem;
+  display: grid;
+  grid-template-columns: 4.25rem 1.35rem;
+  gap: 0.45rem;
+  align-items: baseline;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.ray-name b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-style: italic;
+  text-align: center;
+}
+
+.ray-stepper {
+  display: grid;
+  grid-template-columns: 2.75rem 2.25rem 2.75rem;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.ray-stepper output {
+  min-height: var(--touch-target);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-panel);
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.ray-controls button {
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+[data-segment="incident"] {
+  border-color: var(--ray-incident);
+}
+
+[data-segment="reflected"] {
+  border-color: var(--ray-reflected);
+}
+
+[data-segment="extension"] {
+  border-color: var(--ray-extension);
+}
+
+[data-image-choice].is-selected {
+  border-color: var(--color-accent);
+  background: #eff6ff;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.submit-button {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.is-hidden {
+  display: none;
+}
+
+.feedback-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  padding-left: 1.2rem;
+}
+
+.feedback-item.correct {
+  color: #15803d;
+}
+
+.feedback-item.missing,
+.feedback-item.wrong,
+.feedback-item.extra {
+  color: var(--color-danger);
+}
+
+.feedback-summary {
+  margin-top: 0.5rem;
+}

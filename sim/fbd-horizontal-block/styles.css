@@ -1,0 +1,241 @@
+.fbd-diagram {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--color-canvas);
+  touch-action: none;
+  user-select: none;
+}
+
+@media (max-width: 819px) {
+  .sim-shell {
+    grid-template-rows: auto auto;
+  }
+
+  .sim-stage {
+    aspect-ratio: 640 / 420;
+    min-height: 0;
+  }
+}
+
+.surface-line {
+  stroke: #111827;
+  stroke-width: 4;
+}
+
+.surface-base {
+  stroke: none;
+}
+
+.surface-hatch {
+  stroke: #111827;
+  stroke-width: 3;
+}
+
+.block-shape {
+  fill: #f3e6e6;
+  stroke: #6f1212;
+  stroke-width: 4;
+}
+
+.force-line {
+  stroke-width: 4;
+  stroke-linecap: round;
+  cursor: grab;
+  touch-action: none;
+}
+
+.force-group.is-selected .force-line {
+  stroke-width: 6;
+}
+
+.force-tip-hit {
+  fill: transparent;
+  stroke: transparent;
+  cursor: move;
+  touch-action: none;
+  pointer-events: all;
+}
+
+.force-label {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  font-style: italic;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 5;
+  pointer-events: none;
+}
+
+.force-buttons {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.force-row {
+  display: grid;
+  grid-template-columns: minmax(5.25rem, max-content) max-content;
+  justify-content: start;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.force-name {
+  min-width: 0;
+  padding-left: 0.25rem;
+  display: grid;
+  grid-template-columns: 3.75rem 1.35rem;
+  gap: 0.45rem;
+  align-items: baseline;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.force-name b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-style: italic;
+  text-align: center;
+}
+
+.force-stepper {
+  display: grid;
+  grid-template-columns: 2.75rem 2.25rem 2.75rem;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.force-stepper output {
+  min-height: var(--touch-target);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-panel);
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.force-buttons button {
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.submit-button {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.feedback-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  padding-left: 1.2rem;
+}
+
+.feedback-item.correct {
+  color: #15803d;
+}
+
+.feedback-item.missing,
+.feedback-item.wrong,
+.feedback-item.extra {
+  color: var(--color-danger);
+}
+
+.feedback-summary {
+  margin-top: 0.5rem;
+}
+
+.fbd-magnifier {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  width: min(34vw, 9rem);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-panel);
+  background: var(--color-canvas);
+  box-shadow: 0 8px 20px rgba(31, 41, 55, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.96);
+}
+
+.fbd-magnifier.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.fbd-magnifier-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.magnifier-surface {
+  stroke: #111827;
+  stroke-width: 4;
+}
+
+.magnifier-block {
+  fill: #f3e6e6;
+  stroke: #6f1212;
+  stroke-width: 4;
+}
+
+.magnifier-force {
+  opacity: 0.35;
+}
+
+.magnifier-force.is-selected {
+  opacity: 1;
+}
+
+.magnifier-force-line {
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.magnifier-force.is-selected .magnifier-force-line {
+  stroke-width: 7;
+}
+
+.magnifier-tip {
+  fill: #ffffff;
+  stroke-width: 4;
+}
+
+.magnifier-force-label {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-style: italic;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 4;
+}
+
+[data-force="weight"] {
+  border-color: var(--force-weight);
+}
+
+[data-force="normal"] {
+  border-color: var(--force-normal);
+}
+
+[data-force="applied"] {
+  border-color: var(--force-applied);
+}
+
+[data-force="friction"] {
+  border-color: var(--force-friction);
+}
+
+[data-force="tension"] {
+  border-color: var(--force-tension);
+}

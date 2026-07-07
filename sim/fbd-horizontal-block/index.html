@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>水平面靜止物體受力圖</title>
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app">
+      <header class="sim-header">
+        <h1>水平面靜止物體受力圖</h1>
+        <p>題目：一個物體放在水平地面上，受到向右的外力作用，但仍保持靜止。請選出物體所受的力，並調整力箭頭方向後提交。</p>
+      </header>
+
+      <div class="sim-shell">
+        <section class="sim-stage" aria-label="自由體圖繪圖區">
+          <svg id="diagram" class="fbd-diagram" viewBox="0 0 640 420" role="group" aria-label="水平面上的物體與受力箭頭">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--grid-line)" stroke-width="1"></path>
+              </pattern>
+              <pattern id="ground-hatch" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="18" class="surface-hatch"></line>
+              </pattern>
+              <marker id="arrow-weight" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-weight)"></path>
+              </marker>
+              <marker id="arrow-normal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-normal)"></path>
+              </marker>
+              <marker id="arrow-applied" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-applied)"></path>
+              </marker>
+              <marker id="arrow-friction" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-friction)"></path>
+              </marker>
+              <marker id="arrow-tension" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-tension)"></path>
+              </marker>
+            </defs>
+            <rect width="640" height="420" fill="url(#grid)"></rect>
+            <rect x="76" y="300" width="488" height="38" fill="url(#ground-hatch)" class="surface-base"></rect>
+            <line x1="76" y1="300" x2="564" y2="300" class="surface-line"></line>
+            <rect id="block" x="240" y="210" width="160" height="90" rx="6" class="block-shape"></rect>
+            <g id="arrowLayer"></g>
+          </svg>
+        </section>
+
+        <aside class="sim-panel" aria-label="操作面板">
+          <section class="panel-section">
+            <h2 class="section-title">可加入的力</h2>
+            <div class="force-buttons">
+              <div class="force-row" data-force-row="weight">
+                <div class="force-name"><span>重力</span><b>G</b></div>
+                <div class="force-stepper">
+                  <button type="button" data-force="weight" data-action="remove" aria-label="減少重力 G">−</button>
+                  <output data-force-count="weight" aria-label="重力數量">0</output>
+                  <button type="button" data-force="weight" data-action="add" aria-label="增加重力 G">+</button>
+                </div>
+              </div>
+              <div class="force-row" data-force-row="normal">
+                <div class="force-name"><span>支持力</span><b>N</b></div>
+                <div class="force-stepper">
+                  <button type="button" data-force="normal" data-action="remove" aria-label="減少支持力 N">−</button>
+                  <output data-force-count="normal" aria-label="支持力數量">0</output>
+                  <button type="button" data-force="normal" data-action="add" aria-label="增加支持力 N">+</button>
+                </div>
+              </div>
+              <div class="force-row" data-force-row="applied">
+                <div class="force-name"><span>外力</span><b>F</b></div>
+                <div class="force-stepper">
+                  <button type="button" data-force="applied" data-action="remove" aria-label="減少外力 F">−</button>
+                  <output data-force-count="applied" aria-label="外力數量">0</output>
+                  <button type="button" data-force="applied" data-action="add" aria-label="增加外力 F">+</button>
+                </div>
+              </div>
+              <div class="force-row" data-force-row="friction">
+                <div class="force-name"><span>摩擦力</span><b>f</b></div>
+                <div class="force-stepper">
+                  <button type="button" data-force="friction" data-action="remove" aria-label="減少摩擦力 f">−</button>
+                  <output data-force-count="friction" aria-label="摩擦力數量">0</output>
+                  <button type="button" data-force="friction" data-action="add" aria-label="增加摩擦力 f">+</button>
+                </div>
+              </div>
+              <div class="force-row" data-force-row="tension">
+                <div class="force-name"><span>拉力</span><b>T</b></div>
+                <div class="force-stepper">
+                  <button type="button" data-force="tension" data-action="remove" aria-label="減少拉力 T">−</button>
+                  <output data-force-count="tension" aria-label="拉力數量">0</output>
+                  <button type="button" data-force="tension" data-action="add" aria-label="增加拉力 T">+</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">提交評分</h2>
+            <div id="scorePanel" class="readout" aria-live="polite">
+              <div>目前分數</div>
+              <div class="score-value">--</div>
+              <div class="muted">提交後會顯示評語，並在 Moodle 中回傳分數。</div>
+            </div>
+            <button type="button" id="submitDiagram" class="primary-button submit-button">提交答案</button>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

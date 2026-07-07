@@ -1,0 +1,214 @@
+:root {
+  --color-app: #f3f4f6;
+  --color-panel: #f9fafb;
+  --color-canvas: #ffffff;
+  --color-canvas-muted: #e5e7eb;
+  --color-text: #1f2937;
+  --color-text-muted: #4b5563;
+  --color-text-soft: #9ca3af;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-danger: #dc2626;
+  --color-border: #d1d5db;
+  --color-border-light: #e5e7eb;
+  --force-weight: #22c55e;
+  --force-normal: #db2777;
+  --force-friction: #ef4444;
+  --force-applied: #9333ea;
+  --force-tension: #f59e0b;
+  --force-resultant: #f59e0b;
+  --object-fill: #3b82f6;
+  --object-stroke: #1e40af;
+  --grid-line: #e5e7eb;
+  --radius-panel: 8px;
+  --touch-target: 44px;
+  --sidebar-width: clamp(18rem, 32vw, 24rem);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--color-text);
+  background: var(--color-app);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-app);
+  color: var(--color-text);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: var(--touch-target);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: #ffffff;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--color-accent);
+}
+
+button:focus-visible,
+select:focus-visible {
+  border-color: var(--color-accent);
+  outline: 3px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
+}
+
+select {
+  min-height: var(--touch-target);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
+  padding: 0 0.75rem;
+}
+
+button:disabled,
+select:disabled {
+  background: var(--color-canvas-muted);
+  color: var(--color-text-soft);
+  border-color: var(--color-border-light);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.sim-app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.sim-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel);
+}
+
+.sim-header h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 1rem + 1vw, 1.5rem);
+}
+
+.sim-header p {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.sim-shell {
+  display: grid;
+  grid-template-rows: minmax(18rem, 56vh) auto;
+  min-height: 0;
+}
+
+.sim-stage {
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.sim-panel {
+  background: var(--color-panel);
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.panel-section {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.panel-section:first-child {
+  padding-top: 0;
+}
+
+.panel-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.button-row,
+.button-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.button-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.primary-button {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.primary-button:hover,
+.primary-button:focus-visible {
+  background: var(--color-accent-hover);
+}
+
+.danger-button {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: var(--color-danger);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.readout {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-panel);
+  background: #ffffff;
+  line-height: 1.5;
+}
+
+.score-value {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+@media (min-width: 820px) {
+  .sim-shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+
+  .sim-panel {
+    grid-column: 1;
+    grid-row: 1;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .sim-stage {
+    grid-column: 2;
+    grid-row: 1;
+    border-bottom: 0;
+  }
+}
