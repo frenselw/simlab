@@ -36,7 +36,8 @@
   const ROAD_WIDTH = 4;
   const REVIEW_TRACE_POINT_CAP = 18;
   const ARROW_SNAP_TOLERANCE_M = 3;
-  const GRID_X = [12, 30, 48, 66, 84, 108];
+  const COMPASS_CLEAR_ZONE = { x: 105, y: 0, width: 15, height: 24 };
+  const GRID_X = [12, 30, 48, 66, 84, 102];
   const GRID_Y = [10, 24, 38, 52, 68];
   const PLACE_LABELS = ["學校", "超市", "銀行", "公園", "圖書館"];
 
@@ -220,14 +221,16 @@
     if (!a || !b) return;
     const key = edgeKey(a, b);
     if (edges.has(key)) return;
-    edges.set(key, {
+    const edge = {
       key,
       aKey: a.key,
       bKey: b.key,
       a: { x: a.x, y: a.y },
       b: { x: b.x, y: b.y },
       length: Scoring.pointDistance(a, b)
-    });
+    };
+    if (rectTouchesEdge(COMPASS_CLEAR_ZONE, edge, 1)) return;
+    edges.set(key, edge);
   }
 
   function buildPlaces(nodes, edges, rng) {
@@ -243,6 +246,7 @@
       const rect = directions.map((direction) => placeRect(node, size, direction)).find((item) => {
         return (
           item &&
+          !rectsOverlap(expandRect(item, 1), COMPASS_CLEAR_ZONE) &&
           places.every((place) => !rectsOverlap(expandRect(item, 2), expandRect(place.rect, 2))) &&
           !edges.some((edge) => rectTouchesEdge(item, edge, 1))
         );
@@ -315,6 +319,7 @@
         height: randomInt(4, 8, rng)
       };
       if (rect.x + rect.width > SVG_WIDTH - 2 || rect.y + rect.height > SVG_HEIGHT - 2) continue;
+      if (rectsOverlap(expandRect(rect, 1), COMPASS_CLEAR_ZONE)) continue;
       if (places.some((place) => rectsOverlap(expandRect(rect, 2), expandRect(place.rect, 2)))) {
         continue;
       }
@@ -849,7 +854,6 @@
       svgElement("ellipse", { class: "person-shadow", cx: 0, cy: 2.3, rx: 2.4, ry: 0.7 }),
       svgElement("circle", { class: "person-head", cx: 0, cy: -2.1, r: 1.3 }),
       svgElement("path", { class: "person-body", d: "M -1.3 -0.7 L 1.3 -0.7 L 1.8 2 L -1.8 2 Z" }),
-      svgText("人", 0, 0.8, "person-label"),
       svgElement("circle", {
         class: "person-hit",
         cx: 0,
