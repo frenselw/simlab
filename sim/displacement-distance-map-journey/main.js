@@ -34,8 +34,8 @@
   const SVG_WIDTH = 120;
   const SVG_HEIGHT = 80;
   const ROAD_WIDTH = 4;
-  const TRACE_POINT_CAP = 120;
   const REVIEW_TRACE_POINT_CAP = 18;
+  const ARROW_SNAP_TOLERANCE_M = 3;
   const GRID_X = [12, 30, 48, 66, 84, 108];
   const GRID_Y = [10, 24, 38, 52, 68];
   const PLACE_LABELS = ["學校", "超市", "銀行", "公園", "圖書館"];
@@ -243,7 +243,8 @@
       const rect = directions.map((direction) => placeRect(node, size, direction)).find((item) => {
         return (
           item &&
-          places.every((place) => !rectsOverlap(expandRect(item, 2), expandRect(place.rect, 2)))
+          places.every((place) => !rectsOverlap(expandRect(item, 2), expandRect(place.rect, 2))) &&
+          !edges.some((edge) => rectTouchesEdge(item, edge, 1))
         );
       });
       if (!rect) return null;
@@ -275,7 +276,7 @@
   }
 
   function placeRect(node, size, direction) {
-    const gap = ROAD_WIDTH / 2 + 1;
+    const gap = ROAD_WIDTH / 2 + 3;
     const rect = { width: size.width, height: size.height };
     if (direction === "north") {
       rect.x = node.x - size.width / 2;
@@ -324,8 +325,8 @@
     return blocks;
   }
 
-  function rectTouchesEdge(rect, edge) {
-    const pad = ROAD_WIDTH / 2 + 1;
+  function rectTouchesEdge(rect, edge, extraPad) {
+    const pad = ROAD_WIDTH / 2 + (extraPad ?? 1);
     const box = expandRect(rect, pad);
     return (
       Math.min(edge.a.x, edge.b.x) <= box.x + box.width &&
@@ -750,13 +751,11 @@
   }
 
   function renderPlace(place) {
-    const routeIndex = state.scene.routeIds.indexOf(place.id);
     const isTarget =
       state.phase === "walk" &&
       place.id === state.scene.routeIds[state.currentSegment + 1];
     const rectClass = [
       "place-rect",
-      routeIndex >= 0 ? "is-route" : "",
       isTarget ? "is-target" : ""
     ].filter(Boolean).join(" ");
     const items = [
@@ -773,20 +772,9 @@
         class: "entrance-dot",
         cx: place.entrance.x,
         cy: place.entrance.y,
-        r: 1.25
+        r: 0.95
       })
     ];
-    if (routeIndex >= 0) {
-      items.push(
-        svgElement("circle", {
-          class: "route-badge",
-          cx: place.rect.x + 2.8,
-          cy: place.rect.y + 2.8,
-          r: 2.2
-        }),
-        svgText(String(routeIndex + 1), place.rect.x + 2.8, place.rect.y + 2.85, "route-order-label")
-      );
-    }
     return items;
   }
 
@@ -917,6 +905,12 @@
   function currentArrow() {
     if (state.phase === "draw-segment") return state.segments[state.currentSegment].arrow;
     if (state.phase === "draw-total") return state.totalArrow;
+    return null;
+  }
+
+  function currentArrowDestination() {
+    if (state.phase === "draw-segment") return displacementPoint(segmentEndPlace(state.currentSegment));
+    if (state.phase === "draw-total") return displacementPoint(placeById(state.scene.routeIds[2]));
     return null;
   }
 
@@ -1059,10 +1053,15 @@
   function moveArrow(point) {
     const arrow = currentArrow();
     if (!arrow) return;
-    arrow.head = {
+    const head = {
       x: clamp(point.x, 1, SVG_WIDTH - 1),
       y: clamp(point.y, 1, SVG_HEIGHT - 1)
     };
+    const destination = currentArrowDestination();
+    arrow.head =
+      destination && Scoring.pointDistance(head, destination) <= ARROW_SNAP_TOLERANCE_M
+        ? destination
+        : head;
   }
 
   function reachedTarget() {
@@ -1084,9 +1083,6 @@
   }
 
   function pushTracePoint(segment, point) {
-    const last = segment.trace[segment.trace.length - 1];
-    if (last && Scoring.pointDistance(last, point) < 0.35) return;
-    if (segment.trace.length >= TRACE_POINT_CAP) segment.trace.splice(1, 1);
     segment.trace.push(point);
   }
 
