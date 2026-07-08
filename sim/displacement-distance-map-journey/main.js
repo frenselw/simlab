@@ -499,7 +499,7 @@
       places: scene.places.map((place) => ({
         id: place.id,
         label: place.label,
-        center: place.center
+        center: displacementPoint(place)
       }))
     };
   }
@@ -541,7 +541,7 @@
     segment.reached = true;
     state.person = nearestRoadPosition(target.entrance);
     pushTracePoint(segment, pointOnly(state.person));
-    segment.arrow = defaultArrow(segmentStartPlace(state.currentSegment).center);
+    segment.arrow = defaultArrow(displacementPoint(segmentStartPlace(state.currentSegment)));
     state.phase = "draw-segment";
     state.drag = null;
     render();
@@ -553,6 +553,10 @@
 
   function segmentEndPlace(index) {
     return placeById(state.scene.routeIds[index + 1]);
+  }
+
+  function displacementPoint(place) {
+    return pointOnly(place.entrance);
   }
 
   function defaultArrow(tail) {
@@ -991,7 +995,7 @@
         startWalkSegment(1);
       } else {
         state.phase = "draw-total";
-        state.totalArrow = defaultArrow(placeById(state.scene.routeIds[0]).center);
+        state.totalArrow = defaultArrow(displacementPoint(placeById(state.scene.routeIds[0])));
       }
       render();
       return;
