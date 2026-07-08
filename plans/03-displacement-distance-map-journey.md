@@ -86,7 +86,9 @@ Map layout:
 - five labelled place rectangles with different sizes;
 - several unlabelled neutral rectangles representing other buildings or blocks;
 - random road corridors between rectangles;
-- all five labelled places must be reachable through the road graph.
+- all five labelled places must be reachable through the road graph;
+- the compass must have a reserved top-right clear zone where roads and
+  buildings are not generated.
 
 Suggested generation flow:
 
@@ -99,6 +101,7 @@ Suggested generation flow:
    - Rectangles may have different width and height.
    - Each place has one entrance point on the road graph.
    - Places must not overlap each other.
+   - Do not add numeric badges to the place rectangles.
 
 3. Add unlabelled rectangles.
    - They are visual map blocks only.
@@ -127,9 +130,10 @@ Canvas/SVG region:
 
 - map, roads, labelled places, neutral rectangles;
 - draggable person marker;
-- live route trace for the current segment;
+- live route trace for the current segment, styled more subtly than the
+  displacement vectors;
 - displacement arrow drawing layer;
-- compass indicator showing north and south;
+- compact compass indicator showing north and south in its reserved clear zone;
 - current direction readout for the arrow being drawn.
 
 Control panel:
@@ -146,6 +150,10 @@ Dragging rules:
 
 - the person can move only on road corridors;
 - pointer movement is projected onto the nearest valid road position;
+- pointer movement that is too far from a road is ignored;
+- changing from one road segment to another is accepted only near a junction, so
+  dragging straight across the map must not create an automatic shortest-path
+  route trace;
 - distance added for each movement is the road-graph distance from the previous
   valid road position to the new valid road position;
 - reversing direction still adds distance;
@@ -160,7 +168,8 @@ Displacement drawing:
 - for total displacement, the arrow tail is fixed at the original start place
   centre;
 - the learner drags the arrow head to show the final place displacement;
-- arrows do not snap to the correct answer;
+- when the arrow head is close to the correct destination, it snaps to that
+  destination point;
 - while drawing, show the learner's arrow magnitude and direction.
 
 Direction format:
@@ -227,6 +236,15 @@ Final modal:
 - total displacement direction.
 
 All numeric distance answers use metres. Angle answers use degrees.
+
+Question text must clearly distinguish:
+
+- route distance: the distance travelled along roads;
+- displacement magnitude: the straight-line distance from start to destination;
+- displacement direction: `北/南` plus `東/西` plus an acute angle.
+
+Direction answer controls must start blank. Do not prefill a default direction or
+derive hidden default values from the learner's drawn arrow.
 
 ## Scoring
 
@@ -335,9 +353,14 @@ Feedback should identify the physics idea, not just the score:
 - Uses five labelled places in every attempt.
 - Random start, second place, and third place are distinct.
 - Random roads always connect all labelled places.
+- Compass area stays clear of generated roads and buildings.
+- Compass north/south text spacing is visually balanced around the arrow.
 - Includes unlabelled rectangles that are not valid destinations.
 - Dragging back and forth increases route distance.
 - Person cannot leave the road network during normal dragging.
+- Dragging directly across the map toward a destination does not create an
+  automatic road trace or route distance.
+- Answer modals do not preselect direction values.
 - Segment displacement can point north, south, east, or west.
 - A southward vector displays angle from south.
 - Student can complete the task without keyboard input.
