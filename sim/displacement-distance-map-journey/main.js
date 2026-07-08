@@ -36,6 +36,8 @@
   const ROAD_WIDTH = 4;
   const REVIEW_TRACE_POINT_CAP = 18;
   const ARROW_SNAP_TOLERANCE_M = 3;
+  const PERSON_DRAG_ROAD_TOLERANCE_M = ROAD_WIDTH;
+  const PERSON_DRAG_TURN_LIMIT_M = ROAD_WIDTH * 2.5;
   const COMPASS_CLEAR_ZONE = { x: 105, y: 0, width: 15, height: 24 };
   const GRID_X = [12, 30, 48, 66, 84, 102];
   const GRID_Y = [10, 24, 38, 52, 68];
@@ -927,9 +929,8 @@
       type: "segment",
       index: state.currentSegment,
       title: `第 ${state.currentSegment + 1} 段答案`,
-      prompt: `填寫由${segmentStartPlace(state.currentSegment).label}到${segmentEndPlace(state.currentSegment).label}的路程、位移大小和方向。`,
-      routeLabelText: "本段路程 / m",
-      arrow: state.segments[state.currentSegment].arrow
+      prompt: `由${segmentStartPlace(state.currentSegment).label}到${segmentEndPlace(state.currentSegment).label}：請填寫沿道路走過的路程、起點到終點的直線位移大小，以及位移方向（北/南偏東/西 + 角度）。`,
+      routeLabelText: "本段路程 / m"
     });
   }
 
@@ -938,9 +939,8 @@
     openAnswerDialog({
       type: "total",
       title: "總結答案",
-      prompt: `填寫由${labels[0]}到${labels[2]}的總路程、總位移大小和方向。`,
-      routeLabelText: "總路程 / m",
-      arrow: state.totalArrow
+      prompt: `由${labels[0]}到${labels[2]}全程：請填寫沿道路走過的總路程、起點到終點的直線位移大小，以及位移方向（北/南偏東/西 + 角度）。`,
+      routeLabelText: "總路程 / m"
     });
   }
 
@@ -951,30 +951,10 @@
     routeLabel.textContent = mode.routeLabelText;
     routeInput.value = "";
     magnitudeInput.value = "";
-    const bearing = mode.arrow ? Scoring.bearingFromVector(Scoring.vector(mode.arrow.tail, mode.arrow.head)) : 0;
-    fillDirectionInputs(bearing);
+    nsInput.value = "";
+    ewInput.value = "";
+    angleInput.value = "";
     answerDialog.showModal();
-  }
-
-  function fillDirectionInputs(bearing) {
-    const value = Scoring.normalizeBearing(bearing);
-    if (value <= 90) {
-      nsInput.value = "north";
-      ewInput.value = "east";
-      angleInput.value = String(Math.round(value));
-    } else if (value <= 180) {
-      nsInput.value = "south";
-      ewInput.value = "east";
-      angleInput.value = String(Math.round(180 - value));
-    } else if (value <= 270) {
-      nsInput.value = "south";
-      ewInput.value = "west";
-      angleInput.value = String(Math.round(value - 180));
-    } else {
-      nsInput.value = "north";
-      ewInput.value = "west";
-      angleInput.value = String(Math.round(360 - value));
-    }
   }
 
   function saveDialogAnswer() {
@@ -1020,7 +1000,11 @@
     }
     const personTarget = event.target.closest("[data-person-hit]");
     if (personTarget && state.phase === "walk") {
-      state.drag = { kind: "person" };
+      const point = svgPoint(event);
+      state.drag = {
+        kind: "person",
+        offset: { x: state.person.x - point.x, y: state.person.y - point.y }
+      };
       svg.setPointerCapture?.(event.pointerId);
       event.preventDefault();
     }
@@ -1030,7 +1014,10 @@
     if (!state.drag) return;
     const point = svgPoint(event);
     if (state.drag.kind === "person") {
-      movePerson(point);
+      movePerson({
+        x: point.x + state.drag.offset.x,
+        y: point.y + state.drag.offset.y
+      });
     } else {
       moveArrow(point);
     }
@@ -1045,9 +1032,11 @@
 
   function movePerson(point) {
     const next = nearestRoadPosition(point);
+    if (!next || next.distance > PERSON_DRAG_ROAD_TOLERANCE_M) return;
     const segment = state.segments[state.currentSegment];
     const path = roadPath(state.person, next);
-    if (!Number.isFinite(path.distance)) return;
+    const isTurning = state.person.edgeId !== next.edgeId;
+    if (!Number.isFinite(path.distance) || (isTurning && path.distance > PERSON_DRAG_TURN_LIMIT_M)) return;
     segment.routeDistance += path.distance;
     state.person = next;
     path.points.slice(1).forEach((pathPoint) => pushTracePoint(segment, pathPoint));

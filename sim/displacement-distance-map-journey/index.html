@@ -47,7 +47,7 @@
               <line x1="114.5" y1="13.2" x2="114.5" y2="7.1"></line>
               <path d="M 114.5 5.5 L 112.9 8.7 L 116.1 8.7 Z"></path>
               <text x="114.5" y="4.6">北</text>
-              <text x="114.5" y="16.5">南</text>
+              <text x="114.5" y="14.1">南</text>
             </g>
           </svg>
         </section>
@@ -117,14 +117,16 @@
         <div class="direction-controls">
           <label>
             <span>由</span>
-            <select id="nsInput" name="ns">
+            <select id="nsInput" name="ns" required>
+              <option value="" selected disabled>請選擇</option>
               <option value="north">北</option>
               <option value="south">南</option>
             </select>
           </label>
           <label>
             <span>偏向</span>
-            <select id="ewInput" name="ew">
+            <select id="ewInput" name="ew" required>
+              <option value="" selected disabled>請選擇</option>
               <option value="east">東</option>
               <option value="west">西</option>
             </select>
