@@ -908,7 +908,7 @@
     const segment = state.segments[state.currentSegment] || state.segments[1];
     const activeArrow = currentArrow();
     const activeArrowSnapped = isCurrentArrowSnapped();
-    taskText.textContent = `題目：由${labels[0]}出發，先到${labels[1]}，再到${labels[2]}。`;
+    taskText.textContent = `題目：沿道路拖曳小人由${labels[0]}出發，先到${labels[1]}，再到${labels[2]}；每段到達後畫位移箭頭並回答路程、位移大小和方向，最後畫總位移並回答總結問題。`;
     routeReadout.textContent = `${labels[0]} → ${labels[1]} → ${labels[2]}`;
     statusText.textContent = statusMessage(labels);
     instructionText.textContent = instructionMessage(labels);
@@ -936,8 +936,8 @@
     if (!canAnswer) return;
     answerHint.textContent =
       state.phase === "draw-total"
-        ? "已可答題，向下滑按「填寫總結答案」。"
-        : "已可答題，向下滑按「填寫本段答案」。";
+        ? "已可答題，請到操作面板按「填寫總結答案」。"
+        : "已可答題，請到操作面板按「填寫本段答案」。";
   }
 
   function statusMessage(labels) {
