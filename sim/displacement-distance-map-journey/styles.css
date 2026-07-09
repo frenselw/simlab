@@ -18,6 +18,69 @@
   user-select: none;
 }
 
+.map-drag-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: min(42vw, 11rem);
+  aspect-ratio: 3 / 2;
+  display: none;
+  overflow: hidden;
+  border: 2px solid var(--color-accent);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+  pointer-events: none;
+}
+
+.map-drag-preview.is-active {
+  display: block;
+}
+
+.map-drag-preview svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.map-drag-preview-crosshair::before,
+.map-drag-preview-crosshair::after {
+  content: "";
+  position: absolute;
+  left: var(--preview-focus-x, 50%);
+  top: var(--preview-focus-y, 50%);
+  background: rgba(239, 68, 68, 0.85);
+  transform: translate(-50%, -50%);
+}
+
+.map-drag-preview-crosshair::before {
+  width: 1.2rem;
+  height: 2px;
+}
+
+.map-drag-preview-crosshair::after {
+  width: 2px;
+  height: 1.2rem;
+}
+
+.map-answer-hint {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 4;
+  max-width: min(72vw, 16rem);
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+}
+
 @media (max-width: 819px) {
   .sim-app {
     height: 100dvh;
@@ -135,11 +198,20 @@
   marker-end: url(#arrow-total);
 }
 
+.displacement-line.is-dragging,
+.person-marker.is-dragging {
+  filter: drop-shadow(0 0 0.18rem rgba(37, 99, 235, 0.65));
+}
+
 .arrow-handle {
   fill: #ffffff;
   stroke-width: 0.75;
   cursor: move;
   touch-action: none;
+}
+
+.arrow-handle.is-dragging {
+  stroke-width: 1;
 }
 
 .arrow-hit,

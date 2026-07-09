@@ -9,6 +9,9 @@
   const traceLayer = document.getElementById("traceLayer");
   const arrowLayer = document.getElementById("arrowLayer");
   const personLayer = document.getElementById("personLayer");
+  const dragPreview = document.getElementById("dragPreview");
+  const dragPreviewSvg = document.getElementById("dragPreviewSvg");
+  const answerHint = document.getElementById("answerHint");
   const taskText = document.getElementById("taskText");
   const routeReadout = document.getElementById("routeReadout");
   const statusText = document.getElementById("statusText");
@@ -35,6 +38,9 @@
   const SVG_HEIGHT = 80;
   const ROAD_WIDTH = 4;
   const REVIEW_TRACE_POINT_CAP = 18;
+  const PREVIEW_VIEWBOX_WIDTH = 30;
+  const PREVIEW_VIEWBOX_HEIGHT = 20;
+  const PREVIEW_MARGIN_PX = 10;
   const ARROW_SNAP_TOLERANCE_M = Scoring.ARROW_HEAD_TOLERANCE_M;
   const ARROW_SNAPPED_TOLERANCE_M = 0.05;
   const PERSON_DRAG_ROAD_TOLERANCE_M = ROAD_WIDTH;
@@ -842,8 +848,9 @@
   }
 
   function renderArrow(arrow, className, label, options) {
+    const isDragging = options.draggable && state.drag?.kind === "arrow" && state.drag.key === options.key;
     arrowLayer.append(svgElement("line", {
-      class: `displacement-line ${className}`,
+      class: `displacement-line ${className}${isDragging ? " is-dragging" : ""}`,
       x1: arrow.tail.x,
       y1: arrow.tail.y,
       x2: arrow.head.x,
@@ -858,7 +865,7 @@
     const colorClass = className === "total" ? "var(--force-resultant)" : className === "segment-one" ? "var(--color-accent)" : "var(--force-applied)";
     arrowLayer.append(
       svgElement("circle", {
-        class: "arrow-handle",
+        class: `arrow-handle${isDragging ? " is-dragging" : ""}`,
         cx: arrow.head.x,
         cy: arrow.head.y,
         r: 1.7,
@@ -878,6 +885,7 @@
     personLayer.replaceChildren();
     if (!state.person) return;
     const group = svgElement("g", {
+      class: `person-marker${state.drag?.kind === "person" ? " is-dragging" : ""}`,
       transform: `translate(${state.person.x} ${state.person.y})`
     });
     group.append(
@@ -916,6 +924,20 @@
     }
     segmentAnswerButton.disabled = state.locked || state.phase !== "draw-segment" || !activeArrowSnapped;
     finalAnswerButton.disabled = state.locked || state.phase !== "draw-total" || !activeArrowSnapped;
+    renderAnswerHint(activeArrowSnapped);
+  }
+
+  function renderAnswerHint(activeArrowSnapped) {
+    const canAnswer =
+      !state.locked &&
+      activeArrowSnapped &&
+      (state.phase === "draw-segment" || state.phase === "draw-total");
+    answerHint.hidden = !canAnswer;
+    if (!canAnswer) return;
+    answerHint.textContent =
+      state.phase === "draw-total"
+        ? "已可答題，向下滑按「填寫總結答案」。"
+        : "已可答題，向下滑按「填寫本段答案」。";
   }
 
   function statusMessage(labels) {
@@ -1202,12 +1224,70 @@
     return point.matrixTransform(svg.getScreenCTM().inverse());
   }
 
+  function shouldShowDragPreview(event) {
+    return event.pointerType === "touch" || event.pointerType === "pen";
+  }
+
+  function dragFocusPoint(fallback) {
+    if (state.drag?.kind === "person" && state.person) return pointOnly(state.person);
+    if (state.drag?.kind === "arrow") return pointOnly(currentArrow()?.head || fallback);
+    return fallback;
+  }
+
+  function updateDragPreview(event, point) {
+    if (!dragPreview || !dragPreviewSvg || !state.drag?.preview) return;
+    const focus = dragFocusPoint(point);
+    const viewX = clamp(focus.x - PREVIEW_VIEWBOX_WIDTH / 2, 0, SVG_WIDTH - PREVIEW_VIEWBOX_WIDTH);
+    const viewY = clamp(focus.y - PREVIEW_VIEWBOX_HEIGHT / 2, 0, SVG_HEIGHT - PREVIEW_VIEWBOX_HEIGHT);
+    dragPreviewSvg.setAttribute("viewBox", [
+      viewX,
+      viewY,
+      PREVIEW_VIEWBOX_WIDTH,
+      PREVIEW_VIEWBOX_HEIGHT
+    ].join(" "));
+    dragPreview.style.setProperty("--preview-focus-x", `${(focus.x - viewX) / PREVIEW_VIEWBOX_WIDTH * 100}%`);
+    dragPreview.style.setProperty("--preview-focus-y", `${(focus.y - viewY) / PREVIEW_VIEWBOX_HEIGHT * 100}%`);
+    dragPreviewSvg.replaceChildren(...Array.from(svg.children).map(clonePreviewChild));
+    dragPreview.classList.add("is-active");
+
+    const stageRect = svg.parentElement.getBoundingClientRect();
+    const width = dragPreview.offsetWidth;
+    const height = dragPreview.offsetHeight;
+    const maxLeft = Math.max(PREVIEW_MARGIN_PX, stageRect.width - width - PREVIEW_MARGIN_PX);
+    const maxTop = Math.max(PREVIEW_MARGIN_PX, stageRect.height - height - PREVIEW_MARGIN_PX);
+    const localX = event.clientX - stageRect.left;
+    const localY = event.clientY - stageRect.top;
+    const left = localX < stageRect.width / 2 ? maxLeft : PREVIEW_MARGIN_PX;
+    const top = localY < stageRect.height / 2 ? maxTop : PREVIEW_MARGIN_PX;
+    dragPreview.style.transform = `translate(${left}px, ${top}px)`;
+  }
+
+  function clonePreviewChild(child) {
+    const clone = child.cloneNode(true);
+    clone.querySelectorAll?.("[data-person-hit], [data-arrow]").forEach((element) => {
+      element.removeAttribute("data-person-hit");
+      element.removeAttribute("data-arrow");
+    });
+    return clone;
+  }
+
+  function hideDragPreview() {
+    dragPreview?.classList.remove("is-active");
+  }
+
   function onPointerDown(event) {
     if (state.locked) return;
     const arrowTarget = event.target.closest("[data-arrow]");
     if (arrowTarget && currentArrow()) {
-      state.drag = { kind: "arrow", key: arrowTarget.dataset.arrow };
+      const point = svgPoint(event);
+      state.drag = {
+        kind: "arrow",
+        key: arrowTarget.dataset.arrow,
+        preview: shouldShowDragPreview(event)
+      };
       svg.setPointerCapture?.(event.pointerId);
+      render();
+      updateDragPreview(event, point);
       event.preventDefault();
       return;
     }
@@ -1216,9 +1296,12 @@
       const point = svgPoint(event);
       state.drag = {
         kind: "person",
-        offset: { x: state.person.x - point.x, y: state.person.y - point.y }
+        offset: { x: state.person.x - point.x, y: state.person.y - point.y },
+        preview: shouldShowDragPreview(event)
       };
       svg.setPointerCapture?.(event.pointerId);
+      render();
+      updateDragPreview(event, point);
       event.preventDefault();
     }
   }
@@ -1234,13 +1317,20 @@
     } else {
       moveArrow(point);
     }
-    render();
+    if (state.drag) {
+      render();
+      updateDragPreview(event, point);
+    } else {
+      hideDragPreview();
+    }
     event.preventDefault();
   }
 
   function onPointerUp(event) {
     state.drag = null;
+    hideDragPreview();
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    render();
   }
 
   function movePerson(point) {
