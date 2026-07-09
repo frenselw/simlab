@@ -135,7 +135,11 @@ Canvas/SVG region:
   displacement vectors;
 - displacement arrow drawing layer;
 - compact compass indicator showing north and south in its reserved clear zone;
-- current direction readout for the arrow being drawn.
+- current direction readout for the arrow being drawn;
+- touch/pen drag preview or magnifier when the learner's finger may hide the
+  person or arrow handle;
+- subtle in-map continuation hint when the arrow has snapped and the next action
+  is to answer in the operation panel.
 
 Control panel:
 
@@ -160,7 +164,10 @@ Dragging rules:
 - reversing direction still adds distance;
 - reaching a destination means entering its position-point zone or place hit zone;
 - once the required destination is reached, lock the person until the learner
-  completes that segment's displacement arrow and answer.
+  completes that segment's displacement arrow and answer;
+- when using touch or pen input, the dragged person or arrow remains on the
+  normal drag path while the preview shows a stable close-up in a diagram corner
+  away from the pointer.
 
 Displacement drawing:
 
@@ -174,7 +181,10 @@ Displacement drawing:
 - the answer button is enabled only after the arrow has snapped to the correct
   destination point;
 - the drawn arrow is a required action and visual check, not a scoring component;
-- while drawing, show the learner's arrow magnitude and direction.
+- while drawing, show the learner's arrow magnitude and direction;
+- when answering becomes available, show a layout-neutral hint such as
+  `已可答題，請到操作面板按「填寫本段答案」。`; do not assume the answer
+  button is below the map.
 
 Direction format:
 
@@ -311,8 +321,7 @@ Suggested starting values:
 
 - route distance answer tolerance: within `max(1 m, 3%)`;
 - displacement magnitude answer tolerance: within `max(1 m, 3%)`;
-- drawn arrow head tolerance: within `2 m` of the correct destination position point;
-- arrow snap tolerance: same value as drawn arrow head tolerance;
+- arrow snap tolerance: within `2 m` of the correct destination position point;
 - direction tolerance: within `8deg`;
 - destination reach tolerance: `2 m` around the place position point or hit zone.
 
@@ -369,9 +378,16 @@ Feedback should identify the physics idea, not just the score:
 - Person cannot leave the road network during normal dragging.
 - Dragging directly across the map toward a destination does not create an
   automatic road trace or route distance.
+- Touch/pen dragging shows a stable local preview or magnifier and highlights the
+  currently dragged person or arrow.
 - Answer modals show the measured values above the questions.
 - Answer modals use touch-friendly choices instead of numeric text input.
 - Answer modals do not preselect answer values.
+- After a displacement arrow snaps, the map shows a subtle answer-available hint
+  that points learners to the operation panel without assuming its screen
+  position.
+- The answer-available hint disappears after the learner opens the answer modal,
+  answers, advances to the next task state, or submits.
 - Segment displacement can point north, south, east, or west.
 - A southward vector displays angle from south.
 - Student can complete the task without keyboard input.
