@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>路程、位移與總位移地圖任務</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app">
+      <header class="sim-header">
+        <h1>路程、位移與總位移地圖任務</h1>
+        <p id="taskText">沿道路拖曳小人完成兩段旅程，觀察累積路程，畫出分段位移和總位移，並回答相關問題。</p>
+      </header>
+
+      <div class="sim-shell">
+        <section class="sim-stage" aria-label="地圖操作區">
+          <svg id="mapSvg" class="journey-map" viewBox="0 0 120 80" role="group" aria-label="城鎮地圖">
+            <defs>
+              <pattern id="map-grid" width="5" height="5" patternUnits="userSpaceOnUse">
+                <path d="M 5 0 L 0 0 0 5" fill="none" stroke="var(--grid-line)" stroke-width="0.25"></path>
+              </pattern>
+              <marker id="arrow-segment-one" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-accent)"></path>
+              </marker>
+              <marker id="arrow-segment-two" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-applied)"></path>
+              </marker>
+              <marker id="arrow-total" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--force-resultant)"></path>
+              </marker>
+            </defs>
+            <rect width="120" height="80" fill="url(#map-grid)"></rect>
+            <g id="roadLayer"></g>
+            <g id="blockLayer"></g>
+            <g id="placeLayer"></g>
+            <g id="traceLayer"></g>
+            <g id="arrowLayer"></g>
+            <g id="personLayer"></g>
+            <g class="compass" aria-hidden="true">
+              <rect class="compass-bg" x="111" y="2.5" width="7" height="15.5" rx="1"></rect>
+              <line x1="114.5" y1="13.2" x2="114.5" y2="7.1"></line>
+              <path d="M 114.5 5.5 L 112.9 8.7 L 116.1 8.7 Z"></path>
+              <text x="114.5" y="4.6">北</text>
+              <text x="114.5" y="14.1">南</text>
+            </g>
+          </svg>
+          <div id="dragPreview" class="map-drag-preview" aria-hidden="true">
+            <svg id="dragPreviewSvg" viewBox="0 0 30 20" focusable="false"></svg>
+            <div class="map-drag-preview-crosshair"></div>
+          </div>
+          <div id="answerHint" class="map-answer-hint" aria-hidden="true" hidden></div>
+        </section>
+
+        <aside class="sim-panel" aria-label="操作面板">
+          <section class="panel-section">
+            <h2 class="section-title">任務路線</h2>
+            <div id="routeReadout" class="route-readout">--</div>
+            <div id="statusText" class="muted status-text" aria-live="polite">準備地圖中。</div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">即時數據</h2>
+            <div class="data-grid">
+              <div>
+                <span>目前分段路程</span>
+                <b id="segmentDistance">0 m</b>
+              </div>
+              <div>
+                <span>總路程</span>
+                <b id="totalDistance">0 m</b>
+              </div>
+              <div>
+                <span>箭頭大小</span>
+                <b id="arrowMagnitude">--</b>
+              </div>
+              <div>
+                <span>箭頭方向</span>
+                <b id="arrowDirection">--</b>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">下一步</h2>
+            <p id="instructionText" class="instruction-text">拖曳小人沿道路前進。</p>
+            <div class="button-row">
+              <button type="button" id="segmentAnswerButton" class="primary-button" disabled>填寫本段答案</button>
+              <button type="button" id="finalAnswerButton" class="primary-button" disabled>填寫總結答案</button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">提交結果</h2>
+            <div id="scorePanel" class="readout" aria-live="polite">
+              <div>目前分數</div>
+              <div class="score-value">--</div>
+              <div class="muted">完成兩段旅程和總位移後會自動提交到 Moodle。</div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog id="answerDialog" class="answer-dialog" aria-labelledby="dialogTitle">
+      <form id="answerForm" method="dialog">
+        <h2 id="dialogTitle">填寫答案</h2>
+        <p id="dialogPrompt" class="muted"></p>
+        <div id="answerReadout" class="answer-readout" aria-live="polite"></div>
+        <fieldset class="choice-section">
+          <legend id="routeLegend">路程</legend>
+          <div id="routeChoices" class="choice-grid"></div>
+        </fieldset>
+        <fieldset class="choice-section">
+          <legend>位移大小</legend>
+          <div id="magnitudeChoices" class="choice-grid"></div>
+        </fieldset>
+        <fieldset class="choice-section">
+          <legend>位移方向</legend>
+          <div id="directionChoices" class="choice-grid"></div>
+        </fieldset>
+        <div class="dialog-actions">
+          <button type="submit" value="save" id="saveAnswerButton" class="primary-button" disabled>儲存</button>
+          <button type="submit" value="cancel" formnovalidate>取消</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

@@ -14,6 +14,14 @@ const simulationList = [
     description: "學生為平面鏡前的鉛筆繪製入射光線、反射光線、虛線延長線，並放置虛像。",
     tags: ["physics", "optics", "ray-diagram", "plane-mirror", "scorm"],
     status: "active"
+  },
+  {
+    title: "路程、位移與總位移地圖任務",
+    folder: "displacement-distance-map-journey",
+    categories: ["Mechanics"],
+    description: "在隨機地圖中拖曳小人行走，量度路程，畫出分段位移和總位移。",
+    tags: ["physics", "mechanics", "displacement", "distance", "vectors", "scorm"],
+    status: "active"
   }
 ];
 

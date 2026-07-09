@@ -175,6 +175,12 @@ The first viewport target is a phone in portrait orientation.
 - For touch dragging, avoid making the controlled object jump away from the
   finger. If the finger hides important detail, use a temporary local preview or
   magnifier and highlight the selected object.
+- If the next required action is outside the diagram, show a subtle diagram hint
+  when helpful, but use position-neutral wording such as "go to the operation
+  panel." The controls may be below the diagram on phones and beside it on wider
+  screens.
+- Remove those hints once the learner opens the relevant control, answers, or
+  advances to the next task state.
 - When learners can add repeated diagram items, prefer a per-type quantity
   control such as `- / count / +` over a growing list of duplicate buttons. Keep
   the maximum count as an easy-to-change constant in the simulation.

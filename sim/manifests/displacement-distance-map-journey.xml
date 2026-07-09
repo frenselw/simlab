@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="displacement-distance-map-journey" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-DISPLACEMENT-DISTANCE-MAP-JOURNEY">
+    <organization identifier="ORG-DISPLACEMENT-DISTANCE-MAP-JOURNEY">
+      <title>路程、位移與總位移地圖任務</title>
+      <item identifier="ITEM-DISPLACEMENT-DISTANCE-MAP-JOURNEY" identifierref="RES-DISPLACEMENT-DISTANCE-MAP-JOURNEY">
+        <title>路程、位移與總位移地圖任務</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-DISPLACEMENT-DISTANCE-MAP-JOURNEY" type="webcontent" adlcp:scormType="sco" href="displacement-distance-map-journey/index.html">
+      <file href="displacement-distance-map-journey/index.html"/>
+      <file href="displacement-distance-map-journey/styles.css"/>
+      <file href="displacement-distance-map-journey/main.js"/>
+      <file href="displacement-distance-map-journey/scoring.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+    </resource>
+  </resources>
+</manifest>

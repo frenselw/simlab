@@ -31,6 +31,12 @@ SCORM/Moodle behaviors that are easy to miss.
   finger continuously.
 - For close draggable objects, highlight the selected object during drag and
   make the preview show which object is currently being adjusted.
+- When a learner reaches a state where the next action is in the controls panel,
+  a subtle in-diagram hint can help. Use layout-neutral wording such as
+  "go to the operation panel"; do not assume the button is below, above, left, or
+  right of the diagram.
+- Hide in-diagram continuation hints as soon as the learner opens the relevant
+  control, answers, or moves to the next task state.
 - Do not place answers in the default state. Defaults may show available objects,
   but learners must still make the meaningful choices.
 - Keep object labels off the diagram unless the label teaches something.
