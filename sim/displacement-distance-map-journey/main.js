@@ -868,7 +868,7 @@
         class: "arrow-hit",
         cx: arrow.head.x,
         cy: arrow.head.y,
-        r: 6,
+        r: 8.5,
         "data-arrow": options.key
       })
     );
@@ -888,7 +888,7 @@
         class: "person-hit",
         cx: 0,
         cy: 0,
-        r: 7,
+        r: 8.5,
         "data-person-hit": "true"
       })
     );
@@ -1179,10 +1179,7 @@
       if (key === "direction") {
         label.setAttribute("aria-label", option.label);
         label.style.setProperty("--direction-angle", `${option.iconAngle}deg`);
-        label.append(
-          textBlock("span", "", "direction-icon"),
-          textBlock("span", `選項 ${index + 1}`, "direction-option-text")
-        );
+        label.append(textBlock("span", "", "direction-icon"));
       } else {
         label.textContent = option.label;
       }

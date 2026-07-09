@@ -248,6 +248,9 @@
 
 .answer-dialog {
   width: min(92vw, 32rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  box-sizing: border-box;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
   padding: 1rem;
@@ -359,18 +362,9 @@
   transform: translateX(-50%);
 }
 
-.direction-option-text {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
 .choice-input:checked + .choice-option {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: #ffffff;
-}
-
-.choice-input:checked + .choice-option .direction-option-text {
   color: #ffffff;
 }
 
