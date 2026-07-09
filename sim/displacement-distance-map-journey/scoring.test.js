@@ -11,9 +11,9 @@ const {
 const journey = {
   routePlaceIds: ["school", "bank", "park"],
   places: [
-    { id: "school", label: "學校", center: { x: 10, y: 10 } },
-    { id: "bank", label: "銀行", center: { x: 40, y: 50 } },
-    { id: "park", label: "公園", center: { x: 90, y: 50 } }
+    { id: "school", label: "學校", position: { x: 10, y: 10 } },
+    { id: "bank", label: "銀行", position: { x: 40, y: 50 } },
+    { id: "park", label: "公園", position: { x: 90, y: 50 } }
   ]
 };
 
@@ -30,8 +30,8 @@ function segmentAnswer(index, routeDistance) {
     reached: true,
     routeDistance,
     arrow: {
-      tail: expected.from.center,
-      head: expected.to.center
+      tail: expected.start,
+      head: expected.end
     },
     answers: {
       routeDistance,
@@ -46,8 +46,8 @@ function perfectAnswer() {
   return {
     segments: [segmentAnswer(0, 85), segmentAnswer(1, 50)],
     totalArrow: {
-      tail: total.from.center,
-      head: total.to.center
+      tail: total.start,
+      head: total.end
     },
     totalAnswers: {
       routeDistance: 135,

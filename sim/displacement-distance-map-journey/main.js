@@ -35,7 +35,7 @@
   const SVG_HEIGHT = 80;
   const ROAD_WIDTH = 4;
   const REVIEW_TRACE_POINT_CAP = 18;
-  const ARROW_SNAP_TOLERANCE_M = 3;
+  const ARROW_SNAP_TOLERANCE_M = Scoring.ARROW_HEAD_TOLERANCE_M;
   const PERSON_DRAG_ROAD_TOLERANCE_M = ROAD_WIDTH;
   const PERSON_DRAG_TURN_LIMIT_M = ROAD_WIDTH * 2.5;
   const COMPASS_CLEAR_ZONE = { x: 105, y: 0, width: 15, height: 24 };
@@ -258,7 +258,9 @@
         id: `place-${i}`,
         label: labels[i],
         rect,
+        nodeKey: node.key,
         entrance: { x: node.x, y: node.y },
+        position: { x: node.x, y: node.y },
         center: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
       });
     }
@@ -367,10 +369,34 @@
 
   function routeIsUsable(scene) {
     if (!scene.routeIds.every((id) => scene.places.some((place) => place.id === id))) return false;
+    if (!placesAreRoadConnected(scene)) return false;
     return [0, 1].every((index) => {
       const expected = Scoring.expectedSegment(journeyForScene(scene), index);
       return expected.magnitude >= 14;
     });
+  }
+
+  function placesAreRoadConnected(scene) {
+    const adjacency = new Map();
+    scene.edges.forEach((edge) => {
+      if (!adjacency.has(edge.aKey)) adjacency.set(edge.aKey, []);
+      if (!adjacency.has(edge.bKey)) adjacency.set(edge.bKey, []);
+      adjacency.get(edge.aKey).push(edge.bKey);
+      adjacency.get(edge.bKey).push(edge.aKey);
+    });
+    const startKey = scene.places[0]?.nodeKey;
+    if (!startKey || !adjacency.has(startKey)) return false;
+    const seen = new Set([startKey]);
+    const queue = [startKey];
+    while (queue.length) {
+      const key = queue.shift();
+      (adjacency.get(key) || []).forEach((next) => {
+        if (seen.has(next)) return;
+        seen.add(next);
+        queue.push(next);
+      });
+    }
+    return scene.places.every((place) => seen.has(place.nodeKey));
   }
 
   function randomInt(min, max, rng) {
@@ -507,7 +533,7 @@
       places: scene.places.map((place) => ({
         id: place.id,
         label: place.label,
-        center: displacementPoint(place)
+        position: displacementPoint(place)
       }))
     };
   }
@@ -564,7 +590,7 @@
   }
 
   function displacementPoint(place) {
-    return pointOnly(place.entrance);
+    return pointOnly(place.position);
   }
 
   function defaultArrow(tail) {
@@ -776,9 +802,9 @@
       }),
       svgText(place.label, place.center.x, place.center.y, "place-label"),
       svgElement("circle", {
-        class: "entrance-dot",
-        cx: place.entrance.x,
-        cy: place.entrance.y,
+        class: "position-dot",
+        cx: place.position.x,
+        cy: place.position.y,
         r: 0.95
       })
     ];

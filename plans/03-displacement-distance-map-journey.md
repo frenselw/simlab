@@ -99,7 +99,8 @@ Suggested generation flow:
 
 2. Place five destination rectangles next to road nodes or road segments.
    - Rectangles may have different width and height.
-   - Each place has one entrance point on the road graph.
+   - Each place has one visible position point on the road graph.
+   - The position point is also the road entrance for the first version.
    - Places must not overlap each other.
    - Do not add numeric badges to the place rectangles.
 
@@ -109,7 +110,7 @@ Suggested generation flow:
    - They must not cover road entrances or make the graph disconnected.
 
 4. Reject and regenerate the seed when:
-   - any labelled place is unreachable;
+   - any labelled place is unreachable from the other labelled places;
    - two labelled places overlap;
    - a destination rectangle is too close to another destination;
    - the selected journey has a near-zero displacement segment.
@@ -157,16 +158,16 @@ Dragging rules:
 - distance added for each movement is the road-graph distance from the previous
   valid road position to the new valid road position;
 - reversing direction still adds distance;
-- reaching a destination means entering its entrance zone or place hit zone;
+- reaching a destination means entering its position-point zone or place hit zone;
 - once the required destination is reached, lock the person until the learner
   completes that segment's displacement arrow and answer.
 
 Displacement drawing:
 
-- for a segment, the arrow tail is fixed at the segment start place centre;
+- for a segment, the arrow tail is fixed at the segment start place position point;
 - the learner drags the arrow head to show the segment displacement;
 - for total displacement, the arrow tail is fixed at the original start place
-  centre;
+  position point;
 - the learner drags the arrow head to show the final place displacement;
 - when the arrow head is close to the correct destination, it snaps to that
   destination point;
@@ -192,7 +193,7 @@ For each segment:
 
 ```text
 route distance = accumulated road distance travelled by the person
-displacement vector = destination centre - segment start centre
+displacement vector = destination position point - segment start position point
 displacement magnitude = Euclidean length of the displacement vector
 direction = bearing of the displacement vector
 ```
@@ -201,7 +202,7 @@ For the full task:
 
 ```text
 total route distance = segment 1 route distance + segment 2 route distance
-total displacement vector = final destination centre - original start centre
+total displacement vector = final destination position point - original start position point
 total displacement magnitude = Euclidean length of total displacement vector
 ```
 
@@ -303,9 +304,10 @@ Suggested starting values:
 
 - route distance answer tolerance: within `max(1 m, 3%)`;
 - displacement magnitude answer tolerance: within `max(1 m, 3%)`;
-- drawn arrow head tolerance: within `2 m` of the correct destination centre;
+- drawn arrow head tolerance: within `2 m` of the correct destination position point;
+- arrow snap tolerance: same value as drawn arrow head tolerance;
 - direction tolerance: within `8deg`;
-- destination reach tolerance: `2 m` around the place entrance or hit zone.
+- destination reach tolerance: `2 m` around the place position point or hit zone.
 
 Borderline examples:
 

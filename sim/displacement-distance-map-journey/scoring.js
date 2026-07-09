@@ -107,24 +107,32 @@
   }
 
   function expectedVector(from, to) {
-    const item = vector(from.center, to.center);
+    const start = placePosition(from);
+    const end = placePosition(to);
+    const item = vector(start, end);
     const magnitude = vectorMagnitude(item);
     return {
       from,
       to,
+      start,
+      end,
       vector: item,
       magnitude,
       bearing: bearingFromVector(item)
     };
   }
 
+  function placePosition(place) {
+    return place.position || place.center;
+  }
+
   function scoreArrow(arrow, expected, headPoints, directionPoints) {
     if (!arrow || !arrow.head) {
       return { score: 0, headScore: 0, directionScore: 0 };
     }
-    const learnerVector = vector(arrow.tail || expected.from.center, arrow.head);
+    const learnerVector = vector(arrow.tail || expected.start, arrow.head);
     const headScore =
-      pointDistance(arrow.head, expected.to.center) <= ARROW_HEAD_TOLERANCE_M ? headPoints : 0;
+      pointDistance(arrow.head, expected.end) <= ARROW_HEAD_TOLERANCE_M ? headPoints : 0;
     const directionScore =
       angleDistance(bearingFromVector(learnerVector), expected.bearing) <= ANGLE_TOLERANCE_DEG
         ? directionPoints
