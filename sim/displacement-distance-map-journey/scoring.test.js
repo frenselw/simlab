@@ -18,6 +18,10 @@ const journey = {
 };
 
 function directionFor(bearing) {
+  if (bearing === 0) return { directionType: "north" };
+  if (bearing === 90) return { directionType: "east" };
+  if (bearing === 180) return { directionType: "south" };
+  if (bearing === 270) return { directionType: "west" };
   if (bearing <= 90) return { ns: "north", ew: "east", angle: bearing };
   if (bearing <= 180) return { ns: "south", ew: "east", angle: 180 - bearing };
   if (bearing <= 270) return { ns: "south", ew: "west", angle: bearing - 180 };
@@ -81,6 +85,9 @@ assert(wrongReferenceScore.score < 100);
 
 const southEastBearing = bearingFromVector({ x: 12, y: 30 });
 assert(formatBearing(southEastBearing).startsWith("南偏東"));
+assert(isDirectionAnswerCorrect({ directionType: "east" }, 90));
+assert(!isDirectionAnswerCorrect({ directionType: "north" }, 90));
+assert(isDirectionAnswerCorrect({ directionType: "south-east", angle: 22 }, southEastBearing));
 assert(isDirectionAnswerCorrect({ ns: "south", ew: "east", angle: 22 }, southEastBearing));
 assert(!isDirectionAnswerCorrect({ ns: "north", ew: "east", angle: 22 }, southEastBearing));
 

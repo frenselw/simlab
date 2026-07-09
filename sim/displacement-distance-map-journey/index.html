@@ -106,38 +106,21 @@
       <form id="answerForm" method="dialog">
         <h2 id="dialogTitle">填寫答案</h2>
         <p id="dialogPrompt" class="muted"></p>
-        <label>
-          <span id="routeLabel">路程 / m</span>
-          <input id="routeInput" name="routeDistance" type="number" min="0" step="0.1" required>
-        </label>
-        <label>
-          <span>位移大小 / m</span>
-          <input id="magnitudeInput" name="displacementMagnitude" type="number" min="0" step="0.1" required>
-        </label>
-        <div class="direction-controls">
-          <label>
-            <span>由</span>
-            <select id="nsInput" name="ns" required>
-              <option value="" selected disabled>請選擇</option>
-              <option value="north">北</option>
-              <option value="south">南</option>
-            </select>
-          </label>
-          <label>
-            <span>偏向</span>
-            <select id="ewInput" name="ew" required>
-              <option value="" selected disabled>請選擇</option>
-              <option value="east">東</option>
-              <option value="west">西</option>
-            </select>
-          </label>
-          <label>
-            <span>角度 / °</span>
-            <input id="angleInput" name="angle" type="number" min="0" max="90" step="1" required>
-          </label>
-        </div>
+        <div id="answerReadout" class="answer-readout" aria-live="polite"></div>
+        <fieldset class="choice-section">
+          <legend id="routeLegend">路程</legend>
+          <div id="routeChoices" class="choice-grid"></div>
+        </fieldset>
+        <fieldset class="choice-section">
+          <legend>位移大小</legend>
+          <div id="magnitudeChoices" class="choice-grid"></div>
+        </fieldset>
+        <fieldset class="choice-section">
+          <legend>位移方向</legend>
+          <div id="directionChoices" class="choice-grid"></div>
+        </fieldset>
         <div class="dialog-actions">
-          <button type="submit" value="save" class="primary-button">儲存</button>
+          <button type="submit" value="save" id="saveAnswerButton" class="primary-button" disabled>儲存</button>
           <button type="submit" value="cancel" formnovalidate>取消</button>
         </div>
       </form>

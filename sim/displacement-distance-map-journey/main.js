@@ -24,12 +24,12 @@
   const answerForm = document.getElementById("answerForm");
   const dialogTitle = document.getElementById("dialogTitle");
   const dialogPrompt = document.getElementById("dialogPrompt");
-  const routeLabel = document.getElementById("routeLabel");
-  const routeInput = document.getElementById("routeInput");
-  const magnitudeInput = document.getElementById("magnitudeInput");
-  const nsInput = document.getElementById("nsInput");
-  const ewInput = document.getElementById("ewInput");
-  const angleInput = document.getElementById("angleInput");
+  const answerReadout = document.getElementById("answerReadout");
+  const routeLegend = document.getElementById("routeLegend");
+  const routeChoices = document.getElementById("routeChoices");
+  const magnitudeChoices = document.getElementById("magnitudeChoices");
+  const directionChoices = document.getElementById("directionChoices");
+  const saveAnswerButton = document.getElementById("saveAnswerButton");
 
   const SVG_WIDTH = 120;
   const SVG_HEIGHT = 80;
@@ -53,6 +53,7 @@
     totalAnswers: null,
     drag: null,
     dialogMode: null,
+    dialogSelection: null,
     locked: false,
     result: null
   };
@@ -955,8 +956,8 @@
       type: "segment",
       index: state.currentSegment,
       title: `第 ${state.currentSegment + 1} 段答案`,
-      prompt: `由${segmentStartPlace(state.currentSegment).label}到${segmentEndPlace(state.currentSegment).label}：請填寫沿道路走過的路程、起點到終點的直線位移大小，以及位移方向（北/南偏東/西 + 角度）。`,
-      routeLabelText: "本段路程 / m"
+      prompt: `由${segmentStartPlace(state.currentSegment).label}到${segmentEndPlace(state.currentSegment).label}：根據上方讀數，選出本段的路程、位移大小和位移方向。`,
+      routeLegendText: "本段路程"
     });
   }
 
@@ -965,33 +966,36 @@
     openAnswerDialog({
       type: "total",
       title: "總結答案",
-      prompt: `由${labels[0]}到${labels[2]}全程：請填寫沿道路走過的總路程、起點到終點的直線位移大小，以及位移方向（北/南偏東/西 + 角度）。`,
-      routeLabelText: "總路程 / m"
+      prompt: `由${labels[0]}到${labels[2]}全程：根據上方讀數，選出總路程、總位移大小和總位移方向。`,
+      routeLegendText: "總路程"
     });
   }
 
   function openAnswerDialog(mode) {
     state.dialogMode = mode;
+    state.dialogSelection = {
+      routeDistance: null,
+      displacementMagnitude: null,
+      direction: null
+    };
+    const choices = answerChoiceData(mode);
     dialogTitle.textContent = mode.title;
     dialogPrompt.textContent = mode.prompt;
-    routeLabel.textContent = mode.routeLabelText;
-    routeInput.value = "";
-    magnitudeInput.value = "";
-    nsInput.value = "";
-    ewInput.value = "";
-    angleInput.value = "";
+    routeLegend.textContent = mode.routeLegendText;
+    renderAnswerReadout(choices.readout);
+    renderChoiceGroup(routeChoices, "routeDistance", choices.routeDistance);
+    renderChoiceGroup(magnitudeChoices, "displacementMagnitude", choices.displacementMagnitude);
+    renderChoiceGroup(directionChoices, "direction", choices.direction);
+    saveAnswerButton.disabled = true;
     answerDialog.showModal();
   }
 
   function saveDialogAnswer() {
+    if (!isDialogComplete()) return;
     const answer = {
-      routeDistance: Number(routeInput.value),
-      displacementMagnitude: Number(magnitudeInput.value),
-      direction: {
-        ns: nsInput.value,
-        ew: ewInput.value,
-        angle: Number(angleInput.value)
-      }
+      routeDistance: state.dialogSelection.routeDistance,
+      displacementMagnitude: state.dialogSelection.displacementMagnitude,
+      direction: state.dialogSelection.direction
     };
     if (state.dialogMode.type === "segment") {
       state.segments[state.dialogMode.index].answers = answer;
@@ -1006,6 +1010,178 @@
     }
     state.totalAnswers = answer;
     submitAttempt();
+  }
+
+  function answerChoiceData(mode) {
+    if (mode.type === "segment") {
+      const segment = state.segments[mode.index];
+      const expected = Scoring.expectedSegment(journeyForScene(state.scene), mode.index);
+      return buildAnswerChoices({
+        routeDistance: segment.routeDistance,
+        displacementMagnitude: expected.magnitude,
+        bearing: expected.bearing,
+        readout: [
+          ["小人已走過的距離", `${round1(segment.routeDistance)} m`],
+          ["兩地位置點的直線距離", `${round1(expected.magnitude)} m`],
+          ["由起點指向終點的方向", Scoring.formatBearing(expected.bearing)]
+        ],
+        routeAlternates: [expected.magnitude, totalRouteDistance()],
+        magnitudeAlternates: [segment.routeDistance, totalRouteDistance()]
+      });
+    }
+    const expected = Scoring.expectedTotal(journeyForScene(state.scene));
+    return buildAnswerChoices({
+      routeDistance: totalRouteDistance(),
+      displacementMagnitude: expected.magnitude,
+      bearing: expected.bearing,
+      readout: [
+        ["第 1 段小人走過的距離", `${round1(state.segments[0].routeDistance)} m`],
+        ["第 2 段小人走過的距離", `${round1(state.segments[1].routeDistance)} m`],
+        ["小人全程走過的距離", `${round1(totalRouteDistance())} m`],
+        ["第一地點到最後地點的直線距離", `${round1(expected.magnitude)} m`],
+        ["由第一地點指向最後地點的方向", Scoring.formatBearing(expected.bearing)]
+      ],
+      routeAlternates: [
+        expected.magnitude,
+        state.segments[0].routeDistance,
+        state.segments[1].routeDistance
+      ],
+      magnitudeAlternates: [totalRouteDistance(), state.segments[0].routeDistance]
+    });
+  }
+
+  function buildAnswerChoices(data) {
+    return {
+      readout: data.readout,
+      routeDistance: distanceChoices(data.routeDistance, data.routeAlternates),
+      displacementMagnitude: distanceChoices(data.displacementMagnitude, data.magnitudeAlternates),
+      direction: directionChoicesForBearing(data.bearing)
+    };
+  }
+
+  function distanceChoices(correct, alternates) {
+    const value = round1(correct);
+    const delta = Math.max(2, round1(Math.abs(value) * 0.15));
+    const choices = [value].concat(
+      (alternates || []).map(round1),
+      round1(value + delta),
+      round1(Math.max(0, value - delta)),
+      round1(value + delta * 2)
+    );
+    return rotateChoices(uniqueValues(choices).slice(0, 4).map((item) => ({
+      label: `${item} m`,
+      value: item
+    })), value);
+  }
+
+  function directionChoicesForBearing(bearing) {
+    const bearings = [
+      bearing,
+      Scoring.normalizeBearing(bearing + 90),
+      Scoring.normalizeBearing(bearing + 180),
+      Scoring.normalizeBearing(bearing - 90)
+    ];
+    const options = [];
+    bearings.forEach((item) => {
+      const answer = directionAnswerForBearing(item);
+      const label = directionLabel(answer);
+      if (!options.some((option) => option.label === label)) {
+        options.push({ label, value: answer, iconAngle: Math.round(Scoring.normalizeBearing(item)) });
+      }
+    });
+    return options.slice(0, 4);
+  }
+
+  function directionAnswerForBearing(bearing) {
+    const value = Math.round(Scoring.normalizeBearing(bearing));
+    if (Scoring.angleDistance(value, 0) < 0.5) return { directionType: "north" };
+    if (Scoring.angleDistance(value, 90) < 0.5) return { directionType: "east" };
+    if (Scoring.angleDistance(value, 180) < 0.5) return { directionType: "south" };
+    if (Scoring.angleDistance(value, 270) < 0.5) return { directionType: "west" };
+    if (value < 90) return { directionType: "north-east", angle: value };
+    if (value < 180) return { directionType: "south-east", angle: 180 - value };
+    if (value < 270) return { directionType: "south-west", angle: value - 180 };
+    return { directionType: "north-west", angle: 360 - value };
+  }
+
+  function directionLabel(answer) {
+    const labels = {
+      north: "向北",
+      east: "向東",
+      south: "向南",
+      west: "向西",
+      "north-east": "北偏東",
+      "south-east": "南偏東",
+      "south-west": "南偏西",
+      "north-west": "北偏西"
+    };
+    return answer.angle == null
+      ? labels[answer.directionType]
+      : `${labels[answer.directionType]} ${answer.angle}°`;
+  }
+
+  function uniqueValues(values) {
+    const seen = new Set();
+    return values.filter((value) => {
+      if (!Number.isFinite(value) || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+
+  function rotateChoices(choices, seed) {
+    if (!choices.length) return choices;
+    const offset = Math.abs(Math.round(seed * 10)) % choices.length;
+    return choices.slice(offset).concat(choices.slice(0, offset));
+  }
+
+  function renderAnswerReadout(items) {
+    answerReadout.replaceChildren(
+      ...items.map(([label, value]) => {
+        const row = document.createElement("div");
+        row.append(textBlock("span", label), textBlock("b", value));
+        return row;
+      })
+    );
+  }
+
+  function renderChoiceGroup(container, key, options) {
+    container.replaceChildren();
+    options.forEach((option, index) => {
+      const id = `${key}-${index}`;
+      const input = document.createElement("input");
+      input.className = "choice-input";
+      input.type = "radio";
+      input.id = id;
+      input.name = key;
+      input.required = true;
+      input.addEventListener("change", () => {
+        state.dialogSelection[key] = option.value;
+        saveAnswerButton.disabled = !isDialogComplete();
+      });
+      const label = document.createElement("label");
+      label.className = key === "direction" ? "choice-option direction-option" : "choice-option";
+      label.htmlFor = id;
+      if (key === "direction") {
+        label.setAttribute("aria-label", option.label);
+        label.style.setProperty("--direction-angle", `${option.iconAngle}deg`);
+        label.append(
+          textBlock("span", "", "direction-icon"),
+          textBlock("span", `選項 ${index + 1}`, "direction-option-text")
+        );
+      } else {
+        label.textContent = option.label;
+      }
+      container.append(input, label);
+    });
+  }
+
+  function isDialogComplete() {
+    return Boolean(
+      state.dialogSelection?.routeDistance != null &&
+        state.dialogSelection?.displacementMagnitude != null &&
+        state.dialogSelection?.direction
+    );
   }
 
   function svgPoint(event) {

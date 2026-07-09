@@ -51,6 +51,9 @@
 
   function answerToBearing(answer) {
     if (!answer) return null;
+    if (answer.directionType) {
+      return directionTypeToBearing(answer.directionType, answer.angle);
+    }
     const angle = Number(answer.angle);
     if (!Number.isFinite(angle) || angle < 0 || angle > 90) return null;
     const ns = answer.ns;
@@ -59,6 +62,23 @@
     if (ns === "north" && ew === "west") return normalizeBearing(360 - angle);
     if (ns === "south" && ew === "east") return 180 - angle;
     if (ns === "south" && ew === "west") return 180 + angle;
+    return null;
+  }
+
+  function directionTypeToBearing(directionType, answerAngle) {
+    const cardinal = {
+      north: 0,
+      east: 90,
+      south: 180,
+      west: 270
+    };
+    if (Object.prototype.hasOwnProperty.call(cardinal, directionType)) return cardinal[directionType];
+    const angle = Number(answerAngle);
+    if (!Number.isFinite(angle) || angle < 0 || angle > 90) return null;
+    if (directionType === "north-east") return angle;
+    if (directionType === "south-east") return 180 - angle;
+    if (directionType === "south-west") return 180 + angle;
+    if (directionType === "north-west") return normalizeBearing(360 - angle);
     return null;
   }
 

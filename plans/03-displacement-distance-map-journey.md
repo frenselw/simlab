@@ -179,8 +179,8 @@ Direction format:
   `北偏東 30°` or `北偏西 30°`;
 - if the vector points mainly south, show direction from south:
   `南偏東 30°` or `南偏西 30°`;
-- if the vector is almost due east or west, accept either north/south reference
-  with a 90° angle, but display the simpler `向東` or `向西` when appropriate.
+- if the vector is due north, east, south, or west, display the simpler
+  `向北`, `向東`, `向南`, or `向西` instead of forcing an angle.
 
 This satisfies cases where the displacement points south: the readout should use
 the angle with south instead of forcing a north reference.
@@ -212,7 +212,8 @@ Bearing convention:
 - east is `90deg`;
 - south is `180deg`;
 - west is `270deg`;
-- learner answer controls may use `北/南` plus `東/西` plus an acute angle;
+- learner answer controls use one direction-format choice such as `向東`,
+  `北偏東`, or `南偏西`; only non-cardinal choices require an acute angle;
 - scoring should convert both the correct answer and the learner answer to a
   bearing, then compare angular difference.
 
@@ -220,9 +221,12 @@ Bearing convention:
 
 Segment 1 modal:
 
-- route distance travelled from place 1 to place 2;
-- displacement magnitude from place 1 to place 2;
-- displacement direction using `北/南`, `東/西`, and angle.
+- show a compact readout above the questions:
+  - distance the person has walked;
+  - straight-line distance between the two place position points;
+  - direction from the start place to the destination place;
+- ask three multiple-choice questions for route distance, displacement
+  magnitude, and displacement direction.
 
 Segment 2 modal:
 
@@ -232,20 +236,28 @@ Segment 2 modal:
 
 Final modal:
 
-- total route distance;
-- total displacement magnitude from place 1 to place 3;
-- total displacement direction.
+- show a compact readout above the questions:
+  - distance the person walked in segment 1;
+  - distance the person walked in segment 2;
+  - total distance the person walked;
+  - straight-line distance from place 1 to place 3;
+  - direction from place 1 to place 3;
+- ask three multiple-choice questions for total route distance, total
+  displacement magnitude, and total displacement direction.
 
-All numeric distance answers use metres. Angle answers use degrees.
+All distance options use metres. Direction options are four arrow icons spaced
+90 degrees apart; the text direction is used for scoring and accessibility, not
+as the visible answer.
 
 Question text must clearly distinguish:
 
 - route distance: the distance travelled along roads;
 - displacement magnitude: the straight-line distance from start to destination;
-- displacement direction: `北/南` plus `東/西` plus an acute angle.
+- displacement direction: a cardinal direction such as `向東`, or a reference
+  direction such as `南偏東` plus an acute angle.
 
-Direction answer controls must start blank. Do not prefill a default direction or
-derive hidden default values from the learner's drawn arrow.
+Answer choices must start unselected. Do not preselect a default answer or derive
+hidden selected values from the learner's drawn arrow.
 
 ## Scoring
 
@@ -362,7 +374,9 @@ Feedback should identify the physics idea, not just the score:
 - Person cannot leave the road network during normal dragging.
 - Dragging directly across the map toward a destination does not create an
   automatic road trace or route distance.
-- Answer modals do not preselect direction values.
+- Answer modals show the measured values above the questions.
+- Answer modals use touch-friendly choices instead of numeric text input.
+- Answer modals do not preselect answer values.
 - Segment displacement can point north, south, east, or west.
 - A southward vector displays angle from south.
 - Student can complete the task without keyboard input.
