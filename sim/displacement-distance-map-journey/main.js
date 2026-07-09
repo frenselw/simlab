@@ -36,6 +36,7 @@
   const ROAD_WIDTH = 4;
   const REVIEW_TRACE_POINT_CAP = 18;
   const ARROW_SNAP_TOLERANCE_M = Scoring.ARROW_HEAD_TOLERANCE_M;
+  const ARROW_SNAPPED_TOLERANCE_M = 0.05;
   const PERSON_DRAG_ROAD_TOLERANCE_M = ROAD_WIDTH;
   const PERSON_DRAG_TURN_LIMIT_M = ROAD_WIDTH * 2.5;
   const COMPASS_CLEAR_ZONE = { x: 105, y: 0, width: 15, height: 24 };
@@ -898,6 +899,7 @@
     const labels = currentRouteLabels();
     const segment = state.segments[state.currentSegment] || state.segments[1];
     const activeArrow = currentArrow();
+    const activeArrowSnapped = isCurrentArrowSnapped();
     taskText.textContent = `題目：由${labels[0]}出發，先到${labels[1]}，再到${labels[2]}。`;
     routeReadout.textContent = `${labels[0]} → ${labels[1]} → ${labels[2]}`;
     statusText.textContent = statusMessage(labels);
@@ -912,8 +914,8 @@
       arrowMagnitude.textContent = "--";
       arrowDirection.textContent = "--";
     }
-    segmentAnswerButton.disabled = state.locked || state.phase !== "draw-segment";
-    finalAnswerButton.disabled = state.locked || state.phase !== "draw-total";
+    segmentAnswerButton.disabled = state.locked || state.phase !== "draw-segment" || !activeArrowSnapped;
+    finalAnswerButton.disabled = state.locked || state.phase !== "draw-total" || !activeArrowSnapped;
   }
 
   function statusMessage(labels) {
@@ -947,11 +949,22 @@
     return null;
   }
 
+  function isCurrentArrowSnapped() {
+    const arrow = currentArrow();
+    const destination = currentArrowDestination();
+    return Boolean(
+      arrow &&
+        destination &&
+        Scoring.pointDistance(arrow.head, destination) <= ARROW_SNAPPED_TOLERANCE_M
+    );
+  }
+
   function totalRouteDistance() {
     return state.segments.reduce((sum, segment) => sum + (segment.routeDistance || 0), 0);
   }
 
   function openSegmentDialog() {
+    if (!isCurrentArrowSnapped()) return;
     openAnswerDialog({
       type: "segment",
       index: state.currentSegment,
@@ -962,6 +975,7 @@
   }
 
   function openFinalDialog() {
+    if (!isCurrentArrowSnapped()) return;
     const labels = currentRouteLabels();
     openAnswerDialog({
       type: "total",

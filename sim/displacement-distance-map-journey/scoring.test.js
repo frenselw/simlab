@@ -75,13 +75,13 @@ const wrongMagnitude = perfectAnswer();
 wrongMagnitude.segments[0].answers.displacementMagnitude += 8;
 const wrongMagnitudeScore = scoreJourney(wrongMagnitude, journey);
 assert.equal(wrongMagnitudeScore.detail.segmentAnswers[0].magnitudeScore, 0);
-assert.equal(wrongMagnitudeScore.score, 95);
+assert.equal(wrongMagnitudeScore.score, 90);
 
 const wrongReference = perfectAnswer();
 wrongReference.segments[0].answers.direction = { ns: "north", ew: "east", angle: 37 };
 const wrongReferenceScore = scoreJourney(wrongReference, journey);
 assert.equal(wrongReferenceScore.detail.segmentAnswers[0].directionScore, 0);
-assert(wrongReferenceScore.score < 100);
+assert.equal(wrongReferenceScore.score, 90);
 
 const southEastBearing = bearingFromVector({ x: 12, y: 30 });
 assert(formatBearing(southEastBearing).startsWith("南偏東"));
@@ -93,26 +93,35 @@ assert(!isDirectionAnswerCorrect({ ns: "north", ew: "east", angle: 22 }, southEa
 
 const missingSecond = perfectAnswer();
 missingSecond.segments[1] = { reached: false, routeDistance: 0 };
+missingSecond.totalAnswers = null;
 const missingSecondScore = scoreJourney(missingSecond, journey);
-assert.equal(missingSecondScore.detail.completion, 5);
-assert.equal(missingSecondScore.detail.totalArrow.score, 0);
+assert.equal(missingSecondScore.detail.segmentAnswers[1].score, 0);
+assert.equal(missingSecondScore.detail.totalAnswers.score, 0);
 assert.equal(missingSecondScore.passed, false);
 
 const missingFirst = perfectAnswer();
 missingFirst.segments[0] = { reached: false, routeDistance: 0 };
+missingFirst.segments[1] = { reached: false, routeDistance: 0 };
+missingFirst.totalAnswers = null;
 const missingFirstScore = scoreJourney(missingFirst, journey);
-assert.equal(missingFirstScore.detail.completion, 0);
-assert.equal(missingFirstScore.detail.segmentArrows[1].score, 0);
+assert.equal(missingFirstScore.detail.segmentAnswers[0].score, 0);
 assert.equal(missingFirstScore.detail.segmentAnswers[1].score, 0);
-assert.equal(missingFirstScore.detail.totalArrow.score, 0);
+assert.equal(missingFirstScore.detail.totalAnswers.score, 0);
+assert.equal(missingFirstScore.score, 0);
+
+const wrongArrows = perfectAnswer();
+wrongArrows.segments[0].arrow.head = { x: 0, y: 0 };
+wrongArrows.segments[1].arrow.head = { x: 0, y: 0 };
+wrongArrows.totalArrow.head = { x: 0, y: 0 };
+assert.equal(scoreJourney(wrongArrows, journey).score, 100);
 
 const wrongTotal = perfectAnswer();
 wrongTotal.totalArrow.head = { x: 20, y: 20 };
 wrongTotal.totalAnswers.displacementMagnitude = 10;
 wrongTotal.totalAnswers.direction = { ns: "north", ew: "west", angle: 10 };
 const wrongTotalScore = scoreJourney(wrongTotal, journey);
-assert.equal(wrongTotalScore.detail.totalArrow.score, 0);
 assert.equal(wrongTotalScore.detail.totalAnswers.magnitudeScore, 0);
 assert.equal(wrongTotalScore.detail.totalAnswers.directionScore, 0);
+assert.equal(wrongTotalScore.score, 74);
 
 console.log("map journey scoring checks passed");

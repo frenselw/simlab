@@ -171,6 +171,9 @@ Displacement drawing:
 - the learner drags the arrow head to show the final place displacement;
 - when the arrow head is close to the correct destination, it snaps to that
   destination point;
+- the answer button is enabled only after the arrow has snapped to the correct
+  destination point;
+- the drawn arrow is a required action and visual check, not a scoring component;
 - while drawing, show the learner's arrow magnitude and direction.
 
 Direction format:
@@ -267,39 +270,31 @@ Passing threshold: 60.
 
 Components:
 
-- Journey completion: 10 points.
-  - 5 points for reaching the second place in the required order.
-  - 5 points for reaching the third place in the required order.
+- Segment 1 answers: 30 points.
+  - 10 points for route distance.
+  - 10 points for displacement magnitude.
+  - 10 points for displacement direction.
 
-- Segment displacement arrows: 20 points.
-  - 10 points for segment 1.
-  - 10 points for segment 2.
-  - Each segment gives 5 points for arrow head/magnitude and 5 points for
-    direction.
+- Segment 2 answers: 30 points.
+  - 10 points for route distance.
+  - 10 points for displacement magnitude.
+  - 10 points for displacement direction.
 
-- Segment answers: 30 points.
-  - 15 points for segment 1.
-  - 15 points for segment 2.
-  - Each segment gives 5 points for route distance, 5 points for displacement
-    magnitude, and 5 points for direction.
-
-- Total displacement arrow: 15 points.
-  - 8 points for arrow head/magnitude.
-  - 7 points for direction.
-
-- Final total answers: 25 points.
-  - 9 points for total route distance.
-  - 8 points for total displacement magnitude.
-  - 8 points for total displacement direction.
+- Final total answers: 40 points.
+  - 14 points for total route distance.
+  - 13 points for total displacement magnitude.
+  - 13 points for total displacement direction.
 
 Penalties and caps:
 
 - Clamp final score to `0..100`.
 - Missing an answer earns zero for that answer component.
+- Displacement arrows are required before the answer modal opens, but they do not
+  add or remove score after snapping.
 - A route-distance answer is judged against the learner's actual accumulated
   distance, so wandering does not create an automatic penalty.
-- If the learner somehow submits without reaching the required destination, the
-  matching journey-completion points and later dependent answer points are zero.
+- If the learner somehow submits without an answer group, that answer group earns
+  zero.
 
 ## Tolerance
 

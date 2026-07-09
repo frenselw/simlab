@@ -146,39 +146,21 @@
     return place.position || place.center;
   }
 
-  function scoreArrow(arrow, expected, headPoints, directionPoints) {
-    if (!arrow || !arrow.head) {
-      return { score: 0, headScore: 0, directionScore: 0 };
-    }
-    const learnerVector = vector(arrow.tail || expected.start, arrow.head);
-    const headScore =
-      pointDistance(arrow.head, expected.end) <= ARROW_HEAD_TOLERANCE_M ? headPoints : 0;
-    const directionScore =
-      angleDistance(bearingFromVector(learnerVector), expected.bearing) <= ANGLE_TOLERANCE_DEG
-        ? directionPoints
-        : 0;
-    return {
-      score: headScore + directionScore,
-      headScore,
-      directionScore
-    };
-  }
-
   function segmentAnswerScore(segment, expected) {
-    if (!segment || !segment.reached || !segment.answers) {
+    if (!segment || !segment.answers) {
       return { score: 0, routeScore: 0, magnitudeScore: 0, directionScore: 0 };
     }
     const routeScore = isDistanceAnswerCorrect(segment.answers.routeDistance, segment.routeDistance)
-      ? 5
+      ? 10
       : 0;
     const magnitudeScore = isDistanceAnswerCorrect(
       segment.answers.displacementMagnitude,
       expected.magnitude
     )
-      ? 5
+      ? 10
       : 0;
     const directionScore = isDirectionAnswerCorrect(segment.answers.direction, expected.bearing)
-      ? 5
+      ? 10
       : 0;
     return {
       score: routeScore + magnitudeScore + directionScore,
@@ -190,22 +172,21 @@
 
   function finalAnswerScore(answer, expected) {
     const segments = answer.segments || [];
-    const allReached = segments[0]?.reached && segments[1]?.reached;
-    if (!allReached || !answer.totalAnswers) {
+    if (!answer.totalAnswers) {
       return { score: 0, routeScore: 0, magnitudeScore: 0, directionScore: 0 };
     }
     const totalRoute = segments.reduce((sum, segment) => sum + (segment.routeDistance || 0), 0);
     const routeScore = isDistanceAnswerCorrect(answer.totalAnswers.routeDistance, totalRoute)
-      ? 9
+      ? 14
       : 0;
     const magnitudeScore = isDistanceAnswerCorrect(
       answer.totalAnswers.displacementMagnitude,
       expected.magnitude
     )
-      ? 8
+      ? 13
       : 0;
     const directionScore = isDirectionAnswerCorrect(answer.totalAnswers.direction, expected.bearing)
-      ? 8
+      ? 13
       : 0;
     return {
       score: routeScore + magnitudeScore + directionScore,
@@ -220,45 +201,17 @@
     const expectedOne = expectedSegment(journey, 0);
     const expectedTwo = expectedSegment(journey, 1);
     const expectedEnd = expectedTotal(journey);
-    const firstReached = Boolean(segments[0]?.reached);
-    const secondReached = Boolean(firstReached && segments[1]?.reached);
-    const completionOne = firstReached ? 5 : 0;
-    const completionTwo = secondReached ? 5 : 0;
-    const arrowOne = firstReached
-      ? scoreArrow(segments[0].arrow, expectedOne, 5, 5)
-      : { score: 0, headScore: 0, directionScore: 0 };
-    const arrowTwo = secondReached
-      ? scoreArrow(segments[1].arrow, expectedTwo, 5, 5)
-      : { score: 0, headScore: 0, directionScore: 0 };
-    const answerOne = firstReached ? segmentAnswerScore(segments[0], expectedOne) : zeroAnswerScore();
-    const answerTwo = secondReached ? segmentAnswerScore(segments[1], expectedTwo) : zeroAnswerScore();
-    const allReached = Boolean(firstReached && secondReached);
-    const totalArrow = allReached
-      ? scoreArrow(answer.totalArrow, expectedEnd, 8, 7)
-      : { score: 0, headScore: 0, directionScore: 0 };
+    const answerOne = segmentAnswerScore(segments[0], expectedOne);
+    const answerTwo = segmentAnswerScore(segments[1], expectedTwo);
     const totalAnswers = finalAnswerScore(answer, expectedEnd);
     const score = clamp(
-      Math.round(
-        completionOne +
-          completionTwo +
-          arrowOne.score +
-          arrowTwo.score +
-          answerOne.score +
-          answerTwo.score +
-          totalArrow.score +
-          totalAnswers.score
-      ),
+      Math.round(answerOne.score + answerTwo.score + totalAnswers.score),
       0,
       100
     );
     const feedbackItems = buildFeedbackItems({
-      completionOne,
-      completionTwo,
-      arrowOne,
-      arrowTwo,
       answerOne,
       answerTwo,
-      totalArrow,
       totalAnswers
     });
     const summary =
@@ -273,42 +226,18 @@
       feedbackItems,
       summary,
       detail: {
-        completion: completionOne + completionTwo,
-        segmentArrows: [arrowOne, arrowTwo],
         segmentAnswers: [answerOne, answerTwo],
-        totalArrow,
         totalAnswers
       }
     };
   }
 
-  function zeroAnswerScore() {
-    return { score: 0, routeScore: 0, magnitudeScore: 0, directionScore: 0 };
-  }
-
   function buildFeedbackItems(detail) {
     return [
-      {
-        status: detail.completionOne ? "correct" : "missing",
-        text: detail.completionOne ? "第一段：已到達指定地點。" : "第一段：未到達指定地點。"
-      },
-      {
-        status: detail.completionTwo ? "correct" : "missing",
-        text: detail.completionTwo ? "第二段：已到達指定地點。" : "第二段：未到達指定地點。"
-      },
-      arrowFeedback("第一段位移箭頭", detail.arrowOne, 10),
-      arrowFeedback("第二段位移箭頭", detail.arrowTwo, 10),
-      answerFeedback("第一段答案", detail.answerOne, 15),
-      answerFeedback("第二段答案", detail.answerTwo, 15),
-      arrowFeedback("總位移箭頭", detail.totalArrow, 15),
-      answerFeedback("總結答案", detail.totalAnswers, 25)
+      answerFeedback("第一段答案", detail.answerOne, 30),
+      answerFeedback("第二段答案", detail.answerTwo, 30),
+      answerFeedback("總結答案", detail.totalAnswers, 40)
     ];
-  }
-
-  function arrowFeedback(label, item, total) {
-    if (item.score === total) return { status: "correct", text: `${label}：大小和方向正確。` };
-    if (item.score === 0) return { status: "wrong", text: `${label}：未能取得正確分。` };
-    return { status: "wrong", text: `${label}：部分正確，請留意箭頭終點和方向。` };
   }
 
   function answerFeedback(label, item, total) {
