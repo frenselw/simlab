@@ -950,18 +950,14 @@
 
   function drawVehicleLabel(ctx, center, vehicle, meta) {
     const label = state.selected === vehicle.id ? `${meta.name}　參考系` : meta.name;
-    const offsets = {
-      A: { x: -12, y: -42 },
-      B: { x: -92, y: 16 },
-      C: { x: 34, y: -30 }
-    };
-    const offset = offsets[vehicle.id];
     ctx.save();
     ctx.font = "700 14px Segoe UI, Tahoma, sans-serif";
     const width = ctx.measureText(label).width + 16;
-    const preferredX = center.x - width / 2 + offset.x * vehicle.scale;
+    const vehicleLength = (meta.shape === "minibus" ? 31 : 23) * vehicle.scale;
+    const labelCenter = vectorPoint(center, -(vehicleLength + width / 2 + 8), 0);
+    const preferredX = labelCenter.x - width / 2;
     const x = Math.max(6, Math.min(state.view.width - width - 6, preferredX));
-    const y = center.y + offset.y * vehicle.scale;
+    const y = labelCenter.y - 11.5;
     ctx.fillStyle = "rgba(255,255,255,0.94)";
     drawRoundRect(ctx, x, y, width, 23, 7);
     ctx.fill();
