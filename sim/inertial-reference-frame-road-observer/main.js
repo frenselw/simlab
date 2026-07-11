@@ -39,10 +39,10 @@
     C: { name: "車 C", longName: "車 C（黃色小巴）", color: "#efb94e", dark: "#9e6e14", shape: "minibus" }
   };
   const LAYOUTS = [
-    { positions: [-28, 0, 28], lanes: [-1, 0, 1] },
-    { positions: [20, -28, 4], lanes: [0, 1, -1] },
-    { positions: [-5, 28, -28], lanes: [1, -1, 0] },
-    { positions: [28, -4, -24], lanes: [-1, 1, 0] }
+    { positions: [-42, 0, 42], lanes: [-1, 0, 1] },
+    { positions: [32, -42, 6], lanes: [0, 1, -1] },
+    { positions: [-8, 42, -42], lanes: [1, -1, 0] },
+    { positions: [42, -6, -36], lanes: [-1, 1, 0] }
   ];
 
   const state = {
@@ -492,33 +492,200 @@
 
   function drawGroundDetails(ctx, geo, round) {
     const reference = currentReferenceDistance(round);
-    for (let index = -5; index <= 5; index += 1) {
-      const along = index * 105 - reference;
-      const point = project(geo, along, -geo.roadHalf * 2.35);
-      const scale = Math.max(0.55, perspective(geo, along));
-      ctx.fillStyle = "#ead9b9";
-      drawRoundRect(ctx, point.x - 23 * scale, point.y - 16 * scale, 46 * scale, 31 * scale, 4 * scale);
-      ctx.fill();
-      ctx.fillStyle = "#d5b98b";
-      ctx.fillRect(point.x - 23 * scale, point.y + 9 * scale, 46 * scale, 6 * scale);
-      ctx.fillStyle = "rgba(255,255,255,0.62)";
-      ctx.fillRect(point.x - 13 * scale, point.y - 7 * scale, 9 * scale, 8 * scale);
-      ctx.fillRect(point.x + 4 * scale, point.y - 7 * scale, 9 * scale, 8 * scale);
+    for (let index = -4; index <= 4; index += 1) {
+      const along = index * 165 - reference;
+      drawHill(ctx, project(geo, along, -geo.roadHalf * 2.05), Math.max(0.72, perspective(geo, along)), index % 2 === 0 ? "#8bc653" : "#79b94b");
+      drawHill(ctx, project(geo, along + 65, geo.roadHalf * 2.15), Math.max(0.68, perspective(geo, along + 65)), "#9fce62");
     }
+
+    drawPond(ctx, project(geo, 98 - reference, -geo.roadHalf * 1.78), Math.max(0.66, perspective(geo, 98 - reference)));
+    drawShop(ctx, project(geo, -155 - reference, -geo.roadHalf * 1.66), Math.max(0.72, perspective(geo, -155 - reference)));
+    drawHouse(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)));
+    drawShop(ctx, project(geo, -18 - reference, -geo.roadHalf * 1.68), Math.max(0.7, perspective(geo, -18 - reference)));
+    drawGasStation(ctx, project(geo, 138 - reference, -geo.roadHalf * 1.7), Math.max(0.68, perspective(geo, 138 - reference)));
+    drawHouse(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)));
+
+    for (let index = -5; index <= 5; index += 1) {
+      const along = index * 77 - reference;
+      const side = index % 2 === 0 ? -geo.roadHalf * 1.52 : geo.roadHalf * 1.55;
+      const point = project(geo, along, side);
+      const scale = Math.max(0.58, perspective(geo, along));
+      drawShrub(ctx, point, scale * (index % 3 === 0 ? 1.25 : 0.9));
+      if (index % 3 === 1) drawRock(ctx, project(geo, along + 17, side * 1.15), scale);
+      if (index % 4 === 2) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
+    }
+  }
+
+  function drawHill(ctx, point, scale, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(point.x, point.y, 76 * scale, 31 * scale, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.13)";
+    ctx.beginPath();
+    ctx.ellipse(point.x - 19 * scale, point.y - 10 * scale, 35 * scale, 15 * scale, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPond(ctx, point, scale) {
+    ctx.save();
+    ctx.fillStyle = "#d6b86a";
+    ctx.beginPath();
+    ctx.ellipse(point.x, point.y, 66 * scale, 30 * scale, ROAD_ANGLE, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#58b7e5";
+    ctx.beginPath();
+    ctx.ellipse(point.x, point.y, 57 * scale, 24 * scale, ROAD_ANGLE, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.58)";
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.arc(point.x - 14 * scale, point.y - 4 * scale, 14 * scale, 0.1, 1.5);
+    ctx.arc(point.x + 17 * scale, point.y + 6 * scale, 10 * scale, 3.1, 4.65);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawShop(ctx, point, scale) {
+    const width = 68 * scale;
+    const height = 47 * scale;
+    ctx.save();
+    ctx.fillStyle = "rgba(15,23,42,0.16)";
+    ctx.fillRect(point.x - width * 0.35, point.y + height * 0.38, width * 0.9, 8 * scale);
+    ctx.fillStyle = "#f6c96a";
+    drawRoundRect(ctx, point.x - width / 2, point.y - height / 2, width, height, 3 * scale);
+    ctx.fill();
+    ctx.fillStyle = "#d58b5c";
+    drawPolygon(ctx, [
+      { x: point.x + width / 2, y: point.y - height / 2 },
+      { x: point.x + width * 0.65, y: point.y - height * 0.35 },
+      { x: point.x + width * 0.65, y: point.y + height * 0.45 },
+      { x: point.x + width / 2, y: point.y + height / 2 }
+    ], "#d58b5c");
+    ctx.fillStyle = "#f5ead1";
+    drawPolygon(ctx, [
+      { x: point.x - width * 0.56, y: point.y - height * 0.56 },
+      { x: point.x + width * 0.42, y: point.y - height * 0.56 },
+      { x: point.x + width * 0.58, y: point.y - height * 0.37 },
+      { x: point.x - width * 0.42, y: point.y - height * 0.37 }
+    ], "#f5ead1");
+    ctx.fillStyle = "#2478a8";
+    ctx.fillRect(point.x - width * 0.28, point.y - height * 0.1, width * 0.24, height * 0.32);
+    ctx.fillRect(point.x + width * 0.09, point.y - height * 0.1, width * 0.21, height * 0.32);
+    ctx.fillStyle = "#df554d";
+    for (let index = 0; index < 4; index += 1) {
+      ctx.fillRect(point.x - width * 0.38 + index * width * 0.16, point.y + height * 0.2, width * 0.08, height * 0.18);
+    }
+    ctx.restore();
+  }
+
+  function drawHouse(ctx, point, scale) {
+    const width = 64 * scale;
+    const height = 43 * scale;
+    ctx.save();
+    ctx.fillStyle = "rgba(15,23,42,0.16)";
+    ctx.beginPath();
+    ctx.ellipse(point.x + 7 * scale, point.y + height * 0.55, width * 0.62, 9 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f2e3bc";
+    drawPolygon(ctx, [
+      { x: point.x - width / 2, y: point.y - height * 0.1 },
+      { x: point.x + width * 0.18, y: point.y - height * 0.1 },
+      { x: point.x + width * 0.18, y: point.y + height / 2 },
+      { x: point.x - width / 2, y: point.y + height / 2 }
+    ], "#f2e3bc", "#c2a773");
+    drawPolygon(ctx, [
+      { x: point.x + width * 0.18, y: point.y - height * 0.1 },
+      { x: point.x + width / 2, y: point.y + height * 0.08 },
+      { x: point.x + width / 2, y: point.y + height * 0.43 },
+      { x: point.x + width * 0.18, y: point.y + height / 2 }
+    ], "#d5bd8f", "#a88961");
+    drawPolygon(ctx, [
+      { x: point.x - width * 0.58, y: point.y - height * 0.12 },
+      { x: point.x - width * 0.16, y: point.y - height * 0.64 },
+      { x: point.x + width * 0.56, y: point.y - height * 0.18 },
+      { x: point.x + width * 0.15, y: point.y + height * 0.02 }
+    ], "#2e67ae", "#1e477f");
+    ctx.fillStyle = "#7b512d";
+    ctx.fillRect(point.x - width * 0.12, point.y + height * 0.12, width * 0.16, height * 0.38);
+    ctx.fillStyle = "#5eb6db";
+    ctx.fillRect(point.x - width * 0.38, point.y + height * 0.08, width * 0.15, height * 0.18);
+    ctx.fillRect(point.x + width * 0.24, point.y + height * 0.1, width * 0.11, height * 0.16);
+    ctx.restore();
+  }
+
+  function drawGasStation(ctx, point, scale) {
+    const width = 64 * scale;
+    ctx.save();
+    ctx.fillStyle = "#e7504d";
+    drawPolygon(ctx, [
+      { x: point.x - width / 2, y: point.y - 22 * scale },
+      { x: point.x + width / 2, y: point.y - 22 * scale },
+      { x: point.x + width * 0.64, y: point.y - 13 * scale },
+      { x: point.x - width * 0.42, y: point.y - 13 * scale }
+    ], "#e7504d", "#9e3434");
+    ctx.fillStyle = "#f8fafc";
+    ctx.fillRect(point.x - width * 0.31, point.y - 13 * scale, width * 0.09, 31 * scale);
+    ctx.fillRect(point.x + width * 0.22, point.y - 13 * scale, width * 0.09, 31 * scale);
+    ctx.fillStyle = "#6b7280";
+    ctx.fillRect(point.x - width * 0.06, point.y - 5 * scale, width * 0.15, 20 * scale);
+    ctx.fillStyle = "#e9f3f5";
+    ctx.fillRect(point.x - width * 0.04, point.y - 2 * scale, width * 0.1, 7 * scale);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(point.x + width * 0.61, point.y - 31 * scale, 10 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#e7504d";
+    ctx.lineWidth = 3 * scale;
+    ctx.beginPath();
+    ctx.arc(point.x + width * 0.61, point.y - 31 * scale, 10 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawRoad(ctx, geo) {
     const nearWidth = geo.roadHalf * 1.25;
     const farWidth = geo.roadHalf * 0.82;
+    const shoulder = [
+      vectorPoint(geo.anchor, -geo.span, -(nearWidth + 11)),
+      vectorPoint(geo.anchor, -geo.span, nearWidth + 11),
+      vectorPoint(geo.anchor, geo.span, farWidth + 8),
+      vectorPoint(geo.anchor, geo.span, -(farWidth + 8))
+    ];
+    drawPolygon(ctx, shoulder, "#f5f0df", "#d4cfc1");
     const corners = [
       vectorPoint(geo.anchor, -geo.span, -nearWidth),
       vectorPoint(geo.anchor, -geo.span, nearWidth),
       vectorPoint(geo.anchor, geo.span, farWidth),
       vectorPoint(geo.anchor, geo.span, -farWidth)
     ];
-    drawPolygon(ctx, corners, "#46566b", "#2f3e51");
+    drawPolygon(ctx, corners, "#4a596b", "#2f3e51");
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.92)";
+    ctx.lineWidth = 3;
+    [[corners[0], corners[3]], [corners[1], corners[2]]].forEach(([start, end]) => {
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    });
+    ctx.restore();
     const face = [corners[1], corners[2], vectorPoint(corners[2], 0, 9), vectorPoint(corners[1], 0, 12)];
     drawPolygon(ctx, face, "#2f3e51");
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 3;
+    for (let index = -4; index <= 4; index += 1) {
+      const start = vectorPoint(geo.anchor, -geo.span, index * geo.roadHalf * 0.2);
+      const end = vectorPoint(geo.anchor, geo.span, index * geo.roadHalf * 0.13);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawRoadside(ctx, geo, round) {
@@ -531,11 +698,21 @@
       const scale = perspective(geo, along);
       const center = project(geo, along, 0);
       const laneWidth = geo.roadHalf * scale;
-      [-(laneWidth / 3), laneWidth / 3].forEach((sideOffset) => {
+      [-(laneWidth * 0.3), laneWidth * 0.3].forEach((sideOffset) => {
         const start = vectorPoint(center, -11 * scale, sideOffset);
         const end = vectorPoint(center, 11 * scale, sideOffset);
         ctx.strokeStyle = "rgba(255,255,255,0.84)";
         ctx.lineWidth = Math.max(1.5, 2.3 * scale);
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+      });
+      [-3.5 * scale, 3.5 * scale].forEach((sideOffset) => {
+        const start = vectorPoint(center, -19 * scale, sideOffset);
+        const end = vectorPoint(center, 19 * scale, sideOffset);
+        ctx.strokeStyle = "#f4c242";
+        ctx.lineWidth = Math.max(1.6, 2.3 * scale);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
@@ -554,21 +731,68 @@
   }
 
   function drawTree(ctx, point, scale) {
-    ctx.fillStyle = "rgba(22, 101, 52, 0.18)";
+    ctx.fillStyle = "rgba(22, 101, 52, 0.2)";
     ctx.beginPath();
-    ctx.ellipse(point.x + 7 * scale, point.y + 8 * scale, 17 * scale, 7 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(point.x + 8 * scale, point.y + 10 * scale, 19 * scale, 8 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#7f9f57";
-    ctx.fillRect(point.x - 2 * scale, point.y - 3 * scale, 4 * scale, 15 * scale);
-    ctx.fillStyle = "#4f8a52";
+    ctx.fillStyle = "#805638";
+    ctx.fillRect(point.x - 3 * scale, point.y - 2 * scale, 6 * scale, 18 * scale);
+    ctx.fillStyle = "#3d884d";
     ctx.beginPath();
-    ctx.arc(point.x, point.y - 12 * scale, 14 * scale, 0, Math.PI * 2);
+    ctx.arc(point.x, point.y - 14 * scale, 16 * scale, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#6aa765";
+    ctx.fillStyle = "#6eae59";
     ctx.beginPath();
-    ctx.arc(point.x - 7 * scale, point.y - 8 * scale, 9 * scale, 0, Math.PI * 2);
-    ctx.arc(point.x + 8 * scale, point.y - 7 * scale, 9 * scale, 0, Math.PI * 2);
+    ctx.arc(point.x - 8 * scale, point.y - 10 * scale, 10 * scale, 0, Math.PI * 2);
+    ctx.arc(point.x + 8 * scale, point.y - 9 * scale, 10 * scale, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  function drawShrub(ctx, point, scale) {
+    ctx.save();
+    ctx.fillStyle = "rgba(22,101,52,0.14)";
+    ctx.beginPath();
+    ctx.ellipse(point.x + 3 * scale, point.y + 5 * scale, 14 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#368b4a";
+    ctx.beginPath();
+    ctx.arc(point.x - 5 * scale, point.y, 8 * scale, 0, Math.PI * 2);
+    ctx.arc(point.x + 4 * scale, point.y - 2 * scale, 10 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#69a94d";
+    ctx.beginPath();
+    ctx.arc(point.x + 2 * scale, point.y - 6 * scale, 5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPine(ctx, point, scale) {
+    ctx.save();
+    ctx.fillStyle = "rgba(15,72,43,0.18)";
+    ctx.beginPath();
+    ctx.ellipse(point.x + 5 * scale, point.y + 8 * scale, 11 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#815334";
+    ctx.fillRect(point.x - 2 * scale, point.y - 2 * scale, 4 * scale, 16 * scale);
+    [0, 9, 17].forEach((offset, index) => {
+      const width = (15 - index * 3) * scale;
+      const y = point.y + 4 * scale - offset * scale;
+      drawPolygon(ctx, [
+        { x: point.x, y: y - 19 * scale },
+        { x: point.x - width, y: y + 6 * scale },
+        { x: point.x + width, y: y + 6 * scale }
+      ], index === 0 ? "#2d8a50" : "#247342");
+    });
+    ctx.restore();
+  }
+
+  function drawRock(ctx, point, scale) {
+    drawPolygon(ctx, [
+      { x: point.x - 9 * scale, y: point.y + 5 * scale },
+      { x: point.x - 4 * scale, y: point.y - 5 * scale },
+      { x: point.x + 8 * scale, y: point.y - 2 * scale },
+      { x: point.x + 11 * scale, y: point.y + 6 * scale }
+    ], "#8d9aa0", "#718087");
   }
 
   function drawLamp(ctx, point, scale) {
@@ -595,9 +819,9 @@
   function drawVehicle(ctx, geo, vehicle) {
     const meta = VEHICLES[vehicle.id];
     const center = project(geo, vehicle.along, vehicle.lane);
-    const length = 18 * vehicle.scale;
-    const width = 11 * vehicle.scale;
-    const shadow = vectorPoint(center, 3 * vehicle.scale, 5 * vehicle.scale);
+    const length = 23 * vehicle.scale;
+    const width = 14 * vehicle.scale;
+    const shadow = vectorPoint(center, 4 * vehicle.scale, 7 * vehicle.scale);
     ctx.fillStyle = "rgba(15, 23, 42, 0.2)";
     ctx.beginPath();
     ctx.ellipse(shadow.x, shadow.y, length * 1.05, width * 0.9, ROAD_ANGLE, 0, Math.PI * 2);
@@ -612,28 +836,59 @@
     }
 
     const body = vehicleCorners(center, length, width);
+    const depth = { x: 0, y: 6 * vehicle.scale };
+    drawPolygon(ctx, [body[1], body[2], { x: body[2].x + depth.x, y: body[2].y + depth.y }, { x: body[1].x + depth.x, y: body[1].y + depth.y }], meta.dark, "rgba(0,0,0,0.18)");
+    drawPolygon(ctx, [body[2], body[3], { x: body[3].x + depth.x, y: body[3].y + depth.y }, { x: body[2].x + depth.x, y: body[2].y + depth.y }], meta.dark, "rgba(0,0,0,0.18)");
     drawPolygon(ctx, body, meta.color, meta.dark);
-    const roofCenter = vectorPoint(center, -1 * vehicle.scale, 0);
-    const roof = vehicleCorners(roofCenter, length * 0.47, width * 0.72);
-    drawPolygon(ctx, roof, meta.shape === "minibus" ? "#d9e6ec" : "#bfd7e5", meta.dark);
-    const windshieldCenter = vectorPoint(center, length * 0.42, 0);
-    const windshield = vehicleCorners(windshieldCenter, length * 0.18, width * 0.67);
-    drawPolygon(ctx, windshield, "#8fc0d8", meta.dark);
+    const roofCenter = vectorPoint(center, -3 * vehicle.scale, 0);
+    const roof = vehicleCorners(roofCenter, length * 0.47, width * 0.69);
+    drawPolygon(ctx, roof, meta.shape === "minibus" ? "#dcebef" : "#b9d9e9", meta.dark);
+    const windshieldCenter = vectorPoint(center, length * 0.36, 0);
+    const windshield = vehicleCorners(windshieldCenter, length * 0.17, width * 0.64);
+    drawPolygon(ctx, windshield, "#79b8d6", meta.dark);
+    const rearWindow = vehicleCorners(vectorPoint(center, -length * 0.43, 0), length * 0.12, width * 0.6);
+    drawPolygon(ctx, rearWindow, "#9ccce1", meta.dark);
+    drawWheels(ctx, center, length, width, vehicle.scale);
     ctx.fillStyle = "#f8fafc";
-    const light = vectorPoint(center, length * 0.92, 0);
+    const light = vectorPoint(center, length * 0.94, 0);
     ctx.beginPath();
     ctx.arc(light.x, light.y, Math.max(1.4, 2.2 * vehicle.scale), 0, Math.PI * 2);
     ctx.fill();
     drawVehicleLabel(ctx, center, vehicle, meta);
   }
 
+  function drawWheels(ctx, center, length, width, scale) {
+    const wheelPoints = [
+      vectorPoint(center, length * 0.6, width * 0.98),
+      vectorPoint(center, -length * 0.58, width * 0.98)
+    ];
+    ctx.save();
+    wheelPoints.forEach((point) => {
+      ctx.fillStyle = "#1f2937";
+      ctx.beginPath();
+      ctx.ellipse(point.x, point.y + 3 * scale, 4.5 * scale, 3 * scale, ROAD_ANGLE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#94a3b8";
+      ctx.beginPath();
+      ctx.arc(point.x, point.y + 3 * scale, 1.35 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
   function drawVehicleLabel(ctx, center, vehicle, meta) {
     const label = state.selected === vehicle.id ? `${meta.name}　參考系` : meta.name;
+    const offsets = {
+      A: { x: -12, y: -42 },
+      B: { x: -92, y: 16 },
+      C: { x: 34, y: -30 }
+    };
+    const offset = offsets[vehicle.id];
     ctx.save();
     ctx.font = "700 14px Segoe UI, Tahoma, sans-serif";
     const width = ctx.measureText(label).width + 16;
-    const x = center.x - width / 2;
-    const y = center.y - 36 * vehicle.scale;
+    const x = center.x - width / 2 + offset.x * vehicle.scale;
+    const y = center.y + offset.y * vehicle.scale;
     ctx.fillStyle = "rgba(255,255,255,0.94)";
     drawRoundRect(ctx, x, y, width, 23, 7);
     ctx.fill();
