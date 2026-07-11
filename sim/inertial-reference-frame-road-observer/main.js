@@ -399,6 +399,7 @@
       anchor: { x: width * 0.5, y: height * 0.56 },
       span: diagonal * 0.72,
       roadHalf: Math.max(74, Math.min(height * 0.28, width * 0.22)),
+      decorScale: Math.max(0.72, Math.min(1, width / 720)),
       speed: MIN_VISIBLE_DISPLACEMENT * narrowScreenSpeedScale / SIMULATION_SECONDS
     };
   }
@@ -486,26 +487,29 @@
     const reference = currentReferenceDistance(round);
     for (let index = -4; index <= 4; index += 1) {
       const along = index * 165 - reference;
-      drawHill(ctx, project(geo, along, -geo.roadHalf * 2.05), Math.max(0.72, perspective(geo, along)), index % 2 === 0 ? "#8bc653" : "#79b94b");
-      drawHill(ctx, project(geo, along + 65, geo.roadHalf * 2.15), Math.max(0.68, perspective(geo, along + 65)), "#9fce62");
+      drawHill(ctx, project(geo, along, -geo.roadHalf * 2.05), Math.max(0.72, perspective(geo, along)) * geo.decorScale, index % 2 === 0 ? "#8bc653" : "#79b94b");
+      drawHill(ctx, project(geo, along + 65, geo.roadHalf * 2.15), Math.max(0.68, perspective(geo, along + 65)) * geo.decorScale, "#9fce62");
     }
 
-    drawPond(ctx, project(geo, 98 - reference, -geo.roadHalf * 1.78), Math.max(0.66, perspective(geo, 98 - reference)));
-    drawShop(ctx, project(geo, -155 - reference, -geo.roadHalf * 1.66), Math.max(0.72, perspective(geo, -155 - reference)));
-    drawHouse(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)));
-    drawShop(ctx, project(geo, -18 - reference, -geo.roadHalf * 1.68), Math.max(0.7, perspective(geo, -18 - reference)));
-    drawGasStation(ctx, project(geo, 132 - reference, -geo.roadHalf * 1.45), Math.max(0.68, perspective(geo, 132 - reference)));
-    drawHouse(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)));
+    drawPond(ctx, project(geo, 98 - reference, -geo.roadHalf * 1.78), Math.max(0.66, perspective(geo, 98 - reference)) * geo.decorScale);
+    drawShop(ctx, project(geo, -155 - reference, -geo.roadHalf * 1.66), Math.max(0.72, perspective(geo, -155 - reference)) * geo.decorScale);
+    drawHouse(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)) * geo.decorScale);
+    drawShop(ctx, project(geo, -18 - reference, -geo.roadHalf * 1.68), Math.max(0.7, perspective(geo, -18 - reference)) * geo.decorScale);
+    drawGasStation(ctx, project(geo, 165 - reference, -geo.roadHalf * 1.45), Math.max(0.68, perspective(geo, 165 - reference)) * geo.decorScale);
+    drawHouse(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)) * geo.decorScale);
 
     for (let index = -5; index <= 5; index += 1) {
-      const along = index * 77 - reference;
+      const worldAlong = index * 77;
+      const along = worldAlong - reference;
       const side = index % 2 === 0 ? -geo.roadHalf * 1.52 : geo.roadHalf * 1.55;
       const point = project(geo, along, side);
-      const scale = Math.max(0.58, perspective(geo, along));
-      drawShrub(ctx, point, scale * (index % 3 === 0 ? 1.25 : 0.9));
-      if (index % 3 === 1) drawRock(ctx, project(geo, along + 17, side * 1.15), scale);
-      const overlapsGasStation = side < 0 && Math.abs(index * 77 - 132) < 65;
-      if (index % 4 === 2 && !overlapsGasStation) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
+      const scale = Math.max(0.58, perspective(geo, along)) * geo.decorScale;
+      const overlapsUpperLandmark = side < 0 && [98, 165].some((landmarkAlong) => Math.abs(worldAlong - landmarkAlong) < 50);
+      if (!overlapsUpperLandmark) {
+        drawShrub(ctx, point, scale * (index % 3 === 0 ? 1.25 : 0.9));
+        if (index % 3 === 1) drawRock(ctx, project(geo, along + 17, side * 1.15), scale);
+        if (index % 4 === 2) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
+      }
     }
   }
 
@@ -730,9 +734,10 @@
       const along = worldAlong - reference;
       const side = index % 2 === 0 ? geo.roadHalf * 1.55 : -geo.roadHalf * 1.48;
       const point = project(geo, along, side);
-      const scale = Math.max(0.58, perspective(geo, along));
+      const scale = Math.max(0.58, perspective(geo, along)) * geo.decorScale;
       const overlapsHouse = side > 0 && [-228, 150].some((houseAlong) => Math.abs(worldAlong - houseAlong) < 65);
-      if (!overlapsHouse) drawTree(ctx, point, scale);
+      const overlapsUpperLandmark = side < 0 && [98, 165].some((landmarkAlong) => Math.abs(worldAlong - landmarkAlong) < 50);
+      if (!overlapsHouse && !overlapsUpperLandmark) drawTree(ctx, point, scale);
       if (index % 2 !== 0) drawLamp(ctx, project(geo, along + 24, side * 0.9), scale);
     }
     ctx.restore();
