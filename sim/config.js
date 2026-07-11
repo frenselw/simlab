@@ -22,6 +22,14 @@ const simulationList = [
     description: "在隨機地圖中拖曳小人行走，量度路程，畫出分段位移和總位移。",
     tags: ["physics", "mechanics", "displacement", "distance", "vectors", "scorm"],
     status: "active"
+  },
+  {
+    title: "慣性參考系：公路觀察任務",
+    folder: "inertial-reference-frame-road-observer",
+    categories: ["Mechanics"],
+    description: "在斜角公路場景中轉換觀察位置，根據物體的相對運動找出合適的慣性參考系。",
+    tags: ["physics", "mechanics", "reference-frame", "inertial-frame", "motion", "scorm"],
+    status: "active"
   }
 ];
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="inertial-reference-frame-road-observer" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER">
+    <organization identifier="ORG-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER">
+      <title>慣性參考系：公路觀察任務</title>
+      <item identifier="ITEM-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" identifierref="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER">
+        <title>慣性參考系：公路觀察任務</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" type="webcontent" adlcp:scormType="sco" href="inertial-reference-frame-road-observer/index.html">
+      <file href="inertial-reference-frame-road-observer/index.html"/>
+      <file href="inertial-reference-frame-road-observer/styles.css"/>
+      <file href="inertial-reference-frame-road-observer/main.js"/>
+      <file href="inertial-reference-frame-road-observer/scoring.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+    </resource>
+  </resources>
+</manifest>

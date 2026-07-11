@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f4f6">
+    <title>慣性參考系：公路觀察任務</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app reference-app">
+      <header class="sim-header">
+        <h1>慣性參考系：公路觀察任務</h1>
+        <p id="headerText">本活動把路旁及做勻速直線運動的車視為慣性參考系；請轉換觀察位置，找出符合指定現象的參考物體。</p>
+      </header>
+
+      <div class="sim-shell reference-shell">
+        <section class="sim-stage reference-stage" aria-label="公路觀察動畫">
+          <canvas id="roadCanvas" class="road-canvas" aria-label="斜向公路上的車輛與路旁景物"></canvas>
+          <div id="stageBadge" class="stage-badge">請先選擇參考物體</div>
+          <div class="stage-legend" aria-hidden="true"><span>行車方向</span><b>↗</b><span>相反方向</span><b>↙</b></div>
+        </section>
+
+        <aside class="sim-panel reference-panel" aria-label="操作面板">
+          <section class="panel-section">
+            <h2 id="roundHeading" class="section-title">導覽</h2>
+            <div id="taskCard" class="task-card">
+              <p id="taskIntro">先選擇一個參考物體，再播放動畫，觀察哪些物體的相對位置改變。</p>
+              <ul id="conditionList" class="condition-list"></ul>
+            </div>
+            <p id="roundStatus" class="muted status-line" aria-live="polite">尚未開始。</p>
+          </section>
+
+          <section class="panel-section">
+            <h2 id="candidateHeading" class="section-title">選擇參考物體</h2>
+            <div id="candidateGrid" class="candidate-grid" role="group" aria-labelledby="candidateHeading">
+              <button type="button" data-candidate="R"><span class="candidate-icon">⌂</span><span>路旁觀察者</span></button>
+              <button type="button" data-candidate="A"><span class="candidate-icon car-a">A</span><span>車 A</span></button>
+              <button type="button" data-candidate="B"><span class="candidate-icon car-b">B</span><span>車 B</span></button>
+              <button type="button" data-candidate="C"><span class="candidate-icon car-c">C</span><span>車 C</span></button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">進行觀察</h2>
+            <div class="button-grid observation-buttons">
+              <button type="button" id="startButton" class="primary-button">開始觀察</button>
+              <button type="button" id="pauseButton">暫停</button>
+              <button type="button" id="replayButton">重播</button>
+              <button type="button" id="slowButton" aria-pressed="false">慢動作：關</button>
+            </div>
+          </section>
+
+          <section class="panel-section answer-section">
+            <h2 class="section-title">記錄答案</h2>
+            <button type="button" id="recordButton" class="primary-button">記錄為本題答案</button>
+            <button type="button" id="guideButton" class="primary-button is-hidden">開始正式任務</button>
+            <div id="reviewList" class="review-list is-hidden"></div>
+            <button type="button" id="submitButton" class="primary-button is-hidden">提交全部答案</button>
+          </section>
+
+          <section id="feedbackSection" class="panel-section is-hidden">
+            <h2 class="section-title">提交結果</h2>
+            <div id="scorePanel" class="readout" aria-live="polite"></div>
+            <div id="feedbackList" class="feedback-list"></div>
+          </section>
+
+          <div id="screenReaderStatus" class="sr-only" aria-live="polite"></div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>
