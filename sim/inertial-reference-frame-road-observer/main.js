@@ -493,10 +493,10 @@
 
     drawPond(ctx, project(geo, 98 - reference, -geo.roadHalf * 1.78), Math.max(0.66, perspective(geo, 98 - reference)) * geo.decorScale);
     drawShop(ctx, project(geo, -155 - reference, -geo.roadHalf * 1.66), Math.max(0.72, perspective(geo, -155 - reference)) * geo.decorScale);
-    drawHouse(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)) * geo.decorScale);
+    drawHouseIfVisible(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)) * geo.decorScale);
     drawShop(ctx, project(geo, -18 - reference, -geo.roadHalf * 1.68), Math.max(0.7, perspective(geo, -18 - reference)) * geo.decorScale);
     drawGasStation(ctx, project(geo, 165 - reference, -geo.roadHalf * 1.45), Math.max(0.68, perspective(geo, 165 - reference)) * geo.decorScale);
-    drawHouse(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)) * geo.decorScale);
+    drawHouseIfVisible(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)) * geo.decorScale);
 
     for (let index = -5; index <= 5; index += 1) {
       const worldAlong = index * 77;
@@ -585,6 +585,24 @@
     ctx.restore();
   }
 
+  function drawHouseIfVisible(ctx, point, scale) {
+    const horizontalExtent = 46 * scale;
+    const roofHeight = 72 * scale;
+    const left = point.x - horizontalExtent;
+    const right = point.x + horizontalExtent;
+    const top = point.y - roofHeight;
+    const bottom = point.y + 8 * scale;
+    const overlapsMobileLegend = state.view.width < 700 && right > state.view.width - 180 && bottom > state.view.height - 90;
+    if (
+      left < 0 ||
+      right > state.view.width ||
+      bottom > state.view.height ||
+      top < 0 ||
+      overlapsMobileLegend
+    ) return;
+    drawHouse(ctx, point, scale);
+  }
+
   function drawHouse(ctx, point, scale) {
     const width = 64 * scale;
     const height = 42 * scale;
@@ -607,12 +625,16 @@
       { x: point.x + width * 0.25 + depth, y: point.y - depth * 0.45 },
       { x: point.x + width * 0.25, y: point.y }
     ], "#d5bd8f", "#a88961");
+    const leftEave = { x: point.x - width * 0.58, y: point.y - height + 2 * scale };
+    const ridge = { x: point.x - width * 0.14, y: point.y - height - 24 * scale };
+    const rightEave = { x: point.x + width * 0.3, y: point.y - height + 2 * scale };
     drawPolygon(ctx, [
-      { x: point.x - width * 0.58, y: point.y - height + 2 * scale },
-      { x: point.x - width * 0.14, y: point.y - height - 24 * scale },
-      { x: point.x + width * 0.54, y: point.y - height - 8 * scale },
-      { x: point.x + width * 0.18, y: point.y - height + 4 * scale }
-    ], "#2e67ae", "#1e477f");
+      ridge,
+      rightEave,
+      { x: rightEave.x + depth, y: rightEave.y - depth * 0.45 },
+      { x: ridge.x + depth, y: ridge.y - depth * 0.45 }
+    ], "#244f88", "#173c6b");
+    drawPolygon(ctx, [leftEave, ridge, rightEave], "#2e67ae", "#1e477f");
     ctx.fillStyle = "#7b512d";
     ctx.fillRect(point.x - width * 0.08, point.y - height * 0.46, width * 0.17, height * 0.46);
     ctx.fillStyle = "#5eb6db";
