@@ -39,10 +39,10 @@
     C: { name: "車 C", longName: "車 C（黃色小巴）", color: "#efb94e", dark: "#9e6e14", shape: "minibus" }
   };
   const LAYOUTS = [
-    { positions: [-42, 0, 42], lanes: [-1, 0, 1] },
-    { positions: [32, -42, 6], lanes: [0, 1, -1] },
-    { positions: [-8, 42, -42], lanes: [1, -1, 0] },
-    { positions: [42, -6, -36], lanes: [-1, 1, 0] }
+    { positions: [-42, 0, 42], lanes: [0.03, 0.36, 0.69] },
+    { positions: [32, -42, 6], lanes: [0.36, 0.69, 0.03] },
+    { positions: [-8, 42, -42], lanes: [0.69, 0.03, 0.36] },
+    { positions: [42, -6, -36], lanes: [0.03, 0.69, 0.36] }
   ];
 
   const state = {
@@ -120,7 +120,7 @@
 
   function stateText(value) {
     if (value === "stationary") return "靜止";
-    return value === "up" ? "向右上方（↗）移動" : "向左下方（↙）移動";
+    return value === "up" ? "沿道路正方向移動" : "沿道路反方向移動";
   }
 
   function conditionText(condition) {
@@ -406,7 +406,6 @@
       anchor: { x: width * 0.5, y: height * 0.56 },
       span: diagonal * 0.72,
       roadHalf: Math.max(74, Math.min(height * 0.28, width * 0.22)),
-      laneStep: Math.max(28, Math.min(52, height * 0.1)),
       speed: MIN_VISIBLE_DISPLACEMENT / SIMULATION_SECONDS
     };
   }
@@ -445,7 +444,7 @@
       return {
         id,
         along: longitudinal,
-        lane: layout.lanes[index] * geometryValue.laneStep,
+        lane: layout.lanes[index] * geometryValue.roadHalf,
         scale: Math.max(0.75, Math.min(1.22, perspective(geometryValue, longitudinal)))
       };
     });
@@ -698,17 +697,17 @@
       const scale = perspective(geo, along);
       const center = project(geo, along, 0);
       const laneWidth = geo.roadHalf * scale;
-      [-(laneWidth * 0.3), laneWidth * 0.3].forEach((sideOffset) => {
+      [-laneWidth * 0.55, laneWidth * 0.19, laneWidth * 0.51].forEach((sideOffset, lineIndex) => {
         const start = vectorPoint(center, -11 * scale, sideOffset);
         const end = vectorPoint(center, 11 * scale, sideOffset);
-        ctx.strokeStyle = "rgba(255,255,255,0.84)";
+        ctx.strokeStyle = lineIndex === 0 ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.84)";
         ctx.lineWidth = Math.max(1.5, 2.3 * scale);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
         ctx.stroke();
       });
-      [-3.5 * scale, 3.5 * scale].forEach((sideOffset) => {
+      [-laneWidth * 0.22 - 3.5 * scale, -laneWidth * 0.22 + 3.5 * scale].forEach((sideOffset) => {
         const start = vectorPoint(center, -19 * scale, sideOffset);
         const end = vectorPoint(center, 19 * scale, sideOffset);
         ctx.strokeStyle = "#f4c242";
