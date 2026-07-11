@@ -39,10 +39,10 @@
     C: { name: "車 C", longName: "車 C（黃色小巴）", color: "#efb94e", dark: "#9e6e14", shape: "minibus" }
   };
   const LAYOUTS = [
-    { positions: [-20, 0, 20], lanes: [-0.55, 0, 0.55] },
-    { positions: [16, -20, 4], lanes: [-0.55, 0, 0.55] },
-    { positions: [-4, 20, -20], lanes: [-0.55, 0, 0.55] },
-    { positions: [20, -4, -16], lanes: [-0.55, 0, 0.55] }
+    { positions: [-20, 0, 20], lanes: [-2 / 3, 0, 2 / 3] },
+    { positions: [16, -20, 4], lanes: [-2 / 3, 0, 2 / 3] },
+    { positions: [-4, 20, -20], lanes: [-2 / 3, 0, 2 / 3] },
+    { positions: [20, -4, -16], lanes: [-2 / 3, 0, 2 / 3] }
   ];
 
   const state = {
@@ -925,11 +925,11 @@
     ctx.moveTo(lower[3].x + AXIS.x * 5 * vehicle.scale, lower[3].y + AXIS.y * 5 * vehicle.scale - bodyDepth * 0.35);
     ctx.lineTo(lower[0].x - AXIS.x * 5 * vehicle.scale, lower[0].y - AXIS.y * 5 * vehicle.scale - bodyDepth * 0.35);
     ctx.stroke();
-    if (isMinibus) drawWheels(ctx, center, length, width, vehicle.scale);
+    if (isMinibus) drawWheels(ctx, center, length, width, vehicle.scale, 10.5);
     drawVehicleLabel(ctx, center, vehicle, meta);
   }
 
-  function drawWheels(ctx, center, length, width, scale) {
+  function drawWheels(ctx, center, length, width, scale, verticalOffset = 5) {
     const wheelPoints = [
       vectorPoint(center, length * 0.64, width * 1.02),
       vectorPoint(center, -length * 0.62, width * 1.02)
@@ -938,11 +938,11 @@
     wheelPoints.forEach((point) => {
       ctx.fillStyle = "#1f2937";
       ctx.beginPath();
-      ctx.ellipse(point.x, point.y + 5 * scale, 5.2 * scale, 3.6 * scale, ROAD_ANGLE, 0, Math.PI * 2);
+      ctx.ellipse(point.x, point.y + verticalOffset * scale, 5.2 * scale, 3.6 * scale, ROAD_ANGLE, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#94a3b8";
       ctx.beginPath();
-      ctx.arc(point.x, point.y + 5 * scale, 1.55 * scale, 0, Math.PI * 2);
+      ctx.arc(point.x, point.y + verticalOffset * scale, 1.55 * scale, 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.restore();
@@ -1002,9 +1002,12 @@
     ctx.moveTo(point.x + 4, point.y + 7);
     ctx.lineTo(point.x + 9, point.y + 19);
     ctx.stroke();
+    const label = selected ? "路旁觀察者　參考系" : "路旁觀察者";
     ctx.font = "700 13px Segoe UI, Tahoma, sans-serif";
+    const labelWidth = ctx.measureText(label).width;
+    const labelX = Math.max(6, Math.min(state.view.width - labelWidth - 6, point.x - labelWidth / 2));
     ctx.fillStyle = "#1f2937";
-    ctx.fillText(selected ? "路旁觀察者　參考系" : "路旁觀察者", point.x - 33, point.y - 17);
+    ctx.fillText(label, labelX, point.y - (selected ? 28 : 17));
     ctx.restore();
   }
 
