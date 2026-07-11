@@ -502,7 +502,7 @@
     drawShop(ctx, project(geo, -155 - reference, -geo.roadHalf * 1.66), Math.max(0.72, perspective(geo, -155 - reference)));
     drawHouse(ctx, project(geo, -228 - reference, geo.roadHalf * 1.66), Math.max(0.66, perspective(geo, -228 - reference)));
     drawShop(ctx, project(geo, -18 - reference, -geo.roadHalf * 1.68), Math.max(0.7, perspective(geo, -18 - reference)));
-    drawGasStation(ctx, project(geo, 138 - reference, -geo.roadHalf * 1.7), Math.max(0.68, perspective(geo, 138 - reference)));
+    drawGasStation(ctx, project(geo, 132 - reference, -geo.roadHalf * 1.45), Math.max(0.68, perspective(geo, 132 - reference)));
     drawHouse(ctx, project(geo, 150 - reference, geo.roadHalf * 1.72), Math.max(0.7, perspective(geo, 150 - reference)));
 
     for (let index = -5; index <= 5; index += 1) {
@@ -512,7 +512,8 @@
       const scale = Math.max(0.58, perspective(geo, along));
       drawShrub(ctx, point, scale * (index % 3 === 0 ? 1.25 : 0.9));
       if (index % 3 === 1) drawRock(ctx, project(geo, along + 17, side * 1.15), scale);
-      if (index % 4 === 2) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
+      const overlapsGasStation = side < 0 && Math.abs(index * 77 - 132) < 65;
+      if (index % 4 === 2 && !overlapsGasStation) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
     }
   }
 
@@ -627,27 +628,40 @@
   function drawGasStation(ctx, point, scale) {
     const width = 64 * scale;
     ctx.save();
+    ctx.fillStyle = "rgba(15,23,42,0.15)";
+    ctx.beginPath();
+    ctx.ellipse(point.x + 4 * scale, point.y + 3 * scale, width * 0.62, 8 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawPolygon(ctx, [
+      { x: point.x - width * 0.52, y: point.y + 1 * scale },
+      { x: point.x + width * 0.47, y: point.y + 1 * scale },
+      { x: point.x + width * 0.6, y: point.y - 5 * scale },
+      { x: point.x - width * 0.39, y: point.y - 5 * scale }
+    ], "#e8d1a0", "#c9ac73");
     drawPolygon(ctx, [
       { x: point.x - width / 2, y: point.y - 29 * scale },
       { x: point.x + width * 0.42, y: point.y - 29 * scale },
       { x: point.x + width * 0.61, y: point.y - 38 * scale },
       { x: point.x - width * 0.31, y: point.y - 38 * scale }
     ], "#e7504d", "#9e3434");
+    drawPolygon(ctx, [
+      { x: point.x - width / 2, y: point.y - 29 * scale },
+      { x: point.x + width * 0.42, y: point.y - 29 * scale },
+      { x: point.x + width * 0.42, y: point.y - 24 * scale },
+      { x: point.x - width / 2, y: point.y - 24 * scale }
+    ], "#c53d3d", "#963232");
     ctx.fillStyle = "#f8fafc";
-    ctx.fillRect(point.x - width * 0.31, point.y - 29 * scale, width * 0.09, 31 * scale);
-    ctx.fillRect(point.x + width * 0.22, point.y - 29 * scale, width * 0.09, 31 * scale);
-    ctx.fillStyle = "#6b7280";
-    ctx.fillRect(point.x - width * 0.06, point.y - 19 * scale, width * 0.15, 20 * scale);
+    ctx.fillRect(point.x - width * 0.34, point.y - 24 * scale, width * 0.08, 25 * scale);
+    ctx.fillRect(point.x + width * 0.24, point.y - 24 * scale, width * 0.08, 25 * scale);
+    ctx.fillStyle = "#566575";
+    ctx.fillRect(point.x - width * 0.07, point.y - 17 * scale, width * 0.17, 18 * scale);
     ctx.fillStyle = "#e9f3f5";
-    ctx.fillRect(point.x - width * 0.04, point.y - 16 * scale, width * 0.1, 7 * scale);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(point.x - width * 0.045, point.y - 14 * scale, width * 0.12, 6 * scale);
+    ctx.strokeStyle = "#27384a";
+    ctx.lineWidth = Math.max(1, 1.5 * scale);
     ctx.beginPath();
-    ctx.arc(point.x + width * 0.61, point.y - 42 * scale, 10 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#e7504d";
-    ctx.lineWidth = 3 * scale;
-    ctx.beginPath();
-    ctx.arc(point.x + width * 0.61, point.y - 42 * scale, 10 * scale, 0, Math.PI * 2);
+    ctx.moveTo(point.x + width * 0.1, point.y - 12 * scale);
+    ctx.quadraticCurveTo(point.x + width * 0.2, point.y - 12 * scale, point.x + width * 0.18, point.y - 2 * scale);
     ctx.stroke();
     ctx.restore();
   }
@@ -720,11 +734,13 @@
       });
     }
     for (let index = -5; index <= 5; index += 1) {
-      const along = index * 92 - reference;
+      const worldAlong = index * 92;
+      const along = worldAlong - reference;
       const side = index % 2 === 0 ? geo.roadHalf * 1.55 : -geo.roadHalf * 1.48;
       const point = project(geo, along, side);
       const scale = Math.max(0.58, perspective(geo, along));
-      drawTree(ctx, point, scale);
+      const overlapsHouse = side > 0 && [-228, 150].some((houseAlong) => Math.abs(worldAlong - houseAlong) < 65);
+      if (!overlapsHouse) drawTree(ctx, point, scale);
       if (index % 2 !== 0) drawLamp(ctx, project(geo, along + 24, side * 0.9), scale);
     }
     ctx.restore();
@@ -829,10 +845,11 @@
 
   function drawVehicle(ctx, geo, vehicle) {
     const meta = VEHICLES[vehicle.id];
+    const isMinibus = meta.shape === "minibus";
     const center = project(geo, vehicle.along, vehicle.lane);
-    const length = (meta.shape === "minibus" ? 25 : 23) * vehicle.scale;
-    const width = 14 * vehicle.scale;
-    const bodyDepth = (meta.shape === "minibus" ? 8 : 7) * vehicle.scale;
+    const length = (isMinibus ? 31 : 23) * vehicle.scale;
+    const width = (isMinibus ? 15 : 14) * vehicle.scale;
+    const bodyDepth = (isMinibus ? 10 : 7) * vehicle.scale;
     const shadow = vectorPoint(center, 3 * vehicle.scale, 8 * vehicle.scale);
     ctx.fillStyle = "rgba(15, 23, 42, 0.2)";
     ctx.beginPath();
@@ -847,22 +864,22 @@
       ctx.stroke();
     }
 
-    drawWheels(ctx, center, length, width, vehicle.scale);
+    if (!isMinibus) drawWheels(ctx, center, length, width, vehicle.scale);
 
     const body = vehicleCorners(center, length, width);
     const lower = body.map((point) => ({ x: point.x, y: point.y + bodyDepth }));
     drawPolygon(ctx, [body[3], body[0], lower[0], lower[3]], meta.dark, "rgba(0,0,0,0.22)");
-    drawPolygon(ctx, [body[0], body[1], lower[1], lower[0]], meta.shape === "minibus" ? "#c78b20" : meta.dark, "rgba(0,0,0,0.22)");
+    drawPolygon(ctx, [body[0], body[1], lower[1], lower[0]], isMinibus ? "#c78b20" : meta.dark, "rgba(0,0,0,0.22)");
     drawPolygon(ctx, body, meta.color, meta.dark);
 
-    const cabinLength = length * (meta.shape === "minibus" ? 0.72 : meta.shape === "sedan" ? 0.57 : 0.52);
+    const cabinLength = length * (isMinibus ? 0.82 : meta.shape === "sedan" ? 0.57 : 0.52);
     const cabinCenter = vectorPoint(center, meta.shape === "hatchback" ? -3 * vehicle.scale : -1 * vehicle.scale, 0);
-    const cabinBase = vehicleCorners(cabinCenter, cabinLength, width * 0.72);
-    const cabinRise = (meta.shape === "minibus" ? 13 : 10) * vehicle.scale;
+    const cabinBase = vehicleCorners(cabinCenter, cabinLength, width * (isMinibus ? 0.8 : 0.72));
+    const cabinRise = (isMinibus ? 16 : 10) * vehicle.scale;
     const cabinTop = cabinBase.map((point) => ({ x: point.x, y: point.y - cabinRise }));
-    drawPolygon(ctx, [cabinBase[3], cabinBase[0], cabinTop[0], cabinTop[3]], "#78abc4", meta.dark);
-    drawPolygon(ctx, [cabinBase[0], cabinBase[1], cabinTop[1], cabinTop[0]], "#9bc7d9", meta.dark);
-    drawPolygon(ctx, cabinTop, meta.shape === "minibus" ? "#edf4ec" : "#d7e8ed", meta.dark);
+    drawPolygon(ctx, [cabinBase[3], cabinBase[0], cabinTop[0], cabinTop[3]], isMinibus ? "#3f7895" : "#78abc4", meta.dark);
+    drawPolygon(ctx, [cabinBase[0], cabinBase[1], cabinTop[1], cabinTop[0]], isMinibus ? "#5d9bb5" : "#9bc7d9", meta.dark);
+    drawPolygon(ctx, cabinTop, isMinibus ? "#f5cf67" : "#d7e8ed", meta.dark);
 
     const sideWindowInset = 3 * vehicle.scale;
     drawPolygon(ctx, [
@@ -871,13 +888,26 @@
       { x: cabinTop[0].x - AXIS.x * sideWindowInset, y: cabinTop[0].y - AXIS.y * sideWindowInset + 2 * vehicle.scale },
       { x: cabinTop[3].x + AXIS.x * sideWindowInset, y: cabinTop[3].y + AXIS.y * sideWindowInset + 2 * vehicle.scale }
     ], "#477f9f", "rgba(24,72,102,0.8)");
-    const divider = vectorPoint(cabinCenter, meta.shape === "minibus" ? 2 * vehicle.scale : 0, width * 0.72);
-    ctx.strokeStyle = meta.dark;
+    const dividerPositions = isMinibus ? [-0.45, -0.12, 0.22, 0.55] : [0];
+    ctx.strokeStyle = isMinibus ? "#e7ad2f" : meta.dark;
     ctx.lineWidth = Math.max(1, 1.5 * vehicle.scale);
-    ctx.beginPath();
-    ctx.moveTo(divider.x, divider.y);
-    ctx.lineTo(divider.x, divider.y - cabinRise + 2 * vehicle.scale);
-    ctx.stroke();
+    dividerPositions.forEach((position) => {
+      const divider = vectorPoint(cabinCenter, cabinLength * position, width * (isMinibus ? 0.8 : 0.72));
+      ctx.beginPath();
+      ctx.moveTo(divider.x, divider.y);
+      ctx.lineTo(divider.x, divider.y - cabinRise + 2 * vehicle.scale);
+      ctx.stroke();
+    });
+    if (isMinibus) {
+      const doorTop = vectorPoint(cabinCenter, -cabinLength * 0.7, width * 0.8);
+      const doorBottom = vectorPoint(center, -length * 0.62, width);
+      ctx.strokeStyle = "#8b6117";
+      ctx.lineWidth = Math.max(1, 1.6 * vehicle.scale);
+      ctx.beginPath();
+      ctx.moveTo(doorTop.x, doorTop.y - cabinRise + 2 * vehicle.scale);
+      ctx.lineTo(doorBottom.x, doorBottom.y + bodyDepth * 0.75);
+      ctx.stroke();
+    }
 
     const frontNear = lower[0];
     const frontFar = lower[1];
@@ -895,6 +925,7 @@
     ctx.moveTo(lower[3].x + AXIS.x * 5 * vehicle.scale, lower[3].y + AXIS.y * 5 * vehicle.scale - bodyDepth * 0.35);
     ctx.lineTo(lower[0].x - AXIS.x * 5 * vehicle.scale, lower[0].y - AXIS.y * 5 * vehicle.scale - bodyDepth * 0.35);
     ctx.stroke();
+    if (isMinibus) drawWheels(ctx, center, length, width, vehicle.scale);
     drawVehicleLabel(ctx, center, vehicle, meta);
   }
 
