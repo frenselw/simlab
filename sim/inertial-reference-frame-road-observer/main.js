@@ -77,20 +77,11 @@
     };
   }
 
-  function shuffled(value, random) {
-    const items = value.slice();
-    for (let index = items.length - 1; index > 0; index -= 1) {
-      const target = Math.floor(random() * (index + 1));
-      [items[index], items[target]] = [items[target], items[index]];
-    }
-    return items;
-  }
-
   function createAttempt() {
     const random = mulberry32(randomSeed());
-    const permutation = shuffled(["A", "B", "C"], random).join("");
-    const layouts = Scoring.ROUND_ORDER.map(() => Math.floor(random() * LAYOUTS.length));
-    state.rounds = Scoring.instantiateAttempt(permutation, layouts);
+    const spec = Scoring.generateAttemptSpec(random);
+    state.rounds = Scoring.instantiateAttempt(spec.permutations, spec.layouts, spec.roundOrder);
+    if (!Scoring.validateAttempt(state.rounds)) throw new Error("Generated attempt failed validation");
     state.answers = Array(state.rounds.length).fill(null);
     state.activeIndex = 0;
     state.mode = "guide";
@@ -227,6 +218,7 @@
         throw new Error("Unsupported review state");
       }
       const rounds = saved.rounds.map(Scoring.roundFromSnapshot);
+      if (!Scoring.validateAttempt(rounds)) throw new Error("Invalid saved attempt structure");
       if (!Scoring.validateAnswers(saved.answers, rounds.length)) throw new Error("Invalid saved answers");
       const result = Scoring.scoreAttempt(rounds, saved.answers);
       const scoreMatches = Number.isFinite(lmsScore) ? result.score === lmsScore : result.score === saved.score;
@@ -278,7 +270,7 @@
     taskIntro.textContent = isGuide
       ? "選擇一個參考物體，播放後留意：被選物體會固定，而其他物體的相對位置可能改變。"
       : isTask
-        ? "每題可能有一個或多個合適答案。請選擇任何一個同時符合兩項條件的參考物體。"
+        ? "每題可能有一個或多個合適答案。請選擇任何一個同時符合全部條件的參考物體。"
         : isReview
           ? "可按任何一題返回觀察及修改答案。全部確認後才提交。"
           : state.trustedReview

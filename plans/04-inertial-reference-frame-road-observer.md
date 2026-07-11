@@ -101,8 +101,10 @@ The main assessed task is the reverse-inference challenge:
 
 > 根據指定現象，找出一個合適的參考物體。
 
-Each attempt contains five rounds drawn from a fixed, validated blueprint. A
-core reverse-inference round presents two qualitative observations whose
+Each attempt contains five rounds drawn from five validated blueprint groups.
+One blueprint is sampled from each group, the five rounds are shuffled, and
+each round receives its own vehicle-role permutation. A core reverse-inference
+round presents two or three qualitative observations whose
 intersection is needed to identify the reference frame, for example:
 
 ```text
@@ -133,7 +135,7 @@ should take about 30 seconds and remain available through a help control.
 Show one activity-wide instruction before the scored rounds:
 
 ```text
-每題可能有一個或多個合適答案。請選擇任何一個同時符合兩項條件的參考物體。
+每題可能有一個或多個合適答案。請選擇任何一個同時符合全部條件的參考物體。
 ```
 
 For each round:
@@ -339,8 +341,8 @@ World motion rules:
   round;
 - all vehicles move in the `↗` road direction in the road frame;
 - no object accelerates, brakes, turns, or changes lane;
-- vehicle positions are deterministic functions of the saved round seed and
-  observation time.
+- vehicle positions are deterministic functions of the instantiated round
+  definition and observation time.
 
 For rendering only, the simulation derives whether each object is stationary,
 moves `↗`, or moves `↙` in the selected frame. The learner sees only those
@@ -365,42 +367,47 @@ extended, fixed visual band so the stage never reveals an empty gap.
 
 ## Round generation and answer validity
 
-Use a deterministic saved seed, but do not freely generate physics statements.
-Create each attempt from the following five validated blueprints. Here `R` means
+Use a local seeded PRNG to instantiate an attempt, but do not freely generate
+physics statements or depend on preserving that temporary seed. Create each
+attempt by sampling one blueprint from each of the following five groups, then
+shuffle the sampled rounds and save the concrete round definitions at final
+submission. Here `R` means
 `路旁觀察者`, scenery has velocity class `0`, and sets list the candidates that
 satisfy each condition independently.
 
-| Blueprint | Internal classes `(A,B,C)` | Condition 1 and its candidate set | Condition 2 and its candidate set | Accepted intersection | Points | Teaching purpose |
-|---|---:|---|---|---|---:|---|
-| `foundation-road` | `(1,2,3)` | scenery stationary: `{R}` | C moves `↗`: `{R,A,B}` | `{R}` | 10 | establish the roadside frame |
-| `equal-motion` | `(2,2,3)` | A stationary: `{A,B}` | B stationary: `{A,B}` | `{A,B}` | 15 | either choice requires observing that the other equal-velocity vehicle is also stationary; accept both frames |
-| `core-lower-middle` | `(1,2,3)` | B moves `↗`: `{R,A}` | scenery moves `↙`: `{A,B,C}` | `{A}` | 25 | two individually ambiguous conditions identify one lower-middle frame |
-| `core-upper-middle` | `(1,2,3)` | C moves `↗`: `{R,A,B}` | A moves `↙`: `{B,C}` | `{B}` | 25 | faster and slower objects move in opposite directions in the chosen frame |
-| `core-transfer` | `(3,1,2)` | A moves `↗`: `{R,B,C}` | B moves `↙`: `{A,C}` | `{C}` | 25 | transfer the two-condition reasoning to permuted vehicle roles |
+| Group | Blueprint | Internal classes `(A,B,C)` | Validated conditions | Accepted intersection | Points |
+|---|---|---:|---|---|---:|
+| roadside foundation | `foundation-road` | `(1,2,3)` | scenery stationary `{R}`; C `↗` `{R,A,B}` | `{R}` | 10 |
+| roadside foundation | `foundation-two-forward` | `(1,2,3)` | A `↗` `{R}`; B `↗` `{R,A}` | `{R}` | 10 |
+| equal motion | `equal-motion` | `(2,2,3)` | A stationary `{A,B}`; B stationary `{A,B}` | `{A,B}` | 15 |
+| equal motion | `equal-motion-road` | `(1,1,3)` | A stationary `{A,B}`; C `↗` `{R,A,B}`; scenery `↙` `{A,B,C}` | `{A,B}` | 15 |
+| lower moving frame | `core-lower-middle` | `(1,2,3)` | B `↗` `{R,A}`; scenery `↙` `{A,B,C}` | `{A}` | 25 |
+| lower moving frame | `core-lower-both-forward` | `(1,2,3)` | B `↗` `{R,A}`; C `↗` `{R,A,B}`; scenery `↙` `{A,B,C}` | `{A}` | 25 |
+| middle moving frame | `core-upper-middle` | `(1,2,3)` | C `↗` `{R,A,B}`; A `↙` `{B,C}` | `{B}` | 25 |
+| middle moving frame | `core-middle-three-signs` | `(1,2,3)` | scenery `↙` `{A,B,C}`; A `↙` `{B,C}`; C `↗` `{R,A,B}` | `{B}` | 25 |
+| transferred roles | `core-transfer` | `(3,1,2)` | A `↗` `{R,B,C}`; B `↙` `{A,C}` | `{C}` | 25 |
+| transferred roles | `core-transfer-road` | `(3,1,2)` | A `↗` `{R,B,C}`; B `↙` `{A,C}`; scenery `↙` `{A,B,C}` | `{C}` | 25 |
 
-The first two rounds are deliberately easier foundation rounds and the last
-three are the core reverse-inference assessment. The equal-motion round is the
-only exception to the narrowing rule: both conditions deliberately identify the
-same equivalent pair, so choosing either A or B still requires observing that
-the other vehicle is also stationary. In every core round, each condition alone
-has multiple candidate frames; only their intersection gives the single
-accepted answer.
+Every attempt preserves the weights `10`, `15`, `25`, `25`, and `25` and
+therefore covers one foundation-road task, one equal-motion task, and three core
+reverse-inference tasks even after shuffling. Equal-motion variants accept two
+physically equivalent frames. Every other sampled blueprint has one accepted
+frame derived from the intersection of its validated predicates.
 
-At attempt start, apply one seeded permutation of template roles `A/B/C` to the
-fixed vehicle identities, and use that same identity mapping consistently when
-constructing all five prompts. The four single-answer blueprints must still
-cover `R`, `車 A`, `車 B`, and `車 C` exactly once. The equivalent-frame blueprint
-adds one accepted vehicle pair but does not remove that coverage.
+At attempt start, independently apply a seeded permutation of template roles
+`A/B/C` to each sampled round. Do not reuse one identity mapping across all five
+prompts. The independent mappings, group-level sampling, shuffled round order,
+and finite layout variants are saved in the final snapshot so locked review can
+reconstruct the exact submitted attempt.
 
-Keep the four answer buttons in a fixed order throughout the attempt. Across the
-five blueprints, each candidate appears in at least one accepted set and no
-candidate appears in more than two accepted sets. This prevents a position or
-frequency shortcut while preserving the deliberate equivalent-frame answer.
+Keep the four answer buttons in a fixed order throughout the attempt. Randomize
+the prompt roles rather than the answer-button positions so the interface stays
+predictable while memorized vehicle-letter answers do not transfer.
 
-Keep vehicle A/B/C colour and silhouette fixed throughout the attempt. Vary only
-the seeded identity-role permutation, lane order, and validated initial-position
-variant. Keep the blueprint progression and point weight fixed; do not shuffle
-an easy foundation task into the final core sequence.
+Keep vehicle A/B/C colour and silhouette fixed throughout the attempt. Vary the
+sampled blueprint, per-round identity-role permutation, round order, and
+validated initial-position variant. The displayed question number does not
+indicate difficulty after shuffling.
 
 Allowed prompt predicates are:
 
@@ -409,8 +416,8 @@ Allowed prompt predicates are:
 - `[object] 在該參考系中向左下方（↙）移動`.
 
 Never use unrestricted random sentence assembly. Validate each instantiated
-blueprint by deriving the complete qualitative motion table and checking the two
-independent candidate sets and their intersection. Never mark one of two
+blueprint by deriving the complete qualitative motion table and checking every
+condition's candidate set and their intersection. Never mark one of two
 physically equivalent frames wrong merely to force a unique answer.
 
 ## Interaction and layout
@@ -519,15 +526,16 @@ Scoring:
 - Passing threshold: `60`.
 - Foundation roadside round: `10` points.
 - Equal-motion round: `15` points.
-- Three core two-condition rounds: `25` points each.
+- Three core reverse-inference rounds with two or three conditions: `25` points
+  each.
 - A round earns its full blueprint weight when the recorded reference-object ID
   belongs to that round's accepted answer set.
 - A wrong or missing round answer earns `0` points for that round.
 - Testing, replaying, pausing, using slow motion, or changing a pre-submit answer
   has no penalty.
 - Equivalent accepted reference objects receive identical full credit.
-- There is no partial credit for satisfying only one of the two prompt
-  conditions; the learner is selecting one frame that must satisfy the complete
+- There is no partial credit for satisfying only some prompt conditions; the
+  learner is selecting one frame that must satisfy the complete
   target phenomenon.
 - Clamp the final score to `0..100`.
 - Lowest possible score: `0`.
@@ -556,9 +564,9 @@ Tolerance:
     the full 15 points assigned to that blueprint;
   - paused animation, viewport size, normal playback, and slow motion never
     change scoring.
-- Easy-to-change constants: `ROUND_BLUEPRINTS`, `BLUEPRINT_WEIGHTS`,
-  `PASSING_SCORE`, `SIMULATION_INTERVAL_S`, `SLOW_MOTION_FACTOR`, and
-  `MIN_VISIBLE_DISPLACEMENT_CSS_PX`.
+- Easy-to-change constants and tables: `ROUND_GROUPS`, `PATTERNS`,
+  `PASSING_SCORE`, `SIMULATION_SECONDS`, `SLOW_FACTOR`, and
+  `MIN_VISIBLE_DISPLACEMENT`.
 
 ## SCORM behavior
 
@@ -566,7 +574,7 @@ Use SCORM 1.2 through `sim/shared/scorm.js`.
 
 Before submission:
 
-- keep the generated attempt seed and learner answers in normal activity state;
+- keep the instantiated rounds and learner answers in normal activity state;
 - do not report a provisional score for individual trials or rounds.
 - version 1 does not persist an unfinished draft to SCORM; reloading or closing
   before final submission deliberately restarts the five unsaved rounds and
@@ -676,19 +684,18 @@ Live Server without Moodle.
 
 Blueprint and seed self-checks should verify:
 
-- exactly the five required blueprint IDs occur in the required progression;
-- the four single-answer blueprints cover `R`, `A`, `B`, and `C` exactly once
-  after permutation;
-- exactly one blueprint contains an equivalent accepted-frame pair;
-- each core condition alone has multiple candidates and its intersection is one
-  candidate;
-- the equal-motion prompt actually uses relative stationarity as a condition;
-- the three core prompts actually include both `↗` and `↙` reasoning where
-  specified;
+- all ten blueprint IDs derive exactly their declared accepted sets;
+- every attempt contains exactly one sampled blueprint from each of the five
+  groups;
+- sampled rounds can occur in any order while their weights still total 100;
+- each round stores and restores its own valid `A/B/C` permutation;
+- equal-motion variants contain the intended equivalent accepted-frame pair;
+- each single-answer core blueprint has a one-candidate intersection;
+- three-condition prompts render and restore every predicate without truncation;
 - prompt predicates match the rendered qualitative motion table;
 - fixed vehicle colours and labels remain consistent across all rounds;
-- seeded permutations and lane/layout variants remain within their validated
-  finite sets.
+- sampled blueprints, permutations, and lane/layout variants remain within their
+  validated finite sets.
 
 Physics, state, and rendering tests should cover:
 

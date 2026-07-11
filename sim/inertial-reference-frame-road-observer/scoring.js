@@ -8,13 +8,14 @@
   const CANDIDATES = ["R", "A", "B", "C"];
   const PASSING_SCORE = 60;
   const LAYOUT_COUNT = 4;
-  const ROUND_ORDER = [
-    "foundation-road",
-    "equal-motion",
-    "core-lower-middle",
-    "core-upper-middle",
-    "core-transfer"
+  const ROUND_GROUPS = [
+    ["foundation-road", "foundation-two-forward"],
+    ["equal-motion", "equal-motion-road"],
+    ["core-lower-middle", "core-lower-both-forward"],
+    ["core-upper-middle", "core-middle-three-signs"],
+    ["core-transfer", "core-transfer-road"]
   ];
+  const ROUND_ORDER = ROUND_GROUPS.map((group) => group[0]);
   const PATTERNS = {
     "foundation-road": {
       weight: 10,
@@ -22,6 +23,15 @@
       conditions: [
         { object: "roadside", state: "stationary" },
         { object: "C", state: "up" }
+      ],
+      accepted: ["R"]
+    },
+    "foundation-two-forward": {
+      weight: 10,
+      classes: { A: 1, B: 2, C: 3 },
+      conditions: [
+        { object: "A", state: "up" },
+        { object: "B", state: "up" }
       ],
       accepted: ["R"]
     },
@@ -34,11 +44,31 @@
       ],
       accepted: ["A", "B"]
     },
+    "equal-motion-road": {
+      weight: 15,
+      classes: { A: 1, B: 1, C: 3 },
+      conditions: [
+        { object: "A", state: "stationary" },
+        { object: "C", state: "up" },
+        { object: "roadside", state: "down" }
+      ],
+      accepted: ["A", "B"]
+    },
     "core-lower-middle": {
       weight: 25,
       classes: { A: 1, B: 2, C: 3 },
       conditions: [
         { object: "B", state: "up" },
+        { object: "roadside", state: "down" }
+      ],
+      accepted: ["A"]
+    },
+    "core-lower-both-forward": {
+      weight: 25,
+      classes: { A: 1, B: 2, C: 3 },
+      conditions: [
+        { object: "B", state: "up" },
+        { object: "C", state: "up" },
         { object: "roadside", state: "down" }
       ],
       accepted: ["A"]
@@ -52,6 +82,16 @@
       ],
       accepted: ["B"]
     },
+    "core-middle-three-signs": {
+      weight: 25,
+      classes: { A: 1, B: 2, C: 3 },
+      conditions: [
+        { object: "roadside", state: "down" },
+        { object: "A", state: "down" },
+        { object: "C", state: "up" }
+      ],
+      accepted: ["B"]
+    },
     "core-transfer": {
       weight: 25,
       classes: { A: 3, B: 1, C: 2 },
@@ -60,8 +100,38 @@
         { object: "B", state: "down" }
       ],
       accepted: ["C"]
+    },
+    "core-transfer-road": {
+      weight: 25,
+      classes: { A: 3, B: 1, C: 2 },
+      conditions: [
+        { object: "A", state: "up" },
+        { object: "B", state: "down" },
+        { object: "roadside", state: "down" }
+      ],
+      accepted: ["C"]
     }
   };
+
+  function shuffledWithRandom(items, random) {
+    const result = items.slice();
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  }
+
+  function generateAttemptSpec(random) {
+    if (typeof random !== "function") throw new Error("Attempt generator requires a random function");
+    const sampled = ROUND_GROUPS.map((group) => group[Math.floor(random() * group.length)]);
+    const roundOrder = shuffledWithRandom(sampled, random);
+    return {
+      roundOrder,
+      permutations: roundOrder.map(() => shuffledWithRandom(["A", "B", "C"], random).join("")),
+      layouts: roundOrder.map(() => Math.floor(random() * LAYOUT_COUNT))
+    };
+  }
 
   function permutationMap(permutation) {
     const value = String(permutation || "ABC").toUpperCase();
@@ -119,8 +189,12 @@
     };
   }
 
-  function instantiateAttempt(permutation, layouts) {
-    return ROUND_ORDER.map((id, index) => instantiateRound(id, permutation, (layouts || [])[index] || 0));
+  function instantiateAttempt(permutations, layouts, roundOrder) {
+    const ids = Array.isArray(roundOrder) ? roundOrder : ROUND_ORDER;
+    return ids.map((id, index) => {
+      const permutation = Array.isArray(permutations) ? permutations[index] : permutations;
+      return instantiateRound(id, permutation, (layouts || [])[index] || 0);
+    });
   }
 
   function scoreAttempt(rounds, answers) {
@@ -155,6 +229,23 @@
     );
   }
 
+  function validateAttempt(rounds) {
+    if (!Array.isArray(rounds) || rounds.length !== ROUND_GROUPS.length) return false;
+    const groupIndexes = rounds.map((round) => ROUND_GROUPS.findIndex((group) => group.includes(round.id)));
+    try {
+      return (
+        groupIndexes.every((index) => index >= 0) &&
+        new Set(groupIndexes).size === ROUND_GROUPS.length &&
+        rounds.reduce((total, round) => total + round.weight, 0) === 100 &&
+        rounds.every((round) => validateRound(round)) &&
+        rounds.every((round) => Number.isInteger(round.layout) && round.layout >= 0 && round.layout < LAYOUT_COUNT) &&
+        rounds.every((round) => Boolean(permutationMap(round.permutation)))
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
   function snapshotRound(round) {
     return {
       p: round.id,
@@ -185,8 +276,10 @@
     CANDIDATES,
     PASSING_SCORE,
     LAYOUT_COUNT,
+    ROUND_GROUPS,
     ROUND_ORDER,
     PATTERNS,
+    generateAttemptSpec,
     relation,
     referenceClass,
     objectClass,
@@ -196,6 +289,7 @@
     instantiateAttempt,
     scoreAttempt,
     validateRound,
+    validateAttempt,
     snapshotRound,
     roundFromSnapshot,
     validateAnswers
