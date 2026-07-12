@@ -2,6 +2,8 @@
   "use strict";
 
   const Scoring = window.MapJourneyScoring;
+  const RouteCoverage = window.MapRouteCoverage;
+  const Persistence = window.MapJourneyPersistence;
   const svg = document.getElementById("mapSvg");
   const roadLayer = document.getElementById("roadLayer");
   const blockLayer = document.getElementById("blockLayer");
@@ -37,7 +39,6 @@
   const SVG_WIDTH = 120;
   const SVG_HEIGHT = 80;
   const ROAD_WIDTH = 4;
-  const REVIEW_TRACE_POINT_CAP = 18;
   const PREVIEW_VIEWBOX_WIDTH = 30;
   const PREVIEW_VIEWBOX_HEIGHT = 20;
   const PREVIEW_MARGIN_PX = 10;
@@ -83,7 +84,7 @@
     return {
       reached: false,
       routeDistance: 0,
-      trace: [],
+      coverage: [],
       arrow: null,
       answers: null
     };
@@ -430,7 +431,7 @@
     state.phase = "walk";
     const startPlace = placeById(state.scene.routeIds[index]);
     state.person = nearestRoadPosition(startPlace.entrance);
-    state.segments[index].trace = [pointOnly(state.person)];
+    state.segments[index].coverage = [];
   }
 
   function nearestRoadPosition(point) {
@@ -584,10 +585,9 @@
     const destination = nearestRoadPosition(target.entrance);
     const completion = Scoring.routeCompletion(state.person, destination, roadPath);
     segment.routeDistance += completion.distance;
-    completion.points.forEach((pathPoint) => pushTracePoint(segment, pathPoint));
+    addTracePath(segment, [pointOnly(state.person), ...completion.points]);
     segment.reached = true;
     state.person = completion.end;
-    pushTracePoint(segment, pointOnly(state.person));
     segment.arrow = defaultArrow(displacementPoint(segmentStartPlace(state.currentSegment)));
     state.phase = "draw-segment";
     state.drag = null;
@@ -633,22 +633,16 @@
   }
 
   function compactState() {
-    return {
+    return Persistence.encode({
       seed: state.scene.seed,
       routeIds: state.scene.routeIds,
       currentSegment: state.currentSegment,
       phase: state.phase,
-      person: state.person ? compactPoint(state.person) : null,
-      segments: state.segments.map((segment) => ({
-        reached: segment.reached,
-        routeDistance: round1(segment.routeDistance),
-        trace: compactTrace(segment.trace),
-        arrow: compactArrow(segment.arrow),
-        answers: cloneAnswers(segment.answers)
-      })),
-      totalArrow: compactArrow(state.totalArrow),
-      totalAnswers: cloneAnswers(state.totalAnswers)
-    };
+      person: state.person,
+      segments: state.segments,
+      totalArrow: state.totalArrow,
+      totalAnswers: state.totalAnswers
+    });
   }
 
   function draftState() {
@@ -657,29 +651,6 @@
 
   function saveDraft() {
     if (!state.locked) window.SimScorm.saveDraft(draftState());
-  }
-
-  function compactTrace(trace) {
-    const points = trace.length <= REVIEW_TRACE_POINT_CAP
-      ? trace
-      : Array.from({ length: REVIEW_TRACE_POINT_CAP }, (_, index) => {
-          const sourceIndex = Math.round(index * (trace.length - 1) / (REVIEW_TRACE_POINT_CAP - 1));
-          return trace[sourceIndex];
-        });
-    return points.map(compactPoint);
-  }
-
-  function compactArrow(arrow) {
-    return arrow
-      ? {
-          tail: compactPoint(arrow.tail),
-          head: compactPoint(arrow.head)
-        }
-      : null;
-  }
-
-  function compactPoint(point) {
-    return [round1(point.x), round1(point.y)];
   }
 
   function showSubmittedAttempt() {
@@ -704,55 +675,33 @@
 
   function restoreSnapshot(snapshot) {
     const review = snapshot?.answer;
-    const pointOk = (point) => Array.isArray(point)
-      ? point.length === 2 && point.every(Number.isFinite)
-      : point && Number.isFinite(point.x) && Number.isFinite(point.y);
-    const arrowOk = (arrow) => !arrow || (pointOk(arrow.tail) && pointOk(arrow.head));
-    if (!Number.isFinite(review?.seed) || !Array.isArray(review.routeIds) || review.routeIds.length !== 3 || !Array.isArray(review.segments) || review.segments.some((segment) => !Array.isArray(segment?.trace) || !segment.trace.every(pointOk) || !arrowOk(segment.arrow)) || !arrowOk(review.totalArrow) || (review.person != null && !pointOk(review.person))) return false;
+    if (!Number.isFinite(review?.seed) || !Array.isArray(review.routeIds) || review.routeIds.length !== 3) return false;
     try {
       state.scene = buildScene(review.seed, review.routeIds);
-      state.segments = review.segments.map((segment) => ({
-        reached: Boolean(segment.reached),
-        routeDistance: Number(segment.routeDistance) || 0,
-        trace: expandTrace(Array.isArray(segment.trace) ? segment.trace : []),
-        arrow: expandArrow(segment.arrow),
-        answers: segment.answers || null
-      }));
-      if (state.segments.length !== 2) return false;
-      state.totalArrow = expandArrow(review.totalArrow);
-      state.totalAnswers = review.totalAnswers || null;
-      const inferredSegment = state.segments[0].answers ? 1 : 0;
-      state.currentSegment = Number.isInteger(review.currentSegment) && review.currentSegment >= 0 && review.currentSegment < 2
-        ? review.currentSegment
-        : inferredSegment;
-      const inferredPhase = state.totalAnswers ? "ready-submit" : state.segments[state.currentSegment]?.reached ? "segment-answer" : "walk";
-      state.phase = ["walk", "draw-segment", "segment-answer", "draw-total", "ready-submit"].includes(review.phase)
-        ? review.phase
-        : inferredPhase;
+      const restored = Persistence.decode(review, state.scene.edges, (from, to) => {
+        const start = nearestRoadPosition(expandPoint(from));
+        const end = nearestRoadPosition(expandPoint(to));
+        return roadPath(start, end).points;
+      });
+      if (!restored) return false;
+      state.segments = restored.segments;
+      state.totalArrow = restored.totalArrow;
+      state.totalAnswers = restored.totalAnswers;
+      state.currentSegment = restored.currentSegment;
+      state.phase = restored.phase;
       const fallbackPlace = state.segments[state.currentSegment]?.reached
         ? segmentEndPlace(state.currentSegment)
         : segmentStartPlace(state.currentSegment);
-      const restoredPoint = Scoring.restoredWalkerPoint(review, state.currentSegment, fallbackPlace.entrance);
-      state.person = nearestRoadPosition(Array.isArray(restoredPoint)
-        ? { x: restoredPoint[0], y: restoredPoint[1] }
-        : restoredPoint);
+      const restoredPoint = restored.person || Scoring.restoredWalkerPoint(review, state.currentSegment, fallbackPlace.entrance);
+      state.person = nearestRoadPosition(expandPoint(restoredPoint));
       return true;
     } catch {
       return false;
     }
   }
 
-  function expandTrace(trace) {
-    return trace.map((point) => Array.isArray(point) ? { x: point[0], y: point[1] } : point);
-  }
-
-  function expandArrow(arrow) {
-    if (!arrow) return null;
-    const point = (item) => Array.isArray(item) ? { x: item[0], y: item[1] } : item;
-    return {
-      tail: point(arrow.tail),
-      head: point(arrow.head)
-    };
+  function expandPoint(point) {
+    return Array.isArray(point) ? { x: point[0], y: point[1] } : point;
   }
 
   function lockAttempt(message) {
@@ -854,11 +803,17 @@
   function renderTrace() {
     traceLayer.replaceChildren();
     state.segments.forEach((segment, index) => {
-      if (segment.trace.length < 2) return;
-      traceLayer.append(svgElement("polyline", {
-        class: `trace-line segment-${index === 0 ? "one" : "two"}`,
-        points: segment.trace.map((point) => `${point.x},${point.y}`).join(" ")
-      }));
+      segment.coverage.forEach((interval) => {
+        const points = RouteCoverage.intervalPoints(interval, state.scene.edgeById);
+        if (!points) return;
+        traceLayer.append(svgElement("line", {
+          class: `trace-line segment-${index === 0 ? "one" : "two"}`,
+          x1: points[0].x,
+          y1: points[0].y,
+          x2: points[1].x,
+          y2: points[1].y
+        }));
+      });
     });
   }
 
@@ -1376,7 +1331,7 @@
     if (!Number.isFinite(path.distance) || (isTurning && path.distance > PERSON_DRAG_TURN_LIMIT_M)) return;
     segment.routeDistance += path.distance;
     state.person = next;
-    path.points.slice(1).forEach((pathPoint) => pushTracePoint(segment, pathPoint));
+    addTracePath(segment, path.points);
     if (reachedTarget()) completeCurrentSegment();
   }
 
@@ -1411,8 +1366,8 @@
     );
   }
 
-  function pushTracePoint(segment, point) {
-    segment.trace.push(point);
+  function addTracePath(segment, points) {
+    segment.coverage = RouteCoverage.addPath(segment.coverage, state.scene.edges, points);
   }
 
   function pointOnly(point) {

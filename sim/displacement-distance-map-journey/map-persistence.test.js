@@ -1,0 +1,78 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const Coverage = require("./route-coverage.js");
+const Persistence = require("./map-persistence.js");
+
+const edges = [
+  { id: 0, a: { x: 0, y: 0 }, b: { x: 10, y: 0 } },
+  { id: 1, a: { x: 10, y: 0 }, b: { x: 10, y: 10 } },
+  { id: 2, a: { x: 10, y: 10 }, b: { x: 20, y: 10 } }
+];
+const edgeById = Object.fromEntries(edges.map((edge) => [edge.id, edge]));
+const source = {
+  seed: 0,
+  routeIds: [2, 4, 1],
+  currentSegment: 1,
+  phase: "walk",
+  person: { x: 10, y: 6, edgeId: 1, t: 0.6 },
+  segments: [
+    { reached: true, routeDistance: 244.3, coverage: [{ edgeId: 0, start: 0.2, end: 1 }, { edgeId: 1, start: 0, end: 0.6 }], arrow: null, answers: { routeDistance: 244.3 } },
+    { reached: false, routeDistance: 37.8, coverage: [{ edgeId: 2, start: 0.1, end: 0.5 }], arrow: null, answers: null }
+  ],
+  totalArrow: null,
+  totalAnswers: null
+};
+
+const encoded = Persistence.encode(source);
+assert.equal(encoded.traceFormat, 2, "production serializer marks the topology format");
+const restored = Persistence.decode(encoded, edges, () => { throw new Error("new format must not use legacy migration"); });
+assert.ok(restored, "production serializer output restores");
+assert.deepEqual(restored.segments.map((segment) => segment.routeDistance), [244.3, 37.8], "route distances round-trip unchanged");
+assert.deepEqual(restored.segments.map((segment) => Coverage.compact(segment.coverage)), encoded.segments.map((segment) => segment.coverage), "coverage intervals round-trip unchanged");
+assert.deepEqual(restored.person, { x: 10, y: 6 }, "person position round-trips");
+assert.equal(restored.currentSegment, 1, "current segment round-trips");
+assert.equal(restored.phase, "walk", "phase round-trips");
+restored.segments.flatMap((segment) => segment.coverage).forEach((interval) => {
+  const points = Coverage.intervalPoints(interval, edgeById);
+  assert.ok(points && points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)), "render segment geometry is available");
+});
+
+const legacyTrace = Array.from({ length: 18 }, (_, index) => index < 9
+  ? [2 + index, 0]
+  : [10, index - 8]);
+const legacy = {
+  ...encoded,
+  traceFormat: undefined,
+  person: [10, 9],
+  segments: [
+    { reached: false, routeDistance: 244.3, trace: legacyTrace, arrow: null, answers: null },
+    { reached: false, routeDistance: 0, trace: [], arrow: null, answers: null }
+  ]
+};
+function legacyRoadPath(from, to) {
+  const a = Array.isArray(from) ? { x: from[0], y: from[1] } : from;
+  const b = Array.isArray(to) ? { x: to[0], y: to[1] } : to;
+  if (a.y === b.y || a.x === b.x) return [a, b];
+  return [a, { x: 10, y: 0 }, b];
+}
+const migrated = Persistence.decode(legacy, edges, legacyRoadPath);
+assert.ok(migrated?.legacy, "legacy 18-point snapshot uses production migration");
+assert.equal(migrated.segments[0].routeDistance, 244.3, "legacy migration does not change distance");
+migrated.segments[0].coverage.forEach((interval) => {
+  const points = Coverage.intervalPoints(interval, edgeById);
+  assert.ok(points, "legacy output references a scene edge");
+  const edge = edgeById[interval.edgeId];
+  points.forEach((point) => {
+    const cross = (point.x - edge.a.x) * (edge.b.y - edge.a.y) - (point.y - edge.a.y) * (edge.b.x - edge.a.x);
+    assert.ok(Math.abs(cross) < 1e-9, "legacy output has no diagonal segments");
+  });
+});
+
+const corrupt = structuredClone(encoded);
+corrupt.segments[0].coverage = [[99, 0, 1]];
+assert.equal(Persistence.decode(corrupt, edges, legacyRoadPath), null, "unknown edge id is rejected");
+const envelope = { version: 1, activity: "displacement-distance-map-journey", kind: "draft", answer: encoded };
+assert.ok(Buffer.byteLength(JSON.stringify(envelope), "utf8") < 4000, "production snapshot envelope fits suspend_data");
+
+console.log("Map persistence integration checks passed");
