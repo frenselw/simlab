@@ -7,6 +7,7 @@ const {
   hasReachedDestination,
   isDirectionAnswerCorrect,
   routeCompletion,
+  restoredWalkerPoint,
   scoreJourney
 } = require("./scoring.js");
 
@@ -34,6 +35,16 @@ existingSegment.routeDistance += rectCompletion.distance;
 existingSegment.trace.push(...rectCompletion.points);
 assert.equal(existingSegment.routeDistance, 32);
 assert.deepEqual(existingSegment.trace.at(-1), rectCompletion.end);
+
+const resumedSecondSegment = {
+  segments: [
+    { trace: [[10, 10], [20, 10]] },
+    { trace: [[40, 50], [45, 50]] }
+  ]
+};
+assert.deepEqual(restoredWalkerPoint(resumedSecondSegment, 1, [0, 0]), [45, 50]);
+assert.deepEqual(restoredWalkerPoint({ ...resumedSecondSegment, person: [47, 50] }, 1, [0, 0]), [47, 50]);
+assert.deepEqual(restoredWalkerPoint({ segments: [{ trace: [] }] }, 0, [8, 9]), [8, 9]);
 
 const journey = {
   routePlaceIds: ["school", "bank", "park"],

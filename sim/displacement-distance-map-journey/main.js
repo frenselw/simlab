@@ -636,6 +636,9 @@
     return {
       seed: state.scene.seed,
       routeIds: state.scene.routeIds,
+      currentSegment: state.currentSegment,
+      phase: state.phase,
+      person: state.person ? compactPoint(state.person) : null,
       segments: state.segments.map((segment) => ({
         reached: segment.reached,
         routeDistance: round1(segment.routeDistance),
@@ -705,7 +708,7 @@
       ? point.length === 2 && point.every(Number.isFinite)
       : point && Number.isFinite(point.x) && Number.isFinite(point.y);
     const arrowOk = (arrow) => !arrow || (pointOk(arrow.tail) && pointOk(arrow.head));
-    if (!Number.isFinite(review?.seed) || !Array.isArray(review.routeIds) || review.routeIds.length !== 3 || !Array.isArray(review.segments) || review.segments.some((segment) => !Array.isArray(segment?.trace) || !segment.trace.every(pointOk) || !arrowOk(segment.arrow)) || !arrowOk(review.totalArrow)) return false;
+    if (!Number.isFinite(review?.seed) || !Array.isArray(review.routeIds) || review.routeIds.length !== 3 || !Array.isArray(review.segments) || review.segments.some((segment) => !Array.isArray(segment?.trace) || !segment.trace.every(pointOk) || !arrowOk(segment.arrow)) || !arrowOk(review.totalArrow) || (review.person != null && !pointOk(review.person))) return false;
     try {
       state.scene = buildScene(review.seed, review.routeIds);
       state.segments = review.segments.map((segment) => ({
@@ -718,9 +721,21 @@
       if (state.segments.length !== 2) return false;
       state.totalArrow = expandArrow(review.totalArrow);
       state.totalAnswers = review.totalAnswers || null;
-      state.person = nearestRoadPosition(placeById(state.scene.routeIds[2]).entrance);
-      state.currentSegment = state.segments[0].answers ? 1 : 0;
-      state.phase = state.totalAnswers ? "ready-submit" : state.segments[state.currentSegment]?.reached ? "segment-answer" : "walk";
+      const inferredSegment = state.segments[0].answers ? 1 : 0;
+      state.currentSegment = Number.isInteger(review.currentSegment) && review.currentSegment >= 0 && review.currentSegment < 2
+        ? review.currentSegment
+        : inferredSegment;
+      const inferredPhase = state.totalAnswers ? "ready-submit" : state.segments[state.currentSegment]?.reached ? "segment-answer" : "walk";
+      state.phase = ["walk", "draw-segment", "segment-answer", "draw-total", "ready-submit"].includes(review.phase)
+        ? review.phase
+        : inferredPhase;
+      const fallbackPlace = state.segments[state.currentSegment]?.reached
+        ? segmentEndPlace(state.currentSegment)
+        : segmentStartPlace(state.currentSegment);
+      const restoredPoint = Scoring.restoredWalkerPoint(review, state.currentSegment, fallbackPlace.entrance);
+      state.person = nearestRoadPosition(Array.isArray(restoredPoint)
+        ? { x: restoredPoint[0], y: restoredPoint[1] }
+        : restoredPoint);
       return true;
     } catch {
       return false;
