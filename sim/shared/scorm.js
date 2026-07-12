@@ -35,7 +35,7 @@
   }
 
   function saveDraft(snapshot) {
-    if (!snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > SNAPSHOT_LIMIT) return false;
+    if (finalCommitted || !snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > SNAPSHOT_LIMIT) return false;
     return setValue("cmi.suspend_data", JSON.stringify(snapshot)) &&
       setValue("cmi.core.exit", "suspend") && commit();
   }

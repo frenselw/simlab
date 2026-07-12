@@ -57,6 +57,18 @@ assert.equal(finishFailure.finished, false);
 assert.equal(finishFailure.committed, true);
 assert.equal(finishFailure.reason, "finish");
 
+const committedValues = {};
+const committedFailure = { finish: true };
+const committedRuntime = runtime(fakeApi(committedFailure, committedValues));
+const finalSnapshot = committedRuntime.scorm.makeSnapshot("activity", "review", { final: true }, result);
+assert.equal(committedRuntime.scorm.submitResult(result, finalSnapshot).committed, true);
+assert.equal(committedRuntime.scorm.saveDraft(committedRuntime.scorm.makeSnapshot("activity", "draft", { final: false })), false);
+assert.equal(JSON.parse(committedValues["cmi.suspend_data"]).kind, "review");
+committedFailure.finish = false;
+committedRuntime.listeners.pagehide();
+assert.equal(committedValues.finishes, 2);
+assert.equal(JSON.parse(committedValues["cmi.suspend_data"]).kind, "review");
+
 const finishFail = {};
 const finishRetryRuntime = runtime(fakeApi(finishFail));
 finishFail.finish = true;
@@ -146,5 +158,12 @@ for (const failingKey of ["cmi.core.score.raw", "cmi.core.lesson_status", "cmi.c
   assert.equal(successes, 1);
   assert.equal(failures, 1);
 }
+
+let committedCallback = false;
+runtime(fakeApi({ finish: true })).scorm.submitWithCallbacks(result, { final: true }, {
+  onSuccess: () => assert.fail("finish failure must not report full success"),
+  onFailure: (submission) => { committedCallback = submission.committed === true; }
+});
+assert.equal(committedCallback, true);
 
 console.log("SCORM fake LMS checks passed");

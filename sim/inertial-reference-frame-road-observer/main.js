@@ -61,10 +61,14 @@
     locked: false,
     result: null,
     trustedReview: true,
-    view: { width: 760, height: 480, dpr: 1 },
-    lastFrame: performance.now()
+    view: { width: 760, height: 480, dpr: 1 }
   };
-  let animationFrame = null;
+  const animationLoop = window.createAnimationLoop({
+    requestFrame: window.requestAnimationFrame.bind(window),
+    cancelFrame: window.cancelAnimationFrame.bind(window),
+    now: () => performance.now(),
+    onFrame: animate
+  });
 
   function randomSeed() {
     return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
@@ -200,7 +204,18 @@
     };
     const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", answer, result);
     window.SimScorm.submitWithCallbacks(result, snapshot, {
-      onFailure: () => window.alert("未能傳送到 Moodle，請重試。"),
+      onFailure: (submission) => {
+        if (!submission.committed) {
+          window.alert("未能傳送到 Moodle，請重試。");
+          return;
+        }
+        state.result = result;
+        state.locked = true;
+        state.mode = "submitted";
+        state.selected = null;
+        state.playback = "idle";
+        window.alert("成績已保存；Moodle session 會在離開頁面時再次完成。");
+      },
       onSuccess: () => {
         state.result = result;
         state.locked = true;
@@ -274,20 +289,10 @@
 
   function restoreDraft() {
     const saved = window.SimScorm.readSnapshot(ACTIVITY, "draft");
-    try {
-      const rounds = saved.answer.rounds.map(Scoring.roundFromSnapshot);
-      if (!Scoring.validateAttempt(rounds) || !Array.isArray(saved.answer.answers) || saved.answer.answers.length !== rounds.length) return false;
-      state.rounds = rounds;
-      state.answers = saved.answer.answers.map((answer) => answer || null);
-      state.activeIndex = Math.max(0, Math.min(rounds.length - 1, Number(saved.answer.activeIndex) || 0));
-      state.mode = saved.answer.mode === "review" ? "review" : "task";
-      state.selected = null;
-      state.observedCandidates = new Set();
-      state.playback = "idle";
-      return true;
-    } catch {
-      return false;
-    }
+    const restored = saved && Scoring.restoreDraft(saved.answer);
+    if (!restored) return false;
+    Object.assign(state, restored, { selected: null, observedCandidates: new Set(), playback: "idle" });
+    return true;
   }
 
   function renderUI() {
@@ -1063,10 +1068,7 @@
     ctx.restore();
   }
 
-  function tick(now) {
-    animationFrame = null;
-    const elapsed = Math.min(0.05, (now - state.lastFrame) / 1000);
-    state.lastFrame = now;
+  function animate(elapsed) {
     if (state.playback === "playing") {
       state.simTime += elapsed * (state.slow ? SLOW_FACTOR : 1);
       if (state.simTime >= SIMULATION_SECONDS) {
@@ -1078,20 +1080,13 @@
       }
     }
     drawScene();
-    if (state.playback === "playing" && !document.hidden && animationFrame == null) {
-      animationFrame = window.requestAnimationFrame(tick);
-    }
+    return state.playback === "playing" && !document.hidden;
   }
 
   function syncAnimation() {
     const shouldRun = state.playback === "playing" && !document.hidden;
-    if (shouldRun && animationFrame == null) {
-      state.lastFrame = performance.now();
-      animationFrame = window.requestAnimationFrame(tick);
-    } else if (!shouldRun && animationFrame != null) {
-      window.cancelAnimationFrame(animationFrame);
-      animationFrame = null;
-    }
+    if (shouldRun) animationLoop.start();
+    else animationLoop.stop();
   }
 
   function resizeCanvas() {

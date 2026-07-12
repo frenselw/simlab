@@ -249,7 +249,9 @@
     const result = window.MirrorRayScoring.scoreDiagram(answer, state.scene);
     showResult(result);
     window.SimScorm.submitWithCallbacks(result, reviewState(result), {
-      onFailure: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
+      onFailure: (submission) => submission.committed
+        ? lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。")
+        : scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
       onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
     });
   }

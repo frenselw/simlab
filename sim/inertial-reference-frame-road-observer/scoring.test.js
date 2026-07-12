@@ -58,6 +58,15 @@ assert.throws(() => Scoring.roundFromSnapshot({ ...snapshot, l: Scoring.LAYOUT_C
 assert.equal(Scoring.validateAnswers(["R", "A", "B", "C", "A"], 5), true);
 assert.equal(Scoring.validateAnswers(["R", "A", "invalid", "C", "A"], 5), false);
 assert.equal(Scoring.validateAnswers(["R"], 5), false);
+assert.equal(Scoring.validateAnswers([null, "A", null, "C", "A"], 5, true), true);
+assert.equal(Scoring.validateAnswers([null, "A", "invalid", "C", "A"], 5, true), false);
+const draftRounds = rounds.map(Scoring.snapshotRound);
+for (const mode of ["guide", "task", "review"]) {
+  const restored = Scoring.restoreDraft({ rounds: draftRounds, answers: [null, "A", null, "B", null], activeIndex: 3, mode });
+  assert.equal(restored.mode, mode);
+  assert.equal(restored.activeIndex, 3);
+}
+assert.equal(Scoring.restoreDraft({ rounds: draftRounds, answers: [null, "invalid", null, null, null], activeIndex: 0, mode: "task" }), null);
 
 const permuted = Scoring.instantiateAttempt("BCA", [0, 0, 0, 0, 0]);
 assert.deepEqual(permuted.map((round) => round.id), Scoring.ROUND_ORDER);

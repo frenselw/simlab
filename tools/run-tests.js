@@ -11,7 +11,8 @@ const tests = [
   "sim/displacement-distance-map-journey/scoring.test.js",
   "sim/inertial-reference-frame-road-observer/scoring.test.js",
   "sim/inertial-reference-frame-road-observer/animation.test.js",
-  "sim/shared/scorm.test.js"
+  "sim/shared/scorm.test.js",
+  "sim/shared/activity-submission.test.js"
 ];
 
 for (const test of tests) {

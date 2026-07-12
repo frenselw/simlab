@@ -268,8 +268,25 @@
     return round;
   }
 
-  function validateAnswers(answers, count) {
-    return Array.isArray(answers) && answers.length === count && answers.every((answer) => CANDIDATES.includes(answer));
+  function validateAnswers(answers, count, allowIncomplete = false) {
+    return Array.isArray(answers) && answers.length === count && answers.every((answer) => (allowIncomplete && answer == null) || CANDIDATES.includes(answer));
+  }
+
+  function restoreDraft(answer) {
+    try {
+      const rounds = answer.rounds.map(roundFromSnapshot);
+      if (!validateAttempt(rounds) || !validateAnswers(answer.answers, rounds.length, true)) return null;
+      const mode = ["guide", "task", "review"].includes(answer.mode) ? answer.mode : null;
+      if (!mode) return null;
+      return {
+        rounds,
+        answers: answer.answers.map((value) => value || null),
+        activeIndex: Math.max(0, Math.min(rounds.length - 1, Number(answer.activeIndex) || 0)),
+        mode
+      };
+    } catch {
+      return null;
+    }
   }
 
   return {
@@ -292,6 +309,7 @@
     validateAttempt,
     snapshotRound,
     roundFromSnapshot,
-    validateAnswers
+    validateAnswers,
+    restoreDraft
   };
 });
