@@ -620,12 +620,13 @@
     const result = Scoring.scoreJourney(currentAnswer(), journeyForScene(state.scene));
     state.result = result;
     showResult(result);
-    window.SimScorm.submitWithCallbacks(result, reviewState(result), {
-      onFailure: (submission) => submission.committed
-        ? lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。")
-        : scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
-      onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。"),
+      committed: () => lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => lockAttempt("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      retry: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong"))
     });
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), { onFailure: handle, onSuccess: handle });
   }
 
   function reviewState(result) {
@@ -653,19 +654,19 @@
     if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
-  function showSubmittedAttempt() {
-    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+  function showSubmittedAttempt(attempt) {
+    const review = attempt?.snapshot || attempt?.review || null;
     if (!restoreSnapshot(review)) {
       scorePanel.replaceChildren(
         textBlock("div", "此作答次已提交"),
-        textBlock("div", String(window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
+        textBlock("div", String(attempt?.score || "--"), "score-value"),
         textBlock("div", "未能載入已提交地圖。", "muted feedback-summary")
       );
       state.locked = true;
       return;
     }
     const result = Scoring.scoreJourney(currentAnswer(), journeyForScene(state.scene));
-    const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+    const raw = String(attempt?.score ?? "").trim();
     const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
     showResult(trusted ? result : {
       score: raw || "--", passed: false, feedbackItems: [], summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。"
@@ -1410,13 +1411,22 @@
   svg.addEventListener("pointerup", onPointerUp);
   svg.addEventListener("pointercancel", onPointerUp);
 
-  window.SimScorm.init();
-  window.SimScorm.setDraftProvider(draftState);
-  if (window.SimScorm.isAttemptFinished()) {
-    showSubmittedAttempt();
-  } else {
-    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
-    if (!draft || !restoreSnapshot(draft)) startNewAttempt();
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") {
+    showSubmittedAttempt(attempt);
+  } else if (attempt.state === "draft") {
+    if (!restoreSnapshot(attempt.snapshot)) startNewAttempt();
     else render();
+    window.SimScorm.setDraftProvider(draftState);
+  } else if (startupState === "editable") {
+    startNewAttempt();
+    window.SimScorm.setDraftProvider(draftState);
+  } else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { showSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else lockAttempt("提交狀態未確認，請重新開啟活動再試。");
+  } else {
+    lockAttempt("未能從 Moodle 安全載入本次作答，請重新開啟活動。");
   }
 })();

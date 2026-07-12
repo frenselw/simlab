@@ -21,7 +21,7 @@
       person: source.person ? compactPoint(source.person) : null,
       segments: source.segments.map((segment) => ({
         reached: Boolean(segment.reached),
-        routeDistance: round1(segment.routeDistance),
+        routeDistance: segment.routeDistance,
         coverage: Coverage.compact(segment.coverage),
         arrow: compactArrow(segment.arrow),
         answers: segment.answers || null

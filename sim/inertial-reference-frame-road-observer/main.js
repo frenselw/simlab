@@ -155,15 +155,12 @@
   function recordAnswer() {
     if (state.mode !== "task" || !state.selected || !state.observedCandidates.has(state.selected)) return;
     state.answers[state.activeIndex] = state.selected;
-    if (state.fromReview) {
+    const next = Scoring.nextStateAfterRecord(state.fromReview, state.activeIndex, state.rounds.length);
+    if (next.mode === "review") {
       showReview();
       return;
     }
-    if (state.activeIndex === state.rounds.length - 1) {
-      showReview();
-    } else {
-      beginRound(state.activeIndex + 1, false);
-    }
+    beginRound(next.activeIndex, false);
   }
 
   function completeGuide() {
@@ -203,33 +200,27 @@
       answers: state.answers.slice()
     };
     const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", answer, result);
-    window.SimScorm.submitWithCallbacks(result, snapshot, {
-      onFailure: (submission) => {
-        if (!submission.committed) {
-          window.alert("未能傳送到 Moodle，請重試。");
-          return;
-        }
+    const lockSubmitted = (message) => {
         state.result = result;
         state.locked = true;
         state.mode = "submitted";
         state.selected = null;
         state.playback = "idle";
-        window.alert("成績已保存；Moodle session 會在離開頁面時再次完成。");
-      },
-      onSuccess: () => {
-        state.result = result;
-        state.locked = true;
-        state.mode = "submitted";
-        state.selected = null;
-        state.playback = "idle";
-      }
+        if (message) window.alert(message);
+    };
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockSubmitted(),
+      committed: () => lockSubmitted("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => lockSubmitted("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      retry: () => window.alert("未能傳送到 Moodle，請重試。")
     });
+    window.SimScorm.submitWithCallbacks(result, snapshot, { onFailure: handle, onSuccess: handle });
     renderUI();
   }
 
-  function restoreSubmittedAttempt() {
-    const saved = window.SimScorm.readSnapshot(ACTIVITY, "review");
-    const rawLmsScore = window.SimScorm.getValue("cmi.core.score.raw");
+  function restoreSubmittedAttempt(attempt) {
+    const saved = attempt?.snapshot || attempt?.review || null;
+    const rawLmsScore = String(attempt?.score ?? "");
     const lmsScore = rawLmsScore.trim() === "" ? NaN : Number(rawLmsScore);
     try {
       if (!saved || !Array.isArray(saved.answer.rounds) || saved.answer.rounds.length !== 5) {
@@ -262,7 +253,7 @@
       state.result = {
         score: Number.isFinite(lmsScore) ? lmsScore : 0,
         maxScore: 100,
-        passed: window.SimScorm.getValue("cmi.core.lesson_status") === "passed",
+        passed: attempt?.status === "passed",
         completed: true,
         detail: []
       };
@@ -279,7 +270,10 @@
       rounds: state.rounds.map(Scoring.snapshotRound),
       answers: state.answers.slice(),
       activeIndex: state.activeIndex,
-      mode: state.mode
+      mode: state.mode,
+      fromReview: state.fromReview,
+      selected: state.selected,
+      observedCandidates: Array.from(state.observedCandidates)
     });
   }
 
@@ -287,11 +281,13 @@
     if (!state.locked && state.rounds.length) window.SimScorm.saveDraft(draftState());
   }
 
-  function restoreDraft() {
-    const saved = window.SimScorm.readSnapshot(ACTIVITY, "draft");
+  function restoreDraft(saved) {
     const restored = saved && Scoring.restoreDraft(saved.answer);
     if (!restored) return false;
-    Object.assign(state, restored, { selected: null, observedCandidates: new Set(), playback: "idle" });
+    Object.assign(state, restored, {
+      observedCandidates: new Set(restored.observedCandidates),
+      playback: restored.selected && restored.observedCandidates.includes(restored.selected) ? "observed" : "idle"
+    });
     return true;
   }
 
@@ -1075,6 +1071,7 @@
         state.simTime = SIMULATION_SECONDS;
         state.playback = "observed";
         state.observedCandidates.add(state.selected);
+        saveDraft();
         announce(observationSummary("觀察完成"));
         renderUI();
       }
@@ -1116,10 +1113,20 @@
     syncAnimation();
   });
 
-  window.SimScorm.init();
-  window.SimScorm.setDraftProvider(draftState);
-  if (window.SimScorm.isAttemptFinished()) restoreSubmittedAttempt();
-  else if (!restoreDraft()) createAttempt();
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") restoreSubmittedAttempt(attempt);
+  else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { restoreSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false });
+  } else if (attempt.state === "draft") {
+    if (!restoreDraft(attempt.snapshot)) createAttempt();
+    window.SimScorm.setDraftProvider(draftState);
+  } else if (startupState === "editable") {
+    createAttempt();
+    window.SimScorm.setDraftProvider(draftState);
+  } else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false });
   new ResizeObserver(resizeCanvas).observe(canvas);
   resizeCanvas();
   renderUI();

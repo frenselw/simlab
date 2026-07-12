@@ -1,182 +1,220 @@
 "use strict";
-
 const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
-
 const source = fs.readFileSync(__dirname + "/scorm.js", "utf8");
 const result = { score: 72, maxScore: 100, passed: true };
 
-function runtime(api, location = "standalone") {
+function launch(lms, location = "standalone") {
   const listeners = {};
-  const window = { API: api, opener: null, addEventListener: (name, fn) => { listeners[name] = fn; } };
+  const window = { API: lms?.api(), opener: null, setTimeout, clearTimeout, addEventListener: (name, fn) => { listeners[name] = fn; } };
   window.parent = location === "embedded" ? {} : window;
   window.top = location === "embedded" ? {} : window;
-  if (location === "opener") window.opener = {};
   vm.runInNewContext(source, { window, console, JSON, TextEncoder });
   return { scorm: window.SimScorm, listeners };
 }
 
-function fakeApi(fail = {}, values = {}) {
-  values.commits ||= 0;
-  values.finishes ||= 0;
-  return {
-    LMSInitialize: () => fail.initialize ? "false" : "true",
-    LMSSetValue(key, value) {
-      if (fail.throw === key) throw new Error("fake exception");
-      if (fail[key]) return "false";
-      values[key] = value;
-      return "true";
-    },
-    LMSGetValue: (key) => values[key] || "",
-    LMSCommit: () => { values.commits += 1; return fail.commit ? "false" : "true"; },
-    LMSFinish: () => { values.finishes += 1; return fail.finish ? "false" : "true"; },
-    LMSGetLastError: () => "101",
-    LMSGetErrorString: () => "fake LMS error"
+function fakeLms(durable = {}) {
+  const control = { fail: {}, calls: { commit: 0, finish: 0 }, durable, finished: false };
+  control.api = () => {
+    let buffer = { ...control.durable };
+    let lastError = "0";
+    const failed = (name) => { lastError = "101"; return control.fail[name]; };
+    return {
+      LMSInitialize: () => failed("initialize") ? "false" : "true",
+      LMSSetValue(key, value) {
+        control.calls[key] = (control.calls[key] || 0) + 1;
+        if (failed(`set:${key}`) || control.failOnSet?.[key] === control.calls[key]) return "false";
+        buffer[key] = value; lastError = "0"; return "true";
+      },
+      LMSGetValue(key) {
+        control.calls[`get:${key}`] = (control.calls[`get:${key}`] || 0) + 1;
+        if ((control.rejectReadsAfterFinish && control.finished) || failed(`get:${key}`) || control.failOnGet?.[key] === control.calls[`get:${key}`]) return "";
+        lastError = "0"; return buffer[key] || "";
+      },
+      LMSCommit() { control.calls.commit += 1; if (failed("commit") || control.failOnCommitCall === control.calls.commit) return "false"; control.durable = { ...buffer }; lastError = "0"; return "true"; },
+      LMSFinish() {
+        control.calls.finish += 1;
+        if (failed("finish")) return "false";
+        if (control.finishSavesBuffer) control.durable = { ...buffer };
+        control.finished = true;
+        return "true";
+      },
+      LMSGetLastError: () => lastError,
+      LMSGetErrorString: () => "fake LMS error"
+    };
   };
+  return control;
+}
+const review = (scorm) => scorm.makeSnapshot("activity", "review", { final: true }, result);
+
+// Startup retry returns everything needed to render before finishing; post-finish reads may be rejected.
+{
+  const pendingLms = fakeLms();
+  pendingLms.failOnCommitCall = 2;
+  const first = launch(pendingLms);
+  first.scorm.submitResult(result, review(first.scorm));
+  pendingLms.failOnCommitCall = 0;
+  pendingLms.rejectReadsAfterFinish = true;
+  const second = launch(pendingLms);
+  assert.equal(second.scorm.loadAttempt("activity").state, "pending-final");
+  const retry = second.scorm.retryPending(false);
+  assert.equal(retry.review.kind, "review");
+  assert.equal(retry.score, 72);
+  assert.equal(second.scorm.finish(), true);
+  assert.equal(second.scorm.readValue("cmi.core.score.raw").ok, false);
 }
 
-assert.equal(runtime(fakeApi()).scorm.init(), true);
-assert.equal(runtime(fakeApi({ initialize: true })).scorm.init(), false);
+// A later critical read failure is not silently treated as an empty/new attempt.
+{
+  const lms = fakeLms();
+  lms.failOnGet = { "cmi.core.lesson_status": 1 };
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "read-error");
+  assert.equal(lms.calls.commit, 0);
+}
+// Every final SetValue boundary leaves the durable pending payload recoverable.
+for (const key of ["cmi.suspend_data", "cmi.core.score.min", "cmi.core.score.max", "cmi.core.score.raw", "cmi.core.lesson_status", "cmi.core.exit"]) {
+  const lms = fakeLms();
+  lms.failOnSet = { [key]: ["cmi.suspend_data", "cmi.core.lesson_status", "cmi.core.exit"].includes(key) ? 2 : 1 };
+  const run = launch(lms);
+  const outcome = run.scorm.submitResult(result, review(run.scorm));
+  assert.equal(outcome.frozen, true, `${key} failure freezes the immutable submission`);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final", `${key} failure retains durable pending data`);
+}
 
-for (const [failure, reason] of [
-  ["cmi.suspend_data", "snapshot"],
-  ["cmi.core.score.raw", "score"],
-  ["cmi.core.lesson_status", "status"],
-  ["cmi.core.exit", "exit"],
-  ["commit", "commit"]
+{
+  const lms = fakeLms();
+  const { scorm } = launch(lms);
+  assert.equal(scorm.submitResult(result, review(scorm)).ok, true);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "review");
+  assert.equal(lms.durable["cmi.core.lesson_status"], "passed");
+}
+
+// A failed final commit leaves only the durable pending checkpoint. A new launch can finish it.
+{
+  const lms = fakeLms();
+  lms.failOnCommitCall = 2;
+  const first = launch(lms);
+  const outcome = first.scorm.submitResult(result, review(first.scorm));
+  assert.equal(outcome.frozen, true);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final");
+  const second = launch(lms);
+  assert.equal(second.scorm.loadAttempt("activity").state, "pending-final");
+  assert.equal(second.scorm.retryPending().ok, true);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "review");
+}
+
+// Finish implementations that implicitly save must never be reached before a durable final commit.
+for (const finishSavesBuffer of [false, true]) {
+  const lms = fakeLms();
+  lms.finishSavesBuffer = finishSavesBuffer;
+  lms.failOnCommitCall = 2;
+  const run = launch(lms);
+  assert.equal(run.scorm.submitResult(result, review(run.scorm)).reason, "commit");
+  lms.fail.commit = true;
+  run.listeners.pagehide();
+  assert.equal(lms.calls.finish, 0);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final");
+}
+
+// Pending submissions cannot be overwritten by drafts or finished before a durable final commit.
+{
+  const lms = fakeLms();
+  lms.fail.commit = true;
+  const run = launch(lms);
+  const outcome = run.scorm.submitResult(result, review(run.scorm));
+  assert.equal(outcome.frozen, true);
+  assert.equal(run.scorm.saveDraft(run.scorm.makeSnapshot("activity", "draft", { edit: true })), false);
+  run.listeners.pagehide();
+  assert.equal(lms.calls.finish, 0);
+}
+
+// A checkpoint commit failure is retried before any final write.
+{
+  const lms = fakeLms();
+  lms.fail.commit = true;
+  const run = launch(lms);
+  assert.equal(run.scorm.submitResult(result, review(run.scorm)).reason, "checkpoint");
+  lms.fail.commit = false;
+  lms.failOnCommitCall = lms.calls.commit + 2;
+  assert.equal(run.scorm.retryPending().reason, "commit");
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final");
+}
+
+// Finish failure means final data is durable and only termination is retried.
+{
+  const lms = fakeLms();
+  lms.fail.finish = true;
+  const run = launch(lms);
+  const outcome = run.scorm.submitResult(result, review(run.scorm));
+  assert.equal(outcome.committed, true);
+  assert.equal(outcome.reason, "finish");
+  lms.fail.finish = false;
+  run.listeners.pagehide();
+  assert.equal(lms.calls.finish, 2);
+}
+
+// The shared pagehide provider persists the latest in-memory geometry even if a keyboard debounce is pending.
+{
+  const lms = fakeLms();
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("mirror").state, "new");
+  const geometry = { imageX: 10 };
+  run.scorm.setDraftProvider(() => run.scorm.makeSnapshot("mirror", "draft", { geometry: { ...geometry } }));
+  geometry.imageX = 18;
+  run.listeners.pagehide();
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.geometry.imageX, 18);
+}
+
+// Reads distinguish legitimate empty values from LMS errors and drive the startup matrix.
+{
+  const empty = launch(fakeLms()).scorm;
+  assert.deepEqual(empty.readValue("cmi.suspend_data"), { ok: true, value: "" });
+  const lms = fakeLms();
+  lms.fail["get:cmi.core.lesson_status"] = true;
+  assert.equal(launch(lms).scorm.loadAttempt("activity").state, "read-error");
+}
+{
+  const lms = fakeLms();
+  const run = launch(lms);
+  const attempt = run.scorm.loadAttempt("activity");
+  assert.equal(lms.calls["get:cmi.core.lesson_status"], 1);
+  assert.equal(lms.calls["get:cmi.suspend_data"], 1);
+  assert.equal(lms.calls["get:cmi.core.score.raw"], 1);
+  assert.equal(attempt.state, "new");
+}
+
+// Production callbacks receive one normalized activity state for all four callers.
+for (const [configure, expected] of [
+  [() => {}, "success"],
+  [(lms) => { lms.fail.commit = true; }, "frozen"],
+  [(lms) => { lms.fail.finish = true; }, "committed"]
 ]) {
-  const outcome = runtime(fakeApi({ [failure]: true })).scorm.submitResult(result, { answer: 1 });
-  assert.equal(outcome.ok, false);
-  assert.equal(outcome.reason, reason);
-}
-
-const finishFailure = runtime(fakeApi({ finish: true })).scorm.submitResult(result);
-assert.equal(finishFailure.ok, false);
-assert.equal(finishFailure.finished, false);
-assert.equal(finishFailure.committed, true);
-assert.equal(finishFailure.reason, "finish");
-
-const committedValues = {};
-const committedFailure = { finish: true };
-const committedRuntime = runtime(fakeApi(committedFailure, committedValues));
-const finalSnapshot = committedRuntime.scorm.makeSnapshot("activity", "review", { final: true }, result);
-assert.equal(committedRuntime.scorm.submitResult(result, finalSnapshot).committed, true);
-assert.equal(committedRuntime.scorm.saveDraft(committedRuntime.scorm.makeSnapshot("activity", "draft", { final: false })), false);
-assert.equal(JSON.parse(committedValues["cmi.suspend_data"]).kind, "review");
-committedFailure.finish = false;
-committedRuntime.listeners.pagehide();
-assert.equal(committedValues.finishes, 2);
-assert.equal(JSON.parse(committedValues["cmi.suspend_data"]).kind, "review");
-
-const finishFail = {};
-const finishRetryRuntime = runtime(fakeApi(finishFail));
-finishFail.finish = true;
-assert.equal(finishRetryRuntime.scorm.submitResult(result).reason, "finish");
-finishFail.finish = false;
-assert.equal(finishRetryRuntime.scorm.submitResult(result).ok, true);
-
-const exception = runtime(fakeApi({ throw: "cmi.core.score.raw" })).scorm.submitResult(result);
-assert.equal(exception.ok, false);
-assert.equal(exception.reason, "score");
-
-const fail = {};
-const retryRuntime = runtime(fakeApi(fail));
-fail.commit = true;
-assert.equal(retryRuntime.scorm.submitResult(result).ok, false);
-fail.commit = false;
-assert.equal(retryRuntime.scorm.submitResult(result).ok, true);
-
-const local = runtime(null).scorm;
-assert.equal(local.submitResult(result).ok, true);
-assert(local.getLocalLog().some((entry) => entry.key === "cmi.core.score.raw" && entry.value === "72"));
-assert.equal(runtime(null, "embedded").scorm.submitResult(result).reason, "initialize");
-assert.equal(runtime(null, "opener").scorm.submitResult(result).reason, "initialize");
-
-const pagehideValues = {};
-const pagehideRuntime = runtime(fakeApi({}, pagehideValues));
-assert.equal(pagehideRuntime.scorm.init(), true);
-pagehideRuntime.listeners.pagehide();
-assert.equal(pagehideValues["cmi.core.exit"], "suspend");
-assert.equal(pagehideValues.commits, 1);
-assert.equal(pagehideValues.finishes, 1);
-
-const restoredFinalValues = {
-  "cmi.core.lesson_status": "passed",
-  "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: { final: true } })
-};
-const restoredFinalRuntime = runtime(fakeApi({}, restoredFinalValues));
-assert.equal(restoredFinalRuntime.scorm.init(), true);
-assert.equal(restoredFinalRuntime.scorm.isAttemptFinished(), true);
-restoredFinalRuntime.scorm.setDraftProvider(() => restoredFinalRuntime.scorm.makeSnapshot("activity", "draft", { final: false }));
-restoredFinalRuntime.listeners.pagehide();
-assert.equal(JSON.parse(restoredFinalValues["cmi.suspend_data"]).kind, "review");
-assert.notEqual(restoredFinalValues["cmi.core.exit"], "suspend");
-assert.equal(restoredFinalValues.finishes, 1);
-
-const draftValues = {};
-const draftRuntime = runtime(fakeApi({}, draftValues));
-const draft = draftRuntime.scorm.makeSnapshot("activity", "draft", { step: 2 });
-assert.equal(draftRuntime.scorm.saveDraft(draft), true);
-assert.equal(JSON.parse(draftValues["cmi.suspend_data"]).answer.step, 2);
-assert.equal(draftValues["cmi.core.exit"], "suspend");
-assert.equal(draftRuntime.scorm.readSnapshot("activity", "draft").answer.step, 2);
-assert.equal(draftRuntime.scorm.readSnapshot("other", "draft"), null);
-assert.throws(() => draftRuntime.scorm.makeSnapshot("activity", "draft", { text: "x".repeat(4100) }), /4000 bytes/);
-
-const providerValues = {};
-const providerRuntime = runtime(fakeApi({}, providerValues));
-providerRuntime.scorm.init();
-providerRuntime.scorm.setDraftProvider(() => providerRuntime.scorm.makeSnapshot("activity", "draft", { step: 3 }));
-providerRuntime.listeners.pagehide();
-assert.equal(JSON.parse(providerValues["cmi.suspend_data"]).answer.step, 3);
-
-const pagehideFailure = { finish: true };
-const pagehideRetryValues = {};
-const pagehideRetryRuntime = runtime(fakeApi(pagehideFailure, pagehideRetryValues));
-assert.equal(pagehideRetryRuntime.scorm.init(), true);
-pagehideRetryRuntime.listeners.pagehide();
-assert.equal(pagehideRetryValues.finishes, 1);
-pagehideFailure.finish = false;
-const afterPagehideFailure = pagehideRetryRuntime.scorm.submitResult(result);
-assert.equal(afterPagehideFailure.ok, true);
-assert.equal(afterPagehideFailure.finished, true);
-assert.equal(pagehideRetryValues.finishes, 2);
-
-const repeatedPagehideFailure = { finish: true };
-const repeatedPagehideValues = {};
-const repeatedPagehideRuntime = runtime(fakeApi(repeatedPagehideFailure, repeatedPagehideValues));
-assert.equal(repeatedPagehideRuntime.scorm.init(), true);
-repeatedPagehideRuntime.listeners.pagehide();
-repeatedPagehideFailure.finish = false;
-repeatedPagehideRuntime.listeners.pagehide();
-assert.equal(repeatedPagehideValues.finishes, 2);
-
-for (const failingKey of ["cmi.core.score.raw", "cmi.core.lesson_status", "cmi.core.exit", "commit", "finish"]) {
-  const failState = { [failingKey]: true };
-  const gateRuntime = runtime(fakeApi(failState));
-  let successes = 0;
-  let failures = 0;
-  gateRuntime.scorm.submitWithCallbacks(result, null, {
-    onSuccess: () => { successes += 1; },
-    onFailure: () => { failures += 1; }
+  const lms = fakeLms();
+  configure(lms);
+  const run = launch(lms);
+  let observed = "";
+  run.scorm.submitWithCallbacks(result, review(run.scorm), {
+    onSuccess: (submission) => { observed = submission.activityState; },
+    onFailure: (submission) => { observed = submission.activityState; }
   });
-  assert.equal(successes, 0);
-  assert.equal(failures, 1);
-  failState[failingKey] = false;
-  gateRuntime.scorm.submitWithCallbacks(result, null, {
-    onSuccess: () => { successes += 1; },
-    onFailure: () => { failures += 1; }
-  });
-  assert.equal(successes, 1);
-  assert.equal(failures, 1);
+  assert.equal(observed, expected);
 }
+{
+  const run = launch(null, "embedded");
+  let observed = "";
+  const snapshot = { version: 1, activity: "activity", kind: "review", answer: {} };
+  run.scorm.submitWithCallbacks(result, snapshot, { onSuccess() {}, onFailure: (submission) => { observed = submission.activityState; } });
+  assert.equal(observed, "retry");
+}
+for (const [durable, expected] of [
+  [{ "cmi.core.lesson_status": "passed", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: {} }) }, "finished"],
+  [{ "cmi.core.lesson_status": "passed", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "draft", answer: {} }) }, "inconsistent"],
+  [{ "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: {} }) }, "inconsistent"],
+  [{ "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "draft", answer: {} }) }, "draft"]
+]) assert.equal(launch(fakeLms(durable)).scorm.loadAttempt("activity").state, expected);
 
-let committedCallback = false;
-runtime(fakeApi({ finish: true })).scorm.submitWithCallbacks(result, { final: true }, {
-  onSuccess: () => assert.fail("finish failure must not report full success"),
-  onFailure: (submission) => { committedCallback = submission.committed === true; }
-});
-assert.equal(committedCallback, true);
-
-console.log("SCORM fake LMS checks passed");
+assert.equal(launch(null).scorm.submitResult(result, review(launch(null).scorm)).ok, true);
+assert.equal(launch(null, "embedded").scorm.loadAttempt("activity").state, "read-error");
+console.log("SCORM durable-session checks passed");

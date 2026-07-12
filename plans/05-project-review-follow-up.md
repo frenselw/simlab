@@ -71,7 +71,7 @@
 
 - [x] FBD 完全空白答案改為 `0` 分。
 - [x] FBD clean completion 只在必要力完整且沒有多餘力時取得。
-- [x] FBD 空白或明顯未完成提交前顯示確認。
+- [x] FBD 完全空白提交前顯示確認；部分完成答案可按低風險練習定位直接提交並取得回饋。
 - [x] FBD 箭頭長度代表力的相對大小。
 - [x] 支持力與重力、外力與摩擦力分別先要求方向正確，再以 `短箭頭 ÷ 長箭頭 >= 0.80` 判定大致等長。
 - [x] 不要求垂直力與水平力互相等長；每組平衡各佔 5 分。
@@ -124,6 +124,13 @@
 - [x] `pagehide` 時保存未提交進度。
 - [x] 未完成活動使用 `exit = suspend` 並 commit。
 - [x] 驗證 snapshot 不超出 SCORM 1.2 儲存限制。
+- [x] 最終提交先持久保存 pending-final checkpoint，再寫入 review、分數及狀態；部分失敗不會被普通 draft 覆蓋。
+- [x] LMS 關鍵讀取可區分合法空值與讀取錯誤，四個活動以共同 startup gate 在錯誤或不一致狀態下停止寫入。
+- [x] Fake LMS 區分 session buffer 與 durable store，並以新 launch 驗證 pending-final 恢復。
+- [x] FBD 草稿恢復後重建唯一 ID、nextId 及 slots。
+- [x] 參考系草稿保存 review-edit、已選及已觀察狀態，完成觀察後即時保存。
+- [x] 地圖 snapshot 保留完整路程精度；顯示仍使用一位小數。
+- [x] 平面鏡方向鍵修改以短 debounce 保存，離頁仍由 draft provider 保存最新狀態。
 
 ### 地圖路線的可逆保存與恢復
 

@@ -5,6 +5,7 @@ const {
   expectedTotal,
   formatBearing,
   hasReachedDestination,
+  isDistanceAnswerCorrect,
   isDirectionAnswerCorrect,
   routeCompletion,
   restoredWalkerPoint,
@@ -13,6 +14,10 @@ const {
 
 assert(hasReachedDestination({ x: 2, y: 0 }, { x: 0, y: 0 }));
 assert(!hasReachedDestination({ x: 2.01, y: 0 }, { x: 0, y: 0 }));
+assert.equal(isDistanceAnswerCorrect(29, 30.04), false, "full precision keeps 1.04 m outside the tolerance");
+assert.equal(isDistanceAnswerCorrect(29.1, 30.04), true, "inside tolerance remains correct");
+assert.equal(isDistanceAnswerCorrect(29.04, 30.04), true, "absolute tolerance boundary is inclusive");
+assert.equal(isDistanceAnswerCorrect(29.039, 30.04), false, "outside tolerance remains incorrect");
 
 const toleranceCompletion = routeCompletion(
   { x: 1.5, y: 0 },

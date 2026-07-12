@@ -27,6 +27,7 @@
       <file href="inertial-reference-frame-road-observer/animation-loop.js"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
     </resource>
   </resources>
 </manifest>

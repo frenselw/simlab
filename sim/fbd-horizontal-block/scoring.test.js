@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { scoreDiagram, BALANCE_LENGTH_RATIO } = require("./scoring.js");
+const { scoreDiagram, BALANCE_LENGTH_RATIO, restoreArrowState } = require("./scoring.js");
 
 const block = { x: 240, y: 210, width: 160, height: 90 };
 const center = { x: 320, y: 255 };
@@ -15,6 +15,22 @@ function arrow(type, dx, dy, slot) {
 
 const blank = scoreDiagram([], block);
 assert.equal(blank.score, 0);
+
+const restored = restoreArrowState([
+  arrow("weight", 0, 90, 9),
+  arrow("weight", 0, 80, 4),
+  arrow("normal", 0, -90, 7)
+]);
+assert.deepEqual(restored.arrows.map((item) => item.id), [1, 2, 3]);
+assert.deepEqual(restored.arrows.map((item) => item.slot), [1, 2, 1]);
+assert.equal(restored.nextId, 4);
+const added = { ...arrow("applied", 100, 0), id: restored.nextId, slot: 1 };
+restored.arrows.push(added);
+added.end.x += 10;
+assert.equal(restored.arrows.filter((item) => item.id === 4)[0].end.x, center.x + 110, "drag targets only the new unique ID");
+const afterRemove = restored.arrows.filter((item) => item.id !== 4);
+assert.deepEqual(afterRemove.map((item) => item.id), [1, 2, 3], "removing the new arrow preserves restored arrows");
+assert.equal(restoreArrowState([{ type: "weight", start: {}, end: center }]), null);
 
 const perfect = scoreDiagram([
   arrow("weight", 0, 90),

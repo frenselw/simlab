@@ -115,12 +115,13 @@
       list.append(textBlock("li", item.text, `feedback-item ${item.status}`));
     });
     scorePanel.append(list, textBlock("div", result.summary, "muted feedback-summary"));
-    window.SimScorm.submitWithCallbacks(result, reviewState(result), {
-      onFailure: (submission) => submission.committed
-        ? lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。")
-        : scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
-      onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。"),
+      committed: () => lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => lockAttempt("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      retry: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong"))
     });
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), { onFailure: handle, onSuccess: handle });
   }
 
   function reviewState(result) {
@@ -157,18 +158,18 @@
     }
   }
 
-  function showSubmittedAttempt() {
-    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+  function showSubmittedAttempt(attempt) {
+    const review = attempt?.snapshot || attempt?.review || null;
     let result = null;
     if (review?.answer?.arrows && restoreArrows(review.answer.arrows)) {
       state.nextId = state.arrows.length + 1;
       Object.keys(forceColors).forEach(normalizeSlots);
       render();
       const rescored = window.FbdScoring.scoreDiagram(state.arrows, block);
-      const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+      const raw = String(attempt?.score ?? "").trim();
       if (rescored.score === review.score && rescored.passed === review.passed && (!raw || Number(raw) === rescored.score)) result = rescored;
     }
-    const score = result?.score ?? (window.SimScorm.getValue("cmi.core.score.raw") || "--");
+    const score = result?.score ?? (attempt?.score || "--");
     scorePanel.replaceChildren(
       textBlock("div", "此作答次已提交"),
       textBlock("div", score, "score-value"),
@@ -190,9 +191,11 @@
   }
 
   function restoreArrows(arrows) {
-    const pointOk = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
-    if (!Array.isArray(arrows) || arrows.length > 10 || arrows.some((arrow) => !forceColors[arrow?.type] || !pointOk(arrow.start) || !pointOk(arrow.end))) return false;
-    state.arrows = arrows.map((arrow, index) => ({ ...arrow, id: index + 1 }));
+    const restored = window.FbdScoring.restoreArrowState(arrows);
+    if (!restored) return false;
+    state.arrows = restored.arrows;
+    state.nextId = restored.nextId;
+    state.selectedId = null;
     return true;
   }
 
@@ -540,14 +543,19 @@
   svg.addEventListener("pointerup", onPointerUp);
   svg.addEventListener("pointercancel", onPointerUp);
 
-  window.SimScorm.init();
-  window.SimScorm.setDraftProvider(draftState);
-  if (window.SimScorm.isAttemptFinished()) {
-    showSubmittedAttempt();
-  } else {
-    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
-    if (draft) restoreArrows(draft.answer.arrows);
-  }
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") {
+    showSubmittedAttempt(attempt);
+  } else if (attempt.state === "draft") {
+    if (!restoreArrows(attempt.snapshot.answer.arrows)) state.arrows = [];
+    window.SimScorm.setDraftProvider(draftState);
+  } else if (startupState === "editable") window.SimScorm.setDraftProvider(draftState);
+  else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { showSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else lockAttempt("提交狀態未確認，請重新開啟活動再試。");
+  } else lockAttempt("未能從 Moodle 安全載入本次作答，請重新開啟活動。");
   if (window.ResizeObserver) {
     new ResizeObserver(render).observe(svg);
   } else {

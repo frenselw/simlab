@@ -277,6 +277,18 @@
     return String(number).replace(/[0-9]/g, (digit) => "₀₁₂₃₄₅₆₇₈₉"[Number(digit)]);
   }
 
+  function restoreArrowState(savedArrows) {
+    const pointOk = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    if (!Array.isArray(savedArrows) || savedArrows.length > 10 ||
+        savedArrows.some((arrow) => !FORCE_TYPES[arrow?.type] || !pointOk(arrow.start) || !pointOk(arrow.end))) return null;
+    const counts = {};
+    const arrows = savedArrows.map((arrow, index) => {
+      counts[arrow.type] = (counts[arrow.type] || 0) + 1;
+      return { ...arrow, id: index + 1, slot: counts[arrow.type] };
+    });
+    return { arrows, nextId: arrows.length + 1 };
+  }
+
   return {
     FORCE_TYPES,
     REQUIRED_TYPES,
@@ -284,6 +296,7 @@
     arrowAngle,
     arrowLength,
     angleDistance,
-    BALANCE_LENGTH_RATIO
+    BALANCE_LENGTH_RATIO,
+    restoreArrowState
   };
 });

@@ -248,12 +248,13 @@
     const answer = currentAnswer();
     const result = window.MirrorRayScoring.scoreDiagram(answer, state.scene);
     showResult(result);
-    window.SimScorm.submitWithCallbacks(result, reviewState(result), {
-      onFailure: (submission) => submission.committed
-        ? lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。")
-        : scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
-      onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。"),
+      committed: () => lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => lockAttempt("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      retry: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong"))
     });
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), { onFailure: handle, onSuccess: handle });
   }
 
   function currentAnswer() {
@@ -324,21 +325,21 @@
     render();
   }
 
-  function showSubmittedAttempt() {
-    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+  function showSubmittedAttempt(attempt) {
+    const review = attempt?.snapshot || attempt?.review || null;
     if (!restoreSnapshot(review)) {
       state.reviewUnavailable = true;
       render();
       scorePanel.replaceChildren(
         textBlock("div", "此作答次已提交"),
-        textBlock("div", String(window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
+        textBlock("div", String(attempt?.score || "--"), "score-value"),
         textBlock("div", "未能載入已提交圖形。", "muted feedback-summary")
       );
       lockAttempt();
       return;
     }
     const result = window.MirrorRayScoring.scoreDiagram(currentAnswer(), state.scene);
-    const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+    const raw = String(attempt?.score ?? "").trim();
     const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
     render();
     if (trusted) showResult(result);
@@ -781,15 +782,20 @@
     if (!move) return;
     const imageTarget = event.target.closest("[data-image-handle]");
     if (imageTarget && state.image) {
-      moveImageByKey(imageTarget.dataset.imageHandle, move);
+      window.MirrorDraftSave.change(() => moveImageByKey(imageTarget.dataset.imageHandle, move), keyboardDraftSave);
       event.preventDefault();
       return;
     }
     const rayTarget = event.target.closest("[data-kind][data-id]");
     if (!rayTarget) return;
-    moveRayByKey(Number(rayTarget.dataset.id), rayTarget.dataset.kind, move);
+    window.MirrorDraftSave.change(
+      () => moveRayByKey(Number(rayTarget.dataset.id), rayTarget.dataset.kind, move),
+      keyboardDraftSave
+    );
     event.preventDefault();
   }
+
+  const keyboardDraftSave = window.MirrorDraftSave.create(saveDraft);
 
   function moveImageByKey(handle, move) {
     const endpoints = imageEndpoints(state.image);
@@ -947,13 +953,20 @@
   svg.addEventListener("pointercancel", onPointerUp);
   svg.addEventListener("keydown", onKeyDown);
 
-  window.SimScorm.init();
-  window.SimScorm.setDraftProvider(draftState);
-  if (window.SimScorm.isAttemptFinished()) {
-    showSubmittedAttempt();
-  } else {
-    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
-    if (draft) restoreSnapshot(draft);
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") {
+    showSubmittedAttempt(attempt);
+  } else if (attempt.state === "draft") {
+    if (!restoreSnapshot(attempt.snapshot)) lockAttempt("已保存草稿損壞，請重新開啟活動。");
+    else window.SimScorm.setDraftProvider(draftState);
     render();
-  }
+  } else if (startupState === "editable") {
+    window.SimScorm.setDraftProvider(draftState);
+    render();
+  } else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { showSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else lockAttempt("提交狀態未確認，請重新開啟活動再試。");
+  } else lockAttempt("未能從 Moodle 安全載入本次作答，請重新開啟活動。");
 })();

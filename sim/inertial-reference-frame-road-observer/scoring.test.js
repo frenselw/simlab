@@ -61,12 +61,52 @@ assert.equal(Scoring.validateAnswers(["R"], 5), false);
 assert.equal(Scoring.validateAnswers([null, "A", null, "C", "A"], 5, true), true);
 assert.equal(Scoring.validateAnswers([null, "A", "invalid", "C", "A"], 5, true), false);
 const draftRounds = rounds.map(Scoring.snapshotRound);
-for (const mode of ["guide", "task", "review"]) {
-  const restored = Scoring.restoreDraft({ rounds: draftRounds, answers: [null, "A", null, "B", null], activeIndex: 3, mode });
+for (const [mode, answers, activeIndex] of [
+  ["guide", [null, null, null, null, null], 0],
+  ["task", ["R", "A", null, null, null], 2],
+  ["review", ["R", "A", "A", "B", "C"], 3]
+]) {
+  const restored = Scoring.restoreDraft({ rounds: draftRounds, answers, activeIndex, mode });
   assert.equal(restored.mode, mode);
-  assert.equal(restored.activeIndex, 3);
+  assert.equal(restored.activeIndex, activeIndex);
 }
 assert.equal(Scoring.restoreDraft({ rounds: draftRounds, answers: [null, "invalid", null, null, null], activeIndex: 0, mode: "task" }), null);
+const reviewEdit = { rounds: draftRounds, answers: ["R", "A", "A", "B", "C"], activeIndex: 1, mode: "task", fromReview: true, selected: "A", observedCandidates: ["A", "R"] };
+assert.equal(Scoring.restoreDraft(reviewEdit).fromReview, true);
+assert.deepEqual(Scoring.restoreDraft(reviewEdit).observedCandidates, ["A", "R"]);
+assert.equal(Scoring.restoreDraft({ ...reviewEdit, selected: "C" }), null, "selected candidate must have been observed");
+assert.equal(Scoring.restoreDraft({ ...reviewEdit, observedCandidates: ["A", "A"] }), null, "observed candidates must be unique");
+assert.equal(Scoring.restoreDraft({ ...reviewEdit, answers: ["R", null, "A", "B", "C"] }), null, "review edit requires a complete prior review");
+const selectedBeforeObservation = Scoring.restoreDraft({ rounds: draftRounds, answers: ["R", null, null, null, null], activeIndex: 1, mode: "task", selected: "B", observedCandidates: ["A"] });
+assert.equal(selectedBeforeObservation.selected, "B", "a newly selected candidate need not already be observed");
+assert.equal(Scoring.restoreDraft({ rounds: draftRounds, answers: [null, null, null, null, null], activeIndex: 0, mode: "guide", selected: "A", observedCandidates: [] }).selected, "A");
+assert.equal(Scoring.restoreDraft({ rounds: draftRounds, answers: ["R", null, null, null, null], activeIndex: 1.5, mode: "task" }), null);
+assert.equal(Scoring.restoreDraft({ rounds: draftRounds, answers: ["R", null, null, null, null], activeIndex: 9, mode: "task" }), null);
+assert.deepEqual(Scoring.nextStateAfterRecord(true, 1, 5), { mode: "review", activeIndex: 1, fromReview: false });
+assert.deepEqual(Scoring.nextStateAfterRecord(false, 1, 5), { mode: "task", activeIndex: 2, fromReview: false });
+const legacyDraft = Scoring.restoreDraft({ rounds: draftRounds, answers: ["R", "A", null, null, null], activeIndex: 2, mode: "task" });
+assert.equal(legacyDraft.fromReview, false);
+assert.equal(legacyDraft.selected, null);
+assert.deepEqual(legacyDraft.observedCandidates, []);
+const largestDraftAnswer = {
+  rounds: draftRounds,
+  answers: ["R", "A", "A", "B", "C"],
+  activeIndex: 4,
+  mode: "task",
+  fromReview: true,
+  selected: "C",
+  observedCandidates: ["R", "A", "B", "C"]
+};
+const largestDraftEnvelope = { version: 1, activity: "inertial-reference-frame-road-observer", kind: "draft", answer: largestDraftAnswer };
+const reviewEnvelope = { ...largestDraftEnvelope, kind: "review", answer: { rounds: draftRounds, answers: largestDraftAnswer.answers }, score: 100, passed: true };
+const pendingEnvelope = {
+  version: 1,
+  activity: largestDraftEnvelope.activity,
+  kind: "pending-final",
+  payload: { reviewJson: JSON.stringify(reviewEnvelope), score: 100, maxScore: 100, passed: true }
+};
+assert(Buffer.byteLength(JSON.stringify(largestDraftEnvelope), "utf8") < 4000);
+assert(Buffer.byteLength(JSON.stringify(pendingEnvelope), "utf8") < 4000);
 
 const permuted = Scoring.instantiateAttempt("BCA", [0, 0, 0, 0, 0]);
 assert.deepEqual(permuted.map((round) => round.id), Scoring.ROUND_ORDER);

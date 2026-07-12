@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const Coverage = require("./route-coverage.js");
 const Persistence = require("./map-persistence.js");
+const Scoring = require("./scoring.js");
 
 const edges = [
   { id: 0, a: { x: 0, y: 0 }, b: { x: 10, y: 0 } },
@@ -17,8 +18,8 @@ const source = {
   phase: "walk",
   person: { x: 10, y: 6, edgeId: 1, t: 0.6 },
   segments: [
-    { reached: true, routeDistance: 244.3, coverage: [{ edgeId: 0, start: 0.2, end: 1 }, { edgeId: 1, start: 0, end: 0.6 }], arrow: null, answers: { routeDistance: 244.3 } },
-    { reached: false, routeDistance: 37.8, coverage: [{ edgeId: 2, start: 0.1, end: 0.5 }], arrow: null, answers: null }
+    { reached: true, routeDistance: 244.345678, coverage: [{ edgeId: 0, start: 0.2, end: 1 }, { edgeId: 1, start: 0, end: 0.6 }], arrow: null, answers: { routeDistance: 244.3 } },
+    { reached: false, routeDistance: 37.812345, coverage: [{ edgeId: 2, start: 0.1, end: 0.5 }], arrow: null, answers: null }
   ],
   totalArrow: null,
   totalAnswers: null
@@ -28,7 +29,14 @@ const encoded = Persistence.encode(source);
 assert.equal(encoded.traceFormat, 2, "production serializer marks the topology format");
 const restored = Persistence.decode(encoded, edges, () => { throw new Error("new format must not use legacy migration"); });
 assert.ok(restored, "production serializer output restores");
-assert.deepEqual(restored.segments.map((segment) => segment.routeDistance), [244.3, 37.8], "route distances round-trip unchanged");
+assert.deepEqual(restored.segments.map((segment) => segment.routeDistance), [244.345678, 37.812345], "full-precision route distances round-trip unchanged");
+for (const answer of [243, 243.345678, 237]) {
+  assert.equal(
+    Scoring.isDistanceAnswerCorrect(answer, source.segments[0].routeDistance),
+    Scoring.isDistanceAnswerCorrect(answer, restored.segments[0].routeDistance),
+    "distance scoring is invariant across persistence"
+  );
+}
 assert.deepEqual(restored.segments.map((segment) => Coverage.compact(segment.coverage)), encoded.segments.map((segment) => segment.coverage), "coverage intervals round-trip unchanged");
 assert.deepEqual(restored.person, { x: 10, y: 6 }, "person position round-trips");
 assert.equal(restored.currentSegment, 1, "current segment round-trips");
