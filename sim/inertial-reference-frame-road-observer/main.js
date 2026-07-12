@@ -505,7 +505,8 @@
       const point = project(geo, along, side);
       const scale = Math.max(0.58, perspective(geo, along)) * geo.decorScale;
       const overlapsUpperLandmark = side < 0 && [98, 165].some((landmarkAlong) => Math.abs(worldAlong - landmarkAlong) < 50);
-      if (!overlapsUpperLandmark) {
+      const overlapsLowerHouse = side > 0 && [-228, 150].some((houseAlong) => Math.abs(worldAlong - houseAlong) < 65);
+      if (!overlapsUpperLandmark && !overlapsLowerHouse) {
         drawShrub(ctx, point, scale * (index % 3 === 0 ? 1.25 : 0.9));
         if (index % 3 === 1) drawRock(ctx, project(geo, along + 17, side * 1.15), scale);
         if (index % 4 === 2) drawPine(ctx, project(geo, along - 18, side * 1.12), scale * 1.1);
