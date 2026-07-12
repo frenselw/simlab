@@ -16,10 +16,12 @@
   };
   const REQUIRED_TYPES = ["weight", "normal", "applied", "friction"];
   const DIRECTION_TOLERANCE = 10;
+  const BALANCE_LENGTH_RATIO = 0.8;
   const MIN_ARROW_LENGTH = 40;
   const TYPE_POINTS = 5;
-  const DIRECTION_POINTS = 12.5;
+  const DIRECTION_POINTS = 10;
   const PLACEMENT_POINTS = 3.75;
+  const BALANCE_PAIR_POINTS = 5;
   const CLEAN_POINTS = 15;
   const OTHER_EXTRA_PENALTY = 10;
 
@@ -60,6 +62,14 @@
     );
   }
 
+  function isBalancedPair(firstArrow, secondArrow) {
+    if (!firstArrow || !secondArrow) return false;
+    const firstLength = arrowLength(firstArrow);
+    const secondLength = arrowLength(secondArrow);
+    return Math.min(firstLength, secondLength) / Math.max(firstLength, secondLength) >=
+      BALANCE_LENGTH_RATIO;
+  }
+
   function bestArrow(arrows, type) {
     const expected = FORCE_TYPES[type].expectedAngle;
     return arrows
@@ -90,12 +100,20 @@
       const arrow = bestArrow(usableArrows, type);
       return arrow && isPlacedOnBlock(arrow, block);
     });
+    const balancedPairs = [
+      { key: "vertical", types: ["normal", "weight"] },
+      { key: "horizontal", types: ["applied", "friction"] }
+    ].filter(({ types }) =>
+      types.every((type) => correctDirections.includes(type)) &&
+      isBalancedPair(bestArrow(usableArrows, types[0]), bestArrow(usableArrows, types[1]))
+    );
     const extraArrows = findExtraArrows(usableArrows);
     const allExtraArrows = extraArrows.concat(tooShortArrows);
 
     const typeScore = (REQUIRED_TYPES.length - missingTypes.length) * TYPE_POINTS;
     const directionScore = correctDirections.length * DIRECTION_POINTS;
     const placementScore = correctPlacements.length * PLACEMENT_POINTS;
+    const balanceScore = balancedPairs.length * BALANCE_PAIR_POINTS;
     const extraPenalty = allExtraArrows.reduce(
       (total, arrow) =>
         total + extraPenaltyForArrow(arrow, presentTypes, correctDirections, correctPlacements),
@@ -104,7 +122,9 @@
     const cleanScore = missingTypes.length === 0 && allExtraArrows.length === 0 ? CLEAN_POINTS : 0;
     const score = Math.max(
       0,
-      Math.round(typeScore + directionScore + placementScore + cleanScore - extraPenalty)
+      Math.round(
+        typeScore + directionScore + placementScore + balanceScore + cleanScore - extraPenalty
+      )
     );
     const feedbackItems = buildFeedbackItems(
       usableArrows,
@@ -112,9 +132,12 @@
       missingTypes,
       correctDirections,
       extraArrows,
-      tooShortArrows
+      tooShortArrows,
+      balancedPairs
     );
-    const summary = "物體保持靜止，表示合力為零；向右外力應由向左摩擦力平衡。";
+    const summary = balancedPairs.length === 2
+      ? "兩組相反方向的力大小大致相等，符合物體合力為零、保持靜止。"
+      : "物體保持靜止，兩組相反方向的力應各自大小大致相等，使合力為零。";
 
     return {
       score,
@@ -128,6 +151,7 @@
         missingTypes,
         correctDirections,
         correctPlacements,
+        balancedPairs: balancedPairs.map((pair) => pair.key),
         extraCount: allExtraArrows.length,
         extraTypes: extraArrows.map((arrow) => arrow.type),
         tooShortCount: tooShortArrows.length
@@ -162,7 +186,8 @@
     missingTypes,
     correctDirections,
     extraArrows,
-    tooShortArrows
+    tooShortArrows,
+    balancedPairs
   ) {
     const items = REQUIRED_TYPES.map((type) => {
       const force = FORCE_TYPES[type];
@@ -184,6 +209,34 @@
         text: `${title}：方向錯誤，應${force.direction}。`
       };
     });
+
+    const balancedPairKeys = new Set(balancedPairs.map((pair) => pair.key));
+    if (!missingTypes.includes("normal") && !missingTypes.includes("weight")) {
+      const directionsCorrect = ["normal", "weight"].every((type) =>
+        correctDirections.includes(type)
+      );
+      items.push({
+        status: balancedPairKeys.has("vertical") ? "correct" : "wrong",
+        text: balancedPairKeys.has("vertical")
+          ? "支持力與重力：箭頭長度大致相等，垂直方向平衡。"
+          : directionsCorrect
+            ? "支持力與重力：箭頭長度相差太大，應調整至大致相等。"
+            : "支持力與重力：請先修正箭頭方向，使兩個力方向相反，再比較長度。"
+      });
+    }
+    if (!missingTypes.includes("applied") && !missingTypes.includes("friction")) {
+      const directionsCorrect = ["applied", "friction"].every((type) =>
+        correctDirections.includes(type)
+      );
+      items.push({
+        status: balancedPairKeys.has("horizontal") ? "correct" : "wrong",
+        text: balancedPairKeys.has("horizontal")
+          ? "外力與摩擦力：箭頭長度大致相等，水平方向平衡。"
+          : directionsCorrect
+            ? "外力與摩擦力：箭頭長度相差太大，應調整至大致相等。"
+            : "外力與摩擦力：請先修正箭頭方向，使兩個力方向相反，再比較長度。"
+      });
+    }
 
     tooShortArrows.forEach((arrow) => {
       const force = FORCE_TYPES[arrow.type];
@@ -230,6 +283,7 @@
     scoreDiagram,
     arrowAngle,
     arrowLength,
-    angleDistance
+    angleDistance,
+    BALANCE_LENGTH_RATIO
   };
 });
