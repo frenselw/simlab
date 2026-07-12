@@ -1,258 +1,187 @@
-# SimLab 項目審核跟進計劃
+# SimLab 項目審核跟進 Checklist
 
-## 文件目的
+## 狀態說明
 
-本文件把項目全面審核提出的事項整理成兩個工作階段：
+- `[x]` 已決定或已完成
+- `[ ]` 尚待決定、實作或人工驗收
 
-- **先做**：影響 SCORM 提交可靠性、套件合規、明確評分錯誤及基本發布品質的工作。
-- **後做**：提升恢復能力、跨平台開發體驗、效能與維護性的工作。
-
-本計劃以 SimLab 的實際用途為準，不把它當作高風險或防作弊的正式考試系統。
+本計劃以 SimLab 作為低風險功課、課堂活動及自學練習為前提，不把它當作高風險或防作弊的正式考試系統。
 
 ## 已確定的產品定位
 
-### 活動用途
-
-- SimLab 用於低風險功課、課堂活動及學生自學練習。
-- 不要求活動具備高風險考試所需的防作弊或伺服器端驗證能力。
-- 接受純前端 SCORM 分數可被少數熟悉瀏覽器工具的學生修改，這是已知限制，不列入修正範圍。
-
-### 作答次數與提交後狀態
-
-- Moodle 應容許學生無限次作答。
-- 每次正式提交後，該次 attempt 保持只讀，讓學生查看答案和回饋。
-- 學生如要重新作答，應返回 Moodle 開始新的 attempt。
-- 建議 Moodle 的多次作答評分方式設為最高分。
-- SimLab 不需要在同一 attempt 內提供「清除並重做」。
-
-### 地圖活動的答案提示
-
-- `displacement-distance-map-journey` 保留目前的引導式設計。
-- 答題時繼續顯示已走路程、正確位移大小和方向文字。
-- 不新增「練習模式／評估模式」。
-- 這項活動的分數代表學生在提示下完成概念配對，不解讀為獨立量度或計算能力的高可信證據。
-
-### 操作方式與鍵盤支援
-
-- 核心操作維持手機觸控拖曳及桌面滑鼠拖曳。
-- 暫不為地圖人物、位移箭頭或其他可拖曳物件加入方向鍵控制。
-- 不加入需要文字輸入的控制，避免手機彈出軟鍵盤。
-- 一般按鈕仍應使用原生 `button` 元素，保留瀏覽器本身的焦點、Enter 和 Space 操作。
-- 觸控目標、拖曳穩定性及手機版體驗優先於完整鍵盤操作覆蓋。
+- [x] SimLab 用於低風險功課、課堂活動及學生自學練習。
+- [x] 接受純前端 SCORM 分數可能被少數學生修改，不加入防作弊或伺服器端重新評分。
+- [x] Moodle 容許學生無限次作答。
+- [x] 每次正式提交後，該次 attempt 保持只讀。
+- [x] 學生如要重新作答，返回 Moodle 開始新的 attempt。
+- [x] 建議 Moodle 多次作答評分方式設為最高分。
+- [x] 不在同一 attempt 內提供「清除並重做」。
+- [x] 地圖活動保留目前的引導式設計及答案 readout。
+- [x] 地圖活動不新增「練習模式／評估模式」。
+- [x] 核心操作維持手機觸控拖曳及桌面滑鼠拖曳。
+- [x] 不為拖曳物件加入方向鍵控制或文字輸入控制。
+- [x] 一般按鈕繼續使用原生 `button`，保留瀏覽器本身的焦點、Enter 和 Space 操作。
 
 ## 先做
 
-這一階段完成後，項目應達到「可以可靠地作為低風險 Moodle 練習發布」的水平。
+### SCORM manifest 與打包
 
-### 1. 修正 SCORM 1.2 manifest
+- [x] 四份 manifest 把 `adlcp:scormType` 改為 `adlcp:scormtype`。
+- [x] 四份 manifest 正式宣告 `config.js`。
+- [x] 加入 SimLab SCORM 1.2 manifest profile 驗證。
+- [x] 加入 metadata、organization、item、resource、launch file 及 identifier 語義連結檢查。
+- [x] 加入錯誤 manifest fixture 及負面驗證案例。
+- [x] 驗證 ZIP 根目錄包含 `imsmanifest.xml`。
+- [x] 精確比對 ZIP 內容與 manifest 宣告。
+- [x] 確認 ZIP 不包含 tests、screenshots 或暫存檔。
 
-四份 manifest 的：
+> 此處是針對 SimLab 套件結構的 profile 與語義驗證，不宣稱取代官方完整 SCORM 1.2 schema set。
 
-```xml
-adlcp:scormType="sco"
-```
+### SCORM 提交可靠性
 
-改為：
+- [x] 只在 `LMSInitialize()` 成功後標記為已初始化。
+- [x] 捕捉 LMS API exception。
+- [x] 檢查 score、lesson status、exit、commit 和 finish 的回傳結果。
+- [x] 讀取並記錄 `LMSGetLastError()` 和 `LMSGetErrorString()`。
+- [x] `submitResult()` 返回結構化提交狀態。
+- [x] 四個活動只在提交成功後鎖定。
+- [x] 提交失敗時保留答案、顯示錯誤並容許重試。
+- [x] 防止同時產生多個提交請求。
+- [x] Live Server 頂層頁面保留 local fallback。
+- [x] Moodle iframe／popup 找不到 API 時不會誤用 local fallback。
+- [x] 未提交便離頁時，以 `exit = suspend` best-effort commit 並關閉 session。
+- [x] 正式提交使用 `exit = logout`。
+- [x] `LMSFinish` 失敗後可由再次提交或 `pagehide` 重試。
 
-```xml
-adlcp:scormtype="sco"
-```
+### Fake LMS 測試
 
-驗收：
+- [x] Initialize 成功及失敗。
+- [x] Score raw 寫入失敗。
+- [x] Lesson status 寫入失敗。
+- [x] Exit 寫入失敗。
+- [x] Commit 失敗。
+- [x] Finish 失敗及重試。
+- [x] LMS API 拋出 exception。
+- [x] Embedded／opener 找不到 API。
+- [x] Standalone local fallback。
+- [x] 未提交 `pagehide` session close。
+- [x] 失敗 callback 不鎖定，成功 callback 才鎖定。
 
-- 四份 manifest 通過 SimLab SCORM 1.2 manifest profile 及語義連結驗證；此項不宣稱取代官方完整 schema set。
-- 所有活動仍能成功打包。
-- ZIP 根目錄包含 `imsmanifest.xml`。
+### 評分與模型修正
 
-### 2. 修正 SCORM 提交失敗處理
+- [x] FBD 完全空白答案改為 `0` 分。
+- [x] FBD clean completion 只在必要力完整且沒有多餘力時取得。
+- [x] FBD 空白或明顯未完成提交前顯示確認。
+- [x] 平面鏡同一來源的兩束光必須使用不同入射路徑。
+- [x] 重疊光路不能取得完整性滿分並會顯示針對性回饋。
+- [x] 地圖到達目標時補計吸附到入口前的剩餘道路距離。
+- [x] 地圖 trace 包含完整走到入口的最後一段。
+- [x] 加入地圖到達容差、距離累加、轉折 trace 及終點測試。
 
-調整共用 `sim/shared/scorm.js`，避免 Moodle 寫入失敗但畫面仍顯示成功並鎖定。
+### 品質檢查與 CI
 
-要求：
+- [x] 加入 `npm run check`。
+- [x] 加入 `npm test`。
+- [x] 加入 `npm run package -- <slug>`。
+- [x] 加入 `npm run package:all`。
+- [x] GitHub Actions 執行 JavaScript syntax checks。
+- [x] GitHub Actions 執行四個 scoring tests。
+- [x] GitHub Actions 執行 fake LMS tests。
+- [x] GitHub Actions 執行 manifest profile 及語義連結驗證。
+- [x] GitHub Actions 打包並檢查全部活動。
+- [x] README 列出目前需要的 Node、`xmllint`、`zip` 和 `unzip`。
 
-- 只有 `LMSInitialize()` 真正成功後才標記為已初始化。
-- 捕捉 LMS API 呼叫所拋出的 exception。
-- 檢查 score、lesson status、exit、commit 和 finish 的回傳結果。
-- 讀取並記錄 `LMSGetLastError()`、`LMSGetErrorString()` 提供的錯誤資料。
-- `submitResult()` 返回清楚的提交狀態，而不是直接返回評分結果。
-- 最低限度在 raw score、lesson status 和 commit 成功後，活動才可顯示「已提交」並鎖定。
-- 提交失敗時保留學生答案，顯示「未能傳送到 Moodle，請重試」，並保持提交按鈕可用。
-- 防止學生重按按鈕時同時產生多個提交請求。
+### 小型修正與文件
 
-活動在 Live Server 找不到 LMS API 時，繼續使用現有 local fallback，讓開發測試可以正常提交。
+- [x] 修正參考系 restore 把空白 LMS score 當成 `0`。
+- [x] 修正地圖合法 seed `0` 無法恢復。
+- [x] 更新 README 的活動清單。
+- [x] 更新 AGENTS 的活動清單。
+- [x] 兩個獨立 reviewer 完成多輪 review。
+- [x] 跟進所有 actionable findings，最終兩個 review 路線均為 no findings。
 
-### 3. 加入 fake LMS 自動測試
+### Moodle 人工驗收
 
-至少測試以下情況：
-
-- initialize 成功及失敗。
-- score raw 寫入失敗。
-- lesson status 寫入失敗。
-- commit 失敗。
-- finish 失敗。
-- LMS API 拋出 exception。
-- 失敗後可以重新提交。
-- 沒有 LMS API 時 local fallback 正常運作。
-
-測試亦要確認：提交失敗不會鎖定活動，成功提交才會進入 review-only 狀態。
-
-### 4. 修正已確認的評分與模型錯誤
-
-#### FBD 空白答案
-
-- 完全空白答案應為 `0` 分，不可因為沒有多餘力而取得 clean completion 分。
-- clean completion 分只可在必要力完整且沒有多餘力時取得。
-- 空白或明顯未完成時可以提交，以便學生取得回饋，但提交前顯示確認提示。
-
-#### 平面鏡重複光路
-
-- 同一來源的兩束光必須使用可辨識的不同入射路徑。
-- 建議以鏡面入射點距離作判斷，容差寫成容易修改的常數。
-- 重疊或過度接近的光路不能取得完整性滿分。
-- 回饋應指出同一物點需要兩條不同路徑。
-
-#### 地圖最後一段路程
-
-- 到達目標門檻後，吸附到入口前的剩餘道路距離亦要加入 `routeDistance`。
-- trace 要包含完整走到入口的最後一段。
-- 加入到達容差內外的邊界測試。
-
-### 5. 建立最低限度品質檢查和 CI
-
-提供一致的根目錄指令，至少包括：
-
-```text
-npm run check
-npm test
-npm run package -- <slug>
-npm run package:all
-```
-
-GitHub Actions 至少執行：
-
-- 所有 JavaScript 語法檢查。
-- 四個活動的 scoring tests。
-- 共用 SCORM fake LMS tests。
-- 四份 manifest profile 及語義連結 validation。
-- 打包全部活動。
-- 檢查 ZIP 的 `imsmanifest.xml` 位於根目錄。
-- 確認 ZIP 沒有 tests、screenshots 或暫存檔。
-
-### 6. 修正低風險、結論明確的小問題
-
-- 修正參考系 restore 把空白 LMS score 當成 `0`。
-- 修正地圖合法 seed `0` 無法恢復。
-- 更新 README 和 AGENTS 的活動清單，使其包含目前四個活動。
+- [ ] 用學生帳戶進入每個活動。
+- [ ] 提交後確認 Moodle 正確記錄分數及狀態。
+- [ ] 重新進入已提交 attempt，確認只可重看。
+- [ ] 返回 Moodle 開始新的 attempt。
+- [ ] 確認無限次作答及最高分設定符合預期。
+- [ ] 模擬或實際測試一次傳送失敗後重新提交。
 
 ## 後做
 
-這一階段提升課堂使用的韌性及日後維護體驗，但不阻塞第一輪發布。
+### 保存未提交的中途進度
 
-### 1. 保存未提交的中途進度
+- [ ] 為每個活動定義 compact draft snapshot。
+- [ ] 完成地圖一段路程或一組答案時保存。
+- [ ] 完成參考系一輪觀察或一題答案時保存。
+- [ ] 為平面鏡及 FBD 選擇有意義的保存階段。
+- [ ] `pagehide` 時保存未提交進度。
+- [ ] 未完成活動使用 `exit = suspend` 並 commit。
+- [ ] 驗證 snapshot 不超出 SCORM 1.2 儲存限制。
 
-只在重要狀態改變時保存，不在每次 pointer move 時寫入 Moodle。
+### 統一 review snapshot 驗證
 
-建議保存時機：
+- [ ] 統一 `version`、`activity`、`answer`、`score`、`passed` 基本格式。
+- [ ] 驗證 snapshot version、activity 和答案結構。
+- [ ] Restore 時以結構化答案重新評分。
+- [ ] 與 Moodle raw score 和 snapshot score 比對。
+- [ ] 資料損壞或版本不相容時顯示安全摘要。
+- [ ] 先沿用參考系活動的成熟做法，不建立大型框架。
 
-- 完成地圖一段路程或一組答案。
-- 完成參考系一輪觀察或保存一題答案。
-- 平面鏡或 FBD 到達具意義的完成階段。
-- `pagehide`。
+### 參考系 Canvas 效能
 
-未完成活動使用 `cmi.core.exit = suspend` 並 commit；只有正式提交才使用 `logout` 和 finish。
+- [ ] 只在播放時維持 `requestAnimationFrame` loop。
+- [ ] 暫停、等待、作答、提交及 review 狀態只在改變時重畫。
+- [ ] Resize 時重畫一次。
+- [ ] 頁面隱藏時停止動畫。
+- [ ] 恢復播放時重設時間基準。
 
-實施前要為每個活動定義 compact draft snapshot，避免超出 SCORM 1.2 的儲存限制。
+### 跨平台打包
 
-### 2. 統一 review snapshot 驗證
+- [ ] 移除對系統 `zip` executable 的依賴。
+- [ ] 使用小型 Node 開發依賴產生 ZIP。
+- [ ] 移除對系統 `unzip` 的依賴。
+- [ ] 移除對系統 `xmllint` 的依賴，或提供一致的跨平台替代方案。
+- [ ] 不再用格式敏感的 regex 解析 manifest file entries。
 
-所有活動使用一致的基本格式：
+### 小步整理重複程式碼
 
-```js
-{
-  version: 1,
-  activity: "activity-slug",
-  answer: {},
-  score: 0,
-  passed: false
-}
-```
+- [ ] 只在至少兩個活動有相同、穩定需求時抽取共用 helper。
+- [ ] 評估是否需要共用 snapshot envelope validation。
+- [ ] 評估是否需要共用 SCORM 提交狀態 UI。
+- [ ] 不因個別 `main.js` 較長而進行完整 MVC 拆分。
+- [ ] 不引入大型前端框架。
 
-恢復已提交 attempt 時：
+## 已確認不做
 
-- 驗證 version、activity 和答案結構。
-- 以保存的結構化答案重新執行 scoring。
-- 與 Moodle raw score 和 snapshot score 比對。
-- 資料不完整、損壞或版本不相容時，顯示安全摘要，不讓頁面因 restore error 中斷。
+- [x] 不防止學生在瀏覽器修改分數。
+- [x] 不加入後端、LTI 或 Moodle server-side 重新評分。
+- [x] 不限制作答次數。
+- [x] 不在同一 attempt 內清除答案並重做。
+- [x] 不加入地圖隱藏答案評估模式。
+- [x] 不加入地圖練習／評估雙模式。
+- [x] 不為拖曳物件加入方向鍵控制。
+- [x] 暫不追求完整鍵盤操作覆蓋或正式無障礙認證。
+- [x] 不引入大型前端框架或全面重寫現有活動。
 
-先擴充現有參考系活動的做法，不急於建立大型共用框架。
-
-### 3. 停止參考系活動的永久 Canvas 重畫
-
-- 只在播放動畫時維持 `requestAnimationFrame` loop。
-- 暫停、等待、作答、提交及 review 狀態只在畫面狀態改變時重畫。
-- resize 時重畫一次。
-- 頁面隱藏時停止動畫，恢復播放時重設時間基準。
-
-這項修改不改變學習流程，主要降低手機 CPU、電量和發熱負擔。
-
-### 4. 改善跨平台打包
-
-- 移除對作業系統 `zip` executable 的依賴。
-- 使用小型 Node 開發依賴產生 ZIP；依賴不包含在學生使用的 SCORM package runtime 內。
-- 不再用格式敏感的 regex 解析 manifest file entries。
-- 使用 XML parser，或由明確的活動檔案清單建立 package 並與 manifest 交叉檢查。
-
-### 5. 小步整理重複程式碼
-
-只在至少兩個活動出現相同、穩定的需求後才抽取共用 helper，例如：
-
-- snapshot envelope validation；
-- SCORM 提交狀態顯示；
-- 純 DOM 文字節點 helper。
-
-暫不因為個別 `main.js` 較長而進行完整 MVC 拆分，也不引入前端框架。
-
-## 暫不進行
-
-以下事項目前不列入工作範圍：
-
-- 防止學生在瀏覽器修改分數。
-- 加入後端、LTI 或 Moodle server-side 重新評分。
-- 限制作答次數。
-- 在同一 attempt 內清除答案並重做。
-- 地圖活動的隱藏答案評估模式。
-- 地圖活動的練習／評估雙模式。
-- 為拖曳物件加入方向鍵控制。
-- 為所有活動追求完整鍵盤操作覆蓋或正式無障礙認證。
-- 引入大型前端框架或全面重寫現有活動。
-
-## 尚待確認的一項教學規則
+## 尚待決定
 
 ### FBD 箭頭長度是否代表力的相對大小
 
-目前評分只要求箭頭超過最低長度，沒有檢查相反方向的力是否等大；但回饋會說明物體靜止及合力為零。
+- [ ] 決定是否把箭頭相對長度納入 scoring rubric。
 
-建議採用以下方案：
+建議方案：
 
-- 箭頭長度代表力的相對大小。
-- 支持力與重力的長度差，以及外力與摩擦力的長度差，容許約 `±20%`。
-- 不要求垂直力與水平力互相等長。
-- 評分回饋指出哪一對力尚未平衡。
+- [ ] 箭頭長度代表力的相對大小。
+- [ ] 支持力與重力、外力與摩擦力分別容許約 `±20%` 長度差。
+- [ ] 不要求垂直力與水平力互相等長。
+- [ ] 回饋指出哪一對力尚未平衡。
 
-如果不採用長度評分，替代方案是固定箭頭長度，並在題目中清楚說明本題只評力的種類、方向和作用點。
+替代方案：
 
-這項會改變 FBD 的教學要求和 scoring rubric，因此在實施前需要最後確認。
+- [ ] 固定箭頭長度。
+- [ ] 題目清楚說明只評力的種類、方向和作用點。
 
-## 建議執行次序
-
-1. Manifest 合規修正。
-2. SCORM 提交結果契約及錯誤處理。
-3. Fake LMS tests。
-4. FBD 空白分、平面鏡重複光路、地圖尾段距離。
-5. 根目錄品質指令及 CI。
-6. Restore 小修正及文件同步。
-7. 中途保存和統一 snapshot validation。
-8. Canvas 效能及跨平台打包改善。
-9. 按實際重複情況整理少量共用程式碼。
-
-完成「先做」後，應先用學生帳戶在 Moodle 測試一次完整流程：進入活動、提交、記錄分數、重看已提交 attempt，以及返回入口開始新的 attempt。
+這項會改變 FBD 的教學要求和 scoring rubric，實施前需要最後確認。
