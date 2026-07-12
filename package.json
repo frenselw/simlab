@@ -1,0 +1,10 @@
+{
+  "name": "simlab",
+  "private": true,
+  "scripts": {
+    "check": "node tools/check.js",
+    "test": "node tools/run-tests.js",
+    "package": "node tools/package-scorm.js",
+    "package:all": "node tools/package-all.js"
+  }
+}

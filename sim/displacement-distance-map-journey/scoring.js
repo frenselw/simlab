@@ -23,6 +23,19 @@
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
+  function hasReachedDestination(point, destination) {
+    return pointDistance(point, destination) <= DESTINATION_REACH_TOLERANCE_M;
+  }
+
+  function routeCompletion(current, destination, findPath) {
+    const path = findPath(current, destination);
+    return {
+      distance: Number.isFinite(path.distance) ? path.distance : 0,
+      points: Number.isFinite(path.distance) ? path.points.slice(1) : [],
+      end: destination
+    };
+  }
+
   function vector(start, end) {
     return {
       x: end.x - start.x,
@@ -263,6 +276,8 @@
     isDistanceAnswerCorrect,
     normalizeBearing,
     pointDistance,
+    hasReachedDestination,
+    routeCompletion,
     scoreJourney,
     vector,
     vectorMagnitude

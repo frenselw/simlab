@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  targetNamespace="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  elementFormDefault="qualified">
+  <xs:attribute name="scormtype">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="sco"/>
+        <xs:enumeration value="asset"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:attribute>
+</xs:schema>

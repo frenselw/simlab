@@ -70,6 +70,13 @@ assert.equal(perfect.detail.incidentCorrect, 4);
 assert.equal(perfect.detail.reflectedCorrect, 4);
 assert.equal(perfect.detail.extensionCorrect, 4);
 
+const overlapping = perfectAnswer(leftScene);
+overlapping.bundles[1] = bundle(leftScene, "top", 145);
+const overlappingScore = scoreDiagram(overlapping, leftScene);
+assert.equal(overlappingScore.detail.duplicatePathCount, 1);
+assert(overlappingScore.score < 100);
+assert(overlappingScore.feedbackItems.some((item) => item.text.includes("兩條不同")));
+
 const wrongType = scoreDiagram({ ...perfectAnswer(leftScene), imageChoice: "real" }, leftScene);
 assert.equal(wrongType.score, 90);
 assert.equal(wrongType.detail.imageTypeCorrect, false);

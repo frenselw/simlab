@@ -200,18 +200,23 @@
     };
     const size = new TextEncoder().encode(JSON.stringify(snapshot)).length;
     if (size > 3000) throw new Error("Review snapshot is unexpectedly too large");
-    state.result = result;
-    state.locked = true;
-    state.mode = "submitted";
-    state.selected = null;
-    state.playback = "idle";
-    window.SimScorm.submitResult(result, snapshot);
+    window.SimScorm.submitWithCallbacks(result, snapshot, {
+      onFailure: () => window.alert("未能傳送到 Moodle，請重試。"),
+      onSuccess: () => {
+        state.result = result;
+        state.locked = true;
+        state.mode = "submitted";
+        state.selected = null;
+        state.playback = "idle";
+      }
+    });
     renderUI();
   }
 
   function restoreSubmittedAttempt() {
     const raw = window.SimScorm.getValue("cmi.suspend_data");
-    const lmsScore = Number(window.SimScorm.getValue("cmi.core.score.raw"));
+    const rawLmsScore = window.SimScorm.getValue("cmi.core.score.raw");
+    const lmsScore = rawLmsScore.trim() === "" ? NaN : Number(rawLmsScore);
     try {
       const saved = JSON.parse(raw);
       if (!saved || saved.v !== 1 || saved.locked !== 1 || !Array.isArray(saved.rounds) || saved.rounds.length !== 5) {

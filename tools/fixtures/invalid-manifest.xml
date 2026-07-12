@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" identifier="invalid">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG"/>
+</manifest>

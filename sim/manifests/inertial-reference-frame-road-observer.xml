@@ -18,7 +18,8 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" type="webcontent" adlcp:scormType="sco" href="inertial-reference-frame-road-observer/index.html">
+    <resource identifier="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" type="webcontent" adlcp:scormtype="sco" href="inertial-reference-frame-road-observer/index.html">
+      <file href="config.js"/>
       <file href="inertial-reference-frame-road-observer/index.html"/>
       <file href="inertial-reference-frame-road-observer/styles.css"/>
       <file href="inertial-reference-frame-road-observer/main.js"/>

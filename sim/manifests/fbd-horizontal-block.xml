@@ -18,7 +18,8 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-FBD-HORIZONTAL-BLOCK" type="webcontent" adlcp:scormType="sco" href="fbd-horizontal-block/index.html">
+    <resource identifier="RES-FBD-HORIZONTAL-BLOCK" type="webcontent" adlcp:scormtype="sco" href="fbd-horizontal-block/index.html">
+      <file href="config.js"/>
       <file href="fbd-horizontal-block/index.html"/>
       <file href="fbd-horizontal-block/styles.css"/>
       <file href="fbd-horizontal-block/main.js"/>

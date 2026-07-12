@@ -100,6 +100,7 @@
 
   function submitDiagram() {
     if (state.locked) return;
+    if (state.arrows.length === 0 && !window.confirm("你尚未加入任何力，仍要提交嗎？")) return;
     const result = window.FbdScoring.scoreDiagram(state.arrows, block);
     scorePanel.replaceChildren(
       textBlock("div", "目前分數"),
@@ -112,8 +113,10 @@
       list.append(textBlock("li", item.text, `feedback-item ${item.status}`));
     });
     scorePanel.append(list, textBlock("div", result.summary, "muted feedback-summary"));
-    window.SimScorm.submitResult(result, reviewState(result));
-    lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。");
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), {
+      onFailure: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
+      onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
+    });
   }
 
   function reviewState(result) {

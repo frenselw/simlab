@@ -16,6 +16,7 @@
   const IMAGE_X_TOLERANCE_PX = 14;
   const IMAGE_Y_TOLERANCE_PX = 14;
   const IMAGE_HEIGHT_TOLERANCE_RATIO = 0.08;
+  const DISTINCT_HIT_TOLERANCE_PX = 20;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -172,6 +173,21 @@
     return bundles.filter((bundle) => bundle.incident && bundle.reflected && bundle.extension).length;
   }
 
+  function duplicatePathCount(bundles) {
+    let count = 0;
+    for (let i = 0; i < bundles.length; i += 1) {
+      for (let j = i + 1; j < bundles.length; j += 1) {
+        if (
+          bundles[i].source === bundles[j].source &&
+          bundles[i].incident &&
+          bundles[j].incident &&
+          pointDistance(bundles[i].incident.end, bundles[j].incident.end) < DISTINCT_HIT_TOLERANCE_PX
+        ) count += 1;
+      }
+    }
+    return count;
+  }
+
   function imageScore(answer, scene) {
     const image = answer.image;
     const endpoints = imageEndpoints(image);
@@ -217,10 +233,12 @@
     const imageTypeScore = answer.imageChoice === "virtual" ? 10 : 0;
     const placedImage = imageScore(answer, scene);
     const completed = completeBundleCount(usableBundles);
+    const duplicates = duplicatePathCount(usableBundles);
     const cleanScore =
       completed === MAX_BUNDLES &&
       reflectedCorrect.length === MAX_BUNDLES &&
-      extensionCorrect.length === MAX_BUNDLES
+      extensionCorrect.length === MAX_BUNDLES &&
+      duplicates === 0
         ? Math.max(0, 10 - extraCount * 5)
         : 0;
     const rawScore =
@@ -238,7 +256,8 @@
       imageTypeScore,
       placedImage,
       completed,
-      extraCount
+      extraCount,
+      duplicates
     });
     const summary = "平面鏡成像為正立虛像，像距等於物距，像的大小與物相同。";
 
@@ -257,7 +276,8 @@
         imageTypeCorrect: imageTypeScore === 10,
         imageChecks: placedImage.detail,
         completeBundles: completed,
-        extraCount
+        extraCount,
+        duplicatePathCount: duplicates
       }
     };
   }
@@ -283,6 +303,11 @@
       items.push({
         status: "missing",
         text: "完整性：仍未完成四組入射、反射和延長線。"
+      });
+    } else if (detail.duplicates > 0) {
+      items.push({
+        status: "wrong",
+        text: "完整性：同一物點需要兩條不同的入射路徑，鏡面入射點不可重疊。"
       });
     } else if (detail.extraCount > 0) {
       items.push({
@@ -316,6 +341,7 @@
     IMAGE_X_TOLERANCE_PX,
     IMAGE_Y_TOLERANCE_PX,
     IMAGE_HEIGHT_TOLERANCE_RATIO,
+    DISTINCT_HIT_TOLERANCE_PX,
     PASSING_SCORE,
     sourcePoint,
     correctImage,

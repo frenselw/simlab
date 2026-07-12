@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  targetNamespace="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  elementFormDefault="qualified">
+  <xs:import namespace="http://www.adlnet.org/xsd/adlcp_rootv1p2" schemaLocation="simlab-adlcp-profile.xsd"/>
+
+  <xs:element name="manifest">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="metadata" type="metadataType"/>
+        <xs:element name="organizations" type="organizationsType"/>
+        <xs:element name="resources" type="resourcesType"/>
+      </xs:sequence>
+      <xs:attribute name="identifier" type="xs:string" use="required"/>
+      <xs:attribute name="version" type="xs:string"/>
+      <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="metadataType">
+    <xs:sequence>
+      <xs:element name="schema" type="xs:string"/>
+      <xs:element name="schemaversion" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="organizationsType">
+    <xs:sequence><xs:element name="organization" type="organizationType" maxOccurs="unbounded"/></xs:sequence>
+    <xs:attribute name="default" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="organizationType">
+    <xs:sequence>
+      <xs:element name="title" type="xs:string"/>
+      <xs:element name="item" type="itemType" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="identifier" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="itemType">
+    <xs:sequence><xs:element name="title" type="xs:string"/></xs:sequence>
+    <xs:attribute name="identifier" type="xs:string" use="required"/>
+    <xs:attribute name="identifierref" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="resourcesType">
+    <xs:sequence><xs:element name="resource" type="resourceType" maxOccurs="unbounded"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="resourceType">
+    <xs:sequence><xs:element name="file" type="fileType" minOccurs="1" maxOccurs="unbounded"/></xs:sequence>
+    <xs:attribute name="identifier" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="href" type="xs:string" use="required"/>
+    <xs:attribute ref="adlcp:scormtype" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="fileType">
+    <xs:attribute name="href" type="xs:string" use="required"/>
+  </xs:complexType>
+</xs:schema>

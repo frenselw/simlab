@@ -580,8 +580,12 @@
   function completeCurrentSegment() {
     const segment = state.segments[state.currentSegment];
     const target = placeById(state.scene.routeIds[state.currentSegment + 1]);
+    const destination = nearestRoadPosition(target.entrance);
+    const completion = Scoring.routeCompletion(state.person, destination, roadPath);
+    segment.routeDistance += completion.distance;
+    completion.points.forEach((pathPoint) => pushTracePoint(segment, pathPoint));
     segment.reached = true;
-    state.person = nearestRoadPosition(target.entrance);
+    state.person = completion.end;
     pushTracePoint(segment, pointOnly(state.person));
     segment.arrow = defaultArrow(displacementPoint(segmentStartPlace(state.currentSegment)));
     state.phase = "draw-segment";
@@ -615,8 +619,10 @@
     const result = Scoring.scoreJourney(currentAnswer(), journeyForScene(state.scene));
     state.result = result;
     showResult(result);
-    window.SimScorm.submitResult(result, reviewState(result));
-    lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。");
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), {
+      onFailure: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong")),
+      onSuccess: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。")
+    });
   }
 
   function reviewState(result) {
@@ -670,7 +676,7 @@
 
   function showSubmittedAttempt() {
     const review = readReviewState();
-    if (!review.seed || !review.routeIds) {
+    if (!Number.isFinite(review.seed) || !review.routeIds) {
       scorePanel.replaceChildren(
         textBlock("div", "此作答次已提交"),
         textBlock("div", String(window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
@@ -1363,8 +1369,7 @@
   function reachedTarget() {
     const target = segmentEndPlace(state.currentSegment);
     return (
-      Scoring.pointDistance(pointOnly(state.person), target.entrance) <=
-        Scoring.DESTINATION_REACH_TOLERANCE_M ||
+      Scoring.hasReachedDestination(pointOnly(state.person), target.entrance) ||
       pointInRect(pointOnly(state.person), expandRect(target.rect, 1))
     );
   }

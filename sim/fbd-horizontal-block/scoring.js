@@ -101,9 +101,10 @@
         total + extraPenaltyForArrow(arrow, presentTypes, correctDirections, correctPlacements),
       0
     );
+    const cleanScore = missingTypes.length === 0 && allExtraArrows.length === 0 ? CLEAN_POINTS : 0;
     const score = Math.max(
       0,
-      Math.round(typeScore + directionScore + placementScore + CLEAN_POINTS - extraPenalty)
+      Math.round(typeScore + directionScore + placementScore + cleanScore - extraPenalty)
     );
     const feedbackItems = buildFeedbackItems(
       usableArrows,

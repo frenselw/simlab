@@ -18,7 +18,8 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-PLANE-MIRROR-PENCIL-RAY-DIAGRAM" type="webcontent" adlcp:scormType="sco" href="plane-mirror-pencil-ray-diagram/index.html">
+    <resource identifier="RES-PLANE-MIRROR-PENCIL-RAY-DIAGRAM" type="webcontent" adlcp:scormtype="sco" href="plane-mirror-pencil-ray-diagram/index.html">
+      <file href="config.js"/>
       <file href="plane-mirror-pencil-ray-diagram/index.html"/>
       <file href="plane-mirror-pencil-ray-diagram/styles.css"/>
       <file href="plane-mirror-pencil-ray-diagram/main.js"/>

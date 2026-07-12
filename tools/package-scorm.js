@@ -32,8 +32,8 @@ if (!fs.existsSync(manifestPath)) usage();
 
 function manifestFiles(manifestPath) {
   const manifest = fs.readFileSync(manifestPath, "utf8");
-  const files = ["imsmanifest.xml", "config.js"];
-  for (const match of manifest.matchAll(/<file\s+href="([^"]+)"\s*\/>/g)) {
+  const files = ["imsmanifest.xml"];
+  for (const match of manifest.matchAll(/<file\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*\/?\s*>/g)) {
     files.push(match[1]);
   }
   return [...new Set(files)].sort();

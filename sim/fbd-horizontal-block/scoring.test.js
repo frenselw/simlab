@@ -13,6 +13,9 @@ function arrow(type, dx, dy, slot) {
   };
 }
 
+const blank = scoreDiagram([], block);
+assert.equal(blank.score, 0);
+
 const perfect = scoreDiagram([
   arrow("weight", 0, 90),
   arrow("normal", 0, -90),
@@ -75,7 +78,7 @@ const duplicateNormal = scoreDiagram([
 
 assert.equal(duplicateNormal.detail.extraCount, 1);
 assert(duplicateNormal.feedbackItems.some((item) => item.text.includes("N₂ 支持力")));
-assert.equal(duplicateNormal.score, 79);
+assert.equal(duplicateNormal.score, 64);
 
 const extraTension = scoreDiagram([
   arrow("weight", 0, 90),
@@ -87,7 +90,7 @@ const extraTension = scoreDiagram([
 
 assert.equal(extraTension.detail.extraCount, 1);
 assert(extraTension.feedbackItems.some((item) => item.text.includes("T 拉力：此題不需要")));
-assert.equal(extraTension.score, 90);
+assert.equal(extraTension.score, 75);
 
 const allButtons = scoreDiagram([
   arrow("weight", 0, 90, "1"),

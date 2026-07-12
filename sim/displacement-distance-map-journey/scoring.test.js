@@ -4,9 +4,36 @@ const {
   expectedSegment,
   expectedTotal,
   formatBearing,
+  hasReachedDestination,
   isDirectionAnswerCorrect,
+  routeCompletion,
   scoreJourney
 } = require("./scoring.js");
+
+assert(hasReachedDestination({ x: 2, y: 0 }, { x: 0, y: 0 }));
+assert(!hasReachedDestination({ x: 2.01, y: 0 }, { x: 0, y: 0 }));
+
+const toleranceCompletion = routeCompletion(
+  { x: 1.5, y: 0 },
+  { x: 0, y: 0 },
+  (from, to) => ({ distance: 1.5, points: [from, to] })
+);
+assert.equal(toleranceCompletion.distance, 1.5);
+assert.deepEqual(toleranceCompletion.points.at(-1), { x: 0, y: 0 });
+
+const rectCompletion = routeCompletion(
+  { x: 4, y: 3 },
+  { x: 0, y: 0 },
+  (from, to) => ({ distance: 7, points: [from, { x: 4, y: 0 }, to] })
+);
+assert.equal(rectCompletion.distance, 7);
+assert.deepEqual(rectCompletion.points, [{ x: 4, y: 0 }, { x: 0, y: 0 }]);
+
+const existingSegment = { routeDistance: 25, trace: [{ x: 8, y: 3 }] };
+existingSegment.routeDistance += rectCompletion.distance;
+existingSegment.trace.push(...rectCompletion.points);
+assert.equal(existingSegment.routeDistance, 32);
+assert.deepEqual(existingSegment.trace.at(-1), rectCompletion.end);
 
 const journey = {
   routePlaceIds: ["school", "bank", "park"],
