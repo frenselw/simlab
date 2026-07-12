@@ -89,7 +89,7 @@
 - [x] GitHub Actions 執行 fake LMS tests。
 - [x] GitHub Actions 執行 manifest profile 及語義連結驗證。
 - [x] GitHub Actions 打包並檢查全部活動。
-- [x] README 列出目前需要的 Node、`xmllint`、`zip` 和 `unzip`。
+- [x] README 列出目前需要的 Node/npm 及 development-only ZIP/XML helpers。
 
 ### 小型修正與文件
 

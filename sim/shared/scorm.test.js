@@ -101,6 +101,19 @@ assert.equal(pagehideValues["cmi.core.exit"], "suspend");
 assert.equal(pagehideValues.commits, 1);
 assert.equal(pagehideValues.finishes, 1);
 
+const restoredFinalValues = {
+  "cmi.core.lesson_status": "passed",
+  "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: { final: true } })
+};
+const restoredFinalRuntime = runtime(fakeApi({}, restoredFinalValues));
+assert.equal(restoredFinalRuntime.scorm.init(), true);
+assert.equal(restoredFinalRuntime.scorm.isAttemptFinished(), true);
+restoredFinalRuntime.scorm.setDraftProvider(() => restoredFinalRuntime.scorm.makeSnapshot("activity", "draft", { final: false }));
+restoredFinalRuntime.listeners.pagehide();
+assert.equal(JSON.parse(restoredFinalValues["cmi.suspend_data"]).kind, "review");
+assert.notEqual(restoredFinalValues["cmi.core.exit"], "suspend");
+assert.equal(restoredFinalValues.finishes, 1);
+
 const draftValues = {};
 const draftRuntime = runtime(fakeApi({}, draftValues));
 const draft = draftRuntime.scorm.makeSnapshot("activity", "draft", { step: 2 });

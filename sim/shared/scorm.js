@@ -186,6 +186,11 @@
 
   function closeSession() {
     if (!initialized || finished) return;
+    if (["completed", "passed", "failed"].includes(getValue("cmi.core.lesson_status"))) {
+      if (!api) finished = true;
+      else finished = call("finish", "LMSFinish", "").ok;
+      return;
+    }
     if (finalCommitted) {
       finish();
       return;
