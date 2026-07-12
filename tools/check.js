@@ -4,9 +4,9 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { XMLParser, XMLValidator } = require("fast-xml-parser");
 
 const root = path.resolve(__dirname, "..");
-const schema = path.join(__dirname, "schema", "simlab-scorm12-manifest-profile.xsd");
 
 function filesBelow(directory, suffix) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -22,8 +22,7 @@ for (const file of filesBelow(path.join(root, "sim"), ".js").concat(filesBelow(p
 
 for (const file of filesBelow(path.join(root, "sim", "manifests"), ".xml")) {
   const xml = fs.readFileSync(file, "utf8");
-  const parsed = spawnSync("xmllint", ["--noout", "--schema", schema, file], { stdio: "inherit" });
-  if (parsed.status !== 0) process.exit(parsed.status || 1);
+  if (XMLValidator.validate(xml) !== true) throw new Error("Malformed XML: " + path.relative(root, file));
   if (!/adlcp:scormtype="sco"/.test(xml) || /adlcp:scormType=/.test(xml)) {
     throw new Error("Invalid SCORM 1.2 resource type in " + path.relative(root, file));
   }
@@ -31,8 +30,7 @@ for (const file of filesBelow(path.join(root, "sim", "manifests"), ".xml")) {
 }
 
 const invalidFixture = path.join(__dirname, "fixtures", "invalid-manifest.xml");
-const invalid = spawnSync("xmllint", ["--noout", "--schema", schema, invalidFixture], { stdio: "ignore" });
-if (invalid.status === 0) throw new Error("Invalid manifest fixture unexpectedly passed schema validation");
+assertSemanticFailure(fs.readFileSync(invalidFixture, "utf8"));
 
 const validXml = fs.readFileSync(path.join(root, "sim", "manifests", "fbd-horizontal-block.xml"), "utf8");
 for (const invalidXml of [
@@ -52,28 +50,28 @@ function attributes(tag) {
 }
 
 function validateManifestSemantics(xml, file = "manifest") {
-  const metadata = xml.match(/<metadata>([\s\S]*?)<\/metadata>/)?.[1] || "";
-  if (!/<schema>\s*ADL SCORM\s*<\/schema>/.test(metadata) || !/<schemaversion>\s*1\.2\s*<\/schemaversion>/.test(metadata)) {
+  const manifest = new XMLParser({ ignoreAttributes: false }).parse(xml).manifest;
+  const metadata = manifest?.metadata || {};
+  if (metadata.schema !== "ADL SCORM" || String(metadata.schemaversion) !== "1.2") {
     throw new Error(file + ": metadata must declare ADL SCORM 1.2");
   }
-  const organizationsTag = xml.match(/<organizations\b[^>]*>/)?.[0];
-  const organizationTags = [...xml.matchAll(/<organization\b[^>]*>/g)].map((match) => attributes(match[0]));
-  const resourceBlocks = [...xml.matchAll(/(<resource\b[^>]*>)([\s\S]*?)<\/resource>/g)];
-  if (!organizationsTag || organizationTags.length === 0 || resourceBlocks.length === 0) throw new Error(file + ": organizations and resources are required");
-  const organizationIds = organizationTags.map((item) => item.identifier);
-  const defaultId = attributes(organizationsTag).default;
+  const organizations = manifest?.organizations;
+  const organizationTags = [].concat(organizations?.organization || []);
+  const resourceBlocks = [].concat(manifest?.resources?.resource || []);
+  if (!organizations || organizationTags.length === 0 || resourceBlocks.length === 0) throw new Error(file + ": organizations and resources are required");
+  const organizationIds = organizationTags.map((item) => item["@_identifier"]);
+  const defaultId = organizations["@_default"];
   if (!defaultId || !organizationIds.includes(defaultId)) throw new Error(file + ": organizations default must reference an organization");
-  const resourceIds = resourceBlocks.map((block) => attributes(block[1]).identifier);
+  const resourceIds = resourceBlocks.map((resource) => resource["@_identifier"]);
   assertUnique(organizationIds, file, "organization identifier");
   assertUnique(resourceIds, file, "resource identifier");
-  for (const item of xml.matchAll(/<item\b[^>]*>/g)) {
-    if (!resourceIds.includes(attributes(item[0]).identifierref)) throw new Error(file + ": item identifierref must reference a resource");
+  for (const organization of organizationTags) {
+    for (const item of [].concat(organization.item || [])) if (!resourceIds.includes(item["@_identifierref"])) throw new Error(file + ": item identifierref must reference a resource");
   }
-  for (const block of resourceBlocks) {
-    const resource = attributes(block[1]);
-    const files = [...block[2].matchAll(/<file\b[^>]*>/g)].map((match) => attributes(match[0]).href);
-    if (resource.type !== "webcontent" || resource["adlcp:scormtype"] !== "sco") throw new Error(file + ": resource must be a SCORM webcontent SCO");
-    if (!resource.href || !files.includes(resource.href)) throw new Error(file + ": launch href must be declared as a file");
+  for (const resource of resourceBlocks) {
+    const files = [].concat(resource.file || []).map((entry) => entry["@_href"]);
+    if (resource["@_type"] !== "webcontent" || resource["@_adlcp:scormtype"] !== "sco") throw new Error(file + ": resource must be a SCORM webcontent SCO");
+    if (!resource["@_href"] || !files.includes(resource["@_href"])) throw new Error(file + ": launch href must be declared as a file");
     assertUnique(files, file, "file href");
   }
 }

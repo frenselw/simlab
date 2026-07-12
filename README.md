@@ -26,9 +26,9 @@ sim/displacement-distance-map-journey/index.html
 
 ## SCORM packaging
 
-Local quality checks and packaging currently require Node.js, `xmllint`, `zip`,
-and `unzip` on the system path. Removing these platform tools remains a later
-cross-platform packaging improvement.
+Local quality checks and packaging require Node.js 22 or newer. Run `npm ci`
+once to install the development-only ZIP and XML helpers; generated activities
+remain plain static HTML, CSS, and JavaScript.
 
 `npm run check` validates the manifests against SimLab's local SCORM 1.2
 manifest profile and project-specific linkage rules. It is not a copy of the

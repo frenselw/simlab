@@ -26,6 +26,7 @@
   const PREVIEW_VIEWBOX_HEIGHT = 76;
   const PREVIEW_OFFSET = 28;
   const PREVIEW_MARGIN = 8;
+  const ACTIVITY = "plane-mirror-pencil-ray-diagram";
 
   const state = {
     scene: createScene(),
@@ -103,6 +104,7 @@
     if (kind === "reflected") addReflected();
     if (kind === "extension") addExtension();
     render();
+    saveDraft();
   }
 
   function removeSegment(kind) {
@@ -133,6 +135,7 @@
       state.image = null;
     }
     render();
+    saveDraft();
   }
 
   function addIncident() {
@@ -237,6 +240,7 @@
       };
     }
     render();
+    saveDraft();
   }
 
   function submitDiagram() {
@@ -273,14 +277,18 @@
   }
 
   function reviewState(result) {
-    return {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "review", {
       scene: state.scene,
-      answer: currentAnswer(),
-      score: result.score,
-      passed: result.passed,
-      feedbackItems: result.feedbackItems,
-      summary: result.summary
-    };
+      response: currentAnswer()
+    }, result);
+  }
+
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", { scene: state.scene, response: currentAnswer() });
+  }
+
+  function saveDraft() {
+    if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
   function showResult(result) {
@@ -315,8 +323,8 @@
   }
 
   function showSubmittedAttempt() {
-    const review = readReviewState();
-    if (!review.scene || !review.answer) {
+    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+    if (!restoreSnapshot(review)) {
       state.reviewUnavailable = true;
       render();
       scorePanel.replaceChildren(
@@ -327,38 +335,29 @@
       lockAttempt();
       return;
     }
-    state.scene = review.scene;
-    state.bundles = review.answer.bundles || [];
-    state.nextId = state.bundles.reduce((max, bundle) => Math.max(max, bundle.id || 0), 0) + 1;
-    state.imageChoice = review.answer.imageChoice || null;
-    state.image = review.answer.image || null;
+    const result = window.MirrorRayScoring.scoreDiagram(currentAnswer(), state.scene);
+    const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+    const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
     render();
-    scorePanel.replaceChildren(
-      textBlock("div", "此作答次已提交"),
-      textBlock("div", String(review.score || window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
-      textBlock("div", review.passed ? "已通過" : "未通過")
-    );
-    if (review.feedbackItems) {
-      const list = document.createElement("ul");
-      list.className = "feedback-list";
-      review.feedbackItems.forEach((item) => {
-        list.append(textBlock("li", item.text, `feedback-item ${item.status}`));
-      });
-      scorePanel.append(list);
-    }
-    if (review.summary) {
-      scorePanel.append(textBlock("div", review.summary, "muted feedback-summary"));
-    }
+    if (trusted) showResult(result);
+    else scorePanel.replaceChildren(textBlock("div", "此作答次已提交"), textBlock("div", raw || "--", "score-value"), textBlock("div", "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。", "muted feedback-summary"));
     scorePanel.append(textBlock("div", "如要重新作答，請返回活動入口並開始新的作答次。", "muted feedback-summary"));
     lockAttempt();
   }
 
-  function readReviewState() {
-    try {
-      return JSON.parse(window.SimScorm.getValue("cmi.suspend_data") || "{}");
-    } catch {
-      return {};
-    }
+  function restoreSnapshot(snapshot) {
+    const answer = snapshot?.answer;
+    const pointOk = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    const segmentOk = (segment) => !segment || (pointOk(segment.start) && pointOk(segment.end));
+    const sceneOk = answer?.scene && ["mirrorX", "mirrorTop", "mirrorBottom", "reflectingSide", "objectX", "objectY", "objectHeight"].every((key) => Number.isFinite(answer.scene[key]));
+    const response = answer?.response;
+    if (!sceneOk || !response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle) => !["top", "bottom"].includes(bundle.source) || !segmentOk(bundle.incident) || !segmentOk(bundle.reflected) || !segmentOk(bundle.extension))) return false;
+    state.scene = answer.scene;
+    state.bundles = answer.response.bundles;
+    state.nextId = state.bundles.reduce((max, bundle) => Math.max(max, bundle.id || 0), 0) + 1;
+    state.imageChoice = answer.response.imageChoice || null;
+    state.image = answer.response.image || null;
+    return true;
   }
 
   function textBlock(tagName, text, className) {
@@ -762,6 +761,7 @@
     state.drag = null;
     hideDragPreview();
     render();
+    saveDraft();
     if (svg.hasPointerCapture && svg.hasPointerCapture(event.pointerId)) {
       svg.releasePointerCapture(event.pointerId);
     }
@@ -946,9 +946,12 @@
   svg.addEventListener("keydown", onKeyDown);
 
   window.SimScorm.init();
+  window.SimScorm.setDraftProvider(draftState);
   if (window.SimScorm.isAttemptFinished()) {
     showSubmittedAttempt();
   } else {
+    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
+    if (draft) restoreSnapshot(draft);
     render();
   }
 })();

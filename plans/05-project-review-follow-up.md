@@ -113,46 +113,46 @@
 
 ### 保存未提交的中途進度
 
-- [ ] 為每個活動定義 compact draft snapshot。
-- [ ] 完成地圖一段路程或一組答案時保存。
-- [ ] 完成參考系一輪觀察或一題答案時保存。
-- [ ] 為平面鏡及 FBD 選擇有意義的保存階段。
-- [ ] `pagehide` 時保存未提交進度。
-- [ ] 未完成活動使用 `exit = suspend` 並 commit。
-- [ ] 驗證 snapshot 不超出 SCORM 1.2 儲存限制。
+- [x] 為每個活動定義 compact draft snapshot。
+- [x] 完成地圖一段路程或一組答案時保存。
+- [x] 完成參考系一輪觀察或一題答案時保存。
+- [x] 為平面鏡及 FBD 選擇有意義的保存階段。
+- [x] `pagehide` 時保存未提交進度。
+- [x] 未完成活動使用 `exit = suspend` 並 commit。
+- [x] 驗證 snapshot 不超出 SCORM 1.2 儲存限制。
 
 ### 統一 review snapshot 驗證
 
-- [ ] 統一 `version`、`activity`、`answer`、`score`、`passed` 基本格式。
-- [ ] 驗證 snapshot version、activity 和答案結構。
-- [ ] Restore 時以結構化答案重新評分。
-- [ ] 與 Moodle raw score 和 snapshot score 比對。
-- [ ] 資料損壞或版本不相容時顯示安全摘要。
-- [ ] 先沿用參考系活動的成熟做法，不建立大型框架。
+- [x] 統一 `version`、`activity`、`answer`、`score`、`passed` 基本格式。
+- [x] 驗證 snapshot version、activity 和答案結構。
+- [x] Restore 時以結構化答案重新評分。
+- [x] 與 Moodle raw score 和 snapshot score 比對。
+- [x] 資料損壞或版本不相容時顯示安全摘要。
+- [x] 先沿用參考系活動的成熟做法，不建立大型框架。
 
 ### 參考系 Canvas 效能
 
-- [ ] 只在播放時維持 `requestAnimationFrame` loop。
-- [ ] 暫停、等待、作答、提交及 review 狀態只在改變時重畫。
-- [ ] Resize 時重畫一次。
-- [ ] 頁面隱藏時停止動畫。
-- [ ] 恢復播放時重設時間基準。
+- [x] 只在播放時維持 `requestAnimationFrame` loop。
+- [x] 暫停、等待、作答、提交及 review 狀態只在改變時重畫。
+- [x] Resize 時重畫一次。
+- [x] 頁面隱藏時停止動畫。
+- [x] 恢復播放時重設時間基準。
 
 ### 跨平台打包
 
-- [ ] 移除對系統 `zip` executable 的依賴。
-- [ ] 使用小型 Node 開發依賴產生 ZIP。
-- [ ] 移除對系統 `unzip` 的依賴。
-- [ ] 移除對系統 `xmllint` 的依賴，或提供一致的跨平台替代方案。
-- [ ] 不再用格式敏感的 regex 解析 manifest file entries。
+- [x] 移除對系統 `zip` executable 的依賴。
+- [x] 使用小型 Node 開發依賴產生 ZIP。
+- [x] 移除對系統 `unzip` 的依賴。
+- [x] 移除對系統 `xmllint` 的依賴，或提供一致的跨平台替代方案。
+- [x] 不再用格式敏感的 regex 解析 manifest file entries。
 
 ### 小步整理重複程式碼
 
-- [ ] 只在至少兩個活動有相同、穩定需求時抽取共用 helper。
-- [ ] 評估是否需要共用 snapshot envelope validation。
-- [ ] 評估是否需要共用 SCORM 提交狀態 UI。
-- [ ] 不因個別 `main.js` 較長而進行完整 MVC 拆分。
-- [ ] 不引入大型前端框架。
+- [x] 只在至少兩個活動有相同、穩定需求時抽取共用 helper。
+- [x] 共用最小 snapshot envelope、容量檢查、讀取及 draft 保存 helper。
+- [x] 評估後保留各活動現有提交狀態 UI，不額外抽象。
+- [x] 不因個別 `main.js` 較長而進行完整 MVC 拆分。
+- [x] 不引入大型前端框架。
 
 ## 已確認不做
 

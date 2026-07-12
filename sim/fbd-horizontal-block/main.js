@@ -11,6 +11,7 @@
   const magnifier = createMagnifier();
 
   const MAX_FORCE_PER_TYPE = 2;
+  const ACTIVITY = "fbd-horizontal-block";
   const block = { x: 240, y: 210, width: 160, height: 90 };
   const center = { x: block.x + block.width / 2, y: block.y + block.height / 2 };
   const state = {
@@ -39,6 +40,7 @@
     }
     normalizeSlots(type);
     render();
+    saveDraft();
   }
 
   function addForce(type) {
@@ -120,18 +122,24 @@
   }
 
   function reviewState(result) {
-    return {
-      score: result.score,
-      passed: result.passed,
-      feedbackItems: result.feedbackItems,
-      summary: result.summary,
-      arrows: state.arrows.map((arrow) => ({
+    return window.SimScorm.makeSnapshot(ACTIVITY, "review", { arrows: snapshotArrows() }, result);
+  }
+
+  function snapshotArrows() {
+    return state.arrows.map((arrow) => ({
         type: arrow.type,
         slot: arrow.slot,
         start: arrow.start,
         end: arrow.end
-      }))
-    };
+      }));
+  }
+
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", { arrows: snapshotArrows() });
+  }
+
+  function saveDraft() {
+    if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
   function lockAttempt(message) {
@@ -148,40 +156,42 @@
   }
 
   function showSubmittedAttempt() {
-    const review = readReviewState();
-    if (review.arrows) {
-      state.arrows = review.arrows.map((arrow, index) => ({ ...arrow, id: index + 1 }));
+    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+    let result = null;
+    if (review?.answer?.arrows && restoreArrows(review.answer.arrows)) {
       state.nextId = state.arrows.length + 1;
       Object.keys(forceColors).forEach(normalizeSlots);
       render();
+      const rescored = window.FbdScoring.scoreDiagram(state.arrows, block);
+      const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+      if (rescored.score === review.score && rescored.passed === review.passed && (!raw || Number(raw) === rescored.score)) result = rescored;
     }
-    const score = review.score || window.SimScorm.getValue("cmi.core.score.raw") || "--";
+    const score = result?.score ?? (window.SimScorm.getValue("cmi.core.score.raw") || "--");
     scorePanel.replaceChildren(
       textBlock("div", "此作答次已提交"),
       textBlock("div", score, "score-value"),
-      textBlock("div", review.passed ? "已通過" : "未通過")
+      textBlock("div", result ? (result.passed ? "已通過" : "未通過") : "已記錄結果")
     );
-    if (review.feedbackItems) {
+    if (result) {
       const list = document.createElement("ul");
       list.className = "feedback-list";
-      review.feedbackItems.forEach((item) => {
+      result.feedbackItems.forEach((item) => {
         list.append(textBlock("li", item.text, `feedback-item ${item.status}`));
       });
       scorePanel.append(list);
-    }
-    if (review.summary) {
-      scorePanel.append(textBlock("div", review.summary, "muted feedback-summary"));
+      scorePanel.append(textBlock("div", result.summary, "muted feedback-summary"));
+    } else {
+      scorePanel.append(textBlock("div", "已保存資料無法安全重建或與 Moodle 分數不一致。", "muted feedback-summary"));
     }
     scorePanel.append(textBlock("div", "如要重新作答，請返回活動入口並開始新的作答次。", "muted feedback-summary"));
     lockAttempt();
   }
 
-  function readReviewState() {
-    try {
-      return JSON.parse(window.SimScorm.getValue("cmi.suspend_data") || "{}");
-    } catch {
-      return {};
-    }
+  function restoreArrows(arrows) {
+    const pointOk = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    if (!Array.isArray(arrows) || arrows.length > 10 || arrows.some((arrow) => !forceColors[arrow?.type] || !pointOk(arrow.start) || !pointOk(arrow.end))) return false;
+    state.arrows = arrows.map((arrow, index) => ({ ...arrow, id: index + 1 }));
+    return true;
   }
 
   function textBlock(tagName, text, className) {
@@ -489,6 +499,7 @@
   function onPointerUp(event) {
     state.drag = null;
     render();
+    saveDraft();
     if (svg.hasPointerCapture && svg.hasPointerCapture(event.pointerId)) {
       svg.releasePointerCapture(event.pointerId);
     }
@@ -512,6 +523,7 @@
     state.selectedId = arrow.id;
     event.preventDefault();
     render();
+    saveDraft();
   }
 
   forceButtons.forEach((button) => {
@@ -527,8 +539,12 @@
   svg.addEventListener("pointercancel", onPointerUp);
 
   window.SimScorm.init();
+  window.SimScorm.setDraftProvider(draftState);
   if (window.SimScorm.isAttemptFinished()) {
     showSubmittedAttempt();
+  } else {
+    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
+    if (draft) restoreArrows(draft.answer.arrows);
   }
   if (window.ResizeObserver) {
     new ResizeObserver(render).observe(svg);

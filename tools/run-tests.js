@@ -10,6 +10,7 @@ const tests = [
   "sim/plane-mirror-pencil-ray-diagram/scoring.test.js",
   "sim/displacement-distance-map-journey/scoring.test.js",
   "sim/inertial-reference-frame-road-observer/scoring.test.js",
+  "sim/inertial-reference-frame-road-observer/animation.test.js",
   "sim/shared/scorm.test.js"
 ];
 

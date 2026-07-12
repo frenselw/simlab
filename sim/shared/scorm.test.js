@@ -13,7 +13,7 @@ function runtime(api, location = "standalone") {
   window.parent = location === "embedded" ? {} : window;
   window.top = location === "embedded" ? {} : window;
   if (location === "opener") window.opener = {};
-  vm.runInNewContext(source, { window, console, JSON });
+  vm.runInNewContext(source, { window, console, JSON, TextEncoder });
   return { scorm: window.SimScorm, listeners };
 }
 
@@ -40,6 +40,7 @@ assert.equal(runtime(fakeApi()).scorm.init(), true);
 assert.equal(runtime(fakeApi({ initialize: true })).scorm.init(), false);
 
 for (const [failure, reason] of [
+  ["cmi.suspend_data", "snapshot"],
   ["cmi.core.score.raw", "score"],
   ["cmi.core.lesson_status", "status"],
   ["cmi.core.exit", "exit"],
@@ -87,6 +88,23 @@ pagehideRuntime.listeners.pagehide();
 assert.equal(pagehideValues["cmi.core.exit"], "suspend");
 assert.equal(pagehideValues.commits, 1);
 assert.equal(pagehideValues.finishes, 1);
+
+const draftValues = {};
+const draftRuntime = runtime(fakeApi({}, draftValues));
+const draft = draftRuntime.scorm.makeSnapshot("activity", "draft", { step: 2 });
+assert.equal(draftRuntime.scorm.saveDraft(draft), true);
+assert.equal(JSON.parse(draftValues["cmi.suspend_data"]).answer.step, 2);
+assert.equal(draftValues["cmi.core.exit"], "suspend");
+assert.equal(draftRuntime.scorm.readSnapshot("activity", "draft").answer.step, 2);
+assert.equal(draftRuntime.scorm.readSnapshot("other", "draft"), null);
+assert.throws(() => draftRuntime.scorm.makeSnapshot("activity", "draft", { text: "x".repeat(4100) }), /4000 bytes/);
+
+const providerValues = {};
+const providerRuntime = runtime(fakeApi({}, providerValues));
+providerRuntime.scorm.init();
+providerRuntime.scorm.setDraftProvider(() => providerRuntime.scorm.makeSnapshot("activity", "draft", { step: 3 }));
+providerRuntime.listeners.pagehide();
+assert.equal(JSON.parse(providerValues["cmi.suspend_data"]).answer.step, 3);
 
 const pagehideFailure = { finish: true };
 const pagehideRetryValues = {};

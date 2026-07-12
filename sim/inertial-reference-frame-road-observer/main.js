@@ -27,6 +27,7 @@
   const screenReaderStatus = document.getElementById("screenReaderStatus");
 
   const SIMULATION_SECONDS = 3.5;
+  const ACTIVITY = "inertial-reference-frame-road-observer";
   const SLOW_FACTOR = 0.5;
   const MIN_VISIBLE_DISPLACEMENT = 54;
   const ROAD_ANGLE = Math.PI / 18;
@@ -63,6 +64,7 @@
     view: { width: 760, height: 480, dpr: 1 },
     lastFrame: performance.now()
   };
+  let animationFrame = null;
 
   function randomSeed() {
     return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
@@ -175,6 +177,7 @@
     state.simTime = 0;
     state.slow = PREFERS_REDUCED_MOTION;
     renderUI();
+    saveDraft();
   }
 
   function showReview() {
@@ -184,22 +187,18 @@
     state.simTime = 0;
     state.fromReview = false;
     renderUI();
+    saveDraft();
   }
 
   function submitAnswers() {
     if (state.locked || state.answers.some((answer) => !answer)) return;
     if (!window.confirm("確認提交全部答案？提交後本次嘗試只可重看。")) return;
     const result = Scoring.scoreAttempt(state.rounds, state.answers);
-    const snapshot = {
-      v: 1,
-      locked: 1,
+    const answer = {
       rounds: state.rounds.map(Scoring.snapshotRound),
-      answers: state.answers.slice(),
-      score: result.score,
-      passed: result.passed ? 1 : 0
+      answers: state.answers.slice()
     };
-    const size = new TextEncoder().encode(JSON.stringify(snapshot)).length;
-    if (size > 3000) throw new Error("Review snapshot is unexpectedly too large");
+    const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", answer, result);
     window.SimScorm.submitWithCallbacks(result, snapshot, {
       onFailure: () => window.alert("未能傳送到 Moodle，請重試。"),
       onSuccess: () => {
@@ -214,22 +213,21 @@
   }
 
   function restoreSubmittedAttempt() {
-    const raw = window.SimScorm.getValue("cmi.suspend_data");
+    const saved = window.SimScorm.readSnapshot(ACTIVITY, "review");
     const rawLmsScore = window.SimScorm.getValue("cmi.core.score.raw");
     const lmsScore = rawLmsScore.trim() === "" ? NaN : Number(rawLmsScore);
     try {
-      const saved = JSON.parse(raw);
-      if (!saved || saved.v !== 1 || saved.locked !== 1 || !Array.isArray(saved.rounds) || saved.rounds.length !== 5) {
+      if (!saved || !Array.isArray(saved.answer.rounds) || saved.answer.rounds.length !== 5) {
         throw new Error("Unsupported review state");
       }
-      const rounds = saved.rounds.map(Scoring.roundFromSnapshot);
+      const rounds = saved.answer.rounds.map(Scoring.roundFromSnapshot);
       if (!Scoring.validateAttempt(rounds)) throw new Error("Invalid saved attempt structure");
-      if (!Scoring.validateAnswers(saved.answers, rounds.length)) throw new Error("Invalid saved answers");
-      const result = Scoring.scoreAttempt(rounds, saved.answers);
+      if (!Scoring.validateAnswers(saved.answer.answers, rounds.length)) throw new Error("Invalid saved answers");
+      const result = Scoring.scoreAttempt(rounds, saved.answer.answers);
       const scoreMatches = Number.isFinite(lmsScore) ? result.score === lmsScore : result.score === saved.score;
       const savedMatches = result.score === saved.score && Boolean(result.passed) === Boolean(saved.passed);
       state.rounds = rounds;
-      state.answers = saved.answers;
+      state.answers = saved.answer.answers;
       state.result = scoreMatches && savedMatches ? result : {
         score: Number.isFinite(lmsScore) ? lmsScore : saved.score,
         maxScore: 100,
@@ -258,6 +256,37 @@
       state.locked = true;
       state.selected = null;
       state.playback = "idle";
+    }
+  }
+
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", {
+      rounds: state.rounds.map(Scoring.snapshotRound),
+      answers: state.answers.slice(),
+      activeIndex: state.activeIndex,
+      mode: state.mode
+    });
+  }
+
+  function saveDraft() {
+    if (!state.locked && state.rounds.length) window.SimScorm.saveDraft(draftState());
+  }
+
+  function restoreDraft() {
+    const saved = window.SimScorm.readSnapshot(ACTIVITY, "draft");
+    try {
+      const rounds = saved.answer.rounds.map(Scoring.roundFromSnapshot);
+      if (!Scoring.validateAttempt(rounds) || !Array.isArray(saved.answer.answers) || saved.answer.answers.length !== rounds.length) return false;
+      state.rounds = rounds;
+      state.answers = saved.answer.answers.map((answer) => answer || null);
+      state.activeIndex = Math.max(0, Math.min(rounds.length - 1, Number(saved.answer.activeIndex) || 0));
+      state.mode = saved.answer.mode === "review" ? "review" : "task";
+      state.selected = null;
+      state.observedCandidates = new Set();
+      state.playback = "idle";
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -326,6 +355,8 @@
       : state.selected
         ? `目前參考系：${displayName(state.selected)}`
         : "請先選擇參考物體";
+    drawScene();
+    syncAnimation();
   }
 
   function statusMessage() {
@@ -1033,6 +1064,7 @@
   }
 
   function tick(now) {
+    animationFrame = null;
     const elapsed = Math.min(0.05, (now - state.lastFrame) / 1000);
     state.lastFrame = now;
     if (state.playback === "playing") {
@@ -1046,7 +1078,20 @@
       }
     }
     drawScene();
-    window.requestAnimationFrame(tick);
+    if (state.playback === "playing" && !document.hidden && animationFrame == null) {
+      animationFrame = window.requestAnimationFrame(tick);
+    }
+  }
+
+  function syncAnimation() {
+    const shouldRun = state.playback === "playing" && !document.hidden;
+    if (shouldRun && animationFrame == null) {
+      state.lastFrame = performance.now();
+      animationFrame = window.requestAnimationFrame(tick);
+    } else if (!shouldRun && animationFrame != null) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
   }
 
   function resizeCanvas() {
@@ -1071,12 +1116,16 @@
   recordButton.addEventListener("click", recordAnswer);
   guideButton.addEventListener("click", completeGuide);
   submitButton.addEventListener("click", submitAnswers);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) drawScene();
+    syncAnimation();
+  });
 
   window.SimScorm.init();
+  window.SimScorm.setDraftProvider(draftState);
   if (window.SimScorm.isAttemptFinished()) restoreSubmittedAttempt();
-  else createAttempt();
+  else if (!restoreDraft()) createAttempt();
   new ResizeObserver(resizeCanvas).observe(canvas);
   resizeCanvas();
   renderUI();
-  window.requestAnimationFrame(tick);
 })();

@@ -49,6 +49,7 @@
   const GRID_X = [12, 30, 48, 66, 84, 102];
   const GRID_Y = [10, 24, 38, 52, 68];
   const PLACE_LABELS = ["學校", "超市", "銀行", "公園", "圖書館"];
+  const ACTIVITY = "displacement-distance-map-journey";
 
   const state = {
     scene: null,
@@ -626,6 +627,10 @@
   }
 
   function reviewState(result) {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "review", compactState(), result);
+  }
+
+  function compactState() {
     return {
       seed: state.scene.seed,
       routeIds: state.scene.routeIds,
@@ -637,9 +642,16 @@
         answers: cloneAnswers(segment.answers)
       })),
       totalArrow: compactArrow(state.totalArrow),
-      totalAnswers: cloneAnswers(state.totalAnswers),
-      result: compactResult(result)
+      totalAnswers: cloneAnswers(state.totalAnswers)
     };
+  }
+
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", compactState());
+  }
+
+  function saveDraft() {
+    if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
   function compactTrace(trace) {
@@ -665,18 +677,9 @@
     return [round1(point.x), round1(point.y)];
   }
 
-  function compactResult(result) {
-    return {
-      score: result.score,
-      passed: result.passed,
-      feedbackItems: result.feedbackItems,
-      summary: result.summary
-    };
-  }
-
   function showSubmittedAttempt() {
-    const review = readReviewState();
-    if (!Number.isFinite(review.seed) || !review.routeIds) {
+    const review = window.SimScorm.readSnapshot(ACTIVITY, "review");
+    if (!restoreSnapshot(review)) {
       scorePanel.replaceChildren(
         textBlock("div", "此作答次已提交"),
         textBlock("div", String(window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
@@ -685,27 +688,41 @@
       state.locked = true;
       return;
     }
-    state.scene = buildScene(review.seed, review.routeIds);
-    state.segments = (review.segments || [blankSegment(), blankSegment()]).map((segment) => ({
-      reached: Boolean(segment.reached),
-      routeDistance: segment.routeDistance || 0,
-      trace: expandTrace(segment.trace || []),
-      arrow: expandArrow(segment.arrow),
-      answers: segment.answers || null
-    }));
-    while (state.segments.length < 2) state.segments.push(blankSegment());
-    state.totalArrow = expandArrow(review.totalArrow);
-    state.totalAnswers = review.totalAnswers || null;
-    state.person = nearestRoadPosition(placeById(state.scene.routeIds[2]).entrance);
-    state.result = review.result || null;
-    state.phase = "submitted";
-    showResult(state.result || {
-      score: window.SimScorm.getValue("cmi.core.score.raw") || "--",
-      passed: false,
-      feedbackItems: [],
-      summary: "此作答次已提交。"
+    const result = Scoring.scoreJourney(currentAnswer(), journeyForScene(state.scene));
+    const raw = window.SimScorm.getValue("cmi.core.score.raw").trim();
+    const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
+    showResult(trusted ? result : {
+      score: raw || "--", passed: false, feedbackItems: [], summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。"
     });
     lockAttempt();
+  }
+
+  function restoreSnapshot(snapshot) {
+    const review = snapshot?.answer;
+    const pointOk = (point) => Array.isArray(point)
+      ? point.length === 2 && point.every(Number.isFinite)
+      : point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    const arrowOk = (arrow) => !arrow || (pointOk(arrow.tail) && pointOk(arrow.head));
+    if (!Number.isFinite(review?.seed) || !Array.isArray(review.routeIds) || review.routeIds.length !== 3 || !Array.isArray(review.segments) || review.segments.some((segment) => !Array.isArray(segment?.trace) || !segment.trace.every(pointOk) || !arrowOk(segment.arrow)) || !arrowOk(review.totalArrow)) return false;
+    try {
+      state.scene = buildScene(review.seed, review.routeIds);
+      state.segments = review.segments.map((segment) => ({
+        reached: Boolean(segment.reached),
+        routeDistance: Number(segment.routeDistance) || 0,
+        trace: expandTrace(Array.isArray(segment.trace) ? segment.trace : []),
+        arrow: expandArrow(segment.arrow),
+        answers: segment.answers || null
+      }));
+      if (state.segments.length !== 2) return false;
+      state.totalArrow = expandArrow(review.totalArrow);
+      state.totalAnswers = review.totalAnswers || null;
+      state.person = nearestRoadPosition(placeById(state.scene.routeIds[2]).entrance);
+      state.currentSegment = state.segments[0].answers ? 1 : 0;
+      state.phase = state.totalAnswers ? "ready-submit" : state.segments[state.currentSegment]?.reached ? "segment-answer" : "walk";
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function expandTrace(trace) {
@@ -719,14 +736,6 @@
       tail: point(arrow.tail),
       head: point(arrow.head)
     };
-  }
-
-  function readReviewState() {
-    try {
-      return JSON.parse(window.SimScorm.getValue("cmi.suspend_data") || "{}");
-    } catch {
-      return {};
-    }
   }
 
   function lockAttempt(message) {
@@ -1048,6 +1057,7 @@
         state.totalArrow = defaultArrow(displacementPoint(placeById(state.scene.routeIds[0])));
       }
       render();
+      saveDraft();
       return;
     }
     state.totalAnswers = answer;
@@ -1337,6 +1347,7 @@
     hideDragPreview();
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     render();
+    saveDraft();
   }
 
   function movePerson(point) {
@@ -1428,9 +1439,12 @@
   svg.addEventListener("pointercancel", onPointerUp);
 
   window.SimScorm.init();
+  window.SimScorm.setDraftProvider(draftState);
   if (window.SimScorm.isAttemptFinished()) {
     showSubmittedAttempt();
   } else {
-    startNewAttempt();
+    const draft = window.SimScorm.readSnapshot(ACTIVITY, "draft");
+    if (!draft || !restoreSnapshot(draft)) startNewAttempt();
+    else render();
   }
 })();

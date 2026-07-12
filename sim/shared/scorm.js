@@ -6,7 +6,39 @@
   let finished = false;
   let finalCommitted = false;
   let submitting = false;
+  let draftProvider = null;
   const localLog = [];
+  const SNAPSHOT_LIMIT = 4000;
+
+  function snapshotBytes(value) {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  }
+
+  function makeSnapshot(activity, kind, answer, result) {
+    const snapshot = { version: 1, activity, kind, answer };
+    if (result) {
+      snapshot.score = result.score;
+      snapshot.passed = Boolean(result.passed);
+    }
+    if (snapshotBytes(snapshot) > SNAPSHOT_LIMIT) throw new Error("SCORM snapshot exceeds 4000 bytes");
+    return snapshot;
+  }
+
+  function readSnapshot(activity, kind) {
+    try {
+      const value = JSON.parse(getValue("cmi.suspend_data") || "null");
+      if (!value || value.version !== 1 || value.activity !== activity || value.kind !== kind || value.answer == null) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveDraft(snapshot) {
+    if (!snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > SNAPSHOT_LIMIT) return false;
+    return setValue("cmi.suspend_data", JSON.stringify(snapshot)) &&
+      setValue("cmi.core.exit", "suspend") && commit();
+  }
 
   function findApi(win) {
     let current = win;
@@ -114,8 +146,10 @@
     submitting = true;
     try {
       if (!init()) return { ok: false, retryable: true, reason: "initialize", result };
+      if (reviewState && !setValue("cmi.suspend_data", JSON.stringify(reviewState))) {
+        return { ok: false, retryable: true, reason: "snapshot", result };
+      }
       const optionalWrites = [
-        ["cmi.suspend_data", reviewState && JSON.stringify(reviewState)],
         ["cmi.core.score.min", 0],
         ["cmi.core.score.max", result.maxScore || 100]
       ];
@@ -156,8 +190,12 @@
       finish();
       return;
     }
-    setValue("cmi.core.exit", "suspend");
-    commit();
+    if (draftProvider) {
+      try { saveDraft(draftProvider()); } catch (error) { console.warn("[SCORM] draft save failed", error); }
+    } else {
+      setValue("cmi.core.exit", "suspend");
+      commit();
+    }
     if (!api) {
       finished = true;
       return;
@@ -175,6 +213,11 @@
     isAttemptFinished,
     submitResult,
     submitWithCallbacks,
+    makeSnapshot,
+    readSnapshot,
+    saveDraft,
+    setDraftProvider: (provider) => { draftProvider = provider; },
+    snapshotBytes,
     finish,
     getLocalLog: () => localLog.slice()
   };
