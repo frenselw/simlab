@@ -250,3 +250,38 @@ Each new simulation gets a plan in `plans/` with:
 - SCORM behavior;
 - acceptance checks;
 - out-of-scope items.
+
+Start from `plans/NEW-SIMULATION-PLAN-TEMPLATE.md`. A plan is not ready for
+implementation until it also defines:
+
+- every UI phase and the allowed transition out of it;
+- a state matrix showing which fields must be present, absent, or pristine in
+  every saveable phase;
+- the compact draft and review snapshot schemas;
+- which fields are authoritative learner answers and which are derived UI state;
+- how corrupt, old-version, read-error, pending-final, and finished states appear;
+- round-trip and invalid-state tests that will be added to `tools/run-tests.js`.
+
+## Reliability baseline for new simulations
+
+Do not implement activity-local SCORM lifecycle logic. New activities use:
+
+- `SimScorm.loadAttempt(activity)` plus `SimActivityFlow.startup(attempt)`;
+- `SimScorm.makeSnapshot()` and `SimScorm.setDraftProvider()` for persistence;
+- `SimScorm.submitWithCallbacks()` plus `SimActivityFlow.submission()`;
+- `SimActivityFlow.reviewResult()` and `completionLabel()` for restored results.
+
+The activity owns its model, scoring, snapshot validation, and learner-facing
+views. The shared layer owns LMS reads/writes, pending-final durability,
+commit/finish ordering, BFCache handling, and recorded-result trust.
+
+For every state accepted by an activity restore function:
+
+```text
+restore(encode(validState)) preserves its scored meaning and continuation path
+```
+
+Reject a snapshot when it would skip a required task, revive already-completed
+work as editable, retain stale future data, dead-end the learner, or change the
+score after restore. Only normalize an old phase or field when the migration is
+explicit and covered by a test.
