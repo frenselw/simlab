@@ -667,11 +667,8 @@
       return;
     }
     const result = Scoring.scoreJourney(currentAnswer(), journeyForScene(state.scene));
-    const raw = String(attempt?.score ?? "").trim();
-    const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
-    showResult(trusted ? result : {
-      score: recorded.score ?? "--", passed: recorded.passed, feedbackItems: [], summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。"
-    });
+    const outcome = window.SimActivityFlow.reviewResult(result, review, attempt);
+    showResult(outcome.trusted ? result : { ...outcome.result, score: outcome.result.score ?? "--", summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。" });
     lockAttempt();
   }
 

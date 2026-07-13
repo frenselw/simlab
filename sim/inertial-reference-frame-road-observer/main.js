@@ -231,19 +231,11 @@
       if (!Scoring.validateAttempt(rounds)) throw new Error("Invalid saved attempt structure");
       if (!Scoring.validateAnswers(saved.answer.answers, rounds.length)) throw new Error("Invalid saved answers");
       const result = Scoring.scoreAttempt(rounds, saved.answer.answers);
-      const scoreMatches = Number.isFinite(lmsScore) ? result.score === lmsScore : result.score === saved.score;
-      const savedMatches = result.score === saved.score && Boolean(result.passed) === Boolean(saved.passed);
+      const outcome = window.SimActivityFlow.reviewResult(result, saved, attempt);
       state.rounds = rounds;
       state.answers = saved.answer.answers;
-      const recorded = window.SimActivityFlow.recordedResult(attempt);
-      state.result = scoreMatches && savedMatches ? result : {
-        score: recorded.score,
-        maxScore: 100,
-        passed: recorded.passed,
-        completed: true,
-        detail: []
-      };
-      state.trustedReview = scoreMatches && savedMatches;
+      state.result = outcome.result;
+      state.trustedReview = outcome.trusted;
       state.mode = "submitted";
       state.locked = true;
       state.selected = null;

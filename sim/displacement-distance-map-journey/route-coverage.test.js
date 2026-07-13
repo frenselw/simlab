@@ -46,6 +46,7 @@ restored.forEach((interval) => {
 assert.equal(Coverage.expand([[99, 0, 1]], edges), null, "unknown edge ids fail safely");
 assert.equal(Coverage.expand([[0, -0.1, 1]], edges), null, "out-of-range intervals fail safely");
 assert.equal(Coverage.expand([[0, 0.8, 0.2]], edges), null, "reversed intervals fail safely");
+assert.equal(Coverage.expand([[0, 0.2, 0.2]], edges), null, "zero-length intervals fail safely");
 assert.equal(Coverage.expand([[0, 2, -1]], edges), null, "both-sided out-of-range intervals fail safely");
 
 const legacy = Coverage.fromLegacyTrace(

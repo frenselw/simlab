@@ -339,10 +339,13 @@
     const scene = answer?.scene;
     const response = answer?.response;
     if (!scene || !["mirrorX", "mirrorTop", "mirrorBottom", "reflectingSide", "objectX", "objectY", "objectHeight"].every((key) => Number.isFinite(scene[key])) || scene.objectHeight <= 0 || ![-1, 1].includes(scene.reflectingSide)) return null;
-    if (!response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle) => !["top", "bottom"].includes(bundle?.source) || !segmentOk(bundle.incident) || !segmentOk(bundle.reflected) || !segmentOk(bundle.extension))) return null;
+    if (!response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle, index) =>
+      bundle?.source !== (index < 2 ? "top" : "bottom") || !bundle.incident || !segmentOk(bundle.incident) ||
+      !segmentOk(bundle.reflected) || !segmentOk(bundle.extension) || (bundle.extension && !bundle.reflected))) return null;
     const imageChoice = response.imageChoice ?? null;
     const image = response.image ?? null;
     if (![null, "real", "virtual"].includes(imageChoice) || (image && (!["x", "y", "height", "angle"].every((key) => Number.isFinite(image[key])) || image.height <= 0)) || Boolean(imageChoice) !== Boolean(image)) return null;
+    if (image && (response.bundles.length !== 4 || response.bundles.some((bundle) => !bundle.extension))) return null;
     return {
       scene: { ...scene },
       bundles: response.bundles.map((bundle, index) => ({ ...bundle, id: index + 1 })),

@@ -36,7 +36,7 @@
     const legacy = review.traceFormat !== TRACE_FORMAT;
     const segments = [];
     for (const segment of review.segments) {
-      if (!segment || !validArrow(segment.arrow) || !Number.isFinite(segment.routeDistance) || segment.routeDistance < 0) return null;
+      if (!segment || !validArrow(segment.arrow) || !validAnswer(segment.answers) || !Number.isFinite(segment.routeDistance) || segment.routeDistance < 0) return null;
       let coverage;
       if (legacy) {
         if (!Array.isArray(segment.trace) || !segment.trace.every(validPoint)) return null;
@@ -53,16 +53,18 @@
         answers: segment.answers || null
       });
     }
-    if (segments.length !== 2 || !validArrow(review.totalArrow) || (review.person != null && !validPoint(review.person))) return null;
+    if (segments.length !== 2 || !validArrow(review.totalArrow) || !validAnswer(review.totalAnswers) || (review.person != null && !validPoint(review.person))) return null;
     const inferredSegment = segments[0].answers ? 1 : 0;
     const currentSegment = Number.isInteger(review.currentSegment) && review.currentSegment >= 0 && review.currentSegment < 2
       ? review.currentSegment
       : inferredSegment;
     const inferredPhase = review.totalAnswers ? "ready-submit" : segments[currentSegment]?.reached ? "segment-answer" : "walk";
+    const phase = PHASES.includes(review.phase) ? review.phase : inferredPhase;
+    if (!validProgress(segments, currentSegment, phase, review.totalArrow, review.totalAnswers)) return null;
     return {
       segments,
       currentSegment,
-      phase: PHASES.includes(review.phase) ? review.phase : inferredPhase,
+      phase,
       person: review.person == null ? null : expandPoint(review.person),
       totalArrow: expandArrow(review.totalArrow),
       totalAnswers: review.totalAnswers || null,
@@ -82,6 +84,24 @@
 
   function validArrow(arrow) {
     return !arrow || (validPoint(arrow.tail) && validPoint(arrow.head));
+  }
+
+  function validAnswer(answer) {
+    return !answer || (Number.isFinite(answer.routeDistance) && answer.routeDistance >= 0 &&
+      Number.isFinite(answer.displacementMagnitude) && answer.displacementMagnitude >= 0 && validPoint(answer.direction));
+  }
+
+  function validProgress(segments, currentSegment, phase, totalArrow, totalAnswers) {
+    if (segments[0].answers && (!segments[0].reached || !segments[0].arrow)) return false;
+    if ((segments[1].reached || segments[1].arrow || segments[1].answers) && !segments[0].answers) return false;
+    if (segments[1].answers && (!segments[1].reached || !segments[1].arrow)) return false;
+    if ((totalArrow || totalAnswers || phase === "draw-total" || phase === "ready-submit") && !segments[1].answers) return false;
+    if (totalAnswers && !totalArrow) return false;
+    if (phase === "walk" && (segments[currentSegment].reached || segments[currentSegment].arrow)) return false;
+    if (phase === "draw-segment" && !segments[currentSegment].reached) return false;
+    if (phase === "segment-answer" && (!segments[currentSegment].reached || !segments[currentSegment].arrow)) return false;
+    if ((phase === "draw-total" || phase === "ready-submit") && (currentSegment !== 1 || !totalArrow)) return false;
+    return true;
   }
 
   function compactArrow(arrow) {

@@ -24,5 +24,21 @@
       passed: attempt?.status === "passed" ? true : attempt?.status === "failed" ? false : null
     };
   }
-  return { submission, startup, recordedResult };
+  function reviewResult(computed, saved, attempt) {
+    const recorded = recordedResult(attempt);
+    const trusted = Boolean(computed && saved && computed.score === saved.score && Boolean(computed.passed) === Boolean(saved.passed) &&
+      (recorded.score == null || recorded.score === computed.score));
+    return {
+      trusted,
+      result: trusted ? computed : {
+        score: recorded.score,
+        maxScore: computed?.maxScore || 100,
+        passed: recorded.passed,
+        completed: true,
+        detail: [],
+        feedbackItems: []
+      }
+    };
+  }
+  return { submission, startup, recordedResult, reviewResult };
 });
