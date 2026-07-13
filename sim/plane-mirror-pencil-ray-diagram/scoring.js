@@ -345,7 +345,7 @@
     const imageChoice = response.imageChoice ?? null;
     const image = response.image ?? null;
     if (![null, "real", "virtual"].includes(imageChoice) || (image && (!["x", "y", "height", "angle"].every((key) => Number.isFinite(image[key])) || image.height <= 0)) || Boolean(imageChoice) !== Boolean(image)) return null;
-    if (image && (response.bundles.length !== 4 || response.bundles.some((bundle) => !bundle.extension))) return null;
+    if (image && response.bundles.length === 0) return null;
     return {
       scene: { ...scene },
       bundles: response.bundles.map((bundle, index) => ({ ...bundle, id: index + 1 })),

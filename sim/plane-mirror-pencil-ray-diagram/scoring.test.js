@@ -28,6 +28,17 @@ assert.equal(restoreAnswer({ ...saved, scene: { ...leftScene, objectX: Infinity 
 assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, bundles: [{ source: "bottom", incident: null }] } }), null, "impossible source order is rejected");
 assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, bundles: [{ source: "top", incident: null, reflected: null, extension: null }] } }), null, "bundle requires an incident ray");
 assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, bundles: [{ source: "top", incident: saved.response.bundles[0].incident, extension: { start: { x: 1, y: 1 }, end: { x: 2, y: 2 } } }] } }), null, "extension requires a reflected ray");
+const partialImageStates = [
+  [saved.response.bundles[0]],
+  saved.response.bundles.slice(0, 2).map((bundle) => ({ ...bundle, reflected: null, extension: null })),
+  saved.response.bundles.map((bundle) => ({ ...bundle, extension: null })),
+  saved.response.bundles.map((bundle, index) => index === 0 ? { ...bundle, extension: null } : bundle)
+];
+partialImageStates.forEach((bundles) => {
+  const restored = restoreAnswer({ ...saved, response: { ...saved.response, bundles } });
+  assert.ok(restored?.image, "every UI-valid partial image state restores");
+});
+assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, bundles: [] } }), null, "image requires an incident ray");
 
 function pointFromAngle(start, angle, length) {
   const radians = angle * Math.PI / 180;
