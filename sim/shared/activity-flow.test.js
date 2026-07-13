@@ -41,6 +41,9 @@ for (const activity of ["fbd-horizontal-block", "plane-mirror-pencil-ray-diagram
   assert.match(main, /SimActivityFlow\.reviewResult\(/, `${activity} routes restored results through the shared status-aware contract`);
 }
 const referenceMain = fs.readFileSync(path.join(__dirname, "..", "inertial-reference-frame-road-observer", "main.js"), "utf8");
+const referenceHtml = fs.readFileSync(path.join(__dirname, "..", "inertial-reference-frame-road-observer", "index.html"), "utf8");
+assert.match(referenceHtml, /id="feedbackHeading"[^>]*>提交結果</, "reference activity exposes the result heading");
+assert.match(referenceMain, /feedbackHeading\.textContent = isUnavailable \? "Moodle 狀態資訊" : "提交結果"/, "technical states do not present themselves as submission results");
 const frozenHandler = referenceMain.match(/frozen: \(\) => \{([\s\S]*?)\n\s*\},\n\s*retry:/)?.[1] || "";
 assert.match(frozenHandler, /result: null/, "immediate pending failure hides an unconfirmed score");
 assert.match(frozenHandler, /unavailableReason:/, "immediate pending failure uses the technical unavailable presentation");

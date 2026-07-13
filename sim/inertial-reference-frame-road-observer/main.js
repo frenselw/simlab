@@ -22,6 +22,7 @@
   const reviewList = document.getElementById("reviewList");
   const submitButton = document.getElementById("submitButton");
   const feedbackSection = document.getElementById("feedbackSection");
+  const feedbackHeading = document.getElementById("feedbackHeading");
   const scorePanel = document.getElementById("scorePanel");
   const feedbackList = document.getElementById("feedbackList");
   const screenReaderStatus = document.getElementById("screenReaderStatus");
@@ -357,7 +358,10 @@
     if (isReview) renderReviewList();
 
     feedbackSection.classList.toggle("is-hidden", !isSubmitted);
-    if (isSubmitted) renderFeedback();
+    if (isSubmitted) {
+      feedbackHeading.textContent = isUnavailable ? "Moodle 狀態資訊" : "提交結果";
+      renderFeedback();
+    }
 
     roundStatus.textContent = statusMessage();
     stageBadge.textContent = isSubmitted
