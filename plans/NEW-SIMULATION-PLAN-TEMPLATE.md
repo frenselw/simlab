@@ -100,16 +100,18 @@ validate snapshot -> restore authoritative answer -> activity scorer
 Semantic continuation state persisted:
 
 - phase/variant/current step:
-- review-edit flags, active selection, or completed observations needed next:
+- review-edit flags, authoritative semantic selection keys, or completed
+  observations needed for the next action:
 
 Transient state never persisted:
 
-- pointer/drag coordinates, DOM references, hover/open animation state:
+- pointer/drag state, DOM references, hover/open animation state:
 
 Derived fields rebuilt on restore:
 
-- IDs/slots:
-- selection/drag state:
+- generated IDs/slots:
+- DOM selection objects, CSS selection state, and control state rebuilt from any
+  authoritative semantic selection key:
 - cached totals/button state:
 
 Relationship keys:
@@ -123,7 +125,8 @@ Restore invariants:
 - [ ] Score and legal next action survive round-trip, and the test executes that action.
 - [ ] Required previous answers cannot be skipped.
 - [ ] Active answers and future data match the rules of their matrix row.
-- [ ] Invalid enums, dependencies, IDs, and numeric values are rejected.
+- [ ] Invalid enums, dependencies, authoritative relationship keys, and numeric
+  values are rejected; generated IDs are omitted/ignored and rebuilt.
 - [ ] Old-version aliases are either explicitly migrated and tested or rejected.
 - [ ] Snapshot fits the SCORM 1.2 size limit.
 

@@ -150,8 +150,10 @@ restore. Add invalid-state cases for:
 - missing required previous answers;
 - active-answer and future-data combinations that violate that matrix row
   (review-edit variants may legitimately retain an active answer);
-- dependency inversion, duplicate IDs, invalid enums, `NaN`, `Infinity`, and
-  negative values where not allowed;
+- dependency inversion, invalid enums, `NaN`, `Infinity`, and negative values
+  where not allowed;
+- duplicate or dangling authoritative relationship keys; generated IDs must be
+  omitted or ignored and rebuilt, not rejected as learner data;
 - a phase/current-step combination the UI cannot render or continue;
 - old snapshot aliases or migrations, when supported;
 - score and pass/fail equality before and after restore.
@@ -288,7 +290,8 @@ const startupState = SimActivityFlow.startup(attempt);
 
 Handle all startup outcomes:
 
-- `review`: restore, validate, rescore, and lock the finished attempt;
+- `review`: validate the snapshot, restore its authoritative answer, rescore, and
+  lock the finished attempt;
 - `editable`: create or restore a draft and register its draft provider;
 - `frozen`: retry the same pending-final payload; never reopen editing;
 - `load-error`: lock unsafe actions and show only a technical error state.
@@ -454,9 +457,9 @@ Treat `### Error` anywhere in Playwright CLI output as a failed verification eve
 when the process exits with code 0. Start and stop the local server and browser
 session in the script so checks do not leave background state behind.
 
-## Minimum checks
+## Verification checklists
 
-Before calling a simulation ready:
+### Package-ready checks
 
 - Run JavaScript syntax checks for changed files.
 - Run the scoring self-check or test file.
@@ -477,6 +480,9 @@ Before calling a simulation ready:
   tests or temporary files must not be included, and local dependencies must
   match the manifest.
 - Extract or serve the built ZIP and run its launch page through browser smoke.
+
+### Moodle-ready checks
+
 - Upload the ZIP to Moodle as a SCORM 1.2 activity.
 - Test with a student account, not only a teacher account.
 - Check: preview is hidden, attempt status is visible, submit records score,

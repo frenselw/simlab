@@ -230,10 +230,12 @@ For SCORM 1.2, report at least:
 
 Use local fallback logging when no SCORM API exists, so Live Server remains useful.
 
-After final submission, call commit/finish immediately and lock the current
-attempt for review. If learners should see their submitted answer later, store a
-compact review state in `cmi.suspend_data`; do not use it as a full attempt
-history store. See
+The activity submits only through `SimScorm.submitWithCallbacks()`. The shared
+runtime performs final commit/finish; the activity uses the resulting
+`SimActivityFlow` outcome to lock controls and show the correct submitted,
+committed, frozen, or retry state. If learners should see their submitted answer
+later, store a compact review state in `cmi.suspend_data`; do not use it as a full
+attempt history store. See
 `docs/simulation-scorm-production-guide.md` before implementing a new SCORM
 package.
 
