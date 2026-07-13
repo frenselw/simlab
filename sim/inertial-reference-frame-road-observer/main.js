@@ -212,7 +212,18 @@
     const handle = (submission) => window.SimActivityFlow.submission(submission, {
       success: () => lockSubmitted(),
       committed: () => lockSubmitted("成績已保存；Moodle session 會在離開頁面時再次完成。"),
-      frozen: () => lockSubmitted("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      frozen: () => {
+        Object.assign(state, {
+          result: null,
+          locked: true,
+          mode: "submitted",
+          selected: null,
+          playback: "idle",
+          trustedReview: false,
+          unavailableReason: "提交狀態尚未確認。答案已凍結，請重新開啟活動重試。"
+        });
+        window.alert(state.unavailableReason);
+      },
       retry: () => window.alert("未能傳送到 Moodle，請重試。")
     });
     window.SimScorm.submitWithCallbacks(result, snapshot, { onFailure: handle, onSuccess: handle });
