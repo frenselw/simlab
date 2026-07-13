@@ -49,6 +49,8 @@ restored.segments.flatMap((segment) => segment.coverage).forEach((interval) => {
 const segmentAnswer = structuredClone(encoded);
 segmentAnswer.currentSegment = 0;
 segmentAnswer.phase = "segment-answer";
+segmentAnswer.segments[0].answers = null;
+segmentAnswer.segments[1] = { reached: false, routeDistance: 0, coverage: [], arrow: null, answers: null };
 assert.equal(Persistence.decode(segmentAnswer, edges, legacyRoadPath)?.phase, "draw-segment", "legacy segment-answer normalizes to a current UI phase");
 segmentAnswer.segments[0].arrow = null;
 assert.equal(Persistence.decode(segmentAnswer, edges, legacyRoadPath), null, "legacy segment-answer still requires its saved arrow");
@@ -90,12 +92,24 @@ for (const phase of ["walk", "draw-segment"]) {
   assert.equal(Persistence.decode(Persistence.encode(secondSegment), edges, legacyRoadPath), null, `segment 2 ${phase} requires the first answer`);
 }
 
-for (const futureData of ["second", "totalArrow", "totalAnswers"]) {
+for (const futureData of ["second", "secondDistance", "secondCoverage", "totalArrow", "totalAnswers"]) {
   const stale = structuredClone(drawSegmentSource);
   if (futureData === "second") stale.segments[1].reached = true;
+  if (futureData === "secondDistance") stale.segments[1].routeDistance = 1;
+  if (futureData === "secondCoverage") stale.segments[1].coverage = [[0, 0, 0.1]];
   if (futureData === "totalArrow") stale.totalArrow = structuredClone(source.segments[0].arrow);
   if (futureData === "totalAnswers") stale.totalAnswers = structuredClone(source.segments[0].answers);
   assert.equal(Persistence.decode(Persistence.encode(stale), edges, legacyRoadPath), null, `segment 1 rejects stale ${futureData} data`);
+}
+
+for (const currentSegment of [0, 1]) {
+  const answeredActiveSegment = currentSegment === 0 ? structuredClone(drawSegmentSource) : structuredClone(source);
+  answeredActiveSegment.currentSegment = currentSegment;
+  answeredActiveSegment.phase = "draw-segment";
+  answeredActiveSegment.segments[currentSegment].reached = true;
+  answeredActiveSegment.segments[currentSegment].arrow = structuredClone(source.segments[0].arrow);
+  answeredActiveSegment.segments[currentSegment].answers = structuredClone(source.segments[0].answers);
+  assert.equal(Persistence.decode(Persistence.encode(answeredActiveSegment), edges, legacyRoadPath), null, `answered segment ${currentSegment + 1} cannot restore as editable`);
 }
 
 const legacyTrace = Array.from({ length: 18 }, (_, index) => index < 9
