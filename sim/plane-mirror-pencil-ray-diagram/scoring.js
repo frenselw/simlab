@@ -16,6 +16,7 @@
   const IMAGE_X_TOLERANCE_PX = 14;
   const IMAGE_Y_TOLERANCE_PX = 14;
   const IMAGE_HEIGHT_TOLERANCE_RATIO = 0.08;
+  const DISTINCT_HIT_TOLERANCE_PX = 20;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -172,6 +173,21 @@
     return bundles.filter((bundle) => bundle.incident && bundle.reflected && bundle.extension).length;
   }
 
+  function duplicatePathCount(bundles) {
+    let count = 0;
+    for (let i = 0; i < bundles.length; i += 1) {
+      for (let j = i + 1; j < bundles.length; j += 1) {
+        if (
+          bundles[i].source === bundles[j].source &&
+          bundles[i].incident &&
+          bundles[j].incident &&
+          pointDistance(bundles[i].incident.end, bundles[j].incident.end) < DISTINCT_HIT_TOLERANCE_PX
+        ) count += 1;
+      }
+    }
+    return count;
+  }
+
   function imageScore(answer, scene) {
     const image = answer.image;
     const endpoints = imageEndpoints(image);
@@ -217,10 +233,12 @@
     const imageTypeScore = answer.imageChoice === "virtual" ? 10 : 0;
     const placedImage = imageScore(answer, scene);
     const completed = completeBundleCount(usableBundles);
+    const duplicates = duplicatePathCount(usableBundles);
     const cleanScore =
       completed === MAX_BUNDLES &&
       reflectedCorrect.length === MAX_BUNDLES &&
-      extensionCorrect.length === MAX_BUNDLES
+      extensionCorrect.length === MAX_BUNDLES &&
+      duplicates === 0
         ? Math.max(0, 10 - extraCount * 5)
         : 0;
     const rawScore =
@@ -238,7 +256,8 @@
       imageTypeScore,
       placedImage,
       completed,
-      extraCount
+      extraCount,
+      duplicates
     });
     const summary = "平面鏡成像為正立虛像，像距等於物距，像的大小與物相同。";
 
@@ -257,7 +276,8 @@
         imageTypeCorrect: imageTypeScore === 10,
         imageChecks: placedImage.detail,
         completeBundles: completed,
-        extraCount
+        extraCount,
+        duplicatePathCount: duplicates
       }
     };
   }
@@ -284,6 +304,11 @@
         status: "missing",
         text: "完整性：仍未完成四組入射、反射和延長線。"
       });
+    } else if (detail.duplicates > 0) {
+      items.push({
+        status: "wrong",
+        text: "完整性：同一物點需要兩條不同的入射路徑，鏡面入射點不可重疊。"
+      });
     } else if (detail.extraCount > 0) {
       items.push({
         status: "extra",
@@ -308,6 +333,27 @@
     return { status: "wrong", text: `${label}：${count}/${total} 條正確。` };
   }
 
+  function restoreAnswer(answer) {
+    const finitePoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    const segmentOk = (segment) => !segment || (finitePoint(segment.start) && finitePoint(segment.end));
+    const scene = answer?.scene;
+    const response = answer?.response;
+    if (!scene || !["mirrorX", "mirrorTop", "mirrorBottom", "reflectingSide", "objectX", "objectY", "objectHeight"].every((key) => Number.isFinite(scene[key])) || scene.objectHeight <= 0 || ![-1, 1].includes(scene.reflectingSide)) return null;
+    if (!response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle, index) =>
+      bundle?.source !== (index < 2 ? "top" : "bottom") || !bundle.incident || !segmentOk(bundle.incident) ||
+      !segmentOk(bundle.reflected) || !segmentOk(bundle.extension) || (bundle.extension && !bundle.reflected))) return null;
+    const imageChoice = response.imageChoice ?? null;
+    const image = response.image ?? null;
+    if (![null, "real", "virtual"].includes(imageChoice) || (image && (!["x", "y", "height", "angle"].every((key) => Number.isFinite(image[key])) || image.height <= 0)) || Boolean(imageChoice) !== Boolean(image)) return null;
+    if (image && response.bundles.length === 0) return null;
+    return {
+      scene: { ...scene },
+      bundles: response.bundles.map((bundle, index) => ({ ...bundle, id: index + 1 })),
+      imageChoice,
+      image: image ? { ...image } : null
+    };
+  }
+
   return {
     ANGLE_TOLERANCE_DEG,
     MIN_RAY_LENGTH,
@@ -316,6 +362,7 @@
     IMAGE_X_TOLERANCE_PX,
     IMAGE_Y_TOLERANCE_PX,
     IMAGE_HEIGHT_TOLERANCE_RATIO,
+    DISTINCT_HIT_TOLERANCE_PX,
     PASSING_SCORE,
     sourcePoint,
     correctImage,
@@ -329,6 +376,7 @@
     isIncidentCorrect,
     isReflectedCorrect,
     isExtensionCorrect,
+    restoreAnswer,
     scoreDiagram
   };
 });

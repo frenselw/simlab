@@ -22,11 +22,13 @@
   const reviewList = document.getElementById("reviewList");
   const submitButton = document.getElementById("submitButton");
   const feedbackSection = document.getElementById("feedbackSection");
+  const feedbackHeading = document.getElementById("feedbackHeading");
   const scorePanel = document.getElementById("scorePanel");
   const feedbackList = document.getElementById("feedbackList");
   const screenReaderStatus = document.getElementById("screenReaderStatus");
 
   const SIMULATION_SECONDS = 3.5;
+  const ACTIVITY = "inertial-reference-frame-road-observer";
   const SLOW_FACTOR = 0.5;
   const MIN_VISIBLE_DISPLACEMENT = 54;
   const ROAD_ANGLE = Math.PI / 18;
@@ -60,9 +62,15 @@
     locked: false,
     result: null,
     trustedReview: true,
-    view: { width: 760, height: 480, dpr: 1 },
-    lastFrame: performance.now()
+    unavailableReason: "",
+    view: { width: 760, height: 480, dpr: 1 }
   };
+  const animationLoop = window.createAnimationLoop({
+    requestFrame: window.requestAnimationFrame.bind(window),
+    cancelFrame: window.cancelAnimationFrame.bind(window),
+    now: () => performance.now(),
+    onFrame: animate
+  });
 
   function randomSeed() {
     return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
@@ -149,15 +157,12 @@
   function recordAnswer() {
     if (state.mode !== "task" || !state.selected || !state.observedCandidates.has(state.selected)) return;
     state.answers[state.activeIndex] = state.selected;
-    if (state.fromReview) {
+    const next = Scoring.nextStateAfterRecord(state.fromReview, state.activeIndex, state.rounds.length);
+    if (next.mode === "review") {
       showReview();
       return;
     }
-    if (state.activeIndex === state.rounds.length - 1) {
-      showReview();
-    } else {
-      beginRound(state.activeIndex + 1, false);
-    }
+    beginRound(next.activeIndex, false);
   }
 
   function completeGuide() {
@@ -175,6 +180,7 @@
     state.simTime = 0;
     state.slow = PREFERS_REDUCED_MOTION;
     renderUI();
+    saveDraft();
   }
 
   function showReview() {
@@ -184,55 +190,64 @@
     state.simTime = 0;
     state.fromReview = false;
     renderUI();
+    saveDraft();
   }
 
   function submitAnswers() {
     if (state.locked || state.answers.some((answer) => !answer)) return;
     if (!window.confirm("確認提交全部答案？提交後本次嘗試只可重看。")) return;
     const result = Scoring.scoreAttempt(state.rounds, state.answers);
-    const snapshot = {
-      v: 1,
-      locked: 1,
+    const answer = {
       rounds: state.rounds.map(Scoring.snapshotRound),
-      answers: state.answers.slice(),
-      score: result.score,
-      passed: result.passed ? 1 : 0
+      answers: state.answers.slice()
     };
-    const size = new TextEncoder().encode(JSON.stringify(snapshot)).length;
-    if (size > 3000) throw new Error("Review snapshot is unexpectedly too large");
-    state.result = result;
-    state.locked = true;
-    state.mode = "submitted";
-    state.selected = null;
-    state.playback = "idle";
-    window.SimScorm.submitResult(result, snapshot);
+    const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", answer, result);
+    const lockSubmitted = (message) => {
+        state.result = result;
+        state.locked = true;
+        state.mode = "submitted";
+        state.selected = null;
+        state.playback = "idle";
+        if (message) window.alert(message);
+    };
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockSubmitted(),
+      committed: () => lockSubmitted("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => {
+        Object.assign(state, {
+          result: null,
+          locked: true,
+          mode: "submitted",
+          selected: null,
+          playback: "idle",
+          trustedReview: false,
+          unavailableReason: "提交狀態尚未確認。答案已凍結，請重新開啟活動重試。"
+        });
+        window.alert(state.unavailableReason);
+      },
+      retry: () => window.alert("未能傳送到 Moodle，請重試。")
+    });
+    window.SimScorm.submitWithCallbacks(result, snapshot, { onFailure: handle, onSuccess: handle });
     renderUI();
   }
 
-  function restoreSubmittedAttempt() {
-    const raw = window.SimScorm.getValue("cmi.suspend_data");
-    const lmsScore = Number(window.SimScorm.getValue("cmi.core.score.raw"));
+  function restoreSubmittedAttempt(attempt) {
+    const saved = attempt?.snapshot || attempt?.review || null;
+    const rawLmsScore = String(attempt?.score ?? "");
+    const lmsScore = rawLmsScore.trim() === "" ? NaN : Number(rawLmsScore);
     try {
-      const saved = JSON.parse(raw);
-      if (!saved || saved.v !== 1 || saved.locked !== 1 || !Array.isArray(saved.rounds) || saved.rounds.length !== 5) {
+      if (!saved || !Array.isArray(saved.answer.rounds) || saved.answer.rounds.length !== 5) {
         throw new Error("Unsupported review state");
       }
-      const rounds = saved.rounds.map(Scoring.roundFromSnapshot);
+      const rounds = saved.answer.rounds.map(Scoring.roundFromSnapshot);
       if (!Scoring.validateAttempt(rounds)) throw new Error("Invalid saved attempt structure");
-      if (!Scoring.validateAnswers(saved.answers, rounds.length)) throw new Error("Invalid saved answers");
-      const result = Scoring.scoreAttempt(rounds, saved.answers);
-      const scoreMatches = Number.isFinite(lmsScore) ? result.score === lmsScore : result.score === saved.score;
-      const savedMatches = result.score === saved.score && Boolean(result.passed) === Boolean(saved.passed);
+      if (!Scoring.validateAnswers(saved.answer.answers, rounds.length)) throw new Error("Invalid saved answers");
+      const result = Scoring.scoreAttempt(rounds, saved.answer.answers);
+      const outcome = window.SimActivityFlow.reviewResult(result, saved, attempt);
       state.rounds = rounds;
-      state.answers = saved.answers;
-      state.result = scoreMatches && savedMatches ? result : {
-        score: Number.isFinite(lmsScore) ? lmsScore : saved.score,
-        maxScore: 100,
-        passed: Boolean(saved.passed),
-        completed: true,
-        detail: []
-      };
-      state.trustedReview = scoreMatches && savedMatches;
+      state.answers = saved.answer.answers;
+      state.result = outcome.result;
+      state.trustedReview = outcome.trusted;
       state.mode = "submitted";
       state.locked = true;
       state.selected = null;
@@ -241,10 +256,11 @@
     } catch (error) {
       state.rounds = [];
       state.answers = [];
+      const recorded = window.SimActivityFlow.recordedResult(attempt);
       state.result = {
-        score: Number.isFinite(lmsScore) ? lmsScore : 0,
+        score: recorded.score,
         maxScore: 100,
-        passed: window.SimScorm.getValue("cmi.core.lesson_status") === "passed",
+        passed: recorded.passed,
         completed: true,
         detail: []
       };
@@ -256,24 +272,53 @@
     }
   }
 
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", {
+      rounds: state.rounds.map(Scoring.snapshotRound),
+      answers: state.answers.slice(),
+      activeIndex: state.activeIndex,
+      mode: state.mode,
+      fromReview: state.fromReview,
+      selected: state.selected,
+      observedCandidates: Array.from(state.observedCandidates)
+    });
+  }
+
+  function saveDraft() {
+    if (!state.locked && state.rounds.length) window.SimScorm.saveDraft(draftState());
+  }
+
+  function restoreDraft(saved) {
+    const restored = saved && Scoring.restoreDraft(saved.answer);
+    if (!restored) return false;
+    Object.assign(state, restored, {
+      observedCandidates: new Set(restored.observedCandidates),
+      playback: restored.selected && restored.observedCandidates.includes(restored.selected) ? "observed" : "idle"
+    });
+    return true;
+  }
+
   function renderUI() {
     const isGuide = state.mode === "guide";
     const isTask = state.mode === "task";
     const isReview = state.mode === "review";
     const isSubmitted = state.mode === "submitted";
+    const isUnavailable = isSubmitted && Boolean(state.unavailableReason);
     const round = (isGuide || isTask) ? activeRound() : null;
 
     headerText.textContent = isGuide
       ? "本活動把路旁及做勻速直線運動的車視為慣性參考系；先以一個參考物體觀察，理解畫面中「靜止」取決於參考系。"
       : "本活動把路旁及做勻速直線運動的車視為慣性參考系；請根據相對位置的改變找出合適的參考物體。";
-    roundHeading.textContent = isGuide ? "導覽：先試一次" : isTask ? `第 ${state.activeIndex + 1} 題／5 題` : isReview ? "提交前檢查" : "提交結果";
+    roundHeading.textContent = isGuide ? "導覽：先試一次" : isTask ? `第 ${state.activeIndex + 1} 題／5 題` : isReview ? "提交前檢查" : isUnavailable ? "Moodle 狀態暫時無法確認" : "提交結果";
     taskIntro.textContent = isGuide
       ? "選擇一個參考物體，播放後留意：被選物體會固定，而其他物體的相對位置可能改變。"
       : isTask
         ? "每題可能有一個或多個合適答案。請選擇任何一個同時符合全部條件的參考物體。"
         : isReview
           ? "可按任何一題返回觀察及修改答案。全部確認後才提交。"
-          : state.trustedReview
+          : isUnavailable
+            ? state.unavailableReason
+            : state.trustedReview
             ? "本次嘗試已提交並鎖定，只供重看。"
             : "本次嘗試已提交並鎖定。詳細題目資料無法安全重建。";
     conditionList.innerHTML = "";
@@ -313,20 +358,25 @@
     if (isReview) renderReviewList();
 
     feedbackSection.classList.toggle("is-hidden", !isSubmitted);
-    if (isSubmitted) renderFeedback();
+    if (isSubmitted) {
+      feedbackHeading.textContent = isUnavailable ? "Moodle 狀態資訊" : "提交結果";
+      renderFeedback();
+    }
 
     roundStatus.textContent = statusMessage();
     stageBadge.textContent = isSubmitted
-      ? "本次嘗試已鎖定"
+      ? isUnavailable ? "狀態未確認" : "本次嘗試已鎖定"
       : state.selected
         ? `目前參考系：${displayName(state.selected)}`
         : "請先選擇參考物體";
+    drawScene();
+    syncAnimation();
   }
 
   function statusMessage() {
     if (state.mode === "guide") return state.selected ? "完成一次完整觀察後即可開始正式任務。" : "尚未選擇參考物體。";
     if (state.mode === "review") return state.answers.every(Boolean) ? "五題答案已齊，可提交。" : "仍有未完成的題目。";
-    if (state.mode === "submitted") return state.trustedReview ? "已提交至 Moodle／本機 SCORM 記錄。" : "已提交；只可查看安全摘要。";
+    if (state.mode === "submitted") return state.unavailableReason || (state.trustedReview ? "已提交至 Moodle／本機 SCORM 記錄。" : "已提交；只可查看安全摘要。");
     if (!state.selected) return "尚未選擇參考物體。";
     if (state.playback === "playing") return "正在觀察；播放期間不能切換參考物體。";
     if (state.playback === "paused") return "已暫停；可繼續、重播或改選另一個參考物體。";
@@ -346,13 +396,19 @@
   }
 
   function renderFeedback() {
-    const result = state.result || { score: 0, maxScore: 100, passed: false, detail: [] };
-    scorePanel.innerHTML = `<div>分數</div><div class="score-value">${result.score} / ${result.maxScore}</div><div class="muted">${result.passed ? "已達到合格要求。" : "未達到合格要求。"}</div>`;
+    const result = state.result;
+    const score = document.createElement("div");
+    score.className = "score-value";
+    score.textContent = result?.score == null ? "--" : `${result.score} / ${result.maxScore}`;
+    const status = document.createElement("div");
+    status.className = "muted";
+    status.textContent = result?.passed === true ? "已達到合格要求。" : result?.passed === false ? "未達到合格要求。" : "未能安全判斷合格狀態。";
+    scorePanel.replaceChildren(score, status);
     feedbackList.innerHTML = "";
-    if (!state.trustedReview) {
+    if (!state.trustedReview || !result) {
       const item = document.createElement("div");
       item.className = "feedback-item is-wrong";
-      item.textContent = "題目資料無法安全重建；以上顯示的是已記錄的最終分數。";
+      item.textContent = state.unavailableReason || "題目資料無法安全重建；以上只顯示可確認的 Moodle 記錄。";
       feedbackList.append(item);
       return;
     }
@@ -1027,21 +1083,26 @@
     ctx.restore();
   }
 
-  function tick(now) {
-    const elapsed = Math.min(0.05, (now - state.lastFrame) / 1000);
-    state.lastFrame = now;
+  function animate(elapsed) {
     if (state.playback === "playing") {
       state.simTime += elapsed * (state.slow ? SLOW_FACTOR : 1);
       if (state.simTime >= SIMULATION_SECONDS) {
         state.simTime = SIMULATION_SECONDS;
         state.playback = "observed";
         state.observedCandidates.add(state.selected);
+        saveDraft();
         announce(observationSummary("觀察完成"));
         renderUI();
       }
     }
     drawScene();
-    window.requestAnimationFrame(tick);
+    return state.playback === "playing" && !document.hidden;
+  }
+
+  function syncAnimation() {
+    const shouldRun = state.playback === "playing" && !document.hidden;
+    if (shouldRun) animationLoop.start();
+    else animationLoop.stop();
   }
 
   function resizeCanvas() {
@@ -1066,12 +1127,26 @@
   recordButton.addEventListener("click", recordAnswer);
   guideButton.addEventListener("click", completeGuide);
   submitButton.addEventListener("click", submitAnswers);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) drawScene();
+    syncAnimation();
+  });
 
-  window.SimScorm.init();
-  if (window.SimScorm.isAttemptFinished()) restoreSubmittedAttempt();
-  else createAttempt();
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") restoreSubmittedAttempt(attempt);
+  else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { restoreSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false, unavailableReason: "提交狀態尚未確認。答案已凍結，請重新開啟活動重試。" });
+  } else if (attempt.state === "draft") {
+    if (!restoreDraft(attempt.snapshot)) createAttempt();
+    window.SimScorm.setDraftProvider(draftState);
+  } else if (startupState === "editable") {
+    createAttempt();
+    window.SimScorm.setDraftProvider(draftState);
+  } else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false, unavailableReason: "未能從 Moodle 安全載入本次作答，暫時無法顯示分數或合格狀態。" });
   new ResizeObserver(resizeCanvas).observe(canvas);
   resizeCanvas();
   renderUI();
-  window.requestAnimationFrame(tick);
 })();

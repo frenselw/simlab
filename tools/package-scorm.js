@@ -3,7 +3,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { spawnSync } = require("child_process");
+const AdmZip = require("adm-zip");
+const { XMLParser } = require("fast-xml-parser");
 
 const root = path.resolve(__dirname, "..");
 const simRoot = path.join(root, "sim");
@@ -32,10 +33,9 @@ if (!fs.existsSync(manifestPath)) usage();
 
 function manifestFiles(manifestPath) {
   const manifest = fs.readFileSync(manifestPath, "utf8");
-  const files = ["imsmanifest.xml", "config.js"];
-  for (const match of manifest.matchAll(/<file\s+href="([^"]+)"\s*\/>/g)) {
-    files.push(match[1]);
-  }
+  const parsed = new XMLParser({ ignoreAttributes: false }).parse(manifest);
+  const resources = [].concat(parsed.manifest?.resources?.resource || []);
+  const files = ["imsmanifest.xml", ...resources.flatMap((resource) => [].concat(resource.file || []).map((file) => file["@_href"]))];
   return [...new Set(files)].sort();
 }
 
@@ -48,19 +48,11 @@ for (const file of files) {
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
-const tempDir = path.join(outputDir, ".scorm-" + slug);
-fs.rmSync(tempDir, { recursive: true, force: true });
-fs.mkdirSync(tempDir, { recursive: true });
+const outputFile = path.join(outputDir, slug + "-scorm.zip");
+const zip = new AdmZip();
 for (const file of files) {
   const source = file === "imsmanifest.xml" ? manifestPath : path.join(simRoot, file);
-  const destination = path.join(tempDir, file);
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.copyFileSync(source, destination);
+  zip.addFile(file, fs.readFileSync(source));
 }
-
-const outputFile = path.join(outputDir, slug + "-scorm.zip");
-if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
-const result = spawnSync("zip", ["-q", "-X", outputFile, ...files], { cwd: tempDir, stdio: "inherit" });
-if (result.error) throw result.error;
-if (result.status !== 0) process.exit(result.status);
+zip.writeZip(outputFile);
 console.log("Wrote " + path.relative(root, outputFile) + " with " + files.length + " files");

@@ -39,6 +39,8 @@ sim/
   shared/
   fbd-horizontal-block/
   plane-mirror-pencil-ray-diagram/
+  displacement-distance-map-journey/
+  inertial-reference-frame-road-observer/
 tools/
 output/
 ```

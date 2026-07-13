@@ -26,6 +26,7 @@
   const PREVIEW_VIEWBOX_HEIGHT = 76;
   const PREVIEW_OFFSET = 28;
   const PREVIEW_MARGIN = 8;
+  const ACTIVITY = "plane-mirror-pencil-ray-diagram";
 
   const state = {
     scene: createScene(),
@@ -103,6 +104,7 @@
     if (kind === "reflected") addReflected();
     if (kind === "extension") addExtension();
     render();
+    saveDraft();
   }
 
   function removeSegment(kind) {
@@ -133,6 +135,7 @@
       state.image = null;
     }
     render();
+    saveDraft();
   }
 
   function addIncident() {
@@ -237,6 +240,7 @@
       };
     }
     render();
+    saveDraft();
   }
 
   function submitDiagram() {
@@ -244,8 +248,13 @@
     const answer = currentAnswer();
     const result = window.MirrorRayScoring.scoreDiagram(answer, state.scene);
     showResult(result);
-    window.SimScorm.submitResult(result, reviewState(result));
-    lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。");
+    const handle = (submission) => window.SimActivityFlow.submission(submission, {
+      success: () => lockAttempt("此作答次已提交。如要重新作答，請返回活動入口並開始新的作答次。"),
+      committed: () => lockAttempt("成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      frozen: () => lockAttempt("提交狀態未確認；答案已凍結，請重新開啟活動再試。"),
+      retry: () => scorePanel.append(textBlock("div", "未能傳送到 Moodle，請重試。", "feedback-item wrong"))
+    });
+    window.SimScorm.submitWithCallbacks(result, reviewState(result), { onFailure: handle, onSuccess: handle });
   }
 
   function currentAnswer() {
@@ -271,21 +280,25 @@
   }
 
   function reviewState(result) {
-    return {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "review", {
       scene: state.scene,
-      answer: currentAnswer(),
-      score: result.score,
-      passed: result.passed,
-      feedbackItems: result.feedbackItems,
-      summary: result.summary
-    };
+      response: currentAnswer()
+    }, result);
+  }
+
+  function draftState() {
+    return window.SimScorm.makeSnapshot(ACTIVITY, "draft", { scene: state.scene, response: currentAnswer() });
+  }
+
+  function saveDraft() {
+    if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
   function showResult(result) {
     scorePanel.replaceChildren(
       textBlock("div", "目前分數"),
       textBlock("div", String(result.score), "score-value"),
-      textBlock("div", result.passed ? "已通過" : "未通過")
+      textBlock("div", window.SimActivityFlow.completionLabel(result.passed))
     );
     const list = document.createElement("ul");
     list.className = "feedback-list";
@@ -312,51 +325,29 @@
     render();
   }
 
-  function showSubmittedAttempt() {
-    const review = readReviewState();
-    if (!review.scene || !review.answer) {
+  function showSubmittedAttempt(attempt) {
+    const review = attempt?.snapshot || attempt?.review || null;
+    const restored = restoreSnapshot(review);
+    if (!restored) {
       state.reviewUnavailable = true;
-      render();
-      scorePanel.replaceChildren(
-        textBlock("div", "此作答次已提交"),
-        textBlock("div", String(window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
-        textBlock("div", "未能載入已提交圖形。", "muted feedback-summary")
-      );
-      lockAttempt();
-      return;
     }
-    state.scene = review.scene;
-    state.bundles = review.answer.bundles || [];
-    state.nextId = state.bundles.reduce((max, bundle) => Math.max(max, bundle.id || 0), 0) + 1;
-    state.imageChoice = review.answer.imageChoice || null;
-    state.image = review.answer.image || null;
+    const rescored = restored ? window.MirrorRayScoring.scoreDiagram(currentAnswer(), state.scene) : null;
+    const outcome = window.SimActivityFlow.reviewResult(rescored, review, attempt);
     render();
-    scorePanel.replaceChildren(
-      textBlock("div", "此作答次已提交"),
-      textBlock("div", String(review.score || window.SimScorm.getValue("cmi.core.score.raw") || "--"), "score-value"),
-      textBlock("div", review.passed ? "已通過" : "未通過")
-    );
-    if (review.feedbackItems) {
-      const list = document.createElement("ul");
-      list.className = "feedback-list";
-      review.feedbackItems.forEach((item) => {
-        list.append(textBlock("li", item.text, `feedback-item ${item.status}`));
-      });
-      scorePanel.append(list);
-    }
-    if (review.summary) {
-      scorePanel.append(textBlock("div", review.summary, "muted feedback-summary"));
-    }
+    showResult({ ...outcome.result, score: outcome.result.score ?? "--", summary: outcome.trusted ? outcome.result.summary : "已保存資料無法安全重建或與 Moodle 記錄不一致。" });
     scorePanel.append(textBlock("div", "如要重新作答，請返回活動入口並開始新的作答次。", "muted feedback-summary"));
     lockAttempt();
   }
 
-  function readReviewState() {
-    try {
-      return JSON.parse(window.SimScorm.getValue("cmi.suspend_data") || "{}");
-    } catch {
-      return {};
-    }
+  function restoreSnapshot(snapshot) {
+    const restored = window.MirrorRayScoring.restoreAnswer(snapshot?.answer);
+    if (!restored) return false;
+    state.scene = restored.scene;
+    state.bundles = restored.bundles;
+    state.nextId = state.bundles.length + 1;
+    state.imageChoice = restored.imageChoice;
+    state.image = restored.image;
+    return true;
   }
 
   function textBlock(tagName, text, className) {
@@ -760,6 +751,7 @@
     state.drag = null;
     hideDragPreview();
     render();
+    saveDraft();
     if (svg.hasPointerCapture && svg.hasPointerCapture(event.pointerId)) {
       svg.releasePointerCapture(event.pointerId);
     }
@@ -777,15 +769,20 @@
     if (!move) return;
     const imageTarget = event.target.closest("[data-image-handle]");
     if (imageTarget && state.image) {
-      moveImageByKey(imageTarget.dataset.imageHandle, move);
+      window.MirrorDraftSave.change(() => moveImageByKey(imageTarget.dataset.imageHandle, move), keyboardDraftSave);
       event.preventDefault();
       return;
     }
     const rayTarget = event.target.closest("[data-kind][data-id]");
     if (!rayTarget) return;
-    moveRayByKey(Number(rayTarget.dataset.id), rayTarget.dataset.kind, move);
+    window.MirrorDraftSave.change(
+      () => moveRayByKey(Number(rayTarget.dataset.id), rayTarget.dataset.kind, move),
+      keyboardDraftSave
+    );
     event.preventDefault();
   }
+
+  const keyboardDraftSave = window.MirrorDraftSave.create(saveDraft);
 
   function moveImageByKey(handle, move) {
     const endpoints = imageEndpoints(state.image);
@@ -943,10 +940,20 @@
   svg.addEventListener("pointercancel", onPointerUp);
   svg.addEventListener("keydown", onKeyDown);
 
-  window.SimScorm.init();
-  if (window.SimScorm.isAttemptFinished()) {
-    showSubmittedAttempt();
-  } else {
+  const attempt = window.SimScorm.loadAttempt(ACTIVITY);
+  const startupState = window.SimActivityFlow.startup(attempt);
+  if (startupState === "review") {
+    showSubmittedAttempt(attempt);
+  } else if (attempt.state === "draft") {
+    if (!restoreSnapshot(attempt.snapshot)) lockAttempt("已保存草稿損壞，請重新開啟活動。");
+    else window.SimScorm.setDraftProvider(draftState);
     render();
-  }
+  } else if (startupState === "editable") {
+    window.SimScorm.setDraftProvider(draftState);
+    render();
+  } else if (startupState === "frozen") {
+    const retry = window.SimScorm.retryPending(false);
+    if (retry.committed) { showSubmittedAttempt(retry); window.SimScorm.finish(); }
+    else lockAttempt("提交狀態未確認，請重新開啟活動再試。");
+  } else lockAttempt("未能從 Moodle 安全載入本次作答，請重新開啟活動。");
 })();

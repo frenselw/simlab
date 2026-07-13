@@ -268,8 +268,47 @@
     return round;
   }
 
-  function validateAnswers(answers, count) {
-    return Array.isArray(answers) && answers.length === count && answers.every((answer) => CANDIDATES.includes(answer));
+  function validateAnswers(answers, count, allowIncomplete = false) {
+    return Array.isArray(answers) && answers.length === count && answers.every((answer) => (allowIncomplete && answer == null) || CANDIDATES.includes(answer));
+  }
+
+  function restoreDraft(answer) {
+    try {
+      const rounds = answer.rounds.map(roundFromSnapshot);
+      if (!validateAttempt(rounds) || !validateAnswers(answer.answers, rounds.length, true)) return null;
+      const mode = ["guide", "task", "review"].includes(answer.mode) ? answer.mode : null;
+      if (!mode) return null;
+      const selected = answer.selected == null ? null : answer.selected;
+      const observedCandidates = answer.observedCandidates == null ? [] : answer.observedCandidates;
+      const fromReview = answer.fromReview === true;
+      if (!Number.isInteger(answer.activeIndex) || answer.activeIndex < 0 || answer.activeIndex >= rounds.length) return null;
+      const activeIndex = answer.activeIndex;
+      if ((selected !== null && !CANDIDATES.includes(selected)) || !Array.isArray(observedCandidates) ||
+          observedCandidates.some((candidate) => !CANDIDATES.includes(candidate)) ||
+          new Set(observedCandidates).size !== observedCandidates.length ||
+          (fromReview && (mode !== "task" || !answer.answers[activeIndex] || !answer.answers.every(Boolean) ||
+            selected === null || !observedCandidates.includes(selected)))) return null;
+      if (mode === "guide" && (activeIndex !== 0 || fromReview || answer.answers.some(Boolean))) return null;
+      if (mode === "review" && (fromReview || selected || observedCandidates.length || !answer.answers.every(Boolean))) return null;
+      if (mode === "task" && !fromReview && answer.answers.some((value, index) => index < activeIndex ? !value : Boolean(value))) return null;
+      return {
+        rounds,
+        answers: answer.answers.map((value) => value || null),
+        activeIndex,
+        mode,
+        selected,
+        observedCandidates,
+        fromReview
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function nextStateAfterRecord(fromReview, activeIndex, count) {
+    return fromReview || activeIndex >= count - 1
+      ? { mode: "review", activeIndex, fromReview: false }
+      : { mode: "task", activeIndex: activeIndex + 1, fromReview: false };
   }
 
   return {
@@ -292,6 +331,8 @@
     validateAttempt,
     snapshotRound,
     roundFromSnapshot,
-    validateAnswers
+    validateAnswers,
+    restoreDraft,
+    nextStateAfterRecord
   };
 });

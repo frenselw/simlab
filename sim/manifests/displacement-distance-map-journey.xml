@@ -18,13 +18,17 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-DISPLACEMENT-DISTANCE-MAP-JOURNEY" type="webcontent" adlcp:scormType="sco" href="displacement-distance-map-journey/index.html">
+    <resource identifier="RES-DISPLACEMENT-DISTANCE-MAP-JOURNEY" type="webcontent" adlcp:scormtype="sco" href="displacement-distance-map-journey/index.html">
+      <file href="config.js"/>
       <file href="displacement-distance-map-journey/index.html"/>
       <file href="displacement-distance-map-journey/styles.css"/>
       <file href="displacement-distance-map-journey/main.js"/>
+      <file href="displacement-distance-map-journey/route-coverage.js"/>
+      <file href="displacement-distance-map-journey/map-persistence.js"/>
       <file href="displacement-distance-map-journey/scoring.js"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
     </resource>
   </resources>
 </manifest>

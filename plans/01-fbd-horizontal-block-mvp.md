@@ -39,6 +39,8 @@ Use direct manipulation:
 - show the Chinese force name before the symbol, aligned in separate columns;
 - each arrow starts from the block center;
 - drag the arrow tip to adjust direction and length;
+- use relative arrow length to show force magnitude: normal reaction and gravity
+  should balance each other, as should applied force and friction;
 - submit when ready.
 
 On phones, prioritize the diagram first and place controls below it.
@@ -53,7 +55,7 @@ Current scoring for this MVP:
 - Lowest score: 0.
 - Required force types: `G`, `N`, `F`, and `f`.
 - Correct required force types: 20 total, 5 points per required type shown.
-- Correct force directions: 50 total, 12.5 points per required type with the
+- Correct force directions: 40 total, 10 points per required type with the
   correct direction.
 - Arrow anchors on the object: 15 total, 3.75 points per required type. In this
   MVP, arrows start from the block center, so this is a structural check rather
@@ -61,6 +63,8 @@ Current scoring for this MVP:
 - No extra incorrect force arrows: 15. Extra non-required forces deduct points.
   Duplicate required forces deduct enough to cancel the type, direction, and
   anchor points that the duplicate would otherwise make too easy to earn.
+- Balanced relative magnitudes: 10 total, 5 points each for the `N`/`G` pair and
+  the `F`/`f` pair. The two pairs may use different absolute lengths.
 
 Current tolerance:
 
@@ -70,15 +74,27 @@ Current tolerance:
 - Examples: a rightward applied force at 8 degrees is accepted; at 12 degrees it
   is not. A leftward friction force at 172 degrees is accepted; at 168 degrees it
   is not.
+- A force pair is accepted only when both arrows first have their correct,
+  opposite directions and then `shorter arrow length / longer arrow length >=
+  0.80`. Exactly `80/100` is accepted; `79/100` is not. Thus `100/100` and
+  `80/100` pass, while `40/200` does not. Equal-length arrows pointing the wrong
+  way receive no balance credit. This symmetric ratio implements the
+  approximately `±20%` tolerance without depending on which force is used as the
+  reference.
+- Only opposing pairs are compared. For example, `N = G = 80` and `F = f = 140`
+  receives both balance-pair scores even though the vertical and horizontal
+  arrows have different absolute lengths.
 
 The first version scores the final submitted state only. Process scoring can wait.
 
 Easy-to-change constants in `scoring.js`:
 
 - `DIRECTION_TOLERANCE`
+- `BALANCE_LENGTH_RATIO`
 - `TYPE_POINTS`
 - `DIRECTION_POINTS`
 - `PLACEMENT_POINTS`
+- `BALANCE_PAIR_POINTS`
 - `CLEAN_POINTS`
 - `OTHER_EXTRA_PENALTY`
 - passing threshold in the `passed` result

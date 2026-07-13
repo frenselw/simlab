@@ -4,9 +4,52 @@ const {
   expectedSegment,
   expectedTotal,
   formatBearing,
+  hasReachedDestination,
+  isDistanceAnswerCorrect,
   isDirectionAnswerCorrect,
+  routeCompletion,
+  restoredWalkerPoint,
   scoreJourney
 } = require("./scoring.js");
+
+assert(hasReachedDestination({ x: 2, y: 0 }, { x: 0, y: 0 }));
+assert(!hasReachedDestination({ x: 2.01, y: 0 }, { x: 0, y: 0 }));
+assert.equal(isDistanceAnswerCorrect(29, 30.04), false, "full precision keeps 1.04 m outside the tolerance");
+assert.equal(isDistanceAnswerCorrect(29.1, 30.04), true, "inside tolerance remains correct");
+assert.equal(isDistanceAnswerCorrect(29.04, 30.04), true, "absolute tolerance boundary is inclusive");
+assert.equal(isDistanceAnswerCorrect(29.039, 30.04), false, "outside tolerance remains incorrect");
+
+const toleranceCompletion = routeCompletion(
+  { x: 1.5, y: 0 },
+  { x: 0, y: 0 },
+  (from, to) => ({ distance: 1.5, points: [from, to] })
+);
+assert.equal(toleranceCompletion.distance, 1.5);
+assert.deepEqual(toleranceCompletion.points.at(-1), { x: 0, y: 0 });
+
+const rectCompletion = routeCompletion(
+  { x: 4, y: 3 },
+  { x: 0, y: 0 },
+  (from, to) => ({ distance: 7, points: [from, { x: 4, y: 0 }, to] })
+);
+assert.equal(rectCompletion.distance, 7);
+assert.deepEqual(rectCompletion.points, [{ x: 4, y: 0 }, { x: 0, y: 0 }]);
+
+const existingSegment = { routeDistance: 25, trace: [{ x: 8, y: 3 }] };
+existingSegment.routeDistance += rectCompletion.distance;
+existingSegment.trace.push(...rectCompletion.points);
+assert.equal(existingSegment.routeDistance, 32);
+assert.deepEqual(existingSegment.trace.at(-1), rectCompletion.end);
+
+const resumedSecondSegment = {
+  segments: [
+    { trace: [[10, 10], [20, 10]] },
+    { trace: [[40, 50], [45, 50]] }
+  ]
+};
+assert.deepEqual(restoredWalkerPoint(resumedSecondSegment, 1, [0, 0]), [45, 50]);
+assert.deepEqual(restoredWalkerPoint({ ...resumedSecondSegment, person: [47, 50] }, 1, [0, 0]), [47, 50]);
+assert.deepEqual(restoredWalkerPoint({ segments: [{ trace: [] }] }, 0, [8, 9]), [8, 9]);
 
 const journey = {
   routePlaceIds: ["school", "bank", "park"],

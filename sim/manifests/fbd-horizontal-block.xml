@@ -18,13 +18,15 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-FBD-HORIZONTAL-BLOCK" type="webcontent" adlcp:scormType="sco" href="fbd-horizontal-block/index.html">
+    <resource identifier="RES-FBD-HORIZONTAL-BLOCK" type="webcontent" adlcp:scormtype="sco" href="fbd-horizontal-block/index.html">
+      <file href="config.js"/>
       <file href="fbd-horizontal-block/index.html"/>
       <file href="fbd-horizontal-block/styles.css"/>
       <file href="fbd-horizontal-block/main.js"/>
       <file href="fbd-horizontal-block/scoring.js"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
     </resource>
   </resources>
 </manifest>

@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { scoreDiagram } = require("./scoring.js");
+const { scoreDiagram, BALANCE_LENGTH_RATIO, restoreArrowState } = require("./scoring.js");
 
 const block = { x: 240, y: 210, width: 160, height: 90 };
 const center = { x: 320, y: 255 };
@@ -13,6 +13,25 @@ function arrow(type, dx, dy, slot) {
   };
 }
 
+const blank = scoreDiagram([], block);
+assert.equal(blank.score, 0);
+
+const restored = restoreArrowState([
+  arrow("weight", 0, 90, 9),
+  arrow("weight", 0, 80, 4),
+  arrow("normal", 0, -90, 7)
+]);
+assert.deepEqual(restored.arrows.map((item) => item.id), [1, 2, 3]);
+assert.deepEqual(restored.arrows.map((item) => item.slot), [1, 2, 1]);
+assert.equal(restored.nextId, 4);
+const added = { ...arrow("applied", 100, 0), id: restored.nextId, slot: 1 };
+restored.arrows.push(added);
+added.end.x += 10;
+assert.equal(restored.arrows.filter((item) => item.id === 4)[0].end.x, center.x + 110, "drag targets only the new unique ID");
+const afterRemove = restored.arrows.filter((item) => item.id !== 4);
+assert.deepEqual(afterRemove.map((item) => item.id), [1, 2, 3], "removing the new arrow preserves restored arrows");
+assert.equal(restoreArrowState([{ type: "weight", start: {}, end: center }]), null);
+
 const perfect = scoreDiagram([
   arrow("weight", 0, 90),
   arrow("normal", 0, -90),
@@ -24,6 +43,56 @@ assert.equal(perfect.score, 100);
 assert.equal(perfect.passed, true);
 assert(perfect.feedbackItems.every((item) => item.status === "correct"));
 assert(perfect.summary.includes("合力為零"));
+assert.deepEqual(perfect.detail.balancedPairs, ["vertical", "horizontal"]);
+assert.equal(BALANCE_LENGTH_RATIO, 0.8);
+
+const differentPairLengths = scoreDiagram([
+  arrow("weight", 0, 80),
+  arrow("normal", 0, -80),
+  arrow("applied", 140, 0),
+  arrow("friction", -140, 0)
+], block);
+
+assert.equal(differentPairLengths.score, 100);
+assert.deepEqual(differentPairLengths.detail.balancedPairs, ["vertical", "horizontal"]);
+
+const exactBalanceBoundary = scoreDiagram([
+  arrow("weight", 0, 80),
+  arrow("normal", 0, -100),
+  arrow("applied", 100, 0),
+  arrow("friction", -80, 0)
+], block);
+
+assert.equal(exactBalanceBoundary.score, 100);
+assert.deepEqual(exactBalanceBoundary.detail.balancedPairs, ["vertical", "horizontal"]);
+
+const outsideBalanceBoundary = scoreDiagram([
+  arrow("weight", 0, 79),
+  arrow("normal", 0, -100),
+  arrow("applied", 100, 0),
+  arrow("friction", -79, 0)
+], block);
+
+assert.equal(outsideBalanceBoundary.score, 90);
+assert.deepEqual(outsideBalanceBoundary.detail.balancedPairs, []);
+assert(outsideBalanceBoundary.feedbackItems.some((item) =>
+  item.text.includes("支持力與重力：箭頭長度相差太大")
+));
+assert(outsideBalanceBoundary.feedbackItems.some((item) =>
+  item.text.includes("外力與摩擦力：箭頭長度相差太大")
+));
+
+const oneUnbalancedPair = scoreDiagram([
+  arrow("weight", 0, 100),
+  arrow("normal", 0, -100),
+  arrow("applied", 200, 0),
+  arrow("friction", -40, 0)
+], block);
+
+assert.equal(oneUnbalancedPair.score, 95);
+assert.deepEqual(oneUnbalancedPair.detail.balancedPairs, ["vertical"]);
+assert.equal(oneUnbalancedPair.passed, true);
+assert(oneUnbalancedPair.summary.includes("應各自大小大致相等"));
 
 const missingFriction = scoreDiagram([
   arrow("weight", 0, 90),
@@ -44,7 +113,22 @@ const wrongDirections = scoreDiagram([
 
 assert(wrongDirections.score < perfect.score);
 assert(wrongDirections.detail.correctDirections.length < 4);
+assert.deepEqual(wrongDirections.detail.balancedPairs, []);
 assert(wrongDirections.feedbackItems.some((item) => item.status === "wrong"));
+assert(wrongDirections.feedbackItems.some((item) => item.text.includes("請先修正箭頭方向")));
+
+const onePairWrongDirection = scoreDiagram([
+  arrow("weight", 0, 100),
+  arrow("normal", 0, -100),
+  arrow("applied", 100, 0),
+  arrow("friction", 100, 0)
+], block);
+
+assert.deepEqual(onePairWrongDirection.detail.balancedPairs, ["vertical"]);
+assert.equal(onePairWrongDirection.score, 85);
+assert(onePairWrongDirection.feedbackItems.some((item) =>
+  item.text.includes("外力與摩擦力：請先修正箭頭方向")
+));
 
 const slightlyWrongApplied = scoreDiagram([
   arrow("weight", 0, 90),
@@ -75,7 +159,21 @@ const duplicateNormal = scoreDiagram([
 
 assert.equal(duplicateNormal.detail.extraCount, 1);
 assert(duplicateNormal.feedbackItems.some((item) => item.text.includes("N₂ 支持力")));
-assert.equal(duplicateNormal.score, 79);
+assert.equal(duplicateNormal.score, 66);
+
+const duplicateVerticalPair = scoreDiagram([
+  arrow("weight", 0, 90, "1"),
+  arrow("weight", 0, 90, "2"),
+  arrow("normal", 0, -90, "1"),
+  arrow("normal", 0, -90, "2"),
+  arrow("applied", 100, 0),
+  arrow("friction", -100, 0)
+], block);
+
+assert.equal(duplicateVerticalPair.score, 48);
+assert.equal(duplicateVerticalPair.detail.extraCount, 2);
+assert.deepEqual(duplicateVerticalPair.detail.extraTypes, ["weight", "normal"]);
+assert.deepEqual(duplicateVerticalPair.detail.balancedPairs, ["vertical", "horizontal"]);
 
 const extraTension = scoreDiagram([
   arrow("weight", 0, 90),
@@ -87,7 +185,7 @@ const extraTension = scoreDiagram([
 
 assert.equal(extraTension.detail.extraCount, 1);
 assert(extraTension.feedbackItems.some((item) => item.text.includes("T 拉力：此題不需要")));
-assert.equal(extraTension.score, 90);
+assert.equal(extraTension.score, 75);
 
 const allButtons = scoreDiagram([
   arrow("weight", 0, 90, "1"),

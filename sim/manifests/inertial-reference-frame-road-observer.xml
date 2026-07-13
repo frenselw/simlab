@@ -18,13 +18,16 @@
     </organization>
   </organizations>
   <resources>
-    <resource identifier="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" type="webcontent" adlcp:scormType="sco" href="inertial-reference-frame-road-observer/index.html">
+    <resource identifier="RES-INERTIAL-REFERENCE-FRAME-ROAD-OBSERVER" type="webcontent" adlcp:scormtype="sco" href="inertial-reference-frame-road-observer/index.html">
+      <file href="config.js"/>
       <file href="inertial-reference-frame-road-observer/index.html"/>
       <file href="inertial-reference-frame-road-observer/styles.css"/>
       <file href="inertial-reference-frame-road-observer/main.js"/>
       <file href="inertial-reference-frame-road-observer/scoring.js"/>
+      <file href="inertial-reference-frame-road-observer/animation-loop.js"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
     </resource>
   </resources>
 </manifest>

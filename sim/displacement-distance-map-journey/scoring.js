@@ -23,6 +23,32 @@
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
+  function hasReachedDestination(point, destination) {
+    return pointDistance(point, destination) <= DESTINATION_REACH_TOLERANCE_M;
+  }
+
+  function routeCompletion(current, destination, findPath) {
+    const path = findPath(current, destination);
+    return {
+      distance: Number.isFinite(path.distance) ? path.distance : 0,
+      points: Number.isFinite(path.distance) ? path.points.slice(1) : [],
+      end: destination
+    };
+  }
+
+  function restoredWalkerPoint(snapshot, currentSegment, fallback) {
+    if (isFinitePoint(snapshot?.person)) return snapshot.person;
+    const trace = snapshot?.segments?.[currentSegment]?.trace;
+    const last = Array.isArray(trace) ? trace[trace.length - 1] : null;
+    return isFinitePoint(last) ? last : fallback;
+  }
+
+  function isFinitePoint(point) {
+    return Array.isArray(point)
+      ? point.length === 2 && point.every(Number.isFinite)
+      : Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+
   function vector(start, end) {
     return {
       x: end.x - start.x,
@@ -263,6 +289,9 @@
     isDistanceAnswerCorrect,
     normalizeBearing,
     pointDistance,
+    hasReachedDestination,
+    routeCompletion,
+    restoredWalkerPoint,
     scoreJourney,
     vector,
     vectorMagnitude
