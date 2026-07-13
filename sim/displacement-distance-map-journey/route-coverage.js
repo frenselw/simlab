@@ -50,7 +50,7 @@
     for (const item of value) {
       if (!Array.isArray(item) || item.length !== 3 || !item.every(Number.isFinite)) return null;
       const [edgeId, start, end] = item;
-      if (!Number.isInteger(edgeId) || !edges.some((edge) => edge.id === edgeId) || start < 0 || end > 1) return null;
+      if (!Number.isInteger(edgeId) || !edges.some((edge) => edge.id === edgeId) || start < 0 || start > end || end > 1) return null;
       result = addInterval(result, edgeId, start, end);
     }
     return result;

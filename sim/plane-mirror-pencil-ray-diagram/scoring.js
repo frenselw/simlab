@@ -333,6 +333,24 @@
     return { status: "wrong", text: `${label}：${count}/${total} 條正確。` };
   }
 
+  function restoreAnswer(answer) {
+    const finitePoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    const segmentOk = (segment) => !segment || (finitePoint(segment.start) && finitePoint(segment.end));
+    const scene = answer?.scene;
+    const response = answer?.response;
+    if (!scene || !["mirrorX", "mirrorTop", "mirrorBottom", "reflectingSide", "objectX", "objectY", "objectHeight"].every((key) => Number.isFinite(scene[key])) || scene.objectHeight <= 0 || ![-1, 1].includes(scene.reflectingSide)) return null;
+    if (!response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle) => !["top", "bottom"].includes(bundle?.source) || !segmentOk(bundle.incident) || !segmentOk(bundle.reflected) || !segmentOk(bundle.extension))) return null;
+    const imageChoice = response.imageChoice ?? null;
+    const image = response.image ?? null;
+    if (![null, "real", "virtual"].includes(imageChoice) || (image && (!["x", "y", "height", "angle"].every((key) => Number.isFinite(image[key])) || image.height <= 0)) || Boolean(imageChoice) !== Boolean(image)) return null;
+    return {
+      scene: { ...scene },
+      bundles: response.bundles.map((bundle, index) => ({ ...bundle, id: index + 1 })),
+      imageChoice,
+      image: image ? { ...image } : null
+    };
+  }
+
   return {
     ANGLE_TOLERANCE_DEG,
     MIN_RAY_LENGTH,
@@ -355,6 +373,7 @@
     isIncidentCorrect,
     isReflectedCorrect,
     isExtensionCorrect,
+    restoreAnswer,
     scoreDiagram
   };
 });

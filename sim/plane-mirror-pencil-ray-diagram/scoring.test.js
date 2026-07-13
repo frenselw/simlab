@@ -3,6 +3,7 @@ const {
   correctImage,
   incidentAngleToNormal,
   sourcePoint,
+  restoreAnswer,
   scoreDiagram,
   vectorAngle
 } = require("./scoring.js");
@@ -17,6 +18,12 @@ const leftScene = {
   objectHeight: 120
 };
 const rightScene = { ...leftScene, reflectingSide: 1, objectX: 540 };
+
+const saved = { scene: leftScene, response: { bundles: [{ id: 9, source: "top", incident: null, reflected: null, extension: null }, { id: 9, source: "bottom", incident: null, reflected: null, extension: null }], imageChoice: "virtual", image: { x: 540, y: 240, height: 120, angle: 0 } } };
+assert.deepEqual(restoreAnswer(saved).bundles.map(({ id }) => id), [1, 2], "restore rebuilds unique bundle IDs");
+assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, imageChoice: "guess" } }), null);
+assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, image: {} } }), null);
+assert.equal(restoreAnswer({ ...saved, scene: { ...leftScene, objectX: Infinity } }), null);
 
 function pointFromAngle(start, angle, length) {
   const radians = angle * Math.PI / 180;

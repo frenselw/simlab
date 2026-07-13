@@ -80,6 +80,11 @@ migrated.segments[0].coverage.forEach((interval) => {
 const corrupt = structuredClone(encoded);
 corrupt.segments[0].coverage = [[99, 0, 1]];
 assert.equal(Persistence.decode(corrupt, edges, legacyRoadPath), null, "unknown edge id is rejected");
+for (const distance of [-1, NaN, Infinity]) {
+  const damaged = structuredClone(encoded);
+  damaged.segments[0].routeDistance = distance;
+  assert.equal(Persistence.decode(damaged, edges, legacyRoadPath), null, `invalid distance ${distance} is rejected`);
+}
 const envelope = { version: 1, activity: "displacement-distance-map-journey", kind: "draft", answer: encoded };
 assert.ok(Buffer.byteLength(JSON.stringify(envelope), "utf8") < 4000, "production snapshot envelope fits suspend_data");
 

@@ -45,6 +45,8 @@ restored.forEach((interval) => {
 
 assert.equal(Coverage.expand([[99, 0, 1]], edges), null, "unknown edge ids fail safely");
 assert.equal(Coverage.expand([[0, -0.1, 1]], edges), null, "out-of-range intervals fail safely");
+assert.equal(Coverage.expand([[0, 0.8, 0.2]], edges), null, "reversed intervals fail safely");
+assert.equal(Coverage.expand([[0, 2, -1]], edges), null, "both-sided out-of-range intervals fail safely");
 
 const legacy = Coverage.fromLegacyTrace(
   [[2, 0], [10, 0], [10, 6]],
@@ -77,9 +79,6 @@ assert.deepEqual(
   "final cross-edge snap includes the first and later road portions"
 );
 
-const routeDistance = 244.3;
-Coverage.addPath(restored, edges, [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
-assert.equal(routeDistance, 244.3, "visual coverage does not alter independently accumulated distance");
 
 const worstCase = {
   version: 1,

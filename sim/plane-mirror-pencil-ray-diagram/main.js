@@ -349,17 +349,13 @@
   }
 
   function restoreSnapshot(snapshot) {
-    const answer = snapshot?.answer;
-    const pointOk = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y);
-    const segmentOk = (segment) => !segment || (pointOk(segment.start) && pointOk(segment.end));
-    const sceneOk = answer?.scene && ["mirrorX", "mirrorTop", "mirrorBottom", "reflectingSide", "objectX", "objectY", "objectHeight"].every((key) => Number.isFinite(answer.scene[key]));
-    const response = answer?.response;
-    if (!sceneOk || !response || !Array.isArray(response.bundles) || response.bundles.length > 4 || response.bundles.some((bundle) => !["top", "bottom"].includes(bundle.source) || !segmentOk(bundle.incident) || !segmentOk(bundle.reflected) || !segmentOk(bundle.extension))) return false;
-    state.scene = answer.scene;
-    state.bundles = answer.response.bundles;
-    state.nextId = state.bundles.reduce((max, bundle) => Math.max(max, bundle.id || 0), 0) + 1;
-    state.imageChoice = answer.response.imageChoice || null;
-    state.image = answer.response.image || null;
+    const restored = window.MirrorRayScoring.restoreAnswer(snapshot?.answer);
+    if (!restored) return false;
+    state.scene = restored.scene;
+    state.bundles = restored.bundles;
+    state.nextId = state.bundles.length + 1;
+    state.imageChoice = restored.imageChoice;
+    state.image = restored.image;
     return true;
   }
 

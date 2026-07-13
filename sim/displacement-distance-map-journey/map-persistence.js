@@ -36,7 +36,7 @@
     const legacy = review.traceFormat !== TRACE_FORMAT;
     const segments = [];
     for (const segment of review.segments) {
-      if (!segment || !validArrow(segment.arrow)) return null;
+      if (!segment || !validArrow(segment.arrow) || !Number.isFinite(segment.routeDistance) || segment.routeDistance < 0) return null;
       let coverage;
       if (legacy) {
         if (!Array.isArray(segment.trace) || !segment.trace.every(validPoint)) return null;
@@ -47,7 +47,7 @@
       }
       segments.push({
         reached: Boolean(segment.reached),
-        routeDistance: Number(segment.routeDistance) || 0,
+        routeDistance: segment.routeDistance,
         coverage,
         arrow: expandArrow(segment.arrow),
         answers: segment.answers || null
