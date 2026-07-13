@@ -7,11 +7,11 @@ const result = { score: 72, maxScore: 100, passed: true };
 
 function launch(lms, location = "standalone") {
   const listeners = {};
-  const window = { API: lms?.api(), opener: null, setTimeout, clearTimeout, addEventListener: (name, fn) => { listeners[name] = fn; } };
+  const window = { API: lms?.api(), opener: null, location: { reloads: 0, reload() { this.reloads += 1; } }, setTimeout, clearTimeout, addEventListener: (name, fn) => { listeners[name] = fn; } };
   window.parent = location === "embedded" ? {} : window;
   window.top = location === "embedded" ? {} : window;
   vm.runInNewContext(source, { window, console, JSON, TextEncoder });
-  return { scorm: window.SimScorm, listeners };
+  return { scorm: window.SimScorm, listeners, window };
 }
 
 function fakeLms(durable = {}) {
@@ -72,6 +72,22 @@ const review = (scorm) => scorm.makeSnapshot("activity", "review", { final: true
   const run = launch(lms);
   assert.equal(run.scorm.loadAttempt("activity").state, "read-error");
   assert.equal(lms.calls.commit, 0);
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, 0);
+  assert.equal(lms.calls.finish, 1);
+}
+
+// BFCache saves recoverable state without finishing, then reloads the restored page.
+{
+  const lms = fakeLms();
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "new");
+  run.scorm.setDraftProvider(() => run.scorm.makeSnapshot("activity", "draft", { step: 2 }));
+  run.listeners.pagehide({ persisted: true });
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.step, 2);
+  assert.equal(lms.calls.finish, 0);
+  run.listeners.pageshow({ persisted: true });
+  assert.equal(run.window.location.reloads, 1);
 }
 // Every final SetValue boundary leaves the durable pending payload recoverable.
 for (const key of ["cmi.suspend_data", "cmi.core.score.min", "cmi.core.score.max", "cmi.core.score.raw", "cmi.core.lesson_status", "cmi.core.exit"]) {

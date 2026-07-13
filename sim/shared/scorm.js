@@ -11,6 +11,7 @@
   let pendingFinal = null;
   let pendingCheckpoint = "";
   let pendingCheckpointCommitted = false;
+  let writesBlocked = false;
   const localLog = [];
   const SNAPSHOT_LIMIT = 4000;
   const FINISHED = ["completed", "passed", "failed"];
@@ -123,32 +124,39 @@
   }
 
   function loadAttempt(activity) {
-    if (!init()) return { state: "read-error", reason: "initialize" };
+    writesBlocked = false;
+    if (!init()) { writesBlocked = true; return { state: "read-error", reason: "initialize" }; }
     const statusResult = readValue("cmi.core.lesson_status");
     const snapshotResult = readValue("cmi.suspend_data");
     const scoreResult = readValue("cmi.core.score.raw");
-    if (!statusResult.ok || !snapshotResult.ok || !scoreResult.ok) return { state: "read-error", reason: !statusResult.ok ? "status" : !snapshotResult.ok ? "snapshot" : "score" };
+    if (!statusResult.ok || !snapshotResult.ok || !scoreResult.ok) {
+      writesBlocked = true;
+      return { state: "read-error", reason: !statusResult.ok ? "status" : !snapshotResult.ok ? "snapshot" : "score" };
+    }
     launchStatus = statusResult.value;
     const done = FINISHED.includes(launchStatus);
     const raw = snapshotResult.value;
     const snapshot = parseSnapshot(raw);
     if (raw && (!snapshot || snapshot.activity !== activity)) {
-      return done ? { state: "finished", snapshot: null, fallback: true, status: launchStatus, score: scoreResult.value } : { state: "inconsistent", reason: "corrupt-snapshot" };
+      if (done) return { state: "finished", snapshot: null, fallback: true, status: launchStatus, score: scoreResult.value };
+      writesBlocked = true;
+      return { state: "inconsistent", reason: "corrupt-snapshot" };
     }
     if (done) {
       if (!snapshot) return { state: "finished", snapshot: null, fallback: true, status: launchStatus, score: scoreResult.value };
-      if (snapshot.kind !== "review") return { state: "inconsistent", reason: "finished-with-non-review" };
+      if (snapshot.kind !== "review") { writesBlocked = true; return { state: "inconsistent", reason: "finished-with-non-review" }; }
       return { state: "finished", snapshot, status: launchStatus, score: scoreResult.value };
     }
     if (!snapshot) return { state: "new" };
     if (snapshot.kind === "draft") return { state: "draft", snapshot };
     if (snapshot.kind === "pending-final") {
-      if (!validPending(snapshot, activity)) return { state: "inconsistent", reason: "corrupt-pending" };
+      if (!validPending(snapshot, activity)) { writesBlocked = true; return { state: "inconsistent", reason: "corrupt-pending" }; }
       pendingFinal = Object.freeze(snapshot.payload);
       pendingCheckpoint = raw;
       pendingCheckpointCommitted = true;
       return { state: "pending-final", snapshot };
     }
+    writesBlocked = true;
     return { state: "inconsistent", reason: "unfinished-with-review" };
   }
 
@@ -244,6 +252,7 @@
 
   function closeSession() {
     if (!initialized || finished) return;
+    if (writesBlocked) { if (api) call("finish", "LMSFinish", ""); return; }
     if (pendingFinal) {
       const outcome = retryPending();
       if (!outcome.committed) return;
@@ -258,11 +267,21 @@
     else finished = call("finish", "LMSFinish", "").ok;
   }
 
+  function suspendSession() {
+    if (!initialized || finished || writesBlocked) return;
+    if (pendingFinal) { retryPending(false); return; }
+    if (finalCommitted || FINISHED.includes(launchStatus)) { commit(); return; }
+    if (draftProvider) {
+      try { saveDraft(draftProvider()); } catch (error) { console.warn("[SCORM] draft save failed", error); }
+    } else setValue("cmi.core.exit", "suspend") && commit();
+  }
+
   window.SimScorm = {
     init, readValue, getValue, loadAttempt, isAttemptFinished: () => FINISHED.includes(getValue("cmi.core.lesson_status")),
     submitResult, submitWithCallbacks, retryPending, makeSnapshot, readSnapshot, saveDraft,
     setDraftProvider: (provider) => { draftProvider = provider; }, snapshotBytes, finish,
     getLocalLog: () => localLog.slice()
   };
-  window.addEventListener("pagehide", closeSession);
+  window.addEventListener("pagehide", (event) => event?.persisted ? suspendSession() : closeSession());
+  window.addEventListener("pageshow", (event) => { if (event.persisted) window.location.reload(); });
 })();
