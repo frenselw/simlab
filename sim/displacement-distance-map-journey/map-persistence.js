@@ -103,8 +103,10 @@
   }
 
   function validProgress(segments, currentSegment, phase, totalArrow, totalAnswers) {
+    const hasSecondSegmentData = segments[1].reached || segments[1].arrow || segments[1].answers;
+    if (currentSegment === 0 && (hasSecondSegmentData || totalArrow || totalAnswers)) return false;
+    if (currentSegment === 1 && !segments[0].answers) return false;
     if (segments[0].answers && (!segments[0].reached || !segments[0].arrow)) return false;
-    if ((segments[1].reached || segments[1].arrow || segments[1].answers) && !segments[0].answers) return false;
     if (segments[1].answers && (!segments[1].reached || !segments[1].arrow)) return false;
     if ((totalArrow || totalAnswers || phase === "draw-total") && !segments[1].answers) return false;
     if (totalAnswers && !totalArrow) return false;

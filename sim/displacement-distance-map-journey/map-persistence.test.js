@@ -78,11 +78,32 @@ drawTotalSource.segments[1] = { ...structuredClone(source.segments[0]), routeDis
 drawTotalSource.totalArrow = structuredClone(source.segments[0].arrow);
 assert.equal(Persistence.decode(Persistence.encode(drawTotalSource), edges, legacyRoadPath)?.phase, "draw-total", "draw-total round-trips unchanged");
 
+for (const phase of ["walk", "draw-segment"]) {
+  const secondSegment = structuredClone(source);
+  secondSegment.phase = phase;
+  if (phase === "draw-segment") {
+    secondSegment.segments[1].reached = true;
+    secondSegment.segments[1].arrow = structuredClone(source.segments[0].arrow);
+  }
+  assert.equal(Persistence.decode(Persistence.encode(secondSegment), edges, legacyRoadPath)?.phase, phase, `segment 2 ${phase} remains valid after segment 1 is answered`);
+  secondSegment.segments[0].answers = null;
+  assert.equal(Persistence.decode(Persistence.encode(secondSegment), edges, legacyRoadPath), null, `segment 2 ${phase} requires the first answer`);
+}
+
+for (const futureData of ["second", "totalArrow", "totalAnswers"]) {
+  const stale = structuredClone(drawSegmentSource);
+  if (futureData === "second") stale.segments[1].reached = true;
+  if (futureData === "totalArrow") stale.totalArrow = structuredClone(source.segments[0].arrow);
+  if (futureData === "totalAnswers") stale.totalAnswers = structuredClone(source.segments[0].answers);
+  assert.equal(Persistence.decode(Persistence.encode(stale), edges, legacyRoadPath), null, `segment 1 rejects stale ${futureData} data`);
+}
+
 const legacyTrace = Array.from({ length: 18 }, (_, index) => index < 9
   ? [2 + index, 0]
   : [10, index - 8]);
 const legacy = {
   ...encoded,
+  currentSegment: 0,
   traceFormat: undefined,
   person: [10, 9],
   segments: [
