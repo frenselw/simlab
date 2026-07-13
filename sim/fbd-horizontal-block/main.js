@@ -173,7 +173,7 @@
     scorePanel.replaceChildren(
       textBlock("div", "此作答次已提交"),
       textBlock("div", score, "score-value"),
-      textBlock("div", result.passed === true ? "已通過" : result.passed === false ? "未通過" : "未能安全判斷合格狀態")
+      textBlock("div", window.SimActivityFlow.completionLabel(result.passed))
     );
     if (outcome.trusted) {
       const list = document.createElement("ul");

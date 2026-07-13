@@ -19,6 +19,7 @@ assert.deepEqual(Flow.recordedResult({ score: "80", status: "passed" }), { score
 assert.deepEqual(Flow.recordedResult({ score: "40", status: "failed" }), { score: 40, passed: false });
 assert.deepEqual(Flow.recordedResult({ score: "", status: "completed" }), { score: null, passed: null });
 assert.deepEqual(Flow.recordedResult({ score: "bad", status: "passed" }), { score: null, passed: true });
+assert.deepEqual([true, false, null].map(Flow.completionLabel), ["已通過", "未通過", "未能安全判斷合格狀態"]);
 const computed = { score: 80, maxScore: 100, passed: true, detail: [1] };
 assert.deepEqual(Flow.reviewResult(computed, { score: 80, passed: true }, { score: "80", status: "passed" }), { trusted: true, result: computed });
 assert.deepEqual(Flow.reviewResult(computed, { score: 40, passed: false }, { score: "40", status: "failed" }).result, { score: 40, maxScore: 100, passed: false, completed: true, detail: [], feedbackItems: [] });

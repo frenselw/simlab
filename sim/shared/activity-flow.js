@@ -41,5 +41,8 @@
       }
     };
   }
-  return { submission, startup, recordedResult, reviewResult };
+  function completionLabel(passed) {
+    return passed === true ? "已通過" : passed === false ? "未通過" : "未能安全判斷合格狀態";
+  }
+  return { submission, startup, recordedResult, reviewResult, completionLabel };
 });

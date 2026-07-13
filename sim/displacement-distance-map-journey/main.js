@@ -717,7 +717,7 @@
     scorePanel.replaceChildren(
       textBlock("div", "目前分數"),
       textBlock("div", String(result.score), "score-value"),
-      textBlock("div", result.passed === true ? "已通過" : result.passed === false ? "未通過" : "未能安全判斷合格狀態")
+      textBlock("div", window.SimActivityFlow.completionLabel(result.passed))
     );
     const list = document.createElement("ul");
     list.className = "feedback-list";

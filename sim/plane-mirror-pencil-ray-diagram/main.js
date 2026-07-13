@@ -298,7 +298,7 @@
     scorePanel.replaceChildren(
       textBlock("div", "目前分數"),
       textBlock("div", String(result.score), "score-value"),
-      textBlock("div", result.passed ? "已通過" : "未通過")
+      textBlock("div", window.SimActivityFlow.completionLabel(result.passed))
     );
     const list = document.createElement("ul");
     list.className = "feedback-list";
