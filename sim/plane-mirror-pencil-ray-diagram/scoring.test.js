@@ -37,6 +37,7 @@ const partialImageStates = [
 partialImageStates.forEach((bundles) => {
   const restored = restoreAnswer({ ...saved, response: { ...saved.response, bundles } });
   assert.ok(restored?.image, "every UI-valid partial image state restores");
+  assert.deepEqual(scoreDiagram(restored, restored.scene), scoreDiagram({ ...saved.response, bundles }, saved.scene), "restored partial answer rescoring is unchanged");
 });
 assert.equal(restoreAnswer({ ...saved, response: { ...saved.response, bundles: [] } }), null, "image requires an incident ray");
 
