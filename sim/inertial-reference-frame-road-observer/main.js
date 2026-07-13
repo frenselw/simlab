@@ -291,19 +291,22 @@
     const isTask = state.mode === "task";
     const isReview = state.mode === "review";
     const isSubmitted = state.mode === "submitted";
+    const isUnavailable = isSubmitted && Boolean(state.unavailableReason);
     const round = (isGuide || isTask) ? activeRound() : null;
 
     headerText.textContent = isGuide
       ? "本活動把路旁及做勻速直線運動的車視為慣性參考系；先以一個參考物體觀察，理解畫面中「靜止」取決於參考系。"
       : "本活動把路旁及做勻速直線運動的車視為慣性參考系；請根據相對位置的改變找出合適的參考物體。";
-    roundHeading.textContent = isGuide ? "導覽：先試一次" : isTask ? `第 ${state.activeIndex + 1} 題／5 題` : isReview ? "提交前檢查" : "提交結果";
+    roundHeading.textContent = isGuide ? "導覽：先試一次" : isTask ? `第 ${state.activeIndex + 1} 題／5 題` : isReview ? "提交前檢查" : isUnavailable ? "Moodle 狀態暫時無法確認" : "提交結果";
     taskIntro.textContent = isGuide
       ? "選擇一個參考物體，播放後留意：被選物體會固定，而其他物體的相對位置可能改變。"
       : isTask
         ? "每題可能有一個或多個合適答案。請選擇任何一個同時符合全部條件的參考物體。"
         : isReview
           ? "可按任何一題返回觀察及修改答案。全部確認後才提交。"
-          : state.trustedReview
+          : isUnavailable
+            ? state.unavailableReason
+            : state.trustedReview
             ? "本次嘗試已提交並鎖定，只供重看。"
             : "本次嘗試已提交並鎖定。詳細題目資料無法安全重建。";
     conditionList.innerHTML = "";
@@ -347,7 +350,7 @@
 
     roundStatus.textContent = statusMessage();
     stageBadge.textContent = isSubmitted
-      ? "本次嘗試已鎖定"
+      ? isUnavailable ? "狀態未確認" : "本次嘗試已鎖定"
       : state.selected
         ? `目前參考系：${displayName(state.selected)}`
         : "請先選擇參考物體";
@@ -358,7 +361,7 @@
   function statusMessage() {
     if (state.mode === "guide") return state.selected ? "完成一次完整觀察後即可開始正式任務。" : "尚未選擇參考物體。";
     if (state.mode === "review") return state.answers.every(Boolean) ? "五題答案已齊，可提交。" : "仍有未完成的題目。";
-    if (state.mode === "submitted") return state.trustedReview ? "已提交至 Moodle／本機 SCORM 記錄。" : "已提交；只可查看安全摘要。";
+    if (state.mode === "submitted") return state.unavailableReason || (state.trustedReview ? "已提交至 Moodle／本機 SCORM 記錄。" : "已提交；只可查看安全摘要。");
     if (!state.selected) return "尚未選擇參考物體。";
     if (state.playback === "playing") return "正在觀察；播放期間不能切換參考物體。";
     if (state.playback === "paused") return "已暫停；可繼續、重播或改選另一個參考物體。";
