@@ -3,6 +3,28 @@
 Use this guide before building a new SimLab simulation. It records the practical
 SCORM/Moodle behaviors that are easy to miss.
 
+## End-to-end workflow
+
+Follow this order when creating a simulation from scratch:
+
+1. Read `AGENTS.md` and `plans/00-shared-platform-and-style.md` for the project
+   rules and shared design baseline.
+2. Copy `plans/NEW-SIMULATION-PLAN-TEMPLATE.md` to a simulation-specific plan and
+   complete its scope, catalogue metadata, subject model, scoring, and tolerance.
+3. Define the phase/state matrix, persistence contract, invalid-state policy,
+   SCORM lifecycle outcomes, and test plan before building the UI.
+4. Implement the activity with the shared styles, SCORM runtime, and activity
+   flow; keep scoring and persistence logic independently testable.
+5. Register the activity in `sim/config.js`, its manifest, and the test runner.
+6. Complete the [Package-ready checks](#package-ready-checks), including the
+   built-package browser smoke test.
+7. Complete the [Moodle-ready checks](#moodle-ready-checks) in a real Moodle
+   student attempt.
+
+The simulation-specific plan is the implementation blueprint. It may specialize
+the subject model and rubric, but it must not silently override the shared
+lifecycle, persistence, trust, or packaging contracts in this guide.
+
 ## Before coding
 
 - Write a simulation plan in `plans/` before implementation.
