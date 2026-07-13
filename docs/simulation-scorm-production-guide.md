@@ -11,14 +11,15 @@ SCORM/Moodle behaviors that are easy to miss.
   `plane-mirror-pencil-ray-diagram`, not `optics`.
 - Define the learner task, required interactions, scoring rubric, tolerance
   choices, feedback, and SCORM behavior before drawing the UI.
+- Classify the assessment as formative, low-risk graded, or high-risk graded.
+  Browser-scored SCORM is not a trusted grading boundary; high-risk work needs
+  server-side answer validation.
 - Keep the first version to one clear scenario unless variation is part of the
   learning objective.
 - Start with static HTML, CSS, and JavaScript. Add libraries only when they
   remove real complexity.
 
 ## Canonical SimLab activity shape
-
-Follow the current project structure rather than generic simulation scaffolds:
 
 ```text
 sim/<slug>/
@@ -33,7 +34,9 @@ sim/<slug>/
 
 Also update:
 
-- `sim/config.js` with one non-duplicate active entry;
+- `sim/config.js` with one non-duplicate entry containing `title`, `folder`,
+  `categories`, `description`, `tags`, and `status`; `folder` must match the
+  directory/manifest slug and only deployable activities may be `active`;
 - `sim/manifests/<slug>.xml` with every runtime file, including shared helpers;
 - `tools/run-tests.js` with every new test file.
 
@@ -45,22 +48,26 @@ load them before `main.js` in `index.html` and list them in the manifest.
 
 ## Model the state before the UI
 
-Every activity with more than one step must define a phase/state matrix in its
-plan before coding. Use one row for every state that can be saved or restored:
+Every activity that persists draft or review data must define a phase/state
+matrix before coding, even if it has only one visible step. Use one row for each
+saveable phase plus each invariant variant that changes what data or continuation
+is legal:
 
-| Phase | Required data | Must be absent/pristine | Allowed next action |
-|---|---|---|---|
-| `start` | ... | ... | ... |
-| `edit` | ... | ... | ... |
-| `review` | ... | ... | ... |
+| Phase | Variant/invariant | Required semantic state | Must be absent/pristine | Allowed next action |
+|---|---|---|---|---|
+| `start` | new | ... | ... | ... |
+| `edit` | normal | ... | ... | ... |
+| `edit` | returning from review | ... | ... | return to review |
+| `review` | complete | ... | ... | submit or edit |
 
 The matrix must answer:
 
 - Which phase names can production code actually render?
 - Which current step/index values are legal in each phase?
 - Which previous answers must already exist?
-- Which active answer must still be absent?
-- Which future-step fields must still be empty or zero?
+- Whether an active answer is absent, partial, or already present for a valid
+  review-edit continuation;
+- Which future-step fields must be empty or zero for that specific variant;
 - Which controls and continuation action exist after restore?
 - Which state is final and review-only?
 
@@ -68,15 +75,28 @@ Do not keep persistence-only phase names that the UI cannot render. If an old
 snapshot used one, normalize it once at the decode boundary and test the
 migration.
 
+State needed to continue the learner's task is semantic state. Persist it even
+when it looks UI-related, for example `fromReview`, the active step, a selected
+candidate that affects the next action, or completed observations. Do not persist
+transient pointer coordinates, DOM references, hover state, or open animations.
+
 ## Snapshot and restore contract
 
-Write the draft and review schemas in the activity plan. Separate:
+Write the draft and review schemas in the activity plan. Both must contain the
+authoritative learner answers needed to validate and rescore; review data must
+also be sufficient to redraw the submitted answer. Separate:
 
 - authoritative learner answers needed to rescore;
 - minimal geometry needed to redraw or continue;
 - phase/current-step data;
-- derived state that should be rebuilt instead of trusted, such as IDs, slots,
-  selection objects, button states, or cached totals.
+- semantic continuation state needed for the matrix variant;
+- derived state that should be rebuilt instead of trusted, such as generated
+  IDs, slots, DOM objects, button states, or cached totals.
+
+If one saved object refers to another, decide explicitly whether the relationship
+key is authoritative or derived. Validate authoritative keys for type, uniqueness,
+and referential integrity. Omit or ignore generated IDs on restore and rebuild
+them deterministically.
 
 Use the shared envelope:
 
@@ -102,6 +122,11 @@ Restore rules:
 - Keep the serialized snapshot below the SCORM 1.2 suspend-data limit.
 - A finished attempt with an invalid review snapshot remains locked and shows
   only the trustworthy Moodle summary; it never becomes a new editable attempt.
+- A pending-final snapshot is owned by the shared runtime and must remain frozen
+  for retry of the same payload.
+- An invalid editable draft may reset only when the activity plan defines how to
+  clear or overwrite the bad snapshot before starting a clean draft. Otherwise,
+  lock the activity and show a technical load error.
 
 The required invariant is:
 
@@ -113,15 +138,18 @@ Add a byte-size assertion for representative maximum drafts and reviews; this
 project treats 4000 UTF-8 bytes as the snapshot ceiling.
 
 The restored state must also have the same legal next action as the original.
+Each round-trip test must execute one such action and assert the expected next
+phase or invariant; merely comparing serialized fields is insufficient.
 
 ## Required persistence tests
 
-For each saveable phase, leave one production encode/decode/restore round-trip
-test. Add invalid-state cases for:
+For each saveable phase and invariant variant, leave one production
+encode/decode/restore round-trip test and execute one legal continuation after
+restore. Add invalid-state cases for:
 
 - missing required previous answers;
-- an already-answered active step restored as editable;
-- non-pristine future-step distance, geometry, coverage, answers, or flags;
+- active-answer and future-data combinations that violate that matrix row
+  (review-edit variants may legitimately retain an active answer);
 - dependency inversion, duplicate IDs, invalid enums, `NaN`, `Infinity`, and
   negative values where not allowed;
 - a phase/current-step combination the UI cannot render or continue;
@@ -237,9 +265,10 @@ Tolerance:
 - After submission, lock the current attempt inside the simulation. The learner
   may review the submitted state, but must not be able to drag objects or submit
   again in the same attempt.
-- Store the submitted review state in `cmi.suspend_data` when useful. Keep it
-  small: score, pass/fail, feedback text, and the minimum geometry needed to
-  redraw the submitted answer.
+- Store the submitted review state in `cmi.suspend_data` when useful. It must
+  contain authoritative answers sufficient to validate, rescore, and redraw.
+  Saved score and pass/fail are comparison metadata, never the source of truth
+  for activity rescoring.
 - Treat `cmi.suspend_data` as a small review snapshot, not a history database.
   SCORM 1.2 storage is limited, so do not store screenshots, long logs, or all
   attempts there.
@@ -271,13 +300,50 @@ Submission handles all four `activityState` outcomes:
   result locked and allow finish retry;
 - `frozen`: final data is not confirmed; freeze the answer and allow retry of the
   same payload, but do not claim a score, pass, fail, or confirmed submission;
-- `retry`: no durable final state exists; show a retryable technical error and do
-  not lock it as a submitted attempt.
+- `retry`: no durable final state exists; inspect `retryable`. When it is `true`,
+  keep editing available and offer retry. When it is `false`, show a technical
+  error without promising that retry will work. Never label either case submitted.
 
-Use `SimActivityFlow.reviewResult()` when restoring a completed attempt. It
-recomputes the activity score and compares it with both the saved review and
-Moodle record. Use `completionLabel()` for the three states `true`, `false`, and
-`null`; do not turn an unknown status into "failed".
+Use this glue shape; the same handler is intentional because the shared runtime
+decides whether the callback is success or failure:
+
+```js
+const attempt = SimScorm.loadAttempt(ACTIVITY);
+const startupState = SimActivityFlow.startup(attempt);
+
+switch (startupState) {
+  case "review": showFinishedReview(attempt); break;
+  case "editable": restoreOrCreateDraft(attempt); break;
+  case "frozen": showFrozenAndRetryPending(attempt); break;
+  default: showTechnicalLoadError(attempt);
+}
+
+function submit(result) {
+  const handle = (outcome) => SimActivityFlow.submission(outcome, {
+    success: showSubmittedReview,
+    committed: showCommittedAndRetryFinish,
+    frozen: showFrozenPending,
+    retry: (failure) => showSubmissionError({ retryable: failure.retryable })
+  });
+
+  return SimScorm.submitWithCallbacks(result, reviewSnapshot(result), {
+    onSuccess: handle,
+    onFailure: handle
+  });
+}
+```
+
+Restore a completed attempt in this order:
+
+```text
+validate snapshot -> restore authoritative answer -> run the activity scorer
+-> SimActivityFlow.reviewResult(computed, savedMetadata, attempt)
+```
+
+`reviewResult()` compares a score already computed by the activity with the
+saved metadata and Moodle record; it does not validate or rescore the answer.
+Use `completionLabel()` for `true`, `false`, and `null`; do not turn an unknown
+status into "failed".
 
 Technical states must use technical wording. A pending or load error may lock
 controls, but its title, badge, score panel, and feedback must not say "submitted",
@@ -288,9 +354,28 @@ Do not add activity-local `pagehide`, `pageshow`, commit, or finish logic. The
 shared runtime owns normal close, draft suspend, pending-final retry, read-error
 write blocking, and BFCache reload behavior.
 
+Lifecycle tests must exercise startup outcomes (`review`, `editable`, `frozen`,
+`load-error`), submission outcomes (`success`, `committed`, `frozen`, `retry`,
+including non-retryable retry), and review trust matches, mismatches, and unknown
+Moodle status. Test actual outcome/render functions, not source-code strings.
+
+## Front-end SCORM trust boundary
+
+All simulation code, answers, scoring, and SCORM calls run in the learner's
+browser. A learner with developer tools can alter them. Renaming, minifying, or
+obfuscating JavaScript does not create a trusted boundary, and secrets or signing
+keys must never be shipped in JavaScript or the SCORM ZIP.
+
+- Formative and low-risk graded work may use client-computed SCORM scores when
+  this limitation is accepted and recorded in the plan.
+- High-risk assessment requires trusted server-side validation, such as a Moodle
+  question type, LTI service, or backend API that recomputes from submitted answers.
+- Saving authoritative answers for teacher review improves auditability but does
+  not make a browser-computed score tamper-proof.
+
 ## Moodle attempt expectations
 
-For formal graded simulations, use these Moodle activity settings as the default:
+For low-risk graded simulations, use these Moodle activity settings as the default:
 
 - Attempts allowed: the teacher's intended limit, for example `3`.
 - Attempts grading: `Highest grade` for practice-with-improvement tasks.
@@ -317,7 +402,9 @@ Important Moodle behavior:
 
 ## SCORM package rules
 
-- Package the contents of `sim/`, not the `sim/` folder itself.
+- Build one activity with `npm.cmd run package -- <activity-slug>`. The tool reads
+  `sim/manifests/<activity-slug>.xml`; every `<file href>` is relative to `sim/`
+  and becomes a ZIP-root-relative path.
 - The ZIP root must contain `imsmanifest.xml`.
 - Keep only runtime files in the ZIP. Do not include tests, temporary scripts, or
   generated screenshots.
@@ -331,6 +418,7 @@ Expected ZIP shape:
 imsmanifest.xml
 config.js
 shared/
+  activity-flow.js
   scorm.js
   styles.css
 simulation-slug/
@@ -340,6 +428,32 @@ simulation-slug/
   styles.css
 ```
 
+The current package check proves that ZIP entries exactly match the manifest,
+but it does not discover dependencies omitted from both. Until that audit is
+automated, compare every local `script[src]`, stylesheet/link `href`, and other
+runtime asset referenced by `index.html` or loaded code against the manifest.
+Then serve the built or extracted ZIP and run the browser smoke against that
+artifact, not only against `sim/` source files.
+
+## Playwright CLI on this Windows machine
+
+Use Git Bash explicitly; plain `bash` may invoke WSL without a configured distro.
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" -lc '"/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh" --help'
+& "C:\Program Files\Git\bin\bash.exe" "output/playwright/<activity-check>.sh"
+```
+
+Put longer flows in an ignored script under `output/playwright/` and set:
+
+```bash
+PWCLI="/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh"
+```
+
+Treat `### Error` anywhere in Playwright CLI output as a failed verification even
+when the process exits with code 0. Start and stop the local server and browser
+session in the script so checks do not leave background state behind.
+
 ## Minimum checks
 
 Before calling a simulation ready:
@@ -347,35 +461,48 @@ Before calling a simulation ready:
 - Run JavaScript syntax checks for changed files.
 - Run the scoring self-check or test file.
 - Run every production persistence round-trip and invalid-state matrix test.
+- Execute one legal continuation after restoring every phase/invariant fixture.
 - Run shared fake-LMS failure tests for any shared runtime change.
 - Open with Live Server or a local static server.
 - Submit once outside Moodle and confirm local SCORM logging still works.
 - Exercise new, draft restore, pending-final failure, load-error, finished review,
-  and invalid-snapshot UI outcomes. Use the existing Git Bash Playwright route
-  for local browser smoke checks when UI state matters.
+  invalid-snapshot, trust-mismatch, and unknown-status UI outcomes. Test actual
+  lifecycle/UI behavior rather than searching source files for handler names.
 - Run the repository quality gate:
   - `npm.cmd run check`
   - `npm.cmd test`
   - `npm.cmd run package:all`
-  - `git diff --check`
+  - `git diff --check <base>...HEAD` (normally `origin/main...HEAD`)
 - Inspect the built ZIP before upload: `imsmanifest.xml` must be at the root,
-  and tests or temporary files must not be included.
+  tests or temporary files must not be included, and local dependencies must
+  match the manifest.
+- Extract or serve the built ZIP and run its launch page through browser smoke.
 - Upload the ZIP to Moodle as a SCORM 1.2 activity.
 - Test with a student account, not only a teacher account.
 - Check: preview is hidden, attempt status is visible, submit records score,
   re-entering the same submitted attempt is review-only, and a new attempt is
   required to change the score.
 
-## Definition of done for a new simulation
+## Package-ready definition of done
 
 - The simulation-specific plan contains scoring, tolerance, phase matrix,
   snapshot schemas, lifecycle outcomes, and out-of-scope decisions.
-- Every UI-reachable saved state round-trips without changing score or next
-  action.
+- Every UI-reachable phase/invariant variant round-trips without changing score
+  or next action, and one legal continuation succeeds after restore.
 - Invalid states fail closed without becoming editable or contaminating later
   scoring.
 - All shared startup/submission outcomes have honest learner-facing UI.
 - The new test files are executed by `npm test`.
-- The manifest lists every runtime dependency and the ZIP verifies.
-- Local browser smoke and real Moodle learner-account acceptance are recorded
-  separately; do not mark Moodle validation complete when only local tests ran.
+- The manifest lists every runtime dependency, the ZIP verifies, and browser
+  smoke launches the built/extracted artifact.
+- The assessment risk and any required trusted validation are recorded.
+
+## Moodle-ready definition of done
+
+- Package-ready is complete.
+- A real Moodle student account records score/status, resumes drafts, retries
+  pending submissions, reopens completed attempts as review-only, and starts a
+  new attempt according to the configured policy.
+- Browser-computed scoring is used only within the risk classification accepted
+  in the plan; any required server-side validation is working.
+- Moodle evidence is recorded separately. Local tests never satisfy this gate.

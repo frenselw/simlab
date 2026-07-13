@@ -153,7 +153,10 @@ only to simulations that need them.
 Keep the common layer small:
 
 - `sim/shared/styles.css`: colors, spacing, typography, layout, controls;
-- `sim/shared/scorm.js`: SCORM 1.2 API lookup, local fallback, score submit;
+- `sim/shared/scorm.js`: SCORM 1.2 API lookup, local fallback, persistence,
+  score submit, and page lifecycle;
+- `sim/shared/activity-flow.js`: shared startup, submission, and recorded-result
+  trust outcomes;
 - `sim/shared/ui.js`: only repeated UI helpers, if duplication appears;
 - `sim/shared/scoring.js`: only generic score helpers, if duplication appears.
 
@@ -248,16 +251,19 @@ Each new simulation gets a plan in `plans/` with:
 - file location;
 - third-party libraries, if any;
 - SCORM behavior;
+- assessment risk classification (`formative`, `low-risk graded`, or
+  `high-risk graded`) and the trusted validation path required for high risk;
 - acceptance checks;
 - out-of-scope items.
 
 Start from `plans/NEW-SIMULATION-PLAN-TEMPLATE.md`. A plan is not ready for
 implementation until it also defines:
 
-- every UI phase and the allowed transition out of it;
-- a state matrix showing which fields must be present, absent, or pristine in
-  every saveable phase;
-- the compact draft and review snapshot schemas;
+- every UI phase, invariant variant, and allowed transition out of it;
+- a state matrix for every persisted activity showing which semantic fields must
+  be present, absent, or pristine in each phase/variant, including review-edit;
+- compact draft and review schemas whose authoritative answers are sufficient to
+  validate, rescore, continue when editable, and redraw review state;
 - which fields are authoritative learner answers and which are derived UI state;
 - how corrupt, old-version, read-error, pending-final, and finished states appear;
 - round-trip and invalid-state tests that will be added to `tools/run-tests.js`.
@@ -275,13 +281,26 @@ The activity owns its model, scoring, snapshot validation, and learner-facing
 views. The shared layer owns LMS reads/writes, pending-final durability,
 commit/finish ordering, BFCache handling, and recorded-result trust.
 
-For every state accepted by an activity restore function:
+For every phase/invariant state accepted by an activity restore function:
 
 ```text
 restore(encode(validState)) preserves its scored meaning and continuation path
 ```
 
-Reject a snapshot when it would skip a required task, revive already-completed
-work as editable, retain stale future data, dead-end the learner, or change the
-score after restore. Only normalize an old phase or field when the migration is
-explicit and covered by a test.
+Execute one legal continuation after restore. Reject a snapshot when it violates
+its matrix row, skips required work, dead-ends the learner, or changes the score.
+An active answer or future data is invalid only when that phase/variant says so;
+review-edit continuations can legitimately retain them. Rebuild generated IDs,
+but validate authoritative relationship keys. Only normalize old data through an
+explicit, tested migration.
+
+Review restoration follows this order:
+
+```text
+validate snapshot -> restore answer -> activity scorer
+-> SimActivityFlow.reviewResult(computed, saved metadata, Moodle attempt)
+```
+
+Client-side SCORM scoring is appropriate only for formative or low-risk use. It
+can be changed with browser developer tools and must not contain secrets. High-
+risk assessment needs trusted server-side validation.
