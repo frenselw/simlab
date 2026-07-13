@@ -165,4 +165,3 @@ commit inspected.
 - [ ] Map decode never returns a phase unsupported by the current UI.
 - [ ] Relevant automated and browser checks pass.
 - [ ] Both independent reviewers find no new actionable issues in the same round.
-

@@ -109,7 +109,7 @@
     if ((totalArrow || totalAnswers || phase === "draw-total") && !segments[1].answers) return false;
     if (totalAnswers && !totalArrow) return false;
     if (phase === "walk" && (segments[currentSegment].reached || segments[currentSegment].arrow)) return false;
-    if (phase === "draw-segment" && !segments[currentSegment].reached) return false;
+    if (phase === "draw-segment" && (!segments[currentSegment].reached || !segments[currentSegment].arrow)) return false;
     if (phase === "draw-total" && (currentSegment !== 1 || !totalArrow)) return false;
     return true;
   }

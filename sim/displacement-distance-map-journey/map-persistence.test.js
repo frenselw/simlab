@@ -57,10 +57,26 @@ const readySubmit = structuredClone(encoded);
 readySubmit.phase = "ready-submit";
 readySubmit.segments[1] = { ...readySubmit.segments[0], routeDistance: 10 };
 readySubmit.totalArrow = readySubmit.segments[0].arrow;
-assert.equal(Persistence.decode(readySubmit, edges, legacyRoadPath)?.phase, "draw-total", "legacy ready-submit normalizes to a current UI phase");
+readySubmit.totalAnswers = structuredClone(readySubmit.segments[0].answers);
+const normalizedReadySubmit = Persistence.decode(readySubmit, edges, legacyRoadPath);
+assert.equal(normalizedReadySubmit?.phase, "draw-total", "legacy ready-submit normalizes to a current UI phase");
+assert.deepEqual(normalizedReadySubmit.totalAnswers, readySubmit.totalAnswers, "legacy final answers keep their scoring values");
+assert.equal(Scoring.isDistanceAnswerCorrect(normalizedReadySubmit.totalAnswers.routeDistance, readySubmit.totalAnswers.routeDistance), true, "normalized legacy distance retains its scoring meaning");
 readySubmit.totalArrow = null;
 assert.equal(Persistence.decode(readySubmit, edges, legacyRoadPath), null, "legacy ready-submit requires its total arrow");
 assert.equal(Persistence.encode({ ...source, phase: "ready-submit" }).phase, "draw-total", "serializer only emits current phase names");
+
+const drawSegmentSource = structuredClone(source);
+drawSegmentSource.currentSegment = 0;
+drawSegmentSource.phase = "draw-segment";
+drawSegmentSource.segments[0].answers = null;
+drawSegmentSource.segments[1] = { reached: false, routeDistance: 0, coverage: [], arrow: null, answers: null };
+assert.equal(Persistence.decode(Persistence.encode(drawSegmentSource), edges, legacyRoadPath)?.phase, "draw-segment", "draw-segment round-trips unchanged");
+const drawTotalSource = structuredClone(source);
+drawTotalSource.phase = "draw-total";
+drawTotalSource.segments[1] = { ...structuredClone(source.segments[0]), routeDistance: 10 };
+drawTotalSource.totalArrow = structuredClone(source.segments[0].arrow);
+assert.equal(Persistence.decode(Persistence.encode(drawTotalSource), edges, legacyRoadPath)?.phase, "draw-total", "draw-total round-trips unchanged");
 
 const legacyTrace = Array.from({ length: 18 }, (_, index) => index < 9
   ? [2 + index, 0]

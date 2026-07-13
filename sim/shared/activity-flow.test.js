@@ -40,4 +40,9 @@ for (const activity of ["fbd-horizontal-block", "plane-mirror-pencil-ray-diagram
   const main = fs.readFileSync(path.join(__dirname, "..", activity, "main.js"), "utf8");
   assert.match(main, /SimActivityFlow\.reviewResult\(/, `${activity} routes restored results through the shared status-aware contract`);
 }
+const referenceMain = fs.readFileSync(path.join(__dirname, "..", "inertial-reference-frame-road-observer", "main.js"), "utf8");
+const frozenHandler = referenceMain.match(/frozen: \(\) => \{([\s\S]*?)\n\s*\},\n\s*retry:/)?.[1] || "";
+assert.match(frozenHandler, /result: null/, "immediate pending failure hides an unconfirmed score");
+assert.match(frozenHandler, /unavailableReason:/, "immediate pending failure uses the technical unavailable presentation");
+assert.doesNotMatch(frozenHandler, /lockSubmitted/, "immediate pending failure is not presented as submitted");
 console.log("activity production-flow checks passed");
