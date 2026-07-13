@@ -16,5 +16,13 @@
     if (attempt?.state === "pending-final") return "frozen";
     return "load-error";
   }
-  return { submission, startup };
+  function recordedResult(attempt) {
+    const raw = String(attempt?.score ?? "").trim();
+    const score = raw === "" ? null : Number(raw);
+    return {
+      score: Number.isFinite(score) ? score : null,
+      passed: attempt?.status === "passed" ? true : attempt?.status === "failed" ? false : null
+    };
+  }
+  return { submission, startup, recordedResult };
 });

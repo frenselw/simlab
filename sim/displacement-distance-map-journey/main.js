@@ -656,10 +656,11 @@
 
   function showSubmittedAttempt(attempt) {
     const review = attempt?.snapshot || attempt?.review || null;
+    const recorded = window.SimActivityFlow.recordedResult(attempt);
     if (!restoreSnapshot(review)) {
       scorePanel.replaceChildren(
         textBlock("div", "此作答次已提交"),
-        textBlock("div", String(attempt?.score || "--"), "score-value"),
+        textBlock("div", recorded.score == null ? "--" : String(recorded.score), "score-value"),
         textBlock("div", "未能載入已提交地圖。", "muted feedback-summary")
       );
       state.locked = true;
@@ -669,7 +670,7 @@
     const raw = String(attempt?.score ?? "").trim();
     const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
     showResult(trusted ? result : {
-      score: raw || "--", passed: false, feedbackItems: [], summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。"
+      score: recorded.score ?? "--", passed: recorded.passed, feedbackItems: [], summary: "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。"
     });
     lockAttempt();
   }
@@ -719,7 +720,7 @@
     scorePanel.replaceChildren(
       textBlock("div", "目前分數"),
       textBlock("div", String(result.score), "score-value"),
-      textBlock("div", result.passed ? "已通過" : "未通過")
+      textBlock("div", result.passed === true ? "已通過" : result.passed === false ? "未通過" : "未能安全判斷合格狀態")
     );
     const list = document.createElement("ul");
     list.className = "feedback-list";

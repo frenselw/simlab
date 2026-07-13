@@ -61,6 +61,7 @@
     locked: false,
     result: null,
     trustedReview: true,
+    unavailableReason: "",
     view: { width: 760, height: 480, dpr: 1 }
   };
   const animationLoop = window.createAnimationLoop({
@@ -234,10 +235,11 @@
       const savedMatches = result.score === saved.score && Boolean(result.passed) === Boolean(saved.passed);
       state.rounds = rounds;
       state.answers = saved.answer.answers;
+      const recorded = window.SimActivityFlow.recordedResult(attempt);
       state.result = scoreMatches && savedMatches ? result : {
-        score: Number.isFinite(lmsScore) ? lmsScore : saved.score,
+        score: recorded.score,
         maxScore: 100,
-        passed: Boolean(saved.passed),
+        passed: recorded.passed,
         completed: true,
         detail: []
       };
@@ -250,10 +252,11 @@
     } catch (error) {
       state.rounds = [];
       state.answers = [];
+      const recorded = window.SimActivityFlow.recordedResult(attempt);
       state.result = {
-        score: Number.isFinite(lmsScore) ? lmsScore : 0,
+        score: recorded.score,
         maxScore: 100,
-        passed: attempt?.status === "passed",
+        passed: recorded.passed,
         completed: true,
         detail: []
       };
@@ -383,13 +386,19 @@
   }
 
   function renderFeedback() {
-    const result = state.result || { score: 0, maxScore: 100, passed: false, detail: [] };
-    scorePanel.innerHTML = `<div>分數</div><div class="score-value">${result.score} / ${result.maxScore}</div><div class="muted">${result.passed ? "已達到合格要求。" : "未達到合格要求。"}</div>`;
+    const result = state.result;
+    const score = document.createElement("div");
+    score.className = "score-value";
+    score.textContent = result?.score == null ? "--" : `${result.score} / ${result.maxScore}`;
+    const status = document.createElement("div");
+    status.className = "muted";
+    status.textContent = result?.passed === true ? "已達到合格要求。" : result?.passed === false ? "未達到合格要求。" : "未能安全判斷合格狀態。";
+    scorePanel.replaceChildren(score, status);
     feedbackList.innerHTML = "";
-    if (!state.trustedReview) {
+    if (!state.trustedReview || !result) {
       const item = document.createElement("div");
       item.className = "feedback-item is-wrong";
-      item.textContent = "題目資料無法安全重建；以上顯示的是已記錄的最終分數。";
+      item.textContent = state.unavailableReason || "題目資料無法安全重建；以上只顯示可確認的 Moodle 記錄。";
       feedbackList.append(item);
       return;
     }
@@ -1119,14 +1128,14 @@
   else if (startupState === "frozen") {
     const retry = window.SimScorm.retryPending(false);
     if (retry.committed) { restoreSubmittedAttempt(retry); window.SimScorm.finish(); }
-    else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false });
+    else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false, unavailableReason: "提交狀態尚未確認。答案已凍結，請重新開啟活動重試。" });
   } else if (attempt.state === "draft") {
     if (!restoreDraft(attempt.snapshot)) createAttempt();
     window.SimScorm.setDraftProvider(draftState);
   } else if (startupState === "editable") {
     createAttempt();
     window.SimScorm.setDraftProvider(draftState);
-  } else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false });
+  } else Object.assign(state, { locked: true, mode: "submitted", trustedReview: false, unavailableReason: "未能從 Moodle 安全載入本次作答，暫時無法顯示分數或合格狀態。" });
   new ResizeObserver(resizeCanvas).observe(canvas);
   resizeCanvas();
   renderUI();
