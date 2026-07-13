@@ -21,4 +21,10 @@ const computed = { score: 80, maxScore: 100, passed: true, detail: [1] };
 assert.deepEqual(Flow.reviewResult(computed, { score: 80, passed: true }, { score: "80", status: "passed" }), { trusted: true, result: computed });
 assert.deepEqual(Flow.reviewResult(computed, { score: 40, passed: false }, { score: "40", status: "failed" }).result, { score: 40, maxScore: 100, passed: false, completed: true, detail: [], feedbackItems: [] });
 assert.equal(Flow.reviewResult(null, null, { score: "", status: "completed" }).result.passed, null);
+for (const [computedPassed, status, expectedPassed] of [[true, "failed", false], [false, "passed", true]]) {
+  const scored = { score: 80, maxScore: 100, passed: computedPassed };
+  const outcome = Flow.reviewResult(scored, { score: 80, passed: computedPassed }, { score: "80", status });
+  assert.equal(outcome.trusted, false, "Moodle pass status disagreement is untrusted");
+  assert.equal(outcome.result.passed, expectedPassed, "fallback uses the recorded Moodle status");
+}
 console.log("activity production-flow checks passed");

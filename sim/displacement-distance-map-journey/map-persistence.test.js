@@ -18,7 +18,7 @@ const source = {
   phase: "walk",
   person: { x: 10, y: 6, edgeId: 1, t: 0.6 },
   segments: [
-    { reached: true, routeDistance: 244.345678, coverage: [{ edgeId: 0, start: 0.2, end: 1 }, { edgeId: 1, start: 0, end: 0.6 }], arrow: { tail: { x: 0, y: 0 }, head: { x: 10, y: 6 } }, answers: { routeDistance: 244.3, displacementMagnitude: 11.7, direction: { x: 1, y: 1 } } },
+    { reached: true, routeDistance: 244.345678, coverage: [{ edgeId: 0, start: 0.2, end: 1 }, { edgeId: 1, start: 0, end: 0.6 }], arrow: { tail: { x: 0, y: 0 }, head: { x: 10, y: 6 } }, answers: { routeDistance: 244.3, displacementMagnitude: 11.7, direction: { directionType: "north-east", angle: 31 } } },
     { reached: false, routeDistance: 37.812345, coverage: [{ edgeId: 2, start: 0.1, end: 0.5 }], arrow: null, answers: null }
   ],
   totalArrow: null,
@@ -94,6 +94,15 @@ for (const distance of [-1, NaN, Infinity]) {
   const damaged = structuredClone(encoded);
   damaged.segments[0].answers.direction = null;
   assert.equal(Persistence.decode(damaged, edges, legacyRoadPath), null, "malformed answers are rejected");
+}
+for (const direction of [
+  { directionType: "up" },
+  { directionType: "north", angle: 10 },
+  { directionType: "south-west", angle: 91 }
+]) {
+  const damaged = structuredClone(encoded);
+  damaged.segments[0].answers.direction = direction;
+  assert.equal(Persistence.decode(damaged, edges, legacyRoadPath), null, `invalid production direction ${JSON.stringify(direction)} is rejected`);
 }
 const envelope = { version: 1, activity: "displacement-distance-map-journey", kind: "draft", answer: encoded };
 assert.ok(Buffer.byteLength(JSON.stringify(envelope), "utf8") < 4000, "production snapshot envelope fits suspend_data");

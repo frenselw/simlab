@@ -27,7 +27,8 @@
   function reviewResult(computed, saved, attempt) {
     const recorded = recordedResult(attempt);
     const trusted = Boolean(computed && saved && computed.score === saved.score && Boolean(computed.passed) === Boolean(saved.passed) &&
-      (recorded.score == null || recorded.score === computed.score));
+      (recorded.score == null || recorded.score === computed.score) &&
+      (recorded.passed == null || recorded.passed === Boolean(computed.passed)));
     return {
       trusted,
       result: trusted ? computed : {

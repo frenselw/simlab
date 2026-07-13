@@ -88,7 +88,15 @@
 
   function validAnswer(answer) {
     return !answer || (Number.isFinite(answer.routeDistance) && answer.routeDistance >= 0 &&
-      Number.isFinite(answer.displacementMagnitude) && answer.displacementMagnitude >= 0 && validPoint(answer.direction));
+      Number.isFinite(answer.displacementMagnitude) && answer.displacementMagnitude >= 0 && validDirection(answer.direction));
+  }
+
+  function validDirection(direction) {
+    const cardinal = ["north", "south", "east", "west"];
+    const diagonal = ["north-east", "north-west", "south-east", "south-west"];
+    if (!direction || typeof direction !== "object") return false;
+    if (cardinal.includes(direction.directionType)) return direction.angle == null;
+    return diagonal.includes(direction.directionType) && Number.isFinite(direction.angle) && direction.angle >= 0 && direction.angle <= 90;
   }
 
   function validProgress(segments, currentSegment, phase, totalArrow, totalAnswers) {
