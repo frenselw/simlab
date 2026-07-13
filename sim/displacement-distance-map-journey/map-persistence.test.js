@@ -46,6 +46,22 @@ restored.segments.flatMap((segment) => segment.coverage).forEach((interval) => {
   assert.ok(points && points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)), "render segment geometry is available");
 });
 
+const segmentAnswer = structuredClone(encoded);
+segmentAnswer.currentSegment = 0;
+segmentAnswer.phase = "segment-answer";
+assert.equal(Persistence.decode(segmentAnswer, edges, legacyRoadPath)?.phase, "draw-segment", "legacy segment-answer normalizes to a current UI phase");
+segmentAnswer.segments[0].arrow = null;
+assert.equal(Persistence.decode(segmentAnswer, edges, legacyRoadPath), null, "legacy segment-answer still requires its saved arrow");
+
+const readySubmit = structuredClone(encoded);
+readySubmit.phase = "ready-submit";
+readySubmit.segments[1] = { ...readySubmit.segments[0], routeDistance: 10 };
+readySubmit.totalArrow = readySubmit.segments[0].arrow;
+assert.equal(Persistence.decode(readySubmit, edges, legacyRoadPath)?.phase, "draw-total", "legacy ready-submit normalizes to a current UI phase");
+readySubmit.totalArrow = null;
+assert.equal(Persistence.decode(readySubmit, edges, legacyRoadPath), null, "legacy ready-submit requires its total arrow");
+assert.equal(Persistence.encode({ ...source, phase: "ready-submit" }).phase, "draw-total", "serializer only emits current phase names");
+
 const legacyTrace = Array.from({ length: 18 }, (_, index) => index < 9
   ? [2 + index, 0]
   : [10, index - 8]);

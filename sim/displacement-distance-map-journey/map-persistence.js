@@ -9,14 +9,15 @@
   "use strict";
 
   const TRACE_FORMAT = 2;
-  const PHASES = ["walk", "draw-segment", "segment-answer", "draw-total", "ready-submit"];
+  const PHASES = ["walk", "draw-segment", "draw-total"];
+  const PHASE_ALIASES = { "segment-answer": "draw-segment", "ready-submit": "draw-total" };
 
   function encode(source) {
     return {
       seed: source.seed,
       routeIds: source.routeIds.slice(),
       currentSegment: source.currentSegment,
-      phase: source.phase,
+      phase: PHASE_ALIASES[source.phase] || source.phase,
       traceFormat: TRACE_FORMAT,
       person: source.person ? compactPoint(source.person) : null,
       segments: source.segments.map((segment) => ({
@@ -58,8 +59,10 @@
     const currentSegment = Number.isInteger(review.currentSegment) && review.currentSegment >= 0 && review.currentSegment < 2
       ? review.currentSegment
       : inferredSegment;
-    const inferredPhase = review.totalAnswers ? "ready-submit" : segments[currentSegment]?.reached ? "segment-answer" : "walk";
-    const phase = PHASES.includes(review.phase) ? review.phase : inferredPhase;
+    const inferredPhase = review.totalAnswers ? "draw-total" : segments[currentSegment]?.reached ? "draw-segment" : "walk";
+    if (review.phase === "segment-answer" && !segments[currentSegment]?.arrow) return null;
+    const normalizedPhase = PHASE_ALIASES[review.phase] || review.phase;
+    const phase = PHASES.includes(normalizedPhase) ? normalizedPhase : inferredPhase;
     if (!validProgress(segments, currentSegment, phase, review.totalArrow, review.totalAnswers)) return null;
     return {
       segments,
@@ -103,12 +106,11 @@
     if (segments[0].answers && (!segments[0].reached || !segments[0].arrow)) return false;
     if ((segments[1].reached || segments[1].arrow || segments[1].answers) && !segments[0].answers) return false;
     if (segments[1].answers && (!segments[1].reached || !segments[1].arrow)) return false;
-    if ((totalArrow || totalAnswers || phase === "draw-total" || phase === "ready-submit") && !segments[1].answers) return false;
+    if ((totalArrow || totalAnswers || phase === "draw-total") && !segments[1].answers) return false;
     if (totalAnswers && !totalArrow) return false;
     if (phase === "walk" && (segments[currentSegment].reached || segments[currentSegment].arrow)) return false;
     if (phase === "draw-segment" && !segments[currentSegment].reached) return false;
-    if (phase === "segment-answer" && (!segments[currentSegment].reached || !segments[currentSegment].arrow)) return false;
-    if ((phase === "draw-total" || phase === "ready-submit") && (currentSegment !== 1 || !totalArrow)) return false;
+    if (phase === "draw-total" && (currentSegment !== 1 || !totalArrow)) return false;
     return true;
   }
 
