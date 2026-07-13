@@ -1,5 +1,7 @@
 "use strict";
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const Flow = require("./activity-flow.js");
 for (const state of ["success", "committed", "frozen", "retry"]) {
   const calls = [];
@@ -32,5 +34,9 @@ for (const computedPassed of [true, false]) {
   const outcome = Flow.reviewResult(scored, { score: 80, passed: computedPassed }, { score: "80", status: "completed" });
   assert.equal(outcome.trusted, false, "completed status cannot authorize a pass/fail claim");
   assert.equal(outcome.result.passed, null, "ambiguous Moodle status stays indeterminate");
+}
+for (const activity of ["fbd-horizontal-block", "plane-mirror-pencil-ray-diagram", "displacement-distance-map-journey", "inertial-reference-frame-road-observer"]) {
+  const main = fs.readFileSync(path.join(__dirname, "..", activity, "main.js"), "utf8");
+  assert.match(main, /SimActivityFlow\.reviewResult\(/, `${activity} routes restored results through the shared status-aware contract`);
 }
 console.log("activity production-flow checks passed");

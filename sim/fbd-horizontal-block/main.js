@@ -160,22 +160,22 @@
 
   function showSubmittedAttempt(attempt) {
     const review = attempt?.snapshot || attempt?.review || null;
-    let result = null;
+    let rescored = null;
     if (review?.answer?.arrows && restoreArrows(review.answer.arrows)) {
       state.nextId = state.arrows.length + 1;
       Object.keys(forceColors).forEach(normalizeSlots);
       render();
-      const rescored = window.FbdScoring.scoreDiagram(state.arrows, block);
-      const raw = String(attempt?.score ?? "").trim();
-      if (rescored.score === review.score && rescored.passed === review.passed && (!raw || Number(raw) === rescored.score)) result = rescored;
+      rescored = window.FbdScoring.scoreDiagram(state.arrows, block);
     }
-    const score = result?.score ?? (attempt?.score || "--");
+    const outcome = window.SimActivityFlow.reviewResult(rescored, review, attempt);
+    const result = outcome.result;
+    const score = result.score ?? "--";
     scorePanel.replaceChildren(
       textBlock("div", "此作答次已提交"),
       textBlock("div", score, "score-value"),
-      textBlock("div", result ? (result.passed ? "已通過" : "未通過") : "已記錄結果")
+      textBlock("div", result.passed === true ? "已通過" : result.passed === false ? "未通過" : "未能安全判斷合格狀態")
     );
-    if (result) {
+    if (outcome.trusted) {
       const list = document.createElement("ul");
       list.className = "feedback-list";
       result.feedbackItems.forEach((item) => {

@@ -327,23 +327,14 @@
 
   function showSubmittedAttempt(attempt) {
     const review = attempt?.snapshot || attempt?.review || null;
-    if (!restoreSnapshot(review)) {
+    const restored = restoreSnapshot(review);
+    if (!restored) {
       state.reviewUnavailable = true;
-      render();
-      scorePanel.replaceChildren(
-        textBlock("div", "此作答次已提交"),
-        textBlock("div", String(attempt?.score || "--"), "score-value"),
-        textBlock("div", "未能載入已提交圖形。", "muted feedback-summary")
-      );
-      lockAttempt();
-      return;
     }
-    const result = window.MirrorRayScoring.scoreDiagram(currentAnswer(), state.scene);
-    const raw = String(attempt?.score ?? "").trim();
-    const trusted = result.score === review.score && result.passed === review.passed && (!raw || Number(raw) === result.score);
+    const rescored = restored ? window.MirrorRayScoring.scoreDiagram(currentAnswer(), state.scene) : null;
+    const outcome = window.SimActivityFlow.reviewResult(rescored, review, attempt);
     render();
-    if (trusted) showResult(result);
-    else scorePanel.replaceChildren(textBlock("div", "此作答次已提交"), textBlock("div", raw || "--", "score-value"), textBlock("div", "已保存資料與 Moodle 分數不一致，只顯示 Moodle 記錄。", "muted feedback-summary"));
+    showResult({ ...outcome.result, score: outcome.result.score ?? "--", summary: outcome.trusted ? outcome.result.summary : "已保存資料無法安全重建或與 Moodle 記錄不一致。" });
     scorePanel.append(textBlock("div", "如要重新作答，請返回活動入口並開始新的作答次。", "muted feedback-summary"));
     lockAttempt();
   }
