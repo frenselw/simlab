@@ -27,4 +27,10 @@ for (const [computedPassed, status, expectedPassed] of [[true, "failed", false],
   assert.equal(outcome.trusted, false, "Moodle pass status disagreement is untrusted");
   assert.equal(outcome.result.passed, expectedPassed, "fallback uses the recorded Moodle status");
 }
+for (const computedPassed of [true, false]) {
+  const scored = { score: 80, maxScore: 100, passed: computedPassed };
+  const outcome = Flow.reviewResult(scored, { score: 80, passed: computedPassed }, { score: "80", status: "completed" });
+  assert.equal(outcome.trusted, false, "completed status cannot authorize a pass/fail claim");
+  assert.equal(outcome.result.passed, null, "ambiguous Moodle status stays indeterminate");
+}
 console.log("activity production-flow checks passed");
