@@ -16,6 +16,16 @@ assert.strictEqual(Model.normalizeInput("05.00").text, "5.00");
 assert.strictEqual(Model.normalizeInput("500").text, "5.00e2");
 assert.strictEqual(Model.normalizeInput("5.00e-4").text, "5.00e-4");
 assert.strictEqual(Model.formatInput3(500), "5.00e2");
+assert.strictEqual(Model.formatInput3(99.96), "1.00e2");
+assert.strictEqual(Model.formatInput3(0.00009996), "1.00e-4");
+assert.strictEqual(Model.formatInput3(1e-323), "--");
+assert.strictEqual(Model.normalizeInput("1.00e-323"), null, "subnormal input is rejected before formatting");
+assert(Model.normalizeInput("2.23e-308"), "smallest supported normal-scale input is accepted");
+for (const value of ["2.23e-308", "1.00e-300", "1.00e-4", "99.9", "1.00e2", "9.99e307"]) {
+  const normalized = Model.normalizeInput(value);
+  assert(normalized && Number.isFinite(normalized.value), `${value} parses finitely`);
+  assert(Model.normalizeInput(normalized.text), `${value} normalized text round trips`);
+}
 assert(Model.numericMatch(6.424999, 6.42));
 assert(!Model.numericMatch(6.425001, 6.42));
 assert(Model.numericMatch(0, 0));
@@ -90,6 +100,17 @@ const pausedTime = Model.advanceSimulationTime(0, [
 ]);
 assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulation time");
 assert(Math.abs(Model.advanceSimulationTime(12, Array.from({ length: 6000 }, () => ({ dt: 0.05, running: true }))) - 312) < 1e-9, "observation has no automatic time limit");
+const multiYearTime = Model.advanceSimulationTime(1e8, [{ dt: 0.05, running: true }]);
+assert(multiYearTime > 1e8 && Model.safeModelTime(multiYearTime), "accepted late scene can still advance by a frame");
+assert.throws(() => Model.advanceSimulationTime(1e16, [{ dt: 0.05, running: true }]), /Invalid frame schedule/);
+
+const lateUniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 10000, 10001.5);
+assert(lateUniform.x2 > lateUniform.x1, "late uniform minimum interval keeps distinct displayed readings");
+assert(Math.abs(Model.expectedFromMeasurement(lateUniform).averageVelocity - definition.uniform.speed) < 0.2);
+const lateVariable = Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 100000, 100000 + cycle);
+const lateVariableExpected = Model.expectedFromMeasurement(lateVariable);
+assert(lateVariableExpected.displacement > 0, "late variable full cycle keeps non-zero displayed displacement");
+assert(lateVariableExpected.averageVelocity > definition.variable.slowSpeed && lateVariableExpected.averageVelocity < definition.variable.fastSpeed);
 
 const seed2235 = Model.createAttempt(2235);
 const regressionRows = Model.analysisWindows(seed2235);

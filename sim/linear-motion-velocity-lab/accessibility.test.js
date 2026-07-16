@@ -7,7 +7,8 @@ const path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
 const scoring = fs.readFileSync(path.join(__dirname, "scoring.js"), "utf8");
-const runtimeSources = ["styles.css", "motion-model.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")]);
+const styles = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
+const runtimeSources = [["styles.css", styles], ...["motion-model.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")])];
 
 assert.strictEqual((html.match(/aria-live=/g) || []).length, 1, "only the dedicated live region announces updates");
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
@@ -23,6 +24,13 @@ for (const [name, source] of [["HTML", html], ["main script", main], ["scoring s
 assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a stable semantic overbar");
 assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
+assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "pristine observation has a distinct status");
+for (const name of ["drawRoad", "drawFrozenContext"]) {
+  const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
+  assert.match(body, /for \(let offset = -tickRadius/, `${name} uses a fixed-count screen-offset tick loop`);
+  assert.doesNotMatch(body, /for \(let metre =/, `${name} must not increment huge absolute metre values`);
+}
+assert.match(styles, /repeat\(3, minmax\(0, 1fr\)\)/, "captured readings use shrinkable equal columns");
 for (const name of ["showTechnical", "showResult"]) {
   const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
   assert.match(body, /announce\(/, `${name} must announce its final state once`);

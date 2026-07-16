@@ -10,6 +10,11 @@
   const TARGET_BOUNDARY_MARGIN_S = 0.1;
   const NUMERIC_EPSILON_FACTOR = 8;
   const MAX_GENERATION_ATTEMPTS = 80;
+  const MAX_MODEL_TIME = 1e9;
+  const MAX_RENDER_POSITION = 1e11;
+  const MIN_NORMAL = 2.2250738585072014e-308;
+  const READING_SPAN = 50;
+  const READING_BASE = 20;
   const SEGMENTS = ["slow", "accelerate", "fast", "decelerate", "stopped", "restart"];
   const DURATION_RANGES = {
     slow: [0.6, 0.8], accelerate: [2.8, 3.1], fast: [0.6, 0.8],
@@ -34,12 +39,15 @@
     return value.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
   }
   function formatInput3(value) {
-    if (!finite(value)) return "--";
+    if (!finite(value) || value < 0) return "--";
     if (value === 0) return "0.00";
-    const exponent = Math.floor(Math.log10(Math.abs(value)));
+    if (value < MIN_NORMAL) return "--";
+    const rounded = canonicalNumber(value);
+    const exponential = rounded.toExponential(SIGNIFICANT_FIGURES - 1);
+    const exponent = Number(exponential.slice(exponential.indexOf("e") + 1));
     return exponent >= 2 || exponent <= -4
-      ? `${(value / (10 ** exponent)).toFixed(SIGNIFICANT_FIGURES - 1)}e${exponent}`
-      : value.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
+      ? exponential.replace("e+", "e")
+      : rounded.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
   }
   function superscript(value) {
     const map = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
@@ -50,13 +58,25 @@
     const match = text.match(/^(\d+(?:\.\d+)?)(?:[eE]([+-]?\d+))?$/);
     if (!match) return null;
     const value = Number(text);
-    if (!finite(value)) return null;
+    if (!finite(value) || (value !== 0 && value < MIN_NORMAL)) return null;
     if (value === 0) return match[2] == null && /^0+\.00$/.test(text) ? { value: 0, text: "0.00" } : null;
     const compact = match[1].replace(/^0+/, "");
     const digits = compact.replace(".", "");
     const first = digits.search(/[1-9]/);
     if (first < 0 || digits.slice(first).length !== SIGNIFICANT_FIGURES) return null;
-    return { value, text: formatInput3(value) };
+    const normalized = formatInput3(value);
+    return normalized === "--" || !finite(Number(normalized)) ? null : { value, text: normalized };
+  }
+  function safeModelTime(value) { return finite(value) && value >= 0 && value <= MAX_MODEL_TIME; }
+  function safeWorldPosition(value) { return finite(value) && Math.abs(value) <= MAX_RENDER_POSITION; }
+  function rollingReadingOrigin(worldPosition) {
+    if (!safeWorldPosition(worldPosition)) throw new RangeError("World position cannot be rendered safely");
+    return Math.floor(worldPosition / READING_SPAN) * READING_SPAN - READING_BASE;
+  }
+  function readingPosition(worldPosition, readingOrigin) {
+    const value = worldPosition - readingOrigin;
+    if (!safeWorldPosition(worldPosition) || !finite(readingOrigin) || !safeWorldPosition(value)) throw new RangeError("Reading position is invalid");
+    return value;
   }
   function halfThirdPlace(expected) {
     if (!expected) return 0;
@@ -222,13 +242,15 @@
       return { window: canonicalNumber(window), startTime, endTime, startPosition, endPosition, duration, averageVelocity };
     });
   }
-  function captureMeasurement(positionAt, startModelTime, endModelTime) {
-    if (!finite(startModelTime) || !finite(endModelTime) || endModelTime <= startModelTime) return null;
+  function captureMeasurement(positionAt, startModelTime, endModelTime, readingOrigin) {
+    if (!safeModelTime(startModelTime) || !safeModelTime(endModelTime) || endModelTime <= startModelTime) return null;
+    const origin = readingOrigin ?? rollingReadingOrigin(positionAt(startModelTime));
     return {
       startModelTime,
       endModelTime,
-      x1: canonicalNumber(positionAt(startModelTime)),
-      x2: canonicalNumber(positionAt(endModelTime)),
+      readingOrigin: origin,
+      x1: canonicalNumber(readingPosition(positionAt(startModelTime), origin)),
+      x2: canonicalNumber(readingPosition(positionAt(endModelTime), origin)),
       dt: canonicalNumber(endModelTime - startModelTime)
     };
   }
@@ -257,6 +279,7 @@
     const cycle = cycleDuration(v);
     if (cycle < 7.5 || cycle > 10.5) return false;
     if (v.initialPhase < 0 || v.initialPhase >= cycle) return false;
+    if (!safeWorldPosition(uniformPosition(u, MAX_MODEL_TIME)) || !safeWorldPosition(variablePosition(v, MAX_MODEL_TIME))) return false;
     if (!Array.isArray(definition.windows) || definition.windows.length !== WINDOWS.length || !definition.windows.every((item, index) => item === WINDOWS[index])) return false;
     const target = definition.instantTarget;
     if (!target || !["accelerate", "decelerate"].includes(target.segment) || ![0, 1].includes(target.cycleIndex) || !finite(target.timeWithinSegment)) return false;
@@ -283,16 +306,19 @@
   }
 
   function advanceSimulationTime(initial, frames) {
-    if (!finite(initial) || initial < 0 || !Array.isArray(frames)) throw new TypeError("Invalid frame schedule");
+    if (!safeModelTime(initial) || !Array.isArray(frames)) throw new TypeError("Invalid frame schedule");
     return frames.reduce((time, frame) => {
       if (!frame || !finite(frame.dt) || frame.dt < 0) throw new TypeError("Invalid frame");
-      return frame.running ? time + Math.min(0.05, frame.dt) : time;
+      const next = frame.running ? time + Math.min(0.05, frame.dt) : time;
+      if (!safeModelTime(next) || (frame.running && frame.dt > 0 && next <= time)) throw new RangeError("Simulation time cannot advance safely");
+      return next;
     }, initial);
   }
 
   return {
-    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, SEGMENTS,
+    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_RENDER_POSITION, MIN_NORMAL, SEGMENTS,
     canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
+    safeModelTime, safeWorldPosition, rollingReadingOrigin, readingPosition,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
     captureMeasurement, expectedFromMeasurement, advanceSimulationTime

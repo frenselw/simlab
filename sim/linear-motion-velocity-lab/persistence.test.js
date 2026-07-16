@@ -121,6 +121,8 @@ invalid((value) => { value.definition.variable.durations.accelerate = 0; });
 invalid((value) => { value.definition.windows.reverse(); });
 invalid((value) => { value.definition.instantTarget.timeWithinSegment = 0.1; });
 invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
+invalid((value) => { delete value.uniformMeasurement.readingOrigin; });
+invalid((value) => { value.uniformMeasurement.readingOrigin += 50; });
 invalid((value) => { value.uniformMeasurement.x1 += 1; });
 invalid((value) => { value.uniformMeasurement.currentOrEndModelTime = value.uniformMeasurement.endModelTime + 1; });
 invalid((value) => { delete value.uniformMeasurement.currentOrEndModelTime; });
@@ -132,6 +134,10 @@ invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; 
 invalid((value) => { value.scene.simulationTime = -0.01; }, ready);
 invalid((value) => { value.scene.simulationTime = Infinity; }, ready);
 invalid((value) => { value.scene.simulationTime = Number.MAX_VALUE; }, ready);
+invalid((value) => { value.scene.simulationTime = 1e16; value.scene.observationStarted = 1; }, ready);
+invalid((value) => { value.scene.simulationTime = 1e100; value.scene.observationStarted = 1; }, ready);
+invalid((value) => { value.scene.observationStarted = 2; }, ready);
+invalid((value) => { value.scene.observationStarted = 0; value.scene.simulationTime = 1; }, ready);
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
 invalid((value) => {
   value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime;
@@ -143,23 +149,43 @@ invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
 invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
 
 for (const [type, source, position, start, end] of [
-  ["uniform", uniformActive, uniformPosition, 120, 240],
-  ["variable", variableActive, variablePosition, 80, 80 + variableDuration * 8]
+  ["uniform", uniformActive, uniformPosition, 10000, 10001.5],
+  ["variable", variableActive, variablePosition, 100000, 100000 + variableDuration * 8]
 ]) {
   const longActive = JSON.parse(JSON.stringify(source));
   longActive.scene.simulationTime = start;
-  longActive[`${type}Measurement`] = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(position(start)), x2: null, dt: 0 };
+  longActive.scene.observationStarted = 1;
+  const readingOrigin = Model.rollingReadingOrigin(position(start));
+  longActive[`${type}Measurement`] = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(position(start), readingOrigin)), x2: null, dt: 0 };
   const restoredActive = Persistence.decode(Persistence.encode(longActive));
   assert(restoredActive, `${type} long-running active measurement survives encode/reload`);
+  const advanced = Model.advanceSimulationTime(restoredActive.scene.simulationTime, [{ dt: 0.05, running: true }]);
+  assert(advanced > restoredActive.scene.simulationTime, `${type} restored model time can advance`);
+  assert(Number.isFinite(Model.readingPosition(position(advanced), restoredActive[`${type}Measurement`].readingOrigin)), `${type} restored reading can render`);
+  restoredActive.scene.simulationTime = advanced;
+  restoredActive[`${type}Measurement`].currentOrEndModelTime = advanced;
+  restoredActive[`${type}Measurement`].dt = Model.canonicalNumber(advanced - start);
+  assert(Persistence.decode(Persistence.encode(restoredActive)), `${type} restored state executes a legal timed continuation`);
   restoredActive.scene.simulationTime = end;
-  restoredActive[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end), currentOrEndModelTime: end };
+  restoredActive[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end, readingOrigin), currentOrEndModelTime: end };
   restoredActive.variant = "captured";
   const restoredCaptured = Persistence.decode(Persistence.encode(restoredActive));
   assert(restoredCaptured, `${type} manually captured long measurement survives encode/reload`);
   const expected = Model.expectedFromMeasurement(restoredCaptured[`${type}Measurement`]);
+  assert(expected.displacement > 0, `${type} late-start captured displacement remains visible`);
+  const maximumExpected = type === "uniform" ? definition.uniform.speed + 0.2 : definition.variable.fastSpeed;
+  assert(expected.averageVelocity > 0 && expected.averageVelocity <= maximumExpected, `${type} late-start average remains physically plausible`);
   assert(Model.normalizeInput(Model.formatInput3(expected.displacement)), `${type} long displacement is answerable`);
   assert(Model.normalizeInput(Model.formatInput3(expected.time)), `${type} long time is answerable`);
 }
+
+const safeLateReady = JSON.parse(JSON.stringify(ready));
+safeLateReady.scene = { simulationTime: 1e8, paused: 1, observationStarted: 1 };
+const restoredLateReady = Persistence.decode(Persistence.encode(safeLateReady));
+assert(restoredLateReady, "multi-year-scale finite scene restores safely");
+const nextLateTime = Model.advanceSimulationTime(restoredLateReady.scene.simulationTime, [{ dt: 0.05, running: true }]);
+assert(nextLateTime > restoredLateReady.scene.simulationTime);
+assert(Model.safeWorldPosition(uniformPosition(nextLateTime)));
 
 const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
 assert.strictEqual(Persistence.decodeReview(badReview), null);

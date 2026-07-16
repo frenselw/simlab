@@ -170,13 +170,15 @@ Never score against hidden precision that the learner cannot see.
 
 On a stopwatch press:
 
-1. calculate the high-precision simulation time and position;
-2. canonicalize each captured reading to the exact numeric value represented by
-   its three-significant-figure display;
-3. store those canonical readings as the authoritative assessment data;
-4. derive displacement, elapsed time, and average velocity from those stored
+1. calculate the high-precision simulation time and world position;
+2. on the start press, lock and persist a rolling `readingOrigin` near the car;
+   both ruler readings in that measurement use this same origin;
+3. canonicalize each local reading (`worldPosition - readingOrigin`) to the exact
+   numeric value represented by its three-significant-figure display;
+4. store the origin and canonical readings as the authoritative assessment data;
+5. derive displacement, elapsed time, and average velocity from those stored
    readings;
-5. round each final calculated answer to three significant figures.
+6. round each final calculated answer to three significant figures.
 
 Intermediate arithmetic retains full precision after the captured readings have
 been canonicalized. Do not repeatedly round intermediate results.
@@ -189,6 +191,8 @@ enter an `e` exponent.
 
 - Accept unsigned decimal notation or standard `e`/`E` scientific notation.
   Negative signs, commas, and units remain invalid; a signed exponent is valid.
+- Reject subnormal magnitudes that cannot be stably represented and normalized
+  by the activity's three-significant-figure formatter.
 - Ignore surrounding whitespace.
 - Ignore leading zeros before the first non-zero digit.
 - Count zeros between non-zero digits and trailing zeros after a decimal point as
@@ -347,6 +351,15 @@ and landmarks recycle visually while authoritative model time and position stay
 finite. There is no preview timeout, episode cap, or automatic capture.
 `重新量度` returns to the same random initial position and phase rather than
 generating a new question.
+
+Before timing, the visible ruler uses a rolling local origin so its labels stay
+readable at late model times. Starting the stopwatch locks that origin for the
+whole measurement. The digital position, ruler, captured table, calculation,
+feedback, and scoring all use the same local readings; hidden world-position
+precision is never used as a separate scoring source. The runtime accepts model
+times only up to a technical multi-year safety ceiling (`1.00 × 10⁹ s`) and
+renderable positions up to `1.00 × 10¹¹ m`. These are corrupted-state guards,
+not learner-facing time limits, pauses, or automatic capture points.
 
 The measurement pointer is a fixed vertical line through the car's centre. Every
 captured position uses that centre point. Brief `A` and `B` capture badges may
@@ -745,7 +758,7 @@ semantics:
 
 ```js
 {
-  v: 2,
+  v: 3,
   definition: {
     seed,
     uniform: { x0, speed, coordinateOrigin, layout },
@@ -766,10 +779,11 @@ semantics:
   variant,
   stage,
   returnToReview,
-  scene: { simulationTime, paused: 1 },
+  scene: { simulationTime, paused: 1, observationStarted: 0 | 1 },
   uniformMeasurement: {
     startModelTime,
     currentOrEndModelTime,
+    readingOrigin,
     x1,
     x2,
     dt
@@ -784,11 +798,11 @@ semantics:
 
 ```js
 {
-  v: 2,
+  v: 3,
   locked: 1,
   definition,
-  uniformMeasurement: { startModelTime, endModelTime, x1, x2, dt },
-  variableMeasurement: { startModelTime, endModelTime, x1, x2, dt },
+  uniformMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
+  variableMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
   answers: {
     uniform: { displacement, time, averageVelocity, relationship },
     variable: { displacement, time, averageVelocity, relationship },
@@ -816,7 +830,8 @@ validate definition and answers
 ### Authoritative state
 
 - concrete motion parameters and target definition;
-- model start/end times plus captured canonical `x1`, `x2`, and `dt` for both
+- model start/end times, locked `readingOrigin`, and captured canonical `x1`,
+  `x2`, and `dt` for both
   measured stages; model times are required to validate the capture against the
   saved motion definition and prove full-cycle coverage;
 - learner answer strings and conceptual choice IDs;
@@ -846,17 +861,18 @@ validate definition and answers
 
 - Schema version, activity slug, phase, variant, and stage are supported.
 - Every numeric field is finite and non-negative where required. Simulation
-  time, captured model time, and measurement duration have no fixed upper cap.
+  time and rendered position remain below the technical multi-year safety
+  bounds; there is no normal learner-facing duration cap.
 - Variable segment durations are present, positive, and produce a valid cycle.
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
   inequalities.
-- Window list is exactly the supported decreasing set for version 2.
+- Window list is exactly the supported decreasing set for version 3.
 - Instantaneous options have four unique stable IDs, three-significant-figure
   values, one validated correct ID, and the saved display order; restore never
   reshuffles them.
 - Captured measurement values have valid ordering and agree with their motion
-  definition within the canonical capture precision.
+  definition, locked local reading origin, and canonical capture precision.
 - A captured variable interval covers at least one full cycle.
 - Answer strings parse, contain exactly three significant digits, and correspond
   to their stored phase.
@@ -928,6 +944,8 @@ Add every new test file to `tools/run-tests.js`.
   it wrong against a non-zero expected answer;
 - accepting correctly formed `e`/`E` scientific notation with exactly three
   significant digits, and rejecting malformed exponents;
+- normalizing values at power-of-ten boundaries, round-tripping every accepted
+  normalized string, and rejecting unsupported subnormal magnitudes;
 - rejecting `5`, `5.0`, unit text, commas, and non-finite values;
 - half-third-significant-place tolerance just inside and just outside;
 - exact-zero scoring accepts parsed zero and rejects the smallest non-zero valid
@@ -945,6 +963,8 @@ Add every new test file to `tools/run-tests.js`.
 - retry cap fails closed;
 - long-running observation remains finite and reset returns to the same
   definition and start;
+- late-start minimum and multi-cycle measurements retain non-zero canonical
+  displacement through their locked local reading origin;
 - generated expected numeric answers remain displayable with three significant
   figures;
 - final snapshot restores from concrete parameters without rerunning random
@@ -998,6 +1018,8 @@ Invalid-state matrix cases include:
 - variable measurement shorter than one full cycle;
 - captured endpoint later than the current scene time;
 - long active and manually captured measurements failing round-trip restore;
+- missing or inconsistent `readingOrigin`, unsafe model time, unsafe rendered
+  position, or inconsistent `observationStarted` state;
 - impossible phase/variant/current-stage combinations;
 - missing or stray `returnToReview` flags, missing retained downstream answers,
   and illegally cleared downstream answers in review-edit variants;

@@ -38,6 +38,12 @@
       ? Model.variablePosition(state.definition.variable, time)
       : Model.uniformPosition(state.definition.uniform, time);
   }
+  function displayedPositionAt(time = state.scene.simulationTime) {
+    const worldPosition = positionAt(time);
+    const measurement = ["uniform", "variable"].includes(state.phase) ? currentMeasurement() : null;
+    const readingOrigin = measurement?.readingOrigin ?? Model.rollingReadingOrigin(worldPosition);
+    return Model.readingPosition(worldPosition, readingOrigin);
+  }
   function activeDuration() { return timerRunning && currentMeasurement() ? state.scene.simulationTime - currentMeasurement().startModelTime : currentMeasurement()?.dt || 0; }
   function minimumDuration() { return state.phase === "variable" ? Model.cycleDuration(state.definition.variable) : 1.5; }
   function updateActiveMeasurement() {
@@ -68,6 +74,7 @@
   function startOrResume() {
     if (locked || state.phase === "instant" || state.phase === "review") return;
     running = true;
+    state.scene.observationStarted = 1;
     lastFrame = performance.now();
     announce(timerRunning ? "繼續觀察及計時。" : "開始觀察車輛運動。");
     if (!saveDraft()) return;
@@ -85,7 +92,7 @@
     if (locked || !["uniform", "variable"].includes(state.phase)) return;
     running = false;
     timerRunning = false;
-    state.scene.simulationTime = 0;
+    state.scene = { simulationTime: 0, paused: 1, observationStarted: 0 };
     setCurrentMeasurement(null);
     state.answers[state.phase] = null;
     state.variant = state.returnToReview ? "review-edit-ready" : "ready";
@@ -99,9 +106,10 @@
     if (!timerRunning) {
       if (currentMeasurement()?.x2 != null || state.variant.endsWith("answered")) return;
       const time = state.scene.simulationTime;
+      const readingOrigin = Model.rollingReadingOrigin(positionAt(time));
       const measurement = {
-        startModelTime: time, currentOrEndModelTime: time,
-        x1: Model.canonicalNumber(positionAt(time)), x2: null, dt: 0
+        startModelTime: time, currentOrEndModelTime: time, readingOrigin,
+        x1: Model.canonicalNumber(Model.readingPosition(positionAt(time), readingOrigin)), x2: null, dt: 0
       };
       setCurrentMeasurement(measurement);
       state.answers[state.phase] = null;
@@ -116,7 +124,7 @@
     captureEndpoint();
   }
   function captureEndpoint(endTime = state.scene.simulationTime) {
-    const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, endTime);
+    const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, endTime, currentMeasurement().readingOrigin);
     setCurrentMeasurement({ ...measurement, currentOrEndModelTime: measurement.endModelTime });
     timerRunning = false;
     state.variant = state.returnToReview ? "review-edit-captured" : "captured";
@@ -374,7 +382,7 @@
     else { elements.x1Readout.textContent = "--"; elements.x1Readout.setAttribute("aria-label", "起點位置，未記錄"); }
     if (captured) setQuantityValue(elements.x2Readout, measurement.x2, "m");
     else { elements.x2Readout.textContent = "--"; elements.x2Readout.setAttribute("aria-label", "終點位置，未記錄"); }
-    elements.observeButton.textContent = running ? "觀察中" : timerRunning || state.scene.simulationTime > 0 ? "繼續觀察" : "開始觀察";
+    elements.observeButton.textContent = running ? "觀察中" : state.scene.observationStarted === 1 ? "繼續觀察" : "開始觀察";
     elements.observeButton.disabled = running;
     elements.pauseButton.disabled = !running;
     renderMeasurementProgress();
@@ -457,10 +465,14 @@
     frameId = requestAnimationFrame(animate);
   }
   function renderLiveReadouts(announceBoundary) {
-    elements.positionReadout.textContent = `${Model.format3(positionAt())} m`;
+    elements.positionReadout.textContent = `${Model.format3(displayedPositionAt())} m`;
     elements.timerReadout.textContent = `${Model.format3(timerRunning ? activeDuration() : currentMeasurement()?.dt || 0)} s`;
     if (["uniform", "variable"].includes(state.phase) && timerRunning) renderMeasurementProgress();
-    if (state.phase === "variable") {
+    if (state.scene.observationStarted !== 1) {
+      elements.motionStatus.textContent = "尚未開始觀察。";
+      lastMotionSegment = null;
+    }
+    else if (state.phase === "variable") {
       const segment = Model.qualitativeState(state.definition.variable, state.scene.simulationTime);
       elements.motionStatus.textContent = motionLabel(segment, running);
       if (announceBoundary && running && lastMotionSegment && segment !== lastMotionSegment) announce(motionLabel(segment, true));
@@ -488,11 +500,15 @@
     const w = view.width, h = view.height, horizon = h * .45, roadTop = h * .55;
     context.fillStyle = "#dbeafe"; context.fillRect(0, 0, w, roadTop);
     context.fillStyle = "#bbd7a8"; context.fillRect(0, horizon, w, roadTop - horizon);
-    const position = positionAt();
+    const worldPosition = positionAt();
+    const position = displayedPositionAt();
     context.fillStyle = "#4b5563"; context.fillRect(0, roadTop, w, h - roadTop);
     context.strokeStyle = "#f8fafc"; context.lineWidth = 3; context.setLineDash([28, 22]); context.beginPath(); context.moveTo(0, roadTop + (h - roadTop) * .37); context.lineTo(w, roadTop + (h - roadTop) * .37); context.stroke(); context.setLineDash([]);
     const pixelsPerMetre = Math.max(16, Math.min(28, w / 24));
-    for (let metre = Math.floor(position - w / pixelsPerMetre / 2) - 1; metre <= position + w / pixelsPerMetre / 2 + 1; metre += 1) {
+    const centreMetre = Math.floor(position);
+    const tickRadius = Math.ceil(w / pixelsPerMetre / 2) + 2;
+    for (let offset = -tickRadius; offset <= tickRadius; offset += 1) {
+      const metre = centreMetre + offset;
       const x = w / 2 + (metre - position) * pixelsPerMetre;
       const major = metre % 10 === 0;
       context.strokeStyle = major ? "#111827" : "#6b7280"; context.lineWidth = major ? 2 : 1;
@@ -500,7 +516,7 @@
       if (major) { context.fillStyle = "#111827"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, h - 10); }
     }
     context.strokeStyle = "#111827"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, h - 31); context.lineTo(w, h - 31); context.stroke();
-    drawLandmarks(position, pixelsPerMetre, horizon, roadTop);
+    drawLandmarks(worldPosition, pixelsPerMetre, horizon, roadTop);
     drawCar(w / 2, roadTop - 8, Math.min(1.15, w / 520));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, roadTop - 90); context.lineTo(w / 2, h - 30); context.stroke();
     context.fillStyle = "#92400e"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, roadTop - 98);
@@ -579,7 +595,8 @@
       const centreX = Model.variablePosition(state.definition.variable, target);
       const dt = .32; context.strokeStyle = "#dc2626"; context.lineWidth = 2; context.setLineDash([8, 4]); context.beginPath(); context.moveTo(sx(target - dt), sy(centreX - velocity * dt)); context.lineTo(sx(target + dt), sy(centreX + velocity * dt)); context.stroke(); context.setLineDash([]);
     }
-    elements.positionReadout.textContent = `${Model.format3(Model.variablePosition(state.definition.variable, target))} m`;
+    const targetWorldPosition = Model.variablePosition(state.definition.variable, target);
+    elements.positionReadout.textContent = `${Model.format3(Model.readingPosition(targetWorldPosition, Model.rollingReadingOrigin(targetWorldPosition)))} m`;
     elements.timerReadout.textContent = `${Model.format3(target)} s`;
     elements.motionStatus.textContent = state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }
@@ -593,7 +610,10 @@
     context.strokeStyle = "#f8fafc"; context.setLineDash([18, 14]); context.beginPath(); context.moveTo(0, y + sky + road * .45); context.lineTo(view.width, y + sky + road * .45); context.stroke(); context.setLineDash([]);
     context.strokeStyle = "#111827"; context.lineWidth = 2; context.beginPath(); context.moveTo(0, ruler); context.lineTo(view.width, ruler); context.stroke();
     const scale = Math.max(10, Math.min(18, view.width / 25));
-    for (let metre = Math.floor(position - view.width / scale / 2); metre <= position + view.width / scale / 2; metre += 1) {
+    const centreMetre = Math.floor(position);
+    const tickRadius = Math.ceil(view.width / scale / 2) + 1;
+    for (let offset = -tickRadius; offset <= tickRadius; offset += 1) {
+      const metre = centreMetre + offset;
       const x = view.width / 2 + (metre - position) * scale;
       context.strokeStyle = metre % 5 === 0 ? "#111827" : "#6b7280";
       context.beginPath(); context.moveTo(x, ruler); context.lineTo(x, ruler - (metre % 5 === 0 ? 9 : 5)); context.stroke();
