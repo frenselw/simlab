@@ -366,9 +366,10 @@ times only up to a technical multi-year safety ceiling (`1.00 × 10⁹ s`) and
 renderable positions up to `1.00 × 10¹¹ m`. These are corrupted-state guards,
 not learner-facing time limits, pauses, or automatic capture points.
 Restorable ready states must retain enough headroom for the stage minimum
-measurement; active measurements must have started early enough to reach that
-minimum. Runtime numeric failures enter a locked technical state instead of
-leaving controls in a false running state.
+measurement plus one safe interaction frame and a centralized floating-point
+reserve; active measurements must retain the same continuation reserve after
+reaching minimum eligibility. Runtime numeric failures enter a locked technical
+state instead of leaving controls in a false running state.
 
 The measurement pointer is a fixed vertical line through the car's centre. Every
 captured position uses that centre point. Brief `A` and `B` capture badges may
@@ -1041,6 +1042,8 @@ Invalid-state matrix cases include:
   position, or inconsistent `observationStarted` state;
 - ready/active states at the technical ceiling or just below it without the
   applicable minimum-measurement headroom;
+- repeated production-size frames from accepted ready/active boundary states,
+  including stop eligibility and one further safe frame without automatic stop;
 - impossible phase/variant/current-stage combinations;
 - missing or stray `returnToReview` flags, missing retained downstream answers,
   and illegally cleared downstream answers in review-edit variants;

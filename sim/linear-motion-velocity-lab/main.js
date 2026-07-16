@@ -120,7 +120,7 @@
       render();
       return;
     }
-    if (activeDuration() + 1e-9 < minimumDuration()) return;
+    if (!Model.minimumDurationReached(activeDuration(), minimumDuration())) return;
     captureEndpoint();
   }
   function captureEndpoint(endTime = state.scene.simulationTime) {
@@ -456,7 +456,7 @@
   function animate(timestamp) {
     if (running && state && !locked) {
       try {
-        const delta = Math.min(0.05, Math.max(0, (timestamp - lastFrame) / 1000));
+        const delta = Math.min(Model.MAX_FRAME_DELTA, Math.max(0, (timestamp - lastFrame) / 1000));
         state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
         lastFrame = timestamp;
         updateActiveMeasurement();

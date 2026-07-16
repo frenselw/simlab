@@ -114,9 +114,12 @@ assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulat
 assert(Math.abs(Model.advanceSimulationTime(12, Array.from({ length: 6000 }, () => ({ dt: 0.05, running: true }))) - 312) < 1e-9, "observation has no automatic time limit");
 const multiYearTime = Model.advanceSimulationTime(1e8, [{ dt: 0.05, running: true }]);
 assert(multiYearTime > 1e8 && Model.safeModelTime(multiYearTime), "accepted late scene can still advance by a frame");
-assert(Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5));
+assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5), "minimum-only headroom lacks a safe operation frame");
+assert(Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5 - Model.MODEL_TIME_CONTINUATION_RESERVE, 1.5));
 assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 0.01, 1.5));
 assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME, 1.5));
+assert(Model.minimumDurationReached(1.5 - Model.MODEL_TIME_TOLERANCE / 2, 1.5));
+assert(!Model.minimumDurationReached(1.5 - Model.MODEL_TIME_TOLERANCE * 2, 1.5));
 assert.throws(() => Model.advanceSimulationTime(1e16, [{ dt: 0.05, running: true }]), /Invalid frame schedule/);
 
 const lateUniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 10000, 10001.5);

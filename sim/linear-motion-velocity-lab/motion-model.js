@@ -11,6 +11,9 @@
   const NUMERIC_EPSILON_FACTOR = 8;
   const MAX_GENERATION_ATTEMPTS = 80;
   const MAX_MODEL_TIME = 1e9;
+  const MAX_FRAME_DELTA = 0.05;
+  const MODEL_TIME_TOLERANCE = MAX_MODEL_TIME * Number.EPSILON * 128;
+  const MODEL_TIME_CONTINUATION_RESERVE = MAX_FRAME_DELTA + MODEL_TIME_TOLERANCE;
   const MAX_RENDER_POSITION = 1e11;
   const MIN_NORMAL = 2.2250738585072014e-308;
   const READING_SPAN = 50;
@@ -77,7 +80,11 @@
   }
   function safeModelTime(value) { return finite(value) && value >= 0 && value <= MAX_MODEL_TIME; }
   function hasModelTimeHeadroom(value, duration) {
-    return safeModelTime(value) && finite(duration) && duration >= 0 && value + duration > value && value + duration <= MAX_MODEL_TIME;
+    const required = duration + MODEL_TIME_CONTINUATION_RESERVE;
+    return safeModelTime(value) && finite(duration) && duration >= 0 && finite(required) && value <= MAX_MODEL_TIME - required;
+  }
+  function minimumDurationReached(duration, minimum) {
+    return finite(duration) && finite(minimum) && duration >= 0 && minimum >= 0 && duration + MODEL_TIME_TOLERANCE >= minimum;
   }
   function safeWorldPosition(value) { return finite(value) && Math.abs(value) <= MAX_RENDER_POSITION; }
   function rollingReadingOrigin(worldPosition) {
@@ -320,16 +327,16 @@
     if (!safeModelTime(initial) || !Array.isArray(frames)) throw new TypeError("Invalid frame schedule");
     return frames.reduce((time, frame) => {
       if (!frame || !finite(frame.dt) || frame.dt < 0) throw new TypeError("Invalid frame");
-      const next = frame.running ? time + Math.min(0.05, frame.dt) : time;
+      const next = frame.running ? time + Math.min(MAX_FRAME_DELTA, frame.dt) : time;
       if (!safeModelTime(next) || (frame.running && frame.dt > 0 && next <= time)) throw new RangeError("Simulation time cannot advance safely");
       return next;
     }, initial);
   }
 
   return {
-    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_RENDER_POSITION, MIN_NORMAL, SEGMENTS,
+    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_FRAME_DELTA, MODEL_TIME_TOLERANCE, MODEL_TIME_CONTINUATION_RESERVE, MAX_RENDER_POSITION, MIN_NORMAL, SEGMENTS,
     canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
-    safeModelTime, hasModelTimeHeadroom, safeWorldPosition, rollingReadingOrigin, readingPosition,
+    safeModelTime, hasModelTimeHeadroom, minimumDurationReached, safeWorldPosition, rollingReadingOrigin, readingPosition,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
     captureMeasurement, expectedFromMeasurement, advanceSimulationTime

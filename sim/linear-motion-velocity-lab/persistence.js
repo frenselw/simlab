@@ -92,7 +92,7 @@
       const measurement = state.phase === "uniform" ? state.uniformMeasurement : state.variableMeasurement;
       const minimum = state.phase === "uniform" ? 1.5 : Model.cycleDuration(state.definition.variable);
       if (state.variant.endsWith("ready") && !Model.hasModelTimeHeadroom(state.scene.simulationTime, minimum)) return false;
-      if (kind === "active" && !Model.hasModelTimeHeadroom(measurement.startModelTime, minimum)) return false;
+      if (kind === "active" && !Model.hasModelTimeHeadroom(state.scene.simulationTime, Math.max(0, minimum - (state.scene.simulationTime - measurement.startModelTime)))) return false;
     }
     const downstream = edit && ((state.phase === "uniform" && va === "complete" && ia === "complete") || (state.phase === "variable" && ua === "complete" && ia === "complete") || (state.phase === "instant" && ua === "complete" && va === "complete"));
     if (edit && !downstream) return false;
@@ -183,8 +183,8 @@
     let expectedX2;
     try { expectedX2 = Model.canonicalNumber(Model.readingPosition(position(end), measurement.readingOrigin)); } catch { return "invalid"; }
     if (!Number.isFinite(measurement.x2) || measurement.x2 !== expectedX2) return "invalid";
-    if (type === "uniform" && end - measurement.startModelTime < 1.5 - 1e-9) return "invalid";
-    if (type === "variable" && end - measurement.startModelTime < Model.cycleDuration(definition.variable) - 1e-9) return "invalid";
+    if (type === "uniform" && !Model.minimumDurationReached(end - measurement.startModelTime, 1.5)) return "invalid";
+    if (type === "variable" && !Model.minimumDurationReached(end - measurement.startModelTime, Model.cycleDuration(definition.variable))) return "invalid";
     return "captured";
   }
   function next(state, action) {
@@ -238,8 +238,8 @@
     if (![duration, minimum].every(Number.isFinite) || duration < 0 || minimum < 0) return null;
     return {
       label: timerRunning ? "停止計時" : "開始計時",
-      disabled: Boolean(captured || answered || (timerRunning && duration + 1e-9 < minimum)),
-      canStop: Boolean(timerRunning && !captured && !answered && duration + 1e-9 >= minimum)
+      disabled: Boolean(captured || answered || (timerRunning && !Model.minimumDurationReached(duration, minimum))),
+      canStop: Boolean(timerRunning && !captured && !answered && Model.minimumDurationReached(duration, minimum))
     };
   }
 

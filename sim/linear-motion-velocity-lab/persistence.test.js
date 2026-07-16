@@ -163,13 +163,36 @@ invalid((value) => {
 }, variableActive);
 
 for (const [type, source, minimum] of [["uniform", ready, 1.5], ["variable", variableReady, variableDuration]]) {
+  const minimumOnlyReady = JSON.parse(JSON.stringify(source));
+  minimumOnlyReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum, paused: 1, observationStarted: 1 };
+  assert.strictEqual(Persistence.validateDraft(minimumOnlyReady), false, `${type} minimum-only headroom is rejected`);
+
   const boundaryReady = JSON.parse(JSON.stringify(source));
-  boundaryReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum, paused: 1, observationStarted: 1 };
-  assert(Persistence.validateDraft(boundaryReady), `${type} exact minimum headroom is accepted`);
-  const boundaryActive = Persistence.continueOnce(boundaryReady);
-  const boundaryCaptured = Persistence.continueOnce(boundaryActive);
-  assert(boundaryActive && boundaryCaptured, `${type} boundary state completes one legal minimum measurement`);
-  assert.strictEqual(boundaryCaptured.scene.simulationTime, Model.MAX_MODEL_TIME);
+  boundaryReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum - Model.MODEL_TIME_CONTINUATION_RESERVE, paused: 1, observationStarted: 1 };
+  const restoredBoundaryReady = Persistence.decode(Persistence.encode(boundaryReady));
+  assert(restoredBoundaryReady, `${type} reserved boundary ready state restores`);
+  let boundaryActive = Persistence.continueOnce(restoredBoundaryReady);
+  boundaryActive = Persistence.decode(Persistence.encode(boundaryActive));
+  assert(boundaryActive, `${type} boundary state starts measuring`);
+  const field = `${type}Measurement`;
+  let duration = 0;
+  while (!Model.minimumDurationReached(duration, minimum)) {
+    const next = Model.advanceSimulationTime(boundaryActive.scene.simulationTime, [{ dt: Model.MAX_FRAME_DELTA, running: true }]);
+    boundaryActive.scene.simulationTime = next;
+    boundaryActive[field].currentOrEndModelTime = next;
+    boundaryActive[field].dt = Model.canonicalNumber(next - boundaryActive[field].startModelTime);
+    duration = next - boundaryActive[field].startModelTime;
+    assert(Persistence.validateDraft(boundaryActive), `${type} production frame remains restorable before eligibility`);
+  }
+  assert(Persistence.measurementControlState({ timerRunning: true, duration, minimum, captured: false, answered: false }).canStop, `${type} repeated frames reach stop eligibility`);
+  const operationFrame = Model.advanceSimulationTime(boundaryActive.scene.simulationTime, [{ dt: Model.MAX_FRAME_DELTA, running: true }]);
+  assert(operationFrame > boundaryActive.scene.simulationTime && Model.safeModelTime(operationFrame), `${type} retains one safe operation frame after eligibility`);
+  assert(Persistence.measurementControlState({ timerRunning: true, duration: operationFrame - boundaryActive[field].startModelTime, minimum, captured: false, answered: false }).canStop, `${type} observation does not auto-stop`);
+  const position = type === "uniform" ? uniformPosition : variablePosition;
+  boundaryActive.scene.simulationTime = operationFrame;
+  boundaryActive[field] = { ...Model.captureMeasurement(position, boundaryActive[field].startModelTime, operationFrame, boundaryActive[field].readingOrigin), currentOrEndModelTime: operationFrame };
+  boundaryActive.variant = "captured";
+  assert(Persistence.validateDraft(boundaryActive), `${type} learner can stop safely after the reserved frame`);
 }
 
 for (const [type, source, position, start, end] of [
