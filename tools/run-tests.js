@@ -22,6 +22,9 @@ const tests = [
   "sim/position-time-graph-motion-lab/production-wiring.test.js",
   "sim/position-time-graph-motion-lab/pending-final.test.js",
   "tools/position-time-browser-regression.test.js",
+  "sim/linear-motion-velocity-lab/motion-model.test.js",
+  "sim/linear-motion-velocity-lab/scoring.test.js",
+  "sim/linear-motion-velocity-lab/persistence.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
 ];

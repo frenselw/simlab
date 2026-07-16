@@ -1,0 +1,115 @@
+"use strict";
+
+const assert = require("assert");
+const Model = require("./motion-model.js");
+const Scoring = require("./scoring.js");
+const Persistence = require("./persistence.js");
+
+const definition = Model.createAttempt(77123);
+const uniformPosition = (time) => Model.uniformPosition(definition.uniform, time);
+const variablePosition = (time) => Model.variablePosition(definition.variable, time);
+const uniform = { ...Model.captureMeasurement(uniformPosition, 0, 1.75), currentOrEndModelTime: 1.75 };
+const variableDuration = Model.cycleDuration(definition.variable);
+const variable = { ...Model.captureMeasurement(variablePosition, 0, variableDuration), currentOrEndModelTime: variableDuration };
+function answerFor(measurement, relationship) {
+  const expected = Model.expectedFromMeasurement(measurement);
+  return { displacement: Model.format3(expected.displacement), time: Model.format3(expected.time), averageVelocity: Model.format3(expected.averageVelocity), relationship };
+}
+const uniformAnswer = answerFor(uniform, "yes");
+const variableAnswer = answerFor(variable, "no");
+const instantAnswer = { predictionChoice: Scoring.correctOption(definition).id, concept: "limit", stoppedVelocity: "0.00" };
+
+const states = [];
+const ready = Persistence.initialState(definition);
+states.push(ready);
+const uniformActive = Persistence.continueOnce(ready); states.push(uniformActive);
+const uniformCaptured = Persistence.continueOnce(uniformActive); states.push(uniformCaptured);
+const uniformAnswered = Persistence.continueOnce(uniformCaptured); states.push(uniformAnswered);
+const variableReady = Persistence.continueOnce(uniformAnswered); states.push(variableReady);
+const variableActive = Persistence.continueOnce(variableReady); states.push(variableActive);
+const variableCaptured = Persistence.continueOnce(variableActive); states.push(variableCaptured);
+const variableAnswered = Persistence.continueOnce(variableCaptured); states.push(variableAnswered);
+const instantExploring = Persistence.continueOnce(variableAnswered); states.push(instantExploring);
+const instantAnswered = JSON.parse(JSON.stringify(instantExploring));
+instantAnswered.viewedWindowCount = 4;
+instantAnswered.answers.instant = instantAnswer;
+instantAnswered.variant = "answered";
+assert(Persistence.validateDraft(instantAnswered)); states.push(instantAnswered);
+const review = Persistence.continueOnce(instantAnswered); states.push(review);
+
+const uniformEditAnswered = Persistence.next(review, "edit-uniform"); states.push(uniformEditAnswered);
+const uniformEditReady = JSON.parse(JSON.stringify(uniformEditAnswered)); uniformEditReady.variant = "review-edit-ready"; uniformEditReady.uniformMeasurement = null; uniformEditReady.answers.uniform = null; states.push(uniformEditReady);
+const uniformEditActive = Persistence.continueOnce(uniformEditReady); states.push(uniformEditActive);
+const uniformEditCaptured = Persistence.continueOnce(uniformEditActive); states.push(uniformEditCaptured);
+
+const variableEditAnswered = Persistence.next(review, "edit-variable"); states.push(variableEditAnswered);
+const variableEditReady = JSON.parse(JSON.stringify(variableEditAnswered)); variableEditReady.variant = "review-edit-ready"; variableEditReady.variableMeasurement = null; variableEditReady.answers.variable = null; states.push(variableEditReady);
+const variableEditActive = Persistence.continueOnce(variableEditReady); states.push(variableEditActive);
+const variableEditCaptured = Persistence.continueOnce(variableEditActive); states.push(variableEditCaptured);
+const instantEditAnswered = Persistence.next(review, "edit-instant"); states.push(instantEditAnswered);
+
+assert.strictEqual(states.length, Object.keys(Persistence.ROWS).length);
+const seen = new Set();
+for (const original of states) {
+  assert(original, "fixture continuation exists");
+  const key = `${original.phase}/${original.variant}`;
+  seen.add(key);
+  assert(Persistence.validateDraft(original), key);
+  const restored = Persistence.decode(Persistence.encode(original));
+  assert(restored, `round trip ${key}`);
+  assert.strictEqual(`${restored.phase}/${restored.variant}`, key);
+  assert(Persistence.continueOnce(restored), `legal continuation ${key}`);
+}
+assert.deepStrictEqual([...seen].sort(), Object.keys(Persistence.ROWS).sort());
+
+const normalizedRunning = Persistence.encode({ ...uniformActive, running: true, timerRunning: true });
+assert.strictEqual(normalizedRunning.variant, "paused-measuring");
+assert.strictEqual(normalizedRunning.scene.paused, 1);
+
+const reviewAnswer = Persistence.makeReview(review);
+assert(Persistence.validateReview(reviewAnswer));
+const restoredReview = Persistence.fromReview(Persistence.decodeReview(reviewAnswer));
+const before = Scoring.scoreAttempt(definition, review.uniformMeasurement, review.variableMeasurement, review.answers);
+const after = Scoring.scoreAttempt(restoredReview.definition, restoredReview.uniformMeasurement, restoredReview.variableMeasurement, restoredReview.answers);
+assert.strictEqual(after.score, before.score);
+assert.strictEqual(after.passed, before.passed);
+assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "draft", answer: Persistence.encode(review) })) < 4000);
+assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "review", answer: reviewAnswer, score: 100, passed: true })) < 4000);
+
+function invalid(mutator, source = review) {
+  const value = JSON.parse(JSON.stringify(source));
+  mutator(value);
+  assert.strictEqual(Persistence.decode(value), null);
+}
+invalid((value) => { value.v = 2; });
+invalid((value) => { value.phase = "missing"; });
+invalid((value) => { value.stage = 0; });
+invalid((value) => { value.returnToReview = true; });
+invalid((value) => { value.answers.uniform = null; });
+invalid((value) => { value.answers.uniform.time = "1.7"; });
+invalid((value) => { value.definition.variable.slowSpeed = NaN; });
+invalid((value) => { value.definition.variable.fastSpeed = Infinity; });
+invalid((value) => { value.definition.variable.durations.accelerate = 0; });
+invalid((value) => { value.definition.windows.reverse(); });
+invalid((value) => { value.definition.instantTarget.timeWithinSegment = 0.1; });
+invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
+invalid((value) => { value.uniformMeasurement.x1 += 1; });
+invalid((value) => { value.variableMeasurement.currentOrEndModelTime = value.variableMeasurement.startModelTime + 1; value.variableMeasurement.endModelTime = value.variableMeasurement.currentOrEndModelTime; value.variableMeasurement.dt = 1; });
+invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
+invalid((value) => { value.viewedWindowCount = 3; });
+invalid((value) => { value.answers.variable = variableAnswer; }, uniformCaptured);
+invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, uniformActive);
+
+const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
+assert.strictEqual(Persistence.decodeReview(badReview), null);
+assert.deepStrictEqual(Persistence.startupView("editable"), { editable: true, locked: false, mode: "activity" });
+assert.strictEqual(Persistence.startupView("review").mode, "review");
+assert.strictEqual(Persistence.startupView("frozen").mode, "pending");
+assert.strictEqual(Persistence.startupView("load-error").mode, "technical");
+assert.deepStrictEqual(Persistence.submissionView({ activityState: "success" }), { locked: true, mode: "review", retryable: false, trusted: true });
+assert.strictEqual(Persistence.submissionView({ activityState: "committed" }).mode, "committed");
+assert.strictEqual(Persistence.submissionView({ activityState: "frozen" }).mode, "pending");
+assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: true }).locked, false);
+assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: false }).locked, true);
+
+console.log("Linear motion persistence tests passed");

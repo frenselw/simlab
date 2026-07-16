@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="linear-motion-velocity-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-LINEAR-MOTION-VELOCITY-LAB">
+    <organization identifier="ORG-LINEAR-MOTION-VELOCITY-LAB">
+      <title>直線運動：平均速度與瞬時速度</title>
+      <item identifier="ITEM-LINEAR-MOTION-VELOCITY-LAB" identifierref="RES-LINEAR-MOTION-VELOCITY-LAB">
+        <title>直線運動：平均速度與瞬時速度</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-LINEAR-MOTION-VELOCITY-LAB" type="webcontent" adlcp:scormtype="sco" href="linear-motion-velocity-lab/index.html">
+      <file href="config.js"/>
+      <file href="linear-motion-velocity-lab/index.html"/>
+      <file href="linear-motion-velocity-lab/styles.css"/>
+      <file href="linear-motion-velocity-lab/main.js"/>
+      <file href="linear-motion-velocity-lab/motion-model.js"/>
+      <file href="linear-motion-velocity-lab/scoring.js"/>
+      <file href="linear-motion-velocity-lab/persistence.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>

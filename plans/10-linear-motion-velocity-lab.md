@@ -634,7 +634,7 @@ Scoring rules:
 - Highest possible score: 100.
 - Passing requires 60 or above.
 
-The three numeric measurement answers from stages one and two total 45 points.
+The three numeric measurement answers from stages one and two total 50 points.
 A learner cannot pass using arithmetic alone without earning conceptual or
 instantaneous-velocity credit.
 
@@ -979,7 +979,7 @@ Add every new test file to `tools/run-tests.js`.
 - exact pass boundary of 60;
 - each component weight independently;
 - correct arithmetic with wrong relationship answers;
-- correct stage-one and stage-two arithmetic alone totals 45 and fails;
+- correct stage-one and stage-two arithmetic alone totals 50 and fails;
 - missing or malformed answer rejected before final scoring;
 - changed measurement invalidates stale numeric answers;
 - remeasure/replay/pause metadata does not affect score;
