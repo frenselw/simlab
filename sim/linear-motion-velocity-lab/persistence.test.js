@@ -123,6 +123,7 @@ invalid((value) => { value.definition.instantTarget.timeWithinSegment = 0.1; });
 invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
 invalid((value) => { value.uniformMeasurement.x1 += 1; });
 invalid((value) => { value.uniformMeasurement.currentOrEndModelTime = value.uniformMeasurement.endModelTime + 1; });
+invalid((value) => { delete value.uniformMeasurement.currentOrEndModelTime; });
 invalid((value) => { value.variableMeasurement.currentOrEndModelTime = value.variableMeasurement.startModelTime + 1; value.variableMeasurement.endModelTime = value.variableMeasurement.currentOrEndModelTime; value.variableMeasurement.dt = 1; });
 invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
 invalid((value) => { value.viewedWindowCount = 3; });
@@ -131,6 +132,10 @@ invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; 
 invalid((value) => { value.scene.simulationTime = definition.uniform.episodeLimit + 0.01; }, ready);
 invalid((value) => { value.scene.simulationTime = 2.01; }, ready);
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
+invalid((value) => {
+  value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime;
+  delete value.uniformMeasurement.currentOrEndModelTime;
+}, uniformActive);
 invalid((value) => {
   const start = definition.uniform.episodeLimit - 1;
   value.uniformMeasurement = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(uniformPosition(start)), x2: null, dt: 0 };
@@ -173,6 +178,9 @@ for (const [type, source, position, limit] of [
 
 const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
 assert.strictEqual(Persistence.decodeReview(badReview), null);
+const draftShapedReview = JSON.parse(JSON.stringify(reviewAnswer));
+draftShapedReview.uniformMeasurement.currentOrEndModelTime = draftShapedReview.uniformMeasurement.endModelTime;
+assert.strictEqual(Persistence.decodeReview(draftShapedReview), null);
 assert.deepStrictEqual(Persistence.startupView("editable"), { editable: true, locked: false, mode: "activity" });
 assert.strictEqual(Persistence.startupView("review").mode, "review");
 assert.strictEqual(Persistence.startupView("frozen").mode, "pending");

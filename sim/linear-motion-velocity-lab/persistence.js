@@ -118,7 +118,7 @@
   }
   function validateReview(review) {
     if (!review || review.v !== VERSION || review.locked !== 1 || !Model.validateDefinition(review.definition) || !validAnswersShape(review.answers)) return false;
-    if (measurementKind(review.definition, "uniform", review.uniformMeasurement) !== "captured" || measurementKind(review.definition, "variable", review.variableMeasurement) !== "captured") return false;
+    if (measurementKind(review.definition, "uniform", review.uniformMeasurement, null, "review") !== "captured" || measurementKind(review.definition, "variable", review.variableMeasurement, null, "review") !== "captured") return false;
     return stageAnswer(review.answers.uniform, "uniform") === "complete" && stageAnswer(review.answers.variable, "variable") === "complete" && instantAnswer(review.answers.instant, review.definition) === "complete";
   }
   function validScene(scene, definition, phase) {
@@ -142,9 +142,13 @@
     })) return "invalid";
     return definition.instantOptions.some((option) => option.id === answer.predictionChoice) ? "complete" : "invalid";
   }
-  function measurementKind(definition, type, measurement, activeSceneTime = null) {
+  function measurementKind(definition, type, measurement, activeSceneTime = null, schema = "draft") {
     if (measurement == null) return "empty";
     if (!measurement || !Number.isFinite(measurement.startModelTime) || !Number.isFinite(measurement.x1) || !Number.isFinite(measurement.dt)) return "invalid";
+    const hasEnd = measurement.endModelTime != null;
+    const hasCurrent = measurement.currentOrEndModelTime != null;
+    if (schema === "review" ? (!hasEnd || hasCurrent || measurement.x2 == null) :
+        (measurement.x2 == null ? (hasEnd || !hasCurrent) : (!hasEnd || !hasCurrent))) return "invalid";
     if (measurement.endModelTime != null && measurement.currentOrEndModelTime != null &&
         (!Number.isFinite(measurement.endModelTime) || !Number.isFinite(measurement.currentOrEndModelTime) ||
           Math.abs(measurement.endModelTime - measurement.currentOrEndModelTime) > 1e-9)) return "invalid";
