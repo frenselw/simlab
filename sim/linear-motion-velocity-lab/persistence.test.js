@@ -122,6 +122,7 @@ invalid((value) => { value.definition.windows.reverse(); });
 invalid((value) => { value.definition.instantTarget.timeWithinSegment = 0.1; });
 invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
 invalid((value) => { value.uniformMeasurement.x1 += 1; });
+invalid((value) => { value.uniformMeasurement.currentOrEndModelTime = value.uniformMeasurement.endModelTime + 1; });
 invalid((value) => { value.variableMeasurement.currentOrEndModelTime = value.variableMeasurement.startModelTime + 1; value.variableMeasurement.endModelTime = value.variableMeasurement.currentOrEndModelTime; value.variableMeasurement.dt = 1; });
 invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
 invalid((value) => { value.viewedWindowCount = 3; });

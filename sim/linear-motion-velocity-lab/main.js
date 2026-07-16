@@ -251,6 +251,7 @@
     elements.submissionNotice.textContent = message;
     elements.submissionNotice.classList.remove("is-hidden");
     elements.reviewRetryButton.classList.remove("is-hidden");
+    announce(message);
   }
   function retrySubmission() {
     if (retryMode === "finish") {
@@ -318,6 +319,8 @@
     elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>`;
     elements.retryButton.classList.toggle("is-hidden", !retryable);
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : retryMode === "resubmit" ? "重試提交" : "重試連線";
+    announce(`技術狀態。未能安全判斷合格狀態。${message}`);
+    elements.resultTitle.focus({ preventScroll: true });
   }
   function showResult(message, detailed, retryable = false) {
     setGraphLayout(true);
@@ -331,6 +334,9 @@
     elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map((item) => `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.text)}</p></article>`).join("");
     elements.retryButton.classList.toggle("is-hidden", !retryable);
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : "重試連線";
+    const detail = items.map((item) => `${item.title}。${item.text}`).join(" ");
+    announce(`${elements.resultTitle.textContent}。${elements.scorePanel.textContent}。${message}${detail ? ` ${detail}` : ""}`);
+    elements.resultTitle.focus({ preventScroll: true });
   }
 
   function render() {
@@ -448,7 +454,7 @@
         state.scene.simulationTime = currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2;
         running = false;
         announce("已到觀察範圍上限，車輛自動暫停。開始計時可繼續。");
-        render();
+        if (saveDraft()) render();
       }
       renderLiveReadouts(true);
       draw();

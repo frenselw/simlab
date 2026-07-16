@@ -145,6 +145,9 @@
   function measurementKind(definition, type, measurement, activeSceneTime = null) {
     if (measurement == null) return "empty";
     if (!measurement || !Number.isFinite(measurement.startModelTime) || !Number.isFinite(measurement.x1) || !Number.isFinite(measurement.dt)) return "invalid";
+    if (measurement.endModelTime != null && measurement.currentOrEndModelTime != null &&
+        (!Number.isFinite(measurement.endModelTime) || !Number.isFinite(measurement.currentOrEndModelTime) ||
+          Math.abs(measurement.endModelTime - measurement.currentOrEndModelTime) > 1e-9)) return "invalid";
     const end = measurement.endModelTime ?? measurement.currentOrEndModelTime;
     if (!Number.isFinite(end) || measurement.startModelTime < 0 || end < measurement.startModelTime || measurement.dt < 0) return "invalid";
     const position = type === "uniform"
