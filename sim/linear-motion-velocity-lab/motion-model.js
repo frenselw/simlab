@@ -117,11 +117,12 @@
     const initialPhase = roundStep(mod(targetStart + targetWithin - desiredTargetTime, cycle), 0.01);
     const targetCycleIndex = initialPhase <= targetStart + targetWithin ? 0 : 1;
     const x0 = sampleStep(random, 12, 38, 0.1);
+    const variableX0 = x0 + sampleStep(random, 1, 8, 0.1);
     const uniformSpeed = sampleStep(random, 3.2, 8.8, 0.01);
     const definition = {
       seed,
       uniform: { x0, speed: uniformSpeed, coordinateOrigin: Math.floor(x0 / 10) * 10, episodeLimit: 12, layout: Math.floor(random() * 3) },
-      variable: { x0: x0 + sampleStep(random, 1, 8, 0.1), coordinateOrigin: Math.floor(x0 / 10) * 10, slowSpeed, fastSpeed, durations, initialPhase, episodeLimit: cycle + 3.5, layout: Math.floor(random() * 3) },
+      variable: { x0: variableX0, coordinateOrigin: Math.floor(variableX0 / 10) * 10, slowSpeed, fastSpeed, durations, initialPhase, episodeLimit: cycle + 3.5, layout: Math.floor(random() * 3) },
       instantTarget: { segment: targetSegment, cycleIndex: targetCycleIndex, timeWithinSegment: targetWithin },
       windows: WINDOWS.slice(),
       instantOptions: []
@@ -231,11 +232,15 @@
     const u = definition.uniform;
     const v = definition.variable;
     if (![u.x0, u.speed, u.coordinateOrigin, u.episodeLimit, v.x0, v.coordinateOrigin, v.slowSpeed, v.fastSpeed, v.initialPhase, v.episodeLimit].every(finite)) return false;
+    if (!Number.isInteger(u.layout) || u.layout < 0 || u.layout > 2 || !Number.isInteger(v.layout) || v.layout < 0 || v.layout > 2) return false;
+    if (u.x0 < 12 || u.x0 > 38 || v.x0 < 13 || v.x0 > 46 || u.episodeLimit !== 12) return false;
+    if (u.coordinateOrigin % 10 !== 0 || v.coordinateOrigin % 10 !== 0 || u.x0 < u.coordinateOrigin || u.x0 >= u.coordinateOrigin + 10 || v.x0 < v.coordinateOrigin || v.x0 >= v.coordinateOrigin + 10) return false;
     if (u.speed < 3.2 || u.speed > 8.8 || v.slowSpeed < 1.5 || v.slowSpeed > 3 || v.fastSpeed < 6.5 || v.fastSpeed > 9.5 || v.fastSpeed - v.slowSpeed < 4) return false;
+    if (Math.abs(u.speed - v.slowSpeed) < 0.75 || Math.abs(u.speed - v.fastSpeed) < 0.75) return false;
     if (!validDurations(v.durations) || v.durations.stopped < 0.6) return false;
     const cycle = cycleDuration(v);
     if (cycle < 7.5 || cycle > 10.5) return false;
-    if (v.initialPhase < 0 || v.initialPhase >= cycle || v.episodeLimit < cycle + 1.5) return false;
+    if (v.initialPhase < 0 || v.initialPhase >= cycle || Math.abs(v.episodeLimit - (cycle + 3.5)) > 1e-9) return false;
     if (!Array.isArray(definition.windows) || definition.windows.length !== WINDOWS.length || !definition.windows.every((item, index) => item === WINDOWS[index])) return false;
     const target = definition.instantTarget;
     if (!target || !["accelerate", "decelerate"].includes(target.segment) || ![0, 1].includes(target.cycleIndex) || !finite(target.timeWithinSegment)) return false;
@@ -246,7 +251,12 @@
     if (new Set(rows.map((row) => row.averageVelocity)).size < 3) return false;
     const exact = canonicalNumber(variableVelocity(v, targetSceneTime(definition)));
     const differences = rows.map((row) => Math.abs(row.averageVelocity - exact));
-    if (!(differences[3] < differences[0])) return false;
+    for (let index = 1; index < rows.length; index += 1) {
+      const expectedDirection = target.segment === "accelerate"
+        ? rows[index].averageVelocity > rows[index - 1].averageVelocity
+        : rows[index].averageVelocity < rows[index - 1].averageVelocity;
+      if (!expectedDirection || !(differences[index] < differences[index - 1])) return false;
+    }
     const options = definition.instantOptions;
     if (!Array.isArray(options) || options.length !== 4 || new Set(options.map((item) => item.id)).size !== 4 || new Set(options.map((item) => item.value)).size !== 4 || options.filter((item) => item.correct === 1).length !== 1) return false;
     if (!options.every((item) => typeof item.id === "string" && finite(item.value) && item.value >= 0 && format3(item.value) !== "--")) return false;
@@ -256,11 +266,19 @@
     return true;
   }
 
+  function advanceSimulationTime(initial, frames) {
+    if (!finite(initial) || initial < 0 || !Array.isArray(frames)) throw new TypeError("Invalid frame schedule");
+    return frames.reduce((time, frame) => {
+      if (!frame || !finite(frame.dt) || frame.dt < 0) throw new TypeError("Invalid frame");
+      return frame.running ? time + Math.min(0.05, frame.dt) : time;
+    }, initial);
+  }
+
   return {
     SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, SEGMENTS,
     canonicalNumber, format3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
-    captureMeasurement, expectedFromMeasurement
+    captureMeasurement, expectedFromMeasurement, advanceSimulationTime
   };
 });

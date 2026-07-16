@@ -40,9 +40,22 @@ assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, boundary)
 boundary.instant.stoppedVelocity = "1.00";
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, boundary).score, 55);
 
+const wrongValues = {
+  uniform: { displacement: "0.00", time: "0.00", averageVelocity: "0.00", relationship: "no" },
+  variable: { displacement: "0.00", time: "0.00", averageVelocity: "0.00", relationship: "yes" },
+  instant: { predictionChoice: wrongOption, concept: "journey-average", stoppedVelocity: "1.00" }
+};
 for (const [stage, fields] of Object.entries(Scoring.WEIGHTS)) {
-  for (const field of Object.keys(fields)) assert.strictEqual(typeof Scoring.scoreAttempt(definition, uniform, variable, correct).detail[stage][field].points, "number");
+  for (const [field, weight] of Object.entries(fields)) {
+    const oneWrong = JSON.parse(JSON.stringify(correct));
+    oneWrong[stage][field] = wrongValues[stage][field];
+    const scored = Scoring.scoreAttempt(definition, uniform, variable, oneWrong);
+    assert.strictEqual(scored.score, 100 - weight, `${stage}.${field} weight`);
+    assert.strictEqual(scored.detail[stage][field].points, 0);
+  }
 }
+const detailedFeedback = Scoring.scoreAttempt(definition, uniform, variable, correct).feedbackItems.map((item) => item.text).join("\n");
+["你的答案", "正確答案", "10 分", "20 分", "完全停止期間"].forEach((text) => assert(detailedFeedback.includes(text), text));
 const malformed = JSON.parse(JSON.stringify(correct));
 malformed.uniform.time = "2.7";
 assert.throws(() => Scoring.scoreAttempt(definition, uniform, variable, malformed));

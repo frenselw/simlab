@@ -78,11 +78,11 @@
   function validateDraft(state) {
     if (!state || state.v !== VERSION || !Model.validateDefinition(state.definition)) return false;
     const key = `${state.phase}/${state.variant}`;
-    if (!(key in ROWS) || state.stage !== ROWS[key] || !validScene(state.scene) || !validAnswersShape(state.answers)) return false;
+    if (!(key in ROWS) || state.stage !== ROWS[key] || !validScene(state.scene, state.definition, state.phase) || !validAnswersShape(state.answers)) return false;
     const edit = state.variant.startsWith("review-edit-");
     if (Boolean(state.returnToReview) !== edit || !Number.isInteger(state.viewedWindowCount) || state.viewedWindowCount < 0 || state.viewedWindowCount > 4) return false;
-    const u = measurementKind(state.definition, "uniform", state.uniformMeasurement);
-    const v = measurementKind(state.definition, "variable", state.variableMeasurement);
+    const u = measurementKind(state.definition, "uniform", state.uniformMeasurement, state.phase === "uniform" ? state.scene.simulationTime : null);
+    const v = measurementKind(state.definition, "variable", state.variableMeasurement, state.phase === "variable" ? state.scene.simulationTime : null);
     const ua = stageAnswer(state.answers.uniform, "uniform");
     const va = stageAnswer(state.answers.variable, "variable");
     const ia = instantAnswer(state.answers.instant, state.definition);
@@ -118,7 +118,11 @@
     if (measurementKind(review.definition, "uniform", review.uniformMeasurement) !== "captured" || measurementKind(review.definition, "variable", review.variableMeasurement) !== "captured") return false;
     return stageAnswer(review.answers.uniform, "uniform") === "complete" && stageAnswer(review.answers.variable, "variable") === "complete" && instantAnswer(review.answers.instant, review.definition) === "complete";
   }
-  function validScene(scene) { return Boolean(scene && Number.isFinite(scene.simulationTime) && scene.simulationTime >= 0 && scene.paused === 1); }
+  function validScene(scene, definition, phase) {
+    if (!scene || !Number.isFinite(scene.simulationTime) || scene.simulationTime < 0 || scene.paused !== 1) return false;
+    if (["uniform", "variable"].includes(phase) && scene.simulationTime > definition[phase].episodeLimit + 1e-9) return false;
+    return true;
+  }
   function validAnswersShape(answers) { return Boolean(answers && ["uniform", "variable", "instant"].every((key) => key in answers)); }
   function stageAnswer(answer, type) {
     if (answer == null) return "empty";
@@ -135,7 +139,7 @@
     })) return "invalid";
     return definition.instantOptions.some((option) => option.id === answer.predictionChoice) ? "complete" : "invalid";
   }
-  function measurementKind(definition, type, measurement) {
+  function measurementKind(definition, type, measurement, activeSceneTime = null) {
     if (measurement == null) return "empty";
     if (!measurement || !Number.isFinite(measurement.startModelTime) || !Number.isFinite(measurement.x1) || !Number.isFinite(measurement.dt)) return "invalid";
     const end = measurement.endModelTime ?? measurement.currentOrEndModelTime;
@@ -144,7 +148,14 @@
       ? (time) => Model.uniformPosition(definition.uniform, time)
       : (time) => Model.variablePosition(definition.variable, time);
     if (measurement.x1 !== Model.canonicalNumber(position(measurement.startModelTime)) || measurement.dt !== Model.canonicalNumber(end - measurement.startModelTime)) return "invalid";
-    if (measurement.x2 == null) return type === "uniform" || end - measurement.startModelTime <= definition.variable.episodeLimit ? "active" : "invalid";
+    const duration = end - measurement.startModelTime;
+    const durationLimit = type === "uniform" ? 10 : Model.cycleDuration(definition.variable) + 1.5;
+    const episodeLimit = definition[type].episodeLimit;
+    if (measurement.startModelTime > episodeLimit + 1e-9 || end > episodeLimit + 1e-9 || duration > durationLimit + 1e-9) return "invalid";
+    if (measurement.x2 == null) {
+      if (activeSceneTime == null || Math.abs(end - activeSceneTime) > 1e-9) return "invalid";
+      return "active";
+    }
     if (end === measurement.startModelTime) return "invalid";
     if (!Number.isFinite(measurement.x2) || measurement.x2 !== Model.canonicalNumber(position(end))) return "invalid";
     if (type === "uniform" && end - measurement.startModelTime < 1.5 - 1e-9) return "invalid";
@@ -180,6 +191,33 @@
     return { locked: !outcome?.retryable, mode: "technical", retryable: Boolean(outcome?.retryable), trusted: false };
   }
 
+  function retryAction(outcome) {
+    const state = outcome?.activityState || "retry";
+    if (state === "committed") return "finish";
+    if (state === "frozen") return "pending";
+    if (state === "retry" && outcome?.retryable) return "resubmit";
+    return "none";
+  }
+
+  function runtimeFlagsForRestore(state) {
+    if (!validateDraft(state)) return null;
+    return { running: false, timerRunning: state.variant.endsWith("paused-measuring") };
+  }
+
+  function resumeRuntime(flags) {
+    if (!flags || typeof flags.timerRunning !== "boolean") return null;
+    return { running: true, timerRunning: flags.timerRunning };
+  }
+
+  function measurementControlState({ timerRunning, duration, minimum, captured, answered }) {
+    if (![duration, minimum].every(Number.isFinite) || duration < 0 || minimum < 0) return null;
+    return {
+      label: timerRunning ? "停止計時" : "開始計時",
+      disabled: Boolean(captured || answered || (timerRunning && duration + 1e-9 < minimum)),
+      canStop: Boolean(timerRunning && !captured && !answered && duration + 1e-9 >= minimum)
+    };
+  }
+
   function continueOnce(source) {
     const state = clone(source);
     if (!validateDraft(state)) return null;
@@ -212,5 +250,5 @@
     return validateDraft(state) ? state : null;
   }
 
-  return { VERSION, ROWS, initialState, encode, decode, makeReview, decodeReview, fromReview, validateDraft, validateReview, next, startupView, submissionView, continueOnce };
+  return { VERSION, ROWS, initialState, encode, decode, makeReview, decodeReview, fromReview, validateDraft, validateReview, next, startupView, submissionView, retryAction, runtimeFlagsForRestore, resumeRuntime, measurementControlState, continueOnce };
 });

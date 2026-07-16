@@ -38,8 +38,17 @@ for (let seed = 0; seed < 100; seed += 1) {
   const rows = Model.analysisWindows(definition);
   assert(rows.every((row) => row.startTime < row.endTime && row.duration > 0));
   assert(new Set(rows.map((row) => row.averageVelocity)).size >= 3);
-  assert(Math.abs(rows[3].averageVelocity - Model.variableVelocity(definition.variable, target)) < Math.abs(rows[0].averageVelocity - Model.variableVelocity(definition.variable, target)));
+  const exact = Model.variableVelocity(definition.variable, target);
+  for (let index = 1; index < rows.length; index += 1) {
+    const directed = definition.instantTarget.segment === "accelerate"
+      ? rows[index].averageVelocity > rows[index - 1].averageVelocity
+      : rows[index].averageVelocity < rows[index - 1].averageVelocity;
+    assert(directed, `seed ${seed} window ${index} direction`);
+    assert(Math.abs(rows[index].averageVelocity - exact) < Math.abs(rows[index - 1].averageVelocity - exact), `seed ${seed} window ${index} approach`);
+  }
   assert.strictEqual(definition.instantOptions.filter((option) => option.correct).length, 1);
+  assert(Math.abs(definition.uniform.speed - definition.variable.slowSpeed) >= 0.75);
+  assert(Math.abs(definition.uniform.speed - definition.variable.fastSpeed) >= 0.75);
 }
 assert(tuples.size >= 95);
 assert(uniformAnswers.size > 20);
@@ -66,8 +75,37 @@ for (let t = 0; t < cycle * 2; t += 0.05) {
 const stop = table.find((segment) => segment.key === "stopped");
 const stopTime = stop.start + stop.duration / 2 - definition.variable.initialPhase + cycle;
 assert.strictEqual(Model.variableVelocity(definition.variable, stopTime), 0);
-const a = Model.variablePosition(definition.variable, 5);
-const b = Model.variablePosition(definition.variable, 5);
-assert.strictEqual(a, b, "position is independent of render frame rate");
+const fineSchedule = Array.from({ length: 100 }, () => ({ dt: 0.01, running: true }));
+const coarseSchedule = Array.from({ length: 20 }, () => ({ dt: 0.05, running: true }));
+const fineTime = Model.advanceSimulationTime(0, fineSchedule);
+const coarseTime = Model.advanceSimulationTime(0, coarseSchedule);
+assert(Math.abs(fineTime - coarseTime) < 1e-12);
+assert(Math.abs(Model.variablePosition(definition.variable, fineTime) - Model.variablePosition(definition.variable, coarseTime)) < 1e-12, "frame schedules preserve model position");
+const pausedTime = Model.advanceSimulationTime(0, [
+  ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: true })),
+  ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: false }))
+]);
+assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulation time");
+
+const seed2235 = Model.createAttempt(2235);
+const regressionRows = Model.analysisWindows(seed2235);
+const regressionExact = Model.variableVelocity(seed2235.variable, Model.targetSceneTime(seed2235));
+for (let index = 1; index < regressionRows.length; index += 1) {
+  assert(Math.abs(regressionRows[index].averageVelocity - regressionExact) < Math.abs(regressionRows[index - 1].averageVelocity - regressionExact));
+}
+
+for (const mutate of [
+  (value) => { value.uniform.layout = 3; },
+  (value) => { value.variable.layout = -1; },
+  (value) => { value.uniform.episodeLimit = 99; },
+  (value) => { value.variable.episodeLimit += 1; },
+  (value) => { value.uniform.coordinateOrigin += 1; },
+  (value) => { value.variable.x0 = 1000; },
+  (value) => { value.uniform.speed = value.variable.fastSpeed; }
+]) {
+  const corrupt = JSON.parse(JSON.stringify(definition));
+  mutate(corrupt);
+  assert.strictEqual(Model.validateDefinition(corrupt), false);
+}
 
 console.log("Linear motion model tests passed");

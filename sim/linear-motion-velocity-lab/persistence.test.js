@@ -50,6 +50,28 @@ const instantEditAnswered = Persistence.next(review, "edit-instant"); states.pus
 
 assert.strictEqual(states.length, Object.keys(Persistence.ROWS).length);
 const seen = new Set();
+const expectedContinuation = {
+  "uniform/ready": "uniform/paused-measuring",
+  "uniform/paused-measuring": "uniform/captured",
+  "uniform/captured": "uniform/answered",
+  "uniform/answered": "variable/ready",
+  "variable/ready": "variable/paused-measuring",
+  "variable/paused-measuring": "variable/captured",
+  "variable/captured": "variable/answered",
+  "variable/answered": "instant/exploring",
+  "instant/exploring": "instant/exploring",
+  "instant/answered": "review/complete",
+  "review/complete": "instant/review-edit-answered",
+  "uniform/review-edit-ready": "uniform/review-edit-paused-measuring",
+  "uniform/review-edit-paused-measuring": "uniform/review-edit-captured",
+  "uniform/review-edit-captured": "uniform/review-edit-answered",
+  "uniform/review-edit-answered": "review/complete",
+  "variable/review-edit-ready": "variable/review-edit-paused-measuring",
+  "variable/review-edit-paused-measuring": "variable/review-edit-captured",
+  "variable/review-edit-captured": "variable/review-edit-answered",
+  "variable/review-edit-answered": "review/complete",
+  "instant/review-edit-answered": "review/complete"
+};
 for (const original of states) {
   assert(original, "fixture continuation exists");
   const key = `${original.phase}/${original.variant}`;
@@ -58,13 +80,19 @@ for (const original of states) {
   const restored = Persistence.decode(Persistence.encode(original));
   assert(restored, `round trip ${key}`);
   assert.strictEqual(`${restored.phase}/${restored.variant}`, key);
-  assert(Persistence.continueOnce(restored), `legal continuation ${key}`);
+  const continued = Persistence.continueOnce(restored);
+  assert(continued, `legal continuation ${key}`);
+  assert.strictEqual(`${continued.phase}/${continued.variant}`, expectedContinuation[key], `next state ${key}`);
 }
 assert.deepStrictEqual([...seen].sort(), Object.keys(Persistence.ROWS).sort());
 
 const normalizedRunning = Persistence.encode({ ...uniformActive, running: true, timerRunning: true });
 assert.strictEqual(normalizedRunning.variant, "paused-measuring");
 assert.strictEqual(normalizedRunning.scene.paused, 1);
+const restoredRuntime = Persistence.runtimeFlagsForRestore(Persistence.decode(normalizedRunning));
+assert.deepStrictEqual(restoredRuntime, { running: false, timerRunning: true });
+assert.deepStrictEqual(Persistence.resumeRuntime(restoredRuntime), { running: true, timerRunning: true }, "resume preserves the active stopwatch");
+assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(ready), { running: false, timerRunning: false });
 
 const reviewAnswer = Persistence.makeReview(review);
 assert(Persistence.validateReview(reviewAnswer));
@@ -99,6 +127,21 @@ invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
 invalid((value) => { value.viewedWindowCount = 3; });
 invalid((value) => { value.answers.variable = variableAnswer; }, uniformCaptured);
 invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, uniformActive);
+invalid((value) => { value.scene.simulationTime = definition.uniform.episodeLimit + 0.01; }, ready);
+invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
+invalid((value) => {
+  value.uniformMeasurement = { ...Model.captureMeasurement(uniformPosition, 0, 10.1), currentOrEndModelTime: 10.1 };
+  value.scene.simulationTime = 10.1;
+}, uniformCaptured);
+invalid((value) => {
+  const end = variableDuration + 1.6;
+  value.variableMeasurement = { ...Model.captureMeasurement(variablePosition, 0, end), currentOrEndModelTime: end };
+  value.scene.simulationTime = end;
+}, variableCaptured);
+invalid((value) => { value.definition.uniform.layout = 99; });
+invalid((value) => { value.definition.variable.episodeLimit += 1; });
+invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
+invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
 
 const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
 assert.strictEqual(Persistence.decodeReview(badReview), null);
@@ -111,5 +154,12 @@ assert.strictEqual(Persistence.submissionView({ activityState: "committed" }).mo
 assert.strictEqual(Persistence.submissionView({ activityState: "frozen" }).mode, "pending");
 assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: true }).locked, false);
 assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: false }).locked, true);
+assert.strictEqual(Persistence.retryAction({ activityState: "committed" }), "finish");
+assert.strictEqual(Persistence.retryAction({ activityState: "frozen" }), "pending");
+assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: true }), "resubmit");
+assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: false }), "none");
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.49, minimum: 1.5, captured: false, answered: false }), { label: "停止計時", disabled: true, canStop: false });
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false }), { label: "停止計時", disabled: false, canStop: true });
+assert.strictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 2, minimum: 1.5, captured: true, answered: false }).disabled, true);
 
 console.log("Linear motion persistence tests passed");

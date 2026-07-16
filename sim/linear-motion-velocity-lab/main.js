@@ -20,6 +20,8 @@
   let lastFrame = 0;
   let result = null;
   let trustedReview = true;
+  let retryMode = "none";
+  let lastSubmissionPayload = null;
   let frameId = 0;
   let view = { width: 800, height: 500, dpr: 1 };
 
@@ -81,6 +83,7 @@
   function stopwatch() {
     if (locked || !["uniform", "variable"].includes(state.phase)) return;
     if (!timerRunning) {
+      if (currentMeasurement()?.x2 != null || state.variant.endsWith("answered")) return;
       const time = state.scene.simulationTime;
       const measurement = {
         startModelTime: time, currentOrEndModelTime: time,
@@ -100,8 +103,8 @@
     if (activeDuration() + 1e-9 < minimumDuration()) return;
     captureEndpoint(false);
   }
-  function captureEndpoint(automatic) {
-    const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, state.scene.simulationTime);
+  function captureEndpoint(automatic, endTime = state.scene.simulationTime) {
+    const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, endTime);
     setCurrentMeasurement({ ...measurement, currentOrEndModelTime: measurement.endModelTime });
     timerRunning = false;
     state.variant = state.returnToReview ? "review-edit-captured" : "captured";
@@ -195,25 +198,42 @@
     const computed = Scoring.scoreAttempt(state.definition, state.uniformMeasurement, state.variableMeasurement, state.answers);
     const review = Persistence.makeReview(state);
     const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", review, computed);
+    lastSubmissionPayload = { computed, snapshot };
+    submitPayload(lastSubmissionPayload);
+  }
+  function submitPayload(payload) {
     const handle = (outcome) => {
       const viewState = Persistence.submissionView(outcome);
+      retryMode = Persistence.retryAction(outcome);
       locked = viewState.locked;
       if (viewState.mode === "review" || viewState.mode === "committed") {
-        result = computed;
+        result = payload.computed;
         trustedReview = true;
-        showResult(viewState.mode === "committed" ? "成績已保存，但 Moodle session 尚待完成。" : "答案已提交。", true);
+        showResult(viewState.mode === "committed" ? "成績已保存，但 Moodle session 尚待完成；請重試完成連線。" : "答案已提交。", true, retryMode !== "none");
       } else if (viewState.mode === "pending") {
         result = null;
         trustedReview = false;
         showTechnical("提交狀態尚未確認；答案已凍結，請重試同一份提交。", true);
       } else {
         locked = viewState.locked;
-        showTechnical(viewState.retryable ? "未能傳送到 Moodle，你可以重試。" : "提交前檢查失敗，暫時不能重試。", viewState.retryable);
+        showTechnical(viewState.retryable ? "未能傳送到 Moodle，你可以重試同一份提交。" : "提交前檢查失敗，暫時不能重試。", viewState.retryable);
       }
     };
-    window.SimScorm.submitWithCallbacks(computed, snapshot, { onSuccess: handle, onFailure: handle });
+    window.SimScorm.submitWithCallbacks(payload.computed, payload.snapshot, { onSuccess: handle, onFailure: handle });
   }
-  function retryPending() {
+  function retrySubmission() {
+    if (retryMode === "finish") {
+      if (window.SimScorm.finish()) {
+        retryMode = "none";
+        showResult("答案已提交，Moodle session 已完成。", true, false);
+      } else showResult("成績已保存，但仍未能完成 Moodle session。", true, true);
+      return;
+    }
+    if (retryMode === "resubmit") {
+      if (lastSubmissionPayload) submitPayload(lastSubmissionPayload);
+      else showTechnical("找不到可重試的提交資料，請重新開啟活動。", false);
+      return;
+    }
     const raw = window.SimScorm.retryPending();
     const outcome = { ...raw, activityState: raw.ok ? "success" : raw.committed ? "committed" : raw.frozen ? "frozen" : "retry" };
     if (raw.ok || raw.committed) {
@@ -227,7 +247,8 @@
         trustedReview = false;
       }
       locked = true;
-      showResult(raw.ok ? "答案已提交。" : "成績已保存，但 Moodle session 尚待完成。", trustedReview);
+      retryMode = raw.ok ? "none" : "finish";
+      showResult(raw.ok ? "答案已提交。" : "成績已保存，但 Moodle session 尚待完成。", trustedReview, retryMode !== "none");
     }
     else showTechnical("仍未能確認提交狀態，請稍後再試。", true);
     render();
@@ -257,8 +278,9 @@
     elements.scorePanel.textContent = `成績：--　狀態：未能安全判斷合格狀態`;
     elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>`;
     elements.retryButton.classList.toggle("is-hidden", !retryable);
+    elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : retryMode === "resubmit" ? "重試提交" : "重試連線";
   }
-  function showResult(message, detailed) {
+  function showResult(message, detailed, retryable = false) {
     elements.activitySection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
@@ -267,7 +289,8 @@
     elements.scorePanel.textContent = `成績：${result?.score ?? "--"} / 100　狀態：${label}`;
     const items = detailed && trustedReview ? result.feedbackItems : [];
     elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map((item) => `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.text)}</p></article>`).join("");
-    elements.retryButton.classList.add("is-hidden");
+    elements.retryButton.classList.toggle("is-hidden", !retryable);
+    elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : "重試連線";
   }
 
   function render() {
@@ -300,23 +323,30 @@
     elements.measurementForm.classList.toggle("is-hidden", !captured);
     elements.x1Readout.textContent = measurement ? `${Model.format3(measurement.x1)} m` : "--";
     elements.x2Readout.textContent = captured ? `${Model.format3(measurement.x2)} m` : "--";
-    elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
-    elements.observeButton.textContent = running ? "觀察中" : state.scene.simulationTime > 0 ? "繼續觀察" : "開始觀察";
+    elements.observeButton.textContent = running ? "觀察中" : timerRunning || state.scene.simulationTime > 0 ? "繼續觀察" : "開始觀察";
     elements.observeButton.disabled = running;
     elements.pauseButton.disabled = !running;
-    elements.timerButton.textContent = timerRunning ? "停止計時" : "開始計時";
-    elements.timerButton.classList.toggle("is-running", timerRunning);
-    elements.timerButton.disabled = timerRunning && activeDuration() + 1e-9 < minimumDuration();
-    const remaining = Math.max(0, minimumDuration() - activeDuration());
-    elements.progressMessage.textContent = timerRunning && remaining > 0
-      ? variable ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
-      : timerRunning ? "已達最低量度時間，可以停止計時。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
+    renderMeasurementProgress();
     const answered = state.variant.endsWith("answered");
     elements.navigationControls.classList.toggle("is-hidden", !answered);
     elements.advanceButton.classList.toggle("is-hidden", state.returnToReview);
     elements.advanceButton.textContent = variable ? "前往時間放大鏡" : "前往變速運動";
     elements.returnReviewButton.classList.toggle("is-hidden", !state.returnToReview);
     if (answered) loadMeasurementForm(state.answers[state.phase]);
+  }
+  function renderMeasurementProgress() {
+    const measurement = currentMeasurement();
+    const captured = measurement?.x2 != null;
+    const answered = state.variant.endsWith("answered");
+    const control = Persistence.measurementControlState({ timerRunning, duration: activeDuration(), minimum: minimumDuration(), captured, answered });
+    elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
+    elements.timerButton.textContent = control.label;
+    elements.timerButton.classList.toggle("is-running", timerRunning);
+    elements.timerButton.disabled = control.disabled;
+    const remaining = Math.max(0, minimumDuration() - activeDuration());
+    elements.progressMessage.textContent = timerRunning && remaining > 0
+      ? state.phase === "variable" ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
+      : timerRunning ? "已達最低量度時間，可以停止計時。" : captured ? "量度已完成；如要更改讀數，請先按重新量度。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
   }
   function renderInstant() {
     elements.stageKicker.textContent = "第 3 關";
@@ -349,22 +379,26 @@
     elements.reviewList.innerHTML = [
       reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform),
       reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable),
-      `<article class="review-item"><h3>時間放大鏡</h3><p>估計：${Model.format3(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value)} m/s；停止速度：${escapeHtml(state.answers.instant.stoppedVelocity)} m/s</p><button type="button" data-edit="2">修改第 3 關</button></article>`
+      `<article class="review-item"><h3>時間放大鏡</h3><p>瞬時速度估計：${Model.format3(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value)} m/s</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>完全停止期間：${escapeHtml(state.answers.instant.stoppedVelocity)} m/s</p><button type="button" data-edit="2">修改第 3 關</button></article>`
     ].join("");
     elements.reviewList.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => editStage(Number(button.dataset.edit))));
   }
   function reviewItem(index, title, measurement, answer) {
-    return `<article class="review-item"><h3>${title}</h3><p>x₁ = ${Model.format3(measurement.x1)} m；x₂ = ${Model.format3(measurement.x2)} m；Δt = ${Model.format3(measurement.dt)} s</p><p>|Δx| = ${escapeHtml(answer.displacement)} m；|v̄| = ${escapeHtml(answer.averageVelocity)} m/s；關係答案：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
+    return `<article class="review-item"><h3>${title}</h3><p>讀數：x₁ = ${Model.format3(measurement.x1)} m；x₂ = ${Model.format3(measurement.x2)} m；計時器 = ${Model.format3(measurement.dt)} s</p><p>答案：|Δx| = ${escapeHtml(answer.displacement)} m；Δt = ${escapeHtml(answer.time)} s；|v̄| = ${escapeHtml(answer.averageVelocity)} m/s；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
+  }
+  function conceptLabel(value) {
+    return ({ limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程總位移除以總時間", "zero-division": "位移除以正好零秒", "largest-one-second": "一秒內最大速度" })[value] || "--";
   }
 
   function animate(timestamp) {
     if (running && state && !locked) {
       const delta = Math.min(0.05, Math.max(0, (timestamp - lastFrame) / 1000));
-      state.scene.simulationTime += delta;
+      state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
       lastFrame = timestamp;
       updateActiveMeasurement();
-      if (timerRunning && activeDuration() >= maximumDuration()) captureEndpoint(true);
-      else if (!timerRunning && state.scene.simulationTime >= state.definition[state.phase].episodeLimit) {
+      if (timerRunning && activeDuration() >= maximumDuration()) captureEndpoint(true, currentMeasurement().startModelTime + maximumDuration());
+      else if (!timerRunning && state.scene.simulationTime >= (currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2)) {
+        state.scene.simulationTime = currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2;
         running = false;
         announce("已到觀察範圍上限，車輛自動暫停。開始計時可繼續。");
         render();
@@ -377,6 +411,7 @@
   function renderLiveReadouts() {
     elements.positionReadout.textContent = `${Model.format3(positionAt())} m`;
     elements.timerReadout.textContent = `${Model.format3(timerRunning ? activeDuration() : currentMeasurement()?.dt || 0)} s`;
+    if (["uniform", "variable"].includes(state.phase)) renderMeasurementProgress();
     if (state.phase === "variable") elements.motionStatus.textContent = motionLabel(Model.qualitativeState(state.definition.variable, state.scene.simulationTime), running);
     else elements.motionStatus.textContent = running ? "車輛正以固定速度前進。" : "車輛已暫停，位置保持不變。";
   }
@@ -441,15 +476,26 @@
     const rows = Model.analysisWindows(state.definition);
     const count = state.phase === "instant" ? state.viewedWindowCount : 4;
     const target = Model.targetSceneTime(state.definition);
-    const left = 55, top = 55, right = view.width - 25, bottom = view.height - 55;
+    const left = view.width < 420 ? 44 : 58, top = 125, right = view.width - 18, bottom = view.height - 40;
     const t0 = target - 2.25, t1 = target + .35;
     const points = Array.from({ length: 90 }, (_, index) => { const t = t0 + (t1 - t0) * index / 89; return { t, x: Model.variablePosition(state.definition.variable, t) }; });
     const minX = Math.min(...points.map((point) => point.x)), maxX = Math.max(...points.map((point) => point.x));
     const sx = (time) => left + (time - t0) / (t1 - t0) * (right - left);
     const sy = (position) => bottom - (position - minX) / Math.max(.2, maxX - minX) * (bottom - top);
     context.fillStyle = "#fff"; context.fillRect(0, 0, view.width, view.height);
+    drawFrozenContext(Model.variablePosition(state.definition.variable, target));
     context.strokeStyle = "#d1d5db"; context.lineWidth = 1; context.beginPath(); context.moveTo(left, top); context.lineTo(left, bottom); context.lineTo(right, bottom); context.stroke();
-    context.fillStyle = "#374151"; context.font = "12px system-ui"; context.textAlign = "left"; context.fillText("位置 x / m", left, top - 14); context.textAlign = "right"; context.fillText("時間 t / s", right, bottom + 32);
+    context.fillStyle = "#374151"; context.font = "11px system-ui"; context.textAlign = "left"; context.fillText("x / m", left, top - 8); context.textAlign = "right"; context.fillText("t / s", right, bottom + 30);
+    for (let index = 0; index <= 3; index += 1) {
+      const time = t0 + (t1 - t0) * index / 3;
+      const x = sx(time);
+      context.strokeStyle = "#e5e7eb"; context.beginPath(); context.moveTo(x, top); context.lineTo(x, bottom + 4); context.stroke();
+      context.fillStyle = "#4b5563"; context.textAlign = "center"; context.fillText(Model.format3(time), x, bottom + 17);
+      const position = minX + (maxX - minX) * index / 3;
+      const y = sy(position);
+      context.strokeStyle = "#e5e7eb"; context.beginPath(); context.moveTo(left - 4, y); context.lineTo(right, y); context.stroke();
+      context.fillStyle = "#4b5563"; context.textAlign = "right"; context.fillText(Model.format3(position), left - 6, y + 4);
+    }
     context.strokeStyle = "#2563eb"; context.lineWidth = 3; context.beginPath(); points.forEach((point, index) => index ? context.lineTo(sx(point.t), sy(point.x)) : context.moveTo(sx(point.t), sy(point.x))); context.stroke();
     context.strokeStyle = "#9333ea"; context.setLineDash([5, 5]); context.beginPath(); context.moveTo(sx(target), top); context.lineTo(sx(target), bottom); context.stroke(); context.setLineDash([]);
     if (count) {
@@ -465,6 +511,21 @@
     elements.timerReadout.textContent = `${Model.format3(target)} s`;
     elements.motionStatus.textContent = state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }
+  function drawFrozenContext(position) {
+    const y = 66;
+    context.fillStyle = "#dbeafe"; context.fillRect(0, y - 12, view.width, 24);
+    context.fillStyle = "#4b5563"; context.fillRect(0, y + 12, view.width, 38);
+    context.strokeStyle = "#f8fafc"; context.setLineDash([18, 14]); context.beginPath(); context.moveTo(0, y + 28); context.lineTo(view.width, y + 28); context.stroke(); context.setLineDash([]);
+    context.strokeStyle = "#111827"; context.lineWidth = 2; context.beginPath(); context.moveTo(0, y + 48); context.lineTo(view.width, y + 48); context.stroke();
+    const scale = Math.max(10, Math.min(18, view.width / 25));
+    for (let metre = Math.floor(position - view.width / scale / 2); metre <= position + view.width / scale / 2; metre += 1) {
+      const x = view.width / 2 + (metre - position) * scale;
+      context.strokeStyle = metre % 5 === 0 ? "#111827" : "#6b7280";
+      context.beginPath(); context.moveTo(x, y + 48); context.lineTo(x, y + (metre % 5 === 0 ? 39 : 43)); context.stroke();
+    }
+    drawCar(view.width / 2, y + 17, .28);
+    context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - 8); context.lineTo(view.width / 2, y + 50); context.stroke();
+  }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
 
   elements.observeButton.addEventListener("click", startOrResume);
@@ -477,7 +538,7 @@
   elements.advanceButton.addEventListener("click", advance);
   elements.returnReviewButton.addEventListener("click", advance);
   elements.submitButton.addEventListener("click", submitAll);
-  elements.retryButton.addEventListener("click", retryPending);
+  elements.retryButton.addEventListener("click", retrySubmission);
   new ResizeObserver(resize).observe(canvas);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
@@ -488,13 +549,16 @@
     try {
       state = attempt.state === "draft" ? Persistence.decode(attempt.snapshot?.answer) : Persistence.initialState(Model.createAttempt());
       if (!state) throw new Error("Invalid draft");
+      const restoredRuntime = Persistence.runtimeFlagsForRestore(state);
+      running = restoredRuntime.running;
+      timerRunning = restoredRuntime.timerRunning;
       locked = false;
       if (state.phase === "uniform" || state.phase === "variable") loadMeasurementForm(state.answers[state.phase]); else if (state.phase === "instant") loadInstantForm();
       window.SimScorm.setDraftProvider(draftSnapshot);
       if (attempt.state === "new") saveDraft();
       render();
     } catch (error) { locked = true; showTechnical("未能安全載入或產生本次題目，活動已鎖定。", false); console.warn(error); }
-  } else if (startupView.mode === "pending") { locked = true; showTechnical("上次提交仍待確認；答案已凍結，請重試同一份提交。", true); }
+  } else if (startupView.mode === "pending") { locked = true; retryMode = "pending"; showTechnical("上次提交仍待確認；答案已凍結，請重試同一份提交。", true); }
   else { locked = true; showTechnical("未能讀取 Moodle 嘗試資料，活動已鎖定。", false); }
   frameId = requestAnimationFrame(animate);
   window.addEventListener("unload", () => cancelAnimationFrame(frameId), { once: true });
