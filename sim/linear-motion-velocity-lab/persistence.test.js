@@ -136,6 +136,8 @@ invalid((value) => { value.scene.simulationTime = Infinity; }, ready);
 invalid((value) => { value.scene.simulationTime = Number.MAX_VALUE; }, ready);
 invalid((value) => { value.scene.simulationTime = 1e16; value.scene.observationStarted = 1; }, ready);
 invalid((value) => { value.scene.simulationTime = 1e100; value.scene.observationStarted = 1; }, ready);
+invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME; value.scene.observationStarted = 1; }, ready);
+invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME - 0.01; value.scene.observationStarted = 1; }, ready);
 invalid((value) => { value.scene.observationStarted = 2; }, ready);
 invalid((value) => { value.scene.observationStarted = 0; value.scene.simulationTime = 1; }, ready);
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
@@ -147,6 +149,28 @@ invalid((value) => { value.scene.simulationTime = value.uniformMeasurement.endMo
 invalid((value) => { value.definition.uniform.layout = 99; });
 invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
 invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
+invalid((value) => {
+  const start = Model.MAX_MODEL_TIME - 0.01;
+  const readingOrigin = Model.rollingReadingOrigin(uniformPosition(start));
+  value.scene = { simulationTime: start, paused: 1, observationStarted: 1 };
+  value.uniformMeasurement = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(uniformPosition(start), readingOrigin)), x2: null, dt: 0 };
+}, uniformActive);
+invalid((value) => {
+  const start = Model.MAX_MODEL_TIME - 0.01;
+  const readingOrigin = Model.rollingReadingOrigin(variablePosition(start));
+  value.scene = { simulationTime: start, paused: 1, observationStarted: 1 };
+  value.variableMeasurement = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(variablePosition(start), readingOrigin)), x2: null, dt: 0 };
+}, variableActive);
+
+for (const [type, source, minimum] of [["uniform", ready, 1.5], ["variable", variableReady, variableDuration]]) {
+  const boundaryReady = JSON.parse(JSON.stringify(source));
+  boundaryReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum, paused: 1, observationStarted: 1 };
+  assert(Persistence.validateDraft(boundaryReady), `${type} exact minimum headroom is accepted`);
+  const boundaryActive = Persistence.continueOnce(boundaryReady);
+  const boundaryCaptured = Persistence.continueOnce(boundaryActive);
+  assert(boundaryActive && boundaryCaptured, `${type} boundary state completes one legal minimum measurement`);
+  assert.strictEqual(boundaryCaptured.scene.simulationTime, Model.MAX_MODEL_TIME);
+}
 
 for (const [type, source, position, start, end] of [
   ["uniform", uniformActive, uniformPosition, 10000, 10001.5],

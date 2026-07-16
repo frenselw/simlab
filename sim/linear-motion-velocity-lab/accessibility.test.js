@@ -25,6 +25,11 @@ assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a sta
 assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
 assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "pristine observation has a distinct status");
+const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
+assert.match(animateBody, /catch[\s\S]*locked = true[\s\S]*showTechnical\(/, "runtime numeric failures enter the locked technical view");
+const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
+assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");
+assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");
 for (const name of ["drawRoad", "drawFrozenContext"]) {
   const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
   assert.match(body, /for \(let offset = -tickRadius/, `${name} uses a fixed-count screen-offset tick loop`);

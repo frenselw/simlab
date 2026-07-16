@@ -455,12 +455,19 @@
 
   function animate(timestamp) {
     if (running && state && !locked) {
-      const delta = Math.min(0.05, Math.max(0, (timestamp - lastFrame) / 1000));
-      state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
-      lastFrame = timestamp;
-      updateActiveMeasurement();
-      renderLiveReadouts(true);
-      draw();
+      try {
+        const delta = Math.min(0.05, Math.max(0, (timestamp - lastFrame) / 1000));
+        state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
+        lastFrame = timestamp;
+        updateActiveMeasurement();
+        renderLiveReadouts(true);
+        draw();
+      } catch {
+        running = false;
+        timerRunning = false;
+        locked = true;
+        showTechnical("運動數值已超出可安全繼續的範圍，活動已鎖定；這不是已提交或已評分狀態。", false);
+      }
     }
     frameId = requestAnimationFrame(animate);
   }
@@ -596,7 +603,7 @@
       const dt = .32; context.strokeStyle = "#dc2626"; context.lineWidth = 2; context.setLineDash([8, 4]); context.beginPath(); context.moveTo(sx(target - dt), sy(centreX - velocity * dt)); context.lineTo(sx(target + dt), sy(centreX + velocity * dt)); context.stroke(); context.setLineDash([]);
     }
     const targetWorldPosition = Model.variablePosition(state.definition.variable, target);
-    elements.positionReadout.textContent = `${Model.format3(Model.readingPosition(targetWorldPosition, Model.rollingReadingOrigin(targetWorldPosition)))} m`;
+    elements.positionReadout.textContent = `${Model.format3(targetWorldPosition)} m`;
     elements.timerReadout.textContent = `${Model.format3(target)} s`;
     elements.motionStatus.textContent = state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }

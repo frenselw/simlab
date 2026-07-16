@@ -140,6 +140,11 @@ learner numeric answers, and final numeric feedback.
 
 Use one shared production formatter and test it independently.
 
+The formatter canonicalizes the raw finite value to three significant figures
+before choosing fixed or scientific notation, so a rounding carry such as
+`99.96 -> 1.00 × 10²` changes the exponent correctly. Unsupported subnormal
+values display as `--` and are never accepted as learner answers.
+
 - Non-zero values display exactly three significant digits.
 - Preserve required trailing zeros.
 - Use tabular or monospace numerals so changing decimal places do not shift the
@@ -360,6 +365,10 @@ precision is never used as a separate scoring source. The runtime accepts model
 times only up to a technical multi-year safety ceiling (`1.00 × 10⁹ s`) and
 renderable positions up to `1.00 × 10¹¹ m`. These are corrupted-state guards,
 not learner-facing time limits, pauses, or automatic capture points.
+Restorable ready states must retain enough headroom for the stage minimum
+measurement; active measurements must have started early enough to reach that
+minimum. Runtime numeric failures enter a locked technical state instead of
+leaving controls in a false running state.
 
 The measurement pointer is a fixed vertical line through the car's centre. Every
 captured position uses that centre point. Brief `A` and `B` capture badges may
@@ -375,6 +384,11 @@ Stage three changes the main stage to an analysis view:
 - show the selected interval's two endpoints and secant line;
 - reveal the tangent and exact instantaneous velocity only after the learner
   confirms a prediction.
+
+Stage three uses the original world-position coordinate consistently: graph,
+table endpoints, frozen ruler context, and digital position readout all show the
+same target position. The rolling measurement origin is limited to stages one
+and two.
 
 Use native Canvas for the animated road scene and native SVG or Canvas for the
 position-time graph, whichever gives simpler crisp labels. No third-party graph
@@ -863,6 +877,9 @@ validate definition and answers
 - Every numeric field is finite and non-negative where required. Simulation
   time and rendered position remain below the technical multi-year safety
   bounds; there is no normal learner-facing duration cap.
+- Ready and active measurement states retain enough model-time headroom to
+  complete the applicable `1.50 s` or full-cycle minimum; boundary states that
+  cannot advance to a legal continuation fail closed.
 - Variable segment durations are present, positive, and produce a valid cycle.
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
@@ -946,6 +963,8 @@ Add every new test file to `tools/run-tests.js`.
   significant digits, and rejecting malformed exponents;
 - normalizing values at power-of-ten boundaries, round-tripping every accepted
   normalized string, and rejecting unsupported subnormal magnitudes;
+- formatting raw boundary values without pre-canonicalization, with exactly
+  three significant digits and no `Infinity` or `NaN` text;
 - rejecting `5`, `5.0`, unit text, commas, and non-finite values;
 - half-third-significant-place tolerance just inside and just outside;
 - exact-zero scoring accepts parsed zero and rejects the smallest non-zero valid
@@ -1020,6 +1039,8 @@ Invalid-state matrix cases include:
 - long active and manually captured measurements failing round-trip restore;
 - missing or inconsistent `readingOrigin`, unsafe model time, unsafe rendered
   position, or inconsistent `observationStarted` state;
+- ready/active states at the technical ceiling or just below it without the
+  applicable minimum-measurement headroom;
 - impossible phase/variant/current-stage combinations;
 - missing or stray `returnToReview` flags, missing retained downstream answers,
   and illegally cleared downstream answers in review-edit variants;

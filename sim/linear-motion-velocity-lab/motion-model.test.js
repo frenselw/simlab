@@ -10,6 +10,18 @@ assert.strictEqual(Model.format3(50), "50.0");
 assert.strictEqual(Model.format3(500), "5.00 × 10²");
 assert.strictEqual(Model.format3(0), "0.00");
 assert.strictEqual(Model.format3(Model.canonicalNumber(9.996)), "10.0");
+assert.strictEqual(Model.format3(99.96), "1.00 × 10²");
+assert.strictEqual(Model.format3(999.6), "1.00 × 10³");
+assert.strictEqual(Model.format3(0.00009996), "1.00 × 10⁻⁴");
+assert.strictEqual(Model.format3(1e-323), "--");
+assert.strictEqual(Model.format3(Number.MAX_VALUE), "--", "rounding overflow must not leak Infinity into the display");
+for (const value of [0.005, 0.5, 5, 50, 99.96, 999.6, 0.00009996, 9.99e307]) {
+  const output = Model.format3(value);
+  const coefficient = output.includes(" × ") ? output.split(" × ")[0] : output;
+  const significantDigits = coefficient.replace(/[-.]/g, "").replace(/^0+/, "");
+  assert.strictEqual(significantDigits.length, 3, `${value} displays exactly three significant digits as ${output}`);
+  assert(!/Infinity|NaN/.test(output), `${value} has a finite display`);
+}
 ["5.00", "0.500", "05.00", "0.00", "5.00e2", "1.00E+2", "5.00e-4"].forEach((value) => assert(Model.normalizeInput(value), value));
 ["5", "5.0", "5.00 m", "5,00", "5e0", "5.0e2", "Infinity", "NaN"].forEach((value) => assert.strictEqual(Model.normalizeInput(value), null, value));
 assert.strictEqual(Model.normalizeInput("05.00").text, "5.00");
@@ -102,6 +114,9 @@ assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulat
 assert(Math.abs(Model.advanceSimulationTime(12, Array.from({ length: 6000 }, () => ({ dt: 0.05, running: true }))) - 312) < 1e-9, "observation has no automatic time limit");
 const multiYearTime = Model.advanceSimulationTime(1e8, [{ dt: 0.05, running: true }]);
 assert(multiYearTime > 1e8 && Model.safeModelTime(multiYearTime), "accepted late scene can still advance by a frame");
+assert(Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5));
+assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 0.01, 1.5));
+assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME, 1.5));
 assert.throws(() => Model.advanceSimulationTime(1e16, [{ dt: 0.05, running: true }]), /Invalid frame schedule/);
 
 const lateUniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 10000, 10001.5);
@@ -118,6 +133,10 @@ const regressionExact = Model.variableVelocity(seed2235.variable, Model.targetSc
 for (let index = 1; index < regressionRows.length; index += 1) {
   assert(Math.abs(regressionRows[index].averageVelocity - regressionExact) < Math.abs(regressionRows[index - 1].averageVelocity - regressionExact));
 }
+
+const stageThreeTarget = Model.targetSceneTime(definition);
+const stageThreePosition = Model.canonicalNumber(Model.variablePosition(definition.variable, stageThreeTarget));
+assert(Model.analysisWindows(definition).every((row) => row.endPosition === stageThreePosition), "stage-three table endpoints share the graph target world position");
 
 for (const mutate of [
   (value) => { value.uniform.layout = 3; },

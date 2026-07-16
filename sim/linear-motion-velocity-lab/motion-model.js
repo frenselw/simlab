@@ -27,24 +27,32 @@
     if (!finite(value)) throw new TypeError("Value must be finite");
     return value === 0 ? 0 : Number(value.toPrecision(SIGNIFICANT_FIGURES));
   }
+  function roundedParts(value) {
+    const rounded = canonicalNumber(value);
+    if (!finite(rounded)) return null;
+    const exponential = rounded.toExponential(SIGNIFICANT_FIGURES - 1);
+    return { rounded, exponential, exponent: Number(exponential.slice(exponential.indexOf("e") + 1)) };
+  }
   function format3(value) {
     if (!finite(value)) return "--";
     if (value === 0) return "0.00";
-    const abs = Math.abs(value);
-    const exponent = Math.floor(Math.log10(abs));
+    if (Math.abs(value) < MIN_NORMAL) return "--";
+    const parts = roundedParts(value);
+    if (!parts) return "--";
+    const { rounded, exponential, exponent } = parts;
     if (exponent >= 2 || exponent <= -4) {
-      const mantissa = (value / (10 ** exponent)).toFixed(SIGNIFICANT_FIGURES - 1);
+      const mantissa = exponential.slice(0, exponential.indexOf("e"));
       return `${mantissa} × 10${superscript(exponent)}`;
     }
-    return value.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
+    return rounded.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
   }
   function formatInput3(value) {
     if (!finite(value) || value < 0) return "--";
     if (value === 0) return "0.00";
     if (value < MIN_NORMAL) return "--";
-    const rounded = canonicalNumber(value);
-    const exponential = rounded.toExponential(SIGNIFICANT_FIGURES - 1);
-    const exponent = Number(exponential.slice(exponential.indexOf("e") + 1));
+    const parts = roundedParts(value);
+    if (!parts) return "--";
+    const { rounded, exponential, exponent } = parts;
     return exponent >= 2 || exponent <= -4
       ? exponential.replace("e+", "e")
       : rounded.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
@@ -68,6 +76,9 @@
     return normalized === "--" || !finite(Number(normalized)) ? null : { value, text: normalized };
   }
   function safeModelTime(value) { return finite(value) && value >= 0 && value <= MAX_MODEL_TIME; }
+  function hasModelTimeHeadroom(value, duration) {
+    return safeModelTime(value) && finite(duration) && duration >= 0 && value + duration > value && value + duration <= MAX_MODEL_TIME;
+  }
   function safeWorldPosition(value) { return finite(value) && Math.abs(value) <= MAX_RENDER_POSITION; }
   function rollingReadingOrigin(worldPosition) {
     if (!safeWorldPosition(worldPosition)) throw new RangeError("World position cannot be rendered safely");
@@ -318,7 +329,7 @@
   return {
     SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_RENDER_POSITION, MIN_NORMAL, SEGMENTS,
     canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
-    safeModelTime, safeWorldPosition, rollingReadingOrigin, readingPosition,
+    safeModelTime, hasModelTimeHeadroom, safeWorldPosition, rollingReadingOrigin, readingPosition,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
     captureMeasurement, expectedFromMeasurement, advanceSimulationTime
