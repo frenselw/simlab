@@ -31,8 +31,8 @@
         <section class="sim-stage motion-stage" aria-label="車輛運動與位置時間圖">
           <canvas id="motionCanvas" aria-label="固定在中央的車輛、向後移動的道路標尺或位置時間圖"></canvas>
           <div class="stage-readouts">
-            <span><b>位置</b> <output id="positionReadout">0.00 m</output></span>
-            <span><b>計時器</b> <output id="timerReadout">0.00 s</output></span>
+            <span><b>位置</b> <span id="positionReadout">0.00 m</span></span>
+            <span><b>計時器</b> <span id="timerReadout">0.00 s</span></span>
           </div>
           <p id="motionStatus" class="motion-status">車輛已暫停，等待開始觀察。</p>
         </section>
@@ -49,7 +49,7 @@
               <button id="resetButton" type="button">重新量度</button>
             </div>
             <button id="timerButton" type="button" class="stopwatch-button">開始計時</button>
-            <p id="progressMessage" class="muted" aria-live="polite">計時至少 1.50 s 後才可停止。</p>
+            <p id="progressMessage" class="muted">計時至少 1.50 s 後才可停止。</p>
 
             <div id="measurementCard" class="measurement-card is-hidden">
               <h3>已記錄讀數</h3>
@@ -109,13 +109,15 @@
           <section id="reviewSection" class="panel-section is-hidden">
             <h2 class="section-title">提交前檢查</h2>
             <p>以下只顯示你記錄的答案，不會預先透露正確與否。</p>
+            <p id="submissionNotice" class="submission-notice is-hidden" role="status"></p>
             <div id="reviewList" class="review-list"></div>
             <button id="submitButton" type="button" class="primary-button">提交全部答案</button>
+            <button id="reviewRetryButton" type="button" class="is-hidden">重試提交目前答案</button>
           </section>
 
           <section id="resultSection" class="panel-section is-hidden">
             <h2 id="resultTitle" class="section-title">結果</h2>
-            <div id="scorePanel" class="score-panel" aria-live="polite"></div>
+            <div id="scorePanel" class="score-panel"></div>
             <div id="feedbackList" class="feedback-list"></div>
             <button id="retryButton" type="button" class="is-hidden">重試連線</button>
           </section>

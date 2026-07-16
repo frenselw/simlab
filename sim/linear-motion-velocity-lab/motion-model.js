@@ -11,6 +11,10 @@
   const NUMERIC_EPSILON_FACTOR = 8;
   const MAX_GENERATION_ATTEMPTS = 80;
   const SEGMENTS = ["slow", "accelerate", "fast", "decelerate", "stopped", "restart"];
+  const DURATION_RANGES = {
+    slow: [0.6, 0.8], accelerate: [2.8, 3.1], fast: [0.6, 0.8],
+    decelerate: [2.8, 3.1], stopped: [0.6, 0.8], restart: [1, 1.2]
+  };
 
   function finite(value) { return Number.isFinite(value); }
   function roundStep(value, step) { return Math.round(value / step) * step; }
@@ -225,7 +229,10 @@
     return { displacement, time: measurement.dt, averageVelocity: canonicalNumber(displacement / measurement.dt) };
   }
   function validDurations(durations) {
-    return durations && SEGMENTS.every((key) => finite(durations[key]) && durations[key] > 0);
+    return durations && SEGMENTS.every((key) => {
+      const [minimum, maximum] = DURATION_RANGES[key];
+      return finite(durations[key]) && durations[key] >= minimum - 1e-9 && durations[key] <= maximum + 1e-9;
+    });
   }
   function validateDefinition(definition) {
     if (!definition || !Number.isInteger(definition.seed) || definition.seed < 0 || !definition.uniform || !definition.variable) return false;
@@ -237,7 +244,7 @@
     if (u.coordinateOrigin % 10 !== 0 || v.coordinateOrigin % 10 !== 0 || u.x0 < u.coordinateOrigin || u.x0 >= u.coordinateOrigin + 10 || v.x0 < v.coordinateOrigin || v.x0 >= v.coordinateOrigin + 10) return false;
     if (u.speed < 3.2 || u.speed > 8.8 || v.slowSpeed < 1.5 || v.slowSpeed > 3 || v.fastSpeed < 6.5 || v.fastSpeed > 9.5 || v.fastSpeed - v.slowSpeed < 4) return false;
     if (Math.abs(u.speed - v.slowSpeed) < 0.75 || Math.abs(u.speed - v.fastSpeed) < 0.75) return false;
-    if (!validDurations(v.durations) || v.durations.stopped < 0.6) return false;
+    if (!validDurations(v.durations)) return false;
     const cycle = cycleDuration(v);
     if (cycle < 7.5 || cycle > 10.5) return false;
     if (v.initialPhase < 0 || v.initialPhase >= cycle || Math.abs(v.episodeLimit - (cycle + 3.5)) > 1e-9) return false;
@@ -246,7 +253,8 @@
     if (!target || !["accelerate", "decelerate"].includes(target.segment) || ![0, 1].includes(target.cycleIndex) || !finite(target.timeWithinSegment)) return false;
     const duration = v.durations[target.segment];
     if (target.timeWithinSegment < WINDOWS[0] + TARGET_BOUNDARY_MARGIN_S - 1e-9 || duration - target.timeWithinSegment < TARGET_BOUNDARY_MARGIN_S - 1e-9) return false;
-    if (targetSceneTime(definition) <= WINDOWS[0]) return false;
+    const sceneTarget = targetSceneTime(definition);
+    if (sceneTarget <= WINDOWS[0] || sceneTarget > v.episodeLimit - TARGET_BOUNDARY_MARGIN_S + 1e-9) return false;
     const rows = analysisWindows(definition);
     if (new Set(rows.map((row) => row.averageVelocity)).size < 3) return false;
     const exact = canonicalNumber(variableVelocity(v, targetSceneTime(definition)));
@@ -274,11 +282,16 @@
     }, initial);
   }
 
+  function automaticEndpoint(startModelTime, maximumDuration, sceneTime) {
+    if (![startModelTime, maximumDuration, sceneTime].every(finite) || startModelTime < 0 || maximumDuration <= 0 || sceneTime < startModelTime + maximumDuration) return null;
+    return startModelTime + maximumDuration;
+  }
+
   return {
     SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, SEGMENTS,
     canonicalNumber, format3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
-    captureMeasurement, expectedFromMeasurement, advanceSimulationTime
+    captureMeasurement, expectedFromMeasurement, advanceSimulationTime, automaticEndpoint
   };
 });

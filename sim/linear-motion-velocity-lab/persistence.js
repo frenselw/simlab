@@ -87,6 +87,9 @@
     const va = stageAnswer(state.answers.variable, "variable");
     const ia = instantAnswer(state.answers.instant, state.definition);
     if (u === "invalid" || v === "invalid" || ua === "invalid" || va === "invalid" || ia === "invalid") return false;
+    if (state.variant.endsWith("ready") && state.scene.simulationTime > 2 + 1e-9) return false;
+    if (u === "active" && state.uniformMeasurement.startModelTime > state.definition.uniform.episodeLimit - 1.5 + 1e-9) return false;
+    if (v === "active" && state.variableMeasurement.startModelTime > state.definition.variable.episodeLimit - Model.cycleDuration(state.definition.variable) + 1e-9) return false;
     const downstream = edit && ((state.phase === "uniform" && va === "complete" && ia === "complete") || (state.phase === "variable" && ua === "complete" && ia === "complete") || (state.phase === "instant" && ua === "complete" && va === "complete"));
     if (edit && !downstream) return false;
     switch (key) {

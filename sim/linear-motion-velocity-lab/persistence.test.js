@@ -128,7 +128,18 @@ invalid((value) => { value.viewedWindowCount = 3; });
 invalid((value) => { value.answers.variable = variableAnswer; }, uniformCaptured);
 invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, uniformActive);
 invalid((value) => { value.scene.simulationTime = definition.uniform.episodeLimit + 0.01; }, ready);
+invalid((value) => { value.scene.simulationTime = 2.01; }, ready);
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
+invalid((value) => {
+  const start = definition.uniform.episodeLimit - 1;
+  value.uniformMeasurement = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(uniformPosition(start)), x2: null, dt: 0 };
+  value.scene.simulationTime = start;
+}, uniformActive);
+invalid((value) => {
+  const start = definition.variable.episodeLimit - variableDuration + 0.01;
+  value.variableMeasurement = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(variablePosition(start)), x2: null, dt: 0 };
+  value.scene.simulationTime = start;
+}, variableActive);
 invalid((value) => {
   value.uniformMeasurement = { ...Model.captureMeasurement(uniformPosition, 0, 10.1), currentOrEndModelTime: 10.1 };
   value.scene.simulationTime = 10.1;
@@ -142,6 +153,22 @@ invalid((value) => { value.definition.uniform.layout = 99; });
 invalid((value) => { value.definition.variable.episodeLimit += 1; });
 invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
 invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
+
+for (const [type, source, position, limit] of [
+  ["uniform", uniformActive, uniformPosition, 10],
+  ["variable", variableActive, variablePosition, variableDuration + 1.5]
+]) {
+  const automatic = JSON.parse(JSON.stringify(source));
+  const start = automatic[`${type}Measurement`].startModelTime;
+  const end = Model.automaticEndpoint(start, limit, start + limit + 0.03);
+  automatic.scene.simulationTime = end;
+  automatic[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end), currentOrEndModelTime: end };
+  automatic.variant = "captured";
+  const restoredAutomatic = Persistence.decode(Persistence.encode(automatic));
+  assert(restoredAutomatic, `${type} automatic capture survives encode/reload`);
+  assert.strictEqual(restoredAutomatic.scene.simulationTime, end);
+  assert.strictEqual(restoredAutomatic[`${type}Measurement`].endModelTime, end);
+}
 
 const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
 assert.strictEqual(Persistence.decodeReview(badReview), null);

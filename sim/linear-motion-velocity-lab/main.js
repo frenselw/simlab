@@ -21,7 +21,7 @@
   let result = null;
   let trustedReview = true;
   let retryMode = "none";
-  let lastSubmissionPayload = null;
+  let lastMotionSegment = null;
   let frameId = 0;
   let view = { width: 800, height: 500, dpr: 1 };
 
@@ -47,8 +47,18 @@
     return window.SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode({ ...state, running, timerRunning }));
   }
   function saveDraft() {
-    if (locked) return;
-    try { window.SimScorm.saveDraft(draftSnapshot()); } catch (error) { showTechnical("未能保存目前進度，請勿關閉頁面。", false); console.warn(error); }
+    if (locked) return false;
+    try {
+      if (!window.SimScorm.saveDraft(draftSnapshot())) throw new Error("Draft save was rejected");
+      return true;
+    } catch (error) {
+      locked = true;
+      running = false;
+      timerRunning = false;
+      showTechnical("未能保存目前進度，活動已鎖定；請勿關閉頁面。", false);
+      console.warn(error);
+      return false;
+    }
   }
 
   function startOrResume() {
@@ -56,7 +66,7 @@
     running = true;
     lastFrame = performance.now();
     announce(timerRunning ? "繼續觀察及計時。" : "開始觀察車輛運動。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function pause() {
@@ -64,7 +74,7 @@
     running = false;
     updateActiveMeasurement();
     announce(timerRunning ? "觀察及計時已暫停。" : "觀察已暫停。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function resetMeasurement() {
@@ -77,7 +87,7 @@
     state.variant = state.returnToReview ? "review-edit-ready" : "ready";
     clearMeasurementForm();
     announce("已回到相同題目的起始狀態，請重新量度。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function stopwatch() {
@@ -96,7 +106,7 @@
       running = true;
       lastFrame = performance.now();
       announce(`已記錄起點 ${Model.format3(measurement.x1)} m，開始計時。`);
-      saveDraft();
+      if (!saveDraft()) return;
       render();
       return;
     }
@@ -107,10 +117,12 @@
     const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, endTime);
     setCurrentMeasurement({ ...measurement, currentOrEndModelTime: measurement.endModelTime });
     timerRunning = false;
+    if (automatic) running = false;
     state.variant = state.returnToReview ? "review-edit-captured" : "captured";
-    announce(`${automatic ? "已到量度上限，自動" : "已"}記錄終點 ${Model.format3(measurement.x2)} m；車輛仍繼續運動。`);
-    saveDraft();
+    announce(`${automatic ? "已到量度上限，自動記錄終點並暫停觀察" : "已記錄終點"} ${Model.format3(measurement.x2)} m${automatic ? "。" : "；車輛仍繼續運動。"}`);
+    if (!saveDraft()) return false;
     render();
+    return true;
   }
   function clearMeasurementForm() {
     [elements.displacementInput, elements.timeInput, elements.averageInput].forEach((input) => { input.value = ""; });
@@ -138,7 +150,7 @@
     elements.answerError.textContent = "";
     running = false;
     announce("本關答案已記錄，提交前仍可修改。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
 
@@ -150,14 +162,14 @@
     timerRunning = false;
     if (state.phase === "variable") clearMeasurementForm();
     announce(state.phase === "review" ? "已進入提交前檢查。" : state.phase === "instant" ? "已進入時間放大鏡。" : "已進入下一關。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function nextWindow() {
     if (locked || state.phase !== "instant" || state.viewedWindowCount >= 4) return;
     state.viewedWindowCount += 1;
     announce(`已顯示第 ${state.viewedWindowCount} 個時間區間。`);
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function submitInstant(event) {
@@ -171,7 +183,7 @@
     state.variant = state.returnToReview ? "review-edit-answered" : "answered";
     elements.instantError.textContent = "";
     announce("時間放大鏡答案已記錄，現在顯示切線和模型值。");
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function editStage(stage) {
@@ -183,7 +195,7 @@
     if (stage < 2) loadMeasurementForm(state.answers[state.phase]);
     else loadInstantForm();
     announce(`返回第 ${stage + 1} 關修改答案。`);
-    saveDraft();
+    if (!saveDraft()) return;
     render();
   }
   function loadInstantForm() {
@@ -195,48 +207,69 @@
 
   function submitAll() {
     if (locked || state.phase !== "review" || !window.confirm("確認提交全部答案？提交後本次嘗試只可重看。")) return;
+    elements.submissionNotice.classList.add("is-hidden");
+    elements.reviewRetryButton.classList.add("is-hidden");
+    submitPayload(buildSubmissionPayload());
+  }
+  function buildSubmissionPayload() {
     const computed = Scoring.scoreAttempt(state.definition, state.uniformMeasurement, state.variableMeasurement, state.answers);
     const review = Persistence.makeReview(state);
     const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", review, computed);
-    lastSubmissionPayload = { computed, snapshot };
-    submitPayload(lastSubmissionPayload);
+    return { computed, snapshot };
   }
   function submitPayload(payload) {
     const handle = (outcome) => {
-      const viewState = Persistence.submissionView(outcome);
       retryMode = Persistence.retryAction(outcome);
-      locked = viewState.locked;
-      if (viewState.mode === "review" || viewState.mode === "committed") {
-        result = payload.computed;
-        trustedReview = true;
-        showResult(viewState.mode === "committed" ? "成績已保存，但 Moodle session 尚待完成；請重試完成連線。" : "答案已提交。", true, retryMode !== "none");
-      } else if (viewState.mode === "pending") {
-        result = null;
-        trustedReview = false;
-        showTechnical("提交狀態尚未確認；答案已凍結，請重試同一份提交。", true);
-      } else {
-        locked = viewState.locked;
-        showTechnical(viewState.retryable ? "未能傳送到 Moodle，你可以重試同一份提交。" : "提交前檢查失敗，暫時不能重試。", viewState.retryable);
-      }
+      window.SimActivityFlow.submission(outcome, {
+        success: () => {
+          locked = true; result = payload.computed; trustedReview = true;
+          showResult("答案已提交。", true, false);
+        },
+        committed: () => {
+          locked = true; result = payload.computed; trustedReview = true;
+          showResult("成績已保存，但 Moodle 工作階段尚待完成；請重試完成連線。", true, true);
+        },
+        frozen: () => {
+          locked = true; result = null; trustedReview = false;
+          showTechnical("提交狀態尚未確認；答案已凍結，請重試同一份提交。", true);
+        },
+        retry: () => {
+          if (outcome.retryable) showReviewRetry("未能傳送到 Moodle。你可修改答案，或重試提交目前答案。");
+          else {
+            locked = true;
+            showTechnical("提交前檢查失敗，暫時不能重試。", false);
+          }
+        }
+      });
     };
     window.SimScorm.submitWithCallbacks(payload.computed, payload.snapshot, { onSuccess: handle, onFailure: handle });
+  }
+  function showReviewRetry(message) {
+    locked = false;
+    retryMode = "resubmit";
+    render();
+    elements.submissionNotice.textContent = message;
+    elements.submissionNotice.classList.remove("is-hidden");
+    elements.reviewRetryButton.classList.remove("is-hidden");
   }
   function retrySubmission() {
     if (retryMode === "finish") {
       if (window.SimScorm.finish()) {
         retryMode = "none";
-        showResult("答案已提交，Moodle session 已完成。", true, false);
-      } else showResult("成績已保存，但仍未能完成 Moodle session。", true, true);
+        showResult("答案已提交，Moodle 工作階段已完成。", true, false);
+      } else showResult("成績已保存，但仍未能完成 Moodle 工作階段。", true, true);
       return;
     }
     if (retryMode === "resubmit") {
-      if (lastSubmissionPayload) submitPayload(lastSubmissionPayload);
-      else showTechnical("找不到可重試的提交資料，請重新開啟活動。", false);
+      if (!state || state.phase !== "review") return showTechnical("找不到可重試的提交資料，請重新開啟活動。", false);
+      elements.submissionNotice.classList.add("is-hidden");
+      elements.reviewRetryButton.classList.add("is-hidden");
+      submitPayload(buildSubmissionPayload());
       return;
     }
     const raw = window.SimScorm.retryPending();
     const outcome = { ...raw, activityState: raw.ok ? "success" : raw.committed ? "committed" : raw.frozen ? "frozen" : "retry" };
-    if (raw.ok || raw.committed) {
+    const restorePendingResult = (message, nextRetryMode) => {
       const review = Persistence.decodeReview(raw.review?.answer);
       if (review) {
         state = Persistence.fromReview(review);
@@ -247,12 +280,17 @@
         trustedReview = false;
       }
       locked = true;
-      retryMode = raw.ok ? "none" : "finish";
-      showResult(raw.ok ? "答案已提交。" : "成績已保存，但 Moodle session 尚待完成。", trustedReview, retryMode !== "none");
-    }
-    else showTechnical("仍未能確認提交狀態，請稍後再試。", true);
+      retryMode = nextRetryMode;
+      showResult(message, trustedReview, retryMode !== "none");
+    };
+    window.SimActivityFlow.submission(outcome, {
+      success: () => restorePendingResult("答案已提交。", "none"),
+      committed: () => restorePendingResult("成績已保存，但 Moodle 工作階段尚待完成。", "finish"),
+      frozen: () => { locked = true; retryMode = "pending"; showTechnical("提交狀態仍待確認；答案繼續凍結。", true); },
+      retry: () => { locked = true; retryMode = "pending"; showTechnical("仍未能確認提交狀態，請稍後再試。", true); }
+    });
     render();
-    return Persistence.submissionView(outcome);
+    return outcome.activityState;
   }
 
   function restoreFinished(attempt) {
@@ -271,6 +309,7 @@
     showResult(outcome.trusted ? "已提交答案（只供重看）。" : "答案內容與 Moodle 記錄不一致，只顯示 Moodle 已記錄結果。", outcome.trusted);
   }
   function showTechnical(message, retryable) {
+    setGraphLayout(true);
     elements.activitySection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
@@ -281,6 +320,7 @@
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : retryMode === "resubmit" ? "重試提交" : "重試連線";
   }
   function showResult(message, detailed, retryable = false) {
+    setGraphLayout(true);
     elements.activitySection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
@@ -295,6 +335,7 @@
 
   function render() {
     if (!state) return drawEmpty();
+    setGraphLayout(state.phase === "instant" || state.phase === "review" || locked);
     const stageIndex = state.stage;
     progressItems.forEach((item, index) => { item.classList.toggle("is-current", index === stageIndex); item.classList.toggle("is-done", index < stageIndex); });
     elements.activitySection.classList.toggle("is-hidden", state.phase === "review" || locked);
@@ -303,8 +344,10 @@
     if (state.phase === "review") renderReview();
     else if (state.phase === "instant") renderInstant();
     else renderMeasurementStage();
+    if (["uniform", "variable"].includes(state.phase)) renderLiveReadouts(false);
     draw();
   }
+  function setGraphLayout(graph) { canvas.parentElement.classList.toggle("is-graph", graph); }
   function renderMeasurementStage() {
     const variable = state.phase === "variable";
     elements.stageKicker.textContent = variable ? "第 2 關" : "第 1 關";
@@ -396,23 +439,32 @@
       state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
       lastFrame = timestamp;
       updateActiveMeasurement();
-      if (timerRunning && activeDuration() >= maximumDuration()) captureEndpoint(true, currentMeasurement().startModelTime + maximumDuration());
+      if (timerRunning && activeDuration() >= maximumDuration()) {
+        const endpoint = Model.automaticEndpoint(currentMeasurement().startModelTime, maximumDuration(), state.scene.simulationTime);
+        state.scene.simulationTime = endpoint;
+        captureEndpoint(true, endpoint);
+      }
       else if (!timerRunning && state.scene.simulationTime >= (currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2)) {
         state.scene.simulationTime = currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2;
         running = false;
         announce("已到觀察範圍上限，車輛自動暫停。開始計時可繼續。");
         render();
       }
-      renderLiveReadouts();
+      renderLiveReadouts(true);
       draw();
     }
     frameId = requestAnimationFrame(animate);
   }
-  function renderLiveReadouts() {
+  function renderLiveReadouts(announceBoundary) {
     elements.positionReadout.textContent = `${Model.format3(positionAt())} m`;
     elements.timerReadout.textContent = `${Model.format3(timerRunning ? activeDuration() : currentMeasurement()?.dt || 0)} s`;
     if (["uniform", "variable"].includes(state.phase)) renderMeasurementProgress();
-    if (state.phase === "variable") elements.motionStatus.textContent = motionLabel(Model.qualitativeState(state.definition.variable, state.scene.simulationTime), running);
+    if (state.phase === "variable") {
+      const segment = Model.qualitativeState(state.definition.variable, state.scene.simulationTime);
+      elements.motionStatus.textContent = motionLabel(segment, running);
+      if (announceBoundary && running && lastMotionSegment && segment !== lastMotionSegment) announce(motionLabel(segment, true));
+      lastMotionSegment = segment;
+    }
     else elements.motionStatus.textContent = running ? "車輛正以固定速度前進。" : "車輛已暫停，位置保持不變。";
   }
   function motionLabel(segment, isRunning) {
@@ -451,7 +503,6 @@
     drawCar(w / 2, roadTop - 8, Math.min(1.15, w / 520));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, roadTop - 90); context.lineTo(w / 2, h - 30); context.stroke();
     context.fillStyle = "#92400e"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, roadTop - 98);
-    renderLiveReadouts();
   }
   function drawLandmarks(position, scale, horizon, roadTop) {
     const spacing = 18;
@@ -476,14 +527,16 @@
     const rows = Model.analysisWindows(state.definition);
     const count = state.phase === "instant" ? state.viewedWindowCount : 4;
     const target = Model.targetSceneTime(state.definition);
-    const left = view.width < 420 ? 44 : 58, top = 125, right = view.width - 18, bottom = view.height - 40;
+    const compact = view.height < 260;
+    const left = view.width < 420 ? 44 : 58, top = compact ? 78 : 125, right = view.width - 18, bottom = view.height - (compact ? 30 : 40);
+    canvas.dataset.graphHeight = String(Math.max(0, Math.round(bottom - top)));
     const t0 = target - 2.25, t1 = target + .35;
     const points = Array.from({ length: 90 }, (_, index) => { const t = t0 + (t1 - t0) * index / 89; return { t, x: Model.variablePosition(state.definition.variable, t) }; });
     const minX = Math.min(...points.map((point) => point.x)), maxX = Math.max(...points.map((point) => point.x));
     const sx = (time) => left + (time - t0) / (t1 - t0) * (right - left);
     const sy = (position) => bottom - (position - minX) / Math.max(.2, maxX - minX) * (bottom - top);
     context.fillStyle = "#fff"; context.fillRect(0, 0, view.width, view.height);
-    drawFrozenContext(Model.variablePosition(state.definition.variable, target));
+    drawFrozenContext(Model.variablePosition(state.definition.variable, target), compact);
     context.strokeStyle = "#d1d5db"; context.lineWidth = 1; context.beginPath(); context.moveTo(left, top); context.lineTo(left, bottom); context.lineTo(right, bottom); context.stroke();
     context.fillStyle = "#374151"; context.font = "11px system-ui"; context.textAlign = "left"; context.fillText("x / m", left, top - 8); context.textAlign = "right"; context.fillText("t / s", right, bottom + 30);
     for (let index = 0; index <= 3; index += 1) {
@@ -511,20 +564,23 @@
     elements.timerReadout.textContent = `${Model.format3(target)} s`;
     elements.motionStatus.textContent = state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }
-  function drawFrozenContext(position) {
-    const y = 66;
-    context.fillStyle = "#dbeafe"; context.fillRect(0, y - 12, view.width, 24);
-    context.fillStyle = "#4b5563"; context.fillRect(0, y + 12, view.width, 38);
-    context.strokeStyle = "#f8fafc"; context.setLineDash([18, 14]); context.beginPath(); context.moveTo(0, y + 28); context.lineTo(view.width, y + 28); context.stroke(); context.setLineDash([]);
-    context.strokeStyle = "#111827"; context.lineWidth = 2; context.beginPath(); context.moveTo(0, y + 48); context.lineTo(view.width, y + 48); context.stroke();
+  function drawFrozenContext(position, compact) {
+    const y = compact ? 35 : 66;
+    const sky = compact ? 8 : 12;
+    const road = compact ? 24 : 38;
+    const ruler = y + sky + road;
+    context.fillStyle = "#dbeafe"; context.fillRect(0, y - sky, view.width, sky * 2);
+    context.fillStyle = "#4b5563"; context.fillRect(0, y + sky, view.width, road);
+    context.strokeStyle = "#f8fafc"; context.setLineDash([18, 14]); context.beginPath(); context.moveTo(0, y + sky + road * .45); context.lineTo(view.width, y + sky + road * .45); context.stroke(); context.setLineDash([]);
+    context.strokeStyle = "#111827"; context.lineWidth = 2; context.beginPath(); context.moveTo(0, ruler); context.lineTo(view.width, ruler); context.stroke();
     const scale = Math.max(10, Math.min(18, view.width / 25));
     for (let metre = Math.floor(position - view.width / scale / 2); metre <= position + view.width / scale / 2; metre += 1) {
       const x = view.width / 2 + (metre - position) * scale;
       context.strokeStyle = metre % 5 === 0 ? "#111827" : "#6b7280";
-      context.beginPath(); context.moveTo(x, y + 48); context.lineTo(x, y + (metre % 5 === 0 ? 39 : 43)); context.stroke();
+      context.beginPath(); context.moveTo(x, ruler); context.lineTo(x, ruler - (metre % 5 === 0 ? 9 : 5)); context.stroke();
     }
-    drawCar(view.width / 2, y + 17, .28);
-    context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - 8); context.lineTo(view.width / 2, y + 50); context.stroke();
+    drawCar(view.width / 2, y + sky + 5, compact ? .2 : .28);
+    context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - sky + 4); context.lineTo(view.width / 2, ruler + 2); context.stroke();
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
 
@@ -539,6 +595,7 @@
   elements.returnReviewButton.addEventListener("click", advance);
   elements.submitButton.addEventListener("click", submitAll);
   elements.retryButton.addEventListener("click", retrySubmission);
+  elements.reviewRetryButton.addEventListener("click", retrySubmission);
   new ResizeObserver(resize).observe(canvas);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
@@ -555,8 +612,7 @@
       locked = false;
       if (state.phase === "uniform" || state.phase === "variable") loadMeasurementForm(state.answers[state.phase]); else if (state.phase === "instant") loadInstantForm();
       window.SimScorm.setDraftProvider(draftSnapshot);
-      if (attempt.state === "new") saveDraft();
-      render();
+      if (attempt.state !== "new" || saveDraft()) render();
     } catch (error) { locked = true; showTechnical("未能安全載入或產生本次題目，活動已鎖定。", false); console.warn(error); }
   } else if (startupView.mode === "pending") { locked = true; retryMode = "pending"; showTechnical("上次提交仍待確認；答案已凍結，請重試同一份提交。", true); }
   else { locked = true; showTechnical("未能讀取 Moodle 嘗試資料，活動已鎖定。", false); }

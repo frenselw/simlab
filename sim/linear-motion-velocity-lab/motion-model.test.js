@@ -86,6 +86,8 @@ const pausedTime = Model.advanceSimulationTime(0, [
   ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: false }))
 ]);
 assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulation time");
+assert.strictEqual(Model.automaticEndpoint(2, 10, 12.03), 12, "overshoot clamps to the exact endpoint");
+assert.strictEqual(Model.automaticEndpoint(2, 10, 11.99), null, "capture waits for the limit");
 
 const seed2235 = Model.createAttempt(2235);
 const regressionRows = Model.analysisWindows(seed2235);
@@ -101,7 +103,12 @@ for (const mutate of [
   (value) => { value.variable.episodeLimit += 1; },
   (value) => { value.uniform.coordinateOrigin += 1; },
   (value) => { value.variable.x0 = 1000; },
-  (value) => { value.uniform.speed = value.variable.fastSpeed; }
+  (value) => { value.uniform.speed = value.variable.fastSpeed; },
+  (value) => { value.variable.durations.slow = 1.65; },
+  (value) => { value.variable.durations.accelerate = 0.2; },
+  (value) => { value.variable.durations.fast = 1.15; },
+  (value) => { value.variable.durations.restart = 0.2; },
+  (value) => { value.instantTarget.cycleIndex = 1; }
 ]) {
   const corrupt = JSON.parse(JSON.stringify(definition));
   mutate(corrupt);
