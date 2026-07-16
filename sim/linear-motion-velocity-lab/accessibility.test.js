@@ -6,6 +6,8 @@ const path = require("path");
 
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+const scoring = fs.readFileSync(path.join(__dirname, "scoring.js"), "utf8");
+const runtimeSources = ["styles.css", "motion-model.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")]);
 
 assert.strictEqual((html.match(/aria-live=/g) || []).length, 1, "only the dedicated live region announces updates");
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
@@ -15,6 +17,12 @@ assert.doesNotMatch(html.match(/id="progressMessage"[^>]*>/)?.[0] || "", /aria-l
 assert.match(html, /id="resultTitle"[^>]*tabindex="-1"/);
 assert.doesNotMatch(main.match(/function drawRoad\(\)[\s\S]*?\n  }/)?.[0] || "", /renderLiveReadouts/, "road drawing must not duplicate semantic updates");
 assert.match(main, /SimActivityFlow\.submission\(outcome,/);
+for (const [name, source] of [["HTML", html], ["main script", main], ["scoring script", scoring], ...runtimeSources]) {
+  assert.doesNotMatch(source, /MathJax|mathjax|\\\(|\\\[|\\mathrm|\\Delta|\\bar/, `${name} must not contain MathJax or raw TeX`);
+}
+assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a stable semantic overbar");
+assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
+assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
 for (const name of ["showTechnical", "showResult"]) {
   const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
   assert.match(body, /announce\(/, `${name} must announce its final state once`);

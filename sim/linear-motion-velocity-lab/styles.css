@@ -34,9 +34,19 @@
 .reading-grid dt { color: var(--color-text-muted); font-size: .8rem; }
 .reading-grid dd { margin: .2rem 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
 .answer-form { display: grid; gap: .75rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--color-border-light); }
-.answer-form > label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 44%); align-items: center; gap: .5rem; }
-.input-with-unit { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .4rem; }
-.input-with-unit input { width: 100%; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.calculation-formula { display: flex; min-height: var(--touch-target); align-items: center; justify-content: center; gap: .45rem; margin: 0; padding: .55rem; background: #f3f4f6; font-family: Georgia, "Times New Roman", serif; font-size: 1.1rem; text-align: center; }
+.fraction { display: inline-grid; grid-template-rows: auto auto; align-items: center; line-height: 1.05; }
+.fraction > :first-child { padding: 0 .25rem .15rem; border-bottom: 1.5px solid currentColor; }
+.fraction > :last-child { padding-top: .15rem; }
+var { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
+.overbar { display: inline-block; line-height: .92; text-decoration: overline; text-decoration-thickness: 1px; }
+.math-quantity { display: inline-flex; align-items: baseline; gap: .18em; white-space: nowrap; }
+.math-number { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.math-quantity .unit { font-family: system-ui, sans-serif; font-style: normal; }
+.calculation-row { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 8.5rem) 3.5rem; min-height: var(--touch-target); align-items: center; gap: .5rem; }
+.calculation-row > span:first-child { min-width: 0; line-height: 1.35; }
+.calculation-row input { width: 100%; min-width: 0; min-height: var(--touch-target); box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.calculation-row .unit { display: flex; min-height: var(--touch-target); align-items: center; justify-content: flex-start; white-space: nowrap; }
 .answer-form input[type="text"],
 .answer-form input:not([type]) { min-height: var(--touch-target); padding: .55rem .65rem; }
 fieldset { display: grid; gap: .5rem; min-width: 0; padding: .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-panel); }
@@ -82,7 +92,7 @@ th { background: #f3f4f6; }
   .motion-panel { min-height: 0; overscroll-behavior: contain; }
   .motion-status { max-width: calc(100% - 1.5rem); font-size: .82rem; }
   .stage-readouts { font-size: .78rem; }
-  .answer-form > label { grid-template-columns: 1fr; }
+  .calculation-row { grid-template-columns: minmax(6.5rem, 1fr) minmax(6.5rem, 8rem) 3.2rem; gap: .35rem; }
 }
 
 @media (max-width: 819px) and (max-height: 650px) {

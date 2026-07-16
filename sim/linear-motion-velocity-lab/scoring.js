@@ -29,7 +29,7 @@
   function component(answerText, expected, weight) {
     const parsed = Model.normalizeInput(answerText);
     const correct = Boolean(parsed && Model.numericMatch(parsed.value, expected));
-    return { correct, points: correct ? weight : 0, answer: parsed?.text || String(answerText ?? ""), expected: Model.format3(expected) };
+    return { correct, points: correct ? weight : 0, answer: parsed?.text || String(answerText ?? ""), expected: Model.formatInput3(expected) };
   }
   function scoreAttempt(definition, uniformMeasurement, variableMeasurement, answers) {
     if (!Model.validateDefinition(definition) || !uniformMeasurement || !variableMeasurement || !completeAnswers(answers)) throw new Error("Incomplete or invalid answer state");
@@ -80,9 +80,9 @@
         title: "第 1 關：勻速運動",
         correct: Object.values(detail.uniform).every((item) => item.correct),
         text: [
-          numericFeedback("位移大小", detail.uniform.displacement, "m"),
-          numericFeedback("經過時間", detail.uniform.time, "s"),
-          numericFeedback("平均速度大小", detail.uniform.averageVelocity, "m/s"),
+          numericFeedback("位移大小 |Δx|", detail.uniform.displacement, "m"),
+          numericFeedback("經過時間 Δt", detail.uniform.time, "s"),
+          numericFeedback("平均速度大小 |v̄|", detail.uniform.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.uniform.relationship, { yes: "是", no: "否" }),
           `計算：|Δx| = |${Model.format3(uniformMeasurement.x2)} − ${Model.format3(uniformMeasurement.x1)}| = ${Model.format3(uniform.displacement)} m；|v̄| = ${Model.format3(uniform.displacement)} ÷ ${Model.format3(uniform.time)} = ${Model.format3(uniform.averageVelocity)} m/s。理想勻速模型在每一時刻都有相同瞬時速度；末位差異可來自三位有效數字讀數。`
         ].join("\n")
@@ -91,9 +91,9 @@
         title: "第 2 關：變速運動",
         correct: Object.values(detail.variable).every((item) => item.correct),
         text: [
-          numericFeedback("位移大小", detail.variable.displacement, "m"),
-          numericFeedback("經過時間", detail.variable.time, "s"),
-          numericFeedback("平均速度大小", detail.variable.averageVelocity, "m/s"),
+          numericFeedback("位移大小 |Δx|", detail.variable.displacement, "m"),
+          numericFeedback("經過時間 Δt", detail.variable.time, "s"),
+          numericFeedback("平均速度大小 |v̄|", detail.variable.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.variable.relationship, { yes: "是", no: "否" }),
           `計算：|Δx| = |${Model.format3(variableMeasurement.x2)} − ${Model.format3(variableMeasurement.x1)}| = ${Model.format3(variable.displacement)} m；|v̄| = ${Model.format3(variable.displacement)} ÷ ${Model.format3(variable.time)} = ${Model.format3(variable.averageVelocity)} m/s。變速時不會在每一時刻都等於整段平均值，但某一刻可以巧合相等。`
         ].join("\n")
@@ -102,17 +102,18 @@
         title: "第 3 關：時間放大鏡",
         correct: Object.values(detail.instant).every((item) => item.correct),
         text: [
-          choiceFeedback("瞬時速度估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, `${Model.format3(option.value)} m/s`]))),
+          choiceFeedback("瞬時速度 v(t*) 估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
           choiceFeedback("瞬時速度概念", detail.instant.concept, { limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程平均", "zero-division": "除以零秒", "largest-one-second": "一秒內最大速度" }),
-          numericFeedback("完全停止期間", detail.instant.stoppedVelocity, "m/s"),
-          `縮短區間所得平均速度依次為 ${windows.map((row) => `${Model.format3(row.averageVelocity)} m/s`).join("、")}，趨近目標瞬時速度 ${Model.format3(exact)} m/s。完全停止期間的瞬時速度是 0.00 m/s。`
+          numericFeedback("完全停止期間 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
+          `縮短區間所得 |v̄| 依次為 ${windows.map((row) => quantity(row.averageVelocity, "m/s")).join("、")}，趨近目標瞬時速度 v(t*) = ${Model.format3(exact)} m/s。完全停止期間的瞬時速度是 0.00 m/s。`
         ].join("\n")
       }
     ];
   }
   function numericFeedback(name, item, unit) {
-    return `${item.correct ? "✓" : "✗"} ${name}：你的答案 ${item.answer} ${unit}；正確答案 ${item.expected} ${unit}；${item.points} 分。`;
+    return `${item.correct ? "✓" : "✗"} ${name}：你的答案 ${quantity(Model.normalizeInput(item.answer)?.value, unit)}；正確答案 ${quantity(Model.normalizeInput(item.expected)?.value, unit)}；${item.points} 分。`;
   }
+  function quantity(value, unit) { return `${Model.format3(value)} ${unit}`; }
   function choiceFeedback(name, item, labels) {
     return `${item.correct ? "✓" : "✗"} ${name}：你的答案「${labels[item.answer] || item.answer}」；正確答案「${labels[item.expected] || item.expected}」；${item.points} 分。`;
   }

@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 1;
+  const VERSION = 2;
   const ROWS = {
     "uniform/ready": 0, "uniform/paused-measuring": 0, "uniform/captured": 0, "uniform/answered": 0,
     "variable/ready": 1, "variable/paused-measuring": 1, "variable/captured": 1, "variable/answered": 1,
@@ -87,9 +87,6 @@
     const va = stageAnswer(state.answers.variable, "variable");
     const ia = instantAnswer(state.answers.instant, state.definition);
     if (u === "invalid" || v === "invalid" || ua === "invalid" || va === "invalid" || ia === "invalid") return false;
-    if (state.variant.endsWith("ready") && state.scene.simulationTime > 2 + 1e-9) return false;
-    if (u === "active" && state.uniformMeasurement.startModelTime > state.definition.uniform.episodeLimit - 1.5 + 1e-9) return false;
-    if (v === "active" && state.variableMeasurement.startModelTime > state.definition.variable.episodeLimit - Model.cycleDuration(state.definition.variable) + 1e-9) return false;
     const downstream = edit && ((state.phase === "uniform" && va === "complete" && ia === "complete") || (state.phase === "variable" && ua === "complete" && ia === "complete") || (state.phase === "instant" && ua === "complete" && va === "complete"));
     if (edit && !downstream) return false;
     switch (key) {
@@ -123,8 +120,11 @@
   }
   function validScene(scene, definition, phase) {
     if (!scene || !Number.isFinite(scene.simulationTime) || scene.simulationTime < 0 || scene.paused !== 1) return false;
-    if (["uniform", "variable"].includes(phase) && scene.simulationTime > definition[phase].episodeLimit + 1e-9) return false;
-    return true;
+    if (!["uniform", "variable"].includes(phase)) return true;
+    const position = phase === "uniform"
+      ? Model.uniformPosition(definition.uniform, scene.simulationTime)
+      : Model.variablePosition(definition.variable, scene.simulationTime);
+    return Number.isFinite(position);
   }
   function validAnswersShape(answers) { return Boolean(answers && ["uniform", "variable", "instant"].every((key) => key in answers)); }
   function stageAnswer(answer, type) {
@@ -157,17 +157,22 @@
     const position = type === "uniform"
       ? (time) => Model.uniformPosition(definition.uniform, time)
       : (time) => Model.variablePosition(definition.variable, time);
-    if (measurement.x1 !== Model.canonicalNumber(position(measurement.startModelTime)) || measurement.dt !== Model.canonicalNumber(end - measurement.startModelTime)) return "invalid";
-    const duration = end - measurement.startModelTime;
-    const durationLimit = type === "uniform" ? 10 : Model.cycleDuration(definition.variable) + 1.5;
-    const episodeLimit = definition[type].episodeLimit;
-    if (measurement.startModelTime > episodeLimit + 1e-9 || end > episodeLimit + 1e-9 || duration > durationLimit + 1e-9) return "invalid";
+    let expectedX1;
+    let expectedDuration;
+    try {
+      expectedX1 = Model.canonicalNumber(position(measurement.startModelTime));
+      expectedDuration = Model.canonicalNumber(end - measurement.startModelTime);
+    } catch { return "invalid"; }
+    if (measurement.x1 !== expectedX1 || measurement.dt !== expectedDuration) return "invalid";
     if (measurement.x2 == null) {
       if (activeSceneTime == null || Math.abs(end - activeSceneTime) > 1e-9) return "invalid";
       return "active";
     }
+    if (activeSceneTime != null && activeSceneTime + 1e-9 < end) return "invalid";
     if (end === measurement.startModelTime) return "invalid";
-    if (!Number.isFinite(measurement.x2) || measurement.x2 !== Model.canonicalNumber(position(end))) return "invalid";
+    let expectedX2;
+    try { expectedX2 = Model.canonicalNumber(position(end)); } catch { return "invalid"; }
+    if (!Number.isFinite(measurement.x2) || measurement.x2 !== expectedX2) return "invalid";
     if (type === "uniform" && end - measurement.startModelTime < 1.5 - 1e-9) return "invalid";
     if (type === "variable" && end - measurement.startModelTime < Model.cycleDuration(definition.variable) - 1e-9) return "invalid";
     return "captured";
@@ -179,8 +184,8 @@
     else if (action === "advance" && key === "variable/answered") Object.assign(copy, { phase: "instant", variant: "exploring", stage: 2, scene: { simulationTime: 0, paused: 1 } });
     else if (action === "review" && key === "instant/answered") Object.assign(copy, { phase: "review", variant: "complete", stage: 3, returnToReview: false });
     else if (action === "return-review" && copy.returnToReview && copy.variant.endsWith("answered")) Object.assign(copy, { phase: "review", variant: "complete", stage: 3, returnToReview: false });
-    else if (action === "edit-uniform" && key === "review/complete") Object.assign(copy, { phase: "uniform", variant: "review-edit-answered", stage: 0, returnToReview: true });
-    else if (action === "edit-variable" && key === "review/complete") Object.assign(copy, { phase: "variable", variant: "review-edit-answered", stage: 1, returnToReview: true });
+    else if (action === "edit-uniform" && key === "review/complete") Object.assign(copy, { phase: "uniform", variant: "review-edit-answered", stage: 0, returnToReview: true, scene: { simulationTime: copy.uniformMeasurement.currentOrEndModelTime, paused: 1 } });
+    else if (action === "edit-variable" && key === "review/complete") Object.assign(copy, { phase: "variable", variant: "review-edit-answered", stage: 1, returnToReview: true, scene: { simulationTime: copy.variableMeasurement.currentOrEndModelTime, paused: 1 } });
     else if (action === "edit-instant" && key === "review/complete") Object.assign(copy, { phase: "instant", variant: "review-edit-answered", stage: 2, returnToReview: true });
     else return null;
     return validateDraft(copy) ? copy : null;
@@ -244,11 +249,13 @@
         state.variant = edit ? "review-edit-paused-measuring" : "paused-measuring";
       } else if (state.variant.endsWith("paused-measuring")) {
         const duration = type === "uniform" ? 1.5 : Model.cycleDuration(state.definition.variable);
-        state[field] = { ...Model.captureMeasurement(position, state[field].startModelTime, state[field].startModelTime + duration), currentOrEndModelTime: state[field].startModelTime + duration };
+        const end = state[field].startModelTime + duration;
+        state[field] = { ...Model.captureMeasurement(position, state[field].startModelTime, end), currentOrEndModelTime: end };
+        state.scene.simulationTime = end;
         state.variant = edit ? "review-edit-captured" : "captured";
       } else if (state.variant.endsWith("captured")) {
         const expected = Model.expectedFromMeasurement(state[field]);
-        state.answers[type] = { displacement: Model.format3(expected.displacement), time: Model.format3(expected.time), averageVelocity: Model.format3(expected.averageVelocity), relationship: type === "uniform" ? "yes" : "no" };
+        state.answers[type] = { displacement: Model.formatInput3(expected.displacement), time: Model.formatInput3(expected.time), averageVelocity: Model.formatInput3(expected.averageVelocity), relationship: type === "uniform" ? "yes" : "no" };
         state.variant = edit ? "review-edit-answered" : "answered";
       } else if (state.variant.endsWith("answered")) {
         return next(state, edit ? "return-review" : "advance");

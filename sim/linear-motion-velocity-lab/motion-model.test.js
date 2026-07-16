@@ -10,9 +10,12 @@ assert.strictEqual(Model.format3(50), "50.0");
 assert.strictEqual(Model.format3(500), "5.00 × 10²");
 assert.strictEqual(Model.format3(0), "0.00");
 assert.strictEqual(Model.format3(Model.canonicalNumber(9.996)), "10.0");
-["5.00", "0.500", "05.00", "0.00"].forEach((value) => assert(Model.normalizeInput(value), value));
-["5", "5.0", "5.00 m", "5,00", "5e0", "Infinity", "NaN"].forEach((value) => assert.strictEqual(Model.normalizeInput(value), null, value));
+["5.00", "0.500", "05.00", "0.00", "5.00e2", "1.00E+2", "5.00e-4"].forEach((value) => assert(Model.normalizeInput(value), value));
+["5", "5.0", "5.00 m", "5,00", "5e0", "5.0e2", "Infinity", "NaN"].forEach((value) => assert.strictEqual(Model.normalizeInput(value), null, value));
 assert.strictEqual(Model.normalizeInput("05.00").text, "5.00");
+assert.strictEqual(Model.normalizeInput("500").text, "5.00e2");
+assert.strictEqual(Model.normalizeInput("5.00e-4").text, "5.00e-4");
+assert.strictEqual(Model.formatInput3(500), "5.00e2");
 assert(Model.numericMatch(6.424999, 6.42));
 assert(!Model.numericMatch(6.425001, 6.42));
 assert(Model.numericMatch(0, 0));
@@ -86,8 +89,7 @@ const pausedTime = Model.advanceSimulationTime(0, [
   ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: false }))
 ]);
 assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulation time");
-assert.strictEqual(Model.automaticEndpoint(2, 10, 12.03), 12, "overshoot clamps to the exact endpoint");
-assert.strictEqual(Model.automaticEndpoint(2, 10, 11.99), null, "capture waits for the limit");
+assert(Math.abs(Model.advanceSimulationTime(12, Array.from({ length: 6000 }, () => ({ dt: 0.05, running: true }))) - 312) < 1e-9, "observation has no automatic time limit");
 
 const seed2235 = Model.createAttempt(2235);
 const regressionRows = Model.analysisWindows(seed2235);
@@ -99,8 +101,6 @@ for (let index = 1; index < regressionRows.length; index += 1) {
 for (const mutate of [
   (value) => { value.uniform.layout = 3; },
   (value) => { value.variable.layout = -1; },
-  (value) => { value.uniform.episodeLimit = 99; },
-  (value) => { value.variable.episodeLimit += 1; },
   (value) => { value.uniform.coordinateOrigin += 1; },
   (value) => { value.variable.x0 = 1000; },
   (value) => { value.uniform.speed = value.variable.fastSpeed; },

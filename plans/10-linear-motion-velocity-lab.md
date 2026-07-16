@@ -45,7 +45,9 @@ All learner-facing text is Traditional Chinese.
   - choose the best supported three-significant-figure instantaneous-velocity
     estimate;
   - review and edit answers before final submission.
-- Libraries: none; use native HTML, CSS, Canvas, and SVG.
+- Libraries: none; use native HTML, CSS, Canvas, and SVG. Render formulae with
+  semantic `<var>`, `<sub>`, `<sup>`, and CSS fraction/overbar styling; do not
+  load MathJax or expose TeX source to learners or assistive technology.
 - Assessment risk: `formative`.
 - Trusted validation for high risk: not applicable. Browser-side scoring is not
   a trusted boundary and the activity must not contain secrets.
@@ -154,9 +156,8 @@ Use one shared production formatter and test it independently.
 - Values whose fixed-point form would leave an ambiguous integer trailing zero
   use scientific notation, for example `1.00 × 10² m`; do not display `100 m`
   as an unqualified three-significant-figure value. Values outside a readable
-  fixed-point range may also use scientific notation, but
-  attempt generation should normally keep learner answers between `0.100` and
-  `99.9` so scientific notation is unnecessary.
+  fixed-point range may also use scientific notation. Long manually timed
+  observations can legitimately produce such values.
 - Ruler major marks are every `10.0 m` and minor marks every `1.00 m`. Major
   labels use the same three-significant-figure formatter. The fixed pointer also
   shows the current position digitally to three significant figures.
@@ -182,11 +183,12 @@ been canonicalized. Do not repeatedly round intermediate results.
 
 ### Learner input rules
 
-Use text inputs with `inputmode="decimal"`, not `input type="number"`, because
-the browser may discard significant trailing zeros.
+Use text inputs with `inputmode="text"`, not `input type="number"`, because the
+browser may discard significant trailing zeros and a mobile learner may need to
+enter an `e` exponent.
 
-- Accept unsigned decimal notation only; generated numeric answers never need a
-  negative sign, comma, unit, or exponent.
+- Accept unsigned decimal notation or standard `e`/`E` scientific notation.
+  Negative signs, commas, and units remain invalid; a signed exponent is valid.
 - Ignore surrounding whitespace.
 - Ignore leading zeros before the first non-zero digit.
 - Count zeros between non-zero digits and trailing zeros after a decimal point as
@@ -197,6 +199,7 @@ the browser may discard significant trailing zeros.
   - `5.00` is valid;
   - `0.500` is valid;
   - `05.00` is valid and normalizes to `5.00`;
+  - `5.00e2` is valid and represents `5.00 × 10²`;
 - `0.00` is a valid zero-format entry in every numeric field; whether zero is
   correct is decided only during final scoring, never by pre-submit format
   validation;
@@ -283,14 +286,12 @@ Reject and resample an attempt definition when:
   distinct displayed values;
 - the shrinking-window values fail to approach the target instantaneous value
   in the expected direction;
-- any expected learner numeric answer rounds to an unsupported or unreadable
-  range;
+- any expected learner numeric answer is non-finite or cannot be represented by
+  the supported fixed-point/scientific three-significant-figure formatter;
 - motion is too small to be obvious at a 320 CSS-pixel viewport;
-- the chosen scale would move ruler labels too quickly to read.
-- any reachable preview, measurement, pause, or replay state would make
-  independently rounded `x1` and `x2` too coarse to resolve the minimum allowed
-  displacement;
-- the stage episode would exceed its bounded coordinate or time range.
+- the chosen scale would move ruler labels too quickly to read;
+- the minimum accepted interval would make independently rounded `x1` and `x2`
+  too coarse to resolve displacement.
 
 Generator validation has a fixed retry cap. Exceeding it is a technical attempt
 generation error, not permission to use an invalid fallback question. Ruler tick
@@ -340,15 +341,12 @@ sparse landmarks translate backwards according to the car's world position.
 At zero velocity all of these cues stop together. Do not use motion blur, camera
 shake, or decorative speed lines as required evidence.
 
-Use a bounded, replayable episode rather than an indefinitely increasing world
-position. Each stage starts from its saved random initial position and motion
-phase. If the learner reaches the preview limit before timing, pause at that
-state; starting the stopwatch may resume from it. If the learner reaches the
-measurement limit, capture the endpoint automatically. `重新量度` returns to the
-same random initial position and phase rather than generating a new question.
-Attempt validation must prove that every reachable position in the episode keeps
-three-significant-figure position readings fine enough to resolve the minimum
-allowed displacement.
+Each stage starts from its saved random initial position and motion phase. The
+tracked world may continue for as long as the learner chooses: the road, ruler,
+and landmarks recycle visually while authoritative model time and position stay
+finite. There is no preview timeout, episode cap, or automatic capture.
+`重新量度` returns to the same random initial position and phase rather than
+generating a new question.
 
 The measurement pointer is a fixed vertical line through the car's centre. Every
 captured position uses that centre point. Brief `A` and `B` capture badges may
@@ -385,13 +383,10 @@ v(t) = v
 Suggested validated random ranges:
 
 - speed `v`: `3.20 m/s` to `8.80 m/s`, sampled in `0.01 m/s` steps;
-- initial position `x₀` and coordinate origin: sampled together so every
-  reachable episode position retains adequate three-significant-figure
-  resolution;
-- maximum untimed preview before automatic pause: `2.00 s`;
+- initial position `x₀` and coordinate origin: sampled together for a readable
+  opening ruler view;
 - minimum accepted measurement duration: `1.50 s`;
-- maximum accepted measurement duration: `10.0 s`, followed by automatic
-  endpoint capture and a polite status announcement.
+- no maximum measurement duration; only the learner stops the stopwatch.
 
 The exact generated range may be tightened after visual checks, but it must
 retain enough combinations that attempts do not collapse to a small answer set.
@@ -437,11 +432,9 @@ cycle duration has elapsed. Show a neutral progress message such as:
 請繼續量度，直至觀察到快、慢和短暫停止。
 ```
 
-After the minimum, allow the learner to stop freely, up to a hard maximum of one
-cycle plus `1.50 s`. If the hard maximum is reached, capture the endpoint
-automatically and announce it; never discard an otherwise valid measurement.
-The generator must choose the initial coordinate and bounded episode duration
-together so this maximum cannot create coarse or ambiguous position readings.
+After the minimum, allow the learner to continue for any duration and stop the
+stopwatch manually. Neither completing a cycle nor reaching a later model time
+pauses the observation or captures an endpoint automatically.
 
 ### Instantaneous velocity analysis
 
@@ -579,8 +572,8 @@ Rules:
 - Focus order follows the visible task order.
 - Every button and input has an accessible name and visible focus state.
 - Do not convey fast, slow, or stopped states through colour alone.
-- A polite live region announces start, pause, capture, automatic capture,
-  stage transition, and final submission outcomes; it does not update every
+- A polite live region announces start, manual pause, manual capture, stage
+  transition, and final submission outcomes; it does not update every
   animation frame.
 - A persistent text status outside Canvas names the current qualitative motion
   state: slow cruise, accelerating, fast cruise, decelerating, or stopped. Update
@@ -752,10 +745,10 @@ semantics:
 
 ```js
 {
-  v: 1,
+  v: 2,
   definition: {
     seed,
-    uniform: { x0, speed, coordinateOrigin, episodeLimit, layout },
+    uniform: { x0, speed, coordinateOrigin, layout },
     variable: {
       x0,
       coordinateOrigin,
@@ -763,7 +756,6 @@ semantics:
       fastSpeed,
       durations,
       initialPhase,
-      episodeLimit,
       layout
     },
     instantTarget: { segment, cycleIndex, timeWithinSegment },
@@ -792,7 +784,7 @@ semantics:
 
 ```js
 {
-  v: 1,
+  v: 2,
   locked: 1,
   definition,
   uniformMeasurement: { startModelTime, endModelTime, x1, x2, dt },
@@ -853,12 +845,13 @@ validate definition and answers
 ### Validation invariants
 
 - Schema version, activity slug, phase, variant, and stage are supported.
-- Every numeric field is finite and inside its declared range.
+- Every numeric field is finite and non-negative where required. Simulation
+  time, captured model time, and measurement duration have no fixed upper cap.
 - Variable segment durations are present, positive, and produce a valid cycle.
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
   inequalities.
-- Window list is exactly the supported decreasing set for version 1.
+- Window list is exactly the supported decreasing set for version 2.
 - Instantaneous options have four unique stable IDs, three-significant-figure
   values, one validated correct ID, and the saved display order; restore never
   reshuffles them.
@@ -933,7 +926,9 @@ Add every new test file to `tools/run-tests.js`.
 - accepting `5.00`, `0.500`, and `05.00`;
 - accepting `0.00` as a format-valid zero in every numeric field while scoring
   it wrong against a non-zero expected answer;
-- rejecting `5`, `5.0`, unit text, commas, exponents, and non-finite values;
+- accepting correctly formed `e`/`E` scientific notation with exactly three
+  significant digits, and rejecting malformed exponents;
+- rejecting `5`, `5.0`, unit text, commas, and non-finite values;
 - half-third-significant-place tolerance just inside and just outside;
 - exact-zero scoring accepts parsed zero and rejects the smallest non-zero valid
   three-significant-figure entry;
@@ -948,8 +943,8 @@ Add every new test file to `tools/run-tests.js`.
   both measured stages;
 - all generated values remain within declared ranges;
 - retry cap fails closed;
-- every reachable bounded preview and measurement state retains the declared
-  position resolution, and reset returns to the same definition and start;
+- long-running observation remains finite and reset returns to the same
+  definition and start;
 - generated expected numeric answers remain displayable with three significant
   figures;
 - final snapshot restores from concrete parameters without rerunning random
@@ -1001,6 +996,8 @@ Invalid-state matrix cases include:
 - future answers in an earlier phase;
 - active measurement with an endpoint already present;
 - variable measurement shorter than one full cycle;
+- captured endpoint later than the current scene time;
+- long active and manually captured measurements failing round-trip restore;
 - impossible phase/variant/current-stage combinations;
 - missing or stray `returnToReview` flags, missing retained downstream answers,
   and illegally cleared downstream answers in review-edit variants;
@@ -1073,8 +1070,8 @@ check and treat `### Error` output as failure even if the process exits zero.
 - A restored attempt preserves the same concrete questions and expected answers.
 - Randomness does not use learner identity or other PII.
 - Uniform and variable stages both vary numerically between attempts.
-- Preview and measurement episodes are bounded; automatic pause/capture prevents
-  unbounded coordinate growth, and remeasure returns to the same random start.
+- Observation and measurement have no time cap or automatic pause/capture;
+  remeasure returns to the same random start.
 - Stopwatch start captures `x1`; stopwatch stop captures `x2` and `dt`.
 - Both measured stages require learner answers for displacement, elapsed time,
   and average velocity.

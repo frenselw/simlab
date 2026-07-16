@@ -26,6 +26,11 @@
   let view = { width: 800, height: 500, dpr: 1 };
 
   function announce(message) { elements.liveRegion.textContent = ""; requestAnimationFrame(() => { elements.liveRegion.textContent = message; }); }
+  function quantityHtml(value, unit) { return `<span class="math-quantity"><span class="math-number">${Model.format3(value)}</span> <span class="unit">${unit}</span></span>`; }
+  function setQuantityValue(element, value, unit, plainUnit = unit) {
+    element.innerHTML = quantityHtml(value, unit);
+    element.setAttribute("aria-label", `${Model.format3(value)} ${plainUnit}`);
+  }
   function currentMeasurement() { return state.phase === "variable" ? state.variableMeasurement : state.uniformMeasurement; }
   function setCurrentMeasurement(value) { if (state.phase === "variable") state.variableMeasurement = value; else state.uniformMeasurement = value; }
   function positionAt(time = state.scene.simulationTime) {
@@ -35,7 +40,6 @@
   }
   function activeDuration() { return timerRunning && currentMeasurement() ? state.scene.simulationTime - currentMeasurement().startModelTime : currentMeasurement()?.dt || 0; }
   function minimumDuration() { return state.phase === "variable" ? Model.cycleDuration(state.definition.variable) : 1.5; }
-  function maximumDuration() { return state.phase === "variable" ? Model.cycleDuration(state.definition.variable) + 1.5 : 10; }
   function updateActiveMeasurement() {
     const measurement = currentMeasurement();
     if (!measurement || measurement.x2 != null) return;
@@ -103,23 +107,20 @@
       state.answers[state.phase] = null;
       state.variant = state.returnToReview ? "review-edit-paused-measuring" : "paused-measuring";
       timerRunning = true;
-      running = true;
-      lastFrame = performance.now();
       announce(`已記錄起點 ${Model.format3(measurement.x1)} m，開始計時。`);
       if (!saveDraft()) return;
       render();
       return;
     }
     if (activeDuration() + 1e-9 < minimumDuration()) return;
-    captureEndpoint(false);
+    captureEndpoint();
   }
-  function captureEndpoint(automatic, endTime = state.scene.simulationTime) {
+  function captureEndpoint(endTime = state.scene.simulationTime) {
     const measurement = Model.captureMeasurement(positionAt, currentMeasurement().startModelTime, endTime);
     setCurrentMeasurement({ ...measurement, currentOrEndModelTime: measurement.endModelTime });
     timerRunning = false;
-    if (automatic) running = false;
     state.variant = state.returnToReview ? "review-edit-captured" : "captured";
-    announce(`${automatic ? "已到量度上限，自動記錄終點並暫停觀察" : "已記錄終點"} ${Model.format3(measurement.x2)} m${automatic ? "。" : "；車輛仍繼續運動。"}`);
+    announce(`已記錄終點 ${Model.format3(measurement.x2)} m；${running ? "觀察仍繼續運動。" : "觀察仍由你暫停。"}`);
     if (!saveDraft()) return false;
     render();
     return true;
@@ -141,14 +142,13 @@
     if (locked || !currentMeasurement()?.x2) return;
     const parsed = [elements.displacementInput, elements.timeInput, elements.averageInput].map((input) => Model.normalizeInput(input.value));
     const relationship = relationshipInputs.find((input) => input.checked)?.value;
-    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請用三位有效數字，例如 5.00；不要輸入單位。");
+    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請用三位有效數字，例如 5.00 或 1.00e2；不要輸入單位。");
     if (!relationship) return void (elements.answerError.textContent = "請回答瞬時速度與平均速度的關係。");
     state.answers[state.phase] = {
       displacement: parsed[0].text, time: parsed[1].text, averageVelocity: parsed[2].text, relationship
     };
     state.variant = state.returnToReview ? "review-edit-answered" : "answered";
     elements.answerError.textContent = "";
-    running = false;
     announce("本關答案已記錄，提交前仍可修改。");
     if (!saveDraft()) return;
     render();
@@ -331,7 +331,7 @@
     const label = window.SimActivityFlow.completionLabel(result?.passed ?? null);
     elements.scorePanel.textContent = `成績：${result?.score ?? "--"} / 100　狀態：${label}`;
     const items = detailed && trustedReview ? result.feedbackItems : [];
-    elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map((item) => `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.text)}</p></article>`).join("");
+    elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map((item) => `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p aria-label="${escapeHtml(item.text)}">${feedbackHtml(item.text)}</p></article>`).join("");
     elements.retryButton.classList.toggle("is-hidden", !retryable);
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : "重試連線";
     const detail = items.map((item) => `${item.title}。${item.text}`).join(" ");
@@ -359,9 +359,9 @@
     elements.stageKicker.textContent = variable ? "第 2 關" : "第 1 關";
     elements.stageTitle.textContent = variable ? "變速運動" : "勻速運動";
     elements.instructionText.textContent = variable ? "量度至少一個完整週期，觀察慢、快和短暫停止。" : "操作計時器記錄 x₁、x₂ 和經過時間。";
-    elements.relationshipLegend.textContent = variable
-      ? "在這段變速直線運動中，車在每一時刻的瞬時速度大小，是否都等於這段時間的平均速度大小？"
-      : "在這段勻速直線運動中，車在每一時刻的瞬時速度大小，是否都等於這段時間的平均速度大小？";
+    elements.relationshipLegend.innerHTML = variable
+      ? "在這段變速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？"
+      : "在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？";
     elements.instantControls.classList.add("is-hidden");
     elements.observationControls.classList.remove("is-hidden");
     elements.timerButton.classList.remove("is-hidden");
@@ -370,8 +370,10 @@
     const captured = measurement?.x2 != null;
     elements.measurementCard.classList.toggle("is-hidden", !measurement);
     elements.measurementForm.classList.toggle("is-hidden", !captured);
-    elements.x1Readout.textContent = measurement ? `${Model.format3(measurement.x1)} m` : "--";
-    elements.x2Readout.textContent = captured ? `${Model.format3(measurement.x2)} m` : "--";
+    if (measurement) setQuantityValue(elements.x1Readout, measurement.x1, "m");
+    else { elements.x1Readout.textContent = "--"; elements.x1Readout.setAttribute("aria-label", "起點位置，未記錄"); }
+    if (captured) setQuantityValue(elements.x2Readout, measurement.x2, "m");
+    else { elements.x2Readout.textContent = "--"; elements.x2Readout.setAttribute("aria-label", "終點位置，未記錄"); }
     elements.observeButton.textContent = running ? "觀察中" : timerRunning || state.scene.simulationTime > 0 ? "繼續觀察" : "開始觀察";
     elements.observeButton.disabled = running;
     elements.pauseButton.disabled = !running;
@@ -388,14 +390,18 @@
     const captured = measurement?.x2 != null;
     const answered = state.variant.endsWith("answered");
     const control = Persistence.measurementControlState({ timerRunning, duration: activeDuration(), minimum: minimumDuration(), captured, answered });
-    elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
+    if (measurement && !timerRunning) setQuantityValue(elements.dtReadout, activeDuration(), "s");
+    else {
+      elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
+      elements.dtReadout.setAttribute("aria-label", measurement ? `${Model.format3(activeDuration())} s` : "經過時間，未記錄");
+    }
     elements.timerButton.textContent = control.label;
     elements.timerButton.classList.toggle("is-running", timerRunning);
     elements.timerButton.disabled = control.disabled;
     const remaining = Math.max(0, minimumDuration() - activeDuration());
     elements.progressMessage.textContent = timerRunning && remaining > 0
       ? state.phase === "variable" ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
-      : timerRunning ? "已達最低量度時間，可以停止計時。" : captured ? "量度已完成；如要更改讀數，請先按重新量度。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
+      : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
   }
   function renderInstant() {
     elements.stageKicker.textContent = "第 3 關";
@@ -408,16 +414,16 @@
     elements.measurementForm.classList.add("is-hidden");
     elements.instantControls.classList.remove("is-hidden");
     const rows = Model.analysisWindows(state.definition).slice(0, state.viewedWindowCount);
-    elements.windowRows.innerHTML = rows.map((row) => `<tr><td>${Model.format3(row.duration)} s</td><td>${Model.format3(row.startTime)} s, ${Model.format3(row.startPosition)} m</td><td>${Model.format3(row.endTime)} s, ${Model.format3(row.endPosition)} m</td><td>${Model.format3(row.averageVelocity)} m/s</td></tr>`).join("");
+    elements.windowRows.innerHTML = rows.map((row) => `<tr><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.startTime, "s")}，${quantityHtml(row.startPosition, "m")}</td><td>${quantityHtml(row.endTime, "s")}，${quantityHtml(row.endPosition, "m")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
     elements.nextWindowButton.classList.toggle("is-hidden", state.viewedWindowCount >= 4);
-    if (state.viewedWindowCount < 4) elements.nextWindowButton.textContent = `顯示 ${Model.format3(state.definition.windows[state.viewedWindowCount])} s 區間`;
+    if (state.viewedWindowCount < 4) elements.nextWindowButton.innerHTML = `顯示 ${quantityHtml(state.definition.windows[state.viewedWindowCount], "s")} 區間`;
     elements.instantForm.classList.toggle("is-hidden", state.viewedWindowCount < 4);
-    if (!elements.optionChoices.children.length) elements.optionChoices.innerHTML = state.definition.instantOptions.map((option) => `<label><input type="radio" name="prediction" value="${option.id}"> ${Model.format3(option.value)} m/s</label>`).join("");
+    if (!elements.optionChoices.children.length) elements.optionChoices.innerHTML = state.definition.instantOptions.map((option) => `<label><input type="radio" name="prediction" value="${option.id}" aria-label="${Model.format3(option.value)} 米每秒"> ${quantityHtml(option.value, "m/s")}</label>`).join("");
     const answered = state.variant.endsWith("answered");
     elements.revealCard.classList.toggle("is-hidden", !answered);
     if (answered) {
       loadInstantForm();
-      elements.revealCard.textContent = `模型在目標時刻的瞬時速度是 ${Model.format3(Scoring.correctOption(state.definition).value)} m/s；圖中虛線顯示該點切線。`;
+      elements.revealCard.innerHTML = `模型在目標時刻的瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 是 ${quantityHtml(Scoring.correctOption(state.definition).value, "m/s")}；圖中虛線顯示該點切線。`;
     }
     elements.navigationControls.classList.toggle("is-hidden", !answered);
     elements.advanceButton.classList.toggle("is-hidden", state.returnToReview);
@@ -428,12 +434,12 @@
     elements.reviewList.innerHTML = [
       reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform),
       reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable),
-      `<article class="review-item"><h3>時間放大鏡</h3><p>瞬時速度估計：${Model.format3(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value)} m/s</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>完全停止期間：${escapeHtml(state.answers.instant.stoppedVelocity)} m/s</p><button type="button" data-edit="2">修改第 3 關</button></article>`
+      `<article class="review-item"><h3>時間放大鏡</h3><p>瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>完全停止期間：${quantityHtml(Model.normalizeInput(state.answers.instant.stoppedVelocity).value, "m/s")}</p><button type="button" data-edit="2">修改第 3 關</button></article>`
     ].join("");
     elements.reviewList.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => editStage(Number(button.dataset.edit))));
   }
   function reviewItem(index, title, measurement, answer) {
-    return `<article class="review-item"><h3>${title}</h3><p>讀數：x₁ = ${Model.format3(measurement.x1)} m；x₂ = ${Model.format3(measurement.x2)} m；計時器 = ${Model.format3(measurement.dt)} s</p><p>答案：|Δx| = ${escapeHtml(answer.displacement)} m；Δt = ${escapeHtml(answer.time)} s；|v̄| = ${escapeHtml(answer.averageVelocity)} m/s；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
+    return `<article class="review-item"><h3>${title}</h3><p>讀數：<var>x</var><sub>1</sub> = ${quantityHtml(measurement.x1, "m")}；<var>x</var><sub>2</sub> = ${quantityHtml(measurement.x2, "m")}；<var>Δt</var> = ${quantityHtml(measurement.dt, "s")}</p><p>答案：|<var>Δx</var>| = ${quantityHtml(Model.normalizeInput(answer.displacement).value, "m")}；<var>Δt</var> = ${quantityHtml(Model.normalizeInput(answer.time).value, "s")}；|<var class="overbar">v</var>| = ${quantityHtml(Model.normalizeInput(answer.averageVelocity).value, "m/s")}；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
   }
   function conceptLabel(value) {
     return ({ limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程總位移除以總時間", "zero-division": "位移除以正好零秒", "largest-one-second": "一秒內最大速度" })[value] || "--";
@@ -445,17 +451,6 @@
       state.scene.simulationTime = Model.advanceSimulationTime(state.scene.simulationTime, [{ dt: delta, running: true }]);
       lastFrame = timestamp;
       updateActiveMeasurement();
-      if (timerRunning && activeDuration() >= maximumDuration()) {
-        const endpoint = Model.automaticEndpoint(currentMeasurement().startModelTime, maximumDuration(), state.scene.simulationTime);
-        state.scene.simulationTime = endpoint;
-        captureEndpoint(true, endpoint);
-      }
-      else if (!timerRunning && state.scene.simulationTime >= (currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2)) {
-        state.scene.simulationTime = currentMeasurement()?.x2 != null ? state.definition[state.phase].episodeLimit : 2;
-        running = false;
-        announce("已到觀察範圍上限，車輛自動暫停。開始計時可繼續。");
-        if (saveDraft()) render();
-      }
       renderLiveReadouts(true);
       draw();
     }
@@ -464,18 +459,18 @@
   function renderLiveReadouts(announceBoundary) {
     elements.positionReadout.textContent = `${Model.format3(positionAt())} m`;
     elements.timerReadout.textContent = `${Model.format3(timerRunning ? activeDuration() : currentMeasurement()?.dt || 0)} s`;
-    if (["uniform", "variable"].includes(state.phase)) renderMeasurementProgress();
+    if (["uniform", "variable"].includes(state.phase) && timerRunning) renderMeasurementProgress();
     if (state.phase === "variable") {
       const segment = Model.qualitativeState(state.definition.variable, state.scene.simulationTime);
       elements.motionStatus.textContent = motionLabel(segment, running);
       if (announceBoundary && running && lastMotionSegment && segment !== lastMotionSegment) announce(motionLabel(segment, true));
       lastMotionSegment = segment;
     }
-    else elements.motionStatus.textContent = running ? "車輛正以固定速度前進。" : "車輛已暫停，位置保持不變。";
+    else elements.motionStatus.textContent = running ? "車輛正以固定速度向右前進。" : "觀察由你暫停；車輛與標尺已凍結。";
   }
   function motionLabel(segment, isRunning) {
-    if (!isRunning) return "觀察已暫停，車輛和標尺保持不動。";
-    return ({ slow: "車輛正慢速巡航。", accelerate: "車輛正在加速。", fast: "車輛正快速巡航。", decelerate: "車輛正在減速。", stopped: "車輛已完全停止。", restart: "車輛正由靜止重新加速。" })[segment];
+    if (!isRunning) return "觀察由你暫停；車輛與標尺已凍結。";
+    return ({ slow: "車輛正慢速向右巡航。", accelerate: "車輛正在向右加速。", fast: "車輛正快速向右巡航。", decelerate: "車輛正在減速。", stopped: "物理模型速度為零：車輛短暫停止，觀察仍在運行。", restart: "車輛正由物理停止狀態重新向右加速。" })[segment];
   }
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -522,11 +517,29 @@
   }
   function drawCar(x, ground, scale) {
     context.save(); context.translate(x, ground); context.scale(scale, scale);
+    context.fillStyle = "rgba(15,23,42,.2)"; context.beginPath(); context.ellipse(2, 1, 78, 8, 0, 0, Math.PI * 2); context.fill();
     context.fillStyle = "#e4554f"; context.strokeStyle = "#8f2d32"; context.lineWidth = 3;
-    context.beginPath(); context.roundRect(-62, -43, 124, 36, 10); context.fill(); context.stroke();
-    context.beginPath(); context.moveTo(-34, -43); context.lineTo(-18, -66); context.lineTo(30, -66); context.lineTo(48, -43); context.closePath(); context.fill(); context.stroke();
-    context.fillStyle = "#bfdbfe"; context.fillRect(-15, -61, 25, 16); context.fillRect(15, -61, 17, 16);
-    context.fillStyle = "#1f2937"; [-39, 39].forEach((wheel) => { context.beginPath(); context.arc(wheel, -7, 13, 0, Math.PI * 2); context.fill(); context.fillStyle = "#d1d5db"; context.beginPath(); context.arc(wheel, -7, 5, 0, Math.PI * 2); context.fill(); context.fillStyle = "#1f2937"; });
+    context.beginPath();
+    context.moveTo(-72, -18); context.lineTo(-71, -40); context.quadraticCurveTo(-68, -49, -56, -50);
+    context.lineTo(-31, -52); context.lineTo(-18, -69); context.quadraticCurveTo(-14, -74, -6, -74);
+    context.lineTo(22, -74); context.quadraticCurveTo(29, -73, 34, -67); context.lineTo(47, -52);
+    context.lineTo(66, -47); context.quadraticCurveTo(76, -44, 79, -34); context.lineTo(82, -23);
+    context.quadraticCurveTo(82, -17, 74, -16); context.lineTo(-64, -16); context.quadraticCurveTo(-72, -16, -72, -18);
+    context.closePath(); context.fill(); context.stroke();
+
+    context.fillStyle = "#bfdbfe"; context.strokeStyle = "#64748b"; context.lineWidth = 2;
+    context.beginPath(); context.moveTo(-14, -68); context.lineTo(-26, -52); context.lineTo(5, -52); context.lineTo(5, -68); context.closePath(); context.fill(); context.stroke();
+    context.beginPath(); context.moveTo(11, -68); context.lineTo(22, -68); context.lineTo(40, -52); context.lineTo(11, -52); context.closePath(); context.fill(); context.stroke();
+    context.strokeStyle = "#8f2d32"; context.beginPath(); context.moveTo(8, -51); context.lineTo(8, -18); context.stroke();
+    context.beginPath(); context.moveTo(47, -49); context.quadraticCurveTo(60, -47, 71, -42); context.stroke();
+    context.fillStyle = "#fef3c7"; context.strokeStyle = "#92400e"; context.beginPath(); context.moveTo(69, -41); context.lineTo(78, -37); context.lineTo(79, -29); context.lineTo(68, -31); context.closePath(); context.fill(); context.stroke();
+    context.fillStyle = "#7f1d1d"; context.fillRect(-73, -39, 7, 12);
+    context.fillStyle = "#374151"; context.fillRect(76, -23, 10, 7); context.fillRect(-75, -21, 10, 5);
+    context.strokeStyle = "#d1d5db"; context.lineWidth = 1.5; [-1, 1].forEach((offset) => { context.beginPath(); context.moveTo(77, -27 + offset * 3); context.lineTo(82, -27 + offset * 3); context.stroke(); });
+    context.fillStyle = "#1f2937"; [-42, 46].forEach((wheel) => {
+      context.beginPath(); context.arc(wheel, -14, 15, 0, Math.PI * 2); context.fill();
+      context.fillStyle = "#d1d5db"; context.beginPath(); context.arc(wheel, -14, 6, 0, Math.PI * 2); context.fill(); context.fillStyle = "#1f2937";
+    });
     context.restore();
   }
   function drawGraph() {
@@ -589,6 +602,13 @@
     context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - sky + 4); context.lineTo(view.width / 2, ruler + 2); context.stroke();
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
+  function feedbackHtml(value) {
+    return escapeHtml(value)
+      .replaceAll("|Δx|", "|<var>Δx</var>|")
+      .replaceAll("|v̄|", "|<var class=\"overbar\">v</var>|")
+      .replaceAll("v(t*)", "<var>v</var>(<var>t</var><sup>*</sup>)")
+      .replaceAll("Δt", "<var>Δt</var>");
+  }
 
   elements.observeButton.addEventListener("click", startOrResume);
   elements.pauseButton.addEventListener("click", pause);

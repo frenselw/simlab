@@ -13,7 +13,7 @@ const variableDuration = Model.cycleDuration(definition.variable);
 const variable = { ...Model.captureMeasurement(variablePosition, 0, variableDuration), currentOrEndModelTime: variableDuration };
 function answerFor(measurement, relationship) {
   const expected = Model.expectedFromMeasurement(measurement);
-  return { displacement: Model.format3(expected.displacement), time: Model.format3(expected.time), averageVelocity: Model.format3(expected.averageVelocity), relationship };
+  return { displacement: Model.formatInput3(expected.displacement), time: Model.formatInput3(expected.time), averageVelocity: Model.formatInput3(expected.averageVelocity), relationship };
 }
 const uniformAnswer = answerFor(uniform, "yes");
 const variableAnswer = answerFor(variable, "no");
@@ -109,7 +109,7 @@ function invalid(mutator, source = review) {
   mutator(value);
   assert.strictEqual(Persistence.decode(value), null);
 }
-invalid((value) => { value.v = 2; });
+invalid((value) => { value.v = 99; });
 invalid((value) => { value.phase = "missing"; });
 invalid((value) => { value.stage = 0; });
 invalid((value) => { value.returnToReview = true; });
@@ -129,51 +129,36 @@ invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
 invalid((value) => { value.viewedWindowCount = 3; });
 invalid((value) => { value.answers.variable = variableAnswer; }, uniformCaptured);
 invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, uniformActive);
-invalid((value) => { value.scene.simulationTime = definition.uniform.episodeLimit + 0.01; }, ready);
-invalid((value) => { value.scene.simulationTime = 2.01; }, ready);
+invalid((value) => { value.scene.simulationTime = -0.01; }, ready);
+invalid((value) => { value.scene.simulationTime = Infinity; }, ready);
+invalid((value) => { value.scene.simulationTime = Number.MAX_VALUE; }, ready);
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
 invalid((value) => {
   value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime;
   delete value.uniformMeasurement.currentOrEndModelTime;
 }, uniformActive);
-invalid((value) => {
-  const start = definition.uniform.episodeLimit - 1;
-  value.uniformMeasurement = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(uniformPosition(start)), x2: null, dt: 0 };
-  value.scene.simulationTime = start;
-}, uniformActive);
-invalid((value) => {
-  const start = definition.variable.episodeLimit - variableDuration + 0.01;
-  value.variableMeasurement = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(variablePosition(start)), x2: null, dt: 0 };
-  value.scene.simulationTime = start;
-}, variableActive);
-invalid((value) => {
-  value.uniformMeasurement = { ...Model.captureMeasurement(uniformPosition, 0, 10.1), currentOrEndModelTime: 10.1 };
-  value.scene.simulationTime = 10.1;
-}, uniformCaptured);
-invalid((value) => {
-  const end = variableDuration + 1.6;
-  value.variableMeasurement = { ...Model.captureMeasurement(variablePosition, 0, end), currentOrEndModelTime: end };
-  value.scene.simulationTime = end;
-}, variableCaptured);
+invalid((value) => { value.scene.simulationTime = value.uniformMeasurement.endModelTime - 0.01; }, uniformCaptured);
 invalid((value) => { value.definition.uniform.layout = 99; });
-invalid((value) => { value.definition.variable.episodeLimit += 1; });
 invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
 invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
 
-for (const [type, source, position, limit] of [
-  ["uniform", uniformActive, uniformPosition, 10],
-  ["variable", variableActive, variablePosition, variableDuration + 1.5]
+for (const [type, source, position, start, end] of [
+  ["uniform", uniformActive, uniformPosition, 120, 240],
+  ["variable", variableActive, variablePosition, 80, 80 + variableDuration * 8]
 ]) {
-  const automatic = JSON.parse(JSON.stringify(source));
-  const start = automatic[`${type}Measurement`].startModelTime;
-  const end = Model.automaticEndpoint(start, limit, start + limit + 0.03);
-  automatic.scene.simulationTime = end;
-  automatic[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end), currentOrEndModelTime: end };
-  automatic.variant = "captured";
-  const restoredAutomatic = Persistence.decode(Persistence.encode(automatic));
-  assert(restoredAutomatic, `${type} automatic capture survives encode/reload`);
-  assert.strictEqual(restoredAutomatic.scene.simulationTime, end);
-  assert.strictEqual(restoredAutomatic[`${type}Measurement`].endModelTime, end);
+  const longActive = JSON.parse(JSON.stringify(source));
+  longActive.scene.simulationTime = start;
+  longActive[`${type}Measurement`] = { startModelTime: start, currentOrEndModelTime: start, x1: Model.canonicalNumber(position(start)), x2: null, dt: 0 };
+  const restoredActive = Persistence.decode(Persistence.encode(longActive));
+  assert(restoredActive, `${type} long-running active measurement survives encode/reload`);
+  restoredActive.scene.simulationTime = end;
+  restoredActive[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end), currentOrEndModelTime: end };
+  restoredActive.variant = "captured";
+  const restoredCaptured = Persistence.decode(Persistence.encode(restoredActive));
+  assert(restoredCaptured, `${type} manually captured long measurement survives encode/reload`);
+  const expected = Model.expectedFromMeasurement(restoredCaptured[`${type}Measurement`]);
+  assert(Model.normalizeInput(Model.formatInput3(expected.displacement)), `${type} long displacement is answerable`);
+  assert(Model.normalizeInput(Model.formatInput3(expected.time)), `${type} long time is answerable`);
 }
 
 const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";

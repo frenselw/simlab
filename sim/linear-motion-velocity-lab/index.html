@@ -34,7 +34,7 @@
             <span><b>位置</b> <span id="positionReadout">0.00 m</span></span>
             <span><b>計時器</b> <span id="timerReadout">0.00 s</span></span>
           </div>
-          <p id="motionStatus" class="motion-status">車輛已暫停，等待開始觀察。</p>
+          <p id="motionStatus" class="motion-status">尚未開始觀察。</p>
         </section>
 
         <aside class="sim-panel motion-panel" aria-label="操作面板">
@@ -54,20 +54,21 @@
             <div id="measurementCard" class="measurement-card is-hidden">
               <h3>已記錄讀數</h3>
               <dl class="reading-grid">
-                <div><dt>x₁</dt><dd id="x1Readout">--</dd></div>
-                <div><dt>x₂</dt><dd id="x2Readout">--</dd></div>
-                <div><dt>Δt</dt><dd id="dtReadout">--</dd></div>
+                <div><dt><var>x</var><sub>1</sub></dt><dd id="x1Readout" aria-label="起點位置，未記錄">--</dd></div>
+                <div><dt><var>x</var><sub>2</sub></dt><dd id="x2Readout" aria-label="終點位置，未記錄">--</dd></div>
+                <div><dt><var>Δt</var></dt><dd id="dtReadout" aria-label="經過時間，未記錄">--</dd></div>
               </dl>
             </div>
 
             <form id="measurementForm" class="answer-form is-hidden" novalidate>
               <h3>計算並記錄</h3>
-              <label>位移大小 |Δx|<span class="input-with-unit"><input id="displacementInput" inputmode="decimal" autocomplete="off" aria-describedby="formatHint"><span>m</span></span></label>
-              <label>經過時間 Δt<span class="input-with-unit"><input id="timeInput" inputmode="decimal" autocomplete="off" aria-describedby="formatHint"><span>s</span></span></label>
-              <label>平均速度大小 |v̄|<span class="input-with-unit"><input id="averageInput" inputmode="decimal" autocomplete="off" aria-describedby="formatHint"><span>m/s</span></span></label>
-              <p id="formatHint" class="format-hint">請用三位有效數字，例如 5.00；不要輸入單位。</p>
+              <p class="calculation-formula" aria-label="平均速度大小等於位移大小除以經過時間"><span>|<var class="overbar">v</var>|</span><span>=</span><span class="fraction"><span>|<var>Δx</var>|</span><span><var>Δt</var></span></span></p>
+              <label class="calculation-row"><span>位移大小 |<var>Δx</var>|</span><input id="displacementInput" inputmode="text" autocomplete="off" aria-label="位移大小 Delta x，單位米" aria-describedby="formatHint"><span class="unit">m</span></label>
+              <label class="calculation-row"><span>經過時間 <var>Δt</var></span><input id="timeInput" inputmode="text" autocomplete="off" aria-label="經過時間 Delta t，單位秒" aria-describedby="formatHint"><span class="unit">s</span></label>
+              <label class="calculation-row"><span>平均速度大小 |<var class="overbar">v</var>|</span><input id="averageInput" inputmode="text" autocomplete="off" aria-label="平均速度大小 v bar，單位米每秒" aria-describedby="formatHint"><span class="unit">m/s</span></label>
+              <p id="formatHint" class="format-hint">請用三位有效數字，例如 5.00；較大數值可輸入 1.00e2；不要輸入單位。</p>
               <fieldset id="relationshipGroup">
-                <legend id="relationshipLegend">在這段勻速直線運動中，車在每一時刻的瞬時速度大小，是否都等於這段時間的平均速度大小？</legend>
+                <legend id="relationshipLegend">在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class="overbar">v</var>|？</legend>
                 <label><input type="radio" name="relationship" value="yes"> 是</label>
                 <label><input type="radio" name="relationship" value="no"> 否</label>
               </fieldset>
@@ -81,19 +82,19 @@
               <div class="table-scroll">
                 <table>
                   <caption>已顯示的時間區間與平均速度</caption>
-                  <thead><tr><th>Δt</th><th>起點 t, x</th><th>終點 t, x</th><th>|v̄|</th></tr></thead>
+                  <thead><tr><th><var>Δt</var></th><th>起點 <var>t</var>, <var>x</var></th><th>終點 <var>t</var>, <var>x</var></th><th>|<var class="overbar">v</var>|</th></tr></thead>
                   <tbody id="windowRows"></tbody>
                 </table>
               </div>
               <form id="instantForm" class="answer-form is-hidden" novalidate>
-                <fieldset><legend>根據趨勢，目標瞬時速度最接近哪一項？</legend><div id="optionChoices" class="choice-list"></div></fieldset>
+                <fieldset><legend>根據趨勢，目標瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 最接近哪一項？</legend><div id="optionChoices" class="choice-list"></div></fieldset>
                 <fieldset><legend>瞬時速度的意思是：</legend>
                   <label><input type="radio" name="concept" value="limit"> 某一時刻附近愈來愈短時間內，平均速度所趨近的值</label>
                   <label><input type="radio" name="concept" value="journey-average"> 全程總位移除以總時間</label>
                   <label><input type="radio" name="concept" value="zero-division"> 位移除以正好零秒</label>
                   <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
                 </fieldset>
-                <label>車在完全停止期間的瞬時速度大小<span class="input-with-unit"><input id="stoppedInput" inputmode="decimal" autocomplete="off"><span>m/s</span></span></label>
+                <label class="calculation-row"><span>完全停止期間 |<var>v</var>(<var>t</var>)|</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="完全停止期間的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
                 <p id="instantError" class="error-text" role="alert"></p>
                 <button type="submit" class="primary-button">記錄時間放大鏡答案</button>
               </form>

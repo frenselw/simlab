@@ -33,21 +33,30 @@
     }
     return value.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
   }
+  function formatInput3(value) {
+    if (!finite(value)) return "--";
+    if (value === 0) return "0.00";
+    const exponent = Math.floor(Math.log10(Math.abs(value)));
+    return exponent >= 2 || exponent <= -4
+      ? `${(value / (10 ** exponent)).toFixed(SIGNIFICANT_FIGURES - 1)}e${exponent}`
+      : value.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
+  }
   function superscript(value) {
     const map = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
     return String(value).split("").map((digit) => map[digit]).join("");
   }
   function normalizeInput(raw) {
     const text = String(raw ?? "").trim();
-    if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+    const match = text.match(/^(\d+(?:\.\d+)?)(?:[eE]([+-]?\d+))?$/);
+    if (!match) return null;
     const value = Number(text);
     if (!finite(value)) return null;
-    if (value === 0) return /^0+\.00$/.test(text) ? { value: 0, text: "0.00" } : null;
-    const compact = text.replace(/^0+/, "");
+    if (value === 0) return match[2] == null && /^0+\.00$/.test(text) ? { value: 0, text: "0.00" } : null;
+    const compact = match[1].replace(/^0+/, "");
     const digits = compact.replace(".", "");
     const first = digits.search(/[1-9]/);
     if (first < 0 || digits.slice(first).length !== SIGNIFICANT_FIGURES) return null;
-    return { value, text: format3(value) };
+    return { value, text: formatInput3(value) };
   }
   function halfThirdPlace(expected) {
     if (!expected) return 0;
@@ -125,8 +134,8 @@
     const uniformSpeed = sampleStep(random, 3.2, 8.8, 0.01);
     const definition = {
       seed,
-      uniform: { x0, speed: uniformSpeed, coordinateOrigin: Math.floor(x0 / 10) * 10, episodeLimit: 12, layout: Math.floor(random() * 3) },
-      variable: { x0: variableX0, coordinateOrigin: Math.floor(variableX0 / 10) * 10, slowSpeed, fastSpeed, durations, initialPhase, episodeLimit: cycle + 3.5, layout: Math.floor(random() * 3) },
+      uniform: { x0, speed: uniformSpeed, coordinateOrigin: Math.floor(x0 / 10) * 10, layout: Math.floor(random() * 3) },
+      variable: { x0: variableX0, coordinateOrigin: Math.floor(variableX0 / 10) * 10, slowSpeed, fastSpeed, durations, initialPhase, layout: Math.floor(random() * 3) },
       instantTarget: { segment: targetSegment, cycleIndex: targetCycleIndex, timeWithinSegment: targetWithin },
       windows: WINDOWS.slice(),
       instantOptions: []
@@ -238,23 +247,22 @@
     if (!definition || !Number.isInteger(definition.seed) || definition.seed < 0 || !definition.uniform || !definition.variable) return false;
     const u = definition.uniform;
     const v = definition.variable;
-    if (![u.x0, u.speed, u.coordinateOrigin, u.episodeLimit, v.x0, v.coordinateOrigin, v.slowSpeed, v.fastSpeed, v.initialPhase, v.episodeLimit].every(finite)) return false;
+    if (![u.x0, u.speed, u.coordinateOrigin, v.x0, v.coordinateOrigin, v.slowSpeed, v.fastSpeed, v.initialPhase].every(finite)) return false;
     if (!Number.isInteger(u.layout) || u.layout < 0 || u.layout > 2 || !Number.isInteger(v.layout) || v.layout < 0 || v.layout > 2) return false;
-    if (u.x0 < 12 || u.x0 > 38 || v.x0 < 13 || v.x0 > 46 || u.episodeLimit !== 12) return false;
+    if (u.x0 < 12 || u.x0 > 38 || v.x0 < 13 || v.x0 > 46) return false;
     if (u.coordinateOrigin % 10 !== 0 || v.coordinateOrigin % 10 !== 0 || u.x0 < u.coordinateOrigin || u.x0 >= u.coordinateOrigin + 10 || v.x0 < v.coordinateOrigin || v.x0 >= v.coordinateOrigin + 10) return false;
     if (u.speed < 3.2 || u.speed > 8.8 || v.slowSpeed < 1.5 || v.slowSpeed > 3 || v.fastSpeed < 6.5 || v.fastSpeed > 9.5 || v.fastSpeed - v.slowSpeed < 4) return false;
     if (Math.abs(u.speed - v.slowSpeed) < 0.75 || Math.abs(u.speed - v.fastSpeed) < 0.75) return false;
     if (!validDurations(v.durations)) return false;
     const cycle = cycleDuration(v);
     if (cycle < 7.5 || cycle > 10.5) return false;
-    if (v.initialPhase < 0 || v.initialPhase >= cycle || Math.abs(v.episodeLimit - (cycle + 3.5)) > 1e-9) return false;
+    if (v.initialPhase < 0 || v.initialPhase >= cycle) return false;
     if (!Array.isArray(definition.windows) || definition.windows.length !== WINDOWS.length || !definition.windows.every((item, index) => item === WINDOWS[index])) return false;
     const target = definition.instantTarget;
     if (!target || !["accelerate", "decelerate"].includes(target.segment) || ![0, 1].includes(target.cycleIndex) || !finite(target.timeWithinSegment)) return false;
     const duration = v.durations[target.segment];
     if (target.timeWithinSegment < WINDOWS[0] + TARGET_BOUNDARY_MARGIN_S - 1e-9 || duration - target.timeWithinSegment < TARGET_BOUNDARY_MARGIN_S - 1e-9) return false;
-    const sceneTarget = targetSceneTime(definition);
-    if (sceneTarget <= WINDOWS[0] || sceneTarget > v.episodeLimit - TARGET_BOUNDARY_MARGIN_S + 1e-9) return false;
+    if (targetSceneTime(definition) <= WINDOWS[0]) return false;
     const rows = analysisWindows(definition);
     if (new Set(rows.map((row) => row.averageVelocity)).size < 3) return false;
     const exact = canonicalNumber(variableVelocity(v, targetSceneTime(definition)));
@@ -282,16 +290,11 @@
     }, initial);
   }
 
-  function automaticEndpoint(startModelTime, maximumDuration, sceneTime) {
-    if (![startModelTime, maximumDuration, sceneTime].every(finite) || startModelTime < 0 || maximumDuration <= 0 || sceneTime < startModelTime + maximumDuration) return null;
-    return startModelTime + maximumDuration;
-  }
-
   return {
     SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, SEGMENTS,
-    canonicalNumber, format3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
+    canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, cycleDuration, segmentTable,
     profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, analysisWindows,
-    captureMeasurement, expectedFromMeasurement, advanceSimulationTime, automaticEndpoint
+    captureMeasurement, expectedFromMeasurement, advanceSimulationTime
   };
 });

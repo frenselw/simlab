@@ -11,8 +11,8 @@ const variable = Model.captureMeasurement((time) => Model.variablePosition(defin
 const expectedU = Model.expectedFromMeasurement(uniform);
 const expectedV = Model.expectedFromMeasurement(variable);
 const correct = {
-  uniform: { displacement: Model.format3(expectedU.displacement), time: Model.format3(expectedU.time), averageVelocity: Model.format3(expectedU.averageVelocity), relationship: "yes" },
-  variable: { displacement: Model.format3(expectedV.displacement), time: Model.format3(expectedV.time), averageVelocity: Model.format3(expectedV.averageVelocity), relationship: "no" },
+  uniform: { displacement: Model.formatInput3(expectedU.displacement), time: Model.formatInput3(expectedU.time), averageVelocity: Model.formatInput3(expectedU.averageVelocity), relationship: "yes" },
+  variable: { displacement: Model.formatInput3(expectedV.displacement), time: Model.formatInput3(expectedV.time), averageVelocity: Model.formatInput3(expectedV.averageVelocity), relationship: "no" },
   instant: { predictionChoice: Scoring.correctOption(definition).id, concept: "limit", stoppedVelocity: "0.00" }
 };
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, correct).score, 100);
@@ -63,5 +63,17 @@ const zeroWrong = JSON.parse(JSON.stringify(correct));
 zeroWrong.uniform.displacement = "0.00";
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, zeroWrong).detail.uniform.displacement.correct, false);
 assert.strictEqual(Model.expectedFromMeasurement(uniform).displacement, Model.canonicalNumber(uniform.x2 - uniform.x1));
+
+const longUniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 120, 420);
+const longExpected = Model.expectedFromMeasurement(longUniform);
+const longAttempt = JSON.parse(JSON.stringify(correct));
+longAttempt.uniform = {
+  displacement: Model.formatInput3(longExpected.displacement),
+  time: Model.formatInput3(longExpected.time),
+  averageVelocity: Model.formatInput3(longExpected.averageVelocity),
+  relationship: "yes"
+};
+assert(/[eE]/.test(longAttempt.uniform.displacement), "large answer uses consistent scientific input notation");
+assert.strictEqual(Scoring.scoreAttempt(definition, longUniform, variable, longAttempt).score, 100);
 
 console.log("Linear motion scoring tests passed");
