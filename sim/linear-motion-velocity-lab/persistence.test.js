@@ -94,6 +94,24 @@ assert.deepStrictEqual(restoredRuntime, { running: false, timerRunning: true });
 assert.deepStrictEqual(Persistence.resumeRuntime(restoredRuntime), { running: true, timerRunning: true }, "resume preserves the active stopwatch");
 assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(ready), { running: false, timerRunning: false });
 
+const frameBoundaryDefinition = Model.createAttempt(50);
+const frameBoundaryMinimum = Model.cycleDuration(frameBoundaryDefinition.variable);
+assert.strictEqual(frameBoundaryMinimum, 9.250000000000002);
+let frameBoundaryActive = Persistence.initialState(frameBoundaryDefinition);
+for (let step = 0; step < 5; step += 1) frameBoundaryActive = Persistence.continueOnce(frameBoundaryActive);
+const frameBoundaryTime = Model.advanceSimulationTime(0, Array.from({ length: 185 }, () => ({ dt: Model.MAX_FRAME_DELTA, running: true })));
+assert(frameBoundaryTime < frameBoundaryMinimum, "raw 185-frame duration preserves the floating-point edge case");
+frameBoundaryActive.scene.simulationTime = frameBoundaryTime;
+frameBoundaryActive.scene.observationStarted = 1;
+frameBoundaryActive.variableMeasurement.currentOrEndModelTime = frameBoundaryTime;
+frameBoundaryActive.variableMeasurement.dt = Model.canonicalNumber(frameBoundaryTime);
+assert(Persistence.validateDraft(frameBoundaryActive));
+assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryTime, minimum: frameBoundaryMinimum, captured: false, answered: false }).canStop, "185-frame normal state is eligible despite raw floating remainder");
+const frameBoundaryPaused = Persistence.decode(Persistence.encode({ ...frameBoundaryActive, running: false, timerRunning: true }));
+assert(frameBoundaryPaused, "185-frame paused measurement restores");
+assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(frameBoundaryPaused), { running: false, timerRunning: true });
+assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryPaused.scene.simulationTime - frameBoundaryPaused.variableMeasurement.startModelTime, minimum: frameBoundaryMinimum, captured: false, answered: false }).canStop, "restored paused state keeps the reached-minimum UI state");
+
 const reviewAnswer = Persistence.makeReview(review);
 assert(Persistence.validateReview(reviewAnswer));
 const restoredReview = Persistence.fromReview(Persistence.decodeReview(reviewAnswer));

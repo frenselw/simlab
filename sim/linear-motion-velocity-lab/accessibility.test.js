@@ -28,6 +28,9 @@ assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "
 const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
 assert.match(animateBody, /catch[\s\S]*locked = true[\s\S]*showTechnical\(/, "runtime numeric failures enter the locked technical view");
 assert.doesNotMatch(animateBody, /captureEndpoint|stopwatch\(/, "animation never auto-stops or auto-captures an eligible measurement");
+const progressBody = main.match(/function renderMeasurementProgress\(\)[^]*?\n  }/)?.[0] || "";
+assert.match(progressBody, /eligible = Model\.minimumDurationReached\(duration, minimum\)[\s\S]*remaining = eligible \? 0/, "progress copy uses the same minimum-duration tolerance as the stop control");
+assert.match(progressBody, /remaining > 0[\s\S]*已達最低量度時間/, "zero normalized remainder selects the reached-minimum message");
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");
 assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");

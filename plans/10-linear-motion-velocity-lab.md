@@ -463,6 +463,9 @@ cycle duration has elapsed. Show a neutral progress message such as:
 After the minimum, allow the learner to continue for any duration and stop the
 stopwatch manually. Neither completing a cycle nor reaching a later model time
 pauses the observation or captures an endpoint automatically.
+The progress message uses the same centralized floating-point tolerance as the
+stop control, so an eligible measurement reports that the minimum is reached
+instead of displaying a microscopic positive remainder.
 
 ### Instantaneous velocity analysis
 

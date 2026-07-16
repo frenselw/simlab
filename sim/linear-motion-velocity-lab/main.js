@@ -397,7 +397,10 @@
     const measurement = currentMeasurement();
     const captured = measurement?.x2 != null;
     const answered = state.variant.endsWith("answered");
-    const control = Persistence.measurementControlState({ timerRunning, duration: activeDuration(), minimum: minimumDuration(), captured, answered });
+    const duration = activeDuration();
+    const minimum = minimumDuration();
+    const eligible = Model.minimumDurationReached(duration, minimum);
+    const control = Persistence.measurementControlState({ timerRunning, duration, minimum, captured, answered });
     if (measurement && !timerRunning) setQuantityValue(elements.dtReadout, activeDuration(), "s");
     else {
       elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
@@ -406,7 +409,7 @@
     elements.timerButton.textContent = control.label;
     elements.timerButton.classList.toggle("is-running", timerRunning);
     elements.timerButton.disabled = control.disabled;
-    const remaining = Math.max(0, minimumDuration() - activeDuration());
+    const remaining = eligible ? 0 : Math.max(0, minimum - duration);
     elements.progressMessage.textContent = timerRunning && remaining > 0
       ? state.phase === "variable" ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
       : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
