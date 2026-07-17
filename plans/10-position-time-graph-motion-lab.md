@@ -129,7 +129,7 @@
   在矮屏或放大模式下容許依次捲動到達；
 - **操作面板**：模式、任務指示、數值、播放控制、答案狀態及主要行動；
 - 桌面：操作面板在左、主舞台在右；
-- 手機預設使用單一頁面捲動，避免矮屏、軟鍵盤或放大模式出現不可到達的 nested scroll；
+- 手機使用固定視窗版面：舞台置頂，控制面板在下方獨立捲動；舞台內容在極矮視窗可自行捲動，避免內容被裁走；
 - 只有 viewport 高度足夠時才使用有 `max-height` 的 compact sticky 舞台，且不得遮擋
   操作面板、主要按鈕或鍵盤 focus target；
 - 不使用多層 card-in-card；以分隔線劃分設定、播放、量度及提交區。
@@ -997,7 +997,7 @@ score(original) = score(restore(decode(encode(original))))
 - `prefers-reduced-motion` 下減少非必要過場，但物理時間仍可逐步查看；
 - 320 px portrait、landscape、軟鍵盤開啟、200% zoom、常見 tablet 及 desktop 的舞台、
   操作及主要按鈕均可到達，且沒有必要的水平捲動；
-- 手機預設單頁捲動；只有高度足夠時 compact sticky 舞台才啟用，且不遮擋 focus target；
+- 手機控制面板可獨立捲動，舞台保持在上方；極矮視窗仍可捲動舞台內容，且不遮擋 focus target；
 - 固定 SVG aspect ratio 下，`v = ±1` 與 `±2 m/s` 的斜率在手機上可辨；
 - 讀圖游標可由鍵盤逐步移動，螢幕閱讀器取得軸資料及 `(t,x)`，又不直接讀出答案斜率；
 - submitted review 所有修改控制鎖定，時間游標及重播只讀功能可用；

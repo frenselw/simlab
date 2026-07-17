@@ -9,7 +9,9 @@
 }
 
 .lab-app {
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .compact-header {
@@ -33,14 +35,17 @@
 
 .lab-shell {
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: minmax(16rem, 62%) minmax(10rem, 38%);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .lab-stage {
   display: grid;
   grid-template-rows: auto auto;
-  min-height: auto;
-  overflow: visible;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--color-app);
 }
 
@@ -187,7 +192,10 @@
 .faster-token { fill: #ffffff; stroke: #334155; stroke-width: 2; cursor: grab; }
 
 .lab-panel {
-  overflow: visible;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .task-heading,
@@ -314,7 +322,7 @@
   background: #ffffff;
 }
 
-.math-data span {
+.math-data > div > span {
   display: block;
   color: var(--color-text-muted);
   font-size: 0.78rem;
@@ -323,7 +331,6 @@
 .math-data b {
   display: block;
   margin-top: 0.2rem;
-  font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
   text-align: left;
 }
@@ -400,9 +407,16 @@ dialog h2 { margin-top: 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
 @media (min-width: 820px) {
+  .lab-app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .lab-shell {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     grid-template-rows: auto;
+    overflow: visible;
   }
 
   .lab-panel {
@@ -416,6 +430,7 @@ dialog h2 { margin-top: 0; }
     grid-column: 2;
     grid-row: 1;
     align-content: start;
+    overflow: visible;
     border-left: 1px solid var(--color-border);
   }
 }
