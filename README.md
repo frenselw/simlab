@@ -9,6 +9,7 @@ SCORM 1.2 activities for Moodle.
 - `plane-mirror-pencil-ray-diagram` - 平面鏡鉛筆成像光路圖
 - `displacement-distance-map-journey` - 路程、位移與總位移地圖任務
 - `inertial-reference-frame-road-observer` - 慣性參考系公路觀察任務
+- `position-time-graph-motion-lab` - 位置—時間圖運動實驗室
 
 ## Local development
 
