@@ -4,13 +4,14 @@
   const ACTIVITY = "position-time-graph-motion-lab";
   const S = window.PositionTimeScoring;
   const P = window.PositionTimePersistence;
+  const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 24, bottom: 390 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
   const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "resetButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
-  const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, safeSummary: false, reviewStep: 0 };
+  const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, unsaved: false, safeSummary: false, reviewStep: 0 };
 
   function math(symbol, unit, value) {
     const shown = value == null || value === "" ? "--" : signed(value);
@@ -44,6 +45,9 @@
   function currentAnswer() { return state.assessment?.ans[missionKey()]; }
   function editable() { return !ui.locked && !ui.technical && (state.phase === "explore" || state.phase === "mission"); }
   function settingsEditable() { return editable() && !ui.playing && ui.time === 0; }
+  function interactionContext() {
+    return { phase: state.phase, step: state.currentStep, locked: ui.locked, technical: Boolean(ui.technical), playing: ui.playing, time: ui.time };
+  }
 
   function announce(message) {
     dom.liveStatus.textContent = message;
@@ -91,12 +95,14 @@
   }
 
   function render() {
+    const focusKey = R.focusKey(document.activeElement);
     renderHeader();
     renderTask();
     renderControls();
     renderDynamic();
     renderNavigation();
     renderResult();
+    R.restoreFocus(document, focusKey);
   }
   function renderDynamic() {
     dom.timeSlider.value = String(ui.time);
@@ -126,6 +132,7 @@
       dom.phaseBadge.textContent = state.phase === "final-review" ? "提交前檢視" : `任務 ${state.currentStep + 1} / 5`;
       dom.modeDescription.textContent = "五個任務合共 100 分，提交前可回看及修改答案。";
     }
+    if (ui.unsaved && !ui.technical) dom.phaseBadge.textContent += " · 未儲存";
   }
   function renderTask() {
     dom.answerState.hidden = true;
@@ -151,12 +158,13 @@
     }
     const step = state.phase === "submitted-review" ? ui.reviewStep : state.currentStep;
     dom.taskTitle.textContent = `${step + 1}. ${MISSION_NAMES[step]}`;
-    dom.taskInstruction.innerHTML = instructionFor(step, currentSet()[`m${step + 1}`]);
+    const scenario = currentSet()[`m${step + 1}`];
+    dom.taskInstruction.innerHTML = instructionFor(step, scenario) + (state.phase === "submitted-review" ? reviewConditionHtml(step, scenario) : "");
     const key = `m${step + 1}`;
     const complete = S.completeness(key, state.assessment.ans[key]);
     dom.answerState.hidden = false;
-    dom.answerState.dataset.state = complete;
-    dom.answerState.textContent = complete === "complete" ? "已完整" : complete === "partial" ? "部分作答" : "未作答";
+    dom.answerState.dataset.state = ui.unsaved ? "unsaved" : complete;
+    dom.answerState.textContent = ui.unsaved ? "未儲存（技術問題）" : complete === "complete" ? "已完整" : complete === "partial" ? "部分作答" : "未作答";
   }
   function instructionFor(step, scenario) {
     if (step === 0) return "拖車設定初始位置，再拖速度箭嘴設定速度，令學生圖線符合紫色虛線。";
@@ -164,6 +172,16 @@
     if (step === 2) return "分別在 A、B 圖線放置相隔最少 2.0 s 的探針，計算兩車帶符號速度，再比較速度大小。";
     if (step === 3) return scenario.v === 0 ? `建立一架在 <span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 至 6.0 <span class="unit">s</span> 都停在 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span> 的車。` : `建立運動：<span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span>；<span class="math"><var>t</var></span> = ${scenario.atTime.toFixed(1)} <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.atPosition)} <span class="unit">m</span>。`;
     return `A 車已固定。設定 B 車，令兩車在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 相遇，再輸入相遇位置 <span class="math"><var>x</var><sup>*</sup></span>。`;
+  }
+  function reviewConditionHtml(step, scenario) {
+    if (step === 0 || step === 3) return `<span class="review-condition">正確條件：<span class="math"><var>x</var><sub>0</sub></span> = ${signed(scenario.x0)} <span class="unit">m</span>，<span class="math"><var>v</var></span> = ${signed(scenario.v)} <span class="unit">m/s</span>。</span>`;
+    if (step === 1) return `<span class="review-condition">正確圖點：<span class="math"><var>P</var><sub>0</sub></span> = (0.0 <span class="unit">s</span>, ${signed(scenario.x0)} <span class="unit">m</span>)，<span class="math"><var>P</var><sub>6</sub></span> = (6.0 <span class="unit">s</span>, ${signed(S.positionAt(scenario, 6))} <span class="unit">m</span>)。</span>`;
+    if (step === 2) {
+      const faster = Math.abs(scenario.A.v) === Math.abs(scenario.B.v) ? "兩車一樣快" : Math.abs(scenario.A.v) > Math.abs(scenario.B.v) ? "A 車較快" : "B 車較快";
+      return `<span class="review-condition">正確量度：<span class="math"><var>v</var><sub>A</sub></span> = ${signed(scenario.A.v)} <span class="unit">m/s</span>，<span class="math"><var>v</var><sub>B</sub></span> = ${signed(scenario.B.v)} <span class="unit">m/s</span>；${faster}。</span>`;
+    }
+    const meetingX = S.positionAt(scenario.A, scenario.meetTime);
+    return `<span class="review-condition">接受任何不與 A 全程重合、並在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 到達 <span class="math"><var>x</var><sup>*</sup></span> = ${signed(meetingX)} <span class="unit">m</span> 的 B 車設定。</span>`;
   }
 
   function renderControls() {
@@ -180,7 +198,7 @@
       dom.motionControls.innerHTML = motionControlHtml(state.exploration.x0, state.exploration.v, false);
       dom.presetControls.innerHTML = [
         ["靜止", 0, 0], ["慢速向右", -6, 1], ["快速向右", -6, 2], ["慢速向左", 6, -1], ["快速向左", 6, -2], ["非零位置出發", 4, 1.5]
-      ].map(([label, x0, v]) => `<button type="button" data-preset="${x0},${v}" ${settingsEditable() ? "" : "disabled"}>${label}</button>`).join("");
+      ].map(([label, x0, v]) => `<button type="button" data-preset="${x0},${v}" data-focus-key="preset:${x0}:${v}" ${settingsEditable() ? "" : "disabled"}>${label}</button>`).join("");
       renderProbeControls("explore");
     } else if (step === 0 || step === 3 || step === 4) {
       const answer = state.assessment.ans[`m${step + 1}`];
@@ -210,34 +228,34 @@
     const fallback = value == null ? 0 : value;
     return `<div class="quantity-control">
       <div class="value-heading"><label for="${name}Range">${label} <span class="math"><var>${symbol}</var></span></label><output id="${name}Value">${value == null ? "未設定" : `${signed(value)} <span class="unit">${unit}</span>`}</output></div>
-      <input id="${name}Range" data-quantity="${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${label}">
-      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" ${disabled ? "disabled" : ""} aria-label="減少${label}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" ${disabled ? "disabled" : ""} aria-label="增加${label}">＋</button></div>
+      <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${label}">
+      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${label}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${label}">＋</button></div>
     </div>`;
   }
   function graphPointControl(name, label, value) {
     return quantityControl(name, label, "x", "m", value, -20, 20, 1, ui.locked);
   }
   function numberInputHtml(name, label, symbol, unit, value, min, max, step) {
-    return `<label class="quantity-control" for="${name}Input"><span>${label} <span class="math"><var>${symbol}</var></span></span><span class="number-with-unit"><input id="${name}Input" data-number-answer="${name}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value == null ? "" : value}" ${ui.locked ? "disabled" : ""}><span class="unit">${unit}</span></span></label>`;
+    return `<label class="quantity-control" for="${name}Input"><span>${label} <span class="math"><var>${symbol}</var></span></span><span class="number-with-unit"><input id="${name}Input" data-number-answer="${name}" data-focus-key="number:${name}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value == null ? "" : value}" ${ui.locked ? "disabled" : ""}><span class="unit">${unit}</span></span></label>`;
   }
   function fasterControl(value) {
-    return `<fieldset><legend>速度大小較大</legend><div class="choice-grid">${[["A", "A 車"], ["B", "B 車"], ["same", "一樣快"]].map(([key, label]) => `<button type="button" data-faster="${key}" aria-pressed="${value === key}" ${ui.locked ? "disabled" : ""}>${label}</button>`).join("")}</div><p class="sr-note">亦可拖動圖內「速度大小較大」標記到 A、B 或一樣快區域。</p></fieldset>`;
+    return `<fieldset><legend>速度大小較大</legend><div class="choice-grid">${[["A", "A 車"], ["B", "B 車"], ["same", "一樣快"]].map(([key, label]) => `<button type="button" data-faster="${key}" data-focus-key="faster:${key}" aria-pressed="${value === key}" ${ui.locked ? "disabled" : ""}>${label}</button>`).join("")}</div><p class="sr-note">亦可拖動圖內「速度大小較大」標記到 A、B 或一樣快區域。</p></fieldset>`;
   }
   function renderProbeControls(mode) {
     dom.probeSection.hidden = false;
     if (mode === "explore") {
       const motion = state.exploration;
-      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row"><button type="button" data-add-probe="E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>加入下一個探針</button><button type="button" data-clear-probe="E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
+      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row"><button type="button" data-add-probe="E" data-focus-key="probe-add:E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>加入下一個探針</button><button type="button" data-clear-probe="E" data-focus-key="probe-clear:E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
     } else {
       const answer = state.assessment.ans.m3;
       const scenario = currentSet().m3;
-      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row"><button type="button" data-add-probe="${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>加入 ${label} 車探針</button><button type="button" data-clear-probe="${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
+      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row"><button type="button" data-add-probe="${label}" data-focus-key="probe-add:${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>加入 ${label} 車探針</button><button type="button" data-clear-probe="${label}" data-focus-key="probe-clear:${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
     }
   }
   function probeCard(label, probes, motion, line, maxTime) {
     const rows = probes.map((time, index) => {
       const pointLabel = index === 0 ? "P" : "Q";
-      return `<label class="range-row"><span>${pointLabel}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output>(${time.toFixed(1)} s, ${signed(S.positionAt(motion, time))} m)</output></label>`;
+      return `<label class="range-row"><span>${pointLabel}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output>(${time.toFixed(1)} s, ${signed(S.positionAt(motion, time))} m)</output></label>`;
     }).join("");
     const delta = probes.length === 2 ? measurementHtml(probes, motion) : "加入 P、Q 兩個探針以顯示 Δt 及 Δx。";
     return `<div class="probe-heading"><strong>${label}</strong><span>${probes.length}/2</span></div>${rows}<div class="muted">${delta}</div>`;
@@ -251,22 +269,22 @@
 
   function bindControlEvents() {
     document.querySelectorAll("[data-quantity]").forEach((input) => input.addEventListener("input", () => updateQuantity(input.dataset.quantity, Number(input.value), false)));
-    document.querySelectorAll("[data-quantity]").forEach((input) => input.addEventListener("change", () => { saveDraft(); announce("運動設定已更新。"); }));
+    document.querySelectorAll("[data-quantity]").forEach((input) => input.addEventListener("change", () => saveAndAnnounce("運動設定已更新並儲存。")));
     document.querySelectorAll("[data-step-quantity]").forEach((button) => button.addEventListener("click", () => stepQuantity(button.dataset.stepQuantity, Number(button.dataset.delta))));
     document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => {
       const [x0, v] = button.dataset.preset.split(",").map(Number);
       state.exploration = { x0, v };
       resetTime(true);
-      saveDraft();
+      const saved = saveDraft();
       render();
-      announce("快捷情境已載入；你仍可修改數值。");
+      announce(saved ? "快捷情境已載入並儲存；你仍可修改數值。" : "快捷情境已載入，但草稿未能儲存；請重試。");
     }));
     document.querySelectorAll("[data-number-answer]").forEach((input) => input.addEventListener("change", () => updateNumberAnswer(input.dataset.numberAnswer, input.value)));
-    document.querySelectorAll("[data-faster]").forEach((button) => button.addEventListener("click", () => { currentAnswer().faster = button.dataset.faster; saveDraft(); render(); announce("速度大小比較標記已保存。"); }));
+    document.querySelectorAll("[data-faster]").forEach((button) => button.addEventListener("click", () => { currentAnswer().faster = button.dataset.faster; const saved = saveDraft(); render(); announce(saved ? "速度大小比較標記已儲存。" : "比較標記未能儲存；請重試。" ); }));
     document.querySelectorAll("[data-add-probe]").forEach((button) => button.addEventListener("click", () => addProbe(button.dataset.addProbe)));
     document.querySelectorAll("[data-clear-probe]").forEach((button) => button.addEventListener("click", () => clearProbes(button.dataset.clearProbe)));
     document.querySelectorAll("[data-probe-line]").forEach((input) => input.addEventListener("input", () => updateProbe(input.dataset.probeLine, Number(input.dataset.probeIndex), Number(input.value), false)));
-    document.querySelectorAll("[data-probe-line]").forEach((input) => input.addEventListener("change", () => { saveDraft(); announce("探針位置已保存。"); }));
+    document.querySelectorAll("[data-probe-line]").forEach((input) => input.addEventListener("change", () => saveAndAnnounce("探針位置已儲存。")));
   }
   function stepQuantity(name, delta) {
     const current = quantityValue(name);
@@ -290,7 +308,8 @@
       else answer[name] = value;
     }
     resetTime(state.phase === "explore");
-    if (persist) saveDraft();
+    ui.unsaved = true;
+    if (persist) saveAndAnnounce("數值已儲存。", false);
     render();
   }
   function updateNumberAnswer(name, raw) {
@@ -301,8 +320,9 @@
       const [line] = name.split("-");
       setOptional(answer[line], "velocity", value, -2, 2);
     }
-    saveDraft();
+    const saved = saveDraft();
     render();
+    announce(saved ? "數值答案已儲存。" : "數值答案未能儲存；請重試。" );
   }
   function setOptional(target, key, value, min, max) {
     if (value == null) delete target[key];
@@ -315,20 +335,29 @@
     if (list.length >= 2) return;
     const maxTime = line === "E" ? ui.time : 6;
     list.push(list.length ? Math.min(maxTime, list[0] + 2) : 0);
-    saveDraft();
+    const saved = saveDraft();
     render();
-    announce(`${list.length === 1 ? "P" : "Q"} 探針已加入。`);
+    announce(saved ? `${list.length === 1 ? "P" : "Q"} 探針已加入並儲存。` : "探針已加入，但未能儲存；請重試。" );
   }
   function clearProbes(line) {
     if (line === "E") ui.explorationProbes = [];
     else state.assessment.ans.m3[line].probes = [];
-    saveDraft();
+    const saved = saveDraft();
     render();
+    announce(saved ? "探針已清除並儲存。" : "探針已清除，但未能儲存；請重試。" );
   }
   function updateProbe(line, index, time, persist) {
     probeList(line)[index] = snap(time, 0.5);
-    if (persist) saveDraft();
+    ui.unsaved = true;
+    if (persist) saveAndAnnounce("探針位置已儲存。", false);
     render();
+  }
+
+  function saveAndAnnounce(success, shouldRender = true) {
+    const saved = saveDraft();
+    if (shouldRender) render();
+    announce(saved ? success : "草稿未能儲存；目前答案只保留在此頁，請重試後才前往下一步。");
+    return saved;
   }
 
   function displayContext() {
@@ -342,9 +371,10 @@
     return null;
   }
   function drawRoad() {
+    dom.roadSvg.classList.toggle("is-narrow", dom.roadSvg.clientWidth > 0 && dom.roadSvg.clientWidth <= 420);
     let html = `<line class="road-track" x1="${ROAD.left}" y1="${ROAD.y}" x2="${ROAD.right}" y2="${ROAD.y}"></line>`;
     for (let x = -20; x <= 20; x += 5) html += `<line class="road-tick" x1="${roadX(x)}" y1="${ROAD.y - 8}" x2="${roadX(x)}" y2="${ROAD.y + 8}"></line><text class="tick-label" x="${roadX(x)}" y="${ROAD.y + 29}">${x}</text>`;
-    html += `<text class="axis-label" x="766" y="${ROAD.y + 8}">x / m</text><text class="svg-label" x="704" y="55">正方向 →</text>`;
+    html += `<text class="axis-label" x="742" y="${ROAD.y - 16}" text-anchor="end">x / m</text><text class="svg-label" x="704" y="55">正方向 →</text>`;
     const context = displayContext();
     const cars = [];
     if (ui.safeSummary) { /* no untrusted answer geometry */ }
@@ -364,18 +394,20 @@
     const canDrag = car.draggable && settingsEditable();
     const arrowLength = car.motion.v * 48;
     const endpoint = x + arrowLength;
-    const arrow = canDrag || Number.isFinite(car.motion.v) ? `<line class="velocity-line" x1="${x}" y1="${y - 31}" x2="${endpoint}" y2="${y - 31}"></line><path d="M ${endpoint} ${y - 31} l ${arrowLength >= 0 ? -10 : 10} -7 l 0 14 z" fill="${car.label === "A" ? "var(--car-a)" : "var(--car-b)"}"></path><circle class="velocity-handle" cx="${endpoint}" cy="${y - 31}" r="9"></circle><circle class="drag-hit" data-drag="velocity:${car.label}" tabindex="${canDrag ? 0 : -1}" role="slider" aria-label="${car.label} 車速度 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${y - 31}" r="23"></circle>` : "";
-    return `<g class="car-${car.label.toLowerCase()}">${arrow}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text><rect class="car-hit" data-drag="car:${car.label}" tabindex="${canDrag ? 0 : -1}" role="slider" aria-label="拖動 ${car.label} 車設定初始位置 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-8" y="-12" width="68" height="58" rx="12"></rect></g></g>`;
+    const arrow = canDrag ? `<line class="velocity-line" x1="${x}" y1="${y - 31}" x2="${endpoint}" y2="${y - 31}"></line><path d="M ${endpoint} ${y - 31} l ${arrowLength >= 0 ? -10 : 10} -7 l 0 14 z" fill="${car.label === "A" ? "var(--car-a)" : "var(--car-b)"}"></path><circle class="velocity-handle" cx="${endpoint}" cy="${y - 31}" r="9"></circle><circle class="drag-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${y - 31}" r="10"></circle>` : "";
+    const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
+    return `<g class="car-${car.label.toLowerCase()}">${arrow}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g></g>`;
   }
 
   function graphBase() {
     let html = "";
     for (let t = 0; t <= 6; t += 1) html += `<line class="plot-grid" x1="${graphX(t)}" y1="${GRAPH.top}" x2="${graphX(t)}" y2="${GRAPH.bottom}"></line><text class="tick-label" x="${graphX(t)}" y="${GRAPH.bottom + 22}">${t}</text>`;
     for (let x = -20; x <= 20; x += 5) html += `<line class="plot-grid" x1="${GRAPH.left}" y1="${graphY(x)}" x2="${GRAPH.right}" y2="${graphY(x)}"></line><text class="tick-label" x="${GRAPH.left - 28}" y="${graphY(x) + 5}">${x}</text>`;
-    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label" x="${GRAPH.right + 4}" y="${GRAPH.bottom + 21}">t / s</text><text class="axis-label" x="26" y="${GRAPH.top + 4}">x / m</text>`;
+    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label" x="${GRAPH.right - 10}" y="${GRAPH.bottom + 43}" text-anchor="end">t / s</text><text class="axis-label" x="10" y="${GRAPH.top - 5}">x / m</text>`;
     return html;
   }
   function drawGraph() {
+    dom.graphSvg.classList.toggle("is-narrow", dom.graphSvg.clientWidth > 0 && dom.graphSvg.clientWidth <= 420);
     let html = graphBase();
     const context = displayContext();
     const visibleReadings = [];
@@ -393,6 +425,7 @@
     } else if (context.step === 1) {
       const answer = context.answer;
       if (Number.isFinite(answer.xStart) && Number.isFinite(answer.xEnd)) html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd)}"></line>`;
+      if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6) + `<circle class="target-point" cx="${graphX(0)}" cy="${graphY(context.scenario.x0)}" r="8"></circle><circle class="target-point" cx="${graphX(6)}" cy="${graphY(S.positionAt(context.scenario, 6))}" r="8"></circle><text class="svg-label" x="${graphX(0) + 12}" y="${graphY(context.scenario.x0) - 12}">正確 P₀</text><text class="svg-label" x="${graphX(6) - 76}" y="${graphY(S.positionAt(context.scenario, 6)) - 12}">正確 P₆</text>`;
       html += graphHandle("xStart", 0, answer.xStart) + graphHandle("xEnd", 6, answer.xEnd);
       visibleReadings.push(["車的位置讀數", S.positionAt(context.scenario, ui.time)]);
     } else if (context.step === 2) {
@@ -402,11 +435,13 @@
     } else if (context.step === 3) {
       const own = answerMotion(3, context.answer);
       if (!own.incomplete) { html += svgLine(own, "student-line", ui.time); html += currentDot(own, "student-line"); visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]); }
+      if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6);
     } else if (context.step === 4) {
       html += svgLine(context.scenario.A, "line-a", ui.time);
       visibleReadings.push(["A 圖線", S.positionAt(context.scenario.A, ui.time)]);
       const own = answerMotion(4, context.answer);
       if (!own.incomplete) { html += svgLine(own, "line-b", ui.time); visibleReadings.push(["B 圖線", S.positionAt(own, ui.time)]); }
+      if (state.phase === "submitted-review") html += `<circle class="target-point" cx="${graphX(context.scenario.meetTime)}" cy="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime))}" r="9"></circle><text class="svg-label" x="${graphX(context.scenario.meetTime) + 12}" y="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime)) - 12}">指定相遇點</text>`;
       html += `<line class="time-cursor" x1="${graphX(context.scenario.meetTime)}" y1="${GRAPH.top}" x2="${graphX(context.scenario.meetTime)}" y2="${GRAPH.bottom}"></line><text class="svg-label" x="${graphX(context.scenario.meetTime) + 6}" y="42">t*</text>`;
     }
     html += `<line class="time-cursor" x1="${graphX(ui.time)}" y1="${GRAPH.top}" x2="${graphX(ui.time)}" y2="${GRAPH.bottom}"></line>`;
@@ -420,20 +455,24 @@
   function graphHandle(name, time, value) {
     const position = value == null ? 0 : value;
     const label = time === 0 ? "P₀" : "P₆";
-    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle><circle class="drag-hit" data-drag="graph:${name}" tabindex="${ui.locked ? -1 : 0}" role="slider" aria-label="${label} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="25"></circle><text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -38)}" y="${graphY(position) - 15}">${label}${value == null ? " ?" : ""}</text></g>`;
+    const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${label} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
+    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -38)}" y="${graphY(position) - 15}">${label}${value == null ? " ?" : ""}</text></g>`;
   }
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {
       const position = S.positionAt(motion, time);
       const label = index === 0 ? "P" : "Q";
-      return `<g><line class="time-cursor" x1="${graphX(time)}" y1="${graphY(position)}" x2="${graphX(time)}" y2="${GRAPH.bottom}"></line><circle class="probe-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle><circle class="drag-hit" data-drag="probe:${line}:${index}" tabindex="${ui.locked ? -1 : 0}" role="slider" aria-label="${line === "E" ? "探索" : line + " 車"} ${label} 探針，時間 ${time.toFixed(1)} 秒，位置 ${signed(position)} 米" aria-valuemin="0" aria-valuemax="6" aria-valuenow="${time}" cx="${graphX(time)}" cy="${graphY(position)}" r="23"></circle><text class="svg-label" x="${graphX(time) + 12}" y="${graphY(position) - 12}">${line === "E" ? "" : line}${label}</text></g>`;
+      const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="probe:${line}:${index}" tabindex="0" role="slider" aria-label="${line === "E" ? "探索" : line + " 車"} ${label} 探針，時間 ${time.toFixed(1)} 秒，位置 ${signed(position)} 米" aria-valuemin="0" aria-valuemax="6" aria-valuenow="${time}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
+      return `<g><line class="time-cursor" x1="${graphX(time)}" y1="${graphY(position)}" x2="${graphX(time)}" y2="${GRAPH.bottom}"></line><circle class="probe-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>${hit}<text class="svg-label" x="${graphX(time) + 12}" y="${graphY(position) - 12}">${line === "E" ? "" : line}${label}</text></g>`;
     }).join("");
   }
   function fasterSvg(value) {
     const zones = [["A", 300, "A"], ["B", 430, "B"], ["same", 560, "一樣快"]];
     const selected = zones.find(([key]) => key === value);
     const tokenX = selected ? selected[1] : 170;
-    return zones.map(([key, x, label]) => `<rect class="faster-zone ${value === key ? "is-selected" : ""}" x="${x - 52}" y="396" width="104" height="28" rx="7"></rect><text class="svg-label" x="${x}" y="415" text-anchor="middle">${label}</text>`).join("") + `<rect class="faster-token" data-drag="faster" tabindex="${ui.locked ? -1 : 0}" role="slider" aria-label="速度大小較大標記；目前 ${value || "未設定"}" x="${tokenX - 70}" y="354" width="140" height="28" rx="14"></rect><text class="svg-label" x="${tokenX}" y="373" text-anchor="middle" pointer-events="none">速度大小較大</text>`;
+    const token = `<rect class="faster-token" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect><text class="svg-label" x="${tokenX}" y="451" text-anchor="middle" pointer-events="none">速度大小較大</text>`;
+    const hit = ui.locked ? "" : `<rect class="drag-hit" data-drag="faster" tabindex="0" role="slider" aria-label="速度大小較大標記；目前 ${value || "未設定"}" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect>`;
+    return zones.map(([key, x, label]) => `<rect class="faster-zone ${value === key ? "is-selected" : ""}" x="${x - 52}" y="462" width="104" height="26" rx="7"></rect><text class="svg-label" x="${x}" y="481" text-anchor="middle">${label}</text>`).join("") + token + hit;
   }
 
   function renderData() {
@@ -468,10 +507,8 @@
       const button = document.getElementById(state.variant === "from-review" ? "returnReview" : "nextMission");
       button.addEventListener("click", () => {
         resetTime();
-        state.variant === "from-review" ? P.returnToReview(state) : P.nextMission(state);
-        saveDraft();
-        render();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        const moved = transitionSafely((next) => next.variant === "from-review" ? P.returnToReview(next) : P.nextMission(next));
+        if (moved) window.scrollTo({ top: 0, behavior: "smooth" });
       });
       return;
     }
@@ -492,6 +529,7 @@
       dom.resultSection.hidden = false;
       dom.resultPanel.className = "readout technical";
       dom.resultPanel.innerHTML = `<strong>技術狀態</strong><p>${escapeText(ui.technical)}</p><div id="technicalAction"></div>`;
+      R.renderRetryAction(document.getElementById("technicalAction"), ui.technicalAction, retryPending);
       return;
     }
     dom.resultPanel.className = "readout";
@@ -503,7 +541,7 @@
         const label = status === "complete" ? "已完整" : status === "partial" ? "部分作答" : "未作答";
         return `<div class="review-item"><h3>${step + 1}. ${MISSION_NAMES[step]}</h3><p>${label}</p><button type="button" data-edit-step="${step}">修改第 ${step + 1} 題</button></div>`;
       }).join("")}</div>`;
-      document.querySelectorAll("[data-edit-step]").forEach((button) => button.addEventListener("click", () => { P.editMission(state, Number(button.dataset.editStep)); resetTime(); saveDraft(); render(); }));
+      document.querySelectorAll("[data-edit-step]").forEach((button) => button.addEventListener("click", () => { resetTime(); transitionSafely((next) => P.editMission(next, Number(button.dataset.editStep))); }));
       return;
     }
     if (!ui.result) return;
@@ -514,12 +552,27 @@
     dom.resultPanel.innerHTML = `<div>分數</div><div class="score-value">${scoreLabel}</div><strong>${completion}</strong><div class="feedback-list">${detail}</div>`;
   }
 
-  function saveDraft() {
-    if (ui.locked || ui.technical || state.phase === "submitted-review") return false;
-    const payload = P.encodeDraft(state);
-    if (!payload) { showTechnical("目前草稿狀態無法安全保存。請重新開啟活動。"); return false; }
+  function persistState(candidate) {
+    if (ui.locked || ui.technical || candidate.phase === "submitted-review") return false;
+    const payload = P.encodeDraft(candidate);
+    if (!payload) return false;
     try { return window.SimScorm.saveDraft(window.SimScorm.makeSnapshot(ACTIVITY, "draft", payload)); }
-    catch { showTechnical("草稿超出儲存限制，活動已鎖定以免遺失答案。"); return false; }
+    catch { return false; }
+  }
+  function saveDraft() {
+    const saved = persistState(state);
+    ui.unsaved = !saved;
+    return saved;
+  }
+  function transitionSafely(mutator) {
+    const outcome = R.transitionWithSave(state, mutator, persistState);
+    state = outcome.state;
+    ui.unsaved = outcome.stage === "before";
+    render();
+    if (outcome.ok) announce("目前答案及下一步已儲存。");
+    else if (outcome.stage === "after") announce("未能儲存下一步；已安全返回目前頁面，答案仍已保存。");
+    else announce("草稿未能儲存；已留在目前頁面，請重試。");
+    return outcome.ok;
   }
   function draftSnapshot() {
     const payload = P.encodeDraft(state);
@@ -530,6 +583,7 @@
     stopAnimation();
     ui.locked = true;
     ui.technical = message;
+    ui.technicalAction = null;
     ui.result = null;
     render();
   }
@@ -560,6 +614,7 @@
     state = restored;
     ui.locked = true;
     ui.technical = null;
+    ui.technicalAction = null;
     ui.result = result;
     ui.resultTrusted = trusted;
     ui.reviewStep = 0;
@@ -571,17 +626,14 @@
     stopAnimation();
     ui.locked = true;
     ui.technical = message;
+    ui.technicalAction = "retry-pending";
     ui.result = null;
     render();
-    const host = document.getElementById("technicalAction");
-    if (host) {
-      host.innerHTML = `<button type="button" id="retryPending" class="primary-button">重試同一份提交</button>`;
-      document.getElementById("retryPending").addEventListener("click", retryPending);
-    }
   }
   function showRetry(message) {
     ui.locked = false;
     ui.technical = null;
+    ui.technicalAction = null;
     render();
     announce(message);
   }
@@ -603,27 +655,31 @@
     showSubmitted(payload, result, true, message);
   }
 
-  function applyDrag(kind, point, persist) {
+  function applyDrag(kind, point, persist, dragMeta = null) {
+    if (!R.dragAllowed(kind, interactionContext())) return;
     const [type, line, rawIndex] = kind.split(":");
-    if (type === "car" && settingsEditable()) {
-      const value = clamp(snap(S.LIMITS.positionMin + (point.x - ROAD.left) / (ROAD.right - ROAD.left) * 40, 1), -8, 8);
+    if (type === "car") {
+      const value = R.positionFromPointer(point.x, dragMeta?.grabOffset || 0, ROAD.left, ROAD.right, -20, 20, 1, -8, 8);
       updateDirectMotion("x0", value);
-    } else if (type === "velocity" && settingsEditable()) {
+    } else if (type === "velocity") {
       const motion = directMotion();
       const value = clamp(snap((point.x - roadX(motion.x0)) / 48, 0.5), -2, 2);
       updateDirectMotion("v", value);
-    } else if (type === "graph" && editable()) {
+    } else if (type === "graph") {
       const position = clamp(snap(S.LIMITS.positionMin + (GRAPH.bottom - point.y) / (GRAPH.bottom - GRAPH.top) * 40, 1), -20, 20);
       currentAnswer()[line] = position;
-    } else if (type === "probe" && editable()) {
+    } else if (type === "probe") {
       const max = line === "E" ? ui.time : 6;
       const time = clamp(snap((point.x - GRAPH.left) / (GRAPH.right - GRAPH.left) * 6, 0.5), 0, max);
       probeList(line)[Number(rawIndex)] = time;
-    } else if (type === "faster" && editable()) {
+    } else if (type === "faster") {
       currentAnswer().faster = point.x < 365 ? "A" : point.x < 495 ? "B" : "same";
     } else return;
-    if (persist) saveDraft();
+    ui.unsaved = true;
+    let saved = true;
+    if (persist) saved = saveDraft();
     render();
+    if (persist) announce(saved ? "操作已儲存。" : "操作未能儲存；請重試後才前往下一步。" );
   }
   function directMotion() {
     if (state.phase === "explore") return state.exploration;
@@ -641,48 +697,47 @@
   }
   function pointerDown(event) {
     const target = event.target.closest("[data-drag]");
-    if (!target || ui.locked || ui.technical) return;
+    if (!target || !R.dragAllowed(target.dataset.drag, interactionContext())) return;
     const type = target.dataset.drag.split(":")[0];
-    if (["car", "velocity"].includes(type) && !settingsEditable()) return;
-    if (!["car", "velocity"].includes(type) && !editable()) return;
-    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId };
+    const point = clientPoint(event.currentTarget, event);
+    const grabOffset = type === "car" ? point.x - roadX(directMotion().x0) : 0;
+    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
   }
   function pointerMove(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
-    applyDrag(ui.drag.kind, clientPoint(event.currentTarget, event), false);
+    applyDrag(ui.drag.kind, clientPoint(event.currentTarget, event), false, ui.drag);
     event.preventDefault();
   }
   function pointerUp(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
-    const kind = ui.drag.kind;
+    const drag = ui.drag;
     ui.drag = null;
-    applyDrag(kind, clientPoint(event.currentTarget, event), true);
-    announce("操作已保存。");
+    applyDrag(drag.kind, clientPoint(event.currentTarget, event), true, drag);
   }
   function dragKeydown(event) {
     const target = event.target.closest("[data-drag]");
-    if (!target || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || ui.locked) return;
+    if (!target || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || !R.dragAllowed(target.dataset.drag, interactionContext())) return;
     const [type, line, rawIndex] = target.dataset.drag.split(":");
-    const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
-    const large = event.shiftKey ? 2 : 1;
-    if (type === "car" && settingsEditable()) updateDirectMotion("x0", clamp(directMotion().x0 + direction * large, -8, 8));
-    else if (type === "velocity" && settingsEditable()) updateDirectMotion("v", clamp(directMotion().v + direction * 0.5 * large, -2, 2));
-    else if (type === "graph" && editable()) currentAnswer()[line] = clamp((currentAnswer()[line] ?? 0) + direction * large, -20, 20);
-    else if (type === "probe" && editable()) {
+    if (type === "car") updateDirectMotion("x0", R.adjustByArrow(directMotion().x0, event.key, 1, -8, 8, event.shiftKey));
+    else if (type === "velocity") updateDirectMotion("v", R.adjustByArrow(directMotion().v, event.key, 0.5, -2, 2, event.shiftKey));
+    else if (type === "graph") currentAnswer()[line] = R.adjustByArrow(currentAnswer()[line] ?? 0, event.key, 1, -20, 20, event.shiftKey);
+    else if (type === "probe") {
       const max = line === "E" ? ui.time : 6;
       const index = Number(rawIndex);
-      probeList(line)[index] = clamp(probeList(line)[index] + direction * 0.5 * large, 0, max);
-    } else if (type === "faster" && editable()) {
+      probeList(line)[index] = R.adjustByArrow(probeList(line)[index], event.key, 0.5, 0, max, event.shiftKey);
+    } else if (type === "faster") {
       const values = ["A", "B", "same"];
       const index = Math.max(0, values.indexOf(currentAnswer().faster));
+      const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
       currentAnswer().faster = values[clamp(index + direction, 0, 2)];
     } else return;
     event.preventDefault();
-    saveDraft();
+    ui.unsaved = true;
+    const saved = saveDraft();
     render();
-    announce("鍵盤操作已保存。");
+    announce(saved ? "鍵盤操作已儲存。" : "鍵盤操作未能儲存；請重試。" );
   }
 
   function showFinished(attempt) {
@@ -740,10 +795,8 @@
   dom.confirmStart.addEventListener("click", () => {
     const ids = S.scenarioIds();
     const setId = ids[Math.floor(Math.random() * ids.length)];
-    P.startAssessment(state, setId);
     resetTime(true);
-    saveDraft();
-    render();
+    transitionSafely((next) => P.startAssessment(next, setId));
   });
   dom.confirmSubmit.addEventListener("click", submitAttempt);
   initialize();

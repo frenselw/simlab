@@ -73,7 +73,7 @@
   display: block;
   width: 100%;
   height: auto;
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
 }
 
@@ -132,7 +132,15 @@
 .car-b .car-body { fill: #fcd34d; stroke: var(--car-b-dark); }
 .car-wheel { fill: #1f2937; }
 .car-hit,
-.drag-hit { fill: transparent; stroke: transparent; pointer-events: all; cursor: grab; }
+.drag-hit {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 44px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+}
 .is-locked .car-hit,
 .is-locked .drag-hit { pointer-events: none; }
 
@@ -169,6 +177,7 @@
 .line-a { stroke: var(--car-a); }
 .line-b { stroke: var(--car-b); stroke-dasharray: 10 7; }
 .target-line { stroke: var(--target-line); stroke-dasharray: 13 8; }
+.target-point { fill: #ffffff; stroke: var(--target-line); stroke-width: 4; }
 .student-line { stroke: var(--student-line); }
 .current-dot { fill: #ffffff; stroke-width: 4; }
 .time-cursor { stroke: #dc2626; stroke-width: 2; stroke-dasharray: 5 5; }
@@ -198,6 +207,14 @@
 .instruction {
   margin: 0.65rem 0 0;
   line-height: 1.55;
+}
+
+.review-condition {
+  display: block;
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border-left: 4px solid var(--target-line);
+  background: #f5f3ff;
 }
 
 .control-stack {
@@ -346,6 +363,7 @@
 
 .answer-state[data-state="complete"] { background: #ecfdf5; border-color: #86efac; color: #166534; }
 .answer-state[data-state="partial"] { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.answer-state[data-state="unsaved"] { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
 .feedback-card.good { border-left: 5px solid #16a34a; }
 .feedback-card.needs-work { border-left: 5px solid #d97706; }
 .technical { border-color: #fca5a5; background: #fef2f2; }
@@ -408,6 +426,10 @@ dialog h2 { margin-top: 0; }
   .stage-heading { display: block; }
   .stage-heading span:last-child { display: block; margin-top: 0.2rem; text-align: left; }
   .math-data { grid-template-columns: 1fr; }
+  .lab-svg.is-narrow .tick-label,
+  .lab-svg .tick-label { font-size: 28px; }
+  .lab-svg.is-narrow .axis-label { font-size: 22px; }
+  .lab-svg.is-narrow .svg-label { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

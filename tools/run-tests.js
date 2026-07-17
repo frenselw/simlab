@@ -17,6 +17,8 @@ const tests = [
   "sim/position-time-graph-motion-lab/scoring.test.js",
   "sim/position-time-graph-motion-lab/persistence.test.js",
   "sim/position-time-graph-motion-lab/lifecycle.test.js",
+  "sim/position-time-graph-motion-lab/ui-runtime.test.js",
+  "sim/position-time-graph-motion-lab/pending-final.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
 ];
