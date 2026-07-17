@@ -49,7 +49,27 @@ assert.equal(host.children.length, 1, "retry action remains after an authoritati
 host.children[0].click();
 assert.equal(retries, 1, "rerendered retry button executes the pending retry handler");
 
+let finishes = 0;
+Ui.renderFinishAction(host, true, () => { finishes += 1; });
+Ui.renderFinishAction(host, true, () => { finishes += 1; });
+assert.equal(host.children.length, 1, "finish retry remains after an authoritative rerender");
+assert.equal(host.children[0].id, "retryFinish", "committed review exposes a dedicated finish action");
+host.children[0].click();
+assert.equal(finishes, 1, "finish retry calls only its finish handler once");
+Ui.renderFinishAction(host, false, () => { finishes += 1; });
+assert.equal(host.children.length, 0, "successful finish removes the retry action");
+
 assert.equal(Ui.positionFromPointer(420, 20, 80, 760, -20, 20, 1), -1, "grab offset is preserved instead of snapping car center to the pointer");
 assert.ok(Ui.hitRadius(800, 320) >= 55, "320px SVG hit radius yields at least a 44 CSS px target");
+
+const optional = { velocity: 1 };
+assert.equal(Ui.setOptional(optional, "velocity", Infinity, -2, 2), false, "non-finite input is rejected");
+assert.equal(optional.velocity, 1, "rejected non-finite input preserves the last valid answer");
+assert.equal(Ui.setOptional(optional, "velocity", 3, -2, 2), false, "out-of-range input is rejected");
+assert.equal(optional.velocity, 1, "rejected out-of-range input preserves the last valid answer");
+assert.equal(Ui.setOptional(optional, "velocity", -1.5, -2, 2), true, "valid input is accepted");
+assert.equal(optional.velocity, -1.5);
+assert.equal(Ui.setOptional(optional, "velocity", null, -2, 2), true, "empty optional input is accepted");
+assert.equal("velocity" in optional, false, "empty optional input clears the answer");
 
 console.log("Position-time UI runtime checks passed");

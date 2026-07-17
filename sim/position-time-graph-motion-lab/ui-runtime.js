@@ -61,6 +61,20 @@
     return button;
   }
 
+  function renderFinishAction(host, active, onFinish, documentRef = host?.ownerDocument) {
+    if (!host?.replaceChildren) return null;
+    host.replaceChildren();
+    if (!active || !documentRef?.createElement) return null;
+    const button = documentRef.createElement("button");
+    button.type = "button";
+    button.id = "retryFinish";
+    button.className = "primary-button";
+    button.textContent = "重試完成 Moodle session";
+    button.addEventListener("click", onFinish);
+    host.replaceChildren(button);
+    return button;
+  }
+
   function hitRadius(viewBoxWidth, renderedWidth, minimum = 23) {
     return Math.max(minimum, renderedWidth > 0 ? 22 * viewBoxWidth / renderedWidth : minimum);
   }
@@ -75,5 +89,15 @@
     return Math.min(max, Math.max(min, value + direction * step * (shiftKey ? 2 : 1)));
   }
 
-  return { dragAllowed, transitionWithSave, focusKey, restoreFocus, renderRetryAction, hitRadius, positionFromPointer, adjustByArrow };
+  function setOptional(target, key, value, min, max) {
+    if (value == null) {
+      delete target[key];
+      return true;
+    }
+    if (!Number.isFinite(value) || value < min || value > max) return false;
+    target[key] = value;
+    return true;
+  }
+
+  return { dragAllowed, transitionWithSave, focusKey, restoreFocus, renderRetryAction, renderFinishAction, hitRadius, positionFromPointer, adjustByArrow, setOptional };
 });

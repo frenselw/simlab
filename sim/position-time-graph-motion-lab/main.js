@@ -8,10 +8,10 @@
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 24, bottom: 390 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "resetButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "resetButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
-  const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, unsaved: false, safeSummary: false, reviewStep: 0 };
+  const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
 
   function math(symbol, unit, value) {
     const shown = value == null || value === "" ? "--" : signed(value);
@@ -185,7 +185,8 @@
   }
 
   function renderControls() {
-    dom.setupSection.hidden = ui.technical || ui.safeSummary || state.phase === "final-review" || state.phase === "submitted-review" && ui.reviewStep === 1 || state.phase === "submitted-review" && ui.reviewStep === 2;
+    const step = state.phase === "submitted-review" ? ui.reviewStep : state.phase === "mission" ? state.currentStep : null;
+    dom.setupSection.hidden = ui.technical || ui.safeSummary || state.phase === "final-review" || step === 1 || step === 2;
     dom.answerSection.hidden = true;
     dom.probeSection.hidden = true;
     dom.motionControls.replaceChildren();
@@ -193,7 +194,6 @@
     dom.answerControls.replaceChildren();
     dom.probeControls.replaceChildren();
     if (ui.technical || ui.safeSummary || state.phase === "final-review") return;
-    const step = state.phase === "submitted-review" ? ui.reviewStep : state.phase === "mission" ? state.currentStep : null;
     if (state.phase === "explore") {
       dom.motionControls.innerHTML = motionControlHtml(state.exploration.x0, state.exploration.v, false);
       dom.presetControls.innerHTML = [
@@ -224,16 +224,17 @@
     const disabled = locked || !settingsEditable();
     return quantityControl("x0", "初始位置", "x<sub>0</sub>", "m", x0, -8, 8, 1, disabled) + quantityControl("velocity", "速度", "v", "m/s", velocity, -2, 2, 0.5, disabled);
   }
-  function quantityControl(name, label, symbol, unit, value, min, max, step, disabled) {
+  function quantityControl(name, label, symbol, unit, value, min, max, step, disabled, ariaLabel = label) {
     const fallback = value == null ? 0 : value;
     return `<div class="quantity-control">
       <div class="value-heading"><label for="${name}Range">${label} <span class="math"><var>${symbol}</var></span></label><output id="${name}Value">${value == null ? "未設定" : `${signed(value)} <span class="unit">${unit}</span>`}</output></div>
-      <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${label}">
+      <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${escapeText(ariaLabel)}">
       <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${label}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${label}">＋</button></div>
     </div>`;
   }
   function graphPointControl(name, label, value) {
-    return quantityControl(name, label, "x", "m", value, -20, 20, 1, ui.locked);
+    const ariaLabel = name === "xStart" ? "圖線起點 P 零，時間零秒的位置" : "圖線終點 P 六，時間六秒的位置";
+    return quantityControl(name, label, "x", "m", value, -20, 20, 1, ui.locked, ariaLabel);
   }
   function numberInputHtml(name, label, symbol, unit, value, min, max, step) {
     return `<label class="quantity-control" for="${name}Input"><span>${label} <span class="math"><var>${symbol}</var></span></span><span class="number-with-unit"><input id="${name}Input" data-number-answer="${name}" data-focus-key="number:${name}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value == null ? "" : value}" ${ui.locked ? "disabled" : ""}><span class="unit">${unit}</span></span></label>`;
@@ -315,19 +316,23 @@
   function updateNumberAnswer(name, raw) {
     const answer = currentAnswer();
     const value = raw.trim() === "" ? null : Number(raw);
-    if (name === "meetingX") setOptional(answer, "meetingX", value, -20, 20);
+    let accepted;
+    if (name === "meetingX") accepted = setOptional(answer, "meetingX", value, -20, 20);
     else {
       const [line] = name.split("-");
-      setOptional(answer[line], "velocity", value, -2, 2);
+      accepted = setOptional(answer[line], "velocity", value, -2, 2);
+    }
+    if (!accepted) {
+      render();
+      announce("請輸入操作範圍內的有限數值；原有答案未有更改。");
+      return;
     }
     const saved = saveDraft();
     render();
     announce(saved ? "數值答案已儲存。" : "數值答案未能儲存；請重試。" );
   }
   function setOptional(target, key, value, min, max) {
-    if (value == null) delete target[key];
-    else if (Number.isFinite(value) && value >= min && value <= max) target[key] = value;
-    else announce("請輸入操作範圍內的有限數值。");
+    return R.setOptional(target, key, value, min, max);
   }
   function probeList(line) { return line === "E" ? ui.explorationProbes : state.assessment.ans.m3[line].probes; }
   function addProbe(line) {
@@ -383,6 +388,9 @@
     else if (context.step === 1) cars.push({ label: "A", motion: context.scenario, draggable: false });
     else if (context.step === 2) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: context.scenario.B, draggable: false });
     else if (context.step === 4) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: answerMotion(context.step, context.answer), draggable: true });
+    dom.roadDesc.textContent = cars.some((car) => car.draggable && settingsEditable())
+      ? "位置由負二十米至正二十米。可拖動車輛設定初始位置，並拖動速度箭嘴調整方向和大小。"
+      : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。";
     html += cars.map((car, index) => carSvg(car, index)).join("");
     dom.roadLayer.innerHTML = html;
     dom.roadSvg.classList.toggle("is-locked", !settingsEditable());
@@ -396,7 +404,7 @@
     const endpoint = x + arrowLength;
     const arrow = canDrag ? `<line class="velocity-line" x1="${x}" y1="${y - 31}" x2="${endpoint}" y2="${y - 31}"></line><path d="M ${endpoint} ${y - 31} l ${arrowLength >= 0 ? -10 : 10} -7 l 0 14 z" fill="${car.label === "A" ? "var(--car-a)" : "var(--car-b)"}"></path><circle class="velocity-handle" cx="${endpoint}" cy="${y - 31}" r="9"></circle><circle class="drag-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${y - 31}" r="10"></circle>` : "";
     const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
-    return `<g class="car-${car.label.toLowerCase()}">${arrow}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g></g>`;
+    return `<g class="car-${car.label.toLowerCase()}"><g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
   }
 
   function graphBase() {
@@ -471,7 +479,7 @@
     const selected = zones.find(([key]) => key === value);
     const tokenX = selected ? selected[1] : 170;
     const token = `<rect class="faster-token" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect><text class="svg-label" x="${tokenX}" y="451" text-anchor="middle" pointer-events="none">速度大小較大</text>`;
-    const hit = ui.locked ? "" : `<rect class="drag-hit" data-drag="faster" tabindex="0" role="slider" aria-label="速度大小較大標記；目前 ${value || "未設定"}" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect>`;
+    const hit = ui.locked ? "" : `<rect class="drag-hit pointer-only" data-drag="faster" aria-hidden="true" focusable="false" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect>`;
     return zones.map(([key, x, label]) => `<rect class="faster-zone ${value === key ? "is-selected" : ""}" x="${x - 52}" y="462" width="104" height="26" rx="7"></rect><text class="svg-label" x="${x}" y="481" text-anchor="middle">${label}</text>`).join("") + token + hit;
   }
 
@@ -549,7 +557,8 @@
     const scoreLabel = ui.result.score == null ? "--" : `${ui.result.score} / 100`;
     const completion = ui.result.passed == null ? "未能安全判斷合格狀態" : ui.result.passed ? "已通過" : "未通過";
     const detail = ui.resultTrusted && ui.result.detail?.length ? ui.result.detail.map((item, index) => `<div class="feedback-card ${item.score === 20 ? "good" : "needs-work"}"><h3>任務 ${index + 1}：${item.score} / 20</h3>${item.components.map((part) => `<p><strong>${escapeText(part.name)}：${part.earned} / ${part.points}</strong> — ${escapeText(part.feedback)}</p>`).join("")}</div>`).join("") : `<p>無法安全驗證已儲存的逐題答案；只顯示 Moodle 可提供的摘要。</p>`;
-    dom.resultPanel.innerHTML = `<div>分數</div><div class="score-value">${scoreLabel}</div><strong>${completion}</strong><div class="feedback-list">${detail}</div>`;
+    dom.resultPanel.innerHTML = `<div>分數</div><div class="score-value">${scoreLabel}</div><strong>${completion}</strong><div class="feedback-list">${detail}</div><div id="finishAction"></div>`;
+    R.renderFinishAction(document.getElementById("finishAction"), ui.finishRetry, retryFinish);
   }
 
   function persistState(candidate) {
@@ -584,6 +593,7 @@
     ui.locked = true;
     ui.technical = message;
     ui.technicalAction = null;
+    ui.finishRetry = false;
     ui.result = null;
     render();
   }
@@ -601,20 +611,21 @@
       P.lifecyclePolicy("submission", outcome);
       return window.SimActivityFlow.submission(outcome, {
       success: () => showSubmitted(reviewPayload, result, true, "本次作答已提交。"),
-      committed: () => showSubmitted(reviewPayload, result, true, "成績已保存；Moodle session 會在離開頁面時再次完成。"),
+      committed: () => showSubmitted(reviewPayload, result, true, "成績已保存；請重試完成 Moodle session。", true),
       frozen: () => showFrozen("提交狀態未確認；答案已凍結，請使用重試按鈕傳送同一份答案。"),
       retry: (failure) => failure.retryable ? showRetry("未能傳送到 Moodle；答案仍可修改或再次提交。") : showTechnical("未能建立可重試的提交；沒有確認分數或合格狀態。")
       });
     };
     window.SimScorm.submitWithCallbacks(result, review, { onSuccess: handle, onFailure: handle });
   }
-  function showSubmitted(reviewPayload, result, trusted, message) {
+  function showSubmitted(reviewPayload, result, trusted, message, finishRetry = false) {
     const restored = P.decodeReview(reviewPayload);
     if (!restored) { showTechnical("已保存結果，但檢討資料無法安全載入。"); return; }
     state = restored;
     ui.locked = true;
     ui.technical = null;
     ui.technicalAction = null;
+    ui.finishRetry = finishRetry;
     ui.result = result;
     ui.resultTrusted = trusted;
     ui.reviewStep = 0;
@@ -627,6 +638,7 @@
     ui.locked = true;
     ui.technical = message;
     ui.technicalAction = "retry-pending";
+    ui.finishRetry = false;
     ui.result = null;
     render();
   }
@@ -634,6 +646,7 @@
     ui.locked = false;
     ui.technical = null;
     ui.technicalAction = null;
+    ui.finishRetry = false;
     render();
     announce(message);
   }
@@ -642,17 +655,23 @@
     const outcome = { ...raw, activityState: raw.ok ? "success" : raw.committed ? "committed" : raw.frozen ? "frozen" : "retry" };
     window.SimActivityFlow.submission(outcome, {
       success: () => restorePendingReview(raw, "提交已完成。"),
-      committed: () => restorePendingReview(raw, "成績已保存；完成 session 時會再試。"),
+      committed: () => restorePendingReview(raw, "成績已保存；請重試完成 Moodle session。", true),
       frozen: () => showFrozen("提交仍未確認；答案保持凍結。"),
       retry: (failure) => failure.retryable ? showFrozen("暫時仍未能提交；請稍後重試同一份答案。") : showTechnical("未能安全重試提交。")
     });
   }
-  function restorePendingReview(outcome, message) {
+  function retryFinish() {
+    const finished = window.SimScorm.finish();
+    if (finished) ui.finishRetry = false;
+    render();
+    announce(finished ? "Moodle session 已完成。" : "仍未能完成 Moodle session；成績保持鎖定，請稍後再試。");
+  }
+  function restorePendingReview(outcome, message, finishRetry = false) {
     const payload = outcome.review?.answer;
     const restored = P.decodeReview(payload);
     if (!restored) { showTechnical("Moodle 已保存摘要，但檢討資料無法安全載入。"); return; }
     const result = S.scoreAssessment(restored.assessment.ans, S.getScenarioSet(restored.assessment.lv, restored.assessment.sid));
-    showSubmitted(payload, result, true, message);
+    showSubmitted(payload, result, true, message, finishRetry);
   }
 
   function applyDrag(kind, point, persist, dragMeta = null) {
