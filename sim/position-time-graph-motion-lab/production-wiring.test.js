@@ -1,0 +1,317 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const Scoring = require("./scoring.js");
+const Persistence = require("./persistence.js");
+const UiRuntime = require("./ui-runtime.js");
+const ActivityFlow = require("../shared/activity-flow.js");
+
+function decode(value) {
+  return String(value).replace(/&(quot|lt|gt|amp);/g, (_, entity) => ({ quot: '"', lt: "<", gt: ">", amp: "&" })[entity]);
+}
+
+function dataKey(name) {
+  return name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function matches(element, selector) {
+  if (selector.startsWith("#")) return element.id === selector.slice(1);
+  if (selector.startsWith(".")) return element.className.split(/\s+/).includes(selector.slice(1));
+  const attribute = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
+  if (!attribute) return false;
+  const actual = element.getAttribute(attribute[1]);
+  return attribute[2] === undefined ? actual !== null : actual === attribute[2];
+}
+
+class FakeElement {
+  constructor(tagName, ownerDocument) {
+    this.tagName = tagName.toUpperCase();
+    this.ownerDocument = ownerDocument;
+    this.parentElement = null;
+    this.children = [];
+    this.listeners = {};
+    this.attributes = {};
+    this.dataset = {};
+    this.className = "";
+    this.id = "";
+    this.value = "";
+    this.hidden = false;
+    this.disabled = false;
+    this.clientWidth = 800;
+    this._innerHTML = "";
+    this._textContent = "";
+    this.classList = {
+      toggle: (name, force) => {
+        const names = new Set(this.className.split(/\s+/).filter(Boolean));
+        const enabled = force === undefined ? !names.has(name) : Boolean(force);
+        if (enabled) names.add(name); else names.delete(name);
+        this.className = Array.from(names).join(" ");
+        this.attributes.class = this.className;
+        return enabled;
+      }
+    };
+  }
+
+  setAttribute(name, rawValue = "") {
+    const value = decode(rawValue);
+    this.attributes[name] = value;
+    if (name === "id") this.id = value;
+    if (name === "class") this.className = value;
+    if (name === "value") this.value = value;
+    if (name === "disabled") this.disabled = true;
+    if (name === "hidden") this.hidden = true;
+    if (name.startsWith("data-")) this.dataset[dataKey(name)] = value;
+  }
+
+  getAttribute(name) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null;
+  }
+
+  addEventListener(type, handler) {
+    (this.listeners[type] ||= []).push(handler);
+  }
+
+  dispatch(type, properties = {}) {
+    const event = {
+      target: this,
+      currentTarget: this,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      key: "",
+      shiftKey: false,
+      preventDefault() {},
+      ...properties
+    };
+    for (const handler of this.listeners[type] || []) handler(event);
+    return event;
+  }
+
+  click() { this.dispatch("click"); }
+  focus() { this.ownerDocument.activeElement = this; }
+  showModal() { this.open = true; }
+  setPointerCapture() {}
+
+  closest(selector) {
+    let current = this;
+    while (current) {
+      if (matches(current, selector)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  replaceChildren(...children) {
+    this._innerHTML = "";
+    this.children = children;
+    for (const child of children) child.parentElement = this;
+  }
+
+  querySelectorAll(selector) {
+    const found = [];
+    const visit = (element) => {
+      for (const child of element.children) {
+        if (matches(child, selector)) found.push(child);
+        visit(child);
+      }
+    };
+    visit(this);
+    return found;
+  }
+
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+
+  createSVGPoint() {
+    return { x: 0, y: 0, matrixTransform() { return { x: this.x, y: this.y }; } };
+  }
+
+  getScreenCTM() { return { inverse() { return {}; } }; }
+
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this._textContent = "";
+    this.children = [];
+    const tagPattern = /<([a-z][\w-]*)\b([^>]*)>/gi;
+    let tagMatch;
+    while ((tagMatch = tagPattern.exec(this._innerHTML))) {
+      const child = new FakeElement(tagMatch[1], this.ownerDocument);
+      child.parentElement = this;
+      const attributePattern = /([:\w-]+)(?:="([^"]*)")?/g;
+      let attributeMatch;
+      while ((attributeMatch = attributePattern.exec(tagMatch[2]))) child.setAttribute(attributeMatch[1], attributeMatch[2] ?? "");
+      this.children.push(child);
+    }
+  }
+
+  get innerHTML() { return this._innerHTML; }
+
+  set textContent(value) {
+    this._textContent = String(value);
+    this._innerHTML = "";
+    this.children = [];
+  }
+
+  get textContent() { return this._textContent; }
+}
+
+class FakeDocument {
+  constructor(ids) {
+    this.roots = ids.map((id) => {
+      const tag = id.endsWith("Svg") ? "svg" : id.endsWith("Dialog") ? "dialog" : "div";
+      const element = new FakeElement(tag, this);
+      element.setAttribute("id", id);
+      return element;
+    });
+    this.activeElement = null;
+    this.getElementById("timeSlider").value = "0";
+  }
+
+  createElement(tagName) { return new FakeElement(tagName, this); }
+
+  allElements() {
+    const all = [];
+    const visit = (element) => {
+      all.push(element);
+      for (const child of element.children) visit(child);
+    };
+    for (const root of this.roots) visit(root);
+    return all;
+  }
+
+  getElementById(id) { return this.allElements().find((element) => element.id === id) || null; }
+  querySelectorAll(selector) { return this.allElements().filter((element) => matches(element, selector)); }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+
+const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "resetButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
+const document = new FakeDocument(ids);
+let submitCalls = 0;
+let finishCalls = 0;
+let finishResult = false;
+const SimScorm = {
+  loadAttempt: () => ({ state: "new" }),
+  setDraftProvider() {},
+  makeSnapshot: (activity, state, answer, result) => ({ activity, state, answer, score: result?.score, passed: result?.passed }),
+  saveDraft: () => true,
+  submitWithCallbacks: (_result, _review, callbacks) => {
+    submitCalls += 1;
+    callbacks.onFailure({ activityState: "committed", ok: false, committed: true, frozen: true, retryable: true });
+  },
+  finish: () => {
+    finishCalls += 1;
+    return finishResult;
+  }
+};
+const window = {
+  document,
+  PositionTimeScoring: Scoring,
+  PositionTimePersistence: Persistence,
+  PositionTimeUiRuntime: UiRuntime,
+  SimActivityFlow: ActivityFlow,
+  SimScorm,
+  scrollTo() {}
+};
+const source = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+vm.runInNewContext(source, {
+  window,
+  document,
+  console,
+  Math,
+  Number,
+  String,
+  Object,
+  Array,
+  Boolean,
+  JSON,
+  performance: { now: () => 0 },
+  requestAnimationFrame: () => 1,
+  cancelAnimationFrame() {},
+  structuredClone
+}, { filename: "position-time-graph-motion-lab/main.js" });
+
+function one(selector, predicate = () => true) {
+  const element = document.querySelectorAll(selector).find(predicate);
+  assert.ok(element, `Expected production element ${selector}`);
+  return element;
+}
+
+function quantity(name) {
+  return one("[data-quantity]", (element) => element.dataset.quantity === name);
+}
+
+function setVelocity(value) {
+  const input = quantity("velocity");
+  input.value = String(value);
+  input.dispatch("input");
+}
+
+function numericAttribute(element, name) { return Number(element.getAttribute(name)); }
+
+function velocityHitState() {
+  const layer = document.getElementById("roadLayer");
+  const html = layer.innerHTML;
+  const car = one("[data-drag]", (element) => element.dataset.drag === "car:A");
+  const velocity = one("[data-drag]", (element) => element.dataset.drag === "velocity:A");
+  const transform = html.match(/transform="translate\(([-\d.]+) ([-\d.]+)\)"/);
+  assert.ok(transform, "production car transform is present");
+  const tx = Number(transform[1]);
+  const ty = Number(transform[2]);
+  const x = numericAttribute(velocity, "cx");
+  const y = numericAttribute(velocity, "cy");
+  const carContainsVelocityCenter = x >= tx + numericAttribute(car, "x") - 22 &&
+    x <= tx + numericAttribute(car, "x") + numericAttribute(car, "width") + 22 &&
+    y >= ty + numericAttribute(car, "y") - 22 &&
+    y <= ty + numericAttribute(car, "y") + numericAttribute(car, "height") + 22;
+  const candidates = carContainsVelocityCenter ? [car, velocity] : [velocity];
+  candidates.sort((a, b) => html.indexOf(`data-drag="${a.dataset.drag}"`) - html.indexOf(`data-drag="${b.dataset.drag}"`));
+  return { layer, car, velocity, x, y, carContainsVelocityCenter, top: candidates.at(-1)?.dataset.drag };
+}
+
+for (const initialVelocity of [0, 0.5, -0.5]) {
+  setVelocity(initialVelocity);
+  const beforeX = quantity("x0").value;
+  const hit = velocityHitState();
+  assert.equal(hit.carContainsVelocityCenter, true, `v=${initialVelocity} velocity and car hit targets overlap`);
+  assert.equal(hit.top, "velocity:A", `v=${initialVelocity} velocity target is topmost in production SVG paint order`);
+  assert.ok(hit.layer.innerHTML.indexOf('class="velocity-handle"') > hit.layer.innerHTML.indexOf('data-drag="car:A"'), `v=${initialVelocity} visible handle is above the car`);
+  document.getElementById("roadSvg").dispatch("pointerdown", { target: hit.velocity, pointerId: 7, clientX: hit.x, clientY: hit.y });
+  document.getElementById("roadSvg").dispatch("pointerup", { pointerId: 7, clientX: hit.x + 24, clientY: hit.y });
+  assert.equal(Number(quantity("velocity").value), initialVelocity + 0.5, `v=${initialVelocity} pointer drag changes velocity`);
+  assert.equal(quantity("x0").value, beforeX, `v=${initialVelocity} velocity drag does not change x0`);
+}
+
+document.getElementById("confirmStart").click();
+one("#nextMission").click();
+const pointSteppers = document.querySelectorAll("[data-step-quantity]").filter((button) => ["xStart", "xEnd"].includes(button.dataset.stepQuantity));
+assert.equal(pointSteppers.length, 4, "mission 2 renders both P0/P6 stepper pairs through production controls");
+for (const button of pointSteppers) {
+  const label = button.getAttribute("aria-label");
+  assert.equal(label.includes("<"), false, "stepper aria-label contains no rich HTML");
+  assert.match(label, /P (零|六)/, "stepper aria-label uses a natural plain P0/P6 name");
+}
+
+for (let remaining = 0; remaining < 4; remaining += 1) one("#nextMission").click();
+document.getElementById("confirmSubmit").click();
+assert.equal(submitCalls, 1, "committed production path submits the answer once");
+assert.ok(document.getElementById("retryFinish"), "committed production UI renders finish retry");
+assert.equal(document.querySelectorAll("[data-drag]").length, 0, "committed review remains pointer-locked");
+assert.ok(document.querySelectorAll("[data-quantity]").every((input) => input.disabled), "committed review controls remain disabled");
+
+document.getElementById("retryFinish").click();
+assert.equal(finishCalls, 1, "finish retry calls SimScorm.finish once");
+assert.equal(submitCalls, 1, "failed finish retry does not resubmit answers");
+assert.ok(document.getElementById("retryFinish"), "failed finish keeps retry action visible");
+assert.equal(document.querySelectorAll("[data-drag]").length, 0, "failed finish remains locked");
+
+finishResult = true;
+document.getElementById("retryFinish").click();
+assert.equal(finishCalls, 2, "successful retry calls SimScorm.finish once more");
+assert.equal(submitCalls, 1, "successful finish does not resubmit answers");
+assert.equal(document.getElementById("retryFinish"), null, "successful finish removes retry action");
+assert.equal(document.querySelectorAll("[data-drag]").length, 0, "successful finish leaves submitted review locked");
+
+console.log("Position-time production DOM/lifecycle wiring checks passed");

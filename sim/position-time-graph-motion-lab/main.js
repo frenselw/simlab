@@ -229,7 +229,7 @@
     return `<div class="quantity-control">
       <div class="value-heading"><label for="${name}Range">${label} <span class="math"><var>${symbol}</var></span></label><output id="${name}Value">${value == null ? "未設定" : `${signed(value)} <span class="unit">${unit}</span>`}</output></div>
       <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${escapeText(ariaLabel)}">
-      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${label}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${label}">＋</button></div>
+      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
     </div>`;
   }
   function graphPointControl(name, label, value) {
