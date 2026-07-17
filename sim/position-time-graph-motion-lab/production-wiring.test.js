@@ -271,18 +271,37 @@ function velocityHitState() {
   return { layer, car, velocity, x, y, carContainsVelocityCenter, top: candidates.at(-1)?.dataset.drag };
 }
 
+const continuousVelocity = quantity("velocity");
+continuousVelocity.value = "0.5";
+continuousVelocity.dispatch("input");
+assert.equal(quantity("velocity"), continuousVelocity, "slider input keeps the active range element mounted");
+continuousVelocity.value = "1.5";
+continuousVelocity.dispatch("input");
+assert.equal(quantity("velocity"), continuousVelocity, "same range element accepts consecutive input events");
+assert.equal(document.getElementById("velocityValue").innerHTML.includes("+1.5"), true, "continuous input updates the heading readout");
+assert.equal(document.getElementById("velocityStepperValue").innerHTML.includes("+1.5"), true, "continuous input updates the stepper readout");
+
 for (const initialVelocity of [0, 0.5, -0.5]) {
   setVelocity(initialVelocity);
   const beforeX = quantity("x0").value;
   const hit = velocityHitState();
   assert.equal(hit.carContainsVelocityCenter, true, `v=${initialVelocity} velocity and car hit targets overlap`);
   assert.equal(hit.top, "velocity:A", `v=${initialVelocity} velocity target is topmost in production SVG paint order`);
-  assert.ok(hit.layer.innerHTML.indexOf('class="velocity-handle"') > hit.layer.innerHTML.indexOf('data-drag="car:A"'), `v=${initialVelocity} visible handle is above the car`);
+  const velocityVisual = initialVelocity === 0 ? 'class="velocity-zero-marker"' : 'class="velocity-arrowhead"';
+  assert.ok(hit.layer.innerHTML.indexOf(velocityVisual) > hit.layer.innerHTML.indexOf('data-drag="car:A"'), `v=${initialVelocity} velocity visual is above the car`);
   document.getElementById("roadSvg").dispatch("pointerdown", { target: hit.velocity, pointerId: 7, clientX: hit.x, clientY: hit.y });
   document.getElementById("roadSvg").dispatch("pointerup", { pointerId: 7, clientX: hit.x + 24, clientY: hit.y });
   assert.equal(Number(quantity("velocity").value), initialVelocity + 0.5, `v=${initialVelocity} pointer drag changes velocity`);
   assert.equal(quantity("x0").value, beforeX, `v=${initialVelocity} velocity drag does not change x0`);
 }
+
+setVelocity(1);
+document.getElementById("timeSlider").value = "0.5";
+document.getElementById("timeSlider").dispatch("input");
+assert.ok(document.getElementById("roadLayer").innerHTML.includes('class="velocity-arrowhead"'), "velocity arrow remains visible after motion starts");
+assert.equal(document.querySelectorAll("[data-drag]").some((element) => element.dataset.drag === "velocity:A"), false, "moving velocity arrow is read-only");
+document.getElementById("timeSlider").value = "0";
+document.getElementById("timeSlider").dispatch("input");
 
 document.getElementById("confirmStart").click();
 one("#nextMission").click();

@@ -156,15 +156,32 @@
 
 .car-a .velocity-line { stroke: var(--car-a); }
 .car-b .velocity-line { stroke: var(--car-b); }
-.velocity-handle,
 .graph-handle,
 .probe-handle {
   fill: #ffffff;
   stroke-width: 4;
   cursor: grab;
 }
-.car-a .velocity-handle { stroke: var(--car-a); }
-.car-b .velocity-handle { stroke: var(--car-b); }
+.velocity-arrowhead {
+  pointer-events: none;
+}
+.car-a .velocity-arrowhead { fill: var(--car-a); }
+.car-b .velocity-arrowhead { fill: var(--car-b); }
+.velocity-zero-marker {
+  fill: #ffffff;
+  stroke-width: 4;
+}
+.car-a .velocity-zero-marker { stroke: var(--car-a); }
+.car-b .velocity-zero-marker { stroke: var(--car-b); }
+.velocity-zero-label {
+  font-size: 13px;
+  font-style: italic;
+}
+.velocity-hit:focus-visible {
+  fill: none;
+  stroke: rgba(37, 99, 235, 0.75);
+  stroke-width: 3;
+}
 .graph-handle { stroke: var(--student-line); }
 .probe-handle { stroke: #dc2626; }
 

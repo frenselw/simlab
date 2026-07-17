@@ -229,7 +229,7 @@
     return `<div class="quantity-control">
       <div class="value-heading"><label for="${name}Range">${label} <span class="math"><var>${symbol}</var></span></label><output id="${name}Value">${value == null ? "未設定" : `${signed(value)} <span class="unit">${unit}</span>`}</output></div>
       <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${escapeText(ariaLabel)}">
-      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button><span class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
+      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button><span id="${name}StepperValue" class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
     </div>`;
   }
   function graphPointControl(name, label, value) {
@@ -256,10 +256,10 @@
   function probeCard(label, probes, motion, line, maxTime) {
     const rows = probes.map((time, index) => {
       const pointLabel = index === 0 ? "P" : "Q";
-      return `<label class="range-row"><span>${pointLabel}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output>(${time.toFixed(1)} s, ${signed(S.positionAt(motion, time))} m)</output></label>`;
+      return `<label class="range-row"><span>${pointLabel}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output id="probeValue-${line}-${index}">(${time.toFixed(1)} s, ${signed(S.positionAt(motion, time))} m)</output></label>`;
     }).join("");
     const delta = probes.length === 2 ? measurementHtml(probes, motion) : "加入 P、Q 兩個探針以顯示 Δt 及 Δx。";
-    return `<div class="probe-heading"><strong>${label}</strong><span>${probes.length}/2</span></div>${rows}<div class="muted">${delta}</div>`;
+    return `<div class="probe-heading"><strong>${label}</strong><span>${probes.length}/2</span></div>${rows}<div id="probeDelta-${line}" class="muted">${delta}</div>`;
   }
   function measurementHtml(probes, motion) {
     const dt = probes[1] - probes[0];
@@ -310,8 +310,18 @@
     }
     resetTime(state.phase === "explore");
     ui.unsaved = true;
-    if (persist) saveAndAnnounce("數值已儲存。", false);
-    render();
+    if (persist) {
+      saveAndAnnounce("數值已儲存。", false);
+      render();
+      return;
+    }
+    const unit = name === "velocity" ? "m/s" : "m";
+    const valueHtml = `${signed(value)} <span class="unit">${unit}</span>`;
+    const headingValue = document.getElementById(`${name}Value`);
+    const stepperValue = document.getElementById(`${name}StepperValue`);
+    if (headingValue) headingValue.innerHTML = valueHtml;
+    if (stepperValue) stepperValue.innerHTML = valueHtml;
+    renderDynamic();
   }
   function updateNumberAnswer(name, raw) {
     const answer = currentAnswer();
@@ -354,8 +364,18 @@
   function updateProbe(line, index, time, persist) {
     probeList(line)[index] = snap(time, 0.5);
     ui.unsaved = true;
-    if (persist) saveAndAnnounce("探針位置已儲存。", false);
-    render();
+    if (persist) {
+      saveAndAnnounce("探針位置已儲存。", false);
+      render();
+      return;
+    }
+    const probes = probeList(line);
+    const motion = line === "E" ? state.exploration : currentSet().m3[line];
+    const probeValue = document.getElementById(`probeValue-${line}-${index}`);
+    const probeDelta = document.getElementById(`probeDelta-${line}`);
+    if (probeValue) probeValue.textContent = `(${probes[index].toFixed(1)} s, ${signed(S.positionAt(motion, probes[index]))} m)`;
+    if (probeDelta) probeDelta.innerHTML = probes.length === 2 ? measurementHtml(probes, motion) : "加入 P、Q 兩個探針以顯示 Δt 及 Δx。";
+    renderDynamic();
   }
 
   function saveAndAnnounce(success, shouldRender = true) {
@@ -402,7 +422,14 @@
     const canDrag = car.draggable && settingsEditable();
     const arrowLength = car.motion.v * 48;
     const endpoint = x + arrowLength;
-    const arrow = canDrag ? `<line class="velocity-line" x1="${x}" y1="${y - 31}" x2="${endpoint}" y2="${y - 31}"></line><path d="M ${endpoint} ${y - 31} l ${arrowLength >= 0 ? -10 : 10} -7 l 0 14 z" fill="${car.label === "A" ? "var(--car-a)" : "var(--car-b)"}"></path><circle class="velocity-handle" cx="${endpoint}" cy="${y - 31}" r="9"></circle><circle class="drag-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${y - 31}" r="10"></circle>` : "";
+    const arrowY = y - 31;
+    const direction = Math.sign(arrowLength);
+    const arrowHeadBase = endpoint - direction * 14;
+    const velocityVisual = direction === 0
+      ? `<circle class="velocity-zero-marker" cx="${x}" cy="${arrowY}" r="6"></circle><text class="velocity-zero-label svg-label" x="${x + 11}" y="${arrowY - 7}">${car.motion.incomplete ? "拖動設定 v" : "v = 0"}</text>`
+      : `<line class="velocity-line" x1="${x}" y1="${arrowY}" x2="${endpoint}" y2="${arrowY}"></line><path class="velocity-arrowhead" d="M ${endpoint} ${arrowY} L ${arrowHeadBase} ${arrowY - 9} L ${arrowHeadBase} ${arrowY + 9} Z"></path>`;
+    const velocityHit = canDrag ? `<circle class="drag-hit velocity-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${arrowY}" r="12"></circle>` : "";
+    const arrow = car.motion.incomplete && !canDrag ? "" : `${velocityVisual}${velocityHit}`;
     const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
     return `<g class="car-${car.label.toLowerCase()}"><g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
   }
