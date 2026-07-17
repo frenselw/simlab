@@ -56,6 +56,18 @@ npm test
 npm run package:all
 ```
 
+The position–time lab also has a real-browser interaction gate which loads its
+production HTML, CSS, and JavaScript at desktop and 320 px widths:
+
+```text
+npm run test:browser:position-time
+```
+
+This gate requires a local Google Chrome or Chromium executable. It detects the
+usual macOS, Linux, and Windows install locations. Set `CHROME_PATH` to the full
+browser executable path when using a non-standard installation; a missing
+browser is reported as a failed prerequisite rather than a skipped test.
+
 ## Project notes
 
 Before adding or changing a simulation, read:
