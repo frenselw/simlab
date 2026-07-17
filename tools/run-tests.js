@@ -14,6 +14,9 @@ const tests = [
   "sim/displacement-distance-map-journey/map-persistence.test.js",
   "sim/inertial-reference-frame-road-observer/scoring.test.js",
   "sim/inertial-reference-frame-road-observer/animation.test.js",
+  "sim/position-time-graph-motion-lab/scoring.test.js",
+  "sim/position-time-graph-motion-lab/persistence.test.js",
+  "sim/position-time-graph-motion-lab/lifecycle.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
 ];
