@@ -168,14 +168,14 @@
   }
   function instructionFor(step, scenario) {
     if (step === 0) return "拖車設定初始位置，再拖速度箭嘴設定速度，令學生圖線符合紫色虛線。";
-    if (step === 1) return "播放並觀察車的位置讀數；拖動圖上 <span class=\"math\"><var>P</var><sub>0</sub></span>、<span class=\"math\"><var>P</var><sub>6</sub></span> 畫出直線。";
+    if (step === 1) return "播放並觀察車的位置讀數；拖動圖上 <span class=\"math\"><var>P</var><sub class=\"numeric-subscript\">0</sub></span>、<span class=\"math\"><var>P</var><sub class=\"numeric-subscript\">6</sub></span> 畫出直線。";
     if (step === 2) return "分別在 A、B 圖線放置相隔最少 2.0 s 的探針，計算兩車帶符號速度，再比較速度大小。";
     if (step === 3) return scenario.v === 0 ? `建立一架在 <span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 至 6.0 <span class="unit">s</span> 都停在 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span> 的車。` : `建立運動：<span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span>；<span class="math"><var>t</var></span> = ${scenario.atTime.toFixed(1)} <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.atPosition)} <span class="unit">m</span>。`;
     return `A 車已固定。設定 B 車，令兩車在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 相遇，再輸入相遇位置 <span class="math"><var>x</var><sup>*</sup></span>。`;
   }
   function reviewConditionHtml(step, scenario) {
-    if (step === 0 || step === 3) return `<span class="review-condition">正確條件：<span class="math"><var>x</var><sub>0</sub></span> = ${signed(scenario.x0)} <span class="unit">m</span>，<span class="math"><var>v</var></span> = ${signed(scenario.v)} <span class="unit">m/s</span>。</span>`;
-    if (step === 1) return `<span class="review-condition">正確圖點：<span class="math"><var>P</var><sub>0</sub></span> = (0.0 <span class="unit">s</span>, ${signed(scenario.x0)} <span class="unit">m</span>)，<span class="math"><var>P</var><sub>6</sub></span> = (6.0 <span class="unit">s</span>, ${signed(S.positionAt(scenario, 6))} <span class="unit">m</span>)。</span>`;
+    if (step === 0 || step === 3) return `<span class="review-condition">正確條件：<span class="math"><var>x</var><sub class="numeric-subscript">0</sub></span> = ${signed(scenario.x0)} <span class="unit">m</span>，<span class="math"><var>v</var></span> = ${signed(scenario.v)} <span class="unit">m/s</span>。</span>`;
+    if (step === 1) return `<span class="review-condition">正確圖點：<span class="math"><var>P</var><sub class="numeric-subscript">0</sub></span> = (0.0 <span class="unit">s</span>, ${signed(scenario.x0)} <span class="unit">m</span>)，<span class="math"><var>P</var><sub class="numeric-subscript">6</sub></span> = (6.0 <span class="unit">s</span>, ${signed(S.positionAt(scenario, 6))} <span class="unit">m</span>)。</span>`;
     if (step === 2) {
       const faster = Math.abs(scenario.A.v) === Math.abs(scenario.B.v) ? "兩車一樣快" : Math.abs(scenario.A.v) > Math.abs(scenario.B.v) ? "A 車較快" : "B 車較快";
       return `<span class="review-condition">正確量度：<span class="math"><var>v</var><sub>A</sub></span> = ${signed(scenario.A.v)} <span class="unit">m/s</span>，<span class="math"><var>v</var><sub>B</sub></span> = ${signed(scenario.B.v)} <span class="unit">m/s</span>；${faster}。</span>`;
@@ -211,7 +211,7 @@
     } else if (step === 1) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m2;
-      dom.answerControls.innerHTML = `${graphPointControl("xStart", "P<sub>0</sub>（t = 0 s）", answer.xStart)}${graphPointControl("xEnd", "P<sub>6</sub>（t = 6 s）", answer.xEnd)}`;
+      dom.answerControls.innerHTML = `${graphPointControl("xStart", "P<sub class=\"numeric-subscript\">0</sub>（t = 0 s）", answer.xStart)}${graphPointControl("xEnd", "P<sub class=\"numeric-subscript\">6</sub>（t = 6 s）", answer.xEnd)}`;
     } else if (step === 2) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m3;
@@ -222,7 +222,7 @@
   }
   function motionControlHtml(x0, velocity, locked) {
     const disabled = locked || !settingsEditable();
-    return quantityControl("x0", "初始位置", "x<sub>0</sub>", "m", x0, -8, 8, 1, disabled) + quantityControl("velocity", "速度", "v", "m/s", velocity, -2, 2, 0.5, disabled);
+    return quantityControl("x0", "初始位置", "x<sub class=\"numeric-subscript\">0</sub>", "m", x0, -8, 8, 1, disabled) + quantityControl("velocity", "速度", "v", "m/s", velocity, -2, 2, 0.5, disabled);
   }
   function quantityControl(name, label, symbol, unit, value, min, max, step, disabled, ariaLabel = label) {
     const fallback = value == null ? 0 : value;
@@ -487,7 +487,7 @@
     const context = displayContext();
     const values = [["時間", math("t", "s", ui.time)]];
     if (ui.safeSummary || state.phase === "final-review") { /* time only */ }
-    else if (state.phase === "explore") values.push(["初始位置", math("x<sub>0</sub>", "m", state.exploration.x0)], ["目前位置", math("x", "m", S.positionAt(state.exploration, ui.time))], ["速度", math("v", "m/s", state.exploration.v)]);
+    else if (state.phase === "explore") values.push(["初始位置", math("x<sub class=\"numeric-subscript\">0</sub>", "m", state.exploration.x0)], ["目前位置", math("x", "m", S.positionAt(state.exploration, ui.time))], ["速度", math("v", "m/s", state.exploration.v)]);
     else if (context.step === 2) values.push(["A 車位置", math("x<sub>A</sub>", "m", S.positionAt(context.scenario.A, ui.time))], ["B 車位置", math("x<sub>B</sub>", "m", S.positionAt(context.scenario.B, ui.time))]);
     else if (context.step === 1) values.push(["車的位置", math("x", "m", S.positionAt(context.scenario, ui.time))]);
     else if (context.step === 4) {
@@ -496,7 +496,7 @@
       values.push(["B 車位置", own.incomplete ? "--" : math("x<sub>B</sub>", "m", S.positionAt(own, ui.time))], ["指定相遇時間", math("t<sup>*</sup>", "s", context.scenario.meetTime)]);
     } else {
       const own = answerMotion(context.step, context.answer);
-      values.push(["初始位置", own.incomplete && context.answer.x0 == null ? "--" : math("x<sub>0</sub>", "m", own.x0)], ["目前位置", own.incomplete ? "--" : math("x", "m", S.positionAt(own, ui.time))], ["速度", own.incomplete && context.answer.v == null ? "--" : math("v", "m/s", own.v)]);
+      values.push(["初始位置", own.incomplete && context.answer.x0 == null ? "--" : math("x<sub class=\"numeric-subscript\">0</sub>", "m", own.x0)], ["目前位置", own.incomplete ? "--" : math("x", "m", S.positionAt(own, ui.time))], ["速度", own.incomplete && context.answer.v == null ? "--" : math("v", "m/s", own.v)]);
     }
     dom.dataGrid.innerHTML = values.map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join("");
   }
