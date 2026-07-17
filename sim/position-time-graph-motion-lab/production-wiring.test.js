@@ -305,6 +305,21 @@ document.getElementById("timeSlider").dispatch("input");
 
 document.getElementById("confirmStart").click();
 one("#nextMission").click();
+const missionTwoRoad = document.getElementById("roadLayer");
+const guideAtStart = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);
+assert.ok(guideAtStart, "mission 2 road renders a dashed position projection");
+assert.ok(missionTwoRoad.innerHTML.includes('class="position-marker"'), "mission 2 road marks the projected axis position");
+assert.ok(missionTwoRoad.innerHTML.includes('class="position-guide-label"'), "mission 2 road labels the current position");
+assert.ok(document.getElementById("answerControls").innerHTML.includes('class="math"'), "mission 2 P0/P6 controls use formula styling");
+assert.ok(document.getElementById("answerControls").innerHTML.includes('class="unit"'), "mission 2 time controls style units consistently");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-math-symbol"'), "mission 2 graph labels use math symbols");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-numeric-subscript"'), "mission 2 graph labels style numeric subscripts");
+document.getElementById("timeSlider").value = "0.5";
+document.getElementById("timeSlider").dispatch("input");
+const guideAfterStep = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);
+assert.notEqual(guideAfterStep?.[1], guideAtStart[1], "position projection follows the moving car");
+document.getElementById("timeSlider").value = "0";
+document.getElementById("timeSlider").dispatch("input");
 const pointSteppers = document.querySelectorAll("[data-step-quantity]").filter((button) => ["xStart", "xEnd"].includes(button.dataset.stepQuantity));
 assert.equal(pointSteppers.length, 4, "mission 2 renders both P0/P6 stepper pairs through production controls");
 for (const button of pointSteppers) {

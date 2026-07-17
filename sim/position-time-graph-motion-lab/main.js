@@ -17,6 +17,12 @@
     const shown = value == null || value === "" ? "--" : signed(value);
     return `<span class="math"><var>${symbol}</var></span> = ${shown}${unit ? ` <span class="unit">${unit}</span>` : ""}`;
   }
+  function pointSymbolHtml(index) {
+    return `<span class="math"><var>P</var><sub class="numeric-subscript">${index}</sub></span>`;
+  }
+  function svgPointSymbol(index) {
+    return `<tspan class="svg-math-symbol">P</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;
+  }
   function signed(value) {
     if (!Number.isFinite(Number(value))) return "--";
     const number = Number(value);
@@ -210,7 +216,7 @@
     } else if (step === 1) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m2;
-      dom.answerControls.innerHTML = `${graphPointControl("xStart", "P<sub class=\"numeric-subscript\">0</sub>（t = 0 s）", answer.xStart)}${graphPointControl("xEnd", "P<sub class=\"numeric-subscript\">6</sub>（t = 6 s）", answer.xEnd)}`;
+      dom.answerControls.innerHTML = `${graphPointControl("xStart", `${pointSymbolHtml(0)}（${math("t", "s", 0)}）`, answer.xStart)}${graphPointControl("xEnd", `${pointSymbolHtml(6)}（${math("t", "s", 6)}）`, answer.xEnd)}`;
     } else if (step === 2) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m3;
@@ -404,7 +410,7 @@
     if (ui.safeSummary) { /* no untrusted answer geometry */ }
     else if (state.phase === "explore") cars.push({ label: "A", motion: state.exploration, draggable: true });
     else if (context.step === 0 || context.step === 3) cars.push({ label: "A", motion: answerMotion(context.step, context.answer), draggable: true });
-    else if (context.step === 1) cars.push({ label: "A", motion: context.scenario, draggable: false });
+    else if (context.step === 1) cars.push({ label: "A", motion: context.scenario, draggable: false, showPositionGuide: true });
     else if (context.step === 2) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: context.scenario.B, draggable: false });
     else if (context.step === 4) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: answerMotion(context.step, context.answer), draggable: true });
     dom.roadDesc.textContent = cars.some((car) => car.draggable && settingsEditable())
@@ -429,8 +435,11 @@
       : `<line class="velocity-line" x1="${x}" y1="${arrowY}" x2="${endpoint}" y2="${arrowY}"></line><path class="velocity-arrowhead" d="M ${endpoint} ${arrowY} L ${arrowHeadBase} ${arrowY - 9} L ${arrowHeadBase} ${arrowY + 9} Z"></path>`;
     const velocityHit = canDrag ? `<circle class="drag-hit velocity-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${arrowY}" r="12"></circle>` : "";
     const arrow = car.motion.incomplete && !canDrag ? "" : `${velocityVisual}${velocityHit}`;
+    const guideAnchor = x > ROAD.right - 110 ? "end" : "start";
+    const guideLabelX = x + (guideAnchor === "end" ? -9 : 9);
+    const positionGuide = car.showPositionGuide ? `<line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><path class="position-marker" d="M ${x} ${ROAD.y} L ${x - 7} ${ROAD.y - 11} L ${x + 7} ${ROAD.y - 11} Z"></path><text class="position-guide-label" x="${guideLabelX}" y="22" text-anchor="${guideAnchor}"><tspan class="svg-math-symbol">x</tspan> = ${signed(position)} <tspan class="svg-unit">m</tspan></text>` : "";
     const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
-    return `<g class="car-${car.label.toLowerCase()}"><g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
+    return `<g class="car-${car.label.toLowerCase()}">${positionGuide}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
   }
 
   function graphBase() {
@@ -459,7 +468,7 @@
     } else if (context.step === 1) {
       const answer = context.answer;
       if (Number.isFinite(answer.xStart) && Number.isFinite(answer.xEnd)) html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd)}"></line>`;
-      if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6) + `<circle class="target-point" cx="${graphX(0)}" cy="${graphY(context.scenario.x0)}" r="8"></circle><circle class="target-point" cx="${graphX(6)}" cy="${graphY(S.positionAt(context.scenario, 6))}" r="8"></circle><text class="svg-label" x="${graphX(0) + 12}" y="${graphY(context.scenario.x0) - 12}">正確 P₀</text><text class="svg-label" x="${graphX(6) - 76}" y="${graphY(S.positionAt(context.scenario, 6)) - 12}">正確 P₆</text>`;
+      if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6) + `<circle class="target-point" cx="${graphX(0)}" cy="${graphY(context.scenario.x0)}" r="8"></circle><circle class="target-point" cx="${graphX(6)}" cy="${graphY(S.positionAt(context.scenario, 6))}" r="8"></circle><text class="svg-label" x="${graphX(0) + 12}" y="${graphY(context.scenario.x0) - 12}">正確 ${svgPointSymbol(0)}</text><text class="svg-label" x="${graphX(6) - 76}" y="${graphY(S.positionAt(context.scenario, 6)) - 12}">正確 ${svgPointSymbol(6)}</text>`;
       html += graphHandle("xStart", 0, answer.xStart) + graphHandle("xEnd", 6, answer.xEnd);
       visibleReadings.push(["車的位置讀數", S.positionAt(context.scenario, ui.time)]);
     } else if (context.step === 2) {
@@ -488,9 +497,10 @@
   }
   function graphHandle(name, time, value) {
     const position = value == null ? 0 : value;
-    const label = time === 0 ? "P₀" : "P₆";
-    const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${label} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
-    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -38)}" y="${graphY(position) - 15}">${label}${value == null ? " ?" : ""}</text></g>`;
+    const pointIndex = time === 0 ? 0 : 6;
+    const spokenLabel = pointIndex === 0 ? "P 零" : "P 六";
+    const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${spokenLabel} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
+    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -38)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : ""}</text></g>`;
   }
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {

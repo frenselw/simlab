@@ -156,6 +156,36 @@
 
 .car-a .velocity-line { stroke: var(--car-a); }
 .car-b .velocity-line { stroke: var(--car-b); }
+.position-guide {
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.position-marker { pointer-events: none; }
+.car-a .position-guide { stroke: var(--car-a); }
+.car-a .position-marker { fill: var(--car-a); }
+.car-b .position-guide { stroke: var(--car-b); }
+.car-b .position-marker { fill: var(--car-b); }
+.position-guide-label {
+  fill: var(--color-text);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+.svg-math-symbol {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+.svg-numeric-subscript {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 0.72em;
+  font-style: normal;
+}
+.svg-unit {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: normal;
+}
 .graph-handle,
 .probe-handle {
   fill: #ffffff;
