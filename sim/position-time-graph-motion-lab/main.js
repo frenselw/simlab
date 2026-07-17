@@ -8,7 +8,7 @@
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 24, bottom: 390 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "resetButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -110,7 +110,6 @@
     dom.playButton.textContent = ui.playing ? "暫停" : "播放";
     dom.stepButton.disabled = ui.playing || ui.time >= 6 || ui.technical;
     dom.replayButton.disabled = ui.technical;
-    dom.resetButton.disabled = ui.playing || ui.technical || state.phase === "submitted-review";
     drawRoad();
     drawGraph();
     renderData();
@@ -835,7 +834,6 @@
   dom.playButton.addEventListener("click", play);
   dom.stepButton.addEventListener("click", () => setTime(ui.time + 0.5, true));
   dom.replayButton.addEventListener("click", () => { setTime(0, true); if (state.phase === "explore") ui.explorationProbes = []; render(); });
-  dom.resetButton.addEventListener("click", () => { resetTime(state.phase === "explore"); render(); announce("已回到 t = 0；物理設定保持不變。"); });
   dom.timeSlider.addEventListener("input", () => setTime(Number(dom.timeSlider.value)));
   dom.timeSlider.addEventListener("change", () => announce(`讀圖游標：t = ${ui.time.toFixed(1)} 秒。${dom.graphSummary.textContent}`));
   dom.confirmStart.addEventListener("click", () => {
