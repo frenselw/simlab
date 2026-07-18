@@ -141,11 +141,12 @@ learner numeric answers, and final numeric feedback.
 Use one shared production formatter and test it independently.
 
 The formatter canonicalizes the raw finite value to three significant figures
-before choosing fixed or scientific notation, so a rounding carry such as
-`99.96 -> 1.00 × 10²` changes the exponent correctly. Unsupported subnormal
-values display as `--` and are never accepted as learner answers.
+and always expands it as ordinary decimal notation. A rounding carry such as
+`99.96 -> 100` must remain correct. Unsupported subnormal values display as `--`
+and are never accepted as learner answers.
 
-- Non-zero values display exactly three significant digits.
+- Non-zero values are rounded to three significant figures; ordinary-decimal
+  integer trailing zeros carry that precision implicitly.
 - Preserve required trailing zeros.
 - Use tabular or monospace numerals so changing decimal places do not shift the
   layout.
@@ -154,15 +155,13 @@ values display as `--` and are never accepted as learner answers.
   - `0.500 s`
   - `5.00 m/s`
   - `50.0 m`
-  - `5.00 × 10² m`
+  - `500 m`
 - Exact zero displays as `0.00` plus its unit. Formally zero has no non-zero
   significant digit; this notation communicates the activity's measurement
   precision and is the sole zero exception.
-- Values whose fixed-point form would leave an ambiguous integer trailing zero
-  use scientific notation, for example `1.00 × 10² m`; do not display `100 m`
-  as an unqualified three-significant-figure value. Values outside a readable
-  fixed-point range may also use scientific notation. Long manually timed
-  observations can legitimately produce such values.
+- All learner-facing values use ordinary decimal notation, including integers
+  with trailing zeros and small decimals. Long manually timed observations may
+  produce longer decimal strings, but never switch to scientific notation.
 - Ruler major marks are every `10.0 m` and minor marks every `1.00 m`. Major
   labels use the same three-significant-figure formatter. The fixed pointer also
   shows the current position digitally to three significant figures.
@@ -194,8 +193,9 @@ Use text inputs with `inputmode="text"`, not `input type="number"`, because the
 browser may discard significant trailing zeros and a mobile learner may need to
 enter an `e` exponent.
 
-- Accept unsigned decimal notation or standard `e`/`E` scientific notation.
-  Negative signs, commas, and units remain invalid; a signed exponent is valid.
+- Accept unsigned decimal notation or standard `e`/`E` scientific notation for
+  input compatibility, then normalize it to ordinary decimal notation. Negative
+  signs, commas, and units remain invalid; a signed exponent is valid.
 - Reject subnormal magnitudes that cannot be stably represented and normalized
   by the activity's three-significant-figure formatter.
 - Ignore surrounding whitespace.
@@ -203,12 +203,15 @@ enter an `e` exponent.
 - Count zeros between non-zero digits and trailing zeros after a decimal point as
   significant.
 - Require exactly three significant digits before an answer can be confirmed.
+  An ordinary-decimal integer produced by a rounding carry may contain more than
+  three digits only when every extra digit is a trailing zero, such as `1000` or
+  `1230`; this is the unavoidable fixed-notation form of a three-figure value.
 - Examples:
   - `5` and `5.0` are incomplete;
   - `5.00` is valid;
   - `0.500` is valid;
   - `05.00` is valid and normalizes to `5.00`;
-  - `5.00e2` is valid and represents `5.00 × 10²`;
+  - `5.00e2` remains valid for input compatibility and normalizes to `500`;
 - `0.00` is a valid zero-format entry in every numeric field; whether zero is
   correct is decided only during final scoring, never by pre-submit format
   validation;
@@ -296,7 +299,7 @@ Reject and resample an attempt definition when:
 - the shrinking-window values fail to approach the target instantaneous value
   in the expected direction;
 - any expected learner numeric answer is non-finite or cannot be represented by
-  the supported fixed-point/scientific three-significant-figure formatter;
+  the supported ordinary-decimal three-significant-figure formatter;
 - motion is too small to be obvious at a 320 CSS-pixel viewport;
 - the chosen scale would move ruler labels too quickly to read;
 - the minimum accepted interval would make independently rounded `x1` and `x2`
@@ -362,8 +365,8 @@ readable at late model times. Starting the stopwatch locks that origin for the
 whole measurement. The digital position, ruler, captured table, calculation,
 feedback, and scoring all use the same local readings; hidden world-position
 precision is never used as a separate scoring source. The runtime accepts model
-times only up to a technical multi-year safety ceiling (`1.00 × 10⁹ s`) and
-renderable positions up to `1.00 × 10¹¹ m`. These are corrupted-state guards,
+times only up to a technical multi-year safety ceiling (`1000000000 s`) and
+renderable positions up to `100000000000 m`. These are corrupted-state guards,
 not learner-facing time limits, pauses, or automatic capture points.
 Restorable ready states must retain enough headroom for the stage minimum
 measurement plus one safe interaction frame and a centralized floating-point

@@ -73,7 +73,7 @@ longAttempt.uniform = {
   averageVelocity: Model.formatInput3(longExpected.averageVelocity),
   relationship: "yes"
 };
-assert(/[eE]/.test(longAttempt.uniform.displacement), "large answer uses consistent scientific input notation");
+assert(!/[eE×]/.test(longAttempt.uniform.displacement), "large answer uses ordinary decimal notation");
 assert.strictEqual(Scoring.scoreAttempt(definition, longUniform, variable, longAttempt).score, 100);
 
 console.log("Linear motion scoring tests passed");

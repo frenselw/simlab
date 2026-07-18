@@ -150,7 +150,7 @@
     if (locked || !currentMeasurement()?.x2) return;
     const parsed = [elements.displacementInput, elements.timeInput, elements.averageInput].map((input) => Model.normalizeInput(input.value));
     const relationship = relationshipInputs.find((input) => input.checked)?.value;
-    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請用三位有效數字，例如 5.00 或 1.00e2；不要輸入單位。");
+    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請用三位有效數字，例如 5.00 或 0.500；不要輸入單位。");
     if (!relationship) return void (elements.answerError.textContent = "請回答瞬時速度與平均速度的關係。");
     state.answers[state.phase] = {
       displacement: parsed[0].text, time: parsed[1].text, averageVelocity: parsed[2].text, relationship
@@ -521,11 +521,11 @@
       const metre = centreMetre + offset;
       const x = w / 2 + (metre - position) * pixelsPerMetre;
       const major = metre % 10 === 0;
-      context.strokeStyle = major ? "#111827" : "#6b7280"; context.lineWidth = major ? 2 : 1;
+      context.strokeStyle = major ? "#f9fafb" : "#cbd5e1"; context.lineWidth = major ? 2 : 1;
       context.beginPath(); context.moveTo(x, h - 31); context.lineTo(x, h - (major ? 55 : 43)); context.stroke();
-      if (major) { context.fillStyle = "#111827"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, h - 10); }
+      if (major) { context.fillStyle = "#f9fafb"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, h - 10); }
     }
-    context.strokeStyle = "#111827"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, h - 31); context.lineTo(w, h - 31); context.stroke();
+    context.strokeStyle = "#f9fafb"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, h - 31); context.lineTo(w, h - 31); context.stroke();
     drawLandmarks(worldPosition, pixelsPerMetre, horizon, roadTop);
     drawCar(w / 2, roadTop - 8, Math.min(1.15, w / 520));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, roadTop - 90); context.lineTo(w / 2, h - 30); context.stroke();

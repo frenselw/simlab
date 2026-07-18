@@ -30,39 +30,36 @@
     if (!finite(value)) throw new TypeError("Value must be finite");
     return value === 0 ? 0 : Number(value.toPrecision(SIGNIFICANT_FIGURES));
   }
-  function roundedParts(value) {
+  function roundedExponential(value) {
     const rounded = canonicalNumber(value);
     if (!finite(rounded)) return null;
-    const exponential = rounded.toExponential(SIGNIFICANT_FIGURES - 1);
-    return { rounded, exponential, exponent: Number(exponential.slice(exponential.indexOf("e") + 1)) };
+    return rounded.toExponential(SIGNIFICANT_FIGURES - 1);
+  }
+  function fixedNotation(exponential) {
+    const [coefficient, rawExponent] = exponential.split("e");
+    const negative = coefficient.startsWith("-");
+    const digits = coefficient.replace("-", "").replace(".", "");
+    const point = 1 + Number(rawExponent);
+    const unsigned = point <= 0
+      ? `0.${"0".repeat(-point)}${digits}`
+      : point >= digits.length
+        ? `${digits}${"0".repeat(point - digits.length)}`
+        : `${digits.slice(0, point)}.${digits.slice(point)}`;
+    return negative ? `-${unsigned}` : unsigned;
   }
   function format3(value) {
     if (!finite(value)) return "--";
     if (value === 0) return "0.00";
     if (Math.abs(value) < MIN_NORMAL) return "--";
-    const parts = roundedParts(value);
-    if (!parts) return "--";
-    const { rounded, exponential, exponent } = parts;
-    if (exponent >= 2 || exponent <= -4) {
-      const mantissa = exponential.slice(0, exponential.indexOf("e"));
-      return `${mantissa} × 10${superscript(exponent)}`;
-    }
-    return rounded.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
+    const exponential = roundedExponential(value);
+    return exponential ? fixedNotation(exponential) : "--";
   }
   function formatInput3(value) {
     if (!finite(value) || value < 0) return "--";
     if (value === 0) return "0.00";
     if (value < MIN_NORMAL) return "--";
-    const parts = roundedParts(value);
-    if (!parts) return "--";
-    const { rounded, exponential, exponent } = parts;
-    return exponent >= 2 || exponent <= -4
-      ? exponential.replace("e+", "e")
-      : rounded.toFixed(Math.max(0, SIGNIFICANT_FIGURES - exponent - 1));
-  }
-  function superscript(value) {
-    const map = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
-    return String(value).split("").map((digit) => map[digit]).join("");
+    const exponential = roundedExponential(value);
+    return exponential ? fixedNotation(exponential) : "--";
   }
   function normalizeInput(raw) {
     const text = String(raw ?? "").trim();
@@ -74,7 +71,10 @@
     const compact = match[1].replace(/^0+/, "");
     const digits = compact.replace(".", "");
     const first = digits.search(/[1-9]/);
-    if (first < 0 || digits.slice(first).length !== SIGNIFICANT_FIGURES) return null;
+    const significant = digits.slice(first);
+    const roundedInteger = !compact.includes(".") && significant.length > SIGNIFICANT_FIGURES &&
+      significant.endsWith("0") && significant.replace(/0+$/, "").length <= SIGNIFICANT_FIGURES;
+    if (first < 0 || (significant.length !== SIGNIFICANT_FIGURES && !roundedInteger)) return null;
     const normalized = formatInput3(value);
     return normalized === "--" || !finite(Number(normalized)) ? null : { value, text: normalized };
   }
