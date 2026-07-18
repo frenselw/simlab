@@ -272,6 +272,7 @@ function velocityHitState() {
 }
 
 const continuousVelocity = quantity("velocity");
+assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "exploration graph removes the comparison-control reserve below the axis");
 continuousVelocity.value = "0.5";
 continuousVelocity.dispatch("input");
 assert.equal(quantity("velocity"), continuousVelocity, "slider input keeps the active range element mounted");
@@ -327,7 +328,7 @@ assert.ok(document.getElementById("answerControls").innerHTML.includes('class="u
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-math-symbol"'), "mission 2 graph labels use math symbols");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-numeric-subscript"'), "mission 2 graph labels style numeric subscripts");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 2 shows the P0-to-P6 line before either point is set");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label vertical-axis-label" x="94" y="55">x / m</text>'), "graph places the vertical-axis title inside the plot, clear of the highest tick label");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label vertical-axis-label" x="80" y="35" text-anchor="middle">x / m</text>'), "graph centers the vertical-axis title above the axis");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="tick-label horizontal-tick"'), "graph identifies horizontal ticks for responsive spacing");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('y="424"'), "graph leaves space between the horizontal axis and its tick labels");
 document.getElementById("timeSlider").value = "0.5";
@@ -347,7 +348,9 @@ pointSteppers.find((button) => button.dataset.stepQuantity === "xStart" && butto
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted P0 position value");
 
 one("#nextMission").click();
+assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");
 one("#nextMission").click();
+assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "mission 4 returns to the compact graph height");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 4 shows the x-t line for the default x0 and velocity");
 for (let remaining = 0; remaining < 2; remaining += 1) one("#nextMission").click();
 document.getElementById("confirmSubmit").click();

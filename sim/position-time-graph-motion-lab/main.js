@@ -6,7 +6,7 @@
   const P = window.PositionTimePersistence;
   const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
-  const GRAPH = { left: 80, right: 760, top: 24, bottom: 390 };
+  const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
   const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
@@ -455,13 +455,14 @@
     let html = "";
     for (let t = 0; t <= 6; t += 1) html += `<line class="plot-grid" x1="${graphX(t)}" y1="${GRAPH.top}" x2="${graphX(t)}" y2="${GRAPH.bottom}"></line><text class="tick-label horizontal-tick" x="${graphX(t)}" y="${GRAPH.bottom + 34}">${t}</text>`;
     for (let x = -20; x <= 20; x += 5) html += `<line class="plot-grid" x1="${GRAPH.left}" y1="${graphY(x)}" x2="${GRAPH.right}" y2="${graphY(x)}"></line><text class="tick-label vertical-tick" x="${GRAPH.left - 28}" y="${graphY(x) + 5}">${x}</text>`;
-    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label horizontal-axis-label" x="${GRAPH.right}" y="${GRAPH.bottom + 66}" text-anchor="end">t / s</text><text class="axis-label vertical-axis-label" x="${GRAPH.left + 14}" y="${GRAPH.top + 31}">x / m</text>`;
+    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label horizontal-axis-label" x="${GRAPH.right - 12}" y="${GRAPH.bottom - 14}" text-anchor="end">t / s</text><text class="axis-label vertical-axis-label" x="${GRAPH.left}" y="${GRAPH.top - 25}" text-anchor="middle">x / m</text>`;
     return html;
   }
   function drawGraph() {
     dom.graphSvg.classList.toggle("is-narrow", dom.graphSvg.clientWidth > 0 && dom.graphSvg.clientWidth <= 420);
-    let html = graphBase();
     const context = displayContext();
+    dom.graphSvg.setAttribute("viewBox", `0 0 800 ${context.step === 2 ? GRAPH.comparisonHeight : GRAPH.compactHeight}`);
+    let html = graphBase();
     const visibleReadings = [];
     if (ui.safeSummary) { /* axes only */ }
     else if (state.phase === "explore") {
@@ -495,7 +496,7 @@
       const own = answerMotion(4, context.answer);
       if (!own.incomplete) { html += svgLine(own, "line-b", ui.time); visibleReadings.push(["B 圖線", S.positionAt(own, ui.time)]); }
       if (state.phase === "submitted-review") html += `<circle class="target-point" cx="${graphX(context.scenario.meetTime)}" cy="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime))}" r="9"></circle><text class="svg-label" x="${graphX(context.scenario.meetTime) + 12}" y="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime)) - 12}">指定相遇點</text>`;
-      html += `<line class="time-cursor" x1="${graphX(context.scenario.meetTime)}" y1="${GRAPH.top}" x2="${graphX(context.scenario.meetTime)}" y2="${GRAPH.bottom}"></line><text class="svg-label" x="${graphX(context.scenario.meetTime) + 6}" y="42">t*</text>`;
+      html += `<line class="time-cursor" x1="${graphX(context.scenario.meetTime)}" y1="${GRAPH.top}" x2="${graphX(context.scenario.meetTime)}" y2="${GRAPH.bottom}"></line><text class="svg-label" x="${graphX(context.scenario.meetTime) + 6}" y="${GRAPH.top + 18}">t*</text>`;
     }
     html += `<line class="time-cursor" x1="${graphX(ui.time)}" y1="${GRAPH.top}" x2="${graphX(ui.time)}" y2="${GRAPH.bottom}"></line>`;
     dom.graphLayer.innerHTML = html;
