@@ -303,6 +303,18 @@ assert.equal(document.querySelectorAll("[data-drag]").some((element) => element.
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
+const explorationProbeControls = document.getElementById("probeControls");
+assert.ok(explorationProbeControls.innerHTML.includes('<var>P</var>'), "exploration probe prompt formats P as a math symbol");
+assert.ok(explorationProbeControls.innerHTML.includes('Δ<var>t</var>'), "exploration probe prompt formats delta t as a math quantity");
+assert.ok(explorationProbeControls.innerHTML.includes('Δ<var>x</var>'), "exploration probe prompt formats delta x as a math quantity");
+document.getElementById("timeSlider").value = "2";
+document.getElementById("timeSlider").dispatch("input");
+one('[data-add-probe="E"]').click();
+assert.ok(explorationProbeControls.innerHTML.includes('<var>t</var>'), "exploration probe reading formats time as a math quantity");
+assert.ok(explorationProbeControls.innerHTML.includes('<var>x</var>'), "exploration probe reading formats position as a math quantity");
+document.getElementById("timeSlider").value = "0";
+document.getElementById("timeSlider").dispatch("input");
+
 document.getElementById("confirmStart").click();
 one("#nextMission").click();
 const missionTwoRoad = document.getElementById("roadLayer");
@@ -315,7 +327,9 @@ assert.ok(document.getElementById("answerControls").innerHTML.includes('class="u
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-math-symbol"'), "mission 2 graph labels use math symbols");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-numeric-subscript"'), "mission 2 graph labels style numeric subscripts");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 2 shows the P0-to-P6 line before either point is set");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label" x="0" y="12">x / m</text>'), "graph keeps the vertical-axis title clear of the highest tick label");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label vertical-axis-label" x="94" y="55">x / m</text>'), "graph places the vertical-axis title inside the plot, clear of the highest tick label");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="tick-label horizontal-tick"'), "graph identifies horizontal ticks for responsive spacing");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('y="424"'), "graph leaves space between the horizontal axis and its tick labels");
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
 const guideAfterStep = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);

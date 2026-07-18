@@ -116,6 +116,10 @@
   font-size: 17px;
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
+  paint-order: stroke;
+  stroke: var(--color-canvas);
+  stroke-linejoin: round;
+  stroke-width: 5px;
 }
 
 .road-track {
@@ -490,11 +494,12 @@ dialog h2 { margin-top: 0; }
   .phase-badge { display: inline-block; margin-top: 0.65rem; }
   .stage-heading { display: block; }
   .stage-heading span:last-child { display: block; margin-top: 0.2rem; text-align: left; }
+  .graph-block .stage-heading { display: none; }
   .math-data { grid-template-columns: 1fr; }
   .lab-svg.is-narrow .tick-label,
   .lab-svg .tick-label { font-size: 28px; }
-  .lab-svg.is-narrow .axis-label { font-size: 22px; }
-  .lab-svg.is-narrow .svg-label { font-size: 21px; }
+  .lab-svg .axis-label { font-size: 32px; stroke-width: 8px; }
+  .lab-svg .svg-label { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

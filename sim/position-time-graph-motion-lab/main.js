@@ -20,6 +20,15 @@
   function pointSymbolHtml(index) {
     return `<span class="math"><var>P</var><sub class="numeric-subscript">${index}</sub></span>`;
   }
+  function probeSymbolHtml(symbol) {
+    return `<span class="math"><var>${symbol}</var></span>`;
+  }
+  function probeValueHtml(time, position) {
+    return `(${math("t", "s", time)}, ${math("x", "m", position)})`;
+  }
+  function probePromptHtml() {
+    return `加入 ${probeSymbolHtml("P")}、${probeSymbolHtml("Q")} 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
+  }
   function svgPointSymbol(index) {
     return `<tspan class="svg-math-symbol">P</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;
   }
@@ -261,9 +270,9 @@
   function probeCard(label, probes, motion, line, maxTime) {
     const rows = probes.map((time, index) => {
       const pointLabel = index === 0 ? "P" : "Q";
-      return `<label class="range-row"><span>${pointLabel}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output id="probeValue-${line}-${index}">(${time.toFixed(1)} s, ${signed(S.positionAt(motion, time))} m)</output></label>`;
+      return `<label class="range-row"><span>${probeSymbolHtml(pointLabel)}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output id="probeValue-${line}-${index}">${probeValueHtml(time, S.positionAt(motion, time))}</output></label>`;
     }).join("");
-    const delta = probes.length === 2 ? measurementHtml(probes, motion) : "加入 P、Q 兩個探針以顯示 Δt 及 Δx。";
+    const delta = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml();
     return `<div class="probe-heading"><strong>${label}</strong><span>${probes.length}/2</span></div>${rows}<div id="probeDelta-${line}" class="muted">${delta}</div>`;
   }
   function measurementHtml(probes, motion) {
@@ -378,8 +387,8 @@
     const motion = line === "E" ? state.exploration : currentSet().m3[line];
     const probeValue = document.getElementById(`probeValue-${line}-${index}`);
     const probeDelta = document.getElementById(`probeDelta-${line}`);
-    if (probeValue) probeValue.textContent = `(${probes[index].toFixed(1)} s, ${signed(S.positionAt(motion, probes[index]))} m)`;
-    if (probeDelta) probeDelta.innerHTML = probes.length === 2 ? measurementHtml(probes, motion) : "加入 P、Q 兩個探針以顯示 Δt 及 Δx。";
+    if (probeValue) probeValue.innerHTML = probeValueHtml(probes[index], S.positionAt(motion, probes[index]));
+    if (probeDelta) probeDelta.innerHTML = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml();
     renderDynamic();
   }
 
@@ -444,9 +453,9 @@
 
   function graphBase() {
     let html = "";
-    for (let t = 0; t <= 6; t += 1) html += `<line class="plot-grid" x1="${graphX(t)}" y1="${GRAPH.top}" x2="${graphX(t)}" y2="${GRAPH.bottom}"></line><text class="tick-label" x="${graphX(t)}" y="${GRAPH.bottom + 22}">${t}</text>`;
-    for (let x = -20; x <= 20; x += 5) html += `<line class="plot-grid" x1="${GRAPH.left}" y1="${graphY(x)}" x2="${GRAPH.right}" y2="${graphY(x)}"></line><text class="tick-label" x="${GRAPH.left - 28}" y="${graphY(x) + 5}">${x}</text>`;
-    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label" x="${GRAPH.right - 10}" y="${GRAPH.bottom + 43}" text-anchor="end">t / s</text><text class="axis-label" x="0" y="${GRAPH.top - 12}">x / m</text>`;
+    for (let t = 0; t <= 6; t += 1) html += `<line class="plot-grid" x1="${graphX(t)}" y1="${GRAPH.top}" x2="${graphX(t)}" y2="${GRAPH.bottom}"></line><text class="tick-label horizontal-tick" x="${graphX(t)}" y="${GRAPH.bottom + 34}">${t}</text>`;
+    for (let x = -20; x <= 20; x += 5) html += `<line class="plot-grid" x1="${GRAPH.left}" y1="${graphY(x)}" x2="${GRAPH.right}" y2="${graphY(x)}"></line><text class="tick-label vertical-tick" x="${GRAPH.left - 28}" y="${graphY(x) + 5}">${x}</text>`;
+    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label horizontal-axis-label" x="${GRAPH.right}" y="${GRAPH.bottom + 66}" text-anchor="end">t / s</text><text class="axis-label vertical-axis-label" x="${GRAPH.left + 14}" y="${GRAPH.top + 31}">x / m</text>`;
     return html;
   }
   function drawGraph() {
