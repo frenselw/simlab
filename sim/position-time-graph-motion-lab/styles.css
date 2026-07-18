@@ -35,7 +35,7 @@
 
 .lab-shell {
   display: grid;
-  grid-template-rows: minmax(16rem, 62%) minmax(10rem, 38%);
+  grid-template-rows: auto minmax(10rem, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -43,6 +43,7 @@
 .lab-stage {
   display: grid;
   grid-template-rows: auto auto;
+  align-content: start;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;

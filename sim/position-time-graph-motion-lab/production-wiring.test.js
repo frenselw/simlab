@@ -216,6 +216,11 @@ const window = {
   scrollTo() {}
 };
 const source = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+const indexSource = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const stylesSource = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
+assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
+assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*auto minmax\(10rem, 1fr\)/s, "mobile shell sizes the stage from its content instead of a fixed percentage");
+assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
 vm.runInNewContext(source, {
   window,
   document,
