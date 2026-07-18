@@ -549,6 +549,11 @@
     dom.dataGrid.innerHTML = values.map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join("");
   }
 
+  function scrollPanelToTop() {
+    dom.labPanel.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function renderNavigation() {
     dom.navigationControls.replaceChildren();
     if (ui.technical || ui.safeSummary) return;
@@ -564,10 +569,7 @@
       button.addEventListener("click", () => {
         resetTime();
         const moved = transitionSafely((next) => next.variant === "from-review" ? P.returnToReview(next) : P.nextMission(next));
-        if (moved) {
-          dom.labPanel.scrollTop = 0;
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+        if (moved) scrollPanelToTop();
       });
       return;
     }
@@ -865,7 +867,8 @@
     const ids = S.scenarioIds();
     const setId = ids[Math.floor(Math.random() * ids.length)];
     resetTime(true);
-    transitionSafely((next) => P.startAssessment(next, setId));
+    const moved = transitionSafely((next) => P.startAssessment(next, setId));
+    if (moved) scrollPanelToTop();
   });
   dom.confirmSubmit.addEventListener("click", submitAttempt);
   initialize();

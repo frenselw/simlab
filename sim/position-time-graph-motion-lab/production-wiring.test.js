@@ -321,7 +321,9 @@ assert.ok(explorationProbeControls.innerHTML.includes('<var>x</var>'), "explorat
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
+document.getElementById("labPanel").scrollTop = 640;
 document.getElementById("confirmStart").click();
+assert.equal(document.getElementById("labPanel").scrollTop, 0, "starting the assessment returns the independently scrolling control panel to mission 1 at the top");
 assert.equal(document.getElementById("answerState").textContent, "未作答", "mission 1 remains unanswered before either quantity is changed");
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
