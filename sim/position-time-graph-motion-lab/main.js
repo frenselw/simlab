@@ -437,7 +437,7 @@
     const arrow = car.motion.incomplete && !canDrag ? "" : `${velocityVisual}${velocityHit}`;
     const guideAnchor = x > ROAD.right - 110 ? "end" : "start";
     const guideLabelX = x + (guideAnchor === "end" ? -9 : 9);
-    const positionGuide = car.showPositionGuide ? `<line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><path class="position-marker" d="M ${x} ${ROAD.y} L ${x - 7} ${ROAD.y - 11} L ${x + 7} ${ROAD.y - 11} Z"></path><text class="position-guide-label" x="${guideLabelX}" y="22" text-anchor="${guideAnchor}"><tspan class="svg-math-symbol">x</tspan> = ${signed(position)} <tspan class="svg-unit">m</tspan></text>` : "";
+    const positionGuide = car.showPositionGuide ? `<line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><text class="position-guide-label" x="${guideLabelX}" y="22" text-anchor="${guideAnchor}"><tspan class="svg-math-symbol">x</tspan> = ${signed(position)} <tspan class="svg-unit">m</tspan></text>` : "";
     const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
     return `<g class="car-${car.label.toLowerCase()}">${positionGuide}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
   }
@@ -446,7 +446,7 @@
     let html = "";
     for (let t = 0; t <= 6; t += 1) html += `<line class="plot-grid" x1="${graphX(t)}" y1="${GRAPH.top}" x2="${graphX(t)}" y2="${GRAPH.bottom}"></line><text class="tick-label" x="${graphX(t)}" y="${GRAPH.bottom + 22}">${t}</text>`;
     for (let x = -20; x <= 20; x += 5) html += `<line class="plot-grid" x1="${GRAPH.left}" y1="${graphY(x)}" x2="${GRAPH.right}" y2="${graphY(x)}"></line><text class="tick-label" x="${GRAPH.left - 28}" y="${graphY(x) + 5}">${x}</text>`;
-    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label" x="${GRAPH.right - 10}" y="${GRAPH.bottom + 43}" text-anchor="end">t / s</text><text class="axis-label" x="10" y="${GRAPH.top - 5}">x / m</text>`;
+    html += `<line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.right + 6}" y2="${GRAPH.bottom}"></line><line class="plot-axis" x1="${GRAPH.left}" y1="${GRAPH.bottom}" x2="${GRAPH.left}" y2="${GRAPH.top - 6}"></line><text class="axis-label" x="${GRAPH.right - 10}" y="${GRAPH.bottom + 43}" text-anchor="end">t / s</text><text class="axis-label" x="0" y="${GRAPH.top - 12}">x / m</text>`;
     return html;
   }
   function drawGraph() {
@@ -467,7 +467,7 @@
       if (!own.incomplete) { html += svgLine(own, "student-line", ui.time); html += currentDot(own, "student-line"); visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]); }
     } else if (context.step === 1) {
       const answer = context.answer;
-      if (Number.isFinite(answer.xStart) && Number.isFinite(answer.xEnd)) html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd)}"></line>`;
+      html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart ?? 0)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd ?? 0)}"></line>`;
       if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6) + `<circle class="target-point" cx="${graphX(0)}" cy="${graphY(context.scenario.x0)}" r="8"></circle><circle class="target-point" cx="${graphX(6)}" cy="${graphY(S.positionAt(context.scenario, 6))}" r="8"></circle><text class="svg-label" x="${graphX(0) + 12}" y="${graphY(context.scenario.x0) - 12}">正確 ${svgPointSymbol(0)}</text><text class="svg-label" x="${graphX(6) - 76}" y="${graphY(S.positionAt(context.scenario, 6)) - 12}">正確 ${svgPointSymbol(6)}</text>`;
       html += graphHandle("xStart", 0, answer.xStart) + graphHandle("xEnd", 6, answer.xEnd);
       visibleReadings.push(["車的位置讀數", S.positionAt(context.scenario, ui.time)]);
@@ -500,7 +500,7 @@
     const pointIndex = time === 0 ? 0 : 6;
     const spokenLabel = pointIndex === 0 ? "P 零" : "P 六";
     const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${spokenLabel} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
-    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -38)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : ""}</text></g>`;
+    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -108)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : `：<tspan class="svg-math-symbol">x</tspan> = ${signed(value)} <tspan class="svg-unit">m</tspan>`}</text></g>`;
   }
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {

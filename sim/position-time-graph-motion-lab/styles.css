@@ -162,11 +162,8 @@
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
-.position-marker { pointer-events: none; }
 .car-a .position-guide { stroke: var(--car-a); }
-.car-a .position-marker { fill: var(--car-a); }
 .car-b .position-guide { stroke: var(--car-b); }
-.car-b .position-marker { fill: var(--car-b); }
 .position-guide-label {
   fill: var(--color-text);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;

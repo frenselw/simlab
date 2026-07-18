@@ -308,12 +308,14 @@ one("#nextMission").click();
 const missionTwoRoad = document.getElementById("roadLayer");
 const guideAtStart = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);
 assert.ok(guideAtStart, "mission 2 road renders a dashed position projection");
-assert.ok(missionTwoRoad.innerHTML.includes('class="position-marker"'), "mission 2 road marks the projected axis position");
+assert.equal(missionTwoRoad.innerHTML.includes('class="position-marker"'), false, "mission 2 road position projection has no arrowhead");
 assert.ok(missionTwoRoad.innerHTML.includes('class="position-guide-label"'), "mission 2 road labels the current position");
 assert.ok(document.getElementById("answerControls").innerHTML.includes('class="math"'), "mission 2 P0/P6 controls use formula styling");
 assert.ok(document.getElementById("answerControls").innerHTML.includes('class="unit"'), "mission 2 time controls style units consistently");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-math-symbol"'), "mission 2 graph labels use math symbols");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-numeric-subscript"'), "mission 2 graph labels style numeric subscripts");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 2 shows the P0-to-P6 line before either point is set");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label" x="0" y="12">x / m</text>'), "graph keeps the vertical-axis title clear of the highest tick label");
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
 const guideAfterStep = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);
@@ -327,6 +329,8 @@ for (const button of pointSteppers) {
   assert.equal(label.includes("<"), false, "stepper aria-label contains no rich HTML");
   assert.match(label, /P (零|六)/, "stepper aria-label uses a natural plain P0/P6 name");
 }
+pointSteppers.find((button) => button.dataset.stepQuantity === "xStart" && button.dataset.delta === "1").click();
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted P0 position value");
 
 for (let remaining = 0; remaining < 4; remaining += 1) one("#nextMission").click();
 document.getElementById("confirmSubmit").click();
