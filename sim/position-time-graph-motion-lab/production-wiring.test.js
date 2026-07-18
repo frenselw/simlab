@@ -332,7 +332,10 @@ for (const button of pointSteppers) {
 pointSteppers.find((button) => button.dataset.stepQuantity === "xStart" && button.dataset.delta === "1").click();
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted P0 position value");
 
-for (let remaining = 0; remaining < 4; remaining += 1) one("#nextMission").click();
+one("#nextMission").click();
+one("#nextMission").click();
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 4 shows the x-t line for the default x0 and velocity");
+for (let remaining = 0; remaining < 2; remaining += 1) one("#nextMission").click();
 document.getElementById("confirmSubmit").click();
 assert.equal(submitCalls, 1, "committed production path submits the answer once");
 assert.ok(document.getElementById("retryFinish"), "committed production UI renders finish retry");

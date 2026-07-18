@@ -477,7 +477,8 @@
       visibleReadings.push(["A 圖線", S.positionAt(context.scenario.A, ui.time)], ["B 圖線", S.positionAt(context.scenario.B, ui.time)]);
     } else if (context.step === 3) {
       const own = answerMotion(3, context.answer);
-      if (!own.incomplete) { html += svgLine(own, "student-line", ui.time); html += currentDot(own, "student-line"); visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]); }
+      html += svgLine(own, "student-line", ui.time) + currentDot(own, "student-line");
+      visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]);
       if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6);
     } else if (context.step === 4) {
       html += svgLine(context.scenario.A, "line-a", ui.time);
