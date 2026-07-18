@@ -322,6 +322,11 @@ document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
 document.getElementById("confirmStart").click();
+assert.equal(document.getElementById("answerState").textContent, "未作答", "mission 1 remains unanswered before either quantity is changed");
+document.getElementById("timeSlider").value = "0.5";
+document.getElementById("timeSlider").dispatch("input");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 1 draws the default student line during playback before either quantity is changed");
+assert.equal(document.getElementById("answerState").textContent, "未作答", "default student-line preview does not mark mission 1 as answered");
 one("#nextMission").click();
 const missionTwoRoad = document.getElementById("roadLayer");
 const guideAtStart = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);

@@ -474,7 +474,8 @@
       html += svgLine(context.scenario, "target-line", 6);
       visibleReadings.push(["目標圖線", S.positionAt(context.scenario, ui.time)]);
       const own = answerMotion(0, context.answer);
-      if (!own.incomplete) { html += svgLine(own, "student-line", ui.time); html += currentDot(own, "student-line"); visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]); }
+      html += svgLine(own, "student-line", ui.time) + currentDot(own, "student-line");
+      visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]);
     } else if (context.step === 1) {
       const answer = context.answer;
       html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart ?? 0)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd ?? 0)}"></line>`;
