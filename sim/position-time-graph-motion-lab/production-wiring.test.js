@@ -345,11 +345,12 @@ const guideAtStart = missionTwoRoad.innerHTML.match(/class="position-guide" x1="
 assert.ok(guideAtStart, "mission 2 road renders a dashed position projection");
 assert.equal(missionTwoRoad.innerHTML.includes('class="position-marker"'), false, "mission 2 road position projection has no arrowhead");
 assert.ok(missionTwoRoad.innerHTML.includes('class="position-guide-label"'), "mission 2 road labels the current position");
-assert.ok(document.getElementById("answerControls").innerHTML.includes('class="math"'), "mission 2 P0/P6 controls use formula styling");
+assert.ok(document.getElementById("answerControls").innerHTML.includes('<var>x<sub class="numeric-subscript">0</sub></var>'), "mission 2 x0 control uses formula styling");
+assert.ok(document.getElementById("answerControls").innerHTML.includes('<var>x<sub class="numeric-subscript">6</sub></var>'), "mission 2 x6 control uses formula styling");
 assert.ok(document.getElementById("answerControls").innerHTML.includes('class="unit"'), "mission 2 time controls style units consistently");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-math-symbol"'), "mission 2 graph labels use math symbols");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="svg-numeric-subscript"'), "mission 2 graph labels style numeric subscripts");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 2 shows the P0-to-P6 line before either point is set");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 2 shows the x0-to-x6 line before either position is set");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label vertical-axis-label" x="80" y="35" text-anchor="middle">x / m</text>'), "graph centers the vertical-axis title above the axis");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="tick-label horizontal-tick"'), "graph identifies horizontal ticks for responsive spacing");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('y="424"'), "graph leaves space between the horizontal axis and its tick labels");
@@ -360,14 +361,14 @@ assert.notEqual(guideAfterStep?.[1], guideAtStart[1], "position projection follo
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 const pointSteppers = document.querySelectorAll("[data-step-quantity]").filter((button) => ["xStart", "xEnd"].includes(button.dataset.stepQuantity));
-assert.equal(pointSteppers.length, 4, "mission 2 renders both P0/P6 stepper pairs through production controls");
+assert.equal(pointSteppers.length, 4, "mission 2 renders both x0/x6 stepper pairs through production controls");
 for (const button of pointSteppers) {
   const label = button.getAttribute("aria-label");
   assert.equal(label.includes("<"), false, "stepper aria-label contains no rich HTML");
-  assert.match(label, /P (零|六)/, "stepper aria-label uses a natural plain P0/P6 name");
+  assert.match(label, /x (零|六)/, "stepper aria-label uses a natural plain x0/x6 name");
 }
 pointSteppers.find((button) => button.dataset.stepQuantity === "xStart" && button.dataset.delta === "1").click();
-assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted P0 position value");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted x0 position value");
 
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");

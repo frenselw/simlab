@@ -21,7 +21,7 @@
     return step === 1 ? `根據運動畫出 <span class="math"><var>x</var>–<var>t</var></span> 圖` : MISSION_NAMES[step];
   }
   function pointSymbolHtml(index) {
-    return `<span class="math"><var>P</var><sub class="numeric-subscript">${index}</sub></span>`;
+    return `<span class="math"><var>x</var><sub class="numeric-subscript">${index}</sub></span>`;
   }
   function probeSymbolHtml(symbol) {
     return `<span class="math"><var>${symbol}</var></span>`;
@@ -33,7 +33,7 @@
     return `加入 ${probeSymbolHtml("P")}、${probeSymbolHtml("Q")} 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
   }
   function svgPointSymbol(index) {
-    return `<tspan class="svg-math-symbol">P</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;
+    return `<tspan class="svg-math-symbol">x</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;
   }
   function signed(value) {
     if (!Number.isFinite(Number(value))) return "--";
@@ -194,14 +194,14 @@
   }
   function instructionFor(step, scenario) {
     if (step === 0) return "拖車設定初始位置，再拖速度箭嘴設定速度，令學生圖線符合紫色虛線。";
-    if (step === 1) return "播放並觀察車的位置讀數；拖動圖上 <span class=\"math\"><var>P</var><sub class=\"numeric-subscript\">0</sub></span>、<span class=\"math\"><var>P</var><sub class=\"numeric-subscript\">6</sub></span> 畫出直線。";
+    if (step === 1) return "播放並觀察車的位置讀數；設定 <span class=\"math\"><var>x</var><sub class=\"numeric-subscript\">0</sub></span>、<span class=\"math\"><var>x</var><sub class=\"numeric-subscript\">6</sub></span> 畫出直線。";
     if (step === 2) return "分別在 A、B 圖線放置相隔最少 2.0 s 的探針，計算兩車帶符號速度，再比較速度大小。";
     if (step === 3) return scenario.v === 0 ? `建立一架在 <span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 至 6.0 <span class="unit">s</span> 都停在 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span> 的車。` : `建立運動：<span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span>；<span class="math"><var>t</var></span> = ${scenario.atTime.toFixed(1)} <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.atPosition)} <span class="unit">m</span>。`;
     return `A 車已固定。設定 B 車，令兩車在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 相遇，再輸入相遇位置 <span class="math"><var>x</var><sup>*</sup></span>。`;
   }
   function reviewConditionHtml(step, scenario) {
     if (step === 0 || step === 3) return `<span class="review-condition">正確條件：<span class="math"><var>x</var><sub class="numeric-subscript">0</sub></span> = ${signed(scenario.x0)} <span class="unit">m</span>，<span class="math"><var>v</var></span> = ${signed(scenario.v)} <span class="unit">m/s</span>。</span>`;
-    if (step === 1) return `<span class="review-condition">正確圖點：<span class="math"><var>P</var><sub class="numeric-subscript">0</sub></span> = (0.0 <span class="unit">s</span>, ${signed(scenario.x0)} <span class="unit">m</span>)，<span class="math"><var>P</var><sub class="numeric-subscript">6</sub></span> = (6.0 <span class="unit">s</span>, ${signed(S.positionAt(scenario, 6))} <span class="unit">m</span>)。</span>`;
+    if (step === 1) return `<span class="review-condition">正確位置：${pointSymbolHtml(0)} = ${signed(scenario.x0)} <span class="unit">m</span>，${pointSymbolHtml(6)} = ${signed(S.positionAt(scenario, 6))} <span class="unit">m</span>。</span>`;
     if (step === 2) {
       const faster = Math.abs(scenario.A.v) === Math.abs(scenario.B.v) ? "兩車一樣快" : Math.abs(scenario.A.v) > Math.abs(scenario.B.v) ? "A 車較快" : "B 車較快";
       return `<span class="review-condition">正確量度：<span class="math"><var>v</var><sub>A</sub></span> = ${signed(scenario.A.v)} <span class="unit">m/s</span>，<span class="math"><var>v</var><sub>B</sub></span> = ${signed(scenario.B.v)} <span class="unit">m/s</span>；${faster}。</span>`;
@@ -237,7 +237,7 @@
     } else if (step === 1) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m2;
-      dom.answerControls.innerHTML = `${graphPointControl("xStart", `${pointSymbolHtml(0)}（${math("t", "s", 0)}）`, answer.xStart)}${graphPointControl("xEnd", `${pointSymbolHtml(6)}（${math("t", "s", 6)}）`, answer.xEnd)}`;
+      dom.answerControls.innerHTML = `${graphPointControl("xStart", 0, answer.xStart)}${graphPointControl("xEnd", 6, answer.xEnd)}`;
     } else if (step === 2) {
       dom.answerSection.hidden = false;
       const answer = state.assessment.ans.m3;
@@ -258,9 +258,10 @@
       <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button><span id="${name}StepperValue" class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
     </div>`;
   }
-  function graphPointControl(name, label, value) {
-    const ariaLabel = name === "xStart" ? "圖線起點 P 零，時間零秒的位置" : "圖線終點 P 六，時間六秒的位置";
-    return quantityControl(name, label, "x", "m", value, -20, 20, 1, ui.locked, ariaLabel);
+  function graphPointControl(name, time, value) {
+    const spokenIndex = time === 0 ? "零" : "六";
+    const label = `<span class="math"><var>t</var></span> = ${time.toFixed(1)} <span class="unit">s</span> 時的位置`;
+    return quantityControl(name, label, `x<sub class="numeric-subscript">${time}</sub>`, "m", value, -20, 20, 1, ui.locked, `x ${spokenIndex}，時間${spokenIndex}秒的位置`);
   }
   function numberInputHtml(name, label, symbol, unit, value, min, max, step) {
     return `<label class="quantity-control" for="${name}Input"><span>${label} <span class="math"><var>${symbol}</var></span></span><span class="number-with-unit"><input id="${name}Input" data-number-answer="${name}" data-focus-key="number:${name}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value == null ? "" : value}" ${ui.locked ? "disabled" : ""}><span class="unit">${unit}</span></span></label>`;
@@ -533,9 +534,9 @@
   function graphHandle(name, time, value) {
     const position = value == null ? 0 : value;
     const pointIndex = time === 0 ? 0 : 6;
-    const spokenLabel = pointIndex === 0 ? "P 零" : "P 六";
+    const spokenLabel = pointIndex === 0 ? "x 零" : "x 六";
     const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${spokenLabel} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
-    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -108)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : `：<tspan class="svg-math-symbol">x</tspan> = ${signed(value)} <tspan class="svg-unit">m</tspan>`}</text></g>`;
+    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -108)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : ` = ${signed(value)} <tspan class="svg-unit">m</tspan>`}</text></g>`;
   }
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {
