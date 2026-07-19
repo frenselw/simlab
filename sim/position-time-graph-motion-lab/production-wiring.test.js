@@ -187,7 +187,7 @@ class FakeDocument {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 
-const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
+const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
 const document = new FakeDocument(ids);
 let submitCalls = 0;
 let finishCalls = 0;
@@ -220,9 +220,12 @@ const indexSource = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const stylesSource = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
 assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
+assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
 assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*auto minmax\(10rem, 1fr\)/s, "mobile shell sizes the stage from its content instead of a fixed percentage");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
+assert.match(stylesSource, /\.probe-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)/s, "probe actions share one compact row");
+assert.match(stylesSource, /\.task-section\[data-mode="mission"\]\s*\{[^}]*border-left:\s*5px solid var\(--color-accent\)/s, "assessment task card has a strong accent edge");
 vm.runInNewContext(source, {
   window,
   document,
@@ -326,6 +329,8 @@ document.getElementById("timeSlider").dispatch("input");
 document.getElementById("labPanel").scrollTop = 640;
 document.getElementById("confirmStart").click();
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "starting the assessment returns the independently scrolling control panel to mission 1 at the top");
+assert.equal(document.getElementById("taskKicker").textContent, "今題任務 · 1 / 5", "mission card clearly labels the current task number");
+assert.equal(document.getElementById("taskTitle").textContent, "根據目標圖設定運動", "mission title is concise and separate from its progress label");
 assert.equal(document.getElementById("answerState").textContent, "未作答", "mission 1 remains unanswered before either quantity is changed");
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
@@ -368,7 +373,8 @@ assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 8
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "mission 4 returns to the compact graph height");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 4 shows the x-t line for the default x0 and velocity");
-for (let remaining = 0; remaining < 2; remaining += 1) one("#nextMission").click();
+one("#nextMission").click();
+one("#nextMission").click();
 document.getElementById("confirmSubmit").click();
 assert.equal(submitCalls, 1, "committed production path submits the answer once");
 assert.ok(document.getElementById("retryFinish"), "committed production UI renders finish retry");

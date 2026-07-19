@@ -261,6 +261,47 @@
   margin: 0;
 }
 
+.task-section[data-mode="mission"] {
+  margin-bottom: 0.35rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid #93c5fd;
+  border-left: 5px solid var(--color-accent);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 78%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+}
+
+.task-section[data-mode="mission"]:first-child {
+  padding-top: 0.85rem;
+}
+
+.task-kicker {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #1d4ed8;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.task-section[data-mode="mission"] .task-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.task-section[data-mode="mission"] .task-heading .section-title {
+  flex: 1 1 12rem;
+  color: #0f172a;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.task-section[data-mode="mission"] .instruction {
+  color: #1e293b;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
 .instruction {
   margin: 0.65rem 0 0;
   line-height: 1.55;
@@ -277,6 +318,10 @@
 .control-stack {
   display: grid;
   gap: 0.8rem;
+}
+
+.probe-actions {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 }
 
 .quantity-control {

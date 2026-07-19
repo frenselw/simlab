@@ -8,7 +8,7 @@
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -150,12 +150,16 @@
   }
   function renderTask() {
     dom.answerState.hidden = true;
+    dom.taskSection.dataset.mode = "guide";
+    dom.taskKicker.textContent = "活動指引";
     if (ui.technical) {
+      dom.taskKicker.textContent = "技術提示";
       dom.taskTitle.textContent = "暫時無法載入活動";
       dom.taskInstruction.textContent = ui.technical;
       return;
     }
     if (ui.safeSummary) {
+      dom.taskKicker.textContent = "只讀摘要";
       dom.taskTitle.textContent = "Moodle 作答摘要";
       dom.taskInstruction.textContent = "逐題檢討資料無法安全載入，因此只顯示 Moodle 記錄的分數及狀態。";
       return;
@@ -166,14 +170,18 @@
       return;
     }
     if (state.phase === "final-review") {
+      dom.taskKicker.textContent = "五題完成狀態";
       dom.taskTitle.textContent = "提交前檢視";
       dom.taskInstruction.textContent = "檢查每題是否完整；此處只顯示完成狀態，不會透露對錯。";
       return;
     }
     const step = state.phase === "submitted-review" ? ui.reviewStep : state.currentStep;
-    dom.taskTitle.textContent = `${step + 1}. ${MISSION_NAMES[step]}`;
+    const reviewing = state.phase === "submitted-review";
+    dom.taskSection.dataset.mode = "mission";
+    dom.taskKicker.textContent = `${reviewing ? "檢討任務" : "今題任務"} · ${step + 1} / 5`;
+    dom.taskTitle.textContent = MISSION_NAMES[step];
     const scenario = currentSet()[`m${step + 1}`];
-    dom.taskInstruction.innerHTML = instructionFor(step, scenario) + (state.phase === "submitted-review" ? reviewConditionHtml(step, scenario) : "");
+    dom.taskInstruction.innerHTML = instructionFor(step, scenario) + (reviewing ? reviewConditionHtml(step, scenario) : "");
     const key = `m${step + 1}`;
     const complete = S.completeness(key, state.assessment.ans[key]);
     dom.answerState.hidden = false;
@@ -260,11 +268,11 @@
     dom.probeSection.hidden = false;
     if (mode === "explore") {
       const motion = state.exploration;
-      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row"><button type="button" data-add-probe="E" data-focus-key="probe-add:E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>加入下一個探針</button><button type="button" data-clear-probe="E" data-focus-key="probe-clear:E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
+      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row probe-actions"><button type="button" data-add-probe="E" data-focus-key="probe-add:E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>加入下一個探針</button><button type="button" data-clear-probe="E" data-focus-key="probe-clear:E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
     } else {
       const answer = state.assessment.ans.m3;
       const scenario = currentSet().m3;
-      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row"><button type="button" data-add-probe="${label}" data-focus-key="probe-add:${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>加入 ${label} 車探針</button><button type="button" data-clear-probe="${label}" data-focus-key="probe-clear:${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
+      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row probe-actions"><button type="button" data-add-probe="${label}" data-focus-key="probe-add:${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>加入 ${label} 車探針</button><button type="button" data-clear-probe="${label}" data-focus-key="probe-clear:${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
     }
   }
   function probeCard(label, probes, motion, line, maxTime) {
