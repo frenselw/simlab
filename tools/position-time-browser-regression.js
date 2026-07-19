@@ -7,11 +7,13 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
+const AdmZip = require("adm-zip");
+const { XMLParser } = require("fast-xml-parser");
 
 const root = path.resolve(__dirname, "..");
-const simRoot = fs.realpathSync(path.join(root, "sim"));
-const activityPath = "/sim/position-time-graph-motion-lab/index.html";
+const slug = "position-time-graph-motion-lab";
 const profileNamePattern = /^simlab-position-time-chrome-[A-Za-z0-9]+$/;
+const packageNamePattern = /^simlab-position-time-package-[A-Za-z0-9]+$/;
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function withTimeout(promise, milliseconds, label) {
@@ -59,30 +61,57 @@ function contentType(filePath) {
   return ({ ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" })[path.extname(filePath)] || "application/octet-stream";
 }
 
-function resolveSimFile(pathname, options = {}) {
-  const repositoryRoot = options.root || root;
-  const allowedRoot = options.simRoot || simRoot;
+function resolveScoLaunchPath(packageRoot, manifestSource, options = {}) {
+  let parsed;
+  try { parsed = new XMLParser({ ignoreAttributes: false }).parse(manifestSource); }
+  catch (error) { throw new Error(`Extracted imsmanifest.xml is invalid: ${error.message}`); }
+  const resources = [].concat(parsed.manifest?.resources?.resource || []);
+  const scoResources = resources.filter((resource) => String(resource?.["@_adlcp:scormtype"] || "").toLowerCase() === "sco");
+  if (scoResources.length !== 1) throw new Error(`Extracted imsmanifest.xml must declare exactly one SCO resource; found ${scoResources.length}.`);
+  const href = scoResources[0]["@_href"];
+  if (typeof href !== "string" || !href || href !== href.trim()) throw new Error("The SCO resource must declare a non-empty href.");
+  if (href.includes("\\") || href.includes("%") || href.includes("?") || href.includes("#") || href.startsWith("/") || /^[A-Za-z][A-Za-z\d+.-]*:/.test(href)) throw new Error(`Unsafe SCO launch href: ${href}`);
+  const segments = href.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) throw new Error(`Unsafe SCO launch href: ${href}`);
+  const requested = path.resolve(packageRoot, ...segments);
+  if (!requested.startsWith(`${packageRoot}${path.sep}`)) throw new Error(`Unsafe SCO launch href: ${href}`);
   const realpath = options.realpathSync || fs.realpathSync;
-  if (!pathname.startsWith("/sim/")) return { status: 403 };
-  const requested = path.resolve(repositoryRoot, `.${pathname}`);
-  if (!requested.startsWith(`${path.join(repositoryRoot, "sim")}${path.sep}`)) return { status: 403 };
+  const lstat = options.lstatSync || fs.lstatSync;
+  let actual;
+  try { actual = realpath(requested); }
+  catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") throw new Error(`SCO launch file does not exist: ${href}`);
+    throw error;
+  }
+  if (!actual.startsWith(`${packageRoot}${path.sep}`)) throw new Error(`SCO launch href escapes the extracted package: ${href}`);
+  const stat = lstat(actual);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`SCO launch href is not a regular file: ${href}`);
+  return { href, filePath: actual, urlPath: `/${segments.map(encodeURIComponent).join("/")}` };
+}
+
+function resolvePackageFile(pathname, options = {}) {
+  const packageRoot = options.packageRoot;
+  const realpath = options.realpathSync || fs.realpathSync;
+  if (!packageRoot || !pathname.startsWith("/")) return { status: 403 };
+  const requested = path.resolve(packageRoot, `.${pathname}`);
+  if (requested !== packageRoot && !requested.startsWith(`${packageRoot}${path.sep}`)) return { status: 403 };
   let actual;
   try { actual = realpath(requested); }
   catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") return { status: 404 };
     throw error;
   }
-  if (!actual.startsWith(`${allowedRoot}${path.sep}`)) return { status: 403 };
+  if (actual !== packageRoot && !actual.startsWith(`${packageRoot}${path.sep}`)) return { status: 403 };
   return { status: 200, filePath: actual };
 }
 
-function createServer() {
+function createServer(packageRoot) {
   return http.createServer((request, response) => {
     let pathname;
     try { pathname = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname); }
     catch { response.writeHead(400).end("Bad request"); return; }
     let resolved;
-    try { resolved = resolveSimFile(pathname); }
+    try { resolved = resolvePackageFile(pathname, { packageRoot }); }
     catch { response.writeHead(500).end("File resolution failed"); return; }
     if (resolved.status !== 200) { response.writeHead(resolved.status).end(resolved.status === 404 ? "Not found" : "Forbidden"); return; }
     fs.readFile(resolved.filePath, (error, content) => {
@@ -91,6 +120,31 @@ function createServer() {
       response.end(content);
     });
   });
+}
+
+function buildAndExtractPackage(tempRoot) {
+  const packaged = spawnSync(process.execPath, [path.join(root, "tools/package-scorm.js"), slug], { cwd: root, encoding: "utf8" });
+  if (packaged.status !== 0) throw new Error(`SCORM packaging failed.\n${packaged.stdout || ""}${packaged.stderr || ""}`.trim());
+  const zipPath = path.join(root, "output", `${slug}-scorm.zip`);
+  if (!fs.existsSync(zipPath)) throw new Error(`SCORM packager did not create ${zipPath}`);
+  const packageDirectory = fs.mkdtempSync(path.join(tempRoot, "simlab-position-time-package-"));
+  try {
+    validateOwnedDirectory(packageDirectory, tempRoot, packageNamePattern, "SCORM package");
+    const zip = new AdmZip(zipPath);
+    for (const entry of zip.getEntries()) {
+      const normalized = entry.entryName.replace(/\\/g, "/");
+      if (path.posix.isAbsolute(normalized) || normalized.split("/").includes("..")) throw new Error(`Unsafe SCORM ZIP entry: ${entry.entryName}`);
+    }
+    zip.extractAllTo(packageDirectory, true);
+    const manifestPath = path.join(packageDirectory, "imsmanifest.xml");
+    if (!fs.existsSync(manifestPath) || !fs.lstatSync(manifestPath).isFile()) throw new Error("Extracted SCORM package has no root imsmanifest.xml.");
+    const resolvedPackage = fs.realpathSync(packageDirectory);
+    const launch = resolveScoLaunchPath(resolvedPackage, fs.readFileSync(manifestPath, "utf8"));
+    return { packageDirectory: resolvedPackage, activityPath: launch.urlPath };
+  } catch (error) {
+    removeOwnedPackage(packageDirectory, tempRoot);
+    throw error;
+  }
 }
 
 function listenServer(server) {
@@ -152,14 +206,18 @@ async function stopChrome(chrome, cdp, options = {}) {
 }
 
 function validateOwnedProfile(profileDirectory, tempRoot = fs.realpathSync(os.tmpdir()), fileSystem = fs) {
+  return validateOwnedDirectory(profileDirectory, tempRoot, profileNamePattern, "Chrome profile", fileSystem);
+}
+
+function validateOwnedDirectory(directory, tempRoot, namePattern, label, fileSystem = fs) {
   const resolvedTemp = fileSystem.realpathSync(tempRoot);
-  const resolvedProfile = fileSystem.realpathSync(profileDirectory);
-  const stat = fileSystem.lstatSync(profileDirectory);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Refusing to remove a Chrome profile that is not a real directory.");
-  if (path.dirname(resolvedProfile) !== resolvedTemp || path.resolve(profileDirectory) !== resolvedProfile || !profileNamePattern.test(path.basename(resolvedProfile))) {
-    throw new Error(`Refusing to remove unowned Chrome profile path: ${profileDirectory}`);
+  const resolvedDirectory = fileSystem.realpathSync(directory);
+  const stat = fileSystem.lstatSync(directory);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`Refusing to remove a ${label} that is not a real directory.`);
+  if (path.dirname(resolvedDirectory) !== resolvedTemp || path.resolve(directory) !== resolvedDirectory || !namePattern.test(path.basename(resolvedDirectory))) {
+    throw new Error(`Refusing to remove unowned ${label} path: ${directory}`);
   }
-  return resolvedProfile;
+  return resolvedDirectory;
 }
 
 function removeOwnedProfile(profileDirectory, tempRoot) {
@@ -167,6 +225,13 @@ function removeOwnedProfile(profileDirectory, tempRoot) {
   const exactProfile = validateOwnedProfile(profileDirectory, tempRoot);
   fs.rmSync(exactProfile, { recursive: true, force: false, maxRetries: 3, retryDelay: 100 });
   if (fs.existsSync(exactProfile)) throw new Error(`Chrome profile cleanup did not remove ${exactProfile}`);
+}
+
+function removeOwnedPackage(packageDirectory, tempRoot) {
+  if (!packageDirectory || !fs.existsSync(packageDirectory)) return;
+  const exactDirectory = validateOwnedDirectory(packageDirectory, tempRoot, packageNamePattern, "SCORM package");
+  fs.rmSync(exactDirectory, { recursive: true, force: false, maxRetries: 3, retryDelay: 100 });
+  if (fs.existsSync(exactDirectory)) throw new Error(`SCORM package cleanup did not remove ${exactDirectory}`);
 }
 
 function closeServer(server) {
@@ -178,11 +243,13 @@ async function cleanupResources(resources, operations = {}) {
   const stop = operations.stopChrome || stopChrome;
   const close = operations.closeServer || closeServer;
   const remove = operations.removeOwnedProfile || removeOwnedProfile;
+  const removePackage = operations.removeOwnedPackage || removeOwnedPackage;
   const errors = [];
   try { await stop(resources.chrome, resources.cdp); } catch (error) { errors.push(error); }
   try { resources.cdp?.close(); } catch (error) { errors.push(error); }
   try { await close(resources.server); } catch (error) { errors.push(error); }
   try { remove(resources.profileDirectory, resources.tempRoot); } catch (error) { errors.push(error); }
+  try { removePackage(resources.packageDirectory, resources.tempRoot); } catch (error) { errors.push(error); }
   if (errors.length) throw new AggregateError(errors, "Browser regression cleanup failed.");
 }
 
@@ -264,7 +331,7 @@ async function waitForActivity(cdp) {
   throw new Error("Activity did not finish rendering its production velocity control.");
 }
 
-async function runViewport(cdp, baseUrl, width, height) {
+async function runViewport(cdp, baseUrl, activityPath, width, height) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=${width}` });
   await waitForActivity(cdp);
@@ -275,7 +342,7 @@ async function runViewport(cdp, baseUrl, width, height) {
       input.value = ${initialVelocity};
       input.dispatchEvent(new Event('input', { bubbles: true }));
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const handle = document.querySelector('.velocity-handle');
+      const handle = document.querySelector('[data-drag="velocity:A"]');
       handle.scrollIntoView({ block: 'center', inline: 'center' });
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const svg = handle.ownerSVGElement;
@@ -290,12 +357,16 @@ async function runViewport(cdp, baseUrl, width, height) {
         hitStrokeWidth: getComputedStyle(document.querySelector('[data-drag="velocity:A"]')).strokeWidth,
         styles: Array.from(document.styleSheets, (sheet) => sheet.href).filter(Boolean),
         scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
+        runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring),
         velocity: Number(document.querySelector('[data-quantity="velocity"]').value),
         x0: Number(document.querySelector('[data-quantity="x0"]').value)
       };
     })()`);
-    assert.ok(setup.styles.some((href) => href.endsWith("/sim/position-time-graph-motion-lab/styles.css")), `${width}px: production activity stylesheet loaded`);
-    assert.ok(setup.scripts.some((src) => src.endsWith("/sim/position-time-graph-motion-lab/main.js")), `${width}px: production main.js loaded`);
+    assert.ok(setup.styles.some((href) => href.endsWith("/position-time-graph-motion-lab/styles.css")), `${width}px: packaged activity stylesheet loaded`);
+    assert.ok(setup.scripts.some((src) => src.endsWith("/position-time-graph-motion-lab/main.js")), `${width}px: packaged production main.js loaded`);
+    assert.ok(setup.scripts.some((src) => src.endsWith("/shared/scorm.js")), `${width}px: packaged shared SCORM runtime loaded`);
+    assert.ok(setup.scripts.some((src) => src.endsWith("/shared/activity-flow.js")), `${width}px: packaged shared activity flow loaded`);
+    assert.equal(setup.runtimeReady, true, `${width}px: packaged runtime executed successfully`);
     assert.ok(parseFloat(setup.hitStrokeWidth) >= 44, `${width}px: production CSS provides the enlarged velocity hit target`);
     assert.equal(setup.top, "velocity:A", `${width}px v=${initialVelocity}: elementFromPoint must hit the velocity target`);
     assert.equal(setup.velocity, initialVelocity, `${width}px v=${initialVelocity}: setup velocity rendered`);
@@ -317,6 +388,8 @@ async function runViewport(cdp, baseUrl, width, height) {
 async function main() {
   let server;
   let profileDirectory;
+  let packageDirectory;
+  let activityPath;
   let chrome;
   let cdp;
   let browserErrors = "";
@@ -326,7 +399,10 @@ async function main() {
   try {
     const browser = findBrowser();
     if (!browser) throw new Error("Chrome/Chromium is required for this browser regression. Install Chrome/Chromium or set CHROME_PATH to its executable.");
-    server = createServer();
+    const extracted = buildAndExtractPackage(tempRoot);
+    packageDirectory = extracted.packageDirectory;
+    activityPath = extracted.activityPath;
+    server = createServer(packageDirectory);
     await withTimeout(listenServer(server), 3000, "HTTP server listen");
     const address = server.address();
     const baseUrl = `http://127.0.0.1:${address.port}`;
@@ -346,20 +422,20 @@ async function main() {
     cdp = new CdpClient(target.webSocketDebuggerUrl);
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
-    const desktop = await runViewport(cdp, baseUrl, 1280, 900);
-    const narrow = await runViewport(cdp, baseUrl, 320, 700);
+    const desktop = await runViewport(cdp, baseUrl, activityPath, 1280, 900);
+    const narrow = await runViewport(cdp, baseUrl, activityPath, 320, 700);
     summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
   }
-  try { await cleanupResources({ chrome, cdp, server, profileDirectory, tempRoot }); }
+  try { await cleanupResources({ chrome, cdp, server, profileDirectory, packageDirectory, tempRoot }); }
   catch (cleanupError) { failure = new AggregateError(failure ? [failure, cleanupError] : [cleanupError], "Browser regression cleanup failed."); }
   if (failure) throw failure;
   console.log(summary);
 }
 
-module.exports = { CdpClient, childHasExited, cleanupResources, closeServer, contentType, createServer, findBrowser, listenServer, removeOwnedProfile, resolveSimFile, stopChrome, validateOwnedProfile, waitForChildExit, withTimeout };
+module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, withTimeout };
 
 if (require.main === module) {
   main().catch((error) => {

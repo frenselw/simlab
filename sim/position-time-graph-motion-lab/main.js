@@ -24,7 +24,7 @@
     return `<span class="math"><var>x</var><sub class="numeric-subscript">${index}</sub></span>`;
   }
   function probeName(_line, index) {
-    return index === 0 ? "初" : "末";
+    return index === 0 ? "P" : "Q";
   }
   function probeNameHtml(line, index) {
     return `<span>${probeName(line, index)}</span>`;
@@ -33,7 +33,7 @@
     return `(${math("t", "s", time)}, ${math("x", "m", position)})`;
   }
   function probePromptHtml() {
-    return `加入 「初」、「末」 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
+    return `加入 P、Q 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
   }
   function svgPointSymbol(index) {
     return `<tspan class="svg-math-symbol">x</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;

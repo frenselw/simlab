@@ -7,29 +7,62 @@ const {
   CdpClient,
   childHasExited,
   cleanupResources,
-  resolveSimFile,
+  resolvePackageFile,
+  resolveScoLaunchPath,
   stopChrome,
+  validateOwnedDirectory,
   validateOwnedProfile,
   waitForChildExit,
   withTimeout
 } = require("./position-time-browser-regression.js");
 
 (async function () {
-const actual = resolveSimFile("/sim/position-time-graph-motion-lab/index.html");
-assert.equal(actual.status, 200, "actual activity file is inside the real sim root");
-assert.ok(actual.filePath.endsWith(path.join("sim", "position-time-graph-motion-lab", "index.html")));
-assert.equal(resolveSimFile("/README.md").status, 403, "HTTP scope rejects non-sim files");
-assert.equal(resolveSimFile("/sim/../README.md").status, 403, "HTTP scope rejects lexical traversal");
-assert.equal(resolveSimFile("/sim/not-present.js").status, 404, "missing sim files are reported as missing");
+const fakePackageRoot = path.resolve(path.sep, "extracted-package");
+const launchPath = path.join(fakePackageRoot, "position-time-graph-motion-lab", "index.html");
+const actual = resolvePackageFile("/position-time-graph-motion-lab/index.html", {
+  packageRoot: fakePackageRoot,
+  realpathSync: () => launchPath
+});
+assert.equal(actual.status, 200, "activity launch file is resolved inside the extracted package root");
+assert.equal(actual.filePath, launchPath);
+assert.equal(resolvePackageFile("/../README.md", { packageRoot: fakePackageRoot, realpathSync: (value) => value }).status, 403, "HTTP scope rejects lexical traversal");
+assert.equal(resolvePackageFile("/not-present.js", {
+  packageRoot: fakePackageRoot,
+  realpathSync: () => { const error = new Error("missing"); error.code = "ENOENT"; throw error; }
+}).status, 404, "missing package files are reported as missing");
 
-const fakeRoot = path.resolve(path.sep, "repository");
-const fakeSimRoot = path.join(fakeRoot, "sim");
-const escaped = resolveSimFile("/sim/link.js", {
-  root: fakeRoot,
-  simRoot: fakeSimRoot,
+const escaped = resolvePackageFile("/link.js", {
+  packageRoot: fakePackageRoot,
   realpathSync: () => path.resolve(path.sep, "outside", "secret.js")
 });
-assert.equal(escaped.status, 403, "realpath containment rejects a symlink escape");
+assert.equal(escaped.status, 403, "package realpath containment rejects a symlink escape");
+
+const manifest = (resources) => `<manifest xmlns:adlcp="urn:adlcp"><resources>${resources}</resources></manifest>`;
+const resource = (href, type = "sco") => `<resource adlcp:scormtype="${type}" href="${href}"></resource>`;
+const launchFile = path.join(fakePackageRoot, "custom", "launch.html");
+const launchOptions = {
+  realpathSync: () => launchFile,
+  lstatSync: () => ({ isFile: () => true, isSymbolicLink: () => false })
+};
+assert.deepEqual(resolveScoLaunchPath(fakePackageRoot, manifest(resource("custom/launch.html")), launchOptions), {
+  href: "custom/launch.html",
+  filePath: launchFile,
+  urlPath: "/custom/launch.html"
+}, "browser navigation comes from the unique SCO manifest href");
+for (const unsafeHref of ["../launch.html", "/launch.html", "https://example.test/launch.html", "custom\\launch.html", "custom/%2e%2e/launch.html", "custom/launch.html?mode=test"]) {
+  assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest(resource(unsafeHref)), launchOptions), /Unsafe SCO launch href/, `unsafe SCO href is rejected: ${unsafeHref}`);
+}
+assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest(resource("missing.html")), {
+  realpathSync: () => { const error = new Error("missing"); error.code = "ENOENT"; throw error; },
+  lstatSync: launchOptions.lstatSync
+}), /does not exist/, "missing SCO launch file fails the artifact gate");
+assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest(`${resource("one.html")}${resource("two.html")}`), launchOptions), /exactly one SCO resource; found 2/, "ambiguous SCO resources fail the artifact gate");
+assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest(resource("asset.html", "asset")), launchOptions), /exactly one SCO resource; found 0/, "manifest without a SCO resource fails the artifact gate");
+assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest('<resource adlcp:scormtype="sco"></resource>'), launchOptions), /non-empty href/, "SCO resource without href fails the artifact gate");
+assert.throws(() => resolveScoLaunchPath(fakePackageRoot, manifest(resource("custom/launch.html")), {
+  ...launchOptions,
+  lstatSync: () => ({ isFile: () => false, isSymbolicLink: () => false })
+}), /not a regular file/, "SCO href must resolve to a regular file");
 
 const fakeTemp = path.resolve(path.sep, "safe-temp");
 const ownedProfile = path.join(fakeTemp, "simlab-position-time-chrome-Ab12cd");
@@ -39,6 +72,9 @@ assert.equal(validateOwnedProfile(ownedProfile, fakeTemp, fakeFileSystem), owned
 assert.throws(() => validateOwnedProfile(path.join(fakeTemp, "some-other-profile"), fakeTemp, fakeFileSystem), /Refusing to remove unowned/, "unrelated temp directory is rejected");
 assert.throws(() => validateOwnedProfile(path.join(fakeTemp, "nested", "simlab-position-time-chrome-Ab12cd"), fakeTemp, fakeFileSystem), /Refusing to remove unowned/, "nested broad target is rejected");
 assert.throws(() => validateOwnedProfile(ownedProfile, fakeTemp, { ...fakeFileSystem, lstatSync: () => ({ isDirectory: () => true, isSymbolicLink: () => true }) }), /not a real directory/, "symlink profile target is rejected");
+const ownedPackage = path.join(fakeTemp, "simlab-position-time-package-Xy98zz");
+assert.equal(validateOwnedDirectory(ownedPackage, fakeTemp, /^simlab-position-time-package-[A-Za-z0-9]+$/, "SCORM package", fakeFileSystem), ownedPackage, "exact generated package directory is accepted");
+assert.throws(() => validateOwnedDirectory(path.join(fakeTemp, "other-package"), fakeTemp, /^simlab-position-time-package-[A-Za-z0-9]+$/, "SCORM package", fakeFileSystem), /unowned SCORM package/, "unrelated package directory is rejected");
 
 await assert.rejects(withTimeout(new Promise(() => {}), 10, "test operation"), /test operation timed out/, "bounded operations cannot hang forever");
 
@@ -106,9 +142,10 @@ const cleanupCdp = { close() { cleanupCalls.push("cdp-close"); } };
 await assert.rejects(cleanupResources({ chrome: {}, cdp: cleanupCdp, server: {}, profileDirectory: "/exact-profile", tempRoot: "/temp" }, {
   async stopChrome() { cleanupCalls.push("chrome-stop"); throw new Error("stop failed"); },
   async closeServer() { cleanupCalls.push("server-close"); },
-  removeOwnedProfile() { cleanupCalls.push("profile-remove"); }
+  removeOwnedProfile() { cleanupCalls.push("profile-remove"); },
+  removeOwnedPackage() { cleanupCalls.push("package-remove"); }
 }), (error) => error instanceof AggregateError && /cleanup failed/.test(error.message), "cleanup failures are surfaced as a failed gate");
-assert.deepEqual(cleanupCalls, ["chrome-stop", "cdp-close", "server-close", "profile-remove"], "cleanup continues through every owned resource after one failure");
+assert.deepEqual(cleanupCalls, ["chrome-stop", "cdp-close", "server-close", "profile-remove", "package-remove"], "cleanup continues through every owned resource after one failure");
 
 const hangingChild = new FakeChild();
 await assert.rejects(waitForChildExit(hangingChild, 10), /timed out/, "child exit wait is bounded");

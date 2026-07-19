@@ -4,6 +4,33 @@ const assert = require("node:assert/strict");
 const S = require("./scoring.js");
 
 assert.equal(S.validateScenarioLibrary(), true, "all published scenario sets satisfy their contracts");
+function libraryWith(mutate) {
+  const library = structuredClone(S.SCENARIO_SETS);
+  mutate(library);
+  return library;
+}
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { delete library.gamma; })), false, "scenario library requires at least three sets");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m1.v = 0; })), false, "mission 1 rejects zero and non-contract velocities");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m2.v = 0; })), false, "mission 2 reserves stationary motion for mission 4");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m2.x0 = 10; })), false, "mission setup positions stay inside the learner control range");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m3.B.x0 = library.alpha.m3.A.x0; })), false, "mission 3 requires different even starting positions");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.gamma.m3.B.v = 2; })), false, "mission 3 sets collectively cover A faster, B faster, and equal speed");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.beta.m3.A.v = 2; library.gamma.m3.B.v = 1; })), false, "mission 3 itself retains at least one negative velocity");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => {
+  [library.alpha.m3.A.x0, library.alpha.m3.B.x0] = [library.alpha.m3.B.x0, library.alpha.m3.A.x0];
+  [library.beta.m3.A.x0, library.beta.m3.B.x0] = [library.beta.m3.B.x0, library.beta.m3.A.x0];
+})), false, "mission 3 sets retain a higher-but-slower misconception check");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m4.atPosition += 1; })), false, "mission 4 stated endpoint must agree with its motion");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m4.v = 1; library.alpha.m4.atPosition = 11; })), false, "scenario library collectively retains stationary motion");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => {
+  library.alpha.m4.v = 1;
+  library.alpha.m4.atPosition = 11;
+  library.alpha.m5.exampleB = { x0: 2, v: 0 };
+})), false, "zero velocity outside mission 4 cannot satisfy its stationary scenario contract");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m5.meetTime = 1; })), false, "mission 5 meeting time comes from the documented interior set");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m5.exampleB = { ...library.alpha.m5.A }; })), false, "mission 5 requires a non-coincident example solution");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.m5.exampleB = { x0: 6.5, v: -1.5 }; })), false, "mission 5 example start must be an integer reachable by the UI");
+assert.equal(S.validateScenarioLibrary(libraryWith((library) => { library.alpha.extra = {}; })), false, "scenario sets contain exactly the five mission keys");
 assert.equal(S.positionAt({ x0: 3, v: 2 }, 0), 3, "position at time zero is x0");
 assert.equal(S.positionAt({ x0: 3, v: -2 }, 4), -5, "negative velocity updates position");
 assert.equal(S.positionAt({ x0: 3, v: 0 }, 4), 3, "zero velocity keeps position fixed");

@@ -148,17 +148,43 @@
     return mission("m5", [component("相遇設定", 12, timeOk, meetingFeedback), component("相遇位置", 8, positionOk, positionOk ? "相遇位置讀取正確。" : "用時間游標讀取 A 車在指定時間的位置。")]);
   }
 
-  function validateScenarioLibrary() {
+  function validateScenarioLibrary(library = SCENARIO_SETS) {
     const expectedTypes = ["target", "draw", "measure", "special", "meet"];
-    return scenarioIds().every((id) => {
-      const set = SCENARIO_SETS[id];
+    const ids = library && typeof library === "object" && !Array.isArray(library) ? Object.keys(library) : [];
+    if (ids.length < 3) return false;
+    const allowedVelocity = [-2, -1, 1, 2];
+    const comparisons = new Set();
+    const meetingPositions = new Set();
+    const allVelocities = [];
+    let hasHigherButSlower = false;
+    let hasMission3Negative = false;
+    let hasStationaryMission4 = false;
+    const setupX0 = (value) => Number.isInteger(value) && value >= LIMITS.x0Min && value <= LIMITS.x0Max;
+    const valid = ids.every((id) => {
+      const set = library[id];
+      if (!set || typeof set !== "object" || Array.isArray(set) || Object.keys(set).sort().join(",") !== "m1,m2,m3,m4,m5") return false;
       const missions = [set.m1, set.m2, set.m3, set.m4, set.m5];
-      if (!missions.every((item, index) => item.type === expectedTypes[index])) return false;
+      if (!missions.every((item, index) => item && item.type === expectedTypes[index])) return false;
+      if (!setupX0(set.m1.x0) || !allowedVelocity.includes(set.m1.v)) return false;
+      if (!setupX0(set.m2.x0) || set.m2.x0 % 2 !== 0 || !allowedVelocity.includes(set.m2.v)) return false;
+      if (![set.m3.A?.x0, set.m3.B?.x0].every((value) => setupX0(value) && value % 2 === 0) || set.m3.A.x0 === set.m3.B.x0 || ![set.m3.A.v, set.m3.B.v].every((value) => allowedVelocity.includes(value))) return false;
+      if (!setupX0(set.m4.x0) || ![0, ...allowedVelocity].includes(set.m4.v) || !Number.isInteger(set.m4.atTime) || set.m4.atTime < 1 || set.m4.atTime > LIMITS.timeMax || !Number.isInteger(set.m4.atPosition) || positionAt(set.m4, set.m4.atTime) !== set.m4.atPosition) return false;
+      if (![-6, -4, -2, 2, 4, 6].includes(set.m5.A?.x0) || !allowedVelocity.includes(set.m5.A?.v) || ![2, 3, 4, 5].includes(set.m5.meetTime)) return false;
       const motions = [set.m1, set.m2, set.m3.A, set.m3.B, set.m4, set.m5.A, set.m5.exampleB];
       if (!motions.every(lineWithinBounds)) return false;
       const example = intersection(set.m5.A, set.m5.exampleB);
-      return example.kind === "point" && nearly(example.time, set.m5.meetTime, 1e-9) && Number.isInteger(positionAt(set.m5.A, set.m5.meetTime));
+      const meetingPosition = positionAt(set.m5.A, set.m5.meetTime);
+      if (!finiteMotion(set.m5.exampleB, LIMITS.x0Min, LIMITS.x0Max) || !Number.isInteger(set.m5.exampleB.x0) || !Number.isInteger(set.m5.exampleB.v * 2) || example.kind !== "point" || !nearly(example.time, set.m5.meetTime, 1e-9) || !Number.isInteger(meetingPosition) || meetingPosition < -16 || meetingPosition > 16) return false;
+      const comparison = Math.abs(set.m3.A.v) === Math.abs(set.m3.B.v) ? "same" : Math.abs(set.m3.A.v) > Math.abs(set.m3.B.v) ? "A" : "B";
+      comparisons.add(comparison);
+      meetingPositions.add(meetingPosition);
+      allVelocities.push(...motions.map((motion) => motion.v));
+      if ((set.m3.A.x0 > set.m3.B.x0 && Math.abs(set.m3.A.v) < Math.abs(set.m3.B.v)) || (set.m3.B.x0 > set.m3.A.x0 && Math.abs(set.m3.B.v) < Math.abs(set.m3.A.v))) hasHigherButSlower = true;
+      if (set.m3.A.v < 0 || set.m3.B.v < 0) hasMission3Negative = true;
+      if (set.m4.v === 0 && set.m4.atTime === LIMITS.timeMax && set.m4.atPosition === set.m4.x0) hasStationaryMission4 = true;
+      return true;
     });
+    return valid && ["A", "B", "same"].every((value) => comparisons.has(value)) && hasHigherButSlower && hasMission3Negative && hasStationaryMission4 && meetingPositions.size >= 2 && allVelocities.some((value) => value > 0) && allVelocities.some((value) => value < 0) && allVelocities.includes(0);
   }
 
   return { LIMITS, TOLERANCE, LIBRARY_VERSION, SCENARIO_SETS, positionAt, velocityFromPoints, intersection, lineWithinBounds, getScenarioSet, scenarioIds, blankAnswers, validAnswerShape, validAnswers, completeness, validMeasurement, scoreAssessment, validateScenarioLibrary };

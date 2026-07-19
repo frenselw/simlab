@@ -315,21 +315,21 @@ document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
 const explorationProbeControls = document.getElementById("probeControls");
-assert.ok(explorationProbeControls.innerHTML.includes("加入 「初」、「末」 兩個探針"), "exploration probe prompt uses the clear Chinese probe names");
+assert.ok(explorationProbeControls.innerHTML.includes("加入 P、Q 兩個探針"), "exploration probe prompt uses neutral probe names");
 assert.ok(explorationProbeControls.innerHTML.includes(">加入第一個探針</button>"), "exploration initially prompts for the first probe");
 assert.ok(explorationProbeControls.innerHTML.includes('Δ<var>t</var>'), "exploration probe prompt formats delta t as a math quantity");
 assert.ok(explorationProbeControls.innerHTML.includes('Δ<var>x</var>'), "exploration probe prompt formats delta x as a math quantity");
 document.getElementById("timeSlider").value = "2";
 document.getElementById("timeSlider").dispatch("input");
 one('[data-add-probe="E"]').click();
-assert.ok(explorationProbeControls.innerHTML.includes("<span>初</span>"), "exploration labels the first probe 初");
-assert.ok(explorationProbeControls.innerHTML.includes(">加入第二個探針</button>"), "exploration prompts for the second probe after 初 is added");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes(">初</text>"), "exploration graph labels the first probe 初");
+assert.ok(explorationProbeControls.innerHTML.includes("<span>P</span>"), "exploration labels the first probe P");
+assert.ok(explorationProbeControls.innerHTML.includes(">加入第二個探針</button>"), "exploration prompts for the second probe after P is added");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes(">P</text>"), "exploration graph labels the first probe P");
 one('[data-add-probe="E"]').click();
-assert.ok(explorationProbeControls.innerHTML.includes("<span>末</span>"), "exploration labels the second probe 末");
+assert.ok(explorationProbeControls.innerHTML.includes("<span>Q</span>"), "exploration labels the second probe Q");
 assert.ok(explorationProbeControls.innerHTML.includes(">探針已齊</button>"), "exploration confirms when both probes are present");
 assert.equal(one('[data-add-probe="E"]').disabled, true, "exploration disables add after both probes are present");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes(">末</text>"), "exploration graph labels the second probe 末");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes(">Q</text>"), "exploration graph labels the second probe Q");
 assert.ok(explorationProbeControls.innerHTML.includes('<var>t</var>'), "exploration probe reading formats time as a math quantity");
 assert.ok(explorationProbeControls.innerHTML.includes('<var>x</var>'), "exploration probe reading formats position as a math quantity");
 document.getElementById("timeSlider").value = "0";
@@ -381,17 +381,17 @@ assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspa
 
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");
-assert.ok(document.getElementById("probeControls").innerHTML.includes("加入 「初」、「末」 兩個探針"), "mission 3 introduces the two probes with clear Chinese names");
+assert.ok(document.getElementById("probeControls").innerHTML.includes("加入 P、Q 兩個探針"), "mission 3 introduces the two neutral probes");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第一個探針</button>"), "mission 3 initially tells students to add the first A probe");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 B 車第一個探針</button>"), "mission 3 initially tells students to add the first B probe");
 one('[data-add-probe="A"]').click();
-assert.ok(document.getElementById("probeControls").innerHTML.includes("<span>初</span>"), "mission 3 labels the first probe 初 in its controls");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes(">A初</text>"), "mission 3 labels the first A probe A初 on the graph");
-assert.ok(one('[data-probe-line="A"]').getAttribute("aria-label").includes("初 探針"), "mission 3 first probe accessibility label uses 初");
+assert.ok(document.getElementById("probeControls").innerHTML.includes("<span>P</span>"), "mission 3 labels the first probe P in its controls");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes(">AP</text>"), "mission 3 labels the first A probe AP on the graph");
+assert.ok(one('[data-probe-line="A"]').getAttribute("aria-label").includes("P 探針"), "mission 3 first probe accessibility label uses P");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第二個探針</button>"), "mission 3 prompts for the second A probe after the first is added");
 one('[data-add-probe="A"]').click();
-assert.ok(document.getElementById("probeControls").innerHTML.includes("<span>末</span>"), "mission 3 labels the second probe 末 in its controls");
-assert.ok(document.getElementById("graphLayer").innerHTML.includes(">A末</text>"), "mission 3 labels the second A probe A末 on the graph");
+assert.ok(document.getElementById("probeControls").innerHTML.includes("<span>Q</span>"), "mission 3 labels the second probe Q in its controls");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes(">AQ</text>"), "mission 3 labels the second A probe AQ on the graph");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">A 車探針已齊</button>"), "mission 3 confirms when both A probes are present");
 assert.equal(one('[data-add-probe="A"]').disabled, true, "mission 3 disables the A add button after both probes are present");
 one("#nextMission").click();
@@ -427,5 +427,118 @@ assert.equal(finishCalls, 2, "successful retry calls SimScorm.finish once more")
 assert.equal(submitCalls, 1, "successful finish does not resubmit answers");
 assert.equal(document.getElementById("retryFinish"), null, "successful finish removes retry action");
 assert.equal(document.querySelectorAll("[data-drag]").length, 0, "successful finish leaves submitted review locked");
+
+function finalReviewFixture() {
+  const fixture = Persistence.createExplore();
+  assert.equal(Persistence.startAssessment(fixture, "alpha"), true);
+  for (let step = 0; step < 5; step += 1) assert.equal(Persistence.nextMission(fixture), true);
+  return fixture;
+}
+
+function runProductionLifecycle({ attempt, submissionOutcome = null }) {
+  const caseDocument = new FakeDocument(ids);
+  let draftProvider = null;
+  const caseScorm = {
+    loadAttempt: () => structuredClone(attempt),
+    setDraftProvider(provider) { draftProvider = provider; },
+    makeSnapshot: (activity, stateName, answer, result) => ({ activity, state: stateName, answer, score: result?.score, passed: result?.passed }),
+    saveDraft: () => true,
+    submitWithCallbacks: (_result, _review, callbacks) => {
+      const callback = submissionOutcome?.activityState === "success" ? callbacks.onSuccess : callbacks.onFailure;
+      callback(submissionOutcome);
+    },
+    retryPending: () => ({ ok: false, frozen: true, committed: false, retryable: true }),
+    finish: () => false
+  };
+  const caseWindow = {
+    document: caseDocument,
+    PositionTimeScoring: Scoring,
+    PositionTimePersistence: Persistence,
+    PositionTimeUiRuntime: UiRuntime,
+    SimActivityFlow: ActivityFlow,
+    SimScorm: caseScorm,
+    scrollTo() {}
+  };
+  vm.runInNewContext(source, {
+    window: caseWindow,
+    document: caseDocument,
+    console,
+    Math,
+    Number,
+    String,
+    Object,
+    Array,
+    Boolean,
+    JSON,
+    performance: { now: () => 0 },
+    requestAnimationFrame: () => 1,
+    cancelAnimationFrame() {},
+    structuredClone
+  }, { filename: "position-time-graph-motion-lab/main.js" });
+  return { document: caseDocument, draftProvider };
+}
+
+const finalReview = finalReviewFixture();
+const reviewAnswer = Persistence.encodeReview(finalReview);
+const finalDraft = Persistence.encodeDraft(finalReview);
+
+const editableCase = runProductionLifecycle({ attempt: { state: "new" } });
+assert.equal(typeof editableCase.draftProvider, "function", "startup editable production path registers its draft provider");
+assert.ok(editableCase.document.querySelectorAll("[data-drag]").length > 0, "startup editable production path renders interactive controls");
+
+const frozenCase = runProductionLifecycle({ attempt: { state: "pending-final" } }).document;
+assert.ok(frozenCase.getElementById("resultPanel").innerHTML.includes("答案保持凍結"), "startup frozen production UI explains the unconfirmed state");
+assert.ok(frozenCase.getElementById("retryPending"), "startup frozen production UI offers only pending retry");
+assert.equal(frozenCase.querySelectorAll("[data-drag]").length, 0, "startup frozen production UI is locked");
+assert.equal(frozenCase.getElementById("resultPanel").innerHTML.includes("已通過"), false, "startup frozen production UI makes no pass claim");
+
+const loadErrorCase = runProductionLifecycle({ attempt: { state: "error" } }).document;
+assert.ok(loadErrorCase.getElementById("resultPanel").innerHTML.includes("無法安全讀取 Moodle 作答資料"), "startup load-error renders the production technical state");
+assert.equal(loadErrorCase.getElementById("retryPending"), null, "startup load-error does not invent a retry action");
+assert.equal(loadErrorCase.querySelectorAll("[data-drag]").length, 0, "startup load-error remains locked");
+
+const trustedReview = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 0, passed: false }, score: "0", status: "failed" } }).document;
+assert.ok(trustedReview.getElementById("resultPanel").innerHTML.includes("任務 1"), "matching finished review renders trusted production detail");
+assert.equal(trustedReview.querySelectorAll("[data-drag]").length, 0, "matching finished review is read-only");
+
+const scoreMismatch = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 1, passed: false }, score: "0", status: "failed" } }).document;
+assert.ok(scoreMismatch.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "saved score mismatch falls back to the safe production summary");
+assert.equal(scoreMismatch.getElementById("resultPanel").innerHTML.includes("任務 1"), false, "score mismatch hides untrusted mission detail");
+
+const passMismatch = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 0, passed: false }, score: "0", status: "passed" } }).document;
+assert.ok(passMismatch.getElementById("resultPanel").innerHTML.includes("已通過"), "Moodle pass mismatch displays only the recorded Moodle summary");
+assert.ok(passMismatch.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "Moodle pass mismatch does not trust saved detail");
+
+const unknownStatus = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 0, passed: false }, score: "0", status: "completed" } }).document;
+assert.ok(unknownStatus.getElementById("resultPanel").innerHTML.includes("未能安全判斷合格狀態"), "unknown Moodle status renders an honest production completion label");
+
+const invalidFinished = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: { invalid: true }, score: 40, passed: false }, score: "40", status: "failed" } }).document;
+assert.ok(invalidFinished.getElementById("resultPanel").innerHTML.includes("40 / 100"), "invalid finished review keeps the trustworthy Moodle score summary");
+assert.ok(invalidFinished.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "invalid finished review hides invalid answer detail");
+assert.equal(invalidFinished.querySelectorAll("[data-drag]").length, 0, "invalid finished review cannot reopen editing");
+
+function submissionCase(outcome) {
+  const rendered = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: finalDraft } }, submissionOutcome: outcome }).document;
+  rendered.getElementById("confirmSubmit").click();
+  return rendered;
+}
+
+const successCase = submissionCase({ activityState: "success", ok: true, committed: true, frozen: false, retryable: false });
+assert.ok(successCase.getElementById("resultPanel").innerHTML.includes("0 / 100"), "submission success renders the submitted result");
+assert.equal(successCase.querySelectorAll("[data-drag]").length, 0, "submission success locks production controls");
+
+const submissionFrozen = submissionCase({ activityState: "frozen", ok: false, committed: false, frozen: true, retryable: true });
+assert.ok(submissionFrozen.getElementById("resultPanel").innerHTML.includes("提交狀態未確認"), "submission frozen renders an unconfirmed technical state");
+assert.ok(submissionFrozen.getElementById("retryPending"), "submission frozen offers same-payload retry");
+assert.equal(submissionFrozen.getElementById("resultPanel").innerHTML.includes("0 / 100"), false, "submission frozen makes no score claim");
+
+const retryableCase = submissionCase({ activityState: "retry", ok: false, committed: false, frozen: false, retryable: true });
+assert.ok(retryableCase.getElementById("submitAttempt"), "retryable submission returns to editable final review");
+assert.ok(retryableCase.getElementById("liveStatus").textContent.includes("答案仍可修改"), "retryable submission explains that editing remains available");
+
+const nonRetryableCase = submissionCase({ activityState: "retry", ok: false, committed: false, frozen: false, retryable: false });
+assert.ok(nonRetryableCase.getElementById("resultPanel").innerHTML.includes("未能建立可重試的提交"), "non-retryable submission renders a locked technical state");
+assert.equal(nonRetryableCase.getElementById("retryPending"), null, "non-retryable submission does not offer an unsafe retry");
+assert.equal(nonRetryableCase.getElementById("resultPanel").innerHTML.includes("未通過"), false, "non-retryable submission makes no pass/fail claim");
 
 console.log("Position-time production DOM/lifecycle wiring checks passed");
