@@ -17,6 +17,9 @@
     const shown = value == null || value === "" ? "--" : signed(value);
     return `<span class="math"><var>${symbol}</var></span> = ${shown}${unit ? ` <span class="unit">${unit}</span>` : ""}`;
   }
+  function missionNameHtml(step) {
+    return step === 1 ? `根據運動畫出 <span class="math"><var>x</var>–<var>t</var></span> 圖` : MISSION_NAMES[step];
+  }
   function pointSymbolHtml(index) {
     return `<span class="math"><var>P</var><sub class="numeric-subscript">${index}</sub></span>`;
   }
@@ -179,7 +182,8 @@
     const reviewing = state.phase === "submitted-review";
     dom.taskSection.dataset.mode = "mission";
     dom.taskKicker.textContent = `${reviewing ? "檢討任務" : "今題任務"} · ${step + 1} / 5`;
-    dom.taskTitle.textContent = MISSION_NAMES[step];
+    if (step === 1) dom.taskTitle.innerHTML = missionNameHtml(step);
+    else dom.taskTitle.textContent = MISSION_NAMES[step];
     const scenario = currentSet()[`m${step + 1}`];
     dom.taskInstruction.innerHTML = instructionFor(step, scenario) + (reviewing ? reviewConditionHtml(step, scenario) : "");
     const key = `m${step + 1}`;
@@ -608,7 +612,7 @@
         const key = `m${step + 1}`;
         const status = S.completeness(key, state.assessment.ans[key]);
         const label = status === "complete" ? "已完整" : status === "partial" ? "部分作答" : "未作答";
-        return `<div class="review-item"><h3>${step + 1}. ${MISSION_NAMES[step]}</h3><p>${label}</p><button type="button" data-edit-step="${step}">修改第 ${step + 1} 題</button></div>`;
+        return `<div class="review-item"><h3>${step + 1}. ${missionNameHtml(step)}</h3><p>${label}</p><button type="button" data-edit-step="${step}">修改第 ${step + 1} 題</button></div>`;
       }).join("")}</div>`;
       document.querySelectorAll("[data-edit-step]").forEach((button) => button.addEventListener("click", () => { resetTime(); transitionSafely((next) => P.editMission(next, Number(button.dataset.editStep))); }));
       return;

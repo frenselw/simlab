@@ -339,6 +339,7 @@ assert.equal(document.getElementById("answerState").textContent, "未作答", "d
 document.getElementById("labPanel").scrollTop = 640;
 one("#nextMission").click();
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "next mission returns the independently scrolling control panel to its top");
+assert.ok(document.getElementById("taskTitle").innerHTML.includes('<span class="math"><var>x</var>–<var>t</var></span>'), "mission 2 title renders x-t with formula typography");
 const missionTwoRoad = document.getElementById("roadLayer");
 const guideAtStart = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);
 assert.ok(guideAtStart, "mission 2 road renders a dashed position projection");
