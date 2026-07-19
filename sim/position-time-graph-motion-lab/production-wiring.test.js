@@ -381,6 +381,9 @@ assert.equal(one('[data-add-probe="A"]').disabled, true, "mission 3 disables the
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "mission 4 returns to the compact graph height");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 4 shows the x-t line for the default x0 and velocity");
+assert.ok(document.getElementById("roadLayer").innerHTML.includes('class="target-position-guide"'), "mission 4 marks the required position with a vertical dashed guide");
+assert.match(document.getElementById("roadLayer").innerHTML, /<tspan class="svg-math-symbol">t<\/tspan> = \d+\.\d <tspan class="svg-unit">s<\/tspan>：<tspan class="svg-math-symbol">x<\/tspan> = [+-]?\d+\.\d <tspan class="svg-unit">m<\/tspan>/, "mission 4 guide labels the required time and position without giving the velocity");
+assert.ok(document.getElementById("roadDesc").textContent.includes("紫色垂直虛線標示指定時刻要到達的位置"), "mission 4 road description explains the target position guide");
 one("#nextMission").click();
 one("#nextMission").click();
 document.getElementById("confirmSubmit").click();

@@ -438,12 +438,19 @@
     else if (context.step === 1) cars.push({ label: "A", motion: context.scenario, draggable: false, showPositionGuide: true });
     else if (context.step === 2) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: context.scenario.B, draggable: false });
     else if (context.step === 4) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: answerMotion(context.step, context.answer), draggable: true });
-    dom.roadDesc.textContent = cars.some((car) => car.draggable && settingsEditable())
+    const requiredPositionGuide = context.step === 3 ? targetPositionGuideSvg(context.scenario) : "";
+    dom.roadDesc.textContent = (cars.some((car) => car.draggable && settingsEditable())
       ? "位置由負二十米至正二十米。可拖動車輛設定初始位置，並拖動速度箭嘴調整方向和大小。"
-      : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。";
-    html += cars.map((car, index) => carSvg(car, index)).join("");
+      : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。") + (requiredPositionGuide ? " 紫色垂直虛線標示指定時刻要到達的位置。" : "");
+    html += requiredPositionGuide + cars.map((car, index) => carSvg(car, index)).join("");
     dom.roadLayer.innerHTML = html;
     dom.roadSvg.classList.toggle("is-locked", !settingsEditable());
+  }
+  function targetPositionGuideSvg(scenario) {
+    const x = roadX(clamp(scenario.atPosition, -20, 20));
+    const anchor = x > ROAD.right - 160 ? "end" : "start";
+    const labelX = x + (anchor === "end" ? -9 : 9);
+    return `<g class="target-position-guide"><line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><text class="position-guide-label" x="${labelX}" y="22" text-anchor="${anchor}"><tspan class="svg-math-symbol">t</tspan> = ${scenario.atTime.toFixed(1)} <tspan class="svg-unit">s</tspan>：<tspan class="svg-math-symbol">x</tspan> = ${signed(scenario.atPosition)} <tspan class="svg-unit">m</tspan></text></g>`;
   }
   function carSvg(car, index) {
     const position = S.positionAt(car.motion, ui.time);
