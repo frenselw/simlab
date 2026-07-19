@@ -371,6 +371,13 @@ assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspa
 
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");
+assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第一個探針</button>"), "mission 3 initially tells students to add the first A probe");
+assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 B 車第一個探針</button>"), "mission 3 initially tells students to add the first B probe");
+one('[data-add-probe="A"]').click();
+assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第二個探針</button>"), "mission 3 prompts for the second A probe after the first is added");
+one('[data-add-probe="A"]').click();
+assert.ok(document.getElementById("probeControls").innerHTML.includes(">A 車探針已齊</button>"), "mission 3 confirms when both A probes are present");
+assert.equal(one('[data-add-probe="A"]').disabled, true, "mission 3 disables the A add button after both probes are present");
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "mission 4 returns to the compact graph height");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 4 shows the x-t line for the default x0 and velocity");

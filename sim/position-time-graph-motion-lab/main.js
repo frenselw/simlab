@@ -268,6 +268,10 @@
   function fasterControl(value) {
     return `<fieldset><legend>速度大小較大</legend><div class="choice-grid">${[["A", "A 車"], ["B", "B 車"], ["same", "一樣快"]].map(([key, label]) => `<button type="button" data-faster="${key}" data-focus-key="faster:${key}" aria-pressed="${value === key}" ${ui.locked ? "disabled" : ""}>${label}</button>`).join("")}</div><p class="sr-note">亦可拖動圖內「速度大小較大」標記到 A、B 或一樣快區域。</p></fieldset>`;
   }
+  function assessmentProbeButtonText(label, count) {
+    if (count >= 2) return `${label} 車探針已齊`;
+    return `加入 ${label} 車第${count === 0 ? "一" : "二"}個探針`;
+  }
   function renderProbeControls(mode) {
     dom.probeSection.hidden = false;
     if (mode === "explore") {
@@ -276,7 +280,7 @@
     } else {
       const answer = state.assessment.ans.m3;
       const scenario = currentSet().m3;
-      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row probe-actions"><button type="button" data-add-probe="${label}" data-focus-key="probe-add:${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>加入 ${label} 車探針</button><button type="button" data-clear-probe="${label}" data-focus-key="probe-clear:${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
+      dom.probeControls.innerHTML = ["A", "B"].map((label) => `<div class="probe-card">${probeCard(`${label} 車圖線`, answer[label].probes, scenario[label], label, 6)}<div class="button-row probe-actions"><button type="button" data-add-probe="${label}" data-focus-key="probe-add:${label}" ${ui.locked || answer[label].probes.length >= 2 ? "disabled" : ""}>${assessmentProbeButtonText(label, answer[label].probes.length)}</button><button type="button" data-clear-probe="${label}" data-focus-key="probe-clear:${label}" ${ui.locked || !answer[label].probes.length ? "disabled" : ""}>清除</button></div></div>`).join("");
     }
   }
   function probeCard(label, probes, motion, line, maxTime) {
