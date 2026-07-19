@@ -23,14 +23,17 @@
   function pointSymbolHtml(index) {
     return `<span class="math"><var>x</var><sub class="numeric-subscript">${index}</sub></span>`;
   }
-  function probeSymbolHtml(symbol) {
-    return `<span class="math"><var>${symbol}</var></span>`;
+  function probeName(_line, index) {
+    return index === 0 ? "初" : "末";
+  }
+  function probeNameHtml(line, index) {
+    return `<span>${probeName(line, index)}</span>`;
   }
   function probeValueHtml(time, position) {
     return `(${math("t", "s", time)}, ${math("x", "m", position)})`;
   }
   function probePromptHtml() {
-    return `加入 ${probeSymbolHtml("P")}、${probeSymbolHtml("Q")} 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
+    return `加入 「初」、「末」 兩個探針以顯示 <span class="math">Δ<var>t</var></span> 及 <span class="math">Δ<var>x</var></span>。`;
   }
   function svgPointSymbol(index) {
     return `<tspan class="svg-math-symbol">x</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${index}</tspan>`;
@@ -273,11 +276,15 @@
     if (count >= 2) return `${label} 車探針已齊`;
     return `加入 ${label} 車第${count === 0 ? "一" : "二"}個探針`;
   }
+  function explorationProbeButtonText(count) {
+    if (count >= 2) return "探針已齊";
+    return `加入第${count === 0 ? "一" : "二"}個探針`;
+  }
   function renderProbeControls(mode) {
     dom.probeSection.hidden = false;
     if (mode === "explore") {
       const motion = state.exploration;
-      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row probe-actions"><button type="button" data-add-probe="E" data-focus-key="probe-add:E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>加入下一個探針</button><button type="button" data-clear-probe="E" data-focus-key="probe-clear:E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
+      dom.probeControls.innerHTML = probeCard("探索圖線", ui.explorationProbes, motion, "E", ui.time) + `<div class="button-row probe-actions"><button type="button" data-add-probe="E" data-focus-key="probe-add:E" ${ui.time <= 0 || ui.explorationProbes.length >= 2 ? "disabled" : ""}>${explorationProbeButtonText(ui.explorationProbes.length)}</button><button type="button" data-clear-probe="E" data-focus-key="probe-clear:E" ${ui.explorationProbes.length ? "" : "disabled"}>清除探針</button></div>`;
     } else {
       const answer = state.assessment.ans.m3;
       const scenario = currentSet().m3;
@@ -286,10 +293,10 @@
   }
   function probeCard(label, probes, motion, line, maxTime) {
     const rows = probes.map((time, index) => {
-      const pointLabel = index === 0 ? "P" : "Q";
-      return `<label class="range-row"><span>${probeSymbolHtml(pointLabel)}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output id="probeValue-${line}-${index}">${probeValueHtml(time, S.positionAt(motion, time))}</output></label>`;
+      const pointLabel = probeName(line, index);
+      return `<label class="range-row"><span>${probeNameHtml(line, index)}</span><input type="range" min="0" max="${maxTime}" step="0.5" value="${time}" data-probe-line="${line}" data-probe-index="${index}" data-focus-key="probe-range:${line}:${index}" ${ui.locked ? "disabled" : ""} aria-label="${label} ${pointLabel} 探針時間"><output id="probeValue-${line}-${index}">${probeValueHtml(time, S.positionAt(motion, time))}</output></label>`;
     }).join("");
-    const delta = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml();
+    const delta = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml(line);
     return `<div class="probe-heading"><strong>${label}</strong><span>${probes.length}/2</span></div>${rows}<div id="probeDelta-${line}" class="muted">${delta}</div>`;
   }
   function measurementHtml(probes, motion) {
@@ -383,7 +390,7 @@
     list.push(list.length ? Math.min(maxTime, list[0] + 2) : 0);
     const saved = saveDraft();
     render();
-    announce(saved ? `${list.length === 1 ? "P" : "Q"} 探針已加入並儲存。` : "探針已加入，但未能儲存；請重試。" );
+    announce(saved ? `${probeName(line, list.length - 1)}探針已加入並儲存。` : "探針已加入，但未能儲存；請重試。" );
   }
   function clearProbes(line) {
     if (line === "E") ui.explorationProbes = [];
@@ -405,7 +412,7 @@
     const probeValue = document.getElementById(`probeValue-${line}-${index}`);
     const probeDelta = document.getElementById(`probeDelta-${line}`);
     if (probeValue) probeValue.innerHTML = probeValueHtml(probes[index], S.positionAt(motion, probes[index]));
-    if (probeDelta) probeDelta.innerHTML = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml();
+    if (probeDelta) probeDelta.innerHTML = probes.length === 2 ? measurementHtml(probes, motion) : probePromptHtml(line);
     renderDynamic();
   }
 
@@ -541,7 +548,7 @@
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {
       const position = S.positionAt(motion, time);
-      const label = index === 0 ? "P" : "Q";
+      const label = probeName(line, index);
       const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="probe:${line}:${index}" tabindex="0" role="slider" aria-label="${line === "E" ? "探索" : line + " 車"} ${label} 探針，時間 ${time.toFixed(1)} 秒，位置 ${signed(position)} 米" aria-valuemin="0" aria-valuemax="6" aria-valuenow="${time}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
       return `<g><line class="time-cursor" x1="${graphX(time)}" y1="${graphY(position)}" x2="${graphX(time)}" y2="${GRAPH.bottom}"></line><circle class="probe-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>${hit}<text class="svg-label" x="${graphX(time) + 12}" y="${graphY(position) - 12}">${line === "E" ? "" : line}${label}</text></g>`;
     }).join("");
