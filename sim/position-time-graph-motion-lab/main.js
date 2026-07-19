@@ -200,7 +200,7 @@
     if (step === 1) return "播放並觀察車的位置讀數；設定 <span class=\"math\"><var>x</var><sub class=\"numeric-subscript\">0</sub></span>、<span class=\"math\"><var>x</var><sub class=\"numeric-subscript\">6</sub></span> 畫出直線。";
     if (step === 2) return "分別在 A、B 圖線放置相隔最少 2.0 s 的探針，計算兩車帶符號速度，再比較速度大小。";
     if (step === 3) return scenario.v === 0 ? `建立一架在 <span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 至 6.0 <span class="unit">s</span> 都停在 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span> 的車。` : `建立運動：<span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.x0)} <span class="unit">m</span>；<span class="math"><var>t</var></span> = ${scenario.atTime.toFixed(1)} <span class="unit">s</span> 時 <span class="math"><var>x</var></span> = ${signed(scenario.atPosition)} <span class="unit">m</span>。`;
-    return `A 車已固定。設定 B 車，令兩車在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 相遇，再輸入相遇位置 <span class="math"><var>x</var><sup>*</sup></span>。`;
+    return `A 車已固定。設定 B 車，令兩車在 <span class="math"><var>t</var></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 相遇，再輸入相遇位置 <span class="math"><var>x</var></span>。`;
   }
   function reviewConditionHtml(step, scenario) {
     if (step === 0 || step === 3) return `<span class="review-condition">正確條件：<span class="math"><var>x</var><sub class="numeric-subscript">0</sub></span> = ${signed(scenario.x0)} <span class="unit">m</span>，<span class="math"><var>v</var></span> = ${signed(scenario.v)} <span class="unit">m/s</span>。</span>`;
@@ -210,7 +210,7 @@
       return `<span class="review-condition">正確量度：<span class="math"><var>v</var><sub>A</sub></span> = ${signed(scenario.A.v)} <span class="unit">m/s</span>，<span class="math"><var>v</var><sub>B</sub></span> = ${signed(scenario.B.v)} <span class="unit">m/s</span>；${faster}。</span>`;
     }
     const meetingX = S.positionAt(scenario.A, scenario.meetTime);
-    return `<span class="review-condition">接受任何不與 A 全程重合、並在 <span class="math"><var>t</var><sup>*</sup></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 到達 <span class="math"><var>x</var><sup>*</sup></span> = ${signed(meetingX)} <span class="unit">m</span> 的 B 車設定。</span>`;
+    return `<span class="review-condition">接受任何不與 A 全程重合、並在 <span class="math"><var>t</var></span> = ${scenario.meetTime.toFixed(1)} <span class="unit">s</span> 到達 <span class="math"><var>x</var></span> = ${signed(meetingX)} <span class="unit">m</span> 的 B 車設定。</span>`;
   }
 
   function renderControls() {
@@ -235,7 +235,7 @@
       dom.motionControls.innerHTML = motionControlHtml(values.x0, values.v, ui.locked);
       if (step === 4) {
         dom.answerSection.hidden = false;
-        dom.answerControls.innerHTML = numberInputHtml("meetingX", "相遇位置", "x<sup>*</sup>", "m", answer.meetingX, -20, 20, 0.5);
+        dom.answerControls.innerHTML = numberInputHtml("meetingX", "相遇位置", "x", "m", answer.meetingX, -20, 20, 0.5);
       }
     } else if (step === 1) {
       dom.answerSection.hidden = false;
@@ -528,7 +528,7 @@
       const own = answerMotion(4, context.answer);
       if (!own.incomplete) { html += svgLine(own, "line-b", ui.time); visibleReadings.push(["B 圖線", S.positionAt(own, ui.time)]); }
       if (state.phase === "submitted-review") html += `<circle class="target-point" cx="${graphX(context.scenario.meetTime)}" cy="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime))}" r="9"></circle><text class="svg-label" x="${graphX(context.scenario.meetTime) + 12}" y="${graphY(S.positionAt(context.scenario.A, context.scenario.meetTime)) - 12}">指定相遇點</text>`;
-      html += `<line class="time-cursor" x1="${graphX(context.scenario.meetTime)}" y1="${GRAPH.top}" x2="${graphX(context.scenario.meetTime)}" y2="${GRAPH.bottom}"></line><text class="svg-label" x="${graphX(context.scenario.meetTime) + 6}" y="${GRAPH.top + 18}">t*</text>`;
+      html += `<line class="time-cursor" x1="${graphX(context.scenario.meetTime)}" y1="${GRAPH.top}" x2="${graphX(context.scenario.meetTime)}" y2="${GRAPH.bottom}"></line><text class="svg-label" x="${graphX(context.scenario.meetTime) + 6}" y="${GRAPH.top + 18}"><tspan class="svg-math-symbol">t</tspan></text>`;
     }
     html += `<line class="time-cursor" x1="${graphX(ui.time)}" y1="${GRAPH.top}" x2="${graphX(ui.time)}" y2="${GRAPH.bottom}"></line>`;
     dom.graphLayer.innerHTML = html;
@@ -572,7 +572,7 @@
     else if (context.step === 4) {
       values.push(["A 車位置", math("x<sub>A</sub>", "m", S.positionAt(context.scenario.A, ui.time))]);
       const own = answerMotion(4, context.answer);
-      values.push(["B 車位置", own.incomplete ? "--" : math("x<sub>B</sub>", "m", S.positionAt(own, ui.time))], ["指定相遇時間", math("t<sup>*</sup>", "s", context.scenario.meetTime)]);
+      values.push(["B 車位置", own.incomplete ? "--" : math("x<sub>B</sub>", "m", S.positionAt(own, ui.time))], ["指定相遇時間", math("t", "s", context.scenario.meetTime)]);
     } else {
       const own = answerMotion(context.step, context.answer);
       values.push(["初始位置", own.incomplete && context.answer.x0 == null ? "--" : math("x<sub class=\"numeric-subscript\">0</sub>", "m", own.x0)], ["目前位置", own.incomplete ? "--" : math("x", "m", S.positionAt(own, ui.time))], ["速度", own.incomplete && context.answer.v == null ? "--" : math("v", "m/s", own.v)]);

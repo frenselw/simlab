@@ -401,6 +401,13 @@ assert.ok(document.getElementById("roadLayer").innerHTML.includes('class="target
 assert.match(document.getElementById("roadLayer").innerHTML, /<tspan class="svg-math-symbol">t<\/tspan> = \d+\.\d <tspan class="svg-unit">s<\/tspan>：<tspan class="svg-math-symbol">x<\/tspan> = [+-]?\d+\.\d <tspan class="svg-unit">m<\/tspan>/, "mission 4 guide labels the required time and position without giving the velocity");
 assert.ok(document.getElementById("roadDesc").textContent.includes("紫色垂直虛線標示指定時刻要到達的位置"), "mission 4 road description explains the target position guide");
 one("#nextMission").click();
+assert.equal(document.getElementById("taskInstruction").innerHTML.includes("<sup>*</sup>"), false, "mission 5 uses plain t and x symbols in the instruction");
+assert.ok(document.getElementById("taskInstruction").innerHTML.includes('<span class="math"><var>t</var></span>'), "mission 5 formats t as a math symbol");
+assert.ok(document.getElementById("taskInstruction").innerHTML.includes('<span class="math"><var>x</var></span>'), "mission 5 formats x as a math symbol");
+assert.ok(document.getElementById("answerControls").innerHTML.includes('<span class="math"><var>x</var></span>'), "mission 5 labels the meeting-position input x without a star");
+assert.ok(document.getElementById("graphLayer").innerHTML.includes('<tspan class="svg-math-symbol">t</tspan>'), "mission 5 graph labels the specified meeting time t without a star");
+assert.equal(document.getElementById("graphLayer").innerHTML.includes("t*"), false, "mission 5 graph no longer shows t star");
+assert.ok(document.getElementById("dataGrid").innerHTML.includes('<span class="math"><var>t</var></span> ='), "mission 5 live data labels the specified meeting time t without a star");
 one("#nextMission").click();
 document.getElementById("confirmSubmit").click();
 assert.equal(submitCalls, 1, "committed production path submits the answer once");
