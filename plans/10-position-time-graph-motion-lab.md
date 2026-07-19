@@ -117,7 +117,7 @@
 - 學生可返回任何任務修改，再返回檢視；
 - 最後提交前明確確認；
 - 提交後只可檢討；不可再拖動答案控制、修改或重交同一次 attempt，但可使用不改答案的
-  只讀重播及時間 scrub。
+  只讀回到 `t = 0` 及時間 scrub。
 
 ## 7. 畫面與資訊架構
 
@@ -213,7 +213,7 @@
 - `暫停`：保留當前時間及圖線；
 - `前進 0.5 s`：只在暫停時可用；
 - `拖動時間游標`：暫停並重建由 `0` 至該時間的圖線；
-- `重播`：回到 `t = 0`，保留 `x₀`、`v`，清除探針；
+- `回到 0 s`：回到 `t = 0`，保留 `x₀`、`v`，清除探針；
 - 修改 `x₀` 或 `v`：自動回到 `t = 0` 並清除舊圖線及探針，避免把兩次運動混成一條線；
 - 播放期間鎖定起點、速度箭嘴、快捷情境及數值控制；先暫停並重設才可改物理參數；
 - 到 `6 s` 自動暫停，不循環播放。
@@ -237,7 +237,7 @@
 - 學生確認後選定並凍結本次 `scenarioSetId`；
 - 探索數值不會成為正式答案；
 - 正式評估開始後不返回自由探索，以保持活動 phase、草稿與提交語意清楚；
-- 每個正式任務仍提供播放、暫停、重播及必要的量度工具。
+- 每個正式任務仍提供播放、暫停、回到 `0 s` 及必要的量度工具。
 
 ## 9. 正式評估概覽
 
@@ -283,7 +283,7 @@
 讓學生可直接對照跑道刻度；該輔助標記只提供當前位置，不顯示答案圖線或斜率。
 學生要：
 
-1. 任意播放、暫停、逐步前進及重播；
+1. 任意播放、暫停、逐步前進及回到 `0 s`；
 2. 在空白坐標圖上拖動起點手柄，設定 `t = 0` 時的位置；
 3. 拖動終點手柄，設定 `t = 6 s` 時的位置；
 4. 系統以兩個手柄畫出學生的直線；
@@ -505,7 +505,7 @@ x₀A + vA t = x₀B + vB t
 | `mission` | `normal` 中段 | `1..4` | library version、set ID；所有較早任務 visited；目前任務 visited；較早／目前答案可 empty／partial／complete | 所有未到任務未 visited 且答案原始 | 下一題；第 5 題後進檢視 |
 | `final-review` | `ready` | 無 | library version、set ID；五題全部 visited；每題答案可 empty／partial／complete | editingStep、結果 | 編輯任一題或提交 |
 | `mission` | `from-review` | `0..4` | library version、set ID；五題全部 visited；保留所有答案；editingStep 等於 current step | 結果 | 保存目前答案並返回檢視 |
-| `submitted-review` | `complete` | 無 | review snapshot、情境庫選擇、權威學生答案、重算結果 | 所有答案編輯及重新提交動作 | 只讀檢討；可重播及 scrub，不改權威答案 |
+| `submitted-review` | `complete` | 無 | review snapshot、情境庫選擇、權威學生答案、重算結果 | 所有答案編輯及重新提交動作 | 只讀檢討；可回到 `0 s` 及 scrub，不改權威答案 |
 
 ### 12.1 狀態轉移
 
@@ -552,7 +552,7 @@ mission/from-review step N
 - 最低分：0
 - 最高分：100
 - 計分依據：最後提交狀態
-- 探索次數、重播次數、拖動次數、用時及嘗試次數：不計分、不扣分
+- 探索次數、回到 `0 s` 次數、拖動次數、用時及嘗試次數：不計分、不扣分
 - 缺少 component：該 component 得 0 分
 - 非法或非有限值：按缺少處理，不容許污染其他 component
 - 分數最後夾在 `0..100`
@@ -619,7 +619,7 @@ mission/from-review step N
 - 正確目標或所有可接受條件；
 - 該題得分及 component 得分；
 - 針對物理概念的文字回饋；
-- 可重播的只讀動畫及可拖動的只讀時間游標。
+- 可回到 `0 s` 後再次播放的只讀動畫及可拖動的只讀時間游標。
 
 回饋規則至少包括：
 
@@ -763,7 +763,7 @@ Review answer payload 不重複保存 score／passed；直接使用 `SimScorm.ma
 - modal 開關及 transition 動畫；
 - 完整探索圖線點陣列；
 - 探索探針及探索當前時間；
-- 拖動事件歷史、重播次數或用時；
+- 拖動事件歷史、回到 `0 s` 次數或用時；
 - 預先計算的 component 分數、總分、按鈕 disabled 狀態；
 - 任務探針 `x` 值（由 versioned scenario set 及探針時間重建）。
 
@@ -874,7 +874,7 @@ validate review
 理由：
 
 - 是概念鞏固小功課，不是高風險考試；
-- 學生可自由探索及重播，評估重點是應用而非監考；
+- 學生可自由探索及回到 `0 s` 後再次播放，評估重點是應用而非監考；
 - 瀏覽器端答案及 scorer 可被開發者工具修改；
 - SCORM review 保存提高可檢討性，但不構成防篡改邊界。
 
@@ -1002,7 +1002,7 @@ score(original) = score(restore(decode(encode(original))))
 - 手機控制面板可獨立捲動，舞台保持在上方；極矮視窗仍可捲動舞台內容，且不遮擋 focus target；
 - 固定 SVG aspect ratio 下，`v = ±1` 與 `±2 m/s` 的斜率在手機上可辨；
 - 讀圖游標可由鍵盤逐步移動，螢幕閱讀器取得軸資料及 `(t,x)`，又不直接讀出答案斜率；
-- submitted review 所有修改控制鎖定，時間游標及重播只讀功能可用；
+- submitted review 所有修改控制鎖定，時間游標及回到 `0 s` 只讀功能可用；
 - Live Server 無 Moodle 時走相同 submission path 並顯示 local fallback。
 
 ### 20.7 Repository quality gates

@@ -138,10 +138,10 @@
       dom.modeDescription.textContent = "已完成作答保持鎖定；逐題答案未能安全驗證。";
     } else if (state.phase === "explore") {
       dom.phaseBadge.textContent = "自由探索";
-      dom.modeDescription.textContent = "自由設定起點與速度，觀察、重播及量度位置—時間圖。";
+      dom.modeDescription.textContent = "自由設定起點與速度，觀察、回到 0 s 及量度位置—時間圖。";
     } else if (state.phase === "submitted-review") {
       dom.phaseBadge.textContent = "只讀檢討";
-      dom.modeDescription.textContent = "本次作答已鎖定；你仍可重播及移動時間游標。";
+      dom.modeDescription.textContent = "本次作答已鎖定；你仍可回到 0 s 及移動時間游標。";
     } else {
       dom.phaseBadge.textContent = state.phase === "final-review" ? "提交前檢視" : `任務 ${state.currentStep + 1} / 5`;
       dom.modeDescription.textContent = "五個任務合共 100 分，提交前可回看及修改答案。";
