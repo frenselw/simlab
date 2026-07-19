@@ -496,7 +496,6 @@ dialog h2 { margin-top: 0; }
   .stage-heading { display: block; }
   .stage-heading span:last-child { display: block; margin-top: 0.2rem; text-align: left; }
   .graph-block .stage-heading { display: none; }
-  .math-data { grid-template-columns: 1fr; }
   .lab-svg.is-narrow .tick-label,
   .lab-svg .tick-label { font-size: 28px; }
   .lab-svg .axis-label { font-size: 32px; stroke-width: 8px; }

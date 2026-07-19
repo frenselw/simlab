@@ -222,6 +222,7 @@ assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG cr
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
 assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*auto minmax\(10rem, 1fr\)/s, "mobile shell sizes the stage from its content instead of a fixed percentage");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
+assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
 vm.runInNewContext(source, {
   window,
   document,
