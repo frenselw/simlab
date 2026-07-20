@@ -79,6 +79,7 @@
     if (!state || state.v !== VERSION || !Model.validateDefinition(state.definition)) return false;
     const key = `${state.phase}/${state.variant}`;
     if (!(key in ROWS) || state.stage !== ROWS[key] || !validScene(state.scene, state.definition, state.phase) || !validAnswersShape(state.answers)) return false;
+    if (state.variant.endsWith("paused-measuring") && state.scene.observationStarted !== 1) return false;
     const edit = state.variant.startsWith("review-edit-");
     if (Boolean(state.returnToReview) !== edit || !Number.isInteger(state.viewedWindowCount) || state.viewedWindowCount < 0 || state.viewedWindowCount > 4) return false;
     const u = measurementKind(state.definition, "uniform", state.uniformMeasurement, state.phase === "uniform" ? state.scene.simulationTime : null);
@@ -234,12 +235,13 @@
     return { running: true, timerRunning: flags.timerRunning };
   }
 
-  function measurementControlState({ timerRunning, duration, minimum, captured, answered }) {
+  function measurementControlState({ timerRunning, duration, minimum, captured, answered, running, observationStarted }) {
     if (![duration, minimum].every(Number.isFinite) || duration < 0 || minimum < 0) return null;
+    const observationActive = running === true && observationStarted === true;
     return {
       label: timerRunning ? "停止計時" : "開始計時",
-      disabled: Boolean(captured || answered || (timerRunning && !Model.minimumDurationReached(duration, minimum))),
-      canStop: Boolean(timerRunning && !captured && !answered && Model.minimumDurationReached(duration, minimum))
+      disabled: Boolean(captured || answered || !observationActive || (timerRunning && !Model.minimumDurationReached(duration, minimum))),
+      canStop: Boolean(timerRunning && observationActive && !captured && !answered && Model.minimumDurationReached(duration, minimum))
     };
   }
 
@@ -256,6 +258,7 @@
       if (state.variant.endsWith("ready")) {
         const start = state.scene.simulationTime;
         const readingOrigin = Model.rollingReadingOrigin(position(start));
+        state.scene.observationStarted = 1;
         state[field] = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(position(start), readingOrigin)), x2: null, dt: 0 };
         state.variant = edit ? "review-edit-paused-measuring" : "paused-measuring";
       } else if (state.variant.endsWith("paused-measuring")) {

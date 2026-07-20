@@ -2,9 +2,10 @@
   "use strict";
 
   const Model = window.LinearMotionModel;
+  const Visuals = window.LinearMotionSceneVisuals;
   const Scoring = window.LinearMotionScoring;
   const Persistence = window.LinearMotionPersistence;
-  if (!Model || !Scoring || !Persistence) throw new Error("Linear-motion modules were not loaded");
+  if (!Model || !Visuals || !Scoring || !Persistence) throw new Error("Linear-motion modules were not loaded");
 
   const ACTIVITY = "linear-motion-velocity-lab";
   const canvas = document.getElementById("motionCanvas");
@@ -105,6 +106,10 @@
     if (locked || !["uniform", "variable"].includes(state.phase)) return;
     if (!timerRunning) {
       if (currentMeasurement()?.x2 != null || state.variant.endsWith("answered")) return;
+      if (state.scene.observationStarted !== 1 || !running) {
+        announce("請先按開始觀察，再開始計時。");
+        return;
+      }
       const time = state.scene.simulationTime;
       const readingOrigin = Model.rollingReadingOrigin(positionAt(time));
       const measurement = {
@@ -118,6 +123,10 @@
       announce(`已記錄起點 ${Model.format3(measurement.x1)} m，開始計時。`);
       if (!saveDraft()) return;
       render();
+      return;
+    }
+    if (!running) {
+      announce("請先繼續觀察，再停止計時。");
       return;
     }
     if (!Model.minimumDurationReached(activeDuration(), minimumDuration())) return;
@@ -400,7 +409,7 @@
     const duration = activeDuration();
     const minimum = minimumDuration();
     const eligible = Model.minimumDurationReached(duration, minimum);
-    const control = Persistence.measurementControlState({ timerRunning, duration, minimum, captured, answered });
+    const control = Persistence.measurementControlState({ timerRunning, duration, minimum, captured, answered, running, observationStarted: state.scene.observationStarted === 1 });
     if (measurement && !timerRunning) setQuantityValue(elements.dtReadout, activeDuration(), "s");
     else {
       elements.dtReadout.textContent = measurement ? `${Model.format3(activeDuration())} s` : "--";
@@ -410,9 +419,11 @@
     elements.timerButton.classList.toggle("is-running", timerRunning);
     elements.timerButton.disabled = control.disabled;
     const remaining = eligible ? 0 : Math.max(0, minimum - duration);
-    elements.progressMessage.textContent = timerRunning && remaining > 0
+    elements.progressMessage.textContent = timerRunning && !running
+      ? "觀察及計時已暫停；請先按繼續觀察，之後才可停止計時。"
+      : timerRunning && remaining > 0
       ? state.phase === "variable" ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
-      : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
+      : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : state.scene.observationStarted !== 1 ? "請先按開始觀察，再開始計時。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
   }
   function renderInstant() {
     elements.stageKicker.textContent = "第 3 關";
@@ -526,45 +537,61 @@
       if (major) { context.fillStyle = "#f9fafb"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, h - 10); }
     }
     context.strokeStyle = "#f9fafb"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, h - 31); context.lineTo(w, h - 31); context.stroke();
-    drawLandmarks(worldPosition, pixelsPerMetre, horizon, roadTop);
-    drawCar(w / 2, roadTop - 8, Math.min(1.15, w / 520));
+    drawLandmarks(worldPosition, pixelsPerMetre, horizon);
+    drawCar(w / 2, roadTop - 8, Visuals.carScale(pixelsPerMetre), Visuals.wheelAngle(worldPosition));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, roadTop - 90); context.lineTo(w / 2, h - 30); context.stroke();
     context.fillStyle = "#92400e"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, roadTop - 98);
   }
-  function drawLandmarks(position, scale, horizon, roadTop) {
-    const spacing = 18;
-    for (let index = -2; index < 5; index += 1) {
-      const world = Math.floor(position / spacing) * spacing + index * spacing;
+  function drawLandmarks(position, scale, horizon) {
+    const buildingColours = ["#64748b", "#78716c", "#6b7280"];
+    const treeColours = ["#588157", "#4d7c5b", "#557c55"];
+    for (const cellId of Visuals.visibleLandmarkCells(position, scale, view.width)) {
+      const appearance = Visuals.landmarkAppearance(cellId);
+      const world = cellId * Visuals.LANDMARK_SPACING_METRES;
       const x = view.width / 2 + (world - position) * scale;
-      context.fillStyle = index % 2 ? "#64748b" : "#588157";
-      if (index % 2) { context.fillRect(x - 13, horizon - 32, 26, 32); context.fillStyle = "#f8fafc"; context.fillRect(x - 7, horizon - 24, 5, 7); context.fillRect(x + 3, horizon - 24, 5, 7); }
-      else { context.fillRect(x - 3, horizon - 18, 6, 22); context.beginPath(); context.arc(x, horizon - 31, 17, 0, Math.PI * 2); context.fill(); }
+      if (appearance.type === "building") {
+        context.fillStyle = buildingColours[appearance.palette];
+        context.fillRect(x - appearance.width / 2, horizon - appearance.height, appearance.width, appearance.height);
+        context.fillStyle = "#f8fafc";
+        for (let row = 0; row < appearance.windowRows; row += 1) {
+          const windowY = horizon - appearance.height + 8 + row * 11;
+          context.fillRect(x - 8, windowY, 5, 6); context.fillRect(x + 3, windowY, 5, 6);
+        }
+      } else {
+        context.fillStyle = "#795548"; context.fillRect(x - 3, horizon - appearance.trunkHeight, 6, appearance.trunkHeight);
+        context.fillStyle = treeColours[appearance.palette]; context.beginPath(); context.arc(x, horizon - appearance.trunkHeight - appearance.crownRadius * .65, appearance.crownRadius, 0, Math.PI * 2); context.fill();
+      }
     }
   }
-  function drawCar(x, ground, scale) {
+  function drawCar(x, ground, scale, wheelAngle = 0) {
     context.save(); context.translate(x, ground); context.scale(scale, scale);
-    context.fillStyle = "rgba(15,23,42,.2)"; context.beginPath(); context.ellipse(2, 1, 78, 8, 0, 0, Math.PI * 2); context.fill();
+    context.fillStyle = "rgba(15,23,42,.2)"; context.beginPath(); context.ellipse(3, 1, 72, 8, 0, 0, Math.PI * 2); context.fill();
     context.fillStyle = "#e4554f"; context.strokeStyle = "#8f2d32"; context.lineWidth = 3;
     context.beginPath();
-    context.moveTo(-72, -18); context.lineTo(-71, -40); context.quadraticCurveTo(-68, -49, -56, -50);
-    context.lineTo(-31, -52); context.lineTo(-18, -69); context.quadraticCurveTo(-14, -74, -6, -74);
-    context.lineTo(22, -74); context.quadraticCurveTo(29, -73, 34, -67); context.lineTo(47, -52);
-    context.lineTo(66, -47); context.quadraticCurveTo(76, -44, 79, -34); context.lineTo(82, -23);
-    context.quadraticCurveTo(82, -17, 74, -16); context.lineTo(-64, -16); context.quadraticCurveTo(-72, -16, -72, -18);
+    context.moveTo(-64, -18); context.lineTo(-63, -37); context.quadraticCurveTo(-61, -46, -52, -48);
+    context.lineTo(-28, -51); context.lineTo(-16, -68); context.quadraticCurveTo(-12, -73, -5, -73);
+    context.lineTo(20, -73); context.quadraticCurveTo(27, -72, 32, -66); context.lineTo(44, -50);
+    context.lineTo(59, -47); context.quadraticCurveTo(70, -44, 75, -34); context.lineTo(79, -24);
+    context.quadraticCurveTo(80, -18, 72, -16); context.lineTo(-57, -16); context.quadraticCurveTo(-64, -16, -64, -18);
     context.closePath(); context.fill(); context.stroke();
 
     context.fillStyle = "#bfdbfe"; context.strokeStyle = "#64748b"; context.lineWidth = 2;
-    context.beginPath(); context.moveTo(-14, -68); context.lineTo(-26, -52); context.lineTo(5, -52); context.lineTo(5, -68); context.closePath(); context.fill(); context.stroke();
-    context.beginPath(); context.moveTo(11, -68); context.lineTo(22, -68); context.lineTo(40, -52); context.lineTo(11, -52); context.closePath(); context.fill(); context.stroke();
-    context.strokeStyle = "#8f2d32"; context.beginPath(); context.moveTo(8, -51); context.lineTo(8, -18); context.stroke();
-    context.beginPath(); context.moveTo(47, -49); context.quadraticCurveTo(60, -47, 71, -42); context.stroke();
-    context.fillStyle = "#fef3c7"; context.strokeStyle = "#92400e"; context.beginPath(); context.moveTo(69, -41); context.lineTo(78, -37); context.lineTo(79, -29); context.lineTo(68, -31); context.closePath(); context.fill(); context.stroke();
-    context.fillStyle = "#7f1d1d"; context.fillRect(-73, -39, 7, 12);
-    context.fillStyle = "#374151"; context.fillRect(76, -23, 10, 7); context.fillRect(-75, -21, 10, 5);
-    context.strokeStyle = "#d1d5db"; context.lineWidth = 1.5; [-1, 1].forEach((offset) => { context.beginPath(); context.moveTo(77, -27 + offset * 3); context.lineTo(82, -27 + offset * 3); context.stroke(); });
-    context.fillStyle = "#1f2937"; [-42, 46].forEach((wheel) => {
+    context.beginPath(); context.moveTo(-12, -67); context.lineTo(-23, -52); context.lineTo(3, -52); context.lineTo(3, -67); context.closePath(); context.fill(); context.stroke();
+    context.beginPath(); context.moveTo(10, -67); context.lineTo(20, -67); context.lineTo(37, -51); context.lineTo(10, -51); context.closePath(); context.fill(); context.stroke();
+    context.strokeStyle = "#8f2d32"; context.beginPath(); context.moveTo(7, -50); context.lineTo(7, -18); context.stroke();
+    context.beginPath(); context.moveTo(44, -49); context.quadraticCurveTo(58, -47, 68, -41); context.stroke();
+    context.fillStyle = "#fef3c7"; context.strokeStyle = "#92400e"; context.beginPath(); context.moveTo(66, -41); context.lineTo(75, -36); context.lineTo(77, -29); context.lineTo(66, -31); context.closePath(); context.fill(); context.stroke();
+    context.fillStyle = "#7f1d1d"; context.fillRect(-64, -37, 6, 11);
+    context.fillStyle = "#374151"; context.fillRect(73, -23, 10, 7); context.fillRect(-67, -21, 8, 5);
+    context.strokeStyle = "#d1d5db"; context.lineWidth = 1.5; [-1, 1].forEach((offset) => { context.beginPath(); context.moveTo(73, -27 + offset * 3); context.lineTo(79, -27 + offset * 3); context.stroke(); });
+    [-38, 43].forEach((wheel) => {
+      context.fillStyle = "#1f2937";
       context.beginPath(); context.arc(wheel, -14, 15, 0, Math.PI * 2); context.fill();
-      context.fillStyle = "#d1d5db"; context.beginPath(); context.arc(wheel, -14, 6, 0, Math.PI * 2); context.fill(); context.fillStyle = "#1f2937";
+      context.save(); context.translate(wheel, -14); context.rotate(wheelAngle);
+      context.strokeStyle = "#e5e7eb"; context.lineWidth = 2.2;
+      context.beginPath(); context.moveTo(-9, 0); context.lineTo(9, 0); context.moveTo(0, -9); context.lineTo(0, 9); context.stroke();
+      context.restore();
+      context.fillStyle = "#d1d5db"; context.beginPath(); context.arc(wheel, -14, 5, 0, Math.PI * 2); context.fill();
     });
     context.restore();
   }
@@ -628,7 +655,7 @@
       context.strokeStyle = metre % 5 === 0 ? "#111827" : "#6b7280";
       context.beginPath(); context.moveTo(x, ruler); context.lineTo(x, ruler - (metre % 5 === 0 ? 9 : 5)); context.stroke();
     }
-    drawCar(view.width / 2, y + sky + 5, compact ? .2 : .28);
+    drawCar(view.width / 2, y + sky + 5, Visuals.carScale(scale), Visuals.wheelAngle(position));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - sky + 4); context.lineTo(view.width / 2, ruler + 2); context.stroke();
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }

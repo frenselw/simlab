@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
 const scoring = fs.readFileSync(path.join(__dirname, "scoring.js"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
-const runtimeSources = [["styles.css", styles], ...["motion-model.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")])];
+const runtimeSources = [["styles.css", styles], ...["motion-model.js", "scene-visuals.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")])];
 
 assert.strictEqual((html.match(/aria-live=/g) || []).length, 1, "only the dedicated live region announces updates");
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
@@ -31,6 +31,13 @@ assert.doesNotMatch(animateBody, /captureEndpoint|stopwatch\(/, "animation never
 const progressBody = main.match(/function renderMeasurementProgress\(\)[^]*?\n  }/)?.[0] || "";
 assert.match(progressBody, /eligible = Model\.minimumDurationReached\(duration, minimum\)[\s\S]*remaining = eligible \? 0/, "progress copy uses the same minimum-duration tolerance as the stop control");
 assert.match(progressBody, /remaining > 0[\s\S]*已達最低量度時間/, "zero normalized remainder selects the reached-minimum message");
+assert.match(progressBody, /running, observationStarted: state\.scene\.observationStarted === 1/, "stopwatch control receives the live observation state");
+const stopwatchBody = main.match(/function stopwatch\(\)[^]*?\n  }/)?.[0] || "";
+assert.match(stopwatchBody, /observationStarted !== 1 \|\| !running[\s\S]*請先按開始觀察/, "stopwatch defensively requires a running observation before start");
+assert.match(stopwatchBody, /if \(!running\)[\s\S]*請先繼續觀察/, "a paused active stopwatch cannot capture an endpoint");
+assert.match(main, /Visuals\.wheelAngle\(worldPosition\)/, "road car wheel angle derives from authoritative world position");
+assert.match(main, /Visuals\.carScale\(pixelsPerMetre\)/, "rendered wheel radius uses the same world-to-screen scale as background travel");
+assert.match(main, /Visuals\.visibleLandmarkCells[\s\S]*Visuals\.landmarkAppearance\(cellId\)/, "landmarks use stable world-cell identities");
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");
 assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");

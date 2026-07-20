@@ -106,11 +106,11 @@ frameBoundaryActive.scene.observationStarted = 1;
 frameBoundaryActive.variableMeasurement.currentOrEndModelTime = frameBoundaryTime;
 frameBoundaryActive.variableMeasurement.dt = Model.canonicalNumber(frameBoundaryTime);
 assert(Persistence.validateDraft(frameBoundaryActive));
-assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryTime, minimum: frameBoundaryMinimum, captured: false, answered: false }).canStop, "185-frame normal state is eligible despite raw floating remainder");
+assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryTime, minimum: frameBoundaryMinimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, "185-frame normal state is eligible despite raw floating remainder");
 const frameBoundaryPaused = Persistence.decode(Persistence.encode({ ...frameBoundaryActive, running: false, timerRunning: true }));
 assert(frameBoundaryPaused, "185-frame paused measurement restores");
 assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(frameBoundaryPaused), { running: false, timerRunning: true });
-assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryPaused.scene.simulationTime - frameBoundaryPaused.variableMeasurement.startModelTime, minimum: frameBoundaryMinimum, captured: false, answered: false }).canStop, "restored paused state keeps the reached-minimum UI state");
+assert(!Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryPaused.scene.simulationTime - frameBoundaryPaused.variableMeasurement.startModelTime, minimum: frameBoundaryMinimum, captured: false, answered: false, running: false, observationStarted: true }).canStop, "restored paused state must resume observation before stopping");
 
 const reviewAnswer = Persistence.makeReview(review);
 assert(Persistence.validateReview(reviewAnswer));
@@ -158,6 +158,9 @@ invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME; value.sc
 invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME - 0.01; value.scene.observationStarted = 1; }, ready);
 invalid((value) => { value.scene.observationStarted = 2; }, ready);
 invalid((value) => { value.scene.observationStarted = 0; value.scene.simulationTime = 1; }, ready);
+for (const source of [uniformActive, variableActive, uniformEditActive, variableEditActive]) {
+  invalid((value) => { value.scene.observationStarted = 0; }, source);
+}
 invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
 invalid((value) => {
   value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime;
@@ -202,10 +205,10 @@ for (const [type, source, minimum] of [["uniform", ready, 1.5], ["variable", var
     duration = next - boundaryActive[field].startModelTime;
     assert(Persistence.validateDraft(boundaryActive), `${type} production frame remains restorable before eligibility`);
   }
-  assert(Persistence.measurementControlState({ timerRunning: true, duration, minimum, captured: false, answered: false }).canStop, `${type} repeated frames reach stop eligibility`);
+  assert(Persistence.measurementControlState({ timerRunning: true, duration, minimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, `${type} repeated frames reach stop eligibility`);
   const operationFrame = Model.advanceSimulationTime(boundaryActive.scene.simulationTime, [{ dt: Model.MAX_FRAME_DELTA, running: true }]);
   assert(operationFrame > boundaryActive.scene.simulationTime && Model.safeModelTime(operationFrame), `${type} retains one safe operation frame after eligibility`);
-  assert(Persistence.measurementControlState({ timerRunning: true, duration: operationFrame - boundaryActive[field].startModelTime, minimum, captured: false, answered: false }).canStop, `${type} observation does not auto-stop`);
+  assert(Persistence.measurementControlState({ timerRunning: true, duration: operationFrame - boundaryActive[field].startModelTime, minimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, `${type} observation does not auto-stop`);
   const position = type === "uniform" ? uniformPosition : variablePosition;
   boundaryActive.scene.simulationTime = operationFrame;
   boundaryActive[field] = { ...Model.captureMeasurement(position, boundaryActive[field].startModelTime, operationFrame, boundaryActive[field].readingOrigin), currentOrEndModelTime: operationFrame };
@@ -270,8 +273,11 @@ assert.strictEqual(Persistence.retryAction({ activityState: "committed" }), "fin
 assert.strictEqual(Persistence.retryAction({ activityState: "frozen" }), "pending");
 assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: true }), "resubmit");
 assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: false }), "none");
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.49, minimum: 1.5, captured: false, answered: false }), { label: "停止計時", disabled: true, canStop: false });
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false }), { label: "停止計時", disabled: false, canStop: true });
-assert.strictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 2, minimum: 1.5, captured: true, answered: false }).disabled, true);
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.49, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "停止計時", disabled: true, canStop: false });
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "停止計時", disabled: false, canStop: true });
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 0, minimum: 1.5, captured: false, answered: false, running: false, observationStarted: false }), { label: "開始計時", disabled: true, canStop: false });
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 0, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "開始計時", disabled: false, canStop: false });
+assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false, running: false, observationStarted: true }), { label: "停止計時", disabled: true, canStop: false });
+assert.strictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 2, minimum: 1.5, captured: true, answered: false, running: true, observationStarted: true }).disabled, true);
 
 console.log("Linear motion persistence tests passed");

@@ -554,7 +554,7 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
 ### Stage 2: variable motion
 
 1. Start and observe a new randomized, visibly variable cycle.
-2. Press the stopwatch at any phase.
+2. While observation is running, press the stopwatch at any phase.
 3. Continue until the interval has covered at least one complete cycle containing
    slow motion, fast motion, and the stopped plateau.
 4. Stop the stopwatch and answer the same three numeric quantities.
@@ -618,7 +618,11 @@ Rules:
   learner-started physics motion remains available with pause and replay.
 - No autoplay. Each stage begins paused and motion starts after learner action.
 - If the learner pauses during a running measurement, both the motion model and
-  stopwatch freeze; resuming continues the same simulated interval.
+  stopwatch freeze; the stop control stays disabled until observation resumes,
+  then the same simulated interval continues.
+- The stopwatch cannot start before `開始觀察`, and it can start or stop only
+  while observation is running. UI disabled state and event guards enforce the
+  same rule.
 - Technical load or pending-submit errors disable unsafe controls and must not be
   described as a confirmed score, pass, fail, or submission.
 
@@ -699,23 +703,23 @@ action after restore.
 
 | Phase | Variant/invariant | Current stage | Required semantic state | Must be absent/pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `uniform` | `ready` | 0 | valid attempt definition; uniform scene time | uniform measurement and all answers | start observation or timing |
-| `uniform` | `paused-measuring` | 0 | canonical `x1`; elapsed time; current scene time | `x2`; uniform answers | resume, stop when eligible, or discard measurement |
+| `uniform` | `ready` | 0 | valid attempt definition; uniform scene time | uniform measurement and all answers | start observation; timing becomes available only while running |
+| `uniform` | `paused-measuring` | 0 | canonical `x1`; elapsed time; current scene time | `x2`; uniform answers | resume observation, then stop when eligible; or discard measurement |
 | `uniform` | `captured` | 0 | canonical `x1`, `x2`, `dt`; derived expected values | confirmed uniform answers | enter answers or remeasure |
 | `uniform` | `answered` | 0 | valid captured measurement; three numeric answers; relationship answer | variable measurement and future answers | advance or edit uniform stage |
-| `variable` | `ready` | 1 | uniform stage answered; valid variable profile; scene phase/time | variable measurement and stage-two/three answers | start observation or timing |
-| `variable` | `paused-measuring` | 1 | prior answer; canonical `x1`; elapsed time; cycle coverage; scene time | `x2`; variable answers; stage-three answers | resume, stop when eligible, or discard measurement |
+| `variable` | `ready` | 1 | uniform stage answered; valid variable profile; scene phase/time | variable measurement and stage-two/three answers | start observation; timing becomes available only while running |
+| `variable` | `paused-measuring` | 1 | prior answer; canonical `x1`; elapsed time; cycle coverage; scene time | `x2`; variable answers; stage-three answers | resume observation, then stop when eligible; or discard measurement |
 | `variable` | `captured` | 1 | prior answer; valid full-cycle measurement and canonical readings | confirmed variable answers; stage-three answers | enter answers or remeasure |
 | `variable` | `answered` | 1 | stages one and two measurements and answers | stage-three answers | advance or edit either completed stage |
 | `instant` | `exploring` | 2 | prior stages answered; valid target; completed-window prefix `0..4` | prediction until all windows viewed; stopped answer until enabled | view next window; answer when enabled; edit earlier stages |
 | `instant` | `answered` | 2 | all four windows viewed; prediction; concept answer; stopped answer | final result metadata | open review or edit any stage |
 | `review` | `complete` | 3 | all authoritative attempt data and answers complete | score/result metadata before submit | edit or final submit |
-| `uniform` | `review-edit-ready` | 0 | complete downstream stages; `returnToReview = true`; same uniform definition | current uniform measurement and answers | start timing |
-| `uniform` | `review-edit-paused-measuring` | 0 | complete downstream stages; `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and current-stage answers | resume, stop when eligible, or discard measurement |
+| `uniform` | `review-edit-ready` | 0 | complete downstream stages; `returnToReview = true`; same uniform definition | current uniform measurement and answers | start observation; timing becomes available only while running |
+| `uniform` | `review-edit-paused-measuring` | 0 | complete downstream stages; `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and current-stage answers | resume observation, then stop when eligible; or discard measurement |
 | `uniform` | `review-edit-captured` | 0 | complete downstream stages; `returnToReview = true`; valid uniform measurement | current uniform answers | enter answers or remeasure |
 | `uniform` | `review-edit-answered` | 0 | every stage complete; `returnToReview = true`; revised uniform answers | result metadata | revise answers, remeasure, or return to review |
-| `variable` | `review-edit-ready` | 1 | complete uniform and instant stages; `returnToReview = true`; same variable definition and target | current variable measurement and answers | start timing |
-| `variable` | `review-edit-paused-measuring` | 1 | complete uniform and instant stages; `returnToReview = true`; variable `x1`, elapsed/model time | variable `x2` and current-stage answers | resume, stop when eligible, or discard measurement |
+| `variable` | `review-edit-ready` | 1 | complete uniform and instant stages; `returnToReview = true`; same variable definition and target | current variable measurement and answers | start observation; timing becomes available only while running |
+| `variable` | `review-edit-paused-measuring` | 1 | complete uniform and instant stages; `returnToReview = true`; variable `x1`, elapsed/model time | variable `x2` and current-stage answers | resume observation, then stop when eligible; or discard measurement |
 | `variable` | `review-edit-captured` | 1 | complete uniform and instant stages; `returnToReview = true`; valid variable measurement | current variable answers | enter answers or remeasure |
 | `variable` | `review-edit-answered` | 1 | every stage complete; `returnToReview = true`; revised variable answers | result metadata | revise answers, remeasure, or return to review |
 | `instant` | `review-edit-answered` | 2 | every stage complete; all windows viewed; `returnToReview = true` | result metadata | revise stage-three answers or return to review |
@@ -1125,6 +1129,14 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Observation and measurement have no time cap or automatic pause/capture;
   remeasure returns to the same random start.
 - Stopwatch start captures `x1`; stopwatch stop captures `x2` and `dt`.
+- Stopwatch start is disabled until observation has started and is running;
+  pausing an active stopwatch disables endpoint capture until observation resumes.
+- Wheel spokes rotate from world distance, freeze on manual pause and physical
+  zero velocity, and restore deterministically from the saved world position.
+- Car proportions show a short rear overhang and a distinct right-facing bonnet,
+  headlamp, grille, and bumper while its centre stays aligned with the pointer.
+- Trees and buildings derive type and geometry from stable world-cell IDs, keep
+  their identity across recycle boundaries, and enter or leave outside the viewport.
 - Both measured stages require learner answers for displacement, elapsed time,
   and average velocity.
 - Pressing stopwatch stop does not stop the physical car.

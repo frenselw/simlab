@@ -24,6 +24,7 @@
       <file href="linear-motion-velocity-lab/styles.css"/>
       <file href="linear-motion-velocity-lab/main.js"/>
       <file href="linear-motion-velocity-lab/motion-model.js"/>
+      <file href="linear-motion-velocity-lab/scene-visuals.js"/>
       <file href="linear-motion-velocity-lab/scoring.js"/>
       <file href="linear-motion-velocity-lab/persistence.js"/>
       <file href="shared/styles.css"/>
