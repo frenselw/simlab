@@ -1,5 +1,35 @@
 # 位置—時間圖運動實驗室計劃
 
+## 0. 文件狀態與現行規格關係
+
+- 文件角色：第一代活動的基礎產品、教學、互動、評分及 SCORM 設計。
+- 實作狀態：核心活動已完成，並經多輪 mobile UI、互動、持久化、提交安全及 browser regression 修訂。
+- 現行題目版本：新 blank attempt 使用 generator version 2 及 persistence schema version 2。
+- 後續規格：`plans/11-position-time-generated-question-randomization.md` 是本文件的第二代題目生成、
+  數值 lattice、v2 persistence 及新 attempt 防重補充規格。
+- 相容範圍：本文件定義的 version 1 `alpha`／`beta`／`gamma` 固定題庫仍保留，只用於恢復及
+  檢討舊 draft／review；新 attempt 不再由三套固定題目中抽取。
+- 驗收狀態：production、unit、persistence、SCORM package 及 extracted-package Chrome gates 已完成；
+  真實 Moodle student 多 attempt 及 Windows 實機證據仍待完成。
+- 對照日期：2026-07-20。
+
+本文件正文保留第一代設計及其決策背景，不倒修改成好像一開始已採用第二代生成器。當本文件
+與 Plan 11 在下列範圍有衝突時，以 Plan 11 為現行規格；沒有被取代的學習目標、五題任務語意、
+評分、容差、phase 流程、回饋及 SCORM lifecycle 繼續以本文件為準。
+
+| 本文件章節 | 現行狀態 |
+|---|---|
+| §1–§8.5 | 保持有效；後續 UI 修訂記錄於 §24 |
+| §8.6 的 `scenarioSetId` 選取 | 只適用於 v1；v2 改為建立 128-bit seed 及完整 generated paper |
+| §9.1 | 固定三套題目只作 v1 compatibility；新 attempt 由 Plan 11 有限候選池生成 |
+| §9.2、§9.3、§9.5、§9.6 的固定數值 contract | 任務語意及評分保持；generated values 由 Plan 11 lattice 取代 |
+| §9.4 任務 3 | 核心數值及評分保持；v2 另加入 category-first selection |
+| §10.3 | v1 library validation 保留；v2 另用 generated mission／paper validators |
+| §12 | learner-facing phase 不變；v2 semantic state 以 generator metadata、seed 及 paper 取代 `lv + sid` |
+| §16 | 原檔案表是 v1 baseline；現行 runtime 另有 `generator.js` 及 `ui-runtime.js` |
+| §17 | 原 compact schema 是 v1 contract；現行 v2 schema 由 Plan 11 §18 定義 |
+| §20–§22 | 原 gates 保持；另加入 generator property sweep、v1/v2 compatibility 及 packaged browser gates |
+
 ## 1. 目的與定位
 
 建立一個 SCORM 1.2 活動 `position-time-graph-motion-lab`，讓學生透過直接操作、
@@ -1108,3 +1138,96 @@ score(original) = score(restore(decode(encode(original))))
 - 學習分析或多 attempt 歷史。
 
 這些功能不在目前 activity 內預留抽象 interface 或設定欄位。
+
+## 24. 現行實作對照（as-built reconciliation）
+
+本節記錄活動完成後已接受的設計演變、仍然有效的原始 contract，以及尚未完成或尚待產品決定
+的項目。它不是另一份完整規格；詳細 generated-paper 規則仍只在 Plan 11 維護。
+
+### 24.1 已由 Plan 11 正式取代的設計
+
+1. **題目分配**：每個新 assessment 使用 Web Crypto 建立 128-bit seed，再以固定、可重現的
+   generator version 2 產生五題，不再只抽 `alpha`／`beta`／`gamma`。
+2. **數值範圍**：任務 1、2、4、5 可使用 UI 可達的 `0.5 m/s` 速度 lattice；任務 3 繼續使用
+   整數速度，保持探針讀數清楚。
+3. **任務 4 分布**：先等機率選 stationary／positive／negative category，再在該類候選池抽題。
+4. **任務 5 可解性**：每個 generated scenario 至少有三個 UI 可建立、非重合、全段在 bounds
+   的 B 車解；不保存或比較單一 `exampleB`。
+5. **Paper-level 約束**：完整五題另驗證 motion 多樣性、正負速度覆蓋、UI lattice 可達性及
+   graph bounds。
+6. **Persistence**：v2 draft、pending-final 及 review 保存 generator version、seed、完整權威
+   paper 及學生答案；seed 與 paper 必須 deterministic match，否則 fail closed。
+7. **舊資料相容**：v1 fixed-set draft／review 不自動轉成 v2，繼續用原題恢復及檢討。
+
+### 24.2 已接受的 UI／互動修訂
+
+- 手機版經多輪調整，採舞台置頂、操作面板獨立捲動、較緊湊 graph height 及任務切換後捲回
+  面板頂部；物理座標及評分不因 viewport 改變。
+- `重播`／`重設` 等容易誤解的名稱改為準確的 `回到 0 s`。
+- 任務 2 以隨車位置投影、軸上讀數及 `P₀`／`P₆` 語意協助讀圖，但提交前仍不顯示正確線。
+- 任務 3 不再要求先選 A 再切換 B；A、B 兩組探針控制同時顯示，答案 shape、有效量度要求及
+  7／7／6 配分不變。
+- 未作答任務可在圖上顯示帶 `?` 的中性位置預覽，方便學生理解可操作物件；權威答案仍保持
+  empty，不會把預覽值保存或計分。
+- 目標線與學生線使用不同顏色、虛實線、題目文字及非視覺圖表摘要辨識，不另設固定 legend。
+- 提交前檢視只負責顯示五題完整狀態、進入修改及最後提交；播放、逐步、回到 `0 s` 及時間
+  slider 在此 phase 全部 disabled。進入指定題修改後會恢復；正式提交後的只讀逐題檢討仍可播放
+  及 scrub。
+- 技術 save／load／pending-final 錯誤會鎖定不安全動作，並明確區分未儲存、未確認提交及已提交。
+
+### 24.3 保持有效的核心 contract
+
+- 自由探索不出題、不計分、沒有完成門檻；學生自行確認後才開始五題評估。
+- 五個任務的學習目標、答案語意及 component 配分保持 §9 及 §13 所定義內容。
+- 總分 100、合格線 60，按最後提交狀態計分；操作次數、用時及播放次數不計分。
+- §14 的位置、圖點、速度、靜止、探針時差、相遇位置及相遇時間容差保持不變。
+- 任務 5 一直接受任何合法 B 車設定；多解不是 generator v2 才新增的評分原則。
+- phase 仍為 explore、mission、final-review 及 submitted-review；生成 seed 不新增 learner-facing phase。
+- 最後提交仍經 shared `SimScorm.submitWithCallbacks()` 及 `SimActivityFlow`，並處理 success、
+  committed、frozen 及 retry。
+- 活動仍屬 browser-scored low-risk graded assessment；不得宣稱防篡改或用於高風險考試。
+
+### 24.4 尚未完全符合原始 UI 細節
+
+以下項目沒有影響答案、評分或恢復安全，但若日後要求逐字符合第一代 interaction spec，仍需
+另行決定是否實作：
+
+- §11.3 要求任務 2 兩個 graph handles 使用不同形狀；目前兩者均為圓形，以位置及 `P₀`／`P₆`
+  標籤分辨。
+- §11.1 要求手指遮擋時在圖區角落提供獨立固定 preview；目前使用 SVG 讀數、即時數據及操作
+  面板同步更新，未另設固定角落 overlay。
+- §11.4 描述每條目標／未知線各有可聚焦讀圖游標；目前以一個全局、鍵盤可操作的時間 slider
+  同步讀出所有可見圖線，而不是每條線各自建立 focus target。
+
+以上三項記錄為已知 as-built 差異，不應在沒有新產品決定及 interaction tests 的情況下被視為
+緊急 defect 或靜默刪除原要求。
+
+### 24.5 現行 runtime 及驗證證據
+
+現行 activity runtime 包括：
+
+```text
+index.html
+styles.css
+main.js
+scoring.js
+generator.js
+persistence.js
+ui-runtime.js
+```
+
+相關 production tests 已登記於 `tools/run-tests.js`，涵蓋 scorer、generator、10,000 fixed-seed
+property sweep、v1/v2 persistence、phase continuation、invalid-state matrix、lifecycle、production DOM
+wiring、pending-final shared path 及 browser helper。SCORM browser regression 會重新建立 ZIP、解壓、
+由 manifest 找出 SCO，再以真實 Chrome 檢查 packaged runtime、responsive geometry、generated paper
+差異及 saved draft reload 穩定性。
+
+本地 gate 不取代以下部署證據：
+
+- 真實 Moodle student account 中途離開再入仍恢復同一 paper 及答案；
+- 已完成 attempt 只讀鎖定；由 Moodle 開始新 attempt 才建立新 seed 及不同 paper；
+- Moodle gradebook、Highest grade、pending-final 及 finish retry 行為；
+- 正式 Windows 環境的對應 quality gates 及 browser checks。
+
+Moodle production 建議仍採 §19 的三次 attempts 及 Highest grade；Plan 11 所稱「至少兩次」是驗證
+新 attempt 會換題所需的最低測試條件，不是把 production recommendation 改成只允許兩次。
