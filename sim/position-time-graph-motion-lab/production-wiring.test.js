@@ -233,6 +233,7 @@ assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobi
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
 assert.match(stylesSource, /\.probe-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)/s, "probe actions share one compact row");
 assert.match(stylesSource, /\.task-section\[data-mode="mission"\]\s*\{[^}]*border-left:\s*5px solid var\(--color-accent\)/s, "assessment task card has a strong accent edge");
+assert.match(source, /function currentSet\(\)\s*\{[^}]*P\.scenariosForDisplay\(state\.assessment\)/, "production display path uses the admitted scenario cache");
 vm.runInNewContext(source, {
   window,
   document,
@@ -355,8 +356,13 @@ assert.equal(document.getElementById("labPanel").scrollTop, 0, "starting the ass
 assert.equal(document.getElementById("taskKicker").textContent, "今題任務 · 1 / 5", "mission card clearly labels the current task number");
 assert.equal(document.getElementById("taskTitle").textContent, "根據目標圖設定運動", "mission title is concise and separate from its progress label");
 assert.equal(document.getElementById("answerState").textContent, "未作答", "mission 1 remains unanswered before either quantity is changed");
+const originalMatchesSeed = Generator.matchesSeed;
+let hotPathValidationCalls = 0;
+Generator.matchesSeed = (...args) => { hotPathValidationCalls += 1; return originalMatchesSeed(...args); };
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
+Generator.matchesSeed = originalMatchesSeed;
+assert.equal(hotPathValidationCalls, 0, "mission rerender reuses admitted scenarios without regenerating the canonical paper");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 1 draws the default student line during playback before either quantity is changed");
 assert.equal(document.getElementById("answerState").textContent, "未作答", "default student-line preview does not mark mission 1 as answered");
 document.getElementById("timeSlider").value = "0";

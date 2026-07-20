@@ -62,7 +62,7 @@
     if (!motion || !Number.isFinite(motion.x0) || !Number.isFinite(motion.v)) return "";
     return `<line class="motion-line ${className}" x1="${graphX(0)}" y1="${graphY(S.positionAt(motion, 0))}" x2="${graphX(endTime)}" y2="${graphY(S.positionAt(motion, endTime))}"></line>`;
   }
-  function currentSet() { return state.assessment ? P.scenariosForAssessment(state.assessment) : null; }
+  function currentSet() { return state.assessment ? P.scenariosForDisplay(state.assessment) : null; }
   function missionKey() { return `m${state.currentStep + 1}`; }
   function currentAnswer() { return state.assessment?.ans[missionKey()]; }
   function editable() { return !ui.locked && !ui.technical && (state.phase === "explore" || state.phase === "mission"); }

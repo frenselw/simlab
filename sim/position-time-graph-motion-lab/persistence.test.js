@@ -98,6 +98,41 @@ assert.ok(roundTrip(legalWrong), "equal-time probes are legal incorrect student 
 
 const generatedSeed = "0123456789abcdeffedcba9876543210";
 const generatedPaper = G.generatePaper(generatedSeed);
+const originalMatchesSeed = G.matchesSeed;
+let displayValidationCalls = 0;
+G.matchesSeed = (...args) => { displayValidationCalls += 1; return originalMatchesSeed(...args); };
+const cachedDisplay = P.createExplore();
+assert.equal(P.startGeneratedAssessment(cachedDisplay, generatedSeed, generatedPaper), true);
+displayValidationCalls = 0;
+const displayScenarios = P.scenariosForDisplay(cachedDisplay.assessment);
+for (let render = 0; render < 20; render += 1) assert.equal(P.scenariosForDisplay(cachedDisplay.assessment), displayScenarios);
+G.matchesSeed = originalMatchesSeed;
+assert.equal(displayValidationCalls, 1, "repeated display reads validate a generated assessment only once");
+assert.ok(Object.isFrozen(displayScenarios) && Object.isFrozen(displayScenarios.m3.A), "display scenarios are deeply frozen");
+const replacementSeed = "fedcba98765432100123456789abcdef";
+const replacementPaper = G.generatePaper(replacementSeed);
+cachedDisplay.assessment.seed = replacementSeed;
+cachedDisplay.assessment.paper = replacementPaper;
+const replacementScenarios = P.scenariosForDisplay(cachedDisplay.assessment);
+assert.notEqual(replacementScenarios, displayScenarios, "valid generated identity replacement invalidates the old display cache");
+assert.deepEqual(replacementScenarios, replacementPaper.missions, "display re-admits the replacement canonical generated paper");
+assert.equal(P.scenariosForAssessment(cachedDisplay.assessment), replacementPaper.missions, "authoritative resolver agrees with the re-admitted generated display");
+assert.ok(P.encodeDraft(cachedDisplay), "persistence accepts the same replacement generated identity shown to the learner");
+const cachedX0 = replacementScenarios.m1.x0;
+cachedDisplay.assessment.paper.missions.m1.x0 += 0.25;
+assert.equal(replacementScenarios.m1.x0, cachedX0, "display cache is isolated from later in-place paper mutation");
+assert.equal(P.scenariosForDisplay(cachedDisplay.assessment), replacementScenarios, "display keeps the admitted immutable snapshot after paper mutation");
+assert.equal(P.scenariosForAssessment(cachedDisplay.assessment), null, "authoritative resolver still rejects paper mutation after display admission");
+assert.equal(P.encodeDraft(cachedDisplay), null, "persistence boundary still rejects paper mutation after display admission");
+
+const cachedLegacy = P.createExplore();
+assert.equal(P.startAssessment(cachedLegacy, "alpha"), true);
+assert.equal(P.scenariosForDisplay(cachedLegacy.assessment), S.SCENARIO_SETS.alpha);
+cachedLegacy.assessment.sid = "beta";
+assert.equal(P.scenariosForDisplay(cachedLegacy.assessment), S.SCENARIO_SETS.beta, "legacy scenario ID replacement invalidates and refreshes the display cache");
+assert.equal(P.scenariosForAssessment(cachedLegacy.assessment), S.SCENARIO_SETS.beta, "legacy authoritative resolver agrees with the refreshed display");
+assert.ok(P.encodeDraft(cachedLegacy), "legacy persistence accepts the same replacement scenario shown to the learner");
+
 const adversarial = P.createExplore();
 assert.equal(P.startGeneratedAssessment(adversarial, generatedSeed, generatedPaper), true);
 const alternateM1 = G.candidatePools().m1.find((candidate) => {

@@ -10,6 +10,7 @@
   const SCHEMA_VERSION = 2;
   const LEGACY_SCHEMA_VERSION = 1;
   const KEYS = ["m1", "m2", "m3", "m4", "m5"];
+  const displayScenarioCache = new WeakMap();
 
   function createExplore(x0 = 0, v = 1) {
     return { phase: "explore", variant: "free", currentStep: null, editingStep: null, exploration: { x0, v }, assessment: null };
@@ -35,6 +36,23 @@
     if (validGeneratedAssessment(assessment)) return assessment.paper.missions;
     if (validLegacyAssessment(assessment)) return Scoring.getScenarioSet(assessment.lv, assessment.sid);
     return null;
+  }
+  function scenariosForDisplay(assessment) {
+    if (!plain(assessment)) return null;
+    const cached = displayScenarioCache.get(assessment);
+    if (cached && sameDisplayIdentity(cached, assessment)) return cached.scenarios;
+    if (cached) displayScenarioCache.delete(assessment);
+    const scenarios = scenariosForAssessment(assessment);
+    if (!scenarios) return null;
+    const snapshot = assessment.paper ? deepFreeze(clean(scenarios)) : scenarios;
+    displayScenarioCache.set(assessment, assessment.paper
+      ? { kind: "generated", gv: assessment.gv, seed: assessment.seed, paper: assessment.paper, scenarios: snapshot }
+      : { kind: "legacy", lv: assessment.lv, sid: assessment.sid, scenarios: snapshot });
+    return snapshot;
+  }
+  function sameDisplayIdentity(cached, assessment) {
+    if (cached.kind === "generated") return assessment.gv === cached.gv && assessment.seed === cached.seed && assessment.paper === cached.paper;
+    return cached.kind === "legacy" && assessment.lv === cached.lv && assessment.sid === cached.sid;
   }
   function nextMission(state) {
     if (state.phase !== "mission" || state.variant !== "normal" || !validAssessment(state.assessment)) return false;
@@ -185,6 +203,13 @@
     Object.entries(value).forEach(([key, item]) => { if (item != null) output[key] = clean(item); });
     return output;
   }
+  function deepFreeze(value) {
+    if (value && typeof value === "object" && !Object.isFrozen(value)) {
+      Object.values(value).forEach(deepFreeze);
+      Object.freeze(value);
+    }
+    return value;
+  }
   function plain(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value)); }
   function onlyKeys(value, keys) { return Object.keys(value).every((key) => keys.includes(key)); }
   function exactKeys(value, keys) { return plain(value) && Object.keys(value).sort().join(",") === keys.slice().sort().join(","); }
@@ -202,5 +227,5 @@
     return { key: "retry", editable: Boolean(outcome?.retryable), showScore: false };
   }
 
-  return { SCHEMA_VERSION, LEGACY_SCHEMA_VERSION, createExplore, startAssessment, startGeneratedAssessment, scenariosForAssessment, nextMission, editMission, returnToReview, encodeDraft, decodeDraft, encodeReview, decodeReview, validateDraft, lifecyclePolicy };
+  return { SCHEMA_VERSION, LEGACY_SCHEMA_VERSION, createExplore, startAssessment, startGeneratedAssessment, scenariosForAssessment, scenariosForDisplay, nextMission, editMission, returnToReview, encodeDraft, decodeDraft, encodeReview, decodeReview, validateDraft, lifecyclePolicy };
 });
