@@ -30,6 +30,14 @@ const simulationList = [
     description: "在斜角公路場景中轉換觀察位置，根據物體的相對運動找出合適的慣性參考系。",
     tags: ["physics", "mechanics", "reference-frame", "inertial-frame", "motion", "scorm"],
     status: "active"
+  },
+  {
+    title: "位置—時間圖運動實驗室",
+    folder: "position-time-graph-motion-lab",
+    categories: ["Mechanics"],
+    description: "自由設定車的起點和速度，觀察、繪畫及量度位置—時間圖，再完成操作評估。",
+    tags: ["physics", "mechanics", "kinematics", "position-time-graph", "motion", "scorm"],
+    status: "active"
   }
 ];
 

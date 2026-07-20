@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="position-time-graph-motion-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-POSITION-TIME-GRAPH-MOTION-LAB">
+    <organization identifier="ORG-POSITION-TIME-GRAPH-MOTION-LAB">
+      <title>位置—時間圖運動實驗室</title>
+      <item identifier="ITEM-POSITION-TIME-GRAPH-MOTION-LAB" identifierref="RES-POSITION-TIME-GRAPH-MOTION-LAB">
+        <title>位置—時間圖運動實驗室</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-POSITION-TIME-GRAPH-MOTION-LAB" type="webcontent" adlcp:scormtype="sco" href="position-time-graph-motion-lab/index.html">
+      <file href="config.js"/>
+      <file href="position-time-graph-motion-lab/index.html"/>
+      <file href="position-time-graph-motion-lab/styles.css"/>
+      <file href="position-time-graph-motion-lab/main.js"/>
+      <file href="position-time-graph-motion-lab/scoring.js"/>
+      <file href="position-time-graph-motion-lab/generator.js"/>
+      <file href="position-time-graph-motion-lab/persistence.js"/>
+      <file href="position-time-graph-motion-lab/ui-runtime.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>

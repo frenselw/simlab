@@ -9,6 +9,7 @@ SCORM 1.2 activities for Moodle.
 - `plane-mirror-pencil-ray-diagram` - 平面鏡鉛筆成像光路圖
 - `displacement-distance-map-journey` - 路程、位移與總位移地圖任務
 - `inertial-reference-frame-road-observer` - 慣性參考系公路觀察任務
+- `position-time-graph-motion-lab` - 位置—時間圖運動實驗室
 
 ## Local development
 
@@ -55,6 +56,18 @@ npm run check
 npm test
 npm run package:all
 ```
+
+The position–time lab also has a real-browser interaction gate which loads its
+production HTML, CSS, and JavaScript at desktop and 320 px widths:
+
+```text
+npm run test:browser:position-time
+```
+
+This gate requires a local Google Chrome or Chromium executable. It detects the
+usual macOS, Linux, and Windows install locations. Set `CHROME_PATH` to the full
+browser executable path when using a non-standard installation; a missing
+browser is reported as a failed prerequisite rather than a skipped test.
 
 ## Project notes
 

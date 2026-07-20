@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>位置—時間圖運動實驗室</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="../shared/activity-flow.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="generator.js" defer></script>
+    <script src="persistence.js" defer></script>
+    <script src="ui-runtime.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app lab-app">
+      <header class="sim-header compact-header">
+        <div>
+          <h1>位置—時間圖運動實驗室</h1>
+          <p id="modeDescription">自由設定車的起點和速度，觀察位置—時間圖點樣形成。</p>
+        </div>
+        <span id="phaseBadge" class="phase-badge">自由探索</span>
+      </header>
+
+      <div class="sim-shell lab-shell">
+        <section class="sim-stage lab-stage" aria-label="同步運動及位置—時間圖">
+          <div class="stage-block road-block">
+            <div class="stage-heading">
+              <h2>直線跑道</h2>
+              <span>車中心代表位置；右方為正方向</span>
+            </div>
+            <svg id="roadSvg" class="lab-svg road-svg" viewBox="0 0 800 145" role="img" aria-labelledby="roadTitle roadDesc">
+              <title id="roadTitle">一維直線跑道</title>
+              <desc id="roadDesc">位置由負二十米至正二十米。圖中的車輛運動只供觀察。</desc>
+              <g id="roadLayer"></g>
+            </svg>
+          </div>
+
+          <div class="stage-block graph-block">
+            <div class="stage-heading">
+              <h2><span class="math"><var>x</var>–<var>t</var></span> 圖</h2>
+              <span id="graphSummary">橫軸時間 0 至 6 s；縱軸位置 −20 至 20 m。</span>
+            </div>
+            <svg id="graphSvg" class="lab-svg graph-svg" viewBox="0 0 800 440" role="img" aria-labelledby="graphTitle graphDesc">
+              <title id="graphTitle">位置—時間坐標圖</title>
+              <desc id="graphDesc">橫軸為時間 t，單位秒；縱軸為位置 x，單位米。使用讀圖游標可取得指定時間的坐標。</desc>
+              <g id="graphLayer"></g>
+            </svg>
+          </div>
+        </section>
+
+        <aside id="labPanel" class="sim-panel lab-panel" aria-label="操作面板">
+          <section id="taskSection" class="panel-section task-section" data-mode="guide">
+            <span id="taskKicker" class="task-kicker">活動指引</span>
+            <div class="task-heading">
+              <h2 id="taskTitle" class="section-title">自由探索</h2>
+              <span id="answerState" class="answer-state" hidden>未作答</span>
+            </div>
+            <p id="taskInstruction" class="instruction">設定運動，播放並觀察圖線。探索不計分，亦沒有完成門檻。</p>
+          </section>
+
+          <section id="setupSection" class="panel-section">
+            <h2 class="section-title">運動設定</h2>
+            <div id="motionControls" class="control-stack"></div>
+            <div id="presetControls" class="preset-grid"></div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">播放及讀圖</h2>
+            <div class="button-grid playback-grid">
+              <button id="playButton" type="button">播放</button>
+              <button id="stepButton" type="button">前進 0.5 s</button>
+              <button id="replayButton" type="button">回到 0 s</button>
+            </div>
+            <label class="range-row time-row" for="timeSlider">
+              <span>時間游標</span>
+              <input id="timeSlider" type="range" min="0" max="6" step="0.5" value="0">
+              <output id="timeOutput" class="math-readout"><span class="math"><var>t</var></span> = 0.0 <span class="unit">s</span></output>
+            </label>
+            <p class="sr-note">方向鍵每次移動 0.5 秒。圖線讀數會在下方即時數據顯示。</p>
+          </section>
+
+          <section id="answerSection" class="panel-section" hidden>
+            <h2 class="section-title">答案操作</h2>
+            <div id="answerControls" class="control-stack"></div>
+          </section>
+
+          <section id="probeSection" class="panel-section" hidden>
+            <h2 class="section-title">圖線量度探針</h2>
+            <div id="probeControls" class="control-stack"></div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">即時數據</h2>
+            <div id="dataGrid" class="data-grid math-data" aria-live="off"></div>
+            <div id="liveStatus" class="status-text muted" aria-live="polite">準備完成。</div>
+          </section>
+
+          <section id="navigationSection" class="panel-section">
+            <div id="navigationControls" class="button-row"></div>
+          </section>
+
+          <section id="resultSection" class="panel-section" hidden>
+            <h2 class="section-title">提交結果</h2>
+            <div id="resultPanel" class="readout" aria-live="polite"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog id="startDialog" aria-labelledby="startDialogTitle">
+      <form method="dialog">
+        <h2 id="startDialogTitle">開始小功課？</h2>
+        <p>探索不計分。正式部分共有五個操作任務，最後一次過提交；開始後不能返回探索。</p>
+        <div class="dialog-actions">
+          <button value="cancel" type="submit">繼續探索</button>
+          <button id="confirmStart" value="start" type="submit" class="primary-button">開始五個任務</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="submitDialog" aria-labelledby="submitDialogTitle">
+      <form method="dialog">
+        <h2 id="submitDialogTitle">最後提交？</h2>
+        <p>系統會按目前五個任務的答案計分。提交後，本次作答只可檢討，不能修改。</p>
+        <div class="dialog-actions">
+          <button value="cancel" type="submit">返回檢視</button>
+          <button id="confirmSubmit" value="submit" type="submit" class="primary-button">確認提交</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
