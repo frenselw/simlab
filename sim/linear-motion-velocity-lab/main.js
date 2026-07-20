@@ -518,14 +518,18 @@
   }
   function drawEmpty() { context.fillStyle = "#f9fafb"; context.fillRect(0, 0, view.width, view.height); }
   function drawRoad() {
-    const w = view.width, h = view.height, horizon = h * .45, roadTop = h * .55;
-    context.fillStyle = "#dbeafe"; context.fillRect(0, 0, w, roadTop);
-    context.fillStyle = "#bbd7a8"; context.fillRect(0, horizon, w, roadTop - horizon);
+    const w = view.width, h = view.height, layout = Visuals.sceneLayout(w, h);
+    context.fillStyle = "#dbeafe"; context.fillRect(0, 0, w, layout.vergeTop);
+    context.fillStyle = "#a9c994"; context.fillRect(0, layout.vergeTop, w, layout.roadTop - layout.vergeTop);
     const worldPosition = positionAt();
     const position = displayedPositionAt();
-    context.fillStyle = "#4b5563"; context.fillRect(0, roadTop, w, h - roadTop);
-    context.strokeStyle = "#f8fafc"; context.lineWidth = 3; context.setLineDash([28, 22]); context.beginPath(); context.moveTo(0, roadTop + (h - roadTop) * .37); context.lineTo(w, roadTop + (h - roadTop) * .37); context.stroke(); context.setLineDash([]);
     const pixelsPerMetre = Math.max(16, Math.min(28, w / 24));
+    drawLandmarks(worldPosition, pixelsPerMetre, layout);
+    context.fillStyle = "#4b5563"; context.fillRect(0, layout.roadTop, w, layout.roadBottom - layout.roadTop);
+    context.fillStyle = "#64748b"; context.fillRect(0, layout.roadTop, w, 3); context.fillRect(0, layout.roadBottom - 3, w, 3);
+    context.strokeStyle = "#f8fafc"; context.lineWidth = 3; context.setLineDash([28, 22]); context.lineDashOffset = Visuals.laneDashOffset(worldPosition, pixelsPerMetre); context.beginPath(); context.moveTo(0, layout.roadCentreY); context.lineTo(w, layout.roadCentreY); context.stroke(); context.setLineDash([]); context.lineDashOffset = 0;
+    context.fillStyle = "#374151"; context.fillRect(0, layout.roadBottom, w, h - layout.roadBottom);
+    context.strokeStyle = "#94a3b8"; context.lineWidth = 1; context.beginPath(); context.moveTo(0, layout.roadBottom); context.lineTo(w, layout.roadBottom); context.stroke();
     const centreMetre = Math.floor(position);
     const tickRadius = Math.ceil(w / pixelsPerMetre / 2) + 2;
     for (let offset = -tickRadius; offset <= tickRadius; offset += 1) {
@@ -533,35 +537,78 @@
       const x = w / 2 + (metre - position) * pixelsPerMetre;
       const major = metre % 10 === 0;
       context.strokeStyle = major ? "#f9fafb" : "#cbd5e1"; context.lineWidth = major ? 2 : 1;
-      context.beginPath(); context.moveTo(x, h - 31); context.lineTo(x, h - (major ? 55 : 43)); context.stroke();
-      if (major) { context.fillStyle = "#f9fafb"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, h - 10); }
+      context.beginPath(); context.moveTo(x, layout.rulerY); context.lineTo(x, layout.rulerY - (major ? layout.rulerMajorTickHeight : layout.rulerMinorTickHeight)); context.stroke();
+      if (major) { context.fillStyle = "#f9fafb"; context.font = "bold 12px ui-monospace, monospace"; context.textAlign = "center"; context.fillText(Model.format3(metre), x, layout.rulerLabelY); }
     }
-    context.strokeStyle = "#f9fafb"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, h - 31); context.lineTo(w, h - 31); context.stroke();
-    drawLandmarks(worldPosition, pixelsPerMetre, horizon);
-    drawCar(w / 2, roadTop - 8, Visuals.carScale(pixelsPerMetre), Visuals.wheelAngle(worldPosition));
-    context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, roadTop - 90); context.lineTo(w / 2, h - 30); context.stroke();
-    context.fillStyle = "#92400e"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, roadTop - 98);
+    context.strokeStyle = "#f9fafb"; context.lineWidth = 3; context.beginPath(); context.moveTo(0, layout.rulerY); context.lineTo(w, layout.rulerY); context.stroke();
+    const scale = Visuals.carScale(pixelsPerMetre);
+    drawCar(w / 2, layout.carGroundY, scale, Visuals.wheelAngle(worldPosition));
+    const pointerTop = Math.max(82, layout.carGroundY - 88 * scale);
+    context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, pointerTop); context.lineTo(w / 2, layout.rulerY + 2); context.stroke();
+    context.fillStyle = "#78350f"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, pointerTop - 7);
   }
-  function drawLandmarks(position, scale, horizon) {
-    const buildingColours = ["#64748b", "#78716c", "#6b7280"];
-    const treeColours = ["#588157", "#4d7c5b", "#557c55"];
-    for (const cellId of Visuals.visibleLandmarkCells(position, scale, view.width)) {
-      const appearance = Visuals.landmarkAppearance(cellId);
-      const world = cellId * Visuals.LANDMARK_SPACING_METRES;
-      const x = view.width / 2 + (world - position) * scale;
-      if (appearance.type === "building") {
-        context.fillStyle = buildingColours[appearance.palette];
-        context.fillRect(x - appearance.width / 2, horizon - appearance.height, appearance.width, appearance.height);
-        context.fillStyle = "#f8fafc";
-        for (let row = 0; row < appearance.windowRows; row += 1) {
-          const windowY = horizon - appearance.height + 8 + row * 11;
-          context.fillRect(x - 8, windowY, 5, 6); context.fillRect(x + 3, windowY, 5, 6);
-        }
-      } else {
-        context.fillStyle = "#795548"; context.fillRect(x - 3, horizon - appearance.trunkHeight, 6, appearance.trunkHeight);
-        context.fillStyle = treeColours[appearance.palette]; context.beginPath(); context.arc(x, horizon - appearance.trunkHeight - appearance.crownRadius * .65, appearance.crownRadius, 0, Math.PI * 2); context.fill();
+  function drawLandmarks(position, scale, layout) {
+    const size = Math.max(.72, Math.min(1.08, Math.min(view.width / 680, view.height / 330)));
+    for (const layer of ["far", "roadside"]) {
+      const config = Visuals.BACKGROUND_LAYERS[layer];
+      for (const cellId of Visuals.visibleBackgroundCells(layer, position, scale, view.width)) {
+        const appearance = Visuals.backgroundAppearance(layer, cellId);
+        if (appearance.type === "empty") continue;
+        const world = (cellId + appearance.offset) * config.spacing;
+        const x = view.width / 2 + (world - position) * scale * config.parallax;
+        if (layer === "far") drawFarLandmark(x, layout.farGroundY, appearance, size * .88);
+        else drawRoadsideLandmark(x, layout.roadsideGroundY, appearance, size);
       }
     }
+  }
+  function drawFarLandmark(x, ground, appearance, size) {
+    const wallColours = ["#94a3b8", "#a8a29e", "#93a7a1", "#a3a3a3"];
+    const roofColours = ["#7c5f52", "#64748b", "#6b7280", "#78716c"];
+    const width = appearance.width * size, height = appearance.height * size;
+    context.save(); context.translate(x, ground);
+    if (appearance.type === "treeCluster") {
+      context.fillStyle = "#6f855d";
+      [[-.28, -.56, .34], [.05, -.7, .4], [.32, -.53, .31]].forEach(([dx, dy, radius]) => { context.beginPath(); context.arc(dx * width, dy * height, radius * height, 0, Math.PI * 2); context.fill(); });
+      context.fillStyle = "#765846"; context.fillRect(-2 * size, -height * .5, 4 * size, height * .5); context.restore(); return;
+    }
+    context.fillStyle = wallColours[appearance.variant]; context.fillRect(-width / 2, -height, width, height);
+    context.fillStyle = roofColours[appearance.variant];
+    if (appearance.type === "house") { context.beginPath(); context.moveTo(-width * .58, -height); context.lineTo(0, -height - 16 * size); context.lineTo(width * .58, -height); context.closePath(); context.fill(); }
+    else { context.fillRect(-width * .54, -height - 5 * size, width * 1.08, 5 * size); }
+    if (appearance.type === "shop") { context.fillStyle = ["#d97706", "#0f766e", "#2563eb", "#9f1239"][appearance.variant]; context.fillRect(-width * .46, -height * .74, width * .92, 9 * size); }
+    context.fillStyle = "#dce8e8";
+    const rows = appearance.type === "apartment" ? Math.max(2, Math.floor(height / (18 * size))) : 1;
+    const columns = appearance.type === "house" ? 2 : 3;
+    for (let row = 0; row < rows; row += 1) for (let column = 0; column < columns; column += 1) {
+      const wx = -width * .32 + column * width * .32;
+      const wy = -height + 11 * size + row * 17 * size;
+      if (wy + 7 * size < -3 * size) context.fillRect(wx - 3 * size, wy, 6 * size, 7 * size);
+    }
+    context.fillStyle = "#5b4636"; context.fillRect(-4 * size, -14 * size, 8 * size, 14 * size);
+    context.restore();
+  }
+  function drawRoadsideLandmark(x, ground, appearance, size) {
+    const greens = ["#3f6f49", "#4f7c45", "#386641", "#52734d"];
+    const width = appearance.width * size, height = appearance.height * size;
+    context.save(); context.translate(x, ground);
+    if (["tree", "treeShrubs"].includes(appearance.type)) {
+      context.fillStyle = "#76513e"; context.fillRect(-3 * size, -height * .58, 6 * size, height * .58);
+      context.fillStyle = greens[appearance.variant];
+      [[0, -.74, .28], [-.18, -.58, .22], [.2, -.57, .23]].forEach(([dx, dy, radius]) => { context.beginPath(); context.arc(dx * width, dy * height, radius * height, 0, Math.PI * 2); context.fill(); });
+    }
+    if (["shrubs", "treeShrubs"].includes(appearance.type)) {
+      const shrubY = appearance.type === "shrubs" ? 0 : -1;
+      context.fillStyle = greens[(appearance.variant + 1) % greens.length];
+      [-.32, 0, .32].forEach((offset, index) => { context.beginPath(); context.arc(offset * width, shrubY - height * (.12 + index % 2 * .04), height * .2, 0, Math.PI * 2); context.fill(); });
+    } else if (appearance.type === "lamp") {
+      context.strokeStyle = "#475569"; context.lineWidth = 4 * size; context.beginPath(); context.moveTo(0, 0); context.lineTo(0, -height); context.quadraticCurveTo(0, -height - 7 * size, 9 * size, -height - 7 * size); context.stroke();
+      context.fillStyle = "#fef3c7"; context.beginPath(); context.ellipse(12 * size, -height - 5 * size, 7 * size, 4 * size, 0, 0, Math.PI * 2); context.fill();
+    } else if (appearance.type === "sign") {
+      context.fillStyle = "#64748b"; context.fillRect(-2 * size, -height * .7, 4 * size, height * .7);
+      context.fillStyle = ["#2563eb", "#047857", "#b45309", "#7c3aed"][appearance.variant]; context.strokeStyle = "#f8fafc"; context.lineWidth = 2 * size; context.fillRect(-width / 2, -height, width, height * .42); context.strokeRect(-width / 2, -height, width, height * .42);
+      context.fillStyle = "#fff"; context.beginPath(); context.moveTo(-width * .2, -height * .79); context.lineTo(width * .18, -height * .79); context.lineTo(width * .07, -height * .9); context.lineTo(width * .28, -height * .79); context.lineTo(width * .07, -height * .68); context.closePath(); context.fill();
+    }
+    context.restore();
   }
   function drawCar(x, ground, scale, wheelAngle = 0) {
     context.save(); context.translate(x, ground); context.scale(scale, scale);

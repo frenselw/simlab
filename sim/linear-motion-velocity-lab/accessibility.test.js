@@ -37,7 +37,8 @@ assert.match(stopwatchBody, /observationStarted !== 1 \|\| !running[\s\S]*請先
 assert.match(stopwatchBody, /if \(!running\)[\s\S]*請先繼續觀察/, "a paused active stopwatch cannot capture an endpoint");
 assert.match(main, /Visuals\.wheelAngle\(worldPosition\)/, "road car wheel angle derives from authoritative world position");
 assert.match(main, /Visuals\.carScale\(pixelsPerMetre\)/, "rendered wheel radius uses the same world-to-screen scale as background travel");
-assert.match(main, /Visuals\.visibleLandmarkCells[\s\S]*Visuals\.landmarkAppearance\(cellId\)/, "landmarks use stable world-cell identities");
+assert.match(main, /Visuals\.visibleBackgroundCells\(layer[\s\S]*Visuals\.backgroundAppearance\(layer, cellId\)/, "background layers use stable world-cell identities");
+assert.match(main, /lineDashOffset = Visuals\.laneDashOffset\(worldPosition, pixelsPerMetre\)[\s\S]*setLineDash\(\[\]\); context\.lineDashOffset = 0/, "lane divider follows world position and resets Canvas dash state");
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");
 assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");

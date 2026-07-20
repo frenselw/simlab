@@ -335,12 +335,25 @@ do not copy its multi-car reference-frame model.
 
 Stage layers:
 
-1. quiet sky and sparse roadside landmarks;
-2. road and lane texture;
-3. horizontal world-position ruler;
-4. tracked car at the central measurement pointer;
-5. stopwatch and position overlays;
-6. accessible status text outside Canvas.
+1. quiet sky and a deterministic far layer of houses, shops, apartments, and
+   tree groups;
+2. a nearer verge layer of trees, shrubs, lamps, signs, and small clusters;
+3. a two-lane road with its dashed divider at the exact vertical centre;
+4. a separate horizontal world-position ruler below the road;
+5. the tracked car inside the upper lane at the central measurement pointer;
+6. stopwatch and position overlays;
+7. accessible status text outside Canvas.
+
+The road layout is derived from one responsive geometry containing `roadTop`,
+`roadBottom`, `roadCentreY`, both lane centres, `carGroundY`, and `rulerY`.
+The wheel contact line must remain inside the upper lane and clear of both the
+grass verge and centre divider at desktop, tablet, and 320 CSS-pixel widths.
+The ruler occupies its own dark measurement strip and must never resemble a
+second lane divider. Tick heights adapt to the available strip: their complete
+strokes and top margin remain below `roadBottom`, while labels remain inside the
+viewport even in a 180 CSS-pixel-high stage. The dashed road divider is anchored
+to authoritative world position, moves backwards with the ruler, and restores
+to the same phase.
 
 The stage must make the reference choice explicit:
 
@@ -349,7 +362,16 @@ The stage must make the reference choice explicit:
 ```
 
 The car remains at a stable screen coordinate. Ruler ticks, road texture, and
-sparse landmarks translate backwards according to the car's world position.
+both background layers translate backwards according to the car's world
+position. The near layer moves with the road; the far layer uses restrained
+parallax. Each layer uses stable layer-plus-world-cell identities, including at
+negative coordinates, so an object cannot change type, size, or shape while it
+is visible. Cells include deliberate gaps and deterministic within-cell offsets
+to avoid a mechanical alternating pattern. Objects enter and leave outside the
+viewport buffer, and roadside objects are drawn behind the car and pointer.
+Far-layer objects use a deeper baseline within the verge; roadside objects use
+a separate baseline immediately beside `roadTop`, so the two depth layers do
+not collapse onto one horizon.
 At zero velocity all of these cues stop together. Do not use motion blur, camera
 shake, or decorative speed lines as required evidence.
 
@@ -879,7 +901,7 @@ validate definition and answers
 - DOM references;
 - hover, focus, pressed visual state, and live-region queue;
 - incomplete numeric input text that has not been confirmed;
-- decorative landmark recycle indices when deterministically derived;
+- deterministic far-layer and roadside-layer world-cell identities and appearance;
 - cached graph pixels or screenshots.
 
 ### Validation invariants
