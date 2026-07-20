@@ -4,7 +4,7 @@
 
 - Activity slug：`position-time-graph-motion-lab`
 - 本文件性質：現有活動的第二代題目生成、持久化及重做設計
-- 實作狀態：設計中，未開始修改 production code
+- 實作狀態：production、unit、persistence、package及browser gate已實作；待真實Moodle student attempts驗收
 - 基礎文件：
   - `plans/10-position-time-graph-motion-lab.md`
   - `plans/00-shared-platform-and-style.md`
@@ -917,16 +917,29 @@ learner操作流程，不可以由 activity偷偷清除已完成資料。
 - snapshot size符合SCORM 1.2預算；
 - assessment仍明確標示為low-risk browser-scored activity。
 
-## 31. 實作前需要確認的產品決定
+## 31. 已確認產品決定
 
-下列決定要在開始 coding 前記錄於本文件：
+本次實作採用：
 
-1. version 1 是否已正式發布；若是，必須保留compatibility；
-2. Moodle activity允許的attempt數量；
-3. baseline probabilistic uniqueness是否足夠，抑或另開trusted allocator項目；
-4. M4三類題型是否維持等機率；
-5. M5每題至少三個合法解是否符合教學預期；
-6. 是否完全不加入`localStorage` soft duplicate guard（本計劃建議不加入）；
-7. property sweep規模在CI及本機的時間預算。
+1. 保留 version 1 fixed-set draft／review compatibility；新 blank attempt只建立 version 2 paper；
+2. Moodle activity須由教師設定允許多次 attempts；activity本身不覆寫 completed attempt；
+3. 採用 Web Crypto 128-bit seed的baseline probabilistic uniqueness，不另加backend allocator；
+4. M4 stationary／positive／negative三類維持等機率category-first選取；
+5. M5每題至少三個合法、UI可操作、非重合B solutions；
+6. 不加入`localStorage` soft duplicate guard；
+7. CI執行固定10,000 seeds property sweep。
 
-未確認第1項前，不得刪除現有fixed scenario library或改寫其version 1數值。
+## 32. Implementation notes
+
+- Generator version 2 使用 `xoshiro128**`、32-bit unsigned arithmetic、固定domain derivation及
+  rejection-threshold bounded sampler；golden vectors鎖定於`generator.test.js`。
+- Production candidate pool sizes：M1 `136`、M2 `72`、M3 A/B/same
+  `216/216/432`、M4 stationary/positive/negative `17/272/272`、M5 `326`。
+- 固定10,000-seed sweep產生10,000個不同完整paper fingerprint；此結果只作regression evidence，
+  不代表全域唯一性保證。
+- Fully populated v2 fixtures經production `SimScorm.makeSnapshot()`及shared pending-final path量度：
+  draft `642 bytes`、review `561 bytes`、pending-final `830 bytes`；三者均低於`4000 bytes`
+  上限，並由`persistence.test.js`及`pending-final.test.js`每次執行驗證。
+- Extracted-package browser gate會確認`generator.js`載入、兩個fixed seeds產生不同paper，
+  以及同一saved draft reload後fingerprint不變。
+- 真實Moodle student account的兩次attempt驗證仍屬部署環境驗收，不能由本機測試代替。

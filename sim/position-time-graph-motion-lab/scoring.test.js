@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const S = require("./scoring.js");
+const G = require("./generator.js");
 
 assert.equal(S.validateScenarioLibrary(), true, "all published scenario sets satisfy their contracts");
 function libraryWith(mutate) {
@@ -91,6 +92,23 @@ for (const bad of [NaN, Infinity, -Infinity]) {
   const answer = S.blankAnswers();
   answer.m1.x0 = bad;
   assert.equal(S.validAnswers(answer), false, `${bad} is rejected at the answer boundary`);
+}
+
+for (const seed of ["00000000000000000000000000000001", "fedcba98765432100123456789abcdef", "1234567890abcdef1234567890abcdef"]) {
+  const paper = G.generatePaper(seed);
+  const set = paper.missions;
+  const solution = G.enumerateMeetingSolutions(set.m5)[0];
+  const answers = {
+    m1: { x0: set.m1.x0, v: set.m1.v },
+    m2: { xStart: set.m2.x0, xEnd: S.positionAt(set.m2, 6) },
+    m3: { A: { probes: [0, 2], velocity: set.m3.A.v }, B: { probes: [5, 1], velocity: set.m3.B.v }, faster: Math.abs(set.m3.A.v) === Math.abs(set.m3.B.v) ? "same" : Math.abs(set.m3.A.v) > Math.abs(set.m3.B.v) ? "A" : "B" },
+    m4: { x0: set.m4.x0, v: set.m4.v },
+    m5: { x0B: solution.x0, vB: solution.v, meetingX: S.positionAt(set.m5.A, set.m5.meetTime) }
+  };
+  assert.equal(S.scoreAssessment(answers, set).score, 100, `generated paper ${seed.slice(0, 8)} has a reachable perfect score`);
+  const alternate = G.enumerateMeetingSolutions(set.m5).at(-1);
+  answers.m5 = { x0B: alternate.x0, vB: alternate.v, meetingX: S.positionAt(set.m5.A, set.m5.meetTime) };
+  assert.equal(S.scoreAssessment(answers, set).detail[4].score, 20, "generated mission 5 accepts alternate valid B solutions");
 }
 
 console.log("Position-time scoring checks passed");

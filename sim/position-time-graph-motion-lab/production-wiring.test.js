@@ -6,6 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const Scoring = require("./scoring.js");
+const Generator = require("./generator.js");
 const Persistence = require("./persistence.js");
 const UiRuntime = require("./ui-runtime.js");
 const ActivityFlow = require("../shared/activity-flow.js");
@@ -192,11 +193,13 @@ const document = new FakeDocument(ids);
 let submitCalls = 0;
 let finishCalls = 0;
 let finishResult = false;
+let seedCalls = 0;
+const savedDrafts = [];
 const SimScorm = {
   loadAttempt: () => ({ state: "new" }),
   setDraftProvider() {},
   makeSnapshot: (activity, state, answer, result) => ({ activity, state, answer, score: result?.score, passed: result?.passed }),
-  saveDraft: () => true,
+  saveDraft: (snapshot) => { savedDrafts.push(structuredClone(snapshot)); return true; },
   submitWithCallbacks: (_result, _review, callbacks) => {
     submitCalls += 1;
     callbacks.onFailure({ activityState: "committed", ok: false, committed: true, frozen: true, retryable: true });
@@ -209,15 +212,18 @@ const SimScorm = {
 const window = {
   document,
   PositionTimeScoring: Scoring,
+  PositionTimeGenerator: Generator,
   PositionTimePersistence: Persistence,
   PositionTimeUiRuntime: UiRuntime,
   SimActivityFlow: ActivityFlow,
   SimScorm,
-  scrollTo() {}
+  scrollTo() {},
+  crypto: { getRandomValues(words) { seedCalls += 1; words.set([1, 2, 3, 4]); return words; } }
 };
 const source = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const stylesSource = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
+assert.doesNotMatch(source, /__SIMLAB_POSITION_TIME_TEST_SEED__/, "production main has no fixed-seed test hook");
 assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
@@ -337,6 +343,10 @@ document.getElementById("timeSlider").dispatch("input");
 
 document.getElementById("labPanel").scrollTop = 640;
 document.getElementById("confirmStart").click();
+assert.equal(seedCalls, 1, "blank new attempt requests one Web Crypto seed");
+assert.equal(savedDrafts.at(-1).answer.v, 2, "blank new attempt saves a schema v2 draft");
+assert.equal(savedDrafts.at(-1).answer.g.s, "00000001000000020000000300000004", "saved draft keeps the generated attempt seed");
+assert.ok(Generator.validateGeneratedPaper({ version: 2, missions: savedDrafts.at(-1).answer.g.q }), "saved draft embeds a validated authoritative paper");
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "starting the assessment returns the independently scrolling control panel to mission 1 at the top");
 assert.equal(document.getElementById("taskKicker").textContent, "今題任務 · 1 / 5", "mission card clearly labels the current task number");
 assert.equal(document.getElementById("taskTitle").textContent, "根據目標圖設定運動", "mission title is concise and separate from its progress label");
@@ -435,14 +445,22 @@ function finalReviewFixture() {
   return fixture;
 }
 
-function runProductionLifecycle({ attempt, submissionOutcome = null }) {
+function generatedFinalReviewFixture() {
+  const fixture = Persistence.createExplore();
+  const seed = "0123456789abcdeffedcba9876543210";
+  assert.equal(Persistence.startGeneratedAssessment(fixture, seed, Generator.generatePaper(seed)), true);
+  for (let step = 0; step < 5; step += 1) assert.equal(Persistence.nextMission(fixture), true);
+  return fixture;
+}
+
+function runProductionLifecycle({ attempt, submissionOutcome = null, saveDraftImpl = () => true, cryptoImpl = (words) => { words.set([5, 6, 7, 8]); return words; } }) {
   const caseDocument = new FakeDocument(ids);
   let draftProvider = null;
   const caseScorm = {
     loadAttempt: () => structuredClone(attempt),
     setDraftProvider(provider) { draftProvider = provider; },
     makeSnapshot: (activity, stateName, answer, result) => ({ activity, state: stateName, answer, score: result?.score, passed: result?.passed }),
-    saveDraft: () => true,
+    saveDraft: saveDraftImpl,
     submitWithCallbacks: (_result, _review, callbacks) => {
       const callback = submissionOutcome?.activityState === "success" ? callbacks.onSuccess : callbacks.onFailure;
       callback(submissionOutcome);
@@ -453,11 +471,13 @@ function runProductionLifecycle({ attempt, submissionOutcome = null }) {
   const caseWindow = {
     document: caseDocument,
     PositionTimeScoring: Scoring,
+    PositionTimeGenerator: Generator,
     PositionTimePersistence: Persistence,
     PositionTimeUiRuntime: UiRuntime,
     SimActivityFlow: ActivityFlow,
     SimScorm: caseScorm,
-    scrollTo() {}
+    scrollTo() {},
+    crypto: { getRandomValues: cryptoImpl }
   };
   vm.runInNewContext(source, {
     window: caseWindow,
@@ -481,10 +501,24 @@ function runProductionLifecycle({ attempt, submissionOutcome = null }) {
 const finalReview = finalReviewFixture();
 const reviewAnswer = Persistence.encodeReview(finalReview);
 const finalDraft = Persistence.encodeDraft(finalReview);
+const generatedFinalReview = generatedFinalReviewFixture();
+const generatedReviewAnswer = Persistence.encodeReview(generatedFinalReview);
+const generatedFinalDraft = Persistence.encodeDraft(generatedFinalReview);
 
 const editableCase = runProductionLifecycle({ attempt: { state: "new" } });
 assert.equal(typeof editableCase.draftProvider, "function", "startup editable production path registers its draft provider");
 assert.ok(editableCase.document.querySelectorAll("[data-drag]").length > 0, "startup editable production path renders interactive controls");
+
+const seedFailure = runProductionLifecycle({ attempt: { state: "new" }, cryptoImpl() { throw new Error("no crypto"); } }).document;
+seedFailure.getElementById("confirmStart").click();
+assert.ok(seedFailure.getElementById("startAssessment"), "seed failure leaves the learner safely in exploration");
+assert.ok(seedFailure.getElementById("liveStatus").textContent.includes("仍在自由探索"), "seed failure explains that no assessment was opened");
+
+let generatedSaveCalls = 0;
+const generatedSaveFailure = runProductionLifecycle({ attempt: { state: "new" }, saveDraftImpl: () => { generatedSaveCalls += 1; return generatedSaveCalls === 1; } }).document;
+generatedSaveFailure.getElementById("confirmStart").click();
+assert.ok(generatedSaveFailure.getElementById("startAssessment"), "generated draft save failure does not reveal mission 1");
+assert.equal(generatedSaveCalls, 2, "start transition saves exploration then verifies the generated draft save");
 
 const frozenCase = runProductionLifecycle({ attempt: { state: "pending-final" } }).document;
 assert.ok(frozenCase.getElementById("resultPanel").innerHTML.includes("答案保持凍結"), "startup frozen production UI explains the unconfirmed state");
@@ -500,6 +534,14 @@ assert.equal(loadErrorCase.querySelectorAll("[data-drag]").length, 0, "startup l
 const trustedReview = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 0, passed: false }, score: "0", status: "failed" } }).document;
 assert.ok(trustedReview.getElementById("resultPanel").innerHTML.includes("任務 1"), "matching finished review renders trusted production detail");
 assert.equal(trustedReview.querySelectorAll("[data-drag]").length, 0, "matching finished review is read-only");
+
+const generatedTrustedReview = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: generatedReviewAnswer, score: 0, passed: false }, score: "0", status: "failed" } }).document;
+assert.ok(generatedTrustedReview.getElementById("resultPanel").innerHTML.includes("任務 1"), "matching generated finished review renders trusted detail from its embedded paper");
+assert.equal(generatedTrustedReview.querySelectorAll("[data-drag]").length, 0, "generated finished review remains read-only");
+
+const generatedDraftCase = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: generatedFinalDraft } } });
+assert.ok(generatedDraftCase.document.getElementById("submitAttempt"), "generated final-review draft restores its legal submit continuation");
+assert.equal(typeof generatedDraftCase.draftProvider, "function", "generated restored draft registers the production draft provider");
 
 const scoreMismatch = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 1, passed: false }, score: "0", status: "failed" } }).document;
 assert.ok(scoreMismatch.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "saved score mismatch falls back to the safe production summary");
@@ -517,8 +559,14 @@ assert.ok(invalidFinished.getElementById("resultPanel").innerHTML.includes("40 /
 assert.ok(invalidFinished.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "invalid finished review hides invalid answer detail");
 assert.equal(invalidFinished.querySelectorAll("[data-drag]").length, 0, "invalid finished review cannot reopen editing");
 
-function submissionCase(outcome) {
-  const rendered = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: finalDraft } }, submissionOutcome: outcome }).document;
+const tamperedGeneratedReview = structuredClone(generatedReviewAnswer);
+tamperedGeneratedReview.g.q.m5.meetTime = 6;
+const invalidGeneratedFinished = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: tamperedGeneratedReview, score: 20, passed: false }, score: "20", status: "failed" } }).document;
+assert.ok(invalidGeneratedFinished.getElementById("resultPanel").innerHTML.includes("20 / 100"), "tampered generated finished review keeps only the Moodle score summary");
+assert.equal(invalidGeneratedFinished.getElementById("resultPanel").innerHTML.includes("任務 1"), false, "tampered generated finished review hides invalid mission detail");
+
+function submissionCase(outcome, draft = finalDraft) {
+  const rendered = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: draft } }, submissionOutcome: outcome }).document;
   rendered.getElementById("confirmSubmit").click();
   return rendered;
 }
@@ -526,6 +574,10 @@ function submissionCase(outcome) {
 const successCase = submissionCase({ activityState: "success", ok: true, committed: true, frozen: false, retryable: false });
 assert.ok(successCase.getElementById("resultPanel").innerHTML.includes("0 / 100"), "submission success renders the submitted result");
 assert.equal(successCase.querySelectorAll("[data-drag]").length, 0, "submission success locks production controls");
+
+const generatedSuccessCase = submissionCase({ activityState: "success", ok: true, committed: true, frozen: false, retryable: false }, generatedFinalDraft);
+assert.ok(generatedSuccessCase.getElementById("resultPanel").innerHTML.includes("0 / 100"), "generated draft follows the production submission success path");
+assert.equal(generatedSuccessCase.querySelectorAll("[data-drag]").length, 0, "generated submission success locks production controls");
 
 const submissionFrozen = submissionCase({ activityState: "frozen", ok: false, committed: false, frozen: true, retryable: true });
 assert.ok(submissionFrozen.getElementById("resultPanel").innerHTML.includes("提交狀態未確認"), "submission frozen renders an unconfirmed technical state");

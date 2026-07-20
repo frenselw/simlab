@@ -3,6 +3,7 @@
 
   const ACTIVITY = "position-time-graph-motion-lab";
   const S = window.PositionTimeScoring;
+  const G = window.PositionTimeGenerator;
   const P = window.PositionTimePersistence;
   const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
@@ -61,7 +62,7 @@
     if (!motion || !Number.isFinite(motion.x0) || !Number.isFinite(motion.v)) return "";
     return `<line class="motion-line ${className}" x1="${graphX(0)}" y1="${graphY(S.positionAt(motion, 0))}" x2="${graphX(endTime)}" y2="${graphY(S.positionAt(motion, endTime))}"></line>`;
   }
-  function currentSet() { return state.assessment ? S.getScenarioSet(state.assessment.lv, state.assessment.sid) : null; }
+  function currentSet() { return state.assessment ? P.scenariosForAssessment(state.assessment) : null; }
   function missionKey() { return `m${state.currentStep + 1}`; }
   function currentAnswer() { return state.assessment?.ans[missionKey()]; }
   function editable() { return !ui.locked && !ui.technical && (state.phase === "explore" || state.phase === "mission"); }
@@ -754,7 +755,7 @@
     const payload = outcome.review?.answer;
     const restored = P.decodeReview(payload);
     if (!restored) { showTechnical("Moodle 已保存摘要，但檢討資料無法安全載入。"); return; }
-    const result = S.scoreAssessment(restored.assessment.ans, S.getScenarioSet(restored.assessment.lv, restored.assessment.sid));
+    const result = S.scoreAssessment(restored.assessment.ans, P.scenariosForAssessment(restored.assessment));
     showSubmitted(payload, result, true, message, finishRetry);
   }
 
@@ -847,7 +848,7 @@
     const payload = attempt.snapshot?.answer;
     const restored = P.decodeReview(payload);
     if (!restored) { showSafeFinished(attempt); return; }
-    const computed = S.scoreAssessment(restored.assessment.ans, S.getScenarioSet(restored.assessment.lv, restored.assessment.sid));
+    const computed = S.scoreAssessment(restored.assessment.ans, P.scenariosForAssessment(restored.assessment));
     const trust = window.SimActivityFlow.reviewResult(computed, { score: attempt.snapshot.score, passed: attempt.snapshot.passed }, attempt);
     state = restored;
     ui.locked = true;
@@ -865,7 +866,7 @@
     render();
   }
   function initialize() {
-    if (!S.validateScenarioLibrary()) { showTechnical("題目情境驗證失敗；活動沒有開放作答。"); return; }
+    if (!S.validateScenarioLibrary() || !G || G.GENERATOR_VERSION !== 2) { showTechnical("題目情境驗證失敗；活動沒有開放作答。"); return; }
     const attempt = window.SimScorm.loadAttempt(ACTIVITY);
     const startup = window.SimActivityFlow.startup(attempt);
     const policy = P.lifecyclePolicy("startup", startup);
@@ -895,10 +896,12 @@
   dom.timeSlider.addEventListener("input", () => setTime(Number(dom.timeSlider.value)));
   dom.timeSlider.addEventListener("change", () => announce(`讀圖游標：t = ${ui.time.toFixed(1)} 秒。${dom.graphSummary.textContent}`));
   dom.confirmStart.addEventListener("click", () => {
-    const ids = S.scenarioIds();
-    const setId = ids[Math.floor(Math.random() * ids.length)];
+    const seed = G.createSeed(window.crypto);
+    if (!seed) { announce("未能建立安全的隨機題目；仍在自由探索，請重試。"); return; }
+    const paper = G.generatePaper(seed);
+    if (!paper || !G.validateGeneratedPaper(paper)) { announce("題目生成驗證失敗；仍在自由探索，請重試。"); return; }
     resetTime(true);
-    const moved = transitionSafely((next) => P.startAssessment(next, setId));
+    const moved = transitionSafely((next) => P.startGeneratedAssessment(next, seed, paper));
     if (moved) scrollPanelToTop();
   });
   dom.confirmSubmit.addEventListener("click", submitAttempt);

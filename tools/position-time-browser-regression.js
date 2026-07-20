@@ -357,13 +357,14 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
         hitStrokeWidth: getComputedStyle(document.querySelector('[data-drag="velocity:A"]')).strokeWidth,
         styles: Array.from(document.styleSheets, (sheet) => sheet.href).filter(Boolean),
         scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
-        runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring),
+        runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring && window.PositionTimeGenerator),
         velocity: Number(document.querySelector('[data-quantity="velocity"]').value),
         x0: Number(document.querySelector('[data-quantity="x0"]').value)
       };
     })()`);
     assert.ok(setup.styles.some((href) => href.endsWith("/position-time-graph-motion-lab/styles.css")), `${width}px: packaged activity stylesheet loaded`);
     assert.ok(setup.scripts.some((src) => src.endsWith("/position-time-graph-motion-lab/main.js")), `${width}px: packaged production main.js loaded`);
+    assert.ok(setup.scripts.some((src) => src.endsWith("/position-time-graph-motion-lab/generator.js")), `${width}px: packaged generator.js loaded`);
     assert.ok(setup.scripts.some((src) => src.endsWith("/shared/scorm.js")), `${width}px: packaged shared SCORM runtime loaded`);
     assert.ok(setup.scripts.some((src) => src.endsWith("/shared/activity-flow.js")), `${width}px: packaged shared activity flow loaded`);
     assert.equal(setup.runtimeReady, true, `${width}px: packaged runtime executed successfully`);
@@ -383,6 +384,100 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
     cases.push(`${initialVelocity}->${after.velocity}`);
   }
   return `${width}px (${cases.join(", ")})`;
+}
+
+async function runGeneratedPaperChecks(cdp, baseUrl, activityPath) {
+  async function startWithSeed(seed, label) {
+    const seedWords = [0, 8, 16, 24].map((offset) => Number.parseInt(seed.slice(offset, offset + 8), 16) >>> 0);
+    const cryptoStub = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+      const fixed = ${JSON.stringify(seedWords)};
+      Object.defineProperty(window.crypto, 'getRandomValues', { configurable: true, value(array) {
+        if (!(array instanceof Uint32Array) || array.length !== 4) throw new Error('Unexpected random request');
+        array.set(fixed);
+        return array;
+      }});
+    })();` });
+    let result;
+    try {
+      await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?generated-regression=${label}` });
+      await waitForActivity(cdp);
+      result = await evaluate(cdp, `(async () => {
+        document.getElementById('confirmStart').click();
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const entry = window.SimScorm.getLocalLog().filter((item) => item.key === 'cmi.suspend_data').at(-1);
+        const snapshot = JSON.parse(entry.value);
+        const target = document.querySelector('.target-line');
+        return {
+          snapshot,
+          phase: document.getElementById('phaseBadge').textContent,
+          task: document.getElementById('taskTitle').textContent,
+          targetGeometry: ['x1', 'y1', 'x2', 'y2'].map((key) => target.getAttribute(key)).join(','),
+          generatorReady: Boolean(window.PositionTimeGenerator),
+          valid: window.PositionTimeGenerator.validateGeneratedPaper({ version: snapshot.answer.g.v, missions: snapshot.answer.g.q }),
+          fingerprint: window.PositionTimeGenerator.fingerprint({ version: snapshot.answer.g.v, missions: snapshot.answer.g.q })
+        };
+      })()`);
+    } finally {
+      await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: cryptoStub.identifier });
+    }
+    assert.equal(result.generatorReady, true, `${label}: packaged generator is available`);
+    assert.equal(result.valid, true, `${label}: browser-generated paper validates`);
+    assert.match(result.phase, /任務 1 \/ 5/, `${label}: generated assessment opens mission 1`);
+    assert.equal(result.task, "根據目標圖設定運動", `${label}: generated assessment renders production mission UI`);
+    return result;
+  }
+
+  const first = await startWithSeed("0123456789abcdeffedcba9876543210", "seed-a");
+  const second = await startWithSeed("fedcba98765432100123456789abcdef", "seed-b");
+  assert.notEqual(first.fingerprint, second.fingerprint, "two fixed browser seeds produce different learner papers");
+
+  const preload = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const values = {
+      'cmi.core.lesson_status': 'incomplete',
+      'cmi.suspend_data': ${JSON.stringify(JSON.stringify(first.snapshot))},
+      'cmi.core.score.raw': ''
+    };
+    window.__simlabReloadValues = values;
+    window.API = {
+      LMSInitialize: () => 'true', LMSFinish: () => 'true', LMSCommit: () => 'true',
+      LMSGetValue: (key) => values[key] || '', LMSSetValue: (key, value) => { values[key] = String(value); return 'true'; },
+      LMSGetLastError: () => '0', LMSGetErrorString: () => ''
+    };
+  })();` });
+  try {
+    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?generated-regression=reload` });
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const ready = await evaluate(cdp, "document.readyState === 'complete' && document.getElementById('phaseBadge').textContent.includes('任務 1 / 5')");
+      if (ready) break;
+      if (attempt === 99) throw new Error("Generated draft did not restore after browser reload.");
+      await delay(50);
+    }
+    const restored = await evaluate(cdp, `(() => {
+      const target = document.querySelector('.target-line');
+      const input = document.querySelector('[data-quantity="x0"]');
+      const changedX0 = Number(input.value) === 8 ? -8 : 8;
+      input.value = String(changedX0);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      const snapshot = JSON.parse(window.__simlabReloadValues['cmi.suspend_data']);
+      return {
+        fingerprint: window.PositionTimeGenerator.fingerprint({ version: snapshot.answer.g.v, missions: snapshot.answer.g.q }),
+        phase: document.getElementById('phaseBadge').textContent,
+        task: document.getElementById('taskTitle').textContent,
+        targetGeometry: ['x1', 'y1', 'x2', 'y2'].map((key) => target.getAttribute(key)).join(','),
+        savedX0: snapshot.answer.a.ans.m1.x0,
+        changedX0
+      };
+    })()`);
+    assert.equal(restored.fingerprint, first.fingerprint, "browser reload restores the exact saved generated paper");
+    assert.equal(restored.targetGeometry, first.targetGeometry, "browser reload redraws the same learner-facing target geometry from restored production state");
+    assert.equal(restored.savedX0, restored.changedX0, "a legal post-reload edit is saved by production with the restored paper");
+    assert.match(restored.phase, /任務 1 \/ 5/, "browser reload remains in the saved mission phase");
+    assert.equal(restored.task, "根據目標圖設定運動", "browser reload renders the restored paper instead of exploration");
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
+  }
+  return "two fixed generated seeds differ; saved draft reload is stable";
 }
 
 async function main() {
@@ -424,7 +519,8 @@ async function main() {
     await cdp.send("Runtime.enable");
     const desktop = await runViewport(cdp, baseUrl, activityPath, 1280, 900);
     const narrow = await runViewport(cdp, baseUrl, activityPath, 320, 700);
-    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}`;
+    const generated = await runGeneratedPaperChecks(cdp, baseUrl, activityPath);
+    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}; ${generated}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

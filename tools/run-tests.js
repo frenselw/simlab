@@ -15,6 +15,7 @@ const tests = [
   "sim/inertial-reference-frame-road-observer/scoring.test.js",
   "sim/inertial-reference-frame-road-observer/animation.test.js",
   "sim/position-time-graph-motion-lab/scoring.test.js",
+  "sim/position-time-graph-motion-lab/generator.test.js",
   "sim/position-time-graph-motion-lab/persistence.test.js",
   "sim/position-time-graph-motion-lab/lifecycle.test.js",
   "sim/position-time-graph-motion-lab/ui-runtime.test.js",
