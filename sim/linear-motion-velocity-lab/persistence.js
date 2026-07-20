@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 3;
+  const VERSION = 4;
   const ROWS = {
     "uniform/ready": 0, "uniform/paused-measuring": 0, "uniform/captured": 0, "uniform/answered": 0,
     "variable/ready": 1, "variable/paused-measuring": 1, "variable/captured": 1, "variable/answered": 1,
@@ -91,7 +91,7 @@
     if (["uniform", "variable"].includes(state.phase)) {
       const kind = state.phase === "uniform" ? u : v;
       const measurement = state.phase === "uniform" ? state.uniformMeasurement : state.variableMeasurement;
-      const minimum = state.phase === "uniform" ? 1.5 : Model.cycleDuration(state.definition.variable);
+      const minimum = state.phase === "uniform" ? 1.5 : state.definition.variableMinimumDuration;
       if (state.variant.endsWith("ready") && !Model.hasModelTimeHeadroom(state.scene.simulationTime, minimum)) return false;
       if (kind === "active" && !Model.hasModelTimeHeadroom(state.scene.simulationTime, Math.max(0, minimum - (state.scene.simulationTime - measurement.startModelTime)))) return false;
     }
@@ -185,7 +185,7 @@
     try { expectedX2 = Model.canonicalNumber(Model.readingPosition(position(end), measurement.readingOrigin)); } catch { return "invalid"; }
     if (!Number.isFinite(measurement.x2) || measurement.x2 !== expectedX2) return "invalid";
     if (type === "uniform" && !Model.minimumDurationReached(end - measurement.startModelTime, 1.5)) return "invalid";
-    if (type === "variable" && !Model.minimumDurationReached(end - measurement.startModelTime, Model.cycleDuration(definition.variable))) return "invalid";
+    if (type === "variable" && !Model.minimumDurationReached(end - measurement.startModelTime, definition.variableMinimumDuration)) return "invalid";
     return "captured";
   }
   function next(state, action) {
@@ -262,7 +262,7 @@
         state[field] = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(position(start), readingOrigin)), x2: null, dt: 0 };
         state.variant = edit ? "review-edit-paused-measuring" : "paused-measuring";
       } else if (state.variant.endsWith("paused-measuring")) {
-        const duration = type === "uniform" ? 1.5 : Model.cycleDuration(state.definition.variable);
+        const duration = type === "uniform" ? 1.5 : state.definition.variableMinimumDuration;
         const end = state[field].startModelTime + duration;
         state[field] = { ...Model.captureMeasurement(position, state[field].startModelTime, end), currentOrEndModelTime: end };
         state.scene.simulationTime = end;

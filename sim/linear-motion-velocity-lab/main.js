@@ -27,6 +27,7 @@
   let view = { width: 800, height: 500, dpr: 1 };
 
   function announce(message) { elements.liveRegion.textContent = ""; requestAnimationFrame(() => { elements.liveRegion.textContent = message; }); }
+  function focusContext(element) { requestAnimationFrame(() => element?.focus({ preventScroll: true })); }
   function quantityHtml(value, unit) { return `<span class="math-quantity"><span class="math-number">${Model.format3(value)}</span> <span class="unit">${unit}</span></span>`; }
   function setQuantityValue(element, value, unit, plainUnit = unit) {
     element.innerHTML = quantityHtml(value, unit);
@@ -46,7 +47,7 @@
     return Model.readingPosition(worldPosition, readingOrigin);
   }
   function activeDuration() { return timerRunning && currentMeasurement() ? state.scene.simulationTime - currentMeasurement().startModelTime : currentMeasurement()?.dt || 0; }
-  function minimumDuration() { return state.phase === "variable" ? Model.cycleDuration(state.definition.variable) : 1.5; }
+  function minimumDuration() { return state.phase === "variable" ? state.definition.variableMinimumDuration : 1.5; }
   function updateActiveMeasurement() {
     const measurement = currentMeasurement();
     if (!measurement || measurement.x2 != null) return;
@@ -67,6 +68,30 @@
       running = false;
       timerRunning = false;
       showTechnical("未能保存目前進度，活動已鎖定；請勿關閉頁面。", false);
+      console.warn(error);
+      return false;
+    }
+  }
+  function saveTransition(candidate, fallback, message) {
+    try {
+      const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode({ ...candidate, running: false, timerRunning: false }));
+      if (!window.SimScorm.saveDraft(snapshot)) throw new Error("Transition save was rejected");
+      state = candidate;
+      announce(message);
+      render();
+      focusContext(state.phase === "review" ? elements.reviewTitle : elements.stageTitle);
+      return true;
+    } catch (error) {
+      state = fallback;
+      locked = true;
+      running = false;
+      timerRunning = false;
+      const wasLocked = locked; locked = false; render(); locked = wasLocked;
+      document.querySelectorAll("#activitySection button, #activitySection input").forEach((control) => { control.disabled = true; });
+      const target = state.phase === "instant" ? elements.instantError : elements.answerError;
+      target.textContent = "未能保存答案及轉關；答案仍顯示於本關，操作已鎖定。請勿關閉頁面。";
+      announce(target.textContent);
+      focusContext(target);
       console.warn(error);
       return false;
     }
@@ -156,19 +181,24 @@
   }
   function submitMeasurement(event) {
     event.preventDefault();
-    if (locked || !currentMeasurement()?.x2) return;
+    if (locked || currentMeasurement()?.x2 == null) return;
     const parsed = [elements.displacementInput, elements.timeInput, elements.averageInput].map((input) => Model.normalizeInput(input.value));
     const relationship = relationshipInputs.find((input) => input.checked)?.value;
-    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請用三位有效數字，例如 5.00 或 0.500；不要輸入單位。");
+    if (parsed.some((item) => !item)) return void (elements.answerError.textContent = "請輸入非負數值；可用小數或科學記數法，但不要輸入單位、逗號或負號。");
     if (!relationship) return void (elements.answerError.textContent = "請回答瞬時速度與平均速度的關係。");
     state.answers[state.phase] = {
       displacement: parsed[0].text, time: parsed[1].text, averageVelocity: parsed[2].text, relationship
     };
     state.variant = state.returnToReview ? "review-edit-answered" : "answered";
     elements.answerError.textContent = "";
-    announce("本關答案已記錄，提交前仍可修改。");
-    if (!saveDraft()) return;
-    render();
+    const fallback = JSON.parse(JSON.stringify(state));
+    const next = Persistence.next(state, state.returnToReview ? "return-review" : "advance");
+    if (!next) return void (elements.answerError.textContent = "未能安全記錄本關狀態，請檢查答案後再試。");
+    running = false;
+    timerRunning = false;
+    const message = next.phase === "review" ? "修改已保存，返回提交前檢查。" : next.phase === "instant" ? "第 2 關答案已保存，前往時間放大鏡。" : "第 1 關答案已保存，前往變速運動。";
+    if (!saveTransition(next, fallback, message)) return;
+    if (state.phase === "variable") clearMeasurementForm();
   }
 
   function advance() {
@@ -195,13 +225,15 @@
     const concept = conceptInputs.find((input) => input.checked)?.value;
     const stopped = Model.normalizeInput(elements.stoppedInput.value);
     if (!predictionChoice || !concept) return void (elements.instantError.textContent = "請完成兩條選擇題。");
-    if (!stopped) return void (elements.instantError.textContent = "停止速度請用三位有效數字，例如 0.00。");
+    if (!stopped) return void (elements.instantError.textContent = "請輸入非負數值，例如 0、0.0 或 0.00；不要輸入單位。");
     state.answers.instant = { predictionChoice, concept, stoppedVelocity: stopped.text };
     state.variant = state.returnToReview ? "review-edit-answered" : "answered";
     elements.instantError.textContent = "";
-    announce("時間放大鏡答案已記錄，現在顯示切線和模型值。");
-    if (!saveDraft()) return;
-    render();
+    const fallback = JSON.parse(JSON.stringify(state));
+    const wasEdit = state.returnToReview;
+    const next = Persistence.next(state, state.returnToReview ? "return-review" : "review");
+    if (!next) return void (elements.instantError.textContent = "未能安全記錄本關狀態，請檢查答案後再試。");
+    saveTransition(next, fallback, wasEdit ? "修改已保存，返回提交前檢查。" : "第 3 關答案已保存，前往提交前檢查。");
   }
   function editStage(stage) {
     if (locked || state.phase !== "review") return;
@@ -214,6 +246,7 @@
     announce(`返回第 ${stage + 1} 關修改答案。`);
     if (!saveDraft()) return;
     render();
+    focusContext(elements.stageTitle);
   }
   function loadInstantForm() {
     const answer = state.answers.instant;
@@ -348,7 +381,7 @@
     const label = window.SimActivityFlow.completionLabel(result?.passed ?? null);
     elements.scorePanel.textContent = `成績：${result?.score ?? "--"} / 100　狀態：${label}`;
     const items = detailed && trustedReview ? result.feedbackItems : [];
-    elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map((item) => `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p aria-label="${escapeHtml(item.text)}">${feedbackHtml(item.text)}</p></article>`).join("");
+    elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map(feedbackItemHtml).join("");
     elements.retryButton.classList.toggle("is-hidden", !retryable);
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : "重試連線";
     const detail = items.map((item) => `${item.title}。${item.text}`).join(" ");
@@ -375,10 +408,11 @@
     const variable = state.phase === "variable";
     elements.stageKicker.textContent = variable ? "第 2 關" : "第 1 關";
     elements.stageTitle.textContent = variable ? "變速運動" : "勻速運動";
-    elements.instructionText.textContent = variable ? "量度至少一個完整週期，觀察慢、快和短暫停止。" : "操作計時器記錄 x₁、x₂ 和經過時間。";
+    elements.instructionText.textContent = variable ? `車速會不規則改變；自行量度至少 ${Model.format3(state.definition.variableMinimumDuration)} s。` : "操作計時器記錄 x₁、x₂ 和經過時間。";
     elements.relationshipLegend.innerHTML = variable
       ? "在這段變速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？"
       : "在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？";
+    elements.measurementSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : variable ? "確認答案並前往第 3 關" : "確認答案並前往第 2 關";
     elements.instantControls.classList.add("is-hidden");
     elements.observationControls.classList.remove("is-hidden");
     elements.timerButton.classList.remove("is-hidden");
@@ -396,10 +430,7 @@
     elements.pauseButton.disabled = !running;
     renderMeasurementProgress();
     const answered = state.variant.endsWith("answered");
-    elements.navigationControls.classList.toggle("is-hidden", !answered);
-    elements.advanceButton.classList.toggle("is-hidden", state.returnToReview);
-    elements.advanceButton.textContent = variable ? "前往時間放大鏡" : "前往變速運動";
-    elements.returnReviewButton.classList.toggle("is-hidden", !state.returnToReview);
+    elements.navigationControls.classList.add("is-hidden");
     if (answered) loadMeasurementForm(state.answers[state.phase]);
   }
   function renderMeasurementProgress() {
@@ -422,7 +453,7 @@
     elements.progressMessage.textContent = timerRunning && !running
       ? "觀察及計時已暫停；請先按繼續觀察，之後才可停止計時。"
       : timerRunning && remaining > 0
-      ? state.phase === "variable" ? `請繼續量度，直至觀察到快、慢和短暫停止；尚欠約 ${Model.format3(remaining)} s。` : `尚需量度 ${Model.format3(remaining)} s。`
+      ? `尚需量度約 ${Model.format3(remaining)} s。`
       : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : state.scene.observationStarted !== 1 ? "請先按開始觀察，再開始計時。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
   }
   function renderInstant() {
@@ -435,6 +466,7 @@
     elements.measurementCard.classList.add("is-hidden");
     elements.measurementForm.classList.add("is-hidden");
     elements.instantControls.classList.remove("is-hidden");
+    elements.instantSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : "確認答案並檢查全部答案";
     const rows = Model.analysisWindows(state.definition).slice(0, state.viewedWindowCount);
     elements.windowRows.innerHTML = rows.map((row) => `<tr><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.startTime, "s")}，${quantityHtml(row.startPosition, "m")}</td><td>${quantityHtml(row.endTime, "s")}，${quantityHtml(row.endPosition, "m")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
     elements.nextWindowButton.classList.toggle("is-hidden", state.viewedWindowCount >= 4);
@@ -447,10 +479,7 @@
       loadInstantForm();
       elements.revealCard.innerHTML = `模型在目標時刻的瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 是 ${quantityHtml(Scoring.correctOption(state.definition).value, "m/s")}；圖中虛線顯示該點切線。`;
     }
-    elements.navigationControls.classList.toggle("is-hidden", !answered);
-    elements.advanceButton.classList.toggle("is-hidden", state.returnToReview);
-    elements.advanceButton.textContent = "前往提交前檢查";
-    elements.returnReviewButton.classList.toggle("is-hidden", !state.returnToReview);
+    elements.navigationControls.classList.add("is-hidden");
   }
   function renderReview() {
     elements.reviewList.innerHTML = [
@@ -546,6 +575,36 @@
     const pointerTop = Math.max(82, layout.carGroundY - 88 * scale);
     context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(w / 2, pointerTop); context.lineTo(w / 2, layout.rulerY + 2); context.stroke();
     context.fillStyle = "#78350f"; context.textAlign = "center"; context.font = "bold 12px system-ui"; context.fillText("量度指針", w / 2, pointerTop - 7);
+    drawMeasurementMarkers(currentMeasurement(), worldPosition, pixelsPerMetre, layout);
+  }
+  function drawMeasurementMarkers(measurement, currentWorldPosition, pixelsPerMetre, layout) {
+    if (!measurement) return;
+    const markers = [
+      { endpoint: "x1", label: "開始 x₁", dashed: true, shape: "circle", colour: "#00695c", labelOffset: -34 },
+      { endpoint: "x2", label: "停止 x₂", dashed: false, shape: "square", colour: "#5b21b6", labelOffset: 34 }
+    ].filter((marker) => Number.isFinite(measurement[marker.endpoint]));
+    markers.forEach((marker, index) => {
+      const world = Model.measurementWorldPosition(measurement, marker.endpoint);
+      const x = view.width / 2 + (world - currentWorldPosition) * pixelsPerMetre;
+      if (x < 12 || x > view.width - 12) {
+        const left = x < 12, cueX = left ? 8 : view.width - 8;
+        context.save(); context.fillStyle = "#fff"; context.strokeStyle = marker.colour; context.lineWidth = 3;
+        context.beginPath(); context.roundRect(left ? 2 : view.width - 82, layout.roadCentreY + 9 + index * 28, 80, 23, 5); context.fill(); context.stroke();
+        context.fillStyle = "#111827"; context.font = "bold 11px system-ui"; context.textAlign = left ? "left" : "right";
+        context.fillText(`${left ? "←" : "→"} ${marker.label}`, left ? cueX : cueX, layout.roadCentreY + 25 + index * 28); context.restore();
+        return;
+      }
+      context.save(); context.strokeStyle = "#fff"; context.lineWidth = 8; context.setLineDash(marker.dashed ? [6, 5] : []);
+      context.beginPath(); context.moveTo(x, layout.roadCentreY + 7); context.lineTo(x, layout.roadBottom - 10); context.stroke(); context.setLineDash([]);
+      context.strokeStyle = marker.colour; context.fillStyle = marker.colour; context.lineWidth = 4; context.setLineDash(marker.dashed ? [6, 5] : []);
+      context.beginPath(); context.moveTo(x, layout.roadCentreY + 7); context.lineTo(x, layout.roadBottom - 10); context.stroke(); context.setLineDash([]);
+      if (marker.shape === "circle") { context.beginPath(); context.arc(x, layout.roadBottom - 9, 5, 0, Math.PI * 2); context.fill(); }
+      else context.fillRect(x - 5, layout.roadBottom - 14, 10, 10);
+      const badgeX = Math.max(44, Math.min(view.width - 44, x + marker.labelOffset));
+      context.fillStyle = "#fff"; context.strokeStyle = marker.colour; context.lineWidth = 3;
+      context.beginPath(); context.roundRect(badgeX - 40, layout.roadCentreY + 8, 80, 24, 5); context.fill(); context.stroke();
+      context.fillStyle = "#111827"; context.font = "bold 11px system-ui"; context.textAlign = "center"; context.fillText(marker.label, badgeX, layout.roadCentreY + 24); context.restore();
+    });
   }
   function drawLandmarks(position, scale, layout) {
     const size = Math.max(.72, Math.min(1.08, Math.min(view.width / 680, view.height / 330)));
@@ -713,6 +772,23 @@
       .replaceAll("v(t*)", "<var>v</var>(<var>t</var><sup>*</sup>)")
       .replaceAll("Δt", "<var>Δt</var>");
   }
+  function fractionHtml(numerator, denominator) {
+    return `<span class="fraction"><span>${numerator}</span><span>${denominator}</span></span>`;
+  }
+  function feedbackFormulaHtml(formula) {
+    if (!formula) return "";
+    if (formula.kind === "average") {
+      const displacement = `|${quantityHtml(formula.x2, "m")} − ${quantityHtml(formula.x1, "m")}|`;
+      const aria = `位移大小等於 ${Model.format3(formula.x2)} 米減 ${Model.format3(formula.x1)} 米的絕對值，等於 ${Model.format3(formula.displacement)} 米。平均速度大小等於位移大小除以經過時間，等於 ${Model.format3(formula.averageVelocity)} 米每秒。`;
+      return `<div class="feedback-formula" role="math" aria-label="${escapeHtml(aria)}"><div>|<var>Δx</var>| = ${displacement} = ${quantityHtml(formula.displacement, "m")}</div><div>|<var class="overbar">v</var>| = ${fractionHtml("|<var>Δx</var>|", "<var>Δt</var>")} = ${fractionHtml(quantityHtml(formula.displacement, "m"), quantityHtml(formula.time, "s"))} = ${quantityHtml(formula.averageVelocity, "m/s")}</div></div>`;
+    }
+    const sequence = formula.windows.map((row) => `<span class="limit-step"><span><var>Δt</var> = ${quantityHtml(row.duration, "s")}</span><span>→</span><span>|<var class="overbar">v</var>| = ${quantityHtml(row.averageVelocity, "m/s")}</span></span>`).join("");
+    const aria = `時間區間逐步縮短，平均速度依次趨近 ${Model.format3(formula.exact)} 米每秒。`;
+    return `<div class="feedback-formula limit-formula" role="math" aria-label="${escapeHtml(aria)}">${sequence}<strong>→ <var>v</var>(<var>t</var><sup>*</sup>) = ${quantityHtml(formula.exact, "m/s")}</strong></div>`;
+  }
+  function feedbackItemHtml(item) {
+    return `<article class="feedback-item ${item.correct ? "is-correct" : "is-wrong"}"><h3>${escapeHtml(item.title)}</h3><p>${feedbackHtml(item.text)}</p>${feedbackFormulaHtml(item.formula)}</article>`;
+  }
 
   elements.observeButton.addEventListener("click", startOrResume);
   elements.pauseButton.addEventListener("click", pause);
@@ -734,7 +810,13 @@
   if (startupView.mode === "review") restoreFinished(attempt);
   else if (startupView.mode === "activity") {
     try {
-      state = attempt.state === "draft" ? Persistence.decode(attempt.snapshot?.answer) : Persistence.initialState(Model.createAttempt());
+      if (attempt.state === "draft") {
+        state = Persistence.decode(attempt.snapshot?.answer);
+        if (!state && attempt.snapshot?.answer?.v === 3) {
+          state = Persistence.initialState(Model.createAttempt());
+          announce("活動已更新；舊開發版本草稿不能安全沿用，現已開始新版活動。");
+        }
+      } else state = Persistence.initialState(Model.createAttempt());
       if (!state) throw new Error("Invalid draft");
       const restoredRuntime = Persistence.runtimeFlagsForRestore(state);
       running = restoredRuntime.running;

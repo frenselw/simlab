@@ -23,6 +23,10 @@ for (const [name, source] of [["HTML", html], ["main script", main], ["scoring s
 }
 assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a stable semantic overbar");
 assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
+assert.match(main, /function feedbackFormulaHtml[\s\S]*role="math"[\s\S]*aria-label=/, "final feedback formulas use native accessible math markup");
+assert.match(styles, /\.feedback-formula[\s\S]*overflow-x: auto/, "long formula feedback remains usable on narrow screens");
+assert.match(styles, /\.feedback-formula[^}]*min-width: 0;[^}]*max-width: 100%/, "formula cards stay within the narrow-screen panel");
+assert.match(styles, /\.feedback-formula > div[^}]*min-width: 0;[^}]*flex-wrap: wrap/, "average-velocity equations wrap between semantic terms on narrow screens");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
 assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "pristine observation has a distinct status");
 const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
@@ -36,6 +40,17 @@ const stopwatchBody = main.match(/function stopwatch\(\)[^]*?\n  }/)?.[0] || "";
 assert.match(stopwatchBody, /observationStarted !== 1 \|\| !running[\s\S]*請先按開始觀察/, "stopwatch defensively requires a running observation before start");
 assert.match(stopwatchBody, /if \(!running\)[\s\S]*請先繼續觀察/, "a paused active stopwatch cannot capture an endpoint");
 assert.match(main, /Visuals\.wheelAngle\(worldPosition\)/, "road car wheel angle derives from authoritative world position");
+assert.match(main, /label: "開始 x₁"[\s\S]*dashed: true[\s\S]*shape: "circle"/, "start marker has text, line pattern, and shape");
+assert.match(main, /label: "停止 x₂"[\s\S]*dashed: false[\s\S]*shape: "square"/, "stop marker does not rely on colour alone");
+assert.match(main, /measurementWorldPosition\(measurement, marker\.endpoint\)/, "measurement markers derive from authoritative world readings");
+assert.match(main, /left \? "←" : "→"/, "off-screen markers expose a direction cue");
+assert.match(main, /strokeStyle = "#fff"; context\.lineWidth = 8[\s\S]*strokeStyle = marker\.colour/, "marker core has a high-contrast white halo");
+assert(main.indexOf("drawMeasurementMarkers(currentMeasurement()") > main.indexOf('fillText("量度指針"'), "markers render after the car and pointer so the pointer cannot erase them");
+assert.match(main, /Persistence\.next\(state, state\.returnToReview \? "return-review" : "advance"\)/, "measurement confirmation transitions without an extra navigation click");
+assert.match(main, /focusContext\(state\.phase === "review" \? elements\.reviewTitle : elements\.stageTitle\)/, "automatic transitions focus their new context");
+assert.match(main, /focusContext\(target\)/, "save failures focus the visible alert");
+assert.match(html, /id="stageTitle"[^>]*tabindex="-1"/);
+assert.match(html, /id="reviewTitle"[^>]*tabindex="-1"/);
 assert.match(main, /Visuals\.carScale\(pixelsPerMetre\)/, "rendered wheel radius uses the same world-to-screen scale as background travel");
 assert.match(main, /Visuals\.visibleBackgroundCells\(layer[\s\S]*Visuals\.backgroundAppearance\(layer, cellId\)/, "background layers use stable world-cell identities");
 assert.match(main, /lineDashOffset = Visuals\.laneDashOffset\(worldPosition, pixelsPerMetre\)[\s\S]*setLineDash\(\[\]\); context\.lineDashOffset = 0/, "lane divider follows world position and resets Canvas dash state");

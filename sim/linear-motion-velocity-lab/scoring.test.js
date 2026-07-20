@@ -6,8 +6,7 @@ const Scoring = require("./scoring.js");
 
 const definition = Model.createAttempt(20260716);
 const uniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 0.37, 3.12);
-const cycle = Model.cycleDuration(definition.variable);
-const variable = Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 0.21, 0.21 + cycle);
+const variable = Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 0.21, 0.21 + definition.variableMinimumDuration);
 const expectedU = Model.expectedFromMeasurement(uniform);
 const expectedV = Model.expectedFromMeasurement(variable);
 const correct = {
@@ -56,9 +55,16 @@ for (const [stage, fields] of Object.entries(Scoring.WEIGHTS)) {
 }
 const detailedFeedback = Scoring.scoreAttempt(definition, uniform, variable, correct).feedbackItems.map((item) => item.text).join("\n");
 ["你的答案", "正確答案", "10 分", "20 分", "完全停止期間"].forEach((text) => assert(detailedFeedback.includes(text), text));
+const formulae = Scoring.scoreAttempt(definition, uniform, variable, correct).feedbackItems.map((item) => item.formula);
+assert.deepStrictEqual(formulae.map((formula) => formula.kind), ["average", "average", "limit"]);
+assert.strictEqual(formulae[2].windows.length, 4);
 const malformed = JSON.parse(JSON.stringify(correct));
-malformed.uniform.time = "2.7";
+malformed.uniform.time = "2.7 m";
 assert.throws(() => Scoring.scoreAttempt(definition, uniform, variable, malformed));
+const flexible = JSON.parse(JSON.stringify(correct));
+flexible.instant.stoppedVelocity = "0";
+flexible.uniform.time = String(expectedU.time);
+assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, flexible).score, 100, "numeric answers need not contain three significant digits");
 const zeroWrong = JSON.parse(JSON.stringify(correct));
 zeroWrong.uniform.displacement = "0.00";
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, zeroWrong).detail.uniform.displacement.correct, false);

@@ -21,7 +21,7 @@
       <header class="sim-header motion-header">
         <div>
           <h1>直線運動：平均速度與瞬時速度</h1>
-          <p><span class="camera-note">鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。</span> <span class="precision-note">所有數值請用三位有效數字。</span></p>
+          <p><span class="camera-note">鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。</span> <span class="precision-note">讀數顯示至三位有效數字；作答只需輸入數值。</span></p>
         </div>
         <ol class="progress" aria-label="活動進度">
           <li data-progress="0">1 勻速</li><li data-progress="1">2 變速</li><li data-progress="2">3 放大鏡</li><li data-progress="3">檢查</li>
@@ -41,7 +41,7 @@
         <aside class="sim-panel motion-panel" aria-label="操作面板">
           <section id="activitySection" class="panel-section">
             <p id="stageKicker" class="stage-kicker">第 1 關</p>
-            <h2 id="stageTitle" class="section-title">勻速運動</h2>
+            <h2 id="stageTitle" class="section-title" tabindex="-1">勻速運動</h2>
             <p id="instructionText">先觀察標尺如何移動，再操作計時器記錄兩個位置。</p>
 
             <div id="observationControls" class="button-grid three-buttons">
@@ -67,14 +67,14 @@
               <label class="calculation-row"><span>位移大小 |<var>Δx</var>|</span><input id="displacementInput" inputmode="text" autocomplete="off" aria-label="位移大小 Delta x，單位米" aria-describedby="formatHint"><span class="unit">m</span></label>
               <label class="calculation-row"><span>經過時間 <var>Δt</var></span><input id="timeInput" inputmode="text" autocomplete="off" aria-label="經過時間 Delta t，單位秒" aria-describedby="formatHint"><span class="unit">s</span></label>
               <label class="calculation-row"><span>平均速度大小 |<var class="overbar">v</var>|</span><input id="averageInput" inputmode="text" autocomplete="off" aria-label="平均速度大小 v bar，單位米每秒" aria-describedby="formatHint"><span class="unit">m/s</span></label>
-              <p id="formatHint" class="format-hint">請用三位有效數字，例如 5.00 或 0.500；不要輸入單位。</p>
+              <p id="formatHint" class="format-hint">請輸入非負數值，不需要補足三位有效數字；可用科學記數法，但不要輸入單位。</p>
               <fieldset id="relationshipGroup">
                 <legend id="relationshipLegend">在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class="overbar">v</var>|？</legend>
                 <label><input type="radio" name="relationship" value="yes"> 是</label>
                 <label><input type="radio" name="relationship" value="no"> 否</label>
               </fieldset>
-              <p id="answerError" class="error-text" role="alert"></p>
-              <button type="submit" class="primary-button">確認本關答案</button>
+              <p id="answerError" class="error-text" role="alert" tabindex="-1"></p>
+              <button id="measurementSubmitButton" type="submit" class="primary-button">確認答案並前往第 2 關</button>
             </form>
 
             <section id="instantControls" class="instant-controls is-hidden">
@@ -96,8 +96,9 @@
                   <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
                 </fieldset>
                 <label class="calculation-row"><span>完全停止期間 |<var>v</var>(<var>t</var>)|</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="完全停止期間的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
-                <p id="instantError" class="error-text" role="alert"></p>
-                <button type="submit" class="primary-button">記錄時間放大鏡答案</button>
+                <p id="instantError" class="error-text" role="alert" tabindex="-1"></p>
+                <p class="format-hint">停止速度只需輸入數值，例如 0、0.0 或 0.00；不要輸入單位。</p>
+                <button id="instantSubmitButton" type="submit" class="primary-button">確認答案並檢查全部答案</button>
               </form>
               <div id="revealCard" class="reveal-card is-hidden"></div>
             </section>
@@ -109,7 +110,7 @@
           </section>
 
           <section id="reviewSection" class="panel-section is-hidden">
-            <h2 class="section-title">提交前檢查</h2>
+            <h2 id="reviewTitle" class="section-title" tabindex="-1">提交前檢查</h2>
             <p>以下只顯示你記錄的答案，不會預先透露正確與否。</p>
             <p id="submissionNotice" class="submission-notice is-hidden"></p>
             <div id="reviewList" class="review-list"></div>

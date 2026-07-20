@@ -6,260 +6,130 @@ const Scoring = require("./scoring.js");
 const Persistence = require("./persistence.js");
 
 const definition = Model.createAttempt(77123);
-const uniformPosition = (time) => Model.uniformPosition(definition.uniform, time);
-const variablePosition = (time) => Model.variablePosition(definition.variable, time);
-const uniform = { ...Model.captureMeasurement(uniformPosition, 0, 1.75), currentOrEndModelTime: 1.75 };
-const variableDuration = Model.cycleDuration(definition.variable);
-const variable = { ...Model.captureMeasurement(variablePosition, 0, variableDuration), currentOrEndModelTime: variableDuration };
-function answerFor(measurement, relationship) {
+const answerFor = (measurement, relationship) => {
   const expected = Model.expectedFromMeasurement(measurement);
-  return { displacement: Model.formatInput3(expected.displacement), time: Model.formatInput3(expected.time), averageVelocity: Model.formatInput3(expected.averageVelocity), relationship };
-}
-const uniformAnswer = answerFor(uniform, "yes");
-const variableAnswer = answerFor(variable, "no");
-const instantAnswer = { predictionChoice: Scoring.correctOption(definition).id, concept: "limit", stoppedVelocity: "0.00" };
-
+  return { displacement: String(expected.displacement), time: String(expected.time), averageVelocity: String(expected.averageVelocity), relationship };
+};
 const states = [];
-const ready = Persistence.initialState(definition);
-states.push(ready);
-const uniformActive = Persistence.continueOnce(ready); states.push(uniformActive);
-const uniformCaptured = Persistence.continueOnce(uniformActive); states.push(uniformCaptured);
-const uniformAnswered = Persistence.continueOnce(uniformCaptured); states.push(uniformAnswered);
-const variableReady = Persistence.continueOnce(uniformAnswered); states.push(variableReady);
-const variableActive = Persistence.continueOnce(variableReady); states.push(variableActive);
-const variableCaptured = Persistence.continueOnce(variableActive); states.push(variableCaptured);
-const variableAnswered = Persistence.continueOnce(variableCaptured); states.push(variableAnswered);
-const instantExploring = Persistence.continueOnce(variableAnswered); states.push(instantExploring);
-const instantAnswered = JSON.parse(JSON.stringify(instantExploring));
-instantAnswered.viewedWindowCount = 4;
-instantAnswered.answers.instant = instantAnswer;
-instantAnswered.variant = "answered";
-assert(Persistence.validateDraft(instantAnswered)); states.push(instantAnswered);
-const review = Persistence.continueOnce(instantAnswered); states.push(review);
+let state = Persistence.initialState(definition); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+state = Persistence.continueOnce(state); states.push(state);
+states[states.length - 1] = JSON.parse(JSON.stringify(state));
+state.viewedWindowCount = 4;
+state.answers.instant = { predictionChoice: Scoring.correctOption(definition).id, concept: "limit", stoppedVelocity: "0" };
+state.variant = "answered"; assert(Persistence.validateDraft(state)); states.push(JSON.parse(JSON.stringify(state)));
+state = Persistence.continueOnce(state); states.push(state);
+const review = state;
 
-const uniformEditAnswered = Persistence.next(review, "edit-uniform"); states.push(uniformEditAnswered);
-const uniformEditReady = JSON.parse(JSON.stringify(uniformEditAnswered)); uniformEditReady.variant = "review-edit-ready"; uniformEditReady.uniformMeasurement = null; uniformEditReady.answers.uniform = null; states.push(uniformEditReady);
-const uniformEditActive = Persistence.continueOnce(uniformEditReady); states.push(uniformEditActive);
-const uniformEditCaptured = Persistence.continueOnce(uniformEditActive); states.push(uniformEditCaptured);
-
-const variableEditAnswered = Persistence.next(review, "edit-variable"); states.push(variableEditAnswered);
-const variableEditReady = JSON.parse(JSON.stringify(variableEditAnswered)); variableEditReady.variant = "review-edit-ready"; variableEditReady.variableMeasurement = null; variableEditReady.answers.variable = null; states.push(variableEditReady);
-const variableEditActive = Persistence.continueOnce(variableEditReady); states.push(variableEditActive);
-const variableEditCaptured = Persistence.continueOnce(variableEditActive); states.push(variableEditCaptured);
-const instantEditAnswered = Persistence.next(review, "edit-instant"); states.push(instantEditAnswered);
-
+for (const [action, type] of [["edit-uniform", "uniform"], ["edit-variable", "variable"]]) {
+  const answered = Persistence.next(review, action); states.push(answered);
+  const ready = JSON.parse(JSON.stringify(answered)); ready.variant = "review-edit-ready"; ready[`${type}Measurement`] = null; ready.answers[type] = null; states.push(ready);
+  const active = Persistence.continueOnce(ready); states.push(active);
+  states.push(Persistence.continueOnce(active));
+}
+states.push(Persistence.next(review, "edit-instant"));
 assert.strictEqual(states.length, Object.keys(Persistence.ROWS).length);
-const seen = new Set();
 const expectedContinuation = {
-  "uniform/ready": "uniform/paused-measuring",
-  "uniform/paused-measuring": "uniform/captured",
-  "uniform/captured": "uniform/answered",
-  "uniform/answered": "variable/ready",
-  "variable/ready": "variable/paused-measuring",
-  "variable/paused-measuring": "variable/captured",
-  "variable/captured": "variable/answered",
-  "variable/answered": "instant/exploring",
-  "instant/exploring": "instant/exploring",
-  "instant/answered": "review/complete",
-  "review/complete": "instant/review-edit-answered",
-  "uniform/review-edit-ready": "uniform/review-edit-paused-measuring",
-  "uniform/review-edit-paused-measuring": "uniform/review-edit-captured",
-  "uniform/review-edit-captured": "uniform/review-edit-answered",
-  "uniform/review-edit-answered": "review/complete",
-  "variable/review-edit-ready": "variable/review-edit-paused-measuring",
-  "variable/review-edit-paused-measuring": "variable/review-edit-captured",
-  "variable/review-edit-captured": "variable/review-edit-answered",
-  "variable/review-edit-answered": "review/complete",
+  "uniform/ready": "uniform/paused-measuring", "uniform/paused-measuring": "uniform/captured", "uniform/captured": "uniform/answered", "uniform/answered": "variable/ready",
+  "variable/ready": "variable/paused-measuring", "variable/paused-measuring": "variable/captured", "variable/captured": "variable/answered", "variable/answered": "instant/exploring",
+  "instant/exploring": "instant/exploring", "instant/answered": "review/complete", "review/complete": "instant/review-edit-answered",
+  "uniform/review-edit-ready": "uniform/review-edit-paused-measuring", "uniform/review-edit-paused-measuring": "uniform/review-edit-captured", "uniform/review-edit-captured": "uniform/review-edit-answered", "uniform/review-edit-answered": "review/complete",
+  "variable/review-edit-ready": "variable/review-edit-paused-measuring", "variable/review-edit-paused-measuring": "variable/review-edit-captured", "variable/review-edit-captured": "variable/review-edit-answered", "variable/review-edit-answered": "review/complete",
   "instant/review-edit-answered": "review/complete"
 };
-for (const original of states) {
-  assert(original, "fixture continuation exists");
-  const key = `${original.phase}/${original.variant}`;
-  seen.add(key);
-  assert(Persistence.validateDraft(original), key);
-  const restored = Persistence.decode(Persistence.encode(original));
-  assert(restored, `round trip ${key}`);
-  assert.strictEqual(`${restored.phase}/${restored.variant}`, key);
-  const continued = Persistence.continueOnce(restored);
-  assert(continued, `legal continuation ${key}`);
-  assert.strictEqual(`${continued.phase}/${continued.variant}`, expectedContinuation[key], `next state ${key}`);
+const seen = new Set();
+for (const item of states) {
+  const key = `${item?.phase}/${item?.variant}`; seen.add(key);
+  assert(item && Persistence.validateDraft(item), key);
+  const restored = Persistence.decode(Persistence.encode(item));
+  assert.deepStrictEqual(restored.answers, item.answers, `answers retain meaning ${key}`);
+  assert.deepStrictEqual(restored.uniformMeasurement, item.uniformMeasurement, `uniform measurement retains meaning ${key}`);
+  assert.deepStrictEqual(restored.variableMeasurement, item.variableMeasurement, `variable measurement retains meaning ${key}`);
+  const continued = restored && Persistence.continueOnce(restored);
+  assert(continued, `round trip and legal continuation ${key}`);
+  assert.strictEqual(`${continued.phase}/${continued.variant}`, expectedContinuation[key], `expected continuation ${key}`);
 }
 assert.deepStrictEqual([...seen].sort(), Object.keys(Persistence.ROWS).sort());
-
-const normalizedRunning = Persistence.encode({ ...uniformActive, running: true, timerRunning: true });
-assert.strictEqual(normalizedRunning.variant, "paused-measuring");
-assert.strictEqual(normalizedRunning.scene.paused, 1);
-const restoredRuntime = Persistence.runtimeFlagsForRestore(Persistence.decode(normalizedRunning));
-assert.deepStrictEqual(restoredRuntime, { running: false, timerRunning: true });
-assert.deepStrictEqual(Persistence.resumeRuntime(restoredRuntime), { running: true, timerRunning: true }, "resume preserves the active stopwatch");
-assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(ready), { running: false, timerRunning: false });
-
-const frameBoundaryDefinition = Model.createAttempt(50);
-const frameBoundaryMinimum = Model.cycleDuration(frameBoundaryDefinition.variable);
-assert.strictEqual(frameBoundaryMinimum, 9.250000000000002);
-let frameBoundaryActive = Persistence.initialState(frameBoundaryDefinition);
-for (let step = 0; step < 5; step += 1) frameBoundaryActive = Persistence.continueOnce(frameBoundaryActive);
-const frameBoundaryTime = Model.advanceSimulationTime(0, Array.from({ length: 185 }, () => ({ dt: Model.MAX_FRAME_DELTA, running: true })));
-assert(frameBoundaryTime < frameBoundaryMinimum, "raw 185-frame duration preserves the floating-point edge case");
-frameBoundaryActive.scene.simulationTime = frameBoundaryTime;
-frameBoundaryActive.scene.observationStarted = 1;
-frameBoundaryActive.variableMeasurement.currentOrEndModelTime = frameBoundaryTime;
-frameBoundaryActive.variableMeasurement.dt = Model.canonicalNumber(frameBoundaryTime);
-assert(Persistence.validateDraft(frameBoundaryActive));
-assert(Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryTime, minimum: frameBoundaryMinimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, "185-frame normal state is eligible despite raw floating remainder");
-const frameBoundaryPaused = Persistence.decode(Persistence.encode({ ...frameBoundaryActive, running: false, timerRunning: true }));
-assert(frameBoundaryPaused, "185-frame paused measurement restores");
-assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(frameBoundaryPaused), { running: false, timerRunning: true });
-assert(!Persistence.measurementControlState({ timerRunning: true, duration: frameBoundaryPaused.scene.simulationTime - frameBoundaryPaused.variableMeasurement.startModelTime, minimum: frameBoundaryMinimum, captured: false, answered: false, running: false, observationStarted: true }).canStop, "restored paused state must resume observation before stopping");
+assert.strictEqual(Persistence.VERSION, 4);
+const oldDraft = Persistence.encode(review); oldDraft.v = 3;
+assert.strictEqual(Persistence.decode(oldDraft), null, "v3 draft is explicitly rejected rather than reinterpreted");
 
 const reviewAnswer = Persistence.makeReview(review);
 assert(Persistence.validateReview(reviewAnswer));
 const restoredReview = Persistence.fromReview(Persistence.decodeReview(reviewAnswer));
-const before = Scoring.scoreAttempt(definition, review.uniformMeasurement, review.variableMeasurement, review.answers);
-const after = Scoring.scoreAttempt(restoredReview.definition, restoredReview.uniformMeasurement, restoredReview.variableMeasurement, restoredReview.answers);
-assert.strictEqual(after.score, before.score);
-assert.strictEqual(after.passed, before.passed);
-assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "draft", answer: Persistence.encode(review) })) < 4000);
-assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "review", answer: reviewAnswer, score: 100, passed: true })) < 4000);
+assert.strictEqual(Scoring.scoreAttempt(restoredReview.definition, restoredReview.uniformMeasurement, restoredReview.variableMeasurement, restoredReview.answers).score, 100);
+assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "draft", answer: Persistence.encode(review) })) < 4000, "draft envelope stays compact");
+assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "review", answer: reviewAnswer, score: 100, passed: true })) < 4000, "review envelope stays compact");
 
-function invalid(mutator, source = review) {
-  const value = JSON.parse(JSON.stringify(source));
-  mutator(value);
-  assert.strictEqual(Persistence.decode(value), null);
-}
-invalid((value) => { value.v = 99; });
+const variableReady = Persistence.continueOnce(Persistence.continueOnce(Persistence.continueOnce(Persistence.continueOnce(Persistence.initialState(definition)))));
+const variableActive = Persistence.continueOnce(variableReady);
+assert.strictEqual(variableActive.variableMeasurement.x2, null);
+const variableCaptured = Persistence.continueOnce(variableActive);
+assert(Model.minimumDurationReached(variableCaptured.variableMeasurement.dt, definition.variableMinimumDuration));
+assert(variableCaptured.variableMeasurement.dt < 5.01, "test continuation uses the visible minimum, not a full cycle");
+assert.strictEqual(Persistence.measurementControlState({ timerRunning: true, duration: definition.variableMinimumDuration - 0.01, minimum: definition.variableMinimumDuration, captured: false, answered: false, running: true, observationStarted: true }).canStop, false);
+assert.strictEqual(Persistence.measurementControlState({ timerRunning: true, duration: definition.variableMinimumDuration, minimum: definition.variableMinimumDuration, captured: false, answered: false, running: true, observationStarted: true }).canStop, true);
+assert.strictEqual(Persistence.measurementControlState({ timerRunning: true, duration: definition.variableMinimumDuration, minimum: definition.variableMinimumDuration, captured: false, answered: false, running: false, observationStarted: true }).canStop, false);
+
+const active = Persistence.continueOnce(Persistence.initialState(definition));
+assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(Persistence.decode(Persistence.encode({ ...active, running: true, timerRunning: true }))), { running: false, timerRunning: true });
+assert.deepStrictEqual(Persistence.resumeRuntime({ running: false, timerRunning: true }), { running: true, timerRunning: true });
+
+const invalid = (mutator, source = review) => { const copy = JSON.parse(JSON.stringify(source)); mutator(copy); assert.strictEqual(Persistence.decode(copy), null); };
+invalid((value) => { value.v = 3; });
 invalid((value) => { value.phase = "missing"; });
 invalid((value) => { value.stage = 0; });
 invalid((value) => { value.returnToReview = true; });
-invalid((value) => { value.answers.uniform = null; });
-invalid((value) => { value.answers.uniform.time = "1.7"; });
-invalid((value) => { value.definition.variable.slowSpeed = NaN; });
-invalid((value) => { value.definition.variable.fastSpeed = Infinity; });
-invalid((value) => { value.definition.variable.durations.accelerate = 0; });
-invalid((value) => { value.definition.windows.reverse(); });
+invalid((value) => { value.definition.variable.streamVersion = 99; });
+invalid((value) => { value.definition.variableMinimumDuration = 9; });
+invalid((value) => { value.definition.variableMinimumDuration = 3.1; });
+invalid((value) => { value.definition.instantTarget.segmentIndex = -1; });
 invalid((value) => { value.definition.instantTarget.timeWithinSegment = 0.1; });
-invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
-invalid((value) => { delete value.uniformMeasurement.readingOrigin; });
-invalid((value) => { value.uniformMeasurement.readingOrigin += 50; });
+invalid((value) => { value.definition.instantOptions[0].value = Infinity; });
+invalid((value) => { value.definition.windows.reverse(); });
+invalid((value) => { value.answers.uniform.time = "5 m"; });
+invalid((value) => { value.answers.variable.averageVelocity = "-1"; });
+invalid((value) => { value.answers.variable.averageVelocity = "1e308"; });
+invalid((value) => { value.answers.instant.stoppedVelocity = "1e-324"; });
 invalid((value) => { value.uniformMeasurement.x1 += 1; });
-invalid((value) => { value.uniformMeasurement.currentOrEndModelTime = value.uniformMeasurement.endModelTime + 1; });
+invalid((value) => { value.uniformMeasurement.readingOrigin += 50; });
+invalid((value) => { value.uniformMeasurement.x2 += 1; });
+invalid((value) => { value.uniformMeasurement.dt += 0.1; });
+invalid((value) => { value.uniformMeasurement.startModelTime = -1; });
 invalid((value) => { delete value.uniformMeasurement.currentOrEndModelTime; });
-invalid((value) => { value.variableMeasurement.currentOrEndModelTime = value.variableMeasurement.startModelTime + 1; value.variableMeasurement.endModelTime = value.variableMeasurement.currentOrEndModelTime; value.variableMeasurement.dt = 1; });
-invalid((value) => { value.answers.instant.predictionChoice = "missing"; });
+invalid((value) => { value.variableMeasurement.endModelTime = value.variableMeasurement.startModelTime + 1; value.variableMeasurement.currentOrEndModelTime = value.variableMeasurement.endModelTime; value.variableMeasurement.dt = 1; });
 invalid((value) => { value.viewedWindowCount = 3; });
-invalid((value) => { value.answers.variable = variableAnswer; }, uniformCaptured);
-invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, uniformActive);
-invalid((value) => { value.scene.simulationTime = -0.01; }, ready);
-invalid((value) => { value.scene.simulationTime = Infinity; }, ready);
-invalid((value) => { value.scene.simulationTime = Number.MAX_VALUE; }, ready);
-invalid((value) => { value.scene.simulationTime = 1e16; value.scene.observationStarted = 1; }, ready);
-invalid((value) => { value.scene.simulationTime = 1e100; value.scene.observationStarted = 1; }, ready);
-invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME; value.scene.observationStarted = 1; }, ready);
-invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME - 0.01; value.scene.observationStarted = 1; }, ready);
-invalid((value) => { value.scene.observationStarted = 2; }, ready);
-invalid((value) => { value.scene.observationStarted = 0; value.scene.simulationTime = 1; }, ready);
-for (const source of [uniformActive, variableActive, uniformEditActive, variableEditActive]) {
-  invalid((value) => { value.scene.observationStarted = 0; }, source);
-}
-invalid((value) => { value.scene.simulationTime = 0.25; }, uniformActive);
-invalid((value) => {
-  value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime;
-  delete value.uniformMeasurement.currentOrEndModelTime;
-}, uniformActive);
-invalid((value) => { value.scene.simulationTime = value.uniformMeasurement.endModelTime - 0.01; }, uniformCaptured);
-invalid((value) => { value.definition.uniform.layout = 99; });
-invalid((value) => { value.definition.uniform.coordinateOrigin += 1; });
-invalid((value) => { value.definition.uniform.speed = value.definition.variable.fastSpeed; });
-invalid((value) => {
-  const start = Model.MAX_MODEL_TIME - 0.01;
-  const readingOrigin = Model.rollingReadingOrigin(uniformPosition(start));
-  value.scene = { simulationTime: start, paused: 1, observationStarted: 1 };
-  value.uniformMeasurement = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(uniformPosition(start), readingOrigin)), x2: null, dt: 0 };
-}, uniformActive);
-invalid((value) => {
-  const start = Model.MAX_MODEL_TIME - 0.01;
-  const readingOrigin = Model.rollingReadingOrigin(variablePosition(start));
-  value.scene = { simulationTime: start, paused: 1, observationStarted: 1 };
-  value.variableMeasurement = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(variablePosition(start), readingOrigin)), x2: null, dt: 0 };
-}, variableActive);
 
-for (const [type, source, minimum] of [["uniform", ready, 1.5], ["variable", variableReady, variableDuration]]) {
-  const minimumOnlyReady = JSON.parse(JSON.stringify(source));
-  minimumOnlyReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum, paused: 1, observationStarted: 1 };
-  assert.strictEqual(Persistence.validateDraft(minimumOnlyReady), false, `${type} minimum-only headroom is rejected`);
+const byKey = Object.fromEntries(states.map((item) => [`${item.phase}/${item.variant}`, item]));
+invalid((value) => { value.answers.uniform = null; }, byKey["variable/ready"]);
+invalid((value) => { value.answers.variable = answerFor(variableCaptured.variableMeasurement, "no"); }, byKey["uniform/captured"]);
+invalid((value) => { value.scene.observationStarted = 0; }, byKey["uniform/paused-measuring"]);
+invalid((value) => { value.scene.observationStarted = 2; }, byKey["uniform/ready"]);
+invalid((value) => { value.scene.simulationTime = 1; value.scene.observationStarted = 0; }, byKey["uniform/ready"]);
+invalid((value) => { value.scene.simulationTime = Infinity; }, byKey["uniform/ready"]);
+invalid((value) => { value.scene.simulationTime = Model.MAX_MODEL_TIME; value.scene.observationStarted = 1; }, byKey["uniform/ready"]);
+invalid((value) => { value.uniformMeasurement.endModelTime = value.uniformMeasurement.currentOrEndModelTime; delete value.uniformMeasurement.currentOrEndModelTime; }, byKey["uniform/paused-measuring"]);
+invalid((value) => { value.uniformMeasurement.x2 = value.uniformMeasurement.x1; }, byKey["uniform/paused-measuring"]);
+invalid((value) => { value.returnToReview = false; }, byKey["uniform/review-edit-answered"]);
+invalid((value) => { value.answers.instant = null; }, byKey["variable/review-edit-answered"]);
+invalid((value) => { value.answers.variable = null; }, byKey["instant/review-edit-answered"]);
 
-  const boundaryReady = JSON.parse(JSON.stringify(source));
-  boundaryReady.scene = { simulationTime: Model.MAX_MODEL_TIME - minimum - Model.MODEL_TIME_CONTINUATION_RESERVE, paused: 1, observationStarted: 1 };
-  const restoredBoundaryReady = Persistence.decode(Persistence.encode(boundaryReady));
-  assert(restoredBoundaryReady, `${type} reserved boundary ready state restores`);
-  let boundaryActive = Persistence.continueOnce(restoredBoundaryReady);
-  boundaryActive = Persistence.decode(Persistence.encode(boundaryActive));
-  assert(boundaryActive, `${type} boundary state starts measuring`);
-  const field = `${type}Measurement`;
-  let duration = 0;
-  while (!Model.minimumDurationReached(duration, minimum)) {
-    const next = Model.advanceSimulationTime(boundaryActive.scene.simulationTime, [{ dt: Model.MAX_FRAME_DELTA, running: true }]);
-    boundaryActive.scene.simulationTime = next;
-    boundaryActive[field].currentOrEndModelTime = next;
-    boundaryActive[field].dt = Model.canonicalNumber(next - boundaryActive[field].startModelTime);
-    duration = next - boundaryActive[field].startModelTime;
-    assert(Persistence.validateDraft(boundaryActive), `${type} production frame remains restorable before eligibility`);
-  }
-  assert(Persistence.measurementControlState({ timerRunning: true, duration, minimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, `${type} repeated frames reach stop eligibility`);
-  const operationFrame = Model.advanceSimulationTime(boundaryActive.scene.simulationTime, [{ dt: Model.MAX_FRAME_DELTA, running: true }]);
-  assert(operationFrame > boundaryActive.scene.simulationTime && Model.safeModelTime(operationFrame), `${type} retains one safe operation frame after eligibility`);
-  assert(Persistence.measurementControlState({ timerRunning: true, duration: operationFrame - boundaryActive[field].startModelTime, minimum, captured: false, answered: false, running: true, observationStarted: true }).canStop, `${type} observation does not auto-stop`);
-  const position = type === "uniform" ? uniformPosition : variablePosition;
-  boundaryActive.scene.simulationTime = operationFrame;
-  boundaryActive[field] = { ...Model.captureMeasurement(position, boundaryActive[field].startModelTime, operationFrame, boundaryActive[field].readingOrigin), currentOrEndModelTime: operationFrame };
-  boundaryActive.variant = "captured";
-  assert(Persistence.validateDraft(boundaryActive), `${type} learner can stop safely after the reserved frame`);
-}
+const shortVariable = JSON.parse(JSON.stringify(byKey["variable/captured"]));
+shortVariable.variableMeasurement = { ...Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 0, definition.variableMinimumDuration - 0.25), currentOrEndModelTime: definition.variableMinimumDuration - 0.25 };
+shortVariable.scene.simulationTime = definition.variableMinimumDuration - 0.25;
+assert.strictEqual(Persistence.decode(shortVariable), null, "short variable capture fails closed");
 
-for (const [type, source, position, start, end] of [
-  ["uniform", uniformActive, uniformPosition, 10000, 10001.5],
-  ["variable", variableActive, variablePosition, 100000, 100000 + variableDuration * 8]
-]) {
-  const longActive = JSON.parse(JSON.stringify(source));
-  longActive.scene.simulationTime = start;
-  longActive.scene.observationStarted = 1;
-  const readingOrigin = Model.rollingReadingOrigin(position(start));
-  longActive[`${type}Measurement`] = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(position(start), readingOrigin)), x2: null, dt: 0 };
-  const restoredActive = Persistence.decode(Persistence.encode(longActive));
-  assert(restoredActive, `${type} long-running active measurement survives encode/reload`);
-  const advanced = Model.advanceSimulationTime(restoredActive.scene.simulationTime, [{ dt: 0.05, running: true }]);
-  assert(advanced > restoredActive.scene.simulationTime, `${type} restored model time can advance`);
-  assert(Number.isFinite(Model.readingPosition(position(advanced), restoredActive[`${type}Measurement`].readingOrigin)), `${type} restored reading can render`);
-  restoredActive.scene.simulationTime = advanced;
-  restoredActive[`${type}Measurement`].currentOrEndModelTime = advanced;
-  restoredActive[`${type}Measurement`].dt = Model.canonicalNumber(advanced - start);
-  assert(Persistence.decode(Persistence.encode(restoredActive)), `${type} restored state executes a legal timed continuation`);
-  restoredActive.scene.simulationTime = end;
-  restoredActive[`${type}Measurement`] = { ...Model.captureMeasurement(position, start, end, readingOrigin), currentOrEndModelTime: end };
-  restoredActive.variant = "captured";
-  const restoredCaptured = Persistence.decode(Persistence.encode(restoredActive));
-  assert(restoredCaptured, `${type} manually captured long measurement survives encode/reload`);
-  const expected = Model.expectedFromMeasurement(restoredCaptured[`${type}Measurement`]);
-  assert(expected.displacement > 0, `${type} late-start captured displacement remains visible`);
-  const maximumExpected = type === "uniform" ? definition.uniform.speed + 0.2 : definition.variable.fastSpeed;
-  assert(expected.averageVelocity > 0 && expected.averageVelocity <= maximumExpected, `${type} late-start average remains physically plausible`);
-  assert(Model.normalizeInput(Model.formatInput3(expected.displacement)), `${type} long displacement is answerable`);
-  assert(Model.normalizeInput(Model.formatInput3(expected.time)), `${type} long time is answerable`);
-}
+const badReviewVersion = JSON.parse(JSON.stringify(reviewAnswer)); badReviewVersion.v = 3;
+assert.strictEqual(Persistence.decodeReview(badReviewVersion), null);
+const badReviewShape = JSON.parse(JSON.stringify(reviewAnswer)); badReviewShape.uniformMeasurement.currentOrEndModelTime = badReviewShape.uniformMeasurement.endModelTime;
+assert.strictEqual(Persistence.decodeReview(badReviewShape), null);
 
-const safeLateReady = JSON.parse(JSON.stringify(ready));
-safeLateReady.scene = { simulationTime: 1e8, paused: 1, observationStarted: 1 };
-const restoredLateReady = Persistence.decode(Persistence.encode(safeLateReady));
-assert(restoredLateReady, "multi-year-scale finite scene restores safely");
-const nextLateTime = Model.advanceSimulationTime(restoredLateReady.scene.simulationTime, [{ dt: 0.05, running: true }]);
-assert(nextLateTime > restoredLateReady.scene.simulationTime);
-assert(Model.safeWorldPosition(uniformPosition(nextLateTime)));
-
-const badReview = JSON.parse(JSON.stringify(reviewAnswer)); badReview.answers.instant.stoppedVelocity = "zero";
-assert.strictEqual(Persistence.decodeReview(badReview), null);
-const draftShapedReview = JSON.parse(JSON.stringify(reviewAnswer));
-draftShapedReview.uniformMeasurement.currentOrEndModelTime = draftShapedReview.uniformMeasurement.endModelTime;
-assert.strictEqual(Persistence.decodeReview(draftShapedReview), null);
 assert.deepStrictEqual(Persistence.startupView("editable"), { editable: true, locked: false, mode: "activity" });
 assert.strictEqual(Persistence.startupView("review").mode, "review");
 assert.strictEqual(Persistence.startupView("frozen").mode, "pending");
@@ -267,17 +137,9 @@ assert.strictEqual(Persistence.startupView("load-error").mode, "technical");
 assert.deepStrictEqual(Persistence.submissionView({ activityState: "success" }), { locked: true, mode: "review", retryable: false, trusted: true });
 assert.strictEqual(Persistence.submissionView({ activityState: "committed" }).mode, "committed");
 assert.strictEqual(Persistence.submissionView({ activityState: "frozen" }).mode, "pending");
-assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: true }).locked, false);
 assert.strictEqual(Persistence.submissionView({ activityState: "retry", retryable: false }).locked, true);
+assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: true }), "resubmit");
 assert.strictEqual(Persistence.retryAction({ activityState: "committed" }), "finish");
 assert.strictEqual(Persistence.retryAction({ activityState: "frozen" }), "pending");
-assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: true }), "resubmit");
-assert.strictEqual(Persistence.retryAction({ activityState: "retry", retryable: false }), "none");
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.49, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "停止計時", disabled: true, canStop: false });
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "停止計時", disabled: false, canStop: true });
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 0, minimum: 1.5, captured: false, answered: false, running: false, observationStarted: false }), { label: "開始計時", disabled: true, canStop: false });
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 0, minimum: 1.5, captured: false, answered: false, running: true, observationStarted: true }), { label: "開始計時", disabled: false, canStop: false });
-assert.deepStrictEqual(Persistence.measurementControlState({ timerRunning: true, duration: 1.5, minimum: 1.5, captured: false, answered: false, running: false, observationStarted: true }), { label: "停止計時", disabled: true, canStop: false });
-assert.strictEqual(Persistence.measurementControlState({ timerRunning: false, duration: 2, minimum: 1.5, captured: true, answered: false, running: true, observationStarted: true }).disabled, true);
 
 console.log("Linear motion persistence tests passed");

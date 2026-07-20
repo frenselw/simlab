@@ -84,8 +84,9 @@
           numericFeedback("經過時間 Δt", detail.uniform.time, "s"),
           numericFeedback("平均速度大小 |v̄|", detail.uniform.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.uniform.relationship, { yes: "是", no: "否" }),
-          `計算：|Δx| = |${Model.format3(uniformMeasurement.x2)} − ${Model.format3(uniformMeasurement.x1)}| = ${Model.format3(uniform.displacement)} m；|v̄| = ${Model.format3(uniform.displacement)} ÷ ${Model.format3(uniform.time)} = ${Model.format3(uniform.averageVelocity)} m/s。理想勻速模型在每一時刻都有相同瞬時速度；末位差異可來自三位有效數字讀數。`
-        ].join("\n")
+          "理想勻速模型在每一時刻都有相同瞬時速度；末位差異可來自三位有效數字讀數。"
+        ].join("\n"),
+        formula: { kind: "average", x1: uniformMeasurement.x1, x2: uniformMeasurement.x2, displacement: uniform.displacement, time: uniform.time, averageVelocity: uniform.averageVelocity }
       },
       {
         title: "第 2 關：變速運動",
@@ -95,8 +96,9 @@
           numericFeedback("經過時間 Δt", detail.variable.time, "s"),
           numericFeedback("平均速度大小 |v̄|", detail.variable.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.variable.relationship, { yes: "是", no: "否" }),
-          `計算：|Δx| = |${Model.format3(variableMeasurement.x2)} − ${Model.format3(variableMeasurement.x1)}| = ${Model.format3(variable.displacement)} m；|v̄| = ${Model.format3(variable.displacement)} ÷ ${Model.format3(variable.time)} = ${Model.format3(variable.averageVelocity)} m/s。變速時不會在每一時刻都等於整段平均值，但某一刻可以巧合相等。`
-        ].join("\n")
+          "變速時不會在每一時刻都等於整段平均值，但某一刻可以巧合相等。"
+        ].join("\n"),
+        formula: { kind: "average", x1: variableMeasurement.x1, x2: variableMeasurement.x2, displacement: variable.displacement, time: variable.time, averageVelocity: variable.averageVelocity }
       },
       {
         title: "第 3 關：時間放大鏡",
@@ -105,8 +107,9 @@
           choiceFeedback("瞬時速度 v(t*) 估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
           choiceFeedback("瞬時速度概念", detail.instant.concept, { limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程平均", "zero-division": "除以零秒", "largest-one-second": "一秒內最大速度" }),
           numericFeedback("完全停止期間 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
-          `縮短區間所得 |v̄| 依次為 ${windows.map((row) => quantity(row.averageVelocity, "m/s")).join("、")}，趨近目標瞬時速度 v(t*) = ${Model.format3(exact)} m/s。完全停止期間的瞬時速度是 0.00 m/s。`
-        ].join("\n")
+          "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；完全停止期間的瞬時速度是 0.00 m/s。"
+        ].join("\n"),
+        formula: { kind: "limit", windows: windows.map((row) => ({ duration: row.duration, averageVelocity: row.averageVelocity })), exact }
       }
     ];
   }

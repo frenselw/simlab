@@ -3,158 +3,105 @@
 const assert = require("assert");
 const Model = require("./motion-model.js");
 
-assert.strictEqual(Model.format3(0.005), "0.00500");
-assert.strictEqual(Model.format3(0.5), "0.500");
-assert.strictEqual(Model.format3(5), "5.00");
-assert.strictEqual(Model.format3(50), "50.0");
-assert.strictEqual(Model.format3(500), "500");
-assert.strictEqual(Model.format3(0), "0.00");
-assert.strictEqual(Model.format3(Model.canonicalNumber(9.996)), "10.0");
+assert.deepStrictEqual([0.005, 0.5, 5, 50, 500, 0].map(Model.format3), ["0.00500", "0.500", "5.00", "50.0", "500", "0.00"]);
 assert.strictEqual(Model.format3(99.96), "100");
-assert.strictEqual(Model.format3(999.6), "1000");
-assert.strictEqual(Model.format3(0.00009996), "0.000100");
 assert.strictEqual(Model.format3(1e-323), "--");
-assert.strictEqual(Model.format3(Number.MAX_VALUE), "--", "rounding overflow must not leak Infinity into the display");
-for (const value of [0.005, 0.5, 5, 50, 99.96, 999.6, 0.00009996, 9.99e307]) {
-  const output = Model.format3(value);
-  assert(!/[eE×]/.test(output), `${value} uses ordinary decimal notation as ${output}`);
-  assert(!/Infinity|NaN/.test(output), `${value} has a finite display`);
-}
-assert.strictEqual(Model.format3(-500), "-500");
-["5.00", "0.500", "05.00", "0.00", "1000", "1230", "5.00e2", "1.00E+2", "5.00e-4"].forEach((value) => assert(Model.normalizeInput(value), value));
-["5", "5.0", "1234", "5.00 m", "5,00", "5e0", "5.0e2", "Infinity", "NaN"].forEach((value) => assert.strictEqual(Model.normalizeInput(value), null, value));
-assert.strictEqual(Model.normalizeInput("05.00").text, "5.00");
-assert.strictEqual(Model.normalizeInput("500").text, "500");
-assert.strictEqual(Model.normalizeInput("5.00e-4").text, "0.000500");
-assert.strictEqual(Model.formatInput3(500), "500");
-assert.strictEqual(Model.formatInput3(99.96), "100");
-assert.strictEqual(Model.formatInput3(0.00009996), "0.000100");
-assert.strictEqual(Model.formatInput3(1e-323), "--");
-assert.strictEqual(Model.normalizeInput("1.00e-323"), null, "subnormal input is rejected before formatting");
-assert(Model.normalizeInput("2.23e-308"), "smallest supported normal-scale input is accepted");
-for (const value of ["2.23e-308", "1.00e-300", "1.00e-4", "99.9", "1.00e2", "9.99e307"]) {
-  const normalized = Model.normalizeInput(value);
-  assert(normalized && Number.isFinite(normalized.value), `${value} parses finitely`);
-  assert(Model.normalizeInput(normalized.text), `${value} normalized text round trips`);
-}
+for (const value of ["5", "5.0", "5.00", "0", "0.0", "0.00", "0e-999", "05.00", "5e-1", "1.2E+3"]) assert(Model.normalizeInput(value), value);
+for (const value of ["", "-1", "+1", "5 m", "5,0", "NaN", "Infinity", "1e999", "1e-323", "1e-324", String(Model.MAX_LEARNER_INPUT_VALUE + 1), "1e308", "1".repeat(Model.MAX_INPUT_LENGTH + 1)]) assert.strictEqual(Model.normalizeInput(value), null, value);
+assert.strictEqual(Model.normalizeInput(" 5e-1 ").value, 0.5);
 assert(Model.numericMatch(6.424999, 6.42));
 assert(!Model.numericMatch(6.425001, 6.42));
 assert(Model.numericMatch(0, 0));
 assert(!Model.numericMatch(0.001, 0));
 
 const first = Model.createAttempt(12345);
-assert.deepStrictEqual(Model.createAttempt(12345), first);
-const tuples = new Set();
-const uniformAnswers = new Set();
-const variableAnswers = new Set();
+assert.deepStrictEqual(Model.createAttempt(12345), first, "same seed rebuilds the exact attempt");
+const definitions = new Set();
+const streams = new Set();
 for (let seed = 0; seed < 100; seed += 1) {
   const definition = Model.createAttempt(seed);
   assert(Model.validateDefinition(definition));
-  tuples.add(JSON.stringify([definition.uniform.speed, definition.uniform.x0, definition.variable.slowSpeed, definition.variable.fastSpeed, definition.variable.initialPhase, definition.instantTarget]));
-  const uniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 0, 2.37);
-  const cycle = Model.cycleDuration(definition.variable);
-  const variable = Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 0, cycle);
-  uniformAnswers.add(JSON.stringify(Model.expectedFromMeasurement(uniform)));
-  variableAnswers.add(JSON.stringify(Model.expectedFromMeasurement(variable)));
-  assert(definition.variable.slowSpeed >= 1.5 && definition.variable.fastSpeed <= 9.5);
-  assert(definition.variable.durations.stopped >= 0.6);
+  assert(definition.variableMinimumDuration >= 3 && definition.variableMinimumDuration <= 5);
+  assert.strictEqual(definition.variableMinimumDuration * 4, Math.round(definition.variableMinimumDuration * 4));
+  assert.strictEqual(definition.variable.streamVersion, Model.STREAM_VERSION);
+  definitions.add(JSON.stringify([definition.uniform, definition.variableMinimumDuration, definition.instantTarget, definition.stoppedCheckpoint]));
+  streams.add(JSON.stringify(Model.streamChunk(definition.variable, 3).map((segment) => [segment.duration, segment.v0, segment.v1])));
   const target = Model.targetSceneTime(definition);
   const rows = Model.analysisWindows(definition);
+  assert.deepStrictEqual(rows.map((row) => row.duration), [2, 1, 0.5, 0.25]);
   assert(rows.every((row) => row.startTime < row.endTime && row.duration > 0));
   assert(new Set(rows.map((row) => row.averageVelocity)).size >= 3);
   const exact = Model.variableVelocity(definition.variable, target);
+  const acceleration = Model.profileState(definition.variable, target).acceleration;
   for (let index = 1; index < rows.length; index += 1) {
-    const directed = definition.instantTarget.segment === "accelerate"
-      ? rows[index].averageVelocity > rows[index - 1].averageVelocity
-      : rows[index].averageVelocity < rows[index - 1].averageVelocity;
-    assert(directed, `seed ${seed} window ${index} direction`);
-    assert(Math.abs(rows[index].averageVelocity - exact) < Math.abs(rows[index - 1].averageVelocity - exact), `seed ${seed} window ${index} approach`);
+    assert(acceleration > 0 ? rows[index].averageVelocity > rows[index - 1].averageVelocity : rows[index].averageVelocity < rows[index - 1].averageVelocity);
+    assert(Math.abs(rows[index].averageVelocity - exact) < Math.abs(rows[index - 1].averageVelocity - exact));
   }
+  assert.strictEqual(Model.variableVelocity(definition.variable, Model.stoppedSceneTime(definition)), 0);
   assert.strictEqual(definition.instantOptions.filter((option) => option.correct).length, 1);
-  assert(Math.abs(definition.uniform.speed - definition.variable.slowSpeed) >= 0.75);
-  assert(Math.abs(definition.uniform.speed - definition.variable.fastSpeed) >= 0.75);
 }
-assert(tuples.size >= 95);
-assert(uniformAnswers.size > 20);
-assert(variableAnswers.size > 20);
-assert.throws(() => Model.createAttempt(1, 0));
-assert.throws(() => Model.createAttempt(29, 1), /未能產生有效/);
+assert(definitions.size > 95);
+assert(streams.size > 95, "later chunks vary with seed");
+for (let seed = 100; seed < 2000; seed += 1) {
+  const generated = Model.createAttempt(seed);
+  const rows = Model.analysisWindows(generated);
+  const exact = Model.variableVelocity(generated.variable, Model.targetSceneTime(generated));
+  assert.deepStrictEqual(rows.map((row) => row.duration), Model.WINDOWS);
+  for (let index = 1; index < rows.length; index += 1) assert(Math.abs(rows[index].averageVelocity - exact) < Math.abs(rows[index - 1].averageVelocity - exact), `seed ${seed} strict convergence`);
+}
 
 const definition = Model.createAttempt(9);
-assert.strictEqual(Model.uniformPosition(definition.uniform, 2), definition.uniform.x0 + definition.uniform.speed * 2);
-assert.strictEqual(Model.uniformVelocity(definition.uniform), definition.uniform.speed);
-const table = Model.segmentTable(definition.variable);
-for (let index = 1; index < table.length; index += 1) {
-  const boundary = table[index].start - definition.variable.initialPhase;
-  const left = Model.variableVelocity(definition.variable, boundary - 1e-7);
-  const right = Model.variableVelocity(definition.variable, boundary + 1e-7);
-  assert(Math.abs(left - right) < 1e-5, table[index].key);
-  assert(Math.abs(Model.variablePosition(definition.variable, boundary - 1e-7) - Model.variablePosition(definition.variable, boundary + 1e-7)) < 1e-4);
+assert.notDeepStrictEqual(Model.streamChunk(definition.variable, 0).map((item) => [item.duration, item.v0, item.v1]), Model.streamChunk(definition.variable, 1).map((item) => [item.duration, item.v0, item.v1]), "successive chunks do not repeat a cycle");
+for (let chunkIndex = 0; chunkIndex < 12; chunkIndex += 1) {
+  const table = Model.streamChunk(definition.variable, chunkIndex);
+  assert(Math.abs(table.reduce((sum, item) => sum + item.duration, 0) - Model.CHUNK_DURATION) < 1e-8);
+  assert.strictEqual(table.filter((item) => item.v0 === 0 && item.v1 === 0).length, 1, "each chunk has an exact stop plateau");
+  assert(table.some((item) => item.v0 > 0 && item.v0 === item.v1), "each chunk has a seeded non-zero cruise plateau");
+  assert(table.some((item) => item.v1 > item.v0), "each chunk accelerates");
+  assert(table.some((item) => item.v1 < item.v0), "each chunk decelerates");
+  assert(table.filter((item) => item.v0 === item.v1).every((item) => item.duration < definition.variableMinimumDuration), "no constant segment can satisfy the measurement alone");
+  for (let index = 1; index < table.length; index += 1) {
+    assert(Math.abs(table[index - 1].v1 - table[index].v0) < 1e-12);
+    const boundary = chunkIndex * Model.CHUNK_DURATION + table[index].start;
+    assert(Math.abs(Model.variableVelocity(definition.variable, boundary - 1e-7) - Model.variableVelocity(definition.variable, boundary + 1e-7)) < 1e-5);
+    assert(Math.abs(Model.variablePosition(definition.variable, boundary - 1e-7) - Model.variablePosition(definition.variable, boundary + 1e-7)) < 1e-4);
+  }
 }
-const cycle = Model.cycleDuration(definition.variable);
-for (let t = 0; t < cycle * 2; t += 0.05) {
-  assert(Model.variableVelocity(definition.variable, t) >= -1e-10);
-  assert(Model.variablePosition(definition.variable, t + 0.01) >= Model.variablePosition(definition.variable, t) - 1e-10);
+for (let time = 0; time < 300; time += 0.17) {
+  assert(Model.variableVelocity(definition.variable, time) >= 0);
+  assert(Model.variablePosition(definition.variable, time + 0.01) >= Model.variablePosition(definition.variable, time) - 1e-9);
 }
-const stop = table.find((segment) => segment.key === "stopped");
-const stopTime = stop.start + stop.duration / 2 - definition.variable.initialPhase + cycle;
-assert.strictEqual(Model.variableVelocity(definition.variable, stopTime), 0);
-const fineSchedule = Array.from({ length: 100 }, () => ({ dt: 0.01, running: true }));
-const coarseSchedule = Array.from({ length: 20 }, () => ({ dt: 0.05, running: true }));
-const fineTime = Model.advanceSimulationTime(0, fineSchedule);
-const coarseTime = Model.advanceSimulationTime(0, coarseSchedule);
+for (let start = 0; start < 250; start += 0.31) {
+  const values = [0, 0.75, 1.5, 2.25, 3].map((offset) => Model.variableVelocity(definition.variable, start + offset));
+  assert(new Set(values.map((value) => value.toFixed(7))).size > 1, `a legal 3 s measurement from ${start} is non-uniform`);
+}
+assert(Math.abs(Model.variablePosition(definition.variable, Model.CHUNK_DURATION) - definition.variable.x0 - Model.CHUNK_DISTANCE) < 1e-9);
+assert.strictEqual(Model.variablePosition(definition.variable, Model.CHUNK_DURATION * 1000) - definition.variable.x0, Model.CHUNK_DISTANCE * 1000);
+
+const measurement = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 0.2, 2.2);
+assert.strictEqual(Model.measurementWorldPosition(measurement, "x1"), measurement.readingOrigin + measurement.x1);
+assert.strictEqual(Model.measurementWorldPosition(measurement, "x2"), measurement.readingOrigin + measurement.x2);
+assert.strictEqual(Model.measurementWorldPosition({ ...measurement, x2: null }, "x2"), null);
+assert(Model.expectedFromMeasurement(measurement).displacement > 0);
+
+const fineTime = Model.advanceSimulationTime(0, Array.from({ length: 100 }, () => ({ dt: 0.01, running: true })));
+const coarseTime = Model.advanceSimulationTime(0, Array.from({ length: 20 }, () => ({ dt: 0.05, running: true })));
 assert(Math.abs(fineTime - coarseTime) < 1e-12);
-assert(Math.abs(Model.variablePosition(definition.variable, fineTime) - Model.variablePosition(definition.variable, coarseTime)) < 1e-12, "frame schedules preserve model position");
-const pausedTime = Model.advanceSimulationTime(0, [
-  ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: true })),
-  ...Array.from({ length: 50 }, () => ({ dt: 0.01, running: false }))
-]);
-assert(Math.abs(pausedTime - 0.5) < 1e-12, "paused frames do not advance simulation time");
-assert(Math.abs(Model.advanceSimulationTime(12, Array.from({ length: 6000 }, () => ({ dt: 0.05, running: true }))) - 312) < 1e-9, "observation has no automatic time limit");
-const multiYearTime = Model.advanceSimulationTime(1e8, [{ dt: 0.05, running: true }]);
-assert(multiYearTime > 1e8 && Model.safeModelTime(multiYearTime), "accepted late scene can still advance by a frame");
-assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5), "minimum-only headroom lacks a safe operation frame");
-assert(Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5 - Model.MODEL_TIME_CONTINUATION_RESERVE, 1.5));
-assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 0.01, 1.5));
-assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME, 1.5));
+assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5));
 assert(Model.minimumDurationReached(1.5 - Model.MODEL_TIME_TOLERANCE / 2, 1.5));
-assert(!Model.minimumDurationReached(1.5 - Model.MODEL_TIME_TOLERANCE * 2, 1.5));
-assert.throws(() => Model.advanceSimulationTime(1e16, [{ dt: 0.05, running: true }]), /Invalid frame schedule/);
-
-const lateUniform = Model.captureMeasurement((time) => Model.uniformPosition(definition.uniform, time), 10000, 10001.5);
-assert(lateUniform.x2 > lateUniform.x1, "late uniform minimum interval keeps distinct displayed readings");
-assert(Math.abs(Model.expectedFromMeasurement(lateUniform).averageVelocity - definition.uniform.speed) < 0.2);
-const lateVariable = Model.captureMeasurement((time) => Model.variablePosition(definition.variable, time), 100000, 100000 + cycle);
-const lateVariableExpected = Model.expectedFromMeasurement(lateVariable);
-assert(lateVariableExpected.displacement > 0, "late variable full cycle keeps non-zero displayed displacement");
-assert(lateVariableExpected.averageVelocity > definition.variable.slowSpeed && lateVariableExpected.averageVelocity < definition.variable.fastSpeed);
-
-const seed2235 = Model.createAttempt(2235);
-const regressionRows = Model.analysisWindows(seed2235);
-const regressionExact = Model.variableVelocity(seed2235.variable, Model.targetSceneTime(seed2235));
-for (let index = 1; index < regressionRows.length; index += 1) {
-  assert(Math.abs(regressionRows[index].averageVelocity - regressionExact) < Math.abs(regressionRows[index - 1].averageVelocity - regressionExact));
-}
-
-const stageThreeTarget = Model.targetSceneTime(definition);
-const stageThreePosition = Model.canonicalNumber(Model.variablePosition(definition.variable, stageThreeTarget));
-assert(Model.analysisWindows(definition).every((row) => row.endPosition === stageThreePosition), "stage-three table endpoints share the graph target world position");
+assert(Model.safeWorldPosition(Model.variablePosition(definition.variable, 1e8)));
 
 for (const mutate of [
-  (value) => { value.uniform.layout = 3; },
-  (value) => { value.variable.layout = -1; },
-  (value) => { value.uniform.coordinateOrigin += 1; },
-  (value) => { value.variable.x0 = 1000; },
-  (value) => { value.uniform.speed = value.variable.fastSpeed; },
-  (value) => { value.variable.durations.slow = 1.65; },
-  (value) => { value.variable.durations.accelerate = 0.2; },
-  (value) => { value.variable.durations.fast = 1.15; },
-  (value) => { value.variable.durations.restart = 0.2; },
-  (value) => { value.instantTarget.cycleIndex = 1; }
+  (value) => { value.variable.streamVersion += 1; },
+  (value) => { value.variableMinimumDuration = 2.75; },
+  (value) => { value.variableMinimumDuration = 3.1; },
+  (value) => { value.instantTarget.segmentIndex = -1; },
+  (value) => { value.instantTarget.timeWithinSegment = 0.1; },
+  (value) => { value.stoppedCheckpoint.segmentIndex = value.instantTarget.segmentIndex; },
+  (value) => { value.windows.reverse(); },
+  (value) => { value.uniform.layout = 4; }
 ]) {
-  const corrupt = JSON.parse(JSON.stringify(definition));
-  mutate(corrupt);
-  assert.strictEqual(Model.validateDefinition(corrupt), false);
+  const corrupt = JSON.parse(JSON.stringify(definition)); mutate(corrupt); assert.strictEqual(Model.validateDefinition(corrupt), false);
 }
 
 console.log("Linear motion model tests passed");

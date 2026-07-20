@@ -134,7 +134,8 @@ average at one particular instant; it is not equal at every instant.
 
 Three significant figures apply to ruler labels, captured position readings,
 stopwatch readings, analysis-window durations, calculated correct answers,
-learner numeric answers, and final numeric feedback.
+calculated correct answers, and final numeric feedback. Learner answer strings
+are not required to contain three significant digits.
 
 ### Display rules
 
@@ -196,19 +197,14 @@ enter an `e` exponent.
 - Accept unsigned decimal notation or standard `e`/`E` scientific notation for
   input compatibility, then normalize it to ordinary decimal notation. Negative
   signs, commas, and units remain invalid; a signed exponent is valid.
-- Reject subnormal magnitudes that cannot be stably represented and normalized
-  by the activity's three-significant-figure formatter.
+- Reject a non-zero mantissa that underflows to zero, unsupported subnormal
+  magnitudes, non-finite values, and magnitudes above
+  `MAX_LEARNER_INPUT_VALUE`. True zero forms such as `0`, `0.0`, and `0e-999`
+  remain valid.
 - Ignore surrounding whitespace.
-- Ignore leading zeros before the first non-zero digit.
-- Count zeros between non-zero digits and trailing zeros after a decimal point as
-  significant.
-- Require exactly three significant digits before an answer can be confirmed.
-  An ordinary-decimal integer produced by a rounding carry may contain more than
-  three digits only when every extra digit is a trailing zero, such as `1000` or
-  `1230`; this is the unavoidable fixed-notation form of a three-figure value.
 - Examples:
-  - `5` and `5.0` are incomplete;
-  - `5.00` is valid;
+  - `5`, `5.0`, and `5.00` are valid and score as the same number;
+  - `0`, `0.0`, `0.00`, and `0e-999` are valid zero entries;
   - `0.500` is valid;
   - `05.00` is valid and normalizes to `5.00`;
   - `5.00e2` remains valid for input compatibility and normalizes to `500`;
@@ -217,12 +213,13 @@ enter an `e` exponent.
   validation;
   - unit text such as `5.00 m` is invalid because the unit is already displayed
     beside the field.
-- Formatting errors do not deduct points. They block confirmation and show a
-  concrete example such as `請用三位有效數字，例如 5.00。`
+- Formatting errors do not deduct points. They block confirmation and explain
+  that units, commas, signs on the mantissa, underflow, and excessively large
+  values are unsupported.
 
 ### Numeric scoring tolerance
 
-Once an entry passes the three-significant-figure format check, use the symmetric
+Once an entry passes the numeric safety check, use the symmetric
 inclusive comparison:
 
 ```text
@@ -231,9 +228,8 @@ epsilonGuard(x) = 8 × Number.EPSILON × max(1, |x|)
 ```
 
 `answer` and `expected` use the quantity's displayed unit. An expected exact
-zero accepts only numeric zero after the format-valid `0.00` entry is parsed.
-Because the learner is required to enter exactly three significant digits, the
-non-zero comparison normally accepts only the one correct rounded value.
+zero accepts only parsed numeric zero. The expected value and tolerance still
+come from the three-significant-figure canonical displayed answer.
 
 Examples:
 
@@ -251,6 +247,7 @@ Easy-to-change constants:
 - `RULER_MAJOR_STEP_M = 10`
 - `RULER_MINOR_STEP_M = 1`
 - `NUMERIC_EPSILON_FACTOR`
+- `MAX_LEARNER_INPUT_VALUE = MAX_RENDER_POSITION`
 
 ## Attempt randomization
 
@@ -263,20 +260,19 @@ seed. A sufficiently large parameter space makes identical answer sets between
 students unlikely, but the UI and documentation must not claim mathematical
 global uniqueness.
 
-Save the concrete validated attempt definition, not only the original seed. A
-seed may be retained for diagnostics, but final review must not depend on the
-same browser PRNG implementation reproducing an old sequence.
+Save the generator version and concrete attempt-level controls with the seed.
+The local versioned PRNG and chunk-index contract are production data: final
+review regenerates and validates the same stream without storing an unbounded
+segment array.
 
 Randomized values include:
 
 - uniform speed;
 - initial world position and coordinate origin;
-- variable-motion slow and fast speeds;
-- durations of slow cruise, acceleration, fast cruise, deceleration, stop, and
-  restart;
-- the initial phase within the variable-motion cycle;
-- whether the instantaneous target lies in a valid acceleration or deceleration
-  ramp;
+- variable-stream endpoint speeds, ramp directions, non-zero cruise locations,
+  exact-stop locations, and segment durations in every chunk;
+- a visible stage-two minimum from `3.00 s` to `5.00 s` in `0.250 s` steps;
+- whether the instantaneous target ramp accelerates or decelerates;
 - the precise target position within that ramp;
 - small finite scene-layout variants that do not change the physics.
 
@@ -289,10 +285,10 @@ Reject and resample an attempt definition when:
 - the uniform speed is not visibly distinct from the variable profile's main
   speed levels;
 - the variable speed ever becomes negative;
-- the variable profile has a discontinuous velocity at any segment boundary or
-  at the cycle boundary;
-- the stopped plateau is shorter than the required visible minimum;
-- the complete cycle is outside the allowed measurement-duration range;
+- the variable profile has a discontinuous velocity at any segment or chunk
+  boundary;
+- a constant non-zero or stopped plateau is as long as the smallest stage-two
+  minimum, because a legal interval must contain genuine velocity variation;
 - a stage-three target is at or too near a segment boundary;
 - the four shrinking-window average velocities do not produce at least three
   distinct displayed values;
@@ -420,6 +416,18 @@ Use native Canvas for the animated road scene and native SVG or Canvas for the
 position-time graph, whichever gives simpler crisp labels. No third-party graph
 library is justified.
 
+### Stopwatch position markers
+
+Starting the stopwatch draws `開始 x₁` at authoritative world position
+`readingOrigin + x1`; stopping draws `停止 x₂` at `readingOrigin + x2`.
+Markers move with the road, survive pause/restore/review-edit, clear on
+remeasurement, and become labelled directional edge cues while off screen.
+Pausing observation never creates `x₂`. Start and stop use different text,
+line patterns, and circle/square shapes. A white contrast halo plus dark teal or
+purple core provides at least 3:1 non-text contrast. Draw the lower-lane marker
+after the car and pointer, with an offset opaque label badge, so a marker at the
+pointer remains legible without covering the car.
+
 ## Physics and motion model
 
 Use one-dimensional world position `x` in metres and simulation time `t` in
@@ -452,42 +460,25 @@ motion.
 
 ### Variable motion
 
-Use a deterministic repeating cycle of continuous, piecewise-linear velocity.
-One cycle contains, in order:
+Use a versioned, seeded, non-repeating stream of continuous piecewise-linear
+velocity. Stream v1 divides time into 48-second random-access chunks. Each
+chunk's internal durations, endpoint speeds, acceleration/deceleration order,
+short non-zero cruise, and short exact-zero stop location are regenerated from
+`seed + chunkIndex`; different chunks do not wrap or replay a fixed pattern.
+The chunk's total time and distance are fixed only to permit O(1) lookup at very
+large model times. Its visible internal events are independently randomized.
 
-1. a slow positive cruise;
-2. continuous acceleration to a clearly higher speed;
-3. a short fast cruise;
-4. continuous deceleration to zero;
-5. a visible stopped plateau;
-6. continuous acceleration from zero back to the slow cruise speed.
+Adjacent segments share velocity endpoints, and adjacent chunks meet at zero,
+so velocity and analytically integrated position never jump. Velocity stays
+non-negative. Each chunk contains acceleration, deceleration, a non-zero
+constant cruise, and an exact stopped plateau. Every constant plateau is shorter
+than `3.00 s`; therefore every accepted stage-two measurement contains genuine
+non-uniform motion even though it need not contain every event type.
 
-The cycle boundary joins at the same slow speed, so velocity is continuous. The
-acceleration may change at segment boundaries, but position and velocity may not
-jump. Integrate each velocity segment analytically to obtain position; do not
-advance position by accumulating rounded animation-frame deltas.
-
-Suggested validated random ranges:
-
-- slow speed: `1.50 m/s` to `3.00 m/s`;
-- fast speed: `6.50 m/s` to `9.50 m/s`;
-- fast-minus-slow difference: at least `4.00 m/s`;
-- acceleration and deceleration ramps: long enough to contain the longest
-  stage-three analysis window;
-- stopped plateau: `0.600 s` to `1.20 s`;
-- complete cycle: approximately `7.50 s` to `10.5 s`.
-
-The second stopwatch interval must contain genuine non-uniform motion and the
-stop. After the first press, disable the second press until one complete random
-cycle duration has elapsed. Show a neutral progress message such as:
-
-```text
-請繼續量度，直至觀察到快、慢和短暫停止。
-```
-
-After the minimum, allow the learner to continue for any duration and stop the
-stopwatch manually. Neither completing a cycle nor reaching a later model time
-pauses the observation or captures an endpoint automatically.
+Each attempt displays a minimum accepted duration sampled from `3.00 s` through
+`5.00 s` in `0.250 s` steps. Disable endpoint capture until that duration has
+elapsed, then let the learner stop manually. There is no complete-cycle rule,
+automatic pause, or automatic endpoint capture.
 The progress message uses the same centralized floating-point tolerance as the
 stop control, so an eligible measurement reports that the minimum is reached
 instead of displaying a microscopic positive remainder.
@@ -520,11 +511,13 @@ average velocities change and approach `v(t*)`. A symmetric interval inside a
 constant-acceleration segment would equal the midpoint instantaneous velocity
 for every interval and would hide the intended convergence.
 
-For each window, canonicalize its displayed start time, target time, start
-position, and target position first. Derive the displayed interval duration and
-average velocity only from those canonical displayed endpoints. Generator
-checks for distinct values, trend, and answer-option separation operate on these
-final displayed values, never hidden model precision.
+The authoritative duration is the exact declared window (`2`, `1`, `0.5`, or
+`0.25`), not the difference between separately rounded absolute timestamps.
+Evaluate the model at exact `t* - window` and exact `t*`, calculate the average
+with the exact window duration, then canonicalize the displayed time, position,
+and average values. This prevents a `0.250 s` interval becoming `0.200 s` or
+`0.300 s`. Generator checks require the four displayed averages to approach
+`v(t*)` strictly and in the acceleration direction.
 
 For each window show, to three significant figures:
 
@@ -566,22 +559,23 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
 3. Press `開始計時`; the stopwatch becomes zero and position `x₁` is captured.
 4. After at least the minimum time, press `停止計時`; `x₂` and elapsed time are
    captured while the car continues moving.
-5. Read the captured table and answer, all to three significant figures:
+5. Read the captured table and enter numeric answers; learners need not pad
+   their entries to three significant figures:
    - displacement magnitude `|Δx|` in metres;
    - elapsed time `Δt` in seconds;
    - average velocity magnitude `|v̄|` in metres per second.
 6. Answer the uniform-motion instantaneous-versus-average relationship question.
-7. Confirm the stage or choose `重新量度` before confirmation.
+7. Confirming atomically saves the answer and opens stage two; `重新量度`
+   remains available before confirmation.
 
 ### Stage 2: variable motion
 
-1. Start and observe a new randomized, visibly variable cycle.
+1. Start and observe the seeded, visibly irregular motion stream.
 2. While observation is running, press the stopwatch at any phase.
-3. Continue until the interval has covered at least one complete cycle containing
-   slow motion, fast motion, and the stopped plateau.
+3. Continue until the displayed randomized minimum duration has elapsed.
 4. Stop the stopwatch and answer the same three numeric quantities.
 5. Answer the non-uniform-motion relationship question.
-6. Confirm or remeasure before confirmation.
+6. Confirming atomically saves the answer and opens stage three.
 
 ### Stage 3: time magnifier
 
@@ -596,7 +590,8 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
    - distractor: displacement divided by exactly zero seconds;
    - distractor: the largest speed observed during one second.
 6. Answer the stopped-plateau checkpoint.
-7. Reveal the target tangent and explanation only after answers are recorded.
+7. Confirming atomically saves the answers and opens final review; correctness
+   remains hidden until final submission.
 
 ### Review and submission
 
@@ -608,8 +603,10 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
 - Changing the variable-motion measurement does not regenerate the variable
   profile or stage-three target.
 - Do not allow final submission while any required answer is missing or fails
-  the three-significant-figure format rule.
+  numeric safety validation.
 - Final submission scores only the final recorded state.
+- Review edits return directly to review after a successful atomic save. Focus
+  moves to the new stage heading, review heading, or focused save-error alert.
 
 ## Controls and accessibility
 
@@ -707,6 +704,13 @@ After submission, show stage-by-stage feedback containing:
 - the four shrinking-window values and target instantaneous value;
 - an explanation that zero velocity applies during the stopped plateau.
 
+Render substitutions with trusted structured numeric data and semantic native
+HTML/CSS: `<var>`, subscripts, overbars, and stacked fractions. Formula blocks
+have plain-language `aria-label` descriptions and responsive overflow. Escape
+all prose and learner strings before insertion. MathJax is unnecessary for this
+notation and must not be added: the SCORM package remains self-contained and
+offline-capable.
+
 For uniform motion, use `=` for the ideal model and `≈` when comparing the
 constant model velocity with an average calculated from independently rounded
 display readings. Explicitly attribute any last-digit difference to the required
@@ -728,13 +732,13 @@ action after restore.
 | `uniform` | `ready` | 0 | valid attempt definition; uniform scene time | uniform measurement and all answers | start observation; timing becomes available only while running |
 | `uniform` | `paused-measuring` | 0 | canonical `x1`; elapsed time; current scene time | `x2`; uniform answers | resume observation, then stop when eligible; or discard measurement |
 | `uniform` | `captured` | 0 | canonical `x1`, `x2`, `dt`; derived expected values | confirmed uniform answers | enter answers or remeasure |
-| `uniform` | `answered` | 0 | valid captured measurement; three numeric answers; relationship answer | variable measurement and future answers | advance or edit uniform stage |
+| `uniform` | `answered` | 0 | valid captured measurement; three numeric answers; relationship answer | variable measurement and future answers | atomically save and open variable |
 | `variable` | `ready` | 1 | uniform stage answered; valid variable profile; scene phase/time | variable measurement and stage-two/three answers | start observation; timing becomes available only while running |
-| `variable` | `paused-measuring` | 1 | prior answer; canonical `x1`; elapsed time; cycle coverage; scene time | `x2`; variable answers; stage-three answers | resume observation, then stop when eligible; or discard measurement |
-| `variable` | `captured` | 1 | prior answer; valid full-cycle measurement and canonical readings | confirmed variable answers; stage-three answers | enter answers or remeasure |
-| `variable` | `answered` | 1 | stages one and two measurements and answers | stage-three answers | advance or edit either completed stage |
+| `variable` | `paused-measuring` | 1 | prior answer; canonical `x1`; elapsed time; saved minimum; scene time | `x2`; variable answers; stage-three answers | resume observation, then stop when eligible; or discard measurement |
+| `variable` | `captured` | 1 | prior answer; valid minimum-duration measurement and canonical readings | confirmed variable answers; stage-three answers | enter answers or remeasure |
+| `variable` | `answered` | 1 | stages one and two measurements and answers | stage-three answers | atomically save and open instant |
 | `instant` | `exploring` | 2 | prior stages answered; valid target; completed-window prefix `0..4` | prediction until all windows viewed; stopped answer until enabled | view next window; answer when enabled; edit earlier stages |
-| `instant` | `answered` | 2 | all four windows viewed; prediction; concept answer; stopped answer | final result metadata | open review or edit any stage |
+| `instant` | `answered` | 2 | all four windows viewed; prediction; concept answer; stopped answer | final result metadata | atomically save and open review |
 | `review` | `complete` | 3 | all authoritative attempt data and answers complete | score/result metadata before submit | edit or final submit |
 | `uniform` | `review-edit-ready` | 0 | complete downstream stages; `returnToReview = true`; same uniform definition | current uniform measurement and answers | start observation; timing becomes available only while running |
 | `uniform` | `review-edit-paused-measuring` | 0 | complete downstream stages; `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and current-stage answers | resume observation, then stop when eligible; or discard measurement |
@@ -755,23 +759,23 @@ uniform/ready|paused-measuring -> uniform/captured when a valid endpoint is capt
 uniform/captured -> uniform/answered when all stage-one answers are confirmed
 uniform/answered -> variable/ready when the learner advances
 variable/ready -> variable/paused-measuring when a running measurement is persisted
-variable/ready|paused-measuring -> variable/captured when a full-cycle endpoint is captured
+variable/ready|paused-measuring -> variable/captured when a minimum-duration endpoint is captured
 variable/captured -> variable/answered when all stage-two answers are confirmed
 variable/answered -> instant/exploring when the learner advances
 instant/exploring -> instant/answered when all windows and answers are complete
-instant/answered -> review/complete when the learner opens review
+instant/answered -> review/complete on confirmed atomic save
 review/complete -> uniform/review-edit-answered when the learner edits stage one
 review/complete -> variable/review-edit-answered when the learner edits stage two
 review/complete -> instant/review-edit-answered when the learner edits stage three
 uniform/review-edit-answered|review-edit-captured -> uniform/review-edit-ready when remeasurement begins
 uniform/review-edit-ready|review-edit-paused-measuring -> uniform/review-edit-captured when a valid endpoint is captured
 uniform/review-edit-captured -> uniform/review-edit-answered when revised answers are confirmed
-uniform/review-edit-answered -> review/complete when the learner returns
+uniform/review-edit-answered -> review/complete on confirmed atomic save
 variable/review-edit-answered|review-edit-captured -> variable/review-edit-ready when remeasurement begins
 variable/review-edit-ready|review-edit-paused-measuring -> variable/review-edit-captured when a valid endpoint is captured
 variable/review-edit-captured -> variable/review-edit-answered when revised answers are confirmed
-variable/review-edit-answered -> review/complete when the learner returns
-instant/review-edit-answered -> review/complete when the learner returns
+variable/review-edit-answered -> review/complete on confirmed atomic save
+instant/review-edit-answered -> review/complete on confirmed atomic save
 review/complete -> submitted/locked after a successful or committed final payload
 ```
 
@@ -805,20 +809,14 @@ semantics:
 
 ```js
 {
-  v: 3,
+  v: 4,
   definition: {
     seed,
     uniform: { x0, speed, coordinateOrigin, layout },
-    variable: {
-      x0,
-      coordinateOrigin,
-      slowSpeed,
-      fastSpeed,
-      durations,
-      initialPhase,
-      layout
-    },
-    instantTarget: { segment, cycleIndex, timeWithinSegment },
+    variable: { seed, streamVersion: 1, x0, coordinateOrigin, layout },
+    variableMinimumDuration,
+    instantTarget: { segmentIndex, timeWithinSegment },
+    stoppedCheckpoint: { segmentIndex },
     windows: [2, 1, 0.5, 0.25],
     instantOptions: [{ id, value }]
   },
@@ -845,7 +843,7 @@ semantics:
 
 ```js
 {
-  v: 3,
+  v: 4,
   locked: 1,
   definition,
   uniformMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
@@ -858,10 +856,9 @@ semantics:
 }
 ```
 
-Store normalized three-significant-figure learner strings as authoritative
-answers so locked review can reproduce trailing zeros. Store canonical numeric
-values beside them only if doing so is smaller and validation proves exact
-agreement; do not maintain two independent sources of truth.
+Store confirmed trimmed learner numeric strings as authoritative answers so
+locked review reproduces what was entered. Reparse them with the same bounded
+numeric policy; do not maintain two independent sources of truth.
 
 Do not duplicate `score` or `passed` inside the answer object. The result
 metadata supplied to `SimScorm.makeSnapshot(..., result)` is the sole saved
@@ -880,7 +877,7 @@ validate definition and answers
 - model start/end times, locked `readingOrigin`, and captured canonical `x1`,
   `x2`, and `dt` for both
   measured stages; model times are required to validate the capture against the
-  saved motion definition and prove full-cycle coverage;
+  saved motion definition and prove minimum-duration coverage;
 - learner answer strings and conceptual choice IDs;
 - phase, variant, current stage, `returnToReview`, and completed-window count
   needed to continue;
@@ -890,7 +887,7 @@ validate definition and answers
 
 - current high-precision position from the motion model;
 - expected displacement, average velocity, and instantaneous velocity;
-- cycle boundaries and integrated segment offsets;
+- versioned chunk segments and analytic integrated offsets;
 - position-time graph points and secant/tangent geometry;
 - ruler tick DOM/Canvas positions;
 - score, pass/fail, feedback, enabled buttons, CSS classes, and focus state.
@@ -911,21 +908,22 @@ validate definition and answers
   time and rendered position remain below the technical multi-year safety
   bounds; there is no normal learner-facing duration cap.
 - Ready and active measurement states retain enough model-time headroom to
-  complete the applicable `1.50 s` or full-cycle minimum; boundary states that
+  complete the applicable `1.50 s` or seeded `3.00–5.00 s` minimum; boundary states that
   cannot advance to a legal continuation fail closed.
-- Variable segment durations are present, positive, and produce a valid cycle.
+- The variable seed, stream version, minimum duration, and regenerated chunks
+  are valid and deterministic.
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
   inequalities.
-- Window list is exactly the supported decreasing set for version 3.
+- Window list is exactly the supported decreasing set for version 4; each row's
+  authoritative duration equals that exact value.
 - Instantaneous options have four unique stable IDs, three-significant-figure
   values, one validated correct ID, and the saved display order; restore never
   reshuffles them.
 - Captured measurement values have valid ordering and agree with their motion
   definition, locked local reading origin, and canonical capture precision.
-- A captured variable interval covers at least one full cycle.
-- Answer strings parse, contain exactly three significant digits, and correspond
-  to their stored phase.
+- A captured variable interval covers its saved minimum duration.
+- Answer strings pass bounded numeric parsing and correspond to their phase.
 - Previous stages cannot be skipped and future-stage answers cannot appear early.
 - Review-edit variants have `returnToReview = true`, retain exactly the declared
   independent downstream stages, and clear only the current stage's dependent
@@ -945,7 +943,10 @@ validate definition and answers
 - Pending-final: remain frozen and retry the exact same payload.
 - Invalid finished review: remain locked and show only trustworthy Moodle score
   and status; do not reopen editing.
-- Unsupported version: follow the same safe policy; no implicit migration.
+- Unsupported version: follow the same safe policy; no implicit migration. v3
+  development drafts may be explicitly replaced by a fresh v4 attempt with a
+  clear notice; invalid finished reviews remain locked unless a separate
+  read-only v3 review decoder is deliberately shipped.
 - Score mismatch: keep Moodle's recorded result authoritative and suppress
   untrustworthy detailed correctness.
 
@@ -983,7 +984,7 @@ score.
 
 Add every new test file to `tools/run-tests.js`.
 
-### Three-significant-figure tests
+### Display precision and bounded numeric-input tests
 
 - formatting `0.00500`, `0.500`, `5.00`, `50.0`, `5.00 × 10²`, and exact
   `0.00`;
@@ -992,13 +993,15 @@ Add every new test file to `tools/run-tests.js`.
 - accepting `5.00`, `0.500`, and `05.00`;
 - accepting `0.00` as a format-valid zero in every numeric field while scoring
   it wrong against a non-zero expected answer;
-- accepting correctly formed `e`/`E` scientific notation with exactly three
-  significant digits, and rejecting malformed exponents;
+- accepting `5`, `5.0`, `5.00`, zero forms, and correctly formed `e`/`E`
+  scientific notation, while rejecting malformed exponents;
 - normalizing values at power-of-ten boundaries, round-tripping every accepted
   normalized string, and rejecting unsupported subnormal magnitudes;
-- formatting raw boundary values without pre-canonicalization, with exactly
-  three significant digits and no `Infinity` or `NaN` text;
-- rejecting `5`, `5.0`, unit text, commas, and non-finite values;
+- formatting expected/display boundary values with three significant digits and
+  no `Infinity` or `NaN` text;
+- rejecting unit text, commas, non-finite values, non-zero underflow such as
+  `1e-324`, over-limit values, and overlong strings; accepting true zero
+  exponent forms such as `0e-999`;
 - half-third-significant-place tolerance just inside and just outside;
 - exact-zero scoring accepts parsed zero and rejects the smallest non-zero valid
   three-significant-figure entry;
@@ -1015,7 +1018,7 @@ Add every new test file to `tools/run-tests.js`.
 - retry cap fails closed;
 - long-running observation remains finite and reset returns to the same
   definition and start;
-- late-start minimum and multi-cycle measurements retain non-zero canonical
+- late-start minimum and multi-chunk measurements retain non-zero canonical
   displacement through their locked local reading origin;
 - generated expected numeric answers remain displayable with three significant
   figures;
@@ -1025,15 +1028,18 @@ Add every new test file to `tools/run-tests.js`.
 ### Motion-model tests
 
 - uniform position and velocity at representative times;
-- variable velocity and position continuity at every boundary and cycle wrap;
+- variable velocity and position continuity at every segment and chunk boundary;
 - analytic integrated displacement for every segment;
 - non-negative velocity and a true zero plateau;
 - monotonic non-decreasing world position;
-- any accepted stage-two interval covers a complete cycle;
+- any accepted stage-two interval is at least its seeded minimum and is truly
+  non-uniform; each generated chunk contains non-zero cruise, stop,
+  acceleration, and deceleration events in varied positions;
 - pause/resume changes no simulation time while paused;
 - render frame rate does not change final model position;
-- all four canonical-display one-sided averages approach `v(t*)` and retain at
-  least three distinct displayed values;
+- all four one-sided averages use exact `[2, 1, 0.5, 0.25]` durations, approach
+  `v(t*)` strictly in the correct direction, and retain at least three distinct
+  displayed values across a large deterministic seed sweep;
 - the full longest window and boundary margins lie inside one linear ramp;
 - generated instantaneous options are unique, sufficiently separated, saved in
   stable order, and have exactly one defensible correct ID;
@@ -1067,7 +1073,7 @@ Invalid-state matrix cases include:
 - missing previous-stage answers;
 - future answers in an earlier phase;
 - active measurement with an endpoint already present;
-- variable measurement shorter than one full cycle;
+- variable measurement shorter than its saved minimum;
 - captured endpoint later than the current scene time;
 - long active and manually captured measurements failing round-trip restore;
 - missing or inconsistent `readingOrigin`, unsafe model time, unsafe rendered
@@ -1084,9 +1090,9 @@ Invalid-state matrix cases include:
 - invalid target relationship or window order;
 - missing model capture times, capture values inconsistent with those times, or
   an interval whose displayed `dt` disagrees with its model endpoints;
-- malformed significant-figure answer strings;
+- malformed, underflowing, or over-limit numeric answer strings;
 - `NaN`, `Infinity`, negative durations, negative speeds, and zero-length ramps;
-- discontinuous cycle definition;
+- unsupported stream version or discontinuous regenerated stream definition;
 - unsupported version;
 - finished invalid review remains locked;
 - pending-final payload remains frozen;
@@ -1138,11 +1144,13 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Explicitly explains that the camera follows the car.
 - Car position is always measured at the fixed centre pointer.
 - Ruler major and minor spacing represents metres consistently.
-- Ruler labels, stopwatch values, captured positions, learner answers, and
-  numeric feedback use three significant figures.
+- Ruler labels, stopwatch values, captured positions, expected answers, and
+  numeric feedback display three significant figures; learner inputs need not
+  pad trailing zeros.
 - Integer ruler values with ambiguous trailing zeros use explicit scientific
   notation rather than silently claiming precision.
-- Numeric input preserves and validates trailing zeros.
+- Numeric input preserves the learner's safe bounded string and treats
+  numerically equivalent precision forms equally.
 - Scoring uses canonical displayed readings, never hidden raw values.
 - Every new editable attempt receives a validated random definition.
 - A restored attempt preserves the same concrete questions and expected answers.
@@ -1162,15 +1170,17 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Both measured stages require learner answers for displacement, elapsed time,
   and average velocity.
 - Pressing stopwatch stop does not stop the physical car.
-- Variable motion is visibly slow, fast, and stationary within every valid
-  measurement.
+- Variable motion is irregular, non-repeating, and includes randomized ramps,
+  non-zero cruises, and exact stops; every valid measurement is non-uniform but
+  need not include every event type.
 - Variable velocity and position remain continuous.
 - The variable relationship question uses `每一時刻` and avoids the ambiguous
   unrestricted equality question.
 - Stage-three one-sided intervals visibly converge toward the target
   instantaneous velocity.
-- All four analysis windows lie inside the same ramp, their table is computed
-  from canonical displayed endpoints, and the four saved estimate options have
+- All four analysis windows lie inside the same ramp, retain their exact
+  declared durations while model endpoints are evaluated at exact times, and
+  the four saved estimate options have
   exactly one defensible answer.
 - Tangent and exact target value remain hidden until the prediction is recorded.
 - Learner identifies zero instantaneous velocity during the stopped plateau.
