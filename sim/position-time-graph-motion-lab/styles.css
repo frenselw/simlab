@@ -362,6 +362,11 @@
   text-align: center;
 }
 
+.set-zero {
+  min-height: var(--touch-target);
+  padding-inline: 0.55rem;
+}
+
 .preset-grid,
 .choice-grid {
   display: grid;

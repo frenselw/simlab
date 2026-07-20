@@ -16,3 +16,4 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run package:all
+      - run: npm run test:browser:position-time

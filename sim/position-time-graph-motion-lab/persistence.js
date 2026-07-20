@@ -32,7 +32,7 @@
     state.assessment = assessment;
   }
   function scenariosForAssessment(assessment) {
-    if (validGeneratedAssessmentShape(assessment)) return assessment.paper.missions;
+    if (validGeneratedAssessment(assessment)) return assessment.paper.missions;
     if (validLegacyAssessment(assessment)) return Scoring.getScenarioSet(assessment.lv, assessment.sid);
     return null;
   }

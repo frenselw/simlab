@@ -23,8 +23,7 @@ state.assessment.ans = {
   m4: { x0: 8, v: 2 },
   m5: { x0B: -8, vB: 2, meetingX: 20 }
 };
-const scenarios = P.scenariosForAssessment(state.assessment);
-const result = S.scoreAssessment(state.assessment.ans, scenarios);
+const result = S.scoreAssessment(state.assessment);
 
 function runtimeWithFailure(failCommitNumber = 0) {
   const durable = {};

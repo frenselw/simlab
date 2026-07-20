@@ -29,8 +29,8 @@ for (let step = 0; step < 5; step += 1) {
 assert.equal(state.phase, "final-review");
 restored = roundTrip(state);
 assert.ok(restored, "mixed complete and partial final review round-trips");
-const originalScore = S.scoreAssessment(state.assessment.ans, S.getScenarioSet(state.assessment.lv, state.assessment.sid));
-const restoredScore = S.scoreAssessment(restored.assessment.ans, S.getScenarioSet(restored.assessment.lv, restored.assessment.sid));
+const originalScore = S.scoreAssessment(state.assessment);
+const restoredScore = S.scoreAssessment(restored.assessment);
 assert.equal(restoredScore.score, originalScore.score, "draft score remains invariant after restore");
 assert.equal(P.editMission(restored, 2), true, "restored final review can edit a mission");
 
@@ -45,7 +45,7 @@ for (let step = 0; step < 5; step += 1) {
 const reviewPayload = P.encodeReview(state);
 const submitted = P.decodeReview(reviewPayload);
 assert.ok(submitted?.locked, "review restores as submitted and locked");
-assert.equal(S.scoreAssessment(submitted.assessment.ans, S.getScenarioSet(submitted.assessment.lv, submitted.assessment.sid)).score, originalScore.score, "review rescoring is invariant");
+assert.equal(S.scoreAssessment(submitted.assessment).score, originalScore.score, "review rescoring is invariant");
 assert.equal(P.editMission(submitted, 0), false, "submitted review cannot become editable");
 
 const draftEnvelope = { version: 1, activity: "position-time-graph-motion-lab", kind: "draft", answer: P.encodeDraft(state) };
@@ -109,6 +109,7 @@ assert.ok(alternateM1, "test fixture has another individually and paper-level va
 adversarial.assessment.paper.missions.m1 = structuredClone(alternateM1);
 assert.equal(G.validateGeneratedPaper(adversarial.assessment.paper), true, "adversarial in-memory paper remains structurally valid");
 assert.equal(G.matchesSeed(adversarial.assessment.seed, adversarial.assessment.paper), false, "adversarial paper no longer matches its canonical seed");
+assert.equal(P.scenariosForAssessment(adversarial.assessment), null, "scenario resolver rejects a structurally valid paper detached from its seed");
 assert.equal(P.encodeDraft(adversarial), null, "draft boundary rejects an in-memory valid-candidate paper swap");
 assert.equal(P.encodeReview(adversarial), null, "submission review boundary rejects an in-memory valid-candidate paper swap");
 assert.equal(P.nextMission(adversarial), false, "phase transition fails closed after an in-memory valid-candidate paper swap");

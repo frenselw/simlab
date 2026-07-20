@@ -261,10 +261,13 @@
   }
   function quantityControl(name, label, symbol, unit, value, min, max, step, disabled, ariaLabel = label) {
     const fallback = value == null ? 0 : value;
+    const middleControl = value == null && !disabled
+      ? `<button type="button" class="set-zero" data-set-quantity="${name}" data-value="0" data-focus-key="set:${name}:zero" aria-label="將${escapeText(ariaLabel)}設定為零">設定為 0 <span class="unit">${unit}</span></button>`
+      : `<span id="${name}StepperValue" class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span>`;
     return `<div class="quantity-control">
       <div class="value-heading"><label for="${name}Range">${label} <span class="math"><var>${symbol}</var></span></label><output id="${name}Value">${value == null ? "未設定" : `${signed(value)} <span class="unit">${unit}</span>`}</output></div>
       <input id="${name}Range" data-quantity="${name}" data-focus-key="quantity:${name}" type="range" min="${min}" max="${max}" step="${step}" value="${fallback}" ${disabled ? "disabled" : ""} aria-label="${escapeText(ariaLabel)}">
-      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button><span id="${name}StepperValue" class="math-readout">${value == null ? "--" : `${signed(value)} <span class="unit">${unit}</span>`}</span><button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
+      <div class="stepper"><button type="button" data-step-quantity="${name}" data-delta="-${step}" data-focus-key="step:${name}:minus" ${disabled ? "disabled" : ""} aria-label="減少${escapeText(ariaLabel)}">−</button>${middleControl}<button type="button" data-step-quantity="${name}" data-delta="${step}" data-focus-key="step:${name}:plus" ${disabled ? "disabled" : ""} aria-label="增加${escapeText(ariaLabel)}">＋</button></div>
     </div>`;
   }
   function graphPointControl(name, time, value) {
@@ -316,6 +319,7 @@
     document.querySelectorAll("[data-quantity]").forEach((input) => input.addEventListener("input", () => updateQuantity(input.dataset.quantity, Number(input.value), false)));
     document.querySelectorAll("[data-quantity]").forEach((input) => input.addEventListener("change", () => saveAndAnnounce("運動設定已更新並儲存。")));
     document.querySelectorAll("[data-step-quantity]").forEach((button) => button.addEventListener("click", () => stepQuantity(button.dataset.stepQuantity, Number(button.dataset.delta))));
+    document.querySelectorAll("[data-set-quantity]").forEach((button) => button.addEventListener("click", () => confirmQuantity(button.dataset.setQuantity, Number(button.dataset.value))));
     document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => {
       const [x0, v] = button.dataset.preset.split(",").map(Number);
       state.exploration = { x0, v };
@@ -323,6 +327,9 @@
       const saved = saveDraft();
       render();
       announce(saved ? "快捷情境已載入並儲存；你仍可修改數值。" : "快捷情境已載入，但草稿未能儲存；請重試。");
+    }));
+    document.querySelectorAll("[data-number-answer]").forEach((input) => input.addEventListener("input", () => {
+      if (syncNumberAnswer(input.dataset.numberAnswer, input.value)) ui.unsaved = true;
     }));
     document.querySelectorAll("[data-number-answer]").forEach((input) => input.addEventListener("change", () => updateNumberAnswer(input.dataset.numberAnswer, input.value)));
     document.querySelectorAll("[data-faster]").forEach((button) => button.addEventListener("click", () => { currentAnswer().faster = button.dataset.faster; const saved = saveDraft(); render(); announce(saved ? "速度大小比較標記已儲存。" : "比較標記未能儲存；請重試。" ); }));
@@ -335,6 +342,10 @@
     const current = quantityValue(name);
     const bounds = name === "xStart" || name === "xEnd" ? [-20, 20] : name === "velocity" ? [-2, 2] : [-8, 8];
     updateQuantity(name, clamp((current == null ? 0 : current) + delta, bounds[0], bounds[1]), true);
+  }
+  function confirmQuantity(name, value) {
+    updateQuantity(name, value, true);
+    R.restoreFocus(document, `focus:quantity:${name}`);
   }
   function quantityValue(name) {
     if (state.phase === "explore") return name === "x0" ? state.exploration.x0 : state.exploration.v;
@@ -368,15 +379,7 @@
     renderDynamic();
   }
   function updateNumberAnswer(name, raw) {
-    const answer = currentAnswer();
-    const value = raw.trim() === "" ? null : Number(raw);
-    let accepted;
-    if (name === "meetingX") accepted = setOptional(answer, "meetingX", value, -20, 20);
-    else {
-      const [line] = name.split("-");
-      accepted = setOptional(answer[line], "velocity", value, -2, 2);
-    }
-    if (!accepted) {
+    if (!syncNumberAnswer(name, raw)) {
       render();
       announce("請輸入操作範圍內的有限數值；原有答案未有更改。");
       return;
@@ -384,6 +387,17 @@
     const saved = saveDraft();
     render();
     announce(saved ? "數值答案已儲存。" : "數值答案未能儲存；請重試。" );
+  }
+  function syncNumberAnswer(name, raw) {
+    const answer = currentAnswer();
+    if (!answer) return false;
+    const value = raw.trim() === "" ? null : Number(raw);
+    if (name === "meetingX") return setOptional(answer, "meetingX", value, -20, 20);
+    const [line] = name.split("-");
+    return Boolean(answer[line]) && setOptional(answer[line], "velocity", value, -2, 2);
+  }
+  function syncVisibleNumberInputsToState() {
+    document.querySelectorAll("[data-number-answer]").forEach((input) => syncNumberAnswer(input.dataset.numberAnswer, input.value));
   }
   function setOptional(target, key, value, min, max) {
     return R.setOptional(target, key, value, min, max);
@@ -396,14 +410,16 @@
     list.push(list.length ? Math.min(maxTime, list[0] + 2) : 0);
     const saved = saveDraft();
     render();
-    announce(saved ? `${probeName(line, list.length - 1)}探針已加入並儲存。` : "探針已加入，但未能儲存；請重試。" );
+    if (line === "E") announce(`${probeName(line, list.length - 1)}探針已加入；只保留於目前探索頁面。`);
+    else announce(saved ? `${probeName(line, list.length - 1)}探針已加入並儲存。` : "探針已加入，但未能儲存；請重試。" );
   }
   function clearProbes(line) {
     if (line === "E") ui.explorationProbes = [];
     else state.assessment.ans.m3[line].probes = [];
     const saved = saveDraft();
     render();
-    announce(saved ? "探針已清除並儲存。" : "探針已清除，但未能儲存；請重試。" );
+    if (line === "E") announce("探索探針已清除；探針本來只保留於目前頁面。");
+    else announce(saved ? "探針已清除並儲存。" : "探針已清除，但未能儲存；請重試。" );
   }
   function updateProbe(line, index, time, persist) {
     probeList(line)[index] = snap(time, 0.5);
@@ -674,6 +690,7 @@
     return outcome.ok;
   }
   function draftSnapshot() {
+    syncVisibleNumberInputsToState();
     const payload = P.encodeDraft(state);
     if (!payload) throw new Error("invalid draft state");
     return window.SimScorm.makeSnapshot(ACTIVITY, "draft", payload);
@@ -690,10 +707,9 @@
 
   function submitAttempt() {
     if (state.phase !== "final-review" || ui.locked) return;
-    const set = currentSet();
-    const result = S.scoreAssessment(state.assessment.ans, set);
+    const result = S.scoreAssessment(state.assessment);
     const reviewPayload = P.encodeReview(state);
-    if (!reviewPayload) { showTechnical("答案未能建立安全的提交資料；沒有傳送分數。"); return; }
+    if (!result || !reviewPayload) { showTechnical("答案或題目未能通過安全驗證；沒有傳送分數。"); return; }
     let review;
     try { review = window.SimScorm.makeSnapshot(ACTIVITY, "review", reviewPayload, result); }
     catch { showTechnical("提交資料超出 Moodle 儲存限制；沒有傳送分數。"); return; }
@@ -760,7 +776,7 @@
     const payload = outcome.review?.answer;
     const restored = P.decodeReview(payload);
     if (!restored) { showTechnical("Moodle 已保存摘要，但檢討資料無法安全載入。"); return; }
-    const result = S.scoreAssessment(restored.assessment.ans, P.scenariosForAssessment(restored.assessment));
+    const result = S.scoreAssessment(restored.assessment);
     showSubmitted(payload, result, true, message, finishRetry);
   }
 
@@ -853,7 +869,7 @@
     const payload = attempt.snapshot?.answer;
     const restored = P.decodeReview(payload);
     if (!restored) { showSafeFinished(attempt); return; }
-    const computed = S.scoreAssessment(restored.assessment.ans, P.scenariosForAssessment(restored.assessment));
+    const computed = S.scoreAssessment(restored.assessment);
     const trust = window.SimActivityFlow.reviewResult(computed, { score: attempt.snapshot.score, passed: attempt.snapshot.passed }, attempt);
     state = restored;
     ui.locked = true;

@@ -194,10 +194,11 @@ let submitCalls = 0;
 let finishCalls = 0;
 let finishResult = false;
 let seedCalls = 0;
+let draftProvider = null;
 const savedDrafts = [];
 const SimScorm = {
   loadAttempt: () => ({ state: "new" }),
-  setDraftProvider() {},
+  setDraftProvider(provider) { draftProvider = provider; },
   makeSnapshot: (activity, state, answer, result) => ({ activity, state, answer, score: result?.score, passed: result?.passed }),
   saveDraft: (snapshot) => { savedDrafts.push(structuredClone(snapshot)); return true; },
   submitWithCallbacks: (_result, _review, callbacks) => {
@@ -329,6 +330,7 @@ document.getElementById("timeSlider").value = "2";
 document.getElementById("timeSlider").dispatch("input");
 one('[data-add-probe="E"]').click();
 assert.ok(explorationProbeControls.innerHTML.includes("<span>P</span>"), "exploration labels the first probe P");
+assert.ok(document.getElementById("liveStatus").textContent.includes("只保留於目前探索頁面"), "exploration probe message does not falsely claim persistence");
 assert.ok(explorationProbeControls.innerHTML.includes(">加入第二個探針</button>"), "exploration prompts for the second probe after P is added");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes(">P</text>"), "exploration graph labels the first probe P");
 one('[data-add-probe="E"]').click();
@@ -338,6 +340,8 @@ assert.equal(one('[data-add-probe="E"]').disabled, true, "exploration disables a
 assert.ok(document.getElementById("graphLayer").innerHTML.includes(">Q</text>"), "exploration graph labels the second probe Q");
 assert.ok(explorationProbeControls.innerHTML.includes('<var>t</var>'), "exploration probe reading formats time as a math quantity");
 assert.ok(explorationProbeControls.innerHTML.includes('<var>x</var>'), "exploration probe reading formats position as a math quantity");
+one('[data-clear-probe="E"]').click();
+assert.ok(document.getElementById("liveStatus").textContent.includes("本來只保留於目前頁面"), "exploration clear message accurately describes transient probes");
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
@@ -355,6 +359,16 @@ document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motion-line student-line"'), "mission 1 draws the default student line during playback before either quantity is changed");
 assert.equal(document.getElementById("answerState").textContent, "未作答", "default student-line preview does not mark mission 1 as answered");
+document.getElementById("timeSlider").value = "0";
+document.getElementById("timeSlider").dispatch("input");
+const confirmZeroX0 = one('[data-set-quantity="x0"]');
+confirmZeroX0.focus();
+confirmZeroX0.click();
+assert.equal(document.activeElement?.dataset.quantity, "x0", "zero confirmation moves keyboard focus to the corresponding range");
+one('[data-set-quantity="velocity"]').click();
+assert.equal(document.getElementById("answerState").textContent, "已完整", "mission 1 can explicitly confirm unchanged zero values");
+assert.equal(savedDrafts.at(-1).answer.a.ans.m1.x0, 0, "zero-position confirmation is saved as an answer");
+assert.equal(savedDrafts.at(-1).answer.a.ans.m1.v, 0, "zero-velocity confirmation is saved as an answer");
 document.getElementById("labPanel").scrollTop = 640;
 one("#nextMission").click();
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "next mission returns the independently scrolling control panel to its top");
@@ -388,12 +402,18 @@ for (const button of pointSteppers) {
 }
 pointSteppers.find((button) => button.dataset.stepQuantity === "xStart" && button.dataset.delta === "1").click();
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('= +1.0 <tspan class="svg-unit">m</tspan>'), "mission 2 graph shows the adjusted x0 position value");
+one('[data-set-quantity="xEnd"]').click();
+assert.equal(savedDrafts.at(-1).answer.a.ans.m2.xEnd, 0, "mission 2 saves an explicitly confirmed zero endpoint");
 
 one("#nextMission").click();
 assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");
 assert.ok(document.getElementById("probeControls").innerHTML.includes("加入 P、Q 兩個探針"), "mission 3 introduces the two neutral probes");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第一個探針</button>"), "mission 3 initially tells students to add the first A probe");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 B 車第一個探針</button>"), "mission 3 initially tells students to add the first B probe");
+const aVelocityInput = one('[data-number-answer="A-velocity"]');
+aVelocityInput.value = "-1.5";
+aVelocityInput.dispatch("input");
+assert.equal(draftProvider().answer.a.ans.m3.A.velocity, -1.5, "draft provider captures a legal number after input without requiring change");
 one('[data-add-probe="A"]').click();
 assert.ok(document.getElementById("probeControls").innerHTML.includes("<span>P</span>"), "mission 3 labels the first probe P in its controls");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes(">AP</text>"), "mission 3 labels the first A probe AP on the graph");
@@ -410,6 +430,10 @@ assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motio
 assert.ok(document.getElementById("roadLayer").innerHTML.includes('class="target-position-guide"'), "mission 4 marks the required position with a vertical dashed guide");
 assert.match(document.getElementById("roadLayer").innerHTML, /<tspan class="svg-math-symbol">t<\/tspan> = \d+\.\d <tspan class="svg-unit">s<\/tspan>：<tspan class="svg-math-symbol">x<\/tspan> = [+-]?\d+\.\d <tspan class="svg-unit">m<\/tspan>/, "mission 4 guide labels the required time and position without giving the velocity");
 assert.ok(document.getElementById("roadDesc").textContent.includes("紫色垂直虛線標示指定時刻要到達的位置"), "mission 4 road description explains the target position guide");
+one('[data-set-quantity="x0"]').click();
+one('[data-set-quantity="velocity"]').click();
+assert.equal(savedDrafts.at(-1).answer.a.ans.m4.x0, 0, "mission 4 maps an explicitly confirmed zero position to x0");
+assert.equal(savedDrafts.at(-1).answer.a.ans.m4.v, 0, "mission 4 maps an explicitly confirmed stationary velocity to v");
 one("#nextMission").click();
 assert.equal(document.getElementById("taskInstruction").innerHTML.includes("<sup>*</sup>"), false, "mission 5 uses plain t and x symbols in the instruction");
 assert.ok(document.getElementById("taskInstruction").innerHTML.includes('<span class="math"><var>t</var></span>'), "mission 5 formats t as a math symbol");
@@ -418,6 +442,14 @@ assert.ok(document.getElementById("answerControls").innerHTML.includes('<span cl
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('<tspan class="svg-math-symbol">t</tspan>'), "mission 5 graph labels the specified meeting time t without a star");
 assert.equal(document.getElementById("graphLayer").innerHTML.includes("t*"), false, "mission 5 graph no longer shows t star");
 assert.ok(document.getElementById("dataGrid").innerHTML.includes('<span class="math"><var>t</var></span> ='), "mission 5 live data labels the specified meeting time t without a star");
+one('[data-set-quantity="x0"]').click();
+one('[data-set-quantity="velocity"]').click();
+assert.equal(savedDrafts.at(-1).answer.a.ans.m5.x0B, 0, "mission 5 maps an explicitly confirmed zero position to x0B");
+assert.equal(savedDrafts.at(-1).answer.a.ans.m5.vB, 0, "mission 5 maps an explicitly confirmed zero velocity to vB");
+const meetingInput = one('[data-number-answer="meetingX"]');
+meetingInput.value = "0";
+meetingInput.dispatch("input");
+assert.equal(draftProvider().answer.a.ans.m5.meetingX, 0, "mission 5 draft snapshot captures input-only meeting position");
 one("#nextMission").click();
 document.getElementById("confirmSubmit").click();
 assert.equal(submitCalls, 1, "committed production path submits the answer once");

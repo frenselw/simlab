@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(() => typeof module === "object" && module.exports ? require("./generator.js") : root?.PositionTimeGenerator);
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.PositionTimeScoring = api;
-})(typeof window !== "undefined" ? window : globalThis, function () {
+})(typeof window !== "undefined" ? window : globalThis, function (getGenerator) {
   "use strict";
 
   const LIMITS = Object.freeze({ timeMin: 0, timeMax: 6, positionMin: -20, positionMax: 20, x0Min: -8, x0Max: 8, velocityMin: -2, velocityMax: 2 });
@@ -104,10 +104,20 @@
   }
   function validMeasurement(line) { return line?.probes?.length === 2 && Math.abs(line.probes[1] - line.probes[0]) >= TOLERANCE.probeTime; }
 
-  function scoreAssessment(answers, set) {
-    if (!validAnswers(answers) || !set) return resultFrom([]);
+  function scoreAssessment(assessment) {
+    const set = scenariosForScoring(assessment);
+    const answers = assessment?.ans;
+    if (!set || !validAnswers(answers)) return null;
     const detail = [scoreMotion("m1", answers.m1, set.m1), scoreGraph(answers.m2, set.m2), scoreMeasure(answers.m3, set.m3), scoreMotion("m4", answers.m4, set.m4), scoreMeeting(answers.m5, set.m5)];
     return resultFrom(detail);
+  }
+  function scenariosForScoring(assessment) {
+    if (!assessment || typeof assessment !== "object" || Array.isArray(assessment)) return null;
+    const keys = Object.keys(assessment).sort().join(",");
+    if (keys === "ans,lv,seen,sid") return getScenarioSet(assessment.lv, assessment.sid);
+    if (keys !== "ans,gv,paper,seed,seen") return null;
+    const Generator = getGenerator?.();
+    return Generator && assessment.gv === Generator.GENERATOR_VERSION && Generator.matchesSeed(assessment.seed, assessment.paper) ? assessment.paper.missions : null;
   }
   function resultFrom(detail) {
     const score = clamp(detail.reduce((sum, item) => sum + item.score, 0), 0, 100);

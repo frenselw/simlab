@@ -42,6 +42,13 @@ assert.deepEqual(S.intersection({ x0: 0, v: 1 }, { x0: 6, v: -1 }), { kind: "poi
 assert.equal(S.intersection({ x0: 0, v: 1 }, { x0: 2, v: 1 }).kind, "parallel");
 assert.equal(S.intersection({ x0: 0, v: 1 }, { x0: 0, v: 1 }).kind, "coincident");
 
+function legacyAssessment(id, answers) {
+  return { lv: S.LIBRARY_VERSION, sid: id, seen: [true, true, true, true, true], ans: answers };
+}
+function generatedAssessment(seed, paper, answers) {
+  return { gv: G.GENERATOR_VERSION, seed, paper, seen: [true, true, true, true, true], ans: answers };
+}
+
 for (const id of S.scenarioIds()) {
   const set = S.getScenarioSet(1, id);
   const answers = {
@@ -51,14 +58,14 @@ for (const id of S.scenarioIds()) {
     m4: { x0: set.m4.x0, v: set.m4.v },
     m5: { x0B: set.m5.exampleB.x0, vB: set.m5.exampleB.v, meetingX: S.positionAt(set.m5.A, set.m5.meetTime) }
   };
-  assert.deepEqual(S.scoreAssessment(answers, set).score, 100, `${id} has a reachable perfect score`);
+  assert.deepEqual(S.scoreAssessment(legacyAssessment(id, answers)).score, 100, `${id} has a reachable perfect score`);
 }
 
 const set = S.SCENARIO_SETS.alpha;
 function scoreWith(key, answer) {
   const answers = S.blankAnswers();
   answers[key] = answer;
-  return S.scoreAssessment(answers, set).detail[Number(key.slice(1)) - 1];
+  return S.scoreAssessment(legacyAssessment("alpha", answers)).detail[Number(key.slice(1)) - 1];
 }
 assert.equal(scoreWith("m1", { x0: -5.5, v: 1.9 }).score, 20, "inclusive position and velocity tolerance earns full credit");
 assert.equal(scoreWith("m1", { x0: -5.4, v: 2 }).score, 12, "position just outside tolerance loses only position points");
@@ -74,8 +81,8 @@ assert.equal(scoreWith("m3", { ...validMeasure, faster: "A" }).score, 14, "wrong
 assert.equal(scoreWith("m3", { ...validMeasure, A: { probes: [0, 2], velocity: -1 } }).score, 13, "wrong sign loses only A velocity points");
 
 const stationary = S.SCENARIO_SETS.alpha.m4;
-assert.equal(S.scoreAssessment({ ...S.blankAnswers(), m4: { x0: stationary.x0, v: 0.05 } }, set).detail[3].score, 20, "stationary tolerance includes 0.05 m/s");
-assert.equal(S.scoreAssessment({ ...S.blankAnswers(), m4: { x0: stationary.x0, v: 0.06 } }, set).detail[3].score, 8, "non-zero motion outside stationary tolerance is rejected");
+assert.equal(S.scoreAssessment(legacyAssessment("alpha", { ...S.blankAnswers(), m4: { x0: stationary.x0, v: 0.05 } })).detail[3].score, 20, "stationary tolerance includes 0.05 m/s");
+assert.equal(S.scoreAssessment(legacyAssessment("alpha", { ...S.blankAnswers(), m4: { x0: stationary.x0, v: 0.06 } })).detail[3].score, 8, "non-zero motion outside stationary tolerance is rejected");
 
 assert.equal(scoreWith("m5", { x0B: 8, vB: -2, meetingX: 2.5 }).score, 20, "meeting time and position tolerances are inclusive");
 assert.equal(scoreWith("m5", { x0B: -4, vB: 2, meetingX: 2 }).score, 8, "coincident lines earn only independently correct position credit");
@@ -85,8 +92,15 @@ assert.equal(scoreWith("m5", { x0B: 8, vB: 2, meetingX: 2 }).score, 8, "parallel
 for (const key of ["m1", "m2", "m3", "m4", "m5"]) assert.equal(S.completeness(key, S.blankAnswers()[key]), "empty", `${key} starts empty`);
 assert.equal(S.completeness("m3", { A: { probes: [1] }, B: { probes: [] } }), "partial", "one probe remains a legal partial answer");
 assert.equal(S.completeness("m5", { x0B: -4, vB: 2, meetingX: 2 }), "complete", "coincident answer is structurally complete even though incorrect");
-assert.equal(S.scoreAssessment(S.blankAnswers(), set).score, 0, "blank attempt floors at zero");
-assert.equal(S.scoreAssessment(S.blankAnswers(), set).passed, false, "passing threshold is 60");
+assert.equal(S.completeness("m1", { x0: 0, v: 1 }), "complete", "mission 1 accepts an explicitly confirmed zero position");
+assert.equal(S.completeness("m2", { xStart: 0, xEnd: 6 }), "complete", "mission 2 accepts a zero graph endpoint");
+assert.equal(S.completeness("m4", { x0: 5, v: 0 }), "complete", "mission 4 accepts an explicitly confirmed stationary velocity");
+assert.equal(S.completeness("m5", { x0B: 0, vB: 0, meetingX: 2 }), "complete", "mission 5 accepts explicitly confirmed zero B values");
+assert.equal(S.scoreAssessment(legacyAssessment("alpha", S.blankAnswers())).score, 0, "blank attempt floors at zero");
+assert.equal(S.scoreAssessment(legacyAssessment("alpha", S.blankAnswers())).passed, false, "passing threshold is 60");
+assert.equal(S.scoreAssessment(null), null, "missing assessment fails closed instead of becoming a completed zero score");
+assert.equal(S.scoreAssessment(legacyAssessment("missing", S.blankAnswers())), null, "unknown legacy paper fails closed instead of becoming a completed score");
+assert.equal(S.scoreAssessment(legacyAssessment("alpha", { invalid: true })), null, "invalid answers fail closed instead of becoming a completed score");
 
 for (const bad of [NaN, Infinity, -Infinity]) {
   const answer = S.blankAnswers();
@@ -105,10 +119,16 @@ for (const seed of ["00000000000000000000000000000001", "fedcba98765432100123456
     m4: { x0: set.m4.x0, v: set.m4.v },
     m5: { x0B: solution.x0, vB: solution.v, meetingX: S.positionAt(set.m5.A, set.m5.meetTime) }
   };
-  assert.equal(S.scoreAssessment(answers, set).score, 100, `generated paper ${seed.slice(0, 8)} has a reachable perfect score`);
+  assert.equal(S.scoreAssessment(generatedAssessment(seed, paper, answers)).score, 100, `generated paper ${seed.slice(0, 8)} has a reachable perfect score`);
   const alternate = G.enumerateMeetingSolutions(set.m5).at(-1);
   answers.m5 = { x0B: alternate.x0, vB: alternate.v, meetingX: S.positionAt(set.m5.A, set.m5.meetTime) };
-  assert.equal(S.scoreAssessment(answers, set).detail[4].score, 20, "generated mission 5 accepts alternate valid B solutions");
+  assert.equal(S.scoreAssessment(generatedAssessment(seed, paper, answers)).detail[4].score, 20, "generated mission 5 accepts alternate valid B solutions");
 }
+
+const invalidSeed = "0123456789abcdeffedcba9876543210";
+const invalidPaper = G.generatePaper(invalidSeed);
+invalidPaper.missions.m5.meetTime = 1;
+assert.equal(G.validateGeneratedPaper(invalidPaper), false, "invalid-paper fixture violates the canonical generated contract");
+assert.equal(S.scoreAssessment(generatedAssessment(invalidSeed, invalidPaper, S.blankAnswers())), null, "generated paper rejected by the canonical validator cannot produce a completed score");
 
 console.log("Position-time scoring checks passed");
