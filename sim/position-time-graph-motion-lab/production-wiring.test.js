@@ -542,6 +542,15 @@ assert.equal(generatedTrustedReview.querySelectorAll("[data-drag]").length, 0, "
 const generatedDraftCase = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: generatedFinalDraft } } });
 assert.ok(generatedDraftCase.document.getElementById("submitAttempt"), "generated final-review draft restores its legal submit continuation");
 assert.equal(typeof generatedDraftCase.draftProvider, "function", "generated restored draft registers the production draft provider");
+for (const id of ["playButton", "stepButton", "replayButton", "timeSlider"]) {
+  assert.equal(generatedDraftCase.document.getElementById(id).disabled, true, `generated final-review disables ${id}`);
+}
+generatedDraftCase.document.getElementById("stepButton").click();
+assert.equal(generatedDraftCase.document.getElementById("timeSlider").value, "0", "disabled final-review playback cannot advance time even through a synthetic click");
+generatedDraftCase.document.querySelector("[data-edit-step]").click();
+for (const id of ["playButton", "replayButton", "timeSlider"]) {
+  assert.equal(generatedDraftCase.document.getElementById(id).disabled, false, `editing from final-review re-enables ${id}`);
+}
 
 const scoreMismatch = runProductionLifecycle({ attempt: { state: "finished", snapshot: { answer: reviewAnswer, score: 1, passed: false }, score: "0", status: "failed" } }).document;
 assert.ok(scoreMismatch.getElementById("resultPanel").innerHTML.includes("無法安全驗證"), "saved score mismatch falls back to the safe production summary");

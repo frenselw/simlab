@@ -67,6 +67,7 @@
   function currentAnswer() { return state.assessment?.ans[missionKey()]; }
   function editable() { return !ui.locked && !ui.technical && (state.phase === "explore" || state.phase === "mission"); }
   function settingsEditable() { return editable() && !ui.playing && ui.time === 0; }
+  function playbackDisabled() { return Boolean(ui.technical || ui.safeSummary || state.phase === "final-review" || (ui.locked && state.phase !== "submitted-review")); }
   function interactionContext() {
     return { phase: state.phase, step: state.currentStep, locked: ui.locked, technical: Boolean(ui.technical), playing: ui.playing, time: ui.time };
   }
@@ -82,7 +83,7 @@
     ui.lastFrame = 0;
   }
   function play() {
-    if (ui.locked && state.phase !== "submitted-review") return;
+    if (playbackDisabled()) return;
     if (ui.time >= 6) ui.time = 0;
     ui.playing = !ui.playing;
     if (ui.playing) {
@@ -103,6 +104,7 @@
     } else ui.frame = requestAnimationFrame(tick);
   }
   function setTime(time, speak = false) {
+    if (playbackDisabled()) return;
     stopAnimation();
     const previous = ui.time;
     ui.time = clamp(snap(Number(time), 0.5), 0, 6);
@@ -127,11 +129,14 @@
     R.restoreFocus(document, focusKey);
   }
   function renderDynamic() {
+    const disablePlayback = playbackDisabled();
     dom.timeSlider.value = String(ui.time);
     dom.timeOutput.innerHTML = math("t", "s", ui.time);
     dom.playButton.textContent = ui.playing ? "暫停" : "播放";
-    dom.stepButton.disabled = ui.playing || ui.time >= 6 || ui.technical;
-    dom.replayButton.disabled = ui.technical;
+    dom.playButton.disabled = disablePlayback;
+    dom.stepButton.disabled = disablePlayback || ui.playing || ui.time >= 6;
+    dom.replayButton.disabled = disablePlayback;
+    dom.timeSlider.disabled = disablePlayback;
     drawRoad();
     drawGraph();
     renderData();
