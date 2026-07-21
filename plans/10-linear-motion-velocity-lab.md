@@ -78,6 +78,8 @@ package-ready.
 
 ```text
 plans/10-linear-motion-velocity-lab.md
+.github/workflows/quality.yml
+package.json
 sim/linear-motion-velocity-lab/
   index.html
   styles.css
@@ -90,9 +92,14 @@ sim/linear-motion-velocity-lab/
   scoring.test.js
   persistence.js
   persistence.test.js
+  ui-policy.js
+  ui-runtime.test.js
   accessibility.test.js
 sim/manifests/linear-motion-velocity-lab.xml
 sim/config.js
+tools/linear-motion-browser-regression.js
+tools/position-time-browser-regression.js  # shared browser harness
+tools/position-time-browser-regression.test.js
 tools/run-tests.js
 ```
 
@@ -194,8 +201,10 @@ Never score against hidden precision that the learner cannot see.
 On a stopwatch press:
 
 1. calculate the high-precision simulation time and world position;
-2. on the start press, lock and persist a rolling `readingOrigin` near the car;
-   both ruler readings in that measurement use this same origin;
+2. use the stage's generated fixed `definition.uniform.coordinateOrigin` or
+   `definition.variable.coordinateOrigin` as `readingOrigin`; the visible ruler
+   already uses that same origin before timing, and stopwatch start persists and
+   continues using it without changing the displayed reading;
 3. canonicalize each local reading (`worldPosition - readingOrigin`) to the exact
    numeric value represented by its three-significant-figure display;
 4. store the origin and canonical readings as the authoritative assessment data;
@@ -399,9 +408,10 @@ finite. There is no preview timeout, episode cap, or automatic capture.
 `重新量度` returns to the same random initial position and phase rather than
 generating a new question.
 
-Before timing, the visible ruler uses a rolling local origin so its labels stay
-readable at late model times. Starting the stopwatch locks that origin for the
-whole measurement. The digital position, ruler, captured table, calculation,
+Before timing, the visible ruler uses the stage's generated fixed
+`coordinateOrigin`. Starting the stopwatch persists that same origin as the
+measurement's `readingOrigin`; it does not rebase the ruler or change the
+displayed reading. The digital position, ruler, captured table, calculation,
 feedback, and scoring all use the same local readings; hidden world-position
 precision is never used as a separate scoring source. The runtime accepts model
 times only up to a technical multi-year safety ceiling (`1000000000 s`) and
