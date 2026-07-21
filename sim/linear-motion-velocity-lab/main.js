@@ -524,10 +524,10 @@
     elements.timerReadoutLabel.textContent = "計時器";
     elements.stageKicker.textContent = variable ? "第 2 關" : "第 1 關";
     elements.stageTitle.textContent = variable ? "變速運動" : "勻速運動";
-    elements.instructionText.textContent = variable ? `車速會不規則改變；自行量度至少 ${Model.format3(state.definition.variableMinimumDuration)} s。` : "操作計時器記錄 x₁、x₂ 和經過時間。";
-    elements.relationshipLegend.innerHTML = variable
-      ? "在這段變速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？"
-      : "在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class=\"overbar\">v</var>|？";
+    elements.instructionText.textContent = variable ? `車速會不規則改變；自行量度至少 ${Model.format3(state.definition.variableMinimumDuration)} s。` : "操作計時器記錄起點位置、終點位置和經過時間。";
+    elements.relationshipLegend.textContent = variable
+      ? "在這段變速直線運動中，車輛每一時刻的速度大小，是否都等於整段量度時間的平均速度大小？"
+      : "在這段勻速直線運動中，車輛每一時刻的速度大小，是否都等於整段量度時間的平均速度大小？";
     elements.measurementSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : variable ? "確認答案並前往第 3 關" : "確認答案並前往第 2 關";
     elements.instantControls.classList.add("is-hidden");
     elements.observationControls.classList.remove("is-hidden");
@@ -597,10 +597,10 @@
     const rows = UiPolicy.analysisRows(state.definition).slice(0, state.viewedWindowCount);
     elements.windowRows.innerHTML = rows.map((row, index) => `<tr${index === selected ? ' class="is-selected" aria-current="true"' : ""}><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.displacement, "m")}</td><td>${quantityHtml(row.displacement, "m")} ÷ ${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
     elements.longerWindowButton.disabled = selected <= 0;
-    elements.longerWindowButton.innerHTML = selected > 0 ? `加長至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected - 1], "s")}` : `已是最長 <var>Δt</var>`;
+    elements.longerWindowButton.innerHTML = selected > 0 ? `加長時間間隔至 ${quantityHtml(Model.WINDOWS[selected - 1], "s")}` : "已是最長時間間隔";
     elements.shorterWindowButton.disabled = selected === Model.WINDOWS.length - 1;
-    elements.shorterWindowButton.innerHTML = selected < 0 ? `顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[0], "s")}` : selected < Model.WINDOWS.length - 1 ? `縮短至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected + 1], "s")}` : `已是最短 <var>Δt</var>`;
-    elements.windowSelectionMessage.innerHTML = selected < 0 ? "先顯示最長的時間區間。" : `圖中目前顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected], "s")}；藍底列是目前區間。`;
+    elements.shorterWindowButton.innerHTML = selected < 0 ? `顯示時間間隔 ${quantityHtml(Model.WINDOWS[0], "s")}` : selected < Model.WINDOWS.length - 1 ? `縮短時間間隔至 ${quantityHtml(Model.WINDOWS[selected + 1], "s")}` : "已是最短時間間隔";
+    elements.windowSelectionMessage.innerHTML = selected < 0 ? "先顯示最長的時間區間。" : `圖中目前顯示的時間間隔是 ${quantityHtml(Model.WINDOWS[selected], "s")}；藍底列是目前區間。`;
     elements.instantForm.classList.toggle("is-hidden", state.viewedWindowCount < 4);
     UiPolicy.appendPredictionOptions(elements.optionChoices, state.definition.instantOptions, document);
     if (state.viewedWindowCount === 4) loadInstantForm();
@@ -628,7 +628,7 @@
     return `<article class="review-item is-incomplete"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p><button type="button" data-edit="${index}">返回第 ${index + 1} 關</button></article>`;
   }
   function reviewItem(index, title, measurement, answer) {
-    return `<article class="review-item"><h3>${title}</h3><p>讀數：<var>x</var><sub>1</sub> = ${quantityHtml(measurement.x1, "m")}；<var>x</var><sub>2</sub> = ${quantityHtml(measurement.x2, "m")}；<var>Δt</var> = ${quantityHtml(measurement.dt, "s")}</p><p>答案：|<var>Δx</var>| = ${escapeHtml(answer.displacement)} <span class="unit">m</span>；<var>Δt</var> = ${escapeHtml(answer.time)} <span class="unit">s</span>；|<var class="overbar">v</var>| = ${escapeHtml(answer.averageVelocity)} <span class="unit">m/s</span>；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
+    return `<article class="review-item"><h3>${title}</h3><p>讀數：起點位置 ${quantityHtml(measurement.x1, "m")}；終點位置 ${quantityHtml(measurement.x2, "m")}；經過時間 ${quantityHtml(measurement.dt, "s")}</p><p>答案：位移大小 ${escapeHtml(answer.displacement)} <span class="unit">m</span>；經過時間 ${escapeHtml(answer.time)} <span class="unit">s</span>；平均速度大小 ${escapeHtml(answer.averageVelocity)} <span class="unit">m/s</span>；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
   }
   function conceptLabel(value) {
     return ({ limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程總位移除以總時間", "zero-division": "位移除以正好零秒", "largest-one-second": "一秒內最大速度" })[value] || "--";
@@ -938,8 +938,6 @@
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
   function feedbackHtml(value) {
     return escapeHtml(value)
-      .replaceAll("|Δx|", "|<var>Δx</var>|")
-      .replaceAll("|v̄|", "|<var class=\"overbar\">v</var>|")
       .replaceAll("Δt", "<var>Δt</var>");
   }
   function fractionHtml(numerator, denominator) {
@@ -948,11 +946,11 @@
   function feedbackFormulaHtml(formula) {
     if (!formula) return "";
     if (formula.kind === "average") {
-      const displacement = `|${quantityHtml(formula.x2, "m")} − ${quantityHtml(formula.x1, "m")}|`;
-      const aria = `位移大小等於 ${Model.format3(formula.x2)} 米減 ${Model.format3(formula.x1)} 米的絕對值，等於 ${Model.format3(formula.displacement)} 米。平均速度大小等於位移大小除以經過時間，等於 ${Model.format3(formula.averageVelocity)} 米每秒。`;
-      return `<div class="feedback-formula" role="math" aria-label="${escapeHtml(aria)}"><div>|<var>Δx</var>| = ${displacement} = ${quantityHtml(formula.displacement, "m")}</div><div>|<var class="overbar">v</var>| = ${fractionHtml("|<var>Δx</var>|", "<var>Δt</var>")} = ${fractionHtml(quantityHtml(formula.displacement, "m"), quantityHtml(formula.time, "s"))} = ${quantityHtml(formula.averageVelocity, "m/s")}</div></div>`;
+      const displacement = `${quantityHtml(formula.x2, "m")} − ${quantityHtml(formula.x1, "m")}`;
+      const aria = `位移大小等於終點位置 ${Model.format3(formula.x2)} 米減起點位置 ${Model.format3(formula.x1)} 米，等於 ${Model.format3(formula.displacement)} 米。平均速度大小等於位移大小除以經過時間，等於 ${Model.format3(formula.averageVelocity)} 米每秒。`;
+      return `<div class="feedback-formula" role="math" aria-label="${escapeHtml(aria)}"><div><strong>位移大小</strong> = ${displacement} = ${quantityHtml(formula.displacement, "m")}</div><div><strong>平均速度大小</strong> = ${fractionHtml("位移大小", "經過時間")} = ${fractionHtml(quantityHtml(formula.displacement, "m"), quantityHtml(formula.time, "s"))} = ${quantityHtml(formula.averageVelocity, "m/s")}</div></div>`;
     }
-    const sequence = formula.windows.map((row) => `<span class="limit-step"><span><var>Δt</var> = ${quantityHtml(row.duration, "s")}</span><span>→</span><span>|<var class="overbar">v</var>| = ${quantityHtml(row.averageVelocity, "m/s")}</span></span>`).join("");
+    const sequence = formula.windows.map((row) => `<span class="limit-step"><span>時間間隔 = ${quantityHtml(row.duration, "s")}</span><span>→</span><span>平均速度大小 = ${quantityHtml(row.averageVelocity, "m/s")}</span></span>`).join("");
     const aria = `時間區間逐步縮短，平均速度依次趨近 ${Model.format3(formula.exact)} 米每秒。`;
     return `<div class="feedback-formula limit-formula" role="math" aria-label="${escapeHtml(aria)}">${sequence}<strong>→ 目標時刻的瞬時速度 = ${quantityHtml(formula.exact, "m/s")}</strong></div>`;
   }

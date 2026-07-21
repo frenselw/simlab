@@ -25,8 +25,10 @@ for (const [name, source] of [["HTML", html], ["main script", main], ["scoring s
 for (const [name, source] of [["HTML", html], ["main script", main], ["scoring script", scoring]]) {
   assert(!source.includes("t*") && !source.includes("<sup>*</sup>"), `${name} must call the learner-facing target the 目標時刻, not t star`);
 }
-assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a stable semantic overbar");
-assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
+assert.match(html, /平均速度大小 = 位移大小 ÷ 經過時間/, "the learner calculation prompt uses plain Chinese quantity names");
+for (const [name, source] of [["HTML", html], ["main script", main], ["scoring script", scoring]]) {
+  assert.doesNotMatch(source, /\|<var|class="overbar"|\|v\(t\)\||\|v̄\||\|Δx\|/, `${name} learner copy does not require absolute-value or overbar notation`);
+}
 assert.match(main, /function feedbackFormulaHtml[\s\S]*role="math"[\s\S]*aria-label=/, "final feedback formulas use native accessible math markup");
 assert.match(styles, /\.feedback-formula[\s\S]*overflow-x: auto/, "long formula feedback remains usable on narrow screens");
 assert.match(styles, /\.feedback-formula[^}]*min-width: 0;[^}]*max-width: 100%/, "formula cards stay within the narrow-screen panel");
@@ -41,7 +43,7 @@ assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.motion-stage:not\(\.is
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts > span \{[^}]*grid-template-columns: auto minmax\(0, 1fr\)[^}]*border-left: 3px solid var\(--color-accent\)/, "each mobile graph label and value forms one bounded card");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \[id\$="Readout"\] \{[^}]*border-left: 1px solid var\(--color-border-light\)/, "each mobile graph value has an internal divider from its own label");
 assert.match(styles, /\.answer-form fieldset > legend[^}]*max-width: calc\(100% - \.5rem\)[^}]*border-left: 4px solid var\(--color-accent\)/, "question prompts use a bounded, accented card treatment");
-assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
+assert.match(html, /車輛每一時刻的速度大小，是否都等於整段量度時間的平均速度大小/, "the relationship question uses plain Chinese quantity names");
 assert.match(html, /id="longerWindowButton"[\s\S]*id="shorterWindowButton"/, "time magnifier exposes both longer and shorter interval controls");
 assert.match(html, /車輛位置在一段時間內保持不變/, "stopped-velocity prompt defines the physical situation");
 assert.match(main, /function showLongerWindow[\s\S]*activeWindowIndex = current - 1/, "learners can revisit a longer interval");

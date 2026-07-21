@@ -80,9 +80,9 @@
         title: "第 1 關：勻速運動",
         correct: Object.values(detail.uniform).every((item) => item.correct),
         text: [
-          numericFeedback("位移大小 |Δx|", detail.uniform.displacement, "m"),
-          numericFeedback("經過時間 Δt", detail.uniform.time, "s"),
-          numericFeedback("平均速度大小 |v̄|", detail.uniform.averageVelocity, "m/s"),
+          numericFeedback("位移大小", detail.uniform.displacement, "m"),
+          numericFeedback("經過時間", detail.uniform.time, "s"),
+          numericFeedback("平均速度大小", detail.uniform.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.uniform.relationship, { yes: "是", no: "否" }),
           "理想勻速模型在每一時刻都有相同瞬時速度；末位差異可來自三位有效數字讀數。"
         ].join("\n"),
@@ -92,9 +92,9 @@
         title: "第 2 關：變速運動",
         correct: Object.values(detail.variable).every((item) => item.correct),
         text: [
-          numericFeedback("位移大小 |Δx|", detail.variable.displacement, "m"),
-          numericFeedback("經過時間 Δt", detail.variable.time, "s"),
-          numericFeedback("平均速度大小 |v̄|", detail.variable.averageVelocity, "m/s"),
+          numericFeedback("位移大小", detail.variable.displacement, "m"),
+          numericFeedback("經過時間", detail.variable.time, "s"),
+          numericFeedback("平均速度大小", detail.variable.averageVelocity, "m/s"),
           choiceFeedback("每一時刻關係", detail.variable.relationship, { yes: "是", no: "否" }),
           "變速時不會在每一時刻都等於整段平均值，但某一刻可以巧合相等。"
         ].join("\n"),
@@ -106,7 +106,7 @@
         text: [
           choiceFeedback("目標時刻的瞬時速度估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
           choiceFeedback("瞬時速度概念", detail.instant.concept, { limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程平均", "zero-division": "除以零秒", "largest-one-second": "一秒內最大速度" }),
-          numericFeedback("車輛停定、位置保持不變時的 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
+          numericFeedback("車輛停定、位置保持不變時的瞬時速度大小", detail.instant.stoppedVelocity, "m/s"),
           "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；車輛停定、位置保持不變時，瞬時速度是 0.00 m/s。"
         ].join("\n"),
         formula: { kind: "limit", windows: windows.map((row) => ({ duration: row.duration, averageVelocity: row.averageVelocity })), exact }

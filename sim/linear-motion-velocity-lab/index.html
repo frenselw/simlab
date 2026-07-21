@@ -56,21 +56,21 @@
             <div id="measurementCard" class="measurement-card is-hidden">
               <h3>已記錄讀數</h3>
               <dl class="reading-grid">
-                <div><dt><var>x</var><sub>1</sub></dt><dd id="x1Readout" aria-label="起點位置，未記錄">--</dd></div>
-                <div><dt><var>x</var><sub>2</sub></dt><dd id="x2Readout" aria-label="終點位置，未記錄">--</dd></div>
-                <div><dt><var>Δt</var></dt><dd id="dtReadout" aria-label="經過時間，未記錄">--</dd></div>
+                <div><dt>起點位置</dt><dd id="x1Readout" aria-label="起點位置，未記錄">--</dd></div>
+                <div><dt>終點位置</dt><dd id="x2Readout" aria-label="終點位置，未記錄">--</dd></div>
+                <div><dt>經過時間</dt><dd id="dtReadout" aria-label="經過時間，未記錄">--</dd></div>
               </dl>
             </div>
 
             <form id="measurementForm" class="answer-form is-hidden" novalidate>
               <h3>計算並記錄</h3>
-              <p class="calculation-formula" aria-label="平均速度大小等於位移大小除以經過時間"><span>|<var class="overbar">v</var>|</span><span>=</span><span class="fraction"><span>|<var>Δx</var>|</span><span><var>Δt</var></span></span></p>
-              <label class="calculation-row"><span>位移大小 |<var>Δx</var>|</span><input id="displacementInput" inputmode="text" autocomplete="off" aria-label="位移大小 Delta x，單位米" aria-describedby="formatHint"><span class="unit">m</span></label>
-              <label class="calculation-row"><span>經過時間 <var>Δt</var></span><input id="timeInput" inputmode="text" autocomplete="off" aria-label="經過時間 Delta t，單位秒" aria-describedby="formatHint"><span class="unit">s</span></label>
-              <label class="calculation-row"><span>平均速度大小 |<var class="overbar">v</var>|</span><input id="averageInput" inputmode="text" autocomplete="off" aria-label="平均速度大小 v bar，單位米每秒" aria-describedby="formatHint"><span class="unit">m/s</span></label>
+              <p class="calculation-formula">平均速度大小 = 位移大小 ÷ 經過時間</p>
+              <label class="calculation-row"><span>位移大小</span><input id="displacementInput" inputmode="text" autocomplete="off" aria-label="位移大小，單位米" aria-describedby="formatHint"><span class="unit">m</span></label>
+              <label class="calculation-row"><span>經過時間</span><input id="timeInput" inputmode="text" autocomplete="off" aria-label="經過時間，單位秒" aria-describedby="formatHint"><span class="unit">s</span></label>
+              <label class="calculation-row"><span>平均速度大小</span><input id="averageInput" inputmode="text" autocomplete="off" aria-label="平均速度大小，單位米每秒" aria-describedby="formatHint"><span class="unit">m/s</span></label>
               <p id="formatHint" class="format-hint">請輸入非負數值，不需要補足三位有效數字；可用科學記數法，但不要輸入單位。</p>
               <fieldset id="relationshipGroup">
-                <legend id="relationshipLegend">在這段勻速直線運動中，車在每一時刻的 |<var>v</var>(<var>t</var>)| 是否都等於這段時間的 |<var class="overbar">v</var>|？</legend>
+                <legend id="relationshipLegend">在這段勻速直線運動中，車輛每一時刻的速度大小，是否都等於整段量度時間的平均速度大小？</legend>
                 <label><input type="radio" name="relationship" value="yes"> 是</label>
                 <label><input type="radio" name="relationship" value="no"> 否</label>
               </fieldset>
@@ -80,16 +80,16 @@
 
             <section id="instantControls" class="instant-controls is-hidden">
               <button id="demoToggleButton" type="button" class="demo-toggle">暫停示範</button>
-              <p>先逐步縮短同一目標時刻前的觀察區間；顯示後可來回加長或縮短 <var>Δt</var>，重看割線斜率。</p>
+              <p>先逐步縮短同一目標時刻前的觀察區間；顯示後可來回加長或縮短時間間隔，重看割線斜率。</p>
               <div class="window-controls">
-                <button id="longerWindowButton" type="button" disabled>加長 <var>Δt</var></button>
-                <button id="shorterWindowButton" type="button" class="primary-button">顯示 <var>Δt</var> = 2.00 s</button>
+                <button id="longerWindowButton" type="button" disabled>加長時間間隔</button>
+                <button id="shorterWindowButton" type="button" class="primary-button">顯示時間間隔 = 2.00 s</button>
               </div>
               <p id="windowSelectionMessage" class="format-hint">先顯示最長的時間區間。</p>
               <div class="table-scroll">
                 <table>
                   <caption>已顯示的時間區間與平均速度</caption>
-                  <thead><tr><th><var>Δt</var></th><th>|<var>Δx</var>|</th><th>運算</th><th>|<var class="overbar">v</var>|</th></tr></thead>
+                  <thead><tr><th>時間間隔</th><th>位移大小</th><th>運算</th><th>平均速度大小</th></tr></thead>
                   <tbody id="windowRows"></tbody>
                 </table>
               </div>
@@ -102,8 +102,8 @@
                   <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
                 </fieldset>
                 <fieldset class="stopped-question">
-                  <legend>第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，該段時間的瞬時速度大小 |<var>v</var>(<var>t</var>)| 是多少？</legend>
-                  <label class="calculation-row"><span>車輛停定時的 |<var>v</var>(<var>t</var>)|</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="車輛停定、位置保持不變時的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
+                  <legend>第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，該段時間的瞬時速度大小是多少？</legend>
+                  <label class="calculation-row"><span>車輛停定時的瞬時速度大小</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="車輛停定、位置保持不變時的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
                   <p class="format-hint">位置—時間圖在這段時間呈水平線。只需輸入數值，不要輸入單位。</p>
                 </fieldset>
                 <p id="instantError" class="error-text" role="alert" tabindex="-1"></p>

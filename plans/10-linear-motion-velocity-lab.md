@@ -49,9 +49,11 @@ All learner-facing text is Traditional Chinese.
   - choose the best supported three-significant-figure instantaneous-velocity
     estimate;
   - review and edit answers before final submission.
-- Libraries: none; use native HTML, CSS, Canvas, and SVG. Render formulae with
-  semantic `<var>`, `<sub>`, `<sup>`, and CSS fraction/overbar styling; do not
-  load MathJax or expose TeX source to learners or assistive technology.
+- Libraries: none; use native HTML, CSS, Canvas, and SVG. Prefer plain Chinese
+  quantity names in learner prompts, labels, review, and feedback; use native
+  semantic HTML and CSS fractions only where a worked calculation benefits
+  from them. Do not load MathJax or expose TeX source to learners or assistive
+  technology.
 - Assessment risk: `formative`.
 - Trusted validation for high risk: not applicable. Browser-side scoring is not
   a trusted boundary and the activity must not contain secrets.
@@ -138,7 +140,9 @@ signs or the distinction between distance and displacement magnitude during a
 reversal. Learner-facing copy should consistently ask for `位移大小` and
 `平均速度大小`. A short note explains that, because the car travels only in the
 positive direction, the numerical value of average velocity magnitude also
-equals average speed for these trials.
+equals average speed for these trials. Do not surround these Chinese names with
+absolute-value bars or an average-velocity overbar in learner prompts, field
+labels, review, or feedback.
 
 Do not ask the ambiguous question `瞬時速度是否等於平均速度？`. Use:
 
@@ -573,15 +577,15 @@ independently rounded large absolute coordinates. Generator checks require the
 four displayed averages to approach `v(t*)` strictly and in the acceleration
 direction.
 
-For each window show, to three significant figures:
+For each window show, to three significant figures, columns labelled in Chinese:
 
-- interval duration `Δt`;
-- displacement magnitude `|Δx|`;
-- the explicit `|Δx| ÷ Δt` operation;
-- the average velocity magnitude derived from those displayed relative values.
+- `時間間隔`;
+- `位移大小`;
+- the explicit `位移大小 ÷ 時間間隔` operation;
+- `平均速度大小`, derived from those displayed relative values.
 
 The learner first reveals the windows from longest to shortest. The interface
-then keeps all revealed rows and provides both `加長 Δt` and `縮短 Δt` controls,
+then keeps all revealed rows and provides both `加長時間間隔` and `縮短時間間隔` controls,
 so the learner can revisit the secants in either direction. The graph and a
 highlighted table row always show the same active window. `viewedWindowCount`
 remains the persisted cumulative reveal progress; the currently selected row is
@@ -611,7 +615,7 @@ term "completely stopped period":
 
 ```text
 第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，
-該段時間的瞬時速度大小 |v(t)| 是多少？
+該段時間的瞬時速度大小是多少？
 ```
 
 Supporting copy states that the position-time graph is horizontal in this
@@ -629,9 +633,9 @@ convention.
    captured while the car continues moving.
 5. Read the captured table and enter numeric answers; learners need not pad
    their entries to three significant figures:
-   - displacement magnitude `|Δx|` in metres;
-   - elapsed time `Δt` in seconds;
-   - average velocity magnitude `|v̄|` in metres per second.
+   - `位移大小` in metres;
+   - `經過時間` in seconds;
+   - `平均速度大小` in metres per second.
 6. Answer the uniform-motion instantaneous-versus-average relationship question.
 7. Confirming atomically saves the answer and opens stage two; `重新量度`
    remains available before confirmation.
@@ -798,20 +802,20 @@ After submission, show stage-by-stage feedback containing:
 
 - the captured three-significant-figure readings;
 - the learner's answer and the expected three-significant-figure answer;
-- the correct substitution into `|Δx| = |x₂ - x₁|`;
-- the correct substitution into `|v̄| = |Δx| / Δt`;
+- the worked calculation `位移大小 = 終點位置 − 起點位置`;
+- the worked calculation `平均速度大小 = 位移大小 ÷ 經過時間`;
 - a statement that uniform motion has constant instantaneous velocity;
 - a statement that variable motion does not have one instantaneous velocity
   equal to the interval average at every instant;
 - the four shrinking-window values and target instantaneous value;
 - an explanation that zero velocity applies during the stopped plateau.
 
-Render substitutions with trusted structured numeric data and semantic native
-HTML/CSS: `<var>`, subscripts, overbars, and stacked fractions. Formula blocks
-have plain-language `aria-label` descriptions and responsive overflow. Escape
-all prose and learner strings before insertion. MathJax is unnecessary for this
-notation and must not be added: the SCORM package remains self-contained and
-offline-capable.
+Render substitutions with trusted structured numeric data and plain Chinese
+quantity names. Native CSS stacked fractions may show the arithmetic without
+introducing absolute-value bars or overbars. Formula blocks have plain-language
+`aria-label` descriptions and responsive overflow. Escape all prose and learner
+strings before insertion. MathJax is unnecessary and must not be added: the
+SCORM package remains self-contained and offline-capable.
 
 For uniform motion, use `=` for the ideal model and `≈` when comparing the
 constant model velocity with an average calculated from independently rounded

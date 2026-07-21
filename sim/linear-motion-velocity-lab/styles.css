@@ -43,12 +43,11 @@
 .reading-grid .math-quantity { max-width: 100%; flex-wrap: wrap; justify-content: center; gap: .1em; white-space: normal; }
 .reading-grid .math-number, .reading-grid .unit { white-space: nowrap; }
 .answer-form { display: grid; gap: .75rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--color-border-light); }
-.calculation-formula { display: flex; min-height: var(--touch-target); align-items: center; justify-content: center; gap: .45rem; margin: 0; padding: .55rem; background: #f3f4f6; font-family: Georgia, "Times New Roman", serif; font-size: 1.1rem; text-align: center; }
+.calculation-formula { min-height: var(--touch-target); box-sizing: border-box; margin: 0; padding: .7rem; background: #f3f4f6; font-size: 1rem; font-weight: 700; line-height: 1.45; text-align: center; }
 .fraction { display: inline-grid; grid-template-rows: auto auto; align-items: center; line-height: 1.05; }
 .fraction > :first-child { padding: 0 .25rem .15rem; border-bottom: 1.5px solid currentColor; }
 .fraction > :last-child { padding-top: .15rem; }
 var { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
-.overbar { display: inline-block; line-height: .92; text-decoration: overline; text-decoration-thickness: 1px; }
 .math-quantity { display: inline-flex; align-items: baseline; gap: .18em; white-space: nowrap; }
 .math-number { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 .math-quantity .unit { font-family: system-ui, sans-serif; font-style: normal; }
