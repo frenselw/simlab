@@ -107,6 +107,12 @@ th { background: #f3f4f6; }
   .motion-panel { min-height: 0; overscroll-behavior: contain; }
   .motion-status { max-width: calc(100% - 1.5rem); font-size: .82rem; }
   .stage-readouts { font-size: .78rem; }
+  .motion-stage.is-graph { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .motion-stage.is-graph #motionCanvas { grid-row: 2; grid-column: 1; min-height: 0; }
+  .motion-stage.is-graph .stage-readouts { position: static; z-index: 2; grid-row: 1; grid-column: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; padding: .35rem .55rem; border-bottom: 1px solid var(--color-border-light); background: #f8fafc; }
+  .motion-stage.is-graph .stage-readouts > span { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .25rem; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .motion-stage.is-graph .stage-readouts [id$="Readout"] { min-width: 0; margin-left: 0; padding: .35rem .45rem; border-radius: .5rem; box-shadow: none; white-space: nowrap; }
+  .motion-stage.is-graph .motion-status { grid-row: 3; grid-column: 1; }
   .calculation-row { grid-template-columns: minmax(6.5rem, 1fr) minmax(6.5rem, 8rem) 3.2rem; gap: .35rem; }
 }
 
