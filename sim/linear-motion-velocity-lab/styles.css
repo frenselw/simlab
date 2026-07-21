@@ -60,6 +60,10 @@ fieldset input[type="radio"] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; 
 .format-hint { color: var(--color-text-muted); }
 .error-text { color: var(--color-danger); font-weight: 700; }
 .instant-controls { margin-top: .75rem; }
+.window-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+#windowSelectionMessage { margin: .55rem 0 0; }
+#windowRows tr.is-selected { background: #dbeafe; box-shadow: inset 3px 0 #2563eb; }
+.stopped-question .calculation-row { margin-top: .5rem; }
 .table-scroll { overflow-x: auto; margin-top: .75rem; }
 table { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
 caption { padding-bottom: .35rem; text-align: left; font-weight: 700; }
@@ -109,6 +113,8 @@ th { background: #f3f4f6; }
 
 @media (max-width: 390px) {
   .three-buttons { grid-template-columns: 1fr; }
+  .window-controls { grid-template-columns: 1fr; }
+  .stopped-question .calculation-row { grid-template-columns: minmax(0, 1fr) minmax(5rem, 6.5rem) 2.6rem; }
   .navigation-controls { grid-template-columns: 1fr; }
   .progress li { font-size: .72rem; }
   .limit-formula { grid-template-columns: 1fr; }

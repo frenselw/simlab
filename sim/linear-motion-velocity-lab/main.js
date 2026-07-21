@@ -24,6 +24,7 @@
   let retryMode = "none";
   let lastMotionSegment = null;
   let frameId = 0;
+  let activeWindowIndex = null;
   let view = { width: 800, height: 500, dpr: 1 };
 
   function announce(message) { elements.liveRegion.textContent = ""; requestAnimationFrame(() => { elements.liveRegion.textContent = message; }); }
@@ -77,6 +78,7 @@
       const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode({ ...candidate, running: false, timerRunning: false }));
       if (!window.SimScorm.saveDraft(snapshot)) throw new Error("Transition save was rejected");
       state = candidate;
+      if (fallback.phase !== "instant" && state.phase === "instant") activeWindowIndex = null;
       announce(message);
       render();
       focusContext(state.phase === "review" ? elements.reviewTitle : elements.stageTitle);
@@ -212,11 +214,30 @@
     if (!saveDraft()) return;
     render();
   }
-  function nextWindow() {
-    if (locked || state.phase !== "instant" || state.viewedWindowCount >= 4) return;
-    state.viewedWindowCount += 1;
-    announce(`已顯示第 ${state.viewedWindowCount} 個時間區間。`);
-    if (!saveDraft()) return;
+  function normalizedActiveWindowIndex() {
+    const count = Math.max(0, Math.min(Model.WINDOWS.length, state?.viewedWindowCount || 0));
+    if (!count) return -1;
+    if (!Number.isInteger(activeWindowIndex) || activeWindowIndex < 0 || activeWindowIndex >= count) activeWindowIndex = count - 1;
+    return activeWindowIndex;
+  }
+  function showLongerWindow() {
+    if (locked || state.phase !== "instant") return;
+    const current = normalizedActiveWindowIndex();
+    if (current <= 0) return;
+    activeWindowIndex = current - 1;
+    announce(`圖中改為較長的 ${Model.format3(Model.WINDOWS[activeWindowIndex])} s 時間區間。`);
+    render();
+  }
+  function showShorterWindow() {
+    if (locked || state.phase !== "instant") return;
+    const current = normalizedActiveWindowIndex();
+    const next = current < 0 ? 0 : current + 1;
+    if (next >= Model.WINDOWS.length) return;
+    activeWindowIndex = next;
+    const revealed = next >= state.viewedWindowCount;
+    if (revealed) state.viewedWindowCount = next + 1;
+    announce(`${revealed ? "已顯示" : "圖中改為"} ${Model.format3(Model.WINDOWS[next])} s 時間區間。`);
+    if (revealed && !saveDraft()) return;
     render();
   }
   function submitInstant(event) {
@@ -242,7 +263,7 @@
     running = false;
     timerRunning = false;
     if (stage < 2) loadMeasurementForm(state.answers[state.phase]);
-    else loadInstantForm();
+    else { activeWindowIndex = null; loadInstantForm(); }
     announce(`返回第 ${stage + 1} 關修改答案。`);
     if (!saveDraft()) return;
     render();
@@ -467,10 +488,14 @@
     elements.measurementForm.classList.add("is-hidden");
     elements.instantControls.classList.remove("is-hidden");
     elements.instantSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : "確認答案並檢查全部答案";
+    const selected = normalizedActiveWindowIndex();
     const rows = Model.analysisWindows(state.definition).slice(0, state.viewedWindowCount);
-    elements.windowRows.innerHTML = rows.map((row) => `<tr><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.startTime, "s")}，${quantityHtml(row.startPosition, "m")}</td><td>${quantityHtml(row.endTime, "s")}，${quantityHtml(row.endPosition, "m")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
-    elements.nextWindowButton.classList.toggle("is-hidden", state.viewedWindowCount >= 4);
-    if (state.viewedWindowCount < 4) elements.nextWindowButton.innerHTML = `顯示 ${quantityHtml(state.definition.windows[state.viewedWindowCount], "s")} 區間`;
+    elements.windowRows.innerHTML = rows.map((row, index) => `<tr${index === selected ? ' class="is-selected" aria-current="true"' : ""}><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.startTime, "s")}，${quantityHtml(row.startPosition, "m")}</td><td>${quantityHtml(row.endTime, "s")}，${quantityHtml(row.endPosition, "m")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
+    elements.longerWindowButton.disabled = selected <= 0;
+    elements.longerWindowButton.innerHTML = selected > 0 ? `加長至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected - 1], "s")}` : `已是最長 <var>Δt</var>`;
+    elements.shorterWindowButton.disabled = selected === Model.WINDOWS.length - 1;
+    elements.shorterWindowButton.innerHTML = selected < 0 ? `顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[0], "s")}` : selected < Model.WINDOWS.length - 1 ? `縮短至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected + 1], "s")}` : `已是最短 <var>Δt</var>`;
+    elements.windowSelectionMessage.innerHTML = selected < 0 ? "先顯示最長的時間區間。" : `圖中目前顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected], "s")}；藍底列是目前區間。`;
     elements.instantForm.classList.toggle("is-hidden", state.viewedWindowCount < 4);
     if (!elements.optionChoices.children.length) elements.optionChoices.innerHTML = state.definition.instantOptions.map((option) => `<label><input type="radio" name="prediction" value="${option.id}" aria-label="${Model.format3(option.value)} 米每秒"> ${quantityHtml(option.value, "m/s")}</label>`).join("");
     const answered = state.variant.endsWith("answered");
@@ -485,7 +510,7 @@
     elements.reviewList.innerHTML = [
       reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform),
       reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable),
-      `<article class="review-item"><h3>時間放大鏡</h3><p>瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>完全停止期間：${quantityHtml(Model.normalizeInput(state.answers.instant.stoppedVelocity).value, "m/s")}</p><button type="button" data-edit="2">修改第 3 關</button></article>`
+      `<article class="review-item"><h3>時間放大鏡</h3><p>瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>車輛停定、位置保持不變時：${quantityHtml(Model.normalizeInput(state.answers.instant.stoppedVelocity).value, "m/s")}</p><button type="button" data-edit="2">修改第 3 關</button></article>`
     ].join("");
     elements.reviewList.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => editStage(Number(button.dataset.edit))));
   }
@@ -703,7 +728,7 @@
   }
   function drawGraph() {
     const rows = Model.analysisWindowGeometry(state.definition);
-    const count = state.phase === "instant" ? state.viewedWindowCount : 4;
+    const selected = state.phase === "instant" ? normalizedActiveWindowIndex() : Model.WINDOWS.length - 1;
     const target = Model.targetSceneTime(state.definition);
     const compact = view.height < 260;
     const left = view.width < 420 ? 44 : 58, top = compact ? 78 : 125, right = view.width - 18, bottom = view.height - (compact ? 30 : 40);
@@ -729,8 +754,8 @@
     }
     context.strokeStyle = "#2563eb"; context.lineWidth = 3; context.beginPath(); points.forEach((point, index) => index ? context.lineTo(sx(point.t), sy(point.x)) : context.moveTo(sx(point.t), sy(point.x))); context.stroke();
     context.strokeStyle = "#9333ea"; context.setLineDash([5, 5]); context.beginPath(); context.moveTo(sx(target), top); context.lineTo(sx(target), bottom); context.stroke(); context.setLineDash([]);
-    if (count) {
-      const row = rows[count - 1]; context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(sx(row.startTime), sy(row.startPosition)); context.lineTo(sx(row.endTime), sy(row.endPosition)); context.stroke();
+    if (selected >= 0) {
+      const row = rows[selected]; context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(sx(row.startTime), sy(row.startPosition)); context.lineTo(sx(row.endTime), sy(row.endPosition)); context.stroke();
       [[row.startTime, row.startPosition], [row.endTime, row.endPosition]].forEach(([time, position]) => { context.fillStyle = "#f59e0b"; context.beginPath(); context.arc(sx(time), sy(position), 5, 0, Math.PI * 2); context.fill(); });
     }
     if (state.answers.instant || locked) {
@@ -795,7 +820,8 @@
   elements.resetButton.addEventListener("click", resetMeasurement);
   elements.timerButton.addEventListener("click", stopwatch);
   elements.measurementForm.addEventListener("submit", submitMeasurement);
-  elements.nextWindowButton.addEventListener("click", nextWindow);
+  elements.longerWindowButton.addEventListener("click", showLongerWindow);
+  elements.shorterWindowButton.addEventListener("click", showShorterWindow);
   elements.instantForm.addEventListener("submit", submitInstant);
   elements.advanceButton.addEventListener("click", advance);
   elements.returnReviewButton.addEventListener("click", advance);

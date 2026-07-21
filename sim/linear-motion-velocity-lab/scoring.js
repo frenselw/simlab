@@ -106,8 +106,8 @@
         text: [
           choiceFeedback("瞬時速度 v(t*) 估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
           choiceFeedback("瞬時速度概念", detail.instant.concept, { limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程平均", "zero-division": "除以零秒", "largest-one-second": "一秒內最大速度" }),
-          numericFeedback("完全停止期間 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
-          "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；完全停止期間的瞬時速度是 0.00 m/s。"
+          numericFeedback("車輛停定、位置保持不變時的 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
+          "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；車輛停定、位置保持不變時，瞬時速度是 0.00 m/s。"
         ].join("\n"),
         formula: { kind: "limit", windows: windows.map((row) => ({ duration: row.duration, averageVelocity: row.averageVelocity })), exact }
       }

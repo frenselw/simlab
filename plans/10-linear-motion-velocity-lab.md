@@ -526,6 +526,13 @@ For each window show, to three significant figures:
 - interval duration;
 - average velocity magnitude.
 
+The learner first reveals the windows from longest to shortest. The interface
+then keeps all revealed rows and provides both `加長 Δt` and `縮短 Δt` controls,
+so the learner can revisit the secants in either direction. The graph and a
+highlighted table row always show the same active window. `viewedWindowCount`
+remains the persisted cumulative reveal progress; the currently selected row is
+transient view state and may safely return to the latest revealed row on reload.
+
 Stages one and two already assess the arithmetic. Stage three therefore computes
 the four window averages after the learner steps through the measurements and
 asks the learner to choose the best supported three-significant-figure limiting
@@ -542,13 +549,18 @@ After the prediction, reveal:
 - the tangent on the position-time graph;
 - feedback connecting the shrinking secants to the tangent slope.
 
-The stopped plateau provides one additional numeric checkpoint:
+The stopped plateau provides one additional numeric checkpoint. The prompt must
+define the physical situation directly instead of relying on the unexplained
+term "completely stopped period":
 
 ```text
-車在這段完全停止期間的瞬時速度大小是多少？
+第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，
+該段時間的瞬時速度大小 |v(t)| 是多少？
 ```
 
-The required answer is `0.00 m/s` under the exact-zero display convention.
+Supporting copy states that the position-time graph is horizontal in this
+interval. The required answer is `0.00 m/s` under the exact-zero display
+convention.
 
 ## Learner flow
 
@@ -581,7 +593,8 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
 
 1. Inspect the random target instant on the position-time graph.
 2. Step through the four decreasing intervals from longest to shortest.
-3. Observe the table of average velocities and secant lines.
+3. Use the longer/shorter controls to revisit any revealed interval, observing
+   the highlighted table row, average velocity, and matching secant line.
 4. Choose the best supported three-significant-figure estimate of the
    instantaneous velocity from four generated options.
 5. Answer the conceptual multiple-choice question:
@@ -589,7 +602,8 @@ The required answer is `0.00 m/s` under the exact-zero display convention.
    - distractor: total displacement divided by total journey time;
    - distractor: displacement divided by exactly zero seconds;
    - distractor: the largest speed observed during one second.
-6. Answer the stopped-plateau checkpoint.
+6. Answer the explicitly worded checkpoint about a vehicle whose position stays
+   unchanged while it is stopped.
 7. Confirming atomically saves the answers and opens final review; correctness
    remains hidden until final submission.
 

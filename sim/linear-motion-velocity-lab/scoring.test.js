@@ -54,7 +54,7 @@ for (const [stage, fields] of Object.entries(Scoring.WEIGHTS)) {
   }
 }
 const detailedFeedback = Scoring.scoreAttempt(definition, uniform, variable, correct).feedbackItems.map((item) => item.text).join("\n");
-["你的答案", "正確答案", "10 分", "20 分", "完全停止期間"].forEach((text) => assert(detailedFeedback.includes(text), text));
+["你的答案", "正確答案", "10 分", "20 分", "車輛停定、位置保持不變時"].forEach((text) => assert(detailedFeedback.includes(text), text));
 const formulae = Scoring.scoreAttempt(definition, uniform, variable, correct).feedbackItems.map((item) => item.formula);
 assert.deepStrictEqual(formulae.map((formula) => formula.kind), ["average", "average", "limit"]);
 assert.strictEqual(formulae[2].windows.length, 4);

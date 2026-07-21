@@ -29,7 +29,14 @@ assert.match(styles, /\.feedback-formula[^}]*min-width: 0;[^}]*max-width: 100%/,
 assert.match(styles, /\.feedback-formula > div[^}]*min-width: 0;[^}]*flex-wrap: wrap/, "average-velocity equations wrap between semantic terms on narrow screens");
 assert.match(styles, /\.limit-formula[^}]*grid-template-columns: 1fr/, "limit sequence uses one stable row per interval");
 assert.match(styles, /\.limit-step[^}]*flex-wrap: wrap/, "each limit step wraps instead of overlapping its neighbours");
+assert.match(styles, /@media \(max-width: 390px\)[\s\S]*\.window-controls \{ grid-template-columns: 1fr; \}/, "delta-time controls stack on narrow screens");
+assert.match(styles, /\.stopped-question \.calculation-row \{ grid-template-columns: minmax\(0, 1fr\)/, "stopped-velocity input can shrink within a narrow panel");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
+assert.match(html, /id="longerWindowButton"[\s\S]*id="shorterWindowButton"/, "time magnifier exposes both longer and shorter interval controls");
+assert.match(html, /車輛位置在一段時間內保持不變/, "stopped-velocity prompt defines the physical situation");
+assert.match(main, /function showLongerWindow[\s\S]*activeWindowIndex = current - 1/, "learners can revisit a longer interval");
+assert.match(main, /function showShorterWindow[\s\S]*state\.viewedWindowCount = next \+ 1/, "shortening preserves cumulative four-window progress");
+assert.match(main, /aria-current="true"/, "the active analysis row is exposed semantically");
 assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "pristine observation has a distinct status");
 const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
 assert.match(animateBody, /catch[\s\S]*locked = true[\s\S]*showTechnical\(/, "runtime numeric failures enter the locked technical view");

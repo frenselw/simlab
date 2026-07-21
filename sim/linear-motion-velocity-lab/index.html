@@ -78,8 +78,12 @@
             </form>
 
             <section id="instantControls" class="instant-controls is-hidden">
-              <p>逐步縮短同一目標時刻前的觀察區間，比較割線斜率。</p>
-              <button id="nextWindowButton" type="button" class="primary-button">顯示 2.00 s 區間</button>
+              <p>先逐步縮短同一目標時刻前的觀察區間；顯示後可來回加長或縮短 <var>Δt</var>，重看割線斜率。</p>
+              <div class="window-controls">
+                <button id="longerWindowButton" type="button" disabled>加長 <var>Δt</var></button>
+                <button id="shorterWindowButton" type="button" class="primary-button">顯示 <var>Δt</var> = 2.00 s</button>
+              </div>
+              <p id="windowSelectionMessage" class="format-hint">先顯示最長的時間區間。</p>
               <div class="table-scroll">
                 <table>
                   <caption>已顯示的時間區間與平均速度</caption>
@@ -95,9 +99,12 @@
                   <label><input type="radio" name="concept" value="zero-division"> 位移除以正好零秒</label>
                   <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
                 </fieldset>
-                <label class="calculation-row"><span>完全停止期間 |<var>v</var>(<var>t</var>)|</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="完全停止期間的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
+                <fieldset class="stopped-question">
+                  <legend>第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，該段時間的瞬時速度大小 |<var>v</var>(<var>t</var>)| 是多少？</legend>
+                  <label class="calculation-row"><span>車輛停定時的 |<var>v</var>(<var>t</var>)|</span><input id="stoppedInput" inputmode="text" autocomplete="off" aria-label="車輛停定、位置保持不變時的瞬時速度大小，單位米每秒"><span class="unit">m/s</span></label>
+                  <p class="format-hint">位置—時間圖在這段時間呈水平線。只需輸入數值，不要輸入單位。</p>
+                </fieldset>
                 <p id="instantError" class="error-text" role="alert" tabindex="-1"></p>
-                <p class="format-hint">停止速度只需輸入數值，例如 0、0.0 或 0.00；不要輸入單位。</p>
                 <button id="instantSubmitButton" type="submit" class="primary-button">確認答案並檢查全部答案</button>
               </form>
               <div id="revealCard" class="reveal-card is-hidden"></div>
