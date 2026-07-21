@@ -2,10 +2,11 @@
   "use strict";
 
   const Model = window.LinearMotionModel;
+  const UiPolicy = window.LinearMotionUiPolicy;
   const Visuals = window.LinearMotionSceneVisuals;
   const Scoring = window.LinearMotionScoring;
   const Persistence = window.LinearMotionPersistence;
-  if (!Model || !Visuals || !Scoring || !Persistence) throw new Error("Linear-motion modules were not loaded");
+  if (!Model || !UiPolicy || !Visuals || !Scoring || !Persistence) throw new Error("Linear-motion modules were not loaded");
 
   const ACTIVITY = "linear-motion-velocity-lab";
   const canvas = document.getElementById("motionCanvas");
@@ -62,8 +63,7 @@
   function displayedPositionAt(time = state.scene.simulationTime) {
     const worldPosition = positionAt(time);
     const measurement = ["uniform", "variable"].includes(state.phase) ? currentMeasurement() : null;
-    const readingOrigin = measurement?.readingOrigin ?? Model.rollingReadingOrigin(worldPosition);
-    return Model.readingPosition(worldPosition, readingOrigin);
+    return UiPolicy.displayedPosition(state.definition, state.phase, worldPosition, measurement);
   }
   function activeDuration() { return timerRunning && currentMeasurement() ? state.scene.simulationTime - currentMeasurement().startModelTime : currentMeasurement()?.dt || 0; }
   function minimumDuration() { return state.phase === "variable" ? state.definition.variableMinimumDuration : 1.5; }
@@ -159,7 +159,7 @@
         return;
       }
       const time = state.scene.simulationTime;
-      const readingOrigin = Model.rollingReadingOrigin(positionAt(time));
+      const readingOrigin = UiPolicy.stageReadingOrigin(state.definition, state.phase);
       const measurement = {
         startModelTime: time, currentOrEndModelTime: time, readingOrigin,
         x1: Model.canonicalNumber(Model.readingPosition(positionAt(time), readingOrigin)), x2: null, dt: 0
@@ -425,8 +425,10 @@
       const review = Persistence.decodeReview(raw.review?.answer);
       if (review) {
         state = Persistence.fromReview(review);
-        result = Scoring.scoreAttempt(review.definition, review.uniformMeasurement, review.variableMeasurement, review.answers);
-        trustedReview = true;
+        const computed = Scoring.scoreAttempt(review.definition, review.uniformMeasurement, review.variableMeasurement, review.answers);
+        const outcome = UiPolicy.reviewOutcome(computed, raw.review, { score: raw.score, status: raw.status });
+        trustedReview = outcome.trusted;
+        result = outcome.result;
       } else {
         result = { score: Number.isFinite(raw.score) ? raw.score : null, maxScore: 100, passed: raw.status === "passed" ? true : raw.status === "failed" ? false : null, completed: true, feedbackItems: [] };
         trustedReview = false;
@@ -485,6 +487,7 @@
     elements.feedbackList.innerHTML = `<div class="feedback-item"><p>${escapeHtml(message)}</p></div>` + items.map(feedbackItemHtml).join("");
     elements.retryButton.classList.toggle("is-hidden", !retryable);
     elements.retryButton.textContent = retryMode === "finish" ? "重試完成連線" : "重試連線";
+    if (state) draw();
     const detail = items.map((item) => `${item.title}。${item.text}`).join(" ");
     announce(`${elements.resultTitle.textContent}。${elements.scorePanel.textContent}。${message}${detail ? ` ${detail}` : ""}`);
     elements.resultTitle.focus({ preventScroll: true });
@@ -591,19 +594,19 @@
     elements.demoToggleButton.textContent = reducedMotion ? "靜態示意（無需暫停）" : instantDemoPaused ? "繼續示範" : "暫停示範";
     elements.instantSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : "確認答案並檢查全部答案";
     const selected = normalizedActiveWindowIndex();
-    const rows = Model.analysisWindows(state.definition).slice(0, state.viewedWindowCount);
-    elements.windowRows.innerHTML = rows.map((row, index) => `<tr${index === selected ? ' class="is-selected" aria-current="true"' : ""}><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.startTime, "s")}，${quantityHtml(row.startPosition, "m")}</td><td>${quantityHtml(row.endTime, "s")}，${quantityHtml(row.endPosition, "m")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
+    const rows = UiPolicy.analysisRows(state.definition).slice(0, state.viewedWindowCount);
+    elements.windowRows.innerHTML = rows.map((row, index) => `<tr${index === selected ? ' class="is-selected" aria-current="true"' : ""}><td>${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.displacement, "m")}</td><td>${quantityHtml(row.displacement, "m")} ÷ ${quantityHtml(row.duration, "s")}</td><td>${quantityHtml(row.averageVelocity, "m/s")}</td></tr>`).join("");
     elements.longerWindowButton.disabled = selected <= 0;
     elements.longerWindowButton.innerHTML = selected > 0 ? `加長至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected - 1], "s")}` : `已是最長 <var>Δt</var>`;
     elements.shorterWindowButton.disabled = selected === Model.WINDOWS.length - 1;
     elements.shorterWindowButton.innerHTML = selected < 0 ? `顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[0], "s")}` : selected < Model.WINDOWS.length - 1 ? `縮短至 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected + 1], "s")}` : `已是最短 <var>Δt</var>`;
     elements.windowSelectionMessage.innerHTML = selected < 0 ? "先顯示最長的時間區間。" : `圖中目前顯示 <var>Δt</var> = ${quantityHtml(Model.WINDOWS[selected], "s")}；藍底列是目前區間。`;
     elements.instantForm.classList.toggle("is-hidden", state.viewedWindowCount < 4);
-    if (!elements.optionChoices.children.length) elements.optionChoices.innerHTML = state.definition.instantOptions.map((option) => `<label><input type="radio" name="prediction" value="${option.id}" aria-label="${Model.format3(option.value)} 米每秒"> ${quantityHtml(option.value, "m/s")}</label>`).join("");
+    UiPolicy.appendPredictionOptions(elements.optionChoices, state.definition.instantOptions, document);
     if (state.viewedWindowCount === 4) loadInstantForm();
-    const answered = state.variant.endsWith("answered");
-    elements.revealCard.classList.toggle("is-hidden", !answered);
-    if (answered) {
+    const showSolution = UiPolicy.canRevealSolution({ locked, trustedReview, result });
+    elements.revealCard.classList.toggle("is-hidden", !showSolution);
+    if (showSolution) {
       elements.revealCard.innerHTML = `模型在目標時刻的瞬時速度是 ${quantityHtml(Scoring.correctOption(state.definition).value, "m/s")}；圖中虛線顯示該點切線。`;
     }
   }
@@ -612,7 +615,7 @@
       state.answers.uniform ? reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform) : incompleteReviewItem(0, "勻速運動", state.uniformMeasurement ? "量度已記錄，答案仍未確認。" : "尚未完成量度及答案。"),
       state.answers.variable ? reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable) : incompleteReviewItem(1, "變速運動", state.variableMeasurement ? "量度已記錄，答案仍未確認。" : "尚未完成量度及答案。"),
       state.answers.instant
-        ? `<article class="review-item"><h3>時間放大鏡</h3><p>目標時刻的瞬時速度估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>車輛停定、位置保持不變時：${quantityHtml(Model.normalizeInput(state.answers.instant.stoppedVelocity).value, "m/s")}</p><button type="button" data-edit="2">修改第 3 關</button></article>`
+        ? `<article class="review-item"><h3>時間放大鏡</h3><p>目標時刻的瞬時速度估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>車輛停定、位置保持不變時：${escapeHtml(state.answers.instant.stoppedVelocity)} <span class="unit">m/s</span></p><button type="button" data-edit="2">修改第 3 關</button></article>`
         : incompleteReviewItem(2, "時間放大鏡", state.viewedWindowCount === 4 ? "觀察已完成，答案仍未確認。" : `已查看 ${state.viewedWindowCount} / 4 個時間區間，答案尚未完成。`)
     ].join("");
     elements.reviewList.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => editStage(Number(button.dataset.edit))));
@@ -625,7 +628,7 @@
     return `<article class="review-item is-incomplete"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p><button type="button" data-edit="${index}">返回第 ${index + 1} 關</button></article>`;
   }
   function reviewItem(index, title, measurement, answer) {
-    return `<article class="review-item"><h3>${title}</h3><p>讀數：<var>x</var><sub>1</sub> = ${quantityHtml(measurement.x1, "m")}；<var>x</var><sub>2</sub> = ${quantityHtml(measurement.x2, "m")}；<var>Δt</var> = ${quantityHtml(measurement.dt, "s")}</p><p>答案：|<var>Δx</var>| = ${quantityHtml(Model.normalizeInput(answer.displacement).value, "m")}；<var>Δt</var> = ${quantityHtml(Model.normalizeInput(answer.time).value, "s")}；|<var class="overbar">v</var>| = ${quantityHtml(Model.normalizeInput(answer.averageVelocity).value, "m/s")}；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
+    return `<article class="review-item"><h3>${title}</h3><p>讀數：<var>x</var><sub>1</sub> = ${quantityHtml(measurement.x1, "m")}；<var>x</var><sub>2</sub> = ${quantityHtml(measurement.x2, "m")}；<var>Δt</var> = ${quantityHtml(measurement.dt, "s")}</p><p>答案：|<var>Δx</var>| = ${escapeHtml(answer.displacement)} <span class="unit">m</span>；<var>Δt</var> = ${escapeHtml(answer.time)} <span class="unit">s</span>；|<var class="overbar">v</var>| = ${escapeHtml(answer.averageVelocity)} <span class="unit">m/s</span>；每一時刻關係：${answer.relationship === "yes" ? "是" : "否"}</p><button type="button" data-edit="${index}">修改第 ${index + 1} 關</button></article>`;
   }
   function conceptLabel(value) {
     return ({ limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程總位移除以總時間", "zero-division": "位移除以正好零秒", "largest-one-second": "一秒內最大速度" })[value] || "--";
@@ -840,15 +843,14 @@
     context.restore();
   }
   function drawGraph() {
-    const rows = Model.analysisWindowGeometry(state.definition);
+    const analysis = UiPolicy.graphAnalysis(state.definition);
+    const rows = analysis.geometry;
     const selected = state.phase === "instant" ? normalizedActiveWindowIndex() : Model.WINDOWS.length - 1;
-    const target = Model.targetSceneTime(state.definition);
+    const target = analysis.target;
     const compact = view.height < 260;
     const left = view.width < 420 ? 44 : 58, top = compact ? 78 : 125, right = view.width - 18, bottom = view.height - (compact ? 30 : 40);
     canvas.dataset.graphHeight = String(Math.max(0, Math.round(bottom - top)));
-    const t0 = target - 2.25, t1 = target + .35;
-    const points = Array.from({ length: 90 }, (_, index) => { const t = t0 + (t1 - t0) * index / 89; return { t, x: Model.variablePosition(state.definition.variable, t) }; });
-    const minX = Math.min(...points.map((point) => point.x)), maxX = Math.max(...points.map((point) => point.x));
+    const { t0, t1, points, minX, maxX } = analysis;
     const sx = (time) => left + (time - t0) / (t1 - t0) * (right - left);
     const sy = (position) => bottom - (position - minX) / Math.max(.2, maxX - minX) * (bottom - top);
     context.fillStyle = "#fff"; context.fillRect(0, 0, view.width, view.height);
@@ -880,7 +882,8 @@
       const row = rows[selected]; context.strokeStyle = "#f59e0b"; context.lineWidth = 3; context.beginPath(); context.moveTo(sx(row.startTime), sy(row.startPosition)); context.lineTo(sx(row.endTime), sy(row.endPosition)); context.stroke();
       [[row.startTime, row.startPosition], [row.endTime, row.endPosition]].forEach(([time, position]) => { context.fillStyle = "#f59e0b"; context.beginPath(); context.arc(sx(time), sy(position), 5, 0, Math.PI * 2); context.fill(); });
     }
-    if (state.answers.instant || locked) {
+    const showSolution = UiPolicy.canRevealSolution({ locked, trustedReview, result });
+    if (showSolution) {
       const velocity = Scoring.correctOption(state.definition).value;
       const centreX = Model.variablePosition(state.definition.variable, target);
       const dt = .32; context.strokeStyle = "#dc2626"; context.lineWidth = 2; context.setLineDash([8, 4]); context.beginPath(); context.moveTo(sx(target - dt), sy(centreX - velocity * dt)); context.lineTo(sx(target + dt), sy(centreX + velocity * dt)); context.stroke(); context.setLineDash([]);
@@ -898,8 +901,8 @@
       ? "示範已暫停；可按「繼續示範」重看車輛通過目標位置。"
       : "示意動畫中，車輛通過中央金色標記後留下淡色車影；畫面不代表速度大小。";
     elements.motionStatus.textContent = instantDemoActive
-      ? `${demoDescription}${state.answers.instant ? "已揭示該點切線；其斜率代表瞬時速度。" : "請比較逐步縮短的割線。"}`
-      : state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
+      ? `${demoDescription}${showSolution ? "已揭示該點切線；其斜率代表瞬時速度。" : "請比較逐步縮短的割線。"}`
+      : showSolution ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }
   function drawFrozenContext(position, compact, demoFrame = null) {
     const y = compact ? 35 : 66;
@@ -986,7 +989,7 @@
     try {
       if (attempt.state === "draft") {
         state = Persistence.decode(attempt.snapshot?.answer);
-        if (!state && Number.isInteger(attempt.snapshot?.answer?.v) && attempt.snapshot.answer.v < Persistence.VERSION) {
+        if (!state && UiPolicy.isLegacySnapshot(attempt.snapshot?.answer, Persistence.VERSION)) {
           state = Persistence.initialState(Model.createAttempt());
           announce("活動已更新；舊開發版本草稿不能安全沿用，現已開始新版活動。");
         }

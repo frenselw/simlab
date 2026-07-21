@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 5;
+  const VERSION = 6;
   const ROWS = {
     "uniform/ready": 0, "uniform/paused-measuring": 0, "uniform/captured": 0, "uniform/answered": 0,
     "variable/ready": 1, "variable/paused-measuring": 1, "variable/captured": 1, "variable/answered": 1,
@@ -190,7 +190,7 @@
     let expectedDuration;
     try {
       const startPosition = position(measurement.startModelTime);
-      if (measurement.readingOrigin !== Model.rollingReadingOrigin(startPosition)) return "invalid";
+      if (measurement.readingOrigin !== definition[type].coordinateOrigin) return "invalid";
       expectedX1 = Model.canonicalNumber(Model.readingPosition(startPosition, measurement.readingOrigin));
       expectedDuration = Model.canonicalNumber(end - measurement.startModelTime);
     } catch { return "invalid"; }
@@ -298,14 +298,14 @@
         : (time) => Model.variablePosition(state.definition.variable, time);
       if (state.variant.endsWith("ready")) {
         const start = state.scene.simulationTime;
-        const readingOrigin = Model.rollingReadingOrigin(position(start));
+        const readingOrigin = state.definition[type].coordinateOrigin;
         state.scene.observationStarted = 1;
         state[field] = { startModelTime: start, currentOrEndModelTime: start, readingOrigin, x1: Model.canonicalNumber(Model.readingPosition(position(start), readingOrigin)), x2: null, dt: 0 };
         state.variant = edit ? "review-edit-paused-measuring" : "paused-measuring";
       } else if (state.variant.endsWith("paused-measuring")) {
         const duration = type === "uniform" ? 1.5 : state.definition.variableMinimumDuration;
         const end = state[field].startModelTime + duration;
-        state[field] = { ...Model.captureMeasurement(position, state[field].startModelTime, end), currentOrEndModelTime: end };
+        state[field] = { ...Model.captureMeasurement(position, state[field].startModelTime, end, state[field].readingOrigin), currentOrEndModelTime: end };
         state.scene.simulationTime = end;
         state.scene.observationStarted = 1;
         state.variant = edit ? "review-edit-captured" : "captured";

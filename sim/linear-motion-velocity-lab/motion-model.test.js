@@ -30,7 +30,8 @@ for (let seed = 0; seed < 100; seed += 1) {
   const rows = Model.analysisWindows(definition);
   const geometry = Model.analysisWindowGeometry(definition);
   assert.deepStrictEqual(rows.map((row) => row.duration), [2, 1, 0.5, 0.25]);
-  assert(rows.every((row) => row.startTime < row.endTime && row.duration > 0));
+  assert(rows.every((row) => row.duration > 0 && row.displacement > 0));
+  rows.forEach((row) => assert.strictEqual(row.averageVelocity, Model.canonicalNumber(row.displacement / row.duration), `seed ${seed} displayed values are arithmetically consistent`));
   geometry.forEach((row) => {
     assert(Math.abs(Model.variablePosition(definition.variable, row.startTime) - row.startPosition) < 1e-10, `seed ${seed} secant start lies on curve`);
     assert(Math.abs(Model.variablePosition(definition.variable, row.endTime) - row.endPosition) < 1e-10, `seed ${seed} secant end lies on curve`);
@@ -61,6 +62,12 @@ for (let seed = 100; seed < 2000; seed += 1) {
 }
 
 const definition = Model.createAttempt(9);
+const protectedChunk = Model.streamChunk(definition.variable, 0);
+const protectedDuration = protectedChunk[0].duration;
+assert(Object.isFrozen(protectedChunk) && protectedChunk.every(Object.isFrozen), "cached stream data is immutable at both levels");
+assert.throws(() => { protectedChunk[0].duration = -1; }, TypeError);
+assert.throws(() => { protectedChunk.push({}); }, TypeError);
+assert.strictEqual(Model.streamChunk(definition.variable, 0)[0].duration, protectedDuration, "consumer mutation cannot corrupt cached stream data");
 assert.notDeepStrictEqual(Model.streamChunk(definition.variable, 0).map((item) => [item.duration, item.v0, item.v1]), Model.streamChunk(definition.variable, 1).map((item) => [item.duration, item.v0, item.v1]), "successive chunks do not repeat a cycle");
 for (let chunkIndex = 0; chunkIndex < 12; chunkIndex += 1) {
   const table = Model.streamChunk(definition.variable, chunkIndex);
@@ -101,6 +108,14 @@ assert(!Model.hasModelTimeHeadroom(Model.MAX_MODEL_TIME - 1.5, 1.5));
 assert(Model.minimumDurationReached(1.5 - Model.MODEL_TIME_TOLERANCE / 2, 1.5));
 assert(Model.safeWorldPosition(Model.variablePosition(definition.variable, 1e8)));
 
+const boundaryOrigin = definition.uniform.coordinateOrigin;
+const beforeBoundary = Model.readingPosition(49.99, boundaryOrigin);
+const afterBoundary = Model.readingPosition(50, boundaryOrigin);
+assert(afterBoundary > beforeBoundary, "the fixed stage origin keeps displayed position increasing across 50 m");
+
+const seed77123Rows = Model.analysisWindows(Model.createAttempt(77123));
+seed77123Rows.forEach((row) => assert.strictEqual(row.averageVelocity, Model.canonicalNumber(row.displacement / row.duration), "seed 77123 table row can be recomputed from displayed values"));
+
 for (const mutate of [
   (value) => { value.variable.streamVersion += 1; },
   (value) => { value.variableMinimumDuration = 2.75; },
@@ -109,7 +124,10 @@ for (const mutate of [
   (value) => { value.instantTarget.timeWithinSegment = 0.1; },
   (value) => { value.stoppedCheckpoint.segmentIndex = value.instantTarget.segmentIndex; },
   (value) => { value.windows.reverse(); },
-  (value) => { value.uniform.layout = 4; }
+  (value) => { value.uniform.layout = 4; },
+  (value) => { value.instantOptions[0].id = 'x\"><img src=x onerror=alert(1)>'; },
+  (value) => { value.instantOptions[0].id = value.instantOptions[1].id; },
+  (value) => { value.instantOptions[0].id = "o5"; }
 ]) {
   const corrupt = JSON.parse(JSON.stringify(definition)); mutate(corrupt); assert.strictEqual(Model.validateDefinition(corrupt), false);
 }

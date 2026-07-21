@@ -25,6 +25,8 @@
   const CHUNK_DISTANCE = 240;
   const SEGMENT_COUNT = 22;
   const TARGET_SEGMENT_INDEX = 7;
+  const STREAM_CACHE_LIMIT = 256;
+  const streamCache = new Map();
 
   function finite(value) { return Number.isFinite(value); }
   function roundStep(value, step) { return Math.round(value / step) * step; }
@@ -125,7 +127,7 @@
     return result;
   }
 
-  function streamChunk(definition, chunkIndex) {
+  function buildStreamChunk(definition, chunkIndex) {
     if (!Number.isInteger(chunkIndex) || chunkIndex < 0) throw new RangeError("Invalid stream chunk");
     const random = mulberry32(mixSeed(definition.seed, chunkIndex));
     const stopCandidates = Array.from({ length: SEGMENT_COUNT - 4 }, (_, index) => index + 2).filter((index) => Math.abs(index - TARGET_SEGMENT_INDEX) > 1);
@@ -146,12 +148,21 @@
     durations.forEach((duration, index) => { rawDistance += (velocities[index] + velocities[index + 1]) * duration / 2; });
     const speedScale = CHUNK_DISTANCE / rawDistance;
     let start = 0, distance = 0;
-    return durations.map((duration, index) => {
+    return Object.freeze(durations.map((duration, index) => {
       const v0 = velocities[index] * speedScale, v1 = velocities[index + 1] * speedScale;
-      const segment = { index: chunkIndex * SEGMENT_COUNT + index, localIndex: index, start, duration, v0, v1, startDistance: distance };
+      const segment = Object.freeze({ index: chunkIndex * SEGMENT_COUNT + index, localIndex: index, start, duration, v0, v1, startDistance: distance });
       distance += (v0 + v1) * duration / 2; start += duration;
       return segment;
-    });
+    }));
+  }
+  function streamChunk(definition, chunkIndex) {
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0) throw new RangeError("Invalid stream chunk");
+    const key = `${definition.streamVersion}:${definition.seed}:${chunkIndex}`;
+    if (streamCache.has(key)) return streamCache.get(key);
+    const table = buildStreamChunk(definition, chunkIndex);
+    if (streamCache.size >= STREAM_CACHE_LIMIT) streamCache.delete(streamCache.keys().next().value);
+    streamCache.set(key, table);
+    return table;
   }
   function segmentAt(definition, time) {
     const safeTime = Math.max(0, time);
@@ -208,12 +219,15 @@
     });
   }
   function analysisWindows(definition) {
-    return analysisWindowGeometry(definition).map((row) => ({
-      window: row.window,
-      startTime: canonicalNumber(row.startTime), endTime: canonicalNumber(row.endTime),
-      startPosition: canonicalNumber(row.startPosition), endPosition: canonicalNumber(row.endPosition),
-      duration: row.duration, averageVelocity: canonicalNumber(row.averageVelocity)
-    }));
+    return analysisWindowGeometry(definition).map((row) => {
+      const displacement = canonicalNumber(row.endPosition - row.startPosition);
+      return {
+        window: row.window,
+        duration: row.duration,
+        displacement,
+        averageVelocity: canonicalNumber(displacement / row.duration)
+      };
+    });
   }
   function buildOptions(definition, random) {
     const rows = analysisWindows(definition);
@@ -273,7 +287,7 @@
       if (!directed || !(differences[index] < differences[index - 1])) return false;
     }
     const options = definition.instantOptions;
-    return Array.isArray(options) && options.length === 4 && options.every((item) => item && typeof item.id === "string" && finite(item.value) && item.value >= 0 && item.value <= MAX_LEARNER_INPUT_VALUE && [0, 1].includes(item.correct)) && new Set(options.map((item) => item.id)).size === 4 && new Set(options.map((item) => item.value)).size === 4 && options.filter((item) => item.correct === 1).length === 1 && options.find((item) => item.correct === 1).value === exact;
+    return Array.isArray(options) && options.length === 4 && options.every((item) => item && /^o[1-4]$/.test(item.id) && finite(item.value) && item.value >= 0 && item.value <= MAX_LEARNER_INPUT_VALUE && [0, 1].includes(item.correct)) && new Set(options.map((item) => item.id)).size === 4 && new Set(options.map((item) => item.value)).size === 4 && options.filter((item) => item.correct === 1).length === 1 && options.find((item) => item.correct === 1).value === exact;
   }
   function uniformPosition(definition, time) { return definition.x0 + definition.speed * Math.max(0, time); }
   function uniformVelocity(definition) { return definition.speed; }

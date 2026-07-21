@@ -27,6 +27,7 @@ const tests = [
   "sim/linear-motion-velocity-lab/scoring.test.js",
   "sim/linear-motion-velocity-lab/persistence.test.js",
   "sim/linear-motion-velocity-lab/accessibility.test.js",
+  "sim/linear-motion-velocity-lab/ui-runtime.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
 ];

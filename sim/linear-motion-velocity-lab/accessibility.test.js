@@ -6,6 +6,7 @@ const path = require("path");
 
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+const uiPolicy = fs.readFileSync(path.join(__dirname, "ui-policy.js"), "utf8");
 const scoring = fs.readFileSync(path.join(__dirname, "scoring.js"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
 const runtimeSources = [["styles.css", styles], ...["motion-model.js", "scene-visuals.js", "persistence.js"].map((name) => [name, fs.readFileSync(path.join(__dirname, name), "utf8")])];
@@ -86,7 +87,8 @@ assert.match(html, /id="stageTitle"[^>]*tabindex="-1"/);
 assert.match(html, /id="reviewTitle"[^>]*tabindex="-1"/);
 assert.match(main, /Visuals\.carScale\(pixelsPerMetre\)/, "rendered wheel radius uses the same world-to-screen scale as background travel");
 assert.match(main, /Visuals\.visibleBackgroundCells\(layer[\s\S]*Visuals\.backgroundAppearance\(layer, cellId\)/, "background layers use stable world-cell identities");
-assert.match(main, /const rows = Model\.analysisWindowGeometry\(state\.definition\)/, "graph secants use exact curve coordinates rather than display-rounded rows");
+assert.match(main, /const rows = analysis\.geometry/, "graph secants use cached exact curve coordinates rather than display-rounded rows");
+assert.match(uiPolicy, /geometry: Object\.freeze\(Model\.analysisWindowGeometry\(definition\)/, "production graph cache derives secants from exact model geometry");
 assert.match(main, /lineDashOffset = Visuals\.laneDashOffset\(worldPosition, pixelsPerMetre\)[\s\S]*setLineDash\(\[\]\); context\.lineDashOffset = 0/, "lane divider follows world position and resets Canvas dash state");
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");

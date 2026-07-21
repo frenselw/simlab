@@ -70,8 +70,8 @@ for (const [key, item] of statesByKey) {
   assert.strictEqual(`${continued.phase}/${continued.variant}`, expectedContinuation[key], `expected continuation ${key}`);
 }
 
-assert.strictEqual(Persistence.VERSION, 5);
-for (const oldVersion of [3, 4]) {
+assert.strictEqual(Persistence.VERSION, 6);
+for (const oldVersion of [3, 4, 5]) {
   const oldDraft = Persistence.encode(completeReview); oldDraft.v = oldVersion;
   assert.strictEqual(Persistence.decode(oldDraft), null, `v${oldVersion} draft is rejected rather than reinterpreted`);
 }
@@ -101,6 +101,8 @@ assert.deepStrictEqual(Persistence.runtimeFlagsForRestore(Persistence.decode(Per
 
 const reviewAnswer = Persistence.makeReview(completeReview);
 assert(Persistence.validateReview(reviewAnswer));
+const v5Review = clone(reviewAnswer); v5Review.v = 5;
+assert.strictEqual(Persistence.decodeReview(v5Review), null, "v5 submitted review is rejected rather than trusted under v6 invariants");
 const restoredReview = Persistence.fromReview(Persistence.decodeReview(reviewAnswer));
 assert.strictEqual(Scoring.scoreAttempt(restoredReview.definition, restoredReview.uniformMeasurement, restoredReview.variableMeasurement, restoredReview.answers).score, 100);
 assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "draft", answer: Persistence.encode(completeReview) })) < 4000, "draft envelope stays compact");

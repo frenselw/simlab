@@ -100,6 +100,15 @@ FakeWebSocket.instance.readyState = 3;
 FakeWebSocket.instance.emit("close");
 await assert.rejects(pendingOnClose, /WebSocket closed/, "socket close rejects pending CDP commands");
 
+const eventClient = new CdpClient("ws://test", FakeWebSocket, 100);
+FakeWebSocket.instance.readyState = 1;
+FakeWebSocket.instance.emit("open");
+let consoleEvent;
+eventClient.on("Runtime.consoleAPICalled", (params) => { consoleEvent = params; });
+FakeWebSocket.instance.emit("message", JSON.stringify({ method: "Runtime.consoleAPICalled", params: { type: "error" } }));
+assert.deepEqual(consoleEvent, { type: "error" }, "CDP event listeners receive browser console/page events");
+eventClient.close();
+
 const erroredClient = new CdpClient("ws://test", FakeWebSocket, 100);
 FakeWebSocket.instance.readyState = 1;
 FakeWebSocket.instance.emit("open");

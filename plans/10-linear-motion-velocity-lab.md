@@ -35,9 +35,10 @@ All learner-facing text is Traditional Chinese.
 - Learner task:
   - complete one random uniform-motion measurement;
   - complete one random variable-motion measurement containing visibly
-    different speeds and a short stop;
+    different speeds; the measured interval need not contain a stop;
   - estimate instantaneous velocity at a random valid target instant;
-  - answer one zero-velocity checkpoint during the stopped interval;
+  - answer one independent zero-velocity concept checkpoint about a stopped
+    interval in the same motion model;
   - review all answers and submit once.
 - Main interactions:
   - start, pause, and resume the car animation;
@@ -432,14 +433,17 @@ Stage three changes the main stage to an analysis view:
   two readings cannot be mistaken for one another or cover the car;
 - show the target instant as a vertical cursor;
 - show the selected interval's two endpoints and secant line;
-- reveal the tangent and exact instantaneous velocity only after the learner
-  confirms a prediction.
+- reveal the tangent and exact instantaneous velocity only after a trusted final
+  submission has completed; pre-submit review and review-edit remain solution-free.
 
-Stage three uses the original world-position coordinate consistently: graph,
-table endpoints, fixed-road target context, and digital position readout all
-show the same target position. The looping car pass is qualitative and does not
-advance authoritative model time. The rolling measurement origin is limited to
-stages one and two.
+Stage three uses the original world-position coordinate consistently for the
+graph, fixed-road target context, and digital position readout. Its table uses
+relative `Δx` and `Δt`, derived from the same exact model endpoints, so each
+displayed average can be checked directly. The looping car pass is qualitative
+and does not advance authoritative model time. Stages one and two use their
+generated fixed `coordinateOrigin` for the whole stage, including before and at
+stopwatch start, so the displayed reading stays continuous across 50 m world
+boundaries and does not jump when measurement begins.
 
 At phone widths the stage-one and stage-two motion status occupies a dedicated
 row below the Canvas rather than floating over it; it must not cover ruler
@@ -552,19 +556,19 @@ constant-acceleration segment would equal the midpoint instantaneous velocity
 for every interval and would hide the intended convergence.
 
 The authoritative duration is the exact declared window (`2`, `1`, `0.5`, or
-`0.25`), not the difference between separately rounded absolute timestamps.
-Evaluate the model at exact `t* - window` and exact `t*`, calculate the average
-with the exact window duration, then canonicalize the displayed time, position,
-and average values. This prevents a `0.250 s` interval becoming `0.200 s` or
-`0.300 s`. Generator checks require the four displayed averages to approach
-`v(t*)` strictly and in the acceleration direction.
+`0.25`). Evaluate the model at exact `t* - window` and exact `t*`, canonicalize
+their difference as displayed `Δx`, then derive the displayed average from that
+displayed `Δx` divided by the exact displayed `Δt`. This avoids contradictory
+independently rounded large absolute coordinates. Generator checks require the
+four displayed averages to approach `v(t*)` strictly and in the acceleration
+direction.
 
 For each window show, to three significant figures:
 
-- start time and target time;
-- start and target positions;
-- interval duration;
-- average velocity magnitude.
+- interval duration `Δt`;
+- displacement magnitude `|Δx|`;
+- the explicit `|Δx| ÷ Δt` operation;
+- the average velocity magnitude derived from those displayed relative values.
 
 The learner first reveals the windows from longest to shortest. The interface
 then keeps all revealed rows and provides both `加長 Δt` and `縮短 Δt` controls,
@@ -583,13 +587,15 @@ wrong-direction continuation. Generation must reject a set unless the displayed
 trend makes the correct option uniquely defensible and every option differs by
 at least four units in the correct answer's third significant place.
 
-After the prediction, reveal:
+After a trusted final submission, reveal:
 
 - the exact model value `v(t*)`, displayed to three significant figures;
 - the tangent on the position-time graph;
 - feedback connecting the shrinking secants to the tangent slope.
 
-The stopped plateau provides one additional numeric checkpoint. The prompt must
+The stopped plateau provides one additional, independent numeric concept
+checkpoint. The stage-two learner measurement does not have to overlap that
+plateau. The prompt must
 define the physical situation directly instead of relying on the unexplained
 term "completely stopped period":
 
@@ -901,7 +907,7 @@ semantics:
 
 ```js
 {
-  v: 5,
+  v: 6,
   definition: {
     seed,
     uniform: { x0, speed, coordinateOrigin, layout },
@@ -940,7 +946,7 @@ semantics:
 
 ```js
 {
-  v: 5,
+  v: 6,
   locked: 1,
   definition,
   uniformMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
@@ -1018,7 +1024,7 @@ validate definition and answers
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
   inequalities.
-- Window list is exactly the supported decreasing set for version 5; each row's
+- Window list is exactly the supported decreasing set for version 6; each row's
   authoritative duration equals that exact value.
 - Instantaneous options have four unique stable IDs, three-significant-figure
   values, one validated correct ID, and the saved display order; restore never
@@ -1322,10 +1328,12 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Stage-three one-sided intervals visibly converge toward the target
   instantaneous velocity.
 - All four analysis windows lie inside the same ramp, retain their exact
-  declared durations while model endpoints are evaluated at exact times, and
-  the four saved estimate options have
+  declared durations, and show relative displacement and average-velocity
+  values that can be recomputed from one another; the four saved estimate options have
   exactly one defensible answer.
-- Tangent and exact target value remain hidden until the prediction is recorded.
+- Tangent and exact target value remain hidden through answering, pre-submit
+  review, review-edit, save failure, and unconfirmed submission states; they
+  appear only with a trusted submitted review.
 - Learner identifies zero instantaneous velocity during the stopped plateau.
 - No answer is preselected.
 - Learner may remeasure and edit without penalty before submission.
@@ -1347,6 +1355,14 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Re-entry after submission is locked review-only.
 - Corrupt review data fails safely to a locked Moodle-summary view.
 - `npm.cmd run check`, `npm.cmd test`, and `npm.cmd run package:all` pass.
+- `npm run test:browser:linear-motion` loads the packaged production activity in
+  Chrome, completes all three editable stages through pre-submit review and
+  review-edit, and verifies that neither solution copy nor tangent pixels appear
+  before a trusted final submission. It restores the real completed draft and
+  drives production final-submit/startup handlers for `success`, `committed`,
+  `frozen`, retryable and non-retryable `retry`, and load-error outcomes,
+  checking view locks, retry affordances, score claims, and trusted-only solution
+  display. Browser console/page errors fail the gate.
 - Package manifest lists every runtime dependency.
 - Built ZIP has `imsmanifest.xml` at its root and excludes tests and temporary
   files.

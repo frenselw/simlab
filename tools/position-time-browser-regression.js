@@ -122,14 +122,17 @@ function createServer(packageRoot) {
   });
 }
 
-function buildAndExtractPackage(tempRoot) {
-  const packaged = spawnSync(process.execPath, [path.join(root, "tools/package-scorm.js"), slug], { cwd: root, encoding: "utf8" });
+function buildAndExtractPackage(tempRoot, options = {}) {
+  const activitySlug = options.slug || slug;
+  const packagePrefix = options.packagePrefix || "simlab-position-time-package-";
+  const ownedPackagePattern = options.packageNamePattern || packageNamePattern;
+  const packaged = spawnSync(process.execPath, [path.join(root, "tools/package-scorm.js"), activitySlug], { cwd: root, encoding: "utf8" });
   if (packaged.status !== 0) throw new Error(`SCORM packaging failed.\n${packaged.stdout || ""}${packaged.stderr || ""}`.trim());
-  const zipPath = path.join(root, "output", `${slug}-scorm.zip`);
+  const zipPath = path.join(root, "output", `${activitySlug}-scorm.zip`);
   if (!fs.existsSync(zipPath)) throw new Error(`SCORM packager did not create ${zipPath}`);
-  const packageDirectory = fs.mkdtempSync(path.join(tempRoot, "simlab-position-time-package-"));
+  const packageDirectory = fs.mkdtempSync(path.join(tempRoot, packagePrefix));
   try {
-    validateOwnedDirectory(packageDirectory, tempRoot, packageNamePattern, "SCORM package");
+    validateOwnedDirectory(packageDirectory, tempRoot, ownedPackagePattern, "SCORM package");
     const zip = new AdmZip(zipPath);
     for (const entry of zip.getEntries()) {
       const normalized = entry.entryName.replace(/\\/g, "/");
@@ -142,7 +145,10 @@ function buildAndExtractPackage(tempRoot) {
     const launch = resolveScoLaunchPath(resolvedPackage, fs.readFileSync(manifestPath, "utf8"));
     return { packageDirectory: resolvedPackage, activityPath: launch.urlPath };
   } catch (error) {
-    removeOwnedPackage(packageDirectory, tempRoot);
+    if (fs.existsSync(packageDirectory)) {
+      const exactDirectory = validateOwnedDirectory(packageDirectory, tempRoot, ownedPackagePattern, "SCORM package");
+      fs.rmSync(exactDirectory, { recursive: true, force: false, maxRetries: 3, retryDelay: 100 });
+    }
     throw error;
   }
 }
@@ -258,6 +264,7 @@ class CdpClient {
     this.nextId = 1;
     this.pending = new Map();
     this.commandTimeout = commandTimeout;
+    this.eventListeners = new Map();
     this.socket = new WebSocketClass(webSocketUrl);
     const opening = new Promise((resolve, reject) => {
       this.socket.addEventListener("open", resolve, { once: true });
@@ -269,7 +276,10 @@ class CdpClient {
       let message;
       try { message = JSON.parse(String(event.data)); }
       catch (error) { this.rejectPending(new Error(`Invalid Chrome DevTools message: ${error.message}`)); return; }
-      if (!message.id) return;
+      if (!message.id) {
+        for (const handler of this.eventListeners.get(message.method) || []) handler(message.params || {});
+        return;
+      }
       const pending = this.pending.get(message.id);
       if (!pending) return;
       this.pending.delete(message.id);
@@ -278,6 +288,13 @@ class CdpClient {
     });
     this.socket.addEventListener("close", () => this.rejectPending(new Error("Chrome DevTools WebSocket closed.")));
     this.socket.addEventListener("error", () => this.rejectPending(new Error("Chrome DevTools WebSocket failed.")));
+  }
+
+  on(method, handler) {
+    const listeners = this.eventListeners.get(method) || [];
+    listeners.push(handler);
+    this.eventListeners.set(method, listeners);
+    return () => this.eventListeners.set(method, listeners.filter((item) => item !== handler));
   }
 
   rejectPending(error) {
@@ -531,7 +548,7 @@ async function main() {
   console.log(summary);
 }
 
-module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, withTimeout };
+module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, withTimeout };
 
 if (require.main === module) {
   main().catch((error) => {
