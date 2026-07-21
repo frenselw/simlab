@@ -36,6 +36,8 @@ assert.match(styles, /@media \(max-width: 390px\)[\s\S]*\.window-controls \{ gri
 assert.match(styles, /\.stopped-question \.calculation-row \{ grid-template-columns: minmax\(0, 1fr\)/, "stopped-velocity input can shrink within a narrow panel");
 assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.motion-stage\.is-graph \.stage-readouts \{ position: static;[^}]*grid-row: 1;/, "mobile graph readouts occupy their own row instead of covering the car");
 assert.match(styles, /\.motion-stage\.is-graph #motionCanvas \{ grid-row: 2;/, "mobile graph canvas follows the separate readout row");
+assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts > span \{[^}]*grid-template-columns: auto minmax\(0, 1fr\)[^}]*border-left: 3px solid var\(--color-accent\)/, "each mobile graph label and value forms one bounded card");
+assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \[id\$="Readout"\] \{[^}]*border-left: 1px solid var\(--color-border-light\)/, "each mobile graph value has an internal divider from its own label");
 assert.match(styles, /\.answer-form fieldset > legend[^}]*max-width: calc\(100% - \.5rem\)[^}]*border-left: 4px solid var\(--color-accent\)/, "question prompts use a bounded, accented card treatment");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
 assert.match(html, /id="longerWindowButton"[\s\S]*id="shorterWindowButton"/, "time magnifier exposes both longer and shorter interval controls");

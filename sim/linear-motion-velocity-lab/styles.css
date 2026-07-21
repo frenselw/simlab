@@ -110,8 +110,10 @@ th { background: #f3f4f6; }
   .motion-stage.is-graph { grid-template-rows: auto minmax(0, 1fr) auto; }
   .motion-stage.is-graph #motionCanvas { grid-row: 2; grid-column: 1; min-height: 0; }
   .motion-stage.is-graph .stage-readouts { position: static; z-index: 2; grid-row: 1; grid-column: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; padding: .35rem .55rem; border-bottom: 1px solid var(--color-border-light); background: #f8fafc; }
-  .motion-stage.is-graph .stage-readouts > span { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .25rem; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-  .motion-stage.is-graph .stage-readouts [id$="Readout"] { min-width: 0; margin-left: 0; padding: .35rem .45rem; border-radius: .5rem; box-shadow: none; white-space: nowrap; }
+  .motion-stage.is-graph .stage-readouts > span { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .35rem; padding: .3rem .4rem; border: 1px solid #dbe3ee; border-left: 3px solid var(--color-accent); border-radius: .6rem; background: #fff; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+  .motion-stage.is-graph .stage-readouts > span:last-child { border-left-color: #b45309; }
+  .motion-stage.is-graph .stage-readouts > span > b { white-space: nowrap; }
+  .motion-stage.is-graph .stage-readouts [id$="Readout"] { min-width: 0; margin-left: 0; padding: .2rem .35rem; border: 0; border-left: 1px solid var(--color-border-light); border-radius: 0; background: #f8fafc; box-shadow: none; text-align: center; white-space: nowrap; }
   .motion-stage.is-graph .motion-status { grid-row: 3; grid-column: 1; }
   .calculation-row { grid-template-columns: minmax(6.5rem, 1fr) minmax(6.5rem, 8rem) 3.2rem; gap: .35rem; }
 }
