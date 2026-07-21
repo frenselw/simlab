@@ -80,6 +80,8 @@ assert.match(main, /lineDashOffset = Visuals\.laneDashOffset\(worldPosition, pix
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");
 assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");
+assert.match(graphBody, /font = "bold 11px system-ui"[\s\S]*fillText\("x \/ m", left \+ 6, top \+ 14\)/, "the vertical-axis quantity label sits visibly inside the plot below the road");
+assert.doesNotMatch(graphBody, /fillText\("x \/ m", left, top - 8\)/, "the vertical-axis quantity label must not sit against the road edge");
 for (const name of ["drawRoad", "drawFrozenContext"]) {
   const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
   assert.match(body, /for \(let offset = -tickRadius/, `${name} uses a fixed-count screen-offset tick loop`);

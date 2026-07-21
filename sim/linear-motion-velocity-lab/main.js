@@ -801,7 +801,7 @@
     context.fillStyle = "#fff"; context.fillRect(0, 0, view.width, view.height);
     drawFrozenContext(Model.variablePosition(state.definition.variable, target), compact);
     context.strokeStyle = "#d1d5db"; context.lineWidth = 1; context.beginPath(); context.moveTo(left, top); context.lineTo(left, bottom); context.lineTo(right, bottom); context.stroke();
-    context.fillStyle = "#374151"; context.font = "11px system-ui"; context.textAlign = "left"; context.fillText("x / m", left, top - 8); context.textAlign = "right"; context.fillText("t / s", right, bottom + 30);
+    context.fillStyle = "#374151"; context.font = "bold 11px system-ui"; context.textAlign = "left"; context.fillText("x / m", left + 6, top + 14); context.font = "11px system-ui"; context.textAlign = "right"; context.fillText("t / s", right, bottom + 30);
     for (let index = 0; index <= 3; index += 1) {
       const time = t0 + (t1 - t0) * index / 3;
       const x = sx(time);
