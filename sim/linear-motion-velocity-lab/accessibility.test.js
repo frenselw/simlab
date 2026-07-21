@@ -36,6 +36,7 @@ assert.match(styles, /@media \(max-width: 390px\)[\s\S]*\.window-controls \{ gri
 assert.match(styles, /\.stopped-question \.calculation-row \{ grid-template-columns: minmax\(0, 1fr\)/, "stopped-velocity input can shrink within a narrow panel");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \{ position: static;[^}]*grid-row: 1;/, "graph readouts occupy their own row instead of covering the car at any viewport width");
 assert.match(styles, /\.motion-stage\.is-graph #motionCanvas \{ grid-row: 2;/, "graph canvas follows the separate readout row");
+assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.motion-stage:not\(\.is-graph\) \.motion-status \{ position: static;[^}]*grid-row: 2;[^}]*max-width: none;/, "mobile measurement status occupies a dedicated row below the canvas instead of covering the ruler");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts > span \{[^}]*grid-template-columns: auto minmax\(0, 1fr\)[^}]*border-left: 3px solid var\(--color-accent\)/, "each mobile graph label and value forms one bounded card");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \[id\$="Readout"\] \{[^}]*border-left: 1px solid var\(--color-border-light\)/, "each mobile graph value has an internal divider from its own label");
 assert.match(styles, /\.answer-form fieldset > legend[^}]*max-width: calc\(100% - \.5rem\)[^}]*border-left: 4px solid var\(--color-accent\)/, "question prompts use a bounded, accented card treatment");

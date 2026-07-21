@@ -114,6 +114,9 @@ th { background: #f3f4f6; }
   .motion-stage { min-height: 0; }
   .motion-panel { min-height: 0; overscroll-behavior: contain; }
   .motion-status { max-width: calc(100% - 1.5rem); font-size: .82rem; }
+  .motion-stage:not(.is-graph) { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+  .motion-stage:not(.is-graph) #motionCanvas { grid-row: 1; grid-column: 1; min-height: 0; }
+  .motion-stage:not(.is-graph) .motion-status { position: static; z-index: 2; grid-row: 2; grid-column: 1; max-width: none; padding: .45rem .65rem; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; background: #f8fafc; box-shadow: none; }
   .stage-readouts { font-size: .78rem; }
   .calculation-row { grid-template-columns: minmax(6.5rem, 1fr) minmax(6.5rem, 8rem) 3.2rem; gap: .35rem; }
 }
