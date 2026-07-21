@@ -21,6 +21,9 @@ assert.match(main, /SimActivityFlow\.submission\(outcome,/);
 for (const [name, source] of [["HTML", html], ["main script", main], ["scoring script", scoring], ...runtimeSources]) {
   assert.doesNotMatch(source, /MathJax|mathjax|\\\(|\\\[|\\mathrm|\\Delta|\\bar/, `${name} must not contain MathJax or raw TeX`);
 }
+for (const [name, source] of [["HTML", html], ["main script", main], ["scoring script", scoring]]) {
+  assert(!source.includes("t*") && !source.includes("<sup>*</sup>"), `${name} must call the learner-facing target the 目標時刻, not t star`);
+}
 assert.match(html, /<var class="overbar">v<\/var>/, "average velocity uses a stable semantic overbar");
 assert.match(html, /class="fraction"/, "formula uses native semantic fraction styling");
 assert.match(main, /function feedbackFormulaHtml[\s\S]*role="math"[\s\S]*aria-label=/, "final feedback formulas use native accessible math markup");
@@ -56,6 +59,11 @@ assert.match(main, /left \? "←" : "→"/, "off-screen markers expose a directi
 assert.match(main, /strokeStyle = "#fff"; context\.lineWidth = 8[\s\S]*strokeStyle = marker\.colour/, "marker core has a high-contrast white halo");
 assert(main.indexOf("drawMeasurementMarkers(currentMeasurement()") > main.indexOf('fillText("量度指針"'), "markers render after the car and pointer so the pointer cannot erase them");
 assert.match(main, /Persistence\.next\(state, state\.returnToReview \? "return-review" : "advance"\)/, "measurement confirmation transitions without an extra navigation click");
+assert.match(html, /id="previousStageButton"[\s\S]*id="nextStageButton"/, "every activity stage exposes explicit backward and forward navigation");
+assert.match(main, /function navigateTo\(phase,[\s\S]*Persistence\.navigate\(state, phase, returnToReview\)/, "stage navigation persists arbitrary valid phase changes");
+assert.match(main, /function renderReview\(\)[\s\S]*submitButton\.disabled = !complete/, "formal submission remains locked until all three answers are confirmed");
+assert.match(main, /function syncMeasurementDraftFromForm[\s\S]*state\.draftAnswers\[state\.phase\] = draft/, "partial measurement answers are retained before navigation");
+assert.match(main, /function syncInstantDraftFromForm[\s\S]*state\.draftAnswers\.instant = draft/, "partial instant-speed answers are retained before navigation");
 assert.match(main, /focusContext\(state\.phase === "review" \? elements\.reviewTitle : elements\.stageTitle\)/, "automatic transitions focus their new context");
 assert.match(main, /focusContext\(target\)/, "save failures focus the visible alert");
 assert.match(html, /id="stageTitle"[^>]*tabindex="-1"/);

@@ -7,24 +7,29 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 4;
+  const VERSION = 5;
   const ROWS = {
     "uniform/ready": 0, "uniform/paused-measuring": 0, "uniform/captured": 0, "uniform/answered": 0,
     "variable/ready": 1, "variable/paused-measuring": 1, "variable/captured": 1, "variable/answered": 1,
-    "instant/exploring": 2, "instant/answered": 2, "review/complete": 3,
+    "instant/exploring": 2, "instant/answered": 2, "review/incomplete": 3, "review/complete": 3,
     "uniform/review-edit-ready": 0, "uniform/review-edit-paused-measuring": 0, "uniform/review-edit-captured": 0, "uniform/review-edit-answered": 0,
     "variable/review-edit-ready": 1, "variable/review-edit-paused-measuring": 1, "variable/review-edit-captured": 1, "variable/review-edit-answered": 1,
-    "instant/review-edit-answered": 2
+    "instant/review-edit-exploring": 2, "instant/review-edit-answered": 2
   };
   const COMPLETE = ["displacement", "time", "averageVelocity", "relationship"];
   const EMPTY_ANSWERS = () => ({ uniform: null, variable: null, instant: null });
+  const EMPTY_DRAFT_ANSWERS = () => ({
+    uniform: { displacement: "", time: "", averageVelocity: "", relationship: "" },
+    variable: { displacement: "", time: "", averageVelocity: "", relationship: "" },
+    instant: { predictionChoice: "", concept: "", stoppedVelocity: "" }
+  });
 
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function initialState(definition) {
     return {
       v: VERSION, definition: clone(definition), phase: "uniform", variant: "ready", stage: 0,
       returnToReview: false, scene: { simulationTime: 0, paused: 1, observationStarted: 0 }, uniformMeasurement: null,
-      variableMeasurement: null, answers: EMPTY_ANSWERS(), viewedWindowCount: 0
+      variableMeasurement: null, answers: EMPTY_ANSWERS(), draftAnswers: EMPTY_DRAFT_ANSWERS(), viewedWindowCount: 0
     };
   }
   function encode(source) {
@@ -71,23 +76,26 @@
       returnToReview: false, scene: { simulationTime: 0, paused: 1, observationStarted: 0 },
       uniformMeasurement: { ...valid.uniformMeasurement, currentOrEndModelTime: valid.uniformMeasurement.endModelTime },
       variableMeasurement: { ...valid.variableMeasurement, currentOrEndModelTime: valid.variableMeasurement.endModelTime },
-      answers: valid.answers, viewedWindowCount: 4
+      answers: valid.answers, draftAnswers: clone(valid.answers), viewedWindowCount: 4
     };
   }
 
   function validateDraft(state) {
     if (!state || state.v !== VERSION || !Model.validateDefinition(state.definition)) return false;
     const key = `${state.phase}/${state.variant}`;
-    if (!(key in ROWS) || state.stage !== ROWS[key] || !validScene(state.scene, state.definition, state.phase) || !validAnswersShape(state.answers)) return false;
+    if (!(key in ROWS) || state.stage !== ROWS[key] || !validScene(state.scene, state.definition, state.phase) || !validAnswersShape(state.answers) || !validDraftAnswers(state.draftAnswers, state.definition)) return false;
     if (state.variant.endsWith("paused-measuring") && state.scene.observationStarted !== 1) return false;
     const edit = state.variant.startsWith("review-edit-");
     if (Boolean(state.returnToReview) !== edit || !Number.isInteger(state.viewedWindowCount) || state.viewedWindowCount < 0 || state.viewedWindowCount > 4) return false;
-    const u = measurementKind(state.definition, "uniform", state.uniformMeasurement, state.phase === "uniform" ? state.scene.simulationTime : null);
-    const v = measurementKind(state.definition, "variable", state.variableMeasurement, state.phase === "variable" ? state.scene.simulationTime : null);
+    const u = measurementKind(state.definition, "uniform", state.uniformMeasurement, activeMeasurementTime(state, "uniform"));
+    const v = measurementKind(state.definition, "variable", state.variableMeasurement, activeMeasurementTime(state, "variable"));
     const ua = stageAnswer(state.answers.uniform, "uniform");
     const va = stageAnswer(state.answers.variable, "variable");
     const ia = instantAnswer(state.answers.instant, state.definition);
     if (u === "invalid" || v === "invalid" || ua === "invalid" || va === "invalid" || ia === "invalid") return false;
+    if (ua === "complete" && (u !== "captured" || !confirmedMatchesDraft(state.answers.uniform, state.draftAnswers.uniform))) return false;
+    if (va === "complete" && (v !== "captured" || !confirmedMatchesDraft(state.answers.variable, state.draftAnswers.variable))) return false;
+    if (ia === "complete" && (state.viewedWindowCount !== 4 || !confirmedMatchesDraft(state.answers.instant, state.draftAnswers.instant))) return false;
     if (["uniform", "variable"].includes(state.phase)) {
       const kind = state.phase === "uniform" ? u : v;
       const measurement = state.phase === "uniform" ? state.uniformMeasurement : state.variableMeasurement;
@@ -95,31 +103,10 @@
       if (state.variant.endsWith("ready") && !Model.hasModelTimeHeadroom(state.scene.simulationTime, minimum)) return false;
       if (kind === "active" && !Model.hasModelTimeHeadroom(state.scene.simulationTime, Math.max(0, minimum - (state.scene.simulationTime - measurement.startModelTime)))) return false;
     }
-    const downstream = edit && ((state.phase === "uniform" && va === "complete" && ia === "complete") || (state.phase === "variable" && ua === "complete" && ia === "complete") || (state.phase === "instant" && ua === "complete" && va === "complete"));
-    if (edit && !downstream) return false;
-    switch (key) {
-      case "uniform/ready": return u === "empty" && v === "empty" && ua === "empty" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "uniform/paused-measuring": return u === "active" && v === "empty" && ua === "empty" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "uniform/captured": return u === "captured" && v === "empty" && ua === "empty" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "uniform/answered": return u === "captured" && v === "empty" && ua === "complete" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "variable/ready": return u === "captured" && ua === "complete" && v === "empty" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "variable/paused-measuring": return u === "captured" && ua === "complete" && v === "active" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "variable/captured": return u === "captured" && ua === "complete" && v === "captured" && va === "empty" && ia === "empty" && state.viewedWindowCount === 0;
-      case "variable/answered": return u === "captured" && ua === "complete" && v === "captured" && va === "complete" && ia === "empty" && state.viewedWindowCount === 0;
-      case "instant/exploring": return u === "captured" && v === "captured" && ua === "complete" && va === "complete" && ia === "empty";
-      case "instant/answered": return u === "captured" && v === "captured" && ua === "complete" && va === "complete" && ia === "complete" && state.viewedWindowCount === 4;
-      case "review/complete": return u === "captured" && v === "captured" && ua === "complete" && va === "complete" && ia === "complete" && state.viewedWindowCount === 4;
-      case "uniform/review-edit-ready": return downstream && u === "empty" && ua === "empty" && state.viewedWindowCount === 4;
-      case "uniform/review-edit-paused-measuring": return downstream && u === "active" && ua === "empty" && state.viewedWindowCount === 4;
-      case "uniform/review-edit-captured": return downstream && u === "captured" && ua === "empty" && state.viewedWindowCount === 4;
-      case "uniform/review-edit-answered": return downstream && u === "captured" && ua === "complete" && state.viewedWindowCount === 4;
-      case "variable/review-edit-ready": return downstream && v === "empty" && va === "empty" && state.viewedWindowCount === 4;
-      case "variable/review-edit-paused-measuring": return downstream && v === "active" && va === "empty" && state.viewedWindowCount === 4;
-      case "variable/review-edit-captured": return downstream && v === "captured" && va === "empty" && state.viewedWindowCount === 4;
-      case "variable/review-edit-answered": return downstream && v === "captured" && va === "complete" && state.viewedWindowCount === 4;
-      case "instant/review-edit-answered": return downstream && ia === "complete" && state.viewedWindowCount === 4;
-      default: return false;
-    }
+    const expected = variantFor(state.phase, state.returnToReview, { u, v, ua, va, ia });
+    if (state.variant !== expected) return false;
+    if (state.phase === "review" && state.returnToReview) return false;
+    return true;
   }
   function validateReview(review) {
     if (!review || review.v !== VERSION || review.locked !== 1 || !Model.validateDefinition(review.definition) || !validAnswersShape(review.answers)) return false;
@@ -129,13 +116,46 @@
   function validScene(scene, definition, phase) {
     if (!scene || !Model.safeModelTime(scene.simulationTime) || scene.paused !== 1 || ![0, 1].includes(scene.observationStarted)) return false;
     if (scene.observationStarted === 0 && scene.simulationTime !== 0) return false;
-    if (!["uniform", "variable"].includes(phase)) return true;
+    if (!["uniform", "variable"].includes(phase)) return scene.simulationTime === 0 && scene.observationStarted === 0;
     const position = phase === "uniform"
       ? Model.uniformPosition(definition.uniform, scene.simulationTime)
       : Model.variablePosition(definition.variable, scene.simulationTime);
     return Model.safeWorldPosition(position);
   }
   function validAnswersShape(answers) { return Boolean(answers && ["uniform", "variable", "instant"].every((key) => key in answers)); }
+  function validDraftAnswers(drafts, definition) {
+    if (!drafts || Object.keys(drafts).length !== 3) return false;
+    for (const type of ["uniform", "variable"]) {
+      const value = drafts[type];
+      if (!value || Object.keys(value).length !== 4 || !["displacement", "time", "averageVelocity"].every((key) => typeof value[key] === "string" && value[key].length <= Model.MAX_INPUT_LENGTH)) return false;
+      if (!["", "yes", "no"].includes(value.relationship)) return false;
+    }
+    const instant = drafts.instant;
+    if (!instant || Object.keys(instant).length !== 3 || typeof instant.stoppedVelocity !== "string" || instant.stoppedVelocity.length > Model.MAX_INPUT_LENGTH) return false;
+    if (instant.predictionChoice !== "" && !definition.instantOptions.some((option) => option.id === instant.predictionChoice)) return false;
+    if (!["", ...Scoring.CONCEPTS].includes(instant.concept)) return false;
+    return true;
+  }
+  function confirmedMatchesDraft(answer, draft) {
+    return Boolean(answer && draft && Object.keys(answer).length === Object.keys(draft).length && Object.keys(answer).every((key) => answer[key] === draft[key]));
+  }
+  function activeMeasurementTime(state, type) {
+    const measurement = state[`${type}Measurement`];
+    if (state.phase === type) return state.scene.simulationTime;
+    return measurement?.x2 == null ? measurement?.currentOrEndModelTime ?? null : null;
+  }
+  function allComplete(kinds) { return kinds.ua === "complete" && kinds.va === "complete" && kinds.ia === "complete"; }
+  function variantFor(phase, returnToReview, kinds) {
+    if (phase === "review") return allComplete(kinds) ? "complete" : "incomplete";
+    let suffix;
+    if (phase === "instant") suffix = kinds.ia === "complete" ? "answered" : "exploring";
+    else {
+      const measurement = phase === "uniform" ? kinds.u : kinds.v;
+      const answer = phase === "uniform" ? kinds.ua : kinds.va;
+      suffix = answer === "complete" ? "answered" : measurement === "captured" ? "captured" : measurement === "active" ? "paused-measuring" : "ready";
+    }
+    return returnToReview ? `review-edit-${suffix}` : suffix;
+  }
   function stageAnswer(answer, type) {
     if (answer == null) return "empty";
     if (!answer || Object.keys(answer).length !== COMPLETE.length || !COMPLETE.every((key) => key in answer)) return "invalid";
@@ -188,18 +208,39 @@
     if (type === "variable" && !Model.minimumDurationReached(end - measurement.startModelTime, definition.variableMinimumDuration)) return "invalid";
     return "captured";
   }
-  function next(state, action) {
-    const copy = clone(state);
-    const key = `${copy.phase}/${copy.variant}`;
-    if (action === "advance" && key === "uniform/answered") Object.assign(copy, { phase: "variable", variant: "ready", stage: 1, scene: { simulationTime: 0, paused: 1, observationStarted: 0 } });
-    else if (action === "advance" && key === "variable/answered") Object.assign(copy, { phase: "instant", variant: "exploring", stage: 2, scene: { simulationTime: 0, paused: 1, observationStarted: 0 } });
-    else if (action === "review" && key === "instant/answered") Object.assign(copy, { phase: "review", variant: "complete", stage: 3, returnToReview: false });
-    else if (action === "return-review" && copy.returnToReview && copy.variant.endsWith("answered")) Object.assign(copy, { phase: "review", variant: "complete", stage: 3, returnToReview: false });
-    else if (action === "edit-uniform" && key === "review/complete") Object.assign(copy, { phase: "uniform", variant: "review-edit-answered", stage: 0, returnToReview: true, scene: { simulationTime: copy.uniformMeasurement.currentOrEndModelTime, paused: 1, observationStarted: 1 } });
-    else if (action === "edit-variable" && key === "review/complete") Object.assign(copy, { phase: "variable", variant: "review-edit-answered", stage: 1, returnToReview: true, scene: { simulationTime: copy.variableMeasurement.currentOrEndModelTime, paused: 1, observationStarted: 1 } });
-    else if (action === "edit-instant" && key === "review/complete") Object.assign(copy, { phase: "instant", variant: "review-edit-answered", stage: 2, returnToReview: true });
-    else return null;
+  function sceneFor(state, phase) {
+    if (!["uniform", "variable"].includes(phase)) return { simulationTime: 0, paused: 1, observationStarted: 0 };
+    const measurement = state[`${phase}Measurement`];
+    return measurement
+      ? { simulationTime: measurement.currentOrEndModelTime, paused: 1, observationStarted: 1 }
+      : { simulationTime: 0, paused: 1, observationStarted: 0 };
+  }
+  function navigate(source, phase, returnToReview = false) {
+    if (!validateDraft(source) || !["uniform", "variable", "instant", "review"].includes(phase)) return null;
+    const copy = clone(source);
+    copy.phase = phase;
+    copy.stage = { uniform: 0, variable: 1, instant: 2, review: 3 }[phase];
+    copy.returnToReview = phase === "review" ? false : Boolean(returnToReview);
+    copy.scene = sceneFor(copy, phase);
+    const kinds = {
+      u: measurementKind(copy.definition, "uniform", copy.uniformMeasurement, activeMeasurementTime(copy, "uniform")),
+      v: measurementKind(copy.definition, "variable", copy.variableMeasurement, activeMeasurementTime(copy, "variable")),
+      ua: stageAnswer(copy.answers.uniform, "uniform"), va: stageAnswer(copy.answers.variable, "variable"),
+      ia: instantAnswer(copy.answers.instant, copy.definition)
+    };
+    copy.variant = variantFor(phase, copy.returnToReview, kinds);
     return validateDraft(copy) ? copy : null;
+  }
+  function next(state, action) {
+    const key = `${state.phase}/${state.variant}`;
+    if (action === "advance" && state.phase === "uniform" && state.variant.endsWith("answered")) return navigate(state, "variable");
+    if (action === "advance" && state.phase === "variable" && state.variant.endsWith("answered")) return navigate(state, "instant");
+    if (action === "review" && state.phase === "instant" && state.variant.endsWith("answered")) return navigate(state, "review");
+    if (action === "return-review" && state.returnToReview && state.variant.endsWith("answered")) return navigate(state, "review");
+    if (action === "edit-uniform" && ["review/complete", "review/incomplete"].includes(key)) return navigate(state, "uniform", true);
+    if (action === "edit-variable" && ["review/complete", "review/incomplete"].includes(key)) return navigate(state, "variable", true);
+    if (action === "edit-instant" && ["review/complete", "review/incomplete"].includes(key)) return navigate(state, "instant", true);
+    return null;
   }
 
   function startupView(outcome) {
@@ -271,16 +312,21 @@
       } else if (state.variant.endsWith("captured")) {
         const expected = Model.expectedFromMeasurement(state[field]);
         state.answers[type] = { displacement: Model.formatInput3(expected.displacement), time: Model.formatInput3(expected.time), averageVelocity: Model.formatInput3(expected.averageVelocity), relationship: type === "uniform" ? "yes" : "no" };
+        state.draftAnswers[type] = clone(state.answers[type]);
         state.variant = edit ? "review-edit-answered" : "answered";
       } else if (state.variant.endsWith("answered")) {
         return next(state, edit ? "return-review" : "advance");
       }
     } else if (state.phase === "instant") {
-      if (state.variant === "exploring") state.viewedWindowCount += 1;
-      else return next(state, edit ? "return-review" : "review");
+      if (state.variant.endsWith("exploring") && state.viewedWindowCount < 4) state.viewedWindowCount += 1;
+      else if (state.variant.endsWith("exploring")) {
+        state.answers.instant = { predictionChoice: Scoring.correctOption(state.definition).id, concept: "limit", stoppedVelocity: "0" };
+        state.draftAnswers.instant = clone(state.answers.instant);
+        state.variant = edit ? "review-edit-answered" : "answered";
+      } else return next(state, edit ? "return-review" : "review");
     } else if (state.phase === "review") return next(state, "edit-instant");
     return validateDraft(state) ? state : null;
   }
 
-  return { VERSION, ROWS, initialState, encode, decode, makeReview, decodeReview, fromReview, validateDraft, validateReview, next, startupView, submissionView, retryAction, runtimeFlagsForRestore, resumeRuntime, measurementControlState, continueOnce };
+  return { VERSION, ROWS, initialState, encode, decode, makeReview, decodeReview, fromReview, validateDraft, validateReview, navigate, next, startupView, submissionView, retryAction, runtimeFlagsForRestore, resumeRuntime, measurementControlState, continueOnce };
 });

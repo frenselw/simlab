@@ -104,7 +104,7 @@
         title: "第 3 關：時間放大鏡",
         correct: Object.values(detail.instant).every((item) => item.correct),
         text: [
-          choiceFeedback("瞬時速度 v(t*) 估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
+          choiceFeedback("目標時刻的瞬時速度估計", detail.instant.predictionChoice, Object.fromEntries(definition.instantOptions.map((option) => [option.id, quantity(option.value, "m/s")]))),
           choiceFeedback("瞬時速度概念", detail.instant.concept, { limit: "愈短時間內平均速度所趨近的值", "journey-average": "全程平均", "zero-division": "除以零秒", "largest-one-second": "一秒內最大速度" }),
           numericFeedback("車輛停定、位置保持不變時的 |v(t)|", detail.instant.stoppedVelocity, "m/s"),
           "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；車輛停定、位置保持不變時，瞬時速度是 0.00 m/s。"

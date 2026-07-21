@@ -487,6 +487,9 @@ instead of displaying a microscopic positive remainder.
 
 Reuse the same concrete variable-motion profile from stage two. Randomly select
 one target instant `t*` inside a validated acceleration or deceleration ramp.
+`t*` is internal technical notation only. Learner-facing headings, questions,
+graph descriptions, review copy, and feedback always call it `目標時刻`; the UI
+must never display "t star", `t*`, or `v(t*)`.
 The complete longest window must remain inside that same linear ramp:
 
 ```text
@@ -610,6 +613,11 @@ convention.
 ### Review and submission
 
 - Show all three stages in a compact review list.
+- Provide visible previous/next controls on every activity stage. The learner
+  may move forward or backward at any time without first confirming the current
+  answer, including moving directly to an incomplete review.
+- Preserve partial field strings and choices whenever the learner changes stage
+  or reloads an editable draft. Returning to a stage restores that work.
 - Display the learner's recorded readings and answers, but not correctness.
 - Allow returning to any stage and changing its measurement or answers.
 - Changing a stage-one or stage-two measurement invalidates that stage's three
@@ -743,31 +751,37 @@ action after restore.
 
 | Phase | Variant/invariant | Current stage | Required semantic state | Must be absent/pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `uniform` | `ready` | 0 | valid attempt definition; uniform scene time | uniform measurement and all answers | start observation; timing becomes available only while running |
+| `uniform` | `ready` | 0 | valid attempt definition; uniform scene time; any independent work from other stages | uniform measurement and confirmed uniform answer | start observation, or navigate to any other stage |
 | `uniform` | `paused-measuring` | 0 | canonical `x1`; elapsed time; current scene time | `x2`; uniform answers | resume observation, then stop when eligible; or discard measurement |
 | `uniform` | `captured` | 0 | canonical `x1`, `x2`, `dt`; derived expected values | confirmed uniform answers | enter answers or remeasure |
-| `uniform` | `answered` | 0 | valid captured measurement; three numeric answers; relationship answer | variable measurement and future answers | atomically save and open variable |
-| `variable` | `ready` | 1 | uniform stage answered; valid variable profile; scene phase/time | variable measurement and stage-two/three answers | start observation; timing becomes available only while running |
-| `variable` | `paused-measuring` | 1 | prior answer; canonical `x1`; elapsed time; saved minimum; scene time | `x2`; variable answers; stage-three answers | resume observation, then stop when eligible; or discard measurement |
-| `variable` | `captured` | 1 | prior answer; valid minimum-duration measurement and canonical readings | confirmed variable answers; stage-three answers | enter answers or remeasure |
-| `variable` | `answered` | 1 | stages one and two measurements and answers | stage-three answers | atomically save and open instant |
-| `instant` | `exploring` | 2 | prior stages answered; valid target; completed-window prefix `0..4` | prediction until all windows viewed; stopped answer until enabled | view next window; answer when enabled; edit earlier stages |
+| `uniform` | `answered` | 0 | valid captured measurement; three numeric answers; relationship answer | result metadata | revise, navigate, or confirm and open variable |
+| `variable` | `ready` | 1 | valid variable profile; scene phase/time; any independent stage answers | variable measurement and confirmed variable answer | start observation, or navigate to any other stage |
+| `variable` | `paused-measuring` | 1 | canonical `x1`; elapsed time; saved minimum; scene time | `x2`; confirmed variable answer | resume observation, discard measurement, or navigate away |
+| `variable` | `captured` | 1 | valid minimum-duration measurement and canonical readings | confirmed variable answer | enter answers, remeasure, or navigate away |
+| `variable` | `answered` | 1 | valid captured measurement and stage-two answers | result metadata | revise, navigate, or confirm and open instant |
+| `instant` | `exploring` | 2 | valid target; completed-window prefix `0..4`; any independent prior-stage work | confirmed instant answer | view/revisit windows, answer when enabled, or navigate away |
 | `instant` | `answered` | 2 | all four windows viewed; prediction; concept answer; stopped answer | final result metadata | atomically save and open review |
+| `review` | `incomplete` | 3 | valid attempt plus any combination of partial/confirmed stage work | final result metadata | return to any stage; final submit remains disabled |
 | `review` | `complete` | 3 | all authoritative attempt data and answers complete | score/result metadata before submit | edit or final submit |
-| `uniform` | `review-edit-ready` | 0 | complete downstream stages; `returnToReview = true`; same uniform definition | current uniform measurement and answers | start observation; timing becomes available only while running |
-| `uniform` | `review-edit-paused-measuring` | 0 | complete downstream stages; `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and current-stage answers | resume observation, then stop when eligible; or discard measurement |
-| `uniform` | `review-edit-captured` | 0 | complete downstream stages; `returnToReview = true`; valid uniform measurement | current uniform answers | enter answers or remeasure |
-| `uniform` | `review-edit-answered` | 0 | every stage complete; `returnToReview = true`; revised uniform answers | result metadata | revise answers, remeasure, or return to review |
-| `variable` | `review-edit-ready` | 1 | complete uniform and instant stages; `returnToReview = true`; same variable definition and target | current variable measurement and answers | start observation; timing becomes available only while running |
-| `variable` | `review-edit-paused-measuring` | 1 | complete uniform and instant stages; `returnToReview = true`; variable `x1`, elapsed/model time | variable `x2` and current-stage answers | resume observation, then stop when eligible; or discard measurement |
-| `variable` | `review-edit-captured` | 1 | complete uniform and instant stages; `returnToReview = true`; valid variable measurement | current variable answers | enter answers or remeasure |
-| `variable` | `review-edit-answered` | 1 | every stage complete; `returnToReview = true`; revised variable answers | result metadata | revise answers, remeasure, or return to review |
-| `instant` | `review-edit-answered` | 2 | every stage complete; all windows viewed; `returnToReview = true` | result metadata | revise stage-three answers or return to review |
+| `uniform` | `review-edit-ready` | 0 | `returnToReview = true`; same definition; any independent other-stage work | current uniform measurement and answer | start observation or navigate elsewhere |
+| `uniform` | `review-edit-paused-measuring` | 0 | `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and confirmed current-stage answer | resume, discard, or navigate elsewhere |
+| `uniform` | `review-edit-captured` | 0 | `returnToReview = true`; valid uniform measurement | confirmed uniform answer | enter answers, remeasure, or navigate elsewhere |
+| `uniform` | `review-edit-answered` | 0 | `returnToReview = true`; confirmed uniform answer | result metadata | revise, remeasure, navigate, or return to review |
+| `variable` | `review-edit-ready` | 1 | `returnToReview = true`; same profile and target; any independent other-stage work | current variable measurement and answer | start observation or navigate elsewhere |
+| `variable` | `review-edit-paused-measuring` | 1 | `returnToReview = true`; variable `x1`, elapsed/model time | variable `x2` and confirmed current-stage answer | resume, discard, or navigate elsewhere |
+| `variable` | `review-edit-captured` | 1 | `returnToReview = true`; valid variable measurement | confirmed variable answer | enter answers, remeasure, or navigate elsewhere |
+| `variable` | `review-edit-answered` | 1 | `returnToReview = true`; confirmed variable answer | result metadata | revise, remeasure, navigate, or return to review |
+| `instant` | `review-edit-exploring` | 2 | `returnToReview = true`; valid target and reveal prefix | confirmed instant answer | explore, answer, navigate, or return to incomplete review |
+| `instant` | `review-edit-answered` | 2 | all windows viewed; `returnToReview = true`; confirmed instant answer | result metadata | revise, navigate, or return to review |
 | `submitted` | `locked` | 3 | valid review snapshot sufficient to rescore and redraw | editable controls | inspect locked feedback only |
 
 Transitions:
 
 ```text
+any editable activity phase -> any other activity phase on explicit navigation,
+  preserving measurements, confirmed answers, and partial draftAnswers
+any incomplete activity state -> review/incomplete on explicit navigation to review
+review/incomplete -> any review-edit stage when the learner selects that stage
 uniform/ready -> uniform/paused-measuring when a running measurement is persisted
 uniform/ready|paused-measuring -> uniform/captured when a valid endpoint is captured
 uniform/captured -> uniform/answered when all stage-one answers are confirmed
@@ -803,11 +817,11 @@ Editing rules:
   attempt receives a new profile;
 - stage-three window data is derived from the retained profile and target, not
   trusted as learner-authored snapshot data.
-- review-edit variants retain completed downstream stages because their physics
-  is independent of the edited measurement; only the current stage's dependent
-  answers are cleared by remeasurement. After remeasurement starts, the learner
-  completes that stage before returning to review; no duplicate pre-edit backup
-  is persisted.
+- review-edit variants retain all independent work from other stages because
+  their physics is independent of the edited measurement; only the current
+  stage's dependent confirmed answer is cleared by remeasurement. The learner
+  may navigate away before completing the edit; no duplicate pre-edit backup is
+  persisted.
 
 ## Persistence contract
 
@@ -823,7 +837,7 @@ semantics:
 
 ```js
 {
-  v: 4,
+  v: 5,
   definition: {
     seed,
     uniform: { x0, speed, coordinateOrigin, layout },
@@ -849,6 +863,11 @@ semantics:
   },
   variableMeasurement,
   answers,
+  draftAnswers: {
+    uniform: { displacement, time, averageVelocity, relationship },
+    variable: { displacement, time, averageVelocity, relationship },
+    instant: { predictionChoice, concept, stoppedVelocity }
+  },
   viewedWindowCount
 }
 ```
@@ -857,7 +876,7 @@ semantics:
 
 ```js
 {
-  v: 4,
+  v: 5,
   locked: 1,
   definition,
   uniformMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
@@ -892,7 +911,9 @@ validate definition and answers
   `x2`, and `dt` for both
   measured stages; model times are required to validate the capture against the
   saved motion definition and prove minimum-duration coverage;
-- learner answer strings and conceptual choice IDs;
+- confirmed learner answer strings and conceptual choice IDs, plus bounded
+  partial `draftAnswers` strings/choice IDs required to restore unconfirmed form
+  work after arbitrary stage navigation;
 - phase, variant, current stage, `returnToReview`, and completed-window count
   needed to continue;
 - paused simulation time and active measurement start needed to resume.
@@ -911,7 +932,6 @@ validate definition and answers
 - `requestAnimationFrame` ID and previous wall-clock timestamp;
 - DOM references;
 - hover, focus, pressed visual state, and live-region queue;
-- incomplete numeric input text that has not been confirmed;
 - deterministic far-layer and roadside-layer world-cell identities and appearance;
 - cached graph pixels or screenshots.
 
@@ -929,7 +949,7 @@ validate definition and answers
 - Velocity is continuous, non-negative, and includes a valid zero plateau.
 - Target segment and target time satisfy the same-ramp longest-window and margin
   inequalities.
-- Window list is exactly the supported decreasing set for version 4; each row's
+- Window list is exactly the supported decreasing set for version 5; each row's
   authoritative duration equals that exact value.
 - Instantaneous options have four unique stable IDs, three-significant-figure
   values, one validated correct ID, and the saved display order; restore never
@@ -938,11 +958,16 @@ validate definition and answers
   definition, locked local reading origin, and canonical capture precision.
 - A captured variable interval covers its saved minimum duration.
 - Answer strings pass bounded numeric parsing and correspond to their phase.
-- Previous stages cannot be skipped and future-stage answers cannot appear early.
-- Review-edit variants have `returnToReview = true`, retain exactly the declared
-  independent downstream stages, and clear only the current stage's dependent
-  answers during remeasurement. Normal variants must not carry the flag or
-  future-stage data.
+- Stage position is independent of answer completion: any editable stage may be
+  visited, but a confirmed measurement answer still requires its own captured
+  measurement, and an instant answer still requires all four windows.
+- Every confirmed answer exactly matches its stage's persisted `draftAnswers`.
+  Bounded incomplete draft strings and empty choices are legal; unsupported
+  choice IDs, excessive lengths, or inconsistent confirmed/draft pairs fail
+  closed.
+- Review-edit variants have `returnToReview = true` and clear only the current
+  stage's dependent answer during remeasurement. Ordinary activity variants and
+  review itself must not carry the flag.
 - `viewedWindowCount` is an integer from 0 to 4 and a prediction choice cannot
   exist before all four windows are viewed.
 - Submitted review contains every answer and no editable-only transient state.
@@ -958,14 +983,14 @@ validate definition and answers
 - Invalid finished review: remain locked and show only trustworthy Moodle score
   and status; do not reopen editing.
 - Unsupported version: follow the same safe policy; no implicit migration. v3
-  development drafts may be explicitly replaced by a fresh v4 attempt with a
-  clear notice; invalid finished reviews remain locked unless a separate
-  read-only v3 review decoder is deliberately shipped.
+  and v4 development drafts may be explicitly replaced by a fresh v5 attempt
+  with a clear notice; invalid finished reviews remain locked unless a separate
+  read-only decoder is deliberately shipped.
 - Score mismatch: keep Moodle's recorded result authoritative and suppress
   untrustworthy detailed correctness.
 
 Save a draft after semantic changes: attempt creation, stopwatch start/stop,
-pause, measurement discard, answer confirmation, stage transition, analysis
+pause, measurement discard, answer confirmation, arbitrary stage transition, analysis
 window advance, and review edit. Do not commit on every animation frame. Register
 a draft provider so lifecycle flushes capture the current simulation time and
 normalize running motion to a paused snapshot.
@@ -1084,8 +1109,12 @@ For every saveable phase/variant row:
 
 Invalid-state matrix cases include:
 
-- missing previous-stage answers;
-- future answers in an earlier phase;
+- incomplete and complete review states reached through arbitrary stage order;
+- partial form strings and choices surviving encode/decode and forward/backward
+  navigation;
+- confirmed answers that disagree with their persisted draft values;
+- confirmed stage answers without their own required captured measurement or
+  four-window reveal prerequisite;
 - active measurement with an endpoint already present;
 - variable measurement shorter than its saved minimum;
 - captured endpoint later than the current scene time;
@@ -1097,8 +1126,7 @@ Invalid-state matrix cases include:
 - repeated production-size frames from accepted ready/active boundary states,
   including stop eligibility and one further safe frame without automatic stop;
 - impossible phase/variant/current-stage combinations;
-- missing or stray `returnToReview` flags, missing retained downstream answers,
-  and illegally cleared downstream answers in review-edit variants;
+- missing or stray `returnToReview` flags and invalid review-edit variants;
 - a review-edit round trip for every declared uniform, variable, and instant
   edit variant, followed by its legal return to review;
 - invalid target relationship or window order;

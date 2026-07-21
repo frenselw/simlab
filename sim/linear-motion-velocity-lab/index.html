@@ -92,7 +92,7 @@
                 </table>
               </div>
               <form id="instantForm" class="answer-form is-hidden" novalidate>
-                <fieldset><legend>根據趨勢，目標瞬時速度 <var>v</var>(<var>t</var><sup>*</sup>) 最接近哪一項？</legend><div id="optionChoices" class="choice-list"></div></fieldset>
+                <fieldset><legend>根據趨勢，目標時刻的瞬時速度最接近哪一項？</legend><div id="optionChoices" class="choice-list"></div></fieldset>
                 <fieldset><legend>瞬時速度的意思是：</legend>
                   <label><input type="radio" name="concept" value="limit"> 某一時刻附近愈來愈短時間內，平均速度所趨近的值</label>
                   <label><input type="radio" name="concept" value="journey-average"> 全程總位移除以總時間</label>
@@ -110,9 +110,9 @@
               <div id="revealCard" class="reveal-card is-hidden"></div>
             </section>
 
-            <div id="navigationControls" class="navigation-controls is-hidden">
-              <button id="advanceButton" type="button" class="primary-button">前往下一關</button>
-              <button id="returnReviewButton" type="button">返回檢查頁</button>
+            <div id="stageNavigation" class="navigation-controls">
+              <button id="previousStageButton" type="button">上一關</button>
+              <button id="nextStageButton" type="button" class="primary-button">下一關</button>
             </div>
           </section>
 
