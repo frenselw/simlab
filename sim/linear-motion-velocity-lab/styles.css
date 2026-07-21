@@ -53,6 +53,8 @@ var { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
 .answer-form input:not([type]) { min-height: var(--touch-target); padding: .55rem .65rem; }
 fieldset { display: grid; gap: .5rem; min-width: 0; padding: .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-panel); }
 legend { padding: 0 .3rem; font-weight: 700; line-height: 1.45; }
+.answer-form fieldset { padding: .85rem; border-color: #cbd5e1; border-radius: .9rem; background: #fff; box-shadow: 0 2px 8px rgba(15,23,42,.06); }
+.answer-form fieldset > legend { width: calc(100% - .5rem); max-width: calc(100% - .5rem); box-sizing: border-box; margin: 0 .25rem .15rem; padding: .75rem .85rem; border: 1px solid #bfdbfe; border-left: 4px solid var(--color-accent); border-radius: .65rem; background: linear-gradient(135deg, #eff6ff, #f8fafc); box-shadow: 0 4px 12px rgba(37,99,235,.1); color: #172554; font-size: clamp(.92rem, 2vw, 1rem); font-weight: 800; line-height: 1.5; }
 fieldset label { display: flex; min-height: var(--touch-target); align-items: center; gap: .55rem; padding: .35rem; border-radius: .35rem; line-height: 1.4; }
 fieldset label:hover { background: #f3f4f6; }
 fieldset input[type="radio"] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; margin: 0; }
