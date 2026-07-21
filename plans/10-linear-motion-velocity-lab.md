@@ -11,10 +11,12 @@ helps learners connect:
 - instantaneous velocity as the limiting value approached by average velocity
   over progressively shorter time intervals.
 
-The activity uses a tracked car: the car remains near the centre of the stage
-while the road ruler and roadside cues move backwards. Learners operate a
-stopwatch, record position readings, calculate with three significant figures,
-and then use a time-magnifier view to estimate instantaneous velocity.
+In the first two stages the activity uses a tracked car: the car remains near
+the centre of the stage while the road ruler and roadside cues move backwards.
+Learners operate a stopwatch, record position readings, and calculate from the
+displayed three-significant-figure measurements. The third-stage time magnifier
+uses a fixed road and a moving-car target animation to introduce instantaneous
+velocity before learners compare progressively shorter graph intervals.
 
 All learner-facing text is Traditional Chinese.
 
@@ -28,7 +30,8 @@ All learner-facing text is Traditional Chinese.
   - calculate average velocity magnitude from displacement and elapsed time;
   - distinguish the uniform-motion relationship from the non-uniform case;
   - explain instantaneous velocity using successively shorter intervals;
-  - report measured and calculated quantities to three significant figures.
+  - work with measurements and expected results canonicalized to three
+    significant figures without requiring padded learner input.
 - Learner task:
   - complete one random uniform-motion measurement;
   - complete one random variable-motion measurement containing visibly
@@ -80,10 +83,13 @@ sim/linear-motion-velocity-lab/
   main.js
   motion-model.js
   motion-model.test.js
+  scene-visuals.js
+  scene-visuals.test.js
   scoring.js
   scoring.test.js
   persistence.js
   persistence.test.js
+  accessibility.test.js
 sim/manifests/linear-motion-velocity-lab.xml
 sim/config.js
 tools/run-tests.js
@@ -99,8 +105,13 @@ sim/shared/activity-flow.js
 
 `motion-model.js` is justified because motion integration, seeded attempt
 generation, three-significant-figure canonicalization, and instantaneous-window
-calculations must remain pure and Node-testable. Do not create any additional
-helper file unless implementation shows a second concrete need.
+calculations must remain pure and Node-testable. `scene-visuals.js` is the
+second justified helper: responsive scene geometry, stable world-cell visuals,
+wheel rotation, and the stage-three demonstration timeline and geometry must be
+pure and independently testable. `accessibility.test.js` protects production
+HTML/CSS/runtime wiring and responsive non-overlap and reduced-motion
+invariants that are not motion-model or scoring concerns. Do not create another
+helper file unless implementation shows a further concrete need.
 
 ## Terminology and conceptual boundaries
 
@@ -133,9 +144,10 @@ average at one particular instant; it is not equal at every instant.
 ## Three-significant-figure policy
 
 Three significant figures apply to ruler labels, captured position readings,
-stopwatch readings, analysis-window durations, calculated correct answers,
-calculated correct answers, and final numeric feedback. Learner answer strings
-are not required to contain three significant digits.
+stopwatch readings, analysis-window durations, calculated correct answers, and
+final numeric feedback. Learner answer strings are not required to contain
+three significant digits; any safe numeric form that parses to an accepted
+value is eligible for numeric scoring.
 
 ### Display rules
 
@@ -146,9 +158,12 @@ and always expands it as ordinary decimal notation. A rounding carry such as
 `99.96 -> 100` must remain correct. Unsupported subnormal values display as `--`
 and are never accepted as learner answers.
 
-- Non-zero values are rounded to three significant figures; ordinary-decimal
-  integer trailing zeros carry that precision implicitly.
-- Preserve required trailing zeros.
+- Non-zero values are rounded to three significant figures. Ordinary-decimal
+  integers such as `500` do not visually encode how many terminal zeros are
+  significant; the activity treats them as canonical rounded values without
+  claiming the notation alone communicates that precision.
+- Preserve required trailing zeros when ordinary decimal notation can express
+  them, such as `5.00` and `50.0`; whole integers remain bare.
 - Use tabular or monospace numerals so changing decimal places do not shift the
   layout.
 - Examples:
@@ -160,9 +175,11 @@ and are never accepted as learner answers.
 - Exact zero displays as `0.00` plus its unit. Formally zero has no non-zero
   significant digit; this notation communicates the activity's measurement
   precision and is the sole zero exception.
-- All learner-facing values use ordinary decimal notation, including integers
-  with trailing zeros and small decimals. Long manually timed observations may
-  produce longer decimal strings, but never switch to scientific notation.
+- All activity-generated and display-formatted values use ordinary decimal
+  notation, including integers with trailing zeros and small decimals. Long
+  manually timed observations may produce longer decimal strings, but generated
+  output never switches to scientific notation. Preserved learner strings shown
+  in draft or locked review may retain accepted `e`/`E` notation.
 - Ruler major marks are every `10.0 m` and minor marks every `1.00 m`. Major
   labels use the same three-significant-figure formatter. The fixed pointer also
   shows the current position digitally to three significant figures.
@@ -195,8 +212,10 @@ browser may discard significant trailing zeros and a mobile learner may need to
 enter an `e` exponent.
 
 - Accept unsigned decimal notation or standard `e`/`E` scientific notation for
-  input compatibility, then normalize it to ordinary decimal notation. Negative
-  signs, commas, and units remain invalid; a signed exponent is valid.
+  input compatibility. Parse it to a numeric value for validation and scoring,
+  while preserving the learner's trimmed safe input string for draft and locked
+  review. Negative signs, commas, and units remain invalid; a signed exponent is
+  valid.
 - Reject a non-zero mantissa that underflows to zero, unsupported subnormal
   magnitudes, non-finite values, and magnitudes above
   `MAX_LEARNER_INPUT_VALUE`. True zero forms such as `0`, `0.0`, and `0e-999`
@@ -206,8 +225,9 @@ enter an `e` exponent.
   - `5`, `5.0`, and `5.00` are valid and score as the same number;
   - `0`, `0.0`, `0.00`, and `0e-999` are valid zero entries;
   - `0.500` is valid;
-  - `05.00` is valid and normalizes to `5.00`;
-  - `5.00e2` remains valid for input compatibility and normalizes to `500`;
+  - `05.00` is valid, scores numerically as `5`, and remains `05.00` in review;
+  - `5.00e2` is valid, scores numerically as `500`, and remains `5.00e2` in
+    review;
 - `0.00` is a valid zero-format entry in every numeric field; whether zero is
   correct is decided only during final scoring, never by pre-submit format
   validation;
@@ -329,7 +349,7 @@ three-lane layout of the reference-frame activity. Reuse the existing activity's
 car colour, recognisable body treatment, restrained palette, and shadow style;
 do not copy its multi-car reference-frame model.
 
-Stage layers:
+Stage-one and stage-two layers:
 
 1. quiet sky and a deterministic far layer of houses, shops, apartments, and
    tree groups;
@@ -351,23 +371,23 @@ viewport even in a 180 CSS-pixel-high stage. The dashed road divider is anchored
 to authoritative world position, moves backwards with the ruler, and restores
 to the same phase.
 
-The stage must make the reference choice explicit:
+Stages one and two must make the reference choice explicit:
 
 ```text
 鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。
 ```
 
-The car remains at a stable screen coordinate. Ruler ticks, road texture, and
-both background layers translate backwards according to the car's world
-position. The near layer moves with the road; the far layer uses restrained
-parallax. Each layer uses stable layer-plus-world-cell identities, including at
-negative coordinates, so an object cannot change type, size, or shape while it
-is visible. Cells include deliberate gaps and deterministic within-cell offsets
-to avoid a mechanical alternating pattern. Objects enter and leave outside the
-viewport buffer, and roadside objects are drawn behind the car and pointer.
-Far-layer objects use a deeper baseline within the verge; roadside objects use
-a separate baseline immediately beside `roadTop`, so the two depth layers do
-not collapse onto one horizon.
+In stages one and two the car remains at a stable screen coordinate. Ruler
+ticks, road texture, and both background layers translate backwards according
+to the car's world position. The near layer moves with the road; the far layer
+uses restrained parallax. Each layer uses stable layer-plus-world-cell
+identities, including at negative coordinates, so an object cannot change type,
+size, or shape while it is visible. Cells include deliberate gaps and
+deterministic within-cell offsets to avoid a mechanical alternating pattern.
+Objects enter and leave outside the viewport buffer, and roadside objects are
+drawn behind the car and pointer. Far-layer objects use a deeper baseline within
+the verge; roadside objects use a separate baseline immediately beside
+`roadTop`, so the two depth layers do not collapse onto one horizon.
 At zero velocity all of these cues stop together. Do not use motion blur, camera
 shake, or decorative speed lines as required evidence.
 
@@ -400,17 +420,34 @@ physically stop.
 
 Stage three changes the main stage to an analysis view:
 
-- retain a compact frozen car-and-ruler strip for context;
-- give the position-time graph the main readable area;
+- keep the road and target marker fixed while a demonstration car travels at a
+  constant screen speed from off-screen left to off-screen right;
+- leave a translucent car image at the fixed target after the car crosses it,
+  hold the image for about two seconds after the moving car exits, then restart
+  the clean loop;
+- give the position-time graph the main readable area below that compact road
+  context;
+- place the grouped `目標位置` and `目標時刻` readout cards in their own row
+  above the Canvas, with each value visually divided from its own label so the
+  two readings cannot be mistaken for one another or cover the car;
 - show the target instant as a vertical cursor;
 - show the selected interval's two endpoints and secant line;
 - reveal the tangent and exact instantaneous velocity only after the learner
   confirms a prediction.
 
 Stage three uses the original world-position coordinate consistently: graph,
-table endpoints, frozen ruler context, and digital position readout all show the
-same target position. The rolling measurement origin is limited to stages one
-and two.
+table endpoints, fixed-road target context, and digital position readout all
+show the same target position. The looping car pass is qualitative and does not
+advance authoritative model time. The rolling measurement origin is limited to
+stages one and two.
+
+At phone widths the stage-one and stage-two motion status occupies a dedicated
+row below the Canvas rather than floating over it; it must not cover ruler
+ticks, labels, or the measurement pointer. In the stage-three grid, target
+readouts, Canvas, and status each occupy separate rows at every viewport width.
+The graph's `x / m` quantity label sits inside the plot below the road boundary,
+and its axis label, graph, car context, and grouped readouts must not overlap at
+320 CSS-pixel width, short-height phone layouts, or 200% zoom.
 
 Use native Canvas for the animated road scene and native SVG or Canvas for the
 position-time graph, whichever gives simpler crisp labels. No third-party graph
@@ -648,6 +685,8 @@ Controls:
 - numeric answer fields with visible fixed units;
 - conceptual radio groups with no preselected answer;
 - analysis-window step buttons;
+- stage-three `暫停示範` / `繼續示範` control when motion reduction is
+  not requested;
 - stage navigation, review, edit, and final submit.
 
 Rules:
@@ -659,9 +698,13 @@ Rules:
 - A polite live region announces start, manual pause, manual capture, stage
   transition, and final submission outcomes; it does not update every
   animation frame.
-- A persistent text status outside Canvas names the current qualitative motion
-  state: slow cruise, accelerating, fast cruise, decelerating, or stopped. Update
-  it only at motion-segment boundaries, not every frame.
+- In stages one and two, a persistent text status outside Canvas names the
+  current qualitative motion state: slow cruise, accelerating, fast cruise,
+  decelerating, or stopped. Update it only at motion-segment boundaries, not
+  every frame.
+- In stage three, the persistent status instead explains the qualitative
+  pass/target image, paused or reduced-motion presentation, secant comparison,
+  and tangent reveal. Its meaning must not depend on seeing an animation frame.
 - The stage-three endpoint and average-velocity table is the non-visual
   equivalent of the position-time graph and secant display.
 - Reduced-motion preferences remove decorative fades and easing. The stage-three
@@ -673,7 +716,8 @@ Rules:
   designed instructional loop above, with a visible pause/resume control; it
   changes no model time, answers, score, or persisted state. A live change to
   the operating-system reduced-motion preference immediately swaps the loop
-  for its labelled static equivalent or resumes the demonstration.
+  for its labelled static equivalent and, when motion reduction is removed,
+  restores the prior paused/running presentation state.
 - If the learner pauses during a running measurement, both the motion model and
   stopwatch freeze; the stop control stays disabled until observation resumes,
   then the same simulated interval continues.
@@ -713,8 +757,12 @@ Scoring rules:
 
 - Each component earns full assigned points or zero.
 - Missing answers cannot be submitted.
-- A numerically correct entry with invalid significant-figure formatting cannot
-  be confirmed; formatting is corrected before scoring rather than penalized.
+- Learners do not have to enter or pad three significant digits. Any bounded,
+  format-valid numeric string described by the learner-input rules can be
+  confirmed; numerically equivalent forms receive the same score.
+- Unsupported syntax, units, signed mantissas, non-finite values, underflow, and
+  over-limit values block confirmation as numeric-safety errors, not as a
+  significant-figure penalty.
 - Replaying, pausing, remeasuring, or changing an answer before submission has no
   penalty.
 - Clamp the total to `0..100`.
@@ -946,6 +994,11 @@ validate definition and answers
 ### Transient state never persisted
 
 - `requestAnimationFrame` ID and previous wall-clock timestamp;
+- stage-three demonstration epoch, elapsed cycle time, paused/running flag, and
+  paused elapsed time;
+- currently highlighted stage-three window/row; `viewedWindowCount` alone is
+  authoritative unlock progress, so restore may select the latest revealed row;
+- live operating-system reduced-motion preference;
 - DOM references;
 - hover, focus, pressed visual state, and live-region queue;
 - deterministic far-layer and roadside-layer world-cell identities and appearance;
@@ -1041,7 +1094,7 @@ Add every new test file to `tools/run-tests.js`.
 
 ### Display precision and bounded numeric-input tests
 
-- formatting `0.00500`, `0.500`, `5.00`, `50.0`, `5.00 × 10²`, and exact
+- formatting `0.00500`, `0.500`, `5.00`, `50.0`, `500`, and exact
   `0.00`;
 - rounding across a power-of-ten boundary;
 - preserving trailing zeros in learner answers and review;
@@ -1050,8 +1103,9 @@ Add every new test file to `tools/run-tests.js`.
   it wrong against a non-zero expected answer;
 - accepting `5`, `5.0`, `5.00`, zero forms, and correctly formed `e`/`E`
   scientific notation, while rejecting malformed exponents;
-- normalizing values at power-of-ten boundaries, round-tripping every accepted
-  normalized string, and rejecting unsupported subnormal magnitudes;
+- comparing values correctly at power-of-ten boundaries, preserving and
+  round-tripping every accepted trimmed safe input string, and rejecting
+  unsupported subnormal magnitudes;
 - formatting expected/display boundary values with three significant digits and
   no `Infinity` or `NaN` text;
 - rejecting unit text, commas, non-finite values, non-zero underflow such as
@@ -1099,6 +1153,18 @@ Add every new test file to `tools/run-tests.js`.
 - generated instantaneous options are unique, sufficiently separated, saved in
   stable order, and have exactly one defensible correct ID;
 - stopped checkpoint derives exact zero.
+
+### Scene-visual tests
+
+- responsive road, lane, ruler, car, and background geometry remains finite and
+  ordered at desktop, tablet, and phone scales;
+- wheel angle follows authoritative world distance and stable background and
+  landmark cells retain their identities across recycle boundaries;
+- stage-three demonstration starts off-screen left without a target image,
+  travels at constant screen speed, crosses the exact fixed centre target,
+  continues right while the translucent image remains, holds with the moving
+  car off screen, and restarts from a clean cycle;
+- invalid demonstration time or geometry fails closed.
 
 ### Scoring tests
 
@@ -1183,11 +1249,20 @@ runtime/helper file only if direct testing from `main.js` proves impractical.
 - keyboard-only completion;
 - touch controls and no accidental page scroll while operating the stage;
 - reduced-motion preference;
+- stage-three pause/resume freezes and continues the same qualitative
+  demonstration frame without changing model time, answers, score, or snapshot;
+- a live reduced-motion preference change replaces the loop with its labelled
+  static car-beyond-target image and can restore the loop;
 - long Traditional Chinese feedback;
 - ruler labels remain readable and correctly recycled;
+- phone stage-one and stage-two status uses its own row below the Canvas and
+  never covers ruler ticks or labels;
 - timer and position fields do not shift as decimal places change;
 - fast, slow, and stopped motion are visually obvious without colour alone;
-- stage-three graph labels and secants remain readable on phone;
+- stage-three target-position and target-time cards remain grouped, separated,
+  and outside the Canvas; they do not cover the animated car;
+- stage-three graph labels and secants remain readable on phone, and the `x / m`
+  label remains visible inside the plot below the road;
 - resizing preserves attempt definition, phase, measurements, answers,
   simulation time, and pause state.
 
@@ -1198,17 +1273,27 @@ check and treat `### Error` output as failure even if the process exits zero.
 
 - Opens directly into the first task; no decorative landing page.
 - All learner-facing copy is Traditional Chinese.
-- Uses the tracked central car and backward-moving world ruler.
-- Explicitly explains that the camera follows the car.
-- Car position is always measured at the fixed centre pointer.
+- Stages one and two use the tracked central car and backward-moving world
+  ruler, and explicitly explain that the camera follows the car.
+- In stages one and two car position is always measured at the fixed centre
+  pointer.
+- Stage three instead keeps the road and centre target fixed while a car moves
+  from off-screen left to off-screen right at constant screen speed, leaves a
+  translucent image at the target, holds it for about two seconds, and repeats.
+- The stage-three demonstration has pause/resume, a labelled reduced-motion
+  static equivalent, and never changes model time, answers, score, or persisted
+  state.
 - Ruler major and minor spacing represents metres consistently.
 - Ruler labels, stopwatch values, captured positions, expected answers, and
-  numeric feedback display three significant figures; learner inputs need not
-  pad trailing zeros.
-- Integer ruler values with ambiguous trailing zeros use explicit scientific
-  notation rather than silently claiming precision.
-- Numeric input preserves the learner's safe bounded string and treats
-  numerically equivalent precision forms equally.
+  numeric feedback are canonicalized or rounded to three significant figures;
+  learner inputs need not pad trailing zeros.
+- Activity-generated measurements, choices, expected answers, and feedback use
+  ordinary decimal notation. A bare whole integer such as `500` is the
+  activity's canonical rounded value but does not visually encode terminal-zero
+  precision by itself.
+- Numeric input preserves the learner's trimmed safe bounded string for draft
+  and locked review, including accepted `e`/`E` notation, while treating
+  numerically equivalent forms equally for scoring.
 - Scoring uses canonical displayed readings, never hidden raw values.
 - Every new editable attempt receives a validated random definition.
 - A restored attempt preserves the same concrete questions and expected answers.
@@ -1247,6 +1332,11 @@ check and treat `### Error` output as failure even if the process exits zero.
 - Remeasuring invalidates stale dependent answers.
 - Phone controls remain at least 44 CSS pixels and the task is keyboard
   accessible.
+- On phones, stage-one and stage-two status occupies a dedicated row below the
+  Canvas and cannot cover the ruler, its labels, or the pointer.
+- Stage-three target-position and target-time readouts are individually grouped
+  and divided in a row above the Canvas; the car, readouts, graph, and status do
+  not overlap, and the `x / m` axis quantity remains visible inside the plot.
 - Canvas motion states have a persistent non-visual text equivalent, and the
   analysis table is the non-visual equivalent of the graph.
 - Local fallback works without Moodle.
