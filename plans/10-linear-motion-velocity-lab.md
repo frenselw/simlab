@@ -594,20 +594,29 @@ convention.
 
 ### Stage 3: time magnifier
 
-1. Inspect the random target instant on the position-time graph.
-2. Step through the four decreasing intervals from longest to shortest.
-3. Use the longer/shorter controls to revisit any revealed interval, observing
+1. Watch the looping road demonstration above the graph. The road remains
+   fixed while the car moves at a constant screen speed from off-screen left
+   to off-screen right. This qualitative pass identifies the target instant;
+   its screen speed is not a scale representation of the generated motion.
+   When it crosses the central gold target marker, leave a translucent car
+   image at that position. The moving car exits, the image remains for about
+   two seconds, and then the cycle restarts. A learner can pause and resume the
+   demonstration at any point. This image identifies the instant whose
+   velocity is being studied; playback is transient presentation state only.
+2. Inspect the matching random target instant on the position-time graph.
+3. Step through the four decreasing intervals from longest to shortest.
+4. Use the longer/shorter controls to revisit any revealed interval, observing
    the highlighted table row, average velocity, and matching secant line.
-4. Choose the best supported three-significant-figure estimate of the
+5. Choose the best supported three-significant-figure estimate of the
    instantaneous velocity from four generated options.
-5. Answer the conceptual multiple-choice question:
+6. Answer the conceptual multiple-choice question:
    - correct idea: `某一時刻附近愈來愈短時間內，平均速度所趨近的值`;
    - distractor: total displacement divided by total journey time;
    - distractor: displacement divided by exactly zero seconds;
    - distractor: the largest speed observed during one second.
-6. Answer the explicitly worded checkpoint about a vehicle whose position stays
+7. Answer the explicitly worded checkpoint about a vehicle whose position stays
    unchanged while it is stopped.
-7. Confirming atomically saves the answers and opens final review; correctness
+8. Confirming atomically saves the answers and opens final review; correctness
    remains hidden until final submission.
 
 ### Review and submission
@@ -655,9 +664,16 @@ Rules:
   it only at motion-segment boundaries, not every frame.
 - The stage-three endpoint and average-velocity table is the non-visual
   equivalent of the position-time graph and secant display.
-- Reduced-motion preferences remove decorative fades and easing. Essential
-  learner-started physics motion remains available with pause and replay.
-- No autoplay. Each stage begins paused and motion starts after learner action.
+- Reduced-motion preferences remove decorative fades and easing. The stage-three
+  looping demonstration becomes a static frame showing the moving car beyond
+  the central translucent target image; its adjacent text and table preserve
+  the complete concept. Essential learner-started measurement motion remains
+  available with pause and replay.
+- Stages one and two never autoplay. Stage three alone has the explicitly
+  designed instructional loop above, with a visible pause/resume control; it
+  changes no model time, answers, score, or persisted state. A live change to
+  the operating-system reduced-motion preference immediately swaps the loop
+  for its labelled static equivalent or resumes the demonstration.
 - If the learner pauses during a running measurement, both the motion model and
   stopwatch freeze; the stop control stays disabled until observation resumes,
   then the same simulated interval continues.

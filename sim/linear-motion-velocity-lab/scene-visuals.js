@@ -8,12 +8,37 @@
   const TAU = Math.PI * 2;
   const WHEEL_RADIUS_METRES = 0.58;
   const LANDMARK_SPACING_METRES = 8;
+  const INSTANT_DEMO = Object.freeze({ travelMs: 2600, holdMs: 2200 });
   const BACKGROUND_LAYERS = Object.freeze({
     far: Object.freeze({ spacing: 13, parallax: 0.72, salt: 0x4f1bbcdc }),
     roadside: Object.freeze({ spacing: LANDMARK_SPACING_METRES, parallax: 1, salt: 0x68bc21eb })
   });
 
   function positiveModulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
+
+  function instantDemoFrame(elapsedMs) {
+    if (!Number.isFinite(elapsedMs)) throw new TypeError("Invalid instant demo time");
+    const totalMs = INSTANT_DEMO.travelMs + INSTANT_DEMO.holdMs;
+    const cycleMs = positiveModulo(elapsedMs, totalMs);
+    const moving = cycleMs < INSTANT_DEMO.travelMs;
+    const linearProgress = moving ? cycleMs / INSTANT_DEMO.travelMs : 1;
+    return Object.freeze({ cycleMs, moving, carProgress: linearProgress, ghostVisible: cycleMs >= INSTANT_DEMO.travelMs / 2 });
+  }
+
+  function instantDemoGeometry(frame, viewportWidth, carScale) {
+    if (!frame || !Number.isFinite(frame.carProgress) || !Number.isFinite(viewportWidth) || viewportWidth <= 0 || !Number.isFinite(carScale) || carScale <= 0) {
+      throw new TypeError("Invalid instant demo geometry");
+    }
+    const margin = 90 * carScale;
+    const startX = -margin;
+    const endX = viewportWidth + margin;
+    return Object.freeze({
+      startX,
+      endX,
+      targetX: viewportWidth / 2,
+      carX: startX + frame.carProgress * (endX - startX)
+    });
+  }
 
   function wheelAngle(worldPosition, radiusMetres = WHEEL_RADIUS_METRES) {
     if (!Number.isFinite(worldPosition) || !Number.isFinite(radiusMetres) || radiusMetres <= 0) throw new TypeError("Invalid wheel geometry");
@@ -118,5 +143,5 @@
     return visibleBackgroundCells("roadside", worldPosition, pixelsPerMetre, viewportWidth, bufferPixels);
   }
 
-  return { TAU, WHEEL_RADIUS_METRES, LANDMARK_SPACING_METRES, BACKGROUND_LAYERS, wheelAngle, carScale, sceneLayout, laneDashOffset, backgroundAppearance, visibleBackgroundCells, landmarkAppearance, visibleLandmarkCells };
+  return { TAU, WHEEL_RADIUS_METRES, LANDMARK_SPACING_METRES, BACKGROUND_LAYERS, INSTANT_DEMO, instantDemoFrame, instantDemoGeometry, wheelAngle, carScale, sceneLayout, laneDashOffset, backgroundAppearance, visibleBackgroundCells, landmarkAppearance, visibleLandmarkCells };
 });

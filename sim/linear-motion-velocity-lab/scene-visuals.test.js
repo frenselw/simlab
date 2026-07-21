@@ -3,6 +3,31 @@
 const assert = require("assert");
 const Visuals = require("./scene-visuals.js");
 
+const demoStart = Visuals.instantDemoFrame(0);
+assert.strictEqual(demoStart.moving, true);
+assert.strictEqual(demoStart.carProgress, 0);
+assert.strictEqual(demoStart.ghostVisible, false);
+const firstStep = Visuals.instantDemoFrame(400).carProgress;
+const secondStep = Visuals.instantDemoFrame(800).carProgress;
+assert(Math.abs(firstStep - (secondStep - firstStep)) < 1e-12, "car uses a neutral constant screen speed rather than accelerating at the target");
+const demoTarget = Visuals.instantDemoFrame(Visuals.INSTANT_DEMO.travelMs / 2);
+assert(Math.abs(demoTarget.carProgress - .5) < 1e-12, "car reaches the target at the middle of its pass");
+assert.strictEqual(demoTarget.ghostVisible, true, "target ghost appears when the car reaches the target");
+const viewportWidth = 390, demoCarScale = .7;
+const beforeGeometry = Visuals.instantDemoGeometry(Visuals.instantDemoFrame(500), viewportWidth, demoCarScale);
+const targetGeometry = Visuals.instantDemoGeometry(demoTarget, viewportWidth, demoCarScale);
+const afterGeometry = Visuals.instantDemoGeometry(Visuals.instantDemoFrame(2000), viewportWidth, demoCarScale);
+assert(beforeGeometry.carX < beforeGeometry.targetX, "car starts on the left of the fixed target");
+assert(Math.abs(targetGeometry.carX - targetGeometry.targetX) < 1e-12, "car crosses the exact fixed target position");
+assert(afterGeometry.carX > afterGeometry.targetX, "car continues to the right after leaving the target ghost");
+assert.strictEqual(beforeGeometry.targetX, afterGeometry.targetX, "the road target stays fixed throughout the pass");
+const demoHold = Visuals.instantDemoFrame(Visuals.INSTANT_DEMO.travelMs + 1000);
+assert.strictEqual(demoHold.moving, false, "car is off-screen during the explanatory hold");
+assert.strictEqual(demoHold.ghostVisible, true, "target ghost remains throughout the hold");
+assert.deepStrictEqual(Visuals.instantDemoFrame(Visuals.INSTANT_DEMO.travelMs + Visuals.INSTANT_DEMO.holdMs), demoStart, "the demonstration repeats from a clean cycle");
+assert.throws(() => Visuals.instantDemoFrame(Infinity), /Invalid instant demo time/);
+assert.throws(() => Visuals.instantDemoGeometry(demoStart, 0, demoCarScale), /Invalid instant demo geometry/);
+
 assert.strictEqual(Visuals.wheelAngle(0), 0);
 assert(Math.abs(Visuals.wheelAngle(Visuals.WHEEL_RADIUS_METRES * Math.PI) - Math.PI) < 1e-12, "wheel angle follows travelled distance");
 assert(Visuals.wheelAngle(Visuals.WHEEL_RADIUS_METRES * Math.PI / 2) > 0, "positive rightward travel rotates clockwise in Canvas coordinates");

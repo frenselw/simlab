@@ -34,8 +34,8 @@ assert.match(styles, /\.limit-formula[^}]*grid-template-columns: 1fr/, "limit se
 assert.match(styles, /\.limit-step[^}]*flex-wrap: wrap/, "each limit step wraps instead of overlapping its neighbours");
 assert.match(styles, /@media \(max-width: 390px\)[\s\S]*\.window-controls \{ grid-template-columns: 1fr; \}/, "delta-time controls stack on narrow screens");
 assert.match(styles, /\.stopped-question \.calculation-row \{ grid-template-columns: minmax\(0, 1fr\)/, "stopped-velocity input can shrink within a narrow panel");
-assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.motion-stage\.is-graph \.stage-readouts \{ position: static;[^}]*grid-row: 1;/, "mobile graph readouts occupy their own row instead of covering the car");
-assert.match(styles, /\.motion-stage\.is-graph #motionCanvas \{ grid-row: 2;/, "mobile graph canvas follows the separate readout row");
+assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \{ position: static;[^}]*grid-row: 1;/, "graph readouts occupy their own row instead of covering the car at any viewport width");
+assert.match(styles, /\.motion-stage\.is-graph #motionCanvas \{ grid-row: 2;/, "graph canvas follows the separate readout row");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts > span \{[^}]*grid-template-columns: auto minmax\(0, 1fr\)[^}]*border-left: 3px solid var\(--color-accent\)/, "each mobile graph label and value forms one bounded card");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \[id\$="Readout"\] \{[^}]*border-left: 1px solid var\(--color-border-light\)/, "each mobile graph value has an internal divider from its own label");
 assert.match(styles, /\.answer-form fieldset > legend[^}]*max-width: calc\(100% - \.5rem\)[^}]*border-left: 4px solid var\(--color-accent\)/, "question prompts use a bounded, accented card treatment");
@@ -49,6 +49,16 @@ assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "
 const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
 assert.match(animateBody, /catch[\s\S]*locked = true[\s\S]*showTechnical\(/, "runtime numeric failures enter the locked technical view");
 assert.doesNotMatch(animateBody, /captureEndpoint|stopwatch\(/, "animation never auto-stops or auto-captures an eligible measurement");
+assert.match(animateBody, /state\?\.phase === "instant"[\s\S]*!reducedMotion && !instantDemoPaused\) draw\(\)/, "stage-three demonstration redraws without changing authoritative motion time and stops when paused");
+assert.match(main, /const reducedMotionPreference = window\.matchMedia[\s\S]*prefers-reduced-motion: reduce/, "stage-three autoplay has a reduced-motion static equivalent");
+assert.match(main, /handleReducedMotionChange[\s\S]*addEventListener\("change", handleReducedMotionChange\)/, "a live reduced-motion preference change immediately updates the demonstration");
+assert.match(main, /renderMeasurementStage\(\)[\s\S]*canvas\.setAttribute\("aria-label", "固定在中央的車輛、向後移動的道路標尺或位置時間圖"\)/, "measurement stages retain an accurate canvas description");
+assert.match(main, /renderInstant\(\)[\s\S]*靜態示意圖[\s\S]*車輛示意動畫/, "stage three accurately distinguishes its reduced-motion static image from its animation");
+assert.match(main, /renderInstant\(\)[\s\S]*畫面不按比例顯示速度大小/, "stage-three copy says the qualitative car pass does not encode the model speed");
+assert.match(html, /id="demoToggleButton"[^>]*>暫停示範<\/button>/, "stage-three autoplay has an explicit pause control");
+assert.match(main, /function toggleInstantDemo\(\)[\s\S]*instantDemoPaused[\s\S]*瞬時速度示範已暫停/, "the demonstration pause control freezes and announces its state");
+assert.match(html, /id="positionReadoutLabel">位置<\/b>[\s\S]*id="timerReadoutLabel">計時器<\/b>/, "readout labels have addressable stage-specific text");
+assert.match(main, /positionReadoutLabel\.textContent = "目標位置"[\s\S]*timerReadoutLabel\.textContent = "目標時刻"/, "stage three identifies fixed target readings instead of presenting them as live values");
 const progressBody = main.match(/function renderMeasurementProgress\(\)[^]*?\n  }/)?.[0] || "";
 assert.match(progressBody, /eligible = Model\.minimumDurationReached\(duration, minimum\)[\s\S]*remaining = eligible \? 0/, "progress copy uses the same minimum-duration tolerance as the stop control");
 assert.match(progressBody, /remaining > 0[\s\S]*已達最低量度時間/, "zero normalized remainder selects the reached-minimum message");
@@ -82,6 +92,8 @@ assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(tar
 assert.doesNotMatch(graphBody, /rollingReadingOrigin/, "stage-three graph must not mix in the measurement rolling coordinate");
 assert.match(graphBody, /font = "bold 11px system-ui"[\s\S]*fillText\("x \/ m", left \+ 6, top \+ 14\)/, "the vertical-axis quantity label sits visibly inside the plot below the road");
 assert.doesNotMatch(graphBody, /fillText\("x \/ m", left, top - 8\)/, "the vertical-axis quantity label must not sit against the road edge");
+assert.match(graphBody, /instantDemoActive[\s\S]*Visuals\.instantDemoFrame\(demoElapsed\)/, "stage-three graph derives its repeated car pass from the tested demo timeline");
+assert.match(main, /function drawFrozenContext\(position, compact, demoFrame = null\)[\s\S]*instantDemoGeometry[\s\S]*globalAlpha = \.24[\s\S]*demoFrame\.moving/, "the target ghost is translucent and the moving car uses tested geometry before disappearing during the hold");
 for (const name of ["drawRoad", "drawFrozenContext"]) {
   const body = main.match(new RegExp(`function ${name}\\([^]*?\\n  }`))?.[0] || "";
   assert.match(body, /for \(let offset = -tickRadius/, `${name} uses a fixed-count screen-offset tick loop`);

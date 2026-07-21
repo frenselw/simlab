@@ -14,6 +14,8 @@
   const progressItems = Array.from(document.querySelectorAll("[data-progress]"));
   const relationshipInputs = Array.from(document.querySelectorAll("input[name=relationship]"));
   const conceptInputs = Array.from(document.querySelectorAll("input[name=concept]"));
+  const reducedMotionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
+  let reducedMotion = reducedMotionPreference?.matches === true;
   let state = null;
   let locked = false;
   let running = false;
@@ -25,7 +27,23 @@
   let lastMotionSegment = null;
   let frameId = 0;
   let activeWindowIndex = null;
+  let instantDemoStartedAt = null;
+  let instantDemoPaused = false;
+  let instantDemoPausedElapsed = 0;
   let view = { width: 800, height: 500, dpr: 1 };
+
+  function resetInstantDemo() {
+    instantDemoStartedAt = null;
+    instantDemoPaused = false;
+    instantDemoPausedElapsed = 0;
+  }
+  function handleReducedMotionChange(event) {
+    reducedMotion = event.matches === true;
+    if (!reducedMotion && !instantDemoPaused) instantDemoStartedAt = performance.now();
+    if (state?.phase === "instant" && !locked) { renderInstant(); draw(); }
+  }
+  if (typeof reducedMotionPreference?.addEventListener === "function") reducedMotionPreference.addEventListener("change", handleReducedMotionChange);
+  else reducedMotionPreference?.addListener?.(handleReducedMotionChange);
 
   function announce(message) { elements.liveRegion.textContent = ""; requestAnimationFrame(() => { elements.liveRegion.textContent = message; }); }
   function focusContext(element) { requestAnimationFrame(() => element?.focus({ preventScroll: true })); }
@@ -80,7 +98,7 @@
       state = candidate;
       running = false;
       timerRunning = state.variant.endsWith("paused-measuring");
-      if (fallback.phase !== "instant" && state.phase === "instant") activeWindowIndex = null;
+      if (fallback.phase !== "instant" && state.phase === "instant") { activeWindowIndex = null; resetInstantDemo(); }
       announce(message);
       render();
       focusContext(state.phase === "review" ? elements.reviewTitle : elements.stageTitle);
@@ -284,6 +302,22 @@
     if (revealed && !saveDraft()) return;
     render();
   }
+  function toggleInstantDemo() {
+    if (locked || state?.phase !== "instant" || reducedMotion) return;
+    const now = performance.now();
+    if (instantDemoPaused) {
+      instantDemoStartedAt = now - instantDemoPausedElapsed;
+      instantDemoPaused = false;
+      announce("瞬時速度示範已繼續播放。");
+    } else {
+      if (instantDemoStartedAt == null) instantDemoStartedAt = now;
+      instantDemoPausedElapsed = Math.max(0, now - instantDemoStartedAt);
+      instantDemoPaused = true;
+      announce("瞬時速度示範已暫停。");
+    }
+    renderInstant();
+    draw();
+  }
   function submitInstant(event) {
     event.preventDefault();
     syncInstantDraftFromForm();
@@ -309,7 +343,7 @@
     running = false;
     timerRunning = false;
     if (stage < 2) loadMeasurementForm(state.draftAnswers[state.phase]);
-    else { activeWindowIndex = null; loadInstantForm(); }
+    else { activeWindowIndex = null; resetInstantDemo(); loadInstantForm(); }
     announce(`返回第 ${stage + 1} 關修改答案。`);
     if (!saveDraft()) return;
     render();
@@ -481,6 +515,10 @@
   function setGraphLayout(graph) { canvas.parentElement.classList.toggle("is-graph", graph); }
   function renderMeasurementStage() {
     const variable = state.phase === "variable";
+    canvas.setAttribute("aria-label", "固定在中央的車輛、向後移動的道路標尺或位置時間圖");
+    elements.cameraNote.textContent = "鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。";
+    elements.positionReadoutLabel.textContent = "位置";
+    elements.timerReadoutLabel.textContent = "計時器";
     elements.stageKicker.textContent = variable ? "第 2 關" : "第 1 關";
     elements.stageTitle.textContent = variable ? "變速運動" : "勻速運動";
     elements.instructionText.textContent = variable ? `車速會不規則改變；自行量度至少 ${Model.format3(state.definition.variableMinimumDuration)} s。` : "操作計時器記錄 x₁、x₂ 和經過時間。";
@@ -530,15 +568,27 @@
       : timerRunning ? "已達最低量度時間，可自行按停止計時；觀察不會自動暫停。" : captured ? "量度已完成；觀察可繼續，如要更改讀數請先按重新量度。" : state.scene.observationStarted !== 1 ? "請先按開始觀察，再開始計時。" : `最低量度時間：${Model.format3(minimumDuration())} s。`;
   }
   function renderInstant() {
+    canvas.setAttribute("aria-label", reducedMotion
+      ? "固定道路上以半透明車影標記目標一刻的靜態示意圖，以及位置時間圖"
+      : "固定道路上由左至右駛過目標位置、留下半透明車影的車輛示意動畫，以及位置時間圖");
+    elements.cameraNote.textContent = reducedMotion
+      ? "馬路保持不動；靜態車影標記車輛通過中央位置的一刻。"
+      : "馬路保持不動；車輛通過中央金色標記時會留下淡色車影。";
+    elements.positionReadoutLabel.textContent = "目標位置";
+    elements.timerReadoutLabel.textContent = "目標時刻";
     elements.stageKicker.textContent = "第 3 關";
     elements.stageTitle.textContent = "時間放大鏡";
-    elements.instructionText.textContent = "同一目標時刻前的區間愈短，平均速度會趨近瞬時速度。";
+    elements.instructionText.textContent = reducedMotion
+      ? "上方靜態示意圖以淡色車影標記要研究的一刻；畫面不按比例顯示速度大小。下方區間愈短，平均速度會愈趨近該刻的瞬時速度。"
+      : "上方等速示意動畫只用來標記要研究的一刻，畫面不按比例顯示速度大小；車影會留在車輛通過目標位置的一刻。下方區間愈短，平均速度會愈趨近該刻的瞬時速度。";
     elements.observationControls.classList.add("is-hidden");
     elements.timerButton.classList.add("is-hidden");
     elements.progressMessage.classList.add("is-hidden");
     elements.measurementCard.classList.add("is-hidden");
     elements.measurementForm.classList.add("is-hidden");
     elements.instantControls.classList.remove("is-hidden");
+    elements.demoToggleButton.disabled = reducedMotion;
+    elements.demoToggleButton.textContent = reducedMotion ? "靜態示意（無需暫停）" : instantDemoPaused ? "繼續示範" : "暫停示範";
     elements.instantSubmitButton.textContent = state.returnToReview ? "確認修改並返回檢查" : "確認答案並檢查全部答案";
     const selected = normalizedActiveWindowIndex();
     const rows = Model.analysisWindows(state.definition).slice(0, state.viewedWindowCount);
@@ -597,11 +647,14 @@
         showTechnical("運動數值已超出可安全繼續的範圍，活動已鎖定；這不是已提交或已評分狀態。", false);
       }
     }
+    else if (state?.phase === "instant" && !locked && !reducedMotion && !instantDemoPaused) draw();
     frameId = requestAnimationFrame(animate);
   }
   function renderLiveReadouts(announceBoundary) {
     elements.positionReadout.textContent = `${Model.format3(displayedPositionAt())} m`;
     elements.timerReadout.textContent = `${Model.format3(timerRunning ? activeDuration() : currentMeasurement()?.dt || 0)} s`;
+    elements.positionReadout.setAttribute("aria-label", `位置 ${elements.positionReadout.textContent}`);
+    elements.timerReadout.setAttribute("aria-label", `計時器 ${elements.timerReadout.textContent}`);
     if (["uniform", "variable"].includes(state.phase) && timerRunning) renderMeasurementProgress();
     if (state.scene.observationStarted !== 1) {
       elements.motionStatus.textContent = "尚未開始觀察。";
@@ -799,7 +852,16 @@
     const sx = (time) => left + (time - t0) / (t1 - t0) * (right - left);
     const sy = (position) => bottom - (position - minX) / Math.max(.2, maxX - minX) * (bottom - top);
     context.fillStyle = "#fff"; context.fillRect(0, 0, view.width, view.height);
-    drawFrozenContext(Model.variablePosition(state.definition.variable, target), compact);
+    const instantDemoActive = state.phase === "instant" && !locked;
+    let instantDemo = null;
+    if (instantDemoActive) {
+      if (instantDemoStartedAt == null) instantDemoStartedAt = performance.now();
+      const demoElapsed = reducedMotion
+        ? Visuals.INSTANT_DEMO.travelMs * .62
+        : instantDemoPaused ? instantDemoPausedElapsed : Math.max(0, performance.now() - instantDemoStartedAt);
+      instantDemo = Visuals.instantDemoFrame(demoElapsed);
+    }
+    drawFrozenContext(Model.variablePosition(state.definition.variable, target), compact, instantDemo);
     context.strokeStyle = "#d1d5db"; context.lineWidth = 1; context.beginPath(); context.moveTo(left, top); context.lineTo(left, bottom); context.lineTo(right, bottom); context.stroke();
     context.fillStyle = "#374151"; context.font = "bold 11px system-ui"; context.textAlign = "left"; context.fillText("x / m", left + 6, top + 14); context.font = "11px system-ui"; context.textAlign = "right"; context.fillText("t / s", right, bottom + 30);
     for (let index = 0; index <= 3; index += 1) {
@@ -826,9 +888,20 @@
     const targetWorldPosition = Model.variablePosition(state.definition.variable, target);
     elements.positionReadout.textContent = `${Model.format3(targetWorldPosition)} m`;
     elements.timerReadout.textContent = `${Model.format3(target)} s`;
-    elements.motionStatus.textContent = state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
+    elements.positionReadoutLabel.textContent = "目標位置";
+    elements.timerReadoutLabel.textContent = "目標時刻";
+    elements.positionReadout.setAttribute("aria-label", `目標位置 ${elements.positionReadout.textContent}`);
+    elements.timerReadout.setAttribute("aria-label", `目標時刻 ${elements.timerReadout.textContent}`);
+    const demoDescription = reducedMotion
+      ? "靜態示意圖以淡色車影標記要研究的一刻；畫面不代表速度大小。"
+      : instantDemoPaused
+      ? "示範已暫停；可按「繼續示範」重看車輛通過目標位置。"
+      : "示意動畫中，車輛通過中央金色標記後留下淡色車影；畫面不代表速度大小。";
+    elements.motionStatus.textContent = instantDemoActive
+      ? `${demoDescription}${state.answers.instant ? "已揭示該點切線；其斜率代表瞬時速度。" : "請比較逐步縮短的割線。"}`
+      : state.answers.instant ? "已揭示目標點切線；其斜率代表瞬時速度。" : "目標瞬時速度仍未揭示；請比較逐步縮短的割線。";
   }
-  function drawFrozenContext(position, compact) {
+  function drawFrozenContext(position, compact, demoFrame = null) {
     const y = compact ? 35 : 66;
     const sky = compact ? 8 : 12;
     const road = compact ? 24 : 38;
@@ -846,8 +919,18 @@
       context.strokeStyle = metre % 5 === 0 ? "#111827" : "#6b7280";
       context.beginPath(); context.moveTo(x, ruler); context.lineTo(x, ruler - (metre % 5 === 0 ? 9 : 5)); context.stroke();
     }
-    drawCar(view.width / 2, y + sky + 5, Visuals.carScale(scale), Visuals.wheelAngle(position));
     context.strokeStyle = "#f59e0b"; context.lineWidth = 2; context.beginPath(); context.moveTo(view.width / 2, y - sky + 4); context.lineTo(view.width / 2, ruler + 2); context.stroke();
+    const carScale = Visuals.carScale(scale);
+    if (demoFrame) {
+      const geometry = Visuals.instantDemoGeometry(demoFrame, view.width, carScale);
+      const wheelPosition = (geometry.carX - geometry.startX) / scale;
+      if (demoFrame.ghostVisible) {
+        context.save(); context.globalAlpha = .24;
+        drawCar(geometry.targetX, y + sky + 5, carScale, Visuals.wheelAngle((geometry.targetX - geometry.startX) / scale));
+        context.restore();
+      }
+      if (demoFrame.moving) drawCar(geometry.carX, y + sky + 5, carScale, Visuals.wheelAngle(wheelPosition));
+    } else drawCar(view.width / 2, y + sky + 5, carScale, Visuals.wheelAngle(position));
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
   function feedbackHtml(value) {
@@ -881,6 +964,7 @@
   elements.measurementForm.addEventListener("submit", submitMeasurement);
   elements.longerWindowButton.addEventListener("click", showLongerWindow);
   elements.shorterWindowButton.addEventListener("click", showShorterWindow);
+  elements.demoToggleButton.addEventListener("click", toggleInstantDemo);
   elements.instantForm.addEventListener("submit", submitInstant);
   elements.previousStageButton.addEventListener("click", previousStage);
   elements.nextStageButton.addEventListener("click", nextStage);
