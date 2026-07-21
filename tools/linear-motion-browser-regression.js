@@ -80,8 +80,10 @@ async function runLearnerFlow(cdp, baseUrl, activityPath) {
     const tangentPixels = () => {
       const canvas = document.getElementById('motionCanvas');
       const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      const graphTop = canvas.clientHeight < 260 ? 78 : 125;
+      const firstGraphRow = Math.floor(graphTop * canvas.height / canvas.clientHeight);
       let count = 0;
-      for (let index = 0; index < data.length; index += 4) {
+      for (let index = firstGraphRow * canvas.width * 4; index < data.length; index += 4) {
         if (data[index] > 190 && data[index] < 245 && data[index + 1] < 65 && data[index + 2] < 65 && data[index + 3] > 200) count += 1;
       }
       return count;
@@ -217,8 +219,10 @@ async function runSubmissionOutcome(cdp, baseUrl, activityPath, reviewSnapshot, 
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const canvas = document.getElementById('motionCanvas');
       const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      const graphTop = canvas.clientHeight < 260 ? 78 : 125;
+      const firstGraphRow = Math.floor(graphTop * canvas.height / canvas.clientHeight);
       let tangentPixels = 0;
-      for (let index = 0; index < data.length; index += 4) {
+      for (let index = firstGraphRow * canvas.width * 4; index < data.length; index += 4) {
         if (data[index] > 190 && data[index] < 245 && data[index + 1] < 65 && data[index + 2] < 65 && data[index + 3] > 200) tangentPixels += 1;
       }
       return {
