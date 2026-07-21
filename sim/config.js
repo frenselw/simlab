@@ -38,6 +38,14 @@ const simulationList = [
     description: "自由設定車的起點和速度，觀察、繪畫及量度位置—時間圖，再完成操作評估。",
     tags: ["physics", "mechanics", "kinematics", "position-time-graph", "motion", "scorm"],
     status: "active"
+  },
+  {
+    title: "直線運動：平均速度與瞬時速度",
+    folder: "linear-motion-velocity-lab",
+    categories: ["Mechanics"],
+    description: "利用移動標尺、計時器和時間放大鏡，量度位移與時間，計算平均速度，並理解瞬時速度。",
+    tags: ["physics", "mechanics", "kinematics", "velocity", "instantaneous-velocity", "scorm"],
+    status: "active"
   }
 ];
 
