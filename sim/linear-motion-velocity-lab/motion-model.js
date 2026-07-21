@@ -195,18 +195,25 @@
     const segment = streamChunk(definition.variable, chunkIndex)[localIndex];
     return chunkIndex * CHUNK_DURATION + segment.start + segment.duration / 2;
   }
-  function analysisWindows(definition) {
+  function analysisWindowGeometry(definition) {
     const targetTime = targetSceneTime(definition);
     return definition.windows.map((window) => {
-      const exactStartTime = targetTime - window;
-      const exactStartPosition = variablePosition(definition.variable, exactStartTime);
-      const exactEndPosition = variablePosition(definition.variable, targetTime);
+      const startTime = targetTime - window;
+      const startPosition = variablePosition(definition.variable, startTime);
+      const endPosition = variablePosition(definition.variable, targetTime);
       return {
-        window, startTime: canonicalNumber(exactStartTime), endTime: canonicalNumber(targetTime),
-        startPosition: canonicalNumber(exactStartPosition), endPosition: canonicalNumber(exactEndPosition),
-        duration: window, averageVelocity: canonicalNumber((exactEndPosition - exactStartPosition) / window)
+        window, startTime, endTime: targetTime, startPosition, endPosition,
+        duration: window, averageVelocity: (endPosition - startPosition) / window
       };
     });
+  }
+  function analysisWindows(definition) {
+    return analysisWindowGeometry(definition).map((row) => ({
+      window: row.window,
+      startTime: canonicalNumber(row.startTime), endTime: canonicalNumber(row.endTime),
+      startPosition: canonicalNumber(row.startPosition), endPosition: canonicalNumber(row.endPosition),
+      duration: row.duration, averageVelocity: canonicalNumber(row.averageVelocity)
+    }));
   }
   function buildOptions(definition, random) {
     const rows = analysisWindows(definition);
@@ -298,7 +305,7 @@
     SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_FRAME_DELTA, MODEL_TIME_TOLERANCE, MODEL_TIME_CONTINUATION_RESERVE, MAX_RENDER_POSITION, MIN_NORMAL, MAX_INPUT_LENGTH, MAX_LEARNER_INPUT_VALUE, STREAM_VERSION, CHUNK_DURATION, CHUNK_DISTANCE, SEGMENT_COUNT,
     canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
     safeModelTime, hasModelTimeHeadroom, minimumDurationReached, safeWorldPosition, rollingReadingOrigin, readingPosition,
-    createAttempt, validateDefinition, uniformPosition, uniformVelocity, streamChunk, segmentAt, profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, stoppedSceneTime, analysisWindows,
+    createAttempt, validateDefinition, uniformPosition, uniformVelocity, streamChunk, segmentAt, profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, stoppedSceneTime, analysisWindowGeometry, analysisWindows,
     captureMeasurement, measurementWorldPosition, expectedFromMeasurement, advanceSimulationTime
   };
 });

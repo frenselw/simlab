@@ -27,6 +27,8 @@ assert.match(main, /function feedbackFormulaHtml[\s\S]*role="math"[\s\S]*aria-la
 assert.match(styles, /\.feedback-formula[\s\S]*overflow-x: auto/, "long formula feedback remains usable on narrow screens");
 assert.match(styles, /\.feedback-formula[^}]*min-width: 0;[^}]*max-width: 100%/, "formula cards stay within the narrow-screen panel");
 assert.match(styles, /\.feedback-formula > div[^}]*min-width: 0;[^}]*flex-wrap: wrap/, "average-velocity equations wrap between semantic terms on narrow screens");
+assert.match(styles, /\.limit-formula[^}]*grid-template-columns: 1fr/, "limit sequence uses one stable row per interval");
+assert.match(styles, /\.limit-step[^}]*flex-wrap: wrap/, "each limit step wraps instead of overlapping its neighbours");
 assert.match(html, /<var>Δx<\/var>/, "formula variables use semantic HTML");
 assert.match(main, /scene\.observationStarted !== 1[\s\S]*尚未開始觀察/, "pristine observation has a distinct status");
 const animateBody = main.match(/function animate\([^]*?\n  }/)?.[0] || "";
@@ -53,6 +55,7 @@ assert.match(html, /id="stageTitle"[^>]*tabindex="-1"/);
 assert.match(html, /id="reviewTitle"[^>]*tabindex="-1"/);
 assert.match(main, /Visuals\.carScale\(pixelsPerMetre\)/, "rendered wheel radius uses the same world-to-screen scale as background travel");
 assert.match(main, /Visuals\.visibleBackgroundCells\(layer[\s\S]*Visuals\.backgroundAppearance\(layer, cellId\)/, "background layers use stable world-cell identities");
+assert.match(main, /const rows = Model\.analysisWindowGeometry\(state\.definition\)/, "graph secants use exact curve coordinates rather than display-rounded rows");
 assert.match(main, /lineDashOffset = Visuals\.laneDashOffset\(worldPosition, pixelsPerMetre\)[\s\S]*setLineDash\(\[\]\); context\.lineDashOffset = 0/, "lane divider follows world position and resets Canvas dash state");
 const graphBody = main.match(/function drawGraph\([^]*?\n  }/)?.[0] || "";
 assert.match(graphBody, /positionReadout\.textContent = `\$\{Model\.format3\(targetWorldPosition\)\} m`/, "stage-three digital position uses the graph's world coordinate");

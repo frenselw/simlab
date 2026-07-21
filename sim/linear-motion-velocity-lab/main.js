@@ -702,7 +702,7 @@
     context.restore();
   }
   function drawGraph() {
-    const rows = Model.analysisWindows(state.definition);
+    const rows = Model.analysisWindowGeometry(state.definition);
     const count = state.phase === "instant" ? state.viewedWindowCount : 4;
     const target = Model.targetSceneTime(state.definition);
     const compact = view.height < 260;

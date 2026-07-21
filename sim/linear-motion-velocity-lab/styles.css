@@ -79,8 +79,8 @@ th { background: #f3f4f6; }
 .feedback-formula { display: grid; min-width: 0; max-width: 100%; gap: .7rem; overflow-x: auto; margin-top: .7rem; padding: .75rem; border-radius: .45rem; background: #f3f4f6; font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; line-height: 1.6; }
 .feedback-formula > div { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .35rem; }
 .feedback-formula .fraction { vertical-align: middle; text-align: center; }
-.limit-formula { grid-template-columns: repeat(2, minmax(0, 1fr)); font-family: system-ui, sans-serif; }
-.limit-step { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); align-items: center; gap: .35rem; }
+.limit-formula { grid-template-columns: 1fr; font-family: system-ui, sans-serif; }
+.limit-step { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: center; gap: .35rem; }
 .limit-formula strong { grid-column: 1 / -1; padding-top: .35rem; border-top: 1px solid var(--color-border); text-align: center; }
 .score-panel { padding: .8rem; border-radius: var(--radius-panel); background: #eff6ff; font-size: 1.05rem; font-weight: 800; }
 .submission-notice { margin: .7rem 0; padding: .7rem; border-left: 4px solid #b45309; background: #fff7ed; color: #7c2d12; font-weight: 700; }

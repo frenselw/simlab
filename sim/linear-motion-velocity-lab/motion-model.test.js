@@ -28,8 +28,13 @@ for (let seed = 0; seed < 100; seed += 1) {
   streams.add(JSON.stringify(Model.streamChunk(definition.variable, 3).map((segment) => [segment.duration, segment.v0, segment.v1])));
   const target = Model.targetSceneTime(definition);
   const rows = Model.analysisWindows(definition);
+  const geometry = Model.analysisWindowGeometry(definition);
   assert.deepStrictEqual(rows.map((row) => row.duration), [2, 1, 0.5, 0.25]);
   assert(rows.every((row) => row.startTime < row.endTime && row.duration > 0));
+  geometry.forEach((row) => {
+    assert(Math.abs(Model.variablePosition(definition.variable, row.startTime) - row.startPosition) < 1e-10, `seed ${seed} secant start lies on curve`);
+    assert(Math.abs(Model.variablePosition(definition.variable, row.endTime) - row.endPosition) < 1e-10, `seed ${seed} secant end lies on curve`);
+  });
   assert(new Set(rows.map((row) => row.averageVelocity)).size >= 3);
   const exact = Model.variableVelocity(definition.variable, target);
   const acceleration = Model.profileState(definition.variable, target).acceleration;
@@ -45,8 +50,13 @@ assert(streams.size > 95, "later chunks vary with seed");
 for (let seed = 100; seed < 2000; seed += 1) {
   const generated = Model.createAttempt(seed);
   const rows = Model.analysisWindows(generated);
+  const geometry = Model.analysisWindowGeometry(generated);
   const exact = Model.variableVelocity(generated.variable, Model.targetSceneTime(generated));
   assert.deepStrictEqual(rows.map((row) => row.duration), Model.WINDOWS);
+  geometry.forEach((row) => {
+    assert(Math.abs(Model.variablePosition(generated.variable, row.startTime) - row.startPosition) < 1e-10, `seed ${seed} exact secant start`);
+    assert(Math.abs(Model.variablePosition(generated.variable, row.endTime) - row.endPosition) < 1e-10, `seed ${seed} exact secant end`);
+  });
   for (let index = 1; index < rows.length; index += 1) assert(Math.abs(rows[index].averageVelocity - exact) < Math.abs(rows[index - 1].averageVelocity - exact), `seed ${seed} strict convergence`);
 }
 
