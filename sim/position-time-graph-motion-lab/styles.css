@@ -9,6 +9,7 @@
 }
 
 .lab-app {
+  height: 100vh;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
@@ -35,7 +36,7 @@
 
 .lab-shell {
   display: grid;
-  grid-template-rows: auto minmax(10rem, 1fr);
+  grid-template-rows: minmax(13rem, 44vh) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -247,6 +248,12 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .lab-shell {
+    grid-template-rows: minmax(13rem, 44dvh) minmax(0, 1fr);
+  }
 }
 
 .task-heading,

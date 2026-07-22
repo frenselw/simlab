@@ -228,7 +228,8 @@ assert.doesNotMatch(source, /__SIMLAB_POSITION_TIME_TEST_SEED__/, "production ma
 assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
-assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*auto minmax\(10rem, 1fr\)/s, "mobile shell sizes the stage from its content instead of a fixed percentage");
+assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44vh\) minmax\(0, 1fr\)/s, "mobile shell reserves the remaining viewport height for the control panel");
+assert.match(stylesSource, /@supports \(height: 100dvh\)[\s\S]*\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44dvh\) minmax\(0, 1fr\)/s, "mobile shell follows the dynamic viewport height when supported");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
 assert.match(stylesSource, /\.probe-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)/s, "probe actions share one compact row");
