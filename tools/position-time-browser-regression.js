@@ -375,6 +375,14 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
         styles: Array.from(document.styleSheets, (sheet) => sheet.href).filter(Boolean),
         scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
         runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring && window.PositionTimeGenerator),
+        upperOverflowY: getComputedStyle(document.getElementById('labUpperScroll')).overflowY,
+        stageOverflowY: getComputedStyle(document.querySelector('.lab-stage')).overflowY,
+        phaseDisplay: getComputedStyle(document.getElementById('phaseBadge')).display,
+        upperScrollTop: document.getElementById('labUpperScroll').scrollTop,
+        desktopRects: (() => {
+          const rect = (element) => { const value = element.getBoundingClientRect(); return { left: value.left, right: value.right, top: value.top, bottom: value.bottom }; };
+          return { header: rect(document.querySelector('.compact-header')), panel: rect(document.getElementById('labPanel')), stage: rect(document.querySelector('.lab-stage')) };
+        })(),
         velocity: Number(document.querySelector('[data-quantity="velocity"]').value),
         x0: Number(document.querySelector('[data-quantity="x0"]').value)
       };
@@ -385,22 +393,198 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
     assert.ok(setup.scripts.some((src) => src.endsWith("/shared/scorm.js")), `${width}px: packaged shared SCORM runtime loaded`);
     assert.ok(setup.scripts.some((src) => src.endsWith("/shared/activity-flow.js")), `${width}px: packaged shared activity flow loaded`);
     assert.equal(setup.runtimeReady, true, `${width}px: packaged runtime executed successfully`);
+    if (width < 820) {
+      assert.equal(setup.upperOverflowY, "auto", `${width}px: header, road, and graph share the upper scroll owner`);
+      assert.equal(setup.stageOverflowY, "visible", `${width}px: the stage is not a nested vertical scroller`);
+    }
+    if (width >= 820) {
+      assert.ok(setup.desktopRects.header.bottom <= setup.desktopRects.panel.top + 1, `${width}px: desktop panel starts below the full-width header`);
+      assert.ok(setup.desktopRects.header.bottom <= setup.desktopRects.stage.top + 1, `${width}px: desktop stage starts below the full-width header`);
+      assert.ok(setup.desktopRects.panel.right <= setup.desktopRects.stage.left + 1, `${width}px: desktop panel remains to the left of the stage`);
+    }
+    if (width <= 420) assert.equal(setup.phaseDisplay, "none", `${width}px: duplicate header phase badge is hidden on phones`);
     assert.ok(parseFloat(setup.hitStrokeWidth) >= 44, `${width}px: production CSS provides the enlarged velocity hit target`);
     assert.equal(setup.top, "velocity:A", `${width}px v=${initialVelocity}: elementFromPoint must hit the velocity target`);
     assert.equal(setup.velocity, initialVelocity, `${width}px v=${initialVelocity}: setup velocity rendered`);
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: setup.x, y: setup.y });
     await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: setup.x, y: setup.y, button: "left", buttons: 1, clickCount: 1 });
+    if (width < 820) {
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: setup.x, y: setup.y, deltaX: 0, deltaY: 140 });
+      await delay(50);
+      const activeDrag = await evaluate(cdp, `({
+        locked: document.getElementById('labUpperScroll').classList.contains('is-dragging'),
+        scrollTop: document.getElementById('labUpperScroll').scrollTop
+      })`);
+      assert.equal(activeDrag.locked, true, `${width}px v=${initialVelocity}: direct manipulation marks the upper scroller as locked`);
+      assert.equal(activeDrag.scrollTop, setup.upperScrollTop, `${width}px v=${initialVelocity}: a wheel gesture during handle drag does not pan the upper region`);
+    }
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: setup.x + 30, y: setup.y, button: "left", buttons: 1 });
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: setup.x + 30, y: setup.y, button: "left", buttons: 0, clickCount: 1 });
     const after = await evaluate(cdp, `({
       velocity: Number(document.querySelector('[data-quantity="velocity"]').value),
-      x0: Number(document.querySelector('[data-quantity="x0"]').value)
+      x0: Number(document.querySelector('[data-quantity="x0"]').value),
+      dragLocked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
     })`);
     assert.notEqual(after.velocity, initialVelocity, `${width}px v=${initialVelocity}: real mouse drag must change velocity`);
     assert.equal(after.x0, setup.x0, `${width}px v=${initialVelocity}: velocity drag must not change x0`);
+    assert.equal(after.dragLocked, false, `${width}px v=${initialVelocity}: releasing a handle restores upper-region scrolling`);
     cases.push(`${initialVelocity}->${after.velocity}`);
   }
+  if (width < 820) {
+    const upperPoint = await evaluate(cdp, `(() => {
+      const upper = document.getElementById('labUpperScroll');
+      const graph = document.getElementById('graphSvg').getBoundingClientRect();
+      const bounds = upper.getBoundingClientRect();
+      upper.scrollTop = 0;
+      document.getElementById('labPanel').scrollTop = 0;
+      return { x: graph.left + graph.width / 2, y: Math.min(graph.bottom - 8, bounds.bottom - 8) };
+    })()`);
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: upperPoint.x, y: upperPoint.y });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: upperPoint.x, y: upperPoint.y, deltaX: 0, deltaY: 160 });
+    await delay(100);
+    const upperScrolled = await evaluate(cdp, `({
+      upper: document.getElementById('labUpperScroll').scrollTop,
+      panel: document.getElementById('labPanel').scrollTop
+    })`);
+    assert.ok(upperScrolled.upper > 0, `${width}px: non-interactive stage space scrolls the complete upper region`);
+    assert.equal(upperScrolled.panel, 0, `${width}px: upper-region scrolling does not move the control panel`);
+
+    const panelPoint = await evaluate(cdp, `(() => {
+      const bounds = document.getElementById('labPanel').getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + Math.min(80, bounds.height / 2) };
+    })()`);
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: panelPoint.x, y: panelPoint.y });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: panelPoint.x, y: panelPoint.y, deltaX: 0, deltaY: 160 });
+    await delay(100);
+    const panelScrolled = await evaluate(cdp, `({
+      upper: document.getElementById('labUpperScroll').scrollTop,
+      panel: document.getElementById('labPanel').scrollTop
+    })`);
+    assert.ok(panelScrolled.panel > 0, `${width}px: the lower control panel scrolls independently`);
+    assert.equal(panelScrolled.upper, upperScrolled.upper, `${width}px: control-panel scrolling leaves the upper region fixed`);
+  }
   return `${width}px (${cases.join(", ")})`;
+}
+
+async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?touch-regression=${width}x${height}` });
+  await waitForActivity(cdp);
+
+  const blank = await evaluate(cdp, `(() => {
+    const upper = document.getElementById('labUpperScroll');
+    const panel = document.getElementById('labPanel');
+    upper.scrollTop = (upper.scrollHeight - upper.clientHeight) / 2;
+    panel.scrollTop = 0;
+    const bounds = upper.getBoundingClientRect();
+    const graph = document.getElementById('graphSvg').getBoundingClientRect();
+    const candidates = [0.25, 0.5, 0.75].map((fraction) => ({
+      x: graph.left + graph.width * fraction,
+      y: Math.min(bounds.bottom - 12, Math.max(bounds.top + 12, graph.top + 18))
+    }));
+    const point = candidates.find(({ x, y }) => !document.elementFromPoint(x, y)?.closest('[data-drag]'));
+    if (!point) throw new Error('No visible non-interactive graph point found');
+    return {
+      ...point,
+      drag: document.elementFromPoint(point.x, point.y)?.closest('[data-drag]')?.dataset.drag || null,
+      svg: document.elementFromPoint(point.x, point.y)?.closest('svg')?.id || null,
+      upperBefore: upper.scrollTop,
+      panelBefore: panel.scrollTop,
+      upperScrollable: upper.scrollHeight > upper.clientHeight,
+      panelScrollable: panel.scrollHeight > panel.clientHeight
+    };
+  })()`);
+  assert.equal(blank.drag, null, `${width}x${height} touch: blank swipe starts outside every drag target`);
+  assert.equal(blank.svg, "graphSvg", `${width}x${height} touch: blank swipe starts on non-interactive graph space`);
+  assert.equal(blank.upperScrollable, true, `${width}x${height} touch: upper region has reachable overflow`);
+  assert.equal(blank.panelScrollable, true, `${width}x${height} touch: control panel has reachable overflow`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: blank.x, y: blank.y, id: 1, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: blank.x, y: blank.y - 90, id: 1, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(150);
+  const afterBlank = await evaluate(cdp, `({ upper: document.getElementById('labUpperScroll').scrollTop, panel: document.getElementById('labPanel').scrollTop })`);
+  assert.ok(afterBlank.upper > blank.upperBefore, `${width}x${height} touch: blank graph swipe scrolls the complete upper region`);
+  assert.equal(afterBlank.panel, blank.panelBefore, `${width}x${height} touch: blank upper swipe leaves the panel fixed`);
+
+  await evaluate(cdp, `(() => {
+    document.getElementById('confirmStart').click();
+    document.getElementById('nextMission').click();
+  })()`);
+  await delay(100);
+  const graphDrag = await evaluate(cdp, `(async () => {
+    const handle = document.querySelector('[data-drag="graph:xStart"]');
+    handle.scrollIntoView({ block: 'center', inline: 'center' });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const svg = handle.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = Number(handle.getAttribute('cx'));
+    point.y = Number(handle.getAttribute('cy'));
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return {
+      x: centre.x,
+      y: centre.y,
+      target: document.elementFromPoint(centre.x, centre.y)?.closest('[data-drag]')?.dataset.drag || null,
+      start: Number(handle.getAttribute('aria-valuenow')),
+      other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
+      upper: document.getElementById('labUpperScroll').scrollTop
+    };
+  })()`);
+  assert.equal(graphDrag.target, "graph:xStart", `${width}x${height} touch: graph-point centre resolves to its production drag target`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: graphDrag.x, y: graphDrag.y, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.y - 55, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(100);
+  const graphAfter = await evaluate(cdp, `({
+    value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')),
+    other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
+    upper: document.getElementById('labUpperScroll').scrollTop,
+    locked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
+  })`);
+  assert.notEqual(graphAfter.value, graphDrag.start, `${width}x${height} touch: graph-point drag changes that point`);
+  assert.equal(graphAfter.other, graphDrag.other, `${width}x${height} touch: graph-point drag leaves the other point unchanged`);
+  assert.equal(graphAfter.upper, graphDrag.upper, `${width}x${height} touch: graph-point drag does not pan its background`);
+  assert.equal(graphAfter.locked, false, `${width}x${height} touch: graph-point release restores upper scrolling`);
+
+  const cancelSetup = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="graph:xEnd"]');
+    const svg = handle.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = Number(handle.getAttribute('cx'));
+    point.y = Number(handle.getAttribute('cy'));
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return {
+      x: centre.x, y: centre.y,
+      start: Number(handle.getAttribute('aria-valuenow')),
+      saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length
+    };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y + 45, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+  await delay(100);
+  const cancelled = await evaluate(cdp, `({
+    value: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
+    saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+    locked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
+  })`);
+  assert.notEqual(cancelled.value, cancelSetup.start, `${width}x${height} touch: cancelled graph drag retains its last visible point value`);
+  assert.ok(cancelled.saves > cancelSetup.saves, `${width}x${height} touch: cancelled graph drag persists its last visible state`);
+  assert.equal(cancelled.locked, false, `${width}x${height} touch: cancelled graph drag releases the upper lock`);
+
+  const bottoms = await evaluate(cdp, `(() => {
+    const result = {};
+    for (const [key, id] of [['upper', 'labUpperScroll'], ['panel', 'labPanel']]) {
+      const element = document.getElementById(id);
+      element.scrollTop = element.scrollHeight;
+      result[key] = { scrollTop: element.scrollTop, clientHeight: element.clientHeight, scrollHeight: element.scrollHeight };
+    }
+    return result;
+  })()`);
+  for (const [name, dimensions] of Object.entries(bottoms)) {
+    assert.ok(dimensions.scrollTop + dimensions.clientHeight >= dimensions.scrollHeight - 1, `${width}x${height} touch: ${name} region reaches its true bottom`);
+  }
+  return `${width}x${height} touch, graph drag/cancel, both bottoms reachable`;
 }
 
 async function runGeneratedPaperChecks(cdp, baseUrl, activityPath) {
@@ -536,8 +720,11 @@ async function main() {
     await cdp.send("Runtime.enable");
     const desktop = await runViewport(cdp, baseUrl, activityPath, 1280, 900);
     const narrow = await runViewport(cdp, baseUrl, activityPath, 320, 700);
+    const shortTouch = await runTouchViewport(cdp, baseUrl, activityPath, 390, 500);
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
     const generated = await runGeneratedPaperChecks(cdp, baseUrl, activityPath);
-    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}; ${generated}`;
+    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}; ${shortTouch}; ${generated}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

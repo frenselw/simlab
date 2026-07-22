@@ -9,7 +9,7 @@
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -179,12 +179,22 @@
     if (state.phase === "explore") {
       dom.taskTitle.textContent = "自由探索";
       dom.taskInstruction.textContent = "設定運動，播放並觀察圖線。探索不計分，亦沒有完成門檻。";
+      if (ui.unsaved) {
+        dom.answerState.hidden = false;
+        dom.answerState.dataset.state = "unsaved";
+        dom.answerState.textContent = "未儲存（技術問題）";
+      }
       return;
     }
     if (state.phase === "final-review") {
       dom.taskKicker.textContent = "五題完成狀態";
       dom.taskTitle.textContent = "提交前檢視";
       dom.taskInstruction.textContent = "檢查每題是否完整；此處只顯示完成狀態，不會透露對錯。";
+      if (ui.unsaved) {
+        dom.answerState.hidden = false;
+        dom.answerState.dataset.state = "unsaved";
+        dom.answerState.textContent = "未儲存（技術問題）";
+      }
       return;
     }
     const step = state.phase === "submitted-review" ? ui.reviewStep : state.currentStep;
@@ -602,9 +612,9 @@
     dom.dataGrid.innerHTML = values.map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join("");
   }
 
-  function scrollPanelToTop() {
+  function scrollRegionsToTop() {
+    dom.labUpperScroll.scrollTop = 0;
     dom.labPanel.scrollTop = 0;
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function renderNavigation() {
@@ -622,7 +632,7 @@
       button.addEventListener("click", () => {
         resetTime();
         const moved = transitionSafely((next) => next.variant === "from-review" ? P.returnToReview(next) : P.nextMission(next));
-        if (moved) scrollPanelToTop();
+        if (moved) scrollRegionsToTop();
       });
       return;
     }
@@ -827,19 +837,29 @@
     const point = clientPoint(event.currentTarget, event);
     const grabOffset = type === "car" ? point.x - roadX(directMotion().x0) : 0;
     ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset };
+    dom.labUpperScroll.classList.toggle("is-dragging", true);
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
   }
   function pointerMove(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
     applyDrag(ui.drag.kind, clientPoint(event.currentTarget, event), false, ui.drag);
+    ui.drag.moved = true;
     event.preventDefault();
   }
   function pointerUp(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
     const drag = ui.drag;
     ui.drag = null;
+    dom.labUpperScroll.classList.toggle("is-dragging", false);
     applyDrag(drag.kind, clientPoint(event.currentTarget, event), true, drag);
+  }
+  function pointerCancel(event) {
+    if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
+    const moved = ui.drag.moved;
+    ui.drag = null;
+    dom.labUpperScroll.classList.toggle("is-dragging", false);
+    if (moved) saveAndAnnounce("中斷前的操作已儲存。");
   }
   function dragKeydown(event) {
     const target = event.target.closest("[data-drag]");
@@ -859,9 +879,11 @@
       currentAnswer().faster = values[clamp(index + direction, 0, 2)];
     } else return;
     event.preventDefault();
+    const focusKey = `drag:${target.dataset.drag}`;
     ui.unsaved = true;
     const saved = saveDraft();
     render();
+    R.restoreFocus(document, focusKey);
     announce(saved ? "鍵盤操作已儲存。" : "鍵盤操作未能儲存；請重試。" );
   }
 
@@ -908,7 +930,8 @@
     svg.addEventListener("pointerdown", pointerDown);
     svg.addEventListener("pointermove", pointerMove);
     svg.addEventListener("pointerup", pointerUp);
-    svg.addEventListener("pointercancel", () => { ui.drag = null; });
+    svg.addEventListener("pointercancel", pointerCancel);
+    svg.addEventListener("lostpointercapture", pointerCancel);
     svg.addEventListener("keydown", dragKeydown);
   });
   dom.playButton.addEventListener("click", play);
@@ -923,7 +946,7 @@
     if (!paper || !G.validateGeneratedPaper(paper)) { announce("題目生成驗證失敗；仍在自由探索，請重試。"); return; }
     resetTime(true);
     const moved = transitionSafely((next) => P.startGeneratedAssessment(next, seed, paper));
-    if (moved) scrollPanelToTop();
+    if (moved) scrollRegionsToTop();
   });
   dom.confirmSubmit.addEventListener("click", submitAttempt);
   initialize();

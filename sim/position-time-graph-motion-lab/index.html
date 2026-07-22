@@ -17,40 +17,42 @@
   </head>
   <body>
     <main class="sim-app lab-app">
-      <header class="sim-header compact-header">
-        <div>
-          <h1>位置—時間圖運動實驗室</h1>
-          <p id="modeDescription">自由設定車的起點和速度，觀察位置—時間圖點樣形成。</p>
-        </div>
-        <span id="phaseBadge" class="phase-badge">自由探索</span>
-      </header>
-
       <div class="sim-shell lab-shell">
-        <section class="sim-stage lab-stage" aria-label="同步運動及位置—時間圖">
-          <div class="stage-block road-block">
-            <div class="stage-heading">
-              <h2>直線跑道</h2>
-              <span>車中心代表位置；右方為正方向</span>
+        <div id="labUpperScroll" class="lab-upper-scroll">
+          <header class="sim-header compact-header">
+            <div>
+              <h1>位置—時間圖運動實驗室</h1>
+              <p id="modeDescription">自由設定車的起點和速度，觀察位置—時間圖點樣形成。</p>
             </div>
-            <svg id="roadSvg" class="lab-svg road-svg" viewBox="0 0 800 145" role="img" aria-labelledby="roadTitle roadDesc">
-              <title id="roadTitle">一維直線跑道</title>
-              <desc id="roadDesc">位置由負二十米至正二十米。圖中的車輛運動只供觀察。</desc>
-              <g id="roadLayer"></g>
-            </svg>
-          </div>
+            <span id="phaseBadge" class="phase-badge">自由探索</span>
+          </header>
 
-          <div class="stage-block graph-block">
-            <div class="stage-heading">
-              <h2><span class="math"><var>x</var>–<var>t</var></span> 圖</h2>
-              <span id="graphSummary">橫軸時間 0 至 6 s；縱軸位置 −20 至 20 m。</span>
+          <section class="sim-stage lab-stage" aria-label="同步運動及位置—時間圖">
+            <div class="stage-block road-block">
+              <div class="stage-heading">
+                <h2>直線跑道</h2>
+                <span>車中心代表位置；右方為正方向</span>
+              </div>
+              <svg id="roadSvg" class="lab-svg road-svg" viewBox="0 0 800 145" role="img" aria-labelledby="roadTitle roadDesc">
+                <title id="roadTitle">一維直線跑道</title>
+                <desc id="roadDesc">位置由負二十米至正二十米。圖中的車輛運動只供觀察。</desc>
+                <g id="roadLayer"></g>
+              </svg>
             </div>
-            <svg id="graphSvg" class="lab-svg graph-svg" viewBox="0 0 800 440" role="img" aria-labelledby="graphTitle graphDesc">
-              <title id="graphTitle">位置—時間坐標圖</title>
-              <desc id="graphDesc">橫軸為時間 t，單位秒；縱軸為位置 x，單位米。使用讀圖游標可取得指定時間的坐標。</desc>
-              <g id="graphLayer"></g>
-            </svg>
-          </div>
-        </section>
+
+            <div class="stage-block graph-block">
+              <div class="stage-heading">
+                <h2><span class="math"><var>x</var>–<var>t</var></span> 圖</h2>
+                <span id="graphSummary">橫軸時間 0 至 6 s；縱軸位置 −20 至 20 m。</span>
+              </div>
+              <svg id="graphSvg" class="lab-svg graph-svg" viewBox="0 0 800 440" role="img" aria-labelledby="graphTitle graphDesc">
+                <title id="graphTitle">位置—時間坐標圖</title>
+                <desc id="graphDesc">橫軸為時間 t，單位秒；縱軸為位置 x，單位米。使用讀圖游標可取得指定時間的坐標。</desc>
+                <g id="graphLayer"></g>
+              </svg>
+            </div>
+          </section>
+        </div>
 
         <aside id="labPanel" class="sim-panel lab-panel" aria-label="操作面板">
           <section id="taskSection" class="panel-section task-section" data-mode="guide">

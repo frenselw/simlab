@@ -188,7 +188,7 @@ class FakeDocument {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 
-const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
+const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
 const document = new FakeDocument(ids);
 let submitCalls = 0;
 let finishCalls = 0;
@@ -228,9 +228,15 @@ assert.doesNotMatch(source, /__SIMLAB_POSITION_TIME_TEST_SEED__/, "production ma
 assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
+assert.match(indexSource, /id="labUpperScroll"[\s\S]*<header class="sim-header compact-header">[\s\S]*<section class="sim-stage lab-stage"/, "mobile upper scroller owns the header and complete stage as one region");
 assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44vh\) minmax\(0, 1fr\)/s, "mobile shell reserves the remaining viewport height for the control panel");
 assert.match(stylesSource, /@supports \(height: 100dvh\)[\s\S]*\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44dvh\) minmax\(0, 1fr\)/s, "mobile shell follows the dynamic viewport height when supported");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
+assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*overflow-y:\s*auto/s, "header and stage share the upper scroll owner");
+assert.match(stylesSource, /\.lab-upper-scroll\.is-dragging\s*\{[^}]*overflow-y:\s*hidden/s, "active direct manipulation locks upper-region panning");
+assert.match(stylesSource, /\.lab-stage\s*\{[^}]*overflow:\s*visible/s, "stage itself is not a nested scroll container");
+assert.match(stylesSource, /@media \(max-width: 420px\)[\s\S]*\.phase-badge\s*\{\s*display:\s*none/s, "phone header hides the duplicate phase badge while the panel retains its task state");
+assert.doesNotMatch(source, /window\.scrollTo/, "mission changes manage the owned scroll regions instead of the embedding window");
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
 assert.match(stylesSource, /\.probe-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)/s, "probe actions share one compact row");
 assert.match(stylesSource, /\.task-section\[data-mode="mission"\]\s*\{[^}]*border-left:\s*5px solid var\(--color-accent\)/s, "assessment task card has a strong accent edge");
@@ -301,6 +307,17 @@ assert.equal(quantity("velocity"), continuousVelocity, "same range element accep
 assert.equal(document.getElementById("velocityValue").innerHTML.includes("+1.5"), true, "continuous input updates the heading readout");
 assert.equal(document.getElementById("velocityStepperValue").innerHTML.includes("+1.5"), true, "continuous input updates the stepper readout");
 
+const workingSaveDraft = SimScorm.saveDraft;
+SimScorm.saveDraft = () => false;
+quantity("x0").value = "1";
+quantity("x0").dispatch("input");
+quantity("x0").dispatch("change");
+assert.equal(document.getElementById("answerState").hidden, false, "exploration exposes a failed-save state inside the visible control panel");
+assert.equal(document.getElementById("answerState").textContent, "未儲存（技術問題）", "phone-hidden header status is duplicated only when an exploration save fails");
+SimScorm.saveDraft = workingSaveDraft;
+quantity("x0").dispatch("change");
+assert.equal(document.getElementById("answerState").hidden, true, "successful exploration save clears the temporary panel save warning");
+
 for (const initialVelocity of [0, 0.5, -0.5]) {
   setVelocity(initialVelocity);
   const beforeX = quantity("x0").value;
@@ -310,10 +327,31 @@ for (const initialVelocity of [0, 0.5, -0.5]) {
   const velocityVisual = initialVelocity === 0 ? 'class="velocity-zero-marker"' : 'class="velocity-arrowhead"';
   assert.ok(hit.layer.innerHTML.indexOf(velocityVisual) > hit.layer.innerHTML.indexOf('data-drag="car:A"'), `v=${initialVelocity} velocity visual is above the car`);
   document.getElementById("roadSvg").dispatch("pointerdown", { target: hit.velocity, pointerId: 7, clientX: hit.x, clientY: hit.y });
+  assert.match(document.getElementById("labUpperScroll").className, /(?:^|\s)is-dragging(?:\s|$)/, `v=${initialVelocity} active handle drag locks the upper scroller`);
   document.getElementById("roadSvg").dispatch("pointerup", { pointerId: 7, clientX: hit.x + 24, clientY: hit.y });
+  assert.doesNotMatch(document.getElementById("labUpperScroll").className, /(?:^|\s)is-dragging(?:\s|$)/, `v=${initialVelocity} releasing the handle restores upper scrolling`);
   assert.equal(Number(quantity("velocity").value), initialVelocity + 0.5, `v=${initialVelocity} pointer drag changes velocity`);
   assert.equal(quantity("x0").value, beforeX, `v=${initialVelocity} velocity drag does not change x0`);
 }
+const cancelledHit = velocityHitState();
+const draftsBeforeCancel = savedDrafts.length;
+document.getElementById("roadSvg").dispatch("pointerdown", { target: cancelledHit.velocity, pointerId: 8, clientX: cancelledHit.x, clientY: cancelledHit.y });
+document.getElementById("roadSvg").dispatch("pointermove", { pointerId: 8, clientX: cancelledHit.x + 24, clientY: cancelledHit.y });
+const velocityBeforeCancel = Number(quantity("velocity").value);
+document.getElementById("roadSvg").dispatch("pointercancel", { pointerId: 8 });
+assert.doesNotMatch(document.getElementById("labUpperScroll").className, /(?:^|\s)is-dragging(?:\s|$)/, "cancelled pointer drag always restores upper scrolling");
+assert.equal(savedDrafts.length, draftsBeforeCancel + 1, "pointer cancellation after movement persists the last visible drag state");
+assert.equal(savedDrafts.at(-1).answer.x.v, velocityBeforeCancel, "cancelled drag snapshot matches the last rendered velocity");
+
+setVelocity(0);
+let keyboardVelocity = velocityHitState().velocity;
+keyboardVelocity.focus();
+document.getElementById("roadSvg").dispatch("keydown", { target: keyboardVelocity, key: "ArrowRight" });
+assert.equal(document.activeElement?.dataset.drag, "velocity:A", "keyboard drag restores focus to the replacement SVG handle after rendering");
+keyboardVelocity = document.activeElement;
+document.getElementById("roadSvg").dispatch("keydown", { target: keyboardVelocity, key: "ArrowRight" });
+assert.equal(Number(quantity("velocity").value), 1, "two consecutive Arrow presses adjust the same SVG handle without refocusing manually");
+assert.equal(document.activeElement?.dataset.drag, "velocity:A", "consecutive keyboard drag keeps semantic focus on the handle");
 
 setVelocity(1);
 document.getElementById("timeSlider").value = "0.5";
@@ -347,12 +385,14 @@ assert.ok(document.getElementById("liveStatus").textContent.includes("本來只�
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
 
+document.getElementById("labUpperScroll").scrollTop = 320;
 document.getElementById("labPanel").scrollTop = 640;
 document.getElementById("confirmStart").click();
 assert.equal(seedCalls, 1, "blank new attempt requests one Web Crypto seed");
 assert.equal(savedDrafts.at(-1).answer.v, 2, "blank new attempt saves a schema v2 draft");
 assert.equal(savedDrafts.at(-1).answer.g.s, "00000001000000020000000300000004", "saved draft keeps the generated attempt seed");
 assert.ok(Generator.validateGeneratedPaper({ version: 2, missions: savedDrafts.at(-1).answer.g.q }), "saved draft embeds a validated authoritative paper");
+assert.equal(document.getElementById("labUpperScroll").scrollTop, 0, "starting the assessment returns the complete upper region to its title");
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "starting the assessment returns the independently scrolling control panel to mission 1 at the top");
 assert.equal(document.getElementById("taskKicker").textContent, "今題任務 · 1 / 5", "mission card clearly labels the current task number");
 assert.equal(document.getElementById("taskTitle").textContent, "根據目標圖設定運動", "mission title is concise and separate from its progress label");
@@ -376,8 +416,10 @@ one('[data-set-quantity="velocity"]').click();
 assert.equal(document.getElementById("answerState").textContent, "已完整", "mission 1 can explicitly confirm unchanged zero values");
 assert.equal(savedDrafts.at(-1).answer.a.ans.m1.x0, 0, "zero-position confirmation is saved as an answer");
 assert.equal(savedDrafts.at(-1).answer.a.ans.m1.v, 0, "zero-velocity confirmation is saved as an answer");
+document.getElementById("labUpperScroll").scrollTop = 320;
 document.getElementById("labPanel").scrollTop = 640;
 one("#nextMission").click();
+assert.equal(document.getElementById("labUpperScroll").scrollTop, 0, "next mission returns the complete upper region to its title");
 assert.equal(document.getElementById("labPanel").scrollTop, 0, "next mission returns the independently scrolling control panel to its top");
 assert.ok(document.getElementById("taskTitle").innerHTML.includes('<span class="math"><var>x</var>–<var>t</var></span>'), "mission 2 title renders x-t with formula typography");
 const missionTwoRoad = document.getElementById("roadLayer");

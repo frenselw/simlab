@@ -12,6 +12,7 @@
   height: 100vh;
   height: 100dvh;
   min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -41,13 +42,24 @@
   overflow: hidden;
 }
 
+.lab-upper-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lab-upper-scroll.is-dragging {
+  overflow-y: hidden;
+  overscroll-behavior: none;
+}
+
 .lab-stage {
   display: grid;
   grid-template-rows: auto auto;
   align-content: start;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
   background: var(--color-app);
 }
 
@@ -524,25 +536,35 @@ dialog h2 { margin-top: 0; }
   .lab-app {
     height: auto;
     min-height: 100dvh;
+    grid-template-rows: auto;
     overflow: visible;
   }
 
   .lab-shell {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-    grid-template-rows: auto;
+    grid-template-rows: auto auto;
     overflow: visible;
+  }
+
+  .lab-upper-scroll {
+    display: contents;
+  }
+
+  .compact-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
 
   .lab-panel {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
     max-height: calc(100dvh - 5rem);
     overflow-y: auto;
   }
 
   .lab-stage {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 2;
     align-content: start;
     overflow: visible;
     border-left: 1px solid var(--color-border);
@@ -551,7 +573,7 @@ dialog h2 { margin-top: 0; }
 
 @media (max-width: 420px) {
   .compact-header { display: block; }
-  .phase-badge { display: inline-block; margin-top: 0.65rem; }
+  .phase-badge { display: none; }
   .stage-heading { display: block; }
   .stage-heading span:last-child { display: block; margin-top: 0.2rem; text-align: left; }
   .graph-block .stage-heading { display: none; }
