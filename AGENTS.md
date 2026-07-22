@@ -48,6 +48,11 @@ let each simulation own its subject model and scoring rubric.
   attempt for review.
 - Use SCORM 1.2 for Moodle unless there is a confirmed reason to do otherwise.
 - Do not add dependencies until native browser SVG/Canvas features fall short.
+- When an activity has a substantial control panel that learners use while the
+  stage must remain visible, use the bounded mobile split-panel contract from
+  the production guide: stage on top, independently scrolling controls in the
+  remaining height, `100vh`/`100dvh` fallback, and `min-height: 0` on shrinking
+  grid/flex children. Activities without such a panel may use natural page flow.
 - Add every new test file to `tools/run-tests.js`, every runtime dependency
   referenced by HTML or loaded code to the activity manifest, and every active
   simulation to `sim/config.js` with

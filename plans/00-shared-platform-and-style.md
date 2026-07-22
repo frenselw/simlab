@@ -106,6 +106,32 @@ Baseline dimensions:
 - touch target: at least `44px`;
 - avoid horizontal scrolling.
 
+### Phone control-panel contract
+
+Use this contract when an activity has a substantial or repeatedly used control
+panel and learners need the stage to remain visible while operating it. It does
+not apply to activities with no control panel or only a short set of controls;
+those may use natural document flow.
+
+- Bound the phone app to the available viewport with `100vh` as a fallback and
+  `100dvh` when supported, and prevent the app shell from creating a second page
+  scroll region.
+- Keep the stage in the upper row. Put the control panel in the lower row, give
+  it the remaining height, and make that panel independently scrollable.
+- Set every shrinking grid/flex child in this chain to `min-height: 0`; use
+  `overflow-y: auto` and `overscroll-behavior: contain` on the control panel.
+- Choose the stage track in the simulation plan. `minmax(13rem, 44vh)` with a
+  `44dvh` enhancement is the baseline starting point, not a universal constant.
+- If an unusually dense stage must scroll at extreme heights, specify that
+  explicitly and ensure it never clips controls, primary actions, or keyboard
+  focus targets.
+- Avoid nested scrolling among the Moodle page, activity body, and control
+  panel. Under the bounded contract, the control panel should own normal
+  vertical control scrolling.
+- Test short Moodle-like viewports as well as full-height phones; browser chrome,
+  orientation changes, zoom, and the software keyboard must not leave an
+  unreachable strip at the bottom of the panel.
+
 Do not require a keyboard for the core task unless the learning objective is
 numeric input.
 

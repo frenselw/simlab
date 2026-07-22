@@ -187,6 +187,23 @@ test-only direction, point, answer, or phase schema.
 
 - Design phone-first, then expand to tablet and desktop.
 - Make the first screen the actual task, not a landing page.
+- Classify the mobile control layout in the activity plan. If there is no
+  substantial control panel, natural page flow is valid. If learners repeatedly
+  use a control panel while the stage must stay visible, use the bounded
+  split-panel contract below.
+- For a bounded split-panel activity, size the app with `100vh` followed by
+  `100dvh`, keep the stage in the upper row, and allocate the remaining row to an
+  independently scrolling control panel. Set the app shell, stage, panel, and
+  any intervening grid/flex children to `min-height: 0` where they must shrink.
+- Give the panel `overflow-y: auto` and `overscroll-behavior: contain`; keep the
+  activity body/app shell from becoming a competing vertical scroll container.
+- Record the stage track in the plan. Start from `minmax(13rem, 44vh)` plus a
+  `44dvh` enhancement when appropriate, then change it only for the stage's
+  readability needs. Do not let intrinsic stage content or an `auto` track take
+  height priority and squeeze the control panel into an unusable remainder.
+- A dense stage may scroll independently only as an explicit extreme-height or
+  zoom fallback. Its scroll area must not cover or clip primary actions or
+  keyboard focus targets.
 - Use touch-friendly controls and Pointer Events for dragging.
 - Avoid snap behavior unless it directly helps the task. A grid can be visual
   only; it must not stop learners from drawing physically correct directions.
@@ -489,6 +506,11 @@ session in the script so checks do not leave background state behind.
 - Execute one legal continuation after restoring every phase/invariant fixture.
 - Run shared fake-LMS failure tests for any shared runtime change.
 - Open with Live Server or a local static server.
+- For every bounded split-panel activity, test at least `320x500`, `390x500`,
+  `390x600`, and a normal full-height phone viewport, plus phone landscape,
+  browser-toolbar changes, software-keyboard display, and 200% zoom. Verify that
+  the panel reaches its true bottom, primary actions remain reachable, and the
+  Moodle page/activity body does not compete with the panel for normal scrolling.
 - Submit once outside Moodle and confirm local SCORM logging still works.
 - Exercise new, draft restore, pending-final failure, load-error, finished review,
   invalid-snapshot, trust-mismatch, and unknown-status UI outcomes. Test actual
@@ -507,6 +529,9 @@ session in the script so checks do not leave background state behind.
 
 - Upload the ZIP to Moodle as a SCORM 1.2 activity.
 - Test with a student account, not only a teacher account.
+- On a real phone in Moodle's current-window player, reach the final control and
+  scroll back to the first control without an unusable bottom strip or nested
+  page/panel scroll trap. Repeat in a new window if that launch mode is offered.
 - Check: preview is hidden, attempt status is visible, submit records score,
   re-entering the same submitted attempt is review-only, and a new attempt is
   required to change the score.

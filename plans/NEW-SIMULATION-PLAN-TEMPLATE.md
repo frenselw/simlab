@@ -37,6 +37,21 @@
 - Units:
 - Calibration or tolerance constants:
 
+## Responsive layout contract
+
+- Control-panel classification: `none/short natural flow` or `bounded split-panel`
+- Why the stage must or need not remain visible while controls are used:
+- Phone stage track (bounded split-panel only; baseline starting point is
+  `minmax(13rem, 44vh)` plus `44dvh` when supported):
+- Normal vertical scroll owner: `document` or `control panel`
+- Extreme-height/zoom stage overflow policy:
+- Desktop/tablet arrangement:
+
+For a bounded split-panel activity, require `100vh`/`100dvh`, an upper stage and
+lower independently scrolling control panel, `min-height: 0` throughout the
+shrinking grid/flex chain, and no competing activity-body scroll. Do not apply
+this contract when the activity has no substantial control panel.
+
 ## Scoring
 
 - Total: 100
@@ -177,10 +192,17 @@ all four outcomes.
 - [ ] Lifecycle tests execute production outcome/render logic, not source-string checks.
 - [ ] New tests added to `tools/run-tests.js`.
 - [ ] Runtime files added to manifest and activity added to `sim/config.js`.
+- [ ] If bounded split-panel: `320x500`, `390x500`, `390x600`, normal phone
+      portrait, phone landscape, browser-toolbar change, software keyboard, and
+      200% zoom keep the panel bottom and all primary actions reachable.
+- [ ] If bounded split-panel: normal vertical scrolling belongs to the panel,
+      without a competing Moodle-page/activity-body scroll trap.
 
 ## Package-ready checklist
 
 - [ ] Phone, tablet, and desktop layouts remain usable.
+- [ ] The chosen control-panel classification and mobile scroll owner match the
+      implemented layout.
 - [ ] Pointer/touch interaction and keyboard alternative are defined as needed.
 - [ ] `npm.cmd run check` passes.
 - [ ] `npm.cmd test` passes.
