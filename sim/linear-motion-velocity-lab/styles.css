@@ -109,7 +109,7 @@ th { background: #f3f4f6; }
   .camera-note { display: block; }
   .precision-note { display: none; }
   .progress { margin-top: .45rem; overflow-x: auto; }
-  .motion-shell { grid-template-rows: minmax(14rem, 42dvh) minmax(0, 1fr); overflow: hidden; }
+  .motion-shell { grid-template-rows: minmax(13rem, 44vh) minmax(0, 1fr); overflow: hidden; }
   .motion-stage { min-height: 0; }
   .motion-panel { min-height: 0; overscroll-behavior: contain; }
   .motion-status { max-width: calc(100% - 1.5rem); font-size: .82rem; }
@@ -120,8 +120,10 @@ th { background: #f3f4f6; }
   .calculation-row { grid-template-columns: minmax(6.5rem, 1fr) minmax(6.5rem, 8rem) 3.2rem; gap: .35rem; }
 }
 
-@media (max-width: 819px) and (max-height: 650px) {
-  .motion-shell { grid-template-rows: minmax(16rem, 48dvh) minmax(0, 1fr); }
+@supports (height: 100dvh) {
+  @media (max-width: 819px) {
+    .motion-shell { grid-template-rows: minmax(13rem, 44dvh) minmax(0, 1fr); }
+  }
 }
 
 @media (max-width: 390px) {

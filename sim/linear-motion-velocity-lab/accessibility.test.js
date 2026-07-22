@@ -36,6 +36,9 @@ assert.match(styles, /\.feedback-formula > div[^}]*min-width: 0;[^}]*flex-wrap: 
 assert.match(styles, /\.limit-formula[^}]*grid-template-columns: 1fr/, "limit sequence uses one stable row per interval");
 assert.match(styles, /\.limit-step[^}]*flex-wrap: wrap/, "each limit step wraps instead of overlapping its neighbours");
 assert.match(styles, /@media \(max-width: 390px\)[\s\S]*\.window-controls \{ grid-template-columns: 1fr; \}/, "delta-time controls stack on narrow screens");
+assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.motion-shell \{ grid-template-rows: minmax\(13rem, 44vh\) minmax\(0, 1fr\); overflow: hidden; \}/, "mobile shell reserves the remaining viewport height for the scrolling control panel");
+assert.match(styles, /@supports \(height: 100dvh\)[\s\S]*@media \(max-width: 819px\)[\s\S]*\.motion-shell \{ grid-template-rows: minmax\(13rem, 44dvh\) minmax\(0, 1fr\); \}/, "mobile shell follows the dynamic viewport height when supported");
+assert.doesNotMatch(styles, /minmax\(16rem, 48dvh\)/, "short mobile viewports do not enlarge the stage at the control panel's expense");
 assert.match(styles, /\.stopped-question \.calculation-row \{ grid-template-columns: minmax\(0, 1fr\)/, "stopped-velocity input can shrink within a narrow panel");
 assert.match(styles, /\.motion-stage\.is-graph \.stage-readouts \{ position: static;[^}]*grid-row: 1;/, "graph readouts occupy their own row instead of covering the car at any viewport width");
 assert.match(styles, /\.motion-stage\.is-graph #motionCanvas \{ grid-row: 2;/, "graph canvas follows the separate readout row");
