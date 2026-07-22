@@ -558,6 +558,7 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
       target: document.elementFromPoint(centre.x, centre.y)?.closest('[data-drag]')?.dataset.drag || null,
       start: Number(handle.getAttribute('aria-valuenow')),
       other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
+      saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
       upper: document.getElementById('labUpperScroll').scrollTop,
       hitWidth: hit.width,
       hitHeight: hit.height,
@@ -577,79 +578,130 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: graphDrag.x, y: graphDrag.y, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(50);
   const previewStart = await evaluate(cdp, `(() => {
-    const preview = document.querySelector('.graph-touch-preview');
+    const preview = document.querySelector('.graph-magnifier');
+    const source = document.getElementById('graphLayer');
+    const clone = preview?.querySelector('.graph-magnifier-source');
     const host = document.getElementById('graphTouchPreviewHost');
     const bounds = host.getBoundingClientRect();
     const blockElement = document.querySelector('.graph-block');
     const block = blockElement.getBoundingClientRect();
     const upper = document.getElementById('labUpperScroll');
+    const sourceLine = source.querySelector('[data-graph-answer-line]');
+    const cloneLine = clone?.querySelector('[data-graph-answer-line]');
+    const sourcePoint = source.querySelector('[data-graph-point="P0"] .graph-handle');
+    const clonePoint = clone?.querySelector('[data-graph-point="P0"] .graph-handle');
+    const expectedSource = source.cloneNode(true);
+    expectedSource.querySelectorAll('.drag-hit').forEach((element) => element.remove());
+    expectedSource.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+      if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+    }));
     return {
       exists: Boolean(preview),
-      point: preview?.dataset.previewPoint,
-      value: Number(preview?.dataset.previewValue),
-      corner: preview?.dataset.previewCorner,
-      text: preview?.textContent,
+      viewBox: preview?.getAttribute('viewBox').split(/\\s+/).map(Number),
+      directChildren: Array.from(preview?.children || []).map((element) => ({ tag: element.tagName.toLowerCase(), className: element.getAttribute('class') })),
+      exactSourceMarkup: clone?.innerHTML === expectedSource.innerHTML,
+      corner: (host.classList.contains('is-top') ? 'top' : 'bottom') + '-' + (host.classList.contains('is-left') ? 'left' : 'right'),
+      sameText: clone?.textContent === source.textContent,
+      gridCount: [source.querySelectorAll('.plot-grid').length, clone?.querySelectorAll('.plot-grid').length],
+      lineGeometry: ['x1', 'y1', 'x2', 'y2'].map((name) => [sourceLine?.getAttribute(name), cloneLine?.getAttribute(name)]),
+      pointGeometry: ['cx', 'cy', 'r'].map((name) => [sourcePoint?.getAttribute(name), clonePoint?.getAttribute(name)]),
+      pointStyles: ['fill', 'stroke', 'stroke-width'].map((name) => [getComputedStyle(sourcePoint).getPropertyValue(name), getComputedStyle(clonePoint).getPropertyValue(name)]),
+      gridStyles: ['stroke', 'stroke-width'].map((name) => [getComputedStyle(source.querySelector('.plot-grid')).getPropertyValue(name), getComputedStyle(clone?.querySelector('.plot-grid')).getPropertyValue(name)]),
+      clonedInteractions: clone?.querySelectorAll('[data-drag], [tabindex], [role], [aria-label], [aria-valuenow], [aria-valuemin], [aria-valuemax]').length,
+      addedSummaryElements: preview?.querySelectorAll('.graph-touch-preview-title, .graph-touch-preview-value, .graph-touch-preview-mini, .graph-touch-preview-point').length,
       highlighted: document.querySelector('[data-graph-point="P0"]')?.classList.contains('is-dragging') || false,
       bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height },
       block: { left: block.left, top: block.top, right: block.right, bottom: block.bottom, width: block.width, height: block.height, scrollHeight: blockElement.scrollHeight },
       upperScrollHeight: upper.scrollHeight,
-      titleFont: parseFloat(getComputedStyle(document.querySelector('.graph-touch-preview-title')).fontSize),
-      valueFont: parseFloat(getComputedStyle(document.querySelector('.graph-touch-preview-value')).fontSize),
       hostPosition: getComputedStyle(host).position,
-      pointerEvents: getComputedStyle(host).pointerEvents
+      pointerEvents: [getComputedStyle(host).pointerEvents, getComputedStyle(preview).pointerEvents]
     };
   })()`);
-  assert.equal(previewStart.exists, true, `${width}x${height} touch: x0 drag immediately shows a preview`);
-  assert.equal(previewStart.point, "P0", `${width}x${height} touch: preview identifies P0/x0`);
-  assert.equal(previewStart.value, graphDrag.start, `${width}x${height} touch: preview starts with the authoritative x0 value`);
-  assert.match(previewStart.text, /P₀（x₀） · t = 0 s/, `${width}x${height} touch: preview labels the selected point and time`);
+  assert.equal(previewStart.exists, true, `${width}x${height} touch: x0 drag immediately shows a real graph magnifier`);
+  assert.deepEqual(previewStart.viewBox, [0, 135, 280, 180], `${width}x${height} touch: x0 magnifier crops the source graph around the live endpoint`);
+  assert.deepEqual(previewStart.directChildren, [{ tag: "g", className: "graph-magnifier-source" }], `${width}x${height} touch: magnifier has exactly one source group and no sibling graphic or text`);
+  assert.equal(previewStart.exactSourceMarkup, true, `${width}x${height} touch: magnifier source exactly equals an independently sanitized source-graph clone`);
+  assert.equal(previewStart.sameText, true, `${width}x${height} touch: magnifier adds no text beyond the source x-t graph`);
+  assert.equal(previewStart.gridCount[0], previewStart.gridCount[1], `${width}x${height} touch: magnifier clones the complete source grid`);
+  assert.ok(previewStart.lineGeometry.every(([source, clone]) => source === clone), `${width}x${height} touch: answer-line geometry is cloned from the source graph`);
+  assert.ok(previewStart.pointGeometry.every(([source, clone]) => source === clone), `${width}x${height} touch: selected handle geometry is cloned from the source graph`);
+  assert.ok(previewStart.pointStyles.every(([source, clone]) => source === clone), `${width}x${height} touch: cloned handle keeps the source graph styling`);
+  assert.ok(previewStart.gridStyles.every(([source, clone]) => source === clone), `${width}x${height} touch: cloned grid keeps the source graph styling`);
+  assert.equal(previewStart.clonedInteractions, 0, `${width}x${height} touch: magnifier clone has no focus, ARIA, or drag targets`);
+  assert.equal(previewStart.addedSummaryElements, 0, `${width}x${height} touch: old title/value/mini-axis/point summary UI is absent`);
   assert.equal(previewStart.highlighted, true, `${width}x${height} touch: selected x0 point is highlighted`);
-  assert.equal(previewStart.corner, graphDrag.expectedCorner, `${width}x${height} touch: preview chooses the graph corner farthest from drag-start`);
-  assert.ok(Math.abs(previewStart.bounds.width - Math.min(width * 0.42, 176)) <= 2, `${width}x${height} touch: HTML preview keeps its intended readable CSS width`);
-  assert.ok(previewStart.bounds.height >= 80, `${width}x${height} touch: HTML preview keeps a usable CSS height`);
-  assert.ok(previewStart.titleFont >= 13 && previewStart.valueFont >= 15, `${width}x${height} touch: preview labels retain readable computed font sizes`);
-  assert.equal(previewStart.hostPosition, "absolute", `${width}x${height} touch: preview is removed from normal graph layout`);
-  assert.equal(previewStart.pointerEvents, "none", `${width}x${height} touch: HTML preview cannot intercept the drag`);
-  assert.ok(previewStart.bounds.left >= previewStart.block.left - 1 && previewStart.bounds.right <= previewStart.block.right + 1 && previewStart.bounds.top >= previewStart.block.top - 1 && previewStart.bounds.bottom <= previewStart.block.bottom + 1, `${width}x${height} touch: preview is contained by the graph block rather than the road/stage`);
-  assert.equal(previewStart.block.height, graphDrag.block.height, `${width}x${height} touch: showing preview does not change graph-block layout height`);
-  assert.equal(previewStart.block.scrollHeight, graphDrag.block.scrollHeight, `${width}x${height} touch: showing preview does not create graph-block overflow`);
-  assert.equal(previewStart.upperScrollHeight, graphDrag.upperScrollHeight, `${width}x${height} touch: showing preview does not change fixed-stage scrollHeight`);
+  assert.equal(previewStart.corner, graphDrag.expectedCorner, `${width}x${height} touch: magnifier chooses the graph corner farthest from drag-start`);
+  assert.ok(Math.abs(previewStart.bounds.width - Math.min(width * 0.52, 184)) <= 2, `${width}x${height} touch: magnifier keeps its readable CSS width`);
+  assert.ok(previewStart.bounds.height >= 100, `${width}x${height} touch: magnifier keeps a readable crop height`);
+  assert.equal(previewStart.hostPosition, "absolute", `${width}x${height} touch: magnifier is removed from normal graph layout`);
+  assert.deepEqual(previewStart.pointerEvents, ["none", "none"], `${width}x${height} touch: magnifier cannot intercept the drag`);
+  assert.ok(previewStart.bounds.left >= previewStart.block.left - 1 && previewStart.bounds.right <= previewStart.block.right + 1 && previewStart.bounds.top >= previewStart.block.top - 1 && previewStart.bounds.bottom <= previewStart.block.bottom + 1, `${width}x${height} touch: magnifier is contained by the graph block rather than the road/stage`);
+  assert.equal(previewStart.block.height, graphDrag.block.height, `${width}x${height} touch: showing magnifier does not change graph-block layout height`);
+  assert.equal(previewStart.block.scrollHeight, graphDrag.block.scrollHeight, `${width}x${height} touch: showing magnifier does not create graph-block overflow`);
+  assert.equal(previewStart.upperScrollHeight, graphDrag.upperScrollHeight, `${width}x${height} touch: showing magnifier does not change fixed-stage scrollHeight`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.axisTopY, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(50);
   const previewMoved = await evaluate(cdp, `(() => {
-    const preview = document.querySelector('.graph-touch-preview');
+    const preview = document.querySelector('.graph-magnifier');
     const host = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
-    const mini = document.querySelector('.graph-touch-preview-mini').getBoundingClientRect();
-    const point = document.querySelector('.graph-touch-preview-point').getBoundingClientRect();
-    return { value: Number(preview?.dataset.previewValue), corner: preview?.dataset.previewCorner, text: preview?.textContent, bounds: { left: host.left, top: host.top, right: host.right, bottom: host.bottom }, pointInside: point.top >= mini.top - 1 && point.bottom <= mini.bottom + 1 };
+    const hostElement = document.getElementById('graphTouchPreviewHost');
+    const sourcePoint = document.querySelector('#graphLayer [data-graph-point="P0"] .graph-handle');
+    const clonePoint = preview?.querySelector('[data-graph-point="P0"] .graph-handle');
+    const sourceLine = document.querySelector('#graphLayer [data-graph-answer-line]');
+    const cloneLine = preview?.querySelector('[data-graph-answer-line]');
+    const source = document.getElementById('graphLayer');
+    const clone = preview?.querySelector('.graph-magnifier-source');
+    const expectedSource = source.cloneNode(true);
+    expectedSource.querySelectorAll('.drag-hit').forEach((element) => element.remove());
+    expectedSource.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+      if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+    }));
+    const viewBox = preview?.getAttribute('viewBox').split(/\\s+/).map(Number);
+    return {
+      value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')),
+      corner: (hostElement.classList.contains('is-top') ? 'top' : 'bottom') + '-' + (hostElement.classList.contains('is-left') ? 'left' : 'right'),
+      bounds: { left: host.left, top: host.top, right: host.right, bottom: host.bottom },
+      viewBox,
+      exactSourceMarkup: clone?.innerHTML === expectedSource.innerHTML,
+      pointY: [Number(sourcePoint?.getAttribute('cy')), Number(clonePoint?.getAttribute('cy'))],
+      lineY: [Number(sourceLine?.getAttribute('y1')), Number(cloneLine?.getAttribute('y1'))]
+    };
   })()`);
-  assert.equal(previewMoved.value, 20, `${width}x${height} touch: preview reaches and reports the +20 m endpoint`);
-  assert.equal(previewMoved.corner, previewStart.corner, `${width}x${height} touch: preview remains in its initially chosen far corner`);
-  assert.deepEqual(previewMoved.bounds, { left: previewStart.bounds.left, top: previewStart.bounds.top, right: previewStart.bounds.right, bottom: previewStart.bounds.bottom }, `${width}x${height} touch: preview position does not jump while the finger moves`);
-  assert.equal(previewMoved.pointInside, true, `${width}x${height} touch: +20 m mini-preview point is not clipped`);
-  assert.match(previewMoved.text, new RegExp(`x = ${previewMoved.value > 0 ? "\\+" : previewMoved.value < 0 ? "−" : ""}${Math.abs(previewMoved.value).toFixed(1)} m`), `${width}x${height} touch: preview text follows the live x0 value`);
+  assert.equal(previewMoved.value, 20, `${width}x${height} touch: source graph reaches the +20 m endpoint`);
+  assert.equal(previewMoved.corner, previewStart.corner, `${width}x${height} touch: magnifier remains in its initially chosen far corner`);
+  assert.deepEqual(previewMoved.bounds, { left: previewStart.bounds.left, top: previewStart.bounds.top, right: previewStart.bounds.right, bottom: previewStart.bounds.bottom }, `${width}x${height} touch: magnifier position does not jump while the finger moves`);
+  assert.deepEqual(previewMoved.viewBox, [0, 0, 280, 180], `${width}x${height} touch: magnifier crop follows P0 to the +20 m graph boundary`);
+  assert.equal(previewMoved.exactSourceMarkup, true, `${width}x${height} touch: moved magnifier remains an exact independently sanitized live-source clone`);
+  assert.deepEqual(previewMoved.pointY, [60, 60], `${width}x${height} touch: magnifier clones the live +20 m handle geometry`);
+  assert.deepEqual(previewMoved.lineY, [60, 60], `${width}x${height} touch: magnifier clones the live +20 m answer-line endpoint`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.axisBottomY, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(50);
   const previewBottom = await evaluate(cdp, `(() => {
-    const preview = document.querySelector('.graph-touch-preview');
-    const mini = document.querySelector('.graph-touch-preview-mini').getBoundingClientRect();
-    const point = document.querySelector('.graph-touch-preview-point').getBoundingClientRect();
-    return { value: Number(preview?.dataset.previewValue), pointInside: point.top >= mini.top - 1 && point.bottom <= mini.bottom + 1 };
+    const preview = document.querySelector('.graph-magnifier');
+    const point = preview?.querySelector('[data-graph-point="P0"] .graph-handle');
+    return {
+      value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')),
+      viewBox: preview?.getAttribute('viewBox').split(/\\s+/).map(Number),
+      pointY: Number(point?.getAttribute('cy'))
+    };
   })()`);
-  assert.equal(previewBottom.value, -20, `${width}x${height} touch: preview reaches and reports the −20 m endpoint`);
-  assert.equal(previewBottom.pointInside, true, `${width}x${height} touch: −20 m mini-preview point is not clipped`);
+  assert.equal(previewBottom.value, -20, `${width}x${height} touch: source graph reaches the −20 m endpoint`);
+  assert.deepEqual(previewBottom.viewBox, [0, 260, 280, 180], `${width}x${height} touch: magnifier crop follows P0 to the −20 m graph boundary without clipping`);
+  assert.equal(previewBottom.pointY, 390, `${width}x${height} touch: magnifier clone contains the live −20 m handle`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(100);
   const graphAfter = await evaluate(cdp, `({
     value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')),
     other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
+    saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
     upper: document.getElementById('labUpperScroll').scrollTop,
-    preview: Boolean(document.querySelector('.graph-touch-preview'))
+    preview: Boolean(document.querySelector('.graph-magnifier'))
   })`);
   assert.notEqual(graphAfter.value, graphDrag.start, `${width}x${height} touch: graph-point drag changes that point`);
   assert.equal(graphAfter.other, graphDrag.other, `${width}x${height} touch: graph-point drag leaves the other point unchanged`);
+  assert.equal(graphAfter.saves, graphDrag.saves + 1, `${width}x${height} touch: completed graph drag writes exactly one SCORM draft`);
   assert.equal(graphAfter.upper, graphDrag.upper, `${width}x${height} touch: graph-point drag does not pan its background`);
-  assert.equal(graphAfter.preview, false, `${width}x${height} touch: pointer up hides the x0 preview`);
+  assert.equal(graphAfter.preview, false, `${width}x${height} touch: pointer up hides the x0 magnifier`);
 
   const cancelSetup = await evaluate(cdp, `(() => {
     const handle = document.querySelector('[data-drag="graph:xEnd"]');
@@ -669,32 +721,39 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(50);
   const cancelPreviewStart = await evaluate(cdp, `(() => {
-    const preview = document.querySelector('.graph-touch-preview');
-    const bounds = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
-    return { point: preview?.dataset.previewPoint, corner: preview?.dataset.previewCorner, text: preview?.textContent, bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom } };
+    const preview = document.querySelector('.graph-magnifier');
+    const host = document.getElementById('graphTouchPreviewHost');
+    const bounds = host.getBoundingClientRect();
+    const point = preview?.querySelector('[data-graph-point="P6"] .graph-handle');
+    return {
+      viewBox: preview?.getAttribute('viewBox').split(/\\s+/).map(Number),
+      pointX: Number(point?.getAttribute('cx')),
+      corner: (host.classList.contains('is-top') ? 'top' : 'bottom') + '-' + (host.classList.contains('is-left') ? 'left' : 'right'),
+      bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom }
+    };
   })()`);
-  assert.equal(cancelPreviewStart.point, "P6", `${width}x${height} touch: x6 drag preview identifies P6/x6`);
-  assert.match(cancelPreviewStart.text, /P₆（x₆） · t = 6 s/, `${width}x${height} touch: x6 preview labels its endpoint and time`);
-  assert.equal(cancelPreviewStart.corner, cancelSetup.expectedCorner, `${width}x${height} touch: x6 preview uses the far corner from its drag-start`);
+  assert.deepEqual(cancelPreviewStart.viewBox.slice(0, 1), [520], `${width}x${height} touch: x6 magnifier crops the real graph at its right endpoint`);
+  assert.equal(cancelPreviewStart.pointX, 760, `${width}x${height} touch: x6 magnifier contains the original P6 handle geometry`);
+  assert.equal(cancelPreviewStart.corner, cancelSetup.expectedCorner, `${width}x${height} touch: x6 magnifier uses the far corner from its drag-start`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y + 45, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(50);
   const cancelPreviewMoved = await evaluate(cdp, `(() => {
-    const preview = document.querySelector('.graph-touch-preview');
-    const bounds = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
-    return { corner: preview?.dataset.previewCorner, bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom } };
+    const host = document.getElementById('graphTouchPreviewHost');
+    const bounds = host.getBoundingClientRect();
+    return { corner: (host.classList.contains('is-top') ? 'top' : 'bottom') + '-' + (host.classList.contains('is-left') ? 'left' : 'right'), bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom } };
   })()`);
-  assert.equal(cancelPreviewMoved.corner, cancelPreviewStart.corner, `${width}x${height} touch: x6 preview keeps its selected corner`);
-  assert.deepEqual(cancelPreviewMoved.bounds, cancelPreviewStart.bounds, `${width}x${height} touch: x6 preview remains spatially stable`);
+  assert.equal(cancelPreviewMoved.corner, cancelPreviewStart.corner, `${width}x${height} touch: x6 magnifier keeps its selected corner`);
+  assert.deepEqual(cancelPreviewMoved.bounds, cancelPreviewStart.bounds, `${width}x${height} touch: x6 magnifier remains spatially stable`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
   await delay(100);
   const cancelled = await evaluate(cdp, `({
     value: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
     saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
-    preview: Boolean(document.querySelector('.graph-touch-preview'))
+    preview: Boolean(document.querySelector('.graph-magnifier'))
   })`);
   assert.notEqual(cancelled.value, cancelSetup.start, `${width}x${height} touch: cancelled graph drag retains its last visible point value`);
-  assert.ok(cancelled.saves > cancelSetup.saves, `${width}x${height} touch: cancelled graph drag persists its last visible state`);
-  assert.equal(cancelled.preview, false, `${width}x${height} touch: pointer cancel hides the x6 preview`);
+  assert.equal(cancelled.saves, cancelSetup.saves + 1, `${width}x${height} touch: cancelled graph drag persists its last visible state exactly once`);
+  assert.equal(cancelled.preview, false, `${width}x${height} touch: pointer cancel hides the x6 magnifier`);
 
   const tapSetup = await evaluate(cdp, `(() => {
     const handle = document.querySelector('[data-drag="graph:xStart"]');
@@ -714,10 +773,10 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await delay(30);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(80);
-  const tapped = await evaluate(cdp, `({ value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length, preview: Boolean(document.querySelector('.graph-touch-preview')) })`);
+  const tapped = await evaluate(cdp, `({ value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length, preview: Boolean(document.querySelector('.graph-magnifier')) })`);
   assert.equal(tapped.value, tapSetup.value, `${width}x${height} touch: tap-only at an enlarged-target edge does not jump x0`);
   assert.equal(tapped.saves, tapSetup.saves, `${width}x${height} touch: tap-only graph interaction does not save or commit`);
-  assert.equal(tapped.preview, false, `${width}x${height} touch: tap-only release clears preview`);
+  assert.equal(tapped.preview, false, `${width}x${height} touch: tap-only release clears magnifier`);
 
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tapSetup.x, y: tapSetup.y, id: 8, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(30);
@@ -741,9 +800,9 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await delay(30);
   const lost = await evaluate(cdp, `(() => {
     document.getElementById('graphSvg').dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: window.__positionTimePointerId, pointerType: 'touch' }));
-    return { preview: Boolean(document.querySelector('.graph-touch-preview')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+    return { preview: Boolean(document.querySelector('.graph-magnifier')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
   })()`);
-  assert.equal(lost.preview, false, `${width}x${height} touch: lost pointer capture clears preview`);
+  assert.equal(lost.preview, false, `${width}x${height} touch: lost pointer capture clears magnifier`);
   assert.equal(lost.saves, lostSetup.saves, `${width}x${height} touch: lost capture before movement does not save`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(60);
@@ -759,16 +818,16 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   })()`);
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: mouseSetup.x, y: mouseSetup.y });
   await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: mouseSetup.x, y: mouseSetup.y, button: "left", buttons: 1, clickCount: 1 });
-  assert.equal(await evaluate(cdp, `Boolean(document.querySelector('.graph-touch-preview'))`), false, `${width}x${height} mouse: graph drag does not show a touch preview`);
+  assert.equal(await evaluate(cdp, `Boolean(document.querySelector('.graph-magnifier'))`), false, `${width}x${height} mouse: graph drag does not show a touch magnifier`);
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: mouseSetup.x, y: mouseSetup.y, button: "left", buttons: 0, clickCount: 1 });
 
   const keyboardPreview = await evaluate(cdp, `(() => {
     const handle = document.querySelector('[data-drag="graph:xStart"]');
     handle.focus();
     handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-    return Boolean(document.querySelector('.graph-touch-preview'));
+    return Boolean(document.querySelector('.graph-magnifier'));
   })()`);
-  assert.equal(keyboardPreview, false, `${width}x${height} keyboard: endpoint adjustment does not show a touch preview`);
+  assert.equal(keyboardPreview, false, `${width}x${height} keyboard: endpoint adjustment does not show a touch magnifier`);
 
   const bottoms = await evaluate(cdp, `(() => {
     const upper = document.getElementById('labUpperScroll');
@@ -868,21 +927,26 @@ async function runEmbeddedScrollViewport(cdp, baseUrl, activityPath, width, heig
     await delay(50);
     const embeddedPreview = await evaluate(cdp, `(() => {
       const inner = document.getElementById('activity').contentDocument;
-      const preview = inner.querySelector('.graph-touch-preview');
+      const preview = inner.querySelector('.graph-magnifier');
+      const source = inner.getElementById('graphLayer');
+      const clone = preview?.querySelector('.graph-magnifier-source');
       const bounds = inner.getElementById('graphTouchPreviewHost').getBoundingClientRect();
       return {
-        point: preview?.dataset.previewPoint,
+        exists: Boolean(preview),
+        viewBox: preview?.getAttribute('viewBox').split(/\\s+/).map(Number),
         width: bounds.width,
         height: bounds.height,
-        titleFont: parseFloat(inner.defaultView.getComputedStyle(inner.querySelector('.graph-touch-preview-title')).fontSize),
-        valueFont: parseFloat(inner.defaultView.getComputedStyle(inner.querySelector('.graph-touch-preview-value')).fontSize),
+        sameText: clone?.textContent === source.textContent,
+        interactions: clone?.querySelectorAll('[data-drag], [tabindex], [role], [aria-label]').length,
         outer: window.scrollY
       };
     })()`);
-    assert.equal(embeddedPreview.point, endpoint === "xStart" ? "P0" : "P6", `${width}x${height} embedded touch: ${endpoint} preview identifies its endpoint`);
-    assert.ok(embeddedPreview.width >= 160 && embeddedPreview.height >= 96, `${width}x${height} embedded touch: preview retains readable CSS dimensions inside iframe`);
-    assert.ok(embeddedPreview.titleFont >= 13 && embeddedPreview.valueFont >= 15, `${width}x${height} embedded touch: preview text remains readable inside iframe`);
-    assert.equal(embeddedPreview.outer, drag.outerBefore, `${width}x${height} embedded touch: showing preview does not scroll the Moodle-like page`);
+    assert.equal(embeddedPreview.exists, true, `${width}x${height} embedded touch: ${endpoint} shows a real graph magnifier`);
+    assert.equal(embeddedPreview.viewBox[0], endpoint === "xStart" ? 0 : 520, `${width}x${height} embedded touch: ${endpoint} magnifier crops the correct source-graph edge`);
+    assert.ok(embeddedPreview.width >= 160 && embeddedPreview.height >= 100, `${width}x${height} embedded touch: magnifier retains readable CSS dimensions inside iframe`);
+    assert.equal(embeddedPreview.sameText, true, `${width}x${height} embedded touch: magnifier adds no content beyond the source graph`);
+    assert.equal(embeddedPreview.interactions, 0, `${width}x${height} embedded touch: magnifier clone has no interactions or duplicate ARIA`);
+    assert.equal(embeddedPreview.outer, drag.outerBefore, `${width}x${height} embedded touch: showing magnifier does not scroll the Moodle-like page`);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: drag.x, y: drag.y + 40, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
     await delay(50);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
@@ -893,14 +957,14 @@ async function runEmbeddedScrollViewport(cdp, baseUrl, activityPath, width, heig
         value: Number(inner.querySelector('[data-drag="graph:${endpoint}"]').getAttribute('aria-valuenow')),
         outer: window.scrollY,
         upper: inner.getElementById('labUpperScroll').scrollTop,
-        preview: Boolean(inner.querySelector('.graph-touch-preview'))
+        preview: Boolean(inner.querySelector('.graph-magnifier'))
       };
     })()`);
     const label = endpoint === "xStart" ? "x0" : "x6";
     assert.notEqual(dragged.value, drag.value, `${width}x${height} embedded touch: dragging ${label} changes that graph point`);
     assert.equal(dragged.outer, drag.outerBefore, `${width}x${height} embedded touch: dragging ${label} does not scroll the Moodle-like outer page`);
     assert.equal(dragged.upper, drag.upperBefore, `${width}x${height} embedded touch: dragging ${label} does not move the fixed visual region`);
-    assert.equal(dragged.preview, false, `${width}x${height} embedded touch: releasing ${label} clears its preview`);
+    assert.equal(dragged.preview, false, `${width}x${height} embedded touch: releasing ${label} clears its magnifier`);
   }
   return `${width}x${height} embedded outer-page scrolling with isolated x0/x6 graph-point drags`;
 }

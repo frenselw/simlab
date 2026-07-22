@@ -513,16 +513,20 @@ x₀A + vA t = x₀B + vB t
 - 連線即時更新，但不得顯示「正確／錯誤」；
 - P₀／P₆ 的可觸控區使用實際 SVG 幾何，按 viewport 換算為至少 `52 × 52 CSS px`，
   不以透明粗 stroke 代替，亦不得因靠近圖邊而被裁成過小目標；
-- touch／pen 拖動期間以 graph block 內不隨 SVG 縮放的 absolute HTML overlay，在初始手指
-  位置最遠的圖表角落顯示固定 preview；其寬度約 `min(42vw, 11rem)`，文字保持至少
-  `13–15 CSS px`，內容包括正在調整的 P₀／P₆、固定時間、即時 `x` 值、十字線及放大點；
-  整次 gesture 不跟隨手指轉換角落，亦不得改變 graph／stage layout 或 scroll height；
-- 被拖圖點在原圖加強 highlight；preview 使用 `pointer-events: none`，只屬暫時 UI，
+- touch／pen 拖動期間以 graph block 內不隨 source SVG 縮放的 absolute overlay，在初始手指
+  位置最遠的圖表角落顯示固定 magnifier；magnifier 必須直接複製當前 `graphLayer` 的真實
+  可見內容，再以跟隨被拖 P₀／P₆ 實際圖上位置的 SVG `viewBox` 作放大裁切；grid、axis、
+  原有圖線、手柄及原有標籤只按裁切範圍自然出現，不可另畫 mini graph；
+- magnifier 不可加入 title、數值 readout、十字線、額外座標軸、說明文字或原圖沒有的符號／
+  物理量；clone 必須移除 drag hit、`data-drag`、focus target 及重複 ARIA，並排除 overlay
+  自身以避免遞歸；其寬度約 `min(52vw, 11.5rem)`，整次 gesture 不跟隨手指轉換角落，亦
+  不得改變 graph／stage layout 或 scroll height；
+- 被拖圖點在原圖加強 highlight；magnifier 使用 `pointer-events: none`，只屬暫時 UI，
   `pointerup`、`pointercancel` 或失去 capture 後立即消失，且不寫入 persistence／SCORM；
 - 擴大 hit area 不得令圖點跳到手指中心；pointerdown 記錄垂直 grab offset，第一個 move
   保持相對拖動路徑，只有 tap 而沒有 pointermove 時不得改值或保存；active drag 亦不得被
   第二觸點接管；
-- mouse／keyboard 保持原有直接操作及 focus 行為，不顯示 touch preview；
+- mouse／keyboard 保持原有直接操作及 focus 行為，不顯示 touch magnifier；
 - 手柄具有不同形狀及 `P₀`、`P₆` 標籤，不能只以顏色區分。
 
 ### 11.4 鍵盤及非拖動替代
@@ -1038,10 +1042,12 @@ score(original) = score(restore(decode(encode(original))))
 - 上方視覺區在任何時候都不可捲動，拖圖點、探針、車或箭嘴時背景必須固定；
 - 由可拖控制開始的 `touchstart`／`touchmove` 必須攔截外層捲動，避免 X₀、X₆ 等控制點
   與 Moodle 頁面同時移動；
-- 390 × 500 iframe 內逐一驗證 P₀／P₆：兩者實際 hit geometry 不小於目標尺寸、拖動時
-  Moodle 外層不捲、preview 實際 CSS bbox／font size、label／value、遠角位置及 layout
-  invariants 正確，`±20 m` 極值不被裁切，並在 up／cancel／lost capture 後隱藏；
-- mouse／keyboard 調整 P₀／P₆ 不顯示 touch-only preview；
+- 320 × 700 及 390 × 500 iframe 內逐一驗證 P₀／P₆：兩者實際 hit geometry 不小於目標
+  尺寸、拖動時 Moodle 外層不捲、magnifier CSS bbox／遠角位置及 layout invariants 正確；
+  clone 的 grid、answer line、selected handle geometry 及文字內容必須來自同一 source graph，
+  crop `viewBox` 要跟隨即時圖點並涵蓋 `±20 m` 極值，且不得含額外 summary UI、focus、
+  drag target 或重複 ARIA；up／cancel／lost capture 後隱藏；
+- mouse／keyboard 調整 P₀／P₆ 不顯示 touch-only magnifier；
 - 在非互動圖面開始的垂直手勢不得移動上方視覺區或控制面板，但必須保留 `pan-y`，
   讓 Moodle／瀏覽器外層頁面仍可正常上下捲動；
 - 播放期間物理設定鎖定；
@@ -1223,7 +1229,7 @@ score(original) = score(restore(decode(encode(original))))
 - §11.4 描述每條目標／未知線各有可聚焦讀圖游標；目前以一個全局、鍵盤可操作的時間 slider
   同步讀出所有可見圖線，而不是每條線各自建立 focus target。
 
-以上兩項記錄為已知 as-built 差異；任務 2 的 P₀／P₆ touch／pen 固定角落 preview 已按
+以上兩項記錄為已知 as-built 差異；任務 2 的 P₀／P₆ touch／pen 固定角落真實 graph magnifier 已按
 §11.3 實作及加入 interaction tests。其餘差異不應在沒有新產品決定及 interaction tests 的情況下被視為
 緊急 defect 或靜默刪除原要求。
 

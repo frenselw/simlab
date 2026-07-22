@@ -8,6 +8,7 @@
   const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
+  const GRAPH_MAGNIFIER = { width: 280, height: 180 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
   const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
@@ -591,21 +592,31 @@
     const size = radius * 2;
     return { radius, size, x: clamp(pointX - radius, 0, 800 - size), y: clamp(pointY - radius, 0, GRAPH.compactHeight - size) };
   }
-  function graphTouchPreview() {
-    if (!ui.drag?.preview || !ui.drag.kind.startsWith("graph:")) return "";
-    const name = ui.drag.kind.split(":")[1];
-    const pointIndex = name === "xStart" ? 0 : 6;
-    const subscript = pointIndex === 0 ? "₀" : "₆";
-    const position = currentAnswer()?.[name] ?? 0;
-    const preview = ui.drag.preview;
-    const pointPercent = (S.LIMITS.positionMax - position) / (S.LIMITS.positionMax - S.LIMITS.positionMin) * 100;
-    return `<div class="graph-touch-preview" data-preview-point="P${pointIndex}" data-preview-corner="${preview.vertical}-${preview.horizontal}" data-preview-value="${position}"><div class="graph-touch-preview-title">P${subscript}（x${subscript}） · t = ${pointIndex} s</div><div class="graph-touch-preview-body"><div class="graph-touch-preview-mini" style="--preview-point-y:${pointPercent}%"><span class="graph-touch-preview-point"></span></div><strong class="graph-touch-preview-value">x = ${signed(position)} m</strong></div></div>`;
+  function graphMagnifierSource() {
+    return dom.graphLayer.innerHTML
+      .replace(/<(rect|circle)\b(?=[^>]*\bclass="[^"]*\bdrag-hit\b)[^>]*><\/\1>/gi, "")
+      .replace(/\s(?:id|data-drag|tabindex|role|focusable|aria-[\w-]+)="[^"]*"/gi, "");
+  }
+  function graphMagnifierViewBox(name, position) {
+    const focusX = graphX(name === "xStart" ? 0 : 6);
+    const focusY = graphY(position);
+    const sourceHeight = Number(dom.graphSvg.getAttribute("viewBox")?.split(/\s+/)[3]) || GRAPH.compactHeight;
+    const x = clamp(focusX - GRAPH_MAGNIFIER.width / 2, 0, 800 - GRAPH_MAGNIFIER.width);
+    const y = clamp(focusY - GRAPH_MAGNIFIER.height / 2, 0, sourceHeight - GRAPH_MAGNIFIER.height);
+    return `${x} ${y} ${GRAPH_MAGNIFIER.width} ${GRAPH_MAGNIFIER.height}`;
   }
   function renderGraphTouchPreview() {
     const preview = ui.drag?.preview;
     dom.graphTouchPreviewHost.hidden = !preview;
-    dom.graphTouchPreviewHost.className = `graph-touch-preview-host${preview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
-    dom.graphTouchPreviewHost.innerHTML = preview ? graphTouchPreview() : "";
+    dom.graphTouchPreviewHost.className = `graph-magnifier-host${preview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
+    if (!preview || !ui.drag.kind.startsWith("graph:")) {
+      dom.graphTouchPreviewHost.innerHTML = "";
+      return;
+    }
+    const name = ui.drag.kind.split(":")[1];
+    const position = currentAnswer()?.[name] ?? 0;
+    const viewBox = graphMagnifierViewBox(name, position);
+    dom.graphTouchPreviewHost.innerHTML = `<svg class="graph-magnifier" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g class="graph-magnifier-source">${graphMagnifierSource()}</g></svg>`;
   }
   function clearGraphDragTransient() {
     document.querySelectorAll(".graph-point").forEach((point) => point.classList.toggle("is-dragging", false));
