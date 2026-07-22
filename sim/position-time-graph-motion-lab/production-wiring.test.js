@@ -188,7 +188,7 @@ class FakeDocument {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 
-const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
+const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
 const document = new FakeDocument(ids);
 let submitCalls = 0;
 let finishCalls = 0;
@@ -229,12 +229,22 @@ assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG cr
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
 assert.match(indexSource, /id="labUpperScroll"[\s\S]*<header class="sim-header compact-header">[\s\S]*<section class="sim-stage lab-stage"/, "mobile upper scroller owns the header and complete stage as one region");
+assert.match(indexSource, /<div id="graphTouchPreviewHost" class="graph-touch-preview-host" aria-hidden="true" hidden><\/div>/, "touch preview uses an HTML overlay outside the scale-sensitive graph SVG");
 assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44vh\) minmax\(0, 1fr\)/s, "mobile shell reserves the remaining viewport height for the control panel");
 assert.match(stylesSource, /@supports \(height: 100dvh\)[\s\S]*\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44dvh\) minmax\(0, 1fr\)/s, "mobile shell follows the dynamic viewport height when supported");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
-assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*overflow-y:\s*auto/s, "header and stage share the upper scroll owner");
-assert.match(stylesSource, /\.lab-upper-scroll\.is-dragging\s*\{[^}]*overflow-y:\s*hidden/s, "active direct manipulation locks upper-region panning");
-assert.match(stylesSource, /\.lab-stage\s*\{[^}]*overflow:\s*visible/s, "stage itself is not a nested scroll container");
+assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*overflow:\s*hidden/s, "mobile visual region is fixed instead of becoming a scroll container");
+assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*touch-action:\s*pan-y/s, "blank visual-region swipes remain available to the embedding page");
+assert.match(source, /addEventListener\("touchstart", preventDragTouchScroll, \{ passive: false \}\)/, "drag handles synchronously claim touch gestures before the embedding page can scroll");
+assert.match(source, /addEventListener\("touchmove", preventDragTouchScroll, \{ passive: false \}\)/, "active graph-point drags continue suppressing embedding-page scrolling");
+assert.match(source, /R\.hitRadius\(800, graphRenderedWidth\(\), 26, 52\)/, "graph endpoints request viewport-aware 52 CSS px targets using the rendered SVG scale");
+assert.match(source, /<rect class="drag-hit graph-drag-hit"/, "graph endpoint target uses real SVG area instead of a transparent-stroke-only circle");
+assert.match(stylesSource, /\.graph-drag-hit\s*\{[^}]*stroke-width:\s*0/s, "graph endpoint target size does not depend on transparent stroke width");
+assert.match(stylesSource, /\.graph-touch-preview\s*\{[^}]*pointer-events:\s*none/s, "touch preview cannot intercept dragging or outer-page gestures");
+assert.match(stylesSource, /\.graph-touch-preview-host\s*\{[^}]*position:\s*absolute[^}]*width:\s*min\(42vw, 11rem\)[^}]*pointer-events:\s*none/s, "preview overlay has readable CSS dimensions without changing graph layout");
+assert.match(stylesSource, /\.graph-block\s*\{[^}]*position:\s*relative/s, "preview overlay is positioned against the graph block rather than the whole stage");
+assert.match(stylesSource, /@media \(max-width: 819px\)[\s\S]*\.lab-stage\s*\{[^}]*grid-template-rows:\s*minmax\(0, 145fr\) minmax\(0, 440fr\)/s, "mobile road and graph scale into the fixed visual region");
+assert.match(stylesSource, /\.lab-stage\s*\{[^}]*overflow:\s*hidden/s, "stage cannot create a nested scroll container");
 assert.match(stylesSource, /@media \(max-width: 420px\)[\s\S]*\.phase-badge\s*\{\s*display:\s*none/s, "phone header hides the duplicate phase badge while the panel retains its task state");
 assert.doesNotMatch(source, /window\.scrollTo/, "mission changes manage the owned scroll regions instead of the embedding window");
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
@@ -327,9 +337,7 @@ for (const initialVelocity of [0, 0.5, -0.5]) {
   const velocityVisual = initialVelocity === 0 ? 'class="velocity-zero-marker"' : 'class="velocity-arrowhead"';
   assert.ok(hit.layer.innerHTML.indexOf(velocityVisual) > hit.layer.innerHTML.indexOf('data-drag="car:A"'), `v=${initialVelocity} velocity visual is above the car`);
   document.getElementById("roadSvg").dispatch("pointerdown", { target: hit.velocity, pointerId: 7, clientX: hit.x, clientY: hit.y });
-  assert.match(document.getElementById("labUpperScroll").className, /(?:^|\s)is-dragging(?:\s|$)/, `v=${initialVelocity} active handle drag locks the upper scroller`);
   document.getElementById("roadSvg").dispatch("pointerup", { pointerId: 7, clientX: hit.x + 24, clientY: hit.y });
-  assert.doesNotMatch(document.getElementById("labUpperScroll").className, /(?:^|\s)is-dragging(?:\s|$)/, `v=${initialVelocity} releasing the handle restores upper scrolling`);
   assert.equal(Number(quantity("velocity").value), initialVelocity + 0.5, `v=${initialVelocity} pointer drag changes velocity`);
   assert.equal(quantity("x0").value, beforeX, `v=${initialVelocity} velocity drag does not change x0`);
 }
@@ -436,6 +444,43 @@ assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="motio
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="axis-label vertical-axis-label" x="80" y="35" text-anchor="middle">x / m</text>'), "graph centers the vertical-axis title above the axis");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('class="tick-label horizontal-tick"'), "graph identifies horizontal ticks for responsive spacing");
 assert.ok(document.getElementById("graphLayer").innerHTML.includes('y="424"'), "graph leaves space between the horizontal axis and its tick labels");
+const graphStartHandle = one('[data-drag="graph:xStart"]');
+assert.ok(Number(graphStartHandle.getAttribute("width")) >= 52, "mission 2 x0 handle has a real 52px-or-larger SVG hit geometry at 1:1 rendering");
+assert.ok(Number(graphStartHandle.getAttribute("height")) >= 52, "mission 2 x0 handle hit geometry is large in both axes");
+const graphEndHandle = one('[data-drag="graph:xEnd"]');
+document.getElementById("graphSvg").dispatch("pointerdown", { target: graphStartHandle, pointerId: 20, pointerType: "touch", isPrimary: true, clientX: 80, clientY: 225 });
+document.getElementById("graphSvg").dispatch("pointerdown", { target: graphEndHandle, pointerId: 21, pointerType: "touch", isPrimary: false, clientX: 760, clientY: 225 });
+assert.ok(document.getElementById("graphTouchPreviewHost").innerHTML.includes('data-preview-point="P0"'), "secondary pointer cannot replace the active P0 preview with P6");
+assert.match(one('[data-graph-point="P0"]').className, /is-dragging/, "first pointer keeps ownership of the P0 highlight");
+assert.doesNotMatch(one('[data-graph-point="P6"]').className, /is-dragging/, "secondary pointer cannot highlight P6 during an active P0 drag");
+document.getElementById("graphSvg").dispatch("pointercancel", { pointerId: 20, pointerType: "touch" });
+assert.ok(document.querySelectorAll(".graph-point").every((point) => !point.className.includes("is-dragging")), "active-pointer cleanup removes every endpoint highlight");
+document.getElementById("graphSvg").dispatch("pointerdown", { target: graphStartHandle, pointerId: 11, pointerType: "touch", clientX: 80, clientY: 225 });
+assert.ok(document.getElementById("graphTouchPreviewHost").innerHTML.includes('class="graph-touch-preview"'), "touch graph drag immediately shows its preview");
+assert.ok(document.getElementById("graphTouchPreviewHost").innerHTML.includes('data-preview-point="P0"'), "touch preview identifies the selected x0 endpoint");
+assert.match(one('[data-graph-point="P0"]').className, /is-dragging/, "selected endpoint is highlighted during touch drag");
+document.getElementById("graphSvg").dispatch("pointercancel", { pointerId: 11, pointerType: "touch" });
+assert.equal(document.getElementById("graphTouchPreviewHost").children.length, 0, "pointer cancel hides a touch preview even before movement");
+const tapHandle = one('[data-drag="graph:xStart"]');
+const tapSaves = savedDrafts.length;
+const tapValue = tapHandle.getAttribute("aria-valuenow");
+document.getElementById("graphSvg").dispatch("pointerdown", { target: tapHandle, pointerId: 13, pointerType: "touch", clientX: 80, clientY: 200 });
+document.getElementById("graphSvg").dispatch("pointerup", { pointerId: 13, pointerType: "touch", clientX: 80, clientY: 200 });
+assert.equal(one('[data-drag="graph:xStart"]').getAttribute("aria-valuenow"), tapValue, "tap-only at the enlarged hit-area edge does not move x0");
+assert.equal(savedDrafts.length, tapSaves, "tap-only graph interaction does not create a SCORM draft save");
+const relativeHandle = one('[data-drag="graph:xStart"]');
+document.getElementById("graphSvg").dispatch("pointerdown", { target: relativeHandle, pointerId: 14, pointerType: "touch", clientX: 80, clientY: 200 });
+document.getElementById("graphSvg").dispatch("pointermove", { pointerId: 14, pointerType: "touch", clientX: 80, clientY: 200 });
+assert.equal(relativeHandle.getAttribute("aria-valuenow"), tapValue, "first move at an edge grab preserves the graph point's relative path without jumping to the finger centre");
+document.getElementById("graphSvg").dispatch("pointercancel", { pointerId: 14, pointerType: "touch", clientX: 80, clientY: 200 });
+const captureHandle = one('[data-drag="graph:xEnd"]');
+document.getElementById("graphSvg").dispatch("pointerdown", { target: captureHandle, pointerId: 15, pointerType: "touch", clientX: 760, clientY: 225 });
+document.getElementById("graphSvg").dispatch("lostpointercapture", { pointerId: 15, pointerType: "touch" });
+assert.equal(document.getElementById("graphTouchPreviewHost").children.length, 0, "lost pointer capture clears the touch preview");
+const mouseGraphHandle = one('[data-drag="graph:xStart"]');
+document.getElementById("graphSvg").dispatch("pointerdown", { target: mouseGraphHandle, pointerId: 12, pointerType: "mouse", clientX: 80, clientY: 225 });
+assert.equal(document.getElementById("graphTouchPreviewHost").children.length, 0, "mouse graph drag does not show the touch-only preview");
+document.getElementById("graphSvg").dispatch("pointercancel", { pointerId: 12, pointerType: "mouse" });
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
 const guideAfterStep = missionTwoRoad.innerHTML.match(/class="position-guide" x1="([\d.]+)"/);

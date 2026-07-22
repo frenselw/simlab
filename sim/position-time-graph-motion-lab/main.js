@@ -9,7 +9,7 @@
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -52,6 +52,10 @@
   function roadX(position) { return ROAD.left + (position - S.LIMITS.positionMin) / 40 * (ROAD.right - ROAD.left); }
   function graphX(time) { return GRAPH.left + time / 6 * (GRAPH.right - GRAPH.left); }
   function graphY(position) { return GRAPH.bottom - (position - S.LIMITS.positionMin) / 40 * (GRAPH.bottom - GRAPH.top); }
+  function graphRenderedWidth() {
+    const scale = Math.abs(Number(dom.graphSvg.getScreenCTM?.()?.a));
+    return scale > 0 ? scale * 800 : dom.graphSvg.clientWidth;
+  }
   function clientPoint(svg, event) {
     const point = svg.createSVGPoint();
     point.x = event.clientX;
@@ -124,6 +128,7 @@
     renderTask();
     renderControls();
     renderDynamic();
+    renderGraphTouchPreview();
     renderNavigation();
     renderResult();
     R.restoreFocus(document, focusKey);
@@ -541,7 +546,7 @@
       visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]);
     } else if (context.step === 1) {
       const answer = context.answer;
-      html += `<line class="motion-line student-line" x1="${graphX(0)}" y1="${graphY(answer.xStart ?? 0)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd ?? 0)}"></line>`;
+      html += `<line class="motion-line student-line" data-graph-answer-line x1="${graphX(0)}" y1="${graphY(answer.xStart ?? 0)}" x2="${graphX(6)}" y2="${graphY(answer.xEnd ?? 0)}"></line>`;
       if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6) + `<circle class="target-point" cx="${graphX(0)}" cy="${graphY(context.scenario.x0)}" r="8"></circle><circle class="target-point" cx="${graphX(6)}" cy="${graphY(S.positionAt(context.scenario, 6))}" r="8"></circle><text class="svg-label" x="${graphX(0) + 12}" y="${graphY(context.scenario.x0) - 12}">正確 ${svgPointSymbol(0)}</text><text class="svg-label" x="${graphX(6) - 76}" y="${graphY(S.positionAt(context.scenario, 6)) - 12}">正確 ${svgPointSymbol(6)}</text>`;
       html += graphHandle("xStart", 0, answer.xStart) + graphHandle("xEnd", 6, answer.xEnd);
       visibleReadings.push(["車的位置讀數", S.positionAt(context.scenario, ui.time)]);
@@ -574,8 +579,79 @@
     const position = value == null ? 0 : value;
     const pointIndex = time === 0 ? 0 : 6;
     const spokenLabel = pointIndex === 0 ? "x 零" : "x 六";
-    const hit = ui.locked ? "" : `<circle class="drag-hit" data-drag="graph:${name}" tabindex="0" role="slider" aria-label="${spokenLabel} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>`;
-    return `<g><circle class="graph-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="11"></circle>${hit}<text class="svg-label" x="${graphX(time) + (time === 0 ? 14 : -108)}" y="${graphY(position) - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : ` = ${signed(value)} <tspan class="svg-unit">m</tspan>`}</text></g>`;
+    const pointX = graphX(time);
+    const pointY = graphY(position);
+    const hitGeometry = graphHitGeometry(pointX, pointY);
+    const selected = ui.drag?.kind === `graph:${name}`;
+    const hit = ui.locked ? "" : `<rect class="drag-hit graph-drag-hit" data-drag="graph:${name}" data-point-cx="${pointX}" data-point-cy="${pointY}" tabindex="0" role="slider" aria-label="${spokenLabel} 位置 ${value == null ? "未設定" : signed(value)} 米" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="${position}" x="${hitGeometry.x}" y="${hitGeometry.y}" width="${hitGeometry.size}" height="${hitGeometry.size}" rx="${hitGeometry.radius * 0.45}"></rect>`;
+    return `<g class="graph-point${selected ? " is-dragging" : ""}" data-graph-point="P${pointIndex}"><circle class="graph-handle-highlight" cx="${pointX}" cy="${pointY}" r="18"></circle><circle class="graph-handle" cx="${pointX}" cy="${pointY}" r="11"></circle>${hit}<text class="svg-label" x="${pointX + (time === 0 ? 14 : -108)}" y="${pointY - 15}">${svgPointSymbol(pointIndex)}${value == null ? " ?" : ` = ${signed(value)} <tspan class="svg-unit">m</tspan>`}</text></g>`;
+  }
+  function graphHitGeometry(pointX, pointY) {
+    const radius = R.hitRadius(800, graphRenderedWidth(), 26, 52);
+    const size = radius * 2;
+    return { radius, size, x: clamp(pointX - radius, 0, 800 - size), y: clamp(pointY - radius, 0, GRAPH.compactHeight - size) };
+  }
+  function graphTouchPreview() {
+    if (!ui.drag?.preview || !ui.drag.kind.startsWith("graph:")) return "";
+    const name = ui.drag.kind.split(":")[1];
+    const pointIndex = name === "xStart" ? 0 : 6;
+    const subscript = pointIndex === 0 ? "₀" : "₆";
+    const position = currentAnswer()?.[name] ?? 0;
+    const preview = ui.drag.preview;
+    const pointPercent = (S.LIMITS.positionMax - position) / (S.LIMITS.positionMax - S.LIMITS.positionMin) * 100;
+    return `<div class="graph-touch-preview" data-preview-point="P${pointIndex}" data-preview-corner="${preview.vertical}-${preview.horizontal}" data-preview-value="${position}"><div class="graph-touch-preview-title">P${subscript}（x${subscript}） · t = ${pointIndex} s</div><div class="graph-touch-preview-body"><div class="graph-touch-preview-mini" style="--preview-point-y:${pointPercent}%"><span class="graph-touch-preview-point"></span></div><strong class="graph-touch-preview-value">x = ${signed(position)} m</strong></div></div>`;
+  }
+  function renderGraphTouchPreview() {
+    const preview = ui.drag?.preview;
+    dom.graphTouchPreviewHost.hidden = !preview;
+    dom.graphTouchPreviewHost.className = `graph-touch-preview-host${preview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
+    dom.graphTouchPreviewHost.innerHTML = preview ? graphTouchPreview() : "";
+  }
+  function clearGraphDragTransient() {
+    document.querySelectorAll(".graph-point").forEach((point) => point.classList.toggle("is-dragging", false));
+    renderGraphTouchPreview();
+  }
+  function updateGraphDragVisuals(name, position) {
+    const pointIndex = name === "xStart" ? 0 : 6;
+    const time = pointIndex;
+    const pointX = graphX(time);
+    const pointY = graphY(position);
+    const group = document.querySelector(`[data-graph-point="P${pointIndex}"]`);
+    const handle = group?.querySelector(".graph-handle");
+    const highlight = group?.querySelector(".graph-handle-highlight");
+    const hit = group?.querySelector(".graph-drag-hit");
+    const label = group?.querySelector(".svg-label");
+    for (const circle of [handle, highlight]) {
+      circle?.setAttribute("cx", pointX);
+      circle?.setAttribute("cy", pointY);
+    }
+    if (hit) {
+      const geometry = graphHitGeometry(pointX, pointY);
+      hit.dataset.pointCx = String(pointX);
+      hit.dataset.pointCy = String(pointY);
+      hit.setAttribute("aria-valuenow", position);
+      hit.setAttribute("aria-label", `${pointIndex === 0 ? "x 零" : "x 六"} 位置 ${signed(position)} 米`);
+      hit.setAttribute("x", geometry.x);
+      hit.setAttribute("y", geometry.y);
+      hit.setAttribute("width", geometry.size);
+      hit.setAttribute("height", geometry.size);
+      hit.setAttribute("rx", geometry.radius * 0.45);
+    }
+    if (label) {
+      label.setAttribute("x", pointX + (time === 0 ? 14 : -108));
+      label.setAttribute("y", pointY - 15);
+      label.innerHTML = `${svgPointSymbol(pointIndex)} = ${signed(position)} <tspan class="svg-unit">m</tspan>`;
+    }
+    const line = document.querySelector("[data-graph-answer-line]");
+    line?.setAttribute(name === "xStart" ? "y1" : "y2", pointY);
+    const quantity = document.querySelector(`[data-quantity="${name}"]`);
+    if (quantity) quantity.value = String(position);
+    const valueHtml = `${signed(position)} <span class="unit">m</span>`;
+    const headingValue = document.getElementById(`${name}Value`);
+    const stepperValue = document.getElementById(`${name}StepperValue`);
+    if (headingValue) headingValue.innerHTML = valueHtml;
+    if (stepperValue) stepperValue.innerHTML = valueHtml;
+    renderGraphTouchPreview();
   }
   function probeSvg(line, probes, motion) {
     return probes.map((time, index) => {
@@ -793,6 +869,7 @@
   function applyDrag(kind, point, persist, dragMeta = null) {
     if (!R.dragAllowed(kind, interactionContext())) return;
     const [type, line, rawIndex] = kind.split(":");
+    let graphPosition = null;
     if (type === "car") {
       const value = R.positionFromPointer(point.x, dragMeta?.grabOffset || 0, ROAD.left, ROAD.right, -20, 20, 1, -8, 8);
       updateDirectMotion("x0", value);
@@ -801,8 +878,9 @@
       const value = clamp(snap((point.x - roadX(motion.x0)) / 48, 0.5), -2, 2);
       updateDirectMotion("v", value);
     } else if (type === "graph") {
-      const position = clamp(snap(S.LIMITS.positionMin + (GRAPH.bottom - point.y) / (GRAPH.bottom - GRAPH.top) * 40, 1), -20, 20);
-      currentAnswer()[line] = position;
+      const adjustedY = point.y - (dragMeta?.grabOffsetY || 0);
+      graphPosition = clamp(snap(S.LIMITS.positionMin + (GRAPH.bottom - adjustedY) / (GRAPH.bottom - GRAPH.top) * 40, 1), -20, 20);
+      currentAnswer()[line] = graphPosition;
     } else if (type === "probe") {
       const max = line === "E" ? ui.time : 6;
       const time = clamp(snap((point.x - GRAPH.left) / (GRAPH.right - GRAPH.left) * 6, 0.5), 0, max);
@@ -811,6 +889,10 @@
       currentAnswer().faster = point.x < 365 ? "A" : point.x < 495 ? "B" : "same";
     } else return;
     ui.unsaved = true;
+    if (!persist && type === "graph" && ui.drag) {
+      updateGraphDragVisuals(line, graphPosition);
+      return;
+    }
     let saved = true;
     if (persist) saved = saveDraft();
     render();
@@ -831,14 +913,25 @@
     resetTime(state.phase === "explore");
   }
   function pointerDown(event) {
+    if (ui.drag || event.isPrimary === false) return;
     const target = event.target.closest("[data-drag]");
     if (!target || !R.dragAllowed(target.dataset.drag, interactionContext())) return;
     const type = target.dataset.drag.split(":")[0];
+    const graphName = type === "graph" ? target.dataset.drag.split(":")[1] : null;
     const point = clientPoint(event.currentTarget, event);
     const grabOffset = type === "car" ? point.x - roadX(directMotion().x0) : 0;
-    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset };
-    dom.labUpperScroll.classList.toggle("is-dragging", true);
+    const grabOffsetY = type === "graph" ? point.y - graphY(currentAnswer()?.[graphName] ?? 0) : 0;
+    const preview = type === "graph" && ["touch", "pen"].includes(event.pointerType) ? {
+      horizontal: point.x < (GRAPH.left + GRAPH.right) / 2 ? "right" : "left",
+      vertical: point.y < (GRAPH.top + GRAPH.bottom) / 2 ? "bottom" : "top"
+    } : null;
+    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset, grabOffsetY, preview };
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (preview) {
+      const pointIndex = target.dataset.drag.endsWith("xStart") ? 0 : 6;
+      document.querySelector(`[data-graph-point="P${pointIndex}"]`)?.classList.toggle("is-dragging", true);
+      renderGraphTouchPreview();
+    }
     event.preventDefault();
   }
   function pointerMove(event) {
@@ -851,15 +944,26 @@
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
     const drag = ui.drag;
     ui.drag = null;
-    dom.labUpperScroll.classList.toggle("is-dragging", false);
+    if (drag.kind.startsWith("graph:") && !drag.moved) {
+      clearGraphDragTransient();
+      event.preventDefault();
+      return;
+    }
     applyDrag(drag.kind, clientPoint(event.currentTarget, event), true, drag);
+    event.preventDefault();
   }
   function pointerCancel(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
     const moved = ui.drag.moved;
     ui.drag = null;
-    dom.labUpperScroll.classList.toggle("is-dragging", false);
     if (moved) saveAndAnnounce("中斷前的操作已儲存。");
+    else clearGraphDragTransient();
+    event.preventDefault();
+  }
+  function preventDragTouchScroll(event) {
+    const target = event.target.closest("[data-drag]");
+    const activeHere = ui.drag && ui.drag.svg === event.currentTarget;
+    if (activeHere || (target && R.dragAllowed(target.dataset.drag, interactionContext()))) event.preventDefault();
   }
   function dragKeydown(event) {
     const target = event.target.closest("[data-drag]");
@@ -927,6 +1031,8 @@
   }
 
   [dom.roadSvg, dom.graphSvg].forEach((svg) => {
+    svg.addEventListener("touchstart", preventDragTouchScroll, { passive: false });
+    svg.addEventListener("touchmove", preventDragTouchScroll, { passive: false });
     svg.addEventListener("pointerdown", pointerDown);
     svg.addEventListener("pointermove", pointerMove);
     svg.addEventListener("pointerup", pointerUp);

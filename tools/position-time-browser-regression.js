@@ -107,9 +107,25 @@ function resolvePackageFile(pathname, options = {}) {
 
 function createServer(packageRoot) {
   return http.createServer((request, response) => {
+    let requestUrl;
     let pathname;
-    try { pathname = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname); }
+    try {
+      requestUrl = new URL(request.url, "http://127.0.0.1");
+      pathname = decodeURIComponent(requestUrl.pathname);
+    }
     catch { response.writeHead(400).end("Bad request"); return; }
+    if (pathname === "/__embed-scroll-test.html") {
+      const src = requestUrl.searchParams.get("src") || "";
+      let srcPath;
+      try { srcPath = decodeURIComponent(new URL(src, "http://127.0.0.1").pathname); }
+      catch { response.writeHead(400).end("Bad iframe source"); return; }
+      const source = resolvePackageFile(srcPath, { packageRoot });
+      if (source.status !== 200 || path.extname(source.filePath) !== ".html") { response.writeHead(403).end("Forbidden"); return; }
+      const html = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0} .spacer{height:300px} iframe{display:block;width:100%;height:500px;border:0} .after{height:1200px}</style><div class="spacer"></div><iframe id="activity" title="embedded activity"></iframe><div class="after"></div><script>const values={"cmi.core.lesson_status":"not attempted"};window.API={LMSInitialize:()=>"true",LMSGetValue:(key)=>values[key]||"",LMSSetValue:(key,value)=>(values[key]=String(value),"true"),LMSCommit:()=>"true",LMSFinish:()=>"true",LMSGetLastError:()=>"0",LMSGetErrorString:()=>"No error",LMSGetDiagnostic:()=>""};document.getElementById("activity").src=${JSON.stringify(src)};<\/script>`;
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      response.end(html);
+      return;
+    }
     let resolved;
     try { resolved = resolvePackageFile(pathname, { packageRoot }); }
     catch { response.writeHead(500).end("File resolution failed"); return; }
@@ -376,6 +392,7 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
         scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
         runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring && window.PositionTimeGenerator),
         upperOverflowY: getComputedStyle(document.getElementById('labUpperScroll')).overflowY,
+        upperTouchAction: getComputedStyle(document.getElementById('labUpperScroll')).touchAction,
         stageOverflowY: getComputedStyle(document.querySelector('.lab-stage')).overflowY,
         phaseDisplay: getComputedStyle(document.getElementById('phaseBadge')).display,
         upperScrollTop: document.getElementById('labUpperScroll').scrollTop,
@@ -394,8 +411,9 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
     assert.ok(setup.scripts.some((src) => src.endsWith("/shared/activity-flow.js")), `${width}px: packaged shared activity flow loaded`);
     assert.equal(setup.runtimeReady, true, `${width}px: packaged runtime executed successfully`);
     if (width < 820) {
-      assert.equal(setup.upperOverflowY, "auto", `${width}px: header, road, and graph share the upper scroll owner`);
-      assert.equal(setup.stageOverflowY, "visible", `${width}px: the stage is not a nested vertical scroller`);
+      assert.equal(setup.upperOverflowY, "hidden", `${width}px: the complete visual region is fixed`);
+      assert.equal(setup.upperTouchAction, "pan-y", `${width}px: blank visual-region swipes remain available to the embedding page`);
+      assert.equal(setup.stageOverflowY, "hidden", `${width}px: the stage is not a nested vertical scroller`);
     }
     if (width >= 820) {
       assert.ok(setup.desktopRects.header.bottom <= setup.desktopRects.panel.top + 1, `${width}px: desktop panel starts below the full-width header`);
@@ -411,23 +429,17 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
     if (width < 820) {
       await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: setup.x, y: setup.y, deltaX: 0, deltaY: 140 });
       await delay(50);
-      const activeDrag = await evaluate(cdp, `({
-        locked: document.getElementById('labUpperScroll').classList.contains('is-dragging'),
-        scrollTop: document.getElementById('labUpperScroll').scrollTop
-      })`);
-      assert.equal(activeDrag.locked, true, `${width}px v=${initialVelocity}: direct manipulation marks the upper scroller as locked`);
+      const activeDrag = await evaluate(cdp, `({ scrollTop: document.getElementById('labUpperScroll').scrollTop })`);
       assert.equal(activeDrag.scrollTop, setup.upperScrollTop, `${width}px v=${initialVelocity}: a wheel gesture during handle drag does not pan the upper region`);
     }
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: setup.x + 30, y: setup.y, button: "left", buttons: 1 });
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: setup.x + 30, y: setup.y, button: "left", buttons: 0, clickCount: 1 });
     const after = await evaluate(cdp, `({
       velocity: Number(document.querySelector('[data-quantity="velocity"]').value),
-      x0: Number(document.querySelector('[data-quantity="x0"]').value),
-      dragLocked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
+      x0: Number(document.querySelector('[data-quantity="x0"]').value)
     })`);
     assert.notEqual(after.velocity, initialVelocity, `${width}px v=${initialVelocity}: real mouse drag must change velocity`);
     assert.equal(after.x0, setup.x0, `${width}px v=${initialVelocity}: velocity drag must not change x0`);
-    assert.equal(after.dragLocked, false, `${width}px v=${initialVelocity}: releasing a handle restores upper-region scrolling`);
     cases.push(`${initialVelocity}->${after.velocity}`);
   }
   if (width < 820) {
@@ -446,8 +458,8 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
       upper: document.getElementById('labUpperScroll').scrollTop,
       panel: document.getElementById('labPanel').scrollTop
     })`);
-    assert.ok(upperScrolled.upper > 0, `${width}px: non-interactive stage space scrolls the complete upper region`);
-    assert.equal(upperScrolled.panel, 0, `${width}px: upper-region scrolling does not move the control panel`);
+    assert.equal(upperScrolled.upper, 0, `${width}px: non-interactive stage space cannot scroll the fixed visual region`);
+    assert.equal(upperScrolled.panel, 0, `${width}px: gestures over the fixed visual region do not move the control panel`);
 
     const panelPoint = await evaluate(cdp, `(() => {
       const bounds = document.getElementById('labPanel').getBoundingClientRect();
@@ -461,7 +473,7 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
       panel: document.getElementById('labPanel').scrollTop
     })`);
     assert.ok(panelScrolled.panel > 0, `${width}px: the lower control panel scrolls independently`);
-    assert.equal(panelScrolled.upper, upperScrolled.upper, `${width}px: control-panel scrolling leaves the upper region fixed`);
+    assert.equal(panelScrolled.upper, 0, `${width}px: control-panel scrolling leaves the visual region fixed`);
   }
   return `${width}px (${cases.join(", ")})`;
 }
@@ -475,7 +487,7 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   const blank = await evaluate(cdp, `(() => {
     const upper = document.getElementById('labUpperScroll');
     const panel = document.getElementById('labPanel');
-    upper.scrollTop = (upper.scrollHeight - upper.clientHeight) / 2;
+    upper.scrollTop = 0;
     panel.scrollTop = 0;
     const bounds = upper.getBoundingClientRect();
     const graph = document.getElementById('graphSvg').getBoundingClientRect();
@@ -491,100 +503,406 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
       svg: document.elementFromPoint(point.x, point.y)?.closest('svg')?.id || null,
       upperBefore: upper.scrollTop,
       panelBefore: panel.scrollTop,
-      upperScrollable: upper.scrollHeight > upper.clientHeight,
-      panelScrollable: panel.scrollHeight > panel.clientHeight
+      upperFits: upper.scrollHeight <= upper.clientHeight + 1,
+      panelScrollable: panel.scrollHeight > panel.clientHeight,
+      upperTouchAction: getComputedStyle(upper).touchAction,
+      graphTouchAction: getComputedStyle(document.getElementById('graphSvg')).touchAction
     };
   })()`);
   assert.equal(blank.drag, null, `${width}x${height} touch: blank swipe starts outside every drag target`);
   assert.equal(blank.svg, "graphSvg", `${width}x${height} touch: blank swipe starts on non-interactive graph space`);
-  assert.equal(blank.upperScrollable, true, `${width}x${height} touch: upper region has reachable overflow`);
+  assert.equal(blank.upperFits, true, `${width}x${height} touch: complete visual content fits its fixed region`);
   assert.equal(blank.panelScrollable, true, `${width}x${height} touch: control panel has reachable overflow`);
+  assert.equal(blank.upperTouchAction, "pan-y", `${width}x${height} touch: fixed visual region passes vertical gestures outward`);
+  assert.equal(blank.graphTouchAction, "pan-y", `${width}x${height} touch: blank graph space passes vertical gestures outward`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: blank.x, y: blank.y, id: 1, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: blank.x, y: blank.y - 90, id: 1, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(150);
   const afterBlank = await evaluate(cdp, `({ upper: document.getElementById('labUpperScroll').scrollTop, panel: document.getElementById('labPanel').scrollTop })`);
-  assert.ok(afterBlank.upper > blank.upperBefore, `${width}x${height} touch: blank graph swipe scrolls the complete upper region`);
-  assert.equal(afterBlank.panel, blank.panelBefore, `${width}x${height} touch: blank upper swipe leaves the panel fixed`);
+  assert.equal(afterBlank.upper, blank.upperBefore, `${width}x${height} touch: blank graph swipe cannot move the fixed visual region`);
+  assert.equal(afterBlank.panel, blank.panelBefore, `${width}x${height} touch: blank visual-region swipe leaves the panel fixed`);
 
-  await evaluate(cdp, `(() => {
-    document.getElementById('confirmStart').click();
-    document.getElementById('nextMission').click();
-  })()`);
+  await evaluate(cdp, `document.getElementById('confirmStart').click()`);
   await delay(100);
+  assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /1 \/ 5/, `${width}x${height} touch: assessment starts at mission 1`);
+  await evaluate(cdp, `document.getElementById('nextMission').click()`);
+  await delay(100);
+  assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /2 \/ 5/, `${width}x${height} touch: graph drag check reaches mission 2`);
   const graphDrag = await evaluate(cdp, `(async () => {
     const handle = document.querySelector('[data-drag="graph:xStart"]');
     handle.scrollIntoView({ block: 'center', inline: 'center' });
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const svg = handle.ownerSVGElement;
     const point = svg.createSVGPoint();
-    point.x = Number(handle.getAttribute('cx'));
-    point.y = Number(handle.getAttribute('cy'));
+    point.x = Number(handle.dataset.pointCx);
+    point.y = Number(handle.dataset.pointCy);
     const centre = point.matrixTransform(svg.getScreenCTM());
+    const hit = handle.getBoundingClientRect();
+    const endHit = document.querySelector('[data-drag="graph:xEnd"]').getBoundingClientRect();
+    const graph = svg.getBoundingClientRect();
+    const blockElement = document.querySelector('.graph-block');
+    const block = blockElement.getBoundingClientRect();
+    const upper = document.getElementById('labUpperScroll');
+    const axisPoint = svg.createSVGPoint();
+    axisPoint.x = Number(handle.dataset.pointCx);
+    axisPoint.y = 60;
+    const axisTop = axisPoint.matrixTransform(svg.getScreenCTM());
+    axisPoint.y = 390;
+    const axisBottom = axisPoint.matrixTransform(svg.getScreenCTM());
     return {
       x: centre.x,
       y: centre.y,
       target: document.elementFromPoint(centre.x, centre.y)?.closest('[data-drag]')?.dataset.drag || null,
       start: Number(handle.getAttribute('aria-valuenow')),
       other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
-      upper: document.getElementById('labUpperScroll').scrollTop
+      upper: document.getElementById('labUpperScroll').scrollTop,
+      hitWidth: hit.width,
+      hitHeight: hit.height,
+      endHitWidth: endHit.width,
+      endHitHeight: endHit.height,
+      graph: { left: graph.left, top: graph.top, right: graph.right, bottom: graph.bottom },
+      block: { left: block.left, top: block.top, right: block.right, bottom: block.bottom, width: block.width, height: block.height, scrollHeight: blockElement.scrollHeight },
+      upperScrollHeight: upper.scrollHeight,
+      expectedCorner: (centre.y < graph.top + graph.height / 2 ? 'bottom' : 'top') + '-' + (centre.x < graph.left + graph.width / 2 ? 'right' : 'left'),
+      axisTopY: axisTop.y,
+      axisBottomY: axisBottom.y
     };
   })()`);
   assert.equal(graphDrag.target, "graph:xStart", `${width}x${height} touch: graph-point centre resolves to its production drag target`);
+  assert.ok(graphDrag.hitWidth >= 51.5 && graphDrag.hitHeight >= 51.5, `${width}x${height} touch: x0 has a real 52 CSS px hit geometry within subpixel tolerance`);
+  assert.ok(graphDrag.endHitWidth >= 51.5 && graphDrag.endHitHeight >= 51.5, `${width}x${height} touch: x6 has a real 52 CSS px hit geometry within subpixel tolerance`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: graphDrag.x, y: graphDrag.y, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.y - 55, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  const previewStart = await evaluate(cdp, `(() => {
+    const preview = document.querySelector('.graph-touch-preview');
+    const host = document.getElementById('graphTouchPreviewHost');
+    const bounds = host.getBoundingClientRect();
+    const blockElement = document.querySelector('.graph-block');
+    const block = blockElement.getBoundingClientRect();
+    const upper = document.getElementById('labUpperScroll');
+    return {
+      exists: Boolean(preview),
+      point: preview?.dataset.previewPoint,
+      value: Number(preview?.dataset.previewValue),
+      corner: preview?.dataset.previewCorner,
+      text: preview?.textContent,
+      highlighted: document.querySelector('[data-graph-point="P0"]')?.classList.contains('is-dragging') || false,
+      bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height },
+      block: { left: block.left, top: block.top, right: block.right, bottom: block.bottom, width: block.width, height: block.height, scrollHeight: blockElement.scrollHeight },
+      upperScrollHeight: upper.scrollHeight,
+      titleFont: parseFloat(getComputedStyle(document.querySelector('.graph-touch-preview-title')).fontSize),
+      valueFont: parseFloat(getComputedStyle(document.querySelector('.graph-touch-preview-value')).fontSize),
+      hostPosition: getComputedStyle(host).position,
+      pointerEvents: getComputedStyle(host).pointerEvents
+    };
+  })()`);
+  assert.equal(previewStart.exists, true, `${width}x${height} touch: x0 drag immediately shows a preview`);
+  assert.equal(previewStart.point, "P0", `${width}x${height} touch: preview identifies P0/x0`);
+  assert.equal(previewStart.value, graphDrag.start, `${width}x${height} touch: preview starts with the authoritative x0 value`);
+  assert.match(previewStart.text, /P₀（x₀） · t = 0 s/, `${width}x${height} touch: preview labels the selected point and time`);
+  assert.equal(previewStart.highlighted, true, `${width}x${height} touch: selected x0 point is highlighted`);
+  assert.equal(previewStart.corner, graphDrag.expectedCorner, `${width}x${height} touch: preview chooses the graph corner farthest from drag-start`);
+  assert.ok(Math.abs(previewStart.bounds.width - Math.min(width * 0.42, 176)) <= 2, `${width}x${height} touch: HTML preview keeps its intended readable CSS width`);
+  assert.ok(previewStart.bounds.height >= 80, `${width}x${height} touch: HTML preview keeps a usable CSS height`);
+  assert.ok(previewStart.titleFont >= 13 && previewStart.valueFont >= 15, `${width}x${height} touch: preview labels retain readable computed font sizes`);
+  assert.equal(previewStart.hostPosition, "absolute", `${width}x${height} touch: preview is removed from normal graph layout`);
+  assert.equal(previewStart.pointerEvents, "none", `${width}x${height} touch: HTML preview cannot intercept the drag`);
+  assert.ok(previewStart.bounds.left >= previewStart.block.left - 1 && previewStart.bounds.right <= previewStart.block.right + 1 && previewStart.bounds.top >= previewStart.block.top - 1 && previewStart.bounds.bottom <= previewStart.block.bottom + 1, `${width}x${height} touch: preview is contained by the graph block rather than the road/stage`);
+  assert.equal(previewStart.block.height, graphDrag.block.height, `${width}x${height} touch: showing preview does not change graph-block layout height`);
+  assert.equal(previewStart.block.scrollHeight, graphDrag.block.scrollHeight, `${width}x${height} touch: showing preview does not create graph-block overflow`);
+  assert.equal(previewStart.upperScrollHeight, graphDrag.upperScrollHeight, `${width}x${height} touch: showing preview does not change fixed-stage scrollHeight`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.axisTopY, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  const previewMoved = await evaluate(cdp, `(() => {
+    const preview = document.querySelector('.graph-touch-preview');
+    const host = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
+    const mini = document.querySelector('.graph-touch-preview-mini').getBoundingClientRect();
+    const point = document.querySelector('.graph-touch-preview-point').getBoundingClientRect();
+    return { value: Number(preview?.dataset.previewValue), corner: preview?.dataset.previewCorner, text: preview?.textContent, bounds: { left: host.left, top: host.top, right: host.right, bottom: host.bottom }, pointInside: point.top >= mini.top - 1 && point.bottom <= mini.bottom + 1 };
+  })()`);
+  assert.equal(previewMoved.value, 20, `${width}x${height} touch: preview reaches and reports the +20 m endpoint`);
+  assert.equal(previewMoved.corner, previewStart.corner, `${width}x${height} touch: preview remains in its initially chosen far corner`);
+  assert.deepEqual(previewMoved.bounds, { left: previewStart.bounds.left, top: previewStart.bounds.top, right: previewStart.bounds.right, bottom: previewStart.bounds.bottom }, `${width}x${height} touch: preview position does not jump while the finger moves`);
+  assert.equal(previewMoved.pointInside, true, `${width}x${height} touch: +20 m mini-preview point is not clipped`);
+  assert.match(previewMoved.text, new RegExp(`x = ${previewMoved.value > 0 ? "\\+" : previewMoved.value < 0 ? "−" : ""}${Math.abs(previewMoved.value).toFixed(1)} m`), `${width}x${height} touch: preview text follows the live x0 value`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: graphDrag.x, y: graphDrag.axisBottomY, id: 2, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  const previewBottom = await evaluate(cdp, `(() => {
+    const preview = document.querySelector('.graph-touch-preview');
+    const mini = document.querySelector('.graph-touch-preview-mini').getBoundingClientRect();
+    const point = document.querySelector('.graph-touch-preview-point').getBoundingClientRect();
+    return { value: Number(preview?.dataset.previewValue), pointInside: point.top >= mini.top - 1 && point.bottom <= mini.bottom + 1 };
+  })()`);
+  assert.equal(previewBottom.value, -20, `${width}x${height} touch: preview reaches and reports the −20 m endpoint`);
+  assert.equal(previewBottom.pointInside, true, `${width}x${height} touch: −20 m mini-preview point is not clipped`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(100);
   const graphAfter = await evaluate(cdp, `({
     value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')),
     other: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
     upper: document.getElementById('labUpperScroll').scrollTop,
-    locked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
+    preview: Boolean(document.querySelector('.graph-touch-preview'))
   })`);
   assert.notEqual(graphAfter.value, graphDrag.start, `${width}x${height} touch: graph-point drag changes that point`);
   assert.equal(graphAfter.other, graphDrag.other, `${width}x${height} touch: graph-point drag leaves the other point unchanged`);
   assert.equal(graphAfter.upper, graphDrag.upper, `${width}x${height} touch: graph-point drag does not pan its background`);
-  assert.equal(graphAfter.locked, false, `${width}x${height} touch: graph-point release restores upper scrolling`);
+  assert.equal(graphAfter.preview, false, `${width}x${height} touch: pointer up hides the x0 preview`);
 
   const cancelSetup = await evaluate(cdp, `(() => {
     const handle = document.querySelector('[data-drag="graph:xEnd"]');
     const svg = handle.ownerSVGElement;
     const point = svg.createSVGPoint();
-    point.x = Number(handle.getAttribute('cx'));
-    point.y = Number(handle.getAttribute('cy'));
+    point.x = Number(handle.dataset.pointCx);
+    point.y = Number(handle.dataset.pointCy);
     const centre = point.matrixTransform(svg.getScreenCTM());
+    const graph = svg.getBoundingClientRect();
     return {
       x: centre.x, y: centre.y,
       start: Number(handle.getAttribute('aria-valuenow')),
-      saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length
+      saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+      expectedCorner: (centre.y < graph.top + graph.height / 2 ? 'bottom' : 'top') + '-' + (centre.x < graph.left + graph.width / 2 ? 'right' : 'left')
     };
   })()`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  const cancelPreviewStart = await evaluate(cdp, `(() => {
+    const preview = document.querySelector('.graph-touch-preview');
+    const bounds = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
+    return { point: preview?.dataset.previewPoint, corner: preview?.dataset.previewCorner, text: preview?.textContent, bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom } };
+  })()`);
+  assert.equal(cancelPreviewStart.point, "P6", `${width}x${height} touch: x6 drag preview identifies P6/x6`);
+  assert.match(cancelPreviewStart.text, /P₆（x₆） · t = 6 s/, `${width}x${height} touch: x6 preview labels its endpoint and time`);
+  assert.equal(cancelPreviewStart.corner, cancelSetup.expectedCorner, `${width}x${height} touch: x6 preview uses the far corner from its drag-start`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: cancelSetup.x, y: cancelSetup.y + 45, id: 3, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  const cancelPreviewMoved = await evaluate(cdp, `(() => {
+    const preview = document.querySelector('.graph-touch-preview');
+    const bounds = document.getElementById('graphTouchPreviewHost').getBoundingClientRect();
+    return { corner: preview?.dataset.previewCorner, bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom } };
+  })()`);
+  assert.equal(cancelPreviewMoved.corner, cancelPreviewStart.corner, `${width}x${height} touch: x6 preview keeps its selected corner`);
+  assert.deepEqual(cancelPreviewMoved.bounds, cancelPreviewStart.bounds, `${width}x${height} touch: x6 preview remains spatially stable`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
   await delay(100);
   const cancelled = await evaluate(cdp, `({
     value: Number(document.querySelector('[data-drag="graph:xEnd"]').getAttribute('aria-valuenow')),
     saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
-    locked: document.getElementById('labUpperScroll').classList.contains('is-dragging')
+    preview: Boolean(document.querySelector('.graph-touch-preview'))
   })`);
   assert.notEqual(cancelled.value, cancelSetup.start, `${width}x${height} touch: cancelled graph drag retains its last visible point value`);
   assert.ok(cancelled.saves > cancelSetup.saves, `${width}x${height} touch: cancelled graph drag persists its last visible state`);
-  assert.equal(cancelled.locked, false, `${width}x${height} touch: cancelled graph drag releases the upper lock`);
+  assert.equal(cancelled.preview, false, `${width}x${height} touch: pointer cancel hides the x6 preview`);
+
+  const tapSetup = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="graph:xStart"]');
+    const hit = handle.getBoundingClientRect();
+    const pointX = Number(handle.dataset.pointCx);
+    const pointY = Number(handle.dataset.pointCy);
+    const svgPoint = handle.ownerSVGElement.createSVGPoint();
+    svgPoint.x = pointX;
+    svgPoint.y = pointY;
+    const visual = svgPoint.matrixTransform(handle.ownerSVGElement.getScreenCTM());
+    const x = visual.x;
+    const y = Math.min(hit.bottom - 2, hit.top + 2);
+    return { x, y, target: document.elementFromPoint(x, y)?.closest('[data-drag]')?.dataset.drag, value: Number(handle.getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  assert.equal(tapSetup.target, "graph:xStart", `${width}x${height} touch: x0 enlarged hit-area edge remains selectable`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tapSetup.x, y: tapSetup.y, id: 7, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(80);
+  const tapped = await evaluate(cdp, `({ value: Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length, preview: Boolean(document.querySelector('.graph-touch-preview')) })`);
+  assert.equal(tapped.value, tapSetup.value, `${width}x${height} touch: tap-only at an enlarged-target edge does not jump x0`);
+  assert.equal(tapped.saves, tapSetup.saves, `${width}x${height} touch: tap-only graph interaction does not save or commit`);
+  assert.equal(tapped.preview, false, `${width}x${height} touch: tap-only release clears preview`);
+
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tapSetup.x, y: tapSetup.y, id: 8, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: tapSetup.x + 2, y: tapSetup.y, id: 8, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(40);
+  assert.equal(await evaluate(cdp, `Number(document.querySelector('[data-drag="graph:xStart"]').getAttribute('aria-valuenow'))`), tapSetup.value, `${width}x${height} touch: first edge-grab move preserves the point-to-finger offset`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+  await delay(60);
+
+  const lostSetup = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="graph:xEnd"]');
+    const svg = handle.ownerSVGElement;
+    svg.addEventListener('pointerdown', (event) => { window.__positionTimePointerId = event.pointerId; }, { once: true });
+    const point = svg.createSVGPoint();
+    point.x = Number(handle.dataset.pointCx);
+    point.y = Number(handle.dataset.pointCy);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y, saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: lostSetup.x, y: lostSetup.y, id: 9, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  const lost = await evaluate(cdp, `(() => {
+    document.getElementById('graphSvg').dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: window.__positionTimePointerId, pointerType: 'touch' }));
+    return { preview: Boolean(document.querySelector('.graph-touch-preview')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  assert.equal(lost.preview, false, `${width}x${height} touch: lost pointer capture clears preview`);
+  assert.equal(lost.saves, lostSetup.saves, `${width}x${height} touch: lost capture before movement does not save`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(60);
+
+  const mouseSetup = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="graph:xStart"]');
+    const svg = handle.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = Number(handle.dataset.pointCx);
+    point.y = Number(handle.dataset.pointCy);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y };
+  })()`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: mouseSetup.x, y: mouseSetup.y });
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: mouseSetup.x, y: mouseSetup.y, button: "left", buttons: 1, clickCount: 1 });
+  assert.equal(await evaluate(cdp, `Boolean(document.querySelector('.graph-touch-preview'))`), false, `${width}x${height} mouse: graph drag does not show a touch preview`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: mouseSetup.x, y: mouseSetup.y, button: "left", buttons: 0, clickCount: 1 });
+
+  const keyboardPreview = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="graph:xStart"]');
+    handle.focus();
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    return Boolean(document.querySelector('.graph-touch-preview'));
+  })()`);
+  assert.equal(keyboardPreview, false, `${width}x${height} keyboard: endpoint adjustment does not show a touch preview`);
 
   const bottoms = await evaluate(cdp, `(() => {
-    const result = {};
-    for (const [key, id] of [['upper', 'labUpperScroll'], ['panel', 'labPanel']]) {
-      const element = document.getElementById(id);
-      element.scrollTop = element.scrollHeight;
-      result[key] = { scrollTop: element.scrollTop, clientHeight: element.clientHeight, scrollHeight: element.scrollHeight };
-    }
-    return result;
+    const upper = document.getElementById('labUpperScroll');
+    const panel = document.getElementById('labPanel');
+    panel.scrollTop = panel.scrollHeight;
+    return {
+      upper: { scrollTop: upper.scrollTop, clientHeight: upper.clientHeight, scrollHeight: upper.scrollHeight },
+      panel: { scrollTop: panel.scrollTop, clientHeight: panel.clientHeight, scrollHeight: panel.scrollHeight }
+    };
   })()`);
-  for (const [name, dimensions] of Object.entries(bottoms)) {
-    assert.ok(dimensions.scrollTop + dimensions.clientHeight >= dimensions.scrollHeight - 1, `${width}x${height} touch: ${name} region reaches its true bottom`);
+  assert.equal(bottoms.upper.scrollTop, 0, `${width}x${height} touch: fixed visual region remains at scrollTop zero`);
+  assert.ok(bottoms.upper.scrollHeight <= bottoms.upper.clientHeight + 1, `${width}x${height} touch: fixed visual region has no clipped overflow`);
+  assert.ok(bottoms.panel.scrollTop + bottoms.panel.clientHeight >= bottoms.panel.scrollHeight - 1, `${width}x${height} touch: control panel reaches its true bottom`);
+  return `${width}x${height} touch, fixed visual region, graph drag/cancel, panel bottom reachable`;
+}
+
+async function runEmbeddedScrollViewport(cdp, baseUrl, activityPath, width, height) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  await cdp.send("Page.navigate", { url: `${baseUrl}/__embed-scroll-test.html?src=${encodeURIComponent(`${activityPath}?embedded-scroll=1`)}` });
+  let embeddedState;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    embeddedState = await evaluate(cdp, `(() => {
+      const frame = document.getElementById('activity');
+      return { ready: Boolean(frame?.contentDocument?.querySelector('[data-drag="velocity:A"]')), src: frame?.src, state: frame?.contentDocument?.readyState, title: frame?.contentDocument?.title, text: frame?.contentDocument?.body?.textContent?.slice(0, 120) };
+    })()`);
+    if (embeddedState.ready) break;
+    if (attempt === 99) throw new Error(`Embedded activity did not finish rendering: ${JSON.stringify(embeddedState)}`);
+    await delay(50);
   }
-  return `${width}x${height} touch, graph drag/cancel, both bottoms reachable`;
+  const gesture = await evaluate(cdp, `(async () => {
+    window.scrollTo(0, 200);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const frame = document.getElementById('activity');
+    const frameRect = frame.getBoundingClientRect();
+    const inner = frame.contentDocument;
+    const upper = inner.getElementById('labUpperScroll');
+    const panel = inner.getElementById('labPanel');
+    const graph = inner.getElementById('graphSvg').getBoundingClientRect();
+    const candidates = [0.25, 0.5, 0.75].map((fraction) => ({ x: graph.left + graph.width * fraction, y: graph.top + 18 }));
+    const point = candidates.find(({ x, y }) => !inner.elementFromPoint(x, y)?.closest('[data-drag]'));
+    if (!point) throw new Error('No embedded blank graph point found');
+    return {
+      x: frameRect.left + point.x,
+      y: frameRect.top + point.y,
+      outerBefore: window.scrollY,
+      upperBefore: upper.scrollTop,
+      panelBefore: panel.scrollTop
+    };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: gesture.x, y: gesture.y, id: 4, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: gesture.x, y: gesture.y - 100, id: 4, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(50);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(150);
+  const after = await evaluate(cdp, `({
+    outer: window.scrollY,
+    upper: document.getElementById('activity').contentDocument.getElementById('labUpperScroll').scrollTop,
+    panel: document.getElementById('activity').contentDocument.getElementById('labPanel').scrollTop
+  })`);
+  assert.ok(after.outer > gesture.outerBefore, `${width}x${height} embedded touch: blank visual-region swipe scrolls the Moodle-like outer page`);
+  assert.equal(after.upper, gesture.upperBefore, `${width}x${height} embedded touch: fixed visual region does not scroll internally`);
+  assert.equal(after.panel, gesture.panelBefore, `${width}x${height} embedded touch: outer-page swipe does not move the control panel`);
+
+  await evaluate(cdp, `(async () => {
+    const frame = document.getElementById('activity');
+    const inner = frame.contentDocument;
+    inner.getElementById('confirmStart').click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    inner.getElementById('nextMission').click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  })()`);
+  for (const [index, endpoint] of ["xStart", "xEnd"].entries()) {
+    const drag = await evaluate(cdp, `(async () => {
+      window.scrollTo(0, 200);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const frame = document.getElementById('activity');
+      const inner = frame.contentDocument;
+      const handle = inner.querySelector('[data-drag="graph:${endpoint}"]');
+      const svg = handle.ownerSVGElement;
+      const point = svg.createSVGPoint();
+      point.x = Number(handle.dataset.pointCx);
+      point.y = Number(handle.dataset.pointCy);
+      const centre = point.matrixTransform(svg.getScreenCTM());
+      const frameRect = frame.getBoundingClientRect();
+      return {
+        x: frameRect.left + centre.x,
+        y: frameRect.top + centre.y,
+        value: Number(handle.getAttribute('aria-valuenow')),
+        outerBefore: window.scrollY,
+        upperBefore: inner.getElementById('labUpperScroll').scrollTop
+      };
+    })()`);
+    const pointerId = 5 + index;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: drag.x, y: drag.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(50);
+    const embeddedPreview = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      const preview = inner.querySelector('.graph-touch-preview');
+      const bounds = inner.getElementById('graphTouchPreviewHost').getBoundingClientRect();
+      return {
+        point: preview?.dataset.previewPoint,
+        width: bounds.width,
+        height: bounds.height,
+        titleFont: parseFloat(inner.defaultView.getComputedStyle(inner.querySelector('.graph-touch-preview-title')).fontSize),
+        valueFont: parseFloat(inner.defaultView.getComputedStyle(inner.querySelector('.graph-touch-preview-value')).fontSize),
+        outer: window.scrollY
+      };
+    })()`);
+    assert.equal(embeddedPreview.point, endpoint === "xStart" ? "P0" : "P6", `${width}x${height} embedded touch: ${endpoint} preview identifies its endpoint`);
+    assert.ok(embeddedPreview.width >= 160 && embeddedPreview.height >= 96, `${width}x${height} embedded touch: preview retains readable CSS dimensions inside iframe`);
+    assert.ok(embeddedPreview.titleFont >= 13 && embeddedPreview.valueFont >= 15, `${width}x${height} embedded touch: preview text remains readable inside iframe`);
+    assert.equal(embeddedPreview.outer, drag.outerBefore, `${width}x${height} embedded touch: showing preview does not scroll the Moodle-like page`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: drag.x, y: drag.y + 40, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(50);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await delay(150);
+    const dragged = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      return {
+        value: Number(inner.querySelector('[data-drag="graph:${endpoint}"]').getAttribute('aria-valuenow')),
+        outer: window.scrollY,
+        upper: inner.getElementById('labUpperScroll').scrollTop,
+        preview: Boolean(inner.querySelector('.graph-touch-preview'))
+      };
+    })()`);
+    const label = endpoint === "xStart" ? "x0" : "x6";
+    assert.notEqual(dragged.value, drag.value, `${width}x${height} embedded touch: dragging ${label} changes that graph point`);
+    assert.equal(dragged.outer, drag.outerBefore, `${width}x${height} embedded touch: dragging ${label} does not scroll the Moodle-like outer page`);
+    assert.equal(dragged.upper, drag.upperBefore, `${width}x${height} embedded touch: dragging ${label} does not move the fixed visual region`);
+    assert.equal(dragged.preview, false, `${width}x${height} embedded touch: releasing ${label} clears its preview`);
+  }
+  return `${width}x${height} embedded outer-page scrolling with isolated x0/x6 graph-point drags`;
 }
 
 async function runGeneratedPaperChecks(cdp, baseUrl, activityPath) {
@@ -720,11 +1038,13 @@ async function main() {
     await cdp.send("Runtime.enable");
     const desktop = await runViewport(cdp, baseUrl, activityPath, 1280, 900);
     const narrow = await runViewport(cdp, baseUrl, activityPath, 320, 700);
+    const narrowTouch = await runTouchViewport(cdp, baseUrl, activityPath, 320, 700);
     const shortTouch = await runTouchViewport(cdp, baseUrl, activityPath, 390, 500);
+    const embeddedTouch = await runEmbeddedScrollViewport(cdp, baseUrl, activityPath, 390, 500);
     await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
     await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
     const generated = await runGeneratedPaperChecks(cdp, baseUrl, activityPath);
-    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}; ${shortTouch}; ${generated}`;
+    summary = `Position-time real-browser regression passed: ${desktop}; ${narrow}; ${narrowTouch}; ${shortTouch}; ${embeddedTouch}; ${generated}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

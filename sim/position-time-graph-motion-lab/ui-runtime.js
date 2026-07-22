@@ -75,8 +75,8 @@
     return button;
   }
 
-  function hitRadius(viewBoxWidth, renderedWidth, minimum = 23) {
-    return Math.max(minimum, renderedWidth > 0 ? 22 * viewBoxWidth / renderedWidth : minimum);
+  function hitRadius(viewBoxWidth, renderedWidth, minimum = 23, targetCssDiameter = 44) {
+    return Math.max(minimum, renderedWidth > 0 ? targetCssDiameter / 2 * viewBoxWidth / renderedWidth : minimum);
   }
 
   function positionFromPointer(pointerX, grabOffset, left, right, axisMin, axisMax, step, clampMin = axisMin, clampMax = axisMax) {

@@ -61,6 +61,7 @@ assert.equal(host.children.length, 0, "successful finish removes the retry actio
 
 assert.equal(Ui.positionFromPointer(420, 20, 80, 760, -20, 20, 1), -1, "grab offset is preserved instead of snapping car center to the pointer");
 assert.ok(Ui.hitRadius(800, 320) >= 55, "320px SVG hit radius yields at least a 44 CSS px target");
+assert.ok(Ui.hitRadius(800, 390, 26, 52) >= 800 / 390 * 26, "graph endpoint radius yields at least a 52 CSS px touch target");
 
 const optional = { velocity: 1 };
 assert.equal(Ui.setOptional(optional, "velocity", Infinity, -2, 2), false, "non-finite input is rejected");

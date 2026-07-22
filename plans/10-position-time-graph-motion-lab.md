@@ -155,12 +155,11 @@
 
 主畫面有一個連續的 responsive split-pane shell：
 
-- **上方視覺區**：頁首、跑道及 x–t 圖組成同一捲動區，跑道在上、x–t 圖在下，
-  兩者共用時間游標；在空間足夠時保持同屏，在矮屏或放大模式下整個上方區依次捲動到達，
-  不再由主舞台建立內層捲動區；
+- **上方視覺區**：頁首、跑道及 x–t 圖組成一個固定且不可捲動的整體，跑道在上、
+  x–t 圖在下，兩者共用時間游標；手機版按可用高度縮放兩幅 SVG，避免建立內層捲動區；
 - **操作面板**：模式、任務指示、數值、播放控制、答案狀態及主要行動；
 - 桌面：操作面板在左、主舞台在右；
-- 手機使用固定視窗版面：完整上方視覺區置頂並可整體捲動，控制面板在下方獨立捲動；
+- 手機使用固定視窗版面：完整上方視覺區置頂且不可捲動，只有下方控制面板可獨立捲動；
   手機頁首隱藏與面板重複的 phase badge，狀態仍由面板任務標題清楚顯示；
 - 只有 viewport 高度足夠時才使用有 `max-height` 的 compact sticky 舞台，且不得遮擋
   操作面板、主要按鈕或鍵盤 focus target；
@@ -489,7 +488,7 @@ x₀A + vA t = x₀B + vB t
 - 拖動中顯示放大讀數 `x₀ = … m`；
 - 手指遮擋時在圖區遠離手指的一角顯示穩定小型預覽；
 - 放手後保存一次語意狀態，不在每個 pointermove 寫 SCORM。
-- 若系統在移動後收到 `pointercancel` 或失去 pointer capture，先解除上方捲動鎖，再保存最後
+- 若系統在移動後收到 `pointercancel` 或失去 pointer capture，結束拖動狀態並保存最後
   已顯示的語意狀態；不得留下只在畫面改變而未嘗試保存的答案。
 
 ### 11.2 拖速度箭嘴
@@ -512,6 +511,18 @@ x₀A + vA t = x₀B + vB t
 - 以 `1 m` 步距；
 - 顯示 `(t, x)` 標籤；
 - 連線即時更新，但不得顯示「正確／錯誤」；
+- P₀／P₆ 的可觸控區使用實際 SVG 幾何，按 viewport 換算為至少 `52 × 52 CSS px`，
+  不以透明粗 stroke 代替，亦不得因靠近圖邊而被裁成過小目標；
+- touch／pen 拖動期間以 graph block 內不隨 SVG 縮放的 absolute HTML overlay，在初始手指
+  位置最遠的圖表角落顯示固定 preview；其寬度約 `min(42vw, 11rem)`，文字保持至少
+  `13–15 CSS px`，內容包括正在調整的 P₀／P₆、固定時間、即時 `x` 值、十字線及放大點；
+  整次 gesture 不跟隨手指轉換角落，亦不得改變 graph／stage layout 或 scroll height；
+- 被拖圖點在原圖加強 highlight；preview 使用 `pointer-events: none`，只屬暫時 UI，
+  `pointerup`、`pointercancel` 或失去 capture 後立即消失，且不寫入 persistence／SCORM；
+- 擴大 hit area 不得令圖點跳到手指中心；pointerdown 記錄垂直 grab offset，第一個 move
+  保持相對拖動路徑，只有 tap 而沒有 pointermove 時不得改值或保存；active drag 亦不得被
+  第二觸點接管；
+- mouse／keyboard 保持原有直接操作及 focus 行為，不顯示 touch preview；
 - 手柄具有不同形狀及 `P₀`、`P₆` 標籤，不能只以顏色區分。
 
 ### 11.4 鍵盤及非拖動替代
@@ -1024,8 +1035,15 @@ score(original) = score(restore(decode(encode(original))))
 
 - Pointer、touch、pen 均可拖車、箭嘴、圖點及探針；
 - 拖動不令物件跳離手指；
-- 只有實際拖動可操作物件期間鎖定上方捲動，背景不得跟隨圖點、探針、車或箭嘴移動；
-- 在非互動圖面開始的垂直手勢仍可捲動完整上方視覺區，且不帶動控制面板；
+- 上方視覺區在任何時候都不可捲動，拖圖點、探針、車或箭嘴時背景必須固定；
+- 由可拖控制開始的 `touchstart`／`touchmove` 必須攔截外層捲動，避免 X₀、X₆ 等控制點
+  與 Moodle 頁面同時移動；
+- 390 × 500 iframe 內逐一驗證 P₀／P₆：兩者實際 hit geometry 不小於目標尺寸、拖動時
+  Moodle 外層不捲、preview 實際 CSS bbox／font size、label／value、遠角位置及 layout
+  invariants 正確，`±20 m` 極值不被裁切，並在 up／cancel／lost capture 後隱藏；
+- mouse／keyboard 調整 P₀／P₆ 不顯示 touch-only preview；
+- 在非互動圖面開始的垂直手勢不得移動上方視覺區或控制面板，但必須保留 `pan-y`，
+  讓 Moodle／瀏覽器外層頁面仍可正常上下捲動；
 - 播放期間物理設定鎖定；
 - 修改物理設定清除不相容舊圖線及探針；
 - 時間游標與車、圖點及數值同步；
@@ -1036,8 +1054,9 @@ score(original) = score(restore(decode(encode(original))))
 - `prefers-reduced-motion` 下減少非必要過場，但物理時間仍可逐步查看；
 - 320 px portrait、landscape、軟鍵盤開啟、200% zoom、常見 tablet 及 desktop 的舞台、
   操作及主要按鈕均可到達，且沒有必要的水平捲動；
-- 390 × 500 Moodle-like 短 viewport 的上方視覺區及控制面板均可到達真實底部；
-- 手機上方視覺區與控制面板各自獨立捲動；頁首、跑道與圖表一同移動，極矮視窗亦不遮擋 focus target；
+- 390 × 500 Moodle-like 短 viewport 的上方頁首、跑道及圖表完整縮放在固定區域內，
+  控制面板可捲動到真實底部；
+- 手機只有控制面板擁有正常垂直捲動；上方視覺區保持固定，亦不遮擋 focus target；
 - 固定 SVG aspect ratio 下，`v = ±1` 與 `±2 m/s` 的斜率在手機上可辨；
 - 讀圖游標可由鍵盤逐步移動，螢幕閱讀器取得軸資料及 `(t,x)`，又不直接讀出答案斜率；
 - submitted review 所有修改控制鎖定，時間游標及回到 `0 s` 只讀功能可用；
@@ -1168,8 +1187,8 @@ score(original) = score(restore(decode(encode(original))))
 
 ### 24.2 已接受的 UI／互動修訂
 
-- 手機版經多輪調整，採頁首／跑道／圖表共用上方捲動區、操作面板獨立捲動、較緊湊
-  graph height，及任務切換後兩區一併捲回頂部；物理座標及評分不因 viewport 改變。
+- 手機版經多輪調整，採頁首／跑道／圖表共用固定上方區、只有操作面板獨立捲動，
+  並按可用高度縮放 graph；物理座標及評分不因 viewport 改變。
 - `重播`／`重設` 等容易誤解的名稱改為準確的 `回到 0 s`。
 - 任務 2 以隨車位置投影、軸上讀數及 `P₀`／`P₆` 語意協助讀圖，但提交前仍不顯示正確線。
 - 任務 3 不再要求先選 A 再切換 B；A、B 兩組探針控制同時顯示，答案 shape、有效量度要求及
@@ -1201,12 +1220,11 @@ score(original) = score(restore(decode(encode(original))))
 
 - §11.3 要求任務 2 兩個 graph handles 使用不同形狀；目前兩者均為圓形，以位置及 `P₀`／`P₆`
   標籤分辨。
-- §11.1 要求手指遮擋時在圖區角落提供獨立固定 preview；目前使用 SVG 讀數、即時數據及操作
-  面板同步更新，未另設固定角落 overlay。
 - §11.4 描述每條目標／未知線各有可聚焦讀圖游標；目前以一個全局、鍵盤可操作的時間 slider
   同步讀出所有可見圖線，而不是每條線各自建立 focus target。
 
-以上三項記錄為已知 as-built 差異，不應在沒有新產品決定及 interaction tests 的情況下被視為
+以上兩項記錄為已知 as-built 差異；任務 2 的 P₀／P₆ touch／pen 固定角落 preview 已按
+§11.3 實作及加入 interaction tests。其餘差異不應在沒有新產品決定及 interaction tests 的情況下被視為
 緊急 defect 或靜默刪除原要求。
 
 ### 24.5 現行 runtime 及驗證證據

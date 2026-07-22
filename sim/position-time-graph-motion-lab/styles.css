@@ -43,15 +43,12 @@
 }
 
 .lab-upper-scroll {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.lab-upper-scroll.is-dragging {
-  overflow-y: hidden;
-  overscroll-behavior: none;
+  overflow: hidden;
+  overscroll-behavior: auto;
+  touch-action: pan-y;
 }
 
 .lab-stage {
@@ -59,7 +56,7 @@
   grid-template-rows: auto auto;
   align-content: start;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   background: var(--color-app);
 }
 
@@ -67,6 +64,10 @@
   min-width: 0;
   background: var(--color-canvas);
   border-bottom: 1px solid var(--color-border);
+}
+
+.graph-block {
+  position: relative;
 }
 
 .stage-heading {
@@ -102,6 +103,15 @@
 
 .graph-svg {
   max-height: 27rem;
+}
+
+.lab-svg line,
+.lab-svg text,
+.lab-svg path,
+.lab-svg polygon,
+.lab-svg circle:not([data-drag]),
+.lab-svg rect:not([data-drag]) {
+  pointer-events: none;
 }
 
 .plot-grid {
@@ -232,6 +242,112 @@
 .graph-handle { stroke: var(--student-line); }
 .probe-handle { stroke: #dc2626; }
 
+.graph-drag-hit {
+  stroke-width: 0;
+  vector-effect: none;
+}
+
+.graph-drag-hit:focus-visible {
+  fill: rgba(15, 118, 110, 0.08);
+  stroke: var(--student-line);
+  stroke-width: 3;
+}
+
+.graph-handle-highlight {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 6;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-point.is-dragging .graph-handle {
+  fill: #ccfbf1;
+  stroke-width: 6;
+}
+
+.graph-point.is-dragging .graph-handle-highlight {
+  fill: rgba(45, 212, 191, 0.2);
+  stroke: rgba(15, 118, 110, 0.78);
+}
+
+.graph-touch-preview-host {
+  position: absolute;
+  z-index: 5;
+  width: min(42vw, 11rem);
+  pointer-events: none;
+}
+
+.graph-touch-preview-host[hidden] {
+  display: none;
+}
+
+.graph-touch-preview-host.is-left { left: 0.5rem; }
+.graph-touch-preview-host.is-right { right: 0.5rem; }
+.graph-touch-preview-host.is-top { top: 2.75rem; }
+.graph-touch-preview-host.is-bottom { bottom: 0.5rem; }
+
+.graph-touch-preview {
+  pointer-events: none;
+  box-sizing: border-box;
+  height: 6.25rem;
+  padding: 0.55rem 0.6rem;
+  border: 2px solid var(--student-line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.97);
+  color: #0f172a;
+  filter: drop-shadow(0 5px 9px rgba(15, 23, 42, 0.24));
+}
+
+.graph-touch-preview-title,
+.graph-touch-preview-value {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 800;
+}
+
+.graph-touch-preview-title {
+  margin-bottom: 0.4rem;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.graph-touch-preview-body {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.graph-touch-preview-value {
+  font-size: 0.9375rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.graph-touch-preview-mini {
+  position: relative;
+  width: 3rem;
+  height: 2.4rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.35rem;
+  background:
+    linear-gradient(#64748b, #64748b) center / 1px 100% no-repeat,
+    linear-gradient(#64748b, #64748b) center / 100% 1px no-repeat,
+    #f8fafc;
+}
+
+.graph-touch-preview-point {
+  position: absolute;
+  left: 50%;
+  top: clamp(0.35rem, var(--preview-point-y), calc(100% - 0.35rem));
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 3px solid var(--student-line);
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+}
+
 [data-drag]:focus-visible,
 .faster-token:focus-visible {
   outline: none;
@@ -265,6 +381,40 @@
 @supports (height: 100dvh) {
   .lab-shell {
     grid-template-rows: minmax(13rem, 44dvh) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 819px) {
+  .compact-header {
+    padding: 0.65rem 0.8rem;
+  }
+
+  .compact-header p,
+  .phase-badge,
+  .stage-heading {
+    display: none;
+  }
+
+  .lab-stage {
+    height: 100%;
+    grid-template-rows: minmax(0, 145fr) minmax(0, 440fr);
+  }
+
+  .stage-block {
+    display: grid;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .lab-svg {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    touch-action: pan-y;
+  }
+
+  .graph-touch-preview-host.is-top {
+    top: 0.45rem;
   }
 }
 
@@ -574,9 +724,7 @@ dialog h2 { margin-top: 0; }
 @media (max-width: 420px) {
   .compact-header { display: block; }
   .phase-badge { display: none; }
-  .stage-heading { display: block; }
-  .stage-heading span:last-child { display: block; margin-top: 0.2rem; text-align: left; }
-  .graph-block .stage-heading { display: none; }
+  .stage-heading { display: none; }
   .lab-svg.is-narrow .tick-label,
   .lab-svg .tick-label { font-size: 28px; }
   .lab-svg .axis-label { font-size: 32px; stroke-width: 8px; }
