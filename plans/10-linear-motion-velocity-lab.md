@@ -360,29 +360,28 @@ Phone portrait:
 
 Scroll topology and gesture ownership:
 
-- `.motion-panel` is the sole normal vertical control-scroll owner. The
-  activity document and Moodle host page must not move while the learner is
-  trying to reach controls;
-- because `.motion-stage` and `.motion-panel` are sibling grid tracks, a native
-  stage pan cannot scroll the panel. The stable stage surface explicitly
-  forwards a one-finger vertical gesture to the panel after an 8 CSS-pixel
-  intent threshold;
-- `touch-action: pan-x pinch-zoom` is present on the stage before
-  `pointerdown`. Horizontal and multi-touch gestures stay browser-owned. A
-  non-primary touch entering the stage after the primary touch began on the
-  panel or elsewhere is never eligible for forwarding;
-- forwarding uses signed finger movement, clamps to the panel's true range, and
-  keeps the activity page, visual viewport, iframe/Moodle host page, and fixed
-  stage position unchanged. It changes no motion model, timer, answer, or
-  persisted state;
+- `.motion-stage` and its Canvas use `touch-action: pan-y` before `pointerdown`
+  and do not claim non-interactive stage touches;
+- the bounded activity locks its own `html`/`body` scroll range so shared
+  `100vh` body sizing cannot create a hidden inner-iframe scroll owner;
+- the stage and `.motion-panel` are sibling grid tracks, so a stage gesture
+  must not be forwarded to the panel. In an embedded Moodle launch, a vertical
+  stage swipe belongs to the enclosing host page and moves the complete SCORM
+  activity; in the bounded standalone page it remains unclaimed when no
+  ancestor has scroll range;
+- `.motion-panel` is the independent native control-scroll owner for touches
+  that start inside it. `overscroll-behavior: contain` keeps the Moodle page
+  fixed while the learner scrolls controls or reaches a panel boundary;
+- horizontal and multi-touch stage gestures remain browser-owned and change no
+  motion model, timer, answer, or persisted state;
 - the Canvas has no draggable target. All assessed interactions remain native
   controls in the panel.
 
 | Touch starts on | Owner | Required result |
 |---|---|---|
-| Non-interactive motion/graph stage | Explicit stage-to-panel forwarding after vertical intent | Non-zero panel delta when range exists; zero activity-page, viewport, iframe/host, and stage-position delta; trusted `pointermove` and `pointerup`, no unexpected `pointercancel` |
+| Non-interactive motion/graph stage | Enclosing Moodle page when it has range; otherwise unclaimed browser handling | In an embedded launch, a vertical swipe changes host-page scroll and moves the complete iframe while `motion-panel.scrollTop` remains unchanged |
 | Operation-panel control or panel background | Native operation panel | The panel reaches its true top and bottom, including the current phase's final action, without moving Moodle |
-| Horizontal or multi-touch gesture on stage | Browser | No panel forwarding and no motion/answer-state change |
+| Horizontal or multi-touch gesture on stage | Browser | No panel scrolling and no motion/answer-state change |
 
 The motion scene is a clear horizontal side view rather than the oblique
 three-lane layout of the reference-frame activity. Reuse the existing activity's

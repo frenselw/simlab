@@ -440,34 +440,36 @@ Phone portrait:
 - maintain a stage aspect ratio close to `4:3` where possible;
 - preserve the lower-left to upper-right road path and a central safe area for
   all key vehicle labels;
-- do not make the whole page scroll in a way that moves the observation stage
-  out of view while the learner operates controls.
+- a touch that starts in the operation panel keeps the Moodle page fixed while
+  the panel scrolls; a vertical touch that starts on the non-interactive stage
+  remains available to the enclosing Moodle page.
 
 Scroll topology and gesture ownership:
 
-- the activity document and Moodle host page are not normal control-scroll
-  owners; `.reference-panel` is the sole vertical owner while it has range;
-- the Canvas stage and control panel are sibling grid tracks, so native panning
-  from the stage cannot reach the panel. The stable `.reference-stage` surface
-  therefore uses explicit stage-to-panel forwarding;
-- the surface has `touch-action: pan-x pinch-zoom` before `pointerdown`.
-  Forwarding begins only after an 8 CSS-pixel intent threshold and only when the
-  vertical displacement exceeds the horizontal displacement. Horizontal and
-  multi-touch gestures remain browser-owned. A non-primary touch that first
-  enters the stage after the primary touch began on the panel or elsewhere is
-  never eligible for forwarding;
-- a claimed one-finger vertical gesture changes `reference-panel.scrollTop`
-  using signed finger movement, clamps at both boundaries, and keeps the
-  activity document, visual viewport, iframe, Moodle host page, and stage
-  position unchanged;
+- `.reference-stage` and its Canvas use `touch-action: pan-y` before
+  `pointerdown` and do not claim a touch that starts on non-interactive stage
+  content;
+- the bounded activity locks its own `html`/`body` scroll range. This prevents
+  shared `100vh` body sizing inside a short iframe from consuming the stage
+  gesture before it can reach the Moodle host;
+- because the stage and control panel are sibling grid tracks, a stage gesture
+  must not be forwarded to `.reference-panel`. In an embedded Moodle launch,
+  its vertical native pan belongs to the enclosing host page and moves the
+  complete SCORM activity with that page; in the bounded standalone page, it is
+  simply unclaimed when no ancestor has scroll range;
+- `.reference-panel` remains the independent native control-scroll owner for
+  touches that start inside it. Its `overscroll-behavior: contain` prevents
+  control scrolling or a panel boundary gesture from moving the Moodle host;
+- horizontal and multi-touch stage gestures remain browser-owned and change no
+  simulation or answer state;
 - there are no draggable stage targets in this activity. Candidate selection
   remains in the native control panel.
 
 | Touch starts on | Owner | Required result |
 |---|---|---|
-| Non-interactive road stage | Explicit stage-to-panel forwarding after vertical intent | Non-zero panel delta when range exists; zero activity-page, viewport, iframe/host, and stage-position delta; trusted `pointermove` and `pointerup`, no unexpected `pointercancel` |
+| Non-interactive road stage | Enclosing Moodle page when it has range; otherwise unclaimed browser handling | In an embedded launch, a vertical swipe changes the host-page scroll position and moves the complete iframe while `reference-panel.scrollTop` remains unchanged |
 | Operation-panel control or panel background | Native operation panel | The panel scrolls normally and can reach its true top and bottom without moving the Moodle page |
-| Horizontal or multi-touch gesture on stage | Browser | No panel forwarding and no simulation-state change |
+| Horizontal or multi-touch gesture on stage | Browser | No panel scrolling and no simulation-state change |
 
 Canvas sizing:
 

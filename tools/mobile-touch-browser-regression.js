@@ -1487,7 +1487,7 @@ async function prepareSplitPanelPhase(cdp, item) {
   return "#measurementSubmitButton";
 }
 
-async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
+async function testSplitPanelOwnership(cdp, baseUrl, item, width, height) {
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width,
     height,
@@ -1521,7 +1521,7 @@ async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
     panel.scrollTop = 0;
     return true;
   })()`);
-  const point = await splitPanelPoint(cdp, item.stageSelector);
+  let point = await splitPanelPoint(cdp, item.stageSelector);
   const outerHit = await evaluate(cdp, `(() => {
     const hit = document.elementFromPoint(${JSON.stringify(0)} + ${point.x}, ${JSON.stringify(0)} + ${point.y});
     return hit?.id || hit?.tagName || "none";
@@ -1529,39 +1529,36 @@ async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
   assert.equal(outerHit, "activity", `${item.label} ${width}x${height}: trusted stage point hits the activity iframe`);
   const label = `${item.label} ${width}x${height}${importantPhase ? " important phase" : ""}`;
 
-  const topBefore = await splitPanelObservation(cdp, item);
-  const topHit = await frameEval(cdp, `(() => {
-    const stage = document.querySelector(${JSON.stringify(item.stageSelector)});
-    const bounds = stage.getBoundingClientRect();
-    const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
-    return {
-      hit: hit?.id || hit?.className?.baseVal || hit?.className || hit?.tagName || "none",
-      hitTouchAction: hit ? getComputedStyle(hit).touchAction : "none",
-      stageTouchAction: getComputedStyle(stage).touchAction
-    };
-  })()`);
-  await resetEvents(cdp);
-  await oneFinger(cdp, point, { x: 0, y: 90 });
-  const topAfter = await splitPanelObservation(cdp, item);
-  assertSplitStable(topBefore, topAfter, `${label} stage top boundary ${JSON.stringify({
-    topHit,
-    events: await events(cdp)
-  })}`);
-  assertCompletedTouch(await events(cdp), `${label} stage top boundary`);
-
+  const stageBefore = await splitPanelObservation(cdp, item);
   const before = await splitPanelObservation(cdp, item);
   await resetEvents(cdp);
   await oneFinger(cdp, point, { x: 0, y: -110 });
   const after = await splitPanelObservation(cdp, item);
-  assert(after.surfaces.panel > before.surfaces.panel, `${label}: stage swipe forwards to control panel`);
-  assertSplitStable(before, after, `${label} stage forward`, { allowPanel: true });
-  assertCompletedTouch(await events(cdp), `${label} stage forwarding`);
+  assert(
+    after.surfaces.host > before.surfaces.host,
+    `${label}: stage swipe scrolls the enclosing Moodle-like page ${JSON.stringify({ before, after, log: await events(cdp) })}`
+  );
+  assert(after.surfaces.hostViewport > before.surfaces.hostViewport, `${label}: host visual viewport follows the stage swipe`);
+  for (const key of ["panel", "page", "viewport", "viewportScale", "hostScale"]) {
+    assert.equal(after.surfaces[key], before.surfaces[key], `${label}: stage swipe leaves ${key} unchanged`);
+  }
+  assert(after.geometry.frameTop < before.geometry.frameTop, `${label}: complete activity iframe moves with the host page`);
+  assert.deepEqual(
+    { ...after.geometry, frameTop: before.geometry.frameTop },
+    before.geometry,
+    `${label}: stage geometry remains fixed inside the moving iframe`
+  );
+  assert.deepEqual(after.authoritative, before.authoritative, `${label}: stage swipe changes no simulation or persisted state`);
+  assertTrustedBrowserGesture(await events(cdp), `${label} stage-to-host scrolling`);
 
-  const reverseBefore = await splitPanelObservation(cdp, item);
-  await oneFinger(cdp, point, { x: 0, y: 90 });
-  const reverseAfter = await splitPanelObservation(cdp, item);
-  assert(reverseAfter.surfaces.panel < reverseBefore.surfaces.panel, `${label}: reverse stage swipe returns through controls`);
-  assertSplitStable(reverseBefore, reverseAfter, `${label} stage reverse`, { allowPanel: true });
+  await evaluate(cdp, "document.getElementById('activity').scrollIntoView({ block: 'start' })");
+  await delay(350);
+  point = await splitPanelPoint(cdp, item.stageSelector);
+  assert.equal(
+    (await splitPanelObservation(cdp, item)).surfaces.panel,
+    stageBefore.surfaces.panel,
+    `${label}: restoring host position does not scroll the control panel`
+  );
 
   const horizontalBefore = await splitPanelObservation(cdp, item);
   await resetEvents(cdp);
@@ -1623,11 +1620,15 @@ async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
       const panel = document.querySelector(".sim-panel");
       return panel.scrollHeight - panel.clientHeight;
     })()`);
-    if (previous.surfaces.panel === maximum) break;
-    await oneFinger(cdp, point, { x: 0, y: -100 });
+    if (maximum - previous.surfaces.panel <= 1) break;
+    await oneFinger(cdp, await splitPanelBackgroundPoint(cdp), { x: 0, y: -100 });
     const current = await splitPanelObservation(cdp, item);
-    assert(current.surfaces.panel > previous.surfaces.panel, `${label}: repeated trusted stage swipe advances toward bottom`);
-    assertSplitStable(previous, current, `${label} trusted bottom traversal`, { allowPanel: true });
+    assert(
+      current.surfaces.panel > previous.surfaces.panel ||
+        maximum - current.surfaces.panel <= 1,
+      `${label}: repeated native panel swipe advances toward bottom`
+    );
+    assertSplitStable(previous, current, `${label} native panel bottom traversal`, { allowPanel: true });
     finalControlSeen = finalControlSeen || await splitPanelControlVisible(cdp, finalSelector);
     previous = current;
   }
@@ -1638,10 +1639,13 @@ async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
       maximum: panel.scrollHeight - panel.clientHeight
     };
   })()`);
-  assert.equal(bottom.scrollTop, bottom.maximum, `${label}: repeated trusted swipes reach the true bottom`);
+  assert(
+    Math.abs(bottom.scrollTop - bottom.maximum) <= 1,
+    `${label}: repeated native swipes reach the true bottom within browser layout rounding`
+  );
   assert.equal(finalControlSeen, true, `${label}: phase-specific final action ${finalSelector} is reached during trusted traversal`);
 
-  for (const [origin, gestureLabel] of [["stage", "stage"], ["panel", "native panel"]]) {
+  for (const [origin, gestureLabel] of [["panel", "native panel"]]) {
     const boundaryBefore = await splitPanelObservation(cdp, item);
     await resetEvents(cdp);
     await oneFinger(cdp, origin === "stage" ? point : await splitPanelBackgroundPoint(cdp), { x: 0, y: -90 });
@@ -1667,19 +1671,21 @@ async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
       );
     }
     const log = await events(cdp);
-    if (origin === "stage") assertCompletedTouch(log, `${label} stage bottom boundary`);
-    else assertTrustedBrowserGesture(log, `${label} native panel bottom boundary`);
+    assertTrustedBrowserGesture(log, `${label} native panel bottom boundary`);
   }
 
   previous = await splitPanelObservation(cdp, item);
-  for (let attempt = 0; attempt < 50 && previous.surfaces.panel > 0; attempt += 1) {
-    await oneFinger(cdp, point, { x: 0, y: 100 });
+  for (let attempt = 0; attempt < 50 && previous.surfaces.panel > 1; attempt += 1) {
+    await oneFinger(cdp, await splitPanelBackgroundPoint(cdp), { x: 0, y: 100 });
     const current = await splitPanelObservation(cdp, item);
-    assert(current.surfaces.panel < previous.surfaces.panel, `${label}: repeated trusted reverse swipe returns toward top`);
-    assertSplitStable(previous, current, `${label} trusted top traversal`, { allowPanel: true });
+    assert(
+      current.surfaces.panel < previous.surfaces.panel || current.surfaces.panel <= 1,
+      `${label}: repeated native reverse swipe returns toward top`
+    );
+    assertSplitStable(previous, current, `${label} native panel top traversal`, { allowPanel: true });
     previous = current;
   }
-  assert.equal(previous.surfaces.panel, 0, `${label}: repeated trusted reverse swipes reach true top`);
+  assert(previous.surfaces.panel <= 1, `${label}: repeated native reverse swipes reach true top within browser layout rounding`);
   const nativeTopBefore = await splitPanelObservation(cdp, item);
   await resetEvents(cdp);
   await oneFinger(cdp, await splitPanelBackgroundPoint(cdp), { x: 0, y: 90 });
@@ -1697,7 +1703,7 @@ function splitPanelViewports() {
 async function runSplitPanelIsolated(port, baseUrl, item) {
   for (const [width, height] of splitPanelViewports()) {
     await withIsolatedPage(port, `${item.label} ${width}x${height}`, async (client) => {
-      await testSplitPanelForwarding(client, baseUrl, item, width, height);
+      await testSplitPanelOwnership(client, baseUrl, item, width, height);
     });
   }
 }

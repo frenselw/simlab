@@ -98,4 +98,30 @@ assert.match(
   "FBD arrow shafts are non-interactive"
 );
 
+for (const activity of [
+  {
+    slug: "inertial-reference-frame-road-observer",
+    stagePattern: /\.reference-stage\s*\{[^}]*touch-action:\s*pan-y/s,
+    canvasPattern: /\.road-canvas\s*\{[^}]*touch-action:\s*pan-y/s
+  },
+  {
+    slug: "linear-motion-velocity-lab",
+    stagePattern: /\.motion-stage\s*\{[^}]*touch-action:\s*pan-y/s,
+    canvasPattern: /#motionCanvas\s*\{[^}]*touch-action:\s*pan-y/s
+  }
+]) {
+  const styles = readStyles(activity.slug);
+  const source = fs.readFileSync(path.join(root, "sim", activity.slug, "main.js"), "utf8");
+  const index = fs.readFileSync(path.join(root, "sim", activity.slug, "index.html"), "utf8");
+  assert.match(
+    styles,
+    /html,\s*body\s*\{[^}]*height:\s*100%[^}]*min-height:\s*0[^}]*overflow:\s*hidden/s,
+    `${activity.slug} removes the inner iframe document scroll range`
+  );
+  assert.match(styles, activity.stagePattern, `${activity.slug} stage leaves vertical panning to the enclosing page`);
+  assert.match(styles, activity.canvasPattern, `${activity.slug} canvas exposes vertical panning before pointerdown`);
+  assert.doesNotMatch(source, /PanelScrollForwarding/, `${activity.slug} does not forward stage gestures to its sibling panel`);
+  assert.doesNotMatch(index, /panel-scroll-forwarding/, `${activity.slug} does not load a stage-to-panel forwarding runtime`);
+}
+
 console.log("mobile touch scroll tests passed");
