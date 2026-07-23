@@ -144,6 +144,7 @@ async function loadActivity(cdp, baseUrl, activityPath, readySelector, snapshot 
         window.__touchEvents.push({
           type,
           isTrusted: event.isTrusted,
+          isPrimary: event.isPrimary,
           pointerType: event.pointerType,
           pointerId: event.pointerId,
           target: event.target?.id || event.target?.dataset?.id || event.target?.dataset?.arrow || event.target?.className?.baseVal || event.target?.className || ""
@@ -1293,6 +1294,414 @@ async function runFbd(cdp, baseUrl, activityPath, label) {
   }
 }
 
+async function splitPanelPoint(cdp, selector) {
+  const local = await frameEval(cdp, `(() => {
+    const stage = document.querySelector(${JSON.stringify(selector)});
+    const bounds = stage.getBoundingClientRect();
+    return {
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + bounds.height / 2
+    };
+  })()`);
+  const frame = await evaluate(cdp, `(() => {
+    const bounds = document.getElementById("activity").getBoundingClientRect();
+    return { left: bounds.left, top: bounds.top };
+  })()`);
+  return { x: frame.left + local.x, y: frame.top + local.y };
+}
+
+async function splitPanelBackgroundPoint(cdp) {
+  const local = await frameEval(cdp, `(() => {
+    const panel = document.querySelector(".sim-panel");
+    const bounds = panel.getBoundingClientRect();
+    for (const rx of [0.03, 0.97, 0.5]) {
+      for (const ry of [0.3, 0.5, 0.7]) {
+        const x = bounds.left + bounds.width * rx;
+        const y = bounds.top + bounds.height * ry;
+        const hit = document.elementFromPoint(x, y);
+        if (panel.contains(hit) && !hit.closest("button,input,select,textarea,a,label")) {
+          return { x, y };
+        }
+      }
+    }
+    throw new Error("No non-interactive operation-panel point found");
+  })()`);
+  const frame = await evaluate(cdp, `(() => {
+    const bounds = document.getElementById("activity").getBoundingClientRect();
+    return { left: bounds.left, top: bounds.top };
+  })()`);
+  return { x: frame.left + local.x, y: frame.top + local.y };
+}
+
+async function splitPanelObservation(cdp, item) {
+  return frameEval(cdp, `(() => {
+    const stage = document.querySelector(${JSON.stringify(item.stageSelector)});
+    const stageBounds = stage.getBoundingClientRect();
+    const frameBounds = window.frameElement.getBoundingClientRect();
+    return {
+      surfaces: {
+        panel: document.querySelector(".sim-panel").scrollTop,
+        page: window.scrollY,
+        viewport: window.visualViewport?.pageTop || 0,
+        viewportScale: window.visualViewport?.scale || 1,
+        host: window.parent.scrollY,
+        hostViewport: window.parent.visualViewport?.pageTop || 0,
+        hostScale: window.parent.visualViewport?.scale || 1
+      },
+      geometry: {
+        frameTop: frameBounds.top,
+        frameLeft: frameBounds.left,
+        frameHeight: frameBounds.height,
+        stageTop: stageBounds.top,
+        stageLeft: stageBounds.left,
+        stageWidth: stageBounds.width,
+        stageHeight: stageBounds.height
+      },
+      authoritative: {
+        suspend: window.__touchLmsValues["cmi.suspend_data"] || "",
+        selectedCandidates: Array.from(document.querySelectorAll("[data-candidate][aria-pressed=true]"), (node) => node.dataset.candidate),
+        checkedAnswers: Array.from(document.querySelectorAll("input:checked"), (node) => [node.name, node.value]),
+        inputValues: Array.from(document.querySelectorAll("input:not([type=radio])"), (node) => [node.id, node.value]),
+        heading: document.getElementById("roundHeading")?.textContent || document.getElementById("stageTitle")?.textContent || "",
+        status: document.getElementById("roundStatus")?.textContent || document.getElementById("motionStatus")?.textContent || "",
+        progress: document.getElementById("progressMessage")?.textContent || "",
+        guideHidden: document.getElementById("guideButton")?.classList.contains("is-hidden") ?? null,
+        measurementHidden: document.getElementById("measurementForm")?.classList.contains("is-hidden") ?? null
+      }
+    };
+  })()`);
+}
+
+async function splitPanelControlVisible(cdp, selector) {
+  return frameEval(cdp, `(() => {
+    const panel = document.querySelector(".sim-panel");
+    const control = document.querySelector(${JSON.stringify(selector)});
+    const panelBounds = panel.getBoundingClientRect();
+    const controlBounds = control.getBoundingClientRect();
+    return !control.closest(".is-hidden") &&
+      controlBounds.bottom <= panelBounds.bottom + 1 &&
+      controlBounds.top >= panelBounds.top - 1;
+  })()`);
+}
+
+function assertSplitStable(before, after, label, options = {}) {
+  const allowedPanel = options.allowPanel === true;
+  for (const key of ["page", "viewport", "viewportScale", "host", "hostViewport", "hostScale"]) {
+    assert.equal(after.surfaces[key], before.surfaces[key], `${label}: ${key} remains unchanged`);
+  }
+  if (!allowedPanel) assert.equal(after.surfaces.panel, before.surfaces.panel, `${label}: panel remains unchanged`);
+  assert.deepEqual(after.geometry, before.geometry, `${label}: iframe and fixed-stage geometry remain unchanged`);
+  assert.deepEqual(after.authoritative, before.authoritative, `${label}: authoritative simulation and persistence state remains unchanged`);
+}
+
+function assertTrustedBrowserGesture(log, label, minimumStarts = 1) {
+  const touch = log.filter((event) => event.pointerType === "touch");
+  assert(touch.length > 0 && touch.every((event) => event.isTrusted), `${label}: browser-owned gesture uses trusted touch`);
+  assert(touch.filter((event) => event.type === "pointerdown").length >= minimumStarts, `${label}: expected touch starts occur`);
+  assert(touch.some((event) => event.type === "pointermove"), `${label}: touch movement occurs`);
+  assert(touch.some((event) => event.type === "pointerup" || event.type === "pointercancel"), `${label}: gesture has a browser-observable terminal event`);
+}
+
+async function splitPanelMultiTouch(cdp, point) {
+  const first = pointerSequence++;
+  const second = pointerSequence++;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      touchPoint(point.x - 18, point.y, first),
+      touchPoint(point.x + 18, point.y, second)
+    ]
+  });
+  for (const dy of [-12, -24, -36]) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        touchPoint(point.x - 18, point.y + dy, first),
+        touchPoint(point.x + 18, point.y + dy, second)
+      ]
+    });
+    await delay(30);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(250);
+}
+
+async function splitPanelCrossSurfaceSecondary(cdp, primaryPoint, secondaryPoint) {
+  const primary = pointerSequence++;
+  const secondary = pointerSequence++;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [touchPoint(primaryPoint.x, primaryPoint.y, primary)]
+  });
+  await delay(60);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      touchPoint(primaryPoint.x, primaryPoint.y, primary),
+      touchPoint(secondaryPoint.x, secondaryPoint.y, secondary)
+    ]
+  });
+  for (const dy of [-12, -24, -36]) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        touchPoint(primaryPoint.x, primaryPoint.y, primary),
+        touchPoint(secondaryPoint.x + 1, secondaryPoint.y + dy, secondary)
+      ]
+    });
+    await delay(30);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(250);
+}
+
+async function prepareSplitPanelPhase(cdp, item) {
+  if (item.slug === "inertial-reference-frame-road-observer") {
+    await frameEval(cdp, `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      document.querySelector("[data-candidate=A]").click();
+      document.getElementById("startButton").click();
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (!document.getElementById("guideButton").disabled) return true;
+        await wait(50);
+      }
+      throw new Error("Reference-frame guide did not reach its final action");
+    })()`);
+    return "#guideButton";
+  }
+  await frameEval(cdp, `(async () => {
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    document.getElementById("observeButton").click();
+    for (let attempt = 0; attempt < 80 && document.getElementById("timerButton").disabled; attempt += 1) await wait(25);
+    document.getElementById("timerButton").click();
+    await wait(1700);
+    document.getElementById("timerButton").click();
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      if (!document.getElementById("measurementForm").classList.contains("is-hidden")) break;
+      await wait(25);
+    }
+    if (document.getElementById("measurementForm").classList.contains("is-hidden")) throw new Error("Captured measurement form did not appear");
+    if (!document.getElementById("pauseButton").disabled) document.getElementById("pauseButton").click();
+    return true;
+  })()`);
+  return "#measurementSubmitButton";
+}
+
+async function testSplitPanelForwarding(cdp, baseUrl, item, width, height) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width,
+    height,
+    deviceScaleFactor: 1,
+    mobile: true
+  });
+  await loadActivity(cdp, baseUrl, item.activityPath, item.readySelector);
+  await evaluate(cdp, `(() => {
+    const frame = document.getElementById("activity");
+    frame.style.height = ${JSON.stringify(`${height}px`)};
+    return true;
+  })()`);
+  await delay(120);
+  assert.equal(
+    await frameEval(cdp, "window.innerHeight"),
+    height,
+    `${item.label} ${width}x${height}: activity iframe uses the requested height`
+  );
+  await evaluate(cdp, "scrollTo(0, 300)");
+  await delay(500);
+  const importantPhase = width === 390 && height === 500;
+  const finalSelector = importantPhase
+    ? await prepareSplitPanelPhase(cdp, item)
+    : item.slug === "inertial-reference-frame-road-observer" ? "#guideButton" : "#nextStageButton";
+  if (importantPhase) await delay(500);
+  await evaluate(cdp, "document.getElementById('activity').scrollIntoView({ block: 'start' })");
+  await delay(500);
+  await frameEval(cdp, `(() => {
+    const panel = document.querySelector(".sim-panel");
+    if (panel.scrollHeight <= panel.clientHeight) throw new Error("Control panel must overflow");
+    panel.scrollTop = 0;
+    return true;
+  })()`);
+  const point = await splitPanelPoint(cdp, item.stageSelector);
+  const outerHit = await evaluate(cdp, `(() => {
+    const hit = document.elementFromPoint(${JSON.stringify(0)} + ${point.x}, ${JSON.stringify(0)} + ${point.y});
+    return hit?.id || hit?.tagName || "none";
+  })()`);
+  assert.equal(outerHit, "activity", `${item.label} ${width}x${height}: trusted stage point hits the activity iframe`);
+  const label = `${item.label} ${width}x${height}${importantPhase ? " important phase" : ""}`;
+
+  const topBefore = await splitPanelObservation(cdp, item);
+  const topHit = await frameEval(cdp, `(() => {
+    const stage = document.querySelector(${JSON.stringify(item.stageSelector)});
+    const bounds = stage.getBoundingClientRect();
+    const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+    return {
+      hit: hit?.id || hit?.className?.baseVal || hit?.className || hit?.tagName || "none",
+      hitTouchAction: hit ? getComputedStyle(hit).touchAction : "none",
+      stageTouchAction: getComputedStyle(stage).touchAction
+    };
+  })()`);
+  await resetEvents(cdp);
+  await oneFinger(cdp, point, { x: 0, y: 90 });
+  const topAfter = await splitPanelObservation(cdp, item);
+  assertSplitStable(topBefore, topAfter, `${label} stage top boundary ${JSON.stringify({
+    topHit,
+    events: await events(cdp)
+  })}`);
+  assertCompletedTouch(await events(cdp), `${label} stage top boundary`);
+
+  const before = await splitPanelObservation(cdp, item);
+  await resetEvents(cdp);
+  await oneFinger(cdp, point, { x: 0, y: -110 });
+  const after = await splitPanelObservation(cdp, item);
+  assert(after.surfaces.panel > before.surfaces.panel, `${label}: stage swipe forwards to control panel`);
+  assertSplitStable(before, after, `${label} stage forward`, { allowPanel: true });
+  assertCompletedTouch(await events(cdp), `${label} stage forwarding`);
+
+  const reverseBefore = await splitPanelObservation(cdp, item);
+  await oneFinger(cdp, point, { x: 0, y: 90 });
+  const reverseAfter = await splitPanelObservation(cdp, item);
+  assert(reverseAfter.surfaces.panel < reverseBefore.surfaces.panel, `${label}: reverse stage swipe returns through controls`);
+  assertSplitStable(reverseBefore, reverseAfter, `${label} stage reverse`, { allowPanel: true });
+
+  const horizontalBefore = await splitPanelObservation(cdp, item);
+  await resetEvents(cdp);
+  await oneFinger(cdp, point, { x: 100, y: 2 });
+  assertSplitStable(horizontalBefore, await splitPanelObservation(cdp, item), `${label} horizontal browser ownership`);
+  assertTrustedBrowserGesture(await events(cdp), `${label} horizontal browser ownership`);
+
+  const multiBefore = await splitPanelObservation(cdp, item);
+  await resetEvents(cdp);
+  await splitPanelMultiTouch(cdp, point);
+  assertSplitStable(multiBefore, await splitPanelObservation(cdp, item), `${label} multi-touch browser ownership`);
+  assertTrustedBrowserGesture(await events(cdp), `${label} multi-touch browser ownership`, 2);
+
+  if (importantPhase) {
+    const crossBefore = await splitPanelObservation(cdp, item);
+    await resetEvents(cdp);
+    await splitPanelCrossSurfaceSecondary(cdp, await splitPanelBackgroundPoint(cdp), point);
+    assertSplitStable(
+      crossBefore,
+      await splitPanelObservation(cdp, item),
+      `${label} panel-primary stage-secondary browser ownership`
+    );
+    const crossLog = await events(cdp);
+    assertTrustedBrowserGesture(
+      crossLog,
+      `${label} panel-primary stage-secondary browser ownership`,
+      2
+    );
+    const secondaryDown = crossLog.find((event) =>
+      event.type === "pointerdown" &&
+      event.pointerType === "touch" &&
+      event.isPrimary === false &&
+      [item.stageSelector.slice(1), "roadCanvas", "motionCanvas"].includes(event.target)
+    );
+    assert(secondaryDown, `${label}: cross-surface stage pointer is explicitly non-primary`);
+    assert(
+      crossLog.some((event) =>
+        event.type === "pointermove" &&
+        event.pointerId === secondaryDown.pointerId &&
+        event.isPrimary === false
+      ),
+      `${label}: non-primary stage pointer receives vertical-dominant pointermove`
+    );
+  }
+
+  const panelPoint = await splitPanelBackgroundPoint(cdp);
+  const nativeBefore = await splitPanelObservation(cdp, item);
+  await resetEvents(cdp);
+  await oneFinger(cdp, panelPoint, { x: 0, y: -90 });
+  const nativeAfter = await splitPanelObservation(cdp, item);
+  assert(nativeAfter.surfaces.panel > nativeBefore.surfaces.panel, `${label}: native panel-background swipe scrolls the panel`);
+  assertSplitStable(nativeBefore, nativeAfter, `${label} native panel swipe`, { allowPanel: true });
+  assertTrustedBrowserGesture(await events(cdp), `${label} native panel swipe`);
+
+  let finalControlSeen = await splitPanelControlVisible(cdp, finalSelector);
+  let previous = await splitPanelObservation(cdp, item);
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const maximum = await frameEval(cdp, `(() => {
+      const panel = document.querySelector(".sim-panel");
+      return panel.scrollHeight - panel.clientHeight;
+    })()`);
+    if (previous.surfaces.panel === maximum) break;
+    await oneFinger(cdp, point, { x: 0, y: -100 });
+    const current = await splitPanelObservation(cdp, item);
+    assert(current.surfaces.panel > previous.surfaces.panel, `${label}: repeated trusted stage swipe advances toward bottom`);
+    assertSplitStable(previous, current, `${label} trusted bottom traversal`, { allowPanel: true });
+    finalControlSeen = finalControlSeen || await splitPanelControlVisible(cdp, finalSelector);
+    previous = current;
+  }
+  const bottom = await frameEval(cdp, `(() => {
+    const panel = document.querySelector(".sim-panel");
+    return {
+      scrollTop: panel.scrollTop,
+      maximum: panel.scrollHeight - panel.clientHeight
+    };
+  })()`);
+  assert.equal(bottom.scrollTop, bottom.maximum, `${label}: repeated trusted swipes reach the true bottom`);
+  assert.equal(finalControlSeen, true, `${label}: phase-specific final action ${finalSelector} is reached during trusted traversal`);
+
+  for (const [origin, gestureLabel] of [["stage", "stage"], ["panel", "native panel"]]) {
+    const boundaryBefore = await splitPanelObservation(cdp, item);
+    await resetEvents(cdp);
+    await oneFinger(cdp, origin === "stage" ? point : await splitPanelBackgroundPoint(cdp), { x: 0, y: -90 });
+    const boundaryAfter = await splitPanelObservation(cdp, item);
+    assertSplitStable(
+      boundaryBefore,
+      boundaryAfter,
+      `${label} ${gestureLabel} bottom boundary`,
+      { allowPanel: origin === "panel" }
+    );
+    if (origin === "panel") {
+      const currentMaximum = await frameEval(cdp, `(() => {
+        const panel = document.querySelector(".sim-panel");
+        return panel.scrollHeight - panel.clientHeight;
+      })()`);
+      assert(
+        Math.abs(boundaryAfter.surfaces.panel - currentMaximum) <= 1,
+        `${label}: native panel remains within one CSS pixel of its current true bottom`
+      );
+      assert(
+        Math.abs(boundaryAfter.surfaces.panel - boundaryBefore.surfaces.panel) <= 1,
+        `${label}: native bottom-boundary rounding adjustment is at most one CSS pixel`
+      );
+    }
+    const log = await events(cdp);
+    if (origin === "stage") assertCompletedTouch(log, `${label} stage bottom boundary`);
+    else assertTrustedBrowserGesture(log, `${label} native panel bottom boundary`);
+  }
+
+  previous = await splitPanelObservation(cdp, item);
+  for (let attempt = 0; attempt < 50 && previous.surfaces.panel > 0; attempt += 1) {
+    await oneFinger(cdp, point, { x: 0, y: 100 });
+    const current = await splitPanelObservation(cdp, item);
+    assert(current.surfaces.panel < previous.surfaces.panel, `${label}: repeated trusted reverse swipe returns toward top`);
+    assertSplitStable(previous, current, `${label} trusted top traversal`, { allowPanel: true });
+    previous = current;
+  }
+  assert.equal(previous.surfaces.panel, 0, `${label}: repeated trusted reverse swipes reach true top`);
+  const nativeTopBefore = await splitPanelObservation(cdp, item);
+  await resetEvents(cdp);
+  await oneFinger(cdp, await splitPanelBackgroundPoint(cdp), { x: 0, y: 90 });
+  assertSplitStable(nativeTopBefore, await splitPanelObservation(cdp, item), `${label} native panel top boundary`);
+  assertTrustedBrowserGesture(await events(cdp), `${label} native panel top boundary`);
+}
+
+function splitPanelViewports() {
+  const requestedViewport = process.env.SIMLAB_TOUCH_VIEWPORT?.split("x").map(Number);
+  return requestedViewport?.length === 2 && requestedViewport.every(Number.isFinite)
+    ? [requestedViewport]
+    : [[320, 500], [390, 500], [390, 600], [390, 844]];
+}
+
+async function runSplitPanelIsolated(port, baseUrl, item) {
+  for (const [width, height] of splitPanelViewports()) {
+    await withIsolatedPage(port, `${item.label} ${width}x${height}`, async (client) => {
+      await testSplitPanelForwarding(client, baseUrl, item, width, height);
+    });
+  }
+}
+
 async function createPageClient(port) {
   const { response, body: target } = await fetchJson(
     `http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`,
@@ -1356,12 +1765,15 @@ async function runRoot(cdp, port, packageRoot, cases) {
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   try {
     for (const item of cases) {
+      if (process.env.SIMLAB_TOUCH_SLUG && item.slug !== process.env.SIMLAB_TOUCH_SLUG) continue;
       if (item.slug === "displacement-distance-map-journey") {
         await runMap(cdp, baseUrl, item.activityPath, item.label);
         await runMapMultitouchIsolated(port, baseUrl, item);
-      } else {
+      } else if (item.slug === "fbd-horizontal-block") {
         await runFbd(cdp, baseUrl, item.activityPath, item.label);
         await runFbdMultitouchIsolated(port, baseUrl, item);
+      } else {
+        await runSplitPanelIsolated(port, baseUrl, item);
       }
     }
   } finally {
@@ -1392,7 +1804,12 @@ async function main() {
   try {
     const browser = findBrowser();
     if (!browser) throw new Error("Chrome/Chromium is required; install it or set CHROME_PATH.");
-    for (const slug of ["displacement-distance-map-journey", "fbd-horizontal-block"]) {
+    for (const slug of [
+      "displacement-distance-map-journey",
+      "fbd-horizontal-block",
+      "inertial-reference-frame-road-observer",
+      "linear-motion-velocity-lab"
+    ]) {
       const prefix = `simlab-mobile-touch-${slug}-package-`;
       const pattern = new RegExp(`^${prefix}[A-Za-z0-9]+$`);
       const extracted = buildAndExtractPackage(tempRoot, {
@@ -1442,11 +1859,31 @@ async function main() {
 
     await runRoot(cdp, port, root, [
       { slug: "displacement-distance-map-journey", activityPath: "/sim/displacement-distance-map-journey/index.html", label: "development" },
-      { slug: "fbd-horizontal-block", activityPath: "/sim/fbd-horizontal-block/index.html", label: "development" }
+      { slug: "fbd-horizontal-block", activityPath: "/sim/fbd-horizontal-block/index.html", label: "development" },
+      {
+        slug: "inertial-reference-frame-road-observer",
+        activityPath: "/sim/inertial-reference-frame-road-observer/index.html",
+        label: "development reference frame",
+        readySelector: "#roadCanvas",
+        stageSelector: ".reference-stage"
+      },
+      {
+        slug: "linear-motion-velocity-lab",
+        activityPath: "/sim/linear-motion-velocity-lab/index.html",
+        label: "development linear motion",
+        readySelector: "#motionCanvas",
+        stageSelector: ".motion-stage"
+      }
     ]);
     for (const item of packages) {
       await runRoot(cdp, port, item.packageDirectory, [
-        { slug: item.slug, activityPath: item.activityPath, label: `packaged ${item.slug}` }
+        {
+          slug: item.slug,
+          activityPath: item.activityPath,
+          label: `packaged ${item.slug}`,
+          readySelector: item.slug === "inertial-reference-frame-road-observer" ? "#roadCanvas" : "#motionCanvas",
+          stageSelector: item.slug === "inertial-reference-frame-road-observer" ? ".reference-stage" : ".motion-stage"
+        }
       ]);
     }
     assertNoDiagnostics(diagnostics);

@@ -5,6 +5,8 @@
   if (!Scoring) throw new Error("Reference-frame scoring module was not loaded");
 
   const canvas = document.getElementById("roadCanvas");
+  const stage = document.querySelector(".reference-stage");
+  const controlPanel = document.querySelector(".reference-panel");
   const context = canvas.getContext("2d");
   const headerText = document.getElementById("headerText");
   const roundHeading = document.getElementById("roundHeading");
@@ -26,6 +28,8 @@
   const scorePanel = document.getElementById("scorePanel");
   const feedbackList = document.getElementById("feedbackList");
   const screenReaderStatus = document.getElementById("screenReaderStatus");
+  if (!window.SimPanelScrollForwarding) throw new Error("Panel scroll forwarding module was not loaded");
+  window.SimPanelScrollForwarding.attach({ surface: stage, panel: controlPanel });
 
   const SIMULATION_SECONDS = 3.5;
   const ACTIVITY = "inertial-reference-frame-road-observer";

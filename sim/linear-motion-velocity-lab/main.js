@@ -10,12 +10,16 @@
 
   const ACTIVITY = "linear-motion-velocity-lab";
   const canvas = document.getElementById("motionCanvas");
+  const stage = document.querySelector(".motion-stage");
+  const controlPanel = document.querySelector(".motion-panel");
   const context = canvas.getContext("2d");
   const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]")).map((element) => [element.id, element]));
   const progressItems = Array.from(document.querySelectorAll("[data-progress]"));
   const relationshipInputs = Array.from(document.querySelectorAll("input[name=relationship]"));
   const conceptInputs = Array.from(document.querySelectorAll("input[name=concept]"));
   const reducedMotionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
+  if (!window.SimPanelScrollForwarding) throw new Error("Panel scroll forwarding module was not loaded");
+  window.SimPanelScrollForwarding.attach({ surface: stage, panel: controlPanel });
   let reducedMotion = reducedMotionPreference?.matches === true;
   let state = null;
   let locked = false;

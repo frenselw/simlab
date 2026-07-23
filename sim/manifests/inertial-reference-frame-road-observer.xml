@@ -28,6 +28,7 @@
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
+      <file href="shared/panel-scroll-forwarding.js"/>
     </resource>
   </resources>
 </manifest>

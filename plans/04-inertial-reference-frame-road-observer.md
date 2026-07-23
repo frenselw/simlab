@@ -443,6 +443,32 @@ Phone portrait:
 - do not make the whole page scroll in a way that moves the observation stage
   out of view while the learner operates controls.
 
+Scroll topology and gesture ownership:
+
+- the activity document and Moodle host page are not normal control-scroll
+  owners; `.reference-panel` is the sole vertical owner while it has range;
+- the Canvas stage and control panel are sibling grid tracks, so native panning
+  from the stage cannot reach the panel. The stable `.reference-stage` surface
+  therefore uses explicit stage-to-panel forwarding;
+- the surface has `touch-action: pan-x pinch-zoom` before `pointerdown`.
+  Forwarding begins only after an 8 CSS-pixel intent threshold and only when the
+  vertical displacement exceeds the horizontal displacement. Horizontal and
+  multi-touch gestures remain browser-owned. A non-primary touch that first
+  enters the stage after the primary touch began on the panel or elsewhere is
+  never eligible for forwarding;
+- a claimed one-finger vertical gesture changes `reference-panel.scrollTop`
+  using signed finger movement, clamps at both boundaries, and keeps the
+  activity document, visual viewport, iframe, Moodle host page, and stage
+  position unchanged;
+- there are no draggable stage targets in this activity. Candidate selection
+  remains in the native control panel.
+
+| Touch starts on | Owner | Required result |
+|---|---|---|
+| Non-interactive road stage | Explicit stage-to-panel forwarding after vertical intent | Non-zero panel delta when range exists; zero activity-page, viewport, iframe/host, and stage-position delta; trusted `pointermove` and `pointerup`, no unexpected `pointercancel` |
+| Operation-panel control or panel background | Native operation panel | The panel scrolls normally and can reach its true top and bottom without moving the Moodle page |
+| Horizontal or multi-touch gesture on stage | Browser | No panel forwarding and no simulation-state change |
+
 Canvas sizing:
 
 - keep Canvas CSS size separate from its backing-store size;

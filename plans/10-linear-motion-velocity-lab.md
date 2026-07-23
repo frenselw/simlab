@@ -358,6 +358,32 @@ Phone portrait:
 - no horizontal scrolling;
 - all controls have at least a 44 CSS-pixel target.
 
+Scroll topology and gesture ownership:
+
+- `.motion-panel` is the sole normal vertical control-scroll owner. The
+  activity document and Moodle host page must not move while the learner is
+  trying to reach controls;
+- because `.motion-stage` and `.motion-panel` are sibling grid tracks, a native
+  stage pan cannot scroll the panel. The stable stage surface explicitly
+  forwards a one-finger vertical gesture to the panel after an 8 CSS-pixel
+  intent threshold;
+- `touch-action: pan-x pinch-zoom` is present on the stage before
+  `pointerdown`. Horizontal and multi-touch gestures stay browser-owned. A
+  non-primary touch entering the stage after the primary touch began on the
+  panel or elsewhere is never eligible for forwarding;
+- forwarding uses signed finger movement, clamps to the panel's true range, and
+  keeps the activity page, visual viewport, iframe/Moodle host page, and fixed
+  stage position unchanged. It changes no motion model, timer, answer, or
+  persisted state;
+- the Canvas has no draggable target. All assessed interactions remain native
+  controls in the panel.
+
+| Touch starts on | Owner | Required result |
+|---|---|---|
+| Non-interactive motion/graph stage | Explicit stage-to-panel forwarding after vertical intent | Non-zero panel delta when range exists; zero activity-page, viewport, iframe/host, and stage-position delta; trusted `pointermove` and `pointerup`, no unexpected `pointercancel` |
+| Operation-panel control or panel background | Native operation panel | The panel reaches its true top and bottom, including the current phase's final action, without moving Moodle |
+| Horizontal or multi-touch gesture on stage | Browser | No panel forwarding and no motion/answer-state change |
+
 The motion scene is a clear horizontal side view rather than the oblique
 three-lane layout of the reference-frame activity. Reuse the existing activity's
 car colour, recognisable body treatment, restrained palette, and shadow style;
