@@ -28,26 +28,54 @@ assert.match(
   "map person has a stable HTML touch target outside the rerendered SVG layer"
 );
 assert.match(
+  mapIndex,
+  /id="arrowTouchTarget"[^>]*class="arrow-touch-target"/,
+  "map displacement arrow has a stable HTML touch target outside the rerendered SVG layer"
+);
+assert.match(
   mapStyles,
-  /\.person-touch-target\s*\{[^}]*position:\s*absolute[^}]*touch-action:\s*none/s,
-  "map person HTML target reliably owns its touch gesture"
+  /\.person-touch-target,\s*\.arrow-touch-target\s*\{[^}]*position:\s*absolute[^}]*touch-action:\s*none/s,
+  "map person and displacement arrow HTML targets reliably own their touch gestures"
 );
 assert.match(
   mapSource,
   /personTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*personTouchTarget\.addEventListener\("pointercancel", onPointerUp\)/,
   "map person drag stays captured by the stable HTML target"
 );
+assert.match(
+  mapSource,
+  /arrowTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*arrowTouchTarget\.addEventListener\("pointercancel", onPointerUp\)/,
+  "map displacement arrow drag stays captured by the stable HTML target"
+);
 
 const fbdStyles = readStyles("fbd-horizontal-block");
+const fbdSource = fs.readFileSync(
+  path.join(root, "sim", "fbd-horizontal-block", "main.js"),
+  "utf8"
+);
+const fbdIndex = fs.readFileSync(
+  path.join(root, "sim", "fbd-horizontal-block", "index.html"),
+  "utf8"
+);
 assert.match(
   fbdStyles,
   /\.fbd-diagram\s*\{[^}]*touch-action:\s*pan-y/s,
   "FBD blank-space swipes allow vertical page scrolling"
 );
 assert.match(
+  fbdIndex,
+  /id="forceTouchTargets"[^>]*class="force-touch-targets"/,
+  "FBD force arrows have a stable HTML touch-target layer"
+);
+assert.match(
   fbdStyles,
-  /\.force-tip-hit\s*\{[^}]*touch-action:\s*none/s,
-  "FBD drag targets continue to own two-dimensional touch gestures"
+  /\.force-touch-target\s*\{[^}]*position:\s*absolute[^}]*pointer-events:\s*auto[^}]*touch-action:\s*none/s,
+  "FBD force-arrow HTML targets reliably own their touch gestures"
+);
+assert.match(
+  fbdSource,
+  /forceTouchTargets\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*forceTouchTargets\.addEventListener\("pointercancel", onPointerUp\)/,
+  "FBD force-arrow drags stay captured by stable HTML targets"
 );
 
 console.log("mobile touch scroll tests passed");

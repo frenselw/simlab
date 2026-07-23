@@ -34,7 +34,8 @@
   pointer-events: none;
 }
 
-.person-touch-target {
+.person-touch-target,
+.arrow-touch-target {
   position: absolute;
   z-index: 3;
   border-radius: 50%;

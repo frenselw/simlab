@@ -12,6 +12,7 @@
   const arrowLayer = document.getElementById("arrowLayer");
   const personLayer = document.getElementById("personLayer");
   const personTouchTarget = document.getElementById("personTouchTarget");
+  const arrowTouchTarget = document.getElementById("arrowTouchTarget");
   const dragPreview = document.getElementById("dragPreview");
   const dragPreviewSvg = document.getElementById("dragPreviewSvg");
   const answerHint = document.getElementById("answerHint");
@@ -832,6 +833,7 @@
         key: "total"
       });
     }
+    positionArrowTouchTarget();
   }
 
   function renderArrow(arrow, className, label, options) {
@@ -905,6 +907,23 @@
     personTouchTarget.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
     personTouchTarget.style.width = `${hitRect.width}px`;
     personTouchTarget.style.height = `${hitRect.height}px`;
+  }
+
+  function positionArrowTouchTarget() {
+    const hit = arrowLayer.querySelector(".arrow-hit[data-arrow]");
+    const canDrag = hit && !state.locked;
+    arrowTouchTarget.hidden = !canDrag;
+    if (!canDrag) {
+      arrowTouchTarget.removeAttribute("data-arrow");
+      return;
+    }
+    const hitRect = hit.getBoundingClientRect();
+    const stageRect = svg.parentElement.getBoundingClientRect();
+    arrowTouchTarget.dataset.arrow = hit.dataset.arrow;
+    arrowTouchTarget.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;
+    arrowTouchTarget.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
+    arrowTouchTarget.style.width = `${hitRect.width}px`;
+    arrowTouchTarget.style.height = `${hitRect.height}px`;
   }
 
   function renderPanel() {
@@ -1432,7 +1451,12 @@
   personTouchTarget.addEventListener("pointermove", onPointerMove);
   personTouchTarget.addEventListener("pointerup", onPointerUp);
   personTouchTarget.addEventListener("pointercancel", onPointerUp);
+  arrowTouchTarget.addEventListener("pointerdown", onPointerDown);
+  arrowTouchTarget.addEventListener("pointermove", onPointerMove);
+  arrowTouchTarget.addEventListener("pointerup", onPointerUp);
+  arrowTouchTarget.addEventListener("pointercancel", onPointerUp);
   window.addEventListener("resize", positionPersonTouchTarget);
+  window.addEventListener("resize", positionArrowTouchTarget);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startupState = window.SimActivityFlow.startup(attempt);

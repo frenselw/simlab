@@ -7,6 +7,24 @@
   user-select: none;
 }
 
+.force-touch-targets {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.force-touch-target {
+  position: absolute;
+  border-radius: 50%;
+  background: transparent;
+  cursor: move;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+}
+
 @media (max-width: 819px) {
   .sim-shell {
     grid-template-rows: auto auto;

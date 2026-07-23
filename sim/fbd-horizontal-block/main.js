@@ -3,6 +3,7 @@
 
   const svg = document.getElementById("diagram");
   const arrowLayer = document.getElementById("arrowLayer");
+  const forceTouchTargets = document.getElementById("forceTouchTargets");
   const scorePanel = document.getElementById("scorePanel");
   const forceButtons = document.querySelectorAll("[data-force][data-action]");
   const forceCounts = document.querySelectorAll("[data-force-count]");
@@ -261,6 +262,36 @@
       group.append(line, tipHit, label);
       arrowLayer.append(group);
     });
+    syncForceTouchTargets();
+  }
+
+  function syncForceTouchTargets() {
+    const activeIds = new Set(state.arrows.map((arrow) => String(arrow.id)));
+    Array.from(forceTouchTargets.children).forEach((target) => {
+      if (!activeIds.has(target.dataset.id)) target.remove();
+    });
+    state.arrows.forEach((arrow) => {
+      const id = String(arrow.id);
+      let target = forceTouchTargets.querySelector(`[data-id="${id}"]`);
+      if (!target) {
+        target = document.createElement("div");
+        target.className = "force-touch-target";
+        target.dataset.id = id;
+        forceTouchTargets.append(target);
+      }
+      const hit = arrowLayer.querySelector(`.force-tip-hit[data-id="${id}"]`);
+      if (!hit) {
+        target.hidden = true;
+        return;
+      }
+      const hitRect = hit.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      target.hidden = state.locked;
+      target.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;
+      target.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
+      target.style.width = `${hitRect.width}px`;
+      target.style.height = `${hitRect.height}px`;
+    });
   }
 
   function createMagnifier() {
@@ -482,11 +513,10 @@
       id,
       isTouch: event.pointerType === "touch",
       point: svgPoint(event),
-      end: { ...arrow.end }
+      end: { ...arrow.end },
+      captureTarget: target.classList.contains("force-touch-target") ? target : svg
     };
-    if (svg.setPointerCapture) {
-      svg.setPointerCapture(event.pointerId);
-    }
+    state.drag.captureTarget.setPointerCapture?.(event.pointerId);
     render();
     event.preventDefault();
   }
@@ -502,12 +532,13 @@
   }
 
   function onPointerUp(event) {
+    const captureTarget = state.drag?.captureTarget;
     state.drag = null;
+    if (captureTarget?.hasPointerCapture?.(event.pointerId)) {
+      captureTarget.releasePointerCapture(event.pointerId);
+    }
     render();
     saveDraft();
-    if (svg.hasPointerCapture && svg.hasPointerCapture(event.pointerId)) {
-      svg.releasePointerCapture(event.pointerId);
-    }
   }
 
   function onForceKeydown(event) {
@@ -542,6 +573,11 @@
   svg.addEventListener("pointermove", onPointerMove);
   svg.addEventListener("pointerup", onPointerUp);
   svg.addEventListener("pointercancel", onPointerUp);
+  forceTouchTargets.addEventListener("pointerdown", onPointerDown);
+  forceTouchTargets.addEventListener("pointermove", onPointerMove);
+  forceTouchTargets.addEventListener("pointerup", onPointerUp);
+  forceTouchTargets.addEventListener("pointercancel", onPointerUp);
+  window.addEventListener("resize", syncForceTouchTargets);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startupState = window.SimActivityFlow.startup(attempt);
