@@ -11,6 +11,7 @@
   const traceLayer = document.getElementById("traceLayer");
   const arrowLayer = document.getElementById("arrowLayer");
   const personLayer = document.getElementById("personLayer");
+  const personTouchTarget = document.getElementById("personTouchTarget");
   const dragPreview = document.getElementById("dragPreview");
   const dragPreviewSvg = document.getElementById("dragPreviewSvg");
   const answerHint = document.getElementById("answerHint");
@@ -869,7 +870,10 @@
 
   function renderPerson() {
     personLayer.replaceChildren();
-    if (!state.person) return;
+    if (!state.person) {
+      personTouchTarget.hidden = true;
+      return;
+    }
     const group = svgElement("g", {
       class: `person-marker${state.drag?.kind === "person" ? " is-dragging" : ""}`,
       transform: `translate(${state.person.x} ${state.person.y})`
@@ -887,6 +891,20 @@
       })
     );
     personLayer.append(group);
+    positionPersonTouchTarget();
+  }
+
+  function positionPersonTouchTarget() {
+    const hit = personLayer.querySelector(".person-hit");
+    const canDrag = hit && !state.locked && state.phase === "walk";
+    personTouchTarget.hidden = !canDrag;
+    if (!canDrag) return;
+    const hitRect = hit.getBoundingClientRect();
+    const stageRect = svg.parentElement.getBoundingClientRect();
+    personTouchTarget.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;
+    personTouchTarget.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
+    personTouchTarget.style.width = `${hitRect.width}px`;
+    personTouchTarget.style.height = `${hitRect.height}px`;
   }
 
   function renderPanel() {
@@ -1272,7 +1290,7 @@
         key: arrowTarget.dataset.arrow,
         preview: shouldShowDragPreview(event)
       };
-      svg.setPointerCapture?.(event.pointerId);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       render();
       updateDragPreview(event, point);
       event.preventDefault();
@@ -1286,7 +1304,7 @@
         offset: { x: state.person.x - point.x, y: state.person.y - point.y },
         preview: shouldShowDragPreview(event)
       };
-      svg.setPointerCapture?.(event.pointerId);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       render();
       updateDragPreview(event, point);
       event.preventDefault();
@@ -1316,7 +1334,9 @@
   function onPointerUp(event) {
     state.drag = null;
     hideDragPreview();
-    if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     render();
     saveDraft();
   }
@@ -1408,6 +1428,11 @@
   svg.addEventListener("pointermove", onPointerMove);
   svg.addEventListener("pointerup", onPointerUp);
   svg.addEventListener("pointercancel", onPointerUp);
+  personTouchTarget.addEventListener("pointerdown", onPointerDown);
+  personTouchTarget.addEventListener("pointermove", onPointerMove);
+  personTouchTarget.addEventListener("pointerup", onPointerUp);
+  personTouchTarget.addEventListener("pointercancel", onPointerUp);
+  window.addEventListener("resize", positionPersonTouchTarget);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startupState = window.SimActivityFlow.startup(attempt);
