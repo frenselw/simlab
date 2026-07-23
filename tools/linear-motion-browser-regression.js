@@ -298,23 +298,66 @@ async function runTimingPerformance(cdp, baseUrl, activityPath) {
         const uniformDurable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
         let variable = null;
         let variableDurable = null;
+        let instant = null;
+        let instantDurable = null;
+        let measurementUi = {
+          timerLabel: document.getElementById('timerButton').textContent,
+          formVisible: !document.getElementById('measurementForm').classList.contains('is-hidden')
+        };
         if (includeVariable) {
           fillMeasurement('yes');
           await waitFor(() => document.getElementById('stageTitle').textContent === '變速運動', 'variable stage');
           variable = await measureStage(5300);
           variableDurable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
+          measurementUi = {
+            timerLabel: document.getElementById('timerButton').textContent,
+            formVisible: !document.getElementById('measurementForm').classList.contains('is-hidden')
+          };
+          fillMeasurement('no');
+          await waitFor(() => document.getElementById('stageTitle').textContent === '時間放大鏡', 'instant stage');
+          const frameGaps = [];
+          let lastFrame = performance.now();
+          let frameId = 0;
+          const sample = (timestamp) => {
+            frameGaps.push(timestamp - lastFrame);
+            lastFrame = timestamp;
+            frameId = requestAnimationFrame(sample);
+          };
+          frameId = requestAnimationFrame(sample);
+          const commitsBefore = window.__timingLms.calls.commits;
+          const reveals = [];
+          for (let count = 1; count <= 4; count += 1) {
+            reveals.push(await interaction('shorterWindowButton'));
+            await waitFor(() => document.querySelectorAll('#windowRows tr').length === count, 'instant window ' + count);
+            await wait(80);
+          }
+          await wait(120);
+          cancelAnimationFrame(frameId);
+          frameGaps.sort((a, b) => a - b);
+          const commitsBeforeBoundary = window.__timingLms.calls.commits;
+          const transition = await interaction('nextStageButton');
+          instantDurable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
+          instant = {
+            reveals,
+            transition,
+            runningCommits: commitsBeforeBoundary - commitsBefore,
+            maxFrameGap: frameGaps.at(-1) || 0,
+            p95FrameGap: frameGaps[Math.max(0, Math.ceil(frameGaps.length * .95) - 1)] || 0
+          };
         }
         return {
           initialCommits,
           uniform,
           variable,
-          timerLabel: document.getElementById('timerButton').textContent,
-          formVisible: !document.getElementById('measurementForm').classList.contains('is-hidden'),
+          instant,
+          measurementUi,
           uniformDurableKind: uniformDurable.kind,
           uniformDurableCaptured: uniformDurable.answer.uniformMeasurement?.x2 != null,
           uniformDurableVariant: uniformDurable.answer.variant,
           variableDurableCaptured: variableDurable?.answer.variableMeasurement?.x2 != null,
-          variableDurableVariant: variableDurable?.answer.variant
+          variableDurableVariant: variableDurable?.answer.variant,
+          instantDurablePhase: instantDurable?.answer.phase,
+          instantDurableWindowCount: instantDurable?.answer.viewedWindowCount
         };
       })()`);
 
@@ -332,18 +375,29 @@ async function runTimingPerformance(cdp, baseUrl, activityPath) {
         assert.equal(stage.pause.immediateCommits, 1, `${testCase.name} ${stageName}: manual pause creates the safe checkpoint`);
         assert(stage.pause.handlerMs >= commitDelayMs - 20, `${testCase.name} ${stageName}: harness proves durable commits block`);
       }
-      assert.equal(result.timerLabel, "開始計時", `${testCase.name}: captured measurement renders`);
-      assert.equal(result.formVisible, true, `${testCase.name}: captured answer form is visible`);
+      assert.equal(result.measurementUi.timerLabel, "開始計時", `${testCase.name}: captured measurement renders`);
+      assert.equal(result.measurementUi.formVisible, true, `${testCase.name}: captured answer form is visible`);
       assert.equal(result.uniformDurableKind, "draft");
       assert.equal(result.uniformDurableCaptured, true, `${testCase.name}: safe checkpoint contains uniform endpoint`);
       assert.equal(result.uniformDurableVariant, "captured");
       if (testCase.includeVariable) {
         assert.equal(result.variableDurableCaptured, true, `${testCase.name}: safe checkpoint contains variable endpoint`);
         assert.equal(result.variableDurableVariant, "captured");
+        for (const [index, timing] of result.instant.reveals.entries()) {
+          assert.equal(timing.immediateCommits, 0, `${testCase.name} instant window ${index + 1}: no synchronous LMS commit`);
+          assert(timing.handlerMs < 100, `${testCase.name} instant window ${index + 1}: responsive handler`);
+          assert(timing.firstFrameMs < 120, `${testCase.name} instant window ${index + 1}: prompt next frame`);
+        }
+        assert.equal(result.instant.runningCommits, 0, `${testCase.name} instant: no immediate or deferred commit while demonstration runs`);
+        assert(result.instant.maxFrameGap < commitDelayMs - 20, `${testCase.name} instant: no commit-sized animation gap`);
+        assert.equal(result.instant.transition.immediateCommits, 1, `${testCase.name} instant: review transition creates the safe checkpoint`);
+        assert(result.instant.transition.handlerMs >= commitDelayMs - 20, `${testCase.name} instant: harness proves transition commit blocks`);
+        assert.equal(result.instantDurablePhase, "review");
+        assert.equal(result.instantDurableWindowCount, 4, `${testCase.name} instant: safe checkpoint contains every revealed window`);
       }
-      const stages = [result.uniform, result.variable].filter(Boolean);
+      const stages = [result.uniform, result.variable, result.instant].filter(Boolean);
       summaries.push(`${testCase.name} handlers ${stages.flatMap((stage) => [
-        stage.observe.handlerMs, stage.start.handlerMs, stage.stop.handlerMs
+        ...(stage.observe ? [stage.observe.handlerMs, stage.start.handlerMs, stage.stop.handlerMs] : stage.reveals.map((timing) => timing.handlerMs))
       ]).map((value) => `${value.toFixed(1)} ms`).join("/")} (p95 ${Math.max(...stages.map((stage) => stage.p95FrameGap)).toFixed(1)} ms)`);
     }
     return `slow ${commitDelayMs} ms LMS commit: ${summaries.join("; ")}; no running commits and pause checkpoints were durable`;
