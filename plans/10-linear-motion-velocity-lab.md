@@ -858,6 +858,23 @@ normalize the saved variant to the corresponding paused state. This avoids
 advancing time while the page is closed and gives the learner one legal `繼續`
 action after restore.
 
+SCORM 1.2 API calls are synchronous on the animation thread. While either the
+measurement scene or the stage-three demonstration is moving, a semantic change
+must therefore be encoded and validated immediately but remain buffered in the
+authoritative in-memory state instead of calling `LMSCommit`. A durable
+checkpoint is written at the next safe non-moving boundary: manual observation
+pause, measurement discard/reset, answer confirmation, stage transition,
+review, or lifecycle flush. The registered draft provider always encodes the
+latest in-memory state on `pagehide`, including a running measurement normalized
+to its paused variant.
+
+This policy preserves normal navigation and lifecycle recovery without freezing
+the car around stopwatch controls. An abrupt browser or device crash before the
+next safe checkpoint may restore the previous durable checkpoint and require the
+current formative measurement to be repeated; it must never restore a partially
+written or invalid measurement. Final submission and pending-final checkpoints
+remain immediately durable and are not buffered.
+
 | Phase | Variant/invariant | Current stage | Required semantic state | Must be absent/pristine | Allowed next action |
 |---|---|---:|---|---|---|
 | `uniform` | `ready` | 0 | valid attempt definition; uniform scene time; any independent work from other stages | uniform measurement and confirmed uniform answer | start observation, or navigate to any other stage |
@@ -1103,11 +1120,15 @@ validate definition and answers
 - Score mismatch: keep Moodle's recorded result authoritative and suppress
   untrustworthy detailed correctness.
 
-Save a draft after semantic changes: attempt creation, stopwatch start/stop,
-pause, measurement discard, answer confirmation, arbitrary stage transition, analysis
-window advance, and review edit. Do not commit on every animation frame. Register
-a draft provider so lifecycle flushes capture the current simulation time and
-normalize running motion to a paused snapshot.
+Encode and validate a draft after semantic changes: attempt creation, stopwatch
+start/stop, pause, measurement discard, answer confirmation, arbitrary stage
+transition, analysis window advance, and review edit. Attempt creation and every
+safe non-moving boundary create a durable checkpoint. Stopwatch start/stop,
+observation start/resume, and analysis-window advance while animation is active
+remain buffered until the next safe boundary or lifecycle flush. Do not call
+`LMSCommit` on every animation frame or from a running-scene control. Register a
+draft provider so lifecycle flushes capture the current simulation time,
+normalize running motion to a paused snapshot, and durably commit it.
 
 ## Shared SCORM lifecycle
 
@@ -1296,6 +1317,12 @@ runtime/helper file only if direct testing from `main.js` proves impractical.
 - reduced-motion preference;
 - stage-three pause/resume freezes and continues the same qualitative
   demonstration frame without changing model time, answers, score, or snapshot;
+- a packaged-production slow-LMS harness blocks every `LMSCommit` for at least
+  `180 ms`; observation start, stopwatch start, and stopwatch stop perform no
+  commit and reach the next animation frame within `120 ms`, while the next
+  manual pause durably checkpoints the captured endpoint;
+- lifecycle flush during a buffered running measurement persists the latest
+  model time and restores the declared paused-measuring continuation;
 - a live reduced-motion preference change replaces the loop with its labelled
   static car-beyond-target image and can restore the loop;
 - long Traditional Chinese feedback;
