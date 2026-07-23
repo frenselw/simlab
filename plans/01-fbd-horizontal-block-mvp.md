@@ -46,6 +46,26 @@ Use direct manipulation:
 On phones, prioritize the diagram first and place controls below it.
 On wider screens, controls may sit beside the diagram.
 
+### Touch gesture ownership
+
+Normal vertical scroll owner: the document.
+
+Draggable target inventory:
+
+| Target type | Hit-target strategy | Pointer-capture target |
+|---|---|---|
+| Every rendered `G`, `N`, `F`, `f`, and `T` force-arrow head, including every supported duplicate instance | Stable, explicitly sized HTML hit target aligned over the SVG arrow head | The same HTML hit target; it remains mounted for the whole drag |
+
+Gesture ownership matrix:
+
+| Touch starts on | Expected owner | Expected scroll delta | Required pointer result |
+|---|---|---:|---|
+| Non-interactive diagram background | Document when it has available range; otherwise unclaimed native handling only when no scrolling is needed | Non-zero after proving range; N/A only when all required content is visible and no scrolling is needed | Simulation does not begin a drag or change an arrow |
+| Any force-arrow head (`G`, `N`, `F`, `f`, or `T`, including each duplicate instance) | Simulation | `0` on document, viewport, panel, and host surfaces | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
+
+The diagram surface permits vertical panning from blank regions. Inner SVG
+arrow graphics are visual elements, not the sole touch-action boundary.
+
 ## Scoring rubric
 
 Current scoring for this MVP:
@@ -141,6 +161,19 @@ values locally.
 - Opens directly in Live Server.
 - Usable on a phone-width viewport.
 - Student can complete the task without keyboard input.
+- A browser-level trusted touch swipe starting on a known non-interactive diagram
+  region remains unclaimed by the simulation. When the document overflows, the
+  test places it away from a boundary, swipes toward available range, and
+  observes a non-zero document delta; otherwise the delta check is N/A only when
+  all required content is visible and no scrolling is needed, and no arrow
+  state changes.
+- A browser-level trusted touch drag is exercised separately for `G`, `N`, `F`,
+  `f`, and `T`, including every supported duplicate-arrow instance: the arrow
+  changes, every candidate document/viewport/panel/host scroll delta remains
+  zero, `pointermove` and `pointerup` occur, and `pointercancel` does not.
+- The complete gesture ownership matrix passes on both the development page and
+  the launch page served from the built or extracted SCORM package. CSS/source
+  inspection alone is not accepted.
 - Submit produces a score from 0 to 100.
 - Local fallback works without Moodle.
 - SCORM package contains `imsmanifest.xml`.

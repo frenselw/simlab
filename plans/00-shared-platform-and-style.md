@@ -218,6 +218,68 @@ The first viewport target is a phone in portrait orientation.
   not make the panel look uneven.
 - Show hover/focus/active states, but make touch behavior complete without hover.
 
+### Touch gesture ownership contract
+
+Every activity with direct manipulation must list all draggable target types in
+its simulation plan and include a gesture ownership matrix. The contract is
+determined by where a touch starts:
+
+| Touch starts on | Gesture owner | Required result |
+|---|---|---|
+| Non-interactive stage content | The nearest eligible scrollable ancestor named for that launch context, unclaimed native handling when none has range and no scrolling is needed, or explicitly planned gesture forwarding | The simulation does not claim the gesture unless forwarding is the documented strategy; when the intended owner has available range, a vertical swipe changes its scroll position |
+| A draggable target | The simulation for the active drag | The target moves, every candidate page/panel/viewport/host scroll position stays unchanged, `pointermove` and `pointerup` complete, and no `pointercancel` occurs |
+
+Apply `touch-action: pan-y` to a root stage surface when vertical swipes from its
+non-interactive region should reach the normal scroll owner. Do not put
+`touch-action: none` on the whole stage merely because part of it is draggable.
+Confine gesture suppression to each drag target. Record the scroll topology in
+the plan: native panning follows the gesture target's scrollable ancestor chain
+and does not scroll a sibling control panel. A bounded split-panel must therefore
+name the actual stage-reachable page/host owner for blank-stage gestures, change
+the DOM/layout topology, or define and verify explicit gesture forwarding. Do
+not describe programmatic forwarding as native scrolling.
+
+Mark scrolling not applicable only when all required content is already visible
+and there is genuinely no scrolling need in that launch context. An overflowing
+sibling panel that is unreachable from the stage does not qualify: change the
+scroll topology or implement and verify explicit gesture forwarding.
+
+For an SVG scene, do not rely on `touch-action: none` on inner graphics such as
+`circle`, `line`, `path`, or `g` as the only scroll-prevention mechanism. Prefer
+a stable HTML hit target with explicit dimensions over the draggable region, or
+use another implementation whose behavior has been verified with real touch
+input in the supported browsers. A Canvas scene may use stable HTML overlays or
+an equivalently verified selective gesture-claiming design. In all cases, the
+element holding pointer capture must remain mounted for the whole gesture; a
+render must not replace it. Treat `pointercancel` during an ordinary drag as a
+failed interaction, not a successful completion.
+
+The drag target's effective `touch-action` must already be in place before
+`pointerdown`; changing it in a pointer handler or after the gesture starts
+cannot change ownership of that gesture.
+
+Verification must use browser-level trusted touch input (a real touchscreen or
+browser automation protocol producing `touchStart`/`touchMove`/`touchEnd`), not
+DOM `dispatchEvent`, source inspection, or computed CSS alone. Confirm trusted
+events and touch pointer type, and record the browser engine/device. Before
+requiring a non-zero blank-region delta, prove that the selected owner overflows,
+place it away from the relevant boundary, and swipe toward available range. If
+no stage-reachable owner naturally has range in that supported viewport, mark
+the delta assertion not applicable only when all required content is already
+visible and there is no scrolling need. If required content exists in an
+overflowing but unreachable sibling, change the topology or verify explicit
+forwarding and require a nonzero delta on that owner. A valid not-applicable
+case must still prove that the simulation does not begin a drag, prevent the
+native gesture, or change simulation state.
+
+Test every row and draggable target type on the development page and again on
+the built or extracted SCORM launch page. During every active drag, record all
+candidate scroll surfaces, including the declared owner, activity document/page
+offset, visual viewport where measurable, control panel, and embedding host.
+They must all remain unchanged while `pointermove` plus `pointerup` arrive
+without `pointercancel`. For Moodle, repeat on a real phone in the current-window
+player and in the new-window player when both launch modes are offered.
+
 ## Component style
 
 Use a quiet lab-tool style:

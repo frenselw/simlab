@@ -205,6 +205,9 @@ test-only direction, point, answer, or phase schema.
   zoom fallback. Its scroll area must not cover or clip primary actions or
   keyboard focus targets.
 - Use touch-friendly controls and Pointer Events for dragging.
+- Define a touch gesture ownership matrix in the activity plan before
+  implementing direct manipulation. Inventory every draggable target type; do
+  not validate one representative target and assume the rest behave the same.
 - Avoid snap behavior unless it directly helps the task. A grid can be visual
   only; it must not stop learners from drawing physically correct directions.
 - When a touch drag target can be hidden by the learner's finger, prefer a
@@ -238,6 +241,72 @@ test-only direction, point, answer, or phase schema.
 - In those rows, align the learner-facing name and physics symbol separately,
   such as `支持力` in one column and `N` in another. Do not rely on mixed Chinese
   and Latin text widths lining up naturally.
+
+### Selective touch gesture ownership
+
+A touch gesture belongs either to normal vertical scrolling or to one active
+simulation drag, based on its starting target:
+
+| Touch starts on | Owner | Observable acceptance result |
+|---|---|---|
+| Non-interactive stage content | The nearest eligible scrollable ancestor named for that launch context, unclaimed native handling when none has range and no scrolling is needed, or explicitly planned gesture forwarding | The simulation does not claim the gesture unless forwarding is the documented strategy; when the intended owner has available range, a vertical swipe changes its scroll position |
+| A draggable target | The simulation | The target receives `pointermove` and `pointerup`; every candidate page/panel/viewport/host scroll position remains unchanged; no `pointercancel` occurs |
+
+When blank stage content should permit vertical scrolling, the root stage
+surface should normally use `touch-action: pan-y`. Do not disable touch action
+on the entire stage to make individual objects draggable. Suppression belongs to
+the actual drag hit targets. Document the scroll topology for every supported
+launch context. Native panning follows the target's scrollable ancestor chain;
+it cannot scroll a sibling panel. A bounded split-panel must name the actual
+stage-reachable page or host owner, change the DOM/layout topology, or define and
+verify explicit stage-to-panel gesture forwarding. Do not call programmatic
+forwarding native scrolling.
+
+Mark scrolling not applicable only when all required content is already visible
+and there is genuinely no scrolling need in that launch context. An overflowing
+sibling panel that is unreachable from the stage does not qualify: change the
+scroll topology or implement and verify explicit gesture forwarding.
+
+An inner SVG shape is not, by itself, a portable gesture boundary. Do not depend
+solely on `touch-action: none` on SVG `circle`, `line`, `path`, or `g` elements.
+A positioned HTML hit target with explicit width and height is the usual
+solution. Canvas and SVG activities may use an alternative, including stable
+overlays or selectively claimed touch input, when real-device/browser evidence
+proves the same matrix. Keep the pointer-capture target mounted throughout the
+drag; rendering the visual scene must not replace it. A normal drag that ends in
+`pointercancel` fails this contract.
+
+The drag target's effective `touch-action` must be present before `pointerdown`.
+Changing it in a pointer handler or after a gesture begins does not alter the
+browser's ownership decision for that gesture.
+
+Automated browser verification must use browser-level trusted touch input, such
+as a browser automation protocol producing `touchStart`/`touchMove`/`touchEnd`,
+rather than DOM `dispatchEvent`, source strings, CSS declarations, or computed
+styles. Confirm trusted events and touch pointer type, and record the browser
+engine/device. For every draggable target type:
+
+1. record every candidate visible scroll surface: the declared owner, activity
+   document/page offset, visual viewport where measurable, control panel, and
+   embedding host;
+2. start the gesture on that target and move it far enough to expose accidental
+   vertical scrolling;
+3. assert at least one `pointermove`, a final `pointerup`, no `pointercancel`,
+   the intended target change, and zero delta on all recorded surfaces.
+
+Also start a vertical gesture on a known non-interactive stage region. Before
+requiring a non-zero delta, assert that the named stage-reachable owner overflows,
+place it away from the relevant boundary, and swipe toward available range. If
+no reachable owner has range, mark the delta check not applicable only when all
+required content is already visible and there is no scrolling need. If required
+content exists in an overflowing but unreachable sibling, change the topology
+or verify explicit forwarding and require a nonzero delta on that owner. A valid
+not-applicable case must still prove that the simulation did not begin a drag,
+prevent the native gesture, or change simulation state. Run this matrix against
+both the development page and the launch page served from the built or extracted
+SCORM package. These artifact checks are part of package readiness. Moodle
+readiness requires the same behavior on a real phone in the current-window
+player and, when offered, the new-window player.
 
 ## Scoring and feedback
 
@@ -506,6 +575,18 @@ session in the script so checks do not leave background state behind.
 - Execute one legal continuation after restoring every phase/invariant fixture.
 - Run shared fake-LMS failure tests for any shared runtime change.
 - Open with Live Server or a local static server.
+- For every direct-manipulation activity, run its complete touch gesture
+  ownership matrix with browser-level trusted touch gestures. Each draggable
+  target must move with zero delta on every candidate page/panel/viewport/host
+  scroll surface, deliver `pointermove` and `pointerup`, and deliver no
+  `pointercancel`. A blank-stage swipe remains unclaimed for a native-scroll or
+  valid N/A strategy. For explicit forwarding, its gesture-compatible
+  `touch-action` must exist before `pointerdown`, while programmatic changes to
+  the forwarded owner begin only after vertical intent. After proving available
+  scroll range, either strategy must produce a non-zero delta on the intended
+  owner without starting a simulation drag or changing simulation state. DOM
+  `dispatchEvent` and source/computed-style checks do not satisfy this
+  requirement.
 - For every bounded split-panel activity, test at least `320x500`, `390x500`,
   `390x600`, and a normal full-height phone viewport, plus phone landscape,
   browser-toolbar changes, software-keyboard display, and 200% zoom. Verify that
@@ -524,6 +605,8 @@ session in the script so checks do not leave background state behind.
   tests or temporary files must not be included, and local dependencies must
   match the manifest.
 - Extract or serve the built ZIP and run its launch page through browser smoke.
+- Repeat the complete real-touch gesture ownership matrix against the built or
+  extracted ZIP launch page, not only the development source page.
 
 ### Moodle-ready checks
 
@@ -532,6 +615,12 @@ session in the script so checks do not leave background state behind.
 - On a real phone in Moodle's current-window player, reach the final control and
   scroll back to the first control without an unusable bottom strip or nested
   page/panel scroll trap. Repeat in a new window if that launch mode is offered.
+- On the same real-phone launch modes, verify every gesture ownership matrix row:
+  blank stage content remains unclaimed for native/N/A handling, or uses a
+  pre-`pointerdown` gesture-compatible strategy whose programmatic forwarding
+  begins only after vertical intent, and scrolls the intended owner when it has
+  available range. Each draggable target must move without any page, panel,
+  viewport, or host movement and without `pointercancel`.
 - Check: preview is hidden, attempt status is visible, submit records score,
   re-entering the same submitted attempt is review-only, and a new attempt is
   required to change the score.
@@ -539,7 +628,8 @@ session in the script so checks do not leave background state behind.
 ## Package-ready definition of done
 
 - The simulation-specific plan contains scoring, tolerance, phase matrix,
-  snapshot schemas, lifecycle outcomes, and out-of-scope decisions.
+  snapshot schemas, lifecycle outcomes, the complete draggable-target inventory
+  and gesture ownership matrix, and out-of-scope decisions.
 - Every UI-reachable phase/invariant variant round-trips without changing score
   or next action, and one legal continuation succeeds after restore.
 - Invalid states fail closed without becoming editable or contaminating later
@@ -548,6 +638,8 @@ session in the script so checks do not leave background state behind.
 - The new test files are executed by `npm test`.
 - The manifest lists every runtime dependency, the ZIP verifies, and browser
   smoke launches the built/extracted artifact.
+- Real-touch gesture tests pass for every draggable target and a blank stage
+  region on both the development page and built/extracted artifact.
 - The assessment risk and any required trusted validation are recorded.
 
 ## Moodle-ready definition of done
