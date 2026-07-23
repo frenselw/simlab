@@ -52,20 +52,38 @@ let each simulation own its subject model and scoring rubric.
   stage must remain visible, use the bounded mobile split-panel contract from
   the production guide: stage on top, independently scrolling controls in the
   remaining height, `100vh`/`100dvh` fallback, and `min-height: 0` on shrinking
-  grid/flex children. Activities without such a panel may use natural page flow.
-- Every activity with direct manipulation must define a touch gesture ownership
-  matrix and inventory every draggable target in its plan. A touch starting on
-  non-interactive stage content must remain unclaimed by the simulation unless
-  the plan explicitly defines verified gesture forwarding; when a reachable
-  native scroll owner has available range, the gesture must scroll that owner.
-  An active drag must leave every candidate page, panel, viewport, and host
-  scroll position unchanged. Follow the production guide's scroll-topology,
-  stable-hit-target, and pre-pointerdown `touch-action` rules. Verify every row
-  with browser-level trusted touch gestures in both the development page and
-  packaged SCORM launch; DOM-dispatched events, source checks, and computed-style
-  checks alone are not sufficient. An overflowing sibling panel that is
-  unreachable from the stage is not an excuse for a no-op or N/A result: change
-  the scroll topology or implement and verify explicit gesture forwarding.
+  grid/flex children. The bounded activity `html`/`body` must not become a third
+  vertical scroll owner. Activities without such a panel may use natural page
+  flow.
+- Every mobile activity with a stage and controls must define a touch gesture
+  ownership matrix in its plan, whether or not the stage contains draggable
+  objects. For bounded split-panel activities, the following three start-region
+  rules are project-wide defaults and must not be reassigned by an activity:
+  1. A vertical touch starting on non-interactive stage content scrolls the
+     enclosing page/Moodle host when that host has range. It must not scroll a
+     sibling control panel or the activity iframe document.
+  2. A vertical touch starting in an independently scrolling control panel
+     scrolls only that panel. The enclosing page/Moodle host, activity document,
+     iframe position, and stage stay fixed, including at panel boundaries.
+     "Stage remains visible while controls are used" refers to this panel
+     gesture; it does not reassign a gesture that starts on the stage.
+  3. A touch starting on a draggable target belongs only to the simulation for
+     that active drag. The target moves while every page, activity-document,
+     panel, host/activity visual-viewport, iframe, and host scroll position stays
+     fixed.
+  Use `touch-action: pan-y` on non-interactive stage surfaces. Never forward a
+  stage gesture to a sibling control panel. If native iframe behavior cannot
+  reach the enclosing host, change the scroll topology or forward only to that
+  same host owner and verify it; do not choose a different owner. Activities
+  with direct manipulation must additionally inventory every draggable target,
+  use stable pre-`pointerdown` drag hit targets, and deliver `pointermove` plus
+  `pointerup` without `pointercancel`. Verify every matrix row with
+  browser-level trusted touch gestures in a scrollable Moodle-like iframe for
+  both development source and packaged SCORM; direct-page tests,
+  DOM-dispatched events, source checks, and computed-style checks alone are not
+  sufficient. A short natural-flow controls region is not an independently
+  scrolling control panel: its matrix names the enclosing page/host as the
+  normal scroll owner instead of adding the panel-only row.
 - Add every new test file to `tools/run-tests.js`, every runtime dependency
   referenced by HTML or loaded code to the activity manifest, and every active
   simulation to `sim/config.js` with

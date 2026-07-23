@@ -197,17 +197,28 @@ test-only direction, point, answer, or phase schema.
   any intervening grid/flex children to `min-height: 0` where they must shrink.
 - Give the panel `overflow-y: auto` and `overscroll-behavior: contain`; keep the
   activity body/app shell from becoming a competing vertical scroll container.
+  In a bounded iframe, `html`, `body`, and the app shell must have no usable
+  vertical scroll range: the activity document must not become a hidden third
+  scroll owner.
+- Assign scrolling by where the touch begins. A swipe from non-interactive stage
+  content belongs to the enclosing page or Moodle host. A swipe from the control
+  panel belongs only to the panel, including at its top and bottom boundaries.
+  The panel must never move in response to a swipe that began on the stage.
+  "The stage remains visible while controls are used" describes panel gestures;
+  a gesture beginning on the stage intentionally moves the enclosing host and
+  iframe.
 - Record the stage track in the plan. Start from `minmax(13rem, 44vh)` plus a
   `44dvh` enhancement when appropriate, then change it only for the stage's
   readability needs. Do not let intrinsic stage content or an `auto` track take
   height priority and squeeze the control panel into an unusable remainder.
-- A dense stage may scroll independently only as an explicit extreme-height or
-  zoom fallback. Its scroll area must not cover or clip primary actions or
-  keyboard focus targets.
+- At extreme heights or zoom, reflow or resize a dense stage instead of making
+  it an independent vertical scroll owner. Keep primary actions and keyboard
+  focus targets reachable.
 - Use touch-friendly controls and Pointer Events for dragging.
-- Define a touch gesture ownership matrix in the activity plan before
-  implementing direct manipulation. Inventory every draggable target type; do
-  not validate one representative target and assume the rest behave the same.
+- Define a touch gesture ownership matrix for every mobile activity that has a
+  stage and controls, even when nothing is draggable. If the activity has direct
+  manipulation, also inventory every draggable target type; do not validate one
+  representative target and assume the rest behave the same.
 - Avoid snap behavior unless it directly helps the task. A grid can be visual
   only; it must not stop learners from drawing physically correct directions.
 - When a touch drag target can be hidden by the learner's finger, prefer a
@@ -244,28 +255,37 @@ test-only direction, point, answer, or phase schema.
 
 ### Selective touch gesture ownership
 
-A touch gesture belongs either to normal vertical scrolling or to one active
-simulation drag, based on its starting target:
+A touch gesture has exactly one owner, selected from the region where it starts.
+For every bounded split-panel activity, these are project-wide defaults:
 
 | Touch starts on | Owner | Observable acceptance result |
 |---|---|---|
-| Non-interactive stage content | The nearest eligible scrollable ancestor named for that launch context, unclaimed native handling when none has range and no scrolling is needed, or explicitly planned gesture forwarding | The simulation does not claim the gesture unless forwarding is the documented strategy; when the intended owner has available range, a vertical swipe changes its scroll position |
-| A draggable target | The simulation | The target receives `pointermove` and `pointerup`; every candidate page/panel/viewport/host scroll position remains unchanged; no `pointercancel` occurs |
+| Non-interactive stage content | Enclosing page or Moodle host | The host scroll position changes and the activity iframe moves with it; activity document and control panel stay fixed; the gesture does not change learner state |
+| Independently scrolling control panel | Control panel | The panel scroll position changes when it has range; host, iframe, activity document, host and activity visual viewports, and stage stay fixed, including at panel boundaries; the gesture causes no learner-state change |
+| A draggable target | Simulation for the active drag | The target changes; every host-page, panel, activity-document, host/activity-viewport, and iframe position remains fixed; `pointermove` and `pointerup` occur and no `pointercancel` occurs |
 
-When blank stage content should permit vertical scrolling, the root stage
-surface should normally use `touch-action: pan-y`. Do not disable touch action
-on the entire stage to make individual objects draggable. Suppression belongs to
-the actual drag hit targets. Document the scroll topology for every supported
-launch context. Native panning follows the target's scrollable ancestor chain;
-it cannot scroll a sibling panel. A bounded split-panel must name the actual
-stage-reachable page or host owner, change the DOM/layout topology, or define and
-verify explicit stage-to-panel gesture forwarding. Do not call programmatic
-forwarding native scrolling.
+For a short natural-flow controls region, do not invent an independent panel
+owner: the enclosing page/host remains the normal scroll owner outside actual
+interactive or draggable targets.
 
-Mark scrolling not applicable only when all required content is already visible
-and there is genuinely no scrolling need in that launch context. An overflowing
-sibling panel that is unreachable from the stage does not qualify: change the
-scroll topology or implement and verify explicit gesture forwarding.
+The root stage surface must normally use `touch-action: pan-y` so blank stage
+content permits vertical host scrolling. Do not disable touch action on the
+entire stage to make individual objects draggable. Suppression belongs to the
+actual drag hit targets. The control panel must use
+`overscroll-behavior: contain` so reaching its top or bottom does not transfer
+the gesture to the host.
+
+Document the scroll topology for every supported launch context. Native panning
+follows the gesture target's scrollable ancestor chain and cannot scroll a
+sibling panel. Never forward a stage gesture to the sibling control panel. In a
+bounded iframe, remove any activity-document scroll range that could consume a
+stage gesture. If the browser cannot naturally reach the enclosing host, change
+the topology or explicitly forward only to that same host owner and verify the
+observable contract above; programmatic forwarding is not native scrolling.
+
+Only a direct standalone page whose enclosing document genuinely has no scroll
+range may mark the blank-stage non-zero delta not applicable. This exception
+does not apply to the required scrollable Moodle-like iframe test.
 
 An inner SVG shape is not, by itself, a portable gesture boundary. Do not depend
 solely on `touch-action: none` on SVG `circle`, `line`, `path`, or `g` elements.
@@ -284,29 +304,37 @@ Automated browser verification must use browser-level trusted touch input, such
 as a browser automation protocol producing `touchStart`/`touchMove`/`touchEnd`,
 rather than DOM `dispatchEvent`, source strings, CSS declarations, or computed
 styles. Confirm trusted events and touch pointer type, and record the browser
-engine/device. For every draggable target type:
+engine/device. Run every applicable row on both the development page and the
+built or extracted SCORM launch page inside a scrollable Moodle-like host
+containing the activity iframe; bounded split-panels must run the complete
+three-region matrix. Give the host available range, place it away from the
+relevant boundary, and swipe in both directions.
 
-1. record every candidate visible scroll surface: the declared owner, activity
-   document/page offset, visual viewport where measurable, control panel, and
-   embedding host;
-2. start the gesture on that target and move it far enough to expose accidental
-   vertical scrolling;
-3. assert at least one `pointermove`, a final `pointerup`, no `pointercancel`,
-   the intended target change, and zero delta on all recorded surfaces.
+Before and after each gesture, record the enclosing host page scroll position,
+host visual-viewport offset/page position where measurable, iframe bounding
+rectangle, activity-document scroll position, activity visual-viewport offset
+where measurable, control-panel scroll position, and gesture-owned learner state
+such as phase, selection, answers, or persisted data. For a continuously running
+simulation, pause or fake the clock, or compare against expected time evolution,
+so ordinary model progress is not mistaken for a gesture side effect. Then
+assert:
 
-Also start a vertical gesture on a known non-interactive stage region. Before
-requiring a non-zero delta, assert that the named stage-reachable owner overflows,
-place it away from the relevant boundary, and swipe toward available range. If
-no reachable owner has range, mark the delta check not applicable only when all
-required content is already visible and there is no scrolling need. If required
-content exists in an overflowing but unreachable sibling, change the topology
-or verify explicit forwarding and require a nonzero delta on that owner. A valid
-not-applicable case must still prove that the simulation did not begin a drag,
-prevent the native gesture, or change simulation state. Run this matrix against
-both the development page and the launch page served from the built or extracted
-SCORM package. These artifact checks are part of package readiness. Moodle
-readiness requires the same behavior on a real phone in the current-window
-player and, when offered, the new-window player.
+1. blank stage: a non-zero host delta and matching iframe movement; zero
+   activity-document, activity-visual-viewport, and panel delta; no
+   gesture-caused learner-state change;
+2. control panel: a non-zero panel delta when it has range; zero host, iframe,
+   activity-document, host-visual-viewport, and activity-visual-viewport delta;
+   unchanged stage and no gesture-caused learner-state change. Repeat at the
+   panel's top and bottom boundaries and require the host to stay fixed;
+3. every draggable target type: the intended target changes; every recorded
+   scroll delta is zero; at least one `pointermove` and a final `pointerup`
+   occur; no `pointercancel` occurs.
+
+Programmatic setup may position an owner away from a boundary, but assigning
+`scrollTop` is not an acceptance gesture. Use repeated trusted touch gestures to
+produce the measured results. These artifact checks are part of package
+readiness. Moodle readiness requires the same behavior on a real phone in the
+current-window player and, when offered, the new-window player.
 
 ## Scoring and feedback
 
@@ -575,23 +603,25 @@ session in the script so checks do not leave background state behind.
 - Execute one legal continuation after restoring every phase/invariant fixture.
 - Run shared fake-LMS failure tests for any shared runtime change.
 - Open with Live Server or a local static server.
-- For every direct-manipulation activity, run its complete touch gesture
-  ownership matrix with browser-level trusted touch gestures. Each draggable
-  target must move with zero delta on every candidate page/panel/viewport/host
-  scroll surface, deliver `pointermove` and `pointerup`, and deliver no
-  `pointercancel`. A blank-stage swipe remains unclaimed for a native-scroll or
-  valid N/A strategy. For explicit forwarding, its gesture-compatible
-  `touch-action` must exist before `pointerdown`, while programmatic changes to
-  the forwarded owner begin only after vertical intent. After proving available
-  scroll range, either strategy must produce a non-zero delta on the intended
-  owner without starting a simulation drag or changing simulation state. DOM
-  `dispatchEvent` and source/computed-style checks do not satisfy this
-  requirement.
+- For every bounded split-panel activity, run its complete three-region touch
+  gesture ownership matrix with browser-level trusted touch gestures in a
+  scrollable Moodle-like iframe host. A blank-stage swipe must scroll the host
+  and move the iframe while leaving the activity document and panel fixed and
+  causing no learner-state change. A panel swipe must move only the panel,
+  including at its boundaries. If the activity has direct manipulation, every
+  draggable target must move with zero delta on every host-page,
+  activity-document, panel, host/activity-viewport, and iframe position,
+  deliver `pointermove` and `pointerup`, and deliver no `pointercancel`. A
+  natural-flow activity runs the applicable stage and draggable rows with the
+  host as its normal scroll owner; it has no independent-panel row. DOM
+  `dispatchEvent`, programmatic `scrollTop` changes, and source/computed-style
+  checks do not satisfy this requirement.
 - For every bounded split-panel activity, test at least `320x500`, `390x500`,
   `390x600`, and a normal full-height phone viewport, plus phone landscape,
   browser-toolbar changes, software-keyboard display, and 200% zoom. Verify that
   the panel reaches its true bottom, primary actions remain reachable, and the
-  Moodle page/activity body does not compete with the panel for normal scrolling.
+  activity document has no vertical scroll range competing with the declared
+  host and panel owners.
 - Submit once outside Moodle and confirm local SCORM logging still works.
 - Exercise new, draft restore, pending-final failure, load-error, finished review,
   invalid-snapshot, trust-mismatch, and unknown-status UI outcomes. Test actual
@@ -616,11 +646,11 @@ session in the script so checks do not leave background state behind.
   scroll back to the first control without an unusable bottom strip or nested
   page/panel scroll trap. Repeat in a new window if that launch mode is offered.
 - On the same real-phone launch modes, verify every gesture ownership matrix row:
-  blank stage content remains unclaimed for native/N/A handling, or uses a
-  pre-`pointerdown` gesture-compatible strategy whose programmatic forwarding
-  begins only after vertical intent, and scrolls the intended owner when it has
-  available range. Each draggable target must move without any page, panel,
-  viewport, or host movement and without `pointercancel`.
+  a blank-stage swipe scrolls the Moodle host and moves the iframe but not the
+  activity document or panel; a panel swipe moves only the panel, including at
+  its boundaries; and each draggable target moves without any
+  host-page/activity-document/panel/host-viewport/activity-viewport/iframe
+  movement and without `pointercancel`.
 - Check: preview is hidden, attempt status is visible, submit records score,
   re-entering the same submitted attempt is review-only, and a new attempt is
   required to change the score.
@@ -638,8 +668,10 @@ session in the script so checks do not leave background state behind.
 - The new test files are executed by `npm test`.
 - The manifest lists every runtime dependency, the ZIP verifies, and browser
   smoke launches the built/extracted artifact.
-- Real-touch gesture tests pass for every draggable target and a blank stage
-  region on both the development page and built/extracted artifact.
+- Real-touch gesture tests pass for the complete three-region matrix, including
+  the control panel at both boundaries and every draggable target, on both the
+  development page and built/extracted artifact. Natural-flow activities pass
+  every applicable row and document that no independent panel exists.
 - The assessment risk and any required trusted validation are recorded.
 
 ## Moodle-ready definition of done

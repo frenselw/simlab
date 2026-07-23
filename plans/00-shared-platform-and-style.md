@@ -115,19 +115,26 @@ those may use natural document flow.
 
 - Bound the phone app to the available viewport with `100vh` as a fallback and
   `100dvh` when supported, and prevent the app shell from creating a second page
-  scroll region.
+  scroll region. In an embedded bounded activity, `html`/`body` must also have no
+  usable vertical scroll range; the activity document is never a third scroll
+  owner between Moodle and the panel.
 - Keep the stage in the upper row. Put the control panel in the lower row, give
   it the remaining height, and make that panel independently scrollable.
 - Set every shrinking grid/flex child in this chain to `min-height: 0`; use
   `overflow-y: auto` and `overscroll-behavior: contain` on the control panel.
 - Choose the stage track in the simulation plan. `minmax(13rem, 44vh)` with a
   `44dvh` enhancement is the baseline starting point, not a universal constant.
-- If an unusually dense stage must scroll at extreme heights, specify that
-  explicitly and ensure it never clips controls, primary actions, or keyboard
-  focus targets.
-- Avoid nested scrolling among the Moodle page, activity body, and control
-  panel. Under the bounded contract, the control panel should own normal
-  vertical control scrolling.
+- At extreme heights or zoom, reflow or resize an unusually dense stage instead
+  of making it an independent vertical scroll owner. Keep primary actions and
+  keyboard focus targets reachable.
+- Ownership depends on where the touch starts: stage content scrolls the
+  enclosing page/Moodle host, while control-panel content scrolls only the
+  panel. The activity body must own neither gesture.
+- "Keep the stage visible while controls are used" means the stage stays fixed
+  during a panel gesture. It does not mean a gesture starting on the stage
+  should scroll the panel.
+- Use `overscroll-behavior: contain` so a control-panel gesture does not move the
+  host when the panel reaches its top or bottom.
 - Test short Moodle-like viewports as well as full-height phones; browser chrome,
   orientation changes, zoom, and the software keyboard must not leave an
   unreachable strip at the bottom of the panel.
@@ -220,29 +227,38 @@ The first viewport target is a phone in portrait orientation.
 
 ### Touch gesture ownership contract
 
-Every activity with direct manipulation must list all draggable target types in
-its simulation plan and include a gesture ownership matrix. The contract is
-determined by where a touch starts:
+Every mobile activity with a stage and controls must include a gesture ownership
+matrix in its simulation plan, even when the stage has no draggable objects.
+Activities with direct manipulation must additionally list every draggable
+target type. For a bounded split-panel activity, ownership is determined by
+where the touch starts:
 
 | Touch starts on | Gesture owner | Required result |
 |---|---|---|
-| Non-interactive stage content | The nearest eligible scrollable ancestor named for that launch context, unclaimed native handling when none has range and no scrolling is needed, or explicitly planned gesture forwarding | The simulation does not claim the gesture unless forwarding is the documented strategy; when the intended owner has available range, a vertical swipe changes its scroll position |
-| A draggable target | The simulation for the active drag | The target moves, every candidate page/panel/viewport/host scroll position stays unchanged, `pointermove` and `pointerup` complete, and no `pointercancel` occurs |
+| Non-interactive stage content | Enclosing page/Moodle host | When the host has range, a vertical swipe moves the host and complete activity iframe; the activity document and control panel do not scroll and the gesture causes no learner-state change |
+| Independently scrolling control panel | Control panel | A vertical swipe moves only the panel; enclosing page/host, activity document, host and activity visual viewports, iframe position, and stage stay fixed, including at panel boundaries; the gesture does not alter learner state |
+| A draggable target | The simulation for the active drag | The target moves; enclosing page/host, activity document, panel, host and activity visual viewports, and iframe position all stay fixed; `pointermove` and `pointerup` complete and no `pointercancel` occurs |
 
-Apply `touch-action: pan-y` to a root stage surface when vertical swipes from its
-non-interactive region should reach the normal scroll owner. Do not put
+For a short natural-flow controls region, do not invent an independent panel
+owner: the enclosing page/host remains the normal scroll owner outside actual
+interactive or draggable targets.
+
+Apply `touch-action: pan-y` to the root stage surface so vertical swipes from its
+non-interactive region reach the enclosing page/host. Do not put
 `touch-action: none` on the whole stage merely because part of it is draggable.
 Confine gesture suppression to each drag target. Record the scroll topology in
 the plan: native panning follows the gesture target's scrollable ancestor chain
-and does not scroll a sibling control panel. A bounded split-panel must therefore
-name the actual stage-reachable page/host owner for blank-stage gestures, change
-the DOM/layout topology, or define and verify explicit gesture forwarding. Do
-not describe programmatic forwarding as native scrolling.
+and does not scroll a sibling control panel. Never forward a stage gesture to
+that sibling panel. In a bounded iframe, remove any activity-document scroll
+range that could consume the stage gesture. If the browser still cannot reach
+the enclosing host, change the topology or forward only to the same host owner;
+do not substitute the panel as owner or describe programmatic forwarding as
+native scrolling.
 
-Mark scrolling not applicable only when all required content is already visible
-and there is genuinely no scrolling need in that launch context. An overflowing
-sibling panel that is unreachable from the stage does not qualify: change the
-scroll topology or implement and verify explicit gesture forwarding.
+In a direct standalone page where the enclosing document genuinely has no
+range, a blank-stage swipe may remain unclaimed with zero scroll delta. This N/A
+case does not apply to the required scrollable Moodle-like iframe test: position
+the host away from a boundary and require a non-zero host delta.
 
 For an SVG scene, do not rely on `touch-action: none` on inner graphics such as
 `circle`, `line`, `path`, or `g` as the only scroll-prevention mechanism. Prefer
@@ -261,23 +277,37 @@ cannot change ownership of that gesture.
 Verification must use browser-level trusted touch input (a real touchscreen or
 browser automation protocol producing `touchStart`/`touchMove`/`touchEnd`), not
 DOM `dispatchEvent`, source inspection, or computed CSS alone. Confirm trusted
-events and touch pointer type, and record the browser engine/device. Before
-requiring a non-zero blank-region delta, prove that the selected owner overflows,
-place it away from the relevant boundary, and swipe toward available range. If
-no stage-reachable owner naturally has range in that supported viewport, mark
-the delta assertion not applicable only when all required content is already
-visible and there is no scrolling need. If required content exists in an
-overflowing but unreachable sibling, change the topology or verify explicit
-forwarding and require a nonzero delta on that owner. A valid not-applicable
-case must still prove that the simulation does not begin a drag, prevent the
-native gesture, or change simulation state.
+events and touch pointer type, and record the browser engine/device. Run every
+applicable row on the development page and again on the built or extracted SCORM
+launch page inside a scrollable Moodle-like host containing the activity iframe;
+bounded split-panels must run all three regions. Give the host available scroll
+range, place it away from the relevant boundary, and swipe in both directions.
 
-Test every row and draggable target type on the development page and again on
-the built or extracted SCORM launch page. During every active drag, record all
-candidate scroll surfaces, including the declared owner, activity document/page
-offset, visual viewport where measurable, control panel, and embedding host.
-They must all remain unchanged while `pointermove` plus `pointerup` arrive
-without `pointercancel`. For Moodle, repeat on a real phone in the current-window
+Before and after every gesture, record the enclosing host page scroll position,
+host visual-viewport offset/page position where measurable, iframe bounding
+rectangle, activity-document scroll position, activity visual-viewport offset
+where measurable, control-panel scroll position, and gesture-owned learner state
+such as phase, selection, answers, or persisted data. For a continuously running
+simulation, pause or fake the clock, or compare against its expected time
+evolution, so ordinary model progress is not mistaken for a gesture side effect.
+Apply these row-specific assertions:
+
+- blank stage: host scroll delta and iframe movement are non-zero in the intended
+  direction; activity document, activity visual viewport, and panel deltas are
+  zero; the gesture causes no learner-state change;
+- control panel: panel delta is non-zero when it has range; host, iframe,
+  activity document, host and activity visual viewports, and stage stay fixed;
+  the gesture causes no learner-state change. Repeat at the panel's top and
+  bottom boundaries and require the host to remain fixed;
+- draggable target: the target changes; every recorded scroll delta is zero;
+  `pointermove` and `pointerup` occur and `pointercancel` does not.
+
+Do not use programmatic `scrollTop` assignment as the acceptance gesture.
+Programmatic setup may place a scroll owner away from a boundary, but repeated
+trusted touch gestures must produce the measured result. In a direct standalone
+page with no enclosing scroll range, only the blank-stage non-zero delta may be
+marked not applicable; all zero-delta and state assertions still apply. For
+Moodle, repeat the same complete matrix on a real phone in the current-window
 player and in the new-window player when both launch modes are offered.
 
 ## Component style
