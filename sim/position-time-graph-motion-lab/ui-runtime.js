@@ -14,6 +14,7 @@
       return context.phase === "mission" && (([0, 3].includes(context.step) && label === "A") || (context.step === 4 && label === "B"));
     }
     if (type === "graph") return context.phase === "mission" && context.step === 1;
+    if (type === "initial") return context.phase === "mission" && [0, 3].includes(context.step) && !context.playing && context.time === 0;
     if (type === "probe") return context.phase === "explore" ? label === "E" : context.phase === "mission" && context.step === 2 && ["A", "B"].includes(label);
     if (type === "faster") return context.phase === "mission" && context.step === 2;
     return false;

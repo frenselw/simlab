@@ -387,7 +387,7 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
         x: centre.x,
         y: centre.y,
         top: document.elementFromPoint(centre.x, centre.y)?.closest('[data-drag]')?.dataset.drag || null,
-        hitStrokeWidth: getComputedStyle(document.querySelector('[data-drag="velocity:A"]')).strokeWidth,
+        hitBounds: (() => { const bounds = handle.getBoundingClientRect(); return { width: bounds.width, height: bounds.height }; })(),
         styles: Array.from(document.styleSheets, (sheet) => sheet.href).filter(Boolean),
         scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
         runtimeReady: Boolean(window.SimScorm && window.SimActivityFlow && window.PositionTimeScoring && window.PositionTimeGenerator),
@@ -421,7 +421,7 @@ async function runViewport(cdp, baseUrl, activityPath, width, height) {
       assert.ok(setup.desktopRects.panel.right <= setup.desktopRects.stage.left + 1, `${width}px: desktop panel remains to the left of the stage`);
     }
     if (width <= 420) assert.equal(setup.phaseDisplay, "none", `${width}px: duplicate header phase badge is hidden on phones`);
-    assert.ok(parseFloat(setup.hitStrokeWidth) >= 44, `${width}px: production CSS provides the enlarged velocity hit target`);
+    assert.ok(setup.hitBounds.width >= 51.5 && setup.hitBounds.height >= 51.5, `${width}px: production SVG provides a real CTM-aware 52px velocity hit target`);
     assert.equal(setup.top, "velocity:A", `${width}px v=${initialVelocity}: elementFromPoint must hit the velocity target`);
     assert.equal(setup.velocity, initialVelocity, `${width}px v=${initialVelocity}: setup velocity rendered`);
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: setup.x, y: setup.y });
@@ -484,6 +484,194 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?touch-regression=${width}x${height}` });
   await waitForActivity(cdp);
 
+  async function dragRoadControl(kind, pointerId, label) {
+    const setup = await evaluate(cdp, `(() => {
+      const target = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      if (!target) throw new Error('Missing road target ${kind}');
+      const svg = document.getElementById('roadSvg');
+      const point = svg.createSVGPoint();
+      point.x = Number(target.dataset.focusX);
+      point.y = Number(target.dataset.focusY);
+      const centre = point.matrixTransform(svg.getScreenCTM());
+      const label = ${JSON.stringify(kind)}.split(':')[1];
+      const car = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'car:' + label);
+      const velocity = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'velocity:' + label);
+      const road = svg.getBoundingClientRect();
+      const group = document.querySelector('[data-road-car="' + label + '"]');
+      const magnitudeLabel = group?.querySelector('.velocity-magnitude-label');
+      const magnitudeBounds = magnitudeLabel?.getBoundingClientRect();
+      const velocitySymbol = group?.querySelector('.velocity-arrowhead, .velocity-zero-marker')?.getBoundingClientRect();
+      const body = group?.querySelector('.car-body')?.getBoundingClientRect();
+      const overlaps = (first, second) => Boolean(first && second && first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top);
+      const inside = (rect) => Boolean(rect && rect.left >= road.left - 1 && rect.right <= road.right + 1 && rect.top >= road.top - 1 && rect.bottom <= road.bottom + 1);
+      const stage = document.querySelector('.lab-stage');
+      const upper = document.getElementById('labUpperScroll');
+      return {
+        x: centre.x,
+        y: centre.y,
+        domTarget: document.elementFromPoint(centre.x, centre.y)?.closest('[data-drag]')?.dataset.drag || null,
+        value: Number(target.getAttribute('aria-valuenow')),
+        x0: Number(car?.getAttribute('aria-valuenow')),
+        velocity: Number(velocity?.getAttribute('aria-valuenow')),
+        magnitudeText: magnitudeLabel?.textContent,
+        magnitudeVisible: inside(magnitudeBounds),
+        magnitudeOverlapsVelocity: overlaps(magnitudeBounds, velocitySymbol),
+        magnitudeOverlapsCar: overlaps(magnitudeBounds, body),
+        saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+        upper: upper.scrollTop,
+        upperScrollHeight: upper.scrollHeight,
+        stageScrollHeight: stage.scrollHeight
+      };
+    })()`);
+    assert.match(setup.magnitudeText, /^\|v\|=(?:\?|[0-2]\.[05]) m\/s$/, `${width}x${height} touch: ${label} shows the current speed magnitude and units beside the arrow`);
+    assert.equal(setup.magnitudeVisible, true, `${width}x${height} touch: ${label} speed-magnitude label remains inside the road viewport`);
+    assert.equal(setup.magnitudeOverlapsVelocity, false, `${width}x${height} touch: ${label} speed-magnitude label does not cover the arrow tip`);
+    assert.equal(setup.magnitudeOverlapsCar, false, `${width}x${height} touch: ${label} speed-magnitude label does not cover its car`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: setup.x, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    const preview = await evaluate(cdp, `(() => {
+      const source = document.getElementById('roadLayer');
+      const shown = document.querySelector('.road-magnifier');
+      const clone = shown?.querySelector('.road-magnifier-source');
+      const expected = source.cloneNode(true);
+      expected.querySelectorAll('.road-drag-hit, .drag-hit, .car-hit').forEach((element) => element.remove());
+      expected.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+        if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+      }));
+      const host = document.getElementById('roadTouchPreviewHost');
+      const hostBounds = host.getBoundingClientRect();
+      const stage = document.querySelector('.lab-stage');
+      const stageBounds = stage.getBoundingClientRect();
+      const upper = document.getElementById('labUpperScroll');
+      const target = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      const viewBox = shown?.getAttribute('viewBox').split(/\\s+/).map(Number);
+      const focus = [Number(target?.dataset.focusX), Number(target?.dataset.focusY)];
+      const carLabel = ${JSON.stringify(kind)}.split(':')[1];
+      const visualSelector = ${JSON.stringify(kind)}.startsWith('car:') ? '[data-road-car="' + carLabel + '"] .car-body' : '[data-road-car="' + carLabel + '"] .velocity-arrowhead, [data-road-car="' + carLabel + '"] .velocity-zero-marker';
+      const cloneVisual = clone?.querySelector(visualSelector)?.getBoundingClientRect();
+      const visualVisible = cloneVisual ? cloneVisual.right > hostBounds.left && cloneVisual.left < hostBounds.right && cloneVisual.bottom > hostBounds.top && cloneVisual.top < hostBounds.bottom : false;
+      return {
+        exists: Boolean(shown),
+        exactSourceMarkup: clone?.innerHTML === expected.innerHTML,
+        sameText: clone?.textContent === expected.textContent,
+        interactions: clone?.querySelectorAll('[data-drag], [tabindex], [role], [aria-label], [id]').length,
+        children: shown ? Array.from(shown.children).map((child) => ({ tag: child.tagName.toLowerCase(), className: child.getAttribute('class') })) : [],
+        pointerEvents: [getComputedStyle(host).pointerEvents, shown ? getComputedStyle(shown).pointerEvents : null],
+        bounds: { left: hostBounds.left, top: hostBounds.top, right: hostBounds.right, bottom: hostBounds.bottom, width: hostBounds.width, height: hostBounds.height },
+        stage: { left: stageBounds.left, top: stageBounds.top, right: stageBounds.right, bottom: stageBounds.bottom },
+        contained: hostBounds.left >= stageBounds.left - 1 && hostBounds.right <= stageBounds.right + 1 && hostBounds.top >= stageBounds.top - 1 && hostBounds.bottom <= stageBounds.bottom + 1,
+        viewBox,
+        focus,
+        focusInCrop: viewBox ? focus[0] >= viewBox[0] && focus[0] <= viewBox[0] + viewBox[2] && focus[1] >= viewBox[1] && focus[1] <= viewBox[1] + viewBox[3] : false,
+        visualVisible,
+        stageScrollHeight: stage.scrollHeight,
+        upperScrollHeight: upper.scrollHeight
+      };
+    })()`);
+    assert.equal(preview.exists, true, `${width}x${height} touch: ${label} shows a real road magnifier`);
+    assert.equal(preview.exactSourceMarkup, true, `${width}x${height} touch: ${label} magnifier exactly clones the sanitized live road`);
+    assert.equal(preview.sameText, true, `${width}x${height} touch: ${label} magnifier adds no text or physical readout`);
+    assert.equal(preview.interactions, 0, `${width}x${height} touch: ${label} road clone has no interaction, focus, ID, or ARIA target`);
+    assert.deepEqual(preview.children, [{ tag: "g", className: "road-magnifier-source" }], `${width}x${height} touch: ${label} magnifier contains only the real road source group`);
+    assert.deepEqual(preview.pointerEvents, ["none", "none"], `${width}x${height} touch: ${label} road magnifier cannot intercept dragging`);
+    assert.equal(preview.contained, true, `${width}x${height} touch: ${label} road magnifier is fully visible inside the complete stage overlay`);
+    assert.ok(preview.bounds.width >= Math.min(width * 0.52, 184) - 2 && preview.bounds.height >= 65, `${width}x${height} touch: ${label} road magnifier keeps a non-clipped readable size`);
+    assert.equal(preview.focusInCrop, true, `${width}x${height} touch: ${label} controlled visual focus lies inside the road crop (${JSON.stringify(preview)})`);
+    assert.equal(preview.visualVisible, true, `${width}x${height} touch: ${label} controlled car or arrow is visibly rendered in the magnifier viewport`);
+    assert.equal(preview.stageScrollHeight, setup.stageScrollHeight, `${width}x${height} touch: ${label} overlay does not change stage scroll height`);
+    assert.equal(preview.upperScrollHeight, setup.upperScrollHeight, `${width}x${height} touch: ${label} overlay does not change upper-region scroll height`);
+    const dragDelta = setup.value >= (kind.startsWith("velocity:") ? 2 : 8) ? -28 : 28;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: setup.x + dragDelta, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await delay(70);
+    const after = await evaluate(cdp, `(() => {
+      const target = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      const label = ${JSON.stringify(kind)}.split(':')[1];
+      const car = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'car:' + label);
+      const velocity = Array.from(document.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'velocity:' + label);
+      const magnitudeLabel = document.querySelector('[data-road-car="' + label + '"] .velocity-magnitude-label');
+      return {
+        value: Number(target?.getAttribute('aria-valuenow')),
+        x0: Number(car?.getAttribute('aria-valuenow')),
+        velocity: Number(velocity?.getAttribute('aria-valuenow')),
+        magnitudeText: magnitudeLabel?.textContent,
+        saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+        preview: Boolean(document.querySelector('.road-magnifier')),
+        upper: document.getElementById('labUpperScroll').scrollTop
+      };
+    })()`);
+    assert.notEqual(after.value, setup.value, `${width}x${height} touch: ${label} drag changes only its authoritative control value (${setup.value}->${after.value})`);
+    assert.equal(kind.startsWith("car:") ? after.velocity : after.x0, kind.startsWith("car:") ? setup.velocity : setup.x0, `${width}x${height} touch: ${label} nearest-focus arbitration leaves the other road quantity unchanged`);
+    const expectedMagnitude = kind.startsWith("velocity:") ? `|v|=${Math.abs(after.velocity).toFixed(1)} m/s` : setup.magnitudeText;
+    assert.equal(after.magnitudeText, expectedMagnitude, `${width}x${height} touch: ${label} speed label stays synchronized with the authoritative velocity`);
+    assert.equal(after.saves, setup.saves + 1, `${width}x${height} touch: ${label} drag saves exactly once on release`);
+    assert.equal(after.preview, false, `${width}x${height} touch: ${label} road magnifier clears on release`);
+    assert.equal(after.upper, setup.upper, `${width}x${height} touch: ${label} drag leaves the fixed visual region stationary`);
+  }
+
+  async function dragInitialPoint(pointerId, label) {
+    const setup = await evaluate(cdp, `(() => {
+      const target = document.querySelector('[data-drag="initial:x0"]');
+      if (!target) throw new Error('Missing mission initial-position graph target');
+      const svg = document.getElementById('graphSvg');
+      const point = svg.createSVGPoint();
+      point.x = Number(target.dataset.pointCx);
+      point.y = Number(target.dataset.pointCy);
+      const centre = point.matrixTransform(svg.getScreenCTM());
+      return {
+        x: centre.x,
+        y: centre.y,
+        value: Number(target.getAttribute('aria-valuenow')),
+        velocity: Number(document.querySelector('[data-drag="velocity:A"]')?.getAttribute('aria-valuenow')),
+        hit: target.getBoundingClientRect().toJSON(),
+        saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+        upper: document.getElementById('labUpperScroll').scrollTop
+      };
+    })()`);
+    assert.ok(setup.hit.width >= 51.5 && setup.hit.height >= 51.5, `${width}x${height} touch: ${label} has a real 52 CSS px hit geometry`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: setup.x, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    const preview = await evaluate(cdp, `(() => {
+      const source = document.getElementById('graphLayer');
+      const shown = document.querySelector('.graph-magnifier');
+      const clone = shown?.querySelector('.graph-magnifier-source');
+      const expected = source.cloneNode(true);
+      expected.querySelectorAll('.drag-hit').forEach((element) => element.remove());
+      expected.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+        if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+      }));
+      return {
+        exists: Boolean(shown),
+        exactSourceMarkup: clone?.innerHTML === expected.innerHTML,
+        sameText: clone?.textContent === expected.textContent,
+        interactions: clone?.querySelectorAll('[data-drag], [tabindex], [role], [aria-label], [id]').length,
+        selected: document.querySelector('[data-graph-point="initial"]')?.classList.contains('is-dragging')
+      };
+    })()`);
+    assert.equal(preview.exists, true, `${width}x${height} touch: ${label} shows the real graph magnifier`);
+    assert.equal(preview.exactSourceMarkup, true, `${width}x${height} touch: ${label} magnifier exactly clones the sanitized live graph`);
+    assert.equal(preview.sameText, true, `${width}x${height} touch: ${label} graph preview adds no content`);
+    assert.equal(preview.interactions, 0, `${width}x${height} touch: ${label} graph clone has no interactions or duplicate semantics`);
+    assert.equal(preview.selected, true, `${width}x${height} touch: ${label} highlights the source point during drag`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: setup.x, y: setup.y - 34, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await delay(70);
+    const after = await evaluate(cdp, `(() => ({
+      value: Number(document.querySelector('[data-drag="initial:x0"]')?.getAttribute('aria-valuenow')),
+      velocity: Number(document.querySelector('[data-drag="velocity:A"]')?.getAttribute('aria-valuenow')),
+      saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length,
+      preview: Boolean(document.querySelector('.graph-magnifier')),
+      upper: document.getElementById('labUpperScroll').scrollTop
+    }))()`);
+    assert.notEqual(after.value, setup.value, `${width}x${height} touch: ${label} changes x0`);
+    assert.equal(after.velocity, setup.velocity, `${width}x${height} touch: ${label} leaves velocity unchanged`);
+    assert.equal(after.saves, setup.saves + 1, `${width}x${height} touch: ${label} saves exactly once on release`);
+    assert.equal(after.preview, false, `${width}x${height} touch: ${label} magnifier clears on release`);
+    assert.equal(after.upper, setup.upper, `${width}x${height} touch: ${label} does not pan the fixed stage`);
+  }
+
   const blank = await evaluate(cdp, `(() => {
     const upper = document.getElementById('labUpperScroll');
     const panel = document.getElementById('labPanel');
@@ -525,9 +713,80 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   assert.equal(afterBlank.upper, blank.upperBefore, `${width}x${height} touch: blank graph swipe cannot move the fixed visual region`);
   assert.equal(afterBlank.panel, blank.panelBefore, `${width}x${height} touch: blank visual-region swipe leaves the panel fixed`);
 
+  await dragRoadControl("car:A", 20, "exploration A car");
+  await dragRoadControl("velocity:A", 21, "exploration A velocity");
+  const roadNoPreview = await evaluate(cdp, `(() => {
+    const target = document.querySelector('[data-drag="velocity:A"]');
+    const svg = document.getElementById('roadSvg');
+    const point = svg.createSVGPoint(); point.x = Number(target.dataset.focusX); point.y = Number(target.dataset.focusY);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y };
+  })()`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: roadNoPreview.x, y: roadNoPreview.y, button: "left", buttons: 1, clickCount: 1 });
+  assert.equal(await evaluate(cdp, `Boolean(document.querySelector('.road-magnifier'))`), false, `${width}x${height} mouse: road drag does not show a touch magnifier`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: roadNoPreview.x, y: roadNoPreview.y, button: "left", buttons: 0, clickCount: 1 });
+  const roadLostSetup = await evaluate(cdp, `(() => {
+    const target = document.querySelector('[data-drag="velocity:A"]');
+    const svg = document.getElementById('roadSvg');
+    svg.addEventListener('pointerdown', (event) => { window.__roadLostPointer = event.pointerId; }, { once: true });
+    const point = svg.createSVGPoint(); point.x = Number(target.dataset.focusX); point.y = Number(target.dataset.focusY);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y, saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: roadLostSetup.x, y: roadLostSetup.y, id: 25, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  const roadLost = await evaluate(cdp, `(() => {
+    document.getElementById('roadSvg').dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: window.__roadLostPointer, pointerType: 'touch' }));
+    return { preview: Boolean(document.querySelector('.road-magnifier')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  assert.equal(roadLost.preview, false, `${width}x${height} touch: road lost capture before movement clears preview`);
+  assert.equal(roadLost.saves, roadLostSetup.saves, `${width}x${height} touch: road lost capture before semantic movement does not save`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
   await evaluate(cdp, `document.getElementById('confirmStart').click()`);
   await delay(100);
   assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /1 \/ 5/, `${width}x${height} touch: assessment starts at mission 1`);
+  const initialJitter = await evaluate(cdp, `(() => {
+    const target = document.querySelector('[data-drag="initial:x0"]');
+    const svg = document.getElementById('graphSvg');
+    const point = svg.createSVGPoint(); point.x = Number(target.dataset.pointCx); point.y = Number(target.dataset.pointCy);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y, saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: initialJitter.x, y: initialJitter.y, id: 26, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: initialJitter.x, y: initialJitter.y - 2, id: 26, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(60);
+  const initialJitterAfter = await evaluate(cdp, `({ unanswered: Boolean(document.querySelector('[data-set-quantity="x0"]')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length, preview: Boolean(document.querySelector('.graph-magnifier')) })`);
+  assert.equal(initialJitterAfter.unanswered, true, `${width}x${height} touch: two-pixel initial-point jitter keeps x0 absent`);
+  assert.equal(initialJitterAfter.saves, initialJitter.saves, `${width}x${height} touch: two-pixel initial-point jitter creates no save`);
+  assert.equal(initialJitterAfter.preview, false, `${width}x${height} touch: initial-point jitter clears preview on release`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: initialJitter.x, y: initialJitter.y, button: "left", buttons: 1, clickCount: 1 });
+  assert.equal(await evaluate(cdp, `Boolean(document.querySelector('.graph-magnifier'))`), false, `${width}x${height} mouse: mission initial point does not show a touch magnifier`);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: initialJitter.x, y: initialJitter.y, button: "left", buttons: 0, clickCount: 1 });
+  const initialLostSetup = await evaluate(cdp, `(() => {
+    const target = document.querySelector('[data-drag="initial:x0"]');
+    const svg = document.getElementById('graphSvg');
+    svg.addEventListener('pointerdown', (event) => { window.__initialLostPointer = event.pointerId; }, { once: true });
+    const point = svg.createSVGPoint(); point.x = Number(target.dataset.pointCx); point.y = Number(target.dataset.pointCy);
+    const centre = point.matrixTransform(svg.getScreenCTM());
+    return { x: centre.x, y: centre.y, value: Number(target.getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: initialLostSetup.x, y: initialLostSetup.y, id: 27, radiusX: 1, radiusY: 1, force: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: initialLostSetup.x, y: initialLostSetup.y - 34, id: 27, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(40);
+  const initialLost = await evaluate(cdp, `(() => {
+    document.getElementById('graphSvg').dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: window.__initialLostPointer, pointerType: 'touch' }));
+    const target = document.querySelector('[data-drag="initial:x0"]');
+    return { value: Number(target?.getAttribute('aria-valuenow')), saves: window.SimScorm.getLocalLog().filter((entry) => entry.key === 'cmi.suspend_data').length, preview: Boolean(document.querySelector('.graph-magnifier')) };
+  })()`);
+  assert.notEqual(initialLost.value, initialLostSetup.value, `${width}x${height} touch: initial-point lost capture retains the last semantic movement`);
+  assert.equal(initialLost.saves, initialLostSetup.saves + 1, `${width}x${height} touch: initial-point lost capture after movement saves exactly once`);
+  assert.equal(initialLost.preview, false, `${width}x${height} touch: initial-point lost capture clears preview`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await dragRoadControl("car:A", 22, "mission 1 A car");
+  await dragRoadControl("velocity:A", 23, "mission 1 A velocity");
+  await dragInitialPoint(24, "mission 1 initial-position point");
   await evaluate(cdp, `document.getElementById('nextMission').click()`);
   await delay(100);
   assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /2 \/ 5/, `${width}x${height} touch: graph drag check reaches mission 2`);
@@ -829,6 +1088,88 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   })()`);
   assert.equal(keyboardPreview, false, `${width}x${height} keyboard: endpoint adjustment does not show a touch magnifier`);
 
+  await evaluate(cdp, `document.getElementById('nextMission').click()`);
+  await delay(80);
+  assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /3 \/ 5/, `${width}x${height} touch: advanced to mission 3`);
+  await evaluate(cdp, `document.getElementById('nextMission').click()`);
+  await delay(80);
+  assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /4 \/ 5/, `${width}x${height} touch: advanced to mission 4`);
+  await dragRoadControl("car:A", 30, "mission 4 A car");
+  await dragRoadControl("velocity:A", 31, "mission 4 A velocity");
+  await dragInitialPoint(32, "mission 4 initial-position point");
+  const initialKeyboard = await evaluate(cdp, `(() => {
+    const handle = document.querySelector('[data-drag="initial:x0"]');
+    const before = Number(handle.getAttribute('aria-valuenow'));
+    handle.focus();
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    return {
+      before,
+      after: Number(document.activeElement?.getAttribute('aria-valuenow')),
+      focus: document.activeElement?.dataset.drag,
+      preview: Boolean(document.querySelector('.graph-magnifier'))
+    };
+  })()`);
+  assert.equal(initialKeyboard.after, initialKeyboard.before - 1, `${width}x${height} keyboard: mission initial point supports one-metre Arrow adjustment`);
+  assert.equal(initialKeyboard.focus, "initial:x0", `${width}x${height} keyboard: mission initial point restores semantic focus after rerender`);
+  assert.equal(initialKeyboard.preview, false, `${width}x${height} keyboard: mission initial point does not show a touch magnifier`);
+
+  await evaluate(cdp, `document.getElementById('nextMission').click()`);
+  await delay(80);
+  assert.match(await evaluate(cdp, `document.getElementById('taskKicker').textContent`), /5 \/ 5/, `${width}x${height} touch: advanced to mission 5`);
+  const twoCarLayout = await evaluate(cdp, `(() => {
+    const road = document.getElementById('roadSvg').getBoundingClientRect();
+    const groupA = document.querySelector('[data-road-car="A"]');
+    const groupB = document.querySelector('[data-road-car="B"]');
+    const bodyA = groupA.querySelector('.car-body').getBoundingClientRect();
+    const bodyB = groupB.querySelector('.car-body').getBoundingClientRect();
+    const labelA = groupA.querySelector('.car-body').parentElement.querySelector('text').getBoundingClientRect();
+    const labelB = groupB.querySelector('.car-body').parentElement.querySelector('text').getBoundingClientRect();
+    const velocityA = groupA.querySelector('.velocity-line, .velocity-zero-marker').getBoundingClientRect();
+    const velocityB = groupB.querySelector('.velocity-line, .velocity-zero-marker').getBoundingClientRect();
+    const speedLabelAElement = groupA.querySelector('.velocity-magnitude-label');
+    const speedLabelBElement = groupB.querySelector('.velocity-magnitude-label');
+    const speedLabelA = speedLabelAElement.getBoundingClientRect();
+    const speedLabelB = speedLabelBElement.getBoundingClientRect();
+    const velocityTipA = groupA.querySelector('.velocity-arrowhead, .velocity-zero-marker').getBoundingClientRect();
+    const velocityTipB = groupB.querySelector('.velocity-arrowhead, .velocity-zero-marker').getBoundingClientRect();
+    const overlaps = (first, second) => first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+    const inside = (rect) => rect.left >= road.left - 1 && rect.right <= road.right + 1 && rect.top >= road.top - 1 && rect.bottom <= road.bottom + 1;
+    return {
+      bodyOverlap: overlaps(bodyA, bodyB),
+      aVelocityOverlapsB: overlaps(velocityA, bodyB),
+      bVelocityOverlapsA: overlaps(velocityB, bodyA),
+      labelsVisible: inside(labelA) && inside(labelB),
+      velocitiesVisible: inside(velocityA) && inside(velocityB),
+      speedLabelsVisible: inside(speedLabelA) && inside(speedLabelB),
+      speedLabelsOverlapCars: [speedLabelA, speedLabelB].some((speedLabel) => overlaps(speedLabel, bodyA) || overlaps(speedLabel, bodyB)),
+      speedLabelsOverlapTips: overlaps(speedLabelA, velocityTipA) || overlaps(speedLabelB, velocityTipB),
+      speedLabelsOverlapEachOther: overlaps(speedLabelA, speedLabelB),
+      speedLabelTexts: [speedLabelAElement.textContent, speedLabelBElement.textContent],
+      roadBounds: { left: road.left, right: road.right, top: road.top, bottom: road.bottom },
+      bodiesVisible: inside(bodyA) && inside(bodyB),
+      aDraggable: Boolean(document.querySelector('[data-drag="car:A"], [data-drag="velocity:A"]')),
+      bCar: Boolean(document.querySelector('[data-drag="car:B"]')),
+      bVelocity: Boolean(document.querySelector('[data-drag="velocity:B"]'))
+    };
+  })()`);
+  assert.equal(twoCarLayout.bodyOverlap, false, `${width}x${height} mission 5: A and B cars occupy distinct visual lanes`);
+  assert.equal(twoCarLayout.aVelocityOverlapsB, false, `${width}x${height} mission 5: A velocity does not overlap B car`);
+  assert.equal(twoCarLayout.bVelocityOverlapsA, false, `${width}x${height} mission 5: B velocity does not overlap A car`);
+  assert.equal(twoCarLayout.labelsVisible, true, `${width}x${height} mission 5: both A and B labels remain inside the road viewport`);
+  assert.equal(twoCarLayout.bodiesVisible, true, `${width}x${height} mission 5: both cars remain inside the road viewport`);
+  assert.equal(twoCarLayout.velocitiesVisible, true, `${width}x${height} mission 5: both velocity visuals remain inside the road viewport`);
+  assert.match(twoCarLayout.speedLabelTexts[0], /^\|v\|=[0-2]\.[05] m\/s$/, `${width}x${height} mission 5: authoritative A shows its current numeric speed magnitude`);
+  assert.equal(twoCarLayout.speedLabelTexts[1], "|v|=? m/s", `${width}x${height} mission 5: incomplete B clearly marks its speed as unset`);
+  assert.equal(twoCarLayout.speedLabelsVisible, true, `${width}x${height} mission 5: both speed labels remain inside the road viewport (${JSON.stringify(twoCarLayout)})`);
+  assert.equal(twoCarLayout.speedLabelsOverlapCars, false, `${width}x${height} mission 5: speed labels do not cover either car`);
+  assert.equal(twoCarLayout.speedLabelsOverlapTips, false, `${width}x${height} mission 5: speed labels do not cover their arrow tips`);
+  assert.equal(twoCarLayout.speedLabelsOverlapEachOther, false, `${width}x${height} mission 5: A and B speed labels remain separated`);
+  assert.equal(twoCarLayout.aDraggable, false, `${width}x${height} mission 5: authoritative A car and velocity remain fixed`);
+  assert.equal(twoCarLayout.bCar, true, `${width}x${height} mission 5: B car remains touch draggable`);
+  assert.equal(twoCarLayout.bVelocity, true, `${width}x${height} mission 5: B velocity remains touch draggable`);
+  await dragRoadControl("car:B", 33, "mission 5 B car");
+  await dragRoadControl("velocity:B", 34, "mission 5 B velocity");
+
   const bottoms = await evaluate(cdp, `(() => {
     const upper = document.getElementById('labUpperScroll');
     const panel = document.getElementById('labPanel');
@@ -893,11 +1234,200 @@ async function runEmbeddedScrollViewport(cdp, baseUrl, activityPath, width, heig
   assert.equal(after.upper, gesture.upperBefore, `${width}x${height} embedded touch: fixed visual region does not scroll internally`);
   assert.equal(after.panel, gesture.panelBefore, `${width}x${height} embedded touch: outer-page swipe does not move the control panel`);
 
+  async function embeddedRoadDrag(kind, pointerId, label) {
+    const setup = await evaluate(cdp, `(async () => {
+      window.scrollTo(0, 200);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const frame = document.getElementById('activity');
+      const inner = frame.contentDocument;
+      const target = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      if (!target) throw new Error('Missing embedded road target ${kind}');
+      const svg = inner.getElementById('roadSvg');
+      const point = svg.createSVGPoint();
+      point.x = Number(target.dataset.focusX);
+      point.y = Number(target.dataset.focusY);
+      const start = point.matrixTransform(svg.getScreenCTM());
+      const frameRect = frame.getBoundingClientRect();
+      const stage = inner.querySelector('.lab-stage');
+      const upper = inner.getElementById('labUpperScroll');
+      const label = ${JSON.stringify(kind)}.split(':')[1];
+      const car = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'car:' + label);
+      const velocity = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'velocity:' + label);
+      const road = svg.getBoundingClientRect();
+      const group = inner.querySelector('[data-road-car="' + label + '"]');
+      const magnitudeLabel = group?.querySelector('.velocity-magnitude-label');
+      const magnitudeBounds = magnitudeLabel?.getBoundingClientRect();
+      const velocitySymbol = group?.querySelector('.velocity-arrowhead, .velocity-zero-marker')?.getBoundingClientRect();
+      const body = group?.querySelector('.car-body')?.getBoundingClientRect();
+      const overlaps = (first, second) => Boolean(first && second && first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top);
+      const inside = (rect) => Boolean(rect && rect.left >= road.left - 1 && rect.right <= road.right + 1 && rect.top >= road.top - 1 && rect.bottom <= road.bottom + 1);
+      return {
+        x: frameRect.left + start.x, y: frameRect.top + start.y,
+        value: Number(target.getAttribute('aria-valuenow')), x0: Number(car?.getAttribute('aria-valuenow')), velocity: Number(velocity?.getAttribute('aria-valuenow')),
+        magnitudeText: magnitudeLabel?.textContent, magnitudeVisible: inside(magnitudeBounds),
+        magnitudeOverlapsVelocity: overlaps(magnitudeBounds, velocitySymbol), magnitudeOverlapsCar: overlaps(magnitudeBounds, body),
+        outer: window.scrollY, upper: upper.scrollTop, stageScrollHeight: stage.scrollHeight, upperScrollHeight: upper.scrollHeight
+      };
+    })()`);
+    assert.match(setup.magnitudeText, /^\|v\|=(?:\?|[0-2]\.[05]) m\/s$/, `${width}x${height} embedded touch: ${label} shows speed magnitude with units`);
+    assert.equal(setup.magnitudeVisible, true, `${width}x${height} embedded touch: ${label} speed label stays inside the road viewport`);
+    assert.equal(setup.magnitudeOverlapsVelocity, false, `${width}x${height} embedded touch: ${label} speed label does not cover the arrow tip`);
+    assert.equal(setup.magnitudeOverlapsCar, false, `${width}x${height} embedded touch: ${label} speed label does not cover its car`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: setup.x, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    const preview = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      const source = inner.getElementById('roadLayer');
+      const shown = inner.querySelector('.road-magnifier');
+      const clone = shown?.querySelector('.road-magnifier-source');
+      const expected = source.cloneNode(true);
+      expected.querySelectorAll('.road-drag-hit, .drag-hit, .car-hit').forEach((element) => element.remove());
+      expected.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+        if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+      }));
+      const host = inner.getElementById('roadTouchPreviewHost');
+      const hostBounds = host.getBoundingClientRect();
+      const stage = inner.querySelector('.lab-stage');
+      const stageBounds = stage.getBoundingClientRect();
+      const upper = inner.getElementById('labUpperScroll');
+      const target = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      const viewBox = shown?.getAttribute('viewBox').split(/\\s+/).map(Number);
+      const focus = [Number(target?.dataset.focusX), Number(target?.dataset.focusY)];
+      const carLabel = ${JSON.stringify(kind)}.split(':')[1];
+      const visualSelector = ${JSON.stringify(kind)}.startsWith('car:') ? '[data-road-car="' + carLabel + '"] .car-body' : '[data-road-car="' + carLabel + '"] .velocity-arrowhead, [data-road-car="' + carLabel + '"] .velocity-zero-marker';
+      const visual = clone?.querySelector(visualSelector)?.getBoundingClientRect();
+      return {
+        exists: Boolean(shown), exact: clone?.innerHTML === expected.innerHTML, sameText: clone?.textContent === expected.textContent,
+        interactions: clone?.querySelectorAll('[data-drag], [tabindex], [role], [aria-label], [id]').length, outer: window.scrollY,
+        contained: hostBounds.left >= stageBounds.left - 1 && hostBounds.right <= stageBounds.right + 1 && hostBounds.top >= stageBounds.top - 1 && hostBounds.bottom <= stageBounds.bottom + 1,
+        size: [hostBounds.width, hostBounds.height],
+        focusInCrop: focus[0] >= viewBox[0] && focus[0] <= viewBox[0] + viewBox[2] && focus[1] >= viewBox[1] && focus[1] <= viewBox[1] + viewBox[3],
+        visualVisible: Boolean(visual && visual.right > hostBounds.left && visual.left < hostBounds.right && visual.bottom > hostBounds.top && visual.top < hostBounds.bottom),
+        stageScrollHeight: stage.scrollHeight, upperScrollHeight: upper.scrollHeight
+      };
+    })()`);
+    assert.equal(preview.exists, true, `${width}x${height} embedded touch: ${label} shows a road magnifier`);
+    assert.equal(preview.exact, true, `${width}x${height} embedded touch: ${label} magnifier is the exact sanitized road source`);
+    assert.equal(preview.sameText, true, `${width}x${height} embedded touch: ${label} magnifier adds no content`);
+    assert.equal(preview.interactions, 0, `${width}x${height} embedded touch: ${label} clone has no interactions or duplicate semantics`);
+    assert.equal(preview.outer, setup.outer, `${width}x${height} embedded touch: ${label} preview does not scroll Moodle`);
+    assert.equal(preview.contained, true, `${width}x${height} embedded touch: ${label} magnifier is fully contained in the visible stage`);
+    assert.ok(preview.size[0] >= 160 && preview.size[1] >= 65, `${width}x${height} embedded touch: ${label} magnifier is not clipped to the road row`);
+    assert.equal(preview.focusInCrop, true, `${width}x${height} embedded touch: ${label} focus lies inside the road crop`);
+    assert.equal(preview.visualVisible, true, `${width}x${height} embedded touch: ${label} controlled visual is visibly rendered in the preview`);
+    assert.equal(preview.stageScrollHeight, setup.stageScrollHeight, `${width}x${height} embedded touch: ${label} preview does not change stage scroll height`);
+    assert.equal(preview.upperScrollHeight, setup.upperScrollHeight, `${width}x${height} embedded touch: ${label} preview does not change upper scroll height`);
+    const dragDelta = setup.value >= (kind.startsWith("velocity:") ? 2 : 8) ? -28 : 28;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: setup.x + dragDelta, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await delay(80);
+    const done = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      const target = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === ${JSON.stringify(kind)});
+      const label = ${JSON.stringify(kind)}.split(':')[1];
+      const car = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'car:' + label);
+      const velocity = Array.from(inner.querySelectorAll('[data-drag]')).find((element) => element.dataset.drag === 'velocity:' + label);
+      const magnitudeText = inner.querySelector('[data-road-car="' + label + '"] .velocity-magnitude-label')?.textContent;
+      return { value: Number(target?.getAttribute('aria-valuenow')), x0: Number(car?.getAttribute('aria-valuenow')), velocity: Number(velocity?.getAttribute('aria-valuenow')), magnitudeText, outer: window.scrollY, upper: inner.getElementById('labUpperScroll').scrollTop, preview: Boolean(inner.querySelector('.road-magnifier')) };
+    })()`);
+    assert.notEqual(done.value, setup.value, `${width}x${height} embedded touch: ${label} changes its value`);
+    assert.equal(kind.startsWith("car:") ? done.velocity : done.x0, kind.startsWith("car:") ? setup.velocity : setup.x0, `${width}x${height} embedded touch: ${label} changes only its nearest semantic road target`);
+    const expectedMagnitude = kind.startsWith("velocity:") ? `|v|=${Math.abs(done.velocity).toFixed(1)} m/s` : setup.magnitudeText;
+    assert.equal(done.magnitudeText, expectedMagnitude, `${width}x${height} embedded touch: ${label} speed label stays synchronized`);
+    assert.equal(done.outer, setup.outer, `${width}x${height} embedded touch: ${label} active drag locks Moodle scrolling`);
+    assert.equal(done.upper, setup.upper, `${width}x${height} embedded touch: ${label} leaves the stage fixed`);
+    assert.equal(done.preview, false, `${width}x${height} embedded touch: ${label} preview clears on release`);
+  }
+
+  async function embeddedInitialDrag(pointerId, label) {
+    const setup = await evaluate(cdp, `(async () => {
+      window.scrollTo(0, 200);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const frame = document.getElementById('activity');
+      const inner = frame.contentDocument;
+      const target = inner.querySelector('[data-drag="initial:x0"]');
+      const svg = inner.getElementById('graphSvg');
+      const point = svg.createSVGPoint();
+      point.x = Number(target.dataset.pointCx); point.y = Number(target.dataset.pointCy);
+      const centre = point.matrixTransform(svg.getScreenCTM());
+      const frameRect = frame.getBoundingClientRect();
+      return { x: frameRect.left + centre.x, y: frameRect.top + centre.y, value: Number(target.getAttribute('aria-valuenow')), outer: window.scrollY, upper: inner.getElementById('labUpperScroll').scrollTop };
+    })()`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: setup.x, y: setup.y, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    const preview = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      const shown = inner.querySelector('.graph-magnifier');
+      const source = inner.getElementById('graphLayer');
+      const clone = shown?.querySelector('.graph-magnifier-source');
+      const expected = source.cloneNode(true);
+      expected.querySelectorAll('.drag-hit').forEach((element) => element.remove());
+      expected.querySelectorAll('*').forEach((element) => Array.from(element.attributes).forEach((attribute) => {
+        if (['id', 'data-drag', 'tabindex', 'role', 'focusable'].includes(attribute.name) || attribute.name.startsWith('aria-')) element.removeAttribute(attribute.name);
+      }));
+      return { exists: Boolean(shown), exact: clone?.innerHTML === expected.innerHTML, sameText: clone?.textContent === expected.textContent, outer: window.scrollY };
+    })()`);
+    assert.equal(preview.exists, true, `${width}x${height} embedded touch: ${label} shows a graph magnifier`);
+    assert.equal(preview.exact, true, `${width}x${height} embedded touch: ${label} magnifier is the exact sanitized graph source`);
+    assert.equal(preview.sameText, true, `${width}x${height} embedded touch: ${label} magnifier adds no content`);
+    assert.equal(preview.outer, setup.outer, `${width}x${height} embedded touch: ${label} preview leaves Moodle fixed`);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: setup.x, y: setup.y - 34, id: pointerId, radiusX: 1, radiusY: 1, force: 1 }] });
+    await delay(40);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await delay(80);
+    const done = await evaluate(cdp, `(() => {
+      const inner = document.getElementById('activity').contentDocument;
+      return { value: Number(inner.querySelector('[data-drag="initial:x0"]')?.getAttribute('aria-valuenow')), outer: window.scrollY, upper: inner.getElementById('labUpperScroll').scrollTop, preview: Boolean(inner.querySelector('.graph-magnifier')) };
+    })()`);
+    assert.notEqual(done.value, setup.value, `${width}x${height} embedded touch: ${label} changes x0`);
+    assert.equal(done.outer, setup.outer, `${width}x${height} embedded touch: ${label} drag locks Moodle scrolling`);
+    assert.equal(done.upper, setup.upper, `${width}x${height} embedded touch: ${label} leaves the stage fixed`);
+    assert.equal(done.preview, false, `${width}x${height} embedded touch: ${label} preview clears on release`);
+  }
+
+  const blankRoad = await evaluate(cdp, `(async () => {
+    window.scrollTo(0, 200);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const frame = document.getElementById('activity');
+    const inner = frame.contentDocument;
+    const svg = inner.getElementById('roadSvg');
+    const frameRect = frame.getBoundingClientRect();
+    const focuses = Array.from(inner.querySelectorAll('#roadLayer [data-drag]')).map((target) => {
+      const point = svg.createSVGPoint(); point.x = Number(target.dataset.focusX); point.y = Number(target.dataset.focusY);
+      return point.matrixTransform(svg.getScreenCTM());
+    });
+    const candidates = [];
+    for (const focus of focuses) for (const [dx, dy] of [[32, 0], [-32, 0], [0, 32], [0, -32], [25, 25], [-25, 25]]) candidates.push({ x: focus.x + dx, y: focus.y + dy });
+    const road = svg.getBoundingClientRect();
+    const point = candidates.find(({ x, y }) => x > road.left + 2 && x < road.right - 2 && y > road.top + 2 && y < road.bottom - 2 && !inner.elementFromPoint(x, y)?.closest('[data-drag]') && focuses.every((focus) => Math.hypot(x - focus.x, y - focus.y) > 28));
+    if (!point) throw new Error('No blank road point just outside semantic target radius');
+    return { x: frameRect.left + point.x, y: frameRect.top + point.y, outer: window.scrollY };
+  })()`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: blankRoad.x, y: blankRoad.y, id: 39, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: blankRoad.x, y: blankRoad.y - 80, id: 39, radiusX: 1, radiusY: 1, force: 1 }] });
+  await delay(30);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(120);
+  const blankRoadAfter = await evaluate(cdp, `({ outer: window.scrollY, preview: Boolean(document.getElementById('activity').contentDocument.querySelector('.road-magnifier')) })`);
+  assert.ok(blankRoadAfter.outer > blankRoad.outer, `${width}x${height} embedded touch: blank road swipe outside semantic radius scrolls the Moodle-like page`);
+  assert.equal(blankRoadAfter.preview, false, `${width}x${height} embedded touch: blank road swipe starts no drag or preview`);
+
+  await embeddedRoadDrag("car:A", 40, "exploration A car");
+  await embeddedRoadDrag("velocity:A", 41, "exploration A velocity");
+
   await evaluate(cdp, `(async () => {
     const frame = document.getElementById('activity');
     const inner = frame.contentDocument;
     inner.getElementById('confirmStart').click();
     await new Promise((resolve) => setTimeout(resolve, 100));
+  })()`);
+  await embeddedRoadDrag("car:A", 42, "mission 1 A car");
+  await embeddedRoadDrag("velocity:A", 43, "mission 1 A velocity");
+  await embeddedInitialDrag(44, "mission 1 initial point");
+  await evaluate(cdp, `(async () => {
+    const inner = document.getElementById('activity').contentDocument;
     inner.getElementById('nextMission').click();
     await new Promise((resolve) => setTimeout(resolve, 100));
   })()`);
@@ -966,7 +1496,71 @@ async function runEmbeddedScrollViewport(cdp, baseUrl, activityPath, width, heig
     assert.equal(dragged.upper, drag.upperBefore, `${width}x${height} embedded touch: dragging ${label} does not move the fixed visual region`);
     assert.equal(dragged.preview, false, `${width}x${height} embedded touch: releasing ${label} clears its magnifier`);
   }
-  return `${width}x${height} embedded outer-page scrolling with isolated x0/x6 graph-point drags`;
+  await evaluate(cdp, `(async () => {
+    const inner = document.getElementById('activity').contentDocument;
+    inner.getElementById('nextMission').click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    inner.getElementById('nextMission').click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  })()`);
+  await embeddedRoadDrag("car:A", 47, "mission 4 A car");
+  await embeddedRoadDrag("velocity:A", 48, "mission 4 A velocity");
+  await embeddedInitialDrag(49, "mission 4 initial point");
+  await evaluate(cdp, `(async () => {
+    const inner = document.getElementById('activity').contentDocument;
+    inner.getElementById('nextMission').click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  })()`);
+  const embeddedTwoCarLayout = await evaluate(cdp, `(() => {
+    const inner = document.getElementById('activity').contentDocument;
+    const road = inner.getElementById('roadSvg').getBoundingClientRect();
+    const groupA = inner.querySelector('[data-road-car="A"]');
+    const groupB = inner.querySelector('[data-road-car="B"]');
+    const bodyA = groupA.querySelector('.car-body').getBoundingClientRect();
+    const bodyB = groupB.querySelector('.car-body').getBoundingClientRect();
+    const labelA = groupA.querySelector('.car-body').parentElement.querySelector('text').getBoundingClientRect();
+    const labelB = groupB.querySelector('.car-body').parentElement.querySelector('text').getBoundingClientRect();
+    const velocityA = groupA.querySelector('.velocity-line, .velocity-zero-marker').getBoundingClientRect();
+    const velocityB = groupB.querySelector('.velocity-line, .velocity-zero-marker').getBoundingClientRect();
+    const speedLabelAElement = groupA.querySelector('.velocity-magnitude-label');
+    const speedLabelBElement = groupB.querySelector('.velocity-magnitude-label');
+    const speedLabelA = speedLabelAElement.getBoundingClientRect();
+    const speedLabelB = speedLabelBElement.getBoundingClientRect();
+    const velocityTipA = groupA.querySelector('.velocity-arrowhead, .velocity-zero-marker').getBoundingClientRect();
+    const velocityTipB = groupB.querySelector('.velocity-arrowhead, .velocity-zero-marker').getBoundingClientRect();
+    const overlaps = (first, second) => first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+    const inside = (rect) => rect.left >= road.left - 1 && rect.right <= road.right + 1 && rect.top >= road.top - 1 && rect.bottom <= road.bottom + 1;
+    return {
+      bodyOverlap: overlaps(bodyA, bodyB),
+      velocityOverlap: overlaps(velocityA, bodyB) || overlaps(velocityB, bodyA),
+      labelsVisible: inside(labelA) && inside(labelB),
+      velocitiesVisible: inside(velocityA) && inside(velocityB),
+      speedLabelsVisible: inside(speedLabelA) && inside(speedLabelB),
+      speedLabelsOverlapCars: [speedLabelA, speedLabelB].some((speedLabel) => overlaps(speedLabel, bodyA) || overlaps(speedLabel, bodyB)),
+      speedLabelsOverlapTips: overlaps(speedLabelA, velocityTipA) || overlaps(speedLabelB, velocityTipB),
+      speedLabelsOverlapEachOther: overlaps(speedLabelA, speedLabelB),
+      speedLabelTexts: [speedLabelAElement.textContent, speedLabelBElement.textContent],
+      aDraggable: Boolean(inner.querySelector('[data-drag="car:A"], [data-drag="velocity:A"]')),
+      bCar: Boolean(inner.querySelector('[data-drag="car:B"]')),
+      bVelocity: Boolean(inner.querySelector('[data-drag="velocity:B"]'))
+    };
+  })()`);
+  assert.equal(embeddedTwoCarLayout.bodyOverlap, false, `${width}x${height} embedded mission 5: car lanes do not overlap`);
+  assert.equal(embeddedTwoCarLayout.velocityOverlap, false, `${width}x${height} embedded mission 5: velocity visuals do not overlap the other car`);
+  assert.equal(embeddedTwoCarLayout.labelsVisible, true, `${width}x${height} embedded mission 5: both car labels remain visible`);
+  assert.equal(embeddedTwoCarLayout.velocitiesVisible, true, `${width}x${height} embedded mission 5: both velocity visuals remain visible`);
+  assert.match(embeddedTwoCarLayout.speedLabelTexts[0], /^\|v\|=[0-2]\.[05] m\/s$/, `${width}x${height} embedded mission 5: authoritative A shows its numeric speed magnitude`);
+  assert.equal(embeddedTwoCarLayout.speedLabelTexts[1], "|v|=? m/s", `${width}x${height} embedded mission 5: incomplete B clearly marks its speed as unset`);
+  assert.equal(embeddedTwoCarLayout.speedLabelsVisible, true, `${width}x${height} embedded mission 5: both speed labels remain fully visible`);
+  assert.equal(embeddedTwoCarLayout.speedLabelsOverlapCars, false, `${width}x${height} embedded mission 5: speed labels do not cover either car`);
+  assert.equal(embeddedTwoCarLayout.speedLabelsOverlapTips, false, `${width}x${height} embedded mission 5: speed labels do not cover their arrow tips`);
+  assert.equal(embeddedTwoCarLayout.speedLabelsOverlapEachOther, false, `${width}x${height} embedded mission 5: speed labels remain separated`);
+  assert.equal(embeddedTwoCarLayout.aDraggable, false, `${width}x${height} embedded mission 5: A remains authoritative and fixed`);
+  assert.equal(embeddedTwoCarLayout.bCar, true, `${width}x${height} embedded mission 5: B car is draggable`);
+  assert.equal(embeddedTwoCarLayout.bVelocity, true, `${width}x${height} embedded mission 5: B velocity is draggable`);
+  await embeddedRoadDrag("car:B", 50, "mission 5 B car");
+  await embeddedRoadDrag("velocity:B", 51, "mission 5 B velocity");
+  return `${width}x${height} embedded outer scrolling with real road/graph magnifiers and isolated mission drags`;
 }
 
 async function runGeneratedPaperChecks(cdp, baseUrl, activityPath) {

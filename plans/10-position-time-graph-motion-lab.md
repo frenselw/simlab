@@ -487,6 +487,13 @@ x₀A + vA t = x₀B + vB t
 - 物理值以 `1 m` 步距調整；
 - 拖動中顯示放大讀數 `x₀ = … m`；
 - 手指遮擋時在圖區遠離手指的一角顯示穩定小型預覽；
+- 自由探索、任務 1、任務 4 及任務 5 的 touch／pen 車身拖動，使用固定於拖動起點最遠
+  stage 角落的真實 magnifier；host 必須位於完整 stage overlay，不可放在手機短跑道 row 內而被
+  `overflow: hidden` 裁走；內容直接複製當前 `roadLayer` 並以車中心裁切，不加入讀數、
+  標題、十字線或任何原圖沒有的符號；clone 必須移除 drag hit、focus、ID 及 ARIA；
+- 車與速度各使用按 SVG CTM 換算的實體 `52 × 52 CSS px` road hit geometry，不以 non-scaling
+  透明粗 stroke 製造超大攔截區；兩者重疊時按車中心／箭嘴端點距離選最近語意 target，超出
+  target 半徑的跑道手勢不得因底層透明元素而開始 drag 或攔截 Moodle 外層捲動；
 - 放手後保存一次語意狀態，不在每個 pointermove 寫 SCORM。
 - 若系統在移動後收到 `pointercancel` 或失去 pointer capture，結束拖動狀態並保存最後
   已顯示的語意狀態；不得留下只在畫面改變而未嘗試保存的答案。
@@ -496,13 +503,20 @@ x₀A + vA t = x₀B + vB t
 - 箭尾固定在車中心；
 - 水平向右為正、向左為負；
 - 箭長映射 `|v|`，中心死區吸附至 `v = 0`；
-- `v = 0` 時仍保留清楚可見的中性速度手柄、`v = 0` 標籤及完整 hit area，
+- `v = 0` 時仍保留清楚可見的中性速度手柄、`|v|=0.0 m/s` 標籤及完整 hit area，
   不讓直接操作入口隨零長箭嘴消失；
+- 每個可見速度箭嘴旁顯示即時速度大小 `|v|` 及 `m/s`；標籤置於箭嘴端點外側，
+  正、負方向分別向右、向左排列，並須保持在跑道 viewBox 內、不與車身或另一車的速度視覺重疊；
+- 未設定的可編輯速度只顯示 `|v|=? m/s`，不得預先填入或暗示答案；
 - 以 `0.5 m/s` 步距；
 - 拖動中顯示 `v = … m/s`；
 - 箭嘴方向及數值符號必須同步；
 - 觸控 hit area 至少 `44 × 44 px`，視覺箭頭可較細；
 - 放手後才觸發草稿保存。
+- pointerdown 後先通過小幅 client-pixel activation threshold；手震或已啟動但仍在同一 snap cell
+  的 movement 不得建立答案、`unsaved` 或 SCORM save，preview 仍須在結束時清除。
+- 上述可直接調速度的 touch／pen 箭嘴亦使用同一真實跑道 magnifier，裁切中心跟隨實際
+  箭嘴端點；整次 gesture 固定角落，mouse／keyboard 不顯示 preview。
 
 ### 11.3 拖圖線手柄
 
@@ -528,6 +542,16 @@ x₀A + vA t = x₀B + vB t
   第二觸點接管；
 - mouse／keyboard 保持原有直接操作及 focus 行為，不顯示 touch magnifier；
 - 手柄具有不同形狀及 `P₀`、`P₆` 標籤，不能只以顏色區分。
+
+### 11.3a 任務 1／4 初始位置圖點
+
+- 任務 1 與任務 4 在 `t = 0` 的綠色學生圖點可直接上下拖動，寫回既有答案 `x0`，
+  不改速度、題目、評分或 persistence shape；
+- 以 `1 m` 步距並限制於可由控制面板設定的 `−8 m` 至 `+8 m`；touch hit geometry 按
+  viewport 換算為至少 `52 × 52 CSS px`，pointerdown 記錄垂直 grab offset；
+- touch／pen 拖動沿用 §11.3 的真實 graph magnifier contract；tap-only 不改值或保存，
+  pointerup／cancel／lost capture 才按實際移動結果結束及最多保存一次；
+- 可聚焦 slider 及方向鍵提供等價替代，並與控制面板、跑道車位置及學生圖線雙向同步。
 
 ### 11.4 鍵盤及非拖動替代
 
@@ -1047,6 +1071,13 @@ score(original) = score(restore(decode(encode(original))))
   clone 的 grid、answer line、selected handle geometry 及文字內容必須來自同一 source graph，
   crop `viewBox` 要跟隨即時圖點並涵蓋 `±20 m` 極值，且不得含額外 summary UI、focus、
   drag target 或重複 ARIA；up／cancel／lost capture 後隱藏；
+- 同一 viewport matrix 驗證自由探索、任務 1、任務 4 的 A 車／速度，以及任務 5 的 B 車／
+  速度：road magnifier 必須是當前 `roadLayer` 的完整 sanitized clone，crop 分別跟隨車中心或
+  箭嘴端點，沒有額外文字／符號；任務 1／4 綠色初始圖點亦須通過 52 px hit、grab offset、
+  真實 graph clone、單次保存、mouse／keyboard no-preview 及外層捲動隔離檢查；
+- 任務 5 手機跑道使用兩條清楚分隔的垂直視覺 lane；A／B label、車身及速度視覺不可互相
+  覆蓋或被 viewBox 裁走，未設定 B 速度的零速提示亦須完整留在可見跑道內；A 保持只讀，
+  B 車及 B 速度可直接拖動；物理位置仍只由權威 x 值決定；
 - mouse／keyboard 調整 P₀／P₆ 不顯示 touch-only magnifier；
 - 在非互動圖面開始的垂直手勢不得移動上方視覺區或控制面板，但必須保留 `pan-y`，
   讓 Moodle／瀏覽器外層頁面仍可正常上下捲動；
@@ -1199,6 +1230,8 @@ score(original) = score(restore(decode(encode(original))))
 - 任務 2 以隨車位置投影、軸上讀數及 `P₀`／`P₆` 語意協助讀圖，但提交前仍不顯示正確線。
 - 任務 3 不再要求先選 A 再切換 B；A、B 兩組探針控制同時顯示，答案 shape、有效量度要求及
   7／7／6 配分不變。
+- 自由探索及任務 1／4／5 的車／速度 touch 拖動加入真實跑道 magnifier；任務 1／4 的綠色
+  `t = 0` 學生圖點可直接拖動既有 `x0`，任務 5 跑道則以雙 lane 避免兩車標籤及速度重疊。
 - 未作答任務可在圖上顯示帶 `?` 的中性位置預覽，方便學生理解可操作物件；權威答案仍保持
   empty，不會把預覽值保存或計分。
 - 目標線與學生線使用不同顏色、虛實線、題目文字及非視覺圖表摘要辨識，不另設固定 legend。

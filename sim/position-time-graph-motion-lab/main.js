@@ -8,9 +8,10 @@
   const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
   const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
+  const ROAD_MAGNIFIER = { width: 280, height: 120 };
   const GRAPH_MAGNIFIER = { width: 280, height: 180 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "roadTouchPreviewHost", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -56,6 +57,10 @@
   function graphRenderedWidth() {
     const scale = Math.abs(Number(dom.graphSvg.getScreenCTM?.()?.a));
     return scale > 0 ? scale * 800 : dom.graphSvg.clientWidth;
+  }
+  function roadRenderedWidth() {
+    const scale = Math.abs(Number(dom.roadSvg.getScreenCTM?.()?.a));
+    return scale > 0 ? scale * 800 : dom.roadSvg.clientWidth;
   }
   function clientPoint(svg, event) {
     const point = svg.createSVGPoint();
@@ -129,7 +134,7 @@
     renderTask();
     renderControls();
     renderDynamic();
-    renderGraphTouchPreview();
+    renderTouchPreviews();
     renderNavigation();
     renderResult();
     R.restoreFocus(document, focusKey);
@@ -488,7 +493,7 @@
     dom.roadDesc.textContent = (cars.some((car) => car.draggable && settingsEditable())
       ? "位置由負二十米至正二十米。可拖動車輛設定初始位置，並拖動速度箭嘴調整方向和大小。"
       : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。") + (requiredPositionGuide ? " 紫色垂直虛線標示指定時刻要到達的位置。" : "");
-    html += requiredPositionGuide + cars.map((car, index) => carSvg(car, index)).join("");
+    html += requiredPositionGuide + cars.map((car, index) => carSvg(car, index, cars.length)).join("");
     dom.roadLayer.innerHTML = html;
     dom.roadSvg.classList.toggle("is-locked", !settingsEditable());
   }
@@ -498,26 +503,35 @@
     const labelX = x + (anchor === "end" ? -9 : 9);
     return `<g class="target-position-guide"><line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><text class="position-guide-label" x="${labelX}" y="22" text-anchor="${anchor}"><tspan class="svg-math-symbol">t</tspan> = ${scenario.atTime.toFixed(1)} <tspan class="svg-unit">s</tspan>：<tspan class="svg-math-symbol">x</tspan> = ${signed(scenario.atPosition)} <tspan class="svg-unit">m</tspan></text></g>`;
   }
-  function carSvg(car, index) {
+  function carSvg(car, index, carCount) {
     const position = S.positionAt(car.motion, ui.time);
     const x = roadX(clamp(position, -20, 20));
-    const y = ROAD.y - 23 - index * 47;
+    const carTop = carCount > 1 ? (index === 0 ? 76 : 29) : 70;
+    const y = carTop + 15;
     const canDrag = car.draggable && settingsEditable();
     const arrowLength = car.motion.v * 48;
     const endpoint = x + arrowLength;
-    const arrowY = y - 31;
+    const arrowY = carCount > 1 ? (index === 0 ? 66 : 24) : 54;
     const direction = Math.sign(arrowLength);
     const arrowHeadBase = endpoint - direction * 14;
+    const magnitudeLabelX = endpoint + (direction < 0 ? -14 : 14);
+    const magnitudeLabelY = carCount > 1 ? (index === 0 ? 72 : 22) : 60;
+    const magnitudeAnchor = direction < 0 ? "end" : "start";
+    const magnitudeText = car.motion.incomplete ? "|v|=? m/s" : `|v|=${Math.abs(car.motion.v).toFixed(1)} m/s`;
+    const magnitudeLabel = `<text class="velocity-magnitude-label${direction === 0 ? " velocity-zero-label" : ""} svg-label" x="${magnitudeLabelX}" y="${magnitudeLabelY}" text-anchor="${magnitudeAnchor}">${magnitudeText}</text>`;
     const velocityVisual = direction === 0
-      ? `<circle class="velocity-zero-marker" cx="${x}" cy="${arrowY}" r="6"></circle><text class="velocity-zero-label svg-label" x="${x + 11}" y="${arrowY - 7}">${car.motion.incomplete ? "拖動設定 v" : "v = 0"}</text>`
-      : `<line class="velocity-line" x1="${x}" y1="${arrowY}" x2="${endpoint}" y2="${arrowY}"></line><path class="velocity-arrowhead" d="M ${endpoint} ${arrowY} L ${arrowHeadBase} ${arrowY - 9} L ${arrowHeadBase} ${arrowY + 9} Z"></path>`;
-    const velocityHit = canDrag ? `<circle class="drag-hit velocity-hit" data-drag="velocity:${car.label}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${arrowY}" r="12"></circle>` : "";
-    const arrow = car.motion.incomplete && !canDrag ? "" : `${velocityVisual}${velocityHit}`;
+      ? `<circle class="velocity-zero-marker" cx="${x}" cy="${arrowY}" r="6"></circle>${magnitudeLabel}`
+      : `<line class="velocity-line" x1="${x}" y1="${arrowY}" x2="${endpoint}" y2="${arrowY}"></line><path class="velocity-arrowhead" d="M ${endpoint} ${arrowY} L ${arrowHeadBase} ${arrowY - 9} L ${arrowHeadBase} ${arrowY + 9} Z"></path>${magnitudeLabel}`;
+    const hitRadius = R.hitRadius(800, roadRenderedWidth(), 26, 52);
+    const velocityHit = canDrag ? `<circle class="road-drag-hit velocity-hit" data-drag="velocity:${car.label}" data-focus-x="${endpoint}" data-focus-y="${arrowY}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${arrowY}" r="${hitRadius}"></circle>` : "";
+    const arrow = car.motion.incomplete && !canDrag ? "" : velocityVisual;
     const guideAnchor = x > ROAD.right - 110 ? "end" : "start";
     const guideLabelX = x + (guideAnchor === "end" ? -9 : 9);
     const positionGuide = car.showPositionGuide ? `<line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><text class="position-guide-label" x="${guideLabelX}" y="22" text-anchor="${guideAnchor}"><tspan class="svg-math-symbol">x</tspan> = ${signed(position)} <tspan class="svg-unit">m</tspan></text>` : "";
-    const carHit = canDrag ? `<rect class="car-hit" data-drag="car:${car.label}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" x="-2" y="-4" width="56" height="36" rx="12"></rect>` : "";
-    return `<g class="car-${car.label.toLowerCase()}">${positionGuide}<g transform="translate(${x - 26} ${y - 15})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text>${carHit}</g>${arrow}</g>`;
+    const carHit = canDrag ? `<circle class="road-drag-hit car-hit" data-drag="car:${car.label}" data-focus-x="${x}" data-focus-y="${y}" tabindex="0" role="slider" aria-label="拖動 ${car.label} 車設定初始位置；目前 ${signed(car.motion.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${car.motion.x0}" cx="${x}" cy="${y}" r="${hitRadius}"></circle>` : "";
+    const selectedCar = ui.drag?.kind === `car:${car.label}` ? " is-dragging-car" : "";
+    const selectedVelocity = ui.drag?.kind === `velocity:${car.label}` ? " is-dragging-velocity" : "";
+    return `<g class="car-${car.label.toLowerCase()}${selectedCar}${selectedVelocity}" data-road-car="${car.label}">${positionGuide}<g transform="translate(${x - 26} ${carTop})"><rect class="car-body" x="0" y="0" width="52" height="25" rx="7"></rect><circle class="car-wheel" cx="12" cy="26" r="6"></circle><circle class="car-wheel" cx="40" cy="26" r="6"></circle><text class="svg-label" x="26" y="17" text-anchor="middle" font-weight="700">${car.label}${car.motion.incomplete ? " ?" : ""}</text></g><g class="velocity-visual">${arrow}</g>${carHit}${velocityHit}</g>`;
   }
 
   function graphBase() {
@@ -543,7 +557,7 @@
       html += svgLine(context.scenario, "target-line", 6);
       visibleReadings.push(["目標圖線", S.positionAt(context.scenario, ui.time)]);
       const own = answerMotion(0, context.answer);
-      html += svgLine(own, "student-line", ui.time) + currentDot(own, "student-line");
+      html += svgLine(own, "student-line", ui.time) + missionInitialPoint(own, context.answer);
       visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]);
     } else if (context.step === 1) {
       const answer = context.answer;
@@ -557,7 +571,7 @@
       visibleReadings.push(["A 圖線", S.positionAt(context.scenario.A, ui.time)], ["B 圖線", S.positionAt(context.scenario.B, ui.time)]);
     } else if (context.step === 3) {
       const own = answerMotion(3, context.answer);
-      html += svgLine(own, "student-line", ui.time) + currentDot(own, "student-line");
+      html += svgLine(own, "student-line", ui.time) + missionInitialPoint(own, context.answer);
       visibleReadings.push(["學生圖線", S.positionAt(own, ui.time)]);
       if (state.phase === "submitted-review") html += svgLine(context.scenario, "target-line", 6);
     } else if (context.step === 4) {
@@ -576,6 +590,15 @@
     const color = className === "line-a" ? "var(--car-a)" : "var(--student-line)";
     return `<circle class="current-dot" cx="${graphX(ui.time)}" cy="${graphY(S.positionAt(motion, ui.time))}" r="7" stroke="${color}"></circle>`;
   }
+  function missionInitialPoint(motion, answer) {
+    if (!settingsEditable()) return currentDot(motion, "student-line");
+    const pointX = graphX(0);
+    const pointY = graphY(motion.x0);
+    const hitGeometry = graphHitGeometry(pointX, pointY);
+    const selected = ui.drag?.kind === "initial:x0";
+    const hit = `<rect class="drag-hit graph-drag-hit" data-drag="initial:x0" data-point-cx="${pointX}" data-point-cy="${pointY}" tabindex="0" role="slider" aria-label="初始位置 x 零；目前 ${answer.x0 == null ? "未設定" : signed(answer.x0)} 米" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="${motion.x0}" x="${hitGeometry.x}" y="${hitGeometry.y}" width="${hitGeometry.size}" height="${hitGeometry.size}" rx="${hitGeometry.radius * 0.45}"></rect>`;
+    return `<g class="graph-point initial-position-point${selected ? " is-dragging" : ""}" data-graph-point="initial"><circle class="graph-handle-highlight" cx="${pointX}" cy="${pointY}" r="18"></circle><circle class="current-dot" cx="${pointX}" cy="${pointY}" r="7" stroke="var(--student-line)"></circle>${hit}</g>`;
+  }
   function graphHandle(name, time, value) {
     const position = value == null ? 0 : value;
     const pointIndex = time === 0 ? 0 : 6;
@@ -592,13 +615,13 @@
     const size = radius * 2;
     return { radius, size, x: clamp(pointX - radius, 0, 800 - size), y: clamp(pointY - radius, 0, GRAPH.compactHeight - size) };
   }
-  function graphMagnifierSource() {
-    return dom.graphLayer.innerHTML
-      .replace(/<(rect|circle)\b(?=[^>]*\bclass="[^"]*\bdrag-hit\b)[^>]*><\/\1>/gi, "")
+  function magnifierSource(layer) {
+    return layer.innerHTML
+      .replace(/<(rect|circle)\b(?=[^>]*\bclass="[^"]*\b(?:road-drag-hit|drag-hit|car-hit)\b)[^>]*><\/\1>/gi, "")
       .replace(/\s(?:id|data-drag|tabindex|role|focusable|aria-[\w-]+)="[^"]*"/gi, "");
   }
   function graphMagnifierViewBox(name, position) {
-    const focusX = graphX(name === "xStart" ? 0 : 6);
+    const focusX = graphX(name === "xEnd" ? 6 : 0);
     const focusY = graphY(position);
     const sourceHeight = Number(dom.graphSvg.getAttribute("viewBox")?.split(/\s+/)[3]) || GRAPH.compactHeight;
     const x = clamp(focusX - GRAPH_MAGNIFIER.width / 2, 0, 800 - GRAPH_MAGNIFIER.width);
@@ -607,20 +630,50 @@
   }
   function renderGraphTouchPreview() {
     const preview = ui.drag?.preview;
-    dom.graphTouchPreviewHost.hidden = !preview;
-    dom.graphTouchPreviewHost.className = `graph-magnifier-host${preview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
-    if (!preview || !ui.drag.kind.startsWith("graph:")) {
+    const graphPreview = preview?.diagram === "graph";
+    dom.graphTouchPreviewHost.hidden = !graphPreview;
+    dom.graphTouchPreviewHost.className = `diagram-magnifier-host graph-magnifier-host${graphPreview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
+    if (!graphPreview) {
       dom.graphTouchPreviewHost.innerHTML = "";
       return;
     }
     const name = ui.drag.kind.split(":")[1];
     const position = currentAnswer()?.[name] ?? 0;
     const viewBox = graphMagnifierViewBox(name, position);
-    dom.graphTouchPreviewHost.innerHTML = `<svg class="graph-magnifier" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g class="graph-magnifier-source">${graphMagnifierSource()}</g></svg>`;
+    dom.graphTouchPreviewHost.innerHTML = `<svg class="diagram-magnifier graph-magnifier" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g class="graph-magnifier-source">${magnifierSource(dom.graphLayer)}</g></svg>`;
   }
-  function clearGraphDragTransient() {
-    document.querySelectorAll(".graph-point").forEach((point) => point.classList.toggle("is-dragging", false));
+  function renderRoadTouchPreview() {
+    const preview = ui.drag?.preview;
+    const roadPreview = preview?.diagram === "road";
+    dom.roadTouchPreviewHost.hidden = !roadPreview;
+    dom.roadTouchPreviewHost.className = `diagram-magnifier-host road-magnifier-host${roadPreview ? ` is-${preview.horizontal} is-${preview.vertical}` : ""}`;
+    if (!roadPreview) {
+      dom.roadTouchPreviewHost.innerHTML = "";
+      return;
+    }
+    const target = Array.from(dom.roadLayer.querySelectorAll("[data-drag]")).find((element) => element.dataset.drag === ui.drag.kind);
+    if (!target) {
+      dom.roadTouchPreviewHost.hidden = true;
+      dom.roadTouchPreviewHost.innerHTML = "";
+      return;
+    }
+    const focusX = Number(target.dataset.focusX);
+    const focusY = Number(target.dataset.focusY);
+    const x = clamp(focusX - ROAD_MAGNIFIER.width / 2, 0, 800 - ROAD_MAGNIFIER.width);
+    const y = clamp(focusY - ROAD_MAGNIFIER.height / 2, 0, 145 - ROAD_MAGNIFIER.height);
+    dom.roadTouchPreviewHost.innerHTML = `<svg class="diagram-magnifier road-magnifier" viewBox="${x} ${y} ${ROAD_MAGNIFIER.width} ${ROAD_MAGNIFIER.height}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g class="road-magnifier-source">${magnifierSource(dom.roadLayer)}</g></svg>`;
+  }
+  function renderTouchPreviews() {
+    renderRoadTouchPreview();
     renderGraphTouchPreview();
+  }
+  function clearDragTransient() {
+    document.querySelectorAll(".graph-point").forEach((point) => point.classList.toggle("is-dragging", false));
+    document.querySelectorAll("[data-road-car]").forEach((car) => {
+      car.classList.toggle("is-dragging-car", false);
+      car.classList.toggle("is-dragging-velocity", false);
+    });
+    renderTouchPreviews();
   }
   function updateGraphDragVisuals(name, position) {
     const pointIndex = name === "xStart" ? 0 : 6;
@@ -878,36 +931,54 @@
   }
 
   function applyDrag(kind, point, persist, dragMeta = null) {
-    if (!R.dragAllowed(kind, interactionContext())) return;
+    if (!R.dragAllowed(kind, interactionContext())) return false;
     const [type, line, rawIndex] = kind.split(":");
     let graphPosition = null;
+    let changed = false;
     if (type === "car") {
       const value = R.positionFromPointer(point.x, dragMeta?.grabOffset || 0, ROAD.left, ROAD.right, -20, 20, 1, -8, 8);
-      updateDirectMotion("x0", value);
+      changed = value !== directMotion().x0;
+      if (changed) updateDirectMotion("x0", value);
     } else if (type === "velocity") {
       const motion = directMotion();
       const value = clamp(snap((point.x - roadX(motion.x0)) / 48, 0.5), -2, 2);
-      updateDirectMotion("v", value);
+      changed = value !== motion.v;
+      if (changed) updateDirectMotion("v", value);
     } else if (type === "graph") {
       const adjustedY = point.y - (dragMeta?.grabOffsetY || 0);
       graphPosition = clamp(snap(S.LIMITS.positionMin + (GRAPH.bottom - adjustedY) / (GRAPH.bottom - GRAPH.top) * 40, 1), -20, 20);
-      currentAnswer()[line] = graphPosition;
+      changed = graphPosition !== (currentAnswer()[line] ?? 0);
+      if (changed) currentAnswer()[line] = graphPosition;
+    } else if (type === "initial") {
+      const adjustedY = point.y - (dragMeta?.grabOffsetY || 0);
+      graphPosition = clamp(snap(S.LIMITS.positionMin + (GRAPH.bottom - adjustedY) / (GRAPH.bottom - GRAPH.top) * 40, 1), -8, 8);
+      changed = graphPosition !== (currentAnswer().x0 ?? 0);
+      if (changed) {
+        currentAnswer().x0 = graphPosition;
+        resetTime();
+      }
     } else if (type === "probe") {
       const max = line === "E" ? ui.time : 6;
       const time = clamp(snap((point.x - GRAPH.left) / (GRAPH.right - GRAPH.left) * 6, 0.5), 0, max);
-      probeList(line)[Number(rawIndex)] = time;
+      const index = Number(rawIndex);
+      changed = time !== probeList(line)[index];
+      if (changed) probeList(line)[index] = time;
     } else if (type === "faster") {
-      currentAnswer().faster = point.x < 365 ? "A" : point.x < 495 ? "B" : "same";
-    } else return;
-    ui.unsaved = true;
+      const value = point.x < 365 ? "A" : point.x < 495 ? "B" : "same";
+      changed = value !== currentAnswer().faster;
+      if (changed) currentAnswer().faster = value;
+    } else return false;
+    if (!changed && !(persist && dragMeta?.moved)) return false;
+    if (changed) ui.unsaved = true;
     if (!persist && type === "graph" && ui.drag) {
       updateGraphDragVisuals(line, graphPosition);
-      return;
+      return true;
     }
     let saved = true;
     if (persist) saved = saveDraft();
     render();
     if (persist) announce(saved ? "操作已儲存。" : "操作未能儲存；請重試後才前往下一步。" );
+    return changed;
   }
   function directMotion() {
     if (state.phase === "explore") return state.exploration;
@@ -923,40 +994,75 @@
     }
     resetTime(state.phase === "explore");
   }
+  function nearestRoadDragTarget(event) {
+    if (event.currentTarget !== dom.roadSvg) return null;
+    const contact = Number.isFinite(event.clientX) ? event : event.touches?.[0] || event.changedTouches?.[0];
+    if (!contact) return null;
+    const candidates = Array.from(dom.roadLayer.querySelectorAll("[data-drag]"))
+      .filter((target) => ["car", "velocity"].includes(target.dataset.drag.split(":")[0]) && R.dragAllowed(target.dataset.drag, interactionContext()))
+      .map((target) => {
+        const focus = dom.roadSvg.createSVGPoint();
+        focus.x = Number(target.dataset.focusX);
+        focus.y = Number(target.dataset.focusY);
+        const screen = focus.matrixTransform(dom.roadSvg.getScreenCTM());
+        return { target, distance: Math.hypot(contact.clientX - screen.x, contact.clientY - screen.y) };
+      })
+      .filter((candidate) => candidate.distance <= 28)
+      .sort((a, b) => a.distance - b.distance);
+    return candidates[0]?.target || null;
+  }
   function pointerDown(event) {
     if (ui.drag || event.isPrimary === false) return;
-    const target = event.target.closest("[data-drag]");
+    const target = event.currentTarget === dom.roadSvg ? nearestRoadDragTarget(event) : event.target.closest("[data-drag]");
     if (!target || !R.dragAllowed(target.dataset.drag, interactionContext())) return;
     const type = target.dataset.drag.split(":")[0];
-    const graphName = type === "graph" ? target.dataset.drag.split(":")[1] : null;
+    const graphLike = type === "graph" || type === "initial";
+    const graphName = graphLike ? target.dataset.drag.split(":")[1] : null;
     const point = clientPoint(event.currentTarget, event);
     const grabOffset = type === "car" ? point.x - roadX(directMotion().x0) : 0;
-    const grabOffsetY = type === "graph" ? point.y - graphY(currentAnswer()?.[graphName] ?? 0) : 0;
-    const preview = type === "graph" && ["touch", "pen"].includes(event.pointerType) ? {
-      horizontal: point.x < (GRAPH.left + GRAPH.right) / 2 ? "right" : "left",
-      vertical: point.y < (GRAPH.top + GRAPH.bottom) / 2 ? "bottom" : "top"
-    } : null;
-    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset, grabOffsetY, preview };
+    const grabOffsetY = graphLike ? point.y - graphY(currentAnswer()?.[graphName] ?? 0) : 0;
+    const touchPointer = ["touch", "pen"].includes(event.pointerType);
+    let preview = null;
+    if (touchPointer && ["car", "velocity", "graph", "initial"].includes(type)) {
+      const previewContainer = graphLike ? dom.graphSvg : dom.roadTouchPreviewHost.parentElement;
+      const previewBounds = previewContainer?.getBoundingClientRect?.() || { left: 0, top: 0, width: 800, height: graphLike ? GRAPH.compactHeight : 585 };
+      preview = {
+        diagram: graphLike ? "graph" : "road",
+        horizontal: event.clientX < previewBounds.left + previewBounds.width / 2 ? "right" : "left",
+        vertical: event.clientY < previewBounds.top + previewBounds.height / 2 ? "bottom" : "top"
+      };
+    }
+    ui.drag = { kind: target.dataset.drag, svg: event.currentTarget, pointerId: event.pointerId, grabOffset, grabOffsetY, preview, startClientX: event.clientX, startClientY: event.clientY, activated: false };
     event.currentTarget.setPointerCapture(event.pointerId);
     if (preview) {
-      const pointIndex = target.dataset.drag.endsWith("xStart") ? 0 : 6;
-      document.querySelector(`[data-graph-point="P${pointIndex}"]`)?.classList.toggle("is-dragging", true);
-      renderGraphTouchPreview();
+      if (graphLike) {
+        const pointKey = type === "initial" ? "initial" : target.dataset.drag.endsWith("xStart") ? "P0" : "P6";
+        document.querySelector(`[data-graph-point="${pointKey}"]`)?.classList.toggle("is-dragging", true);
+      } else {
+        target.closest("[data-road-car]")?.classList.add(type === "car" ? "is-dragging-car" : "is-dragging-velocity");
+      }
+      renderTouchPreviews();
     }
     event.preventDefault();
   }
   function pointerMove(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
-    applyDrag(ui.drag.kind, clientPoint(event.currentTarget, event), false, ui.drag);
-    ui.drag.moved = true;
+    if (!ui.drag.activated) {
+      if (Math.hypot(event.clientX - ui.drag.startClientX, event.clientY - ui.drag.startClientY) < 5) {
+        event.preventDefault();
+        return;
+      }
+      ui.drag.activated = true;
+    }
+    ui.drag.moved = applyDrag(ui.drag.kind, clientPoint(event.currentTarget, event), false, ui.drag) || Boolean(ui.drag.moved);
     event.preventDefault();
   }
   function pointerUp(event) {
     if (!ui.drag || ui.drag.pointerId !== event.pointerId || ui.drag.svg !== event.currentTarget) return;
     const drag = ui.drag;
     ui.drag = null;
-    if (drag.kind.startsWith("graph:") && !drag.moved) {
-      clearGraphDragTransient();
+    if (!drag.moved) {
+      clearDragTransient();
       event.preventDefault();
       return;
     }
@@ -968,12 +1074,12 @@
     const moved = ui.drag.moved;
     ui.drag = null;
     if (moved) saveAndAnnounce("中斷前的操作已儲存。");
-    else clearGraphDragTransient();
+    else clearDragTransient();
     event.preventDefault();
   }
   function preventDragTouchScroll(event) {
-    const target = event.target.closest("[data-drag]");
     const activeHere = ui.drag && ui.drag.svg === event.currentTarget;
+    const target = event.currentTarget === dom.roadSvg ? nearestRoadDragTarget(event) : event.target.closest("[data-drag]");
     if (activeHere || (target && R.dragAllowed(target.dataset.drag, interactionContext()))) event.preventDefault();
   }
   function dragKeydown(event) {
@@ -983,6 +1089,7 @@
     if (type === "car") updateDirectMotion("x0", R.adjustByArrow(directMotion().x0, event.key, 1, -8, 8, event.shiftKey));
     else if (type === "velocity") updateDirectMotion("v", R.adjustByArrow(directMotion().v, event.key, 0.5, -2, 2, event.shiftKey));
     else if (type === "graph") currentAnswer()[line] = R.adjustByArrow(currentAnswer()[line] ?? 0, event.key, 1, -20, 20, event.shiftKey);
+    else if (type === "initial") currentAnswer().x0 = R.adjustByArrow(currentAnswer().x0 ?? 0, event.key, 1, -8, 8, event.shiftKey);
     else if (type === "probe") {
       const max = line === "E" ? ui.time : 6;
       const index = Number(rawIndex);

@@ -52,6 +52,7 @@
 }
 
 .lab-stage {
+  position: relative;
   display: grid;
   grid-template-rows: auto auto;
   align-content: start;
@@ -66,6 +67,7 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.road-block,
 .graph-block {
   position: relative;
 }
@@ -164,12 +166,18 @@
 .car-a .car-body { fill: #93c5fd; stroke: var(--car-a-dark); }
 .car-b .car-body { fill: #fcd34d; stroke: var(--car-b-dark); }
 .car-wheel { fill: #1f2937; }
-.car-hit,
 .drag-hit {
   fill: transparent;
   stroke: transparent;
   stroke-width: 44px;
   vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+}
+.road-drag-hit {
+  fill: transparent;
+  stroke: none;
   pointer-events: all;
   cursor: grab;
   touch-action: none;
@@ -230,9 +238,13 @@
 }
 .car-a .velocity-zero-marker { stroke: var(--car-a); }
 .car-b .velocity-zero-marker { stroke: var(--car-b); }
-.velocity-zero-label {
+.velocity-magnitude-label {
   font-size: 13px;
-  font-style: italic;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--color-canvas);
+  stroke-linejoin: round;
+  stroke-width: 4px;
 }
 .velocity-hit:focus-visible {
   fill: none;
@@ -270,24 +282,26 @@
   stroke: rgba(15, 118, 110, 0.78);
 }
 
-.graph-magnifier-host {
+.diagram-magnifier-host {
   position: absolute;
   z-index: 5;
   width: min(52vw, 11.5rem);
-  aspect-ratio: 14 / 9;
   pointer-events: none;
 }
 
-.graph-magnifier-host[hidden] {
+.diagram-magnifier-host[hidden] {
   display: none;
 }
 
-.graph-magnifier-host.is-left { left: 0.5rem; }
-.graph-magnifier-host.is-right { right: 0.5rem; }
-.graph-magnifier-host.is-top { top: 0.5rem; }
-.graph-magnifier-host.is-bottom { bottom: 0.5rem; }
+.diagram-magnifier-host.is-left { left: 0.5rem; }
+.diagram-magnifier-host.is-right { right: 0.5rem; }
+.diagram-magnifier-host.is-top { top: 0.5rem; }
+.diagram-magnifier-host.is-bottom { bottom: 0.5rem; }
 
-.graph-magnifier {
+.graph-magnifier-host { aspect-ratio: 14 / 9; }
+.road-magnifier-host { aspect-ratio: 7 / 3; }
+
+.diagram-magnifier {
   display: block;
   width: 100%;
   height: 100%;
@@ -300,8 +314,23 @@
   filter: drop-shadow(0 5px 9px rgba(15, 23, 42, 0.24));
 }
 
+.road-magnifier {
+  border-color: var(--car-a);
+}
+
+.road-magnifier-source,
 .graph-magnifier-source {
   pointer-events: none;
+}
+
+[data-road-car].is-dragging-car .car-body,
+[data-road-car].is-dragging-velocity .velocity-line,
+[data-road-car].is-dragging-velocity .velocity-zero-marker {
+  stroke-width: 7;
+}
+
+[data-road-car].is-dragging-car .car-body {
+  filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.85));
 }
 
 [data-drag]:focus-visible,
@@ -369,7 +398,7 @@
     touch-action: pan-y;
   }
 
-  .graph-magnifier-host.is-top {
+  .diagram-magnifier-host.is-top {
     top: 0.45rem;
   }
 }
@@ -685,6 +714,7 @@ dialog h2 { margin-top: 0; }
   .lab-svg .tick-label { font-size: 28px; }
   .lab-svg .axis-label { font-size: 32px; stroke-width: 8px; }
   .lab-svg .svg-label { font-size: 21px; }
+  .lab-svg .velocity-magnitude-label { font-size: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

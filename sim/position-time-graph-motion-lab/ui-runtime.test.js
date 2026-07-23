@@ -12,6 +12,10 @@ assert.equal(Ui.dragAllowed("car:B", { ...context, step: 4 }), true, "only learn
 assert.equal(Ui.dragAllowed("car:A", { ...context, step: 4 }), false, "fixed A car is never interactive in mission 5");
 assert.equal(Ui.dragAllowed("graph:xStart", { ...context, step: 1 }), true, "mission 2 graph point is interactive");
 assert.equal(Ui.dragAllowed("graph:xStart", { ...context, step: 1, locked: true }), false, "submitted graph point is read-only");
+assert.equal(Ui.dragAllowed("initial:x0", { ...context, step: 0 }), true, "mission 1 initial graph point is interactive at zero seconds");
+assert.equal(Ui.dragAllowed("initial:x0", { ...context, step: 3 }), true, "mission 4 initial graph point is interactive at zero seconds");
+assert.equal(Ui.dragAllowed("initial:x0", { ...context, step: 0, time: 0.5 }), false, "initial graph point locks after playback moves away from zero seconds");
+assert.equal(Ui.dragAllowed("initial:x0", { ...context, step: 4 }), false, "mission 5 graph does not silently gain an initial-point control");
 
 const original = { phase: "mission", step: 0 };
 let calls = 0;
