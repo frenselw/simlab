@@ -6,6 +6,7 @@
     "test": "node tools/run-tests.js",
     "test:browser:position-time": "node tools/position-time-browser-regression.js",
     "test:browser:linear-motion": "node tools/linear-motion-browser-regression.js",
+    "test:browser:mobile-touch": "node tools/mobile-touch-browser-regression.js",
     "package": "node tools/package-scorm.js",
     "package:all": "node tools/package-all.js"
   },

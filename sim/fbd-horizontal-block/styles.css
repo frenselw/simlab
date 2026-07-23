@@ -59,8 +59,7 @@
 .force-line {
   stroke-width: 4;
   stroke-linecap: round;
-  cursor: grab;
-  touch-action: none;
+  pointer-events: none;
 }
 
 .force-group.is-selected .force-line {
@@ -71,7 +70,6 @@
   fill: transparent;
   stroke: transparent;
   cursor: move;
-  touch-action: none;
   pointer-events: all;
 }
 

@@ -14,7 +14,7 @@
   height: 100%;
   display: block;
   background: var(--color-canvas);
-  touch-action: pan-y;
+  touch-action: pan-x pinch-zoom;
   user-select: none;
 }
 

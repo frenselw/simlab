@@ -7,6 +7,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,3 +19,4 @@ jobs:
       - run: npm run package:all
       - run: npm run test:browser:position-time
       - run: npm run test:browser:linear-motion
+      - run: npm run test:browser:mobile-touch

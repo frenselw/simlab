@@ -3,6 +3,16 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
+const browserRegressionSource = fs.readFileSync(
+  path.join(root, "tools", "mobile-touch-browser-regression.js"),
+  "utf8"
+);
+
+assert.match(
+  browserRegressionSource,
+  /type === "error" \|\| type === "assert"/,
+  "trusted-touch browser diagnostics fail on console errors and failed console assertions"
+);
 
 function readStyles(activity) {
   return fs.readFileSync(path.join(root, "sim", activity, "styles.css"), "utf8");
@@ -19,8 +29,8 @@ const mapIndex = fs.readFileSync(
 );
 assert.match(
   mapStyles,
-  /\.journey-map\s*\{[^}]*touch-action:\s*pan-y/s,
-  "map blank-space swipes allow vertical page scrolling"
+  /\.journey-map\s*\{[^}]*touch-action:\s*pan-x pinch-zoom/s,
+  "map forwarding surface leaves horizontal pan and pinch zoom browser-owned"
 );
 assert.match(
   mapIndex,
@@ -39,12 +49,12 @@ assert.match(
 );
 assert.match(
   mapSource,
-  /personTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*personTouchTarget\.addEventListener\("pointercancel", onPointerUp\)/,
+  /personTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*personTouchTarget\.addEventListener\("pointercancel", onPointerCancel\)/,
   "map person drag stays captured by the stable HTML target"
 );
 assert.match(
   mapSource,
-  /arrowTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*arrowTouchTarget\.addEventListener\("pointercancel", onPointerUp\)/,
+  /arrowTouchTarget\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*arrowTouchTarget\.addEventListener\("pointercancel", onPointerCancel\)/,
   "map displacement arrow drag stays captured by the stable HTML target"
 );
 
@@ -74,8 +84,18 @@ assert.match(
 );
 assert.match(
   fbdSource,
-  /forceTouchTargets\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*forceTouchTargets\.addEventListener\("pointercancel", onPointerUp\)/,
+  /forceTouchTargets\.addEventListener\("pointerdown", onPointerDown\)[\s\S]*forceTouchTargets\.addEventListener\("pointercancel", onPointerCancel\)/,
   "FBD force-arrow drags stay captured by stable HTML targets"
+);
+assert.doesNotMatch(
+  fbdSource,
+  /class:\s*"force-line"[\s\S]{0,300}"data-id"/,
+  "FBD arrow shafts are not draggable"
+);
+assert.match(
+  fbdStyles,
+  /\.force-line\s*\{[^}]*pointer-events:\s*none/s,
+  "FBD arrow shafts are non-interactive"
 );
 
 console.log("mobile touch scroll tests passed");

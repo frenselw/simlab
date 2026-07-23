@@ -10,6 +10,7 @@
   const submitButton = document.getElementById("submitDiagram");
   const stage = svg.closest(".sim-stage");
   const magnifier = createMagnifier();
+  const activeTouchPointers = new Set();
 
   const MAX_FORCE_PER_TYPE = 2;
   const ACTIVITY = "fbd-horizontal-block";
@@ -242,8 +243,7 @@
         x2: arrow.end.x,
         y2: arrow.end.y,
         stroke: color,
-        "marker-end": `url(#arrow-${arrow.type})`,
-        "data-id": arrow.id
+        "marker-end": `url(#arrow-${arrow.type})`
       });
       const tipHit = svgElement("circle", {
         class: "force-tip-hit",
@@ -502,19 +502,32 @@
 
   function onPointerDown(event) {
     if (state.locked) return;
+    if (state.drag) return;
+    if (
+      event.pointerType === "touch" &&
+      (!event.isPrimary || activeTouchPointers.size !== 1)
+    ) return;
     const target = event.target.closest("[data-id]");
     if (!target) return;
+    if (event.pointerType === "touch" && !target.classList.contains("force-touch-target")) return;
     const id = Number(target.dataset.id);
     const arrow = getArrowById(id);
     if (!arrow) return;
+    const rollback = {
+      arrows: JSON.parse(JSON.stringify(state.arrows)),
+      selectedType: state.selectedType,
+      selectedId: state.selectedId
+    };
     state.selectedType = arrow.type;
     state.selectedId = id;
     state.drag = {
       id,
+      pointerId: event.pointerId,
       isTouch: event.pointerType === "touch",
       point: svgPoint(event),
       end: { ...arrow.end },
-      captureTarget: target.classList.contains("force-touch-target") ? target : svg
+      captureTarget: target.classList.contains("force-touch-target") ? target : svg,
+      rollback
     };
     state.drag.captureTarget.setPointerCapture?.(event.pointerId);
     render();
@@ -522,7 +535,7 @@
   }
 
   function onPointerMove(event) {
-    if (!state.drag) return;
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
     const point = svgPoint(event);
     setArrowEnd(state.drag.id, {
       x: state.drag.end.x + point.x - state.drag.point.x,
@@ -532,13 +545,45 @@
   }
 
   function onPointerUp(event) {
-    const captureTarget = state.drag?.captureTarget;
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { captureTarget, pointerId } = state.drag;
     state.drag = null;
-    if (captureTarget?.hasPointerCapture?.(event.pointerId)) {
-      captureTarget.releasePointerCapture(event.pointerId);
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
     }
     render();
     saveDraft();
+  }
+
+  function onPointerCancel(event) {
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { captureTarget, pointerId, rollback } = state.drag;
+    state.drag = null;
+    state.arrows = rollback.arrows;
+    state.selectedType = rollback.selectedType;
+    state.selectedId = rollback.selectedId;
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+    render();
+  }
+
+  function onLostPointerCapture(event) {
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { rollback } = state.drag;
+    state.drag = null;
+    state.arrows = rollback.arrows;
+    state.selectedType = rollback.selectedType;
+    state.selectedId = rollback.selectedId;
+    render();
+  }
+
+  function trackTouchPointerDown(event) {
+    if (event.pointerType === "touch") activeTouchPointers.add(event.pointerId);
+  }
+
+  function trackTouchPointerEnd(event) {
+    if (event.pointerType === "touch") activeTouchPointers.delete(event.pointerId);
   }
 
   function onForceKeydown(event) {
@@ -572,11 +617,16 @@
   svg.addEventListener("pointerdown", onPointerDown);
   svg.addEventListener("pointermove", onPointerMove);
   svg.addEventListener("pointerup", onPointerUp);
-  svg.addEventListener("pointercancel", onPointerUp);
+  svg.addEventListener("pointercancel", onPointerCancel);
+  svg.addEventListener("lostpointercapture", onLostPointerCapture);
   forceTouchTargets.addEventListener("pointerdown", onPointerDown);
   forceTouchTargets.addEventListener("pointermove", onPointerMove);
   forceTouchTargets.addEventListener("pointerup", onPointerUp);
-  forceTouchTargets.addEventListener("pointercancel", onPointerUp);
+  forceTouchTargets.addEventListener("pointercancel", onPointerCancel);
+  forceTouchTargets.addEventListener("lostpointercapture", onLostPointerCapture);
+  document.addEventListener("pointerdown", trackTouchPointerDown, true);
+  document.addEventListener("pointerup", trackTouchPointerEnd, true);
+  document.addEventListener("pointercancel", trackTouchPointerEnd, true);
   window.addEventListener("resize", syncForceTouchTargets);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
