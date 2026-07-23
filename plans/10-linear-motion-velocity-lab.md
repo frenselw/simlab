@@ -1317,12 +1317,16 @@ runtime/helper file only if direct testing from `main.js` proves impractical.
 - reduced-motion preference;
 - stage-three pause/resume freezes and continues the same qualitative
   demonstration frame without changing model time, answers, score, or snapshot;
-- a packaged-production slow-LMS harness blocks every `LMSCommit` for at least
-  `180 ms`; observation start, stopwatch start, and stopwatch stop perform no
-  commit and reach the next animation frame within `120 ms`, while the next
-  manual pause durably checkpoints the captured endpoint;
+- a packaged-production slow-LMS harness covers desktop plus DPR-2 mobile
+  emulation and both measurement stages while blocking every `LMSCommit` for at
+  least `180 ms`; observation start, stopwatch start, and stopwatch stop perform
+  no immediate or deferred commit, reach the next animation frame within
+  `120 ms`, and show no commit-sized frame gap, while the next manual pause
+  durably checkpoints the captured endpoint;
 - lifecycle flush during a buffered running measurement persists the latest
-  model time and restores the declared paused-measuring continuation;
+  model time and restores the declared paused-measuring continuation; the same
+  flush also preserves an unfinished off-stage measurement without rewriting it
+  from the destination stage's scene time;
 - a live reduced-motion preference change replaces the loop with its labelled
   static car-beyond-target image and can restore the loop;
 - long Traditional Chinese feedback;

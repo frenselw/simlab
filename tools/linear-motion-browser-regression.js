@@ -187,7 +187,7 @@ async function runTimingPerformance(cdp, baseUrl, activityPath) {
       'cmi.suspend_data': '',
       'cmi.core.score.raw': ''
     };
-    const calls = { commits: 0, finishes: 0 };
+    const calls = { commits: 0, commitTimes: [], finishes: 0 };
     const block = (milliseconds) => {
       const end = performance.now() + milliseconds;
       while (performance.now() < end) {}
@@ -196,7 +196,12 @@ async function runTimingPerformance(cdp, baseUrl, activityPath) {
     window.API = {
       LMSInitialize: () => 'true',
       LMSFinish: () => { calls.finishes += 1; return 'true'; },
-      LMSCommit: () => { calls.commits += 1; block(${commitDelayMs}); return 'true'; },
+      LMSCommit: () => {
+        calls.commits += 1;
+        calls.commitTimes.push(performance.now());
+        block(${commitDelayMs});
+        return 'true';
+      },
       LMSGetValue: (key) => values[key] || '',
       LMSSetValue: (key, value) => { values[key] = String(value); return 'true'; },
       LMSGetLastError: () => '0',
@@ -204,83 +209,302 @@ async function runTimingPerformance(cdp, baseUrl, activityPath) {
     };
   })();` });
   try {
-    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
-    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=slow-lms-timing` });
-    await waitForActivity(cdp);
-    const result = await evaluate(cdp, `(async () => {
-      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
-      const waitFor = async (predicate, label, timeout = 5000) => {
-        const started = performance.now();
-        while (!predicate()) {
-          if (performance.now() - started > timeout) throw new Error(label + ' timed out');
-          await wait(20);
-        }
-      };
-      const interaction = async (id) => {
-        await nextFrame();
-        const commitsBefore = window.__timingLms.calls.commits;
-        const started = performance.now();
-        document.getElementById(id).click();
-        const handlerMs = performance.now() - started;
-        await nextFrame();
-        return {
-          handlerMs,
-          firstFrameMs: performance.now() - started,
-          commits: window.__timingLms.calls.commits - commitsBefore
+    const cases = [
+      { name: "desktop", metrics: { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, includeVariable: false },
+      { name: "mobile-dpr2", metrics: { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }, includeVariable: true }
+    ];
+    const summaries = [];
+    for (const testCase of cases) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", testCase.metrics);
+      await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=slow-lms-${testCase.name}` });
+      await waitForActivity(cdp);
+      const result = await evaluate(cdp, `(async () => {
+        const includeVariable = ${testCase.includeVariable};
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+        const waitFor = async (predicate, label, timeout = 8000) => {
+          const started = performance.now();
+          while (!predicate()) {
+            if (performance.now() - started > timeout) throw new Error(label + ' timed out');
+            await wait(20);
+          }
         };
-      };
+        const interaction = async (id) => {
+          await nextFrame();
+          const commitsBefore = window.__timingLms.calls.commits;
+          const started = performance.now();
+          document.getElementById(id).click();
+          const handlerMs = performance.now() - started;
+          await nextFrame();
+          return {
+            handlerMs,
+            firstFrameMs: performance.now() - started,
+            immediateCommits: window.__timingLms.calls.commits - commitsBefore
+          };
+        };
+        const measureStage = async (minimumWait) => {
+          const frameGaps = [];
+          let lastFrame = performance.now();
+          let frameId = 0;
+          const sample = (timestamp) => {
+            frameGaps.push(timestamp - lastFrame);
+            lastFrame = timestamp;
+            frameId = requestAnimationFrame(sample);
+          };
+          frameId = requestAnimationFrame(sample);
+          const commitsBefore = window.__timingLms.calls.commits;
+          const positionBefore = Number.parseFloat(document.getElementById('positionReadout').textContent);
+          const observe = await interaction('observeButton');
+          await waitFor(() => !document.getElementById('timerButton').disabled, 'timer enable');
+          await wait(120);
+          const positionAfter = Number.parseFloat(document.getElementById('positionReadout').textContent);
+          const start = await interaction('timerButton');
+          await waitFor(() => document.getElementById('timerButton').textContent === '停止計時', 'timer start render');
+          await wait(minimumWait);
+          await waitFor(() => !document.getElementById('timerButton').disabled, 'minimum duration');
+          const stop = await interaction('timerButton');
+          await waitFor(() => !document.getElementById('measurementForm').classList.contains('is-hidden'), 'captured form');
+          await wait(120);
+          cancelAnimationFrame(frameId);
+          frameGaps.sort((a, b) => a - b);
+          const commitsBeforePause = window.__timingLms.calls.commits;
+          const pause = await interaction('pauseButton');
+          return {
+            observe,
+            start,
+            stop,
+            pause,
+            positionBefore,
+            positionAfter,
+            runningCommits: commitsBeforePause - commitsBefore,
+            maxFrameGap: frameGaps.at(-1) || 0,
+            p95FrameGap: frameGaps[Math.max(0, Math.ceil(frameGaps.length * .95) - 1)] || 0
+          };
+        };
+        const fillMeasurement = (relationship) => {
+          for (const id of ['displacementInput', 'timeInput', 'averageInput']) {
+            const input = document.getElementById(id);
+            input.value = '0';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const choice = document.querySelector('input[name="relationship"][value="' + relationship + '"]');
+          choice.checked = true;
+          choice.dispatchEvent(new Event('change', { bubbles: true }));
+          document.getElementById('measurementForm').requestSubmit();
+        };
 
-      const initialCommits = window.__timingLms.calls.commits;
-      const positionBefore = Number.parseFloat(document.getElementById('positionReadout').textContent);
-      const observe = await interaction('observeButton');
-      await waitFor(() => !document.getElementById('timerButton').disabled, 'timer enable');
-      await wait(120);
-      const positionAfter = Number.parseFloat(document.getElementById('positionReadout').textContent);
-      const start = await interaction('timerButton');
-      await waitFor(() => document.getElementById('timerButton').textContent === '停止計時', 'timer start render');
-      await wait(1650);
-      await waitFor(() => !document.getElementById('timerButton').disabled, 'minimum duration');
-      const stop = await interaction('timerButton');
-      await waitFor(() => !document.getElementById('measurementForm').classList.contains('is-hidden'), 'captured form');
-      const pause = await interaction('pauseButton');
-      const durable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
-      return {
-        initialCommits,
-        observe,
-        start,
-        stop,
-        pause,
-        positionBefore,
-        positionAfter,
-        timerLabel: document.getElementById('timerButton').textContent,
-        formVisible: !document.getElementById('measurementForm').classList.contains('is-hidden'),
-        durableKind: durable.kind,
-        durableCaptured: durable.answer.uniformMeasurement?.x2 != null,
-        durableVariant: durable.answer.variant
-      };
-    })()`);
+        const initialCommits = window.__timingLms.calls.commits;
+        const uniform = await measureStage(1650);
+        const uniformDurable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
+        let variable = null;
+        let variableDurable = null;
+        if (includeVariable) {
+          fillMeasurement('yes');
+          await waitFor(() => document.getElementById('stageTitle').textContent === '變速運動', 'variable stage');
+          variable = await measureStage(5300);
+          variableDurable = JSON.parse(window.__timingLms.values['cmi.suspend_data']);
+        }
+        return {
+          initialCommits,
+          uniform,
+          variable,
+          timerLabel: document.getElementById('timerButton').textContent,
+          formVisible: !document.getElementById('measurementForm').classList.contains('is-hidden'),
+          uniformDurableKind: uniformDurable.kind,
+          uniformDurableCaptured: uniformDurable.answer.uniformMeasurement?.x2 != null,
+          uniformDurableVariant: uniformDurable.answer.variant,
+          variableDurableCaptured: variableDurable?.answer.variableMeasurement?.x2 != null,
+          variableDurableVariant: variableDurable?.answer.variant
+        };
+      })()`);
 
-    assert(result.initialCommits >= 1, "slow-LMS harness observes the initial durable draft commit");
-    for (const [name, timing] of [["observe", result.observe], ["stopwatch start", result.start], ["stopwatch stop", result.stop]]) {
-      assert.equal(timing.commits, 0, `${name} performs no synchronous LMS commit while motion is running`);
-      assert(timing.handlerMs < 100, `${name} handler stays responsive with a ${commitDelayMs} ms LMS commit (${timing.handlerMs.toFixed(1)} ms)`);
-      assert(timing.firstFrameMs < 120, `${name} reaches the next animation frame promptly (${timing.firstFrameMs.toFixed(1)} ms)`);
+      assert(result.initialCommits >= 1, `${testCase.name}: harness observes the initial durable draft commit`);
+      for (const [stageName, stage] of [["uniform", result.uniform], ["variable", result.variable]]) {
+        if (!stage) continue;
+        for (const [name, timing] of [["observe", stage.observe], ["stopwatch start", stage.start], ["stopwatch stop", stage.stop]]) {
+          assert.equal(timing.immediateCommits, 0, `${testCase.name} ${stageName} ${name}: no synchronous LMS commit`);
+          assert(timing.handlerMs < 100, `${testCase.name} ${stageName} ${name}: responsive handler (${timing.handlerMs.toFixed(1)} ms)`);
+          assert(timing.firstFrameMs < 120, `${testCase.name} ${stageName} ${name}: prompt next frame (${timing.firstFrameMs.toFixed(1)} ms)`);
+        }
+        assert.equal(stage.runningCommits, 0, `${testCase.name} ${stageName}: no immediate or deferred commit while motion runs`);
+        assert(stage.maxFrameGap < commitDelayMs - 20, `${testCase.name} ${stageName}: no commit-sized animation gap (${stage.maxFrameGap.toFixed(1)} ms)`);
+        assert(stage.positionAfter > stage.positionBefore, `${testCase.name} ${stageName}: car advances immediately`);
+        assert.equal(stage.pause.immediateCommits, 1, `${testCase.name} ${stageName}: manual pause creates the safe checkpoint`);
+        assert(stage.pause.handlerMs >= commitDelayMs - 20, `${testCase.name} ${stageName}: harness proves durable commits block`);
+      }
+      assert.equal(result.timerLabel, "開始計時", `${testCase.name}: captured measurement renders`);
+      assert.equal(result.formVisible, true, `${testCase.name}: captured answer form is visible`);
+      assert.equal(result.uniformDurableKind, "draft");
+      assert.equal(result.uniformDurableCaptured, true, `${testCase.name}: safe checkpoint contains uniform endpoint`);
+      assert.equal(result.uniformDurableVariant, "captured");
+      if (testCase.includeVariable) {
+        assert.equal(result.variableDurableCaptured, true, `${testCase.name}: safe checkpoint contains variable endpoint`);
+        assert.equal(result.variableDurableVariant, "captured");
+      }
+      const stages = [result.uniform, result.variable].filter(Boolean);
+      summaries.push(`${testCase.name} handlers ${stages.flatMap((stage) => [
+        stage.observe.handlerMs, stage.start.handlerMs, stage.stop.handlerMs
+      ]).map((value) => `${value.toFixed(1)} ms`).join("/")} (p95 ${Math.max(...stages.map((stage) => stage.p95FrameGap)).toFixed(1)} ms)`);
     }
-    assert(result.positionAfter > result.positionBefore, "car advances immediately after observation starts");
-    assert.equal(result.timerLabel, "開始計時", "captured measurement renders without waiting for a durable commit");
-    assert.equal(result.formVisible, true, "captured answer form is visible");
-    assert.equal(result.pause.commits, 1, "manual pause creates the safe durable checkpoint");
-    assert(result.pause.handlerMs >= commitDelayMs - 20, "slow-LMS harness proves durable commits block synchronously");
-    assert.equal(result.durableKind, "draft");
-    assert.equal(result.durableCaptured, true, "safe checkpoint contains the captured endpoint");
-    assert.equal(result.durableVariant, "captured");
-    return `slow ${commitDelayMs} ms LMS commit: observe/start/stop handlers ${[
-      result.observe.handlerMs, result.start.handlerMs, result.stop.handlerMs
-    ].map((value) => `${value.toFixed(1)} ms`).join("/")} with no commits; pause durably captured the endpoint`;
+    return `slow ${commitDelayMs} ms LMS commit: ${summaries.join("; ")}; no running commits and pause checkpoints were durable`;
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
   }
+}
+
+function lifecycleLmsPreload(snapshot = null) {
+  return `(() => {
+    const values = {
+      'cmi.core.lesson_status': 'incomplete',
+      'cmi.suspend_data': ${JSON.stringify(snapshot ? JSON.stringify(snapshot) : "")},
+      'cmi.core.score.raw': ''
+    };
+    const calls = { commits: 0, finishes: 0 };
+    window.__lifecycleLms = { values, calls };
+    window.API = {
+      LMSInitialize: () => 'true',
+      LMSFinish: () => { calls.finishes += 1; return 'true'; },
+      LMSCommit: () => { calls.commits += 1; return 'true'; },
+      LMSGetValue: (key) => values[key] || '',
+      LMSSetValue: (key, value) => { values[key] = String(value); return 'true'; },
+      LMSGetLastError: () => '0',
+      LMSGetErrorString: () => ''
+    };
+  })();`;
+}
+
+async function runBufferedLifecycleRestore(cdp, baseUrl, activityPath) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  let preload = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: lifecycleLmsPreload() });
+  let runningSnapshot;
+  try {
+    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=buffered-pagehide` });
+    await waitForActivity(cdp);
+    runningSnapshot = await evaluate(cdp, `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      document.getElementById('observeButton').click();
+      document.getElementById('timerButton').click();
+      await wait(320);
+      const commitsBefore = window.__lifecycleLms.calls.commits;
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+      const snapshot = JSON.parse(window.__lifecycleLms.values['cmi.suspend_data']);
+      return {
+        snapshot,
+        lifecycleCommits: window.__lifecycleLms.calls.commits - commitsBefore
+      };
+    })()`);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
+  }
+  assert.equal(runningSnapshot.lifecycleCommits, 1, "buffered running measurement is committed by pagehide");
+  assert.equal(runningSnapshot.snapshot.answer.variant, "paused-measuring");
+  assert(runningSnapshot.snapshot.answer.uniformMeasurement.dt > 0, "pagehide captures latest running elapsed time");
+  assert.equal(
+    runningSnapshot.snapshot.answer.uniformMeasurement.currentOrEndModelTime,
+    runningSnapshot.snapshot.answer.scene.simulationTime,
+    "pagehide snapshot keeps scene and active measurement time aligned"
+  );
+
+  preload = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: lifecycleLmsPreload(runningSnapshot.snapshot) });
+  try {
+    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=buffered-restore` });
+    await waitForActivity(cdp);
+    const restored = await evaluate(cdp, `(() => {
+      const before = {
+        observeLabel: document.getElementById('observeButton').textContent,
+        timerLabel: document.getElementById('timerButton').textContent,
+        timerDisabled: document.getElementById('timerButton').disabled,
+        elapsed: Number.parseFloat(document.getElementById('timerReadout').textContent)
+      };
+      document.getElementById('observeButton').click();
+      return {
+        ...before,
+        resumedTimerDisabled: document.getElementById('timerButton').disabled,
+        resumedObserveLabel: document.getElementById('observeButton').textContent
+      };
+    })()`);
+    assert.equal(restored.observeLabel, "繼續觀察");
+    assert.equal(restored.timerLabel, "停止計時");
+    assert.equal(restored.timerDisabled, true, "restored active timer waits for observation resume");
+    assert(restored.elapsed > 0, "restored timer shows the flushed elapsed time");
+    assert.equal(restored.resumedTimerDisabled, true, "minimum-duration rule still applies immediately after resume");
+    assert.equal(restored.resumedObserveLabel, "觀察中");
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
+  }
+
+  preload = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: lifecycleLmsPreload() });
+  let offstageSnapshot;
+  try {
+    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=offstage-pagehide` });
+    await waitForActivity(cdp);
+    offstageSnapshot = await evaluate(cdp, `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const waitFor = async (predicate, label) => {
+        const started = performance.now();
+        while (!predicate()) {
+          if (performance.now() - started > 5000) throw new Error(label + ' timed out');
+          await wait(20);
+        }
+      };
+      document.getElementById('observeButton').click();
+      await wait(120);
+      document.getElementById('timerButton').click();
+      await wait(320);
+      document.getElementById('nextStageButton').click();
+      await waitFor(() => document.getElementById('stageTitle').textContent === '變速運動', 'variable navigation');
+      document.getElementById('nextStageButton').click();
+      await waitFor(() => document.getElementById('stageTitle').textContent === '時間放大鏡', 'instant navigation');
+      const timeBeforePagehide = JSON.parse(window.__lifecycleLms.values['cmi.suspend_data']).answer.uniformMeasurement.currentOrEndModelTime;
+      const commitsBefore = window.__lifecycleLms.calls.commits;
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+      const snapshot = JSON.parse(window.__lifecycleLms.values['cmi.suspend_data']);
+      return {
+        snapshot,
+        timeBeforePagehide,
+        lifecycleCommits: window.__lifecycleLms.calls.commits - commitsBefore
+      };
+    })()`);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
+  }
+  assert.equal(offstageSnapshot.lifecycleCommits, 1, "off-stage unfinished measurement remains encodable on pagehide");
+  assert.equal(offstageSnapshot.snapshot.answer.phase, "instant");
+  assert.equal(
+    offstageSnapshot.snapshot.answer.uniformMeasurement.currentOrEndModelTime,
+    offstageSnapshot.timeBeforePagehide,
+    "off-stage lifecycle snapshot does not rewrite the uniform measurement with instant scene time"
+  );
+
+  preload = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: lifecycleLmsPreload(offstageSnapshot.snapshot) });
+  try {
+    await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?browser-regression=offstage-restore` });
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const ready = await evaluate(cdp, "document.readyState === 'complete' && document.getElementById('stageTitle')?.textContent === '時間放大鏡'");
+      if (ready) break;
+      if (attempt === 119) throw new Error("off-stage lifecycle snapshot did not restore");
+      await delay(50);
+    }
+    const restored = await evaluate(cdp, `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const waitFor = async (predicate) => { while (!predicate()) await wait(20); };
+      document.getElementById('previousStageButton').click();
+      await waitFor(() => document.getElementById('stageTitle').textContent === '變速運動');
+      document.getElementById('previousStageButton').click();
+      await waitFor(() => document.getElementById('stageTitle').textContent === '勻速運動');
+      return {
+        observeLabel: document.getElementById('observeButton').textContent,
+        timerLabel: document.getElementById('timerButton').textContent,
+        timerDisabled: document.getElementById('timerButton').disabled
+      };
+    })()`);
+    assert.equal(restored.observeLabel, "繼續觀察");
+    assert.equal(restored.timerLabel, "停止計時");
+    assert.equal(restored.timerDisabled, true);
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
+  }
+  return "buffered running and off-stage unfinished measurements survived pagehide, reload, and legal continuation";
 }
 
 async function runSubmissionOutcome(cdp, baseUrl, activityPath, reviewSnapshot, scenario) {
@@ -444,13 +668,14 @@ async function main() {
     await cdp.send("Runtime.enable");
     await cdp.send("Log.enable");
     const timing = await runTimingPerformance(cdp, baseUrl, extracted.activityPath);
+    const lifecycle = await runBufferedLifecycleRestore(cdp, baseUrl, extracted.activityPath);
     const flow = await runLearnerFlow(cdp, baseUrl, extracted.activityPath);
     for (const scenario of ["success", "committed", "frozen", "retryable", "nonretryable"]) {
       assertSubmissionOutcome(scenario, await runSubmissionOutcome(cdp, baseUrl, extracted.activityPath, flow.reviewSnapshot, scenario));
     }
     assertSubmissionOutcome("load-error", await runLoadError(cdp, baseUrl, extracted.activityPath));
     assert.deepEqual(pageErrors, [], `browser page/console errors:\n${pageErrors.join("\n")}`);
-    console.log(`Linear-motion real-browser regression passed: ${timing}; ${flow.summary}; success/committed/frozen/retryable/nonretryable/load-error handlers verified`);
+    console.log(`Linear-motion real-browser regression passed: ${timing}; ${lifecycle}; ${flow.summary}; success/committed/frozen/retryable/nonretryable/load-error handlers verified`);
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

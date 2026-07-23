@@ -53,8 +53,15 @@
     element.innerHTML = quantityHtml(value, unit);
     element.setAttribute("aria-label", `${Model.format3(value)} ${plainUnit}`);
   }
-  function currentMeasurement() { return state.phase === "variable" ? state.variableMeasurement : state.uniformMeasurement; }
-  function setCurrentMeasurement(value) { if (state.phase === "variable") state.variableMeasurement = value; else state.uniformMeasurement = value; }
+  function currentMeasurement() {
+    if (state.phase === "uniform") return state.uniformMeasurement;
+    if (state.phase === "variable") return state.variableMeasurement;
+    return null;
+  }
+  function setCurrentMeasurement(value) {
+    if (state.phase === "uniform") state.uniformMeasurement = value;
+    else if (state.phase === "variable") state.variableMeasurement = value;
+  }
   function positionAt(time = state.scene.simulationTime) {
     return state.phase === "variable" || state.phase === "instant"
       ? Model.variablePosition(state.definition.variable, time)
