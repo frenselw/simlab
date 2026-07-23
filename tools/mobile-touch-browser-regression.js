@@ -78,17 +78,28 @@ function lmsPreload(snapshot, options = {}) {
   const suspend = snapshot ? JSON.stringify(snapshot) : "";
   const status = options.status || "incomplete";
   const score = options.score == null ? "" : String(options.score);
+  const submissionOutcome = options.submissionOutcome || "success";
   return `(() => {
     const values = {
       "cmi.core.lesson_status": ${JSON.stringify(status)},
       "cmi.suspend_data": ${JSON.stringify(suspend)},
       "cmi.core.score.raw": ${JSON.stringify(score)}
     };
+    const submissionOutcome = ${JSON.stringify(submissionOutcome)};
+    let commitCount = 0;
     window.__touchLmsValues = values;
+    window.__touchLmsCalls = { commits: 0, finishes: 0 };
     window.API = {
       LMSInitialize: () => "true",
-      LMSFinish: () => "true",
-      LMSCommit: () => "true",
+      LMSFinish: () => {
+        window.__touchLmsCalls.finishes += 1;
+        return submissionOutcome === "committed" ? "false" : "true";
+      },
+      LMSCommit: () => {
+        commitCount += 1;
+        window.__touchLmsCalls.commits = commitCount;
+        return submissionOutcome === "frozen" && commitCount === 2 ? "false" : "true";
+      },
       LMSGetValue: (key) => values[key] || "",
       LMSSetValue: (key, value) => (values[key] = String(value), "true"),
       LMSGetLastError: () => "0",
@@ -309,6 +320,91 @@ async function mapTargetCentre(cdp, selector) {
     const bounds = target.getBoundingClientRect();
     return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
   })()`);
+}
+
+async function mapPersonVisualPoint(cdp) {
+  return frameEval(cdp, `(() => {
+    const frame = window.frameElement.getBoundingClientRect();
+    const marker = document.querySelector(".person-marker");
+    if (!marker) throw new Error("Missing person visual");
+    const point = new DOMPoint(0, 0).matrixTransform(marker.getScreenCTM());
+    return { x: frame.left + point.x, y: frame.top + point.y };
+  })()`);
+}
+
+async function testInactiveMapPersonForwarding(cdp, label) {
+  const inactive = await frameEval(cdp, `(() => ({
+    targetHidden: document.getElementById("personTouchTarget").hidden,
+    svgDragIdentities: document.querySelectorAll("#personLayer [data-person-hit]").length,
+    svgHitRegions: document.querySelectorAll("#personLayer .person-hit").length,
+    previewActive: document.getElementById("dragPreview").classList.contains("is-active"),
+    semantic: {
+      personTransform: document.querySelector(".person-marker")?.getAttribute("transform"),
+      arrows: Array.from(document.querySelectorAll("#arrowLayer line"), (line) => [
+        line.getAttribute("class"),
+        line.getAttribute("x1"),
+        line.getAttribute("y1"),
+        line.getAttribute("x2"),
+        line.getAttribute("y2")
+      ]),
+      arrowTargetHidden: document.getElementById("arrowTouchTarget").hidden,
+      arrowTargetKind: document.getElementById("arrowTouchTarget").dataset.arrow || null,
+      status: document.getElementById("statusText").textContent,
+      instruction: document.getElementById("instructionText").textContent,
+      segmentDistance: document.getElementById("segmentDistance").textContent,
+      totalDistance: document.getElementById("totalDistance").textContent
+    }
+  }))()`);
+  assert.equal(inactive.targetHidden, true, `${label}: stable person drag target is inactive`);
+  assert.equal(inactive.svgDragIdentities, 0, `${label}: inactive person has no SVG drag identity`);
+  assert.equal(inactive.svgHitRegions, 0, `${label}: inactive person leaves no gesture-suppressing SVG hit region`);
+  assert.equal(inactive.previewActive, false, `${label}: inactive person has no drag preview`);
+
+  await frameEval(cdp, `(() => {
+    const panel = document.querySelector(".sim-panel");
+    if (panel.scrollHeight <= panel.clientHeight) throw new Error("Control panel must overflow");
+    panel.scrollTop = 0;
+    return true;
+  })()`);
+  const point = await mapPersonVisualPoint(cdp);
+  const stateBefore = await suspendRaw(cdp);
+  const before = await surfaces(cdp);
+  await resetEvents(cdp);
+  await oneFinger(cdp, point, { x: 0, y: -90 });
+  const after = await surfaces(cdp);
+  assert(after.panel > before.panel, `${label}: vertical swipe from inactive person footprint forwards to panel`);
+  assertSurfaceDelta(before, after, label, ["panel"]);
+  const log = await events(cdp);
+  assertCompletedTouch(log, `${label} forwarding`);
+  assert.equal(
+    log.some((event) => event.type === "pointerdown" && event.target === "personTouchTarget"),
+    false,
+    `${label}: inactive stable drag target does not receive pointerdown`
+  );
+  assert.equal(await suspendRaw(cdp), stateBefore, `${label}: inactive-person forwarding leaves suspend state unchanged`);
+  const afterState = await frameEval(cdp, `(() => ({
+    targetHidden: document.getElementById("personTouchTarget").hidden,
+    previewActive: document.getElementById("dragPreview").classList.contains("is-active"),
+    semantic: {
+      personTransform: document.querySelector(".person-marker")?.getAttribute("transform"),
+      arrows: Array.from(document.querySelectorAll("#arrowLayer line"), (line) => [
+        line.getAttribute("class"),
+        line.getAttribute("x1"),
+        line.getAttribute("y1"),
+        line.getAttribute("x2"),
+        line.getAttribute("y2")
+      ]),
+      arrowTargetHidden: document.getElementById("arrowTouchTarget").hidden,
+      arrowTargetKind: document.getElementById("arrowTouchTarget").dataset.arrow || null,
+      status: document.getElementById("statusText").textContent,
+      instruction: document.getElementById("instructionText").textContent,
+      segmentDistance: document.getElementById("segmentDistance").textContent,
+      totalDistance: document.getElementById("totalDistance").textContent
+    }
+  }))()`);
+  assert.equal(afterState.targetHidden, true, `${label}: person drag target remains inactive`);
+  assert.deepEqual(afterState.semantic, inactive.semantic, `${label}: rendered journey semantic state remains unchanged`);
+  assert.equal(afterState.previewActive, false, `${label}: forwarding does not start a drag preview`);
 }
 
 async function testMapForwarding(cdp, label) {
@@ -768,6 +864,68 @@ function mapPhaseSnapshot(base, phase) {
   return snapshot;
 }
 
+async function trustedLockedMapReview(cdp, baseUrl, activityPath, baseSnapshot) {
+  const editableTotal = mapPhaseSnapshot(baseSnapshot, "total");
+  await loadActivity(cdp, baseUrl, activityPath, "#mapSvg", editableTotal);
+  return frameEval(cdp, `(() => {
+    const snapshot = ${JSON.stringify(editableTotal)};
+    const dots = Array.from(document.querySelectorAll("#placeLayer .position-dot"));
+    if (dots.length !== 5) throw new Error("Expected five generated map places");
+    const journey = {
+      routePlaceIds: snapshot.answer.routeIds.slice(),
+      places: dots.map((dot, index) => ({
+        id: "place-" + index,
+        position: {
+          x: Number(dot.getAttribute("cx")),
+          y: Number(dot.getAttribute("cy"))
+        }
+      }))
+    };
+    const directionFor = (bearing) => {
+      const normalized = ((bearing % 360) + 360) % 360;
+      const near = (value) => window.MapJourneyScoring.angleDistance(normalized, value) < 1e-9;
+      if (near(0)) return { directionType: "north" };
+      if (near(90)) return { directionType: "east" };
+      if (near(180)) return { directionType: "south" };
+      if (near(270)) return { directionType: "west" };
+      if (normalized < 90) return { directionType: "north-east", angle: normalized };
+      if (normalized < 180) return { directionType: "south-east", angle: 180 - normalized };
+      if (normalized < 270) return { directionType: "south-west", angle: normalized - 180 };
+      return { directionType: "north-west", angle: 360 - normalized };
+    };
+    for (let index = 0; index < 2; index += 1) {
+      const expected = window.MapJourneyScoring.expectedSegment(journey, index);
+      const segment = snapshot.answer.segments[index];
+      segment.answers = {
+        routeDistance: segment.routeDistance,
+        displacementMagnitude: expected.magnitude,
+        direction: directionFor(expected.bearing)
+      };
+    }
+    const expectedTotal = window.MapJourneyScoring.expectedTotal(journey);
+    snapshot.answer.totalAnswers = {
+      routeDistance: snapshot.answer.segments.reduce((sum, segment) => sum + segment.routeDistance, 0),
+      displacementMagnitude: expectedTotal.magnitude,
+      direction: directionFor(expectedTotal.bearing)
+    };
+    const answer = {
+      segments: snapshot.answer.segments,
+      totalArrow: snapshot.answer.totalArrow,
+      totalAnswers: snapshot.answer.totalAnswers
+    };
+    const result = window.MapJourneyScoring.scoreJourney(answer, journey);
+    snapshot.kind = "review";
+    snapshot.score = result.score;
+    snapshot.passed = result.passed;
+    return {
+      snapshot,
+      score: result.score,
+      passed: result.passed,
+      status: result.passed ? "passed" : "failed"
+    };
+  })()`);
+}
+
 function assertPersonSemanticSave(before, after, label) {
   assert(before?.answer && after?.answer, `${label}: before/after draft snapshots decode`);
   assert.equal(after.activity, "displacement-distance-map-journey", `${label}: activity identity persists`);
@@ -821,8 +979,17 @@ async function runMap(cdp, baseUrl, activityPath, label) {
   const saved = await suspendRaw(cdp);
   assert(saved, `${label}: person drag saves a draft`);
   const baseSnapshot = JSON.parse(saved);
+  const inactivePhaseLabels = {
+    "segment-one": "segment-one draw-segment",
+    "segment-two": "segment-two draw-segment",
+    total: "total draw-total"
+  };
   for (const phase of ["segment-one", "segment-two", "total"]) {
     await loadActivity(cdp, baseUrl, activityPath, "#arrowTouchTarget", mapPhaseSnapshot(baseSnapshot, phase));
+    await testInactiveMapPersonForwarding(
+      cdp,
+      `${label} map ${inactivePhaseLabels[phase]} inactive person`
+    );
     await oneFinger(cdp, await mapTarget(cdp, "#arrowTouchTarget"), { x: 0, y: 0 }, 1);
     if (phase === "segment-one") {
       await assertRollback(cdp, "#arrowTouchTarget", { x: 22, y: -14 }, `${label} map arrow cancel rollback`, "cancel");
@@ -837,12 +1004,20 @@ async function runMap(cdp, baseUrl, activityPath, label) {
     );
   }
 
-  const lockedSnapshot = mapPhaseSnapshot(baseSnapshot, "total");
-  lockedSnapshot.kind = "review";
-  lockedSnapshot.score = 0;
-  lockedSnapshot.passed = false;
-  await loadActivity(cdp, baseUrl, activityPath, "#mapSvg", lockedSnapshot, { status: "failed", score: 0 });
+  const lockedReview = await trustedLockedMapReview(cdp, baseUrl, activityPath, baseSnapshot);
+  await loadActivity(cdp, baseUrl, activityPath, "#mapSvg", lockedReview.snapshot, {
+    status: lockedReview.status,
+    score: lockedReview.score
+  });
+  const reviewUi = await frameEval(cdp, `(() => ({
+    score: document.querySelector("#scorePanel .score-value")?.textContent,
+    message: document.getElementById("scorePanel").textContent
+  }))()`);
+  assert.equal(reviewUi.score, String(lockedReview.score), `${label}: locked review shows production-computed score`);
+  assert.equal(reviewUi.message.includes("不一致"), false, `${label}: locked review is not an untrusted score mismatch fallback`);
+  assert.equal(reviewUi.message.includes("未能載入"), false, `${label}: locked review restores the complete submitted map`);
   assert.equal(await frameEval(cdp, "document.getElementById('arrowTouchTarget').hidden"), true, `${label}: locked review disables draggable overlay`);
+  await testInactiveMapPersonForwarding(cdp, `${label} locked-review inactive person`);
   await testMapForwarding(cdp, `${label} locked-review map`);
 }
 
@@ -949,6 +1124,79 @@ async function testFbdNativeScroll(cdp, label, kind) {
   assert.equal(await suspendRaw(cdp), stateBefore, `${label} ${kind}: no force state changes or saves`);
 }
 
+async function testFbdSubmissionTransition(cdp, baseUrl, activityPath, label, outcome) {
+  await loadActivity(
+    cdp,
+    baseUrl,
+    activityPath,
+    ".force-touch-target",
+    fbdSnapshot(),
+    { submissionOutcome: outcome }
+  );
+  await frameEval(cdp, "(() => (document.scrollingElement.scrollTop = 0, true))()");
+  const target = (await fbdTargets(cdp))[0];
+  const arrowsBefore = await frameEval(cdp, `Array.from(document.querySelectorAll(".force-tip-hit"), (hit) => ({
+    id: hit.dataset.id,
+    cx: hit.getAttribute("cx"),
+    cy: hit.getAttribute("cy")
+  }))`);
+  await frameEval(cdp, "(() => (document.getElementById('submitDiagram').click(), true))()");
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const locked = await frameEval(cdp, `(() => ({
+      submitDisabled: document.getElementById("submitDiagram").disabled,
+      visibleTargets: document.querySelectorAll(".force-touch-target:not([hidden])").length
+    }))()`);
+    if (locked.submitDisabled && locked.visibleTargets === 0) break;
+    if (attempt === 39) throw new Error(`${label}: same-page ${outcome} lock did not synchronize targets`);
+    await delay(25);
+  }
+
+  const locked = await frameEval(cdp, `(() => ({
+    submitDisabled: document.getElementById("submitDiagram").disabled,
+    targetCount: document.querySelectorAll(".force-touch-target").length,
+    hiddenCount: document.querySelectorAll(".force-touch-target[hidden]").length,
+    message: document.getElementById("scorePanel").textContent,
+    calls: window.__touchLmsCalls,
+    scrollRange: document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight
+  }))()`);
+  assert.equal(locked.submitDisabled, true, `${label}: submit is locked`);
+  assert.equal(locked.targetCount, 10, `${label}: existing stable targets remain measurable after lock`);
+  assert.equal(locked.hiddenCount, locked.targetCount, `${label}: all existing force-head targets become non-owning immediately`);
+  assert(locked.scrollRange > 0, `${label}: post-submission document has scroll range`);
+  assert.equal(locked.calls.commits, 2, `${label}: ${outcome} exercises the expected two-commit submission path`);
+  assert.equal(locked.calls.finishes, outcome === "frozen" ? 0 : 1, `${label}: ${outcome} exercises the expected finish path`);
+  const expectedMessage = {
+    success: "此作答次已提交",
+    committed: "成績已保存",
+    frozen: "提交狀態未確認"
+  }[outcome];
+  assert(locked.message.includes(expectedMessage), `${label}: ${outcome} lock message is rendered`);
+
+  const postSubmissionSuspend = await suspendRaw(cdp);
+  const scrollBefore = await surfaces(cdp);
+  await resetEvents(cdp);
+  await oneFinger(cdp, target, { x: 0, y: -90 });
+  const scrollAfter = await surfaces(cdp);
+  assert(scrollAfter.page > scrollBefore.page, `${label}: former force-head footprint scrolls the document`);
+  assertSurfaceDelta(scrollBefore, scrollAfter, label, ["page", "viewport"]);
+  assertTrustedNativeGesture(await events(cdp), label);
+  assert.equal(await suspendRaw(cdp), postSubmissionSuspend, `${label}: swipe leaves post-submission suspend state unchanged`);
+  assert.deepEqual(
+    await frameEval(cdp, `Array.from(document.querySelectorAll(".force-tip-hit"), (hit) => ({
+      id: hit.dataset.id,
+      cx: hit.getAttribute("cx"),
+      cy: hit.getAttribute("cy")
+    }))`),
+    arrowsBefore,
+    `${label}: swipe leaves submitted force arrows unchanged`
+  );
+  assert.equal(
+    await frameEval(cdp, "document.querySelectorAll('.force-touch-target:not([hidden])').length"),
+    0,
+    `${label}: former drag targets remain non-owning after the swipe`
+  );
+}
+
 async function testFbdSecondaryDragGuard(cdp, label, firstOwner) {
   await frameEval(cdp, "(() => (document.scrollingElement.scrollTop = 0, true))()");
   const target = (await fbdTargets(cdp))[0];
@@ -1034,6 +1282,15 @@ async function runFbd(cdp, baseUrl, activityPath, label) {
     0,
     `${label}: FBD shafts have no drag identity`
   );
+  for (const outcome of ["success", "committed", "frozen"]) {
+    await testFbdSubmissionTransition(
+      cdp,
+      baseUrl,
+      activityPath,
+      `${label} FBD same-page ${outcome}`,
+      outcome
+    );
+  }
 }
 
 async function createPageClient(port) {

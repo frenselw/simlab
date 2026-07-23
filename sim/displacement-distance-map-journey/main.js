@@ -879,6 +879,7 @@
       personTouchTarget.hidden = true;
       return;
     }
+    const canDrag = !state.locked && state.phase === "walk";
     const group = svgElement("g", {
       class: `person-marker${state.drag?.kind === "person" ? " is-dragging" : ""}`,
       transform: `translate(${state.person.x} ${state.person.y})`
@@ -886,24 +887,24 @@
     group.append(
       svgElement("ellipse", { class: "person-shadow", cx: 0, cy: 2.3, rx: 2.4, ry: 0.7 }),
       svgElement("circle", { class: "person-head", cx: 0, cy: -2.1, r: 1.3 }),
-      svgElement("path", { class: "person-body", d: "M -1.3 -0.7 L 1.3 -0.7 L 1.8 2 L -1.8 2 Z" }),
-      svgElement("circle", {
+      svgElement("path", { class: "person-body", d: "M -1.3 -0.7 L 1.3 -0.7 L 1.8 2 L -1.8 2 Z" })
+    );
+    if (canDrag) {
+      group.append(svgElement("circle", {
         class: "person-hit",
         cx: 0,
         cy: 0,
-        r: 8.5,
-        "data-person-hit": "true"
-      })
-    );
+        r: 8.5
+      }));
+    }
     personLayer.append(group);
     positionPersonTouchTarget();
   }
 
   function positionPersonTouchTarget() {
     const hit = personLayer.querySelector(".person-hit");
-    const canDrag = hit && !state.locked && state.phase === "walk";
-    personTouchTarget.hidden = !canDrag;
-    if (!canDrag) return;
+    personTouchTarget.hidden = !hit;
+    if (!hit) return;
     const hitRect = hit.getBoundingClientRect();
     const stageRect = svg.parentElement.getBoundingClientRect();
     personTouchTarget.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;

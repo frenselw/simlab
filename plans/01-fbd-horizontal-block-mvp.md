@@ -62,6 +62,7 @@ Gesture ownership matrix:
 |---|---|---:|---|
 | Non-interactive diagram background | Document when it has available range; otherwise unclaimed native handling only when no scrolling is needed | Non-zero after proving range; N/A only when all required content is visible and no scrolling is needed | Simulation does not begin a drag or change an arrow |
 | Any force-arrow head (`G`, `N`, `F`, `f`, or `T`, including each duplicate instance) | Simulation | `0` on document, viewport, panel, and host surfaces | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
+| A former force-arrow-head footprint after same-page `success`, `committed`, or `frozen` submission lock | Document | Non-zero document delta after proving available range | The stable drag target is hidden/non-owning immediately; arrows and suspend state do not change |
 
 The diagram surface permits vertical panning from blank regions. Inner SVG
 arrow graphics are visual elements, not the sole touch-action boundary.
@@ -171,6 +172,10 @@ values locally.
   `f`, and `T`, including every supported duplicate-arrow instance: the arrow
   changes, every candidate document/viewport/panel/host scroll delta remains
   zero, `pointermove` and `pointerup` occur, and `pointercancel` does not.
+- Same-page `success`, `committed`, and `frozen` submission transitions
+  immediately hide every force-head overlay. A trusted vertical swipe starting
+  at a former arrow-head footprint then scrolls the overflowing document while
+  arrow geometry and the post-submission suspend state remain unchanged.
 - The complete gesture ownership matrix passes on both the development page and
   the launch page served from the built or extracted SCORM package. CSS/source
   inspection alone is not accepted.

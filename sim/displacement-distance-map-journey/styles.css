@@ -230,9 +230,7 @@
 .person-hit {
   fill: transparent;
   stroke: transparent;
-  pointer-events: all;
-  cursor: move;
-  touch-action: none;
+  pointer-events: none;
 }
 
 .person-body {

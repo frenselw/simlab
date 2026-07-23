@@ -103,7 +103,7 @@
   }
 
   function submitDiagram() {
-    if (state.locked) return;
+    if (state.locked || state.drag) return;
     if (state.arrows.length === 0 && !window.confirm("你尚未加入任何力，仍要提交嗎？")) return;
     const result = window.FbdScoring.scoreDiagram(state.arrows, block);
     scorePanel.replaceChildren(
@@ -147,14 +147,24 @@
     if (!state.locked) window.SimScorm.saveDraft(draftState());
   }
 
-  function lockAttempt(message) {
-    state.locked = true;
+  function rollbackActiveDrag() {
+    if (!state.drag) return;
+    const { captureTarget, pointerId, rollback } = state.drag;
     state.drag = null;
+    state.arrows = rollback.arrows;
+    state.selectedType = rollback.selectedType;
+    state.selectedId = rollback.selectedId;
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+  }
+
+  function lockAttempt(message) {
+    rollbackActiveDrag();
+    state.locked = true;
     state.selectedId = null;
-    forceButtons.forEach((button) => {
-      button.disabled = true;
-    });
     submitButton.disabled = true;
+    render();
     if (message) {
       scorePanel.append(textBlock("div", message, "muted feedback-summary"));
     }

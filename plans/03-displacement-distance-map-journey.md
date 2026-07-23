@@ -217,6 +217,7 @@ Gesture ownership matrix:
 |---|---|---:|---|
 | Known non-interactive map region | Explicit stage-to-control-panel forwarding after 8 CSS px and vertical-axis intent | Non-zero control-panel delta after proving available range in the tested direction; `0` on document/page, viewport, and host | Forwarding follows the signed finger mapping; `pointerup` and no unexpected `pointercancel`; no simulation drag or state change |
 | Person marker | Simulation | `0` on control panel, document/page, viewport, and host | Person changes position; `pointermove` and `pointerup`; no `pointercancel` |
+| Person footprint while the person is inactive (`draw-segment`, `draw-total`, or submitted/locked review) | Explicit stage-to-control-panel forwarding | Non-zero control-panel delta after proving available range; `0` on document/page, viewport, and host | No person drag identity or gesture suppression remains; journey and suspend state do not change |
 | Segment 1 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
 | Segment 2 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
 | Total displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
@@ -450,6 +451,10 @@ Feedback should identify the physics idea, not just the score:
   segment 1 arrow, segment 2 arrow, and total arrow. Each target changes as
   intended; control panel, document/page, viewport, and host scroll deltas all
   remain zero; `pointermove` and `pointerup` occur; and `pointercancel` does not.
+- After the person becomes inactive in `draw-segment`, `draw-total`, and
+  submitted/locked review, a trusted vertical touch starting on the visible
+  person footprint forwards to the control panel, produces a non-zero panel
+  delta when range exists, and changes neither journey nor suspend state.
 - The complete gesture ownership matrix passes on both the development page and
   the launch page served from the built or extracted SCORM package. CSS/source
   inspection alone is not accepted.
