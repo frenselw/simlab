@@ -53,6 +53,19 @@ let each simulation own its subject model and scoring rubric.
   the production guide: stage on top, independently scrolling controls in the
   remaining height, `100vh`/`100dvh` fallback, and `min-height: 0` on shrinking
   grid/flex children. Activities without such a panel may use natural page flow.
+- Every activity with direct manipulation must define a touch gesture ownership
+  matrix and inventory every draggable target in its plan. A touch starting on
+  non-interactive stage content must remain unclaimed by the simulation unless
+  the plan explicitly defines verified gesture forwarding; when a reachable
+  native scroll owner has available range, the gesture must scroll that owner.
+  An active drag must leave every candidate page, panel, viewport, and host
+  scroll position unchanged. Follow the production guide's scroll-topology,
+  stable-hit-target, and pre-pointerdown `touch-action` rules. Verify every row
+  with browser-level trusted touch gestures in both the development page and
+  packaged SCORM launch; DOM-dispatched events, source checks, and computed-style
+  checks alone are not sufficient. An overflowing sibling panel that is
+  unreachable from the stage is not an excuse for a no-op or N/A result: change
+  the scroll topology or implement and verify explicit gesture forwarding.
 - Add every new test file to `tools/run-tests.js`, every runtime dependency
   referenced by HTML or loaded code to the activity manifest, and every active
   simulation to `sim/config.js` with

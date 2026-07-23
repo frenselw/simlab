@@ -169,6 +169,59 @@ Dragging rules:
   normal drag path while the preview shows a stable close-up in a diagram corner
   away from the pointer.
 
+Touch gesture ownership:
+
+- normal control-content scroll owner: the control panel under the bounded
+  split-panel layout;
+- scroll topology: the map stage and control panel are sibling grid rows, so a
+  native pan beginning on the map cannot scroll the control panel;
+- because the control panel can overflow and must remain usable while the map
+  stays visible, the activity explicitly forwards a vertical gesture beginning
+  on non-interactive map content to the sibling control panel. This is
+  programmatic forwarding, not native scrolling;
+- the stable map forwarding surface has effective
+  `touch-action: pan-x pinch-zoom` before `pointerdown` and uses Pointer Events.
+  It tracks all active touch pointers and considers only one active primary
+  pointer as a forwarding candidate. If another touch appears before the
+  candidate is claimed, abandon that candidate. If another touch appears after
+  forwarding begins, stop panel updates immediately, release pointer capture,
+  and allow browser pinch takeover; a resulting `pointercancel` is expected for
+  that multi-touch transition. Multi-touch gestures are never forwarded, so
+  browser pinch zoom remains available;
+- after movement reaches 8 CSS px, vertical intent means
+  `abs(totalDeltaY) > abs(totalDeltaX)`. Only then does the surface claim
+  forwarding, and ownership stays fixed until that pointer ends except for the
+  explicit multi-touch takeover above. A horizontal-dominant gesture remains
+  browser-owned and never scrolls the control panel;
+- for each forwarded move, set
+  `panel.scrollTop -= currentY - previousY`, clamped to
+  `0..panel.scrollHeight - panel.clientHeight`. At either boundary it remains
+  clamped and does not hand the same gesture to the document or host. Forwarding
+  must not start a simulation drag or change simulation state;
+- stable, explicitly sized HTML hit targets align over the draggable SVG
+  visuals and remain mounted while holding pointer capture; inner SVG graphics
+  are not the sole touch-action boundary.
+
+Draggable target inventory:
+
+| Target type | Hit-target strategy | Pointer-capture target |
+|---|---|---|
+| Person marker | Stable HTML hit target aligned over the SVG person | The same HTML hit target |
+| Segment 1 displacement arrow head | Stable HTML hit target aligned over the SVG arrow head | The same HTML hit target |
+| Segment 2 displacement arrow head | Stable HTML hit target aligned over the SVG arrow head | The same HTML hit target |
+| Total displacement arrow head | Stable HTML hit target aligned over the SVG arrow head | The same HTML hit target |
+
+Gesture ownership matrix:
+
+| Touch starts on | Expected owner | Expected scroll delta | Required pointer result |
+|---|---|---:|---|
+| Known non-interactive map region | Explicit stage-to-control-panel forwarding after 8 CSS px and vertical-axis intent | Non-zero control-panel delta after proving available range in the tested direction; `0` on document/page, viewport, and host | Forwarding follows the signed finger mapping; `pointerup` and no unexpected `pointercancel`; no simulation drag or state change |
+| Person marker | Simulation | `0` on control panel, document/page, viewport, and host | Person changes position; `pointermove` and `pointerup`; no `pointercancel` |
+| Person footprint while the person is inactive (`draw-segment`, `draw-total`, or submitted/locked review) | Explicit stage-to-control-panel forwarding | Non-zero control-panel delta after proving available range; `0` on document/page, viewport, and host | No person drag identity or gesture suppression remains; journey and suspend state do not change |
+| Segment 1 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
+| Segment 2 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
+| Total displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
+
 Displacement drawing:
 
 - for a segment, the arrow tail is fixed at the segment start place position point;
@@ -380,6 +433,31 @@ Feedback should identify the physics idea, not just the score:
   automatic road trace or route distance.
 - Touch/pen dragging shows a stable local preview or magnifier and highlights the
   currently dragged person or arrow.
+- A browser-level trusted vertical touch gesture starting on a known
+  non-interactive map region is explicitly forwarded to the control panel,
+  changes no journey state, and produces a non-zero control-panel delta after
+  the test proves available range in the swipe direction. Test both vertical
+  directions and assert the signed `scrollTop` mapping, `pointerup`, no
+  unexpected `pointercancel`, and zero document/page, viewport, and host deltas.
+- At the control panel's top and bottom boundaries, forwarding clamps without
+  mid-gesture handoff or movement of any other scroll surface. A
+  horizontal-dominant gesture does not move the panel. Non-primary,
+  multi-touch, and pinch gestures are not forwarded, and browser pinch zoom
+  remains available. Test both a gesture that begins with two touches and a
+  second touch added after forwarding has begun; in the latter case panel
+  movement stops immediately, capture is released, and any `pointercancel`
+  caused by browser pinch takeover is treated as expected.
+- Browser-level trusted touch drags are exercised separately for the person,
+  segment 1 arrow, segment 2 arrow, and total arrow. Each target changes as
+  intended; control panel, document/page, viewport, and host scroll deltas all
+  remain zero; `pointermove` and `pointerup` occur; and `pointercancel` does not.
+- After the person becomes inactive in `draw-segment`, `draw-total`, and
+  submitted/locked review, a trusted vertical touch starting on the visible
+  person footprint forwards to the control panel, produces a non-zero panel
+  delta when range exists, and changes neither journey nor suspend state.
+- The complete gesture ownership matrix passes on both the development page and
+  the launch page served from the built or extracted SCORM package. CSS/source
+  inspection alone is not accepted.
 - Answer modals show the measured values above the questions.
 - Answer modals use touch-friendly choices instead of numeric text input.
 - Answer modals do not preselect answer values.

@@ -3,8 +3,26 @@
   height: 100%;
   display: block;
   background: var(--color-canvas);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.force-touch-targets {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.force-touch-target {
+  position: absolute;
+  border-radius: 50%;
+  background: transparent;
+  cursor: move;
+  pointer-events: auto;
   touch-action: none;
   user-select: none;
+  transform: translate(-50%, -50%);
 }
 
 @media (max-width: 819px) {
@@ -41,8 +59,7 @@
 .force-line {
   stroke-width: 4;
   stroke-linecap: round;
-  cursor: grab;
-  touch-action: none;
+  pointer-events: none;
 }
 
 .force-group.is-selected .force-line {
@@ -53,7 +70,6 @@
   fill: transparent;
   stroke: transparent;
   cursor: move;
-  touch-action: none;
   pointer-events: all;
 }
 

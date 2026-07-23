@@ -11,6 +11,9 @@
   const traceLayer = document.getElementById("traceLayer");
   const arrowLayer = document.getElementById("arrowLayer");
   const personLayer = document.getElementById("personLayer");
+  const personTouchTarget = document.getElementById("personTouchTarget");
+  const arrowTouchTarget = document.getElementById("arrowTouchTarget");
+  const controlPanel = document.querySelector(".sim-panel");
   const dragPreview = document.getElementById("dragPreview");
   const dragPreviewSvg = document.getElementById("dragPreviewSvg");
   const answerHint = document.getElementById("answerHint");
@@ -51,6 +54,9 @@
   const GRID_Y = [10, 24, 38, 52, 68];
   const PLACE_LABELS = ["學校", "超市", "銀行", "公園", "圖書館"];
   const ACTIVITY = "displacement-distance-map-journey";
+  const FORWARD_INTENT_THRESHOLD_PX = 8;
+  const activeTouchPointers = new Set();
+  let forwardGesture = null;
 
   const state = {
     scene: null,
@@ -590,7 +596,6 @@
     state.person = completion.end;
     segment.arrow = defaultArrow(displacementPoint(segmentStartPlace(state.currentSegment)));
     state.phase = "draw-segment";
-    state.drag = null;
     render();
   }
 
@@ -831,6 +836,7 @@
         key: "total"
       });
     }
+    positionArrowTouchTarget();
   }
 
   function renderArrow(arrow, className, label, options) {
@@ -869,7 +875,11 @@
 
   function renderPerson() {
     personLayer.replaceChildren();
-    if (!state.person) return;
+    if (!state.person) {
+      personTouchTarget.hidden = true;
+      return;
+    }
+    const canDrag = !state.locked && state.phase === "walk";
     const group = svgElement("g", {
       class: `person-marker${state.drag?.kind === "person" ? " is-dragging" : ""}`,
       transform: `translate(${state.person.x} ${state.person.y})`
@@ -877,16 +887,47 @@
     group.append(
       svgElement("ellipse", { class: "person-shadow", cx: 0, cy: 2.3, rx: 2.4, ry: 0.7 }),
       svgElement("circle", { class: "person-head", cx: 0, cy: -2.1, r: 1.3 }),
-      svgElement("path", { class: "person-body", d: "M -1.3 -0.7 L 1.3 -0.7 L 1.8 2 L -1.8 2 Z" }),
-      svgElement("circle", {
+      svgElement("path", { class: "person-body", d: "M -1.3 -0.7 L 1.3 -0.7 L 1.8 2 L -1.8 2 Z" })
+    );
+    if (canDrag) {
+      group.append(svgElement("circle", {
         class: "person-hit",
         cx: 0,
         cy: 0,
-        r: 8.5,
-        "data-person-hit": "true"
-      })
-    );
+        r: 8.5
+      }));
+    }
     personLayer.append(group);
+    positionPersonTouchTarget();
+  }
+
+  function positionPersonTouchTarget() {
+    const hit = personLayer.querySelector(".person-hit");
+    personTouchTarget.hidden = !hit;
+    if (!hit) return;
+    const hitRect = hit.getBoundingClientRect();
+    const stageRect = svg.parentElement.getBoundingClientRect();
+    personTouchTarget.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;
+    personTouchTarget.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
+    personTouchTarget.style.width = `${hitRect.width}px`;
+    personTouchTarget.style.height = `${hitRect.height}px`;
+  }
+
+  function positionArrowTouchTarget() {
+    const hit = arrowLayer.querySelector(".arrow-hit[data-arrow]");
+    const canDrag = hit && !state.locked;
+    arrowTouchTarget.hidden = !canDrag;
+    if (!canDrag) {
+      arrowTouchTarget.removeAttribute("data-arrow");
+      return;
+    }
+    const hitRect = hit.getBoundingClientRect();
+    const stageRect = svg.parentElement.getBoundingClientRect();
+    arrowTouchTarget.dataset.arrow = hit.dataset.arrow;
+    arrowTouchTarget.style.left = `${hitRect.left + hitRect.width / 2 - stageRect.left}px`;
+    arrowTouchTarget.style.top = `${hitRect.top + hitRect.height / 2 - stageRect.top}px`;
+    arrowTouchTarget.style.width = `${hitRect.width}px`;
+    arrowTouchTarget.style.height = `${hitRect.height}px`;
   }
 
   function renderPanel() {
@@ -1262,63 +1303,196 @@
     dragPreview?.classList.remove("is-active");
   }
 
+  function cloneMutableJourneyState() {
+    return JSON.parse(JSON.stringify({
+      currentSegment: state.currentSegment,
+      phase: state.phase,
+      person: state.person,
+      segments: state.segments,
+      totalArrow: state.totalArrow,
+      totalAnswers: state.totalAnswers
+    }));
+  }
+
+  function restoreMutableJourneyState(snapshot) {
+    state.currentSegment = snapshot.currentSegment;
+    state.phase = snapshot.phase;
+    state.person = snapshot.person;
+    state.segments = snapshot.segments;
+    state.totalArrow = snapshot.totalArrow;
+    state.totalAnswers = snapshot.totalAnswers;
+  }
+
   function onPointerDown(event) {
-    if (state.locked) return;
-    const arrowTarget = event.target.closest("[data-arrow]");
-    if (arrowTarget && currentArrow()) {
-      const point = svgPoint(event);
-      state.drag = {
-        kind: "arrow",
-        key: arrowTarget.dataset.arrow,
-        preview: shouldShowDragPreview(event)
-      };
-      svg.setPointerCapture?.(event.pointerId);
-      render();
-      updateDragPreview(event, point);
-      event.preventDefault();
-      return;
+    const singlePrimaryTouch =
+      event.pointerType !== "touch" ||
+      (event.isPrimary && activeTouchPointers.size === 1);
+    if (!state.locked && !state.drag && singlePrimaryTouch) {
+      const arrowTarget = event.target.closest("[data-arrow]");
+      if (arrowTarget && currentArrow()) {
+        const point = svgPoint(event);
+        state.drag = {
+          kind: "arrow",
+          key: arrowTarget.dataset.arrow,
+          preview: shouldShowDragPreview(event),
+          pointerId: event.pointerId,
+          captureTarget: event.currentTarget,
+          rollback: cloneMutableJourneyState()
+        };
+        state.drag.captureTarget.setPointerCapture?.(event.pointerId);
+        render();
+        updateDragPreview(event, point);
+        event.preventDefault();
+        return;
+      }
+      const personTarget = event.target.closest("[data-person-hit]");
+      if (personTarget && state.phase === "walk") {
+        const point = svgPoint(event);
+        state.drag = {
+          kind: "person",
+          offset: { x: state.person.x - point.x, y: state.person.y - point.y },
+          preview: shouldShowDragPreview(event),
+          pointerId: event.pointerId,
+          captureTarget: event.currentTarget,
+          rollback: cloneMutableJourneyState()
+        };
+        state.drag.captureTarget.setPointerCapture?.(event.pointerId);
+        render();
+        updateDragPreview(event, point);
+        event.preventDefault();
+        return;
+      }
     }
-    const personTarget = event.target.closest("[data-person-hit]");
-    if (personTarget && state.phase === "walk") {
-      const point = svgPoint(event);
-      state.drag = {
-        kind: "person",
-        offset: { x: state.person.x - point.x, y: state.person.y - point.y },
-        preview: shouldShowDragPreview(event)
+    if (state.drag) return;
+    if (
+      event.pointerType === "touch" &&
+      event.currentTarget === svg &&
+      event.isPrimary &&
+      activeTouchPointers.size === 1 &&
+      !event.target.closest("[data-arrow],[data-person-hit]")
+    ) {
+      forwardGesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        previousY: event.clientY,
+        owner: "candidate",
+        captureTarget: svg
       };
-      svg.setPointerCapture?.(event.pointerId);
-      render();
-      updateDragPreview(event, point);
-      event.preventDefault();
     }
   }
 
   function onPointerMove(event) {
-    if (!state.drag) return;
-    const point = svgPoint(event);
-    if (state.drag.kind === "person") {
-      movePerson({
-        x: point.x + state.drag.offset.x,
-        y: point.y + state.drag.offset.y
-      });
-    } else {
-      moveArrow(point);
-    }
     if (state.drag) {
-      render();
-      updateDragPreview(event, point);
-    } else {
-      hideDragPreview();
+      if (event.pointerId !== state.drag.pointerId) return;
+      const point = svgPoint(event);
+      if (state.drag.kind === "person" && state.phase === "walk") {
+        movePerson({
+          x: point.x + state.drag.offset.x,
+          y: point.y + state.drag.offset.y
+        });
+      } else if (state.drag.kind === "arrow") {
+        moveArrow(point);
+      }
+      if (state.drag) {
+        render();
+        updateDragPreview(event, point);
+      } else {
+        hideDragPreview();
+      }
+      event.preventDefault();
+      return;
     }
+    if (
+      event.pointerType !== "touch" ||
+      !forwardGesture ||
+      event.pointerId !== forwardGesture.pointerId ||
+      activeTouchPointers.size !== 1
+    ) return;
+    const totalX = event.clientX - forwardGesture.startX;
+    const totalY = event.clientY - forwardGesture.startY;
+    if (forwardGesture.owner === "candidate") {
+      if (Math.hypot(totalX, totalY) < FORWARD_INTENT_THRESHOLD_PX) return;
+      if (Math.abs(totalY) <= Math.abs(totalX)) {
+        forwardGesture.owner = "browser";
+        return;
+      }
+      forwardGesture.owner = "panel";
+      forwardGesture.captureTarget.setPointerCapture?.(event.pointerId);
+    }
+    if (forwardGesture.owner !== "panel") return;
+    const maxScroll = Math.max(0, controlPanel.scrollHeight - controlPanel.clientHeight);
+    controlPanel.scrollTop = clamp(
+      controlPanel.scrollTop - (event.clientY - forwardGesture.previousY),
+      0,
+      maxScroll
+    );
+    forwardGesture.previousY = event.clientY;
     event.preventDefault();
   }
 
+  function abandonForwarding() {
+    if (!forwardGesture) return;
+    const { captureTarget, pointerId } = forwardGesture;
+    forwardGesture = null;
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+  }
+
+  function finishForwarding(event) {
+    activeTouchPointers.delete(event.pointerId);
+    if (!forwardGesture || event.pointerId !== forwardGesture.pointerId) return;
+    const { captureTarget, pointerId } = forwardGesture;
+    forwardGesture = null;
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+  }
+
+  function trackTouchPointerDown(event) {
+    if (event.pointerType !== "touch") return;
+    activeTouchPointers.add(event.pointerId);
+    if (activeTouchPointers.size > 1) abandonForwarding();
+  }
+
+  function trackTouchPointerEnd(event) {
+    if (event.pointerType === "touch") finishForwarding(event);
+  }
+
   function onPointerUp(event) {
+    finishForwarding(event);
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { captureTarget, pointerId } = state.drag;
     state.drag = null;
     hideDragPreview();
-    if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
     render();
     saveDraft();
+  }
+
+  function onPointerCancel(event) {
+    finishForwarding(event);
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { captureTarget, pointerId, rollback } = state.drag;
+    state.drag = null;
+    restoreMutableJourneyState(rollback);
+    hideDragPreview();
+    if (captureTarget?.hasPointerCapture?.(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+    render();
+  }
+
+  function onLostPointerCapture(event) {
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const { rollback } = state.drag;
+    state.drag = null;
+    restoreMutableJourneyState(rollback);
+    hideDragPreview();
+    render();
   }
 
   function movePerson(point) {
@@ -1407,7 +1581,23 @@
   svg.addEventListener("pointerdown", onPointerDown);
   svg.addEventListener("pointermove", onPointerMove);
   svg.addEventListener("pointerup", onPointerUp);
-  svg.addEventListener("pointercancel", onPointerUp);
+  svg.addEventListener("pointercancel", onPointerCancel);
+  svg.addEventListener("lostpointercapture", onLostPointerCapture);
+  personTouchTarget.addEventListener("pointerdown", onPointerDown);
+  personTouchTarget.addEventListener("pointermove", onPointerMove);
+  personTouchTarget.addEventListener("pointerup", onPointerUp);
+  personTouchTarget.addEventListener("pointercancel", onPointerCancel);
+  personTouchTarget.addEventListener("lostpointercapture", onLostPointerCapture);
+  arrowTouchTarget.addEventListener("pointerdown", onPointerDown);
+  arrowTouchTarget.addEventListener("pointermove", onPointerMove);
+  arrowTouchTarget.addEventListener("pointerup", onPointerUp);
+  arrowTouchTarget.addEventListener("pointercancel", onPointerCancel);
+  arrowTouchTarget.addEventListener("lostpointercapture", onLostPointerCapture);
+  document.addEventListener("pointerdown", trackTouchPointerDown, true);
+  document.addEventListener("pointerup", trackTouchPointerEnd, true);
+  document.addEventListener("pointercancel", trackTouchPointerEnd, true);
+  window.addEventListener("resize", positionPersonTouchTarget);
+  window.addEventListener("resize", positionArrowTouchTarget);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startupState = window.SimActivityFlow.startup(attempt);

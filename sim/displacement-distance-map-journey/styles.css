@@ -14,7 +14,7 @@
   height: 100%;
   display: block;
   background: var(--color-canvas);
-  touch-action: none;
+  touch-action: pan-x pinch-zoom;
   user-select: none;
 }
 
@@ -32,6 +32,18 @@
   background: #ffffff;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
   pointer-events: none;
+}
+
+.person-touch-target,
+.arrow-touch-target {
+  position: absolute;
+  z-index: 3;
+  border-radius: 50%;
+  background: transparent;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
 }
 
 .map-drag-preview.is-active {
@@ -218,9 +230,7 @@
 .person-hit {
   fill: transparent;
   stroke: transparent;
-  pointer-events: all;
-  cursor: move;
-  touch-action: none;
+  pointer-events: none;
 }
 
 .person-body {
