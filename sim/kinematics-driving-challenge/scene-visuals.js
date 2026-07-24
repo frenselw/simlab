@@ -103,18 +103,10 @@
   function slopeAt(level, position) { return Levels.segmentAt(level, position)?.slopeDeg || 0; }
   function boundaryMarkers(level) {
     if (!level?.segments) return [];
-    return level.segments.slice(1).map((segment) => {
-      const index = level.segments.indexOf(segment);
-      const nextScored = segment.target === "transition"
-        ? level.segments.slice(index + 1).find((candidate) => candidate.target !== "transition")
-        : segment;
-      return {
-        position: segment.start,
-        target: segment.target,
-        nextTarget: nextScored?.target || null,
-        kind: segment.target === "transition" ? "transition" : "scored"
-      };
-    });
+    return level.segments.slice(1).map((segment) => ({
+      position: segment.start,
+      target: segment.target
+    }));
   }
   function visualSlopeAt(level, position, blendDistance = 2) {
     const current = Levels.segmentAt(level, position);
@@ -140,13 +132,7 @@
   }
   function stageTargetLabel(level, segment) {
     if (!segment) return "";
-    if (segment.target === "practice") return targetLabel("practice");
-    if (segment.target !== "transition") return `計分中：${targetLabel(segment.target)}`;
-    const index = level.segments.indexOf(segment);
-    const next = level.segments.slice(index + 1).find((candidate) => candidate.target !== "transition");
-    return next
-      ? `轉換區（不計分）｜下一區：${targetLabel(next.target)}`
-      : "轉換區（不計分）";
+    return targetLabel(segment.target);
   }
   function graphShapeLabel(samples) {
     if (!samples || samples.length < 12) return "資料尚不足";

@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 7;
+  const LEVEL_SET_VERSION = 8;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 
@@ -45,16 +45,13 @@
     }),
     Object.freeze({
       id: "level5", number: 5, title: "混合道路挑戰", shortTitle: "綜合挑戰", color: "#0f766e",
-      instruction: "黃色實線表示由此開始計分；白色虛線是轉換區，不計分。留意左上角顯示的目前及下一區目標。",
-      initialSpeed: 8, maxTicks: 1200, routeLength: 345,
+      instruction: "每個路牌正下方都有一條黃色分界線；車越過分界線後，就按路牌要求控制。",
+      initialSpeed: 8, maxTicks: 1200, routeLength: 267,
       segments: Object.freeze([
         zone("l5-uniform-flat", 0, 70, 0, "uniform", 5),
-        zone("l5-transition-a", 70, 100, 0, "transition", 0),
-        zone("l5-decelerate-flat", 100, 120, 0, "decelerating", 5),
-        zone("l5-transition-b", 120, 165, 0, "transition", 0),
-        zone("l5-accelerate-flat", 165, 235, 0, "accelerating", 5),
-        zone("l5-transition-c", 235, 275, 0, "transition", 0),
-        zone("l5-uniform-down", 275, 345, -4.34, "uniform", 5)
+        zone("l5-accelerate-flat", 70, 150, 0, "accelerating", 5),
+        zone("l5-decelerate-flat", 150, 187, 0, "decelerating", 5),
+        zone("l5-uniform-down", 187, 267, -4.34, "uniform", 5)
       ])
     })
   ]);

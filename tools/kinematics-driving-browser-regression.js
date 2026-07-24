@@ -92,7 +92,7 @@ function levelFourPreviewDraft() {
 function levelFiveBoundaryDraft() {
   const state = {
     ...Persistence.initialState(), phase: "level", variant: "paused", currentItem: "level5",
-    candidateRun: { ownerId: "level5", codes: Array(230).fill(1) }
+    candidateRun: { ownerId: "level5", codes: Array(150).fill(1) }
   };
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
@@ -308,7 +308,9 @@ async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
     result:document.querySelector('.analysis-item.is-selected')?.textContent
   }))()`);
   assert.equal(before.tabs.length, 4, `${label}: only the four scored zones have analysis selectors`);
-  assert(!before.tabs.some((tab) => tab.id.includes("transition")), `${label}: transition zones are excluded`);
+  assert.deepEqual(before.tabs.map((tab) => tab.id), [
+    "l5-uniform-flat", "l5-accelerate-flat", "l5-decelerate-flat", "l5-uniform-down"
+  ], `${label}: the four consecutive road segments have analysis selectors`);
   await evaluate(cdp, "document.querySelectorAll('[data-analysis-zone]')[2].click()");
   const after = await evaluate(cdp, `(() => ({
     tabs:Array.from(document.querySelectorAll('[data-analysis-zone]')).map(x=>({id:x.dataset.analysisZone,pressed:x.getAttribute('aria-pressed')})),
@@ -374,18 +376,28 @@ async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
       const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];
       if(r>225&&g>180&&b<120){yellow++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
     }
-    return {routeLength:level.routeLength,markers,yellow,minX,maxX,width:c.width,status:document.getElementById('stageTarget').textContent};
+    return {
+      routeLength:level.routeLength,markers,yellow,minX,maxX,width:c.width,
+      status:document.getElementById('stageTarget').textContent,
+      instruction:document.getElementById('instruction').textContent
+    };
   })()`);
-  assert.equal(visual.routeLength, 345);
-  assert.deepEqual(visual.markers.map((marker) => marker.position), [70, 100, 120, 165, 235, 275]);
+  assert.equal(visual.routeLength, 267);
+  assert.deepEqual(visual.markers, [
+    { position: 70, target: "accelerating" },
+    { position: 150, target: "decelerating" },
+    { position: 187, target: "uniform" }
+  ]);
   assert(visual.yellow > 80 && visual.minX < visual.maxX,
-    `${label}: a high-contrast scored-zone boundary crosses the road (${JSON.stringify(visual)})`);
-  assert.match(visual.status, /轉換區（不計分）.*下一區：保持勻減速/);
+    `${label}: a high-contrast instruction boundary crosses the road (${JSON.stringify(visual)})`);
+  assert.match(visual.status, /保持勻速/);
+  assert.match(visual.instruction, /路牌正下方.*黃色分界線.*越過分界線後/);
+  assert.doesNotMatch(`${visual.status} ${visual.instruction}`, /準備|計分區|轉換區|下一區/);
   if (label === "development") {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     fs.writeFileSync(path.join(root, "output", "kinematics-driving-level5-boundary-mobile-qa.png"), Buffer.from(screenshot.data, "base64"));
   }
-  return `${label} extended level 5 boundaries passed`;
+  return `${label} simple sign-and-line level 5 boundaries passed`;
 }
 async function nonRetryableSubmission(cdp, baseUrl, activityPath, label) {
   const snapshot = completeReviewDraft();

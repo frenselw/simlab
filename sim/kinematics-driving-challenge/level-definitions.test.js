@@ -15,12 +15,13 @@ assert.equal(Levels.LEVELS[3].segments.length, 1, "level4 is one uninterrupted s
 assert.equal(Levels.LEVELS[3].segments[0].start, 0);
 assert.equal(Levels.LEVELS[3].segments[0].end, Levels.LEVELS[3].routeLength);
 assert.equal(Levels.scoredZones(Levels.LEVELS[3]).length, 1);
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 85).target, "transition");
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 110).target, "decelerating");
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 145).target, "transition");
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 200).target, "accelerating");
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 255).target, "transition");
-assert.equal(Levels.LEVELS[4].routeLength, 345);
+assert.equal(Levels.segmentAt(Levels.LEVELS[4], 50).target, "uniform");
+assert.equal(Levels.segmentAt(Levels.LEVELS[4], 100).target, "accelerating");
+assert.equal(Levels.segmentAt(Levels.LEVELS[4], 160).target, "decelerating");
+assert.equal(Levels.segmentAt(Levels.LEVELS[4], 220).target, "uniform");
+assert.equal(Levels.LEVELS[4].segments.length, 4);
+assert.equal(Levels.LEVELS[4].routeLength, 267);
+assert(!Levels.LEVELS[4].segments.some((segment) => segment.target === "transition"));
 assert.equal(Levels.scoredZones(Levels.LEVELS[4]).length, 4);
 assert.equal(Levels.LEVELS.flatMap(Levels.scoredZones).reduce((sum, zone) => sum + zone.points, 0), 90);
 const catalog = fs.readFileSync(path.join(__dirname, "..", "config.js"), "utf8");
@@ -30,12 +31,6 @@ assert.match(catalog, /folder:\s*"kinematics-driving-challenge"[\s\S]*?status:\s
 function simpleControlFor(zone, speed = 8) {
   if (zone.target === "accelerating") return 2;
   if (zone.target === "decelerating") return 5;
-  if (zone.target === "transition") {
-    const desiredAcceleration = .8 * (8 - speed);
-    return Array.from({ length: 7 }, (_, code) => code).reduce((best, code) =>
-      Math.abs(Model.accelerationFor(speed, zone.slopeDeg, code) - desiredAcceleration) <
-      Math.abs(Model.accelerationFor(speed, zone.slopeDeg, best) - desiredAcceleration) ? code : best, 0);
-  }
   if (zone.target === "uniform") {
     return Array.from({ length: 7 }, (_, code) => code).reduce((best, code) =>
       Math.abs(Model.accelerationFor(8, zone.slopeDeg, code)) <
