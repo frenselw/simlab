@@ -18,10 +18,10 @@ function terminalCodes(level, code) {
 }
 const terminal = {
   level1: terminalCodes(Levels.LEVELS[0], 0),
-  level2: terminalCodes(Levels.LEVELS[1], 1),
-  level3: terminalCodes(Levels.LEVELS[2], 2),
-  level4: terminalCodes(Levels.LEVELS[3], 1),
-  level5: terminalCodes(Levels.LEVELS[4], 1)
+  level2: terminalCodes(Levels.LEVELS[1], 2),
+  level3: terminalCodes(Levels.LEVELS[2], 5),
+  level4: terminalCodes(Levels.LEVELS[3], 2),
+  level5: terminalCodes(Levels.LEVELS[4], 2)
 };
 function selectedThrough(count) {
   return Object.fromEntries(Levels.LEVELS.slice(0, count).map((level) => [level.id, { revision: 1, codes: terminal[level.id] }]));
@@ -123,10 +123,10 @@ assert.deepEqual(
   Scoring.scoreActivity(complete.selectedRuns, complete.graphCheckpoint).score
 );
 
-for (const codes of [[], [0], [0, 1, 2], Array.from({ length: 97 }, (_, index) => index % 3)]) {
+for (const codes of [[], [0], [0, 1, 2, 3, 4, 5, 6], Array.from({ length: 97 }, (_, index) => index % 7)]) {
   assert.deepEqual(Persistence.unpackControls(Persistence.packControls(codes), codes.length), codes);
 }
-assert.throws(() => Persistence.packControls([3]));
+assert.throws(() => Persistence.packControls([7]));
 assert.equal(Persistence.unpackControls("AA==", 0), null, "length mismatch rejected");
 assert.equal(Persistence.unpackControls("***", 1), null, "malformed base64 rejected");
 
@@ -146,11 +146,11 @@ const earlyAnswer = cloneEncoded(mismatched);
 earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
 assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
 const priorPhysics = Persistence.encode(base());
-priorPhysics.p = 2;
-assert.equal(Persistence.decode(priorPhysics), null, "a physics-v2 snapshot is rejected after model simplification");
+priorPhysics.p = 3;
+assert.equal(Persistence.decode(priorPhysics), null, "a physics-v3 snapshot is rejected after pedal-depth expansion");
 const priorLevels = Persistence.encode(base());
-priorLevels.l = 2;
-assert.equal(Persistence.decode(priorLevels), null, "a level-set-v2 snapshot is rejected after level simplification");
+priorLevels.l = 3;
+assert.equal(Persistence.decode(priorLevels), null, "a level-set-v3 snapshot is rejected after slope-level expansion");
 for (const malformed of [
   { path: ["b"], value: 2 },
   { path: ["b"], value: false },
@@ -170,7 +170,7 @@ function maxTickCodes(level) {
   while (!run.state.terminal) {
     const zone = Levels.segmentAt(level, run.state.x);
     const desiredAcceleration = .8 * (.5 - run.state.v);
-    const code = Array.from({ length: 3 }, (_, candidate) => candidate).reduce((best, candidate) =>
+    const code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, candidate) - desiredAcceleration) <
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
     codes.push(code);

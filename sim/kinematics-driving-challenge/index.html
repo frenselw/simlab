@@ -50,7 +50,27 @@
           <section id="activitySection" class="panel-section">
             <p id="panelKicker" class="panel-kicker">操作練習</p>
             <h2 id="panelTitle" class="section-title" tabindex="-1">先感受油門、煞車與圖線</h2>
-            <p id="instruction">試按住油門或煞車，放手回到空檔，再比較兩幅圖。</p>
+            <p id="instruction">直接按住踏板的輕、中或盡位置，放手回到空檔，再比較兩幅圖。</p>
+
+            <div class="button-grid action-grid">
+              <button id="startButton" type="button" class="primary-button">開始試車</button>
+              <button id="pauseButton" type="button">暫停</button>
+              <button id="resetButton" type="button">重新開始</button>
+            </div>
+
+            <div id="drivingDeck" class="driving-deck">
+              <div class="pedal-grid" role="group" aria-label="按住式駕駛控制">
+                <button id="throttleButton" type="button" class="pedal throttle" aria-label="油門：按住左、中、右區選擇輕、中、踩盡" aria-keyshortcuts="Q W E ArrowUp">
+                  <span class="pedal-title">油門</span>
+                  <span class="pedal-scale" aria-hidden="true"><span data-intensity="1">輕</span><span data-intensity="2">中</span><span data-intensity="3">盡</span></span>
+                </button>
+                <button id="brakeButton" type="button" class="pedal brake" aria-label="煞車：按住左、中、右區選擇輕、中、踩盡" aria-keyshortcuts="A S D ArrowDown">
+                  <span class="pedal-title">煞車</span>
+                  <span class="pedal-scale" aria-hidden="true"><span data-intensity="1">輕</span><span data-intensity="2">中</span><span data-intensity="3">盡</span></span>
+                </button>
+              </div>
+              <p id="controlState" class="control-state">目前：空檔</p>
+            </div>
 
             <fieldset class="graph-switch">
               <legend>角落圖像</legend>
@@ -58,20 +78,6 @@
               <label><input type="radio" name="graphMode" value="xt"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span></label>
               <label><input type="radio" name="graphMode" value="hidden"> 隱藏</label>
             </fieldset>
-
-            <div id="drivingDeck" class="driving-deck">
-              <div class="pedal-grid" role="group" aria-label="按住式駕駛控制">
-                <button id="throttleButton" type="button" class="pedal throttle" aria-keyshortcuts="ArrowUp W">按住油門</button>
-                <button id="brakeButton" type="button" class="pedal brake" aria-keyshortcuts="ArrowDown S">按住煞車</button>
-              </div>
-              <p id="controlState" class="control-state">目前：空檔</p>
-            </div>
-
-            <div class="button-grid action-grid">
-              <button id="startButton" type="button" class="primary-button">開始試車</button>
-              <button id="pauseButton" type="button">暫停</button>
-              <button id="resetButton" type="button">重新開始</button>
-            </div>
             <button id="advanceButton" type="button" class="primary-button full-button">開始第 1 關</button>
 
             <section id="analysisSection" class="analysis-section is-hidden" aria-labelledby="analysisTitle">

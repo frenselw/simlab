@@ -101,18 +101,36 @@
     activePedal = null;
     elements.throttleButton.classList.remove("is-pressed");
     elements.brakeButton.classList.remove("is-pressed");
+    elements.throttleButton.querySelectorAll("[data-intensity]").forEach((item) => item.classList.remove("is-active"));
+    elements.brakeButton.querySelectorAll("[data-intensity]").forEach((item) => item.classList.remove("is-active"));
     elements.throttleButton.setAttribute("aria-pressed", "false");
     elements.brakeButton.setAttribute("aria-pressed", "false");
   }
-  function beginPedal(kind, pointerId = null) {
+  function showPedalIntensity(kind, intensity) {
+    const button = kind === "throttle" ? elements.throttleButton : elements.brakeButton;
+    button.querySelectorAll("[data-intensity]").forEach((item) => {
+      item.classList.toggle("is-active", Number(item.dataset.intensity) === intensity);
+    });
+  }
+  function beginPedal(kind, pointerId = null, intensity = 2) {
     if (locked || !running || activePedal) return;
     activePedal = kind;
     activePointer = pointerId;
-    currentCode = kind === "throttle" ? 1 : 2;
+    currentCode = kind === "throttle" ? intensity : intensity + 3;
     inputQueue.push({ timestamp: performance.now(), sequence: inputSequence++, code: currentCode });
     const button = kind === "throttle" ? elements.throttleButton : elements.brakeButton;
     button.classList.add("is-pressed");
     button.setAttribute("aria-pressed", "true");
+    showPedalIntensity(kind, intensity);
+    renderControlState();
+  }
+  function changePedalIntensity(kind, pointerId, intensity) {
+    if (activePedal !== kind || activePointer !== pointerId) return;
+    const nextCode = kind === "throttle" ? intensity : intensity + 3;
+    if (nextCode === currentCode) return;
+    currentCode = nextCode;
+    inputQueue.push({ timestamp: performance.now(), sequence: inputSequence++, code: currentCode });
+    showPedalIntensity(kind, intensity);
     renderControlState();
   }
   function releasePedal(kind, pointerId = null) {
@@ -121,6 +139,8 @@
     inputQueue.push({ timestamp: performance.now(), sequence: inputSequence++, code: 0 });
     elements.throttleButton.classList.remove("is-pressed");
     elements.brakeButton.classList.remove("is-pressed");
+    elements.throttleButton.querySelectorAll("[data-intensity]").forEach((item) => item.classList.remove("is-active"));
+    elements.brakeButton.querySelectorAll("[data-intensity]").forEach((item) => item.classList.remove("is-active"));
     elements.throttleButton.setAttribute("aria-pressed", "false");
     elements.brakeButton.setAttribute("aria-pressed", "false");
     renderControlState();
@@ -763,12 +783,22 @@
   }
   function formatPoint(value) { return Number(value).toFixed(value % 1 ? 1 : 0); }
   function wirePedal(button, kind) {
+    const intensityAt = (clientX) => {
+      const rect = button.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(.999999, (clientX - rect.left) / Math.max(1, rect.width)));
+      return Math.floor(fraction * 3) + 1;
+    };
     button.setAttribute("aria-pressed", "false");
     button.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (activePedal) return;
       button.setPointerCapture?.(event.pointerId);
-      beginPedal(kind, event.pointerId);
+      beginPedal(kind, event.pointerId, intensityAt(event.clientX));
+      event.preventDefault();
+    });
+    button.addEventListener("pointermove", (event) => {
+      if (activePedal !== kind || activePointer !== event.pointerId) return;
+      changePedalIntensity(kind, event.pointerId, intensityAt(event.clientX));
       event.preventDefault();
     });
     ["pointerup", "pointercancel", "lostpointercapture"].forEach((type) => button.addEventListener(type, (event) => {
@@ -815,15 +845,19 @@
     render();
   });
   window.addEventListener("keydown", (event) => {
-    if (!UiPolicy.shouldHandleGlobalShortcut(event.target)) return;
+    if (!UiPolicy.shouldHandleGlobalShortcut(event.target) && !event.target.closest?.(".pedal")) return;
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") { beginPedal("throttle"); event.preventDefault(); }
-    else if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") { beginPedal("brake"); event.preventDefault(); }
+    const key = event.key.toLowerCase();
+    const throttleIntensity = key === "q" ? 1 : key === "w" || event.key === "ArrowUp" ? 2 : key === "e" ? 3 : 0;
+    const brakeIntensity = key === "a" ? 1 : key === "s" || event.key === "ArrowDown" ? 2 : key === "d" ? 3 : 0;
+    if (throttleIntensity) { beginPedal("throttle", `key:${event.code}`, throttleIntensity); event.preventDefault(); }
+    else if (brakeIntensity) { beginPedal("brake", `key:${event.code}`, brakeIntensity); event.preventDefault(); }
     else if (event.code === "Space") { running ? pauseRun() : startRun(); event.preventDefault(); }
   });
   window.addEventListener("keyup", (event) => {
-    if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") releasePedal("throttle");
-    if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") releasePedal("brake");
+    const key = event.key.toLowerCase();
+    if (["q", "w", "e"].includes(key) || event.key === "ArrowUp") releasePedal("throttle", `key:${event.code}`);
+    if (["a", "s", "d"].includes(key) || event.key === "ArrowDown") releasePedal("brake", `key:${event.code}`);
   });
   window.addEventListener("blur", () => { if (activePedal) { neutralize(); if (state) render(); } });
   document.addEventListener("visibilitychange", () => {

@@ -10,11 +10,14 @@ const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
 
 assert.equal((html.match(/aria-live=/g) || []).length, 1);
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
-assert.match(html, /id="throttleButton"[^>]*aria-keyshortcuts="ArrowUp W"/);
-assert.match(html, /id="brakeButton"[^>]*aria-keyshortcuts="ArrowDown S"/);
+assert.match(html, /id="throttleButton"[^>]*aria-keyshortcuts="Q W E ArrowUp"/);
+assert.match(html, /id="brakeButton"[^>]*aria-keyshortcuts="A S D ArrowDown"/);
 assert.doesNotMatch(html, /name="intensity"/);
-assert.doesNotMatch(html, />\s*(?:輕|中|重)\s*</);
-assert.match(css, /\.pedal \{[^}]*min-height: 72px/);
+assert.match(html, /class="pedal-scale"[^>]*aria-hidden="true"/);
+assert.match(html, /data-intensity="1">輕/);
+assert.match(html, /data-intensity="2">中/);
+assert.match(html, /data-intensity="3">盡/);
+assert.match(css, /\.pedal \{[^}]*min-height: 78px/);
 assert.match(css, /\.driving-stage[^}]*touch-action: pan-y/);
 assert.match(css, /\.driving-panel[^}]*overscroll-behavior: contain/);
 assert.match(css, /\.pedal[^}]*touch-action: none/);

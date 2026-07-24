@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 3;
+  const LEVEL_SET_VERSION = 4;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 
@@ -32,17 +32,19 @@
     Object.freeze({
       id: "level3", number: 3, title: "平路保持勻減速", shortTitle: "平路勻減速", color: "#ea580c",
       instruction: "在橙色路段令車明顯而穩定地減速，但不要在路段完結前停下。",
-      initialSpeed: 12, maxTicks: 400, routeLength: 88,
-      segments: Object.freeze([zone("l3-flat", 0, 88, 0, "decelerating", 20)])
+      initialSpeed: 12, maxTicks: 400, routeLength: 65,
+      segments: Object.freeze([zone("l3-flat", 0, 65, 0, "decelerating", 20)])
     }),
     Object.freeze({
       id: "level4", number: 4, title: "斜坡保持勻速", shortTitle: "斜坡勻速", color: "#7c3aed",
-      instruction: "分別在上斜與落斜路段保持勻速。轉折的灰色路段不計分。",
-      initialSpeed: 8, maxTicks: 700, routeLength: 142,
+      instruction: "按坡度選擇踏板力度，在三段不同斜坡保持勻速。轉折的灰色路段不計分。",
+      initialSpeed: 8, maxTicks: 700, routeLength: 150,
       segments: Object.freeze([
-        zone("l4-up", 0, 55, 4, "uniform", 7.5),
-        zone("l4-transition", 55, 77, 0, "transition", 0),
-        zone("l4-down", 77, 142, -4, "uniform", 7.5)
+        zone("l4-up-light", 0, 42, 2.92, "uniform", 5),
+        zone("l4-transition-a", 42, 54, 0, "transition", 0),
+        zone("l4-up-full", 54, 96, 5.85, "uniform", 5),
+        zone("l4-transition-b", 96, 108, 0, "transition", 0),
+        zone("l4-down-medium", 108, 150, -4.38, "uniform", 5)
       ])
     }),
     Object.freeze({
@@ -56,14 +58,14 @@
         zone("l5-transition-b", 106, 120, 0, "transition", 0),
         zone("l5-decelerate-flat", 120, 168, 0, "decelerating", 5),
         zone("l5-transition-c", 168, 180, 0, "transition", 0),
-        zone("l5-uniform-down", 180, 220, -4, "uniform", 5)
+        zone("l5-uniform-down", 180, 220, -4.38, "uniform", 5)
       ])
     })
   ]);
 
   const PRACTICE = Object.freeze({
     id: "practice", number: 0, title: "操作練習", shortTitle: "練習", color: "#64748b",
-    instruction: "試按住油門或煞車，放手回到空檔，並比較 x–t 與 v–t 圖。",
+    instruction: "直接按住踏板的輕、中或盡位置，放手回到空檔，並比較 x–t 與 v–t 圖。",
     initialSpeed: 7, maxTicks: 600, routeLength: 160,
     segments: Object.freeze([zone("practice-flat", 0, 160, 0, "practice", 0)])
   });

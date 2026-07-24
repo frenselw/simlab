@@ -29,7 +29,7 @@ function maxTickCodes(level) {
   while (!run.state.terminal) {
     const zone = Levels.segmentAt(level, run.state.x);
     const desiredAcceleration = .8 * (.5 - run.state.v);
-    const code = Array.from({ length: 3 }, (_, candidate) => candidate).reduce((best, candidate) =>
+    const code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, candidate) - desiredAcceleration) <
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
     codes.push(code);
@@ -40,7 +40,7 @@ function maxTickCodes(level) {
 }
 function analysisDraft(levelId = "level1") {
   const level = Levels.levelById(levelId);
-  const fixedCodes = { level1: 0, level2: 1, level3: 2, level4: 1, level5: 1 };
+  const fixedCodes = { level1: 0, level2: 2, level3: 5, level4: 2, level5: 2 };
   const codes = levelId === "level1" ? maxTickCodes(level) : terminalCodes(level, fixedCodes[levelId]);
   if (levelId === "level5") {
     const selectedRuns = Object.fromEntries(Levels.LEVELS.map((item) =>
@@ -62,7 +62,7 @@ function analysisDraft(levelId = "level1") {
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
 function completeReviewDraft() {
-  const fixedCodes = { level1: 0, level2: 1, level3: 2, level4: 1, level5: 1 };
+  const fixedCodes = { level1: 0, level2: 2, level3: 5, level4: 2, level5: 2 };
   const selectedRuns = Object.fromEntries(Levels.LEVELS.map((level) =>
     [level.id, { revision: 1, codes: terminalCodes(level, fixedCodes[level.id]) }]
   ));
@@ -137,24 +137,30 @@ async function smoke(cdp, baseUrl, activityPath, label) {
   await evaluate(cdp, "document.getElementById('startButton').click()");
   const pedal = await evaluate(cdp, `(() => {
     window.__pedalEvents=[];
-    const p=document.getElementById('controlPanel'),deck=document.getElementById('drivingDeck');
-    p.scrollTop=deck.offsetTop;
+    const p=document.getElementById('controlPanel');
     const b=document.getElementById('throttleButton');
+    p.scrollTop=0;
+    const initialButton=b.getBoundingClientRect(),panelRect=p.getBoundingClientRect();
+    p.scrollTop+=initialButton.top-panelRect.top-8;
     ['pointerdown','pointermove','pointerup','pointercancel'].forEach(type=>b.addEventListener(type,e=>window.__pedalEvents.push({type,trusted:e.isTrusted,pointerType:e.pointerType})));
-    const r=b.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,panel:document.getElementById('controlPanel').scrollTop};
+    const r=b.getBoundingClientRect(); return {x:r.left+r.width*.2,endX:r.left+r.width*.85,y:r.top+r.height/2,panel:p.scrollTop,hit:document.elementFromPoint(r.left+r.width*.2,r.top+r.height/2)?.id||document.elementFromPoint(r.left+r.width*.2,r.top+r.height/2)?.closest?.('button')?.id||''};
   })()`);
-  await touch(cdp, pedal.x, pedal.y, pedal.x, pedal.y, 550, 3);
+  await touch(cdp, pedal.x, pedal.y, pedal.endX, pedal.y, 550, 3);
+  await delay(120);
   await evaluate(cdp, "document.getElementById('pauseButton').click()");
   const held = await evaluate(cdp, `(() => {
     const raw=window.SimScorm.getLocalLog().filter(e=>e.key==='cmi.suspend_data').at(-1)?.value;
     const snapshot=raw?JSON.parse(raw):null;
-    return {events:window.__pedalEvents,control:document.getElementById('controlState').textContent,ticks:snapshot?.answer?.c?.n||0,panel:document.getElementById('controlPanel').scrollTop};
+    const decoded=snapshot?window.KinematicsDrivingPersistence.decode(snapshot.answer):null;
+    return {events:window.__pedalEvents,control:document.getElementById('controlState').textContent,ticks:snapshot?.answer?.c?.n||0,codes:decoded?.candidateRun?.codes||[],panel:document.getElementById('controlPanel').scrollTop};
   })()`);
-  assert(held.events.some((event) => event.type === "pointerdown" && event.trusted && event.pointerType === "touch"), `${label}: trusted touch starts pedal`);
+  assert(held.events.some((event) => event.type === "pointerdown" && event.trusted && event.pointerType === "touch"),
+    `${label}: trusted touch starts pedal (${JSON.stringify(pedal)})`);
   assert(held.events.some((event) => event.type === "pointerup"), `${label}: pedal receives pointerup`);
   assert(!held.events.some((event) => event.type === "pointercancel"), `${label}: normal hold is not cancelled`);
   assert.equal(held.control, "目前：空檔", `${label}: release returns to neutral`);
   assert(held.ticks >= 5, `${label}: hold creates authoritative ticks (${held.ticks}; ${JSON.stringify(held.events)}; ${held.control})`);
+  assert(held.codes.includes(1) && held.codes.includes(3), `${label}: one pedal supports direct light-to-full pressure changes`);
   assert.equal(held.panel, pedal.panel, `${label}: pedal hold does not scroll panel`);
   return `${label} launch, layout and trusted hold passed`;
 }

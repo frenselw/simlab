@@ -62,8 +62,8 @@ const earlyWindow = Visuals.graphWindow(longRun, 6, 12);
 assert.equal(earlyWindow.startTime, 0, "the graph does not pan before its fixed twelve-second span is filled");
 
 const uphill = Levels.LEVELS[3];
-assert.equal(Visuals.visualSlopeAt(uphill, 30), 4);
-assert(Visuals.visualSlopeAt(uphill, 54.5) < 4 && Visuals.visualSlopeAt(uphill, 54.5) > 0,
+assert.equal(Visuals.visualSlopeAt(uphill, 30), 2.92);
+assert(Visuals.visualSlopeAt(uphill, 54.5) < 5.85 && Visuals.visualSlopeAt(uphill, 54.5) > 0,
   "car pitch eases into a road-angle boundary without changing physics");
 
 console.log("Kinematics driving visual helper tests passed");

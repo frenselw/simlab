@@ -6,18 +6,20 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
-  const PHYSICS_VERSION = 3;
+  const PHYSICS_VERSION = 4;
   const TICK_S = 0.05;
   const GRAVITY = 9.81;
-  const PEDAL_ACCELERATION = 0.7;
+  const THROTTLE_ACCELERATIONS = Object.freeze([0, 0.5, 0.75, 1]);
+  const BRAKE_ACCELERATIONS = Object.freeze([0, 0.5, 0.75, 1]);
   const MAX_SPEED = 20;
   const STOP_TIMEOUT_TICKS = 60;
-  const CONTROL_LABELS = Object.freeze(["空檔", "油門", "煞車"]);
+  const CONTROL_LABELS = Object.freeze(["空檔", "輕油門", "中油門", "油門踩盡", "輕煞車", "中煞車", "煞車踩盡"]);
 
-  function validCode(code) { return Number.isInteger(code) && code >= 0 && code <= 2; }
+  function validCode(code) { return Number.isInteger(code) && code >= 0 && code <= 6; }
   function pedalAcceleration(code) {
     if (!validCode(code)) throw new Error("Invalid control code");
-    return code === 1 ? PEDAL_ACCELERATION : code === 2 ? -PEDAL_ACCELERATION : 0;
+    if (code === 0) return 0;
+    return code <= 3 ? THROTTLE_ACCELERATIONS[code] : -BRAKE_ACCELERATIONS[code - 3];
   }
   function slopeAcceleration(slopeDeg) { return GRAVITY * Math.sin(slopeDeg * Math.PI / 180); }
   function accelerationFor(speed, slopeDeg, code) {
@@ -136,7 +138,7 @@
   }
 
   return {
-    PHYSICS_VERSION, TICK_S, GRAVITY, PEDAL_ACCELERATION, MAX_SPEED,
+    PHYSICS_VERSION, TICK_S, GRAVITY, THROTTLE_ACCELERATIONS, BRAKE_ACCELERATIONS, MAX_SPEED,
     CONTROL_LABELS, validCode, pedalAcceleration, slopeAcceleration, accelerationFor, initialState, tick, replay, isTerminalRun,
     wheelAngle, qualitativeMotion, consumeInputTransitions, crossingDuration
   };
