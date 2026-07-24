@@ -54,8 +54,8 @@
 
             <fieldset class="graph-switch">
               <legend>角落圖像</legend>
-              <label><input type="radio" name="graphMode" value="vt" checked> v–t</label>
-              <label><input type="radio" name="graphMode" value="xt"> x–t</label>
+              <label><input type="radio" name="graphMode" value="vt" checked> <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span></label>
+              <label><input type="radio" name="graphMode" value="xt"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span></label>
               <label><input type="radio" name="graphMode" value="hidden"> 隱藏</label>
             </fieldset>
 
@@ -98,18 +98,18 @@
           <section id="checkpointSection" class="panel-section is-hidden">
             <p class="panel-kicker">圖像證據 checkpoint</p>
             <h2 id="checkpointTitle" class="section-title" tabindex="-1">哪幅圖更直接？</h2>
-            <p>切換並查看同一段記錄的 x–t 與 v–t 圖，然後回答。</p>
+            <p>切換並查看同一段記錄的 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 與 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖，然後回答。</p>
             <div class="checkpoint-graphs">
-              <button id="viewXtButton" type="button">查看 x–t 圖</button>
-              <button id="viewVtButton" type="button">查看 v–t 圖</button>
+              <button id="viewXtButton" type="button">查看 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
+              <button id="viewVtButton" type="button">查看 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
             </div>
             <p id="checkpointViewStatus" class="muted">兩幅圖尚未看完。</p>
             <fieldset id="checkpointAnswers" disabled>
               <legend>如果要直接判斷速度是否以固定比率改變，哪一幅圖提供較清楚的證據？</legend>
-              <label><input type="radio" name="checkpointAnswer" value="vt-linear"> v–t 圖，因為勻變速時會形成斜率固定的直線</label>
-              <label><input type="radio" name="checkpointAnswer" value="xt-curvature"> x–t 圖，因為彎曲程度可以直接當作加速度讀數</label>
+              <label><input type="radio" name="checkpointAnswer" value="vt-linear"> <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖，因為勻變速時會形成斜率固定的直線</label>
+              <label><input type="radio" name="checkpointAnswer" value="xt-curvature"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖，因為彎曲程度可以直接當作加速度讀數</label>
               <label><input type="radio" name="checkpointAnswer" value="both-any"> 兩幅圖一樣直接，只要圖線不是水平便足夠</label>
-              <label><input type="radio" name="checkpointAnswer" value="xt-fixed-slope"> x–t 圖，因為斜率固定代表加速度固定</label>
+              <label><input type="radio" name="checkpointAnswer" value="xt-fixed-slope"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖，因為斜率固定代表加速度固定</label>
             </fieldset>
             <p id="checkpointError" class="error-text" role="alert"></p>
             <button id="confirmCheckpointButton" type="button" class="primary-button full-button">確認並繼續</button>

@@ -29,6 +29,11 @@ assert.match(html, /id="analysisZoneTabs"/);
 assert.doesNotMatch(html, /id="graphTitle"/);
 assert.doesNotMatch(main, /setLineDash/);
 assert.match(main, /font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif"/);
+assert.match(html, /class="math-expression"><var>v<\/var><span class="math-operator">−<\/span><var>t<\/var>/);
+assert.match(html, /class="math-expression"><var>x<\/var><span class="math-operator">−<\/span><var>t<\/var>/);
+assert.match(main, /function physicsHtml\(value\)/);
+assert.match(main, /elements\.instruction\.innerHTML = physicsHtml\(level\.instruction\)/);
+assert.match(css, /\.math-expression var \{[^}]*font-style: italic/);
 assert.doesNotMatch(html, /m\/s|m\/s²|m\/s<sup>2/);
 assert.doesNotMatch(html, /type="number"/);
 

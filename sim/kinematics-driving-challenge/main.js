@@ -338,9 +338,9 @@
     if (trustedReview && submittedResult?.levelResults) {
       submittedResult.levelResults.forEach((levelResult, index) => {
         const level = Levels.LEVELS[index];
-        rows.push(`<article class="feedback-item ${levelResult.points >= levelResult.maxPoints * .7 ? "is-good" : ""}"><h3>${escapeHtml(level.title)}：${formatPoint(levelResult.points)} / ${levelResult.maxPoints}</h3>${levelResult.zones.map((zone) => `<p>${escapeHtml(Scoring.feedbackText(zone))}</p>`).join("")}</article>`);
+        rows.push(`<article class="feedback-item ${levelResult.points >= levelResult.maxPoints * .7 ? "is-good" : ""}"><h3>${escapeHtml(level.title)}：${formatPoint(levelResult.points)} / ${levelResult.maxPoints}</h3>${levelResult.zones.map((zone) => `<p>${physicsHtml(Scoring.feedbackText(zone))}</p>`).join("")}</article>`);
       });
-      rows.push(`<article class="feedback-item"><h3>圖像證據：${submittedResult.checkpointPoints} / 10</h3><p>勻速的 v–t 圖是水平直線；勻加速及勻減速分別是向上及向下直線。x–t 圖可以顯示速度正在改變，但 v–t 圖更直接顯示變化率是否固定。</p></article>`);
+      rows.push(`<article class="feedback-item"><h3>圖像證據：${submittedResult.checkpointPoints} / 10</h3><p>${physicsHtml("勻速的 v–t 圖是水平直線；勻加速及勻減速分別是向上及向下直線。x–t 圖可以顯示速度正在改變，但 v–t 圖更直接顯示變化率是否固定。")}</p></article>`);
     }
     elements.feedbackList.innerHTML = rows.join("");
     elements.resultRetryButton.classList.toggle("is-hidden", retryMode === "none");
@@ -365,7 +365,7 @@
     const practice = state.phase === "practice";
     elements.panelKicker.textContent = practice ? "操作練習（不計分）" : `第 ${level.number} 關`;
     elements.panelTitle.textContent = level.title;
-    elements.instruction.textContent = level.instruction;
+    elements.instruction.innerHTML = physicsHtml(level.instruction);
     elements.stageKicker.textContent = practice ? "操作練習" : `第 ${level.number} 關`;
     elements.stageTarget.textContent = Visuals.targetLabel(activeSampleSegment()?.target || level.segments[0].target);
     const briefing = ["ready", "briefing", "review-retry-briefing"].includes(state.variant);
@@ -396,7 +396,7 @@
       `<button type="button" data-analysis-zone="${zone.zoneId}" aria-pressed="${zone.zoneId === analysisZoneId}"${locked ? " disabled" : ""}>路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
     ).join("");
     elements.analysisList.innerHTML = analysisRun.zones.map((zone) =>
-      `<article class="analysis-item${zone.zoneId === analysisZoneId ? " is-selected" : ""}"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${escapeHtml(Scoring.feedbackText(zone))}</p></article>`
+      `<article class="analysis-item${zone.zoneId === analysisZoneId ? " is-selected" : ""}"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${physicsHtml(Scoring.feedbackText(zone))}</p></article>`
     ).join("");
     elements.acceptButton.textContent = state.returnToReview ? "以今次表現取代原記錄" : "記錄今次表現";
     elements.keepPreviousButton.classList.toggle("is-hidden", !state.returnToReview);
@@ -404,12 +404,12 @@
   function renderCheckpoint() {
     const checkpoint = state.graphCheckpoint;
     elements.stageKicker.textContent = "圖像證據";
-    elements.stageTarget.textContent = state.graphMode === "xt" ? "比較 x–t 圖" : "比較 v–t 圖";
+    elements.stageTarget.innerHTML = physicsHtml(state.graphMode === "xt" ? "比較 x–t 圖" : "比較 v–t 圖");
     elements.checkpointAnswers.disabled = locked || !(checkpoint.viewedXt && checkpoint.viewedVt);
     elements.viewXtButton.disabled = locked;
     elements.viewVtButton.disabled = locked;
     elements.scrubRange.disabled = locked;
-    elements.checkpointViewStatus.textContent = `x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`;
+    elements.checkpointViewStatus.innerHTML = physicsHtml(`x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`);
     answerInputs.forEach((input) => { input.checked = input.value === checkpoint.answerId; input.disabled = elements.checkpointAnswers.disabled; });
     elements.confirmCheckpointButton.textContent = state.returnToReview ? "確認並返回檢查" : "確認並前往第 4 關";
     elements.confirmCheckpointButton.disabled = locked;
@@ -634,6 +634,11 @@
     frameId = requestAnimationFrame(animate);
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
+  function physicsHtml(value) {
+    return escapeHtml(value).replace(/([xv])–t/g, (_, symbol) =>
+      `<span class="math-expression"><var>${symbol}</var><span class="math-operator">−</span><var>t</var></span>`
+    );
+  }
   function formatPoint(value) { return Number(value).toFixed(value % 1 ? 1 : 0); }
   function wirePedal(button, kind) {
     button.setAttribute("aria-pressed", "false");
