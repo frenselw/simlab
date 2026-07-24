@@ -32,6 +32,7 @@
   let activePedal = null;
   let runtimeRun = null;
   let analysisRun = null;
+  let analysisZoneId = null;
   let accumulator = 0;
   let lastFrame = performance.now();
   let frameId = 0;
@@ -169,6 +170,7 @@
       return;
     }
     state.variant = state.returnToReview ? "review-retry-analysis" : "analysis";
+    analysisZoneId = analysisRun?.zones[0]?.zoneId || null;
     saveAndRender("試車完成；請查看圖線及質性分析。");
   }
   function acceptRun() {
@@ -198,6 +200,7 @@
     state.phase = "level"; state.currentItem = id; state.returnToReview = reviewRetry;
     state.variant = reviewRetry ? "review-retry-briefing" : "briefing";
     state.candidateRun = null; analysisRun = null; rebuildRuntime();
+    analysisZoneId = null;
     saveAndRender(reviewRetry ? "可重新挑戰；原有記錄會保留至你確認新表現。" : `已進入第 ${Levels.levelById(id).number} 關。`);
     focusHeading(elements.panelTitle);
   }
@@ -388,8 +391,12 @@
   }
   function renderAnalysis() {
     analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
+    if (!analysisRun.zones.some((zone) => zone.zoneId === analysisZoneId)) analysisZoneId = analysisRun.zones[0]?.zoneId || null;
+    elements.analysisZoneTabs.innerHTML = analysisRun.zones.map((zone, index) =>
+      `<button type="button" data-analysis-zone="${zone.zoneId}" aria-pressed="${zone.zoneId === analysisZoneId}">路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
+    ).join("");
     elements.analysisList.innerHTML = analysisRun.zones.map((zone) =>
-      `<article class="analysis-item"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${escapeHtml(Scoring.feedbackText(zone))}</p></article>`
+      `<article class="analysis-item${zone.zoneId === analysisZoneId ? " is-selected" : ""}"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${escapeHtml(Scoring.feedbackText(zone))}</p></article>`
     ).join("");
     elements.acceptButton.textContent = state.returnToReview ? "以今次表現取代原記錄" : "記錄今次表現";
     elements.keepPreviousButton.classList.toggle("is-hidden", !state.returnToReview);
@@ -410,8 +417,12 @@
     state.variant = complete ? "complete" : "incomplete";
     elements.reviewList.innerHTML = Levels.LEVELS.map((level) => {
       const result = selectedScore(level.id);
-      return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : "尚未記錄"}</p><button type="button" data-edit-level="${level.id}">${result ? "重新挑戰" : "完成此關"}</button></article>`;
-    }).join("") + `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : "尚未完成"}</p><button type="button" data-edit-checkpoint>查看或修改</button></article>`;
+      const canOpen = UiPolicy.canOpenReviewItem(state, level.id);
+      return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : canOpen ? "尚未記錄" : "請先完成較早項目"}</p><button type="button" data-edit-level="${level.id}"${canOpen ? "" : " disabled"}>${result ? "重新挑戰" : "完成此關"}</button></article>`;
+    }).join("") + (() => {
+      const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint");
+      return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" : "請先完成第 1 至 3 關"}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
+    })();
     elements.submitButton.disabled = locked || !complete;
     elements.submissionNotice.classList.toggle("is-hidden", complete);
     elements.submissionNotice.textContent = complete ? "" : "請先完成五關及圖像 checkpoint。";
@@ -438,18 +449,32 @@
   function displaySample() {
     const run = displayRun();
     if (!run?.samples?.length) return { t: 0, x: 0, v: currentLevel().initialSpeed, a: 0 };
-    if (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis")) {
+    if (state.phase === "level" && state.variant.endsWith("analysis")) {
+      const zone = graphZone();
+      const zoneRows = run.samples.filter((sample) => sample.segmentId === zone?.id);
+      if (zoneRows.length) {
+        const fraction = Number(elements.scrubRange.value) / 100;
+        return zoneRows[Math.round((zoneRows.length - 1) * fraction)];
+      }
+    }
+    if (state.phase === "graph-check") {
       const fraction = Number(elements.scrubRange.value) / 100;
       return run.samples[Math.round((run.samples.length - 1) * fraction)];
     }
     return run.samples[run.samples.length - 1];
   }
   function activeSampleSegment() { return Levels.segmentAt(currentLevel(), displaySample()?.x || 0); }
+  function graphZone() {
+    if (state.phase === "level" && state.variant.endsWith("analysis")) {
+      return Levels.scoredZones(currentLevel()).find((zone) => zone.id === analysisZoneId) || Levels.scoredZones(currentLevel())[0];
+    }
+    return activeSampleSegment();
+  }
   function graphSamples() {
     const run = displayRun();
     if (!run?.samples?.length) return [];
     if (state.phase === "graph-check") return run.samples;
-    const segment = activeSampleSegment();
+    const segment = graphZone();
     return run.samples.filter((sample) => sample.segmentId === segment?.id);
   }
   function resizeCanvas(target, context, holder, viewKey) {
@@ -507,7 +532,7 @@
       const y = baseY + Visuals.roadY(signPosition, level, 0, ppm) - currentElevationY;
       drawTargetSign(x, y - 6, segment.target);
     });
-    drawCar(anchorX, baseY - 3, Math.max(.72, Math.min(1.05, width / 760)), Visuals.slopeAt(level, sample.x), Model.wheelAngle(sample.x));
+    drawCar(anchorX, baseY - 3, Math.max(.72, Math.min(1.05, width / 760)), Visuals.visualSlopeAt(level, sample.x), Model.wheelAngle(sample.x));
     elements.graphAlternative.textContent = state.graphMode === "hidden" ? "圖像已隱藏" : Visuals.graphShapeLabel(graphSamples());
   }
   function drawScenery(item, x, y, size) {
@@ -556,10 +581,20 @@
     }
     graphCtx.strokeStyle = "#334155"; graphCtx.lineWidth = 1.5; graphCtx.beginPath();
     graphCtx.moveTo(rect.x, rect.y); graphCtx.lineTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height); graphCtx.stroke();
-    const samples = graphSamples();
-    const points = Visuals.graphPoints(samples, state.graphMode, rect, activeSampleSegment());
+    const allSamples = graphSamples();
+    const cursorSample = displaySample();
+    const samples = (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))
+      ? allSamples.filter((sample) => sample.t <= cursorSample.t + 1e-9)
+      : allSamples;
+    const points = Visuals.graphPoints(samples, state.graphMode, rect, graphZone());
     graphCtx.strokeStyle = "#2563eb"; graphCtx.lineWidth = 2.5; graphCtx.lineJoin = "round"; graphCtx.beginPath();
     points.forEach((point, index) => index ? graphCtx.lineTo(point.x, point.y) : graphCtx.moveTo(point.x, point.y)); graphCtx.stroke();
+    const cursor = points[points.length - 1];
+    if (cursor && (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))) {
+      graphCtx.strokeStyle = "#f59e0b"; graphCtx.lineWidth = 1.5;
+      graphCtx.beginPath(); graphCtx.moveTo(cursor.x, rect.y); graphCtx.lineTo(cursor.x, rect.y + rect.height); graphCtx.stroke();
+      graphCtx.fillStyle = "#f59e0b"; graphCtx.beginPath(); graphCtx.arc(cursor.x, cursor.y, 3.5, 0, Math.PI * 2); graphCtx.fill();
+    }
     elements.graphTitle.textContent = state.graphMode === "xt" ? "x–t" : "v–t";
     graphCtx.fillStyle = "#334155"; graphCtx.font = "700 11px system-ui"; graphCtx.fillText("t", width - 12, height - 4);
     graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", 7, 18);
@@ -632,10 +667,18 @@
   }));
   elements.reviewList.addEventListener("click", (event) => {
     const levelId = event.target.closest("[data-edit-level]")?.dataset.editLevel;
-    if (levelId) enterLevel(levelId, Boolean(state.selectedRuns[levelId]));
-    if (event.target.closest("[data-edit-checkpoint]")) enterCheckpoint(true);
+    if (levelId && UiPolicy.canOpenReviewItem(state, levelId)) enterLevel(levelId, Boolean(state.selectedRuns[levelId]));
+    if (event.target.closest("[data-edit-checkpoint]") && UiPolicy.canOpenReviewItem(state, "checkpoint")) enterCheckpoint(true);
+  });
+  elements.analysisZoneTabs.addEventListener("click", (event) => {
+    const zoneId = event.target.closest("[data-analysis-zone]")?.dataset.analysisZone;
+    if (!zoneId || !analysisRun?.zones.some((zone) => zone.zoneId === zoneId)) return;
+    analysisZoneId = zoneId;
+    elements.scrubRange.value = "100";
+    render();
   });
   window.addEventListener("keydown", (event) => {
+    if (!UiPolicy.shouldHandleGlobalShortcut(event.target)) return;
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === "1" || event.key === "2" || event.key === "3") {
       intensityInputs.forEach((input) => { input.checked = input.value === event.key; });

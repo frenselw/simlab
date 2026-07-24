@@ -48,6 +48,9 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .analysis-section { margin-top: .85rem; padding-top: .8rem; border-top: 1px solid #d1d5db; }
 .analysis-section h3 { margin: 0 0 .5rem; }
 .analysis-list { display: grid; gap: .5rem; }
+.analysis-zone-tabs { display: flex; gap: .35rem; overflow-x: auto; margin-bottom: .6rem; }
+.analysis-zone-tabs button { flex: 0 0 auto; min-height: 44px; padding: .4rem .65rem; }
+.analysis-zone-tabs button[aria-pressed="true"] { border-color: #2563eb; background: #dbeafe; color: #1e3a8a; font-weight: 800; }
 .analysis-item { padding: .6rem; border-left: 4px solid #2563eb; background: #fff; }
 .analysis-item h4 { margin: 0 0 .2rem; font-size: .92rem; }
 .analysis-item p { margin: 0; line-height: 1.4; }

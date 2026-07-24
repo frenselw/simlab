@@ -53,7 +53,7 @@ const simulationList = [
     categories: ["Mechanics"],
     description: "按住油門與煞車，在平路和斜坡製造勻速、勻加速及勻減速，並用無數字運動圖像判斷表現。",
     tags: ["physics", "mechanics", "kinematics", "uniform-motion", "constant-acceleration", "driving", "scorm"],
-    status: "active"
+    status: "planned"
   }
 ];
 

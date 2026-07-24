@@ -12,9 +12,9 @@
   const GRAVITY = 9.81;
   const ROLLING = 180;
   const STATIC_HOLD = 220;
-  const DRAG = 0.38;
-  const THROTTLE = Object.freeze([0, 220, 1100, 2500]);
-  const BRAKE = Object.freeze([0, 650, 1600, 3200]);
+  const DRAG = 8;
+  const THROTTLE = Object.freeze([0, 360, 1150, 2500]);
+  const BRAKE = Object.freeze([0, 400, 900, 1800]);
   const MAX_SPEED = 20;
   const STOP_TIMEOUT_TICKS = 60;
   const CONTROL_LABELS = Object.freeze(["空檔", "輕油門", "中油門", "重油門", "輕煞車", "中煞車", "重煞車"]);
@@ -40,18 +40,37 @@
     const nextV = Math.max(0, speed + a * duration);
     return { a, v: nextV, x: position + (speed + nextV) * duration / 2 };
   }
+  function crossingDuration(speed, acceleration, distance, maximumDuration) {
+    if (!(distance >= 0) || !(maximumDuration > 0)) return null;
+    if (distance === 0) return 0;
+    if (Math.abs(acceleration) < 1e-12) return speed > 0 ? Math.min(maximumDuration, distance / speed) : null;
+    const discriminant = speed * speed + 2 * acceleration * distance;
+    if (discriminant < 0) return null;
+    const root = (-speed + Math.sqrt(discriminant)) / acceleration;
+    return root >= 0 && root <= maximumDuration + 1e-10 ? Math.min(maximumDuration, root) : null;
+  }
   function tick(level, source, code) {
     if (!level || !validCode(code) || source.terminal) return { ...source };
     const segment = Levels.segmentAt(level, source.x);
     let integrated = integrateSubstep(source.v, source.x, TICK_S, segment?.slopeDeg || 0, code);
     let a = integrated.a;
+    let pieces = [{
+      segmentId: segment?.id || null, duration: TICK_S,
+      startX: source.x, endX: integrated.x, startV: source.v, endV: integrated.v
+    }];
     if (segment && integrated.x > segment.end && segment.end < level.routeLength && integrated.x > source.x) {
-      const firstDuration = TICK_S * Math.max(0, Math.min(1, (segment.end - source.x) / (integrated.x - source.x)));
+      const firstDuration = crossingDuration(source.v, integrated.a, segment.end - source.x, TICK_S);
+      if (firstDuration == null) return { ...source, terminal: "technical" };
       const first = integrateSubstep(source.v, source.x, firstDuration, segment.slopeDeg, code);
+      first.x = segment.end;
       const nextSegment = Levels.segmentAt(level, Math.min(level.routeLength, segment.end + 1e-9));
       const second = integrateSubstep(first.v, first.x, TICK_S - firstDuration, nextSegment?.slopeDeg || 0, code);
       integrated = second;
       a = (second.v - source.v) / TICK_S;
+      pieces = [
+        { segmentId: segment.id, duration: firstDuration, startX: source.x, endX: segment.end, startV: source.v, endV: first.v },
+        { segmentId: nextSegment?.id || null, duration: TICK_S - firstDuration, startX: segment.end, endX: second.x, startV: first.v, endV: second.v }
+      ];
     }
     const nextV = integrated.v;
     const nextX = integrated.x;
@@ -65,7 +84,7 @@
     else if (nextTick >= level.maxTicks) terminal = "max-ticks";
     return {
       tick: nextTick, t: nextTick * TICK_S, x: Math.min(nextX, level.routeLength), v: Math.min(nextV, MAX_SPEED),
-      a, stoppedTicks, terminal
+      a, stoppedTicks, terminal, pieces
     };
   }
   function replay(level, codes, options = {}) {
@@ -78,12 +97,22 @@
         break;
       }
       state = tick(level, state, codes[index]);
+      if (state.pieces?.length === 2) {
+        const first = state.pieces[0];
+        samples.push({
+          tick: state.tick, t: state.t - state.pieces[1].duration, x: first.endX, v: first.endV,
+          a: (first.endV - first.startV) / Math.max(first.duration, 1e-12), code: codes[index],
+          segmentId: first.segmentId, boundary: true
+        });
+      }
       samples.push({
         tick: state.tick, t: state.t, x: state.x, v: state.v, a: state.a, code: codes[index],
         segmentId: Levels.segmentAt(level, Math.min(state.x, level.routeLength - 1e-9))?.id || null
       });
     }
-    return { state, samples, codes: codes.slice(0, state.tick) };
+    const finalState = { ...state };
+    delete finalState.pieces;
+    return { state: finalState, samples, codes: codes.slice(0, state.tick) };
   }
   function isTerminalRun(level, codes) {
     const run = replay(level, codes);
@@ -112,6 +141,6 @@
   return {
     PHYSICS_VERSION, TICK_S, MASS, GRAVITY, ROLLING, STATIC_HOLD, DRAG, THROTTLE, BRAKE, MAX_SPEED,
     CONTROL_LABELS, validCode, forces, slopeForce, accelerationFor, initialState, tick, replay, isTerminalRun,
-    wheelAngle, qualitativeMotion, consumeInputTransitions
+    wheelAngle, qualitativeMotion, consumeInputTransitions, crossingDuration
   };
 });

@@ -31,10 +31,35 @@ assert.equal(firstBoundary.code, 4, "same-timestamp transitions apply in sequenc
 assert.equal(firstBoundary.remaining.length, 1);
 assert.equal(Model.consumeInputTransitions(firstBoundary.remaining, 170, firstBoundary.code).code, 0);
 
+const boundaryLevel = {
+  id: "boundary-fixture", initialSpeed: 10, maxTicks: 20, routeLength: 2,
+  segments: [
+    { id: "before", start: 0, end: 0.3, slopeDeg: 0, target: "transition", points: 0 },
+    { id: "after", start: 0.3, end: 2, slopeDeg: 4, target: "transition", points: 0 }
+  ]
+};
+const beforeAcceleration = Model.accelerationFor(boundaryLevel.initialSpeed, 0, 0);
+const crossing = Model.crossingDuration(boundaryLevel.initialSpeed, beforeAcceleration, 0.3, Model.TICK_S);
+assert(crossing > 0 && crossing < Model.TICK_S);
+assert(Math.abs(boundaryLevel.initialSpeed * crossing + .5 * beforeAcceleration * crossing ** 2 - .3) < 1e-10);
+const split = Model.tick(boundaryLevel, Model.initialState(boundaryLevel), 0);
+assert.equal(split.pieces.length, 2);
+assert.equal(split.pieces[0].segmentId, "before");
+assert.equal(split.pieces[1].segmentId, "after");
+assert.equal(split.pieces[0].endX, .3);
+assert.equal(split.pieces[1].startX, .3);
+assert(Math.abs(split.pieces[0].duration + split.pieces[1].duration - Model.TICK_S) < 1e-12);
+const boundaryReplay = Model.replay(boundaryLevel, [0]);
+assert.equal(boundaryReplay.samples.length, 3, "replay preserves an exact boundary evidence sample");
+assert.equal(boundaryReplay.samples[1].x, .3);
+assert.equal(boundaryReplay.samples[1].segmentId, "before");
+assert.equal(boundaryReplay.samples[2].segmentId, "after");
+assert.deepEqual(boundaryReplay, Model.replay(boundaryLevel, [0]), "split integration remains deterministic");
+
 let state = Model.initialState(level);
 for (let index = 0; index < level.maxTicks && !state.terminal; index += 1) state = Model.tick(level, state, 1);
 assert(["complete", "max-ticks"].includes(state.terminal));
 assert.equal(Model.wheelAngle(10), Model.wheelAngle(10));
-assert.equal(Model.qualitativeMotion(runA.samples).startsWith("速度"), true);
+assert.match(Model.qualitativeMotion(runA.samples), /速度|車輛/);
 
 console.log("Kinematics driving model tests passed");

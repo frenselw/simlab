@@ -106,7 +106,8 @@
   }
   function decode(answer) {
     if (!answer || answer.v !== VERSION || answer.p !== Model.PHYSICS_VERSION || answer.l !== Levels.LEVEL_SET_VERSION ||
-        typeof answer.s !== "object" || Array.isArray(answer.s) || !answer.k) return null;
+        typeof answer.s !== "object" || Array.isArray(answer.s) || !answer.k ||
+        ![0, 1].includes(answer.b) || ![0, 1].includes(answer.k.x) || ![0, 1].includes(answer.k.y)) return null;
     const selectedRuns = {};
     for (const [id, packed] of Object.entries(answer.s)) {
       const level = Levels.levelById(id);

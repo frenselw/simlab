@@ -17,11 +17,29 @@ const Levels = require(path.join(root, "sim", slug, "level-definitions.js"));
 const Model = require(path.join(root, "sim", slug, "driving-model.js"));
 const Persistence = require(path.join(root, "sim", slug, "persistence.js"));
 
-function analysisDraft() {
-  const level = Levels.LEVELS[0];
+function terminalCodes(level, code) {
   const codes = [];
   let run = Model.replay(level, codes);
-  while (!run.state.terminal) { codes.push(1); run = Model.replay(level, codes); }
+  while (!run.state.terminal) { codes.push(code); run = Model.replay(level, codes); }
+  return codes;
+}
+function analysisDraft(levelId = "level1") {
+  const level = Levels.levelById(levelId);
+  const fixedCodes = { level1: 1, level2: 2, level3: 4, level4: 2, level5: 2 };
+  const codes = terminalCodes(level, fixedCodes[levelId]);
+  if (levelId === "level5") {
+    const selectedRuns = Object.fromEntries(Levels.LEVELS.map((item) =>
+      [item.id, { revision: 1, codes: terminalCodes(item, fixedCodes[item.id]) }]
+    ));
+    const state = {
+      ...Persistence.initialState(), phase: "level", variant: "review-retry-analysis", currentItem: "level5",
+      returnToReview: true, selectedRuns, candidateRun: { ownerId: "level5", codes },
+      graphCheckpoint: {
+        sourceLevelId: "level2", sourceRunRevision: 1, viewedXt: true, viewedVt: true, answerId: "vt-linear"
+      }
+    };
+    return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
+  }
   const state = {
     ...Persistence.initialState(), phase: "level", variant: "analysis", currentItem: "level1",
     candidateRun: { ownerId: "level1", codes }
@@ -163,20 +181,53 @@ async function analysisScrub(cdp, baseUrl, activityPath, label) {
   await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-analysis`)}` });
   await waitFor(cdp, "!document.getElementById('analysisSection')?.classList.contains('is-hidden')", `${label} analysis`);
   const setup = await evaluate(cdp, `(() => {
+    const graphExtent=()=>{const c=document.getElementById('graphCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let blue=-1,amber=-1;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>150&&r<90&&g>50&&g<160)blue=Math.max(blue,x);if(r>190&&g>90&&g<200&&b<100)amber=Math.max(amber,x);}return {blue,amber};};
     const p=document.getElementById('controlPanel'),r=document.getElementById('scrubRange');
     p.scrollTop=r.offsetTop; r.value='20'; r.dispatchEvent(new Event('input',{bubbles:true}));
     window.__scrubEvents=[]; ['pointerdown','pointermove','pointerup','pointercancel'].forEach(type=>r.addEventListener(type,e=>window.__scrubEvents.push({type,trusted:e.isTrusted,pointerType:e.pointerType})));
-    const b=r.getBoundingClientRect(); return {x:b.left+b.width*.2,endX:b.left+b.width*.78,y:b.top+b.height/2,panel:p.scrollTop,host:scrollY,value:r.value};
+    const b=r.getBoundingClientRect(); return {x:b.left+b.width*.2,endX:b.left+b.width*.78,y:b.top+b.height/2,panel:p.scrollTop,host:scrollY,value:r.value,extent:graphExtent()};
   })()`);
   await touch(cdp, setup.x, setup.y, setup.endX, setup.y, 60, 29);
-  const after = await evaluate(cdp, `(() => ({value:document.getElementById('scrubRange').value,panel:document.getElementById('controlPanel').scrollTop,host:scrollY,events:window.__scrubEvents}))()`);
+  const after = await evaluate(cdp, `(() => {
+    const c=document.getElementById('graphCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let blue=-1,amber=-1;
+    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>150&&r<90&&g>50&&g<160)blue=Math.max(blue,x);if(r>190&&g>90&&g<200&&b<100)amber=Math.max(amber,x);}
+    return {value:document.getElementById('scrubRange').value,panel:document.getElementById('controlPanel').scrollTop,host:scrollY,events:window.__scrubEvents,extent:{blue,amber}};
+  })()`);
   assert.notEqual(after.value, setup.value, `${label}: trusted scrub changes replay position`);
   assert.equal(after.panel, setup.panel, `${label}: scrub does not scroll panel`);
   assert.equal(after.host, setup.host, `${label}: scrub does not scroll page`);
   assert(after.events.some((event) => event.type === "pointermove" && event.trusted && event.pointerType === "touch"), `${label}: scrub receives trusted touch move`);
   assert(after.events.some((event) => event.type === "pointerup"), `${label}: scrub receives pointerup`);
   assert(!after.events.some((event) => event.type === "pointercancel"), `${label}: scrub has no pointercancel`);
+  assert(after.extent.blue > setup.extent.blue + 12, `${label}: partial graph trace grows with the scrub cursor`);
+  assert(after.extent.amber > setup.extent.amber + 12, `${label}: visible graph cursor follows the scrub position`);
   return `${label} trusted analysis scrub passed`;
+}
+async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
+  const snapshot = analysisDraft("level5");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const values={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':${JSON.stringify(snapshot)},'cmi.core.score.raw':''};
+    window.API={LMSInitialize:()=>'true',LMSGetValue:key=>values[key]||'',LMSSetValue:(key,value)=>(values[key]=String(value),'true'),LMSCommit:()=>'true',LMSFinish:()=>'true',LMSGetLastError:()=>'0',LMSGetErrorString:()=>''};
+  })();` });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-multi-zone`)}` });
+  await waitFor(cdp, "document.querySelectorAll('[data-analysis-zone]').length === 4", `${label} multi-zone analysis`);
+  const before = await evaluate(cdp, `(() => ({
+    tabs:Array.from(document.querySelectorAll('[data-analysis-zone]')).map(x=>({id:x.dataset.analysisZone,pressed:x.getAttribute('aria-pressed'),text:x.textContent})),
+    result:document.querySelector('.analysis-item.is-selected')?.textContent
+  }))()`);
+  assert.equal(before.tabs.length, 4, `${label}: only the four scored zones have analysis selectors`);
+  assert(!before.tabs.some((tab) => tab.id.includes("transition")), `${label}: transition zones are excluded`);
+  await evaluate(cdp, "document.querySelectorAll('[data-analysis-zone]')[2].click()");
+  const after = await evaluate(cdp, `(() => ({
+    tabs:Array.from(document.querySelectorAll('[data-analysis-zone]')).map(x=>({id:x.dataset.analysisZone,pressed:x.getAttribute('aria-pressed')})),
+    result:document.querySelector('.analysis-item.is-selected')?.textContent,
+    scrub:document.getElementById('scrubRange').value
+  }))()`);
+  assert.equal(after.tabs.filter((tab) => tab.pressed === "true").length, 1);
+  assert.equal(after.tabs[2].pressed, "true");
+  assert.notEqual(after.result, before.result, `${label}: selecting another scored zone updates its analysis`);
+  assert.equal(after.scrub, "100");
+  return `${label} multi-zone analysis selector passed`;
 }
 
 async function main() {
@@ -207,6 +258,8 @@ async function main() {
     summaries.push(await embeddedMatrix(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await analysisScrub(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await analysisScrub(cdp, artifactUrl, activityPath, "packaged"));
+    summaries.push(await multiZoneAnalysis(cdp, sourceUrl, `/${slug}/index.html`, "development"));
+    summaries.push(await multiZoneAnalysis(cdp, artifactUrl, activityPath, "packaged"));
     console.log(`Kinematics driving browser regression passed: ${summaries.join("; ")}`);
   } catch (error) { failure = error; }
   try { await cdp?.close?.(); } catch (error) { failure ||= error; }

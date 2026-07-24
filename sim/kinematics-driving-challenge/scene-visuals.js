@@ -21,7 +21,7 @@
   function graphPoints(samples, mode, rect, zone) {
     if (!samples?.length) return [];
     const t0 = samples[0].t;
-    const duration = Math.max(0.001, samples[samples.length - 1].t - t0);
+    const duration = Math.max(0.001, zone?.graphTimeSpan || Levels.GRAPH_TIME_SPAN_S);
     const x0 = samples[0].x;
     const xSpan = Math.max(1, zone?.end - zone?.start || samples[samples.length - 1].x - x0);
     const vSpan = zone?.graphVelocitySpan || Levels.GRAPH_VELOCITY_SPAN;
@@ -41,6 +41,22 @@
     };
   }
   function slopeAt(level, position) { return Levels.segmentAt(level, position)?.slopeDeg || 0; }
+  function visualSlopeAt(level, position, blendDistance = 2) {
+    const current = Levels.segmentAt(level, position);
+    if (!current || !(blendDistance > 0)) return current?.slopeDeg || 0;
+    const index = level.segments.indexOf(current);
+    const previous = level.segments[index - 1];
+    const next = level.segments[index + 1];
+    if (previous && position - current.start < blendDistance) {
+      const ratio = (position - current.start + blendDistance) / (blendDistance * 2);
+      return previous.slopeDeg + (current.slopeDeg - previous.slopeDeg) * Math.max(0, Math.min(1, ratio));
+    }
+    if (next && current.end - position < blendDistance) {
+      const ratio = (position - (current.end - blendDistance)) / (blendDistance * 2);
+      return current.slopeDeg + (next.slopeDeg - current.slopeDeg) * Math.max(0, Math.min(1, ratio));
+    }
+    return current.slopeDeg;
+  }
   function targetLabel(target) {
     return {
       uniform: "保持勻速", accelerating: "保持勻加速", decelerating: "保持勻減速",
@@ -62,5 +78,5 @@
       : (straight ? "圖線接近向下直線" : "圖線大致向下，但斜率有變化");
   }
 
-  return { roadY, worldToScreen, graphPoints, sceneryCell, slopeAt, targetLabel, graphShapeLabel };
+  return { roadY, worldToScreen, graphPoints, sceneryCell, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel };
 });

@@ -145,13 +145,64 @@ assert.equal(Persistence.decode(mismatched), null, "checkpoint revision mismatch
 const earlyAnswer = cloneEncoded(mismatched);
 earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
 assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
+for (const malformed of [
+  { path: ["b"], value: 2 },
+  { path: ["b"], value: false },
+  { path: ["k", "x"], value: 2 },
+  { path: ["k", "x"], value: "1" },
+  { path: ["k", "y"], value: true }
+]) {
+  const encoded = Persistence.encode(base());
+  if (malformed.path.length === 1) encoded[malformed.path[0]] = malformed.value;
+  else encoded[malformed.path[0]][malformed.path[1]] = malformed.value;
+  assert.equal(Persistence.decode(encoded), null, `${malformed.path.join(".")} requires compact 0/1`);
+}
 
-const innerReviewBytes = Persistence.bytes(reviewEncoded);
-const sharedReview = { version: 1, activity: "kinematics-driving-challenge", kind: "review", answer: reviewEncoded, score: 50, passed: false };
+function maxTickCodes(level) {
+  const codes = [];
+  let run = Model.replay(level, codes);
+  while (!run.state.terminal) {
+    const zone = Levels.segmentAt(level, run.state.x);
+    const desiredAcceleration = .8 * (2.5 - run.state.v);
+    const code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
+      Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, candidate) - desiredAcceleration) <
+      Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
+    codes.push(code);
+    run = Model.replay(level, codes);
+  }
+  assert.equal(run.state.terminal, "max-ticks");
+  assert.equal(codes.length, level.maxTicks);
+  return codes;
+}
+const maxTick = Object.fromEntries(Levels.LEVELS.map((level) => [level.id, maxTickCodes(level)]));
+const maxSelected = Object.fromEntries(Levels.LEVELS.map((level) =>
+  [level.id, { revision: 999, codes: maxTick[level.id] }]
+));
+const maxCheckpoint = {
+  sourceLevelId: "level2", sourceRunRevision: 999, viewedXt: true, viewedVt: true,
+  answerId: Scoring.CHECKPOINT_ANSWER
+};
+const maxDraft = base({
+  phase: "level", variant: "paused", currentItem: "level5",
+  selectedRuns: Object.fromEntries(Levels.LEVELS.slice(0, 4).map((level) =>
+    [level.id, { revision: 999, codes: maxTick[level.id] }]
+  )),
+  graphCheckpoint: maxCheckpoint,
+  candidateRun: { ownerId: "level5", codes: maxTick.level5.slice(0, -1) }
+});
+const maxDraftEncoded = Persistence.encode(maxDraft);
+assert(Persistence.bytes(maxDraftEncoded) < 3600, `max-tick draft ${Persistence.bytes(maxDraftEncoded)} bytes`);
+const maxComplete = base({
+  phase: "review", variant: "complete", currentItem: "review",
+  selectedRuns: maxSelected, graphCheckpoint: maxCheckpoint
+});
+const maxReviewEncoded = Persistence.makeReview(maxComplete);
+const innerReviewBytes = Persistence.bytes(maxReviewEncoded);
+const sharedReview = { version: 1, activity: "kinematics-driving-challenge", kind: "review", answer: maxReviewEncoded, score: 50, passed: false };
 const pending = { version: 1, activity: "kinematics-driving-challenge", kind: "pending-final", payload: { reviewJson: JSON.stringify(sharedReview), score: 50, maxScore: 100, passed: false } };
-assert(innerReviewBytes < 2200, `inner review ${innerReviewBytes} bytes`);
-assert(Persistence.bytes(sharedReview) < 2800);
-assert(Persistence.bytes(pending) < 4000);
+assert(innerReviewBytes < 2200, `max-tick inner review ${innerReviewBytes} bytes`);
+assert(Persistence.bytes(sharedReview) < 2800, `max-tick shared review ${Persistence.bytes(sharedReview)} bytes`);
+assert(Persistence.bytes(pending) < 4000, `max-tick pending submit ${Persistence.bytes(pending)} bytes`);
 
 function cloneEncoded(value) { return JSON.parse(JSON.stringify(value)); }
 console.log("Kinematics driving persistence matrix tests passed");

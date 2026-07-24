@@ -297,6 +297,7 @@
 - `x–t` 圖顯示「由本區入口起計的路線位置」。
 - `v–t` 圖顯示同一區域的向前速度。
 - 一次試車內每個區域的時間及縱軸比例固定，不隨數據自動縮放。
+- 第一版所有區域共用 `12 s` 的水平時間跨度及 `20` 個內部速度單位的縱軸跨度；只完成部分區域時，圖線只畫到實際時間位置，不拉伸至整個圖窗。
 - 比例由已驗證的關卡定義決定，確保所有合法運動留在圖內。
 - 過渡區不混入相鄰計分區的圖線。
 - 區域尚未完成時，圖線由左至右逐步形成；完成後凍結供回放。
@@ -570,10 +571,10 @@ CAR_MASS_KG = 1200
 GRAVITY_M_S2 = 9.81
 ROLLING_RESISTANCE_N = 180
 STATIC_HOLD_N = 220
-DRAG_COEFFICIENT_N_PER_M_S_SQUARED = 0.38
+DRAG_COEFFICIENT_N_PER_M_S_SQUARED = 8
 
-THROTTLE_FORCE_N = [220, 1100, 2500]
-BRAKE_FORCE_N = [650, 1600, 3200]
+THROTTLE_FORCE_N = [360, 1150, 2500]
+BRAKE_FORCE_N = [400, 900, 1800]
 
 UPHILL_ANGLE_DEG = +4
 DOWNHILL_ANGLE_DEG = -4
@@ -717,7 +718,7 @@ signedSlope = desiredSign × slope
 D = riseScore(plotRise) if signedSlope > SIGN_EPSILON else 0
 
 normalizedRMSE = RMSE / fixedGraphVelocitySpan
-S_linear = fullThenFade(normalizedRMSE, 0.025, 0.080)
+S_linear = fullThenFade(normalizedRMSE, 0.003, 0.014)
 
 zoneFraction = 0.25 × C
              + 0.25 × D

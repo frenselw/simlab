@@ -74,7 +74,7 @@
     const plotRise = Math.abs(summary.deltaV) / zone.graphVelocitySpan;
     const direction = signedSlope > SIGN_EPSILON;
     const D = direction ? riseScore(plotRise) : 0;
-    const linearity = fullThenFade(summary.rmse / zone.graphVelocitySpan, 0.025, 0.08);
+    const linearity = fullThenFade(summary.rmse / zone.graphVelocitySpan, 0.003, 0.014);
     const fraction = 0.25 * C + 0.25 * D + 0.5 * (direction ? linearity : 0);
     let kind = "stable";
     if (!direction) kind = Math.abs(summary.slope) <= SIGN_EPSILON ? "too-small" : "wrong-direction";

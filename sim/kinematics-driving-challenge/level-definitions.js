@@ -7,9 +7,13 @@
 
   const LEVEL_SET_VERSION = 1;
   const GRAPH_VELOCITY_SPAN = 20;
+  const GRAPH_TIME_SPAN_S = 12;
 
   function zone(id, start, end, slopeDeg, target, points) {
-    return Object.freeze({ id, start, end, slopeDeg, target, points, graphVelocitySpan: GRAPH_VELOCITY_SPAN });
+    return Object.freeze({
+      id, start, end, slopeDeg, target, points,
+      graphVelocitySpan: GRAPH_VELOCITY_SPAN, graphTimeSpan: GRAPH_TIME_SPAN_S
+    });
   }
 
   const LEVELS = Object.freeze([
@@ -95,7 +99,7 @@
   }
 
   return {
-    LEVEL_SET_VERSION, GRAPH_VELOCITY_SPAN, LEVELS, PRACTICE,
+    LEVEL_SET_VERSION, GRAPH_VELOCITY_SPAN, GRAPH_TIME_SPAN_S, LEVELS, PRACTICE,
     levelById, segmentAt, scoredZones, validateLevel
   };
 });

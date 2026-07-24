@@ -26,4 +26,29 @@ const trusted = UiPolicy.reviewOutcome(
 );
 assert.equal(trusted.trusted, true);
 
+function reviewState(selectedIds, answered = false) {
+  return {
+    phase: "review",
+    selectedRuns: Object.fromEntries(selectedIds.map((id) => [id, { revision: 1, codes: [] }])),
+    graphCheckpoint: { answerId: answered ? "vt-linear" : null }
+  };
+}
+let review = reviewState([]);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level1"), true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level2"), false, "later incomplete levels cannot be entered out of order");
+assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), false);
+review = reviewState(["level1", "level2", "level3"]);
+assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level4"), false, "checkpoint remains a prerequisite for level 4");
+review = reviewState(["level1", "level2", "level3"], true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level4"), true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), false);
+review.selectedRuns.level5 = { revision: 1, codes: [] };
+assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), true, "an already selected run remains available for retry");
+
+assert.equal(UiPolicy.shouldHandleGlobalShortcut({ closest: () => null }), true);
+for (const selector of ["button", "input", "select", "textarea", "a[href]", "summary", "[contenteditable='true']", "[role='button']"]) {
+  assert.equal(UiPolicy.shouldHandleGlobalShortcut({ closest: (query) => query.includes(selector) ? {} : null }), false);
+}
+
 console.log("Kinematics driving lifecycle UI tests passed");
