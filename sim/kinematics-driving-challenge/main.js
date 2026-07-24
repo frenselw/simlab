@@ -595,6 +595,7 @@
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
       if (x < -80 || x > width + 80) return;
       const y = baseY + Visuals.roadY(signPosition, level, 0, ppm) - currentElevationY;
+      drawRoadBoundary(x, y, roadDepth);
       drawTargetSign(x, y - 12, segment.target);
     });
     drawCar(anchorX, baseY + roadDepth * .55, Math.max(.78, Math.min(1.08, width / 720)), Visuals.visualSlopeAt(level, sample.x), Model.wheelAngle(sample.x));

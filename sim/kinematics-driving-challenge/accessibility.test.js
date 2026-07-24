@@ -37,6 +37,7 @@ assert.match(main, /elements\.reviewList\.addEventListener\("click", \(event\) =
 assert.match(html, /id="analysisZoneTabs"/);
 assert.doesNotMatch(html, /id="graphTitle"/);
 assert.match(main, /function drawRoadBoundary\(/);
+assert.match(main, /drawRoadBoundary\(x, y, roadDepth\);\s*drawTargetSign\(x, y - 12, segment\.target\);/);
 assert.doesNotMatch(main, /setLineDash/);
 assert.doesNotMatch(main, /function drawUpcomingSign\(/);
 assert.doesNotMatch(main, /function drawBoundarySign\(/);

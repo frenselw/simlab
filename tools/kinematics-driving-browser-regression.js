@@ -92,7 +92,7 @@ function levelFourPreviewDraft() {
 function levelFiveBoundaryDraft() {
   const state = {
     ...Persistence.initialState(), phase: "level", variant: "paused", currentItem: "level5",
-    candidateRun: { ownerId: "level5", codes: Array(150).fill(1) }
+    candidateRun: { ownerId: "level5", codes: [] }
   };
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
@@ -389,7 +389,7 @@ async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
     { position: 187, target: "uniform" }
   ]);
   assert(visual.yellow > 80 && visual.minX < visual.maxX,
-    `${label}: a high-contrast instruction boundary crosses the road (${JSON.stringify(visual)})`);
+    `${label}: the first instruction sign has a high-contrast line across the road (${JSON.stringify(visual)})`);
   assert.match(visual.status, /保持勻速/);
   assert.match(visual.instruction, /路牌正下方.*黃色分界線.*越過分界線後/);
   assert.doesNotMatch(`${visual.status} ${visual.instruction}`, /準備|計分區|轉換區|下一區/);
