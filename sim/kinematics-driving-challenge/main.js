@@ -385,7 +385,7 @@
     elements.panelTitle.textContent = level.title;
     elements.instruction.innerHTML = physicsHtml(level.instruction);
     elements.stageKicker.textContent = practice ? "操作練習" : `第 ${level.number} 關`;
-    elements.stageTarget.textContent = Visuals.targetLabel(activeSampleSegment()?.target || level.segments[0].target);
+    elements.stageTarget.textContent = Visuals.stageTargetLabel(level, activeSampleSegment() || level.segments[0]);
     const briefing = ["ready", "briefing", "review-retry-briefing"].includes(state.variant);
     const paused = state.variant === "paused" || state.variant === "review-retry-paused";
     const analysis = state.variant.endsWith("analysis");
@@ -586,9 +586,14 @@
       const x = Visuals.worldToScreen(marker.position, sample.x, anchorX, ppm);
       if (x < -40 || x > width + 40) return;
       const y = baseY + Visuals.roadY(marker.position, level, 0, ppm) - currentElevationY;
-      drawRoadBoundary(x, y, roadDepth, marker.kind);
+      const distanceAhead = marker.position - sample.x;
+      const showDetail = distanceAhead >= -2 && distanceAhead <= 20;
+      drawRoadBoundary(x, y, roadDepth, marker);
+      if (showDetail && marker.kind === "transition" && marker.nextTarget) drawUpcomingSign(x, y - 12, marker.nextTarget);
+      if (showDetail && marker.kind === "scored") drawScoredStartSign(x, y - 12, marker.target);
     });
     level.segments.forEach((segment) => {
+      if (segment.start > 0) return;
       const signPosition = segment.start === 0 ? Math.min(segment.end - 2, 18) : segment.start;
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
       if (x < -80 || x > width + 80) return;
@@ -735,30 +740,42 @@
     ctx.fillStyle = "rgba(255,255,255,.94)"; ctx.strokeStyle = "#334155"; ctx.lineWidth = 1.5; ctx.fillRect(x - 38, y - 78, 76, 29); ctx.strokeRect(x - 38, y - 78, 76, 29);
     ctx.fillStyle = "#1f2937"; ctx.font = "700 12px system-ui"; ctx.textAlign = "center"; ctx.fillText(label, x, y - 59); ctx.restore();
   }
-  function drawRoadBoundary(x, y, roadDepth, kind) {
-    const prepare = kind === "prepare";
+  function drawRoadBoundary(x, y, roadDepth, marker) {
+    const transition = marker.kind === "transition";
     ctx.save();
     ctx.lineCap = "butt";
-    ctx.setLineDash(prepare ? [8, 6] : []);
+    ctx.setLineDash(transition ? [8, 6] : []);
     ctx.strokeStyle = "rgba(15,23,42,.72)";
-    ctx.lineWidth = prepare ? 8 : 12;
+    ctx.lineWidth = transition ? 8 : 12;
     ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x, y + roadDepth - 2); ctx.stroke();
-    ctx.strokeStyle = prepare ? "#f8fafc" : "#fde047";
-    ctx.lineWidth = prepare ? 4 : 7;
+    ctx.strokeStyle = transition ? "#f8fafc" : "#fde047";
+    ctx.lineWidth = transition ? 4 : 7;
     ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x, y + roadDepth - 2); ctx.stroke();
-    ctx.setLineDash([]);
-    const label = prepare ? "準備" : "開始";
-    ctx.font = "900 11px system-ui";
-    const labelWidth = ctx.measureText(label).width + 14;
-    ctx.fillStyle = prepare ? "#f8fafc" : "#fde047";
-    ctx.strokeStyle = "#1e293b";
+    ctx.restore();
+  }
+  function drawScoredStartSign(x, y, target) {
+    drawBoundarySign(x, y, ["由黃色線開始計分", Visuals.targetLabel(target)], "#fef9c3", "#a16207", "#713f12");
+  }
+  function drawUpcomingSign(x, y, target) {
+    drawBoundarySign(x, y, ["轉換區（不計分）", `下一區：${Visuals.targetLabel(target)}`], "#eff6ff", "#1d4ed8", "#1e3a8a");
+  }
+  function drawBoundarySign(x, y, lines, fill, stroke, text) {
+    ctx.save();
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 50); ctx.stroke();
+    ctx.font = "800 10px system-ui";
+    const width = Math.max(100, ...lines.map((line) => ctx.measureText(line).width + 14));
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
     ctx.lineWidth = 1.5;
-    ctx.fillRect(x - labelWidth / 2, y - 22, labelWidth, 19);
-    ctx.strokeRect(x - labelWidth / 2, y - 22, labelWidth, 19);
-    ctx.fillStyle = "#1e293b";
+    ctx.fillRect(x - width / 2, y - 91, width, 42);
+    ctx.strokeRect(x - width / 2, y - 91, width, 42);
+    ctx.fillStyle = text;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, x, y - 12.5);
+    ctx.fillText(lines[0], x, y - 78);
+    ctx.fillText(lines[1], x, y - 62);
     ctx.restore();
   }
   function drawGraph() {
@@ -831,7 +848,7 @@
         neutralize(); announce("裝置暫時未能安全追上物理時間，試車已技術暫停。"); saveDraft(true); render();
       } else {
         elements.stageStatus.textContent = Model.qualitativeMotion(runtimeRun?.samples);
-        elements.stageTarget.textContent = Visuals.targetLabel(activeSampleSegment()?.target);
+        elements.stageTarget.textContent = Visuals.stageTargetLabel(currentLevel(), activeSampleSegment());
         draw();
       }
     }

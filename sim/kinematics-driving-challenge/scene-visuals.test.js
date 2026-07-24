@@ -13,13 +13,21 @@ assert(Visuals.visibleBackgroundCells("far", 20, 6, 390).length > 1);
 assert(Visuals.visibleBackgroundCells("roadside", 20, 6, 390).length >
   Visuals.visibleBackgroundCells("far", 20, 6, 390).length, "near roadside scenery is denser than the far layer");
 assert.deepEqual(Visuals.boundaryMarkers(Levels.LEVELS[4]), [
-  { position: 70, target: "transition", kind: "prepare" },
-  { position: 100, target: "decelerating", kind: "start" },
-  { position: 120, target: "transition", kind: "prepare" },
-  { position: 165, target: "accelerating", kind: "start" },
-  { position: 235, target: "transition", kind: "prepare" },
-  { position: 275, target: "uniform", kind: "start" }
+  { position: 70, target: "transition", nextTarget: "decelerating", kind: "transition" },
+  { position: 100, target: "decelerating", nextTarget: "decelerating", kind: "scored" },
+  { position: 120, target: "transition", nextTarget: "accelerating", kind: "transition" },
+  { position: 165, target: "accelerating", nextTarget: "accelerating", kind: "scored" },
+  { position: 235, target: "transition", nextTarget: "uniform", kind: "transition" },
+  { position: 275, target: "uniform", nextTarget: "uniform", kind: "scored" }
 ]);
+assert.equal(
+  Visuals.stageTargetLabel(Levels.LEVELS[4], Levels.LEVELS[4].segments[1]),
+  "轉換區（不計分）｜下一區：保持勻減速"
+);
+assert.equal(
+  Visuals.stageTargetLabel(Levels.LEVELS[4], Levels.LEVELS[4].segments[2]),
+  "計分中：保持勻減速"
+);
 assert.throws(() => Visuals.backgroundAppearance("unknown", 0), /Invalid background cell/);
 assert.equal(Visuals.targetLabel("accelerating"), "保持勻加速");
 assert.equal(Visuals.graphShapeLabel(Array.from({ length: 20 }, (_, index) => ({ v: 5 + index * .2 }))), "圖線接近向上直線");

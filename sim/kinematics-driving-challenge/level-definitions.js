@@ -45,7 +45,7 @@
     }),
     Object.freeze({
       id: "level5", number: 5, title: "混合道路挑戰", shortTitle: "綜合挑戰", color: "#0f766e",
-      instruction: "留意跨越馬路的分界線，在四個計分區切換勻速、勻減速、勻加速與勻速策略。",
+      instruction: "黃色實線表示由此開始計分；白色虛線是轉換區，不計分。留意左上角顯示的目前及下一區目標。",
       initialSpeed: 8, maxTicks: 1200, routeLength: 345,
       segments: Object.freeze([
         zone("l5-uniform-flat", 0, 70, 0, "uniform", 5),

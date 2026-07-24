@@ -37,7 +37,9 @@ assert.match(main, /elements\.reviewList\.addEventListener\("click", \(event\) =
 assert.match(html, /id="analysisZoneTabs"/);
 assert.doesNotMatch(html, /id="graphTitle"/);
 assert.match(main, /function drawRoadBoundary\(/);
-assert.match(main, /setLineDash\(prepare \? \[8, 6\] : \[\]\)/);
+assert.match(main, /setLineDash\(transition \? \[8, 6\] : \[\]\)/);
+assert.match(main, /function drawUpcomingSign\(/);
+assert.match(main, /Visuals\.stageTargetLabel\(/);
 assert.match(main, /font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif"/);
 assert.match(html, /class="math-expression"><var>v<\/var><span class="math-operator">−<\/span><var>t<\/var>/);
 assert.match(html, /class="math-expression"><var>x<\/var><span class="math-operator">−<\/span><var>t<\/var>/);

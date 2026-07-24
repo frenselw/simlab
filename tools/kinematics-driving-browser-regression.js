@@ -380,7 +380,7 @@ async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
   assert.deepEqual(visual.markers.map((marker) => marker.position), [70, 100, 120, 165, 235, 275]);
   assert(visual.yellow > 80 && visual.minX < visual.maxX,
     `${label}: a high-contrast scored-zone boundary crosses the road (${JSON.stringify(visual)})`);
-  assert.match(visual.status, /調整路段/);
+  assert.match(visual.status, /轉換區（不計分）.*下一區：保持勻減速/);
   if (label === "development") {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     fs.writeFileSync(path.join(root, "output", "kinematics-driving-level5-boundary-mobile-qa.png"), Buffer.from(screenshot.data, "base64"));
