@@ -1222,8 +1222,8 @@ Production 可使用短 key，但語意必須包括：
 ```js
 {
   v: 1,
-  physicsVersion: 1,
-  levelSetVersion: 1,
+  physicsVersion: 2,
+  levelSetVersion: 2,
   phase,
   variant,
   currentItem,

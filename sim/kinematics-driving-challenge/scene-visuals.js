@@ -46,7 +46,7 @@
   function graphPoints(samples, mode, rect, zone, windowStart = samples?.[0]?.t || 0) {
     if (!samples?.length) return [];
     const duration = Math.max(0.001, zone?.graphTimeSpan || Levels.GRAPH_TIME_SPAN_S);
-    const x0 = samples[0].x;
+    const x0 = Number.isFinite(zone?.start) ? zone.start : samples[0].x;
     const xSpan = Math.max(1, zone?.end - zone?.start || samples[samples.length - 1].x - x0);
     const vSpan = zone?.graphVelocitySpan || Levels.GRAPH_VELOCITY_SPAN;
     return samples.map((sample) => ({

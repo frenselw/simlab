@@ -47,6 +47,12 @@ const middleSlope = (middlePoints.at(-1).y - middlePoints[0].y) / (middlePoints.
 const lateSlope = (latePoints.at(-1).y - latePoints[0].y) / (latePoints.at(-1).x - latePoints[0].x);
 assert(Math.abs(middleSlope - lateSlope) < 1e-12,
   "panning the fixed window preserves the pixel slope of identical physical acceleration");
+const middleXt = Visuals.graphPoints(middleWindow.samples, "xt", rect, { ...zone, end: 200 }, middleWindow.startTime);
+const lateXt = Visuals.graphPoints(lateWindow.samples, "xt", rect, { ...zone, end: 200 }, lateWindow.startTime);
+assert(Math.abs(middleXt[0].y - (rect.y + rect.height - middleWindow.samples[0].x / 200 * rect.height)) < 1e-12);
+assert(Math.abs(lateXt[0].y - (rect.y + rect.height - lateWindow.samples[0].x / 200 * rect.height)) < 1e-12);
+assert(lateXt[0].y < middleXt[0].y,
+  "x–t vertical position remains referenced to the zone entrance while only the time axis pans");
 const earlyWindow = Visuals.graphWindow(longRun, 6, 12);
 assert.equal(earlyWindow.startTime, 0, "the graph does not pan before its fixed twelve-second span is filled");
 
