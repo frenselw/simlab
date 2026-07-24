@@ -6,24 +6,38 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
-  const PHYSICS_VERSION = 4;
+  const PHYSICS_VERSION = 5;
   const TICK_S = 0.05;
   const GRAVITY = 9.81;
-  const THROTTLE_ACCELERATIONS = Object.freeze([0, 0.5, 0.75, 1]);
-  const BRAKE_ACCELERATIONS = Object.freeze([0, 0.5, 0.75, 1]);
+  const RESISTANCE_BASE = 0.05;
+  const RESISTANCE_SPEED_SQUARED = 0.008;
+  const UNIFORM_SPEED = 8;
   const MAX_SPEED = 20;
   const STOP_TIMEOUT_TICKS = 60;
   const CONTROL_LABELS = Object.freeze(["空檔", "輕油門", "中油門", "油門踩盡", "輕煞車", "中煞車", "煞車踩盡"]);
 
   function validCode(code) { return Number.isInteger(code) && code >= 0 && code <= 6; }
-  function pedalAcceleration(code) {
+  function resistanceAcceleration(speed) {
+    return RESISTANCE_BASE + RESISTANCE_SPEED_SQUARED * Math.max(0, speed) ** 2;
+  }
+  function driveAcceleration(speed, code) {
     if (!validCode(code)) throw new Error("Invalid control code");
-    if (code === 0) return 0;
-    return code <= 3 ? THROTTLE_ACCELERATIONS[code] : -BRAKE_ACCELERATIONS[code - 3];
+    if (code === 1) return resistanceAcceleration(UNIFORM_SPEED);
+    if (code === 2) return resistanceAcceleration(speed) + 0.6;
+    if (code === 3) return resistanceAcceleration(speed) + 0.4 + 0.05 * Math.max(0, speed);
+    return 0;
+  }
+  function brakeAcceleration(speed, code) {
+    if (!validCode(code)) throw new Error("Invalid control code");
+    if (code === 4) return 0.18;
+    if (code === 5) return Math.max(0, 1.3 - resistanceAcceleration(speed));
+    if (code === 6) return Math.max(0, 0.5 + 0.12 * Math.max(0, speed) - resistanceAcceleration(speed));
+    return 0;
   }
   function slopeAcceleration(slopeDeg) { return GRAVITY * Math.sin(slopeDeg * Math.PI / 180); }
   function accelerationFor(speed, slopeDeg, code) {
-    const acceleration = pedalAcceleration(code) - slopeAcceleration(slopeDeg);
+    const acceleration = driveAcceleration(speed, code) - brakeAcceleration(speed, code) -
+      resistanceAcceleration(speed) - slopeAcceleration(slopeDeg);
     if (speed <= 0 && acceleration <= 0) return 0;
     return acceleration;
   }
@@ -138,8 +152,9 @@
   }
 
   return {
-    PHYSICS_VERSION, TICK_S, GRAVITY, THROTTLE_ACCELERATIONS, BRAKE_ACCELERATIONS, MAX_SPEED,
-    CONTROL_LABELS, validCode, pedalAcceleration, slopeAcceleration, accelerationFor, initialState, tick, replay, isTerminalRun,
+    PHYSICS_VERSION, TICK_S, GRAVITY, RESISTANCE_BASE, RESISTANCE_SPEED_SQUARED, UNIFORM_SPEED, MAX_SPEED,
+    CONTROL_LABELS, validCode, resistanceAcceleration, driveAcceleration, brakeAcceleration,
+    slopeAcceleration, accelerationFor, initialState, tick, replay, isTerminalRun,
     wheelAngle, qualitativeMotion, consumeInputTransitions, crossingDuration
   };
 });

@@ -146,11 +146,11 @@ const earlyAnswer = cloneEncoded(mismatched);
 earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
 assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
 const priorPhysics = Persistence.encode(base());
-priorPhysics.p = 3;
-assert.equal(Persistence.decode(priorPhysics), null, "a physics-v3 snapshot is rejected after pedal-depth expansion");
+priorPhysics.p = 4;
+assert.equal(Persistence.decode(priorPhysics), null, "a physics-v4 snapshot is rejected after resistance-model calibration");
 const priorLevels = Persistence.encode(base());
-priorLevels.l = 3;
-assert.equal(Persistence.decode(priorLevels), null, "a level-set-v3 snapshot is rejected after slope-level expansion");
+priorLevels.l = 4;
+assert.equal(Persistence.decode(priorLevels), null, "a level-set-v4 snapshot is rejected after unique-strategy calibration");
 for (const malformed of [
   { path: ["b"], value: 2 },
   { path: ["b"], value: false },

@@ -11,9 +11,15 @@ assert(Model.accelerationFor(8, 0, 1) > Model.accelerationFor(8, 0, 0));
 assert(Model.accelerationFor(8, 0, 0) > Model.accelerationFor(8, 0, 4));
 assert(Model.accelerationFor(8, 0, 4) > Model.accelerationFor(8, 0, 5));
 assert(Model.accelerationFor(8, 0, 5) > Model.accelerationFor(8, 0, 6));
-assert.equal(Model.accelerationFor(8, 0, 0), 0);
-assert.equal(Model.accelerationFor(4, 0, 1), Model.accelerationFor(12, 0, 1),
-  "fixed throttle produces fixed acceleration without speed-dependent drag");
+assert.equal(Model.accelerationFor(8, 0, 0), -Model.resistanceAcceleration(8));
+assert(Math.abs(Model.accelerationFor(8, 0, 1)) < 1e-12,
+  "light throttle balances resistance at the level-1 entry speed");
+assert(Math.abs(Model.accelerationFor(4, 0, 2) - Model.accelerationFor(12, 0, 2)) < 1e-12,
+  "the tuned medium throttle produces fixed acceleration");
+assert(Model.accelerationFor(12, 0, 3) > Model.accelerationFor(4, 0, 3),
+  "full throttle produces increasing acceleration and a curved v–t trace");
+assert(Model.accelerationFor(4, 0, 1) > Model.accelerationFor(12, 0, 1),
+  "light throttle approaches its equilibrium speed instead of producing uniform acceleration");
 assert(Model.accelerationFor(8, -4, 0) > Model.accelerationFor(8, 0, 0));
 assert(Model.accelerationFor(8, 0, 0) > Model.accelerationFor(8, 4, 0));
 assert.equal(Model.accelerationFor(0, 0, 6), 0, "a stopped car does not reverse under braking");

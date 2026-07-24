@@ -13,7 +13,7 @@ assert.deepEqual(Levels.LEVELS.map((level) => level.id), ["level1", "level2", "l
 assert(Levels.LEVELS[3].segments.some((segment) => segment.slopeDeg > 0));
 assert(Levels.LEVELS[3].segments.some((segment) => segment.slopeDeg < 0));
 assert.equal(Levels.scoredZones(Levels.LEVELS[3]).length, 3);
-assert.equal(Levels.segmentAt(Levels.LEVELS[4], 50).target, "transition");
+assert.equal(Levels.segmentAt(Levels.LEVELS[4], 45).target, "transition");
 assert.equal(Levels.scoredZones(Levels.LEVELS[4]).length, 4);
 assert.equal(Levels.LEVELS.flatMap(Levels.scoredZones).reduce((sum, zone) => sum + zone.points, 0), 90);
 const catalog = fs.readFileSync(path.join(__dirname, "..", "config.js"), "utf8");
@@ -23,6 +23,7 @@ assert.match(catalog, /folder:\s*"kinematics-driving-challenge"[\s\S]*?status:\s
 function simpleControlFor(zone) {
   if (zone.target === "accelerating") return 2;
   if (zone.target === "decelerating") return 5;
+  if (zone.target === "transition") return 1;
   if (zone.target === "uniform") {
     return Array.from({ length: 7 }, (_, code) => code).reduce((best, code) =>
       Math.abs(Model.accelerationFor(8, zone.slopeDeg, code)) <
@@ -54,19 +55,21 @@ for (const code of [1, 2, 3]) {
   const codes = [];
   let run = Model.replay(level, codes);
   while (!run.state.terminal) { codes.push(code); run = Model.replay(level, codes); }
-  assert.equal(Scoring.scoreRun(level, codes).points, level.segments[0].points,
-    `level2 accepts one unchanged throttle intensity ${code}`);
+  const points = Scoring.scoreRun(level, codes).points;
+  if (code === 2) assert.equal(points, level.segments[0].points, "level2 accepts the tuned medium throttle");
+  else assert(points <= 16, `level2 clearly rejects non-uniform throttle intensity ${code}`);
 }
 for (const code of [4, 5, 6]) {
   const level = Levels.levelById("level3");
   const codes = [];
   let run = Model.replay(level, codes);
   while (!run.state.terminal) { codes.push(code); run = Model.replay(level, codes); }
-  assert.equal(Scoring.scoreRun(level, codes).points, level.segments[0].points,
-    `level3 accepts one unchanged brake intensity ${code}`);
+  const points = Scoring.scoreRun(level, codes).points;
+  if (code === 5) assert.equal(points, level.segments[0].points, "level3 accepts the tuned medium brake");
+  else assert(points <= 16, `level3 clearly rejects non-uniform brake intensity ${code}`);
 }
 
-for (const [levelId, fixedCode] of [["level2", 0], ["level2", 4], ["level3", 0], ["level3", 1]]) {
+for (const [levelId, fixedCode] of [["level1", 0], ["level1", 2], ["level2", 0], ["level2", 4], ["level3", 0], ["level3", 1]]) {
   const level = Levels.levelById(levelId);
   const codes = [];
   let run = Model.replay(level, codes);
@@ -76,6 +79,18 @@ for (const [levelId, fixedCode] of [["level2", 0], ["level2", 4], ["level3", 0],
   }
   const scored = Scoring.scoreRun(level, codes);
   assert(scored.points < scored.maxPoints, `${levelId} rejects the wrong fixed input ${fixedCode}`);
+}
+
+for (const [levelId, correctCode] of [["level1", 1], ["level2", 2], ["level3", 5]]) {
+  const level = Levels.levelById(levelId);
+  for (let code = 0; code <= 6; code += 1) {
+    const codes = [];
+    let run = Model.replay(level, codes);
+    while (!run.state.terminal) { codes.push(code); run = Model.replay(level, codes); }
+    const points = Scoring.scoreRun(level, codes).points;
+    if (code === correctCode) assert.equal(points, level.segments[0].points, `${levelId} unique strategy is full credit`);
+    else assert(points <= level.segments[0].points * .9, `${levelId} wrong fixed code ${code} stays clearly below full credit`);
+  }
 }
 
 const mixed = simpleHoldStrategy(Levels.levelById("level5"));
