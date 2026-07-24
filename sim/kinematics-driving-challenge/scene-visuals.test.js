@@ -7,7 +7,12 @@ const Visuals = require("./scene-visuals.js");
 assert.equal(Visuals.worldToScreen(12, 10, 100, 5), 110);
 assert.equal(Visuals.roadY(10, Levels.LEVELS[0], 200, 5), 200);
 assert(Visuals.roadY(30, Levels.LEVELS[3], 200, 5) < 200, "uphill rises on screen");
-assert.deepEqual(Visuals.sceneryCell(7, 3), Visuals.sceneryCell(7, 3));
+assert.deepEqual(Visuals.backgroundAppearance("far", 7, 3), Visuals.backgroundAppearance("far", 7, 3));
+assert.deepEqual(Visuals.backgroundAppearance("roadside", -4, 11), Visuals.backgroundAppearance("roadside", -4, 11));
+assert(Visuals.visibleBackgroundCells("far", 20, 6, 390).length > 1);
+assert(Visuals.visibleBackgroundCells("roadside", 20, 6, 390).length >
+  Visuals.visibleBackgroundCells("far", 20, 6, 390).length, "near roadside scenery is denser than the far layer");
+assert.throws(() => Visuals.backgroundAppearance("unknown", 0), /Invalid background cell/);
 assert.equal(Visuals.targetLabel("accelerating"), "保持勻加速");
 assert.equal(Visuals.graphShapeLabel(Array.from({ length: 20 }, (_, index) => ({ v: 5 + index * .2 }))), "圖線接近向上直線");
 const points = Visuals.graphPoints([{ t: 0, x: 0, v: 5 }, { t: 1, x: 6, v: 7 }], "vt", { x: 0, y: 0, width: 100, height: 100 }, { start: 0, end: 10, graphVelocitySpan: 20, graphTimeSpan: 12 });

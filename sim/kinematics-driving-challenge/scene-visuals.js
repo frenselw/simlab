@@ -6,6 +6,12 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
+  const BACKGROUND_LAYERS = Object.freeze({
+    far: Object.freeze({ spacing: 15, parallax: 0.7, salt: 0x4f1bbcdc }),
+    roadside: Object.freeze({ spacing: 9, parallax: 1, salt: 0x68bc21eb })
+  });
+
+  function positiveModulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
   function roadY(position, level, baseY, pixelsPerMetre) {
     let elevation = 0;
     for (const segment of level.segments) {
@@ -56,13 +62,47 @@
         : rect.y + rect.height - sample.v / vSpan * rect.height
     }));
   }
-  function sceneryCell(index, seed = 17) {
-    const value = Math.abs(Math.sin((index + seed) * 12.9898) * 43758.5453) % 1;
-    return {
-      kind: value < 0.36 ? "tree" : value < 0.7 ? "building" : "lamp",
-      height: 0.55 + value * 0.45,
-      hue: value < 0.5 ? "#94a3b8" : "#a9c994"
-    };
+  function mixHash(value) {
+    let hash = Math.imul(value ^ value >>> 16, 0x45d9f3b);
+    hash = Math.imul(hash ^ hash >>> 16, 0x45d9f3b);
+    return (hash ^ hash >>> 16) >>> 0;
+  }
+  function hashCell(layer, cellId, seed = 0) {
+    const config = BACKGROUND_LAYERS[layer];
+    if (!config || !Number.isSafeInteger(cellId) || !Number.isSafeInteger(seed)) throw new TypeError("Invalid background cell");
+    const low = cellId >>> 0;
+    const high = Math.floor(cellId / 0x100000000) >>> 0;
+    return mixHash(mixHash(low ^ config.salt ^ seed) ^ high);
+  }
+  function backgroundAppearance(layer, cellId, seed = 0) {
+    const hash = hashCell(layer, cellId, seed);
+    const variant = (hash >>> 7) % 4;
+    const offset = ((hash >>> 12) % 61 - 30) / 100;
+    if (layer === "far") {
+      const choice = hash % 10;
+      if (choice === 0) return { type: "empty", offset };
+      if (choice <= 2) return { type: "house", width: 42 + (hash >>> 3) % 15, height: 36 + (hash >>> 9) % 13, variant, offset };
+      if (choice <= 4) return { type: "shop", width: 50 + (hash >>> 3) % 17, height: 38 + (hash >>> 9) % 12, variant, offset };
+      if (choice <= 7) return { type: "apartment", width: 44 + (hash >>> 3) % 18, height: 64 + (hash >>> 9) % 35, variant, offset };
+      return { type: "treeCluster", width: 52 + (hash >>> 3) % 20, height: 43 + (hash >>> 9) % 15, variant, offset };
+    }
+    const choice = hash % 12;
+    if (choice <= 1) return { type: "empty", offset };
+    if (choice <= 4) return { type: "tree", width: 38 + (hash >>> 3) % 15, height: 60 + (hash >>> 9) % 26, variant, offset };
+    if (choice <= 6) return { type: "shrubs", width: 48 + (hash >>> 3) % 21, height: 22 + (hash >>> 9) % 10, variant, offset };
+    if (choice <= 8) return { type: "lamp", width: 22, height: 67 + (hash >>> 9) % 16, variant, offset };
+    if (choice === 9) return { type: "sign", width: 27 + (hash >>> 3) % 8, height: 48 + (hash >>> 9) % 10, variant, offset };
+    return { type: "treeShrubs", width: 62 + (hash >>> 3) % 18, height: 61 + (hash >>> 9) % 22, variant, offset };
+  }
+  function visibleBackgroundCells(layer, worldPosition, pixelsPerMetre, viewportWidth, bufferPixels = 110) {
+    const config = BACKGROUND_LAYERS[layer];
+    if (!config || ![worldPosition, pixelsPerMetre, viewportWidth, bufferPixels].every(Number.isFinite) ||
+        pixelsPerMetre <= 0 || viewportWidth <= 0 || bufferPixels < 0) throw new TypeError("Invalid background viewport");
+    const effectiveScale = pixelsPerMetre * config.parallax;
+    const halfSpan = (viewportWidth / 2 + bufferPixels) / effectiveScale;
+    const first = Math.floor((worldPosition - halfSpan) / config.spacing);
+    const last = Math.ceil((worldPosition + halfSpan) / config.spacing);
+    return Array.from({ length: last - first + 1 }, (_, index) => first + index);
   }
   function slopeAt(level, position) { return Levels.segmentAt(level, position)?.slopeDeg || 0; }
   function visualSlopeAt(level, position, blendDistance = 2) {
@@ -102,5 +142,8 @@
       : (straight ? "圖線接近向下直線" : "圖線大致向下，但斜率有變化");
   }
 
-  return { roadY, worldToScreen, graphWindow, graphPoints, sceneryCell, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel };
+  return {
+    BACKGROUND_LAYERS, positiveModulo, roadY, worldToScreen, graphWindow, graphPoints,
+    backgroundAppearance, visibleBackgroundCells, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel
+  };
 });

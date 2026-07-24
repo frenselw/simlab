@@ -118,7 +118,11 @@
     const run = replay(level, codes);
     return Boolean(run?.state.terminal && ["complete", "stopped", "max-speed", "max-ticks"].includes(run.state.terminal));
   }
-  function wheelAngle(distance, radius = 0.34) { return -(distance / radius) % (Math.PI * 2); }
+  function wheelAngle(distance, radius = 0.58) {
+    if (!Number.isFinite(distance) || !Number.isFinite(radius) || radius <= 0) throw new TypeError("Invalid wheel geometry");
+    const turn = distance / radius;
+    return ((turn % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  }
   function qualitativeMotion(samples) {
     if (!samples || samples.length < 8) return "資料尚不足";
     const recent = samples.slice(-12);

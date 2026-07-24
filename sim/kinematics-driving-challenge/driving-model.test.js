@@ -60,6 +60,8 @@ let state = Model.initialState(level);
 for (let index = 0; index < level.maxTicks && !state.terminal; index += 1) state = Model.tick(level, state, 1);
 assert(["complete", "max-ticks"].includes(state.terminal));
 assert.equal(Model.wheelAngle(10), Model.wheelAngle(10));
+assert(Model.wheelAngle(.58 * Math.PI / 2) > 0, "positive forward travel rotates the wheel clockwise in Canvas coordinates");
+assert.throws(() => Model.wheelAngle(1, 0), /Invalid wheel geometry/);
 assert.match(Model.qualitativeMotion(runA.samples), /速度|車輛/);
 
 console.log("Kinematics driving model tests passed");

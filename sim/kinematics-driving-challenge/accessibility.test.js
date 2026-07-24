@@ -34,6 +34,10 @@ assert.match(html, /class="math-expression"><var>x<\/var><span class="math-opera
 assert.match(main, /function physicsHtml\(value\)/);
 assert.match(main, /elements\.instruction\.innerHTML = physicsHtml\(level\.instruction\)/);
 assert.match(css, /\.math-expression var \{[^}]*font-style: italic/);
+assert.match(main, /function drawFarLandmark\(/);
+assert.match(main, /function drawRoadsideLandmark\(/);
+assert.match(main, /function fillRoadStrip\(/);
+assert.match(main, /drawCar\(anchorX, baseY \+ roadDepth \* \.55/);
 assert.doesNotMatch(html, /m\/s|m\/s²|m\/s<sup>2/);
 assert.doesNotMatch(html, /type="number"/);
 

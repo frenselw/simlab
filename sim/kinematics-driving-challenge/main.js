@@ -506,57 +506,182 @@
     const anchorX = width * 0.38;
     const baseY = height * 0.68;
     const ppm = Math.max(4.2, Math.min(7, width / 115));
+    const roadDepth = Math.max(52, Math.min(82, height * .19));
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#dbeafe"; ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#bfdbfe"; ctx.beginPath(); ctx.moveTo(0, baseY - 55); ctx.lineTo(width * .28, baseY - 105); ctx.lineTo(width * .55, baseY - 58); ctx.lineTo(width, baseY - 120); ctx.lineTo(width, baseY); ctx.lineTo(0, baseY); ctx.fill();
+    const sky = ctx.createLinearGradient(0, 0, 0, baseY);
+    sky.addColorStop(0, "#dbeafe"); sky.addColorStop(1, "#eff6ff");
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#c9dcf4"; ctx.beginPath();
+    ctx.moveTo(0, baseY - 48); ctx.lineTo(width * .2, baseY - 103); ctx.lineTo(width * .4, baseY - 57);
+    ctx.lineTo(width * .62, baseY - 121); ctx.lineTo(width * .82, baseY - 70); ctx.lineTo(width, baseY - 112);
+    ctx.lineTo(width, baseY); ctx.lineTo(0, baseY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d8e6d0"; ctx.beginPath();
+    ctx.moveTo(0, baseY - 24); ctx.lineTo(width * .24, baseY - 61); ctx.lineTo(width * .48, baseY - 29);
+    ctx.lineTo(width * .72, baseY - 70); ctx.lineTo(width, baseY - 34);
+    ctx.lineTo(width, baseY); ctx.lineTo(0, baseY); ctx.closePath(); ctx.fill();
     const currentElevationY = Visuals.roadY(sample.x, level, 0, ppm);
-    for (let cell = Math.floor((sample.x - 80) / 18); cell <= Math.ceil((sample.x + 100) / 18); cell += 1) {
-      const worldX = cell * 18;
-      const x = Visuals.worldToScreen(worldX, sample.x, anchorX, ppm);
-      const y = baseY + Visuals.roadY(worldX, level, 0, ppm) - currentElevationY;
-      const item = Visuals.sceneryCell(cell, level.number * 13);
-      drawScenery(item, x, y, 24 * item.height);
-    }
     const roadPoints = [];
     for (let px = -30; px <= width + 30; px += 8) {
       const worldX = sample.x + (px - anchorX) / ppm;
       roadPoints.push({ x: px, y: baseY + Visuals.roadY(worldX, level, 0, ppm) - currentElevationY });
     }
-    ctx.fillStyle = "#a9c994"; ctx.fillRect(0, baseY - 5, width, height - baseY + 5);
-    ctx.beginPath(); ctx.moveTo(roadPoints[0].x, roadPoints[0].y);
-    roadPoints.forEach((point) => ctx.lineTo(point.x, point.y));
-    ctx.lineTo(width + 30, height); ctx.lineTo(-30, height); ctx.closePath(); ctx.fillStyle = "#4b5563"; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(roadPoints[0].x, roadPoints[0].y - 28);
+    roadPoints.forEach((point) => ctx.lineTo(point.x, point.y - 28));
+    ctx.lineTo(width + 30, height); ctx.lineTo(-30, height); ctx.closePath();
+    ctx.fillStyle = "#9fbe89"; ctx.fill();
+    drawBackgroundLayer("far", sample.x, level, anchorX, ppm, baseY, currentElevationY, width, height);
+    drawBackgroundLayer("roadside", sample.x, level, anchorX, ppm, baseY, currentElevationY, width, height);
+    fillRoadStrip(roadPoints, -15, 0, "#d8d3c6");
+    strokeRoadPath(roadPoints, -14, "#f8fafc", 2);
+    const asphalt = ctx.createLinearGradient(0, baseY, 0, baseY + roadDepth);
+    asphalt.addColorStop(0, "#626c79"); asphalt.addColorStop(.58, "#4b5563"); asphalt.addColorStop(1, "#3f4752");
+    fillRoadStrip(roadPoints, 0, roadDepth, asphalt);
+    strokeRoadPath(roadPoints, 1.5, "#7b8794", 3);
+    strokeRoadPath(roadPoints, roadDepth - 1.5, "#303844", 3);
+    drawRoadTexture(sample.x, anchorX, ppm, roadPoints, roadDepth, width);
+    fillRoadStrip(roadPoints, roadDepth, roadDepth + 15, "#c8c2b5");
+    strokeRoadPath(roadPoints, roadDepth + 2, "#eef2f7", 2);
+    ctx.beginPath(); ctx.moveTo(roadPoints[0].x, roadPoints[0].y + roadDepth + 15);
+    roadPoints.forEach((point) => ctx.lineTo(point.x, point.y + roadDepth + 15));
+    ctx.lineTo(width + 30, height); ctx.lineTo(-30, height); ctx.closePath();
+    ctx.fillStyle = "#789a68"; ctx.fill();
     level.segments.forEach((segment) => {
       const signPosition = segment.start === 0 ? Math.min(segment.end - 2, 18) : segment.start;
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
       if (x < -80 || x > width + 80) return;
       const y = baseY + Visuals.roadY(signPosition, level, 0, ppm) - currentElevationY;
-      drawTargetSign(x, y - 6, segment.target);
+      drawTargetSign(x, y - 12, segment.target);
     });
-    drawCar(anchorX, baseY - 3, Math.max(.72, Math.min(1.05, width / 760)), Visuals.visualSlopeAt(level, sample.x), Model.wheelAngle(sample.x));
+    drawCar(anchorX, baseY + roadDepth * .55, Math.max(.78, Math.min(1.08, width / 720)), Visuals.visualSlopeAt(level, sample.x), Model.wheelAngle(sample.x));
     elements.graphAlternative.textContent = state.graphMode === "hidden" ? "圖像已隱藏" : Visuals.graphShapeLabel(graphSamples());
   }
-  function drawScenery(item, x, y, size) {
-    if (item.kind === "tree") {
-      ctx.fillStyle = "#6b4f35"; ctx.fillRect(x - 2, y - size, 4, size);
-      ctx.fillStyle = item.hue; ctx.beginPath(); ctx.arc(x, y - size, size * .45, 0, Math.PI * 2); ctx.fill();
-    } else if (item.kind === "building") {
-      ctx.fillStyle = item.hue; ctx.fillRect(x - size * .4, y - size * 1.5, size * .8, size * 1.5);
-      ctx.fillStyle = "#e0f2fe"; ctx.fillRect(x - size * .24, y - size * 1.3, size * .18, size * .22);
-    } else {
-      ctx.strokeStyle = "#64748b"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - size * 1.5); ctx.stroke();
-      ctx.fillStyle = "#fef3c7"; ctx.beginPath(); ctx.arc(x + 5, y - size * 1.5, 5, 0, Math.PI * 2); ctx.fill();
+  function fillRoadStrip(points, topOffset, bottomOffset, fillStyle) {
+    ctx.beginPath();
+    points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y + topOffset) : ctx.moveTo(point.x, point.y + topOffset));
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const point = points[index]; ctx.lineTo(point.x, point.y + bottomOffset);
     }
+    ctx.closePath(); ctx.fillStyle = fillStyle; ctx.fill();
+  }
+  function strokeRoadPath(points, offset, strokeStyle, lineWidth) {
+    ctx.beginPath();
+    points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y + offset) : ctx.moveTo(point.x, point.y + offset));
+    ctx.strokeStyle = strokeStyle; ctx.lineWidth = lineWidth; ctx.stroke();
+  }
+  function drawRoadTexture(worldPosition, anchorX, ppm, roadPoints, roadDepth, width) {
+    const firstCell = Math.floor((worldPosition - width / ppm) / 13);
+    const lastCell = Math.ceil((worldPosition + width / ppm) / 13);
+    ctx.save(); ctx.fillStyle = "rgba(15,23,42,.09)";
+    for (let cell = firstCell; cell <= lastCell; cell += 1) {
+      const x = Visuals.worldToScreen(cell * 13 + 4, worldPosition, anchorX, ppm);
+      if (x < -20 || x > width + 20) continue;
+      const nearest = roadPoints[Math.max(0, Math.min(roadPoints.length - 1, Math.round((x + 30) / 8)))];
+      ctx.beginPath(); ctx.ellipse(x, nearest.y + roadDepth * .62, 9, 2.2, -.08, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawBackgroundLayer(layer, worldPosition, level, anchorX, ppm, baseY, currentElevationY, width, height) {
+    const config = Visuals.BACKGROUND_LAYERS[layer];
+    const size = Math.max(.68, Math.min(1.06, Math.min(width / 680, height / 330)));
+    for (const cellId of Visuals.visibleBackgroundCells(layer, worldPosition, ppm, width)) {
+      const appearance = Visuals.backgroundAppearance(layer, cellId, level.number * 29);
+      if (appearance.type === "empty") continue;
+      const world = (cellId + appearance.offset) * config.spacing;
+      const x = anchorX + (world - worldPosition) * ppm * config.parallax;
+      const ground = baseY + Visuals.roadY(world, level, 0, ppm) - currentElevationY - (layer === "far" ? 25 : 7);
+      if (layer === "far") drawFarLandmark(x, ground, appearance, size * .86);
+      else drawRoadsideLandmark(x, ground, appearance, size);
+    }
+  }
+  function drawFarLandmark(x, ground, appearance, size) {
+    const wallColours = ["#9aa9b8", "#b0aaa1", "#90a9a0", "#aaa8a2"];
+    const roofColours = ["#7c5f52", "#64748b", "#6b7280", "#78716c"];
+    const width = appearance.width * size, height = appearance.height * size;
+    ctx.save(); ctx.translate(x, ground);
+    if (appearance.type === "treeCluster") {
+      ctx.fillStyle = "#6f855d";
+      [[-.28, -.56, .34], [.05, -.7, .4], [.32, -.53, .31]].forEach(([dx, dy, radius]) => {
+        ctx.beginPath(); ctx.arc(dx * width, dy * height, radius * height, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "#765846"; ctx.fillRect(-2 * size, -height * .5, 4 * size, height * .5); ctx.restore(); return;
+    }
+    ctx.fillStyle = wallColours[appearance.variant]; ctx.fillRect(-width / 2, -height, width, height);
+    ctx.fillStyle = roofColours[appearance.variant];
+    if (appearance.type === "house") {
+      ctx.beginPath(); ctx.moveTo(-width * .58, -height); ctx.lineTo(0, -height - 16 * size); ctx.lineTo(width * .58, -height); ctx.closePath(); ctx.fill();
+    } else ctx.fillRect(-width * .54, -height - 5 * size, width * 1.08, 5 * size);
+    if (appearance.type === "shop") {
+      ctx.fillStyle = ["#d97706", "#0f766e", "#2563eb", "#9f1239"][appearance.variant];
+      ctx.fillRect(-width * .46, -height * .74, width * .92, 9 * size);
+    }
+    ctx.fillStyle = "#dce8e8";
+    const rows = appearance.type === "apartment" ? Math.max(2, Math.floor(height / (18 * size))) : 1;
+    const columns = appearance.type === "house" ? 2 : 3;
+    for (let row = 0; row < rows; row += 1) for (let column = 0; column < columns; column += 1) {
+      const wx = -width * .32 + column * width * .32;
+      const wy = -height + 11 * size + row * 17 * size;
+      if (wy + 7 * size < -3 * size) ctx.fillRect(wx - 3 * size, wy, 6 * size, 7 * size);
+    }
+    ctx.fillStyle = "#5b4636"; ctx.fillRect(-4 * size, -14 * size, 8 * size, 14 * size); ctx.restore();
+  }
+  function drawRoadsideLandmark(x, ground, appearance, size) {
+    const greens = ["#3f6f49", "#4f7c45", "#386641", "#52734d"];
+    const width = appearance.width * size, height = appearance.height * size;
+    ctx.save(); ctx.translate(x, ground);
+    if (["tree", "treeShrubs"].includes(appearance.type)) {
+      ctx.fillStyle = "#76513e"; ctx.fillRect(-3 * size, -height * .58, 6 * size, height * .58);
+      ctx.fillStyle = greens[appearance.variant];
+      [[0, -.74, .28], [-.18, -.58, .22], [.2, -.57, .23]].forEach(([dx, dy, radius]) => {
+        ctx.beginPath(); ctx.arc(dx * width, dy * height, radius * height, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    if (["shrubs", "treeShrubs"].includes(appearance.type)) {
+      ctx.fillStyle = greens[(appearance.variant + 1) % greens.length];
+      [-.32, 0, .32].forEach((offset, index) => {
+        ctx.beginPath(); ctx.arc(offset * width, -height * (.12 + index % 2 * .04), height * .2, 0, Math.PI * 2); ctx.fill();
+      });
+    } else if (appearance.type === "lamp") {
+      ctx.strokeStyle = "#475569"; ctx.lineWidth = 3.5 * size; ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(0, -height); ctx.quadraticCurveTo(0, -height - 7 * size, 9 * size, -height - 7 * size); ctx.stroke();
+      ctx.fillStyle = "#fef3c7"; ctx.beginPath(); ctx.ellipse(12 * size, -height - 5 * size, 7 * size, 4 * size, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (appearance.type === "sign") {
+      ctx.fillStyle = "#64748b"; ctx.fillRect(-2 * size, -height * .7, 4 * size, height * .7);
+      ctx.fillStyle = ["#2563eb", "#047857", "#b45309", "#7c3aed"][appearance.variant];
+      ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = 2 * size;
+      ctx.fillRect(-width / 2, -height, width, height * .42); ctx.strokeRect(-width / 2, -height, width, height * .42);
+    }
+    ctx.restore();
   }
   function drawCar(x, y, scale, slopeDeg, wheelAngle) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(-slopeDeg * Math.PI / 180); ctx.scale(scale, scale);
-    ctx.fillStyle = "rgba(15,23,42,.16)"; ctx.beginPath(); ctx.ellipse(0, 10, 62, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(15,23,42,.2)"; ctx.beginPath(); ctx.ellipse(3, 1, 72, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#e4554f"; ctx.strokeStyle = "#8f2d32"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-62, 0); ctx.lineTo(-49, -26); ctx.lineTo(-18, -33); ctx.lineTo(8, -52); ctx.lineTo(38, -46); ctx.lineTo(55, -23); ctx.lineTo(66, -18); ctx.lineTo(66, 4); ctx.lineTo(-62, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#bfdbfe"; ctx.beginPath(); ctx.moveTo(-10, -32); ctx.lineTo(11, -47); ctx.lineTo(31, -43); ctx.lineTo(43, -25); ctx.closePath(); ctx.fill();
-    [-39, 39].forEach((wheelX) => {
-      ctx.save(); ctx.translate(wheelX, 5); ctx.rotate(wheelAngle); ctx.fillStyle = "#1f2937"; ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke(); ctx.restore();
+    ctx.beginPath();
+    ctx.moveTo(-64, -18); ctx.lineTo(-63, -37); ctx.quadraticCurveTo(-61, -46, -52, -48);
+    ctx.lineTo(-28, -51); ctx.lineTo(-16, -68); ctx.quadraticCurveTo(-12, -73, -5, -73);
+    ctx.lineTo(20, -73); ctx.quadraticCurveTo(27, -72, 32, -66); ctx.lineTo(44, -50);
+    ctx.lineTo(59, -47); ctx.quadraticCurveTo(70, -44, 75, -34); ctx.lineTo(79, -24);
+    ctx.quadraticCurveTo(80, -18, 72, -16); ctx.lineTo(-57, -16); ctx.quadraticCurveTo(-64, -16, -64, -18);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#bfdbfe"; ctx.strokeStyle = "#64748b"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-12, -67); ctx.lineTo(-23, -52); ctx.lineTo(3, -52); ctx.lineTo(3, -67); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, -67); ctx.lineTo(20, -67); ctx.lineTo(37, -51); ctx.lineTo(10, -51); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#8f2d32"; ctx.beginPath(); ctx.moveTo(7, -50); ctx.lineTo(7, -18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(44, -49); ctx.quadraticCurveTo(58, -47, 68, -41); ctx.stroke();
+    ctx.fillStyle = "#fef3c7"; ctx.strokeStyle = "#92400e"; ctx.beginPath();
+    ctx.moveTo(66, -41); ctx.lineTo(75, -36); ctx.lineTo(77, -29); ctx.lineTo(66, -31); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#7f1d1d"; ctx.fillRect(-64, -37, 6, 11);
+    ctx.fillStyle = "#374151"; ctx.fillRect(73, -23, 10, 7); ctx.fillRect(-67, -21, 8, 5);
+    ctx.strokeStyle = "#d1d5db"; ctx.lineWidth = 1.5;
+    [-1, 1].forEach((offset) => {
+      ctx.beginPath(); ctx.moveTo(73, -27 + offset * 3); ctx.lineTo(79, -27 + offset * 3); ctx.stroke();
+    });
+    [-38, 43].forEach((wheelX) => {
+      ctx.fillStyle = "#1f2937"; ctx.beginPath(); ctx.arc(wheelX, -14, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(wheelX, -14); ctx.rotate(wheelAngle);
+      ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.moveTo(0, -9); ctx.lineTo(0, 9); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = "#d1d5db"; ctx.beginPath(); ctx.arc(wheelX, -14, 5, 0, Math.PI * 2); ctx.fill();
     });
     ctx.restore();
   }
