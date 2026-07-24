@@ -50,6 +50,18 @@
           <section id="activitySection" class="panel-section">
             <p id="panelKicker" class="panel-kicker">操作練習</p>
             <h2 id="panelTitle" class="section-title" tabindex="-1">先感受油門、煞車與圖線</h2>
+            <nav class="level-picker-card" aria-label="自由選擇正式關卡">
+              <p class="level-picker-label">選擇關卡</p>
+              <div id="levelPicker" class="level-picker">
+                <button type="button" data-pick-level="level1"><strong>1</strong><span>平路勻速</span></button>
+                <button type="button" data-pick-level="level2"><strong>2</strong><span>平路勻加速</span></button>
+                <button type="button" data-pick-level="level3"><strong>3</strong><span>平路勻減速</span></button>
+                <button type="button" data-pick-level="level4"><strong>4</strong><span>斜坡勻速</span></button>
+                <button type="button" data-pick-level="level5"><strong>5</strong><span>混合道路</span></button>
+              </div>
+              <button id="reviewProgressButton" type="button" class="full-button">查看進度／提交</button>
+              <p class="level-picker-hint">五關可自由選擇；轉關會捨棄未記錄的今次試車。</p>
+            </nav>
             <p id="instruction">直接按住踏板的輕、中或盡位置，放手回到空檔，再比較兩幅圖。</p>
 
             <div id="drivingDeck" class="driving-deck">
@@ -77,8 +89,6 @@
               <label><input type="radio" name="graphMode" value="xt"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span></label>
               <label><input type="radio" name="graphMode" value="hidden"> 隱藏</label>
             </fieldset>
-            <button id="advanceButton" type="button" class="primary-button full-button">開始第 1 關</button>
-
             <section id="analysisSection" class="analysis-section is-hidden" aria-labelledby="analysisTitle">
               <h3 id="analysisTitle">今次試車分析</h3>
               <div id="analysisZoneTabs" class="analysis-zone-tabs" aria-label="選擇分析路段"></div>

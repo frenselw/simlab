@@ -35,16 +35,12 @@ function reviewState(selectedIds, answered = false) {
 }
 let review = reviewState([]);
 assert.equal(UiPolicy.canOpenReviewItem(review, "level1"), true);
-assert.equal(UiPolicy.canOpenReviewItem(review, "level2"), false, "later incomplete levels cannot be entered out of order");
-assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), false);
-review = reviewState(["level1", "level2", "level3"]);
-assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), true);
-assert.equal(UiPolicy.canOpenReviewItem(review, "level4"), false, "checkpoint remains a prerequisite for level 4");
-review = reviewState(["level1", "level2", "level3"], true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "level2"), true, "all formal levels are open from the start");
 assert.equal(UiPolicy.canOpenReviewItem(review, "level4"), true);
-assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), false);
-review.selectedRuns.level5 = { revision: 1, codes: [] };
-assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), true, "an already selected run remains available for retry");
+assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), true);
+assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), false);
+review = reviewState(["level3"]);
+assert.equal(UiPolicy.canOpenReviewItem(review, "checkpoint"), true, "either acceleration level unlocks graph comparison");
 assert.equal(UiPolicy.canOpenReviewItem(review, "level5", true), false,
   "a non-retryable submission failure locks every review edit route");
 

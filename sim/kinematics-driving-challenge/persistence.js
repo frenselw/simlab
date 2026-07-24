@@ -169,11 +169,6 @@
       const retry = state.variant.startsWith("review-retry-");
       if (state.returnToReview !== retry) return false;
       if (retry && !state.selectedRuns[state.currentItem]) return false;
-      if (!retry) {
-        const levelIndex = LEVEL_IDS.indexOf(state.currentItem);
-        if (LEVEL_IDS.slice(0, levelIndex).some((id) => !state.selectedRuns[id])) return false;
-        if (levelIndex >= 3 && !state.graphCheckpoint.answerId) return false;
-      }
       const expectsCandidate = ["paused", "analysis", "review-retry-paused", "review-retry-analysis"].includes(state.variant);
       if (expectsCandidate !== Boolean(candidate) || (candidate && candidate.ownerId !== state.currentItem)) return false;
       if (candidate) {
@@ -183,7 +178,7 @@
       if (["accepted"].includes(state.variant) && !state.selectedRuns[state.currentItem]) return false;
       if (!expectsCandidate && candidate) return false;
     } else if (state.phase === "graph-check") {
-      if (state.currentItem !== "checkpoint" || candidate || !state.selectedRuns.level1 || !state.selectedRuns.level2 || !state.selectedRuns.level3) return false;
+      if (state.currentItem !== "checkpoint" || candidate || !state.selectedRuns[state.graphCheckpoint.sourceLevelId]) return false;
       const edit = state.variant.startsWith("review-edit-");
       if (state.returnToReview !== edit) return false;
       const answered = state.variant.endsWith("answered");

@@ -19,14 +19,8 @@
   }
   function canOpenReviewItem(state, itemId, locked = false) {
     if (locked || !state || state.phase !== "review") return false;
-    if (itemId === "checkpoint") return Boolean(state.selectedRuns?.level1 && state.selectedRuns?.level2 && state.selectedRuns?.level3);
-    const match = /^level([1-5])$/.exec(itemId || "");
-    if (!match) return false;
-    if (state.selectedRuns?.[itemId]) return true;
-    const index = Number(match[1]) - 1;
-    const previous = Array.from({ length: index }, (_, offset) => `level${offset + 1}`);
-    if (previous.some((id) => !state.selectedRuns?.[id])) return false;
-    return index < 3 || Boolean(state.graphCheckpoint?.answerId);
+    if (itemId === "checkpoint") return Boolean(state.selectedRuns?.level2 || state.selectedRuns?.level3);
+    return /^level[1-5]$/.test(itemId || "");
   }
   function shouldHandleGlobalShortcut(target) {
     return !target?.closest?.("input, button, select, textarea, a[href], summary, [contenteditable='true'], [role='button']");

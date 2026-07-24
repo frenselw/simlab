@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 6;
+  const LEVEL_SET_VERSION = 7;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 
@@ -45,15 +45,16 @@
     }),
     Object.freeze({
       id: "level5", number: 5, title: "混合道路挑戰", shortTitle: "綜合挑戰", color: "#0f766e",
-      instruction: "按路牌要求，在四段道路切換勻速、勻加速、勻減速與勻速策略。",
-      initialSpeed: 8, maxTicks: 1200, routeLength: 165.33,
+      instruction: "留意跨越馬路的分界線，在四個計分區切換勻速、勻減速、勻加速與勻速策略。",
+      initialSpeed: 8, maxTicks: 1200, routeLength: 345,
       segments: Object.freeze([
-        zone("l5-uniform-flat", 0, 40, 0, "uniform", 5),
-        zone("l5-transition-a", 40, 50, 0, "transition", 0),
-        zone("l5-decelerate-flat", 50, 70, 0, "decelerating", 5),
-        zone("l5-accelerate-flat", 70, 113.33, 0, "accelerating", 5),
-        zone("l5-transition-c", 113.33, 125.33, 0, "transition", 0),
-        zone("l5-uniform-down", 125.33, 165.33, -4.34, "uniform", 5)
+        zone("l5-uniform-flat", 0, 70, 0, "uniform", 5),
+        zone("l5-transition-a", 70, 100, 0, "transition", 0),
+        zone("l5-decelerate-flat", 100, 120, 0, "decelerating", 5),
+        zone("l5-transition-b", 120, 165, 0, "transition", 0),
+        zone("l5-accelerate-flat", 165, 235, 0, "accelerating", 5),
+        zone("l5-transition-c", 235, 275, 0, "transition", 0),
+        zone("l5-uniform-down", 275, 345, -4.34, "uniform", 5)
       ])
     })
   ]);

@@ -204,19 +204,20 @@
 ```text
 啟動／恢復
 → 操作練習（不計分）
-→ 第 1 關：平路勻速
-→ 第 2 關：平路勻加速
-→ 第 3 關：平路勻減速
-→ 圖像證據 checkpoint
-→ 第 4 關：斜坡勻速
-→ 第 5 關：混合道路
+→ 自由選擇第 1–5 關
+→ 已有第 2 或第 3 關記錄後可做圖像證據 checkpoint
 → 提交前檢查
 → 最後確認
 → SCORM 提交
 → 鎖定回放與檢討
 ```
 
-活動開啟後直接顯示可操作的練習場景，不設裝飾 landing page。學生可以隨時開始正式關卡，不以練習時間或按鍵次數解鎖。
+活動開啟後直接顯示可操作的練習場景，不設裝飾 landing page。控制面板標題下方立即顯示第 1–5 關選擇器；五關由開始起全部可用，學生不需完成較早關卡、練習指定時間或累積按鍵次數才可跳關。這亦是教師快速測試個別關卡的正式入口。
+
+- 選擇另一關時，解除目前踏板並捨棄尚未記錄的 candidate run；已記錄 run 保留；
+- 關卡選擇器清楚標示目前關卡及已記錄關卡；
+- `查看進度／提交` 在練習及任何正式關卡都可用；
+- 最終提交仍要求五關各有一個已記錄 run，並完成圖像 checkpoint。
 
 每個正式關卡使用同一循環：
 
@@ -358,7 +359,7 @@
 2. 試比較 `x–t` 與 `v–t` 圖。
 3. 比較哪些固定力度形成直線，哪些形成愈來愈斜或愈來愈平的曲線。
 
-`開始第 1 關` 始終可用。
+第 1–5 關選擇器及 `查看進度／提交` 始終可用；例如學生可在首次開啟時直接進入第 2 關。
 
 ### 10.2 第 1 關：平路保持勻速（15 分）
 
@@ -431,10 +432,9 @@
 
 ### 10.5 圖像證據 checkpoint（10 分）
 
-解鎖條件：
+開啟條件：
 
-- 已完成第 1 至第 3 關；
-- 至少有一個已接受的勻加速或勻減速 run，並含足夠 scored samples；該 run 可以低分或方向錯誤，不要求先答對；
+- 已記錄第 2 或第 3 關其中一個 run，並含足夠 scored samples；該 run 可以低分或方向錯誤，不要求先答對；
 - 學生在 checkpoint 內查看同一段記錄的 `x–t` 及 `v–t` 圖。
 
 畫面：
@@ -487,8 +487,10 @@
 
 規則：
 
-- 每區開始前用大型路牌及文字清楚顯示目標；
-- 過渡段不計分，讓學生調整操作；
+- 路線拉長至 `345` 個內部距離單位：平路勻速 `0–70`、過渡 `70–100`、平路勻減速 `100–120`、過渡 `120–165`、平路勻加速 `165–235`、過渡 `235–275`、落斜勻速 `275–345`；
+- 每一個 segment 入口都在整個馬路闊度畫出高對比分界線；計分區使用實線及「開始」標記，過渡區使用不同樣式的「準備轉換」分界；
+- 分界線與路牌同時存在，不能只靠路牌判斷切換位置；
+- 過渡段分別長 `30`、`45`、`40` 個距離單位，不計分，讓學生完成控制及速度調整；
 - 每個計分區各佔 5 分；
 - 即時預覽保留整次試車的連續圖線；完成後的分區分析才逐區顯示；
 - 完成整條路後顯示四區分析；
@@ -617,7 +619,7 @@ SCORABLE_MIN_SPEED_M_S = 3
 - 第 2 關只有全程中油門可取得滿分；輕油門及油門踩盡的圖線曲率必須被扣分；
 - 第 3 關只有全程中煞車可取得滿分；空檔、輕煞車及煞車踩盡均不可滿分；
 - 第 4 關是單一固定上斜坡，只有全程中油門可取得滿分，途中不需切換；
-- 第 5 關依次使用輕油門、中煞車、中油門及輕煞車；不計分過渡段用輕油門保持基準速度；
+- 第 5 關四個計分區依次使用輕油門、中煞車、中油門及輕煞車；過渡區可自由調整至下一區所需狀態；
 - 容差剛內／剛外的序列必須可人工構造並測試；
 - 320 CSS-pixel 手機、60 Hz、120 Hz 及低 frame rate 的權威結果相同。
 
@@ -1154,7 +1156,7 @@ PRACTICE_MAX_TICKS = 600       # 30 s
 LEVEL_1_MAX_TICKS = 400        # 20 s
 LEVEL_2_MAX_TICKS = 400        # 20 s
 LEVEL_3_MAX_TICKS = 400        # 20 s
-LEVEL_4_MAX_TICKS = 700        # 35 s
+LEVEL_4_MAX_TICKS = 500        # 25 s
 LEVEL_5_MAX_TICKS = 1200       # 60 s
 ```
 
@@ -1173,12 +1175,12 @@ LEVEL_5_MAX_TICKS = 1200       # 60 s
 
 | Phase | Variant | Current item | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `practice` | `ready` | practice | supported definitions；graph mode | candidate run、result | start practice or enter level 1 |
-| `practice` | `paused` | practice | valid bounded practice candidate prefix；paused model state derived by replay | active pedal | resume, reset, or enter level 1 |
+| `practice` | `ready` | practice | supported definitions；graph mode | candidate run、result | start practice, enter any level, or review progress |
+| `practice` | `paused` | practice | valid bounded practice candidate prefix；paused model state derived by replay | active pedal | resume, reset, enter any level, or review progress |
 | `level` | `briefing` | 0–4 | selected runs from other levels；valid level ID | candidate run | start run, navigate to completed item, or review incomplete state |
 | `level` | `paused` | 0–4 | valid candidate prefix for current level；derived paused state can legally continue | active pedal；analysis result | resume or discard candidate |
 | `level` | `analysis` | 0–4 | valid legal-terminal unaccepted candidate run；derived zones and score | active pedal | inspect graphs, accept run, or retry |
-| `level` | `accepted` | 0–4 | valid selected legal-terminal run for current level | candidate run | next item, retry without deleting selected run, or review |
+| `level` | `accepted` | 0–4 | valid selected legal-terminal run for current level | candidate run | enter any level, retry without deleting selected run, or review |
 | `graph-check` | `exploring` | checkpoint | accepted eligible source run；matching source revision；view flags for x–t／v–t | confirmed checkpoint answer until both viewed | switch views, scrub, answer |
 | `graph-check` | `answered` | checkpoint | both viewed；matching source revision；supported answer ID | result metadata | revise, continue to level 4, or review |
 | `graph-check` | `review-edit-exploring` | checkpoint | `returnToReview = true`；valid matching source run／revision；view flags | answer until both viewed | switch views, scrub, answer, or return to incomplete review |
@@ -1194,17 +1196,19 @@ Transitions:
 
 ```text
 practice/ready -> practice/paused on persisted active practice
-practice/* -> level/briefing[0] on start challenges
+practice/* -> level/briefing[any] on level-picker selection
 
 level/briefing -> level/paused when a candidate run is persisted
 level/briefing|paused -> level/analysis when the run reaches its legal end
 level/analysis -> level/accepted when learner records this run
 level/analysis -> level/briefing when learner retries without an older selected run
-level/accepted -> next required item
+practice/*|level/* -> level/briefing[any] on level-picker selection;
+  discard only the current unaccepted candidate, preserve every selected run
+practice/*|level/* -> review/complete|incomplete on explicit progress navigation
 
-level/accepted[2] -> graph-check/exploring when levels 1–3 are accepted
+review/incomplete -> graph-check/exploring when level 2 or level 3 has an accepted source run
 graph-check/exploring -> graph-check/answered after both graphs are viewed and answer confirmed
-graph-check/answered -> level/briefing[3]
+graph-check/answered -> review/complete|incomplete
 review/* -> graph-check/review-edit-exploring|review-edit-answered when learner edits checkpoint
 graph-check/review-edit-exploring -> graph-check/review-edit-answered after both graphs are viewed and answer confirmed
 graph-check/review-edit-answered -> review/complete|incomplete on explicit return,
@@ -1243,7 +1247,7 @@ Production 可使用短 key，但語意必須包括：
 {
   v: 1,
   physicsVersion: 5,
-  levelSetVersion: 6,
+  levelSetVersion: 7,
   phase,
   variant,
   currentItem,
@@ -1280,7 +1284,7 @@ Absent／partial fields follow the phase matrix；不以空 object 代替語意�
   v: 1,
   locked: 1,
   physicsVersion: 5,
-  levelSetVersion: 6,
+  levelSetVersion: 7,
   selectedRuns: {
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
@@ -1307,7 +1311,7 @@ review snapshot 不保存：
 - feedback text；
 - Canvas pixels。
 
-`physicsVersion = 5` 包含速度相依阻力、三段踏板反應及 boundary replay 規則；`levelSetVersion = 6` 包含唯一策略平路關、單一完整上斜坡第 4 關及混合路線。早期 pre-release 的 version 1–5 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要覆蓋舊 physics 及舊 level-set rejection。
+`physicsVersion = 5` 包含速度相依阻力、三段踏板反應及 boundary replay 規則；`levelSetVersion = 7` 包含自由跳關、單一完整上斜坡第 4 關，以及加長並加入明確分界的混合路線。早期 pre-release 的 version 1–6 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要覆蓋舊 physics 及舊 level-set rejection。
 
 shared envelope 的 result metadata 只作比較。完成 restore：
 
@@ -1471,6 +1475,7 @@ SimActivityFlow.reviewResult()
 - 第 1 關只有輕油門、第 2 關只有中油門、第 3 關只有中煞車取得滿分；
 - 第 1 關空檔明確失分；第 2、3 關每一個錯誤固定力度明確失分；
 - 第 4、5 關只在路段邊界選擇踏板及力度，區內不需高頻操作；
+- 第 5 關 boundary marker 次序固定為 `70, 100, 120, 165, 235, 275`，三段 transition 長度不短於 `30`；
 - 所有合理恆定加速度策略均有足夠證據時間，不因位置區太短被錯判；
 - 全程空檔、全程油門或全程煞車不能取得所有關卡滿分；
 - 入口 grace 及過渡區不計分；
@@ -1525,11 +1530,14 @@ SimActivityFlow.reviewResult()
 - accepting replacement atomically replaces selected run；
 - keeping old run discards replacement；
 - review restore deterministic replay and rescore。
+- 無任何 selected run 時可直接進入及保存第 2–5 關 briefing／paused state；
+- 任意完成次序的 selected-run subset 均可進入 incomplete review；
+- 只有第 2 或第 3 關其中一段 selected run 時，checkpoint 可合法開啟及延續。
 
 Invalid cases：
 
 - impossible phase／variant／item；
-- missing previous selected run dependency；
+- level picker 指向不支援的 item；
 - analysis without legal-terminal candidate run；
 - accepted without selected run；
 - candidate run in briefing／accepted／graph-check／review；
@@ -1661,6 +1669,7 @@ Invalid cases：
 ### 26.1 教學
 
 - 開啟即進入可操作練習，無 landing page。
+- 開啟後可直接選擇第 1–5 關，包括未完成任何較早關卡時直接進入第 2 或第 5 關。
 - 正式關卡不要求任何指定速度或加速度數值。
 - 挑戰畫面不顯示位置、速度、加速度或圖軸數字。
 - 學生必須以按住／放開控制產生運動證據。
@@ -1680,6 +1689,7 @@ Invalid cases：
 - 油門與煞車不能同時疊加。
 - 第 1、2、3 關各有唯一、不需中途切換的滿分策略。
 - 重試不扣分，不會在確認前刪除已記錄 run。
+- 轉關只捨棄尚未記錄的 candidate run，其他關卡的已記錄 run 保留。
 - 每關後有無數字回放、質性回饋及改善選擇。
 - 不同固定力度可產生水平直線、斜直線或曲線；學生要由 `v–t` 圖判斷。
 - 車停止後不倒後，第一版沒有負速度。
@@ -1688,6 +1698,7 @@ Invalid cases：
 
 - 整體風格與 Linear Motion 一致：紅色側視車、安靜街景、淺藍天空、灰色道路、簡潔 panel。
 - 道路坡度、路段目標及圖像預覽清楚但不互相混淆。
+- 第 5 關每個 segment 入口都有跨越整個馬路闊度的分界線；計分開始與準備轉換使用不同樣式。
 - 預覽圖沒有任何數字刻度或數值。
 - 車輪、道路、街景及圖線由同一權威運動同步。
 - 零速度或 pause 時所有運動線索同時停止。

@@ -35,6 +35,21 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .math-expression var { font-family: inherit; font-style: italic; font-weight: 500; }
 .math-expression .math-operator { margin: 0 .09em; font-style: normal; font-weight: 400; }
 .panel-kicker { margin: 0 0 .25rem; color: var(--color-accent); font-size: .78rem; font-weight: 800; letter-spacing: .06em; }
+.level-picker-card { margin: .65rem 0 .8rem; padding: .6rem; border: 1px solid #cbd5e1; border-radius: .65rem; background: #f8fafc; }
+.level-picker-label { margin: 0 0 .4rem; color: #334155; font-size: .84rem; font-weight: 900; }
+.level-picker { display: flex; gap: .4rem; overflow-x: auto; padding: .05rem .05rem .3rem; scroll-snap-type: x proximity; }
+.level-picker button {
+  display: grid; flex: 0 0 5.7rem; grid-template-columns: 1.45rem 1fr; align-items: center; min-height: 48px;
+  padding: .35rem .4rem; border-color: #cbd5e1; background: #fff; color: #334155; text-align: left; scroll-snap-align: start;
+}
+.level-picker button strong { display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 999px; background: #e2e8f0; }
+.level-picker button span { font-size: .72rem; font-weight: 800; line-height: 1.2; }
+.level-picker button.is-current { border-color: #2563eb; background: #dbeafe; color: #1e3a8a; box-shadow: inset 0 0 0 1px #2563eb; }
+.level-picker button.is-current strong { background: #2563eb; color: #fff; }
+.level-picker button.is-complete:not(.is-current) { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.level-picker button.is-complete:not(.is-current) strong { background: #22c55e; color: #fff; }
+.level-picker-card > .full-button { margin-top: .4rem; }
+.level-picker-hint { margin: .4rem 0 0; color: #64748b; font-size: .72rem; line-height: 1.35; }
 .graph-switch { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .25rem; margin-top: .7rem; padding: .55rem; }
 .graph-switch legend { font-size: .82rem; }
 .graph-switch label { justify-content: center; min-height: 44px; padding: .25rem; background: #f8fafc; border-radius: .45rem; font-weight: 700; }

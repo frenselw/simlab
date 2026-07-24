@@ -59,6 +59,10 @@ roundTrip(base({ phase: "level", variant: "briefing", currentItem: "level1" }), 
   restored.variant = "paused"; restored.candidateRun = { ownerId: "level1", codes: [] };
   assert(Persistence.validateState(restored, false));
 });
+roundTrip(base({ phase: "level", variant: "briefing", currentItem: "level5" }), (restored) => {
+  restored.variant = "paused"; restored.candidateRun = { ownerId: "level5", codes: [] };
+  assert(Persistence.validateState(restored, false), "a learner can enter level 5 before recording earlier levels");
+});
 roundTrip(base({ phase: "level", variant: "paused", currentItem: "level1", candidateRun: { ownerId: "level1", codes: [1, 1] } }), (restored) => {
   restored.candidateRun.codes.push(1); assert(Persistence.validateState(restored, false));
 });
@@ -105,6 +109,18 @@ for (const [variant, returning, answered] of [
     assert(Persistence.validateState(restored, false));
   });
 }
+const onlyLevel3 = { level3: { revision: 1, codes: terminal.level3 } };
+roundTrip(base({
+  phase: "graph-check", variant: "exploring", currentItem: "checkpoint",
+  selectedRuns: onlyLevel3,
+  graphCheckpoint: {
+    sourceLevelId: "level3", sourceRunRevision: 1,
+    viewedXt: false, viewedVt: false, answerId: null
+  }
+}), (restored) => {
+  restored.graphCheckpoint.viewedXt = true;
+  assert(Persistence.validateState(restored, false), "level 3 alone can supply the graph checkpoint");
+});
 
 roundTrip(base({ phase: "review", variant: "incomplete", currentItem: "review", selectedRuns: selectedThrough(2), graphCheckpoint: checkpoint(selectedThrough(2), false) }), (restored) => {
   restored.phase = "level"; restored.variant = "review-retry-briefing"; restored.currentItem = "level1"; restored.returnToReview = true;
@@ -133,9 +149,8 @@ assert.equal(Persistence.unpackControls("***", 1), null, "malformed base64 rejec
 const invalid = Persistence.encode(base());
 invalid.q = "analysis";
 assert.equal(Persistence.decode(invalid), null, "analysis without candidate rejected");
-const skipped = Persistence.encode(base({ phase: "level", variant: "briefing", currentItem: "level1" }));
-skipped.i = "level3";
-assert.equal(Persistence.decode(skipped), null, "missing previous levels rejected");
+const freelySelected = Persistence.encode(base({ phase: "level", variant: "briefing", currentItem: "level3" }));
+assert.equal(Persistence.decode(freelySelected)?.currentItem, "level3", "missing earlier levels do not block direct navigation");
 const mismatched = Persistence.encode(base({
   phase: "graph-check", variant: "answered", currentItem: "checkpoint", selectedRuns: firstThree,
   graphCheckpoint: checkpoint(firstThree, true)
@@ -149,8 +164,8 @@ const priorPhysics = Persistence.encode(base());
 priorPhysics.p = 4;
 assert.equal(Persistence.decode(priorPhysics), null, "a physics-v4 snapshot is rejected after resistance-model calibration");
 const priorLevels = Persistence.encode(base());
-priorLevels.l = 5;
-assert.equal(Persistence.decode(priorLevels), null, "a level-set-v5 snapshot is rejected after simplifying level 4");
+priorLevels.l = 6;
+assert.equal(Persistence.decode(priorLevels), null, "a level-set-v6 snapshot is rejected after opening navigation and extending level 5");
 for (const malformed of [
   { path: ["b"], value: 2 },
   { path: ["b"], value: false },

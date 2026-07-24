@@ -101,6 +101,14 @@
     return Array.from({ length: last - first + 1 }, (_, index) => first + index);
   }
   function slopeAt(level, position) { return Levels.segmentAt(level, position)?.slopeDeg || 0; }
+  function boundaryMarkers(level) {
+    if (!level?.segments) return [];
+    return level.segments.slice(1).map((segment) => ({
+      position: segment.start,
+      target: segment.target,
+      kind: segment.target === "transition" ? "prepare" : "start"
+    }));
+  }
   function visualSlopeAt(level, position, blendDistance = 2) {
     const current = Levels.segmentAt(level, position);
     if (!current || !(blendDistance > 0)) return current?.slopeDeg || 0;
@@ -140,6 +148,6 @@
 
   return {
     BACKGROUND_LAYERS, positiveModulo, roadY, worldToScreen, graphWindow, graphPoints,
-    backgroundAppearance, visibleBackgroundCells, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel
+    backgroundAppearance, visibleBackgroundCells, slopeAt, boundaryMarkers, visualSlopeAt, targetLabel, graphShapeLabel
   };
 });

@@ -89,6 +89,13 @@ function levelFourPreviewDraft() {
   };
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
+function levelFiveBoundaryDraft() {
+  const state = {
+    ...Persistence.initialState(), phase: "level", variant: "paused", currentItem: "level5",
+    candidateRun: { ownerId: "level5", codes: Array(230).fill(1) }
+  };
+  return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
+}
 
 async function waitFor(cdp, expression, label) {
   for (let attempt = 0; attempt < 160; attempt += 1) {
@@ -220,6 +227,33 @@ async function embeddedMatrix(cdp, baseUrl, activityPath, label) {
   assert.equal(panelAfter.doc, 0, `${label}: activity document stays fixed during panel gesture`);
   return `${label} embedded stage/panel matrix passed`;
 }
+async function freeLevelSelection(cdp, baseUrl, activityPath, label) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-free-levels`)}` });
+  await waitFor(cdp, "document.getElementById('panelTitle')?.textContent.includes('操作練習')", `${label} free level picker`);
+  const before = await evaluate(cdp, `(() => {
+    const buttons=Array.from(document.querySelectorAll('[data-pick-level]'));
+    const target=document.querySelector('[data-pick-level="level2"]'),r=target.getBoundingClientRect();
+    window.__levelPickEvents=[];
+    target.addEventListener('click',e=>window.__levelPickEvents.push({trusted:e.isTrusted}));
+    return {count:buttons.length,allEnabled:buttons.every(button=>!button.disabled),x:r.left+r.width/2,y:r.top+r.height/2};
+  })()`);
+  assert.equal(before.count, 5, `${label}: all five levels are present at startup`);
+  assert.equal(before.allEnabled, true, `${label}: all five levels are enabled at startup`);
+  await touch(cdp, before.x, before.y, before.x, before.y, 40, 41);
+  await waitFor(cdp, "document.getElementById('panelKicker')?.textContent.includes('第 2 關')", `${label} direct level 2 navigation`);
+  const after = await evaluate(cdp, `(() => ({
+    title:document.getElementById('panelTitle').textContent,
+    current:document.querySelector('[data-pick-level="level2"]').getAttribute('aria-current'),
+    events:window.__levelPickEvents,
+    enabled:Array.from(document.querySelectorAll('[data-pick-level]')).every(button=>!button.disabled)
+  }))()`);
+  assert.match(after.title, /勻加速/);
+  assert.equal(after.current, "step");
+  assert(after.events.some((event) => event.trusted), `${label}: trusted touch opens level 2`);
+  assert.equal(after.enabled, true, `${label}: other levels remain open after navigation`);
+  return `${label} free level selection passed`;
+}
 async function analysisScrub(cdp, baseUrl, activityPath, label) {
   const snapshot = analysisDraft();
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
@@ -322,6 +356,37 @@ async function levelFourVisual(cdp, baseUrl, activityPath, label) {
   }
   return `${label} single-slope level 4 and persistent graph passed`;
 }
+async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
+  const snapshot = levelFiveBoundaryDraft();
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const values={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':${JSON.stringify(snapshot)},'cmi.core.score.raw':''};
+    window.API={LMSInitialize:()=>'true',LMSGetValue:key=>values[key]||'',LMSSetValue:(key,value)=>(values[key]=String(value),'true'),LMSCommit:()=>'true',LMSFinish:()=>'true',LMSGetLastError:()=>'0',LMSGetErrorString:()=>''};
+  })();` });
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-level5-boundary`)}` });
+  await waitFor(cdp, "document.getElementById('panelKicker')?.textContent.includes('第 5 關')", `${label} level 5 boundary`);
+  const visual = await evaluate(cdp, `(() => {
+    const level=window.KinematicsDrivingLevels.levelById('level5');
+    const markers=window.KinematicsDrivingVisuals.boundaryMarkers(level);
+    const c=document.getElementById('drivingCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    let yellow=0,minX=c.width,maxX=-1;
+    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
+      const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];
+      if(r>225&&g>180&&b<120){yellow++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
+    }
+    return {routeLength:level.routeLength,markers,yellow,minX,maxX,width:c.width,status:document.getElementById('stageTarget').textContent};
+  })()`);
+  assert.equal(visual.routeLength, 345);
+  assert.deepEqual(visual.markers.map((marker) => marker.position), [70, 100, 120, 165, 235, 275]);
+  assert(visual.yellow > 80 && visual.minX < visual.maxX,
+    `${label}: a high-contrast scored-zone boundary crosses the road (${JSON.stringify(visual)})`);
+  assert.match(visual.status, /調整路段/);
+  if (label === "development") {
+    const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    fs.writeFileSync(path.join(root, "output", "kinematics-driving-level5-boundary-mobile-qa.png"), Buffer.from(screenshot.data, "base64"));
+  }
+  return `${label} extended level 5 boundaries passed`;
+}
 async function nonRetryableSubmission(cdp, baseUrl, activityPath, label) {
   const snapshot = completeReviewDraft();
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
@@ -382,12 +447,16 @@ async function main() {
     summaries.push(await embeddedMatrix(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await smoke(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await embeddedMatrix(cdp, artifactUrl, activityPath, "packaged"));
+    summaries.push(await freeLevelSelection(cdp, sourceUrl, `/${slug}/index.html`, "development"));
+    summaries.push(await freeLevelSelection(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await analysisScrub(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await analysisScrub(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await multiZoneAnalysis(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await multiZoneAnalysis(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await levelFourVisual(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await levelFourVisual(cdp, artifactUrl, activityPath, "packaged"));
+    summaries.push(await levelFiveBoundaryVisual(cdp, sourceUrl, `/${slug}/index.html`, "development"));
+    summaries.push(await levelFiveBoundaryVisual(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await nonRetryableSubmission(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await nonRetryableSubmission(cdp, artifactUrl, activityPath, "packaged"));
     console.log(`Kinematics driving browser regression passed: ${summaries.join("; ")}`);

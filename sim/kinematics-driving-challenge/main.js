@@ -150,7 +150,7 @@
   }
   function startRun() {
     if (locked || !["practice", "level"].includes(state.phase)) return;
-    if (state.phase === "level" && !["briefing", "paused", "review-retry-briefing", "review-retry-paused"].includes(state.variant)) return;
+    if (state.phase === "level" && !["briefing", "paused", "accepted", "review-retry-briefing", "review-retry-paused"].includes(state.variant)) return;
     if (!state.candidateRun) state.candidateRun = { ownerId: currentLevel().id, codes: [] };
     state.variant = state.phase === "practice" ? "paused" : state.returnToReview ? "review-retry-paused" : "paused";
     rebuildRuntime();
@@ -207,11 +207,8 @@
     state.returnToReview = false;
     analysisRun = null;
     if (returning) return enterReview();
-    if (id === "level1") return enterLevel("level2");
-    if (id === "level2") return enterLevel("level3");
-    if (id === "level3") return enterCheckpoint(false);
-    if (id === "level4") return enterLevel("level5");
-    return enterReview();
+    state.variant = "accepted";
+    saveAndRender(`已記錄第 ${Levels.levelById(id).number} 關；可以自由選擇其他關卡。`);
   }
   function enterLevel(id, reviewRetry = false) {
     neutralize();
@@ -224,7 +221,12 @@
   }
   function enterCheckpoint(fromReview) {
     neutralize();
-    const source = state.selectedRuns[state.graphCheckpoint.sourceLevelId] ? state.graphCheckpoint.sourceLevelId : "level2";
+    const source = [state.graphCheckpoint.sourceLevelId, "level2", "level3"]
+      .find((id) => state.selectedRuns[id]);
+    if (!source) {
+      announce("請先記錄第 2 或第 3 關，才可比較圖像。");
+      return;
+    }
     state.graphCheckpoint.sourceLevelId = source;
     state.graphCheckpoint.sourceRunRevision = state.selectedRuns[source].revision;
     if (state.graphCheckpoint.answerId && !fromReview) {
@@ -256,8 +258,7 @@
     state.graphCheckpoint.answerId = answer;
     state.variant = state.returnToReview ? "review-edit-answered" : "answered";
     elements.checkpointError.textContent = "";
-    if (state.returnToReview) return enterReview();
-    enterLevel("level4");
+    enterReview();
   }
   function enterReview() {
     neutralize();
@@ -271,7 +272,6 @@
     state.candidateRun = null; analysisRun = null;
     enterReview();
   }
-  function beginFormal() { enterLevel("level1"); }
   function scoreForReview() { return Persistence.allComplete(state) ? Scoring.scoreActivity(state.selectedRuns, state.graphCheckpoint) : null; }
   function submitAll() {
     if (locked || state.phase !== "review" || state.variant !== "complete") return;
@@ -389,12 +389,12 @@
     const briefing = ["ready", "briefing", "review-retry-briefing"].includes(state.variant);
     const paused = state.variant === "paused" || state.variant === "review-retry-paused";
     const analysis = state.variant.endsWith("analysis");
-    elements.startButton.textContent = paused ? "繼續試車" : "開始試車";
+    const accepted = state.variant === "accepted";
+    elements.startButton.textContent = paused ? "繼續試車" : accepted ? "重新挑戰本關" : "開始試車";
     elements.startButton.disabled = locked || running || analysis;
     elements.pauseButton.disabled = locked || !running;
     elements.resetButton.disabled = locked || analysis && false;
-    elements.advanceButton.classList.toggle("is-hidden", !practice);
-    elements.advanceButton.disabled = locked;
+    renderLevelPicker();
     elements.drivingDeck.classList.toggle("is-hidden", analysis);
     elements.analysisSection.classList.toggle("is-hidden", !analysis);
     if (analysis) renderAnalysis();
@@ -403,8 +403,20 @@
     if (briefing) elements.stageStatus.textContent = "車輛已準備好。";
     else if (running) elements.stageStatus.textContent = Model.qualitativeMotion(runtimeRun?.samples);
     else if (analysis) elements.stageStatus.textContent = "試車已完成，正在只讀回放。";
+    else if (accepted) elements.stageStatus.textContent = "本關表現已記錄；可選擇其他關卡。";
     else elements.stageStatus.textContent = "試車已暫停；踏板已回到空檔。";
     renderControlState();
+  }
+  function renderLevelPicker() {
+    elements.levelPicker.querySelectorAll("[data-pick-level]").forEach((button) => {
+      const id = button.dataset.pickLevel;
+      const current = state.phase === "level" && state.currentItem === id;
+      button.classList.toggle("is-current", current);
+      button.classList.toggle("is-complete", Boolean(state.selectedRuns[id]));
+      button.setAttribute("aria-current", current ? "step" : "false");
+      button.disabled = locked;
+    });
+    elements.reviewProgressButton.disabled = locked;
   }
   function renderAnalysis() {
     analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
@@ -428,7 +440,7 @@
     elements.scrubRange.disabled = locked;
     elements.checkpointViewStatus.innerHTML = physicsHtml(`x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`);
     answerInputs.forEach((input) => { input.checked = input.value === checkpoint.answerId; input.disabled = elements.checkpointAnswers.disabled; });
-    elements.confirmCheckpointButton.textContent = state.returnToReview ? "確認並返回檢查" : "確認並前往第 4 關";
+    elements.confirmCheckpointButton.textContent = "確認並返回關卡檢查";
     elements.confirmCheckpointButton.disabled = locked;
     elements.stageStatus.textContent = "拖動回放游標，可比較同一時刻的車輛與圖線。";
   }
@@ -438,10 +450,10 @@
     elements.reviewList.innerHTML = Levels.LEVELS.map((level) => {
       const result = selectedScore(level.id);
       const canOpen = UiPolicy.canOpenReviewItem(state, level.id, locked);
-      return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : canOpen ? "尚未記錄" : "請先完成較早項目"}</p><button type="button" data-edit-level="${level.id}"${canOpen ? "" : " disabled"}>${result ? "重新挑戰" : "完成此關"}</button></article>`;
+      return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : "尚未記錄"}</p><button type="button" data-edit-level="${level.id}"${canOpen ? "" : " disabled"}>${result ? "重新挑戰" : "完成此關"}</button></article>`;
     }).join("") + (() => {
       const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint", locked);
-      return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" : "請先完成第 1 至 3 關"}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
+      return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" : "請先記錄第 2 或第 3 關"}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
     })();
     elements.submitButton.disabled = locked || !complete;
     elements.submissionNotice.classList.toggle("is-hidden", complete);
@@ -570,6 +582,12 @@
     roadPoints.forEach((point) => ctx.lineTo(point.x, point.y + roadDepth + 15));
     ctx.lineTo(width + 30, height); ctx.lineTo(-30, height); ctx.closePath();
     ctx.fillStyle = "#789a68"; ctx.fill();
+    Visuals.boundaryMarkers(level).forEach((marker) => {
+      const x = Visuals.worldToScreen(marker.position, sample.x, anchorX, ppm);
+      if (x < -40 || x > width + 40) return;
+      const y = baseY + Visuals.roadY(marker.position, level, 0, ppm) - currentElevationY;
+      drawRoadBoundary(x, y, roadDepth, marker.kind);
+    });
     level.segments.forEach((segment) => {
       const signPosition = segment.start === 0 ? Math.min(segment.end - 2, 18) : segment.start;
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
@@ -717,6 +735,32 @@
     ctx.fillStyle = "rgba(255,255,255,.94)"; ctx.strokeStyle = "#334155"; ctx.lineWidth = 1.5; ctx.fillRect(x - 38, y - 78, 76, 29); ctx.strokeRect(x - 38, y - 78, 76, 29);
     ctx.fillStyle = "#1f2937"; ctx.font = "700 12px system-ui"; ctx.textAlign = "center"; ctx.fillText(label, x, y - 59); ctx.restore();
   }
+  function drawRoadBoundary(x, y, roadDepth, kind) {
+    const prepare = kind === "prepare";
+    ctx.save();
+    ctx.lineCap = "butt";
+    ctx.setLineDash(prepare ? [8, 6] : []);
+    ctx.strokeStyle = "rgba(15,23,42,.72)";
+    ctx.lineWidth = prepare ? 8 : 12;
+    ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x, y + roadDepth - 2); ctx.stroke();
+    ctx.strokeStyle = prepare ? "#f8fafc" : "#fde047";
+    ctx.lineWidth = prepare ? 4 : 7;
+    ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x, y + roadDepth - 2); ctx.stroke();
+    ctx.setLineDash([]);
+    const label = prepare ? "準備" : "開始";
+    ctx.font = "900 11px system-ui";
+    const labelWidth = ctx.measureText(label).width + 14;
+    ctx.fillStyle = prepare ? "#f8fafc" : "#fde047";
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(x - labelWidth / 2, y - 22, labelWidth, 19);
+    ctx.strokeRect(x - labelWidth / 2, y - 22, labelWidth, 19);
+    ctx.fillStyle = "#1e293b";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, x, y - 12.5);
+    ctx.restore();
+  }
   function drawGraph() {
     const hidden = state.graphMode === "hidden" || state.phase === "review" || state.phase === "submitted";
     elements.graphCard.classList.toggle("is-hidden", hidden);
@@ -828,7 +872,12 @@
   elements.startButton.addEventListener("click", startRun);
   elements.pauseButton.addEventListener("click", pauseRun);
   elements.resetButton.addEventListener("click", resetRun);
-  elements.advanceButton.addEventListener("click", beginFormal);
+  elements.levelPicker.addEventListener("click", (event) => {
+    if (locked) return;
+    const levelId = event.target.closest("[data-pick-level]")?.dataset.pickLevel;
+    if (levelId && Levels.levelById(levelId)) enterLevel(levelId);
+  });
+  elements.reviewProgressButton.addEventListener("click", () => { if (!locked) enterReview(); });
   elements.acceptButton.addEventListener("click", acceptRun);
   elements.retryRunButton.addEventListener("click", resetRun);
   elements.keepPreviousButton.addEventListener("click", keepPrevious);
