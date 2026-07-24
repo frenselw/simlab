@@ -53,8 +53,15 @@
     element.innerHTML = quantityHtml(value, unit);
     element.setAttribute("aria-label", `${Model.format3(value)} ${plainUnit}`);
   }
-  function currentMeasurement() { return state.phase === "variable" ? state.variableMeasurement : state.uniformMeasurement; }
-  function setCurrentMeasurement(value) { if (state.phase === "variable") state.variableMeasurement = value; else state.uniformMeasurement = value; }
+  function currentMeasurement() {
+    if (state.phase === "uniform") return state.uniformMeasurement;
+    if (state.phase === "variable") return state.variableMeasurement;
+    return null;
+  }
+  function setCurrentMeasurement(value) {
+    if (state.phase === "uniform") state.uniformMeasurement = value;
+    else if (state.phase === "variable") state.variableMeasurement = value;
+  }
   function positionAt(time = state.scene.simulationTime) {
     return state.phase === "variable" || state.phase === "instant"
       ? Model.variablePosition(state.definition.variable, time)
@@ -77,10 +84,11 @@
     updateActiveMeasurement();
     return window.SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode({ ...state, running, timerRunning }));
   }
-  function saveDraft() {
+  function persistDraft(durable) {
     if (locked) return false;
     try {
-      if (!window.SimScorm.saveDraft(draftSnapshot())) throw new Error("Draft save was rejected");
+      const snapshot = draftSnapshot();
+      if (durable && !window.SimScorm.saveDraft(snapshot)) throw new Error("Draft save was rejected");
       return true;
     } catch (error) {
       locked = true;
@@ -91,6 +99,8 @@
       return false;
     }
   }
+  function bufferDraft() { return persistDraft(false); }
+  function saveDraft() { return persistDraft(true); }
   function saveTransition(candidate, fallback, message) {
     try {
       const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode({ ...candidate, running: false, timerRunning: false }));
@@ -125,7 +135,7 @@
     state.scene.observationStarted = 1;
     lastFrame = performance.now();
     announce(timerRunning ? "繼續觀察及計時。" : "開始觀察車輛運動。");
-    if (!saveDraft()) return;
+    if (!bufferDraft()) return;
     render();
   }
   function pause() {
@@ -170,7 +180,7 @@
       state.variant = state.returnToReview ? "review-edit-paused-measuring" : "paused-measuring";
       timerRunning = true;
       announce(`已記錄起點 ${Model.format3(measurement.x1)} m，開始計時。`);
-      if (!saveDraft()) return;
+      if (!bufferDraft()) return;
       render();
       return;
     }
@@ -187,7 +197,7 @@
     timerRunning = false;
     state.variant = state.returnToReview ? "review-edit-captured" : "captured";
     announce(`已記錄終點 ${Model.format3(measurement.x2)} m；${running ? "觀察仍繼續運動。" : "觀察仍由你暫停。"}`);
-    if (!saveDraft()) return false;
+    if (!bufferDraft()) return false;
     render();
     return true;
   }
@@ -299,7 +309,7 @@
     const revealed = next >= state.viewedWindowCount;
     if (revealed) state.viewedWindowCount = next + 1;
     announce(`${revealed ? "已顯示" : "圖中改為"} ${Model.format3(Model.WINDOWS[next])} s 時間區間。`);
-    if (revealed && !saveDraft()) return;
+    if (revealed && !bufferDraft()) return;
     render();
   }
   function toggleInstantDemo() {
