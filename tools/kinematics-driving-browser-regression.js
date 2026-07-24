@@ -371,13 +371,16 @@ async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
     const level=window.KinematicsDrivingLevels.levelById('level5');
     const markers=window.KinematicsDrivingVisuals.boundaryMarkers(level);
     const c=document.getElementById('drivingCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
-    let yellow=0,minX=c.width,maxX=-1;
+    let yellow=0,minX=c.width,maxX=-1,maxRed=-1,lineX=-1,lineCount=-1;
+    const yellowByX=Array(c.width).fill(0);
     for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
       const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];
-      if(r>225&&g>180&&b<120){yellow++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
+      if(r>225&&g>180&&b<120){yellow++;yellowByX[x]++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
+      if(r>150&&g<130&&b<130)maxRed=Math.max(maxRed,x);
     }
+    yellowByX.forEach((count,x)=>{if(count>lineCount){lineCount=count;lineX=x;}});
     return {
-      routeLength:level.routeLength,markers,yellow,minX,maxX,width:c.width,
+      routeLength:level.routeLength,markers,yellow,minX,maxX,width:c.width,lineX,lineCount,maxRed,
       status:document.getElementById('stageTarget').textContent,
       instruction:document.getElementById('instruction').textContent
     };
@@ -390,6 +393,10 @@ async function levelFiveBoundaryVisual(cdp, baseUrl, activityPath, label) {
   ]);
   assert(visual.yellow > 80 && visual.minX < visual.maxX,
     `${label}: the first instruction sign has a high-contrast line across the road (${JSON.stringify(visual)})`);
+  assert(Math.abs(visual.lineX - visual.width * .38) <= 5,
+    `${label}: the first boundary reaches the authoritative front position (${JSON.stringify(visual)})`);
+  assert(visual.lineX - visual.maxRed >= 0 && visual.lineX - visual.maxRed <= 8,
+    `${label}: the yellow line meets the visible front bumper (${JSON.stringify(visual)})`);
   assert.match(visual.status, /保持勻速/);
   assert.match(visual.instruction, /路牌正下方.*黃色分界線.*越過分界線後/);
   assert.doesNotMatch(`${visual.status} ${visual.instruction}`, /準備|計分區|轉換區|下一區/);

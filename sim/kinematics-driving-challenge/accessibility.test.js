@@ -52,6 +52,7 @@ assert.match(main, /function drawFarLandmark\(/);
 assert.match(main, /function drawRoadsideLandmark\(/);
 assert.match(main, /function fillRoadStrip\(/);
 assert.match(main, /drawCar\(anchorX, baseY \+ roadDepth \* \.55/);
+assert.match(main, /ctx\.translate\(-83, 0\)/);
 assert.doesNotMatch(html, /m\/s|m\/s²|m\/s<sup>2/);
 assert.doesNotMatch(html, /type="number"/);
 

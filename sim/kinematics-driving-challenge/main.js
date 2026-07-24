@@ -591,7 +591,7 @@
     });
     level.segments.forEach((segment) => {
       if (segment.start > 0) return;
-      const signPosition = segment.start === 0 ? Math.min(segment.end - 2, 18) : segment.start;
+      const signPosition = segment.start;
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
       if (x < -80 || x > width + 80) return;
       const y = baseY + Visuals.roadY(signPosition, level, 0, ppm) - currentElevationY;
@@ -698,8 +698,8 @@
     }
     ctx.restore();
   }
-  function drawCar(x, y, scale, slopeDeg, wheelAngle) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(-slopeDeg * Math.PI / 180); ctx.scale(scale, scale);
+  function drawCar(frontX, y, scale, slopeDeg, wheelAngle) {
+    ctx.save(); ctx.translate(frontX, y); ctx.rotate(-slopeDeg * Math.PI / 180); ctx.scale(scale, scale); ctx.translate(-83, 0);
     ctx.fillStyle = "rgba(15,23,42,.2)"; ctx.beginPath(); ctx.ellipse(3, 1, 72, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#e4554f"; ctx.strokeStyle = "#8f2d32"; ctx.lineWidth = 3;
     ctx.beginPath();
