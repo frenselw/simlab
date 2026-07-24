@@ -1,0 +1,157 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const Levels = require("./level-definitions.js");
+const Model = require("./driving-model.js");
+const Persistence = require("./persistence.js");
+const Scoring = require("./scoring.js");
+
+function terminalCodes(level, code) {
+  const codes = [];
+  let run = Model.replay(level, codes);
+  while (!run.state.terminal && codes.length < level.maxTicks) {
+    codes.push(code);
+    run = Model.replay(level, codes);
+  }
+  assert(run.state.terminal);
+  return codes;
+}
+const terminal = {
+  level1: terminalCodes(Levels.LEVELS[0], 1),
+  level2: terminalCodes(Levels.LEVELS[1], 2),
+  level3: terminalCodes(Levels.LEVELS[2], 4),
+  level4: terminalCodes(Levels.LEVELS[3], 2),
+  level5: terminalCodes(Levels.LEVELS[4], 2)
+};
+function selectedThrough(count) {
+  return Object.fromEntries(Levels.LEVELS.slice(0, count).map((level) => [level.id, { revision: 1, codes: terminal[level.id] }]));
+}
+function checkpoint(selected, answered = true) {
+  return {
+    sourceLevelId: "level2", sourceRunRevision: selected.level2?.revision ?? null,
+    viewedXt: answered, viewedVt: answered, answerId: answered ? Scoring.CHECKPOINT_ANSWER : null
+  };
+}
+function base(overrides = {}) {
+  return {
+    ...Persistence.initialState(), ...overrides,
+    selectedRuns: overrides.selectedRuns || {},
+    graphCheckpoint: overrides.graphCheckpoint || Persistence.initialState().graphCheckpoint
+  };
+}
+function roundTrip(state, next) {
+  const encoded = Persistence.encode(state);
+  const restored = Persistence.decode(encoded);
+  assert(restored, `${state.phase}/${state.variant} restores`);
+  assert.deepEqual(Persistence.encode(restored), encoded, "canonical re-encode");
+  next(restored);
+}
+
+roundTrip(base(), (restored) => {
+  restored.candidateRun = { ownerId: "practice", codes: [] }; restored.variant = "paused";
+  assert(Persistence.validateState(restored, false));
+});
+roundTrip(base({ variant: "paused", candidateRun: { ownerId: "practice", codes: [1, 1] } }), (restored) => {
+  restored.candidateRun.codes.push(1); assert(Persistence.validateState(restored, false));
+});
+
+roundTrip(base({ phase: "level", variant: "briefing", currentItem: "level1" }), (restored) => {
+  restored.variant = "paused"; restored.candidateRun = { ownerId: "level1", codes: [] };
+  assert(Persistence.validateState(restored, false));
+});
+roundTrip(base({ phase: "level", variant: "paused", currentItem: "level1", candidateRun: { ownerId: "level1", codes: [1, 1] } }), (restored) => {
+  restored.candidateRun.codes.push(1); assert(Persistence.validateState(restored, false));
+});
+roundTrip(base({ phase: "level", variant: "analysis", currentItem: "level1", candidateRun: { ownerId: "level1", codes: terminal.level1 } }), (restored) => {
+  restored.selectedRuns.level1 = { revision: 1, codes: restored.candidateRun.codes }; restored.candidateRun = null; restored.variant = "accepted";
+  assert(Persistence.validateState(restored, false));
+});
+roundTrip(base({ phase: "level", variant: "accepted", currentItem: "level1", selectedRuns: selectedThrough(1) }), (restored) => {
+  restored.currentItem = "level2"; restored.variant = "briefing"; assert(Persistence.validateState(restored, false));
+});
+
+for (const variant of ["review-retry-briefing", "review-retry-paused", "review-retry-analysis"]) {
+  const needsCandidate = variant !== "review-retry-briefing";
+  const candidate = variant.endsWith("analysis") ? terminal.level1 : [1, 1];
+  roundTrip(base({
+    phase: "level", variant, currentItem: "level1", returnToReview: true, selectedRuns: selectedThrough(1),
+    candidateRun: needsCandidate ? { ownerId: "level1", codes: candidate } : null
+  }), (restored) => {
+    restored.phase = "review"; restored.variant = "incomplete"; restored.currentItem = "review";
+    restored.returnToReview = false; restored.candidateRun = null;
+    assert(Persistence.validateState(restored, false));
+  });
+}
+
+const firstThree = selectedThrough(3);
+for (const [variant, returning, answered] of [
+  ["exploring", false, false], ["answered", false, true],
+  ["review-edit-exploring", true, false], ["review-edit-answered", true, true]
+]) {
+  roundTrip(base({
+    phase: "graph-check", variant, currentItem: "checkpoint", returnToReview: returning,
+    selectedRuns: firstThree, graphCheckpoint: checkpoint(firstThree, answered)
+  }), (restored) => {
+    if (!answered) {
+      restored.graphCheckpoint.viewedXt = true; restored.graphCheckpoint.viewedVt = true;
+      restored.graphCheckpoint.answerId = Scoring.CHECKPOINT_ANSWER;
+      restored.variant = returning ? "review-edit-answered" : "answered";
+    } else {
+      restored.phase = returning ? "review" : "level";
+      restored.variant = returning ? "incomplete" : "briefing";
+      restored.currentItem = returning ? "review" : "level4";
+      restored.returnToReview = false;
+    }
+    assert(Persistence.validateState(restored, false));
+  });
+}
+
+roundTrip(base({ phase: "review", variant: "incomplete", currentItem: "review", selectedRuns: selectedThrough(2), graphCheckpoint: checkpoint(selectedThrough(2), false) }), (restored) => {
+  restored.phase = "level"; restored.variant = "review-retry-briefing"; restored.currentItem = "level1"; restored.returnToReview = true;
+  assert(Persistence.validateState(restored, false));
+});
+const complete = base({
+  phase: "review", variant: "complete", currentItem: "review", selectedRuns: selectedThrough(5),
+  graphCheckpoint: checkpoint(selectedThrough(5), true)
+});
+roundTrip(complete, (restored) => assert(Scoring.scoreActivity(restored.selectedRuns, restored.graphCheckpoint)));
+const reviewEncoded = Persistence.makeReview(complete);
+const review = Persistence.decodeReview(reviewEncoded);
+assert(review && review.phase === "submitted");
+assert.deepEqual(
+  Scoring.scoreActivity(review.selectedRuns, review.graphCheckpoint).score,
+  Scoring.scoreActivity(complete.selectedRuns, complete.graphCheckpoint).score
+);
+
+for (const codes of [[], [0], [0, 1, 2, 3, 4, 5, 6], Array.from({ length: 97 }, (_, index) => index % 7)]) {
+  assert.deepEqual(Persistence.unpackControls(Persistence.packControls(codes), codes.length), codes);
+}
+assert.throws(() => Persistence.packControls([7]));
+assert.equal(Persistence.unpackControls("AA==", 0), null, "length mismatch rejected");
+assert.equal(Persistence.unpackControls("***", 1), null, "malformed base64 rejected");
+
+const invalid = Persistence.encode(base());
+invalid.q = "analysis";
+assert.equal(Persistence.decode(invalid), null, "analysis without candidate rejected");
+const skipped = Persistence.encode(base({ phase: "level", variant: "briefing", currentItem: "level1" }));
+skipped.i = "level3";
+assert.equal(Persistence.decode(skipped), null, "missing previous levels rejected");
+const mismatched = Persistence.encode(base({
+  phase: "graph-check", variant: "answered", currentItem: "checkpoint", selectedRuns: firstThree,
+  graphCheckpoint: checkpoint(firstThree, true)
+}));
+mismatched.k.r = 999;
+assert.equal(Persistence.decode(mismatched), null, "checkpoint revision mismatch rejected");
+const earlyAnswer = cloneEncoded(mismatched);
+earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
+assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
+
+const innerReviewBytes = Persistence.bytes(reviewEncoded);
+const sharedReview = { version: 1, activity: "kinematics-driving-challenge", kind: "review", answer: reviewEncoded, score: 50, passed: false };
+const pending = { version: 1, activity: "kinematics-driving-challenge", kind: "pending-final", payload: { reviewJson: JSON.stringify(sharedReview), score: 50, maxScore: 100, passed: false } };
+assert(innerReviewBytes < 2200, `inner review ${innerReviewBytes} bytes`);
+assert(Persistence.bytes(sharedReview) < 2800);
+assert(Persistence.bytes(pending) < 4000);
+
+function cloneEncoded(value) { return JSON.parse(JSON.stringify(value)); }
+console.log("Kinematics driving persistence matrix tests passed");

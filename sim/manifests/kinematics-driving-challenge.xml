@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="kinematics-driving-challenge" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-KINEMATICS-DRIVING-CHALLENGE">
+    <organization identifier="ORG-KINEMATICS-DRIVING-CHALLENGE">
+      <title>勻速與勻變速：駕駛控制挑戰</title>
+      <item identifier="ITEM-KINEMATICS-DRIVING-CHALLENGE" identifierref="RES-KINEMATICS-DRIVING-CHALLENGE">
+        <title>勻速與勻變速：駕駛控制挑戰</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-KINEMATICS-DRIVING-CHALLENGE" type="webcontent" adlcp:scormtype="sco" href="kinematics-driving-challenge/index.html">
+      <file href="config.js"/>
+      <file href="kinematics-driving-challenge/index.html"/>
+      <file href="kinematics-driving-challenge/styles.css"/>
+      <file href="kinematics-driving-challenge/main.js"/>
+      <file href="kinematics-driving-challenge/level-definitions.js"/>
+      <file href="kinematics-driving-challenge/driving-model.js"/>
+      <file href="kinematics-driving-challenge/scoring.js"/>
+      <file href="kinematics-driving-challenge/persistence.js"/>
+      <file href="kinematics-driving-challenge/scene-visuals.js"/>
+      <file href="kinematics-driving-challenge/ui-policy.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>

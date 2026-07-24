@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f4f6">
+    <title>勻速與勻變速：駕駛控制挑戰</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="../shared/activity-flow.js" defer></script>
+    <script src="level-definitions.js" defer></script>
+    <script src="driving-model.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="persistence.js" defer></script>
+    <script src="scene-visuals.js" defer></script>
+    <script src="ui-policy.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app driving-app">
+      <header class="sim-header driving-header">
+        <div>
+          <h1>勻速與勻變速：駕駛控制挑戰</h1>
+          <p>按住油門或煞車控制車輛；從無數字運動圖像判斷速度變化是否有規律。</p>
+        </div>
+        <ol id="progress" class="progress" aria-label="活動進度">
+          <li data-step="practice">練習</li><li data-step="level1">1</li><li data-step="level2">2</li>
+          <li data-step="level3">3</li><li data-step="checkpoint">圖像</li><li data-step="level4">4</li>
+          <li data-step="level5">5</li><li data-step="review">檢查</li>
+        </ol>
+      </header>
+
+      <div class="sim-shell driving-shell">
+        <section id="stage" class="sim-stage driving-stage" aria-label="固定跟隨車輛的道路模擬舞台">
+          <canvas id="drivingCanvas" aria-label="紅色車輛固定在畫面中央偏左，道路及街景隨車輛向後移動"></canvas>
+          <div class="stage-task-card">
+            <span id="stageKicker">操作練習</span>
+            <strong id="stageTarget">自由試車</strong>
+          </div>
+          <div id="graphCard" class="graph-card" aria-hidden="true">
+            <span id="graphTitle">v–t</span>
+            <canvas id="graphCanvas"></canvas>
+          </div>
+          <p id="stageStatus" class="stage-status">車輛已準備好。</p>
+          <p id="graphAlternative" class="sr-only">資料尚不足</p>
+        </section>
+
+        <aside id="controlPanel" class="sim-panel driving-panel" aria-label="駕駛操作面板">
+          <section id="activitySection" class="panel-section">
+            <p id="panelKicker" class="panel-kicker">操作練習</p>
+            <h2 id="panelTitle" class="section-title" tabindex="-1">先感受油門、煞車與圖線</h2>
+            <p id="instruction">試按住不同力度，放手回到空檔，再比較兩幅圖。</p>
+
+            <fieldset class="graph-switch">
+              <legend>角落圖像</legend>
+              <label><input type="radio" name="graphMode" value="vt" checked> v–t</label>
+              <label><input type="radio" name="graphMode" value="xt"> x–t</label>
+              <label><input type="radio" name="graphMode" value="hidden"> 隱藏</label>
+            </fieldset>
+
+            <div id="drivingDeck" class="driving-deck">
+              <fieldset class="intensity-switch">
+                <legend>踏板力度</legend>
+                <label><input type="radio" name="intensity" value="1"> 輕</label>
+                <label><input type="radio" name="intensity" value="2" checked> 中</label>
+                <label><input type="radio" name="intensity" value="3"> 重</label>
+              </fieldset>
+              <div class="pedal-grid" role="group" aria-label="按住式駕駛控制">
+                <button id="throttleButton" type="button" class="pedal throttle" aria-keyshortcuts="ArrowUp W">按住油門</button>
+                <button id="brakeButton" type="button" class="pedal brake" aria-keyshortcuts="ArrowDown S">按住煞車</button>
+              </div>
+              <p id="controlState" class="control-state">目前：空檔</p>
+            </div>
+
+            <div class="button-grid action-grid">
+              <button id="startButton" type="button" class="primary-button">開始試車</button>
+              <button id="pauseButton" type="button">暫停</button>
+              <button id="resetButton" type="button">重新開始</button>
+            </div>
+            <button id="advanceButton" type="button" class="primary-button full-button">開始第 1 關</button>
+
+            <section id="analysisSection" class="analysis-section is-hidden" aria-labelledby="analysisTitle">
+              <h3 id="analysisTitle">今次試車分析</h3>
+              <div id="analysisList" class="analysis-list"></div>
+              <label class="scrub-row">回放位置
+                <input id="scrubRange" type="range" min="0" max="100" value="100" aria-label="只讀回放時間游標">
+              </label>
+              <div class="button-grid">
+                <button id="acceptButton" type="button" class="primary-button">記錄今次表現</button>
+                <button id="retryRunButton" type="button">重新挑戰</button>
+              </div>
+              <button id="keepPreviousButton" type="button" class="is-hidden full-button">保留原有記錄並返回檢查</button>
+            </section>
+          </section>
+
+          <section id="checkpointSection" class="panel-section is-hidden">
+            <p class="panel-kicker">圖像證據 checkpoint</p>
+            <h2 id="checkpointTitle" class="section-title" tabindex="-1">哪幅圖更直接？</h2>
+            <p>切換並查看同一段記錄的 x–t 與 v–t 圖，然後回答。</p>
+            <div class="checkpoint-graphs">
+              <button id="viewXtButton" type="button">查看 x–t 圖</button>
+              <button id="viewVtButton" type="button">查看 v–t 圖</button>
+            </div>
+            <p id="checkpointViewStatus" class="muted">兩幅圖尚未看完。</p>
+            <fieldset id="checkpointAnswers" disabled>
+              <legend>如果要直接判斷速度是否以固定比率改變，哪一幅圖提供較清楚的證據？</legend>
+              <label><input type="radio" name="checkpointAnswer" value="vt-linear"> v–t 圖，因為勻變速時會形成斜率固定的直線</label>
+              <label><input type="radio" name="checkpointAnswer" value="xt-curvature"> x–t 圖，因為彎曲程度可以直接當作加速度讀數</label>
+              <label><input type="radio" name="checkpointAnswer" value="both-any"> 兩幅圖一樣直接，只要圖線不是水平便足夠</label>
+              <label><input type="radio" name="checkpointAnswer" value="xt-fixed-slope"> x–t 圖，因為斜率固定代表加速度固定</label>
+            </fieldset>
+            <p id="checkpointError" class="error-text" role="alert"></p>
+            <button id="confirmCheckpointButton" type="button" class="primary-button full-button">確認並繼續</button>
+          </section>
+
+          <section id="reviewSection" class="panel-section is-hidden">
+            <h2 id="reviewTitle" class="section-title" tabindex="-1">提交前檢查</h2>
+            <p>只會評你已記錄的五次試車及圖像答案。可以先返回任何一關改善。</p>
+            <p id="submissionNotice" class="submission-notice is-hidden"></p>
+            <div id="reviewList" class="review-list"></div>
+            <button id="submitButton" type="button" class="primary-button full-button">提交全部記錄</button>
+            <button id="submissionRetryButton" type="button" class="is-hidden full-button">重試連線</button>
+          </section>
+
+          <section id="resultSection" class="panel-section is-hidden">
+            <h2 id="resultTitle" class="section-title" tabindex="-1">結果</h2>
+            <div id="scorePanel" class="score-panel"></div>
+            <div id="feedbackList" class="feedback-list"></div>
+            <button id="resultRetryButton" type="button" class="is-hidden full-button">重試連線</button>
+          </section>
+          <div id="liveRegion" class="sr-only" aria-live="polite"></div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

@@ -46,6 +46,14 @@ const simulationList = [
     description: "利用移動標尺、計時器和時間放大鏡，量度位移與時間，計算平均速度，並理解瞬時速度。",
     tags: ["physics", "mechanics", "kinematics", "velocity", "instantaneous-velocity", "scorm"],
     status: "active"
+  },
+  {
+    title: "勻速與勻變速：駕駛控制挑戰",
+    folder: "kinematics-driving-challenge",
+    categories: ["Mechanics"],
+    description: "按住油門與煞車，在平路和斜坡製造勻速、勻加速及勻減速，並用無數字運動圖像判斷表現。",
+    tags: ["physics", "mechanics", "kinematics", "uniform-motion", "constant-acceleration", "driving", "scorm"],
+    status: "active"
   }
 ];
 

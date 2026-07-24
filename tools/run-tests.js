@@ -28,6 +28,13 @@ const tests = [
   "sim/linear-motion-velocity-lab/persistence.test.js",
   "sim/linear-motion-velocity-lab/accessibility.test.js",
   "sim/linear-motion-velocity-lab/ui-runtime.test.js",
+  "sim/kinematics-driving-challenge/driving-model.test.js",
+  "sim/kinematics-driving-challenge/level-definitions.test.js",
+  "sim/kinematics-driving-challenge/scoring.test.js",
+  "sim/kinematics-driving-challenge/persistence.test.js",
+  "sim/kinematics-driving-challenge/scene-visuals.test.js",
+  "sim/kinematics-driving-challenge/ui-runtime.test.js",
+  "sim/kinematics-driving-challenge/accessibility.test.js",
   "tools/mobile-touch-scroll.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
