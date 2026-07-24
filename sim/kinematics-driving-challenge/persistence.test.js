@@ -149,8 +149,8 @@ const priorPhysics = Persistence.encode(base());
 priorPhysics.p = 4;
 assert.equal(Persistence.decode(priorPhysics), null, "a physics-v4 snapshot is rejected after resistance-model calibration");
 const priorLevels = Persistence.encode(base());
-priorLevels.l = 4;
-assert.equal(Persistence.decode(priorLevels), null, "a level-set-v4 snapshot is rejected after unique-strategy calibration");
+priorLevels.l = 5;
+assert.equal(Persistence.decode(priorLevels), null, "a level-set-v5 snapshot is rejected after simplifying level 4");
 for (const malformed of [
   { path: ["b"], value: 2 },
   { path: ["b"], value: false },

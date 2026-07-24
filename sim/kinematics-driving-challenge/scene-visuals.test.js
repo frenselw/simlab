@@ -39,31 +39,39 @@ const longRun = Array.from({ length: 1201 }, (_, index) => ({
   t: index * .05, x: index * .15, v: 5 + index * .0005, a: .01
 }));
 const lateWindow = Visuals.graphWindow(longRun, 60, 12);
-assert.equal(lateWindow.startTime, 48);
+assert.equal(lateWindow.startTime, 0);
 assert.equal(lateWindow.endTime, 60);
-assert(lateWindow.samples.length > 200 && lateWindow.samples.length <= 242);
-const latePoints = Visuals.graphPoints(lateWindow.samples, "vt", rect, zone, lateWindow.startTime);
+assert.equal(lateWindow.duration, 96);
+assert.equal(lateWindow.samples.length, longRun.length, "an expanding timeline retains the full trace");
+const latePoints = Visuals.graphPoints(
+  lateWindow.samples, "vt", rect, { ...zone, graphTimeSpan: lateWindow.duration }, lateWindow.startTime
+);
 assert(latePoints.every((point) => point.x >= rect.x && point.x <= rect.x + rect.width),
-  "all samples in a legal max-ticks run stay inside the fixed sliding graph window");
-assert.equal(latePoints.at(-1).x, rect.x + rect.width, "the current cursor remains visible at the right edge");
+  "all samples in a legal max-ticks run stay inside the expanding graph timeline");
+assert.equal(latePoints[0].x, rect.x, "the trace remains anchored at the original start");
 const middleWindow = Visuals.graphWindow(longRun, 24, 12);
-const middlePoints = Visuals.graphPoints(middleWindow.samples, "vt", rect, zone, middleWindow.startTime);
+assert.equal(middleWindow.duration, 24);
+assert.equal(middleWindow.samples[0].t, 0);
+const middlePoints = Visuals.graphPoints(
+  middleWindow.samples, "vt", rect, { ...zone, graphTimeSpan: middleWindow.duration }, middleWindow.startTime
+);
 const middleSlope = (middlePoints.at(-1).y - middlePoints[0].y) / (middlePoints.at(-1).x - middlePoints[0].x);
 const lateSlope = (latePoints.at(-1).y - latePoints[0].y) / (latePoints.at(-1).x - latePoints[0].x);
-assert(Math.abs(middleSlope - lateSlope) < 1e-12,
-  "panning the fixed window preserves the pixel slope of identical physical acceleration");
-const middleXt = Visuals.graphPoints(middleWindow.samples, "xt", rect, { ...zone, end: 200 }, middleWindow.startTime);
-const lateXt = Visuals.graphPoints(lateWindow.samples, "xt", rect, { ...zone, end: 200 }, lateWindow.startTime);
-assert(Math.abs(middleXt[0].y - (rect.y + rect.height - middleWindow.samples[0].x / 200 * rect.height)) < 1e-12);
-assert(Math.abs(lateXt[0].y - (rect.y + rect.height - lateWindow.samples[0].x / 200 * rect.height)) < 1e-12);
-assert(lateXt[0].y < middleXt[0].y,
-  "x–t vertical position remains referenced to the zone entrance while only the time axis pans");
+assert(middleSlope < 0 && lateSlope < 0, "timeline expansion preserves the direction of an increasing v–t trace");
+const lateXt = Visuals.graphPoints(
+  lateWindow.samples, "xt", rect, { ...zone, end: 200, graphTimeSpan: lateWindow.duration }, lateWindow.startTime
+);
+assert.equal(lateXt[0].x, rect.x);
+assert(Math.abs(lateXt[0].y - (rect.y + rect.height - longRun[0].x / 200 * rect.height)) < 1e-12);
 const earlyWindow = Visuals.graphWindow(longRun, 6, 12);
-assert.equal(earlyWindow.startTime, 0, "the graph does not pan before its fixed twelve-second span is filled");
+assert.equal(earlyWindow.duration, 12, "the base time scale remains stable while the trace fits");
+assert.equal(earlyWindow.samples[0].t, 0);
 
 const uphill = Levels.LEVELS[3];
 assert.equal(Visuals.visualSlopeAt(uphill, 30), 3.5);
-assert(Visuals.visualSlopeAt(uphill, 54.5) < 4.68 && Visuals.visualSlopeAt(uphill, 54.5) > 0,
-  "car pitch eases into a road-angle boundary without changing physics");
+assert.equal(Visuals.visualSlopeAt(uphill, 70), 3.5);
+assert(Visuals.roadY(-10, uphill, 200, 5) > 200, "the uphill visual continues behind the route start");
+assert(Visuals.roadY(uphill.routeLength + 10, uphill, 200, 5) <
+  Visuals.roadY(uphill.routeLength, uphill, 200, 5), "the uphill visual continues beyond the finish");
 
 console.log("Kinematics driving visual helper tests passed");

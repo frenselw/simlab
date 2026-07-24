@@ -488,12 +488,20 @@
     if (state.phase === "level" && state.variant.endsWith("analysis")) {
       return Levels.scoredZones(currentLevel()).find((zone) => zone.id === analysisZoneId) || Levels.scoredZones(currentLevel())[0];
     }
-    return activeSampleSegment();
+    const level = currentLevel();
+    return {
+      id: `${level.id}-preview`,
+      start: 0,
+      end: level.routeLength,
+      graphVelocitySpan: Levels.GRAPH_VELOCITY_SPAN,
+      graphTimeSpan: Levels.GRAPH_TIME_SPAN_S
+    };
   }
   function graphSamples() {
     const run = displayRun();
     if (!run?.samples?.length) return [];
     if (state.phase === "graph-check") return run.samples;
+    if (state.phase === "level" && !state.variant.endsWith("analysis")) return run.samples;
     const segment = graphZone();
     return run.samples.filter((sample) => sample.segmentId === segment?.id);
   }
@@ -716,14 +724,23 @@
     const width = graphView.width, height = graphView.height;
     graphCtx.clearRect(0, 0, width, height);
     graphCtx.fillStyle = "rgba(255,255,255,.94)"; graphCtx.fillRect(0, 0, width, height);
-    const rect = { x: 23, y: 22, width: Math.max(20, width - 34), height: Math.max(20, height - 34) };
+    const rect = { x: 27, y: 20, width: Math.max(20, width - 49), height: Math.max(20, height - 42) };
     graphCtx.strokeStyle = "#94a3b8"; graphCtx.lineWidth = 1;
     for (let i = 1; i < 5; i += 1) {
       const x = rect.x + rect.width * i / 5;
       graphCtx.beginPath(); graphCtx.moveTo(x, rect.y); graphCtx.lineTo(x, rect.y + rect.height); graphCtx.stroke();
+      const y = rect.y + rect.height * i / 5;
+      graphCtx.beginPath(); graphCtx.moveTo(rect.x, y); graphCtx.lineTo(rect.x + rect.width, y); graphCtx.stroke();
     }
-    graphCtx.strokeStyle = "#334155"; graphCtx.lineWidth = 1.5; graphCtx.beginPath();
-    graphCtx.moveTo(rect.x, rect.y); graphCtx.lineTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height); graphCtx.stroke();
+    graphCtx.strokeStyle = "#334155"; graphCtx.lineWidth = 1.8; graphCtx.lineCap = "round";
+    graphCtx.beginPath();
+    graphCtx.moveTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x, rect.y);
+    graphCtx.moveTo(rect.x - 4, rect.y + 7); graphCtx.lineTo(rect.x, rect.y); graphCtx.lineTo(rect.x + 4, rect.y + 7);
+    graphCtx.moveTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height);
+    graphCtx.moveTo(rect.x + rect.width - 7, rect.y + rect.height - 4);
+    graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height);
+    graphCtx.lineTo(rect.x + rect.width - 7, rect.y + rect.height + 4);
+    graphCtx.stroke();
     const allSamples = graphSamples();
     const cursorSample = displaySample();
     const partialSamples = (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))
@@ -731,8 +748,9 @@
       : allSamples;
     const zone = graphZone();
     const windowed = Visuals.graphWindow(partialSamples, cursorSample.t, zone?.graphTimeSpan);
-    const points = Visuals.graphPoints(windowed.samples, state.graphMode, rect, zone, windowed.startTime);
-    graphCtx.strokeStyle = "#2563eb"; graphCtx.lineWidth = 2.5; graphCtx.lineJoin = "round"; graphCtx.beginPath();
+    const graphDomain = { ...zone, graphTimeSpan: windowed.duration };
+    const points = Visuals.graphPoints(windowed.samples, state.graphMode, rect, graphDomain, windowed.startTime);
+    graphCtx.strokeStyle = "#1d4ed8"; graphCtx.lineWidth = 3; graphCtx.lineJoin = "round"; graphCtx.lineCap = "round"; graphCtx.beginPath();
     points.forEach((point, index) => index ? graphCtx.lineTo(point.x, point.y) : graphCtx.moveTo(point.x, point.y)); graphCtx.stroke();
     const cursor = points[points.length - 1];
     if (cursor && (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))) {
@@ -745,8 +763,8 @@
     graphCtx.font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif";
     graphCtx.textAlign = "center";
     graphCtx.textBaseline = "middle";
-    graphCtx.fillText("t", rect.x + rect.width + 2, rect.y + rect.height + 3);
-    graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", rect.x - 11, rect.y - 5);
+    graphCtx.fillText("t", rect.x + rect.width + 9, rect.y + rect.height + 10);
+    graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", rect.x - 10, rect.y - 8);
     graphCtx.restore();
   }
   function animate(now) {

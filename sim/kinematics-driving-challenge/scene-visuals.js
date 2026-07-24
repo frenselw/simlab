@@ -13,11 +13,19 @@
 
   function positiveModulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
   function roadY(position, level, baseY, pixelsPerMetre) {
+    const first = level.segments[0];
+    const last = level.segments[level.segments.length - 1];
+    if (position < first.start) {
+      return baseY - (position - first.start) * Math.sin(first.slopeDeg * Math.PI / 180) * pixelsPerMetre;
+    }
     let elevation = 0;
     for (const segment of level.segments) {
       const span = Math.max(0, Math.min(position, segment.end) - segment.start);
       elevation += span * Math.sin(segment.slopeDeg * Math.PI / 180);
       if (position <= segment.end) break;
+    }
+    if (position > last.end) {
+      elevation += (position - last.end) * Math.sin(last.slopeDeg * Math.PI / 180);
     }
     return baseY - elevation * pixelsPerMetre;
   }
@@ -31,23 +39,11 @@
     const firstTime = samples[0].t;
     const lastTime = samples[samples.length - 1].t;
     const endTime = Math.max(firstTime, Math.min(lastTime, cursorTime));
-    const startTime = Math.max(firstTime, endTime - duration);
-    const visible = samples.filter((sample) => sample.t >= startTime - 1e-9 && sample.t <= endTime + 1e-9);
-    const firstVisible = visible[0];
-    if (firstVisible && firstVisible.t > startTime + 1e-9) {
-      const nextIndex = samples.indexOf(firstVisible);
-      const previous = samples[nextIndex - 1];
-      if (previous && previous.t < startTime) {
-        const fraction = (startTime - previous.t) / (firstVisible.t - previous.t);
-        visible.unshift({
-          ...previous, t: startTime,
-          x: previous.x + (firstVisible.x - previous.x) * fraction,
-          v: previous.v + (firstVisible.v - previous.v) * fraction,
-          a: previous.a + (firstVisible.a - previous.a) * fraction
-        });
-      }
-    }
-    return { samples: visible, startTime, endTime, duration };
+    const elapsed = Math.max(0, endTime - firstTime);
+    const scaleSteps = elapsed <= duration ? 0 : Math.ceil(Math.log2(elapsed / duration));
+    const expandedDuration = duration * 2 ** scaleSteps;
+    const visible = samples.filter((sample) => sample.t <= endTime + 1e-9);
+    return { samples: visible, startTime: firstTime, endTime, duration: expandedDuration };
   }
   function graphPoints(samples, mode, rect, zone, windowStart = samples?.[0]?.t || 0) {
     if (!samples?.length) return [];

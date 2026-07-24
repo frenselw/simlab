@@ -75,6 +75,20 @@ function completeReviewDraft() {
   };
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
+function levelFourPreviewDraft() {
+  const correctCodes = { level1: 1, level2: 2, level3: 5 };
+  const selectedRuns = Object.fromEntries(Levels.LEVELS.slice(0, 3).map((level) =>
+    [level.id, { revision: 1, codes: terminalCodes(level, correctCodes[level.id]) }]
+  ));
+  const state = {
+    ...Persistence.initialState(), phase: "level", variant: "paused", currentItem: "level4",
+    selectedRuns, candidateRun: { ownerId: "level4", codes: Array(260).fill(1) },
+    graphCheckpoint: {
+      sourceLevelId: "level2", sourceRunRevision: 1, viewedXt: true, viewedVt: true, answerId: "vt-linear"
+    }
+  };
+  return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
+}
 
 async function waitFor(cdp, expression, label) {
   for (let attempt = 0; attempt < 160; attempt += 1) {
@@ -244,7 +258,7 @@ async function analysisScrub(cdp, baseUrl, activityPath, label) {
   })()`);
   assert.equal(finalExtent.value, "100");
   assert(finalExtent.amber >= 0 && finalExtent.amber < finalExtent.width,
-    `${label}: max-ticks cursor remains visible inside the fixed sliding window`);
+    `${label}: max-ticks cursor remains visible inside the expanding timeline`);
   return `${label} trusted analysis scrub passed`;
 }
 async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
@@ -272,6 +286,41 @@ async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
   assert.notEqual(after.result, before.result, `${label}: selecting another scored zone updates its analysis`);
   assert.equal(after.scrub, "100");
   return `${label} multi-zone analysis selector passed`;
+}
+async function levelFourVisual(cdp, baseUrl, activityPath, label) {
+  const snapshot = levelFourPreviewDraft();
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const values={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':${JSON.stringify(snapshot)},'cmi.core.score.raw':''};
+    window.API={LMSInitialize:()=>'true',LMSGetValue:key=>values[key]||'',LMSSetValue:(key,value)=>(values[key]=String(value),'true'),LMSCommit:()=>'true',LMSFinish:()=>'true',LMSGetLastError:()=>'0',LMSGetErrorString:()=>''};
+  })();` });
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-level4`)}` });
+  await waitFor(cdp, "document.getElementById('panelKicker')?.textContent.includes('第 4 關')", `${label} level 4`);
+  const visual = await evaluate(cdp, `(() => {
+    const level=window.KinematicsDrivingLevels.levelById('level4');
+    const c=document.getElementById('graphCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    let minBlue=c.width,maxBlue=-1;
+    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
+      const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];
+      if(b>150&&r<90&&g>50&&g<160){minBlue=Math.min(minBlue,x);maxBlue=Math.max(maxBlue,x);}
+    }
+    return {
+      segments:level.segments.map(s=>({start:s.start,end:s.end,slope:s.slopeDeg,target:s.target})),
+      routeLength:level.routeLength,graph:{width:c.width,minBlue,maxBlue},
+      instruction:document.getElementById('instruction').textContent
+    };
+  })()`);
+  assert.equal(visual.segments.length, 1, `${label}: level 4 has one uninterrupted slope`);
+  assert.deepEqual(visual.segments[0], { start: 0, end: visual.routeLength, slope: 3.5, target: "uniform" });
+  assert.match(visual.instruction, /整條.*上斜路/);
+  assert(visual.graph.minBlue < visual.graph.width * .25, `${label}: the trace retains its original left-hand start`);
+  assert(visual.graph.maxBlue > visual.graph.width * .35 && visual.graph.maxBlue < visual.graph.width * .8,
+    `${label}: a 13-second trace expands its time scale without clearing or sliding (${JSON.stringify(visual.graph)})`);
+  if (label === "development") {
+    const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    fs.writeFileSync(path.join(root, "output", "kinematics-driving-level4-mobile-qa.png"), Buffer.from(screenshot.data, "base64"));
+  }
+  return `${label} single-slope level 4 and persistent graph passed`;
 }
 async function nonRetryableSubmission(cdp, baseUrl, activityPath, label) {
   const snapshot = completeReviewDraft();
@@ -337,6 +386,8 @@ async function main() {
     summaries.push(await analysisScrub(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await multiZoneAnalysis(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await multiZoneAnalysis(cdp, artifactUrl, activityPath, "packaged"));
+    summaries.push(await levelFourVisual(cdp, sourceUrl, `/${slug}/index.html`, "development"));
+    summaries.push(await levelFourVisual(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await nonRetryableSubmission(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await nonRetryableSubmission(cdp, artifactUrl, activityPath, "packaged"));
     console.log(`Kinematics driving browser regression passed: ${summaries.join("; ")}`);

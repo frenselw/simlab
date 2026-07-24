@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 5;
+  const LEVEL_SET_VERSION = 6;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 
@@ -37,14 +37,10 @@
     }),
     Object.freeze({
       id: "level4", number: 4, title: "斜坡保持勻速", shortTitle: "斜坡勻速", color: "#7c3aed",
-      instruction: "按坡度選擇踏板力度，在三段不同斜坡保持勻速。轉折的灰色路段不計分。",
-      initialSpeed: 8, maxTicks: 700, routeLength: 150,
+      instruction: "在整條紫色上斜路試出合適的油門力度，令 v–t 圖保持水平。",
+      initialSpeed: 8, maxTicks: 500, routeLength: 88,
       segments: Object.freeze([
-        zone("l4-up-medium", 0, 42, 3.50, "uniform", 5),
-        zone("l4-transition-a", 42, 54, 0, "transition", 0),
-        zone("l4-up-full", 54, 96, 4.68, "uniform", 5),
-        zone("l4-transition-b", 96, 108, 0, "transition", 0),
-        zone("l4-down-light", 108, 150, -4.34, "uniform", 5)
+        zone("l4-uphill", 0, 88, 3.50, "uniform", 15)
       ])
     }),
     Object.freeze({
