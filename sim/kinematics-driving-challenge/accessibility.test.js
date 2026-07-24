@@ -26,6 +26,9 @@ assert.match(main, /event\.code === "Space"/);
 assert.match(main, /canOpenReviewItem\(state, level\.id, locked\)/);
 assert.match(main, /elements\.reviewList\.addEventListener\("click", \(event\) => \{\s*if \(locked\) return;/);
 assert.match(html, /id="analysisZoneTabs"/);
+assert.doesNotMatch(html, /id="graphTitle"/);
+assert.doesNotMatch(main, /setLineDash/);
+assert.match(main, /font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif"/);
 assert.doesNotMatch(html, /m\/s|m\/s²|m\/s<sup>2/);
 assert.doesNotMatch(html, /type="number"/);
 

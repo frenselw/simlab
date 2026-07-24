@@ -526,8 +526,6 @@
     ctx.beginPath(); ctx.moveTo(roadPoints[0].x, roadPoints[0].y);
     roadPoints.forEach((point) => ctx.lineTo(point.x, point.y));
     ctx.lineTo(width + 30, height); ctx.lineTo(-30, height); ctx.closePath(); ctx.fillStyle = "#4b5563"; ctx.fill();
-    ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = 2; ctx.setLineDash([18, 14]);
-    ctx.beginPath(); roadPoints.forEach((point, index) => index ? ctx.lineTo(point.x, point.y + 25) : ctx.moveTo(point.x, point.y + 25)); ctx.stroke(); ctx.setLineDash([]);
     level.segments.forEach((segment) => {
       const signPosition = segment.start === 0 ? Math.min(segment.end - 2, 18) : segment.start;
       const x = Visuals.worldToScreen(signPosition, sample.x, anchorX, ppm);
@@ -600,9 +598,14 @@
       graphCtx.beginPath(); graphCtx.moveTo(cursor.x, rect.y); graphCtx.lineTo(cursor.x, rect.y + rect.height); graphCtx.stroke();
       graphCtx.fillStyle = "#f59e0b"; graphCtx.beginPath(); graphCtx.arc(cursor.x, cursor.y, 3.5, 0, Math.PI * 2); graphCtx.fill();
     }
-    elements.graphTitle.textContent = state.graphMode === "xt" ? "x–t" : "v–t";
-    graphCtx.fillStyle = "#334155"; graphCtx.font = "700 11px system-ui"; graphCtx.fillText("t", width - 12, height - 4);
-    graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", 7, 18);
+    graphCtx.save();
+    graphCtx.fillStyle = "#1e293b";
+    graphCtx.font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif";
+    graphCtx.textAlign = "center";
+    graphCtx.textBaseline = "middle";
+    graphCtx.fillText("t", rect.x + rect.width + 2, rect.y + rect.height + 3);
+    graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", rect.x - 11, rect.y - 5);
+    graphCtx.restore();
   }
   function animate(now) {
     const elapsed = Math.min(.5, Math.max(0, (now - lastFrame) / 1000));
