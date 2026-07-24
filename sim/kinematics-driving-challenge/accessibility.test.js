@@ -12,6 +12,8 @@ assert.equal((html.match(/aria-live=/g) || []).length, 1);
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
 assert.match(html, /id="throttleButton"[^>]*aria-keyshortcuts="ArrowUp W"/);
 assert.match(html, /id="brakeButton"[^>]*aria-keyshortcuts="ArrowDown S"/);
+assert.doesNotMatch(html, /name="intensity"/);
+assert.doesNotMatch(html, />\s*(?:輕|中|重)\s*</);
 assert.match(css, /\.pedal \{[^}]*min-height: 72px/);
 assert.match(css, /\.driving-stage[^}]*touch-action: pan-y/);
 assert.match(css, /\.driving-panel[^}]*overscroll-behavior: contain/);

@@ -35,10 +35,10 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .math-expression var { font-family: inherit; font-style: italic; font-weight: 500; }
 .math-expression .math-operator { margin: 0 .09em; font-style: normal; font-weight: 400; }
 .panel-kicker { margin: 0 0 .25rem; color: var(--color-accent); font-size: .78rem; font-weight: 800; letter-spacing: .06em; }
-.graph-switch, .intensity-switch { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .25rem; margin-top: .7rem; padding: .55rem; }
-.graph-switch legend, .intensity-switch legend { font-size: .82rem; }
-.graph-switch label, .intensity-switch label { justify-content: center; min-height: 44px; padding: .25rem; background: #f8fafc; border-radius: .45rem; font-weight: 700; }
-.graph-switch input, .intensity-switch input { width: 1.05rem; height: 1.05rem; }
+.graph-switch { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .25rem; margin-top: .7rem; padding: .55rem; }
+.graph-switch legend { font-size: .82rem; }
+.graph-switch label { justify-content: center; min-height: 44px; padding: .25rem; background: #f8fafc; border-radius: .45rem; font-weight: 700; }
+.graph-switch input { width: 1.05rem; height: 1.05rem; }
 .driving-deck { position: sticky; top: 0; z-index: 5; margin: .75rem -.2rem 0; padding: .7rem .2rem .25rem; background: linear-gradient(to bottom, #f9fafb 80%, rgba(249,250,251,.95)); }
 .pedal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .55rem; }
 .pedal { min-height: 72px; border-width: 2px; font-size: 1rem; font-weight: 900; touch-action: none; user-select: none; -webkit-user-select: none; }

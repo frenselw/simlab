@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 2;
+  const LEVEL_SET_VERSION = 3;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 
@@ -52,7 +52,7 @@
       segments: Object.freeze([
         zone("l5-uniform-flat", 0, 48, 0, "uniform", 5),
         zone("l5-transition-a", 48, 60, 0, "transition", 0),
-        zone("l5-accelerate-up", 60, 106, 4, "accelerating", 5),
+        zone("l5-accelerate-flat", 60, 106, 0, "accelerating", 5),
         zone("l5-transition-b", 106, 120, 0, "transition", 0),
         zone("l5-decelerate-flat", 120, 168, 0, "decelerating", 5),
         zone("l5-transition-c", 168, 180, 0, "transition", 0),
@@ -63,7 +63,7 @@
 
   const PRACTICE = Object.freeze({
     id: "practice", number: 0, title: "操作練習", shortTitle: "練習", color: "#64748b",
-    instruction: "試按住不同力度的油門或煞車，並比較 x–t 與 v–t 圖。",
+    instruction: "試按住油門或煞車，放手回到空檔，並比較 x–t 與 v–t 圖。",
     initialSpeed: 7, maxTicks: 600, routeLength: 160,
     segments: Object.freeze([zone("practice-flat", 0, 160, 0, "practice", 0)])
   });

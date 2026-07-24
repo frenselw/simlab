@@ -28,8 +28,8 @@ function maxTickCodes(level) {
   let run = Model.replay(level, codes);
   while (!run.state.terminal) {
     const zone = Levels.segmentAt(level, run.state.x);
-    const desiredAcceleration = .8 * (2.5 - run.state.v);
-    const code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
+    const desiredAcceleration = .8 * (.5 - run.state.v);
+    const code = Array.from({ length: 3 }, (_, candidate) => candidate).reduce((best, candidate) =>
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, candidate) - desiredAcceleration) <
       Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
     codes.push(code);
@@ -40,7 +40,7 @@ function maxTickCodes(level) {
 }
 function analysisDraft(levelId = "level1") {
   const level = Levels.levelById(levelId);
-  const fixedCodes = { level1: 1, level2: 2, level3: 4, level4: 2, level5: 2 };
+  const fixedCodes = { level1: 0, level2: 1, level3: 2, level4: 1, level5: 1 };
   const codes = levelId === "level1" ? maxTickCodes(level) : terminalCodes(level, fixedCodes[levelId]);
   if (levelId === "level5") {
     const selectedRuns = Object.fromEntries(Levels.LEVELS.map((item) =>
@@ -62,7 +62,7 @@ function analysisDraft(levelId = "level1") {
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
 function completeReviewDraft() {
-  const fixedCodes = { level1: 1, level2: 2, level3: 4, level4: 2, level5: 2 };
+  const fixedCodes = { level1: 0, level2: 1, level3: 2, level4: 1, level5: 1 };
   const selectedRuns = Object.fromEntries(Levels.LEVELS.map((level) =>
     [level.id, { revision: 1, codes: terminalCodes(level, fixedCodes[level.id]) }]
   ));

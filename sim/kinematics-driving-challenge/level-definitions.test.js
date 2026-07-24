@@ -19,76 +19,32 @@ const catalog = fs.readFileSync(path.join(__dirname, "..", "config.js"), "utf8")
 assert.match(catalog, /folder:\s*"kinematics-driving-challenge"[\s\S]*?status:\s*"planned"/,
   "the activity remains planned until browser QA and packaged-SCORM verification finish");
 
-const STRATEGY_FIXTURES = {
-  level1: [
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .4 },
-    { holdTicks: 25, acceleration: .5, deceleration: .7, gain: .8 },
-    { holdTicks: 30, acceleration: .7, deceleration: .9, gain: 1.2 }
-  ],
-  level2: [
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .6 },
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .8 },
-    { holdTicks: 22, acceleration: .35, deceleration: .55, gain: 1 }
-  ],
-  level3: [
-    { holdTicks: 20, acceleration: .35, deceleration: .7, gain: 1.8 },
-    { holdTicks: 25, acceleration: .5, deceleration: .7, gain: .8 },
-    { holdTicks: 20, acceleration: .35, deceleration: .65, gain: 1.2 }
-  ],
-  level4: [
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .4 },
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .8 },
-    { holdTicks: 25, acceleration: .5, deceleration: .7, gain: .8 }
-  ],
-  level5: [
-    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .4 },
-    { holdTicks: 20, acceleration: .5, deceleration: .55, gain: .8 },
-    { holdTicks: 20, acceleration: .5, deceleration: .55, gain: 1.2 }
-  ]
-};
+function simpleControlFor(zone) {
+  if (zone.target === "accelerating") return 1;
+  if (zone.target === "decelerating") return 2;
+  if (zone.target === "uniform") return zone.slopeDeg > 0 ? 1 : zone.slopeDeg < 0 ? 2 : 0;
+  return 0;
+}
 
-function humanHoldStrategy(level, fixture) {
+function simpleHoldStrategy(level) {
   const codes = [];
   let run = Model.replay(level, codes);
-  let zoneAnchor = null;
-  let code = 0;
   while (!run.state.terminal) {
-    if (codes.length % fixture.holdTicks === 0) {
-      const current = run.state;
-      const zone = Levels.segmentAt(level, current.x);
-      if (!zoneAnchor || zoneAnchor.id !== zone.id) zoneAnchor = { id: zone.id, t: current.t, v: current.v };
-      const targetAcceleration = zone.target === "accelerating" ? fixture.acceleration :
-        zone.target === "decelerating" ? -fixture.deceleration : 0;
-      const targetVelocity = zoneAnchor.v + targetAcceleration * (current.t - zoneAnchor.t);
-      const desiredAcceleration = zone.target === "transition" ? 0 :
-        targetAcceleration + fixture.gain * (targetVelocity - current.v);
-      code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
-        Math.abs(Model.accelerationFor(current.v, zone.slopeDeg, candidate) - desiredAcceleration) <
-        Math.abs(Model.accelerationFor(current.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
-    }
-    codes.push(code);
+    codes.push(simpleControlFor(Levels.segmentAt(level, run.state.x)));
     run = Model.replay(level, codes);
   }
   return { codes, run };
 }
 
 Levels.LEVELS.forEach((level) => {
-  const fixtures = STRATEGY_FIXTURES[level.id];
-  assert.equal(fixtures.length, 3);
-  fixtures.forEach((fixture, index) => {
-    assert(fixture.holdTicks >= 20 && fixture.holdTicks <= 60,
-      `${level.id} fixture ${index + 1} uses one-to-three-second holds`);
-    const strategy = humanHoldStrategy(level, fixture);
-    const scored = Scoring.scoreRun(level, strategy.codes);
-    assert.equal(strategy.run.state.terminal, "complete", `${level.id} fixture ${index + 1} completes`);
-    assert(scored.points / scored.maxPoints >= .85, `${level.id} fixture ${index + 1} earns a high-quality score`);
-    assert(strategy.codes.some((code, codeIndex) =>
-      codeIndex && code !== strategy.codes[codeIndex - 1]), `${level.id} fixture ${index + 1} requires control changes`);
-    assert(strategy.run.samples.some((sample) => sample.t >= Scoring.MIN_EVIDENCE_S), `${level.id} provides evidence time`);
-  });
+  const strategy = simpleHoldStrategy(level);
+  const scored = Scoring.scoreRun(level, strategy.codes);
+  assert.equal(strategy.run.state.terminal, "complete", `${level.id} simple strategy completes`);
+  assert.equal(scored.points, scored.maxPoints, `${level.id} simple strategy earns full marks`);
+  assert(strategy.run.samples.some((sample) => sample.t >= Scoring.MIN_EVIDENCE_S), `${level.id} provides evidence time`);
 });
 
-for (const [levelId, fixedCode] of [["level2", 2], ["level3", 1]]) {
+for (const [levelId, fixedCode] of [["level2", 0], ["level2", 2], ["level3", 0], ["level3", 1]]) {
   const level = Levels.levelById(levelId);
   const codes = [];
   let run = Model.replay(level, codes);
@@ -97,10 +53,10 @@ for (const [levelId, fixedCode] of [["level2", 2], ["level3", 1]]) {
     run = Model.replay(level, codes);
   }
   const scored = Scoring.scoreRun(level, codes);
-  assert(scored.points < scored.maxPoints, `${levelId} cannot be solved perfectly by one fixed input`);
+  assert(scored.points < scored.maxPoints, `${levelId} rejects the wrong fixed input ${fixedCode}`);
 }
 
-const mixed = humanHoldStrategy(Levels.levelById("level5"), STRATEGY_FIXTURES.level5[0]);
+const mixed = simpleHoldStrategy(Levels.levelById("level5"));
 const scoredZoneIds = new Set(Levels.scoredZones(Levels.levelById("level5")).map((zone) => zone.id));
 const mixedZoneCodes = new Map();
 mixed.run.samples.forEach((sample) => {
@@ -109,7 +65,7 @@ mixed.run.samples.forEach((sample) => {
   mixedZoneCodes.get(sample.segmentId).add(sample.code);
 });
 assert.equal(mixedZoneCodes.size, 4, "the mixed fixture reaches all four scored targets");
-assert(new Set(mixed.run.samples.filter((sample) => scoredZoneIds.has(sample.segmentId)).map((sample) => sample.code)).size >= 4,
+assert(new Set(mixed.run.samples.filter((sample) => scoredZoneIds.has(sample.segmentId)).map((sample) => sample.code)).size >= 3,
   "the mixed fixture visibly switches control strategy between targets");
 
 console.log("Kinematics driving level definition tests passed");

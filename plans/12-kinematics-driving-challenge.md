@@ -51,7 +51,7 @@
   - 透過操作分辨勻速、勻加速及勻減速；
   - 說明「一直變快」不一定是勻加速，速度必須以穩定比率改變；
   - 透過操作體會油門控制驅動作用，不直接指定速度或加速度；
-  - 體會固定油門在真實感簡化模型中不一定產生固定加速度；
+  - 在教學簡化模型中，以一次持續操作直接製造固定方向的速度變化；
   - 比較平路、上斜及落斜時維持相同運動規律所需的控制策略；
   - 從無數字 `v–t` 圖辨認水平、向上傾斜及向下傾斜的直線；
   - 解釋 `v–t` 圖通常比 `x–t` 圖更直接判斷是否勻變速。
@@ -63,7 +63,6 @@
   - 完成一個佔少量分數的圖像證據 checkpoint；
   - 檢查已記錄的關卡表現並一次過提交。
 - 主要互動：
-  - 選擇輕／中／重操作力度；
   - 按住油門或煞車，放手解除；
   - 暫停、繼續及重開當前試車；
   - 切換 `x–t`／`v–t`／隱藏圖像；
@@ -185,7 +184,6 @@
 
 - 認為油門踏板直接設定速度；
 - 認為按住同一油門一定是勻速；
-- 認為按住同一油門一定是勻加速；
 - 認為只要車愈來愈快便是勻加速；
 - 認為只要車愈來愈慢便是勻減速；
 - 認為勻速代表車完全不受力；
@@ -234,16 +232,15 @@
 
 操作面板提供：
 
-1. 力度選擇：`輕`／`中`／`重`
-2. 大型按住控制：`油門`
-3. 大型按住控制：`煞車`
-4. `暫停`／`繼續`
-5. `重新開始今次試車`
-6. 圖像預覽：`x–t`／`v–t`／`隱藏`
+1. 大型按住控制：`油門`
+2. 大型按住控制：`煞車`
+3. `暫停`／`繼續`
+4. `重新開始今次試車`
+5. 圖像預覽：`x–t`／`v–t`／`隱藏`
 
-學生先選力度，再按住油門或煞車：
+學生直接按住油門或煞車，不需要先選踏板力度：
 
-- `pointerdown`／鍵盤按下：開始施加所選作用；
+- `pointerdown`／鍵盤按下：開始施加固定作用；
 - 保持按住：持續作用；
 - `pointerup`／鍵盤放開：立即回到空檔；
 - `pointercancel`：必須安全解除控制並顯示操作中斷提示，不得留下「黏住油門」狀態；
@@ -258,7 +255,6 @@
 
 ### 7.2 鍵盤及替代操作
 
-- `1`／`2`／`3`：輕／中／重力度；
 - `ArrowUp` 或 `W`：按住油門；
 - `ArrowDown` 或 `S`：按住煞車；
 - `Space`：暫停／繼續；
@@ -347,17 +343,17 @@
 
 學生可以：
 
-- 試用三種油門力度；
-- 放開油門觀察車輛減速；
-- 試用三種煞車力度；
+- 試按住油門，觀察速度有規律增加；
+- 試按住煞車，觀察速度有規律減少；
+- 放開踏板回到空檔，觀察平路上的速度保持不變；
 - 暫停及重開；
 - 切換 `x–t`、`v–t` 及隱藏圖像。
 
 練習區依次顯示三個短提示，但不強迫完成：
 
-1. 試按住輕油門，再放手。
+1. 試按住油門，再放手。
 2. 試比較 `x–t` 與 `v–t` 圖。
-3. 留意固定油門下的 `v–t` 圖未必保持完全筆直。
+3. 留意持續按住同一踏板時，`v–t` 圖形成斜率固定的直線。
 
 `開始第 1 關` 始終可用。
 
@@ -372,14 +368,14 @@
 - 車以中等非零速度進入計分區；
 - 道路為平地；
 - 無指定目標速度；
-- 學生可用輕油門脈衝、空檔或其他穩定策略抵消阻力；
+- 學生放開兩個踏板，保持空檔；
 - 車停止、倒退需求或極慢爬行不能當作勻速答案。
 
 重點：
 
 - 水平 `v–t` 圖；
 - 斜率固定的直線 `x–t` 圖；
-- 勻速需要合力接近零，不代表完全不施加作用。
+- 在本教學模型的平路上，沒有踏板或坡度作用時速度保持不變。
 
 ### 10.3 第 2 關：平路保持勻加速（20 分）
 
@@ -394,7 +390,7 @@
 - 不指定加速度大小；
 - 學生要令 `v–t` 圖形成明顯向上而且近似筆直的線；
 - 只產生很小而不可辨認的速度增加不能取得方向分；
-- 由於阻力隨速度增加，長時間固定油門不保證加速度不變，學生可能需要逐步改變力度或以有規律方式修正。
+- 學生由計分區起點持續按住油門即可製造勻加速，不需要隨車速切換力度。
 
 重點：
 
@@ -412,7 +408,7 @@
 - 車以較高但安全的速度進入；
 - 道路為平地；
 - 不指定減速度大小；
-- 學生使用不同煞車力度及放開策略，令 `v–t` 圖形成明顯向下而且近似筆直的線；
+- 學生由計分區起點持續按住煞車，令 `v–t` 圖形成明顯向下而且近似筆直的線；
 - 車必須保持向前並完成整個區域；
 - 在區域中過早停車不算成功的勻減速；
 - 突然重煞後長時間慢速滑行不算勻減速。
@@ -476,7 +472,7 @@
 一次試車依次包含：
 
 1. 平路勻速；
-2. 上斜勻加速；
+2. 平路勻加速；
 3. 平路勻減速；
 4. 落斜勻速。
 
@@ -524,35 +520,41 @@
 x       沿道路位置，m
 v       向前速度，m/s，限制為 v >= 0
 theta   當前固定路段坡角
-u       控制狀態：空檔／油門輕中重／煞車輕中重
+u       控制狀態：空檔／油門／煞車
 t       模擬時間，s
 ```
 
 ### 12.2 更新公式
 
-每個固定時間步：
+第一版採用有意簡化的教學模型。油門及煞車各自提供固定大小、相反方向的加速度；不模擬隨車速增加的空氣阻力、滾動阻力、轉檔或引擎曲線。
 
 ```text
-F_net =
-  F_drive(u)
-  - F_brake(u)
-  - F_rolling(v)
-  - F_drag(v)
-  - m g sin(theta)
-
-a = F_net / m
+a = a_pedal(u) - g sin(theta)
 v_next = max(0, v + a Δt)
 x_next = x + (v + v_next) Δt / 2
+
+a_pedal(空檔) = 0
+a_pedal(油門) = +0.7 m/s²
+a_pedal(煞車) = -0.7 m/s²
 ```
 
 當 `v = 0`：
 
-- 先計算 `F0 = F_drive - F_brake - m g sin(theta)`，此時空氣阻力為零；
-- 若 `F0 <= STATIC_HOLD_N`，車保持停止；負的 `F0` 亦不產生倒後；
-- 若 `F0 > STATIC_HOLD_N`，車開始向前，首個 moving substep 使用 `F_rolling = ROLLING_RESISTANCE_N`；
+- 若計算所得加速度小於或等於零，車保持停止；
+- 若計算所得加速度大於零，車開始向前；
 - 煞車在靜止時增加保持作用，不產生負速度；
 - 不允許負速度；
 - 不把坡道上向後溜車加入第一版。
+
+這不是完整汽車工程模型，而是為本活動學習目標而設的明確映射：
+
+- 平路空檔 → 勻速；
+- 平路持續按住油門 → 勻加速；
+- 平路持續按住煞車 → 勻減速；
+- 固定上斜持續按住油門 → 近似勻速；
+- 固定落斜持續按住煞車 → 近似勻速。
+
+因此學生不需要因車速改變而切換踏板力度，評分只檢查所產生的運動規律。
 
 ### 12.3 固定時間步
 
@@ -571,14 +573,8 @@ x_next = x + (v + v_next) Δt / 2
 以下是實作起點，不是學生可見數值；視覺試玩及可解性驗證後可在本文件內調整：
 
 ```text
-CAR_MASS_KG = 1200
 GRAVITY_M_S2 = 9.81
-ROLLING_RESISTANCE_N = 180
-STATIC_HOLD_N = 220
-DRAG_COEFFICIENT_N_PER_M_S_SQUARED = 8
-
-THROTTLE_FORCE_N = [360, 1150, 2500]
-BRAKE_FORCE_N = [400, 900, 1800]
+PEDAL_ACCELERATION_M_S2 = 0.7
 
 UPHILL_ANGLE_DEG = +4
 DOWNHILL_ANGLE_DEG = -4
@@ -588,27 +584,25 @@ SCORABLE_MIN_SPEED_M_S = 3
 
 這些常數的作用是：
 
-- 固定油門下，速度提高會令阻力增加，避免把踏板直接等同加速度；
-- 輕油門在代表性平路速度附近可用一段可感知的 hold 抵消阻力，不要求高頻短促點按；
-- 中油門在代表性上斜速度附近提供接近平衡的控制選擇；
-- 輕煞車在代表性落斜速度附近提供接近平衡的控制選擇；
-- 上斜與落斜的影響明顯但仍可由三種力度控制；
-- 每種關卡有多於一種可接受操作策略；
+- 固定踏板在固定坡度上產生固定加速度；
+- `4°` 坡度的重力分量接近踏板作用，所以上斜長按油門、落斜長按煞車可近似勻速；
+- 平路油門及煞車的效果在無數字 `v–t` 圖上清楚可見；
 - 車輛動態在手機畫面上明顯而不過快。
 
 ### 12.5 可解性要求
 
-每個關卡定義必須通過離線 deterministic control search：
+每個關卡定義必須通過離線 deterministic 可解性測試：
 
-- 最少找到三個可通過的控制序列；
-- 可通過序列不應只靠每 tick 快速切換；
-- 每一關最少一個高分策略主要使用 1–3 秒的人類可持續按住區段；
-- 輕／中／重三種力度各自在整個活動至少有一個合理用途；
-- 不能用全程空檔、全程重油門或全程重煞車通過所有關卡；
+- 第 1 關全程空檔可取得滿分；
+- 第 2 關全程長按油門可取得滿分；
+- 第 3 關全程長按煞車可取得滿分；
+- 第 4 關上斜長按油門、落斜長按煞車可取得滿分；
+- 第 5 關只需在路段轉換時於空檔、油門及煞車之間切換，三個狀態都可直接保持至該區完結；
+- 錯誤的固定輸入不能在勻加速或勻減速關卡取得滿分；
 - 容差剛內／剛外的序列必須可人工構造並測試；
 - 320 CSS-pixel 手機、60 Hz、120 Hz 及低 frame rate 的權威結果相同。
 
-若驗證找不到合理策略，必須調整力、坡度、初速、區域長度或容差；不可保留一個只在理論上可解但人手無法操作的關卡。
+若上述單一長按策略不能取得滿分，必須調整踏板加速度、坡度、初速、區域長度或容差；不可要求學生以高頻切換踏板補償模型。
 
 ## 13. 評分模型
 
@@ -916,7 +910,7 @@ x–t 圖可顯示速度正在改變，但 v–t 圖更直接顯示變化率是�
 - 下方 operation panel 使用餘下高度並獨立捲動。
 - 起始 stage track：`minmax(13rem, 44vh)`，並使用 `44dvh` enhancement。
 - 低高度時先縮小遠景及預覽卡，不建立舞台內垂直 scroller。
-- 駕駛中，力度選擇與兩個踏板組成 panel 內的 compact sticky control deck；
+- 駕駛中，兩個大型踏板組成 panel 內的 compact sticky control deck；
 - sticky deck 不遮住 panel 的最後內容，加入等高 bottom padding；
 - 分析及 review 畫面解除不需要的 sticky 狀態，確保所有按鈕可到達。
 
@@ -954,7 +948,7 @@ x–t 圖可顯示速度正在改變，但 v–t 圖更直接顯示變化率是�
 | 煞車按住掣 | 固定 HTML button，最少 64 CSS-pixel 高 | button 自身 | active hold 期間不可替換 |
 | 分析時間游標 | 固定 HTML range overlay／控制 | 穩定 HTML input | drag 期間不可替換 |
 
-圖像切換、力度選擇、暫停及 navigation 是普通 native tap controls，不是連續 drag target。
+圖像切換、暫停及 navigation 是普通 native tap controls，不是連續 drag target。
 
 ### 17.2 Gesture matrix
 
@@ -1003,7 +997,7 @@ iframe 內的 native pan 不保證自動穿越 browsing-context boundary。實�
 
 - 所有核心操作支援 touch、mouse 及 keyboard。
 - 踏板按鈕有可見 pressed state、文字及非顏色圖示。
-- 力度選擇使用原生 radio／segmented controls，無預選答案概念；預設 `中` 只代表控制設定，不代表正確策略。
+- 油門及煞車各只有一個大型按住掣，不設力度選擇或先選後按的兩步操作。
 - 目前路段目標以文字、圖案及顏色共同表達。
 - Canvas 外有持續更新但不過度頻繁的狀態文字：
   - 當前關卡；
@@ -1023,7 +1017,7 @@ iframe 內的 native pan 不保證自動穿越 browsing-context boundary。實�
   - 提供清楚暫停；
   - 不使用鏡頭震動或 motion blur。
 - 聲音不是必要資訊；第一版預設無聲。
-- 焦點順序跟隨任務、力度、踏板、圖像、暫停及 navigation。
+- 焦點順序跟隨任務、圖像、踏板、暫停及 navigation。
 - 技術／pending 狀態鎖定不安全操作，且不稱為已提交、合格或不合格。
 
 ## 19. Runtime files and responsibilities
@@ -1113,18 +1107,14 @@ sim/shared/activity-flow.js
 
 ```text
 0 = 空檔
-1 = 輕油門
-2 = 中油門
-3 = 重油門
-4 = 輕煞車
-5 = 中煞車
-6 = 重煞車
-7 = reserved / invalid
+1 = 油門
+2 = 煞車
+3..7 = reserved / invalid
 ```
 
 - codes bit-pack 後轉為 bounded base64 字串；
 - 另存 tick count；
-- code `7`、長度不符、padding 不符或超過關卡上限均拒絕；
+- reserved code、長度不符、padding 不符或超過關卡上限均拒絕；
 - 同一關卡初始狀態＋關卡版本＋control stream 可 deterministic 重播完整 `x(t)`、`v(t)`、圖線及分數；
 - 不保存每 frame 浮點座標；
 - 不信任 snapshot 內的 cached score、graph points 或 regression summary。
@@ -1291,7 +1281,7 @@ review snapshot 不保存：
 - feedback text；
 - Canvas pixels。
 
-`physicsVersion = 2` 包含經人手長按可解性校準後的 force／drag 及 boundary replay 規則；`levelSetVersion = 2` 包含相應 graph scale 與 scoring calibration。早期 pre-release 的 version 1 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要分別覆蓋舊 physics 及舊 level-set rejection。
+`physicsVersion = 3` 包含單一油門／煞車、無速度相依阻力的教學模型及 boundary replay 規則；`levelSetVersion = 3` 包含相應的混合關卡路段與可解性校準。早期 pre-release 的 version 1／2 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要覆蓋舊 physics 及舊 level-set rejection。
 
 shared envelope 的 result metadata 只作比較。完成 restore：
 
@@ -1340,7 +1330,7 @@ validate versions and packed runs
 ### 22.6 Restore invariants
 
 - 版本、phase、variant、item 組合受支援；
-- packed data 是 canonical base64、tick count 相符、codes 只在 `0..6`；
+- packed data 是 canonical base64、tick count 相符、codes 只在 `0..2`；
 - stream 不超過對應關卡最大 tick；
 - selected run 到達 route completion、stop timeout、max speed 或 max ticks 其中一個 supported legal terminal；不要求取得合格分；
 - candidate run 只存在於 practice／level paused、level analysis、review-retry paused 或 review-retry analysis；
@@ -1427,11 +1417,12 @@ SimActivityFlow.reviewResult()
 
 ### 25.1 Driving model tests
 
-- 空檔、三段油門、三段煞車的 force ordering；
-- 平地、上斜、落斜的 net force ordering；
+- 空檔、油門、煞車的 acceleration ordering；
+- 固定油門加速度不隨車速改變；
+- 平地、上斜、落斜的 acceleration ordering；
 - 固定 tick 積分的代表值；
 - `v >= 0`，停止後不倒後；
-- `v = 0` 時 static hold、平路起步、上斜起步、落斜自行前進、靜止煞車的邊界；
+- `v = 0` 時平路起步、上斜起步、落斜自行前進、靜止煞車的邊界；
 - timestamped input queue 在 next-tick boundary 生效，同 timestamp sequence ordering 穩定；
 - 一 frame 多 tick 時逐 tick 套用正確控制；
 - zone crossing substep 分配正確；
@@ -1449,10 +1440,10 @@ SimActivityFlow.reviewResult()
 - level IDs、zone IDs、次序、坡度、長度、初始條件合法；
 - graph fixed ranges 包含所有可接受軌跡；
 - 每區在最短可評時間後仍有足夠距離；
-- 每關 deterministic control search 找到最少三個人類可操作策略；
-- 每一關最少一個高分策略以 1–3 秒 hold segments 為主；
+- 第 1 至第 3 關各自的單一固定控制策略可完成路段並取得滿分；
+- 第 4、5 關只在路段邊界切換控制，區內不需高頻操作；
 - 所有合理恆定加速度策略均有足夠證據時間，不因位置區太短被錯判；
-- trivial all-neutral／all-heavy inputs 不能通過所有關；
+- 全程空檔、全程油門或全程煞車不能取得所有關卡滿分；
 - 入口 grace 及過渡區不計分；
 - 視覺變化不改變物理。
 
@@ -1481,10 +1472,10 @@ SimActivityFlow.reviewResult()
 
 ### 25.4 Packed stream tests
 
-- 所有 codes `0..6` pack／unpack round-trip；
+- 所有 codes `0..2` pack／unpack round-trip；
 - 跨 byte boundary；
 - odd tick counts and padding；
-- reserved code 7 拒絕；
+- reserved codes `3..7` 拒絕；
 - malformed／non-canonical base64 拒絕；
 - tick count mismatch 拒絕；
 - overlong stream 拒絕；
@@ -1655,12 +1646,12 @@ Invalid cases：
 ### 26.2 遊戲操作
 
 - 油門／煞車按住、放手、pointercancel、blur 及 pause 都不會黏住。
-- 三段力度各有合理用途。
+- 介面沒有輕／中／重選擇，踏板可以直接按住。
 - 油門與煞車不能同時疊加。
-- 每關有多於一種可通過策略。
+- 第 1 至第 3 關各有一個不需中途切換的滿分策略。
 - 重試不扣分，不會在確認前刪除已記錄 run。
 - 每關後有無數字回放、質性回饋及改善選擇。
-- 固定油門不被模型直接翻譯成固定加速度。
+- 固定油門在固定坡度上直接產生固定加速度。
 - 車停止後不倒後，第一版沒有負速度。
 
 ### 26.3 視覺
@@ -1689,10 +1680,10 @@ Invalid cases：
 ### Phase A：純物理、關卡及 scorer
 
 - 實作固定 tick model；
-- 實作坡度、阻力、踏板力；
+- 實作坡度及固定踏板加速度；
 - 定義五關及區域；
 - 實作 regression scoring；
-- 建立 deterministic control search；
+- 建立 deterministic 單一長按可解性測試；
 - 校準可解性及容差；
 - 完成 model／level／scoring tests。
 
@@ -1737,7 +1728,7 @@ Invalid cases：
 1. 活動名稱 `勻速與勻變速：駕駛控制挑戰` 是否合適。
 2. 第一版是否接受五個正式關卡加一個不計分練習。
 3. 是否接受駕駛 90 分、圖像 checkpoint 10 分。
-4. 是否接受「輕／中／重力度＋按住油門／煞車」控制。
+4. 是否接受只有「按住油門／按住煞車」兩個直接控制，不設力度選擇。
 5. 是否接受每關可以無限重試，最終只評學生明確記錄的 run。
 6. 是否接受第一版只向前，停止後不倒後。
 7. 是否接受固定關卡而非每次隨機道路。

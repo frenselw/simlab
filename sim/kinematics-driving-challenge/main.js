@@ -14,7 +14,6 @@
   const ACTIVITY = "kinematics-driving-challenge";
   const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]")).map((element) => [element.id, element]));
   const graphInputs = Array.from(document.querySelectorAll("input[name=graphMode]"));
-  const intensityInputs = Array.from(document.querySelectorAll("input[name=intensity]"));
   const answerInputs = Array.from(document.querySelectorAll("input[name=checkpointAnswer]"));
   const canvas = elements.drivingCanvas;
   const ctx = canvas.getContext("2d");
@@ -105,12 +104,11 @@
     elements.throttleButton.setAttribute("aria-pressed", "false");
     elements.brakeButton.setAttribute("aria-pressed", "false");
   }
-  function intensity() { return Number(intensityInputs.find((input) => input.checked)?.value || 2); }
   function beginPedal(kind, pointerId = null) {
     if (locked || !running || activePedal) return;
     activePedal = kind;
     activePointer = pointerId;
-    currentCode = kind === "throttle" ? intensity() : intensity() + 3;
+    currentCode = kind === "throttle" ? 1 : 2;
     inputQueue.push({ timestamp: performance.now(), sequence: inputSequence++, code: currentCode });
     const button = kind === "throttle" ? elements.throttleButton : elements.brakeButton;
     button.classList.add("is-pressed");
@@ -382,7 +380,6 @@
     if (analysis) renderAnalysis();
     elements.throttleButton.disabled = locked || !running;
     elements.brakeButton.disabled = locked || !running;
-    intensityInputs.forEach((input) => { input.disabled = locked || analysis; });
     if (briefing) elements.stageStatus.textContent = "車輛已準備好。";
     else if (running) elements.stageStatus.textContent = Model.qualitativeMotion(runtimeRun?.samples);
     else if (analysis) elements.stageStatus.textContent = "試車已完成，正在只讀回放。";
@@ -820,9 +817,7 @@
   window.addEventListener("keydown", (event) => {
     if (!UiPolicy.shouldHandleGlobalShortcut(event.target)) return;
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "1" || event.key === "2" || event.key === "3") {
-      intensityInputs.forEach((input) => { input.checked = input.value === event.key; });
-    } else if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") { beginPedal("throttle"); event.preventDefault(); }
+    if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") { beginPedal("throttle"); event.preventDefault(); }
     else if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") { beginPedal("brake"); event.preventDefault(); }
     else if (event.code === "Space") { running ? pauseRun() : startRun(); event.preventDefault(); }
   });

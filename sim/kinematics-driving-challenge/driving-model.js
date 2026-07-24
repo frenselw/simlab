@@ -6,31 +6,24 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
-  const PHYSICS_VERSION = 2;
+  const PHYSICS_VERSION = 3;
   const TICK_S = 0.05;
-  const MASS = 1200;
   const GRAVITY = 9.81;
-  const ROLLING = 180;
-  const STATIC_HOLD = 220;
-  const DRAG = 8;
-  const THROTTLE = Object.freeze([0, 360, 1150, 2500]);
-  const BRAKE = Object.freeze([0, 400, 900, 1800]);
+  const PEDAL_ACCELERATION = 0.7;
   const MAX_SPEED = 20;
   const STOP_TIMEOUT_TICKS = 60;
-  const CONTROL_LABELS = Object.freeze(["空檔", "輕油門", "中油門", "重油門", "輕煞車", "中煞車", "重煞車"]);
+  const CONTROL_LABELS = Object.freeze(["空檔", "油門", "煞車"]);
 
-  function validCode(code) { return Number.isInteger(code) && code >= 0 && code <= 6; }
-  function forces(code) {
+  function validCode(code) { return Number.isInteger(code) && code >= 0 && code <= 2; }
+  function pedalAcceleration(code) {
     if (!validCode(code)) throw new Error("Invalid control code");
-    return code <= 3 ? { drive: THROTTLE[code], brake: 0 } : { drive: 0, brake: BRAKE[code - 3] };
+    return code === 1 ? PEDAL_ACCELERATION : code === 2 ? -PEDAL_ACCELERATION : 0;
   }
-  function slopeForce(slopeDeg) { return MASS * GRAVITY * Math.sin(slopeDeg * Math.PI / 180); }
+  function slopeAcceleration(slopeDeg) { return GRAVITY * Math.sin(slopeDeg * Math.PI / 180); }
   function accelerationFor(speed, slopeDeg, code) {
-    const input = forces(code);
-    const resisting = speed > 0 ? ROLLING + DRAG * speed * speed : 0;
-    const net = input.drive - input.brake - resisting - slopeForce(slopeDeg);
-    if (speed <= 0 && net <= STATIC_HOLD) return 0;
-    return net / MASS;
+    const acceleration = pedalAcceleration(code) - slopeAcceleration(slopeDeg);
+    if (speed <= 0 && acceleration <= 0) return 0;
+    return acceleration;
   }
   function initialState(level) {
     return { tick: 0, t: 0, x: 0, v: level.initialSpeed, a: 0, stoppedTicks: 0, terminal: null };
@@ -143,8 +136,8 @@
   }
 
   return {
-    PHYSICS_VERSION, TICK_S, MASS, GRAVITY, ROLLING, STATIC_HOLD, DRAG, THROTTLE, BRAKE, MAX_SPEED,
-    CONTROL_LABELS, validCode, forces, slopeForce, accelerationFor, initialState, tick, replay, isTerminalRun,
+    PHYSICS_VERSION, TICK_S, GRAVITY, PEDAL_ACCELERATION, MAX_SPEED,
+    CONTROL_LABELS, validCode, pedalAcceleration, slopeAcceleration, accelerationFor, initialState, tick, replay, isTerminalRun,
     wheelAngle, qualitativeMotion, consumeInputTransitions, crossingDuration
   };
 });
