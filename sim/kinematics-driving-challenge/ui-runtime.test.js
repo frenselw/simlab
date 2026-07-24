@@ -45,6 +45,8 @@ assert.equal(UiPolicy.canOpenReviewItem(review, "level4"), true);
 assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), false);
 review.selectedRuns.level5 = { revision: 1, codes: [] };
 assert.equal(UiPolicy.canOpenReviewItem(review, "level5"), true, "an already selected run remains available for retry");
+assert.equal(UiPolicy.canOpenReviewItem(review, "level5", true), false,
+  "a non-retryable submission failure locks every review edit route");
 
 assert.equal(UiPolicy.shouldHandleGlobalShortcut({ closest: () => null }), true);
 for (const selector of ["button", "input", "select", "textarea", "a[href]", "summary", "[contenteditable='true']", "[role='button']"]) {

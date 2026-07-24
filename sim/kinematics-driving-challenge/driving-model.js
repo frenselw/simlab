@@ -6,7 +6,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
-  const PHYSICS_VERSION = 1;
+  const PHYSICS_VERSION = 2;
   const TICK_S = 0.05;
   const MASS = 1200;
   const GRAVITY = 9.81;

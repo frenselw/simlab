@@ -145,6 +145,12 @@ assert.equal(Persistence.decode(mismatched), null, "checkpoint revision mismatch
 const earlyAnswer = cloneEncoded(mismatched);
 earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
 assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
+const priorPhysics = Persistence.encode(base());
+priorPhysics.p = 1;
+assert.equal(Persistence.decode(priorPhysics), null, "a physics-v1 snapshot is rejected after model recalibration");
+const priorLevels = Persistence.encode(base());
+priorLevels.l = 1;
+assert.equal(Persistence.decode(priorLevels), null, "a level-set-v1 snapshot is rejected after scoring calibration");
 for (const malformed of [
   { path: ["b"], value: 2 },
   { path: ["b"], value: false },
@@ -183,10 +189,8 @@ const maxCheckpoint = {
   answerId: Scoring.CHECKPOINT_ANSWER
 };
 const maxDraft = base({
-  phase: "level", variant: "paused", currentItem: "level5",
-  selectedRuns: Object.fromEntries(Levels.LEVELS.slice(0, 4).map((level) =>
-    [level.id, { revision: 999, codes: maxTick[level.id] }]
-  )),
+  phase: "level", variant: "review-retry-paused", currentItem: "level5", returnToReview: true,
+  selectedRuns: maxSelected,
   graphCheckpoint: maxCheckpoint,
   candidateRun: { ownerId: "level5", codes: maxTick.level5.slice(0, -1) }
 });

@@ -23,6 +23,8 @@ assert.match(main, /pointercancel/);
 assert.match(main, /visibilitychange/);
 assert.match(main, /shouldHandleGlobalShortcut\(event\.target\)/);
 assert.match(main, /event\.code === "Space"/);
+assert.match(main, /canOpenReviewItem\(state, level\.id, locked\)/);
+assert.match(main, /elements\.reviewList\.addEventListener\("click", \(event\) => \{\s*if \(locked\) return;/);
 assert.match(html, /id="analysisZoneTabs"/);
 assert.doesNotMatch(html, /m\/s|m\/s²|m\/s<sup>2/);
 assert.doesNotMatch(html, /type="number"/);

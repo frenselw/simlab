@@ -17,8 +17,8 @@
     if (mode === "committed") return "成績已寫入，但 Moodle 尚未完成離開程序；目前記錄已鎖定。";
     return "未能安全讀取或保存活動資料；操作已鎖定。";
   }
-  function canOpenReviewItem(state, itemId) {
-    if (!state || state.phase !== "review") return false;
+  function canOpenReviewItem(state, itemId, locked = false) {
+    if (locked || !state || state.phase !== "review") return false;
     if (itemId === "checkpoint") return Boolean(state.selectedRuns?.level1 && state.selectedRuns?.level2 && state.selectedRuns?.level3);
     const match = /^level([1-5])$/.exec(itemId || "");
     if (!match) return false;

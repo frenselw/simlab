@@ -18,15 +18,39 @@
   function worldToScreen(worldPosition, cameraPosition, anchorX, pixelsPerMetre) {
     return anchorX + (worldPosition - cameraPosition) * pixelsPerMetre;
   }
-  function graphPoints(samples, mode, rect, zone) {
+  function graphWindow(samples, cursorTime, duration = Levels.GRAPH_TIME_SPAN_S) {
+    if (!samples?.length || !Number.isFinite(cursorTime) || !(duration > 0)) {
+      return { samples: [], startTime: 0, endTime: 0, duration };
+    }
+    const firstTime = samples[0].t;
+    const lastTime = samples[samples.length - 1].t;
+    const endTime = Math.max(firstTime, Math.min(lastTime, cursorTime));
+    const startTime = Math.max(firstTime, endTime - duration);
+    const visible = samples.filter((sample) => sample.t >= startTime - 1e-9 && sample.t <= endTime + 1e-9);
+    const firstVisible = visible[0];
+    if (firstVisible && firstVisible.t > startTime + 1e-9) {
+      const nextIndex = samples.indexOf(firstVisible);
+      const previous = samples[nextIndex - 1];
+      if (previous && previous.t < startTime) {
+        const fraction = (startTime - previous.t) / (firstVisible.t - previous.t);
+        visible.unshift({
+          ...previous, t: startTime,
+          x: previous.x + (firstVisible.x - previous.x) * fraction,
+          v: previous.v + (firstVisible.v - previous.v) * fraction,
+          a: previous.a + (firstVisible.a - previous.a) * fraction
+        });
+      }
+    }
+    return { samples: visible, startTime, endTime, duration };
+  }
+  function graphPoints(samples, mode, rect, zone, windowStart = samples?.[0]?.t || 0) {
     if (!samples?.length) return [];
-    const t0 = samples[0].t;
     const duration = Math.max(0.001, zone?.graphTimeSpan || Levels.GRAPH_TIME_SPAN_S);
     const x0 = samples[0].x;
     const xSpan = Math.max(1, zone?.end - zone?.start || samples[samples.length - 1].x - x0);
     const vSpan = zone?.graphVelocitySpan || Levels.GRAPH_VELOCITY_SPAN;
     return samples.map((sample) => ({
-      x: rect.x + (sample.t - t0) / duration * rect.width,
+      x: Math.max(rect.x, Math.min(rect.x + rect.width, rect.x + (sample.t - windowStart) / duration * rect.width)),
       y: mode === "xt"
         ? rect.y + rect.height - (sample.x - x0) / xSpan * rect.height
         : rect.y + rect.height - sample.v / vSpan * rect.height
@@ -78,5 +102,5 @@
       : (straight ? "圖線接近向下直線" : "圖線大致向下，但斜率有變化");
   }
 
-  return { roadY, worldToScreen, graphPoints, sceneryCell, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel };
+  return { roadY, worldToScreen, graphWindow, graphPoints, sceneryCell, slopeAt, visualSlopeAt, targetLabel, graphShapeLabel };
 });

@@ -298,7 +298,9 @@
 - `v–t` 圖顯示同一區域的向前速度。
 - 一次試車內每個區域的時間及縱軸比例固定，不隨數據自動縮放。
 - 第一版所有區域共用 `12 s` 的水平時間跨度及 `20` 個內部速度單位的縱軸跨度；只完成部分區域時，圖線只畫到實際時間位置，不拉伸至整個圖窗。
-- 比例由已驗證的關卡定義決定，確保所有合法運動留在圖內。
+- 當同一區域超過 `12 s`，圖窗保持原有比例並向右平移：目前回放游標固定留在右邊界，左邊顯示最近 `12 s`。這是 fixed-width sliding window，不是按資料長度自動縮放；相同物理斜率在任何時間仍有相同 pixel slope。
+- window origin 只由該區首個樣本、目前游標時間及固定 `12 s` 跨度決定；回放、restore、max-ticks run 必須得到同一 origin。起點邊界可作線性插值，只用於裁切連線，不改變權威樣本或評分。
+- 比例由已驗證的關卡定義決定，固定速度縱軸、滑動時間窗及 Canvas clipping 必須確保所有合法運動和目前游標留在圖內。
 - 過渡區不混入相鄰計分區的圖線。
 - 區域尚未完成時，圖線由左至右逐步形成；完成後凍結供回放。
 
@@ -1257,8 +1259,8 @@ Absent／partial fields follow the phase matrix；不以空 object 代替語意�
 {
   v: 1,
   locked: 1,
-  physicsVersion: 1,
-  levelSetVersion: 1,
+  physicsVersion: 2,
+  levelSetVersion: 2,
   selectedRuns: {
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
@@ -1284,6 +1286,8 @@ review snapshot 不保存：
 - cached zone metrics；
 - feedback text；
 - Canvas pixels。
+
+`physicsVersion = 2` 包含經人手長按可解性校準後的 force／drag 及 boundary replay 規則；`levelSetVersion = 2` 包含相應 graph scale 與 scoring calibration。早期 pre-release 的 version 1 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要分別覆蓋舊 physics 及舊 level-set rejection。
 
 shared envelope 的 result metadata 只作比較。完成 restore：
 

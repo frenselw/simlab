@@ -26,14 +26,14 @@ const STRATEGY_FIXTURES = {
     { holdTicks: 30, acceleration: .7, deceleration: .9, gain: 1.2 }
   ],
   level2: [
-    { holdTicks: 18, acceleration: .35, deceleration: .55, gain: .6 },
+    { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .6 },
     { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .8 },
     { holdTicks: 22, acceleration: .35, deceleration: .55, gain: 1 }
   ],
   level3: [
     { holdTicks: 20, acceleration: .35, deceleration: .7, gain: 1.8 },
     { holdTicks: 25, acceleration: .5, deceleration: .7, gain: .8 },
-    { holdTicks: 18, acceleration: .35, deceleration: .65, gain: 1.2 }
+    { holdTicks: 20, acceleration: .35, deceleration: .65, gain: 1.2 }
   ],
   level4: [
     { holdTicks: 20, acceleration: .35, deceleration: .55, gain: .4 },
@@ -76,6 +76,8 @@ Levels.LEVELS.forEach((level) => {
   const fixtures = STRATEGY_FIXTURES[level.id];
   assert.equal(fixtures.length, 3);
   fixtures.forEach((fixture, index) => {
+    assert(fixture.holdTicks >= 20 && fixture.holdTicks <= 60,
+      `${level.id} fixture ${index + 1} uses one-to-three-second holds`);
     const strategy = humanHoldStrategy(level, fixture);
     const scored = Scoring.scoreRun(level, strategy.codes);
     assert.equal(strategy.run.state.terminal, "complete", `${level.id} fixture ${index + 1} completes`);

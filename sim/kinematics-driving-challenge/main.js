@@ -393,7 +393,7 @@
     analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
     if (!analysisRun.zones.some((zone) => zone.zoneId === analysisZoneId)) analysisZoneId = analysisRun.zones[0]?.zoneId || null;
     elements.analysisZoneTabs.innerHTML = analysisRun.zones.map((zone, index) =>
-      `<button type="button" data-analysis-zone="${zone.zoneId}" aria-pressed="${zone.zoneId === analysisZoneId}">路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
+      `<button type="button" data-analysis-zone="${zone.zoneId}" aria-pressed="${zone.zoneId === analysisZoneId}"${locked ? " disabled" : ""}>路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
     ).join("");
     elements.analysisList.innerHTML = analysisRun.zones.map((zone) =>
       `<article class="analysis-item${zone.zoneId === analysisZoneId ? " is-selected" : ""}"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${escapeHtml(Scoring.feedbackText(zone))}</p></article>`
@@ -406,6 +406,9 @@
     elements.stageKicker.textContent = "圖像證據";
     elements.stageTarget.textContent = state.graphMode === "xt" ? "比較 x–t 圖" : "比較 v–t 圖";
     elements.checkpointAnswers.disabled = locked || !(checkpoint.viewedXt && checkpoint.viewedVt);
+    elements.viewXtButton.disabled = locked;
+    elements.viewVtButton.disabled = locked;
+    elements.scrubRange.disabled = locked;
     elements.checkpointViewStatus.textContent = `x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`;
     answerInputs.forEach((input) => { input.checked = input.value === checkpoint.answerId; input.disabled = elements.checkpointAnswers.disabled; });
     elements.confirmCheckpointButton.textContent = state.returnToReview ? "確認並返回檢查" : "確認並前往第 4 關";
@@ -417,10 +420,10 @@
     state.variant = complete ? "complete" : "incomplete";
     elements.reviewList.innerHTML = Levels.LEVELS.map((level) => {
       const result = selectedScore(level.id);
-      const canOpen = UiPolicy.canOpenReviewItem(state, level.id);
+      const canOpen = UiPolicy.canOpenReviewItem(state, level.id, locked);
       return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : canOpen ? "尚未記錄" : "請先完成較早項目"}</p><button type="button" data-edit-level="${level.id}"${canOpen ? "" : " disabled"}>${result ? "重新挑戰" : "完成此關"}</button></article>`;
     }).join("") + (() => {
-      const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint");
+      const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint", locked);
       return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" : "請先完成第 1 至 3 關"}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
     })();
     elements.submitButton.disabled = locked || !complete;
@@ -583,10 +586,12 @@
     graphCtx.moveTo(rect.x, rect.y); graphCtx.lineTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height); graphCtx.stroke();
     const allSamples = graphSamples();
     const cursorSample = displaySample();
-    const samples = (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))
+    const partialSamples = (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))
       ? allSamples.filter((sample) => sample.t <= cursorSample.t + 1e-9)
       : allSamples;
-    const points = Visuals.graphPoints(samples, state.graphMode, rect, graphZone());
+    const zone = graphZone();
+    const windowed = Visuals.graphWindow(partialSamples, cursorSample.t, zone?.graphTimeSpan);
+    const points = Visuals.graphPoints(windowed.samples, state.graphMode, rect, zone, windowed.startTime);
     graphCtx.strokeStyle = "#2563eb"; graphCtx.lineWidth = 2.5; graphCtx.lineJoin = "round"; graphCtx.beginPath();
     points.forEach((point, index) => index ? graphCtx.lineTo(point.x, point.y) : graphCtx.moveTo(point.x, point.y)); graphCtx.stroke();
     const cursor = points[points.length - 1];
@@ -666,11 +671,13 @@
     render();
   }));
   elements.reviewList.addEventListener("click", (event) => {
+    if (locked) return;
     const levelId = event.target.closest("[data-edit-level]")?.dataset.editLevel;
-    if (levelId && UiPolicy.canOpenReviewItem(state, levelId)) enterLevel(levelId, Boolean(state.selectedRuns[levelId]));
-    if (event.target.closest("[data-edit-checkpoint]") && UiPolicy.canOpenReviewItem(state, "checkpoint")) enterCheckpoint(true);
+    if (levelId && UiPolicy.canOpenReviewItem(state, levelId, locked)) enterLevel(levelId, Boolean(state.selectedRuns[levelId]));
+    if (event.target.closest("[data-edit-checkpoint]") && UiPolicy.canOpenReviewItem(state, "checkpoint", locked)) enterCheckpoint(true);
   });
   elements.analysisZoneTabs.addEventListener("click", (event) => {
+    if (locked) return;
     const zoneId = event.target.closest("[data-analysis-zone]")?.dataset.analysisZone;
     if (!zoneId || !analysisRun?.zones.some((zone) => zone.zoneId === zoneId)) return;
     analysisZoneId = zoneId;

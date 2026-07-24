@@ -23,10 +23,25 @@ function terminalCodes(level, code) {
   while (!run.state.terminal) { codes.push(code); run = Model.replay(level, codes); }
   return codes;
 }
+function maxTickCodes(level) {
+  const codes = [];
+  let run = Model.replay(level, codes);
+  while (!run.state.terminal) {
+    const zone = Levels.segmentAt(level, run.state.x);
+    const desiredAcceleration = .8 * (2.5 - run.state.v);
+    const code = Array.from({ length: 7 }, (_, candidate) => candidate).reduce((best, candidate) =>
+      Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, candidate) - desiredAcceleration) <
+      Math.abs(Model.accelerationFor(run.state.v, zone.slopeDeg, best) - desiredAcceleration) ? candidate : best, 0);
+    codes.push(code);
+    run = Model.replay(level, codes);
+  }
+  assert.equal(run.state.terminal, "max-ticks");
+  return codes;
+}
 function analysisDraft(levelId = "level1") {
   const level = Levels.levelById(levelId);
   const fixedCodes = { level1: 1, level2: 2, level3: 4, level4: 2, level5: 2 };
-  const codes = terminalCodes(level, fixedCodes[levelId]);
+  const codes = levelId === "level1" ? maxTickCodes(level) : terminalCodes(level, fixedCodes[levelId]);
   if (levelId === "level5") {
     const selectedRuns = Object.fromEntries(Levels.LEVELS.map((item) =>
       [item.id, { revision: 1, codes: terminalCodes(item, fixedCodes[item.id]) }]
@@ -43,6 +58,20 @@ function analysisDraft(levelId = "level1") {
   const state = {
     ...Persistence.initialState(), phase: "level", variant: "analysis", currentItem: "level1",
     candidateRun: { ownerId: "level1", codes }
+  };
+  return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
+}
+function completeReviewDraft() {
+  const fixedCodes = { level1: 1, level2: 2, level3: 4, level4: 2, level5: 2 };
+  const selectedRuns = Object.fromEntries(Levels.LEVELS.map((level) =>
+    [level.id, { revision: 1, codes: terminalCodes(level, fixedCodes[level.id]) }]
+  ));
+  const state = {
+    ...Persistence.initialState(), phase: "review", variant: "complete", currentItem: "review",
+    selectedRuns,
+    graphCheckpoint: {
+      sourceLevelId: "level2", sourceRunRevision: 1, viewedXt: true, viewedVt: true, answerId: "vt-linear"
+    }
   };
   return JSON.stringify({ version: 1, activity: slug, kind: "draft", answer: Persistence.encode(state) });
 }
@@ -201,6 +230,15 @@ async function analysisScrub(cdp, baseUrl, activityPath, label) {
   assert(!after.events.some((event) => event.type === "pointercancel"), `${label}: scrub has no pointercancel`);
   assert(after.extent.blue > setup.extent.blue + 12, `${label}: partial graph trace grows with the scrub cursor`);
   assert(after.extent.amber > setup.extent.amber + 12, `${label}: visible graph cursor follows the scrub position`);
+  const finalExtent = await evaluate(cdp, `(() => {
+    const range=document.getElementById('scrubRange');range.value='100';range.dispatchEvent(new Event('input',{bubbles:true}));
+    const c=document.getElementById('graphCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let amber=-1;
+    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(r>190&&g>90&&g<200&&b<100)amber=Math.max(amber,x);}
+    return {amber,width:c.width,value:range.value};
+  })()`);
+  assert.equal(finalExtent.value, "100");
+  assert(finalExtent.amber >= 0 && finalExtent.amber < finalExtent.width,
+    `${label}: max-ticks cursor remains visible inside the fixed sliding window`);
   return `${label} trusted analysis scrub passed`;
 }
 async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
@@ -228,6 +266,39 @@ async function multiZoneAnalysis(cdp, baseUrl, activityPath, label) {
   assert.notEqual(after.result, before.result, `${label}: selecting another scored zone updates its analysis`);
   assert.equal(after.scrub, "100");
   return `${label} multi-zone analysis selector passed`;
+}
+async function nonRetryableSubmission(cdp, baseUrl, activityPath, label) {
+  const snapshot = completeReviewDraft();
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const values={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':${JSON.stringify(snapshot)},'cmi.core.score.raw':''};
+    window.API={LMSInitialize:()=>'true',LMSGetValue:key=>values[key]||'',LMSSetValue:(key,value)=>(values[key]=String(value),'true'),LMSCommit:()=>'true',LMSFinish:()=>'true',LMSGetLastError:()=>'0',LMSGetErrorString:()=>''};
+  })();` });
+  await cdp.send("Page.navigate", { url: `${baseUrl}${activityPath}?qa=${encodeURIComponent(`${label}-nonretryable`)}` });
+  await waitFor(cdp, "!document.getElementById('reviewSection')?.classList.contains('is-hidden') && !document.getElementById('submitButton')?.disabled", `${label} complete review`);
+  const state = await evaluate(cdp, `(async () => {
+    window.SimScorm.submitWithCallbacks=(_computed,_snapshot,callbacks)=>{
+      const outcome={activityState:'retry',retryable:false};
+      callbacks.onFailure(outcome);return outcome;
+    };
+    document.getElementById('submitButton').click();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const buttons=Array.from(document.querySelectorAll('[data-edit-level],[data-edit-checkpoint]'));
+    const first=buttons[0];first.click();
+    return {
+      count:buttons.length,allDisabled:buttons.every(button=>button.disabled),
+      submitDisabled:document.getElementById('submitButton').disabled,
+      reviewVisible:!document.getElementById('reviewSection').classList.contains('is-hidden'),
+      activityHidden:document.getElementById('activitySection').classList.contains('is-hidden'),
+      notice:document.getElementById('submissionNotice').textContent
+    };
+  })()`);
+  assert.equal(state.count, 6);
+  assert.equal(state.allDisabled, true, `${label}: non-retryable failure disables every review edit/checkpoint control`);
+  assert.equal(state.submitDisabled, true, `${label}: non-retryable failure disables resubmission`);
+  assert.equal(state.reviewVisible, true, `${label}: locked review remains visible`);
+  assert.equal(state.activityHidden, true, `${label}: delegated click cannot enter an activity`);
+  assert.match(state.notice, /已鎖定/);
+  return `${label} non-retryable submission lock passed`;
 }
 
 async function main() {
@@ -260,6 +331,8 @@ async function main() {
     summaries.push(await analysisScrub(cdp, artifactUrl, activityPath, "packaged"));
     summaries.push(await multiZoneAnalysis(cdp, sourceUrl, `/${slug}/index.html`, "development"));
     summaries.push(await multiZoneAnalysis(cdp, artifactUrl, activityPath, "packaged"));
+    summaries.push(await nonRetryableSubmission(cdp, sourceUrl, `/${slug}/index.html`, "development"));
+    summaries.push(await nonRetryableSubmission(cdp, artifactUrl, activityPath, "packaged"));
     console.log(`Kinematics driving browser regression passed: ${summaries.join("; ")}`);
   } catch (error) { failure = error; }
   try { await cdp?.close?.(); } catch (error) { failure ||= error; }

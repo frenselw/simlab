@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const LEVEL_SET_VERSION = 1;
+  const LEVEL_SET_VERSION = 2;
   const GRAPH_VELOCITY_SPAN = 20;
   const GRAPH_TIME_SPAN_S = 12;
 

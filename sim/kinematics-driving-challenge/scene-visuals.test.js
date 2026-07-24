@@ -30,6 +30,26 @@ const shortPixelSlope = (twoSeconds[1].y - twoSeconds[0].y) / (twoSeconds[1].x -
 const longPixelSlope = (fourSeconds[1].y - fourSeconds[0].y) / (fourSeconds[1].x - fourSeconds[0].x);
 assert.equal(shortPixelSlope, longPixelSlope, "equal physical acceleration keeps the same visual slope");
 
+const longRun = Array.from({ length: 1201 }, (_, index) => ({
+  t: index * .05, x: index * .15, v: 5 + index * .0005, a: .01
+}));
+const lateWindow = Visuals.graphWindow(longRun, 60, 12);
+assert.equal(lateWindow.startTime, 48);
+assert.equal(lateWindow.endTime, 60);
+assert(lateWindow.samples.length > 200 && lateWindow.samples.length <= 242);
+const latePoints = Visuals.graphPoints(lateWindow.samples, "vt", rect, zone, lateWindow.startTime);
+assert(latePoints.every((point) => point.x >= rect.x && point.x <= rect.x + rect.width),
+  "all samples in a legal max-ticks run stay inside the fixed sliding graph window");
+assert.equal(latePoints.at(-1).x, rect.x + rect.width, "the current cursor remains visible at the right edge");
+const middleWindow = Visuals.graphWindow(longRun, 24, 12);
+const middlePoints = Visuals.graphPoints(middleWindow.samples, "vt", rect, zone, middleWindow.startTime);
+const middleSlope = (middlePoints.at(-1).y - middlePoints[0].y) / (middlePoints.at(-1).x - middlePoints[0].x);
+const lateSlope = (latePoints.at(-1).y - latePoints[0].y) / (latePoints.at(-1).x - latePoints[0].x);
+assert(Math.abs(middleSlope - lateSlope) < 1e-12,
+  "panning the fixed window preserves the pixel slope of identical physical acceleration");
+const earlyWindow = Visuals.graphWindow(longRun, 6, 12);
+assert.equal(earlyWindow.startTime, 0, "the graph does not pan before its fixed twelve-second span is filled");
+
 const uphill = Levels.LEVELS[3];
 assert.equal(Visuals.visualSlopeAt(uphill, 30), 4);
 assert(Visuals.visualSlopeAt(uphill, 54.5) < 4 && Visuals.visualSlopeAt(uphill, 54.5) > 0,
