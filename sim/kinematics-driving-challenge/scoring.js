@@ -54,20 +54,37 @@
   }
   function scoreZone(run, zone) {
     const samples = zoneSamples(run, zone);
+    const evidenceSamples = zone.target === "decelerating"
+      ? samples.filter((sample) => sample.v > 0)
+      : samples;
     const C = completion(run, zone);
-    const summary = regression(samples);
+    const summary = regression(evidenceSamples);
+    const meanSpeed = summary?.meanSpeed ??
+      (evidenceSamples.length
+        ? evidenceSamples.reduce((sum, sample) => sum + sample.v, 0) / evidenceSamples.length
+        : 0);
+    const uniformSpeedFloor = zone.target !== "uniform" || meanSpeed >= MIN_SPEED;
+    const scoredCompletion = uniformSpeedFloor ? C : 0;
     const enough = Boolean(summary && summary.duration + 1e-9 >= MIN_EVIDENCE_S);
-    if (!enough) return zoneResult(zone, C, 0, "evidence", summary);
+    if (!enough) {
+      const completionWeight = zone.target === "uniform" ? 0.4 : 0.25;
+      return zoneResult(
+        zone,
+        scoredCompletion,
+        completionWeight * scoredCompletion,
+        uniformSpeedFloor ? "evidence" : "too-slow",
+        summary
+      );
+    }
     if (zone.target === "uniform") {
-      const speedFloor = summary.meanSpeed >= MIN_SPEED;
-      const stability = speedFloor
+      const stability = uniformSpeedFloor
         ? 0.4 * fullThenFade(Math.abs(summary.slope), 0.08, 0.16) +
           0.3 * fullThenFade(summary.speedRange, 0.9, 1.8) +
           0.3 * fullThenFade(summary.rmse, 0.25, 0.5)
         : 0;
-      const fraction = speedFloor ? 0.4 * C + 0.6 * stability : 0;
-      const kind = !speedFloor ? "too-slow" : stability >= 0.82 ? "stable" : summary.slope > 0.08 ? "speeding-up" : summary.slope < -0.08 ? "slowing-down" : "unstable";
-      return zoneResult(zone, C, fraction, kind, summary, { stability });
+      const fraction = uniformSpeedFloor ? 0.4 * scoredCompletion + 0.6 * stability : 0;
+      const kind = !uniformSpeedFloor ? "too-slow" : stability >= 0.82 ? "stable" : summary.slope > 0.08 ? "speeding-up" : summary.slope < -0.08 ? "slowing-down" : "unstable";
+      return zoneResult(zone, scoredCompletion, fraction, kind, summary, { stability });
     }
     const desiredSign = zone.target === "accelerating" ? 1 : -1;
     const signedSlope = desiredSign * summary.slope;
@@ -77,10 +94,11 @@
     const linearity = fullThenFade(summary.rmse / zone.graphVelocitySpan, 0.0015, 0.008);
     const fraction = 0.25 * C + 0.25 * D + 0.5 * (direction ? linearity : 0);
     let kind = "stable";
-    if (!direction) kind = Math.abs(summary.slope) <= SIGN_EPSILON ? "too-small" : "wrong-direction";
+    if (zone.target === "decelerating" && C < 0.95 && run.state.terminal === "stopped") kind = "stopped-early";
+    else if (!direction) kind = Math.abs(summary.slope) <= SIGN_EPSILON ? "too-small" : "wrong-direction";
     else if (D < 0.55) kind = "too-small";
     else if (linearity < 0.72) kind = "unstable";
-    else if (C < 0.95) kind = run.state.terminal === "stopped" ? "stopped-early" : "incomplete";
+    else if (C < 0.95) kind = "incomplete";
     return zoneResult(zone, C, fraction, kind, summary, { direction: D, linearity, plotRise });
   }
   function zoneResult(zone, completionValue, fraction, kind, summary, metrics = {}) {
@@ -91,7 +109,7 @@
   }
   function scoreRun(level, codes) {
     const run = Model.replay(level, codes);
-    if (!run || !run.state.terminal) return null;
+    if (!run || !["complete", "stopped", "max-speed", "max-ticks"].includes(run.state.terminal)) return null;
     const zones = Levels.scoredZones(level).map((zone) => scoreZone(run, zone));
     return {
       levelId: level.id, terminal: run.state.terminal, zones,
@@ -102,6 +120,13 @@
   }
   function checkpointPoints(checkpoint) {
     return checkpoint?.viewedXt === true && checkpoint?.viewedVt === true && checkpoint.answerId === CHECKPOINT_ANSWER ? 10 : 0;
+  }
+  function checkpointEligible(levelId, codes) {
+    if (!["level2", "level3"].includes(levelId) || !Array.isArray(codes)) return false;
+    const result = scoreRun(Levels.levelById(levelId), codes);
+    return Boolean(result?.zones.some((zone) =>
+      zone.summary && zone.summary.duration + 1e-9 >= MIN_EVIDENCE_S
+    ));
   }
   function scoreActivity(selectedRuns, checkpoint) {
     const levelResults = Levels.LEVELS.map((level) => scoreRun(level, selectedRuns?.[level.id]?.codes || []));
@@ -135,6 +160,6 @@
   return {
     ENTRY_GRACE_S, MIN_EVIDENCE_S, MIN_SPEED, SIGN_EPSILON, CHECKPOINT_ANSWER,
     clamp01, fullThenFade, riseScore, regression, zoneSamples, completion, scoreZone, scoreRun,
-    checkpointPoints, scoreActivity, feedbackText
+    checkpointEligible, checkpointPoints, scoreActivity, feedbackText
   };
 });

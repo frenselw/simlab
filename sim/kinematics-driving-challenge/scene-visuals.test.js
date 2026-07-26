@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const Levels = require("./level-definitions.js");
+const Model = require("./driving-model.js");
 const Visuals = require("./scene-visuals.js");
 
 assert.equal(Visuals.worldToScreen(12, 10, 100, 5), 110);
@@ -28,6 +29,55 @@ assert.equal(
 assert.throws(() => Visuals.backgroundAppearance("unknown", 0), /Invalid background cell/);
 assert.equal(Visuals.targetLabel("accelerating"), "保持勻加速");
 assert.equal(Visuals.graphShapeLabel(Array.from({ length: 20 }, (_, index) => ({ v: 5 + index * .2 }))), "圖線接近向上直線");
+function fixedControlRun(levelId, code) {
+  const level = Levels.levelById(levelId);
+  const codes = [];
+  let run = Model.replay(level, codes);
+  while (!run.state.terminal) {
+    codes.push(code);
+    run = Model.replay(level, codes);
+  }
+  return run;
+}
+const curvedRun = fixedControlRun("level2", 3);
+assert.equal(
+  Visuals.graphShapeLabel(curvedRun.samples),
+  "圖線大致向上，但斜率有變化",
+  "the canonical full-throttle curve is not announced as a straight line"
+);
+assert.equal(
+  Visuals.graphShapeLabel(fixedControlRun("level2", 2).samples),
+  "圖線接近向上直線",
+  "the canonical constant-acceleration trace is still announced as straight"
+);
+assert.equal(
+  Visuals.graphShapeLabel(fixedControlRun("level3", 5).samples),
+  "圖線接近向下直線",
+  "the canonical constant-deceleration trace is announced as straight"
+);
+assert.equal(
+  Visuals.graphShapeLabel(fixedControlRun("level1", 1).samples, "xt"),
+  "x–t 圖接近斜直線，斜率大致固定",
+  "uniform motion has an x–t-specific straight-line description"
+);
+assert.equal(
+  Visuals.graphShapeLabel(fixedControlRun("level2", 2).samples, "xt"),
+  "x–t 圖愈來愈斜，斜率逐漸增加",
+  "uniform acceleration is not described as a straight x–t graph"
+);
+assert.equal(
+  Visuals.graphShapeLabel(fixedControlRun("level3", 5).samples, "xt"),
+  "x–t 圖逐漸變平，斜率逐漸減少",
+  "uniform deceleration describes the changing x–t slope"
+);
+assert.equal(
+  Visuals.graphShapeLabel(Array.from({ length: 25 }, (_, index) => ({
+    t: index * .05,
+    v: 8 + Math.abs(index - 12) * .03
+  }))),
+  "圖線有明顯起伏，斜率不固定",
+  "a trace with little net change but visible variation is not announced as horizontal"
+);
 const points = Visuals.graphPoints([{ t: 0, x: 0, v: 5 }, { t: 1, x: 6, v: 7 }], "vt", { x: 0, y: 0, width: 100, height: 100 }, { start: 0, end: 10, graphVelocitySpan: 20, graphTimeSpan: 12 });
 assert.equal(points.length, 2);
 assert(points[1].x > points[0].x && points[1].y < points[0].y);

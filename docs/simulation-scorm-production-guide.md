@@ -142,10 +142,17 @@ Restore rules:
   future-step data, skipped required steps, and states with no continuation.
 - Preserve full scoring precision. Round values only for display.
 - Keep the serialized snapshot below the SCORM 1.2 suspend-data limit.
-- A finished attempt with an invalid review snapshot remains locked and shows
-  only the trustworthy Moodle summary; it never becomes a new editable attempt.
+- A finished attempt with an invalid review snapshot, or with a stale
+  draft/pending-final snapshot instead of a review snapshot, remains locked and
+  shows only the trustworthy Moodle summary; it never becomes a new editable
+  attempt or a generic load-error screen.
 - A pending-final snapshot is owned by the shared runtime and must remain frozen
   for retry of the same payload.
+- If an activity's deeper authoritative decoder or rescorer rejects a
+  structurally valid pending-final payload, call
+  `SimScorm.quarantinePending()` before rendering the technical lock. This
+  leaves the durable checkpoint untouched but prevents manual, BFCache, or
+  pagehide retry from writing the rejected result.
 - An invalid editable draft may reset only when the activity plan defines how to
   clear or overwrite the bad snapshot before starting a clean draft. Otherwise,
   lock the activity and show a technical load error.
@@ -431,6 +438,11 @@ Handle all startup outcomes:
 - `editable`: create or restore a draft and register its draft provider;
 - `frozen`: retry the same pending-final payload; never reopen editing;
 - `load-error`: lock unsafe actions and show only a technical error state.
+
+The `frozen` handler must validate and rescore the nested review snapshot before
+offering retry. Aggregate score/pass equality is not sufficient: compare the
+canonical authoritative review answer as well. On validation failure,
+`SimScorm.quarantinePending()` is mandatory.
 
 Submission handles all four `activityState` outcomes:
 

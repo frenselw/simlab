@@ -121,6 +121,40 @@ for (const key of ["cmi.suspend_data", "cmi.core.score.min", "cmi.core.score.max
   assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "review");
 }
 
+// An activity can quarantine a structurally valid pending payload that fails
+// its deeper authoritative-state validation. Pagehide must not finalize it.
+{
+  const reviewSnapshot = {
+    version: 1, activity: "activity", kind: "review", answer: { final: "tampered" },
+    score: 99, passed: true
+  };
+  const pendingSnapshot = {
+    version: 1, activity: "activity", kind: "pending-final",
+    payload: {
+      reviewJson: JSON.stringify(reviewSnapshot),
+      score: 99, maxScore: 100, passed: true
+    }
+  };
+  const lms = fakeLms({
+    "cmi.core.lesson_status": "incomplete",
+    "cmi.suspend_data": JSON.stringify(pendingSnapshot),
+    "cmi.core.score.raw": ""
+  });
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "pending-final");
+  const before = { ...lms.calls };
+  assert.equal(run.scorm.quarantinePending(), true);
+  assert.equal(run.scorm.quarantinePending(), false, "quarantine is one-way for this page");
+  assert.equal(run.scorm.retryPending().reason, "no-pending");
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, before.commit, "quarantined data is not committed on pagehide");
+  for (const key of ["cmi.core.score.min", "cmi.core.score.max", "cmi.core.score.raw", "cmi.core.lesson_status", "cmi.core.exit"]) {
+    assert.equal(lms.calls[key] || 0, before[key] || 0, `${key} is not rewritten from quarantined data`);
+  }
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final",
+    "the durable checkpoint remains available for external recovery");
+}
+
 // Finish implementations that implicitly save must never be reached before a durable final commit.
 for (const finishSavesBuffer of [false, true]) {
   const lms = fakeLms();
@@ -183,6 +217,78 @@ for (const finishSavesBuffer of [false, true]) {
   assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.geometry.imageX, 18);
 }
 
+// A lifecycle interruption may already have durably saved the exact draft
+// before pagehide. Do not risk an unnecessary second commit before finishing.
+{
+  const lms = fakeLms();
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "new");
+  const snapshot = run.scorm.makeSnapshot("activity", "draft", { step: 3 });
+  assert.equal(run.scorm.saveDraft(snapshot), true);
+  const commitsAfterSave = lms.calls.commit;
+  run.scorm.setDraftProvider(() => snapshot);
+  lms.failOnCommitCall = commitsAfterSave + 1;
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, commitsAfterSave, "an identical durable draft is not committed twice");
+  assert.equal(lms.calls.finish, 1, "the redundant-commit failure cannot prevent session close");
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.step, 3);
+}
+
+{
+  const lms = fakeLms();
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "new");
+  const snapshot = run.scorm.makeSnapshot("activity", "draft", { step: "bfcache" });
+  assert.equal(run.scorm.saveDraft(snapshot), true);
+  const commitsAfterSave = lms.calls.commit;
+  run.scorm.setDraftProvider(() => snapshot);
+  run.listeners.pagehide({ persisted: true });
+  assert.equal(lms.calls.commit, commitsAfterSave, "BFCache also skips an identical same-session draft");
+  assert.equal(lms.calls.finish, 0);
+}
+
+// A draft loaded from a previous LMS session is not a save in this session:
+// unchanged close must still set the current session's suspend exit and commit.
+{
+  const snapshot = { version: 1, activity: "activity", kind: "draft", answer: { step: 4 } };
+  const lms = fakeLms({
+    "cmi.core.lesson_status": "incomplete",
+    "cmi.suspend_data": JSON.stringify(snapshot),
+    "cmi.core.score.raw": ""
+  });
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "draft");
+  run.scorm.setDraftProvider(() => snapshot);
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, 1);
+  assert.equal(lms.durable["cmi.core.exit"], "suspend");
+  assert.equal(lms.calls.finish, 1);
+}
+
+// A failed later save may leave an uncommitted LMS buffer different from the
+// last durable draft. Invalidate the dedupe cache and rewrite the provider
+// snapshot before an LMSFinish implementation can implicitly save that buffer.
+{
+  const lms = fakeLms();
+  lms.finishSavesBuffer = true;
+  const run = launch(lms);
+  assert.equal(run.scorm.loadAttempt("activity").state, "new");
+  const durable = run.scorm.makeSnapshot("activity", "draft", { step: "A" });
+  const dirty = run.scorm.makeSnapshot("activity", "draft", { step: "B" });
+  assert.equal(run.scorm.saveDraft(durable), true);
+  lms.fail.commit = true;
+  assert.equal(run.scorm.saveDraft(dirty), false);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.step, "A");
+  lms.fail.commit = false;
+  const commitsBeforeClose = lms.calls.commit;
+  run.scorm.setDraftProvider(() => durable);
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, commitsBeforeClose + 1,
+    "the prior cache entry is invalid after a failed write dirties the LMS buffer");
+  assert.equal(lms.calls.finish, 1);
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).answer.step, "A");
+}
+
 // Reads distinguish legitimate empty values from LMS errors and drive the startup matrix.
 {
   const empty = launch(fakeLms()).scorm;
@@ -226,10 +332,24 @@ for (const [configure, expected] of [
 }
 for (const [durable, expected] of [
   [{ "cmi.core.lesson_status": "passed", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: {} }) }, "finished"],
-  [{ "cmi.core.lesson_status": "passed", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "draft", answer: {} }) }, "inconsistent"],
+  [{ "cmi.core.lesson_status": "passed", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "draft", answer: {} }) }, "finished"],
   [{ "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "review", answer: {} }) }, "inconsistent"],
   [{ "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "draft", answer: {} }) }, "draft"]
 ]) assert.equal(launch(fakeLms(durable)).scorm.loadAttempt("activity").state, expected);
+
+for (const kind of ["draft", "pending-final"]) {
+  const lms = fakeLms({
+    "cmi.core.lesson_status": "passed",
+    "cmi.core.score.raw": "73",
+    "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind, answer: { ignored: true } })
+  });
+  const attempt = launch(lms).scorm.loadAttempt("activity");
+  assert.equal(attempt.state, "finished", `finished ${kind} uses the safe Moodle summary`);
+  assert.equal(attempt.fallback, true);
+  assert.equal(attempt.snapshot, null);
+  assert.equal(attempt.status, "passed");
+  assert.equal(attempt.score, "73");
+}
 
 assert.equal(launch(null).scorm.submitResult(result, review(launch(null).scorm)).ok, true);
 assert.equal(launch(null, "embedded").scorm.loadAttempt("activity").state, "read-error");

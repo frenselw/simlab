@@ -6,13 +6,29 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Levels) {
   "use strict";
 
-  const PHYSICS_VERSION = 5;
+  const PHYSICS_VERSION = 6;
   const TICK_S = 0.05;
   const GRAVITY = 9.81;
   const RESISTANCE_BASE = 0.05;
-  const RESISTANCE_SPEED_SQUARED = 0.008;
+  const RESISTANCE_SPEED_SQUARED = 0.0025;
   const UNIFORM_SPEED = 8;
   const MAX_SPEED = 20;
+  const LIGHT_THROTTLE_RESPONSE = 0.4;
+  const LIGHT_THROTTLE_SPEED_SCALE = 3;
+  const MEDIUM_THROTTLE_NET_ACCELERATION = 0.6;
+  const FULL_THROTTLE_BASE_NET_ACCELERATION = 0.65;
+  const FULL_THROTTLE_SPEED_FACTOR = 0.05;
+  const LIGHT_BRAKE_MIN_NET_DECELERATION = 0.72;
+  const LIGHT_BRAKE_MAX_NET_DECELERATION = 1.29;
+  const LIGHT_BRAKE_CURVE_RATE = 2;
+  const MEDIUM_BRAKE_NET_DECELERATION = 1.3;
+  const FULL_BRAKE_BASE_NET_DECELERATION = 1.45;
+  const FULL_BRAKE_SPEED_FACTOR = 0.06;
+  const DOWNHILL_BALANCE_DECELERATION = GRAVITY * Math.sin(4.34 * Math.PI / 180);
+  const LIGHT_BRAKE_CURVE_CENTER = UNIFORM_SPEED - Math.log(
+    (DOWNHILL_BALANCE_DECELERATION - LIGHT_BRAKE_MIN_NET_DECELERATION) /
+      (LIGHT_BRAKE_MAX_NET_DECELERATION - DOWNHILL_BALANCE_DECELERATION)
+  ) / LIGHT_BRAKE_CURVE_RATE;
   const STOP_TIMEOUT_TICKS = 60;
   const CONTROL_LABELS = Object.freeze(["空檔", "輕油門", "中油門", "油門踩盡", "輕煞車", "中煞車", "煞車踩盡"]);
 
@@ -20,24 +36,38 @@
   function resistanceAcceleration(speed) {
     return RESISTANCE_BASE + RESISTANCE_SPEED_SQUARED * Math.max(0, speed) ** 2;
   }
+  function lightThrottleNetAcceleration(speed) {
+    return LIGHT_THROTTLE_RESPONSE *
+      Math.tanh((UNIFORM_SPEED - Math.max(0, speed)) / LIGHT_THROTTLE_SPEED_SCALE);
+  }
   function driveAcceleration(speed, code) {
     if (!validCode(code)) throw new Error("Invalid control code");
-    if (code === 1) return resistanceAcceleration(UNIFORM_SPEED);
-    if (code === 2) return resistanceAcceleration(speed) + 0.6;
-    if (code === 3) return resistanceAcceleration(speed) + 0.4 + 0.05 * Math.max(0, speed);
+    if (code === 1) return resistanceAcceleration(speed) + lightThrottleNetAcceleration(speed);
+    if (code === 2) return resistanceAcceleration(speed) + MEDIUM_THROTTLE_NET_ACCELERATION;
+    if (code === 3) {
+      return resistanceAcceleration(speed) + FULL_THROTTLE_BASE_NET_ACCELERATION +
+        FULL_THROTTLE_SPEED_FACTOR * Math.max(0, speed);
+    }
     return 0;
   }
-  function brakeAcceleration(speed, code) {
-    if (!validCode(code)) throw new Error("Invalid control code");
-    if (code === 4) return 0.18;
-    if (code === 5) return Math.max(0, 1.3 - resistanceAcceleration(speed));
-    if (code === 6) return Math.max(0, 0.5 + 0.12 * Math.max(0, speed) - resistanceAcceleration(speed));
-    return 0;
+  function lightBrakeNetDeceleration(speed) {
+    return LIGHT_BRAKE_MIN_NET_DECELERATION +
+      (LIGHT_BRAKE_MAX_NET_DECELERATION - LIGHT_BRAKE_MIN_NET_DECELERATION) *
+      (1 / (1 + Math.exp(-LIGHT_BRAKE_CURVE_RATE * (Math.max(0, speed) - LIGHT_BRAKE_CURVE_CENTER))));
   }
   function slopeAcceleration(slopeDeg) { return GRAVITY * Math.sin(slopeDeg * Math.PI / 180); }
+  function flatRoadAcceleration(speed, code) {
+    if (!validCode(code)) throw new Error("Invalid control code");
+    // Brake controls are calibrated as net flat-road responses so the
+    // learner-facing light/medium/full ordering remains true at every legal
+    // speed while only the medium setting produces a straight v–t trace.
+    if (code === 4) return -lightBrakeNetDeceleration(speed);
+    if (code === 5) return -MEDIUM_BRAKE_NET_DECELERATION;
+    if (code === 6) return -(FULL_BRAKE_BASE_NET_DECELERATION + FULL_BRAKE_SPEED_FACTOR * Math.max(0, speed));
+    return driveAcceleration(speed, code) - resistanceAcceleration(speed);
+  }
   function accelerationFor(speed, slopeDeg, code) {
-    const acceleration = driveAcceleration(speed, code) - brakeAcceleration(speed, code) -
-      resistanceAcceleration(speed) - slopeAcceleration(slopeDeg);
+    const acceleration = flatRoadAcceleration(speed, code) - slopeAcceleration(slopeDeg);
     if (speed <= 0 && acceleration <= 0) return 0;
     return acceleration;
   }
@@ -46,7 +76,16 @@
   }
   function integrateSubstep(speed, position, duration, slopeDeg, code) {
     const a = accelerationFor(speed, slopeDeg, code);
-    const nextV = Math.max(0, speed + a * duration);
+    const unconstrainedV = speed + a * duration;
+    if (a < 0 && speed > 0 && unconstrainedV < 0) {
+      const movingDuration = Math.min(duration, speed / -a);
+      return {
+        a,
+        v: 0,
+        x: position + speed * movingDuration + .5 * a * movingDuration ** 2
+      };
+    }
+    const nextV = Math.max(0, unconstrainedV);
     return { a, v: nextV, x: position + (speed + nextV) * duration / 2 };
   }
   function crossingDuration(speed, acceleration, distance, maximumDuration) {
@@ -139,21 +178,36 @@
     return Math.abs(delta) < 0.06 ? "速度大致穩定" : delta > 0 ? "車輛正在加快" : "車輛正在減慢";
   }
   function consumeInputTransitions(queue, boundaryTimestamp, appliedCode = 0) {
-    if (!Array.isArray(queue) || !Number.isFinite(boundaryTimestamp) || !validCode(appliedCode)) throw new Error("Invalid input queue");
+    if (!Array.isArray(queue) || !Number.isFinite(boundaryTimestamp) ||
+        boundaryTimestamp < 0 || !validCode(appliedCode)) throw new Error("Invalid input queue");
+    const sequences = new Set();
+    const ordered = queue.map((transition) => {
+      if (!transition || !Number.isFinite(transition.timestamp) || transition.timestamp < 0 ||
+          !Number.isSafeInteger(transition.sequence) || transition.sequence < 0 ||
+          !validCode(transition.code) || sequences.has(transition.sequence)) {
+        throw new Error("Invalid input transition");
+      }
+      sequences.add(transition.sequence);
+      return transition;
+    }).sort((left, right) => left.timestamp - right.timestamp || left.sequence - right.sequence);
     let code = appliedCode;
     let consumed = 0;
-    while (consumed < queue.length && queue[consumed].timestamp <= boundaryTimestamp) {
-      const transition = queue[consumed];
-      if (!Number.isFinite(transition.timestamp) || !Number.isInteger(transition.sequence) || !validCode(transition.code)) throw new Error("Invalid input transition");
+    while (consumed < ordered.length && ordered[consumed].timestamp <= boundaryTimestamp) {
+      const transition = ordered[consumed];
       code = transition.code;
       consumed += 1;
     }
-    return { code, remaining: queue.slice(consumed) };
+    return { code, remaining: ordered.slice(consumed) };
   }
 
   return {
     PHYSICS_VERSION, TICK_S, GRAVITY, RESISTANCE_BASE, RESISTANCE_SPEED_SQUARED, UNIFORM_SPEED, MAX_SPEED,
-    CONTROL_LABELS, validCode, resistanceAcceleration, driveAcceleration, brakeAcceleration,
+    LIGHT_THROTTLE_RESPONSE, LIGHT_THROTTLE_SPEED_SCALE,
+    MEDIUM_THROTTLE_NET_ACCELERATION, FULL_THROTTLE_BASE_NET_ACCELERATION, FULL_THROTTLE_SPEED_FACTOR,
+    LIGHT_BRAKE_MIN_NET_DECELERATION, LIGHT_BRAKE_MAX_NET_DECELERATION,
+    MEDIUM_BRAKE_NET_DECELERATION, FULL_BRAKE_BASE_NET_DECELERATION, FULL_BRAKE_SPEED_FACTOR,
+    CONTROL_LABELS, validCode, resistanceAcceleration, lightThrottleNetAcceleration,
+    driveAcceleration, flatRoadAcceleration,
     slopeAcceleration, accelerationFor, initialState, tick, replay, isTerminalRun,
     wheelAngle, qualitativeMotion, consumeInputTransitions, crossingDuration
   };

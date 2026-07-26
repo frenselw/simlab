@@ -134,17 +134,48 @@
     if (!segment) return "";
     return targetLabel(segment.target);
   }
-  function graphShapeLabel(samples) {
+  function graphShapeLabel(samples, mode = "vt") {
     if (!samples || samples.length < 12) return "資料尚不足";
-    const first = samples[0].v;
-    const last = samples[samples.length - 1].v;
-    const delta = last - first;
-    if (Math.abs(delta) < 0.15) return "圖線接近水平";
-    const half = Math.floor(samples.length / 2);
-    const d1 = samples[half].v - first;
-    const d2 = last - samples[half].v;
-    const straight = Math.abs(d1 - d2) < Math.max(0.18, Math.abs(delta) * 0.22);
-    return delta > 0
+    const rows = samples.map((sample, index) => ({
+      t: Number.isFinite(sample.t) ? sample.t : index,
+      v: sample.v
+    })).filter((sample) => Number.isFinite(sample.t) && Number.isFinite(sample.v));
+    if (rows.length < 12) return "資料尚不足";
+    const t0 = rows[0].t;
+    const relative = rows.map((sample) => ({ t: sample.t - t0, v: sample.v }));
+    const meanT = relative.reduce((sum, sample) => sum + sample.t, 0) / relative.length;
+    const meanV = relative.reduce((sum, sample) => sum + sample.v, 0) / relative.length;
+    const denominator = relative.reduce((sum, sample) => sum + (sample.t - meanT) ** 2, 0);
+    if (!(denominator > 0)) return "資料尚不足";
+    const slope = relative.reduce((sum, sample) =>
+      sum + (sample.t - meanT) * (sample.v - meanV), 0) / denominator;
+    const intercept = meanV - slope * meanT;
+    const rmse = Math.sqrt(relative.reduce((sum, sample) =>
+      sum + (sample.v - (intercept + slope * sample.t)) ** 2, 0) / relative.length);
+    const duration = relative[relative.length - 1].t;
+    const fittedChange = slope * duration;
+    const speedRange = Math.max(...relative.map((sample) => sample.v)) -
+      Math.min(...relative.map((sample) => sample.v));
+    if (mode === "xt") {
+      if (Math.abs(fittedChange) < 0.15) {
+        return speedRange < 0.3 && rmse < 0.1
+          ? "x–t 圖接近斜直線，斜率大致固定"
+          : "x–t 圖斜率有明顯變化";
+      }
+      if (slope > 0) {
+        return rmse / Levels.GRAPH_VELOCITY_SPAN <= 0.0015
+          ? "x–t 圖愈來愈斜，斜率逐漸增加"
+          : "x–t 圖整體愈來愈斜，但斜率變化不規則";
+      }
+      return rmse / Levels.GRAPH_VELOCITY_SPAN <= 0.0015
+        ? "x–t 圖逐漸變平，斜率逐漸減少"
+        : "x–t 圖整體逐漸變平，但斜率變化不規則";
+    }
+    if (Math.abs(fittedChange) < 0.15) {
+      return speedRange < 0.3 && rmse < 0.1 ? "圖線接近水平" : "圖線有明顯起伏，斜率不固定";
+    }
+    const straight = rmse / Levels.GRAPH_VELOCITY_SPAN <= 0.0015;
+    return slope > 0
       ? (straight ? "圖線接近向上直線" : "圖線大致向上，但斜率有變化")
       : (straight ? "圖線接近向下直線" : "圖線大致向下，但斜率有變化");
   }

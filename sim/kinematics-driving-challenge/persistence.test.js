@@ -134,6 +134,8 @@ roundTrip(complete, (restored) => assert(Scoring.scoreActivity(restored.selected
 const reviewEncoded = Persistence.makeReview(complete);
 const review = Persistence.decodeReview(reviewEncoded);
 assert(review && review.phase === "submitted");
+const malformedReview = { ...review, currentItem: "level1" };
+assert.equal(Persistence.validateState(malformedReview, true), false, "review-only state keeps submitted invariants");
 assert.deepEqual(
   Scoring.scoreActivity(review.selectedRuns, review.graphCheckpoint).score,
   Scoring.scoreActivity(complete.selectedRuns, complete.graphCheckpoint).score
@@ -149,6 +151,14 @@ assert.equal(Persistence.unpackControls("***", 1), null, "malformed base64 rejec
 const invalid = Persistence.encode(base());
 invalid.q = "analysis";
 assert.equal(Persistence.decode(invalid), null, "analysis without candidate rejected");
+const nullSelectedRuns = Persistence.encode(base());
+nullSelectedRuns.s = null;
+assert.equal(Persistence.decode(nullSelectedRuns), null, "null selected-runs map is rejected without throwing");
+assert.throws(
+  () => Persistence.encode(base({ selectedRuns: { level2: firstThree.level2 } })),
+  /Invalid driving draft/,
+  "a selected checkpoint source cannot retain a null source revision"
+);
 const freelySelected = Persistence.encode(base({ phase: "level", variant: "briefing", currentItem: "level3" }));
 assert.equal(Persistence.decode(freelySelected)?.currentItem, "level3", "missing earlier levels do not block direct navigation");
 const mismatched = Persistence.encode(base({
@@ -160,9 +170,27 @@ assert.equal(Persistence.decode(mismatched), null, "checkpoint revision mismatch
 const earlyAnswer = cloneEncoded(mismatched);
 earlyAnswer.k.r = 1; earlyAnswer.k.x = 0;
 assert.equal(Persistence.decode(earlyAnswer), null, "answer before both views rejected");
-const priorPhysics = Persistence.encode(base());
-priorPhysics.p = 4;
-assert.equal(Persistence.decode(priorPhysics), null, "a physics-v4 snapshot is rejected after resistance-model calibration");
+for (const [variant, returning, answered] of [
+  ["exploring", false, false], ["answered", false, true],
+  ["review-edit-exploring", true, false], ["review-edit-answered", true, true]
+]) {
+  const graphCheck = Persistence.encode(base({
+    phase: "graph-check", variant, currentItem: "checkpoint", returnToReview: returning,
+    selectedRuns: firstThree, graphCheckpoint: checkpoint(firstThree, answered)
+  }));
+  graphCheck.k.r = null;
+  assert.equal(Persistence.decode(graphCheck), null, `${variant} requires a matching source revision`);
+}
+const terminalPractice = base({
+  phase: "practice", variant: "paused", currentItem: "practice",
+  candidateRun: { ownerId: "practice", codes: terminalCodes(Levels.PRACTICE, 1) }
+});
+assert.equal(Persistence.validateState(terminalPractice, false), false, "paused practice candidate must remain resumable");
+for (let version = 1; version < Model.PHYSICS_VERSION; version += 1) {
+  const priorPhysics = Persistence.encode(base());
+  priorPhysics.p = version;
+  assert.equal(Persistence.decode(priorPhysics), null, `a physics-v${version} snapshot is rejected`);
+}
 const priorLevels = Persistence.encode(base());
 priorLevels.l = 7;
 assert.equal(Persistence.decode(priorLevels), null, "a level-set-v7 snapshot is rejected after simplifying level 5");

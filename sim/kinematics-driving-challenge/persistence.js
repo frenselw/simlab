@@ -106,7 +106,7 @@
   }
   function decode(answer) {
     if (!answer || answer.v !== VERSION || answer.p !== Model.PHYSICS_VERSION || answer.l !== Levels.LEVEL_SET_VERSION ||
-        typeof answer.s !== "object" || Array.isArray(answer.s) || !answer.k ||
+        answer.s === null || typeof answer.s !== "object" || Array.isArray(answer.s) || !answer.k ||
         ![0, 1].includes(answer.b) || ![0, 1].includes(answer.k.x) || ![0, 1].includes(answer.k.y)) return null;
     const selectedRuns = {};
     for (const [id, packed] of Object.entries(answer.s)) {
@@ -161,9 +161,13 @@
       const owner = Levels.levelById(candidate.ownerId);
       if (!owner || !Array.isArray(candidate.codes) || candidate.codes.length > owner.maxTicks || candidate.codes.some((code) => !Model.validCode(code))) return false;
     }
-    if (reviewOnly) return state.phase === "submitted" && state.variant === "locked" && allComplete(state);
+    if (reviewOnly) {
+      return state.phase === "submitted" && state.variant === "locked" && state.currentItem === "review" &&
+        !state.returnToReview && candidate === null && allComplete(state);
+    }
     if (state.phase === "practice") {
       if (state.currentItem !== "practice" || state.returnToReview || (state.variant === "ready" ? candidate !== null : candidate?.ownerId !== "practice")) return false;
+      if (state.variant === "paused" && Model.isTerminalRun(Levels.PRACTICE, candidate.codes)) return false;
     } else if (state.phase === "level") {
       if (!LEVEL_IDS.includes(state.currentItem)) return false;
       const retry = state.variant.startsWith("review-retry-");
@@ -179,6 +183,11 @@
       if (!expectsCandidate && candidate) return false;
     } else if (state.phase === "graph-check") {
       if (state.currentItem !== "checkpoint" || candidate || !state.selectedRuns[state.graphCheckpoint.sourceLevelId]) return false;
+      if (state.graphCheckpoint.sourceRunRevision !== state.selectedRuns[state.graphCheckpoint.sourceLevelId].revision) return false;
+      if (!Scoring.checkpointEligible(
+        state.graphCheckpoint.sourceLevelId,
+        state.selectedRuns[state.graphCheckpoint.sourceLevelId].codes
+      )) return false;
       const edit = state.variant.startsWith("review-edit-");
       if (state.returnToReview !== edit) return false;
       const answered = state.variant.endsWith("answered");
@@ -196,13 +205,17 @@
         typeof checkpoint.viewedXt !== "boolean" || typeof checkpoint.viewedVt !== "boolean" ||
         ![null, Scoring.CHECKPOINT_ANSWER, "xt-curvature", "both-any", "xt-fixed-slope"].includes(checkpoint.answerId)) return false;
     const source = selectedRuns[checkpoint.sourceLevelId];
-    if (checkpoint.sourceRunRevision == null) return checkpoint.answerId == null && !checkpoint.viewedXt && !checkpoint.viewedVt;
+    if (checkpoint.sourceRunRevision == null) {
+      return !source && checkpoint.answerId == null && !checkpoint.viewedXt && !checkpoint.viewedVt;
+    }
     if (!source || checkpoint.sourceRunRevision !== source.revision) return false;
     if (checkpoint.answerId && !(checkpoint.viewedXt && checkpoint.viewedVt)) return false;
     return true;
   }
   function allComplete(state) {
-    return LEVEL_IDS.every((id) => state.selectedRuns[id]) && Boolean(state.graphCheckpoint.answerId);
+    const source = state.selectedRuns[state.graphCheckpoint.sourceLevelId];
+    return LEVEL_IDS.every((id) => state.selectedRuns[id]) && Boolean(state.graphCheckpoint.answerId) &&
+      Boolean(source && Scoring.checkpointEligible(state.graphCheckpoint.sourceLevelId, source.codes));
   }
   function makeReview(source) {
     const state = clone(source);

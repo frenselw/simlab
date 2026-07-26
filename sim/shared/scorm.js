@@ -12,6 +12,7 @@
   let pendingCheckpoint = "";
   let pendingCheckpointCommitted = false;
   let writesBlocked = false;
+  let lastDraftCheckpoint = "";
   const localLog = [];
   const SNAPSHOT_LIMIT = 4000;
   const FINISHED = ["completed", "passed", "failed"];
@@ -125,6 +126,7 @@
 
   function loadAttempt(activity) {
     writesBlocked = false;
+    lastDraftCheckpoint = "";
     if (!init()) { writesBlocked = true; return { state: "read-error", reason: "initialize" }; }
     const statusResult = readValue("cmi.core.lesson_status");
     const snapshotResult = readValue("cmi.suspend_data");
@@ -144,7 +146,10 @@
     }
     if (done) {
       if (!snapshot) return { state: "finished", snapshot: null, fallback: true, status: launchStatus, score: scoreResult.value };
-      if (snapshot.kind !== "review") { writesBlocked = true; return { state: "inconsistent", reason: "finished-with-non-review" }; }
+      if (snapshot.kind !== "review") {
+        writesBlocked = true;
+        return { state: "finished", snapshot: null, fallback: true, status: launchStatus, score: scoreResult.value };
+      }
       return { state: "finished", snapshot, status: launchStatus, score: scoreResult.value };
     }
     if (!snapshot) return { state: "new" };
@@ -162,8 +167,19 @@
 
   function saveDraft(snapshot) {
     if (finalCommitted || pendingFinal || !snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > SNAPSHOT_LIMIT) return false;
-    return setValue("cmi.suspend_data", JSON.stringify(snapshot)) && setValue("cmi.core.lesson_status", "incomplete") &&
+    const checkpoint = JSON.stringify(snapshot);
+    const saved = setValue("cmi.suspend_data", checkpoint) && setValue("cmi.core.lesson_status", "incomplete") &&
       setValue("cmi.core.exit", "suspend") && commit();
+    // Any failed attempt may have dirtied the LMS session buffer even though
+    // its durable state did not change. Only a fully committed write is safe
+    // to deduplicate later.
+    lastDraftCheckpoint = saved ? checkpoint : "";
+    return saved;
+  }
+
+  function saveProvidedDraft() {
+    const snapshot = draftProvider();
+    return JSON.stringify(snapshot) === lastDraftCheckpoint || saveDraft(snapshot);
   }
 
   function makePending(result, reviewState) {
@@ -220,6 +236,17 @@
       : { ok: false, committed: true, finished: false, retryable: true, frozen: true, reason: "finish", review: final.review, score: final.score, status: final.status };
   }
 
+  function quarantinePending() {
+    if (!pendingFinal || finalCommitted) return false;
+    // Leave the durable pending checkpoint untouched for diagnosis/recovery,
+    // but prevent this page from retrying data the activity could not validate.
+    pendingFinal = null;
+    pendingCheckpoint = "";
+    pendingCheckpointCommitted = false;
+    writesBlocked = true;
+    return true;
+  }
+
   function submitResult(result, reviewState) {
     if (submitting) return { ok: false, retryable: true, reason: "busy", result };
     submitting = true;
@@ -261,7 +288,7 @@
     if (finalCommitted) { finish(); return; }
     if (FINISHED.includes(launchStatus)) { finish(); return; }
     if (draftProvider) {
-      try { if (!saveDraft(draftProvider())) return; } catch (error) { console.warn("[SCORM] draft save failed", error); return; }
+      try { if (!saveProvidedDraft()) return; } catch (error) { console.warn("[SCORM] draft save failed", error); return; }
     } else if (!(setValue("cmi.core.exit", "suspend") && commit())) return;
     if (!api) finished = true;
     else finished = call("finish", "LMSFinish", "").ok;
@@ -272,13 +299,13 @@
     if (pendingFinal) { retryPending(false); return; }
     if (finalCommitted || FINISHED.includes(launchStatus)) { commit(); return; }
     if (draftProvider) {
-      try { saveDraft(draftProvider()); } catch (error) { console.warn("[SCORM] draft save failed", error); }
+      try { saveProvidedDraft(); } catch (error) { console.warn("[SCORM] draft save failed", error); }
     } else setValue("cmi.core.exit", "suspend") && commit();
   }
 
   window.SimScorm = {
     init, readValue, getValue, loadAttempt, isAttemptFinished: () => FINISHED.includes(getValue("cmi.core.lesson_status")),
-    submitResult, submitWithCallbacks, retryPending, makeSnapshot, readSnapshot, saveDraft,
+    submitResult, submitWithCallbacks, retryPending, quarantinePending, makeSnapshot, readSnapshot, saveDraft,
     setDraftProvider: (provider) => { draftProvider = provider; }, snapshotBytes, finish,
     getLocalLog: () => localLog.slice()
   };

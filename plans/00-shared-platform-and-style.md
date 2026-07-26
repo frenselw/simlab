@@ -395,6 +395,9 @@ Do not implement activity-local SCORM lifecycle logic. New activities use:
 - `SimScorm.loadAttempt(activity)` plus `SimActivityFlow.startup(attempt)`;
 - `SimScorm.makeSnapshot()` and `SimScorm.setDraftProvider()` for persistence;
 - `SimScorm.submitWithCallbacks()` plus `SimActivityFlow.submission()`;
+- `SimScorm.retryPending()` for a validated immutable payload and
+  `SimScorm.quarantinePending()` when activity-level decode/rescore rejects a
+  structurally valid pending payload;
 - `SimActivityFlow.reviewResult()` and `completionLabel()` for restored results.
 
 The activity owns its model, scoring, snapshot validation, and learner-facing

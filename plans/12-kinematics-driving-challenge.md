@@ -3,7 +3,7 @@
 ## 0. 文件狀態
 
 - 文件角色：新 SimLab 活動的產品、教學、物理、互動、評分、持久化、SCORM 及測試規格。
-- 計劃狀態：待用戶審查；未開始實作。
+- 計劃狀態：實作及本地 repository／package／browser gates 已完成；real Moodle 學生帳戶、current／new-window player 及實機手機驗收待完成。
 - 建議 slug：`kinematics-driving-challenge`
 - 學生可見標題：`勻速與勻變速：駕駛控制挑戰`
 - 參考活動：`linear-motion-velocity-lab`
@@ -541,20 +541,34 @@ t       模擬時間，s
 第一版採用有意簡化但保留道路阻力及速度相依踏板反應的教學模型。它不模擬真實轉檔或完整引擎曲線，但必須令不同固定力度產生可由 `v–t` 圖區分的運動。
 
 ```text
-a = a_drive(v, u) - a_brake(v, u) - R(v) - g sin(theta)
+a = a_flat(v, u) - g sin(theta)
 v_next = max(0, v + a Δt)
 x_next = x + (v + v_next) Δt / 2
 
-R(v) = 0.05 + 0.008 v²
+R(v) = 0.05 + 0.0025 v²
 
-a_drive(v, 輕油門) = R(8)
-a_drive(v, 中油門) = R(v) + 0.60
-a_drive(v, 油門踩盡) = R(v) + 0.40 + 0.05v
+a_flat(v, 空檔) = -R(v)
+a_flat(v, 輕油門) = 0.40 tanh((8 - v) / 3)
+a_flat(v, 中油門) = +0.60
+a_flat(v, 油門踩盡) = 0.65 + 0.05v
 
-a_brake(v, 輕煞車) = 0.18
-a_brake(v, 中煞車) = max(0, 1.30 - R(v))
-a_brake(v, 煞車踩盡) = max(0, 0.50 + 0.12v - R(v))
+L(v) = 0.72 + 0.57 / (1 + exp(-2.00(v - 9.598927354)))
+a_flat(v, 輕煞車) = -L(v)
+a_flat(v, 中煞車) = -1.30
+a_flat(v, 煞車踩盡) = -(1.45 + 0.06v)
 ```
+
+三段煞車都直接定義為權威「平路淨減速度」，再加入坡度項。輕煞車的
+logistic 曲線在 `v = 8 m/s` 剛好平衡 `-4.34°` 落斜，在第 5 關較高速
+減速段留下清楚曲率，並在整個合法速度範圍保持弱於中煞車；中煞車
+固定為 `-1.30 m/s²`；煞車踩盡則全程強於中煞車並保留速度相依曲率。
+因此包括第 5 關進入減速區時高於 `12.5 m/s` 的速度，仍同時滿足
+「輕 < 中 < 盡」力度次序、中煞車直線證據及錯誤力度不可取得滿分。
+
+三段油門的平路淨加速度亦在整個合法速度範圍保持「輕 < 中 < 盡」；
+輕油門以有界 response 趨向 `8 m/s`，油門踩盡則以大於
+`+0.60 m/s²` 的基值起步再隨速度增加。這避免低速時「踩盡」反而弱於
+中油門，亦令輕、盡油門都保留可辨認的彎曲 `v–t` 圖。
 
 當 `v = 0`：
 
@@ -587,6 +601,9 @@ a_brake(v, 煞車踩盡) = max(0, 0.50 + 0.12v - R(v))
 - 一個 render frame 需要補算多個 tick 時，每個 tick 依次套用當時已到期的 queued transition，不可把 frame 最後的踏板狀態倒套到較早 tick。
 - 每 frame 最多補算 `MAX_CATCH_UP_TICKS = 8`；若 backlog 再大，模型停在最後完整 tick、解除踏板並進入可恢復的 technical pause，不跳過 tick 或控制樣本。
 - 若一個 tick 橫跨 zone boundary，以同一控制及該 tick 的解析運動作 deterministic substep split；前後部分分別歸屬正確 zone，transition zone 不污染 scored samples。
+- 若減速度令車在 tick 完結前到達 `v = 0`，只積分至實際停車時間，餘下
+  tick 保持原位；zone crossing solver 必須使用同一 stop-clamped 位移，
+  不可因兩套積分不一致而把有限合法狀態標成 `technical`。
 
 ### 12.4 初始校準常數
 
@@ -595,10 +612,19 @@ a_brake(v, 煞車踩盡) = max(0, 0.50 + 0.12v - R(v))
 ```text
 GRAVITY_M_S2 = 9.81
 RESISTANCE_BASE_M_S2 = 0.05
-RESISTANCE_SPEED_SQUARED = 0.008
+RESISTANCE_SPEED_SQUARED = 0.0025
 UNIFORM_SPEED_M_S = 8
+LIGHT_THROTTLE_RESPONSE_M_S2 = 0.40
+LIGHT_THROTTLE_SPEED_SCALE_M_S = 3
 MEDIUM_THROTTLE_NET_ACCELERATION_M_S2 = 0.60
+FULL_THROTTLE_BASE_NET_ACCELERATION_M_S2 = 0.65
+FULL_THROTTLE_SPEED_FACTOR_S_INV = 0.05
+LIGHT_BRAKE_MIN_NET_DECELERATION_M_S2 = 0.72
+LIGHT_BRAKE_MAX_NET_DECELERATION_M_S2 = 1.29
+LIGHT_BRAKE_CURVE_RATE_S_PER_M = 2.00
 MEDIUM_BRAKE_NET_DECELERATION_M_S2 = 1.30
+FULL_BRAKE_BASE_NET_DECELERATION_M_S2 = 1.45
+FULL_BRAKE_SPEED_FACTOR_S_INV = 0.06
 SLOPE_ANGLES_DEG = [+3.50, -4.34]
 MODEL_MAX_SPEED_M_S = 20
 SCORABLE_MIN_SPEED_M_S = 3
@@ -607,6 +633,9 @@ SCORABLE_MIN_SPEED_M_S = 3
 這些常數的作用是：
 
 - 阻力隨速度增加，令空檔及不合適力度的圖線有可見曲率；
+- 在整個合法速度範圍，空檔減速必須弱於輕煞車，並保持七種控制由
+  `油門踩盡 > 中油門 > 輕油門 > 空檔 > 輕煞車 > 中煞車 > 煞車踩盡`
+  的平路淨加速度次序；
 - 中油門／中煞車分別是第 2、3 關唯一的固定淨加速度策略；
 - 上斜校準坡度令中油門可在第 4 關保持勻速；落斜校準坡度留給第 5 關的輕煞車路段；
 - 平路油門及煞車的效果在無數字 `v–t` 圖上清楚可見；
@@ -971,7 +1000,9 @@ x–t 圖可顯示速度正在改變，但 v–t 圖更直接顯示變化率是�
 |---|---|---|---|
 | 油門按住掣 | 固定 HTML button，最少 64 CSS-pixel 高 | button 自身 | active hold 期間不可替換 |
 | 煞車按住掣 | 固定 HTML button，最少 64 CSS-pixel 高 | button 自身 | active hold 期間不可替換 |
-| 分析時間游標 | 固定 HTML range overlay／控制 | 穩定 HTML input | drag 期間不可替換 |
+| 分析時間游標 | 固定 HTML range 控制，最少 44 CSS-pixel 高 | 穩定 HTML input | drag 期間不可替換 |
+| checkpoint 回放游標 | graph-check section 內固定 HTML range 控制，最少 44 CSS-pixel 高 | 穩定 HTML input | drag 期間不可替換 |
+| 提交後只讀回放游標 | submitted review section 內固定 HTML range 控制，最少 44 CSS-pixel 高 | 穩定 HTML input | drag 期間不可替換 |
 
 圖像切換、暫停及 navigation 是普通 native tap controls，不是連續 drag target。
 
@@ -982,13 +1013,15 @@ x–t 圖可顯示速度正在改變，但 v–t 圖更直接顯示變化率是�
 | 非互動舞台／道路／預覽圖空白位置 | Moodle host／enclosing page | host 有 range 時移動 host 及完整 iframe；activity document 與 panel 不動；不改變控制、時間或答案 |
 | operation panel 背景或普通內容 | operation panel | 只捲動 panel；host、iframe、舞台及 activity document 不動，包括 panel 頂／底邊界 |
 | 油門或煞車按住掣 | simulation for active hold | 收到 pointerdown、持續 hold 及 pointerup；踏板狀態改變；所有 scroll owner 位置不變；靜止手指不強制產生 pointermove；正常操作沒有 pointercancel |
-| 分析時間游標 | simulation for active drag | 游標及只讀回放改變；所有 host／panel／document／viewport／iframe scroll delta 為零；收到 pointerup，沒有 pointercancel |
+| 分析時間游標 | simulation for active drag | 游標及分析只讀回放改變；所有 host／panel／document／visual viewport／iframe scroll delta 為零；收到 pointerup，沒有 pointercancel |
+| checkpoint 回放游標 | simulation for active drag | 游標、同一 source run 車輛及圖線同步改變；所有 host／panel／document／visual viewport／iframe scroll delta 為零；收到 pointerup，沒有 pointercancel |
+| 提交後只讀回放游標 | simulation for active drag | 游標、已提交 run 車輛及所選圖線同步改變，但 authoritative review 不變；所有 host／panel／document／visual viewport／iframe scroll delta 為零；收到 pointerup，沒有 pointercancel |
 
 ### 17.3 Technical rules
 
 - 舞台及 Canvas 預先使用 `touch-action: pan-y`。
 - 不在整個舞台使用 `touch-action: none`。
-- 油門、煞車及時間游標的有效 `touch-action` 在 `pointerdown` 前存在。
+- 油門、煞車及三個時間游標的有效 `touch-action` 在 `pointerdown` 前存在。
 - pointer capture target 在整個 hold／drag 期間保持 mounted。
 - panel 使用 `overscroll-behavior: contain`。
 - 不把舞台 gesture 轉送到 sibling panel。
@@ -1248,7 +1281,7 @@ Production 可使用短 key，但語意必須包括：
 ```js
 {
   v: 1,
-  physicsVersion: 5,
+  physicsVersion: 6,
   levelSetVersion: 8,
   phase,
   variant,
@@ -1285,7 +1318,7 @@ Absent／partial fields follow the phase matrix；不以空 object 代替語意�
 {
   v: 1,
   locked: 1,
-  physicsVersion: 5,
+  physicsVersion: 6,
   levelSetVersion: 8,
   selectedRuns: {
     level1: { revision, tickCount, packedControls },
@@ -1313,7 +1346,7 @@ review snapshot 不保存：
 - feedback text；
 - Canvas pixels。
 
-`physicsVersion = 5` 包含速度相依阻力、三段踏板反應及 boundary replay 規則；`levelSetVersion = 8` 包含自由跳關、單一完整上斜坡第 4 關、只用「路牌＋同位置分界線」的四段混合路線，以及車頭／黃線／評分一致的 crossing 顯示。早期 pre-release 的 version 1–7 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要覆蓋舊 physics 及舊 level-set rejection。
+`physicsVersion = 6` 包含速度相依阻力、三段踏板反應、在整個合法速度範圍固定的中煞車平路淨減速度，以及 boundary replay 規則；`levelSetVersion = 8` 包含自由跳關、單一完整上斜坡第 4 關、只用「路牌＋同位置分界線」的四段混合路線，以及車頭／黃線／評分一致的 crossing 顯示。早期 pre-release 的 physics version 1–5 及 level-set version 1–7 snapshot 不作隱式遷移，decoder 必須 fail closed，測試亦要覆蓋舊 physics 及舊 level-set rejection。
 
 shared envelope 的 result metadata 只作比較。完成 restore：
 
@@ -1383,8 +1416,13 @@ validate versions and packed runs
 ### 22.7 Invalid snapshot policy
 
 - Invalid editable draft：若 shared runtime 能明確清除／覆寫並成功 commit 無效 draft，顯示通知後在同一個 editable Moodle attempt 內建立乾淨活動狀態；成功覆寫前保持 technical lock。活動本身不能建立 Moodle 新 attempt。
-- Pending-final：保持 frozen，只可重試完全相同 payload。
-- Invalid finished review：保持 locked，只顯示可信 Moodle summary，不開放重玩。
+- Pending-final：先 decode、replay、rescore，並核對 canonical authoritative
+  review 及 result metadata；通過才保持 frozen 並重試完全相同 payload。
+  若深層驗證失敗，必須先 `SimScorm.quarantinePending()`，令 manual、
+  BFCache 及 pagehide 都不可寫入該 payload，再顯示 technical lock。
+- Invalid finished review，或 finished attempt 帶有 draft／pending-final 等
+  非 review snapshot：保持 locked，只顯示可信 Moodle score／status summary，
+  不開放重玩，亦不把已完成 attempt 降格成 generic load error。
 - Unsupported version：不默默遷移；只有明確、測試完整的 decoder／migration 才可支援。
 - Score／status mismatch：Moodle 記錄優先，抑制不可信詳細回饋。
 
@@ -1404,6 +1442,8 @@ SCORM 1.2 同步 commit 不可干擾按住操作或動畫：
   - 進入 review；
   - lifecycle flush。
 - `pagehide` draft provider 推進至當前完整 tick、解除踏板，並編碼成 paused variant；
+- active run 遇到 window blur／document hidden 時使用同一完整-tick
+  settlement，立即保存後暫停；不可先清空 input queue 再保存；
 - restore 後永遠以踏板放開的 paused state 開始，學生明確按 `繼續`；
 - final submit 及 pending-final checkpoint 仍立即 durable。
 
@@ -1437,11 +1477,16 @@ SimActivityFlow.startup()
 SimScorm.makeSnapshot()
 SimScorm.setDraftProvider()
 SimScorm.submitWithCallbacks()
+SimScorm.retryPending()
+SimScorm.quarantinePending()
+SimScorm.finish()
 SimActivityFlow.submission()
 SimActivityFlow.reviewResult()
 ```
 
-不直接呼叫 raw LMS API，不加入 activity-local pagehide／finish 邏輯。
+不直接呼叫 raw LMS API，不加入 activity-local pagehide 邏輯；已 commit 但
+`LMSFinish` 失敗時，只可透過 shared `SimScorm.finish()` 重試完成同一
+工作階段。
 
 ## 25. Test plan
 
@@ -1457,6 +1502,8 @@ SimActivityFlow.reviewResult()
 - 固定 tick 積分的代表值；
 - `v >= 0`，停止後不倒後；
 - `v = 0` 時平路起步、上斜起步、落斜自行前進、靜止煞車的邊界；
+- tick 內停車的實際停車時間／位移與 boundary crossing solver 一致；
+- 每個內部分界線前的低速強煞有限狀態不會產生 `technical` terminal；
 - timestamped input queue 在 next-tick boundary 生效，同 timestamp sequence ordering 穩定；
 - 一 frame 多 tick 時逐 tick 套用正確控制；
 - zone crossing substep 分配正確；
@@ -1557,6 +1604,8 @@ Invalid cases：
 - unsupported physics／level version；
 - invalid finished review remains locked；
 - pending final remains frozen；
+- structurally valid but decode／rescore／canonical-review mismatched pending
+  final is quarantined and pagehide performs no final score/status writes；
 - worst-case draft、inner review、shared review envelope、escaped pending-final payload 各自符合 §20.2 budget。
 
 ### 25.6 Lifecycle UI tests
@@ -1565,6 +1614,8 @@ Invalid cases：
 
 - startup `review`、`editable`、`frozen`、`load-error`；
 - submission `success`、`committed`、`frozen`、retryable `retry`、non-retryable `retry`；
+- committed retry only calls shared `finish()`；frozen retry only calls
+  `retryPending()` and accepts the exact same canonical review；
 - trusted review、score mismatch、unknown Moodle status；
 - technical／pending states 鎖定踏板及提交，不聲稱分數或成功。
 
@@ -1586,6 +1637,8 @@ Invalid cases：
 - preview raw line equals replay samples；
 - analysis scrub changes only read-only view；
 - accepting and replacing runs use explicit actions。
+- 第 5 關每段逐一以其餘固定控制替換時均失分，完整活動不得四捨五入
+  回 100 分；
 
 ### 25.8 Accessibility and visual checks
 
@@ -1602,7 +1655,8 @@ Invalid cases：
 - road shape cannot be confused with graph；
 - preview contains no numeric text or ticks；
 - all controls at least 44 CSS pixels，pedals at least 64；
-- screen-reader qualitative graph alternative；
+- screen-reader qualitative graph alternative 能分辨 `v–t` 直線與
+  `x–t` 斜率增加／減少，不能以同一句直線描述兩種圖；
 - no live-region frame spam。
 
 ### 25.9 Trusted touch gesture matrix
@@ -1627,6 +1681,16 @@ Invalid cases：
    - scrub position 改變；
    - 所有 scroll delta zero；
    - pointerup，無 pointercancel。
+5. checkpoint scrub trusted drag：
+   - graph-check 畫面同時顯示同一 run 的 `x–t` 及 `v–t` 圖，並只用其固定 44px hit-target range；
+   - scrub position、同一 run 車輛、兩幅圖線及兩個游標同步改變；
+   - 所有 scroll delta zero；
+   - pointerup，無 pointercancel。
+6. submitted review scrub trusted drag：
+   - 只在可信 submitted review 顯示固定 44px hit-target range；
+   - 可逐關／逐 zone 選擇，scrub 同步改變已提交車輛、所選圖線及游標；
+   - authoritative review JSON、score 及 checkpoint answer 不變；
+   - 所有 scroll delta zero；pointerup，無 pointercancel。
 
 每次測試確認 event `isTrusted = true`、touch pointer type，並記錄 browser engine／device。測試時使用 fake clock 或 paused model，將正常物理演進與 gesture side effect 分開。
 

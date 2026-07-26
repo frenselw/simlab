@@ -107,12 +107,25 @@
           <section id="checkpointSection" class="panel-section is-hidden">
             <p class="panel-kicker">圖像證據 checkpoint</p>
             <h2 id="checkpointTitle" class="section-title" tabindex="-1">哪幅圖更直接？</h2>
-            <p>切換並查看同一段記錄的 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 與 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖，然後回答。</p>
+            <p>同步比較同一段記錄的 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 與 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖，然後回答。</p>
+            <div id="checkpointDualGraphs" class="checkpoint-dual-graphs" aria-label="同一試車記錄的兩幅同步圖像">
+              <figure id="checkpointXtPlot" class="checkpoint-plot">
+                <figcaption><span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖</figcaption>
+                <canvas id="checkpointXtCanvas" role="img" aria-label="同一試車記錄的位置對時間圖"></canvas>
+              </figure>
+              <figure id="checkpointVtPlot" class="checkpoint-plot">
+                <figcaption><span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖</figcaption>
+                <canvas id="checkpointVtCanvas" role="img" aria-label="同一試車記錄的速度對時間圖"></canvas>
+              </figure>
+            </div>
             <div class="checkpoint-graphs">
-              <button id="viewXtButton" type="button">查看 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
-              <button id="viewVtButton" type="button">查看 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
+              <button id="viewXtButton" type="button">確認已查看 <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
+              <button id="viewVtButton" type="button">確認已查看 <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖</button>
             </div>
             <p id="checkpointViewStatus" class="muted">兩幅圖尚未看完。</p>
+            <label class="scrub-row checkpoint-scrub-row" for="checkpointScrubRange">回放位置
+              <input id="checkpointScrubRange" type="range" min="0" max="100" value="100" aria-label="圖像證據回放時間游標">
+            </label>
             <fieldset id="checkpointAnswers" disabled>
               <legend>如果要直接判斷速度是否以固定比率改變，哪一幅圖提供較清楚的證據？</legend>
               <label><input type="radio" name="checkpointAnswer" value="vt-linear"> <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span> 圖，因為勻變速時會形成斜率固定的直線</label>
@@ -127,7 +140,7 @@
           <section id="reviewSection" class="panel-section is-hidden">
             <h2 id="reviewTitle" class="section-title" tabindex="-1">提交前檢查</h2>
             <p>只會評你已記錄的五次試車及圖像答案。可以先返回任何一關改善。</p>
-            <p id="submissionNotice" class="submission-notice is-hidden"></p>
+            <p id="submissionNotice" class="submission-notice is-hidden" role="status" tabindex="-1"></p>
             <div id="reviewList" class="review-list"></div>
             <button id="submitButton" type="button" class="primary-button full-button">提交全部記錄</button>
             <button id="submissionRetryButton" type="button" class="is-hidden full-button">重試連線</button>
@@ -136,6 +149,21 @@
           <section id="resultSection" class="panel-section is-hidden">
             <h2 id="resultTitle" class="section-title" tabindex="-1">結果</h2>
             <div id="scorePanel" class="score-panel"></div>
+            <section id="resultReviewTools" class="result-review-tools is-hidden" aria-labelledby="resultReviewToolsTitle">
+              <h3 id="resultReviewToolsTitle">已提交試車只讀回放</h3>
+              <p>只會改變本頁回放畫面，不會修改或重新提交你的記錄。</p>
+              <div id="resultRunPicker" class="result-run-picker" role="group" aria-label="選擇已提交的試車記錄"></div>
+              <div id="resultZoneTabs" class="analysis-zone-tabs" aria-label="選擇只讀回放路段"></div>
+              <fieldset class="graph-switch result-graph-switch">
+                <legend>回放圖像</legend>
+                <label><input type="radio" name="resultGraphMode" value="vt" checked> <span class="math-expression"><var>v</var><span class="math-operator">−</span><var>t</var></span></label>
+                <label><input type="radio" name="resultGraphMode" value="xt"> <span class="math-expression"><var>x</var><span class="math-operator">−</span><var>t</var></span></label>
+              </fieldset>
+              <label class="scrub-row" for="resultScrubRange">只讀回放位置
+                <input id="resultScrubRange" type="range" min="0" max="100" value="100" aria-label="已提交試車只讀回放時間游標">
+              </label>
+              <p id="resultReplayStatus" class="muted"></p>
+            </section>
             <div id="feedbackList" class="feedback-list"></div>
             <button id="resultRetryButton" type="button" class="is-hidden full-button">重試連線</button>
           </section>

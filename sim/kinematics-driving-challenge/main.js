@@ -14,10 +14,19 @@
   const ACTIVITY = "kinematics-driving-challenge";
   const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]")).map((element) => [element.id, element]));
   const graphInputs = Array.from(document.querySelectorAll("input[name=graphMode]"));
+  const resultGraphInputs = Array.from(document.querySelectorAll("input[name=resultGraphMode]"));
   const answerInputs = Array.from(document.querySelectorAll("input[name=checkpointAnswer]"));
   const canvas = elements.drivingCanvas;
   const ctx = canvas.getContext("2d");
   const graphCtx = elements.graphCanvas.getContext("2d");
+  const checkpointXtCtx = elements.checkpointXtCanvas.getContext("2d");
+  const checkpointVtCtx = elements.checkpointVtCanvas.getContext("2d");
+  const CHECKPOINT_ANSWER_LABELS = Object.freeze({
+    "vt-linear": "v–t 圖，因為勻變速時會形成斜率固定的直線",
+    "xt-curvature": "x–t 圖，因為彎曲程度可以直接當作加速度讀數",
+    "both-any": "兩幅圖一樣直接，只要圖線不是水平便足夠",
+    "xt-fixed-slope": "x–t 圖，因為斜率固定代表加速度固定"
+  });
 
   let state = null;
   let locked = false;
@@ -38,8 +47,15 @@
   let retryMode = "none";
   let trustedReview = true;
   let submittedResult = null;
+  let pendingExpected = null;
+  let technicalState = false;
+  let resultReviewLevelId = null;
+  let resultReviewZoneId = null;
+  let resultReviewGraphMode = "vt";
   let stageView = { width: 800, height: 430, dpr: 1 };
   let graphView = { width: 220, height: 150, dpr: 1 };
+  let checkpointXtView = { width: 220, height: 150, dpr: 1 };
+  let checkpointVtView = { width: 220, height: 150, dpr: 1 };
   let liveLast = "";
 
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
@@ -47,7 +63,11 @@
     if (state?.phase === "practice") return Levels.PRACTICE;
     if (state?.phase === "level") return Levels.levelById(state.currentItem);
     if (state?.phase === "graph-check") return Levels.levelById(state.graphCheckpoint.sourceLevelId);
+    if (state?.phase === "submitted" && resultReviewLevelId) return Levels.levelById(resultReviewLevelId);
     return Levels.levelById("level1");
+  }
+  function activeGraphMode() {
+    return state?.phase === "submitted" && trustedResultReviewAvailable() ? resultReviewGraphMode : state?.graphMode || "vt";
   }
   function announce(text) {
     if (!text || text === liveLast) return;
@@ -55,13 +75,23 @@
     elements.liveRegion.textContent = "";
     requestAnimationFrame(() => { elements.liveRegion.textContent = text; });
   }
-  function focusHeading(element) { requestAnimationFrame(() => element?.focus({ preventScroll: true })); }
+  function focusHeading(element) {
+    requestAnimationFrame(() => {
+      elements.controlPanel.scrollTop = 0;
+      element?.focus({ preventScroll: true });
+    });
+  }
   function candidateCodes() { return state?.candidateRun?.codes || []; }
   function selectedScore(id) {
     const selected = state.selectedRuns[id];
     return selected ? Scoring.scoreRun(Levels.levelById(id), selected.codes) : null;
   }
-  function draftSnapshot() {
+  function checkpointEligible(id) {
+    const selected = state?.selectedRuns?.[id];
+    return Boolean(selected && Scoring.checkpointEligible(id, selected.codes));
+  }
+  function draftSnapshot(settleRuntime = false) {
+    if (settleRuntime) settleDraftRuntime(performance.now());
     const answer = Persistence.encode({ ...state, runtime: { running } });
     return window.SimScorm.makeSnapshot(ACTIVITY, "draft", answer);
   }
@@ -92,8 +122,18 @@
     runtimeRun = replay || Model.replay(level, []);
     accumulator = 0;
   }
+  function stopAnimationLoop() {
+    if (!frameId) return;
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+  }
+  function ensureAnimationLoop() {
+    if (frameId || !running || locked) return;
+    frameId = requestAnimationFrame(animate);
+  }
   function neutralize() {
     running = false;
+    stopAnimationLoop();
     currentCode = 0;
     appliedCode = 0;
     inputQueue = [];
@@ -148,6 +188,70 @@
   function renderControlState() {
     elements.controlState.textContent = `目前：${Model.CONTROL_LABELS[currentCode]}`;
   }
+  function advanceCompleteTicks(limit) {
+    let processed = 0;
+    while (accumulator + 1e-9 >= Model.TICK_S && processed < limit && running) {
+      tickWallCursor += Model.TICK_S * 1000;
+      const consumed = Model.consumeInputTransitions(inputQueue, tickWallCursor, appliedCode);
+      appliedCode = consumed.code;
+      inputQueue = consumed.remaining;
+      state.candidateRun.codes.push(appliedCode);
+      runtimeRun = Model.replay(currentLevel(), state.candidateRun.codes);
+      accumulator -= Model.TICK_S;
+      processed += 1;
+      if (!runtimeRun || runtimeRun.state.terminal) {
+        return { processed, terminal: true, backlog: false };
+      }
+    }
+    return {
+      processed,
+      terminal: false,
+      backlog: running && processed === limit && accumulator + 1e-9 >= Model.TICK_S
+    };
+  }
+  function transitionTerminalRun() {
+    neutralize();
+    if (!runtimeRun || !Model.isTerminalRun(currentLevel(), candidateCodes())) return null;
+    analysisRun = Scoring.scoreRun(currentLevel(), candidateCodes());
+    if (!analysisRun) return null;
+    if (state.phase === "practice") {
+      state.candidateRun = null;
+      state.variant = "ready";
+      rebuildRuntime();
+      return "practice";
+    }
+    state.variant = state.returnToReview ? "review-retry-analysis" : "analysis";
+    analysisZoneId = analysisRun.zones[0]?.zoneId || null;
+    return "level";
+  }
+  function settleDraftRuntime(now) {
+    if (!running || locked) return;
+    accumulator += Math.max(0, (now - lastFrame) / 1000);
+    lastFrame = now;
+    const advancement = advanceCompleteTicks(8);
+    if (advancement.terminal) {
+      if (!transitionTerminalRun()) throw new Error("Terminal run could not be normalized for draft save");
+      return;
+    }
+    // A page exit cannot preserve an in-progress pointer gesture or a partial
+    // physics tick. Persist only the complete ticks processed above, paused in
+    // neutral, and deliberately discard any remaining wall-clock backlog.
+    neutralize();
+  }
+  function pauseForLifecycleInterruption() {
+    if (!running || locked) return;
+    try {
+      settleDraftRuntime(performance.now());
+      if (saveDraft(true)) {
+        announce("試車狀態已安全保存；踏板已回到空檔。");
+        render();
+      }
+    } catch (error) {
+      console.warn(error);
+      neutralize();
+      showTechnical("未能在頁面暫停時保存完整物理狀態；操作已鎖定。", false);
+    }
+  }
   function startRun() {
     if (locked || !["practice", "level"].includes(state.phase)) return;
     if (state.phase === "level" && !["briefing", "paused", "accepted", "review-retry-briefing", "review-retry-paused"].includes(state.variant)) return;
@@ -160,6 +264,7 @@
     appliedCode = 0;
     inputQueue = [];
     lastFrame = performance.now();
+    ensureAnimationLoop();
     announce("試車開始；按住踏板控制車輛。");
     render();
   }
@@ -178,17 +283,14 @@
     saveAndRender("已重新開始今次試車。");
   }
   function finishRun() {
-    neutralize();
-    analysisRun = Scoring.scoreRun(currentLevel(), candidateCodes());
-    if (state.phase === "practice") {
-      state.candidateRun = null;
-      state.variant = "ready";
-      rebuildRuntime();
+    const outcome = transitionTerminalRun();
+    if (!outcome) {
+      return showTechnical("物理模擬未能產生可驗證的完整試車；操作已鎖定。", false);
+    }
+    if (outcome === "practice") {
       saveAndRender("練習試車已完結，可以重新練習或開始正式關卡。");
       return;
     }
-    state.variant = state.returnToReview ? "review-retry-analysis" : "analysis";
-    analysisZoneId = analysisRun?.zones[0]?.zoneId || null;
     saveAndRender("試車完成；請查看圖線及質性分析。");
   }
   function acceptRun() {
@@ -210,7 +312,14 @@
     state.variant = "accepted";
     saveAndRender(`已記錄第 ${Levels.levelById(id).number} 關；可以自由選擇其他關卡。`);
   }
+  function abandonUncommittedSubmissionRetry() {
+    if (retryMode !== "submit") return;
+    retryMode = "none";
+    pendingExpected = null;
+    elements.submissionRetryButton.classList.add("is-hidden");
+  }
   function enterLevel(id, reviewRetry = false) {
+    abandonUncommittedSubmissionRetry();
     neutralize();
     state.phase = "level"; state.currentItem = id; state.returnToReview = reviewRetry;
     state.variant = reviewRetry ? "review-retry-briefing" : "briefing";
@@ -220,9 +329,10 @@
     focusHeading(elements.panelTitle);
   }
   function enterCheckpoint(fromReview) {
+    abandonUncommittedSubmissionRetry();
     neutralize();
     const source = [state.graphCheckpoint.sourceLevelId, "level2", "level3"]
-      .find((id) => state.selectedRuns[id]);
+      .find((id) => checkpointEligible(id));
     if (!source) {
       announce("請先記錄第 2 或第 3 關，才可比較圖像。");
       return;
@@ -236,13 +346,12 @@
     state.variant = fromReview && state.graphCheckpoint.answerId ? "review-edit-answered" : fromReview ? "review-edit-exploring" :
       state.graphCheckpoint.answerId ? "answered" : "exploring";
     state.candidateRun = null;
-    elements.scrubRange.value = "100";
+    elements.checkpointScrubRange.value = "100";
     saveAndRender("請查看同一段試車的兩幅圖。");
     focusHeading(elements.checkpointTitle);
   }
   function viewCheckpoint(mode) {
     if (locked || state.phase !== "graph-check") return;
-    state.graphMode = mode;
     if (mode === "xt") state.graphCheckpoint.viewedXt = true;
     if (mode === "vt") state.graphCheckpoint.viewedVt = true;
     saveAndRender(`已查看 ${mode === "xt" ? "x–t" : "v–t"} 圖。`);
@@ -268,11 +377,66 @@
     focusHeading(elements.reviewTitle);
   }
   function keepPrevious() {
-    if (!state.returnToReview) return;
+    if (state.phase !== "level" || !state.selectedRuns[state.currentItem]) return;
+    const returning = state.returnToReview;
     state.candidateRun = null; analysisRun = null;
-    enterReview();
+    if (returning) return enterReview();
+    state.variant = "accepted";
+    rebuildRuntime();
+    saveAndRender("已保留本關原有記錄。");
+    focusHeading(elements.panelTitle);
   }
   function scoreForReview() { return Persistence.allComplete(state) ? Scoring.scoreActivity(state.selectedRuns, state.graphCheckpoint) : null; }
+  function sameResult(left, right) {
+    return Boolean(left && right &&
+      Number.isFinite(left.score) && Number.isFinite(right.score) &&
+      Number.isFinite(left.maxScore) && Number.isFinite(right.maxScore) &&
+      typeof left.passed === "boolean" && typeof right.passed === "boolean" &&
+      left.score === right.score && left.maxScore === right.maxScore && left.passed === right.passed);
+  }
+  function sameReviewState(left, right) {
+    try {
+      return Boolean(left && right &&
+        JSON.stringify(Persistence.encode(left)) === JSON.stringify(Persistence.encode(right)));
+    } catch {
+      return false;
+    }
+  }
+  function validatePendingSnapshot(snapshot) {
+    try {
+      const payload = snapshot?.payload;
+      const exactKeys = (value, expected) => Boolean(value && typeof value === "object" &&
+        Object.keys(value).length === expected.length &&
+        expected.every((key) => Object.prototype.hasOwnProperty.call(value, key)));
+      if (!exactKeys(snapshot, ["version", "activity", "kind", "payload"]) ||
+          !exactKeys(payload, ["reviewJson", "score", "maxScore", "passed"]) ||
+          window.SimScorm.snapshotBytes(snapshot) > 4000 ||
+          typeof payload.reviewJson !== "string") return null;
+      const reviewSnapshot = JSON.parse(payload.reviewJson);
+      if (reviewSnapshot?.version !== 1 || reviewSnapshot.activity !== ACTIVITY || reviewSnapshot.kind !== "review") return null;
+      const reviewState = Persistence.decodeReview(reviewSnapshot.answer);
+      const computed = reviewState ? Scoring.scoreActivity(reviewState.selectedRuns, reviewState.graphCheckpoint) : null;
+      const canonicalReview = reviewState && computed
+        ? window.SimScorm.makeSnapshot(ACTIVITY, "review", Persistence.makeReview(reviewState), computed)
+        : null;
+      if (!canonicalReview || payload.reviewJson !== JSON.stringify(canonicalReview)) return null;
+      const payloadResult = {
+        score: payload.score,
+        maxScore: payload.maxScore,
+        passed: payload.passed
+      };
+      const savedResult = {
+        score: reviewSnapshot.score,
+        maxScore: computed?.maxScore,
+        passed: reviewSnapshot.passed
+      };
+      return sameResult(computed, payloadResult) && sameResult(computed, savedResult)
+        ? { reviewState, computed }
+        : null;
+    } catch {
+      return null;
+    }
+  }
   function submitAll() {
     if (locked || state.phase !== "review" || state.variant !== "complete") return;
     let computed, reviewAnswer, snapshot;
@@ -280,6 +444,8 @@
       computed = scoreForReview();
       reviewAnswer = Persistence.makeReview(state);
       snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", reviewAnswer, computed);
+      pendingExpected = { reviewState: Persistence.decodeReview(reviewAnswer), computed };
+      if (!pendingExpected.reviewState) throw new Error("Final review failed local validation");
     } catch (error) {
       console.warn(error); return showTechnical("未能建立可驗證的提交記錄；答案尚未提交。", false);
     }
@@ -293,30 +459,110 @@
         retryMode = failure.retryable ? "submit" : "none";
         state.phase = "review"; state.variant = "complete";
         render();
-        elements.submissionNotice.textContent = failure.retryable ? "未能確認提交，記錄仍可重試。" : "提交前檢查失敗；目前操作已鎖定。";
+        const message = failure.retryable ? "未能確認提交，記錄仍可重試。" : "提交前檢查失敗；目前操作已鎖定。";
+        elements.submissionNotice.textContent = message;
         elements.submissionNotice.classList.remove("is-hidden");
         elements.submissionRetryButton.classList.toggle("is-hidden", !failure.retryable);
+        announce(message);
+        focusHeading(elements.submissionNotice);
       }
     });
     window.SimScorm.submitWithCallbacks(computed, snapshot, { onSuccess: handle, onFailure: handle });
   }
   function retrySubmission() {
+    if (retryMode === "finish") {
+      const result = submittedResult || pendingExpected?.computed;
+      if (!result) return showTechnical("找不到可完成的提交記錄，請重新開啟活動。", false);
+      if (window.SimScorm.finish()) {
+        showSubmitted(result, true);
+        announce("答案已提交，Moodle 工作階段已完成。");
+      } else {
+        showSubmitted(result, true, "成績已保存，但仍未能完成 Moodle 工作階段。");
+      }
+      return;
+    }
     if (retryMode === "submit") { locked = false; return submitAll(); }
-    if (!["pending", "finish"].includes(retryMode)) return;
+    if (retryMode !== "pending") return;
     const outcome = window.SimScorm.retryPending();
     if (outcome.committed) {
-      const reviewState = outcome.review?.answer ? Persistence.decodeReview(outcome.review.answer) : null;
+      const reviewState = outcome.review?.activity === ACTIVITY && outcome.review?.kind === "review" && outcome.review.answer
+        ? Persistence.decodeReview(outcome.review.answer)
+        : null;
       const computed = reviewState ? Scoring.scoreActivity(reviewState.selectedRuns, reviewState.graphCheckpoint) : submittedResult;
-      if (computed) showSubmitted(computed, true, outcome.finished ? "" : "成績已寫入，但 Moodle 尚未完成離開程序。");
-    } else showTechnical("仍未能確認提交；駕駛記錄保持凍結。", true);
+      const recorded = {
+        score: outcome.score,
+        maxScore: computed?.maxScore,
+        passed: outcome.status === "passed" ? true : outcome.status === "failed" ? false : null
+      };
+      if (!computed || !sameResult(computed, recorded) ||
+          pendingExpected && (!sameResult(computed, pendingExpected.computed) ||
+            !sameReviewState(reviewState, pendingExpected.reviewState))) {
+        return showTechnical("提交資料與駕駛記錄不一致，無法安全顯示結果。", false);
+      }
+      state = reviewState;
+      pendingExpected = { reviewState, computed };
+      showSubmitted(computed, true, outcome.finished ? "" : "成績已寫入，但 Moodle 尚未完成離開程序。");
+    } else showTechnical("仍未能確認提交；駕駛記錄保持凍結。", Boolean(outcome.retryable));
+  }
+  function trustedResultReviewAvailable() {
+    return Boolean(
+      trustedReview &&
+      state?.phase === "submitted" &&
+      submittedResult?.levelResults?.length === Levels.LEVELS.length &&
+      Levels.levelById(resultReviewLevelId) &&
+      state.selectedRuns?.[resultReviewLevelId]
+    );
+  }
+  function resetResultReview() {
+    resultReviewLevelId = trustedReview && state?.phase === "submitted"
+      ? Levels.LEVELS.find((level) => state.selectedRuns?.[level.id])?.id || null
+      : null;
+    resultReviewZoneId = resultReviewLevelId ? Levels.scoredZones(Levels.levelById(resultReviewLevelId))[0]?.id || null : null;
+    resultReviewGraphMode = "vt";
+    elements.resultScrubRange.value = "100";
+  }
+  function selectedResultLevelScore() {
+    return submittedResult?.levelResults?.find((result) => result.levelId === resultReviewLevelId) || null;
+  }
+  function selectedResultZone() {
+    return Levels.scoredZones(currentLevel()).find((zone) => zone.id === resultReviewZoneId) ||
+      Levels.scoredZones(currentLevel())[0] || null;
+  }
+  function renderResultReviewTools() {
+    const available = trustedResultReviewAvailable();
+    elements.resultReviewTools.classList.toggle("is-hidden", !available);
+    if (!available) return;
+    const level = currentLevel();
+    const zones = Levels.scoredZones(level);
+    if (!zones.some((zone) => zone.id === resultReviewZoneId)) resultReviewZoneId = zones[0]?.id || null;
+    elements.resultRunPicker.innerHTML = Levels.LEVELS.map((item) =>
+      `<button type="button" data-result-level="${item.id}" aria-pressed="${item.id === resultReviewLevelId}" title="${escapeHtml(item.title)}">第 ${item.number} 關</button>`
+    ).join("");
+    elements.resultZoneTabs.innerHTML = zones.map((zone, index) =>
+      `<button type="button" data-result-zone="${zone.id}" aria-pressed="${zone.id === resultReviewZoneId}">路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
+    ).join("");
+    resultGraphInputs.forEach((input) => { input.checked = input.value === resultReviewGraphMode; });
+    const result = selectedResultLevelScore();
+    const zoneResult = result?.zones.find((zone) => zone.zoneId === resultReviewZoneId);
+    elements.resultReplayStatus.textContent = zoneResult
+      ? `第 ${level.number} 關・${Visuals.targetLabel(zoneResult.target)}：${formatPoint(zoneResult.points)} / ${zoneResult.maxPoints}；只讀回放。`
+      : `第 ${level.number} 關只讀回放。`;
+    elements.stageKicker.textContent = `第 ${level.number} 關・只讀回放`;
+    elements.stageTarget.textContent = Visuals.stageTargetLabel(level, selectedResultZone());
+    elements.stageStatus.textContent = zoneResult ? Scoring.feedbackText(zoneResult) : "拖動游標查看已提交的試車記錄。";
   }
   function showSubmitted(result, trusted, notice = "") {
+    technicalState = false;
     submittedResult = result; trustedReview = trusted; retryMode = notice ? "finish" : "none";
     locked = true; neutralize();
     if (state) { state.phase = "submitted"; state.variant = "locked"; state.currentItem = "review"; state.returnToReview = false; state.candidateRun = null; }
+    resetResultReview();
     renderResult(notice);
+    focusHeading(elements.resultTitle);
+    announce(notice || `答案已提交；得分 ${result.score} 分。`);
   }
   function showTechnical(message, canRetry) {
+    technicalState = true;
     locked = true; neutralize();
     elements.activitySection.classList.add("is-hidden");
     elements.checkpointSection.classList.add("is-hidden");
@@ -326,22 +572,35 @@
     elements.scorePanel.textContent = "--　未能安全判斷提交或合格狀態";
     elements.feedbackList.innerHTML = `<article class="feedback-item"><p>${escapeHtml(message)}</p></article>`;
     elements.resultRetryButton.classList.toggle("is-hidden", !canRetry);
+    elements.stageKicker.textContent = "技術狀態";
+    elements.stageTarget.textContent = "操作已鎖定";
+    elements.stageStatus.textContent = "活動資料未能安全確認；駕駛操作不可用。";
+    elements.resultReviewTools.classList.add("is-hidden");
+    elements.graphCard.classList.add("is-hidden");
     announce(message);
+    focusHeading(elements.resultTitle);
   }
   function restoreFinished(attempt) {
+    technicalState = false;
     locked = true;
     const review = Persistence.decodeReview(attempt.snapshot?.answer);
     if (!review) {
       state = Persistence.initialState();
-      submittedResult = { score: Number.isFinite(Number(attempt.score)) ? Number(attempt.score) : null, maxScore: 100, passed: null, levelResults: [] };
+      const recorded = window.SimActivityFlow.recordedResult(attempt);
+      submittedResult = { ...recorded, maxScore: 100, levelResults: [] };
       trustedReview = false;
-      return renderResult("Moodle 已記錄完成，但詳細駕駛記錄無法安全還原。");
+      resetResultReview();
+      renderResult("Moodle 已記錄完成，但詳細駕駛記錄無法安全還原。");
+      focusHeading(elements.resultTitle);
+      return;
     }
     state = review;
     const computed = Scoring.scoreActivity(review.selectedRuns, review.graphCheckpoint);
     const outcome = UiPolicy.reviewOutcome(computed, { score: attempt.snapshot.score, passed: attempt.snapshot.passed }, attempt);
     submittedResult = outcome.result; trustedReview = outcome.trusted;
+    resetResultReview();
     renderResult(outcome.trusted ? "" : "記錄與 Moodle 結果不一致，只顯示可信的 Moodle 摘要。");
+    focusHeading(elements.resultTitle);
   }
   function renderResult(notice = "") {
     elements.activitySection.classList.add("is-hidden");
@@ -349,6 +608,11 @@
     elements.reviewSection.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
     elements.resultTitle.textContent = trustedReview ? "已提交：只讀檢討" : "已完成：安全摘要";
+    elements.stageKicker.textContent = "提交結果";
+    elements.stageTarget.textContent = trustedReview ? "只讀檢討" : "安全摘要";
+    elements.stageStatus.textContent = trustedReview
+      ? "提交記錄已鎖定；目前只供檢討。"
+      : "詳細駕駛記錄未能驗證；只顯示 Moodle 安全摘要。";
     const label = window.SimActivityFlow.completionLabel(submittedResult?.passed ?? null);
     elements.scorePanel.textContent = `${submittedResult?.score ?? "--"} / 100　${label}`;
     const rows = [];
@@ -358,11 +622,16 @@
         const level = Levels.LEVELS[index];
         rows.push(`<article class="feedback-item ${levelResult.points >= levelResult.maxPoints * .7 ? "is-good" : ""}"><h3>${escapeHtml(level.title)}：${formatPoint(levelResult.points)} / ${levelResult.maxPoints}</h3>${levelResult.zones.map((zone) => `<p>${physicsHtml(Scoring.feedbackText(zone))}</p>`).join("")}</article>`);
       });
-      rows.push(`<article class="feedback-item"><h3>圖像證據：${submittedResult.checkpointPoints} / 10</h3><p>${physicsHtml("勻速的 v–t 圖是水平直線；勻加速及勻減速分別是向上及向下直線。x–t 圖可以顯示速度正在改變，但 v–t 圖更直接顯示變化率是否固定。")}</p></article>`);
+      const answerId = state.graphCheckpoint.answerId;
+      const chosenAnswer = CHECKPOINT_ANSWER_LABELS[answerId] || "未能辨認";
+      const answerOutcome = answerId === Scoring.CHECKPOINT_ANSWER ? "正確" : "未選中正確答案";
+      rows.push(`<article class="feedback-item"><h3>圖像證據：${submittedResult.checkpointPoints} / 10</h3><p>${physicsHtml(`你的答案：${chosenAnswer}（${answerOutcome}）。`)}</p><p>${physicsHtml("正確解釋：勻速的 v–t 圖是水平直線；勻加速及勻減速分別是向上及向下直線。x–t 圖可以顯示速度正在改變，但 v–t 圖更直接顯示變化率是否固定。")}</p></article>`);
     }
     elements.feedbackList.innerHTML = rows.join("");
     elements.resultRetryButton.classList.toggle("is-hidden", retryMode === "none");
+    renderResultReviewTools();
     renderProgress("review");
+    draw();
   }
   function render() {
     if (!state) return;
@@ -427,22 +696,28 @@
     elements.analysisList.innerHTML = analysisRun.zones.map((zone) =>
       `<article class="analysis-item${zone.zoneId === analysisZoneId ? " is-selected" : ""}"><h4>${escapeHtml(Visuals.targetLabel(zone.target))}：${formatPoint(zone.points)} / ${zone.maxPoints}</h4><p>${physicsHtml(Scoring.feedbackText(zone))}</p></article>`
     ).join("");
-    elements.acceptButton.textContent = state.returnToReview ? "以今次表現取代原記錄" : "記錄今次表現";
-    elements.keepPreviousButton.classList.toggle("is-hidden", !state.returnToReview);
+    const replacing = Boolean(state.selectedRuns[state.currentItem]);
+    elements.acceptButton.textContent = replacing ? "以今次表現取代原記錄" : "記錄今次表現";
+    elements.keepPreviousButton.textContent = state.returnToReview ? "保留原有記錄並返回檢查" : "保留原有記錄";
+    elements.keepPreviousButton.classList.toggle("is-hidden", !replacing);
   }
   function renderCheckpoint() {
     const checkpoint = state.graphCheckpoint;
     elements.stageKicker.textContent = "圖像證據";
-    elements.stageTarget.innerHTML = physicsHtml(state.graphMode === "xt" ? "比較 x–t 圖" : "比較 v–t 圖");
+    elements.stageTarget.innerHTML = physicsHtml("同步比較 x–t 與 v–t 圖");
     elements.checkpointAnswers.disabled = locked || !(checkpoint.viewedXt && checkpoint.viewedVt);
     elements.viewXtButton.disabled = locked;
     elements.viewVtButton.disabled = locked;
-    elements.scrubRange.disabled = locked;
+    elements.viewXtButton.setAttribute("aria-pressed", String(checkpoint.viewedXt));
+    elements.viewVtButton.setAttribute("aria-pressed", String(checkpoint.viewedVt));
+    elements.checkpointXtPlot.classList.toggle("is-viewed", checkpoint.viewedXt);
+    elements.checkpointVtPlot.classList.toggle("is-viewed", checkpoint.viewedVt);
+    elements.checkpointScrubRange.disabled = locked;
     elements.checkpointViewStatus.innerHTML = physicsHtml(`x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`);
     answerInputs.forEach((input) => { input.checked = input.value === checkpoint.answerId; input.disabled = elements.checkpointAnswers.disabled; });
     elements.confirmCheckpointButton.textContent = "確認並返回關卡檢查";
     elements.confirmCheckpointButton.disabled = locked;
-    elements.stageStatus.textContent = "拖動回放游標，可比較同一時刻的車輛與圖線。";
+    elements.stageStatus.textContent = "拖動同一個回放游標，可同步比較車輛、x–t 圖與 v–t 圖。";
   }
   function renderReview() {
     const complete = Persistence.allComplete(state);
@@ -452,8 +727,11 @@
       const canOpen = UiPolicy.canOpenReviewItem(state, level.id, locked);
       return `<article class="review-item"><h3>${escapeHtml(level.title)}</h3><p>${result ? `${formatPoint(result.points)} / ${result.maxPoints}，已記錄` : "尚未記錄"}</p><button type="button" data-edit-level="${level.id}"${canOpen ? "" : " disabled"}>${result ? "重新挑戰" : "完成此關"}</button></article>`;
     }).join("") + (() => {
-      const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint", locked);
-      return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" : "請先記錄第 2 或第 3 關"}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
+      const eligible = ["level2", "level3"].some((id) => checkpointEligible(id));
+      const canOpen = UiPolicy.canOpenReviewItem(state, "checkpoint", locked) && eligible;
+      const checkpointCopy = state.graphCheckpoint.answerId ? "已回答" : canOpen ? "尚未完成" :
+        state.selectedRuns.level2 || state.selectedRuns.level3 ? "已記錄的試車未有足夠圖像證據" : "請先記錄第 2 或第 3 關";
+      return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${checkpointCopy}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
     })();
     elements.submitButton.disabled = locked || !complete;
     elements.submissionNotice.classList.toggle("is-hidden", complete);
@@ -465,15 +743,22 @@
     const currentIndex = order.indexOf(current);
     document.querySelectorAll("[data-step]").forEach((item) => {
       const index = order.indexOf(item.dataset.step);
-      item.classList.toggle("is-current", index === currentIndex);
-      item.classList.toggle("is-done", item.dataset.step.startsWith("level") ? Boolean(state?.selectedRuns?.[item.dataset.step]) :
-        item.dataset.step === "checkpoint" ? Boolean(state?.graphCheckpoint?.answerId) : index < currentIndex);
+      const currentStep = index === currentIndex;
+      const done = item.dataset.step.startsWith("level") ? Boolean(state?.selectedRuns?.[item.dataset.step]) :
+        item.dataset.step === "checkpoint" ? Boolean(state?.graphCheckpoint?.answerId) : index < currentIndex;
+      item.classList.toggle("is-current", currentStep);
+      item.classList.toggle("is-done", done);
+      item.setAttribute("aria-current", currentStep ? "step" : "false");
+      item.setAttribute("aria-label", `${item.textContent.trim()}${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`);
     });
   }
   function displayRun() {
     if (state.phase === "graph-check") {
       const selected = state.selectedRuns[state.graphCheckpoint.sourceLevelId];
       return Model.replay(currentLevel(), selected?.codes || []);
+    }
+    if (state.phase === "submitted" && trustedResultReviewAvailable()) {
+      return Model.replay(currentLevel(), state.selectedRuns[resultReviewLevelId]?.codes || []);
     }
     if (state.phase === "level" && state.variant.endsWith("analysis")) return analysisRun?.run || runtimeRun;
     return runtimeRun;
@@ -490,8 +775,16 @@
       }
     }
     if (state.phase === "graph-check") {
-      const fraction = Number(elements.scrubRange.value) / 100;
+      const fraction = Number(elements.checkpointScrubRange.value) / 100;
       return run.samples[Math.round((run.samples.length - 1) * fraction)];
+    }
+    if (state.phase === "submitted" && trustedResultReviewAvailable()) {
+      const zone = selectedResultZone();
+      const zoneRows = run.samples.filter((sample) => sample.x >= zone.start && sample.x <= zone.end);
+      if (zoneRows.length) {
+        const fraction = Number(elements.resultScrubRange.value) / 100;
+        return zoneRows[Math.round((zoneRows.length - 1) * fraction)];
+      }
     }
     return run.samples[run.samples.length - 1];
   }
@@ -500,6 +793,7 @@
     if (state.phase === "level" && state.variant.endsWith("analysis")) {
       return Levels.scoredZones(currentLevel()).find((zone) => zone.id === analysisZoneId) || Levels.scoredZones(currentLevel())[0];
     }
+    if (state.phase === "submitted" && trustedResultReviewAvailable()) return selectedResultZone();
     const level = currentLevel();
     return {
       id: `${level.id}-preview`,
@@ -515,7 +809,7 @@
     if (state.phase === "graph-check") return run.samples;
     if (state.phase === "level" && !state.variant.endsWith("analysis")) return run.samples;
     const segment = graphZone();
-    return run.samples.filter((sample) => sample.segmentId === segment?.id);
+    return run.samples.filter((sample) => sample.x >= segment.start && sample.x <= segment.end);
   }
   function resizeCanvas(target, context, holder, viewKey) {
     const rect = holder.getBoundingClientRect();
@@ -529,12 +823,15 @@
   function resize() {
     stageView = resizeCanvas(canvas, ctx, elements.stage, stageView);
     graphView = resizeCanvas(elements.graphCanvas, graphCtx, elements.graphCard, graphView);
+    checkpointXtView = resizeCanvas(elements.checkpointXtCanvas, checkpointXtCtx, elements.checkpointXtCanvas, checkpointXtView);
+    checkpointVtView = resizeCanvas(elements.checkpointVtCanvas, checkpointVtCtx, elements.checkpointVtCanvas, checkpointVtView);
     draw();
   }
   function draw() {
     if (!state) return;
     drawStage();
     drawGraph();
+    drawCheckpointGraphs();
   }
   function drawStage() {
     const width = stageView.width, height = stageView.height;
@@ -599,7 +896,15 @@
       drawTargetSign(x, y - 12, segment.target);
     });
     drawCar(anchorX, baseY + roadDepth * .55, Math.max(.78, Math.min(1.08, width / 720)), Visuals.visualSlopeAt(level, sample.x), Model.wheelAngle(sample.x));
-    elements.graphAlternative.textContent = state.graphMode === "hidden" ? "圖像已隱藏" : Visuals.graphShapeLabel(graphSamples());
+    const graphAlternative = state.phase === "graph-check"
+      ? `x–t ${Visuals.graphShapeLabel(graphSamples(), "xt")}；v–t ${Visuals.graphShapeLabel(graphSamples(), "vt")}；兩幅圖同步顯示`
+      : activeGraphMode() === "hidden"
+        ? "圖像已隱藏"
+        : Visuals.graphShapeLabel(graphSamples(), activeGraphMode());
+    if (elements.graphAlternative.textContent !== graphAlternative) {
+      elements.graphAlternative.textContent = graphAlternative;
+      if (running) announce(`圖像：${graphAlternative}`);
+    }
   }
   function fillRoadStrip(points, topOffset, bottomOffset, fillStyle) {
     ctx.beginPath();
@@ -750,80 +1055,110 @@
     ctx.restore();
   }
   function drawGraph() {
-    const hidden = state.graphMode === "hidden" || state.phase === "review" || state.phase === "submitted";
+    const resultVisible = !elements.resultSection.classList.contains("is-hidden");
+    const resultReview = trustedResultReviewAvailable();
+    const mode = activeGraphMode();
+    const hidden = technicalState || mode === "hidden" || state.phase === "graph-check" ||
+      state.phase === "review" || state.phase === "submitted" && !resultReview ||
+      resultVisible && !resultReview;
     elements.graphCard.classList.toggle("is-hidden", hidden);
     if (hidden) return;
-    const width = graphView.width, height = graphView.height;
-    graphCtx.clearRect(0, 0, width, height);
-    graphCtx.fillStyle = "rgba(255,255,255,.94)"; graphCtx.fillRect(0, 0, width, height);
-    const rect = { x: 27, y: 20, width: Math.max(20, width - 49), height: Math.max(20, height - 42) };
-    graphCtx.strokeStyle = "#94a3b8"; graphCtx.lineWidth = 1;
-    for (let i = 1; i < 5; i += 1) {
-      const x = rect.x + rect.width * i / 5;
-      graphCtx.beginPath(); graphCtx.moveTo(x, rect.y); graphCtx.lineTo(x, rect.y + rect.height); graphCtx.stroke();
-      const y = rect.y + rect.height * i / 5;
-      graphCtx.beginPath(); graphCtx.moveTo(rect.x, y); graphCtx.lineTo(rect.x + rect.width, y); graphCtx.stroke();
-    }
-    graphCtx.strokeStyle = "#334155"; graphCtx.lineWidth = 1.8; graphCtx.lineCap = "round";
-    graphCtx.beginPath();
-    graphCtx.moveTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x, rect.y);
-    graphCtx.moveTo(rect.x - 4, rect.y + 7); graphCtx.lineTo(rect.x, rect.y); graphCtx.lineTo(rect.x + 4, rect.y + 7);
-    graphCtx.moveTo(rect.x, rect.y + rect.height); graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height);
-    graphCtx.moveTo(rect.x + rect.width - 7, rect.y + rect.height - 4);
-    graphCtx.lineTo(rect.x + rect.width, rect.y + rect.height);
-    graphCtx.lineTo(rect.x + rect.width - 7, rect.y + rect.height + 4);
-    graphCtx.stroke();
     const allSamples = graphSamples();
     const cursorSample = displaySample();
-    const partialSamples = (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))
+    const scrubbed = state.phase === "level" && state.variant.endsWith("analysis") || resultReview;
+    paintGraph(graphCtx, graphView, mode, allSamples, cursorSample, graphZone(), scrubbed);
+  }
+  function drawCheckpointGraphs() {
+    if (state.phase !== "graph-check") return;
+    const selected = state.selectedRuns[state.graphCheckpoint.sourceLevelId];
+    const run = Model.replay(currentLevel(), selected?.codes || []);
+    if (!run?.samples?.length) return;
+    const cursorSample = displaySample();
+    const level = currentLevel();
+    const zone = {
+      id: `${level.id}-checkpoint`,
+      start: 0,
+      end: level.routeLength,
+      graphVelocitySpan: Levels.GRAPH_VELOCITY_SPAN,
+      graphTimeSpan: Levels.GRAPH_TIME_SPAN_S
+    };
+    paintGraph(checkpointXtCtx, checkpointXtView, "xt", run.samples, cursorSample, zone, true);
+    paintGraph(checkpointVtCtx, checkpointVtView, "vt", run.samples, cursorSample, zone, true);
+    elements.checkpointXtCanvas.setAttribute(
+      "aria-label",
+      `同一試車記錄的位置對時間圖；${Visuals.graphShapeLabel(run.samples, "xt")}`
+    );
+    elements.checkpointVtCanvas.setAttribute(
+      "aria-label",
+      `同一試車記錄的速度對時間圖；${Visuals.graphShapeLabel(run.samples, "vt")}`
+    );
+  }
+  function paintGraph(context, view, mode, allSamples, cursorSample, zone, scrubbed) {
+    const width = view.width, height = view.height;
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = "rgba(255,255,255,.94)"; context.fillRect(0, 0, width, height);
+    const rect = { x: 27, y: 20, width: Math.max(20, width - 49), height: Math.max(20, height - 42) };
+    context.strokeStyle = "#94a3b8"; context.lineWidth = 1;
+    for (let i = 1; i < 5; i += 1) {
+      const x = rect.x + rect.width * i / 5;
+      context.beginPath(); context.moveTo(x, rect.y); context.lineTo(x, rect.y + rect.height); context.stroke();
+      const y = rect.y + rect.height * i / 5;
+      context.beginPath(); context.moveTo(rect.x, y); context.lineTo(rect.x + rect.width, y); context.stroke();
+    }
+    context.strokeStyle = "#334155"; context.lineWidth = 1.8; context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(rect.x, rect.y + rect.height); context.lineTo(rect.x, rect.y);
+    context.moveTo(rect.x - 4, rect.y + 7); context.lineTo(rect.x, rect.y); context.lineTo(rect.x + 4, rect.y + 7);
+    context.moveTo(rect.x, rect.y + rect.height); context.lineTo(rect.x + rect.width, rect.y + rect.height);
+    context.moveTo(rect.x + rect.width - 7, rect.y + rect.height - 4);
+    context.lineTo(rect.x + rect.width, rect.y + rect.height);
+    context.lineTo(rect.x + rect.width - 7, rect.y + rect.height + 4);
+    context.stroke();
+    const partialSamples = scrubbed
       ? allSamples.filter((sample) => sample.t <= cursorSample.t + 1e-9)
       : allSamples;
-    const zone = graphZone();
     const windowed = Visuals.graphWindow(partialSamples, cursorSample.t, zone?.graphTimeSpan);
     const graphDomain = { ...zone, graphTimeSpan: windowed.duration };
-    const points = Visuals.graphPoints(windowed.samples, state.graphMode, rect, graphDomain, windowed.startTime);
-    graphCtx.strokeStyle = "#1d4ed8"; graphCtx.lineWidth = 3; graphCtx.lineJoin = "round"; graphCtx.lineCap = "round"; graphCtx.beginPath();
-    points.forEach((point, index) => index ? graphCtx.lineTo(point.x, point.y) : graphCtx.moveTo(point.x, point.y)); graphCtx.stroke();
+    const points = Visuals.graphPoints(windowed.samples, mode, rect, graphDomain, windowed.startTime);
+    context.strokeStyle = "#1d4ed8"; context.lineWidth = 3; context.lineJoin = "round"; context.lineCap = "round"; context.beginPath();
+    points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y)); context.stroke();
     const cursor = points[points.length - 1];
-    if (cursor && (state.phase === "graph-check" || state.phase === "level" && state.variant.endsWith("analysis"))) {
-      graphCtx.strokeStyle = "#f59e0b"; graphCtx.lineWidth = 1.5;
-      graphCtx.beginPath(); graphCtx.moveTo(cursor.x, rect.y); graphCtx.lineTo(cursor.x, rect.y + rect.height); graphCtx.stroke();
-      graphCtx.fillStyle = "#f59e0b"; graphCtx.beginPath(); graphCtx.arc(cursor.x, cursor.y, 3.5, 0, Math.PI * 2); graphCtx.fill();
+    if (cursor && scrubbed) {
+      context.strokeStyle = "#f59e0b"; context.lineWidth = 1.5;
+      context.beginPath(); context.moveTo(cursor.x, rect.y); context.lineTo(cursor.x, rect.y + rect.height); context.stroke();
+      context.fillStyle = "#f59e0b"; context.beginPath(); context.arc(cursor.x, cursor.y, 3.5, 0, Math.PI * 2); context.fill();
     }
-    graphCtx.save();
-    graphCtx.fillStyle = "#1e293b";
-    graphCtx.font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif";
-    graphCtx.textAlign = "center";
-    graphCtx.textBaseline = "middle";
-    graphCtx.fillText("t", rect.x + rect.width + 9, rect.y + rect.height + 10);
-    graphCtx.fillText(state.graphMode === "xt" ? "x" : "v", rect.x - 10, rect.y - 8);
-    graphCtx.restore();
+    context.save();
+    context.fillStyle = "#1e293b";
+    context.font = "italic 18px 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("t", rect.x + rect.width + 9, rect.y + rect.height + 10);
+    context.fillText(mode === "xt" ? "x" : "v", rect.x - 10, rect.y - 8);
+    context.restore();
   }
   function animate(now) {
+    frameId = 0;
     const elapsed = Math.min(.5, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
     if (running && !locked) {
       accumulator += elapsed;
-      let catchup = 0;
-      while (accumulator + 1e-9 >= Model.TICK_S && catchup < 8 && running) {
-        tickWallCursor += Model.TICK_S * 1000;
-        const consumed = Model.consumeInputTransitions(inputQueue, tickWallCursor, appliedCode);
-        appliedCode = consumed.code;
-        inputQueue = consumed.remaining;
-        state.candidateRun.codes.push(appliedCode);
-        runtimeRun = Model.replay(currentLevel(), state.candidateRun.codes);
-        accumulator -= Model.TICK_S; catchup += 1;
-        if (!runtimeRun || runtimeRun.state.terminal) finishRun();
+      const advancement = advanceCompleteTicks(8);
+      if (advancement.terminal) {
+        finishRun();
+        return;
       }
-      if (catchup === 8 && accumulator >= Model.TICK_S) {
-        neutralize(); announce("裝置暫時未能安全追上物理時間，試車已技術暫停。"); saveDraft(true); render();
-      } else {
+      if (advancement.backlog) {
+        neutralize();
+        announce("裝置暫時未能安全追上物理時間，試車已技術暫停。");
+        if (saveDraft(true)) render();
+      } else if (running && !locked) {
         elements.stageStatus.textContent = Model.qualitativeMotion(runtimeRun?.samples);
         elements.stageTarget.textContent = Visuals.stageTargetLabel(currentLevel(), activeSampleSegment());
         draw();
       }
     }
-    frameId = requestAnimationFrame(animate);
+    ensureAnimationLoop();
   }
   function escapeHtml(value) { const span = document.createElement("span"); span.textContent = String(value ?? ""); return span.innerHTML; }
   function physicsHtml(value) {
@@ -851,12 +1186,24 @@
       changePedalIntensity(kind, event.pointerId, intensityAt(event.clientX));
       event.preventDefault();
     });
-    ["pointerup", "pointercancel", "lostpointercapture"].forEach((type) => button.addEventListener(type, (event) => {
+    ["pointerup", "lostpointercapture"].forEach((type) => button.addEventListener(type, (event) => {
       releasePedal(kind, event.pointerId);
     }));
+    button.addEventListener("pointercancel", (event) => {
+      const interrupted = activePedal === kind && activePointer === event.pointerId;
+      releasePedal(kind, event.pointerId);
+      if (interrupted) announce("操作中斷；踏板已安全回到空檔。");
+    });
   }
   wirePedal(elements.throttleButton, "throttle");
   wirePedal(elements.brakeButton, "brake");
+  function wireRangeCapture(range) {
+    range.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      range.setPointerCapture?.(event.pointerId);
+    });
+  }
+  [elements.scrubRange, elements.checkpointScrubRange, elements.resultScrubRange].forEach(wireRangeCapture);
   elements.startButton.addEventListener("click", startRun);
   elements.pauseButton.addEventListener("click", pauseRun);
   elements.resetButton.addEventListener("click", resetRun);
@@ -876,15 +1223,45 @@
   elements.submissionRetryButton.addEventListener("click", retrySubmission);
   elements.resultRetryButton.addEventListener("click", retrySubmission);
   elements.scrubRange.addEventListener("input", draw);
+  elements.checkpointScrubRange.addEventListener("input", draw);
   graphInputs.forEach((input) => input.addEventListener("change", () => {
-    if (locked) return;
+    if (locked || state.phase === "graph-check" || state.phase === "submitted") return;
     state.graphMode = input.value;
-    if (state.phase === "graph-check") {
-      if (input.value === "xt") state.graphCheckpoint.viewedXt = true;
-      if (input.value === "vt") state.graphCheckpoint.viewedVt = true;
-    }
     render();
   }));
+  elements.resultRunPicker.addEventListener("click", (event) => {
+    if (!trustedResultReviewAvailable()) return;
+    const levelId = event.target.closest("[data-result-level]")?.dataset.resultLevel;
+    if (!Levels.levelById(levelId) || !state.selectedRuns[levelId]) return;
+    resultReviewLevelId = levelId;
+    resultReviewZoneId = Levels.scoredZones(Levels.levelById(levelId))[0]?.id || null;
+    elements.resultScrubRange.value = "100";
+    renderResultReviewTools();
+    draw();
+    requestAnimationFrame(() => {
+      elements.resultRunPicker.querySelector(`[data-result-level="${levelId}"]`)?.focus({ preventScroll: true });
+    });
+  });
+  elements.resultZoneTabs.addEventListener("click", (event) => {
+    if (!trustedResultReviewAvailable()) return;
+    const zoneId = event.target.closest("[data-result-zone]")?.dataset.resultZone;
+    if (!Levels.scoredZones(currentLevel()).some((zone) => zone.id === zoneId)) return;
+    resultReviewZoneId = zoneId;
+    elements.resultScrubRange.value = "100";
+    renderResultReviewTools();
+    draw();
+    requestAnimationFrame(() => {
+      elements.resultZoneTabs.querySelector(`[data-result-zone="${zoneId}"]`)?.focus({ preventScroll: true });
+    });
+  });
+  resultGraphInputs.forEach((input) => input.addEventListener("change", () => {
+    if (!trustedResultReviewAvailable() || !["xt", "vt"].includes(input.value)) return;
+    resultReviewGraphMode = input.value;
+    draw();
+  }));
+  elements.resultScrubRange.addEventListener("input", () => {
+    if (trustedResultReviewAvailable()) draw();
+  });
   elements.reviewList.addEventListener("click", (event) => {
     if (locked) return;
     const levelId = event.target.closest("[data-edit-level]")?.dataset.editLevel;
@@ -914,15 +1291,15 @@
     if (["q", "w", "e"].includes(key) || event.key === "ArrowUp") releasePedal("throttle", `key:${event.code}`);
     if (["a", "s", "d"].includes(key) || event.key === "ArrowDown") releasePedal("brake", `key:${event.code}`);
   });
-  window.addEventListener("blur", () => { if (activePedal) { neutralize(); if (state) render(); } });
+  window.addEventListener("blur", pauseForLifecycleInterruption);
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && activePedal) { neutralize(); if (state) render(); }
+    if (document.hidden) pauseForLifecycleInterruption();
   });
   let stageTouchY = null;
-  canvas.addEventListener("touchstart", (event) => {
+  elements.stage.addEventListener("touchstart", (event) => {
     if (event.isTrusted && event.touches.length === 1) stageTouchY = event.touches[0].clientY;
   }, { passive: true });
-  canvas.addEventListener("touchmove", (event) => {
+  elements.stage.addEventListener("touchmove", (event) => {
     if (stageTouchY == null || !event.isTrusted || event.touches.length !== 1) return;
     try {
       if (window.parent !== window && window.parent.document) {
@@ -933,10 +1310,31 @@
       }
     } catch { /* Cross-origin host must provide its own verified owner path. */ }
   }, { passive: false });
-  canvas.addEventListener("touchend", () => { stageTouchY = null; }, { passive: true });
-  canvas.addEventListener("touchcancel", () => { stageTouchY = null; }, { passive: true });
+  elements.stage.addEventListener("touchend", () => { stageTouchY = null; }, { passive: true });
+  elements.stage.addEventListener("touchcancel", () => { stageTouchY = null; }, { passive: true });
+  let panelTouchY = null;
+  elements.controlPanel.addEventListener("touchstart", (event) => {
+    panelTouchY = event.isTrusted && event.touches.length === 1 ? event.touches[0].clientY : null;
+  }, { passive: true });
+  elements.controlPanel.addEventListener("touchmove", (event) => {
+    if (panelTouchY == null || !event.isTrusted || event.touches.length !== 1) return;
+    const nextY = event.touches[0].clientY;
+    const deltaY = nextY - panelTouchY;
+    const panel = elements.controlPanel;
+    const maximum = Math.max(0, panel.scrollHeight - panel.clientHeight);
+    const blocksBoundary = maximum <= 1 ||
+      (panel.scrollTop <= 1 && deltaY > 0) ||
+      (panel.scrollTop >= maximum - 1 && deltaY < 0);
+    if (blocksBoundary) event.preventDefault();
+    panelTouchY = nextY;
+  }, { passive: false });
+  ["touchend", "touchcancel"].forEach((type) => elements.controlPanel.addEventListener(type, () => {
+    panelTouchY = null;
+  }, { passive: true }));
   new ResizeObserver(resize).observe(elements.stage);
   new ResizeObserver(resize).observe(elements.graphCard);
+  new ResizeObserver(resize).observe(elements.checkpointXtCanvas);
+  new ResizeObserver(resize).observe(elements.checkpointVtCanvas);
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startup = window.SimActivityFlow.startup(attempt);
@@ -953,17 +1351,24 @@
       if (!state) throw new Error("Invalid initial state");
       locked = false; rebuildRuntime();
       if (state.phase === "level" && state.variant.endsWith("analysis")) analysisRun = Scoring.scoreRun(currentLevel(), candidateCodes());
-      window.SimScorm.setDraftProvider(draftSnapshot);
+      window.SimScorm.setDraftProvider(() => draftSnapshot(true));
       if (attempt.state !== "new" || saveDraft(true)) render();
     } catch (error) { console.warn(error); state ||= Persistence.initialState(); showTechnical("未能安全載入活動草稿，操作已鎖定。", false); }
   } else if (mode === "pending") {
-    state = Persistence.initialState(); retryMode = "pending";
-    showTechnical(UiPolicy.technicalCopy("pending"), true);
+    state = Persistence.initialState();
+    pendingExpected = validatePendingSnapshot(attempt.snapshot);
+    if (pendingExpected) {
+      retryMode = "pending";
+      showTechnical(UiPolicy.technicalCopy("pending"), true);
+    } else {
+      window.SimScorm.quarantinePending();
+      retryMode = "none";
+      showTechnical("待確認的提交資料與駕駛記錄不一致，操作已鎖定。", false);
+    }
   } else {
     state = Persistence.initialState();
     showTechnical(UiPolicy.technicalCopy("technical"), false);
   }
   resize();
-  frameId = requestAnimationFrame(animate);
-  window.addEventListener("unload", () => cancelAnimationFrame(frameId), { once: true });
+  window.addEventListener("unload", stopAnimationLoop, { once: true });
 })();
