@@ -43,6 +43,11 @@
 17. 坐標軸使用向上／向右箭頭，不顯示會暗示答案的 `+`／`−`；`v–t`／`a–t` 保留零軸 `0`；
 18. 清除改為單次操作、空白時停用並可用「復原上一步」取回；提示改名「取得作圖提示」，明示不提交、不計分、不代表答啱；
 19. learner-facing 物理變數使用安全 DOM formatter 產生 `<var>`，不載入 MathJax，亦不把普通英文字母誤判為變數。
+20. 每個 canonical task 在同一 browser session 保留獨立 Editor／undo／redo；切換同情境圖、進入 review 再返回 edit 均不清除，reload 則重新開始 history；
+21. review 及 result 一律以 `x–t → v–t → a–t` 顯示，但按鈕仍保存 canonical index；result 預設顯示第一關 `x–t`；
+22. first-pass canonical state 必須含當前情境建議起點 `x–t` visited bit；舊 v1 prefix draft 只在 decode 入口明確 migration，answer array 不改；
+23. controls DOM 先於 stage，令 desktop reading/focus order 與左→右視覺一致；窄屏仍以 CSS 把圖置上，但 screen reader 先讀題目及控制；
+24. 自動 browser test 的 page scale 只稱為 effective-width／pinch visual safety；真實 desktop browser 200% layout zoom 保留為外部 release gate。
 
 ---
 
@@ -559,6 +564,9 @@ DRAW_BINS = 96
 - 清除不開啟 modal／`window.confirm`，按一下即清除，並作為一個 undo operation；
 - 空白 trace 時清除 disabled；無可復原／取消復原步驟時相應按鈕 disabled；
 - 清除後在 inline status／`aria-live` 說明可按「復原上一步」取回；
+- 每個 task key 擁有獨立 session-only Editor history；切換同情境其他圖再返回、或由 review 進入 review-edit，原 undo／redo 仍可用；
+- task key 使用 canonical task index，不包含 `first-pass`／`review-edit` variant；
+- 新筆劃、擦除或清除後只清該 task 的 redo，不影響其他 task history；
 - undo／redo history 不寫入 SCORM；
 - restore 後 trace 完全恢復，但 undo history 重新開始。
 
@@ -641,6 +649,8 @@ active plot 前顯示可操作而不宣稱評分門檻的作圖要求：
 - 邊界用淡色虛線；
 - 階段名稱置於 plot 上方；
 - `a–t` 邊界左右各 2 draw bins 為 transition gutter。
+- 綜合 `x–t` 要求明示由左端起點標記開始並覆蓋 A–D；
+- 綜合 `v–t`／`a–t` 只要求由左邊界開始覆蓋 A–D，不提起點標記。
 
 ### 9.5 提交後示範
 
@@ -1170,7 +1180,7 @@ a–t：32
 - review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得全部高度。
 - iframe 不需要由 host 依內容自動增高；source 及 packaged 測試使用固定 `500px` iframe。
 - desktop graph width 必須大於 controls width；tablet／phone stage bottom 必須不低於 controls top，保持上圖下控。
-- 200% zoom／有效較窄 CSS viewport 觸發上圖下控 reflow，主要按鈕及圖板仍可操作。
+- 有效較窄 CSS viewport 觸發上圖下控 reflow，主要按鈕及圖板仍可操作。
 - 不設橫向捲動。
 
 圖板：
@@ -1179,7 +1189,8 @@ a–t：32
 - aspect ratio 起始值 `4 / 3`；
 - 320 px viewport 的 plot 目標不少於約 `288 × 216` CSS px；
 - 工具按鈕最少 `44 × 44` CSS px；
-- 200% zoom 可換行但主要操作仍可達。
+- 自動化以窄 effective width 加 2× pinch visual scale 檢查 visual safety；此項不冒充 desktop browser layout zoom。
+- 真實 desktop browser 200% layout zoom 仍是人工／外部 release gate：不得水平溢出，controls／graph reflow 合理，主要操作可達。
 
 結果圖的選擇器是普通 button list，以 `aria-pressed` 表示目前顯示項目；不使用缺少 keyboard tab behavior／tabpanel relationship 的不完整 ARIA tabs pattern。
 
@@ -1197,6 +1208,7 @@ a–t：32
 
 | Touch starts on | Owner | Expected result |
 |---|---|---|
+| `.stage-region` 非互動 padding／背景 | Enclosing host/page | 向上及向下 swipe 捲動同一 host；activity document、controls panel 及 answer 不變；host 到頂／底時保持邊界 |
 | `.controls-panel` 內非互動文字／空白 | Controls panel | 只捲動 panel；stage、host、activity document、visual viewport 及 iframe 位置不變 |
 | 已在頂／底邊界的 `.controls-panel` | Controls panel | 保持在邊界；不得把 gesture 洩漏給 host 或 activity document |
 | `.graph-input-surface` | Simulation | trace 改變；所有 host／document／panel／viewport／iframe／stage scroll 或位置 delta 為 0；有 `pointermove`、`pointerup`；正常筆劃無 `pointercancel` |
@@ -1206,6 +1218,7 @@ a–t：32
 ### 14.3 Technical decision
 
 - `.graph-input-surface`：在 `pointerdown` 前已是 `touch-action: none`
+- `.stage-region` 非互動表面：`touch-action:pan-y`，不攔截或改寫 host-owned swipe；
 - `.controls-panel`：原生 `pan-y` 及獨立 scroll；活動不攔截或轉送其 touch events；
 - 只接受 primary active pointer；
 - active drag 期間 capture target 保持 mounted；
@@ -1248,6 +1261,10 @@ a–t：32
 
 其他：
 
+- controls DOM 先於 stage；desktop CSS 把 controls 放左、stage 放右，窄屏 CSS 把 stage 放上但不改 reading order；
+- task heading 聚焦後，graph switch／工具／提示／navigation 在 graph surface 之前可達，無 focus trap；
+- editable graph surface 使用 `tabindex=0`、`role=application` 並說明鍵盤作圖；
+- locked/result graph surface 使用 `tabindex=-1`、只讀圖像角色／摘要，不宣稱空白鍵或方向鍵可畫；
 - 顏色不是唯一資訊；
 - phase bands 有字母及文字；
 - feedback 用節流的 `aria-live="polite"`；
@@ -1259,6 +1276,7 @@ a–t：32
 
 - learner-facing `x`、`v`、`a`、`t` 及 `x–t`／`v–t`／`a–t` 以 `<var>` 建立，不只依賴 CSS 斜體；
 - formatter 以 text node 建立安全 DOM，不把動態文字插入未 escape 的 HTML；
+- tokenizer 以字元邊界掃描，不使用 negative lookbehind，兼容不支援該語法的舊 Safari；
 - 只轉換完整圖名或不與英文字母相連的獨立變數，不能把一般英文單字內的 `a`、`t`、`v`、`x` 改成 `<var>`；
 - SVG 軸標籤維持純文字 `<text>`，畫板另有包含完整圖名及鍵盤操作方式的 plain-text accessible label；
 - 不載入 MathJax；本活動沒有需要額外公式 renderer 的複雜數式。
@@ -1274,6 +1292,8 @@ sim/kinematics-qualitative-graph-sketching/
   main.js
   task-definitions.js
   task-definitions.test.js
+  notation.js
+  notation.test.js
   graph-model.js
   graph-model.test.js
   graph-analysis.js
@@ -1302,6 +1322,7 @@ sim/shared/activity-flow.js
 責任：
 
 - `task-definitions.js`：固定 task IDs、順序、文字、graph type、phase、anchor、expected features、分值、exemplar。
+- `notation.js`：Safari-compatible 物理變數 boundary tokenizer；不操作 DOM。
 - `graph-model.js`：96-bin trace、pointer mapping、插值、pen／eraser、working／committed、undo／redo、canonical encoding。
 - `graph-analysis.js`：24-bin analysis、coverage、roughness、fits、local slopes、endpoint／boundary features；不知道題目分值。
 - `scoring.js`：gross gate、feature helpers、rubric、mastery floors、feedback classification、tolerances、final result。
@@ -1326,7 +1347,7 @@ review
 | Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
 | `practice` | new／restored | none | `visitedMask=0`；12 answers null | `taskIndex`、`variant` | 開始關卡 1 `x–t`（canonical index 2） |
-| `task` | first-pass | `0..11` | 所有先前情境 bits visited；目前情境可為任意 visited 組合但必含 active bit；已 visited answer 可 null／trace | 未來情境 visited bits／answers；未 visited 圖不可有 answer | 同情境自由切換／下一未 visited 圖／下一情境／進 review |
+| `task` | first-pass | `0..11` | 所有先前情境 bits visited；目前情境必含建議起點 `x–t` 及 active bit，其他可為任意 visited 組合；已 visited answer 可 null／trace | 未來情境 visited bits／answers；未 visited 圖不可有 answer | 同情境自由切換／下一未 visited 圖／下一情境／進 review |
 | `task` | review-edit | `0..11` | `visitedMask=0xFFF`；answers 可 null／trace | 無 future restriction | 同情境切換／返回 review |
 | `review` | incomplete | none | 全 visited；至少一圖 null、gross invalid 或 evidence incomplete | task fields | 編輯；警告後提交 |
 | `review` | ready | none | 全 visited；12 圖均非 gross invalid | task fields | 編輯或提交 |
@@ -1456,7 +1477,7 @@ project absolute ceiling               < 4000 bytes
 
 - supported schema／task version；
 - legal phase／variant／task index；
-- first-pass 所有先前情境 visited、active bit visited、未來情境未 visited；
+- first-pass 所有先前情境 visited、當前情境 `x–t` 及 active bit visited、未來情境未 visited；
 - first-pass 未來情境 answers null；任何非 null answer 必須已有 visited bit；
 - review-edit／review visited mask 全滿；
 - answers length 12；
@@ -1487,6 +1508,13 @@ project absolute ceiling               < 4000 bytes
 - Unsupported version：
   - fail closed；
   - 不隱式 migration。
+
+Legacy v1 例外只限舊 production 的 exact prefix first-pass draft：
+
+- `visitedMask === (1 << (taskIndex + 1)) - 1`；
+- 所有 canonical future answers 為 null；
+- decode 入口加入同情境 `x–t` visited bit，`taskIndex` 及 12 個 canonical answers 原封不動；
+- migration 後必須通過現行 invariant；`encode()` 不接受未 migration 的 legacy／new impossible state。
 
 ### 18.7 Save boundaries
 
@@ -1690,6 +1718,8 @@ validate review
 - `score(original) === score(restored)`；
 - 執行一個合法 continuation；
 - invalid phase／variant／task／scenario visited mask；
+- canonical first-pass 缺同情境 `x–t` visited bit 必須無效；
+- exact v1 prefix legacy decode migration 只加 `x–t` bit，answers／taskIndex 不變；
 - first-pass 未來情境 answer、未 visited 圖有 answer；
 - 顯示次序 `x–t → v–t → a–t` 與 canonical answer index 相容；
 - 同情境切換保存 trace；三圖只 visited 未 answered 仍可進下一情境；
@@ -1715,21 +1745,23 @@ validate review
 Development source及built／extracted package：
 
 - `320×500`、`390×500`、`390×600`；
-- normal portrait、landscape、tablet、desktop、200% zoom；
+- normal portrait、landscape、tablet、desktop、effective-width/pinch visual safety；
+- 真實 desktop browser 200% layout zoom 另作 external gate；
 - browser toolbar、software keyboard；
 - no horizontal scroll；
 - primary actions reachable；
 - `>=960px` controls 在左、graph 在右且 graph 較寬；
-- phone／tablet／200% reflow 時 graph 在上、controls 在下；
+- phone／tablet／effective-width reflow 時 graph 在上、controls 在下；
 - fixed-height Moodle-like iframe，不自動改寫 iframe height；
 - trusted swipe from controls ordinary text 只捲動 controls panel；
 - controls panel 在邊界不把 scroll 洩漏到 host 或 activity document；
+- noninteractive stage trusted swipe 向上／向下只捲動 host，host boundary、panel、document、answer 均正確；
 - panel 捲動時 stage、host、activity visual viewport 及 iframe 位置保持不變；
 - trusted graph drag changes trace only；
 - draw 時 host／activity document／controls panel／visual viewport／iframe／stage deltas 全為 0；
 - pointermove／pointerup；no pointercancel；
 - pointercancel 不 commit 未完成筆劃；
-- eraser 及 undo restore；
+- eraser 及 undo restore；clear→switch→return→undo；review→review-edit 仍保留 per-task redo／undo；
 - backward／edge／long diagonal；
 - second simultaneous touch ignored；
 - tool tap once；
@@ -1737,7 +1769,9 @@ Development source及built／extracted package：
 - 同情境 graph button switching、`aria-pressed`／狀態 accessible name 及 canonical trace 保留；
 - 「取得作圖提示」不改 state／score，提示前不自動顯示摘要；
 - 一鍵清除、blank disabled、inline status 及 undo restore；
-- learner-facing graph labels 使用 `<var>`，普通英文單字不被 formatter 改寫；
+- learner-facing graph labels 使用 `<var>`；tokenizer 驗 `data-time`、`extra-text`、`Control Z`、`x-t`、`v–t`；
+- review／result 以 `x–t → v–t → a–t` 顯示但 canonical indices 不變，result 預設第一關 `x–t`；
+- editable graph `tabindex=0` 並說明鍵盤；locked result `tabindex=-1` 且只讀 label；
 - keyboard mode；
 - 練習選過橡皮擦後開始挑戰會重設成畫筆；
 - valid／invalid draft、trusted／mismatched finished review、valid／invalid pending；
@@ -1748,7 +1782,7 @@ Development source及built／extracted package：
 
 ### 21.8 Accessibility
 
-- focus order；
+- controls-before-stage DOM order；task heading 後可依序到 controls 再到 graph surface；
 - labels；
 - active tool非只靠顏色；
 - keyboard drawing；

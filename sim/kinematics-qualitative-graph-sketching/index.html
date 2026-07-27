@@ -11,6 +11,7 @@
     <script src="../shared/scorm.js" defer></script>
     <script src="../shared/activity-flow.js" defer></script>
     <script src="task-definitions.js" defer></script>
+    <script src="notation.js" defer></script>
     <script src="graph-model.js" defer></script>
     <script src="graph-analysis.js" defer></script>
     <script src="scoring.js" defer></script>
@@ -20,12 +21,6 @@
   </head>
   <body>
     <main class="sim-app graph-app">
-      <div id="stageRegion" class="stage-region" aria-label="運動圖作圖區">
-        <div id="practiceMount" class="graph-mount"></div>
-        <div id="taskMount" class="graph-mount is-hidden"></div>
-        <div id="resultGraphMount" class="graph-mount result-graph-mount is-hidden"></div>
-      </div>
-
       <div id="controlsPanel" class="controls-panel">
         <header class="sim-header graph-page-header">
           <div>
@@ -108,6 +103,12 @@
         <div id="resultFeedback" class="result-feedback"></div>
         <button id="resultRetryButton" type="button" class="is-hidden full-button">重試連線</button>
       </section>
+      </div>
+
+      <div id="stageRegion" class="stage-region" aria-label="運動圖作圖區">
+        <div id="practiceMount" class="graph-mount"></div>
+        <div id="taskMount" class="graph-mount is-hidden"></div>
+        <div id="resultGraphMount" class="graph-mount result-graph-mount is-hidden"></div>
       </div>
 
       <div id="liveRegion" class="sr-only" aria-live="polite"></div>

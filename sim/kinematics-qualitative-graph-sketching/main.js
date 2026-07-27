@@ -2,12 +2,13 @@
   "use strict";
 
   const Tasks = window.KinematicsGraphTasks;
+  const Notation = window.KinematicsGraphNotation;
   const Model = window.KinematicsGraphModel;
   const Analysis = window.KinematicsGraphAnalysis;
   const Scoring = window.KinematicsGraphScoring;
   const Persistence = window.KinematicsGraphPersistence;
   const UiPolicy = window.KinematicsGraphUiPolicy;
-  if (![Tasks, Model, Analysis, Scoring, Persistence, UiPolicy, window.SimScorm, window.SimActivityFlow].every(Boolean)) {
+  if (![Tasks, Notation, Model, Analysis, Scoring, Persistence, UiPolicy, window.SimScorm, window.SimActivityFlow].every(Boolean)) {
     throw new Error("Qualitative kinematics graph modules were not loaded");
   }
 
@@ -22,7 +23,7 @@
   let pendingExpected = null;
   let submittedResult = null;
   let trustedReview = true;
-  let resultTaskIndex = 0;
+  let resultTaskIndex = Tasks.taskIndexById(`${Tasks.SCENARIOS[0].id}-${Tasks.DISPLAY_GRAPH_TYPES[0]}`);
   let activeTool = "pen";
   let liveLast = "";
   const pointerDiagnostics = { down: 0, move: 0, up: 0, cancel: 0, trustedTouch: 0 };
@@ -44,29 +45,17 @@
     })[character]);
   }
 
-  const PHYSICS_TOKEN = /(?:[xva][–-]t)|(?<![A-Za-z])(?:x|v|a|t)(?![A-Za-z])/g;
-
   function physicsFragment(value) {
     const fragment = document.createDocumentFragment();
-    const text = String(value);
-    let cursor = 0;
-    for (const match of text.matchAll(PHYSICS_TOKEN)) {
-      if (match.index > cursor) fragment.append(document.createTextNode(text.slice(cursor, match.index)));
-      const token = match[0].replace("-", "–");
-      if (token.length === 3) {
-        const left = document.createElement("var");
-        left.textContent = token[0];
-        const right = document.createElement("var");
-        right.textContent = token[2];
-        fragment.append(left, document.createTextNode("–"), right);
-      } else {
+    Notation.tokenize(value).forEach((part) => {
+      if (part.variable) {
         const variable = document.createElement("var");
-        variable.textContent = token;
+        variable.textContent = part.text;
         fragment.append(variable);
+      } else {
+        fragment.append(document.createTextNode(part.text));
       }
-      cursor = match.index + match[0].length;
-    }
-    if (cursor < text.length) fragment.append(document.createTextNode(text.slice(cursor)));
+    });
     return fragment;
   }
 
@@ -79,13 +68,11 @@
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
-        if (!parent || ["VAR", "SCRIPT", "STYLE", "TEXT", "TSPAN"].includes(parent.tagName) ||
-            !PHYSICS_TOKEN.test(node.data)) {
-          PHYSICS_TOKEN.lastIndex = 0;
+        if (!parent || ["VAR", "SCRIPT", "STYLE", "TEXT", "TSPAN"].includes(parent.tagName)) {
           return NodeFilter.FILTER_REJECT;
         }
-        PHYSICS_TOKEN.lastIndex = 0;
-        return NodeFilter.FILTER_ACCEPT;
+        return Notation.tokenize(node.data).some((part) => part.variable)
+          ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
     const nodes = [];
@@ -125,6 +112,7 @@
       this.graphType = "vt";
       this.composite = false;
       this.editor = new Model.Editor();
+      this.editors = new Map();
       this.keyboardBin = 0;
       this.keyboardValue = Model.quantizeY(0.5);
       this.keyboardPenDown = false;
@@ -163,11 +151,15 @@
       this.locked = locked;
       this.board.classList.toggle("is-locked", locked);
       this.surface.setAttribute("aria-disabled", String(locked));
+      this.surface.tabIndex = locked ? -1 : 0;
+      this.surface.setAttribute("role", locked ? "img" : "application");
       this.updateAxes();
       this.updatePhases();
       if (key !== this.currentKey) {
+        this.editor.cancel();
         this.currentKey = key;
-        this.editor.setTrace(trace || Model.createTrace());
+        if (!this.editors.has(key)) this.editors.set(key, new Model.Editor(trace || Model.createTrace()));
+        this.editor = this.editors.get(key);
         this.keyboardBin = 0;
         this.keyboardValue = this.firstVisibleValue();
         this.keyboardPenDown = false;
@@ -197,8 +189,9 @@
       const signed = this.graphType !== "xt";
       this.svg.querySelector(".zero-label").style.display = signed ? "" : "none";
       this.svg.querySelector(".start-marker").style.display = this.graphType === "xt" ? "" : "none";
-      this.surface.setAttribute("aria-label",
-        `${Tasks.GRAPH_LABELS[this.graphType]}作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。`);
+      this.surface.setAttribute("aria-label", this.locked
+        ? `${Tasks.GRAPH_LABELS[this.graphType]}只讀圖像。顯示已提交的原始圖線及一個可接受例子。`
+        : `${Tasks.GRAPH_LABELS[this.graphType]}可編輯作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。`);
     }
 
     updatePhases() {
@@ -561,7 +554,9 @@
       .findIndex((item) => item.id === task.id) + 1;
     elements.taskCounter.textContent = `第 ${task.scenarioNumber} 關 · 第 ${displayPosition} / 3 幅`;
     elements.graphRequirement.textContent = task.scenarioId === "composite"
-      ? "由圖板左端畫到最右端，完整表達 A、B、C、D 四個階段。"
+      ? task.graphType === "xt"
+        ? "由左端的起點標記開始，畫到最右端，完整表達 A、B、C、D 四個階段。"
+        : "由圖板左邊界開始，畫到最右端，完整表達 A、B、C、D 四個階段。"
       : task.graphType === "xt"
         ? "由左端的起點標記開始，畫到最右端，表達完整作圖時間。"
         : "由圖板左邊界開始，畫到最右端，表達完整作圖時間。";
@@ -572,7 +567,7 @@
       composite: task.scenarioId === "composite",
       trace,
       locked,
-      key: `${state.variant}:${state.taskIndex}`
+      key: `task:${state.taskIndex}`
     });
     const scenarioTasks = Tasks.displayTasksForScenario(task.scenarioId);
     const allVisited = scenarioTasks.every((item) =>
@@ -601,7 +596,7 @@
       ? `仍有 ${incompleteCount} 幅圖空白、覆蓋不足或不可判讀；如現在提交，這些圖的可評證據會不足。`
       : "十二幅圖均可判讀。你仍可返回任何一幅修改。";
     elements.reviewList.innerHTML = Tasks.SCENARIOS.map((scenario) => {
-      const cards = Tasks.tasksForScenario(scenario.id).map((task) => {
+      const cards = Tasks.displayTasksForScenario(scenario.id).map((task) => {
         const index = Tasks.taskIndexById(task.id);
         const taskResult = result.taskResults[index];
         const status = state.answers[index] == null ? "空白" :
@@ -829,7 +824,9 @@
   }
 
   function renderResultTabs() {
-    const buttons = Tasks.TASKS.map((task, index) => {
+    const displayTasks = Tasks.SCENARIOS.flatMap((scenario) => Tasks.displayTasksForScenario(scenario.id));
+    const buttons = displayTasks.map((task) => {
+      const index = Tasks.taskIndexById(task.id);
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.resultTask = String(index);
@@ -854,6 +851,7 @@
     trustedReview = trust;
     pendingExpected = { review, computed: result };
     submittedResult = result;
+    resultTaskIndex = Tasks.taskIndexById(`${Tasks.SCENARIOS[0].id}-${Tasks.DISPLAY_GRAPH_TYPES[0]}`);
     retryMode = notice ? retryMode : "none";
     setVisible(elements.resultSection);
     setStage(elements.resultGraphMount);

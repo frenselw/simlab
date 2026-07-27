@@ -29,6 +29,8 @@ assert.doesNotMatch(html, /\d+\s*(?:m\/s|m\/s²|m\b)/);
 assert.doesNotMatch(html, /class="positive-label"|class="negative-label"/);
 assert.match(html, /class="vertical-arrow"/);
 assert.match(html, /class="time-arrow"/);
+assert.ok(html.indexOf('id="controlsPanel"') < html.indexOf('id="stageRegion"'),
+  "controls precede the graph stage in reading and focus order");
 
 assert.match(css, /\.graph-header-band[^}]*touch-action: pan-y/);
 assert.match(css, /\.graph-input-surface \{[^}]*touch-action: none/);
@@ -73,6 +75,10 @@ const clearHandler = main.slice(
 );
 assert.doesNotMatch(clearHandler, /window\.confirm/);
 assert.match(main, /function formatPhysicsNotation/);
+assert.doesNotMatch(main, /\(\?<!/);
+assert.match(main, /task\.scenarioId === "composite"[\s\S]{0,180}task\.graphType === "xt"/);
+assert.match(main, /tabIndex = locked \? -1 : 0/);
+assert.match(main, /只讀/);
 assert.match(main, /原始圖線|setPhysicsText|formatPhysicsNotation/);
 
 console.log("Qualitative kinematics accessibility checks passed");

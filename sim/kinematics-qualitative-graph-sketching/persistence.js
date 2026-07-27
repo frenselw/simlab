@@ -79,8 +79,10 @@
         const { start, end } = scenarioBounds(state.taskIndex);
         const priorMask = start ? (1 << start) - 1 : 0;
         const allowedMask = (1 << end) - 1;
+        const recommendedStart = start + Tasks.GRAPH_TYPES.indexOf("xt");
         if ((state.visitedMask & priorMask) !== priorMask ||
             !(state.visitedMask & (1 << state.taskIndex)) ||
+            !(state.visitedMask & (1 << recommendedStart)) ||
             (state.visitedMask & ~allowedMask) !== 0 ||
             !state.answers.slice(end).every((answer) => answer == null)) return false;
         return state.answers.every((answer, index) => answer == null || Boolean(state.visitedMask & (1 << index)));
@@ -116,9 +118,24 @@
     return clone(state);
   }
 
+  function migrateLegacyPrefixDraft(source) {
+    if (!exactKeys(source, ["v", "taskSetVersion", "phase", "taskIndex", "variant", "visitedMask", "answers"]) ||
+        source.v !== VERSION || source.taskSetVersion !== Tasks.TASK_SET_VERSION ||
+        source.phase !== "task" || source.variant !== "first-pass" ||
+        !Number.isInteger(source.taskIndex) || source.taskIndex < 0 || source.taskIndex >= Tasks.TASKS.length ||
+        !Number.isInteger(source.visitedMask) || source.visitedMask !== (1 << (source.taskIndex + 1)) - 1) return null;
+    const state = normalizeState(source);
+    if (!state || !state.answers.slice(source.taskIndex + 1).every((answer) => answer == null)) return null;
+    const { start } = scenarioBounds(source.taskIndex);
+    const recommendedStart = start + Tasks.GRAPH_TYPES.indexOf("xt");
+    state.visitedMask |= 1 << recommendedStart;
+    return validateDraftState(state) ? state : null;
+  }
+
   function decode(answer) {
-    if (!validateDraftState(answer)) return null;
-    const state = normalizeState(answer);
+    const candidate = validateDraftState(answer) ? answer : migrateLegacyPrefixDraft(answer);
+    if (!candidate) return null;
+    const state = normalizeState(candidate);
     return state && validateDraftState(state) ? state : null;
   }
 

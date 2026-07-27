@@ -191,6 +191,26 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   assert.equal(graphSemantics.zeroVisible, false, `${label}: x-t graph does not show a signed zero-axis label`);
   assert.equal(graphSemantics.graphVars, 2, `${label}: active graph name uses semantic variables`);
   assert.equal(graphSemantics.switchVars, true, `${label}: graph switch labels use semantic variables`);
+  await evaluate(cdp, `document.getElementById("scenarioTitle").focus()`);
+  const focusSequence = [];
+  for (let index = 0; index < 16; index += 1) {
+    await pressKey(cdp, "Tab", "Tab");
+    const focused = await evaluate(cdp, `(() => {
+      const active=document.activeElement;
+      if (active.matches(".graph-input-surface")) return "graph-surface";
+      if (active.dataset.switchTask != null) return "switch-"+active.dataset.switchTask;
+      if (active.dataset.tool) return "tool-"+active.dataset.tool;
+      if (active.dataset.action) return "action-"+active.dataset.action;
+      return active.id || active.tagName.toLowerCase();
+    })()`);
+    focusSequence.push(focused);
+    if (focused === "graph-surface") break;
+  }
+  assert.equal(focusSequence[0], "switch-2", `${label}: task focus starts with the display-order x-t control`);
+  assert.ok(focusSequence.includes("checkGraphButton") && focusSequence.includes("nextButton"),
+    `${label}: learner reaches task controls before the graph surface`);
+  assert.equal(focusSequence.at(-1), "graph-surface",
+    `${label}: graph surface follows task controls without focus becoming trapped`);
   assert.equal(await evaluate(cdp, `document.querySelector('#taskSection [data-tool="pen"]').getAttribute('aria-pressed')`),
     "true", `${label}: challenge resets the active tool to pen`);
   await touch(cdp, "touchStart", taskSurface.x, taskSurface.y);
@@ -282,11 +302,13 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   assert.equal(cleared.answer, null, `${label}: one-click clear immediately clears the authoritative answer`);
   assert.equal(cleared.disabled, true, `${label}: clear is disabled for a blank trace`);
   assert.match(cleared.notice, /復原上一步/, `${label}: clear explains that it can be undone`);
+  await clickSelector(cdp, '[data-switch-task="0"]');
+  await clickSelector(cdp, '[data-switch-task="2"]');
   await clickSelector(cdp, '#taskSection [data-action="undo"]');
   const afterClearUndo = await evaluate(cdp, `(() => {
     const s=window.__kinematicsGraphDebug.getState(); return s.answers[s.taskIndex];
   })()`);
-  assert.equal(afterClearUndo, beforeClear, `${label}: undo restores a one-click clear`);
+  assert.equal(afterClearUndo, beforeClear, `${label}: per-task undo restores clear after switching away and back`);
 
   await clickSelector(cdp, '[data-switch-task="0"]');
   const switched = await evaluate(cdp, `(() => {
@@ -302,6 +324,18 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   await clickSelector(cdp, "#nextButton");
   assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
     Tasks.taskIndexById("accelerating-xt"), `${label}: visiting all three graphs advances with blanks left for review`);
+  for (let index = 0; index < 9; index += 1) await clickSelector(cdp, "#nextButton");
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().phase`), "review",
+    `${label}: visiting all display-ordered graphs reaches review`);
+  await clickSelector(cdp, '[data-edit-task="2"]');
+  assert.equal(await evaluate(cdp, `document.querySelector('#taskSection [data-action="redo"]').disabled`), false,
+    `${label}: per-task redo history survives review and review-edit`);
+  await clickSelector(cdp, '#taskSection [data-action="redo"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().answers[2]`), null,
+    `${label}: review-edit restores the same per-task editor history`);
+  await clickSelector(cdp, '#taskSection [data-action="undo"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().answers[2]`), beforeClear,
+    `${label}: review-edit undo restores the cleared trace again`);
   return `${label} direct touch`;
 }
 
@@ -366,6 +400,47 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   assert.equal(boundaryAfter.host, atBoundary.host, `${label}: panel boundary does not leak scroll to host`);
   assert.equal(boundaryAfter.inner, atBoundary.inner, `${label}: panel boundary does not scroll activity document`);
   assert.equal(boundaryAfter.frameTop, atBoundary.frameTop, `${label}: panel boundary keeps iframe fixed`);
+
+  async function stageSwipe(hostStart, deltaY, description) {
+    const setup = await evaluate(cdp, `(() => {
+      scrollTo(0,${hostStart});
+      const frame=document.getElementById("activity"), doc=frame.contentDocument;
+      const stage=doc.getElementById("stageRegion"), bounds=stage.getBoundingClientRect();
+      const frameBounds=frame.getBoundingClientRect();
+      const x=bounds.left+3, y=bounds.top+bounds.height/2;
+      const target=doc.elementFromPoint(x,y);
+      return {
+        x:frameBounds.left+x,y:frameBounds.top+y,
+        target:target?.id||target?.className||"",
+        host:scrollY,inner:frame.contentWindow.scrollY,
+        panel:doc.getElementById("controlsPanel").scrollTop,
+        answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())
+      };
+    })()`);
+    assert.match(String(setup.target), /stageRegion|stage-region/,
+      `${label}: ${description} starts on noninteractive stage content (${JSON.stringify(setup)})`);
+    await touch(cdp, "touchStart", setup.x, setup.y);
+    await touch(cdp, "touchMove", setup.x, setup.y + deltaY);
+    await touch(cdp, "touchEnd", 0, 0);
+    await delay(100);
+    const after = await evaluate(cdp, `(() => {
+      const frame=document.getElementById("activity");
+      return {host:scrollY,inner:frame.contentWindow.scrollY,
+        panel:frame.contentDocument.getElementById("controlsPanel").scrollTop,
+        answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
+    })()`);
+    assert.equal(after.inner, setup.inner, `${label}: ${description} does not scroll the activity document`);
+    assert.equal(after.panel, setup.panel, `${label}: ${description} does not scroll the controls panel`);
+    assert.equal(after.answer, setup.answer, `${label}: ${description} does not change an answer`);
+    return { setup, after };
+  }
+
+  const stageUp = await stageSwipe(150, -90, "upward stage swipe");
+  assert.ok(stageUp.after.host > stageUp.setup.host, `${label}: upward noninteractive stage swipe scrolls the host down`);
+  const stageDown = await stageSwipe(stageUp.after.host, 90, "downward stage swipe");
+  assert.ok(stageDown.after.host < stageDown.setup.host, `${label}: downward noninteractive stage swipe scrolls the host up`);
+  const stageBoundary = await stageSwipe(0, 90, "stage swipe at host top boundary");
+  assert.equal(stageBoundary.after.host, 0, `${label}: host top boundary remains stable`);
 
   const draw = await evaluate(cdp, `(() => {
     const frame=document.getElementById('activity');
@@ -459,7 +534,7 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 512, height: 650, deviceScaleFactor: 1, mobile: true
   });
-  await navigate(cdp, `${baseUrl}${launchPath}?responsive=zoom`);
+  await navigate(cdp, `${baseUrl}${launchPath}?responsive=effective-width-pinch`);
   await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
   const zoomed = await evaluate(cdp, `(() => {
     const button=document.getElementById("startChallengeButton");
@@ -474,10 +549,11 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
       stacked:stage.bottom<=controls.top+2
     };
   })()`);
-  assert.ok(zoomed.overflow <= 1, `${label}: 200% zoom has no document-level horizontal overflow`);
-  assert.ok(zoomed.buttonWidth >= 44 && zoomed.buttonHeight >= 44, `${label}: primary action remains operable at 200% zoom`);
-  assert.ok(zoomed.visualScale >= 1.9, `${label}: 200% zoom was applied`);
-  assert.equal(zoomed.stacked, true, `${label}: 200% zoom retains the reflowed top/bottom layout`);
+  assert.ok(zoomed.overflow <= 1, `${label}: effective-width/pinch visual safety has no document-level horizontal overflow`);
+  assert.ok(zoomed.buttonWidth >= 44 && zoomed.buttonHeight >= 44,
+    `${label}: primary action remains operable under effective-width/pinch visual safety`);
+  assert.ok(zoomed.visualScale >= 1.9, `${label}: pinch visual scale was applied`);
+  assert.equal(zoomed.stacked, true, `${label}: effective-width layout retains the top/bottom arrangement`);
   await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   return `${label} responsive`;
 }
@@ -498,7 +574,7 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
     phase: "task",
     taskIndex: 0,
     variant: "first-pass",
-    visitedMask: 1,
+    visitedMask: 5,
     answers: [fixture.answers[0], ...Array(Tasks.TASKS.length - 1).fill(null)]
   };
   const reviewDraft = {
@@ -510,14 +586,26 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
     version: 1, activity, kind: "draft", answer: incompleteState
   };
 
+  await setPreload(cdp, lmsValues(reviewDraft));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=review-display-order`);
+  assert.deepEqual(await evaluate(cdp, `Array.from(document.querySelectorAll("[data-edit-task]"))
+    .slice(0,3).map(button=>button.dataset.editTask)`), ["2", "0", "1"],
+  `${label}: review list uses x-t, v-t, a-t display order with canonical indices`);
+
   await setPreload(cdp, lmsValues({ version: 1, activity, kind: "draft", answer: taskDraft }));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=valid-draft`);
   const restored = await evaluate(cdp, `(() => {
     const state=window.__kinematicsGraphDebug.getState();
-    return {mode:window.__kinematicsGraphDebug.getMode(),phase:state.phase,index:state.taskIndex,answer:state.answers[0]};
+    const surface=document.querySelector("#taskMount .graph-input-surface");
+    return {mode:window.__kinematicsGraphDebug.getMode(),phase:state.phase,index:state.taskIndex,answer:state.answers[0],
+      tabIndex:surface.tabIndex,graphLabel:surface.getAttribute("aria-label")};
   })()`);
-  assert.deepEqual(restored, { mode: "activity", phase: "task", index: 0, answer: fixture.answers[0] },
-    `${label}: valid task draft restores authoritatively`);
+  assert.equal(restored.mode, "activity", `${label}: valid task draft restores in activity mode`);
+  assert.equal(restored.phase, "task");
+  assert.equal(restored.index, 0);
+  assert.equal(restored.answer, fixture.answers[0]);
+  assert.equal(restored.tabIndex, 0, `${label}: editable restored graph is keyboard focusable`);
+  assert.match(restored.graphLabel, /空白鍵|方向鍵/, `${label}: editable graph advertises keyboard drawing controls`);
 
   const invalidDraft = structuredClone(taskDraft);
   invalidDraft.visitedMask = 0;
@@ -531,11 +619,22 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   const trusted = await evaluate(cdp, `(() => ({
     mode:window.__kinematicsGraphDebug.getMode(),
     graphHidden:document.getElementById("resultGraphMount").classList.contains("is-hidden"),
-    tabs:document.querySelectorAll("[data-result-task]").length
+    tabs:document.querySelectorAll("[data-result-task]").length,
+    firstTabs:Array.from(document.querySelectorAll("[data-result-task]")).slice(0,3)
+      .map(button=>button.dataset.resultTask),
+    pressed:document.querySelector("[data-result-task][aria-pressed='true']")?.dataset.resultTask,
+    tabIndex:document.querySelector("#resultGraphMount .graph-input-surface")?.tabIndex,
+    graphLabel:document.querySelector("#resultGraphMount .graph-input-surface")?.getAttribute("aria-label")
   }))()`);
   assert.equal(trusted.mode, "submitted", `${label}: trusted finished attempt enters submitted review`);
   assert.equal(trusted.graphHidden, false, `${label}: trusted review displays submitted graph`);
   assert.equal(trusted.tabs, Tasks.TASKS.length, `${label}: all submitted graphs remain reviewable`);
+  assert.deepEqual(trusted.firstTabs, ["2", "0", "1"], `${label}: result graphs use x-t, v-t, a-t display order`);
+  assert.equal(trusted.pressed, "2", `${label}: result review defaults to uniform x-t`);
+  assert.equal(trusted.tabIndex, -1, `${label}: locked result graph is removed from keyboard focus`);
+  assert.match(trusted.graphLabel, /只讀/, `${label}: locked result graph has a read-only accessible label`);
+  assert.doesNotMatch(trusted.graphLabel, /空白鍵|方向鍵/,
+    `${label}: locked result graph does not advertise editing shortcuts`);
 
   await setPreload(cdp, lmsValues(fixture.reviewSnapshot, "passed", fixture.result.score - 1));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=finished-mismatch`);

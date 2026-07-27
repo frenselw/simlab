@@ -47,6 +47,21 @@ assert.equal(Tasks.TASKS[skipped.taskIndex].scenarioId, "accelerating",
   "visiting all three graphs unlocks the next scenario even when answers remain blank");
 assert.equal(skipped.answers.slice(0, 3).every((answer) => answer == null), true);
 
+const impossibleNewState = {
+  ...Persistence.startTasks(practice),
+  taskIndex: Tasks.taskIndexById("uniform-vt"),
+  visitedMask: 1
+};
+assert.equal(Persistence.validateDraftState(impossibleNewState), false,
+  "new first-pass state must include the scenario's recommended x-t starting bit");
+assert.throws(() => Persistence.encode(impossibleNewState));
+const migratedLegacy = Persistence.decode(impossibleNewState);
+assert(migratedLegacy, "explicit v1 legacy prefix state is migrated at decode");
+assert.equal(migratedLegacy.taskIndex, Tasks.taskIndexById("uniform-vt"));
+assert.equal(migratedLegacy.visitedMask, 5);
+assert.deepEqual(migratedLegacy.answers, impossibleNewState.answers,
+  "legacy migration never reorders or changes canonical answers");
+
 let cursor = first;
 while (cursor.phase === "task") {
   cursor = Persistence.setAnswer(cursor, cursor.taskIndex, encodedIdeal[cursor.taskIndex]);
