@@ -188,8 +188,8 @@
 
   function reviewVariant(state) {
     if (!validateDraftState(state) || state.phase !== "review") return null;
-    const results = Tasks.TASKS.map((task, index) => Scoring.scoreTask(task, state.answers[index]));
-    return results.some((result, index) => state.answers[index] == null || result.grossInvalid)
+    const result = Scoring.scoreActivity(state.answers);
+    return result.evidenceIncompleteTaskIds.length
       ? "incomplete" : "ready";
   }
 

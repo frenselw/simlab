@@ -305,6 +305,50 @@
     return maximum / values.length;
   }
 
+  function rawDiagnostics(trace, graphType, options = {}) {
+    const startBin = options.startBin == null ? 0 : options.startBin;
+    const endBin = options.endBin == null ? Model.DRAW_BINS : options.endBin;
+    const excluded = new Set(options.excludeBins || []);
+    const values = drawValues(trace, graphType, startBin, endBin);
+    if (!values) return null;
+    const masked = values.map((value, index) => excluded.has(startBin + index) ? null : value);
+    const bucketSpreads = [];
+    for (let index = 0; index < masked.length; index += 4) {
+      const bucket = masked.slice(index, index + 4).filter((value) => value != null);
+      if (bucket.length >= 2) bucketSpreads.push(Math.max(...bucket) - Math.min(...bucket));
+    }
+    const validIndices = masked.flatMap((value, index) => value == null ? [] : [index]);
+    const consideredCount = masked.reduce((count, _, index) =>
+      count + (excluded.has(startBin + index) ? 0 : 1), 0);
+    const first = validIndices[0];
+    const last = validIndices.at(-1);
+    let possibleAdjacentPairs = 0;
+    let validAdjacentPairs = 0;
+    if (first != null && last != null) {
+      for (let index = first; index < last; index += 1) {
+        if (excluded.has(startBin + index) || excluded.has(startBin + index + 1)) continue;
+        possibleAdjacentPairs += 1;
+        if (masked[index] != null && masked[index + 1] != null) validAdjacentPairs += 1;
+      }
+    }
+    const spanConsideredCount = first == null ? 0 : Array.from(
+      { length: last - first + 1 },
+      (_, offset) => first + offset
+    ).filter((index) => !excluded.has(startBin + index)).length;
+    const validCount = validIndices.length;
+    return {
+      pathLengthRatio: pathLengthRatio(masked),
+      oscillationCount: oscillations(masked),
+      roughness: roughness(masked),
+      bucketVerticalSpreadP80: percentile(bucketSpreads, 0.8) || 0,
+      validCount,
+      coverage: consideredCount ? validCount / consideredCount : 0,
+      density: spanConsideredCount ? validCount / spanConsideredCount : 0,
+      adjacentPairRatio: possibleAdjacentPairs ? validAdjacentPairs / possibleAdjacentPairs : 0,
+      maxGapFraction: maxGap(masked)
+    };
+  }
+
   function analyzeRange(trace, graphType, options = {}) {
     const startBin = options.startBin == null ? 0 : options.startBin;
     const endBin = options.endBin == null ? Model.DRAW_BINS : options.endBin;
@@ -361,7 +405,13 @@
       roughness: rough,
       oscillationCount,
       pathLengthRatio: lengthRatio,
-      horizontalSpan: points.length > 1 ? points[points.length - 1].x - points[0].x : 0
+      horizontalSpan: points.length > 1 ? points[points.length - 1].x - points[0].x : 0,
+      rawDiagnostics: rawDiagnostics(trace, graphType, {
+        startBin,
+        endBin,
+        excludeBins: options.rawExcludeBins || []
+      }),
+      scope: options.scope || "full"
     };
   }
 
@@ -393,13 +443,17 @@
   }
 
   function analyzeTrace(trace, graphType, options = {}) {
-    const full = analyzeRange(trace, graphType);
+    const transitionGutters = options.composite && graphType === "at"
+      ? [24, 48, 72].flatMap((boundary) => [boundary - 2, boundary - 1, boundary, boundary + 1])
+      : [];
+    const full = analyzeRange(trace, graphType, { rawExcludeBins: transitionGutters });
     if (!options.composite) return full;
     return {
       ...full,
       phases: Array.from({ length: 4 }, (_, index) => analyzeRange(trace, graphType, {
         startBin: index * Model.DRAW_BINS / 4,
-        endBin: (index + 1) * Model.DRAW_BINS / 4
+        endBin: (index + 1) * Model.DRAW_BINS / 4,
+        scope: "phase"
       })),
       boundaries: [1, 2, 3].map((index) => boundaryMetric(trace, graphType, index))
     };
@@ -422,6 +476,7 @@
     spearman,
     analyzeRange,
     analyzeTrace,
-    boundaryMetric
+    boundaryMetric,
+    rawDiagnostics
   };
 });

@@ -91,7 +91,6 @@
       this.cursorX = mount.querySelector(".cursor-x");
       this.cursorY = mount.querySelector(".cursor-y");
       this.cursorDot = mount.querySelector(".cursor-dot");
-      this.magnifier = mount.querySelector(".magnifier");
       this.bind();
     }
 
@@ -211,7 +210,6 @@
         radiusBins: activeTool === "erase" ? this.eraseRadius() : 0
       })) return;
       this.surface.setPointerCapture(event.pointerId);
-      this.positionMagnifier(sample);
       event.preventDefault();
       this.render();
     }
@@ -221,7 +219,6 @@
       pointerDiagnostics.move += 1;
       const sample = this.sample(event);
       this.editor.move(event.pointerId, sample, { radiusBins: activeTool === "erase" ? this.eraseRadius() : 0 });
-      this.positionMagnifier(sample);
       event.preventDefault();
       this.render();
     }
@@ -242,15 +239,6 @@
       if (this.surface.hasPointerCapture?.(event.pointerId)) this.surface.releasePointerCapture(event.pointerId);
       this.render();
       if (announceCancellation) announce("操作中斷；未完成的筆劃已安全取消。");
-    }
-
-    positionMagnifier(sample) {
-      if (!sample) return;
-      this.magnifier.style.left = sample.x > 0.5 ? ".55rem" : "auto";
-      this.magnifier.style.right = sample.x > 0.5 ? "auto" : ".55rem";
-      this.magnifier.style.top = sample.y > 0.5 ? ".55rem" : "auto";
-      this.magnifier.style.bottom = sample.y > 0.5 ? "auto" : ".55rem";
-      this.magnifier.style.background = `radial-gradient(circle at 50% 50%, ${activeTool === "erase" ? "#fff" : "#2563eb"} 0 4px, transparent 5px), rgba(255,255,255,.95)`;
     }
 
     commitChange() {
@@ -436,10 +424,21 @@
     [elements.practiceSection, elements.taskSection, elements.reviewSection, elements.resultSection].forEach((candidate) => {
       candidate.classList.toggle("is-hidden", candidate !== section);
     });
+    elements.controlsPanel.scrollTop = 0;
+  }
+
+  function setStage(mount) {
+    [elements.practiceMount, elements.taskMount, elements.resultGraphMount].forEach((candidate) => {
+      candidate.classList.toggle("is-hidden", candidate !== mount);
+    });
+    const hidden = !mount;
+    elements.stageRegion.classList.toggle("is-hidden", hidden);
+    document.querySelector(".graph-app").classList.toggle("no-stage", hidden);
   }
 
   function renderPractice() {
     setVisible(elements.practiceSection);
+    setStage(elements.practiceMount);
     renderProgress();
     practiceView.locked = locked;
     focusHeading(elements.practiceTitle);
@@ -449,12 +448,12 @@
     if (state?.phase !== "task") return;
     const task = Tasks.TASKS[state.taskIndex];
     const scenarioTasks = Tasks.tasksForScenario(task.scenarioId);
-    elements.graphTabs.innerHTML = scenarioTasks.map((item) => {
+    elements.graphTabs.innerHTML = `<ol>${scenarioTasks.map((item) => {
       const index = Tasks.taskIndexById(item.id);
       const complete = Boolean(state.answers[index]);
-      return `<button type="button" role="tab" aria-selected="${index === state.taskIndex}" disabled
-        class="${complete ? "is-complete" : ""}">${escapeHtml(Tasks.GRAPH_LABELS[item.graphType].replace(/（.*?）/, ""))}</button>`;
-    }).join("");
+      return `<li aria-current="${index === state.taskIndex ? "step" : "false"}"
+        class="${complete ? "is-complete" : ""}">${escapeHtml(Tasks.GRAPH_LABELS[item.graphType].replace(/（.*?）/, ""))}</li>`;
+    }).join("")}</ol>`;
   }
 
   function renderAlternative() {
@@ -466,6 +465,7 @@
 
   function renderTask() {
     setVisible(elements.taskSection);
+    setStage(elements.taskMount);
     renderProgress();
     const task = Tasks.TASKS[state.taskIndex];
     elements.scenarioKicker.textContent = `第 ${task.scenarioNumber} 關`;
@@ -482,7 +482,6 @@
       locked,
       key: `${state.variant}:${state.taskIndex}`
     });
-    elements.previousButton.disabled = true;
     elements.nextButton.textContent = state.variant === "review-edit"
       ? "返回檢查" : state.taskIndex === Tasks.TASKS.length - 1 ? "前往檢查" : "下一幅";
     elements.graphFeedback.replaceChildren();
@@ -496,19 +495,20 @@
 
   function renderReview() {
     setVisible(elements.reviewSection);
+    setStage(null);
     renderProgress();
     const result = reviewResultNow();
-    const invalidCount = result.taskResults.filter((taskResult, index) =>
-      state.answers[index] == null || taskResult.grossInvalid).length;
-    elements.reviewWarning.textContent = invalidCount
-      ? `仍有 ${invalidCount} 幅圖空白或不可判讀；如現在提交，這些圖會取得零分。`
+    const incompleteCount = result.evidenceIncompleteTaskIds.length;
+    elements.reviewWarning.textContent = incompleteCount
+      ? `仍有 ${incompleteCount} 幅圖空白、覆蓋不足或不可判讀；如現在提交，這些圖的可評證據會不足。`
       : "十二幅圖均可判讀。你仍可返回任何一幅修改。";
     elements.reviewList.innerHTML = Tasks.SCENARIOS.map((scenario) => {
       const cards = Tasks.tasksForScenario(scenario.id).map((task) => {
         const index = Tasks.taskIndexById(task.id);
         const taskResult = result.taskResults[index];
-        const status = state.answers[index] == null ? "空白" : taskResult.grossInvalid ? "不可判讀" : "已有圖線";
-        const className = taskResult.grossInvalid ? "is-invalid" : "is-ready";
+        const status = state.answers[index] == null ? "空白" :
+          !taskResult.evidenceComplete ? taskResult.evidenceReason : "已有完整圖線";
+        const className = !taskResult.evidenceComplete ? "is-invalid" : "is-ready";
         return `<button type="button" class="review-task ${className}" data-edit-task="${index}">
           <strong>${escapeHtml(task.graphLabel)}</strong><span>${status}；按此修改</span></button>`;
       }).join("");
@@ -530,6 +530,8 @@
 
   elements.startChallengeButton.addEventListener("click", () => {
     if (locked || state.phase !== "practice") return;
+    activeTool = "pen";
+    updateToolButtons();
     const next = Persistence.startTasks(state);
     if (!next) return showTechnical("未能開始挑戰；活動已鎖定。", false);
     state = next;
@@ -545,7 +547,6 @@
     if (saveDraft()) render();
   });
 
-  elements.previousButton.addEventListener("click", () => {});
   elements.skipButton.addEventListener("click", () => elements.nextButton.click());
 
   elements.checkGraphButton.addEventListener("click", () => {
@@ -605,8 +606,8 @@
   function submitAll() {
     if (locked || state.phase !== "review") return;
     const current = Scoring.scoreActivity(state.answers);
-    const incomplete = current.taskResults.some((result, index) => state.answers[index] == null || result.grossInvalid);
-    if (incomplete && !window.confirm("仍有空白或不可判讀圖線，這些部分會取得零分。仍然提交？")) return;
+    const incomplete = current.evidenceIncompleteTaskIds.length > 0;
+    if (incomplete && !window.confirm("仍有空白、覆蓋不足或不可判讀圖線，這些部分的可評證據不足。仍然提交？")) return;
     let reviewAnswer, snapshot;
     try {
       reviewAnswer = Persistence.makeReview(state);
@@ -715,8 +716,8 @@
 
   function renderResultTabs() {
     elements.resultTabs.innerHTML = Tasks.TASKS.map((task, index) =>
-      `<button type="button" role="tab" data-result-task="${index}" aria-selected="${index === resultTaskIndex}"
-        title="${escapeHtml(task.title)}">${task.scenarioNumber}${task.graphType[0]}</button>`
+      `<button type="button" data-result-task="${index}" aria-pressed="${index === resultTaskIndex}">
+        第 ${task.scenarioNumber} 關 ${escapeHtml(task.graphLabel)}</button>`
     ).join("");
   }
 
@@ -736,14 +737,15 @@
     submittedResult = result;
     retryMode = notice ? retryMode : "none";
     setVisible(elements.resultSection);
+    setStage(elements.resultGraphMount);
     elements.resultTitle.textContent = "已提交結果";
     const completion = window.SimActivityFlow.completionLabel(result.passed);
     elements.scorePanel.innerHTML = `<strong>${result.score} / 100</strong><p>${escapeHtml(completion)}；綜合關 ${result.compositeScore.toFixed(1)} / 35</p>
-      <p>x–t ${result.categoryScores.xt.toFixed(1)} / 36；v–t ${result.categoryScores.vt.toFixed(1)} / 32；a–t ${result.categoryScores.at.toFixed(1)} / 32</p>`;
+      <p>x–t ${result.categoryScores.xt.toFixed(1)} / 36；v–t ${result.categoryScores.vt.toFixed(1)} / 32；a–t ${result.categoryScores.at.toFixed(1)} / 32</p>
+      ${result.masteryFailures.length ? `<p>尚未掌握：${result.masteryFailures.map((failure) => escapeHtml(failure.label)).join("；")}</p>` : ""}`;
     elements.resultNotice.textContent = notice;
     elements.resultNotice.classList.toggle("is-hidden", !notice);
     elements.resultRetryButton.classList.toggle("is-hidden", !notice);
-    elements.resultGraphMount.classList.remove("is-hidden");
     renderResultTabs();
     renderResultGraph();
     focusHeading(elements.resultTitle);
@@ -756,6 +758,7 @@
     submittedResult = null;
     pendingExpected = { review: { answers: Persistence.emptyAnswers() }, computed: null };
     setVisible(elements.resultSection);
+    setStage(null);
     elements.resultTitle.textContent = "已完成活動";
     const recorded = window.SimActivityFlow.recordedResult(attempt);
     elements.scorePanel.innerHTML = `<strong>${recorded.score == null ? "--" : `${recorded.score} / 100`}</strong>
@@ -764,7 +767,6 @@
     elements.resultNotice.classList.remove("is-hidden");
     elements.resultRetryButton.classList.add("is-hidden");
     elements.resultTabs.replaceChildren();
-    elements.resultGraphMount.classList.add("is-hidden");
     elements.resultFeedback.innerHTML = `<section><p>${escapeHtml(UiPolicy.technicalCopy("review-fallback"))}</p></section>`;
     focusHeading(elements.resultTitle);
   }
@@ -789,13 +791,13 @@
     mode = "technical";
     locked = true;
     setVisible(elements.resultSection);
+    setStage(null);
     elements.resultTitle.textContent = "技術狀態";
     const technical = UiPolicy.technicalResult(retryMode === "pending" ? "pending" : "technical");
     elements.scorePanel.innerHTML = `<strong>${technical.score}</strong><p>${escapeHtml(technical.completion)}</p>`;
     elements.resultNotice.textContent = message || technical.message;
     elements.resultNotice.classList.remove("is-hidden");
     elements.resultTabs.replaceChildren();
-    elements.resultGraphMount.classList.add("is-hidden");
     elements.resultFeedback.replaceChildren();
     elements.resultRetryButton.classList.toggle("is-hidden", !retryable);
     announce(message || technical.message);
@@ -810,27 +812,6 @@
   window.addEventListener("blur", cancelActiveOperations);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) cancelActiveOperations();
-  });
-
-  document.querySelectorAll("[data-host-scroll-region]").forEach((region) => {
-    let previousY = null;
-    region.addEventListener("touchstart", (event) => {
-      previousY = event.isTrusted && event.touches.length === 1 ? event.touches[0].clientY : null;
-    }, { passive: true });
-    region.addEventListener("touchmove", (event) => {
-      if (previousY == null || !event.isTrusted || event.touches.length !== 1) return;
-      try {
-        if (window.parent !== window && window.parent.document) {
-          const nextY = event.touches[0].clientY;
-          window.parent.scrollBy(0, previousY - nextY);
-          previousY = nextY;
-          event.preventDefault();
-        }
-      } catch { /* A cross-origin Moodle host must provide its verified owner path. */ }
-    }, { passive: false });
-    ["touchend", "touchcancel"].forEach((type) => region.addEventListener(type, () => {
-      previousY = null;
-    }, { passive: true }));
   });
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);

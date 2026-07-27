@@ -47,7 +47,19 @@
     boundaryYJumpZero: 0.22,
     boundarySlopeJumpFull: 0.20,
     boundarySlopeJumpZero: 0.55,
-    classificationAmbiguity: 0.10
+    classificationAmbiguity: 0.10,
+    rawGrossMaxLengthRatio: 20,
+    rawGrossMaxOscillations: 24,
+    rawGrossMaxRoughness: 0.22,
+    rawGrossMaxBucketSpread: 0.45,
+    rawEvidenceMinCoverage: 0.50,
+    rawEvidenceMinDensity: 0.50,
+    rawEvidenceMinAdjacentPairs: 0.35,
+    rawEvidenceMaxGapFraction: 0.25,
+    evidenceMinReadability: 0.55,
+    evidenceMinEdgeCoverage: 0.65,
+    phaseSlopeDeltaZero: 0.05,
+    phaseSlopeDeltaFull: 0.14
   });
 
   const CATEGORY_MAX = Object.freeze({ xt: 36, vt: 32, at: 32 });
@@ -85,13 +97,21 @@
     const edgeScore = clamp01(metrics.edgeCoverage);
     const roughnessScore = fullThenFade(metrics.roughness, TOLERANCE.roughnessFull, TOLERANCE.roughnessZero);
     const oscillationScore = fullThenFade(metrics.oscillationCount, 3, TOLERANCE.maxNormalOscillations);
-    return clamp01(
+    const aggregateReadability = clamp01(
       0.45 * coverageScore(metrics) +
       0.20 * gapScore +
       0.15 * edgeScore +
       0.12 * roughnessScore +
       0.08 * oscillationScore
     );
+    const raw = metrics.rawDiagnostics;
+    const rawContinuity = raw ? clamp01(
+      0.35 * fadeUp(raw.coverage, 0.30, 0.75) +
+      0.30 * fadeUp(raw.density, 0.30, 0.75) +
+      0.20 * fadeUp(raw.adjacentPairRatio, 0.10, 0.65) +
+      0.15 * fullThenFade(raw.maxGapFraction, 0.08, 0.25)
+    ) : 0;
+    return aggregateReadability * (0.35 + 0.65 * rawContinuity);
   }
 
   function grossGate(metrics) {
@@ -103,7 +123,13 @@
     if (metrics.pathLengthRatio > TOLERANCE.grossMaxLengthRatio) signals.push("線長異常");
     if (metrics.oscillationCount > TOLERANCE.grossMaxOscillations) signals.push("反覆轉折");
     if (metrics.roughness > TOLERANCE.grossMaxRoughness) signals.push("粗糙度過高");
-    return { invalid: signals.length >= 2, signals };
+    const rawSignals = [];
+    const raw = metrics.rawDiagnostics;
+    if (raw?.pathLengthRatio > TOLERANCE.rawGrossMaxLengthRatio) rawSignals.push("原始線長異常");
+    if (raw?.oscillationCount > TOLERANCE.rawGrossMaxOscillations) rawSignals.push("原始筆跡反覆轉折");
+    if (raw?.roughness > TOLERANCE.rawGrossMaxRoughness) rawSignals.push("原始筆跡粗糙度過高");
+    if (raw?.bucketVerticalSpreadP80 > TOLERANCE.rawGrossMaxBucketSpread) rawSignals.push("同一時間小區間高度分散");
+    return { invalid: rawSignals.length >= 2 || signals.length >= 2, signals: rawSignals.concat(signals), rawSignals };
   }
 
   function linearity(metrics) {
@@ -137,28 +163,34 @@
     );
   }
 
-  function quadraticSupport(metrics) {
-    return fadeUp(metrics?.deltaBIC, TOLERANCE.bicSupportZero, TOLERANCE.bicSupportFull);
+  function directionalQuadraticSupport(metrics, direction, materiality) {
+    const coefficient = direction * (metrics?.quadratic?.quadratic ?? 0);
+    return fadeUp(metrics?.deltaBIC, TOLERANCE.bicSupportZero, TOLERANCE.bicSupportFull) *
+      fadeUp(coefficient, metrics?.scope === "phase" ? 0.015 : 0.02, metrics?.scope === "phase" ? 0.05 : 0.08) *
+      materiality;
+  }
+
+  function curveEvidence(metrics, direction) {
+    const local = metrics?.localSlopes;
+    if (!local || local.validCount < 4) return 0;
+    const delta = direction * local.delta;
+    const zero = metrics.scope === "phase" ? TOLERANCE.phaseSlopeDeltaZero : TOLERANCE.slopeDeltaZero;
+    const full = metrics.scope === "phase" ? TOLERANCE.phaseSlopeDeltaFull : TOLERANCE.slopeDeltaFull;
+    const materiality = fadeUp(delta, Math.min(zero, 0.08), metrics.scope === "phase" ? 0.12 : 0.18);
+    const trend = fadeUp(direction * local.rho, TOLERANCE.slopeTrendRhoZero, TOLERANCE.slopeTrendRhoFull) * materiality;
+    return clamp01(
+      0.55 * fadeUp(delta, zero, full) +
+      0.30 * trend +
+      0.15 * directionalQuadraticSupport(metrics, direction, materiality)
+    ) * monotonicUp(metrics);
   }
 
   function slopeIncrease(metrics) {
-    const local = metrics?.localSlopes;
-    if (!local || local.validCount < 4) return 0;
-    return clamp01(
-      0.55 * fadeUp(local.delta, TOLERANCE.slopeDeltaZero, TOLERANCE.slopeDeltaFull) +
-      0.30 * fadeUp(local.rho, TOLERANCE.slopeTrendRhoZero, TOLERANCE.slopeTrendRhoFull) +
-      0.15 * quadraticSupport(metrics)
-    ) * monotonicUp(metrics);
+    return curveEvidence(metrics, 1);
   }
 
   function slopeDecrease(metrics) {
-    const local = metrics?.localSlopes;
-    if (!local || local.validCount < 4) return 0;
-    return clamp01(
-      0.55 * fadeUp(-local.delta, TOLERANCE.slopeDeltaZero, TOLERANCE.slopeDeltaFull) +
-      0.30 * fadeUp(-local.rho, TOLERANCE.slopeTrendRhoZero, TOLERANCE.slopeTrendRhoFull) +
-      0.15 * quadraticSupport(metrics)
-    ) * monotonicUp(metrics);
+    return curveEvidence(metrics, -1);
   }
 
   function startAnchor(metrics) {
@@ -313,8 +345,65 @@
     };
   }
 
+  function evidenceStatus(task, metrics, gate, scored) {
+    if (gate.invalid) return { complete: false, reason: "圖線不可判讀" };
+    if (metrics.coverage < TOLERANCE.minCoverage) return { complete: false, reason: "圖線未覆蓋主要時間範圍" };
+    if (metrics.edgeCoverage < TOLERANCE.evidenceMinEdgeCoverage) return { complete: false, reason: "圖線未延伸至作圖時間範圍兩端點" };
+    if (scored.readability < TOLERANCE.evidenceMinReadability) return { complete: false, reason: "圖線可判讀程度不足" };
+    const raw = metrics.rawDiagnostics;
+    if (!raw || raw.coverage < TOLERANCE.rawEvidenceMinCoverage ||
+        raw.density < TOLERANCE.rawEvidenceMinDensity ||
+        raw.adjacentPairRatio < TOLERANCE.rawEvidenceMinAdjacentPairs ||
+        raw.maxGapFraction > TOLERANCE.rawEvidenceMaxGapFraction) {
+      return { complete: false, reason: "原始圖線過於稀疏或不連續" };
+    }
+    if (task.scenarioId === "composite") {
+      if (metrics.coverage < TOLERANCE.minCompositeCoverage) return { complete: false, reason: "綜合圖整體覆蓋不足" };
+      if (metrics.phases.some((phase) => phase.coverage < TOLERANCE.minPhaseCoverage ||
+          phase.edgeCoverage < TOLERANCE.evidenceMinEdgeCoverage ||
+          readability(phase) < 0.50 ||
+          !phase.rawDiagnostics ||
+          phase.rawDiagnostics.coverage < TOLERANCE.rawEvidenceMinCoverage ||
+          phase.rawDiagnostics.density < TOLERANCE.rawEvidenceMinDensity ||
+          phase.rawDiagnostics.adjacentPairRatio < TOLERANCE.rawEvidenceMinAdjacentPairs ||
+          phase.rawDiagnostics.maxGapFraction > TOLERANCE.rawEvidenceMaxGapFraction)) {
+        return { complete: false, reason: "綜合圖有階段未完整表達" };
+      }
+    }
+    return { complete: true, reason: "" };
+  }
+
+  function compositeFeedback(task, metrics, scored) {
+    const messages = [];
+    const [a, b, c, d] = metrics.phases || [];
+    if (!a || !b || !c || !d) return ["綜合圖的四個階段未能完整判讀。"];
+    if (task.graphType === "vt") {
+      if (straightness(a) < 0.55 || monotonicUp(a) < 0.65) messages.push("A 階段的 v–t 圖應由零開始，以直線上升。");
+      if (horizontal(b) < 0.55 || regionScore(b.region.positive) < 0.55) messages.push("B 階段的 v–t 圖應在正值區保持水平。");
+      if (straightness(c) < 0.55 || monotonicDown(c) < 0.65 || endAtZero(c) < 0.55) messages.push("C 階段的 v–t 圖應以直線下降，並在段末到零。");
+      if (zeroAxisScore(d) < 0.55) messages.push("D 階段靜止，v–t 圖應沿零軸。");
+    } else if (task.graphType === "at") {
+      if (regionScore(a.region.positive) < 0.55 || horizontal(a) < 0.55) messages.push("A 階段應是正值水平的 a–t 圖。");
+      if (zeroAxisScore(b) < 0.55) messages.push("B 階段勻速，加速度應在零軸。");
+      if (regionScore(c.region.negative) < 0.55 || horizontal(c) < 0.55) messages.push("C 階段應是負值水平的 a–t 圖。");
+      if (zeroAxisScore(d) < 0.55) messages.push("D 階段靜止，加速度應在零軸。");
+    } else {
+      if (slopeIncrease(a) < 0.55 || startFlat(a) < 0.55) messages.push("A 階段的 x–t 圖應由近乎水平開始，之後愈來愈斜。");
+      if (straightness(b) < 0.55 || monotonicUp(b) < 0.65) messages.push("B 階段的 x–t 圖應接成固定正斜率的直線。");
+      if (slopeDecrease(c) < 0.55 || endFlat(c) < 0.55) messages.push("C 階段的 x–t 圖應繼續上升，但愈來愈平至停止。");
+      if (horizontal(d) < 0.55) messages.push("D 階段位置不變，x–t 圖應保持水平。");
+      const badY = metrics.boundaries.some((boundary) => boundaryY(boundary) < 0.55);
+      const badSlope = metrics.boundaries.some((boundary) => boundarySlope(boundary) < 0.35);
+      if (badY) messages.push("階段邊界的位置不應突然跳變。");
+      else if (badSlope) messages.push("x–t 圖在階段邊界的斜率應大致接得上。");
+    }
+    if (!messages.length && scored.score >= task.points * 0.8) messages.push("圖線已清楚表達這段運動的主要特徵。");
+    return messages.slice(0, 2);
+  }
+
   function feedbackFor(task, metrics, scored, gate) {
     if (gate.invalid) return ["目前圖線未形成一條可判讀的運動曲線。請擦除多餘轉折，再表達整段運動。"];
+    if (task.scenarioId === "composite") return compositeFeedback(task, metrics, scored);
     const messages = [];
     if ((metrics.region?.negative || 0) > 0.18 && task.graphType !== "at") {
       messages.push("圖線進入了負值區；這些情境不包含反向運動。");
@@ -352,7 +441,8 @@
     if (!trace) {
       return {
         taskId: task.id, graphType: task.graphType, score: 0, maxScore: task.points,
-        grossInvalid: true, analysis: null, components: [], feedback: ["這幅圖仍是空白或資料無效。"]
+        grossInvalid: true, evidenceComplete: false, evidenceReason: "圖線仍是空白或資料無效",
+        analysis: null, components: [], feedback: ["這幅圖仍是空白或資料無效。"]
       };
     }
     const metrics = Analysis.analyzeTrace(trace, task.graphType, { composite: task.scenarioId === "composite" });
@@ -360,11 +450,13 @@
     if (gate.invalid) {
       return {
         taskId: task.id, graphType: task.graphType, score: 0, maxScore: task.points,
-        grossInvalid: true, analysis: metrics, components: [], feedback: feedbackFor(task, metrics, { score: 0 }, gate)
+        grossInvalid: true, evidenceComplete: false, evidenceReason: "圖線不可判讀",
+        analysis: metrics, components: [], feedback: feedbackFor(task, metrics, { score: 0 }, gate)
       };
     }
     const scored = task.scenarioId === "composite" ? scoreComposite(task, metrics) : scoreSingle(task, metrics);
     const score = Math.max(0, Math.min(task.points, scored.score));
+    const evidence = evidenceStatus(task, metrics, gate, scored);
     return {
       taskId: task.id,
       graphType: task.graphType,
@@ -374,6 +466,8 @@
       analysis: metrics,
       components: scored.components,
       readability: scored.readability,
+      evidenceComplete: evidence.complete,
+      evidenceReason: evidence.reason,
       feedback: feedbackFor(task, metrics, { ...scored, score }, gate)
     };
   }
@@ -407,8 +501,51 @@
     const compositeScore = taskResults
       .filter((result) => result.taskId.startsWith("composite-"))
       .reduce((sum, result) => sum + result.score, 0);
+    const byId = Object.fromEntries(taskResults.map((result) => [result.taskId, result]));
+    const validMastery = (taskId, predicate) => {
+      const result = byId[taskId];
+      return Boolean(result && !result.grossInvalid && result.evidenceComplete &&
+        result.analysis && predicate(result.analysis));
+    };
+    const semanticChecks = [
+      {
+        code: "accelerating-at-positive", label: "勻加速 a–t 圖需要固定正加速度",
+        passed: validMastery("accelerating-at", (metrics) =>
+          regionScore(metrics.region.positive) >= 0.55 && horizontal(metrics) >= 0.55)
+      },
+      {
+        code: "decelerating-at-negative", label: "勻減速 a–t 圖需要固定負加速度",
+        passed: validMastery("decelerating-at", (metrics) =>
+          regionScore(metrics.region.negative) >= 0.55 && horizontal(metrics) >= 0.55)
+      },
+      {
+        code: "composite-at-signs", label: "綜合 a–t 圖的 A 階段要為正、C 階段要為負",
+        passed: validMastery("composite-at", (metrics) => {
+          const [a, , c] = metrics.phases || [];
+          return Boolean(a && c &&
+            regionScore(a.region.positive) >= 0.55 && horizontal(a) >= 0.55 &&
+            regionScore(c.region.negative) >= 0.55 && horizontal(c) >= 0.55);
+        })
+      },
+      {
+        code: "accelerating-xt-curve", label: "勻加速 x–t 圖需要清楚表達斜率增加",
+        passed: validMastery("accelerating-xt", (metrics) => curveEvidence(metrics, 1) >= 0.40)
+      },
+      {
+        code: "decelerating-xt-curve", label: "勻減速 x–t 圖需要清楚表達斜率減少",
+        passed: validMastery("decelerating-xt", (metrics) => curveEvidence(metrics, -1) >= 0.40)
+      },
+      {
+        code: "composite-xt-curves", label: "綜合 x–t 圖需要同時表達 A 加速及 C 減速形狀",
+        passed: validMastery("composite-xt", (metrics) =>
+          curveEvidence(metrics.phases?.[0], 1) >= 0.35 &&
+          curveEvidence(metrics.phases?.[2], -1) >= 0.35)
+      }
+    ];
+    const masteryFailures = semanticChecks.filter((check) => !check.passed).map(({ code, label }) => ({ code, label }));
     const passed = unroundedScore >= 65 && compositeScore >= 18 &&
-      Object.entries(CATEGORY_FLOORS).every(([key, floor]) => categoryScores[key] >= floor);
+      Object.entries(CATEGORY_FLOORS).every(([key, floor]) => categoryScores[key] >= floor) &&
+      masteryFailures.length === 0;
     const score = Math.max(0, Math.min(100, Math.round(unroundedScore)));
     return {
       score,
@@ -420,6 +557,9 @@
       categoryScores,
       categoryMaximums: { ...CATEGORY_MAX },
       taskResults,
+      semanticChecks,
+      masteryFailures,
+      evidenceIncompleteTaskIds: taskResults.filter((result) => !result.evidenceComplete).map((result) => result.taskId),
       contradictions: contradictionMessages(taskResults),
       feedback: passed
         ? "你已掌握三種運動圖的主要定性特徵。"
@@ -449,8 +589,8 @@
     if (taskId === "composite-xt") {
       if (phase === 0) return 0.08 + 0.16 * u * u;
       if (phase === 1) return 0.24 + 0.32 * u;
-      if (phase === 2) return 0.56 + 0.32 * (2 * u - u * u);
-      return 0.88;
+      if (phase === 2) return 0.56 + 0.32 * u - 0.16 * u * u;
+      return 0.72;
     }
     return 0;
   }
@@ -491,6 +631,7 @@
     fullThenFade,
     readability,
     grossGate,
+    curveEvidence,
     scoreTask,
     scoreActivity,
     contradictionMessages,

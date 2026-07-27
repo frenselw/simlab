@@ -61,4 +61,24 @@ assert.equal(composite.phases.every((phase) => phase.coverage === 1), true);
 const repeated = Analysis.analyzeTrace(traceFrom((t) => 0.2 + 0.3 * t * t), "xt");
 assert.deepEqual(repeated, Analysis.analyzeTrace(traceFrom((t) => 0.2 + 0.3 * t * t), "xt"));
 
+for (const period of [1, 2]) {
+  const alias = Model.createTrace();
+  for (let index = 0; index < Model.DRAW_BINS; index += 1) {
+    alias[index] = Math.floor(index / period) % 2 ? 250 : 4;
+  }
+  const aliased = Analysis.analyzeTrace(alias, "vt");
+  assert.ok(aliased.rawDiagnostics.pathLengthRatio > 20, `period-${period} raw path length is preserved`);
+  assert.ok(aliased.rawDiagnostics.oscillationCount > 30, `period-${period} raw oscillations are preserved`);
+  assert.ok(aliased.rawDiagnostics.bucketVerticalSpreadP80 > 0.8, `period-${period} bucket spread is preserved`);
+}
+
+const isolatedPerBucket = traceFrom((t) => 0.18 + 0.32 * t, "vt",
+  (index) => index % 4 !== 0);
+const isolatedMetrics = Analysis.analyzeTrace(isolatedPerBucket, "vt");
+assert.equal(isolatedMetrics.coverage, 1, "24-bin aggregation alone sees every bucket");
+assert.ok(isolatedMetrics.rawDiagnostics.coverage < 0.3, "raw coverage preserves sparse authored bins");
+assert.ok(isolatedMetrics.rawDiagnostics.density < 0.3, "raw density identifies isolated samples");
+assert.equal(isolatedMetrics.rawDiagnostics.adjacentPairRatio, 0, "isolated samples have no connected raw pairs");
+assert.ok(isolatedMetrics.rawDiagnostics.maxGapFraction > 0, "raw gaps remain measurable");
+
 console.log("Qualitative kinematics graph analysis tests passed");

@@ -47,6 +47,15 @@ const incomplete = {
 assert.equal(Persistence.reviewVariant(incomplete), "incomplete");
 roundTrip(incomplete, (state) => Persistence.openReviewEdit(state, 2));
 
+const partialEvidence = Scoring.exemplarTrace("uniform-vt");
+for (let index = 76; index < 96; index += 1) partialEvidence[index] = Model.EMPTY;
+const evidenceIncomplete = {
+  ...ready,
+  answers: ready.answers.map((answer, index) => index === 0 ? Model.encodeTrace(partialEvidence) : answer)
+};
+assert.equal(Persistence.reviewVariant(evidenceIncomplete), "incomplete",
+  "review readiness uses the scorer's evidence-complete definition");
+
 const review = Persistence.makeReview(ready);
 const decodedReview = Persistence.decodeReview(JSON.parse(JSON.stringify(review)));
 assert.deepEqual(decodedReview, review);

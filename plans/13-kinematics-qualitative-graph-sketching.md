@@ -33,6 +33,12 @@
 7. 加入跨圖矛盾診斷，但不為「彼此一致但全部答錯」另加分；
 8. 加入 primary-pointer／multi-touch 規則及測試；
 9. 建議完成時間修訂為 20–30 分鐘，並以學生 pilot 再校準。
+10. gross scribble gate 同時分析未降採樣的 96-bin 原始 trace，堵塞 period-1／period-2 鋸齒在 24-bin 中位數化後消失的漏洞；
+11. 曲率證據加入最小 `slopeDelta`、方向一致的二次項及 BIC 支援，直線不能只靠二次模型多一個參數而被判成曲線；
+12. 合格條件加入核心語意 mastery gates：正／負加速度及勻加速／勻減速 `x–t` 曲率不能只靠總分補償；
+13. 「可提交證據完整」統一使用 coverage、edge coverage、readability 及綜合題 phase completeness；
+14. 版面改為固定 viewport 的 bounded split：上方作圖 stage 保持可見，下方 controls panel 獨立捲動；活動不依賴 iframe 自動增高或未部署的 host bridge；
+15. 作圖流程中的三圖列改為非互動完成進度；學生在檢查頁返回修改，不保留無作用的 tab 或「上一幅」控制。
 
 ---
 
@@ -137,7 +143,7 @@
    - 關卡 2：已有正速度的勻加速；
    - 關卡 3：正方向勻減速至停止；
    - 關卡 4：四階段綜合運動；
-3. 在同一情境內以 `v–t`、`a–t`、`x–t` 分頁切換，題目情境保持可見；
+3. 在同一情境內依次完成 `v–t`、`a–t`、`x–t`；三圖列只顯示目前步驟及完成狀態，提交前可由檢查頁返回任何一幅修改；
 4. 使用畫筆、橡皮擦、復原、重做及清除；
 5. 可按「檢查圖線」取得最多兩項質性提示；
 6. 在提交前回到任何一幅圖修改；
@@ -566,13 +572,7 @@ DRAW_BINS = 96
 
 ### 8.5 手指遮擋
 
-手機可顯示小型局部放大預覽：
-
-- 固定於距離手指較遠的圖角；
-- 顯示附近坐標軸、現有圖線及筆尖；
-- 不改變輸入坐標；
-- pointerup 後隱藏；
-- 由集中常數開關，但不影響評分。
+第一版不顯示空白或裝飾性的局部放大預覽。圖板保持足夠尺寸、筆跡在線條兩側仍可辨認；若學生實測證明手指遮擋影響作圖，日後才加入真正重畫附近坐標軸、現有 trace 及筆尖的 preview，不能只顯示空白框。
 
 ### 8.6 空白及稍後再做
 
@@ -634,7 +634,7 @@ DRAW_BINS = 96
 
 ```text
 96-bin 權威 trace
-→ 結構及 gross attempt 檢查
+→ 96-bin 原始 trace diagnostics 及結構／gross attempt 檢查
 → 24-bin robust analysis trace
 → 完整度及可判讀性
 → 局部斜率、端點窗口及邊界窗口
@@ -758,7 +758,7 @@ zeroRegionRatio     = 零區有效點 / 全部有效點
 
 ### 10.6 Roughness、oscillation 及 path length
 
-全部使用已建立的 24-bin analysis trace，且只在連續有效區段計算。
+一般可讀性指標使用已建立的 24-bin analysis trace，且只在連續有效區段計算。
 
 一階差分：
 
@@ -797,6 +797,19 @@ pathLengthRatio =
 - 只加總連續有效點；
 - `horizontalSpan` 是首尾有效點的時間距離；
 - horizontalSpan 為零時結構無效。
+
+另外直接由未降採樣的 96-bin 權威 trace 計算：
+
+- `rawPathLengthRatio`；
+- 帶 dead band 的 `rawOscillationCount`；
+- `rawRoughness`；
+- 每四個 draw bins 的縱向 spread，再取 `P80`；
+- `rawCoverage`：指定 raw bins 中實際有線的比例；
+- `rawDensity`：首尾有效 raw bin 之間的填充密度；
+- `rawAdjacentPairRatio`：首尾範圍中相鄰兩 raw bins 同時有效的比例；
+- `rawMaxGapFraction`：raw trace 最長空隙佔指定範圍的比例。
+
+這些 raw diagnostics 同時防止「每四格只畫一個孤立點」在 24-bin aggregation 後偽裝成完整線。它們不要求正常手繪線像數學曲線般平滑；正常短空隙仍可取得 partial。綜合 `a–t` 會排除三個 phase boundary 左右的 transition gutters，避免合法的分段跳變被當成亂畫。
 
 ### 10.7 線性及二次擬合
 
@@ -838,7 +851,7 @@ Slope continuity：
 - 每側至少四點；
 - `boundarySlopeJump = abs(slopeRight - slopeLeft)`。
 
-`a–t` 只評每段區域與水平，不評 y 或 slope continuity。
+`a–t` 只評每段區域與水平，不評 y 或 slope continuity。綜合 `x–t` 的正式示範中，C 段由 B 段終值及斜率連續接入，逐步變平至 D 段水平；不可在 C／D 邊界留下位置跳變。
 
 ### 10.9 Gross attempt gate
 
@@ -850,10 +863,15 @@ Slope continuity：
 - 有效 analysis bins `< 6`；
 - 任何衍生數值非 finite；
 - `horizontalSpan = 0`；
-- 以下三個 scribble signals 中至少兩個成立：
+- 以下 24-bin scribble signals 中至少兩個成立：
   - `pathLengthRatio > 6.0`
   - `oscillationCount > 10`
   - `roughness > 0.14`
+- 或以下 96-bin raw scribble signals 中至少兩個成立：
+  - `rawPathLengthRatio > 20`
+  - `rawOscillationCount > 24`
+  - `rawRoughness > 0.22`
+  - `rawBucketVerticalSpreadP80 > 0.45`
 
 只有 gross gate 可把整幅圖直接歸零。正常手震、單一空隙或一次修正不能獨自觸發 gross zero。
 
@@ -915,21 +933,23 @@ linearityScore =
 horizontalScore =
   fullThenFade(abs(lineSlope), 0.10, 0.24)
 
-quadraticSupport =
+directionalQuadraticSupport =
   fadeUp(deltaBIC, 2, 6)
+  × fadeUp(direction × c2, directionalC2Zero, directionalC2Full)
+  × slopeDeltaMateriality
 
 slopeIncreaseScore =
   0.55 * fadeUp(slopeDelta, 0.12, 0.35)
-+ 0.30 * fadeUp(slopeTrendRho, 0.25, 0.60)
-+ 0.15 * quadraticSupport
++ 0.30 * fadeUp(slopeTrendRho, 0.25, 0.60) × slopeDeltaMateriality
++ 0.15 * directionalQuadraticSupport
 
 slopeDecreaseScore =
   0.55 * fadeUp(-slopeDelta, 0.12, 0.35)
-+ 0.30 * fadeUp(-slopeTrendRho, 0.25, 0.60)
-+ 0.15 * quadraticSupport
++ 0.30 * fadeUp(-slopeTrendRho, 0.25, 0.60) × slopeDeltaMateriality
++ 0.15 * directionalQuadraticSupport
 ```
 
-曲率分必須再乘題目所需的單調性／方向分，防止亂彎線只靠 quadratic support 取分。
+曲率分必須再乘題目所需的單調性／方向分。二次項方向錯誤或 `slopeDelta` 未達實質變化時，BIC 改善不能自行產生曲率分。綜合題 phase 使用較短區間的 `slopeDelta 0.05 → 0.14` 起始門檻。
 
 若 straight 與 curve evidence 相差 `< 0.10`：
 
@@ -981,7 +1001,19 @@ const TOLERANCE = {
   boundaryYJumpZero: 0.22,
   boundarySlopeJumpFull: 0.20,
   boundarySlopeJumpZero: 0.55,
-  classificationAmbiguity: 0.10
+  classificationAmbiguity: 0.10,
+  rawGrossMaxLengthRatio: 20,
+  rawGrossMaxOscillations: 24,
+  rawGrossMaxRoughness: 0.22,
+  rawGrossMaxBucketSpread: 0.45,
+  rawEvidenceMinCoverage: 0.50,
+  rawEvidenceMinDensity: 0.50,
+  rawEvidenceMinAdjacentPairs: 0.35,
+  rawEvidenceMaxGapFraction: 0.25,
+  evidenceMinReadability: 0.55,
+  evidenceMinEdgeCoverage: 0.65,
+  phaseSlopeDeltaZero: 0.05,
+  phaseSlopeDeltaFull: 0.14
 };
 ```
 
@@ -1001,6 +1033,10 @@ Passing threshold:
   x–t >= 18/36
   v–t >= 16/32
   a–t >= 16/32
+  accelerating a–t 非 gross-invalid、evidence complete，並在正區大致水平
+  decelerating a–t 非 gross-invalid、evidence complete，並在負區大致水平
+  composite a–t 非 gross-invalid、evidence complete，A／C 段分別在正／負區且大致水平
+  accelerating／decelerating x–t 及 composite A／C 段有指定方向的實質曲率證據
 Penalties:
   無重試／工具使用扣分
   gross-invalid 圖為 0
@@ -1029,6 +1065,7 @@ a–t：32
 ```
 
 圖類別底線防止學生完全不掌握 `v–t` 或 `a–t` 仍靠其他圖合格。
+所有語意 mastery gates 先要求對應 task `grossInvalid === false` 及 `evidenceComplete === true`。這防止正／負區亂畫、稀疏孤立點、所有 `a–t` 畫斜線，或所有 `x–t` 畫直線，仍靠區域比例、coverage 或其他題目總分補償合格。
 
 ### 11.3 分數處理
 
@@ -1101,17 +1138,14 @@ a–t：32
 
 ## 13. Responsive layout contract
 
-- Control-panel classification：`short natural flow`
-- 原因：
-  - 每次主要互動是一個大圖板；
-  - 工具列、題目及 navigation 均短；
-  - 不需要獨立捲動控制面板；
-  - natural flow 避免 activity document 成為第三個 scroll owner。
-- Non-interactive stage swipe owner：enclosing page／Moodle host
-- Natural-flow controls-region swipe owner：enclosing page／Moodle host
-- Activity document：正常自然 flow；不建立另一個獨立 panel scroll
-- Desktop／tablet：情境／進度與 active graph 可並排；graph 仍保持主要空間
-- Phone：情境 → 圖類型 tabs → 圖板 → 工具列 → 回饋 → navigation
+- Control-panel classification：`bounded mobile split-panel`
+- `html`／`body`：`height:100%`、`overflow:hidden`，不可成為第三個縱向 scroll owner。
+- `.graph-app`：同時提供 `height:100vh` 及 `height:100dvh` fallback，並以兩列 grid 填滿固定高度 iframe。
+- 上列 `.stage-region`：只放目前 active graph；在 controls 使用期間保持可見。
+- 下列 `.controls-panel`：`min-height:0`、`overflow-y:auto`、`overscroll-behavior:contain`，包含標題、進度、情境、工具、回饋及 navigation。
+- review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得全部高度。
+- iframe 不需要由 host 依內容自動增高；source 及 packaged 測試使用固定 `500px` iframe。
+- Desktop／tablet／phone 均維持 stage 在上、controls 在下；controls 可換行及獨立捲動。
 - 不設橫向捲動。
 
 圖板：
@@ -1122,7 +1156,7 @@ a–t：32
 - 工具按鈕最少 `44 × 44` CSS px；
 - 200% zoom 可換行但主要操作仍可達。
 
-由於 graph overlay 會接管整個 plot gesture，plot 上方保留至少 44 px 高、全寬、非互動的情境／圖類型 header band，使用 `touch-action: pan-y`，讓學生在 Moodle iframe 內有清楚可用的 host-scroll 起始區域。
+結果圖的選擇器是普通 button list，以 `aria-pressed` 表示目前顯示項目；不使用缺少 keyboard tab behavior／tabpanel relationship 的不完整 ARIA tabs pattern。
 
 ---
 
@@ -1138,20 +1172,22 @@ a–t：32
 
 | Touch starts on | Owner | Expected result |
 |---|---|---|
-| 非互動 graph header、題目、圖板外空白 | Enclosing host | host 有 range 時 scroll；iframe 同步移動；activity document 不自行捲動；答案不變 |
-| `.graph-input-surface` | Simulation | trace 改變；所有 host/document/viewport/iframe scroll delta 為 0；有 `pointermove`、`pointerup`；無 `pointercancel` |
+| `.controls-panel` 內非互動文字／空白 | Controls panel | 只捲動 panel；stage、host、activity document、visual viewport 及 iframe 位置不變 |
+| 已在頂／底邊界的 `.controls-panel` | Controls panel | 保持在邊界；不得把 gesture 洩漏給 host 或 activity document |
+| `.graph-input-surface` | Simulation | trace 改變；所有 host／document／panel／viewport／iframe／stage scroll 或位置 delta 為 0；有 `pointermove`、`pointerup`；正常筆劃無 `pointercancel` |
 | 工具按鈕 | Native tap | 只執行一次；不因 tap 捲動 |
 | 第二個同時 touch pointer | 無新 owner | 忽略；不改 trace、不 commit、不建立 undo；primary pointer 繼續或安全完成 |
 
 ### 14.3 Technical decision
 
-- 非互動 stage surface：`touch-action: pan-y`
 - `.graph-input-surface`：在 `pointerdown` 前已是 `touch-action: none`
+- `.controls-panel`：原生 `pan-y` 及獨立 scroll；活動不攔截或轉送其 touch events；
 - 只接受 primary active pointer；
 - active drag 期間 capture target 保持 mounted；
 - SVG graphics `pointer-events:none`，不作 gesture boundary；
 - render 可更新 SVG path，但不可替換 overlay；
 - 不把 graph gesture 轉送 sibling controls；
+- 不呼叫 `window.parent.scrollBy`，亦不發出沒有已部署 host adapter 的 cross-origin scroll `postMessage`；
 - development source 及 built／extracted package 均以 trusted touch input 測試；
 - Moodle current-window 及可用時 new-window 以實機手機重複。
 
@@ -1362,7 +1398,6 @@ Transient：
 - pointer ID／capture；
 - working trace／backup；
 - hover／focus；
-- magnifier；
 - undo／redo；
 - keyboard pen-down；
 - open panels；
@@ -1603,6 +1638,8 @@ validate review
 - valid gap不會令全圖因 `min()` 歸零；
 - category totals；
 - total、composite及三個 graph-family mastery floors；
+- semantic mastery 的 gross-invalid 正／負區亂畫、正／負斜線、稀疏但形狀正確的 `x–t`；
+- 每四個 draw bins 只有一個孤立點不得成為 evidence complete 或取得接近滿分；
 - just-inside／outside；
 - final rounding only；
 - feedback priority最多兩項；
@@ -1643,16 +1680,23 @@ Development source及built／extracted package：
 - browser toolbar、software keyboard；
 - no horizontal scroll；
 - primary actions reachable；
-- trusted swipe from graph header scrolls host and does not change answer；
+- fixed-height Moodle-like iframe，不自動改寫 iframe height；
+- trusted swipe from controls ordinary text 只捲動 controls panel；
+- controls panel 在邊界不把 scroll 洩漏到 host 或 activity document；
+- panel 捲動時 stage、host、activity visual viewport 及 iframe 位置保持不變；
 - trusted graph drag changes trace only；
-- all host/document/viewport/iframe deltas 0 during draw；
+- draw 時 host／activity document／controls panel／visual viewport／iframe／stage deltas 全為 0；
 - pointermove／pointerup；no pointercancel；
-- eraser；
+- pointercancel 不 commit 未完成筆劃；
+- eraser 及 undo restore；
 - backward／edge／long diagonal；
 - second simultaneous touch ignored；
 - tool tap once；
 - keyboard mode；
-- magnifier；
+- 練習選過橡皮擦後開始挑戰會重設成畫筆；
+- valid／invalid draft、trusted／mismatched finished review、valid／invalid pending；
+- pending retry click 的成功、仍失敗及 committed-result mismatch；
+- success／committed／frozen／retryable／non-retryable submission UI；
 - zero-axis trace visible；
 - review trace與exemplar可分。
 
@@ -1732,7 +1776,7 @@ Development source及built／extracted package：
 2. 建立固定 HTML graph overlay；
 3. 驗證 primary／secondary pointer；
 4. 在 scrollable Moodle-like iframe 測 trusted touch ownership；
-5. 確認 natural flow、host-scroll header 及 scroll topology；
+5. 確認 bounded stage／controls panel、固定高度 iframe 及 scroll ownership；
 6. 未通過不得開始完整 UI。
 
 ### Phase B：作圖模型
