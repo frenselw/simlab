@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="kinematics-qualitative-graph-sketching" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="ORG-KINEMATICS-QUALITATIVE-GRAPH-SKETCHING">
+    <organization identifier="ORG-KINEMATICS-QUALITATIVE-GRAPH-SKETCHING">
+      <title>勻速與勻變速：三圖手繪挑戰</title>
+      <item identifier="ITEM-KINEMATICS-QUALITATIVE-GRAPH-SKETCHING" identifierref="RES-KINEMATICS-QUALITATIVE-GRAPH-SKETCHING">
+        <title>勻速與勻變速：三圖手繪挑戰</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-KINEMATICS-QUALITATIVE-GRAPH-SKETCHING" type="webcontent" adlcp:scormtype="sco" href="kinematics-qualitative-graph-sketching/index.html">
+      <file href="config.js"/>
+      <file href="kinematics-qualitative-graph-sketching/index.html"/>
+      <file href="kinematics-qualitative-graph-sketching/styles.css"/>
+      <file href="kinematics-qualitative-graph-sketching/main.js"/>
+      <file href="kinematics-qualitative-graph-sketching/task-definitions.js"/>
+      <file href="kinematics-qualitative-graph-sketching/graph-model.js"/>
+      <file href="kinematics-qualitative-graph-sketching/graph-analysis.js"/>
+      <file href="kinematics-qualitative-graph-sketching/scoring.js"/>
+      <file href="kinematics-qualitative-graph-sketching/persistence.js"/>
+      <file href="kinematics-qualitative-graph-sketching/ui-policy.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>

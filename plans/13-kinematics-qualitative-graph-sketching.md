@@ -3,7 +3,7 @@
 ## 0. 文件狀態
 
 - 文件角色：新 SimLab 活動的產品、教學、互動、作圖模型、評分、持久化、SCORM 及測試規格。
-- 計劃狀態：修訂後待批准；未開始實作。
+- 計劃狀態：production implementation 已完成；自動 unit、SCORM package 及 source／packaged trusted-touch browser regression 已通過。真實學生筆跡 calibration／holdout 與 Moodle 實機驗收仍屬獨立 release gate。
 - 計劃檔案：`plans/13-kinematics-qualitative-graph-sketching.md`
 - 建議 slug：`kinematics-qualitative-graph-sketching`
 - 學生可見標題：`勻速與勻變速：三圖手繪挑戰`
@@ -18,7 +18,7 @@
   - `docs/simulation-scorm-production-guide.md`
   - `plans/NEW-SIMULATION-PLAN-TEMPLATE.md`
   - `plans/12-kinematics-driving-challenge.md`
-- 本文件獲批後，題目語意、作圖資料模型、評分特徵、snapshot schema、測試及 packaging 均以本文件為基準。任何改變學習目標、題目集合、評分、容差或持久化契約的修訂，必須先更新本文件。
+- 題目語意、作圖資料模型、評分特徵、snapshot schema、測試及 packaging 均以本文件為基準。任何改變學習目標、題目集合、評分、容差或持久化契約的修訂，必須先更新本文件。
 
 ### 0.1 本次修訂已鎖定的改進
 

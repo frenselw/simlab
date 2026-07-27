@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f4f6">
+    <title>勻速與勻變速：三圖手繪挑戰</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="../shared/activity-flow.js" defer></script>
+    <script src="task-definitions.js" defer></script>
+    <script src="graph-model.js" defer></script>
+    <script src="graph-analysis.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="persistence.js" defer></script>
+    <script src="ui-policy.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="sim-app graph-app">
+      <header class="sim-header graph-page-header" data-host-scroll-region>
+        <div>
+          <h1>勻速與勻變速：三圖手繪挑戰</h1>
+          <p>根據運動描述，用手指、滑鼠或鍵盤畫出定性的 <var>x</var>–<var>t</var>、<var>v</var>–<var>t</var> 及 <var>a</var>–<var>t</var> 圖。</p>
+        </div>
+        <ol id="progress" class="progress" aria-label="關卡進度">
+          <li data-progress="practice">練習</li>
+          <li data-progress="uniform">1</li>
+          <li data-progress="accelerating">2</li>
+          <li data-progress="decelerating">3</li>
+          <li data-progress="composite">4</li>
+          <li data-progress="review">檢查</li>
+        </ol>
+      </header>
+
+      <section id="practiceSection" class="activity-section">
+        <p class="section-kicker">畫板操作練習（不計分）</p>
+        <h2 id="practiceTitle" tabindex="-1">先試畫一條線</h2>
+        <p>在圖板由左向右畫線，再試用橡皮擦、復原及重做。準備好便開始挑戰。</p>
+        <div id="practiceMount" class="graph-mount"></div>
+        <div class="tool-row" role="toolbar" aria-label="練習畫板工具">
+          <button type="button" data-tool="pen" aria-pressed="true">畫筆</button>
+          <button type="button" data-tool="erase" aria-pressed="false">橡皮擦</button>
+          <button type="button" data-action="undo">復原</button>
+          <button type="button" data-action="redo">重做</button>
+          <button type="button" data-action="clear">清除</button>
+        </div>
+        <button id="startChallengeButton" type="button" class="primary-button">開始挑戰</button>
+      </section>
+
+      <section id="taskSection" class="activity-section is-hidden">
+        <div class="graph-header-band" data-host-scroll-region>
+          <p id="scenarioKicker" class="section-kicker">第 1 關</p>
+          <h2 id="scenarioTitle" tabindex="-1">正方向勻速</h2>
+          <p id="scenarioPrompt"></p>
+        </div>
+        <div id="graphTabs" class="graph-tabs" role="tablist" aria-label="同一情境的三種運動圖"></div>
+        <div class="task-status-row">
+          <strong id="graphLabel">速度—時間圖</strong>
+          <span id="taskCounter">第 1 / 12 幅</span>
+        </div>
+        <div id="taskMount" class="graph-mount"></div>
+        <div class="tool-row" role="toolbar" aria-label="作圖工具">
+          <button type="button" data-tool="pen" aria-pressed="true">畫筆</button>
+          <button type="button" data-tool="erase" aria-pressed="false">橡皮擦</button>
+          <button type="button" data-action="undo">復原</button>
+          <button type="button" data-action="redo">重做</button>
+          <button type="button" data-action="clear">清除</button>
+        </div>
+        <div class="check-row">
+          <button id="checkGraphButton" type="button">檢查圖線</button>
+          <button id="skipButton" type="button">稍後再做</button>
+        </div>
+        <div id="graphFeedback" class="graph-feedback" role="status" aria-live="polite"></div>
+        <p id="graphAlternative" class="graph-alternative">資料不足</p>
+        <nav class="navigation-row" aria-label="作圖流程">
+          <button id="previousButton" type="button">上一幅</button>
+          <button id="nextButton" type="button" class="primary-button">下一幅</button>
+        </nav>
+      </section>
+
+      <section id="reviewSection" class="activity-section is-hidden">
+        <p class="section-kicker">提交前檢查</p>
+        <h2 id="reviewTitle" tabindex="-1">檢查十二幅圖</h2>
+        <p id="reviewWarning" class="warning-box" role="status"></p>
+        <div id="reviewList" class="review-list"></div>
+        <div id="contradictionPreview" class="contradiction-box is-hidden"></div>
+        <button id="submitButton" type="button" class="primary-button full-button">提交全部圖線</button>
+        <button id="submissionRetryButton" type="button" class="is-hidden full-button">重試連線</button>
+      </section>
+
+      <section id="resultSection" class="activity-section is-hidden">
+        <p class="section-kicker">只讀檢討</p>
+        <h2 id="resultTitle" tabindex="-1">結果</h2>
+        <div id="scorePanel" class="score-panel"></div>
+        <p id="resultNotice" class="warning-box is-hidden" role="status"></p>
+        <div id="resultTabs" class="result-tabs" role="tablist" aria-label="選擇已提交圖線"></div>
+        <div id="resultGraphMount" class="graph-mount result-graph-mount"></div>
+        <div id="resultFeedback" class="result-feedback"></div>
+        <button id="resultRetryButton" type="button" class="is-hidden full-button">重試連線</button>
+      </section>
+
+      <div id="liveRegion" class="sr-only" aria-live="polite"></div>
+    </main>
+
+    <template id="graphTemplate">
+      <figure class="graph-board">
+        <figcaption class="sr-only">定性運動圖作圖板</figcaption>
+        <svg class="graph-svg" viewBox="0 0 720 540" role="img" aria-hidden="true">
+          <rect class="plot-background" x="76" y="44" width="600" height="432" rx="5"></rect>
+          <g class="phase-layer"></g>
+          <g class="grid-layer">
+            <line x1="76" y1="152" x2="676" y2="152"></line>
+            <line x1="76" y1="260" x2="676" y2="260"></line>
+            <line x1="76" y1="368" x2="676" y2="368"></line>
+            <line x1="226" y1="44" x2="226" y2="476"></line>
+            <line x1="376" y1="44" x2="376" y2="476"></line>
+            <line x1="526" y1="44" x2="526" y2="476"></line>
+          </g>
+          <g class="axis-layer">
+            <line class="vertical-axis" x1="76" y1="44" x2="76" y2="476"></line>
+            <line class="time-axis" x1="76" y1="476" x2="690" y2="476"></line>
+            <text class="vertical-label" x="38" y="50">v</text>
+            <text class="time-label" x="690" y="508">t</text>
+            <text class="positive-label" x="51" y="72">+</text>
+            <text class="zero-label" x="50" y="267">0</text>
+            <text class="negative-label" x="52" y="458">−</text>
+            <circle class="start-marker" cx="76" cy="424" r="7"></circle>
+          </g>
+          <path class="student-path" d=""></path>
+          <path class="exemplar-path" d=""></path>
+          <g class="cursor-layer">
+            <line class="cursor-x" x1="76" y1="44" x2="76" y2="476"></line>
+            <line class="cursor-y" x1="76" y1="476" x2="676" y2="476"></line>
+            <circle class="cursor-dot" cx="76" cy="476" r="7"></circle>
+          </g>
+        </svg>
+        <div class="graph-input-surface" role="application" tabindex="0"
+          aria-label="定性運動圖作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。"></div>
+        <div class="magnifier" aria-hidden="true"></div>
+      </figure>
+    </template>
+  </body>
+</html>

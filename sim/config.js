@@ -54,6 +54,14 @@ const simulationList = [
     description: "按住油門與煞車，在平路和斜坡製造勻速、勻加速及勻減速，並用無數字運動圖像判斷表現。",
     tags: ["physics", "mechanics", "kinematics", "uniform-motion", "constant-acceleration", "driving", "scorm"],
     status: "planned"
+  },
+  {
+    title: "勻速與勻變速：三圖手繪挑戰",
+    folder: "kinematics-qualitative-graph-sketching",
+    categories: ["Mechanics"],
+    description: "根據直線運動描述，親手畫出定性的 x–t、v–t 及 a–t 圖，並完成由加速到停止的分段綜合挑戰。",
+    tags: ["physics", "mechanics", "kinematics", "motion-graphs", "position-time", "velocity-time", "acceleration-time", "drawing", "scorm"],
+    status: "planned"
   }
 ];
 

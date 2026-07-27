@@ -1,0 +1,92 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const Tasks = require("./task-definitions.js");
+const Model = require("./graph-model.js");
+const Scoring = require("./scoring.js");
+const Persistence = require("./persistence.js");
+
+const encodedIdeal = Tasks.TASKS.map((task) => Model.encodeTrace(Scoring.exemplarTrace(task.id)));
+
+function roundTrip(state, continuation) {
+  const encoded = Persistence.encode(state);
+  const restored = Persistence.decode(JSON.parse(JSON.stringify(encoded)));
+  assert(restored);
+  assert.deepEqual(restored, encoded);
+  assert.deepEqual(Persistence.scoreState(restored), Persistence.scoreState(state));
+  const continued = continuation(restored);
+  assert(continued, "restored state executes a legal continuation");
+  assert.equal(Persistence.validateDraftState(continued), true);
+  return restored;
+}
+
+let practice = Persistence.initialState();
+roundTrip(practice, Persistence.startTasks);
+
+let first = Persistence.startTasks(practice);
+first = Persistence.setAnswer(first, 0, encodedIdeal[0]);
+roundTrip(first, Persistence.nextTask);
+
+let cursor = first;
+while (cursor.phase === "task") {
+  cursor = Persistence.setAnswer(cursor, cursor.taskIndex, encodedIdeal[cursor.taskIndex]);
+  cursor = Persistence.nextTask(cursor);
+}
+assert.equal(cursor.phase, "review");
+assert.equal(Persistence.reviewVariant(cursor), "ready");
+const ready = roundTrip(cursor, (state) => Persistence.openReviewEdit(state, 5));
+
+let edit = Persistence.openReviewEdit(ready, 5);
+edit = Persistence.setAnswer(edit, 5, encodedIdeal[5]);
+roundTrip(edit, Persistence.nextTask);
+
+const incomplete = {
+  ...ready,
+  answers: ready.answers.map((answer, index) => index === 2 ? null : answer)
+};
+assert.equal(Persistence.reviewVariant(incomplete), "incomplete");
+roundTrip(incomplete, (state) => Persistence.openReviewEdit(state, 2));
+
+const review = Persistence.makeReview(ready);
+const decodedReview = Persistence.decodeReview(JSON.parse(JSON.stringify(review)));
+assert.deepEqual(decodedReview, review);
+const reviewState = Persistence.reviewToState(decodedReview);
+assert.equal(Persistence.scoreState(reviewState).score, Persistence.scoreState(ready).score);
+assert.ok(Persistence.bytes(review) > 1500);
+assert.ok(Persistence.bytes(review) < 2200);
+const mockEnvelope = {
+  version: 1,
+  activity: "kinematics-qualitative-graph-sketching",
+  kind: "pending-final",
+  payload: {
+    reviewJson: JSON.stringify({ version: 1, activity: "kinematics-qualitative-graph-sketching", kind: "review", answer: review, score: 97, passed: true }),
+    score: 97,
+    maxScore: 100,
+    passed: true
+  }
+};
+assert.ok(Persistence.bytes(mockEnvelope) < 3600);
+
+const badStates = [
+  { ...practice, phase: "missing" },
+  { ...practice, visitedMask: 1 },
+  { ...practice, answers: [encodedIdeal[0], ...Array(11).fill(null)] },
+  { ...first, taskIndex: 2, visitedMask: 3 },
+  { ...first, taskIndex: 0, answers: [encodedIdeal[0], encodedIdeal[1], ...Array(10).fill(null)] },
+  { ...edit, variant: "bad" },
+  { ...ready, visitedMask: 0 },
+  { ...ready, answers: ready.answers.slice(0, 11) },
+  { ...ready, unknown: true }
+];
+badStates.forEach((state, index) => assert.equal(Persistence.decode(state), null, `invalid matrix state ${index + 1}`));
+
+const nonCanonical = ready.answers.slice();
+nonCanonical[0] += "=";
+assert.equal(Persistence.decode({ ...ready, answers: nonCanonical }), null);
+assert.equal(Persistence.decodeReview({ ...review, locked: 0 }), null);
+assert.equal(Persistence.decodeReview({ ...review, v: 2 }), null);
+assert.equal(Persistence.decodeReview({ ...review, score: 97 }), null);
+assert.equal(Persistence.openReviewEdit(first, 0), null);
+assert.equal(Persistence.nextTask(practice), null);
+
+console.log("Qualitative kinematics persistence tests passed");

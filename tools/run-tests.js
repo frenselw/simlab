@@ -35,6 +35,13 @@ const tests = [
   "sim/kinematics-driving-challenge/scene-visuals.test.js",
   "sim/kinematics-driving-challenge/ui-runtime.test.js",
   "sim/kinematics-driving-challenge/accessibility.test.js",
+  "sim/kinematics-qualitative-graph-sketching/task-definitions.test.js",
+  "sim/kinematics-qualitative-graph-sketching/graph-model.test.js",
+  "sim/kinematics-qualitative-graph-sketching/graph-analysis.test.js",
+  "sim/kinematics-qualitative-graph-sketching/scoring.test.js",
+  "sim/kinematics-qualitative-graph-sketching/persistence.test.js",
+  "sim/kinematics-qualitative-graph-sketching/ui-runtime.test.js",
+  "sim/kinematics-qualitative-graph-sketching/accessibility.test.js",
   "tools/mobile-touch-scroll.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
