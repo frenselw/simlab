@@ -124,6 +124,7 @@
       this.surface = mount.querySelector(".graph-input-surface");
       this.studentPath = mount.querySelector(".student-path");
       this.exemplarPath = mount.querySelector(".exemplar-path");
+      this.completenessHint = mount.querySelector(".graph-completeness-hint");
       this.phaseLayer = mount.querySelector(".phase-layer");
       this.cursorX = mount.querySelector(".cursor-x");
       this.cursorY = mount.querySelector(".cursor-y");
@@ -222,6 +223,7 @@
       const trace = this.editor.trace();
       this.studentPath.setAttribute("d", pathForTrace(trace));
       this.surface.classList.toggle("is-erasing", activeTool === "erase");
+      this.updateCompletenessHint(trace);
       this.renderCursor();
       this.board.classList.toggle("is-drawing", this.editor.active);
       this.syncHistoryButtons();
@@ -239,7 +241,27 @@
       if (undo) undo.disabled = !this.editor.canUndo;
       if (redo) redo.disabled = !this.editor.canRedo;
       if (clear) clear.disabled = empty;
-      if (!this.practice && elements.checkGraphButton) elements.checkGraphButton.disabled = empty;
+    }
+
+    updateCompletenessHint(trace) {
+      if (!this.completenessHint) return;
+      const occupied = [];
+      trace.forEach((value, index) => {
+        if (value !== Model.EMPTY) occupied.push(index);
+      });
+      let longestGap = 0;
+      for (let index = 1; index < occupied.length; index += 1) {
+        longestGap = Math.max(longestGap, occupied[index] - occupied[index - 1] - 1);
+      }
+      const unfinished = occupied.length > 0 && (
+        occupied[0] > 5 ||
+        occupied[occupied.length - 1] < Model.DRAW_BINS - 6 ||
+        longestGap > 4
+      );
+      this.completenessHint.classList.toggle(
+        "is-hidden",
+        this.practice || this.locked || this.editor.active || !unfinished
+      );
     }
 
     renderCursor() {
@@ -439,10 +461,6 @@
     if (actionButton.dataset.action === "redo") view.redo();
     if (actionButton.dataset.action === "clear" && view.clear()) {
       announce("已清除圖線；可按「復原上一步」取回。");
-      if (view === taskView) {
-        elements.graphFeedback.textContent = "已清除圖線；你可以按「復原上一步」取回。";
-        elements.graphAlternative.classList.add("is-hidden");
-      }
     }
   });
 
@@ -472,8 +490,6 @@
     if (saveDraft()) {
       renderProgress();
       renderGraphTabs();
-      elements.graphFeedback.replaceChildren();
-      elements.graphAlternative.classList.add("is-hidden");
     }
   }
 
@@ -541,15 +557,6 @@
     elements.graphTabs.replaceChildren(...buttons);
   }
 
-  function renderAlternative() {
-    if (state?.phase !== "task") return;
-    const task = Tasks.TASKS[state.taskIndex];
-    const result = Scoring.scoreTask(task, state.answers[state.taskIndex]);
-    elements.graphAlternative.textContent = Scoring.readableSummary(result);
-    elements.graphAlternative.classList.remove("is-hidden");
-    formatPhysicsNotation(elements.graphAlternative);
-  }
-
   function renderTask() {
     setVisible(elements.taskSection);
     setStage(elements.taskMount);
@@ -585,8 +592,6 @@
       ? "返回檢查" : allVisited
         ? task.scenarioNumber === Tasks.SCENARIOS.length ? "前往檢查" : "下一關"
         : "下一幅";
-    elements.graphFeedback.replaceChildren();
-    elements.graphAlternative.classList.add("is-hidden");
     formatPhysicsNotation(elements.taskSection);
     focusHeading(elements.scenarioTitle);
   }
@@ -659,21 +664,6 @@
     if (!next) return;
     state = next;
     if (saveDraft()) render();
-  });
-
-  elements.checkGraphButton.addEventListener("click", () => {
-    if (locked || state.phase !== "task" || elements.checkGraphButton.disabled) return;
-    const task = Tasks.TASKS[state.taskIndex];
-    const result = Scoring.scoreTask(task, state.answers[state.taskIndex]);
-    const list = document.createElement("ul");
-    result.feedback.slice(0, 2).forEach((message) => {
-      const item = document.createElement("li");
-      setPhysicsText(item, message);
-      list.append(item);
-    });
-    elements.graphFeedback.replaceChildren(list);
-    renderAlternative();
-    announce(`畫法檢查：${result.feedback.join(" ")} 這只是修改建議，不會提交或計分。`);
   });
 
   elements.reviewList.addEventListener("click", (event) => {

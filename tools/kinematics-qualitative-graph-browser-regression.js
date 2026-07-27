@@ -208,7 +208,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   }
   assert.equal(focusSequence[0], "switch-2", `${label}: task focus starts with the display-order x-t control`);
   assert.ok(!focusSequence.includes("checkGraphButton") && focusSequence.includes("nextButton"),
-    `${label}: empty-graph check is skipped while enabled task controls remain reachable`);
+    `${label}: no answer-check control is exposed while task navigation remains reachable`);
   assert.equal(focusSequence.at(-1), "graph-surface",
     `${label}: graph surface follows task controls without focus becoming trapped`);
   assert.equal(await evaluate(cdp, `document.querySelector('#taskSection [data-tool="pen"]').getAttribute('aria-pressed')`),
@@ -221,11 +221,11 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
     const state=window.__kinematicsGraphDebug.getState();
     const writes=window.SimScorm.getLocalLog().filter(entry=>entry.key==='cmi.suspend_data');
     return {answer:state.answers[state.taskIndex],draft:writes.at(-1)?.value||'',
-      checkDisabled:document.getElementById("checkGraphButton").disabled};
+      incompleteHint:!document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
   })()`);
   assert.equal(typeof taskSaved.answer, "string", `${label}: committed task trace becomes authoritative answer`);
   assert.match(taskSaved.draft, /"kind":"draft"/, `${label}: semantic task change saves through shared SCORM runtime`);
-  assert.equal(taskSaved.checkDisabled, false, `${label}: drawing enables the formative check`);
+  assert.equal(taskSaved.incompleteHint, true, `${label}: partial trace gets a subtle non-scoring completion hint`);
 
   const beforeCancel = await evaluate(cdp, `(() => ({
     answer:window.__kinematicsGraphDebug.getState().answers[window.__kinematicsGraphDebug.getState().taskIndex],
@@ -278,32 +278,35 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   const afterKeyboard = await evaluate(cdp, `(() => { const s=window.__kinematicsGraphDebug.getState(); return s.answers[s.taskIndex]; })()`);
   assert.notEqual(afterKeyboard, beforeKeyboard, `${label}: trusted keyboard drawing commits and saves`);
 
-  const beforeHint = await evaluate(cdp, `(() => ({
-    state:JSON.stringify(window.__kinematicsGraphDebug.getState()),
-    score:JSON.stringify(window.__kinematicsGraphDebug.score())
-  }))()`);
-  await clickSelector(cdp, "#checkGraphButton");
-  const afterHint = await evaluate(cdp, `(() => ({
-    state:JSON.stringify(window.__kinematicsGraphDebug.getState()),
-    score:JSON.stringify(window.__kinematicsGraphDebug.score()),
-    summaryHidden:document.getElementById("graphAlternative").classList.contains("is-hidden"),
-    disclaimer:document.querySelector(".hint-disclaimer").textContent
-  }))()`);
-  assert.equal(afterHint.state, beforeHint.state, `${label}: hint does not mutate answers or navigation`);
-  assert.equal(afterHint.score, beforeHint.score, `${label}: hint does not submit or change score`);
-  assert.equal(afterHint.summaryHidden, false, `${label}: qualitative summary appears only after requesting a hint`);
-  assert.match(afterHint.disclaimer, /修改建議.*不會提交或計分/, `${label}: formative-check limitation is explicit`);
+  const fullStroke = await evaluate(cdp, `(() => {
+    const surface=document.querySelector("#taskMount .graph-input-surface");
+    surface.scrollIntoView({block:"center"});
+    const rect=surface.getBoundingClientRect();
+    return {left:rect.left+2,right:rect.right-2,y:rect.top+rect.height*.55};
+  })()`);
+  await touch(cdp, "touchStart", fullStroke.left, fullStroke.y);
+  for (let index = 1; index <= 12; index += 1) {
+    await touch(cdp, "touchMove", fullStroke.left + (fullStroke.right - fullStroke.left) * index / 12, fullStroke.y);
+  }
+  await touch(cdp, "touchEnd", 0, 0);
+  await delay(70);
+  const completedTrace = await evaluate(cdp, `(() => {
+    const s=window.__kinematicsGraphDebug.getState();
+    return {answer:s.answers[s.taskIndex],
+      hintHidden:document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
+  })()`);
+  assert.equal(completedTrace.hintHidden, true, `${label}: full continuous trace clears the completion hint`);
 
-  const beforeClear = afterKeyboard;
+  const beforeClear = completedTrace.answer;
   await clickSelector(cdp, '#taskSection [data-action="clear"]');
   const cleared = await evaluate(cdp, `(() => {
     const s=window.__kinematicsGraphDebug.getState();
     return {answer:s.answers[s.taskIndex],disabled:document.querySelector('#taskSection [data-action="clear"]').disabled,
-      notice:document.getElementById("graphFeedback").textContent};
+      hintHidden:document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
   })()`);
   assert.equal(cleared.answer, null, `${label}: one-click clear immediately clears the authoritative answer`);
   assert.equal(cleared.disabled, true, `${label}: clear is disabled for a blank trace`);
-  assert.match(cleared.notice, /復原上一步/, `${label}: clear explains that it can be undone`);
+  assert.equal(cleared.hintHidden, true, `${label}: blank graph does not add a redundant visual warning`);
   await clickSelector(cdp, '[data-switch-task="0"]');
   await clickSelector(cdp, '[data-switch-task="2"]');
   await clickSelector(cdp, '#taskSection [data-action="undo"]');

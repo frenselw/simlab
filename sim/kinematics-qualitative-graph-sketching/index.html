@@ -71,12 +71,6 @@
           <button type="button" data-action="redo" disabled>取消復原</button>
           <button type="button" data-action="clear" disabled>清除</button>
         </div>
-        <div class="check-row">
-          <button id="checkGraphButton" type="button" disabled>檢查畫法</button>
-        </div>
-        <p class="hint-disclaimer">只提供修改建議，不會提交或計分。</p>
-        <div id="graphFeedback" class="graph-feedback" role="status" aria-live="polite"></div>
-        <p id="graphAlternative" class="graph-alternative is-hidden"></p>
         <nav class="navigation-row" aria-label="作圖流程">
           <button id="nextButton" type="button" class="primary-button">下一幅</button>
         </nav>
@@ -119,12 +113,20 @@
           <rect class="plot-background" x="76" y="44" width="600" height="432" rx="5"></rect>
           <g class="phase-layer"></g>
           <g class="grid-layer">
+            <line class="minor-grid" x1="76" y1="98" x2="676" y2="98"></line>
             <line x1="76" y1="152" x2="676" y2="152"></line>
+            <line class="minor-grid" x1="76" y1="206" x2="676" y2="206"></line>
             <line x1="76" y1="260" x2="676" y2="260"></line>
+            <line class="minor-grid" x1="76" y1="314" x2="676" y2="314"></line>
             <line x1="76" y1="368" x2="676" y2="368"></line>
+            <line class="minor-grid" x1="76" y1="422" x2="676" y2="422"></line>
+            <line class="minor-grid" x1="151" y1="44" x2="151" y2="476"></line>
             <line x1="226" y1="44" x2="226" y2="476"></line>
+            <line class="minor-grid" x1="301" y1="44" x2="301" y2="476"></line>
             <line x1="376" y1="44" x2="376" y2="476"></line>
+            <line class="minor-grid" x1="451" y1="44" x2="451" y2="476"></line>
             <line x1="526" y1="44" x2="526" y2="476"></line>
+            <line class="minor-grid" x1="601" y1="44" x2="601" y2="476"></line>
           </g>
           <g class="axis-layer">
             <line class="vertical-axis" x1="76" y1="54" x2="76" y2="476"></line>
@@ -144,6 +146,7 @@
             <circle class="cursor-dot" cx="76" cy="476" r="7"></circle>
           </g>
         </svg>
+        <div class="graph-completeness-hint is-hidden" role="status" aria-live="polite">圖線未畫完</div>
         <div class="graph-input-surface" role="application" tabindex="0"
           aria-label="定性運動圖作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。"></div>
       </figure>

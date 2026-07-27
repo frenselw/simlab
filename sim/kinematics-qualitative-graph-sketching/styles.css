@@ -81,6 +81,7 @@ body { margin: 0; }
 .graph-svg { display: block; width: 100%; height: 100%; pointer-events: none; }
 .plot-background { fill: #fff; stroke: #cbd5e1; stroke-width: 1.5; }
 .grid-layer line { stroke: var(--graph-grid); stroke-width: 1.5; }
+.grid-layer line.minor-grid { stroke: #edf1f6; stroke-width: 1; }
 .axis-layer line { stroke: var(--graph-axis); stroke-width: 2.5; }
 .axis-layer polygon { fill: var(--graph-axis); }
 .axis-layer text {
@@ -107,28 +108,24 @@ body { margin: 0; }
   position: absolute; inset: 8.15% 6.1% 11.85% 10.55%; z-index: 3;
   border-radius: .25rem; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair;
 }
+.graph-completeness-hint {
+  position: absolute; top: 2.8%; right: 3.2%; z-index: 4; padding: .22rem .42rem;
+  border-radius: 999px; pointer-events: none; background: rgba(255, 255, 255, .72);
+  color: rgba(71, 85, 105, .58); font-size: clamp(.64rem, 1.25vw, .78rem); font-weight: 700;
+}
 .graph-input-surface:focus-visible { outline: 4px solid #7c3aed; outline-offset: 2px; }
 .graph-input-surface.is-erasing { cursor: cell; }
 .graph-board.is-locked .graph-input-surface { pointer-events: none; }
 .tool-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin-top: .65rem; }
 .tool-row [data-action="clear"] { grid-column: 1 / -1; }
-.check-row, .navigation-row { display: grid; gap: .45rem; margin-top: .65rem; }
-.tool-row button, .check-row button, .navigation-row button { min-height: 44px; }
+.navigation-row { display: grid; gap: .45rem; margin-top: .65rem; }
+.tool-row button, .navigation-row button { min-height: 44px; }
 .tool-row button[aria-pressed="true"] { border-color: var(--color-accent); background: #dbeafe; color: #1e3a8a; font-weight: 800; }
-.check-row { grid-template-columns: 1fr; }
 .navigation-row { min-height: 60px; border-top: 1px solid #dbe3ee; padding-top: .7rem; }
-.graph-feedback {
-  min-height: 2.7rem; margin-top: .7rem; padding: .6rem .75rem; border-left: 4px solid #64748b; background: #f1f5f9; line-height: 1.45;
-}
-.graph-feedback:empty { display: none; }
-.graph-feedback ul { margin: 0; padding-left: 1.2rem; }
-.graph-alternative { margin: .55rem 0 0; color: #475569; font-size: .88rem; }
 .graph-requirement {
   margin: .35rem 0; padding: .55rem .65rem; border-left: 4px solid #2563eb;
   background: #eff6ff; color: #1e3a8a; line-height: 1.45;
 }
-.hint-disclaimer { margin: .45rem 0 0; color: #64748b; font-size: .82rem; }
-
 .warning-box { padding: .7rem; border-left: 4px solid #d97706; background: #fffbeb; }
 .review-list { display: grid; gap: .7rem; margin: .8rem 0; }
 .review-scenario { border: 1px solid #d1d5db; border-radius: .65rem; overflow: hidden; background: #fff; }
