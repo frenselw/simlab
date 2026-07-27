@@ -37,11 +37,11 @@
 11. 曲率證據加入最小 `slopeDelta`、方向一致的二次項及 BIC 支援，直線不能只靠二次模型多一個參數而被判成曲線；
 12. 合格條件加入核心語意 mastery gates：正／負加速度及勻加速／勻減速 `x–t` 曲率不能只靠總分補償；
 13. 「可提交證據完整」統一使用 coverage、edge coverage、readability 及綜合題 phase completeness；
-14. 版面採固定 viewport bounded split：`>=960px` 為左側 `18–24rem` controls、右側主作圖 stage；較窄 tablet／phone 轉為上圖下 controls；活動不依賴 iframe 自動增高或未部署的 host bridge；
+14. 版面採固定 viewport bounded split：`>=820px` 為全闊工作區，左側 `18–24rem` controls、右側主作圖 stage 填滿餘下空間；較窄 tablet／phone 轉為上圖下 controls；活動不依賴 iframe 自動增高或未部署的 host bridge；
 15. 每個情境以 `x–t → v–t → a–t` 顯示，三個普通按鈕可自由切換並保留各自圖線；持久化 task ID／answer array 仍沿用既有 canonical `v–t、a–t、x–t` 順序；
-16. 「下一幅／稍後再做」以曾開啟 `visited` 為流程門檻，不以已畫圖 `answered` 為門檻；三幅均曾開啟後才前往下一情境；
+16. 「下一幅」以曾開啟 `visited` 為流程門檻，不以已畫圖 `answered` 為門檻；三幅均曾開啟後才前往下一情境，學生亦可隨時用三圖切換按鈕改變作圖次序；
 17. 坐標軸使用向上／向右箭頭，不顯示會暗示答案的 `+`／`−`；`v–t`／`a–t` 保留零軸 `0`；
-18. 清除改為單次操作、空白時停用並可用「復原上一步」取回；提示改名「取得作圖提示」，明示不提交、不計分、不代表答啱；
+18. 清除改為單次操作、空白時停用並可用「復原上一步」取回；質性檢查命名為「檢查畫法」，空白時停用，並明示只提供修改建議、不會提交或計分；
 19. learner-facing 物理變數使用安全 DOM formatter 產生 `<var>`，不載入 MathJax，亦不把普通英文字母誤判為變數。
 20. 每個 canonical task 在同一 browser session 保留獨立 Editor／undo／redo；切換同情境圖、進入 review 再返回 edit 均不清除，reload 則重新開始 history；
 21. review 及 result 一律以 `x–t → v–t → a–t` 顯示，但按鈕仍保存 canonical index；result 預設顯示第一關 `x–t`；
@@ -154,7 +154,7 @@
    - 關卡 4：四階段綜合運動；
 3. 在同一情境內按建議次序 `x–t`、`v–t`、`a–t` 作圖，並可隨時用三個圖按鈕自由切換；切換前保存目前圖線；
 4. 使用畫筆、橡皮擦、「復原上一步」、「取消復原」及可復原的一鍵清除；
-5. 可按「取得作圖提示」取得最多兩項質性提示；提示明示不提交、不計分、不代表答啱；
+5. 畫出圖線後可按「檢查畫法」取得最多兩項質性修改建議；空白時按鈕停用，建議不提交亦不計分；
 6. 在提交前回到任何一幅圖修改；
 7. 最後一次過提交十二幅圖，取得總分、逐圖物理回饋及跨圖矛盾提示。
 
@@ -364,7 +364,7 @@ v–t 圖的斜率 = 加速度
 - 每個按鈕以文字及 accessible name 顯示「已有圖線／未完成／未開啟」狀態；
 - 切換前 commit 目前 working trace；回到任何圖時恢復其 canonical answer；
 - 首次進入情境顯示 `x–t`，但學生可直接切換到同情境其餘兩圖；
-- 學生可使用「稍後再做」留下空白答案；
+- 學生可直接切換另一幅圖或按「下一幅」，暫時留下空白答案；
 - `visited` 與 `answered` 分開：開啟過圖即算 visited；空白仍屬 unanswered；
 - 「下一幅」前往同情境下一幅未開啟圖；三幅均 visited 後才前往下一情境的 `x–t`，即使其中有空白；
 - 十二幅圖均曾開啟後才進入提交前檢視，空白由 review 明確列出；
@@ -372,9 +372,9 @@ v–t 圖的斜率 = 加速度
 - 提交前顯示空白／不可判讀圖會取得零分的警告；
 - 學生仍可明確確認提交未完成答案。
 
-### 6.2 「取得作圖提示」
+### 6.2 「檢查畫法」
 
-每幅圖提供「取得作圖提示」：
+每幅已有筆跡的圖提供「檢查畫法」：
 
 - 不鎖定答案；
 - 不顯示分數；
@@ -382,7 +382,8 @@ v–t 圖的斜率 = 加速度
 - 最多顯示兩項最高優先級質性提示；
 - 可以重複使用；
 - 不扣分；
-- 按鈕附近固定顯示「作圖提示不提交、不計分、不代表答啱。」；
+- 空白圖不顯示診斷，並停用按鈕；
+- 按鈕附近固定顯示「只提供修改建議，不會提交或計分。」；
 - 未按提示前不自動顯示圖線分類摘要，避免學生把即時分類當成正確判定；
 - 檢查結果由現時 trace 即時計算，不另存為權威答案。
 
@@ -595,9 +596,9 @@ DRAW_BINS = 96
 
 第一版不顯示空白或裝飾性的局部放大預覽。圖板保持足夠尺寸、筆跡在線條兩側仍可辨認；若學生實測證明手指遮擋影響作圖，日後才加入真正重畫附近坐標軸、現有 trace 及筆尖的 preview，不能只顯示空白框。
 
-### 8.6 空白及稍後再做
+### 8.6 空白及稍後完成
 
-- 空白圖可選「稍後再做」；
+- 空白圖可直接切換到另一幅，或按「下一幅」稍後完成；
 - 不自動放置預設答案；
 - 空白提交得零分；
 - 進入一幅圖不代表已回答。
@@ -617,7 +618,7 @@ DRAW_BINS = 96
 - 無數字、等距的淡色時間參考線；
 - 工具列；
 - 情境及圖像進度；
-- 「稍後再做」及 navigation。
+- 「下一幅」及三圖自由切換 navigation。
 
 軸標籤置於箭頭附近並以斜體物理變數呈現。坐標箭頭只交代軸正方向，不交代學生答案的正負。
 
@@ -1133,7 +1134,7 @@ a–t：32
 
 ### 12.1 優先級
 
-每次「取得作圖提示」最多顯示兩項：
+每次「檢查畫法」最多顯示兩項：
 
 1. 空白／不可判讀；
 2. 圖畫錯區域或穿越不應穿越的零軸；
@@ -1174,8 +1175,8 @@ a–t：32
 - Control-panel classification：`bounded mobile split-panel`
 - `html`／`body`：`height:100%`、`overflow:hidden`，不可成為第三個縱向 scroll owner。
 - `.graph-app`：同時提供 `height:100vh` 及 `height:100dvh` fallback，並以 grid 填滿固定高度 iframe。
-- `>=960px` desktop：兩欄；左側 `.controls-panel` 寬度以 `clamp(18rem, 24vw, 24rem)` 限定，右側 `.stage-region` 取得其餘空間並保持較大主視覺。
-- `<960px` tablet／phone：兩列；上列 `.stage-region` 顯示 active graph，下列 `.controls-panel` 顯示題目、工具、回饋及 navigation。
+- `>=820px` tablet／desktop：全闊兩欄工作區；左側 `.controls-panel` 寬度以 `clamp(18rem, 24vw, 24rem)` 限定，右側 `.stage-region` 填滿其餘空間並保持較大主視覺；整個 app shell 不設置置中的 desktop 最大闊度。
+- `<820px` phone／窄 tablet：兩列；上列 `.stage-region` 顯示 active graph，下列 `.controls-panel` 顯示題目、工具、回饋及 navigation。
 - `.controls-panel`：`min-height:0`、`overflow-y:auto`、`overscroll-behavior:contain`；desktop 在左、窄屏在下，均是唯一 activity 內縱向 scroll owner。
 - review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得全部高度。
 - iframe 不需要由 host 依內容自動增高；source 及 packaged 測試使用固定 `500px` iframe。
@@ -1750,7 +1751,7 @@ Development source及built／extracted package：
 - browser toolbar、software keyboard；
 - no horizontal scroll；
 - primary actions reachable；
-- `>=960px` controls 在左、graph 在右且 graph 較寬；
+- `>=820px` controls 在左、graph 在右且 graph 填滿其餘闊度；
 - phone／tablet／effective-width reflow 時 graph 在上、controls 在下；
 - fixed-height Moodle-like iframe，不自動改寫 iframe height；
 - trusted swipe from controls ordinary text 只捲動 controls panel；
@@ -1767,7 +1768,7 @@ Development source及built／extracted package：
 - tool tap once；
 - 軸向上／向右箭頭存在、`+`／`−` shortcut 不存在、`v–t`／`a–t` 保留 `0`；
 - 同情境 graph button switching、`aria-pressed`／狀態 accessible name 及 canonical trace 保留；
-- 「取得作圖提示」不改 state／score，提示前不自動顯示摘要；
+- 「檢查畫法」在空白時停用，不改 state／score，按下前不自動顯示摘要；
 - 一鍵清除、blank disabled、inline status 及 undo restore；
 - learner-facing graph labels 使用 `<var>`；tokenizer 驗 `data-time`、`extra-text`、`Control Z`、`x-t`、`v–t`；
 - review／result 以 `x–t → v–t → a–t` 顯示但 canonical indices 不變，result 預設第一關 `x–t`；

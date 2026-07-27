@@ -207,8 +207,8 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
     if (focused === "graph-surface") break;
   }
   assert.equal(focusSequence[0], "switch-2", `${label}: task focus starts with the display-order x-t control`);
-  assert.ok(focusSequence.includes("checkGraphButton") && focusSequence.includes("nextButton"),
-    `${label}: learner reaches task controls before the graph surface`);
+  assert.ok(!focusSequence.includes("checkGraphButton") && focusSequence.includes("nextButton"),
+    `${label}: empty-graph check is skipped while enabled task controls remain reachable`);
   assert.equal(focusSequence.at(-1), "graph-surface",
     `${label}: graph surface follows task controls without focus becoming trapped`);
   assert.equal(await evaluate(cdp, `document.querySelector('#taskSection [data-tool="pen"]').getAttribute('aria-pressed')`),
@@ -220,10 +220,12 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   const taskSaved = await evaluate(cdp, `(() => {
     const state=window.__kinematicsGraphDebug.getState();
     const writes=window.SimScorm.getLocalLog().filter(entry=>entry.key==='cmi.suspend_data');
-    return {answer:state.answers[state.taskIndex],draft:writes.at(-1)?.value||''};
+    return {answer:state.answers[state.taskIndex],draft:writes.at(-1)?.value||'',
+      checkDisabled:document.getElementById("checkGraphButton").disabled};
   })()`);
   assert.equal(typeof taskSaved.answer, "string", `${label}: committed task trace becomes authoritative answer`);
   assert.match(taskSaved.draft, /"kind":"draft"/, `${label}: semantic task change saves through shared SCORM runtime`);
+  assert.equal(taskSaved.checkDisabled, false, `${label}: drawing enables the formative check`);
 
   const beforeCancel = await evaluate(cdp, `(() => ({
     answer:window.__kinematicsGraphDebug.getState().answers[window.__kinematicsGraphDebug.getState().taskIndex],
@@ -290,7 +292,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   assert.equal(afterHint.state, beforeHint.state, `${label}: hint does not mutate answers or navigation`);
   assert.equal(afterHint.score, beforeHint.score, `${label}: hint does not submit or change score`);
   assert.equal(afterHint.summaryHidden, false, `${label}: qualitative summary appears only after requesting a hint`);
-  assert.match(afterHint.disclaimer, /不提交、不計分、不代表答啱/, `${label}: hint limitation is explicit`);
+  assert.match(afterHint.disclaimer, /修改建議.*不會提交或計分/, `${label}: formative-check limitation is explicit`);
 
   const beforeClear = afterKeyboard;
   await clickSelector(cdp, '#taskSection [data-action="clear"]');
@@ -497,7 +499,7 @@ async function clickSelector(cdp, selector) {
 
 async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
   await setPreload(cdp, null);
-  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [1024, 700]]) {
+  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [820, 700], [1024, 700], [1440, 900], [1920, 1080]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: 1, mobile: width < 600
     });
@@ -510,10 +512,14 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
       const board=document.querySelector(".graph-board").getBoundingClientRect();
       const stage=document.getElementById("stageRegion").getBoundingClientRect();
       const controls=document.getElementById("controlsPanel").getBoundingClientRect();
+      const app=document.querySelector(".graph-app").getBoundingClientRect();
+      const progress=Array.from(document.querySelectorAll(".progress li")).map(item=>item.getBoundingClientRect());
       return {
         overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         buttonVisible:r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth,
         boardVisible:board.width>220&&board.height>160,
+        app:{left:app.left,right:app.right,width:app.width},
+        progressRows:new Set(progress.map(item=>Math.round(item.top))).size,
         stage:{left:stage.left,top:stage.top,right:stage.right,bottom:stage.bottom,width:stage.width},
         controls:{left:controls.left,top:controls.top,right:controls.right,bottom:controls.bottom,width:controls.width}
       };
@@ -521,7 +527,10 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
     assert.ok(metrics.overflow <= 1, `${label} ${width}x${height}: no horizontal overflow`);
     assert.equal(metrics.buttonVisible, true, `${label} ${width}x${height}: primary navigation remains reachable`);
     assert.equal(metrics.boardVisible, true, `${label} ${width}x${height}: graph remains readable`);
-    if (width >= 960) {
+    assert.equal(metrics.progressRows, 1, `${label} ${width}x${height}: progress remains on one row`);
+    if (width >= 820) {
+      assert.ok(metrics.app.left <= 1 && metrics.app.right >= width - 1,
+        `${label} ${width}x${height}: desktop work area fills the viewport width`);
       assert.ok(metrics.controls.right <= metrics.stage.left + 2,
         `${label} ${width}x${height}: desktop controls remain left of the graph`);
       assert.ok(metrics.stage.width > metrics.controls.width,

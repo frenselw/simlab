@@ -15,8 +15,9 @@ assert.match(html, /aria-label="定性運動圖作圖板。空白鍵切換畫筆
 assert.match(html, /role="toolbar" aria-label="作圖工具"/);
 assert.match(html, />復原上一步</);
 assert.match(html, />取消復原</);
-assert.match(html, /id="checkGraphButton"[^>]*>取得作圖提示</);
-assert.match(html, /不提交、不計分、不代表答啱/);
+assert.match(html, /id="checkGraphButton"[^>]*disabled[^>]*>檢查畫法</);
+assert.match(html, /只提供修改建議，不會提交或計分/);
+assert.doesNotMatch(html, /id="skipButton"|稍後再做|取得作圖提示/);
 assert.doesNotMatch(html, /role="tablist" aria-label="同一情境的三種運動圖"/);
 assert.match(html, /id="stageRegion"[^>]*class="stage-region"/);
 assert.match(html, /id="controlsPanel"[^>]*class="controls-panel"/);
@@ -42,7 +43,10 @@ assert.match(css, /html,\s*body\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/)
 assert.match(css, /\.graph-app\s*\{[^}]*height:\s*100vh[^}]*height:\s*100dvh/);
 assert.match(css, /\.stage-region\s*\{[^}]*min-height:\s*0/);
 assert.match(css, /\.controls-panel\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/);
-assert.match(css, /@media \(min-width:\s*960px\)/);
+assert.match(css, /@media \(min-width:\s*820px\)/);
+assert.match(css, /\.graph-app\s*\{[^}]*width:\s*100%/);
+assert.match(css, /\.progress\s*\{[^}]*grid-template-columns:\s*repeat\(6/);
+assert.match(css, /\.graph-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
 assert.doesNotMatch(html, /id="previousButton"/);
 assert.doesNotMatch(html, /class="magnifier"/);
 assert.doesNotMatch(css, /\.graph-tabs[^}]*overflow-x:\s*auto/);

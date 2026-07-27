@@ -23,10 +23,9 @@
     <main class="sim-app graph-app">
       <div id="controlsPanel" class="controls-panel">
         <header class="sim-header graph-page-header">
-          <div>
-            <h1>勻速與勻變速：三圖手繪挑戰</h1>
-            <p>根據運動描述，用手指、滑鼠或鍵盤畫出定性的 <var>x</var>–<var>t</var>、<var>v</var>–<var>t</var> 及 <var>a</var>–<var>t</var> 圖。</p>
-          </div>
+          <p class="activity-kicker">勻速與勻變速</p>
+          <h1>三圖手繪挑戰</h1>
+          <p>根據運動描述，畫出定性的 <var>x</var>–<var>t</var>、<var>v</var>–<var>t</var> 及 <var>a</var>–<var>t</var> 圖。</p>
           <ol id="progress" class="progress" aria-label="關卡進度">
             <li data-progress="practice">練習</li>
             <li data-progress="uniform">1</li>
@@ -73,10 +72,9 @@
           <button type="button" data-action="clear" disabled>清除</button>
         </div>
         <div class="check-row">
-          <button id="checkGraphButton" type="button">取得作圖提示</button>
-          <button id="skipButton" type="button">稍後再做</button>
+          <button id="checkGraphButton" type="button" disabled>檢查畫法</button>
         </div>
-        <p class="hint-disclaimer">作圖提示不提交、不計分、不代表答啱。</p>
+        <p class="hint-disclaimer">只提供修改建議，不會提交或計分。</p>
         <div id="graphFeedback" class="graph-feedback" role="status" aria-live="polite"></div>
         <p id="graphAlternative" class="graph-alternative is-hidden"></p>
         <nav class="navigation-row" aria-label="作圖流程">

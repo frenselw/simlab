@@ -239,6 +239,7 @@
       if (undo) undo.disabled = !this.editor.canUndo;
       if (redo) redo.disabled = !this.editor.canRedo;
       if (clear) clear.disabled = empty;
+      if (!this.practice && elements.checkGraphButton) elements.checkGraphButton.disabled = empty;
     }
 
     renderCursor() {
@@ -471,6 +472,7 @@
     if (saveDraft()) {
       renderProgress();
       renderGraphTabs();
+      elements.graphFeedback.replaceChildren();
       elements.graphAlternative.classList.add("is-hidden");
     }
   }
@@ -526,7 +528,14 @@
       button.className = `${complete ? "is-complete" : ""} ${visited ? "is-visited" : ""}`.trim();
       const status = complete ? "，已有圖線" : visited ? "，未完成" : "，未開啟";
       button.setAttribute("aria-label", `${Tasks.GRAPH_LABELS[item.graphType]}${status}`);
-      setPhysicsText(button, Tasks.GRAPH_LABELS[item.graphType]);
+      const symbol = document.createElement("span");
+      symbol.className = "graph-tab-symbol";
+      setPhysicsText(symbol, `${item.graphType[0]}–t`);
+      const name = document.createElement("span");
+      name.className = "graph-tab-name";
+      name.textContent = item.graphType === "xt" ? "位置—時間" :
+        item.graphType === "vt" ? "速度—時間" : "加速度—時間";
+      button.append(symbol, name);
       return button;
     });
     elements.graphTabs.replaceChildren(...buttons);
@@ -652,10 +661,8 @@
     if (saveDraft()) render();
   });
 
-  elements.skipButton.addEventListener("click", () => elements.nextButton.click());
-
   elements.checkGraphButton.addEventListener("click", () => {
-    if (locked || state.phase !== "task") return;
+    if (locked || state.phase !== "task" || elements.checkGraphButton.disabled) return;
     const task = Tasks.TASKS[state.taskIndex];
     const result = Scoring.scoreTask(task, state.answers[state.taskIndex]);
     const list = document.createElement("ul");
@@ -666,7 +673,7 @@
     });
     elements.graphFeedback.replaceChildren(list);
     renderAlternative();
-    announce(`作圖提示：${result.feedback.join(" ")} 提示不提交、不計分、不代表答啱。`);
+    announce(`畫法檢查：${result.feedback.join(" ")} 這只是修改建議，不會提交或計分。`);
   });
 
   elements.reviewList.addEventListener("click", (event) => {
