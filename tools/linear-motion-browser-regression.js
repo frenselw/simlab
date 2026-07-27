@@ -522,7 +522,11 @@ async function runBufferedLifecycleRestore(cdp, baseUrl, activityPath) {
   } finally {
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: preload.identifier });
   }
-  assert.equal(offstageSnapshot.lifecycleCommits, 1, "off-stage unfinished measurement remains encodable on pagehide");
+  assert.equal(
+    offstageSnapshot.lifecycleCommits,
+    0,
+    "pagehide deduplicates the identical off-stage draft already committed by stage navigation"
+  );
   assert.equal(offstageSnapshot.snapshot.answer.phase, "instant");
   assert.equal(
     offstageSnapshot.snapshot.answer.uniformMeasurement.currentOrEndModelTime,
