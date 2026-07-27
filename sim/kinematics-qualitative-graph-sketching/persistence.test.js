@@ -24,13 +24,38 @@ let practice = Persistence.initialState();
 roundTrip(practice, Persistence.startTasks);
 
 let first = Persistence.startTasks(practice);
-first = Persistence.setAnswer(first, 0, encodedIdeal[0]);
-roundTrip(first, Persistence.nextTask);
+assert.equal(first.taskIndex, Tasks.taskIndexById("uniform-xt"), "first-pass display starts with x-t without changing canonical storage");
+first = Persistence.setAnswer(first, first.taskIndex, encodedIdeal[first.taskIndex]);
+let switched = Persistence.switchTask(first, Tasks.taskIndexById("uniform-vt"));
+assert(switched);
+assert.equal(switched.answers[Tasks.taskIndexById("uniform-xt")], encodedIdeal[Tasks.taskIndexById("uniform-xt")]);
+assert.equal(switched.taskIndex, Tasks.taskIndexById("uniform-vt"));
+switched = Persistence.setAnswer(switched, switched.taskIndex, encodedIdeal[switched.taskIndex]);
+switched = Persistence.switchTask(switched, Tasks.taskIndexById("uniform-at"));
+assert(switched);
+switched = Persistence.setAnswer(switched, switched.taskIndex, encodedIdeal[switched.taskIndex]);
+const secondScenario = Persistence.nextTask(switched);
+assert.equal(secondScenario.taskIndex, Tasks.taskIndexById("accelerating-xt"),
+  "after all three graphs, next advances to the next scenario x-t");
+roundTrip(switched, Persistence.nextTask);
+
+let skipped = Persistence.startTasks(practice);
+skipped = Persistence.nextTask(skipped);
+skipped = Persistence.nextTask(skipped);
+skipped = Persistence.nextTask(skipped);
+assert.equal(Tasks.TASKS[skipped.taskIndex].scenarioId, "accelerating",
+  "visiting all three graphs unlocks the next scenario even when answers remain blank");
+assert.equal(skipped.answers.slice(0, 3).every((answer) => answer == null), true);
 
 let cursor = first;
 while (cursor.phase === "task") {
   cursor = Persistence.setAnswer(cursor, cursor.taskIndex, encodedIdeal[cursor.taskIndex]);
   cursor = Persistence.nextTask(cursor);
+  if (cursor?.phase === "task" && cursor.answers[cursor.taskIndex] != null) {
+    const scenarioTasks = Tasks.displayTasksForScenario(Tasks.TASKS[cursor.taskIndex].scenarioId);
+    const pending = scenarioTasks.find((task) => cursor.answers[Tasks.taskIndexById(task.id)] == null);
+    if (pending) cursor = Persistence.switchTask(cursor, Tasks.taskIndexById(pending.id));
+  }
 }
 assert.equal(cursor.phase, "review");
 assert.equal(Persistence.reviewVariant(cursor), "ready");
@@ -97,5 +122,11 @@ assert.equal(Persistence.decodeReview({ ...review, v: 2 }), null);
 assert.equal(Persistence.decodeReview({ ...review, score: 97 }), null);
 assert.equal(Persistence.openReviewEdit(first, 0), null);
 assert.equal(Persistence.nextTask(practice), null);
+assert.equal(Persistence.switchTask(first, Tasks.taskIndexById("accelerating-xt")), null,
+  "first pass cannot jump to a future scenario");
+
+let reviewSwitch = Persistence.openReviewEdit(ready, Tasks.taskIndexById("accelerating-vt"));
+reviewSwitch = Persistence.switchTask(reviewSwitch, Tasks.taskIndexById("accelerating-xt"));
+assert.equal(reviewSwitch.taskIndex, Tasks.taskIndexById("accelerating-xt"), "review edit may switch within the scenario");
 
 console.log("Qualitative kinematics persistence tests passed");

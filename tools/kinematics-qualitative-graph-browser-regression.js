@@ -115,6 +115,15 @@ async function pressKey(cdp, key, code = key) {
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code });
 }
 
+function respondToNextDialog(cdp, accept) {
+  return new Promise((resolve, reject) => {
+    const remove = cdp.on("Page.javascriptDialogOpening", ({ message }) => {
+      remove();
+      cdp.send("Page.handleJavaScriptDialog", { accept }).then(() => resolve(message), reject);
+    });
+  });
+}
+
 async function directSmoke(cdp, baseUrl, launchPath, label) {
   await setPreload(cdp, null);
   await navigate(cdp, `${baseUrl}${launchPath}?browser-regression=${label}`);
@@ -168,7 +177,20 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
     return {phase:state.phase,index:state.taskIndex,x:rect.left+rect.width*.2,y:rect.top+rect.height*.65};
   })()`);
   assert.equal(taskSurface.phase, "task", `${label}: production transition enters task phase`);
-  assert.equal(taskSurface.index, 0);
+  assert.equal(taskSurface.index, Tasks.taskIndexById("uniform-xt"), `${label}: recommended display order starts with x-t`);
+  const graphSemantics = await evaluate(cdp, `(() => ({
+    arrows:document.querySelectorAll("#taskMount .vertical-arrow, #taskMount .time-arrow").length,
+    signedHints:document.querySelectorAll("#taskMount .positive-label, #taskMount .negative-label").length,
+    zeroVisible:getComputedStyle(document.querySelector("#taskMount .zero-label")).display !== "none",
+    graphVars:document.getElementById("graphLabel").querySelectorAll("var").length,
+    switchVars:Array.from(document.querySelectorAll("[data-switch-task]"))
+      .every(button => button.querySelectorAll("var").length === 2)
+  }))()`);
+  assert.equal(graphSemantics.arrows, 2, `${label}: graph axes use up and right arrowheads`);
+  assert.equal(graphSemantics.signedHints, 0, `${label}: graph omits plus/minus shortcut labels`);
+  assert.equal(graphSemantics.zeroVisible, false, `${label}: x-t graph does not show a signed zero-axis label`);
+  assert.equal(graphSemantics.graphVars, 2, `${label}: active graph name uses semantic variables`);
+  assert.equal(graphSemantics.switchVars, true, `${label}: graph switch labels use semantic variables`);
   assert.equal(await evaluate(cdp, `document.querySelector('#taskSection [data-tool="pen"]').getAttribute('aria-pressed')`),
     "true", `${label}: challenge resets the active tool to pen`);
   await touch(cdp, "touchStart", taskSurface.x, taskSurface.y);
@@ -178,13 +200,13 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   const taskSaved = await evaluate(cdp, `(() => {
     const state=window.__kinematicsGraphDebug.getState();
     const writes=window.SimScorm.getLocalLog().filter(entry=>entry.key==='cmi.suspend_data');
-    return {answer:state.answers[0],draft:writes.at(-1)?.value||''};
+    return {answer:state.answers[state.taskIndex],draft:writes.at(-1)?.value||''};
   })()`);
   assert.equal(typeof taskSaved.answer, "string", `${label}: committed task trace becomes authoritative answer`);
   assert.match(taskSaved.draft, /"kind":"draft"/, `${label}: semantic task change saves through shared SCORM runtime`);
 
   const beforeCancel = await evaluate(cdp, `(() => ({
-    answer:window.__kinematicsGraphDebug.getState().answers[0],
+    answer:window.__kinematicsGraphDebug.getState().answers[window.__kinematicsGraphDebug.getState().taskIndex],
     cancel:window.__kinematicsGraphDebug.getPointerDiagnostics().cancel
   }))()`);
   await touch(cdp, "touchStart", taskSurface.x + 20, taskSurface.y - 20);
@@ -192,7 +214,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   await touch(cdp, "touchCancel", 0, 0);
   await delay(50);
   const afterCancel = await evaluate(cdp, `(() => ({
-    answer:window.__kinematicsGraphDebug.getState().answers[0],
+    answer:window.__kinematicsGraphDebug.getState().answers[window.__kinematicsGraphDebug.getState().taskIndex],
     cancel:window.__kinematicsGraphDebug.getPointerDiagnostics().cancel
   }))()`);
   assert.equal(afterCancel.answer, beforeCancel.answer, `${label}: pointercancel does not commit a partial stroke`);
@@ -225,14 +247,61 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
 
   await evaluate(cdp, `document.querySelector('#taskSection [data-tool="pen"]').click();
     document.querySelector('#taskMount .graph-input-surface').focus()`);
-  const beforeKeyboard = await evaluate(cdp, `window.__kinematicsGraphDebug.getState().answers[0]`);
+  const beforeKeyboard = await evaluate(cdp, `(() => { const s=window.__kinematicsGraphDebug.getState(); return s.answers[s.taskIndex]; })()`);
   await pressKey(cdp, " ", "Space");
   await pressKey(cdp, "ArrowRight", "ArrowRight");
   await pressKey(cdp, "ArrowUp", "ArrowUp");
   await pressKey(cdp, " ", "Space");
   await delay(50);
-  const afterKeyboard = await evaluate(cdp, `window.__kinematicsGraphDebug.getState().answers[0]`);
+  const afterKeyboard = await evaluate(cdp, `(() => { const s=window.__kinematicsGraphDebug.getState(); return s.answers[s.taskIndex]; })()`);
   assert.notEqual(afterKeyboard, beforeKeyboard, `${label}: trusted keyboard drawing commits and saves`);
+
+  const beforeHint = await evaluate(cdp, `(() => ({
+    state:JSON.stringify(window.__kinematicsGraphDebug.getState()),
+    score:JSON.stringify(window.__kinematicsGraphDebug.score())
+  }))()`);
+  await clickSelector(cdp, "#checkGraphButton");
+  const afterHint = await evaluate(cdp, `(() => ({
+    state:JSON.stringify(window.__kinematicsGraphDebug.getState()),
+    score:JSON.stringify(window.__kinematicsGraphDebug.score()),
+    summaryHidden:document.getElementById("graphAlternative").classList.contains("is-hidden"),
+    disclaimer:document.querySelector(".hint-disclaimer").textContent
+  }))()`);
+  assert.equal(afterHint.state, beforeHint.state, `${label}: hint does not mutate answers or navigation`);
+  assert.equal(afterHint.score, beforeHint.score, `${label}: hint does not submit or change score`);
+  assert.equal(afterHint.summaryHidden, false, `${label}: qualitative summary appears only after requesting a hint`);
+  assert.match(afterHint.disclaimer, /不提交、不計分、不代表答啱/, `${label}: hint limitation is explicit`);
+
+  const beforeClear = afterKeyboard;
+  await clickSelector(cdp, '#taskSection [data-action="clear"]');
+  const cleared = await evaluate(cdp, `(() => {
+    const s=window.__kinematicsGraphDebug.getState();
+    return {answer:s.answers[s.taskIndex],disabled:document.querySelector('#taskSection [data-action="clear"]').disabled,
+      notice:document.getElementById("graphFeedback").textContent};
+  })()`);
+  assert.equal(cleared.answer, null, `${label}: one-click clear immediately clears the authoritative answer`);
+  assert.equal(cleared.disabled, true, `${label}: clear is disabled for a blank trace`);
+  assert.match(cleared.notice, /復原上一步/, `${label}: clear explains that it can be undone`);
+  await clickSelector(cdp, '#taskSection [data-action="undo"]');
+  const afterClearUndo = await evaluate(cdp, `(() => {
+    const s=window.__kinematicsGraphDebug.getState(); return s.answers[s.taskIndex];
+  })()`);
+  assert.equal(afterClearUndo, beforeClear, `${label}: undo restores a one-click clear`);
+
+  await clickSelector(cdp, '[data-switch-task="0"]');
+  const switched = await evaluate(cdp, `(() => {
+    const s=window.__kinematicsGraphDebug.getState();
+    return {index:s.taskIndex,xt:s.answers[2],pressed:document.querySelector('[data-switch-task="0"]').getAttribute("aria-pressed")};
+  })()`);
+  assert.equal(switched.index, 0, `${label}: scenario graph buttons freely switch to v-t`);
+  assert.equal(switched.xt, beforeClear, `${label}: switching graphs preserves canonical x-t answer storage`);
+  assert.equal(switched.pressed, "true", `${label}: active graph button exposes aria-pressed`);
+  await clickSelector(cdp, "#nextButton");
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`), 1,
+    `${label}: next visits the remaining a-t graph`);
+  await clickSelector(cdp, "#nextButton");
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
+    Tasks.taskIndexById("accelerating-xt"), `${label}: visiting all three graphs advances with blanks left for review`);
   return `${label} direct touch`;
 }
 
@@ -353,7 +422,7 @@ async function clickSelector(cdp, selector) {
 
 async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
   await setPreload(cdp, null);
-  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390]]) {
+  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [1024, 700]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: 1, mobile: width < 600
     });
@@ -364,18 +433,31 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
       button.scrollIntoView({block:"center"});
       const r=button.getBoundingClientRect();
       const board=document.querySelector(".graph-board").getBoundingClientRect();
+      const stage=document.getElementById("stageRegion").getBoundingClientRect();
+      const controls=document.getElementById("controlsPanel").getBoundingClientRect();
       return {
         overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         buttonVisible:r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth,
-        boardVisible:board.width>220&&board.height>160
+        boardVisible:board.width>220&&board.height>160,
+        stage:{left:stage.left,top:stage.top,right:stage.right,bottom:stage.bottom,width:stage.width},
+        controls:{left:controls.left,top:controls.top,right:controls.right,bottom:controls.bottom,width:controls.width}
       };
     })()`);
     assert.ok(metrics.overflow <= 1, `${label} ${width}x${height}: no horizontal overflow`);
     assert.equal(metrics.buttonVisible, true, `${label} ${width}x${height}: primary navigation remains reachable`);
     assert.equal(metrics.boardVisible, true, `${label} ${width}x${height}: graph remains readable`);
+    if (width >= 960) {
+      assert.ok(metrics.controls.right <= metrics.stage.left + 2,
+        `${label} ${width}x${height}: desktop controls remain left of the graph`);
+      assert.ok(metrics.stage.width > metrics.controls.width,
+        `${label} ${width}x${height}: desktop graph remains the dominant region`);
+    } else {
+      assert.ok(metrics.stage.bottom <= metrics.controls.top + 2,
+        `${label} ${width}x${height}: phone/tablet graph remains above controls`);
+    }
   }
   await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 390, height: 600, deviceScaleFactor: 1, mobile: true
+    width: 512, height: 650, deviceScaleFactor: 1, mobile: true
   });
   await navigate(cdp, `${baseUrl}${launchPath}?responsive=zoom`);
   await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
@@ -383,15 +465,19 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
     const button=document.getElementById("startChallengeButton");
     button.scrollIntoView({block:"center"});
     const r=button.getBoundingClientRect();
+    const stage=document.getElementById("stageRegion").getBoundingClientRect();
+    const controls=document.getElementById("controlsPanel").getBoundingClientRect();
     return {
       overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
       buttonWidth:r.width, buttonHeight:r.height,
-      visualScale:visualViewport?.scale||1
+      visualScale:visualViewport?.scale||1,
+      stacked:stage.bottom<=controls.top+2
     };
   })()`);
   assert.ok(zoomed.overflow <= 1, `${label}: 200% zoom has no document-level horizontal overflow`);
   assert.ok(zoomed.buttonWidth >= 44 && zoomed.buttonHeight >= 44, `${label}: primary action remains operable at 200% zoom`);
   assert.ok(zoomed.visualScale >= 1.9, `${label}: 200% zoom was applied`);
+  assert.equal(zoomed.stacked, true, `${label}: 200% zoom retains the reflowed top/bottom layout`);
   await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   return `${label} responsive`;
 }
@@ -417,6 +503,11 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   };
   const reviewDraft = {
     version: 1, activity, kind: "draft", answer: fixture.state
+  };
+  const incompleteState = structuredClone(fixture.state);
+  incompleteState.answers[0] = null;
+  const incompleteReviewDraft = {
+    version: 1, activity, kind: "draft", answer: incompleteState
   };
 
   await setPreload(cdp, lmsValues({ version: 1, activity, kind: "draft", answer: taskDraft }));
@@ -529,6 +620,36 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   }))()`);
   assert.deepEqual(quarantined, { mode: "technical", retry: false },
     `${label}: invalid pending checkpoint is quarantined without retry`);
+
+  await setPreload(cdp, lmsValues(incompleteReviewDraft));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=incomplete-confirmation`);
+  await evaluate(cdp, `(() => {
+    window.__submitCalls=0;
+    const original=window.SimScorm.submitWithCallbacks;
+    window.SimScorm.submitWithCallbacks=(...args)=>{
+      window.__submitCalls+=1;
+      return original(...args);
+    };
+  })()`);
+  const cancelDialog = respondToNextDialog(cdp, false);
+  await clickSelector(cdp, "#submitButton");
+  assert.match(await cancelDialog, /仍有空白、覆蓋不足或不可判讀圖線/,
+    `${label}: incomplete submission explains the evidence risk`);
+  const cancelledSubmit = await evaluate(cdp, `(() => ({
+    calls:window.__submitCalls,
+    mode:window.__kinematicsGraphDebug.getMode()
+  }))()`);
+  assert.deepEqual(cancelledSubmit, { calls: 0, mode: "activity" },
+    `${label}: cancelling incomplete submission keeps the review editable and does not submit`);
+  const acceptDialog = respondToNextDialog(cdp, true);
+  await clickSelector(cdp, "#submitButton");
+  await acceptDialog;
+  const confirmedSubmit = await evaluate(cdp, `(() => ({
+    calls:window.__submitCalls,
+    mode:window.__kinematicsGraphDebug.getMode()
+  }))()`);
+  assert.equal(confirmedSubmit.calls, 1, `${label}: explicit confirmation submits exactly once`);
+  assert.equal(confirmedSubmit.mode, "submitted", `${label}: confirmed incomplete submission reaches the submitted review`);
 
   for (const scenario of [
     { name: "success", behavior: { commitResults: [true, true], finish: true }, mode: "submitted", retry: false },

@@ -13,6 +13,10 @@ assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
 assert.match(html, /class="graph-input-surface"[^>]*role="application"[^>]*tabindex="0"/);
 assert.match(html, /aria-label="定性運動圖作圖板。空白鍵切換畫筆/);
 assert.match(html, /role="toolbar" aria-label="作圖工具"/);
+assert.match(html, />復原上一步</);
+assert.match(html, />取消復原</);
+assert.match(html, /id="checkGraphButton"[^>]*>取得作圖提示</);
+assert.match(html, /不提交、不計分、不代表答啱/);
 assert.doesNotMatch(html, /role="tablist" aria-label="同一情境的三種運動圖"/);
 assert.match(html, /id="stageRegion"[^>]*class="stage-region"/);
 assert.match(html, /id="controlsPanel"[^>]*class="controls-panel"/);
@@ -22,6 +26,9 @@ assert.match(html, /id="reviewWarning"[^>]*role="status"/);
 assert.match(html, /id="resultNotice"[^>]*role="status"/);
 assert.doesNotMatch(html, /type="number"/);
 assert.doesNotMatch(html, /\d+\s*(?:m\/s|m\/s²|m\b)/);
+assert.doesNotMatch(html, /class="positive-label"|class="negative-label"/);
+assert.match(html, /class="vertical-arrow"/);
+assert.match(html, /class="time-arrow"/);
 
 assert.match(css, /\.graph-header-band[^}]*touch-action: pan-y/);
 assert.match(css, /\.graph-input-surface \{[^}]*touch-action: none/);
@@ -33,6 +40,7 @@ assert.match(css, /html,\s*body\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/)
 assert.match(css, /\.graph-app\s*\{[^}]*height:\s*100vh[^}]*height:\s*100dvh/);
 assert.match(css, /\.stage-region\s*\{[^}]*min-height:\s*0/);
 assert.match(css, /\.controls-panel\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/);
+assert.match(css, /@media \(min-width:\s*960px\)/);
 assert.doesNotMatch(html, /id="previousButton"/);
 assert.doesNotMatch(html, /class="magnifier"/);
 assert.doesNotMatch(css, /\.graph-tabs[^}]*overflow-x:\s*auto/);
@@ -58,5 +66,13 @@ assert.doesNotMatch(main, /addEventListener\("pagehide"/);
 assert.match(main, /activeTool = "pen";/);
 assert.doesNotMatch(main, /window\.parent\.postMessage|window\.parent\.scrollBy|simlab-host-scroll/);
 assert.match(main, /aria-pressed/);
+assert.match(main, /evidenceIncompleteTaskIds[\s\S]{0,180}window\.confirm/);
+const clearHandler = main.slice(
+  main.indexOf('document.addEventListener("click"'),
+  main.indexOf("function draftSnapshot")
+);
+assert.doesNotMatch(clearHandler, /window\.confirm/);
+assert.match(main, /function formatPhysicsNotation/);
+assert.match(main, /原始圖線|setPhysicsText|formatPhysicsNotation/);
 
 console.log("Qualitative kinematics accessibility checks passed");

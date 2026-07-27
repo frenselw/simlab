@@ -44,6 +44,55 @@
     })[character]);
   }
 
+  const PHYSICS_TOKEN = /(?:[xva][–-]t)|(?<![A-Za-z])(?:x|v|a|t)(?![A-Za-z])/g;
+
+  function physicsFragment(value) {
+    const fragment = document.createDocumentFragment();
+    const text = String(value);
+    let cursor = 0;
+    for (const match of text.matchAll(PHYSICS_TOKEN)) {
+      if (match.index > cursor) fragment.append(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0].replace("-", "–");
+      if (token.length === 3) {
+        const left = document.createElement("var");
+        left.textContent = token[0];
+        const right = document.createElement("var");
+        right.textContent = token[2];
+        fragment.append(left, document.createTextNode("–"), right);
+      } else {
+        const variable = document.createElement("var");
+        variable.textContent = token;
+        fragment.append(variable);
+      }
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < text.length) fragment.append(document.createTextNode(text.slice(cursor)));
+    return fragment;
+  }
+
+  function setPhysicsText(element, value) {
+    element.replaceChildren(physicsFragment(value));
+  }
+
+  function formatPhysicsNotation(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || ["VAR", "SCRIPT", "STYLE", "TEXT", "TSPAN"].includes(parent.tagName) ||
+            !PHYSICS_TOKEN.test(node.data)) {
+          PHYSICS_TOKEN.lastIndex = 0;
+          return NodeFilter.FILTER_REJECT;
+        }
+        PHYSICS_TOKEN.lastIndex = 0;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => node.replaceWith(physicsFragment(node.data)));
+  }
+
   function pathForTrace(trace) {
     if (!Model.isTrace(trace)) return "";
     let output = "";
@@ -138,14 +187,18 @@
       const axis = this.svg.querySelector(".time-axis");
       axis.setAttribute("y1", zeroY);
       axis.setAttribute("y2", zeroY);
+      axis.setAttribute("x2", "674");
+      this.svg.querySelector(".time-arrow").setAttribute(
+        "points", `696,${zeroY} 674,${zeroY - 11} 674,${zeroY + 11}`
+      );
       const label = this.svg.querySelector(".time-label");
-      label.setAttribute("y", this.graphType === "xt" ? 508 : zeroY + 32);
+      label.setAttribute("y", zeroY + 36);
       this.svg.querySelector(".vertical-label").textContent = this.graphType[0];
       const signed = this.graphType !== "xt";
-      [".positive-label", ".zero-label", ".negative-label"].forEach((selector) => {
-        this.svg.querySelector(selector).style.display = signed ? "" : "none";
-      });
+      this.svg.querySelector(".zero-label").style.display = signed ? "" : "none";
       this.svg.querySelector(".start-marker").style.display = this.graphType === "xt" ? "" : "none";
+      this.surface.setAttribute("aria-label",
+        `${Tasks.GRAPH_LABELS[this.graphType]}作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。`);
     }
 
     updatePhases() {
@@ -178,7 +231,21 @@
       this.surface.classList.toggle("is-erasing", activeTool === "erase");
       this.renderCursor();
       this.board.classList.toggle("is-drawing", this.editor.active);
+      this.syncHistoryButtons();
       return trace;
+    }
+
+    syncHistoryButtons() {
+      if (this.locked) return;
+      const scope = this.practice ? elements.practiceSection : elements.taskSection;
+      if (!scope) return;
+      const empty = this.editor.trace().every((value) => value === Model.EMPTY);
+      const undo = scope.querySelector('[data-action="undo"]');
+      const redo = scope.querySelector('[data-action="redo"]');
+      const clear = scope.querySelector('[data-action="clear"]');
+      if (undo) undo.disabled = !this.editor.canUndo;
+      if (redo) redo.disabled = !this.editor.canRedo;
+      if (clear) clear.disabled = empty;
     }
 
     renderCursor() {
@@ -376,7 +443,13 @@
     if (!view || locked) return;
     if (actionButton.dataset.action === "undo") view.undo();
     if (actionButton.dataset.action === "redo") view.redo();
-    if (actionButton.dataset.action === "clear" && window.confirm("清除整幅圖？你仍可按「復原」取回。")) view.clear();
+    if (actionButton.dataset.action === "clear" && view.clear()) {
+      announce("已清除圖線；可按「復原上一步」取回。");
+      if (view === taskView) {
+        elements.graphFeedback.textContent = "已清除圖線；你可以按「復原上一步」取回。";
+        elements.graphAlternative.classList.add("is-hidden");
+      }
+    }
   });
 
   function draftSnapshot() {
@@ -398,13 +471,14 @@
 
   function commitTaskTrace(trace) {
     if (locked || state?.phase !== "task") return;
-    const next = Persistence.setAnswer(state, state.taskIndex, trace);
+    const answer = trace.some((value) => value !== Model.EMPTY) ? trace : null;
+    const next = Persistence.setAnswer(state, state.taskIndex, answer);
     if (!next) return showTechnical("未能建立有效圖線記錄；作圖操作已鎖定。", false);
     state = next;
     if (saveDraft()) {
       renderProgress();
       renderGraphTabs();
-      renderAlternative();
+      elements.graphAlternative.classList.add("is-hidden");
     }
   }
 
@@ -447,13 +521,22 @@
   function renderGraphTabs() {
     if (state?.phase !== "task") return;
     const task = Tasks.TASKS[state.taskIndex];
-    const scenarioTasks = Tasks.tasksForScenario(task.scenarioId);
-    elements.graphTabs.innerHTML = `<ol>${scenarioTasks.map((item) => {
+    const scenarioTasks = Tasks.displayTasksForScenario(task.scenarioId);
+    const buttons = scenarioTasks.map((item) => {
       const index = Tasks.taskIndexById(item.id);
       const complete = Boolean(state.answers[index]);
-      return `<li aria-current="${index === state.taskIndex ? "step" : "false"}"
-        class="${complete ? "is-complete" : ""}">${escapeHtml(Tasks.GRAPH_LABELS[item.graphType].replace(/（.*?）/, ""))}</li>`;
-    }).join("")}</ol>`;
+      const visited = Boolean(state.visitedMask & (1 << index));
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.switchTask = String(index);
+      button.setAttribute("aria-pressed", String(index === state.taskIndex));
+      button.className = `${complete ? "is-complete" : ""} ${visited ? "is-visited" : ""}`.trim();
+      const status = complete ? "，已有圖線" : visited ? "，未完成" : "，未開啟";
+      button.setAttribute("aria-label", `${Tasks.GRAPH_LABELS[item.graphType]}${status}`);
+      setPhysicsText(button, Tasks.GRAPH_LABELS[item.graphType]);
+      return button;
+    });
+    elements.graphTabs.replaceChildren(...buttons);
   }
 
   function renderAlternative() {
@@ -461,6 +544,8 @@
     const task = Tasks.TASKS[state.taskIndex];
     const result = Scoring.scoreTask(task, state.answers[state.taskIndex]);
     elements.graphAlternative.textContent = Scoring.readableSummary(result);
+    elements.graphAlternative.classList.remove("is-hidden");
+    formatPhysicsNotation(elements.graphAlternative);
   }
 
   function renderTask() {
@@ -471,8 +556,15 @@
     elements.scenarioKicker.textContent = `第 ${task.scenarioNumber} 關`;
     elements.scenarioTitle.textContent = task.title;
     elements.scenarioPrompt.textContent = task.prompt;
-    elements.graphLabel.textContent = task.graphLabel;
-    elements.taskCounter.textContent = `第 ${state.taskIndex + 1} / ${Tasks.TASKS.length} 幅`;
+    setPhysicsText(elements.graphLabel, task.graphLabel);
+    const displayPosition = Tasks.displayTasksForScenario(task.scenarioId)
+      .findIndex((item) => item.id === task.id) + 1;
+    elements.taskCounter.textContent = `第 ${task.scenarioNumber} 關 · 第 ${displayPosition} / 3 幅`;
+    elements.graphRequirement.textContent = task.scenarioId === "composite"
+      ? "由圖板左端畫到最右端，完整表達 A、B、C、D 四個階段。"
+      : task.graphType === "xt"
+        ? "由左端的起點標記開始，畫到最右端，表達完整作圖時間。"
+        : "由圖板左邊界開始，畫到最右端，表達完整作圖時間。";
     renderGraphTabs();
     const trace = state.answers[state.taskIndex] ? Model.decodeTrace(state.answers[state.taskIndex]) : Model.createTrace();
     taskView.configure({
@@ -482,10 +574,16 @@
       locked,
       key: `${state.variant}:${state.taskIndex}`
     });
+    const scenarioTasks = Tasks.displayTasksForScenario(task.scenarioId);
+    const allVisited = scenarioTasks.every((item) =>
+      Boolean(state.visitedMask & (1 << Tasks.taskIndexById(item.id))));
     elements.nextButton.textContent = state.variant === "review-edit"
-      ? "返回檢查" : state.taskIndex === Tasks.TASKS.length - 1 ? "前往檢查" : "下一幅";
+      ? "返回檢查" : allVisited
+        ? task.scenarioNumber === Tasks.SCENARIOS.length ? "前往檢查" : "下一關"
+        : "下一幅";
     elements.graphFeedback.replaceChildren();
-    renderAlternative();
+    elements.graphAlternative.classList.add("is-hidden");
+    formatPhysicsNotation(elements.taskSection);
     focusHeading(elements.scenarioTitle);
   }
 
@@ -518,6 +616,7 @@
     elements.contradictionPreview.classList.toggle("is-hidden", !result.contradictions.length);
     elements.contradictionPreview.innerHTML = result.contradictions.length
       ? `<strong>三圖關係提示</strong><ul>${result.contradictions.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul>` : "";
+    formatPhysicsNotation(elements.reviewSection);
     focusHeading(elements.reviewTitle);
   }
 
@@ -534,6 +633,17 @@
     updateToolButtons();
     const next = Persistence.startTasks(state);
     if (!next) return showTechnical("未能開始挑戰；活動已鎖定。", false);
+    state = next;
+    if (saveDraft()) render();
+  });
+
+  elements.graphTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-switch-task]");
+    if (!button || locked || state.phase !== "task") return;
+    taskView.cancelActive(false);
+    commitTaskTrace(taskView.trace());
+    const next = Persistence.switchTask(state, Number(button.dataset.switchTask));
+    if (!next || next.taskIndex === state.taskIndex) return;
     state = next;
     if (saveDraft()) render();
   });
@@ -556,11 +666,12 @@
     const list = document.createElement("ul");
     result.feedback.slice(0, 2).forEach((message) => {
       const item = document.createElement("li");
-      item.textContent = message;
+      setPhysicsText(item, message);
       list.append(item);
     });
     elements.graphFeedback.replaceChildren(list);
-    announce(result.feedback.join(" "));
+    renderAlternative();
+    announce(`作圖提示：${result.feedback.join(" ")} 提示不提交、不計分、不代表答啱。`);
   });
 
   elements.reviewList.addEventListener("click", (event) => {
@@ -607,7 +718,8 @@
     if (locked || state.phase !== "review") return;
     const current = Scoring.scoreActivity(state.answers);
     const incomplete = current.evidenceIncompleteTaskIds.length > 0;
-    if (incomplete && !window.confirm("仍有空白、覆蓋不足或不可判讀圖線，這些部分的可評證據不足。仍然提交？")) return;
+    if (incomplete &&
+        !window.confirm("仍有空白、覆蓋不足或不可判讀圖線，這些部分的可評證據不足。仍然提交？")) return;
     let reviewAnswer, snapshot;
     try {
       reviewAnswer = Persistence.makeReview(state);
@@ -705,6 +817,7 @@
     if (!trustedReview || !taskResult) {
       elements.resultFeedback.innerHTML = `<section><h3>${escapeHtml(task.graphLabel)}</h3>
         <p>${escapeHtml(UiPolicy.technicalCopy("review-fallback"))}</p></section>`;
+      formatPhysicsNotation(elements.resultFeedback);
       return;
     }
     elements.resultFeedback.innerHTML = `<section>
@@ -712,13 +825,19 @@
       ${taskResult.feedback.map((message) => `<p>${escapeHtml(message)}</p>`).join("")}
       <p class="example-key">一個可接受例子</p>
     </section>`;
+    formatPhysicsNotation(elements.resultFeedback);
   }
 
   function renderResultTabs() {
-    elements.resultTabs.innerHTML = Tasks.TASKS.map((task, index) =>
-      `<button type="button" data-result-task="${index}" aria-pressed="${index === resultTaskIndex}">
-        第 ${task.scenarioNumber} 關 ${escapeHtml(task.graphLabel)}</button>`
-    ).join("");
+    const buttons = Tasks.TASKS.map((task, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.resultTask = String(index);
+      button.setAttribute("aria-pressed", String(index === resultTaskIndex));
+      setPhysicsText(button, `第 ${task.scenarioNumber} 關 ${task.graphLabel}`);
+      return button;
+    });
+    elements.resultTabs.replaceChildren(...buttons);
   }
 
   elements.resultTabs.addEventListener("click", (event) => {
@@ -743,11 +862,13 @@
     elements.scorePanel.innerHTML = `<strong>${result.score} / 100</strong><p>${escapeHtml(completion)}；綜合關 ${result.compositeScore.toFixed(1)} / 35</p>
       <p>x–t ${result.categoryScores.xt.toFixed(1)} / 36；v–t ${result.categoryScores.vt.toFixed(1)} / 32；a–t ${result.categoryScores.at.toFixed(1)} / 32</p>
       ${result.masteryFailures.length ? `<p>尚未掌握：${result.masteryFailures.map((failure) => escapeHtml(failure.label)).join("；")}</p>` : ""}`;
+    formatPhysicsNotation(elements.scorePanel);
     elements.resultNotice.textContent = notice;
     elements.resultNotice.classList.toggle("is-hidden", !notice);
     elements.resultRetryButton.classList.toggle("is-hidden", !notice);
     renderResultTabs();
     renderResultGraph();
+    formatPhysicsNotation(elements.resultSection);
     focusHeading(elements.resultTitle);
   }
 
@@ -768,6 +889,7 @@
     elements.resultRetryButton.classList.add("is-hidden");
     elements.resultTabs.replaceChildren();
     elements.resultFeedback.innerHTML = `<section><p>${escapeHtml(UiPolicy.technicalCopy("review-fallback"))}</p></section>`;
+    formatPhysicsNotation(elements.resultSection);
     focusHeading(elements.resultTitle);
   }
 
@@ -843,6 +965,7 @@
     showTechnical(UiPolicy.technicalCopy("technical"), false);
   }
 
+  formatPhysicsNotation(elements.controlsPanel);
   updateToolButtons();
   window.__kinematicsGraphDebug = {
     getState: () => state ? JSON.parse(JSON.stringify(state)) : null,

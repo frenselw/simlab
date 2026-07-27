@@ -37,8 +37,12 @@
 11. 曲率證據加入最小 `slopeDelta`、方向一致的二次項及 BIC 支援，直線不能只靠二次模型多一個參數而被判成曲線；
 12. 合格條件加入核心語意 mastery gates：正／負加速度及勻加速／勻減速 `x–t` 曲率不能只靠總分補償；
 13. 「可提交證據完整」統一使用 coverage、edge coverage、readability 及綜合題 phase completeness；
-14. 版面改為固定 viewport 的 bounded split：上方作圖 stage 保持可見，下方 controls panel 獨立捲動；活動不依賴 iframe 自動增高或未部署的 host bridge；
-15. 作圖流程中的三圖列改為非互動完成進度；學生在檢查頁返回修改，不保留無作用的 tab 或「上一幅」控制。
+14. 版面採固定 viewport bounded split：`>=960px` 為左側 `18–24rem` controls、右側主作圖 stage；較窄 tablet／phone 轉為上圖下 controls；活動不依賴 iframe 自動增高或未部署的 host bridge；
+15. 每個情境以 `x–t → v–t → a–t` 顯示，三個普通按鈕可自由切換並保留各自圖線；持久化 task ID／answer array 仍沿用既有 canonical `v–t、a–t、x–t` 順序；
+16. 「下一幅／稍後再做」以曾開啟 `visited` 為流程門檻，不以已畫圖 `answered` 為門檻；三幅均曾開啟後才前往下一情境；
+17. 坐標軸使用向上／向右箭頭，不顯示會暗示答案的 `+`／`−`；`v–t`／`a–t` 保留零軸 `0`；
+18. 清除改為單次操作、空白時停用並可用「復原上一步」取回；提示改名「取得作圖提示」，明示不提交、不計分、不代表答啱；
+19. learner-facing 物理變數使用安全 DOM formatter 產生 `<var>`，不載入 MathJax，亦不把普通英文字母誤判為變數。
 
 ---
 
@@ -143,9 +147,9 @@
    - 關卡 2：已有正速度的勻加速；
    - 關卡 3：正方向勻減速至停止；
    - 關卡 4：四階段綜合運動；
-3. 在同一情境內依次完成 `v–t`、`a–t`、`x–t`；三圖列只顯示目前步驟及完成狀態，提交前可由檢查頁返回任何一幅修改；
-4. 使用畫筆、橡皮擦、復原、重做及清除；
-5. 可按「檢查圖線」取得最多兩項質性提示；
+3. 在同一情境內按建議次序 `x–t`、`v–t`、`a–t` 作圖，並可隨時用三個圖按鈕自由切換；切換前保存目前圖線；
+4. 使用畫筆、橡皮擦、「復原上一步」、「取消復原」及可復原的一鍵清除；
+5. 可按「取得作圖提示」取得最多兩項質性提示；提示明示不提交、不計分、不代表答啱；
 6. 在提交前回到任何一幅圖修改；
 7. 最後一次過提交十二幅圖，取得總分、逐圖物理回饋及跨圖矛盾提示。
 
@@ -348,20 +352,24 @@ v–t 圖的斜率 = 加速度
 ### 6.1 同一情境的三圖安排
 
 - 每個情境保持一個固定題目標題；
-- 圖像順序為 `v–t`、`a–t`、`x–t`；
+- learner-facing 建議次序為 `x–t`、`v–t`、`a–t`；
+- canonical task IDs、answer array index 及舊 snapshot 相容順序維持 `v–t`、`a–t`、`x–t`，顯示次序不得用來重排已保存答案；
 - 手機及桌面都只顯示一個足夠大的 active plot；
-- 三個圖類型以清楚標籤切換，不同圖不縮小成難以手繪的三欄；
-- 已完成圖以縮圖及完成狀態顯示；
-- 首次作答按固定順序；
+- 三個圖類型以普通 button 切換，不使用不完整 ARIA tabs；active button 用 `aria-pressed`；
+- 每個按鈕以文字及 accessible name 顯示「已有圖線／未完成／未開啟」狀態；
+- 切換前 commit 目前 working trace；回到任何圖時恢復其 canonical answer；
+- 首次進入情境顯示 `x–t`，但學生可直接切換到同情境其餘兩圖；
 - 學生可使用「稍後再做」留下空白答案；
-- 十二幅圖均曾開啟後才進入提交前檢視；
+- `visited` 與 `answered` 分開：開啟過圖即算 visited；空白仍屬 unanswered；
+- 「下一幅」前往同情境下一幅未開啟圖；三幅均 visited 後才前往下一情境的 `x–t`，即使其中有空白；
+- 十二幅圖均曾開啟後才進入提交前檢視，空白由 review 明確列出；
 - 檢視頁可返回任何圖修改；
 - 提交前顯示空白／不可判讀圖會取得零分的警告；
 - 學生仍可明確確認提交未完成答案。
 
-### 6.2 「檢查圖線」
+### 6.2 「取得作圖提示」
 
-每幅圖提供「檢查圖線」：
+每幅圖提供「取得作圖提示」：
 
 - 不鎖定答案；
 - 不顯示分數；
@@ -369,6 +377,8 @@ v–t 圖的斜率 = 加速度
 - 最多顯示兩項最高優先級質性提示；
 - 可以重複使用；
 - 不扣分；
+- 按鈕附近固定顯示「作圖提示不提交、不計分、不代表答啱。」；
+- 未按提示前不自動顯示圖線分類摘要，避免學生把即時分類當成正確判定；
 - 檢查結果由現時 trace 即時計算，不另存為權威答案。
 
 完成同一情境三幅圖後，可另顯示最多一項跨圖矛盾提示。
@@ -393,7 +403,7 @@ v–t 圖的斜率 = 加速度
 
 提示：
 
-> 試畫一條由左向右的線，再使用橡皮擦、復原及重做。這部分不計分。
+> 試畫一條由左向右的線，再使用橡皮擦、復原上一步及取消復原。這部分不計分。
 
 要求：
 
@@ -544,8 +554,11 @@ DRAW_BINS = 96
 - 手機起始半徑約 12 CSS px，桌面約 9 CSS px；須經實機測試；
 - 每次完整 pointer drag 是一個 undo operation；
 - 最多保留 24 個 in-memory undo steps；
-- redo 在新操作後清除；
-- clear 要二次確認，並可作為一個 undo operation；
+- learner-facing 名稱為「復原上一步」及「取消復原」；
+- 「取消復原」在新操作後清除；
+- 清除不開啟 modal／`window.confirm`，按一下即清除，並作為一個 undo operation；
+- 空白 trace 時清除 disabled；無可復原／取消復原步驟時相應按鈕 disabled；
+- 清除後在 inline status／`aria-live` 說明可按「復原上一步」取回；
 - undo／redo history 不寫入 SCORM；
 - restore 後 trace 完全恢復，但 undo history 重新開始。
 
@@ -591,12 +604,21 @@ DRAW_BINS = 96
 
 - 情境文字；
 - active 圖類型；
-- 橫軸 `t`；
-- 縱軸 `x`、`v` 或 `a`；
+- 橫軸 `t`，以向右箭頭表示正時間方向；
+- 縱軸 `x`、`v` 或 `a`，以向上箭頭表示正座標方向；
 - 無數字、等距的淡色時間參考線；
 - 工具列；
 - 情境及圖像進度；
 - 「稍後再做」及 navigation。
+
+軸標籤置於箭頭附近並以斜體物理變數呈現。坐標箭頭只交代軸正方向，不交代學生答案的正負。
+
+active plot 前顯示可操作而不宣稱評分門檻的作圖要求：
+
+- 單段 `x–t`：由左端起點標記開始，畫到最右端；
+- 單段 `v–t`／`a–t`：由圖板左邊界開始，畫到最右端；
+- 綜合圖：由左至右完整表達 A、B、C、D 四段；
+- 不向學生宣稱「75% coverage 即正確」或暴露內部容差。
 
 ### 9.2 `x–t`
 
@@ -608,7 +630,8 @@ DRAW_BINS = 96
 ### 9.3 `v–t`／`a–t`
 
 - 零軸位於圖面中間；
-- 上方及下方標示 `+`、`0`、`−`；
+- 左側零軸位置標示 `0`；
+- 不顯示 `+`／`−` 捷徑標籤，學生須由軸方向及零軸判斷正負；
 - 學生線為實線，零軸為較薄灰線；
 - 學生 trace 繪在坐標軸之上。
 
@@ -1100,7 +1123,7 @@ a–t：32
 
 ### 12.1 優先級
 
-每次「檢查圖線」最多顯示兩項：
+每次「取得作圖提示」最多顯示兩項：
 
 1. 空白／不可判讀；
 2. 圖畫錯區域或穿越不應穿越的零軸；
@@ -1140,12 +1163,14 @@ a–t：32
 
 - Control-panel classification：`bounded mobile split-panel`
 - `html`／`body`：`height:100%`、`overflow:hidden`，不可成為第三個縱向 scroll owner。
-- `.graph-app`：同時提供 `height:100vh` 及 `height:100dvh` fallback，並以兩列 grid 填滿固定高度 iframe。
-- 上列 `.stage-region`：只放目前 active graph；在 controls 使用期間保持可見。
-- 下列 `.controls-panel`：`min-height:0`、`overflow-y:auto`、`overscroll-behavior:contain`，包含標題、進度、情境、工具、回饋及 navigation。
+- `.graph-app`：同時提供 `height:100vh` 及 `height:100dvh` fallback，並以 grid 填滿固定高度 iframe。
+- `>=960px` desktop：兩欄；左側 `.controls-panel` 寬度以 `clamp(18rem, 24vw, 24rem)` 限定，右側 `.stage-region` 取得其餘空間並保持較大主視覺。
+- `<960px` tablet／phone：兩列；上列 `.stage-region` 顯示 active graph，下列 `.controls-panel` 顯示題目、工具、回饋及 navigation。
+- `.controls-panel`：`min-height:0`、`overflow-y:auto`、`overscroll-behavior:contain`；desktop 在左、窄屏在下，均是唯一 activity 內縱向 scroll owner。
 - review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得全部高度。
 - iframe 不需要由 host 依內容自動增高；source 及 packaged 測試使用固定 `500px` iframe。
-- Desktop／tablet／phone 均維持 stage 在上、controls 在下；controls 可換行及獨立捲動。
+- desktop graph width 必須大於 controls width；tablet／phone stage bottom 必須不低於 controls top，保持上圖下控。
+- 200% zoom／有效較窄 CSS viewport 觸發上圖下控 reflow，主要按鈕及圖板仍可操作。
 - 不設橫向捲動。
 
 圖板：
@@ -1206,7 +1231,7 @@ a–t：32
 - pen-down 時左右移動會插值；
 - `Delete`：擦除目前位置附近；
 - `Ctrl/Cmd + Z`：復原；
-- `Ctrl/Cmd + Shift + Z` 或 `Ctrl/Cmd + Y`：重做；
+- `Ctrl/Cmd + Shift + Z` 或 `Ctrl/Cmd + Y`：取消復原（redo）；
 - `Escape`：取消未 commit keyboard operation。
 
 鍵盤模式使用同一 96-bin trace。
@@ -1229,6 +1254,14 @@ a–t：32
 - 不在每個 pointermove 朗讀；
 - reduced motion 移除非必要動畫；
 - 技術狀態不稱為已提交、合格或不合格。
+
+### 15.3 物理符號語意
+
+- learner-facing `x`、`v`、`a`、`t` 及 `x–t`／`v–t`／`a–t` 以 `<var>` 建立，不只依賴 CSS 斜體；
+- formatter 以 text node 建立安全 DOM，不把動態文字插入未 escape 的 HTML；
+- 只轉換完整圖名或不與英文字母相連的獨立變數，不能把一般英文單字內的 `a`、`t`、`v`、`x` 改成 `<var>`；
+- SVG 軸標籤維持純文字 `<text>`，畫板另有包含完整圖名及鍵盤操作方式的 plain-text accessible label；
+- 不載入 MathJax；本活動沒有需要額外公式 renderer 的複雜數式。
 
 ---
 
@@ -1292,19 +1325,21 @@ review
 
 | Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `practice` | new／restored | none | `visitedMask=0`；12 answers null | `taskIndex`、`returnToReview` | 開始 task 0 |
-| `task` | first-pass | `0..11` | bits `0..taskIndex` visited；目前及過去 answer 可 null／trace | future visited bits；`returnToReview=true` | 下一圖／進 review |
-| `task` | review-edit | `0..11` | `visitedMask=0xFFF`；answers 可 null／trace；`returnToReview=true` | 無 future restriction | 返回 review |
+| `practice` | new／restored | none | `visitedMask=0`；12 answers null | `taskIndex`、`variant` | 開始關卡 1 `x–t`（canonical index 2） |
+| `task` | first-pass | `0..11` | 所有先前情境 bits visited；目前情境可為任意 visited 組合但必含 active bit；已 visited answer 可 null／trace | 未來情境 visited bits／answers；未 visited 圖不可有 answer | 同情境自由切換／下一未 visited 圖／下一情境／進 review |
+| `task` | review-edit | `0..11` | `visitedMask=0xFFF`；answers 可 null／trace | 無 future restriction | 同情境切換／返回 review |
 | `review` | incomplete | none | 全 visited；至少一圖 null、gross invalid 或 evidence incomplete | task fields | 編輯；警告後提交 |
 | `review` | ready | none | 全 visited；12 圖均非 gross invalid | task fields | 編輯或提交 |
 
 Transitions：
 
 ```text
-practice -> task(first-pass, 0)
-task(first-pass, i) -> task(first-pass, i+1)
-task(first-pass, 11) -> review
+practice -> task(first-pass, uniform-xt / canonical index 2)
+task(first-pass, current scenario graph) -> task(first-pass, same scenario graph)
+task(first-pass, all current scenario graphs visited) -> task(first-pass, next scenario xt)
+task(first-pass, all 12 graphs visited) -> review
 review -> task(review-edit, i)
+task(review-edit, i) -> task(review-edit, same scenario graph)
 task(review-edit, i) -> review
 review -> shared submission after explicit confirmation
 success/committed -> locked review
@@ -1315,9 +1350,11 @@ non-retryable retry -> technical lock
 
 Invariants：
 
-- active answer 只存在於 `answers[taskIndex]`；
+- active editor 只修改 `answers[taskIndex]`；同情境其他 canonical answers 在切換時保留；
 - working drag 是 transient；
-- first-pass future answers 必須 null；
+- visited 不等於 answered；visited 圖可保留 null；
+- first-pass future scenarios answers 必須 null；
+- 同一情境 graph switching 只改 active index、visited bit 及保存當前 trace，不重排 answer array；
 - review-edit 可保留所有 future answers；
 - review 可包含 null，因為明確警告後容許 incomplete submission。
 
@@ -1419,8 +1456,8 @@ project absolute ceiling               < 4000 bytes
 
 - supported schema／task version；
 - legal phase／variant／task index；
-- visited prefix valid；
-- first-pass future answers null；
+- first-pass 所有先前情境 visited、active bit visited、未來情境未 visited；
+- first-pass 未來情境 answers null；任何非 null answer 必須已有 visited bit；
 - review-edit／review visited mask 全滿；
 - answers length 12；
 - 每個 trace canonical 且 decode 為 96 bytes；
@@ -1652,8 +1689,10 @@ validate review
 - encode／decode／restore；
 - `score(original) === score(restored)`；
 - 執行一個合法 continuation；
-- invalid phase／variant／task／visited prefix；
-- future answer in first-pass；
+- invalid phase／variant／task／scenario visited mask；
+- first-pass 未來情境 answer、未 visited 圖有 answer；
+- 顯示次序 `x–t → v–t → a–t` 與 canonical answer index 相容；
+- 同情境切換保存 trace；三圖只 visited 未 answered 仍可進下一情境；
 - answers length；
 - canonical trace；
 - maximum size；
@@ -1680,6 +1719,8 @@ Development source及built／extracted package：
 - browser toolbar、software keyboard；
 - no horizontal scroll；
 - primary actions reachable；
+- `>=960px` controls 在左、graph 在右且 graph 較寬；
+- phone／tablet／200% reflow 時 graph 在上、controls 在下；
 - fixed-height Moodle-like iframe，不自動改寫 iframe height；
 - trusted swipe from controls ordinary text 只捲動 controls panel；
 - controls panel 在邊界不把 scroll 洩漏到 host 或 activity document；
@@ -1692,6 +1733,11 @@ Development source及built／extracted package：
 - backward／edge／long diagonal；
 - second simultaneous touch ignored；
 - tool tap once；
+- 軸向上／向右箭頭存在、`+`／`−` shortcut 不存在、`v–t`／`a–t` 保留 `0`；
+- 同情境 graph button switching、`aria-pressed`／狀態 accessible name 及 canonical trace 保留；
+- 「取得作圖提示」不改 state／score，提示前不自動顯示摘要；
+- 一鍵清除、blank disabled、inline status 及 undo restore；
+- learner-facing graph labels 使用 `<var>`，普通英文單字不被 formatter 改寫；
 - keyboard mode；
 - 練習選過橡皮擦後開始挑戰會重設成畫筆；
 - valid／invalid draft、trusted／mismatched finished review、valid／invalid pending；

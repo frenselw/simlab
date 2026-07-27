@@ -7,6 +7,7 @@
 
   const TASK_SET_VERSION = 1;
   const GRAPH_TYPES = Object.freeze(["vt", "at", "xt"]);
+  const DISPLAY_GRAPH_TYPES = Object.freeze(["xt", "vt", "at"]);
   const SCENARIOS = Object.freeze([
     {
       id: "uniform",
@@ -95,15 +96,22 @@
     return TASKS.filter((task) => task.scenarioId === id);
   }
 
+  function displayTasksForScenario(id) {
+    const tasks = tasksForScenario(id);
+    return DISPLAY_GRAPH_TYPES.map((type) => tasks.find((task) => task.graphType === type)).filter(Boolean);
+  }
+
   return {
     TASK_SET_VERSION,
     GRAPH_TYPES,
+    DISPLAY_GRAPH_TYPES,
     GRAPH_LABELS,
     SCENARIOS,
     TASKS,
     taskById,
     taskIndexById,
     scenarioById,
-    tasksForScenario
+    tasksForScenario,
+    displayTasksForScenario
   };
 });

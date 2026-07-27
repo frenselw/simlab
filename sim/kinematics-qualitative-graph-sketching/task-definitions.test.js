@@ -7,6 +7,7 @@ assert.equal(Tasks.TASK_SET_VERSION, 1);
 assert.equal(Tasks.TASKS.length, 12);
 assert.equal(new Set(Tasks.TASKS.map((task) => task.id)).size, 12);
 assert.deepEqual(Tasks.GRAPH_TYPES, ["vt", "at", "xt"]);
+assert.deepEqual(Tasks.DISPLAY_GRAPH_TYPES, ["xt", "vt", "at"]);
 assert.deepEqual(
   Tasks.SCENARIOS.map((scenario) => scenario.points),
   [15, 25, 25, 35]
@@ -20,6 +21,7 @@ assert.deepEqual(
 );
 assert.equal(Tasks.tasksForScenario("uniform").length, 3);
 assert.deepEqual(Tasks.tasksForScenario("uniform").map((task) => task.graphType), ["vt", "at", "xt"]);
+assert.deepEqual(Tasks.displayTasksForScenario("uniform").map((task) => task.graphType), ["xt", "vt", "at"]);
 assert.deepEqual(Tasks.scenarioById("composite").phases, [
   "A 勻加速", "B 勻速", "C 勻減速至停止", "D 靜止"
 ]);

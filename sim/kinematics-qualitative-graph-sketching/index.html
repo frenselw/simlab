@@ -45,13 +45,13 @@
         <section id="practiceSection" class="activity-section">
         <p class="section-kicker">畫板操作練習（不計分）</p>
         <h2 id="practiceTitle" tabindex="-1">先試畫一條線</h2>
-        <p>在圖板由左向右畫線，再試用橡皮擦、復原及重做。準備好便開始挑戰。</p>
+        <p>在圖板由左向右畫線，再試用橡皮擦、復原上一步及取消復原。準備好便開始挑戰。</p>
         <div class="tool-row" role="toolbar" aria-label="練習畫板工具">
           <button type="button" data-tool="pen" aria-pressed="true">畫筆</button>
           <button type="button" data-tool="erase" aria-pressed="false">橡皮擦</button>
-          <button type="button" data-action="undo">復原</button>
-          <button type="button" data-action="redo">重做</button>
-          <button type="button" data-action="clear">清除</button>
+          <button type="button" data-action="undo" disabled>復原上一步</button>
+          <button type="button" data-action="redo" disabled>取消復原</button>
+          <button type="button" data-action="clear" disabled>清除</button>
         </div>
         <nav class="navigation-row practice-navigation" aria-label="練習流程">
           <button id="startChallengeButton" type="button" class="primary-button">開始挑戰</button>
@@ -64,24 +64,26 @@
           <h2 id="scenarioTitle" tabindex="-1">正方向勻速</h2>
           <p id="scenarioPrompt"></p>
         </div>
-        <div id="graphTabs" class="graph-tabs" aria-label="同一情境三幅圖的完成進度"></div>
+        <div id="graphTabs" class="graph-tabs" aria-label="切換同一情境的三幅圖"></div>
         <div class="task-status-row">
           <strong id="graphLabel">速度—時間圖</strong>
           <span id="taskCounter">第 1 / 12 幅</span>
         </div>
+        <p id="graphRequirement" class="graph-requirement"></p>
         <div class="tool-row" role="toolbar" aria-label="作圖工具">
           <button type="button" data-tool="pen" aria-pressed="true">畫筆</button>
           <button type="button" data-tool="erase" aria-pressed="false">橡皮擦</button>
-          <button type="button" data-action="undo">復原</button>
-          <button type="button" data-action="redo">重做</button>
-          <button type="button" data-action="clear">清除</button>
+          <button type="button" data-action="undo" disabled>復原上一步</button>
+          <button type="button" data-action="redo" disabled>取消復原</button>
+          <button type="button" data-action="clear" disabled>清除</button>
         </div>
         <div class="check-row">
-          <button id="checkGraphButton" type="button">檢查圖線</button>
+          <button id="checkGraphButton" type="button">取得作圖提示</button>
           <button id="skipButton" type="button">稍後再做</button>
         </div>
+        <p class="hint-disclaimer">作圖提示不提交、不計分、不代表答啱。</p>
         <div id="graphFeedback" class="graph-feedback" role="status" aria-live="polite"></div>
-        <p id="graphAlternative" class="graph-alternative">資料不足</p>
+        <p id="graphAlternative" class="graph-alternative is-hidden"></p>
         <nav class="navigation-row" aria-label="作圖流程">
           <button id="nextButton" type="button" class="primary-button">下一幅</button>
         </nav>
@@ -126,13 +128,13 @@
             <line x1="526" y1="44" x2="526" y2="476"></line>
           </g>
           <g class="axis-layer">
-            <line class="vertical-axis" x1="76" y1="44" x2="76" y2="476"></line>
-            <line class="time-axis" x1="76" y1="476" x2="690" y2="476"></line>
-            <text class="vertical-label" x="38" y="50">v</text>
-            <text class="time-label" x="690" y="508">t</text>
-            <text class="positive-label" x="51" y="72">+</text>
+            <line class="vertical-axis" x1="76" y1="54" x2="76" y2="476"></line>
+            <polygon class="vertical-arrow" points="76,34 65,56 87,56"></polygon>
+            <line class="time-axis" x1="76" y1="476" x2="674" y2="476"></line>
+            <polygon class="time-arrow" points="696,476 674,465 674,487"></polygon>
+            <text class="vertical-label" x="43" y="55">v</text>
+            <text class="time-label" x="674" y="512">t</text>
             <text class="zero-label" x="50" y="267">0</text>
-            <text class="negative-label" x="52" y="458">−</text>
             <circle class="start-marker" cx="76" cy="424" r="7"></circle>
           </g>
           <path class="student-path" d=""></path>
