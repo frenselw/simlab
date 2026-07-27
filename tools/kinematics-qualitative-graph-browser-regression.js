@@ -576,6 +576,10 @@ function lmsValues(snapshot, status = "incomplete", score = "") {
 }
 
 async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false
+  });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
   const fixture = reviewFixture();
   const taskDraft = {
     v: Persistence.VERSION,
@@ -600,6 +604,16 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   assert.deepEqual(await evaluate(cdp, `Array.from(document.querySelectorAll("[data-edit-task]"))
     .slice(0,3).map(button=>button.dataset.editTask)`), ["2", "0", "1"],
   `${label}: review list uses x-t, v-t, a-t display order with canonical indices`);
+  const reviewLayout = await evaluate(cdp, `(() => {
+    const app=document.querySelector(".graph-app").getBoundingClientRect();
+    const controls=document.getElementById("controlsPanel").getBoundingClientRect();
+    const review=document.getElementById("reviewSection").getBoundingClientRect();
+    return {appHeight:app.height,controlsHeight:controls.height,reviewHeight:review.height,controlsTop:controls.top};
+  })()`);
+  assert.ok(reviewLayout.controlsHeight >= reviewLayout.appHeight - 2,
+    `${label}: desktop no-stage review controls retain the full app height`);
+  assert.ok(reviewLayout.reviewHeight > 300 && reviewLayout.controlsTop <= 1,
+    `${label}: desktop review content is not collapsed into a zero-height grid row`);
 
   await setPreload(cdp, lmsValues({ version: 1, activity, kind: "draft", answer: taskDraft }));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=valid-draft`);

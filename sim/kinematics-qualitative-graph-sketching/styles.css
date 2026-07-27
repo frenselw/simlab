@@ -194,7 +194,8 @@ body { margin: 0; }
   }
   .activity-section { width: 100%; margin-top: .7rem; padding: .75rem; }
   .graph-app.no-stage {
-    grid-template-columns: minmax(18rem, 42rem); justify-content: center;
+    grid-template-columns: minmax(18rem, 42rem); grid-template-rows: minmax(0, 1fr);
+    justify-content: center;
   }
   .graph-app.no-stage .controls-panel { grid-column: 1; }
 }
