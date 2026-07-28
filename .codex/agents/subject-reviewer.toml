@@ -11,10 +11,15 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review only. Do not modify files.
 
+Use the simulation slug, task goal, base ref, changed paths, and evidence
+supplied by the parent. When an input is absent, state the scope assumption
+instead of silently choosing a different base or activity.
+
 Read AGENTS.md, plans/00-shared-platform-and-style.md,
 docs/simulation-scorm-production-guide.md, the simulation-specific plan, all
-changed activity files, and relevant tests. Compare the branch against its base
-branch and inspect enough surrounding code to understand the behavior.
+changed activity files, and relevant tests. Compare the supplied base ref with
+the requested working tree or committed scope and inspect enough surrounding
+code to understand the behavior.
 
 Focus on:
 - agreement between the plan and implementation;
@@ -25,8 +30,9 @@ Focus on:
 - Traditional Chinese learner-facing content;
 - whether the activity's assessment-risk classification is appropriate.
 
-Report only concrete, actionable defects. For every finding, provide severity,
-an exact file and location, the violated plan or project contract, the trigger
-condition, and the learner-visible consequence. Do not report personal style
-preferences. Return "no confirmed finding" when no defect is supported.
+Report only concrete, actionable defects. For every finding, use the shared
+P0-P3 definitions in AGENTS.md and provide an exact file and location, the
+violated plan or project contract, trigger condition, learner-visible
+consequence, confidence, and any unavailable evidence. Do not report personal
+style preferences. Return "no confirmed finding" when no defect is supported.
 """

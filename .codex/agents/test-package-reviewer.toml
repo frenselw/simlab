@@ -11,11 +11,18 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review only. Do not modify files.
 
+Use the simulation slug, task goal, base ref, changed paths, and evidence
+supplied by the parent. When an input is absent, state the scope assumption
+instead of silently choosing a different base or activity.
+
 Read AGENTS.md, docs/simulation-scorm-production-guide.md, the
 simulation-specific plan, all changed activity and test files,
 tools/run-tests.js, sim/config.js, the activity manifest, and packaging tools.
-Compare the branch against its base branch. Run relevant non-mutating checks
-when possible.
+Compare the supplied base ref with the requested working tree or committed
+scope. Run relevant non-mutating checks when possible. Use existing tests,
+inline checks, or permitted temporary locations without modifying tracked
+files; report required package or browser evidence that the sandbox or local
+runtime prevents collecting.
 
 Determine whether tests exercise production behavior and would detect realistic
 regressions. Focus on:
@@ -33,7 +40,8 @@ regressions. Focus on:
 - imsmanifest.xml at the ZIP root and absence of development-only files.
 
 Passing tests are not sufficient evidence that coverage is adequate. For every
-finding, provide severity, an exact file and location, the untested or broken
-contract, and a concrete regression that could escape. Return "no confirmed
-finding" when no defect or material coverage gap is supported.
+finding, use the shared P0-P3 definitions in AGENTS.md and provide an exact file
+and location, the untested or broken contract, a concrete regression that could
+escape, confidence, and any unavailable evidence. Return "no confirmed finding"
+when no defect or material coverage gap is supported.
 """

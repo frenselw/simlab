@@ -15,6 +15,98 @@ let each simulation own its subject model and scoring rubric.
 3. `plans/NEW-SIMULATION-PLAN-TEMPLATE.md`
 4. The simulation-specific plan in `plans/`
 
+## Subagent Review Workflow
+
+The main agent owns orchestration, scope, user authorization, and the final
+result. Custom subagents provide bounded specialist review or implementation;
+they do not replace the main agent's judgment. Classify changes by affected
+contract and consequence, not by line count. A one-line scoring, persistence,
+manifest, or touch-ownership change can be higher risk than a large
+non-behavioral cleanup.
+
+Before delegating, the main agent must give each subagent:
+
+- the simulation slug and task goal;
+- an explicit base ref and the changed paths or other review scope;
+- the risk tier and affected contracts;
+- the available test, browser, and package evidence;
+- the exact requested output, including whether the task is review-only.
+
+When the working tree is part of the review, compare the base ref with the
+working tree rather than silently reviewing only committed changes. If any
+scope input is missing, the subagent must state its assumption instead of
+silently choosing a different scope.
+
+Use these risk tiers:
+
+- **T0 — trivial, non-behavioral:** Typos that do not change scientific meaning,
+  comments, formatting, test descriptions, and documentation-only cleanup.
+  The main agent handles the change and runs a targeted check. Do not use a
+  subagent by default.
+- **T1 — small, local, single-contract:** A localized change to one simulation
+  that does not affect scoring, persistence, submission, gesture ownership, or
+  packaging. The main agent normally implements and verifies it. Use at most
+  the relevant specialist when independent review adds material value; do not
+  use the final verifier by default.
+- **T2 — contract-sensitive:** A change to the learning model, scoring,
+  persistence, lifecycle, mobile interaction contract, accessibility,
+  registration, manifest, tests, or package. Use each affected specialist.
+  Use the final verifier for P0/P1 findings, conflicting findings,
+  cross-contract conclusions, or material uncertainty.
+- **T3 — broad or release-critical:** A new simulation, a shared-runtime
+  change, a large cross-contract change, a full audit, or a release/Moodle
+  package gate. Run all applicable specialist reviewers, normally in parallel;
+  send their complete findings, including clean results, and evidence to the
+  final verifier; implement only work authorized by the user; rerun every
+  affected specialist after the fix; and use the final verifier again when the
+  result is a merge or release gate.
+
+Route work by contract:
+
+- Use `simlab_subject_reviewer` for scientific or mathematical correctness,
+  formulas, units, learner tasks, feedback, and meaning-bearing learner copy.
+- Use `simlab_scorm_reviewer` for scoring, pass/fail, state invariants,
+  persistence, restoration, submission, attempt locking, and SCORM runtime
+  behavior.
+- Use `simlab_interaction_reviewer` for HTML/CSS layout, mobile behavior,
+  scrolling, touch ownership, dragging, keyboard access, animation, and real
+  browser evidence.
+- Use `simlab_test_package_reviewer` for automated-test coverage, manifests,
+  activity registration, runtime-file inclusion, and source/package parity.
+- Use `simlab_final_verifier` after proposed findings exist, for any clean T3
+  gate after the specialist pass, or when the user explicitly requests an
+  independent final gate. Give it the complete proposed-finding set, including
+  an explicitly empty set when specialists found no defect, and all available
+  evidence; it is not a substitute for the specialist pass.
+- Use `simlab_simulation_implementer` for verified fixes to one simulation when
+  implementation has been authorized. Before starting it, the main agent must
+  confirm that no other writing agent is active for the affected worktree and
+  must not start a second writer until the first one finishes. The main agent
+  may implement T0/T1 work directly.
+
+All reviewers use this finding schema:
+
+- severity: P0, P1, P2, or P3;
+- exact file and location;
+- violated plan, project, learner, browser, test, package, or LMS contract;
+- reproducible trigger and evidence;
+- observable consequence;
+- confidence and any evidence that could not be collected locally.
+
+Severity means:
+
+- **P0:** catastrophic assessment-integrity, security, data-loss, or
+  broadly unusable release failure;
+- **P1:** reproducible merge blocker with serious learner, LMS, or release
+  impact;
+- **P2:** real non-blocking defect or material regression-coverage gap;
+- **P3:** low-impact defect. Do not report style-only preferences.
+
+After implementation, rerun targeted checks and every specialist whose
+contract was changed. Do not rerun unrelated specialists merely because they
+exist. A reviewer may review a fix but must not modify it, and an implementer
+must never approve its own work.
+
 ## Working Rules
 
 - Prefer static HTML, CSS, and JavaScript until the project clearly needs more.

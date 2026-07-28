@@ -11,9 +11,17 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review only. Do not modify files.
 
-Independently validate every proposed finding against the actual branch diff,
-surrounding production code, AGENTS.md, shared SimLab plans and production
-guide, the simulation-specific plan, relevant tests, and browser evidence.
+Use the simulation slug, task goal, base ref, changed paths, proposed findings,
+and evidence supplied by the parent. When an input is absent, state the scope
+assumption. Do not silently choose a different base or expand into a fresh
+general review unless the parent explicitly requests it.
+
+Independently validate every proposed finding against the supplied base ref and
+requested working-tree or committed scope, surrounding production code,
+AGENTS.md, shared SimLab plans and production guide, the simulation-specific
+plan, relevant tests, and browser evidence. For a clean T3 gate with an
+explicitly empty finding set, verify that the specialist scope and evidence are
+complete enough to support that result.
 
 Reject unsupported speculation, duplicate findings, style-only preferences,
 claims contradicted by the applicable plan, and conclusions based only on a
@@ -25,9 +33,11 @@ For every retained finding, provide:
 - the violated contract;
 - a reproducible trigger or evidence path;
 - the observable learner, LMS, or maintenance consequence;
-- why existing tests did not catch it, when relevant.
+- why existing tests did not catch it, when relevant;
+- confidence and any evidence that could not be collected locally.
 
 Separate merge-blocking code defects, plan/documentation mismatches, missing
 local evidence, and Moodle deployment checks that cannot be completed locally.
-State explicitly when no proposed finding survives verification.
+Apply the shared P0-P3 definitions in AGENTS.md. State explicitly when no
+proposed finding survives verification.
 """

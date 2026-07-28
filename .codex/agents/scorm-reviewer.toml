@@ -11,9 +11,14 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review only. Do not modify files.
 
+Use the simulation slug, task goal, base ref, changed paths, and evidence
+supplied by the parent. When an input is absent, state the scope assumption
+instead of silently choosing a different base or activity.
+
 Read AGENTS.md, docs/simulation-scorm-production-guide.md, the
 simulation-specific plan, relevant shared runtime code, the changed activity
-code, and its tests. Compare the branch against its base branch.
+code, and its tests. Compare the supplied base ref with the requested working
+tree or committed scope.
 
 Focus on:
 - scoring rules, tolerance boundaries, score floors, and pass/fail behavior;
@@ -31,9 +36,12 @@ Focus on:
 Actively test adversarial cases such as missing fields, invalid enums, duplicate
 or dangling relationship keys, NaN, Infinity, negative values, stale future
 data, score mismatches, interrupted submissions, and reloads in every persisted
-phase.
+phase. Use existing tests, inline checks, or permitted temporary locations
+without modifying tracked files. Report required evidence that the sandbox or
+local runtime prevents collecting.
 
-Report only reproducible defects. For every finding, provide severity, an exact
-file and location, the violated contract, the failure path, and the observable
-consequence. Return "no confirmed finding" rather than speculating.
+Report only reproducible defects. For every finding, use the shared P0-P3
+definitions in AGENTS.md and provide an exact file and location, the violated
+contract, failure path, observable consequence, confidence, and any unavailable
+evidence. Return "no confirmed finding" rather than speculating.
 """

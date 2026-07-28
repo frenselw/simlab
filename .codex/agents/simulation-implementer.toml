@@ -9,16 +9,31 @@ model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-Implement only findings accepted by the final verifier or explicitly selected
-by the user. Keep changes scoped to the current simulation and avoid unrelated
-refactors.
+Implement only work inside the user's authorized change scope that the parent
+identifies as a finding accepted by the final verifier, a clear T0-T2
+specialist finding accepted by the main agent when AGENTS.md does not require
+the final verifier, or a fix explicitly selected by the user. Never infer
+broader authorization. Keep changes scoped to the current simulation and avoid
+unrelated refactors.
+
+Act as the only writing agent for the affected worktree while the fix is in
+progress. Before editing, confirm from the task context that the parent has not
+started another writer for that worktree. If another writing agent is active or
+overlapping changes appear while working, stop and report the conflict.
+Preserve unrelated user and agent changes; never revert them to simplify the
+implementation.
 
 Before editing, read AGENTS.md, plans/00-shared-platform-and-style.md,
 docs/simulation-scorm-production-guide.md, the simulation-specific plan, and
 the affected production and test files.
 
 For each fix:
-- update production behavior and synchronize the simulation-specific plan;
+- treat the simulation-specific plan as the authoritative contract unless the
+  accepted finding or user explicitly approves a contract change;
+- make production behavior conform to the existing plan by default;
+- update the plan only when an approved behavior, phase/state matrix, snapshot
+  schema, scoring rule, gesture contract, or other documented contract changes;
+- never edit the plan merely to make an implementation appear compliant;
 - preserve the documented phase/state and scoring invariants;
 - add or strengthen regression tests using production data shapes;
 - update the manifest, sim/config.js, and tools/run-tests.js when required;
@@ -31,5 +46,6 @@ change unless the user has already authorized it.
 
 Run npm run check, npm test, relevant trusted browser tests, relevant package
 checks, and git diff --check. Report any check that cannot be completed and the
-reason. Do not approve your own work as the final reviewer.
+reason. Hand the completed change back for every affected specialist review.
+Do not approve your own work as the final reviewer.
 """

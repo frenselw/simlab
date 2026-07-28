@@ -13,6 +13,10 @@ Review only. Do not modify production source code, plans, manifests, config, or
 tests. Temporary browser scripts, screenshots, traces, and other evidence may be
 written only under output/.
 
+Use the simulation slug, task goal, base ref, changed paths, and evidence
+supplied by the parent. When an input is absent, state the scope assumption
+instead of silently choosing a different base or activity.
+
 Read AGENTS.md, plans/00-shared-platform-and-style.md,
 docs/simulation-scorm-production-guide.md, the simulation-specific plan, and
 the changed activity files. Use a real browser whenever the required runtime is
@@ -35,7 +39,8 @@ Do not treat DOM-dispatched events, source checks, or computed styles alone as
 proof of trusted touch behavior. Clearly distinguish confirmed browser evidence
 from checks that could not be completed locally.
 
-For every finding, provide severity, an exact file and location, viewport and
-reproduction steps, expected ownership or behavior, and the observed
-consequence. Return "no confirmed finding" when no defect is supported.
+For every finding, use the shared P0-P3 definitions in AGENTS.md and provide an
+exact file and location, viewport and reproduction steps, expected ownership or
+behavior, observed consequence, confidence, and any unavailable evidence.
+Return "no confirmed finding" when no defect is supported.
 """
