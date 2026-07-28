@@ -502,7 +502,7 @@ async function clickSelector(cdp, selector) {
 
 async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
   await setPreload(cdp, null);
-  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [402, 874], [700, 390], [820, 700], [874, 402], [1024, 700], [1440, 900], [1920, 1080]]) {
+  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [402, 874], [700, 390], [768, 1024], [820, 700], [874, 402], [1024, 700], [1024, 768], [1366, 1024], [1440, 900], [1920, 1080]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: 1, mobile: width < 600
     });
@@ -544,14 +544,24 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
         `${label} ${width}x${height}: phone/tablet graph remains above controls`);
     }
     if (width === 402 && height === 874) {
-      assert.ok(metrics.stage.height <= height * 0.46,
-        `${label} ${width}x${height}: portrait stage leaves most of the viewport for controls`);
+      assert.ok(metrics.stage.height <= metrics.board.height + 18,
+        `${label} ${width}x${height}: portrait stage hugs the graph instead of reserving blank height`);
       assert.ok(metrics.board.width >= 350,
         `${label} ${width}x${height}: portrait graph uses the available width`);
     }
+    if (width === 768 && height === 1024) {
+      assert.ok(metrics.board.width >= 720,
+        `${label} ${width}x${height}: portrait tablet graph uses the available width`);
+      assert.ok(metrics.stage.height <= metrics.board.height + 18,
+        `${label} ${width}x${height}: portrait tablet stage avoids vertical padding`);
+    }
     if (width === 874 && height === 402) {
-      assert.ok(metrics.board.width >= 400,
+      assert.ok(metrics.board.width >= 480,
         `${label} ${width}x${height}: wide short desktop graph uses the stage`);
+    }
+    if (width === 1024 && height === 768) {
+      assert.ok(metrics.board.width >= 720,
+        `${label} ${width}x${height}: landscape tablet graph uses the available stage width`);
     }
   }
   await cdp.send("Emulation.setDeviceMetricsOverride", {
