@@ -101,6 +101,8 @@
         <div id="practiceMount" class="graph-mount"></div>
         <div id="taskMount" class="graph-mount is-hidden"></div>
         <div id="resultGraphMount" class="graph-mount result-graph-mount is-hidden"></div>
+        <div id="stageCompletenessHint" class="graph-completeness-hint is-hidden"
+          role="status" aria-live="polite">圖線未畫完</div>
       </div>
 
       <div id="liveRegion" class="sr-only" aria-live="polite"></div>
@@ -146,7 +148,6 @@
             <circle class="cursor-dot" cx="76" cy="476" r="7"></circle>
           </g>
         </svg>
-        <div class="graph-completeness-hint is-hidden" role="status" aria-live="polite">圖線未畫完</div>
         <div class="graph-input-surface" role="application" tabindex="0"
           aria-label="定性運動圖作圖板。空白鍵切換畫筆，方向鍵移動，Delete 擦除，Control Z 復原。"></div>
       </figure>

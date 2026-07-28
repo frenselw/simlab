@@ -124,7 +124,7 @@
       this.surface = mount.querySelector(".graph-input-surface");
       this.studentPath = mount.querySelector(".student-path");
       this.exemplarPath = mount.querySelector(".exemplar-path");
-      this.completenessHint = mount.querySelector(".graph-completeness-hint");
+      this.completenessHint = elements.stageCompletenessHint;
       this.phaseLayer = mount.querySelector(".phase-layer");
       this.cursorX = mount.querySelector(".cursor-x");
       this.cursorY = mount.querySelector(".cursor-y");
@@ -518,6 +518,7 @@
     });
     const hidden = !mount;
     elements.stageRegion.classList.toggle("is-hidden", hidden);
+    if (mount !== elements.taskMount) elements.stageCompletenessHint.classList.add("is-hidden");
     document.querySelector(".graph-app").classList.toggle("no-stage", hidden);
   }
 

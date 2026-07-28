@@ -221,7 +221,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
     const state=window.__kinematicsGraphDebug.getState();
     const writes=window.SimScorm.getLocalLog().filter(entry=>entry.key==='cmi.suspend_data');
     return {answer:state.answers[state.taskIndex],draft:writes.at(-1)?.value||'',
-      incompleteHint:!document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
+      incompleteHint:!document.getElementById("stageCompletenessHint").classList.contains("is-hidden")};
   })()`);
   assert.equal(typeof taskSaved.answer, "string", `${label}: committed task trace becomes authoritative answer`);
   assert.match(taskSaved.draft, /"kind":"draft"/, `${label}: semantic task change saves through shared SCORM runtime`);
@@ -293,7 +293,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   const completedTrace = await evaluate(cdp, `(() => {
     const s=window.__kinematicsGraphDebug.getState();
     return {answer:s.answers[s.taskIndex],
-      hintHidden:document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
+      hintHidden:document.getElementById("stageCompletenessHint").classList.contains("is-hidden")};
   })()`);
   assert.equal(completedTrace.hintHidden, true, `${label}: full continuous trace clears the completion hint`);
 
@@ -302,7 +302,7 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   const cleared = await evaluate(cdp, `(() => {
     const s=window.__kinematicsGraphDebug.getState();
     return {answer:s.answers[s.taskIndex],disabled:document.querySelector('#taskSection [data-action="clear"]').disabled,
-      hintHidden:document.querySelector("#taskMount .graph-completeness-hint").classList.contains("is-hidden")};
+      hintHidden:document.getElementById("stageCompletenessHint").classList.contains("is-hidden")};
   })()`);
   assert.equal(cleared.answer, null, `${label}: one-click clear immediately clears the authoritative answer`);
   assert.equal(cleared.disabled, true, `${label}: clear is disabled for a blank trace`);
@@ -502,7 +502,7 @@ async function clickSelector(cdp, selector) {
 
 async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
   await setPreload(cdp, null);
-  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [820, 700], [1024, 700], [1440, 900], [1920, 1080]]) {
+  for (const [width, height] of [[320, 500], [390, 500], [390, 600], [402, 874], [700, 390], [820, 700], [874, 402], [1024, 700], [1440, 900], [1920, 1080]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: 1, mobile: width < 600
     });
@@ -521,10 +521,11 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
         overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         buttonVisible:r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth,
         boardVisible:board.width>220&&board.height>160,
+        board:{width:board.width,height:board.height},
         app:{left:app.left,right:app.right,width:app.width},
         progressRows:new Set(progress.map(item=>Math.round(item.top))).size,
-        stage:{left:stage.left,top:stage.top,right:stage.right,bottom:stage.bottom,width:stage.width},
-        controls:{left:controls.left,top:controls.top,right:controls.right,bottom:controls.bottom,width:controls.width}
+        stage:{left:stage.left,top:stage.top,right:stage.right,bottom:stage.bottom,width:stage.width,height:stage.height},
+        controls:{left:controls.left,top:controls.top,right:controls.right,bottom:controls.bottom,width:controls.width,height:controls.height}
       };
     })()`);
     assert.ok(metrics.overflow <= 1, `${label} ${width}x${height}: no horizontal overflow`);
@@ -541,6 +542,16 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
     } else {
       assert.ok(metrics.stage.bottom <= metrics.controls.top + 2,
         `${label} ${width}x${height}: phone/tablet graph remains above controls`);
+    }
+    if (width === 402 && height === 874) {
+      assert.ok(metrics.stage.height <= height * 0.46,
+        `${label} ${width}x${height}: portrait stage leaves most of the viewport for controls`);
+      assert.ok(metrics.board.width >= 350,
+        `${label} ${width}x${height}: portrait graph uses the available width`);
+    }
+    if (width === 874 && height === 402) {
+      assert.ok(metrics.board.width >= 400,
+        `${label} ${width}x${height}: wide short desktop graph uses the stage`);
     }
   }
   await cdp.send("Emulation.setDeviceMetricsOverride", {
