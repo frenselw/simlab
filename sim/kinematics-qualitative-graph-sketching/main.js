@@ -623,9 +623,6 @@
       return `<section class="review-scenario"><h3>第 ${scenario.number} 關：${escapeHtml(scenario.title)}</h3>
         <div class="review-task-grid">${cards}</div></section>`;
     }).join("");
-    elements.contradictionPreview.classList.toggle("is-hidden", !result.contradictions.length);
-    elements.contradictionPreview.innerHTML = result.contradictions.length
-      ? `<strong>三圖關係提示</strong><ul>${result.contradictions.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul>` : "";
     formatPhysicsNotation(elements.reviewSection);
     focusHeading(elements.reviewTitle);
   }
@@ -677,9 +674,24 @@
   });
 
   function sameResult(left, right) {
-    return Boolean(left && right && left.score === right.score &&
-      Number(left.maxScore || 100) === Number(right.maxScore || 100) &&
-      Boolean(left.passed) === Boolean(right.passed));
+    return validResultMetadata(left) && validResultMetadata(right) &&
+      left.score === right.score && left.maxScore === right.maxScore && left.passed === right.passed;
+  }
+
+  function validResultMetadata(result) {
+    return Boolean(result && Number.isFinite(result.score) && Number.isFinite(result.maxScore) &&
+      result.maxScore > 0 && result.score >= 0 && result.score <= result.maxScore &&
+      typeof result.passed === "boolean");
+  }
+
+  function makeReviewSnapshot(review, result) {
+    if (!validResultMetadata(result)) throw new Error("Invalid final result metadata");
+    const snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", review, result);
+    snapshot.maxScore = result.maxScore;
+    if (new TextEncoder().encode(JSON.stringify(snapshot)).length > 4000) {
+      throw new Error("Final review snapshot exceeds 4000 bytes");
+    }
+    return snapshot;
   }
 
   function sameReview(left, right) {
@@ -690,16 +702,19 @@
     try {
       if (!snapshot || snapshot.version !== 1 || snapshot.activity !== ACTIVITY || snapshot.kind !== "pending-final") return null;
       const payload = snapshot.payload;
-      if (!payload || typeof payload.reviewJson !== "string" || !Number.isFinite(payload.score) ||
-          !Number.isFinite(payload.maxScore) || typeof payload.passed !== "boolean") return null;
+      if (!payload || typeof payload.reviewJson !== "string" || !validResultMetadata(payload)) return null;
       const reviewSnapshot = JSON.parse(payload.reviewJson);
       if (reviewSnapshot?.version !== 1 || reviewSnapshot.activity !== ACTIVITY || reviewSnapshot.kind !== "review") return null;
       const review = Persistence.decodeReview(reviewSnapshot.answer);
       if (!review) return null;
       const computed = Scoring.scoreActivity(review.answers);
-      const canonical = window.SimScorm.makeSnapshot(ACTIVITY, "review", Persistence.makeReview(Persistence.reviewToState(review)), computed);
+      const canonical = makeReviewSnapshot(Persistence.makeReview(Persistence.reviewToState(review)), computed);
       const payloadResult = { score: payload.score, maxScore: payload.maxScore, passed: payload.passed };
-      const savedResult = { score: reviewSnapshot.score, maxScore: computed.maxScore, passed: reviewSnapshot.passed };
+      const savedResult = {
+        score: reviewSnapshot.score,
+        maxScore: reviewSnapshot.maxScore,
+        passed: reviewSnapshot.passed
+      };
       return JSON.stringify(canonical) === payload.reviewJson &&
         sameResult(computed, payloadResult) && sameResult(computed, savedResult) ? { review, computed } : null;
     } catch {
@@ -716,7 +731,7 @@
     let reviewAnswer, snapshot;
     try {
       reviewAnswer = Persistence.makeReview(state);
-      snapshot = window.SimScorm.makeSnapshot(ACTIVITY, "review", reviewAnswer, current);
+      snapshot = makeReviewSnapshot(reviewAnswer, current);
       pendingExpected = { review: Persistence.decodeReview(reviewAnswer), computed: current };
       if (!pendingExpected.review) throw new Error("Final review validation failed");
     } catch (error) {
@@ -779,7 +794,7 @@
     const computed = review ? Scoring.scoreActivity(review.answers) : null;
     const recorded = {
       score: outcome.score,
-      maxScore: computed?.maxScore,
+      maxScore: pendingExpected?.computed?.maxScore,
       passed: outcome.status === "passed" ? true : outcome.status === "failed" ? false : null
     };
     if (!review || !sameResult(computed, recorded) ||
@@ -855,9 +870,13 @@
     setStage(elements.resultGraphMount);
     elements.resultTitle.textContent = "已提交結果";
     const completion = window.SimActivityFlow.completionLabel(result.passed);
+    const contradictionSummary = result.contradictions.length
+      ? `<section class="contradiction-box"><strong>三圖關係提示</strong><ul>${result.contradictions
+        .map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul></section>` : "";
     elements.scorePanel.innerHTML = `<strong>${result.score} / 100</strong><p>${escapeHtml(completion)}；綜合關 ${result.compositeScore.toFixed(1)} / 35</p>
       <p>x–t ${result.categoryScores.xt.toFixed(1)} / 36；v–t ${result.categoryScores.vt.toFixed(1)} / 32；a–t ${result.categoryScores.at.toFixed(1)} / 32</p>
-      ${result.masteryFailures.length ? `<p>尚未掌握：${result.masteryFailures.map((failure) => escapeHtml(failure.label)).join("；")}</p>` : ""}`;
+      ${result.masteryFailures.length ? `<p>尚未掌握：${result.masteryFailures.map((failure) => escapeHtml(failure.label)).join("；")}</p>` : ""}
+      ${contradictionSummary}`;
     formatPhysicsNotation(elements.scorePanel);
     elements.resultNotice.textContent = notice;
     elements.resultNotice.classList.toggle("is-hidden", !notice);
@@ -897,7 +916,7 @@
     const computed = Scoring.scoreActivity(review.answers);
     const trust = UiPolicy.reviewOutcome(
       computed,
-      { score: snapshot.score, passed: snapshot.passed },
+      { score: snapshot.score, maxScore: snapshot.maxScore, passed: snapshot.passed },
       attempt
     );
     if (!trust.trusted) return showReviewFallback(attempt);

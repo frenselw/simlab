@@ -119,6 +119,10 @@
         metrics.coverage < TOLERANCE.grossMinCoverage || !(metrics.horizontalSpan > 0)) {
       return { invalid: true, signals: ["結構或覆蓋不足"] };
     }
+    if (Array.isArray(metrics.phases) &&
+        (metrics.phases.length !== 4 || metrics.phases.some((phase) => !phase || phase.structuralInvalid))) {
+      return { invalid: true, signals: ["綜合圖階段結構無效"] };
+    }
     const signals = [];
     if (metrics.pathLengthRatio > TOLERANCE.grossMaxLengthRatio) signals.push("線長異常");
     if (metrics.oscillationCount > TOLERANCE.grossMaxOscillations) signals.push("反覆轉折");
@@ -221,6 +225,10 @@
     return fullThenFade(metrics?.region?.negative || 0, 0.02, 0.18);
   }
 
+  function noNegativeSlope(metrics) {
+    return fullThenFade(metrics?.negativeSlopeRatio || 0, 0.02, 0.18);
+  }
+
   function boundaryY(metrics) {
     return fullThenFade(metrics?.yJump, TOLERANCE.boundaryYJumpFull, TOLERANCE.boundaryYJumpZero);
   }
@@ -256,7 +264,7 @@
         break;
       case "uniform-xt":
         raw += add(components, "起始位置", 1, r(startAnchor(metrics)));
-        raw += add(components, "位置增加", 1, r(monotonicUp(metrics)));
+        raw += add(components, "位置增加且不倒退", 1, r(Math.min(monotonicUp(metrics), noNegativeSlope(metrics))));
         raw += add(components, "固定斜率", 3, r(straightness(metrics)));
         break;
       case "accelerating-vt":
@@ -271,8 +279,8 @@
       case "accelerating-xt":
         raw += add(components, "起始位置", 1, r(startAnchor(metrics)));
         raw += add(components, "初始正斜率", 1, r(startSlopePositive(metrics)));
-        raw += add(components, "位置增加", 1, r(monotonicUp(metrics)));
-        raw += add(components, "愈來愈斜", 6, r(slopeIncrease(metrics)));
+        raw += add(components, "位置增加且不倒退", 1, r(Math.min(monotonicUp(metrics), noNegativeSlope(metrics))));
+        raw += add(components, "愈來愈斜", 6, r(Math.min(slopeIncrease(metrics), noNegativeSlope(metrics))));
         break;
       case "decelerating-vt":
         raw += add(components, "正初速度", 1, r(startPositive(metrics)));
@@ -285,8 +293,8 @@
         break;
       case "decelerating-xt":
         raw += add(components, "起始位置", 1, r(startAnchor(metrics)));
-        raw += add(components, "位置增加且不反向", 2, r(Math.min(monotonicUp(metrics), noNegativeRegion(metrics))));
-        raw += add(components, "愈來愈平", 4, r(slopeDecrease(metrics)));
+        raw += add(components, "位置增加且不倒退", 2, r(Math.min(monotonicUp(metrics), noNegativeSlope(metrics))));
+        raw += add(components, "愈來愈平", 4, r(Math.min(slopeDecrease(metrics), noNegativeSlope(metrics))));
         raw += add(components, "末段斜率接近零", 2, r(endFlat(metrics)));
         break;
       default:
@@ -322,9 +330,9 @@
       raw += add(components, "各段覆蓋及次序", 3, reads.reduce((sum, value) => sum + value, 0) / 4);
     } else if (task.rubric === "composite-xt") {
       raw += add(components, "起始位置", 1, pr(0, startAnchor(a)));
-      raw += add(components, "A 由靜止愈來愈斜", 3, pr(0, Math.min(startFlat(a), slopeIncrease(a))));
-      raw += add(components, "B 固定正斜率", 2, pr(1, Math.min(monotonicUp(b), straightness(b))));
-      raw += add(components, "C 愈來愈平至停止", 3, pr(2, Math.min(slopeDecrease(c), endFlat(c))));
+      raw += add(components, "A 由靜止愈來愈斜", 3, pr(0, Math.min(startFlat(a), slopeIncrease(a), noNegativeSlope(a))));
+      raw += add(components, "B 固定正斜率", 2, pr(1, Math.min(monotonicUp(b), straightness(b), noNegativeSlope(b))));
+      raw += add(components, "C 愈來愈平至停止", 3, pr(2, Math.min(slopeDecrease(c), endFlat(c), noNegativeSlope(c))));
       raw += add(components, "D 位置不變", 1, pr(3, horizontal(d)));
       metrics.boundaries.forEach((boundary, index) => {
         raw += add(components, `邊界 ${index + 1} 位置連續`, 0.5, boundaryY(boundary));
@@ -418,6 +426,12 @@
       messages.push(task.rubric === "uniform-xt"
         ? "勻速的 x–t 圖斜率應大致保持不變。"
         : "勻變速的 v–t 圖應是斜率固定的直線。");
+    }
+    if (task.rubric === "accelerating-at" && regionScore(metrics.region.positive) < 0.55) {
+      messages.push("勻加速時加速度應保持在零軸上方；負值不代表速度方向。");
+    }
+    if (task.rubric === "decelerating-at" && regionScore(metrics.region.negative) < 0.55) {
+      messages.push("勻減速時加速度應保持在零軸下方；負加速度不代表物體反向。");
     }
     if (["accelerating-at", "decelerating-at", "uniform-vt", "uniform-at"].includes(task.rubric) && horizontal(metrics) < 0.55) {
       messages.push("這幅圖應大致水平；目前高度隨時間明顯改變。");
@@ -529,23 +543,24 @@
       },
       {
         code: "accelerating-xt-curve", label: "勻加速 x–t 圖需要清楚表達斜率增加",
-        passed: validMastery("accelerating-xt", (metrics) => curveEvidence(metrics, 1) >= 0.40)
+        passed: validMastery("accelerating-xt", (metrics) =>
+          curveEvidence(metrics, 1) >= 0.40 && noNegativeSlope(metrics) >= 0.55)
       },
       {
         code: "decelerating-xt-curve", label: "勻減速 x–t 圖需要清楚表達斜率減少",
-        passed: validMastery("decelerating-xt", (metrics) => curveEvidence(metrics, -1) >= 0.40)
+        passed: validMastery("decelerating-xt", (metrics) =>
+          curveEvidence(metrics, -1) >= 0.40 && noNegativeSlope(metrics) >= 0.55)
       },
       {
         code: "composite-xt-curves", label: "綜合 x–t 圖需要同時表達 A 加速及 C 減速形狀",
         passed: validMastery("composite-xt", (metrics) =>
           curveEvidence(metrics.phases?.[0], 1) >= 0.35 &&
-          curveEvidence(metrics.phases?.[2], -1) >= 0.35)
+          curveEvidence(metrics.phases?.[2], -1) >= 0.35 &&
+          [0, 1, 2].every((index) => noNegativeSlope(metrics.phases?.[index]) >= 0.55))
       }
     ];
     const masteryFailures = semanticChecks.filter((check) => !check.passed).map(({ code, label }) => ({ code, label }));
-    const passed = unroundedScore >= 65 && compositeScore >= 18 &&
-      Object.entries(CATEGORY_FLOORS).every(([key, floor]) => categoryScores[key] >= floor) &&
-      masteryFailures.length === 0;
+    const passed = meetsPassingThresholds({ unroundedScore, compositeScore, categoryScores, masteryFailures });
     const score = Math.max(0, Math.min(100, Math.round(unroundedScore)));
     return {
       score,
@@ -565,6 +580,14 @@
         ? "你已掌握三種運動圖的主要定性特徵。"
         : "請根據逐圖回饋再比較位置、速度與加速度的變化。"
     };
+  }
+
+  function meetsPassingThresholds({ unroundedScore, compositeScore, categoryScores, masteryFailures }) {
+    return Number.isFinite(unroundedScore) && unroundedScore >= 65 &&
+      Number.isFinite(compositeScore) && compositeScore >= 18 &&
+      Boolean(categoryScores) && Object.entries(CATEGORY_FLOORS).every(([key, floor]) =>
+        Number.isFinite(categoryScores[key]) && categoryScores[key] >= floor) &&
+      Array.isArray(masteryFailures) && masteryFailures.length === 0;
   }
 
   function idealValue(taskId, t) {
@@ -631,7 +654,9 @@
     fullThenFade,
     readability,
     grossGate,
+    noNegativeSlope,
     curveEvidence,
+    meetsPassingThresholds,
     scoreTask,
     scoreActivity,
     contradictionMessages,

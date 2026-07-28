@@ -382,7 +382,7 @@
       slopes.delta, slopes.rho, startFit?.slope, endFit?.slope
     ].filter((value) => value != null);
     return {
-      structuralInvalid: derived.some((value) => !Number.isFinite(value)),
+      structuralInvalid: validY.length === 0 || derived.some((value) => !Number.isFinite(value)),
       raw: aggregated,
       values: filtered,
       validAnalysisCount: validY.length,

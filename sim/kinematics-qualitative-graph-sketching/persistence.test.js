@@ -47,6 +47,30 @@ assert.equal(Tasks.TASKS[skipped.taskIndex].scenarioId, "accelerating",
   "visiting all three graphs unlocks the next scenario even when answers remain blank");
 assert.equal(skipped.answers.slice(0, 3).every((answer) => answer == null), true);
 
+const firstPassStates = [];
+const queuedFirstPass = [Persistence.startTasks(Persistence.initialState())];
+const seenFirstPass = new Set();
+while (queuedFirstPass.length) {
+  const candidate = queuedFirstPass.shift();
+  if (!candidate || candidate.phase !== "task" || candidate.variant !== "first-pass") continue;
+  const key = JSON.stringify(candidate);
+  if (seenFirstPass.has(key)) continue;
+  seenFirstPass.add(key);
+  firstPassStates.push(candidate);
+  queuedFirstPass.push(Persistence.nextTask(candidate));
+  for (const task of Tasks.displayTasksForScenario(Tasks.TASKS[candidate.taskIndex].scenarioId)) {
+    queuedFirstPass.push(Persistence.switchTask(candidate, Tasks.taskIndexById(task.id)));
+  }
+}
+assert.equal(firstPassStates.length, 32,
+  "every reachable first-pass scenario, active graph, and visited-mask invariant variant is covered");
+for (const firstPass of firstPassStates) {
+  roundTrip(firstPass, Persistence.nextTask);
+  const answered = Persistence.setAnswer(firstPass, firstPass.taskIndex, encodedIdeal[firstPass.taskIndex]);
+  assert(answered, "a reachable first-pass state accepts a production-shaped active trace");
+  roundTrip(answered, Persistence.nextTask);
+}
+
 const impossibleNewState = {
   ...Persistence.startTasks(practice),
   taskIndex: Tasks.taskIndexById("uniform-vt"),
@@ -127,6 +151,34 @@ const badStates = [
   { ...ready, answers: ready.answers.slice(0, 11) },
   { ...ready, unknown: true }
 ];
+const laterFirstPass = firstPassStates.find((state) =>
+  Tasks.TASKS[state.taskIndex].scenarioId === "accelerating" && state.taskIndex === Tasks.taskIndexById("accelerating-xt"));
+assert(laterFirstPass);
+const missingTaskIndex = { ...first };
+delete missingTaskIndex.taskIndex;
+const missingVariant = { ...first };
+delete missingVariant.variant;
+badStates.push(
+  missingTaskIndex,
+  missingVariant,
+  { ...ready, taskIndex: 0 },
+  { ...first, answers: [encodedIdeal[0], ...first.answers.slice(1)] },
+  {
+    ...laterFirstPass,
+    answers: laterFirstPass.answers.map((answer, index) =>
+      index === Tasks.taskIndexById("decelerating-xt") ? encodedIdeal[index] : answer)
+  },
+  {
+    ...laterFirstPass,
+    visitedMask: laterFirstPass.visitedMask | (1 << Tasks.taskIndexById("decelerating-xt"))
+  },
+  {
+    ...laterFirstPass,
+    visitedMask: laterFirstPass.visitedMask & ~(1 << Tasks.taskIndexById("uniform-vt"))
+  },
+  ...[-1, 1.5, Tasks.TASKS.length, NaN, Infinity].map((taskIndex) => ({ ...first, taskIndex })),
+  ...[-1, 1.5, Persistence.FULL_VISITED_MASK + 1, NaN, Infinity].map((visitedMask) => ({ ...first, visitedMask }))
+);
 badStates.forEach((state, index) => assert.equal(Persistence.decode(state), null, `invalid matrix state ${index + 1}`));
 
 const nonCanonical = ready.answers.slice();

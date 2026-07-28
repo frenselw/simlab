@@ -260,6 +260,7 @@ v–t 圖的斜率 = 加速度
 本活動不要求學生證明或精確畫出二次函數。對 `x–t` 圖只檢查：
 
 - 位置是否按題意增加或不變；
+- 在題目仍描述 `v >= 0` 的時間內，局部斜率是否不為負，避免把位置圖畫成反向；
 - 局部斜率是否保持穩定、逐漸增加或逐漸減少；
 - 停止時斜率是否接近零；
 - 分段之間位置及速度是否合理連接。
@@ -393,6 +394,8 @@ v–t 圖的斜率 = 加速度
 - 顯示逐圖得分及物理回饋；
 - 顯示跨圖矛盾提示及三圖關係總結；
 - 同一 attempt 只讀，不可修改或再次提交。
+
+提交前 review 僅顯示空白、覆蓋及可判讀性警告；跨圖矛盾屬於鎖定後的診斷回饋，不在可編輯 review 暴露。
 
 ---
 
@@ -778,6 +781,7 @@ zeroRegionRatio     = 零區有效點 / 全部有效點
 - `slopeTrendRho`：窗口中心次序與 slope 的 Spearman correlation；
 - Spearman ties 使用 average rank；
 - 正負 slope ratio 忽略 `|slope| < 0.04` 的微小手震。
+- `x–t` 的 no-reversal evidence 使用 `negativeSlopeRatio`：`<= 0.02` 為滿分、`>= 0.18` 為 0；它限制要求位置持續增加的 component 及相關 mastery gate，不以圖線高度是否負值代替斜率方向。
 
 起始／終止 slope 不使用單一差分：
 
@@ -892,6 +896,7 @@ Slope continuity：
 - 有效 analysis bins `< 6`；
 - 任何衍生數值非 finite；
 - `horizontalSpan = 0`；
+- 綜合圖任一 phase 的 analysis 結構無效（包括該 phase 沒有任何有效 analysis bin）；
 - 以下 24-bin scribble signals 中至少兩個成立：
   - `pathLengthRatio > 6.0`
   - `oscillationCount > 10`
@@ -1065,7 +1070,7 @@ Passing threshold:
   accelerating a–t 非 gross-invalid、evidence complete，並在正區大致水平
   decelerating a–t 非 gross-invalid、evidence complete，並在負區大致水平
   composite a–t 非 gross-invalid、evidence complete，A／C 段分別在正／負區且大致水平
-  accelerating／decelerating x–t 及 composite A／C 段有指定方向的實質曲率證據
+  accelerating／decelerating x–t 及 composite A／C 段有指定方向的實質曲率證據，且仍在運動的 x–t 段沒有實質負斜率／反向
 Penalties:
   無重試／工具使用扣分
   gross-invalid 圖為 0
@@ -1412,6 +1417,8 @@ Review 必須足以：
 - rescore；
 - regenerate feedback。
 
+完成 review envelope 的 metadata 必須同時保存並嚴格驗證 `score`、`maxScore` 及 boolean `passed`；缺失、非 finite、`maxScore <= 0`、超出 `0..maxScore` 或非 boolean 的 metadata 不可顯示詳細 review，只可顯示 Moodle 可確認的 locked summary。活動以 local review-snapshot wrapper 補上 `maxScore`，不修改 shared SCORM envelope 行為。
+
 不保存：
 
 - score／pass；
@@ -1699,7 +1706,9 @@ validate review
 - valid gap不會令全圖因 `min()` 歸零；
 - category totals；
 - total、composite及三個 graph-family mastery floors；
+- total `65`、composite `18`、x–t `18`、v–t／a–t `16` 的 exact、`+0.01` 及 `-0.01` production pass-decision boundaries；
 - semantic mastery 的 gross-invalid 正／負區亂畫、正／負斜線、稀疏但形狀正確的 `x–t`；
+- accelerating／decelerating 的 production `x–t` 局部反向／負斜率不得取得「位置增加且不倒退」分，亦不得只靠總分通過曲率 mastery；
 - 每四個 draw bins 只有一個孤立點不得成為 evidence complete 或取得接近滿分；
 - just-inside／outside；
 - final rounding only；
@@ -1725,6 +1734,7 @@ validate review
 - invalid editable draft fail closed；
 - invalid finished review locked；
 - pending deeper reject calls quarantine。
+- first-pass 的每個 scenario、active graph、`visitedMask` invariant 組合，以及 active answer 為 null／production canonical trace 的變體，都要 round-trip 並執行合法 continuation；另測缺失 `taskIndex`／`variant`、negative／noninteger／out-of-range／`NaN`／`Infinity` taskIndex 或 visitedMask、缺 prior bit、future bit／answer、unvisited graph answer 及 review task field。
 
 ### 21.6 Lifecycle UI
 
@@ -1732,6 +1742,8 @@ validate review
 - submission success／committed／frozen／retryable retry／non-retryable retry；
 - trusted review；
 - score／pass mismatch；
+- finished review metadata 的 `score`／`maxScore`／`passed` 缺失、`maxScore=0` 或非 boolean `passed`；這些狀態只可顯示 locked fallback；
+- pending `maxScore=0` 必須 quarantine，不能以 100 fallback；
 - unknown Moodle status；
 - technical states使用誠實文字；
 - production render logic，不以 source-string 搜尋代替。
@@ -1751,6 +1763,7 @@ Development source及built／extracted package：
 - fixed-height Moodle-like iframe，不自動改寫 iframe height；
 - trusted swipe from controls ordinary text 只捲動 controls panel；
 - controls panel 在邊界不把 scroll 洩漏到 host 或 activity document；
+- controls panel 在頂及底邊界的 outward trusted swipe 均保持 host、iframe、activity document／visual viewport、panel 及 learner state 不變；
 - noninteractive stage trusted swipe 向上／向下只捲動 host，host boundary、panel、document、answer 均正確；
 - panel 捲動時 stage、host、activity visual viewport 及 iframe 位置保持不變；
 - trusted graph drag changes trace only；

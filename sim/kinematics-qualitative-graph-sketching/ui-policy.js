@@ -15,7 +15,19 @@
   }
 
   function reviewOutcome(computed, saved, attempt) {
+    if (!validResultMetadata(computed) || !validResultMetadata(saved)) {
+      return {
+        trusted: false,
+        result: Flow.reviewResult(computed, saved, attempt).result
+      };
+    }
     return Flow.reviewResult(computed, saved, attempt);
+  }
+
+  function validResultMetadata(result) {
+    return Boolean(result && Number.isFinite(result.score) && Number.isFinite(result.maxScore) &&
+      result.maxScore > 0 && result.score >= 0 && result.score <= result.maxScore &&
+      typeof result.passed === "boolean");
   }
 
   function controlsLocked(mode) {
@@ -47,6 +59,7 @@
     startupMode,
     submission,
     reviewOutcome,
+    validResultMetadata,
     controlsLocked,
     technicalCopy,
     technicalResult,

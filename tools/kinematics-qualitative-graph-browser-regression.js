@@ -37,7 +37,7 @@ function reviewFixture() {
   const review = Persistence.makeReview(state);
   const reviewSnapshot = {
     version: 1, activity, kind: "review", answer: review,
-    score: result.score, passed: result.passed
+    score: result.score, passed: result.passed, maxScore: result.maxScore
   };
   return { answers, state, result, review, reviewSnapshot };
 }
@@ -360,11 +360,13 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     const target=doc.querySelector(".graph-page-header p");
     const f=frame.getBoundingClientRect(), r=target.getBoundingClientRect();
     const stage=doc.getElementById("stageRegion").getBoundingClientRect();
-    const vv=frame.contentWindow.visualViewport;
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {x:f.left+r.left+r.width*.5,y:f.top+r.top+r.height*.5,
       host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,
       panelRange:panel.scrollHeight-panel.clientHeight,frameTop:f.top,stageTop:stage.top,stageHeight:stage.height,
-      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0};
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
   })()`);
   assert.ok(panelSwipe.panelRange > 40, `${label}: fixed-height iframe has an independently scrollable controls panel`);
   await touch(cdp, "touchStart", panelSwipe.x, panelSwipe.y);
@@ -374,13 +376,15 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   const panelAfter = await evaluate(cdp, `(() => {
     const frame=document.getElementById("activity"), doc=frame.contentDocument;
     const panel=doc.getElementById("controlsPanel"), stage=doc.getElementById("stageRegion").getBoundingClientRect();
-    const vv=frame.contentWindow.visualViewport;
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,
       frameTop:frame.getBoundingClientRect().top,stageTop:stage.top,stageHeight:stage.height,
-      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0};
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
   })()`);
   assert.ok(panelAfter.panel > panelSwipe.panel, `${label}: ordinary controls text scrolls only the controls panel`);
-  for (const key of ["host", "inner", "frameTop", "stageTop", "stageHeight", "vvOffset", "vvPage"]) {
+  for (const key of ["host", "inner", "frameTop", "stageTop", "stageHeight", "hostVvOffset", "hostVvPage", "vvOffset", "vvPage", "answer"]) {
     assert.equal(panelAfter[key], panelSwipe[key], `${label}: controls swipe keeps ${key} fixed`);
   }
 
@@ -389,22 +393,69 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     const panel=doc.getElementById("controlsPanel");
     panel.scrollTop=panel.scrollHeight;
     const nav=doc.querySelector(".practice-navigation").getBoundingClientRect(), f=frame.getBoundingClientRect();
+    const stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {x:f.left+nav.left+18,y:f.top+nav.top+Math.min(nav.height*.5,22),
-      host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,frameTop:f.top};
+      host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,panelMax:panel.scrollHeight-panel.clientHeight,
+      frameTop:f.top,stageTop:stage.top,stageHeight:stage.height,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
   })()`);
+  assert.ok(Math.abs(atBoundary.panel - atBoundary.panelMax) < 1, `${label}: panel begins at its bottom boundary`);
   await touch(cdp, "touchStart", atBoundary.x, atBoundary.y);
   await touch(cdp, "touchMove", atBoundary.x, atBoundary.y - 70);
   await touch(cdp, "touchEnd", 0, 0);
   await delay(80);
   const boundaryAfter = await evaluate(cdp, `(() => {
-    const frame=document.getElementById("activity");
+    const frame=document.getElementById("activity"), doc=frame.contentDocument;
+    const panel=doc.getElementById("controlsPanel"), stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {host:scrollY,inner:frame.contentWindow.scrollY,
-      panel:frame.contentDocument.getElementById("controlsPanel").scrollTop,
-      frameTop:frame.getBoundingClientRect().top};
+      panel:panel.scrollTop,panelMax:panel.scrollHeight-panel.clientHeight,
+      frameTop:frame.getBoundingClientRect().top,stageTop:stage.top,stageHeight:stage.height,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
   })()`);
-  assert.equal(boundaryAfter.host, atBoundary.host, `${label}: panel boundary does not leak scroll to host`);
-  assert.equal(boundaryAfter.inner, atBoundary.inner, `${label}: panel boundary does not scroll activity document`);
-  assert.equal(boundaryAfter.frameTop, atBoundary.frameTop, `${label}: panel boundary keeps iframe fixed`);
+  assert.ok(Math.abs(boundaryAfter.panel - boundaryAfter.panelMax) < 1, `${label}: bottom-boundary outward swipe keeps the panel at bottom`);
+  for (const key of Object.keys(atBoundary)) {
+    if (!["x", "y", "panelMax"].includes(key)) assert.equal(boundaryAfter[key], atBoundary[key],
+      `${label}: panel bottom-boundary outward swipe keeps ${key} fixed`);
+  }
+
+  await delay(250);
+  const topBoundary = await evaluate(cdp, `(() => {
+    const frame=document.getElementById("activity"), doc=frame.contentDocument;
+    const panel=doc.getElementById("controlsPanel");
+    panel.scrollTop=0;
+    const target=doc.querySelector(".graph-page-header p"), r=target.getBoundingClientRect(), f=frame.getBoundingClientRect();
+    const stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
+    return {x:f.left+r.left+r.width*.5,y:f.top+r.top+r.height*.5,
+      host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,frameTop:f.top,stageTop:stage.top,stageHeight:stage.height,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
+  })()`);
+  await touch(cdp, "touchStart", topBoundary.x, topBoundary.y);
+  await touch(cdp, "touchMove", topBoundary.x, topBoundary.y + 70);
+  await touch(cdp, "touchEnd", 0, 0);
+  await delay(80);
+  const topBoundaryAfter = await evaluate(cdp, `(() => {
+    const frame=document.getElementById("activity"), doc=frame.contentDocument;
+    const stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
+    return {host:scrollY,inner:frame.contentWindow.scrollY,panel:frame.contentDocument.getElementById("controlsPanel").scrollTop,
+      frameTop:frame.getBoundingClientRect().top,stageTop:stage.top,stageHeight:stage.height,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+      vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
+      answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
+  })()`);
+  for (const key of Object.keys(topBoundary)) {
+    if (!["x", "y"].includes(key)) assert.equal(topBoundaryAfter[key], topBoundary[key],
+      `${label}: panel top-boundary outward swipe keeps ${key} fixed`);
+  }
 
   async function stageSwipe(hostStart, deltaY, description) {
     const setup = await evaluate(cdp, `(() => {
@@ -414,11 +465,15 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
       const frameBounds=frame.getBoundingClientRect();
       const x=bounds.left+3, y=bounds.top+bounds.height/2;
       const target=doc.elementFromPoint(x,y);
+      const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
       return {
         x:frameBounds.left+x,y:frameBounds.top+y,
         target:target?.id||target?.className||"",
         host:scrollY,inner:frame.contentWindow.scrollY,
         panel:doc.getElementById("controlsPanel").scrollTop,
+        frameTop:frameBounds.top,stageTop:bounds.top,
+        hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+        vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
         answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())
       };
     })()`);
@@ -429,14 +484,26 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     await touch(cdp, "touchEnd", 0, 0);
     await delay(100);
     const after = await evaluate(cdp, `(() => {
-      const frame=document.getElementById("activity");
+      const frame=document.getElementById("activity"), doc=frame.contentDocument;
+      const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
       return {host:scrollY,inner:frame.contentWindow.scrollY,
-        panel:frame.contentDocument.getElementById("controlsPanel").scrollTop,
+        panel:doc.getElementById("controlsPanel").scrollTop,
+        frameTop:frame.getBoundingClientRect().top,stageTop:doc.getElementById("stageRegion").getBoundingClientRect().top,
+        hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
+        vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
         answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
     })()`);
     assert.equal(after.inner, setup.inner, `${label}: ${description} does not scroll the activity document`);
     assert.equal(after.panel, setup.panel, `${label}: ${description} does not scroll the controls panel`);
     assert.equal(after.answer, setup.answer, `${label}: ${description} does not change an answer`);
+    assert.equal(after.stageTop, setup.stageTop, `${label}: ${description} keeps the activity stage fixed`);
+    assert.equal(after.vvOffset, setup.vvOffset, `${label}: ${description} keeps the activity visual viewport fixed`);
+    assert.equal(after.vvPage, setup.vvPage, `${label}: ${description} keeps the activity visual page fixed`);
+    assert.equal(after.hostVvOffset, setup.hostVvOffset, `${label}: ${description} keeps the host visual viewport offset fixed`);
+    assert.equal(after.hostVvPage - setup.hostVvPage, after.host - setup.host,
+      `${label}: ${description} host visual viewport tracks the host scroll`);
+    assert.ok(Math.abs((after.frameTop - setup.frameTop) + (after.host - setup.host)) < 0.5,
+      `${label}: ${description} moves the iframe with the host`);
     return { setup, after };
   }
 
@@ -454,10 +521,11 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     const f=frame.getBoundingClientRect();
     const r=surface.getBoundingClientRect();
     const f2=frame.getBoundingClientRect(), r2=surface.getBoundingClientRect();
-    const vv=frame.contentWindow.visualViewport;
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {x:f2.left+r2.left+r2.width*.2,y:f2.top+r2.top+r2.height*.6,host:scrollY,inner:frame.contentWindow.scrollY,
       panel:doc.getElementById("controlsPanel").scrollTop,frameTop:f2.top,
       stageTop:doc.getElementById("stageRegion").getBoundingClientRect().top,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
       vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
       count:Array.from(frame.contentWindow.__kinematicsGraphDebug.getActiveTrace()).filter(v=>v!==255).length};
   })()`);
@@ -467,11 +535,12 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   await delay(100);
   const drawAfter = await evaluate(cdp, `(() => {
     const frame=document.getElementById('activity');
-    const vv=frame.contentWindow.visualViewport;
+    const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {host:scrollY,inner:frame.contentWindow.scrollY,
       panel:frame.contentDocument.getElementById("controlsPanel").scrollTop,
       frameTop:frame.getBoundingClientRect().top,
       stageTop:frame.contentDocument.getElementById("stageRegion").getBoundingClientRect().top,
+      hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
       vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
       count:Array.from(frame.contentWindow.__kinematicsGraphDebug.getActiveTrace()).filter(v=>v!==255).length,
       pointer:frame.contentWindow.__kinematicsGraphDebug.getPointerDiagnostics()};
@@ -481,10 +550,13 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   assert.equal(drawAfter.panel, draw.panel, `${label}: drawing does not scroll controls panel`);
   assert.equal(drawAfter.frameTop, draw.frameTop, `${label}: drawing leaves iframe position fixed`);
   assert.equal(drawAfter.stageTop, draw.stageTop, `${label}: drawing leaves graph stage fixed`);
+  assert.equal(drawAfter.hostVvOffset, draw.hostVvOffset, `${label}: drawing leaves host visual viewport offset fixed`);
+  assert.equal(drawAfter.hostVvPage, draw.hostVvPage, `${label}: drawing leaves host visual page fixed`);
   assert.equal(drawAfter.vvOffset, draw.vvOffset, `${label}: drawing leaves activity visual viewport fixed`);
   assert.equal(drawAfter.vvPage, draw.vvPage, `${label}: drawing leaves activity visual page fixed`);
   assert.ok(drawAfter.count > draw.count, `${label}: iframe drawing changes only trace`);
-  assert.ok(drawAfter.pointer.up >= 1 && drawAfter.pointer.cancel === 0, `${label}: iframe draw completes without cancellation`);
+  assert.ok(drawAfter.pointer.move >= 1 && drawAfter.pointer.up >= 1 && drawAfter.pointer.cancel === 0,
+    `${label}: iframe draw completes with pointermove/pointerup and no cancellation`);
   return `${label} embedded ownership`;
 }
 
@@ -639,6 +711,19 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   assert.ok(reviewLayout.reviewHeight > 300 && reviewLayout.controlsTop <= 1,
     `${label}: desktop review content is not collapsed into a zero-height grid row`);
 
+  const contradictionState = structuredClone(fixture.state);
+  contradictionState.answers[Tasks.taskIndexById("accelerating-vt")] =
+    Model.encodeTrace(Scoring.exemplarTrace("decelerating-vt"));
+  await setPreload(cdp, lmsValues({ version: 1, activity, kind: "draft", answer: contradictionState }));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=review-contradiction-placement`);
+  assert.ok(await evaluate(cdp, `window.__kinematicsGraphDebug.score().contradictions.length > 0`),
+    `${label}: contradiction fixture contains a cross-graph diagnostic`);
+  assert.equal(await evaluate(cdp, `document.querySelectorAll("#reviewSection .contradiction-box").length`), 0,
+    `${label}: editable review does not reveal cross-graph contradictions`);
+  await clickSelector(cdp, "#submitButton");
+  assert.match(await evaluate(cdp, `document.getElementById("scorePanel").textContent`), /三圖關係提示/,
+    `${label}: locked result presents cross-graph contradictions`);
+
   await setPreload(cdp, lmsValues({ version: 1, activity, kind: "draft", answer: taskDraft }));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=valid-draft`);
   const restored = await evaluate(cdp, `(() => {
@@ -695,6 +780,25 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   assert.equal(fallback.graphHidden, true, `${label}: mismatched review hides untrusted graph details`);
   assert.equal(fallback.tabs, 0, `${label}: mismatched review exposes no untrusted answer tabs`);
   assert.match(fallback.notice, /未能安全驗證/, `${label}: mismatch is explained as review fallback`);
+
+  for (const [name, mutate] of [
+    ["missing-max", (snapshot) => { delete snapshot.maxScore; }],
+    ["zero-max", (snapshot) => { snapshot.maxScore = 0; }],
+    ["non-boolean-pass", (snapshot) => { snapshot.passed = "true"; }]
+  ]) {
+    const invalidMetadata = structuredClone(fixture.reviewSnapshot);
+    mutate(invalidMetadata);
+    await setPreload(cdp, lmsValues(invalidMetadata, fixture.result.passed ? "passed" : "failed", fixture.result.score));
+    await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=finished-${name}`);
+    const metadataFallback = await evaluate(cdp, `(() => ({
+      graphHidden:document.getElementById("resultGraphMount").classList.contains("is-hidden"),
+      tabs:document.querySelectorAll("[data-result-task]").length,
+      notice:document.getElementById("resultNotice").textContent
+    }))()`);
+    assert.equal(metadataFallback.graphHidden, true, `${label}: ${name} finished metadata hides untrusted graph details`);
+    assert.equal(metadataFallback.tabs, 0, `${label}: ${name} finished metadata exposes no answer tabs`);
+    assert.match(metadataFallback.notice, /未能安全驗證/, `${label}: ${name} finished metadata uses fallback copy`);
+  }
 
   const pendingSnapshot = {
     version: 1, activity, kind: "pending-final",
@@ -766,6 +870,17 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   }))()`);
   assert.deepEqual(quarantined, { mode: "technical", retry: false },
     `${label}: invalid pending checkpoint is quarantined without retry`);
+
+  const zeroMaxPending = structuredClone(pendingSnapshot);
+  zeroMaxPending.payload.maxScore = 0;
+  await setPreload(cdp, lmsValues(zeroMaxPending));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=pending-zero-max`);
+  const zeroMaxQuarantined = await evaluate(cdp, `(() => ({
+    mode:window.__kinematicsGraphDebug.getMode(),
+    retry:!document.getElementById("resultRetryButton").classList.contains("is-hidden")
+  }))()`);
+  assert.deepEqual(zeroMaxQuarantined, { mode: "technical", retry: false },
+    `${label}: pending maxScore 0 is quarantined instead of falling back to 100`);
 
   await setPreload(cdp, lmsValues(incompleteReviewDraft));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=incomplete-confirmation`);

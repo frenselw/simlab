@@ -188,6 +188,57 @@ const compositeXtResult = Scoring.scoreTask(compositeXtTask, Scoring.exemplarTra
 assert.ok(compositeXtResult.score >= 12.25, "official composite x–t exemplar is near full credit");
 assert.deepEqual(compositeXtResult.feedback, ["圖線已清楚表達這段運動的主要特徵。"]);
 
+function xtTrace(valueAt) {
+  const trace = Model.createTrace();
+  for (let index = 0; index < Model.DRAW_BINS; index += 1) {
+    trace[index] = Model.quantizeY(valueAt(index / (Model.DRAW_BINS - 1)));
+  }
+  return trace;
+}
+
+const acceleratingReversal = xtTrace((t) => 0.18 - 0.25 * t + 0.75 * t * t);
+const deceleratingReversal = xtTrace((t) =>
+  t < 0.72 ? 0.12 + 0.70 * t - 0.35 * t * t : 0.443 - 0.32 * (t - 0.72));
+for (const [taskId, trace, masteryCode] of [
+  ["accelerating-xt", acceleratingReversal, "accelerating-xt-curve"],
+  ["decelerating-xt", deceleratingReversal, "decelerating-xt-curve"]
+]) {
+  const metrics = Analysis.analyzeTrace(trace, "xt");
+  assert.ok(Scoring.noNegativeSlope(metrics) < 0.55, `${taskId}: production reversal fails nonnegative-slope evidence`);
+  if (taskId === "accelerating-xt") {
+    assert.ok(Scoring.curveEvidence(metrics, 1) >= 0.40,
+      "accelerating reversal still has sufficient steepening evidence without the no-negative-slope gate");
+  }
+  const taskResult = Scoring.scoreTask(Tasks.taskById(taskId), trace);
+  assert.equal(taskResult.grossInvalid, false, `${taskId}: readable reversal is not misclassified as scribble`);
+  const answers = idealAnswers.slice();
+  answers[Tasks.taskIndexById(taskId)] = Model.encodeTrace(trace);
+  const activity = Scoring.scoreActivity(answers);
+  assert.equal(activity.passed, false, `${taskId}: reversal cannot pass the activity`);
+  assert.ok(activity.masteryFailures.some((failure) => failure.code === masteryCode),
+    `${taskId}: reversal cannot satisfy x-t mastery`);
+}
+
+const blankCompositePhase = Scoring.exemplarTrace("composite-vt");
+for (let index = 24; index < 48; index += 1) blankCompositePhase[index] = Model.EMPTY;
+const blankCompositeResult = Scoring.scoreTask(Tasks.taskById("composite-vt"), blankCompositePhase);
+assert.equal(blankCompositeResult.analysis.phases[1].structuralInvalid, true,
+  "a production composite trace with a blank phase is structurally invalid");
+assert.equal(blankCompositeResult.grossInvalid, true,
+  "a structurally invalid composite phase gross-zeros through scoreTask");
+assert.equal(blankCompositeResult.score, 0);
+
+const acceleratingWrongSign = Scoring.scoreTask(
+  Tasks.taskById("accelerating-at"), Scoring.exemplarTrace("decelerating-at")
+);
+assert.ok(acceleratingWrongSign.feedback.some((message) => /零軸上方/.test(message)),
+  "accelerating a-t feedback names the required positive sign");
+const deceleratingWrongSign = Scoring.scoreTask(
+  Tasks.taskById("decelerating-at"), Scoring.exemplarTrace("accelerating-at")
+);
+assert.ok(deceleratingWrongSign.feedback.some((message) => /零軸下方/.test(message)),
+  "decelerating a-t feedback names the required negative sign");
+
 const incompleteCoverage = Scoring.exemplarTrace("uniform-vt");
 for (let index = 76; index < 96; index += 1) incompleteCoverage[index] = Model.EMPTY;
 const incompleteResult = Scoring.scoreTask(Tasks.taskById("uniform-vt"), incompleteCoverage);
@@ -205,6 +256,40 @@ assert.equal(Scoring.fadeUp(0.75, 0.5, 0.75), 1);
 assert.equal(Scoring.fadeUp(0.5, 0.5, 0.75), 0);
 assert.equal(Scoring.fullThenFade(0.08, 0.08, 0.16), 1);
 assert.equal(Scoring.fullThenFade(0.16, 0.08, 0.16), 0);
+const passingBoundary = {
+  unroundedScore: 65,
+  compositeScore: 18,
+  categoryScores: { xt: 18, vt: 16, at: 16 },
+  masteryFailures: []
+};
+assert.equal(Scoring.meetsPassingThresholds(passingBoundary), true,
+  "the production pass decision accepts every score threshold exactly at its tolerance");
+for (const [field, value] of [
+  ["unroundedScore", 65.01],
+  ["compositeScore", 18.01]
+]) {
+  assert.equal(Scoring.meetsPassingThresholds({ ...passingBoundary, [field]: value }), true,
+    `${field} just above its threshold still passes`);
+}
+for (const [field, value] of [
+  ["unroundedScore", 64.99],
+  ["compositeScore", 17.99]
+]) {
+  assert.equal(Scoring.meetsPassingThresholds({ ...passingBoundary, [field]: value }), false,
+    `${field} just below its threshold fails`);
+}
+for (const [family, floor] of Object.entries(Scoring.CATEGORY_FLOORS)) {
+  assert.equal(Scoring.meetsPassingThresholds({
+    ...passingBoundary,
+    categoryScores: { ...passingBoundary.categoryScores, [family]: floor + 0.01 }
+  }), true, `${family} just above its graph-family floor passes`);
+  assert.equal(Scoring.meetsPassingThresholds({
+    ...passingBoundary,
+    categoryScores: { ...passingBoundary.categoryScores, [family]: floor - 0.01 }
+  }), false, `${family} just below its graph-family floor fails`);
+}
+assert.equal(Scoring.meetsPassingThresholds({ ...passingBoundary, masteryFailures: [{ code: "curve" }] }), false,
+  "semantic mastery remains mandatory at numeric score boundaries");
 assert.equal(ideal.score, Math.round(ideal.unroundedScore), "rounding occurs after all components");
 assert.deepEqual(ideal.masteryFailures, []);
 assert.deepEqual(ideal.evidenceIncompleteTaskIds, []);

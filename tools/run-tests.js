@@ -43,6 +43,7 @@ const tests = [
   "sim/kinematics-qualitative-graph-sketching/persistence.test.js",
   "sim/kinematics-qualitative-graph-sketching/ui-runtime.test.js",
   "sim/kinematics-qualitative-graph-sketching/accessibility.test.js",
+  "tools/kinematics-qualitative-graph-browser-regression.js",
   "tools/mobile-touch-scroll.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"

@@ -28,20 +28,31 @@ assert.deepEqual(calls, ["success", "committed", "frozen", "retry"]);
 
 const trusted = UiPolicy.reviewOutcome(
   { score: 70, maxScore: 100, passed: true },
-  { score: 70, passed: true },
+  { score: 70, maxScore: 100, passed: true },
   { score: 70, status: "passed" }
 );
 assert.equal(trusted.trusted, true);
 assert.equal(UiPolicy.reviewOutcome(
   { score: 70, maxScore: 100, passed: true },
-  { score: 70, passed: true },
+  { score: 70, maxScore: 100, passed: true },
   { score: 69, status: "passed" }
 ).trusted, false);
 assert.equal(UiPolicy.reviewOutcome(
   { score: 70, maxScore: 100, passed: true },
-  { score: 70, passed: true },
+  { score: 70, maxScore: 100, passed: true },
   { score: 70, status: "completed" }
 ).result.passed, null);
+for (const invalid of [
+  { score: 70, passed: true },
+  { score: 70, maxScore: 0, passed: true },
+  { score: "70", maxScore: 100, passed: true },
+  { score: 70, maxScore: 100, passed: "true" }
+]) {
+  assert.equal(UiPolicy.validResultMetadata(invalid), false);
+  assert.equal(UiPolicy.reviewOutcome(
+    { score: 70, maxScore: 100, passed: true }, invalid, { score: 70, status: "passed" }
+  ).trusted, false, "invalid saved review metadata never unlocks detailed review");
+}
 
 assert.equal(UiPolicy.shouldHandleGraphShortcut({ closest: () => null }), true);
 assert.equal(UiPolicy.shouldHandleGraphShortcut({ closest: () => ({}) }), false);

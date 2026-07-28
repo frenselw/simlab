@@ -58,6 +58,11 @@ assert.equal(composite.phases.length, 4);
 assert.equal(composite.boundaries.length, 3);
 assert.equal(composite.phases.every((phase) => phase.coverage === 1), true);
 
+const blankCompositePhase = traceFrom((t) => 0.2 + 0.2 * t, "vt",
+  (index) => index >= 24 && index < 48);
+assert.equal(Analysis.analyzeTrace(blankCompositePhase, "vt", { composite: true }).phases[1].structuralInvalid, true,
+  "a completely blank composite phase is structurally invalid");
+
 const repeated = Analysis.analyzeTrace(traceFrom((t) => 0.2 + 0.3 * t * t), "xt");
 assert.deepEqual(repeated, Analysis.analyzeTrace(traceFrom((t) => 0.2 + 0.3 * t * t), "xt"));
 
