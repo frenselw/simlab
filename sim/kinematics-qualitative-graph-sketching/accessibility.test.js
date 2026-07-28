@@ -49,6 +49,7 @@ assert.match(css, /\.graph-app\s*\{[^}]*width:\s*100%/);
 assert.match(css, /\.progress\s*\{[^}]*grid-template-columns:\s*repeat\(6/);
 assert.match(css, /\.graph-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
 assert.match(css, /\.graph-completeness-hint\s*\{[^}]*position:\s*absolute/);
+assert.match(css, /\.graph-completeness-hint\s*\{[^}]*box-shadow:[^}]*color:\s*#92400e/);
 assert.match(css, /@media \(min-width:\s*820px\)[\s\S]*\.graph-app\.no-stage\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/);
 assert.doesNotMatch(html, /id="previousButton"/);
 assert.doesNotMatch(html, /class="magnifier"/);

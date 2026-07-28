@@ -109,9 +109,15 @@ body { margin: 0; }
   border-radius: .25rem; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair;
 }
 .graph-completeness-hint {
-  position: absolute; top: 2.8%; right: 3.2%; z-index: 4; padding: .22rem .42rem;
-  border-radius: 999px; pointer-events: none; background: rgba(255, 255, 255, .72);
-  color: rgba(71, 85, 105, .58); font-size: clamp(.64rem, 1.25vw, .78rem); font-weight: 700;
+  position: absolute; top: 2.4%; right: 2.8%; z-index: 4; display: inline-flex; align-items: center;
+  gap: .38rem; padding: .36rem .58rem; border: 1px solid rgba(217, 119, 6, .58);
+  border-radius: 999px; pointer-events: none; background: rgba(255, 251, 235, .96);
+  box-shadow: 0 4px 12px rgba(120, 53, 15, .18); color: #92400e;
+  font-size: clamp(.76rem, 1.25vw, .88rem); font-weight: 800;
+}
+.graph-completeness-hint::before {
+  width: .48rem; height: .48rem; border-radius: 999px; background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, .16); content: "";
 }
 .graph-input-surface:focus-visible { outline: 4px solid #7c3aed; outline-offset: 2px; }
 .graph-input-surface.is-erasing { cursor: cell; }
