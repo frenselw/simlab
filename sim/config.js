@@ -62,6 +62,14 @@ const simulationList = [
     description: "根據直線運動描述，親手畫出定性的 x–t、v–t 及 a–t 圖，並完成由加速到停止的分段綜合挑戰。",
     tags: ["physics", "mechanics", "kinematics", "motion-graphs", "position-time", "velocity-time", "acceleration-time", "drawing", "scorm"],
     status: "planned"
+  },
+  {
+    title: "勻速與勻變速：三圖定量建構挑戰",
+    folder: "kinematics-quantitative-graph-builder",
+    categories: ["Mechanics"],
+    description: "根據具體初始位置、初速度、加速度和時間，拖動精確坐標點建立 x–t、v–t 及 a–t 圖。",
+    tags: ["physics", "mechanics", "kinematics", "motion-graphs", "position-time", "velocity-time", "acceleration-time", "constant-acceleration", "graph-construction", "scorm"],
+    status: "active"
   }
 ];
 

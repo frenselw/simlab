@@ -1,0 +1,16 @@
+"use strict";
+const assert = require("node:assert/strict"); const U = require("./ui-policy.js");
+assert.equal(U.startupMode("editable"), "activity"); assert.equal(U.startupMode("review"), "review"); assert.equal(U.startupMode("frozen"), "pending"); assert.equal(U.startupMode("load-error"), "technical");
+assert.equal(U.controlsLocked("activity"), false); assert.equal(U.controlsLocked("pending"), true); assert.equal(U.technicalResult("pending").submittedClaim, false);
+for (const value of [{ score: 70, maxScore: 100, passed: true }, { score: 69.5, maxScore: 100, passed: false }]) assert.equal(U.validResultMetadata(value), true);
+for (const value of [{ score: 70, maxScore: 99, passed: true }, { score: "70", maxScore: 100, passed: true }, { score: 70, maxScore: 100, passed: "true" }]) assert.equal(U.validResultMetadata(value), false);
+const calls = []; for (const activityState of ["success", "committed", "frozen", "retry"]) U.submission({ activityState }, { success: () => calls.push("success"), committed: () => calls.push("committed"), frozen: () => calls.push("frozen"), retry: () => calls.push("retry") }); assert.deepEqual(calls, ["success", "committed", "frozen", "retry"]);
+const expected = { answer: { v: 1 }, score: 70, maxScore: 100, passed: true }; const computed = { score: 70, passed: true };
+assert.equal(U.pendingReturnDecision({ ok: true, review: expected }, expected, { ok: true }, computed), "review");
+assert.equal(U.pendingReturnDecision({ committed: true, review: expected }, expected, { ok: true }, computed), "committed");
+assert.equal(U.pendingReturnDecision({ frozen: true }, expected, null, null), "pending");
+assert.equal(U.pendingReturnDecision({ ok: true, review: { ...expected, score: 69 } }, expected, { ok: true }, computed), "quarantine");
+assert.deepEqual(U.attemptSummary({ score: 0, status: "failed" }), { score: "0", status: "failed" }, "finished fallback must display a recorded zero");
+assert.deepEqual(U.attemptSummary({ score: "", status: "" }), { score: "--", status: "--" }); assert.match(U.retryableRetryMessage, /重試/);
+assert.equal(U.usesCompactLayout({ width: 320, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 420 }), true); assert.equal(U.usesCompactLayout({ width: 1024, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 250 }), true);
+console.log("Quantitative graph lifecycle UI tests passed");

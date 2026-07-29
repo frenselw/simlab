@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>勻速與勻變速：三圖定量建構挑戰</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="graph-app" id="app">
+    <section class="controls-panel" id="controlsPanel" aria-label="操作面板">
+      <header class="page-header"><p class="kicker">定量運動圖像</p><h1>勻速與勻變速：三圖定量建構挑戰</h1><p id="phaseCopy">先試用控制點作圖工具。</p></header>
+      <section id="practiceView" class="activity-section"><h2>操作練習</h2><p>試用拖動、數值欄、−／＋和清除。這條示範圖不計分，也不保存正式答案。</p><div id="practiceRows" class="point-rows"></div><button id="practiceClear">清除示範圖</button><button id="startChallenge" class="primary">開始正式挑戰</button></section>
+      <section id="taskView" class="activity-section is-hidden" aria-labelledby="missionTitle">
+        <p id="missionKicker" class="kicker"></p><h2 id="missionTitle"></h2><p id="missionPrompt"></p>
+        <button id="formulaToggle" class="text-button" aria-expanded="false" aria-controls="formulaCard">顯示公式提示</button>
+        <div id="formulaCard" class="formula-card is-hidden"><var>v</var>(<var>t</var>) = <var>v</var><sub class="numeric-subscript">0</sub> + <var>a</var><var>t</var><br><var>x</var>(<var>t</var>) = <var>x</var><sub class="numeric-subscript">0</sub> + <var>v</var><sub class="numeric-subscript">0</sub><var>t</var> + ½<var>a</var><var>t</var><sup>2</sup></div>
+        <div id="graphButtons" class="graph-buttons" aria-label="切換圖像"></div>
+        <p id="graphSummary" class="graph-summary"></p><p id="controlPointInstruction" class="control-point-instruction"></p>
+        <div id="pointRows" class="point-rows"></div>
+        <div class="history-row"><button id="undoButton">復原上一步</button><button id="redoButton">取消復原</button><button id="clearGraphButton">清除這幅圖</button></div>
+        <p id="editorStatus" class="status" aria-live="polite"></p>
+        <button id="nextButton" class="primary">下一幅圖</button>
+      </section>
+      <section id="reviewView" class="activity-section is-hidden"><h2>提交前檢視</h2><p>只顯示完成度，不顯示正確性或預計得分。未設定的控制點會得 0 分。</p><p id="reviewStatus" class="status" aria-live="polite"></p><div id="reviewList" class="review-list"></div><button id="submitButton" class="primary">確認提交全部答案</button></section>
+      <section id="resultView" class="activity-section is-hidden"><h2 id="resultTitle">提交結果</h2><div id="resultScore" class="score-panel"></div><div id="resultTabs" class="graph-buttons"></div><p id="resultFeedback" class="status"></p><div id="cursorReadout" class="cursor-readout"></div><button id="retryButton" class="primary is-hidden">重試提交</button></section>
+      <section id="technicalView" class="activity-section is-hidden"><h2 id="technicalTitle">技術問題</h2><p id="technicalMessage"></p><button id="technicalRetryButton" class="primary is-hidden">重試提交</button></section>
+    </section>
+    <section class="stage-region" id="stageRegion" aria-label="坐標圖舞台"><div id="graphMount" class="graph-mount"></div></section>
+  </main>
+  <p id="liveRegion" class="sr-only" aria-live="polite"></p>
+  <script src="../shared/scorm.js"></script><script src="../shared/activity-flow.js"></script>
+  <script src="question-definitions.js"></script><script src="notation.js"></script><script src="graph-model.js"></script><script src="scoring.js"></script><script src="persistence.js"></script><script src="ui-policy.js"></script><script src="main.js"></script>
+</body>
+</html>

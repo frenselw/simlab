@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="kinematics-quantitative-graph-builder" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-KINEMATICS-QUANTITATIVE-GRAPH-BUILDER"><organization identifier="ORG-KINEMATICS-QUANTITATIVE-GRAPH-BUILDER"><title>勻速與勻變速：三圖定量建構挑戰</title><item identifier="ITEM-KINEMATICS-QUANTITATIVE-GRAPH-BUILDER" identifierref="RES-KINEMATICS-QUANTITATIVE-GRAPH-BUILDER"><title>勻速與勻變速：三圖定量建構挑戰</title></item></organization></organizations>
+  <resources><resource identifier="RES-KINEMATICS-QUANTITATIVE-GRAPH-BUILDER" type="webcontent" adlcp:scormtype="sco" href="kinematics-quantitative-graph-builder/index.html">
+    <file href="config.js"/><file href="kinematics-quantitative-graph-builder/index.html"/><file href="kinematics-quantitative-graph-builder/styles.css"/><file href="kinematics-quantitative-graph-builder/main.js"/><file href="kinematics-quantitative-graph-builder/question-definitions.js"/><file href="kinematics-quantitative-graph-builder/notation.js"/><file href="kinematics-quantitative-graph-builder/graph-model.js"/><file href="kinematics-quantitative-graph-builder/scoring.js"/><file href="kinematics-quantitative-graph-builder/persistence.js"/><file href="kinematics-quantitative-graph-builder/ui-policy.js"/><file href="shared/styles.css"/><file href="shared/scorm.js"/><file href="shared/activity-flow.js"/>
+  </resource></resources>
+</manifest>
