@@ -76,11 +76,12 @@
   - 填寫 \(\Delta t\)、四組比例及三條物理規律題；
   - 在提交前 review 檢查量度證據和答案，然後提交。
 - Main interactions：
+  - 拍攝前的連續自由落體示意及明確重播；
   - 頻率 segmented control；
   - 生成／重新拍攝按鈕；
-  - 拖動直尺；
+  - mouse／trusted touch 直接拖動直尺；
   - 選擇量度目標；
-  - 鍵盤方向鍵／微調掣移動直尺；
+  - 聚焦直尺後以方向鍵／Shift+方向鍵移動；
   - 數值輸入、比例輸入、單選概念題；
   - review、返回修正、提交。
 - Runtime files（實作階段）：
@@ -88,6 +89,7 @@
   - `sim/free-fall-stroboscopic-measurement-lab/index.html`
   - `sim/free-fall-stroboscopic-measurement-lab/styles.css`
   - `sim/free-fall-stroboscopic-measurement-lab/model.js`
+  - `sim/free-fall-stroboscopic-measurement-lab/animation.js`
   - `sim/free-fall-stroboscopic-measurement-lab/scoring.js`
   - `sim/free-fall-stroboscopic-measurement-lab/persistence.js`
   - `sim/free-fall-stroboscopic-measurement-lab/main.js`
@@ -160,8 +162,10 @@
 
 > 相機已按今次軌跡調整視野；每次都要按直尺刻度讀取實際距離，不能比較像素。
 
-改變相機比例只影響呈現，不改變物理量、scorer 或比例。直尺刻度與同一次相片
-使用完全相同的米制轉換。
+改變相機比例只影響呈現，不改變物理量、scorer 或比例。內部 model、scorer、
+snapshot 的 `readingM`／`rulerZeroM` 仍一律使用米；學生看見的直尺、距離輸入、
+review、結果、容差及錯誤訊息一律使用厘米，邊界只作一次
+`cm ÷ 100 -> m` 或 `m × 100 -> cm` 轉換。
 
 ### 4.3 理想模型，保留真實量度感
 
@@ -238,8 +242,12 @@ s_1:s_2:s_3:s_4 = 1:4:9:16
 | 5 Hz | 0.2000 s | 0.2000 m | 0.8000 m | 1.8000 m | 3.2000 m |
 | 6 Hz | 0.1667 s | 0.1389 m | 0.5556 m | 1.2500 m | 2.2222 m |
 
-Model 及 scorer 保留 full precision；畫面、直尺及 feedback 按需要顯示至
-`0.01 m` 或 `0.05 m`，不可用顯示四捨五入值重新評分。
+Model 及 scorer 以米保留 full precision；學生畫面、直尺、輸入、review 及
+feedback 顯示厘米。輸入如 `20 cm` 精確轉為 `0.2 m`、`31.25 cm` 精確轉為
+`0.3125 m`，不可預先四捨五入、重複除以 100，亦不可用顯示值重新評分。
+feedback、review 及 ARIA 的厘米顯示最多保留兩個小數並移除 IEEE-754 尾數；
+restore/edit input 則以 decimal-place shift 保留 canonical learner reading 的實際
+精度（例如 `31.25`），不可先經 display rounding 再回寫 authoritative state。
 
 ### 5.4 相機範圍
 
@@ -261,13 +269,39 @@ yPx(s) = topPaddingPx + usableStageHeightPx × s / cameraMaxM
 ### 5.5 頻閃生成
 
 - 學生必須由「未設定」主動選擇頻率，沒有預選正確答案。
-- 按「拍攝頻閃相片」後，完整 \(P_0\)–\(P_4\) 球影 group 同時由透明至正常
-  opacity 單向淡入一次，duration `250 ms`。這只是「相片已生成」UI transition，
-  明確不按時間逐格播放，不用 fixed reveal cadence 冒充所選 \(1/f\)。
-- 禁止全舞台／全畫面明暗閃爍、白色 camera flash、反覆切換同一元素或任何每秒
-  三次以上的明顯 luminance flash。動畫面積只限球影 group，不改變舞台背景亮度。
-  `prefers-reduced-motion` 下立即顯示完整 \(P_0\)–\(P_4\)。
-- 最終頻閃圖是靜態量度場景；量度期間沒有持續物理時鐘。
+- `setup/new` 及 `setup/configured` 先顯示一個非互動實心球的連續自由落體示意：
+  \(s=\tfrac12gt^2\)、\(0\le t\le1.00\text{ s}\)，使用固定 `0..5.5 m` 示意比例；
+  \(t=1.00\text{ s}\) 時球位於 `5.00 m`。正常動態模式自動播放一次後停在終點，
+  並一直提供「重播連續下落」。它不循環、不留下 \(P_0\)–\(P_4\)、不選擇頻率、
+  不產生讀數／evidence／score／checkpoint。學生可見文字必須說明：
+  「連續自由落體示意（尚未拍攝）：畫面只有同一個正在下落的球；此預覽不產生
+  量度數據。」
+- 第一次合法按「拍攝頻閃相片」時，production 只執行一次
+  `Persistence.generate()` 及一次 semantic draft checkpoint，取消任何預覽，
+  並進入不持久化的 `capturing` presentation。快速雙擊或重複 activation 不可重複
+  phase transition、checkpoint、timer 或球影。
+- Capture 由同一實心球在 \(t=0\) 重新開始連續下落。\(P_0\) 立即留下；其後在
+  精確 logical time \(t_n=n/f\) 留下 \(P_n\)，而位置必須直接取
+  `Model.displacementAt(f,n)`，不可取動畫 frame 的近似位置。實心球在曝光之間
+  仍依 \(s=\tfrac12gt^2\) 連續移動。4／5／6 Hz 的最後曝光時間分別為
+  `1.0000 s`、`0.8000 s`、約 `0.6667 s`。
+- Capture 可用非 flashing 本地狀態文字，例如
+  「已記錄 P₂，t=0.400 s」；並說明「實心球是正在下落的同一個球；留下的球影是
+  相機每隔 Δt 記錄的位置」。禁止全舞台／全畫面明暗閃爍、白色 camera flash、
+  背景 luminance animation 或反覆切換既有球影。
+- \(P_4\) 完成後移除 live ball，只保留恰好五個靜態、標記
+  \(P_0\)–\(P_4\) 的球影，然後才顯示直尺及量度 UI。完成文字為：
+  「頻閃相片完成：五個球影來自同一個球，彼此相隔 Δt；現在量度靜態相片。」
+  最終幾何必須與權威 model 完全相同；量度期間沒有持續物理時鐘。
+- Preview／capture 的 token、frame ID、elapsed time、live-ball 位置、已顯示球影
+  index 及 status 全屬 transient。Resize 只按目前 transient/model 重畫，不重啟
+  sequence；visibility interruption、取消、phase change 或 stale callback 必須
+  token-guard。已生成 draft／review reload 永遠直接顯示完整靜態相片，不恢復半段
+  animation。
+- `prefers-reduced-motion: reduce` 不自動平移球，也不按 cadence 計時顯示球影。
+  拍攝前顯示起點／終點／箭頭及「連續下落動畫已按你的動態效果設定省略」；
+  按生成後立即顯示相同的完整權威 \(P_0\)–\(P_4\) 靜態相片、所選 \(f\)、
+  \(\Delta t\) 及 equal-time sampling 說明。重播按鈕仍可操作但不強制動畫。
 - 改變頻率時，先顯示確認：「重新拍攝會清除今次量度值及操作證據」。
 - 確認後原子式清除所有依賴舊頻率的讀數、比例答案、概念答案及 review 狀態，
   保留的只有非評分 UI 偏好。
@@ -279,27 +313,40 @@ yPx(s) = topPaddingPx + usableStageHeightPx × s / cameraMaxM
 舞台使用 SVG 畫：
 
 - 淺色相機背景及垂直方向提示；
+- 拍攝前一個非互動 preview ball；capture 時一個非互動 live ball 及逐次保留的
+  半透明曝光球影；
 - \(P_0\)–\(P_4\) 五個相同球影；
 - 每點旁的 `P₀`–`P₄` 標籤；
 - 選中量度目標時的兩條淡水平投影線；
 - 直尺停泊區及量度工作區；
 - 不顯示位置數字、答案線或自動括號距離。
 
-球影本身不是 draggable target；只有直尺可以移動。點選球影只可選擇量度目標，
-不改變物理位置。
+Preview/live ball、曝光球影及最終球影均不是 draggable target，並使用
+`pointer-events:none`；只有完成相片後的直尺可以移動。點選球影只可選擇量度
+目標，不改變物理位置。
 
 ### 6.2 直尺
 
-- 垂直透明直尺，使用米制；
-- 主刻度每 `0.5 m` 有標籤；
-- 中刻度每 `0.1 m`；
-- 細刻度每 `0.05 m`；極矮 viewport 可視覺合併細刻度，但放大鏡仍顯示；
-- 零刻度位於直尺上端；
-- 直尺可作 x、y 平移，不旋轉、不縮放；
-- 直尺的 scale 永遠跟相機米制一致；
-- 一個固定 HTML drag handle／hit target 覆蓋尺身安全區，最小 `44×44 CSS px`；
-- render SVG 球列時不得替換 drag handle 或 pointer-capture target；
-- 直尺被手指遮住時，舞台角落顯示局部放大鏡；放大鏡不顯示計算答案。
+- 垂直透明直尺；學生刻度及標籤使用厘米，內部幾何仍使用米；
+- 細刻度每 `5 cm`、中刻度每 `10 cm`、主刻度每 `50 cm`；只標示主刻度
+  `0, 50, 100, ...`，並在尺身空白位置只顯示一次直立 `cm`；
+- `ruler.y` 永遠代表零刻度 anchor，而不是尺身上緣；
+- 零刻度以上及最大刻度以下各保留 `12 SVG user units` 的尺身 end margin；
+- full ruler body 可在零刻度對準 \(P_1\)–\(P_3\) 時自然超出並被舞台裁切；
+  不可為了把整把尺塞進舞台而移動零刻度；
+- 一個共用 geometry helper 由 zero anchor、tick span、end margins、stage CTM
+  算出 full body、與舞台相交的 visible body、dynamic visible width、measuring
+  edge 及 clamp；draw、position、hit/scoring geometry、restore 及 pointer/keyboard
+  clamp 全部使用同一結果；
+- SVG 使用 `preserveAspectRatio="none"`（或等價明確 CTM），HTML overlay 與
+  可見 SVG 尺身四邊在 CSS pixels 相差不超過 `1 px`；
+- 固定、原生 focusable HTML button／pointer-capture target 透明覆蓋可見尺身
+  intersection，寬度在 required viewport 及 200% zoom 至少 `44 CSS px`；
+  overlay 不另畫 glyph、border、fill 或 rounded handle，學生直接拖動直尺本身；
+- focus-visible outline 沿可見尺身顯示；尺身 top／middle／bottom／left edge／
+  right edge 均須由 `elementFromPoint` 命中同一 drag owner；
+- render SVG 球列或刻度時不得替換 HTML pointer-capture target；
+- 不設局部放大鏡或其他跟隨手指的 ruler preview window。
 
 ### 6.3 量度任務
 
@@ -365,7 +412,7 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 ### 6.5 不以無關操作扣分
 
 - 任意重試、拖動次數多、用時長、先放錯再修正均不扣分。
-- Pointer、mouse、keyboard、微調掣是等價輸入。
+- Pointer（mouse／trusted touch）及 keyboard 是等價輸入。
 - 只有最後提交中與每個量度項目關聯的最佳有效證據計分。
 - 隨便把尺移動一下但未對準，不建立有效證據。
 - 把尺放在畫面一側後輸入理論值，可以取得答案分，但沒有相應操作分。
@@ -373,8 +420,10 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 ## 7. 整體學習流程
 
 ```text
-設定頻率
-→ 拍攝頻閃相片
+連續自由落體示意
+→ 設定頻率
+→ 連續下落及等時間曝光
+→ 靜態頻閃相片
 → 總位移量度
 → 相鄰間隔量度
 → 數據及比例分析
@@ -386,17 +435,20 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 ### 7.1 設定
 
 - 畫面直接進入實驗，不設 landing page。
+- 未選頻率時先 autoplay 一次不產生數據的連續下落示意，並提供明確重播。
 - 簡短說明頻閃頻率是每秒拍攝次數。
 - 學生選擇 `4/5/6 Hz`，畫面要求先預測「頻率愈高，相鄰影像時間是較短還是
   較長」；此預測不計分，提交後可比較。
-- 按拍攝後才出現量度表。
+- 按拍攝後先鎖定 conflicting setup actions，依所選 \(1/f\) 顯示一次 capture；
+  \(P_4\) 完成及 live ball 移除後才出現量度表。Reduced motion 立即進入同一靜態
+  結果。
 
 ### 7.2 量度
 
 - 首次開啟總位移模式，提示零刻度要對準 \(P_0\)。
 - 完成或跳過四個總位移項目後可進入相鄰間隔。
 - 相鄰間隔按順序顯示四段；可回到較早項目重測。
-- 每個項目均清楚顯示單位 `m`。
+- 每個距離項目均清楚顯示單位 `cm`；時間仍用 `s`、頻率仍用 `Hz`。
 - 未填值不被當作 `0`。
 
 ### 7.3 分析
@@ -439,6 +491,16 @@ Review 顯示：
   - 「你找到了總位移平方比，但相鄰間隔應比較連續兩點之差。」
   - 「答案正確，但今次記錄未顯示直尺曾對準三個相鄰間隔。」
 - 同一已完成 attempt 只供 review；重做需要 Moodle 新 attempt。
+
+### 7.6 學生可見數學排版
+
+- HTML learner copy 以語義 `<var>`、`<sub>`、`<sup>` 表示
+  \(f,t,\Delta t,s,\Delta s,g,v,P_n,t_n,s_n,t^2\)；
+- 單位使用直立文字，包括 `cm`、`s`、`Hz` 及
+  `m s<sup>−2</sup>`；變量斜體，單位不可斜體；
+- static 及 dynamic measurement／capture／review／result copy 保留語義 markup；
+  dynamic 數值先驗證或 escape，再組成受控 DOM／HTML，不把富排版全部 flatten；
+- SVG labels 及 ARIA 可用等價 plain text；不加入 MathJax 或其他 dependency。
 
 ## 8. Scoring
 
@@ -571,19 +633,21 @@ DELTA_T_ABS_TOLERANCE_S = 0.005 s
 ### 9.2 距離讀數
 
 ```text
-distanceTolerance(expected) = max(0.03 m, 0.06 × expected)
+distanceTolerance(expected) = max(0.03 m, 0.06 × expected) // canonical internal meters
 ```
 
 - 對稱、inclusive absolute-or-relative tolerance：
   `abs(student - expected) <= distanceTolerance(expected)`。
-- `5 Hz` 的 \(s_1=0.200 m\)，容差 `0.030 m`：
-  - just inside：`0.229 m`
-  - exact boundary（接受）：`0.230 m`
-  - just outside：`0.2301 m`
-- `5 Hz` 的 \(s_4=3.200 m\)，容差 `0.192 m`：
-  - just inside：`3.391 m`
-  - exact boundary（接受）：`3.392 m`
-  - just outside：`3.3921 m`
+- `5 Hz` 的 \(s_1=0.200 m\)（顯示 `20 cm`），容差
+  `0.030 m`（顯示 `3 cm`）：
+  - just inside：`22.9 cm`（canonical `0.229 m`）
+  - exact boundary（接受）：`23 cm`（canonical `0.230 m`）
+  - just outside：`23.01 cm`（canonical `0.2301 m`）
+- `5 Hz` 的 \(s_4=3.200 m\)（顯示 `320 cm`），容差
+  `0.192 m`（顯示 `19.2 cm`）：
+  - just inside：`339.1 cm`
+  - exact boundary（接受）：`339.2 cm`
+  - just outside：`339.21 cm`
 - 相鄰間隔使用各段自己的 expected value，不用總位移容差代替。
 - 對非有限、負值、缺單位語義或大於 camera range 的值 fail closed／0 分。
 
@@ -649,7 +713,7 @@ RATIO_TERM_TOLERANCE = 0.15
     active pair 或主要按鈕；
   - 縮短非必要說明；
   - 保留 \(P_0\)–\(P_4\)、尺邊及 active pair；
-  - 放大鏡可覆蓋非 active 留白；
+  - 透明 ruler overlay 只覆蓋可見尺身，不建立尺身以外的 invisible dead zone；
   - 所有主要行動在 panel 可到達；
   - 不以壓扁 panel 換取舞台高度。
 - Tablet／desktop：
@@ -663,7 +727,7 @@ RATIO_TERM_TOLERANCE = 0.15
 
 | Target type | Selector／hit-target | Pointer-capture target | Render 可在 drag 中替換？ |
 |---|---|---|---:|
-| 直尺 | 固定 HTML overlay，明確尺寸，覆蓋尺身及 handle | 同一 HTML ruler element | No |
+| 直尺 | 固定透明 HTML overlay，精確覆蓋可見 SVG 尺身 intersection；無另畫 handle 或放大鏡 | 同一 HTML ruler element | No |
 
 球影、水平投影線、SVG labels 及舞台背景均不是 drag target。
 
@@ -711,7 +775,9 @@ development source 及 built/extracted SCORM 均在 scrollable Moodle-like ifram
 - event `isTrusted`、pointer type、pointermove/up/cancel counts；
 - browser engine／device。
 
-本活動量度期沒有 running clock，所以 gesture side effect 不需要扣除正常模型演進。
+Preview／capture 有 transient running clock；在這兩個 presentation 做 gesture
+side-effect 測試時必須 pause／fake clock 或只比較權威 learner state 並按預期視覺
+演進判斷。靜態量度期沒有 running clock。
 
 ## 12. Accessibility
 
@@ -719,24 +785,24 @@ development source 及 built/extracted SCORM 均在 scrollable Moodle-like ifram
 - Ruler focus 後：
   - Arrow：細移；
   - Shift+Arrow：大移；
-  - 微調掣提供相同功能；
   - 「返回停泊區」按鈕不計作有效量度。
-- Keyboard／微調造成的實際尺位變化與 pointer drag 同等計分；不以殘疾學生未用
+- Keyboard 造成的實際尺位變化與 pointer drag 同等計分；不以殘疾學生未用
   拖曳扣分。
 - Ruler 有可讀名稱、目前零刻度對應位置及 active measurement 的簡潔描述。
 - Ruler handle 使用原生 focusable button；可加
   `aria-roledescription="可移動直尺"`，並以 `aria-describedby` 連結方向鍵、
-  Shift+方向鍵及微調掣說明。Accessible name／description 必須包含 active
+  Shift+方向鍵及直接拖動說明。Accessible name／description 必須包含 active
   measurement 及目前零刻度位置，不用不合適的單軸 slider role 表示二維移動。
 - Ruler 及所有 panel controls 有清晰、非只靠顏色的 `:focus-visible` indicator。
-  Arrow／nudge、resize 及 rerender 後 focus 保留在原控制；不得跳回 body。
+  Arrow／Shift+Arrow、resize 及 rerender 後 focus 保留在原控制；不得跳回 body。
 - 對準狀態透過文字及顏色／線形雙重表示。
 - Touch targets 最少 `44×44 px`。
 - 數值欄有可見 label、單位及錯誤訊息；不以 placeholder 代替 label。
 - 比例使用語義化 group；screen reader 可讀為「總位移比，第 2 項」。
 - `P₀`–`P₄` 同時有文字標籤，不只靠球影深淺。
-- 球影只按 §5.5 單向淡入，不使用全舞台 flash；並尊重
-  `prefers-reduced-motion`。
+- Moving ball 及 stamped images 不逐 frame announce；polite status 只報
+  「正在拍攝」／新曝光點／「相片已完成」。不使用全舞台 flash，並按 §5.5 實作
+  `prefers-reduced-motion` 的無計時等價路徑。
 - Focus order 跟 panel 任務順序一致；返回舞台不造成 focus trap。
 - 200% zoom 仍可完成所有核心操作。
 
@@ -765,9 +831,16 @@ development source 及 built/extracted SCORM 均在 scrollable Moodle-like ifram
 - size checks helpers；
 - 不把 saved score 當權威。
 
+### `animation.js`
+
+- 小型 injected-clock controller，使用 model 的連續位置及精確 exposure schedule；
+- 管理 preview／capture／static transient presentation、token cancellation、
+  stale-callback rejection 及 reduced-motion immediate path；
+- 不接觸 learner state、persistence、score 或 SCORM。
+
 ### `main.js`
 
-- render、Pointer Events、keyboard ruler controls；
+- render、animation controller 接線、Pointer Events、keyboard ruler controls；
 - phase transitions；
 - semantic checkpoint；
 - `SimScorm.loadAttempt()`／`SimActivityFlow.startup()`；
@@ -778,7 +851,7 @@ development source 及 built/extracted SCORM 均在 scrollable Moodle-like ifram
 ### `styles.css`
 
 - bounded split-panel；
-- stage、ruler、magnifier、control panel；
+- stage、SVG ruler、transparent stable ruler overlay、control panel；
 - responsive／zoom／reduced-motion；
 - selective touch-action。
 
@@ -887,7 +960,8 @@ Transitions：
 
 ```text
 setup/new -> setup/configured on legal active frequency selection
-setup/configured -> measure-total/normal-unpositioned[0] on generated photo
+setup/configured -> measure-total/normal-unpositioned[0] on first accepted Generate;
+  one draft checkpoint occurs immediately, while transient capture temporarily hides measurement UI
 measure-*/normal-unpositioned -> measure-*/normal-placement-ready on completed pointerup/keyboard placement
 measure-*/normal-placement-ready -> same placement-ready on further completed adjustment
 measure-total/normal-placement-ready[i] -> measure-total/normal-placement-ready[i+1]
@@ -913,6 +987,10 @@ any editable generated phase -> setup/configured only after confirmed frequency 
 
 `frozen`、`load-error` 及 trust-mismatch 是 shared lifecycle UI locks，不新增 production
 phase 名稱到 activity snapshot。
+
+`preview`、`capturing` 及 `static` 是 presentation state，不是 snapshot phase。
+Restore 任一 generated draft／review 直接取 `static`；不得把半完成 capture 變成
+新的 persisted phase 或 continuation。
 
 `skipped` 是 resolved-and-submittable zero-credit measurement status；只有 status 尚未
 選定才是 unresolved。Review/incomplete 不得因存在 skipped item 而阻止提交。
@@ -1044,8 +1122,8 @@ validate versions and canonical schema
 - pointer ID／capture；
 - drag start/current pixels；
 - active key-repeat；
-- magnifier animation；
-- flash animation；
+- preview／capture token、requestAnimationFrame ID、start／elapsed time；
+- live-ball 位置、目前已顯示的 exposure index、capture／preview status；
 - focus／hover；
 - live-region queue；
 - debounce timers。
@@ -1111,7 +1189,8 @@ validate versions and canonical schema
 只在 semantic boundary 保存：
 
 - 頻率選擇；
-- 頻閃相片生成；
+- 頻閃相片第一次合法生成（`Persistence.generate()` 後一次；preview frame、
+  capture frame、每個 stamp 及 animation completion 都不另存）；
 - pointerup／keyboard movement 完成後的尺位；
 - 記錄／修改／跳過一個讀數；
 - 完成一組 ratio／concept answer；
@@ -1166,6 +1245,7 @@ SimActivityFlow.reviewResult()
 
 ### 18.1 Model
 
+- \(s(t)=\tfrac12gt^2\) 的連續 preview／live-ball 位置及相等時間下遞增 displacement；
 - 4／5／6 Hz 的 \(\Delta t,t_n,s_n,\Delta s_n\)；
 - \(s\) 比為 `1:4:9:16`；
 - gap 比為 `1:3:5:7`；
@@ -1198,6 +1278,9 @@ SimActivityFlow.reviewResult()
 
 ### 18.3 Phase／persistence
 
+- `setup/new`／`setup/configured` snapshot 不含 preview／replay progress；
+- generated draft／review restore 直接為完整 static presentation，不保存
+  capture progress；
 - 每個 phase／variant production-shaped round-trip；
 - `score(original) === score(restore(encode(original)))` 且
   `passed(original) === passed(restore(encode(original)))`；
@@ -1229,6 +1312,15 @@ SimActivityFlow.reviewResult()
 
 ### 18.5 Interaction
 
+- fake clock 驗證 preview 自動播放一次、物理加速、明確 replay 從起點重啟及不改
+  learner state；
+- 4／5／6 Hz capture schedule 精確為 \(n/f\)，P₀ immediate、五個 index 唯一且
+  final position 精確取 Model；P₄ 後 live ball 移除；
+- Generate 雙擊只有一次 semantic transition／checkpoint／sequence；
+- cancel、visibility、reset、replay、resize、phase change 及 stale callback 不可
+  加入舊 stamp 或改 phase／answers／evidence／score；
+- reduced motion 沒有 motion／cadence timers，直接產生相同 static semantic result；
+- restored generated draft／review 不重播 capture；
 - 頻率由 unset 主動選擇；
 - 改頻率 confirmation atomically 清除依賴資料；
 - pointer drag 使用 relative offset，不令尺跳到手指中心；
@@ -1236,7 +1328,14 @@ SimActivityFlow.reviewResult()
   answers、evidence 及 focus 全部回復／保持 drag 前值；
 - pointerup／keyboard movement 先建立可 restore active placement；確認 reading
   才建立 finalized evidence；
-- keyboard／微調完整完成；
+- 實際 mouse drag、trusted touch drag、Arrow／Shift+Arrow 完整完成；
+- 實際 mouse 及 trusted touch 分別由可見尺身 top／middle／bottom／left edge／
+  right edge 開始，全部命中同一 stable drag owner；pointercancel 回復先前位置；
+- `20 cm -> 0.2 m`、`31.25 cm -> 0.3125 m`、空白／負值／NaN／Infinity invalid；
+  restore、edit、review、locked result 只顯示 cm，而 canonical JSON、schema version、
+  score 及 evidence 保持相同；
+- HTML／CSS／DOM 全部沒有 magnifier；transparent overlay 沒有可見 handle glyph；
+- `.nudge-grid`、`[data-nudge]` 及其 click binding 全部不存在；
 - ruler capture target drag 中不被 render 替換；
 - total placement 可以連續記錄四值；
 - 每個 gap 需要新 movement；
@@ -1253,11 +1352,27 @@ SimActivityFlow.reviewResult()
 - no horizontal overflow；
 - touch targets、focus order、labels、live region；
 - phone、short viewport、desktop 及 200% zoom 全 keyboard traversal；
-- ruler／panel controls 有 visible focus；arrow／nudge／resize／rerender 後 focus
+- ruler／panel controls 有 visible focus；Arrow／Shift+Arrow／resize／rerender 後 focus
   保留；assistive tree 可讀 ruler control semantics、active task、目前零位及操作說明；
-- normal animation 精確為 §5.5 的一次 `250 ms` 球影 group 同步淡入，不按固定
-  cadence 逐格播放，亦沒有 full-stage luminance flash；reduced motion 無動畫但
-  semantic result 相同。
+- source 及 extracted package 在 setup 顯示可重播 preview，位移增量隨等時間增加；
+- 4／5／6 Hz capture 依次顯示 P₀–P₄，時間在 browser scheduler tolerance 內，
+  最後恰好五個靜態 labels、無 live ball，再顯示 ruler／measurement；
+- reduced motion preview 靜態、capture 即時完成且沒有 timed movement／cadence；
+- source 及 extracted package 在 `320×500`、`390×500`、`390×600`、
+  `430×800`、`700×390` landscape 及 `390×600 @ 200%` 的完整矩陣驗證：
+  full/visible ruler body、overlay 四邊 `<=1 px`、visible width `>=44 px`、一個 `cm`
+  unit、5/10/50 cm hierarchy、兩端 margin、P0–P3 zero alignment、P1–P3 bottom clip、
+  `elementFromPoint` 全尺身命中且沒有 invisible dead zone；
+- 同一完整矩陣驗證 semantic `<var>/<sub>/<sup>`、computed sub/sup geometry 可見且
+  不被所屬 copy block 裁切；學生距離 copy 不出現 meter unit，`m s^-2` 只作重力
+  加速度單位且保持直立；
+- production UI 以 real mouse 建立合法 placement，分別輸入 `20`、`31.25` 並按
+  Record；canonical `readingM` 必須為 `0.2`、`0.3125`，encode/decode、evidence、
+  restore/edit、review/result 及 score 不可發生第二次單位轉換；
+- display normalization 覆蓋 `1.8 m → 180 cm`、`0.6 m → 60 cm`、
+  `1.4 m → 140 cm`、`0.108 m → 10.8 cm`，source/package 不顯示 IEEE 長尾；
+- setup preview、capture、static 全部通過 responsive／zoom、panel reachability 及
+  no-third-scroll-owner；沒有 full-stage luminance flash。
 
 ### 18.7 Trusted touch matrix
 
@@ -1277,6 +1392,11 @@ SimActivityFlow.reviewResult()
    - trusted touch pointermove＋pointerup；
    - no pointercancel；
    - 合法 pointerup 只建立 active placement；確認 reading 才建立 evidence。
+
+同一 source／package browser gate 另驗證 preview／capture 期間 stage swipe 及 panel
+middle／top／bottom ownership；比較權威 state 時忽略或 fake 預期 transient visual
+clock。Static 後另以實際 mouse drag、trusted touch drag、Arrow 及 Shift+Arrow
+驗證直尺；moving ball／stamp 不得取得 gesture ownership。
 
 ### 18.8 Registration／package
 
@@ -1309,6 +1429,8 @@ SimActivityFlow.reviewResult()
 
 ### 19.1 教學
 
+- 學生先看見一個連續加速下落的球，再看見同一球按所選 \(\Delta t\) 留下
+  \(P_0\)–\(P_4\)，並清楚知道 preview 不產生數據；
 - 學生清楚知道 \(P_0\) 是起點；
 - 4／5／6 Hz 均顯示可量度 \(P_0\)–\(P_4\)；
 - 能分辨累積時間、總位移、每段時間、每段距離四組比例；
@@ -1326,6 +1448,9 @@ SimActivityFlow.reviewResult()
 
 ### 19.3 技術
 
+- preview／capture 全屬 token-guard transient；generated restore 靜態且 double
+  activation 不重複 checkpoint；
+- reduced motion 沒有 timed movement/cadence，但 state、相片、量度及 score 等價；
 - 每個 saveable state round-trip 並可合法繼續；
 - corrupt／pending／finished invalid state fail closed；
 - shared lifecycle 四種 submission outcome 誠實呈現；
@@ -1346,7 +1471,7 @@ SimActivityFlow.reviewResult()
 
 - SVG 球列、camera calibration、尺刻度；
 - stable HTML ruler target；
-- pointer、keyboard、magnifier；
+- pointer、keyboard、direct-ruler overlay geometry；
 - neutral placement status。
 
 ### Phase C：學習流程

@@ -1,12 +1,13 @@
 (function (root, factory) {
   const model = typeof module === "object" && module.exports ? require("./model.js") : root.FreeFallModel;
+  const animation = typeof module === "object" && module.exports ? require("./animation.js") : root.FreeFallAnimation;
   const scoring = typeof module === "object" && module.exports ? require("./scoring.js") : root.FreeFallScoring;
   const persistence = typeof module === "object" && module.exports ? require("./persistence.js") : root.FreeFallPersistence;
-  const api = factory(model, scoring, persistence);
+  const api = factory(model, animation, scoring, persistence);
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.FreeFallApp = api;
   if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", api.boot);
-})(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring, Persistence) {
+})(typeof window !== "undefined" ? window : globalThis, function (Model, Animation, Scoring, Persistence) {
   "use strict";
 
   const ACTIVITY = "free-fall-stroboscopic-measurement-lab";
@@ -14,13 +15,49 @@
   const SVG_H = 440;
   const BALL_X = 170;
   const RULER_W = 54;
+  const RULER_END_MARGIN = 12;
+  const CM_PER_M = 100;
   const PARK = Object.freeze({ x: 292, y: 28 });
   const RATIO_DEFINITIONS = Object.freeze([
-    ["cumulativeTimeRatio", "累積時間比 t₁:t₂:t₃:t₄", false],
-    ["totalDisplacementRatio", "總位移比 s₁:s₂:s₃:s₄（按讀數約化）", true],
-    ["intervalTimeRatio", "每段時間比 Δt₁:Δt₂:Δt₃:Δt₄", false],
-    ["intervalDistanceRatio", "相鄰距離比 Δs₁:Δs₂:Δs₃:Δs₄（按讀數約化）", true]
+    ["cumulativeTimeRatio", "累積時間比 <var>t</var><sub>1</sub>:<var>t</var><sub>2</sub>:<var>t</var><sub>3</sub>:<var>t</var><sub>4</sub>", false],
+    ["totalDisplacementRatio", "總位移比 <var>s</var><sub>1</sub>:<var>s</var><sub>2</sub>:<var>s</var><sub>3</sub>:<var>s</var><sub>4</sub>（按讀數約化）", true],
+    ["intervalTimeRatio", "每段時間比 <var>Δt</var><sub>1</sub>:<var>Δt</var><sub>2</sub>:<var>Δt</var><sub>3</sub>:<var>Δt</var><sub>4</sub>", false],
+    ["intervalDistanceRatio", "相鄰距離比 <var>Δs</var><sub>1</sub>:<var>Δs</var><sub>2</sub>:<var>Δs</var><sub>3</sub>:<var>Δs</var><sub>4</sub>（按讀數約化）", true]
   ]);
+
+  function metersToCm(value) {
+    return Number.isFinite(value) ? value * CM_PER_M : NaN;
+  }
+  function trimFixed(value, fractionDigits) {
+    return value.toFixed(fractionDigits).replace(/(?:\.0+|(\.\d+?)0+)$/, "$1").replace(/^-0$/, "0");
+  }
+  function formatCm(value) {
+    const centimeters = metersToCm(value);
+    return Number.isFinite(centimeters) ? trimFixed(centimeters, 2) : "";
+  }
+  function formatCmInput(value) {
+    if (!Number.isFinite(value)) return "";
+    if (Object.is(value, -0) || value === 0) return "0";
+    const negative = value < 0;
+    const [coefficient, exponentText = "0"] = Math.abs(value).toString().toLowerCase().split("e");
+    const parts = coefficient.split(".");
+    const digits = parts.join("");
+    const shift = Number(exponentText) + 2 - (parts[1]?.length || 0);
+    const decimalIndex = digits.length + shift;
+    const shifted = shift >= 0
+      ? digits + "0".repeat(shift)
+      : decimalIndex > 0
+        ? `${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`
+        : `0.${"0".repeat(-decimalIndex)}${digits}`;
+    const [integer, fraction] = shifted.split(".");
+    const centimeters = `${integer.replace(/^0+(?=\d)/, "")}${fraction === undefined ? "" : `.${fraction}`}`;
+    return `${negative ? "-" : ""}${centimeters}`;
+  }
+  function parseCm(value) {
+    if (typeof value !== "string" || value.trim() === "") return null;
+    const centimeters = Number(value);
+    return Number.isFinite(centimeters) && centimeters >= 0 ? centimeters / CM_PER_M : null;
+  }
 
   function startupView(outcome) {
     return {
@@ -56,12 +93,12 @@
     const frequency = review.frequencyHz;
     const totals = Scoring.expectedTotals(frequency);
     const gaps = Scoring.expectedGaps(frequency);
-    const ideal = (values) => values.map((value) => value.toFixed(3)).join("、");
-    const tolerances = (values) => values.map((value) => `±${Scoring.distanceTolerance(value).toFixed(3)}`).join("、");
+    const ideal = (values) => values.map((value) => formatCm(value)).join("、");
+    const tolerances = (values) => values.map((value) => `±${formatCm(Scoring.distanceTolerance(value))}`).join("、");
     return [
-      `相鄰影像時間理想值為 ${Model.deltaT(frequency).toFixed(4)} s，接受絕對誤差 ±${Scoring.DELTA_T_ABS_TOLERANCE_S.toFixed(3)} s。`,
-      `P₀ 至 P₁–P₄ 的理想總位移為 ${ideal(totals)} m；各項容差為 ${tolerances(totals)} m。`,
-      `四段理想相鄰距離為 ${ideal(gaps)} m；各項容差為 ${tolerances(gaps)} m。`,
+      `相鄰影像時間理想值為 <var>Δt</var> = ${Model.deltaT(frequency).toFixed(4)} <span class="unit">s</span>，接受絕對誤差 ±${Scoring.DELTA_T_ABS_TOLERANCE_S.toFixed(3)} <span class="unit">s</span>。`,
+      `<var>P</var><sub>0</sub> 至 <var>P</var><sub>1</sub>–<var>P</var><sub>4</sub> 的理想總位移為 ${ideal(totals)} <span class="unit">cm</span>；各項容差為 ${tolerances(totals)} <span class="unit">cm</span>。`,
+      `四段理想相鄰距離為 ${ideal(gaps)} <span class="unit">cm</span>；各項容差為 ${tolerances(gaps)} <span class="unit">cm</span>。`,
       "理想累積時間比 1:2:3:4、總位移比 1:4:9:16、每段時間比 1:1:1:1、相鄰距離比 1:3:5:7；距離比例分按你的正有限讀數約化。",
       ...Scoring.measurementDiagnostic(review, result)
     ];
@@ -71,11 +108,12 @@
     const $ = (id) => document.getElementById(id);
     const dom = {
       stage: $("stage"), scene: $("scene"), trajectory: $("trajectoryGroup"), rulerGraphic: $("rulerGraphic"),
-      ruler: $("rulerHandle"), magnifier: $("magnifier"), magnifierReadout: $("magnifierReadout"), stageHint: $("stageHint"), panel: $("controlPanel"),
+      ruler: $("rulerHandle"), stageHint: $("stageHint"), panel: $("controlPanel"),
       badge: $("phaseBadge"), setup: $("setupSection"), measurement: $("measurementSection"),
       analysis: $("analysisSection"), review: $("reviewSection"), result: $("resultSection"),
       technical: $("technicalSection"), technicalTitle: $("technicalTitle"), technicalMessage: $("technicalMessage"),
       technicalRetry: $("technicalRetry"), generate: $("generateButton"), measurementTitle: $("measurementTitle"),
+      replayPreview: $("replayPreviewButton"), animationStatus: $("animationStatus"),
       measurementPrompt: $("measurementPrompt"), placementStatus: $("placementStatus"), readingLabel: $("readingLabel"),
       reading: $("readingInput"), measurementError: $("measurementError"), record: $("recordButton"), skip: $("skipButton"),
       park: $("parkButton"), returnReview: $("returnReviewButton"), deltaT: $("deltaTInput"),
@@ -87,6 +125,7 @@
     };
     let state = Persistence.initialState();
     let locked = false;
+    let lockedPresentation = null;
     let ruler = { ...PARK };
     let drag = null;
     let movementStart = { ...PARK };
@@ -94,6 +133,18 @@
     let lastCompletedRuler = { ...PARK };
     let latestResult = null;
     let latestReview = null;
+    let previewAutoplayStarted = false;
+    let animationView = { mode: "idle", liveBallM: null, stamps: [] };
+    const motion = Animation.createController({
+      onUpdate(view) {
+        animationView = view;
+        renderStage();
+        updateAnimationStatus();
+      },
+      onComplete(view) {
+        if (view.mode === "static" && state.generated) render();
+      }
+    });
 
     buildRatioInputs();
     bind();
@@ -107,12 +158,12 @@
         section.className = "ratio-group";
         section.dataset.ratio = key;
         const heading = document.createElement("h3");
-        heading.textContent = title;
+        heading.innerHTML = title;
         section.append(heading);
         const row = document.createElement("div");
         row.className = "ratio-inputs";
         row.setAttribute("role", "group");
-        row.setAttribute("aria-label", title);
+        row.setAttribute("aria-label", heading.textContent);
         const first = document.createElement("output");
         first.textContent = "1";
         row.append(first);
@@ -123,7 +174,7 @@
           input.inputMode = "decimal";
           input.dataset.ratioKey = key;
           input.dataset.term = String(index + 1);
-          input.setAttribute("aria-label", `${title}，第 ${index + 1} 項`);
+          input.setAttribute("aria-label", `${heading.textContent}，第 ${index + 1} 項`);
           row.append(colon, input);
         }
         const insufficient = document.createElement("p");
@@ -138,20 +189,27 @@
       document.querySelectorAll("[data-frequency]").forEach((button) => button.addEventListener("click", () => selectFrequency(Number(button.dataset.frequency))));
       document.querySelectorAll("[data-reset-frequency]").forEach((button) => button.addEventListener("click", resetFrequency));
       dom.generate.addEventListener("click", () => {
+        if (locked) return;
         const next = Persistence.generate(state);
-        if (next) { state = next; ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; checkpoint(); render(true); }
+        if (!next) return;
+        state = next; ruler = { ...PARK }; lastCompletedRuler = { ...PARK };
+        checkpoint();
+        motion.startCapture(state.frequencyHz, { reducedMotion: prefersReducedMotion() });
+        render();
+      });
+      dom.replayPreview.addEventListener("click", () => {
+        if (!locked && state.phase === "setup") motion.startPreview({ reducedMotion: prefersReducedMotion() });
       });
       dom.ruler.addEventListener("pointerdown", pointerDown);
       dom.ruler.addEventListener("pointermove", pointerMove);
       dom.ruler.addEventListener("pointerup", pointerUp);
       dom.ruler.addEventListener("pointercancel", pointerCancel);
       dom.ruler.addEventListener("keydown", rulerKey);
-      document.querySelectorAll("[data-nudge]").forEach((button) => button.addEventListener("click", () => nudge(button.dataset.nudge, false)));
       dom.park.addEventListener("click", parkRuler);
       dom.record.addEventListener("click", () => resolve(false));
       dom.skip.addEventListener("click", () => resolve(true));
       dom.returnReview.addEventListener("click", () => {
-        if (!state.returnToReview) return;
+        if (locked || !state.returnToReview) return;
         delete state.activePlacement;
         state.phase = "review"; state.variant = Persistence.analysisFieldValid(state.analysis, state.measurements, true) ? "complete" : "incomplete";
         state.currentStep = "review"; state.returnToReview = false; checkpoint(); render();
@@ -163,11 +221,13 @@
         document.querySelectorAll(`input[name="${name}"]`).forEach((input) => input.addEventListener("change", savePartialAnalysis));
       }
       document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => {
+        if (locked) return;
         const area = button.dataset.edit;
         const next = Persistence.edit(state, area, 0);
         if (next) { state = next; restoreRuler(); checkpoint(); render(); }
       }));
       dom.reviewContent.addEventListener("click", (event) => {
+        if (locked) return;
         const button = event.target.closest("[data-edit-measurement]");
         if (!button) return;
         const key = button.dataset.editMeasurement;
@@ -181,11 +241,25 @@
       dom.submissionRetry.addEventListener("click", submit);
       dom.resultRetry.addEventListener("click", retryFinish);
       dom.technicalRetry.addEventListener("click", () => window.location.reload());
-      window.addEventListener("resize", () => { positionRuler(); drawRuler(); updateRulerDescription(); });
+      window.addEventListener("resize", () => { renderStage(); updateRulerDescription(); });
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) return;
+        cancelAnimationForInterruption();
+      });
       window.__freeFallDebug = {
         state: () => JSON.parse(JSON.stringify(state)),
         ruler: () => ({ ...ruler }),
         locked: () => locked,
+        animation: () => motion.snapshot(),
+        rulerLayout: () => {
+          const geometry = rulerGeometry();
+          return Object.fromEntries(Object.entries(geometry).filter(([, value]) => typeof value === "number"));
+        },
+        setRuler(position) {
+          if (locked || !currentTask() || !position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return false;
+          applyRulerGeometry(position); positionRuler(); drawRuler(); updatePlacementStatus(); updateRulerDescription();
+          return true;
+        },
         eventCounts: () => ({
           moves: Number(dom.ruler.dataset.moves || 0), ups: Number(dom.ruler.dataset.ups || 0),
           cancels: Number(dom.ruler.dataset.cancels || 0), trusted: dom.ruler.dataset.trusted === "true",
@@ -195,6 +269,7 @@
           const decoded = Persistence.decodeReview(review);
           if (!decoded) return false;
           state = Persistence.fromReview(decoded);
+          motion.showStatic(state.frequencyHz);
           latestReview = decoded;
           latestResult = Scoring.scoreAttempt(decoded);
           locked = false;
@@ -202,12 +277,26 @@
           return true;
         },
         routeStartup: (startupOutcome, startupAttempt) => routeStartup(startupOutcome, startupAttempt),
-        routeSubmission: (submissionOutcome) => routeSubmission(submissionOutcome)
+        routeSubmission: (submissionOutcome) => routeSubmission(submissionOutcome),
+        replayPreview: () => !locked && state.phase === "setup" && motion.startPreview({ reducedMotion: prefersReducedMotion() }),
+        cancelAnimation: cancelAnimationForInterruption
       };
+    }
+    function cancelAnimationForInterruption() {
+      if (locked || !motion.isActive()) return false;
+      const mode = motion.snapshot().mode;
+      if (mode === "capture") {
+        motion.showStatic(state.frequencyHz);
+        render();
+        return true;
+      }
+      if (mode === "preview") return motion.showPreviewStatic();
+      return false;
     }
     function routeStartup(outcome, attempt) {
       const view = startupView(outcome);
       locked = view.locked;
+      lockedPresentation = null;
       if (outcome === "editable") {
         if (attempt.state === "draft") {
           const restored = Persistence.decode(attempt.snapshot?.answer);
@@ -215,14 +304,17 @@
           state = restored;
           restoreRuler();
         }
+        if (state.generated) motion.showStatic(state.frequencyHz);
         SimScorm.setDraftProvider(() => SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode(state)));
         render();
+        if (state.phase === "setup" && !previewAutoplayStarted) startSetupPreview();
       } else if (outcome === "review") {
         const review = Persistence.decodeReview(attempt.snapshot?.answer);
         if (!review) return safeFinishedFallback(attempt, "已完成 attempt 的詳細量度資料無法驗證。");
         const computed = Scoring.scoreAttempt(review);
         const trusted = SimActivityFlow.reviewResult(computed, attempt.snapshot, attempt);
         state = Persistence.fromReview(review);
+        motion.showStatic(state.frequencyHz);
         latestReview = review;
         latestResult = trusted.result;
         renderLockedResult(trusted.result, trusted.trusted, trusted.trusted ? "已完成並鎖定" : "Moodle 記錄與活動重算不一致");
@@ -237,6 +329,7 @@
           return technicalLock("待提交資料的權威答案與重算結果不相符；已停止本頁自動重試。");
         }
         state = Persistence.fromReview(review);
+        motion.showStatic(state.frequencyHz);
         latestReview = review; latestResult = computed;
         pendingLock("上次提交仍未確認。只可重試同一份已凍結答案。");
       } else technicalLock("無法安全讀取 Moodle attempt；操作及分數均未確認。");
@@ -252,8 +345,14 @@
     }
     function resetFrequency() {
       if (locked || !window.confirm("重新拍攝會清除今次量度值、答案及操作證據。是否繼續？")) return;
+      motion.cancel();
       state = Persistence.initialState(); ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; movementNorm = 0;
-      checkpoint(); render();
+      checkpoint(); render(); startSetupPreview();
+    }
+    function prefersReducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    function startSetupPreview() {
+      previewAutoplayStarted = true;
+      motion.startPreview({ reducedMotion: prefersReducedMotion() });
     }
     function checkpoint() {
       if (locked || !Persistence.validateDraft(state)) return false;
@@ -264,21 +363,44 @@
       if (state.phase === "measure-interval") return { key: Scoring.GAP_KEYS[state.currentStep], task: Scoring.GAP_KEYS[state.currentStep], start: state.currentStep, end: state.currentStep + 1 };
       return null;
     }
+    function rulerGeometry(candidate = ruler) {
+      const rect = dom.stage.getBoundingClientRect();
+      const scaleX = Math.max(rect.width / SVG_W, .01);
+      const scaleY = Math.max(rect.height / SVG_H, .01);
+      const modelGeometry = state.generated ? Model.geometry(state.frequencyHz, SVG_H, 30, 25) : null;
+      const bodyWidth = Math.min(SVG_W, Math.max(RULER_W, 44 / scaleX));
+      const x = clamp(candidate.x, 0, SVG_W - bodyWidth);
+      const zeroY = clamp(candidate.y, 0, SVG_H);
+      const tickSpan = modelGeometry ? modelGeometry.pixelsPerMeter * Model.cameraMax(state.frequencyHz) : 0;
+      const fullTop = zeroY - RULER_END_MARGIN;
+      const fullBottom = zeroY + tickSpan + RULER_END_MARGIN;
+      const visibleTop = clamp(fullTop, 0, SVG_H);
+      const visibleBottom = clamp(fullBottom, 0, SVG_H);
+      return {
+        x, zeroY, bodyWidth, tickSpan, fullTop, fullBottom,
+        visibleLeft: x, visibleTop, visibleWidth: bodyWidth,
+        visibleHeight: Math.max(0, visibleBottom - visibleTop),
+        measuringEdge: x < BALL_X ? x + bodyWidth : x,
+        scaleX, scaleY, modelGeometry
+      };
+    }
+    function applyRulerGeometry(candidate) {
+      const geometry = rulerGeometry(candidate);
+      ruler = { x: geometry.x, y: geometry.zeroY };
+      return geometry;
+    }
     function placementFromRuler(mode) {
       const task = currentTask();
       if (!task || !state.generated) return null;
-      const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
+      const rulerBox = rulerGeometry();
+      const geometry = rulerBox.modelGeometry;
       const targetY = geometry.metersToY(Model.displacementAt(state.frequencyHz, task.start));
-      const rect = dom.stage.getBoundingClientRect();
-      const pxScaleX = rect.width / SVG_W;
-      const pxScaleY = rect.height / SVG_H;
-      const edgeX = ruler.x < BALL_X ? ruler.x + RULER_W : ruler.x;
-      const edgeGapSvg = Math.abs(edgeX - BALL_X) - 12;
+      const edgeGapSvg = Math.abs(rulerBox.measuringEdge - BALL_X) - 12;
       return {
-        mode, moveNorm: movementNorm, rulerZeroM: geometry.yToMeters(ruler.y),
+        mode, moveNorm: movementNorm, rulerZeroM: geometry.yToMeters(rulerBox.zeroY),
         edgeSide: ruler.x < BALL_X ? "left" : "right",
-        edgeGapPx: Math.max(0, edgeGapSvg * pxScaleX),
-        zeroErrorPx: (ruler.y - targetY) * pxScaleY
+        edgeGapPx: Math.max(0, edgeGapSvg * rulerBox.scaleX),
+        zeroErrorPx: (rulerBox.zeroY - targetY) * rulerBox.scaleY
       };
     }
     function completeMovement(mode) {
@@ -297,40 +419,33 @@
       };
       movementStart = { ...ruler };
       dom.ruler.setPointerCapture(event.pointerId);
-      dom.magnifier.classList.remove("is-hidden");
       dom.ruler.dataset.moves = "0"; dom.ruler.dataset.ups = "0"; dom.ruler.dataset.cancels = "0";
       dom.ruler.dataset.trusted = String(event.isTrusted); dom.ruler.dataset.pointerType = event.pointerType;
-      updateMagnifier(event.clientY, drag.rect);
     }
     function pointerMove(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
       dom.ruler.dataset.moves = String(Number(dom.ruler.dataset.moves || 0) + 1);
       const sx = SVG_W / drag.rect.width;
       const sy = SVG_H / drag.rect.height;
-      ruler.x = clamp(drag.rulerStart.x + (event.clientX - drag.startX) * sx, 0, SVG_W - RULER_W);
-      ruler.y = clamp(drag.rulerStart.y + (event.clientY - drag.startY) * sy, 0, SVG_H - 40);
+      applyRulerGeometry({
+        x: drag.rulerStart.x + (event.clientX - drag.startX) * sx,
+        y: drag.rulerStart.y + (event.clientY - drag.startY) * sy
+      });
       movementNorm = distance(ruler, movementStart) / Math.hypot(SVG_W, SVG_H);
-      positionRuler(); drawRuler(); updatePlacementStatus(); updateMagnifier(event.clientY, drag.rect);
+      positionRuler(); drawRuler(); updatePlacementStatus();
     }
     function pointerUp(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
       dom.ruler.dataset.ups = String(Number(dom.ruler.dataset.ups || 0) + 1);
       dom.ruler.releasePointerCapture(event.pointerId);
-      drag = null; dom.magnifier.classList.add("is-hidden"); completeMovement("pointer");
+      drag = null; completeMovement("pointer");
     }
     function pointerCancel(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
       dom.ruler.dataset.cancels = String(Number(dom.ruler.dataset.cancels || 0) + 1);
       ruler = { ...drag.prior }; drag = null; movementNorm = state.activePlacement?.moveNorm || 0;
-      positionRuler(); drawRuler(); dom.magnifier.classList.add("is-hidden");
+      positionRuler(); drawRuler();
       dom.live.textContent = "拖動中斷；直尺已回復到上一次完成的位置，未建立證據。";
-    }
-    function updateMagnifier(clientY, rect) {
-      const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
-      const localSvgY = (clientY - rect.top) * SVG_H / rect.height;
-      const rulerReading = Math.max(0, (localSvgY - ruler.y) / geometry.pixelsPerMeter);
-      const nearestFine = Math.round(rulerReading / .05) * .05;
-      dom.magnifierReadout.textContent = `指尖附近刻度 ${nearestFine.toFixed(2)} m`;
     }
     function rulerKey(event) {
       if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) || locked || !currentTask()) return;
@@ -341,11 +456,12 @@
       if (locked || !currentTask()) return;
       const amount = large ? 8 : 2;
       movementStart = { ...ruler };
-      if (direction === "up") ruler.y -= amount;
-      if (direction === "down") ruler.y += amount;
-      if (direction === "left") ruler.x -= amount;
-      if (direction === "right") ruler.x += amount;
-      ruler.x = clamp(ruler.x, 0, SVG_W - RULER_W); ruler.y = clamp(ruler.y, 0, SVG_H - 40);
+      const candidate = { ...ruler };
+      if (direction === "up") candidate.y -= amount;
+      if (direction === "down") candidate.y += amount;
+      if (direction === "left") candidate.x -= amount;
+      if (direction === "right") candidate.x += amount;
+      applyRulerGeometry(candidate);
       const previous = state.activePlacement?.moveNorm || 0;
       movementNorm = previous + distance(ruler, movementStart) / Math.hypot(SVG_W, SVG_H);
       positionRuler(); drawRuler(); completeMovement("keyboard");
@@ -361,22 +477,27 @@
       render();
     }
     function resolve(skipped) {
+      if (locked) return;
       dom.measurementError.textContent = "";
       let value = null;
       if (!skipped) {
-        value = Number(dom.reading.value);
-        if (dom.reading.value.trim() === "" || !Number.isFinite(value) || value < 0) {
-          dom.measurementError.textContent = "請輸入有效的非負讀數，或明確選擇跳過。";
+        value = parseCm(dom.reading.value);
+        if (value === null) {
+          dom.measurementError.textContent = "請輸入有效的非負厘米讀數，或明確選擇跳過。";
           return;
         }
       }
       const next = Persistence.resolveMeasurement(state, value, skipped);
-      if (!next) { dom.measurementError.textContent = "讀數超出今次相機範圍，請重新檢查。"; return; }
+      if (!next) {
+        dom.measurementError.textContent = `讀數超出今次相機範圍（0 至 ${formatCm(Model.cameraMax(state.frequencyHz))} cm），請重新檢查。`;
+        return;
+      }
       state = next; dom.reading.value = ""; movementNorm = state.activePlacement?.moveNorm || 0;
       if (!state.activePlacement) { ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; }
       checkpoint(); render();
     }
     function collectAnalysisAndReview() {
+      if (locked) return;
       dom.analysisError.textContent = "";
       const delta = Number(dom.deltaT.value);
       if (dom.deltaT.value.trim() === "" || !Number.isFinite(delta) || delta < 0) return analysisError("請填寫有效的 Δt。");
@@ -429,10 +550,11 @@
     }
     function analysisError(message) { dom.analysisError.textContent = message; }
     function submit() {
-      if (state.phase !== "review" || state.variant !== "complete") return;
+      if (locked || state.phase !== "review" || state.variant !== "complete") return;
       latestReview = Persistence.makeReview(state);
       latestResult = Scoring.scoreAttempt(latestReview);
       locked = true;
+      lockedPresentation = "submitting";
       const reviewSnapshot = SimScorm.makeSnapshot(ACTIVITY, "review", latestReview, latestResult);
       const handle = (outcome) => routeSubmission(outcome);
       SimScorm.submitWithCallbacks(latestResult, reviewSnapshot, { onSuccess: handle, onFailure: handle });
@@ -446,23 +568,26 @@
         frozen: () => pendingLock("提交仍待確認；答案已凍結，只可重試同一份資料。"),
         retry: () => {
           if (outcome.retryable) {
-            locked = false; render(); dom.submissionNotice.textContent = "提交未建立持久 final state；可保留目前答案再試。";
+            locked = false; lockedPresentation = null; render(); dom.submissionNotice.textContent = "提交未建立持久 final state；可保留目前答案再試。";
             dom.submissionNotice.classList.remove("is-hidden"); dom.submissionRetry.classList.remove("is-hidden");
           } else technicalLock("提交前檢查失敗；系統不能承諾重試，亦未聲稱已提交。");
         }
       });
     }
     function retryConnection() {
+      if (!locked || lockedPresentation !== "pending") return;
       const outcome = SimScorm.retryPending();
       routeSubmission({ ...outcome, activityState: outcome.ok ? "success" : outcome.committed ? "committed" : outcome.frozen ? "frozen" : "retry" });
     }
     function retryFinish() {
+      if (!locked || lockedPresentation !== "committed") return;
       const finished = SimScorm.finish();
       if (finished) renderLockedResult(latestResult, true, "已提交並完成連線");
       else renderLockedResult(latestResult, true, "結果已寫入 Moodle；完成連線仍需重試", "finish");
     }
     function pendingLock(message) {
       locked = true;
+      lockedPresentation = "pending";
       hideAll();
       dom.technical.classList.remove("is-hidden"); dom.technicalTitle.textContent = "提交狀態仍待確認";
       dom.technicalMessage.textContent = message; dom.technicalRetry.classList.add("is-hidden");
@@ -474,20 +599,20 @@
       renderStage();
     }
     function technicalLock(message) {
-      locked = true; hideAll(); dom.technical.classList.remove("is-hidden");
+      locked = true; lockedPresentation = "technical"; hideAll(); dom.technical.classList.remove("is-hidden");
       dom.technicalTitle.textContent = "暫時未能安全載入活動"; dom.technicalMessage.textContent = message;
       dom.technicalRetry.classList.remove("is-hidden"); dom.badge.textContent = "技術鎖定";
       renderStage();
     }
     function safeFinishedFallback(attempt, message) {
-      locked = true; hideAll(); dom.result.classList.remove("is-hidden");
+      locked = true; lockedPresentation = "fallback"; hideAll(); dom.result.classList.remove("is-hidden");
       const recorded = SimActivityFlow.recordedResult(attempt);
       dom.resultTitle.textContent = "已完成 attempt（詳細資料不可驗證）";
       dom.scorePanel.textContent = `Moodle 分數：${recorded.score ?? "--"} / 100　${SimActivityFlow.completionLabel(recorded.passed)}`;
       dom.resultFeedback.textContent = message; dom.badge.textContent = "已鎖定";
     }
     function renderLockedResult(result, trusted, title, retryKind) {
-      locked = true; hideAll(); dom.result.classList.remove("is-hidden");
+      locked = true; lockedPresentation = retryKind === "finish" ? "committed" : "result"; hideAll(); dom.result.classList.remove("is-hidden");
       dom.resultTitle.textContent = title; dom.badge.textContent = "已鎖定";
       dom.scorePanel.textContent = `分數：${result.score ?? "--"} / ${result.maxScore || 100}　${SimActivityFlow.completionLabel(result.passed)}`;
       dom.resultFeedback.replaceChildren();
@@ -502,7 +627,7 @@
         list.className = "result-detail-list";
         for (const text of resultFeedbackItems(latestReview, result)) {
           const item = document.createElement("li");
-          item.textContent = text;
+          item.innerHTML = text;
           list.append(item);
         }
         dom.resultFeedback.append(list);
@@ -510,33 +635,45 @@
       dom.resultRetry.classList.toggle("is-hidden", retryKind !== "finish");
       renderStage();
     }
-    function render(animate) {
+    function render() {
       hideAll();
-      renderStage(animate);
+      renderStage();
+      const capturing = animationView.mode === "capture";
       document.querySelectorAll("[data-frequency]").forEach((button) => {
         button.classList.toggle("is-selected", Number(button.dataset.frequency) === state.frequencyHz);
         button.setAttribute("aria-pressed", String(Number(button.dataset.frequency) === state.frequencyHz));
+        button.disabled = capturing;
       });
-      dom.generate.disabled = state.variant !== "configured";
-      if (state.phase === "setup") { dom.setup.classList.remove("is-hidden"); dom.badge.textContent = "設定"; }
+      dom.generate.disabled = state.variant !== "configured" || capturing;
+      dom.replayPreview.disabled = capturing;
+      if (capturing) { dom.setup.classList.remove("is-hidden"); dom.badge.textContent = "拍攝中"; }
+      else if (state.phase === "setup") { dom.setup.classList.remove("is-hidden"); dom.badge.textContent = "設定"; }
       else if (["measure-total", "measure-interval"].includes(state.phase)) renderMeasurement();
       else if (state.phase === "analyze") renderAnalysis();
       else if (state.phase === "review") renderReview();
+      updateAnimationStatus();
       updateRulerDescription();
     }
     function hideAll() {
       [dom.setup, dom.measurement, dom.analysis, dom.review, dom.result, dom.technical].forEach((element) => element.classList.add("is-hidden"));
       dom.submissionRetry.classList.add("is-hidden"); dom.submissionNotice.classList.add("is-hidden");
     }
-    function renderStage(animate) {
+    function renderStage() {
       dom.trajectory.replaceChildren();
       if (!state.generated) {
         dom.ruler.classList.add("is-hidden"); dom.rulerGraphic.replaceChildren();
-        dom.stageHint.textContent = "先在操作面板設定頻閃頻率。";
+        drawPreview();
         return;
       }
       const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
       const ns = "http://www.w3.org/2000/svg";
+      if (animationView.mode === "capture") {
+        for (const stamp of animationView.stamps) drawBall(ns, geometry.metersToY(stamp.displacementM), stamp.index, true);
+        if (Number.isFinite(animationView.liveBallM)) drawLiveBall(ns, geometry.metersToY(animationView.liveBallM));
+        dom.ruler.classList.add("is-hidden"); dom.rulerGraphic.replaceChildren();
+        dom.stageHint.innerHTML = "實心球正在連續下落；半透明球影是相機按固定 <var>Δt</var> 留下的位置。";
+        return;
+      }
       const task = currentTask();
       if (task) {
         [task.start, task.end].forEach((index) => {
@@ -547,67 +684,129 @@
           dom.trajectory.append(line);
         });
       }
-      Model.trajectory(state.frequencyHz).forEach((point) => {
-        const y = geometry.metersToY(point.displacementM);
-        const circle = document.createElementNS(ns, "circle");
-        circle.setAttribute("cx", BALL_X); circle.setAttribute("cy", y); circle.setAttribute("r", "11");
-        circle.setAttribute("fill", "#dc2626"); circle.setAttribute("stroke", "#7f1d1d"); circle.setAttribute("stroke-width", "2");
-        const label = document.createElementNS(ns, "text");
-        label.setAttribute("x", BALL_X + 18); label.setAttribute("y", y + 5); label.setAttribute("font-weight", "800");
-        label.textContent = `P${"₀₁₂₃₄"[point.index]}`;
-        dom.trajectory.append(circle, label);
-      });
-      if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        dom.trajectory.classList.remove("is-entering"); void dom.trajectory.getBBox(); dom.trajectory.classList.add("is-entering");
-      } else dom.trajectory.classList.remove("is-entering");
+      Model.trajectory(state.frequencyHz).forEach((point) => drawBall(ns, geometry.metersToY(point.displacementM), point.index, false));
       dom.ruler.classList.toggle("is-hidden", locked || state.phase === "review");
       dom.stageHint.textContent = task ? "在操作面板選定的量度起點對準直尺零刻度。" : "頻閃相片已生成；按操作面板完成數據分析。";
       drawRuler(); positionRuler();
+    }
+    function drawPreview() {
+      const ns = "http://www.w3.org/2000/svg";
+      const previewY = (meters) => 30 + (SVG_H - 55) * meters / 5.5;
+      if (["preview-reduced", "preview-static"].includes(animationView.mode)) {
+        drawLiveBall(ns, previewY(0));
+        drawLiveBall(ns, previewY(5));
+        const guide = document.createElementNS(ns, "path");
+        guide.setAttribute("d", `M ${BALL_X} ${previewY(.25)} L ${BALL_X} ${previewY(4.75)}`);
+        guide.setAttribute("class", "preview-guide");
+        dom.trajectory.insertBefore(guide, dom.trajectory.firstChild);
+        dom.stageHint.textContent = prefersReducedMotion()
+          ? "連續下落動畫已按你的動態效果設定省略；起點、終點及箭頭只作示意。"
+          : "連續下落預覽已暫停；按「重播連續下落」可再看一次。";
+        return;
+      }
+      const displacement = Number.isFinite(animationView.liveBallM) ? animationView.liveBallM : 0;
+      drawLiveBall(ns, previewY(displacement));
+      dom.stageHint.textContent = "連續自由落體示意；尚未拍攝，亦不產生量度數據。";
+    }
+    function drawLiveBall(ns, y) {
+      const circle = document.createElementNS(ns, "circle");
+      circle.setAttribute("cx", BALL_X); circle.setAttribute("cy", y); circle.setAttribute("r", "11");
+      circle.setAttribute("class", "preview-ball"); circle.dataset.liveBall = "true";
+      dom.trajectory.append(circle);
+    }
+    function drawBall(ns, y, index, capture) {
+      const circle = document.createElementNS(ns, "circle");
+      circle.setAttribute("cx", BALL_X); circle.setAttribute("cy", y); circle.setAttribute("r", "11");
+      circle.setAttribute("class", capture ? "capture-stamp" : "preview-ball");
+      circle.dataset.stamp = String(index);
+      const label = document.createElementNS(ns, "text");
+      label.setAttribute("x", BALL_X + 18); label.setAttribute("y", y + 5); label.setAttribute("font-weight", "800");
+      label.textContent = `P${"₀₁₂₃₄"[index]}`;
+      dom.trajectory.append(circle, label);
+    }
+    function updateAnimationStatus() {
+      if (!dom.animationStatus) return;
+      let message;
+      if (animationView.mode === "capture") {
+        const last = animationView.stamps.at(-1);
+        message = last
+          ? `正在拍攝：已記錄 <var>P</var><sub>${last.index}</sub>，<var>t</var> = ${last.timeS.toFixed(3)} <span class="unit">s</span>。實心球是同一個正在下落的球。`
+          : "正在拍攝。";
+      } else if (state.generated) {
+        message = `頻閃相片完成：五個球影來自同一個球，彼此相隔 <var>Δt</var> = ${Model.deltaT(state.frequencyHz).toFixed(4)} <span class="unit">s</span>；現在量度靜態相片。`;
+      } else if (prefersReducedMotion()) {
+        message = "連續下落動畫已按你的動態效果設定省略；此靜態示意不產生量度數據。";
+      } else message = "預覽只作說明，尚未建立頻閃相片。";
+      if (dom.animationStatus.innerHTML !== message) dom.animationStatus.innerHTML = message;
     }
     function drawRuler() {
       dom.rulerGraphic.replaceChildren();
       if (!state.generated) return;
       const ns = "http://www.w3.org/2000/svg";
-      const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
-      const height = Math.min(SVG_H - ruler.y, geometry.pixelsPerMeter * Model.cameraMax(state.frequencyHz));
+      const rulerBox = applyRulerGeometry(ruler);
+      const geometry = rulerBox.modelGeometry;
       const body = document.createElementNS(ns, "rect");
-      body.setAttribute("x", ruler.x); body.setAttribute("y", ruler.y); body.setAttribute("width", RULER_W); body.setAttribute("height", Math.max(40, height));
+      body.dataset.rulerBody = "true";
+      body.setAttribute("x", rulerBox.x); body.setAttribute("y", rulerBox.fullTop);
+      body.setAttribute("width", rulerBox.bodyWidth); body.setAttribute("height", rulerBox.fullBottom - rulerBox.fullTop);
       body.setAttribute("fill", "rgba(254,243,199,.78)"); body.setAttribute("stroke", "#92400e");
-      dom.rulerGraphic.append(body);
-      for (let halfDecimeters = 0; halfDecimeters <= Model.cameraMax(state.frequencyHz) * 20 + 1e-9; halfDecimeters += 1) {
-        const meters = halfDecimeters / 20;
-        const y = ruler.y + meters * geometry.pixelsPerMeter;
+      const visibleBody = document.createElementNS(ns, "rect");
+      visibleBody.dataset.rulerVisibleBody = "true";
+      visibleBody.setAttribute("x", rulerBox.visibleLeft); visibleBody.setAttribute("y", rulerBox.visibleTop);
+      visibleBody.setAttribute("width", rulerBox.visibleWidth); visibleBody.setAttribute("height", rulerBox.visibleHeight);
+      visibleBody.setAttribute("fill", "none"); visibleBody.setAttribute("stroke", "none");
+      dom.rulerGraphic.append(body, visibleBody);
+      for (let fiveCm = 0; fiveCm <= Model.cameraMax(state.frequencyHz) * 20 + 1e-9; fiveCm += 1) {
+        const centimeters = fiveCm * 5;
+        const meters = centimeters / CM_PER_M;
+        const y = rulerBox.zeroY + meters * geometry.pixelsPerMeter;
+        const major = centimeters % 50 === 0;
+        const medium = !major && centimeters % 10 === 0;
+        const kind = major ? "major" : medium ? "medium" : "fine";
         if (y > SVG_H) break;
-        const major = halfDecimeters % 10 === 0;
-        const medium = halfDecimeters % 2 === 0;
         const line = document.createElementNS(ns, "line");
-        line.setAttribute("x1", ruler.x); line.setAttribute("x2", ruler.x + (major ? 32 : medium ? 22 : 14));
+        line.dataset.rulerTick = "true"; line.dataset.tickCm = String(centimeters); line.dataset.tickKind = kind;
+        line.setAttribute("x1", rulerBox.x); line.setAttribute("x2", rulerBox.x + (major ? 32 : medium ? 22 : 14));
         line.setAttribute("y1", y); line.setAttribute("y2", y); line.setAttribute("stroke", "#78350f");
         dom.rulerGraphic.append(line);
         if (major) {
           const text = document.createElementNS(ns, "text");
-          text.setAttribute("x", ruler.x + 34); text.setAttribute("y", y + 4); text.setAttribute("font-size", "10");
-          text.textContent = meters.toFixed(1); dom.rulerGraphic.append(text);
+          text.dataset.rulerLabelCm = String(centimeters);
+          text.setAttribute("x", rulerBox.x + 34); text.setAttribute("y", y + 4); text.setAttribute("font-size", "10");
+          text.textContent = String(centimeters); dom.rulerGraphic.append(text);
         }
       }
+      const unit = document.createElementNS(ns, "text");
+      unit.dataset.rulerUnit = "true";
+      unit.setAttribute("x", rulerBox.x + rulerBox.bodyWidth - 4);
+      unit.setAttribute("y", rulerBox.zeroY + 11);
+      unit.setAttribute("text-anchor", "end"); unit.setAttribute("font-size", "9"); unit.setAttribute("font-style", "normal");
+      unit.textContent = "cm";
+      dom.rulerGraphic.append(unit);
     }
     function positionRuler() {
       const rect = dom.stage.getBoundingClientRect();
-      dom.ruler.style.left = `${ruler.x / SVG_W * rect.width}px`;
-      dom.ruler.style.top = `${ruler.y / SVG_H * rect.height}px`;
-      dom.ruler.style.width = `${Math.max(44, RULER_W / SVG_W * rect.width)}px`;
-      dom.ruler.style.height = `${Math.max(44, Math.min(180, rect.height - ruler.y / SVG_H * rect.height))}px`;
+      const rulerBox = applyRulerGeometry(ruler);
+      dom.ruler.style.left = `${rulerBox.visibleLeft / SVG_W * rect.width}px`;
+      dom.ruler.style.top = `${rulerBox.visibleTop / SVG_H * rect.height}px`;
+      dom.ruler.style.width = `${rulerBox.visibleWidth / SVG_W * rect.width}px`;
+      dom.ruler.style.height = `${rulerBox.visibleHeight / SVG_H * rect.height}px`;
+      dom.ruler.dataset.zeroY = String(rulerBox.zeroY);
+      dom.ruler.dataset.measuringEdge = String(rulerBox.measuringEdge);
+      dom.ruler.dataset.visibleTop = String(rulerBox.visibleTop);
+      dom.ruler.dataset.visibleHeight = String(rulerBox.visibleHeight);
     }
     function restoreRuler() {
       if (!state.activePlacement || !state.generated) { ruler = { ...PARK }; movementNorm = 0; lastCompletedRuler = { ...ruler }; return; }
       const placement = state.activePlacement;
       const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
-      const rect = dom.stage.getBoundingClientRect();
-      const pxScaleX = Math.max(rect.width / SVG_W, .01);
-      const edgeGapSvg = placement.edgeGapPx / pxScaleX + 12;
-      ruler.y = geometry.metersToY(placement.rulerZeroM);
-      ruler.x = placement.edgeSide === "left" ? BALL_X - edgeGapSvg - RULER_W : BALL_X + edgeGapSvg;
-      ruler.x = clamp(ruler.x, 0, SVG_W - RULER_W); ruler.y = clamp(ruler.y, 0, SVG_H - 40);
+      const zeroY = geometry.metersToY(placement.rulerZeroM);
+      const provisional = rulerGeometry({ x: 0, y: zeroY });
+      const edgeGapSvg = placement.edgeGapPx / provisional.scaleX + 12;
+      const x = placement.edgeSide === "left"
+        ? BALL_X - edgeGapSvg - provisional.bodyWidth
+        : BALL_X + edgeGapSvg;
+      applyRulerGeometry({ x, y: zeroY });
       movementNorm = placement.moveNorm; lastCompletedRuler = { ...ruler };
     }
     function renderMeasurement() {
@@ -616,12 +815,14 @@
       const task = currentTask();
       dom.badge.textContent = total ? "量度總位移" : "量度相鄰間隔";
       dom.measurementTitle.textContent = total ? "2. 量度總位移" : "2. 量度相鄰間隔";
-      dom.measurementPrompt.textContent = total
-        ? `第 ${state.currentStep + 1}/4 項：保持零刻度對準 P₀，讀取 P${"₁₂₃₄"[state.currentStep]} 的總位移。`
-        : `第 ${state.currentStep + 1}/4 項：重新移尺，把零刻度對準 P${"₀₁₂₃"[state.currentStep]}，讀取 P${"₁₂₃₄"[state.currentStep]}。`;
-      dom.readingLabel.textContent = total ? `P₀ 至 P${"₁₂₃₄"[state.currentStep]} 總位移` : `P${"₀₁₂₃"[state.currentStep]}P${"₁₂₃₄"[state.currentStep]} 間隔`;
+      dom.measurementPrompt.innerHTML = total
+        ? `第 ${state.currentStep + 1}/4 項：保持零刻度對準 <var>P</var><sub>0</sub>，讀取 <var>P</var><sub>${state.currentStep + 1}</sub> 的總位移。`
+        : `第 ${state.currentStep + 1}/4 項：重新移尺，把零刻度對準 <var>P</var><sub>${state.currentStep}</sub>，讀取 <var>P</var><sub>${state.currentStep + 1}</sub>。`;
+      dom.readingLabel.innerHTML = total
+        ? `<var>P</var><sub>0</sub> 至 <var>P</var><sub>${state.currentStep + 1}</sub> 總位移`
+        : `<var>P</var><sub>${state.currentStep}</sub><var>P</var><sub>${state.currentStep + 1}</sub> 間隔`;
       const existing = state.measurements[task.key];
-      dom.reading.value = existing?.status === "recorded" ? String(existing.readingM) : "";
+      dom.reading.value = existing?.status === "recorded" ? formatCmInput(existing.readingM) : "";
       dom.returnReview.classList.toggle("is-hidden", !state.returnToReview);
       updatePlacementStatus();
     }
@@ -638,7 +839,7 @@
       const task = currentTask();
       const geometry = Model.geometry(state.frequencyHz, SVG_H, 30, 25);
       const zero = geometry.yToMeters(ruler.y);
-      dom.ruler.setAttribute("aria-label", `${task ? dom.measurementPrompt.textContent : "頻閃相片"}；直尺零刻度約在 ${zero.toFixed(2)} 米位置。`);
+      dom.ruler.setAttribute("aria-label", `${task ? dom.measurementPrompt.textContent : "頻閃相片"}；直尺零刻度約在 ${formatCm(zero)} 厘米位置。`);
     }
     function renderAnalysis() {
       dom.analysis.classList.remove("is-hidden"); dom.badge.textContent = "分析";
@@ -662,15 +863,15 @@
         const item = state.measurements[key];
         const evidence = key.startsWith("total")
           ? item?.usedTotalPlacement === true : Boolean(state.evidence[key]?.usedWhileValid);
-        return `<tr><th>${measurementName(key)}</th><td>${item?.status === "recorded" ? `${escapeHtml(item.readingM)} m` : "已跳過"}</td><td>${evidence ? "有尺位證據" : "未有尺位證據"}</td><td><button type="button" data-edit-measurement="${key}">修正 ${measurementName(key)}</button></td></tr>`;
+        return `<tr><th>${measurementName(key)}</th><td>${item?.status === "recorded" ? `${escapeHtml(formatCm(item.readingM))} <span class="unit">cm</span>` : "已跳過"}</td><td>${evidence ? "有尺位證據" : "未有尺位證據"}</td><td><button type="button" data-edit-measurement="${key}">修正 ${measurementName(key)}</button></td></tr>`;
       }).join("");
-      const ratioRows = RATIO_DEFINITIONS.map(([key, title]) => `<p><strong>${escapeHtml(title)}：</strong>${escapeHtml(ratioText(state.analysis[key]))}</p>`).join("");
+      const ratioRows = RATIO_DEFINITIONS.map(([key, title]) => `<p><strong>${title}：</strong>${escapeHtml(ratioText(state.analysis[key]))}</p>`).join("");
       const concepts = [
-        ["總位移與時間", state.analysis.lawAnswerId, { square: "s ∝ t²", linear: "s ∝ t", constant: "s 不變" }],
+        ["總位移與時間", state.analysis.lawAnswerId, { square: "<var>s</var> ∝ <var>t</var><sup>2</sup>", linear: "<var>s</var> ∝ <var>t</var>", constant: "<var>s</var> 不變" }],
         ["相等時間間隔位移", state.analysis.intervalLawAnswerId, { odd: "連續奇數比", equal: "每段相等", square: "平方數比" }],
         ["間隔增加原因", state.analysis.accelerationAnswerId, { "constant-acceleration": "加速度固定，速度等量增加", "constant-speed": "速度不變", "frequency-changes-gravity": "頻率改變重力" }]
-      ].map(([title, value, labels]) => `<p><strong>${title}：</strong>${escapeHtml(labels[value] || "未答")}</p>`).join("");
-      dom.reviewContent.innerHTML = `<p>頻率：${state.frequencyHz} Hz；Δt：${state.analysis.deltaTS ?? "未填"} s</p>
+      ].map(([title, value, labels]) => `<p><strong>${title}：</strong>${labels[value] || "未答"}</p>`).join("");
+      dom.reviewContent.innerHTML = `<p>頻率 <var>f</var>：${state.frequencyHz} <span class="unit">Hz</span>；<var>Δt</var>：${state.analysis.deltaTS ?? "未填"} <span class="unit">s</span></p>
         <table class="review-table"><thead><tr><th>量度</th><th>讀數</th><th>操作</th><th>修正</th></tr></thead><tbody>${rows}</tbody></table>
         <section class="review-analysis" aria-label="比例及物理規律答案">${ratioRows}${concepts}</section>
         <p>${state.variant === "complete" ? "所有必需答案已填妥，可以提交。" : "仍有分析答案未完成；請返回修正。"}</p>`;
@@ -678,9 +879,9 @@
     }
     function measurementName(key) {
       const totalIndex = Scoring.TOTAL_KEYS.indexOf(key);
-      if (totalIndex >= 0) return `P₀→P${"₁₂₃₄"[totalIndex]}`;
+      if (totalIndex >= 0) return `<var>P</var><sub>0</sub>→<var>P</var><sub>${totalIndex + 1}</sub>`;
       const gapIndex = Scoring.GAP_KEYS.indexOf(key);
-      return `P${"₀₁₂₃"[gapIndex]}P${"₁₂₃₄"[gapIndex]}`;
+      return `<var>P</var><sub>${gapIndex}</sub><var>P</var><sub>${gapIndex + 1}</sub>`;
     }
     function ratioText(answer) {
       return answer?.status === "answered" ? answer.values.join(":") :
@@ -694,5 +895,8 @@
     }
   }
 
-  return { ACTIVITY, startupView, submissionView, canonicalReviewMatches, resultFeedbackItems, boot };
+  return {
+    ACTIVITY, CM_PER_M, metersToCm, formatCm, formatCmInput, parseCm,
+    startupView, submissionView, canonicalReviewMatches, resultFeedbackItems, boot
+  };
 });

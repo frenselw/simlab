@@ -84,6 +84,11 @@ const diagnosticAnswer = perfectAnswer(false);
 const diagnostic = Scoring.measurementDiagnostic(diagnosticAnswer, Scoring.scoreAttempt(diagnosticAnswer));
 assert.ok(diagnostic.some((message) => message.includes("正確讀數未連結有效尺位")));
 assert.ok(diagnostic.some((message) => message.includes("59")));
+const mixedLaw = perfectAnswer();
+mixedLaw.analysis.lawAnswerId = "linear";
+const mixedDiagnostic = Scoring.measurementDiagnostic(mixedLaw, Scoring.scoreAttempt(mixedLaw));
+assert.ok(mixedDiagnostic.some((message) => message.includes("由起點起計")));
+assert.ok(mixedDiagnostic.every((message) => !/P[₀-₄]/.test(message)));
 console.log("free-fall scoring tests passed");
 
 module.exports = { perfectAnswer, placement };

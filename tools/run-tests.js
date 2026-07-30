@@ -53,6 +53,7 @@ const tests = [
   "sim/kinematics-quantitative-graph-builder/accessibility.test.js",
   "tools/kinematics-quantitative-graph-browser-regression.js",
   "sim/free-fall-stroboscopic-measurement-lab/model.test.js",
+  "sim/free-fall-stroboscopic-measurement-lab/animation.test.js",
   "sim/free-fall-stroboscopic-measurement-lab/scoring.test.js",
   "sim/free-fall-stroboscopic-measurement-lab/persistence.test.js",
   "sim/free-fall-stroboscopic-measurement-lab/persistence-matrix.test.js",

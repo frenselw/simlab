@@ -13,6 +13,26 @@ assert.strictEqual(App.submissionView({ activityState: "committed" }).retry, "fi
 assert.strictEqual(App.submissionView({ activityState: "frozen" }).trusted, false);
 assert.strictEqual(App.submissionView({ activityState: "retry", retryable: true }).locked, false);
 assert.strictEqual(App.submissionView({ activityState: "retry", retryable: false }).locked, true);
+assert.strictEqual(App.CM_PER_M, 100);
+assert.strictEqual(App.metersToCm(.2), 20);
+assert.strictEqual(App.metersToCm(.3125), 31.25);
+assert.strictEqual(App.formatCm(.2), "20");
+assert.strictEqual(App.formatCm(.3125), "31.25");
+assert.strictEqual(App.formatCm(1.8), "180");
+assert.strictEqual(App.formatCm(.6), "60");
+assert.strictEqual(App.formatCm(1.4), "140");
+assert.strictEqual(App.formatCm(.108), "10.8");
+assert.strictEqual(App.formatCm(1.8000000000000003), "180");
+assert.strictEqual(App.formatCmInput(.2), "20");
+assert.strictEqual(App.formatCmInput(.3125), "31.25");
+assert.strictEqual(App.formatCmInput(1.8), "180");
+assert.strictEqual(App.formatCmInput(.00125), "0.125");
+assert.strictEqual(App.parseCm("20"), .2);
+assert.strictEqual(App.parseCm("31.25"), .3125);
+assert.strictEqual(App.parseCm(App.formatCm(.3125)), .3125, "centimeter display parses to canonical meters exactly once");
+assert.strictEqual(App.parseCm(App.formatCmInput(.3125)), .3125, "editable centimeter value preserves canonical learner precision");
+for (const invalid of ["", " ", "-1", "NaN", "Infinity", "abc"]) assert.strictEqual(App.parseCm(invalid), null);
+assert.ok(Number.isNaN(App.metersToCm(Infinity)));
 
 const review = PersistenceFixtures.review;
 const result = Scoring.scoreAttempt(review);
@@ -31,6 +51,9 @@ assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, reviewJson: 
 const feedback = App.resultFeedbackItems(review, result).join("\n");
 assert.match(feedback, /理想總位移/);
 assert.match(feedback, /容差/);
+assert.match(feedback, /cm/);
+assert.doesNotMatch(feedback, /\d(?:\.\d+)? m(?:；|。)/);
 assert.match(feedback, /1:4:9:16/);
 assert.match(feedback, /1:3:5:7/);
+assert.doesNotMatch(feedback, /P[₀-₄]/, "plain-text scoring feedback does not emit an unstructured physical point symbol");
 console.log("free-fall UI lifecycle tests passed");

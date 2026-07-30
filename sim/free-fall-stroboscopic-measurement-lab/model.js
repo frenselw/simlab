@@ -22,7 +22,11 @@
   }
   function displacementAt(frequencyHz, index) {
     const time = timeAt(frequencyHz, index);
-    return 0.5 * G * time * time;
+    return freeFallDisplacement(time);
+  }
+  function freeFallDisplacement(timeS) {
+    if (!finite(timeS) || timeS < 0) throw new Error("Invalid free-fall time");
+    return 0.5 * G * timeS * timeS;
   }
   function intervalDisplacement(frequencyHz, intervalIndex) {
     if (!Number.isInteger(intervalIndex) || intervalIndex < 1 || intervalIndex >= POINT_COUNT) throw new Error("Invalid interval index");
@@ -55,6 +59,6 @@
 
   return {
     MODEL_VERSION, G, FREQUENCIES, POINT_COUNT, finite, validFrequency, deltaT,
-    timeAt, displacementAt, intervalDisplacement, trajectory, cameraMax, geometry
+    timeAt, freeFallDisplacement, displacementAt, intervalDisplacement, trajectory, cameraMax, geometry
   };
 });

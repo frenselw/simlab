@@ -124,7 +124,7 @@
       messages.push("你辨認了總位移的平方比；相鄰間隔比較的是連續兩點之差，理想比為 1:3:5:7。");
     }
     if (answer.analysis.intervalLawAnswerId === "odd" && answer.analysis.lawAnswerId !== "square") {
-      messages.push("你辨認了相鄰間隔的連續奇數比；由 P₀ 起計的總位移理想比為 1:4:9:16。");
+      messages.push("你辨認了相鄰間隔的連續奇數比；由起點起計的總位移理想比為 1:4:9:16。");
     }
     return messages;
   }
