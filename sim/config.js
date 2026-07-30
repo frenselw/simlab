@@ -70,6 +70,14 @@ const simulationList = [
     description: "根據具體初始位置、初速度、加速度和時間，拖動精確坐標點建立 x–t、v–t 及 a–t 圖。",
     tags: ["physics", "mechanics", "kinematics", "motion-graphs", "position-time", "velocity-time", "acceleration-time", "constant-acceleration", "graph-construction", "scorm"],
     status: "active"
+  },
+  {
+    title: "自由落體：頻閃量度實驗室",
+    folder: "free-fall-stroboscopic-measurement-lab",
+    categories: ["Mechanics"],
+    description: "設定頻閃頻率，移動直尺量度自由落體各位置，從總位移及相鄰間隔歸納運動規律。",
+    tags: ["physics", "mechanics", "kinematics", "free-fall", "stroboscopic-motion", "measurement", "constant-acceleration", "scorm"],
+    status: "active"
   }
 ];
 

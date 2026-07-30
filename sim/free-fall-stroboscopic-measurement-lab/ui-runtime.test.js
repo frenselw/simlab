@@ -1,0 +1,36 @@
+"use strict";
+const assert = require("assert");
+const App = require("./main.js");
+const PersistenceFixtures = require("./persistence.test.js");
+const Scoring = require("./scoring.js");
+
+assert.deepStrictEqual(App.startupView("editable"), { editable: true, locked: false, mode: "activity" });
+assert.strictEqual(App.startupView("review").mode, "review");
+assert.strictEqual(App.startupView("frozen").mode, "pending");
+assert.strictEqual(App.startupView("load-error").mode, "technical");
+assert.deepStrictEqual(App.submissionView({ activityState: "success" }), { locked: true, mode: "review", trusted: true, retry: "none" });
+assert.strictEqual(App.submissionView({ activityState: "committed" }).retry, "finish");
+assert.strictEqual(App.submissionView({ activityState: "frozen" }).trusted, false);
+assert.strictEqual(App.submissionView({ activityState: "retry", retryable: true }).locked, false);
+assert.strictEqual(App.submissionView({ activityState: "retry", retryable: false }).locked, true);
+
+const review = PersistenceFixtures.review;
+const result = Scoring.scoreAttempt(review);
+const nested = { version: 1, activity: App.ACTIVITY, kind: "review", answer: review, score: result.score, passed: result.passed };
+const payload = { reviewJson: JSON.stringify(nested), score: result.score, maxScore: 100, passed: result.passed };
+assert.strictEqual(App.canonicalReviewMatches(review, payload, result), true);
+const changed = JSON.parse(JSON.stringify(review));
+changed.analysis.lawAnswerId = "linear";
+assert.strictEqual(App.canonicalReviewMatches(changed, payload, Scoring.scoreAttempt(changed)), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, score: 59 }, result), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, maxScore: 99 }, result), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, passed: !result.passed }, result), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, reviewJson: JSON.stringify({ ...nested, score: 59 }) }, result), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, reviewJson: JSON.stringify({ ...nested, passed: !result.passed }) }, result), false);
+assert.strictEqual(App.canonicalReviewMatches(review, { ...payload, reviewJson: JSON.stringify({ ...nested, activity: "wrong" }) }, result), false);
+const feedback = App.resultFeedbackItems(review, result).join("\n");
+assert.match(feedback, /理想總位移/);
+assert.match(feedback, /容差/);
+assert.match(feedback, /1:4:9:16/);
+assert.match(feedback, /1:3:5:7/);
+console.log("free-fall UI lifecycle tests passed");

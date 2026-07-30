@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>自由落體：頻閃量度實驗室</title>
+    <link rel="stylesheet" href="../shared/styles.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="../shared/scorm.js" defer></script>
+    <script src="../shared/activity-flow.js" defer></script>
+    <script src="model.js" defer></script>
+    <script src="scoring.js" defer></script>
+    <script src="persistence.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="freefall-app">
+      <header class="freefall-header">
+        <div>
+          <h1>自由落體：頻閃量度實驗室</h1>
+          <p>移動直尺量度 P₀–P₄，找出自由落體的平方與連續奇數規律。</p>
+        </div>
+        <p id="phaseBadge" class="phase-badge">設定</p>
+      </header>
+      <div class="freefall-shell">
+        <section id="stage" class="freefall-stage" aria-label="自由落體頻閃相片舞台">
+          <svg id="scene" viewBox="0 0 360 440" role="img" aria-labelledby="sceneTitle sceneDescription">
+            <title id="sceneTitle">自由落體頻閃相片</title>
+            <desc id="sceneDescription">選擇頻率並拍攝後，顯示由 P0 至 P4 的五個球影。</desc>
+            <defs>
+              <pattern id="cameraGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <rect width="360" height="440" fill="url(#cameraGrid)"/>
+            <g id="trajectoryGroup"></g>
+            <g id="rulerGraphic" aria-hidden="true"></g>
+          </svg>
+          <button id="rulerHandle" class="ruler-handle" type="button"
+            aria-roledescription="可移動直尺" aria-describedby="rulerHelp">
+            <span>⋮⋮</span><span class="sr-only">移動直尺</span>
+          </button>
+          <div id="magnifier" class="magnifier is-hidden" aria-hidden="true">
+            <strong>直尺局部放大</strong>
+            <div class="magnifier-scale"><i></i><i></i><i></i><i></i><i></i></div>
+            <span id="magnifierReadout">刻度 0.00 m</span>
+          </div>
+          <p id="stageHint" class="stage-hint">先在操作面板設定頻閃頻率。</p>
+        </section>
+        <aside id="controlPanel" class="freefall-panel" aria-label="實驗操作面板">
+          <section id="technicalSection" class="panel-section is-hidden">
+            <h2 id="technicalTitle" tabindex="-1">暫時未能安全載入活動</h2>
+            <p id="technicalMessage">系統已鎖定操作，避免改寫未確認的 Moodle 資料。</p>
+            <p class="score-placeholder">分數：--　狀態：未能安全判斷</p>
+            <button id="technicalRetry" type="button" class="is-hidden">重試連線</button>
+          </section>
+          <section id="setupSection" class="panel-section">
+            <h2>1. 設定並拍攝</h2>
+            <p>頻閃頻率表示每秒拍攝次數。先作不計分預測，再主動選擇頻率。</p>
+            <fieldset>
+              <legend>頻率愈高，相鄰影像的時間會：</legend>
+              <label><input type="radio" name="prediction" value="shorter"> 較短</label>
+              <label><input type="radio" name="prediction" value="longer"> 較長</label>
+            </fieldset>
+            <div class="frequency-buttons" role="group" aria-label="選擇頻閃頻率">
+              <button type="button" data-frequency="4">4 Hz</button>
+              <button type="button" data-frequency="5">5 Hz</button>
+              <button type="button" data-frequency="6">6 Hz</button>
+            </div>
+            <button id="generateButton" type="button" class="primary-button" disabled>拍攝頻閃相片</button>
+            <p class="camera-note">採用 g = 10.0 m/s²。相機會按軌跡調整視野；每次都要按直尺刻度讀取實際距離，不能比較像素。</p>
+          </section>
+          <section id="measurementSection" class="panel-section is-hidden">
+            <h2 id="measurementTitle">2. 量度總位移</h2>
+            <p id="measurementPrompt"></p>
+            <p id="placementStatus" class="placement-status">直尺仍在停泊區。</p>
+            <p id="rulerHelp" class="muted">聚焦直尺後用方向鍵微調，Shift 加方向鍵可大幅移動。也可使用下列微調掣。</p>
+            <div class="nudge-grid" aria-label="直尺微調">
+              <button type="button" data-nudge="up" aria-label="直尺向上">↑</button>
+              <button type="button" data-nudge="left" aria-label="直尺向左">←</button>
+              <button type="button" data-nudge="down" aria-label="直尺向下">↓</button>
+              <button type="button" data-nudge="right" aria-label="直尺向右">→</button>
+            </div>
+            <button id="parkButton" type="button">返回停泊區（不建立量度證據）</button>
+            <label class="reading-row" for="readingInput">
+              <span id="readingLabel">讀數</span>
+              <input id="readingInput" inputmode="decimal" autocomplete="off">
+              <span>m</span>
+            </label>
+            <p id="measurementError" class="error-text" role="alert"></p>
+            <div class="button-grid">
+              <button id="recordButton" type="button" class="primary-button">記錄讀數</button>
+              <button id="skipButton" type="button">未能量度／跳過</button>
+            </div>
+            <button id="returnReviewButton" type="button" class="is-hidden">保留原答案並返回檢查</button>
+            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+          </section>
+          <section id="analysisSection" class="panel-section is-hidden">
+            <h2>3. 數據及比例分析</h2>
+            <label class="reading-row"><span>相鄰影像時間 Δt</span><input id="deltaTInput" inputmode="decimal"><span>s</span></label>
+            <div id="ratioGroups"></div>
+            <fieldset>
+              <legend>由 P₀ 起計的總位移 s 與時間 t 有甚麼關係？</legend>
+              <label><input type="radio" name="lawAnswerId" value="square"> s ∝ t²</label>
+              <label><input type="radio" name="lawAnswerId" value="linear"> s ∝ t</label>
+              <label><input type="radio" name="lawAnswerId" value="constant"> s 不變</label>
+            </fieldset>
+            <fieldset>
+              <legend>相等時間間隔內的位移有甚麼規律？</legend>
+              <label><input type="radio" name="intervalLawAnswerId" value="odd"> 按連續奇數比增加</label>
+              <label><input type="radio" name="intervalLawAnswerId" value="equal"> 每段相等</label>
+              <label><input type="radio" name="intervalLawAnswerId" value="square"> 每段為平方數比</label>
+            </fieldset>
+            <fieldset>
+              <legend>為甚麼相鄰間隔愈來愈大？</legend>
+              <label><input type="radio" name="accelerationAnswerId" value="constant-acceleration"> 加速度固定，每段相等時間速度增加相同數值</label>
+              <label><input type="radio" name="accelerationAnswerId" value="constant-speed"> 速度保持不變</label>
+              <label><input type="radio" name="accelerationAnswerId" value="frequency-changes-gravity"> 頻率改變重力</label>
+            </fieldset>
+            <p id="analysisError" class="error-text" role="alert"></p>
+            <button id="reviewButton" type="button" class="primary-button">前往提交前檢查</button>
+            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+          </section>
+          <section id="reviewSection" class="panel-section is-hidden">
+            <h2 id="reviewTitle" tabindex="-1">提交前檢查</h2>
+            <p id="submissionNotice" class="notice is-hidden"></p>
+            <div id="reviewContent"></div>
+            <div id="reviewEdits" class="button-grid">
+              <button type="button" data-edit="analysis">返回分析</button>
+            </div>
+            <button id="submitButton" type="button" class="primary-button">提交結果</button>
+            <button id="submissionRetry" type="button" class="is-hidden">重試目前提交</button>
+            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+          </section>
+          <section id="resultSection" class="panel-section is-hidden">
+            <h2 id="resultTitle" tabindex="-1">結果</h2>
+            <div id="scorePanel" class="score-panel"></div>
+            <div id="resultFeedback"></div>
+            <button id="resultRetry" type="button" class="is-hidden">重試完成連線</button>
+          </section>
+          <p id="liveRegion" class="sr-only" aria-live="polite"></p>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>
