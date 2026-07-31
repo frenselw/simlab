@@ -22,15 +22,14 @@
   const RULER_END_MARGIN = 12;
   const MIN_BALL_RADIUS_PX = 9;
   const MIN_POINT_LABEL_PX = 10;
-  const MIN_RULER_LABEL_PX = 14;
-  const MIN_RULER_UNIT_PX = 16;
+  const MIN_RULER_LABEL_PX = 16;
+  const MIN_RULER_UNIT_PX = 18;
+  const RULER_GEOMETRY = "fixed-left-v1";
   const MIN_APPARATUS_STROKE_PX = 1;
   const PARK = Object.freeze({ x: 292, y: CAMERA_TOP_MARGIN });
   const RATIO_DEFINITIONS = Object.freeze([
-    ["cumulativeTimeRatio", "累積時間比 <var>t</var><sub>1</sub>:<var>t</var><sub>2</sub>:<var>t</var><sub>3</sub>:<var>t</var><sub>4</sub>", false],
-    ["totalDisplacementRatio", "總位移比 <var>s</var><sub>1</sub>:<var>s</var><sub>2</sub>:<var>s</var><sub>3</sub>:<var>s</var><sub>4</sub>（按讀數約化）", true],
-    ["intervalTimeRatio", "每段時間比 <span class=\"delta\">Δ</span><var>t</var><sub>1</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>2</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>3</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>4</sub>", false],
-    ["intervalDistanceRatio", "相鄰距離比 <span class=\"delta\">Δ</span><var>s</var><sub>1</sub>:<span class=\"delta\">Δ</span><var>s</var><sub>2</sub>:<span class=\"delta\">Δ</span><var>s</var><sub>3</sub>:<span class=\"delta\">Δ</span><var>s</var><sub>4</sub>（按讀數約化）", true]
+    ["cumulativeTimeRatio", "累積時間比 <var>t</var><sub>1</sub>:<var>t</var><sub>2</sub>:<var>t</var><sub>3</sub>:<var>t</var><sub>4</sub>"],
+    ["intervalTimeRatio", "每段時間比 <span class=\"delta\">Δ</span><var>t</var><sub>1</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>2</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>3</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>4</sub>"]
   ]);
 
   function trimFixed(value, fractionDigits) {
@@ -85,13 +84,19 @@
       const saved = JSON.parse(payload.reviewJson);
       if (!saved || saved.version !== 1 || saved.activity !== ACTIVITY || saved.kind !== "review" ||
           !Number.isFinite(saved.score) || typeof saved.passed !== "boolean") return false;
-      const decoded = Persistence.decodeReview(saved?.answer);
+      const decoded = Persistence.decodeImmutableReview(saved?.answer);
       if (!decoded || JSON.stringify(decoded) !== JSON.stringify(review)) return false;
       const computed = Scoring.scoreAttempt(decoded);
       return computed.maxScore === 100 && computed.score === saved.score && computed.passed === saved.passed &&
         saved.score === payload.score && saved.passed === payload.passed &&
         computed.score === score.score && computed.passed === score.passed;
     } catch { return false; }
+  }
+  function resolveImmutableReview(value) {
+    try {
+      const review = Persistence.decodeImmutableReview(value);
+      return review ? { review, result: Scoring.scoreAttempt(review) } : null;
+    } catch { return null; }
   }
   function resultFeedbackItems(review, result) {
     if (!review || !result?.detail) return [];
@@ -104,9 +109,23 @@
       `相鄰影像時間理想值為 ${mathQuantity("Δt", Model.deltaT(frequency).toFixed(4), "s")}，接受絕對誤差 ±${Scoring.DELTA_T_ABS_TOLERANCE_S.toFixed(3)} <span class="unit">s</span>。`,
       `<var>P</var><sub>0</sub> 至 <var>P</var><sub>1</sub>–<var>P</var><sub>4</sub> 的理想相片上總位移為 ${ideal(totals)} <span class="unit">cm</span>；各項相片容差為 ${tolerances(totals)} <span class="unit">cm</span>。`,
       `四段理想相片上相鄰距離為 ${ideal(gaps)} <span class="unit">cm</span>；各項相片容差為 ${tolerances(gaps)} <span class="unit">cm</span>。`,
-      "理想累積時間比 1:2:3:4、總位移比 1:4:9:16、每段時間比 1:1:1:1、相鄰距離比 1:3:5:7；距離比例分按你的正有限讀數約化。",
+      "理想累積時間比 1:2:3:4、總位移比 1:4:9:16、每段時間比 1:1:1:1、相鄰距離比 1:3:5:7；兩組距離系列只用作比較與解釋，不是可編輯的比例答案。",
       ...Scoring.measurementDiagnostic(review, result)
     ];
+  }
+  function unansweredCount(analysis) {
+    return Number(analysis.deltaTS === null) +
+      analysis.cumulativeTimeRatio.values.slice(1).filter((value) => value === null).length +
+      analysis.intervalTimeRatio.values.slice(1).filter((value) => value === null).length +
+      [analysis.lawAnswerId, analysis.intervalLawAnswerId, analysis.accelerationAnswerId].filter((value) => value === null).length;
+  }
+  function answerLabel(itemId, value) {
+    const labels = {
+      displacement: { square: "總位移與時間平方成正比", linear: "總位移與時間成正比", constant: "總位移不變" },
+      intervals: { odd: "相鄰間隔按連續奇數比增加", equal: "相鄰間隔每段相等", square: "相鄰間隔為平方數比" },
+      acceleration: { "constant-acceleration": "加速度固定，速度等量增加", "constant-speed": "速度保持不變", "frequency-changes-gravity": "頻閃頻率改變重力" }
+    };
+    return labels[itemId]?.[value] || null;
   }
 
   function boot(options = {}) {
@@ -116,11 +135,11 @@
       stage: $("stage"), scene: $("scene"), trajectory: $("trajectoryGroup"), cueGroup: $("exposureCueGroup"),
       rulerGraphic: $("rulerGraphic"),
       ruler: $("rulerHandle"), stageReadout: $("stageReadout"), stageHint: $("stageHint"), panel: $("controlPanel"),
-      badge: $("phaseBadge"), setup: $("setupSection"), measurement: $("measurementSection"),
+      badge: $("phaseBadge"), frequencyChip: $("frequencyChip"), setup: $("setupSection"), measurement: $("measurementSection"),
       analysis: $("analysisSection"), review: $("reviewSection"), result: $("resultSection"),
       technical: $("technicalSection"), technicalTitle: $("technicalTitle"), technicalMessage: $("technicalMessage"),
       technicalRetry: $("technicalRetry"), generate: $("generateButton"), assignedFrequency: $("assignedFrequency"),
-      measurementTitle: $("measurementTitle"),
+      measurementTitle: $("measurementTitle"), analysisTitle: $("analysisTitle"),
       replayPreview: $("replayPreviewButton"), animationStatus: $("animationStatus"),
       measurementPrompt: $("measurementPrompt"), placementStatus: $("placementStatus"), readingLabel: $("readingLabel"),
       reading: $("readingInput"), measurementError: $("measurementError"), record: $("recordButton"), skip: $("skipButton"),
@@ -148,6 +167,7 @@
     let stageOutputAllowedTaskKey = null;
     let assignmentCheckpointPending = false;
     let previewAutoplayStarted = false;
+    let blankConfirmationReview = null;
     let animationView = { mode: "idle", liveBallM: null, stamps: [] };
     const motion = Animation.createController({
       onUpdate(view) {
@@ -227,8 +247,8 @@
         clearStageOutput();
         resetManualInput();
         delete state.activePlacement;
-        state.phase = "review"; state.variant = Persistence.analysisFieldValid(state.analysis, state.measurements, true) ? "complete" : "incomplete";
-        state.currentStep = "review"; state.returnToReview = false; checkpoint(); render();
+        state.phase = "review"; state.variant = "ready";
+        state.currentStep = "review"; state.returnToReview = false; checkpoint(); render(); focusPhaseHeading();
       });
       dom.reviewButton.addEventListener("click", collectAnalysisAndReview);
       dom.deltaT.addEventListener("change", savePartialAnalysis);
@@ -240,7 +260,7 @@
         if (locked) return;
         const area = button.dataset.edit;
         const next = Persistence.edit(state, area, 0);
-        if (next) { clearStageOutput(); resetManualInput(); state = next; restoreRuler(); checkpoint(); render(); }
+        if (next) { clearStageOutput(); resetManualInput(); state = next; blankConfirmationReview = null; restoreRuler(); checkpoint(); render(); focusPhaseHeading(); }
       }));
       dom.reviewContent.addEventListener("click", (event) => {
         if (locked) return;
@@ -251,10 +271,18 @@
         const gapIndex = Scoring.GAP_KEYS.indexOf(key);
         const next = totalIndex >= 0 ? Persistence.edit(state, "total", totalIndex) :
           gapIndex >= 0 ? Persistence.edit(state, "interval", gapIndex) : null;
-        if (next) { clearStageOutput(); resetManualInput(); state = next; restoreRuler(); checkpoint(); render(); }
+        if (next) { clearStageOutput(); resetManualInput(); state = next; blankConfirmationReview = null; restoreRuler(); checkpoint(); render(); focusPhaseHeading(); }
       });
-      dom.submit.addEventListener("click", submit);
-      dom.submissionRetry.addEventListener("click", submit);
+      dom.submit.addEventListener("click", () => submit(false));
+      dom.submissionNotice.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-blank-action]")?.dataset.blankAction;
+        if (action === "return") {
+          const next = Persistence.edit(state, "analysis");
+          if (next) { blankConfirmationReview = null; state = next; checkpoint(); render(); focusPhaseHeading(); }
+        }
+        if (action === "confirm") submit(true);
+      });
+      dom.submissionRetry.addEventListener("click", () => submit(true));
       dom.resultRetry.addEventListener("click", retryFinish);
       dom.technicalRetry.addEventListener("click", retryTechnical);
       window.addEventListener("resize", () => {
@@ -340,29 +368,36 @@
         render();
         if (state.phase === "setup" && !previewAutoplayStarted) startSetupPreview();
       } else if (outcome === "review") {
-        const review = Persistence.decodeReview(attempt.snapshot?.answer);
-        if (!review) return safeFinishedFallback(attempt, "已完成 attempt 的詳細量度資料無法驗證。");
-        const computed = Scoring.scoreAttempt(review);
-        const trusted = SimActivityFlow.reviewResult(computed, attempt.snapshot, attempt);
-        state = Persistence.fromReview(review);
-        motion.showStatic(state.frequencyHz);
-        latestReview = review;
-        latestResult = trusted.result;
-        renderLockedResult(trusted.result, trusted.trusted, trusted.trusted ? "已完成並鎖定" : "Moodle 記錄與活動重算不一致");
+        try {
+          const resolved = resolveImmutableReview(attempt.snapshot?.answer);
+          if (!resolved) return safeFinishedFallback(attempt, "已完成 attempt 的詳細量度資料無法驗證。");
+          const { review, result: computed } = resolved;
+          const trusted = SimActivityFlow.reviewResult(computed, attempt.snapshot, attempt);
+          state = Persistence.fromReview(review);
+          if (!state) return safeFinishedFallback(attempt, "已完成 attempt 的顯示狀態無法重建。");
+          motion.showStatic(state.frequencyHz);
+          latestReview = review;
+          latestResult = trusted.result;
+          renderLockedResult(trusted.result, trusted.trusted, trusted.trusted ? "已完成並鎖定" : "Moodle 記錄與活動重算不一致");
+        } catch {
+          return safeFinishedFallback(attempt, "已完成 attempt 的詳細量度資料無法安全重算。");
+        }
       } else if (outcome === "frozen") {
-        const payload = attempt.snapshot?.payload;
-        let saved;
-        try { saved = JSON.parse(payload?.reviewJson || "null"); } catch { saved = null; }
-        const review = Persistence.decodeReview(saved?.answer);
-        const computed = review ? Scoring.scoreAttempt(review) : null;
-        if (!review || !computed || !canonicalReviewMatches(review, payload, computed)) {
+        try {
+          const payload = attempt.snapshot?.payload;
+          const saved = JSON.parse(payload?.reviewJson || "null");
+          const resolved = resolveImmutableReview(saved?.answer);
+          if (!resolved || !canonicalReviewMatches(resolved.review, payload, resolved.result)) throw new Error("invalid frozen review");
+          const { review, result: computed } = resolved;
+          state = Persistence.fromReview(review);
+          if (!state) throw new Error("invalid frozen display state");
+          motion.showStatic(state.frequencyHz);
+          latestReview = review; latestResult = computed;
+          pendingLock("上次提交仍未確認。只可重試同一份已凍結答案。");
+        } catch {
           SimScorm.quarantinePending();
           return technicalLock("待提交資料的權威答案與重算結果不相符；已停止本頁自動重試。");
         }
-        state = Persistence.fromReview(review);
-        motion.showStatic(state.frequencyHz);
-        latestReview = review; latestResult = computed;
-        pendingLock("上次提交仍未確認。只可重試同一份已凍結答案。");
       } else technicalLock("無法安全讀取 Moodle attempt；操作及分數均未確認。");
     }
     function resetFrequency() {
@@ -426,11 +461,11 @@
       const metrics = apparatusMetrics();
       const { scaleX, scaleY } = metrics;
       const modelGeometry = state.generated ? Model.geometry(state.frequencyHz, SVG_H, CAMERA_TOP_MARGIN, CAMERA_BOTTOM_MARGIN) : null;
-      const bodyWidth = Math.min(SVG_W, Math.max(RULER_W, 45 / scaleX));
-      const anchorX = clamp(candidate.x, 0, SVG_W);
+      const bodyWidth = Math.min(SVG_W, Math.max(RULER_W, 48 / scaleX));
+      const anchorX = clamp(candidate.x, Math.min(SVG_W, 48 / scaleX), SVG_W);
       const rulerSide = anchorX < (GUIDE_X1 + GUIDE_X2) / 2 ? "left" : "right";
-      const direction = rulerSide === "left" ? 1 : -1;
-      const x = rulerSide === "left" ? anchorX : anchorX - bodyWidth;
+      const direction = -1;
+      const x = anchorX - bodyWidth;
       const zeroY = clamp(candidate.y, 0, SVG_H);
       const tickSpan = modelGeometry
         ? modelGeometry.metersToY(Model.cameraMax(state.frequencyHz)) - modelGeometry.metersToY(0) : 0;
@@ -481,6 +516,7 @@
         mode, moveNorm: movementNorm, rulerZeroM: geometry.yToMeters(rulerBox.zeroY),
         rulerX: rulerBox.anchorX,
         rulerSide: rulerBox.rulerSide,
+        rulerGeometry: RULER_GEOMETRY,
         ...horizontal,
         zeroTickOverlapPx: overlapPx,
         zeroErrorPx: zeroClient && targetClient ? zeroClient.y - targetClient.y :
@@ -499,6 +535,7 @@
       if (Object.prototype.hasOwnProperty.call(placement, "zeroTickOverlapPx")) {
         if (Math.abs(current.rulerX - placement.rulerX) > 1e-9 ||
             current.rulerSide !== placement.rulerSide ||
+            current.rulerGeometry !== placement.rulerGeometry ||
             current.horizontalMode !== placement.horizontalMode ||
             (current.horizontalMode === "guide-fraction"
               ? Math.abs(current.guideFraction - placement.guideFraction) > 1e-9
@@ -521,6 +558,7 @@
       dom.stageReadout.textContent = "";
       dom.stageReadout.classList.add("is-hidden");
       delete dom.stageReadout.dataset.readingM;
+      delete dom.stageReadout.dataset.measuredY;
     }
     function resetManualInput() {
       manualTaskKey = null;
@@ -533,15 +571,39 @@
       if (!Number.isFinite(readingM) || !task) return clearStageOutput();
       const rulerBox = rulerGeometry();
       const stageRect = dom.stage.getBoundingClientRect();
-      const anchor = svgToClient(rulerBox.visibleLeft + rulerBox.visibleWidth, rulerBox.zeroY);
+      const measuredY = rulerBox.zeroY + rulerBox.tickSpan * readingM / rulerBox.modelGeometry.cameraMaxM;
+      const anchor = svgToClient(rulerBox.anchorX, measuredY);
+      const bodyLeft = svgToClient(rulerBox.visibleLeft, measuredY);
       if (!anchor) return clearStageOutput();
-      dom.stageReadout.textContent = `${formatPhotoCm(state.frequencyHz, readingM, 2)} cm`;
-      dom.stageReadout.dataset.readingM = String(readingM);
+      const readingKey = String(readingM);
+      const announce = stageReadoutTaskKey !== task.key || dom.stageReadout.dataset.readingM !== readingKey ||
+        dom.stageReadout.classList.contains("is-hidden");
+      if (announce) dom.stageReadout.textContent = `${formatPhotoCm(state.frequencyHz, readingM, 2)} cm`;
+      dom.stageReadout.dataset.readingM = readingKey;
+      dom.stageReadout.dataset.measuredY = String(measuredY);
       dom.stageReadout.classList.remove("is-hidden");
       const width = dom.stageReadout.offsetWidth;
       const height = dom.stageReadout.offsetHeight;
-      dom.stageReadout.style.left = `${clamp(anchor.x - stageRect.left + 6, 4, stageRect.width - width - 4)}px`;
-      dom.stageReadout.style.top = `${clamp(anchor.y - stageRect.top - height / 2, 4, stageRect.height - height - 4)}px`;
+      const right = anchor.x - stageRect.left + 6;
+      const fallback = (bodyLeft?.x ?? anchor.x) - stageRect.left - width - 6;
+      const maxLeft = stageRect.width - width - 4;
+      const candidates = [right, fallback].map((left) => clamp(left, 4, maxLeft));
+      for (let left = 4; left <= maxLeft; left += 2) candidates.push(left);
+      const protectedRects = [...dom.scene.querySelectorAll(
+        '[data-stamp],[data-point-label],[data-ruler-body],[data-ruler-tick],[data-ruler-label-cm],[data-ruler-unit]')]
+        .map((node) => node.getBoundingClientRect());
+      const top = anchor.y - stageRect.top - height / 2;
+      const overlapArea = (left) => {
+        const rect = { left: stageRect.left + left, right: stageRect.left + left + width,
+          top: stageRect.top + top, bottom: stageRect.top + top + height };
+        return protectedRects.reduce((sum, protectedRect) => sum +
+          Math.max(0, Math.min(rect.right, protectedRect.right) - Math.max(rect.left, protectedRect.left)) *
+          Math.max(0, Math.min(rect.bottom, protectedRect.bottom) - Math.max(rect.top, protectedRect.top)), 0);
+      };
+      const ranked = candidates.map((left, index) => ({ left, index, overlap: overlapArea(left) }))
+        .sort((a, b) => a.overlap - b.overlap || a.index - b.index);
+      dom.stageReadout.style.left = `${ranked[0].left}px`;
+      dom.stageReadout.style.top = `${top}px`;
       stageReadoutTaskKey = task.key;
       stageOutputAllowedTaskKey = task.key;
     }
@@ -669,28 +731,26 @@
       state = next; movementNorm = state.activePlacement?.moveNorm || 0;
       if (!state.activePlacement) { ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; }
       checkpoint(); render();
+      if (state.phase === "review") focusPhaseHeading();
     }
     function collectAnalysisAndReview() {
       if (locked) return;
       dom.analysisError.textContent = "";
-      const delta = Number(dom.deltaT.value);
-      if (dom.deltaT.value.trim() === "" || !Number.isFinite(delta) || delta < 0) return analysisError("請填寫有效的 Δt。");
+      const deltaText = dom.deltaT.value.trim();
+      const delta = deltaText === "" ? null : Number(deltaText);
+      if (delta !== null && (!Number.isFinite(delta) || delta <= 0)) return analysisError("Δt 必須留空或填寫正有限數值。");
       const patch = { deltaTS: delta };
-      for (const [key, , distanceRatio] of RATIO_DEFINITIONS) {
-        const sources = key === "totalDisplacementRatio" ? Scoring.TOTAL_KEYS : key === "intervalDistanceRatio" ? Scoring.GAP_KEYS : null;
-        const sufficient = !sources || sources.every((source) => state.measurements[source]?.status === "recorded" && state.measurements[source].readingM > 0);
-        if (distanceRatio && !sufficient) patch[key] = { status: "insufficient-data" };
-        else {
-          const inputs = [...document.querySelectorAll(`[data-ratio-key="${key}"]`)];
-          const values = [1, ...inputs.map((input) => Number(input.value))];
-          if (inputs.some((input) => input.value.trim() === "") || values.some((term) => !Number.isFinite(term) || term <= 0)) return analysisError("請完成所有可約化比例的正有限數值。");
-          patch[key] = { status: "answered", values };
+      for (const [key] of RATIO_DEFINITIONS) {
+        const inputs = [...document.querySelectorAll(`[data-ratio-key="${key}"]`)];
+        const values = inputs.map((input) => input.value.trim() === "" ? null : Number(input.value));
+        if (values.some((term) => term !== null && (!Number.isFinite(term) || term <= 0))) {
+          return analysisError("時間比各項必須留空或填寫正有限數值。");
         }
+        patch[key] = { values: [1, ...values] };
       }
       for (const key of ["lawAnswerId", "intervalLawAnswerId", "accelerationAnswerId"]) {
         const selected = document.querySelector(`input[name="${key}"]:checked`);
-        if (!selected) return analysisError("請回答三條物理規律題。");
-        patch[key] = selected.value;
+        patch[key] = selected?.value || null;
       }
       const updated = Persistence.setAnalysis(state, patch);
       const next = updated && Persistence.enterReview(updated);
@@ -699,33 +759,44 @@
     }
     function savePartialAnalysis() {
       if (state.phase !== "analyze" || locked) return;
-      const patch = {};
-      if (dom.deltaT.value.trim() !== "") {
-        const value = Number(dom.deltaT.value);
-        if (Number.isFinite(value) && value >= 0 && value <= 1) patch.deltaTS = value;
+      const patch = { deltaTS: null };
+      const deltaText = dom.deltaT.value.trim();
+      if (deltaText !== "") {
+        const value = Number(deltaText);
+        if (Number.isFinite(value) && value > 0) patch.deltaTS = value;
       }
       for (const [key] of RATIO_DEFINITIONS) {
-        const section = document.querySelector(`[data-ratio="${key}"]`);
-        if (section.querySelector(".ratio-inputs").classList.contains("is-hidden")) {
-          patch[key] = { status: "insufficient-data" };
-          continue;
-        }
-        const inputs = [...section.querySelectorAll("input")];
-        if (inputs.every((input) => input.value.trim() !== "" && Number.isFinite(Number(input.value)) && Number(input.value) > 0)) {
-          patch[key] = { status: "answered", values: [1, ...inputs.map((input) => Number(input.value))] };
-        }
+        const inputs = [...document.querySelectorAll(`[data-ratio-key="${key}"]`)];
+        patch[key] = { values: [1, ...inputs.map((input) => {
+          const value = Number(input.value);
+          return input.value.trim() !== "" && Number.isFinite(value) && value > 0 ? value : null;
+        })] };
       }
       for (const key of ["lawAnswerId", "intervalLawAnswerId", "accelerationAnswerId"]) {
         const selected = document.querySelector(`input[name="${key}"]:checked`);
-        if (selected) patch[key] = selected.value;
+        patch[key] = selected?.value || null;
       }
       const next = Persistence.setAnalysis(state, patch);
       if (next) { state = next; checkpoint(); }
     }
     function analysisError(message) { dom.analysisError.textContent = message; }
-    function submit() {
-      if (locked || state.phase !== "review" || state.variant !== "complete") return;
-      latestReview = Persistence.makeReview(state);
+    function submit(confirmed = false) {
+      if (locked || state.phase !== "review" || state.variant !== "ready") return;
+      const candidate = Persistence.makeReview(state);
+      const canonical = JSON.stringify(candidate);
+      const blanks = unansweredCount(candidate.analysis);
+      if (blanks && !(confirmed && blankConfirmationReview === canonical)) {
+        blankConfirmationReview = canonical;
+        dom.submissionNotice.setAttribute("role", "alertdialog");
+        dom.submissionNotice.setAttribute("aria-modal", "false");
+        dom.submissionNotice.setAttribute("aria-labelledby", "blankWarningTitle");
+        dom.submissionNotice.setAttribute("aria-describedby", "blankWarningDescription");
+        dom.submissionNotice.innerHTML = `<p id="blankWarningTitle"><strong>${blanks} 項未答</strong></p><p id="blankWarningDescription">未答項目會得 0 分；提交後會鎖定今次 attempt。</p><div class="blank-actions"><button type="button" data-blank-action="return">返回修改</button><button type="button" class="primary-button" data-blank-action="confirm">仍然提交</button></div>`;
+        dom.submissionNotice.classList.remove("is-hidden");
+        dom.submissionNotice.querySelector('[data-blank-action="return"]').focus();
+        return;
+      }
+      latestReview = candidate;
       latestResult = Scoring.scoreAttempt(latestReview);
       locked = true;
       lockedPresentation = "submitting";
@@ -742,7 +813,8 @@
         frozen: () => pendingLock("提交仍待確認；答案已凍結，只可重試同一份資料。"),
         retry: () => {
           if (outcome.retryable) {
-            locked = false; lockedPresentation = null; render(); dom.submissionNotice.textContent = "提交未建立持久 final state；可保留目前答案再試。";
+            locked = false; lockedPresentation = null; render(); clearSubmissionDialog();
+            dom.submissionNotice.textContent = "提交未建立持久 final state；可保留目前答案再試。";
             dom.submissionNotice.classList.remove("is-hidden"); dom.submissionRetry.classList.remove("is-hidden");
           } else technicalLock("提交前檢查失敗；系統不能承諾重試，亦未聲稱已提交。");
         }
@@ -788,6 +860,7 @@
       button.addEventListener("click", retryConnection);
       dom.technical.append(button);
       dom.badge.textContent = "待確認";
+      renderFrequencyChip();
       renderStage();
     }
     function technicalLock(message, kind = "technical") {
@@ -795,6 +868,7 @@
       dom.technicalTitle.textContent = "暫時未能安全載入活動"; dom.technicalMessage.textContent = message;
       dom.technicalRetry.textContent = kind === "assignment" ? "重試保存同一頻率" : "重試連線";
       dom.technicalRetry.classList.remove("is-hidden"); dom.badge.textContent = "技術鎖定";
+      renderFrequencyChip();
       renderStage();
     }
     function safeFinishedFallback(attempt, message) {
@@ -803,37 +877,87 @@
       dom.resultTitle.textContent = "已完成 attempt（詳細資料不可驗證）";
       dom.scorePanel.textContent = `Moodle 分數：${recorded.score ?? "--"} / 100　${SimActivityFlow.completionLabel(recorded.passed)}`;
       dom.resultFeedback.textContent = message; dom.badge.textContent = "已鎖定";
+      renderFrequencyChip();
     }
     function renderLockedResult(result, trusted, title, retryKind) {
       locked = true; lockedPresentation = retryKind === "finish" ? "committed" : "result"; hideAll(); dom.result.classList.remove("is-hidden");
       dom.resultTitle.textContent = title; dom.badge.textContent = "已鎖定";
-      dom.scorePanel.textContent = `分數：${result.score ?? "--"} / ${result.maxScore || 100}　${SimActivityFlow.completionLabel(result.passed)}`;
+      const hasRecordedScore = Number.isFinite(result?.score);
+      const hasRecordedStatus = typeof result?.passed === "boolean";
+      dom.scorePanel.textContent = trusted
+        ? `分數：${result.score ?? "--"} / ${result.maxScore || 100}　${SimActivityFlow.completionLabel(result.passed)}`
+        : hasRecordedScore || hasRecordedStatus
+          ? `Moodle 記錄：分數 ${hasRecordedScore ? result.score : "--"} / ${result?.maxScore || 100}　${SimActivityFlow.completionLabel(result?.passed)}`
+          : "Moodle 記錄：分數 --　未能安全判斷合格狀態";
       dom.resultFeedback.replaceChildren();
       const feedback = document.createElement("p");
       feedback.textContent = trusted ? result.feedback : "Moodle 記錄優先；詳細 component feedback 已隱藏。";
       dom.resultFeedback.append(feedback);
       if (trusted && result.detail) {
         const details = document.createElement("p");
-        details.textContent = `操作 ${result.detail.process.points}/40；數據及比例 ${formatPoints(result.detail.quantitative.points)}/30；物理規律 ${result.detail.laws.points}/30。`;
+        const capped = result.capApplied || !result.meaningfulRulerUse && result.rawScore > 59;
+        details.textContent = `操作 ${result.detail.process.points}/40；量度與時間 ${formatPoints(result.detail.quantitative.points)}/30；物理規律 ${result.detail.laws.points}/30。${capped ? " 因直尺證據不足，總分上限為 59 分。" : " 沒有套用 59 分上限。"}`;
         dom.resultFeedback.append(details);
-        const list = document.createElement("ul");
-        list.className = "result-detail-list";
-        for (const text of resultFeedbackItems(latestReview, result)) {
-          const item = document.createElement("li");
-          item.innerHTML = text;
-          list.append(item);
+        const information = document.createElement("div");
+        information.innerHTML = recordedSeriesMarkup();
+        information.querySelector(".recorded-series").setAttribute("aria-label", "量度系列資訊卡，不判定正確或錯誤");
+        dom.resultFeedback.append(information.firstElementChild);
+        const aggregateItems = (source, definitions, zeroStatus = "unanswered") => definitions.map(([id, label, max]) => {
+          const points = source[id] || 0;
+          return { id, label, status: points === max ? "correct" : points ? "incorrect" : zeroStatus,
+            learner: `${formatPoints(points)} 分`, expected: `${max} 分`, guidance: "這是舊版 rubric 的保留結果；分數不會改按新版重算。", points, max };
+        });
+        const groups = [["操作", result.detail.process.items || aggregateItems(result.detail.process,
+          [["setup", "拍攝設定", 4], ["totalPlacement", "總位移尺位", 8], ["totalReadings", "總位移操作", 4], ["intervals", "相鄰間隔操作", 24]], "no-evidence")],
+        ["量度與時間", result.detail.quantitative.items || aggregateItems(result.detail.quantitative,
+          [["deltaT", "相鄰影像時間", 4], ["totalReadings", "總位移讀數", 8], ["gapReadings", "相鄰間隔讀數", 8], ["ratios", "比例", 10]])],
+        ["物理規律", result.detail.laws.items || aggregateItems(result.detail.laws,
+          [["displacement", "總位移規律", 12], ["intervals", "相鄰間隔規律", 10], ["acceleration", "自由落體原因", 8]])]];
+        for (const [name, items] of groups) {
+          const section = document.createElement("section"); section.className = "result-group";
+          const heading = document.createElement("h3"); heading.textContent = name; section.append(heading);
+          const cards = document.createElement("div"); cards.className = "result-cards";
+          for (const item of items || []) cards.append(resultCard(item, latestReview?.frequencyHz));
+          section.append(cards); dom.resultFeedback.append(section);
         }
-        dom.resultFeedback.append(list);
+        const teaching = document.createElement("ul"); teaching.className = "result-detail-list";
+        for (const text of resultFeedbackItems(latestReview, result)) {
+          const item = document.createElement("li"); item.innerHTML = text; teaching.append(item);
+        }
+        dom.resultFeedback.append(teaching);
       }
       dom.resultRetry.classList.toggle("is-hidden", retryKind !== "finish");
+      renderFrequencyChip();
       renderStage();
+    }
+    function resultCard(item, frequencyHz) {
+      const card = document.createElement("article"); card.className = `result-card status-${item.status}`;
+      card.dataset.resultItem = item.id;
+      const icon = { correct: "✓", incorrect: "✕", unanswered: "—", "no-evidence": "!" }[item.status] || "•";
+      const status = { correct: "正確", incorrect: "需修正", unanswered: "未答", "no-evidence": "未有證據" }[item.status] || item.status;
+      const isDistance = Scoring.TOTAL_KEYS.includes(item.id) || Scoring.GAP_KEYS.includes(item.id);
+      const display = (value) => {
+        if (value === null || value === undefined) return "未答";
+        if (answerLabel(item.id, value)) return answerLabel(item.id, value);
+        if (typeof value !== "number") return String(value);
+        if (isDistance) return `${formatPhotoCm(frequencyHz, value)} cm`;
+        return item.id === "delta-t" ? `${trimFixed(value, 4)} s` : trimFixed(value, 4);
+      };
+      const tolerance = isDistance ? `容差：±${formatPhotoCm(frequencyHz, Scoring.distanceTolerance(item.expected))} cm` :
+        item.id === "delta-t" ? `容差：±${Scoring.DELTA_T_ABS_TOLERANCE_S} s` :
+          item.id.startsWith("cumulative-time-") || item.id.startsWith("interval-time-") ? `容差：±${Scoring.RATIO_TERM_TOLERANCE}` : "";
+      card.innerHTML = `<h4><span aria-hidden="true">${icon}</span> ${escapeHtml(item.label)} — ${status}</h4>
+        <p>你的答案：${escapeHtml(display(item.learner))}</p><p>參考答案：${escapeHtml(display(item.expected))}</p>
+        ${tolerance ? `<p>${escapeHtml(tolerance)}</p>` : ""}<p>得分：${formatPoints(item.points)} / ${formatPoints(item.max)}</p><p>${escapeHtml(item.guidance)}</p>`;
+      return card;
     }
     function render() {
       hideAll();
+      renderFrequencyChip();
       renderStage();
       const capturing = animationView.mode === "capture";
       dom.assignedFrequency.innerHTML = state.frequencyAssigned
-        ? `${mathQuantity("f", state.frequencyHz, "Hz")}；${mathQuantity("Δt", Model.deltaT(state.frequencyHz).toFixed(4), "s")}`
+        ? mathQuantity("f", state.frequencyHz, "Hz")
         : "正在保存…";
       dom.generate.disabled = state.variant !== "assigned" || capturing;
       dom.replayPreview.disabled = capturing;
@@ -848,6 +972,21 @@
     function hideAll() {
       [dom.setup, dom.measurement, dom.analysis, dom.review, dom.result, dom.technical].forEach((element) => element.classList.add("is-hidden"));
       dom.submissionRetry.classList.add("is-hidden"); dom.submissionNotice.classList.add("is-hidden");
+      clearSubmissionDialog();
+    }
+    function clearSubmissionDialog() {
+      for (const name of ["role", "aria-modal", "aria-labelledby", "aria-describedby"]) dom.submissionNotice.removeAttribute(name);
+    }
+    function renderFrequencyChip() {
+      const valid = Model.validFrequency(state?.frequencyHz);
+      dom.frequencyChip.textContent = valid ? `頻閃頻率：f = ${state.frequencyHz} Hz` : "頻閃頻率：未能確認";
+      dom.frequencyChip.setAttribute("aria-label", valid ? `頻閃頻率 f = ${state.frequencyHz} Hz` : "頻閃頻率未能確認");
+    }
+    function focusPhaseHeading() {
+      const heading = state.phase === "analyze" ? dom.analysisTitle :
+        ["measure-total", "measure-interval"].includes(state.phase) ? dom.measurementTitle :
+          state.phase === "review" ? dom.reviewTitle : null;
+      heading?.focus({ preventScroll: true });
     }
     function renderStage() {
       dom.trajectory.replaceChildren();
@@ -975,10 +1114,10 @@
       if (animationView.mode === "capture") {
         const last = animationView.stamps.at(-1);
         message = last
-          ? `正在拍攝：已記錄 <var>P</var><sub>${last.index}</sub>，${mathQuantity("t", last.timeS.toFixed(3), "s")}。實心球是同一個正在下落的球。`
+          ? `正在拍攝：已記錄 <var>P</var><sub>${last.index}</sub>。實心球是同一個正在下落的球。`
           : "正在拍攝。";
       } else if (state.generated) {
-        message = `頻閃相片完成：五個球影來自同一個球，彼此相隔 ${mathQuantity("Δt", Model.deltaT(state.frequencyHz).toFixed(4), "s")}；現在量度靜態相片。`;
+        message = "頻閃相片完成：五個球影來自同一個球，以相等時間間隔記錄；現在量度靜態相片。";
       } else if (prefersReducedMotion()) {
         message = "連續下落動畫已按你的動態效果設定省略；此靜態示意不產生量度數據。";
       } else message = "預覽只作說明，尚未建立頻閃相片。";
@@ -1017,7 +1156,7 @@
         if (major) {
           const text = document.createElementNS(ns, "text");
           text.dataset.rulerLabelCm = String(photoCm);
-          text.setAttribute("x", rulerBox.anchorX + rulerBox.direction * 34 / rulerBox.scaleX);
+          text.setAttribute("x", rulerBox.anchorX + rulerBox.direction * 46 / rulerBox.scaleX);
           text.setAttribute("text-anchor", rulerBox.direction > 0 ? "start" : "end");
           text.setAttribute("y", y + rulerBox.rulerLabelSize * .34);
           text.setAttribute("font-size", rulerBox.rulerLabelSize);
@@ -1029,43 +1168,11 @@
       unit.dataset.rulerUnit = "true";
       unit.setAttribute("font-size", rulerBox.rulerUnitSize); unit.setAttribute("font-style", "normal");
       unit.setAttribute("font-weight", "800");
+      unit.setAttribute("text-anchor", "middle");
+      unit.setAttribute("x", rulerBox.x + rulerBox.bodyWidth / 2);
+      unit.setAttribute("y", rulerBox.zeroY + rulerBox.tickSpan * .3 / Model.PHOTO_RULER_CM);
       unit.textContent = "cm";
       dom.rulerGraphic.append(unit);
-      const xCandidates = [
-        { x: rulerBox.visibleLeft - 4 / rulerBox.scaleX, anchor: "end" },
-        { x: rulerBox.visibleLeft + rulerBox.visibleWidth + 4 / rulerBox.scaleX, anchor: "start" }
-      ];
-      const stageRect = dom.stage.getBoundingClientRect();
-      const yCandidates = [
-        rulerBox.visibleTop - 14 / rulerBox.scaleY,
-        rulerBox.visibleTop + 9 / rulerBox.scaleY,
-        rulerBox.zeroY - 34 / rulerBox.scaleY,
-        rulerBox.zeroY - 54 / rulerBox.scaleY
-      ];
-      for (let cssY = 18; cssY < stageRect.height - 4; cssY += 18) {
-        const point = clientToSvg(stageRect.left + stageRect.width / 2, stageRect.top + cssY);
-        if (point) yCandidates.push(point.y);
-      }
-      const protectedNodes = [...dom.scene.querySelectorAll(
-        '[data-ruler-label-cm="0"],[data-ruler-label-cm="1"],[data-point-label],[data-stamp]')];
-      const intersects = (a, b) => a.left < b.right + 1 && a.right > b.left - 1 &&
-        a.top < b.bottom + 1 && a.bottom > b.top - 1;
-      let placed = false;
-      for (const candidateX of xCandidates) {
-        for (const y of yCandidates) {
-          unit.setAttribute("x", candidateX.x);
-          unit.setAttribute("text-anchor", candidateX.anchor);
-          unit.setAttribute("y", y);
-          const rect = unit.getBoundingClientRect();
-          if (rect.left >= stageRect.left && rect.right <= stageRect.right &&
-              rect.top >= stageRect.top && rect.bottom <= stageRect.bottom &&
-              protectedNodes.every((node) => !intersects(rect, node.getBoundingClientRect()))) {
-            placed = true;
-            break;
-          }
-        }
-        if (placed) break;
-      }
     }
     function positionRuler() {
       const rulerBox = applyRulerGeometry(ruler);
@@ -1074,7 +1181,8 @@
       const bottomRight = svgToClient(rulerBox.visibleLeft + rulerBox.visibleWidth,
         rulerBox.visibleTop + rulerBox.visibleHeight);
       if (!topLeft || !bottomRight) return;
-      dom.ruler.style.left = `${Math.min(topLeft.x, bottomRight.x) - stageRect.left}px`;
+      const visibleLeft = Math.min(topLeft.x, bottomRight.x) - stageRect.left;
+      dom.ruler.style.left = `${visibleLeft}px`;
       dom.ruler.style.top = `${Math.min(topLeft.y, bottomRight.y) - stageRect.top}px`;
       dom.ruler.style.width = `${Math.abs(bottomRight.x - topLeft.x)}px`;
       dom.ruler.style.height = `${Math.abs(bottomRight.y - topLeft.y)}px`;
@@ -1099,15 +1207,17 @@
         ? targetY + placement.zeroErrorPx / provisional.scaleY
         : geometry.metersToY(placement.rulerZeroM);
       const legacyGapSvg = placement.legacyEdgeGapPx / provisional.scaleX + provisional.ballRadius;
+      const historicalLeftOffset = !Object.prototype.hasOwnProperty.call(placement, "rulerGeometry") &&
+        placement.rulerSide === "left" ? 23 / provisional.scaleX : 0;
       const x = placement.horizontalMode === "left-boundary"
-        ? GUIDE_X1 + (placement.boundaryOverlapPx - 23) / provisional.scaleX
+        ? GUIDE_X1 + placement.boundaryOverlapPx / provisional.scaleX
         : placement.horizontalMode === "right-boundary"
           ? GUIDE_X2 + (23 - placement.boundaryOverlapPx) / provisional.scaleX
           : placement.horizontalMode === "guide-fraction"
-            ? GUIDE_X1 + placement.guideFraction * (GUIDE_X2 - GUIDE_X1)
+            ? GUIDE_X1 + placement.guideFraction * (GUIDE_X2 - GUIDE_X1) + historicalLeftOffset
             : Number.isFinite(placement.rulerX) ? placement.rulerX :
         placement.legacyEdgeSide === "left"
-          ? BALL_X - legacyGapSvg - provisional.bodyWidth
+          ? BALL_X - legacyGapSvg
           : BALL_X + legacyGapSvg + provisional.bodyWidth;
       applyRulerGeometry({ x, y: zeroY });
       movementNorm = placement.moveNorm;
@@ -1168,38 +1278,43 @@
     function renderAnalysis() {
       dom.analysis.classList.remove("is-hidden"); dom.badge.textContent = "分析";
       dom.deltaT.value = state.analysis.deltaTS ?? "";
-      for (const [key, , distanceRatio] of RATIO_DEFINITIONS) {
+      for (const [key] of RATIO_DEFINITIONS) {
         const answer = state.analysis[key];
-        const sources = key === "totalDisplacementRatio" ? Scoring.TOTAL_KEYS : key === "intervalDistanceRatio" ? Scoring.GAP_KEYS : null;
-        const sufficient = !sources || sources.every((source) => state.measurements[source]?.status === "recorded" && state.measurements[source].readingM > 0);
         const section = document.querySelector(`[data-ratio="${key}"]`);
-        section.querySelector(".ratio-inputs").classList.toggle("is-hidden", distanceRatio && !sufficient);
-        section.querySelector(`[data-insufficient="${key}"]`).classList.toggle("is-hidden", !distanceRatio || sufficient);
-        section.querySelectorAll("input").forEach((input, index) => { input.value = answer?.status === "answered" ? answer.values[index + 1] : ""; });
+        section.querySelector(".ratio-inputs").classList.remove("is-hidden");
+        section.querySelector(`[data-insufficient="${key}"]`).classList.add("is-hidden");
+        section.querySelectorAll("input").forEach((input, index) => { input.value = answer.values[index + 1] ?? ""; });
       }
+      const existing = dom.analysis.querySelector(".recorded-series");
+      existing?.remove();
+      dom.ratioGroups.insertAdjacentHTML("beforebegin", recordedSeriesMarkup());
       for (const key of ["lawAnswerId", "intervalLawAnswerId", "accelerationAnswerId"]) {
         document.querySelectorAll(`input[name="${key}"]`).forEach((input) => { input.checked = input.value === state.analysis[key]; });
       }
     }
     function renderReview() {
-      dom.review.classList.remove("is-hidden"); dom.badge.textContent = state.variant === "complete" ? "提交前檢查" : "尚未完成";
+      dom.review.classList.remove("is-hidden"); dom.badge.textContent = "提交前檢查";
       const rows = Persistence.MEASUREMENT_KEYS.map((key) => {
         const item = state.measurements[key];
         const evidence = key.startsWith("total")
           ? item?.usedTotalPlacement === true : Boolean(state.evidence[key]?.usedWhileValid);
         return `<tr><th>${measurementName(key)}</th><td>${item?.status === "recorded" ? `相片上 ${escapeHtml(formatPhotoCm(state.frequencyHz, item.readingM))} <span class="unit">cm</span>` : "已跳過"}</td><td>${evidence ? "有尺位證據" : "未有尺位證據"}</td><td><button type="button" data-edit-measurement="${key}">修正 ${measurementName(key)}</button></td></tr>`;
       }).join("");
-      const ratioRows = RATIO_DEFINITIONS.map(([key, title]) => `<p><strong>${title}：</strong>${escapeHtml(ratioText(state.analysis[key]))}</p>`).join("");
+      const ratioRows = RATIO_DEFINITIONS.map(([key, title]) => {
+        const answered = state.analysis[key].values.slice(1).filter((value) => value !== null).length;
+        return `<p><strong>${title}：</strong>${answered === 3 ? "已作答" : answered ? `${answered}/3 項已作答` : "未答"}</p>`;
+      }).join("");
       const concepts = [
-        ["總位移與時間", state.analysis.lawAnswerId, { square: "<var>s</var> ∝ <var>t</var><sup>2</sup>", linear: "<var>s</var> ∝ <var>t</var>", constant: "<var>s</var> 不變" }],
-        ["相等時間間隔位移", state.analysis.intervalLawAnswerId, { odd: "連續奇數比", equal: "每段相等", square: "平方數比" }],
-        ["間隔增加原因", state.analysis.accelerationAnswerId, { "constant-acceleration": "加速度固定，速度等量增加", "constant-speed": "速度不變", "frequency-changes-gravity": "頻率改變重力" }]
-      ].map(([title, value, labels]) => `<p><strong>${title}：</strong>${labels[value] || "未答"}</p>`).join("");
-      dom.reviewContent.innerHTML = `<p>${mathQuantity("f", state.frequencyHz, "Hz")}；${mathQuantity("Δt", state.analysis.deltaTS ?? "未填", "s")}</p>
+        ["總位移與時間", state.analysis.lawAnswerId],
+        ["相等時間間隔位移", state.analysis.intervalLawAnswerId],
+        ["間隔增加原因", state.analysis.accelerationAnswerId]
+      ].map(([title, value]) => `<p><strong>${title}：</strong>${value === null ? "未答" : "已作答"}</p>`).join("");
+      dom.reviewContent.innerHTML = `
+        ${recordedSeriesMarkup()}
         <table class="review-table"><thead><tr><th>量度</th><th>讀數</th><th>操作</th><th>修正</th></tr></thead><tbody>${rows}</tbody></table>
         <section class="review-analysis" aria-label="比例及物理規律答案">${ratioRows}${concepts}</section>
-        <p>${state.variant === "complete" ? "所有必需答案已填妥，可以提交。" : "仍有分析答案未完成；請返回修正。"}</p>`;
-      dom.submit.disabled = state.variant !== "complete";
+        <p>${unansweredCount(state.analysis)} 項未答；你仍可提交，未答項目會得 0 分。</p>`;
+      dom.submit.disabled = false;
     }
     function measurementName(key) {
       const totalIndex = Scoring.TOTAL_KEYS.indexOf(key);
@@ -1207,9 +1322,18 @@
       const gapIndex = Scoring.GAP_KEYS.indexOf(key);
       return `<var>P</var><sub>${gapIndex}</sub><var>P</var><sub>${gapIndex + 1}</sub>`;
     }
-    function ratioText(answer) {
-      return answer?.status === "answered" ? answer.values.join(":") :
-        answer?.status === "insufficient-data" ? "量度數據不足，不能約化" : "未答";
+    function recordedSeriesMarkup() {
+      const series = (keys) => keys.map((key) => {
+        const item = state.measurements[key];
+        return item?.status === "recorded" ? `${formatPhotoCm(state.frequencyHz, item.readingM)} cm` : "未量得";
+      });
+      const totals = series(Scoring.TOTAL_KEYS); const gaps = series(Scoring.GAP_KEYS);
+      const totalItems = totals.map((value, index) => `<li data-series-key="${Scoring.TOTAL_KEYS[index]}"><var>P</var><sub>0</sub>→<var>P</var><sub>${index + 1}</sub>：${value}</li>`).join("");
+      const gapItems = gaps.map((value, index) => `<li data-series-key="${Scoring.GAP_KEYS[index]}"><var>P</var><sub>${index}</sub><var>P</var><sub>${index + 1}</sub>：${value}</li>`).join("");
+      return `<section class="recorded-series" aria-label="已記錄的相片量度系列"><h3>已記錄量度（資料展示，不計比例答案分）</h3>
+        <h4>總位移</h4><ul>${totalItems}</ul><p><strong>總位移系列：</strong>${totals.join(":")}</p>
+        <h4>相鄰間隔</h4><ul>${gapItems}</ul><p><strong>相鄰間隔系列：</strong>${gaps.join(":")}</p>
+        <p>比較兩組數值怎樣隨序號變化，再完成你的時間比例與物理規律答案。</p></section>`;
     }
     function formatPoints(value) { return Number.isInteger(value) ? String(value) : value.toFixed(2); }
     function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
@@ -1221,6 +1345,6 @@
 
   return {
     ACTIVITY, formatPhotoCm, photoCmToMeters, resolveManualReading, mathQuantity,
-    startupView, submissionView, canonicalReviewMatches, resultFeedbackItems, boot
+    startupView, submissionView, canonicalReviewMatches, resolveImmutableReview, resultFeedbackItems, unansweredCount, answerLabel, boot
   };
 });

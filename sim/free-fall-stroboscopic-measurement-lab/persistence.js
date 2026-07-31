@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 2;
+  const VERSION = 3;
   const MEASUREMENT_KEYS = Object.freeze([...Scoring.TOTAL_KEYS, ...Scoring.GAP_KEYS]);
   const PHASES = Object.freeze(["setup", "measure-total", "measure-interval", "analyze", "review"]);
   const TOTAL_VARIANTS = Object.freeze(["normal-unpositioned", "normal-placement-ready", "review-edit-unpositioned", "review-edit-placement-ready"]);
@@ -22,7 +22,7 @@
   function currentPlacementKeys(value, base) {
     const conditional = value.horizontalMode === "guide-fraction" ? ["guideFraction"] : ["boundaryOverlapPx"];
     return Object.keys(value).every((key) =>
-      [...base, "rulerX", "rulerSide", "zeroTickOverlapPx", "horizontalMode", ...conditional].includes(key));
+      [...base, "rulerX", "rulerSide", "rulerGeometry", "zeroTickOverlapPx", "horizontalMode", ...conditional].includes(key));
   }
 
   function initialState() {
@@ -36,7 +36,7 @@
     if (typeof random !== "function") return null;
     const sample = random();
     return finite(sample) && sample >= 0 && sample < 1
-      ? Model.FREQUENCIES[Math.floor(sample * Model.FREQUENCIES.length)] : null;
+      ? Model.ASSIGNABLE_FREQUENCIES[Math.floor(sample * Model.ASSIGNABLE_FREQUENCIES.length)] : null;
   }
   function assignedState(frequencyHz) {
     if (!Model.validFrequency(frequencyHz)) return null;
@@ -47,7 +47,7 @@
   }
   function assignFrequency(state, frequencyHz) {
     return validateDraft(state) && state.phase === "setup" && state.variant === "new"
-      ? assignedState(frequencyHz) : null;
+      && Model.ASSIGNABLE_FREQUENCIES.includes(frequencyHz) ? assignedState(frequencyHz) : null;
   }
   function reset(state) {
     return validateDraft(state) && Model.validFrequency(state.frequencyHz) && state.frequencyAssigned === true
@@ -56,9 +56,10 @@
   function emptyMeasurements() { return Object.fromEntries(MEASUREMENT_KEYS.map((key) => [key, null])); }
   function emptyAnalysis() {
     return {
-      deltaTS: null, cumulativeTimeRatio: null, totalDisplacementRatio: null,
-      intervalTimeRatio: null, intervalDistanceRatio: null, lawAnswerId: null,
-      intervalLawAnswerId: null, accelerationAnswerId: null
+      deltaTS: null,
+      cumulativeTimeRatio: { values: [1, null, null, null] },
+      intervalTimeRatio: { values: [1, null, null, null] },
+      lawAnswerId: null, intervalLawAnswerId: null, accelerationAnswerId: null
     };
   }
   function generate(state) {
@@ -132,42 +133,18 @@
        Object.keys(value).every((key) => ["mode", "moveNorm", "zeroErrorPx", "legacyEdgeGapPx", "readingM", "usedWhileValid", "task"].includes(key))) &&
       value.task === task && value.usedWhileValid === true && Scoring.gapEvidenceValid(value, task, reading));
   }
-  function positiveReadings(measurements, keys) {
-    return keys.every((key) => measurements[key]?.status === "recorded" && finite(measurements[key].readingM) && measurements[key].readingM > 0);
+  function validTimeRatio(value) {
+    return exactKeys(value, ["values"]) && Array.isArray(value.values) && value.values.length === 4 &&
+      value.values[0] === 1 && value.values.slice(1).every((term) => term === null || finite(term) && term > 0);
   }
-  function validRatio(value, allowInsufficient, hasSources) {
-    if (!value || !["answered", "insufficient-data"].includes(value.status)) return false;
-    if (value.status === "insufficient-data") return allowInsufficient && !hasSources && exactKeys(value, ["status"]);
-    return exactKeys(value, ["status", "values"]) && Array.isArray(value.values) && value.values.length === 4 &&
-      value.values[0] === 1 && value.values.every((term) => finite(term) && term > 0);
-  }
-  function analysisFieldValid(analysis, measurements, complete) {
-    if (!analysis || typeof analysis !== "object" || Array.isArray(analysis)) return false;
-    const allowed = ["deltaTS", "cumulativeTimeRatio", "totalDisplacementRatio", "intervalTimeRatio",
-      "intervalDistanceRatio", "lawAnswerId", "intervalLawAnswerId", "accelerationAnswerId"];
-    if (!Object.keys(analysis).every((key) => allowed.includes(key))) return false;
-    const totalSources = positiveReadings(measurements, Scoring.TOTAL_KEYS);
-    const gapSources = positiveReadings(measurements, Scoring.GAP_KEYS);
-    const checks = [
-      analysis.deltaTS == null || (finite(analysis.deltaTS) && analysis.deltaTS >= 0 && analysis.deltaTS <= 1),
-      analysis.cumulativeTimeRatio == null || validRatio(analysis.cumulativeTimeRatio, false, true),
-      analysis.totalDisplacementRatio == null || validRatio(analysis.totalDisplacementRatio, true, totalSources) &&
-        (totalSources || analysis.totalDisplacementRatio.status === "insufficient-data"),
-      analysis.intervalTimeRatio == null || validRatio(analysis.intervalTimeRatio, false, true),
-      analysis.intervalDistanceRatio == null || validRatio(analysis.intervalDistanceRatio, true, gapSources) &&
-        (gapSources || analysis.intervalDistanceRatio.status === "insufficient-data"),
-      analysis.lawAnswerId == null || ["square", "linear", "constant"].includes(analysis.lawAnswerId),
-      analysis.intervalLawAnswerId == null || ["odd", "equal", "square"].includes(analysis.intervalLawAnswerId),
-      analysis.accelerationAnswerId == null || ["constant-acceleration", "constant-speed", "frequency-changes-gravity"].includes(analysis.accelerationAnswerId)
-    ];
-    if (!checks.every(Boolean)) return false;
-    return !complete || finite(analysis.deltaTS) &&
-      validRatio(analysis.cumulativeTimeRatio, false, true) &&
-      validRatio(analysis.totalDisplacementRatio, true, totalSources) &&
-      validRatio(analysis.intervalTimeRatio, false, true) &&
-      validRatio(analysis.intervalDistanceRatio, true, gapSources) &&
-      typeof analysis.lawAnswerId === "string" && typeof analysis.intervalLawAnswerId === "string" &&
-      typeof analysis.accelerationAnswerId === "string";
+  function analysisFieldValid(analysis) {
+    if (!exactKeys(analysis, ["deltaTS", "cumulativeTimeRatio", "intervalTimeRatio",
+      "lawAnswerId", "intervalLawAnswerId", "accelerationAnswerId"])) return false;
+    return (analysis.deltaTS === null || finite(analysis.deltaTS) && analysis.deltaTS > 0) &&
+      validTimeRatio(analysis.cumulativeTimeRatio) && validTimeRatio(analysis.intervalTimeRatio) &&
+      (analysis.lawAnswerId === null || ["square", "linear", "constant"].includes(analysis.lawAnswerId)) &&
+      (analysis.intervalLawAnswerId === null || ["odd", "equal", "square"].includes(analysis.intervalLawAnswerId)) &&
+      (analysis.accelerationAnswerId === null || ["constant-acceleration", "constant-speed", "frequency-changes-gravity"].includes(analysis.accelerationAnswerId));
   }
   function resolvedCount(measurements, keys) {
     let count = 0;
@@ -198,7 +175,7 @@
       if (evidence && (item?.status !== "recorded" || !validGapEvidence(evidence, key, item.readingM))) return false;
       if (item?.status === "skipped" && evidence) return false;
     }
-    return analysisFieldValid(state.analysis, state.measurements, state.phase === "review" && state.variant === "complete");
+    return analysisFieldValid(state.analysis);
   }
   function validateDraft(state) {
     if (!state || state.v !== VERSION || state.modelVersion !== Model.MODEL_VERSION ||
@@ -231,7 +208,7 @@
             Scoring.GAP_KEYS.some((key) => state.measurements[key] !== null))) return false;
         if (state.phase === "measure-interval" && (totalResolved !== 4 || gapResolved !== state.currentStep ||
             Scoring.GAP_KEYS.slice(state.currentStep).some((key) => state.measurements[key] !== null))) return false;
-        if (Object.values(state.analysis).some((value) => value !== null)) return false;
+        if (JSON.stringify(state.analysis) !== JSON.stringify(emptyAnalysis())) return false;
       } else if (totalResolved !== 4 || gapResolved !== 4) return false;
       const currentKey = state.phase === "measure-total" ? Scoring.TOTAL_KEYS[state.currentStep] : Scoring.GAP_KEYS[state.currentStep];
       if (ready && !edit && state.measurements[currentKey] !== null) return false;
@@ -243,16 +220,15 @@
         state.returnToReview === (state.variant === "review-edit") && totalResolved === 4 && gapResolved === 4;
     }
     if (state.phase === "review") {
-      if (!["incomplete", "complete"].includes(state.variant) || state.currentStep !== "review" || state.returnToReview ||
+      if (state.variant !== "ready" || state.currentStep !== "review" || state.returnToReview ||
           totalResolved !== 4 || gapResolved !== 4) return false;
-      return state.variant === (analysisFieldValid(state.analysis, state.measurements, true) ? "complete" : "incomplete");
+      return true;
     }
     return false;
   }
   function encode(source) {
-    const value = clone(source);
-    if (!validateDraft(value)) throw new Error("Invalid free-fall draft");
-    return value;
+    if (!validateDraft(source)) throw new Error("Invalid free-fall draft");
+    return clone(source);
   }
   function validLegacyV1Placement(placement, finalized) {
     const minGap = finalized ? Scoring.LEGACY_EDGE_MIN_GAP_PX : 0;
@@ -280,7 +256,7 @@
   }
   function migrateV1(value, review = false) {
     if (!value || value.v !== 1 || value.modelVersion !== Model.MODEL_VERSION ||
-        value.rubricVersion !== 1 || own(value, "frequencyAssigned") ||
+        value.rubricVersion !== Scoring.LEGACY_RUBRIC_VERSION || own(value, "frequencyAssigned") ||
         typeof value.frequencyActivelySelected !== "boolean") return null;
     const expectedSetup = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep",
       "returnToReview", "frequencyHz", "frequencyActivelySelected"];
@@ -293,8 +269,8 @@
           "activePlacement", "measurements", "evidence", "analysis"].includes(key))) return null;
     if (!validLegacyV1Placements(value)) return null;
     const migrated = clone(value);
-    migrated.v = VERSION;
-    migrated.rubricVersion = Scoring.RUBRIC_VERSION;
+    migrated.v = 2;
+    migrated.rubricVersion = Scoring.LEGACY_RUBRIC_VERSION;
     migrated.frequencyAssigned = migrated.frequencyActivelySelected;
     delete migrated.frequencyActivelySelected;
     if (own(migrated, "activePlacement")) migrated.activePlacement = migrateLegacyPlacement(migrated.activePlacement);
@@ -310,12 +286,76 @@
     }
     return migrated;
   }
+  function positiveReadings(measurements, keys) {
+    return keys.every((key) => measurements?.[key]?.status === "recorded" &&
+      finite(measurements[key].readingM) && measurements[key].readingM > 0);
+  }
+  function validLegacyRatio(value, allowInsufficient, hasSources) {
+    if (value === null) return true;
+    if (!value || !["answered", "insufficient-data"].includes(value.status)) return false;
+    if (value.status === "insufficient-data") return allowInsufficient && !hasSources && exactKeys(value, ["status"]);
+    return exactKeys(value, ["status", "values"]) && Array.isArray(value.values) && value.values.length === 4 &&
+      value.values[0] === 1 && value.values.every((term) => finite(term) && term > 0);
+  }
+  function legacyAnalysisValid(analysis, measurements, complete) {
+    if (!exactKeys(analysis, ["deltaTS", "cumulativeTimeRatio", "totalDisplacementRatio",
+      "intervalTimeRatio", "intervalDistanceRatio", "lawAnswerId", "intervalLawAnswerId",
+      "accelerationAnswerId"])) return false;
+    const totalSources = positiveReadings(measurements, Scoring.TOTAL_KEYS);
+    const gapSources = positiveReadings(measurements, Scoring.GAP_KEYS);
+    const totalDistanceValid = validLegacyRatio(analysis.totalDisplacementRatio, true, totalSources) &&
+      (totalSources || analysis.totalDisplacementRatio?.status === "insufficient-data" || analysis.totalDisplacementRatio === null);
+    const intervalDistanceValid = validLegacyRatio(analysis.intervalDistanceRatio, true, gapSources) &&
+      (gapSources || analysis.intervalDistanceRatio?.status === "insufficient-data" || analysis.intervalDistanceRatio === null);
+    const valid = (analysis.deltaTS === null || finite(analysis.deltaTS) && analysis.deltaTS >= 0 && analysis.deltaTS <= 1) &&
+      validLegacyRatio(analysis.cumulativeTimeRatio, false, true) &&
+      totalDistanceValid &&
+      validLegacyRatio(analysis.intervalTimeRatio, false, true) &&
+      intervalDistanceValid &&
+      (analysis.lawAnswerId === null || ["square", "linear", "constant"].includes(analysis.lawAnswerId)) &&
+      (analysis.intervalLawAnswerId === null || ["odd", "equal", "square"].includes(analysis.intervalLawAnswerId)) &&
+      (analysis.accelerationAnswerId === null || ["constant-acceleration", "constant-speed", "frequency-changes-gravity"].includes(analysis.accelerationAnswerId));
+    if (!valid || !complete) return valid;
+    return finite(analysis.deltaTS) && analysis.deltaTS > 0 && analysis.cumulativeTimeRatio !== null &&
+      analysis.totalDisplacementRatio !== null && analysis.intervalTimeRatio !== null &&
+      analysis.intervalDistanceRatio !== null && typeof analysis.lawAnswerId === "string" &&
+      typeof analysis.intervalLawAnswerId === "string" && typeof analysis.accelerationAnswerId === "string";
+  }
+  function migratedTimeRatio(value) {
+    return value?.status === "answered" && Array.isArray(value.values)
+      ? { values: clone(value.values) } : { values: [1, null, null, null] };
+  }
+  function migrateV2(value, review = false) {
+    if (!value || value.v !== 2 || value.modelVersion !== Model.MODEL_VERSION ||
+        value.rubricVersion !== Scoring.LEGACY_RUBRIC_VERSION ||
+        typeof value.frequencyAssigned !== "boolean") return null;
+    const migrated = clone(value);
+    migrated.v = VERSION;
+    migrated.rubricVersion = Scoring.RUBRIC_VERSION;
+    if (!review && migrated.phase === "setup") return migrated;
+    if (!legacyAnalysisValid(value.analysis, value.measurements, review)) return null;
+    if (!review && migrated.phase === "review") {
+      const complete = legacyAnalysisValid(value.analysis, value.measurements, true);
+      if (value.variant !== (complete ? "complete" : "incomplete")) return null;
+    }
+    migrated.analysis = {
+      deltaTS: migrated.analysis.deltaTS === 0 ? null : migrated.analysis.deltaTS,
+      cumulativeTimeRatio: migratedTimeRatio(migrated.analysis.cumulativeTimeRatio),
+      intervalTimeRatio: migratedTimeRatio(migrated.analysis.intervalTimeRatio),
+      lawAnswerId: migrated.analysis.lawAnswerId,
+      intervalLawAnswerId: migrated.analysis.intervalLawAnswerId,
+      accelerationAnswerId: migrated.analysis.accelerationAnswerId
+    };
+    if (!review && migrated.phase === "review") migrated.variant = "ready";
+    return migrated;
+  }
   function decode(value) {
-    const candidate = value?.v === 1 ? migrateV1(value, false) : clone(value);
+    const legacy = value?.v === 1 ? migrateV1(value, false) : value;
+    const candidate = legacy?.v === 2 ? migrateV2(legacy, false) : legacy;
     return validateDraft(candidate) ? encode(candidate) : null;
   }
   function makeReview(source) {
-    if (!validateDraft(source) || source.phase !== "review" || source.variant !== "complete") throw new Error("Complete review required");
+    if (!validateDraft(source) || source.phase !== "review" || source.variant !== "ready") throw new Error("Ready review required");
     const review = {
       v: VERSION, locked: 1, modelVersion: Model.MODEL_VERSION, rubricVersion: Scoring.RUBRIC_VERSION,
       frequencyHz: source.frequencyHz, frequencyAssigned: true,
@@ -327,21 +367,31 @@
   function validateReview(review) {
     if (!exactKeys(review, ["v", "locked", "modelVersion", "rubricVersion", "frequencyHz",
       "frequencyAssigned", "measurements", "evidence", "analysis"]) ||
-      review.v !== VERSION || review.locked !== 1) return false;
+      review.v !== VERSION || review.locked !== 1 || review.modelVersion !== Model.MODEL_VERSION ||
+      review.rubricVersion !== Scoring.RUBRIC_VERSION || review.frequencyAssigned !== true) return false;
     return validateGenerated({
-      ...review, phase: "review", variant: "complete", currentStep: "review",
+      ...review, phase: "review", variant: "ready", currentStep: "review",
       returnToReview: false, generated: true
     });
   }
   function decodeReview(value) {
-    const candidate = value?.v === 1 ? migrateV1(value, true) : clone(value);
-    return validateReview(candidate) ? candidate : null;
+    const legacy = value?.v === 1 ? migrateV1(value, true) : value;
+    const candidate = legacy?.v === 2 ? migrateV2(legacy, true) : legacy;
+    return validateReview(candidate) ? clone(candidate) : null;
+  }
+  function decodeImmutableReview(value) {
+    const legacy = value?.v === 1 ? migrateV1(value, true) : value;
+    if (legacy?.v === 2) {
+      const migrated = migrateV2(legacy, true);
+      return migrated && validateReview(migrated) ? clone(legacy) : null;
+    }
+    return validateReview(legacy) ? clone(legacy) : null;
   }
   function fromReview(review) {
     const value = decodeReview(review);
     return value ? {
       v: VERSION, modelVersion: Model.MODEL_VERSION, rubricVersion: Scoring.RUBRIC_VERSION,
-      phase: "review", variant: "complete", currentStep: "review", returnToReview: false,
+      phase: "review", variant: "ready", currentStep: "review", returnToReview: false,
       frequencyHz: value.frequencyHz, frequencyAssigned: true, generated: true,
       measurements: value.measurements, evidence: value.evidence, analysis: value.analysis
     } : null;
@@ -376,6 +426,7 @@
   function horizontalEvidence(placement) {
     return {
       rulerX: placement.rulerX, rulerSide: placement.rulerSide,
+      ...(own(placement, "rulerGeometry") ? { rulerGeometry: placement.rulerGeometry } : {}),
       horizontalMode: placement.horizontalMode,
       ...(placement.horizontalMode === "guide-fraction"
         ? { guideFraction: placement.guideFraction }
@@ -432,10 +483,8 @@
     }
     if (!isTotal) delete next.activePlacement;
     if (state.returnToReview) {
-      canonicalizeDistanceRatio(next, isTotal ? Scoring.TOTAL_KEYS : Scoring.GAP_KEYS,
-        isTotal ? "totalDisplacementRatio" : "intervalDistanceRatio");
       delete next.activePlacement;
-      next.phase = "review"; next.variant = analysisFieldValid(next.analysis, next.measurements, true) ? "complete" : "incomplete";
+      next.phase = "review"; next.variant = "ready";
       next.currentStep = "review"; next.returnToReview = false;
     } else if (state.currentStep < 3) {
       next.currentStep += 1;
@@ -448,15 +497,10 @@
     }
     return validateDraft(next) ? next : null;
   }
-  function canonicalizeDistanceRatio(state, keys, ratioKey) {
-    const sufficient = positiveReadings(state.measurements, keys);
-    if (!sufficient) state.analysis[ratioKey] = { status: "insufficient-data" };
-    else if (state.analysis[ratioKey]?.status === "insufficient-data") state.analysis[ratioKey] = null;
-  }
   function enterReview(state) {
     if (!validateDraft(state) || state.phase !== "analyze") return null;
     const next = clone(state);
-    next.phase = "review"; next.variant = analysisFieldValid(next.analysis, next.measurements, true) ? "complete" : "incomplete";
+    next.phase = "review"; next.variant = "ready";
     next.currentStep = "review"; next.returnToReview = false;
     return validateDraft(next) ? next : null;
   }
@@ -475,16 +519,16 @@
   }
   function setAnalysis(state, patch) {
     if (!validateDraft(state) || state.phase !== "analyze" || !patch || typeof patch !== "object") return null;
-    const next = clone(state);
-    next.analysis = { ...next.analysis, ...clone(patch) };
-    return validateDraft(next) ? next : null;
+    const candidate = clone(state);
+    candidate.analysis = { ...candidate.analysis, ...patch };
+    return validateDraft(candidate) ? clone(candidate) : null;
   }
   function bytes(value) { return new TextEncoder().encode(JSON.stringify(value)).length; }
 
   return {
     VERSION, MEASUREMENT_KEYS, initialState, chooseFrequency, assignedState, assignFrequency, reset,
     emptyMeasurements, emptyAnalysis, generate, validateDraft, encode, decode, makeReview,
-    validateReview, decodeReview, fromReview,
+    validateReview, decodeReview, decodeImmutableReview, fromReview,
     withPlacement, refreshPlacement, resolveMeasurement, enterReview, edit, setAnalysis, analysisFieldValid, bytes
   };
 });

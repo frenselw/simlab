@@ -5,7 +5,7 @@ dragging, accessibility, animation, and learner interaction.
 """
 
 model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
@@ -16,6 +16,13 @@ written only under output/.
 Use the simulation slug, task goal, base ref, changed paths, and evidence
 supplied by the parent. When an input is absent, state the scope assumption
 instead of silently choosing a different base or activity.
+
+Honor the supplied review mode. In fix-verification mode, verify only the
+accepted interaction findings and direct regressions caused by their fixes; do
+not reopen the full responsive, accessibility, animation, and gesture audit.
+Reuse credible browser evidence from the parent and run focused browser probes.
+Repeat the complete source/package browser matrix only when evidence is missing,
+stale, contradictory, or explicitly requested as an independent release gate.
 
 Read AGENTS.md, plans/00-shared-platform-and-style.md,
 docs/simulation-scorm-production-guide.md, the simulation-specific plan, and

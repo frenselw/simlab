@@ -29,9 +29,31 @@ for (const value of ["", "Infinity", "-0.1", "5.1"]) {
   assert.strictEqual(App.resolveManualReading(5, value).ok, false);
 }
 assert.match(App.mathQuantity("Δt", "0.2000", "s"), /class="delta">Δ<\/span><var>t<\/var>.* = .*0\.2000.*unit.*s/);
+assert.strictEqual(App.unansweredCount(Persistence.emptyAnalysis()), 10,
+  "all-null canonical v3 analysis exposes the exact unanswered count used by the confirmation gate");
+assert.strictEqual(App.unansweredCount({ ...Persistence.emptyAnalysis(), deltaTS: .2 }), 9);
+for (const [context, values] of Object.entries({
+  displacement: ["square", "linear", "constant"],
+  intervals: ["odd", "equal", "square"],
+  acceleration: ["constant-acceleration", "constant-speed", "frequency-changes-gravity"]
+})) {
+  for (const value of values) assert.ok(App.answerLabel(context, value)?.length > 4,
+    `${context}/${value} has a question-context Traditional Chinese result label`);
+}
+assert.notStrictEqual(App.answerLabel("displacement", "square"), App.answerLabel("intervals", "square"));
 
 const review = PersistenceFixtures.review;
 const result = Scoring.scoreAttempt(review);
+for (const v of [1, 2, 3, 4]) for (const modelVersion of [1, 2]) for (const rubricVersion of [1, 2, 3, 4]) {
+  const candidate = JSON.parse(JSON.stringify(review));
+  Object.assign(candidate, { v, modelVersion, rubricVersion });
+  assert.strictEqual(Boolean(App.resolveImmutableReview(candidate)), v === 3 && modelVersion === 1 && rubricVersion === 3,
+    `finished/frozen resolver rejects mixed current tuple ${v}/${modelVersion}/${rubricVersion} without throwing`);
+}
+const originalScoreAttempt = Scoring.scoreAttempt;
+Scoring.scoreAttempt = () => { throw new Error("forced rescore exception"); };
+assert.strictEqual(App.resolveImmutableReview(review), null, "rescore exceptions fail closed without escaping lifecycle routing");
+Scoring.scoreAttempt = originalScoreAttempt;
 const nested = { version: 1, activity: App.ACTIVITY, kind: "review", answer: review, score: result.score, passed: result.passed };
 const payload = { reviewJson: JSON.stringify(nested), score: result.score, maxScore: 100, passed: result.passed };
 assert.strictEqual(App.canonicalReviewMatches(review, payload, result), true);
@@ -58,9 +80,7 @@ const boundaryReview = JSON.parse(JSON.stringify(review));
 [.1, 1, 2, 3].forEach((readingM, index) => {
   boundaryReview.measurements[Scoring.TOTAL_KEYS[index]].readingM = readingM;
 });
-boundaryReview.measurements.total4.usedTotalPlacement = false;
-boundaryReview.analysis.cumulativeTimeRatio = { status: "answered", values: [1, 99, 3, 4] };
-boundaryReview.analysis.totalDisplacementRatio = { status: "answered", values: [1, 9.85, 20, 30] };
+boundaryReview.analysis.cumulativeTimeRatio = { values: [1, 99, 3, 4] };
 boundaryReview.analysis.lawAnswerId = "linear";
 boundaryReview.analysis.intervalLawAnswerId = "equal";
 boundaryReview.analysis.accelerationAnswerId = "constant-speed";

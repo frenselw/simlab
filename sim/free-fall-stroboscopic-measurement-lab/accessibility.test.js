@@ -4,9 +4,14 @@ const fs = require("fs");
 const path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const css = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
+const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
 
 for (const text of ["aria-roledescription=\"可移動直尺\"", "aria-describedby=\"rulerHelp\"", "aria-live=\"polite\"", "role=\"alert\""]) assert.ok(html.includes(text), text);
 for (const id of ["rulerHandle", "controlPanel", "readingInput", "submitButton"]) assert.ok(html.includes(`id="${id}"`));
+assert.ok(html.includes('id="frequencyChip"'));
+for (const id of ["measurementTitle", "analysisTitle", "reviewTitle", "resultTitle"]) {
+  assert.match(html, new RegExp(`id="${id}"[^>]*tabindex="-1"`));
+}
 assert.ok(css.includes("touch-action: pan-y"));
 assert.ok(css.includes(".ruler-handle"));
 assert.ok(css.includes("touch-action: none"));
@@ -14,6 +19,11 @@ assert.ok(css.includes("overscroll-behavior: contain"));
 assert.ok(css.includes("prefers-reduced-motion"));
 assert.ok(css.includes("height: 100dvh"));
 assert.ok(css.includes("min-height: 0"));
+assert.ok(css.includes("forced-colors: active"));
+assert.ok(css.includes(".result-cards"));
+for (const token of ['"alertdialog"', '"aria-labelledby"', '"aria-describedby"', "blankWarningTitle", "blankWarningDescription"]) {
+  assert.ok(main.includes(token), `blank confirmation accessibility token ${token}`);
+}
 assert.ok(!html.includes("magnifier"));
 assert.ok(!css.includes(".magnifier"));
 assert.ok(html.includes("preserveAspectRatio=\"xMidYMid meet\""));

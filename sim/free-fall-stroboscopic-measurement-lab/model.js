@@ -7,7 +7,8 @@
 
   const MODEL_VERSION = 1;
   const G = 10;
-  const FREQUENCIES = Object.freeze([4, 5, 6]);
+  const FREQUENCIES = Object.freeze([4, 5, 6, 8]);
+  const ASSIGNABLE_FREQUENCIES = Object.freeze([4, 5, 8]);
   const POINT_COUNT = 5;
   const PHOTO_RULER_CM = 5;
 
@@ -65,7 +66,7 @@
   }
 
   return {
-    MODEL_VERSION, G, FREQUENCIES, POINT_COUNT, PHOTO_RULER_CM, finite, validFrequency, deltaT,
+    MODEL_VERSION, G, FREQUENCIES, ASSIGNABLE_FREQUENCIES, POINT_COUNT, PHOTO_RULER_CM, finite, validFrequency, deltaT,
     timeAt, freeFallDisplacement, displacementAt, intervalDisplacement, trajectory, cameraMax,
     metersToPhotoCm, photoCmToMeters, geometry
   };

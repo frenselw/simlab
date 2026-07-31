@@ -23,6 +23,13 @@ plan, relevant tests, and browser evidence. For a clean T3 gate with an
 explicitly empty finding set, verify that the specialist scope and evidence are
 complete enough to support that result.
 
+This role is normally used once, after the final bounded specialist pass. When
+asked to arbitrate before implementation, resolve only the supplied conflicting
+P0/P1 findings and their necessary contract; do not turn the arbitration into a
+fresh audit. When asked to verify fixes, validate the accepted finding set and
+direct regressions only. A newly noticed P2 that is unrelated to those fixes is
+non-blocking follow-up and must not create another review loop.
+
 Reject unsupported speculation, duplicate findings, style-only preferences,
 claims contradicted by the applicable plan, and conclusions based only on a
 passing or failing test without root-cause evidence.

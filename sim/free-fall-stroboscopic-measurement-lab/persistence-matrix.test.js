@@ -9,14 +9,34 @@ function placement(state, task) {
   return {
     mode: "keyboard", moveNorm: .03,
     rulerZeroM: gapIndex >= 0 ? M.displacementAt(state.frequencyHz, gapIndex) : 0,
-    rulerX: 100, rulerSide: "left", horizontalMode: "guide-fraction",
+    rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1", horizontalMode: "guide-fraction",
     guideFraction: 20 / 205, zeroTickOverlapPx: 23, zeroErrorPx: 0
   };
 }
-function asV1(state) {
+function asV2(state) {
   const legacy = JSON.parse(JSON.stringify(state));
+  legacy.v = 2; legacy.rubricVersion = 2;
+  if (legacy.analysis) legacy.analysis = {
+    deltaTS: legacy.analysis.deltaTS,
+    cumulativeTimeRatio: legacy.analysis.cumulativeTimeRatio.values.slice(1).every((term) => term !== null)
+      ? { status: "answered", values: legacy.analysis.cumulativeTimeRatio.values } : null,
+    totalDisplacementRatio: S.TOTAL_KEYS.every((key) => legacy.measurements?.[key]?.status === "recorded" && legacy.measurements[key].readingM > 0)
+      ? { status: "answered", values: [1, 4, 9, 16] } : { status: "insufficient-data" },
+    intervalTimeRatio: legacy.analysis.intervalTimeRatio.values.slice(1).every((term) => term !== null)
+      ? { status: "answered", values: legacy.analysis.intervalTimeRatio.values } : null,
+    intervalDistanceRatio: S.GAP_KEYS.every((key) => legacy.measurements?.[key]?.status === "recorded" && legacy.measurements[key].readingM > 0)
+      ? { status: "answered", values: [1, 3, 5, 7] } : { status: "insufficient-data" },
+    lawAnswerId: legacy.analysis.lawAnswerId,
+    intervalLawAnswerId: legacy.analysis.intervalLawAnswerId,
+    accelerationAnswerId: legacy.analysis.accelerationAnswerId
+  };
+  if (legacy.phase === "review") legacy.variant = Object.values(legacy.analysis).every((value) => value !== null) ? "complete" : "incomplete";
+  return legacy;
+}
+function asV1(state) {
+  const legacy = asV2(state);
   legacy.v = 1;
-  legacy.rubricVersion = 1;
+  legacy.rubricVersion = 2;
   legacy.frequencyActivelySelected = legacy.frequencyAssigned;
   delete legacy.frequencyAssigned;
   if (legacy.phase === "setup" && legacy.variant === "assigned") legacy.variant = "configured";
@@ -25,6 +45,7 @@ function asV1(state) {
     value.edgeGapPx = edgeGapPx;
     delete value.zeroTickOverlapPx;
     delete value.rulerX;
+    delete value.rulerGeometry;
     delete value.horizontalMode;
     delete value.guideFraction;
     delete value.boundaryOverlapPx;
@@ -38,9 +59,12 @@ function asV1(state) {
   S.GAP_KEYS.forEach((key) => convert(legacy.evidence?.[key]));
   return legacy;
 }
-function decoded(state, label) {
-  const restored = P.decode(JSON.parse(JSON.stringify(P.encode(state))));
-  assert.deepEqual(restored, state, `${label}: production encode/decode round-trip`);
+function restoredV2(state, label) {
+  const restored = P.decode(asV2(state));
+  assert.deepEqual(restored, state, `${label}: exact legacy v2 migrates to canonical v3`);
+  return restored;
+}
+function restoredV1(state, label) {
   const migrated = P.decode(asV1(state));
   assert.ok(migrated, `${label}: exact v1 shape migrates to a valid canonical v2 state`);
   if (migrated.activePlacement) {
@@ -57,6 +81,12 @@ function decoded(state, label) {
   }
   return migrated;
 }
+function decoded(state, label) {
+  const current = P.decode(JSON.parse(JSON.stringify(P.encode(state))));
+  assert.deepEqual(current, state, `${label}: production v3 encode/decode round-trip`);
+  restoredV2(state, label);
+  return restoredV1(state, label);
+}
 function contradictoryBoundary(value) {
   const candidate = JSON.parse(JSON.stringify(value));
   Object.assign(candidate, {
@@ -72,20 +102,18 @@ function skippedMeasurements(frequency = 5) {
   for (let index = 0; index < 4; index += 1) state = P.resolveMeasurement(state, null, true);
   return state;
 }
-function completeState() {
-  let state = P.generate(P.assignedState(5));
+function completeState(frequency = 5) {
+  let state = P.generate(P.assignedState(frequency));
   state = P.withPlacement(state, placement(state, "total"));
-  for (let index = 0; index < 4; index += 1) state = P.resolveMeasurement(state, M.displacementAt(5, index + 1));
+  for (let index = 0; index < 4; index += 1) state = P.resolveMeasurement(state, M.displacementAt(frequency, index + 1));
   for (let index = 0; index < 4; index += 1) {
     const task = S.GAP_KEYS[index];
-    state = P.resolveMeasurement(P.withPlacement(state, placement(state, task)), M.intervalDisplacement(5, index + 1));
+    state = P.resolveMeasurement(P.withPlacement(state, placement(state, task)), M.intervalDisplacement(frequency, index + 1));
   }
   state = P.setAnalysis(state, {
-    deltaTS: .2,
-    cumulativeTimeRatio: { status: "answered", values: [1, 2, 3, 4] },
-    totalDisplacementRatio: { status: "answered", values: [1, 4, 9, 16] },
-    intervalTimeRatio: { status: "answered", values: [1, 1, 1, 1] },
-    intervalDistanceRatio: { status: "answered", values: [1, 3, 5, 7] },
+    deltaTS: 1 / frequency,
+    cumulativeTimeRatio: { values: [1, 2, 3, 4] },
+    intervalTimeRatio: { values: [1, 1, 1, 1] },
     lawAnswerId: "square", intervalLawAnswerId: "odd", accelerationAnswerId: "constant-acceleration"
   });
   return P.enterReview(state);
@@ -136,7 +164,7 @@ for (let step = 0; step < 4; step += 1) {
 }
 
 const analyzeNormal = decoded(skippedMeasurements(), "analyze/normal");
-assert.equal(P.enterReview(analyzeNormal).variant, "incomplete", "analyze/normal decoded fixture enters review");
+assert.equal(P.enterReview(analyzeNormal).variant, "ready", "analyze/normal decoded fixture enters ready review");
 const reviewIncomplete = decoded(P.enterReview(P.setAnalysis(skippedMeasurements(), { deltaTS: .2 })), "review/incomplete");
 assert.equal(P.edit(reviewIncomplete, "analysis").variant, "review-edit", "review/incomplete decoded fixture can edit");
 const reviewComplete = completeState();
@@ -174,5 +202,66 @@ for (const [area, keys] of [["total", S.TOTAL_KEYS], ["interval", S.GAP_KEYS]]) 
 }
 const analyzeEdit = decoded(P.edit(reviewComplete, "analysis"), "analyze/review-edit");
 assert.equal(P.enterReview(analyzeEdit).phase, "review", "analyze/review-edit decoded fixture returns to review");
+
+{
+  const frequency = 6;
+  const assigned = P.assignedState(frequency);
+  for (const [kind, restored] of [["v2", restoredV2(assigned, "6Hz/v2/setup/assigned")],
+    ["v1", restoredV1(assigned, "6Hz/v1/setup/assigned")]]) {
+    assert.equal(P.generate(restored).phase, "measure-total", `6Hz/${kind} assigned continuation`);
+  }
+  for (let step = 0; step < 4; step += 1) {
+    let total = P.generate(assigned);
+    for (let prior = 0; prior < step; prior += 1) total = P.resolveMeasurement(total, null, true);
+    for (const [kind, restore] of [["v2", restoredV2], ["v1", restoredV1]]) {
+      const unpositioned = restore(total, `6Hz/${kind}/total/normal-unpositioned/${step}`);
+      assert.ok(P.withPlacement(unpositioned, placement(unpositioned, "total")));
+      const readySource = P.withPlacement(total, placement(total, "total"));
+      const ready = restore(readySource, `6Hz/${kind}/total/normal-ready/${step}`);
+      assert.ok(P.resolveMeasurement(ready, M.displacementAt(frequency, step + 1)),
+        `6Hz/${kind}/total/${step} legal continuation`);
+    }
+
+    let gap = P.generate(assigned);
+    for (let index = 0; index < 4; index += 1) gap = P.resolveMeasurement(gap, null, true);
+    for (let prior = 0; prior < step; prior += 1) gap = P.resolveMeasurement(gap, null, true);
+    const task = S.GAP_KEYS[step];
+    for (const [kind, restore] of [["v2", restoredV2], ["v1", restoredV1]]) {
+      const unpositioned = restore(gap, `6Hz/${kind}/gap/normal-unpositioned/${step}`);
+      assert.ok(P.withPlacement(unpositioned, placement(unpositioned, task)));
+      const readySource = P.withPlacement(gap, placement(gap, task));
+      const ready = restore(readySource, `6Hz/${kind}/gap/normal-ready/${step}`);
+      assert.ok(P.resolveMeasurement(ready, M.intervalDisplacement(frequency, step + 1)),
+        `6Hz/${kind}/gap/${step} legal continuation`);
+    }
+  }
+
+  const complete = completeState(frequency);
+  assert.equal(S.scoreAttempt(complete).score, 100);
+  restoredV2(complete, "6Hz/v2/review/complete");
+  restoredV1(complete, "6Hz/v1/review/complete");
+  for (const [area, keys] of [["total", S.TOTAL_KEYS], ["interval", S.GAP_KEYS]]) {
+    for (let step = 0; step < 4; step += 1) {
+      const task = area === "total" ? "total" : keys[step];
+      const editSource = P.edit(complete, area, step);
+      for (const [kind, restore] of [["v2", restoredV2], ["v1", restoredV1]]) {
+        const unpositioned = restore(editSource, `6Hz/${kind}/${area}/review-edit-unpositioned/${step}`);
+        assert.ok(P.withPlacement(unpositioned, placement(unpositioned, task)));
+        const readySource = P.withPlacement(editSource, placement(editSource, task));
+        const ready = restore(readySource, `6Hz/${kind}/${area}/review-edit-ready/${step}`);
+        const reading = area === "total" ? M.displacementAt(frequency, step + 1) :
+          M.intervalDisplacement(frequency, step + 1);
+        const returned = P.resolveMeasurement(ready, reading);
+        assert.ok(returned && returned.phase === "review" && returned.variant === "ready",
+          `6Hz/${kind}/${area}/${step} restored edit returns to ready review`);
+      }
+    }
+  }
+  const analyze = skippedMeasurements(frequency);
+  for (const [kind, restore] of [["v2", restoredV2], ["v1", restoredV1]]) {
+    const restoredAnalyze = restore(analyze, `6Hz/${kind}/analyze`);
+    assert.equal(P.enterReview(restoredAnalyze).phase, "review");
+  }
+}
 
 console.log("free-fall complete persistence phase/variant/step matrix tests passed");

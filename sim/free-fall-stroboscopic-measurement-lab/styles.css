@@ -39,6 +39,7 @@ input:focus-visible { outline: 3px solid rgba(37,99,235,.55); outline-offset: 2p
 .panel-section h2 { margin: 0 0 .55rem; font-size: 1rem; }
 .panel-section p { line-height: 1.45; }
 .assigned-frequency { padding: .55rem; border: 1px solid #bfdbfe; border-radius: .45rem; background: #eff6ff; }
+.frequency-chip { position: sticky; top: 0; z-index: 4; margin: 0 0 .6rem; padding: .55rem .7rem; border: 2px solid #1d4ed8; border-radius: 999px; background: #eff6ff; color: #1e3a8a; font-weight: 700; }
 .phase-actions { margin-top: .65rem; }
 .reset-action { display: block; margin-top: 12px; }
 .camera-note { padding: .55rem; border-left: 4px solid #0ea5e9; background: #ecfeff; font-size: .82rem; }
@@ -61,6 +62,19 @@ input:focus-visible { outline: 3px solid rgba(37,99,235,.55); outline-offset: 2p
 .review-analysis { display: grid; gap: .35rem; padding: .65rem; border: 1px solid var(--color-border-light); border-radius: .5rem; background: #fff; }
 .review-analysis p { margin: 0; }
 .result-detail-list { padding-left: 1.2rem; line-height: 1.5; }
+.recorded-series { margin: .6rem 0; padding: .65rem; border: 1px solid var(--color-border-light); border-radius: .5rem; background: #f8fafc; }
+.recorded-series h3, .recorded-series p { margin: 0 0 .4rem; }
+.blank-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.result-group { margin-top: 1rem; }
+.result-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .6rem; }
+.result-card { padding: .65rem; border: 2px solid #64748b; border-radius: .55rem; background: #fff; }
+.result-card h4, .result-card p { margin: 0 0 .35rem; }
+.result-card.status-correct { border-color: #15803d; }
+.result-card.status-incorrect, .result-card.status-no-evidence { border-color: #b45309; }
+.result-card.status-unanswered { border-color: #475569; }
+@media (forced-colors: active) {
+  .frequency-chip, .result-card { border-color: CanvasText; forced-color-adjust: auto; }
+}
 .score-panel { margin-bottom: .75rem; }
 .score-placeholder { font-weight: 800; }
 .error-text { min-height: 1.3em; color: var(--color-danger); font-weight: 700; }

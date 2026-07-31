@@ -24,6 +24,19 @@ contract and consequence, not by line count. A one-line scoring, persistence,
 manifest, or touch-ownership change can be higher risk than a large
 non-behavioral cleanup.
 
+Subagents are a limited review resource, not a default checklist. Use the
+smallest set that can materially reduce risk. A changed test file, plan, or
+learner-facing string does not by itself make every adjacent contract
+"affected." The main agent must distinguish a contract that changed directly
+from one that is merely exercised by the same test run.
+
+Prefer one discovery pass, one implementation batch, and one bounded
+verification pass. Do not create a review-fix-review loop merely to eliminate
+every P2. P2 findings are non-blocking unless they directly defeat the user's
+requested outcome, create material assessment/LMS risk, or the user explicitly
+requests a clean release gate. Record other P2s for follow-up and finish the
+authorized task.
+
 Before delegating, the main agent must give each subagent:
 
 - the simulation slug and task goal;
@@ -50,16 +63,41 @@ Use these risk tiers:
   use the final verifier by default.
 - **T2 — contract-sensitive:** A change to the learning model, scoring,
   persistence, lifecycle, mobile interaction contract, accessibility,
-  registration, manifest, tests, or package. Use each affected specialist.
-  Use the final verifier for P0/P1 findings, conflicting findings,
-  cross-contract conclusions, or material uncertainty.
+  registration, manifest, or package. Use only the specialist or specialists
+  that directly own the changed contract, normally one and at most two. Test
+  changes alone do not trigger the test/package reviewer unless test
+  infrastructure, registration, manifest, packaging, or material release
+  coverage changed. Use the final verifier only for P0/P1 findings, conflicting
+  specialist conclusions, or material cross-contract uncertainty.
 - **T3 — broad or release-critical:** A new simulation, a shared-runtime
   change, a large cross-contract change, a full audit, or a release/Moodle
   package gate. Run all applicable specialist reviewers, normally in parallel;
-  send their complete findings, including clean results, and evidence to the
-  final verifier; implement only work authorized by the user; rerun every
-  affected specialist after the fix; and use the final verifier again when the
-  result is a merge or release gate.
+  implement the accepted findings as one batch; rerun only the specialists that
+  raised an accepted finding or whose production contract changed during the
+  fix; and use the final verifier once, at the end, for the merge or release
+  gate. An interim final-verifier pass is justified only to resolve conflicting
+  P0/P1 findings before implementation.
+
+Use these default agent budgets unless concrete risk justifies more:
+
+- T0: no subagent;
+- T1: zero or one specialist;
+- T2: one specialist, exceptionally two;
+- T3: one parallel discovery pass by applicable specialists, one writer, one
+  bounded verification pass, and one final-verifier pass.
+
+There are two review modes:
+
+- **Discovery review:** inspect the supplied changed contract and report new
+  findings within that scope.
+- **Fix verification:** verify only the accepted findings and direct
+  regressions caused by their fixes. Do not reopen a whole-activity audit. A
+  newly noticed issue may expand the loop only when it is P0/P1 or is a direct
+  regression of the fix; otherwise report it once as non-blocking follow-up.
+
+The parent must state the review mode in every delegated task. If omitted, the
+reviewer must assume the narrower fix-verification mode when prior findings are
+listed.
 
 Route work by contract:
 
@@ -74,10 +112,11 @@ Route work by contract:
 - Use `simlab_test_package_reviewer` for automated-test coverage, manifests,
   activity registration, runtime-file inclusion, and source/package parity.
 - Use `simlab_final_verifier` after proposed findings exist, for any clean T3
-  gate after the specialist pass, or when the user explicitly requests an
-  independent final gate. Give it the complete proposed-finding set, including
-  an explicitly empty set when specialists found no defect, and all available
-  evidence; it is not a substitute for the specialist pass.
+  gate after the final specialist verification, or when the user explicitly
+  requests an independent final gate. Give it the complete proposed-finding
+  set, including an explicitly empty set when specialists found no defect, and
+  all available evidence. Do not use it after each P2 batch; it is not a
+  substitute for the specialist pass.
 - Use `simlab_simulation_implementer` for verified fixes to one simulation when
   implementation has been authorized. Before starting it, the main agent must
   confirm that no other writing agent is active for the affected worktree and
@@ -103,9 +142,32 @@ Severity means:
 - **P3:** low-impact defect. Do not report style-only preferences.
 
 After implementation, rerun targeted checks and every specialist whose
-contract was changed. Do not rerun unrelated specialists merely because they
-exist. A reviewer may review a fix but must not modify it, and an implementer
-must never approve its own work.
+contract was directly changed or who raised an accepted finding. In
+fix-verification mode, reviewers must stay within those findings. Do not rerun
+unrelated specialists merely because they exist, and do not turn a test-only
+follow-up into a fresh subject, interaction, or SCORM audit. A reviewer may
+review a fix but must not modify it, and an implementer must never approve its
+own work.
+
+Reuse evidence. During implementation, run targeted checks after each logical
+batch. The main agent or sole implementer runs the expensive full `npm test`,
+trusted source/package browser matrix, and package parity once after the final
+code batch. Reviewers should inspect that evidence and run focused probes; they
+must not independently repeat the complete suite unless the supplied evidence
+is missing, stale, contradictory, or the user requested independent execution.
+
+Default model routing:
+
+- use `gpt-5.6-terra` at medium effort for interaction and test/package review;
+- use `gpt-5.6-terra` at high effort for subject review;
+- use `gpt-5.6-sol` at medium effort for the sole implementer;
+- use `gpt-5.6-sol` at high effort for SCORM review;
+- reserve `gpt-5.6-sol` at xhigh effort for the final verifier and exceptional
+  release-critical SCORM investigations.
+
+Reducing the number and scope of calls takes priority over increasing reasoning
+effort. Do not compensate for an unclear delegation prompt by selecting a more
+expensive model.
 
 ## Working Rules
 

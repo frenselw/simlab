@@ -3,12 +3,13 @@ const assert = require("assert");
 const Model = require("./model.js");
 const Scoring = require("./scoring.js");
 const Persistence = require("./persistence.js");
+const App = require("./main.js");
 
-const placement = (task, overrides = {}) => {
+const placement = (task, overrides = {}, frequency = 5) => {
   const gapIndex = Scoring.GAP_KEYS.indexOf(task);
-  const rulerZeroM = gapIndex >= 0 ? Model.displacementAt(5, gapIndex) : 0;
+  const rulerZeroM = gapIndex >= 0 ? Model.displacementAt(frequency, gapIndex) : 0;
   return {
-    mode: "keyboard", moveNorm: .03, rulerZeroM, rulerX: 100, rulerSide: "left",
+    mode: "keyboard", moveNorm: .03, rulerZeroM, rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1",
     horizontalMode: "guide-fraction", guideFraction: 20 / 205,
     zeroTickOverlapPx: 23, zeroErrorPx: 0, ...overrides
   };
@@ -22,7 +23,7 @@ function roundTrip(state) {
 
 let state = Persistence.initialState();
 assert.strictEqual(roundTrip(state).variant, "new");
-for (const [sample, expected] of [[0, 4], [1 / 3, 5], [2 / 3, 6], [.999999, 6]]) {
+for (const [sample, expected] of [[0, 4], [1 / 3, 5], [2 / 3, 8], [.999999, 8]]) {
   let calls = 0;
   assert.strictEqual(Persistence.chooseFrequency(() => { calls += 1; return sample; }), expected);
   assert.strictEqual(calls, 1, "frequency RNG is sampled exactly once");
@@ -31,6 +32,9 @@ for (const sample of [-.001, 1, NaN, Infinity]) assert.strictEqual(Persistence.c
 assert.strictEqual(Persistence.chooseFrequency(null), null);
 const assignedOnce = Persistence.assignFrequency(Persistence.initialState(), 5);
 assert.strictEqual(assignedOnce.variant, "assigned");
+assert.strictEqual(Persistence.assignFrequency(Persistence.initialState(), 6), null,
+  "fresh assignment cannot select persisted-only 6 Hz");
+assert.ok(Persistence.assignedState(6), "explicit persisted-state construction retains 6 Hz compatibility");
 assert.strictEqual(Persistence.assignFrequency(assignedOnce, 4), null, "assigned attempt cannot reroll");
 state = Persistence.assignedState(5);
 assert.strictEqual(roundTrip(state).variant, "assigned");
@@ -84,15 +88,13 @@ for (let index = 0; index < 4; index += 1) {
 assert.strictEqual(state.phase, "analyze");
 state = Persistence.setAnalysis(state, {
   deltaTS: .2,
-  cumulativeTimeRatio: { status: "answered", values: [1, 2, 3, 4] },
-  totalDisplacementRatio: { status: "answered", values: [1, 4, 9, 16] },
-  intervalTimeRatio: { status: "answered", values: [1, 1, 1, 1] },
-  intervalDistanceRatio: { status: "answered", values: [1, 3, 5, 7] },
+  cumulativeTimeRatio: { values: [1, 2, 3, 4] },
+  intervalTimeRatio: { values: [1, 1, 1, 1] },
   lawAnswerId: "square", intervalLawAnswerId: "odd", accelerationAnswerId: "constant-acceleration"
 });
 assert.ok(state);
 state = Persistence.enterReview(roundTrip(state));
-assert.strictEqual(state.variant, "complete");
+assert.strictEqual(state.variant, "ready");
 roundTrip(state);
 const originalScore = Scoring.scoreAttempt(state);
 assert.strictEqual(originalScore.score, 100);
@@ -102,11 +104,90 @@ assert.deepStrictEqual(restoredReview, review);
 const restoredState = Persistence.fromReview(restoredReview);
 assert.strictEqual(Scoring.scoreAttempt(restoredState).score, originalScore.score);
 assert.strictEqual(Scoring.scoreAttempt(restoredState).passed, originalScore.passed);
+let state8 = Persistence.generate(Persistence.assignedState(8));
+state8 = Persistence.withPlacement(state8, placement("total", {}, 8));
+for (let index = 0; index < 4; index += 1) {
+  const expected = Model.displacementAt(8, index + 1);
+  const manual = App.resolveManualReading(8, String(Model.metersToPhotoCm(8, expected)));
+  assert.ok(manual.ok && manual.reusedOriginal === false);
+  state8 = Persistence.resolveMeasurement(state8, manual.readingM);
+}
+for (let index = 0; index < 4; index += 1) {
+  const task = Scoring.GAP_KEYS[index];
+  const expected = Model.intervalDisplacement(8, index + 1);
+  const manual = App.resolveManualReading(8, String(Model.metersToPhotoCm(8, expected)));
+  state8 = Persistence.resolveMeasurement(
+    Persistence.withPlacement(state8, placement(task, {}, 8)), manual.readingM);
+}
+state8 = Persistence.setAnalysis(state8, {
+  deltaTS: .125,
+  cumulativeTimeRatio: { values: [1, 2, 3, 4] },
+  intervalTimeRatio: { values: [1, 1, 1, 1] },
+  lawAnswerId: "square", intervalLawAnswerId: "odd", accelerationAnswerId: "constant-acceleration"
+});
+state8 = Persistence.enterReview(state8);
+const review8 = Persistence.makeReview(roundTrip(state8));
+const restoredReview8 = Persistence.decodeReview(JSON.parse(JSON.stringify(review8)));
+const score8 = Scoring.scoreAttempt(restoredReview8);
+assert.deepStrictEqual({ score: score8.score, passed: score8.passed, process: score8.detail.process.points },
+  { score: 100, passed: true, process: 40 }, "8 Hz full manual/evidence review scores canonically");
+function asV2(value) {
+  const legacy = JSON.parse(JSON.stringify(value));
+  legacy.v = 2;
+  legacy.rubricVersion = 2;
+  if (legacy.analysis) legacy.analysis = {
+    deltaTS: legacy.analysis.deltaTS,
+    cumulativeTimeRatio: legacy.analysis.cumulativeTimeRatio.values.slice(1).every((term) => term !== null)
+      ? { status: "answered", values: legacy.analysis.cumulativeTimeRatio.values } : null,
+    totalDisplacementRatio: Scoring.TOTAL_KEYS.every((key) => legacy.measurements?.[key]?.status === "recorded" && legacy.measurements[key].readingM > 0)
+      ? { status: "answered", values: [1, 4, 9, 16] } : { status: "insufficient-data" },
+    intervalTimeRatio: legacy.analysis.intervalTimeRatio.values.slice(1).every((term) => term !== null)
+      ? { status: "answered", values: legacy.analysis.intervalTimeRatio.values } : null,
+    intervalDistanceRatio: Scoring.GAP_KEYS.every((key) => legacy.measurements?.[key]?.status === "recorded" && legacy.measurements[key].readingM > 0)
+      ? { status: "answered", values: [1, 3, 5, 7] } : { status: "insufficient-data" },
+    lawAnswerId: legacy.analysis.lawAnswerId,
+    intervalLawAnswerId: legacy.analysis.intervalLawAnswerId,
+    accelerationAnswerId: legacy.analysis.accelerationAnswerId
+  };
+  if (legacy.phase === "review") legacy.variant = "complete";
+  return legacy;
+}
+const historicalV2Review = asV2(review);
+delete historicalV2Review.evidence.totalPlacement.rulerGeometry;
+Scoring.GAP_KEYS.forEach((key) => delete historicalV2Review.evidence[key].rulerGeometry);
+const restoredHistoricalV2Review = Persistence.decodeImmutableReview(historicalV2Review);
+assert.deepStrictEqual(restoredHistoricalV2Review, historicalV2Review,
+  "immutable historical v2 review keeps rubric-2 bytes and scoring shape");
+assert.strictEqual(Scoring.scoreAttempt(restoredHistoricalV2Review).score, originalScore.score);
+for (const key of ["totalDisplacementRatio", "intervalDistanceRatio"]) {
+  const invalidFullSourceLegacy = JSON.parse(JSON.stringify(historicalV2Review));
+  invalidFullSourceLegacy.analysis[key] = { status: "insufficient-data" };
+  assert.strictEqual(Persistence.decodeImmutableReview(invalidFullSourceLegacy), null,
+    `full-source legacy review rejects ${key} insufficient-data`);
+}
+const migratedHistoricalV2Review = Persistence.decode(asV2(state));
+assert.ok(migratedHistoricalV2Review && migratedHistoricalV2Review.rubricVersion === 3);
+assert.deepStrictEqual(Object.keys(migratedHistoricalV2Review.analysis).sort(), [
+  "accelerationAnswerId", "cumulativeTimeRatio", "deltaTS", "intervalLawAnswerId",
+  "intervalTimeRatio", "lawAnswerId"
+].sort(), "editable v2 migration drops both legacy distance-ratio fields");
+const historicalV2Ready = asV2(Persistence.withPlacement(
+  Persistence.generate(Persistence.assignedState(6)), placement("total")));
+delete historicalV2Ready.activePlacement.rulerGeometry;
+const restoredHistoricalV2Ready = Persistence.decode(JSON.parse(JSON.stringify(historicalV2Ready)));
+assert.ok(restoredHistoricalV2Ready && restoredHistoricalV2Ready.frequencyHz === 6,
+  "editable historical v2 placement and persisted-only 6 Hz restore together");
+assert.strictEqual(Object.hasOwn(restoredHistoricalV2Ready.activePlacement, "rulerGeometry"), false,
+  "decode preserves historical geometry until the editable runtime refreshes it");
+const unknownGeometryReady = JSON.parse(JSON.stringify(restoredHistoricalV2Ready));
+unknownGeometryReady.activePlacement.rulerGeometry = "future-geometry";
+assert.strictEqual(Persistence.decode(unknownGeometryReady), null,
+  "unknown active-placement geometry discriminator fails closed");
 
 function asV1(value) {
-  const legacy = JSON.parse(JSON.stringify(value));
+  const legacy = asV2(value);
   legacy.v = 1;
-  legacy.rubricVersion = 1;
+  legacy.rubricVersion = 2;
   legacy.frequencyActivelySelected = legacy.frequencyAssigned;
   delete legacy.frequencyAssigned;
   if (legacy.phase === "setup" && legacy.variant === "assigned") legacy.variant = "configured";
@@ -115,6 +196,7 @@ function asV1(value) {
     placement.edgeGapPx = edgeGapPx;
     delete placement.zeroTickOverlapPx;
     delete placement.rulerX;
+    delete placement.rulerGeometry;
     delete placement.horizontalMode;
     delete placement.guideFraction;
     delete placement.boundaryOverlapPx;
@@ -129,8 +211,8 @@ function asV1(value) {
   return legacy;
 }
 const migratedReview = Persistence.decodeReview(asV1(review));
-assert.strictEqual(migratedReview.v, 2);
-assert.strictEqual(migratedReview.rubricVersion, 2);
+assert.strictEqual(migratedReview.v, 3);
+assert.strictEqual(migratedReview.rubricVersion, 3);
 assert.strictEqual(migratedReview.frequencyAssigned, true);
 assert.strictEqual(Scoring.scoreAttempt(migratedReview).score, originalScore.score);
 assert.strictEqual(migratedReview.evidence.totalPlacement.legacyEdgeGapPx, 10);
@@ -171,7 +253,7 @@ legacyManual.currentStep = 1;
 const migratedManual = Persistence.decode(asV1(legacyManual));
 assert.strictEqual(migratedManual.measurements.total1.readingM, .23125);
 assert.strictEqual(migratedManual.measurements.total1.usedTotalPlacement, false);
-assert.strictEqual(migratedManual.v, 2);
+assert.strictEqual(migratedManual.v, 3);
 const legacyNew = asV1(Persistence.initialState());
 assert.strictEqual(Persistence.decode(legacyNew).variant, "new");
 
@@ -339,7 +421,7 @@ const gapWithTotalLink = JSON.parse(JSON.stringify(state));
 gapWithTotalLink.measurements.gap01.usedTotalPlacement = true;
 assert.strictEqual(Persistence.decode(gapWithTotalLink), null);
 const badRatio = JSON.parse(JSON.stringify(state));
-badRatio.analysis.totalDisplacementRatio.values[0] = 2;
+badRatio.analysis.cumulativeTimeRatio.values[0] = 2;
 assert.strictEqual(Persistence.decode(badRatio), null);
 const oldVersion = JSON.parse(JSON.stringify(state));
 oldVersion.v = 0;
@@ -350,28 +432,25 @@ for (let i = 0; i < 4; i += 1) skipped = Persistence.resolveMeasurement(skipped,
 for (let i = 0; i < 4; i += 1) skipped = Persistence.resolveMeasurement(skipped, null, true);
 skipped = Persistence.setAnalysis(skipped, {
   deltaTS: .25,
-  cumulativeTimeRatio: { status: "answered", values: [1, 2, 3, 4] },
-  totalDisplacementRatio: { status: "insufficient-data" },
-  intervalTimeRatio: { status: "answered", values: [1, 1, 1, 1] },
-  intervalDistanceRatio: { status: "insufficient-data" },
+  cumulativeTimeRatio: { values: [1, 2, 3, 4] },
+  intervalTimeRatio: { values: [1, 1, 1, 1] },
   lawAnswerId: "square", intervalLawAnswerId: "odd", accelerationAnswerId: "constant-acceleration"
 });
 assert.ok(skipped);
-assert.strictEqual(Persistence.enterReview(skipped).variant, "complete");
-const invalidInsufficient = JSON.parse(JSON.stringify(state));
-invalidInsufficient.analysis.totalDisplacementRatio = { status: "insufficient-data" };
-assert.strictEqual(Persistence.decode(invalidInsufficient), null);
-const skippedSourceAnswered = JSON.parse(JSON.stringify(state));
-skippedSourceAnswered.measurements.total2 = { status: "skipped" };
-skippedSourceAnswered.measurements.total1.usedTotalPlacement = false;
-skippedSourceAnswered.measurements.total3.usedTotalPlacement = false;
-skippedSourceAnswered.measurements.total4.usedTotalPlacement = false;
-delete skippedSourceAnswered.evidence.totalPlacement;
-assert.strictEqual(Persistence.decode(skippedSourceAnswered), null, "answered total ratio requires four positive readings");
-const zeroSourceAnswered = JSON.parse(JSON.stringify(state));
-zeroSourceAnswered.measurements.gap01.readingM = 0;
-zeroSourceAnswered.evidence.gap01.readingM = 0;
-assert.strictEqual(Persistence.decode(zeroSourceAnswered), null, "answered interval ratio rejects a zero source");
+const skippedReviewState = Persistence.enterReview(skipped);
+assert.strictEqual(skippedReviewState.variant, "ready");
+assert.deepStrictEqual(Object.keys(Persistence.makeReview(skippedReviewState).analysis).sort(), [
+  "accelerationAnswerId", "cumulativeTimeRatio", "deltaTS", "intervalLawAnswerId",
+  "intervalTimeRatio", "lawAnswerId"
+].sort(), "v3 skipped review contains no legacy distance-ratio keys");
+const obsoleteMixedAnalysis = JSON.parse(JSON.stringify(state));
+obsoleteMixedAnalysis.analysis.totalDisplacementRatio = { status: "answered", values: [1, 4, 9, 16] };
+assert.strictEqual(Persistence.decode(obsoleteMixedAnalysis), null, "v3 rejects obsolete or mixed analysis keys");
+for (const bad of [0, "", NaN, Infinity]) {
+  const invalidTerm = JSON.parse(JSON.stringify(state));
+  invalidTerm.analysis.cumulativeTimeRatio.values[1] = bad;
+  assert.strictEqual(Persistence.decode(invalidTerm), null, `v3 rejects illegal nonblank ratio term ${String(bad)}`);
+}
 
 const incompleteAnalysis = Persistence.setAnalysis(
   (() => {
@@ -383,27 +462,57 @@ const incompleteAnalysis = Persistence.setAnalysis(
   { deltaTS: 1 / 6 }
 );
 const incompleteReview = Persistence.enterReview(incompleteAnalysis);
-assert.strictEqual(roundTrip(incompleteReview).variant, "incomplete");
+assert.strictEqual(roundTrip(incompleteReview).variant, "ready");
 assert.strictEqual(Persistence.edit(incompleteReview, "analysis").variant, "review-edit");
 
 const skipTotalEdit = Persistence.resolveMeasurement(Persistence.edit(state, "total", 2), null, true);
-assert.strictEqual(skipTotalEdit.analysis.totalDisplacementRatio.status, "insufficient-data");
-assert.strictEqual(skipTotalEdit.variant, "complete");
+assert.deepStrictEqual(skipTotalEdit.analysis, state.analysis, "informational distance series never mutates analysis answers");
+assert.strictEqual(skipTotalEdit.variant, "ready");
 const restoreTotalEdit = Persistence.edit(skipTotalEdit, "total", 2);
 const restoreTotalReading = Persistence.resolveMeasurement(
   Persistence.withPlacement(restoreTotalEdit, placement("total")), Model.displacementAt(5, 3));
-assert.strictEqual(restoreTotalReading.analysis.totalDisplacementRatio, null);
-assert.strictEqual(restoreTotalReading.variant, "incomplete");
+assert.deepStrictEqual(restoreTotalReading.analysis, state.analysis);
+assert.strictEqual(restoreTotalReading.variant, "ready");
 const skipGapEdit = Persistence.resolveMeasurement(Persistence.edit(state, "interval", 1), null, true);
-assert.strictEqual(skipGapEdit.analysis.intervalDistanceRatio.status, "insufficient-data");
+assert.deepStrictEqual(skipGapEdit.analysis, state.analysis);
 const restoreGapEdit = Persistence.edit(skipGapEdit, "interval", 1);
 const restoreGapReading = Persistence.resolveMeasurement(
   Persistence.withPlacement(restoreGapEdit, placement("gap12")), Model.intervalDisplacement(5, 2));
-assert.strictEqual(restoreGapReading.analysis.intervalDistanceRatio, null);
-assert.strictEqual(restoreGapReading.variant, "incomplete");
+assert.deepStrictEqual(restoreGapReading.analysis, state.analysis);
+assert.strictEqual(restoreGapReading.variant, "ready");
+
+let nonfiniteAnalyze = Persistence.generate(Persistence.assignedState(5));
+for (let index = 0; index < 8; index += 1) nonfiniteAnalyze = Persistence.resolveMeasurement(nonfiniteAnalyze, null, true);
+for (const nonfinite of [NaN, Infinity, -Infinity]) {
+  assert.strictEqual(Persistence.setAnalysis(nonfiniteAnalyze, { deltaTS: nonfinite }), null);
+  const invalidDelta = JSON.parse(JSON.stringify(state)); invalidDelta.analysis.deltaTS = nonfinite;
+  assert.throws(() => Persistence.encode(invalidDelta), /Invalid free-fall draft/);
+  for (const key of ["cumulativeTimeRatio", "intervalTimeRatio"]) {
+    for (let index = 0; index < 4; index += 1) {
+      const values = [1, null, null, null]; values[index] = nonfinite;
+      assert.strictEqual(Persistence.setAnalysis(nonfiniteAnalyze, { [key]: { values } }), null,
+        `${key}[${index}] rejects ${String(nonfinite)} before cloning`);
+      const invalidRatio = JSON.parse(JSON.stringify(state)); invalidRatio.analysis[key].values[index] = nonfinite;
+      assert.throws(() => Persistence.encode(invalidRatio), /Invalid free-fall draft/);
+    }
+  }
+}
+
+const tupleCases = [
+  [review, [3, 1, 3]], [asV2(review), [2, 1, 2]], [asV1(review), [1, 1, 2]]
+];
+for (const [shape, supported] of tupleCases) {
+  for (const v of [1, 2, 3, 4]) for (const modelVersion of [1, 2]) for (const rubricVersion of [1, 2, 3, 4]) {
+    const candidate = JSON.parse(JSON.stringify(shape));
+    candidate.v = v; candidate.modelVersion = modelVersion; candidate.rubricVersion = rubricVersion;
+    assert.strictEqual(Boolean(Persistence.decodeImmutableReview(candidate)),
+      v === supported[0] && modelVersion === supported[1] && rubricVersion === supported[2],
+      `immutable tuple ${v}/${modelVersion}/${rubricVersion} dispatches only for its exact shape`);
+  }
+}
 
 assert.ok(Persistence.bytes({ version: 1, activity: "free-fall-stroboscopic-measurement-lab", kind: "draft", answer: state }) < 3000);
-assert.ok(Persistence.bytes({ version: 1, activity: "free-fall-stroboscopic-measurement-lab", kind: "review", answer: review, score: 100, passed: true }) < 2400);
+assert.ok(Persistence.bytes({ version: 1, activity: "free-fall-stroboscopic-measurement-lab", kind: "review", answer: review, score: 100, passed: true }) < 2600);
 const reviewJson = JSON.stringify({ version: 1, activity: "free-fall-stroboscopic-measurement-lab", kind: "review", answer: review, score: 100, passed: true });
 assert.ok(Persistence.bytes({ version: 1, activity: "free-fall-stroboscopic-measurement-lab", kind: "pending-final", payload: { reviewJson, score: 100, maxScore: 100, passed: true } }) < 4000);
 console.log("free-fall persistence tests passed");

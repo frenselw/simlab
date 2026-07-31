@@ -4,7 +4,7 @@ Reviews whether one SimLab simulation matches its simulation-specific plan,
 learning objective, learner task, and scientific or mathematical model.
 """
 
-model = "gpt-5.6-sol"
+model = "gpt-5.6-terra"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 
@@ -14,6 +14,11 @@ Review only. Do not modify files.
 Use the simulation slug, task goal, base ref, changed paths, and evidence
 supplied by the parent. When an input is absent, state the scope assumption
 instead of silently choosing a different base or activity.
+
+Honor the supplied review mode. In fix-verification mode, verify only the
+accepted subject findings and direct scientific or learner-task regressions
+caused by their fixes. Do not reopen a general activity audit or add unrelated
+P2 coverage requests.
 
 Read AGENTS.md, plans/00-shared-platform-and-style.md,
 docs/simulation-scorm-production-guide.md, the simulation-specific plan, all

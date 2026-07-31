@@ -65,23 +65,37 @@ async function prepare(cdp, frameExpression = "window", frequency = 5) {
 async function productionFixture(cdp) {
   return evaluate(cdp, `(() => {
     const w=document.getElementById('activity').contentWindow,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
-    let state=P.generate(P.assignedState(5));
-    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    let state=P.generate(P.assignedState(6));
+    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
     state=P.withPlacement(state,place('total',0));
-    for(let index=0;index<4;index+=1)state=P.resolveMeasurement(state,M.displacementAt(5,index+1));
-    for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index];state=P.resolveMeasurement(P.withPlacement(state,place(task,M.displacementAt(5,index))),M.intervalDisplacement(5,index+1));}
-    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{status:'answered',values:[1,2,3,4]},totalDisplacementRatio:{status:'answered',values:[1,4,9,16]},intervalTimeRatio:{status:'answered',values:[1,1,1,1]},intervalDistanceRatio:{status:'answered',values:[1,3,5,7]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
+    for(let index=0;index<4;index+=1)state=P.resolveMeasurement(state,M.displacementAt(6,index+1));
+    for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index];state=P.resolveMeasurement(P.withPlacement(state,place(task,M.displacementAt(6,index))),M.intervalDisplacement(6,index+1));}
+    state=P.setAnalysis(state,{deltaTS:1/6,cumulativeTimeRatio:{values:[1,2,3,4]},intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
     state=P.enterReview(state);const review=P.makeReview(state),result=S.scoreAttempt(review),snapshot=w.SimScorm.makeSnapshot('${slug}','review',review,result);
-    const legacyReview=JSON.parse(JSON.stringify(review));legacyReview.v=1;legacyReview.rubricVersion=1;
+    const oldAnalysis=(analysis)=>({deltaTS:analysis.deltaTS,
+      cumulativeTimeRatio:{status:'answered',values:analysis.cumulativeTimeRatio.values},
+      totalDisplacementRatio:{status:'answered',values:[1,4,9,16]},
+      intervalTimeRatio:{status:'answered',values:analysis.intervalTimeRatio.values},
+      intervalDistanceRatio:{status:'answered',values:[1,3,5,7]},lawAnswerId:analysis.lawAnswerId,
+      intervalLawAnswerId:analysis.intervalLawAnswerId,accelerationAnswerId:analysis.accelerationAnswerId});
+    const legacyReview=JSON.parse(JSON.stringify(review));legacyReview.v=1;legacyReview.rubricVersion=2;
     legacyReview.frequencyActivelySelected=legacyReview.frequencyAssigned;delete legacyReview.frequencyAssigned;
-    const legacy=(value,keepSide=false)=>{value.edgeGapPx=10;delete value.zeroTickOverlapPx;delete value.rulerX;
+    legacyReview.analysis=oldAnalysis(legacyReview.analysis);
+    const legacy=(value,keepSide=false)=>{value.edgeGapPx=10;delete value.zeroTickOverlapPx;delete value.rulerX;delete value.rulerGeometry;
       delete value.horizontalMode;delete value.guideFraction;delete value.boundaryOverlapPx;
       if('rulerSide'in value){if(keepSide)value.edgeSide='right';delete value.rulerSide;}};
     legacy(legacyReview.evidence.totalPlacement,true);S.GAP_KEYS.forEach(key=>legacy(legacyReview.evidence[key]));
-    const legacySnapshot=w.SimScorm.makeSnapshot('${slug}','review',legacyReview,result);
-    return {review,result,snapshot,legacySnapshot,
+    const legacyResult=S.scoreAttempt(P.decodeImmutableReview(legacyReview));
+    const legacySnapshot=w.SimScorm.makeSnapshot('${slug}','review',legacyReview,legacyResult);
+    const historicalReview=JSON.parse(JSON.stringify(review));historicalReview.v=2;historicalReview.rubricVersion=2;
+    historicalReview.analysis=oldAnalysis(historicalReview.analysis);delete historicalReview.evidence.totalPlacement.rulerGeometry;
+    S.GAP_KEYS.forEach(key=>delete historicalReview.evidence[key].rulerGeometry);
+    const historicalResult=S.scoreAttempt(P.decodeImmutableReview(historicalReview));
+    const historicalSnapshot=w.SimScorm.makeSnapshot('${slug}','review',historicalReview,historicalResult);
+    return {review,result,snapshot,legacySnapshot,historicalSnapshot,
       pending:{version:1,activity:'${slug}',kind:'pending-final',payload:{reviewJson:JSON.stringify(snapshot),score:result.score,maxScore:100,passed:result.passed}},
-      legacyPending:{version:1,activity:'${slug}',kind:'pending-final',payload:{reviewJson:JSON.stringify(legacySnapshot),score:result.score,maxScore:100,passed:result.passed}}};
+      legacyPending:{version:1,activity:'${slug}',kind:'pending-final',payload:{reviewJson:JSON.stringify(legacySnapshot),score:legacyResult.score,maxScore:100,passed:legacyResult.passed}},
+      historicalPending:{version:1,activity:'${slug}',kind:'pending-final',payload:{reviewJson:JSON.stringify(historicalSnapshot),score:historicalResult.score,maxScore:100,passed:historicalResult.passed}}};
   })()`);
 }
 
@@ -154,6 +168,38 @@ async function runAssignmentCheckpointMatrix(cdp, baseUrl, activityPath, label) 
   assert.equal(view.state.frequencyHz, 4); assert.equal(view.state.variant, "assigned"); assert.ok(!view.locked);
 }
 
+async function runPersistedFrequencyResetMatrix(cdp, baseUrl, activityPath, label) {
+  await setViewport(cdp, 390, 600);
+  await navigate(cdp, `${baseUrl}/__embed-scroll-test.html?src=${encodeURIComponent(activityPath)}`, true);
+  const snapshot = { version: 1, activity: slug, kind: "draft", answer: {
+    v: 2, modelVersion: 1, rubricVersion: 2, phase: "setup", variant: "assigned", currentStep: "setup",
+    returnToReview: false, frequencyHz: 6, frequencyAssigned: true
+  } };
+  await evaluate(cdp, `(() => {const values=window.__lmsValues={
+    'cmi.core.lesson_status':'incomplete','cmi.core.score.raw':'','cmi.suspend_data':${JSON.stringify(JSON.stringify(snapshot))}};
+    window.API={LMSInitialize:()=>'true',LMSGetValue:key=>values[key]||'',LMSSetValue:(key,value)=>(values[key]=String(value),'true'),
+      LMSCommit:()=>'true',LMSFinish:()=>'true',LMSGetLastError:()=>'0',LMSGetErrorString:()=>'No error'};
+    document.getElementById('activity').src=${JSON.stringify(activityPath)}+'?forced-rng=0&persisted-6-reset='+${JSON.stringify(label)};})()`);
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (await evaluate(cdp, `(() => {const w=document.getElementById('activity')?.contentWindow;
+      return Boolean(w&&new URLSearchParams(w.location.search).get('persisted-6-reset')===${JSON.stringify(label)}&&w.__freeFallDebug)})()`)) break;
+    await delay(50);
+  }
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('generateButton').click()");
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.animation().mode==='static'")) break;
+    await delay(25);
+  }
+  const reset = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;w.confirm=()=>true;
+    d.querySelector('[data-reset-frequency]').click();const state=w.__freeFallDebug.state();
+    return {calls:w.__freeFallRngCalls,state,assigned:d.getElementById('assignedFrequency').textContent,
+      generateDisabled:d.getElementById('generateButton').disabled};})()`);
+  assert.equal(reset.calls, 0, `${label}: restored 6 Hz render/capture/reset never calls the injected RNG`);
+  assert.ok(reset.state.frequencyHz===6&&reset.state.phase==="setup"&&reset.state.variant==="assigned"&&
+    reset.state.generated===undefined&&!reset.generateDisabled&&/6 Hz/.test(reset.assigned),
+  `${label}: UI reset preserves persisted-only 6 Hz ${JSON.stringify(reset)}`);
+}
+
 async function lockedSnapshot(cdp) {
   return evaluate(cdp, `(() => {
     const w=document.getElementById('activity').contentWindow,d=w.document;
@@ -224,8 +270,9 @@ async function runLifecycleMatrix(cdp, baseUrl, activityPath, label) {
   });
 
   await reloadWithLms(cdp, activityPath, `${label}-pending-valid`, values("incomplete", fixture.pending));
-  let view = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;return {title:d.getElementById('technicalTitle').textContent,retry:[...d.querySelectorAll('#technicalSection button')].some(b=>/重試同一份/.test(b.textContent)),locked:w.__freeFallDebug.locked()}})()`);
-  assert.match(view.title, /待確認/); assert.ok(view.retry && view.locked, `${label}: valid frozen startup is locked with same-payload retry`);
+  let view = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;return {title:d.getElementById('technicalTitle').textContent,retry:[...d.querySelectorAll('#technicalSection button')].some(b=>/重試同一份/.test(b.textContent)),locked:w.__freeFallDebug.locked(),frequency:d.getElementById('frequencyChip').textContent}})()`);
+  assert.match(view.title, /待確認/); assert.match(view.frequency, /f = 6 Hz/);
+  assert.ok(view.retry && view.locked, `${label}: valid frozen startup is locked with same-payload retry`);
 
   await reloadWithLms(cdp, activityPath, `${label}-pending-v1`, values("incomplete", fixture.legacyPending));
   view = await evaluate(cdp, `(() => {
@@ -241,6 +288,27 @@ async function runLifecycleMatrix(cdp, baseUrl, activityPath, label) {
     `${label}: v1 pending payload remains unchanged until same-payload retry`);
   assert.ok(view.locked, `${label}: successful v1 retry finishes in a locked state`);
 
+  await reloadWithLms(cdp, activityPath, `${label}-finished-v1-6hz`,
+    values("passed", fixture.legacySnapshot, fixture.result.score));
+  view = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;
+    return {frequency:w.__freeFallDebug.state().frequencyHz,chip:d.getElementById('frequencyChip').textContent,
+      locked:w.__freeFallDebug.locked(),result:!d.getElementById('resultSection').hidden}})()`);
+  assert.deepEqual(view, { frequency: 6, chip: "頻閃頻率：f = 6 Hz", locked: true, result: true },
+    `${label}: v1 persisted-only 6 Hz finished review migrates without RNG`);
+
+  await reloadWithLms(cdp, activityPath, `${label}-pending-v2-historical`, values("incomplete", fixture.historicalPending));
+  view = await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,
+      frozenRaw=window.__lmsValues['cmi.suspend_data'],
+      button=[...d.querySelectorAll('#technicalSection button')].find(node=>/重試同一份/.test(node.textContent));
+    button.click();
+    return {frozenRaw,after:window.__lmsValues['cmi.suspend_data'],locked:w.__freeFallDebug.locked(),
+      expected:JSON.stringify(${JSON.stringify(fixture.historicalSnapshot)})};
+  })()`);
+  assert.equal(view.after, view.expected, `${label}: historical v2 6 Hz frozen retry preserves original review bytes`);
+  assert.equal(JSON.parse(view.frozenRaw).payload.reviewJson, JSON.stringify(fixture.historicalSnapshot));
+  assert.ok(view.locked);
+
   const invalidLegacySnapshot = JSON.parse(JSON.stringify(fixture.legacySnapshot));
   invalidLegacySnapshot.answer.evidence.totalPlacement.rulerZeroM = -.75;
   invalidLegacySnapshot.answer.evidence.totalPlacement.zeroErrorPx = -6;
@@ -251,10 +319,11 @@ async function runLifecycleMatrix(cdp, baseUrl, activityPath, label) {
   await reloadWithLms(cdp, activityPath, `${label}-pending-v1-negative`, values("incomplete", invalidLegacyPending));
   view = await evaluate(cdp, `(() => {
     const w=document.getElementById('activity').contentWindow,d=w.document;
-    return {title:d.getElementById('technicalTitle').textContent,
+    return {title:d.getElementById('technicalTitle').textContent,frequency:d.getElementById('frequencyChip').textContent,
       retry:w.SimScorm.retryPending().reason,locked:w.__freeFallDebug.locked()};
   })()`);
   assert.match(view.title, /安全載入/);
+  assert.match(view.frequency, /未能確認/);
   assert.equal(view.retry, "no-pending");
   assert.ok(view.locked, `${label}: v1-invalid negative placement is quarantined and technically locked`);
 
@@ -269,9 +338,70 @@ async function runLifecycleMatrix(cdp, baseUrl, activityPath, label) {
   view = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;return {title:d.getElementById('resultTitle').textContent,score:d.getElementById('scorePanel').textContent,locked:w.__freeFallDebug.locked()}})()`);
   assert.match(view.title, /詳細資料不可驗證/); assert.match(view.score, /42/); assert.ok(view.locked, `${label}: invalid finished review uses Moodle fallback`);
 
+  await reloadWithLms(cdp, activityPath, `${label}-finished-trust-mismatch`, values("passed", fixture.snapshot, 42));
+  view = await evaluate(cdp, `(() => {const d=document.getElementById('activity').contentWindow.document;return {
+    score:d.getElementById('scorePanel').textContent,cards:d.querySelectorAll('#resultFeedback .result-card').length,
+    feedback:d.getElementById('resultFeedback').textContent};})()`);
+  assert.match(view.score, /Moodle 記錄/); assert.match(view.score, /42/); assert.match(view.score, /已通過/);
+  assert.equal(view.cards, 0); assert.doesNotMatch(view.feedback, /正確|需修正|參考答案/,
+    `${label}: trust mismatch shows authoritative Moodle summary without correctness cards`);
+
   await reloadWithLms(cdp, activityPath, `${label}-unknown-status`, values("completed", fixture.snapshot, fixture.result.score));
   view = await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('scorePanel').textContent`);
   assert.match(view, /未能安全判斷合格狀態/, `${label}: unknown Moodle pass status remains indeterminate`);
+
+  await reloadWithLms(cdp, activityPath, `${label}-blank-confirm`, values("not attempted", null));
+  view = await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,fixture=${JSON.stringify(fixture)},P=w.FreeFallPersistence;
+    const blank=JSON.parse(JSON.stringify(fixture.review));blank.analysis=P.emptyAnalysis();
+    w.__freeFallDebug.setReview(blank);let calls=0;
+    w.SimScorm.submitWithCallbacks=(result,snapshot,callbacks)=>{calls+=1;if(calls===1)callbacks.onFailure({activityState:'retry',retryable:true})};
+    d.getElementById('submitButton').click();d.getElementById('submitButton').click();
+    const warning=d.getElementById('submissionNotice').textContent;
+    const notice=d.getElementById('submissionNotice');
+    const before={calls,locked:w.__freeFallDebug.locked(),warning,role:notice.getAttribute('role'),
+      labelledby:notice.getAttribute('aria-labelledby'),describedby:notice.getAttribute('aria-describedby')};
+    d.querySelector('[data-blank-action="confirm"]').click();
+    const afterConfirm={calls,locked:w.__freeFallDebug.locked(),retry:!d.getElementById('submissionRetry').classList.contains('is-hidden')};
+    d.getElementById('submissionRetry').click();
+    return {before,afterConfirm,afterRetry:{calls,locked:w.__freeFallDebug.locked()}};
+  })()`);
+  assert.equal(view.before.calls, 0); assert.equal(view.before.locked, false);
+  assert.match(view.before.warning, /10 項未答/); assert.match(view.before.warning, /返回修改/); assert.match(view.before.warning, /仍然提交/);
+  assert.match(view.before.warning, /0 分/); assert.match(view.before.warning, /鎖定今次 attempt/);
+  assert.deepEqual({ role: view.before.role, labelledby: view.before.labelledby, describedby: view.before.describedby },
+    { role: "alertdialog", labelledby: "blankWarningTitle", describedby: "blankWarningDescription" });
+  assert.deepEqual(view.afterConfirm, { calls: 1, locked: false, retry: true },
+    `${label}: only explicit Still submit creates the canonical submission`);
+  assert.deepEqual(view.afterRetry, { calls: 2, locked: true },
+    `${label}: retry resubmits the already-confirmed identical canonical review without reopening the warning`);
+
+  await reloadWithLms(cdp, activityPath, `${label}-blank-return`, values("not attempted", null));
+  view = await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,fixture=${JSON.stringify(fixture)},P=w.FreeFallPersistence;
+    const blank=JSON.parse(JSON.stringify(fixture.review));blank.analysis=P.emptyAnalysis();
+    w.__freeFallDebug.setReview(blank);let calls=0;w.SimScorm.submitWithCallbacks=()=>{calls+=1};
+    d.getElementById('submitButton').click();d.querySelector('[data-blank-action="return"]').click();
+    return {calls,phase:w.__freeFallDebug.state().phase,focus:d.activeElement.id};
+  })()`);
+  assert.deepEqual(view, { calls: 0, phase: "analyze", focus: "analysisTitle" },
+    `${label}: Return from blank warning restores analysis focus without SCORM mutation`);
+
+  for (const outcome of ["success", "frozen"]) {
+    await reloadWithLms(cdp, activityPath, `${label}-blank-${outcome}`, values("not attempted", null));
+    view = await evaluate(cdp, `(() => {
+      const w=document.getElementById('activity').contentWindow,d=w.document,fixture=${JSON.stringify(fixture)},P=w.FreeFallPersistence;
+      const blank=JSON.parse(JSON.stringify(fixture.review));blank.analysis=P.emptyAnalysis();w.__freeFallDebug.setReview(blank);
+      let calls=0;w.SimScorm.submitWithCallbacks=(result,snapshot,callbacks)=>{calls+=1;
+        const value={activityState:${JSON.stringify(outcome)}};${outcome === "success" ? "callbacks.onSuccess(value)" : "callbacks.onFailure(value)"}};
+      d.getElementById('submitButton').click();const before=calls;d.querySelector('[data-blank-action="confirm"]').click();
+      return {before,calls,locked:w.__freeFallDebug.locked(),result:!d.getElementById('resultSection').classList.contains('is-hidden'),
+        pending:/待確認/.test(d.getElementById('technicalTitle').textContent),cards:d.querySelectorAll('#resultFeedback .result-card').length};
+    })()`);
+    assert.equal(view.before, 0); assert.equal(view.calls, 1); assert.equal(view.locked, true);
+    if (outcome === "success") assert.ok(view.result && view.cards > 0);
+    else assert.ok(view.pending && view.cards === 0);
+  }
 
   for (const [name, outcome] of [
     ["retryable", { activityState: "retry", retryable: true }],
@@ -392,7 +522,7 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
   `${label}: rendered preview position accelerates at equal elapsed thresholds ${JSON.stringify(preview.samples)}`);
   assert.equal(preview.replay.liveBallM, 0, `${label}: explicit replay returns the ball to release`);
 
-  for (const frequency of [4, 5, 6]) {
+  for (const frequency of [4, 5, 6, 8]) {
     await navigate(cdp, `${baseUrl}${activityPath}?capture=${frequency}-${encodeURIComponent(label)}`);
     const capture = await evaluate(cdp, `(async()=> {
       const d=document,w=window,frequency=${frequency};let saves=0;
@@ -407,7 +537,8 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
         if(view.stamps.length!==prior){prior=view.stamps.length;const cue=d.querySelector('[data-exposure-cue]');
           observed.push({count:prior,ms:performance.now()-start,stamps:view.stamps,cueIndex:view.cueIndex,
             cue:cue?Number(cue.dataset.exposureCue):null,cuePointer:cue?getComputedStyle(cue).pointerEvents:null,
-            stageBackground:getComputedStyle(d.getElementById('stage')).backgroundColor})}
+            stageBackground:getComputedStyle(d.getElementById('stage')).backgroundColor,
+            status:d.getElementById('animationStatus').textContent})}
         if(view.mode==='static')return resolve();if(performance.now()-start>1800)return reject(new Error('capture timeout'));requestAnimationFrame(tick)};tick()});
       const view=w.__freeFallDebug.animation(),state=w.__freeFallDebug.state();
       return {observed,view,state,saveDelta:saves-beforeGenerateSaves,
@@ -421,6 +552,9 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
     assert.ok(!capture.rulerHidden && !capture.measurementHidden, `${label} ${frequency} Hz: ruler appears only after P4`);
     assert.equal(capture.state.phase, "measure-total");
     assert.match(capture.status, /五個球影來自同一個球/);
+    assert.match(capture.status, /以相等時間間隔記錄/);
+    assert.doesNotMatch(capture.status, /Δt|t\s*=|\d+(?:\.\d+)?\s*s\b/,
+      `${label} ${frequency} Hz: completion copy does not disclose an exact interval or timestamp`);
     const stampEvents = capture.observed.filter((item) => item.count > 0);
     assert.deepEqual(stampEvents.map((item) => item.count), [1, 2, 3, 4, 5], `${label} ${frequency} Hz: stamps appear uniquely in order`);
     for (let index = 0; index < 5; index += 1) {
@@ -433,6 +567,12 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
       assert.equal(stampEvents[index].cueIndex, index, `${label} ${frequency} Hz P${index}: cue follows the authoritative exposure`);
       assert.equal(stampEvents[index].cue, index, `${label} ${frequency} Hz P${index}: one localized cue renders at the new stamp`);
       assert.equal(stampEvents[index].cuePointer, "none", `${label} ${frequency} Hz P${index}: cue is pointer-inert`);
+      if (index < 4) assert.match(stampEvents[index].status, new RegExp(`已記錄\\s*P${index}`),
+        `${label} ${frequency} Hz P${index}: active-capture status names only the recorded point`);
+      else assert.match(stampEvents[index].status, /以相等時間間隔記錄/,
+        `${label} ${frequency} Hz P4: final exposure transitions directly to neutral completion copy`);
+      assert.doesNotMatch(stampEvents[index].status, /Δt|t\s*=|\d+(?:\.\d+)?\s*s\b/,
+        `${label} ${frequency} Hz P${index}: capture status does not disclose an exact interval or timestamp`);
       assert.equal(stampEvents[index].stageBackground, capture.observed[0].stageBackground,
         `${label} ${frequency} Hz P${index}: cue does not flash stage luminance`);
     }
@@ -580,11 +720,11 @@ async function runUnitNotationMatrix(cdp, baseUrl, activityPath, label) {
   const value = await evaluate(cdp, `(() => {
     const w=window,d=document,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
     let state=P.generate(P.assignedState(5));
-    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
     state=P.withPlacement(state,place('total',0));
     for(let index=0;index<4;index+=1)state=P.resolveMeasurement(state,M.displacementAt(5,index+1));
     for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index];state=P.resolveMeasurement(P.withPlacement(state,place(task,M.displacementAt(5,index))),M.intervalDisplacement(5,index+1));}
-    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{status:'answered',values:[1,2,3,4]},totalDisplacementRatio:{status:'answered',values:[1,4,9,16]},intervalTimeRatio:{status:'answered',values:[1,1,1,1]},intervalDistanceRatio:{status:'answered',values:[1,3,5,7]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
+    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{values:[1,2,3,4]},intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
     state=P.enterReview(state);const review=P.makeReview(state),score=S.scoreAttempt(review);
     w.__freeFallDebug.setReview(review);
     const canonicalBefore=JSON.stringify(P.makeReview(w.__freeFallDebug.state())),scoreBefore=JSON.stringify(S.scoreAttempt(review));
@@ -592,7 +732,7 @@ async function runUnitNotationMatrix(cdp, baseUrl, activityPath, label) {
     d.querySelector('[data-edit-measurement="total1"]').click();
     const editValue=d.getElementById('readingInput').value,editUnit=d.querySelector('#measurementSection .reading-row .unit').textContent;
     w.__freeFallDebug.setReview(review);
-    const sup=d.querySelector('#reviewContent sup'),base=sup.previousElementSibling;
+    const sup=d.querySelector('.camera-note sup'),base=sup.parentElement;
     const supRect={top:sup.getBoundingClientRect().top,bottom:sup.getBoundingClientRect().bottom};
     const supBaseRect={top:base.getBoundingClientRect().top,bottom:base.getBoundingClientRect().bottom};
     const supAlign=getComputedStyle(sup).verticalAlign;
@@ -600,8 +740,31 @@ async function runUnitNotationMatrix(cdp, baseUrl, activityPath, label) {
     const canonicalAfter=JSON.stringify(P.makeReview(w.__freeFallDebug.state()));
     const scoreAfter=JSON.stringify(S.scoreAttempt(P.makeReview(w.__freeFallDebug.state())));
     const resultHtml=d.getElementById('resultFeedback').innerHTML,resultText=d.getElementById('resultFeedback').textContent;
+    const cardText=[...d.querySelectorAll('#resultFeedback .result-card')].map(card=>card.textContent);
+    const mixed=JSON.parse(JSON.stringify(review));
+    mixed.analysis.deltaTS=null;
+    mixed.analysis.cumulativeTimeRatio.values=[1,2,8,null];
+    mixed.analysis.intervalTimeRatio.values=[1,1,8,null];
+    mixed.analysis.lawAnswerId='linear';mixed.analysis.intervalLawAnswerId=null;
+    delete mixed.evidence.gap01;
+    w.__freeFallDebug.setReview(P.decodeReview(mixed));w.__freeFallDebug.routeSubmission({activityState:'success'});
+    const mixedCards=Object.fromEntries(['correct','incorrect','unanswered','no-evidence'].map(status=>{
+      const cards=[...d.querySelectorAll('#resultFeedback .result-card.status-'+status)];
+      return [status,{count:cards.length,text:cards.map(card=>card.textContent)}];
+    }));
+    const itemTuple=(id)=>{
+      const card=d.querySelector('#resultFeedback .result-card[data-result-item="'+id+'"]');
+      if(!card)return null;
+      const lines=[...card.querySelectorAll('p')].map(node=>node.textContent.trim());
+      const value=(prefix)=>lines.find(line=>line.startsWith(prefix))?.slice(prefix.length).trim()??null;
+      return {status:[...card.classList].find(name=>name.startsWith('status-'))?.slice(7)??null,
+        learner:value('你的答案：'),expected:value('參考答案：'),points:value('得分：')};
+    };
+    const mixedItems=Object.fromEntries(['delta-t','cumulative-time-3','process-gap01','displacement','acceleration']
+      .map(id=>[id,itemTuple(id)]));
     const sub=d.querySelector('.freefall-header sub'),subBase=d.querySelector('.freefall-header var');
-    return {canonicalBefore,canonicalAfter,scoreBefore,scoreAfter,reviewHtml,reviewText,editValue,editUnit,resultHtml,resultText,
+    return {canonicalBefore,canonicalAfter,scoreBefore,scoreAfter,reviewHtml,reviewText,editValue,editUnit,resultHtml,resultText,cardText,mixedCards,mixedItems,
+      obsoleteInputs:d.querySelectorAll('[data-ratio="totalDisplacementRatio"],[data-ratio="intervalDistanceRatio"],[data-ratio-key="totalDisplacementRatio"],[data-ratio-key="intervalDistanceRatio"]').length,
       notation:{vars:d.querySelectorAll('var').length,subs:d.querySelectorAll('sub').length,sups:d.querySelectorAll('sup').length,
         supAlign,subAlign:getComputedStyle(sub).verticalAlign,supRect,supBaseRect,
         subRect:{top:sub.getBoundingClientRect().top,bottom:sub.getBoundingClientRect().bottom},
@@ -613,16 +776,88 @@ async function runUnitNotationMatrix(cdp, baseUrl, activityPath, label) {
   assert.match(value.editValue, /^0\.285714/, `${label}: review edit prefills the previous recorded photo-centimeter answer`);
   assert.equal(value.editUnit, "cm");
   assert.match(value.reviewText, /相片上 0\.29 cm/); assert.match(value.reviewText, /相片上 1\.14 cm/);
+  for (const target of [/1:2:3:4/, /1:1:1:1/, /1:3:5:7/, /平方成正比/, /s∝t²/]) {
+    assert.doesNotMatch(value.reviewText, target, `${label}: pre-submit review does not disclose target ${target}`);
+    assert.match(value.resultText, target, `${label}: trusted result discloses target ${target}`);
+  }
+  assert.match(value.resultText, /Δt\s*=\s*0\.2000\s*s/,
+    `${label}: trusted result retains the exact interval target`);
   assert.doesNotMatch(value.reviewText, /\d(?:\.\d+)? m(?:\s|$)/, `${label}: review distances do not leak meter units`);
   assert.match(value.resultText, /cm/); assert.match(value.resultText, /±/);
+  assert.equal(value.obsoleteInputs, 0);
+  assert.ok(value.cardText.length >= 20 && value.cardText.every((text) => /得分：/.test(text)));
+  assert.ok(value.cardText.some((text) => /正確/.test(text)) && value.cardText.some((text) => /總位移與時間平方成正比/.test(text)));
+  for (const [status, labelText] of Object.entries({correct:"正確",incorrect:"需修正",unanswered:"未答","no-evidence":"未有證據"})) {
+    const cards=value.mixedCards[status];
+    assert.ok(cards.count>0, `${label}: trusted mixed result renders status-${status} cards`);
+    assert.ok(cards.text.every(text=>text.includes(labelText)&&/你的答案：/.test(text)&&/參考答案：/.test(text)&&/得分：/.test(text)),
+      `${label}: ${status} cards include Traditional Chinese status, learner/reference values, and points`);
+  }
+  assert.deepEqual(value.mixedItems, {
+    "delta-t": {status:"unanswered",learner:"未答",expected:"0.2 s",points:"0 / 4"},
+    "cumulative-time-3": {status:"incorrect",learner:"8",expected:"3",points:"0 / 1.67"},
+    "process-gap01": {status:"no-evidence",learner:"未有證據",expected:"重新對準並記錄",points:"0 / 6"},
+    displacement: {status:"incorrect",learner:"總位移與時間成正比",expected:"總位移與時間平方成正比",points:"0 / 12"},
+    acceleration: {status:"correct",learner:"加速度固定，速度等量增加",expected:"加速度固定，速度等量增加",points:"8 / 8"}
+  }, `${label}: trusted mixed fixture renders exact production learner/reference/points tuples by stable item id`);
+  assert.match(value.reviewText, /P0→P1/); assert.match(value.reviewText, /P3P4/);
   assert.match(value.reviewHtml, /<var>/); assert.match(value.resultHtml, /<sub>/);
   assert.deepEqual(value.canonicalAfter, value.canonicalBefore, `${label}: display/restore/result conversion does not change canonical JSON`);
   assert.deepEqual(value.scoreAfter, value.scoreBefore, `${label}: display/restore/result conversion does not change score`);
   assert.ok(value.notation.vars > 5 && value.notation.subs > 5 && value.notation.sups >= 2,
     `${label}: semantic math markup is present ${JSON.stringify(value.notation)}`);
-  assert.ok(value.notation.supAbove && value.notation.subBelow &&
-    value.notation.supAlign === "super" && value.notation.subAlign === "sub",
+  assert.ok(value.notation.subBelow && value.notation.supAlign === "super" && value.notation.subAlign === "sub",
   `${label}: semantic sub/sup has computed geometry ${JSON.stringify(value.notation)}`);
+}
+
+async function runFrequencyPhaseOutcomeMatrix(cdp, baseUrl, activityPath, label) {
+  await setViewport(cdp, 390, 600);
+  await navigate(cdp, `${baseUrl}${activityPath}?frequency-matrix=${encodeURIComponent(label)}`);
+  const values = await evaluate(cdp, `(() => {
+    const w=window,d=document,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
+    const chip=()=>d.getElementById('frequencyChip').textContent;
+    const rows=[]; const show=(name,state)=>{w.__freeFallDebug.routeStartup('editable',{state:'draft',snapshot:{answer:P.encode(state)}});rows.push([name,chip()])};
+    const setup=P.assignedState(6);show('setup',setup);const assigned=d.getElementById('assignedFrequency').textContent;
+    let measure=P.generate(setup);show('measure',measure);
+    const totals=S.expectedTotals(6),gaps=S.expectedGaps(6);
+    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    let analyze=P.withPlacement(measure,place('total',0));
+    for(let i=0;i<4;i+=1)analyze=P.resolveMeasurement(analyze,totals[i]);
+    for(let i=0;i<4;i+=1){const task=S.GAP_KEYS[i];analyze=P.resolveMeasurement(P.withPlacement(analyze,place(task,i?totals[i-1]:0)),gaps[i]);}
+    show('analysis',analyze);
+    let answered=P.setAnalysis(analyze,{deltaTS:1/6,cumulativeTimeRatio:{values:[1,2,3,4]},intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
+    const reviewState=P.enterReview(answered),review=P.makeReview(reviewState);w.__freeFallDebug.setReview(review);rows.push(['review',chip()]);
+    const original=w.SimScorm.submitWithCallbacks;w.SimScorm.submitWithCallbacks=()=>{};d.getElementById('submitButton').click();rows.push(['submitting',chip()]);w.SimScorm.submitWithCallbacks=original;
+    for(const outcome of [{name:'success',value:{activityState:'success'}},{name:'committed',value:{activityState:'committed'}},{name:'frozen',value:{activityState:'frozen'}},{name:'retry',value:{activityState:'retry',retryable:true}}]){
+      w.__freeFallDebug.setReview(review);w.__freeFallDebug.routeSubmission(outcome.value);rows.push([outcome.name,chip()]);
+    }
+    const series=()=>Object.fromEntries([...d.querySelectorAll('#reviewContent .recorded-series [data-series-key]')].map(node=>[node.dataset.seriesKey,node.textContent]));
+    w.__freeFallDebug.routeStartup('editable',{state:'draft',snapshot:{answer:P.encode(P.fromReview(review))}});const seriesBefore=series();
+    d.querySelector('[data-edit-measurement="total2"]').click();d.getElementById('skipButton').click();
+    d.querySelector('[data-edit-measurement="gap23"]').click();d.getElementById('skipButton').click();
+    const seriesAfter=series(),skippedReview=P.makeReview(w.__freeFallDebug.state());
+    w.__freeFallDebug.setReview(P.decodeReview(JSON.parse(JSON.stringify(review))));
+    const seriesRestored=series();
+    w.__freeFallDebug.setReview(P.decodeReview(JSON.parse(JSON.stringify(skippedReview))));
+    d.querySelector('[data-edit-measurement="total2"]').click();w.__freeFallDebug.setReview(P.makeReview(P.resolveMeasurement(w.__freeFallDebug.state(),totals[1])));
+    d.querySelector('[data-edit-measurement="gap23"]').click();w.__freeFallDebug.setReview(P.makeReview(P.resolveMeasurement(w.__freeFallDebug.state(),gaps[2])));
+    const seriesRerecorded=series();
+    return {rows,assigned,seriesBefore,seriesAfter,seriesRestored,seriesRerecorded};
+  })()`);
+  for (const [phase, text] of values.rows) assert.match(text, /f = 6 Hz/, `${label}: global frequency persists in ${phase}`);
+  assert.match(values.assigned, /f = 6 Hz/, `${label}: local assignment repeats frequency only`);
+  assert.doesNotMatch(values.assigned, /Δt|\d+(?:\.\d+)?\s*s\b/, `${label}: local assignment does not disclose exact Δt`);
+  const keys = ["total1", "total2", "total3", "total4", "gap01", "gap12", "gap23", "gap34"];
+  for (const key of keys) {
+    assert.doesNotMatch(values.seriesBefore[key], /未量得/, `${label}: ${key} starts with a numeric value`);
+    assert.match(values.seriesBefore[key], /\d+(?:\.\d+)? cm/, `${label}: ${key} starts with production display units`);
+  }
+  for (const key of keys) {
+    const skipped = key === "total2" || key === "gap23";
+    assert.equal(/未量得/.test(values.seriesAfter[key]), skipped, `${label}: edit/skip changes only ${key}`);
+    assert.equal(values.seriesRestored[key], values.seriesBefore[key], `${label}: restore recovers ${key}`);
+    assert.doesNotMatch(values.seriesRerecorded[key], /未量得/, `${label}: re-record restores numeric ${key}`);
+  }
 }
 
 async function directClick(cdp, selector) {
@@ -686,7 +921,7 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   async function placeBoundary(kind) {
     await evaluate(cdp, `(() => {const d=document,l=__freeFallDebug.rulerLayout(),M=FreeFallModel,
       y=M.geometry(5,440,55,25).metersToY(0),desired=${JSON.stringify(kind)}==='far-left'
-        ?80-19/l.scaleX:${JSON.stringify(kind)}==='far-right'?285+19/l.scaleX:100,
+        ?80+4/l.scaleX:${JSON.stringify(kind)}==='far-right'?285+19/l.scaleX:100,
       targetY=${JSON.stringify(kind)}==='+6'?y+6/l.scaleY:${JSON.stringify(kind)}==='-6'?y-6/l.scaleY:y,
       vertical=${JSON.stringify(kind)}==='+6'||${JSON.stringify(kind)}==='-6';
       __freeFallDebug.setRuler({x:vertical?100:desired-2,y:vertical?targetY+(${JSON.stringify(kind)}==='+6'?-2:2):targetY});
@@ -702,12 +937,14 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   for (const kind of ["far-left", "far-right", "+6", "-6"]) {
     const boundary = await placeBoundary(kind);
     assert.ok(boundary.valid, `${label}: ${kind} inclusive guide/alignment boundary is valid ${JSON.stringify(boundary)}`);
-    if (kind.startsWith("far")) assert.ok(Math.abs(boundary.placement.zeroTickOverlapPx-4)<.02,
-      `${label}: ${kind} raw overlap is the inclusive 4 CSS px boundary`);
+    if (kind === "far-left") assert.ok(boundary.placement.zeroTickOverlapPx>=4-.02,
+      `${label}: fixed-right clamp preserves at least the inclusive 4 CSS px left overlap`);
+    else if (kind === "far-right") assert.ok(Math.abs(boundary.placement.zeroTickOverlapPx-4)<.02,
+      `${label}: far-right raw overlap is the inclusive 4 CSS px boundary`);
     else assert.ok(Math.abs(Math.abs(boundary.placement.zeroErrorPx)-6)<.02,
       `${label}: ${kind} alignment is the inclusive 6 CSS px boundary`);
   }
-  await evaluate(cdp, `(() => {__freeFallDebug.setRuler({x:68,y:55});
+  await evaluate(cdp, `(() => {__freeFallDebug.setRuler({x:100,y:55});
     document.getElementById('rulerHandle').focus({preventScroll:true})})()`);
   for (const [key, code, virtualKey] of [["ArrowRight", "ArrowRight", 39], ["ArrowLeft", "ArrowLeft", 37]]) {
     await cdp.send("Input.dispatchKeyEvent", {
@@ -717,11 +954,13 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
       type: "keyUp", key, code, modifiers: 8, windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey
     });
   }
-  const firstReadout = await evaluate(cdp, `(() => ({value:document.getElementById('readingInput').value,
-    stage:document.getElementById('stageReadout').textContent,
-    canonical:Number(document.getElementById('stageReadout').dataset.readingM),
+  const firstReadout = await evaluate(cdp, `(() => {const d=document,o=d.getElementById('stageReadout'),
+    scene=d.getElementById('scene'),p=scene.createSVGPoint(),r=o.getBoundingClientRect();
+    p.x=0;p.y=Number(o.dataset.measuredY);const measured=p.matrixTransform(scene.getScreenCTM());return {value:d.getElementById('readingInput').value,
+    stage:o.textContent,
+    canonical:Number(o.dataset.readingM),measuredY:Number(o.dataset.measuredY),outputY:(r.top+r.bottom)/2,expectedY:measured.y,
     stageHidden:document.getElementById('stageReadout').classList.contains('is-hidden'),
-    disabled:document.getElementById('recordButton').disabled,state:__freeFallDebug.state(),ruler:__freeFallDebug.ruler()}))()`);
+    disabled:document.getElementById('recordButton').disabled,state:__freeFallDebug.state(),ruler:__freeFallDebug.ruler()}})()`);
   await directFill(cdp, "#readingInput", "0.2857142857142857");
   await evaluate(cdp, "document.getElementById('recordButton').click()");
   const secondReadout = await evaluate(cdp, `(() => ({value:document.getElementById('readingInput').value,
@@ -739,24 +978,22 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     state=P.resolveMeasurement(state,M.displacementAt(5,3));
     state=P.resolveMeasurement(state,M.displacementAt(5,4));
     if(!state)throw new Error('real-input totals did not advance: '+JSON.stringify(partial));
-    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
     for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index],before=state,
       placed=P.withPlacement(state,place(task,M.displacementAt(state.frequencyHz,index)));
       state=placed&&P.resolveMeasurement(placed,M.intervalDisplacement(before.frequencyHz,index+1));
       if(!state)throw new Error('real-input gap '+index+' did not advance: '+JSON.stringify({before,placed}));}
-    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{status:'answered',values:[1,2,3,4]},
-      totalDisplacementRatio:{status:'answered',values:[1,4,9,16]},intervalTimeRatio:{status:'answered',values:[1,1,1,1]},
-      intervalDistanceRatio:{status:'answered',values:[1,3,5,7]},lawAnswerId:'square',
+    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{values:[1,2,3,4]},intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',
       intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
     state=P.enterReview(state);
-    if(!state||state.phase!=='review'||state.variant!=='complete')throw new Error('real-input review invalid: '+JSON.stringify(state));
+    if(!state||state.phase!=='review'||state.variant!=='ready')throw new Error('real-input review invalid: '+JSON.stringify(state));
     const review=P.makeReview(state),decodedReview=P.decodeReview(review),score=S.scoreAttempt(review);
     w.__freeFallDebug.setReview(review);
     const reviewText=d.getElementById('reviewContent').textContent;
     const canonicalBefore=JSON.stringify(P.makeReview(w.__freeFallDebug.state()));
     const evidenceBefore=JSON.stringify(review.evidence);
     d.querySelector('[data-edit-measurement="total2"]').click();
-    const editValue=d.getElementById('readingInput').value;
+    const editValue=d.getElementById('readingInput').value,editFocus=d.activeElement.id;
     const editStageHidden=d.getElementById('stageReadout').classList.contains('is-hidden');
     d.getElementById('recordButton').click();
     const postEditState=w.__freeFallDebug.state();
@@ -776,7 +1013,7 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
       partialRoundTrip:JSON.stringify(decoded)===JSON.stringify(encoded),
       reviewRoundTrip:JSON.stringify(decodedReview)===JSON.stringify(review),
       evidenceRoundTrip:JSON.stringify(decodedReview.evidence)===evidenceBefore,evidenceBefore,evidenceAfter,
-      canonicalBefore,canonicalAfter,score,scoreAfter,editValue,editReadonly:d.getElementById('readingInput').readOnly,
+      canonicalBefore,canonicalAfter,score,scoreAfter,editValue,editFocus,editReadonly:d.getElementById('readingInput').readOnly,
       unchangedReading,editStageHidden,reviewStageHidden,submissionStageHidden,reviewText,resultText,aria
     };
   })()`);
@@ -784,6 +1021,8 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     `${label}: production Record converts the learner's photo-centimeter input once to canonical meters`);
   assert.equal(firstReadout.value, ""); assert.equal(firstReadout.stage, "0.29 cm");
   assert.equal(firstReadout.canonical, .2); assert.equal(firstReadout.stageHidden, false);
+  assert.ok(Math.abs(firstReadout.outputY-firstReadout.expectedY)<=1,
+    `${label}: stage readout vertical center follows the full-precision measured tick, not the ruler zero`);
   assert.equal(secondReadout.value, ""); assert.equal(secondReadout.stage, "");
   assert.equal(secondReadout.stageHidden, true,
     `${label}: advancing to the next task clears the prior task's stage output`);
@@ -793,6 +1032,7 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   assert.ok(result.partialRoundTrip && result.reviewRoundTrip && result.evidenceRoundTrip,
     `${label}: draft/review encode-decode preserves readings and evidence`);
   assert.match(result.editValue, /^1\.142857/, `${label}: review edit prefills the previous manual photo-centimeter answer`);
+  assert.equal(result.editFocus, "measurementTitle", `${label}: measurement review-edit hands focus to its heading`);
   assert.equal(result.unchangedReading, .8,
     `${label}: submitting the exact unchanged review prefill reuses the original canonical reading`);
   assert.equal(result.editReadonly, false);
@@ -811,6 +1051,54 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
 }
 
 async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
+  for (const viewport of [[390, 600, 1], [320, 568, 2], [1280, 720, 1]]) {
+    await setViewport(cdp, ...viewport);
+    await navigate(cdp, `${baseUrl}${activityPath}?historical-active=${viewport.join("-")}-${encodeURIComponent(label)}`);
+    const historicalCases = await evaluate(cdp, `(() => {
+      const w=window,P=w.FreeFallPersistence,S=w.FreeFallScoring,results=[];
+      const initial=w.__freeFallDebug.rulerLayout(),scale=initial.scaleX;
+      const cases=[
+        {name:'guide-left-x80',rulerX:80,rulerSide:'left',horizontalMode:'guide-fraction',guideFraction:0,overlap:23,
+          expected:80+23/scale},
+        {name:'guide-right',rulerX:240,rulerSide:'right',horizontalMode:'guide-fraction',guideFraction:160/205,overlap:23,
+          expected:240},
+        {name:'boundary-left',rulerX:80-19/scale,rulerSide:'left',horizontalMode:'left-boundary',boundaryOverlapPx:4,overlap:4,
+          expected:Math.max(48/scale,80+4/scale)},
+        {name:'boundary-right',rulerX:285+19/scale,rulerSide:'right',horizontalMode:'right-boundary',boundaryOverlapPx:4,overlap:4,
+          expected:285+19/scale}
+      ];
+      for(const testCase of cases){
+        let state=P.generate(P.assignedState(6));
+        const candidate={mode:'keyboard',moveNorm:.03,rulerZeroM:0,rulerX:testCase.rulerX,rulerSide:testCase.rulerSide,
+          horizontalMode:testCase.horizontalMode,zeroTickOverlapPx:testCase.overlap,zeroErrorPx:0,
+          ...(testCase.horizontalMode==='guide-fraction'?{guideFraction:testCase.guideFraction}:
+            {boundaryOverlapPx:testCase.boundaryOverlapPx})};
+        state=P.withPlacement(state,{...candidate,rulerGeometry:'fixed-left-v1'});
+        delete state.activePlacement.rulerGeometry;
+        const historical=JSON.stringify(state);
+        w.__freeFallDebug.routeStartup('editable',{state:'draft',snapshot:{answer:state}});
+        const restored=w.__freeFallDebug.state(),layout=w.__freeFallDebug.rulerLayout(),
+          visible=document.querySelector('[data-ruler-visible-body]').getBoundingClientRect(),
+          owner=document.getElementById('rulerHandle').getBoundingClientRect();
+        document.getElementById('readingInput').value=String(5/18);
+        document.getElementById('recordButton').click();
+        const recorded=w.__freeFallDebug.state();
+        results.push({name:testCase.name,historical,expected:testCase.expected,layout,placement:restored.activePlacement,
+          valid:S.validPlacement(restored.activePlacement,'total'),recorded:recorded.measurements.total1,
+          evidence:recorded.evidence.totalPlacement,
+          ownerDelta:Math.max(Math.abs(visible.left-owner.left),Math.abs(visible.right-owner.right),
+            Math.abs(visible.top-owner.top),Math.abs(visible.bottom-owner.bottom))});
+      }
+      return results;
+    })()`);
+    for (const item of historicalCases) {
+      assert.doesNotMatch(item.historical, /rulerGeometry/);
+      assert.ok(item.valid && item.placement.rulerGeometry === "fixed-left-v1" && item.layout.direction === -1 &&
+        Math.abs(item.layout.anchorX-item.expected)<1e-6 && item.recorded?.usedTotalPlacement === true &&
+        item.evidence?.rulerGeometry === "fixed-left-v1" && item.ownerDelta <= 1,
+      `${label} ${viewport.join("x")}: historical ${item.name} converts from its old tick right endpoint and records legally ${JSON.stringify(item)}`);
+    }
+  }
   const cases = [
     { kind: "far-left", start: [1280, 720, 1], end: [320, 568, 2] },
     { kind: "far-right", start: [320, 568, 2], end: [1280, 720, 1] }
@@ -822,7 +1110,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     await evaluate(cdp, `(() => {
       const d=document,l=__freeFallDebug.rulerLayout(),M=FreeFallModel,
         y=M.geometry(5,440,55,25).metersToY(0),
-        desired=${JSON.stringify(testCase.kind)}==="far-left"?80-19/l.scaleX:285+19/l.scaleX;
+        desired=${JSON.stringify(testCase.kind)}==="far-left"?80+4/l.scaleX:285+19/l.scaleX;
       __freeFallDebug.setRuler({x:desired-2,y});
       d.getElementById("rulerHandle").focus({preventScroll:true});
     })()`);
@@ -859,8 +1147,8 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         stage:{left:sr.left,right:sr.right,top:sr.top,bottom:sr.bottom},
         aria:d.getElementById("rulerHandle").getAttribute("aria-label")};
     })()`);
-    assert.ok(resized.valid && Math.abs(resized.placement.zeroTickOverlapPx - 4) < .02,
-      `${label}: ${testCase.kind} is reconstructed and canonicalized at 4 CSS px after CTM change ${JSON.stringify(resized.placement)}`);
+    assert.ok(resized.valid && resized.placement.zeroTickOverlapPx >= 4 - .02,
+      `${label}: ${testCase.kind} is reconstructed with a valid clamped overlap after CTM change ${JSON.stringify(resized.placement)}`);
     assert.equal(resized.placement.horizontalMode,
       testCase.kind === "far-left" ? "left-boundary" : "right-boundary");
     assert.ok(!resized.output.hidden && resized.output.left >= resized.stage.left - 1 &&
@@ -883,7 +1171,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     })()`);
     assert.ok(resizedRecord.reading && resizedRecord.reading.usedTotalPlacement === true,
       `${label}: resized Record succeeds ${JSON.stringify(resizedRecord)}`);
-    assert.ok(Math.abs(resizedRecord.evidence.zeroTickOverlapPx - 4) < .02,
+    assert.ok(Math.abs(resizedRecord.evidence.zeroTickOverlapPx - resized.placement.zeroTickOverlapPx) < .02,
       `${label}: Record uses the current visible resized placement`);
 
     await navigate(cdp, `${baseUrl}${activityPath}?cross-ctm-reload=${testCase.kind}-${encodeURIComponent(label)}`);
@@ -895,7 +1183,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         inside:r.left>=s.left-1&&r.right<=s.right+1&&r.top>=s.top-1&&r.bottom<=s.bottom+1};
     })()`);
     assert.ok(restored.valid && restored.inside && !restored.hidden &&
-      Math.abs(restored.p.zeroTickOverlapPx - 4) < .02,
+      restored.p.zeroTickOverlapPx >= 4 - .02,
     `${label}: draft reload reconstructs ${testCase.kind} from its scale-independent anchor`);
 
     await directFill(cdp, "#readingInput", testCase.kind === "far-left" ? "5" : "0.2857142857142857");
@@ -906,7 +1194,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         roundTrip:JSON.stringify(FreeFallPersistence.decode(FreeFallPersistence.encode(s)))===JSON.stringify(s)};
     })()`);
     assert.equal(reloadRecord.reading.usedTotalPlacement, true);
-    assert.ok(reloadRecord.roundTrip && Math.abs(reloadRecord.evidence.zeroTickOverlapPx - 4) < .02,
+    assert.ok(reloadRecord.roundTrip && reloadRecord.evidence.zeroTickOverlapPx >= 4 - .02,
       `${label}: legal Record after boundary reload preserves current evidence through draft round-trip`);
 
     if (testCase.kind === "far-right") {
@@ -935,7 +1223,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         const P=FreeFallPersistence,S=FreeFallScoring,M=FreeFallModel;
         let state=__freeFallDebug.state();
         const place=(zero)=>({mode:"keyboard",moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:"left",
-          horizontalMode:"guide-fraction",guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+          rulerGeometry:"fixed-left-v1",horizontalMode:"guide-fraction",guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
         for(let index=1;index<4;index+=1){
           state=P.resolveMeasurement(state,M.displacementAt(5,index+1));
         }
@@ -943,10 +1231,8 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
           state=P.withPlacement(state,place(M.displacementAt(5,index)));
           state=P.resolveMeasurement(state,M.intervalDisplacement(5,index+1));
         }
-        state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{status:"answered",values:[1,2,3,4]},
-          totalDisplacementRatio:{status:"answered",values:[1,.23,1.03,1.83]},
-          intervalTimeRatio:{status:"answered",values:[1,1,1,1]},
-          intervalDistanceRatio:{status:"answered",values:[1,3,5,7]},lawAnswerId:"square",
+        state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{values:[1,2,3,4]},
+          intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:"square",
           intervalLawAnswerId:"odd",accelerationAnswerId:"constant-acceleration"});
         state=P.enterReview(state);const review=P.makeReview(state),score=S.scoreAttempt(review);
         return {score,measurements:review.measurements,evidence:review.evidence,
@@ -1031,7 +1317,7 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
         const w=window,d=document,M=w.FreeFallModel;
         const targetY=M.geometry(5,440,55,25).metersToY(M.displacementAt(5,${pointIndex}));
         const before=w.__freeFallDebug.rulerLayout(),
-          rulerX=[80-19/before.scaleX,5,355,285+19/before.scaleX][${pointIndex}];
+          rulerX=[80+4/before.scaleX,100,240,285+19/before.scaleX][${pointIndex}];
         w.__freeFallDebug.setRuler({x:rulerX,y:targetY});
         const body=d.querySelector('[data-ruler-body]'),visible=d.querySelector('[data-ruler-visible-body]'),
           handle=d.getElementById('rulerHandle'),stage=d.getElementById('stage'),scene=d.getElementById('scene'),
@@ -1045,13 +1331,13 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
           sr=stage.getBoundingClientRect(),cr=ball.getBoundingClientRect();
         const svgPoint=scene.createSVGPoint();svgPoint.x=123;svgPoint.y=234;
         const clientPoint=svgPoint.matrixTransform(matrix),roundTrip=clientPoint.matrixTransform(inverse);
-        const zeroPoint=scene.createSVGPoint();zeroPoint.x=rulerX;zeroPoint.y=targetY;
+        const zeroPoint=scene.createSVGPoint();zeroPoint.x=layout.anchorX;zeroPoint.y=targetY;
         const zeroClient=zeroPoint.matrixTransform(matrix);
         const viewTopLeft=(()=>{const p=scene.createSVGPoint();p.x=0;p.y=0;return p.matrixTransform(matrix)})(),
           viewBottomRight=(()=>{const p=scene.createSVGPoint();p.x=360;p.y=440;return p.matrixTransform(matrix)})();
         const samples=[[hr.left+2,hr.top+2],[hr.left+hr.width/2,hr.top+2],[hr.right-2,hr.top+hr.height/2],
           [hr.left+2,hr.bottom-2],[hr.left+hr.width/2,hr.bottom-2]];
-        return {targetY,rulerX,zeroClientX:zeroClient.x,layout,body:{left:br.left,top:br.top,right:br.right,bottom:br.bottom},
+        return {targetY,rulerX:layout.anchorX,zeroClientX:zeroClient.x,layout,body:{left:br.left,top:br.top,right:br.right,bottom:br.bottom},
           visible:{left:vr.left,top:vr.top,right:vr.right,bottom:vr.bottom,width:vr.width,height:vr.height},
           handle:{left:hr.left,top:hr.top,right:hr.right,bottom:hr.bottom,width:hr.width,height:hr.height},
           stage:{left:sr.left,top:sr.top,right:sr.right,bottom:sr.bottom},
@@ -1061,9 +1347,10 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
           rulerLabelHeights:rulerLabels.map(node=>node.getBoundingClientRect().height),
           unitHeight:unitNode.getBoundingClientRect().height,
           unitRect:(()=>{const r=unitNode.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom}})(),
+          unitSvg:{x:Number(unitNode.getAttribute('x')),y:Number(unitNode.getAttribute('y'))},
           unitWeight:Number(getComputedStyle(unitNode).fontWeight),
-          protectedRects:[...d.querySelectorAll('[data-ruler-label-cm="0"],[data-ruler-label-cm="1"],[data-point-label],[data-stamp]')]
-            .map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom}}),
+          tickXs:[...d.querySelectorAll('[data-ruler-tick]')].map(node=>({x1:Number(node.getAttribute('x1')),x2:Number(node.getAttribute('x2'))})),
+          labelRects:rulerLabels.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}}),
           strokes:{body:parseFloat(getComputedStyle(body).strokeWidth)*Math.hypot(matrix.a,matrix.b),
             tick:parseFloat(getComputedStyle(fineTick).strokeWidth)*Math.hypot(matrix.a,matrix.b)},
           roundTrip:{x:roundTrip.x,y:roundTrip.y},owners:samples.map(([x,y])=>d.elementFromPoint(x,y)?.id),
@@ -1083,15 +1370,21 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
         `${label} ${width}x${height}@${pageScale}: rendered ball remains screen-legible ${JSON.stringify(geometry.circle)}`);
       assert.ok(geometry.pointLabelHeights.length === 5 && geometry.pointLabelHeights.every((value) => value >= 9.9),
         `${label} ${width}x${height}@${pageScale}: every P label is at least 10 CSS px ${JSON.stringify(geometry.pointLabelHeights)}`);
-      assert.ok(geometry.rulerLabelHeights.length === 6 && geometry.rulerLabelHeights.every((value) => value >= 13.9),
-        `${label} ${width}x${height}@${pageScale}: every ruler numeral is at least 14 CSS px ${JSON.stringify(geometry.rulerLabelHeights)}`);
-      assert.ok(geometry.unitHeight >= 15.9 && geometry.unitWeight >= 700 &&
+      assert.ok(geometry.rulerLabelHeights.length === 6 && geometry.rulerLabelHeights.every((value) => value >= 15.9),
+        `${label} ${width}x${height}@${pageScale}: every ruler numeral is at least 16 CSS px ${JSON.stringify(geometry.rulerLabelHeights)}`);
+      assert.ok(geometry.unitHeight >= 17.9 && geometry.unitWeight >= 700 &&
         geometry.strokes.body >= .99 && geometry.strokes.tick >= .99,
         `${label} ${width}x${height}@${pageScale}: ruler unit and strokes meet screen-space minimums ${JSON.stringify({
           unitHeight:geometry.unitHeight,strokes:geometry.strokes})}`);
+      assert.ok(delta((geometry.unitRect.left+geometry.unitRect.right)/2,
+        (geometry.body.left+geometry.body.right)/2)<=1,
+      `${label} ${width}x${height}@${pageScale}: cm is centered in the full ruler body`);
+      assert.ok(delta(geometry.unitSvg.y,
+        geometry.layout.zeroY+geometry.layout.tickSpan*.3/5)<=1e-9,
+      `${label} ${width}x${height}@${pageScale}: cm baseline uses the fixed 0.3 cm contract`);
       const intersects = (a,b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-      assert.ok(geometry.protectedRects.every((rect)=>!intersects(geometry.unitRect,rect)),
-        `${label} ${width}x${height}@${pageScale}: ruler header unit does not overlap 0/1, balls, or P labels ${JSON.stringify({unit:geometry.unitRect,protected:geometry.protectedRects})}`);
+      assert.ok(geometry.labelRects.every((rect)=>!intersects(geometry.unitRect,rect)),
+        `${label} ${width}x${height}@${pageScale}: centered cm remains disjoint from every numeral ${JSON.stringify({unit:geometry.unitRect,labels:geometry.labelRects,layout:geometry.layout})}`);
       assert.ok(delta(geometry.roundTrip.x, 123) <= .001 && delta(geometry.roundTrip.y, 234) <= .001,
         `${label} ${width}x${height}@${pageScale}: CTM inverse round-trips SVG/client coordinates`);
       assert.ok(geometry.view.left >= geometry.stage.left - 1 && geometry.view.right <= geometry.stage.right + 1 &&
@@ -1099,17 +1392,19 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
       `${label} ${width}x${height}@${pageScale}: aspect-preserved viewBox remains inside the stage`);
       assert.ok(delta(geometry.visible.left, geometry.handle.left) <= 1 && delta(geometry.visible.top, geometry.handle.top) <= 1 &&
         delta(geometry.visible.right, geometry.handle.right) <= 1 && delta(geometry.visible.bottom, geometry.handle.bottom) <= 1,
-      `${label} ${width}x${height}@${pageScale} P${pointIndex}: overlay matches visible ruler body ${JSON.stringify(geometry)}`);
+      `${label} ${width}x${height}@${pageScale} P${pointIndex}: owner matches the actual visible ruler intersection ${JSON.stringify(geometry)}`);
       assert.ok(geometry.handle.width >= 43.99,
         `${label} ${width}x${height}@${pageScale} P${pointIndex}: visible drag width is at least 44 CSS px ${JSON.stringify(geometry)}`);
       assert.ok(geometry.owners.every((owner) => owner === "rulerHandle"),
         `${label} ${width}x${height}@${pageScale} P${pointIndex}: visible ruler has no dead drag zone ${JSON.stringify(geometry.owners)}`);
       assert.deepEqual(geometry.units, ["cm"], `${label}: ruler shows one upright centimeter unit`);
       assert.equal(geometry.magnifiers, 0, `${label}: ruler magnifier is absent`);
-      assert.ok(pointIndex < 2
-        ? geometry.body.right - geometry.zeroClientX >= 43
-        : geometry.zeroClientX - geometry.body.left >= 43,
-      `${label} ${width}x${height}@${pageScale} P${pointIndex}: ruler typography is checked in the expected bidirectional orientation`);
+      assert.ok(geometry.zeroClientX - geometry.body.left >= 43 &&
+        Math.abs(geometry.body.right-geometry.zeroClientX)<=1,
+      `${label} ${width}x${height}@${pageScale} P${pointIndex}: body remains left of the fixed right spine`);
+      assert.ok(geometry.tickXs.every(({x1,x2})=>x1===geometry.rulerX&&x2<=x1) &&
+        geometry.labelRects.every((rect)=>rect.right<=geometry.zeroClientX+1),
+      `${label} ${width}x${height}@${pageScale} P${pointIndex}: all ticks and numerals remain left of the spine`);
       assert.ok(Math.abs(geometry.layout.zeroY - geometry.targetY) < 1e-9,
         `${label} P${pointIndex}: zero tick remains aligned to the requested point`);
       assert.ok((geometry.layout.zeroY - geometry.layout.fullTop) * geometry.scale.y >= 27.9);
@@ -1120,6 +1415,48 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
       assert.equal(geometry.tickKinds.length, 51, `${label}: conventional ruler has both endpoints and 49 interior ticks`);
       assert.equal(tickMap.get(.1), "fine"); assert.equal(tickMap.get(.5), "medium"); assert.equal(tickMap.get(1), "major");
       assert.deepEqual(geometry.labels, [0, 1, 2, 3, 4, 5], `${label}: every whole photograph centimeter is numbered`);
+    }
+    const readouts = await evaluate(cdp, `(() => {
+      const w=window,d=document,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel,results=[];
+      const placement=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',
+        rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,
+        zeroTickOverlapPx:23,zeroErrorPx:0});
+      for(const area of ['total','gap'])for(let index=0;index<4;index+=1){
+        let state=P.generate(P.assignedState(5)),task;
+        if(area==='total'){
+          for(let prior=0;prior<index;prior+=1)state=P.resolveMeasurement(state,null,true);
+          task='total';
+        }else{
+          for(let total=0;total<4;total+=1)state=P.resolveMeasurement(state,null,true);
+          for(let prior=0;prior<index;prior+=1)state=P.resolveMeasurement(state,null,true);
+          task=S.GAP_KEYS[index];
+        }
+        const start=area==='total'?0:M.displacementAt(5,index);
+        state=P.withPlacement(state,placement(task,start));
+        w.__freeFallDebug.routeStartup('editable',{state:'draft',snapshot:{answer:state}});
+        const handle=d.getElementById('rulerHandle');handle.focus({preventScroll:true});
+        for(const key of ['ArrowRight','ArrowLeft'])handle.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}));
+        const output=d.getElementById('stageReadout'),scene=d.getElementById('scene'),or=output.getBoundingClientRect(),
+          measuredY=Number(output.dataset.measuredY),measured=scene.createSVGPoint();measured.x=0;
+        let expectedY=NaN;if(Number.isFinite(measuredY)){measured.y=measuredY;expectedY=measured.matrixTransform(scene.getScreenCTM()).y;}
+        const protectedNodes=[...scene.querySelectorAll(
+          '[data-stamp],[data-point-label],[data-ruler-body],[data-ruler-tick],[data-ruler-label-cm],[data-ruler-unit]')];
+        const collisions=protectedNodes.filter(node=>{const r=node.getBoundingClientRect();
+          return or.left<r.right&&or.right>r.left&&or.top<r.bottom&&or.bottom>r.top;})
+          .map(node=>node.dataset.stamp??node.dataset.pointLabel??node.dataset.rulerLabelCm??node.dataset.rulerUnit??node.dataset.rulerBody??node.dataset.rulerTick);
+        results.push({area,index,hidden:output.classList.contains('is-hidden'),collisions,
+          centerY:(or.top+or.bottom)/2,expectedY,text:output.textContent,
+          input:d.getElementById('readingInput').value,placement:w.__freeFallDebug.state().activePlacement,
+          status:d.getElementById('placementStatus').textContent,aria:d.getElementById('rulerHandle').getAttribute('aria-label')});
+      }
+      return results;
+    })()`);
+    assert.ok(readouts.every((item)=>!item.hidden && item.collisions.length===0 &&
+      Math.abs(item.centerY-item.expectedY)<=1 && item.input===""),
+    `${label} ${width}x${height}@${pageScale}: every task readout keeps exact measured-y and avoids apparatus ${JSON.stringify(readouts)}`);
+    if(width===320&&height===500&&pageScale===1){
+      assert.deepEqual(readouts[0].collisions, [],
+        `${label}: 320x500 total1 x100 readout is fully disjoint`);
     }
   }
 }
@@ -1348,6 +1685,53 @@ async function runTouchMatrix(cdp, baseUrl, activityPath, label) {
 
   await settle(cdp, "window.scrollTo(0,260)", { expression: "Math.round(scrollY)", value: 260 }, `${label}: ruler host reset`);
   await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('controlPanel').scrollTop=0");
+  await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow;
+    w.__freeFallDebug.setRuler({x:250,y:w.__freeFallDebug.ruler().y})})()`);
+  let crossStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  const beforeCrossTouch = await snapshot(cdp);
+  await swipe(cdp, crossStart, { x: crossStart.x - 150, y: crossStart.y });
+  const afterCrossTouch = await snapshot(cdp);
+  let crossGeometry = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+    l=w.__freeFallDebug.rulerLayout();return {direction:l.direction,x:w.__freeFallDebug.ruler().x,
+      ticks:[...d.querySelectorAll('[data-ruler-tick]')].every(n=>+n.getAttribute('x1')>=+n.getAttribute('x2'))}})()`);
+  assert.ok(beforeCrossTouch.ruler !== afterCrossTouch.ruler && crossGeometry.x < 182.5 &&
+    crossGeometry.direction === -1 && crossGeometry.ticks,
+  `${label}: trusted touch crosses the midpoint without flipping the fixed-left ruler`);
+  zeroDelta(beforeCrossTouch, afterCrossTouch,
+    ["host", "hostViewport", "iframe", "activity", "activityViewport", "panel"], `${label}: cross-midline touch`);
+  crossStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  const beforeCrossMouse = await snapshot(cdp);
+  await mouseDrag(cdp, crossStart, { x: crossStart.x + 150, y: crossStart.y });
+  const afterCrossMouse = await snapshot(cdp);
+  crossGeometry = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+    l=w.__freeFallDebug.rulerLayout();return {direction:l.direction,x:w.__freeFallDebug.ruler().x,
+      ticks:[...d.querySelectorAll('[data-ruler-tick]')].every(n=>+n.getAttribute('x1')>=+n.getAttribute('x2'))}})()`);
+  assert.ok(beforeCrossMouse.ruler !== afterCrossMouse.ruler && crossGeometry.x > 182.5 &&
+    crossGeometry.direction === -1 && crossGeometry.ticks,
+  `${label}: trusted mouse crosses the midpoint without flipping the fixed-left ruler`);
+  zeroDelta(beforeCrossMouse, afterCrossMouse,
+    ["host", "hostViewport", "iframe", "activity", "activityViewport", "panel"], `${label}: cross-midline mouse`);
+  await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow;
+    w.__freeFallDebug.setRuler({x:150,y:w.__freeFallDebug.ruler().y})})()`);
+  const clampStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  await swipe(cdp, clampStart, { x: 2, y: clampStart.y });
+  let clampGeometry = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+    l=w.__freeFallDebug.rulerLayout(),v=d.querySelector('[data-ruler-visible-body]').getBoundingClientRect(),
+    h=d.getElementById('rulerHandle').getBoundingClientRect();return {anchorCss:l.anchorX*l.scaleX,width:v.width,
+      delta:Math.max(Math.abs(v.left-h.left),Math.abs(v.right-h.right),Math.abs(v.top-h.top),Math.abs(v.bottom-h.bottom))}})()`);
+  assert.ok(clampGeometry.anchorCss>=47.9&&clampGeometry.width>=47.9&&clampGeometry.delta<=1,
+    `${label}: trusted drag clamps the fixed-right spine without a phantom owner ${JSON.stringify(clampGeometry)}`);
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('rulerHandle').focus({preventScroll:true})");
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowLeft", code: "ArrowLeft",
+    windowsVirtualKeyCode: 37, nativeVirtualKeyCode: 37 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowLeft", code: "ArrowLeft",
+    windowsVirtualKeyCode: 37, nativeVirtualKeyCode: 37 });
+  clampGeometry = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+    l=w.__freeFallDebug.rulerLayout(),v=d.querySelector('[data-ruler-visible-body]').getBoundingClientRect(),
+    h=d.getElementById('rulerHandle').getBoundingClientRect();return {anchorCss:l.anchorX*l.scaleX,width:v.width,
+      delta:Math.max(Math.abs(v.left-h.left),Math.abs(v.right-h.right),Math.abs(v.top-h.top),Math.abs(v.bottom-h.bottom))}})()`);
+  assert.ok(clampGeometry.anchorCss>=47.9&&clampGeometry.width>=47.9&&clampGeometry.delta<=1,
+    `${label}: trusted keyboard movement respects the same visible ruler clamp ${JSON.stringify(clampGeometry)}`);
   const dragStarts = [["top", .5, .03], ["middle", .5, .5], ["bottom", .5, .97], ["left-edge", .03, .5], ["right-edge", .97, .5]];
   for (const [name, xFraction, yFraction] of dragStarts) {
     const start = await pointAt(cdp, "#rulerHandle", xFraction, yFraction);
@@ -1378,6 +1762,11 @@ async function runTouchMatrix(cdp, baseUrl, activityPath, label) {
       afterMouse.events.ups === 1 && afterMouse.events.cancels === 0, `${label}: trusted mouse ${name} drag completes normally`);
   }
 
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('rulerHandle').focus({preventScroll:true})");
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
   const cancelPoint = await pointAt(cdp, "#rulerHandle", .5, .5);
   const beforeCancel = await snapshot(cdp);
   await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('readingInput').value='2.34'");
@@ -1426,8 +1815,10 @@ async function runArtifact(cdp, packageRoot, activityPath, label) {
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   try {
     await runAssignmentCheckpointMatrix(cdp, baseUrl, activityPath, label);
+    await runPersistedFrequencyResetMatrix(cdp, baseUrl, activityPath, label);
     await runAnimationMatrix(cdp, baseUrl, activityPath, label);
     await runUnitNotationMatrix(cdp, baseUrl, activityPath, label);
+    await runFrequencyPhaseOutcomeMatrix(cdp, baseUrl, activityPath, label);
     await runRealInputPath(cdp, baseUrl, activityPath, label);
     await runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label);
     await runRulerGeometryMatrix(cdp, baseUrl, activityPath, label);

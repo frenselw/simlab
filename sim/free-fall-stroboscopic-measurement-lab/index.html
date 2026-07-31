@@ -19,7 +19,7 @@
       <header class="freefall-header">
         <div>
           <h1>自由落體：頻閃量度實驗室</h1>
-          <p>移動直尺量度 <var>P</var><sub>0</sub>–<var>P</var><sub>4</sub>，找出自由落體的平方與連續奇數規律。</p>
+          <p>移動直尺量度 <var>P</var><sub>0</sub>–<var>P</var><sub>4</sub>，比較數值怎樣隨序號變化。</p>
         </div>
         <p id="phaseBadge" class="phase-badge">設定</p>
       </header>
@@ -45,6 +45,7 @@
           <p id="stageHint" class="stage-hint">先在操作面板設定頻閃頻率。</p>
         </section>
         <aside id="controlPanel" class="freefall-panel" aria-label="實驗操作面板">
+          <p id="frequencyChip" class="frequency-chip" role="status">頻閃頻率：未能確認</p>
           <section id="technicalSection" class="panel-section is-hidden">
             <h2 id="technicalTitle" tabindex="-1">暫時未能安全載入活動</h2>
             <p id="technicalMessage">系統已鎖定操作，避免改寫未確認的 Moodle 資料。</p>
@@ -69,7 +70,7 @@
             <p class="camera-note">採用 <span class="math-expression"><var>g</var><span class="operator"> = </span><span class="value">10.0</span> <span class="unit">m s<sup>−2</sup></span></span>。相機會按軌跡調整視野；請按固定 0–5 <span class="unit">cm</span> 相片尺量度相片上距離，不能把像素直接當作米。</p>
           </section>
           <section id="measurementSection" class="panel-section is-hidden">
-            <h2 id="measurementTitle">2. 量度總位移</h2>
+            <h2 id="measurementTitle" tabindex="-1">2. 量度總位移</h2>
             <p id="measurementPrompt"></p>
             <p id="placementStatus" class="placement-status">直尺仍在停泊區。</p>
             <p id="rulerHelp" class="muted">直接拖動直尺；聚焦直尺後可用方向鍵細移，Shift 加方向鍵可大幅移動。</p>
@@ -90,7 +91,7 @@
             <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
           </section>
           <section id="analysisSection" class="panel-section is-hidden">
-            <h2>3. 數據及比例分析</h2>
+            <h2 id="analysisTitle" tabindex="-1">3. 數據及比例分析</h2>
             <label class="reading-row"><span>相鄰影像時間 <span class="delta">Δ</span><var>t</var></span><input id="deltaTInput" inputmode="decimal"><span class="unit">s</span></label>
             <div id="ratioGroups"></div>
             <fieldset>
@@ -119,7 +120,7 @@
           </section>
           <section id="reviewSection" class="panel-section is-hidden">
             <h2 id="reviewTitle" tabindex="-1">提交前檢查</h2>
-            <p id="submissionNotice" class="notice is-hidden"></p>
+            <div id="submissionNotice" class="notice is-hidden"></div>
             <div id="reviewContent"></div>
             <div id="reviewEdits" class="button-grid phase-actions">
               <button type="button" data-edit="analysis">返回分析</button>
