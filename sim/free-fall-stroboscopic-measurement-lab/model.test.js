@@ -13,6 +13,15 @@ for (const frequency of Model.FREQUENCIES) {
   assert.deepStrictEqual(gaps.map((value) => Math.round(value / gaps[0])), [1, 3, 5, 7]);
 }
 assert.deepStrictEqual([4, 5, 6].map(Model.cameraMax), [5.5, 3.5, 2.5]);
+for (const frequency of Model.FREQUENCIES) {
+  assert.strictEqual(Model.metersToPhotoCm(frequency, Model.cameraMax(frequency)), 5);
+  assert.strictEqual(Model.photoCmToMeters(frequency, 5), Model.cameraMax(frequency));
+  for (const meters of [0, Model.displacementAt(frequency, 1), Model.displacementAt(frequency, 4)]) {
+    assert.ok(Math.abs(Model.photoCmToMeters(frequency, Model.metersToPhotoCm(frequency, meters)) - meters) < 1e-12);
+  }
+}
+assert.ok(Number.isNaN(Model.metersToPhotoCm(7, 1)));
+assert.ok(Number.isNaN(Model.photoCmToMeters(5, Infinity)));
 assert.strictEqual(Model.displacementAt(4, 4), 5);
 assert.strictEqual(Model.displacementAt(5, 4), 3.2);
 assert.ok(Math.abs(Model.displacementAt(6, 4) - 2.2222222222222223) < 1e-12);

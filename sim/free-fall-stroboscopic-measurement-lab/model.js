@@ -9,6 +9,7 @@
   const G = 10;
   const FREQUENCIES = Object.freeze([4, 5, 6]);
   const POINT_COUNT = 5;
+  const PHOTO_RULER_CM = 5;
 
   const finite = (value) => typeof value === "number" && Number.isFinite(value);
   function validFrequency(value) { return finite(value) && FREQUENCIES.includes(value); }
@@ -44,6 +45,12 @@
   function cameraMax(frequencyHz) {
     return Math.ceil((displacementAt(frequencyHz, 4) + 0.25) / 0.5) * 0.5;
   }
+  function metersToPhotoCm(frequencyHz, meters) {
+    return validFrequency(frequencyHz) && finite(meters) ? meters * PHOTO_RULER_CM / cameraMax(frequencyHz) : NaN;
+  }
+  function photoCmToMeters(frequencyHz, photoCm) {
+    return validFrequency(frequencyHz) && finite(photoCm) ? photoCm * cameraMax(frequencyHz) / PHOTO_RULER_CM : NaN;
+  }
   function geometry(frequencyHz, stageHeightPx, topPaddingPx = 18, bottomPaddingPx = 18) {
     if (!validFrequency(frequencyHz) || ![stageHeightPx, topPaddingPx, bottomPaddingPx].every(finite) ||
         stageHeightPx <= topPaddingPx + bottomPaddingPx || topPaddingPx < 0 || bottomPaddingPx < 0) return null;
@@ -58,7 +65,8 @@
   }
 
   return {
-    MODEL_VERSION, G, FREQUENCIES, POINT_COUNT, finite, validFrequency, deltaT,
-    timeAt, freeFallDisplacement, displacementAt, intervalDisplacement, trajectory, cameraMax, geometry
+    MODEL_VERSION, G, FREQUENCIES, POINT_COUNT, PHOTO_RULER_CM, finite, validFrequency, deltaT,
+    timeAt, freeFallDisplacement, displacementAt, intervalDisplacement, trajectory, cameraMax,
+    metersToPhotoCm, photoCmToMeters, geometry
   };
 });

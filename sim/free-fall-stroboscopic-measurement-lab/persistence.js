@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 1;
+  const VERSION = 2;
   const MEASUREMENT_KEYS = Object.freeze([...Scoring.TOTAL_KEYS, ...Scoring.GAP_KEYS]);
   const PHASES = Object.freeze(["setup", "measure-total", "measure-interval", "analyze", "review"]);
   const TOTAL_VARIANTS = Object.freeze(["normal-unpositioned", "normal-placement-ready", "review-edit-unpositioned", "review-edit-placement-ready"]);
@@ -19,20 +19,39 @@
   const finite = Model.finite;
   const MIN_GEOMETRY_PX_PER_M = 8;
   const MAX_GEOMETRY_PX_PER_M = 1000;
+  function currentPlacementKeys(value, base) {
+    const conditional = value.horizontalMode === "guide-fraction" ? ["guideFraction"] : ["boundaryOverlapPx"];
+    return Object.keys(value).every((key) =>
+      [...base, "rulerX", "rulerSide", "zeroTickOverlapPx", "horizontalMode", ...conditional].includes(key));
+  }
 
   function initialState() {
     return {
       v: VERSION, modelVersion: Model.MODEL_VERSION, rubricVersion: Scoring.RUBRIC_VERSION,
       phase: "setup", variant: "new", currentStep: "setup", returnToReview: false,
-      frequencyHz: null, frequencyActivelySelected: false
+      frequencyHz: null, frequencyAssigned: false
     };
   }
-  function configuredState(frequencyHz) {
+  function chooseFrequency(random = Math.random) {
+    if (typeof random !== "function") return null;
+    const sample = random();
+    return finite(sample) && sample >= 0 && sample < 1
+      ? Model.FREQUENCIES[Math.floor(sample * Model.FREQUENCIES.length)] : null;
+  }
+  function assignedState(frequencyHz) {
     if (!Model.validFrequency(frequencyHz)) return null;
     return {
-      ...initialState(), variant: "configured", frequencyHz,
-      frequencyActivelySelected: true
+      ...initialState(), variant: "assigned", frequencyHz,
+      frequencyAssigned: true
     };
+  }
+  function assignFrequency(state, frequencyHz) {
+    return validateDraft(state) && state.phase === "setup" && state.variant === "new"
+      ? assignedState(frequencyHz) : null;
+  }
+  function reset(state) {
+    return validateDraft(state) && Model.validFrequency(state.frequencyHz) && state.frequencyAssigned === true
+      ? assignedState(state.frequencyHz) : null;
   }
   function emptyMeasurements() { return Object.fromEntries(MEASUREMENT_KEYS.map((key) => [key, null])); }
   function emptyAnalysis() {
@@ -43,7 +62,7 @@
     };
   }
   function generate(state) {
-    if (!validateDraft(state) || state.phase !== "setup" || state.variant !== "configured") return null;
+    if (!validateDraft(state) || state.phase !== "setup" || state.variant !== "assigned") return null;
     return {
       ...clone(state), phase: "measure-total", variant: "normal-unpositioned",
       currentStep: 0, generated: true, measurements: emptyMeasurements(),
@@ -67,7 +86,10 @@
   }
   function consistentRulerGeometry(rulerZeroM, zeroErrorPx, task, frequencyHz) {
     const targetM = taskStartM(task, frequencyHz);
-    if (!finite(targetM) || rulerZeroM < 0 || rulerZeroM > Model.cameraMax(frequencyHz)) return false;
+    const negativeAllowanceM = targetM === 0
+      ? Scoring.ZERO_ALIGNMENT_TOLERANCE_PX / MIN_GEOMETRY_PX_PER_M : 0;
+    if (!finite(targetM) || rulerZeroM < -negativeAllowanceM ||
+        rulerZeroM > Model.cameraMax(frequencyHz)) return false;
     const displacementM = rulerZeroM - targetM;
     if (Math.abs(displacementM) < 1e-12) return Math.abs(zeroErrorPx) < 1e-9;
     if (Math.sign(displacementM) !== Math.sign(zeroErrorPx)) return false;
@@ -76,23 +98,38 @@
   }
   function validPlacementShape(value, expectedTask, frequencyHz) {
     if (!value || !["pointer", "keyboard"].includes(value.mode) || value.task !== expectedTask ||
-        ![value.moveNorm, value.rulerZeroM, value.edgeGapPx, value.zeroErrorPx].every(finite) ||
+        ![value.moveNorm, value.rulerZeroM, value.zeroErrorPx].every(finite) ||
         value.moveNorm < 0 || value.moveNorm > 1 ||
-        value.edgeGapPx < 0 || value.edgeGapPx > 200 || Math.abs(value.zeroErrorPx) > 500 ||
-        !["left", "right"].includes(value.edgeSide) ||
+        Math.abs(value.zeroErrorPx) > 500 ||
         !consistentRulerGeometry(value.rulerZeroM, value.zeroErrorPx, expectedTask, frequencyHz)) return false;
-    return Object.keys(value).every((key) => ["task", "mode", "moveNorm", "rulerZeroM", "edgeSide", "edgeGapPx", "zeroErrorPx"].includes(key));
+    const common = ["task", "mode", "moveNorm", "rulerZeroM", "zeroErrorPx"];
+    const current = finite(value.rulerX) && value.rulerX >= 0 && value.rulerX <= 360 &&
+      finite(value.zeroTickOverlapPx) && value.zeroTickOverlapPx >= 0 && value.zeroTickOverlapPx <= 500 &&
+      Scoring.validCurrentHorizontalRelation(value) && currentPlacementKeys(value, common);
+    const legacy = finite(value.legacyEdgeGapPx) && value.legacyEdgeGapPx >= 0 && value.legacyEdgeGapPx <= 200 &&
+      ["left", "right"].includes(value.legacyEdgeSide) &&
+      Object.keys(value).every((key) => [...common, "legacyEdgeSide", "legacyEdgeGapPx"].includes(key));
+    return current || legacy;
   }
   function validTotalEvidence(value, frequencyHz) {
     return Boolean(value && ["pointer", "keyboard"].includes(value.mode) &&
-      [value.moveNorm, value.rulerZeroM, value.zeroErrorPx, value.edgeGapPx].every(finite) &&
+      [value.moveNorm, value.rulerZeroM, value.zeroErrorPx].every(finite) &&
       consistentRulerGeometry(value.rulerZeroM, value.zeroErrorPx, "total", frequencyHz) &&
-      ["left", "right"].includes(value.edgeSide) &&
       Scoring.totalPlacementValid({ task: "total", ...value }) &&
-      Object.keys(value).every((key) => ["mode", "moveNorm", "rulerZeroM", "edgeSide", "zeroErrorPx", "edgeGapPx"].includes(key)));
+      (finite(value.rulerX) && value.rulerX >= 0 && value.rulerX <= 360 &&
+       finite(value.zeroTickOverlapPx) && value.zeroTickOverlapPx <= 500 &&
+       Scoring.validCurrentHorizontalRelation(value) &&
+       currentPlacementKeys(value, ["mode", "moveNorm", "rulerZeroM", "zeroErrorPx"]) ||
+       ["left", "right"].includes(value.legacyEdgeSide) &&
+       Object.keys(value).every((key) => ["mode", "moveNorm", "rulerZeroM", "legacyEdgeSide", "zeroErrorPx", "legacyEdgeGapPx"].includes(key))));
   }
   function validGapEvidence(value, task, reading) {
-    return Boolean(value && Object.keys(value).every((key) => ["mode", "moveNorm", "zeroErrorPx", "edgeGapPx", "readingM", "usedWhileValid", "task"].includes(key)) &&
+    return Boolean(value &&
+      (finite(value.rulerX) && value.rulerX >= 0 && value.rulerX <= 360 &&
+       finite(value.zeroTickOverlapPx) && value.zeroTickOverlapPx <= 500 &&
+       Scoring.validCurrentHorizontalRelation(value) &&
+       currentPlacementKeys(value, ["mode", "moveNorm", "zeroErrorPx", "readingM", "usedWhileValid", "task"]) ||
+       Object.keys(value).every((key) => ["mode", "moveNorm", "zeroErrorPx", "legacyEdgeGapPx", "readingM", "usedWhileValid", "task"].includes(key))) &&
       value.task === task && value.usedWhileValid === true && Scoring.gapEvidenceValid(value, task, reading));
   }
   function positiveReadings(measurements, keys) {
@@ -141,7 +178,7 @@
     return count;
   }
   function validateGenerated(state) {
-    if (!Model.validFrequency(state.frequencyHz) || state.frequencyActivelySelected !== true || state.generated !== true ||
+    if (!Model.validFrequency(state.frequencyHz) || state.frequencyAssigned !== true || state.generated !== true ||
         !state.measurements || !state.evidence || state.evidence.setupCompleted !== true || !state.analysis) return false;
     const max = Model.cameraMax(state.frequencyHz);
     for (const key of MEASUREMENT_KEYS) if (validReading(state.measurements[key], max) === "invalid") return false;
@@ -168,16 +205,16 @@
         state.rubricVersion !== Scoring.RUBRIC_VERSION || !PHASES.includes(state.phase) ||
         typeof state.returnToReview !== "boolean") return false;
     if (state.phase === "setup") {
-      const expected = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep", "returnToReview", "frequencyHz", "frequencyActivelySelected"];
+      const expected = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep", "returnToReview", "frequencyHz", "frequencyAssigned"];
       if (!exactKeys(state, expected) || state.currentStep !== "setup" || state.returnToReview ||
-          !["new", "configured"].includes(state.variant)) return false;
+          !["new", "assigned"].includes(state.variant)) return false;
       return state.variant === "new"
-        ? state.frequencyHz === null && state.frequencyActivelySelected === false
-        : Model.validFrequency(state.frequencyHz) && state.frequencyActivelySelected === true;
+        ? state.frequencyHz === null && state.frequencyAssigned === false
+        : Model.validFrequency(state.frequencyHz) && state.frequencyAssigned === true;
     }
     if (!validateGenerated(state)) return false;
     const allowedTop = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep", "returnToReview",
-      "frequencyHz", "frequencyActivelySelected", "generated", "activePlacement", "measurements", "evidence", "analysis"];
+      "frequencyHz", "frequencyAssigned", "generated", "activePlacement", "measurements", "evidence", "analysis"];
     if (Object.keys(state).some((key) => !allowedTop.includes(key))) return false;
     const totalResolved = resolvedCount(state.measurements, Scoring.TOTAL_KEYS);
     const gapResolved = resolvedCount(state.measurements, Scoring.GAP_KEYS);
@@ -217,14 +254,71 @@
     if (!validateDraft(value)) throw new Error("Invalid free-fall draft");
     return value;
   }
+  function validLegacyV1Placement(placement, finalized) {
+    const minGap = finalized ? Scoring.LEGACY_EDGE_MIN_GAP_PX : 0;
+    const maxGap = finalized ? Scoring.LEGACY_EDGE_MAX_GAP_PX : 200;
+    return Boolean(placement && finite(placement.edgeGapPx) &&
+      placement.edgeGapPx >= minGap && placement.edgeGapPx <= maxGap &&
+      (!own(placement, "rulerZeroM") || finite(placement.rulerZeroM) && placement.rulerZeroM >= 0));
+  }
+  function validLegacyV1Placements(value) {
+    if (own(value || {}, "activePlacement") && !validLegacyV1Placement(value.activePlacement, false)) return false;
+    if (own(value?.evidence || {}, "totalPlacement") &&
+        !validLegacyV1Placement(value.evidence.totalPlacement, true)) return false;
+    return Scoring.GAP_KEYS.every((key) => !own(value?.evidence || {}, key) ||
+      validLegacyV1Placement(value.evidence[key], true));
+  }
+  function migrateLegacyPlacement(placement) {
+    const migrated = clone(placement);
+    migrated.legacyEdgeGapPx = migrated.edgeGapPx;
+    delete migrated.edgeGapPx;
+    if (own(migrated, "edgeSide")) {
+      migrated.legacyEdgeSide = migrated.edgeSide;
+      delete migrated.edgeSide;
+    }
+    return migrated;
+  }
+  function migrateV1(value, review = false) {
+    if (!value || value.v !== 1 || value.modelVersion !== Model.MODEL_VERSION ||
+        value.rubricVersion !== 1 || own(value, "frequencyAssigned") ||
+        typeof value.frequencyActivelySelected !== "boolean") return null;
+    const expectedSetup = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep",
+      "returnToReview", "frequencyHz", "frequencyActivelySelected"];
+    const expectedReview = ["v", "locked", "modelVersion", "rubricVersion", "frequencyHz",
+      "frequencyActivelySelected", "measurements", "evidence", "analysis"];
+    if (review ? !exactKeys(value, expectedReview) :
+      value.phase === "setup" ? !exactKeys(value, expectedSetup) :
+        Object.keys(value).some((key) => !["v", "modelVersion", "rubricVersion", "phase", "variant",
+          "currentStep", "returnToReview", "frequencyHz", "frequencyActivelySelected", "generated",
+          "activePlacement", "measurements", "evidence", "analysis"].includes(key))) return null;
+    if (!validLegacyV1Placements(value)) return null;
+    const migrated = clone(value);
+    migrated.v = VERSION;
+    migrated.rubricVersion = Scoring.RUBRIC_VERSION;
+    migrated.frequencyAssigned = migrated.frequencyActivelySelected;
+    delete migrated.frequencyActivelySelected;
+    if (own(migrated, "activePlacement")) migrated.activePlacement = migrateLegacyPlacement(migrated.activePlacement);
+    if (own(migrated.evidence || {}, "totalPlacement")) {
+      migrated.evidence.totalPlacement = migrateLegacyPlacement(migrated.evidence.totalPlacement);
+    }
+    for (const key of Scoring.GAP_KEYS) {
+      if (own(migrated.evidence || {}, key)) migrated.evidence[key] = migrateLegacyPlacement(migrated.evidence[key]);
+    }
+    if (!review && migrated.phase === "setup") {
+      if (migrated.variant === "configured") migrated.variant = "assigned";
+      else if (migrated.variant !== "new") return null;
+    }
+    return migrated;
+  }
   function decode(value) {
-    return validateDraft(value) && JSON.stringify(encode(value)) === JSON.stringify(value) ? clone(value) : null;
+    const candidate = value?.v === 1 ? migrateV1(value, false) : clone(value);
+    return validateDraft(candidate) ? encode(candidate) : null;
   }
   function makeReview(source) {
     if (!validateDraft(source) || source.phase !== "review" || source.variant !== "complete") throw new Error("Complete review required");
     const review = {
       v: VERSION, locked: 1, modelVersion: Model.MODEL_VERSION, rubricVersion: Scoring.RUBRIC_VERSION,
-      frequencyHz: source.frequencyHz, frequencyActivelySelected: true,
+      frequencyHz: source.frequencyHz, frequencyAssigned: true,
       measurements: clone(source.measurements), evidence: clone(source.evidence), analysis: clone(source.analysis)
     };
     if (!validateReview(review)) throw new Error("Invalid review");
@@ -232,20 +326,23 @@
   }
   function validateReview(review) {
     if (!exactKeys(review, ["v", "locked", "modelVersion", "rubricVersion", "frequencyHz",
-      "frequencyActivelySelected", "measurements", "evidence", "analysis"]) ||
+      "frequencyAssigned", "measurements", "evidence", "analysis"]) ||
       review.v !== VERSION || review.locked !== 1) return false;
     return validateGenerated({
       ...review, phase: "review", variant: "complete", currentStep: "review",
       returnToReview: false, generated: true
     });
   }
-  function decodeReview(value) { return validateReview(value) ? clone(value) : null; }
+  function decodeReview(value) {
+    const candidate = value?.v === 1 ? migrateV1(value, true) : clone(value);
+    return validateReview(candidate) ? candidate : null;
+  }
   function fromReview(review) {
     const value = decodeReview(review);
     return value ? {
       v: VERSION, modelVersion: Model.MODEL_VERSION, rubricVersion: Scoring.RUBRIC_VERSION,
       phase: "review", variant: "complete", currentStep: "review", returnToReview: false,
-      frequencyHz: value.frequencyHz, frequencyActivelySelected: true, generated: true,
+      frequencyHz: value.frequencyHz, frequencyAssigned: true, generated: true,
       measurements: value.measurements, evidence: value.evidence, analysis: value.analysis
     } : null;
   }
@@ -265,33 +362,73 @@
     next.variant = state.returnToReview ? "review-edit-placement-ready" : "normal-placement-ready";
     return validateDraft(next) ? next : null;
   }
-  function resolveMeasurement(state, readingM, skipped = false) {
+  function refreshPlacement(state, placement) {
+    if (!validateDraft(state) || !state.activePlacement ||
+        !["measure-total", "measure-interval"].includes(state.phase)) return null;
+    const task = state.phase === "measure-total" ? "total" : Scoring.GAP_KEYS[state.currentStep];
+    const candidate = { task, ...clone(placement) };
+    if (!validPlacementShape(candidate, task, state.frequencyHz)) return null;
+    const next = clone(state);
+    next.activePlacement = candidate;
+    next.variant = state.returnToReview ? "review-edit-placement-ready" : "normal-placement-ready";
+    return validateDraft(next) ? next : null;
+  }
+  function horizontalEvidence(placement) {
+    return {
+      rulerX: placement.rulerX, rulerSide: placement.rulerSide,
+      horizontalMode: placement.horizontalMode,
+      ...(placement.horizontalMode === "guide-fraction"
+        ? { guideFraction: placement.guideFraction }
+        : { boundaryOverlapPx: placement.boundaryOverlapPx }),
+      zeroTickOverlapPx: placement.zeroTickOverlapPx
+    };
+  }
+  function resolveMeasurement(state, readingM, skipped = false, options = {}) {
     if (!validateDraft(state) || !["measure-total", "measure-interval"].includes(state.phase)) return null;
     const next = clone(state);
     const isTotal = state.phase === "measure-total";
     const key = isTotal ? Scoring.TOTAL_KEYS[state.currentStep] : Scoring.GAP_KEYS[state.currentStep];
-    if (skipped) {
+    const previous = state.measurements[key];
+    const reuseOriginal = !skipped && options?.reusedOriginal === true && state.returnToReview === true &&
+      !state.activePlacement && previous?.status === "recorded" && finite(readingM) &&
+      Object.is(readingM, previous.readingM);
+    if (reuseOriginal) {
+      // Preserve the canonical item and its process evidence exactly; only advance back to review.
+    } else if (skipped) {
       next.measurements[key] = { status: "skipped" };
       if (!isTotal) delete next.evidence[key];
     } else {
       if (!finite(readingM) || readingM < 0 || readingM > Model.cameraMax(state.frequencyHz)) return null;
       const placement = state.activePlacement;
+      const task = isTotal ? "total" : key;
       next.measurements[key] = { status: "recorded", readingM };
-      if (isTotal) {
-        const valid = placement && Scoring.validPlacement(placement, "total");
-        next.measurements[key].usedTotalPlacement = Boolean(valid);
-        if (valid) {
-          next.evidence.totalPlacement = {
-            mode: placement.mode, moveNorm: placement.moveNorm, rulerZeroM: placement.rulerZeroM,
-            edgeSide: placement.edgeSide, zeroErrorPx: placement.zeroErrorPx, edgeGapPx: placement.edgeGapPx
-          };
-        }
-      } else if (placement && Scoring.validPlacement(placement, key)) {
+      const placementValid = placement && (Scoring.validPlacement(placement, task) ||
+        Scoring.validLegacyPlacement(placement, task));
+      if (isTotal && placementValid) {
+        next.measurements[key].usedTotalPlacement = true;
+        next.evidence.totalPlacement = own(placement, "zeroTickOverlapPx") ? {
+          mode: placement.mode, moveNorm: placement.moveNorm, rulerZeroM: placement.rulerZeroM,
+          ...horizontalEvidence(placement), zeroErrorPx: placement.zeroErrorPx
+        } : {
+          mode: placement.mode, moveNorm: placement.moveNorm, rulerZeroM: placement.rulerZeroM,
+          legacyEdgeSide: placement.legacyEdgeSide, zeroErrorPx: placement.zeroErrorPx,
+          legacyEdgeGapPx: placement.legacyEdgeGapPx
+        };
+      } else if (isTotal) {
+        next.measurements[key].usedTotalPlacement = false;
+      } else if (placementValid) {
         next.evidence[key] = {
-          task: key, mode: placement.mode, moveNorm: placement.moveNorm, zeroErrorPx: placement.zeroErrorPx,
-          edgeGapPx: placement.edgeGapPx, readingM, usedWhileValid: true
+          task: key, mode: placement.mode, moveNorm: placement.moveNorm,
+          ...(own(placement, "zeroTickOverlapPx")
+            ? { ...horizontalEvidence(placement), zeroErrorPx: placement.zeroErrorPx }
+            : { zeroErrorPx: placement.zeroErrorPx, legacyEdgeGapPx: placement.legacyEdgeGapPx }),
+          readingM, usedWhileValid: true
         };
       } else delete next.evidence[key];
+    }
+    if (isTotal && next.evidence.totalPlacement &&
+        !Scoring.TOTAL_KEYS.some((totalKey) => next.measurements[totalKey]?.usedTotalPlacement === true)) {
+      delete next.evidence.totalPlacement;
     }
     if (!isTotal) delete next.activePlacement;
     if (state.returnToReview) {
@@ -345,8 +482,9 @@
   function bytes(value) { return new TextEncoder().encode(JSON.stringify(value)).length; }
 
   return {
-    VERSION, MEASUREMENT_KEYS, initialState, configuredState, emptyMeasurements, emptyAnalysis,
-    generate, validateDraft, encode, decode, makeReview, validateReview, decodeReview, fromReview,
-    withPlacement, resolveMeasurement, enterReview, edit, setAnalysis, analysisFieldValid, bytes
+    VERSION, MEASUREMENT_KEYS, initialState, chooseFrequency, assignedState, assignFrequency, reset,
+    emptyMeasurements, emptyAnalysis, generate, validateDraft, encode, decode, makeReview,
+    validateReview, decodeReview, fromReview,
+    withPlacement, refreshPlacement, resolveMeasurement, enterReview, edit, setAnalysis, analysisFieldValid, bytes
   };
 });

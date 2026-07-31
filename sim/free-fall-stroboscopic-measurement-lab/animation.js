@@ -81,36 +81,43 @@
       const points = Model.trajectory(frequencyHz);
       const stamps = [];
       function addStamp(index) {
-        if (stamps.some((stamp) => stamp.index === index)) return;
+        if (stamps.some((stamp) => stamp.index === index)) return false;
         const point = points[index];
         const stamp = Object.freeze({ index, timeS: point.timeS, displacementM: point.displacementM });
         stamps.push(stamp);
         onStamp(stamp);
+        return true;
       }
       if (reducedMotion) {
         points.forEach((point) => addStamp(point.index));
-        publish({ mode: "static", frequencyHz, liveBallM: null, elapsedS: points[4].timeS, stamps });
+        publish({
+          mode: "static", frequencyHz, liveBallM: null, elapsedS: points[4].timeS,
+          stamps, cueIndex: null, reducedCue: true
+        });
         onComplete(view);
         return true;
       }
       active = true;
       const startedAt = clock.now();
       addStamp(0);
-      publish({ mode: "capture", frequencyHz, liveBallM: 0, elapsedS: 0, stamps });
+      publish({ mode: "capture", frequencyHz, liveBallM: 0, elapsedS: 0, stamps, cueIndex: 0 });
       function tick() {
         const elapsedS = Math.max(0, clock.now() - startedAt) / 1000;
         const lastTime = points[4].timeS;
         const logicalTime = Math.min(elapsedS, lastTime);
-        for (let index = 1; index < points.length && points[index].timeS <= logicalTime + 1e-12; index += 1) addStamp(index);
+        let cueIndex = null;
+        for (let index = 1; index < points.length && points[index].timeS <= logicalTime + 1e-12; index += 1) {
+          if (addStamp(index)) cueIndex = index;
+        }
         if (logicalTime >= lastTime) {
           active = false;
-          publish({ mode: "static", frequencyHz, liveBallM: null, elapsedS: lastTime, stamps });
+          publish({ mode: "static", frequencyHz, liveBallM: null, elapsedS: lastTime, stamps, cueIndex });
           onComplete(view);
           return;
         }
         publish({
           mode: "capture", frequencyHz, liveBallM: Model.freeFallDisplacement(logicalTime),
-          elapsedS: logicalTime, stamps
+          elapsedS: logicalTime, stamps, cueIndex
         });
         schedule(runToken, tick);
       }
@@ -123,7 +130,8 @@
       const points = Model.trajectory(frequencyHz);
       publish({
         mode: "static", frequencyHz, liveBallM: null, elapsedS: points[4].timeS,
-        stamps: points.map(({ index, timeS, displacementM }) => Object.freeze({ index, timeS, displacementM }))
+        stamps: points.map(({ index, timeS, displacementM }) => Object.freeze({ index, timeS, displacementM })),
+        cueIndex: null, reducedCue: false
       });
       return true;
     }

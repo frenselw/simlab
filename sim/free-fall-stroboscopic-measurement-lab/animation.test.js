@@ -42,8 +42,12 @@ for (const frequency of Model.FREQUENCIES) {
   const controller = Animation.createController({ clock, onStamp: (stamp) => stamps.push(stamp), onComplete: () => completes += 1 });
   assert.equal(controller.startCapture(frequency), true);
   assert.deepEqual(stamps.map((stamp) => stamp.index), [0], `${frequency} Hz stamps P0 immediately`);
+  assert.equal(controller.snapshot().cueIndex, 0, `${frequency} Hz exposes a localized P0 cue`);
   assert.equal(controller.startCapture(frequency), false, `${frequency} Hz double activation is ignored`);
-  for (let index = 1; index < 5; index += 1) clock.advance(1000 / frequency);
+  for (let index = 1; index < 5; index += 1) {
+    clock.advance(1000 / frequency);
+    if (index < 4) assert.equal(controller.snapshot().cueIndex, index, `${frequency} Hz cue follows only the new exposure`);
+  }
   assert.deepEqual(stamps.map((stamp) => stamp.index), [0, 1, 2, 3, 4]);
   assert.deepEqual(stamps.map((stamp) => stamp.timeS), [0, 1, 2, 3, 4].map((index) => Model.timeAt(frequency, index)));
   assert.deepEqual(stamps.map((stamp) => stamp.displacementM), [0, 1, 2, 3, 4].map((index) => Model.displacementAt(frequency, index)));
@@ -89,10 +93,11 @@ for (const frequency of Model.FREQUENCIES) {
   assert.equal(clock.pending(), 0);
   assert.equal(controller.snapshot().mode, "static");
   assert.equal(controller.snapshot().stamps.length, 5);
+  assert.equal(controller.snapshot().reducedCue, true, "reduced motion keeps a static localized cue");
 }
 
 {
-  const authoritative = Persistence.generate(Persistence.configuredState(5));
+  const authoritative = Persistence.generate(Persistence.assignedState(5));
   const before = JSON.stringify(authoritative);
   const clock = fakeClock();
   const controller = Animation.createController({ clock });

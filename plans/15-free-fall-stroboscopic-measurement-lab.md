@@ -22,7 +22,7 @@
 
 本活動讓學生把自由落體的「公式」重新連結到可見、可量度的頻閃相片：
 
-1. 學生自行設定頻閃頻率；
+1. 系統在新 attempt 公平隨機指派並保存一個頻閃頻率；
 2. 模擬生成由同一次自由落體形成的等時間間隔頻閃軌跡；
 3. 學生把可移動直尺放到球旁邊，實際讀取總位移及相鄰間隔；
 4. 學生整理時間比及距離比；
@@ -35,7 +35,7 @@
 核心學習證據不是「學生最後揀中答案」而已，而是完整證據鏈：
 
 ```text
-設定頻率
+保存隨機指派頻率
 → 生成等時間頻閃圖
 → 移動並對準直尺
 → 讀取及記錄量度
@@ -69,7 +69,7 @@
   - 由量度證據歸納 \(s\propto t^2\) 及
     \(\Delta s_1:\Delta s_2:\Delta s_3:\Delta s_4=1:3:5:7\)。
 - Learner task：
-  - 從未設定狀態選擇 `4 Hz`、`5 Hz` 或 `6 Hz`；
+  - 查看系統在新 attempt 一次性隨機指派的 `4 Hz`、`5 Hz` 或 `6 Hz`；
   - 按「拍攝頻閃相片」生成 \(P_0\)–\(P_4\)；
   - 把停泊在舞台側邊的直尺拖到球列旁；
   - 完成四個總位移讀數及四個相鄰間隔讀數；
@@ -77,7 +77,7 @@
   - 在提交前 review 檢查量度證據和答案，然後提交。
 - Main interactions：
   - 拍攝前的連續自由落體示意及明確重播；
-  - 頻率 segmented control；
+  - 已指派頻率 readout；
   - 生成／重新拍攝按鈕；
   - mouse／trusted touch 直接拖動直尺；
   - 選擇量度目標；
@@ -155,40 +155,50 @@
 - 「由起點 \(P_0\) 至 \(P_n\) 的總位移」；
 - 「相鄰兩點 \(P_{n-1}\) 至 \(P_n\) 的間隔距離」。
 
-### 4.2 相機自動校準，但不提供答案
+### 4.2 相機自動校準及相片尺換算
 
 若所有頻率都使用固定 5 m 畫面，`6 Hz` 的第一段會在矮手機上過短。第一版因此
 把頻閃相機視野校準至剛好容納 \(P_0\)–\(P_4\) 及底部留白。畫面旁明示：
 
 > 相機已按今次軌跡調整視野；每次都要按直尺刻度讀取實際距離，不能比較像素。
 
-改變相機比例只影響呈現，不改變物理量、scorer 或比例。內部 model、scorer、
-snapshot 的 `readingM`／`rulerZeroM` 仍一律使用米；學生看見的直尺、距離輸入、
-review、結果、容差及錯誤訊息一律使用厘米，邊界只作一次
-`cm ÷ 100 -> m` 或 `m × 100 -> cm` 轉換。
+改變相機比例只影響呈現，不改變物理量、scorer 或比例。畫面上的固定相片尺為
+`0..5 cm`，不是把真實米數直接寫成厘米。明確 calibration 為：
+
+```text
+photoCm = meters × 5 / cameraMaxM
+meters = photoCm × cameraMaxM / 5
+```
+
+內部 model、scorer、snapshot 的 `readingM`／`rulerZeroM` 仍一律使用米；
+學生看見的直尺、舞台提示、review、結果、容差及錯誤訊息則使用「相片上距離」
+厘米。學生手動輸入的相片厘米值在 Record 時只以
+`photoCmToMeters()` 換算一次為權威米值；舞台上四捨五入至 `0.01 cm` 的提示
+永不反向解析、永不寫入輸入欄。
 
 ### 4.3 理想模型，保留真實量度感
 
 - 物理位置不加入隨機噪聲，讓比例規律可由理想數據成立。
 - 學生讀尺及對準仍有有限精度，所以數值評分使用明確容差。
-- UI 不顯示球的權威 \(s_n\) 數字，不提供自動距離 readout。
-- 有效對準提示只說「可以讀數」，不顯示正確讀數或誤差大小。
+- UI 不顯示球的權威 \(s_n\) 米數；完成有效尺位後，舞台旁以 pointer-inert
+  `<output>` 顯示由直尺 geometry 得出的相片讀數至 `0.01 cm`。
+- 舞台 output 只是可見量度提示；只有學生手動輸入並按 Record 才建立答案。
+  Record 不讀取或反向解析舞台 output。
 - 提交後 review 才顯示理想值、學生值及差異。
 
-### 4.4 可以跳過或不用尺，但不能取得操作分
+### 4.4 手動答案與尺位證據互相獨立
 
 活動不以 UI 硬鎖迫使每個學生完成有效尺位，否則「操作評分」會退化成入場條件。
-每個量度欄可：
-
-- 輸入一個讀數；
-- 明確標記「未能量度／跳過」；
-- 在沒有有效尺位證據下輸入估算值。
-
-後兩種路徑仍可完成及提交，但相關操作分為零。這讓 scorer 能區分：
+每個 v2 新量度欄可手動輸入 `0..5 cm`（inclusive）或明確標記
+「未能量度／跳過」。新 task 輸入為空白；review-edit 才預填該項先前已記錄的
+相片厘米值。輸入中的未提交文字屬 transient，不保存。答案可以在沒有有效尺位時
+記錄；若當下有 matching 有效尺位，才另外連結操作 evidence。v1 snapshot
+已保存的 manual-without-evidence reading 經嚴格 migration 後仍可完成及取得既有
+答案分，但不補造操作 evidence。這讓 scorer 能區分：
 
 - 真正移尺量度後得到正確／不正確讀數；
 - 答案正確但沒有尺位證據；
-- 有移尺但擺位無效；
+- 有移尺但擺位無效，而手動答案仍可 Record（不建立操作 evidence）；
 - 完全跳過。
 
 ## 5. 物理及相機模型
@@ -242,12 +252,9 @@ s_1:s_2:s_3:s_4 = 1:4:9:16
 | 5 Hz | 0.2000 s | 0.2000 m | 0.8000 m | 1.8000 m | 3.2000 m |
 | 6 Hz | 0.1667 s | 0.1389 m | 0.5556 m | 1.2500 m | 2.2222 m |
 
-Model 及 scorer 以米保留 full precision；學生畫面、直尺、輸入、review 及
-feedback 顯示厘米。輸入如 `20 cm` 精確轉為 `0.2 m`、`31.25 cm` 精確轉為
-`0.3125 m`，不可預先四捨五入、重複除以 100，亦不可用顯示值重新評分。
-feedback、review 及 ARIA 的厘米顯示最多保留兩個小數並移除 IEEE-754 尾數；
-restore/edit input 則以 decimal-place shift 保留 canonical learner reading 的實際
-精度（例如 `31.25`），不可先經 display rounding 再回寫 authoritative state。
+Model、scorer 及 snapshot 以米保留 full precision；學生畫面、相片尺、readout、
+review 及 feedback 依 §4.2 calibration 顯示相片厘米。顯示最多保留兩個小數並移除
+IEEE-754 尾數；不可用 rounded display value 重新評分。
 
 ### 5.4 相機範圍
 
@@ -266,13 +273,20 @@ yPx(s) = topPaddingPx + usableStageHeightPx × s / cameraMaxM
 
 直尺及球列共用 `yPx()`；resize 後由權威米制位置重畫，不把舊像素位置當答案。
 
-### 5.5 頻閃生成
+### 5.5 隨機指派及頻閃生成
 
-- 學生必須由「未設定」主動選擇頻率，沒有預選正確答案。
-- `setup/new` 及 `setup/configured` 先顯示一個非互動實心球的連續自由落體示意：
+- genuinely new editable attempt 以 injected RNG 在 `[4,5,6]` 作 unbiased index
+  selection，恰好呼叫一次；指派結果先成為 v2 semantic state 並成功 draft
+  checkpoint，之後才 enable「拍攝頻閃相片」。
+- restore、render、submission retry、reset、preview replay 均不得呼叫 RNG 或
+  reroll。Reset 清除量度／分析但保留同一 assigned frequency。
+- 若第一次 assignment checkpoint 失敗，capture 保持 disabled 並進入誠實
+  technical lock；不可用未持久化頻率開始活動。
+- `setup/new`（只在 assignment 前短暫存在）及 `setup/assigned` 先顯示一個非互動
+  實心球的連續自由落體示意：
   \(s=\tfrac12gt^2\)、\(0\le t\le1.00\text{ s}\)，使用固定 `0..5.5 m` 示意比例；
   \(t=1.00\text{ s}\) 時球位於 `5.00 m`。正常動態模式自動播放一次後停在終點，
-  並一直提供「重播連續下落」。它不循環、不留下 \(P_0\)–\(P_4\)、不選擇頻率、
+  並一直提供「重播連續下落」。它不循環、不留下 \(P_0\)–\(P_4\)、不重選頻率、
   不產生讀數／evidence／score／checkpoint。學生可見文字必須說明：
   「連續自由落體示意（尚未拍攝）：畫面只有同一個正在下落的球；此預覽不產生
   量度數據。」
@@ -302,9 +316,9 @@ yPx(s) = topPaddingPx + usableStageHeightPx × s / cameraMaxM
   拍攝前顯示起點／終點／箭頭及「連續下落動畫已按你的動態效果設定省略」；
   按生成後立即顯示相同的完整權威 \(P_0\)–\(P_4\) 靜態相片、所選 \(f\)、
   \(\Delta t\) 及 equal-time sampling 說明。重播按鈕仍可操作但不強制動畫。
-- 改變頻率時，先顯示確認：「重新拍攝會清除今次量度值及操作證據」。
-- 確認後原子式清除所有依賴舊頻率的讀數、比例答案、概念答案及 review 狀態，
-  保留的只有非評分 UI 偏好。
+- 「重新開始」先確認會清除今次量度值及操作證據，但明示保留系統指派頻率。
+- 確認後原子式清除讀數、比例答案、概念答案及 review 狀態，回到同一
+  assigned-frequency setup。
 
 ## 6. 畫面及量度工具
 
@@ -320,6 +334,18 @@ yPx(s) = topPaddingPx + usableStageHeightPx × s / cameraMaxM
 - 選中量度目標時的兩條淡水平投影線；
 - 直尺停泊區及量度工作區；
 - 不顯示位置數字、答案線或自動括號距離。
+- SVG 使用 uniform `xMidYMid meet` mapping；球影在所有 viewport/page-scale
+  的 screen-space bounding box 保持近似圓形，不因舞台長寬比拉成橢圓。
+- apparatus geometry 以同一 screen CTM 設可讀下限：球影直徑至少
+  `18 CSS px`、`P₀`–`P₄` label 至少 `10 CSS px`、`0..5` ruler numeral 至少
+  `14 CSS px`、ruler header 的唯一 `cm` 至少 `16 CSS px` 且為粗體、主要 tick／body stroke 至少
+  `1 CSS px`。這些下限透過 SVG user-unit 反換算達成，不改變 uniform CTM、
+  viewBox、物理座標或 evidence CSS-pixel 定義；
+- 相機繪圖 top margin 使用 `55 SVG user units`，為 ruler header、起點球影及
+  labels 留出互不重疊的空間；這只改呈現映射，不改物理或相片厘米 calibration；
+- 每次曝光可顯示只包圍最新球影的 pointer-inert ring／camera cue；cue 不填滿、
+  不改舞台 luminance、不接觸 learner state 或 checkpoint。Reduced motion 使用
+  同位置的靜態局部 cue，不作 pulse animation。
 
 Preview/live ball、曝光球影及最終球影均不是 draggable target，並使用
 `pointer-events:none`；只有完成相片後的直尺可以移動。點選球影只可選擇量度
@@ -327,19 +353,23 @@ Preview/live ball、曝光球影及最終球影均不是 draggable target，並�
 
 ### 6.2 直尺
 
-- 垂直透明直尺；學生刻度及標籤使用厘米，內部幾何仍使用米；
-- 細刻度每 `5 cm`、中刻度每 `10 cm`、主刻度每 `50 cm`；只標示主刻度
-  `0, 50, 100, ...`，並在尺身空白位置只顯示一次直立 `cm`；
+- 使用慣常相片尺：固定 `0..5 cm`，共 `51` 條刻線；每 `0.1 cm` 細刻度、
+  每 `0.5 cm` 中刻度、每 `1 cm` 主刻度；標示 `0,1,2,3,4,5`，並只顯示一次
+  直立、粗體 `cm`。`cm` 放在可見尺頂附近的 header，尺身被裁切時仍 clamp
+  在可見範圍；header/top margin 必須令它不與 `0`、`1`、球影或 `P` label 重疊；
 - `ruler.y` 永遠代表零刻度 anchor，而不是尺身上緣；
 - 零刻度以上及最大刻度以下各保留 `12 SVG user units` 的尺身 end margin；
 - full ruler body 可在零刻度對準 \(P_1\)–\(P_3\) 時自然超出並被舞台裁切；
   不可為了把整把尺塞進舞台而移動零刻度；
-- 一個共用 geometry helper 由 zero anchor、tick span、end margins、stage CTM
+- 一個共用 geometry helper 由 zero anchor、固定 5 cm tick span、end margins、
+  stage `getScreenCTM()`／inverse mapping
   算出 full body、與舞台相交的 visible body、dynamic visible width、measuring
   edge 及 clamp；draw、position、hit/scoring geometry、restore 及 pointer/keyboard
   clamp 全部使用同一結果；
-- SVG 使用 `preserveAspectRatio="none"`（或等價明確 CTM），HTML overlay 與
-  可見 SVG 尺身四邊在 CSS pixels 相差不超過 `1 px`；
+- SVG 使用 `preserveAspectRatio="xMidYMid meet"`；pointer client coordinates、
+  HTML overlay、evidence CSS px、resize 及 restore 全部使用同一
+  `getScreenCTM()`／inverse client↔SVG path。HTML overlay 與可見 SVG 尺身四邊
+  在 CSS pixels 相差不超過 `1 px`；
 - 固定、原生 focusable HTML button／pointer-capture target 透明覆蓋可見尺身
   intersection，寬度在 required viewport 及 200% zoom 至少 `44 CSS px`；
   overlay 不另畫 glyph、border、fill 或 rounded handle，學生直接拖動直尺本身；
@@ -353,7 +383,7 @@ Preview/live ball、曝光球影及最終球影均不是 draggable target，並�
 總位移模式：
 
 1. 選擇「由 \(P_0\) 量起」；
-2. 將直尺零刻度對準 \(P_0\)，尺邊靠近球列；
+2. 將直尺零刻度對準 \(P_0\)，讓零主刻度與 \(P_0\) 投影線重疊；
 3. 保持同一尺位，依次讀取 \(P_1\)–\(P_4\)；
 4. 每輸入一個值時，系統記錄該讀數是否在有效總位移尺位下輸入。
 
@@ -364,17 +394,38 @@ Preview/live ball、曝光球影及最終球影均不是 draggable target，並�
 3. 讀取較後一點對應刻度；
 4. 系統要求本段被選中後曾實際移動直尺，才建立該段有效操作證據。
 
+量度輸入是可編輯的手動相片厘米欄。新 task 必須空白；review-edit 預填該項
+既有 reading 的相片厘米顯示值，並在 transient state 同時保留原 canonical
+`readingM` 及 exact baseline text。若 Record 時文字與 baseline 完全相同，直接沿用
+原 `readingM`；只有 learner 改變文字才重新解析及換算一次，避免純開啟／確認 edit
+因顯示位數而改變 score／pass。移動直尺不改寫或清除學生輸入。Record 只接受可解析
+為 finite、inclusive `0..5 cm` 的完整值，並以 `photoCmToMeters()` 轉換一次；
+空白、非有限、負數及大於 `5` 均顯示錯誤。未提交輸入不進 snapshot。
+Review-edit Record 必須把 transient `reusedOriginal` 明確傳入 persistence continuation。
+只有該 flag 為 true、原 item 是 recorded，而且新 `readingM` 與原 canonical number
+`Object.is` 相同時，才可把原 item 及其 total/gap process evidence bit-identically
+保留並返回 review；這條路徑不得重新推導或清除 evidence。文字有任何改變時，即使
+換算後接近原值，仍走一般 replacement：沒有新 matching valid placement 就清除該項
+process link／gap evidence，有新 valid placement 才建立新 evidence。
+
+合法 completed placement 會在舞台直尺旁的 pointer-inert `<output>` 顯示
+「x.xx cm」，並只作一次 polite completion announcement；它不寫入 learner input。
+output 位置跟隨尺身、clamp 在舞台內。Pointerdown、無效 completion、
+pointercancel、park、skip、task change、reset、review 或 technical lock 均清除
+stale output。答案可在沒有 matching placement 時 Record；只有當下存在 matching
+有效 placement 才另建 evidence。
+
 ### 6.4 有效尺位證據
 
 有效總位移證據同時要求：
 
 ```text
-frequency was actively selected
+frequency was randomly assigned and persisted
 trajectory exists
 ruler moved out of its parking state
 movement since task activation >= MIN_MEANINGFUL_MOVE_NORM
 ruler zero is within ZERO_ALIGNMENT_TOLERANCE_PX of P0
-ruler measuring edge is within the allowed adjacency band beside the ball column
+ruler zero major-tick segment overlaps the selected START guide horizontally
 pointer/keyboard movement ended before the reading was recorded
 ```
 
@@ -385,7 +436,7 @@ the intended pair is active
 ruler moved after that pair became active
 movement >= MIN_MEANINGFUL_MOVE_NORM
 ruler zero is aligned to the earlier point of that pair
-ruler edge is beside the ball column
+ruler zero major-tick segment overlaps that pair's START guide horizontally
 the reading is confirmed while this placement remains valid
 ```
 
@@ -394,18 +445,25 @@ the reading is confirmed while this placement remains valid
 ```text
 MIN_MEANINGFUL_MOVE_NORM = 0.025  // stage diagonal fraction
 ZERO_ALIGNMENT_TOLERANCE_PX = 6
-RULER_EDGE_MIN_GAP_PX = 6
-RULER_EDGE_MAX_GAP_PX = 44
+MIN_ZERO_TICK_OVERLAP_PX = 4
 ```
 
-`MIN_MEANINGFUL_MOVE_NORM` 令不同 viewport 的「有移動」判斷一致；alignment 使用
-CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有邊界測試。
+`MIN_MEANINGFUL_MOVE_NORM` 令不同 viewport 的「有移動」判斷一致；alignment 及
+zero-tick／guide overlap 使用 CSS pixel，因為它們代表可見對準精度。水平投影線
+固定由 SVG `x=80` 至 `x=285`，`pointer-events:none`，且所選 START guide 是
+placement 的權威水平範圍。零主刻度 segment 與該 guide 的 screen-space horizontal
+overlap 必須 inclusive `>=4 CSS px`；可沿 guide 任意位置，不設 `BALL_X` 鄰近條件。
+若 \(P_0\) 上方的 ruler zero 對應輕微負
+`rulerZeroM`，只要其 signed `zeroErrorPx` 與 CTM-derived pixels-per-metre 一致、
+且在 inclusive `±6 CSS px` 內，persistence 必須接受；不得另以 `0 m` 下界推翻
+scoring 的合法負側對準。所有常數集中定義並有正／負側邊界測試。
 
-系統只顯示中性狀態：
+系統顯示中性對準狀態及量度值：
 
 - 「直尺仍在停泊區」
 - 「請把零刻度對準所選起點」
-- 「直尺已靠近所選起點，可以讀數」
+- 「直尺已靠近所選起點」
+- 舞台 output：「x.xx cm」
 
 不顯示「差 0.03 m」、正確讀數或是否會得分。
 
@@ -415,13 +473,13 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 - Pointer（mouse／trusted touch）及 keyboard 是等價輸入。
 - 只有最後提交中與每個量度項目關聯的最佳有效證據計分。
 - 隨便把尺移動一下但未對準，不建立有效證據。
-- 把尺放在畫面一側後輸入理論值，可以取得答案分，但沒有相應操作分。
+- v1 及 v2 manual reading 均可保留答案分；只有 matching 有效尺位建立操作 evidence。
 
 ## 7. 整體學習流程
 
 ```text
 連續自由落體示意
-→ 設定頻率
+→ 顯示已保存的隨機頻率
 → 連續下落及等時間曝光
 → 靜態頻閃相片
 → 總位移量度
@@ -435,10 +493,11 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 ### 7.1 設定
 
 - 畫面直接進入實驗，不設 landing page。
-- 未選頻率時先 autoplay 一次不產生數據的連續下落示意，並提供明確重播。
+- 新 attempt 指派及成功保存頻率後 autoplay 一次不產生數據的連續下落示意，
+  並提供明確重播。
 - 簡短說明頻閃頻率是每秒拍攝次數。
-- 學生選擇 `4/5/6 Hz`，畫面要求先預測「頻率愈高，相鄰影像時間是較短還是
-  較長」；此預測不計分，提交後可比較。
+- 畫面顯示今次獲派 `4/5/6 Hz`，並要求先預測「頻率愈高，相鄰影像時間是較短
+  還是較長」；此預測不計分，提交後可比較。
 - 按拍攝後先鎖定 conflicting setup actions，依所選 \(1/f\) 顯示一次 capture；
   \(P_4\) 完成及 live ball 移除後才出現量度表。Reduced motion 立即進入同一靜態
   結果。
@@ -448,7 +507,8 @@ CSS pixel 是因為它代表可見對準精度。所有常數集中定義並有�
 - 首次開啟總位移模式，提示零刻度要對準 \(P_0\)。
 - 完成或跳過四個總位移項目後可進入相鄰間隔。
 - 相鄰間隔按順序顯示四段；可回到較早項目重測。
-- 每個距離項目均清楚顯示單位 `cm`；時間仍用 `s`、頻率仍用 `Hz`。
+- 每個距離項目均清楚標示「相片上距離」及單位 `cm`；時間仍用 `s`、頻率仍用
+  `Hz`。
 - 未填值不被當作 `0`。
 
 ### 7.3 分析
@@ -500,7 +560,11 @@ Review 顯示：
   `m s<sup>−2</sup>`；變量斜體，單位不可斜體；
 - static 及 dynamic measurement／capture／review／result copy 保留語義 markup；
   dynamic 數值先驗證或 escape，再組成受控 DOM／HTML，不把富排版全部 flatten；
-- SVG labels 及 ARIA 可用等價 plain text；不加入 MathJax 或其他 dependency。
+- operator、value、unit 之間用明確 whitespace／spacing wrapper；靜態及動態
+  \(\Delta t\) 一律使用 rich `<span class="delta">Δ</span><var>t</var>`，
+  令 delta 直立而量符號保持斜體；
+- SVG labels 及 ARIA 可用等價 plain text，但 ARIA 必須保留
+  `Δt = value s` 的 operator/value/unit spacing；不加入 MathJax 或其他 dependency。
 
 ## 8. Scoring
 
@@ -520,7 +584,7 @@ Highest score: 100
 
 | 證據 | 分數 | 取得條件 |
 |---|---:|---|
-| 主動設定頻率並拍攝 | 4 | 由未設定狀態選擇合法頻率及生成相片 |
+| 學生主動拍攝 | 4 | 隨機頻率已保存，學生啟動 Generate 並生成相片；assignment 本身不取分 |
 | 總位移：有效移尺及對準 | 8 | 達到最小移動量、零刻度及尺邊有效，並在該尺位至少確認一個讀數；純移動不取分 |
 | 總位移：四個讀數連結有效尺位 | 4 | 每項 1 分 |
 | 相鄰間隔：四次重新移尺、對準及記錄 | 24 | 每段 6 分 |
@@ -638,16 +702,11 @@ distanceTolerance(expected) = max(0.03 m, 0.06 × expected) // canonical interna
 
 - 對稱、inclusive absolute-or-relative tolerance：
   `abs(student - expected) <= distanceTolerance(expected)`。
-- `5 Hz` 的 \(s_1=0.200 m\)（顯示 `20 cm`），容差
-  `0.030 m`（顯示 `3 cm`）：
-  - just inside：`22.9 cm`（canonical `0.229 m`）
-  - exact boundary（接受）：`23 cm`（canonical `0.230 m`）
-  - just outside：`23.01 cm`（canonical `0.2301 m`）
-- `5 Hz` 的 \(s_4=3.200 m\)（顯示 `320 cm`），容差
-  `0.192 m`（顯示 `19.2 cm`）：
-  - just inside：`339.1 cm`
-  - exact boundary（接受）：`339.2 cm`
-  - just outside：`339.21 cm`
+- `5 Hz` 的 \(s_1=0.200 m\) 對應相片約 `0.29 cm`；canonical 容差
+  `0.030 m` 對應相片約 `0.04 cm`。Boundary test 先在米制執行，再驗證
+  photo calibration 顯示，不以 `0.01 cm` readout rounding 改寫 inclusive 判斷。
+- `5 Hz` 的 \(s_4=3.200 m\) 對應相片約 `4.57 cm`；canonical 容差
+  `0.192 m` 對應相片約 `0.27 cm`。
 - 相鄰間隔使用各段自己的 expected value，不用總位移容差代替。
 - 對非有限、負值、缺單位語義或大於 camera range 的值 fail closed／0 分。
 
@@ -682,10 +741,11 @@ RATIO_TERM_TOLERANCE = 0.15
 ### 9.4 尺位
 
 - `ZERO_ALIGNMENT_TOLERANCE_PX = 6 px`，inclusive；
-- 尺邊距球列可見邊界 `6..44 px`，inclusive；
+- 零主刻度 segment 與 selected START guide 的水平重疊
+  `zeroTickOverlapPx >= 4 px`，inclusive；投影線固定 `x=80..285`，可沿線任意位置；
 - 最小移動量 `0.025` stage diagonal，inclusive；
-- exact/inside/outside 測試包括 zero error `5.99/6.00/6.01 px`、edge minimum
-  `5.99/6.00/6.01 px`、edge maximum `43.99/44.00/44.01 px`，以及 normalized
+- exact/inside/outside 測試包括 zero error `5.99/6.00/6.01 px`、overlap
+  `3.99/4.00/4.01 px`，far-left／far-right exact boundary，以及 normalized
   move `0.0249/0.0250/0.0251`；`0.0250` 精確門檻接受。
 
 所有物理、量度及 scoring tolerance 集中在純函數模組，不散落 DOM handler。
@@ -703,6 +763,9 @@ RATIO_TERM_TOLERANCE = 0.15
 - `html`、`body`、app shell 在 bounded iframe 無可用 vertical scroll range。
 - shrinking grid／flex chain 全部需要 `min-height: 0`。
 - panel 使用 `overflow-y: auto` 及 `overscroll-behavior: contain`。
+- 每個 phase 把 primary／secondary actions 放在語義 action group；destructive
+  reset 另成一列，與前一 action group 的 computed vertical gap 在所有 breakpoint
+  （包括 `320 px` 寬）至少 `12 px`。Reset wording 明示保留隨機指派頻率。
 - 不把舞台變成獨立 vertical scroller。
 - 極矮 viewport／200% zoom：
   - CSS effective viewport `max-height: 32rem` 時，明確覆蓋 normal track 為
@@ -866,7 +929,12 @@ gap item 保存最後一份 canonical evidence：
   task: "gap01" | "gap12" | "gap23" | "gap34",
   moveNorm,        // movement after this task activation
   zeroErrorPx,
-  edgeGapPx,
+  zeroTickOverlapPx, // current-CTM audit metric, never trusted after CTM change
+  rulerX,            // current-CTM cache; restore does not treat it as authoritative
+  rulerSide: "left" | "right",
+  horizontalMode: "guide-fraction" | "left-boundary" | "right-boundary",
+  guideFraction,     // only for guide-fraction; 0..1
+  boundaryOverlapPx,// only for boundary modes; fixed CSS-pixel relation
   readingM,        // confirmed finite reading; skipped task has no evidence object
   usedWhileValid   // validated together with raw metrics, never trusted alone
 }
@@ -881,14 +949,20 @@ totalPlacement: {
   mode,
   moveNorm,
   rulerZeroM,
-  edgeSide,
+  rulerX,
+  rulerSide,
+  horizontalMode,
+  guideFraction | boundaryOverlapPx,
   zeroErrorPx,
-  edgeGapPx
+  zeroTickOverlapPx
 }
 ```
 
-它保留 `rulerZeroM` 及 `edgeSide`，因同一尺位需要連續供四個總位移讀數使用及在
-reload／review-edit 重建。Gap evidence 不需要重建已完成尺位，所以不保存這兩項。
+它保留 guide-relative horizontal mode、fraction／boundary overlap 及 side，因同一
+尺位需要連續供四個總位移讀數使用及在 reload／review-edit 重建。`rulerX` 與
+`zeroTickOverlapPx` 只記錄完成當刻 CTM 下的 audit geometry；跨 CTM 不可直接信任。
+Gap evidence 亦保存同一 stable horizontal anchor／side，讓
+raw overlap evidence 可審核，但已完成 gap 不用重建為 active ruler。
 
 尚未確認讀數但已完成 pointerup／keyboard movement 的尺位是 draft semantic state，
 不是計分 evidence。Draft 另外保存最多一個：
@@ -899,13 +973,51 @@ activePlacement: {
   mode,
   moveNorm,
   rulerZeroM,
-  edgeSide: "left" | "right",
-  edgeGapPx,
+  rulerX,
+  rulerSide: "left" | "right",
+  horizontalMode,
+  guideFraction,      // horizontalMode=guide-fraction only
+  boundaryOverlapPx,  // boundary mode only
+  zeroTickOverlapPx,
   zeroErrorPx
 }
 ```
 
-Restore 由 `rulerZeroM`、`edgeSide` 及 `edgeGapPx` 重建相同尺位，讓學生仍可直接
+Restore／resize 由 selected guide、stable `horizontalMode`、fraction／boundary
+overlap、`rulerSide` 及目前 CTM 重建尺位，並原子式 canonicalize current
+`rulerX`、`rulerZeroM` 及 raw bounded `zeroTickOverlapPx`；不得信任舊 CTM 的 raw
+CSS overlap，亦不得把舊 edge gap 解釋成 overlap。Canonicalization 不建立 reading、
+evidence 或分數，也不因 resize commit；draft provider 只提供最新 in-memory state。
+Record 再以目前可見尺位呼叫 `placementFromRuler()` 並 refresh active placement，
+只有目前 task／geometry 仍有效才建立 evidence，舊 valid metric 不可取得分數。
+Current v2 horizontal fields 必須作 fail-closed cross-field canonical validation：
+
+- 零主刻度的 screen-space 長度為 `23 CSS px`，cross-field tolerance 固定為
+  `0.01 px`；
+- `left-boundary`／`right-boundary` 的 `boundaryOverlapPx` 與
+  `zeroTickOverlapPx` 均須 finite、在 `0..23`，而且兩者差的絕對值不得超過
+  `0.01 px`；mode 必須與 `rulerSide` 一致，且不得同時帶有 `guideFraction`；
+- `guide-fraction` 只可帶 finite `guideFraction` `0..1`，不得帶有
+  `boundaryOverlapPx`；`rulerX` 必須在 `0.01` 內等於
+  `GUIDE_X1 + guideFraction * (GUIDE_X2 - GUIDE_X1)`，`rulerSide` 必須與該
+  canonical anchor 一致，而完整零主刻度 overlap 必須在 `0.01 px` 內等於
+  `23 CSS px`；
+- 以上規則同時套用 active placement、draft／review decode、pending-final
+  canonical validation 及 scorer。即使 answer 是手工構造、沒有經 decoder，
+  矛盾 fields 亦不得建立 process link 或 meaningful-ruler-use。
+- Current family（`rulerX`、`rulerSide`、`horizontalMode`、
+  `guideFraction`／`boundaryOverlapPx`、`zeroTickOverlapPx`）與 legacy family
+  （`legacyEdgeSide`、`legacyEdgeGapPx`）互斥。只要出現任何 current field，就必須
+  通過完整 current canonical relation，且不得 fallback 至 legacy；只要出現任何
+  legacy field，就必須是完整純 legacy shape，且不得帶任何 current field。混合、
+  不完整 current 加合法 legacy、或矛盾 current 加合法 legacy 均在 draft、review、
+  pending-final 及直接 scorer fail closed。
+
+例如 `boundaryOverlapPx=0` 但 `zeroTickOverlapPx=4` 必須在所有路徑拒絕，
+不可因其中一個欄位單獨達到計分門檻而取得操作分。Tolerance 只容納同一當刻
+screen geometry 的浮點誤差；跨 CTM 必須先重建再 canonicalize，不可以 tolerance
+接受舊 CTM raw value。
+這讓學生仍可直接
 讀數、再微調或跳過；不保存 DOM pixel transform。`activePlacement` 只可屬於目前
 未解決 task。Gap reading confirmed／skip／離開 task 時原子式清除；
 total-displacement reading confirmed 後則保留同一 active placement 給下一個 total
@@ -937,8 +1049,8 @@ placement。Candidate placement 可以未達有效
 
 | Phase | Variant／invariant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `setup` | `new` | setup | supported versions；frequency null | trajectory、answers、evidence、result | choose frequency |
-| `setup` | `configured` | setup | legal frequency；active-selection flag | trajectory、answers、evidence、result | generate photo or change frequency |
+| `setup` | `new` | setup | supported v2 versions；frequency null；只可在 genuinely new attempt assignment checkpoint 前短暫存在 | trajectory、answers、evidence、result、enabled capture | inject RNG once, assign and checkpoint |
+| `setup` | `assigned` | setup | legal persisted frequency；`frequencyAssigned=true` | trajectory、answers、evidence、result | learner-initiated capture |
 | `measure-total` | `normal-unpositioned` | 0–3 | legal frequency；trajectory；earlier total items resolved | active placement；future total；all interval/analysis/result fields | move ruler, enter placement-ready, or skip |
 | `measure-total` | `normal-placement-ready` | 0–3 | matching bounded `activePlacement`（可有效或未有效）；earlier total items resolved | current reading/evidence；future total；interval/analysis/result | record, adjust placement, or skip |
 | `measure-total` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；complete existing answer set may remain | active placement；result metadata | move ruler, replace/skip item, or return |
@@ -959,8 +1071,8 @@ placement。Candidate placement 可以未達有效
 Transitions：
 
 ```text
-setup/new -> setup/configured on legal active frequency selection
-setup/configured -> measure-total/normal-unpositioned[0] on first accepted Generate;
+setup/new -> setup/assigned on injected unbiased assignment plus successful draft checkpoint
+setup/assigned -> measure-total/normal-unpositioned[0] on first accepted Generate;
   one draft checkpoint occurs immediately, while transient capture temporarily hides measurement UI
 measure-*/normal-unpositioned -> measure-*/normal-placement-ready on completed pointerup/keyboard placement
 measure-*/normal-placement-ready -> same placement-ready on further completed adjustment
@@ -981,8 +1093,8 @@ review-edit-unpositioned -> review-edit-placement-ready on completed placement
 review/* -> analyze/review-edit on edit analysis
 review-edit/* -> review/complete|incomplete on explicit return
 review/complete -> submitted/locked on success or committed outcome
-any editable generated phase -> setup/configured only after confirmed frequency reset,
-  atomically clearing all trajectory-dependent state
+any editable generated phase -> setup/assigned only after confirmed reset,
+  atomically clearing all trajectory-dependent state while preserving assigned frequency
 ```
 
 `frozen`、`load-error` 及 trust-mismatch 是 shared lifecycle UI locks，不新增 production
@@ -1003,23 +1115,27 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
 
 ```js
 {
-  v: 1,
+  v: 2,
   modelVersion: 1,
-  rubricVersion: 1,
+  rubricVersion: 2,
   phase,
   variant,
   currentStep,
   returnToReview,
   frequencyHz,
-  frequencyActivelySelected,
+  frequencyAssigned,
   generated: true,
   activePlacement: { // optional; only in a *-placement-ready draft variant
     task,
     mode,
     moveNorm,
     rulerZeroM,
-    edgeSide,
-    edgeGapPx,
+    rulerX,
+    rulerSide,
+    horizontalMode,
+    guideFraction,      // conditional
+    boundaryOverlapPx,  // conditional
+    zeroTickOverlapPx,
     zeroErrorPx
   },
   measurements: {
@@ -1035,12 +1151,13 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
   evidence: {
     setupCompleted,
     totalPlacement: {
-      mode, moveNorm, rulerZeroM, edgeSide, zeroErrorPx, edgeGapPx
+      mode, moveNorm, rulerZeroM, rulerX, rulerSide, horizontalMode,
+      guideFraction|boundaryOverlapPx, zeroErrorPx, zeroTickOverlapPx
     },
-    gap01: { mode, moveNorm, zeroErrorPx, edgeGapPx, readingM, usedWhileValid },
-    gap12: { mode, moveNorm, zeroErrorPx, edgeGapPx, readingM, usedWhileValid },
-    gap23: { mode, moveNorm, zeroErrorPx, edgeGapPx, readingM, usedWhileValid },
-    gap34: { mode, moveNorm, zeroErrorPx, edgeGapPx, readingM, usedWhileValid }
+    gap01: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
+    gap12: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
+    gap23: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
+    gap34: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid }
   },
   analysis: {
     deltaTS,
@@ -1062,12 +1179,12 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
 
 ```js
 {
-  v: 1,
+  v: 2,
   locked: 1,
   modelVersion: 1,
-  rubricVersion: 1,
+  rubricVersion: 2,
   frequencyHz,
-  frequencyActivelySelected: true,
+  frequencyAssigned: true,
   measurements: { /* all eight resolved items */ },
   evidence: { /* canonical process evidence subset */ },
   analysis: { /* all authoritative answers */ }
@@ -1098,10 +1215,10 @@ validate versions and canonical schema
 ### 16.3 Authoritative state
 
 - model／rubric version；
-- legal selected frequency and active selection evidence；
+- legal one-time assigned frequency；
 - phase、variant、current step、return-to-review；
-- draft-only active placement 的 task、mode、normalized movement、米制零位、尺邊
-  side／gap；
+- draft-only active placement 的 task、mode、normalized movement、米制零位、
+  stable horizontal anchor／side 及 raw zero-tick overlap；
 - eight measurement statuses and learner readings；
 - canonical operation evidence raw metrics；
 - learner time、ratio and concept answers。
@@ -1126,6 +1243,8 @@ validate versions and canonical schema
 - live-ball 位置、目前已顯示的 exposure index、capture／preview status；
 - focus／hover；
 - live-region queue；
+- 手動 reading 輸入中的未提交文字、review-edit original canonical／baseline
+  transient pair 及舞台 output；
 - debounce timers。
 
 ### 16.6 Restore invariants
@@ -1137,15 +1256,22 @@ validate versions and canonical schema
 - normal linear phases cannot skip required earlier resolution or contain stale future data；
 - review-edit may retain complete future data only with `returnToReview=true`；
 - `*-placement-ready` 必須有唯一、matching current task 的 bounded active
-  placement；它可未達 scoring validity，但 restore 後 validity 不變；
+  placement；它可未達 scoring validity；restore／resize 以 stable guide-relative
+  relation canonicalize 後 validity 不變，raw current-CTM cache 不作權威；
   `*-unpositioned`、analysis、review 及 submitted 必須沒有 active placement；
 - each measurement status is `recorded` or `skipped` where required；
+- v2 runtime 新增 `recorded` item 不要求 placement；當 matching persisted active
+  placement 有效時才按既有規則建立 total/gap evidence。Validator 仍可接受經 exact v1 migration
+  得到的 legacy recorded-without-evidence item，以保持舊 review／score；legacy
+  edit replacement 重新受 v2 placement gate 約束；
 - skipped item has no reading/evidence/active placement；
 - recorded reading is finite, non-negative and within supported camera range；
 - evidence task keys are unique and known；
 - `mode` is `pointer` or `keyboard`；
 - 所有 evidence 及 active-placement metrics 無論 `usedWhileValid` true／false 均須
   finite and bounded；
+- `horizontalMode` 的 conditional keys、side、fraction／boundary overlap 必須一致；
+  exact `4 CSS px` left／right boundary 在任一 required CTM restore 後仍為 exact 4；
 - `usedWhileValid` implies metrics satisfy inclusive thresholds；
 - gap evidence reading equals corresponding authoritative reading；
 - total reading linked to placement only when total placement is valid；
@@ -1155,7 +1281,22 @@ validate versions and canonical schema
 - review complete／submitted 明確具有 `deltaTS`、四組 ratio、三個 concept answers
   及八個 resolved measurement statuses；
 - score、passed 及 legal continuation survive round-trip；
-- unsupported old versions fail closed unless an explicit tested migration is added；
+- v1 draft/review 先按 exact legacy schema 驗證，再一次性遷移：
+  `v/rubricVersion -> 2`、`frequencyActivelySelected -> frequencyAssigned`；
+  legacy active placement 是尚未計分的 bounded candidate，先套用
+  `rulerZeroM >= 0`、`edgeGapPx 0..200` 及 placement-shape bounds，再映射為
+  placement-ready；它可 scoring-invalid，restore／合法 continuation 不因此建立
+  operation evidence。Legacy finalized total／gap evidence 才套用
+  `edgeGapPx 6..44` scoring gate。兩類均明確映射為
+  `legacyEdgeGapPx`／`legacyEdgeSide`；不得將 legacy gap 重新解釋為
+  `zeroTickOverlapPx`，亦不得用 v2 新增的負側對準 tolerance 將 v1-invalid
+  placement 變成合法。
+  configured/generated/review 保留原 frequency、meter readings、evidence 及 score。
+  v1 setup/new 無 frequency 時進入同一 assignment boundary，成功保存前 capture
+  disabled。其他 unsupported version fail closed；
+- frozen pending-final 的 inner v1 review 可在記憶體 migration、rescore 及 canonical
+  equality validation 後 retry 原 frozen payload；不可改寫 pending payload 或
+  產生新答案；
 - canonical re-encode produces one stable shape。
 
 ### 16.7 Size budget
@@ -1188,14 +1329,14 @@ validate versions and canonical schema
 
 只在 semantic boundary 保存：
 
-- 頻率選擇；
+- 新 attempt 隨機 frequency assignment 成功保存；
 - 頻閃相片第一次合法生成（`Persistence.generate()` 後一次；preview frame、
   capture frame、每個 stamp 及 animation completion 都不另存）；
 - pointerup／keyboard movement 完成後的尺位；
 - 記錄／修改／跳過一個讀數；
 - 完成一組 ratio／concept answer；
 - 進入／離開 review；
-- confirmed reset；
+- confirmed reset（保留 assigned frequency）；
 - lifecycle flush。
 
 不在每個 pointermove commit。Draft provider 永遠回傳最近完整 semantic state；
@@ -1278,7 +1419,10 @@ SimActivityFlow.reviewResult()
 
 ### 18.3 Phase／persistence
 
-- `setup/new`／`setup/configured` snapshot 不含 preview／replay progress；
+- `setup/new`／`setup/assigned` snapshot 不含 preview／replay progress；
+- injected RNG boundary 覆蓋 0、接近 1 及非法 RNG；genuinely new attempt 只呼叫
+  一次，restore/render/retry/reset 不呼叫；assignment checkpoint failure 不 enable
+  capture；
 - generated draft／review restore 直接為完整 static presentation，不保存
   capture progress；
 - 每個 phase／variant production-shaped round-trip；
@@ -1288,6 +1432,10 @@ SimActivityFlow.reviewResult()
 - 每個 total／gap 的 placement-ready variant restore 後可直接記錄、微調或跳過；
 - normal phase stale future data rejection；
 - review-edit retained future data acceptance；
+- unchanged review-edit reuses bit-identical canonical `readingM` and preserves score/pass；
+  production continuation 同時 bit-identically 保留該 item 及既有 total／gap evidence；
+  changed text follows the normal one-time photo-cm conversion，沒有新 valid placement
+  時清除舊 process evidence；
 - skipped／reading／evidence impossible combinations；
 - missing prior resolution、invalid current step；
 - duplicate／unknown evidence key；
@@ -1296,7 +1444,13 @@ SimActivityFlow.reviewResult()
 - ratio first term 不等於 numeric `1`、array length／term 非法；
 - 距離 ratio `insufficient-data` 只在 source readings 不足時接受；skip path 可用
   該 canonical resolved state 提交而不需亂填；有完整 readings 時拒絕該狀態；
-- old version rejection；
+- v1 draft/review/manual-without-evidence migration、pending retry equality及其他 old
+  version rejection；每個 legacy persisted phase／variant／step 均 round-trip
+  migration並執行一個合法 continuation；v1 placement-ready active candidate 以
+  `edgeGapPx=100` 覆蓋 total／gap／review-edit，restore 後保持 placement-ready 但
+  不建立 operation points；相同 `edgeGapPx=100` 作 finalized evidence 必須拒絕。
+  v1 placement-ready draft、review 及
+  pending inner review 的負 `rulerZeroM` 明確 fail closed／quarantine；
 - maximum draft／review／pending UTF-8 size；
 - invalid editable、pending quarantine、invalid finished lock。
 
@@ -1321,8 +1475,8 @@ SimActivityFlow.reviewResult()
   加入舊 stamp 或改 phase／answers／evidence／score；
 - reduced motion 沒有 motion／cadence timers，直接產生相同 static semantic result；
 - restored generated draft／review 不重播 capture；
-- 頻率由 unset 主動選擇；
-- 改頻率 confirmation atomically 清除依賴資料；
+- 頻率由 genuinely new attempt unbiased 指派一次並在 capture 前保存；
+- reset confirmation atomically 清除依賴資料但保留 assigned frequency；
 - pointer drag 使用 relative offset，不令尺跳到手指中心；
 - pointercancel 不建立 evidence，並驗證 visible ruler、active placement、phase、
   answers、evidence 及 focus 全部回復／保持 drag 前值；
@@ -1331,9 +1485,18 @@ SimActivityFlow.reviewResult()
 - 實際 mouse drag、trusted touch drag、Arrow／Shift+Arrow 完整完成；
 - 實際 mouse 及 trusted touch 分別由可見尺身 top／middle／bottom／left edge／
   right edge 開始，全部命中同一 stable drag owner；pointercancel 回復先前位置；
-- `20 cm -> 0.2 m`、`31.25 cm -> 0.3125 m`、空白／負值／NaN／Infinity invalid；
-  restore、edit、review、locked result 只顯示 cm，而 canonical JSON、schema version、
-  score 及 evidence 保持相同；
+- valid completed placement 的舞台 output 顯示至 `0.01 cm` 並 clamp／跟隨直尺；
+  Record 只從可編輯 learner input 經 `photoCmToMeters()` 轉換一次，rounded stage
+  output 不參與 conversion；pointerdown／invalid／persistence rejection／cancel／
+  park／task／skip／reset／review／technical 清 stale output，且不改 learner input；
+  completion 只作一次 polite announcement，單純顯示不建答案或 evidence；
+- source／package 驗證 output bounding box stays inside stage beside the ruler、
+  computed `pointer-events:none`／`elementFromPoint` 不搶 owner、ruler ARIA 含讀數，
+  並在 invalid completion、park、skip、task、review-edit、reset、review、
+  submission 及 technical lock 全部清 stale；
+- 新 task input blank、review-edit prefill；未提交 input 不 persistence。Record 接受
+  inclusive `0`／`5 cm`，拒絕 blank、non-finite、negative、`>5`；正確／錯誤答案
+  均可在無 placement 時保存而不建 evidence，有有效 placement 時才獨立連結 evidence；
 - HTML／CSS／DOM 全部沒有 magnifier；transparent overlay 沒有可見 handle glyph；
 - `.nudge-grid`、`[data-nudge]` 及其 click binding 全部不存在；
 - ruler capture target drag 中不被 render 替換；
@@ -1360,19 +1523,32 @@ SimActivityFlow.reviewResult()
 - reduced motion preview 靜態、capture 即時完成且沒有 timed movement／cadence；
 - source 及 extracted package 在 `320×500`、`390×500`、`390×600`、
   `430×800`、`700×390` landscape 及 `390×600 @ 200%` 的完整矩陣驗證：
-  full/visible ruler body、overlay 四邊 `<=1 px`、visible width `>=44 px`、一個 `cm`
-  unit、5/10/50 cm hierarchy、兩端 margin、P0–P3 zero alignment、P1–P3 bottom clip、
+  uniform CTM client↔SVG round-trip、球影 screen circularity、full/visible ruler
+  body、overlay 四邊 `<=1 px`、visible width `>=44 px`、一個 `cm` unit、`51` ticks、
+  `0.1/0.5/1 cm` hierarchy、`0..5` labels、兩端 margin、P0–P3 zero alignment、
+  P1–P3 bottom clip；另量度 ball `>=18 CSS px` 且近似圓形、P label／ruler numeral
+  `>=14 CSS px`、唯一粗體 header unit `>=16 CSS px`、tick/body stroke `>=1 CSS px`，
+  header clamp 且不與 `0/1`、ball 或 `P` labels overlap，
   `elementFromPoint` 全尺身命中且沒有 invisible dead zone；
 - 同一完整矩陣驗證 semantic `<var>/<sub>/<sup>`、computed sub/sup geometry 可見且
   不被所屬 copy block 裁切；學生距離 copy 不出現 meter unit，`m s^-2` 只作重力
   加速度單位且保持直立；
-- production UI 以 real mouse 建立合法 placement，分別輸入 `20`、`31.25` 並按
-  Record；canonical `readingM` 必須為 `0.2`、`0.3125`，encode/decode、evidence、
-  restore/edit、review/result 及 score 不可發生第二次單位轉換；
-- display normalization 覆蓋 `1.8 m → 180 cm`、`0.6 m → 60 cm`、
-  `1.4 m → 140 cm`、`0.108 m → 10.8 cm`，source/package 不顯示 IEEE 長尾；
+- production UI 以 real mouse/trusted touch/keyboard 在 guide far-left／far-right
+  exact overlap boundary 及 `±6 px` 建立合法 placement，驗證 stage output tracking、
+  clamp／stale clearing、editable input、full-precision `readingM`、encode/decode、
+  evidence/no-evidence、restore/edit/input transience、review/result
+  及 score 不發生第二次 calibration；
+- source／package 跨 CTM matrix：320→desktop、desktop→320、200% zoom、resize
+  及 reload，far-left／far-right exact `4 CSS px` round-trip 後仍 valid、output
+  visible、可 legal Record，且當前 invalid geometry 不可沿用 stale evidence；
+- deliberately wrong manual answer with valid placement retains process evidence but loses
+  numeric correctness, and draft/review round-trip preserves both facts；
+- typography matrix 包括 ruler 左／右方向、水平 edges、far guides、P0–P3 vertical
+  clipping、全部 required viewport／zoom，numerals／unit collision-free；
 - setup preview、capture、static 全部通過 responsive／zoom、panel reachability 及
-  no-third-scroll-owner；沒有 full-stage luminance flash。
+  no-third-scroll-owner；所有 phase 的 destructive reset 前距離 `>=12 px`
+  （包括 `320 px` 寬）；localized exposure cue pointer-inert、無 full-stage luminance
+  flash，reduced motion 為靜態等價。
 
 ### 18.7 Trusted touch matrix
 

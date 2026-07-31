@@ -25,7 +25,7 @@
       </header>
       <div class="freefall-shell">
         <section id="stage" class="freefall-stage" aria-label="自由落體頻閃相片舞台">
-          <svg id="scene" viewBox="0 0 360 440" preserveAspectRatio="none" role="img" aria-labelledby="sceneTitle sceneDescription">
+          <svg id="scene" viewBox="0 0 360 440" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="sceneTitle sceneDescription">
             <title id="sceneTitle">自由落體頻閃相片</title>
             <desc id="sceneDescription">設定時顯示不產生數據的連續自由落體示意；拍攝完成後顯示由 P0 至 P4 的五個靜態球影。</desc>
             <defs>
@@ -35,11 +35,13 @@
             </defs>
             <rect width="360" height="440" fill="url(#cameraGrid)"/>
             <g id="trajectoryGroup"></g>
+            <g id="exposureCueGroup" aria-hidden="true"></g>
             <g id="rulerGraphic" aria-hidden="true"></g>
           </svg>
           <button id="rulerHandle" class="ruler-handle" type="button"
             aria-roledescription="可移動直尺" aria-describedby="rulerHelp"
             data-ruler-drag-owner><span class="sr-only">移動直尺</span></button>
+          <output id="stageReadout" class="stage-readout is-hidden" aria-live="off"></output>
           <p id="stageHint" class="stage-hint">先在操作面板設定頻閃頻率。</p>
         </section>
         <aside id="controlPanel" class="freefall-panel" aria-label="實驗操作面板">
@@ -51,7 +53,7 @@
           </section>
           <section id="setupSection" class="panel-section">
             <h2>1. 設定並拍攝</h2>
-            <p>頻閃頻率 <var>f</var> 表示每秒拍攝次數。先作不計分預測，再主動選擇頻率。</p>
+            <p>頻閃頻率 <var>f</var> 表示每秒拍攝次數。系統已為今次 attempt 隨機指派並保存頻率。</p>
             <p class="preview-note">連續自由落體示意（尚未拍攝）：畫面只有同一個正在下落的球；此預覽不產生量度數據。</p>
             <button id="replayPreviewButton" type="button">重播連續下落</button>
             <fieldset>
@@ -59,37 +61,37 @@
               <label><input type="radio" name="prediction" value="shorter"> 較短</label>
               <label><input type="radio" name="prediction" value="longer"> 較長</label>
             </fieldset>
-            <div class="frequency-buttons" role="group" aria-label="選擇頻閃頻率">
-              <button type="button" data-frequency="4">4 <span class="unit">Hz</span></button>
-              <button type="button" data-frequency="5">5 <span class="unit">Hz</span></button>
-              <button type="button" data-frequency="6">6 <span class="unit">Hz</span></button>
+            <p class="assigned-frequency">今次指派頻率：<strong id="assignedFrequency">正在保存…</strong></p>
+            <div class="phase-actions">
+              <button id="generateButton" type="button" class="primary-button" disabled>拍攝頻閃相片</button>
             </div>
-            <button id="generateButton" type="button" class="primary-button" disabled>拍攝頻閃相片</button>
             <p id="animationStatus" class="capture-status" role="status">預覽只作說明，尚未建立頻閃相片。</p>
-            <p class="camera-note">採用 <var>g</var> = 10.0 <span class="unit">m s<sup>−2</sup></span>。相機會按軌跡調整視野；每次都要按直尺的厘米刻度讀取實際距離，不能比較像素。</p>
+            <p class="camera-note">採用 <span class="math-expression"><var>g</var><span class="operator"> = </span><span class="value">10.0</span> <span class="unit">m s<sup>−2</sup></span></span>。相機會按軌跡調整視野；請按固定 0–5 <span class="unit">cm</span> 相片尺量度相片上距離，不能把像素直接當作米。</p>
           </section>
           <section id="measurementSection" class="panel-section is-hidden">
             <h2 id="measurementTitle">2. 量度總位移</h2>
             <p id="measurementPrompt"></p>
             <p id="placementStatus" class="placement-status">直尺仍在停泊區。</p>
             <p id="rulerHelp" class="muted">直接拖動直尺；聚焦直尺後可用方向鍵細移，Shift 加方向鍵可大幅移動。</p>
-            <button id="parkButton" type="button">返回停泊區（不建立量度證據）</button>
+            <div class="phase-actions">
+              <button id="parkButton" type="button">返回停泊區（不建立量度證據）</button>
+            </div>
             <label class="reading-row" for="readingInput">
-              <span id="readingLabel">讀數</span>
+              <span id="readingLabel">相片上距離</span>
               <input id="readingInput" inputmode="decimal" autocomplete="off">
               <span class="unit">cm</span>
             </label>
             <p id="measurementError" class="error-text" role="alert"></p>
-            <div class="button-grid">
+            <div class="button-grid phase-actions">
               <button id="recordButton" type="button" class="primary-button">記錄讀數</button>
               <button id="skipButton" type="button">未能量度／跳過</button>
             </div>
             <button id="returnReviewButton" type="button" class="is-hidden">保留原答案並返回檢查</button>
-            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
           </section>
           <section id="analysisSection" class="panel-section is-hidden">
             <h2>3. 數據及比例分析</h2>
-            <label class="reading-row"><span>相鄰影像時間 <var>Δt</var></span><input id="deltaTInput" inputmode="decimal"><span class="unit">s</span></label>
+            <label class="reading-row"><span>相鄰影像時間 <span class="delta">Δ</span><var>t</var></span><input id="deltaTInput" inputmode="decimal"><span class="unit">s</span></label>
             <div id="ratioGroups"></div>
             <fieldset>
               <legend>由 <var>P</var><sub>0</sub> 起計的總位移 <var>s</var> 與時間 <var>t</var> 有甚麼關係？</legend>
@@ -104,25 +106,29 @@
               <label><input type="radio" name="intervalLawAnswerId" value="square"> 每段為平方數比</label>
             </fieldset>
             <fieldset>
-              <legend>為甚麼相鄰間隔 <var>Δs</var> 愈來愈大？</legend>
+              <legend>為甚麼相鄰間隔 <span class="delta">Δ</span><var>s</var> 愈來愈大？</legend>
               <label><input type="radio" name="accelerationAnswerId" value="constant-acceleration"> 加速度固定，每段相等時間速度 <var>v</var> 增加相同數值</label>
               <label><input type="radio" name="accelerationAnswerId" value="constant-speed"> 速度 <var>v</var> 保持不變</label>
               <label><input type="radio" name="accelerationAnswerId" value="frequency-changes-gravity"> 頻率 <var>f</var> 改變重力</label>
             </fieldset>
             <p id="analysisError" class="error-text" role="alert"></p>
-            <button id="reviewButton" type="button" class="primary-button">前往提交前檢查</button>
-            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+            <div class="phase-actions">
+              <button id="reviewButton" type="button" class="primary-button">前往提交前檢查</button>
+            </div>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
           </section>
           <section id="reviewSection" class="panel-section is-hidden">
             <h2 id="reviewTitle" tabindex="-1">提交前檢查</h2>
             <p id="submissionNotice" class="notice is-hidden"></p>
             <div id="reviewContent"></div>
-            <div id="reviewEdits" class="button-grid">
+            <div id="reviewEdits" class="button-grid phase-actions">
               <button type="button" data-edit="analysis">返回分析</button>
             </div>
-            <button id="submitButton" type="button" class="primary-button">提交結果</button>
-            <button id="submissionRetry" type="button" class="is-hidden">重試目前提交</button>
-            <button type="button" class="danger-button" data-reset-frequency>重新設定頻率及拍攝</button>
+            <div class="phase-actions">
+              <button id="submitButton" type="button" class="primary-button">提交結果</button>
+              <button id="submissionRetry" type="button" class="is-hidden">重試目前提交</button>
+            </div>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
           </section>
           <section id="resultSection" class="panel-section is-hidden">
             <h2 id="resultTitle" tabindex="-1">結果</h2>
