@@ -362,7 +362,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
 - 立體以半透明面、清楚輪廓及深度排序顯示；後方候選點透明度稍低，不能只用顏色表達深度。
 - 球體使用經緯參考線或三個大圓提示旋轉；正方體／長方體顯示半透明面及可辨識邊。
-- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見 HTML 標籤覆蓋投影點。layout 依深度近點優先，在 `44 CSS px` hit targets 重疊時按 deterministic offsets 分離並限制在 stage 內，因此每個標籤都可可靠選取。
+- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見 HTML 標籤覆蓋投影點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。標籤離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
 - orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、可見字母的 44 px hit target，選中時即時以形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
