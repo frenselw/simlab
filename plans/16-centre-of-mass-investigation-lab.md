@@ -301,7 +301,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 同一時間只可有一個 active hole；第二指不能改變 active target。
 - 拖動任何孔或整塊平板時，系統實時計算距牆釘最近的 hole（包括已有線的小孔）；進入既定 `42 CSS px` 吸附半徑時，以高對比虛線／尺寸變化同時提示牆釘及該孔。整板放手時自動使用該最近孔精確對準並開始懸掛，不需要預先點選孔。
 - 若未對準便放手，平板留在最後安全姿態，不形成 hang evidence。
-- 已 settled 時，學生可直接拖動平板或另一個孔取下重掛。若 active hole 尚無線，canonical `detachActiveHole` 移除該 provisional hang record；若是同孔重畫且已有線，detach 保留原 hang／line，只清除 active。重畫期間原線及既有 mark 保持可見；新 `recordLine` 只原子取代該孔舊線。擺動途中仍鎖定取下操作。
+- 已 settled 時，學生可直接拖動平板或另一個孔取下重掛。若 active hole 尚無線，canonical `detachActiveHole` 移除該 provisional hang record；若已有線，detach 保留原 hang／line，只清除 active。成功畫線後 active hole 及 settled 姿態必須保持不變，不可自動取下、置中或旋轉；只有學生明確拖走平板才 detach。重畫期間原線及既有 mark 保持可見；新 `recordLine` 只原子取代該孔舊線。擺動途中仍鎖定取下操作。
 
 #### Keyboard-only 完整流程
 
@@ -785,7 +785,7 @@ Never persisted：
 - [ ] preview 固定最遠角、真實 scene content、sanitized、no recursive clone、no answer overlay。
 - [ ] mouse／keyboard 不顯示 touch preview。
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
-- [ ] 同孔重掛時舊線／mark 保持可見；重畫成功只替換同 key line，取下不改舊證據。
+- [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
 - [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，44 px direct target；trusted drag 可吸附任意 pairwise intersection，否則保存 bounded raw release。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。

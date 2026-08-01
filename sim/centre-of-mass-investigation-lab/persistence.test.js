@@ -17,7 +17,7 @@ state = P.setView(state, { yaw10: 650, pitch10: -180 });
 state = P.setView(state, { yaw10: 1100, pitch10: 220 });
 state = P.selectPart3(state, problem.part3.correctKey); fixtures.push(state);
 state = P.switchPart(state, 2);
-for (const key of ["h1", "h2"]) { state = P.settleHole(state, key); fixtures.push(state); state = P.traceVertical(state); fixtures.push(state); }
+for (const key of ["h1", "h2"]) { state = P.settleHole(state, key); fixtures.push(state); state = P.traceVertical(state); fixtures.push(state); assert.equal(state.part2.activeHoleKey, key, "recording a line keeps the plate suspended"); state = P.detachActiveHole(state); fixtures.push(state); }
 state = P.markPart2(state, problem.part2.centre); fixtures.push(state);
 state = P.switchPart(state, 1); state = P.release(state, problem.part1.xCm); state = P.markPart1(state, problem.part1.xCm); fixtures.push(state);
 assert.equal(P.allComplete(state), true);
@@ -76,17 +76,18 @@ const hole = problem.part2.holes.find((item) => item.key === restoredSettled.par
 const dx = problem.part2.centre.x - hole.x, dy = problem.part2.centre.y - hole.y, n = Math.hypot(dx, dy);
 const continuation = P.recordLine(restoredSettled, { holeKey: hole.key, a: [hole.x - dx / n * .02, hole.y - dy / n * .02], b: [hole.x + dx / n * .55, hole.y + dy / n * .55] });
 assert.ok(continuation && P.validate(continuation), "restored settled state accepts a real traced-line continuation");
+assert.equal(continuation.part2.activeHoleKey, hole.key, "tracing does not detach the restored plate");
 const detached = P.detachActiveHole(restoredSettled);
 assert.ok(detached && P.validate(detached), "restored settled state can take down an unlined plate");
 assert.equal(detached.part2.activeHoleKey, null);
 assert.ok(!detached.part2.hangRecords.some((record) => record.holeKey === hole.key), "take-down removes the unlined hang relationship");
 assert.ok(P.settleHole(detached, problem.part2.holes.find((item) => item.key !== hole.key).key), "take-down can continue with another hole");
 
-let redraw=P.switchPart(P.initial(seed),2);redraw=P.settleHole(redraw,"h1");redraw=P.traceVertical(redraw);const originalLine=structuredClone(redraw.part2.lines[0]);redraw=P.settleHole(redraw,"h1");
+let redraw=P.switchPart(P.initial(seed),2);redraw=P.settleHole(redraw,"h1");redraw=P.traceVertical(redraw);const originalLine=structuredClone(redraw.part2.lines[0]);assert.equal(redraw.part2.activeHoleKey,"h1","the plate remains active immediately after its first line");redraw=P.detachActiveHole(redraw);redraw=P.settleHole(redraw,"h1");
 assert.ok(redraw&&P.validate(redraw)&&redraw.part2.activeHoleKey==="h1","a used hole can be rehung for redraw");
 assert.deepEqual(P.decode(P.encode(redraw)),redraw,"active redraw with its existing line round-trips");
 const retained=P.detachActiveHole(redraw);assert.deepEqual(retained.part2.lines,[originalLine]);assert.deepEqual(retained.part2.hangRecords,[{holeKey:"h1"}],"detaching a redraw retains prior evidence");
-redraw=P.recordLine(redraw,angledLine("h1",18));assert.equal(redraw.part2.lines.length,1);assert.notDeepEqual(redraw.part2.lines[0],originalLine,"recording atomically replaces only that hole's line");
+redraw=P.recordLine(redraw,angledLine("h1",18));assert.equal(redraw.part2.lines.length,1);assert.equal(redraw.part2.activeHoleKey,"h1");assert.notDeepEqual(redraw.part2.lines[0],originalLine,"recording atomically replaces only that hole's line");
 
 let markedActive=P.switchPart(state,2);markedActive=P.settleHole(markedActive,"h1");assert.ok(markedActive&&markedActive.part2.mark,"an existing mark survives same-hole rehang");assert.equal(P.allComplete(markedActive),false,"active redraw locks structural completion");const markedDetached=P.detachActiveHole(markedActive);assert.ok(markedDetached.part2.mark);assert.equal(P.allComplete(markedDetached),true,"detaching restored evidence unlocks completion again");
 
