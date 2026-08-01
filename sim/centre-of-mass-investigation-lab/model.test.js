@@ -34,6 +34,18 @@ assert.ok(slowestReachable.time>4&&slowestReachable.time<=4.3,`matrix exercises 
 const h=p.part2.holes[0],c=p.part2.centre,s=p.part2.size,dx=c.x-h.x,dy=c.y-h.y,d=Math.hypot(dx,dy),u=[dx/d,dy/d];
 const line=(offset,length)=>({holeKey:h.key,a:[h.x-u[1]*offset-u[0]*length/2,h.y+u[0]*offset-u[1]*length/2],b:[h.x-u[1]*offset+u[0]*length/2,h.y+u[0]*offset+u[1]*length/2]});
 assert.equal(M.lineValid(line(.0249*s,.4501*s),h,c,s),true);assert.equal(M.lineValid(line(.0251*s,.4501*s),h,c,s),false);assert.equal(M.lineValid(line(0,.4499*s),h,c,s),false);
+const syntheticHole={key:"h",x:0,y:0},syntheticCentre={x:0,y:1};
+assert.equal(M.lineRecordable({holeKey:"h",a:[0,0],b:[0,1.5]},syntheticHole,syntheticCentre,1),true,"recordable endpoint accepts the exact coordinate bound");
+assert.equal(M.lineRecordable({holeKey:"h",a:[0,0],b:[0,1.500001]},syntheticHole,syntheticCentre,1),false,"recordable endpoint rejects beyond the coordinate bound");
+assert.equal(M.lineRecordable({holeKey:"h",a:[0,0],b:[.5,.5]},syntheticHole,syntheticCentre,1),true,"a finite downward slanted line is structurally recordable");
+assert.equal(M.lineValid({holeKey:"h",a:[0,0],b:[.5,.5]},syntheticHole,syntheticCentre,1),false,"recordable does not widen strict scoring validity");
+for(const invalid of [
+  {holeKey:"h",a:[0,0],b:[0,-.6]},
+  {holeKey:"h",a:[0,0],b:[0,.4499]},
+  {holeKey:"h",a:[0,0],b:[0,NaN]},
+  {holeKey:"h",a:[0,0],b:[0,.6],extra:true}
+])assert.equal(M.lineRecordable(invalid,syntheticHole,syntheticCentre,1),false,"upward, short, nonfinite and noncanonical shapes are rejected");
 const lines=p.part2.holes.slice(0,3).map(hole=>({a:[hole.x,hole.y],b:[c.x,c.y]})),intersection=M.leastSquares(lines);assert.ok(Math.hypot(intersection.x-c.x,intersection.y-c.y)<1e-10);assert.equal(M.leastSquares([line(0,s),line(.01,s)]),null);
+for(const count of [2,3,4]){const fan=Array.from({length:count},(_,i)=>({a:[0,0],b:[1,i+1]}));assert.equal(M.pairwiseIntersections(fan).length,count*(count-1)/2,`${count} lines expose every finite pairwise intersection`);}
 assert.deepEqual(M.canonicalView({yaw10:1800,pitch10:900}),{yaw10:-1800,pitch10:800});assert.ok(Number.isFinite(M.project([1,2,3],{yaw10:0,pitch10:0}).depth));
 console.log("Centre-of-mass model checks passed");

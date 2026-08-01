@@ -87,6 +87,31 @@
     const ideal = { a: [hole.x, hole.y], b: [centre.x, centre.y] };
     return acuteLineAngle(line, ideal) <= 5;
   }
+  function lineRecordable(line, hole, centre, size) {
+    if (!line || Object.keys(line).length !== 3 || !Object.prototype.hasOwnProperty.call(line, "holeKey") ||
+        !Array.isArray(line.a) || line.a.length !== 2 || !Array.isArray(line.b) || line.b.length !== 2 ||
+        ![...line.a, ...line.b].every((value) => finite(value) && Math.abs(value) <= 1.5) ||
+        !hole || !centre || !finite(size) || size <= 0) return false;
+    const dx = line.b[0] - line.a[0], dy = line.b[1] - line.a[1], length = Math.hypot(dx, dy);
+    if (length < 0.45 * size || pointLineDistance(hole, line) > 0.025 * size) return false;
+    const idealX = centre.x - hole.x, idealY = centre.y - hole.y;
+    return dx * idealX + dy * idealY > 0;
+  }
+  function pairwiseIntersections(lines) {
+    if (!Array.isArray(lines)) return [];
+    const result = [];
+    for (let i = 0; i < lines.length; i += 1) for (let j = i + 1; j < lines.length; j += 1) {
+      const a = lines[i], b = lines[j];
+      if (![a?.a, a?.b, b?.a, b?.b].every((point) => Array.isArray(point) && point.length === 2 && point.every(finite))) continue;
+      const ax = a.b[0] - a.a[0], ay = a.b[1] - a.a[1], bx = b.b[0] - b.a[0], by = b.b[1] - b.a[1];
+      const determinant = ax * by - ay * bx;
+      if (Math.abs(determinant) < 1e-8) continue;
+      const qx = b.a[0] - a.a[0], qy = b.a[1] - a.a[1], t = (qx * by - qy * bx) / determinant;
+      const x = a.a[0] + t * ax, y = a.a[1] + t * ay;
+      if ([x, y].every(finite)) result.push({ x, y, pair: [i, j] });
+    }
+    return result;
+  }
   function leastSquares(lines) {
     if (!Array.isArray(lines) || lines.length < 2) return null;
     let a00 = 0, a01 = 0, a11 = 0, b0 = 0, b1 = 0;
@@ -109,5 +134,5 @@
   }
   return { BALANCE_TOLERANCE, finite, clamp, supportOutcome, canonicalView, viewVector, orientationDifference,
     validObservations, transform, inverseTransform, equilibriumAngle, damping, createSwing, stepSwing,
-    pointLineDistance, acuteLineAngle, lineValid, leastSquares, project, angularDifference, INVERTED_ESCAPE };
+    pointLineDistance, acuteLineAngle, lineValid, lineRecordable, pairwiseIntersections, leastSquares, project, angularDifference, INVERTED_ESCAPE };
 });

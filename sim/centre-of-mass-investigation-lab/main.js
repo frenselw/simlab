@@ -47,6 +47,20 @@
     for(const item of [...projected].sort((a,b)=>b.depth-a.depth||a.key.localeCompare(b.key))){const anchor={x:item.x*cssWidth/700,y:item.y*cssHeight/460},slot=[...available].sort((a,b)=>(a.x-anchor.x)**2+(a.y-anchor.y)**2-((b.x-anchor.x)**2+(b.y-anchor.y)**2)||a.y-b.y||a.x-b.x)[0];available.delete(slot);placed.push({...item,anchorX:item.x,anchorY:item.y,x:slot.x*700/cssWidth,y:slot.y*460/cssHeight,displacementCss:Math.hypot(slot.x-anchor.x,slot.y-anchor.y)});}
     return placed.sort((a,b)=>a.key.localeCompare(b.key));
   }
+  function part2Structure(state, problem) {
+    const holes = new Map(problem.part2.holes.map((hole) => [hole.key, hole]));
+    const lines = state.part2.lines.filter((line) => Model.lineRecordable(line, holes.get(line.holeKey), problem.part2.centre, problem.part2.size));
+    let nonDegenerate = false;
+    for (let i = 0; i < lines.length; i += 1) for (let j = i + 1; j < lines.length; j += 1) {
+      if (Model.acuteLineAngle(lines[i], lines[j]) >= 25) nonDegenerate = true;
+    }
+    return { lines, nonDegenerate, ready: lines.length >= 2 && nonDegenerate };
+  }
+  function drawEndpoint(pivot, point, snapDegrees = 10) {
+    const dx = point.x - pivot.x, dy = point.y - pivot.y, length = Math.hypot(dx, dy);
+    const deviation = length && dy > 0 ? Math.acos(Model.clamp(dy / length, -1, 1)) * 180 / Math.PI : 180;
+    return { point: deviation <= snapDegrees ? { x: pivot.x, y: pivot.y + length } : { x: point.x, y: point.y }, snapped: deviation <= snapDegrees, downward: dy > 0, length };
+  }
   function boot(options = {}) {
     const $ = (id) => document.getElementById(id);
     const dom = { app: $("app"), stage: $("stage"), svg: $("svgStage"), canvas: $("solidCanvas"), fallbackCanvas: $("fallbackCanvas"), direct: $("directLayer"), preview: $("preview"), rendererBadge: $("rendererBadge"), panel: $("controlPanel"),
@@ -56,7 +70,7 @@
       p3: $("part3Controls"), p3Status: $("part3Status"), solidSummary: $("solidSummary"), radios: $("candidateRadios"),
       check: $("checkControls"), checkSummary: $("checkSummary"), submit: $("submit"), review: $("reviewControls"), reviewSummary: $("reviewSummary"), retry: $("retrySubmission"), live: $("liveRegion") };
     let state = null, committedState = null, problem = null, locked = false, presentation = null, latestReview = null, latestResult = null, pendingExpected = null;
-    let supportX = .5, selectedHole = null, snapCandidateKey = null, platePose = { x: 350, y: 230, angle: 0 }, selectedRadio = null, gesture = null, hostSwipe = null, drawGhost = null, handleWorld = { x: 500, y: 100 };
+    let supportX = .5, selectedHole = null, snapCandidateKey = null, platePose = { x: 350, y: 230, angle: 0 }, selectedRadio = null, gesture = null, hostSwipe = null, drawGhost = null, markDraft = null, handleWorld = { x: 500, y: 100 };
     let swingRuntime = null, swingFrame = 0, swingLastTime = null, fallRuntime = null, fallFrame = 0;
     let part3Renderer = null, part3Mode = "canvas", part3Attempted = false, lastProjection = [];
     bind();
@@ -74,7 +88,9 @@
       dom.stage.addEventListener("pointermove", (event) => { if (!hostSwipe || event.pointerId !== hostSwipe.id) return; const delta = hostSwipe.y - event.clientY; hostSwipe.y = event.clientY; try { if (parent !== window) parent.scrollBy(0, delta); } catch {} });
       for (const type of ["pointerup", "pointercancel"]) dom.stage.addEventListener(type, (event) => { if (hostSwipe?.id === event.pointerId) hostSwipe = null; });
       addEventListener("resize",()=>{if(state?.phase==="part3"&&!gesture&&!locked)render();});
-      addEventListener("blur", rollbackInteraction); document.addEventListener("visibilitychange", () => { if (document.hidden) rollbackInteraction(); });
+      addEventListener("blur", () => { if (swingRuntime) pauseSwing(); else rollbackInteraction(); });
+      addEventListener("focus", resumeSwing);
+      document.addEventListener("visibilitychange", () => { if (document.hidden) pauseSwing(); else resumeSwing(); });
     }
     function switchToPart(part) { if (locked || state.phase === `part${part}`) return; rollbackInteraction(); const next=Persistence.switchPart(state,part); if(next) update(next,`已切換至第 ${part} 部分。`); }
     function routeStartup(outcome, attempt) {
@@ -128,26 +144,30 @@
     }
     function alignHoleToNail(hole) { const offset = localToSvg(hole); platePose.x += 350 - offset.x; platePose.y += 42 - offset.y; }
     function applySwingPose(hole) { platePose.angle = swingRuntime.angle; alignHoleToNail(hole); renderPart2(true); syncPart2Targets(); updatePreview(); }
-    function finishSwing(holeKey) { const next = Persistence.settleHole(state, holeKey); swingRuntime = null; swingFrame = 0; swingLastTime = null; update(next, `${holeKey} 的平板已停止，可以親手畫鉛垂線。`); }
-    function resetPlateAfterLine(next) { const from={...platePose},to={x:350,y:235,angle:0},started=null,duration=matchMedia("(prefers-reduced-motion: reduce)").matches?160:430;state=next;problem=Generator.generate(state.seed);checkpoint();render();announce("鉛垂線已記錄；平板正在取下。");const animate=(time)=>{if(started===null)started=time;const t=Math.min(1,(time-started)/duration),e=1-Math.pow(1-t,3);platePose={x:from.x+(to.x-from.x)*e,y:from.y+(to.y-from.y)*e,angle:from.angle+(to.angle-from.angle)*e};renderPart2(true);syncPart2Targets();if(t<1)swingFrame=requestAnimationFrame(animate);else{swingFrame=0;render();announce("平板已取下，可改用另一個小孔。");}};swingFrame=requestAnimationFrame(animate); }
-    function hangSelected() {
-      if (!selectedHole || state.phase !== "part2" || state.part2.activeHoleKey || swingRuntime || locked) return announce("請先選擇一個未使用的小孔。");
-      const hole = problem.part2.holes.find((item) => item.key === selectedHole); if (!hole) return;
-      alignHoleToNail(hole); swingRuntime = Model.createSwing(problem.part2, hole, platePose.angle); dom.p2Status.textContent = `${selectedHole} 已掛好，平板正在阻尼擺動。`; renderPart2(true); syncPart2Targets(); announce(`${selectedHole} 已掛好，平板正在擺動。`);
-      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        const start = swingRuntime.angle, target = swingRuntime.target;
-        swingFrame = requestAnimationFrame(() => { if (!swingRuntime) return; swingRuntime.angle = start + (target - start) * .65; applySwingPose(hole); swingFrame = requestAnimationFrame(() => { if (!swingRuntime) return; swingRuntime.angle = target; swingRuntime.omega = 0; applySwingPose(hole); finishSwing(hole.key); }); });
+    function finishSwing(holeKey) { if (!swingRuntime) return; const next = Persistence.settleHole(state, holeKey); swingRuntime = null; swingFrame = 0; swingLastTime = null; update(next, `${holeKey} 的平板已停止，可以親手畫鉛垂線。`); }
+    function swingTick(time) {
+      swingFrame = 0; if (!swingRuntime || document.hidden) return;
+      const hole = problem.part2.holes.find((item) => item.key === selectedHole); if (!hole) return clearSwing();
+      if (swingRuntime.reducedStep !== undefined) {
+        if (swingRuntime.reducedStep === 0) { swingRuntime.angle += (swingRuntime.target - swingRuntime.angle) * .65; swingRuntime.reducedStep = 1; applySwingPose(hole); scheduleSwing(); }
+        else { swingRuntime.angle = swingRuntime.target; swingRuntime.omega = 0; applySwingPose(hole); finishSwing(hole.key); }
         return;
       }
-      const animate = (time) => {
-        if (!swingRuntime) return;
-        if (swingLastTime === null) swingLastTime = time;
-        const settled = Model.stepSwing(swingRuntime, (time - swingLastTime) / 1000, problem.part2.mass); swingLastTime = time; applySwingPose(hole);
-        if (settled) finishSwing(hole.key); else swingFrame = requestAnimationFrame(animate);
-      };
-      swingFrame = requestAnimationFrame(animate);
+      if (swingLastTime === null) swingLastTime = time;
+      const settled = Model.stepSwing(swingRuntime, (time - swingLastTime) / 1000, problem.part2.mass); swingLastTime = time; applySwingPose(hole);
+      if (settled) finishSwing(hole.key); else scheduleSwing();
     }
-    function placeNeutralMark() { const lines = state.part2.lines, valuesX = lines.flatMap((line) => [line.a[0], line.b[0]]), valuesY = lines.flatMap((line) => [line.a[1], line.b[1]]); if (!valuesX.length) return; update(Persistence.markPart2(state, { x: (Math.min(...valuesX) + Math.max(...valuesX)) / 2, y: (Math.min(...valuesY) + Math.max(...valuesY)) / 2 }), "已在學生線組的範圍中心放置標註；請自行微調。" ); }
+    function scheduleSwing() { if (swingRuntime && !swingFrame && !document.hidden) swingFrame = requestAnimationFrame(swingTick); }
+    function pauseSwing() { if (!swingRuntime) return; if (swingFrame) cancelAnimationFrame(swingFrame); swingFrame = 0; swingLastTime = null; dom.preview.replaceChildren(); dom.preview.className = "preview is-hidden"; }
+    function resumeSwing() { if (swingRuntime) { swingLastTime = null; scheduleSwing(); } }
+    function resetPlateAfterLine(next) { const from={...platePose},to={x:350,y:235,angle:0};let started=null;const duration=matchMedia("(prefers-reduced-motion: reduce)").matches?160:430;state=next;problem=Generator.generate(state.seed);checkpoint();render();announce("鉛垂線已記錄；平板正在取下。");const animate=(time)=>{if(started===null)started=time;const t=Math.min(1,(time-started)/duration),e=1-Math.pow(1-t,3);platePose={x:from.x+(to.x-from.x)*e,y:from.y+(to.y-from.y)*e,angle:from.angle+(to.angle-from.angle)*e};renderPart2(true);syncPart2Targets();if(t<1)swingFrame=requestAnimationFrame(animate);else{swingFrame=0;render();announce("平板已取下，可改用另一個小孔。");}};swingFrame=requestAnimationFrame(animate); }
+    function hangSelected() {
+      if (!selectedHole || state.phase !== "part2" || state.part2.activeHoleKey || swingRuntime || locked) return announce("請先選擇一個小孔。");
+      const hole = problem.part2.holes.find((item) => item.key === selectedHole); if (!hole) return;
+      alignHoleToNail(hole); swingRuntime = Model.createSwing(problem.part2, hole, platePose.angle); dom.p2Status.textContent = `${selectedHole} 已掛好，平板正在阻尼擺動。`; renderPart2(true); syncPart2Targets(); announce(`${selectedHole} 已掛好，平板正在擺動。`);
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) swingRuntime.reducedStep = 0;
+      scheduleSwing();
+    }
     function submit() { if (locked || state.phase !== "check") return; latestReview = Persistence.makeReview(state); latestResult = Scoring.score(latestReview); if (!latestReview) return; locked = true; presentation = "submitting"; clearGesture(); renderReview(null, false, "正在提交，請勿離開。"); const snapshot = SimScorm.makeSnapshot(ACTIVITY, "review", latestReview, latestResult); pendingExpected = Object.freeze({ reviewJson: JSON.stringify(snapshot), score: latestResult.score, maxScore: latestResult.maxScore, passed: latestResult.passed }); const handle = (outcome) => routeSubmission(outcome); SimScorm.submitWithCallbacks(latestResult, snapshot, { onSuccess: handle, onFailure: handle }); }
     function routeSubmission(outcome) { const view = UiPolicy.submissionView(outcome); locked = view.locked; SimActivityFlow.submission(outcome, {
       success: () => renderReview(latestResult, true, "已提交並鎖定"),
@@ -159,7 +179,7 @@
     function hideAll() { [dom.technical, dom.p1, dom.p2, dom.p3, dom.check, dom.review].forEach((section) => section.classList.add("is-hidden")); }
     function render() {
       if (!state || locked) return; hideAll(); const isPart3=state.phase==="part3";dom.svg.style.display=isPart3?"none":"block";dom.canvas.style.display=isPart3&&part3Mode==="three"?"block":"none";dom.fallbackCanvas.style.display=isPart3&&part3Mode!=="three"?"block":"none";dom.rendererBadge.classList.toggle("is-hidden",!isPart3); dom.direct.replaceChildren(); dom.preview.classList.add("is-hidden");
-      const complete=[state.part1.markX!==null,Boolean(state.part2.mark),state.part3.selectedCandidateKey!==null&&Model.validObservations(problem.part3.initialView,state.part3.observations)],count=complete.filter(Boolean).length;dom.progress.value=count;dom.badge.textContent=state.phase==="check"?"提交前檢查":`第 ${Number(state.phase.slice(-1))} 部分`;
+      const complete=[state.part1.markX!==null,part2Structure(state,problem).ready&&Boolean(state.part2.mark)&&state.part2.activeHoleKey===null,state.part3.selectedCandidateKey!==null&&Model.validObservations(problem.part3.initialView,state.part3.observations)],count=complete.filter(Boolean).length;dom.progress.value=count;dom.badge.textContent=state.phase==="check"?"提交前檢查":`第 ${Number(state.phase.slice(-1))} 部分`;
       dom.tabs.forEach((tab,index)=>{const active=state.phase===`part${index+1}`;tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1;tab.dataset.complete=String(complete[index]);});dom.checkTab.disabled=count!==3;dom.checkTab.setAttribute("aria-current",state.phase==="check"?"step":"false");
       if (state.phase === "part1") { dom.p1.classList.remove("is-hidden"); renderPart1(); }
       if (state.phase === "part2") { dom.p2.classList.remove("is-hidden"); renderPart2(); }
@@ -184,7 +204,7 @@
     function svgToLocal(point) { const dx = (point.x - platePose.x) / 245, dy = (point.y - platePose.y) / 245, c = Math.cos(platePose.angle), s = Math.sin(platePose.angle); return { x: dx * c + dy * s, y: -dx * s + dy * c }; }
     function platePath() { return problem.part2.polygon.map((point, i) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${i ? "L" : "M"}${p.x},${p.y}`; }).join(" ") + " Z"; }
     function safeHandlePoint() { const rect=dom.stage.getBoundingClientRect(),insetX=Math.max(23,23*700/Math.max(1,rect.width)),insetY=Math.max(23,23*460/Math.max(1,rect.height)),candidates=[localToSvg({x:.68,y:-.58}),localToSvg({x:-.68,y:.58})],margin=(p)=>Math.min(p.x-insetX,700-insetX-p.x,p.y-insetY,460-insetY-p.y),best=candidates.sort((a,b)=>margin(b)-margin(a))[0];return{x:Model.clamp(best.x,insetX,700-insetX),y:Model.clamp(best.y,insetY,460-insetY)}; }
-    function nearestSnapCandidate(preferredKey = null) { const eligible=problem.part2.holes.filter((hole)=>!state.part2.lines.some((line)=>line.holeKey===hole.key)&&(preferredKey===null||hole.key===preferredKey));let best=null;for(const hole of eligible){const point=localToSvg(hole),distance=Math.hypot(point.x-350,point.y-42);if(distance<=42&&(!best||distance<best.distance))best={key:hole.key,distance};}return best?.key||null; }
+    function nearestSnapCandidate(preferredKey = null) { const eligible=problem.part2.holes.filter((hole)=>preferredKey===null||hole.key===preferredKey);let best=null;for(const hole of eligible){const point=localToSvg(hole),distance=Math.hypot(point.x-350,point.y-42);if(distance<=42&&(!best||distance<best.distance))best={key:hole.key,distance};}return best?.key||null; }
     function updateSnapCandidate(preferredKey = null) { snapCandidateKey=nearestSnapCandidate(preferredKey);renderPart2(true);syncPart2Targets(); }
     function prepareTakeDown() { if (!state.part2.activeHoleKey) return true; const next=Persistence.detachActiveHole(state);if(!next)return false;state=next;problem=Generator.generate(state.seed);return checkpoint(); }
     function finishPlateDrop(preferredKey = null) { const key=snapCandidateKey||nearestSnapCandidate(preferredKey);snapCandidateKey=null;if(!key){render();announce("小孔未在牆釘的對準範圍內，未形成懸掛證據。");return;}selectedHole=key;alignHoleToNail(problem.part2.holes.find((hole)=>hole.key===key));render();hangSelected(); }
@@ -193,17 +213,26 @@
       const plate = dom.direct.querySelector('[data-direct-target="plate"]'); if (plate) plate.style.clipPath = `polygon(${problem.part2.polygon.map((point) => { const p=localToSvg({x:point[0],y:point[1]});return `${p.x/7}% ${p.y/4.6}%`; }).join(",")})`;
       for (const target of dom.direct.querySelectorAll("[data-hole-key]")) { const hole = problem.part2.holes.find((item) => item.key === target.dataset.holeKey), point = hole && localToSvg(hole); if (point) { target.style.left = `${point.x / 7}%`; target.style.top = `${point.y / 4.6}%`; } }
       const handle = dom.direct.querySelector('[data-direct-target="rotate"]'); if (handle) { handleWorld=safeHandlePoint(); handle.style.left = `${handleWorld.x / 7}%`; handle.style.top = `${handleWorld.y / 4.6}%`; }
-      const mark = dom.direct.querySelector('[data-direct-target="mark2"]'); if (mark && state.part2.mark) { const point = localToSvg(state.part2.mark); mark.style.left = `${point.x / 7}%`; mark.style.top = `${point.y / 4.6}%`; }
+      const mark = dom.direct.querySelector('[data-direct-target="mark2"]'); if (mark) { const point = markDraft?.world || (state.part2.mark ? localToSvg(state.part2.mark) : {x:650,y:390}); mark.style.left = `${point.x / 7}%`; mark.style.top = `${point.y / 4.6}%`; }
       const draw = dom.direct.querySelector('[data-direct-target="draw"]'); if (draw) draw.style.clipPath = `polygon(${problem.part2.polygon.map((point) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${p.x / 7}% ${p.y / 4.6}%`; }).join(",")})`;
+    }
+    function nearestMarkIntersection(world, radiusCss = 30) {
+      const rect = dom.stage.getBoundingClientRect(); let best = null;
+      for (const intersection of Model.pairwiseIntersections(state.part2.lines)) {
+        const point = localToSvg(intersection), distance = Math.hypot((point.x-world.x)*rect.width/700,(point.y-world.y)*rect.height/460);
+        if (distance <= radiusCss && (!best || distance < best.distance)) best = { world:point, local:{x:intersection.x,y:intersection.y}, distance, pair:intersection.pair };
+      }
+      return best;
     }
     function renderPart2(visualsOnly = false) {
       dom.svg.replaceChildren(svgEl("rect", { x:0,y:0,width:700,height:460,fill:"#ffffff",class:"blank-stage" }),svgEl("line",{x1:24,y1:86,x2:676,y2:86,stroke:"#e5e7eb","stroke-width":1}),svgEl("circle",{cx:350,cy:42,r:snapCandidateKey?35:31,fill:"#dbeafe",opacity:.72,class:snapCandidateKey?"snap-ring":""}),svgEl("circle",{cx:350,cy:42,r:5,fill:snapCandidateKey?"#f97316":"#1e40af"}),svgEl("path",{d:platePath(),class:"plate"}));
       for (const line of state.part2.lines) { const a = localToSvg({ x: line.a[0], y: line.a[1] }), b = localToSvg({ x: line.b[0], y: line.b[1] }); dom.svg.append(svgEl("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: "student-line" })); }
-      if (state.part2.mark) { const p = localToSvg(state.part2.mark); dom.svg.append(svgEl("circle", { cx: p.x, cy: p.y, r: 14, class: "student-mark" })); }
+      const structure=part2Structure(state,problem),markerPoint=markDraft?.world||(state.part2.mark?localToSvg(state.part2.mark):structure.ready?{x:650,y:390}:null);
+      if (markerPoint) { const marker=svgEl("g",{"data-scene":"part2-centre-marker"});marker.append(svgEl("circle",{cx:markerPoint.x,cy:markerPoint.y,r:10,class:"part2-centre-dot"}),svgEl("text",{x:markerPoint.x,y:markerPoint.y-16,"text-anchor":"middle",class:"part2-centre-label"}));marker.lastChild.textContent="重心";dom.svg.append(marker); }
       if(drawGhost)dom.svg.append(svgEl("line",{x1:drawGhost.a.x,y1:drawGhost.a.y,x2:drawGhost.b.x,y2:drawGhost.b.y,stroke:drawGhost.snapped?"#2563eb":"#94a3b8","stroke-width":2,"stroke-dasharray":"5 4","data-scene":"draw-ghost"}));
       if(state.part2.activeHoleKey){dom.svg.append(svgEl("line",{x1:350,y1:52,x2:350,y2:420,class:"plumb"}),svgEl("path",{d:"M350 418l-12 24h24Z",fill:"#374b57",stroke:"#1f3039","stroke-width":3}));}
       for (const hole of problem.part2.holes) { const p = localToSvg(hole),snapping=hole.key===snapCandidateKey;if(snapping)dom.svg.append(svgEl("circle",{cx:p.x,cy:p.y,r:16,class:"snap-ring","data-snap-hole":hole.key}));dom.svg.append(svgEl("circle", { cx:p.x,cy:p.y,r:snapping?10:9,class:"hole-ring" }),svgEl("circle",{cx:p.x,cy:p.y,r:3,fill:snapping?"#f97316":"#1e40af"})); }
-      handleWorld=safeHandlePoint();dom.svg.append(svgEl("path",{d:`M${handleWorld.x-10} ${handleWorld.y+3} A11 11 0 1 1 ${handleWorld.x+7} ${handleWorld.y-7}`,fill:"none",stroke:"#2563eb","stroke-width":2,"stroke-linecap":"round"}),svgEl("path",{d:`M${handleWorld.x+7} ${handleWorld.y-7}l-1 7 7-2Z`,fill:"#2563eb"}));
+      handleWorld=safeHandlePoint();dom.svg.append(svgEl("path",{d:`M${handleWorld.x-15} ${handleWorld.y+7} A17 17 0 1 1 ${handleWorld.x+12} ${handleWorld.y-11}`,fill:"none",stroke:"#1d4ed8","stroke-width":3.5,"stroke-linecap":"round","data-scene":"rotate-arrow"}),svgEl("path",{d:`M${handleWorld.x+12} ${handleWorld.y-11}l-2 11 11-3Z`,fill:"#1d4ed8","data-scene":"rotate-arrowhead"}));
       if (visualsOnly) return;
       const plateTarget = directButton(0,0,"拖動平板，將最近的小孔移近牆釘","plate");plateTarget.style.inset="0";plateTarget.style.width="100%";plateTarget.style.height="100%";plateTarget.style.transform="none";plateTarget.style.borderRadius="0";plateTarget.addEventListener("keydown", (event) => { if (event.key.startsWith("Arrow") && !swingRuntime) { if(!prepareTakeDown())return;const step = event.shiftKey ? 18 : 6; platePose.x += event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0; platePose.y += event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0; event.preventDefault(); render(); } });plateTarget.addEventListener("pointerdown",(event)=>beginPlateDrag(event,plateTarget));
       for (const hole of problem.part2.holes) { const p = localToSvg(hole), target = directButton(p.x / 7, p.y / 4.6, `小孔 ${hole.key.slice(1)}；拖近牆釘後放手`, `hole-${hole.key}`, hole.key.slice(1)); target.dataset.holeKey = hole.key; target.addEventListener("keydown",(event)=>{if(["Enter"," "].includes(event.key)&&!swingRuntime){event.preventDefault();if(!prepareTakeDown())return;selectedHole=hole.key;alignHoleToNail(hole);hangSelected();}});target.addEventListener("pointerdown",(event)=>beginPlateDrag(event,target,hole.key)); }
@@ -215,15 +244,14 @@
         draw.addEventListener("pointerdown",(event)=>{
           const start=clientPoint(event),activeHole=problem.part2.holes.find((hole)=>hole.key===state.part2.activeHoleKey),pivot=localToSvg(activeHole),startNear=Math.hypot(start.x-pivot.x,start.y-pivot.y)<=Math.max(28,.12*problem.part2.size*245);
           if(!startNear){const closest=problem.part2.holes.map((hole)=>({hole,distance:Math.hypot(start.x-localToSvg(hole).x,start.y-localToSvg(hole).y)})).filter((item)=>item.hole.key!==activeHole.key&&item.distance<=28).sort((a,b)=>a.distance-b.distance)[0];beginPlateDrag(event,draw,closest?.hole.key||null);return;}
-          let snapped=false;
-          beginDrag(event,draw,"draw",(point)=>{const dx=point.x-start.x,dy=point.y-start.y,length=Math.hypot(dx,dy),deviation=length&&dy>0?Math.acos(Math.min(1,dy/length))*180/Math.PI:90;snapped=length>=.45*problem.part2.size*245&&dy>0&&deviation<=10;drawGhost=snapped?{a:{x:pivot.x,y:pivot.y},b:{x:pivot.x,y:pivot.y+Math.max(120,dy)},snapped:true}:{a:pivot,b:point,snapped:false};renderPart2(true);updatePreview();},()=>{drawGhost=null;if(!snapped){render();announce("請由懸掛孔向下沿垂直方向拖畫鉛垂線。");return;}const ux=Math.sin(platePose.angle),uy=Math.cos(platePose.angle),line={holeKey:activeHole.key,a:[activeHole.x-ux*.36,activeHole.y-uy*.36],b:[activeHole.x+ux*.36,activeHole.y+uy*.36]},next=Persistence.recordLine(state,line);if(next)resetPlateAfterLine(next);else{render();announce("線段未符合鉛垂線證據要求，請重畫。");}});
+          let candidate=null;
+          beginDrag(event,draw,"draw",(point)=>{candidate=drawEndpoint(pivot,point);drawGhost={a:pivot,b:candidate.point,snapped:candidate.snapped};renderPart2(true);updatePreview();},()=>{drawGhost=null;if(!candidate?.downward){render();announce("請由懸掛孔向下拖畫線段。");return;}const end=svgToLocal(candidate.point),line={holeKey:activeHole.key,a:[activeHole.x,activeHole.y],b:[end.x,end.y]},next=Persistence.recordLine(state,line);if(next)resetPlateAfterLine(next);else{render();announce("線段太短、超出可記錄範圍或資料無效，請由小孔向下重畫。");}});
         });
       }
-      const ev = Scoring.evidence(state, problem);
-      if (ev.lines.length >= 2 && ev.nonDegenerate) { const evidenceCentre=Model.leastSquares(state.part2.lines)||{x:0,y:0},markValue=state.part2.mark||evidenceCentre,point=localToSvg(markValue),markTarget=directButton(point.x/7,point.y/4.6,"平板重心標註；拖動或方向鍵調整","mark2","＋");markTarget.classList.add("mark-target");markTarget.addEventListener("keydown",(event)=>{if(["Enter"," "].includes(event.key)&&!state.part2.mark){event.preventDefault();update(Persistence.markPart2(state,markValue),"已放置平板重心標註。");return;}if(!event.key.startsWith("Arrow"))return;event.preventDefault();const step=(event.shiftKey?.05:.01)*problem.part2.size,next={x:markValue.x+(event.key==="ArrowLeft"?-step:event.key==="ArrowRight"?step:0),y:markValue.y+(event.key==="ArrowUp"?-step:event.key==="ArrowDown"?step:0)};update(Persistence.markPart2(state,next),"已移動平板標註。");});markTarget.addEventListener("pointerdown",(event)=>beginDrag(event,markTarget,"mark2",(position)=>{const next=Persistence.markPart2(state,svgToLocal(position));if(next){state=next;markTarget.style.left=`${position.x/7}%`;markTarget.style.top=`${position.y/4.6}%`;renderPart2(true);}},()=>{checkpoint();render();announce("平板標記位置已記錄。");})); }
+      if (structure.ready && !state.part2.activeHoleKey) { const point=state.part2.mark?localToSvg(state.part2.mark):{x:650,y:390},markTarget=directButton(point.x/7,point.y/4.6,"重心標記；拖到平板上，接近任意兩線交點時會吸附","mark2");markTarget.classList.add("mark-target");markTarget.addEventListener("keydown",(event)=>{if(!event.key.startsWith("Arrow")&&!['Enter',' '].includes(event.key))return;event.preventDefault();const base=state.part2.mark||svgToLocal({x:650,y:390}),step=(event.shiftKey?.05:.01)*problem.part2.size,next={x:base.x+(event.key==="ArrowLeft"?-step:event.key==="ArrowRight"?step:0),y:base.y+(event.key==="ArrowUp"?-step:event.key==="ArrowDown"?step:0)};update(Persistence.markPart2(state,next),state.part2.mark?"已移動平板重心標記。":"已將重心標記放到平板上。");});markTarget.addEventListener("pointerdown",(event)=>beginDrag(event,markTarget,"mark2",(position)=>{const snapped=nearestMarkIntersection(position);markDraft=snapped||{world:position,local:svgToLocal(position),pair:null};syncPart2Targets();renderPart2(true);updatePreview();},()=>{const finalMark=markDraft?.local;markDraft=null;const next=finalMark&&Persistence.markPart2(state,finalMark);if(next)update(next,"平板重心標記位置已記錄。");else{render();announce("標記位置超出可記錄範圍，請放到平板上。");}})); }
       syncPart2Targets();
-      dom.p2MarkTools.classList.toggle("is-hidden", !(ev.lines.length >= 2 && ev.nonDegenerate));
-      dom.p2Status.textContent = swingRuntime ? `${selectedHole} 已掛好，平板正在阻尼擺動。` : state.part2.activeHoleKey ? `${state.part2.activeHoleKey} 已停止，可親手畫鉛垂線。` : `已取得 ${state.part2.lines.length} 個不同小孔的有效鉛垂線。`;
+      dom.p2MarkTools.classList.toggle("is-hidden", !structure.ready);
+      dom.p2Status.textContent = swingRuntime ? `${selectedHole} 已掛好，平板正在阻尼擺動。` : state.part2.activeHoleKey ? `${state.part2.activeHoleKey} 已停止，可親手畫線；重掛同一小孔可重畫。` : `已記錄 ${structure.lines.length} 個不同小孔的線段。`;
     }
     function renderSolid(canvas, compact = false) {
       const ctx = canvas.getContext("2d"), w = canvas.width, h = canvas.height;if(!ctx)throw new Error("Canvas unavailable"); ctx.clearRect(0, 0, w, h);ctx.fillStyle="#ffffff";ctx.fillRect(0,0,w,h);ctx.strokeStyle="#e5e7eb";ctx.lineWidth=1;for(let i=1;i<8;i++){ctx.beginPath();ctx.moveTo(0,i*h/8);ctx.lineTo(w,i*h/8);ctx.stroke();} const scale = compact ? w * .28 : Math.min(w, h) * .29, cx = w / 2, cy = h / 2;
@@ -254,21 +282,21 @@
     function clearSwing(){if(swingFrame)cancelAnimationFrame(swingFrame);swingFrame=0;swingRuntime=null;swingLastTime=null;}
     function clearFall(){if(fallFrame)cancelAnimationFrame(fallFrame);fallFrame=0;fallRuntime=null;}
     function clearGesture(){clearSwing();clearFall();hostSwipe=null;snapCandidateKey=null;drawGhost=null;if(gesture){gesture.target.classList.remove("active-direct");gesture.target.removeEventListener("pointermove",moveGesture);gesture=null;}dom.preview.replaceChildren();dom.preview.className="preview is-hidden";}
-    function rollbackInteraction(){const hadGesture=Boolean(gesture),interrupted=hadGesture||Boolean(fallRuntime)||Boolean(swingRuntime)||Boolean(swingFrame),baseline=gesture?.baselineState||(interrupted&&committedState?Persistence.decode(Persistence.encode(committedState)):null),support=gesture?.baselineSupport,pose=gesture?.baselinePose;clearGesture();if(baseline){state=baseline;problem=Generator.generate(state.seed,state.generatorVersion);supportX=hadGesture?support:(state.part1.supportEpisodes.at(-1)?.x??.5);platePose=hadGesture?pose:(restoredPlatePose(state,problem)||{x:350,y:230,angle:0});render();}}
+    function rollbackInteraction(){const hadGesture=Boolean(gesture),interrupted=hadGesture||Boolean(fallRuntime)||Boolean(swingRuntime)||Boolean(swingFrame),baseline=gesture?.baselineState||(interrupted&&committedState?Persistence.decode(Persistence.encode(committedState)):null),support=gesture?.baselineSupport,pose=gesture?.baselinePose;clearGesture();markDraft=null;if(baseline){state=baseline;problem=Generator.generate(state.seed,state.generatorVersion);supportX=hadGesture?support:(state.part1.supportEpisodes.at(-1)?.x??.5);platePose=hadGesture?pose:(restoredPlatePose(state,problem)||{x:350,y:230,angle:0});render();}}
     function showTapPreview(event,target,kind){if(event.pointerType==="mouse")return;showPreview(event,kind);const clear=()=>{dom.preview.replaceChildren();dom.preview.className="preview is-hidden";};target.addEventListener("pointerup",clear,{once:true});target.addEventListener("pointercancel",clear,{once:true});}
     function previewFocus() { const kind = dom.preview.dataset.kind, last = gesture?.last;
       if (kind === "support") return { x: 80 + supportX * 540, y: 239 };
       if (kind?.startsWith("hole-")) { const hole = problem.part2.holes.find((item) => item.key === kind.slice(5)); return hole ? localToSvg(hole) : last; }
       if (kind === "rotate") return handleWorld;
-      if (kind === "mark2" && state.part2.mark) return localToSvg(state.part2.mark);
+      if (kind === "mark2") return markDraft?.world || (state.part2.mark ? localToSvg(state.part2.mark) : {x:650,y:390});
       return last || { x: platePose.x, y: platePose.y };
     }
     function renderSvgPreview(focus) { const clone=dom.svg.cloneNode(true);clone.removeAttribute("id");clone.setAttribute("viewBox",`${Model.clamp(focus.x-90,0,520)} ${Model.clamp(focus.y-90,0,280)} 180 180`);clone.querySelectorAll("[id],[tabindex],[role],[aria-label],[data-direct-target]").forEach((node)=>{node.removeAttribute("id");node.removeAttribute("tabindex");node.removeAttribute("role");node.removeAttribute("aria-label");node.removeAttribute("data-direct-target");});dom.preview.replaceChildren(clone); }
     function showPreview(event,kind){const rect=dom.stage.getBoundingClientRect(),corner=UiPolicy.previewCorner({x:event.clientX,y:event.clientY},{left:rect.left,top:rect.top,width:rect.width,height:rect.height});dom.preview.className=`preview ${corner}`;dom.preview.dataset.kind=kind;if(state.phase==="part3"){const canvas=document.createElement("canvas");canvas.width=220;canvas.height=220;dom.preview.replaceChildren(canvas);renderSolid(canvas,true);}else renderSvgPreview(clientPoint(event));}
     function updatePreview(){if(dom.preview.classList.contains("is-hidden"))return;if(state.phase==="part3"){const canvas=dom.preview.querySelector("canvas");if(canvas)renderSolid(canvas,true);}else renderSvgPreview(previewFocus());}
     function beginOrbit(event,target){if(gesture||locked||event.button>0)return;const start=clientPoint(event),base={...state.part3.view};beginDrag(event,target,"orbit",(point)=>{const next=Persistence.setView(state,{yaw10:base.yaw10+Math.round((point.x-start.x)*3),pitch10:base.pitch10+Math.round((point.y-start.y)*3)},false);if(next){state=next;if(part3Mode==="three"&&part3Renderer)part3Renderer.render(state.part3.view,state.part3.selectedCandidateKey);else renderSolid(dom.fallbackCanvas);updatePreview();}},()=>{const next=Persistence.setView(state,state.part3.view,true);if(next){state=next;checkpoint();render();announce("旋轉結束；已檢查是否形成新的觀察證據。");}});}
-    return { getState:()=>state, platePose:()=>({ ...platePose }), snapCandidate:()=>snapCandidateKey, swing:()=>swingRuntime ? { angle:swingRuntime.angle, target:swingRuntime.target } : null, fall:()=>fallRuntime?{...fallRuntime}:null,renderer:()=>({mode:part3Mode,frame:Number((part3Mode==="three"?dom.canvas:dom.fallbackCanvas).dataset.frame)||0}),contextLoss:(action)=>{const extension=part3Renderer?.context?.getExtension("WEBGL_lose_context");if(!extension)return false;if(action==="lose")extension.loseContext();else if(action==="restore")extension.restoreContext();return true;},
+    return { getState:()=>state, platePose:()=>({ ...platePose }), snapCandidate:()=>snapCandidateKey, swing:()=>swingRuntime ? { angle:swingRuntime.angle, target:swingRuntime.target, omega:swingRuntime.omega, settledFor:swingRuntime.settledFor, frame:swingFrame, lastTime:swingLastTime } : null, visibility:(hidden)=>hidden?pauseSwing():resumeSwing(), fall:()=>fallRuntime?{...fallRuntime}:null,renderer:()=>({mode:part3Mode,frame:Number((part3Mode==="three"?dom.canvas:dom.fallbackCanvas).dataset.frame)||0}),contextLoss:(action)=>{const extension=part3Renderer?.context?.getExtension("WEBGL_lose_context");if(!extension)return false;if(action==="lose")extension.loseContext();else if(action==="restore")extension.restoreContext();return true;},
       routeStartup, routeSubmission, render, clearGesture };
   }
-  return { ACTIVITY, freshSeed, reviewMetadataValid, reviewMatches, restoredPlatePose, layoutCandidateTargets, boot };
+  return { ACTIVITY, freshSeed, reviewMetadataValid, reviewMatches, restoredPlatePose, layoutCandidateTargets, part2Structure, drawEndpoint, boot };
 });

@@ -92,7 +92,7 @@
 | 部分 | 最低有效操作證據 | 可確認的答案 |
 |---|---|---|
 | 一維 | 至少一次真正放手的承托測試，並曾進入可接受的中性平衡範圍 | 系統以同一 production `markPart1` transition 保存並揭示生成題目的精確重心；紅點固定，不設學生微調 |
-| 二維 | 兩個不同小孔各有一次已停止的懸掛，並各畫一條有效鉛垂線；兩線方向有足夠夾角 | 在平板本地座標標註重心 |
+| 二維 | 兩個不同小孔各有一次已停止的懸掛，並各保存一條可記錄、非退化且方向夾角足夠的向下線段 | 在平板本地座標標註重心；計分仍另外以嚴格鉛垂線規則驗證 |
 | 三維 | 完成兩個有足夠角度差的觀察姿態 | 選擇 A–E 其中一個三維候選點；選擇可先作 tentative 保存 |
 
 直接寫入答案但欠缺相應語意證據的 state 必須被 persistence decoder 及 scorer 拒絕或計為零，不得只靠 UI 隱藏按鈕。
@@ -270,6 +270,8 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 動畫中的 transform、`φ`、`ω` 不屬權威 learner answer，不逐 frame 保存。只有「某孔已成功懸掛並停止」才形成 semantic checkpoint。
 
+頁面 hidden 或 window blur 發生於擺動途中時，只取消目前 RAF 並保留同一 transient `φ`、`ω`、settled dwell、板姿態及 selected hole；frame timestamp 清空。重新 visible／focus 後從同一 runtime 繼續，不 catch up 背景時間，且終點只建立一次 settled checkpoint。pointer interruption、phase change、restore 或 reload 則回滾至擺動前 semantic checkpoint；blur 先於 visibilitychange 不可誤把擺動當成 pointer rollback。
+
 ### 7.3 平移、旋轉及套釘操作決定
 
 為同時支援 mouse、單指手機和鍵盤，v1 把平移與旋轉分成不同、穩定的 hit target；不使用難以發現的手勢作唯一途徑。
@@ -297,37 +299,37 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 放手時只有該孔仍在 snap radius 內才成功掛上；系統把孔中心精確對齊釘後開始擺動。
 - 牆上只顯示細小釘點及淡色 snap halo，不畫鈎；平板使用約 `0.52` alpha 的單色半透明填色和 `1.5–2 px` 邊，釘及孔在重疊時仍清楚可見。
 - 同一時間只可有一個 active hole；第二指不能改變 active target。
-- 拖動任何孔或整塊平板時，系統實時計算距牆釘最近而且尚未畫線的 eligible hole；進入既定 `42 CSS px` 吸附半徑時，以高對比虛線／尺寸變化同時提示牆釘及該孔。整板放手時自動使用該最近孔精確對準並開始懸掛，不需要預先點選孔。
+- 拖動任何孔或整塊平板時，系統實時計算距牆釘最近的 hole（包括已有線的小孔）；進入既定 `42 CSS px` 吸附半徑時，以高對比虛線／尺寸變化同時提示牆釘及該孔。整板放手時自動使用該最近孔精確對準並開始懸掛，不需要預先點選孔。
 - 若未對準便放手，平板留在最後安全姿態，不形成 hang evidence。
-- 已 settled 但尚未畫線時，學生可直接拖動平板或另一個孔取下重掛。canonical `detachActiveHole` transition 會先移除該未畫線 active hang record，再開始新 drag；不得留下 orphan hang evidence。擺動途中仍鎖定取下操作。
+- 已 settled 時，學生可直接拖動平板或另一個孔取下重掛。若 active hole 尚無線，canonical `detachActiveHole` 移除該 provisional hang record；若是同孔重畫且已有線，detach 保留原 hang／line，只清除 active。重畫期間原線及既有 mark 保持可見；新 `recordLine` 只原子取代該孔舊線。擺動途中仍鎖定取下操作。
 
 #### Keyboard-only 完整流程
 
 - focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 畫鉛垂線區 → 重心標註」，未解鎖的 stage target 不進 tab order；control panel 不另設 operational button wall。
 - 聚焦某小孔後按 Enter／Space，使用與 pointer drop 相同的 relationship model 將該孔對齊牆釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
 - settled 後聚焦板上的畫線區並按 Enter／Space，建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
-- 重心標註解鎖後，stage 上先出現中性標註 target，初值為學生線組的 bounding box 中心（不是 least-squares intersection 或真重心）；Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`。控制面板不提供放置或四向微調按鈕。
+- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；拖到板上才保存。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`。控制面板不提供放置或四向微調按鈕。
 - pointer 與 keyboard 路徑產生同一 production-shaped hole／hang／line／mark schema，並通過完全相同的 validity、persistence 及 scoring rules；input mode 只可作診斷，不改分。
 
 ### 7.4 鉛垂線及畫線工具
 
 - 平板 settled 後，釘下顯示鉛錘及鉛垂線；鉛垂線屬 world vertical，穿過 pivot。
 - 學生選擇畫線工具，從懸掛孔附近開始，沿板面拖到另一側；系統即時顯示學生線。
-- pointer world endpoints 在完成時逆變換為 plate-local endpoints 保存。
-- pointer 必須從目前懸掛孔／pivot 開始並向下真正拖線。live ghost 的起點固定在 pivot，終點只向畫面下方延伸；raw drag 與向下垂直方向相差 `≤ 10°` 時，吸附到穿過該孔的精確 world vertical，再把精確線反變換為 plate-local endpoints。向上拖或超出吸附範圍不產生有效證據。
-- 有效線必須：
+- pointer 必須從目前懸掛孔／pivot 開始並向下真正拖線；live ghost 及保存線的起點都固定為該 pivot，不建立穿過 pivot 的對稱線。
+- raw drag 與向下 world vertical 相差 `≤ 10°` 時，live ghost 及保存終點吸附到相同 raw 長度的精確向下 world vertical，再逆變換為 plate-local endpoint。偏差 `> 10°` 的向下拖線保留可見斜率並照原 release endpoint 保存，不拒絕或 canonicalize；向上、太短、nonfinite、dangling 或 plate-local endpoint 超出安全 bound 的線拒絕。
+- v2 `lineRecordable` 結構門檻必須：
   - 對應目前已 settled 的孔；
   - 在 plate-local 坐標穿過該孔的距離不超過 `0.025S`；
-  - 畫線當刻在 world 坐標與鉛垂方向的偏差不超過 `5°`；
   - 在平板內的可見長度不少於 `0.45S`；
-  - 每次懸掛最多記錄一條計分線。
-- 無效線保留作暫時草圖直到學生重畫，但不產生 evidence，並以具體中性回饋說明「未穿過懸掛孔」、「未沿鉛垂方向」或「線段太短」。
-- 學生可使用 2–4 個不同孔，各畫最多一條有效線；第 3、4 條線提升交會估計的可靠性，但不因數量本身重複加過程分。
+  - 方向由 pivot 朝可重建的理想向下方向，endpoints finite、shape exact 且各坐標在 `[-1.5,1.5]`；
+  - 每孔最多保存一條 recordable line。
+- scorer 的既有 `lineValid` 不變，仍另要求與鉛垂方向偏差 `≤ 5°`；因此結構完成可提交較斜或錯誤答案並取得較低分。舊 v1 migration 也只接受 strict `lineValid`，不可利用較寬 v2 規則洗白舊非法 state。
+- 學生可使用 2–4 個不同孔，各畫最多一條 recordable line；第 3、4 條線提升交會估計的可靠性，但不因數量本身重複加過程分。
 
 ### 7.5 線交會及標註
 
-- 兩條有效線的 acute angle 必須至少 `25°` 才解鎖標註；generator 確保有合理孔組合可達成。
-- 兩條線時使用解析線交點；三至四條線時使用本地坐標的 least-squares line intersection 作學生證據中心。
+- 兩條 recordable lines 的 acute angle 必須至少 `25°` 才解鎖標註；generator 確保有合理孔組合可達成。
+- 標註拖動時，對全部已保存線計算所有 finite pairwise intersections（2／3／4 線分別最多 1／3／6 個）；release 點進入 `30 CSS px` radius 時吸附至最近的任意 pairwise intersection，否則保存 bounded raw plate-local release point。UI 不使用 answer 或 least-squares 位置預放標註。
 - UI 可顯示學生線自然形成的交會，但不自動畫十字或顯示數值交點。
 - 學生自行在平板上放置重心標註；標註保存為 plate-local point。
 - 設 `e₂ = distance(mark,trueCOM)/S`；`e₂ <= 0.03` 屬滿分 band，`0.03 < e₂ <= 0.07` 屬 partial band，`e₂ > 0.07` 為零，實際點數依 §12.2 唯一公式。
@@ -436,7 +438,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
 | 二維畫線／取下層 | 只覆蓋目前平板可見 polygon 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
-| 二維重心標註 | 明確 point hit overlay | 穩定 hit target | No |
+| 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
 | 三維候選點 A–E | 投影位置對應的 stable HTML buttons／hit overlays | 各 candidate button | No |
 
@@ -553,6 +555,7 @@ partN/editing -> partM/editing        on switchPart(M), after rollback and check
 part1/editing                         gains balance／mark evidence in place
 part2/editing                         gains settled／line／mark evidence in place
 part2/editing                         may detach one unlined active hang, removing its hang record
+part2/editing                         may rehang a lined hole while retaining its old line／mark, then atomically replace that hole line or detach unchanged
 part3/editing                         gains tentative selection／observation evidence in either order
 partN/editing -> check/complete       on enterCheck only when all three complete
 check/complete -> partN/editing       on switchPart(N), preserving all evidence
@@ -560,7 +563,7 @@ editable/check -> partN/editing       on resetPart(N), clearing only that part
 check -> review                       only through successful/committed SCORM submission handling
 ```
 
-- 不保存 `swinging`、`dragging`、`drawing-in-progress` 或 `orbiting` phase。若頁面在動畫／gesture 中離開，draft provider 只提交上一個已完成 semantic checkpoint。
+- 不保存 `swinging`、`dragging`、`drawing-in-progress`、marker drag 或 `orbiting` phase。若頁面在動畫／gesture 中 reload／離開，draft provider 只提交上一個已完成 semantic checkpoint；單純 hidden／blur 的 swing 依 §7.2 暫停及繼續同一 transient runtime。
 - restore 後的下一步必須與原 state 相同；每個 matrix row 的 round-trip test 都執行一個合法 continuation。
 
 ## 14. Persistence contract
@@ -656,9 +659,9 @@ Never persisted：
 - 所有 numbers finite；normalized coordinate、angle、line length及candidate key 在合法範圍。
 - support episodes 設合理上限，例如只保留最近 12 次及第一個 balanced episode；重複 spam 不令 snapshot 無限增長。
 - hangRecords／lines 的 hole keys 唯一並存在於 generated plate；line relationship 不可 dangling。
-- 最多 4 條 valid lines；每條 endpoints 不可相同或近零長度。
+- 最多 4 條 recordable lines；每條 shape 恰為 `{holeKey,a,b}`、endpoints finite 且在 `[-1.5,1.5]`，長度至少 `0.45S`、穿過所屬 active／settled hole，方向由 pivot 朝可重建理想向下方向。active hole 可暫時擁有同 key 舊線供重畫；其他 hang records 必須有 line。
 - 三部分 substate 互相獨立驗證；active phase 不限制其他部分可否已有答案。
-- `marked` 必須有相應 evidence gate；`review` 必須三部分完整。
+- part2 mark 必須有至少兩條夾角足夠的 recordable lines；editing 可在同孔重畫期間保留 mark，但 `check`／`review` 必須 `activeHoleKey:null`。結構 complete gate 不取代 scorer 的 strict `lineValid ≤5°`。
 - part3 tentative `selectedCandidateKey` 不需要 observation gate 才可保存；只有 complete/check/review 要求兩個有效 observations。scorer 對欠 observations 的 selection 給 0 分。
 - generated IDs 若出現在舊 snapshot 應忽略並重建，不作 authoritative key。
 - representative maximum draft／review 必須低於 4000 UTF-8 bytes。
@@ -742,7 +745,8 @@ Never persisted：
 - [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step、frame-gap clamp、threshold dwell及 settled snap。
 - [ ] world↔plate-local transform round-trip。
 - [ ] 畫線 validity：穿孔距離、垂直角、最短長度 boundaries。
-- [ ] 兩線 intersection及 3–4 線 least-squares；平行／近退化拒絕。
+- [ ] `lineRecordable` exact shape、finite、向下、`0.45S`、端點 `±1.5` 直接 boundary；`lineValid` 嚴格 `≤5°` 保持獨立。
+- [ ] 2／3／4 線全部 finite pairwise intersections（1／3／6）及 3–4 線 scorer least-squares；平行／近退化處理。
 - [ ] part3 projection finite、所有 candidates 有指定 solid-interior margin、candidate separation、correct key randomized、quaternion normalization。
 
 ### 18.2 Scoring tests
@@ -752,6 +756,7 @@ Never persisted：
 - [ ] 第一次成功可取滿過程分，不要求先失敗。
 - [ ] 重複同 hole／同 line／pointer spam 不累積分。
 - [ ] 兩孔兩線 relationships 必須有效且 angle 足夠。
+- [ ] recordable slanted line 可完成並提交但 strict line evidence／相關分數較低；rubric schema 及 3+ 線 least-squares scoring 不變。
 - [ ] part3 wrong candidate 及欠 observation evidence。
 - [ ] scorer 不信任 persisted `correct`／`intersection`／`score` flags。
 
@@ -764,6 +769,8 @@ Never persisted：
 - [ ] missing previous parts、future data、illegal active answer、phase/variant mismatch fail closed。
 - [ ] NaN、Infinity、負值、out-of-range coordinates／angles、invalid enum 拒絕。
 - [ ] duplicate／dangling hole keys、candidate keys、line relationships 拒絕。
+- [ ] active existing-line round-trip；same-hole record 原子 replacement；detach 保留舊 hang／line；active mark 保留但 check lock。
+- [ ] v2 保存 `9.5°` snap exact vertical 與 `10.5°` raw slant；v1 migration 對非 strict line fail closed。
 - [ ] generated DOM IDs 被忽略及重建。
 - [ ] maximum snapshot < 4000 UTF-8 bytes。
 
@@ -778,6 +785,10 @@ Never persisted：
 - [ ] preview 固定最遠角、真實 scene content、sanitized、no recursive clone、no answer overlay。
 - [ ] mouse／keyboard 不顯示 touch preview。
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
+- [ ] 同孔重掛時舊線／mark 保持可見；重畫成功只替換同 key line，取下不改舊證據。
+- [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
+- [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，44 px direct target；trusted drag 可吸附任意 pairwise intersection，否則保存 bounded raw release。
+- [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
 - [ ] part3 click-vs-orbit threshold及 DOM radio synchronization。
 - [ ] native formula markup 包含 `<var>`、sub/sup、upright units、role math、ARIA；無 MathJax／raw TeX。
 - [ ] reduced-motion 路徑仍產生正確 settled semantic event。
@@ -792,6 +803,7 @@ Never persisted：
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
 - [ ] 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
+- [ ] source 及 packaged SCORM 驗證 rotate arrow／arrowhead 在 phone、desktop 清晰、target 至少 44 px，畫線完成無 pageerror／無向上跳；marker 對任意線對吸附。
 
 ### 18.6 Lifecycle／package tests
 

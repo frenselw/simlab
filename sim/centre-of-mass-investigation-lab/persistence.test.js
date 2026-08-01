@@ -46,6 +46,7 @@ const legacy = (source, phase, variant, returnToCheck = false) => ({
   v: 1, generatorVersion: source.generatorVersion, rubricVersion: source.rubricVersion, seed: source.seed,
   phase, variant, returnToCheck, part1: structuredClone(source.part1), part2: structuredClone(source.part2), part3: structuredClone(source.part3)
 });
+const angledLine = (key, degrees, lengthFactor=.55) => { const hole=problem.part2.holes.find((item)=>item.key===key),dx=problem.part2.centre.x-hole.x,dy=problem.part2.centre.y-hole.y,n=Math.hypot(dx,dy),a=degrees*Math.PI/180,ux=dx/n*Math.cos(a)-dy/n*Math.sin(a),uy=dx/n*Math.sin(a)+dy/n*Math.cos(a),length=lengthFactor*problem.part2.size;return{holeKey:key,a:[hole.x,hole.y],b:[hole.x+ux*length,hole.y+uy*length]}; };
 let legacyNormalSource = P.initial(seed);
 legacyNormalSource = P.release(legacyNormalSource, problem.part1.xCm);
 legacyNormalSource = P.markPart1(legacyNormalSource, problem.part1.xCm);
@@ -64,6 +65,11 @@ const legacySelectedWithOneObservation = P.setView(legacySelectedWithoutEvidence
 for (const source of [legacySelectedWithoutEvidence, legacySelectedWithOneObservation]) {
   assert.equal(P.decode(legacy(source, "part3", "selected-normal")), null, "v1 candidate selection without its legacy observation gate is rejected");
 }
+let modernSlant=P.initial(seed);modernSlant=P.release(modernSlant,problem.part1.xCm);modernSlant=P.markPart1(modernSlant,problem.part1.xCm);modernSlant=P.switchPart(modernSlant,2);modernSlant=P.settleHole(modernSlant,"h1");modernSlant=P.recordLine(modernSlant,angledLine("h1",10.5));
+assert.ok(P.decode(P.encode(modernSlant)),"v2 preserves a recordable 10.5 degree learner line");
+assert.equal(S.evidence(modernSlant,problem).lines.length,0,"the unchanged strict scorer does not count the 10.5 degree line");
+assert.equal(P.decode(legacy(modernSlant,"part2","between-one-normal")),null,"v1 migration remains strict and cannot launder a formerly impossible slanted line");
+let invalidLineBase=P.switchPart(P.initial(seed),2);invalidLineBase=P.settleHole(invalidLineBase,"h1");const forward=angledLine("h1",0),activeHole=problem.part2.holes.find((item)=>item.key==="h1");for(const bad of [angledLine("h1",0,.4499),{holeKey:"h1",a:[activeHole.x,activeHole.y],b:[activeHole.x-(forward.b[0]-activeHole.x),activeHole.y-(forward.b[1]-activeHole.y)]},{holeKey:"h1",a:[activeHole.x,activeHole.y],b:[Infinity,0]},{holeKey:"h1",a:[activeHole.x,activeHole.y],b:[1.500001,1.500001]}])assert.equal(P.recordLine(invalidLineBase,bad),null,"production persistence rejects short, upward, nonfinite and out-of-range lines");
 
 const restoredSettled = P.decode(P.encode(fixtures.find((item) => item.phase === "part2" && item.part2.activeHoleKey)));
 const hole = problem.part2.holes.find((item) => item.key === restoredSettled.part2.activeHoleKey);
@@ -75,6 +81,14 @@ assert.ok(detached && P.validate(detached), "restored settled state can take dow
 assert.equal(detached.part2.activeHoleKey, null);
 assert.ok(!detached.part2.hangRecords.some((record) => record.holeKey === hole.key), "take-down removes the unlined hang relationship");
 assert.ok(P.settleHole(detached, problem.part2.holes.find((item) => item.key !== hole.key).key), "take-down can continue with another hole");
+
+let redraw=P.switchPart(P.initial(seed),2);redraw=P.settleHole(redraw,"h1");redraw=P.traceVertical(redraw);const originalLine=structuredClone(redraw.part2.lines[0]);redraw=P.settleHole(redraw,"h1");
+assert.ok(redraw&&P.validate(redraw)&&redraw.part2.activeHoleKey==="h1","a used hole can be rehung for redraw");
+assert.deepEqual(P.decode(P.encode(redraw)),redraw,"active redraw with its existing line round-trips");
+const retained=P.detachActiveHole(redraw);assert.deepEqual(retained.part2.lines,[originalLine]);assert.deepEqual(retained.part2.hangRecords,[{holeKey:"h1"}],"detaching a redraw retains prior evidence");
+redraw=P.recordLine(redraw,angledLine("h1",18));assert.equal(redraw.part2.lines.length,1);assert.notDeepEqual(redraw.part2.lines[0],originalLine,"recording atomically replaces only that hole's line");
+
+let markedActive=P.switchPart(state,2);markedActive=P.settleHole(markedActive,"h1");assert.ok(markedActive&&markedActive.part2.mark,"an existing mark survives same-hole rehang");assert.equal(P.allComplete(markedActive),false,"active redraw locks structural completion");const markedDetached=P.detachActiveHole(markedActive);assert.ok(markedDetached.part2.mark);assert.equal(P.allComplete(markedDetached),true,"detaching restored evidence unlocks completion again");
 
 for (const make of [
   () => { const x = structuredClone(state); x.seed = NaN; return x; },
