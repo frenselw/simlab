@@ -91,9 +91,9 @@
 
 | 部分 | 最低有效操作證據 | 可確認的答案 |
 |---|---|---|
-| 一維 | 至少一次真正放手的承托測試，並曾達到水平的中性平衡 | 在已平衡物體上標註重心 |
+| 一維 | 至少一次真正放手的承托測試，並曾達到水平的中性平衡 | 系統以同一 production mark transition 在平衡位置標註，學生可微調 |
 | 二維 | 兩個不同小孔各有一次已停止的懸掛，並各畫一條有效鉛垂線；兩線方向有足夠夾角 | 在平板本地座標標註重心 |
-| 三維 | 完成兩個有足夠角度差的觀察姿態 | 選擇 A–E 其中一個三維候選點 |
+| 三維 | 完成兩個有足夠角度差的觀察姿態 | 選擇 A–E 其中一個三維候選點；選擇可先作 tentative 保存 |
 
 直接寫入答案但欠缺相應語意證據的 state 必須被 persistence decoder 及 scorer 拒絕或計為零，不得只靠 UI 隱藏按鈕。
 
@@ -214,12 +214,12 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 
 ### 6.2 互動
 
-- 可見承托尖端保持窄小，其 apex 在所有靜止及動畫 frame 均與杆底面準確接觸，並作為杆旋轉 pivot；觸控 hit target 最少 `44 × 44 CSS px`，不以粗描邊攔截附近空白 swipe。
+- 承托架使用簡潔的實色幾何造型；其 apex 在所有靜止及動畫 frame 均與杆底面準確接觸，並作為杆旋轉 pivot。整個可見承托架都是穩定的拖動 hit target（最少 `44 × 44 CSS px`），不只細小尖端可拖動，亦不攔截架外空白 swipe。
 - mouse：按住承托點水平拖動；放開立即進行承托測試。
 - touch／pen：相同單指拖動，pointerdown 前 hit target 已有 `touch-action:none`，並 capture 同一 pointer。
-- keyboard：承托點可聚焦，左右方向鍵移動 `0.01L`，Shift＋方向鍵移動 `0.05L`，Enter／Space 執行放手測試。
-- 預設筆記面板不放操作按鈕列；keyboard 等價操作收在「鍵盤操作」disclosure，核心操作在可聚焦 stage target 完成，且不會自動尋找重心。
-- 只有曾達到平衡，標註工具才解鎖；標註點固定在物體本地坐標，物體回水平後仍保持正確位置。
+- keyboard 等價操作保留在可聚焦的 stage target，但 learner-facing 面板及提示採 pointer／touch-first 文案，不顯示鍵盤操作 disclosure 或鍵名說明。
+- 預設筆記面板不放操作按鈕列；核心操作直接在 stage target 完成，且不會自動尋找重心。
+- 放手達到平衡後，production `markPart1` 路徑立即在該承托位置自動建立可見重心標註；標註點固定在物體本地坐標，並可直接拖動微調，不要求另一次點擊。
 - 標註亦支援拖動、方向鍵及 `−／＋` 微調。
 - tap-only 未改變位置仍可算一次有效放手測試，但不可重複按同一位置累積多份過程分。
 
@@ -285,10 +285,10 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 平板外側顯示一個簡潔弧形旋轉手柄，視覺約 `24–32 px`，hit target 至少 `44 × 44 CSS px`。每次 render 在兩個相反候選位置中選擇較安全的一側，並 clamp 到 stage 內至少 22 px inset；平板靠近頂／側邊時手柄須自動翻側而不消失。
 - mouse／單指／pen 拖動旋轉手柄時，以 pointer 相對平板中心的 `atan2` 角度差更新 `θ`；平板中心在此 gesture 內保持不動。
 - pointerdown 記錄角度 offset，避免一按下就跳角。
-- 旋轉手柄可聚焦並用左右方向鍵操作（Shift 為 `15°`）；等價操作收在 keyboard disclosure，不在主 control panel 建立操作按鈕牆。
+- 旋轉手柄保留可聚焦等價操作；learner-facing 面板不顯示 keyboard disclosure，亦不在主 control panel 建立操作按鈕牆。
 - mouse wheel、trackpad gesture 及裝置方向感應器不作必要輸入，避免平台差異及誤觸。
 - 雙指 twist 可在後續 usability 測試證明穩定後加入為額外捷徑；即使加入，單指手柄及 stage 上的鍵盤替代仍必須完整可用。
-- 平板一旦成功掛上釘並開始自由擺動，所有人工平移／旋轉 target 暫時鎖定，直至停止或學生按「取下平板」。
+- 平板一旦成功掛上釘並開始自由擺動，所有人工平移／旋轉 target 暫時鎖定；停止後如尚未畫線，直接拖動平板或另一個孔即可取下重掛。
 
 #### 套釘
 
@@ -297,7 +297,9 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 放手時只有該孔仍在 snap radius 內才成功掛上；系統把孔中心精確對齊釘後開始擺動。
 - 牆上只顯示細小釘點及淡色 snap halo，不畫鈎；平板使用約 `0.52` alpha 的單色半透明填色和 `1.5–2 px` 邊，釘及孔在重疊時仍清楚可見。
 - 同一時間只可有一個 active hole；第二指不能改變 active target。
+- 拖動任何孔或整塊平板時，系統實時計算距牆釘最近而且尚未畫線的 eligible hole；進入既定 `42 CSS px` 吸附半徑時，以高對比虛線／尺寸變化同時提示牆釘及該孔。整板放手時自動使用該最近孔精確對準並開始懸掛，不需要預先點選孔。
 - 若未對準便放手，平板留在最後安全姿態，不形成 hang evidence。
+- 已 settled 但尚未畫線時，學生可直接拖動平板或另一個孔取下重掛。canonical `detachActiveHole` transition 會先移除該未畫線 active hang record，再開始新 drag；不得留下 orphan hang evidence。擺動途中仍鎖定取下操作。
 
 #### Keyboard-only 完整流程
 
@@ -312,7 +314,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 平板 settled 後，釘下顯示鉛錘及鉛垂線；鉛垂線屬 world vertical，穿過 pivot。
 - 學生選擇畫線工具，從懸掛孔附近開始，沿板面拖到另一側；系統即時顯示學生線。
 - pointer world endpoints 在完成時逆變換為 plate-local endpoints 保存。
-- pointer 必須從目前懸掛孔附近開始真正拖線。raw drag 與畫面垂直方向相差 `≤ 10°` 時，live ghost 吸附到穿過該孔的精確 world vertical，再把精確線反變換為 plate-local endpoints；超出吸附範圍不產生有效證據。keyboard 等價仍建立同一 production-shaped 精確線。
+- pointer 必須從目前懸掛孔／pivot 開始並向下真正拖線。live ghost 的起點固定在 pivot，終點只向畫面下方延伸；raw drag 與向下垂直方向相差 `≤ 10°` 時，吸附到穿過該孔的精確 world vertical，再把精確線反變換為 plate-local endpoints。向上拖或超出吸附範圍不產生有效證據。
 - 有效線必須：
   - 對應目前已 settled 的孔；
   - 在 plate-local 坐標穿過該孔的距離不超過 `0.025S`；
@@ -360,9 +362,9 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
 - 立體以半透明面、清楚輪廓及深度排序顯示；後方候選點透明度稍低，不能只用顏色表達深度。
 - 球體使用經緯參考線或三個大圓提示旋轉；正方體／長方體顯示半透明面及可辨識邊。
-- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；候選 hit test 依投影位置及深度排序，近點優先。
+- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見 HTML 標籤覆蓋投影點。layout 依深度近點優先，在 `44 CSS px` hit targets 重疊時按 deterministic offsets 分離並限制在 stage 內，因此每個標籤都可可靠選取。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
-- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用透明 44 px hit target 包住細小 marker。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、可見字母的 44 px hit target，選中時即時以形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 
 ### 8.2 電腦及手機旋轉操作
@@ -378,11 +380,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
-- 單指點候選點先顯示 selected highlight，按「確認選擇」才完成，避免旋轉結束時誤選。
+- 單指點候選點即建立 tentative selection 並顯示 highlight；未完成兩個 observation 時只保存選擇，不構成完成 evidence，亦不能進入 check。
 
 #### Keyboard／compact equivalent
 
-- Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步。
+- Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步；radio 在 observation gate 前亦可 tentative 選擇。
 - Canvas orbit region 可聚焦；方向鍵旋轉，Shift＋方向鍵使用較大角度。
 - 提供文字摘要：立體種類、目前大致觀察方向、候選點標籤；不可朗讀哪一點是中心。
 
@@ -412,7 +414,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 ## 9. Responsive layout contract
 
-- Control-panel classification: `bounded split-panel`。面板是 notebook-style 任務、證據、物理筆記及 keyboard disclosure，不是 remote control；第一至三部分預設不顯示移動、測試、掛孔、畫線、旋轉、視角或標註按鈕列。
+- Control-panel classification: `bounded split-panel`。面板只顯示任務、證據及物理筆記，不是 remote control，亦不顯示 keyboard disclosure；第一至三部分預設不顯示移動、測試、掛孔、畫線、旋轉、視角或標註按鈕列。
 - 原因：三部分均有持續可見 stage 及重複使用的工具／證據／確認控制；學生操作 panel 時 stage 必須保持可見。
 - Phone app: `height:100vh` fallback 後使用 `height:100dvh`。
 - Phone stage track 初值：`minmax(13rem, 46vh)`，支援 `46dvh`；第二部分如可讀性測試不足，可按 phase 調至 `48dvh`，但不可由 intrinsic content 擠壓 panel。
@@ -434,7 +436,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 二維平板平移面 | visible polygon 的獨立 stable overlay，不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
-| 二維畫線筆尖 | 只覆蓋目前平板可見 polygon 的穩定 plate-local drawing hit layer；牆面／stage 空白永不屬 drawing target | 穩定 plate drawing layer | No |
+| 二維畫線／取下層 | 只覆蓋目前平板可見 polygon 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
 | 二維重心標註 | 明確 point hit overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
 | 三維候選點 A–E | 投影位置對應的 stable HTML buttons／hit overlays | 各 candidate button | No |
@@ -520,7 +522,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - UI 不允許在 evidence gate 前確認答案；scorer 仍獨立重驗。
 - 第一部分欠承托／平衡而直接有 `markX`：結果分 0，invalid snapshot policy 視 shape 決定拒絕或清除未合法答案。
 - 第二部分欠兩個不同 settled holes 或兩條 valid lines 而直接有 mark：結果分 0，該 state 不可提交。
-- 第三部分欠兩個 observation 而直接選 candidate：結果分 0，該 state 不可提交。
+- 第三部分欠兩個 observation 而選 candidate：tentative editing state 合法並可 restore，但結果分 0、該部分未完成且不可進入 check／提交。
 - 不以 pointermove 次數、停留時間或畫線數量直接加分。
 - 無效 drop、無效線及錯誤候選不扣到負分；「重新做此部分」清除該部分證據，不提供試錯後保留最高分。
 - 完全沒有完成有效操作而靠 state 注入答案，總分必須為 0。
@@ -551,7 +553,8 @@ v2 把 active tab 與各部分完成度分開；`variant` 只可為 `editing | c
 partN/editing -> partM/editing        on switchPart(M), after rollback and checkpoint
 part1/editing                         gains balance／mark evidence in place
 part2/editing                         gains settled／line／mark evidence in place
-part3/editing                         gains observation／selection evidence in place
+part2/editing                         may detach one unlined active hang, removing its hang record
+part3/editing                         gains tentative selection／observation evidence in either order
 partN/editing -> check/complete       on enterCheck only when all three complete
 check/complete -> partN/editing       on switchPart(N), preserving all evidence
 editable/check -> partN/editing       on resetPart(N), clearing only that part
@@ -655,6 +658,7 @@ Never persisted：
 - 最多 4 條 valid lines；每條 endpoints 不可相同或近零長度。
 - 三部分 substate 互相獨立驗證；active phase 不限制其他部分可否已有答案。
 - `marked` 必須有相應 evidence gate；`review` 必須三部分完整。
+- part3 tentative `selectedCandidateKey` 不需要 observation gate 才可保存；只有 complete/check/review 要求兩個有效 observations。scorer 對欠 observations 的 selection 給 0 分。
 - generated IDs 若出現在舊 snapshot 應忽略並重建，不作 authoritative key。
 - representative maximum draft／review 必須低於 4000 UTF-8 bytes。
 - decoder 確定性遷移舊 v1 `normal`、`redo`、`review` 及 pending-final 內的合法 answer；只移除 sequential／`returnToCheck` 表示並保留 active phase及權威證據。v1 variant、依賴或 evidence 關係損壞時拒絕，不可用 v2 較寬鬆規則洗白；encoder 永遠只輸出 v2。

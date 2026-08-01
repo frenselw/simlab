@@ -4,6 +4,13 @@ const G = require("./generator.js"), P = require("./persistence.js"), S = requir
 const seed = 11, problem = G.generate(seed), fixtures = [];
 let state = P.initial(seed); fixtures.push(state);
 
+let tentative = P.switchPart(P.initial(seed), 3);
+tentative = P.selectPart3(tentative, problem.part3.correctKey);
+assert.ok(tentative && P.validate(tentative), "candidate selection is a restorable tentative editing state");
+assert.equal(P.allComplete(tentative), false);
+assert.equal(P.enterCheck(tentative), null, "tentative selection cannot bypass the observation gate");
+assert.deepEqual(P.decode(P.encode(tentative)), tentative);
+
 // Complete the parts deliberately out of order to prove the tab is not a gate.
 state = P.switchPart(state, 3); fixtures.push(state);
 state = P.setView(state, { yaw10: 650, pitch10: -180 });
@@ -57,6 +64,11 @@ const hole = problem.part2.holes.find((item) => item.key === restoredSettled.par
 const dx = problem.part2.centre.x - hole.x, dy = problem.part2.centre.y - hole.y, n = Math.hypot(dx, dy);
 const continuation = P.recordLine(restoredSettled, { holeKey: hole.key, a: [hole.x - dx / n * .02, hole.y - dy / n * .02], b: [hole.x + dx / n * .55, hole.y + dy / n * .55] });
 assert.ok(continuation && P.validate(continuation), "restored settled state accepts a real traced-line continuation");
+const detached = P.detachActiveHole(restoredSettled);
+assert.ok(detached && P.validate(detached), "restored settled state can take down an unlined plate");
+assert.equal(detached.part2.activeHoleKey, null);
+assert.ok(!detached.part2.hangRecords.some((record) => record.holeKey === hole.key), "take-down removes the unlined hang relationship");
+assert.ok(P.settleHole(detached, problem.part2.holes.find((item) => item.key !== hole.key).key), "take-down can continue with another hole");
 
 for (const make of [
   () => { const x = structuredClone(state); x.seed = NaN; return x; },
