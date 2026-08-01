@@ -448,7 +448,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 |---|---|---:|---|
 | 已知非互動 stage 空白 | Moodle／enclosing host | host 非零並帶動 iframe；activity document、panel、visual viewport 為 0 | 不開始 drag、不改 learner state |
 | independently scrolling control panel | panel only | panel 有 range 時非零；host、iframe、activity document、兩邊 visual viewport 為 0 | stage 固定；邊界亦不 chain 到 host |
-| 一維承托／標註 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | target 移動；有 pointermove＋pointerup；無 pointercancel；preview 正常清除 |
+| 一維承托 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | 承托架移動；有 pointermove＋pointerup；無 pointercancel；preview 正常清除 |
 | 二維平板／孔／旋轉手柄／畫線／標註 | simulation | 同上全部為 0 | 正確 target 獨佔 gesture，沒有平移／旋轉模式串擾 |
 | 三維 orbit／candidate target | simulation | 同上全部為 0 | orbit 或 selection 只發生其一；無誤選及 pointercancel |
 
