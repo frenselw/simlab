@@ -58,6 +58,12 @@ const migratedReview = P.fromReview(legacy(review, "review", "submitted"));
 assert.equal(migratedReview.v, 2); assert.equal(migratedReview.phase, "review");
 const corruptLegacy = legacy(legacyNormalSource, "part1", "marked-redo", false);
 assert.equal(P.decode(corruptLegacy), null, "corrupt v1 variant is rejected rather than washed through v2");
+let legacySelectedWithoutEvidence = P.resetPart(state, 3);
+legacySelectedWithoutEvidence = P.selectPart3(legacySelectedWithoutEvidence, problem.part3.correctKey);
+const legacySelectedWithOneObservation = P.setView(legacySelectedWithoutEvidence, { yaw10: 650, pitch10: -180 });
+for (const source of [legacySelectedWithoutEvidence, legacySelectedWithOneObservation]) {
+  assert.equal(P.decode(legacy(source, "part3", "selected-normal")), null, "v1 candidate selection without its legacy observation gate is rejected");
+}
 
 const restoredSettled = P.decode(P.encode(fixtures.find((item) => item.phase === "part2" && item.part2.activeHoleKey)));
 const hole = problem.part2.holes.find((item) => item.key === restoredSettled.part2.activeHoleKey);

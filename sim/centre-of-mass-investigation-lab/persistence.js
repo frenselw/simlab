@@ -65,6 +65,7 @@
     if (!exact(value, ["v", "generatorVersion", "rubricVersion", "seed", "phase", "variant", "returnToCheck", "part1", "part2", "part3"]) || value.v !== 1 || typeof value.returnToCheck !== "boolean" || value.variant !== legacyVariant(value)) return null;
     let problem; try { problem = Generator.generate(value.seed, value.generatorVersion); } catch { return null; }
     const facts = semantic(value, problem); if (!facts) return null;
+    if (value.part3.selectedCandidateKey !== null && !Model.validObservations(problem.part3.initialView, value.part3.observations)) return null;
     const p2Pristine = facts.hangKeys.length === 0 && value.part2.activeHoleKey === null && value.part2.lines.length === 0 && value.part2.mark === null;
     const p3Pristine = value.part3.observations.length === 0 && value.part3.selectedCandidateKey === null && JSON.stringify(value.part3.view) === JSON.stringify(problem.part3.initialView);
     if (!value.returnToCheck) {
