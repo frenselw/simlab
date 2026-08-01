@@ -91,7 +91,7 @@
 
 | 部分 | 最低有效操作證據 | 可確認的答案 |
 |---|---|---|
-| 一維 | 至少一次真正放手的承托測試，並曾達到水平的中性平衡 | 系統以同一 production mark transition 在平衡位置標註，學生可微調 |
+| 一維 | 至少一次真正放手的承托測試，並曾進入可接受的中性平衡範圍 | 系統以同一 production `markPart1` transition 保存並揭示生成題目的精確重心；紅點固定，不設學生微調 |
 | 二維 | 兩個不同小孔各有一次已停止的懸掛，並各畫一條有效鉛垂線；兩線方向有足夠夾角 | 在平板本地座標標註重心 |
 | 三維 | 完成兩個有足夠角度差的觀察姿態 | 選擇 A–E 其中一個三維候選點；選擇可先作 tentative 保存 |
 
@@ -219,22 +219,22 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 - touch／pen：相同單指拖動，pointerdown 前 hit target 已有 `touch-action:none`，並 capture 同一 pointer。
 - keyboard 等價操作保留在可聚焦的 stage target，但 learner-facing 面板及提示採 pointer／touch-first 文案，不顯示鍵盤操作 disclosure 或鍵名說明。
 - 預設筆記面板不放操作按鈕列；核心操作直接在 stage target 完成，且不會自動尋找重心。
-- 放手達到平衡後，production `markPart1` 路徑立即在該承托位置自動建立可見重心標註；標註點固定在物體本地坐標，並可直接拖動微調，不要求另一次點擊。
-- 標註亦支援拖動、方向鍵及 `−／＋` 微調。
+- 放手進入平衡容差後，production `markPart1` 路徑立即把生成題目的精確 `x_cm`（不是承托位置 `x_s`）寫入既有 `markX` 相容欄位，並在杆上揭示固定的小紅點及可見標籤「重心」，不要求另一次點擊。
+- 第一部分不建立可拖動／可聚焦的重心標註 target，亦不提供方向鍵、`−／＋` 或其他微調途徑。平衡容差只判斷實驗證據；揭示位置永遠是生成題目的精確 `x_cm`。
 - tap-only 未改變位置仍可算一次有效放手測試，但不可重複按同一位置累積多份過程分。
 
 ### 6.3 第一部分 preview window
 
-- touch／pen 拖動承托點或重心標註點時必須立即顯示真實 SVG 局部預覽；mouse／keyboard 不顯示。
+- touch／pen 拖動承托點時必須立即顯示真實 SVG 局部預覽；mouse／keyboard 不顯示。第一部分沒有可拖動的重心標註點。
 - preview 固定在 pointerdown 時離手指最遠的 stage 角落，整個 gesture 不換角，避免跳動。
-- crop 中心跟隨實際承托尖端／標註點，顯示當前杆、承托點及原有刻度背景；不得加入真重心、方向提示、額外十字線或數值答案。
+- crop 中心跟隨實際承托尖端，顯示當前杆、承托點及原有刻度背景；平衡完成前不得加入真重心、方向提示、額外十字線或數值答案。
 - 原圖被拖 target 加強 highlight；preview `pointer-events:none`、`aria-hidden:true`，不改 layout、scroll height 或 learner state。
 - pointerup、pointercancel、lostpointercapture、blur、reset、phase change、restore 及 render rollback 立即清除。
 
 ### 6.4 第一部分答案與 tolerance
 
-- 權威答案為學生標註的歸一化本地位置 `markX`。
-- 設 `e₁ = |markX - x_cm|/L`。若 `e₁ <= 0.02`，取 15 分；若 `0.02 < e₁ <= 0.05`，取 `15 - 10(e₁-0.02)/0.03` 分；若 `e₁ > 0.05`，結果分為零。邊界 `0.02` 只屬滿分 band，`0.05` 只屬 partial band。
+- `markX` 保留為已發布 v1／v2 snapshot、pending payload 及 scorer 的相容欄位。新 production 只可在 balanced episode 完成時寫入生成題目的精確 `x_cm`；它不再是學生可編輯答案。
+- 新 production 的 `e₁ = |markX - x_cm|/L = 0`，因此 balanced evidence 後取得本 component 的 15 分。為保持舊 review score／pass exact comparison，相容 scorer 仍按舊規則處理已保存的非精確 `markX`：`e₁ <= 0.02` 取 15 分；`0.02 < e₁ <= 0.05` 取 `15 - 10(e₁-0.02)/0.03` 分；`e₁ > 0.05` 為零。舊值只用於驗證及重算，不作顯示坐標或可編輯 channel。
 - 顯示採用百分比或示意刻度；內部保留完整有限精度。
 
 ## 7. 第二部分：二維非均勻平板
@@ -432,7 +432,6 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | Target type | Selector／hit strategy | Capture target | Rendering 可在 drag 中替換？ |
 |---|---|---|---:|
 | 一維承托點 | 明確 SVG rect／HTML overlay，最少 52×52 CSS px | 穩定 hit target | No |
-| 一維重心標註 | 明確 circle hit overlay | 穩定 hit target | No |
 | 二維平板平移面 | visible polygon 的獨立 stable overlay，不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
@@ -509,7 +508,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 |---|---|---:|---|
 | 一維 | 完成至少一次真正承托放手 | 5 | 有 finite support position 及 completed release episode |
 | 一維 | 找到水平中性平衡 | 10 | episode result 為 balanced，並通過 generator ground truth 驗證 |
-| 一維 | 標註重心 | 15 | `e₁≤0.02`: 15；`0.02<e₁≤0.05`: `15-10(e₁-0.02)/0.03`；`e₁>0.05`: 0；欠 balanced evidence: 0 |
+| 一維 | 平衡後揭示生成題目的精確重心 | 15 | 新 production 的 `markX=x_cm`：15；欠 balanced evidence：0。舊 snapshot 的非精確 `markX` 仍按原 `e₁` bands 重算，以保持已提交 review 分數相容 |
 | 二維 | 兩個不同孔成功懸掛並 settled | 12 | 每個有效孔 6，最多兩個計分；額外孔不重複加分 |
 | 二維 | 兩條有效鉛垂線 | 18 | 每條 9；必須對應不同 settled holes 並通過幾何驗證 |
 | 二維 | 交會證據質素 | 10 | 設 `eᵢ=distance(mark,leastSquaresIntersection)/S`；`eᵢ≤0.03`: 10；`0.03<eᵢ≤0.08`: `10(0.08-eᵢ)/0.05`；`eᵢ>0.08`: 0；退化／平行組合為 0 |
@@ -520,7 +519,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 ### 12.3 防亂估及 penalties
 
 - UI 不允許在 evidence gate 前確認答案；scorer 仍獨立重驗。
-- 第一部分欠承托／平衡而直接有 `markX`：結果分 0，invalid snapshot policy 視 shape 決定拒絕或清除未合法答案。
+- 第一部分欠承托／平衡而直接有 `markX`：結果分 0，invalid snapshot policy 視 shape 決定拒絕或清除未合法值。新 UI 沒有直接填寫或調整 `markX` 的入口。
 - 第二部分欠兩個不同 settled holes 或兩條 valid lines 而直接有 mark：結果分 0，該 state 不可提交。
 - 第三部分欠兩個 observation 而選 candidate：tentative editing state 合法並可 restore，但結果分 0、該部分未完成且不可進入 check／提交。
 - 不以 pointermove 次數、停留時間或畫線數量直接加分。
@@ -577,7 +576,7 @@ check -> review                       only through successful/committed SCORM su
   variant: "editing",
   part1: {
     supportEpisodes: [{ x: 0.41, outcome: "left-fall" }, { x: 0.56, outcome: "balanced" }],
-    markX: 0.558
+    markX: 0.558 // 新 production 必須等於由 seed 重建的精確 x_cm
   },
   part2: {
     hangRecords: [{ holeKey: "h1" }, { holeKey: "h3" }],
@@ -618,13 +617,15 @@ review 必須足以：
 - 重新驗證 evidence、重算 score／pass；
 - 與 Moodle 保存的 summary 作 trust comparison。
 
+`markX` 保持 schema v2 欄位名稱及數值 shape，避免破壞已發布草稿、review 及 pending-final payload。新 production 在 balanced completion 寫入精確 `x_cm`；decoder 不改寫舊的非精確值，scorer 仍依舊 rubric 重算，而 UI 由 seed 重建並顯示精確 `x_cm`，不把舊值畫成物理重心，也不靜默覆寫 snapshot。
+
 ### 14.3 Authoritative、derived、transient
 
 Authoritative learner state：
 
 - generator version／seed；
 - completed support episode positions；
-- part1 mark；
+- part1 `markX` 相容 checkpoint（新 production 為精確生成 `x_cm`；舊非精確值只供驗證／相容重算，不是現行 learner input）；
 - distinct hole keys with completed settled records；
 - plate-local line endpoints及其 hole relationship；
 - part2 plate-local mark；
@@ -722,7 +723,7 @@ Never persisted：
 
 ### 17.2 提交後
 
-- 第一部分顯示真重心與學生 mark，解釋平衡時總力矩為零。
+- 第一部分顯示由 seed 重建的精確重心；說明承托點進入容差只代表實驗接受的平衡範圍，而理想情況下承托點與重心完全重合時總力矩為零。舊 snapshot 的非精確 `markX` 不畫成學生 mark 或物理重心。
 - 第二部分顯示真重心、學生各條線、line intersection／least-squares point 及 mark；說明每次平衡時重心在 pivot 正下方。
 - 第三部分顯示幾何中心及對稱面／對稱軸提示。
 - 分項顯示「操作證據分」與「答案準確分」，讓學生知道亂估為何不會得到完整分數。

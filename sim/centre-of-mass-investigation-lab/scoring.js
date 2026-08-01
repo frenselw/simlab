@@ -41,7 +41,7 @@
     add("p1-release", "完成承托放手", ev.validEpisodes.length ? 5 : 0, 5);
     add("p1-balance", "找到水平中性平衡", ev.balanced ? 10 : 0, 10);
     const mark1 = state?.part1?.markX;
-    add("p1-mark", "標註一維重心", ev.balanced && Number.isFinite(mark1) ? partial(Math.abs(mark1 - problem.part1.xCm), 0.02, 0.05, 15, 5) : 0, 15);
+    add("p1-mark", "平衡後揭示一維重心", ev.balanced && Number.isFinite(mark1) ? partial(Math.abs(mark1 - problem.part1.xCm), 0.02, 0.05, 15, 5) : 0, 15);
     add("p2-hang", "兩個小孔懸掛並停止", Math.min(2, ev.settled.length) * 6, 12);
     add("p2-lines", "兩條有效鉛垂線", Math.min(2, ev.lines.length) * 9, 18);
     const mark2 = state?.part2?.mark;
