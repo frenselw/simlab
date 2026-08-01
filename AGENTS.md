@@ -158,8 +158,8 @@ is missing, stale, contradictory, or the user requested independent execution.
 
 Default model routing:
 
-- use `gpt-5.6-terra` at medium effort for interaction and test/package review;
-- use `gpt-5.6-terra` at high effort for subject review;
+- use `gpt-5.6-luna` at max effort for interaction and test/package review;
+- use `gpt-5.6-luna` at max effort for subject review;
 - use `gpt-5.6-sol` at medium effort for the sole implementer;
 - use `gpt-5.6-sol` at high effort for SCORM review;
 - reserve `gpt-5.6-sol` at xhigh effort for the final verifier and exceptional
