@@ -51,6 +51,7 @@ function create(canvas, problem, onContext) {
     if (canvas.width !== width || canvas.height !== height) renderer.setSize(rect.width, rect.height, false);
     camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
     group.rotation.order = "YXZ"; group.rotation.y = view.yaw10 * Math.PI / 1800; group.rotation.x = view.pitch10 * Math.PI / 1800;
+    scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
     for (const [keyName, mesh] of candidateMeshes) {
       mesh.material.color.setHex(keyName === selectedKey ? 0xd34d32 : 0xf2a444);
