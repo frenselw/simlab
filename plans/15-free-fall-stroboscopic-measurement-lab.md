@@ -10,7 +10,7 @@
 - Base ref：`main`；正式 review／implementation gate 使用
   `origin/main` 與 working tree 比較。
 - 目前狀態：production activity；本次獲批 contract revision 升級 editable state 至
-  snapshot `v3`／`rubricVersion:3`，`modelVersion:1` 保持不變。
+  snapshot `v4`／`rubricVersion:4`，`modelVersion:1` 保持不變。
 - 語言：學生介面使用繁體中文；本文以繁體中文及必要英文識別字撰寫。
 - 規格優先次序：本文件不得覆蓋
   `plans/00-shared-platform-and-style.md`、
@@ -373,6 +373,9 @@ Preview/live ball、曝光球影及最終球影均不是 draggable target，並�
   `zeroY + tickSpan * 0.3 / 5`；numeral column 必須與這個 unit bbox 完全分離，
   不得用碰撞搜尋把它移到尺外或其他刻度；
 - `ruler.y` 永遠代表零刻度 anchor，而不是尺身上緣；
+- pointer 或 keyboard 將零刻度移至目前量度起點的 `6 CSS px` 範圍內，而且零主刻度
+  segment 與該起點 guide 至少重疊 `4 CSS px` 時，production 把 `ruler.y` 精確吸附至
+  該起點；只檢查目前 task 的 start guide，不吸附其他曝光點；
 - 零刻度以上及最大刻度以下各保留 `12 SVG user units` 的尺身 end margin；
 - full ruler body 可在零刻度對準 \(P_1\)–\(P_3\) 時自然超出並被舞台裁切；
   不可為了把整把尺塞進舞台而移動零刻度；
@@ -401,8 +404,9 @@ Preview/live ball、曝光球影及最終球影均不是 draggable target，並�
 
 1. 選擇「由 \(P_0\) 量起」；
 2. 將直尺零刻度對準 \(P_0\)，讓零主刻度與 \(P_0\) 投影線重疊；
-3. 保持同一尺位，依次讀取 \(P_1\)–\(P_4\)；
-4. 每輸入一個值時，系統記錄該讀數是否在有效總位移尺位下輸入。
+3. 讀取目前指定的 \(P_1\)–\(P_4\) 其中一項；
+4. 每次記錄或跳過後，直尺自動返回左上角停泊區，下一項必須重新拖出並對準 \(P_0\)；
+5. 系統只為該次在有效總位移尺位下輸入的讀數建立獨立操作證據。
 
 相鄰間隔模式：
 
@@ -471,6 +475,7 @@ the reading is confirmed while this placement remains valid
 MIN_MEANINGFUL_MOVE_NORM = 0.025  // stage diagonal fraction
 ZERO_ALIGNMENT_TOLERANCE_PX = 6
 MIN_ZERO_TICK_OVERLAP_PX = 4
+RULER_SNAP_TOLERANCE_PX = ZERO_ALIGNMENT_TOLERANCE_PX = 6
 ```
 
 `MIN_MEANINGFUL_MOVE_NORM` 令不同 viewport 的「有移動」判斷一致；alignment 及
@@ -478,6 +483,14 @@ zero-tick／guide overlap 使用 CSS pixel，因為它們代表可見對準精�
 固定由 SVG `x=80` 至 `x=285`，`pointer-events:none`，且所選 START guide 是
 placement 的權威水平範圍。零主刻度 segment 與該 guide 的 screen-space horizontal
 overlap 必須 inclusive `>=4 CSS px`；可沿 guide 任意位置，不設 `BALL_X` 鄰近條件。
+吸附亦以 CSS pixel 判斷：只有垂直誤差 inclusive `<=6 CSS px` 且上述水平 overlap
+成立時才吸附，吸附後 canonical `zeroErrorPx=0`。未進入吸附範圍、只接近非目前起點，
+或沒有水平 overlap 時不得吸附或顯示舞台讀數。Pointer 的 meaningful movement 在同一
+task 內跨完成手勢累積並 clamp 至 `1`，因此有效尺位後的細微校正不會把既有有效移動
+歷史重設為零。真實 pointermove 或 keyboard nudge 一旦成功吸附，該吸附動作本身把
+task-local `moveNorm` 提升至 `MIN_MEANINGFUL_MOVE_NORM`，因此放手／完成 nudge 後立即
+建立有效 active placement 及顯示讀數；只有 pointerdown／pointerup 而沒有移動不得藉
+吸附取得資格。task change／park／reset 仍重設該 movement。
 若 \(P_0\) 上方的 ruler zero 對應輕微負
 `rulerZeroM`，只要其 signed `zeroErrorPx` 與 CTM-derived pixels-per-metre 一致、
 且在 inclusive `±6 CSS px` 內，persistence 必須接受；不得另以 `0 m` 下界推翻
@@ -642,13 +655,14 @@ Highest score: 100
 
 ```text
 meaningfulRulerUse =
-  valid total-displacement placement
-  AND at least 3 of 4 total-displacement readings confirmed while that placement is valid
+  at least one valid per-item total-displacement placement
+  AND at least 3 of 4 total-displacement readings each linked to its own valid placement
   AND at least 3 of 4 valid adjacent-interval placements
 ```
 
-`valid total-displacement placement` 只有在至少一個總位移讀數於有效尺位確認後
-才成立；隨便移尺、只對準但不讀數或只輸入理論值均不成立。若
+每項 `valid total-displacement placement` 只有在同名總位移讀數於該次有效尺位確認後
+才成立；每次記錄後直尺返回停泊區，下一項不得重用上一項尺位。隨便移尺、只對準
+但不讀數或只輸入理論值均不成立。若
 `meaningfulRulerUse` 為 false：
 
 ```text
@@ -682,7 +696,9 @@ Derived distance series 完全 informational，不進 scorer。
 3. 原因解釋：自由落體加速度固定，所以速度在每段相等時間增加相同數值
    （8 分）。
 
-不使用「全選所有敘述」可得分的多選設計。未答或選錯為 0 分，不倒扣其他項目。
+三題各自於每次活動載入時隨機排列三個選項；洗牌只改 DOM 顯示次序，canonical
+answer ID、草稿回復及評分規則不變，而且不得保留 authored 原始次序。未答或選錯
+為 0 分，不倒扣其他項目。不使用「全選所有敘述」可得分的多選設計。
 
 ### 8.6 Aggregation
 
@@ -693,11 +709,11 @@ Derived distance series 完全 informational，不進 scorer。
 - `passed = finalScore >= 60`；
 - 重試、拖動次數、完成時間及輸入方式不扣分。
 
-Rubric3 `detail` 對每個計分 item 提供 stable production shape：`status`（`correct`／
+Rubric4 `detail` 對每個計分 item 提供 stable production shape：`status`（`correct`／
 `incorrect`／`unanswered`／`no-evidence`）、`learner`、`expected`、`guidance`、`points`、
 `max`。所有 item points reconciliation 必須等於 raw score；cap 後另列 cap explanation。
-Legacy immutable v1/v2 final／finished／frozen 由 rubric2 dispatcher 重算／顯示原 recorded
-score/pass；editable legacy migration 則轉 rubric3。
+Legacy immutable v1/v2 final／finished／frozen 由 rubric2 dispatcher、v3 由 rubric3
+dispatcher 重算／顯示原 recorded score/pass；editable v1–v3 migration 則轉 rubric4。
 
 ## 9. Tolerance
 
@@ -733,7 +749,7 @@ distanceTolerance(expected) = max(0.03 m, 0.06 × expected) // canonical interna
 
 ### 9.3 比例
 
-現行 `rubricVersion: 3` 只有 `cumulativeTimeRatio` 與 `intervalTimeRatio` 兩組
+現行 `rubricVersion: 4` 只有 `cumulativeTimeRatio` 與 `intervalTimeRatio` 兩組
 可編輯比例。每組 canonical snapshot 都是四項陣列：首項必須精確為數值 `1`，
 其餘三項各自為 `null` 或正有限數。每個可編輯 term 獨立與理想 target 比較，
 每項滿分 `5/3`；留空獨立得 `0` 分，不設整組 all-or-nothing gate。比較常數：
@@ -756,10 +772,18 @@ RATIO_TERM_TOLERANCE = 0.15
 只有 immutable legacy `rubricVersion: 2` review 可保留舊
 `totalDisplacementRatio`／`intervalDistanceRatio` 與 empirical scorer，目的只是在
 已完成 attempt 回看時保存原來分數；它們不得出現在現行 UI、editable schema 或
-`rubricVersion: 3` scorer。
+`rubricVersion: 4` scorer。Immutable `rubricVersion: 3` finished／frozen review 仍由
+原 rubric3 scorer 重算而不改 bytes。
 
 ### 9.4 尺位
 
+- transient PARK 由目前舞台 CTM 及 ruler geometry 動態重建：先 probe 當前
+  `bodyWidth`／`headerMargin`，把 fixed-right anchor 設於 `bodyWidth`，並把零刻度設於
+  至少 `headerMargin`，且位於 P0 下方超過 `6 CSS px`。因此 full ruler 的左／上緣在
+  數學上可行時均不小於 `0`，透明 owner 與可見尺身完全留在 grid 內；只有當 full
+  ruler 本身高於舞台時才容許不可避免的下緣裁切。PARK 在 initial／record／skip／
+  unpositioned restore／unpositioned resize 均重新計算，不保存為
+  `activePlacement`，不顯示 readout，也絕不構成 valid P0 alignment；
 - `ZERO_ALIGNMENT_TOLERANCE_PX = 6 px`，inclusive；
 - 零主刻度 segment 與 selected START guide 的水平重疊
   `zeroTickOverlapPx >= 4 px`，inclusive；投影線固定 `x=80..285`，可沿線任意位置；
@@ -783,9 +807,12 @@ RATIO_TERM_TOLERANCE = 0.15
 - `html`、`body`、app shell 在 bounded iframe 無可用 vertical scroll range。
 - shrinking grid／flex chain 全部需要 `min-height: 0`。
 - panel 使用 `overflow-y: auto` 及 `overscroll-behavior: contain`。
+- 空白錯誤訊息不佔 layout 高度；只有 validation message 存在時才展開。
+- final result 顯示後，panel 回到最頂並把結果標題置焦，讓分數立即可見。
 - 每個 phase 把 primary／secondary actions 放在語義 action group；destructive
   reset 另成一列，與前一 action group 的 computed vertical gap 在所有 breakpoint
-  （包括 `320 px` 寬）至少 `12 px`。Reset wording 明示保留隨機指派頻率。
+  （包括 `320 px` 寬）至少 `12 px`。按鈕文字只顯示「重新開始」，確認訊息說明會
+  保留隨機指派頻率。
 - 不把舞台變成獨立 vertical scroller。
 - 極矮 viewport／200% zoom：
   - CSS effective viewport `max-height: 32rem` 時，明確覆蓋 normal track 為
@@ -868,7 +895,7 @@ side-effect 測試時必須 pause／fake clock 或只比較權威 learner state 
 - Ruler focus 後：
   - Arrow：細移；
   - Shift+Arrow：大移；
-  - 「返回停泊區」按鈕不計作有效量度。
+  - 記錄或跳過後自動返回停泊區；不另設手動返回停泊區按鈕。
 - Keyboard 造成的實際尺位變化與 pointer drag 同等計分；不以殘疾學生未用
   拖曳扣分。
 - Ruler 有可讀名稱、目前零刻度對應位置及 active measurement 的簡潔描述。
@@ -967,28 +994,24 @@ gap item 保存最後一份 canonical evidence：
 }
 ```
 
-總位移使用一份 shared finalized placement，加每個 reading 自己的
-`usedTotalPlacement` link：
+總位移每項使用自己的 compact finalized placement；`total1`–`total4` evidence key
+本身就是 task identity，reading 由同名 measurement authoritative item 連結：
 
 ```js
-totalPlacement: {
-  task: "total",
+total1: { // total2/total3/total4 同形
   mode,
   moveNorm,
-  rulerZeroM,
-  rulerX,
-  rulerSide,
-  rulerGeometry: "fixed-left-v1",
   horizontalMode,
-  guideFraction | boundaryOverlapPx,
-  zeroErrorPx,
-  zeroTickOverlapPx
+  guideFraction,      // horizontalMode=guide-fraction only
+  boundaryOverlapPx,  // boundary mode only
+  zeroErrorPx
 }
 ```
 
-它保留 guide-relative horizontal mode、fraction／boundary overlap 及 side，因同一
-尺位需要連續供四個總位移讀數使用及在 reload／review-edit 重建。`rulerX` 與
-`zeroTickOverlapPx` 只記錄完成當刻 CTM 下的 audit geometry；跨 CTM 不可直接信任。
+每項 evidence 只保留重算該項操作分所需的 mode、movement、zero alignment 及 stable
+horizontal relation；guide fraction 可推導 anchor／side，boundary mode 連同 overlap 可推導
+side 及有效重疊，故不得另信任獨立 raw `rulerX`／`zeroTickOverlapPx`。已完成 evidence 不重建成 active ruler。四項 evidence 彼此獨立，
+新 placement、record 或 skip 不得修改其他三項。
 Gap evidence 亦保存同一 stable horizontal anchor／side，讓
 raw overlap evidence 可審核，但已完成 gap 不用重建為 active ruler。
 
@@ -1019,7 +1042,8 @@ CSS overlap，亦不得把舊 edge gap 解釋成 overlap。Canonicalization 不�
 evidence 或分數，也不因 resize commit；draft provider 只提供最新 in-memory state。
 Record 再以目前可見尺位呼叫 `placementFromRuler()` 並 refresh active placement，
 只有目前 task／geometry 仍有效才建立 evidence，舊 valid metric 不可取得分數。
-Current v3／current production horizontal fields 必須作 fail-closed cross-field canonical validation：
+Current v4 active-placement／gap horizontal fields 必須作 fail-closed cross-field canonical validation；
+compact total evidence 只接受帶 stable horizontal relation 的 exact current shape，或 exact legacy compact shape：
 
 - 新 production placement／evidence 必須帶 discriminator
   `rulerGeometry="fixed-left-v1"`，表示 right spine 固定、ticks 向左。沒有 discriminator
@@ -1061,9 +1085,9 @@ screen geometry 的浮點誤差；跨 CTM 必須先重建再 canonicalize，不�
 接受舊 CTM raw value。
 這讓學生仍可直接
 讀數、再微調或跳過；不保存 DOM pixel transform。`activePlacement` 只可屬於目前
-未解決 task。Gap reading confirmed／skip／離開 task 時原子式清除；
-total-displacement reading confirmed 後則保留同一 active placement 給下一個 total
-reading，直至離開 total phase。Review snapshot 及 submitted state 永不包含 active
+未解決的 exact item key（`total1`–`total4` 或 gap key）。任何 total／gap record 或
+skip 都原子式清除 active placement、舞台讀數及 task-local movement，下一項必須由
+upper-left PARK 重新 drag／nudge。Review snapshot 及 submitted state 永不包含 active
 placement。Candidate placement 可以未達有效
 對準門檻；其 metrics 仍須 bounded，restore 後保留「未有效」狀態，只有符合全部
 門檻才可在確認 reading 時產生 `usedWhileValid=true`。
@@ -1078,11 +1102,10 @@ placement。Candidate placement 可以未達有效
   `activePlacement` 只重建靜止尺位，不重建 pointer capture；
 - 修改該讀數時，若沒有新有效尺位，只保留舊 evidence 的歷史關聯會造成誤導，
   因此 atomically 清除該 item 的 `usedWhileValid`；重新有效量度才建立新 evidence；
-- 總位移四個讀數可共用一個 valid total placement，但每個 reading 記錄自己是否在
-  該 placement 仍有效時確認；
-- 第一個 total reading 連結有效尺位後，該 total placement 及可見尺位保持不變供
-  其餘 total readings；若學生選擇重新對準，先原子式清除四個
-  `usedTotalPlacement` links，再建立新 placement，避免混合兩個尺位的 evidence；
+- 每個總位移讀數只有在自己的 exact-item active placement 有效時才建立同名 evidence；
+  手動 record／invalid placement／skip 只刪除目前 item evidence；
+- `withPlacement()` 只建立／替換 transient active placement，永不修改任何 finalized
+  evidence；review-edit unchanged path 保留原 item、evidence、score/pass bit-identically；
 - review 只顯示 evidence coverage，不重播假手勢。
 
 這些證據在瀏覽器端仍可被竄改，所以只適用本文所定 low-risk boundary。
@@ -1091,7 +1114,7 @@ placement。Candidate placement 可以未達有效
 
 | Phase | Variant／invariant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `setup` | `new` | setup | canonical v3；frequency null；只可在 genuinely new attempt assignment checkpoint 前短暫存在 | trajectory、answers、evidence、result、enabled capture | inject RNG once, assign and checkpoint |
+| `setup` | `new` | setup | canonical v4；frequency null；只可在 genuinely new attempt assignment checkpoint 前短暫存在 | trajectory、answers、evidence、result、enabled capture | inject RNG once, assign and checkpoint |
 | `setup` | `assigned` | setup | legal persisted frequency；`frequencyAssigned=true` | trajectory、answers、evidence、result | learner-initiated capture |
 | `measure-total` | `normal-unpositioned` | 0–3 | legal frequency；trajectory；earlier total items resolved | active placement；future total；all interval/analysis/result fields | move ruler, enter placement-ready, or skip |
 | `measure-total` | `normal-placement-ready` | 0–3 | matching bounded `activePlacement`（可有效或未有效）；earlier total items resolved | current reading/evidence；future total；interval/analysis/result | record, adjust placement, or skip |
@@ -1101,9 +1124,9 @@ placement。Candidate placement 可以未達有效
 | `measure-interval` | `normal-placement-ready` | 0–3 | matching bounded `activePlacement`（可有效或未有效）；all total and earlier gaps resolved | current reading/evidence；future gaps；analysis/result | record, adjust placement, or skip |
 | `measure-interval` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；complete prior data may remain | active placement；result metadata | move ruler, replace/skip item, or return |
 | `measure-interval` | `review-edit-placement-ready` | 0–3 | `returnToReview=true`；matching bounded `activePlacement` | result metadata | record replacement, adjust, skip, or return |
-| `analyze` | `normal` | analysis | all eight measurement items recorded/skipped；v3 analysis all-null、partial、wrong 或 correct 均 legal | result metadata | answer, go back to measure, enter ready review |
+| `analyze` | `normal` | analysis | all eight measurement items recorded/skipped；v4 analysis all-null、partial、wrong 或 correct 均 legal | result metadata | answer, go back to measure, enter ready review |
 | `analyze` | `review-edit` | analysis | `returnToReview=true`；existing all-null／partial answers valid | result metadata | revise or return to ready review |
-| `review` | `ready` | review | 八個 measurement status 均為 recorded 或 skipped；exact v3 analysis shape（每個 answer 可 null）；evidence subset valid | result metadata、active placement | edit；nonblank direct submit；blank confirmation then submit |
+| `review` | `ready` | review | 八個 measurement status 均為 recorded 或 skipped；exact v4 analysis shape（每個 answer 可 null）；evidence subset valid | result metadata、active placement | edit；nonblank direct submit；blank confirmation then submit |
 | `submitted` | `locked` | review | valid review answer sufficient to rescore/redraw | editable phase, active ruler, transient drag | inspect feedback only |
 
 `recorded` 量度可以沒有 valid evidence；`skipped` 必須沒有 reading/evidence。
@@ -1117,8 +1140,8 @@ setup/assigned -> measure-total/normal-unpositioned[0] on first accepted Generat
   one draft checkpoint occurs immediately, while transient capture temporarily hides measurement UI
 measure-*/normal-unpositioned -> measure-*/normal-placement-ready on completed pointerup/keyboard placement
 measure-*/normal-placement-ready -> same placement-ready on further completed adjustment
-measure-total/normal-placement-ready[i] -> measure-total/normal-placement-ready[i+1]
-  on record or explicit skip, preserving the same total placement, for i < 3
+measure-total/normal-placement-ready[i] -> measure-total/normal-unpositioned[i+1]
+  on record or explicit skip, clearing active placement and parking, for i < 3
 measure-total/normal-unpositioned[i] -> measure-total/normal-unpositioned[i+1]
   on explicit skip, for i < 3
 measure-total/normal-*[3] -> measure-interval/normal-unpositioned[0]
@@ -1127,8 +1150,6 @@ measure-interval/normal-*[3] -> analyze/normal
 analyze/normal -> review/ready at explicit review navigation after all measurements resolve
 review/* -> measure-total/review-edit-unpositioned[i] on edit total item
 review/* -> measure-interval/review-edit-unpositioned[i] on edit gap item
-review/* -> measure-total/review-edit-placement-ready[i] when a canonical finalized
-  totalPlacement can be reconstructed for the chosen total item
 review-edit-unpositioned -> review-edit-placement-ready on completed placement
 review/* -> analyze/review-edit on edit analysis
 review-edit/* -> review/ready on explicit return
@@ -1156,9 +1177,9 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
 
 ```js
 {
-  v: 3,
+  v: 4,
   modelVersion: 1,
-  rubricVersion: 3,
+  rubricVersion: 4,
   phase,
   variant,
   currentStep,
@@ -1180,10 +1201,10 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
     zeroErrorPx
   },
   measurements: {
-    total1: { status, readingM, usedTotalPlacement },
-    total2: { status, readingM, usedTotalPlacement },
-    total3: { status, readingM, usedTotalPlacement },
-    total4: { status, readingM, usedTotalPlacement },
+    total1: { status, readingM },
+    total2: { status, readingM },
+    total3: { status, readingM },
+    total4: { status, readingM },
     gap01: { status, readingM },
     gap12: { status, readingM },
     gap23: { status, readingM },
@@ -1191,10 +1212,10 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
   },
   evidence: {
     setupCompleted,
-    totalPlacement: {
-      mode, moveNorm, rulerZeroM, rulerX, rulerSide, horizontalMode,
-      guideFraction|boundaryOverlapPx, zeroErrorPx, zeroTickOverlapPx
-    },
+    total1: { mode, moveNorm, zeroErrorPx, horizontalMode, guideFraction },
+    total2: { /* same compact finalized shape */ },
+    total3: { /* same compact finalized shape */ },
+    total4: { /* same compact finalized shape */ },
     gap01: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
     gap12: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
     gap23: { mode, moveNorm, rulerX, rulerSide, zeroErrorPx, zeroTickOverlapPx, readingM, usedWhileValid },
@@ -1211,24 +1232,24 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
 }
 ```
 
-V3 analysis 的六個 keys 全部 required。只有 `null` 表示 blank；missing、empty string、
-NaN、Infinity、ratio editable term `0`／negative 均 invalid。V3 必須拒絕 obsolete
-`totalDisplacementRatio`／`intervalDistanceRatio` 或任何 mixed v2/v3 shape。`setup`
+V4 analysis 的六個 keys 全部 required。只有 `null` 表示 blank；missing、empty string、
+NaN、Infinity、ratio editable term `0`／negative 均 invalid。V4 必須拒絕 obsolete
+`totalDisplacementRatio`／`intervalDistanceRatio` 或任何 mixed legacy/current shape。`setup`
 phases 不得有 `generated=true` 或 measurement／analysis data。
 
 ### 16.2 Review snapshot
 
 ```js
 {
-  v: 3,
+  v: 4,
   locked: 1,
   modelVersion: 1,
-  rubricVersion: 3,
+  rubricVersion: 4,
   frequencyHz,
   frequencyAssigned: true,
   measurements: { /* all eight resolved items */ },
   evidence: { /* canonical process evidence subset */ },
-  analysis: { /* exact v3 shape；null answers legal */ }
+  analysis: { /* exact v4 shape；null answers legal */ }
 }
 ```
 
@@ -1301,7 +1322,7 @@ validate versions and canonical schema
   relation canonicalize 後 validity 不變，raw current-CTM cache 不作權威；
   `*-unpositioned`、analysis、review 及 submitted 必須沒有 active placement；
 - each measurement status is `recorded` or `skipped` where required；
-- v3 runtime 新增 `recorded` item 不要求 placement；當 matching persisted active
+- v4 runtime 新增 `recorded` item 不要求 placement；當 matching persisted active
   placement 有效時才按既有規則建立 total/gap evidence。Validator 仍可接受經 exact v1 migration
   得到的 legacy recorded-without-evidence item，以保持舊 review／score；legacy
   edit replacement 重新受 current placement gate 約束；
@@ -1315,19 +1336,19 @@ validate versions and canonical schema
   exact `4 CSS px` left／right boundary 在任一 required CTM restore 後仍為 exact 4；
 - `usedWhileValid` implies metrics satisfy inclusive thresholds；
 - gap evidence reading equals corresponding authoritative reading；
-- total reading linked to placement only when total placement is valid；
-- v3 analysis exact keys；兩組 ratio array 長度4、首項 numeric `1`、其餘只可 null 或
+- total reading 只在同名 compact finalized evidence valid 時連結 placement；
+- v4 analysis exact keys；兩組 ratio array 長度4、首項 numeric `1`、其餘只可 null 或
   positive finite；deltaT／三個 law answers 只可 null 或 legal value；
-- review ready／submitted 明確具有 exact v3 analysis 及八個 resolved measurements；
+- review ready／submitted 明確具有 exact v4 analysis 及八個 resolved measurements；
 - score、passed 及 legal continuation survive round-trip；
-- editable v1/v2 draft/review 先按各自 exact legacy schema 驗證，再一次性遷移至
-  `v3/rubricVersion:3`；保留 frequency、measurements、evidence、deltaT、兩組 time
+- editable v1/v2/v3 draft/review 先按各自 exact legacy schema 驗證，再一次性遷移至
+  `v4/rubricVersion:4`；保留 frequency、measurements、finalized item evidence、deltaT、兩組 time
   ratios 及三個 laws，drop 兩組 obsolete distance ratios，legacy blank／missing answer
   正規化為 null；old complete/incomplete review 轉 `review/ready` 並按 rubric3 rescore；
   legacy active placement 是尚未計分的 bounded candidate，先套用
   `rulerZeroM >= 0`、`edgeGapPx 0..200` 及 placement-shape bounds，再映射為
-  placement-ready；它可 scoring-invalid，restore／合法 continuation 不因此建立
-  operation evidence。Legacy finalized total／gap evidence 才套用
+  placement-ready；但 total active placement 在 migration 時必須丟棄並轉 unpositioned，
+  防止 reload 繞過 fresh placement；gap active 可按既有規則 restore。Legacy finalized total／gap evidence 才套用
   `edgeGapPx 6..44` scoring gate。兩類均明確映射為
   `legacyEdgeGapPx`／`legacyEdgeSide`；不得將 legacy gap 重新解釋為
   `zeroTickOverlapPx`，亦不得用 v2 新增的負側對準 tolerance 將 v1-invalid
@@ -1335,15 +1356,15 @@ validate versions and canonical schema
   configured/generated/review 保留原 frequency、meter readings 及 evidence。
   v1 setup/new 無 frequency 時進入同一 assignment boundary，成功保存前 capture
   disabled。其他 unsupported version fail closed；
-- immutable legacy v1/v2 submitted／finished／frozen 不轉成 rubric3；strict decode 後
+- immutable legacy v1/v2/v3 submitted／finished／frozen 不轉成 rubric4；strict decode 後
   由 rubric2 dispatch 保留 recorded score/pass。Frozen retry 必須寫回原 bytes；unknown
-  或 mixed legacy/current shape quarantine。V3 final／frozen 一律 rubric3；
-- editable next save canonical re-encode produces one stable v3 shape。
+  或 mixed legacy/current shape quarantine。V3 final／frozen 保持 rubric3 原 bytes／scorer；
+- editable next save canonical re-encode produces one stable v4 shape。
 
 Tuple dispatch 必須先 exact match 才進 decoder／scorer：current review 只接受
-`(v=3, modelVersion=1, rubricVersion=3)`；legacy branch 只接受明確 supported
+`(v=4, modelVersion=1, rubricVersion=4)`；legacy branch 只接受明確 supported
 `(v=1, modelVersion=1, rubricVersion=2)`（先正規化至 immutable rubric2 shape）或
-`(v=2, modelVersion=1, rubricVersion=2)`。任何 cross-product unknown／mixed tuple 一律
+`(v=2, modelVersion=1, rubricVersion=2)`、`(v=3, modelVersion=1, rubricVersion=3)`。任何 cross-product unknown／mixed tuple 一律
 reject。Finished decode／rescore exception 進 recorded-result safe fallback，不可 uncaught；
 frozen exception 必須 quarantine pending、移除 retry／pagehide eligibility，亦不可 uncaught。
 
@@ -1390,8 +1411,8 @@ frozen exception 必須 quarantine pending、移除 retry／pagehide eligibility
 不在每個 pointermove commit。Draft provider 永遠回傳最近完整 semantic state；
 completed pointerup／keyboard movement 保存 `activePlacement` 而不是計分 evidence；
 active drag 在 lifecycle flush 時取消並恢復上一個完整 active placement。只有確認
-reading 才把 matching placement atomically 轉成 finalized evidence；gap task 隨即
-清除 active placement，total task 則保留同一 placement 給下一個 total reading。
+reading 才把 matching placement atomically 轉成 finalized evidence；任何 total／gap task
+記錄或跳過後均清除 active placement 並把直尺返回左上角停泊區，下一項必須重新放置。
 
 ## 17. Shared SCORM lifecycle
 
@@ -1452,11 +1473,11 @@ SimActivityFlow.reviewResult()
 - 尺有移動但 zero／edge 無效不取 process 分；
 - pointer／keyboard evidence 等價；
 - gap 必須在 active task 後重新移動；
-- total placement 可連結四個 total readings；
-- 記錄 total1 後可見／authoritative placement 保持，total2–total4 可直接讀取；
-  每個中途 reload 都重建同一尺位及保持相同 legal continuation；
-- total phase 重新對準先清除所有舊 `usedTotalPlacement` links，避免 evidence
-  混用兩個尺位；
+- 每個 total reading 只連結自己的 finalized placement evidence；
+- 每個 total／gap record 或 skip 後 ruler 回 CTM-derived upper-left PARK、stage readout 清空、
+  movement 歸零，下一 item 為 unpositioned；reload 不可繞過 fresh drag／snap；
+- review-edit 新 placement 不改其他 finalized evidence；replacement／manual／skip 只更新
+  或刪除目前 item evidence；
 - 修改 reading 而沒有新量度時清除 evidence link；
 - time、distance、time-ratio、zero alignment、edge min/max、movement threshold
   全部有 just-inside、exact inclusive boundary、just-outside；
@@ -1479,7 +1500,8 @@ SimActivityFlow.reviewResult()
 - `score(original) === score(restore(encode(original)))` 且
   `passed(original) === passed(restore(encode(original)))`；
 - 每個 restore fixture 執行一個合法 continuation；
-- 每個 total／gap 的 placement-ready variant restore 後可直接記錄、微調或跳過；
+- 每個 total／gap 的 placement-ready variant restore 後可記錄、微調或跳過；resolve 後
+  下一 item 一律 unpositioned／parked；
 - `6 Hz` 每個 total/gap step 的 normal/review-edit unpositioned/placement-ready 均把
   v2 decode round-trip 與 v1 migration 分開測試，各自執行 legal continuation 並返回
   ready review；
@@ -1497,7 +1519,7 @@ SimActivityFlow.reviewResult()
 - ratio first term 不等於 numeric `1`、array length／term 非法；
 - 只有 legacy v1/v2 decode validation 可接受距離 ratio `insufficient-data`，而且只限
   對應 source readings 不足；full-source legacy state 使用 `insufficient-data` 必須拒絕；
-  editable migration 必須丟棄兩個 legacy distance-ratio fields。現行 v3 skipped review
+  editable migration 必須丟棄兩個 legacy distance-ratio fields。現行 v4 skipped review
   以 measurements 的 `skipped` resolution 表示，不得包含任何 distance-ratio key；
 - v1 draft/review/manual-without-evidence migration、pending retry equality及其他 old
   version rejection；每個 legacy persisted phase／variant／step 均 round-trip
@@ -1562,8 +1584,7 @@ SimActivityFlow.reviewResult()
 - HTML／CSS／DOM 全部沒有 magnifier；transparent overlay 沒有可見 handle glyph；
 - `.nudge-grid`、`[data-nudge]` 及其 click binding 全部不存在；
 - ruler capture target drag 中不被 render 替換；
-- total placement 可以連續記錄四值；
-- 每個 gap 需要新 movement；
+- 每個 total 及 gap 都需要自己的新 movement；record／skip 後立即 PARK；
 - neutral alignment hint 不泄漏讀數；
 - skip 路徑可完成並接受扣分；
 - submitted state 全部 locked。
@@ -1597,7 +1618,10 @@ SimActivityFlow.reviewResult()
   不被所屬 copy block 裁切；學生距離 copy 不出現 meter unit，`m s^-2` 只作重力
   加速度單位且保持直立；
 - production UI 以 real mouse/trusted touch/keyboard 在 guide far-left／far-right
-  exact overlap boundary 及 `±6 px` 建立合法 placement，驗證 stage output tracking、
+  exact overlap boundary 及 `±6 px` 吸附邊界建立 canonical `zeroErrorPx=0` placement；
+  `±6.01 px` 或水平 overlap `<4 px` 不吸附亦不顯示讀數；另驗證有效尺位後的細微
+  pointer 校正，以及沒有既有 move history 的細微真實 drag 吸附，均取得 task-local
+  meaningful movement 並顯示讀數；pointerdown／pointerup 零移動則不取得資格；另驗證 stage output tracking、
   clamp／stale clearing、editable input、full-precision `readingM`、encode/decode、
   evidence/no-evidence、restore/edit/input transience、review/result
   及 score 不發生第二次 calibration；

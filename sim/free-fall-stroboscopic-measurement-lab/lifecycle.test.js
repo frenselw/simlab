@@ -25,8 +25,8 @@ function completeReview(frequency) {
     };
   };
   let state = P.generate(P.assignedState(frequency));
-  state = P.withPlacement(state, placement(state, "total"));
   for (let index = 0; index < 4; index += 1) {
+    state = P.withPlacement(state, placement(state, S.TOTAL_KEYS[index]));
     state = P.resolveMeasurement(state, M.displacementAt(frequency, index + 1));
   }
   for (let index = 0; index < 4; index += 1) {
@@ -139,11 +139,10 @@ assert.equal(App.canonicalReviewMatches(review, pending.payload, result), true);
 assert.equal(App.canonicalReviewMatches(review, { ...pending.payload, maxScore: 99 }, result), false);
 
 const validBoundaryReview = JSON.parse(JSON.stringify(review));
-Object.assign(validBoundaryReview.evidence.totalPlacement, {
-  rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
-  boundaryOverlapPx: 4, zeroTickOverlapPx: 4
+Object.assign(validBoundaryReview.evidence.total1, {
+  horizontalMode: "left-boundary", boundaryOverlapPx: 4
 });
-delete validBoundaryReview.evidence.totalPlacement.guideFraction;
+delete validBoundaryReview.evidence.total1.guideFraction;
 Object.assign(validBoundaryReview.evidence.gap01, {
   rulerX: 310, rulerSide: "right", horizontalMode: "right-boundary",
   boundaryOverlapPx: 4, zeroTickOverlapPx: 4
@@ -161,7 +160,7 @@ assert.equal(App.canonicalReviewMatches(validBoundaryReview, validBoundaryPendin
   "valid canonical boundaries survive frozen pending-final validation");
 
 const contradictoryBoundaryReview = JSON.parse(JSON.stringify(validBoundaryReview));
-contradictoryBoundaryReview.evidence.totalPlacement.boundaryOverlapPx = 0;
+S.TOTAL_KEYS.forEach((key) => { contradictoryBoundaryReview.evidence[key].boundaryOverlapPx = 0; });
 assert.equal(P.decodeReview(contradictoryBoundaryReview), null);
 const contradictoryBoundaryResult = S.scoreAttempt(contradictoryBoundaryReview);
 assert.equal(contradictoryBoundaryResult.detail.process.totalPlacement, 0);
@@ -182,6 +181,14 @@ legacyReview.v = 1;
 legacyReview.rubricVersion = 2;
 legacyReview.frequencyActivelySelected = legacyReview.frequencyAssigned;
 delete legacyReview.frequencyAssigned;
+legacyReview.evidence.totalPlacement = {
+  ...legacyReview.evidence.total1, rulerZeroM: 0, rulerSide: "left",
+  horizontalMode: "guide-fraction", guideFraction: 20 / 205
+};
+S.TOTAL_KEYS.forEach((key) => {
+  legacyReview.measurements[key].usedTotalPlacement = true;
+  delete legacyReview.evidence[key];
+});
 legacyReview.analysis = {
   deltaTS: legacyReview.analysis.deltaTS,
   cumulativeTimeRatio: { status: "answered", values: legacyReview.analysis.cumulativeTimeRatio.values },
@@ -240,7 +247,16 @@ assert.equal(legacyRun.control.durable["cmi.suspend_data"], legacyPendingRaw,
   "the original frozen durable payload remains byte-for-byte unchanged");
 
 const historicalV2Review6 = JSON.parse(JSON.stringify(review6));
-delete historicalV2Review6.evidence.totalPlacement.rulerGeometry;
+historicalV2Review6.v = 3;
+historicalV2Review6.rubricVersion = 3;
+historicalV2Review6.evidence.totalPlacement = {
+  ...historicalV2Review6.evidence.total1, rulerZeroM: 0, rulerSide: "left",
+  horizontalMode: "guide-fraction", guideFraction: 20 / 205
+};
+S.TOTAL_KEYS.forEach((key) => {
+  historicalV2Review6.measurements[key].usedTotalPlacement = true;
+  delete historicalV2Review6.evidence[key];
+});
 S.GAP_KEYS.forEach((key) => delete historicalV2Review6.evidence[key].rulerGeometry);
 const historicalV2Result6 = S.scoreAttempt(historicalV2Review6);
 const historicalV2Run = fakeRuntime();

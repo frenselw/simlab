@@ -73,10 +73,7 @@
             <h2 id="measurementTitle" tabindex="-1">2. 量度總位移</h2>
             <p id="measurementPrompt"></p>
             <p id="placementStatus" class="placement-status">直尺仍在停泊區。</p>
-            <p id="rulerHelp" class="muted">直接拖動直尺；聚焦直尺後可用方向鍵細移，Shift 加方向鍵可大幅移動。</p>
-            <div class="phase-actions">
-              <button id="parkButton" type="button">返回停泊區（不建立量度證據）</button>
-            </div>
+            <p id="rulerHelp" class="muted">直接拖動直尺；零刻度接近目前量度起點並與投影線重疊時會自動吸附。聚焦直尺後可用方向鍵細移，Shift 加方向鍵可大幅移動。</p>
             <label class="reading-row" for="readingInput">
               <span id="readingLabel">相片上距離</span>
               <input id="readingInput" inputmode="decimal" autocomplete="off">
@@ -88,35 +85,35 @@
               <button id="skipButton" type="button">未能量度／跳過</button>
             </div>
             <button id="returnReviewButton" type="button" class="is-hidden">保留原答案並返回檢查</button>
-            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始</button>
           </section>
           <section id="analysisSection" class="panel-section is-hidden">
             <h2 id="analysisTitle" tabindex="-1">3. 數據及比例分析</h2>
             <label class="reading-row"><span>相鄰影像時間 <span class="delta">Δ</span><var>t</var></span><input id="deltaTInput" inputmode="decimal"><span class="unit">s</span></label>
             <div id="ratioGroups"></div>
-            <fieldset>
+            <fieldset data-randomize-options>
               <legend>由 <var>P</var><sub>0</sub> 起計的總位移 <var>s</var> 與時間 <var>t</var> 有甚麼關係？</legend>
               <label><input type="radio" name="lawAnswerId" value="square"> <var>s</var> ∝ <var>t</var><sup>2</sup></label>
               <label><input type="radio" name="lawAnswerId" value="linear"> <var>s</var> ∝ <var>t</var></label>
               <label><input type="radio" name="lawAnswerId" value="constant"> <var>s</var> 不變</label>
             </fieldset>
-            <fieldset>
+            <fieldset data-randomize-options>
               <legend>相等時間間隔內的位移有甚麼規律？</legend>
               <label><input type="radio" name="intervalLawAnswerId" value="odd"> 按連續奇數比增加</label>
               <label><input type="radio" name="intervalLawAnswerId" value="equal"> 每段相等</label>
               <label><input type="radio" name="intervalLawAnswerId" value="square"> 每段為平方數比</label>
             </fieldset>
-            <fieldset>
+            <fieldset data-randomize-options>
               <legend>為甚麼相鄰間隔 <span class="delta">Δ</span><var>s</var> 愈來愈大？</legend>
-              <label><input type="radio" name="accelerationAnswerId" value="constant-acceleration"> 加速度固定，每段相等時間速度 <var>v</var> 增加相同數值</label>
-              <label><input type="radio" name="accelerationAnswerId" value="constant-speed"> 速度 <var>v</var> 保持不變</label>
-              <label><input type="radio" name="accelerationAnswerId" value="frequency-changes-gravity"> 頻率 <var>f</var> 改變重力</label>
+              <label><input type="radio" name="accelerationAnswerId" value="constant-acceleration"> <span class="prose-inline-symbol">加速度固定，每段相等時間速度<var>v</var>增加相同數值</span></label>
+              <label><input type="radio" name="accelerationAnswerId" value="constant-speed"> <span class="prose-inline-symbol">速度<var>v</var>保持不變</span></label>
+              <label><input type="radio" name="accelerationAnswerId" value="frequency-changes-gravity"> <span class="prose-inline-symbol">頻率<var>f</var>改變重力</span></label>
             </fieldset>
             <p id="analysisError" class="error-text" role="alert"></p>
             <div class="phase-actions">
               <button id="reviewButton" type="button" class="primary-button">前往提交前檢查</button>
             </div>
-            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始</button>
           </section>
           <section id="reviewSection" class="panel-section is-hidden">
             <h2 id="reviewTitle" tabindex="-1">提交前檢查</h2>
@@ -129,7 +126,7 @@
               <button id="submitButton" type="button" class="primary-button">提交結果</button>
               <button id="submissionRetry" type="button" class="is-hidden">重試目前提交</button>
             </div>
-            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始（保留隨機指派頻率）</button>
+            <button type="button" class="danger-button reset-action" data-reset-frequency>重新開始</button>
           </section>
           <section id="resultSection" class="panel-section is-hidden">
             <h2 id="resultTitle" tabindex="-1">結果</h2>

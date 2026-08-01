@@ -41,13 +41,19 @@ for (const [context, values] of Object.entries({
     `${context}/${value} has a question-context Traditional Chinese result label`);
 }
 assert.notStrictEqual(App.answerLabel("displacement", "square"), App.answerLabel("intervals", "square"));
+const expectedChoiceOrders = [[0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+expectedChoiceOrders.forEach((order, seed) => {
+  assert.deepStrictEqual(App.choicePermutation(seed), order);
+  assert.notDeepStrictEqual(order, [0, 1, 2], `seed ${seed} must not leave choices in the authored order`);
+  assert.deepStrictEqual([...order].sort(), [0, 1, 2]);
+});
 
 const review = PersistenceFixtures.review;
 const result = Scoring.scoreAttempt(review);
 for (const v of [1, 2, 3, 4]) for (const modelVersion of [1, 2]) for (const rubricVersion of [1, 2, 3, 4]) {
   const candidate = JSON.parse(JSON.stringify(review));
   Object.assign(candidate, { v, modelVersion, rubricVersion });
-  assert.strictEqual(Boolean(App.resolveImmutableReview(candidate)), v === 3 && modelVersion === 1 && rubricVersion === 3,
+  assert.strictEqual(Boolean(App.resolveImmutableReview(candidate)), v === 4 && modelVersion === 1 && rubricVersion === 4,
     `finished/frozen resolver rejects mixed current tuple ${v}/${modelVersion}/${rubricVersion} without throwing`);
 }
 const originalScoreAttempt = Scoring.scoreAttempt;
@@ -118,7 +124,7 @@ const changedBoundaryState = Persistence.resolveMeasurement(
 const changedReviewAtBoundary = Persistence.makeReview(changedBoundaryState);
 const changedBoundaryScore = Scoring.scoreAttempt(changedReviewAtBoundary);
 assert.notStrictEqual(roundedReplacement.readingM, .1);
-assert.strictEqual(changedReviewAtBoundary.measurements.total1.usedTotalPlacement, false,
+assert.strictEqual(changedReviewAtBoundary.evidence.total1, undefined,
   "changed total text without a new valid placement clears its process link");
 assert.ok(changedBoundaryScore.score < 60 && !changedBoundaryScore.passed,
   "changed text follows one-time conversion and may cross the documented pass boundary");

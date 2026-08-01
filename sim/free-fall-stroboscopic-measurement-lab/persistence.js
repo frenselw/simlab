@@ -7,7 +7,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model, Scoring) {
   "use strict";
 
-  const VERSION = 3;
+  const VERSION = 4;
   const MEASUREMENT_KEYS = Object.freeze([...Scoring.TOTAL_KEYS, ...Scoring.GAP_KEYS]);
   const PHASES = Object.freeze(["setup", "measure-total", "measure-interval", "analyze", "review"]);
   const TOTAL_VARIANTS = Object.freeze(["normal-unpositioned", "normal-placement-ready", "review-edit-unpositioned", "review-edit-placement-ready"]);
@@ -75,13 +75,12 @@
     if (!item || !["recorded", "skipped"].includes(item.status)) return "invalid";
     if (item.status === "skipped") return exactKeys(item, ["status"]) ? "skipped" : "invalid";
     const keys = Object.keys(item);
-    if (!keys.every((key) => ["status", "readingM", "usedTotalPlacement"].includes(key)) ||
-        !finite(item.readingM) || item.readingM < 0 || item.readingM > cameraMaxM ||
-        (own(item, "usedTotalPlacement") && typeof item.usedTotalPlacement !== "boolean")) return "invalid";
+    if (!exactKeys(item, ["status", "readingM"]) ||
+        !finite(item.readingM) || item.readingM < 0 || item.readingM > cameraMaxM) return "invalid";
     return "recorded";
   }
   function taskStartM(task, frequencyHz) {
-    if (task === "total") return 0;
+    if (task === "total" || Scoring.TOTAL_KEYS.includes(task)) return 0;
     const index = Scoring.GAP_KEYS.indexOf(task);
     return index >= 0 ? Model.displacementAt(frequencyHz, index) : null;
   }
@@ -112,17 +111,8 @@
       Object.keys(value).every((key) => [...common, "legacyEdgeSide", "legacyEdgeGapPx"].includes(key));
     return current || legacy;
   }
-  function validTotalEvidence(value, frequencyHz) {
-    return Boolean(value && ["pointer", "keyboard"].includes(value.mode) &&
-      [value.moveNorm, value.rulerZeroM, value.zeroErrorPx].every(finite) &&
-      consistentRulerGeometry(value.rulerZeroM, value.zeroErrorPx, "total", frequencyHz) &&
-      Scoring.totalPlacementValid({ task: "total", ...value }) &&
-      (finite(value.rulerX) && value.rulerX >= 0 && value.rulerX <= 360 &&
-       finite(value.zeroTickOverlapPx) && value.zeroTickOverlapPx <= 500 &&
-       Scoring.validCurrentHorizontalRelation(value) &&
-       currentPlacementKeys(value, ["mode", "moveNorm", "rulerZeroM", "zeroErrorPx"]) ||
-       ["left", "right"].includes(value.legacyEdgeSide) &&
-       Object.keys(value).every((key) => ["mode", "moveNorm", "rulerZeroM", "legacyEdgeSide", "zeroErrorPx", "legacyEdgeGapPx"].includes(key))));
+  function validTotalEvidence(value, task) {
+    return Scoring.totalEvidenceValid(value, task);
   }
   function validGapEvidence(value, task, reading) {
     return Boolean(value &&
@@ -160,14 +150,13 @@
     const max = Model.cameraMax(state.frequencyHz);
     for (const key of MEASUREMENT_KEYS) if (validReading(state.measurements[key], max) === "invalid") return false;
     if (Object.keys(state.measurements).some((key) => !MEASUREMENT_KEYS.includes(key))) return false;
-    if (Object.keys(state.evidence).some((key) => !["setupCompleted", "totalPlacement", ...Scoring.GAP_KEYS].includes(key))) return false;
-    const totalEvidence = state.evidence.totalPlacement;
-    if (totalEvidence && !validTotalEvidence(totalEvidence, state.frequencyHz)) return false;
+    if (Object.keys(state.evidence).some((key) => !["setupCompleted", ...MEASUREMENT_KEYS].includes(key))) return false;
     for (const key of Scoring.TOTAL_KEYS) {
       const item = state.measurements[key];
-      if (item?.usedTotalPlacement === true && (!totalEvidence || item.status !== "recorded")) return false;
+      const evidence = state.evidence[key];
+      if (evidence && (item?.status !== "recorded" || !validTotalEvidence(evidence, key))) return false;
+      if (item?.status === "skipped" && evidence) return false;
     }
-    if (totalEvidence && !Scoring.TOTAL_KEYS.some((key) => state.measurements[key]?.usedTotalPlacement === true)) return false;
     for (const key of Scoring.GAP_KEYS) {
       const evidence = state.evidence[key];
       const item = state.measurements[key];
@@ -200,7 +189,7 @@
       const edit = state.variant.startsWith("review-edit-");
       const ready = state.variant.endsWith("placement-ready");
       if (state.returnToReview !== edit) return false;
-      const task = state.phase === "measure-total" ? "total" : Scoring.GAP_KEYS[state.currentStep];
+      const task = state.phase === "measure-total" ? Scoring.TOTAL_KEYS[state.currentStep] : Scoring.GAP_KEYS[state.currentStep];
       if (ready !== own(state, "activePlacement") || (ready && !validPlacementShape(state.activePlacement, task, state.frequencyHz))) return false;
       if (!edit) {
         if (state.phase === "measure-total" && (totalResolved !== state.currentStep || gapResolved !== 0 ||
@@ -325,13 +314,137 @@
     return value?.status === "answered" && Array.isArray(value.values)
       ? { values: clone(value.values) } : { values: [1, null, null, null] };
   }
+  function validV3Reading(item, cameraMaxM, total) {
+    if (item === null) return "unresolved";
+    if (!item || !["recorded", "skipped"].includes(item.status)) return "invalid";
+    if (item.status === "skipped") return exactKeys(item, ["status"]) ? "skipped" : "invalid";
+    const allowed = total ? ["status", "readingM", "usedTotalPlacement"] : ["status", "readingM"];
+    return Object.keys(item).every((key) => allowed.includes(key)) && finite(item.readingM) &&
+      item.readingM >= 0 && item.readingM <= cameraMaxM &&
+      (!own(item, "usedTotalPlacement") || typeof item.usedTotalPlacement === "boolean") ? "recorded" : "invalid";
+  }
+  function validV3TotalEvidence(value, frequencyHz) {
+    return Boolean(value && ["pointer", "keyboard"].includes(value.mode) &&
+      [value.moveNorm, value.rulerZeroM, value.zeroErrorPx].every(finite) &&
+      consistentRulerGeometry(value.rulerZeroM, value.zeroErrorPx, "total", frequencyHz) &&
+      Scoring.totalPlacementValid({ task: "total", ...value }) &&
+      (finite(value.rulerX) && value.rulerX >= 0 && value.rulerX <= 360 &&
+       finite(value.zeroTickOverlapPx) && value.zeroTickOverlapPx <= 500 &&
+       Scoring.validCurrentHorizontalRelation(value) &&
+       currentPlacementKeys(value, ["mode", "moveNorm", "rulerZeroM", "zeroErrorPx"]) ||
+       ["left", "right"].includes(value.legacyEdgeSide) &&
+       Object.keys(value).every((key) => ["mode", "moveNorm", "rulerZeroM", "legacyEdgeSide", "zeroErrorPx", "legacyEdgeGapPx"].includes(key))));
+  }
+  function validV3Generated(value) {
+    if (!Model.validFrequency(value.frequencyHz) || value.frequencyAssigned !== true ||
+        value.generated !== true || !value.measurements || !value.evidence ||
+        value.evidence.setupCompleted !== true || !value.analysis) return false;
+    const max = Model.cameraMax(value.frequencyHz);
+    for (const key of Scoring.TOTAL_KEYS) if (validV3Reading(value.measurements[key], max, true) === "invalid") return false;
+    for (const key of Scoring.GAP_KEYS) if (validV3Reading(value.measurements[key], max, false) === "invalid") return false;
+    if (Object.keys(value.measurements).some((key) => !MEASUREMENT_KEYS.includes(key)) ||
+        Object.keys(value.evidence).some((key) => !["setupCompleted", "totalPlacement", ...Scoring.GAP_KEYS].includes(key))) return false;
+    const totalEvidence = value.evidence.totalPlacement;
+    if (totalEvidence && !validV3TotalEvidence(totalEvidence, value.frequencyHz)) return false;
+    for (const key of Scoring.TOTAL_KEYS) {
+      const item = value.measurements[key];
+      if (item?.usedTotalPlacement === true && (!totalEvidence || item.status !== "recorded")) return false;
+    }
+    if (totalEvidence && !Scoring.TOTAL_KEYS.some((key) => value.measurements[key]?.usedTotalPlacement === true)) return false;
+    for (const key of Scoring.GAP_KEYS) {
+      const evidence = value.evidence[key];
+      const item = value.measurements[key];
+      if (evidence && (item?.status !== "recorded" || !validGapEvidence(evidence, key, item.readingM))) return false;
+      if (item?.status === "skipped" && evidence) return false;
+    }
+    return analysisFieldValid(value.analysis);
+  }
+  function validV3Draft(value) {
+    if (!value || value.v !== 3 || value.modelVersion !== Model.MODEL_VERSION ||
+        value.rubricVersion !== Scoring.LEGACY_CURRENT_RUBRIC_VERSION || !PHASES.includes(value.phase) ||
+        typeof value.returnToReview !== "boolean") return false;
+    if (value.phase === "setup") {
+      const expected = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep", "returnToReview", "frequencyHz", "frequencyAssigned"];
+      return exactKeys(value, expected) && value.currentStep === "setup" && !value.returnToReview &&
+        ((value.variant === "new" && value.frequencyHz === null && value.frequencyAssigned === false) ||
+         (value.variant === "assigned" && Model.validFrequency(value.frequencyHz) && value.frequencyAssigned === true));
+    }
+    if (!validV3Generated(value)) return false;
+    const allowedTop = ["v", "modelVersion", "rubricVersion", "phase", "variant", "currentStep", "returnToReview",
+      "frequencyHz", "frequencyAssigned", "generated", "activePlacement", "measurements", "evidence", "analysis"];
+    if (Object.keys(value).some((key) => !allowedTop.includes(key))) return false;
+    const totalResolved = resolvedCount(value.measurements, Scoring.TOTAL_KEYS);
+    const gapResolved = resolvedCount(value.measurements, Scoring.GAP_KEYS);
+    if (["measure-total", "measure-interval"].includes(value.phase)) {
+      if (!TOTAL_VARIANTS.includes(value.variant) || !Number.isInteger(value.currentStep) || value.currentStep < 0 || value.currentStep > 3) return false;
+      const edit = value.variant.startsWith("review-edit-");
+      const ready = value.variant.endsWith("placement-ready");
+      const task = value.phase === "measure-total" ? "total" : Scoring.GAP_KEYS[value.currentStep];
+      if (value.returnToReview !== edit || ready !== own(value, "activePlacement") ||
+          ready && !validPlacementShape(value.activePlacement, task, value.frequencyHz)) return false;
+      if (!edit) {
+        if (value.phase === "measure-total" && (totalResolved !== value.currentStep || gapResolved !== 0 ||
+            Scoring.TOTAL_KEYS.slice(value.currentStep).some((key) => value.measurements[key] !== null) ||
+            Scoring.GAP_KEYS.some((key) => value.measurements[key] !== null))) return false;
+        if (value.phase === "measure-interval" && (totalResolved !== 4 || gapResolved !== value.currentStep ||
+            Scoring.GAP_KEYS.slice(value.currentStep).some((key) => value.measurements[key] !== null))) return false;
+        if (JSON.stringify(value.analysis) !== JSON.stringify(emptyAnalysis())) return false;
+      } else if (totalResolved !== 4 || gapResolved !== 4) return false;
+      const currentKey = value.phase === "measure-total" ? Scoring.TOTAL_KEYS[value.currentStep] : Scoring.GAP_KEYS[value.currentStep];
+      return !(ready && !edit && value.measurements[currentKey] !== null);
+    }
+    if (own(value, "activePlacement")) return false;
+    if (value.phase === "analyze") return ANALYZE_VARIANTS.includes(value.variant) && value.currentStep === "analysis" &&
+      value.returnToReview === (value.variant === "review-edit") && totalResolved === 4 && gapResolved === 4;
+    return value.phase === "review" && value.variant === "ready" && value.currentStep === "review" &&
+      !value.returnToReview && totalResolved === 4 && gapResolved === 4;
+  }
+  function migrateV3(value, review = false) {
+    if (!value || value.v !== 3 || value.modelVersion !== Model.MODEL_VERSION ||
+        value.rubricVersion !== Scoring.LEGACY_CURRENT_RUBRIC_VERSION) return null;
+    if (review) {
+      if (!exactKeys(value, ["v", "locked", "modelVersion", "rubricVersion", "frequencyHz",
+        "frequencyAssigned", "measurements", "evidence", "analysis"]) || value.locked !== 1 ||
+        !validV3Generated({ ...value, generated: true })) return null;
+    } else if (!validV3Draft(value)) return null;
+    const migrated = clone(value);
+    migrated.v = VERSION;
+    migrated.rubricVersion = Scoring.RUBRIC_VERSION;
+    if (migrated.measurements) {
+      const shared = migrated.evidence?.totalPlacement;
+      for (const key of Scoring.TOTAL_KEYS) {
+        const item = migrated.measurements[key];
+        if (item?.status === "recorded" && item.usedTotalPlacement === true) {
+          migrated.evidence[key] = clone(shared);
+          if (own(migrated.evidence[key], "legacyEdgeGapPx")) {
+            for (const field of ["rulerZeroM", "legacyEdgeSide"]) delete migrated.evidence[key][field];
+          } else {
+            migrated.evidence[key] = {
+              mode: shared.mode, moveNorm: shared.moveNorm, zeroErrorPx: shared.zeroErrorPx,
+              horizontalMode: shared.horizontalMode,
+              ...(shared.horizontalMode === "guide-fraction"
+                ? { guideFraction: shared.guideFraction }
+                : { boundaryOverlapPx: shared.boundaryOverlapPx })
+            };
+          }
+        }
+        if (item?.status === "recorded") delete item.usedTotalPlacement;
+      }
+      delete migrated.evidence.totalPlacement;
+    }
+    if (!review && migrated.phase === "measure-total" && own(migrated, "activePlacement")) {
+      delete migrated.activePlacement;
+      migrated.variant = migrated.returnToReview ? "review-edit-unpositioned" : "normal-unpositioned";
+    }
+    return migrated;
+  }
   function migrateV2(value, review = false) {
     if (!value || value.v !== 2 || value.modelVersion !== Model.MODEL_VERSION ||
         value.rubricVersion !== Scoring.LEGACY_RUBRIC_VERSION ||
         typeof value.frequencyAssigned !== "boolean") return null;
     const migrated = clone(value);
-    migrated.v = VERSION;
-    migrated.rubricVersion = Scoring.RUBRIC_VERSION;
+    migrated.v = 3;
+    migrated.rubricVersion = Scoring.LEGACY_CURRENT_RUBRIC_VERSION;
     if (!review && migrated.phase === "setup") return migrated;
     if (!legacyAnalysisValid(value.analysis, value.measurements, review)) return null;
     if (!review && migrated.phase === "review") {
@@ -351,7 +464,8 @@
   }
   function decode(value) {
     const legacy = value?.v === 1 ? migrateV1(value, false) : value;
-    const candidate = legacy?.v === 2 ? migrateV2(legacy, false) : legacy;
+    const v3 = legacy?.v === 2 ? migrateV2(legacy, false) : legacy;
+    const candidate = v3?.v === 3 ? migrateV3(v3, false) : v3;
     return validateDraft(candidate) ? encode(candidate) : null;
   }
   function makeReview(source) {
@@ -376,15 +490,18 @@
   }
   function decodeReview(value) {
     const legacy = value?.v === 1 ? migrateV1(value, true) : value;
-    const candidate = legacy?.v === 2 ? migrateV2(legacy, true) : legacy;
+    const v3 = legacy?.v === 2 ? migrateV2(legacy, true) : legacy;
+    const candidate = v3?.v === 3 ? migrateV3(v3, true) : v3;
     return validateReview(candidate) ? clone(candidate) : null;
   }
   function decodeImmutableReview(value) {
     const legacy = value?.v === 1 ? migrateV1(value, true) : value;
     if (legacy?.v === 2) {
-      const migrated = migrateV2(legacy, true);
+      const v3 = migrateV2(legacy, true);
+      const migrated = v3 && migrateV3(v3, true);
       return migrated && validateReview(migrated) ? clone(legacy) : null;
     }
+    if (legacy?.v === 3) return migrateV3(legacy, true) ? clone(legacy) : null;
     return validateReview(legacy) ? clone(legacy) : null;
   }
   function fromReview(review) {
@@ -399,15 +516,9 @@
   function withPlacement(state, placement) {
     if (!validateDraft(state) || !["measure-total", "measure-interval"].includes(state.phase)) return null;
     const next = clone(state);
-    const task = state.phase === "measure-total" ? "total" : Scoring.GAP_KEYS[state.currentStep];
+    const task = state.phase === "measure-total" ? Scoring.TOTAL_KEYS[state.currentStep] : Scoring.GAP_KEYS[state.currentStep];
     const candidate = { task, ...clone(placement) };
     if (!validPlacementShape(candidate, task, state.frequencyHz)) return null;
-    if (state.phase === "measure-total" && next.evidence.totalPlacement) {
-      delete next.evidence.totalPlacement;
-      for (const key of Scoring.TOTAL_KEYS) {
-        if (next.measurements[key]?.status === "recorded") next.measurements[key].usedTotalPlacement = false;
-      }
-    }
     next.activePlacement = candidate;
     next.variant = state.returnToReview ? "review-edit-placement-ready" : "normal-placement-ready";
     return validateDraft(next) ? next : null;
@@ -415,7 +526,7 @@
   function refreshPlacement(state, placement) {
     if (!validateDraft(state) || !state.activePlacement ||
         !["measure-total", "measure-interval"].includes(state.phase)) return null;
-    const task = state.phase === "measure-total" ? "total" : Scoring.GAP_KEYS[state.currentStep];
+    const task = state.phase === "measure-total" ? Scoring.TOTAL_KEYS[state.currentStep] : Scoring.GAP_KEYS[state.currentStep];
     const candidate = { task, ...clone(placement) };
     if (!validPlacementShape(candidate, task, state.frequencyHz)) return null;
     const next = clone(state);
@@ -451,22 +562,24 @@
     } else {
       if (!finite(readingM) || readingM < 0 || readingM > Model.cameraMax(state.frequencyHz)) return null;
       const placement = state.activePlacement;
-      const task = isTotal ? "total" : key;
+      const task = key;
       next.measurements[key] = { status: "recorded", readingM };
       const placementValid = placement && (Scoring.validPlacement(placement, task) ||
         Scoring.validLegacyPlacement(placement, task));
       if (isTotal && placementValid) {
-        next.measurements[key].usedTotalPlacement = true;
-        next.evidence.totalPlacement = own(placement, "zeroTickOverlapPx") ? {
-          mode: placement.mode, moveNorm: placement.moveNorm, rulerZeroM: placement.rulerZeroM,
-          ...horizontalEvidence(placement), zeroErrorPx: placement.zeroErrorPx
+        next.evidence[key] = own(placement, "zeroTickOverlapPx") ? {
+          mode: placement.mode, moveNorm: placement.moveNorm, zeroErrorPx: placement.zeroErrorPx,
+          horizontalMode: placement.horizontalMode,
+          ...(placement.horizontalMode === "guide-fraction"
+            ? { guideFraction: placement.guideFraction }
+            : { boundaryOverlapPx: placement.boundaryOverlapPx })
         } : {
-          mode: placement.mode, moveNorm: placement.moveNorm, rulerZeroM: placement.rulerZeroM,
-          legacyEdgeSide: placement.legacyEdgeSide, zeroErrorPx: placement.zeroErrorPx,
+          mode: placement.mode, moveNorm: placement.moveNorm,
+          zeroErrorPx: placement.zeroErrorPx,
           legacyEdgeGapPx: placement.legacyEdgeGapPx
         };
       } else if (isTotal) {
-        next.measurements[key].usedTotalPlacement = false;
+        delete next.evidence[key];
       } else if (placementValid) {
         next.evidence[key] = {
           task: key, mode: placement.mode, moveNorm: placement.moveNorm,
@@ -477,18 +590,15 @@
         };
       } else delete next.evidence[key];
     }
-    if (isTotal && next.evidence.totalPlacement &&
-        !Scoring.TOTAL_KEYS.some((totalKey) => next.measurements[totalKey]?.usedTotalPlacement === true)) {
-      delete next.evidence.totalPlacement;
-    }
-    if (!isTotal) delete next.activePlacement;
+    if (skipped) delete next.evidence[key];
+    delete next.activePlacement;
     if (state.returnToReview) {
       delete next.activePlacement;
       next.phase = "review"; next.variant = "ready";
       next.currentStep = "review"; next.returnToReview = false;
     } else if (state.currentStep < 3) {
       next.currentStep += 1;
-      next.variant = isTotal && own(next, "activePlacement") ? "normal-placement-ready" : "normal-unpositioned";
+      next.variant = "normal-unpositioned";
     } else {
       delete next.activePlacement;
       next.phase = isTotal ? "measure-interval" : "analyze";

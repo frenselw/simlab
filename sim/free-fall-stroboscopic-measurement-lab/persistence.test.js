@@ -43,8 +43,8 @@ state = Persistence.generate(state);
 assert.strictEqual(roundTrip(state).phase, "measure-total");
 const manualOnly = Persistence.resolveMeasurement(state, Model.displacementAt(5, 1));
 assert.ok(manualOnly, "v2 runtime records a manual answer without a persisted placement");
-assert.strictEqual(manualOnly.measurements.total1.usedTotalPlacement, false);
-assert.strictEqual(manualOnly.evidence.totalPlacement, undefined);
+assert.strictEqual(Object.hasOwn(manualOnly.measurements.total1, "usedTotalPlacement"), false);
+assert.strictEqual(manualOnly.evidence.total1, undefined);
 assert.ok(Persistence.resolveMeasurement(state, 0), "0 cm-equivalent canonical reading is inclusive");
 assert.ok(Persistence.resolveMeasurement(state, Model.cameraMax(5)), "5 cm-equivalent canonical reading is inclusive");
 assert.strictEqual(Persistence.resolveMeasurement(state, -Number.EPSILON), null);
@@ -54,7 +54,7 @@ const invalidReady = Persistence.withPlacement(state, placement("total", { moveN
 assert.ok(invalidReady, "placement-ready drafts may retain a not-yet-scoring-valid placement");
 const invalidPlacementReading = Persistence.resolveMeasurement(invalidReady, Model.displacementAt(5, 1));
 assert.ok(invalidPlacementReading, "manual answer remains recordable from an invalid placement");
-assert.strictEqual(invalidPlacementReading.measurements.total1.usedTotalPlacement, false);
+assert.strictEqual(Object.hasOwn(invalidPlacementReading.measurements.total1, "usedTotalPlacement"), false);
 const staleValidReady = Persistence.withPlacement(state, placement("total"));
 const currentInvalidPlacement = placement("total", {
   rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
@@ -64,17 +64,21 @@ delete currentInvalidPlacement.guideFraction;
 const currentInvalid = Persistence.refreshPlacement(staleValidReady, currentInvalidPlacement);
 assert.ok(currentInvalid, "current-CTM placement refresh accepts bounded invalid geometry");
 const staleMetricAnswer = Persistence.resolveMeasurement(currentInvalid, Model.displacementAt(5, 1));
-assert.strictEqual(staleMetricAnswer.measurements.total1.usedTotalPlacement, false);
-assert.strictEqual(staleMetricAnswer.evidence.totalPlacement, undefined,
+assert.strictEqual(Object.hasOwn(staleMetricAnswer.measurements.total1, "usedTotalPlacement"), false);
+assert.strictEqual(staleMetricAnswer.evidence.total1, undefined,
   "a previously valid persisted metric cannot create evidence after current geometry refreshes invalid");
 
-state = Persistence.withPlacement(state, placement("total"));
-assert.ok(state && state.variant === "normal-placement-ready");
 for (let index = 0; index < 4; index += 1) {
+  state = Persistence.withPlacement(state, placement(Scoring.TOTAL_KEYS[index]));
+  assert.ok(state && state.variant === "normal-placement-ready");
   const restoredReady = roundTrip(state);
   state = Persistence.resolveMeasurement(restoredReady, Model.displacementAt(5, index + 1));
   assert.ok(state);
-  if (index < 3) assert.strictEqual(state.currentStep, index + 1);
+  if (index < 3) {
+    assert.strictEqual(state.currentStep, index + 1);
+    assert.strictEqual(state.variant, "normal-unpositioned");
+    assert.strictEqual(state.activePlacement, undefined);
+  }
 }
 assert.strictEqual(state.phase, "measure-interval");
 for (let index = 0; index < 4; index += 1) {
@@ -105,8 +109,8 @@ const restoredState = Persistence.fromReview(restoredReview);
 assert.strictEqual(Scoring.scoreAttempt(restoredState).score, originalScore.score);
 assert.strictEqual(Scoring.scoreAttempt(restoredState).passed, originalScore.passed);
 let state8 = Persistence.generate(Persistence.assignedState(8));
-state8 = Persistence.withPlacement(state8, placement("total", {}, 8));
 for (let index = 0; index < 4; index += 1) {
+  state8 = Persistence.withPlacement(state8, placement(Scoring.TOTAL_KEYS[index], {}, 8));
   const expected = Model.displacementAt(8, index + 1);
   const manual = App.resolveManualReading(8, String(Model.metersToPhotoCm(8, expected)));
   assert.ok(manual.ok && manual.reusedOriginal === false);
@@ -135,6 +139,23 @@ function asV2(value) {
   const legacy = JSON.parse(JSON.stringify(value));
   legacy.v = 2;
   legacy.rubricVersion = 2;
+  if (legacy.phase === "measure-total" && legacy.activePlacement) legacy.activePlacement.task = "total";
+  if (legacy.evidence) {
+    Scoring.TOTAL_KEYS.forEach((key) => {
+      if (legacy.measurements?.[key]?.status === "recorded") legacy.measurements[key].usedTotalPlacement = Boolean(legacy.evidence[key]);
+    });
+    const firstTotal = Scoring.TOTAL_KEYS.map((key) => legacy.evidence[key]).find(Boolean);
+    if (firstTotal) {
+      legacy.evidence.totalPlacement = { ...firstTotal };
+      for (const key of ["task", "readingM", "usedWhileValid"]) delete legacy.evidence.totalPlacement[key];
+      legacy.evidence.totalPlacement.rulerZeroM = 0;
+      Object.assign(legacy.evidence.totalPlacement, {
+        rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1",
+        horizontalMode: "guide-fraction", guideFraction: 20 / 205, zeroTickOverlapPx: 23
+      });
+    }
+    Scoring.TOTAL_KEYS.forEach((key) => { delete legacy.evidence[key]; });
+  }
   if (legacy.analysis) legacy.analysis = {
     deltaTS: legacy.analysis.deltaTS,
     cumulativeTimeRatio: legacy.analysis.cumulativeTimeRatio.values.slice(1).every((term) => term !== null)
@@ -152,6 +173,29 @@ function asV2(value) {
   if (legacy.phase === "review") legacy.variant = "complete";
   return legacy;
 }
+function asV3(value) {
+  const legacy = JSON.parse(JSON.stringify(value));
+  legacy.v = 3;
+  legacy.rubricVersion = 3;
+  if (legacy.phase === "measure-total" && legacy.activePlacement) legacy.activePlacement.task = "total";
+  if (legacy.evidence) {
+    Scoring.TOTAL_KEYS.forEach((key) => {
+      if (legacy.measurements?.[key]?.status === "recorded") legacy.measurements[key].usedTotalPlacement = Boolean(legacy.evidence[key]);
+    });
+    const firstTotal = Scoring.TOTAL_KEYS.map((key) => legacy.evidence[key]).find(Boolean);
+    if (firstTotal) {
+      legacy.evidence.totalPlacement = { ...firstTotal };
+      for (const key of ["task", "readingM", "usedWhileValid"]) delete legacy.evidence.totalPlacement[key];
+      legacy.evidence.totalPlacement.rulerZeroM = 0;
+      Object.assign(legacy.evidence.totalPlacement, {
+        rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1",
+        horizontalMode: "guide-fraction", guideFraction: 20 / 205, zeroTickOverlapPx: 23
+      });
+    }
+    Scoring.TOTAL_KEYS.forEach((key) => { delete legacy.evidence[key]; });
+  }
+  return legacy;
+}
 const historicalV2Review = asV2(review);
 delete historicalV2Review.evidence.totalPlacement.rulerGeometry;
 Scoring.GAP_KEYS.forEach((key) => delete historicalV2Review.evidence[key].rulerGeometry);
@@ -166,7 +210,7 @@ for (const key of ["totalDisplacementRatio", "intervalDistanceRatio"]) {
     `full-source legacy review rejects ${key} insufficient-data`);
 }
 const migratedHistoricalV2Review = Persistence.decode(asV2(state));
-assert.ok(migratedHistoricalV2Review && migratedHistoricalV2Review.rubricVersion === 3);
+assert.ok(migratedHistoricalV2Review && migratedHistoricalV2Review.rubricVersion === 4);
 assert.deepStrictEqual(Object.keys(migratedHistoricalV2Review.analysis).sort(), [
   "accelerationAnswerId", "cumulativeTimeRatio", "deltaTS", "intervalLawAnswerId",
   "intervalTimeRatio", "lawAnswerId"
@@ -177,12 +221,9 @@ delete historicalV2Ready.activePlacement.rulerGeometry;
 const restoredHistoricalV2Ready = Persistence.decode(JSON.parse(JSON.stringify(historicalV2Ready)));
 assert.ok(restoredHistoricalV2Ready && restoredHistoricalV2Ready.frequencyHz === 6,
   "editable historical v2 placement and persisted-only 6 Hz restore together");
-assert.strictEqual(Object.hasOwn(restoredHistoricalV2Ready.activePlacement, "rulerGeometry"), false,
-  "decode preserves historical geometry until the editable runtime refreshes it");
-const unknownGeometryReady = JSON.parse(JSON.stringify(restoredHistoricalV2Ready));
-unknownGeometryReady.activePlacement.rulerGeometry = "future-geometry";
-assert.strictEqual(Persistence.decode(unknownGeometryReady), null,
-  "unknown active-placement geometry discriminator fails closed");
+assert.strictEqual(restoredHistoricalV2Ready.activePlacement, undefined);
+assert.strictEqual(restoredHistoricalV2Ready.variant, "normal-unpositioned",
+  "editable legacy total placement is discarded so reload cannot bypass a fresh placement");
 
 function asV1(value) {
   const legacy = asV2(value);
@@ -211,12 +252,12 @@ function asV1(value) {
   return legacy;
 }
 const migratedReview = Persistence.decodeReview(asV1(review));
-assert.strictEqual(migratedReview.v, 3);
-assert.strictEqual(migratedReview.rubricVersion, 3);
+assert.strictEqual(migratedReview.v, 4);
+assert.strictEqual(migratedReview.rubricVersion, 4);
 assert.strictEqual(migratedReview.frequencyAssigned, true);
 assert.strictEqual(Scoring.scoreAttempt(migratedReview).score, originalScore.score);
-assert.strictEqual(migratedReview.evidence.totalPlacement.legacyEdgeGapPx, 10);
-assert.strictEqual(Object.hasOwn(migratedReview.evidence.totalPlacement, "zeroTickOverlapPx"), false,
+assert.strictEqual(migratedReview.evidence.total1.legacyEdgeGapPx, 10);
+assert.strictEqual(Object.hasOwn(migratedReview.evidence.total1, "zeroTickOverlapPx"), false,
   "v1 edge gap is preserved as legacy data and never reinterpreted as overlap");
 for (const edgeGapPx of [5.99, 44.01, 100]) {
   const invalidLegacyGap = asV1(review);
@@ -236,12 +277,12 @@ assert.strictEqual(Persistence.decodeReview(invalidLegacyReview), null,
 const legacyReadyDraft = asV1(Persistence.withPlacement(
   Persistence.generate(Persistence.assignedState(5)), placement("total")));
 const migratedLegacyReady = Persistence.decode(legacyReadyDraft);
-assert.ok(migratedLegacyReady && migratedLegacyReady.variant === "normal-placement-ready");
-assert.strictEqual(migratedLegacyReady.activePlacement.legacyEdgeGapPx, 100);
+assert.ok(migratedLegacyReady && migratedLegacyReady.variant === "normal-unpositioned");
+assert.strictEqual(migratedLegacyReady.activePlacement, undefined);
 const legacyCandidateContinuation = Persistence.resolveMeasurement(
   roundTrip(migratedLegacyReady), Model.displacementAt(5, 1));
-assert.strictEqual(legacyCandidateContinuation.measurements.total1.usedTotalPlacement, false);
-assert.strictEqual(legacyCandidateContinuation.evidence.totalPlacement, undefined,
+assert.strictEqual(Object.hasOwn(legacyCandidateContinuation.measurements.total1, "usedTotalPlacement"), false);
+assert.strictEqual(legacyCandidateContinuation.evidence.total1, undefined,
   "bounded scoring-invalid v1 active candidate restores and continues without operation evidence");
 legacyReadyDraft.activePlacement.rulerZeroM = -.75;
 legacyReadyDraft.activePlacement.zeroErrorPx = -6;
@@ -252,8 +293,8 @@ legacyManual.measurements.total1 = { status: "recorded", readingM: .23125, usedT
 legacyManual.currentStep = 1;
 const migratedManual = Persistence.decode(asV1(legacyManual));
 assert.strictEqual(migratedManual.measurements.total1.readingM, .23125);
-assert.strictEqual(migratedManual.measurements.total1.usedTotalPlacement, false);
-assert.strictEqual(migratedManual.v, 3);
+assert.strictEqual(Object.hasOwn(migratedManual.measurements.total1, "usedTotalPlacement"), false);
+assert.strictEqual(migratedManual.v, 4);
 const legacyNew = asV1(Persistence.initialState());
 assert.strictEqual(Persistence.decode(legacyNew).variant, "new");
 
@@ -263,10 +304,16 @@ for (const [area, expectedPhase] of [["total", "measure-total"], ["interval", "m
 }
 const totalEdit = Persistence.edit(state, "total", 0);
 assert.strictEqual(roundTrip(totalEdit).variant, "review-edit-unpositioned");
+const finalizedBeforePlacement = JSON.parse(JSON.stringify(totalEdit.evidence));
 const totalEditReady = Persistence.withPlacement(totalEdit, placement("total", { moveNorm: .04 }));
-assert.ok(Scoring.TOTAL_KEYS.every((key) => totalEditReady.measurements[key].usedTotalPlacement === false));
-assert.strictEqual(totalEditReady.evidence.totalPlacement, undefined);
-assert.strictEqual(Persistence.resolveMeasurement(roundTrip(totalEditReady), .2).phase, "review");
+assert.deepStrictEqual(totalEditReady.evidence, finalizedBeforePlacement,
+  "starting a new total placement never mutates finalized per-item evidence");
+const replacedTotal = Persistence.resolveMeasurement(roundTrip(totalEditReady), .2);
+assert.strictEqual(replacedTotal.phase, "review");
+for (const key of Scoring.TOTAL_KEYS.slice(1)) {
+  assert.deepStrictEqual(replacedTotal.evidence[key], finalizedBeforePlacement[key],
+    `replacing total1 preserves finalized ${key} evidence exactly`);
+}
 const intervalEdit = Persistence.edit(state, "interval", 0);
 assert.strictEqual(roundTrip(intervalEdit).variant, "review-edit-unpositioned");
 const intervalEditReady = Persistence.withPlacement(intervalEdit, placement("gap01"));
@@ -296,7 +343,7 @@ assert.ok(negativeZero, "a visually valid negative-side P0 alignment persists");
 const exactNegativeBoundary = Persistence.withPlacement(Persistence.generate(Persistence.assignedState(5)),
   placement("total", { rulerZeroM: -.75, zeroErrorPx: -6 }));
 assert.ok(exactNegativeBoundary, "inclusive negative-side zero-alignment boundary persists");
-assert.strictEqual(Scoring.validPlacement(exactNegativeBoundary.activePlacement, "total"), true);
+assert.strictEqual(Scoring.validPlacement(exactNegativeBoundary.activePlacement, "total1"), true);
 const outsideNegativeBoundary = Persistence.withPlacement(Persistence.generate(Persistence.assignedState(5)),
   placement("total", { rulerZeroM: -.751, zeroErrorPx: -6.01 }));
 assert.strictEqual(outsideNegativeBoundary, null, "negative-side geometry outside the inclusive boundary fails closed");
@@ -379,18 +426,18 @@ const missingPriorInterval = JSON.parse(JSON.stringify(Persistence.edit(state, "
 missingPriorInterval.measurements.gap01 = null;
 assert.strictEqual(Persistence.decode(missingPriorInterval), null);
 const impossibleFinalMove = JSON.parse(JSON.stringify(state));
-impossibleFinalMove.evidence.totalPlacement.moveNorm = 1.001;
+impossibleFinalMove.evidence.total1.moveNorm = 1.001;
 assert.strictEqual(Persistence.decode(impossibleFinalMove), null);
 const contradictoryFinal = JSON.parse(JSON.stringify(state));
-contradictoryFinal.evidence.totalPlacement.rulerZeroM = .1;
-contradictoryFinal.evidence.totalPlacement.zeroErrorPx = -5;
+contradictoryFinal.evidence.total1.rulerZeroM = .1;
+contradictoryFinal.evidence.total1.zeroErrorPx = -5;
 assert.strictEqual(Persistence.decode(contradictoryFinal), null);
 const contradictoryBoundaryFinal = JSON.parse(JSON.stringify(state));
-Object.assign(contradictoryBoundaryFinal.evidence.totalPlacement, {
+Object.assign(contradictoryBoundaryFinal.evidence.total1, {
   rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
   boundaryOverlapPx: 0, zeroTickOverlapPx: 4
 });
-delete contradictoryBoundaryFinal.evidence.totalPlacement.guideFraction;
+delete contradictoryBoundaryFinal.evidence.total1.guideFraction;
 assert.strictEqual(Persistence.decode(contradictoryBoundaryFinal), null);
 assert.strictEqual(Persistence.validateReview(Persistence.makeReview(state)), true);
 const contradictoryBoundaryReview = Persistence.makeReview(state);
@@ -403,19 +450,19 @@ assert.strictEqual(Persistence.validateReview(contradictoryBoundaryReview), fals
 assert.strictEqual(Persistence.decodeReview(contradictoryBoundaryReview), null,
   "review decoder rejects contradictory gap cross-fields");
 const mixedSchemaReview = Persistence.makeReview(state);
-mixedSchemaReview.evidence.totalPlacement.legacyEdgeSide = "left";
-mixedSchemaReview.evidence.totalPlacement.legacyEdgeGapPx = 10;
+mixedSchemaReview.evidence.total1.legacyEdgeSide = "left";
+mixedSchemaReview.evidence.total1.legacyEdgeGapPx = 10;
 assert.strictEqual(Persistence.decodeReview(mixedSchemaReview), null,
   "review decoder rejects mixed current and legacy total evidence");
 const incompleteCurrentWithLegacy = Persistence.makeReview(state);
-delete incompleteCurrentWithLegacy.evidence.totalPlacement.horizontalMode;
-delete incompleteCurrentWithLegacy.evidence.totalPlacement.guideFraction;
-incompleteCurrentWithLegacy.evidence.totalPlacement.legacyEdgeSide = "left";
-incompleteCurrentWithLegacy.evidence.totalPlacement.legacyEdgeGapPx = 10;
+delete incompleteCurrentWithLegacy.evidence.total1.horizontalMode;
+delete incompleteCurrentWithLegacy.evidence.total1.guideFraction;
+incompleteCurrentWithLegacy.evidence.total1.legacyEdgeSide = "left";
+incompleteCurrentWithLegacy.evidence.total1.legacyEdgeGapPx = 10;
 assert.strictEqual(Persistence.decodeReview(incompleteCurrentWithLegacy), null,
   "review decoder does not fall back from incomplete current fields to legacy evidence");
 const danglingTotalPlacement = JSON.parse(JSON.stringify(state));
-for (const key of Scoring.TOTAL_KEYS) danglingTotalPlacement.measurements[key].usedTotalPlacement = false;
+danglingTotalPlacement.measurements.total1 = { status: "skipped" };
 assert.strictEqual(Persistence.decode(danglingTotalPlacement), null);
 const gapWithTotalLink = JSON.parse(JSON.stringify(state));
 gapWithTotalLink.measurements.gap01.usedTotalPlacement = true;
@@ -499,7 +546,7 @@ for (const nonfinite of [NaN, Infinity, -Infinity]) {
 }
 
 const tupleCases = [
-  [review, [3, 1, 3]], [asV2(review), [2, 1, 2]], [asV1(review), [1, 1, 2]]
+  [review, [4, 1, 4]], [asV3(review), [3, 1, 3]], [asV2(review), [2, 1, 2]], [asV1(review), [1, 1, 2]]
 ];
 for (const [shape, supported] of tupleCases) {
   for (const v of [1, 2, 3, 4]) for (const modelVersion of [1, 2]) for (const rubricVersion of [1, 2, 3, 4]) {

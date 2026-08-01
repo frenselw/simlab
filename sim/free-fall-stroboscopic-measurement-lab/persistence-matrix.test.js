@@ -16,6 +16,20 @@ function placement(state, task) {
 function asV2(state) {
   const legacy = JSON.parse(JSON.stringify(state));
   legacy.v = 2; legacy.rubricVersion = 2;
+  if (legacy.phase === "measure-total" && legacy.activePlacement) legacy.activePlacement.task = "total";
+  if (legacy.evidence) {
+    S.TOTAL_KEYS.forEach((key) => {
+      if (legacy.measurements?.[key]?.status === "recorded") legacy.measurements[key].usedTotalPlacement = Boolean(legacy.evidence[key]);
+    });
+    const first = S.TOTAL_KEYS.map((key) => legacy.evidence[key]).find(Boolean);
+    if (first) legacy.evidence.totalPlacement = {
+      mode: first.mode, moveNorm: first.moveNorm, rulerZeroM: 0,
+      rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1",
+      horizontalMode: "guide-fraction", guideFraction: 20 / 205,
+      zeroTickOverlapPx: 23, zeroErrorPx: first.zeroErrorPx
+    };
+    S.TOTAL_KEYS.forEach((key) => { delete legacy.evidence[key]; });
+  }
   if (legacy.analysis) legacy.analysis = {
     deltaTS: legacy.analysis.deltaTS,
     cumulativeTimeRatio: legacy.analysis.cumulativeTimeRatio.values.slice(1).every((term) => term !== null)
@@ -61,7 +75,12 @@ function asV1(state) {
 }
 function restoredV2(state, label) {
   const restored = P.decode(asV2(state));
-  assert.deepEqual(restored, state, `${label}: exact legacy v2 migrates to canonical v3`);
+  const expected = JSON.parse(JSON.stringify(state));
+  if (expected.phase === "measure-total" && expected.activePlacement) {
+    delete expected.activePlacement;
+    expected.variant = expected.returnToReview ? "review-edit-unpositioned" : "normal-unpositioned";
+  }
+  assert.deepEqual(restored, expected, `${label}: exact legacy v2 migrates to canonical v4`);
   return restored;
 }
 function restoredV1(state, label) {
@@ -83,9 +102,10 @@ function restoredV1(state, label) {
 }
 function decoded(state, label) {
   const current = P.decode(JSON.parse(JSON.stringify(P.encode(state))));
-  assert.deepEqual(current, state, `${label}: production v3 encode/decode round-trip`);
+  assert.deepEqual(current, state, `${label}: production v4 encode/decode round-trip`);
   restoredV2(state, label);
-  return restoredV1(state, label);
+  restoredV1(state, label);
+  return current;
 }
 function contradictoryBoundary(value) {
   const candidate = JSON.parse(JSON.stringify(value));
@@ -104,8 +124,10 @@ function skippedMeasurements(frequency = 5) {
 }
 function completeState(frequency = 5) {
   let state = P.generate(P.assignedState(frequency));
-  state = P.withPlacement(state, placement(state, "total"));
-  for (let index = 0; index < 4; index += 1) state = P.resolveMeasurement(state, M.displacementAt(frequency, index + 1));
+  for (let index = 0; index < 4; index += 1) {
+    state = P.withPlacement(state, placement(state, S.TOTAL_KEYS[index]));
+    state = P.resolveMeasurement(state, M.displacementAt(frequency, index + 1));
+  }
   for (let index = 0; index < 4; index += 1) {
     const task = S.GAP_KEYS[index];
     state = P.resolveMeasurement(P.withPlacement(state, placement(state, task)), M.intervalDisplacement(frequency, index + 1));
@@ -135,11 +157,10 @@ for (let step = 0; step < 4; step += 1) {
   assert.equal(P.decode(contradictory), null,
     `measure-total/normal-placement-ready/${step}: contradictory cross-fields fail closed`);
   const restoredReady = decoded(ready, `measure-total/normal-placement-ready/${step}`);
-  const recordedWithoutEvidence = P.resolveMeasurement(
+  const recordedWithEvidence = P.resolveMeasurement(
     restoredReady, M.displacementAt(5, step + 1));
-  assert.equal(recordedWithoutEvidence.measurements[S.TOTAL_KEYS[step]].usedTotalPlacement, false,
-    `measure-total/normal-placement-ready/${step}: bounded legacy candidate creates no operation link`);
-  assert.equal(recordedWithoutEvidence.evidence.totalPlacement, undefined);
+  assert.ok(recordedWithEvidence.evidence[S.TOTAL_KEYS[step]],
+    `measure-total/normal-placement-ready/${step}: current placement creates per-item operation evidence`);
   assert.ok(P.resolveMeasurement(restoredReady, null, true), `measure-total/normal-placement-ready/${step}: decoded fixture can resolve`);
 }
 
@@ -156,10 +177,10 @@ for (let step = 0; step < 4; step += 1) {
   assert.equal(P.decode(contradictory), null,
     `measure-interval/normal-placement-ready/${step}: contradictory cross-fields fail closed`);
   const restoredReady = decoded(ready, `measure-interval/normal-placement-ready/${step}`);
-  const recordedWithoutEvidence = P.resolveMeasurement(
+  const recordedWithEvidence = P.resolveMeasurement(
     restoredReady, M.intervalDisplacement(5, step + 1));
-  assert.equal(recordedWithoutEvidence.evidence[task], undefined,
-    `measure-interval/normal-placement-ready/${step}: bounded legacy candidate creates no operation evidence`);
+  assert.ok(recordedWithEvidence.evidence[task],
+    `measure-interval/normal-placement-ready/${step}: current placement creates operation evidence`);
   assert.ok(P.resolveMeasurement(restoredReady, null, true), `measure-interval/normal-placement-ready/${step}: decoded fixture can resolve`);
 }
 
@@ -170,8 +191,14 @@ assert.equal(P.edit(reviewIncomplete, "analysis").variant, "review-edit", "revie
 const reviewComplete = completeState();
 decoded(reviewComplete, "review/complete");
 const contradictoryReview = JSON.parse(JSON.stringify(reviewComplete));
-contradictoryReview.evidence.totalPlacement = contradictoryBoundary(contradictoryReview.evidence.totalPlacement);
+contradictoryReview.evidence.total1 = contradictoryBoundary(contradictoryReview.evidence.total1);
 assert.equal(P.decode(contradictoryReview), null, "review/complete contradictory total evidence fails closed");
+for (const rulerX of [0, 360]) {
+  const impossibleReview = JSON.parse(JSON.stringify(reviewComplete));
+  Object.assign(impossibleReview.evidence.total1, { rulerX, zeroTickOverlapPx: 23 });
+  assert.equal(P.decode(impossibleReview), null,
+    `review/complete impossible compact total geometry at x=${rulerX} fails closed`);
+}
 assert.equal(P.edit(reviewComplete, "analysis").phase, "analyze", "review/complete decoded fixture can edit");
 
 for (const [area, keys] of [["total", S.TOTAL_KEYS], ["interval", S.GAP_KEYS]]) {
@@ -188,13 +215,13 @@ for (const [area, keys] of [["total", S.TOTAL_KEYS], ["interval", S.GAP_KEYS]]) 
     const restoredReady = decoded(ready, `${area}/review-edit-placement-ready/${step}`);
     const reading = area === "total"
       ? M.displacementAt(5, step + 1) : M.intervalDisplacement(5, step + 1);
-    const recordedWithoutEvidence = P.resolveMeasurement(restoredReady, reading);
+    const recordedWithEvidence = P.resolveMeasurement(restoredReady, reading);
     if (area === "total") {
-      assert.equal(recordedWithoutEvidence.measurements[keys[step]].usedTotalPlacement, false,
-        `${area}/review-edit-placement-ready/${step}: bounded legacy candidate creates no operation link`);
+      assert.ok(recordedWithEvidence.evidence[keys[step]],
+        `${area}/review-edit-placement-ready/${step}: current placement replaces only this item's evidence`);
     } else {
-      assert.equal(recordedWithoutEvidence.evidence[keys[step]], undefined,
-        `${area}/review-edit-placement-ready/${step}: bounded legacy candidate creates no operation evidence`);
+      assert.ok(recordedWithEvidence.evidence[keys[step]],
+        `${area}/review-edit-placement-ready/${step}: current placement creates operation evidence`);
     }
     assert.equal(P.resolveMeasurement(restoredReady, null, true).phase, "review",
       `${area}/review-edit-placement-ready/${step}: decoded fixture returns to review`);

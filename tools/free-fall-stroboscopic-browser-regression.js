@@ -67,8 +67,7 @@ async function productionFixture(cdp) {
     const w=document.getElementById('activity').contentWindow,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
     let state=P.generate(P.assignedState(6));
     const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
-    state=P.withPlacement(state,place('total',0));
-    for(let index=0;index<4;index+=1)state=P.resolveMeasurement(state,M.displacementAt(6,index+1));
+    for(let index=0;index<4;index+=1)state=P.resolveMeasurement(P.withPlacement(state,place(S.TOTAL_KEYS[index],0)),M.displacementAt(6,index+1));
     for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index];state=P.resolveMeasurement(P.withPlacement(state,place(task,M.displacementAt(6,index))),M.intervalDisplacement(6,index+1));}
     state=P.setAnalysis(state,{deltaTS:1/6,cumulativeTimeRatio:{values:[1,2,3,4]},intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',intervalLawAnswerId:'odd',accelerationAnswerId:'constant-acceleration'});
     state=P.enterReview(state);const review=P.makeReview(state),result=S.scoreAttempt(review),snapshot=w.SimScorm.makeSnapshot('${slug}','review',review,result);
@@ -78,7 +77,11 @@ async function productionFixture(cdp) {
       intervalTimeRatio:{status:'answered',values:analysis.intervalTimeRatio.values},
       intervalDistanceRatio:{status:'answered',values:[1,3,5,7]},lawAnswerId:analysis.lawAnswerId,
       intervalLawAnswerId:analysis.intervalLawAnswerId,accelerationAnswerId:analysis.accelerationAnswerId});
-    const legacyReview=JSON.parse(JSON.stringify(review));legacyReview.v=1;legacyReview.rubricVersion=2;
+    const v3Review=JSON.parse(JSON.stringify(review));v3Review.v=3;v3Review.rubricVersion=3;
+    v3Review.evidence.totalPlacement={...v3Review.evidence.total1,rulerZeroM:0,rulerX:100,rulerSide:'left',
+      rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23};
+    S.TOTAL_KEYS.forEach(key=>{v3Review.measurements[key].usedTotalPlacement=true;delete v3Review.evidence[key]});
+    const legacyReview=JSON.parse(JSON.stringify(v3Review));legacyReview.v=1;legacyReview.rubricVersion=2;
     legacyReview.frequencyActivelySelected=legacyReview.frequencyAssigned;delete legacyReview.frequencyAssigned;
     legacyReview.analysis=oldAnalysis(legacyReview.analysis);
     const legacy=(value,keepSide=false)=>{value.edgeGapPx=10;delete value.zeroTickOverlapPx;delete value.rulerX;delete value.rulerGeometry;
@@ -87,7 +90,7 @@ async function productionFixture(cdp) {
     legacy(legacyReview.evidence.totalPlacement,true);S.GAP_KEYS.forEach(key=>legacy(legacyReview.evidence[key]));
     const legacyResult=S.scoreAttempt(P.decodeImmutableReview(legacyReview));
     const legacySnapshot=w.SimScorm.makeSnapshot('${slug}','review',legacyReview,legacyResult);
-    const historicalReview=JSON.parse(JSON.stringify(review));historicalReview.v=2;historicalReview.rubricVersion=2;
+    const historicalReview=JSON.parse(JSON.stringify(v3Review));historicalReview.v=2;historicalReview.rubricVersion=2;
     historicalReview.analysis=oldAnalysis(historicalReview.analysis);delete historicalReview.evidence.totalPlacement.rulerGeometry;
     S.GAP_KEYS.forEach(key=>delete historicalReview.evidence[key].rulerGeometry);
     const historicalResult=S.scoreAttempt(P.decodeImmutableReview(historicalReview));
@@ -250,7 +253,7 @@ async function attemptLockedEdits(cdp) {
     w.SimScorm.saveDraft=(snapshot)=>{saves+=1;return original(snapshot)};
     d.querySelectorAll('[data-edit]').forEach(button=>button.click());
     d.querySelector('[data-edit-measurement]')?.click();
-    ['submitButton','submissionRetry','recordButton','skipButton','parkButton','returnReviewButton',
+    ['submitButton','submissionRetry','recordButton','skipButton','returnReviewButton',
       'reviewButton','generateButton','replayPreviewButton'].forEach(id=>d.getElementById(id)?.click());
     if(d.getElementById('resultRetry').classList.contains('is-hidden'))d.getElementById('resultRetry').click();
     w.__freeFallDebug.replayPreview();
@@ -263,6 +266,46 @@ async function runLifecycleMatrix(cdp, baseUrl, activityPath, label) {
   await setViewport(cdp, 390, 600);
   await navigate(cdp, `${baseUrl}/__embed-scroll-test.html?src=${encodeURIComponent(activityPath)}`, true);
   const fixture = await productionFixture(cdp);
+  const refreshedUi = await evaluate(cdp, `(async() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document;
+    const authored=[['square','linear','constant'],['odd','equal','square'],
+      ['constant-acceleration','constant-speed','frequency-changes-gravity']];
+    const orders=w.__freeFallDebug.choiceOrder();
+    const resets=[...d.querySelectorAll('[data-reset-frequency]')].map(button=>button.textContent.trim());
+    w.__freeFallDebug.setReview(${JSON.stringify(fixture.review)});
+    d.querySelector('[data-edit-measurement="total1"]').click();
+    const reading=d.querySelector('.reading-row').getBoundingClientRect();
+    const actions=d.querySelector('#measurementSection .button-grid').getBoundingClientRect();
+    const emptyErrorDisplay=getComputedStyle(d.getElementById('measurementError')).display;
+    d.getElementById('readingInput').value='';d.getElementById('recordButton').click();
+    const populatedError={display:getComputedStyle(d.getElementById('measurementError')).display,
+      text:d.getElementById('measurementError').textContent};
+    w.__freeFallDebug.setReview(${JSON.stringify(fixture.review)});
+    const panel=d.getElementById('controlPanel');panel.scrollTop=panel.scrollHeight;
+    const beforeResult=panel.scrollTop;
+    w.__freeFallDebug.routeSubmission({activityState:'success'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const score=d.getElementById('scorePanel').getBoundingClientRect(),panelRect=panel.getBoundingClientRect();
+    return {authored,orders,resets,parkCount:d.querySelectorAll('#parkButton').length,
+      measurementGap:actions.top-reading.bottom,emptyErrorDisplay,populatedError,
+      beforeResult,afterResult:panel.scrollTop,focused:d.activeElement.id,
+      scoreVisible:score.top>=panelRect.top-1&&score.top<panelRect.bottom};
+  })()`);
+  assert.equal(refreshedUi.parkCount, 0, `${label}: learner UI has no manual Park button`);
+  assert.deepEqual(refreshedUi.resets, ['重新開始','重新開始','重新開始'],
+    `${label}: every reset button uses the short learner-facing label`);
+  refreshedUi.orders.forEach((order,index)=>{
+    assert.notDeepEqual(order, refreshedUi.authored[index], `${label}: question ${index+1} is not left in authored order`);
+    assert.deepEqual([...order].sort(), [...refreshedUi.authored[index]].sort(),
+      `${label}: question ${index+1} shuffle preserves the same answer IDs`);
+  });
+  assert.ok(refreshedUi.measurementGap>=0&&refreshedUi.measurementGap<=32&&
+    refreshedUi.emptyErrorDisplay==='none',
+  `${label}: empty validation message leaves no unexplained reading/action gap ${JSON.stringify(refreshedUi)}`);
+  assert.ok(refreshedUi.populatedError.display!=='none'&&/請輸入/.test(refreshedUi.populatedError.text),
+    `${label}: validation message expands only when populated`);
+  assert.ok(refreshedUi.beforeResult>0&&refreshedUi.afterResult===0&&refreshedUi.focused==='resultTitle'&&
+    refreshedUi.scoreVisible, `${label}: final result returns the panel to its score at the top ${JSON.stringify(refreshedUi)}`);
   const values = (status, snapshot, score = "") => ({
     "cmi.core.lesson_status": status,
     "cmi.core.score.raw": String(score),
@@ -599,7 +642,7 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
       rulerHidden:d.getElementById('rulerHandle').classList.contains('is-hidden'),
       generateDisabled:d.getElementById('generateButton').disabled,replayDisabled:d.getElementById('replayPreviewButton').disabled,
       recordDisabled:d.getElementById('recordButton').disabled,skipDisabled:d.getElementById('skipButton').disabled,
-      parkDisabled:d.getElementById('parkButton').disabled,stamps:d.querySelectorAll('[data-stamp]').length,
+      parkPresent:Boolean(d.getElementById('parkButton')),stamps:d.querySelectorAll('[data-stamp]').length,
       live:d.querySelectorAll('[data-live-ball]').length};
     const waitStarted=performance.now();
     await new Promise(resolve=>{const tick=()=>performance.now()-waitStarted>=1100?resolve():requestAnimationFrame(tick);tick()});
@@ -653,7 +696,7 @@ async function runAnimationMatrix(cdp, baseUrl, activityPath, label) {
         rulerHidden:d.getElementById('rulerHandle').classList.contains('is-hidden'),
         generateDisabled:d.getElementById('generateButton').disabled,replayDisabled:d.getElementById('replayPreviewButton').disabled,
         recordDisabled:d.getElementById('recordButton').disabled,skipDisabled:d.getElementById('skipButton').disabled,
-        parkDisabled:d.getElementById('parkButton').disabled,stamps:d.querySelectorAll('[data-stamp]').length,
+        parkPresent:Boolean(d.getElementById('parkButton')),stamps:d.querySelectorAll('[data-stamp]').length,
         live:d.querySelectorAll('[data-live-ball]').length};
     })()`);
   } finally {
@@ -904,7 +947,7 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   assert.equal(manualOnly.state.measurements.total2.readingM, 3.5, `${label}: inclusive 5 cm is recorded`);
   assert.ok(Math.abs(manualOnly.state.measurements.total3.readingM-1.8)<1e-12,
     `${label}: correct manual answer is converted once without placement`);
-  assert.ok([1,2,3].every(index=>manualOnly.state.measurements[`total${index}`].usedTotalPlacement===false),
+  assert.ok([1,2,3].every(index=>manualOnly.state.evidence[`total${index}`]===undefined),
     `${label}: correct and wrong no-placement answers do not fabricate operation evidence`);
   assert.doesNotMatch(manualOnly.encoded, /3\\.21/, `${label}: transient typed input is not persisted`);
 
@@ -932,7 +975,7 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey });
     await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey });
     return evaluate(cdp, `(() => {const p=__freeFallDebug.state().activePlacement;
-      return {placement:p,valid:FreeFallScoring.validPlacement(p,'total')}})()`);
+      return {placement:p,valid:FreeFallScoring.validPlacement(p,'total1')}})()`);
   }
   for (const kind of ["far-left", "far-right", "+6", "-6"]) {
     const boundary = await placeBoundary(kind);
@@ -941,8 +984,8 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
       `${label}: fixed-right clamp preserves at least the inclusive 4 CSS px left overlap`);
     else if (kind === "far-right") assert.ok(Math.abs(boundary.placement.zeroTickOverlapPx-4)<.02,
       `${label}: far-right raw overlap is the inclusive 4 CSS px boundary`);
-    else assert.ok(Math.abs(Math.abs(boundary.placement.zeroErrorPx)-6)<.02,
-      `${label}: ${kind} alignment is the inclusive 6 CSS px boundary`);
+    else assert.equal(boundary.placement.zeroErrorPx, 0,
+      `${label}: ${kind} inclusive 6 CSS px alignment boundary snaps to canonical zero`);
   }
   await evaluate(cdp, `(() => {__freeFallDebug.setRuler({x:100,y:55});
     document.getElementById('rulerHandle').focus({preventScroll:true})})()`);
@@ -963,11 +1006,16 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     disabled:document.getElementById('recordButton').disabled,state:__freeFallDebug.state(),ruler:__freeFallDebug.ruler()}})()`);
   await directFill(cdp, "#readingInput", "0.2857142857142857");
   await evaluate(cdp, "document.getElementById('recordButton').click()");
-  const secondReadout = await evaluate(cdp, `(() => ({value:document.getElementById('readingInput').value,
-    stage:document.getElementById('stageReadout').textContent,
+  const secondReadout = await evaluate(cdp, `(() => {const l=__freeFallDebug.rulerLayout();return {
+    value:document.getElementById('readingInput').value,stage:document.getElementById('stageReadout').textContent,
     canonical:Number(document.getElementById('stageReadout').dataset.readingM),
     stageHidden:document.getElementById('stageReadout').classList.contains('is-hidden'),
-    disabled:document.getElementById('recordButton').disabled,state:__freeFallDebug.state()}))()`);
+    disabled:document.getElementById('recordButton').disabled,status:document.getElementById('placementStatus').textContent,
+    state:__freeFallDebug.state(),ruler:__freeFallDebug.ruler(),layout:l};})()`);
+  assert.ok(secondReadout.state.variant === "normal-unpositioned" && !secondReadout.state.activePlacement &&
+    secondReadout.stageHidden && secondReadout.layout.x >= -.01 && secondReadout.layout.fullTop >= -.01 &&
+    secondReadout.ruler.y > 0 && /停泊區/.test(secondReadout.status),
+  `${label}: recording total1 clears the readout and reparks visibly upper-left before total2 ${JSON.stringify(secondReadout)}`);
   await directFill(cdp, "#readingInput", "1.1428571428571428");
   await evaluate(cdp, "document.getElementById('recordButton').click()");
 
@@ -975,10 +1023,10 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     const w=window,d=document,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
     const partial=w.__freeFallDebug.state(),encoded=P.encode(partial),decoded=P.decode(encoded);
     let state=decoded;
-    state=P.resolveMeasurement(state,M.displacementAt(5,3));
-    state=P.resolveMeasurement(state,M.displacementAt(5,4));
-    if(!state)throw new Error('real-input totals did not advance: '+JSON.stringify(partial));
     const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    state=P.resolveMeasurement(P.withPlacement(state,place('total3',0)),M.displacementAt(5,3));
+    state=P.resolveMeasurement(P.withPlacement(state,place('total4',0)),M.displacementAt(5,4));
+    if(!state)throw new Error('real-input totals did not advance: '+JSON.stringify(partial));
     for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index],before=state,
       placed=P.withPlacement(state,place(task,M.displacementAt(state.frequencyHz,index)));
       state=placed&&P.resolveMeasurement(placed,M.intervalDisplacement(before.frequencyHz,index+1));
@@ -1008,8 +1056,8 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
     const aria=d.getElementById('rulerHandle').getAttribute('aria-label');
     return {
       readings:[partial.measurements.total1.readingM,partial.measurements.total2.readingM],
-      used:[partial.measurements.total1.usedTotalPlacement,partial.measurements.total2.usedTotalPlacement],
-      partialEvidence:partial.evidence.totalPlacement,
+      used:[Boolean(partial.evidence.total1),Boolean(partial.evidence.total2)],
+      partialEvidence:partial.evidence.total1,
       partialRoundTrip:JSON.stringify(decoded)===JSON.stringify(encoded),
       reviewRoundTrip:JSON.stringify(decodedReview)===JSON.stringify(review),
       evidenceRoundTrip:JSON.stringify(decodedReview.evidence)===evidenceBefore,evidenceBefore,evidenceAfter,
@@ -1026,7 +1074,8 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   assert.equal(secondReadout.value, ""); assert.equal(secondReadout.stage, "");
   assert.equal(secondReadout.stageHidden, true,
     `${label}: advancing to the next task clears the prior task's stage output`);
-  assert.deepEqual(result.used, [true, true], `${label}: both production Record actions retain the valid total placement`);
+  assert.deepEqual(result.used, [true, false],
+    `${label}: total1 keeps only its own placement evidence while unpositioned total2 manual entry has none`);
   assert.ok(result.partialEvidence && result.partialEvidence.mode === "keyboard",
     `${label}: production keyboard placement creates ruler-use evidence`);
   assert.ok(result.partialRoundTrip && result.reviewRoundTrip && result.evidenceRoundTrip,
@@ -1048,6 +1097,68 @@ async function runRealInputPath(cdp, baseUrl, activityPath, label) {
   for (const text of [result.reviewText, result.resultText, result.aria]) {
     assert.doesNotMatch(text, /(?:0{8,}|9{8,})\d/, `${label}: normalized learner copy has no IEEE-754 tail`);
   }
+}
+
+async function runReviewEditEvidenceMatrix(cdp, baseUrl, activityPath, label) {
+  await setViewport(cdp, 390, 600);
+  await navigate(cdp, `${baseUrl}${activityPath}?review-edit-evidence=${encodeURIComponent(label)}`);
+  const before = await evaluate(cdp, `(() => {
+    const w=window,d=document,P=w.FreeFallPersistence,S=w.FreeFallScoring,M=w.FreeFallModel;
+    const place=(task,zero)=>({mode:'keyboard',moveNorm:.03,rulerZeroM:zero,rulerX:100,
+      rulerSide:'left',rulerGeometry:'fixed-left-v1',horizontalMode:'guide-fraction',
+      guideFraction:20/205,zeroTickOverlapPx:23,zeroErrorPx:0});
+    let state=P.generate(P.assignedState(5));
+    for(let index=0;index<4;index+=1){const task=S.TOTAL_KEYS[index];
+      state=P.resolveMeasurement(P.withPlacement(state,place(task,0)),M.displacementAt(5,index+1));}
+    for(let index=0;index<4;index+=1){const task=S.GAP_KEYS[index];
+      state=P.resolveMeasurement(P.withPlacement(state,place(task,M.displacementAt(5,index))),M.intervalDisplacement(5,index+1));}
+    state=P.setAnalysis(state,{deltaTS:.2,cumulativeTimeRatio:{values:[1,2,3,4]},
+      intervalTimeRatio:{values:[1,1,1,1]},lawAnswerId:'square',intervalLawAnswerId:'odd',
+      accelerationAnswerId:'constant-acceleration'});
+    state=P.enterReview(state);w.__freeFallDebug.setReview(P.makeReview(state));
+    const evidence=JSON.stringify(w.__freeFallDebug.state().evidence);
+    const operations=[...d.querySelectorAll('.review-table tbody tr td:nth-child(3)')].map(node=>node.textContent.trim());
+    const margins=[...d.querySelectorAll('.prose-inline-symbol var')].map(node=>{
+      const style=getComputedStyle(node);return [parseFloat(style.marginInlineStart),parseFloat(style.marginInlineEnd)];});
+    d.querySelector('[data-edit-measurement="total1"]').click();
+    w.__freeFallDebug.setRuler({x:100,y:55});d.getElementById('rulerHandle').focus();
+    return {evidence,operations,margins,phase:w.__freeFallDebug.state().phase};
+  })()`);
+  assert.equal(before.phase, "measure-total", `${label}: total1 edit enters the measurement phase`);
+  assert.ok(before.operations.every((text) => text === "有尺位證據"),
+    `${label}: all eight review rows start with independent ruler evidence`);
+  assert.ok(before.margins.length === 3 && before.margins.every(([start, end]) => start > 0 && end > 0),
+    `${label}: prose v/f symbols have deliberate spacing on both sides`);
+
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  const ready = await evaluate(cdp, `(() => {const s=__freeFallDebug.state();return {
+    active:s.activePlacement,valid:FreeFallScoring.validPlacement(s.activePlacement,'total1'),
+    readout:document.getElementById('stageReadout').textContent};})()`);
+  assert.ok(ready.valid && ready.active?.task === "total1" && /cm/.test(ready.readout),
+    `${label}: review edit establishes a fresh valid total1 placement through the UI`);
+
+  await directFill(cdp, "#readingInput", "0.30");
+  await evaluate(cdp, `document.getElementById('recordButton').click()`);
+  const after = await evaluate(cdp, `(() => {
+    const s=__freeFallDebug.state(),P=FreeFallPersistence,S=FreeFallScoring,d=document;
+    return {phase:s.phase,evidence:s.evidence,
+      operations:[...d.querySelectorAll('.review-table tbody tr td:nth-child(3)')].map(node=>node.textContent.trim()),
+      links:S.scoreAttempt(P.makeReview(s)).detail.totalLinks,
+      roundTrip:JSON.stringify(P.decode(P.encode(s)))===JSON.stringify(s)};
+  })()`);
+  const previousEvidence = JSON.parse(before.evidence);
+  assert.equal(after.phase, "review", `${label}: changed total1 record returns to review`);
+  assert.ok(after.operations.every((text) => text === "有尺位證據") && after.links.every(Boolean),
+    `${label}: changed total1 re-measure keeps every rendered and scored total evidence link`);
+  for (const key of ["total2", "total3", "total4"]) {
+    assert.deepEqual(after.evidence[key], previousEvidence[key],
+      `${label}: editing total1 preserves finalized ${key} evidence exactly`);
+  }
+  assert.ok(after.evidence.total1 && after.roundTrip,
+    `${label}: replacement total1 evidence and the complete edited draft survive persistence round-trip`);
 }
 
 async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
@@ -1084,8 +1195,9 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         document.getElementById('recordButton').click();
         const recorded=w.__freeFallDebug.state();
         results.push({name:testCase.name,historical,expected:testCase.expected,layout,placement:restored.activePlacement,
-          valid:S.validPlacement(restored.activePlacement,'total'),recorded:recorded.measurements.total1,
-          evidence:recorded.evidence.totalPlacement,
+          valid:S.validPlacement(restored.activePlacement,'total1'),recorded:recorded.measurements.total1,
+          evidence:recorded.evidence.total1,
+          evidenceValid:S.totalEvidenceValid(recorded.evidence.total1,'total1'),
           ownerDelta:Math.max(Math.abs(visible.left-owner.left),Math.abs(visible.right-owner.right),
             Math.abs(visible.top-owner.top),Math.abs(visible.bottom-owner.bottom))});
       }
@@ -1094,8 +1206,8 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     for (const item of historicalCases) {
       assert.doesNotMatch(item.historical, /rulerGeometry/);
       assert.ok(item.valid && item.placement.rulerGeometry === "fixed-left-v1" && item.layout.direction === -1 &&
-        Math.abs(item.layout.anchorX-item.expected)<1e-6 && item.recorded?.usedTotalPlacement === true &&
-        item.evidence?.rulerGeometry === "fixed-left-v1" && item.ownerDelta <= 1,
+        Math.abs(item.layout.anchorX-item.expected)<1e-6 && item.recorded?.status === "recorded" &&
+        item.evidenceValid && item.ownerDelta <= 1,
       `${label} ${viewport.join("x")}: historical ${item.name} converts from its old tick right endpoint and records legally ${JSON.stringify(item)}`);
     }
   }
@@ -1129,7 +1241,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     const draft = await evaluate(cdp, `(() => {
       const s=__freeFallDebug.state(),p=s.activePlacement;
       return {answer:FreeFallPersistence.encode(s),placement:p,
-        valid:FreeFallScoring.validPlacement(p,"total")};
+        valid:FreeFallScoring.validPlacement(p,"total1")};
     })()`);
     assert.ok(draft.valid && Math.abs(draft.placement.zeroTickOverlapPx - 4) < .02,
       `${label}: ${testCase.kind} begins at the exact 4 CSS px boundary`);
@@ -1141,7 +1253,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
         output=d.getElementById("stageReadout"),stage=d.getElementById("stage"),
         r=output.getBoundingClientRect(),sr=stage.getBoundingClientRect(),
         owner=d.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
-      return {placement:p,valid:FreeFallScoring.validPlacement(p,"total"),
+      return {placement:p,valid:FreeFallScoring.validPlacement(p,"total1"),
         output:{hidden:output.classList.contains("is-hidden"),left:r.left,right:r.right,top:r.top,bottom:r.bottom,
           pointer:getComputedStyle(output).pointerEvents,owner:owner&&owner.id},
         stage:{left:sr.left,right:sr.right,top:sr.top,bottom:sr.bottom},
@@ -1163,15 +1275,16 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     await directFill(cdp, "#readingInput", "0.2857142857142857");
     await evaluate(cdp, `document.getElementById("recordButton").click()`);
     const resizedRecord = await evaluate(cdp, `(() => {
-      const s=__freeFallDebug.state(),e=s.evidence.totalPlacement;
+      const s=__freeFallDebug.state(),e=s.evidence.total1;
       return {reading:s.measurements.total1,evidence:e,phase:s.phase,active:s.activePlacement,
         input:document.getElementById("readingInput").value,
         error:document.getElementById("measurementError").textContent,
         disabled:document.getElementById("recordButton").disabled};
     })()`);
-    assert.ok(resizedRecord.reading && resizedRecord.reading.usedTotalPlacement === true,
+    assert.ok(resizedRecord.reading?.status === "recorded" && resizedRecord.evidence,
       `${label}: resized Record succeeds ${JSON.stringify(resizedRecord)}`);
-    assert.ok(Math.abs(resizedRecord.evidence.zeroTickOverlapPx - resized.placement.zeroTickOverlapPx) < .02,
+    assert.ok(resizedRecord.evidence.horizontalMode === resized.placement.horizontalMode &&
+      Math.abs(resizedRecord.evidence.boundaryOverlapPx - resized.placement.boundaryOverlapPx) < .02,
       `${label}: Record uses the current visible resized placement`);
 
     await navigate(cdp, `${baseUrl}${activityPath}?cross-ctm-reload=${testCase.kind}-${encodeURIComponent(label)}`);
@@ -1179,7 +1292,7 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     const restored = await evaluate(cdp, `(() => {
       const d=document,p=__freeFallDebug.state().activePlacement,o=d.getElementById("stageReadout"),
         r=o.getBoundingClientRect(),s=d.getElementById("stage").getBoundingClientRect();
-      return {p,valid:FreeFallScoring.validPlacement(p,"total"),hidden:o.classList.contains("is-hidden"),
+      return {p,valid:FreeFallScoring.validPlacement(p,"total1"),hidden:o.classList.contains("is-hidden"),
         inside:r.left>=s.left-1&&r.right<=s.right+1&&r.top>=s.top-1&&r.bottom<=s.bottom+1};
     })()`);
     assert.ok(restored.valid && restored.inside && !restored.hidden &&
@@ -1189,18 +1302,19 @@ async function runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label) {
     await directFill(cdp, "#readingInput", testCase.kind === "far-left" ? "5" : "0.2857142857142857");
     await evaluate(cdp, `document.getElementById("recordButton").click()`);
     const reloadRecord = await evaluate(cdp, `(() => {
-      const s=__freeFallDebug.state(),e=s.evidence.totalPlacement;
+      const s=__freeFallDebug.state(),e=s.evidence.total1;
       return {reading:s.measurements.total1,evidence:e,
+        evidenceValid:FreeFallScoring.totalEvidenceValid(e,'total1'),
         roundTrip:JSON.stringify(FreeFallPersistence.decode(FreeFallPersistence.encode(s)))===JSON.stringify(s)};
     })()`);
-    assert.equal(reloadRecord.reading.usedTotalPlacement, true);
-    assert.ok(reloadRecord.roundTrip && reloadRecord.evidence.zeroTickOverlapPx >= 4 - .02,
+    assert.equal(reloadRecord.reading.status, "recorded");
+    assert.ok(reloadRecord.roundTrip && reloadRecord.evidenceValid,
       `${label}: legal Record after boundary reload preserves current evidence through draft round-trip`);
 
     if (testCase.kind === "far-right") {
-      for (const [action, selector] of [["park", "#parkButton"], ["skip", "#skipButton"]]) {
+      for (const [action, expression] of [["park", "__freeFallDebug.parkRuler()"], ["skip", "document.getElementById('skipButton').click()"]]) {
         await evaluate(cdp, `__freeFallDebug.routeStartup("editable",{state:"draft",snapshot:{answer:${JSON.stringify(draft.answer)}}})`);
-        await evaluate(cdp, `document.querySelector(${JSON.stringify(selector)}).click()`);
+        await evaluate(cdp, expression);
         assert.equal(await evaluate(cdp, `document.getElementById("stageReadout").classList.contains("is-hidden")`), true,
           `${label}: ${action} clears stale stage output`);
       }
@@ -1278,6 +1392,41 @@ async function runRulerGeometryMatrix(cdp, baseUrl, activityPath, label) {
       setupNotation.unit.left - setupNotation.value.right >= 2,
     `${label} ${width}x${height}@${pageScale}: rendered operator/value/unit spacing remains visible ${JSON.stringify(setupNotation)}`);
     await prepare(cdp);
+    const parked = await evaluate(cdp, `(() => {
+      const w=window,d=document,M=w.FreeFallModel,S=w.FreeFallScoring,views=[];
+      const inspect=(name)=>{const l=w.__freeFallDebug.rulerLayout(),state=w.__freeFallDebug.state(),
+        body=d.querySelector('[data-ruler-visible-body]').getBoundingClientRect(),
+        handle=d.getElementById('rulerHandle').getBoundingClientRect(),scene=d.getElementById('scene'),
+        p0=M.geometry(state.frequencyHz,440,55,25).metersToY(0),matrix=scene.getScreenCTM(),
+        tickLeft=(l.anchorX-23/l.scaleX),overlap=Math.max(0,Math.min(l.anchorX,285)-Math.max(tickLeft,80))*l.scaleX,
+        samples=[[handle.left+2,handle.top+2],[handle.left+handle.width/2,handle.top+2],
+          [handle.left+handle.width/2,handle.top+handle.height/2],[handle.left+2,handle.bottom-2],
+          [handle.right-2,handle.top+handle.height/2]];
+        views.push({name,l,state,readoutHidden:d.getElementById('stageReadout').classList.contains('is-hidden'),
+          status:d.getElementById('placementStatus').textContent,zeroErrorPx:(l.zeroY-p0)*l.scaleY,overlap,
+          validP0:Math.abs((l.zeroY-p0)*l.scaleY)<=S.ZERO_ALIGNMENT_TOLERANCE_PX&&overlap>=S.MIN_ZERO_TICK_OVERLAP_PX,
+          body:{left:body.left,top:body.top,right:body.right,bottom:body.bottom},
+          handle:{left:handle.left,top:handle.top,right:handle.right,bottom:handle.bottom},
+          owners:samples.map(([x,y])=>d.elementFromPoint(x,y)?.id),matrix:Boolean(matrix)});};
+      inspect('initial');
+      w.__freeFallDebug.setRuler({x:220,y:200});w.__freeFallDebug.parkRuler();inspect('explicit');
+      w.__freeFallDebug.setRuler({x:220,y:200});w.dispatchEvent(new Event('resize'));inspect('resize');
+      return views;
+    })()`);
+    for (const view of parked) {
+      const delta = (a, b) => Math.abs(a - b);
+      assert.ok(view.matrix && view.l.x >= -.01 && view.l.fullTop >= -.01 &&
+        view.l.visibleLeft >= -.01 && view.l.visibleTop >= -.01,
+      `${label} ${width}x${height}@${pageScale}: ${view.name} park is fully reachable from the stage top-left ${JSON.stringify(view)}`);
+      assert.ok(view.l.fullBottom <= 440.01 || view.l.fullBottom-view.l.fullTop > 440.01,
+        `${label} ${width}x${height}@${pageScale}: ${view.name} clips below only when the ruler is taller than the stage ${JSON.stringify(view.l)}`);
+      assert.ok(delta(view.body.left,view.handle.left)<=1&&delta(view.body.top,view.handle.top)<=1&&
+        delta(view.body.right,view.handle.right)<=1&&delta(view.body.bottom,view.handle.bottom)<=1&&
+        view.owners.every(owner=>owner==='rulerHandle'),
+      `${label} ${width}x${height}@${pageScale}: ${view.name} parked owner matches every sampled visible-body edge ${JSON.stringify(view)}`);
+      assert.ok(!view.state.activePlacement && view.readoutHidden && /停泊區/.test(view.status) && !view.validP0,
+      `${label} ${width}x${height}@${pageScale}: ${view.name} remains unpositioned with no P0 placement/readout/evidence ${JSON.stringify(view)}`);
+    }
     const measurementNotation = await evaluate(cdp, `(() => {
       const panel=document.getElementById('controlPanel');panel.scrollTop=0;
       const sub=document.querySelector('#measurementPrompt sub'),base=sub.previousElementSibling,block=sub.closest('p');
@@ -1467,7 +1616,7 @@ function assertCancellationResult(value, label) {
   assert.ok(value.immediate.setupHidden && !value.immediate.measurementHidden && !value.immediate.rulerHidden,
     `${label}: static measurement UI is usable ${JSON.stringify(value.immediate)}`);
   assert.ok(value.immediate.generateDisabled && !value.immediate.replayDisabled &&
-    !value.immediate.recordDisabled && !value.immediate.skipDisabled && !value.immediate.parkDisabled,
+    !value.immediate.recordDisabled && !value.immediate.skipDisabled && !value.immediate.parkPresent,
   `${label}: setup and measurement controls are consistent ${JSON.stringify(value.immediate)}`);
   assert.equal(value.immediate.stamps, 5); assert.equal(value.immediate.live, 0);
   assert.equal(value.afterState, value.beforeState, `${label}: learner state is unchanged`);
@@ -1685,6 +1834,120 @@ async function runTouchMatrix(cdp, baseUrl, activityPath, label) {
 
   await settle(cdp, "window.scrollTo(0,260)", { expression: "Math.round(scrollY)", value: 260 }, `${label}: ruler host reset`);
   await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('controlPanel').scrollTop=0");
+  for (const [edge, xFraction, yFraction] of [
+    ["top", .5, .02], ["middle", .5, .5], ["bottom", .5, .98], ["left", .02, .5], ["right", .98, .5]
+  ]) {
+    await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document;
+      w.__freeFallDebug.parkRuler();d.getElementById('rulerHandle').focus({preventScroll:true});
+      d.getElementById('controlPanel').scrollTop=0;})()`);
+    await settle(cdp,
+      "document.getElementById('activity').contentWindow.document.getElementById('controlPanel').scrollTop=0",
+      { expression: "Math.round(document.getElementById('activity').contentWindow.document.getElementById('controlPanel').scrollTop)", value: 0 },
+      `${label}: parked ${edge} panel top settles before touch`);
+    const parked = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+      l=w.__freeFallDebug.rulerLayout(),s=w.__freeFallDebug.state();return {ruler:w.__freeFallDebug.ruler(),layout:l,
+        active:s.activePlacement,readoutHidden:d.getElementById('stageReadout').classList.contains('is-hidden')};})()`);
+    assert.ok(!parked.active && parked.readoutHidden && parked.layout.x>=-.01 && parked.layout.fullTop>=-.01,
+      `${label}: ${edge} trusted-touch probe starts from a reachable unpositioned park ${JSON.stringify(parked)}`);
+    const start = await pointAt(cdp, "#rulerHandle", xFraction, yFraction);
+    assert.equal(start.owner, "rulerHandle", `${label}: freshly parked ruler ${edge} belongs to the visible ruler owner`);
+    const parkedBefore = await snapshot(cdp);
+    await swipe(cdp, start, { x: start.x + 28, y: start.y });
+    const parkedAfter = await snapshot(cdp);
+    const completion = await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow,d=w.document,
+      s=w.__freeFallDebug.state(),p=s.activePlacement;return {active:p,
+        valid:p?w.FreeFallScoring.validPlacement(p,'total1'):false,
+        readoutHidden:d.getElementById('stageReadout').classList.contains('is-hidden')};})()`);
+    assert.ok(parkedAfter.ruler.x > parkedBefore.ruler.x && parkedAfter.events.trusted &&
+      parkedAfter.events.pointerType === "touch" && parkedAfter.events.moves > 0 &&
+      parkedAfter.events.ups === 1 && parkedAfter.events.cancels === 0,
+    `${label}: parked ${edge} trusted touch moves and completes without cancellation ${JSON.stringify(parkedAfter.events)}`);
+    assert.ok(!completion.valid && completion.readoutHidden,
+      `${label}: moving from parked ${edge} does not create a valid P0 placement or readout ${JSON.stringify(completion)}`);
+    assert.ok(Math.abs(parkedAfter.panel-parkedBefore.panel)<=1,
+      `${label}: parked ${edge} ruler touch keeps panel within compositor pixel quantization`);
+    zeroDelta(parkedBefore, parkedAfter,
+      ["host", "hostViewport", "iframe", "activity", "activityViewport"], `${label}: parked ${edge} ruler touch`);
+  }
+  const placeNearCurrentStart = async (offsetPx, x = 150) => evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,M=w.FreeFallModel,l=w.__freeFallDebug.rulerLayout();
+    const targetY=M.geometry(w.__freeFallDebug.state().frequencyHz,440,55,25).metersToY(0);
+    w.__freeFallDebug.setRuler({x:${x},y:targetY+${offsetPx}/l.scaleY});
+    return {targetY,scaleY:l.scaleY};
+  })()`);
+  const snapView = async () => evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,M=w.FreeFallModel,
+      state=w.__freeFallDebug.state(),targetY=M.geometry(state.frequencyHz,440,55,25).metersToY(0);
+    return {ruler:w.__freeFallDebug.ruler(),targetY,placement:state.activePlacement,
+      ready:d.getElementById('placementStatus').classList.contains('is-ready'),
+      outputHidden:d.getElementById('stageReadout').classList.contains('is-hidden'),
+      output:d.getElementById('stageReadout').textContent};
+  })()`);
+  for (const offsetPx of [-6, 6]) {
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+    await placeNearCurrentStart(offsetPx);
+    const snapStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+    const snapBefore = await snapshot(cdp);
+    await swipe(cdp, snapStart, { x: snapStart.x + 40, y: snapStart.y });
+    const snapAfter = await snapshot(cdp);
+    const snapped = await snapView();
+    assert.ok(Math.abs(snapped.ruler.y-snapped.targetY)<1e-9 && snapped.placement?.zeroErrorPx===0 &&
+      snapped.ready && !snapped.outputHidden && /cm/.test(snapped.output),
+    `${label}: trusted touch at ${offsetPx}px snaps exactly to the current start and displays the readout ${JSON.stringify(snapped)}`);
+    assert.ok(snapAfter.events.trusted && snapAfter.events.pointerType === "touch" &&
+      snapAfter.events.moves > 0 && snapAfter.events.ups === 1 && snapAfter.events.cancels === 0,
+    `${label}: snapped trusted touch completes without cancellation ${JSON.stringify(snapAfter.events)}`);
+    zeroDelta(snapBefore, snapAfter,
+      ["host", "hostViewport", "iframe", "activity", "activityViewport", "panel"], `${label}: ${offsetPx}px ruler snap`);
+  }
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+  await placeNearCurrentStart(5);
+  let snapStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  await touch(cdp, "touchStart", snapStart.x, snapStart.y);
+  await touch(cdp, "touchEnd", 0, 0);
+  const clickOnlySnap = await snapView();
+  assert.ok(clickOnlySnap.placement?.moveNorm === 0 && !clickOnlySnap.ready && clickOnlySnap.outputHidden,
+  `${label}: pointerdown/up without movement cannot qualify a snapped ruler ${JSON.stringify(clickOnlySnap)}`);
+
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+  await placeNearCurrentStart(5);
+  snapStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  await swipe(cdp, snapStart, { x: snapStart.x + 3, y: snapStart.y });
+  const fineSnapped = await snapView();
+  assert.ok(fineSnapped.placement?.moveNorm === .025 && fineSnapped.placement.zeroErrorPx === 0 &&
+    fineSnapped.ready && !fineSnapped.outputHidden,
+  `${label}: a tiny real drag that snaps qualifies the placement and immediately displays the readout ${JSON.stringify(fineSnapped)}`);
+
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+  await placeNearCurrentStart(5);
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('rulerHandle').focus({preventScroll:true})");
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight",
+    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  const keySnapped = await snapView();
+  assert.ok(keySnapped.placement?.mode === "keyboard" && keySnapped.placement.moveNorm === .025 &&
+    keySnapped.placement.zeroErrorPx === 0 && keySnapped.ready && !keySnapped.outputHidden,
+  `${label}: one real keyboard nudge that snaps qualifies the placement and displays the readout ${JSON.stringify(keySnapped)}`);
+
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+  await placeNearCurrentStart(6.01);
+  snapStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  await swipe(cdp, snapStart, { x: snapStart.x + 40, y: snapStart.y });
+  const outsideSnap = await snapView();
+  assert.ok(Math.abs(outsideSnap.ruler.y-outsideSnap.targetY)>0 && outsideSnap.placement?.zeroErrorPx>6 &&
+    !outsideSnap.ready && outsideSnap.outputHidden,
+  `${label}: 6.01px outside the snap range neither snaps nor displays a readout ${JSON.stringify(outsideSnap)}`);
+
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.__freeFallDebug.parkRuler()");
+  await placeNearCurrentStart(5, 330);
+  snapStart = await pointAt(cdp, "#rulerHandle", .5, .5);
+  await swipe(cdp, snapStart, { x: snapStart.x + 20, y: snapStart.y });
+  const noOverlapSnap = await snapView();
+  assert.ok(Math.abs(noOverlapSnap.ruler.y-noOverlapSnap.targetY)>0 &&
+    noOverlapSnap.placement?.zeroTickOverlapPx<4 && !noOverlapSnap.ready && noOverlapSnap.outputHidden,
+  `${label}: a near start without horizontal guide overlap neither snaps nor displays a readout ${JSON.stringify(noOverlapSnap)}`);
+
   await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow;
     w.__freeFallDebug.setRuler({x:250,y:w.__freeFallDebug.ruler().y})})()`);
   let crossStart = await pointAt(cdp, "#rulerHandle", .5, .5);
@@ -1820,6 +2083,7 @@ async function runArtifact(cdp, packageRoot, activityPath, label) {
     await runUnitNotationMatrix(cdp, baseUrl, activityPath, label);
     await runFrequencyPhaseOutcomeMatrix(cdp, baseUrl, activityPath, label);
     await runRealInputPath(cdp, baseUrl, activityPath, label);
+    await runReviewEditEvidenceMatrix(cdp, baseUrl, activityPath, label);
     await runCrossCtmBoundaryMatrix(cdp, baseUrl, activityPath, label);
     await runRulerGeometryMatrix(cdp, baseUrl, activityPath, label);
     await layoutMatrix(cdp, baseUrl, activityPath, label);

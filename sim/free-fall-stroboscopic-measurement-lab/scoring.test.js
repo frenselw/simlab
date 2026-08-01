@@ -15,19 +15,18 @@ function perfectAnswer(withEvidence = true) {
   const totals = Scoring.expectedTotals(frequencyHz);
   const gaps = Scoring.expectedGaps(frequencyHz);
   const measurements = {};
-  Scoring.TOTAL_KEYS.forEach((key, index) => { measurements[key] = { status: "recorded", readingM: totals[index], usedTotalPlacement: withEvidence }; });
+  Scoring.TOTAL_KEYS.forEach((key, index) => { measurements[key] = { status: "recorded", readingM: totals[index] }; });
   Scoring.GAP_KEYS.forEach((key, index) => { measurements[key] = { status: "recorded", readingM: gaps[index] }; });
   const evidence = { setupCompleted: true };
   if (withEvidence) {
-    evidence.totalPlacement = {
-      mode: "pointer", moveNorm: .03, rulerZeroM: 0, rulerX: 100, rulerSide: "left", rulerGeometry: "fixed-left-v1",
-      horizontalMode: "guide-fraction", guideFraction: 20 / 205,
-      zeroErrorPx: 0, zeroTickOverlapPx: 23
-    };
+    Scoring.TOTAL_KEYS.forEach((key) => { evidence[key] = {
+      mode: "pointer", moveNorm: .03, zeroErrorPx: 0,
+      horizontalMode: "guide-fraction", guideFraction: 20 / 205
+    }; });
     Scoring.GAP_KEYS.forEach((key, index) => { evidence[key] = { ...placement(key), readingM: gaps[index], usedWhileValid: true }; });
   }
   return {
-    rubricVersion: 3, frequencyHz, frequencyAssigned: true, measurements, evidence,
+    rubricVersion: 4, frequencyHz, frequencyAssigned: true, measurements, evidence,
     analysis: {
       deltaTS: .2,
       cumulativeTimeRatio: { values: [1, 2, 3, 4] },
@@ -55,6 +54,14 @@ assert.ok(Math.abs(oneBlankRatioScore.detail.quantitative.ratios - 25 / 3) < 1e-
   "each of the six editable ratio terms scores independently at 5/3 points");
 const legacyPerfect = perfectAnswer();
 legacyPerfect.rubricVersion = 2;
+legacyPerfect.evidence.totalPlacement = {
+  mode: "pointer", moveNorm: .03, rulerZeroM: 0, rulerX: 100, rulerSide: "left",
+  horizontalMode: "guide-fraction", guideFraction: 20 / 205, zeroErrorPx: 0, zeroTickOverlapPx: 23
+};
+Scoring.TOTAL_KEYS.forEach((key) => {
+  legacyPerfect.measurements[key].usedTotalPlacement = true;
+  delete legacyPerfect.evidence[key];
+});
 legacyPerfect.analysis = {
   deltaTS: .2,
   cumulativeTimeRatio: { status: "answered", values: [1, 2, 3, 4] },
@@ -101,10 +108,7 @@ for (const [path, , itemId, max] of blankCases) {
 }
 const skippedAnswer = perfectAnswer();
 skippedAnswer.measurements.total2 = { status: "skipped" };
-skippedAnswer.measurements.total1.usedTotalPlacement = false;
-skippedAnswer.measurements.total3.usedTotalPlacement = false;
-skippedAnswer.measurements.total4.usedTotalPlacement = false;
-delete skippedAnswer.evidence.totalPlacement;
+Scoring.TOTAL_KEYS.forEach((key) => { delete skippedAnswer.evidence[key]; });
 const skippedScore = Scoring.scoreAttempt(skippedAnswer);
 assert.equal(skippedScore.detail.quantitative.items.find((item) => item.id === "total2").status, "unanswered");
 assert.ok(skippedScore.detail.process.items.filter((item) => item.id.startsWith("process-total"))
@@ -121,10 +125,10 @@ assert.strictEqual(noEvidence.score, 59);
 assert.strictEqual(noEvidence.passed, false);
 
 const gateBoundary = perfectAnswer();
-gateBoundary.measurements.total4.usedTotalPlacement = false;
+delete gateBoundary.evidence.total4;
 delete gateBoundary.evidence.gap34;
 assert.strictEqual(Scoring.scoreAttempt(gateBoundary).meaningfulRulerUse, true);
-gateBoundary.measurements.total3.usedTotalPlacement = false;
+delete gateBoundary.evidence.total3;
 assert.strictEqual(Scoring.scoreAttempt(gateBoundary).meaningfulRulerUse, false);
 
 for (const [value, expected] of [[.0249, false], [.025, true], [.0251, true]]) assert.strictEqual(Scoring.validPlacement(placement("total", "pointer", { moveNorm: value }), "total"), expected);
@@ -221,21 +225,26 @@ for (const [label, scored] of [
   ["skipped/no-evidence", skippedScore], ["capped/no-evidence", noEvidence]
 ]) assertScoreReconciles(scored, label);
 const invalidPlacementAnswer = perfectAnswer();
-invalidPlacementAnswer.evidence.totalPlacement.moveNorm = 1.01;
+Scoring.TOTAL_KEYS.forEach((key) => { invalidPlacementAnswer.evidence[key].moveNorm = 1.01; });
 assert.strictEqual(Scoring.scoreAttempt(invalidPlacementAnswer).detail.process.totalPlacement, 0);
 assert.strictEqual(Scoring.scoreAttempt(invalidPlacementAnswer).score, 59);
 const contradictoryTotalAnswer = perfectAnswer();
-Object.assign(contradictoryTotalAnswer.evidence.totalPlacement, {
+Scoring.TOTAL_KEYS.forEach((key) => Object.assign(contradictoryTotalAnswer.evidence[key], {
   rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
   boundaryOverlapPx: 0, zeroTickOverlapPx: 4
-});
-delete contradictoryTotalAnswer.evidence.totalPlacement.guideFraction;
+}));
 const contradictoryTotalScore = Scoring.scoreAttempt(contradictoryTotalAnswer);
 assert.deepStrictEqual(contradictoryTotalScore.detail.totalLinks, [false, false, false, false]);
 assert.strictEqual(contradictoryTotalScore.detail.process.totalPlacement, 0);
 assert.strictEqual(contradictoryTotalScore.meaningfulRulerUse, false);
 assert.strictEqual(contradictoryTotalScore.score, 59,
   "hand-constructed contradictory total evidence cannot score process links");
+for (const rulerX of [0, 360]) {
+  const impossibleTotalAnswer = perfectAnswer();
+  Object.assign(impossibleTotalAnswer.evidence.total1, { rulerX, zeroTickOverlapPx: 23 });
+  assert.strictEqual(Scoring.scoreAttempt(impossibleTotalAnswer).detail.totalLinks[0], false,
+    `impossible compact total geometry at x=${rulerX} fails closed`);
+}
 const contradictoryGapAnswer = perfectAnswer();
 Object.assign(contradictoryGapAnswer.evidence.gap01, {
   rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
@@ -254,7 +263,7 @@ const toPureLegacy = (value, total = false) => {
   if (total) value.legacyEdgeSide = "left";
 };
 const pureLegacyAnswer = perfectAnswer();
-toPureLegacy(pureLegacyAnswer.evidence.totalPlacement, true);
+Scoring.TOTAL_KEYS.forEach((key) => toPureLegacy(pureLegacyAnswer.evidence[key]));
 Scoring.GAP_KEYS.forEach((key) => toPureLegacy(pureLegacyAnswer.evidence[key]));
 const pureLegacyScore = Scoring.scoreAttempt(pureLegacyAnswer);
 assert.strictEqual(pureLegacyScore.score, 100);
@@ -267,7 +276,6 @@ assert.strictEqual(Scoring.scoreAttempt(invalidLegacyFinalEvidence).detail.gapLi
 assert.strictEqual(Scoring.scoreAttempt(perfectAnswer()).score, 100,
   "pure current evidence remains accepted");
 const historicalCurrentAnswer = perfectAnswer();
-delete historicalCurrentAnswer.evidence.totalPlacement.rulerGeometry;
 Scoring.GAP_KEYS.forEach((key) => delete historicalCurrentAnswer.evidence[key].rulerGeometry);
 const historicalCurrentScore = Scoring.scoreAttempt(historicalCurrentAnswer);
 assert.strictEqual(historicalCurrentScore.score, 100,
@@ -278,12 +286,11 @@ assert.strictEqual(Scoring.scoreAttempt(unknownGeometryAnswer).detail.gapLinks[0
   "an unknown geometry discriminator fails closed");
 
 const mixedContradictoryTotal = perfectAnswer();
-Object.assign(mixedContradictoryTotal.evidence.totalPlacement, {
+Scoring.TOTAL_KEYS.forEach((key) => Object.assign(mixedContradictoryTotal.evidence[key], {
   rulerX: 50, rulerSide: "left", horizontalMode: "left-boundary",
   boundaryOverlapPx: 0, zeroTickOverlapPx: 4,
   legacyEdgeSide: "left", legacyEdgeGapPx: 10
-});
-delete mixedContradictoryTotal.evidence.totalPlacement.guideFraction;
+}));
 const mixedContradictoryScore = Scoring.scoreAttempt(mixedContradictoryTotal);
 assert.deepStrictEqual(mixedContradictoryScore.detail.totalLinks, [false, false, false, false]);
 assert.strictEqual(mixedContradictoryScore.detail.process.totalPlacement, 0);
@@ -292,10 +299,9 @@ assert.strictEqual(mixedContradictoryScore.score, 59,
   "valid legacy fields cannot rescue contradictory current total evidence");
 
 const mixedIncompleteTotal = perfectAnswer();
-mixedIncompleteTotal.evidence.totalPlacement.legacyEdgeSide = "left";
-mixedIncompleteTotal.evidence.totalPlacement.legacyEdgeGapPx = 10;
-delete mixedIncompleteTotal.evidence.totalPlacement.horizontalMode;
-delete mixedIncompleteTotal.evidence.totalPlacement.guideFraction;
+Scoring.TOTAL_KEYS.forEach((key) => {
+  mixedIncompleteTotal.evidence[key].legacyEdgeGapPx = 10;
+});
 const mixedIncompleteScore = Scoring.scoreAttempt(mixedIncompleteTotal);
 assert.strictEqual(mixedIncompleteScore.detail.process.totalPlacement, 0);
 assert.strictEqual(mixedIncompleteScore.score, 59,

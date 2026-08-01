@@ -6,7 +6,8 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Model) {
   "use strict";
 
-  const RUBRIC_VERSION = 3;
+  const RUBRIC_VERSION = 4;
+  const LEGACY_CURRENT_RUBRIC_VERSION = 3;
   const LEGACY_RUBRIC_VERSION = 2;
   const PASS_SCORE = 60;
   const DELTA_T_ABS_TOLERANCE_S = 0.005;
@@ -88,6 +89,25 @@
     return Boolean((validPlacement(value, task) || validLegacyPlacement(value, task)) &&
       value.usedWhileValid === true && finite(value.readingM) &&
       value.readingM === reading);
+  }
+  function totalEvidenceValid(value, task) {
+    if (!value || !TOTAL_KEYS.includes(task) || !["pointer", "keyboard"].includes(value.mode) ||
+        !finite(value.moveNorm) || value.moveNorm < MIN_MEANINGFUL_MOVE_NORM || value.moveNorm > 1 ||
+        !finite(value.zeroErrorPx) || Math.abs(value.zeroErrorPx) > ZERO_ALIGNMENT_TOLERANCE_PX) return false;
+    const currentFields = value.horizontalMode === "guide-fraction"
+      ? ["mode", "moveNorm", "zeroErrorPx", "horizontalMode", "guideFraction"]
+      : ["mode", "moveNorm", "zeroErrorPx", "horizontalMode", "boundaryOverlapPx"];
+    const currentShape = Object.keys(value).length === currentFields.length &&
+      currentFields.every((key) => own(value, key)) && !hasAny(value, LEGACY_PLACEMENT_FIELDS);
+    const current = currentShape && (value.horizontalMode === "guide-fraction"
+      ? finite(value.guideFraction) && value.guideFraction >= 0 && value.guideFraction <= 1
+      : ["left-boundary", "right-boundary"].includes(value.horizontalMode) &&
+        finite(value.boundaryOverlapPx) && value.boundaryOverlapPx >= MIN_ZERO_TICK_OVERLAP_PX &&
+        value.boundaryOverlapPx <= ZERO_TICK_LENGTH_PX);
+    const legacy = finite(value.legacyEdgeGapPx) && value.legacyEdgeGapPx >= LEGACY_EDGE_MIN_GAP_PX &&
+      value.legacyEdgeGapPx <= LEGACY_EDGE_MAX_GAP_PX && !hasAny(value, CURRENT_PLACEMENT_FIELDS) &&
+      Object.keys(value).every((key) => ["mode", "moveNorm", "zeroErrorPx", "legacyEdgeGapPx"].includes(key));
+    return current || legacy;
   }
   function resolvedReading(item) { return item?.status === "recorded" && finite(item.readingM) ? item.readingM : null; }
   function expectedTotals(frequencyHz) { return [1, 2, 3, 4].map((index) => Model.displacementAt(frequencyHz, index)); }
@@ -186,7 +206,7 @@
     });
     return { points: stablePoints(items.reduce((sum, item) => sum + item.points, 0)), terms: items.map((item) => item.status === "correct"), target, items };
   }
-  function scoreAttemptV3(answer) {
+  function scoreAttemptV3(answer, perItemTotalEvidence = false) {
     if (!answer || !Model.validFrequency(answer.frequencyHz)) throw new Error("Invalid free-fall answer");
     const measurements = answer.measurements || {};
     const evidence = answer.evidence || {};
@@ -195,9 +215,12 @@
     const gaps = GAP_KEYS.map((key) => resolvedReading(measurements[key]));
     const idealTotals = expectedTotals(answer.frequencyHz);
     const idealGaps = expectedGaps(answer.frequencyHz);
-    const totalPlacement = totalPlacementValid({ task: "total", ...evidence.totalPlacement });
-    const totalLinks = TOTAL_KEYS.map((key, index) => totalPlacement && measurements[key]?.usedTotalPlacement === true &&
-      measurements[key]?.status === "recorded" && finite(totals[index]));
+    const legacyTotalPlacement = !perItemTotalEvidence && totalPlacementValid({ task: "total", ...evidence.totalPlacement });
+    const totalLinks = TOTAL_KEYS.map((key, index) => perItemTotalEvidence
+      ? measurements[key]?.status === "recorded" && totalEvidenceValid(evidence[key], key)
+      : legacyTotalPlacement && measurements[key]?.usedTotalPlacement === true &&
+        measurements[key]?.status === "recorded" && finite(totals[index]));
+    const totalPlacement = totalLinks.some(Boolean);
     const gapLinks = GAP_KEYS.map((key, index) => gapEvidenceValid(evidence[key], key, gaps[index]));
     const process = {
       setup: evidence.setupCompleted === true && answer.frequencyAssigned === true ? 4 : 0,
@@ -262,9 +285,11 @@
         meaningfulRulerUse ? "請對照每張卡的建議修正答案。" : "直尺證據未同時涵蓋兩類量度，總分上限為 59 分。"
     };
   }
+  function scoreAttemptV4(answer) { return scoreAttemptV3(answer, true); }
   function scoreAttempt(answer) {
     if (answer?.rubricVersion === LEGACY_RUBRIC_VERSION) return scoreAttemptV2(answer);
-    if (answer?.rubricVersion === RUBRIC_VERSION) return scoreAttemptV3(answer);
+    if (answer?.rubricVersion === LEGACY_CURRENT_RUBRIC_VERSION) return scoreAttemptV3(answer);
+    if (answer?.rubricVersion === RUBRIC_VERSION) return scoreAttemptV4(answer);
     throw new Error("Unsupported free-fall rubric version");
   }
 
@@ -287,12 +312,12 @@
   }
 
   return {
-    RUBRIC_VERSION, LEGACY_RUBRIC_VERSION, PASS_SCORE, DELTA_T_ABS_TOLERANCE_S, RATIO_TERM_TOLERANCE,
+    RUBRIC_VERSION, LEGACY_CURRENT_RUBRIC_VERSION, LEGACY_RUBRIC_VERSION, PASS_SCORE, DELTA_T_ABS_TOLERANCE_S, RATIO_TERM_TOLERANCE,
     MIN_MEANINGFUL_MOVE_NORM, ZERO_ALIGNMENT_TOLERANCE_PX, MIN_ZERO_TICK_OVERLAP_PX,
     ZERO_TICK_LENGTH_PX, HORIZONTAL_CANONICAL_TOLERANCE, GUIDE_X1, GUIDE_X2,
     RULER_GEOMETRY_FIXED_LEFT,
     LEGACY_EDGE_MIN_GAP_PX, LEGACY_EDGE_MAX_GAP_PX, TOTAL_KEYS, GAP_KEYS, CONCEPT_ANSWERS, distanceTolerance,
-    within, validCurrentHorizontalRelation, validPlacement, validLegacyPlacement, totalPlacementValid, gapEvidenceValid, ratioTarget, scoreRatio,
-    expectedTotals, expectedGaps, scoreAttempt, scoreAttemptV2, scoreAttemptV3, measurementDiagnostic
+    within, validCurrentHorizontalRelation, validPlacement, validLegacyPlacement, totalPlacementValid, totalEvidenceValid, gapEvidenceValid, ratioTarget, scoreRatio,
+    expectedTotals, expectedGaps, scoreAttempt, scoreAttemptV2, scoreAttemptV3, scoreAttemptV4, measurementDiagnostic
   };
 });

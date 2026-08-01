@@ -26,11 +26,35 @@
   const MIN_RULER_UNIT_PX = 18;
   const RULER_GEOMETRY = "fixed-left-v1";
   const MIN_APPARATUS_STROKE_PX = 1;
-  const PARK = Object.freeze({ x: 292, y: CAMERA_TOP_MARGIN });
+  const RULER_SNAP_TOLERANCE_PX = Scoring.ZERO_ALIGNMENT_TOLERANCE_PX;
+  const PARK = Object.freeze({ x: 0, y: 0 });
   const RATIO_DEFINITIONS = Object.freeze([
     ["cumulativeTimeRatio", "累積時間比 <var>t</var><sub>1</sub>:<var>t</var><sub>2</sub>:<var>t</var><sub>3</sub>:<var>t</var><sub>4</sub>"],
     ["intervalTimeRatio", "每段時間比 <span class=\"delta\">Δ</span><var>t</var><sub>1</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>2</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>3</sub>:<span class=\"delta\">Δ</span><var>t</var><sub>4</sub>"]
   ]);
+  const CHOICE_PERMUTATIONS = Object.freeze([
+    Object.freeze([0, 2, 1]), Object.freeze([1, 0, 2]), Object.freeze([1, 2, 0]),
+    Object.freeze([2, 0, 1]), Object.freeze([2, 1, 0])
+  ]);
+
+  function choicePermutation(seed) {
+    const normalized = Number.isFinite(seed) ? Math.trunc(seed) >>> 0 : 0;
+    return [...CHOICE_PERMUTATIONS[normalized % CHOICE_PERMUTATIONS.length]];
+  }
+  function secureRandomUint32() {
+    const values = new Uint32Array(1);
+    if (globalThis.crypto?.getRandomValues) return globalThis.crypto.getRandomValues(values)[0];
+    return (Date.now() ^ (globalThis.performance?.now?.() || 0) * 1000) >>> 0;
+  }
+  function randomizeChoiceOptions(root, randomUint = secureRandomUint32) {
+    const groups = [...root.querySelectorAll("[data-randomize-options]")];
+    for (const group of groups) {
+      const labels = [...group.querySelectorAll(":scope > label")];
+      if (labels.length !== 3) continue;
+      for (const index of choicePermutation(randomUint())) group.append(labels[index]);
+    }
+    return groups.length;
+  }
 
   function trimFixed(value, fractionDigits) {
     return value.toFixed(fractionDigits).replace(/(?:\.0+|(\.\d+?)0+)$/, "$1").replace(/^-0$/, "0");
@@ -143,13 +167,14 @@
       replayPreview: $("replayPreviewButton"), animationStatus: $("animationStatus"),
       measurementPrompt: $("measurementPrompt"), placementStatus: $("placementStatus"), readingLabel: $("readingLabel"),
       reading: $("readingInput"), measurementError: $("measurementError"), record: $("recordButton"), skip: $("skipButton"),
-      park: $("parkButton"), returnReview: $("returnReviewButton"), deltaT: $("deltaTInput"),
+      returnReview: $("returnReviewButton"), deltaT: $("deltaTInput"),
       ratioGroups: $("ratioGroups"), analysisError: $("analysisError"), reviewButton: $("reviewButton"),
       reviewTitle: $("reviewTitle"), reviewContent: $("reviewContent"), reviewEdits: $("reviewEdits"),
       submit: $("submitButton"), submissionNotice: $("submissionNotice"), submissionRetry: $("submissionRetry"),
       resultTitle: $("resultTitle"), scorePanel: $("scorePanel"), resultFeedback: $("resultFeedback"),
       resultRetry: $("resultRetry"), live: $("liveRegion")
     };
+    dom.panel.style.overflowAnchor = "none";
     let state = Persistence.initialState();
     let locked = false;
     let lockedPresentation = null;
@@ -181,6 +206,7 @@
       }
     });
 
+    randomizeChoiceOptions(document);
     buildRatioInputs();
     bind();
     const attempt = SimScorm.loadAttempt(ACTIVITY);
@@ -226,7 +252,7 @@
         if (locked) return;
         const next = Persistence.generate(state);
         if (!next) return;
-        state = next; ruler = { ...PARK }; lastCompletedRuler = { ...PARK };
+        state = next; ruler = parkedRulerPosition(); lastCompletedRuler = { ...ruler };
         checkpoint();
         motion.startCapture(state.frequencyHz, { reducedMotion: prefersReducedMotion() });
         render();
@@ -239,7 +265,6 @@
       dom.ruler.addEventListener("pointerup", pointerUp);
       dom.ruler.addEventListener("pointercancel", pointerCancel);
       dom.ruler.addEventListener("keydown", rulerKey);
-      dom.park.addEventListener("click", parkRuler);
       dom.record.addEventListener("click", () => resolve(false));
       dom.skip.addEventListener("click", () => resolve(true));
       dom.returnReview.addEventListener("click", () => {
@@ -286,7 +311,7 @@
       dom.resultRetry.addEventListener("click", retryFinish);
       dom.technicalRetry.addEventListener("click", retryTechnical);
       window.addEventListener("resize", () => {
-        if (state.activePlacement) restoreRuler();
+        if (!drag && currentTask()) restoreRuler();
         renderStage();
         if (currentTask()) updatePlacementStatus();
         updateRulerDescription();
@@ -314,6 +339,9 @@
           cancels: Number(dom.ruler.dataset.cancels || 0), trusted: dom.ruler.dataset.trusted === "true",
           pointerType: dom.ruler.dataset.pointerType || ""
         }),
+        parkRuler: () => parkRuler(),
+        choiceOrder: () => [...document.querySelectorAll("[data-randomize-options]")].map((group) =>
+          [...group.querySelectorAll(":scope > label input")].map((input) => input.value)),
         setReview(review) {
           const decoded = Persistence.decodeReview(review);
           if (!decoded) return false;
@@ -420,7 +448,10 @@
       return SimScorm.saveDraft(SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode(state)));
     }
     function currentTask() {
-      if (state.phase === "measure-total") return { key: Scoring.TOTAL_KEYS[state.currentStep], task: "total", start: 0, end: state.currentStep + 1 };
+      if (state.phase === "measure-total") {
+        const key = Scoring.TOTAL_KEYS[state.currentStep];
+        return { key, task: key, start: 0, end: state.currentStep + 1 };
+      }
       if (state.phase === "measure-interval") return { key: Scoring.GAP_KEYS[state.currentStep], task: Scoring.GAP_KEYS[state.currentStep], start: state.currentStep, end: state.currentStep + 1 };
       return null;
     }
@@ -488,6 +519,36 @@
       const geometry = rulerGeometry(candidate);
       ruler = { x: geometry.anchorX, y: geometry.zeroY };
       return geometry;
+    }
+    function parkedRulerPosition() {
+      if (!state.generated) return { ...PARK };
+      const probe = rulerGeometry({ x: SVG_W, y: 0 });
+      const p0Y = probe.modelGeometry.metersToY(0);
+      const belowP0 = p0Y + (RULER_SNAP_TOLERANCE_PX + .01) / probe.scaleY;
+      return {
+        x: probe.bodyWidth,
+        y: Math.min(SVG_H, Math.max(probe.headerMargin, belowP0))
+      };
+    }
+    function snapRulerCandidate(candidate) {
+      const task = currentTask();
+      if (!task || !state.generated) return { position: candidate, snapped: false };
+      const box = rulerGeometry(candidate);
+      const targetY = box.modelGeometry.metersToY(Model.displacementAt(state.frequencyHz, task.start));
+      const tickStart = svgToClient(box.anchorX, box.zeroY);
+      const tickEnd = svgToClient(box.anchorX + box.direction * 23 / box.scaleX, box.zeroY);
+      const guideStart = svgToClient(GUIDE_X1, targetY);
+      const guideEnd = svgToClient(GUIDE_X2, targetY);
+      if (![tickStart, tickEnd, guideStart, guideEnd].every(Boolean)) {
+        return { position: candidate, snapped: false };
+      }
+      const overlapPx = Math.max(0,
+        Math.min(Math.max(tickStart.x, tickEnd.x), Math.max(guideStart.x, guideEnd.x)) -
+        Math.max(Math.min(tickStart.x, tickEnd.x), Math.min(guideStart.x, guideEnd.x)));
+      const zeroErrorPx = (box.zeroY - targetY) * box.scaleY;
+      const snapped = overlapPx >= Scoring.MIN_ZERO_TICK_OVERLAP_PX &&
+        Math.abs(zeroErrorPx) <= RULER_SNAP_TOLERANCE_PX + 1e-9;
+      return { position: snapped ? { ...candidate, y: targetY } : candidate, snapped };
     }
     function placementFromRuler(mode) {
       const task = currentTask();
@@ -616,21 +677,30 @@
         updateRulerDescription();
         return false;
       }
+      const panelScrollTop = dom.panel.scrollTop;
       state = next; lastCompletedRuler = { ...ruler };
       stageOutputAllowedTaskKey = currentTask()?.key || null;
-      checkpoint(); render();
+      checkpoint(); renderStage(); updatePlacementStatus(); updateRulerDescription();
       if (readingFromRuler() !== null) dom.live.textContent = `尺位完成；舞台顯示 ${dom.stageReadout.textContent}。`;
       dom.ruler.focus({ preventScroll: true });
+      dom.panel.scrollTop = panelScrollTop;
+      requestAnimationFrame(() => {
+        dom.panel.scrollTop = panelScrollTop;
+        requestAnimationFrame(() => { dom.panel.scrollTop = panelScrollTop; });
+      });
       return true;
     }
     function pointerDown(event) {
       if (locked || !currentTask() || event.button !== 0) return;
       const startSvg = clientToSvg(event.clientX, event.clientY);
       if (!startSvg) return;
+      event.preventDefault();
       clearStageOutput();
       drag = {
         pointerId: event.pointerId, startSvg,
-        rulerStart: { ...ruler }, prior: { ...lastCompletedRuler }
+        rulerStart: { ...ruler }, prior: { ...lastCompletedRuler },
+        priorMoveNorm: state.activePlacement?.moveNorm || 0,
+        panelScrollTop: dom.panel.scrollTop
       };
       movementStart = { ...ruler };
       dom.ruler.setPointerCapture(event.pointerId);
@@ -643,25 +713,43 @@
       const currentSvg = clientToSvg(event.clientX, event.clientY);
       if (!currentSvg) return;
       clearStageOutput();
-      applyRulerGeometry({
+      const candidate = {
         x: drag.rulerStart.x + currentSvg.x - drag.startSvg.x,
         y: drag.rulerStart.y + currentSvg.y - drag.startSvg.y
-      });
-      movementNorm = distance(ruler, movementStart) / Math.hypot(SVG_W, SVG_H);
+      };
+      const unsnapped = rulerGeometry(candidate);
+      const snap = snapRulerCandidate(candidate);
+      applyRulerGeometry(snap.position);
+      const gestureMoveNorm = distance({ x: unsnapped.anchorX, y: unsnapped.zeroY }, movementStart) /
+        Math.hypot(SVG_W, SVG_H);
+      movementNorm = clamp(drag.priorMoveNorm + gestureMoveNorm, 0, 1);
+      if (snap.snapped && gestureMoveNorm > 1e-9) {
+        movementNorm = Math.max(movementNorm, Scoring.MIN_MEANINGFUL_MOVE_NORM);
+      }
       positionRuler(); drawRuler(); updatePlacementStatus();
+      dom.panel.scrollTop = drag.panelScrollTop;
     }
     function pointerUp(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
+      const panelScrollTop = drag.panelScrollTop;
       dom.ruler.dataset.ups = String(Number(dom.ruler.dataset.ups || 0) + 1);
       dom.ruler.releasePointerCapture(event.pointerId);
+      applyRulerGeometry(snapRulerCandidate(ruler).position);
       drag = null; completeMovement("pointer");
+      dom.panel.scrollTop = panelScrollTop;
+      requestAnimationFrame(() => {
+        dom.panel.scrollTop = panelScrollTop;
+        requestAnimationFrame(() => { dom.panel.scrollTop = panelScrollTop; });
+      });
     }
     function pointerCancel(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
+      const panelScrollTop = drag.panelScrollTop;
       dom.ruler.dataset.cancels = String(Number(dom.ruler.dataset.cancels || 0) + 1);
       ruler = { ...drag.prior }; drag = null; movementNorm = state.activePlacement?.moveNorm || 0;
       clearStageOutput();
       positionRuler(); drawRuler();
+      dom.panel.scrollTop = panelScrollTop;
       dom.live.textContent = "拖動中斷；直尺已回復到上一次完成的位置，未建立證據。";
     }
     function rulerKey(event) {
@@ -679,15 +767,20 @@
       if (direction === "down") candidate.y += amount;
       if (direction === "left") candidate.x -= amount;
       if (direction === "right") candidate.x += amount;
-      applyRulerGeometry(candidate);
+      const unsnapped = rulerGeometry(candidate);
+      const snap = snapRulerCandidate(candidate);
+      applyRulerGeometry(snap.position);
       const previous = state.activePlacement?.moveNorm || 0;
-      movementNorm = previous + distance(ruler, movementStart) / Math.hypot(SVG_W, SVG_H);
+      movementNorm = clamp(previous +
+        distance({ x: unsnapped.anchorX, y: unsnapped.zeroY }, movementStart) /
+        Math.hypot(SVG_W, SVG_H), 0, 1);
+      if (snap.snapped) movementNorm = Math.max(movementNorm, Scoring.MIN_MEANINGFUL_MOVE_NORM);
       positionRuler(); drawRuler(); completeMovement("keyboard");
     }
     function parkRuler() {
       if (locked) return;
       clearStageOutput();
-      ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; movementNorm = 0;
+      ruler = parkedRulerPosition(); lastCompletedRuler = { ...ruler }; movementNorm = 0;
       if (state.activePlacement) {
         delete state.activePlacement;
         state.variant = state.returnToReview ? "review-edit-unpositioned" : "normal-unpositioned";
@@ -729,7 +822,7 @@
       clearStageOutput();
       resetManualInput();
       state = next; movementNorm = state.activePlacement?.moveNorm || 0;
-      if (!state.activePlacement) { ruler = { ...PARK }; lastCompletedRuler = { ...PARK }; }
+      if (!state.activePlacement) { ruler = parkedRulerPosition(); lastCompletedRuler = { ...ruler }; }
       checkpoint(); render();
       if (state.phase === "review") focusPhaseHeading();
     }
@@ -878,6 +971,7 @@
       dom.scorePanel.textContent = `Moodle 分數：${recorded.score ?? "--"} / 100　${SimActivityFlow.completionLabel(recorded.passed)}`;
       dom.resultFeedback.textContent = message; dom.badge.textContent = "已鎖定";
       renderFrequencyChip();
+      showResultFromTop();
     }
     function renderLockedResult(result, trusted, title, retryKind) {
       locked = true; lockedPresentation = retryKind === "finish" ? "committed" : "result"; hideAll(); dom.result.classList.remove("is-hidden");
@@ -929,6 +1023,12 @@
       dom.resultRetry.classList.toggle("is-hidden", retryKind !== "finish");
       renderFrequencyChip();
       renderStage();
+      showResultFromTop();
+    }
+    function showResultFromTop() {
+      dom.resultTitle.focus({ preventScroll: true });
+      dom.panel.scrollTop = 0;
+      requestAnimationFrame(() => { dom.panel.scrollTop = 0; });
     }
     function resultCard(item, frequencyHz) {
       const card = document.createElement("article"); card.className = `result-card status-${item.status}`;
@@ -1193,14 +1293,14 @@
     }
     function restoreRuler() {
       if (!state.activePlacement || !state.generated) {
-        ruler = { ...PARK }; movementNorm = 0; lastCompletedRuler = { ...ruler };
+        ruler = parkedRulerPosition(); movementNorm = 0; lastCompletedRuler = { ...ruler };
         stageOutputAllowedTaskKey = null;
         return;
       }
       const placement = state.activePlacement;
       const geometry = Model.geometry(state.frequencyHz, SVG_H, CAMERA_TOP_MARGIN, CAMERA_BOTTOM_MARGIN);
       const provisional = rulerGeometry({ x: 0, y: geometry.metersToY(placement.rulerZeroM) });
-      const targetM = placement.task === "total" ? 0 :
+      const targetM = Scoring.TOTAL_KEYS.includes(placement.task) ? 0 :
         Model.displacementAt(state.frequencyHz, Scoring.GAP_KEYS.indexOf(placement.task));
       const targetY = geometry.metersToY(targetM);
       const zeroY = Object.prototype.hasOwnProperty.call(placement, "horizontalMode")
@@ -1258,9 +1358,10 @@
       const task = currentTask();
       const reading = readingFromRuler();
       const valid = reading !== null;
+      const parked = !drag && !state.activePlacement && movementNorm === 0;
       dom.placementStatus.classList.toggle("is-ready", Boolean(valid));
       dom.placementStatus.textContent = drag ? "正在移動直尺；放手完成尺位後才會顯示舞台讀尺提示。" :
-        ruler.x === PARK.x && ruler.y === PARK.y ? "直尺仍在停泊區。" :
+        parked ? "直尺仍在停泊區。" :
         valid ? "零刻度已對準所選起點，並與起點投影線重疊。" : "請把零刻度對準所選起點，並讓零主刻度與起點投影線重疊。";
       if (valid && !drag && stageOutputAllowedTaskKey === task?.key) showStageOutput(reading);
       else clearStageOutput();
@@ -1297,7 +1398,8 @@
       const rows = Persistence.MEASUREMENT_KEYS.map((key) => {
         const item = state.measurements[key];
         const evidence = key.startsWith("total")
-          ? item?.usedTotalPlacement === true : Boolean(state.evidence[key]?.usedWhileValid);
+          ? Boolean(state.evidence[key])
+          : Boolean(state.evidence[key]?.usedWhileValid);
         return `<tr><th>${measurementName(key)}</th><td>${item?.status === "recorded" ? `相片上 ${escapeHtml(formatPhotoCm(state.frequencyHz, item.readingM))} <span class="unit">cm</span>` : "已跳過"}</td><td>${evidence ? "有尺位證據" : "未有尺位證據"}</td><td><button type="button" data-edit-measurement="${key}">修正 ${measurementName(key)}</button></td></tr>`;
       }).join("");
       const ratioRows = RATIO_DEFINITIONS.map(([key, title]) => {
@@ -1345,6 +1447,7 @@
 
   return {
     ACTIVITY, formatPhotoCm, photoCmToMeters, resolveManualReading, mathQuantity,
-    startupView, submissionView, canonicalReviewMatches, resolveImmutableReview, resultFeedbackItems, unansweredCount, answerLabel, boot
+    startupView, submissionView, canonicalReviewMatches, resolveImmutableReview, resultFeedbackItems, unansweredCount,
+    answerLabel, choicePermutation, randomizeChoiceOptions, boot
   };
 });
