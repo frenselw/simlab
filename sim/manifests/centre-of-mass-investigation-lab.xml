@@ -23,6 +23,10 @@
       <file href="centre-of-mass-investigation-lab/persistence.js"/>
       <file href="centre-of-mass-investigation-lab/ui-policy.js"/>
       <file href="centre-of-mass-investigation-lab/main.js"/>
+      <file href="centre-of-mass-investigation-lab/part3-renderer.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/three.module.min.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/three.core.min.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/LICENSE"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>

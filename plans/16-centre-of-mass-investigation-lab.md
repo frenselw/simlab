@@ -25,9 +25,13 @@
   - `sim/centre-of-mass-investigation-lab/persistence.js`
   - `sim/centre-of-mass-investigation-lab/ui-policy.js`
   - `sim/centre-of-mass-investigation-lab/main.js`
+  - `sim/centre-of-mass-investigation-lab/part3-renderer.js`
+  - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/three.module.min.js`
+  - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/three.core.min.js`（0.185.1 module build 的官方靜態依賴）
+  - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/LICENSE`
   - 對應的 `*.test.js` 測試檔；
   - `sim/shared/styles.css`、`sim/shared/scorm.js`、`sim/shared/activity-flow.js`。
-- Libraries: `none`。第一、二部分使用 SVG；第三部分使用原生 Canvas 2D 投影，不在第一版加入 Three.js、MathJax 或 KaTeX。
+- Libraries: 本地 vendored `Three.js 0.185.1`（官方 ESM minified build，MIT License）只用於第三部分；第一、二部分使用原生 SVG。第三部分同時保留原生 Canvas 2D 作 renderer construction failure、WebGL 不可用及 context loss 的一級相容模式。無 CDN、import map、MathJax 或 KaTeX。
 - Assessment risk: `low-risk graded`。分數可用作低風險課堂評估及回饋，不可單獨用於高風險考試或重要資格判定。
 - Trusted validation for high risk: 不適用。瀏覽器內的題目、操作證據與 scorer 可被技術熟練的學習者修改；不可把本活動當作高風險考核的可信邊界。若日後用於高風險考核，必須由 Moodle／LTI／後端以 seed、版本、操作證據及答案重新評分。
 - Risk tier: T3 — 新模擬，涉及物理模型、計分、持久化、觸控 gesture ownership、無障礙、manifest 及 SCORM 包裝。
@@ -212,7 +216,7 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 - mouse：按住承托點水平拖動；放開立即進行承托測試。
 - touch／pen：相同單指拖動，pointerdown 前 hit target 已有 `touch-action:none`，並 capture 同一 pointer。
 - keyboard：承托點可聚焦，左右方向鍵移動 `0.01L`，Shift＋方向鍵移動 `0.05L`，Enter／Space 執行放手測試。
-- 控制面板提供 `向左／向右` 及「測試承托」等價按鈕；按鈕不會自動尋找重心。
+- 預設筆記面板不放操作按鈕列；keyboard 等價操作收在「鍵盤操作」disclosure，核心操作在可聚焦 stage target 完成，且不會自動尋找重心。
 - 只有曾達到平衡，標註工具才解鎖；標註點固定在物體本地坐標，物體回水平後仍保持正確位置。
 - 標註亦支援拖動、方向鍵及 `−／＋` 微調。
 - tap-only 未改變位置仍可算一次有效放手測試，但不可重複按同一位置累積多份過程分。
@@ -345,7 +349,9 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 ### 8.1 3D 顯示模型
 
-- 使用原生 Canvas 2D 繪製投影，不引入 3D dependency。
+- 使用本地 Three.js 0.185.1 WebGL renderer 繪製具 studio lights、半透明材質、輪廓及空間 grid 的立體；原生 Canvas 2D 投影是可完成相同 orbit／候選選擇／計分流程的 first-class fallback。
+- `part3-renderer.js` 只接收由 canonical `{yaw10,pitch10}` 及 candidate state 導出的 scene input；camera、mesh、matrix、renderer、context 及 frame state永不保存。
+- renderer construction failure 立即切換 Canvas；`webglcontextlost` 必須 `preventDefault()` 並以 Canvas 顯示 canonical state，`webglcontextrestored` 後以同一 canonical state 重建畫面，不產生 observation evidence。
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
 - 立體以半透明面、清楚輪廓及深度排序顯示；後方候選點透明度稍低，不能只用顏色表達深度。
@@ -368,10 +374,9 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
 - 單指點候選點先顯示 selected highlight，按「確認選擇」才完成，避免旋轉結束時誤選。
 
-#### Keyboard／buttons
+#### Keyboard／compact equivalent
 
 - Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步。
-- `向左看／向右看／向上看／向下看` 按鈕每次轉 `15°`。
 - Canvas orbit region 可聚焦；方向鍵旋轉，Shift＋方向鍵使用較大角度。
 - 提供文字摘要：立體種類、目前大致觀察方向、候選點標籤；不可朗讀哪一點是中心。
 
@@ -401,7 +406,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 ## 9. Responsive layout contract
 
-- Control-panel classification: `bounded split-panel`。
+- Control-panel classification: `bounded split-panel`。面板是 notebook-style 任務、證據、物理筆記及 keyboard disclosure，不是 remote control；第一至三部分預設不顯示移動、測試、掛孔、畫線、旋轉、視角或標註按鈕列。
 - 原因：三部分均有持續可見 stage 及重複使用的工具／證據／確認控制；學生操作 panel 時 stage 必須保持可見。
 - Phone app: `height:100vh` fallback 後使用 `height:100dvh`。
 - Phone stage track 初值：`minmax(13rem, 46vh)`，支援 `46dvh`；第二部分如可讀性測試不足，可按 phase 調至 `48dvh`，但不可由 intrinsic content 擠壓 panel。

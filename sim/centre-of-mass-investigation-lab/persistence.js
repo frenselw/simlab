@@ -101,7 +101,12 @@
     if (!validate(state) || state.phase !== "part1" || state.part1.markX !== null || !Number.isFinite(x)) return null;
     const next = clone(state), problem = Generator.generate(next.seed), item = { x: Math.max(0, Math.min(1, x)), outcome: null };
     item.outcome = Model.supportOutcome(item.x, problem.part1.xCm); next.part1.supportEpisodes.push(item);
-    if (next.part1.supportEpisodes.length > 12) next.part1.supportEpisodes.shift(); next.variant = variantFor(next); return next;
+    if (next.part1.supportEpisodes.length > 12) {
+      const firstBalanced = next.part1.supportEpisodes.find((episode) => episode.outcome === "balanced");
+      const tail = next.part1.supportEpisodes.slice(-12);
+      next.part1.supportEpisodes = firstBalanced && !tail.includes(firstBalanced) ? [firstBalanced, ...tail.slice(-11)] : tail;
+    }
+    next.variant = variantFor(next); return next;
   }
   function markPart1(state, markX) { const next = clone(state); if (!validate(state) || state.phase !== "part1" || !state.part1.supportEpisodes.some((x) => x.outcome === "balanced") || !Number.isFinite(markX) || markX < 0 || markX > 1) return null; next.part1.markX = markX; next.variant = variantFor(next); return next; }
   function confirmPart1(state) { if (!validate(state) || state.phase !== "part1" || state.part1.markX === null) return null; const next = clone(state); if (next.returnToCheck) { next.phase = "check"; next.returnToCheck = false; } else next.phase = "part2"; next.variant = variantFor(next); return next; }
