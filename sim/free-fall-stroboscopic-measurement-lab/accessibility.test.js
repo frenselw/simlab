@@ -38,6 +38,10 @@ assert.ok(html.includes("id=\"assignedFrequency\""));
 assert.ok(!html.includes("readonly"));
 assert.ok(html.includes("id=\"stageReadout\""));
 assert.ok(html.includes("aria-live=\"off\""));
+assert.ok(!main.includes("stageOutputAllowedTaskKey"),
+  "stage readout visibility has no secondary display-authorization latch");
+assert.match(main, /if \(valid && !drag\) showStageOutput\(reading\)/,
+  "stage readout visibility is derived from the current valid non-dragging placement");
 assert.ok(css.includes("pointer-events: none"));
 assert.strictEqual((html.match(/data-reset-frequency>重新開始<\/button>/g) || []).length, 3);
 assert.ok(!html.includes("返回停泊區"));

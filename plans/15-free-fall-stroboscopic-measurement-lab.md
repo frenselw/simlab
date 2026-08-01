@@ -431,9 +431,13 @@ process link／gap evidence，有新 valid placement 才建立新 evidence。
 
 合法 completed placement 會在舞台直尺旁的 pointer-inert `<output>` 顯示
 「x.xx cm」，並只作一次 polite completion announcement；它不寫入 learner input。
-output 位置跟隨尺身，horizontal bbox 留在舞台內。Pointerdown、無效 completion、
-pointercancel、park、skip、task change、reset、review 或 technical lock 均清除
-stale output。答案可在沒有 matching placement 時 Record；只有當下存在 matching
+output 位置跟隨尺身，horizontal bbox 留在舞台內。Readout visibility 只由目前 task、
+當前 matching valid `activePlacement`、一致的 ruler geometry 及「沒有 active drag」
+推導，不另設可 latch false 的 display-authorization state。Pointerdown 及 active drag
+暫時隱藏 output；無效 completion、park、skip、task change、reset、review 或 technical
+lock 均清除 stale output。Pointercancel 先保持 drag 期間的 suppression，再原子式回復
+上一個 completed placement：若回復後仍是目前 task 的合法尺位，立即重現同一 readout；
+否則保持清除。答案可在沒有 matching placement 時 Record；只有當下存在 matching
 有效 placement 才另建 evidence。
 Output 的 y anchor 必須由 full-precision canonical `readingM` 映射至直尺 measured
 tick：`zeroY + tickSpan * readingM / cameraMaxM`，等價於目前 task 的 end tick；不得
@@ -867,7 +871,8 @@ RATIO_TERM_TOLERANCE = 0.15
 - `pointercancel` 清除 pointer capture／transient drag，不建立 evidence，並原子式
   把可見直尺回復至 drag 前最後一個 completed `activePlacement`；若之前沒有
   placement，回復停泊區。既有 phase、answers、evidence、focus 及 semantic
-  placement 全部不變，並顯示非評分中斷提示。
+  placement 全部不變，並顯示非評分中斷提示。回復後 readout 重新由目前合法尺位
+  推導：合法尺位重現 cancel 前同一文字，無效／unpositioned 尺位保持隱藏。
 
 ### 11.4 Trusted touch evidence
 
@@ -1563,7 +1568,9 @@ SimActivityFlow.reviewResult()
 - reset confirmation atomically 清除依賴資料但保留 assigned frequency；
 - pointer drag 使用 relative offset，不令尺跳到手指中心；
 - pointercancel 不建立 evidence，並驗證 visible ruler、active placement、phase、
-  answers、evidence 及 focus 全部回復／保持 drag 前值；
+  answers、evidence 及 focus 全部回復／保持 drag 前值；合法尺位在 active drag 時
+  暫藏 readout，cancel 後重現相同文字及 aligned status，無效／unpositioned 尺位則
+  保持隱藏；
 - pointerup／keyboard movement 先建立可 restore active placement；確認 reading
   才建立 finalized evidence；
 - 實際 mouse drag、trusted touch drag、Arrow／Shift+Arrow 完整完成；

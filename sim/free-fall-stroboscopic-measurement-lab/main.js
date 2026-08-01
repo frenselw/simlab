@@ -189,7 +189,6 @@
     let manualBaselineText = null;
     let manualOriginalReadingM = null;
     let stageReadoutTaskKey = null;
-    let stageOutputAllowedTaskKey = null;
     let assignmentCheckpointPending = false;
     let previewAutoplayStarted = false;
     let blankConfirmationReview = null;
@@ -615,7 +614,6 @@
     }
     function clearStageOutput() {
       stageReadoutTaskKey = null;
-      stageOutputAllowedTaskKey = null;
       dom.stageReadout.textContent = "";
       dom.stageReadout.classList.add("is-hidden");
       delete dom.stageReadout.dataset.readingM;
@@ -666,7 +664,6 @@
       dom.stageReadout.style.left = `${ranked[0].left}px`;
       dom.stageReadout.style.top = `${top}px`;
       stageReadoutTaskKey = task.key;
-      stageOutputAllowedTaskKey = task.key;
     }
     function completeMovement(mode) {
       const placement = placementFromRuler(mode);
@@ -679,7 +676,6 @@
       }
       const panelScrollTop = dom.panel.scrollTop;
       state = next; lastCompletedRuler = { ...ruler };
-      stageOutputAllowedTaskKey = currentTask()?.key || null;
       checkpoint(); renderStage(); updatePlacementStatus(); updateRulerDescription();
       if (readingFromRuler() !== null) dom.live.textContent = `尺位完成；舞台顯示 ${dom.stageReadout.textContent}。`;
       dom.ruler.focus({ preventScroll: true });
@@ -706,6 +702,7 @@
       dom.ruler.setPointerCapture(event.pointerId);
       dom.ruler.dataset.moves = "0"; dom.ruler.dataset.ups = "0"; dom.ruler.dataset.cancels = "0";
       dom.ruler.dataset.trusted = String(event.isTrusted); dom.ruler.dataset.pointerType = event.pointerType;
+      updatePlacementStatus();
     }
     function pointerMove(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
@@ -748,7 +745,7 @@
       dom.ruler.dataset.cancels = String(Number(dom.ruler.dataset.cancels || 0) + 1);
       ruler = { ...drag.prior }; drag = null; movementNorm = state.activePlacement?.moveNorm || 0;
       clearStageOutput();
-      positionRuler(); drawRuler();
+      positionRuler(); drawRuler(); updatePlacementStatus(); updateRulerDescription();
       dom.panel.scrollTop = panelScrollTop;
       dom.live.textContent = "拖動中斷；直尺已回復到上一次完成的位置，未建立證據。";
     }
@@ -1294,7 +1291,6 @@
     function restoreRuler() {
       if (!state.activePlacement || !state.generated) {
         ruler = parkedRulerPosition(); movementNorm = 0; lastCompletedRuler = { ...ruler };
-        stageOutputAllowedTaskKey = null;
         return;
       }
       const placement = state.activePlacement;
@@ -1327,7 +1323,6 @@
         if (refreshed) state = refreshed;
       }
       lastCompletedRuler = { ...ruler };
-      stageOutputAllowedTaskKey = currentTask()?.key || null;
     }
     function renderMeasurement() {
       dom.measurement.classList.remove("is-hidden");
@@ -1363,7 +1358,7 @@
       dom.placementStatus.textContent = drag ? "正在移動直尺；放手完成尺位後才會顯示舞台讀尺提示。" :
         parked ? "直尺仍在停泊區。" :
         valid ? "零刻度已對準所選起點，並與起點投影線重疊。" : "請把零刻度對準所選起點，並讓零主刻度與起點投影線重疊。";
-      if (valid && !drag && stageOutputAllowedTaskKey === task?.key) showStageOutput(reading);
+      if (valid && !drag) showStageOutput(reading);
       else clearStageOutput();
     }
     function updateRulerDescription() {

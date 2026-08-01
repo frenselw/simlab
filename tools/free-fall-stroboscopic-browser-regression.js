@@ -2025,35 +2025,65 @@ async function runTouchMatrix(cdp, baseUrl, activityPath, label) {
       afterMouse.events.ups === 1 && afterMouse.events.cancels === 0, `${label}: trusted mouse ${name} drag completes normally`);
   }
 
-  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('rulerHandle').focus({preventScroll:true})");
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight",
-    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight",
-    windowsVirtualKeyCode: 39, nativeVirtualKeyCode: 39 });
+  const validBeforeCancel = await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,P=w.FreeFallPersistence,
+      S=w.FreeFallScoring,M=w.FreeFallModel;
+    const state=P.generate(P.assignedState(4));
+    w.__freeFallDebug.routeStartup('editable',{state:'draft',snapshot:{answer:state}});
+    const y=M.geometry(4,440,55,25).metersToY(0),handle=d.getElementById('rulerHandle');
+    for(let pass=0;pass<3;pass+=1){const l=w.__freeFallDebug.rulerLayout();
+      w.__freeFallDebug.setRuler({x:80+4.25/l.scaleX,y:y+2});}
+    handle.focus({preventScroll:true});
+    handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
+    const current=w.__freeFallDebug.state(),active=current.activePlacement,
+      output=d.getElementById('stageReadout');
+    d.getElementById('readingInput').value='2.34';
+    return {placement:active,ruler:w.__freeFallDebug.ruler(),valid:S.validPlacement(active,'total1'),
+      status:d.getElementById('placementStatus').textContent,readout:output.textContent,
+      hidden:output.classList.contains('is-hidden')};
+  })()`);
+  assert.ok(validBeforeCancel.valid && validBeforeCancel.placement.moveNorm === .025 &&
+    validBeforeCancel.placement.zeroErrorPx === 0 && validBeforeCancel.placement.zeroTickOverlapPx >= 4.25 &&
+    !validBeforeCancel.hidden && validBeforeCancel.readout === "0.28 cm" && /已對準/.test(validBeforeCancel.status),
+  `${label}: boundary-valid total1 fixture is aligned with its readout visible before cancellation ${JSON.stringify(validBeforeCancel)}`);
   const cancelPoint = await pointAt(cdp, "#rulerHandle", .5, .5);
   const beforeCancel = await snapshot(cdp);
-  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('readingInput').value='2.34'");
   await touch(cdp, "touchStart", cancelPoint.x, cancelPoint.y);
-  await touch(cdp, "touchMove", cancelPoint.x + 30, cancelPoint.y + 15);
   const duringDrag = await evaluate(cdp, `(() => {
     const w=document.getElementById('activity').contentWindow,d=w.document,before=JSON.stringify(w.__freeFallDebug.state());
     const readout={value:d.getElementById('readingInput').value,disabled:d.getElementById('recordButton').disabled,
-      stageHidden:d.getElementById('stageReadout').classList.contains('is-hidden')};
+      stageHidden:d.getElementById('stageReadout').classList.contains('is-hidden'),
+      status:d.getElementById('placementStatus').textContent};
     d.getElementById('recordButton').click();
     return {...readout,stateUnchanged:JSON.stringify(w.__freeFallDebug.state())===before,
       error:d.getElementById('measurementError').textContent};
   })()`);
   assert.equal(duringDrag.value, "2.34", `${label}: active drag does not alter the learner's transient manual input`);
-  assert.ok(!duringDrag.disabled && duringDrag.stageHidden && duringDrag.stateUnchanged && /完成移尺/.test(duringDrag.error),
+  assert.ok(!duringDrag.disabled && duringDrag.stageHidden && /正在移動/.test(duringDrag.status) &&
+    duringDrag.stateUnchanged && /完成移尺/.test(duringDrag.error),
     `${label}: Record fails closed throughout an active drag ${JSON.stringify(duringDrag)}`);
   await touch(cdp, "touchCancel", 0, 0);
   const afterCancel = await snapshot(cdp);
+  const afterCancelView = await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,S=w.FreeFallScoring,
+      state=w.__freeFallDebug.state(),output=d.getElementById('stageReadout');
+    return {placement:state.activePlacement,ruler:w.__freeFallDebug.ruler(),
+      valid:S.validPlacement(state.activePlacement,'total1'),status:d.getElementById('placementStatus').textContent,
+      readout:output.textContent,hidden:output.classList.contains('is-hidden')};
+  })()`);
   assert.deepEqual(afterCancel.ruler, beforeCancel.ruler, `${label}: trusted pointercancel restores the completed ruler position`);
+  assert.deepEqual(afterCancelView.placement, validBeforeCancel.placement,
+    `${label}: trusted pointercancel preserves the exact valid activePlacement`);
+  assert.ok(afterCancelView.valid && !afterCancelView.hidden &&
+    afterCancelView.readout === validBeforeCancel.readout && /已對準/.test(afterCancelView.status),
+  `${label}: pointercancel re-derives the same valid readout and aligned status ${JSON.stringify(afterCancelView)}`);
   assert.equal(afterCancel.events.cancels, 1); assert.equal(afterCancel.events.ups, 0);
   zeroDelta(beforeCancel, afterCancel, ["host", "hostViewport", "iframe", "activity", "activityViewport", "panel", "state"],
     `${label}: pointercancel`);
 
-  await evaluate(cdp, "document.getElementById('activity').contentWindow.document.getElementById('rulerHandle').focus({preventScroll:true})");
+  await evaluate(cdp, `(() => {const w=document.getElementById('activity').contentWindow;
+    w.__freeFallDebug.setRuler({x:150,y:150});
+    w.document.getElementById('rulerHandle').focus({preventScroll:true});})()`);
   const beforeKey = await snapshot(cdp);
   await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37, nativeVirtualKeyCode: 37 });
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37, nativeVirtualKeyCode: 37 });
