@@ -37,20 +37,17 @@
         <p class="section-label">第一部分</p><h2>找出杆的平衡位置</h2><p class="task-copy">拖動杆下方的承托點，放手觀察杆向哪邊傾倒。找到平衡後，在杆上標出重心。</p>
         <p class="concept-note">承托點在重心正下方時，杆會保持平衡。</p><div class="status-row"><span>實驗狀態</span><strong id="part1Status"></strong></div>
         <div id="part1MarkTools" class="hint is-hidden">已找到平衡位置，請直接在杆上放置標記。</div>
-        <details class="keyboard-help"><summary>鍵盤操作</summary><p>聚焦圖台中的承托點或標記，以方向鍵移動；Enter 放手測試。</p><div class="a11y-actions"><button data-p1-move="-0.01">承托向左</button><button data-p1-move="0.01">承托向右</button><button id="testSupport">放手測試</button><button id="placePart1Mark">放置標記</button><button data-p1-mark="-0.01">標記向左</button><button data-p1-mark="0.01">標記向右</button></div></details>
-        <div class="reset-row"><button type="button" class="reset-button" data-reset-part="1">重設第一部分</button></div>
+        <details class="keyboard-help"><summary>鍵盤操作</summary><p>聚焦圖台中的承托點或標記，以方向鍵移動；Enter 或空白鍵放手測試及確認標記。</p></details>
       </section>
       <section id="part2Controls" class="panel-section is-hidden">
         <p class="section-label">第二部分</p><h2>用鉛垂線找出重心</h2><p class="task-copy">拖動半透明平板，把一個小孔移近牆釘並放手。平板停止後，由懸掛孔附近向下拖畫鉛垂線。</p>
         <p class="concept-note">換另一個小孔重複，鉛垂線的交會就是重心。</p><div class="status-row"><span>實驗狀態</span><strong id="part2Status"></strong></div><div id="part2MarkTools" class="hint is-hidden">兩條鉛垂線已交會，請直接在板上標記重心。</div>
-        <details class="keyboard-help"><summary>鍵盤操作</summary><p>方向鍵移動平板或旋轉手柄；選擇小孔後可使用等價操作。</p><div id="holeButtons" class="a11y-actions"></div><div class="a11y-actions"><button id="hangHole">掛上所選小孔</button><button id="traceLine">沿鉛垂線畫線</button><button data-rotate="-5">逆時針</button><button data-rotate="5">順時針</button><button id="placePart2Mark">放置標記</button><button data-p2-mark="0,-1">上移</button><button data-p2-mark="-1,0">左移</button><button data-p2-mark="0,1">下移</button><button data-p2-mark="1,0">右移</button></div></details>
-        <div class="reset-row"><button type="button" class="reset-button" data-reset-part="2">重設第二部分</button></div>
+        <details class="keyboard-help"><summary>鍵盤操作</summary><p>聚焦平板、旋轉手柄、小孔、畫線區或標記；使用方向鍵移動，Enter 或空白鍵執行等價操作。</p></details>
       </section>
       <section id="part3Controls" class="panel-section is-hidden">
         <p class="section-label">第三部分</p><h2>找出均勻立體的幾何中心</h2><p id="solidSummary" class="task-copy">在立體上拖動，從不同方向觀察，再選擇重心候選點。</p><div class="status-row"><span>觀察狀態</span><strong id="part3Status"></strong></div>
         <fieldset id="candidateRadios" class="candidate-chips"><legend>候選點</legend></fieldset>
         <details class="keyboard-help"><summary>鍵盤操作</summary><p>聚焦立體後用方向鍵旋轉；A–E 選項與圖中候選點同步。</p></details>
-        <div class="reset-row"><button type="button" class="reset-button" data-reset-part="3">重設第三部分</button></div>
       </section>
       <section id="checkControls" class="panel-section is-hidden"><p class="section-label">提交前檢查</p><h2>三部分實驗證據</h2><div id="checkSummary"></div><button id="submit" class="primary-button">提交結果</button></section>
       <section id="reviewControls" class="panel-section is-hidden"><p class="section-label">結果</p><h2>已鎖定的結果</h2><div id="reviewSummary"></div><button id="retrySubmission" class="is-hidden">重試目前提交</button></section>

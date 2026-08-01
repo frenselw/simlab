@@ -287,7 +287,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - pointerdown 記錄角度 offset，避免一按下就跳角。
 - 旋轉手柄可聚焦並用左右方向鍵操作（Shift 為 `15°`）；等價操作收在 keyboard disclosure，不在主 control panel 建立操作按鈕牆。
 - mouse wheel、trackpad gesture 及裝置方向感應器不作必要輸入，避免平台差異及誤觸。
-- 雙指 twist 可在後續 usability 測試證明穩定後加入為額外捷徑；即使加入，單指手柄及鍵盤／按鈕替代仍必須完整可用。
+- 雙指 twist 可在後續 usability 測試證明穩定後加入為額外捷徑；即使加入，單指手柄及 stage 上的鍵盤替代仍必須完整可用。
 - 平板一旦成功掛上釘並開始自由擺動，所有人工平移／旋轉 target 暫時鎖定，直至停止或學生按「取下平板」。
 
 #### 套釘
@@ -301,10 +301,10 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 #### Keyboard-only 完整流程
 
-- focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 掛上選定小孔 → 畫鉛垂線 → 重心標註」，隱藏／未解鎖工具不進 tab order。
-- 聚焦某小孔後按 Enter／Space 選為 active hole；「將選定小孔掛上牆釘」按鈕使用與 pointer drop 相同的 snap／relationship model，將該孔對齊釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
-- settled 後「沿鉛垂線畫線」按鈕建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
-- 重心標註解鎖後，先以「放置標註」把中性標註放在學生線組的 bounding box 中心（不是 least-squares intersection 或真重心），再以四個方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；控制面板亦提供四向微調按鈕。
+- focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 畫鉛垂線區 → 重心標註」，未解鎖的 stage target 不進 tab order；control panel 不另設 operational button wall。
+- 聚焦某小孔後按 Enter／Space，使用與 pointer drop 相同的 relationship model 將該孔對齊牆釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
+- settled 後聚焦板上的畫線區並按 Enter／Space，建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
+- 重心標註解鎖後，stage 上先出現中性標註 target，初值為學生線組的 bounding box 中心（不是 least-squares intersection 或真重心）；Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`。控制面板不提供放置或四向微調按鈕。
 - pointer 與 keyboard 路徑產生同一 production-shaped hole／hang／line／mark schema，並通過完全相同的 validity、persistence 及 scoring rules；input mode 只可作診斷，不改分。
 
 ### 7.4 鉛垂線及畫線工具
@@ -391,7 +391,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 每次 gesture／button／keyboard episode 結束時先把 view quantize 至 `{yaw10,pitch10}`，再以兩個 view-forward unit vectors 的夾角計算 canonical orientation difference。
 - 第一次與初始 canonical view 相差至少 `21.0°` 才記錄 observation 1。
 - 第二個 canonical view 與 observation 1 相差至少 `36.0°` 才形成 observation 2。整數 `0.1°` 表示及 `1°` guard band 確保 encode／restore 不會把有效證據推過原本的 `20°／35°` 教學門檻。
-- 只在 gesture end 或按鈕／鍵盤 step 完成後 checkpoint，不逐 frame 保存。
+- 只在 gesture end 或 stage target 的鍵盤 step 完成後 checkpoint，不逐 frame 保存。
 - 自動動畫、restore render、preview render 及微小手震不算觀察證據。
 - 兩個 observation 齊全後才可確認候選點；scorer 同時檢查 evidence，不能只信任 UI gate。
 
@@ -419,7 +419,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 下方 controls panel 取得餘下高度，`overflow-y:auto; overscroll-behavior:contain; min-height:0`。
 - `html`、`body`、app shell 及中介 grid/flex children 在 bounded iframe 內不可有可用垂直 scroll range。
 - desktop／tablet：stage 左／上，controls 右／下；stage 仍為主要區域，不新增 desktop-only 必要操作。
-- 320×500、390×500、390×600、一般直向、橫向、200% zoom 及軟鍵盤情境下，所有主要按鈕必須可在 panel 內到達。
+- 320×500、390×500、390×600、一般直向、橫向、200% zoom 及軟鍵盤情境下，提交、重試及技術處理等必要按鈕必須可在 panel 內到達；第一至三部分的操作由 stage targets 擁有。
 - 極短高度以縮小 stage 內 padding、reflow formula card 和壓縮非必要說明處理；stage 不成為獨立垂直 scroller。
 - preview overlay 不影響 grid track、scrollHeight 或 hit target geometry。
 
@@ -541,8 +541,8 @@ v2 把 active tab 與各部分完成度分開；`variant` 只可為 `editing | c
 
 | Phase | Variant | Required semantic state | Allowed next action |
 |---|---|---|---|
-| `part1`／`part2`／`part3` | `editing` | canonical seed/version；三個獨立合法的 part substates；目前 tab 可完整或未完整 | 操作目前 tab、切換任意 tab、重設一部分；三部分完整時進入 check |
-| `check` | `complete` | 三部分均完整；transient absent | 返回任意 tab、重設一部分或 submit |
+| `part1`／`part2`／`part3` | `editing` | canonical seed/version；三個獨立合法的 part substates；目前 tab 可完整或未完整 | 操作目前 tab、切換任意 tab；三部分完整時進入 check |
+| `check` | `complete` | 三部分均完整；transient absent | 返回任意 tab或 submit |
 | `review` | `submitted` | 三部分均完整的 authoritative answer | 只讀檢視 |
 
 ### 13.2 Transitions

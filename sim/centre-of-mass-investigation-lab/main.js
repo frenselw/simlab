@@ -12,21 +12,27 @@
   "use strict";
   const ACTIVITY = "centre-of-mass-investigation-lab";
   const NS = "http://www.w3.org/2000/svg";
+  const exactKeys = (value, keys) => Boolean(value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key)));
   function freshSeed() {
     const value = new Uint32Array(1);
     if (globalThis.crypto?.getRandomValues) return globalThis.crypto.getRandomValues(value)[0];
     return (Date.now() ^ Math.floor((globalThis.performance?.now?.() || 0) * 1000)) >>> 0;
   }
   function reviewMatches(reviewSnapshot, payload, computed) {
-    if (!reviewMetadataValid(reviewSnapshot) || !payload || typeof payload.score !== "number" || !Number.isFinite(payload.score) ||
+    if (!reviewMetadataValid(reviewSnapshot) || !exactKeys(payload, ["reviewJson", "score", "maxScore", "passed"]) || !computed ||
+        typeof payload.reviewJson !== "string" || typeof payload.score !== "number" || !Number.isFinite(payload.score) ||
         typeof payload.maxScore !== "number" || !Number.isFinite(payload.maxScore) || typeof payload.passed !== "boolean") return false;
     const canonical = Persistence.fromReview(reviewSnapshot.answer);
-    return Boolean(canonical && JSON.stringify(canonical) === JSON.stringify(reviewSnapshot.answer) &&
+    const answerIsCanonical = reviewSnapshot.answer?.v === Persistence.VERSION
+      ? JSON.stringify(canonical) === JSON.stringify(reviewSnapshot.answer)
+      : reviewSnapshot.answer?.v === 1 && Boolean(Persistence.migrateV1(reviewSnapshot.answer));
+    return Boolean(canonical && answerIsCanonical &&
       payload?.reviewJson === JSON.stringify(reviewSnapshot) &&
-      reviewSnapshot.score === computed.score && Boolean(reviewSnapshot.passed) === computed.passed &&
-      payload.score === computed.score && payload.maxScore === computed.maxScore && Boolean(payload.passed) === computed.passed);
+      reviewSnapshot.score === computed.score && reviewSnapshot.passed === computed.passed &&
+      payload.score === computed.score && payload.maxScore === computed.maxScore && payload.passed === computed.passed);
   }
-  function reviewMetadataValid(snapshot) { return Boolean(snapshot && snapshot.kind === "review" && snapshot.activity === ACTIVITY &&
+  function reviewMetadataValid(snapshot) { return Boolean(exactKeys(snapshot, ["version", "activity", "kind", "answer", "score", "passed"]) && snapshot.version === 1 && snapshot.kind === "review" && snapshot.activity === ACTIVITY &&
     typeof snapshot.score === "number" && Number.isFinite(snapshot.score) && typeof snapshot.passed === "boolean"); }
   function restoredPlatePose(state, problem, nail = { x: 350, y: 42 }, scale = 245) {
     if (state?.phase !== "part2" || !state.part2?.activeHoleKey) return null;
@@ -38,11 +44,11 @@
     const $ = (id) => document.getElementById(id);
     const dom = { app: $("app"), stage: $("stage"), svg: $("svgStage"), canvas: $("solidCanvas"), fallbackCanvas: $("fallbackCanvas"), direct: $("directLayer"), preview: $("preview"), rendererBadge: $("rendererBadge"), panel: $("controlPanel"),
       badge: $("phaseBadge"), progress: $("progress"), tabs: [...document.querySelectorAll("[data-part-tab]")], checkTab: $("checkTab"), technical: $("technical"), technicalMessage: $("technicalMessage"), technicalRetry: $("technicalRetry"),
-      p1: $("part1Controls"), p1Status: $("part1Status"), p1MarkTools: $("part1MarkTools"), testSupport: $("testSupport"), placeP1: $("placePart1Mark"),
-      p2: $("part2Controls"), p2Status: $("part2Status"), holeButtons: $("holeButtons"), hang: $("hangHole"), trace: $("traceLine"), p2MarkTools: $("part2MarkTools"), placeP2: $("placePart2Mark"),
+      p1: $("part1Controls"), p1Status: $("part1Status"), p1MarkTools: $("part1MarkTools"),
+      p2: $("part2Controls"), p2Status: $("part2Status"), p2MarkTools: $("part2MarkTools"),
       p3: $("part3Controls"), p3Status: $("part3Status"), solidSummary: $("solidSummary"), radios: $("candidateRadios"),
       check: $("checkControls"), checkSummary: $("checkSummary"), submit: $("submit"), review: $("reviewControls"), reviewSummary: $("reviewSummary"), retry: $("retrySubmission"), live: $("liveRegion") };
-    let state = null, committedState = null, problem = null, locked = false, presentation = null, latestReview = null, latestResult = null;
+    let state = null, committedState = null, problem = null, locked = false, presentation = null, latestReview = null, latestResult = null, pendingExpected = null;
     let supportX = .5, selectedHole = null, platePose = { x: 350, y: 230, angle: 0 }, selectedRadio = null, gesture = null, hostSwipe = null, drawGhost = null, handleWorld = { x: 500, y: 100 };
     let swingRuntime = null, swingFrame = 0, swingLastTime = null, fallRuntime = null, fallFrame = 0;
     let part3Renderer = null, part3Mode = "canvas", part3Attempted = false, lastProjection = [];
@@ -52,21 +58,9 @@
 
     function bind() {
       dom.technicalRetry.addEventListener("click", () => location.reload());
-      document.querySelectorAll("[data-p1-move]").forEach((button) => button.addEventListener("click", () => { supportX = Model.clamp(supportX + Number(button.dataset.p1Move), 0, 1); render(); }));
-      dom.testSupport.addEventListener("click", testSupport);
-      dom.placeP1.addEventListener("click", () => update(Persistence.markPart1(state, supportX), "已放置重心標註，可微調後確認。"));
-      document.querySelectorAll("[data-p1-mark]").forEach((button) => button.addEventListener("click", () => update(Persistence.markPart1(state, Model.clamp((state.part1.markX ?? supportX) + Number(button.dataset.p1Mark), 0, 1)), "已移動重心標註。")));
-      dom.hang.addEventListener("click", hangSelected);
-      dom.trace.addEventListener("click", (event) => event.detail === 0
-        ? update(Persistence.traceVertical(state), "已使用鍵盤等價操作沿鉛垂線畫線，請改用另一個小孔。")
-        : announce("指標操作請在平板上親手沿鉛垂線畫線；此按鈕只供鍵盤等價操作。"));
-      document.querySelectorAll("[data-rotate]").forEach((button) => button.addEventListener("click", () => { if (state?.phase !== "part2" || state.part2.activeHoleKey || swingRuntime) return; platePose.angle += Number(button.dataset.rotate) * Math.PI / 180; render(); }));
-      dom.placeP2.addEventListener("click", placeNeutralMark);
-      document.querySelectorAll("[data-p2-mark]").forEach((button) => button.addEventListener("click", () => { if (!state?.part2.mark) return; const [dx, dy] = button.dataset.p2Mark.split(",").map(Number), size = problem.part2.size; update(Persistence.markPart2(state, { x: state.part2.mark.x + dx * .01 * size, y: state.part2.mark.y + dy * .01 * size }), "已微調平板重心標註。" ); }));
       document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { const [yaw, pitch] = button.dataset.view.split(",").map(Number); update(Persistence.setView(state, { yaw10: state.part3.view.yaw10 + yaw, pitch10: state.part3.view.pitch10 + pitch }), "已記錄新的觀察方向。" ); }));
       dom.tabs.forEach((tab) => tab.addEventListener("click", () => switchToPart(Number(tab.dataset.partTab))));
       dom.checkTab.addEventListener("click", () => update(Persistence.enterCheck(state), "已進入提交前檢查。"));
-      document.querySelectorAll("[data-reset-part]").forEach((button) => button.addEventListener("click", () => { const part=Number(button.dataset.resetPart); if (confirm(`重設第 ${part} 部分會清除該部分答案及證據，是否繼續？`)) update(Persistence.resetPart(state, part), "已清除所選部分，其他部分保持不變。" ); }));
       dom.submit.addEventListener("click", submit);
       dom.retry.addEventListener("click", retryPending);
       dom.stage.addEventListener("pointerdown", (event) => { if (event.pointerType === "touch" && UiPolicy.pointerOwner(event.target) === "host") hostSwipe = { id: event.pointerId, y: event.clientY }; });
@@ -99,6 +93,7 @@
           const payload = attempt.snapshot?.payload, saved = JSON.parse(payload?.reviewJson || "null");
           const restored = Persistence.fromReview(saved?.answer), computed = restored && Scoring.score(restored);
           if (!restored || !reviewMatches(saved, payload, computed)) throw new Error("rejected pending payload");
+          pendingExpected = Object.freeze({ reviewJson: payload.reviewJson, score: payload.score, maxScore: payload.maxScore, passed: payload.passed });
           state = restored; problem = Generator.generate(state.seed); latestReview = restored; latestResult = computed; presentation = "pending"; renderReview(null, false, "上次提交仍待確認；只可重試同一份已凍結答案。"); dom.retry.classList.remove("is-hidden");
         } catch { SimScorm.quarantinePending(); technicalLock("待提交資料的權威答案或證據不一致；已停止自動重試。"); }
       } else technicalLock("無法安全讀取 Moodle attempt；操作及分數均未確認。");
@@ -145,14 +140,14 @@
       swingFrame = requestAnimationFrame(animate);
     }
     function placeNeutralMark() { const lines = state.part2.lines, valuesX = lines.flatMap((line) => [line.a[0], line.b[0]]), valuesY = lines.flatMap((line) => [line.a[1], line.b[1]]); if (!valuesX.length) return; update(Persistence.markPart2(state, { x: (Math.min(...valuesX) + Math.max(...valuesX)) / 2, y: (Math.min(...valuesY) + Math.max(...valuesY)) / 2 }), "已在學生線組的範圍中心放置標註；請自行微調。" ); }
-    function submit() { if (locked || state.phase !== "check") return; latestReview = Persistence.makeReview(state); latestResult = Scoring.score(latestReview); if (!latestReview) return; locked = true; presentation = "submitting"; clearGesture(); renderReview(null, false, "正在提交，請勿離開。"); const snapshot = SimScorm.makeSnapshot(ACTIVITY, "review", latestReview, latestResult); const handle = (outcome) => routeSubmission(outcome); SimScorm.submitWithCallbacks(latestResult, snapshot, { onSuccess: handle, onFailure: handle }); }
+    function submit() { if (locked || state.phase !== "check") return; latestReview = Persistence.makeReview(state); latestResult = Scoring.score(latestReview); if (!latestReview) return; locked = true; presentation = "submitting"; clearGesture(); renderReview(null, false, "正在提交，請勿離開。"); const snapshot = SimScorm.makeSnapshot(ACTIVITY, "review", latestReview, latestResult); pendingExpected = Object.freeze({ reviewJson: JSON.stringify(snapshot), score: latestResult.score, maxScore: latestResult.maxScore, passed: latestResult.passed }); const handle = (outcome) => routeSubmission(outcome); SimScorm.submitWithCallbacks(latestResult, snapshot, { onSuccess: handle, onFailure: handle }); }
     function routeSubmission(outcome) { const view = UiPolicy.submissionView(outcome); locked = view.locked; SimActivityFlow.submission(outcome, {
       success: () => renderReview(latestResult, true, "已提交並鎖定"),
       committed: () => { presentation = "committed"; renderReview(latestResult, true, "結果已寫入 Moodle；完成連線仍需重試"); dom.retry.classList.remove("is-hidden"); },
       frozen: () => { presentation = "pending"; renderReview(null, false, "提交仍待確認；答案已凍結，只可重試同一份資料。"); dom.retry.classList.remove("is-hidden"); },
       retry: () => outcome.retryable ? (locked = false, state.phase = "check", state.variant = "complete", render(), announce("提交未建立 final state；可保留答案再試。")) : technicalLock("提交前檢查失敗；系統不能承諾可安全重試。")
     }); }
-    function retryPending() { if (presentation === "committed") { if (SimScorm.finish()) renderReview(latestResult, true, "已提交並完成連線"); return; } const outcome = SimScorm.retryPending(); routeSubmission({ ...outcome, activityState: outcome.ok ? "success" : outcome.committed ? "committed" : outcome.frozen ? "frozen" : "retry" }); }
+    function retryPending() { if (presentation === "committed") { if (SimScorm.finish()) renderReview(latestResult, true, "已提交並完成連線"); return; } const outcome = SimScorm.retryPending(); if ((outcome.ok || outcome.committed) && (!pendingExpected || !outcome.review || !reviewMatches(outcome.review, pendingExpected, latestResult) || outcome.score !== pendingExpected.score || outcome.status !== (pendingExpected.passed ? "passed" : "failed"))) { SimScorm.quarantinePending(); return technicalLock("重試回傳資料與原有凍結提交不一致；已停止繼續處理。"); } routeSubmission({ ...outcome, activityState: outcome.ok ? "success" : outcome.committed ? "committed" : outcome.frozen ? "frozen" : "retry" }); }
     function hideAll() { [dom.technical, dom.p1, dom.p2, dom.p3, dom.check, dom.review].forEach((section) => section.classList.add("is-hidden")); }
     function render() {
       if (!state || locked) return; hideAll(); const isPart3=state.phase==="part3";dom.svg.style.display=isPart3?"none":"block";dom.canvas.style.display=isPart3&&part3Mode==="three"?"block":"none";dom.fallbackCanvas.style.display=isPart3&&part3Mode!=="three"?"block":"none";dom.rendererBadge.classList.toggle("is-hidden",!isPart3); dom.direct.replaceChildren(); dom.preview.classList.add("is-hidden");
@@ -181,7 +176,7 @@
     function localToSvg(point) { const c = Math.cos(platePose.angle), s = Math.sin(platePose.angle), scale = 245; return { x: platePose.x + (point.x * c - point.y * s) * scale, y: platePose.y + (point.x * s + point.y * c) * scale }; }
     function svgToLocal(point) { const dx = (point.x - platePose.x) / 245, dy = (point.y - platePose.y) / 245, c = Math.cos(platePose.angle), s = Math.sin(platePose.angle); return { x: dx * c + dy * s, y: -dx * s + dy * c }; }
     function platePath() { return problem.part2.polygon.map((point, i) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${i ? "L" : "M"}${p.x},${p.y}`; }).join(" ") + " Z"; }
-    function safeHandlePoint() { const candidates=[localToSvg({x:.68,y:-.58}),localToSvg({x:-.68,y:.58})],margin=(p)=>Math.min(p.x-22,678-p.x,p.y-22,438-p.y),best=candidates.sort((a,b)=>margin(b)-margin(a))[0];return{x:Model.clamp(best.x,22,678),y:Model.clamp(best.y,22,438)}; }
+    function safeHandlePoint() { const rect=dom.stage.getBoundingClientRect(),insetX=Math.max(23,23*700/Math.max(1,rect.width)),insetY=Math.max(23,23*460/Math.max(1,rect.height)),candidates=[localToSvg({x:.68,y:-.58}),localToSvg({x:-.68,y:.58})],margin=(p)=>Math.min(p.x-insetX,700-insetX-p.x,p.y-insetY,460-insetY-p.y),best=candidates.sort((a,b)=>margin(b)-margin(a))[0];return{x:Model.clamp(best.x,insetX,700-insetX),y:Model.clamp(best.y,insetY,460-insetY)}; }
     function syncPart2Targets() {
       const plate = dom.direct.querySelector('[data-direct-target="plate"]'); if (plate) { plate.style.left = `${platePose.x / 7}%`; plate.style.top = `${platePose.y / 4.6}%`; }
       for (const target of dom.direct.querySelectorAll("[data-hole-key]")) { const hole = problem.part2.holes.find((item) => item.key === target.dataset.holeKey), point = hole && localToSvg(hole); if (point) { target.style.left = `${point.x / 7}%`; target.style.top = `${point.y / 4.6}%`; } }
@@ -205,8 +200,7 @@
       if (state.part2.activeHoleKey) { const draw = document.createElement("div"), polygon = problem.part2.polygon.map((point) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${p.x / 7}% ${p.y / 4.6}%`; }).join(","); draw.className = "draw-target"; draw.dataset.directTarget = "draw"; draw.style.clipPath = `polygon(${polygon})`; draw.setAttribute("role", "button"); draw.setAttribute("tabindex", "0"); draw.setAttribute("aria-label", "由懸掛孔附近向下拖畫鉛垂線；按 Enter 使用鍵盤等價操作"); dom.direct.append(draw);draw.addEventListener("keydown",(event)=>{if(["Enter"," "].includes(event.key)){event.preventDefault();const next=Persistence.traceVertical(state);if(next)resetPlateAfterLine(next);}}); let start=null,startNear=false,snapped=false;draw.addEventListener("pointerdown",(event)=>{start=clientPoint(event);const hole=problem.part2.holes.find(x=>x.key===state.part2.activeHoleKey),pivot=localToSvg(hole);startNear=Math.hypot(start.x-pivot.x,start.y-pivot.y)<=Math.max(28,.12*problem.part2.size*245);beginDrag(event,draw,"draw",(point)=>{const dx=point.x-start.x,dy=point.y-start.y,length=Math.hypot(dx,dy),deviation=length?Math.acos(Math.min(1,Math.abs(dy)/length))*180/Math.PI:90;snapped=startNear&&length>=.45*problem.part2.size*245&&deviation<=10;drawGhost=snapped?{a:{x:pivot.x,y:pivot.y-12},b:{x:pivot.x,y:pivot.y+Math.max(120,Math.abs(dy))},snapped:true}:{a:start,b:point,snapped:false};renderPart2(true);updatePreview();},()=>{const hole=problem.part2.holes.find(x=>x.key===state.part2.activeHoleKey);drawGhost=null;if(!snapped){render();announce(startNear?"請沿垂直方向拖畫鉛垂線。":"請由懸掛孔附近開始畫線。");return;}const ux=Math.sin(platePose.angle),uy=Math.cos(platePose.angle),line={holeKey:hole.key,a:[hole.x-ux*.36,hole.y-uy*.36],b:[hole.x+ux*.36,hole.y+uy*.36]},next=Persistence.recordLine(state,line);if(next)resetPlateAfterLine(next);else{render();announce("線段未符合鉛垂線證據要求，請重畫。");}});}); }
       const ev = Scoring.evidence(state, problem);
       if (ev.lines.length >= 2 && ev.nonDegenerate) { const evidenceCentre=Model.leastSquares(state.part2.lines)||{x:0,y:0},markValue=state.part2.mark||evidenceCentre,point=localToSvg(markValue),markTarget=directButton(point.x/7,point.y/4.6,"平板重心標註；拖動或方向鍵調整","mark2","＋");markTarget.classList.add("mark-target");markTarget.addEventListener("keydown",(event)=>{if(["Enter"," "].includes(event.key)&&!state.part2.mark){event.preventDefault();update(Persistence.markPart2(state,markValue),"已放置平板重心標註。");return;}if(!event.key.startsWith("Arrow"))return;event.preventDefault();const step=(event.shiftKey?.05:.01)*problem.part2.size,next={x:markValue.x+(event.key==="ArrowLeft"?-step:event.key==="ArrowRight"?step:0),y:markValue.y+(event.key==="ArrowUp"?-step:event.key==="ArrowDown"?step:0)};update(Persistence.markPart2(state,next),"已移動平板標註。");});markTarget.addEventListener("pointerdown",(event)=>beginDrag(event,markTarget,"mark2",(position)=>{const next=Persistence.markPart2(state,svgToLocal(position));if(next){state=next;markTarget.style.left=`${position.x/7}%`;markTarget.style.top=`${position.y/4.6}%`;renderPart2(true);}},()=>{checkpoint();render();announce("平板標記位置已記錄。");})); }
-      dom.holeButtons.replaceChildren(...problem.part2.holes.map((hole) => { const button = document.createElement("button"); button.textContent = `小孔 ${hole.key.slice(1)}`; button.disabled = state.part2.lines.some((line) => line.holeKey === hole.key); button.setAttribute("aria-pressed", String(selectedHole === hole.key)); button.addEventListener("click", () => { selectedHole = hole.key; render(); }); return button; }));
-      syncPart2Targets(); dom.hang.disabled = !selectedHole || Boolean(state.part2.activeHoleKey) || Boolean(swingRuntime) || state.part2.lines.some((line) => line.holeKey === selectedHole); dom.trace.disabled = !state.part2.activeHoleKey || Boolean(swingRuntime);
+      syncPart2Targets();
       dom.p2MarkTools.classList.toggle("is-hidden", !(ev.lines.length >= 2 && ev.nonDegenerate));
       dom.p2Status.textContent = swingRuntime ? `${selectedHole} 已掛好，平板正在阻尼擺動。` : state.part2.activeHoleKey ? `${state.part2.activeHoleKey} 已停止，可親手畫鉛垂線。` : `已取得 ${state.part2.lines.length} 個不同小孔的有效鉛垂線。`;
     }
