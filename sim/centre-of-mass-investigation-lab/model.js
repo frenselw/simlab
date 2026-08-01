@@ -43,7 +43,7 @@
     return { x: x * c + y * s, y: -x * s + y * c };
   }
   function equilibriumAngle(hole, centre) { return Math.atan2(centre.x - hole.x, centre.y - hole.y); }
-  function damping({ inertia, mass, distance, gravity = 9.81, zeta = 0.32 }) {
+  function damping({ inertia, mass, distance, gravity = 9.81, zeta = 0.55 }) {
     const c = 2 * zeta * Math.sqrt(inertia * mass * gravity * distance);
     return finite(c) && c > 0 ? c : null;
   }
