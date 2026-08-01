@@ -9,7 +9,7 @@
   2. 透過不同懸掛點的鉛垂線，實驗找出二維非均勻平板的重心；
   3. 利用均勻立體的對稱性，判斷其重心位於幾何中心；
   4. 分辨「實驗證據」與「直接猜測」，並以有效操作支持答案。
-- Learner task: 依次完成一維承托、二維懸掛畫線及三維觀察選點，最後檢查並提交一次完整結果。
+- Learner task: 可隨時在一維承托、二維懸掛畫線及三維觀察選點之間切換；三部分完成後檢查並提交一次完整結果。
 - Main interactions:
   - 拖動一維物體下方的窄承托點並放手測試；
   - 在平板上平移、用旋轉手柄轉動、將指定小孔套上牆釘、等待阻尼擺停止；
@@ -66,24 +66,26 @@
 
 ## 3. 教學流程及畫面結構
 
-### 3.1 整體流程
+### 3.1 整體流程及視覺基準
 
 ```text
 載入／恢復
-  → 第一部分：一維承托
-  → 第二部分：二維懸掛與畫線
-  → 第三部分：三維旋轉與選點
+  ↔ 第一部分：一維承托
+  ↔ 第二部分：二維懸掛與畫線
+  ↔ 第三部分：三維旋轉與選點
   → 檢查完整證據及答案
   → 提交
   → 鎖定的結果檢視
 ```
 
-- 第一個畫面直接進入第一部分，不設裝飾性 landing page。
-- 頂部只顯示簡短標題、`第 n/3 部分` 及進度；題目、圖台與必要操作保持在首個工作畫面。
-- 每部分分開確認。確認後進入下一部分，防止動畫、pointer 狀態和操作工具互相干擾。
+- 第一個畫面直接進入第一部分，不設裝飾性 landing page。頂部使用一直可見的「一維杆／二維平板／三維立體」tab；已完成與目前部分有文字及圖示雙重狀態。
+- 三個 tab 可按任意次序來回切換，不以完成前一部分作門檻。切換前取消未完成 gesture／動畫並回復上一個 semantic checkpoint，再保存新的 active tab。
+- 「檢查」只在三部分均完成後啟用；不設每部分確認／下一步按鈕。
 - `檢查` 畫面顯示每部分已取得的實驗證據，不顯示隱藏重心或正確候選點。
 - 檢查時可選擇「重新做此部分」。為保持狀態清楚，重新做會先確認，然後清除該部分的答案及操作證據；其他部分不受影響。
 - 最終提交後整個 attempt 鎖定，只可查看已提交的操作、答案、正確解釋及分項得分。
+
+視覺必須跟隨 `plans/00-shared-platform-and-style.md` 及現有 `position-time`／`free-fall` 活動：白／淺灰畫布、`#2563eb` 藍色重點、系統字體、1 px 分隔線及平面控制面板。禁止深藍品牌橫幅、英文實驗室標誌、米色筆記紙、木紋工作桌、黃銅裝飾、粗黑捆邊及卡通物件。物件以少量漸變和透明度建立簡潔立體感，不以粗線模擬立體。
 
 ### 3.2 各部分完成條件
 
@@ -99,7 +101,7 @@
 
 ### 4.1 技術決定
 
-第一版不載入 MathJax／KaTeX，但所有 learner-facing 物理量、公式、單位、圖表標籤、即時讀數、回饋及 review 必須呈現接近 LaTeX 排版的效果：
+第一版不載入 MathJax／KaTeX。只有真正需要向學生顯示的物理量、單位及讀數使用接近 LaTeX 的排版；第一部分不向中學生顯示重心位置、力矩或轉動方程公式，只用「承托點在重心正下方時，杆會保持平衡」的文字提示。
 
 - 物理變數使用語意化 `<var>`，以 Georgia／Times 類數學字體及 italic 顯示；
 - 數字下標使用 `<sub class="numeric-subscript">`，一般文字下標保持直立；
@@ -127,7 +129,7 @@
 
 ### 4.2 必須使用數學排版的內容
 
-- `x_cm`、`x_s`、`M`、`m_i`、`x_i`、`θ`、`φ`、`ω`、`I`、`I_p`、`g`、`d`、`c` 等物理量；
+- 學習流程實際顯示的角度、誤差或單位；內部模型的 `x_cm`、`x_s`、`M`、`m_i`、`θ` 等不因存在於程式而要求顯示；
 - 所有公式卡、即時角度／距離讀數、坐標或長度標籤；
 - review 中的容差、誤差及實驗線交會解釋；
 - 單位 `m`、`cm`、`kg`、`rad`、`°`、`N·m`；
@@ -148,7 +150,7 @@
 
 ### 5.2 第一部分生成限制
 
-- 杆的歸一化長度 `L = 1`，可見長寬及物件皮膚由題庫選擇，例如掃把、地拖、簡化長杆。
+- 杆的歸一化長度 `L = 1`。所有題目使用同一支簡潔、中性、外觀左右對稱的細長杆；隱藏質量分布不可透過粗幼、配件、顏色或陰影洩漏。
 - 隱藏質量模型使用 3–5 個正質量區段／集中質量，所有 `m_i > 0`。
 - 重心：
 
@@ -212,7 +214,7 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 
 ### 6.2 互動
 
-- 可見承托尖端保持窄小，但觸控 hit target 最少 `52 × 52 CSS px`，不以超大透明 stroke 攔截附近空白 swipe。
+- 可見承托尖端保持窄小，其 apex 在所有靜止及動畫 frame 均與杆底面準確接觸，並作為杆旋轉 pivot；觸控 hit target 最少 `44 × 44 CSS px`，不以粗描邊攔截附近空白 swipe。
 - mouse：按住承托點水平拖動；放開立即進行承托測試。
 - touch／pen：相同單指拖動，pointerdown 前 hit target 已有 `touch-action:none`，並 capture 同一 pointer。
 - keyboard：承托點可聚焦，左右方向鍵移動 `0.01L`，Shift＋方向鍵移動 `0.05L`，Enter／Space 執行放手測試。
@@ -280,10 +282,10 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 #### 旋轉
 
-- 平板外側顯示一個清楚的弧形旋轉手柄，視覺約 `24–32 px`，hit target 至少 `52 × 52 CSS px`。
+- 平板外側顯示一個簡潔弧形旋轉手柄，視覺約 `24–32 px`，hit target 至少 `44 × 44 CSS px`。每次 render 在兩個相反候選位置中選擇較安全的一側，並 clamp 到 stage 內至少 22 px inset；平板靠近頂／側邊時手柄須自動翻側而不消失。
 - mouse／單指／pen 拖動旋轉手柄時，以 pointer 相對平板中心的 `atan2` 角度差更新 `θ`；平板中心在此 gesture 內保持不動。
 - pointerdown 記錄角度 offset，避免一按下就跳角。
-- 控制面板提供 `逆時針 5°`、`順時針 5°`；Shift／長步按鈕為 `15°`。旋轉手柄可聚焦並用左右方向鍵操作。
+- 旋轉手柄可聚焦並用左右方向鍵操作（Shift 為 `15°`）；等價操作收在 keyboard disclosure，不在主 control panel 建立操作按鈕牆。
 - mouse wheel、trackpad gesture 及裝置方向感應器不作必要輸入，避免平台差異及誤觸。
 - 雙指 twist 可在後續 usability 測試證明穩定後加入為額外捷徑；即使加入，單指手柄及鍵盤／按鈕替代仍必須完整可用。
 - 平板一旦成功掛上釘並開始自由擺動，所有人工平移／旋轉 target 暫時鎖定，直至停止或學生按「取下平板」。
@@ -293,6 +295,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 孔是平板上的明確圓形 target；drag 開始前已存在穩定 hit geometry。
 - 當任一孔中心進入釘的 snap radius，顯示中性對準 highlight；不顯示隱藏重心或最優孔。
 - 放手時只有該孔仍在 snap radius 內才成功掛上；系統把孔中心精確對齊釘後開始擺動。
+- 牆上只顯示細小釘點及淡色 snap halo，不畫鈎；平板使用約 `0.52` alpha 的單色半透明填色和 `1.5–2 px` 邊，釘及孔在重疊時仍清楚可見。
 - 同一時間只可有一個 active hole；第二指不能改變 active target。
 - 若未對準便放手，平板留在最後安全姿態，不形成 hang evidence。
 
@@ -309,7 +312,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 平板 settled 後，釘下顯示鉛錘及鉛垂線；鉛垂線屬 world vertical，穿過 pivot。
 - 學生選擇畫線工具，從懸掛孔附近開始，沿板面拖到另一側；系統即時顯示學生線。
 - pointer world endpoints 在完成時逆變換為 plate-local endpoints 保存。
-- 畫線不是自動吸附至正確線；只提供很輕微的 `≤ 2°` 視覺穩定，不可把明顯錯線修正成答案。
+- pointer 必須從目前懸掛孔附近開始真正拖線。raw drag 與畫面垂直方向相差 `≤ 10°` 時，live ghost 吸附到穿過該孔的精確 world vertical，再把精確線反變換為 plate-local endpoints；超出吸附範圍不產生有效證據。keyboard 等價仍建立同一 production-shaped 精確線。
 - 有效線必須：
   - 對應目前已 settled 的孔；
   - 在 plate-local 坐標穿過該孔的距離不超過 `0.025S`；
@@ -359,6 +362,8 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 球體使用經緯參考線或三個大圓提示旋轉；正方體／長方體顯示半透明面及可辨識邊。
 - 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；候選 hit test 依投影位置及深度排序，近點優先。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
+- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用透明 44 px hit target 包住細小 marker。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 
 ### 8.2 電腦及手機旋轉操作
 
@@ -532,53 +537,24 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 
 ### 13.1 Matrix
 
-| Phase | Variant | Required semantic state | Must be absent／pristine | Allowed next action |
-|---|---|---|---|---|
-| `part1` | `seeking-new` | seed/version；零或多個 completed support episodes；`returnToCheck=false` | balanced evidence、mark、part2/3 answers | 移動承托點並放手 |
-| `part1` | `seeking-redo` | 同上；`returnToCheck=true`；其他已完成部分保持 | part1 balanced evidence／mark 已清除 | 重新承托 |
-| `part1` | `balanced-normal` | balanced episode；`returnToCheck=false` | mark、part2/3 absent | 放置重心標註 |
-| `part1` | `balanced-redo` | balanced episode；`returnToCheck=true`；part2/3 保持完整 | mark absent | 放置重心標註 |
-| `part1` | `marked-normal` | balanced evidence＋合法 mark；`returnToCheck=false` | part2/3 absent | 確認並往 part2 |
-| `part1` | `marked-redo` | balanced evidence＋合法 mark；`returnToCheck=true`；part2/3 完整 | part1 transient absent | 確認並 return check |
-| `part2` | `ready-new` | part1 complete；無 active settled hang | lines、part2 mark absent | 平移／旋轉／掛孔 |
-| `part2` | `ready-redo` | `returnToCheck=true`；part2 已清除；其他部分保持 | part2 hang/lines/mark absent | 重新掛孔 |
-| `part2` | `settled-first-normal/redo` | active hole＋settled record；0 lines；redo 時 future parts 完整 | 此 hole line、animation absent | 畫第一條線或取下 |
-| `part2` | `between-one-normal/redo` | active hole null；1 distinct hang＋line；redo 時 future parts 完整 | mark absent | 掛一個未使用孔 |
-| `part2` | `settled-next-normal/redo` | 1–3 existing distinct hang/lines＋新 active settled hole；redo 時 future parts 完整 | active-hole line、mark、animation absent | 畫 active-hole line或取下 |
-| `part2` | `between-multi-normal/redo` | active hole null；2–4 distinct hang/lines；至少一對角度合格；redo 時 future parts 完整 | mark absent | 標註；少於4線時可再掛未使用孔 |
-| `part2` | `marked-normal` | multi-line evidence＋local mark；`returnToCheck=false` | part3、transient absent | 確認並往 part3 |
-| `part2` | `marked-redo` | multi-line evidence＋local mark；`returnToCheck=true`；part3完整 | transient absent | 確認並 return check |
-| `part3` | `observing-new` | part1/2 complete；canonical `view`；零或一個 valid observation | selected candidate absent | 旋轉立體 |
-| `part3` | `observing-redo` | `returnToCheck=true`；canonical initial `view`；part3 evidence 已清除；其他部分保持 | part3 observation/selection absent | 重新觀察 |
-| `part3` | `eligible-normal/redo` | canonical view＋兩個 `{yaw10,pitch10}` observations；redo 時其他 parts 完整 | selected candidate absent | 選擇候選點 |
-| `part3` | `selected-normal/redo` | canonical view＋observations＋合法 candidate key；redo 時其他 parts 完整 | orbit transient absent | 確認並往 check |
-| `check` | `complete` | 三部分 complete，`returnToCheck=false` | pointer／preview／animation state absent | submit 或選擇重做某部分 |
-| `review` | `submitted` | 完整 authoritative review answer＋可重算 result | 所有 edit/transient state absent | 只讀檢視 |
+v2 把 active tab 與各部分完成度分開；`variant` 只可為 `editing | complete | submitted`，不再保存 sequential／redo variant 或 `returnToCheck`。三個 part substate 在任何 editable tab 都按自身證據獨立驗證。
 
-表內 `*-normal/redo` 是兩個 exact persisted variant 的縮寫，例如 `settled-next-normal` 與 `settled-next-redo`；production encoder 不可實際保存帶 `/` 或 wildcard 的 variant 名。每個展開後的 exact variant 均要有獨立 round-trip＋continuation fixture。
+| Phase | Variant | Required semantic state | Allowed next action |
+|---|---|---|---|
+| `part1`／`part2`／`part3` | `editing` | canonical seed/version；三個獨立合法的 part substates；目前 tab 可完整或未完整 | 操作目前 tab、切換任意 tab、重設一部分；三部分完整時進入 check |
+| `check` | `complete` | 三部分均完整；transient absent | 返回任意 tab、重設一部分或 submit |
+| `review` | `submitted` | 三部分均完整的 authoritative answer | 只讀檢視 |
 
 ### 13.2 Transitions
 
 ```text
-part1/seeking-* -> part1/balanced-*       when a released support episode validates as balanced
-part1/balanced-* -> part1/marked-*        when learner places a legal mark
-part1/marked-normal -> part2/ready-new    when confirmed in normal flow
-part1/marked-redo -> check                when confirmed in redo flow
-
-part2/ready-* -> part2/settled-first-*        when first hole snaps, swings and settles
-part2/settled-first-* -> part2/between-one-*  when first valid local line is recorded and plate is taken down
-part2/between-one-* -> part2/settled-next-*   when second unused hole settles
-part2/settled-next-* -> part2/between-multi-* when its valid line makes total 2–4 and plate is taken down
-part2/between-multi-* -> part2/settled-next-* when another unused hole settles and line count < 4
-part2/between-multi-* -> part2/marked-*       when learner places a legal local mark
-part2/marked-normal -> part3/observing-new    when confirmed in normal flow
-part2/marked-redo -> check                    when confirmed in redo flow
-
-part3/observing-* -> part3/eligible-* when second sufficiently separated canonical view is recorded
-part3/eligible-* -> part3/selected-*  when learner confirms one candidate
-part3/selected-* -> check             when confirmed
-
-check -> partN/*-redo                 after explicit reset confirmation for that part
+partN/editing -> partM/editing        on switchPart(M), after rollback and checkpoint
+part1/editing                         gains balance／mark evidence in place
+part2/editing                         gains settled／line／mark evidence in place
+part3/editing                         gains observation／selection evidence in place
+partN/editing -> check/complete       on enterCheck only when all three complete
+check/complete -> partN/editing       on switchPart(N), preserving all evidence
+editable/check -> partN/editing       on resetPart(N), clearing only that part
 check -> review                       only through successful/committed SCORM submission handling
 ```
 
@@ -591,12 +567,11 @@ check -> review                       only through successful/committed SCORM su
 
 ```js
 {
-  v: 1,
+  v: 2,
   generatorVersion: 1,
   seed: 123456789,
   phase: "part2",
-  variant: "between-multi-normal",
-  returnToCheck: false,
+  variant: "editing",
   part1: {
     supportEpisodes: [{ x: 0.41, outcome: "left-fall" }, { x: 0.56, outcome: "balanced" }],
     markX: 0.558
@@ -624,7 +599,7 @@ check -> review                       only through successful/committed SCORM su
 
 ```js
 {
-  v: 1,
+  v: 2,
   generatorVersion: 1,
   seed,
   part1: { supportEpisodes, markX },
@@ -652,7 +627,7 @@ Authoritative learner state：
 - part2 plate-local mark；
 - canonical current `view:{yaw10,pitch10}` 及最多兩個 observations；每個 observation item 只可有同樣兩個 integer fields；
 - selected candidate key；
-- phase／variant／returnToCheck。
+- active phase／簡化 variant。
 
 Derived and rebuilt：
 
@@ -678,10 +653,11 @@ Never persisted：
 - support episodes 設合理上限，例如只保留最近 12 次及第一個 balanced episode；重複 spam 不令 snapshot 無限增長。
 - hangRecords／lines 的 hole keys 唯一並存在於 generated plate；line relationship 不可 dangling。
 - 最多 4 條 valid lines；每條 endpoints 不可相同或近零長度。
-- phase dependency 不可倒置：例如 part3 有答案但 part2 未完成。
+- 三部分 substate 互相獨立驗證；active phase 不限制其他部分可否已有答案。
 - `marked` 必須有相應 evidence gate；`review` 必須三部分完整。
 - generated IDs 若出現在舊 snapshot 應忽略並重建，不作 authoritative key。
 - representative maximum draft／review 必須低於 4000 UTF-8 bytes。
+- decoder 確定性遷移舊 v1 `normal`、`redo`、`review` 及 pending-final 內的合法 answer；只移除 sequential／`returnToCheck` 表示並保留 active phase及權威證據。v1 variant、依賴或 evidence 關係損壞時拒絕，不可用 v2 較寬鬆規則洗白；encoder 永遠只輸出 v2。
 
 ### 14.5 Invalid snapshot policy
 

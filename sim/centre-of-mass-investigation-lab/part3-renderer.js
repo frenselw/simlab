@@ -13,20 +13,19 @@ function create(canvas, problem, onContext) {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xdde7e8);
-  scene.fog = new THREE.Fog(0xdde7e8, 6, 11);
+  scene.background = new THREE.Color(0xffffff);
   const camera = new THREE.PerspectiveCamera(34, 1, .1, 30);
   camera.position.set(0, 0, 6.2);
-  scene.add(new THREE.HemisphereLight(0xf8fbff, 0x6d5946, 2.4));
-  const key = new THREE.DirectionalLight(0xfff0d2, 3.2); key.position.set(-3, 5, 5); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x8fc8e4, 2.1); rim.position.set(4, 1, -4); scene.add(rim);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 2.1));
+  const key = new THREE.DirectionalLight(0xffffff, 2.5); key.position.set(-3, 5, 5); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xbfdbfe, 1.6); rim.position.set(4, 1, -4); scene.add(rim);
   const group = new THREE.Group(); scene.add(group);
   const geometry = geometryFor(problem);
-  const solid = new THREE.Mesh(geometry, new THREE.MeshPhysicalMaterial({ color: 0x6ba3bf, roughness: .28, metalness: .03, transparent: true, opacity: .54, transmission: .12, thickness: .9, side: THREE.DoubleSide, depthWrite: false }));
+  const solid = new THREE.Mesh(geometry, new THREE.MeshPhysicalMaterial({ color: 0x60a5fa, roughness: .36, metalness: 0, transparent: true, opacity: .42, transmission: .08, thickness: .6, side: THREE.DoubleSide, depthWrite: false }));
   group.add(solid);
-  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 18), new THREE.LineBasicMaterial({ color: 0x163e58, transparent: true, opacity: .92 })));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 18), new THREE.LineBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .62 })));
   if (problem.type === "sphere") {
     const ringMaterial = new THREE.LineBasicMaterial({ color: 0x214e67, transparent: true, opacity: .55 });
     for (const rotation of [[0,0,0],[Math.PI/2,0,0],[0,Math.PI/2,0]]) {
@@ -39,7 +38,7 @@ function create(canvas, problem, onContext) {
     const dot = new THREE.Mesh(new THREE.SphereGeometry(.065, 18, 12), new THREE.MeshStandardMaterial({ color: 0xf2a444, emissive: 0x6a270b, emissiveIntensity: .15, roughness: .35 }));
     dot.position.fromArray(candidate.position); dot.userData.key = candidate.key; group.add(dot); candidateMeshes.set(candidate.key, dot);
   }
-  const grid = new THREE.GridHelper(8, 16, 0x82949c, 0xb9c4c7); grid.position.y = -1.75; scene.add(grid);
+  const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb); grid.position.y = -1.75; scene.add(grid);
   let lost = false;
   const lostHandler = (event) => { event.preventDefault(); lost = true; onContext?.("lost"); };
   const restoredHandler = () => { lost = false; onContext?.("restored"); };
@@ -47,9 +46,9 @@ function create(canvas, problem, onContext) {
   canvas.addEventListener("webglcontextrestored", restoredHandler, false);
   function render(view, selectedKey) {
     if (lost) return [];
-    const rect = canvas.getBoundingClientRect(), width = Math.max(2, Math.round(rect.width * Math.min(devicePixelRatio || 1, 2))), height = Math.max(2, Math.round(rect.height * Math.min(devicePixelRatio || 1, 2)));
-    if (canvas.width !== width || canvas.height !== height) renderer.setSize(rect.width, rect.height, false);
-    camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix();
+    const rect = canvas.getBoundingClientRect(), cssWidth=Math.max(2,rect.width),cssHeight=Math.max(2,rect.height),width = Math.max(2, Math.round(cssWidth * Math.min(devicePixelRatio || 1, 2))), height = Math.max(2, Math.round(cssHeight * Math.min(devicePixelRatio || 1, 2)));
+    if (canvas.width !== width || canvas.height !== height) renderer.setSize(cssWidth, cssHeight, false);
+    camera.aspect = cssWidth / cssHeight; camera.updateProjectionMatrix();
     group.rotation.order = "YXZ"; group.rotation.y = view.yaw10 * Math.PI / 1800; group.rotation.x = view.pitch10 * Math.PI / 1800;
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
