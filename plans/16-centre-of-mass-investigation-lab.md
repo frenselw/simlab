@@ -259,7 +259,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 使用 fixed timestep、semi-implicit Euler 更新；
 - frame gap 要 clamp，background tab 恢復時不可一次跳過整段動畫；
 - damping 選為明顯但不拖延的 underdamped 效果，目標在約 `1.5–3.0 s` 內視覺停止；
-- 每個 hole instance 使用固定 damping ratio `ζ = 0.32`，並按 `c = 2ζ√(I_p Mgd)` 計算 dimensionally consistent damping；不得跨不同 `I_p`／`M`／`d` 使用同一裸常數 `c`。
+- 每個 hole instance 使用固定 damping ratio `ζ = 0.55`，並按 `c = 2ζ√(I_p Mgd)` 計算 dimensionally consistent damping；不得跨不同 `I_p`／`M`／`d` 使用同一裸常數 `c`。
 - fixed timestep `Δt = 1/120 s`，每個 rendered frame 最多 catch up `0.05 s`；更大 background gap 暫停而非一次積分。
 - 同時滿足 `|φ| < φ_stop = 0.75°` 及 `|ω| < ω_stop = 1.5°/s` 持續 `0.25 s` 才視為 settled；
 - settled 時把姿態吸附到解析平衡方向，消除積分殘差；
@@ -757,7 +757,7 @@ Never persisted：
 - [ ] part2 polygon 不自交、重心安全距離、孔數／孔距、可用 line-angle pair。
 - [ ] `S = √A` 對每個 plate template 唯一重建；所有 `0.025S`、`0.45S`、`0.03S`、`0.07S` just-inside／just-outside boundaries 共用同一尺度。
 - [ ] part2 equilibrium 令 pivot→COM world vector 垂直向下。
-- [ ] damping 按 `ζ = 0.32` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step、frame-gap clamp、threshold dwell及 settled snap。
+- [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step、frame-gap clamp、threshold dwell及 settled snap。
 - [ ] world↔plate-local transform round-trip。
 - [ ] 畫線 validity：穿孔距離、垂直角、最短長度 boundaries。
 - [ ] 兩線 intersection及 3–4 線 least-squares；平行／近退化拒絕。
