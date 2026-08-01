@@ -5,6 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
   const BALANCE_TOLERANCE = 0.018;
+  const INVERTED_ESCAPE = 3 * Math.PI / 180;
   const finite = Number.isFinite;
   const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
   function supportOutcome(x, xCm) {
@@ -43,6 +44,7 @@
     return { x: x * c + y * s, y: -x * s + y * c };
   }
   function equilibriumAngle(hole, centre) { return Math.atan2(centre.x - hole.x, centre.y - hole.y); }
+  function angularDifference(angle, target) { return ((angle - target + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; }
   function damping({ inertia, mass, distance, gravity = 9.81, zeta = 0.55 }) {
     const c = 2 * zeta * Math.sqrt(inertia * mass * gravity * distance);
     return finite(c) && c > 0 ? c : null;
@@ -50,18 +52,20 @@
   function createSwing(problem, hole, angle) {
     const dx = problem.centre.x - hole.x, dy = problem.centre.y - hole.y;
     const distance = Math.hypot(dx, dy), mass = problem.mass;
-    const inertiaCm = problem.inertiaCm, inertia = inertiaCm + mass * distance * distance;
-    return { angle, omega: 0, target: equilibriumAngle(hole, problem.centre), distance, inertiaCm, inertia, mass,
+    const inertiaCm = problem.inertiaCm, inertia = inertiaCm + mass * distance * distance, target = equilibriumAngle(hole, problem.centre);
+    const phi = angularDifference(angle, target);
+    if (Math.PI - Math.abs(phi) < INVERTED_ESCAPE) angle = target + (phi < 0 ? -1 : 1) * (Math.PI - INVERTED_ESCAPE);
+    return { angle, omega: 0, target, distance, inertiaCm, inertia, mass,
       damping: damping({ inertia, mass, distance }), settledFor: 0 };
   }
   function stepSwing(swing, dt, mass = 1) {
     const elapsed = clamp(dt, 0, 0.05), fixed = 1 / 120;
     let remaining = elapsed;
     while (remaining >= fixed - 1e-9) {
-      const phi = swing.angle - swing.target;
+      const phi = angularDifference(swing.angle, swing.target);
       const alpha = (-mass * 9.81 * swing.distance * Math.sin(phi) - swing.damping * swing.omega) / swing.inertia;
       swing.omega += alpha * fixed; swing.angle += swing.omega * fixed; remaining -= fixed;
-      if (Math.abs(swing.angle - swing.target) < 0.75 * Math.PI / 180 && Math.abs(swing.omega) < 1.5 * Math.PI / 180) swing.settledFor += fixed;
+      if (Math.abs(angularDifference(swing.angle, swing.target)) < 0.75 * Math.PI / 180 && Math.abs(swing.omega) < 1.5 * Math.PI / 180) swing.settledFor += fixed;
       else swing.settledFor = 0;
     }
     if (swing.settledFor >= 0.25) { swing.angle = swing.target; swing.omega = 0; return true; }
@@ -105,5 +109,5 @@
   }
   return { BALANCE_TOLERANCE, finite, clamp, supportOutcome, canonicalView, viewVector, orientationDifference,
     validObservations, transform, inverseTransform, equilibriumAngle, damping, createSwing, stepSwing,
-    pointLineDistance, acuteLineAngle, lineValid, leastSquares, project };
+    pointLineDistance, acuteLineAngle, lineValid, leastSquares, project, angularDifference, INVERTED_ESCAPE };
 });

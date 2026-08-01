@@ -260,6 +260,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - frame gap 要 clamp，background tab 恢復時不可一次跳過整段動畫；
 - damping 選為明顯但不拖延的 underdamped 效果，目標在約 `1.5–3.0 s` 內視覺停止；
 - 每個 hole instance 使用固定 damping ratio `ζ = 0.55`，並按 `c = 2ζ√(I_p Mgd)` 計算 dimensionally consistent damping；不得跨不同 `I_p`／`M`／`d` 使用同一裸常數 `c`。
+- 若初始姿態落在倒立不穩定平衡的 `3°` 範圍內，runtime 以固定方向將 transient angle 移到離倒立點 `3°` 的位置，模擬實際釘孔／手部不可避免的微小擾動；不改解析 settled target、權威答案或 scoring。一般生成姿態維持約 `1.5–3.0 s`，此倒立 escape 例外須在 `4.3 s` 內停止，永不無限鎖定。
 - fixed timestep `Δt = 1/120 s`，每個 rendered frame 最多 catch up `0.05 s`；更大 background gap 暫停而非一次積分。
 - 同時滿足 `|φ| < φ_stop = 0.75°` 及 `|ω| < ω_stop = 1.5°/s` 持續 `0.25 s` 才視為 settled；
 - settled 時把姿態吸附到解析平衡方向，消除積分殘差；
