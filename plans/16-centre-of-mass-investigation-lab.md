@@ -15,7 +15,7 @@
   - 在平板上平移、用旋轉手柄轉動、將指定小孔套上牆釘、等待阻尼擺停止；
   - 沿鉛垂線在平板本地座標中畫線，並在交會位置標註重心；
   - 旋轉半透明均勻立體，由多個三維候選點選出幾何中心；
-  - touch／pen 精細操作期間使用固定角落的即時真實場景 preview window。
+  - 只有第二部分 touch／pen 精細操作期間使用固定角落的即時真實場景 preview window；第一及第三部分不顯示 preview。
 - Runtime files planned:
   - `sim/centre-of-mass-investigation-lab/index.html`
   - `sim/centre-of-mass-investigation-lab/styles.css`
@@ -225,11 +225,7 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 
 ### 6.3 第一部分 preview window
 
-- touch／pen 拖動承托點時必須立即顯示真實 SVG 局部預覽；mouse／keyboard 不顯示。第一部分沒有可拖動的重心標註點。
-- preview 固定在 pointerdown 時離手指最遠的 stage 角落，整個 gesture 不換角，避免跳動。
-- crop 中心跟隨實際承托尖端，顯示當前杆、承托點及原有刻度背景；平衡完成前不得加入真重心、方向提示、額外十字線或數值答案。
-- 原圖被拖 target 加強 highlight；preview `pointer-events:none`、`aria-hidden:true`，不改 layout、scroll height 或 learner state。
-- pointerup、pointercancel、lostpointercapture、blur、reset、phase change、restore 及 render rollback 立即清除。
+- 第一部分 touch／pen 承托操作不顯示 preview；直接在 stage 觀察杆及承托點即可。
 
 ### 6.4 第一部分答案與 tolerance
 
@@ -400,13 +396,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 自動動畫、restore render、preview render 及微小手震不算觀察證據。
 - 第一次 observation 解鎖候選點提示及 tentative selection；兩個 observation 齊全後才可完成第三部分，scorer 同時檢查 evidence，不能只信任 UI gate。
 
-### 8.4 第三部分 preview window
+### 8.4 第三部分 touch feedback（不顯示 preview）
 
-- touch／pen orbit drag 及候選點 pointerdown 時顯示固定角落 Canvas preview；mouse／keyboard 不顯示。
-- preview 使用同一份當前 3D model state 及 renderer 在第二個小 Canvas 重畫，不能使用低資訊量的合成圖示。
-- orbit drag 時 crop／camera focus 跟隨 pointerdown 對應的 model-space surface point或最近候選區域；候選點操作時以該候選點為中心。
-- preview 顯示真實立體面、邊及候選點，但不得加上幾何中心、答案十字、額外深度數值或 scorer 提示。
-- 固定於最遠角落、`pointer-events:none`、`aria-hidden:true`，在 gesture 結束或取消立即清除。
+- touch／pen orbit drag 及候選點 pointerdown 時不顯示 preview。
+- 第三部分不建立第二個 preview Canvas；主 Canvas 及穩定 HTML candidate targets 必須直接提供足夠觀察及操作資訊。
+- orbit drag 直接更新主 Canvas 的 model-space view；候選點使用穩定 HTML hit target，不以 preview 取代主畫面資訊。
 
 ### 8.5 第三部分 scoring tolerance
 
@@ -451,7 +445,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 |---|---|---:|---|
 | 已知非互動 stage 空白 | Moodle／enclosing host | host 非零並帶動 iframe；activity document、panel、visual viewport 為 0 | 不開始 drag、不改 learner state |
 | independently scrolling control panel | panel only | panel 有 range 時非零；host、iframe、activity document、兩邊 visual viewport 為 0 | stage 固定；邊界亦不 chain 到 host |
-| 一維承托 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | 承托架移動；有 pointermove＋pointerup；無 pointercancel；preview 正常清除 |
+| 一維承托 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | 承托架移動；有 pointermove＋pointerup；無 pointercancel；不顯示 preview |
 | 二維平板／孔／旋轉手柄／畫線／標註 | simulation | 同上全部為 0 | 正確 target 獨佔 gesture，沒有平移／旋轉模式串擾 |
 | 三維 orbit／candidate target | simulation | 同上全部為 0 | orbit 或 selection 只發生其一；無誤選及 pointercancel |
 
@@ -461,7 +455,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - 每個 direct-manipulation hit target 在 `pointerdown` 前已有 `touch-action:none`；不可在 pointerdown 後才動態加入。
 - 不在整個 SVG／Canvas／stage 設 `touch-action:none`。
 - draw mode 只令 plate material region 內的 stable drawing hit layer 使用 `touch-action:none`；material 外 stage 空白保持 `pan-y`。trusted iframe matrix 必須在 draw mode 開啟時分別驗證板內畫線 gesture 及板外 host-owned swipe。
-- pointerdown 只接受 primary active gesture；第二指不可接管或改 preview focus。
+- pointerdown 只接受 primary active gesture；第二指不可接管或改 Part 2 preview focus。
 - capture target 保持 mounted，直至 pointerup／cancel／lost capture。
 - 每個 gesture 記錄 grab offset／angle offset；target 不跳到手指中心。
 - Moodle-like scrollable iframe 必須以 trusted touch gestures 分別測 source 及 packaged SCORM；DOM `dispatchEvent`、CSS source check 或 direct-page 測試不算完整證據。
@@ -471,9 +465,8 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 
 ### 11.1 啟用範圍
 
-- 所有 touch／pen 的精細 drag target 必須顯示 preview。
-- 第三部分廣域 orbit drag 亦顯示真實 renderer preview，以符合一致觸控回饋；mouse／keyboard 不顯示。
-- tap-only target 可在 pointerdown 顯示 preview，若未成為 drag，pointerup 後立即消失；preview 本身不等於答案或操作證據。
+- 只有第二部分 touch／pen 的精細 drag target 顯示 preview；第一及第三部分 touch 操作不顯示 preview。
+- Part 2 tap-only target 可在 pointerdown 顯示 preview，若未成為 drag，pointerup 後立即消失；preview 本身不等於答案或操作證據。
 
 ### 11.2 視覺及資料規則
 
@@ -785,7 +778,7 @@ Never persisted：
 - [ ] translation／rotation／hole／draw targets 不串擾。
 - [ ] pointerup、cancel、lost capture、blur、phase change 全部清 preview。
 - [ ] preview 固定最遠角、真實 scene content、sanitized、no recursive clone、no answer overlay。
-- [ ] mouse／keyboard 不顯示 touch preview。
+- [ ] Part 2 touch／pen 顯示 preview；Part 1／Part 3 及 mouse／keyboard 不顯示 preview。
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
 - [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
@@ -803,7 +796,7 @@ Never persisted：
 - [ ] source direct page及 packaged SCORM 均運作。
 - [ ] scrollable Moodle-like iframe 具有上下 host range，記錄 host／iframe／activity document／panel／兩邊 visual viewport。
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
-- [ ] 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta。
+- [ ] Part 2 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
 - [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px，畫線完成無 pageerror／無向上跳；marker 對任意線對吸附。
 
@@ -845,7 +838,7 @@ Never persisted：
 
 ### Batch 4 — preview and accessibility
 
-1. 建立共用但 activity-local 的 preview controller；SVG clone及 Canvas re-render 分開 adapter。
+1. 建立共用但 activity-local 的 Part 2 preview controller；只需要 SVG clone adapter。
 2. 逐 target 驗證 fixed-corner、sanitization、cleanup及 scroll isolation。
 3. 完成 native math formatter、formula CSS、ARIA、live region、reduced motion及 high contrast。
 
@@ -865,7 +858,7 @@ Never persisted：
 - [ ] 平板可用 mouse、單指手柄、keyboard／buttons 旋轉；雙指不是必需。
 - [ ] 阻尼擺最後令重心位於 pivot 正下方，且 reduced motion 仍保留因果。
 - [ ] 第三部分候選點固定在三維物體內，旋轉後 depth／hit test 正確。
-- [ ] 所有 touch／pen 直接操作有真實、固定角落 preview；不洩漏答案、不攔截 pointer、不寫 persistence。
+- [ ] Part 2 touch／pen 直接操作有真實、固定角落 preview；Part 1／Part 3 不顯示 preview，且 preview 不洩漏答案、不攔截 pointer、不寫 persistence。
 - [ ] 所有物理量及公式使用一致 native LaTeX-like semantic typography，無 learner-facing raw TeX。
 - [ ] 正確答案欠操作證據不獲結果分；完全無有效操作的直接猜測總分為 0。
 - [ ] draft／review 可重建、可重算、可重畫；snapshot < 4000 bytes。
