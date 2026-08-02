@@ -277,6 +277,9 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - mouse／touch／pen 拖動平板內非孔、非旋轉手柄的可見區域，整塊平板跟隨相對 grab offset 平移，不跳到 pointer 中心。
 - 平移時保持目前角度不變。
 - 鍵盤聚焦平板後，方向鍵平移，Shift＋方向鍵較大步距。
+- 牆釘固定在 stage 的中央 canonical 坐標 `p_nail=(350,230)`；平移及重掛的所有 snap 距離均以此同一點計算，避免牆釘隨 viewport 或平板移動。
+- 自由平移及旋轉以平板外輪廓與 canonical viewport 的裁切面積計算可見比例。桌面至少保留 `20%` 的外輪廓（最多 `80%` 出框）；窄／手機 stage 至少保留 `30%`（最多 `70%` 出框），並同時保留不少於 `64 × 64 CSS px` 的可操作可見區域。拖動若會跨過界線，沿原拖動向量以二分搜尋停在最後一個合法姿態，不突然把平板吸回中心。
+- 以上可見比例約束只限制自由人工平移／旋轉；掛釘後的物理擺動以中央釘為固定 pivot，平板在釘位附近保持可重建、可重掛的姿態。
 
 #### 旋轉
 
@@ -785,6 +788,7 @@ Never persisted：
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
 - [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點旋轉後仍被 clamp 在可見 SVG 內。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
+- [ ] 二維牆釘固定於 canonical stage 中央 `(350,230)`；source／package trusted mouse、touch 拖動在桌面最多 80% 出框、手機最多 70% 出框，並保留可操作可見區域；越界拖動停在最後合法姿態。
 - [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
 - [ ] native formula markup 包含 `<var>`、sub/sup、upright units、role math、ARIA；無 MathJax／raw TeX。
 - [ ] reduced-motion 路徑仍產生正確 settled semantic event。
