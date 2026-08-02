@@ -358,11 +358,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - renderer construction failure 立即切換 Canvas；`webglcontextlost` 必須 `preventDefault()` 並以 Canvas 顯示 canonical state，`webglcontextrestored` 後以同一 canonical state 重建畫面，不產生 observation evidence。
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
-- 立體以半透明面、清楚輪廓及深度排序顯示；後方候選點透明度稍低，不能只用顏色表達深度。
+- 立體以半透明面、清楚輪廓及深度排序顯示；A–E 候選點保持一致的實心藍色樣式，不能以空心／半透明點造成視覺歧義，深度由輪廓、引導線及文字狀態補充。
 - 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
-- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見 HTML 標籤覆蓋投影點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。標籤離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
+- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見、填色藍色 HTML A–E 標籤覆蓋投影點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。每個 pointermove 都要同步更新投影錨點、標籤位置及引導線，不能等 pointerup 才重排；標籤離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
-- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、可見字母的 44 px hit target，選中時即時以形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、實心藍色圓點及可見白色字母，至少 `46 × 46 CSS px`，選中時即時以紅色形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 
 ### 8.2 電腦及手機旋轉操作
@@ -378,7 +378,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
-- 候選點只以細小藍色 A–E 標記顯示，HTML hit target 保持透明且至少 `44 × 44 CSS px`，不再用大圓形按鈕覆蓋立體。
+- 候選點以清晰、統一的實心藍色 A–E 標記顯示，HTML hit／visual target 至少 `46 × 46 CSS px`；不使用空心或深度造成的半透明變體。
 - 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，亦不能進入 check。
 
 #### Keyboard／compact equivalent
@@ -458,6 +458,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - pointerdown 只接受 primary active gesture；第二指不可接管或改 Part 2 preview focus。
 - capture target 保持 mounted，直至 pointerup／cancel／lost capture。
 - 每個 gesture 記錄 grab offset／angle offset；target 不跳到手指中心。
+- 第二部分的 SVG 可能因手機 stage 比例而 letterbox；孔、旋轉手柄、重心標記及畫線 layer 必須透過 SVG screen transform 對齊可見圖形，pointer coordinate 亦以同一 transform 反算，不能直接把 `viewBox` 百分比當成整個 stage 百分比。
 - Moodle-like scrollable iframe 必須以 trusted touch gestures 分別測 source 及 packaged SCORM；DOM `dispatchEvent`、CSS source check 或 direct-page 測試不算完整證據。
 - 若 iframe 原生行為未能把 stage 空白 swipe 交給 host，應調整 scroll topology 或只轉交同一 host owner；禁止把 stage swipe 轉發至 sibling panel。
 

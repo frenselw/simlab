@@ -51,7 +51,7 @@ function create(canvas, problem, onContext) {
   }
   const candidateMeshes = new Map();
   for (const candidate of problem.candidates) {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(.045, 14, 10), new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
     dot.position.fromArray(candidate.position); dot.userData.key = candidate.key; group.add(dot); candidateMeshes.set(candidate.key, dot);
   }
   const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb); grid.position.y = -1.75; scene.add(grid);
