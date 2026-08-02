@@ -284,7 +284,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 #### 旋轉
 
-- 平板外側顯示一個簡潔弧形旋轉手柄，視覺約 `24–32 px`，hit target 至少 `44 × 44 CSS px`。每次 render 在兩個相反候選位置中選擇較安全的一側，並 clamp 到 stage 內至少 22 px inset；平板靠近頂／側邊時手柄須自動翻側而不消失。
+- 平板外側顯示一個高對比紫色旋轉拖動點，旁邊有「拖動旋轉」文字，hit target 至少 `44 × 44 CSS px`。每次 render 在兩個相反候選位置中選擇較安全的一側，並 clamp 到 stage 內至少 22 px inset；平板靠近頂／側邊時拖動點及文字須自動翻側而不消失。
 - mouse／單指／pen 拖動旋轉手柄時，以 pointer 相對平板中心的 `atan2` 角度差更新 `θ`；平板中心在此 gesture 內保持不動。
 - pointerdown 記錄角度 offset，避免一按下就跳角。
 - 旋轉手柄保留可聚焦等價操作；learner-facing 面板不顯示 keyboard disclosure，亦不在主 control panel 建立操作按鈕牆。
@@ -803,7 +803,7 @@ Never persisted：
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
 - [ ] 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
-- [ ] source 及 packaged SCORM 驗證 rotate arrow／arrowhead 在 phone、desktop 清晰、target 至少 44 px，畫線完成無 pageerror／無向上跳；marker 對任意線對吸附。
+- [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px，畫線完成無 pageerror／無向上跳；marker 對任意線對吸附。
 
 ### 18.6 Lifecycle／package tests
 
