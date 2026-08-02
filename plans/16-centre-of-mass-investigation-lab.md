@@ -164,14 +164,14 @@
 
 ### 5.3 第二部分生成限制
 
-- 平板使用一組已驗證的不規則簡單多邊形模板，再以 seed 選擇 2–4 個隱藏正質量 ballast；不在 runtime 隨機生成未驗證的自交多邊形。
-- 所有平板長度使用同一 plate-local unit；定義 characteristic size `S = √A`，其中 `A` 是平板多邊形的 plate-local 面積。下文所有百分比距離及 scorer tolerance 均以此 `S` 為唯一尺度，不使用 bounding-box width／height／diagonal。
-- 平板總重心由面密度基底與 ballast 加權求得；必須位於多邊形內部安全區，與邊界距離至少為 `0.08S`。
-- 生成 3–5 個可見小孔，全部位於平板內並有足夠邊界厚度。
+- 平板使用多組已驗證的 shape template；每個 template 以外輪廓 `polygon` 及零個或多個 `cutouts` 內輪廓表示，不在 runtime 隨機生成未驗證的自交多邊形。v2 至少包含不規則實心板、角形板及環狀／空心板；v1 舊 generator 保留供舊 attempt 重建。
+- 所有平板長度使用同一 plate-local unit；定義 characteristic size `S = √A`，其中 `A = area(polygon) − Σ area(cutouts)` 是實際物料面積。下文所有百分比距離及 scorer tolerance 均以此 `S` 為唯一尺度，不使用 bounding-box width／height／diagonal。
+- 平板總重心由各 template 的質量模型重建；實心板重心位於物料安全區，環狀板則可刻意位於中央 `cutout`（即重心在物料以外的空間），但必須位於外輪廓內並保持所有物理量 finite。
+- 生成 3–5 個可見小孔，全部位於實際物料區（不可落入 `cutouts`）並有足夠邊界厚度。
 - 每個孔與真重心距離不少於 `0.18S`，否則懸掛方向不穩定。
 - 至少存在一對孔，使兩次懸掛後記錄在平板本地座標的鉛垂線夾角介乎 `45°–135°`。
 - 任何兩孔的可觸控 hit targets 在初始姿態不可完全重疊。
-- 幾何形心與質量重心至少相差 `0.06S`，確保「非均勻」有實際意義，但視覺外觀不可直接透露 ballast。
+- 實心非均勻模板的幾何形心與質量重心至少相差 `0.06S`；環狀模板以「幾何中心位於空心開口」作為觀察重點，不強行加入偏心 ballast，視覺外觀不可直接透露答案。
 
 ### 5.4 第三部分生成限制
 
@@ -242,7 +242,7 @@ I_s\ddot{\theta}=Mgd\cos\theta-c\dot\theta
 ### 7.1 坐標系及權威資料
 
 - `world coordinates`：牆、釘、重力方向與 pointer 的畫面坐標；向下為正 `y`。
-- `plate-local coordinates`：多邊形、孔、已畫線、學生重心標註及隱藏重心的固定坐標。
+- `plate-local coordinates`：外輪廓、內部 cutouts、孔、已畫線、學生重心標註及隱藏重心的固定坐標；重心可落在 cutout 開口。
 - 平板的 world transform 只由平移 `p=(p_x,p_y)` 及角度 `θ` 導出。
 - 學生畫落平板的線必須轉換並儲存為 plate-local endpoints；之後平板移動或轉動，舊線跟平板一起移動及轉動。
 - 不可把線保存在牆面／viewport 坐標，否則不同懸掛姿態的交點沒有物理意義。
@@ -435,10 +435,10 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | Target type | Selector／hit strategy | Capture target | Rendering 可在 drag 中替換？ |
 |---|---|---|---:|
 | 一維承托點 | 明確 SVG rect／HTML overlay，最少 52×52 CSS px | 穩定 hit target | No |
-| 二維平板平移面 | visible polygon 的獨立 stable overlay，不覆蓋孔／手柄 | stage interaction layer | No |
+| 二維平板平移面 | visible material region（外輪廓扣除 cutouts）的獨立 stable overlay，不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
-| 二維畫線／取下層 | 只覆蓋目前平板可見 polygon 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
+| 二維畫線／取下層 | 只覆蓋目前平板可見 material region 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
 | 三維候選點 A–E | 投影位置對應的 stable HTML buttons／hit overlays | 各 candidate button | No |
@@ -460,7 +460,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - stage root blank region: `touch-action:pan-y`。
 - 每個 direct-manipulation hit target 在 `pointerdown` 前已有 `touch-action:none`；不可在 pointerdown 後才動態加入。
 - 不在整個 SVG／Canvas／stage 設 `touch-action:none`。
-- draw mode 只令 plate polygon 內的 stable drawing hit layer 使用 `touch-action:none`；polygon 外 stage 空白保持 `pan-y`。trusted iframe matrix 必須在 draw mode 開啟時分別驗證板內畫線 gesture 及板外 host-owned swipe。
+- draw mode 只令 plate material region 內的 stable drawing hit layer 使用 `touch-action:none`；material 外 stage 空白保持 `pan-y`。trusted iframe matrix 必須在 draw mode 開啟時分別驗證板內畫線 gesture 及板外 host-owned swipe。
 - pointerdown 只接受 primary active gesture；第二指不可接管或改 preview focus。
 - capture target 保持 mounted，直至 pointerup／cancel／lost capture。
 - 每個 gesture 記錄 grab offset／angle offset；target 不跳到手指中心。
@@ -740,8 +740,9 @@ Never persisted：
 - [ ] 同一 version＋seed 在 Node／browser 重建完全相同題目。
 - [ ] part1 質量全正、重心範圍、偏離中點及左右分布覆蓋。
 - [ ] part1 torque sign、balance tolerance just-inside／just-outside、跌落方向。
-- [ ] part2 polygon 不自交、重心安全距離、孔數／孔距、可用 line-angle pair。
-- [ ] `S = √A` 對每個 plate template 唯一重建；所有 `0.025S`、`0.45S`、`0.03S`、`0.07S` just-inside／just-outside boundaries 共用同一尺度。
+- [ ] part2 outer polygon／cutouts 不自交、環狀重心可在 cutout、孔位落在 material、孔數／孔距、可用 line-angle pair。
+- [ ] `S = √(outer area − cutout areas)` 對每個 plate template 唯一重建；所有 `0.025S`、`0.45S`、`0.03S`、`0.07S` just-inside／just-outside boundaries 共用同一尺度。
+- [ ] generator v1 舊題目仍可用 seed 重建；v2 shape kind、cutouts、area、centre 及 inertia deterministic。
 - [ ] part2 equilibrium 令 pivot→COM world vector 垂直向下。
 - [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step、frame-gap clamp、threshold dwell及 settled snap。
 - [ ] world↔plate-local transform round-trip。

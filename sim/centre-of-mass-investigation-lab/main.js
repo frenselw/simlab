@@ -109,7 +109,7 @@
         if (!reviewMetadataValid(attempt.snapshot)) return safeFallback(attempt, "已完成 attempt 的保存分數或合格 metadata 不是 canonical 類型。");
         const restored = Persistence.fromReview(attempt.snapshot?.answer);
         if (!restored) return safeFallback(attempt, "已完成 attempt 的詳細答案無法驗證。");
-        state = restored; problem = Generator.generate(state.seed); const computed = Scoring.score(state);
+        state = restored; problem = Generator.generate(state.seed, state.generatorVersion); const computed = Scoring.score(state);
         const trusted = SimActivityFlow.reviewResult(computed, attempt.snapshot, attempt); latestResult = trusted.result; latestReview = state;
         renderReview(trusted.result, trusted.trusted, trusted.trusted ? "已提交並鎖定" : "Moodle 記錄與活動重算不一致");
       } else if (outcome === "frozen") {
@@ -118,12 +118,12 @@
           const restored = Persistence.fromReview(saved?.answer), computed = restored && Scoring.score(restored);
           if (!restored || !reviewMatches(saved, payload, computed)) throw new Error("rejected pending payload");
           pendingExpected = Object.freeze({ reviewJson: payload.reviewJson, score: payload.score, maxScore: payload.maxScore, passed: payload.passed });
-          state = restored; problem = Generator.generate(state.seed); latestReview = restored; latestResult = computed; presentation = "pending"; renderReview(null, false, "上次提交仍待確認；只可重試同一份已凍結答案。"); dom.retry.classList.remove("is-hidden");
+          state = restored; problem = Generator.generate(state.seed, state.generatorVersion); latestReview = restored; latestResult = computed; presentation = "pending"; renderReview(null, false, "上次提交仍待確認；只可重試同一份已凍結答案。"); dom.retry.classList.remove("is-hidden");
         } catch { SimScorm.quarantinePending(); technicalLock("待提交資料的權威答案或證據不一致；已停止自動重試。"); }
       } else technicalLock("無法安全讀取 Moodle attempt；操作及分數均未確認。");
     }
     function checkpoint() { if (locked || !Persistence.validate(state)) return false; committedState = Persistence.decode(Persistence.encode(state)); return SimScorm.saveDraft(SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encode(committedState))); }
-    function update(next, message) { if (locked || !next) { announce("目前證據未達到這項操作的要求。"); return false; } clearGesture(); state = next; problem = Generator.generate(state.seed); checkpoint(); render(); announce(message); return true; }
+    function update(next, message) { if (locked || !next) { announce("目前證據未達到這項操作的要求。"); return false; } clearGesture(); state = next; problem = Generator.generate(state.seed, state.generatorVersion); checkpoint(); render(); announce(message); return true; }
     function announce(message) { dom.live.textContent = ""; requestAnimationFrame(() => { dom.live.textContent = message; }); }
     function testSupport() {
       if (fallRuntime || locked) return;
@@ -160,7 +160,7 @@
     function scheduleSwing() { if (swingRuntime && !swingFrame && !document.hidden) swingFrame = requestAnimationFrame(swingTick); }
     function pauseSwing() { if (!swingRuntime) return; if (swingFrame) cancelAnimationFrame(swingFrame); swingFrame = 0; swingLastTime = null; dom.preview.replaceChildren(); dom.preview.className = "preview is-hidden"; }
     function resumeSwing() { if (swingRuntime) { swingLastTime = null; scheduleSwing(); } }
-    function finishLineWhileHung(next) { state=next;problem=Generator.generate(state.seed);checkpoint();render();announce("線段已記錄；平板會保持懸掛，可重畫或拖走平板。"); }
+    function finishLineWhileHung(next) { state=next;problem=Generator.generate(state.seed, state.generatorVersion);checkpoint();render();announce("線段已記錄；平板會保持懸掛，可重畫或拖走平板。"); }
     function hangSelected() {
       if (!selectedHole || state.phase !== "part2" || state.part2.activeHoleKey || swingRuntime || locked) return announce("請先選擇一個小孔。");
       const hole = problem.part2.holes.find((item) => item.key === selectedHole); if (!hole) return;
@@ -202,13 +202,16 @@
     }
     function localToSvg(point) { const c = Math.cos(platePose.angle), s = Math.sin(platePose.angle), scale = 245; return { x: platePose.x + (point.x * c - point.y * s) * scale, y: platePose.y + (point.x * s + point.y * c) * scale }; }
     function svgToLocal(point) { const dx = (point.x - platePose.x) / 245, dy = (point.y - platePose.y) / 245, c = Math.cos(platePose.angle), s = Math.sin(platePose.angle); return { x: dx * c + dy * s, y: -dx * s + dy * c }; }
-    function platePath() { return problem.part2.polygon.map((point, i) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${i ? "L" : "M"}${p.x},${p.y}`; }).join(" ") + " Z"; }
+    function pathForPoints(points) { return points.map((point, i) => { const p = localToSvg({ x: point[0], y: point[1] }); return `${i ? "L" : "M"}${p.x},${p.y}`; }).join(" ") + " Z"; }
+    function platePath() { return [problem.part2.polygon, ...(problem.part2.cutouts || [])].map(pathForPoints).join(" "); }
+    function pointInPolygon(point, polygon) { let inside = false; for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) { const a = polygon[i], b = polygon[j], crosses = (a[1] > point.y) !== (b[1] > point.y); if (crosses && point.x < (b[0] - a[0]) * (point.y - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside; } return inside; }
+    function pointInMaterial(point) { return pointInPolygon(point, problem.part2.polygon) && !(problem.part2.cutouts || []).some((cutout) => pointInPolygon(point, cutout)); }
     function safeHandlePoint() { const rect=dom.stage.getBoundingClientRect(),insetX=Math.max(23,23*700/Math.max(1,rect.width)),insetY=Math.max(23,23*460/Math.max(1,rect.height)),candidates=[localToSvg({x:.68,y:-.58}),localToSvg({x:-.68,y:.58})],margin=(p)=>Math.min(p.x-insetX,700-insetX-p.x,p.y-insetY,460-insetY-p.y),best=candidates.sort((a,b)=>margin(b)-margin(a))[0];return{x:Model.clamp(best.x,insetX,700-insetX),y:Model.clamp(best.y,insetY,460-insetY)}; }
     function nearestSnapCandidate(preferredKey = null) { const eligible=problem.part2.holes.filter((hole)=>preferredKey===null||hole.key===preferredKey);let best=null;for(const hole of eligible){const point=localToSvg(hole),distance=Math.hypot(point.x-350,point.y-42);if(distance<=42&&(!best||distance<best.distance))best={key:hole.key,distance};}return best?.key||null; }
     function updateSnapCandidate(preferredKey = null) { snapCandidateKey=nearestSnapCandidate(preferredKey);renderPart2(true);syncPart2Targets(); }
-    function prepareTakeDown() { if (!state.part2.activeHoleKey) return true; const next=Persistence.detachActiveHole(state);if(!next)return false;state=next;problem=Generator.generate(state.seed);return checkpoint(); }
+    function prepareTakeDown() { if (!state.part2.activeHoleKey) return true; const next=Persistence.detachActiveHole(state);if(!next)return false;state=next;problem=Generator.generate(state.seed, state.generatorVersion);return checkpoint(); }
     function finishPlateDrop(preferredKey = null) { const key=snapCandidateKey||nearestSnapCandidate(preferredKey);snapCandidateKey=null;if(!key){render();announce("小孔未在牆釘的對準範圍內，未形成懸掛證據。");return;}selectedHole=key;alignHoleToNail(problem.part2.holes.find((hole)=>hole.key===key));render();hangSelected(); }
-    function beginPlateDrag(event,target,preferredKey=null) { if(gesture||locked||event.button>0||swingRuntime||!prepareTakeDown())return;beginDrag(event,target,preferredKey?`hole-${preferredKey}`:"plate",(point,previous)=>{platePose.x+=point.x-previous.x;platePose.y+=point.y-previous.y;updateSnapCandidate(preferredKey);updatePreview();},()=>finishPlateDrop(preferredKey)); }
+    function beginPlateDrag(event,target,preferredKey=null) { if(gesture||locked||event.button>0||swingRuntime||!preferredKey&&!pointInMaterial(svgToLocal(clientPoint(event)))||!prepareTakeDown())return;beginDrag(event,target,preferredKey?`hole-${preferredKey}`:"plate",(point,previous)=>{platePose.x+=point.x-previous.x;platePose.y+=point.y-previous.y;updateSnapCandidate(preferredKey);updatePreview();},()=>finishPlateDrop(preferredKey)); }
     function syncPart2Targets() {
       const plate = dom.direct.querySelector('[data-direct-target="plate"]'); if (plate) plate.style.clipPath = `polygon(${problem.part2.polygon.map((point) => { const p=localToSvg({x:point[0],y:point[1]});return `${p.x/7}% ${p.y/4.6}%`; }).join(",")})`;
       for (const target of dom.direct.querySelectorAll("[data-hole-key]")) { const hole = problem.part2.holes.find((item) => item.key === target.dataset.holeKey), point = hole && localToSvg(hole); if (point) { target.style.left = `${point.x / 7}%`; target.style.top = `${point.y / 4.6}%`; } }
@@ -225,7 +228,7 @@
       return best;
     }
     function renderPart2(visualsOnly = false) {
-      dom.svg.replaceChildren(svgEl("rect", { x:0,y:0,width:700,height:460,fill:"#ffffff",class:"blank-stage" }),svgEl("line",{x1:24,y1:86,x2:676,y2:86,stroke:"#e5e7eb","stroke-width":1}),svgEl("circle",{cx:350,cy:42,r:snapCandidateKey?35:31,fill:"#dbeafe",opacity:.72,class:snapCandidateKey?"snap-ring":""}),svgEl("circle",{cx:350,cy:42,r:5,fill:snapCandidateKey?"#f97316":"#1e40af"}),svgEl("path",{d:platePath(),class:"plate"}));
+      dom.svg.replaceChildren(svgEl("rect", { x:0,y:0,width:700,height:460,fill:"#ffffff",class:"blank-stage" }),svgEl("line",{x1:24,y1:86,x2:676,y2:86,stroke:"#e5e7eb","stroke-width":1}),svgEl("circle",{cx:350,cy:42,r:snapCandidateKey?35:31,fill:"#dbeafe",opacity:.72,class:snapCandidateKey?"snap-ring":""}),svgEl("circle",{cx:350,cy:42,r:5,fill:snapCandidateKey?"#f97316":"#1e40af"}),svgEl("path",{d:platePath(),class:"plate","fill-rule":"evenodd"}));
       for (const line of state.part2.lines) { const a = localToSvg({ x: line.a[0], y: line.a[1] }), b = localToSvg({ x: line.b[0], y: line.b[1] }); dom.svg.append(svgEl("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: "student-line" })); }
       const structure=part2Structure(state,problem),markerPoint=markDraft?.world||(state.part2.mark?localToSvg(state.part2.mark):structure.ready?{x:650,y:390}:null);
       if (markerPoint) { const marker=svgEl("g",{"data-scene":"part2-centre-marker"});marker.append(svgEl("circle",{cx:markerPoint.x,cy:markerPoint.y,r:10,class:"part2-centre-dot"}),svgEl("text",{x:markerPoint.x,y:markerPoint.y-16,"text-anchor":"middle",class:"part2-centre-label"}));marker.lastChild.textContent="重心";dom.svg.append(marker); }
