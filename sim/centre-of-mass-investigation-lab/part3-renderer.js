@@ -27,11 +27,27 @@ function create(canvas, problem, onContext) {
   group.add(solid);
   group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 18), new THREE.LineBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .62 })));
   if (problem.type === "sphere") {
-    const ringMaterial = new THREE.LineBasicMaterial({ color: 0x214e67, transparent: true, opacity: .55 });
-    for (const rotation of [[0,0,0],[Math.PI/2,0,0],[0,Math.PI/2,0]]) {
-      const points = Array.from({length:65},(_,i)=>{const a=i*Math.PI*2/64;return new THREE.Vector3(Math.cos(a)*problem.axes[0],Math.sin(a)*problem.axes[0],0)});
-      const ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), ringMaterial); ring.rotation.set(...rotation); group.add(ring);
+    const radius = problem.axes[0], sphereGuides = new THREE.Group();
+    const guideMaterials = [
+      new THREE.LineBasicMaterial({ color: 0x1e40af, transparent: true, opacity: .42, depthTest: false, depthWrite: false }),
+      new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: .9, depthTest: false, depthWrite: false })
+    ];
+    const addLoop = (points, material, renderOrder = 2) => {
+      const loop = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), material);
+      loop.renderOrder = renderOrder; sphereGuides.add(loop); return loop;
+    };
+    for (const latitude of [-.48, 0, .48]) {
+      const y = Math.sin(latitude) * radius, ringRadius = Math.cos(latitude) * radius;
+      addLoop(Array.from({ length: 96 }, (_, i) => { const angle = i * Math.PI * 2 / 96; return new THREE.Vector3(Math.cos(angle) * ringRadius, y, Math.sin(angle) * ringRadius); }), guideMaterials[0]);
     }
+    for (const longitude of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      addLoop(Array.from({ length: 96 }, (_, i) => { const latitude = -Math.PI / 2 + i * Math.PI / 95; return new THREE.Vector3(Math.cos(latitude) * Math.cos(longitude) * radius, Math.sin(latitude) * radius, Math.cos(latitude) * Math.sin(longitude) * radius); }), longitude === 0 ? guideMaterials[1] : guideMaterials[0]);
+    }
+    sphereGuides.renderOrder = 2; group.add(sphereGuides);
+    const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, depthWrite: false });
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 10), markerMaterial); marker.position.set(radius * 1.04, 0, 0); marker.renderOrder = 5; group.add(marker);
+    const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(radius * .79, 0, 0), new THREE.Vector3(radius * 1.01, 0, 0)]), new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: .9, depthTest: false, depthWrite: false })); stem.renderOrder = 4; group.add(stem);
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(.105, .2, 12), markerMaterial); arrow.position.set(radius * 1.13, 0, 0); arrow.rotation.z = -Math.PI / 2; arrow.renderOrder = 5; group.add(arrow);
   }
   const candidateMeshes = new Map();
   for (const candidate of problem.candidates) {
@@ -62,7 +78,12 @@ function create(canvas, problem, onContext) {
     canvas.dataset.renderer = "three"; canvas.dataset.frame = String((Number(canvas.dataset.frame)||0)+1);
     return projected.sort((a,b)=>a.depth-b.depth);
   }
-  function dispose() { canvas.removeEventListener("webglcontextlost",lostHandler);canvas.removeEventListener("webglcontextrestored",restoredHandler);geometry.dispose();renderer.dispose(); }
+  function dispose() {
+    canvas.removeEventListener("webglcontextlost",lostHandler); canvas.removeEventListener("webglcontextrestored",restoredHandler);
+    const geometries = new Set(), materials = new Set();
+    scene.traverse((object) => { if (object.geometry) geometries.add(object.geometry); for (const material of (Array.isArray(object.material) ? object.material : [object.material])) if (material) materials.add(material); });
+    geometries.forEach((item) => item.dispose()); materials.forEach((item) => item.dispose()); renderer.dispose();
+  }
   return { label:LABEL, render, dispose, context:renderer.getContext() };
 }
 

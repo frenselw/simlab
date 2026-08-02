@@ -363,7 +363,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
 - 立體以半透明面、清楚輪廓及深度排序顯示；後方候選點透明度稍低，不能只用顏色表達深度。
-- 球體使用經緯參考線或三個大圓提示旋轉；正方體／長方體顯示半透明面及可辨識邊。
+- 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
 - 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見 HTML 標籤覆蓋投影點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。標籤離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
 - orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、可見字母的 44 px hit target，選中時即時以形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
