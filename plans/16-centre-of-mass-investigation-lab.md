@@ -382,11 +382,12 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
-- 單指點候選點即建立 tentative selection 並顯示 highlight；未完成兩個 observation 時只保存選擇，不構成完成 evidence，亦不能進入 check。
+- 候選點只以細小藍色 A–E 標記顯示，HTML hit target 保持透明且至少 `44 × 44 CSS px`，不再用大圓形按鈕覆蓋立體。
+- 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，亦不能進入 check。
 
 #### Keyboard／compact equivalent
 
-- Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步；radio 在 observation gate 前亦可 tentative 選擇。
+- Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步；radio 在第一次 observation gate 前 disabled，完成第一次 observation 後才可選擇。
 - Canvas orbit region 可聚焦；方向鍵旋轉，Shift＋方向鍵使用較大角度。
 - 提供文字摘要：立體種類、目前大致觀察方向、候選點標籤；不可朗讀哪一點是中心。
 
@@ -397,7 +398,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 第二個 canonical view 與 observation 1 相差至少 `36.0°` 才形成 observation 2。整數 `0.1°` 表示及 `1°` guard band 確保 encode／restore 不會把有效證據推過原本的 `20°／35°` 教學門檻。
 - 只在 gesture end 或 stage target 的鍵盤 step 完成後 checkpoint，不逐 frame 保存。
 - 自動動畫、restore render、preview render 及微小手震不算觀察證據。
-- 兩個 observation 齊全後才可確認候選點；scorer 同時檢查 evidence，不能只信任 UI gate。
+- 第一次 observation 解鎖候選點提示及 tentative selection；兩個 observation 齊全後才可完成第三部分，scorer 同時檢查 evidence，不能只信任 UI gate。
 
 ### 8.4 第三部分 preview window
 
@@ -523,7 +524,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - UI 不允許在 evidence gate 前確認答案；scorer 仍獨立重驗。
 - 第一部分欠承托／平衡而直接有 `markX`：結果分 0，invalid snapshot policy 視 shape 決定拒絕或清除未合法值。新 UI 沒有直接填寫或調整 `markX` 的入口。
 - 第二部分欠兩個不同 settled holes 或兩條 valid lines 而直接有 mark：結果分 0，該 state 不可提交。
-- 第三部分欠兩個 observation 而選 candidate：tentative editing state 合法並可 restore，但結果分 0、該部分未完成且不可進入 check／提交。
+- 第三部分欠兩個 observation 而選 candidate：第一次 observation 後的 tentative editing state 合法並可 restore，但結果分 0、該部分未完成且不可進入 check／提交。
 - 不以 pointermove 次數、停留時間或畫線數量直接加分。
 - 無效 drop、無效線及錯誤候選不扣到負分；「重新做此部分」清除該部分證據，不提供試錯後保留最高分。
 - 完全沒有完成有效操作而靠 state 注入答案，總分必須為 0。
@@ -747,7 +748,7 @@ Never persisted：
 - [ ] 畫線 validity：穿孔距離、垂直角、最短長度 boundaries。
 - [ ] `lineRecordable` exact shape、finite、向下、`0.45S`、端點 `±1.5` 直接 boundary；`lineValid` 嚴格 `≤5°` 保持獨立。
 - [ ] 2／3／4 線全部 finite pairwise intersections（1／3／6）及 3–4 線 scorer least-squares；平行／近退化處理。
-- [ ] part3 projection finite、所有 candidates 有指定 solid-interior margin、candidate separation、correct key randomized、quaternion normalization。
+- [ ] part3 projection finite、所有 candidates 有指定 solid-interior margin、candidate separation、correct key randomized、quaternion normalization；候選視覺為細小藍點及 A–E 標籤，無大圓形覆蓋。
 
 ### 18.2 Scoring tests
 
@@ -789,7 +790,7 @@ Never persisted：
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
 - [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，44 px direct target；trusted drag 可吸附任意 pairwise intersection，否則保存 bounded raw release。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
-- [ ] part3 click-vs-orbit threshold及 DOM radio synchronization。
+- [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
 - [ ] native formula markup 包含 `<var>`、sub/sup、upright units、role math、ARIA；無 MathJax／raw TeX。
 - [ ] reduced-motion 路徑仍產生正確 settled semantic event。
 

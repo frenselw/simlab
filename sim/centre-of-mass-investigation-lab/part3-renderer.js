@@ -35,7 +35,7 @@ function create(canvas, problem, onContext) {
   }
   const candidateMeshes = new Map();
   for (const candidate of problem.candidates) {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(.065, 18, 12), new THREE.MeshStandardMaterial({ color: 0xf2a444, emissive: 0x6a270b, emissiveIntensity: .15, roughness: .35 }));
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(.045, 14, 10), new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
     dot.position.fromArray(candidate.position); dot.userData.key = candidate.key; group.add(dot); candidateMeshes.set(candidate.key, dot);
   }
   const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb); grid.position.y = -1.75; scene.add(grid);
@@ -53,8 +53,8 @@ function create(canvas, problem, onContext) {
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
     for (const [keyName, mesh] of candidateMeshes) {
-      mesh.material.color.setHex(keyName === selectedKey ? 0xd34d32 : 0xf2a444);
-      mesh.scale.setScalar(keyName === selectedKey ? 1.45 : 1);
+      mesh.material.color.setHex(keyName === selectedKey ? 0xdc2626 : 0x2563eb);
+      mesh.scale.setScalar(keyName === selectedKey ? 1.12 : 1);
       const point = mesh.getWorldPosition(new THREE.Vector3()).project(camera);
       projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:-point.z });
     }
