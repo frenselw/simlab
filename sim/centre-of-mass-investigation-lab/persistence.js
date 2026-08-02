@@ -43,7 +43,7 @@
     if (!exact(state.part3, ["view", "observations", "selectedCandidateKey"]) || !exact(state.part3.view, ["yaw10", "pitch10"]) || JSON.stringify(state.part3.view) !== JSON.stringify(Model.canonicalView(state.part3.view)) ||
       !Array.isArray(state.part3.observations) || state.part3.observations.length > 2 || !state.part3.observations.every((item) => exact(item, ["yaw10", "pitch10"]) && JSON.stringify(item) === JSON.stringify(Model.canonicalView(item))) ||
       !(state.part3.selectedCandidateKey === null || problem.part3.candidates.some((item) => item.key === state.part3.selectedCandidateKey))) return null;
-    return { balanced, enoughAngle, p1Complete: balanced && state.part1.markX !== null, p2Complete: Boolean(state.part2.mark) && state.part2.activeHoleKey === null, p3Complete: state.part3.selectedCandidateKey !== null && Model.validObservations(problem.part3.initialView, state.part3.observations), hangKeys, lineKeys };
+    return { balanced, enoughAngle, p1Complete: balanced && state.part1.markX !== null, p2Complete: Boolean(state.part2.mark), p3Complete: state.part3.selectedCandidateKey !== null && Model.validObservations(problem.part3.initialView, state.part3.observations), hangKeys, lineKeys };
   }
   function validate(state, review = false) {
     if (!exact(state, ["v", "generatorVersion", "rubricVersion", "seed", "phase", "variant", "part1", "part2", "part3"]) || state.v !== VERSION ||

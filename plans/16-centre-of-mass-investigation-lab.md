@@ -662,7 +662,7 @@ Never persisted：
 - hangRecords／lines 的 hole keys 唯一並存在於 generated plate；line relationship 不可 dangling。
 - 最多 4 條 recordable lines；每條 shape 恰為 `{holeKey,a,b}`、endpoints finite 且在 `[-1.5,1.5]`，長度至少 `0.45S`、穿過所屬 active／settled hole，方向由 pivot 朝可重建理想向下方向。active hole 可暫時擁有同 key 舊線供重畫；其他 hang records 必須有 line。
 - 三部分 substate 互相獨立驗證；active phase 不限制其他部分可否已有答案。
-- part2 mark 必須有至少兩條夾角足夠的 recordable lines；editing 可在同孔重畫期間保留 mark，但 `check`／`review` 必須 `activeHoleKey:null`。結構 complete gate 不取代 scorer 的 strict `lineValid ≤5°`。
+- part2 mark 必須有至少兩條夾角足夠的 recordable lines；editing、`check` 及 `review` 均可在平板仍懸掛時保留 mark，學生不必先取下平板才算完成。結構 complete gate 不取代 scorer 的 strict `lineValid ≤5°`。
 - part3 tentative `selectedCandidateKey` 不需要 observation gate 才可保存；只有 complete/check/review 要求兩個有效 observations。scorer 對欠 observations 的 selection 給 0 分。
 - generated IDs 若出現在舊 snapshot 應忽略並重建，不作 authoritative key。
 - representative maximum draft／review 必須低於 4000 UTF-8 bytes。
