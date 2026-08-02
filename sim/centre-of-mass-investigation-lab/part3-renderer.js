@@ -1,6 +1,7 @@
 import * as THREE from "./vendor/three-0.185.1/three.module.min.js";
 
 const LABEL = "Three.js 0.185.1";
+const CANDIDATE_COLORS = Object.freeze({ A: 0x2563eb, B: 0xdb2777, C: 0x16a34a, D: 0xea580c, E: 0x7c3aed });
 
 function geometryFor(problem) {
   const [x, y, z] = problem.axes;
@@ -51,7 +52,7 @@ function create(canvas, problem, onContext) {
   }
   const candidateMeshes = new Map();
   for (const candidate of problem.candidates) {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(.06, 16, 12), new THREE.MeshBasicMaterial({ color: CANDIDATE_COLORS[candidate.key], transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
     dot.position.fromArray(candidate.position); dot.userData.key = candidate.key; group.add(dot); candidateMeshes.set(candidate.key, dot);
   }
   const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb); grid.position.y = -1.75; scene.add(grid);
@@ -69,8 +70,8 @@ function create(canvas, problem, onContext) {
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
     for (const [keyName, mesh] of candidateMeshes) {
-      mesh.material.color.setHex(keyName === selectedKey ? 0xdc2626 : 0x2563eb);
-      mesh.scale.setScalar(keyName === selectedKey ? 1.12 : 1);
+      mesh.material.color.setHex(CANDIDATE_COLORS[keyName]);
+      mesh.scale.setScalar(keyName === selectedKey ? 1.18 : 1);
       const point = mesh.getWorldPosition(new THREE.Vector3()).project(camera);
       projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:-point.z });
     }

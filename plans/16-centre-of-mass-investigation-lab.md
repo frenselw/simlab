@@ -304,7 +304,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 畫鉛垂線區 → 重心標註」，未解鎖的 stage target 不進 tab order；control panel 不另設 operational button wall。
 - 聚焦某小孔後按 Enter／Space，使用與 pointer drop 相同的 relationship model 將該孔對齊牆釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
 - settled 後聚焦板上的畫線區並按 Enter／Space，建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
-- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；拖到板上才保存。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`。控制面板不提供放置或四向微調按鈕。
+- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；只有拖到任意已保存線段的 pairwise 交點並吸附後才保存為 plate-local 標記。未吸附的紅點保持在 stage 內的浮動 palette 位置，不會跟平板旋轉；已保存標記旋轉時以 SVG screen transform 顯示，並 clamp 在可見 SVG viewport 內。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；移出交點即清除 plate-local 標記。控制面板不提供放置或四向微調按鈕。
 - pointer 與 keyboard 路徑產生同一 production-shaped hole／hang／line／mark schema，並通過完全相同的 validity、persistence 及 scoring rules；input mode 只可作診斷，不改分。
 
 ### 7.4 鉛垂線及畫線工具
@@ -325,7 +325,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 ### 7.5 線交會及標註
 
 - 兩條 recordable lines 的 acute angle 必須至少 `25°` 才解鎖標註；generator 確保有合理孔組合可達成。
-- 標註拖動時，對全部已保存線計算所有 finite pairwise intersections（2／3／4 線分別最多 1／3／6 個）；release 點進入 `30 CSS px` radius 時吸附至最近的任意 pairwise intersection，否則保存 bounded raw plate-local release point。UI 不使用 answer 或 least-squares 位置預放標註。
+- 標註拖動時，對全部已保存線計算所有 finite pairwise intersections（2／3／4 線分別最多 1／3／6 個）；release 點進入 `30 CSS px` radius 時吸附至最近的任意 pairwise intersection，只有這種吸附結果才保存 bounded plate-local 標記；其他 release 只更新留在 viewport 內的浮動紅點，不改變答案。UI 不使用 answer 或 least-squares 位置預放標註。
 - UI 可顯示學生線自然形成的交會，但不自動畫十字或顯示數值交點。
 - 學生自行在平板上放置重心標註；標註保存為 plate-local point。
 - 設 `e₂ = distance(mark,trueCOM)/S`；`e₂ <= 0.03` 屬滿分 band，`0.03 < e₂ <= 0.07` 屬 partial band，`e₂ > 0.07` 為零，實際點數依 §12.2 唯一公式。
@@ -358,11 +358,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - renderer construction failure 立即切換 Canvas；`webglcontextlost` 必須 `preventDefault()` 並以 Canvas 顯示 canonical state，`webglcontextrestored` 後以同一 canonical state 重建畫面，不產生 observation evidence。
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
-- 立體以半透明面、清楚輪廓及深度排序顯示；A–E 候選點保持一致的實心藍色樣式，不能以空心／半透明點造成視覺歧義，深度由輪廓、引導線及文字狀態補充。
+- 立體以半透明面、清楚輪廓及深度排序顯示；A–E 候選點使用五種固定、高對比的實心顏色，不能以空心／半透明點造成視覺歧義，深度由輪廓、引導線及狀態文字補充。
 - 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
-- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas 模式均以可見、填色藍色 HTML A–E 標籤覆蓋投影點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。每個 pointermove 都要同步更新投影錨點、標籤位置及引導線，不能等 pointerup 才重排；標籤離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
+- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas renderer 直接繪製五個不含英文字母的彩色小圓點，HTML `aria-label` 及 control-panel radio swatch 才提供 A–E 語意，透明 HTML hit target 不再重複繪製大圓點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。每個 pointermove 都要同步更新投影錨點、hit target 位置及引導線，不能等 pointerup 才重排；點離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
-- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用高對比、實心藍色圓點及可見白色字母，至少 `46 × 46 CSS px`，選中時即時以紅色形狀、描邊及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用五種高對比實心彩色圓點，視覺點約 `28 CSS px`、透明 HTML hit target 至少 `46 × 46 CSS px`，選中時保留原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 
 ### 8.2 電腦及手機旋轉操作
@@ -378,7 +378,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
-- 候選點以清晰、統一的實心藍色 A–E 標記顯示，HTML hit／visual target 至少 `46 × 46 CSS px`；不使用空心或深度造成的半透明變體。
+- 候選點以五種清晰、統一尺寸的實心彩色圓點顯示，圓點不印 A–E 英文字母；HTML hit target 至少 `46 × 46 CSS px`，control panel radio 以相同顏色 swatch 配對 A–E。不同深度不改變點的顏色或造成空心／半透明變體。
 - 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，亦不能進入 check。
 
 #### Keyboard／compact equivalent
@@ -743,7 +743,7 @@ Never persisted：
 - [ ] 畫線 validity：穿孔距離、垂直角、最短長度 boundaries。
 - [ ] `lineRecordable` exact shape、finite、向下、`0.45S`、端點 `±1.5` 直接 boundary；`lineValid` 嚴格 `≤5°` 保持獨立。
 - [ ] 2／3／4 線全部 finite pairwise intersections（1／3／6）及 3–4 線 scorer least-squares；平行／近退化處理。
-- [ ] part3 projection finite、所有 candidates 有指定 solid-interior margin、candidate separation、correct key randomized、quaternion normalization；候選視覺為細小藍點及 A–E 標籤，無大圓形覆蓋。
+- [ ] part3 projection finite、所有 candidates 有指定 solid-interior margin、candidate separation、correct key randomized、quaternion normalization；候選視覺為五個細小不同顏色圓點、無英文文字及無大圓形覆蓋，control panel swatch 顏色一致。
 
 ### 18.2 Scoring tests
 
@@ -783,7 +783,7 @@ Never persisted：
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
 - [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
-- [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，44 px direct target；trusted drag 可吸附任意 pairwise intersection，否則保存 bounded raw release。
+- [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點旋轉後仍被 clamp 在可見 SVG 內。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
 - [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
 - [ ] native formula markup 包含 `<var>`、sub/sup、upright units、role math、ARIA；無 MathJax／raw TeX。
