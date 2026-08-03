@@ -56,19 +56,22 @@
     const phi = angularDifference(angle, target);
     if (Math.PI - Math.abs(phi) < INVERTED_ESCAPE) angle = target + (phi < 0 ? -1 : 1) * (Math.PI - INVERTED_ESCAPE);
     return { angle, omega: 0, target, distance, inertiaCm, inertia, mass,
-      damping: damping({ inertia, mass, distance }), settledFor: 0 };
+      damping: damping({ inertia, mass, distance }), settledFor: 0, accumulator: 0 };
   }
   function stepSwing(swing, dt, mass = 1) {
     const elapsed = clamp(dt, 0, 0.05), fixed = 1 / 120;
-    let remaining = elapsed;
-    while (remaining >= fixed - 1e-9) {
+    const previous = finite(swing.accumulator) && swing.accumulator >= 0 ? Math.min(swing.accumulator, fixed - 1e-12) : 0;
+    swing.accumulator = previous + elapsed;
+    let steps = 0;
+    while (swing.accumulator >= fixed - 1e-9 && steps < 6) {
       const phi = angularDifference(swing.angle, swing.target);
       const alpha = (-mass * 9.81 * swing.distance * Math.sin(phi) - swing.damping * swing.omega) / swing.inertia;
-      swing.omega += alpha * fixed; swing.angle += swing.omega * fixed; remaining -= fixed;
+      swing.omega += alpha * fixed; swing.angle += swing.omega * fixed; swing.accumulator -= fixed; steps += 1;
+      if (swing.accumulator < 1e-12) swing.accumulator = 0;
       if (Math.abs(angularDifference(swing.angle, swing.target)) < 0.75 * Math.PI / 180 && Math.abs(swing.omega) < 1.5 * Math.PI / 180) swing.settledFor += fixed;
       else swing.settledFor = 0;
     }
-    if (swing.settledFor >= 0.25) { swing.angle = swing.target; swing.omega = 0; return true; }
+    if (swing.settledFor >= 0.25) { swing.angle = swing.target; swing.omega = 0; swing.accumulator = 0; return true; }
     return false;
   }
   function pointLineDistance(point, line) {

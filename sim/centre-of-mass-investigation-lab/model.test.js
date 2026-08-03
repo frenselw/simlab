@@ -8,6 +8,16 @@ assert.equal(M.supportOutcome(p.part1.xCm-.03,p.part1.xCm),"right-fall");
 assert.equal(M.supportOutcome(p.part1.xCm+.03,p.part1.xCm),"left-fall");
 const pose={x:2,y:-1,angle:.73}, point={x:.2,y:-.35}; const world=M.transform(point,pose), back=M.inverseTransform(world,pose);assert.ok(Math.hypot(back.x-point.x,back.y-point.y)<1e-12);
 for(let seed=0;seed<32;seed+=1){const problem=G.generate(seed);for(const hole of problem.part2.holes){const swing=M.createSwing(problem.part2,hole,0);assert.equal(swing.inertia,swing.inertiaCm+swing.mass*swing.distance*swing.distance,"parallel-axis theorem Ip = Icm + M d^2");assert.ok(swing.damping>0&&Number.isFinite(swing.damping));let time=0;while(time<4&&!M.stepSwing(swing,1/60))time+=1/60;assert.ok(time>=1.5&&time<=3,`seed ${seed} ${hole.key} settles visibly in 1.5–3.0 s: ${time}`);assert.ok(Math.abs(swing.angle-swing.target)<1e-12);const pivot=M.transform(hole,{x:0,y:0,angle:swing.target}),com=M.transform(problem.part2.centre,{x:0,y:0,angle:swing.target});assert.ok(Math.abs(com.x-pivot.x)<1e-12&&com.y>pivot.y,"analytic equilibrium puts COM vertically below pivot");}}
+function advanceWithFrames(swing,frames,total=1){let elapsed=0,index=0;while(elapsed<total-1e-12){const dt=Math.min(frames[index%frames.length],total-elapsed);M.stepSwing(swing,dt);elapsed+=dt;index+=1;}return swing;}
+function comparisonSwing(){return {angle:1,omega:0,target:-.35,distance:.7,inertia:1.4,damping:.85,settledFor:0,accumulator:0};}
+const reference=advanceWithFrames(comparisonSwing(),[1/120]);
+for(const hz of [60,90,120,144,165]){
+  const actual=advanceWithFrames(comparisonSwing(),[1/hz]);
+  assert.ok(Math.abs(actual.angle-reference.angle)<1e-12&&Math.abs(actual.omega-reference.omega)<1e-12,`${hz} Hz preserves the same 120 Hz fixed-step result`);
+  assert.ok(actual.accumulator>=0&&actual.accumulator<1/120,"sub-frame remainder stays bounded");
+}
+const jittered=advanceWithFrames(comparisonSwing(),[1/144,1/90,1/165,1/72,1/120]);
+assert.ok(Math.abs(jittered.angle-reference.angle)<1e-12&&Math.abs(jittered.omega-reference.omega)<1e-12,"irregular frame intervals preserve elapsed simulation time");
 function settleTime(swing,limit=5){for(let frame=1;frame<=limit*60;frame+=1)if(M.stepSwing(swing,1/60))return frame/60;return Infinity;}
 let slowestReachable={time:0};
 for(let seed=0;seed<32;seed+=1){

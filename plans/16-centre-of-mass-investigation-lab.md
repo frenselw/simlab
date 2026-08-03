@@ -259,7 +259,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - damping 選為明顯但不拖延的 underdamped 效果，目標在約 `1.5–3.0 s` 內視覺停止；
 - 每個 hole instance 使用固定 damping ratio `ζ = 0.55`，並按 `c = 2ζ√(I_p Mgd)` 計算 dimensionally consistent damping；不得跨不同 `I_p`／`M`／`d` 使用同一裸常數 `c`。
 - 若初始姿態落在倒立不穩定平衡的 `3°` 範圍內，runtime 以固定方向將 transient angle 移到離倒立點 `3°` 的位置，模擬實際釘孔／手部不可避免的微小擾動；不改解析 settled target、權威答案或 scoring。一般生成姿態維持約 `1.5–3.0 s`，此倒立 escape 例外須在 `4.3 s` 內停止，永不無限鎖定。
-- fixed timestep `Δt = 1/120 s`，每個 rendered frame 最多 catch up `0.05 s`；更大 background gap 暫停而非一次積分。
+- fixed timestep `Δt = 1/120 s`，每個 rendered frame 最多 catch up `0.05 s`；不足一個 fixed step 的 frame remainder 必須累積至下一幀，不可捨棄，確保 60／90／120／144／165 Hz 及 jitter frame sequence 在相同 wall time 產生相同 fixed-step 結果；更大 background gap 暫停而非一次積分。
 - 同時滿足 `|φ| < φ_stop = 0.75°` 及 `|ω| < ω_stop = 1.5°/s` 持續 `0.25 s` 才視為 settled；
 - settled 時把姿態吸附到解析平衡方向，消除積分殘差；
 - reduced-motion 模式縮短為一次小幅擺動後停止，但保留「因重力轉到重心正下方」的因果順序。
@@ -307,7 +307,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 畫鉛垂線區 → 重心標註」，未解鎖的 stage target 不進 tab order；control panel 不另設 operational button wall。
 - 聚焦某小孔後按 Enter／Space，使用與 pointer drop 相同的 relationship model 將該孔對齊牆釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
 - settled 後聚焦板上的畫線區並按 Enter／Space，建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
-- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；只有拖到任意已保存線段的 pairwise 交點並吸附後才保存為 plate-local 標記。未吸附的紅點保持在 stage 內的浮動 palette 位置，不會跟平板旋轉；已保存標記與線交點共用完全相同的 plate-local→world transform，平板移到畫面外時可暫時離開 viewport，移回時必須仍精確重合，不可為保持可見而獨立 clamp。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；移出交點即清除 plate-local 標記。控制面板不提供放置或四向微調按鈕。
+- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；只有拖到任意已保存線段的 pairwise 交點並吸附後才保存為 plate-local 標記。未吸附的紅點保持在 stage 內的浮動 palette 位置，不會跟平板旋轉；已保存標記與線交點共用完全相同的 plate-local→world transform，平板移到畫面外時可暫時離開 viewport，移回時必須仍精確重合，不可為保持可見而獨立 clamp。未有保存標記時，聚焦 palette target 後按 Enter／Space，等價於一次明確放置操作：吸附至距 palette 位置最近的 finite pairwise intersection；這不是預先顯示答案，亦不可使用真重心或 least-squares。已有標記時方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；移出交點即清除 plate-local 標記。控制面板不提供放置或四向微調按鈕。
 - pointer 與 keyboard 路徑產生同一 production-shaped hole／hang／line／mark schema，並通過完全相同的 validity、persistence 及 scoring rules；input mode 只可作診斷，不改分。
 
 ### 7.4 鉛垂線及畫線工具
@@ -361,7 +361,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - renderer construction failure 立即切換 Canvas；`webglcontextlost` 必須 `preventDefault()` 並以 Canvas 顯示 canonical state，`webglcontextrestored` 後以同一 canonical state 重建畫面，不產生 observation evidence。
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
-- 立體以半透明面、清楚輪廓及深度排序顯示；五個候選點使用固定、高對比的實心顏色，不能以空心／半透明點造成視覺歧義，深度由輪廓及狀態文字補充。
+- 立體以半透明面、清楚輪廓及深度排序顯示；五個候選點使用固定、高對比的實心顏色，不能以空心／半透明點造成視覺歧義，深度由輪廓及狀態文字補充。Three renderer 的 signed depth 必須使用 candidate 相對立體中心的 camera-space `z` 差，不可使用只表示 near／far clip 映射的 projected NDC `z`；其前／後分類須與 deterministic Canvas projection 一致。
 - 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
 - 五個候選點固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas renderer 直接繪製不含英文字母的彩色實心小圓點。每個候選點的透明語意 button 必須直接與其彩色圓點同心，並在每個 pointermove 同步投影；不可把 button 搬到另一位置，亦不使用引導虛線。為避免相鄰透明 button 重疊時由錯誤 button 攔截，pointer tap 由同一 orbit layer 按距離選取最近的實際投影點；button 仍保留 keyboard／ARIA 語意。`aria-label`、control-panel radio swatch 及文字只以顏色辨認候選點，內部 key 不顯示給學生。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
@@ -432,10 +432,10 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | Target type | Selector／hit strategy | Capture target | Rendering 可在 drag 中替換？ |
 |---|---|---|---:|
 | 一維承托點 | 明確 SVG rect／HTML overlay，最少 52×52 CSS px | 穩定 hit target | No |
-| 二維平板平移面 | visible material region（外輪廓扣除 cutouts）的獨立 stable overlay，不覆蓋孔／手柄 | stage interaction layer | No |
+| 二維平板平移面 | 與 visual path 共用 plate-local→world transform 的 SVG compound hit path，使用 `fill-rule:evenodd` 表示外輪廓扣除 cutouts；不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
-| 二維畫線／取下層 | 只覆蓋目前平板可見 material region 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
+| 二維畫線／取下層 | 使用相同 even-odd SVG compound material path；另在 active pivot 提供穩定、透明而不少於 `96 CSS px` 的起筆 target，確保手機可由孔附近開始畫線。active pivot 附近向下拖屬畫線，其餘 material 位置拖動路由至 canonical 取下／整板或最近孔平移；cutout、牆面及 stage 空白不屬此 target | 同一 stable path／pivot target | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
 | 五個三維候選點 | orbit layer 內最近投影點的 `26 CSS px` 選點區；同心 candidate buttons 提供 keyboard／ARIA 語意 | orbit layer（pointer）／各 candidate button（keyboard） | No |
@@ -447,6 +447,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 | Touch starts on | Expected owner | Expected scroll delta | Required pointer result |
 |---|---|---:|---|
 | 已知非互動 stage 空白 | Moodle／enclosing host | host 非零並帶動 iframe；activity document、panel、visual viewport 為 0 | 不開始 drag、不改 learner state |
+| 二維平板 cutout／環形中央空洞 | Moodle／enclosing host | 與 stage 空白相同，host 有 range 時非零 | `pointerdown` 前已不屬任何 simulation hit path；不移動平板、不改 learner state |
 | independently scrolling control panel | panel only | panel 有 range 時非零；host、iframe、activity document、兩邊 visual viewport 為 0 | stage 固定；邊界亦不 chain 到 host |
 | 一維承托 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | 承托架移動；有 pointermove＋pointerup；無 pointercancel；不顯示 preview |
 | 二維平板／孔／旋轉手柄／畫線／標註 | simulation | 同上全部為 0 | 正確 target 獨佔 gesture，沒有平移／旋轉模式串擾 |
@@ -702,6 +703,7 @@ Never persisted：
 ## 16. Accessibility and input equivalence
 
 - 所有視覺 drag 都有 keyboard／button 等價途徑，且使用同一 model function 和 scorer。
+- 三個 `role=tab` 實驗分頁使用 roving `tabindex`；Left／Right 在三頁循環、Home／End 到首／末頁，focus 與 `aria-selected` 同步。進入提交前檢查時仍保留上一個實驗分頁為唯一可聚焦 tab。
 - touch target 最少 44×44，精細 target 目標為 52×52 CSS px；可見圖形可較細。
 - focus ring 清楚，不只靠顏色表示 active、valid 或 invalid。
 - 平板的孔有穩定名稱「小孔 1／2／…」；候選點為真實 radio buttons，不只存在 Canvas pixels。
@@ -721,14 +723,16 @@ Never persisted：
 - 只提供操作有效性與物理現象：跌落方向、是否掛上、是否 settled、線是否穿過孔及沿鉛垂方向、觀察角度是否足夠。
 - 若兩條線夾角太細，提示「兩條線方向太接近，請選另一個小孔」，不建議指定答案孔。
 - 技術錯誤與學習結果分開；未保存／未提交不可寫成失敗或零分。
+- 提交前檢查只列出 evidence 完成度及欠缺項目；visual DOM、`.sr-only` 內容及 accessibility tree 均不可包含 scorer 結果、可重算分數或答案提示。
 
 ### 17.2 提交後
 
+- 成功驗證的 submitted review 保持 attempt 鎖定及所有 direct targets 移除，但上方三個實驗分頁改作可切換的 read-only evidence views；切換分頁不得改 snapshot、分數或任何 learner evidence。未能驗證的 safe summary 不開放這些權威 evidence views。
 - 第一部分顯示由 seed 重建的精確重心；說明承托點進入容差只代表實驗接受的平衡範圍，而理想情況下承托點與重心完全重合時總力矩為零。舊 snapshot 的非精確 `markX` 不畫成學生 mark 或物理重心。
 - 第二部分顯示真重心、學生各條線、line intersection／least-squares point 及 mark；說明每次平衡時重心在 pivot 正下方。
 - 第三部分顯示幾何中心及對稱面／對稱軸提示。
 - 分項顯示「操作證據分」與「答案準確分」，讓學生知道亂估為何不會得到完整分數。
-- review 使用同一 native math renderer，不顯示 raw TeX。
+- review 如顯示物理量或公式，使用同一 native math renderer，不顯示 raw TeX；目前 learner-facing review 以圖像及文字解釋為主，不加入中學生未學的重心公式。
 
 ## 18. Test plan
 
@@ -741,7 +745,7 @@ Never persisted：
 - [ ] `S = √(outer area − cutout areas)` 對每個 plate template 唯一重建；所有 `0.025S`、`0.45S`、`0.03S`、`0.07S` just-inside／just-outside boundaries 共用同一尺度。
 - [ ] generator v1 舊題目仍可用 seed 重建；v2 shape kind、cutouts、area、centre 及 inertia deterministic。
 - [ ] part2 equilibrium 令 pivot→COM world vector 垂直向下。
-- [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step、frame-gap clamp、threshold dwell及 settled snap。
+- [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step accumulator remainder、60／90／120／144／165 Hz、jitter sequence、frame-gap clamp、threshold dwell及 settled snap。
 - [ ] world↔plate-local transform round-trip。
 - [ ] 畫線 validity：穿孔距離、垂直角、最短長度 boundaries。
 - [ ] `lineRecordable` exact shape、finite、向下、`0.45S`、端點 `±1.5` 直接 boundary；`lineValid` 嚴格 `≤5°` 保持獨立。
@@ -787,6 +791,7 @@ Never persisted：
 - [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
 - [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點與交點共用 plate-local transform，出框及移回全程不分離。
+- [ ] tablist trusted keyboard 驗證 Left／Right／Home／End、focus、`aria-selected` 及 roving `tabindex`；Part 2 未放置 mark 時 Enter／Space 形成與 pointer 相同 schema 的 pairwise-intersection mark。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
 - [ ] 二維牆釘固定於 canonical stage 中央 `(350,230)`；source／package trusted mouse、touch 拖動在桌面最多 80% 出框、手機最多 70% 出框，並保留可操作可見區域；越界拖動停在最後合法姿態。
 - [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
@@ -801,9 +806,12 @@ Never persisted：
 - [ ] source direct page及 packaged SCORM 均運作。
 - [ ] scrollable Moodle-like iframe 具有上下 host range，記錄 host／iframe／activity document／panel／兩邊 visual viewport。
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
+- [ ] 環形板 cutout 中央以 `elementFromPoint` 證明 `pointerdown` 前沒有 simulation owner；trusted touch swipe 只移動 host，平板 pose 及 canonical state byte-equivalent。
 - [ ] Part 2 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
 - [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px；settled 懸掛時 trusted drag 保持 active hole 在釘位，放手重新阻尼擺；畫線完成無 pageerror／無向上跳；marker 對任意線對吸附且整板出框時不離開交點。
+- [ ] source／package 的 Three labels 同時包含前／後候選並與 Canvas deterministic signed-depth 分類逐 key 一致；context loss／restore 不改 canonical state。
+- [ ] 提交前 DOM 及 accessibility tree 無分數；trusted submitted review 三個 read-only 分頁分別重畫 Part 1 精確重心、Part 2 學生線／pairwise intersections／least-squares／學生 mark／真重心，以及 Part 3 學生選擇／正確幾何中心，且全程零 direct target、state byte-equivalent。
 
 ### 18.6 Lifecycle／package tests
 

@@ -73,11 +73,14 @@ function create(canvas, problem, onContext) {
     group.rotation.order = "YXZ"; group.rotation.y = view.yaw10 * Math.PI / 1800; group.rotation.x = view.pitch10 * Math.PI / 1800;
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
+    const centrePoint = group.getWorldPosition(new THREE.Vector3()).applyMatrix4(camera.matrixWorldInverse);
     for (const [keyName, candidate] of candidateMeshes) {
       candidate.dot.material.color.setHex(CANDIDATE_COLORS[keyName]);
       candidate.halo.visible = keyName === selectedKey;
-      const point = candidate.marker.getWorldPosition(new THREE.Vector3()).project(camera);
-      projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:-point.z });
+      const world = candidate.marker.getWorldPosition(new THREE.Vector3());
+      const cameraPoint = world.clone().applyMatrix4(camera.matrixWorldInverse);
+      const point = world.clone().project(camera);
+      projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:cameraPoint.z-centrePoint.z });
     }
     renderer.render(scene, camera);
     canvas.dataset.renderer = "three"; canvas.dataset.frame = String((Number(canvas.dataset.frame)||0)+1);
