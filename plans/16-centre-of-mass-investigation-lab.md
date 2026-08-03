@@ -435,7 +435,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 二維平板平移面 | 與 visual path 共用 plate-local→world transform 的 SVG compound hit path，使用 `fill-rule:evenodd` 表示外輪廓扣除 cutouts；不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
-| 二維畫線／取下層 | 使用相同 even-odd SVG compound material path；另在 active pivot 提供穩定、透明而不少於 `96 CSS px` 的起筆 target，確保手機可由孔附近開始畫線。active pivot 附近向下拖屬畫線，其餘 material 位置拖動路由至 canonical 取下／整板或最近孔平移；cutout、牆面及 stage 空白不屬此 target | 同一 stable path／pivot target | No |
+| 二維畫線／取下層 | 使用相同 even-odd SVG compound material path；另在 active pivot 提供相當於 `96×96 CSS px`、會隨 responsive stage 重算的 SVG 橢圓起筆區，再以同一 even-odd material path 裁切。因此靠近 pivot 的 cutout 仍由 host 擁有，只有實際物料可起筆。compound draw path 只處理 pointer；pivot 橢圓是唯一 keyboard／ARIA 畫線入口。active pivot 附近向下拖屬畫線，其餘 material 位置拖動路由至 canonical 取下／整板或最近孔平移；cutout、牆面及 stage 空白不屬此 target | 同一 stable compound path／clipped pivot ellipse | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
 | 五個三維候選點 | orbit layer 內最近投影點的 `26 CSS px` 選點區；同心 candidate buttons 提供 keyboard／ARIA 語意 | orbit layer（pointer）／各 candidate button（keyboard） | No |
@@ -806,7 +806,7 @@ Never persisted：
 - [ ] source direct page及 packaged SCORM 均運作。
 - [ ] scrollable Moodle-like iframe 具有上下 host range，記錄 host／iframe／activity document／panel／兩邊 visual viewport。
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
-- [ ] 環形板 cutout 中央以 `elementFromPoint` 證明 `pointerdown` 前沒有 simulation owner；trusted touch swipe 只移動 host，平板 pose 及 canonical state byte-equivalent。
+- [ ] 環形板已懸掛時，除 cutout 中央外，亦以最接近 active pivot 的 cutout 內側點透過 `elementFromPoint` 證明 `pointerdown` 前沒有 simulation owner；trusted touch swipe 只移動 host，平板 pose 及 canonical state byte-equivalent。隨後由同一 pivot 的實際物料起筆須完成 `pointerup`、記錄線段並保持 host 固定；compound draw path 不進 tab order，clipped pivot 是唯一 keyboard 畫線入口。
 - [ ] Part 2 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
 - [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px；settled 懸掛時 trusted drag 保持 active hole 在釘位，放手重新阻尼擺；畫線完成無 pageerror／無向上跳；marker 對任意線對吸附且整板出框時不離開交點。
