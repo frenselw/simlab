@@ -17,10 +17,12 @@
     <span id="phaseBadge" class="phase-badge">第 1 部分</span>
     <progress id="progress" max="3" value="0" aria-label="已完成部分"></progress>
   </header>
-  <nav class="part-tabs" role="tablist" aria-label="選擇實驗部分">
-    <button type="button" role="tab" data-part-tab="1"><span>1</span>一維杆<i aria-hidden="true">✓</i></button>
-    <button type="button" role="tab" data-part-tab="2"><span>2</span>二維平板<i aria-hidden="true">✓</i></button>
-    <button type="button" role="tab" data-part-tab="3"><span>3</span>三維立體<i aria-hidden="true">✓</i></button>
+  <nav class="part-tabs" aria-label="實驗導覽">
+    <div class="part-tablist" role="tablist" aria-label="選擇實驗部分">
+      <button type="button" role="tab" data-part-tab="1"><span>1</span>一維杆<i aria-hidden="true">✓</i></button>
+      <button type="button" role="tab" data-part-tab="2"><span>2</span>二維平板<i aria-hidden="true">✓</i></button>
+      <button type="button" role="tab" data-part-tab="3"><span>3</span>三維立體<i aria-hidden="true">✓</i></button>
+    </div>
     <button type="button" id="checkTab" class="check-tab">檢查及提交</button>
   </nav>
   <div class="workspace">
