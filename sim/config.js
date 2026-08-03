@@ -78,6 +78,14 @@ const simulationList = [
     description: "設定頻閃頻率，移動直尺量度自由落體各位置，從總位移及相鄰間隔歸納運動規律。",
     tags: ["physics", "mechanics", "kinematics", "free-fall", "stroboscopic-motion", "measurement", "constant-acceleration", "scorm"],
     status: "active"
+  },
+  {
+    title: "重心探究實驗室",
+    folder: "centre-of-mass-investigation-lab",
+    categories: ["Mechanics"],
+    description: "透過承托、懸掛畫鉛垂線和旋轉立體，從實驗證據找出一維、二維及三維物體的重心。",
+    tags: ["physics", "mechanics", "centre-of-mass", "balance", "suspension", "scorm"],
+    status: "planned"
   }
 ];
 

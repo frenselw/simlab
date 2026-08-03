@@ -578,7 +578,8 @@
         rulerSide: rulerBox.rulerSide,
         rulerGeometry: RULER_GEOMETRY,
         ...horizontal,
-        zeroTickOverlapPx: overlapPx,
+        zeroTickOverlapPx: horizontal.horizontalMode === "guide-fraction"
+          ? Scoring.ZERO_TICK_LENGTH_PX : overlapPx,
         zeroErrorPx: zeroClient && targetClient ? zeroClient.y - targetClient.y :
           (rulerBox.zeroY - targetY) * rulerBox.scaleY
       };

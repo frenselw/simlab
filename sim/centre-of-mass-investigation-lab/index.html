@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>重心探究實驗室</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
+  <script src="generator.js" defer></script><script src="model.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="ui-policy.js" defer></script><script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="lab-app">
+  <header class="app-header">
+    <div><h1>重心探究實驗室</h1><p>透過承托、懸掛及對稱性找出重心</p></div>
+    <span id="phaseBadge" class="phase-badge">第 1 部分</span>
+    <progress id="progress" max="3" value="0" aria-label="已完成部分"></progress>
+  </header>
+  <nav class="part-tabs" aria-label="實驗導覽">
+    <div class="part-tablist" role="tablist" aria-label="選擇實驗部分">
+      <button type="button" role="tab" data-part-tab="1"><span>1</span>一維杆<i aria-hidden="true">✓</i></button>
+      <button type="button" role="tab" data-part-tab="2"><span>2</span>二維平板<i aria-hidden="true">✓</i></button>
+      <button type="button" role="tab" data-part-tab="3"><span>3</span>三維立體<i aria-hidden="true">✓</i></button>
+    </div>
+    <button type="button" id="checkTab" class="check-tab">檢查及提交</button>
+  </nav>
+  <div class="workspace">
+    <section id="stage" class="stage" aria-labelledby="stageTitle">
+      <h2 id="stageTitle" class="sr-only">實驗圖台</h2>
+      <svg id="svgStage" viewBox="0 0 700 460" role="img" aria-label="重心實驗互動圖台"></svg>
+      <canvas id="solidCanvas" width="700" height="460" aria-label="可旋轉的均勻立體及候選點"></canvas>
+      <canvas id="fallbackCanvas" width="700" height="460" aria-label="可旋轉立體的相容模式"></canvas>
+      <div id="directLayer" class="direct-layer"></div><div id="preview" class="preview is-hidden" aria-hidden="true"></div><div id="rendererBadge" class="renderer-badge is-hidden" aria-live="polite"></div>
+    </section>
+    <aside id="controlPanel" class="control-panel" aria-label="實驗說明與進度">
+      <section id="technical" class="panel-section is-hidden"><h2>活動暫時鎖定</h2><p id="technicalMessage"></p><button id="technicalRetry">重新載入</button></section>
+      <section id="part1Controls" class="panel-section">
+        <p class="section-label">第一部分</p><h2>找出杆的平衡位置</h2><p class="task-copy">拖動杆下方的承托架，放手觀察杆向哪邊傾倒。承托點進入可接受的平衡範圍後，系統會揭示題目生成的精確重心。</p>
+        <p class="concept-note">理想情況下，承托點與重心完全重合，杆不會因重力轉動；實驗以一個細小範圍判定平衡。</p><div class="status-row"><span>實驗狀態</span><strong id="part1Status"></strong></div>
+        <div id="part1MarkTools" class="hint is-hidden">紅點「重心」是系統揭示的精確位置，無需再調整。</div>
+      </section>
+      <section id="part2Controls" class="panel-section is-hidden">
+        <p class="section-label">第二部分</p><h2>用懸掛線找出重心</h2><p class="task-copy">拖動半透明平板，把一個小孔移近牆釘並放手。平板停止後，從懸掛孔向下自由拖畫線段；接近鉛垂方向時會吸附成垂直線。</p>
+        <p class="concept-note">換另一個小孔重複。也可重掛同一小孔重畫；比較各線交會的位置，再拖動紅色「重心」標記作答。</p><div class="status-row"><span>實驗狀態</span><strong id="part2Status"></strong></div><div id="part2MarkTools" class="hint is-hidden">紅色「重心」標記已在圖台旁出現；拖近任意兩條已畫線的交點時會吸附。</div>
+      </section>
+      <section id="part3Controls" class="panel-section is-hidden">
+        <p class="section-label">第三部分</p><h2>找出均勻立體的幾何中心</h2><p id="solidSummary" class="task-copy">在立體上拖動，從不同方向觀察，再選擇重心候選點。</p><div class="status-row"><span>觀察狀態</span><strong id="part3Status"></strong></div>
+        <fieldset id="candidateRadios" class="candidate-chips"><legend>候選點</legend></fieldset>
+      </section>
+      <section id="checkControls" class="panel-section is-hidden"><p class="section-label">提交前檢查</p><h2>目前實驗證據</h2><div id="checkSummary"></div><button id="submit" class="primary-button">提交結果</button></section>
+      <section id="reviewControls" class="panel-section is-hidden"><p class="section-label">結果</p><h2>已鎖定的結果</h2><div id="reviewSummary"></div><div id="reviewPartSummary" class="review-part-summary"></div><button id="retrySubmission" class="is-hidden">重試目前提交</button></section>
+      <p id="liveRegion" class="sr-only" aria-live="polite"></p>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

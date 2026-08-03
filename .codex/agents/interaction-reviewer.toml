@@ -4,8 +4,8 @@ Tests SimLab mobile layout, browser behavior, touch gesture ownership,
 dragging, accessibility, animation, and learner interaction.
 """
 
-model = "gpt-5.6-terra"
-model_reasoning_effort = "medium"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "max"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

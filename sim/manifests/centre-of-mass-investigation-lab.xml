@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="centre-of-mass-investigation-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-CENTRE-OF-MASS-INVESTIGATION-LAB">
+    <organization identifier="ORG-CENTRE-OF-MASS-INVESTIGATION-LAB">
+      <title>重心探究實驗室</title>
+      <item identifier="ITEM-CENTRE-OF-MASS-INVESTIGATION-LAB" identifierref="RES-CENTRE-OF-MASS-INVESTIGATION-LAB"><title>重心探究實驗室</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-CENTRE-OF-MASS-INVESTIGATION-LAB" type="webcontent" adlcp:scormtype="sco" href="centre-of-mass-investigation-lab/index.html">
+      <file href="config.js"/>
+      <file href="centre-of-mass-investigation-lab/index.html"/>
+      <file href="centre-of-mass-investigation-lab/styles.css"/>
+      <file href="centre-of-mass-investigation-lab/generator.js"/>
+      <file href="centre-of-mass-investigation-lab/model.js"/>
+      <file href="centre-of-mass-investigation-lab/scoring.js"/>
+      <file href="centre-of-mass-investigation-lab/persistence.js"/>
+      <file href="centre-of-mass-investigation-lab/ui-policy.js"/>
+      <file href="centre-of-mass-investigation-lab/main.js"/>
+      <file href="centre-of-mass-investigation-lab/part3-renderer.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/three.module.min.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/three.core.min.js"/>
+      <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/LICENSE"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>
