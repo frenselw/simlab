@@ -93,7 +93,7 @@
 |---|---|---|
 | 一維 | 至少一次真正放手的承托測試，並曾進入可接受的中性平衡範圍 | 系統以同一 production `markPart1` transition 保存並揭示生成題目的精確重心；紅點固定，不設學生微調 |
 | 二維 | 兩個不同小孔各有一次已停止的懸掛，並各保存一條可記錄、非退化且方向夾角足夠的向下線段 | 在平板本地座標標註重心；計分仍另外以嚴格鉛垂線規則驗證 |
-| 三維 | 完成兩個有足夠角度差的觀察姿態 | 選擇 A–E 其中一個三維候選點；選擇可先作 tentative 保存 |
+| 三維 | 完成兩個有足夠角度差的觀察姿態 | 按顏色選擇其中一個三維候選點；選擇可先作 tentative 保存 |
 
 直接寫入答案但欠缺相應語意證據的 state 必須被 persistence decoder 及 scorer 拒絕或計為零，不得只靠 UI 隱藏按鈕。
 
@@ -135,7 +135,7 @@
 - 單位 `m`、`cm`、`kg`、`rad`、`°`、`N·m`；
 - ARIA 純文字則使用可朗讀中文，不強迫讀屏器解讀視覺公式 DOM。
 
-普通英文縮寫、按鈕字母 A–E、程式內部 key 及日常中文數字不套用物理量 italic。
+普通英文縮寫、程式內部 key 及日常中文數字不套用物理量 italic。
 
 ## 5. 可重建的隨機題目
 
@@ -179,7 +179,7 @@
 - 真重心固定為物體本地座標原點 `(0, 0, 0)`。
 - 生成五個固定於物體座標的候選點，其中一個為原點，其餘四個距原點至少為包圍半徑的 `22%`，且互相不重疊。
 - 每個候選點必須嚴格位於立體內：球體中心距離不超過 `0.82r`；正方體／長方體每個本地坐標至相應面至少保留該半軸 `12%` 的 margin。任何 observation 姿態都不可把候選點生成到實體外或表面上。
-- 正確點的 A–E 標籤由 seed 均勻分配；不可讓幾何中心永遠叫 C。
+- 正確點對應的內部 key 由 seed 均勻分配，使幾何中心不會永遠使用同一顏色；內部 key 不顯示給學生。
 - 初始相機姿態不得令兩個候選點在投影後重疊；若接近重疊，generator 換用另一個已驗證姿態。
 
 ## 6. 第一部分：一維非均勻物體
@@ -361,11 +361,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - renderer construction failure 立即切換 Canvas；`webglcontextlost` 必須 `preventDefault()` 並以 Canvas 顯示 canonical state，`webglcontextrestored` 後以同一 canonical state 重建畫面，不產生 observation evidence。
 - 權威物體、候選點及相機方向保存在三維模型坐標；Canvas pixels 只屬 derived rendering。
 - 姿態權威表示固定為整數十分一度 `{ yaw10, pitch10 }`：`yaw10` canonical wrap 至 `[-1800,1800)`，`pitch10` clamp 至 `[-800,800]`；render 時才導出 rotation matrix／normalized quaternion。禁止 roll 作核心要求，以降低手機操作複雜度。
-- 立體以半透明面、清楚輪廓及深度排序顯示；A–E 候選點使用五種固定、高對比的實心顏色，不能以空心／半透明點造成視覺歧義，深度由輪廓、引導線及狀態文字補充。
+- 立體以半透明面、清楚輪廓及深度排序顯示；五個候選點使用固定、高對比的實心顏色，不能以空心／半透明點造成視覺歧義，深度由輪廓及狀態文字補充。
 - 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
-- 候選點 A–E 固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas renderer 直接繪製五個不含英文字母的彩色小圓點，HTML `aria-label` 及 control-panel radio swatch 才提供 A–E 語意，透明 HTML hit target 不再重複繪製大圓點。layout 以 stage 實際 CSS 闊高建立相隔 `48 CSS px` 的 deterministic slots，按深度及距投影錨點分配五個唯一位置；不設可退回重疊位置的 fallback。每個 pointermove 都要同步更新投影錨點、hit target 位置及引導線，不能等 pointerup 才重排；點離錨點超過 `16 CSS px` 時，以不可互動的幼虛線及小錨點顯示關係。
+- 五個候選點固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas renderer 直接繪製不含英文字母的彩色實心小圓點。每個候選點的透明語意 button 必須直接與其彩色圓點同心，並在每個 pointermove 同步投影；不可把 button 搬到另一位置，亦不使用引導虛線。為避免相鄰透明 button 重疊時由錯誤 button 攔截，pointer tap 由同一 orbit layer 按距離選取最近的實際投影點；button 仍保留 keyboard／ARIA 語意。`aria-label`、control-panel radio swatch 及文字只以顏色辨認候選點，內部 key 不顯示給學生。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
-- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用五種高對比實心彩色圓點，視覺點約 `28 CSS px`、透明 HTML hit target 至少 `46 × 46 CSS px`，選中時保留原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用五種高對比實心彩色圓點，pointer 選點半徑為 `26 CSS px`（直徑 `52 CSS px`），選中時保留原尺寸及原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 
 ### 8.2 電腦及手機旋轉操作
@@ -381,12 +381,12 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
-- 候選點以五種清晰、統一尺寸的實心彩色圓點顯示，圓點不印 A–E 英文字母；HTML hit target 至少 `46 × 46 CSS px`，control panel radio 以相同顏色 swatch 配對 A–E。不同深度不改變點的顏色或造成空心／半透明變體。
+- 候選點以五種清晰、統一尺寸的實心彩色圓點顯示，不印英文字母；orbit layer 以最近投影點及 `26 CSS px` 半徑判斷點選，control panel radio 以相同顏色 swatch 及顏色名稱配對。不同深度不改變點的顏色或造成空心／半透明變體；選中時圓點保持原尺寸及原色，只增加細小高對比 halo。
 - 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，亦不能進入 check。
 
 #### Keyboard／compact equivalent
 
-- Canvas 後提供可聚焦的 A–E radio list，與投影點雙向同步；radio 在第一次 observation gate 前 disabled，完成第一次 observation 後才可選擇。
+- Canvas 後提供按顏色辨認的可聚焦 radio list，與投影點雙向同步；radio 在第一次 observation gate 前 disabled，完成第一次 observation 後才可選擇。
 - Canvas orbit region 可聚焦；方向鍵旋轉，Shift＋方向鍵使用較大角度。
 - 提供文字摘要：立體種類、目前大致觀察方向、候選點標籤；不可朗讀哪一點是中心。
 
@@ -438,7 +438,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 二維畫線／取下層 | 只覆蓋目前平板可見 material region 的穩定 layer；active pivot 附近向下拖屬畫線，其餘位置拖動路由至 canonical 取下／整板或最近孔平移；牆面／stage 空白不屬此 target | 同一穩定 plate layer | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
 | 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
-| 三維候選點 A–E | 投影位置對應的 stable HTML buttons／hit overlays | 各 candidate button | No |
+| 五個三維候選點 | orbit layer 內最近投影點的 `26 CSS px` 選點區；同心 candidate buttons 提供 keyboard／ARIA 語意 | orbit layer（pointer）／各 candidate button（keyboard） | No |
 
 active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要更新 SVG 時，只更新 visual attributes／separate visual layer；pointer capture target 保持 mounted。
 

@@ -52,8 +52,12 @@ function create(canvas, problem, onContext) {
   }
   const candidateMeshes = new Map();
   for (const candidate of problem.candidates) {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(.06, 16, 12), new THREE.MeshBasicMaterial({ color: CANDIDATE_COLORS[candidate.key], transparent: true, opacity: .95, depthTest: false, depthWrite: false }));
-    dot.position.fromArray(candidate.position); dot.userData.key = candidate.key; group.add(dot); candidateMeshes.set(candidate.key, dot);
+    const marker = new THREE.Group();
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(.09, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(.06, 20, 14), new THREE.MeshBasicMaterial({ color: CANDIDATE_COLORS[candidate.key], depthTest: false, depthWrite: false }));
+    marker.position.fromArray(candidate.position); marker.userData.key = candidate.key;
+    halo.visible = false; halo.renderOrder = 6; dot.renderOrder = 7; marker.add(halo, dot); group.add(marker);
+    candidateMeshes.set(candidate.key, { marker, dot, halo });
   }
   const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb); grid.position.y = -1.75; scene.add(grid);
   let lost = false;
@@ -69,10 +73,10 @@ function create(canvas, problem, onContext) {
     group.rotation.order = "YXZ"; group.rotation.y = view.yaw10 * Math.PI / 1800; group.rotation.x = view.pitch10 * Math.PI / 1800;
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
-    for (const [keyName, mesh] of candidateMeshes) {
-      mesh.material.color.setHex(CANDIDATE_COLORS[keyName]);
-      mesh.scale.setScalar(keyName === selectedKey ? 1.18 : 1);
-      const point = mesh.getWorldPosition(new THREE.Vector3()).project(camera);
+    for (const [keyName, candidate] of candidateMeshes) {
+      candidate.dot.material.color.setHex(CANDIDATE_COLORS[keyName]);
+      candidate.halo.visible = keyName === selectedKey;
+      const point = candidate.marker.getWorldPosition(new THREE.Vector3()).project(camera);
       projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:-point.z });
     }
     renderer.render(scene, camera);

@@ -8,6 +8,7 @@
   const LEGACY_VERSION = 1;
   const LABELS = Object.freeze(["A", "B", "C", "D", "E"]);
   const CANDIDATE_COLORS = Object.freeze({ A: "#2563eb", B: "#db2777", C: "#16a34a", D: "#ea580c", E: "#7c3aed" });
+  const CANDIDATE_COLOR_NAMES = Object.freeze({ A: "藍色", B: "粉紅色", C: "綠色", D: "橙色", E: "紫色" });
   const PLATE_V1 = Object.freeze([
     Object.freeze([-0.58, -0.42]), Object.freeze([0.36, -0.5]),
     Object.freeze([0.62, -0.08]), Object.freeze([0.44, 0.52]),
@@ -86,5 +87,5 @@
       part3: Object.freeze(sharedPart3(n))
     });
   }
-  return { VERSION, LEGACY_VERSION, SUPPORTED_VERSIONS: Object.freeze([LEGACY_VERSION, VERSION]), LABELS, CANDIDATE_COLORS, polygonArea, plateArea, generate };
+  return { VERSION, LEGACY_VERSION, SUPPORTED_VERSIONS: Object.freeze([LEGACY_VERSION, VERSION]), LABELS, CANDIDATE_COLORS, CANDIDATE_COLOR_NAMES, polygonArea, plateArea, generate };
 });
