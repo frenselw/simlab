@@ -8,7 +8,8 @@ let tentative = P.switchPart(P.initial(seed), 3);
 tentative = P.selectPart3(tentative, problem.part3.correctKey);
 assert.ok(tentative && P.validate(tentative), "candidate selection is a restorable tentative editing state");
 assert.equal(P.allComplete(tentative), false);
-assert.equal(P.enterCheck(tentative), null, "tentative selection cannot bypass the observation gate");
+const tentativeCheck=P.enterCheck(tentative);assert.ok(tentativeCheck&&tentativeCheck.phase==="check","tentative progress can enter the check phase");assert.equal(P.allComplete(tentativeCheck),false);assert.equal(S.score(tentativeCheck).detail.find((item)=>item.key==="p3-select").points,0,"checking early does not bypass the evidence gate");fixtures.push(tentativeCheck);
+const emptyCheck=P.enterCheck(P.initial(seed)),emptyReview=P.makeReview(emptyCheck);assert.ok(emptyCheck&&emptyReview,"a pristine attempt can be checked and frozen for submission");assert.equal(P.validate(emptyReview,true),true);assert.equal(S.score(emptyReview).score,0,"submitting no evidence scores zero");fixtures.push(emptyCheck,emptyReview);
 assert.deepEqual(P.decode(P.encode(tentative)), tentative);
 
 // Complete the parts deliberately out of order to prove the tab is not a gate.

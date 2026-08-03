@@ -51,7 +51,6 @@
       !["part1", "part2", "part3", "check", "review"].includes(state.phase) || state.variant !== variantFor(state)) return false;
     let problem; try { problem = Generator.generate(state.seed, state.generatorVersion); } catch { return false; }
     const facts = semantic(state, problem); if (!facts) return false;
-    if (["check", "review"].includes(state.phase) && !(facts.p1Complete && facts.p2Complete && facts.p3Complete)) return false;
     if (review && state.phase !== "review") return false;
     return true;
   }
@@ -94,7 +93,7 @@
   function selectPart3(state, key) { if (!Generator.LABELS.includes(key) || !state) return null; return mutate(state, "part3", (next) => { next.part3.selectedCandidateKey = key; }); }
   function allComplete(state) { if (!validate(state)) return false; const p = Generator.generate(state.seed, state.generatorVersion), f = semantic(state, p); return f.p1Complete && f.p2Complete && f.p3Complete; }
   function switchPart(state, part) { if (!validate(state) || state.phase === "review" || ![1, 2, 3].includes(part)) return null; const next = clone(state); next.phase = `part${part}`; next.variant = "editing"; return validate(next) ? next : null; }
-  function enterCheck(state) { if (!allComplete(state) || state.phase === "review") return null; const next = clone(state); next.phase = "check"; next.variant = "complete"; return validate(next) ? next : null; }
+  function enterCheck(state) { if (!validate(state) || state.phase === "review") return null; const next = clone(state); next.phase = "check"; next.variant = "complete"; return validate(next) ? next : null; }
   function resetPart(state, part) { const next = switchPart(state, part); if (!next) return null; const problem = Generator.generate(next.seed, next.generatorVersion); if (part === 1) next.part1 = pristine1(); if (part === 2) next.part2 = pristine2(); if (part === 3) next.part3 = pristine3(problem); return validate(next) ? next : null; }
   function makeReview(state) { if (!validate(state) || state.phase !== "check") return null; const next = clone(state); next.phase = "review"; next.variant = "submitted"; return validate(next, true) ? next : null; }
   function fromReview(value) { try { const next = clone(value), decoded = next?.v === 1 ? migrateV1(next) : next; return validate(decoded, true) ? decoded : null; } catch { return null; } }

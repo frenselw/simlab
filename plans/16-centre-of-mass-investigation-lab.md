@@ -9,7 +9,7 @@
   2. 透過不同懸掛點的鉛垂線，實驗找出二維非均勻平板的重心；
   3. 利用均勻立體的對稱性，判斷其重心位於幾何中心；
   4. 分辨「實驗證據」與「直接猜測」，並以有效操作支持答案。
-- Learner task: 可隨時在一維承托、二維懸掛畫線及三維觀察選點之間切換；三部分完成後檢查並提交一次完整結果。
+- Learner task: 可隨時在一維承托、二維懸掛畫線及三維觀察選點之間切換；任何進度都可進入檢查並提交一次結果，欠缺操作證據的項目按 rubric 得零分。
 - Main interactions:
   - 拖動一維物體下方的窄承托點並放手測試；
   - 在平板上平移、用旋轉手柄轉動、將指定小孔套上牆釘、等待阻尼擺停止；
@@ -80,7 +80,7 @@
 
 - 第一個畫面直接進入第一部分，不設裝飾性 landing page。頂部使用一直可見的「一維杆／二維平板／三維立體」tab；已完成與目前部分有文字及圖示雙重狀態。
 - 三個 tab 可按任意次序來回切換，不以完成前一部分作門檻。切換前取消未完成 gesture／動畫並回復上一個 semantic checkpoint，再保存新的 active tab。
-- 「檢查」只在三部分均完成後啟用；不設每部分確認／下一步按鈕。
+- 「檢查及提交」由 attempt 開始即啟用；檢查頁逐部分標示已完成與欠缺證據，學生可返回任意部分繼續，亦可按目前進度提交。不設每部分確認／下一步按鈕。
 - `檢查` 畫面顯示每部分已取得的實驗證據，不顯示隱藏重心或正確候選點。
 - 檢查時可選擇「重新做此部分」。為保持狀態清楚，重新做會先確認，然後清除該部分的答案及操作證據；其他部分不受影響。
 - 最終提交後整個 attempt 鎖定，只可查看已提交的操作、答案、正確解釋及分項得分。
@@ -382,7 +382,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 單指在 orbit region 拖動使用相同 yaw／pitch 模型；active pointer capture 後 host、panel 及 viewport 全部保持不動。
 - 第二指不接管 active gesture；v1 不提供 pinch zoom，防止 scroll／zoom ownership 混亂。
 - 候選點以五種清晰、統一尺寸的實心彩色圓點顯示，不印英文字母；orbit layer 以最近投影點及 `26 CSS px` 半徑判斷點選，control panel radio 以相同顏色 swatch 及顏色名稱配對。不同深度不改變點的顏色或造成空心／半透明變體；選中時圓點保持原尺寸及原色，只增加細小高對比 halo。
-- 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，亦不能進入 check。
+- 未完成第一次有效 observation 前，單指點候選點不建立 selection，只提示先旋轉觀察；第一次 observation 完成後解鎖候選點並可建立 tentative selection。未完成兩個 observation 時仍不構成完成 evidence，但不阻止學生進入 check 或按目前進度提交。
 
 #### Keyboard／compact equivalent
 
@@ -520,8 +520,8 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 
 - UI 不允許在 evidence gate 前確認答案；scorer 仍獨立重驗。
 - 第一部分欠承托／平衡而直接有 `markX`：結果分 0，invalid snapshot policy 視 shape 決定拒絕或清除未合法值。新 UI 沒有直接填寫或調整 `markX` 的入口。
-- 第二部分欠兩個不同 settled holes 或兩條 valid lines 而直接有 mark：結果分 0，該 state 不可提交。
-- 第三部分欠兩個 observation 而選 candidate：第一次 observation 後的 tentative editing state 合法並可 restore，但結果分 0、該部分未完成且不可進入 check／提交。
+- 第二部分欠兩個不同 settled holes 或兩條 valid lines 而由外部直接注入 mark：該非法 mark state 仍會被拒絕；合法但未完成的 Part 2 state 可以提交，欠缺項目得 0 分。
+- 第三部分欠兩個 observation 而選 candidate：第一次 observation 後的 tentative state 合法並可 restore、進入 check 及提交，但結果分 0，該部分仍標示為未完成。
 - 不以 pointermove 次數、停留時間或畫線數量直接加分。
 - 無效 drop、無效線及錯誤候選不扣到負分；「重新做此部分」清除該部分證據，不提供試錯後保留最高分。
 - 完全沒有完成有效操作而靠 state 注入答案，總分必須為 0。
@@ -542,9 +542,9 @@ v2 把 active tab 與各部分完成度分開；`variant` 只可為 `editing | c
 
 | Phase | Variant | Required semantic state | Allowed next action |
 |---|---|---|---|
-| `part1`／`part2`／`part3` | `editing` | canonical seed/version；三個獨立合法的 part substates；目前 tab 可完整或未完整 | 操作目前 tab、切換任意 tab；三部分完整時進入 check |
-| `check` | `complete` | 三部分均完整；transient absent | 返回任意 tab或 submit |
-| `review` | `submitted` | 三部分均完整的 authoritative answer | 只讀檢視 |
+| `part1`／`part2`／`part3` | `editing` | canonical seed/version；三個獨立合法的 part substates；目前 tab 可完整或未完整 | 操作目前 tab、切換任意 tab，或以任何完成度進入 check |
+| `check` | `complete` | 三個 part substate 均合法但可未完整；transient absent。`complete` 是沿用的 check-phase variant 名稱，不代表三部分已完成 | 返回任意 tab或按目前進度 submit |
+| `review` | `submitted` | 已凍結的 authoritative answer；各部分可完整或未完整 | 只讀檢視 |
 
 ### 13.2 Transitions
 
@@ -555,7 +555,7 @@ part2/editing                         gains settled／line／mark evidence in pl
 part2/editing                         may detach one unlined active hang, removing its hang record
 part2/editing                         may rehang a lined hole while retaining its old line／mark, then atomically replace that hole line or detach unchanged
 part3/editing                         gains tentative selection／observation evidence in either order
-partN/editing -> check/complete       on enterCheck only when all three complete
+partN/editing -> check/complete       on enterCheck at any valid progress
 check/complete -> partN/editing       on switchPart(N), preserving all evidence
 editable/check -> partN/editing       on resetPart(N), clearing only that part
 check -> review                       only through successful/committed SCORM submission handling
