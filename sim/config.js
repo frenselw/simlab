@@ -86,6 +86,14 @@ const simulationList = [
     description: "透過承托、懸掛畫鉛垂線和旋轉立體，從實驗證據找出一維、二維及三維物體的重心。",
     tags: ["physics", "mechanics", "centre-of-mass", "balance", "suspension", "scorm"],
     status: "planned"
+  },
+  {
+    title: "胡克定律：彈簧探究與預測實驗室",
+    folder: "hookes-law-spring-investigation-lab",
+    categories: ["Mechanics"],
+    description: "量度兩條彈簧在不同負載下的伸長，建立 F–x 模型，並在不獲即時正誤提示下完成預測與工程設計。",
+    tags: ["physics", "mechanics", "hookes-law", "spring", "spring-constant", "force-extension", "measurement", "graph", "prediction", "engineering", "scorm"],
+    status: "active"
   }
 ];
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="hookes-law-spring-investigation-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-HOOKES-LAW-SPRING-INVESTIGATION-LAB">
+    <organization identifier="ORG-HOOKES-LAW-SPRING-INVESTIGATION-LAB">
+      <title>胡克定律：彈簧探究與預測實驗室</title>
+      <item identifier="ITEM-HOOKES-LAW-SPRING-INVESTIGATION-LAB" identifierref="RES-HOOKES-LAW-SPRING-INVESTIGATION-LAB"><title>胡克定律：彈簧探究與預測實驗室</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-HOOKES-LAW-SPRING-INVESTIGATION-LAB" type="webcontent" adlcp:scormtype="sco" href="hookes-law-spring-investigation-lab/index.html">
+      <file href="config.js"/>
+      <file href="hookes-law-spring-investigation-lab/index.html"/>
+      <file href="hookes-law-spring-investigation-lab/styles.css"/>
+      <file href="hookes-law-spring-investigation-lab/generator.js"/>
+      <file href="hookes-law-spring-investigation-lab/model.js"/>
+      <file href="hookes-law-spring-investigation-lab/animation.js"/>
+      <file href="hookes-law-spring-investigation-lab/scoring.js"/>
+      <file href="hookes-law-spring-investigation-lab/persistence.js"/>
+      <file href="hookes-law-spring-investigation-lab/main.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>
