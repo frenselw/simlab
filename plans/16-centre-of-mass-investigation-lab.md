@@ -284,12 +284,12 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 #### 旋轉
 
 - 平板外側顯示一個高對比紫色旋轉拖動點，旁邊有「拖動旋轉」文字，hit target 至少 `44 × 44 CSS px`。每次 render 在兩個相反候選位置中選擇較安全的一側，並 clamp 到 stage 內至少 22 px inset；平板靠近頂／側邊時拖動點及文字須自動翻側而不消失。
-- mouse／單指／pen 拖動旋轉手柄時，以 pointer 相對平板中心的 `atan2` 角度差更新 `θ`；平板中心在此 gesture 內保持不動。
+- 未懸掛時，mouse／單指／pen 拖動旋轉手柄以 pointer 相對平板中心的 `atan2` 角度差更新 `θ`；平板中心在此 gesture 內保持不動。已 settled 懸掛時，同一手柄改以 active hole／牆釘為 pivot，平板中心隨旋轉角平移，active hole 每個 frame 都精確保持在 `p_nail`。
 - pointerdown 記錄角度 offset，避免一按下就跳角。
 - 旋轉手柄保留可聚焦等價操作；learner-facing 面板不顯示 keyboard disclosure，亦不在主 control panel 建立操作按鈕牆。
 - mouse wheel、trackpad gesture 及裝置方向感應器不作必要輸入，避免平台差異及誤觸。
 - 雙指 twist 可在後續 usability 測試證明穩定後加入為額外捷徑；即使加入，單指手柄及 stage 上的鍵盤替代仍必須完整可用。
-- 平板一旦成功掛上釘並開始自由擺動，所有人工平移／旋轉 target 暫時鎖定；停止後如尚未畫線，直接拖動平板或另一個孔即可取下重掛。
+- 平板自由擺動期間，所有人工平移／旋轉 target 暫時鎖定。停止後旋轉手柄重新可用：學生拖動時平板繞 active hole 旋轉，放手後由該角度重新開始阻尼擺動；直接拖動平板或另一個孔則仍是取下重掛。
 
 #### 套釘
 
@@ -307,7 +307,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - focus order 固定為「平板平移 → 旋轉手柄 → 小孔 1–5 → 畫鉛垂線區 → 重心標註」，未解鎖的 stage target 不進 tab order；control panel 不另設 operational button wall。
 - 聚焦某小孔後按 Enter／Space，使用與 pointer drop 相同的 relationship model 將該孔對齊牆釘並開始相同阻尼擺，而不是建立較低要求的 keyboard evidence。
 - settled 後聚焦板上的畫線區並按 Enter／Space，建立一條通過 active hole、方向等於當前 world vertical、並裁切至板內可見長度的 plate-local 線；這是實體鉛垂線 tracing 的無障礙等價操作，不自動標出交點或重心。
-- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；只有拖到任意已保存線段的 pairwise 交點並吸附後才保存為 plate-local 標記。未吸附的紅點保持在 stage 內的浮動 palette 位置，不會跟平板旋轉；已保存標記旋轉時以 SVG screen transform 顯示，並 clamp 在可見 SVG viewport 內。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；移出交點即清除 plate-local 標記。控制面板不提供放置或四向微調按鈕。
+- 重心標註解鎖後，stage 側邊 palette 位置先出現紅色圓形「重心」標註 target（不是線交點、least-squares 或真重心）；只有拖到任意已保存線段的 pairwise 交點並吸附後才保存為 plate-local 標記。未吸附的紅點保持在 stage 內的浮動 palette 位置，不會跟平板旋轉；已保存標記與線交點共用完全相同的 plate-local→world transform，平板移到畫面外時可暫時離開 viewport，移回時必須仍精確重合，不可為保持可見而獨立 clamp。Enter／Space 確認，方向鍵逐步移動 `0.01S`，Shift＋方向鍵移動 `0.05S`；移出交點即清除 plate-local 標記。控制面板不提供放置或四向微調按鈕。
 - pointer 與 keyboard 路徑產生同一 production-shaped hole／hang／line／mark schema，並通過完全相同的 validity、persistence 及 scoring rules；input mode 只可作診斷，不改分。
 
 ### 7.4 鉛垂線及畫線工具
@@ -786,7 +786,7 @@ Never persisted：
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
 - [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
-- [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點旋轉後仍被 clamp 在可見 SVG 內。
+- [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點與交點共用 plate-local transform，出框及移回全程不分離。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
 - [ ] 二維牆釘固定於 canonical stage 中央 `(350,230)`；source／package trusted mouse、touch 拖動在桌面最多 80% 出框、手機最多 70% 出框，並保留可操作可見區域；越界拖動停在最後合法姿態。
 - [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
@@ -803,7 +803,7 @@ Never persisted：
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
 - [ ] Part 2 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
-- [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px，畫線完成無 pageerror／無向上跳；marker 對任意線對吸附。
+- [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px；settled 懸掛時 trusted drag 保持 active hole 在釘位，放手重新阻尼擺；畫線完成無 pageerror／無向上跳；marker 對任意線對吸附且整板出框時不離開交點。
 
 ### 18.6 Lifecycle／package tests
 
