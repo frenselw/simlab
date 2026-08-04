@@ -15,7 +15,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const SPRINGS = ["A", "B"];
   const LOADS = ["F1", "F2", "F3"];
-  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
+  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "安全承載設計", review: "提交前 review" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const GRAPH_X_AXIS_LABEL_X = GRAPH.left + GRAPH.width / 2;
@@ -198,6 +198,7 @@
   }
   function mathNumber(value) { return element("span", value == null ? "--" : String(value), "math-number"); }
   function mathVariable(value) { return element("i", value, "math-variable"); }
+  function mathSubscript(value) { return element("sub", value, "math-variable"); }
   function mathUnit(value) { return element("span", value, "math-unit"); }
   function mathPlaceholder() { return element("span", "--", "math-quantity"); }
   function mathQuantity(value, unit) {
@@ -298,7 +299,7 @@
       loadCards: $("loadCards"), attachLoad: $("attachLoad"), loadStatus: $("loadStatus"), cursorReadout: $("cursorReadout"), recordMeasurement: $("recordMeasurement"), measurementStatus: $("measurementStatus"), dataTable: $("dataTable"), toModel: $("toModel"),
       modelData: $("modelData"), modelReadout: $("modelReadout"), modelStatus: $("modelStatus"), toPredict: $("toPredict"),
       predictionCards: $("predictionCards"), predictionStatus: $("predictionStatus"), toDesign: $("toDesign"),
-      designLimit: $("designLimit"), moduleCount: $("moduleCount"), designSummary: $("designSummary"), toReview: $("toReview"),
+      designLimit: $("designLimit"), designK_A: $("designK_A"), designK_B: $("designK_B"), moduleCount: $("moduleCount"), designCalculation: $("designCalculation"), designSummary: $("designSummary"), toReview: $("toReview"),
       reviewSummary: $("reviewSummary"), submit: $("submit"), submitStatus: $("submitStatus"),
       zeroDrag: $("zeroDrag"), cursorDrag: $("cursorDrag"), modelDrag: $("modelDrag"), predictionDrag: $("predictionDrag"), dialog: $("recalibrationDialog"), confirmRecalibration: $("confirmRecalibration")
     };
@@ -641,7 +642,7 @@
       }
       if (phase === "model" && !Persistence.hasAllCalibrationsAndMeasurements(state)) return announce("兩條彈簧各三項量度完成後，才可找出線性關係。");
       if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("兩條直線都有斜率後，才可進行盲測預測。");
-      if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行工程設計。");
+      if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行安全承載設計。");
       if (phase === "review") {
         if (!Persistence.hasCompleteAnswer(state, scenario)) return announce("請先完成所有量度、模型、預測及工程方案。");
         if (!checkpoint()) return;
@@ -914,21 +915,62 @@
       });
       setText(dom.predictionStatus, `${state.predictions.filter(Boolean).length}/3 項預測已填寫；這裡不會顯示實際測試結果。`);
       dom.toDesign.disabled = Boolean(locked || !Persistence.hasAllPredictions(state));
-      dom.toDesign.textContent = state.fromReview ? "返回第四階段工程設計" : "完成三項預測後繼續";
+      dom.toDesign.textContent = state.fromReview ? "返回第四階段安全承載設計" : "完成三項預測後繼續";
+    }
+    function designCalculation() {
+      const design = state?.design;
+      const model = design ? state.models?.[design.springKey] : null;
+      const kModelNPerM = model ? Model.kFromModelHandle(model.handleExtensionM) : null;
+      const forceN = design ? design.moduleCount * scenario.design.moduleForceN : null;
+      const extensionM = finite(kModelNPerM) && finite(forceN) ? Model.extensionM(forceN, kModelNPerM) : null;
+      const limitM = scenario.design.limitM;
+      return design ? {
+        springKey: design.springKey,
+        moduleCount: design.moduleCount,
+        kModelNPerM,
+        forceN,
+        extensionM,
+        limitM,
+        predictedWithinLimit: finite(extensionM) && extensionM <= limitM + (Generator.FLOAT_EPSILON || 1e-9)
+      } : null;
     }
     function renderDesign() {
       if (!state || state.phase !== "design") return;
       setMathContent(dom.designLimit, [mathLength(scenario.design.limitM)]);
+      for (const key of SPRINGS) {
+        const model = state.models[key];
+        const target = key === "A" ? dom.designK_A : dom.designK_B;
+        setMathContent(target, ["你的 ", mathKFormula(model ? Model.kFromModelHandle(model.handleExtensionM) : null)]);
+      }
       const spring = state.design?.springKey || "";
-      document.querySelectorAll("[data-action='design-spring']").forEach((input) => { input.checked = input.value === spring; input.disabled = locked; });
+      document.querySelectorAll("[data-action='design-spring']").forEach((input) => {
+        input.checked = input.value === spring;
+        input.disabled = locked;
+      });
       setMathContent(dom.moduleCount, [mathNumber(state.design?.moduleCount ?? "--")]);
       const count = state.design?.moduleCount || 1;
-      document.querySelectorAll("[data-action='module-minus']").forEach((button) => button.disabled = locked || !state.design || count <= 1);
-      document.querySelectorAll("[data-action='module-plus']").forEach((button) => button.disabled = locked || !state.design || count >= scenario.design.maxModuleCount);
+      document.querySelectorAll("[data-action='module-minus']").forEach((button) => { button.disabled = locked || !state.design || count <= 1; });
+      document.querySelectorAll("[data-action='module-plus']").forEach((button) => { button.disabled = locked || !state.design || count >= scenario.design.maxModuleCount; });
       dom.toReview.disabled = Boolean(locked || !state.design);
+
+      const calculation = designCalculation();
+      dom.designCalculation.replaceChildren();
+      if (!calculation) {
+        dom.designCalculation.dataset.state = "empty";
+        appendParts(dom.designCalculation, ["先選擇一條彈簧，再用加減按鈕調整負載。"]);
+      } else {
+        dom.designCalculation.dataset.state = "calculation";
+        const formulaForce = element("p");
+        appendParts(formulaForce, ["你的模型計算：", mathVariable("F"), " = ", mathNumber(calculation.moduleCount), " × ", mathQuantity(scenario.design.moduleForceN.toFixed(1), "N"), " = ", mathForceValue(calculation.forceN)]);
+        const formulaExtension = element("p");
+        appendParts(formulaExtension, [mathVariable("x"), " = ", mathVariable("F"), " / ", mathVariable("k"), " = ", mathLength(calculation.extensionM), "；安全上限 ", mathVariable("x"), mathSubscript("max"), " = ", mathLength(calculation.limitM)]);
+        const status = element("p", "請把上面的 x 與安全上限比較；在不超過上限的方案中，找出總負載最大的方案。");
+        status.className = "design-status";
+        dom.designCalculation.append(formulaForce, formulaExtension, status);
+      }
       dom.designSummary.replaceChildren();
       if (state.design) appendGrid(dom.designSummary, [["彈簧", springLabel(state.design.springKey)], ["負載模組", mathNumber(state.design.moduleCount)], ["總負載", mathForceValue(state.design.moduleCount * scenario.design.moduleForceN)]]);
-      else dom.designSummary.append(element("p", "尚未選擇完整方案；提交前只顯示自己的選擇及題目限制。"));
+      else dom.designSummary.append(element("p", "先選擇彈簧及負載；計算結果會根據你自己的斜率更新。"));
     }
     function renderReview(notice = submitMessage, submitting = false) {
       if (!state || state.phase !== "review") return;
@@ -955,7 +997,7 @@
       const designText = element("p");
       if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個模組；", mathForceValue(editable.design.forceN)]);
       else designText.textContent = "未完成";
-      for (const [title, content] of [["量度", measurementText], ["線性關係（胡克定律）", modelText], ["預測", predictionText], ["工程方案", designText]]) {
+      for (const [title, content] of [["量度", measurementText], ["線性關係（胡克定律）", modelText], ["預測", predictionText], ["安全承載設計", designText]]) {
         const section = element("section");
         section.append(element("h3", title), content);
         dom.reviewSummary.append(section);
@@ -1159,15 +1201,58 @@
       dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
-      dom.svg.append(drawText(36, 32, "盲測工程設計・只顯示題目限制及你的方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawLine(116, 330, 680, 330, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }), drawMathText(540, 318, ["伸長上限 ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
-      dom.svg.append(drawLine(170, 78, 170, 430, { stroke: "#334155", "stroke-width": 4 }), drawLine(170, 78, 630, 78, { stroke: "#334155", "stroke-width": 5 }));
       const selected = state.design;
-      const count = selected?.moduleCount || 0;
-      for (let i = 0; i < count; i += 1) dom.svg.append(svgElement("rect", { x: 336 + i * 46, y: 110, width: 38, height: 28, rx: 4, fill: "#64748b" }), drawMathText(338 + i * 46, 128, [{ text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }], { fill: "#fff", "font-size": 9 }));
-      if (selected) dom.svg.append(drawMathText(230, 205, [springLabel(selected.springKey), "・", { text: String(selected.moduleCount), class: "math-number" }, " 個模組・", { text: n(selected.moduleCount * scenario.design.moduleForceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      else dom.svg.append(drawText(230, 205, "尚未選擇方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawText(230, 245, "提交前不實際掛上負載，不顯示安全性或最佳方案。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+      const calculation = designCalculation();
+      const ruler = { x: 96, top: 92, bottom: 410 };
+      const springX = 450;
+      const maxExtensionM = Generator.MAX_LINEAR_EXTENSION_M;
+      const yForExtension = (extensionM) => ruler.top + clamp(extensionM, 0, maxExtensionM) / maxExtensionM * (ruler.bottom - ruler.top);
+      const limitY = yForExtension(scenario.design.limitM);
+      const endpointY = yForExtension(calculation?.extensionM ?? 0.02);
+      const statusColor = calculation ? "#2563eb" : "#64748b";
+      const statusFill = calculation ? "#dbeafe" : "#e2e8f0";
+
+      dom.svg.append(drawMathText(36, 32, ["安全承載設計・用你的 ", { text: "F", class: "math-variable" }, " = ", { text: "kx", class: "math-variable" }], { "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawLine(150, 62, 700, 62, { stroke: "#334155", "stroke-width": 5 }), drawText(710, 68, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
+
+      dom.svg.append(drawLine(ruler.x, ruler.top, ruler.x, ruler.bottom, { stroke: "#64748b", "stroke-width": 3 }));
+      for (const extensionM of [0, .05, .10, .15, .18]) {
+        const y = yForExtension(extensionM);
+        dom.svg.append(drawLine(ruler.x - 7, y, ruler.x + 10, y, { stroke: "#64748b", "stroke-width": 2 }), drawSvgLength(ruler.x - 13, y + 5, extensionM, { "font-size": 14, "text-anchor": "end" }));
+      }
+      dom.svg.append(drawSvgAxisLabel(ruler.x, 448, "伸長", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
+
+      dom.svg.append(drawLine(142, limitY, 705, limitY, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }));
+      dom.svg.append(drawMathText(148, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-variable" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
+
+      if (!calculation) {
+        dom.svg.append(drawMathText(235, 220, ["先在左側選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, 252, "圖台會用你的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+        return;
+      }
+
+      dom.svg.append(drawSvgKValue(205, 94, calculation.kModelNPerM, { "font-size": 16, "font-weight": 700, fill: "#1d4ed8" }));
+      dom.svg.append(drawMathText(205, 118, ["負載 ", { text: "F", class: "math-variable" }, " = ", { text: String(calculation.moduleCount), class: "math-number" }, " × ", { text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }, " = ", { text: n(calculation.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { "font-size": 15 }));
+      dom.svg.append(drawMathText(205, 142, [{ text: "x", class: "math-variable" }, " = ", { text: "F", class: "math-variable" }, " / ", { text: "k", class: "math-variable" }, " = ", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { "font-size": 15, fill: statusColor, "font-weight": 700 }));
+
+      const coils = [];
+      const springEndY = Math.max(72, endpointY - 2);
+      for (let index = 0; index <= 18; index += 1) {
+        const y = 70 + (springEndY - 70) * index / 18;
+        const x = springX + (index % 2 ? 25 : -25);
+        coils.push(`${x},${y}`);
+      }
+      dom.svg.append(drawLine(springX, 62, springX, 70, { stroke: "#94a3b8", "stroke-width": 2 }), svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
+      dom.svg.append(svgElement("rect", { x: springX - 30 - calculation.moduleCount * 2, y: endpointY - 2, width: 60 + calculation.moduleCount * 4, height: 22 + calculation.moduleCount * 2, rx: 4, fill: statusFill, stroke: statusColor, "stroke-width": 2 }));
+      dom.svg.append(drawMathText(springX + 52, endpointY + 14, [springLabel(calculation.springKey), "・", { text: n(calculation.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }), drawMathText(148, Math.min(ruler.bottom + 25, endpointY + 26), ["你的模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
+
+      const moduleStartX = 245;
+      const moduleY = 470;
+      dom.svg.append(drawMathText(moduleStartX, moduleY, ["負載模組：", { text: String(calculation.moduleCount), class: "math-number" }, " 個 × ", { text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }], { "font-size": 15, "font-weight": 700 }));
+      for (let index = 0; index < calculation.moduleCount; index += 1) {
+        const x = moduleStartX + 112 + index * 42;
+        dom.svg.append(svgElement("rect", { x, y: moduleY - 19, width: 34, height: 22, rx: 3, fill: "#64748b" }));
+      }
     }
     function drawReviewStage() {
       dom.svg.append(drawText(36, 32, "提交前 review・圖台只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
@@ -1198,6 +1283,8 @@
         ? "提交後的鎖定結果圖台，包含理想模型及實際測試結果。"
         : state?.phase === "predict"
           ? "第三階段圖台顯示題目指定的彈簧和負載；拖動預測標記會令彈簧和負載一起伸長或縮短，提交前不顯示實際終點。"
+          : state?.phase === "design"
+            ? "第四階段用你第二階段建立的斜率計算 x = F/k；紅色虛線是安全伸長上限，請在安全方案中找出負載最大的方案。"
           : "圖台只顯示目前可觀察的探究現象、學生自己的資料或學生自己的標記；提交前不顯示正確性。";
       setText($("stageDescription"), stageDescription);
       positionDragTargets();

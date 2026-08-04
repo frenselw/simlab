@@ -355,6 +355,10 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.equal(completedPredictionPhase.toDesignDisabled, false, `${label}: continue-to-design is enabled after all predictions are recorded`);
   await clickDirect(cdp, "#toDesign");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: design phase did not open`);
+  const designInitial = await evaluate(cdp, "({heading:document.querySelector('#designPanel h2')?.textContent||'',calculationState:document.getElementById('designCalculation')?.dataset.state||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent)})");
+  assert.ok(designInitial.heading.includes("最大安全負載"), `${label}: fourth phase explains the maximum-safe-load task`);
+  assert.equal(designInitial.calculationState, "empty", `${label}: fourth phase asks for a spring before showing a calculation`);
+  assert.ok(designInitial.stageText.some((text) => text.includes("安全上限")), `${label}: fourth phase stage labels the safety limit`);
   const recordedPredictions = await evaluate(cdp, "JSON.stringify(window.__hookesLawDebug.getState().predictions)");
   await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: design phase could not return to prediction`);
@@ -374,6 +378,11 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   await clickDirect(cdp, "#toDesign");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: prediction phase could not return to design`);
   await clickDirect(cdp, "[data-action='design-spring'][value='A']");
+  const designCalculation = await evaluate(cdp, "({calculation:document.getElementById('designCalculation')?.textContent||'',summary:document.getElementById('designSummary')?.textContent||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),kA:document.getElementById('designK_A')?.textContent||''})");
+  assert.ok(designCalculation.calculation.includes("F") && designCalculation.calculation.includes("x") && designCalculation.calculation.includes("安全上限"), `${label}: fourth phase shows the learner-model force and extension calculation`);
+  assert.ok(designCalculation.summary.includes("總負載"), `${label}: fourth phase shows the current total force summary`);
+  assert.ok(designCalculation.stageText.some((text) => text.includes("你的模型預測末端")), `${label}: fourth phase stage shows the learner-model endpoint`);
+  assert.ok(designCalculation.kA.includes("N/m"), `${label}: fourth phase shows the learner's spring slope`);
   await clickDirect(cdp, "[data-action='module-plus']");
   await clickDirect(cdp, "[data-action='to-review']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'review'", `${label}: review did not open`);

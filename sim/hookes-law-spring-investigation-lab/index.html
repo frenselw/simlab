@@ -21,7 +21,7 @@
   <header class="app-header">
     <div>
       <h1>胡克定律：彈簧探究與預測實驗室</h1>
-      <p>量度伸長、建立 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 模型，再把模型用於盲測預測與工程設計。</p>
+      <p>量度伸長、建立 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 關係，再用斜率完成預測與安全承載設計。</p>
     </div>
     <div class="header-status">
       <span id="phaseBadge" class="phase-badge">探究與量度</span>
@@ -114,21 +114,26 @@
       </section>
 
       <section id="designPanel" class="panel-section is-hidden">
-        <p class="section-label">第四階段・盲測工程設計</p>
-        <h2>在伸長限制內令承載力最大</h2>
-        <p class="task-copy">選擇彈簧及 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載模組數量。提交前只會顯示題目限制與你自己的方案摘要。</p>
-        <div class="challenge-note">伸長上限：<strong id="designLimit" class="math-readout">--</strong></div>
-        <fieldset class="choice-fieldset"><legend>選擇彈簧</legend>
-          <label><input type="radio" name="designSpring" value="A" data-action="design-spring"> 彈簧 A</label>
-          <label><input type="radio" name="designSpring" value="B" data-action="design-spring"> 彈簧 B</label>
+        <p class="section-label">第四階段・安全承載設計</p>
+        <h2>用 <span class="math-inline"><i class="math-variable">F</i> = <i class="math-variable">kx</i></span> 設計最大安全負載</h2>
+        <p class="task-copy">情境：裝置要承受盡量大的總負載，但彈簧伸長不可超過安全上限。你要應用第二階段自己建立的斜率 <span class="math-inline"><i class="math-variable">k</i></span>，找出一個安全而且負載最大的方案。</p>
+        <div class="design-brief math-context">
+          <strong>做法</strong>
+          <ol><li>選擇彈簧 A 或 B，查看你為它建立的 <span class="math-inline"><i class="math-variable">k</i></span>。</li><li>每次加減一個 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載模組。</li><li>用 <span class="math-inline"><i class="math-variable">x</i> = <i class="math-variable">F</i>/<i class="math-variable">k</i></span> 檢查伸長，令 <span class="math-inline"><i class="math-variable">x</i> ≤ <i class="math-variable">x</i><sub>max</sub></span>，再在安全方案中選負載最大的方案。</li></ol>
+        </div>
+        <div class="challenge-note">本題安全伸長上限 <span class="math-inline"><i class="math-variable">x</i><sub>max</sub></span>：<strong id="designLimit" class="math-readout">--</strong></div>
+        <fieldset class="choice-fieldset design-spring-choices"><legend>1. 選擇彈簧，先比較你的斜率</legend>
+          <label><input type="radio" name="designSpring" value="A" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 A</strong><small id="designK_A" class="math-context">你的 <i class="math-variable">k</i>：--</small></span></label>
+          <label><input type="radio" name="designSpring" value="B" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 B</strong><small id="designK_B" class="math-context">你的 <i class="math-variable">k</i>：--</small></span></label>
         </fieldset>
         <div class="module-control">
-          <span>負載模組數量</span>
+          <span><strong>2. 調整負載</strong><small>每個模組增加 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span></small></span>
           <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載模組">−</button><output id="moduleCount" class="math-readout" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載模組">＋</button></div>
         </div>
+        <div id="designCalculation" class="design-calculation math-context" aria-live="polite"></div>
         <div id="designSummary" class="design-summary math-context"></div>
         <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="predict" class="secondary-button">返回第三階段查看預測</button><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看斜率</button></div>
-        <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">查看我的完整答案</button>
+        <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">完成安全承載設計，查看完整答案</button>
       </section>
 
       <section id="reviewPanel" class="panel-section is-hidden">
@@ -136,7 +141,7 @@
         <h2>檢查自己的最終答案</h2>
         <p class="task-copy">這裡只顯示你的答案、完成度和依賴資料狀態。提交後本次作答會鎖定，系統才會顯示正確性、分數及實際測試結果。</p>
         <div id="reviewSummary" class="review-summary math-context"></div>
-        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改工程方案</button></div>
+        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改安全承載設計</button></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
         <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
       </section>

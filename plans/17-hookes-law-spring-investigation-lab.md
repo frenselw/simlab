@@ -10,8 +10,8 @@
 - Slug：`hookes-law-spring-investigation-lab`
 - Plan：`plans/17-hookes-law-spring-investigation-lab.md`
 - 學生可見標題：`胡克定律：彈簧探究與預測實驗室`
-- Learning objective：學生透過量度兩條未知彈簧在不同作用力下的伸長建立 \(F-x\) 關係，理解彈簧常數 \(k\)，並把自己建立的模型用於未量度情境的預測及工程設計。
-- Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次盲測工程設計、review 後一次提交，再查看結果。
+- Learning objective：學生透過量度兩條未知彈簧在不同作用力下的伸長建立 \(F-x\) 關係，理解彈簧常數 \(k\)，並把自己建立的模型用於未量度情境的預測及安全承載設計。
+- Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次安全承載設計、review 後一次提交，再查看結果。
 - Main interactions：spring tabs、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、第三階段的彈簧＋負載聯動預測、跨階段返回／繼續、module `− / count / +`、review-edit、final submit。
 - Runtime files：`index.html`、`styles.css`、`generator.js`、`model.js`、`animation.js`、`scoring.js`、`persistence.js`、`main.js`，以及對應 tests、manifest 與 browser regression。
 - Shared runtime：`sim/shared/styles.css`、`sim/shared/scorm.js`、`sim/shared/activity-flow.js`。
@@ -28,7 +28,7 @@
 
 活動處理：
 
-> 學生透過量度兩條未知彈簧在不同作用力下的伸長，建立 \(F-x\) 關係，理解不同彈簧有不同彈簧常數 \(k\)，再把自己建立的模型用於未量度情境的預測及工程設計。
+> 學生透過量度兩條未知彈簧在不同作用力下的伸長，建立 \(F-x\) 關係，理解不同彈簧有不同彈簧常數 \(k\)，再把自己建立的模型用於未量度情境的預測及安全承載設計。
 
 核心關係：
 
@@ -55,7 +55,7 @@ F=kx
 → 記錄兩條彈簧的 F–x 數據
 → 以自己的數據建立通過原點的模型線
 → 對未量度負載作三次盲測預測
-→ 完成一次盲測工程設計
+→ 完成一次安全承載設計
 → 檢查自己的最終答案
 → 一次提交
 → 才揭示正確性、理想模型、預測結果及工程測試
@@ -76,6 +76,7 @@ F=kx
 - 完成度；
 - 操作是否可以執行的技術性提示；
 - prerequisite／依賴關係提示；
+- 第四階段只根據學生自己的 \(k\) 計算 \(F=nF_m\) 及 \(x=F/k\)，並把數值與題目給定的 \(x_{\max}\) 並列，讓學生自行比較，不替學生判定安全或最優；
 - 修改上游資料將清除下游答案的中性警告。
 
 最終提交前禁止：
@@ -218,7 +219,7 @@ F=kx
   title: "胡克定律：彈簧探究與預測實驗室",
   folder: "hookes-law-spring-investigation-lab",
   categories: ["Mechanics"],
-  description: "量度兩條彈簧在不同負載下的伸長，建立 F–x 模型，並在不獲即時正誤提示下完成預測與工程設計。",
+  description: "量度兩條彈簧在不同負載下的伸長，建立 F–x 模型，完成預測，並用自己的模型設計最大安全負載。",
   tags: [
     "physics",
     "mechanics",
@@ -359,6 +360,8 @@ const MAX_MODULE_COUNT = 8;
 題目要求：
 
 > 裝置的彈簧伸長不可超過指定上限。選擇彈簧及負載數量，在安全範圍內令承載力最大。
+
+第四階段要把任務說成一個可操作的設計問題，而不是只叫學生「加模組」：學生先選一條彈簧，查看自己在 Phase B 建立的斜率 \(k\)，再以 \(F=nF_m\) 及 \(x=F/k\) 計算目前方案的總力及預測伸長，最後在 \(x\le x_{\max}\) 的候選中找出總力最大的方案。介面可即時顯示學生自己的 \(k\)、\(F\)、\(x\) 及題目上限 \(x_{\max}\)，但不得顯示由真實 \(k\) 得出的正確安全判定或最佳方案。
 
 伸長上限候選：
 
@@ -743,7 +746,7 @@ measurement record 另帶：
 - reveal、方向提示、容許帶、「接近」或正確答案；
 - 以任何隱藏 DOM、ARIA、`data-*` 或 off-screen element 預載 actual endpoint。
 
-### 8.4 Phase D：盲測工程設計
+### 8.4 Phase D：安全承載設計
 
 題目示例：
 
@@ -751,21 +754,19 @@ measurement record 另帶：
 
 學生操作：
 
-- 選擇 spring A／B；
-- 用 `− / count / +` 設置 modules；
-- stage 顯示已選 spring、自然長度、limit line、未掛上的 load stack；
-- 顯示自己的方案摘要：
-  - spring；
-  - module count；
-  - total force。
+- 先選擇 spring A／B，選項旁顯示學生自己為該 spring 建立的 \(k\)；
+- 用 `− / count / +` 每次調整一個 \(0.5\,\mathrm{N}\) module，並清楚顯示目前 module count 及 total force；
+- stage 畫出固定端、已選彈簧、目前負載、紅色 \(x_{\max}\) 安全上限線及學生模型預測的末端位置；
+- 計算區用數學排版顯示：\(F=n\times0.5\,\mathrm{N}\)、\(x=F/k\) 及 \(x_{\max}\)，並用中性文字提醒學生自行比較；
+- 顯示自己的方案摘要：spring、module count、total force；
+- 不在第四階段真的掛上挑戰負載，因為這是把 Phase B 的模型應用到新情境的設計題。
 
 提交前不可：
 
-- 讓 spring 實際伸長；
-- 顯示 predicted extension；
-- 顯示安全／危險；
-- 顯示最佳 count；
-- 因 A 不得而容許學生看結果後換 B。
+- 讓 spring 實際伸長或播放真實工程測試；
+- 顯示真實 \(k\) 推導的安全／危險判定、最佳 count、最佳 spring 或實際 extension；
+- 把學生自己的模型計算誤稱為系統正確性回饋；
+- 以「選 A 錯了」等訊息阻止學生比較 A／B；學生可在提交前修改自己的方案。
 
 ### 8.5 Phase E：review
 
@@ -1002,7 +1003,7 @@ partialToleranceM = Math.max(0.012, 0.20 * trueExtensionM);
 
 使用 absolute floor 防止小 extension 的相對誤差過度嚴格。
 
-### 10.5 Part 4：工程設計，24 分
+### 10.5 Part 4：安全承載設計，24 分
 
 先計算：
 
@@ -1011,6 +1012,8 @@ forceN = moduleCount * MODULE_FORCE_N;
 extensionM = forceN / selectedSpring.kNPerM;
 safe = extensionM <= limitM + FLOAT_EPSILON;
 ```
+
+這個真實 \(k\) 只在提交後評分及結果揭示時使用。第四階段的即時計算必須改用學生保存的 model handle 推導的 \(k_{\text{model}}\)，只顯示 \(F=nF_m\)、\(x=F/k_{\text{model}}\) 與 \(x_{\max}\)，不顯示真實安全判定、最佳方案或實際測試結果；學生自行比較數值並作出設計選擇。
 
 若未選 spring、module count 不合法、count 為 0 或 unsafe：
 
