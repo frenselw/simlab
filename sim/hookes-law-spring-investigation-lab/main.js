@@ -18,6 +18,7 @@
   const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "建立 F–x 模型", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
+  const INVESTIGATION_DRAG_HANDLE_X = 760;
 
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
@@ -826,9 +827,10 @@
         return [clamp((point.x - stageRect.left) / Math.max(1, stageRect.width) * 100, 3, 97), clamp((point.y - stageRect.top) / Math.max(1, stageRect.height) * 100, 7, 93)];
       };
       if (state.phase === "investigate") {
-        const key = state.activeSpring; const zeroY = positionToY(state.working.zeroDraftM ?? scenario.springs[key].naturalLengthM); const zero = toPercent(420, zeroY);
-        setDrag(dom.zeroDrag, !state.calibrations[key] && !state.activeLoadKey, zero[0], zero[1], "自然長度零位標記；上下方向鍵可微調", "零");
-        const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? scenario.springs[key].naturalLengthM); const cursor = toPercent(420, cursorY);
+        const key = state.activeSpring; const zeroY = positionToY(state.working.zeroDraftM ?? scenario.springs[key].naturalLengthM);
+        const zeroHandle = toPercent(INVESTIGATION_DRAG_HANDLE_X, zeroY);
+        setDrag(dom.zeroDrag, !state.calibrations[key] && !state.activeLoadKey, zeroHandle[0], zeroHandle[1], "自然長度零位標記；上下方向鍵可微調", "零");
+        const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? scenario.springs[key].naturalLengthM); const cursor = toPercent(INVESTIGATION_DRAG_HANDLE_X, cursorY);
         setDrag(dom.cursorDrag, Boolean(state.activeLoadKey && stable && state.calibrations[key]), cursor[0], cursor[1], "量度游標；上下方向鍵可微調", "量");
       } else if (state.phase === "model") {
         const point = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N); const target = toPercent(point.x, point.y);
@@ -1020,5 +1022,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, freshSeed, clientToSvg, svgToClient, boot };
 });
