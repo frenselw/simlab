@@ -262,12 +262,17 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   }
   await clickDirect(cdp, "[data-action='to-model']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model phase did not open`);
+  const modelAxis = await evaluate(cdp, "(() => { const d=document,node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),rect=node?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect();return {x:Number(node?.getAttribute('x')),anchor:node?.getAttribute('text-anchor')||'',right:rect?.right,tickLeft:tickRect?.left}; })()");
+  assert.ok(modelAxis.x < 80 && modelAxis.anchor === "end", `${label}: vertical F axis label is separated from the tick numbers`);
+  assert.ok(modelAxis.right < modelAxis.tickLeft, `${label}: vertical F axis label does not overlap the tick numbers`);
   for (const springKey of ["A", "B"]) {
     await clickDirect(cdp, `[data-action="model-spring-tab"][data-spring="${springKey}"]`);
-    if (keyboard) await pressKey(cdp, "#modelDrag", "ArrowRight", 6);
+    if (keyboard) { await pressKey(cdp, "#modelDrag", "ArrowUp", 6); await pressKey(cdp, "#modelDrag", "ArrowRight", 6); }
     else {
-      await dragMouse(cdp, "#modelDrag", { x: 28, y: 0 });
+      await dragMouse(cdp, "#modelDrag", { x: 28, y: -28 });
     }
+    const modelEvidence = await evaluate(cdp, "window.__hookesLawDebug.interactionEvidence()");
+    assert.ok(modelEvidence.modelDraftForceN > 2.5, `${label}: model line control can move upward through the full graph`);
     await waitUntil(cdp, `Boolean(window.__hookesLawDebug.getState().models.${springKey})`, `${label}: ${springKey} model did not save`);
   }
   await clickDirect(cdp, "[data-action='to-predict']");

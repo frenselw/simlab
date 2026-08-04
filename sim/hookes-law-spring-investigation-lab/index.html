@@ -84,21 +84,21 @@
           <h3 id="dataTitle">已記錄的 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 數據</h3>
           <div id="dataTable" class="data-tables math-context"></div>
         </section>
-        <button type="button" id="toModel" data-action="to-model" class="primary-button next-button">完成量度後建立模型</button>
+        <button type="button" id="toModel" data-action="to-model" class="primary-button next-button">完成量度後找出線性關係</button>
       </section>
 
       <section id="modelPanel" class="panel-section is-hidden">
-        <p class="section-label">第二階段・建立模型</p>
-        <h2>拖動模型控制點，畫出通過原點的直線</h2>
-        <p class="task-copy">圖台顯示你記錄的數據點。把 <span class="math-inline"><i class="math-variable">F</i> = <span class="math-number">2.5</span><span class="math-unit">N</span></span> 的模型控制點放在你認為合適的位置；模型 <span class="math-inline"><i class="math-variable">k</i></span> 會由你目前的直線位置計算。</p>
+        <p class="section-label">第二階段・找出線性關係</p>
+        <h2>由數據點找出直線關係和斜率</h2>
+        <p class="task-copy">先觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線，令它代表你的數據。直線的斜率 <span class="math-inline"><i class="math-variable">k</i> = <i class="math-variable">F</i>/<i class="math-variable">x</i></span>；<span class="math-inline"><i class="math-variable">k</i></span> 是彈簧的勁度，而 <span class="math-inline"><i class="math-variable">x</i></span> 是伸長量。最後建立胡克定律的模型：<span class="math-inline"><i class="math-variable">F</i> = <i class="math-variable">k</i><i class="math-variable">x</i></span>，表示彈簧的彈力與伸長量成正比。</p>
         <div class="spring-tabs" role="tablist" aria-label="選擇要建立模型的彈簧">
           <button type="button" data-action="model-spring-tab" data-spring="A" aria-selected="true">彈簧 A</button>
           <button type="button" data-action="model-spring-tab" data-spring="B" aria-selected="false">彈簧 B</button>
         </div>
         <div id="modelData" class="model-data math-context"></div>
-        <div class="readout-row"><span>學生模型</span><strong id="modelReadout" class="math-readout">--</strong></div>
+        <div class="readout-row"><span>直線斜率</span><strong id="modelReadout" class="math-readout">--</strong></div>
         <p id="modelStatus" class="neutral-status math-context" aria-live="polite"></p>
-        <button type="button" id="toPredict" data-action="to-predict" class="primary-button next-button">兩條模型都有值後繼續</button>
+        <button type="button" id="toPredict" data-action="to-predict" class="primary-button next-button">兩條直線都有斜率後繼續</button>
       </section>
 
       <section id="predictPanel" class="panel-section is-hidden">
@@ -132,7 +132,7 @@
         <h2>檢查自己的最終答案</h2>
         <p class="task-copy">這裡只顯示你的答案、完成度和依賴資料狀態。提交後本次作答會鎖定，系統才會顯示正確性、分數及實際測試結果。</p>
         <div id="reviewSummary" class="review-summary math-context"></div>
-        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改模型</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改工程方案</button></div>
+        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改工程方案</button></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
         <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
       </section>
@@ -153,7 +153,7 @@
       <p id="stageDescription" class="sr-only">圖台會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
       <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
       <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
-      <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動模型控制點；左右方向鍵可微調模型伸長。</p>
+      <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動「線」標記調整直線；上下左右方向鍵可微調直線位置和斜率。</p>
       <p id="predictionDragHelp" class="sr-only">使用滑鼠或觸控拖動預測標記；上下方向鍵可微調預測伸長。</p>
     </section>
   </div>

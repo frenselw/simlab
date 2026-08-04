@@ -15,7 +15,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const SPRINGS = ["A", "B"];
   const LOADS = ["F1", "F2", "F3"];
-  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "建立 F–x 模型", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
+  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const INVESTIGATION_DRAG_HANDLE_X = 650;
@@ -23,6 +23,7 @@
   const INVESTIGATION_RULER_TOP = 42;
   const INVESTIGATION_RULER_BOTTOM = 455;
   const MEASUREMENT_SNAP_THRESHOLD_M = 0.003;
+  const MODEL_MIN_POINT_FORCE_N = 0.5;
   const LOAD_VISUALS = Object.freeze({
     F1: Object.freeze({ width: 54, height: 16, fill: "#bfdbfe", stroke: "#1d4ed8" }),
     F2: Object.freeze({ width: 70, height: 20, fill: "#fde68a", stroke: "#b45309" }),
@@ -278,6 +279,7 @@
     let visualPositionM = 0.09;
     let stable = true;
     let modelDraftM = 0.08;
+    let modelDraftForceN = Model.MODEL_HANDLE_FORCE_N;
     let predictionDraftM = 0.06;
     let zeroMoveM = 0;
     let cursorMoveM = 0;
@@ -308,7 +310,7 @@
       appendParts(node, parts);
     }
     function renderPhaseBadge(phase) {
-      if (phase === "model") setMathContent(dom.badge, ["建立 ", mathFxFormula(), " 模型"]);
+      if (phase === "model") setMathContent(dom.badge, ["找出 ", mathFxFormula(), " 線性關係"]);
       else setText(dom.badge, PHASE_LABELS[phase] || phase);
     }
     function announce(message) {
@@ -538,13 +540,14 @@
       modelMoveM = 0;
       modelMode = "pointer";
       modelDraftM = state.models[key]?.handleExtensionM ?? 0.08;
-      activeSelection(key, `現在編輯${springLabel(key)}的模型。`);
+      modelDraftForceN = Model.MODEL_HANDLE_FORCE_N;
+      activeSelection(key, `現在調整${springLabel(key)}的 F–x 直線。`);
     }
     function recordModel() {
       if (locked || state.phase !== "model" || modelMoveM < Model.MIN_OPERATION_MOVE_M) return;
       const next = Persistence.transitions.replaceModel(state, state.activeSpring, modelDraftM, scenario);
       modelMoveM = 0;
-      setState(next, `已記錄${springLabel(state.activeSpring)}的模型控制點。`);
+      setState(next, `已記錄${springLabel(state.activeSpring)}的直線斜率。`);
     }
     function choosePrediction(index) {
       if (locked || state.phase !== "predict" || !Number.isInteger(index) || index < 0 || index > 2) return;
@@ -573,8 +576,8 @@
     }
     function goPhase(phase) {
       if (locked || !state) return;
-      if (phase === "model" && !Persistence.hasAllCalibrationsAndMeasurements(state)) return announce("兩條彈簧各三項量度完成後，才可建立模型。");
-      if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("兩條模型都有值後，才可進行盲測預測。");
+      if (phase === "model" && !Persistence.hasAllCalibrationsAndMeasurements(state)) return announce("兩條彈簧各三項量度完成後，才可找出線性關係。");
+      if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("兩條直線都有斜率後，才可進行盲測預測。");
       if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行工程設計。");
       if (phase === "review") {
         if (!Persistence.hasCompleteAnswer(state, scenario)) return announce("請先完成所有量度、模型、預測及工程方案。");
@@ -807,10 +810,10 @@
         list.append(item);
       }
       const modelCopy = element("p");
-      appendParts(modelCopy, ["這些是你自己記錄的三個數據點。模型線及 ", mathVariable("k"), " 由你的控制點產生。"]);
+      appendParts(modelCopy, ["觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線；直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "。"]);
       dom.modelData.append(modelCopy, list);
-      setMathContent(dom.modelReadout, ["模型伸長 ", mathLength(modelDraftM), "；", mathKFormula(Model.kFromModelHandle(modelDraftM))]);
-      setText(dom.modelStatus, state.models[key] ? `已保存${springLabel(key)}模型；可拖動控制點重新設定。` : "尚未保存這條彈簧的模型控制點。");
+      setMathContent(dom.modelReadout, ["直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "；參考 ", mathForceValue(Model.MODEL_HANDLE_FORCE_N), " 時伸長 ", mathLength(modelDraftM)]);
+      setText(dom.modelStatus, state.models[key] ? `已保存${springLabel(key)}的直線斜率；可再次調整。` : "尚未保存這條彈簧的直線斜率。");
       dom.toPredict.disabled = Boolean(locked || !Persistence.hasAllModels(state));
     }
     function renderPredict() {
@@ -872,7 +875,7 @@
       const designText = element("p");
       if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個模組；", mathForceValue(editable.design.forceN)]);
       else designText.textContent = "未完成";
-      for (const [title, content] of [["量度", measurementText], ["模型", modelText], ["預測", predictionText], ["工程方案", designText]]) {
+      for (const [title, content] of [["量度", measurementText], ["線性關係（胡克定律）", modelText], ["預測", predictionText], ["工程方案", designText]]) {
         const section = element("section");
         section.append(element("h3", title), content);
         dom.reviewSummary.append(section);
@@ -932,6 +935,24 @@
     }
     function positionToY(positionM) { return INVESTIGATION_RULER_TOP + clamp(positionM, 0, Generator.STAGE_SPAN_M) / Generator.STAGE_SPAN_M * (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP); }
     function graphPoint(extensionM, forceN) { return Model.graphPointFromPhysics(extensionM, forceN, GRAPH); }
+    function modelDraftPoint() {
+      const k = Model.kFromModelHandle(modelDraftM);
+      if (!finite(k)) return null;
+      const maximumForceN = Math.max(MODEL_MIN_POINT_FORCE_N, Math.min(GRAPH.maxForceN, k * GRAPH.maxExtensionM));
+      const forceN = clamp(modelDraftForceN, MODEL_MIN_POINT_FORCE_N, maximumForceN);
+      const extensionM = Model.extensionM(forceN, k);
+      return finite(extensionM) ? graphPoint(extensionM, forceN) : null;
+    }
+    function modelValueFromPoint(point) {
+      const physics = Model.physicsFromGraphPoint(point.x, point.y, GRAPH);
+      const forceN = clamp(physics?.forceN ?? Model.MODEL_HANDLE_FORCE_N, MODEL_MIN_POINT_FORCE_N, GRAPH.maxForceN);
+      const extensionM = clamp(physics?.extensionM ?? modelDraftM, Model.MIN_EXTENSION_M, Generator.MAX_LINEAR_EXTENSION_M);
+      const k = forceN / extensionM;
+      return {
+        handleExtensionM: clamp(Model.MODEL_HANDLE_FORCE_N / k, Model.MIN_EXTENSION_M, Generator.MAX_LINEAR_EXTENSION_M),
+        forceN
+      };
+    }
     function drawText(x, y, text, attributes = {}) {
       const node = svgElement("text", { x, y, "font-size": 16, fill: "#334155", ...attributes });
       node.textContent = String(text ?? "");
@@ -1008,18 +1029,18 @@
     }
     function drawModelStage() {
       const key = state.activeSpring;
-      dom.svg.append(drawSvgFxFormula(36, 32, `${springLabel(key)}・你的 `, " 模型", { "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawSvgFxFormula(36, 32, `${springLabel(key)}・`, " 線性關係", { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawSvgAxisLabel(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700 }), drawSvgAxisLabel(GRAPH.left - 42, GRAPH.top + 6, "", "F", "N", { "font-size": 16, "font-weight": 700 }));
+      dom.svg.append(drawSvgAxisLabel(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700 }), drawSvgAxisLabel(GRAPH.left - 50, GRAPH.top + 8, "", "F", "N", { "font-size": 16, "font-weight": 700, "text-anchor": "end" }));
       dom.svg.append(drawMathText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, [{ text: "0", class: "math-number" }], { "font-size": 15, "font-weight": 700 }));
       for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawMathText(GRAPH.left - 34, y + 5, [{ text: String(forceN), class: "math-number" }], { "font-size": 15 })); }
       for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawSvgLength(point.x - 18, GRAPH.top + GRAPH.height + 22, xM, { "font-size": 14 })); }
       for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawSvgForce(point.x + 10, point.y + 5, row.loadKey, { "font-size": 14 })); }
-      const modelPoint = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N);
+      const modelPoint = modelDraftPoint();
       if (modelPoint) {
         dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, modelPoint.x, modelPoint.y, { stroke: "#2563eb", "stroke-width": 3 }));
         dom.svg.append(drawLine(GRAPH.left, modelPoint.y, modelPoint.x, modelPoint.y, { stroke: "#2563eb", "stroke-dasharray": "5 4", "stroke-width": 1 }));
-        dom.svg.append(drawText(modelPoint.x + 10, modelPoint.y - 8, "你的模型控制點", { class: "math-svg", fill: "#1d4ed8", "font-size": 15, "font-weight": 700 }));
+        dom.svg.append(drawText(modelPoint.x + 10, modelPoint.y - 8, "調整直線", { class: "math-svg", fill: "#1d4ed8", "font-size": 15, "font-weight": 700 }));
       }
     }
     function drawPredictionStage() {
@@ -1097,8 +1118,8 @@
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? scenario.springs[key].naturalLengthM); const cursor = toPercent(INVESTIGATION_DRAG_HANDLE_X, cursorY);
         setDrag(dom.cursorDrag, Boolean(state.activeLoadKey && stable && state.calibrations[key]), cursor[0], cursor[1], "量度游標；上下方向鍵可微調", "量");
       } else if (state.phase === "model") {
-        const point = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N); const target = toPercent(point.x, point.y);
-        setDrag(dom.modelDrag, true, target[0], target[1], "模型控制點；左右方向鍵可微調", "模");
+        const point = modelDraftPoint(); const target = toPercent(point.x, point.y);
+        setDrag(dom.modelDrag, true, target[0], target[1], "調整直線斜率；可在圖中上下左右移動，方向鍵也可微調", "線");
       } else if (state.phase === "predict") {
         const x = 128, y = 108 + clamp(predictionDraftM, 0, Generator.MAX_LINEAR_EXTENSION_M) / Generator.MAX_LINEAR_EXTENSION_M * 300; const target = toPercent(x, y);
         setDrag(dom.predictionDrag, true, target[0], target[1], "預測標記；上下方向鍵可微調", "預");
@@ -1111,7 +1132,7 @@
     }
     function valueFromPoint(kind, point) {
       if (kind === "zero" || kind === "cursor") return clamp((point.y - INVESTIGATION_RULER_TOP) / (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP) * Generator.STAGE_SPAN_M, 0, Generator.STAGE_SPAN_M);
-      if (kind === "model") return clamp((point.x - GRAPH.left) / GRAPH.width, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M;
+      if (kind === "model") return modelValueFromPoint(point).handleExtensionM;
       if (kind === "prediction") return clamp((point.y - 108) / 300, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M;
       return 0;
     }
@@ -1123,7 +1144,7 @@
       if (kind === "prediction" && state.phase !== "predict") return;
       event.preventDefault();
       const point = coordinateFromEvent(event); const current = kind === "zero" ? state.working.zeroDraftM : kind === "cursor" ? state.working.cursorDraftM : kind === "model" ? modelDraftM : predictionDraftM;
-      drag = { kind, target, pointerId: event.pointerId, startValue: current, lastValue: current, startPoint: point };
+      drag = { kind, target, pointerId: event.pointerId, startValue: current, startModelForceN: kind === "model" ? modelDraftForceN : null, lastValue: current, startPoint: point };
       try { target.setPointerCapture(event.pointerId); } catch {}
       target.classList.add("is-dragging");
       target.addEventListener("pointermove", moveDrag);
@@ -1135,6 +1156,17 @@
       if (!drag || event.pointerId !== drag.pointerId) return;
       event.preventDefault();
       const point = coordinateFromEvent(event);
+      if (drag.kind === "model") {
+        const modelValue = modelValueFromPoint(point);
+        modelDraftM = modelValue.handleExtensionM;
+        modelDraftForceN = modelValue.forceN;
+        drag.lastValue = modelDraftM;
+        const delta = Math.max(Math.abs(modelDraftM - drag.startValue), Math.abs(modelDraftForceN - drag.startModelForceN) / GRAPH.maxForceN * Generator.MAX_LINEAR_EXTENSION_M);
+        modelMoveM = Math.max(modelMoveM, delta);
+        modelMode = "pointer";
+        render();
+        return;
+      }
       const rawValue = valueFromPoint(drag.kind, point);
       const value = drag.kind === "zero" || drag.kind === "cursor" ? snapMeasurementPosition(drag.kind, rawValue) : rawValue;
       drag.lastValue = value;
@@ -1168,7 +1200,7 @@
       removeDragListeners(); drag = null;
       if (snapshot.kind === "zero") state.working.zeroDraftM = snapshot.startValue;
       else if (snapshot.kind === "cursor") state.working.cursorDraftM = snapshot.startValue;
-      else if (snapshot.kind === "model") modelDraftM = snapshot.startValue;
+      else if (snapshot.kind === "model") { modelDraftM = snapshot.startValue; modelDraftForceN = snapshot.startModelForceN; }
       else predictionDraftM = snapshot.startValue;
       zeroMoveM = cursorMoveM = modelMoveM = predictionMoveM = 0;
       render();
@@ -1177,13 +1209,19 @@
     function keyboardAdjust(event, kind, target) {
       if (locked || presentation !== "editable" || !target) return;
       const vertical = kind === "zero" || kind === "cursor" || kind === "prediction";
-      const allowed = vertical ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
+      const allowed = kind === "model" ? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] : vertical ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
       if (!allowed.includes(event.key)) return;
       event.preventDefault();
       const step = event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
       if (kind === "zero") { const before = state.working.zeroDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.zeroDraftM = snapMeasurementPosition(kind, rawValue); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(rawValue - before)); zeroMode = "keyboard"; }
       else if (kind === "cursor") { const before = state.working.cursorDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
-      else if (kind === "model") { const before = modelDraftM; modelDraftM = clamp(before + direction * step, Model.MIN_EXTENSION_M, Generator.MAX_LINEAR_EXTENSION_M); modelMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, modelMoveM + Math.abs(modelDraftM - before)); modelMode = "keyboard"; }
+      else if (kind === "model") {
+        const beforeM = modelDraftM; const beforeForceN = modelDraftForceN;
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") modelDraftForceN = clamp(beforeForceN + direction * (event.shiftKey ? .5 : .1), MODEL_MIN_POINT_FORCE_N, GRAPH.maxForceN);
+        else modelDraftM = clamp(beforeM + direction * step, Model.MIN_EXTENSION_M, Generator.MAX_LINEAR_EXTENSION_M);
+        modelMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, modelMoveM + Math.max(Math.abs(modelDraftM - beforeM), Math.abs(modelDraftForceN - beforeForceN) / GRAPH.maxForceN * Generator.MAX_LINEAR_EXTENSION_M));
+        modelMode = "keyboard";
+      }
       else { const before = predictionDraftM; predictionDraftM = clamp(before + direction * step, 0, Generator.MAX_LINEAR_EXTENSION_M); predictionMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, predictionMoveM + Math.abs(predictionDraftM - before)); predictionMode = "keyboard"; }
       if (kind === "model") recordModel(); else if (kind === "prediction") recordPrediction();
       else checkpoint("已保存鍵盤微調的草稿位置；按記錄後才會成為量度證據。");
@@ -1299,7 +1337,7 @@
       routeSubmission: (value) => routeSubmission(value, SimActivityFlow, {}),
       cancelDrag,
       mayReveal: () => mayRevealCorrectness(presentation),
-      interactionEvidence: () => ({ zeroMoveM, cursorMoveM, modelMoveM, predictionMoveM, modelDraftM, predictionDraftM, stable, locked, selectedLoadKey, debugAvailable, debugEnabled })
+      interactionEvidence: () => ({ zeroMoveM, cursorMoveM, modelMoveM, modelDraftM, modelDraftForceN, predictionMoveM, predictionDraftM, stable, locked, selectedLoadKey, debugAvailable, debugEnabled })
     };
   }
 
