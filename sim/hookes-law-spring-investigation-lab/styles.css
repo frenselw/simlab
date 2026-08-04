@@ -73,6 +73,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .readout-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .7rem; align-items: baseline; padding: .55rem 0; border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); }
 .readout-row span { color: var(--muted); font-size: .84rem; }
 .readout-row strong, output { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .95rem; }
+.readout-row + #recordMeasurement { margin-top: .45rem; }
 .neutral-status { min-height: 1.35rem; margin: .4rem 0 0; color: var(--muted); font-size: .83rem; line-height: 1.4; }
 .neutral-status[data-kind="technical"] { color: var(--danger); }
 .neutral-status[data-kind="success"] { color: var(--success); }

@@ -737,7 +737,6 @@
       const key = state.activeSpring;
       const spring = scenario.springs[key];
       const endpoint = investigationEndpointM(state, spring, visualPositionM);
-      dom.svg.append(drawText(36, 28, `${springLabel(key)}・真實探究現象`, { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 98, INVESTIGATION_RULER_BOTTOM, { stroke: "#64748b", "stroke-width": 3 }));
       dom.svg.append(drawText(118, 72, "位置 / cm", { class: "math-svg", "font-size": 16, fill: "#64748b", "font-weight": 700 }));
       for (let cmValue = 0; cmValue <= 25; cmValue += 5) {

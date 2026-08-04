@@ -98,6 +98,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.ok(initial.targetSizes.every(({ w, h }) => w >= 44 && h >= 44), `${label}: stable drag targets meet 44px minimum`);
   assert.ok(initial.stageText.includes("0"), `${label}: investigation SVG renders the origin label`);
   assert.ok(initial.stageText.includes("位置 / cm"), `${label}: investigation SVG renders the cm axis label`);
+  assert.ok(!initial.stageText.some((text) => text.includes("真實探究現象")), `${label}: redundant investigation title is removed`);
   assert.equal(initial.stageRectCount, 0, `${label}: no load block is drawn before a load is attached`);
   assert.equal(initial.springFirstY, 42, `${label}: unloaded spring touches the ceiling anchor`);
 

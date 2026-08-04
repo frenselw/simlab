@@ -53,7 +53,9 @@ assert.match(source, /const top = INVESTIGATION_RULER_TOP/);
 assert.match(source, /if \(loadVisual\)/);
 assert.match(source, /固定端／天花板/);
 assert.match(source, /point\.y - INVESTIGATION_RULER_TOP/);
+assert.doesNotMatch(source, /真實探究現象/);
 assert.match(css, /\.math-inline, \.math-quantity/);
 assert.match(css, /#stageSvg \.math-svg/);
+assert.match(css, /\.readout-row \+ #recordMeasurement \{ margin-top: \.45rem; \}/);
 
 console.log("Hooke's law UI runtime checks passed");
