@@ -258,7 +258,7 @@
       app: $("app"), badge: $("phaseBadge"), progress: $("progress"), stage: $("stage"), svg: $("stageSvg"), dragLayer: $("dragLayer"),
       panel: $("controlPanel"), technical: $("technicalPanel"), technicalTitle: $("technicalTitle"), technicalMessage: $("technicalMessage"), technicalActions: $("technicalActions"),
       investigate: $("investigatePanel"), model: $("modelPanel"), predict: $("predictPanel"), design: $("designPanel"), review: $("reviewPanel"), result: $("resultPanel"), live: $("liveRegion"),
-      debugPanel: $("debugPanel"), debugComplete: $("debugCompleteInvestigation"), debugStatus: $("debugStatus"),
+      debugPanel: $("debugPanel"), debugComplete: $("debugCompleteInvestigation"), debugCompleteModel: $("debugCompleteModel"), debugStatus: $("debugStatus"),
       calibrationInstruction: $("calibrationInstruction"), zeroReadout: $("zeroReadout"), recordCalibration: $("recordCalibration"), recalibrate: $("recalibrate"), calibrationStatus: $("calibrationStatus"),
       loadCards: $("loadCards"), attachLoad: $("attachLoad"), loadStatus: $("loadStatus"), cursorReadout: $("cursorReadout"), recordMeasurement: $("recordMeasurement"), measurementStatus: $("measurementStatus"), dataTable: $("dataTable"), toModel: $("toModel"),
       modelData: $("modelData"), modelReadout: $("modelReadout"), modelStatus: $("modelStatus"), toPredict: $("toPredict"),
@@ -411,6 +411,27 @@
       } catch {
         debugEnabled = false;
         announce("調試模式未能安全完成第一階段。");
+        return false;
+      }
+    }
+    function completeModelForDebug() {
+      if (!debugAvailable || !debugEnabled || locked || !state || state.phase !== "model") {
+        announce("調試自動模型只可在第二階段使用。先開啟第一階段調試，再按這個按鈕。 ");
+        return false;
+      }
+      try {
+        let next = Persistence.clone(state);
+        for (const springKey of SPRINGS) {
+          const spring = scenario.springs[springKey];
+          next = Persistence.transitions.replaceModel(next, springKey, Model.MODEL_HANDLE_FORCE_N / spring.kNPerM, scenario);
+        }
+        next.activeSpring = "A";
+        next = Persistence.transitions.setPhase(next, "predict", scenario);
+        const ok = setState(next, "調試模式已自動完成第二階段；現在可以直接測試第三階段。", true);
+        if (!ok) announce("調試模式未能安全完成第二階段。 ");
+        return ok;
+      } catch {
+        announce("調試模式未能安全完成第二階段。 ");
         return false;
       }
     }
@@ -724,7 +745,10 @@
       if (!visible) return;
       dom.debugComplete.checked = debugEnabled;
       dom.debugComplete.disabled = debugEnabled || state.phase !== "investigate";
-      if (debugEnabled) setText(dom.debugStatus, "第一階段已自動完成；目前可直接測試第二階段。 ");
+      if (dom.debugCompleteModel) dom.debugCompleteModel.disabled = !debugEnabled || state.phase !== "model";
+      if (debugEnabled && state.phase === "model") setText(dom.debugStatus, "第一階段已自動完成；可按下方按鈕填入兩條正確直線，直接測試第三階段。 ");
+      else if (debugEnabled && state.phase === "predict") setText(dom.debugStatus, "第一、二階段已自動完成；目前可直接測試第三階段。 ");
+      else if (debugEnabled) setText(dom.debugStatus, "第一階段已自動完成；目前可直接測試第二階段。 ");
       else if (state.phase !== "investigate") setText(dom.debugStatus, "目前已離開第一階段；如要重新測試，請開啟新的 attempt。 ");
       else setText(dom.debugStatus, "開啟後會填入兩條彈簧的正確零位及三個負載讀數，並直接進入第二階段。 ");
     }
@@ -1271,6 +1295,9 @@
           checkbox.checked = false;
           renderDebugPanel();
         }
+      });
+      dom.debugCompleteModel?.addEventListener("click", () => {
+        if (!completeModelForDebug()) renderDebugPanel();
       });
       dom.confirmRecalibration?.addEventListener("click", (event) => { event.preventDefault(); confirmRecalibration(); });
       bindDragTarget("zero", dom.zeroDrag); bindDragTarget("cursor", dom.cursorDrag); bindDragTarget("model", dom.modelDrag); bindDragTarget("prediction", dom.predictionDrag);

@@ -162,10 +162,11 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
 async function runDebugShortcut(cdp, baseUrl, launchPath, label) {
   await setViewport(cdp, 1280, 800, false);
   await navigate(cdp, `${baseUrl}${launchPath}?debug=1&browser=${label}`);
-  const initial = await evaluate(cdp, "(() => ({ phase:window.__hookesLawDebug.getState().phase, visible:!document.getElementById('debugPanel').classList.contains('is-hidden'), checked:document.getElementById('debugCompleteInvestigation').checked }))()");
+  const initial = await evaluate(cdp, "(() => ({ phase:window.__hookesLawDebug.getState().phase, visible:!document.getElementById('debugPanel').classList.contains('is-hidden'), checked:document.getElementById('debugCompleteInvestigation').checked, modelButtonDisabled:document.getElementById('debugCompleteModel').disabled }))()");
   assert.equal(initial.phase, "investigate", `${label}: debug shortcut starts in the first phase`);
   assert.equal(initial.visible, true, `${label}: debug shortcut panel is visible with debug=1`);
   assert.equal(initial.checked, false, `${label}: debug shortcut starts off`);
+  assert.equal(initial.modelButtonDisabled, true, `${label}: second-phase debug shortcut is locked until first phase is complete`);
   await clickDirect(cdp, "#debugCompleteInvestigation");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: debug shortcut did not enter the model phase`);
   const completed = await evaluate(cdp, `(() => {
@@ -178,7 +179,19 @@ async function runDebugShortcut(cdp, baseUrl, launchPath, label) {
   assert.equal(completed.checked, true, `${label}: debug shortcut remains visibly enabled`);
   assert.equal(completed.complete, true, `${label}: debug shortcut fills all first-phase records`);
   assert.ok(completed.maxError < 1e-9, `${label}: debug shortcut fills exact endpoint answers`);
-  return `${label}: first-phase debug shortcut passed`;
+  const modelReady = await evaluate(cdp, "(() => { const debug=window.__hookesLawDebug,state=debug.getState(),scenario=debug.getScenario(); const errors=['A','B'].map((springKey)=>Math.abs(state.models[springKey]?.handleExtensionM-window.HookesLawModel.MODEL_HANDLE_FORCE_N/scenario.springs[springKey].kNPerM)); return {phase:state.phase,complete:window.HookesLawPersistence.hasAllModels(state),predictions:state.predictions.filter(Boolean).length,maxError:Math.max(...errors),buttonDisabled:document.getElementById('debugCompleteModel').disabled}; })()");
+  assert.equal(modelReady.phase, "model", `${label}: first-phase debug shortcut leaves the model phase active`);
+  assert.equal(modelReady.complete, false, `${label}: second-phase debug shortcut has not run yet`);
+  assert.equal(modelReady.buttonDisabled, false, `${label}: second-phase debug shortcut is enabled in the model phase`);
+  await clickDirect(cdp, "#debugCompleteModel");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: second-phase debug shortcut did not enter the predict phase`);
+  const completedModel = await evaluate(cdp, "(() => { const debug=window.__hookesLawDebug,state=debug.getState(),scenario=debug.getScenario(); const errors=['A','B'].map((springKey)=>Math.abs(state.models[springKey]?.handleExtensionM-window.HookesLawModel.MODEL_HANDLE_FORCE_N/scenario.springs[springKey].kNPerM)); return {phase:state.phase,complete:window.HookesLawPersistence.hasAllModels(state),predictions:state.predictions.filter(Boolean).length,maxError:Math.max(...errors),buttonDisabled:document.getElementById('debugCompleteModel').disabled}; })()");
+  assert.equal(completedModel.phase, "predict", `${label}: second-phase debug shortcut enters the third phase`);
+  assert.equal(completedModel.complete, true, `${label}: second-phase debug shortcut fills both model answers`);
+  assert.equal(completedModel.predictions, 0, `${label}: second-phase debug shortcut leaves third-phase predictions for testing`);
+  assert.ok(completedModel.maxError < 1e-9, `${label}: second-phase debug shortcut fills exact model answers`);
+  assert.equal(completedModel.buttonDisabled, true, `${label}: second-phase debug shortcut is disabled after entering the third phase`);
+  return `${label}: first- and second-phase debug shortcuts passed`;
 }
 
 async function iframeMetrics(cdp) {
