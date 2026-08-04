@@ -5,14 +5,9 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const GENERATOR_VERSION = 1;
+  const GENERATOR_VERSION = 2;
   const K_PAIRS_N_PER_M = Object.freeze([
-    Object.freeze([20, 35]),
-    Object.freeze([20, 40]),
-    Object.freeze([25, 40]),
-    Object.freeze([25, 45]),
-    Object.freeze([30, 50]),
-    Object.freeze([35, 50])
+    Object.freeze([25, 50])
   ]);
   const NATURAL_LENGTHS_M = Object.freeze([0.075, 0.085, 0.095, 0.105]);
   const INVESTIGATION_FORCES_N = Object.freeze([1.0, 2.0, 3.0]);

@@ -270,14 +270,10 @@ meters = displayCm / 100;
 
 ```js
 const K_PAIRS_N_PER_M = [
-  [20, 35],
-  [20, 40],
-  [25, 40],
-  [25, 45],
-  [30, 50],
-  [35, 50]
+  [25, 50]
 ];
 ```
+- 這一版固定使用 \(k=25\) 及 \(50\,\mathrm{N/m}\)，因為第三階段固定負載 \(1.5\,\mathrm{N}\)、\(2.5\,\mathrm{N}\)、\(3.5\,\mathrm{N}\) 除以這兩個 \(k\) 後，伸長量分別都是整數厘米；不可再抽出會產生小數標準答案的 \(k\) 組合；
 
 要求：
 
@@ -399,7 +395,7 @@ function enumerateDesigns(scenario) {
 建議：
 
 ```js
-generateScenario({ seed, generatorVersion: 1 })
+generateScenario({ seed, generatorVersion: 2 })
 ```
 
 - 新 attempt 只建立一次 uint32 seed；
@@ -984,7 +980,7 @@ Math.sign(kModelA - kModelB) === Math.sign(kTrueA - kTrueB)
 ```js
 errorM = Math.abs(predictedExtensionM - trueExtensionM);
 
-fullToleranceM = Math.max(0.005, 0.05 * trueExtensionM);
+fullToleranceM = Math.max(0.003, 0.05 * trueExtensionM);
 goodToleranceM = Math.max(0.006, 0.10 * trueExtensionM);
 partialToleranceM = Math.max(0.012, 0.20 * trueExtensionM);
 ```
@@ -1059,8 +1055,7 @@ const CURSOR_PARTIAL_ERROR_M = 0.005;
 const MODEL_FULL_REL = 0.05;
 const MODEL_GOOD_REL = 0.10;
 const MODEL_PARTIAL_REL = 0.20;
-const PREDICTION_INPUT_STEP_M = 0.01;
-const PREDICT_FULL_ABS_M = Math.max(0.003, PREDICTION_INPUT_STEP_M / 2);
+const PREDICT_FULL_ABS_M = 0.003;
 const PREDICT_GOOD_ABS_M = 0.006;
 const PREDICT_PARTIAL_ABS_M = 0.012;
 const FLOAT_EPSILON = 1e-9;
@@ -1331,8 +1326,8 @@ any editable phase -> earlier normalized phase
 ```js
 {
   schemaVersion: 1,
-  generatorVersion: 1,
-  rubricVersion: 1,
+  generatorVersion: 2,
+  rubricVersion: 2,
   seed: 1234567890,
 
   phase: "investigate" | "model" | "predict" | "design" | "review",

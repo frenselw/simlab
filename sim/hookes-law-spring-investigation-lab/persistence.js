@@ -11,8 +11,8 @@
 
   const ACTIVITY = "hookes-law-spring-investigation-lab";
   const SCHEMA_VERSION = 1;
-  const GENERATOR_VERSION = 1;
-  const RUBRIC_VERSION = 1;
+  const GENERATOR_VERSION = 2;
+  const RUBRIC_VERSION = 2;
   const PHASES = Object.freeze(["investigate", "model", "predict", "design", "review"]);
   const LOAD_KEYS = Object.freeze(["F1", "F2", "F3"]);
   const SPRINGS = Object.freeze(["A", "B"]);

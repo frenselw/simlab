@@ -5,7 +5,7 @@ const G = require("./generator.js");
 
 for (let seed = 0; seed < 1000; seed += 1) {
   const scenario = G.generateScenario({ seed });
-  assert.equal(scenario.generatorVersion, 1);
+  assert.equal(scenario.generatorVersion, 2);
   assert.equal(scenario.seed, seed);
   assert.ok(Object.isFrozen(scenario));
   assert.ok(Object.isFrozen(scenario.springs));
@@ -15,6 +15,7 @@ for (let seed = 0; seed < 1000; seed += 1) {
   assert.ok(scenario.predictions.some((item) => item.springKey === "B"));
   assert.equal(new Set(scenario.predictions.map((item) => `${item.springKey}:${item.forceN}`)).size, 3);
   assert.ok(scenario.predictions.every((item) => !G.INVESTIGATION_FORCES_N.includes(item.forceN)));
+  assert.ok(scenario.predictions.every((item) => Math.abs(item.trueExtensionM * 100 - Math.round(item.trueExtensionM * 100)) <= G.FLOAT_EPSILON));
   assert.ok(scenario.stage.maxEndpointM <= G.STAGE_SPAN_M + G.FLOAT_EPSILON);
   const designs = G.enumerateDesigns(scenario);
   const safe = designs.filter((design) => design.safe);
@@ -28,6 +29,7 @@ for (let seed = 0; seed < 1000; seed += 1) {
 assert.deepEqual(G.generateScenario({ seed: 123 }), G.generateScenario({ seed: 123 }));
 assert.notDeepEqual(G.generateScenario({ seed: 123 }), G.generateScenario({ seed: 124 }));
 assert.throws(() => G.generateScenario({ seed: -1 }), /Unsupported generator/);
-assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 2 }), /Unsupported generator/);
+assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 1 }), /Unsupported generator/);
+assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 3 }), /Unsupported generator/);
 
 console.log("Hooke's law generator checks passed");
