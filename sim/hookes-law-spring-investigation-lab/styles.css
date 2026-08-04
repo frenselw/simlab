@@ -14,6 +14,7 @@
   --danger: #dc2626;
   --success: #15803d;
   --touch-target: 44px;
+  --math-font: "STIX Two Math", "Cambria Math", "STIXGeneral", "Latin Modern Math", "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
@@ -26,6 +27,11 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .is-hidden { display: none !important; }
+.math-inline, .math-quantity, .math-readout, .math-context { font-family: var(--math-font); font-variant-numeric: lining-nums tabular-nums; }
+.math-inline i, .math-variable { font-style: italic; }
+.math-unit { font-style: normal; margin-left: .12em; letter-spacing: .01em; }
+.math-quantity { white-space: nowrap; }
+.math-readout { font-variant-numeric: lining-nums tabular-nums; }
 
 .hookes-app { position: fixed; inset: 0; height: 100vh; height: 100dvh; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; overflow: clip; background: var(--app); }
 .app-header { min-height: 4rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .75rem 1rem; padding: .6rem 1rem; background: #fff; border-bottom: 1px solid var(--border); }
@@ -38,6 +44,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .workspace { min-height: 0; display: grid; grid-template-areas: "stage" "controls"; grid-template-rows: minmax(14rem, 46vh) minmax(0, 1fr); overflow: hidden; }
 .stage { grid-area: stage; position: relative; min-height: 0; overflow: hidden; isolation: isolate; background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); border-bottom: 1px solid var(--border); touch-action: pan-y; }
 #stageSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#stageSvg .math-svg { font-family: var(--math-font); font-variant-numeric: lining-nums tabular-nums; }
 .drag-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
 .drag-target { position: absolute; z-index: 6; display: grid; place-items: center; width: var(--touch-target); height: var(--touch-target); min-height: var(--touch-target); padding: 0; transform: translate(-50%, -50%); border: 2px solid #1d4ed8; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #1d4ed8; box-shadow: 0 1px 4px rgba(15, 23, 42, .18); pointer-events: auto; touch-action: none; user-select: none; }
 .drag-target:hover, .drag-target:active, .drag-target.is-dragging { background: #dbeafe; }

@@ -21,7 +21,7 @@
   <header class="app-header">
     <div>
       <h1>胡克定律：彈簧探究與預測實驗室</h1>
-      <p>量度伸長、建立 F–x 模型，再把模型用於盲測預測與工程設計。</p>
+      <p>量度伸長、建立 <span class="math-inline"><i>F</i>–<i>x</i></span> 模型，再把模型用於盲測預測與工程設計。</p>
     </div>
     <div class="header-status">
       <span id="phaseBadge" class="phase-badge">探究與量度</span>
@@ -49,33 +49,33 @@
         <section class="subsection" aria-labelledby="calibrationTitle">
           <h3 id="calibrationTitle">自然長度零位</h3>
           <p id="calibrationInstruction" class="instruction"></p>
-          <div class="readout-row"><span>目前游標</span><strong id="zeroReadout">--</strong></div>
+          <div class="readout-row"><span>目前游標</span><strong id="zeroReadout" class="math-readout">--</strong></div>
           <div class="button-row">
             <button type="button" id="recordCalibration" data-action="record-calibration">記錄自然長度位置</button>
             <button type="button" id="recalibrate" data-action="request-recalibrate" class="secondary-button">重新標定</button>
           </div>
-          <p id="calibrationStatus" class="neutral-status" aria-live="polite"></p>
+          <p id="calibrationStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection" aria-labelledby="loadTitle">
           <h3 id="loadTitle">指定探究負載</h3>
           <div id="loadCards" class="choice-grid" aria-label="選擇負載">
-            <button type="button" data-action="select-load" data-load="F1">1.0 N</button>
-            <button type="button" data-action="select-load" data-load="F2">2.0 N</button>
-            <button type="button" data-action="select-load" data-load="F3">3.0 N</button>
+            <button type="button" class="math-quantity" data-action="select-load" data-load="F1"><span class="math-number">1.0</span><span class="math-unit">N</span></button>
+            <button type="button" class="math-quantity" data-action="select-load" data-load="F2"><span class="math-number">2.0</span><span class="math-unit">N</span></button>
+            <button type="button" class="math-quantity" data-action="select-load" data-load="F3"><span class="math-number">3.0</span><span class="math-unit">N</span></button>
           </div>
           <button type="button" id="attachLoad" data-action="attach-load" class="primary-button">掛上所選負載</button>
-          <p id="loadStatus" class="neutral-status" aria-live="polite"></p>
+          <p id="loadStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection" aria-labelledby="measurementTitle">
           <h3 id="measurementTitle">量度游標</h3>
           <p class="instruction">彈簧穩定後，移動圖台上的游標到末端位置，再記錄這次量度。顯示的讀數是你的游標與零位之間的距離。</p>
-          <div class="readout-row"><span>學生讀數</span><strong id="cursorReadout">--</strong></div>
+          <div class="readout-row"><span>學生讀數</span><strong id="cursorReadout" class="math-readout">--</strong></div>
           <button type="button" id="recordMeasurement" data-action="record-measurement">記錄量度</button>
-          <p id="measurementStatus" class="neutral-status" aria-live="polite"></p>
+          <p id="measurementStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection data-subsection" aria-labelledby="dataTitle">
-          <h3 id="dataTitle">已記錄的 F–x 數據</h3>
-          <div id="dataTable" class="data-tables"></div>
+          <h3 id="dataTitle">已記錄的 <span class="math-inline"><i>F</i>–<i>x</i></span> 數據</h3>
+          <div id="dataTable" class="data-tables math-context"></div>
         </section>
         <button type="button" id="toModel" data-action="to-model" class="primary-button next-button">完成量度後建立模型</button>
       </section>
@@ -83,14 +83,14 @@
       <section id="modelPanel" class="panel-section is-hidden">
         <p class="section-label">第二階段・建立模型</p>
         <h2>拖動模型控制點，畫出通過原點的直線</h2>
-        <p class="task-copy">圖台顯示你記錄的數據點。把 F=2.5 N 的模型控制點放在你認為合適的位置；模型 k 會由你目前的直線位置計算。</p>
+        <p class="task-copy">圖台顯示你記錄的數據點。把 <span class="math-inline"><i>F</i> = 2.5 <span class="math-unit">N</span></span> 的模型控制點放在你認為合適的位置；模型 <span class="math-inline"><i>k</i></span> 會由你目前的直線位置計算。</p>
         <div class="spring-tabs" role="tablist" aria-label="選擇要建立模型的彈簧">
           <button type="button" data-action="model-spring-tab" data-spring="A" aria-selected="true">彈簧 A</button>
           <button type="button" data-action="model-spring-tab" data-spring="B" aria-selected="false">彈簧 B</button>
         </div>
-        <div id="modelData" class="model-data"></div>
-        <div class="readout-row"><span>學生模型</span><strong id="modelReadout">--</strong></div>
-        <p id="modelStatus" class="neutral-status" aria-live="polite"></p>
+        <div id="modelData" class="model-data math-context"></div>
+        <div class="readout-row"><span>學生模型</span><strong id="modelReadout" class="math-readout">--</strong></div>
+        <p id="modelStatus" class="neutral-status math-context" aria-live="polite"></p>
         <button type="button" id="toPredict" data-action="to-predict" class="primary-button next-button">兩條模型都有值後繼續</button>
       </section>
 
@@ -98,16 +98,16 @@
         <p class="section-label">第三階段・盲測預測</p>
         <h2>用你的模型預測未量度負載</h2>
         <p class="task-copy">每題只可放置自己的預測標記。這裡不會掛上該負載，也不會在提交前顯示結果。</p>
-        <div id="predictionCards" class="prediction-cards"></div>
-        <p id="predictionStatus" class="neutral-status" aria-live="polite"></p>
+        <div id="predictionCards" class="prediction-cards math-context"></div>
+        <p id="predictionStatus" class="neutral-status math-context" aria-live="polite"></p>
         <button type="button" id="toDesign" data-action="to-design" class="primary-button next-button">完成三項預測後繼續</button>
       </section>
 
       <section id="designPanel" class="panel-section is-hidden">
         <p class="section-label">第四階段・盲測工程設計</p>
         <h2>在伸長限制內令承載力最大</h2>
-        <p class="task-copy">選擇彈簧及 0.5 N 負載模組數量。提交前只會顯示題目限制與你自己的方案摘要。</p>
-        <div class="challenge-note">伸長上限：<strong id="designLimit">--</strong></div>
+        <p class="task-copy">選擇彈簧及 <span class="math-inline">0.5 <span class="math-unit">N</span></span> 負載模組數量。提交前只會顯示題目限制與你自己的方案摘要。</p>
+        <div class="challenge-note">伸長上限：<strong id="designLimit" class="math-readout">--</strong></div>
         <fieldset class="choice-fieldset"><legend>選擇彈簧</legend>
           <label><input type="radio" name="designSpring" value="A" data-action="design-spring"> 彈簧 A</label>
           <label><input type="radio" name="designSpring" value="B" data-action="design-spring"> 彈簧 B</label>
@@ -116,7 +116,7 @@
           <span>負載模組數量</span>
           <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載模組">−</button><output id="moduleCount" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載模組">＋</button></div>
         </div>
-        <div id="designSummary" class="design-summary"></div>
+        <div id="designSummary" class="design-summary math-context"></div>
         <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">查看我的完整答案</button>
       </section>
 
@@ -124,13 +124,13 @@
         <p class="section-label">第五階段・提交前 review</p>
         <h2>檢查自己的最終答案</h2>
         <p class="task-copy">這裡只顯示你的答案、完成度和依賴資料狀態。提交後本次作答會鎖定，系統才會顯示正確性、分數及實際測試結果。</p>
-        <div id="reviewSummary" class="review-summary"></div>
+        <div id="reviewSummary" class="review-summary math-context"></div>
         <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改模型</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改工程方案</button></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
         <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
       </section>
 
-      <section id="resultPanel" class="panel-section is-hidden" aria-live="polite"></section>
+      <section id="resultPanel" class="panel-section math-context is-hidden" aria-live="polite"></section>
       <p id="liveRegion" class="sr-only" aria-live="polite"></p>
     </aside>
 
@@ -144,8 +144,8 @@
         <button type="button" id="predictionDrag" class="drag-target" data-drag-target="prediction" hidden aria-describedby="predictionDragHelp"></button>
       </div>
       <p id="stageDescription" class="sr-only">圖台會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
-      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 0.1 cm 微調。</p>
-      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 0.1 cm 微調。</p>
+      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline">0.1 <span class="math-unit">cm</span></span> 微調。</p>
+      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline">0.1 <span class="math-unit">cm</span></span> 微調。</p>
       <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動模型控制點；左右方向鍵可微調模型伸長。</p>
       <p id="predictionDragHelp" class="sr-only">使用滑鼠或觸控拖動預測標記；上下方向鍵可微調預測伸長。</p>
     </section>

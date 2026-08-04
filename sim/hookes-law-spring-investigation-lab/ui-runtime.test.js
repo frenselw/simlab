@@ -39,5 +39,9 @@ assert.equal(Object.keys(view).includes("optimal"), false);
 assert.equal(App.investigationEndpointM(state, scenario.springs.A, 0.21), scenario.springs.A.naturalLengthM, "unloaded spring stays at its generated natural length");
 assert.equal(App.investigationEndpointM({ activeLoadKey: "F1" }, scenario.springs.A, 0.21), 0.21, "loaded spring uses its animated equilibrium position");
 assert.equal(App.INVESTIGATION_DRAG_HANDLE_X, 650, "investigation drag handles stay beside the spring");
+assert.match(source, /const label = cmValue === 0 \? "0" : `\$\{cmValue\} cm`/);
+assert.match(source, /drawText\(112, 30, "位置 \/ cm"/);
+assert.match(css, /\.math-inline, \.math-quantity/);
+assert.match(css, /#stageSvg \.math-svg/);
 
 console.log("Hooke's law UI runtime checks passed");
