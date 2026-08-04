@@ -36,5 +36,7 @@ assert.equal(view.phase, "investigate");
 assert.equal(view.measurements.A.length, 3);
 assert.equal(view.measurements.A[0].extensionM, null);
 assert.equal(Object.keys(view).includes("optimal"), false);
+assert.equal(App.investigationEndpointM(state, scenario.springs.A, 0.21), scenario.springs.A.naturalLengthM, "unloaded spring stays at its generated natural length");
+assert.equal(App.investigationEndpointM({ activeLoadKey: "F1" }, scenario.springs.A, 0.21), 0.21, "loaded spring uses its animated equilibrium position");
 
 console.log("Hooke's law UI runtime checks passed");

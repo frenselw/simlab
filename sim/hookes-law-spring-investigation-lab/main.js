@@ -143,6 +143,10 @@
     return (flow || globalThis.SimActivityFlow)?.submission(outcome, handlers || {}) || "retry";
   }
 
+  function investigationEndpointM(state, spring, loadedPositionM) {
+    return state?.activeLoadKey ? loadedPositionM : spring?.naturalLengthM;
+  }
+
   function boot(options = {}) {
     if (typeof document === "undefined") return { activity: ACTIVITY, mode: "headless" };
     const host = typeof window !== "undefined" ? window : globalThis;
@@ -719,7 +723,7 @@
     function drawInvestigationStage() {
       const key = state.activeSpring;
       const spring = scenario.springs[key];
-      const endpoint = state.activeLoadKey ? visualPositionM : (state.calibrations[key]?.zeroM ?? state.working.zeroDraftM ?? spring.naturalLengthM);
+      const endpoint = investigationEndpointM(state, spring, visualPositionM);
       dom.svg.append(drawText(36, 32, `${springLabel(key)}・真實探究現象`, { "font-size": 18, "font-weight": 700 }));
       dom.svg.append(drawLine(98, 42, 98, 455, { stroke: "#64748b", "stroke-width": 3 }));
       for (let cmValue = 0; cmValue <= 25; cmValue += 5) { const y = positionToY(cmValue / 100); dom.svg.append(drawLine(88, y, 108, y, { stroke: "#64748b", "stroke-width": 2 }), drawText(42, y + 5, `${cmValue} cm`, { "font-size": 12 })); }
@@ -1016,5 +1020,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, freshSeed, clientToSvg, svgToClient, boot };
 });
