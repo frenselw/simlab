@@ -720,7 +720,7 @@ measurement record 另帶：
 - 圖台以天花板／固定端、彈簧、不同重量的不同大小／顏色負載及「最短位置（\(x=0\)）」基準線建立物理語境；
 - 橙色 prediction marker 在彈簧及負載旁邊，學生拖動它時，彈簧、負載及預測位置必須同步伸長或縮短；
 - 最短位置標籤與學生預測伸長標籤必須分開排版；prediction card 的數值與單位保持同一個不可拆分的數學量，手機窄屏也不可把數值／單位拆成不完整的多行；
-- 預測伸長必須支援至少 \(0.05\,\mathrm{cm}\) 的操作／顯示精度，因而 `3.75 cm` 不可被迫四捨五入成只有 `3.7` 或 `3.8`；
+- 預測伸長答案限制為整數厘米；pointer／keyboard 每次調整固定為 `1 cm`，並以整數厘米顯示，避免手機拖動時因過細步距造成誤觸；
 - 題目切換控制要使用「選擇題目 1」等清楚文案，並在可見題目內容及 accessible name 中同時指出彈簧與負載，不使用只有「編輯 1」的模糊按鈕；已選題目只用卡片高亮表示，不另加「目前編輯」文字；
 - 圖台即時顯示學生自己的預測伸長量及由 \(L_0+x\) 得到的預測總長度，讓學生知道自己正在預測什麼；
 - 舞台只顯示學生目前的預測位置，不 render 實際終點、理想端點、誤差或正確位置；提交前不真正掛上該負載。
@@ -984,7 +984,7 @@ Math.sign(kModelA - kModelB) === Math.sign(kTrueA - kTrueB)
 ```js
 errorM = Math.abs(predictedExtensionM - trueExtensionM);
 
-fullToleranceM = Math.max(0.003, 0.05 * trueExtensionM);
+fullToleranceM = Math.max(0.005, 0.05 * trueExtensionM);
 goodToleranceM = Math.max(0.006, 0.10 * trueExtensionM);
 partialToleranceM = Math.max(0.012, 0.20 * trueExtensionM);
 ```
@@ -1059,7 +1059,8 @@ const CURSOR_PARTIAL_ERROR_M = 0.005;
 const MODEL_FULL_REL = 0.05;
 const MODEL_GOOD_REL = 0.10;
 const MODEL_PARTIAL_REL = 0.20;
-const PREDICT_FULL_ABS_M = 0.003;
+const PREDICTION_INPUT_STEP_M = 0.01;
+const PREDICT_FULL_ABS_M = Math.max(0.003, PREDICTION_INPUT_STEP_M / 2);
 const PREDICT_GOOD_ABS_M = 0.006;
 const PREDICT_PARTIAL_ABS_M = 0.012;
 const FLOAT_EPSILON = 1e-9;

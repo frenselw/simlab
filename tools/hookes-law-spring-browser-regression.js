@@ -317,7 +317,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
       hasSpring:Boolean(spring), hasLoad:Boolean(load), loadY:loadRect ? loadRect.y + loadRect.height / 2 : null,
       stageText, targetY:target.y + target.height / 2,
       predictionButtons:[...d.querySelectorAll('[data-action="prediction-select"]')].map((node)=>node.textContent.trim()),
-      hasCurrentEditingText:d.body.innerText.includes("目前編輯")};
+      hasCurrentEditingText:d.body.innerText.includes("目前編輯"), predictionStep:window.HookesLawApp.PREDICTION_SNAP_STEP_M};
   })()`);
   assert.equal(predictionStage.phase, "predict", `${label}: third phase starts with the prediction screen`);
   assert.equal(predictionStage.draftM, 0, `${label}: prediction starts at zero extension`);
@@ -328,6 +328,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.ok(Math.abs(predictionStage.targetY - predictionStage.loadY) < 12, `${label}: prediction marker starts beside the load`);
   assert.deepEqual(predictionStage.predictionButtons, ["選擇題目 1", "選擇題目 2", "選擇題目 3"], `${label}: prediction switchers use clear question labels`);
   assert.equal(predictionStage.hasCurrentEditingText, false, `${label}: prediction selection uses highlight without the redundant current-editing label`);
+  assert.equal(predictionStage.predictionStep, 0.01, `${label}: prediction values move in 1 cm increments`);
   for (let index = 0; index < 3; index += 1) {
     if (index) await clickDirect(cdp, `[data-action="prediction-select"][data-index="${index}"]`);
     if (keyboard) await pressKey(cdp, "#predictionDrag", "ArrowUp", 6);
@@ -335,14 +336,14 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
       const exactTarget = await evaluate(cdp, `(() => {
         const debug=window.__hookesLawDebug,state=debug.getState(),spec=debug.getScenario().predictions[state.activePredictionIndex],
           stage=window.HookesLawApp.PREDICTION_STAGE,load=window.HookesLawApp.PREDICTION_LOAD_VISUALS[spec.forceN.toFixed(1)],
-          svg=document.querySelector('#stageSvg'),y=stage.shortestSpringEndY + 0.0375 / window.HookesLawGenerator.MAX_LINEAR_EXTENSION_M * stage.extensionPixels,
+          svg=document.querySelector('#stageSvg'),y=stage.shortestSpringEndY + 0.04 / window.HookesLawGenerator.MAX_LINEAR_EXTENSION_M * stage.extensionPixels,
           point=new DOMPoint(stage.springX + load.width / 2 + 55,y).matrixTransform(svg.getScreenCTM());
         return {x:point.x,y:point.y};
       })()`);
       const exactStart = await directPoint(cdp, "#predictionDrag");
       await dragMouse(cdp, "#predictionDrag", { x: exactTarget.x - exactStart.x, y: exactTarget.y - exactStart.y });
       const exactPrediction = await evaluate(cdp, "window.__hookesLawDebug.getState().predictions[0]?.extensionM");
-      assert.ok(Math.abs(exactPrediction - 0.0375) < 1e-9, `${label}: prediction drag can select 3.75 cm exactly`);
+      assert.ok(Math.abs(exactPrediction - 0.04) < 1e-9, `${label}: prediction drag can select 4 cm exactly`);
     }
     else {
       await dragMouse(cdp, "#predictionDrag", { x: 0, y: 30 });

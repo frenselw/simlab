@@ -65,6 +65,11 @@ prediction.predictions[0].extensionM = actual + fullTolerance;
 assert.equal(S.scorePrediction(prediction.predictions[0], spec, scenario).score, 12);
 prediction.predictions[0].extensionM = actual + fullTolerance + 0.0000001;
 assert.equal(S.scorePrediction(prediction.predictions[0], spec, scenario).score, 9);
+const quantizedScenario = G.generateScenario({ seed: 0 });
+const quantizedSpec = quantizedScenario.predictions[0];
+const quantizedActual = M.extensionM(quantizedSpec.forceN, quantizedScenario.springs[quantizedSpec.springKey].kNPerM);
+assert.equal(S.PREDICTION_INPUT_STEP_M, 0.01);
+assert.equal(S.scorePrediction({ extensionM: Math.round(quantizedActual / S.PREDICTION_INPUT_STEP_M) * S.PREDICTION_INPUT_STEP_M }, quantizedSpec, quantizedScenario).score, 12, "nearest integer centimetre remains full-credit");
 
 const unsafe = completeState(scenario);
 const optimal = M.optimalSafeDesign(scenario);

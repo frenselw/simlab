@@ -26,7 +26,7 @@
   const INVESTIGATION_RULER_BOTTOM = 455;
   const MEASUREMENT_SNAP_THRESHOLD_M = 0.003;
   const MODEL_MIN_POINT_FORCE_N = 0.5;
-  const PREDICTION_SNAP_STEP_M = 0.0005;
+  const PREDICTION_SNAP_STEP_M = 0.01;
   const PREDICTION_STAGE = Object.freeze({ springX: 410, springTopY: 78, shortestSpringEndY: 190, extensionPixels: 220, guideLeft: 150, guideRight: 690 });
   const PREDICTION_LOAD_VISUALS = Object.freeze({
     "1.5": Object.freeze({ width: 58, height: 18, fill: "#bfdbfe", stroke: "#1d4ed8" }),
@@ -370,7 +370,7 @@
         }
         modelDraftM = state.models[state.activeSpring]?.handleExtensionM ?? modelDraftM;
         const prediction = state.predictions[state.activePredictionIndex];
-        predictionDraftM = prediction?.extensionM ?? predictionDraftM;
+        predictionDraftM = snapPredictionValue(prediction?.extensionM ?? predictionDraftM);
         if (state.activeLoadKey && calibration) {
           if (state.working.cursorDraftM === null) state.working.cursorDraftM = calibration.zeroM;
           visualPositionM = endpointFor(state.activeSpring, state.activeLoadKey);
@@ -379,7 +379,7 @@
       } else if (state.phase === "model") {
         modelDraftM = state.models[state.activeSpring]?.handleExtensionM ?? 0.08;
       } else if (state.phase === "predict") {
-        predictionDraftM = state.predictions[state.activePredictionIndex]?.extensionM ?? 0;
+        predictionDraftM = snapPredictionValue(state.predictions[state.activePredictionIndex]?.extensionM ?? 0);
       }
       selectedLoadKey = state.activeLoadKey || selectedLoadKey || "F1";
     }
@@ -590,7 +590,7 @@
       next.activeLoadKey = null;
       if (!Persistence.validateAnswer(next, scenario, { kind: "draft" }).ok) return;
       state = next;
-      predictionDraftM = state.predictions[index]?.extensionM ?? 0;
+      predictionDraftM = snapPredictionValue(state.predictions[index]?.extensionM ?? 0);
       predictionMoveM = 0;
       render();
       checkpoint(`已選擇預測 ${index + 1}；尚未顯示任何正確性回饋。`);
@@ -599,6 +599,7 @@
     function recordPrediction() {
       if (locked || state.phase !== "predict" || predictionMoveM < Model.MIN_OPERATION_MOVE_M) return;
       const index = state.activePredictionIndex;
+      predictionDraftM = snapPredictionValue(predictionDraftM);
       const next = Persistence.transitions.replacePrediction(state, index, predictionDraftM, scenario);
       predictionMoveM = 0;
       setState(next, `已記錄預測 ${index + 1}。`);
@@ -880,7 +881,7 @@
         if (state.predictions[index]) {
           const extensionM = state.predictions[index].extensionM;
           const naturalLengthM = state.calibrations[spec.springKey]?.zeroM;
-          appendParts(predictionValue, ["你的預測伸長量：", mathLength(extensionM, 2), "；總長度：", mathLength(finite(naturalLengthM) ? naturalLengthM + extensionM : null, 2)]);
+          appendParts(predictionValue, ["你的預測伸長量：", mathLength(extensionM, 0), "；總長度：", mathLength(finite(naturalLengthM) ? naturalLengthM + extensionM : null, 1)]);
         }
         else predictionValue.textContent = "尚未填寫";
         const copy = element("div"); copy.append(heading, predictionValue);
@@ -925,7 +926,7 @@
       const predictionText = element("p");
       editable.predictions.forEach((prediction, index) => {
         if (index) predictionText.append(document.createTextNode("；"));
-        appendParts(predictionText, [`預測 ${index + 1}：`, prediction.extensionM === null ? "未填寫" : mathLength(prediction.extensionM)]);
+        appendParts(predictionText, [`預測 ${index + 1}：`, prediction.extensionM === null ? "未填寫" : mathLength(prediction.extensionM, 0)]);
       });
       const designText = element("p");
       if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個模組；", mathForceValue(editable.design.forceN)]);
@@ -1124,14 +1125,14 @@
       dom.svg.append(drawLine(112, shortestLoadBottomY, 112, maxLoadBottomY, { stroke: "#64748b", "stroke-width": 3 }));
       for (const extensionM of [0, .05, .10, .15, .18]) {
         const y = predictionSpringEndY(extensionM) + loadVisual.height;
-        dom.svg.append(drawLine(106, y, 118, y, { stroke: "#64748b", "stroke-width": 2 }), drawSvgLength(100, y + 5, extensionM, { "font-size": 14, "text-anchor": "end" }));
+        dom.svg.append(drawLine(106, y, 118, y, { stroke: "#64748b", "stroke-width": 2 }), drawSvgLength(100, y + 5, extensionM, { "font-size": 14, "text-anchor": "end" }, 0));
       }
       dom.svg.append(drawSvgAxisLabel(112, 470, "伸長量", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
       dom.svg.append(svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
       dom.svg.append(svgElement("rect", { x: springX - loadVisual.width / 2, y: springEndY, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
       dom.svg.append(drawMathText(springX + loadVisual.width / 2 + 14, springEndY + loadVisual.height / 2 + 5, [{ text: n(spec.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: loadVisual.stroke, "font-size": 16, "font-weight": 700 }));
       const predictionLabelY = Math.min(458, loadBottomY + 24);
-      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(2), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(0), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
@@ -1299,7 +1300,7 @@
       const allowed = kind === "model" ? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] : vertical ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
       if (!allowed.includes(event.key)) return;
       event.preventDefault();
-      const step = kind === "prediction" ? (event.shiftKey ? PREDICTION_SNAP_STEP_M : .001) : event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
+      const step = kind === "prediction" ? PREDICTION_SNAP_STEP_M : event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
       if (kind === "zero") { const before = state.working.zeroDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.zeroDraftM = snapMeasurementPosition(kind, rawValue); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(rawValue - before)); zeroMode = "keyboard"; }
       else if (kind === "cursor") { const before = state.working.cursorDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
       else if (kind === "model") {
@@ -1309,7 +1310,7 @@
         modelMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, modelMoveM + Math.max(Math.abs(modelDraftM - beforeM), Math.abs(modelDraftForceN - beforeForceN) / GRAPH.maxForceN * Generator.MAX_LINEAR_EXTENSION_M));
         modelMode = "keyboard";
       }
-      else { const before = predictionDraftM; predictionDraftM = clamp(before + direction * step, 0, Generator.MAX_LINEAR_EXTENSION_M); predictionMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, predictionMoveM + Math.abs(predictionDraftM - before)); predictionMode = "keyboard"; }
+      else { const before = snapPredictionValue(predictionDraftM); predictionDraftM = snapPredictionValue(clamp(before + direction * step, 0, Generator.MAX_LINEAR_EXTENSION_M)); predictionMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, predictionMoveM + Math.abs(predictionDraftM - before)); predictionMode = "keyboard"; }
       if (kind === "model") recordModel(); else if (kind === "prediction") recordPrediction();
       else checkpoint("已保存鍵盤微調的草稿位置；按記錄後才會成為量度證據。");
       render();
