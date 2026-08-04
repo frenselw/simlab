@@ -74,6 +74,10 @@ assert.equal(App.snapMeasurementValue(0.099, 0.1), 0.1, "nearby measurement valu
 assert.equal(App.snapMeasurementValue(0.096, 0.1), 0.096, "values outside the snap threshold remain unchanged");
 assert.ok(App.LOAD_VISUALS.F1.width < App.LOAD_VISUALS.F2.width && App.LOAD_VISUALS.F2.width < App.LOAD_VISUALS.F3.width, "heavier loads use larger blocks");
 assert.notEqual(App.LOAD_VISUALS.F1.fill, App.LOAD_VISUALS.F2.fill, "load weights use different colors");
+assert.notEqual(App.predictionLoadVisual(1.05).width, App.predictionLoadVisual(3.85).width, "random prediction forces use different-sized load blocks");
+assert.notEqual(App.predictionLoadVisual(1.05).fill, App.predictionLoadVisual(3.85).fill, "random prediction forces use different load colors");
+assert.match(source, /mathForceValue\(spec\.forceN, 2\)/);
+assert.match(source, /n\(spec\.forceN, 2\)/);
 assert.match(source, /const label = cmValue === 0 \? "0" : `\$\{cmValue\} cm`/);
 assert.match(source, /drawSvgAxisLabel\(118, 72, "位置", "", "cm"/);
 assert.match(source, /drawMathText\(GRAPH\.left - 34, GRAPH\.top \+ GRAPH\.height \+ 6, \[\{ text: "0", class: "math-number" \}\]/);

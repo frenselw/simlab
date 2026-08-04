@@ -335,7 +335,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
     else if (index === 0) {
       const exactTarget = await evaluate(cdp, `(() => {
         const debug=window.__hookesLawDebug,state=debug.getState(),spec=debug.getScenario().predictions[state.activePredictionIndex],
-          stage=window.HookesLawApp.PREDICTION_STAGE,load=window.HookesLawApp.PREDICTION_LOAD_VISUALS[spec.forceN.toFixed(1)],
+          stage=window.HookesLawApp.PREDICTION_STAGE,load=window.HookesLawApp.predictionLoadVisual(spec.forceN),
           svg=document.querySelector('#stageSvg'),y=stage.shortestSpringEndY + 0.04 / window.HookesLawGenerator.MAX_LINEAR_EXTENSION_M * stage.extensionPixels,
           point=new DOMPoint(stage.springX + load.width / 2 + 55,y).matrixTransform(svg.getScreenCTM());
         return {x:point.x,y:point.y};

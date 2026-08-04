@@ -3,9 +3,10 @@
 const assert = require("node:assert/strict");
 const G = require("./generator.js");
 
+const predictionSets = new Set();
 for (let seed = 0; seed < 1000; seed += 1) {
   const scenario = G.generateScenario({ seed });
-  assert.equal(scenario.generatorVersion, 2);
+  assert.equal(scenario.generatorVersion, 3);
   assert.equal(scenario.seed, seed);
   assert.ok(Object.isFrozen(scenario));
   assert.ok(Object.isFrozen(scenario.springs));
@@ -16,6 +17,9 @@ for (let seed = 0; seed < 1000; seed += 1) {
   assert.equal(new Set(scenario.predictions.map((item) => `${item.springKey}:${item.forceN}`)).size, 3);
   assert.ok(scenario.predictions.every((item) => !G.INVESTIGATION_FORCES_N.includes(item.forceN)));
   assert.ok(scenario.predictions.every((item) => Math.abs(item.trueExtensionM * 100 - Math.round(item.trueExtensionM * 100)) <= G.FLOAT_EPSILON));
+  assert.ok(scenario.predictions.every((item) => item.forceN > 0 && item.forceN <= G.PREDICTION_MAX_FORCE_N + G.FLOAT_EPSILON));
+  assert.deepEqual(scenario.predictionForcesN, scenario.predictions.map((item) => item.forceN));
+  predictionSets.add(scenario.predictions.map((item) => `${item.springKey}:${item.forceN.toFixed(2)}:${Math.round(item.trueExtensionM * 100)}`).join("|"));
   assert.ok(scenario.stage.maxEndpointM <= G.STAGE_SPAN_M + G.FLOAT_EPSILON);
   const designs = G.enumerateDesigns(scenario);
   const safe = designs.filter((design) => design.safe);
@@ -25,11 +29,12 @@ for (let seed = 0; seed < 1000; seed += 1) {
   assert.ok(safe.every((design) => design.extensionM <= G.MAX_LINEAR_EXTENSION_M + G.FLOAT_EPSILON));
   assert.ok(designs.filter((design) => design.moduleCount === best[0].moduleCount + 1).every((design) => !design.safe));
 }
+assert.ok(predictionSets.size > 100, `prediction sets should vary across seeds, got ${predictionSets.size}`);
 
 assert.deepEqual(G.generateScenario({ seed: 123 }), G.generateScenario({ seed: 123 }));
 assert.notDeepEqual(G.generateScenario({ seed: 123 }), G.generateScenario({ seed: 124 }));
 assert.throws(() => G.generateScenario({ seed: -1 }), /Unsupported generator/);
-assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 1 }), /Unsupported generator/);
-assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 3 }), /Unsupported generator/);
+assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 2 }), /Unsupported generator/);
+assert.throws(() => G.generateScenario({ seed: 1, generatorVersion: 4 }), /Unsupported generator/);
 
 console.log("Hooke's law generator checks passed");

@@ -33,11 +33,35 @@
     "2.5": Object.freeze({ width: 74, height: 24, fill: "#fde68a", stroke: "#b45309" }),
     "3.5": Object.freeze({ width: 90, height: 30, fill: "#fecaca", stroke: "#b91c1c" })
   });
+  const PREDICTION_LOAD_PALETTE = Object.freeze([
+    Object.freeze({ fill: "#dbeafe", stroke: "#2563eb" }),
+    Object.freeze({ fill: "#cffafe", stroke: "#0891b2" }),
+    Object.freeze({ fill: "#dcfce7", stroke: "#16a34a" }),
+    Object.freeze({ fill: "#fef3c7", stroke: "#d97706" }),
+    Object.freeze({ fill: "#ffedd5", stroke: "#ea580c" }),
+    Object.freeze({ fill: "#fee2e2", stroke: "#dc2626" }),
+    Object.freeze({ fill: "#f3e8ff", stroke: "#9333ea" })
+  ]);
   const LOAD_VISUALS = Object.freeze({
     F1: Object.freeze({ width: 54, height: 16, fill: "#bfdbfe", stroke: "#1d4ed8" }),
     F2: Object.freeze({ width: 70, height: 20, fill: "#fde68a", stroke: "#b45309" }),
     F3: Object.freeze({ width: 86, height: 24, fill: "#fecaca", stroke: "#b91c1c" })
   });
+
+  function predictionLoadVisual(forceN) {
+    const numericForce = Number(forceN);
+    const exactKey = Object.keys(PREDICTION_LOAD_VISUALS).find((key) => Math.abs(Number(key) - numericForce) <= (Generator.FLOAT_EPSILON || 1e-9));
+    if (exactKey) return PREDICTION_LOAD_VISUALS[exactKey];
+    const normalizedForce = clamp(finite(numericForce) ? numericForce : 2.5, 0.5, 4);
+    const paletteIndex = Math.min(PREDICTION_LOAD_PALETTE.length - 1, Math.max(0, Math.round((normalizedForce - 0.5) / 0.5)));
+    const palette = PREDICTION_LOAD_PALETTE[paletteIndex];
+    return Object.freeze({
+      width: Math.round(48 + normalizedForce * 11),
+      height: Math.round(16 + normalizedForce * 3.5),
+      fill: palette.fill,
+      stroke: palette.stroke
+    });
+  }
 
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
@@ -186,7 +210,7 @@
     const value = ({ F1: 1, F2: 2, F3: 3 })[key];
     return finite(value) ? mathQuantity(value.toFixed(1), "N") : mathPlaceholder();
   }
-  function mathForceValue(value) { return finite(value) ? mathQuantity(Number(value).toFixed(1), "N") : mathPlaceholder(); }
+  function mathForceValue(value, digits = 1) { return finite(value) ? mathQuantity(Number(value).toFixed(digits), "N") : mathPlaceholder(); }
   function mathStiffness(value) { return finite(value) ? mathQuantity(n(value, 1), "N/m") : mathPlaceholder(); }
   function mathFxFormula() {
     const node = element("span", undefined, "math-inline");
@@ -874,9 +898,9 @@
         card.dataset.selected = String(index === state.activePredictionIndex);
         const button = element("button", `選擇題目 ${index + 1}`);
         button.type = "button"; button.dataset.action = "prediction-select"; button.dataset.index = String(index); button.setAttribute("aria-pressed", String(index === state.activePredictionIndex)); button.disabled = locked;
-        button.setAttribute("aria-label", `選擇預測題目 ${index + 1}：${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`);
+        button.setAttribute("aria-label", `選擇預測題目 ${index + 1}：${springLabel(spec.springKey)}、${n(spec.forceN, 2)} N`);
         const heading = element("strong");
-        appendParts(heading, [`預測 ${index + 1}：${springLabel(spec.springKey)}、`, mathForceValue(spec.forceN)]);
+        appendParts(heading, [`預測 ${index + 1}：${springLabel(spec.springKey)}、`, mathForceValue(spec.forceN, 2)]);
         const predictionValue = element("span");
         if (state.predictions[index]) {
           const extensionM = state.predictions[index].extensionM;
@@ -991,7 +1015,6 @@
     }
     function positionToY(positionM) { return INVESTIGATION_RULER_TOP + clamp(positionM, 0, Generator.STAGE_SPAN_M) / Generator.STAGE_SPAN_M * (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP); }
     function graphPoint(extensionM, forceN) { return Model.graphPointFromPhysics(extensionM, forceN, GRAPH); }
-    function predictionLoadVisual(forceN) { return PREDICTION_LOAD_VISUALS[n(forceN, 1)] || PREDICTION_LOAD_VISUALS["2.5"]; }
     function predictionSpringEndY(extensionM) {
       return PREDICTION_STAGE.shortestSpringEndY + clamp(extensionM, 0, Generator.MAX_LINEAR_EXTENSION_M) / Generator.MAX_LINEAR_EXTENSION_M * PREDICTION_STAGE.extensionPixels;
     }
@@ -1130,7 +1153,7 @@
       dom.svg.append(drawSvgAxisLabel(112, 470, "伸長量", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
       dom.svg.append(svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
       dom.svg.append(svgElement("rect", { x: springX - loadVisual.width / 2, y: springEndY, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
-      dom.svg.append(drawMathText(springX + loadVisual.width / 2 + 14, springEndY + loadVisual.height / 2 + 5, [{ text: n(spec.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: loadVisual.stroke, "font-size": 16, "font-weight": 700 }));
+      dom.svg.append(drawMathText(springX + loadVisual.width / 2 + 14, springEndY + loadVisual.height / 2 + 5, [{ text: n(spec.forceN, 2), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: loadVisual.stroke, "font-size": 16, "font-weight": 700 }));
       const predictionLabelY = Math.min(458, loadBottomY + 24);
       dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(0), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
@@ -1433,5 +1456,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, PREDICTION_STAGE, PREDICTION_LOAD_VISUALS, PREDICTION_SNAP_STEP_M, snapMeasurementValue, snapPredictionValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, PREDICTION_STAGE, PREDICTION_LOAD_VISUALS, PREDICTION_SNAP_STEP_M, snapMeasurementValue, snapPredictionValue, predictionLoadVisual, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });

@@ -270,17 +270,22 @@ meters = displayCm / 100;
 
 ```js
 const K_PAIRS_N_PER_M = [
-  [25, 50]
+  [20, 35],
+  [20, 40],
+  [25, 40],
+  [25, 45],
+  [30, 50],
+  [35, 50]
 ];
 ```
-- 這一版固定使用 \(k=25\) 及 \(50\,\mathrm{N/m}\)，因為第三階段固定負載 \(1.5\,\mathrm{N}\)、\(2.5\,\mathrm{N}\)、\(3.5\,\mathrm{N}\) 除以這兩個 \(k\) 後，伸長量分別都是整數厘米；不可再抽出會產生小數標準答案的 \(k\) 組合；
+- 使用六組經驗證的 \(k\) 組合，並由 seed 隨機抽取及交換 A／B；第三階段不再綁定固定負載，而是按選中的 \(k\) 動態生成整數厘米標準答案，因此可以保留題庫的彈簧常數多樣性；
 
 要求：
 
 - A／B assignment 由 seed 隨機交換；
 - 兩條彈簧 \(k\) 不相等；
 - 比例差異足以在手機量度中辨認；
-- `3.5 N` 內的最大伸長仍在線性範圍及舞台範圍；
+- 每一個生成的預測負載都必須落在 \(0 < x \le 18\,\mathrm{cm}\) 及 \(F \le 4\,\mathrm{N}\) 內；
 - 不用顏色作 spring identity；A／B 文字及線形必須一直存在。
 
 ### 6.3 自然長度
@@ -314,22 +319,26 @@ const MAX_LINEAR_EXTENSION_M = 0.18;
 const INVESTIGATION_FORCES_N = [1.0, 2.0, 3.0];
 ```
 
-只准正式記錄這三個負載。學生可任意次序量度及重做，但不提供 `1.5 N`、`2.5 N`、`3.5 N` 的探究測試，以免直接試出盲測答案。
+只准正式記錄這三個負載。學生可任意次序量度及重做；第三階段的負載由另一個生成規則抽取，並排除這三個已量度的力值，以免直接試出盲測答案。
 
 ### 6.5 預測題
 
 使用未直接量度的負載：
 
 ```js
-const PREDICTION_FORCES_N = [1.5, 2.5, 3.5];
+const PREDICTION_COUNT = 3;
+const PREDICTION_MIN_EXTENSION_CM = 3;
+const PREDICTION_MAX_FORCE_N = 4;
 ```
 
 生成規則：
 
-- 三題至少包含 A、B 各一次；
-- 第三題 spring 由 seed 決定；
-- 同一 `{springKey, forceN}` 不重複；
-- 所有真實伸長均 `> 0` 且 `<= MAX_LINEAR_EXTENSION_M`；
+- 每題先由 seed 決定所屬彈簧，再從該彈簧的候選整數伸長量 `3..18 cm` 抽取；
+- 力值按 `forceN = kNPerM * extensionCm / 100` 計算，最多顯示兩位小數；
+- 三題至少包含 A、B 各一次，三個力值及三個整數厘米伸長答案均不重複；
+- 預測力值排除 `1.0 N`、`2.0 N`、`3.0 N`，並限制為 `> 0` 及 `<= 4.0 N`；
+- 所有真實伸長均 `> 0` 且 `<= MAX_LINEAR_EXTENSION_M`，所以標準答案一定是整數厘米；
+- `predictionForcesN` 由生成後的三題派生，不再是全局固定常數；
 - 畫面軸及拖動範圍可以完整表示；
 - 題目不顯示正確末端、正確伸長或容許區。
 
@@ -395,7 +404,7 @@ function enumerateDesigns(scenario) {
 建議：
 
 ```js
-generateScenario({ seed, generatorVersion: 2 })
+generateScenario({ seed, generatorVersion: 3 })
 ```
 
 - 新 attempt 只建立一次 uint32 seed；
@@ -1326,7 +1335,7 @@ any editable phase -> earlier normalized phase
 ```js
 {
   schemaVersion: 1,
-  generatorVersion: 2,
+  generatorVersion: 3,
   rubricVersion: 2,
   seed: 1234567890,
 
