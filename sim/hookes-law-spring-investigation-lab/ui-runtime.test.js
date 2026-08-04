@@ -53,6 +53,8 @@ assert.match(source, /const top = INVESTIGATION_RULER_TOP/);
 assert.match(source, /if \(loadVisual\)/);
 assert.match(source, /固定端／天花板/);
 assert.match(source, /point\.y - INVESTIGATION_RULER_TOP/);
+assert.match(source, /drawText\(74, y \+ 6, label, \{[\s\S]*"text-anchor": "end"/);
+assert.match(source, /drawText\(98, 480, "讀尺位置 \/ cm"/);
 assert.doesNotMatch(source, /真實探究現象/);
 assert.match(css, /\.math-inline, \.math-quantity/);
 assert.match(css, /#stageSvg \.math-svg/);

@@ -742,7 +742,7 @@
       for (let cmValue = 0; cmValue <= 25; cmValue += 5) {
         const y = positionToY(cmValue / 100);
         const label = cmValue === 0 ? "0" : `${cmValue} cm`;
-        dom.svg.append(drawLine(82, y, 114, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 4 : 3 }), drawText(118, y + 6, label, { class: "math-svg", "font-size": 16, "font-weight": cmValue === 0 ? 700 : 600 }));
+        dom.svg.append(drawLine(82, y, 114, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 4 : 3 }), drawText(74, y + 6, label, { class: "math-svg", "font-size": 16, "font-weight": cmValue === 0 ? 700 : 600, "text-anchor": "end" }));
       }
       dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 548, INVESTIGATION_RULER_TOP, { stroke: "#334155", "stroke-width": 5 }));
       dom.svg.append(drawText(560, 34, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700, fill: "#334155" }));
@@ -761,7 +761,7 @@
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? endpoint);
         dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(600, cursorY - 8, "游標", { class: "math-svg", fill: "#b91c1c", "font-size": 16, "font-weight": 700 }));
       }
-      dom.svg.append(drawText(560, 445, "讀尺位置 / cm", { class: "math-svg", "font-size": 15, fill: "#64748b", "font-weight": 700 }));
+      dom.svg.append(drawText(98, 480, "讀尺位置 / cm", { class: "math-svg", "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
     }
     function drawModelStage() {
       const key = state.activeSpring;

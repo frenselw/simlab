@@ -87,7 +87,9 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
     targetSizes:[...d.querySelectorAll('.drag-target:not([hidden])')].map((node)=>({w:node.getBoundingClientRect().width,h:node.getBoundingClientRect().height})),
     stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
     stageRectCount:d.querySelectorAll('#stageSvg rect').length,
-    springFirstY:Number(d.querySelector('#stageSvg polyline')?.getAttribute('points')?.split(' ')[0]?.split(',')[1])
+    springFirstY:Number(d.querySelector('#stageSvg polyline')?.getAttribute('points')?.split(' ')[0]?.split(',')[1]),
+    rulerTick:(()=>{const node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='5 cm');return {x:Number(node?.getAttribute('x')),anchor:node?.getAttribute('text-anchor')||''};})(),
+    rulerCaption:(()=>{const node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='讀尺位置 / cm');return {x:Number(node?.getAttribute('x')),y:Number(node?.getAttribute('y')),anchor:node?.getAttribute('text-anchor')||''};})()
   }; })()`);
   assert.equal(initial.presentation, "editable", `${label}: direct startup is editable`);
   assert.equal(initial.resultHidden, true, `${label}: result panel starts hidden`);
@@ -101,6 +103,8 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.ok(!initial.stageText.some((text) => text.includes("真實探究現象")), `${label}: redundant investigation title is removed`);
   assert.equal(initial.stageRectCount, 0, `${label}: no load block is drawn before a load is attached`);
   assert.equal(initial.springFirstY, 42, `${label}: unloaded spring touches the ceiling anchor`);
+  assert.ok(initial.rulerTick.x < 98 && initial.rulerTick.anchor === "end", `${label}: ruler tick labels sit left of the vertical axis`);
+  assert.deepEqual(initial.rulerCaption, { x: 98, y: 480, anchor: "middle" }, `${label}: ruler caption is centered below the axis`);
 
   await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
   await evaluate(cdp, "document.querySelector('[data-action=to-review]').click()");
