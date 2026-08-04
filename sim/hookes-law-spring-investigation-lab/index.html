@@ -38,6 +38,13 @@
         <div id="technicalActions"></div>
       </section>
 
+      <section id="debugPanel" class="panel-section debug-panel is-hidden" aria-labelledby="debugTitle">
+        <p class="section-label">開發調試</p>
+        <h2 id="debugTitle">快速跳到第二階段</h2>
+        <label class="debug-toggle"><input type="checkbox" id="debugCompleteInvestigation">自動完成第一階段量度</label>
+        <p id="debugStatus" class="neutral-status" aria-live="polite">只供開發測試使用。</p>
+      </section>
+
       <section id="investigatePanel" class="panel-section">
         <p class="section-label">第一階段・探究與量度</p>
         <h2>先找出自然長度，再記錄三個負載</h2>

@@ -49,6 +49,12 @@
   function mayRevealCorrectness(activityState) {
     return ["submitted-success", "submitted-committed", "trusted-finished-review"].includes(activityState);
   }
+  function debugQueryEnabled(search) {
+    try {
+      const value = new URLSearchParams(search || "").get("debug");
+      return ["1", "true", "on"].includes(String(value || "").toLowerCase());
+    } catch { return false; }
+  }
 
   function measuredRows(state, springKey) {
     const calibration = state?.calibrations?.[springKey];
@@ -249,6 +255,7 @@
       app: $("app"), badge: $("phaseBadge"), progress: $("progress"), stage: $("stage"), svg: $("stageSvg"), dragLayer: $("dragLayer"),
       panel: $("controlPanel"), technical: $("technicalPanel"), technicalTitle: $("technicalTitle"), technicalMessage: $("technicalMessage"), technicalActions: $("technicalActions"),
       investigate: $("investigatePanel"), model: $("modelPanel"), predict: $("predictPanel"), design: $("designPanel"), review: $("reviewPanel"), result: $("resultPanel"), live: $("liveRegion"),
+      debugPanel: $("debugPanel"), debugComplete: $("debugCompleteInvestigation"), debugStatus: $("debugStatus"),
       calibrationInstruction: $("calibrationInstruction"), zeroReadout: $("zeroReadout"), recordCalibration: $("recordCalibration"), recalibrate: $("recalibrate"), calibrationStatus: $("calibrationStatus"),
       loadCards: $("loadCards"), attachLoad: $("attachLoad"), loadStatus: $("loadStatus"), cursorReadout: $("cursorReadout"), recordMeasurement: $("recordMeasurement"), measurementStatus: $("measurementStatus"), dataTable: $("dataTable"), toModel: $("toModel"),
       modelData: $("modelData"), modelReadout: $("modelReadout"), modelStatus: $("modelStatus"), toPredict: $("toPredict"),
@@ -258,6 +265,7 @@
       zeroDrag: $("zeroDrag"), cursorDrag: $("cursorDrag"), modelDrag: $("modelDrag"), predictionDrag: $("predictionDrag"), dialog: $("recalibrationDialog"), confirmRecalibration: $("confirmRecalibration")
     };
     const dragTargets = { zero: dom.zeroDrag, cursor: dom.cursorDrag, model: dom.modelDrag, prediction: dom.predictionDrag };
+    const debugAvailable = debugQueryEnabled(host.location?.search || "");
     let state = null;
     let scenario = null;
     let locked = false;
@@ -285,6 +293,7 @@
     let animationFallback = null;
     let animationToken = 0;
     let submitMessage = "";
+    let debugEnabled = false;
 
     function scenarioFor(answer) {
       return Generator.generateScenario({ seed: answer.seed, generatorVersion: answer.generatorVersion });
@@ -373,6 +382,33 @@
     }
     function snapMeasurementPosition(kind, value) {
       return snapMeasurementValue(value, measurementSnapTarget(kind));
+    }
+    function completeInvestigationForDebug() {
+      if (!debugAvailable || locked || !state || state.phase !== "investigate") {
+        announce("調試自動量度只可在第一階段使用。");
+        return false;
+      }
+      try {
+        let next = Persistence.clone(state);
+        for (const springKey of SPRINGS) {
+          const spring = scenario.springs[springKey];
+          next = Persistence.transitions.replaceCalibration(next, springKey, { zeroM: spring.naturalLengthM, mode: "keyboard", moveM: Model.MIN_OPERATION_MOVE_M }, scenario);
+          for (const loadKey of LOADS) next = Persistence.transitions.replaceMeasurement(next, springKey, loadKey, { loadKey, cursorM: endpointFor(springKey, loadKey), mode: "keyboard", moveM: Model.MIN_OPERATION_MOVE_M }, scenario);
+        }
+        next.activeSpring = "A";
+        next = Persistence.transitions.setPhase(next, "model", scenario);
+        debugEnabled = true;
+        zeroMoveM = cursorMoveM = 0;
+        selectedLoadKey = "F1";
+        stable = true;
+        const ok = setState(next, "調試模式已自動完成第一階段；現在可以直接測試第二階段。", true);
+        if (!ok) debugEnabled = false;
+        return ok;
+      } catch {
+        debugEnabled = false;
+        announce("調試模式未能安全完成第一階段。");
+        return false;
+      }
     }
     function setState(next, message, shouldCheckpoint = true) {
       if (!next || !scenario) return false;
@@ -674,13 +710,25 @@
       renderStage();
     }
     function hidePanels() {
-      [dom.technical, dom.investigate, dom.model, dom.predict, dom.design, dom.review, dom.result].forEach((node) => node?.classList.add("is-hidden"));
+      [dom.technical, dom.debugPanel, dom.investigate, dom.model, dom.predict, dom.design, dom.review, dom.result].forEach((node) => node?.classList.add("is-hidden"));
+    }
+    function renderDebugPanel() {
+      if (!dom.debugPanel || !dom.debugComplete) return;
+      const visible = debugAvailable && presentation === "editable" && !locked && Boolean(state);
+      dom.debugPanel.classList.toggle("is-hidden", !visible);
+      if (!visible) return;
+      dom.debugComplete.checked = debugEnabled;
+      dom.debugComplete.disabled = debugEnabled || state.phase !== "investigate";
+      if (debugEnabled) setText(dom.debugStatus, "第一階段已自動完成；目前可直接測試第二階段。 ");
+      else if (state.phase !== "investigate") setText(dom.debugStatus, "目前已離開第一階段；如要重新測試，請開啟新的 attempt。 ");
+      else setText(dom.debugStatus, "開啟後會填入兩條彈簧的正確零位及三個負載讀數，並直接進入第二階段。 ");
     }
     function render() {
       if (presentation === "technical" || presentation === "frozen") return renderTechnical(dom.technicalMessage.textContent, presentation === "frozen" ? "提交狀態未確認" : "活動暫時鎖定", presentation === "frozen");
       if (presentation === "fallback") return;
       if (mayRevealCorrectness(presentation)) return renderResult();
       hidePanels();
+      renderDebugPanel();
       if (!state) return renderTechnical("沒有可用的活動狀態。");
       const panel = { investigate: dom.investigate, model: dom.model, predict: dom.predict, design: dom.design, review: dom.review }[state.phase];
       panel?.classList.remove("is-hidden");
@@ -1169,6 +1217,21 @@
       dom.panel.addEventListener("change", (event) => {
         const input = event.target.closest?.("[data-action='design-spring']"); if (input?.checked && state?.phase === "design") changeDesign(input.value, state.design?.moduleCount || 1);
       });
+      dom.debugComplete?.addEventListener("change", (event) => {
+        if (!debugAvailable) return;
+        const checkbox = event.currentTarget;
+        if (!checkbox.checked) {
+          debugEnabled = false;
+          renderDebugPanel();
+          announce("調試模式已關閉；已填入的第一階段數據不會清除。 ");
+          return;
+        }
+        if (!completeInvestigationForDebug()) {
+          debugEnabled = false;
+          checkbox.checked = false;
+          renderDebugPanel();
+        }
+      });
       dom.confirmRecalibration?.addEventListener("click", (event) => { event.preventDefault(); confirmRecalibration(); });
       bindDragTarget("zero", dom.zeroDrag); bindDragTarget("cursor", dom.cursorDrag); bindDragTarget("model", dom.modelDrag); bindDragTarget("prediction", dom.predictionDrag);
       dom.stage.addEventListener("pointerdown", (event) => {
@@ -1236,9 +1299,9 @@
       routeSubmission: (value) => routeSubmission(value, SimActivityFlow, {}),
       cancelDrag,
       mayReveal: () => mayRevealCorrectness(presentation),
-      interactionEvidence: () => ({ zeroMoveM, cursorMoveM, modelMoveM, predictionMoveM, modelDraftM, predictionDraftM, stable, locked, selectedLoadKey })
+      interactionEvidence: () => ({ zeroMoveM, cursorMoveM, modelMoveM, predictionMoveM, modelDraftM, predictionDraftM, stable, locked, selectedLoadKey, debugAvailable, debugEnabled })
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });

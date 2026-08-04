@@ -83,6 +83,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   const initial = await evaluate(cdp, `(() => { const d=document; return {
     presentation:window.__hookesLawDebug.getPresentation(), resultHidden:d.getElementById('resultPanel').classList.contains('is-hidden'),
     resultHtml:d.getElementById('resultPanel').innerHTML, body:d.body.textContent, stageTouch:getComputedStyle(d.getElementById('stage')).touchAction,
+    debugPanelHidden:d.getElementById('debugPanel').classList.contains('is-hidden'),
     panelRange:d.getElementById('controlPanel').scrollHeight-d.getElementById('controlPanel').clientHeight,
     targetSizes:[...d.querySelectorAll('.drag-target:not([hidden])')].map((node)=>({w:node.getBoundingClientRect().width,h:node.getBoundingClientRect().height})),
     stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
@@ -96,6 +97,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(initial.presentation, "editable", `${label}: direct startup is editable`);
   assert.equal(initial.resultHidden, true, `${label}: result panel starts hidden`);
   assert.equal(initial.resultHtml, "", `${label}: result DOM starts empty`);
+  assert.equal(initial.debugPanelHidden, true, `${label}: debug shortcut stays hidden without debug=1`);
   assert.doesNotMatch(initial.body, /理想 k|最佳安全方案|實際伸長/, `${label}: editable accessibility tree has no reveal data`);
   assert.equal(initial.stageTouch, "pan-y", `${label}: stage owns the non-interactive pan-y contract`);
   assert.ok(initial.panelRange > 20, `${label}: control panel has an independent range`);
@@ -155,6 +157,28 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(result.score, 100, `${label}: perfect fixture rescores to 100`);
   assert.match(result.text, /理想 k|最佳安全方案|實際伸長/, `${label}: result contains post-submit reveal data`);
   return `${label}: delayed feedback and success result passed`;
+}
+
+async function runDebugShortcut(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 1280, 800, false);
+  await navigate(cdp, `${baseUrl}${launchPath}?debug=1&browser=${label}`);
+  const initial = await evaluate(cdp, "(() => ({ phase:window.__hookesLawDebug.getState().phase, visible:!document.getElementById('debugPanel').classList.contains('is-hidden'), checked:document.getElementById('debugCompleteInvestigation').checked }))()");
+  assert.equal(initial.phase, "investigate", `${label}: debug shortcut starts in the first phase`);
+  assert.equal(initial.visible, true, `${label}: debug shortcut panel is visible with debug=1`);
+  assert.equal(initial.checked, false, `${label}: debug shortcut starts off`);
+  await clickDirect(cdp, "#debugCompleteInvestigation");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: debug shortcut did not enter the model phase`);
+  const completed = await evaluate(cdp, `(() => {
+    const debug=window.__hookesLawDebug,state=debug.getState(),scenario=debug.getScenario(),
+      errors=['A','B'].flatMap((springKey)=>['F1','F2','F3'].map((loadKey)=>Math.abs(state.measurements[springKey][loadKey].cursorM-window.HookesLawModel.endpointM(scenario.springs[springKey].naturalLengthM,window.HookesLawScoring.forceByKey[loadKey],scenario.springs[springKey].kNPerM))));
+    return {phase:state.phase,activeSpring:state.activeSpring,checked:document.getElementById('debugCompleteInvestigation').checked,complete:window.HookesLawPersistence.hasAllCalibrationsAndMeasurements(state),maxError:Math.max(...errors)};
+  })()`);
+  assert.equal(completed.phase, "model", `${label}: debug shortcut enters the model phase`);
+  assert.equal(completed.activeSpring, "A", `${label}: debug shortcut opens the first model spring`);
+  assert.equal(completed.checked, true, `${label}: debug shortcut remains visibly enabled`);
+  assert.equal(completed.complete, true, `${label}: debug shortcut fills all first-phase records`);
+  assert.ok(completed.maxError < 1e-9, `${label}: debug shortcut fills exact endpoint answers`);
+  return `${label}: first-phase debug shortcut passed`;
 }
 
 async function iframeMetrics(cdp) {
@@ -346,13 +370,15 @@ async function main() {
     cdp = new CdpClient(target.webSocketDebuggerUrl); await cdp.send("Page.enable"); await cdp.send("Runtime.enable");
     const sourceTouch = await runTouchMatrix(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTouch = await runTouchMatrix(cdp, packageBase, extracted.activityPath, "package");
+    const sourceDebug = await runDebugShortcut(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageDebug = await runDebugShortcut(cdp, packageBase, extracted.activityPath, "package");
     const sourceDirect = await runDirectFlow(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDirect = await runDirectFlow(cdp, packageBase, extracted.activityPath, "package");
     const sourcePointer = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packagePointer = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboard = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source", true);
     const packageKeyboard = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package", true);
-    summary = `Hooke's law browser regression passed: ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
+    summary = `Hooke's law browser regression passed: ${sourceDebug}; ${packageDebug}; ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
