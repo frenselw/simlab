@@ -98,7 +98,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .prediction-cards { display: grid; gap: .55rem; }
 .prediction-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .6rem; align-items: center; padding: .65rem .7rem; border: 1px solid var(--border-light); background: #fff; }
 .prediction-card[data-selected="true"] { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
-.prediction-card button { min-width: 3.4rem; }
+.prediction-card button { min-width: 8rem; text-align: left; }
 .prediction-card > div { min-width: 0; }
 .prediction-card strong { display: block; font-size: .9rem; line-height: 1.35; }
 .prediction-card > div > span, .prediction-card > span { display: block; color: var(--muted); font-size: .8rem; line-height: 1.35; }

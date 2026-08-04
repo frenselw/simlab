@@ -26,6 +26,7 @@
   const INVESTIGATION_RULER_BOTTOM = 455;
   const MEASUREMENT_SNAP_THRESHOLD_M = 0.003;
   const MODEL_MIN_POINT_FORCE_N = 0.5;
+  const PREDICTION_SNAP_STEP_M = 0.0005;
   const PREDICTION_STAGE = Object.freeze({ springX: 410, springTopY: 78, shortestSpringEndY: 190, extensionPixels: 220, guideLeft: 150, guideRight: 690 });
   const PREDICTION_LOAD_VISUALS = Object.freeze({
     "1.5": Object.freeze({ width: 58, height: 18, fill: "#bfdbfe", stroke: "#1d4ed8" }),
@@ -42,6 +43,10 @@
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
   function snapMeasurementValue(value, target, threshold = MEASUREMENT_SNAP_THRESHOLD_M) {
     return finite(value) && finite(target) && Math.abs(value - target) <= threshold ? target : value;
+  }
+  function snapPredictionValue(value) {
+    if (!finite(value)) return 0;
+    return Math.max(0, Math.min(Generator.MAX_LINEAR_EXTENSION_M, Math.round(value / PREDICTION_SNAP_STEP_M) * PREDICTION_SNAP_STEP_M));
   }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function freshSeed() {
@@ -176,7 +181,7 @@
     node.append(mathNumber(value), mathUnit(unit));
     return node;
   }
-  function mathLength(meters) { return finite(meters) ? mathQuantity((meters * 100).toFixed(1), "cm") : mathPlaceholder(); }
+  function mathLength(meters, digits = 1) { return finite(meters) ? mathQuantity((meters * 100).toFixed(digits), "cm") : mathPlaceholder(); }
   function mathForce(key) {
     const value = ({ F1: 1, F2: 2, F3: 3 })[key];
     return finite(value) ? mathQuantity(value.toFixed(1), "N") : mathPlaceholder();
@@ -866,15 +871,16 @@
       scenario.predictions.forEach((spec, index) => {
         const card = element("article", undefined, "prediction-card math-context");
         card.dataset.selected = String(index === state.activePredictionIndex);
-        const button = element("button", `編輯 ${index + 1}`);
+        const button = element("button", `選擇題目 ${index + 1}`);
         button.type = "button"; button.dataset.action = "prediction-select"; button.dataset.index = String(index); button.setAttribute("aria-pressed", String(index === state.activePredictionIndex)); button.disabled = locked;
+        button.setAttribute("aria-label", `選擇預測題目 ${index + 1}：${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`);
         const heading = element("strong");
         appendParts(heading, [`預測 ${index + 1}：${springLabel(spec.springKey)}、`, mathForceValue(spec.forceN)]);
         const predictionValue = element("span");
         if (state.predictions[index]) {
           const extensionM = state.predictions[index].extensionM;
           const naturalLengthM = state.calibrations[spec.springKey]?.zeroM;
-          appendParts(predictionValue, ["你的預測伸長量：", mathLength(extensionM), "；總長度：", mathLength(finite(naturalLengthM) ? naturalLengthM + extensionM : null)]);
+          appendParts(predictionValue, ["你的預測伸長量：", mathLength(extensionM, 2), "；總長度：", mathLength(finite(naturalLengthM) ? naturalLengthM + extensionM : null, 2)]);
         }
         else predictionValue.textContent = "尚未填寫";
         const copy = element("div"); copy.append(heading, predictionValue);
@@ -1125,7 +1131,7 @@
       dom.svg.append(svgElement("rect", { x: springX - loadVisual.width / 2, y: springEndY, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
       dom.svg.append(drawMathText(springX + loadVisual.width / 2 + 14, springEndY + loadVisual.height / 2 + 5, [{ text: n(spec.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: loadVisual.stroke, "font-size": 16, "font-weight": 700 }));
       const predictionLabelY = Math.min(458, loadBottomY + 24);
-      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(2), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
@@ -1214,7 +1220,7 @@
     function valueFromPoint(kind, point) {
       if (kind === "zero" || kind === "cursor") return clamp((point.y - INVESTIGATION_RULER_TOP) / (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP) * Generator.STAGE_SPAN_M, 0, Generator.STAGE_SPAN_M);
       if (kind === "model") return modelValueFromPoint(point).handleExtensionM;
-      if (kind === "prediction") return clamp((point.y - PREDICTION_STAGE.shortestSpringEndY) / PREDICTION_STAGE.extensionPixels, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M;
+      if (kind === "prediction") return snapPredictionValue(clamp((point.y - PREDICTION_STAGE.shortestSpringEndY) / PREDICTION_STAGE.extensionPixels, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M);
       return 0;
     }
     function beginDrag(event, kind, target) {
@@ -1293,7 +1299,7 @@
       const allowed = kind === "model" ? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] : vertical ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
       if (!allowed.includes(event.key)) return;
       event.preventDefault();
-      const step = event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
+      const step = kind === "prediction" ? (event.shiftKey ? PREDICTION_SNAP_STEP_M : .001) : event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
       if (kind === "zero") { const before = state.working.zeroDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.zeroDraftM = snapMeasurementPosition(kind, rawValue); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(rawValue - before)); zeroMode = "keyboard"; }
       else if (kind === "cursor") { const before = state.working.cursorDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
       else if (kind === "model") {
@@ -1426,5 +1432,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, PREDICTION_STAGE, PREDICTION_LOAD_VISUALS, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, PREDICTION_STAGE, PREDICTION_LOAD_VISUALS, PREDICTION_SNAP_STEP_M, snapMeasurementValue, snapPredictionValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });
