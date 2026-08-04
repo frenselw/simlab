@@ -719,6 +719,7 @@ measurement record 另帶：
 - 負載即使已畫在彈簧末端，也保持在最短位置，即自然長度位置 \(x=0\)；
 - 圖台以天花板／固定端、彈簧、不同重量的不同大小／顏色負載及「最短位置（\(x=0\)）」基準線建立物理語境；
 - 橙色 prediction marker 在彈簧及負載旁邊，學生拖動它時，彈簧、負載及預測位置必須同步伸長或縮短；
+- 最短位置標籤與學生預測伸長標籤必須分開排版；prediction card 的數值與單位保持同一個不可拆分的數學量，手機窄屏也不可把數值／單位拆成不完整的多行；
 - 圖台即時顯示學生自己的預測伸長量及由 \(L_0+x\) 得到的預測總長度，讓學生知道自己正在預測什麼；
 - 舞台只顯示學生目前的預測位置，不 render 實際終點、理想端點、誤差或正確位置；提交前不真正掛上該負載。
 
@@ -1828,6 +1829,7 @@ Browser-level assertions，不只 source-string：
 - [ ] prediction phase DOM／accessibility tree 無 actual endpoint；
 - [ ] prediction phase clearly names the target spring/load、draws both from the shortest \(x=0\) position、moves them together with the marker、and shows only student extension/total-length readouts；
 - [ ] prediction phase can return to model/investigate and resume without changing recorded predictions；
+- [ ] debug shortcut 直接進入 predict phase 後，仍可返回 model 查看兩條已自動填入的斜率，再返回 predict；
 - [ ] design phase不動畫實際 extension；
 - [ ] review 無 score／correctness；
 - [ ] repeated prediction adjustments不產生 feedback；

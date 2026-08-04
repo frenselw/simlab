@@ -34,6 +34,7 @@ assert.match(source, /const PREDICTION_STAGE = Object\.freeze/);
 assert.match(source, /const PREDICTION_LOAD_VISUALS = Object\.freeze/);
 assert.match(source, /function predictionSpringEndY\(extensionM\)/);
 assert.match(source, /function predictionLoadVisual\(forceN\)/);
+assert.match(source, /const predictionLabelY = Math\.min\(458, loadBottomY \+ 24\)/);
 assert.match(source, /沒有更改已記錄的後續答案/);
 assert.match(source, /action === "navigate-phase"/);
 assert.match(css, /grid-template-areas[^;]*"stage"[^;]*"controls"/);

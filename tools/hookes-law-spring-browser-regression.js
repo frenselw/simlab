@@ -191,6 +191,15 @@ async function runDebugShortcut(cdp, baseUrl, launchPath, label) {
   assert.equal(completedModel.predictions, 0, `${label}: second-phase debug shortcut leaves third-phase predictions for testing`);
   assert.ok(completedModel.maxError < 1e-9, `${label}: second-phase debug shortcut fills exact model answers`);
   assert.equal(completedModel.buttonDisabled, true, `${label}: second-phase debug shortcut is disabled after entering the third phase`);
+  await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='model']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: debug shortcut cannot return to the model phase`);
+  const debugReturnedModel = await evaluate(cdp, "({phase:window.__hookesLawDebug.getState().phase,models:window.__hookesLawDebug.getState().models,predictions:window.__hookesLawDebug.getState().predictions,fromReview:window.__hookesLawDebug.getState().fromReview})");
+  assert.equal(debugReturnedModel.phase, "model", `${label}: debug third phase can inspect the model phase`);
+  assert.ok(debugReturnedModel.models.A && debugReturnedModel.models.B, `${label}: debug return preserves both model answers`);
+  assert.equal(debugReturnedModel.predictions.filter(Boolean).length, 0, `${label}: debug return does not create predictions`);
+  assert.equal(debugReturnedModel.fromReview, true, `${label}: debug backward navigation keeps downstream review-continuation state`);
+  await clickDirect(cdp, "#toPredict");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: debug shortcut cannot return to the third phase`);
   return `${label}: first- and second-phase debug shortcuts passed`;
 }
 
