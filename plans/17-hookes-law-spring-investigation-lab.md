@@ -12,7 +12,7 @@
 - 學生可見標題：`胡克定律：彈簧探究與預測實驗室`
 - Learning objective：學生透過量度兩條未知彈簧在不同作用力下的伸長建立 \(F-x\) 關係，理解彈簧常數 \(k\)，並把自己建立的模型用於未量度情境的預測及工程設計。
 - Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次盲測工程設計、review 後一次提交，再查看結果。
-- Main interactions：spring tabs、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、module `− / count / +`、review-edit、final submit。
+- Main interactions：spring tabs、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、第三階段的彈簧＋負載聯動預測、跨階段返回／繼續、module `− / count / +`、review-edit、final submit。
 - Runtime files：`index.html`、`styles.css`、`generator.js`、`model.js`、`animation.js`、`scoring.js`、`persistence.js`、`main.js`，以及對應 tests、manifest 與 browser regression。
 - Shared runtime：`sim/shared/styles.css`、`sim/shared/scorm.js`、`sim/shared/activity-flow.js`。
 - Libraries：`none`
@@ -704,32 +704,35 @@ measurement record 另帶：
 
 兩條模型都有值後，predict phase 解鎖。
 
-### 8.3 Phase C：三個盲測預測
+### 8.3 Phase C：三個盲測預測（重點重做）
 
-每題顯示：
+第三階段必須先把學生要做的事說清楚，而不是只展示一條寫着「模」的線。每題的題目卡及圖台都要明確顯示：
 
-- spring A 或 B；
-- 未量度的 force；
-- unloaded spring／`0 cm extension` reference；
-- 可拖動 prediction marker；
-- 學生目前預測伸長。
+- 題目指定的彈簧 A 或 B；
+- 題目指定但未在第一階段直接量度的負載力 \(F\)；
+- 這是一個「預測總長度」任務：學生要先用第二階段自己畫出的 \(F-x\) 直線斜率 \(k\) 預測伸長 \(x=F/k\)，再用自然長度 \(L_0\) 加上伸長量，得到預測總長度 \(L=L_0+x\)；
+- 可以返回第二階段查看 A／B 的數據、直線及斜率，再返回第三階段；返回不會改動已記錄的預測或其他後續答案。
 
-學生不得在此 phase 真正掛上該負載。舞台不可 render actual endpoint。
+圖台的初始狀態是有意設計的預測工作區，不是實際測試結果：
 
-三題預測可在最終提交前修改。系統只顯示：
+- 題目指定的彈簧及負載必須同時畫出來；
+- 負載即使已畫在彈簧末端，也保持在最短位置，即自然長度位置 \(x=0\)；
+- 圖台以天花板／固定端、彈簧、不同重量的不同大小／顏色負載及「最短位置（\(x=0\)）」基準線建立物理語境；
+- 橙色 prediction marker 在彈簧及負載旁邊，學生拖動它時，彈簧、負載及預測位置必須同步伸長或縮短；
+- 圖台即時顯示學生自己的預測伸長量及由 \(L_0+x\) 得到的預測總長度，讓學生知道自己正在預測什麼；
+- 舞台只顯示學生目前的預測位置，不 render 實際終點、理想端點、誤差或正確位置；提交前不真正掛上該負載。
 
-- `預測 1 已填寫`；
-- `3 項預測已完成`；
-- 學生自己的 cm 數值。
+三題預測可在最終提交前修改。學生可在第三階段、第四階段及 review 之間返回任何已解鎖的較前階段查看資料，再按正常的下一階段按鈕返回；只要沒有覆蓋上游答案，所有已記錄的 predictions／design 都保留。系統只顯示：
+
+- 題目指定的彈簧及負載；
+- `預測 1 已填寫`／`3 項預測已完成`；
+- 學生自己的伸長量及總長度。
 
 禁止：
 
-- 試驗；
-- reveal；
-- 方向提示；
-- 容許帶；
-- 「接近」；
-- 正確答案。
+- 在第三階段用實際掛載結果試驗；
+- reveal、方向提示、容許帶、「接近」或正確答案；
+- 以任何隱藏 DOM、ARIA、`data-*` 或 off-screen element 預載 actual endpoint。
 
 ### 8.4 Phase D：盲測工程設計
 
@@ -857,7 +860,15 @@ review 只標示：
 - 不清除其他 predictions；
 - 不清除 design。
 
-### 9.5 修改 design
+### 9.5 只返回較前 phase 查看資料
+
+- 從 `design` 返回 `predict`、從 `predict` 返回 `model`／`investigate`，或從 `model` 返回 `investigate`，是非破壞性的 phase navigation，不是答案修改；
+- 必須以 `fromReview=true`（或等價的 review-continuation variant）保存，使已完成的 predictions／design 可以在前面 phase 暫時存在；
+- 返回後再按下一階段返回原 phase，不可清除或重置已記錄答案、scenario seed、版本或 score evidence；
+- 只有學生實際重新記錄 calibration／measurement／model／prediction／design，才按 9.1–9.4 的 destructive invalidation policy 清除依賴資料；
+- 返回及繼續操作只發出中性導覽提示，例如「已返回第二階段；沒有更改已記錄的後續答案」。
+
+### 9.6 修改 design
 
 - 不改其他資料。
 
@@ -1268,6 +1279,7 @@ function clientToSvg(svg, clientX, clientY) {
 | `design` | complete | all predictions＋valid design | — | go review／edit |
 | `review` | complete | all required authority | no working drag | submit／return specific section |
 | `investigate/model/predict/design` | `fromReview=true` | review-complete answer may temporarily retain downstream data until an actual upstream replacement | current transient drag only | return review without change，或 replacement 後按 invalidation 清除 |
+| `design/predict/model/investigate` | non-destructive backward navigation | current phase prerequisites＋已記錄的下游答案；`fromReview=true` | 不得清除 predictions／design；不得顯示答案揭示 | return to the phase just left／continue |
 | locked result | submitted/review | validated review answer＋computed result | editable controls | review only |
 
 Transitions：
@@ -1294,8 +1306,14 @@ review -> <section>
 <section from review> -> review
   when no invalidating change and answer remains complete
 
+design -> predict -> model -> investigate
+  when learner requests a non-destructive backward navigation; preserve downstream answers and set fromReview=true
+
+earlier phase -> later phase
+  when prerequisites exist; preserve downstream answers while returning from a navigation continuation
+
 any editable phase -> earlier normalized phase
-  after an upstream replacement clears required dependents
+  after an upstream replacement clears required dependents and the phase is normalized by the invalidation policy
 ```
 
 不可保存 production UI 無法 render 的 phase。
@@ -1778,6 +1796,7 @@ scorer 不讀：
 - [ ] model change clears predictions＋design；
 - [ ] prediction change keeps design；
 - [ ] no-change return from review preserves all；
+- [ ] non-destructive design→predict→model→predict→design navigation preserves all recorded predictions and leaves design unchanged until edited；
 - [ ] destructive transition atomic；
 - [ ] no stale model/prediction remains after restore。
 
@@ -1807,6 +1826,8 @@ Browser-level assertions，不只 source-string：
 - [ ] editable investigate 無 correct/incorrect；
 - [ ] model phase 無 ideal line／true \(k\)；
 - [ ] prediction phase DOM／accessibility tree 無 actual endpoint；
+- [ ] prediction phase clearly names the target spring/load、draws both from the shortest \(x=0\) position、moves them together with the marker、and shows only student extension/total-length readouts；
+- [ ] prediction phase can return to model/investigate and resume without changing recorded predictions；
 - [ ] design phase不動畫實際 extension；
 - [ ] review 無 score／correctness；
 - [ ] repeated prediction adjustments不產生 feedback；
@@ -1856,6 +1877,7 @@ Browser-level assertions，不只 source-string：
 - [ ] cursor trusted drag；
 - [ ] model handle trusted drag；
 - [ ] prediction marker trusted drag；
+- [ ] prediction marker drag moves the spring and load together from the shortest position；
 - [ ] pointerup received、無 pointercancel；
 - [ ] source and built package；
 - [ ] locked former footprints no longer drag。
@@ -1898,6 +1920,7 @@ Browser-level assertions，不只 source-string：
 - [ ] A／B data survive tab switches；
 - [ ] no pre-submit correctness leakage；
 - [ ] student can revise before final without trial feedback；
+- [ ] student can inspect earlier slopes from Phase 3 and return without losing Phase 3 answers；
 - [ ] review is complete but neutral；
 - [ ] submission locks attempt；
 - [ ] result reconstructs every submitted marker／line／design；

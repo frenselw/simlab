@@ -299,6 +299,22 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   }
   await clickDirect(cdp, "[data-action='to-predict']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: predict phase did not open`);
+  const predictionStage = await evaluate(cdp, `(() => {
+    const d=document, state=window.__hookesLawDebug.getState(),
+      stageText=[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
+      spring=d.querySelector('#stageSvg polyline'), load=d.querySelector('#stageSvg rect'),
+      target=d.getElementById('predictionDrag').getBoundingClientRect(), loadRect=load?.getBoundingClientRect();
+    return {phase:state.phase, draftM:window.__hookesLawDebug.interactionEvidence().predictionDraftM,
+      hasSpring:Boolean(spring), hasLoad:Boolean(load), loadY:loadRect ? loadRect.y + loadRect.height / 2 : null,
+      stageText, targetY:target.y + target.height / 2};
+  })()`);
+  assert.equal(predictionStage.phase, "predict", `${label}: third phase starts with the prediction screen`);
+  assert.equal(predictionStage.draftM, 0, `${label}: prediction starts at zero extension`);
+  assert.equal(predictionStage.hasSpring, true, `${label}: prediction screen draws the spring before dragging`);
+  assert.equal(predictionStage.hasLoad, true, `${label}: prediction screen draws the specified load before dragging`);
+  assert.ok(predictionStage.stageText.includes("最短位置（x = 0 cm）"), `${label}: prediction screen labels the shortest position`);
+  assert.ok(predictionStage.stageText.includes("伸長量 x / cm"), `${label}: prediction screen labels extension in cm`);
+  assert.ok(Math.abs(predictionStage.targetY - predictionStage.loadY) < 12, `${label}: prediction marker starts beside the load`);
   for (let index = 0; index < 3; index += 1) {
     if (index) await clickDirect(cdp, `[data-action="prediction-select"][data-index="${index}"]`);
     if (keyboard) await pressKey(cdp, "#predictionDrag", "ArrowUp", 6);
@@ -308,6 +324,24 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
     await waitUntil(cdp, `Boolean(window.__hookesLawDebug.getState().predictions[${index}])`, `${label}: prediction ${index + 1} did not save`);
   }
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: design phase did not open`);
+  const recordedPredictions = await evaluate(cdp, "JSON.stringify(window.__hookesLawDebug.getState().predictions)");
+  await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='predict']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: design phase could not return to prediction`);
+  const returnedFromDesign = await evaluate(cdp, "({phase:window.__hookesLawDebug.getState().phase,predictions:JSON.stringify(window.__hookesLawDebug.getState().predictions),design:window.__hookesLawDebug.getState().design})");
+  assert.equal(returnedFromDesign.predictions, recordedPredictions, `${label}: returning from design preserves predictions`);
+  assert.ok(returnedFromDesign.design === null, `${label}: prediction navigation keeps the not-yet-entered design answer empty`);
+  await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='model']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: prediction phase could not return to model`);
+  const returnedToModel = await evaluate(cdp, "({predictions:JSON.stringify(window.__hookesLawDebug.getState().predictions),design:window.__hookesLawDebug.getState().design,fromReview:window.__hookesLawDebug.getState().fromReview})");
+  assert.equal(returnedToModel.predictions, recordedPredictions, `${label}: returning to model preserves all prediction answers`);
+  assert.equal(returnedToModel.design, null, `${label}: returning to model does not invent a design answer`);
+  assert.equal(returnedToModel.fromReview, true, `${label}: backward phase navigation is marked as a review continuation`);
+  await clickDirect(cdp, "#toPredict");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'predict'", `${label}: model phase could not return to prediction`);
+  const returnedToPredict = await evaluate(cdp, "JSON.stringify(window.__hookesLawDebug.getState().predictions)");
+  assert.equal(returnedToPredict, recordedPredictions, `${label}: returning to prediction keeps recorded results unchanged`);
+  await clickDirect(cdp, "#toDesign");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: prediction phase could not return to design`);
   await clickDirect(cdp, "[data-action='design-spring'][value='A']");
   await clickDirect(cdp, "[data-action='module-plus']");
   await clickDirect(cdp, "[data-action='to-review']");

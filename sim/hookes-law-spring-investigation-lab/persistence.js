@@ -262,7 +262,7 @@
       next.phase = "design";
     } else if (event.type === "setPhase") {
       const phase = event.phase;
-      if (!["model", "predict", "design", "review"].includes(phase)) throw new Error("Invalid phase transition");
+      if (!PHASES.includes(phase)) throw new Error("Invalid phase transition");
       if (phase === "model" && !hasAllCalibrationsAndMeasurements(next)) throw new Error("Model prerequisites incomplete");
       if (phase === "predict" && !hasAllModels(next)) throw new Error("Prediction prerequisites incomplete");
       if (phase === "design" && (!hasAllModels(next) || !hasAllPredictions(next))) throw new Error("Design prerequisites incomplete");
@@ -270,6 +270,7 @@
       next.phase = phase;
       next.activeLoadKey = null;
       next.activePredictionIndex = 0;
+      if (PHASES.indexOf(phase) < PHASES.indexOf(original.phase)) next.fromReview = true;
       if (phase !== "investigate") next.working = { zeroDraftM: null, cursorDraftM: null };
       if (phase === "review") { next.fromReview = false; next.working = { zeroDraftM: null, cursorDraftM: null }; }
     } else if (event.type === "editSection") {

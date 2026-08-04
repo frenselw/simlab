@@ -85,6 +85,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .neutral-status { min-height: 1.35rem; margin: .4rem 0 0; color: var(--muted); font-size: .83rem; line-height: 1.4; }
 .neutral-status[data-kind="technical"] { color: var(--danger); }
 .neutral-status[data-kind="success"] { color: var(--success); }
+.phase-navigation { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .65rem; }
+.phase-navigation button { flex: 1 1 12rem; }
 .data-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
 .data-table { width: 100%; border-collapse: collapse; background: #fff; font-size: .82rem; }
 .data-table caption { padding: .35rem; color: var(--muted); font-weight: 700; text-align: left; }

@@ -86,6 +86,25 @@ const returnedReview = P.transitions.setPhase(editModel, "review", scenario);
 assert.equal(returnedReview.phase, "review");
 assert.equal(returnedReview.fromReview, false);
 
+const navigationModel = P.transitions.setPhase(state, "model", scenario);
+assert.equal(navigationModel.phase, "model");
+assert.equal(navigationModel.fromReview, true, "returning to an earlier phase keeps downstream answers as a review continuation");
+assert.ok(navigationModel.predictions.every(Boolean));
+assert.ok(navigationModel.design);
+const navigationPredict = P.transitions.setPhase(navigationModel, "predict", scenario);
+assert.equal(navigationPredict.phase, "predict");
+assert.equal(navigationPredict.fromReview, true);
+assert.ok(navigationPredict.predictions.every(Boolean));
+assert.ok(navigationPredict.design);
+const navigationDesign = P.transitions.setPhase(navigationPredict, "design", scenario);
+assert.equal(navigationDesign.phase, "design");
+assert.ok(navigationDesign.predictions.every(Boolean));
+assert.deepEqual(navigationDesign.design, state.design, "returning to design preserves the active design answer");
+for (const [name, fixture] of [["navigation-model", navigationModel], ["navigation-predict", navigationPredict], ["navigation-design", navigationDesign]]) {
+  const snapshot = P.makeSnapshot("draft", fixture, scenario);
+  assert.deepEqual(P.decodeSnapshot(snapshot, scenario, "draft"), fixture, `${name} round trip preserves navigable downstream answers`);
+}
+
 const recalibrated = P.transitions.replaceCalibration(editModel, "A", evidence(scenario.springs.A.naturalLengthM + 0.001), scenario);
 assert.equal(recalibrated.fromReview, false);
 assert.ok(recalibrated.measurements.A.F1 === null && recalibrated.models.A === null);
