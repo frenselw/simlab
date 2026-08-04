@@ -720,7 +720,11 @@
     }
     function positionToY(positionM) { return 54 + clamp(positionM, 0, Generator.STAGE_SPAN_M) / Generator.STAGE_SPAN_M * 382; }
     function graphPoint(extensionM, forceN) { return Model.graphPointFromPhysics(extensionM, forceN, GRAPH); }
-    function drawText(x, y, text, attributes = {}) { return svgElement("text", { x, y, "font-size": 14, fill: "#334155", ...attributes }); }
+    function drawText(x, y, text, attributes = {}) {
+      const node = svgElement("text", { x, y, "font-size": 14, fill: "#334155", ...attributes });
+      node.textContent = String(text ?? "");
+      return node;
+    }
     function drawLine(x1, y1, x2, y2, attributes = {}) { return svgElement("line", { x1, y1, x2, y2, stroke: "#94a3b8", "stroke-width": 2, ...attributes }); }
     function drawInvestigationStage() {
       const key = state.activeSpring;
