@@ -1201,58 +1201,54 @@
       dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
-      const selected = state.design;
       const calculation = designCalculation();
-      const ruler = { x: 96, top: 92, bottom: 410 };
+      const ruler = { x: 96, top: 62, bottom: 390 };
       const springX = 450;
       const maxExtensionM = Generator.MAX_LINEAR_EXTENSION_M;
       const yForExtension = (extensionM) => ruler.top + clamp(extensionM, 0, maxExtensionM) / maxExtensionM * (ruler.bottom - ruler.top);
       const limitY = yForExtension(scenario.design.limitM);
       const endpointY = yForExtension(calculation?.extensionM ?? 0.02);
       const statusColor = calculation ? "#2563eb" : "#64748b";
-      const statusFill = calculation ? "#dbeafe" : "#e2e8f0";
 
       dom.svg.append(drawMathText(36, 32, ["安全承載設計・用你的 ", { text: "F", class: "math-variable" }, " = ", { text: "kx", class: "math-variable" }], { "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawLine(150, 62, 700, 62, { stroke: "#334155", "stroke-width": 5 }), drawText(710, 68, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(ruler.x, ruler.top, 700, ruler.top, { stroke: "#334155", "stroke-width": 5 }), drawText(690, 68, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
 
       dom.svg.append(drawLine(ruler.x, ruler.top, ruler.x, ruler.bottom, { stroke: "#64748b", "stroke-width": 3 }));
       for (const extensionM of [0, .05, .10, .15, .18]) {
         const y = yForExtension(extensionM);
         dom.svg.append(drawLine(ruler.x - 7, y, ruler.x + 10, y, { stroke: "#64748b", "stroke-width": 2 }), drawSvgLength(ruler.x - 13, y + 5, extensionM, { "font-size": 14, "text-anchor": "end" }));
       }
-      dom.svg.append(drawSvgAxisLabel(ruler.x, 448, "伸長", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
+      dom.svg.append(drawSvgAxisLabel(ruler.x, 430, "伸長", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
 
       dom.svg.append(drawLine(142, limitY, 705, limitY, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }));
-      dom.svg.append(drawMathText(148, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-variable" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawMathText(470, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-variable" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
 
       if (!calculation) {
         dom.svg.append(drawMathText(235, 220, ["先在左側選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, 252, "圖台會用你的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
         return;
       }
 
+      dom.svg.append(svgElement("rect", { x: 145, y: 76, width: 275, height: 84, rx: 8, fill: "#ffffff", stroke: "#e2e8f0", "stroke-width": 1 }));
       dom.svg.append(drawSvgKValue(205, 94, calculation.kModelNPerM, { "font-size": 16, "font-weight": 700, fill: "#1d4ed8" }));
       dom.svg.append(drawMathText(205, 118, ["負載 ", { text: "F", class: "math-variable" }, " = ", { text: String(calculation.moduleCount), class: "math-number" }, " × ", { text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }, " = ", { text: n(calculation.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { "font-size": 15 }));
       dom.svg.append(drawMathText(205, 142, [{ text: "x", class: "math-variable" }, " = ", { text: "F", class: "math-variable" }, " / ", { text: "k", class: "math-variable" }, " = ", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { "font-size": 15, fill: statusColor, "font-weight": 700 }));
 
       const coils = [];
-      const springEndY = Math.max(72, endpointY - 2);
+      const springEndY = Math.max(70, endpointY - 2);
       for (let index = 0; index <= 18; index += 1) {
         const y = 70 + (springEndY - 70) * index / 18;
         const x = springX + (index % 2 ? 25 : -25);
-        coils.push(`${x},${y}`);
+        coils.push(String(x) + "," + String(y));
       }
-      dom.svg.append(drawLine(springX, 62, springX, 70, { stroke: "#94a3b8", "stroke-width": 2 }), svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
-      dom.svg.append(svgElement("rect", { x: springX - 30 - calculation.moduleCount * 2, y: endpointY - 2, width: 60 + calculation.moduleCount * 4, height: 22 + calculation.moduleCount * 2, rx: 4, fill: statusFill, stroke: statusColor, "stroke-width": 2 }));
-      dom.svg.append(drawMathText(springX + 52, endpointY + 14, [springLabel(calculation.springKey), "・", { text: n(calculation.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
-      dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }), drawMathText(148, Math.min(ruler.bottom + 25, endpointY + 26), ["你的模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
-
-      const moduleStartX = 245;
-      const moduleY = 470;
-      dom.svg.append(drawMathText(moduleStartX, moduleY, ["負載模組：", { text: String(calculation.moduleCount), class: "math-number" }, " 個 × ", { text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }], { "font-size": 15, "font-weight": 700 }));
-      for (let index = 0; index < calculation.moduleCount; index += 1) {
-        const x = moduleStartX + 112 + index * 42;
-        dom.svg.append(svgElement("rect", { x, y: moduleY - 19, width: 34, height: 22, rx: 3, fill: "#64748b" }));
-      }
+      const loadY = endpointY - 2;
+      const loadWidth = 74 + calculation.moduleCount * 12;
+      const loadHeight = 26 + calculation.moduleCount * 2;
+      dom.svg.append(drawMathText(springX, 50, [springLabel(calculation.springKey)], { "font-size": 15, "font-weight": 700, "text-anchor": "middle", fill: "#475569" }));
+      dom.svg.append(drawLine(springX, ruler.top, springX, 70, { stroke: "#94a3b8", "stroke-width": 2 }), svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
+      dom.svg.append(svgElement("rect", { "data-role": "design-load", x: springX - loadWidth / 2, y: loadY, width: loadWidth, height: loadHeight, rx: 4, fill: "#94a3b8", stroke: "#475569", "stroke-width": 2 }));
+      dom.svg.append(drawText(springX, loadY + loadHeight / 2 + 5, "負載", { class: "math-svg", "font-size": 14, "font-weight": 700, "text-anchor": "middle", fill: "#ffffff" }));
+      dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }));
+      dom.svg.append(drawMathText(470, 430, ["模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
     }
     function drawReviewStage() {
       dom.svg.append(drawText(36, 32, "提交前 review・圖台只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
