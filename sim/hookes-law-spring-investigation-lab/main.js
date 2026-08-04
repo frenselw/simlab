@@ -18,7 +18,7 @@
   const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "建立 F–x 模型", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
-  const INVESTIGATION_DRAG_HANDLE_X = 760;
+  const INVESTIGATION_DRAG_HANDLE_X = 650;
 
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
