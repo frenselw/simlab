@@ -48,6 +48,8 @@ assert.equal(App.PHASE_LABELS.model, "找出 F–x 線性關係", "model phase i
 assert.equal(App.INVESTIGATION_RULER_TOP, 42, "the ruler origin is the ceiling anchor");
 assert.equal(App.INVESTIGATION_RULER_BOTTOM, 455, "the ruler remains inside the stage");
 assert.equal(App.MEASUREMENT_SNAP_THRESHOLD_M, 0.003, "measurement snapping is limited to 0.3 cm");
+assert.equal(App.GRAPH_X_AXIS_LABEL_X, 414.5, "graph x-axis label is centered under the plot");
+assert.equal(App.GRAPH_X_AXIS_LABEL_Y, 460, "graph x-axis label has its own row below the tick labels");
 assert.equal(App.snapMeasurementValue(0.099, 0.1), 0.1, "nearby measurement values snap to the target");
 assert.equal(App.snapMeasurementValue(0.096, 0.1), 0.096, "values outside the snap threshold remain unchanged");
 assert.ok(App.LOAD_VISUALS.F1.width < App.LOAD_VISUALS.F2.width && App.LOAD_VISUALS.F2.width < App.LOAD_VISUALS.F3.width, "heavier loads use larger blocks");
@@ -55,7 +57,7 @@ assert.notEqual(App.LOAD_VISUALS.F1.fill, App.LOAD_VISUALS.F2.fill, "load weight
 assert.match(source, /const label = cmValue === 0 \? "0" : `\$\{cmValue\} cm`/);
 assert.match(source, /drawSvgAxisLabel\(118, 72, "位置", "", "cm"/);
 assert.match(source, /drawMathText\(GRAPH\.left - 34, GRAPH\.top \+ GRAPH\.height \+ 6, \[\{ text: "0", class: "math-number" \}\]/);
-assert.match(source, /drawSvgAxisLabel\(GRAPH\.left \+ GRAPH\.width - 98, GRAPH\.top \+ GRAPH\.height \+ 32, "伸長", "x", "cm"/);
+assert.match(source, /drawSvgAxisLabel\(GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, "伸長", "x", "cm", \{[\s\S]*"text-anchor": "middle"/);
 assert.match(source, /drawSvgAxisLabel\(GRAPH\.left - 50, GRAPH\.top \+ 8, "", "F", "N", \{[\s\S]*"text-anchor": "end"/);
 assert.match(source, /node\.textContent = String\(text \?\? ""\)/);
 assert.match(source, /const top = INVESTIGATION_RULER_TOP/);

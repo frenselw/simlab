@@ -262,9 +262,18 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   }
   await clickDirect(cdp, "[data-action='to-model']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model phase did not open`);
-  const modelAxis = await evaluate(cdp, "(() => { const d=document,node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),rect=node?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect();return {x:Number(node?.getAttribute('x')),anchor:node?.getAttribute('text-anchor')||'',right:rect?.right,tickLeft:tickRect?.left}; })()");
-  assert.ok(modelAxis.x < 80 && modelAxis.anchor === "end", `${label}: vertical F axis label is separated from the tick numbers`);
-  assert.ok(modelAxis.right < modelAxis.tickLeft, `${label}: vertical F axis label does not overlap the tick numbers`);
+  const modelAxis = await evaluate(cdp, "(() => { const d=document,f=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),fRect=f?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect(),x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {fX:Number(f?.getAttribute('x')),fAnchor:f?.getAttribute('text-anchor')||'',fRight:fRect?.right,fTickLeft:tickRect?.left,xX:Number(x?.getAttribute('x')),xY:Number(x?.getAttribute('y')),xAnchor:x?.getAttribute('text-anchor')||'',xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
+  assert.ok(modelAxis.fX < 80 && modelAxis.fAnchor === "end", `${label}: vertical F axis label is separated from the tick numbers`);
+  assert.ok(modelAxis.fRight < modelAxis.fTickLeft, `${label}: vertical F axis label does not overlap the tick numbers`);
+  assert.equal(modelAxis.xY, 460, `${label}: horizontal axis label uses the dedicated row below the tick labels`);
+  assert.equal(modelAxis.xAnchor, "middle", `${label}: horizontal axis label is centered under the graph`);
+  assert.ok(modelAxis.xTop > modelAxis.xTickBottom, `${label}: horizontal axis label does not overlap the tick numbers`);
+  await setViewport(cdp, 1280, 800, false);
+  await delay(80);
+  const desktopModelAxis = await evaluate(cdp, "(() => { const d=document,x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
+  assert.ok(desktopModelAxis.xTop > desktopModelAxis.xTickBottom, `${label}: desktop horizontal axis label does not overlap the tick numbers`);
+  await setViewport(cdp, 390, 700, false);
+  await delay(80);
   for (const springKey of ["A", "B"]) {
     await clickDirect(cdp, `[data-action="model-spring-tab"][data-spring="${springKey}"]`);
     if (keyboard) { await pressKey(cdp, "#modelDrag", "ArrowUp", 6); await pressKey(cdp, "#modelDrag", "ArrowRight", 6); }

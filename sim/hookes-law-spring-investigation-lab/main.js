@@ -18,6 +18,8 @@
   const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "盲測工程設計", review: "提交前 review" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
+  const GRAPH_X_AXIS_LABEL_X = GRAPH.left + GRAPH.width / 2;
+  const GRAPH_X_AXIS_LABEL_Y = GRAPH.top + GRAPH.height + 52;
   const INVESTIGATION_DRAG_HANDLE_X = 650;
   const INVESTIGATION_GUIDE_LABEL_X = 596;
   const INVESTIGATION_RULER_TOP = 42;
@@ -1031,7 +1033,7 @@
       const key = state.activeSpring;
       dom.svg.append(drawSvgFxFormula(36, 32, `${springLabel(key)}・`, " 線性關係", { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawSvgAxisLabel(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700 }), drawSvgAxisLabel(GRAPH.left - 50, GRAPH.top + 8, "", "F", "N", { "font-size": 16, "font-weight": 700, "text-anchor": "end" }));
+      dom.svg.append(drawSvgAxisLabel(GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700, "text-anchor": "middle" }), drawSvgAxisLabel(GRAPH.left - 50, GRAPH.top + 8, "", "F", "N", { "font-size": 16, "font-weight": 700, "text-anchor": "end" }));
       dom.svg.append(drawMathText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, [{ text: "0", class: "math-number" }], { "font-size": 15, "font-weight": 700 }));
       for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawMathText(GRAPH.left - 34, y + 5, [{ text: String(forceN), class: "math-number" }], { "font-size": 15 })); }
       for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawSvgLength(point.x - 18, GRAPH.top + GRAPH.height + 22, xM, { "font-size": 14 })); }
@@ -1341,5 +1343,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, debugQueryEnabled, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });
