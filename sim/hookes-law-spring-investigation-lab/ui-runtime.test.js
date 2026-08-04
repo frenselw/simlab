@@ -32,6 +32,7 @@ assert.match(html, /彈簧和重物一起伸長或縮短/);
 assert.match(html, /自然長度加上伸長量/);
 assert.match(source, /選擇題目 \$\{index \+ 1\}/);
 assert.match(source, /button\.setAttribute\("aria-label", `選擇預測題目/);
+assert.doesNotMatch(source, /目前編輯/);
 assert.match(source, /const PREDICTION_STAGE = Object\.freeze/);
 assert.match(source, /const PREDICTION_LOAD_VISUALS = Object\.freeze/);
 assert.match(source, /const PREDICTION_SNAP_STEP_M = 0\.0005/);

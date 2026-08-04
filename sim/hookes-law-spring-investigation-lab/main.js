@@ -884,7 +884,7 @@
         }
         else predictionValue.textContent = "尚未填寫";
         const copy = element("div"); copy.append(heading, predictionValue);
-        card.append(button, copy, element("span", index === state.activePredictionIndex ? "目前編輯" : ""));
+        card.append(button, copy);
         dom.predictionCards.append(card);
       });
       setText(dom.predictionStatus, `${state.predictions.filter(Boolean).length}/3 項預測已填寫；這裡不會顯示實際測試結果。`);

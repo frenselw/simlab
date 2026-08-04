@@ -96,12 +96,12 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .model-data { margin: .6rem 0; padding: .65rem .75rem; border: 1px solid var(--border-light); background: #fff; font-size: .85rem; line-height: 1.5; }
 .model-data ul, .review-summary ul { margin: .35rem 0 0; padding-left: 1.2rem; }
 .prediction-cards { display: grid; gap: .55rem; }
-.prediction-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .6rem; align-items: center; padding: .65rem .7rem; border: 1px solid var(--border-light); background: #fff; }
+.prediction-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .6rem; align-items: center; padding: .65rem .7rem; border: 1px solid var(--border-light); background: #fff; }
 .prediction-card[data-selected="true"] { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
 .prediction-card button { min-width: 8rem; text-align: left; }
 .prediction-card > div { min-width: 0; }
 .prediction-card strong { display: block; font-size: .9rem; line-height: 1.35; }
-.prediction-card > div > span, .prediction-card > span { display: block; color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.prediction-card > div > span { display: block; color: var(--muted); font-size: .8rem; line-height: 1.35; }
 .prediction-card .math-quantity { display: inline-block; white-space: nowrap; }
 .challenge-note { margin: .7rem 0; padding: .7rem .75rem; border-left: 3px solid var(--accent); background: #fff; color: var(--muted); }
 .choice-fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: .8rem 0; padding: 0; border: 0; }

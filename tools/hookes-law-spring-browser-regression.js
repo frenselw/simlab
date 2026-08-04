@@ -316,7 +316,8 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
     return {phase:state.phase, draftM:window.__hookesLawDebug.interactionEvidence().predictionDraftM,
       hasSpring:Boolean(spring), hasLoad:Boolean(load), loadY:loadRect ? loadRect.y + loadRect.height / 2 : null,
       stageText, targetY:target.y + target.height / 2,
-      predictionButtons:[...d.querySelectorAll('[data-action="prediction-select"]')].map((node)=>node.textContent.trim())};
+      predictionButtons:[...d.querySelectorAll('[data-action="prediction-select"]')].map((node)=>node.textContent.trim()),
+      hasCurrentEditingText:d.body.innerText.includes("目前編輯")};
   })()`);
   assert.equal(predictionStage.phase, "predict", `${label}: third phase starts with the prediction screen`);
   assert.equal(predictionStage.draftM, 0, `${label}: prediction starts at zero extension`);
@@ -326,6 +327,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.ok(predictionStage.stageText.includes("伸長量 x / cm"), `${label}: prediction screen labels extension in cm`);
   assert.ok(Math.abs(predictionStage.targetY - predictionStage.loadY) < 12, `${label}: prediction marker starts beside the load`);
   assert.deepEqual(predictionStage.predictionButtons, ["選擇題目 1", "選擇題目 2", "選擇題目 3"], `${label}: prediction switchers use clear question labels`);
+  assert.equal(predictionStage.hasCurrentEditingText, false, `${label}: prediction selection uses highlight without the redundant current-editing label`);
   for (let index = 0; index < 3; index += 1) {
     if (index) await clickDirect(cdp, `[data-action="prediction-select"][data-index="${index}"]`);
     if (keyboard) await pressKey(cdp, "#predictionDrag", "ArrowUp", 6);
