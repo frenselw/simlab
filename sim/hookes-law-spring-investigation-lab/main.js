@@ -139,9 +139,87 @@
     if (text !== undefined) node.textContent = text;
     return node;
   }
+  function appendParts(parent, parts) {
+    for (const part of parts || []) {
+      if (part == null) continue;
+      if (part.nodeType) parent.append(part);
+      else parent.append(document.createTextNode(String(part)));
+    }
+    return parent;
+  }
+  function mathNumber(value) { return element("span", value == null ? "--" : String(value), "math-number"); }
+  function mathVariable(value) { return element("i", value, "math-variable"); }
+  function mathUnit(value) { return element("span", value, "math-unit"); }
+  function mathPlaceholder() { return element("span", "--", "math-quantity"); }
+  function mathQuantity(value, unit) {
+    const node = element("span", undefined, "math-quantity");
+    node.append(mathNumber(value), mathUnit(unit));
+    return node;
+  }
+  function mathLength(meters) { return finite(meters) ? mathQuantity((meters * 100).toFixed(1), "cm") : mathPlaceholder(); }
+  function mathForce(key) {
+    const value = ({ F1: 1, F2: 2, F3: 3 })[key];
+    return finite(value) ? mathQuantity(value.toFixed(1), "N") : mathPlaceholder();
+  }
+  function mathForceValue(value) { return finite(value) ? mathQuantity(Number(value).toFixed(1), "N") : mathPlaceholder(); }
+  function mathStiffness(value) { return finite(value) ? mathQuantity(n(value, 1), "N/m") : mathPlaceholder(); }
+  function mathFxFormula() {
+    const node = element("span", undefined, "math-inline");
+    node.append(mathVariable("F"), document.createTextNode("–"), mathVariable("x"));
+    return node;
+  }
+  function mathKFormula(value) {
+    const node = element("span", undefined, "math-inline");
+    node.append(mathVariable("k"), document.createTextNode(" = "), mathStiffness(value));
+    return node;
+  }
+  function mathFEqualsKX() {
+    const node = element("span", undefined, "math-inline");
+    node.append(mathVariable("F"), document.createTextNode(" = "), mathVariable("k"), mathVariable("x"));
+    return node;
+  }
+  function formatMathSentence(value) {
+    const text = String(value ?? "");
+    const parts = [];
+    const pattern = /(F[=＝]kx|F[-–]x|(?:\d+(?:\.\d+)?)(?:\s*)(?:N\/m|N|cm|m)|(?<![\p{L}])k(?![\p{L}]))/gu;
+    let cursor = 0;
+    for (const match of text.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      if (start > cursor) parts.push(text.slice(cursor, start));
+      const token = match[0];
+      if (/^F[=＝]kx$/.test(token)) parts.push(mathFEqualsKX());
+      else if (/^F[-–]x$/.test(token)) parts.push(mathFxFormula());
+      else if (/^k$/.test(token)) parts.push(mathVariable("k"));
+      else {
+        const quantity = token.match(/^(\d+(?:\.\d+)?)\s*(N\/m|N|cm|m)$/);
+        parts.push(quantity ? mathQuantity(quantity[1], quantity[2]) : token);
+      }
+      cursor = start + token.length;
+    }
+    if (cursor < text.length) parts.push(text.slice(cursor));
+    return parts;
+  }
+  function mathAxisLabel(prefix, variable, unit) {
+    const node = element("span", undefined, "math-inline");
+    if (prefix) node.append(document.createTextNode(prefix));
+    if (variable) node.append(document.createTextNode(prefix ? " " : ""), mathVariable(variable));
+    node.append(document.createTextNode(" / "), mathUnit(unit));
+    return node;
+  }
+  function mathReadout(prefix, value) {
+    const node = element("span", undefined, "math-inline");
+    node.append(document.createTextNode(prefix), value);
+    return node;
+  }
   function appendGrid(parent, entries) {
     const fragment = document.createDocumentFragment();
-    for (const [label, value] of entries) { fragment.append(element("span", label), element("strong", value)); }
+    for (const [label, value] of entries) {
+      const valueNode = element("strong");
+      if (value?.nodeType) valueNode.append(value);
+      else if (Array.isArray(value)) appendParts(valueNode, value);
+      else valueNode.textContent = value == null ? "" : String(value);
+      fragment.append(element("span", label), valueNode);
+    }
     parent.append(fragment);
   }
 
@@ -210,6 +288,15 @@
       if (!SimScorm || !SimActivityFlow) throw new Error("Shared SCORM runtime unavailable");
     }
     function setText(node, value) { if (node) node.textContent = value == null ? "" : String(value); }
+    function setMathContent(node, parts) {
+      if (!node) return;
+      node.replaceChildren();
+      appendParts(node, parts);
+    }
+    function renderPhaseBadge(phase) {
+      if (phase === "model") setMathContent(dom.badge, ["建立 ", mathFxFormula(), " 模型"]);
+      else setText(dom.badge, PHASE_LABELS[phase] || phase);
+    }
     function announce(message) {
       if (!dom.live) return;
       dom.live.textContent = "";
@@ -303,7 +390,7 @@
       if (locked || !LOADS.includes(loadKey) || !state.calibrations[state.activeSpring]) return;
       selectedLoadKey = loadKey;
       document.querySelectorAll("[data-action='select-load']").forEach((button) => button.dataset.selected = String(button.dataset.load === loadKey));
-      setText(dom.loadStatus, `${forceLabel(loadKey)} 已選取；按「掛上所選負載」開始觀察。`);
+      setMathContent(dom.loadStatus, [mathForce(loadKey), " 已選取；按「掛上所選負載」開始觀察。"]);
       renderStage();
     }
     function attachLoad() {
@@ -584,7 +671,7 @@
       panel?.classList.remove("is-hidden");
       dom.progress.max = 14;
       dom.progress.value = completionCount();
-      dom.badge.textContent = PHASE_LABELS[state.phase] || state.phase;
+      renderPhaseBadge(state.phase);
       renderInvestigate();
       renderModel();
       renderPredict();
@@ -601,16 +688,18 @@
       const calibration = state?.calibrations?.[key];
       const active = state?.activeLoadKey;
       setText(dom.calibrationInstruction, calibration ? "自然長度位置已保存；如需重做，請先確認清除這條彈簧及其依賴資料。" : "在沒有額外負載時，拖動紫色零位標記到彈簧末端，再記錄位置。");
-      setText(dom.zeroReadout, `位置 ${cm(state?.working?.zeroDraftM)}`);
+      setMathContent(dom.zeroReadout, ["位置 ", mathLength(state?.working?.zeroDraftM)]);
       dom.recordCalibration.disabled = Boolean(locked || calibration || active || zeroMoveM < Model.MIN_OPERATION_MOVE_M);
       dom.recalibrate.disabled = Boolean(locked || !calibration);
       setText(dom.calibrationStatus, calibration ? `已記錄${springLabel(key)}的自然長度位置。` : "尚未記錄；系統只保存你按下記錄時的游標位置。");
       document.querySelectorAll("[data-action='spring-tab']").forEach((button) => { button.setAttribute("aria-selected", String(button.dataset.spring === key)); button.disabled = locked; });
       document.querySelectorAll("[data-action='select-load']").forEach((button) => { button.dataset.selected = String(button.dataset.load === selectedLoadKey); button.disabled = locked || !calibration; });
       dom.attachLoad.disabled = Boolean(locked || !calibration || !LOADS.includes(selectedLoadKey) || !stable);
-      setText(dom.loadStatus, active ? `目前觀察負載：${forceLabel(active)}${stable ? "；彈簧已穩定。" : "；等待穩定。"}` : "尚未掛上負載。");
+      if (active) setMathContent(dom.loadStatus, ["目前觀察負載：", mathForce(active), stable ? "；彈簧已穩定。" : "；等待穩定。"]);
+      else setText(dom.loadStatus, "尚未掛上負載。");
       const extensionM = calibration && state?.working?.cursorDraftM !== null ? Model.measuredExtensionM(calibration.zeroM, state.working.cursorDraftM) : null;
-      setText(dom.cursorReadout, active && stable ? `伸長量 ${cm(extensionM)}` : active ? "等待彈簧穩定" : "--");
+      if (active && stable) setMathContent(dom.cursorReadout, ["伸長量 ", mathLength(extensionM)]);
+      else setText(dom.cursorReadout, active ? "等待彈簧穩定" : "--");
       dom.recordMeasurement.disabled = Boolean(locked || !active || !stable || cursorMoveM < Model.MIN_OPERATION_MOVE_M);
       setText(dom.measurementStatus, active && stable ? "讀數只代表你目前的游標位置；完成移動後可記錄。" : "掛上負載並等待穩定後，才可量度。");
       renderDataTables();
@@ -620,15 +709,22 @@
       dom.dataTable.replaceChildren();
       for (const key of SPRINGS) {
         const table = element("table", undefined, "data-table math-context");
-        const caption = element("caption", `${springLabel(key)}：學生量得的 F–x 數據`);
+        const caption = element("caption");
+        appendParts(caption, [springLabel(key), "：學生量得的 ", mathFxFormula(), " 數據"]);
         const head = element("thead");
         const headRow = element("tr");
-        headRow.append(element("th", "F / N"), element("th", "學生伸長 / cm"));
+        headRow.append(element("th"), element("th"));
+        setMathContent(headRow.firstChild, [mathAxisLabel("", "F", "N")]);
+        setMathContent(headRow.lastChild, [mathAxisLabel("學生伸長", "x", "cm")]);
         head.append(headRow);
         const body = element("tbody");
         for (const row of measuredRows(state, key)) {
           const tr = element("tr");
-          tr.append(element("td", forceLabel(row.loadKey)), element("td", row.extensionM === null ? "未記錄" : cm(row.extensionM)));
+          const forceCell = element("td");
+          const extensionCell = element("td");
+          setMathContent(forceCell, [mathForce(row.loadKey)]);
+          setMathContent(extensionCell, [row.extensionM === null ? "未記錄" : mathLength(row.extensionM)]);
+          tr.append(forceCell, extensionCell);
           tr.lastChild.dataset.recorded = String(row.extensionM !== null);
           body.append(tr);
         }
@@ -642,9 +738,15 @@
       document.querySelectorAll("[data-action='model-spring-tab']").forEach((button) => { button.setAttribute("aria-selected", String(button.dataset.spring === key)); button.disabled = locked; });
       dom.modelData.replaceChildren();
       const list = element("ul");
-      for (const row of measuredRows(state, key)) list.append(element("li", `${forceLabel(row.loadKey)}：${row.extensionM === null ? "未記錄" : cm(row.extensionM)}`));
-      dom.modelData.append(element("p", "這些是你自己記錄的三個數據點。模型線及 k 由你的控制點產生。"), list);
-      setText(dom.modelReadout, `模型伸長 ${cm(modelDraftM)}；k = ${n(Model.kFromModelHandle(modelDraftM), 1)} N/m`);
+      for (const row of measuredRows(state, key)) {
+        const item = element("li");
+        appendParts(item, [mathForce(row.loadKey), "：", row.extensionM === null ? "未記錄" : mathLength(row.extensionM)]);
+        list.append(item);
+      }
+      const modelCopy = element("p");
+      appendParts(modelCopy, ["這些是你自己記錄的三個數據點。模型線及 ", mathVariable("k"), " 由你的控制點產生。"]);
+      dom.modelData.append(modelCopy, list);
+      setMathContent(dom.modelReadout, ["模型伸長 ", mathLength(modelDraftM), "；", mathKFormula(Model.kFromModelHandle(modelDraftM))]);
       setText(dom.modelStatus, state.models[key] ? `已保存${springLabel(key)}模型；可拖動控制點重新設定。` : "尚未保存這條彈簧的模型控制點。");
       dom.toPredict.disabled = Boolean(locked || !Persistence.hasAllModels(state));
     }
@@ -656,7 +758,12 @@
         card.dataset.selected = String(index === state.activePredictionIndex);
         const button = element("button", `編輯 ${index + 1}`);
         button.type = "button"; button.dataset.action = "prediction-select"; button.dataset.index = String(index); button.setAttribute("aria-pressed", String(index === state.activePredictionIndex)); button.disabled = locked;
-        const copy = element("div"); copy.append(element("strong", `預測 ${index + 1}：${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`), element("span", state.predictions[index] ? `你的伸長：${cm(state.predictions[index].extensionM)}` : "尚未填寫"));
+        const heading = element("strong");
+        appendParts(heading, [`預測 ${index + 1}：${springLabel(spec.springKey)}、`, mathForceValue(spec.forceN)]);
+        const predictionValue = element("span");
+        if (state.predictions[index]) appendParts(predictionValue, ["你的伸長：", mathLength(state.predictions[index].extensionM)]);
+        else predictionValue.textContent = "尚未填寫";
+        const copy = element("div"); copy.append(heading, predictionValue);
         card.append(button, copy, element("span", index === state.activePredictionIndex ? "目前編輯" : ""));
         dom.predictionCards.append(card);
       });
@@ -665,16 +772,16 @@
     }
     function renderDesign() {
       if (!state || state.phase !== "design") return;
-      setText(dom.designLimit, cm(scenario.design.limitM));
+      setMathContent(dom.designLimit, [mathLength(scenario.design.limitM)]);
       const spring = state.design?.springKey || "";
       document.querySelectorAll("[data-action='design-spring']").forEach((input) => { input.checked = input.value === spring; input.disabled = locked; });
-      setText(dom.moduleCount, state.design?.moduleCount ?? "--");
+      setMathContent(dom.moduleCount, [mathNumber(state.design?.moduleCount ?? "--")]);
       const count = state.design?.moduleCount || 1;
       document.querySelectorAll("[data-action='module-minus']").forEach((button) => button.disabled = locked || !state.design || count <= 1);
       document.querySelectorAll("[data-action='module-plus']").forEach((button) => button.disabled = locked || !state.design || count >= scenario.design.maxModuleCount);
       dom.toReview.disabled = Boolean(locked || !state.design);
       dom.designSummary.replaceChildren();
-      if (state.design) appendGrid(dom.designSummary, [["彈簧", springLabel(state.design.springKey)], ["負載模組", String(state.design.moduleCount)], ["總負載", `${n(state.design.moduleCount * scenario.design.moduleForceN, 1)} N`]]);
+      if (state.design) appendGrid(dom.designSummary, [["彈簧", springLabel(state.design.springKey)], ["負載模組", mathNumber(state.design.moduleCount)], ["總負載", mathForceValue(state.design.moduleCount * scenario.design.moduleForceN)]]);
       else dom.designSummary.append(element("p", "尚未選擇完整方案；提交前只顯示自己的選擇及題目限制。"));
     }
     function renderReview(notice = submitMessage, submitting = false) {
@@ -683,13 +790,30 @@
       const required = Persistence.hasCompleteAnswer(state, scenario);
       if (notice) dom.reviewSummary.append(element("p", notice, "neutral-status"));
       const editable = buildEditableViewModel(state, scenario);
-      const sections = [
-        ["量度", `${SPRINGS.map((key) => `${springLabel(key)}零位 ${cm(editable.calibrations[key]?.zeroM)}`).join("；")}；六項量度已保存：${completionCount() >= 8 ? "是" : "否"}`],
-        ["模型", SPRINGS.map((key) => `${springLabel(key)} ${editable.models[key] ? `k = ${n(editable.models[key].kModelNPerM, 1)} N/m` : "未完成"}`).join("；")],
-        ["預測", editable.predictions.map((prediction, index) => `預測 ${index + 1}：${prediction.extensionM === null ? "未填寫" : cm(prediction.extensionM)}`).join("；")],
-        ["工程方案", editable.design ? `${springLabel(editable.design.springKey)}；${editable.design.moduleCount} 個模組；${n(editable.design.forceN, 1)} N` : "未完成"]
-      ];
-      for (const [title, text] of sections) { const section = element("section"); section.append(element("h3", title), element("p", text)); dom.reviewSummary.append(section); }
+      const measurementText = element("p");
+      SPRINGS.forEach((key, index) => {
+        if (index) measurementText.append(document.createTextNode("；"));
+        appendParts(measurementText, [springLabel(key), "零位 ", mathLength(editable.calibrations[key]?.zeroM)]);
+      });
+      measurementText.append(document.createTextNode(`；六項量度已保存：${completionCount() >= 8 ? "是" : "否"}`));
+      const modelText = element("p");
+      SPRINGS.forEach((key, index) => {
+        if (index) modelText.append(document.createTextNode("；"));
+        appendParts(modelText, [springLabel(key), " ", editable.models[key] ? mathKFormula(editable.models[key].kModelNPerM) : "未完成"]);
+      });
+      const predictionText = element("p");
+      editable.predictions.forEach((prediction, index) => {
+        if (index) predictionText.append(document.createTextNode("；"));
+        appendParts(predictionText, [`預測 ${index + 1}：`, prediction.extensionM === null ? "未填寫" : mathLength(prediction.extensionM)]);
+      });
+      const designText = element("p");
+      if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個模組；", mathForceValue(editable.design.forceN)]);
+      else designText.textContent = "未完成";
+      for (const [title, content] of [["量度", measurementText], ["模型", modelText], ["預測", predictionText], ["工程方案", designText]]) {
+        const section = element("section");
+        section.append(element("h3", title), content);
+        dom.reviewSummary.append(section);
+      }
       document.querySelectorAll("[data-action='edit-section']").forEach((button) => { button.disabled = locked || submitting; });
       dom.submit.disabled = Boolean(locked || submitting || !required);
       setText(dom.submitStatus, submitting ? "提交呼叫進行中；未顯示結果。" : required ? "所有必要答案及依賴資料已具備，可以一次提交。" : "仍有未完成的必要答案。 ");
@@ -711,13 +835,31 @@
       appendGrid(grid, [["探究與量度", `${latestResult.breakdown.experimentScore} / 20`], ["模型", `${latestResult.breakdown.modelScore} / 20`], ["盲測預測", `${latestResult.breakdown.predictionScore} / 36`], ["工程設計", `${latestResult.breakdown.engineeringScore} / 24`]]);
       totals.append(grid); dom.result.append(totals);
       const evidence = element("section", undefined, "result-block"); evidence.append(element("h2", "物理證據與回饋"));
-      const list = element("ul", undefined, "feedback-list"); latestResult.feedbackItems.forEach((item) => list.append(element("li", item))); evidence.append(list); dom.result.append(evidence);
+      const list = element("ul", undefined, "feedback-list");
+      latestResult.feedbackItems.forEach((item) => {
+        const itemNode = element("li");
+        appendParts(itemNode, formatMathSentence(item));
+        list.append(itemNode);
+      });
+      evidence.append(list); dom.result.append(evidence);
       const reveal = element("section", undefined, "result-block"); reveal.append(element("h2", "提交後的實際測試"));
       const rows = element("div", undefined, "result-grid");
-      for (const key of SPRINGS) rows.append(element("span", `${springLabel(key)} 理想 k`), element("strong", `${n(view.trueSprings[key].kNPerM, 1)} N/m`));
-      view.predictions.forEach((prediction, index) => rows.append(element("span", `預測 ${index + 1} 實際伸長`), element("strong", cm(prediction.actualExtensionM))));
+      for (const key of SPRINGS) {
+        const label = element("span");
+        appendParts(label, [springLabel(key), " 理想 ", mathVariable("k")]);
+        const value = element("strong");
+        value.append(mathStiffness(view.trueSprings[key].kNPerM));
+        rows.append(label, value);
+      }
+      view.predictions.forEach((prediction, index) => {
+        const value = element("strong");
+        value.append(mathLength(prediction.actualExtensionM));
+        rows.append(element("span", `預測 ${index + 1} 實際伸長`), value);
+      });
       if (view.engineering) {
-        rows.append(element("span", "工程方案實際伸長"), element("strong", cm(view.engineering.extensionM)), element("span", "最大安全方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個模組` : "--"));
+        const extension = element("strong");
+        extension.append(mathLength(view.engineering.extensionM));
+        rows.append(element("span", "工程方案實際伸長"), extension, element("span", "最大安全方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個模組` : "--"));
       }
       reveal.append(rows); dom.result.append(reveal);
       if (presentation === "submitted-committed") {
@@ -732,17 +874,54 @@
       node.textContent = String(text ?? "");
       return node;
     }
+    function drawMathText(x, y, parts, attributes = {}) {
+      const { class: extraClass, ...rest } = attributes;
+      const node = svgElement("text", { x, y, "font-size": 16, fill: "#334155", ...rest, class: ["math-svg", extraClass].filter(Boolean).join(" ") });
+      for (const part of parts || []) {
+        const item = typeof part === "string" ? { text: part } : part;
+        const tspan = svgElement("tspan", item.class ? { class: item.class, ...(item.dx === undefined ? {} : { dx: item.dx }) } : (item.dx === undefined ? {} : { dx: item.dx }));
+        tspan.textContent = String(item.text ?? "");
+        node.append(tspan);
+      }
+      return node;
+    }
+    function drawSvgQuantity(x, y, value, unit, attributes = {}) {
+      return drawMathText(x, y, [{ text: value, class: "math-number" }, { text: ` ${unit}`, class: "math-unit" }], attributes);
+    }
+    function drawSvgLength(x, y, meters, attributes = {}) {
+      return finite(meters) ? drawSvgQuantity(x, y, (meters * 100).toFixed(1), "cm", attributes) : drawMathText(x, y, ["--"], attributes);
+    }
+    function drawSvgForce(x, y, key, attributes = {}) {
+      const value = ({ F1: "1.0", F2: "2.0", F3: "3.0" })[key];
+      return value ? drawSvgQuantity(x, y, value, "N", attributes) : drawMathText(x, y, ["--"], attributes);
+    }
+    function drawSvgAxisLabel(x, y, prefix, variable, unit, attributes = {}) {
+      const parts = [];
+      if (prefix) parts.push(prefix);
+      if (variable) parts.push({ text: `${prefix ? " " : ""}${variable}`, class: "math-variable" });
+      parts.push({ text: " / " }, { text: unit, class: "math-unit" });
+      return drawMathText(x, y, parts, attributes);
+    }
+    function drawSvgFxFormula(x, y, prefix = "", suffix = "", attributes = {}) {
+      return drawMathText(x, y, [prefix, { text: "F", class: "math-variable" }, "–", { text: "x", class: "math-variable" }, suffix], attributes);
+    }
+    function drawSvgKValue(x, y, value, attributes = {}) {
+      return drawMathText(x, y, [{ text: "k", class: "math-variable" }, " ", { text: "=", class: "math-number" }, " ", { text: n(value, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], attributes);
+    }
     function drawLine(x1, y1, x2, y2, attributes = {}) { return svgElement("line", { x1, y1, x2, y2, stroke: "#94a3b8", "stroke-width": 2, ...attributes }); }
     function drawInvestigationStage() {
       const key = state.activeSpring;
       const spring = scenario.springs[key];
       const endpoint = investigationEndpointM(state, spring, visualPositionM);
       dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 98, INVESTIGATION_RULER_BOTTOM, { stroke: "#64748b", "stroke-width": 3 }));
-      dom.svg.append(drawText(118, 72, "位置 / cm", { class: "math-svg", "font-size": 16, fill: "#64748b", "font-weight": 700 }));
+      dom.svg.append(drawSvgAxisLabel(118, 72, "位置", "", "cm", { "font-size": 16, fill: "#64748b", "font-weight": 700 }));
       for (let cmValue = 0; cmValue <= 25; cmValue += 5) {
         const y = positionToY(cmValue / 100);
         const label = cmValue === 0 ? "0" : `${cmValue} cm`;
-        dom.svg.append(drawLine(82, y, 114, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 4 : 3 }), drawText(74, y + 6, label, { class: "math-svg", "font-size": 16, "font-weight": cmValue === 0 ? 700 : 600, "text-anchor": "end" }));
+        const labelNode = cmValue === 0
+          ? drawMathText(74, y + 6, [{ text: label, class: "math-number" }], { "font-size": 16, "font-weight": 700, "text-anchor": "end" })
+          : drawSvgQuantity(74, y + 6, cmValue, "cm", { "font-size": 16, "font-weight": 600, "text-anchor": "end" });
+        dom.svg.append(drawLine(82, y, 114, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 4 : 3 }), labelNode);
       }
       dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 548, INVESTIGATION_RULER_TOP, { stroke: "#334155", "stroke-width": 5 }));
       dom.svg.append(drawText(560, 34, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700, fill: "#334155" }));
@@ -753,7 +932,7 @@
       const loadVisual = LOAD_VISUALS[state.activeLoadKey];
       if (loadVisual) {
         dom.svg.append(svgElement("rect", { x: 418 - loadVisual.width / 2, y: bottom, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
-        dom.svg.append(drawText(470, bottom + loadVisual.height / 2 + 6, forceLabel(state.activeLoadKey), { class: "math-svg", "font-size": 16, "font-weight": 700, fill: loadVisual.stroke }));
+        dom.svg.append(drawSvgForce(470, bottom + loadVisual.height / 2 + 6, state.activeLoadKey, { "font-size": 16, "font-weight": 700, fill: loadVisual.stroke }));
       } else dom.svg.append(drawText(470, bottom + 16, "無額外負載", { class: "math-svg", "font-size": 15 }));
       const calibrationY = positionToY(state.calibrations[key]?.zeroM ?? state.working.zeroDraftM ?? spring.naturalLengthM);
       dom.svg.append(drawLine(148, calibrationY, 636, calibrationY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(606, calibrationY - 8, "零位", { class: "math-svg", fill: "#6d28d9", "font-size": 16, "font-weight": 700 }));
@@ -761,17 +940,17 @@
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? endpoint);
         dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(600, cursorY - 8, "游標", { class: "math-svg", fill: "#b91c1c", "font-size": 16, "font-weight": 700 }));
       }
-      dom.svg.append(drawText(98, 480, "讀尺位置 / cm", { class: "math-svg", "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
+      dom.svg.append(drawSvgAxisLabel(98, 480, "讀尺位置", "", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
     }
     function drawModelStage() {
       const key = state.activeSpring;
-      dom.svg.append(drawText(36, 32, `${springLabel(key)}・你的 F–x 模型`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawSvgFxFormula(36, 32, `${springLabel(key)}・你的 `, " 模型", { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawText(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長 x / cm", { class: "math-svg", "font-size": 16, "font-weight": 700 }), drawText(GRAPH.left - 42, GRAPH.top + 6, "F / N", { class: "math-svg", "font-size": 16, "font-weight": 700 }));
-      dom.svg.append(drawText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, "0", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
-      for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawText(GRAPH.left - 34, y + 5, String(forceN), { class: "math-svg", "font-size": 15 })); }
-      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawText(point.x - 18, GRAPH.top + GRAPH.height + 22, cmTick(xM), { class: "math-svg", "font-size": 14 })); }
-      for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawText(point.x + 10, point.y + 5, forceLabel(row.loadKey), { class: "math-svg", "font-size": 14 })); }
+      dom.svg.append(drawSvgAxisLabel(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700 }), drawSvgAxisLabel(GRAPH.left - 42, GRAPH.top + 6, "", "F", "N", { "font-size": 16, "font-weight": 700 }));
+      dom.svg.append(drawMathText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, [{ text: "0", class: "math-number" }], { "font-size": 15, "font-weight": 700 }));
+      for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawMathText(GRAPH.left - 34, y + 5, [{ text: String(forceN), class: "math-number" }], { "font-size": 15 })); }
+      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawSvgLength(point.x - 18, GRAPH.top + GRAPH.height + 22, xM, { "font-size": 14 })); }
+      for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawSvgForce(point.x + 10, point.y + 5, row.loadKey, { "font-size": 14 })); }
       const modelPoint = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N);
       if (modelPoint) {
         dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, modelPoint.x, modelPoint.y, { stroke: "#2563eb", "stroke-width": 3 }));
@@ -782,22 +961,23 @@
     function drawPredictionStage() {
       const spec = scenario.predictions[state.activePredictionIndex];
       const extension = predictionDraftM;
-      dom.svg.append(drawText(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawMathText(36, 32, [`預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}、`, { text: n(spec.forceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(128, 70, 128, 438, { stroke: "#334155", "stroke-width": 4 }));
       const zeroY = 108, markerY = zeroY + clamp(extension, 0, Generator.MAX_LINEAR_EXTENSION_M) / Generator.MAX_LINEAR_EXTENSION_M * 300;
-      dom.svg.append(drawLine(102, zeroY, 680, zeroY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(145, zeroY - 10, "學生使用的 0 cm 基準", { class: "math-svg", fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));
-      dom.svg.append(drawLine(102, markerY, 680, markerY, { stroke: "#c2410c", "stroke-width": 3 }), drawText(520, markerY - 10, `你的預測 ${cm(extension)}`, { class: "math-svg", fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(102, zeroY, 680, zeroY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawMathText(145, zeroY - 10, ["學生使用的 ", { text: "0", class: "math-number" }, { text: " cm", class: "math-unit" }, " 基準"], { fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(102, markerY, 680, markerY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(520, markerY - 10, ["你的預測 ", { text: (extension * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(128, zeroY, 128, markerY, { stroke: "#c2410c", "stroke-width": 2 }));
       dom.svg.append(drawText(430, 430, "提交前不掛上這個負載，不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
       dom.svg.append(drawText(36, 32, "盲測工程設計・只顯示題目限制及你的方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawLine(116, 330, 680, 330, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }), drawText(540, 318, `伸長上限 ${cm(scenario.design.limitM)}`, { class: "math-svg", fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(116, 330, 680, 330, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }), drawMathText(540, 318, ["伸長上限 ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(170, 78, 170, 430, { stroke: "#334155", "stroke-width": 4 }), drawLine(170, 78, 630, 78, { stroke: "#334155", "stroke-width": 5 }));
       const selected = state.design;
       const count = selected?.moduleCount || 0;
-      for (let i = 0; i < count; i += 1) dom.svg.append(svgElement("rect", { x: 340 + i * 42, y: 110, width: 32, height: 28, rx: 4, fill: "#64748b" }), drawText(348 + i * 42, 129, "0.5", { class: "math-svg", fill: "#fff", "font-size": 11 }));
-      dom.svg.append(drawText(230, 205, selected ? `${springLabel(selected.springKey)}・${selected.moduleCount} 個模組・${n(selected.moduleCount * scenario.design.moduleForceN, 1)} N` : "尚未選擇方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      for (let i = 0; i < count; i += 1) dom.svg.append(svgElement("rect", { x: 336 + i * 46, y: 110, width: 38, height: 28, rx: 4, fill: "#64748b" }), drawMathText(338 + i * 46, 128, [{ text: "0.5", class: "math-number" }, { text: " N", class: "math-unit" }], { fill: "#fff", "font-size": 9 }));
+      if (selected) dom.svg.append(drawMathText(230, 205, [springLabel(selected.springKey), "・", { text: String(selected.moduleCount), class: "math-number" }, " 個模組・", { text: n(selected.moduleCount * scenario.design.moduleForceN, 1), class: "math-number" }, { text: " N", class: "math-unit" }], { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      else dom.svg.append(drawText(230, 205, "尚未選擇方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawText(230, 245, "提交前不實際掛上負載，不顯示安全性或最佳方案。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawReviewStage() {
@@ -808,8 +988,8 @@
       const view = buildResultViewModel(state, scenario, latestResult);
       dom.svg.append(drawText(36, 32, "已鎖定結果・揭示理想模型與實際測試", { "font-size": 18, "font-weight": 700 }));
       dom.svg.append(drawText(260, 160, `總分 ${view.score} / 100`, { "font-size": 32, "font-weight": 800, fill: "#1d4ed8" }), drawText(260, 205, view.passed ? "達到合格條件" : "未達到合格條件", { "font-size": 18, "font-weight": 700 }));
-      const lines = ["結果已鎖定，這個 attempt 不能再修改。", `A：理想 k ${n(view.trueSprings.A.kNPerM, 1)} N/m；B：理想 k ${n(view.trueSprings.B.kNPerM, 1)} N/m`];
-      lines.forEach((line, index) => dom.svg.append(drawText(260, 270 + index * 28, line, index === 1 ? { class: "math-svg", "font-size": 14, fill: "#475569" } : { "font-size": 14, fill: "#475569" })));
+      dom.svg.append(drawText(260, 270, "結果已鎖定，這個 attempt 不能再修改。", { "font-size": 14, fill: "#475569" }));
+      dom.svg.append(drawMathText(260, 298, ["A：理想 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.A.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }), drawMathText(430, 298, ["B：理想 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.B.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }));
     }
     function renderStage() {
       if (!dom.svg || !state || !scenario) return;

@@ -21,7 +21,7 @@
   <header class="app-header">
     <div>
       <h1>胡克定律：彈簧探究與預測實驗室</h1>
-      <p>量度伸長、建立 <span class="math-inline"><i>F</i>–<i>x</i></span> 模型，再把模型用於盲測預測與工程設計。</p>
+      <p>量度伸長、建立 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 模型，再把模型用於盲測預測與工程設計。</p>
     </div>
     <div class="header-status">
       <span id="phaseBadge" class="phase-badge">探究與量度</span>
@@ -74,7 +74,7 @@
           <p id="measurementStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection data-subsection" aria-labelledby="dataTitle">
-          <h3 id="dataTitle">已記錄的 <span class="math-inline"><i>F</i>–<i>x</i></span> 數據</h3>
+          <h3 id="dataTitle">已記錄的 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 數據</h3>
           <div id="dataTable" class="data-tables math-context"></div>
         </section>
         <button type="button" id="toModel" data-action="to-model" class="primary-button next-button">完成量度後建立模型</button>
@@ -83,7 +83,7 @@
       <section id="modelPanel" class="panel-section is-hidden">
         <p class="section-label">第二階段・建立模型</p>
         <h2>拖動模型控制點，畫出通過原點的直線</h2>
-        <p class="task-copy">圖台顯示你記錄的數據點。把 <span class="math-inline"><i>F</i> = 2.5 <span class="math-unit">N</span></span> 的模型控制點放在你認為合適的位置；模型 <span class="math-inline"><i>k</i></span> 會由你目前的直線位置計算。</p>
+        <p class="task-copy">圖台顯示你記錄的數據點。把 <span class="math-inline"><i class="math-variable">F</i> = <span class="math-number">2.5</span><span class="math-unit">N</span></span> 的模型控制點放在你認為合適的位置；模型 <span class="math-inline"><i class="math-variable">k</i></span> 會由你目前的直線位置計算。</p>
         <div class="spring-tabs" role="tablist" aria-label="選擇要建立模型的彈簧">
           <button type="button" data-action="model-spring-tab" data-spring="A" aria-selected="true">彈簧 A</button>
           <button type="button" data-action="model-spring-tab" data-spring="B" aria-selected="false">彈簧 B</button>
@@ -106,7 +106,7 @@
       <section id="designPanel" class="panel-section is-hidden">
         <p class="section-label">第四階段・盲測工程設計</p>
         <h2>在伸長限制內令承載力最大</h2>
-        <p class="task-copy">選擇彈簧及 <span class="math-inline">0.5 <span class="math-unit">N</span></span> 負載模組數量。提交前只會顯示題目限制與你自己的方案摘要。</p>
+        <p class="task-copy">選擇彈簧及 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載模組數量。提交前只會顯示題目限制與你自己的方案摘要。</p>
         <div class="challenge-note">伸長上限：<strong id="designLimit" class="math-readout">--</strong></div>
         <fieldset class="choice-fieldset"><legend>選擇彈簧</legend>
           <label><input type="radio" name="designSpring" value="A" data-action="design-spring"> 彈簧 A</label>
@@ -114,7 +114,7 @@
         </fieldset>
         <div class="module-control">
           <span>負載模組數量</span>
-          <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載模組">−</button><output id="moduleCount" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載模組">＋</button></div>
+          <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載模組">−</button><output id="moduleCount" class="math-readout" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載模組">＋</button></div>
         </div>
         <div id="designSummary" class="design-summary math-context"></div>
         <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">查看我的完整答案</button>
@@ -144,8 +144,8 @@
         <button type="button" id="predictionDrag" class="drag-target" data-drag-target="prediction" hidden aria-describedby="predictionDragHelp"></button>
       </div>
       <p id="stageDescription" class="sr-only">圖台會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
-      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline">0.1 <span class="math-unit">cm</span></span> 微調。</p>
-      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline">0.1 <span class="math-unit">cm</span></span> 微調。</p>
+      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
+      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
       <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動模型控制點；左右方向鍵可微調模型伸長。</p>
       <p id="predictionDragHelp" class="sr-only">使用滑鼠或觸控拖動預測標記；上下方向鍵可微調預測伸長。</p>
     </section>

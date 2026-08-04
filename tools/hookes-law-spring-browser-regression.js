@@ -86,6 +86,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
     panelRange:d.getElementById('controlPanel').scrollHeight-d.getElementById('controlPanel').clientHeight,
     targetSizes:[...d.querySelectorAll('.drag-target:not([hidden])')].map((node)=>({w:node.getBoundingClientRect().width,h:node.getBoundingClientRect().height})),
     stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
+    mathPhysical:{zeroQuantity:Boolean(d.querySelector('#zeroReadout .math-quantity .math-number')),zeroUnit:d.querySelector('#zeroReadout .math-unit')?.textContent||'',forceButtons:[...d.querySelectorAll('[data-action=select-load]')].every((node)=>node.matches('.math-quantity')&&node.querySelector('.math-number')&&node.querySelector('.math-unit')),stageUnits:d.querySelectorAll('#stageSvg .math-unit').length,stageVariables:d.querySelectorAll('#stageSvg .math-variable').length},
     stageRectCount:d.querySelectorAll('#stageSvg rect').length,
     springFirstY:Number(d.querySelector('#stageSvg polyline')?.getAttribute('points')?.split(' ')[0]?.split(',')[1]),
     rulerTick:(()=>{const node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='5 cm');return {x:Number(node?.getAttribute('x')),anchor:node?.getAttribute('text-anchor')||''};})(),
@@ -98,6 +99,10 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(initial.stageTouch, "pan-y", `${label}: stage owns the non-interactive pan-y contract`);
   assert.ok(initial.panelRange > 20, `${label}: control panel has an independent range`);
   assert.ok(initial.targetSizes.every(({ w, h }) => w >= 44 && h >= 44), `${label}: stable drag targets meet 44px minimum`);
+  assert.equal(initial.mathPhysical.zeroQuantity, true, `${label}: live position readout uses a structured math quantity`);
+  assert.equal(initial.mathPhysical.zeroUnit, "cm", `${label}: live position readout exposes cm as a unit span`);
+  assert.equal(initial.mathPhysical.forceButtons, true, `${label}: force choices use structured number/unit spans`);
+  assert.ok(initial.mathPhysical.stageUnits >= 1 && initial.mathPhysical.stageVariables >= 0, `${label}: SVG physical labels use math spans`);
   assert.ok(initial.stageText.includes("0"), `${label}: investigation SVG renders the origin label`);
   assert.ok(initial.stageText.includes("位置 / cm"), `${label}: investigation SVG renders the cm axis label`);
   assert.ok(!initial.stageText.some((text) => text.includes("真實探究現象")), `${label}: redundant investigation title is removed`);
