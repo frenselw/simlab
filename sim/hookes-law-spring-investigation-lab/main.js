@@ -29,6 +29,7 @@
     return (Date.now() ^ Math.floor((globalThis.performance?.now?.() || 0) * 1000)) >>> 0;
   }
   function cm(meters) { return finite(meters) ? `${(meters * 100).toFixed(1)} cm` : "--"; }
+  function cmTick(meters) { return finite(meters) ? `${Math.round(meters * 100)} cm` : "--"; }
   function n(value, digits = 1) { return finite(value) ? Number(value).toFixed(digits) : "--"; }
   function forceLabel(key) { return ({ F1: "1.0 N", F2: "2.0 N", F3: "3.0 N" })[key] || "--"; }
   function springLabel(key) { return key === "A" ? "彈簧 A" : "彈簧 B"; }
@@ -753,9 +754,10 @@
       const key = state.activeSpring;
       dom.svg.append(drawText(36, 32, `${springLabel(key)}・你的 F–x 模型`, { class: "math-svg", "font-size": 18, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawText(GRAPH.left + GRAPH.width - 78, GRAPH.top + GRAPH.height + 30, "伸長 x / m", { class: "math-svg", "font-size": 12 }), drawText(GRAPH.left - 40, GRAPH.top + 6, "F / N", { class: "math-svg", "font-size": 12 }));
+      dom.svg.append(drawText(GRAPH.left + GRAPH.width - 78, GRAPH.top + GRAPH.height + 30, "伸長 x / cm", { class: "math-svg", "font-size": 12 }), drawText(GRAPH.left - 40, GRAPH.top + 6, "F / N", { class: "math-svg", "font-size": 12 }));
+      dom.svg.append(drawText(GRAPH.left - 30, GRAPH.top + GRAPH.height + 5, "0", { class: "math-svg", "font-size": 12 }));
       for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawText(GRAPH.left - 30, y + 5, String(forceN), { class: "math-svg", "font-size": 12 })); }
-      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawText(point.x - 12, GRAPH.top + GRAPH.height + 20, xM.toFixed(2), { class: "math-svg", "font-size": 11 })); }
+      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawText(point.x - 12, GRAPH.top + GRAPH.height + 20, cmTick(xM), { class: "math-svg", "font-size": 11 })); }
       for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawText(point.x + 10, point.y + 5, forceLabel(row.loadKey), { class: "math-svg", "font-size": 11 })); }
       const modelPoint = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N);
       if (modelPoint) {

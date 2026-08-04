@@ -41,6 +41,9 @@ assert.equal(App.investigationEndpointM({ activeLoadKey: "F1" }, scenario.spring
 assert.equal(App.INVESTIGATION_DRAG_HANDLE_X, 650, "investigation drag handles stay beside the spring");
 assert.match(source, /const label = cmValue === 0 \? "0" : `\$\{cmValue\} cm`/);
 assert.match(source, /drawText\(112, 30, "位置 \/ cm"/);
+assert.match(source, /drawText\(GRAPH\.left - 30, GRAPH\.top \+ GRAPH\.height \+ 5, "0"/);
+assert.match(source, /"伸長 x \/ cm"/);
+assert.match(source, /cmTick\(xM\)/);
 assert.match(css, /\.math-inline, \.math-quantity/);
 assert.match(css, /#stageSvg \.math-svg/);
 
