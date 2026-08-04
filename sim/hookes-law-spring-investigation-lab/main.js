@@ -21,6 +21,7 @@
   const INVESTIGATION_DRAG_HANDLE_X = 650;
   const INVESTIGATION_RULER_TOP = 42;
   const INVESTIGATION_RULER_BOTTOM = 455;
+  const MEASUREMENT_SNAP_THRESHOLD_M = 0.003;
   const LOAD_VISUALS = Object.freeze({
     F1: Object.freeze({ width: 54, height: 16, fill: "#bfdbfe", stroke: "#1d4ed8" }),
     F2: Object.freeze({ width: 70, height: 20, fill: "#fde68a", stroke: "#b45309" }),
@@ -29,6 +30,9 @@
 
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
+  function snapMeasurementValue(value, target, threshold = MEASUREMENT_SNAP_THRESHOLD_M) {
+    return finite(value) && finite(target) && Math.abs(value - target) <= threshold ? target : value;
+  }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function freshSeed() {
     const buffer = new Uint32Array(1);
@@ -358,6 +362,16 @@
       const spring = scenario?.springs?.[springKey];
       const forceN = Scoring.forceByKey[loadKey];
       return spring ? Model.endpointM(spring.naturalLengthM, forceN, spring.kNPerM) : 0.09;
+    }
+    function measurementSnapTarget(kind) {
+      if (!state || !scenario || state.phase !== "investigate") return null;
+      const spring = scenario.springs[state.activeSpring];
+      if (kind === "zero" && spring && !state.calibrations[state.activeSpring] && !state.activeLoadKey) return spring.naturalLengthM;
+      if (kind === "cursor" && state.activeLoadKey && stable && state.calibrations[state.activeSpring]) return endpointFor(state.activeSpring, state.activeLoadKey);
+      return null;
+    }
+    function snapMeasurementPosition(kind, value) {
+      return snapMeasurementValue(value, measurementSnapTarget(kind));
     }
     function setState(next, message, shouldCheckpoint = true) {
       if (!next || !scenario) return false;
@@ -1071,8 +1085,10 @@
       if (!drag || event.pointerId !== drag.pointerId) return;
       event.preventDefault();
       const point = coordinateFromEvent(event);
-      const value = valueFromPoint(drag.kind, point); drag.lastValue = value;
-      const delta = Math.abs(value - drag.startValue);
+      const rawValue = valueFromPoint(drag.kind, point);
+      const value = drag.kind === "zero" || drag.kind === "cursor" ? snapMeasurementPosition(drag.kind, rawValue) : rawValue;
+      drag.lastValue = value;
+      const delta = Math.abs(rawValue - drag.startValue);
       if (drag.kind === "zero") { state.working.zeroDraftM = value; zeroMoveM = Math.max(zeroMoveM, delta); zeroMode = "pointer"; }
       else if (drag.kind === "cursor") { state.working.cursorDraftM = value; cursorMoveM = Math.max(cursorMoveM, delta); cursorMode = "pointer"; }
       else if (drag.kind === "model") { modelDraftM = value; modelMoveM = Math.max(modelMoveM, delta); modelMode = "pointer"; }
@@ -1115,8 +1131,8 @@
       if (!allowed.includes(event.key)) return;
       event.preventDefault();
       const step = event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
-      if (kind === "zero") { const before = state.working.zeroDraftM; state.working.zeroDraftM = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(state.working.zeroDraftM - before)); zeroMode = "keyboard"; }
-      else if (kind === "cursor") { const before = state.working.cursorDraftM; state.working.cursorDraftM = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(state.working.cursorDraftM - before)); cursorMode = "keyboard"; }
+      if (kind === "zero") { const before = state.working.zeroDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.zeroDraftM = snapMeasurementPosition(kind, rawValue); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(rawValue - before)); zeroMode = "keyboard"; }
+      else if (kind === "cursor") { const before = state.working.cursorDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
       else if (kind === "model") { const before = modelDraftM; modelDraftM = clamp(before + direction * step, Model.MIN_EXTENSION_M, Generator.MAX_LINEAR_EXTENSION_M); modelMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, modelMoveM + Math.abs(modelDraftM - before)); modelMode = "keyboard"; }
       else { const before = predictionDraftM; predictionDraftM = clamp(before + direction * step, 0, Generator.MAX_LINEAR_EXTENSION_M); predictionMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, predictionMoveM + Math.abs(predictionDraftM - before)); predictionMode = "keyboard"; }
       if (kind === "model") recordModel(); else if (kind === "prediction") recordPrediction();
@@ -1222,5 +1238,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });

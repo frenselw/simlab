@@ -111,6 +111,23 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.ok(initial.rulerTick.x < 98 && initial.rulerTick.anchor === "end", `${label}: ruler tick labels sit left of the vertical axis`);
   assert.deepEqual(initial.rulerCaption, { x: 98, y: 480, anchor: "middle" }, `${label}: ruler caption is centered below the axis`);
 
+  const zeroSnap = await evaluate(cdp, `(() => { const debug=window.__hookesLawDebug,state=debug.getState(),scenario=debug.getScenario(),spring=scenario.springs[state.activeSpring],svg=document.querySelector('#stageSvg'),targetY=42+spring.naturalLengthM/scenario.stage.spanM*(455-42),point=new DOMPoint(650,targetY).matrixTransform(svg.getScreenCTM());return {target:spring.naturalLengthM,start:state.working.zeroDraftM,y:point.y}; })()`);
+  const zeroStart = await directPoint(cdp, "#zeroDrag");
+  const zeroDirection = zeroSnap.target >= zeroSnap.start ? 1 : -1;
+  await dragMouse(cdp, "#zeroDrag", { x: 0, y: zeroSnap.y + zeroDirection * 2 - zeroStart.y });
+  const zeroAfter = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),spring=window.__hookesLawDebug.getScenario().springs[state.activeSpring];return {value:state.working.zeroDraftM,target:spring.naturalLengthM}; })()");
+  assert.ok(Math.abs(zeroAfter.value - zeroAfter.target) < 1e-9, `${label}: near natural-length drag snaps to the exact spring end`);
+  await clickDirect(cdp, "[data-action='record-calibration']");
+  await clickDirect(cdp, "[data-action='select-load'][data-load='F1']");
+  await clickDirect(cdp, "[data-action='attach-load']");
+  await waitUntil(cdp, "document.getElementById('measurementStatus').textContent.includes('讀數只代表')", `${label}: snap test load did not settle`);
+  const cursorSnap = await evaluate(cdp, `(() => { const debug=window.__hookesLawDebug,state=debug.getState(),scenario=debug.getScenario(),spring=scenario.springs[state.activeSpring],target=window.HookesLawModel.endpointM(spring.naturalLengthM,window.HookesLawScoring.forceByKey[state.activeLoadKey],spring.kNPerM),svg=document.querySelector('#stageSvg'),targetY=42+target/scenario.stage.spanM*(455-42),point=new DOMPoint(650,targetY).matrixTransform(svg.getScreenCTM());return {target,start:state.working.cursorDraftM,y:point.y}; })()`);
+  const cursorStart = await directPoint(cdp, "#cursorDrag");
+  const cursorDirection = cursorSnap.target >= cursorSnap.start ? 1 : -1;
+  await dragMouse(cdp, "#cursorDrag", { x: 0, y: cursorSnap.y + cursorDirection * 2 - cursorStart.y });
+  const cursorAfter = await evaluate(cdp, "(() => { const debug=window.__hookesLawDebug,state=debug.getState(),spring=debug.getScenario().springs[state.activeSpring],target=window.HookesLawModel.endpointM(spring.naturalLengthM,window.HookesLawScoring.forceByKey[state.activeLoadKey],spring.kNPerM);return {value:state.working.cursorDraftM,target}; })()");
+  assert.ok(Math.abs(cursorAfter.value - cursorAfter.target) < 1e-9, `${label}: near loaded-endpoint drag snaps to the exact spring end`);
+
   await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
   await evaluate(cdp, "document.querySelector('[data-action=to-review]').click()");
   await delay(80);
