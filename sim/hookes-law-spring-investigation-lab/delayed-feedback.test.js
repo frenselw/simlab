@@ -11,7 +11,7 @@ const beforeResult = html.slice(0, html.indexOf('<section id="resultPanel"'));
 assert.equal(beforeResult.includes("trueExtensionM"), false);
 assert.equal(beforeResult.includes("trueSprings"), false);
 assert.equal(beforeResult.includes("scoreViewModel"), false);
-assert.match(html, /resultPanel" class="panel-section is-hidden"[^>]*><\/section>/);
+assert.match(html, /resultPanel" class="panel-section [^"]*\bis-hidden\b[^"]*"[^>]*><\/section>/);
 assert.match(source, /function mayRevealCorrectness/);
 assert.match(source, /mayRevealCorrectness\(presentation\)/);
 assert.match(source, /if \(mayRevealCorrectness\(presentation\)\) return renderResult/);

@@ -19,6 +19,13 @@
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const INVESTIGATION_DRAG_HANDLE_X = 650;
+  const INVESTIGATION_RULER_TOP = 42;
+  const INVESTIGATION_RULER_BOTTOM = 455;
+  const LOAD_VISUALS = Object.freeze({
+    F1: Object.freeze({ width: 54, height: 16, fill: "#bfdbfe", stroke: "#1d4ed8" }),
+    F2: Object.freeze({ width: 70, height: 20, fill: "#fde68a", stroke: "#b45309" }),
+    F3: Object.freeze({ width: 86, height: 24, fill: "#fecaca", stroke: "#b91c1c" })
+  });
 
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
@@ -718,10 +725,10 @@
       }
       renderStage();
     }
-    function positionToY(positionM) { return 54 + clamp(positionM, 0, Generator.STAGE_SPAN_M) / Generator.STAGE_SPAN_M * 382; }
+    function positionToY(positionM) { return INVESTIGATION_RULER_TOP + clamp(positionM, 0, Generator.STAGE_SPAN_M) / Generator.STAGE_SPAN_M * (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP); }
     function graphPoint(extensionM, forceN) { return Model.graphPointFromPhysics(extensionM, forceN, GRAPH); }
     function drawText(x, y, text, attributes = {}) {
-      const node = svgElement("text", { x, y, "font-size": 14, fill: "#334155", ...attributes });
+      const node = svgElement("text", { x, y, "font-size": 16, fill: "#334155", ...attributes });
       node.textContent = String(text ?? "");
       return node;
     }
@@ -730,70 +737,73 @@
       const key = state.activeSpring;
       const spring = scenario.springs[key];
       const endpoint = investigationEndpointM(state, spring, visualPositionM);
-      dom.svg.append(drawText(36, 32, `${springLabel(key)}・真實探究現象`, { "font-size": 18, "font-weight": 700 }));
-      dom.svg.append(drawLine(98, 42, 98, 455, { stroke: "#64748b", "stroke-width": 3 }));
-      dom.svg.append(drawText(112, 30, "位置 / cm", { class: "math-svg", "font-size": 12, fill: "#64748b" }));
+      dom.svg.append(drawText(36, 28, `${springLabel(key)}・真實探究現象`, { "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 98, INVESTIGATION_RULER_BOTTOM, { stroke: "#64748b", "stroke-width": 3 }));
+      dom.svg.append(drawText(118, 72, "位置 / cm", { class: "math-svg", "font-size": 16, fill: "#64748b", "font-weight": 700 }));
       for (let cmValue = 0; cmValue <= 25; cmValue += 5) {
         const y = positionToY(cmValue / 100);
         const label = cmValue === 0 ? "0" : `${cmValue} cm`;
-        dom.svg.append(drawLine(88, y, 108, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 3 : 2 }), drawText(112, y + 5, label, { class: "math-svg", "font-size": 12 }));
+        dom.svg.append(drawLine(82, y, 114, y, { stroke: "#64748b", "stroke-width": cmValue === 0 ? 4 : 3 }), drawText(118, y + 6, label, { class: "math-svg", "font-size": 16, "font-weight": cmValue === 0 ? 700 : 600 }));
       }
-      dom.svg.append(drawLine(98, 42, 548, 42, { stroke: "#334155", "stroke-width": 5 }));
-      dom.svg.append(drawLine(418, 48, 418, 455, { stroke: "#cbd5e1", "stroke-width": 2 }));
-      const top = 62, bottom = positionToY(endpoint), coils = [];
+      dom.svg.append(drawLine(98, INVESTIGATION_RULER_TOP, 548, INVESTIGATION_RULER_TOP, { stroke: "#334155", "stroke-width": 5 }));
+      dom.svg.append(drawText(560, 34, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700, fill: "#334155" }));
+      dom.svg.append(drawLine(418, 48, 418, INVESTIGATION_RULER_BOTTOM, { stroke: "#cbd5e1", "stroke-width": 2 }));
+      const top = INVESTIGATION_RULER_TOP, bottom = positionToY(endpoint), coils = [];
       for (let i = 0; i <= 18; i += 1) { const y = top + (bottom - top) * i / 18; const x = 418 + (i % 2 ? 24 : -24); coils.push(`${x},${y}`); }
       dom.svg.append(svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
-      dom.svg.append(svgElement("rect", { x: 385, y: bottom, width: 66, height: 16, rx: 3, fill: "#64748b" }));
-      if (state.activeLoadKey) dom.svg.append(drawText(470, bottom + 13, forceLabel(state.activeLoadKey), { class: "math-svg", "font-weight": 700 }));
-      else dom.svg.append(drawText(470, bottom + 13, "無額外負載", { "font-size": 13 }));
+      const loadVisual = LOAD_VISUALS[state.activeLoadKey];
+      if (loadVisual) {
+        dom.svg.append(svgElement("rect", { x: 418 - loadVisual.width / 2, y: bottom, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
+        dom.svg.append(drawText(470, bottom + loadVisual.height / 2 + 6, forceLabel(state.activeLoadKey), { class: "math-svg", "font-size": 16, "font-weight": 700, fill: loadVisual.stroke }));
+      } else dom.svg.append(drawText(470, bottom + 16, "無額外負載", { class: "math-svg", "font-size": 15 }));
       const calibrationY = positionToY(state.calibrations[key]?.zeroM ?? state.working.zeroDraftM ?? spring.naturalLengthM);
-      dom.svg.append(drawLine(148, calibrationY, 636, calibrationY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(606, calibrationY - 7, "零位", { fill: "#6d28d9", "font-size": 13 }));
+      dom.svg.append(drawLine(148, calibrationY, 636, calibrationY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(606, calibrationY - 8, "零位", { class: "math-svg", fill: "#6d28d9", "font-size": 16, "font-weight": 700 }));
       if (state.activeLoadKey && stable) {
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? endpoint);
-        dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(600, cursorY - 7, "游標", { fill: "#b91c1c", "font-size": 13 }));
+        dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(600, cursorY - 8, "游標", { class: "math-svg", fill: "#b91c1c", "font-size": 16, "font-weight": 700 }));
       }
-      dom.svg.append(drawText(580, 440, "讀尺位置 / cm", { class: "math-svg", "font-size": 12, fill: "#64748b" }));
+      dom.svg.append(drawText(560, 445, "讀尺位置 / cm", { class: "math-svg", "font-size": 15, fill: "#64748b", "font-weight": 700 }));
     }
     function drawModelStage() {
       const key = state.activeSpring;
-      dom.svg.append(drawText(36, 32, `${springLabel(key)}・你的 F–x 模型`, { class: "math-svg", "font-size": 18, "font-weight": 700 }));
+      dom.svg.append(drawText(36, 32, `${springLabel(key)}・你的 F–x 模型`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawText(GRAPH.left + GRAPH.width - 78, GRAPH.top + GRAPH.height + 30, "伸長 x / cm", { class: "math-svg", "font-size": 12 }), drawText(GRAPH.left - 40, GRAPH.top + 6, "F / N", { class: "math-svg", "font-size": 12 }));
-      dom.svg.append(drawText(GRAPH.left - 30, GRAPH.top + GRAPH.height + 5, "0", { class: "math-svg", "font-size": 12 }));
-      for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawText(GRAPH.left - 30, y + 5, String(forceN), { class: "math-svg", "font-size": 12 })); }
-      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawText(point.x - 12, GRAPH.top + GRAPH.height + 20, cmTick(xM), { class: "math-svg", "font-size": 11 })); }
-      for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawText(point.x + 10, point.y + 5, forceLabel(row.loadKey), { class: "math-svg", "font-size": 11 })); }
+      dom.svg.append(drawText(GRAPH.left + GRAPH.width - 98, GRAPH.top + GRAPH.height + 32, "伸長 x / cm", { class: "math-svg", "font-size": 16, "font-weight": 700 }), drawText(GRAPH.left - 42, GRAPH.top + 6, "F / N", { class: "math-svg", "font-size": 16, "font-weight": 700 }));
+      dom.svg.append(drawText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, "0", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
+      for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawText(GRAPH.left - 34, y + 5, String(forceN), { class: "math-svg", "font-size": 15 })); }
+      for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawText(point.x - 18, GRAPH.top + GRAPH.height + 22, cmTick(xM), { class: "math-svg", "font-size": 14 })); }
+      for (const row of measuredRows(state, key)) if (row.extensionM !== null) { const point = graphPoint(row.extensionM, row.forceN); dom.svg.append(svgElement("circle", { cx: point.x, cy: point.y, r: 7, fill: "#0f766e" }), drawText(point.x + 10, point.y + 5, forceLabel(row.loadKey), { class: "math-svg", "font-size": 14 })); }
       const modelPoint = graphPoint(modelDraftM, Model.MODEL_HANDLE_FORCE_N);
       if (modelPoint) {
         dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, modelPoint.x, modelPoint.y, { stroke: "#2563eb", "stroke-width": 3 }));
         dom.svg.append(drawLine(GRAPH.left, modelPoint.y, modelPoint.x, modelPoint.y, { stroke: "#2563eb", "stroke-dasharray": "5 4", "stroke-width": 1 }));
-        dom.svg.append(drawText(modelPoint.x + 10, modelPoint.y - 8, "你的模型控制點", { fill: "#1d4ed8", "font-size": 12 }));
+        dom.svg.append(drawText(modelPoint.x + 10, modelPoint.y - 8, "你的模型控制點", { class: "math-svg", fill: "#1d4ed8", "font-size": 15, "font-weight": 700 }));
       }
     }
     function drawPredictionStage() {
       const spec = scenario.predictions[state.activePredictionIndex];
       const extension = predictionDraftM;
-      dom.svg.append(drawText(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`, { class: "math-svg", "font-size": 18, "font-weight": 700 }));
+      dom.svg.append(drawText(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}、${n(spec.forceN, 1)} N`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(128, 70, 128, 438, { stroke: "#334155", "stroke-width": 4 }));
       const zeroY = 108, markerY = zeroY + clamp(extension, 0, Generator.MAX_LINEAR_EXTENSION_M) / Generator.MAX_LINEAR_EXTENSION_M * 300;
-      dom.svg.append(drawLine(102, zeroY, 680, zeroY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(145, zeroY - 9, "學生使用的 0 cm 基準", { class: "math-svg", fill: "#6d28d9", "font-size": 13 }));
-      dom.svg.append(drawLine(102, markerY, 680, markerY, { stroke: "#c2410c", "stroke-width": 3 }), drawText(540, markerY - 9, `你的預測 ${cm(extension)}`, { class: "math-svg", fill: "#9a3412", "font-size": 13 }));
+      dom.svg.append(drawLine(102, zeroY, 680, zeroY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(145, zeroY - 10, "學生使用的 0 cm 基準", { class: "math-svg", fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(102, markerY, 680, markerY, { stroke: "#c2410c", "stroke-width": 3 }), drawText(520, markerY - 10, `你的預測 ${cm(extension)}`, { class: "math-svg", fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(128, zeroY, 128, markerY, { stroke: "#c2410c", "stroke-width": 2 }));
-      dom.svg.append(drawText(470, 430, "提交前不掛上這個負載，不顯示實際終點。", { fill: "#64748b", "font-size": 13 }));
+      dom.svg.append(drawText(430, 430, "提交前不掛上這個負載，不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
-      dom.svg.append(drawText(36, 32, "盲測工程設計・只顯示題目限制及你的方案", { "font-size": 18, "font-weight": 700 }));
-      dom.svg.append(drawLine(116, 330, 680, 330, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }), drawText(560, 320, `伸長上限 ${cm(scenario.design.limitM)}`, { class: "math-svg", fill: "#b91c1c", "font-size": 13 }));
+      dom.svg.append(drawText(36, 32, "盲測工程設計・只顯示題目限制及你的方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawLine(116, 330, 680, 330, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }), drawText(540, 318, `伸長上限 ${cm(scenario.design.limitM)}`, { class: "math-svg", fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(170, 78, 170, 430, { stroke: "#334155", "stroke-width": 4 }), drawLine(170, 78, 630, 78, { stroke: "#334155", "stroke-width": 5 }));
       const selected = state.design;
       const count = selected?.moduleCount || 0;
-      for (let i = 0; i < count; i += 1) dom.svg.append(svgElement("rect", { x: 340 + i * 42, y: 110, width: 32, height: 28, rx: 4, fill: "#64748b" }), drawText(348 + i * 42, 129, "0.5", { class: "math-svg", fill: "#fff", "font-size": 9 }));
-      dom.svg.append(drawText(230, 205, selected ? `${springLabel(selected.springKey)}・${selected.moduleCount} 個模組・${n(selected.moduleCount * scenario.design.moduleForceN, 1)} N` : "尚未選擇方案", { class: "math-svg", "font-size": 18, "font-weight": 700 }));
-      dom.svg.append(drawText(230, 245, "提交前不實際掛上負載，不顯示安全性或最佳方案。", { fill: "#64748b", "font-size": 13 }));
+      for (let i = 0; i < count; i += 1) dom.svg.append(svgElement("rect", { x: 340 + i * 42, y: 110, width: 32, height: 28, rx: 4, fill: "#64748b" }), drawText(348 + i * 42, 129, "0.5", { class: "math-svg", fill: "#fff", "font-size": 11 }));
+      dom.svg.append(drawText(230, 205, selected ? `${springLabel(selected.springKey)}・${selected.moduleCount} 個模組・${n(selected.moduleCount * scenario.design.moduleForceN, 1)} N` : "尚未選擇方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawText(230, 245, "提交前不實際掛上負載，不顯示安全性或最佳方案。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawReviewStage() {
-      dom.svg.append(drawText(36, 32, "提交前 review・圖台只顯示你的答案", { "font-size": 18, "font-weight": 700 }));
-      dom.svg.append(drawText(270, 215, "請在左側檢查完整答案及依賴資料。", { "font-size": 18, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示正確性、分數及實際測試。", { fill: "#64748b", "font-size": 14 }));
+      dom.svg.append(drawText(36, 32, "提交前 review・圖台只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawText(270, 215, "請在左側檢查完整答案及依賴資料。", { class: "math-svg", "font-size": 20, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示正確性、分數及實際測試。", { class: "math-svg", fill: "#64748b", "font-size": 16 }));
     }
     function drawResultStage() {
       const view = buildResultViewModel(state, scenario, latestResult);
@@ -857,7 +867,7 @@
       return { x: clamp(point.x, 0, 800), y: clamp(point.y, 0, 500) };
     }
     function valueFromPoint(kind, point) {
-      if (kind === "zero" || kind === "cursor") return clamp((point.y - 54) / 382 * Generator.STAGE_SPAN_M, 0, Generator.STAGE_SPAN_M);
+      if (kind === "zero" || kind === "cursor") return clamp((point.y - INVESTIGATION_RULER_TOP) / (INVESTIGATION_RULER_BOTTOM - INVESTIGATION_RULER_TOP) * Generator.STAGE_SPAN_M, 0, Generator.STAGE_SPAN_M);
       if (kind === "model") return clamp((point.x - GRAPH.left) / GRAPH.width, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M;
       if (kind === "prediction") return clamp((point.y - 108) / 300, 0, 1) * Generator.MAX_LINEAR_EXTENSION_M;
       return 0;
@@ -1033,5 +1043,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });

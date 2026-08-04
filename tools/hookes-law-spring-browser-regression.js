@@ -85,7 +85,9 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
     resultHtml:d.getElementById('resultPanel').innerHTML, body:d.body.textContent, stageTouch:getComputedStyle(d.getElementById('stage')).touchAction,
     panelRange:d.getElementById('controlPanel').scrollHeight-d.getElementById('controlPanel').clientHeight,
     targetSizes:[...d.querySelectorAll('.drag-target:not([hidden])')].map((node)=>({w:node.getBoundingClientRect().width,h:node.getBoundingClientRect().height})),
-    stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean)
+    stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
+    stageRectCount:d.querySelectorAll('#stageSvg rect').length,
+    springFirstY:Number(d.querySelector('#stageSvg polyline')?.getAttribute('points')?.split(' ')[0]?.split(',')[1])
   }; })()`);
   assert.equal(initial.presentation, "editable", `${label}: direct startup is editable`);
   assert.equal(initial.resultHidden, true, `${label}: result panel starts hidden`);
@@ -96,6 +98,8 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.ok(initial.targetSizes.every(({ w, h }) => w >= 44 && h >= 44), `${label}: stable drag targets meet 44px minimum`);
   assert.ok(initial.stageText.includes("0"), `${label}: investigation SVG renders the origin label`);
   assert.ok(initial.stageText.includes("位置 / cm"), `${label}: investigation SVG renders the cm axis label`);
+  assert.equal(initial.stageRectCount, 0, `${label}: no load block is drawn before a load is attached`);
+  assert.equal(initial.springFirstY, 42, `${label}: unloaded spring touches the ceiling anchor`);
 
   await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
   await evaluate(cdp, "document.querySelector('[data-action=to-review]').click()");
