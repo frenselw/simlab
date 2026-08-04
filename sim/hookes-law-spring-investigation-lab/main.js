@@ -19,6 +19,7 @@
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const INVESTIGATION_DRAG_HANDLE_X = 650;
+  const INVESTIGATION_GUIDE_LABEL_X = 596;
   const INVESTIGATION_RULER_TOP = 42;
   const INVESTIGATION_RULER_BOTTOM = 455;
   const MEASUREMENT_SNAP_THRESHOLD_M = 0.003;
@@ -948,11 +949,12 @@
         dom.svg.append(svgElement("rect", { x: 418 - loadVisual.width / 2, y: bottom, width: loadVisual.width, height: loadVisual.height, rx: 4, fill: loadVisual.fill, stroke: loadVisual.stroke, "stroke-width": 2 }));
         dom.svg.append(drawSvgForce(470, bottom + loadVisual.height / 2 + 6, state.activeLoadKey, { "font-size": 16, "font-weight": 700, fill: loadVisual.stroke }));
       } else dom.svg.append(drawText(470, bottom + 16, "無額外負載", { class: "math-svg", "font-size": 15 }));
+      const guideLabelAttributes = { class: "math-svg", "font-size": 17, "font-weight": 700, "text-anchor": "end", stroke: "#fff", "stroke-width": 4, "paint-order": "stroke", "stroke-linejoin": "round" };
       const calibrationY = positionToY(state.calibrations[key]?.zeroM ?? state.working.zeroDraftM ?? spring.naturalLengthM);
-      dom.svg.append(drawLine(148, calibrationY, 636, calibrationY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(606, calibrationY - 8, "零位", { class: "math-svg", fill: "#6d28d9", "font-size": 16, "font-weight": 700 }));
+      dom.svg.append(drawLine(148, calibrationY, 636, calibrationY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawText(INVESTIGATION_GUIDE_LABEL_X, calibrationY - 8, "零位", { ...guideLabelAttributes, fill: "#6d28d9" }));
       if (state.activeLoadKey && stable) {
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? endpoint);
-        dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(600, cursorY - 8, "游標", { class: "math-svg", fill: "#b91c1c", "font-size": 16, "font-weight": 700 }));
+        dom.svg.append(drawLine(145, cursorY, 645, cursorY, { stroke: "#dc2626", "stroke-width": 2 }), drawText(INVESTIGATION_GUIDE_LABEL_X, cursorY - 8, "游標", { ...guideLabelAttributes, fill: "#b91c1c" }));
       }
       dom.svg.append(drawSvgAxisLabel(98, 480, "讀尺位置", "", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
     }
@@ -1238,5 +1240,5 @@
     };
   }
 
-  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
+  return { ACTIVITY, PHASE_LABELS, mayRevealCorrectness, buildEditableViewModel, buildResultViewModel, routeStartup, routeSubmission, investigationEndpointM, INVESTIGATION_DRAG_HANDLE_X, INVESTIGATION_GUIDE_LABEL_X, INVESTIGATION_RULER_TOP, INVESTIGATION_RULER_BOTTOM, MEASUREMENT_SNAP_THRESHOLD_M, snapMeasurementValue, LOAD_VISUALS, freshSeed, clientToSvg, svgToClient, boot };
 });
