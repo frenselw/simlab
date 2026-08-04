@@ -350,6 +350,10 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
     }
     await waitUntil(cdp, `Boolean(window.__hookesLawDebug.getState().predictions[${index}])`, `${label}: prediction ${index + 1} did not save`);
   }
+  const completedPredictionPhase = await evaluate(cdp, "({phase:window.__hookesLawDebug.getState().phase,toDesignDisabled:document.getElementById(\"toDesign\").disabled})");
+  assert.equal(completedPredictionPhase.phase, "predict", `${label}: completing the third prediction stays on the prediction phase`);
+  assert.equal(completedPredictionPhase.toDesignDisabled, false, `${label}: continue-to-design is enabled after all predictions are recorded`);
+  await clickDirect(cdp, "#toDesign");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: design phase did not open`);
   const recordedPredictions = await evaluate(cdp, "JSON.stringify(window.__hookesLawDebug.getState().predictions)");
   await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='predict']");

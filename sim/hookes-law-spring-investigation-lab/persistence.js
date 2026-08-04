@@ -250,9 +250,7 @@
       next.design = next.design;
       next.activePredictionIndex = event.index;
       next.activeLoadKey = null;
-      next.fromReview = false;
-      next.phase = hasAllPredictions(next) ? "design" : "predict";
-      if (next.phase !== "predict") next.activePredictionIndex = 0;
+      next.phase = "predict";
     } else if (event.type === "replaceDesign") {
       if (!designValid(event.design, scenario)) throw new Error("Invalid design evidence");
       next.design = { springKey: event.design.springKey, moduleCount: event.design.moduleCount };

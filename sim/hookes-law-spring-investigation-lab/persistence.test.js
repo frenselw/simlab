@@ -57,6 +57,9 @@ state = P.transitions.replacePrediction(state, 0, M.extensionM(scenario.predicti
 fixtures.push(["predict-one", state]);
 state = P.transitions.replacePrediction(state, 1, M.extensionM(scenario.predictions[1].forceN, scenario.springs[scenario.predictions[1].springKey].kNPerM), scenario);
 state = P.transitions.replacePrediction(state, 2, M.extensionM(scenario.predictions[2].forceN, scenario.springs[scenario.predictions[2].springKey].kNPerM), scenario);
+assert.equal(state.phase, "predict", "recording the third prediction does not auto-advance to design");
+assert.equal(state.activePredictionIndex, 2, "the completed prediction remains selected for review");
+fixtures.push(["predict-complete", state]);
 state = P.transitions.setPhase(state, "design", scenario);
 fixtures.push(["design-empty", state]);
 const optimal = M.optimalSafeDesign(scenario);
@@ -121,6 +124,8 @@ assert.equal(remeasured.design, null);
 
 const editPrediction = P.transitions.editSection(review, "predict", scenario);
 const replacementPrediction = P.transitions.replacePrediction(editPrediction, 0, 0.04, scenario);
+assert.equal(replacementPrediction.phase, "predict");
+assert.equal(replacementPrediction.fromReview, true, "editing a prediction from review preserves the review continuation");
 assert.equal(replacementPrediction.design.springKey, review.design.springKey);
 assert.equal(replacementPrediction.design.moduleCount, review.design.moduleCount);
 
