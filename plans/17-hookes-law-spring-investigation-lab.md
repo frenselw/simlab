@@ -11,7 +11,7 @@
 - Plan：`plans/17-hookes-law-spring-investigation-lab.md`
 - 學生可見標題：`胡克定律：彈簧探究與預測實驗室`
 - Learning objective：學生透過量度兩條未知彈簧在不同作用力下的伸長建立 \(F-x\) 關係，理解彈簧常數 \(k\)，並把自己建立的模型用於未量度情境的預測及安全承載設計。
-- Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次安全承載設計、review 後一次提交，再查看結果。
+- Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次安全承載設計，在提交前檢查答案後一次提交，再查看結果。
 - Main interactions：spring tabs、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、第三階段的彈簧＋負載聯動預測、跨階段返回／繼續、module `− / count / +`、review-edit、final submit。
 - Runtime files：`index.html`、`styles.css`、`generator.js`、`model.js`、`animation.js`、`scoring.js`、`persistence.js`、`main.js`，以及對應 tests、manifest 與 browser regression。
 - Shared runtime：`sim/shared/styles.css`、`sim/shared/scorm.js`、`sim/shared/activity-flow.js`。
@@ -770,9 +770,9 @@ measurement record 另帶：
 - 把學生自己的模型計算誤稱為系統正確性回饋；
 - 以「選 A 錯了」等訊息阻止學生比較 A／B；學生可在提交前修改自己的方案。
 
-### 8.5 Phase E：review
+### 8.5 Phase E：提交前檢查（內部 phase key：`review`）
 
-review 顯示全部學生答案：
+提交前檢查顯示全部學生答案：
 
 - A／B 零位；
 - 六項量度；

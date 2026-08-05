@@ -76,7 +76,7 @@
         </section>
         <section class="subsection" aria-labelledby="measurementTitle">
           <h3 id="measurementTitle">量度游標</h3>
-          <p class="instruction">彈簧穩定後，移動圖台上的游標到末端位置，再記錄這次量度。顯示的讀數是你的游標與零位之間的距離。</p>
+          <p class="instruction">彈簧穩定後，移動模擬畫面上的游標到末端位置，再記錄這次量度。顯示的讀數是你的游標與零位之間的距離。</p>
           <div class="readout-row"><span>學生讀數</span><strong id="cursorReadout" class="math-readout">--</strong></div>
           <button type="button" id="recordMeasurement" data-action="record-measurement">記錄量度</button>
           <p id="measurementStatus" class="neutral-status math-context" aria-live="polite"></p>
@@ -137,7 +137,7 @@
       </section>
 
       <section id="reviewPanel" class="panel-section is-hidden">
-        <p class="section-label">第五階段・提交前 review</p>
+        <p class="section-label">第五階段・提交前檢查</p>
         <h2>檢查自己的最終答案</h2>
         <p class="task-copy">這裡只顯示你的答案、完成度和依賴資料狀態。提交後本次作答會鎖定，系統才會顯示正確性、分數及實際測試結果。</p>
         <div id="reviewSummary" class="review-summary math-context"></div>
@@ -151,7 +151,7 @@
     </aside>
 
     <section id="stage" class="stage" aria-labelledby="stageTitle">
-      <h2 id="stageTitle" class="sr-only">彈簧探究互動圖台</h2>
+      <h2 id="stageTitle" class="sr-only">彈簧探究互動畫面</h2>
       <svg id="stageSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet" role="img" aria-describedby="stageDescription"></svg>
       <div id="dragLayer" class="drag-layer">
         <button type="button" id="zeroDrag" class="drag-target" data-drag-target="zero" hidden aria-describedby="zeroDragHelp"></button>
@@ -159,7 +159,7 @@
         <button type="button" id="modelDrag" class="drag-target" data-drag-target="model" hidden aria-describedby="modelDragHelp"></button>
         <button type="button" id="predictionDrag" class="drag-target" data-drag-target="prediction" hidden aria-describedby="predictionDragHelp"></button>
       </div>
-      <p id="stageDescription" class="sr-only">圖台會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
+      <p id="stageDescription" class="sr-only">互動畫面會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
       <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
       <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
       <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動「線」標記調整直線；上下左右方向鍵可微調直線位置和斜率。</p>

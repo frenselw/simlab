@@ -15,7 +15,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const SPRINGS = ["A", "B"];
   const LOADS = ["F1", "F2", "F3"];
-  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "安全承載設計", review: "提交前 review" });
+  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "安全承載設計", review: "提交前檢查" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const GRAPH_X_AXIS_LABEL_X = GRAPH.left + GRAPH.width / 2;
@@ -651,7 +651,7 @@
         const next = Persistence.transitions.setPhase(state, phase, scenario);
         const returning = Persistence.PHASES.indexOf(phase) < Persistence.PHASES.indexOf(state.phase);
         const message = phase === "review"
-          ? "已進入提交前 review；這裡只顯示你的答案及完成度。"
+          ? "已進入提交前檢查；這裡只顯示你的答案及完成度。"
           : returning
             ? `已返回${PHASE_LABELS[phase]}；沒有更改已記錄的後續答案。`
             : `已進入${PHASE_LABELS[phase]}。`;
@@ -664,7 +664,7 @@
         const next = Persistence.transitions.editSection(state, phase, scenario);
         lastDraftState = Persistence.clone(next);
         registerDraftProvider();
-        setState(next, `已返回${PHASE_LABELS[phase]}；不改動答案即可返回 review。`, true);
+        setState(next, `已返回${PHASE_LABELS[phase]}；不改動答案即可返回提交前檢查。`, true);
       } catch { announce("目前不能返回這個 section。"); }
     }
     function requestRecalibration() {
@@ -1088,8 +1088,9 @@
       const node = svgElement("text", { x, y, "font-size": 16, fill: "#334155", ...rest, class: ["math-svg", extraClass].filter(Boolean).join(" ") });
       for (const part of parts || []) {
         const item = typeof part === "string" ? { text: part } : part;
-        const tspan = svgElement("tspan", item.class ? { class: item.class, ...(item.dx === undefined ? {} : { dx: item.dx }) } : (item.dx === undefined ? {} : { dx: item.dx }));
-        tspan.textContent = String(item.text ?? "");
+        const { text: itemText, class: itemClass, ...tspanAttributes } = item;
+        const tspan = svgElement("tspan", { ...tspanAttributes, ...(itemClass ? { class: itemClass } : {}) });
+        tspan.textContent = String(itemText ?? "");
         node.append(tspan);
       }
       return node;
@@ -1223,11 +1224,11 @@
       dom.svg.append(drawSvgAxisLabel(ruler.x, 430, "伸長", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
 
       dom.svg.append(drawLine(142, limitY, 705, limitY, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }));
-      dom.svg.append(drawMathText(470, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-variable" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawMathText(470, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-subscript", "baseline-shift": "sub", "font-size": "70%" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
 
       if (!calculation) {
         const emptyInstructionY = Math.min(ruler.bottom - 78, limitY + 72);
-        dom.svg.append(drawMathText(235, emptyInstructionY, ["先在左側選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "圖台會用你的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+        dom.svg.append(drawMathText(235, emptyInstructionY, ["請先選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "畫面會用你建立的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
         return;
       }
 
@@ -1268,8 +1269,8 @@
       dom.svg.append(drawMathText(470, 430, ["模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
     }
     function drawReviewStage() {
-      dom.svg.append(drawText(36, 32, "提交前 review・圖台只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawText(270, 215, "請在左側檢查完整答案及依賴資料。", { class: "math-svg", "font-size": 20, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示正確性、分數及實際測試。", { class: "math-svg", fill: "#64748b", "font-size": 16 }));
+      dom.svg.append(drawText(36, 32, "提交前檢查・只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawText(270, 215, "請檢查完整答案及依賴資料。", { class: "math-svg", "font-size": 20, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示正確性、分數及實際測試。", { class: "math-svg", fill: "#64748b", "font-size": 16 }));
     }
     function drawResultStage() {
       const view = buildResultViewModel(state, scenario, latestResult);
@@ -1282,7 +1283,7 @@
       if (!dom.svg || !state || !scenario) return;
       dom.svg.replaceChildren();
       if (presentation === "fallback" || presentation === "technical" || presentation === "frozen") {
-        dom.svg.append(drawText(250, 220, "目前沒有可安全顯示的可編輯圖台。", { "font-size": 18, "font-weight": 700 }));
+        dom.svg.append(drawText(250, 220, "目前沒有可安全顯示的編輯畫面。", { "font-size": 18, "font-weight": 700 }));
         hideDragTargets();
         return;
       }
@@ -1293,12 +1294,12 @@
       else if (state.phase === "design") drawDesignStage();
       else drawReviewStage();
       const stageDescription = mayRevealCorrectness(presentation)
-        ? "提交後的鎖定結果圖台，包含理想模型及實際測試結果。"
+        ? "提交後的鎖定結果畫面，包含理想模型及實際測試結果。"
         : state?.phase === "predict"
-          ? "第三階段圖台顯示題目指定的彈簧和負載；拖動預測標記會令彈簧和負載一起伸長或縮短，提交前不顯示實際終點。"
+          ? "第三階段畫面顯示題目指定的彈簧和負載；拖動預測標記會令彈簧和負載一起伸長或縮短，提交前不顯示實際終點。"
           : state?.phase === "design"
             ? "第四階段用你第二階段建立的斜率計算 x = F/k；紅色虛線是安全伸長上限，請在安全方案中找出負載最大的方案。"
-          : "圖台只顯示目前可觀察的探究現象、學生自己的資料或學生自己的標記；提交前不顯示正確性。";
+          : "畫面只顯示目前可觀察的探究現象、學生自己的資料或學生自己的標記；提交前不顯示正確性。";
       setText($("stageDescription"), stageDescription);
       positionDragTargets();
     }
