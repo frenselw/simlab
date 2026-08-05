@@ -10,6 +10,13 @@ SCORM 1.2 activities for Moodle.
 - `displacement-distance-map-journey` - 路程、位移與總位移地圖任務
 - `inertial-reference-frame-road-observer` - 慣性參考系公路觀察任務
 - `position-time-graph-motion-lab` - 位置—時間圖運動實驗室
+- `linear-motion-velocity-lab` - 直線運動：平均速度與瞬時速度
+- `kinematics-driving-challenge` - 勻速與勻變速：駕駛控制挑戰
+- `kinematics-qualitative-graph-sketching` - 勻速與勻變速：三圖手繪挑戰
+- `kinematics-quantitative-graph-builder` - 勻速與勻變速：三圖定量建構挑戰
+- `free-fall-stroboscopic-measurement-lab` - 自由落體：頻閃量度實驗室
+- `centre-of-mass-investigation-lab` - 重心探究實驗室
+- `hookes-law-spring-investigation-lab` - 胡克定律：彈簧探究與預測實驗室
 
 ## Local development
 
