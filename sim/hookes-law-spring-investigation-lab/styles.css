@@ -105,7 +105,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .prediction-card .math-quantity { display: inline-block; white-space: nowrap; }
 .challenge-note { margin: .7rem 0; padding: .7rem .75rem; border-left: 3px solid var(--accent); background: #fff; color: var(--muted); }
 .design-brief { margin: .7rem 0; padding: .75rem .8rem; border: 1px solid var(--border-light); background: #fff; line-height: 1.5; }
-.design-brief strong { color: var(--ink); }
+.design-brief strong { color: var(--text); }
 .design-brief ol { margin: .35rem 0 0; padding-left: 1.25rem; }
 .design-brief li + li { margin-top: .3rem; }
 .choice-fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: .8rem 0; padding: 0; border: 0; }
@@ -130,6 +130,18 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .review-summary { display: grid; gap: .55rem; }
 .review-summary section { padding: .65rem .75rem; border: 1px solid var(--border-light); background: #fff; }
 .review-summary h3 { margin: 0 0 .25rem; font-size: .94rem; }
+.review-summary h4 { margin: .55rem 0 .2rem; font-size: .88rem; }
+.review-intro, .review-zero, .review-answer { margin: .25rem 0 .45rem; line-height: 1.45; }
+.review-spring-evidence + .review-spring-evidence { border-top: 1px solid var(--border-light); margin-top: .55rem; padding-top: .35rem; }
+.review-measurement-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.review-measurement-table caption { padding: .2rem 0; color: var(--muted); text-align: left; }
+.review-measurement-table th, .review-measurement-table td { padding: .28rem .4rem; border: 1px solid var(--border-light); text-align: left; }
+.review-measurement-table .math-quantity, .review-answer .math-quantity { display: inline-block; white-space: nowrap; }
+.review-model-evidence { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 260px); gap: .35rem .75rem; align-items: start; }
+.review-model-evidence h4, .review-model-evidence p { grid-column: 1; }
+.review-model-evidence .review-model-chart { grid-column: 2; grid-row: 1 / span 2; width: 100%; height: auto; min-width: 0; }
+.review-model-chart { display: block; overflow: visible; }
+.review-model-chart .math-svg { font-family: inherit; }
 .review-actions { margin-top: .85rem; }
 .review-actions button { flex: 1 1 8rem; }
 .result-block { padding: .7rem .75rem; border-top: 1px solid var(--border-light); }
@@ -156,6 +168,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   .workspace { grid-template-rows: minmax(12rem, 46dvh) minmax(0, 1fr); }
   .control-panel { padding: .75rem .7rem 2rem; }
   .data-tables { grid-template-columns: 1fr; }
+  .review-model-evidence { display: block; }
+  .review-model-evidence .review-model-chart { margin: .35rem auto 0; max-width: 260px; }
   .choice-grid { gap: .35rem; }
   .choice-grid button { padding-inline: .3rem; font-size: .86rem; }
 }

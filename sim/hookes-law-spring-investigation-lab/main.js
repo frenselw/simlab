@@ -15,7 +15,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const SPRINGS = ["A", "B"];
   const LOADS = ["F1", "F2", "F3"];
-  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "盲測預測", design: "安全承載設計", review: "提交前檢查" });
+  const PHASE_LABELS = Object.freeze({ investigate: "探究與量度", model: "找出 F–x 線性關係", predict: "未量度負載的模型預測", design: "最大安全負載挑戰", review: "提交前檢查" });
   const PHASE_PROGRESS = Object.freeze({ investigate: 0, model: 8, predict: 10, design: 13, review: 14 });
   const GRAPH = Object.freeze({ left: 122, top: 54, width: 585, height: 354, maxExtensionM: Generator.MAX_LINEAR_EXTENSION_M, maxForceN: 4.0 });
   const GRAPH_X_AXIS_LABEL_X = GRAPH.left + GRAPH.width / 2;
@@ -66,7 +66,9 @@
   function finite(value) { return Number.isFinite(value); }
   function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
   function snapMeasurementValue(value, target, threshold = MEASUREMENT_SNAP_THRESHOLD_M) {
-    return finite(value) && finite(target) && Math.abs(value - target) <= threshold ? target : value;
+    const difference = finite(value) && finite(target) ? Math.abs(value - target) : Infinity;
+    const floatingPointAllowance = Number.EPSILON * Math.max(1, Math.abs(value || 0), Math.abs(target || 0));
+    return difference <= threshold + floatingPointAllowance ? target : value;
   }
   function snapPredictionValue(value) {
     if (!finite(value)) return 0;
@@ -88,6 +90,16 @@
     const dependent = hadPredictions && hadDesign ? "原有預測及工程方案" : hadPredictions ? "原有預測" : "原有工程方案";
     const phases = hadPredictions && hadDesign ? "第三、四階段" : hadPredictions ? "第三階段" : "第四階段";
     return `已更新${springLabel(springKey)}的直線斜率；${dependent}依賴舊模型，已清除，請重新完成${phases}。`;
+  }
+  function measurementRecordMessage(springKey, loadKey, changed, hadModel, hadPredictions, hadDesign) {
+    const label = `${springLabel(springKey)}在 ${forceLabel(loadKey)} 下的量度`;
+    if (!changed || (!hadModel && !hadPredictions && !hadDesign)) return `已記錄${label}。`;
+    const cleared = [];
+    if (hadModel) cleared.push(`${springLabel(springKey)}的模型`);
+    if (hadPredictions) cleared.push("由舊模型建立的預測");
+    if (hadDesign) cleared.push("由舊模型建立的安全負載方案");
+    const phases = [hadModel ? "第二階段" : null, hadPredictions ? "第三階段" : null, hadDesign ? "第四階段" : null].filter(Boolean).join("、");
+    return `已更新${label}；${cleared.join("、")}已清除，請重新完成${phases}。`;
   }
   function operationMode(mode) { return mode === "keyboard" ? "keyboard" : "pointer"; }
   function mayRevealCorrectness(activityState) {
@@ -203,7 +215,7 @@
     return parent;
   }
   function mathNumber(value) { return element("span", value == null ? "--" : String(value), "math-number"); }
-  function mathVariable(value) { return element("i", value, "math-variable"); }
+  function mathVariable(value) { return element("var", value, "math-variable"); }
   function mathSubscript(value) { return element("sub", value, "math-variable"); }
   function mathUnit(value) { return element("span", value, "math-unit"); }
   function mathPlaceholder() { return element("span", "--", "math-quantity"); }
@@ -327,6 +339,9 @@
     let modelBaselineM = 0.08;
     let modelStatusMessage = "";
     let modelStatusSpring = null;
+    let measurementStatusMessage = "";
+    let measurementStatusSpring = null;
+    let measurementStatusLoad = null;
     let predictionDraftM = 0;
     let zeroMoveM = 0;
     let cursorMoveM = 0;
@@ -431,7 +446,9 @@
       return null;
     }
     function snapMeasurementPosition(kind, value) {
-      return snapMeasurementValue(value, measurementSnapTarget(kind));
+      const snapped = snapMeasurementValue(value, measurementSnapTarget(kind));
+      if (kind === "cursor") return clamp(snapped, state?.calibrations?.[state.activeSpring]?.zeroM ?? 0, Generator.STAGE_SPAN_M);
+      return snapped;
     }
     function completeInvestigationForDebug() {
       if (!debugAvailable || locked || !state || state.phase !== "investigate") {
@@ -490,6 +507,11 @@
         modelStatusMessage = "";
         modelStatusSpring = null;
       }
+      if (next.phase !== "investigate") {
+        measurementStatusMessage = "";
+        measurementStatusSpring = null;
+        measurementStatusLoad = null;
+      }
       state = next;
       scenario = nextScenario;
       syncRuntime();
@@ -505,6 +527,7 @@
       return setState(next, message, shouldCheckpoint);
     }
     function activeSelection(nextSpring, message) {
+      if (state?.phase === "investigate" && state.activeSpring !== nextSpring) stopAnimation();
       return mutateTransient((next) => {
         next.activeSpring = nextSpring;
         next.activeLoadKey = null;
@@ -598,15 +621,25 @@
       const next = Persistence.transitions.replaceCalibration(state, state.activeSpring, evidence, scenario);
       zeroMoveM = 0;
       cursorMoveM = 0;
-      setState(next, `已記錄${springLabel(state.activeSpring)}的自然長度位置。`);
+      setState(next, `已記錄${springLabel(state.activeSpring)}的伸長量零位。`);
     }
     function recordMeasurement() {
       if (locked || state.phase !== "investigate" || !state.activeLoadKey || !stable || cursorMoveM < Model.MIN_OPERATION_MOVE_M) return;
-      const evidence = { loadKey: state.activeLoadKey, cursorM: state.working.cursorDraftM, mode: operationMode(cursorMode), moveM: cursorMoveM };
-      const next = Persistence.transitions.replaceMeasurement(state, state.activeSpring, state.activeLoadKey, evidence, scenario);
-      const label = `${springLabel(state.activeSpring)}在 ${forceLabel(state.activeLoadKey)} 下的量度`;
+      const springKey = state.activeSpring;
+      const loadKey = state.activeLoadKey;
+      const evidence = { loadKey, cursorM: state.working.cursorDraftM, mode: operationMode(cursorMode), moveM: cursorMoveM };
+      const previous = state.measurements[springKey][loadKey];
+      const changed = !Persistence.sameMeasurement(previous, evidence);
+      const hadModel = Boolean(state.models[springKey]);
+      const hadPredictions = state.predictions.some(Boolean);
+      const hadDesign = Boolean(state.design);
+      const next = Persistence.transitions.replaceMeasurement(state, springKey, loadKey, evidence, scenario);
+      const message = measurementRecordMessage(springKey, loadKey, changed, hadModel, hadPredictions, hadDesign);
       cursorMoveM = 0;
-      setState(next, `已記錄${label}。`);
+      measurementStatusMessage = message;
+      measurementStatusSpring = springKey;
+      measurementStatusLoad = loadKey;
+      setState(next, message);
     }
     function beginModelSpring(key) {
       if (!SPRINGS.includes(key) || state.phase !== "model") return;
@@ -662,7 +695,7 @@
     function changeDesign(springKey, moduleCount) {
       if (locked || state.phase !== "design" || !SPRINGS.includes(springKey) || !Number.isInteger(moduleCount)) return;
       const next = Persistence.transitions.replaceDesign(state, springKey, moduleCount, scenario);
-      setState(next, `已保存${springLabel(springKey)}、${moduleCount} 個負載模組的工程方案。`);
+      setState(next, `已記錄${springLabel(springKey)}、${moduleCount} 個負載塊的安全負載方案。`);
     }
     function goPhase(phase) {
       if (locked || !state) return;
@@ -671,8 +704,8 @@
         return;
       }
       if (phase === "model" && !Persistence.hasAllCalibrationsAndMeasurements(state)) return announce("兩條彈簧各三項量度完成後，才可找出線性關係。");
-      if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("兩條直線都有斜率後，才可進行盲測預測。");
-      if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行安全承載設計。");
+      if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("完成兩條彈簧的模型後，才可進行未量度負載的模型預測。");
+      if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行最大安全負載挑戰。");
       if (phase === "review") {
         if (!Persistence.hasCompleteAnswer(state, scenario)) return announce("請先完成所有量度、模型、預測及工程方案。");
         if (!checkpoint()) return;
@@ -686,7 +719,7 @@
             ? `已返回${PHASE_LABELS[phase]}；沒有更改已記錄的後續答案。`
             : `已進入${PHASE_LABELS[phase]}。`;
         setState(next, message, phase !== "review");
-      } catch { announce("目前依賴資料未符合這項 phase 的要求。"); }
+      } catch { announce("這個階段所需的資料尚未完成。"); }
     }
     function editSection(phase) {
       if (locked || state.phase !== "review") return;
@@ -698,13 +731,18 @@
         }
         lastDraftState = Persistence.clone(next);
         registerDraftProvider();
-        setState(next, `已返回${PHASE_LABELS[phase]}；不改動答案即可返回提交前檢查。`, true);
-      } catch { announce("目前不能返回這個 section。"); }
+        const ok = setState(next, `已返回${PHASE_LABELS[phase]}；不改動答案即可返回提交前檢查。`, true);
+        if (ok) {
+          const panel = { investigate: dom.investigate, model: dom.model, predict: dom.predict, design: dom.design }[phase];
+          const heading = panel?.querySelector("h2");
+          heading?.focus({ preventScroll: true });
+        }
+      } catch { announce("目前不能返回這個階段。"); }
     }
     function requestRecalibration() {
       if (locked || !state.calibrations[state.activeSpring]) return;
       if (dom.dialog?.showModal) dom.dialog.showModal();
-      else if (host.confirm?.("重新標定會清除這條彈簧已記錄的量度、模型及所有依賴模型的預測／工程方案。")) confirmRecalibration();
+      else if (host.confirm?.("重新標定會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／安全負載方案。")) confirmRecalibration();
     }
     function confirmRecalibration() {
       if (dom.dialog?.open) dom.dialog.close("confirm");
@@ -713,7 +751,7 @@
         zeroMoveM = 0;
         cursorMoveM = 0;
         stopAnimation();
-        setState(next, `已清除${springLabel(state.activeSpring)}的依賴資料；請重新標定。`);
+        setState(next, `已清除${springLabel(state.activeSpring)}的後續答案；請重新設定伸長量零位。`);
       } catch { technicalLock("重新標定未能安全完成；操作已鎖定。"); }
     }
     function toReviewEditOrNext() {
@@ -810,7 +848,7 @@
       hidePanels();
       dom.result.classList.remove("is-hidden");
       const section = element("section", undefined, "result-block");
-      section.append(element("h2", "已完成的 Moodle attempt"), element("p", message));
+      section.append(element("h2", "已完成的 Moodle 本次作答"), element("p", message));
       const summary = element("p", `Moodle 已記錄分數：${String(attempt.score ?? "未提供")}；狀態：${attempt.status === "passed" ? "passed" : attempt.status === "failed" ? "failed" : "未提供"}。`);
       section.append(summary, element("p", "詳細活動答案未能安全驗證，因此不顯示活動重算結果。"));
       dom.result.append(section);
@@ -830,7 +868,7 @@
       if (debugEnabled && state.phase === "model") setText(dom.debugStatus, "第一階段已自動完成；可按下方按鈕填入兩條正確直線，直接測試第三階段。 ");
       else if (debugEnabled && state.phase === "predict") setText(dom.debugStatus, "第一、二階段已自動完成；目前可直接測試第三階段。 ");
       else if (debugEnabled) setText(dom.debugStatus, "第一階段已自動完成；目前可直接測試第二階段。 ");
-      else if (state.phase !== "investigate") setText(dom.debugStatus, "目前已離開第一階段；如要重新測試，請開啟新的 attempt。 ");
+      else if (state.phase !== "investigate") setText(dom.debugStatus, "目前已離開第一階段；如要重新測試，請開啟新的本次作答。 ");
       else setText(dom.debugStatus, "開啟後會填入兩條彈簧的正確零位及三個負載讀數，並直接進入第二階段。 ");
     }
     function render() {
@@ -860,11 +898,11 @@
       const key = state?.activeSpring || "A";
       const calibration = state?.calibrations?.[key];
       const active = state?.activeLoadKey;
-      setText(dom.calibrationInstruction, calibration ? "自然長度位置已保存；如需重做，請先確認清除這條彈簧及其依賴資料。" : "在沒有額外負載時，拖動紫色零位標記到彈簧末端，再記錄位置。");
+      setText(dom.calibrationInstruction, calibration ? "伸長量零位已保存；如需重做，請先確認清除這條彈簧及其後續答案。" : "在沒有額外負載時，拖動紫色零位標記到彈簧末端，再記錄零位。");
       setMathContent(dom.zeroReadout, ["位置 ", mathLength(state?.working?.zeroDraftM)]);
       dom.recordCalibration.disabled = Boolean(locked || calibration || active || zeroMoveM < Model.MIN_OPERATION_MOVE_M);
       dom.recalibrate.disabled = Boolean(locked || !calibration);
-      setText(dom.calibrationStatus, calibration ? `已記錄${springLabel(key)}的自然長度位置。` : "尚未記錄；系統只保存你按下記錄時的游標位置。");
+      setText(dom.calibrationStatus, calibration ? `已記錄${springLabel(key)}的伸長量零位。` : "尚未記錄；系統只保存你按下記錄時的游標位置。");
       document.querySelectorAll("[data-action='spring-tab']").forEach((button) => { button.setAttribute("aria-pressed", String(button.dataset.spring === key)); button.disabled = locked; });
       document.querySelectorAll("[data-action='select-load']").forEach((button) => { button.dataset.selected = String(button.dataset.load === selectedLoadKey); button.disabled = locked || !calibration; });
       dom.attachLoad.disabled = Boolean(locked || !calibration || !LOADS.includes(selectedLoadKey) || !stable);
@@ -874,7 +912,10 @@
       if (active && stable) setMathContent(dom.cursorReadout, ["伸長量 ", mathLength(extensionM)]);
       else setText(dom.cursorReadout, active ? "等待彈簧穩定" : "--");
       dom.recordMeasurement.disabled = Boolean(locked || !active || !stable || cursorMoveM < Model.MIN_OPERATION_MOVE_M);
-      setText(dom.measurementStatus, active && stable ? "讀數只代表你目前的游標位置；完成移動後可記錄。" : "掛上負載並等待穩定後，才可量度。");
+      const measurementNotice = measurementStatusSpring === key && measurementStatusLoad === active && measurementStatusMessage
+        ? measurementStatusMessage
+        : active && stable ? "讀數只代表你目前的游標位置；完成移動後可記錄。" : "掛上負載並等待穩定後，才可量度。";
+      setText(dom.measurementStatus, measurementNotice);
       renderDataTables();
       dom.toModel.disabled = Boolean(locked || !Persistence.hasAllCalibrationsAndMeasurements(state));
       dom.toModel.textContent = state.fromReview ? "返回第二階段線性關係" : "完成量度後找出線性關係";
@@ -921,10 +962,9 @@
       appendParts(modelCopy, ["觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線；直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "。"]);
       dom.modelData.append(modelCopy, list);
       setMathContent(dom.modelReadout, ["直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "；參考 ", mathForceValue(Model.MODEL_HANDLE_FORCE_N), " 時伸長 ", mathLength(modelDraftM)]);
-      const status = modelStatusSpring === key && modelStatusMessage
-        ? modelStatusMessage
-        : state.models[key] ? `已保存${springLabel(key)}的直線斜率；可再次調整。` : "尚未保存這條彈簧的直線斜率。";
-      setText(dom.modelStatus, status);
+      if (modelStatusSpring === key && modelStatusMessage) setText(dom.modelStatus, modelStatusMessage);
+      else if (state.models[key]) setMathContent(dom.modelStatus, ["已保存", springLabel(key), "的模型（", mathKFormula(Model.kFromModelHandle(state.models[key].handleExtensionM)), "）；可再次調整。"]);
+      else setText(dom.modelStatus, "尚未保存這條彈簧的模型。");
       dom.toPredict.disabled = Boolean(locked || !Persistence.hasAllModels(state));
       dom.toPredict.textContent = state.fromReview ? "返回第三階段預測" : "兩條直線都有斜率後繼續";
     }
@@ -950,7 +990,7 @@
         card.append(button, copy);
         dom.predictionCards.append(card);
       });
-      setText(dom.predictionStatus, `${state.predictions.filter(Boolean).length}/3 項預測已填寫；這裡不會顯示實際測試結果。`);
+      setText(dom.predictionStatus, `${state.predictions.filter(Boolean).length}/3 項預測已填寫；這裡不會顯示模擬中的結果。`);
       dom.toDesign.disabled = Boolean(locked || !Persistence.hasAllPredictions(state));
       dom.toDesign.textContent = state.fromReview ? "返回第四階段安全承載設計" : "完成三項預測後繼續";
     }
@@ -1001,13 +1041,71 @@
         appendParts(formulaForce, ["你的模型計算：", mathVariable("F"), " = ", mathNumber(calculation.moduleCount), " × ", mathQuantity(scenario.design.moduleForceN.toFixed(1), "N"), " = ", mathForceValue(calculation.forceN)]);
         const formulaExtension = element("p");
         appendParts(formulaExtension, [mathVariable("x"), " = ", mathVariable("F"), " / ", mathVariable("k"), " = ", mathLength(calculation.extensionM), "；安全上限 ", mathVariable("x"), mathSubscript("max"), " = ", mathLength(calculation.limitM)]);
-        const status = element("p", "請把上面的 x 與安全上限比較；在不超過上限的方案中，找出總負載最大的方案。");
+        const status = element("p", "請把上面的 x 與安全上限比較；在不超過上限的方案中，找出總作用力最大的方案。");
         status.className = "design-status";
         dom.designCalculation.append(formulaForce, formulaExtension, status);
       }
       dom.designSummary.replaceChildren();
-      if (state.design) appendGrid(dom.designSummary, [["彈簧", springLabel(state.design.springKey)], ["負載模組", mathNumber(state.design.moduleCount)], ["總負載", mathForceValue(state.design.moduleCount * scenario.design.moduleForceN)]]);
-      else dom.designSummary.append(element("p", "先選擇彈簧及負載；計算結果會根據你自己的斜率更新。"));
+      if (state.design) appendGrid(dom.designSummary, [["彈簧", springLabel(state.design.springKey)], ["負載塊", mathNumber(state.design.moduleCount)], ["總作用力", mathForceValue(state.design.moduleCount * scenario.design.moduleForceN)]]);
+      else dom.designSummary.append(element("p", "先選擇彈簧及負載塊；計算結果會根據你自己的斜率更新。"));
+    }
+    function reviewModelChart(springKey, rows, model) {
+      const svg = svgElement("svg", { viewBox: "0 0 260 160", role: "img", "aria-label": `${springLabel(springKey)}的學生 F–x 數據與模型直線` });
+      svg.classList.add("review-model-chart");
+      svg.dataset.reviewModel = springKey;
+      const plot = { left: 34, top: 14, width: 208, height: 106, maxX: GRAPH.maxExtensionM, maxF: GRAPH.maxForceN };
+      const point = (extensionM, forceN) => ({
+        x: plot.left + clamp(extensionM, 0, plot.maxX) / plot.maxX * plot.width,
+        y: plot.top + plot.height - clamp(forceN, 0, plot.maxF) / plot.maxF * plot.height
+      });
+      svg.append(drawLine(plot.left, plot.top + plot.height, plot.left + plot.width, plot.top + plot.height, { stroke: "#334155", "stroke-width": 2 }), drawLine(plot.left, plot.top, plot.left, plot.top + plot.height, { stroke: "#334155", "stroke-width": 2 }));
+      for (const forceN of [1, 2, 3, 4]) {
+        const y = point(0, forceN).y;
+        svg.append(drawMathText(plot.left - 7, y + 4, [{ text: String(forceN), class: "math-number" }], { "font-size": 10, "text-anchor": "end" }));
+      }
+      for (const extensionM of [0, .06, .12, .18]) {
+        const p = point(extensionM, 0);
+        svg.append(drawMathText(p.x, plot.top + plot.height + 14, [{ text: String(Math.round(extensionM * 100)), class: "math-number" }], { "font-size": 10, "text-anchor": "middle" }));
+      }
+      svg.append(drawMathText(138, 153, [{ text: "伸長量 ", class: "math-svg" }, { text: "x", class: "math-variable" }, { text: " / cm", class: "math-unit" }], { "font-size": 10, "text-anchor": "middle" }), drawMathText(8, 12, [{ text: "F", class: "math-variable" }, { text: " / N", class: "math-unit" }], { "font-size": 10 }));
+      for (const row of rows) {
+        if (!finite(row.extensionM)) continue;
+        const p = point(row.extensionM, row.forceN);
+        svg.append(svgElement("circle", { cx: p.x, cy: p.y, r: 4, fill: "#0f766e", "data-review-point": row.loadKey }));
+      }
+      if (model && finite(model.kModelNPerM)) {
+        const endForce = Math.min(plot.maxF, model.kModelNPerM * plot.maxX);
+        const end = point(plot.maxX * endForce / Math.max(plot.maxF, model.kModelNPerM * plot.maxX), endForce);
+        svg.append(drawLine(plot.left, plot.top + plot.height, end.x, end.y, { stroke: "#2563eb", "stroke-width": 2.5, "data-review-line": "learner-model" }));
+      }
+      return svg;
+    }
+    function reviewMeasurementTable(springKey, rows, zeroM) {
+      const wrapper = element("div", undefined, "review-spring-evidence");
+      wrapper.dataset.reviewMeasurement = springKey;
+      const title = element("h4", springLabel(springKey));
+      const zero = element("p", undefined, "review-zero");
+      appendParts(zero, ["伸長量零位（原長基準）：", mathLength(zeroM)]);
+      const table = element("table", undefined, "review-measurement-table");
+      table.dataset.spring = springKey;
+      const caption = element("caption", `${springLabel(springKey)}三項正式量度`);
+      const headRow = element("tr");
+      const forceHead = element("th"); const extensionHead = element("th");
+      setMathContent(forceHead, [mathAxisLabel("作用力", "F", "N")]);
+      setMathContent(extensionHead, [mathAxisLabel("伸長量", "x", "cm")]);
+      headRow.append(forceHead, extensionHead);
+      const body = element("tbody");
+      rows.forEach((row) => {
+        const tr = element("tr");
+        const forceCell = element("td"); const extensionCell = element("td");
+        setMathContent(forceCell, [mathForce(row.loadKey)]);
+        setMathContent(extensionCell, [row.extensionM === null ? "未記錄" : mathLength(row.extensionM)]);
+        tr.append(forceCell, extensionCell); body.append(tr);
+      });
+      table.append(caption, element("thead"), body);
+      table.tHead.append(headRow);
+      wrapper.append(title, zero, table);
+      return wrapper;
     }
     function renderReview(notice = submitMessage, submitting = false) {
       if (!state || state.phase !== "review") return;
@@ -1015,33 +1113,46 @@
       const required = Persistence.hasCompleteAnswer(state, scenario);
       if (notice) dom.reviewSummary.append(element("p", notice, "neutral-status"));
       const editable = buildEditableViewModel(state, scenario);
-      const measurementText = element("p");
-      SPRINGS.forEach((key, index) => {
-        if (index) measurementText.append(document.createTextNode("；"));
-        appendParts(measurementText, [springLabel(key), "零位 ", mathLength(editable.calibrations[key]?.zeroM)]);
+
+      const measurementSection = element("section");
+      measurementSection.append(element("h3", "正式記錄的量度"), element("p", "以下是你記錄的兩個伸長量零位及六個負載伸長量；這些數值會用來建立你的模型。", "review-intro"));
+      SPRINGS.forEach((key) => measurementSection.append(reviewMeasurementTable(key, editable.measurements[key], editable.calibrations[key]?.zeroM)));
+
+      const modelSection = element("section");
+      modelSection.append(element("h3", "你的胡克定律模型"), element("p", "每個圖只顯示你的三個量度點和你畫出的模型直線。", "review-intro"));
+      SPRINGS.forEach((key) => {
+        const block = element("div", undefined, "review-model-evidence");
+        block.dataset.reviewModel = key;
+        const heading = element("h4", springLabel(key));
+        const copy = element("p", undefined, "review-answer");
+        appendParts(copy, ["你的模型：", mathFEqualsKX(), "；", editable.models[key] ? mathKFormula(editable.models[key].kModelNPerM) : "未完成"]);
+        block.append(heading, copy, reviewModelChart(key, editable.measurements[key], editable.models[key]));
+        modelSection.append(block);
       });
-      measurementText.append(document.createTextNode(`；六項量度已保存：${completionCount() >= 8 ? "是" : "否"}`));
-      const modelText = element("p");
-      SPRINGS.forEach((key, index) => {
-        if (index) modelText.append(document.createTextNode("；"));
-        appendParts(modelText, [springLabel(key), " ", editable.models[key] ? mathKFormula(editable.models[key].kModelNPerM) : "未完成"]);
-      });
-      const predictionText = element("p");
+
+      const predictionText = element("div", undefined, "review-answer-list");
       editable.predictions.forEach((prediction, index) => {
-        if (index) predictionText.append(document.createTextNode("；"));
-        appendParts(predictionText, [`預測 ${index + 1}：`, prediction.extensionM === null ? "未填寫" : mathLength(prediction.extensionM, 0)]);
+        const row = element("p", undefined, "review-answer");
+        if (prediction.extensionM === null) row.append(document.createTextNode(`預測 ${index + 1}：未填寫`));
+        else {
+          const naturalLengthM = editable.calibrations[prediction.springKey]?.zeroM;
+          appendParts(row, [`預測 ${index + 1}（${springLabel(prediction.springKey)}、`, mathForceValue(prediction.forceN, 2), "）：伸長量 ", mathLength(prediction.extensionM, 0), "；總長度 ", mathLength(finite(naturalLengthM) ? naturalLengthM + prediction.extensionM : null, 1)]);
+        }
+        predictionText.append(row);
       });
-      const designText = element("p");
-      if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個模組；", mathForceValue(editable.design.forceN)]);
+      const predictionSection = element("section");
+      predictionSection.append(element("h3", "預測答案"), element("p", "你提交的是每題的預測伸長量；總長度由原長加上伸長量計算。", "review-intro"), predictionText);
+
+      const designText = element("p", undefined, "review-answer");
+      if (editable.design) appendParts(designText, [springLabel(editable.design.springKey), "；", mathNumber(editable.design.moduleCount), " 個負載塊；總作用力 ", mathForceValue(editable.design.forceN)]);
       else designText.textContent = "未完成";
-      for (const [title, content] of [["量度", measurementText], ["線性關係（胡克定律）", modelText], ["預測", predictionText], ["安全承載設計", designText]]) {
-        const section = element("section");
-        section.append(element("h3", title), content);
-        dom.reviewSummary.append(section);
-      }
+      const designSection = element("section");
+      designSection.append(element("h3", "最大安全負載方案"), element("p", "這是按你的模型選出的負載方案；提交後才會顯示模擬中的結果。", "review-intro"), designText);
+
+      dom.reviewSummary.append(measurementSection, modelSection, predictionSection, designSection);
       document.querySelectorAll("[data-action='edit-section']").forEach((button) => { button.disabled = locked || submitting; });
       dom.submit.disabled = Boolean(locked || submitting || !required);
-      setText(dom.submitStatus, submitting ? "提交呼叫進行中；未顯示結果。" : required ? "所有必要答案及依賴資料已具備，可以一次提交。" : "仍有未完成的必要答案。 ");
+      setText(dom.submitStatus, submitting ? "提交呼叫進行中；未顯示結果。" : required ? "所有必要答案已具備，可以一次提交。" : "仍有未完成的必要答案。 ");
     }
     function renderResult(message = "") {
       if (!latestResult || !state || !scenario || !mayRevealCorrectness(presentation)) return renderTechnical("結果未能安全驗證；沒有顯示推測分數或正確性。 ");
@@ -1057,9 +1168,9 @@
       const totals = element("section", undefined, "result-block");
       totals.append(element("h2", "分項結果"));
       const grid = element("div", undefined, "result-grid");
-      appendGrid(grid, [["探究與量度", `${latestResult.breakdown.experimentScore} / 20`], ["模型", `${latestResult.breakdown.modelScore} / 20`], ["盲測預測", `${latestResult.breakdown.predictionScore} / 36`], ["工程設計", `${latestResult.breakdown.engineeringScore} / 24`]]);
+      appendGrid(grid, [["探究與量度", `${latestResult.breakdown.experimentScore} / 20`], ["模型", `${latestResult.breakdown.modelScore} / 20`], ["未量度負載的模型預測", `${latestResult.breakdown.predictionScore} / 36`], ["最大安全負載挑戰", `${latestResult.breakdown.engineeringScore} / 24`]]);
       totals.append(grid); dom.result.append(totals);
-      const evidence = element("section", undefined, "result-block"); evidence.append(element("h2", "物理證據與回饋"));
+      const evidence = element("section", undefined, "result-block"); evidence.append(element("h2", "各部分作答回饋"));
       const list = element("ul", undefined, "feedback-list");
       latestResult.feedbackItems.forEach((item) => {
         const itemNode = element("li");
@@ -1067,11 +1178,11 @@
         list.append(itemNode);
       });
       evidence.append(list); dom.result.append(evidence);
-      const reveal = element("section", undefined, "result-block"); reveal.append(element("h2", "提交後的實際測試"));
+      const reveal = element("section", undefined, "result-block"); reveal.append(element("h2", "提交後的模擬結果"));
       const rows = element("div", undefined, "result-grid");
       for (const key of SPRINGS) {
         const label = element("span");
-        appendParts(label, [springLabel(key), " 理想 ", mathVariable("k")]);
+        appendParts(label, [springLabel(key), " 模擬設定的 ", mathVariable("k")]);
         const value = element("strong");
         value.append(mathStiffness(view.trueSprings[key].kNPerM));
         rows.append(label, value);
@@ -1079,12 +1190,12 @@
       view.predictions.forEach((prediction, index) => {
         const value = element("strong");
         value.append(mathLength(prediction.actualExtensionM));
-        rows.append(element("span", `預測 ${index + 1} 實際伸長`), value);
+        rows.append(element("span", `預測 ${index + 1} 模擬中的伸長`), value);
       });
       if (view.engineering) {
         const extension = element("strong");
         extension.append(mathLength(view.engineering.extensionM));
-        rows.append(element("span", "工程方案實際伸長"), extension, element("span", "最大安全方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個模組` : "--"));
+        rows.append(element("span", "方案在模擬中的伸長"), extension, element("span", "模擬設定下的最大安全方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個負載塊` : "--"));
       }
       reveal.append(rows); dom.result.append(reveal);
       if (presentation === "submitted-committed") {
@@ -1224,7 +1335,7 @@
       dom.svg.append(drawText(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}・負載下的伸長量`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(225, 55, 595, 55, { stroke: "#334155", "stroke-width": 5 }), drawText(605, 61, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(springX, 55, springX, PREDICTION_STAGE.springTopY, { stroke: "#94a3b8", "stroke-width": 2 }));
-      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, shortestLoadBottomY, PREDICTION_STAGE.guideRight, shortestLoadBottomY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, shortestLoadBottomY - 10, ["最短位置（", { text: "x", class: "math-variable" }, " = ", { text: "0", class: "math-number" }, { text: " cm", class: "math-unit" }, "）"], { fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, shortestLoadBottomY, PREDICTION_STAGE.guideRight, shortestLoadBottomY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, shortestLoadBottomY - 10, ["未伸長位置（", { text: "x", class: "math-variable" }, " = ", { text: "0", class: "math-number" }, { text: " cm", class: "math-unit" }, "）"], { fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(112, shortestLoadBottomY, 112, maxLoadBottomY, { stroke: "#64748b", "stroke-width": 3 }));
       for (const extensionM of [0, .05, .10, .15, .18]) {
         const y = predictionSpringEndY(extensionM) + loadVisual.height;
@@ -1236,7 +1347,7 @@
       dom.svg.append(drawMathText(springX + loadVisual.width / 2 + 14, springEndY + loadVisual.height / 2 + 5, [{ text: n(spec.forceN, 2), class: "math-number" }, { text: " N", class: "math-unit" }], { fill: loadVisual.stroke, "font-size": 16, "font-weight": 700 }));
       const predictionLabelY = Math.min(458, loadBottomY + 24);
       dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, loadBottomY, PREDICTION_STAGE.guideRight, loadBottomY, { stroke: "#c2410c", "stroke-width": 3 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, predictionLabelY, ["你的預測伸長量 ", { text: (extension * 100).toFixed(0), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#9a3412", "font-size": 15, "font-weight": 700 }));
-      dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示實際終點。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+      dom.svg.append(drawText(440, 470, "只顯示你的預測；提交前不顯示模擬中的結果。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
     }
     function drawDesignStage() {
       const calculation = designCalculation();
@@ -1250,7 +1361,7 @@
 
       const ceilingEndX = 625;
       const ceilingLabelX = 640;
-      dom.svg.append(drawText(36, 32, "安全承載設計・找出最大安全負載", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawText(36, 32, "最大安全負載挑戰・找出安全方案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(ruler.x, ruler.top, ceilingEndX, ruler.top, { stroke: "#334155", "stroke-width": 5 }), drawText(ceilingLabelX, 54, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
 
       dom.svg.append(drawLine(ruler.x, ruler.top, ruler.x, ruler.bottom, { stroke: "#64748b", "stroke-width": 3 }));
@@ -1265,7 +1376,7 @@
 
       if (!calculation) {
         const emptyInstructionY = Math.min(ruler.bottom - 78, limitY + 72);
-        dom.svg.append(drawMathText(235, emptyInstructionY, ["請先選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "畫面會用你建立的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+        dom.svg.append(drawMathText(235, emptyInstructionY, ["請先選擇彈簧及負載塊。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "系統會用你建立的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
         return;
       }
 
@@ -1303,18 +1414,18 @@
         }));
       }
       dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }));
-      dom.svg.append(drawMathText(470, 430, ["模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawMathText(470, 430, ["按你的模型預測的末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
     }
     function drawReviewStage() {
       dom.svg.append(drawText(36, 32, "提交前檢查・只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawText(270, 215, "請檢查完整答案及依賴資料。", { class: "math-svg", "font-size": 20, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示正確性、分數及實際測試。", { class: "math-svg", fill: "#64748b", "font-size": 16 }));
+      dom.svg.append(drawText(270, 215, "請檢查你已記錄的全部作答。", { class: "math-svg", "font-size": 20, "font-weight": 700 }), drawText(276, 250, "提交後才會顯示評分及模擬設定下的結果。", { class: "math-svg", fill: "#64748b", "font-size": 16 }));
     }
     function drawResultStage() {
       const view = buildResultViewModel(state, scenario, latestResult);
-      dom.svg.append(drawText(36, 32, "已鎖定結果・揭示理想模型與實際測試", { "font-size": 18, "font-weight": 700 }));
+      dom.svg.append(drawText(36, 32, "已鎖定結果・顯示模擬設定下的結果", { "font-size": 18, "font-weight": 700 }));
       dom.svg.append(drawText(260, 160, `總分 ${view.score} / 100`, { "font-size": 32, "font-weight": 800, fill: "#1d4ed8" }), drawText(260, 205, view.passed ? "達到合格條件" : "未達到合格條件", { "font-size": 18, "font-weight": 700 }));
-      dom.svg.append(drawText(260, 270, "結果已鎖定，這個 attempt 不能再修改。", { "font-size": 14, fill: "#475569" }));
-      dom.svg.append(drawMathText(260, 298, ["A：理想 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.A.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }), drawMathText(430, 298, ["B：理想 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.B.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }));
+      dom.svg.append(drawText(260, 270, "結果已鎖定，本次作答不能再修改。", { "font-size": 14, fill: "#475569" }));
+      dom.svg.append(drawMathText(260, 298, ["A：模擬設定的 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.A.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }), drawMathText(430, 298, ["B：模擬設定的 ", { text: "k", class: "math-variable" }, " = ", { text: n(view.trueSprings.B.kNPerM, 1), class: "math-number" }, { text: " N/m", class: "math-unit" }], { "font-size": 14, fill: "#475569" }));
     }
     function renderStage() {
       if (!dom.svg || !state || !scenario) return;
@@ -1331,9 +1442,9 @@
       else if (state.phase === "design") drawDesignStage();
       else drawReviewStage();
       const stageDescription = mayRevealCorrectness(presentation)
-        ? "提交後的鎖定結果畫面，包含理想模型及實際測試結果。"
+        ? "提交後的鎖定結果畫面，包含模擬設定的模型及模擬中的結果。"
         : state?.phase === "predict"
-          ? "第三階段畫面顯示題目指定的彈簧和負載；拖動預測標記會令彈簧和負載一起伸長或縮短，提交前不顯示實際終點。"
+          ? "第三階段畫面顯示題目指定的彈簧和負載；拖動預測標記會令兩者隨預測伸長量移動，提交前不顯示模擬中的結果。"
           : state?.phase === "design"
             ? "第四階段用你第二階段建立的斜率計算 x = F/k；紅色虛線是安全伸長上限，請在安全方案中找出負載最大的方案。"
           : "畫面只顯示目前可觀察的探究現象、學生自己的資料或學生自己的標記；提交前不顯示正確性。";
@@ -1346,8 +1457,24 @@
       target.hidden = !visible;
       target.style.left = `${left}%`; target.style.top = `${top}%`;
       target.setAttribute("aria-label", label);
+      target.setAttribute("aria-valuetext", label);
       target.textContent = text;
       target.classList.toggle("is-dragging", Boolean(drag && drag.target === target));
+    }
+    function dragAccessibleLabel(kind) {
+      const springKey = state?.activeSpring || "A";
+      if (kind === "zero") return `${springLabel(springKey)}未加負載末端位置（伸長量零位），目前 ${cm(state?.working?.zeroDraftM)}`;
+      if (kind === "cursor") {
+        const loadKey = state?.activeLoadKey;
+        const calibration = state?.calibrations?.[springKey];
+        const extensionM = calibration && state?.working?.cursorDraftM !== null ? Model.measuredExtensionM(calibration.zeroM, state.working.cursorDraftM) : null;
+        return `${springLabel(springKey)}，${forceLabel(loadKey)}量度游標，目前伸長 ${cm(extensionM)}`;
+      }
+      if (kind === "model") {
+        return `${springLabel(springKey)}模型，彈簧常數 k = ${n(Model.kFromModelHandle(modelDraftM), 1)} N/m；左右鍵改變斜率，上下鍵只沿直線移動控制點`;
+      }
+      const spec = scenario?.predictions?.[state?.activePredictionIndex ?? 0];
+      return `預測 ${(state?.activePredictionIndex ?? 0) + 1}，${springLabel(spec?.springKey)}，${n(spec?.forceN, 2)} N，目前預測伸長 ${cm(predictionDraftM)}`;
     }
     function positionDragTargets() {
       const focusedTarget = Object.values(dragTargets).find((target) => target && target === document.activeElement);
@@ -1361,17 +1488,17 @@
       if (state.phase === "investigate") {
         const key = state.activeSpring; const zeroY = positionToY(state.working.zeroDraftM ?? scenario.springs[key].naturalLengthM);
         const zeroHandle = toPercent(INVESTIGATION_DRAG_HANDLE_X, zeroY);
-        setDrag(dom.zeroDrag, !state.calibrations[key] && !state.activeLoadKey, zeroHandle[0], zeroHandle[1], "自然長度零位標記；上下方向鍵可微調", "零");
+        setDrag(dom.zeroDrag, !state.calibrations[key] && !state.activeLoadKey, zeroHandle[0], zeroHandle[1], dragAccessibleLabel("zero"), "零");
         const cursorY = positionToY(state.working.cursorDraftM ?? state.calibrations[key]?.zeroM ?? scenario.springs[key].naturalLengthM); const cursor = toPercent(INVESTIGATION_DRAG_HANDLE_X, cursorY);
-        setDrag(dom.cursorDrag, Boolean(state.activeLoadKey && stable && state.calibrations[key]), cursor[0], cursor[1], "量度游標；上下方向鍵可微調", "量");
+        setDrag(dom.cursorDrag, Boolean(state.activeLoadKey && stable && state.calibrations[key]), cursor[0], cursor[1], dragAccessibleLabel("cursor"), "量");
       } else if (state.phase === "model") {
         const point = modelDraftPoint(); const target = toPercent(point.x, point.y);
-        setDrag(dom.modelDrag, true, target[0], target[1], "調整直線斜率；可在圖中上下左右移動，方向鍵也可微調", "線");
+        setDrag(dom.modelDrag, true, target[0], target[1], dragAccessibleLabel("model"), "線");
       } else if (state.phase === "predict") {
         const spec = scenario.predictions[state.activePredictionIndex];
         const loadVisual = predictionLoadVisual(spec.forceN);
         const target = toPercent(PREDICTION_STAGE.springX + loadVisual.width / 2 + 55, predictionSpringEndY(predictionDraftM));
-        setDrag(dom.predictionDrag, true, target[0], target[1], "預測標記；拖動會令彈簧和負載一起伸長或縮短，上下方向鍵可微調", "預");
+        setDrag(dom.predictionDrag, true, target[0], target[1], dragAccessibleLabel("prediction"), "預");
       }
       if (focusedTarget && !focusedTarget.hidden) focusedTarget.focus({ preventScroll: true });
     }
@@ -1416,7 +1543,9 @@
         render();
         return;
       }
-      const rawValue = valueFromPoint(drag.kind, point);
+      const rawValue = drag.kind === "cursor"
+        ? clamp(valueFromPoint(drag.kind, point), state.calibrations[state.activeSpring]?.zeroM ?? 0, Generator.STAGE_SPAN_M)
+        : valueFromPoint(drag.kind, point);
       const value = drag.kind === "zero" || drag.kind === "cursor" ? snapMeasurementPosition(drag.kind, rawValue) : rawValue;
       drag.lastValue = value;
       const delta = Math.abs(rawValue - drag.startValue);
@@ -1437,8 +1566,8 @@
       if (!drag || event.pointerId !== drag.pointerId) return;
       event.preventDefault();
       const current = drag.kind; removeDragListeners(); drag = null;
-      if (current === "zero") checkpoint("已保存零位游標的目前草稿位置；按記錄後才會成為量度證據。");
-      else if (current === "cursor") checkpoint("已保存量度游標的目前草稿位置；按記錄後才會成為量度證據。");
+      if (current === "zero") checkpoint("目前位置已暫存；按「記錄」後才會計入作答。");
+      else if (current === "cursor") checkpoint("目前位置已暫存；按「記錄」後才會計入作答。");
       else if (current === "model") recordModel();
       else recordPrediction();
       render();
@@ -1453,7 +1582,7 @@
       else predictionDraftM = snapshot.startValue;
       zeroMoveM = cursorMoveM = modelMoveM = predictionMoveM = 0;
       render();
-      announce("操作被取消；已回復拖動前的語意狀態。");
+      announce("操作被取消；已回復拖動前的位置。");
     }
     function keyboardAdjust(event, kind, target) {
       if (locked || presentation !== "editable" || !target) return;
@@ -1461,9 +1590,12 @@
       const allowed = kind === "model" ? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] : vertical ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
       if (!allowed.includes(event.key)) return;
       event.preventDefault();
-      const step = kind === "prediction" ? PREDICTION_SNAP_STEP_M : event.shiftKey ? .005 : .001; const direction = (event.key === "ArrowUp" || event.key === "ArrowRight") ? 1 : -1;
+      const step = kind === "prediction" ? PREDICTION_SNAP_STEP_M : event.shiftKey ? .005 : .001;
+      const direction = kind === "model"
+        ? (event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1)
+        : (event.key === "ArrowDown" ? 1 : -1);
       if (kind === "zero") { const before = state.working.zeroDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.zeroDraftM = snapMeasurementPosition(kind, rawValue); zeroMoveM = Math.min(Generator.STAGE_SPAN_M, zeroMoveM + Math.abs(rawValue - before)); zeroMode = "keyboard"; }
-      else if (kind === "cursor") { const before = state.working.cursorDraftM; const rawValue = clamp(before + direction * step, 0, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
+      else if (kind === "cursor") { const before = state.working.cursorDraftM; const minimum = state.calibrations[state.activeSpring]?.zeroM ?? 0; const rawValue = clamp(before + direction * step, minimum, Generator.STAGE_SPAN_M); state.working.cursorDraftM = snapMeasurementPosition(kind, rawValue); cursorMoveM = Math.min(Generator.STAGE_SPAN_M, cursorMoveM + Math.abs(rawValue - before)); cursorMode = "keyboard"; }
       else if (kind === "model") {
         const beforeM = modelDraftM; const beforeForceN = modelDraftForceN;
         if (event.key === "ArrowUp" || event.key === "ArrowDown") modelDraftForceN = clamp(beforeForceN + direction * (event.shiftKey ? .5 : .1), MODEL_MIN_POINT_FORCE_N, GRAPH.maxForceN);
@@ -1473,7 +1605,7 @@
       }
       else { const before = snapPredictionValue(predictionDraftM); predictionDraftM = snapPredictionValue(clamp(before + direction * step, 0, Generator.MAX_LINEAR_EXTENSION_M)); predictionMoveM = Math.min(Generator.MAX_LINEAR_EXTENSION_M, predictionMoveM + Math.abs(predictionDraftM - before)); predictionMode = "keyboard"; }
       if (kind === "model") recordModel(); else if (kind === "prediction") recordPrediction();
-      else checkpoint("已保存鍵盤微調的草稿位置；按記錄後才會成為量度證據。");
+      else checkpoint("目前位置已暫存；按「記錄」後才會計入作答。");
       render();
     }
     function bindDragTarget(kind, target) {
@@ -1569,9 +1701,9 @@
         try {
           const answer = attempt.snapshot?.answer; scenario = scenarioFor(answer); state = Persistence.decodeSnapshot(attempt.snapshot, scenario, "review");
           const computed = Scoring.scoreAnswer(state, scenario); const trusted = SimActivityFlow.reviewResult(computed, attempt.snapshot, attempt);
-          if (trusted.trusted) { latestResult = trusted.result; presentation = "trusted-finished-review"; locked = true; renderResult("已從已完成 attempt 安全還原並重算結果。"); }
-          else renderFallback(attempt, "已完成 attempt 的詳細答案與活動重算不一致；只顯示可信的 Moodle summary。");
-        } catch { renderFallback(attempt, "已完成 attempt 的詳細答案無法安全驗證；只顯示可信的 Moodle summary。"); }
+          if (trusted.trusted) { latestResult = trusted.result; presentation = "trusted-finished-review"; locked = true; renderResult("已從已完成本次作答安全還原並重算結果。"); }
+      else renderFallback(attempt, "已完成本次作答的詳細答案與活動重算不一致；只顯示可信的 Moodle 已保存摘要。");
+        } catch { renderFallback(attempt, "已完成本次作答的詳細答案無法安全驗證；只顯示可信的 Moodle 已保存摘要。"); }
       } else if (startupState === "frozen") {
         try {
           const payload = attempt.snapshot?.payload; const review = JSON.parse(payload?.reviewJson || "null");
@@ -1580,7 +1712,7 @@
           if (!payload || payload.reviewJson !== JSON.stringify(review) || payload.score !== computed.score || payload.maxScore !== computed.maxScore || payload.passed !== computed.passed || review.score !== computed.score || review.passed !== computed.passed) throw new Error("pending mismatch");
           pendingExpected = { reviewJson: payload.reviewJson, score: payload.score, maxScore: payload.maxScore, passed: payload.passed }; locked = true; presentation = "frozen"; latestResult = null; renderFrozen("上次提交仍待 Moodle 確認；只可重試同一份已凍結答案。");
         } catch { SimScorm.quarantinePending(); technicalLock("待確認提交資料未能安全驗證；已停止重試。"); }
-      } else technicalLock("無法安全讀取 Moodle attempt；操作及分數均未確認。");
+      } else technicalLock("無法安全讀取 Moodle 本次作答；操作及分數均未確認。");
     }
     ensureServices();
     bind();

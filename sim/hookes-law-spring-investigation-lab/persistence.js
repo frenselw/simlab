@@ -73,6 +73,10 @@
   function sameModelHandle(first, second) {
     return finite(first) && finite(second) && Math.abs(first - second) <= Model.FLOAT_EPSILON;
   }
+  function sameMeasurement(first, second) {
+    return Boolean(first && second && first.loadKey === second.loadKey && finite(first.cursorM) && finite(second.cursorM) &&
+      Math.abs(first.cursorM - second.cursorM) <= Model.FLOAT_EPSILON);
+  }
   function predictionValid(record, scenario) {
     return record === null || (exactKeys(record, ["extensionM"]) && Scoring.validPrediction(record, scenario));
   }
@@ -228,6 +232,7 @@
       next.fromReview = false;
     } else if (event.type === "replaceMeasurement") {
       if (!LOAD_KEYS.includes(loadKey) || !measurementValid(event.evidence, scenario, springKey, loadKey, next.calibrations[springKey])) throw new Error("Invalid measurement evidence");
+      if (sameMeasurement(next.measurements[springKey][loadKey], event.evidence)) return original;
       next.measurements[springKey][loadKey] = { loadKey, cursorM: event.evidence.cursorM, mode: event.evidence.mode, moveM: event.evidence.moveM };
       next.models[springKey] = null;
       next.predictions = [null, null, null];
@@ -314,6 +319,7 @@
     decodeSnapshot,
     normalizePhase,
     sameModelHandle,
+    sameMeasurement,
     apply,
     transitions: Object.freeze({
       replaceCalibration: (state, springKey, evidence, scenario) => apply(state, { type: "replaceCalibration", springKey, evidence }, scenario),

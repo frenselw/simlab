@@ -147,6 +147,22 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.deepEqual(cursorGuideAfter, { present:true, x:596, anchor:"end" }, `${label}: cursor guide label remains visible after moving the measurement line`);
 
   await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
+  await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)},G=window.HookesLawGenerator,P=window.HookesLawPersistence,scenario=G.generateScenario({seed:answer.seed}),review=P.transitions.setPhase(answer,'review',scenario),edited=P.transitions.editSection(review,'investigate',scenario); window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:edited}}); })()`);
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'investigate'", `${label}: measurement review edit could not reopen the investigation phase`);
+  await clickDirect(cdp, "[data-action='select-load'][data-load='F1']");
+  await clickDirect(cdp, "[data-action='attach-load']");
+  await waitUntil(cdp, "document.getElementById('measurementStatus').textContent.includes('讀數只代表')", `${label}: measurement invalidation load did not settle`);
+  await pressKey(cdp, "#cursorDrag", "ArrowDown", 6);
+  await clickDirect(cdp, "[data-action='record-measurement']");
+  const measurementInvalidation = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),spring=state.activeSpring; return {spring,status:document.getElementById('measurementStatus').textContent,live:document.getElementById('liveRegion').textContent,model:state.models[spring],predictions:state.predictions.filter(Boolean).length,design:state.design,fromReview:state.fromReview}; })()");
+  assert.match(measurementInvalidation.status, /已更新/ , `${label}: changed measurement visibly says it was updated (${measurementInvalidation.status})`);
+  assert.match(measurementInvalidation.status, /模型.*清除|清除.*模型/, `${label}: changed measurement explains model invalidation`);
+  assert.match(measurementInvalidation.status, /重新完成/, `${label}: changed measurement asks for the affected later phases again`);
+  assert.equal(measurementInvalidation.model, null, `${label}: changed measurement clears that spring model`);
+  assert.equal(measurementInvalidation.predictions, 0, `${label}: changed measurement clears predictions`);
+  assert.equal(measurementInvalidation.design, null, `${label}: changed measurement clears the design`);
+  assert.equal(measurementInvalidation.fromReview, false, `${label}: changed measurement exits review continuation`);
+  await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
   await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='model']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model semantic regression could not open the model phase`);
   const modelBeforeNoOp = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),key=state.activeSpring; return {key,handle:state.models[key].handleExtensionM,predictions:JSON.stringify(state.predictions),design:JSON.stringify(state.design),fromReview:state.fromReview}; })()");
@@ -177,7 +193,23 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   const review = await evaluate(cdp, `(() => ({ phase:window.__hookesLawDebug.getState().phase, hidden:document.getElementById('resultPanel').classList.contains('is-hidden'), text:document.getElementById('controlPanel').textContent }))()`);
   assert.equal(review.phase, "review", `${label}: complete authority reaches review`);
   assert.equal(review.hidden, true, `${label}: review has no result panel`);
-  assert.doesNotMatch(review.text, /理想 k|最佳安全方案|實際伸長/, `${label}: review has no correctness or actual endpoint`);
+  assert.doesNotMatch(review.text, /模擬設定的|最佳安全方案|模擬中的伸長|分數|正確性/, `${label}: review has no correctness or simulation-result reveal`);
+  const reviewEvidence = await evaluate(cdp, "(() => ({measurementTables:[...document.querySelectorAll('#reviewSummary .review-measurement-table')].map((table)=>table.querySelectorAll('tbody tr').length),measurementCells:[...document.querySelectorAll('#reviewSummary .review-measurement-table tbody td:nth-child(2)')].map((cell)=>cell.textContent.trim()),modelCharts:document.querySelectorAll('#reviewSummary svg[data-review-model]').length,modelPoints:document.querySelectorAll('#reviewSummary svg[data-review-model] [data-review-point]').length,modelText:document.getElementById('reviewSummary').textContent}))()");
+  assert.deepEqual(reviewEvidence.measurementTables, [3, 3], `${label}: review displays three saved measurements for each spring`);
+  assert.equal(reviewEvidence.measurementCells.length, 6, `${label}: review displays all six learner measurement values`);
+  assert.equal(reviewEvidence.modelCharts, 2, `${label}: review displays one learner-only model chart per spring`);
+  assert.equal(reviewEvidence.modelPoints, 6, `${label}: review model charts display all six learner data points`);
+  assert.match(reviewEvidence.modelText, /彈簧 A/);
+  assert.match(reviewEvidence.modelText, /彈簧 B/);
+  assert.match(reviewEvidence.modelText, /N\/m/);
+  await clickDirect(cdp, "[data-action='edit-section'][data-edit-phase='model']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: review model edit did not reopen the model phase`);
+  const editFocus = await evaluate(cdp, "(() => ({tag:document.activeElement?.tagName||'',panel:document.activeElement?.closest('.panel-section')?.id||'',text:document.activeElement?.textContent||''}))()");
+  assert.equal(editFocus.tag, "H2", `${label}: review edit moves focus to the new phase heading`);
+  assert.equal(editFocus.panel, "modelPanel", `${label}: review edit focus stays inside the selected phase`);
+  await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
+  await clickDirect(cdp, "[data-action='to-review']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'review'", `${label}: review fixture could not be restored after focus check`);
 
   await evaluate(cdp, "document.querySelector('[data-action=submit]').click()");
   for (let attempt = 0; attempt < 80; attempt += 1) {
@@ -295,9 +327,21 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   await setViewport(cdp, 390, 700, false);
   await navigate(cdp, `${baseUrl}${launchPath}?learner-path=${label}-${keyboard ? "keyboard" : "pointer"}`);
   await evaluate(cdp, "window.__hookErrors=[]; window.addEventListener('error',event=>window.__hookErrors.push(event.error?.stack||event.message));");
+  const initialDragLabel = await evaluate(cdp, "document.getElementById('zeroDrag')?.getAttribute('aria-label')||''");
+  assert.match(initialDragLabel, /彈簧 A.*零位/ , `${label}: zero marker exposes the active spring and zero-position meaning`);
+  assert.match(initialDragLabel, /cm/, `${label}: zero marker exposes its current centimetre value`);
   for (const springKey of ["A", "B"]) {
     if (springKey !== "A") await clickDirect(cdp, `[data-action="spring-tab"][data-spring="${springKey}"]`);
-    if (keyboard) await pressKey(cdp, "#zeroDrag", "ArrowUp", 6);
+    if (keyboard) {
+      if (springKey === "A") {
+        const before = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),rect=document.getElementById('zeroDrag').getBoundingClientRect(); return {value:state.working.zeroDraftM,top:rect.top}; })()");
+        await pressKey(cdp, "#zeroDrag", "ArrowUp");
+        const afterUp = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),rect=document.getElementById('zeroDrag').getBoundingClientRect(); return {value:state.working.zeroDraftM,top:rect.top}; })()");
+        assert.ok(afterUp.value < before.value && afterUp.top < before.top, `${label}: ArrowUp decreases the zero-position value and moves its marker upward`);
+        await pressKey(cdp, "#zeroDrag", "ArrowDown");
+      }
+      await pressKey(cdp, "#zeroDrag", "ArrowDown", 6);
+    }
     else {
       await dragMouse(cdp, "#zeroDrag", { x: 0, y: 24 });
     }
@@ -307,7 +351,18 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
       await clickDirect(cdp, `[data-action="select-load"][data-load="${loadKey}"]`);
       await clickDirect(cdp, "[data-action='attach-load']");
       await waitUntil(cdp, "document.getElementById('measurementStatus').textContent.includes('讀數只代表')", `${label}: load ${loadKey} did not settle`);
-      if (keyboard) await pressKey(cdp, "#cursorDrag", "ArrowUp", 6);
+      if (keyboard) {
+        if (springKey === "A" && loadKey === "F1") {
+          await pressKey(cdp, "#cursorDrag", "ArrowDown", 6);
+          const before = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),rect=document.getElementById('cursorDrag').getBoundingClientRect(); return {value:state.working.cursorDraftM,top:rect.top,label:document.getElementById('cursorDrag').getAttribute('aria-label')}; })()");
+          assert.match(before.label, /彈簧 A.*1\.0 N.*量度游標.*伸長/, `${label}: cursor name includes the active load and extension value`);
+          await pressKey(cdp, "#cursorDrag", "ArrowUp");
+          const afterUp = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),rect=document.getElementById('cursorDrag').getBoundingClientRect(); return {value:state.working.cursorDraftM,top:rect.top}; })()");
+          assert.ok(afterUp.value < before.value && afterUp.top < before.top, `${label}: ArrowUp decreases the cursor position and moves it upward`);
+          await pressKey(cdp, "#cursorDrag", "ArrowDown");
+        }
+        await pressKey(cdp, "#cursorDrag", "ArrowDown", 6);
+      }
       else {
         await dragMouse(cdp, "#cursorDrag", { x: 0, y: 30 });
       }
@@ -317,6 +372,8 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   }
   await clickDirect(cdp, "[data-action='to-model']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model phase did not open`);
+  const modelDragLabel = await evaluate(cdp, "document.getElementById('modelDrag')?.getAttribute('aria-label')||''");
+  assert.match(modelDragLabel, /彈簧 [AB]模型.*k = .*N\/m.*左右鍵改變斜率/, `${label}: model control exposes spring, k and keyboard ownership`);
   const modelAxis = await evaluate(cdp, "(() => { const d=document,f=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),fRect=f?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect(),x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {fX:Number(f?.getAttribute('x')),fAnchor:f?.getAttribute('text-anchor')||'',fRight:fRect?.right,fTickLeft:tickRect?.left,xX:Number(x?.getAttribute('x')),xY:Number(x?.getAttribute('y')),xAnchor:x?.getAttribute('text-anchor')||'',xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
   assert.ok(modelAxis.fX < 80 && modelAxis.fAnchor === "end", `${label}: vertical F axis label is separated from the tick numbers`);
   assert.ok(modelAxis.fRight < modelAxis.fTickLeft, `${label}: vertical F axis label does not overlap the tick numbers`);
@@ -357,15 +414,24 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.equal(predictionStage.hasSpring, true, `${label}: prediction screen draws the spring before dragging`);
   assert.equal(predictionStage.hasLoad, true, `${label}: prediction screen draws the specified load before dragging`);
   assert.ok(predictionStage.stageText.some((text) => text.includes("負載下的伸長量")), `${label}: prediction stage uses a clear learner-facing heading`);
-  assert.ok(predictionStage.stageText.includes("最短位置（x = 0 cm）"), `${label}: prediction screen labels the shortest position`);
+  assert.ok(predictionStage.stageText.includes("未伸長位置（x = 0 cm）"), `${label}: prediction screen labels the unloaded position`);
   assert.ok(predictionStage.stageText.includes("伸長量 x / cm"), `${label}: prediction screen labels extension in cm`);
   assert.ok(Math.abs(predictionStage.targetY - predictionStage.loadY) < 12, `${label}: prediction marker starts beside the load`);
   assert.deepEqual(predictionStage.predictionButtons, ["選擇題目 1", "選擇題目 2", "選擇題目 3"], `${label}: prediction switchers use clear question labels`);
   assert.equal(predictionStage.hasCurrentEditingText, false, `${label}: prediction selection uses highlight without the redundant current-editing label`);
   assert.equal(predictionStage.predictionStep, 0.01, `${label}: prediction values move in 1 cm increments`);
+  const predictionDragLabel = await evaluate(cdp, "document.getElementById('predictionDrag')?.getAttribute('aria-label')||''");
+  assert.match(predictionDragLabel, /預測 1.*彈簧 [AB].*N.*預測伸長/, `${label}: prediction control exposes question, load and extension value`);
+  if (keyboard) {
+    const before = await evaluate(cdp, "(() => { const evidence=window.__hookesLawDebug.interactionEvidence(),rect=document.getElementById('predictionDrag').getBoundingClientRect(); return {value:evidence.predictionDraftM,top:rect.top}; })()");
+    await pressKey(cdp, "#predictionDrag", "ArrowDown");
+    const afterDown = await evaluate(cdp, "(() => { const evidence=window.__hookesLawDebug.interactionEvidence(),rect=document.getElementById('predictionDrag').getBoundingClientRect(); return {value:evidence.predictionDraftM,top:rect.top}; })()");
+    assert.ok(afterDown.value > before.value && afterDown.top > before.top, `${label}: ArrowDown increases prediction extension and moves the marker downward`);
+    await pressKey(cdp, "#predictionDrag", "ArrowUp");
+  }
   for (let index = 0; index < 3; index += 1) {
     if (index) await clickDirect(cdp, `[data-action="prediction-select"][data-index="${index}"]`);
-    if (keyboard) await pressKey(cdp, "#predictionDrag", "ArrowUp", 6);
+    if (keyboard) await pressKey(cdp, "#predictionDrag", "ArrowDown", 6);
     else if (index === 0) {
       const exactTarget = await evaluate(cdp, `(() => {
         const debug=window.__hookesLawDebug,state=debug.getState(),spec=debug.getScenario().predictions[state.activePredictionIndex],
@@ -389,11 +455,11 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.equal(completedPredictionPhase.toDesignDisabled, false, `${label}: continue-to-design is enabled after all predictions are recorded`);
   await clickDirect(cdp, "#toDesign");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: design phase did not open`);
-  const designInitial = await evaluate(cdp, "(() => { const zero=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='0.0 cm'),ceiling=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='96'&&node.getAttribute('x2')==='625'&&node.getAttribute('y1')==='62'),ceilingLabel=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='固定端／天花板'),limitLine=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='142'&&node.getAttribute('x2')==='705'&&node.getAttribute('stroke')==='#dc2626'),limitText=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('安全上限')),limitMax=limitText?.querySelector('tspan.math-subscript'),emptyHeading=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='請先選擇彈簧及負載。'),emptyHelp=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('畫面會用你建立的斜率')); return {heading:document.querySelector('#designPanel h2')?.textContent||'',calculationState:document.getElementById('designCalculation')?.dataset.state||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),zeroY:Number(zero?.getAttribute('y')),ceilingY:Number(ceiling?.getAttribute('y1')),ceilingEndX:Number(ceiling?.getAttribute('x2')),ceilingLabelX:Number(ceilingLabel?.getAttribute('x')),limitY:Number(limitLine?.getAttribute('y1')),limitMaxShift:limitMax?.getAttribute('baseline-shift')||'',emptyHeadingY:Number(emptyHeading?.getAttribute('y')),emptyHelpY:Number(emptyHelp?.getAttribute('y'))}; })()");
+  const designInitial = await evaluate(cdp, "(() => { const zero=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='0.0 cm'),ceiling=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='96'&&node.getAttribute('x2')==='625'&&node.getAttribute('y1')==='62'),ceilingLabel=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='固定端／天花板'),limitLine=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='142'&&node.getAttribute('x2')==='705'&&node.getAttribute('stroke')==='#dc2626'),limitText=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('安全上限')),limitMax=limitText?.querySelector('tspan.math-subscript'),emptyHeading=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='請先選擇彈簧及負載塊。'),emptyHelp=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('系統會用你建立的斜率')); return {heading:document.querySelector('#designPanel h2')?.textContent||'',calculationState:document.getElementById('designCalculation')?.dataset.state||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),zeroY:Number(zero?.getAttribute('y')),ceilingY:Number(ceiling?.getAttribute('y1')),ceilingEndX:Number(ceiling?.getAttribute('x2')),ceilingLabelX:Number(ceilingLabel?.getAttribute('x')),limitY:Number(limitLine?.getAttribute('y1')),limitMaxShift:limitMax?.getAttribute('baseline-shift')||'',emptyHeadingY:Number(emptyHeading?.getAttribute('y')),emptyHelpY:Number(emptyHelp?.getAttribute('y'))}; })()");
   assert.ok(designInitial.heading.includes("最大安全負載"), `${label}: fourth phase explains the maximum-safe-load task`);
   assert.equal(designInitial.calculationState, "empty", `${label}: fourth phase asks for a spring before showing a calculation`);
   assert.ok(designInitial.stageText.some((text) => text.includes("安全上限")), `${label}: fourth phase stage labels the safety limit`);
-  assert.ok(designInitial.stageText.some((text) => text.includes("安全承載設計・找出最大安全負載")), `${label}: fourth phase stage has a clear task heading`);
+  assert.ok(designInitial.stageText.some((text) => text.includes("最大安全負載挑戰・找出安全方案")), `${label}: fourth phase stage has a clear task heading`);
   assert.equal(designInitial.limitMaxShift, "sub", `${label}: safety-limit max is rendered as a subscript`);
   assert.equal(designInitial.zeroY, designInitial.ceilingY + 5, `${label}: fourth phase zero tick aligns with the ceiling`);
   assert.ok(designInitial.ceilingLabelX > designInitial.ceilingEndX, `${label}: ceiling label sits to the right of the ceiling line`);
@@ -421,8 +487,8 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   await clickDirect(cdp, "[data-action='design-spring'][value='A']");
   const designCalculation = await evaluate(cdp, "(() => { const nodes=[...document.querySelectorAll('#stageSvg [data-role=design-load]')]; const tops=nodes.map((node)=>Number(node.getAttribute('y'))); const bottoms=nodes.map((node)=>Number(node.getAttribute('y'))+Number(node.getAttribute('height'))); return {calculation:document.getElementById('designCalculation')?.textContent||'',summary:document.getElementById('designSummary')?.textContent||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),kA:document.getElementById('designK_A')?.textContent||'',loadCount:nodes.length,loadHeight:nodes.length?Math.max(...bottoms)-Math.min(...tops):0}; })()");
   assert.ok(designCalculation.calculation.includes("F") && designCalculation.calculation.includes("x") && designCalculation.calculation.includes("安全上限"), `${label}: fourth phase shows the learner-model force and extension calculation`);
-  assert.ok(designCalculation.summary.includes("總負載"), `${label}: fourth phase shows the current total force summary`);
-  assert.ok(designCalculation.stageText.some((text) => text.includes("模型預測末端")), `${label}: fourth phase stage shows the learner-model endpoint`);
+  assert.ok(designCalculation.summary.includes("總作用力"), `${label}: fourth phase shows the current total force summary`);
+  assert.ok(designCalculation.stageText.some((text) => text.includes("按你的模型預測的末端")), `${label}: fourth phase stage shows the learner-model endpoint`);
   assert.ok(designCalculation.kA.includes("N/m"), `${label}: fourth phase shows the learner's spring slope`);
   assert.equal(designCalculation.loadCount, 1, `${label}: selecting a spring starts with one small hanging load block`);
   await clickDirect(cdp, "[data-action='module-plus']");

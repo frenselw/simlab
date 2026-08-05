@@ -124,11 +124,20 @@ assert.equal(recalibrated.measurements.B.F1.loadKey, "F1");
 assert.equal(recalibrated.models.B !== null, true);
 
 const editMeasurement = P.transitions.editSection(review, "investigate", scenario);
-const remeasured = P.transitions.replaceMeasurement(editMeasurement, "B", "F2", measurement(scenario, "B", "F2"), scenario);
+const unchangedMeasurement = P.transitions.replaceMeasurement(editMeasurement, "B", "F2", measurement(scenario, "B", "F2"), scenario);
+assert.deepEqual(unchangedMeasurement, editMeasurement, "re-saving the same measurement is a no-op");
+const epsilonMeasurementEvidence = measurement(scenario, "B", "F2");
+epsilonMeasurementEvidence.cursorM += M.FLOAT_EPSILON;
+const epsilonMeasurement = P.transitions.replaceMeasurement(editMeasurement, "B", "F2", epsilonMeasurementEvidence, scenario);
+assert.deepEqual(epsilonMeasurement, editMeasurement, "a measurement change within epsilon is a no-op");
+const changedMeasurementEvidence = measurement(scenario, "B", "F2");
+changedMeasurementEvidence.cursorM += 0.001;
+const remeasured = P.transitions.replaceMeasurement(editMeasurement, "B", "F2", changedMeasurementEvidence, scenario);
 assert.equal(remeasured.models.B, null);
 assert.equal(remeasured.models.A !== null, true);
 assert.ok(remeasured.predictions.every((item) => item === null));
 assert.equal(remeasured.design, null);
+assert.equal(remeasured.fromReview, false, "a changed measurement leaves review continuation");
 
 const editPrediction = P.transitions.editSection(review, "predict", scenario);
 const replacementPrediction = P.transitions.replacePrediction(editPrediction, 0, 0.04, scenario);

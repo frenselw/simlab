@@ -21,7 +21,7 @@
   <header class="app-header">
     <div>
       <h1>胡克定律：彈簧探究與預測實驗室</h1>
-      <p>量度伸長、建立 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 關係，再用斜率完成預測與安全承載設計。</p>
+      <p>量度伸長、建立 <span class="math-inline"><var class="math-variable">F</var>–<var class="math-variable">x</var></span> 關係，再用斜率完成預測與安全承載設計。</p>
     </div>
     <div class="header-status">
       <span id="phaseBadge" class="phase-badge">探究與量度</span>
@@ -48,18 +48,18 @@
 
       <section id="investigatePanel" class="panel-section">
         <p class="section-label">第一階段・探究與量度</p>
-        <h2>先找出自然長度，再記錄三個負載</h2>
-        <p class="task-copy">切換彈簧 A／B，標定未加負載時的末端位置。掛上指定負載並等待穩定，再把游標移到你認為的末端並記錄。</p>
+        <h2 tabindex="-1">先設定伸長量零位，再量度三個負載下的伸長量</h2>
+        <p class="task-copy">先在未加額外負載時，把紫色零位標記移到彈簧末端。這個位置代表彈簧的原長 <span class="math-inline"><var class="math-variable">L</var><sub>0</sub></span>，並定義為伸長量 <span class="math-inline"><var class="math-variable">x</var> = <span class="math-number">0</span><span class="math-unit"> cm</span></span>。之後掛上指定負載，待彈簧靜止，再把紅色量度游標移到新的末端位置；游標與零位之間的距離就是伸長量 <span class="math-inline"><var class="math-variable">x</var></span>。</p>
         <div class="spring-tabs" role="group" aria-label="選擇彈簧">
           <button type="button" data-action="spring-tab" data-spring="A" aria-pressed="true">彈簧 A</button>
           <button type="button" data-action="spring-tab" data-spring="B" aria-pressed="false">彈簧 B</button>
         </div>
         <section class="subsection" aria-labelledby="calibrationTitle">
-          <h3 id="calibrationTitle">自然長度零位</h3>
+          <h3 id="calibrationTitle">未加負載時的末端位置（零位）</h3>
           <p id="calibrationInstruction" class="instruction"></p>
           <div class="readout-row"><span>目前游標</span><strong id="zeroReadout" class="math-readout">--</strong></div>
           <div class="button-row">
-            <button type="button" id="recordCalibration" data-action="record-calibration">記錄自然長度位置</button>
+            <button type="button" id="recordCalibration" data-action="record-calibration">記錄零位</button>
             <button type="button" id="recalibrate" data-action="request-recalibrate" class="secondary-button">重新標定</button>
           </div>
           <p id="calibrationStatus" class="neutral-status math-context" aria-live="polite"></p>
@@ -75,14 +75,14 @@
           <p id="loadStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection" aria-labelledby="measurementTitle">
-          <h3 id="measurementTitle">量度游標</h3>
-          <p class="instruction">彈簧穩定後，移動模擬畫面上的游標到末端位置，再記錄這次量度。顯示的讀數是你的游標與零位之間的距離。</p>
-          <div class="readout-row"><span>學生讀數</span><strong id="cursorReadout" class="math-readout">--</strong></div>
+          <h3 id="measurementTitle">量度伸長量</h3>
+          <p class="instruction">彈簧穩定後，移動紅色量度游標到新的末端位置，再記錄這次量度。顯示的數值是游標與伸長量零位之間的距離。</p>
+          <div class="readout-row"><span>目前伸長量</span><strong id="cursorReadout" class="math-readout">--</strong></div>
           <button type="button" id="recordMeasurement" data-action="record-measurement">記錄量度</button>
           <p id="measurementStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection data-subsection" aria-labelledby="dataTitle">
-          <h3 id="dataTitle">已記錄的 <span class="math-inline"><i class="math-variable">F</i>–<i class="math-variable">x</i></span> 數據</h3>
+          <h3 id="dataTitle">已記錄的 <span class="math-inline"><var class="math-variable">F</var>–<var class="math-variable">x</var></span> 數據</h3>
           <div id="dataTable" class="data-tables math-context"></div>
         </section>
         <button type="button" id="toModel" data-action="to-model" class="primary-button next-button">完成量度後找出線性關係</button>
@@ -90,8 +90,8 @@
 
       <section id="modelPanel" class="panel-section is-hidden">
         <p class="section-label">第二階段・找出線性關係</p>
-        <h2>由數據點找出直線關係和斜率</h2>
-        <p class="task-copy">先觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線，令它代表你的數據。直線的斜率 <span class="math-inline"><i class="math-variable">k</i> = <i class="math-variable">F</i>/<i class="math-variable">x</i></span>；<span class="math-inline"><i class="math-variable">k</i></span> 是彈簧的勁度，而 <span class="math-inline"><i class="math-variable">x</i></span> 是伸長量。最後建立胡克定律的模型：<span class="math-inline"><i class="math-variable">F</i> = <i class="math-variable">k</i><i class="math-variable">x</i></span>，表示彈簧的彈力與伸長量成正比。</p>
+        <h2 tabindex="-1">由數據點找出直線關係和斜率</h2>
+        <p class="task-copy">圖中橫軸是伸長量 <span class="math-inline"><var class="math-variable">x</var></span>，縱軸是所掛負載對彈簧的作用力 <span class="math-inline"><var class="math-variable">F</var></span>。彈簧靜止時，這個作用力的大小等於彈簧回復力的大小。請拖動控制點，畫出一條由原點出發、最能代表三個量度點的直線。因為直線通過原點，其斜率 <span class="math-inline"><var class="math-variable">k</var> = Δ<var class="math-variable">F</var>/Δ<var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">x</var></span>。<var class="math-variable">k</var> 稱為彈簧常數（勁度），單位是 <span class="math-inline"><span class="math-unit">N/m</span></span>；<var class="math-variable">k</var> 越大，同一作用力造成的伸長越小。你的胡克定律模型是 <span class="math-inline"><var class="math-variable">F</var> = <var class="math-variable">k</var><var class="math-variable">x</var></span>。</p>
         <div class="spring-tabs" role="group" aria-label="選擇要建立模型的彈簧">
           <button type="button" data-action="model-spring-tab" data-spring="A" aria-pressed="true">彈簧 A</button>
           <button type="button" data-action="model-spring-tab" data-spring="B" aria-pressed="false">彈簧 B</button>
@@ -104,9 +104,9 @@
       </section>
 
       <section id="predictPanel" class="panel-section is-hidden">
-        <p class="section-label">第三階段・盲測預測</p>
-        <h2>拉動彈簧，預測負載下的長度</h2>
-        <p class="task-copy">題目會指定彈簧 A 或 B，以及一個尚未直接量度的負載。畫面中的彈簧和重物已經掛好，開始時保持在最短（<span class="math-inline"><i class="math-variable">x</i> = <span class="math-number">0</span><span class="math-unit"> cm</span></span>）位置。拖動橙色「預測」標記，令整條彈簧和重物一起伸長或縮短；根據第二階段的斜率預測伸長量，再由自然長度加上伸長量估計總長度。你可以返回第二階段查看兩條斜率，已填寫的預測會保留。</p>
+        <p class="section-label">第三階段・未量度負載的模型預測</p>
+        <h2 tabindex="-1">用你的模型預測伸長量</h2>
+        <p class="task-copy">每題會指定一條彈簧和一個第一階段未量度的作用力。畫面起初放在未伸長位置（<span class="math-inline"><var class="math-variable">x</var> = <span class="math-number">0</span><span class="math-unit"> cm</span></span>）。上下移動橙色「預測」標記，設定你預測的伸長量 <span class="math-inline"><var class="math-variable">x</var></span>；重物會隨標記上下移動，系統亦會用 <span class="math-inline"><var class="math-variable">L</var> = <var class="math-variable">L</var><sub>0</sub> + <var class="math-variable">x</var></span> 顯示預測總長度。你可以返回第二階段查看自己的數據、直線和 <span class="math-inline"><var class="math-variable">k</var></span>，已記錄的預測會保留。</p>
         <div id="predictionCards" class="prediction-cards math-context"></div>
         <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看線性關係</button><button type="button" data-action="navigate-phase" data-phase="investigate" class="secondary-button">返回第一階段查看量度</button></div>
         <p id="predictionStatus" class="neutral-status math-context" aria-live="polite"></p>
@@ -114,32 +114,32 @@
       </section>
 
       <section id="designPanel" class="panel-section is-hidden">
-        <p class="section-label">第四階段・安全承載設計</p>
-        <h2>用 <span class="math-inline"><i class="math-variable">F</i> = <i class="math-variable">kx</i></span> 設計最大安全負載</h2>
-        <p class="task-copy">情境：裝置要承受盡量大的總負載，但彈簧伸長不可超過安全上限。你要應用第二階段自己建立的斜率 <span class="math-inline"><i class="math-variable">k</i></span>，找出一個安全而且負載最大的方案。</p>
+        <p class="section-label">第四階段・最大安全負載挑戰</p>
+        <h2 tabindex="-1">用 <span class="math-inline"><var class="math-variable">F</var> = <var class="math-variable">k</var><var class="math-variable">x</var></span> 設計最大安全負載</h2>
+        <p class="task-copy">根據你建立的彈簧常數 <span class="math-inline"><var class="math-variable">k</var></span>，選擇你預測不會超過伸長上限、而且總作用力最大的方案。這裡顯示的是按你的模型計算的結果；提交後，系統才會用模擬設定值檢查方案是否安全。</p>
         <div class="design-brief math-context">
           <strong>做法</strong>
-          <ol><li>選擇彈簧 A 或 B，查看你為它建立的 <span class="math-inline"><i class="math-variable">k</i></span>。</li><li>每次加減一個 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載模組。</li><li>用 <span class="math-inline"><i class="math-variable">x</i> = <i class="math-variable">F</i>/<i class="math-variable">k</i></span> 檢查伸長，令 <span class="math-inline"><i class="math-variable">x</i> ≤ <i class="math-variable">x</i><sub>max</sub></span>，再在安全方案中選負載最大的方案。</li></ol>
+          <ol><li>選擇彈簧 A 或 B，查看你為它建立的 <span class="math-inline"><var class="math-variable">k</var></span>。</li><li>每次加減一個 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載塊。</li><li>用 <span class="math-inline"><var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">k</var></span> 檢查伸長，令 <span class="math-inline"><var class="math-variable">x</var> ≤ <var class="math-variable">x</var><sub>max</sub></span>，再在安全方案中選總作用力最大的方案。</li></ol>
         </div>
-        <div class="challenge-note">本題安全伸長上限 <span class="math-inline"><i class="math-variable">x</i><sub>max</sub></span>：<strong id="designLimit" class="math-readout">--</strong></div>
+        <div class="challenge-note">本題安全伸長上限 <span class="math-inline"><var class="math-variable">x</var><sub>max</sub></span>：<strong id="designLimit" class="math-readout">--</strong></div>
         <fieldset class="choice-fieldset design-spring-choices"><legend>1. 選擇彈簧，先比較你的斜率</legend>
-          <label><input type="radio" name="designSpring" value="A" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 A</strong><small id="designK_A" class="math-context">你的 <i class="math-variable">k</i>：--</small></span></label>
-          <label><input type="radio" name="designSpring" value="B" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 B</strong><small id="designK_B" class="math-context">你的 <i class="math-variable">k</i>：--</small></span></label>
+          <label><input type="radio" name="designSpring" value="A" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 A</strong><small id="designK_A" class="math-context">你的 <var class="math-variable">k</var>：--</small></span></label>
+          <label><input type="radio" name="designSpring" value="B" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 B</strong><small id="designK_B" class="math-context">你的 <var class="math-variable">k</var>：--</small></span></label>
         </fieldset>
         <div class="module-control">
-          <span><strong>2. 調整負載</strong><small>每個模組增加 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span></small></span>
-          <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載模組">−</button><output id="moduleCount" class="math-readout" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載模組">＋</button></div>
+          <span><strong>2. 調整負載</strong><small>每個負載塊增加 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span></small></span>
+          <div class="stepper"><button type="button" data-action="module-minus" aria-label="減少負載塊">−</button><output id="moduleCount" class="math-readout" aria-live="polite">--</output><button type="button" data-action="module-plus" aria-label="增加負載塊">＋</button></div>
         </div>
         <div id="designCalculation" class="design-calculation math-context" aria-live="polite"></div>
         <div id="designSummary" class="design-summary math-context"></div>
         <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="predict" class="secondary-button">返回第三階段查看預測</button><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看斜率</button></div>
-        <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">完成安全承載設計，查看完整答案</button>
+        <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">完成設計，前往提交前檢查</button>
       </section>
 
       <section id="reviewPanel" class="panel-section is-hidden">
         <p class="section-label">第五階段・提交前檢查</p>
-        <h2>檢查自己的最終答案</h2>
-        <p class="task-copy">這裡只顯示你的答案、完成度和依賴資料狀態。提交後本次作答會鎖定，系統才會顯示正確性、分數及實際測試結果。</p>
+        <h2 tabindex="-1">檢查自己的最終答案</h2>
+        <p class="task-copy">這裡列出你已記錄的全部作答。請逐項核對；提交後本次作答會鎖定，才會顯示評分及模擬設定下的結果。</p>
         <div id="reviewSummary" class="review-summary math-context"></div>
         <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改安全承載設計</button></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
@@ -160,10 +160,10 @@
         <button type="button" id="predictionDrag" class="drag-target" data-drag-target="prediction" hidden aria-describedby="predictionDragHelp"></button>
       </div>
       <p id="stageDescription" class="sr-only">互動畫面會顯示目前階段可觀察的彈簧、讀數、學生數據或學生標記。</p>
-      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
-      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；也可用上下方向鍵以 <span class="math-inline"><span class="math-number">0.1</span><span class="math-unit">cm</span></span> 微調。</p>
-      <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動「線」標記調整直線；上下左右方向鍵可微調直線位置和斜率。</p>
-      <p id="predictionDragHelp" class="sr-only">使用滑鼠或觸控拖動橙色預測標記，令彈簧和負載一起伸長或縮短；上下方向鍵可微調預測伸長量。</p>
+      <p id="zeroDragHelp" class="sr-only">使用滑鼠或觸控拖動；按向下鍵會增加位置，按向上鍵會減少位置，也可按 Shift 以較大步幅微調。</p>
+      <p id="cursorDragHelp" class="sr-only">使用滑鼠或觸控拖動量度游標；按向下鍵會增加位置，按向上鍵會減少位置，也可按 Shift 以較大步幅微調。</p>
+      <p id="modelDragHelp" class="sr-only">使用滑鼠或觸控拖動控制點調整模型；向上鍵增加模型力、向下鍵減少模型力，向右鍵增加伸長量、向左鍵減少伸長量；按 Shift 以較大步幅微調。</p>
+      <p id="predictionDragHelp" class="sr-only">使用滑鼠或觸控拖動橙色預測標記；按向下鍵會增加預測伸長量，按向上鍵會減少，每步為 <span class="math-inline"><span class="math-number">1</span><span class="math-unit">cm</span></span>。</p>
     </section>
   </div>
 </main>
@@ -171,7 +171,7 @@
 <dialog id="recalibrationDialog">
   <form method="dialog" class="dialog-content">
     <h2>重新標定</h2>
-    <p id="recalibrationMessage">重新標定會清除這條彈簧已記錄的量度、模型及所有依賴模型的預測／工程方案。</p>
+    <p id="recalibrationMessage">重新標定會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／安全負載方案。</p>
     <div class="button-row"><button value="cancel">保留目前資料</button><button id="confirmRecalibration" value="confirm" class="primary-button">清除並重新標定</button></div>
   </form>
 </dialog>
