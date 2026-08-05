@@ -1241,12 +1241,26 @@
         coils.push(String(x) + "," + String(y));
       }
       const loadY = endpointY - 2;
-      const loadWidth = 74 + calculation.moduleCount * 12;
-      const loadHeight = 26 + calculation.moduleCount * 2;
+      const moduleWidth = 58;
+      const moduleHeight = 12;
+      const moduleGap = 2;
+      const loadX = springX - moduleWidth / 2;
       dom.svg.append(drawMathText(springX, 50, [springLabel(calculation.springKey)], { "font-size": 15, "font-weight": 700, "text-anchor": "middle", fill: "#475569" }));
       dom.svg.append(drawLine(springX, ruler.top, springX, 70, { stroke: "#94a3b8", "stroke-width": 2 }), svgElement("polyline", { points: coils.join(" "), fill: "none", stroke: "#475569", "stroke-width": 4, "stroke-linejoin": "round" }));
-      dom.svg.append(svgElement("rect", { "data-role": "design-load", x: springX - loadWidth / 2, y: loadY, width: loadWidth, height: loadHeight, rx: 4, fill: "#94a3b8", stroke: "#475569", "stroke-width": 2 }));
-      dom.svg.append(drawText(springX, loadY + loadHeight / 2 + 5, "負載", { class: "math-svg", "font-size": 14, "font-weight": 700, "text-anchor": "middle", fill: "#ffffff" }));
+      for (let index = 0; index < calculation.moduleCount; index += 1) {
+        dom.svg.append(svgElement("rect", {
+          "data-role": "design-load",
+          "data-module-index": index,
+          x: loadX,
+          y: loadY + index * (moduleHeight + moduleGap),
+          width: moduleWidth,
+          height: moduleHeight,
+          rx: 3,
+          fill: "#94a3b8",
+          stroke: "#475569",
+          "stroke-width": 1.5
+        }));
+      }
       dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }));
       dom.svg.append(drawMathText(470, 430, ["模型預測末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
     }
