@@ -105,6 +105,22 @@ async function touch(cdp, type, x, y) {
   });
 }
 
+async function settleHostScroll(cdp, target, label) {
+  const settled = await evaluate(cdp, `new Promise((resolve, reject) => {
+    let stable = 0, frames = 0;
+    const tick = () => {
+      window.scrollTo(0, ${JSON.stringify(target)});
+      const current = Math.round(window.scrollY);
+      stable = current === ${JSON.stringify(target)} ? stable + 1 : 0;
+      if (stable >= 5) return resolve(current);
+      if (++frames > 60) return reject(new Error("host scroll did not settle"));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  })`);
+  assert.equal(settled, target, `${label}: host scroll settles before trusted touch`);
+}
+
 async function clickPoint(cdp, x, y) {
   await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
@@ -352,8 +368,8 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     width: 390, height: 600, deviceScaleFactor: 1, mobile: true
   });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  await settleHostScroll(cdp, 150, label);
   const panelSwipe = await evaluate(cdp, `(() => {
-    scrollTo(0,150);
     const frame=document.getElementById("activity"), doc=frame.contentDocument;
     const panel=doc.getElementById("controlsPanel");
     panel.scrollTop=0;
@@ -458,8 +474,8 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   }
 
   async function stageSwipe(hostStart, deltaY, description) {
+    await settleHostScroll(cdp, hostStart, `${label}: ${description}`);
     const setup = await evaluate(cdp, `(() => {
-      scrollTo(0,${hostStart});
       const frame=document.getElementById("activity"), doc=frame.contentDocument;
       const stage=doc.getElementById("stageRegion"), bounds=stage.getBoundingClientRect();
       const frameBounds=frame.getBoundingClientRect();
