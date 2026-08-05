@@ -21,3 +21,4 @@ jobs:
       - run: npm run test:browser:linear-motion
       - run: npm run test:browser:mobile-touch
       - run: npm run test:browser:driving
+      - run: npm run test:browser:hookes-law
