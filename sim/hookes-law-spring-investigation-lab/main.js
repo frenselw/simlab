@@ -1,13 +1,87 @@
 (function (root, factory) {
-  const G = typeof module === "object" && module.exports ? require("./generator.js") : root.HookesLawGenerator;
-  const M = typeof module === "object" && module.exports ? require("./model.js") : root.HookesLawModel;
-  const A = typeof module === "object" && module.exports ? require("./animation.js") : root.HookesLawAnimation;
-  const S = typeof module === "object" && module.exports ? require("./scoring.js") : root.HookesLawScoring;
-  const P = typeof module === "object" && module.exports ? require("./persistence.js") : root.HookesLawPersistence;
-  const api = factory(G, M, A, S, P);
-  if (typeof module === "object" && module.exports) module.exports = api;
+  const ACTIVITY = "hookes-law-spring-investigation-lab";
+  const isCommonJs = typeof module === "object" && module.exports;
+  function loadModule(loader) { try { return loader(); } catch { return null; } }
+  function hasMethods(value, methods) { return Boolean(value) && methods.every((method) => typeof value[method] === "function"); }
+  function hasFiniteProperties(value, properties) { return Boolean(value) && properties.every((property) => Number.isFinite(value[property])); }
+  function dependencyIssue(generator, model, animation, scoring, persistence) {
+    if (!hasMethods(generator, ["generateScenario"]) || !hasFiniteProperties(generator, ["FLOAT_EPSILON", "MAX_LINEAR_EXTENSION_M", "STAGE_SPAN_M"])) return "generator";
+    if (!hasMethods(model, ["endpointM", "extensionM", "measuredExtensionM", "graphPointFromPhysics", "physicsFromGraphPoint", "kFromModelHandle"]) || !hasFiniteProperties(model, ["FLOAT_EPSILON", "MIN_EXTENSION_M", "MIN_OPERATION_MOVE_M", "MODEL_HANDLE_FORCE_N"])) return "model";
+    if (!hasMethods(animation, ["createAnimator"])) return "animation";
+    if (!hasMethods(scoring, ["scoreAnswer"]) || !scoring.forceByKey || typeof scoring.forceByKey !== "object") return "scoring";
+    const persistenceMethods = ["freshState", "clone", "validateAnswer", "answerForSnapshot", "decodeSnapshot", "hasAllCalibrationsAndMeasurements", "hasAllModels", "hasAllPredictions", "hasCompleteAnswer", "sameMeasurement"];
+    const transitionMethods = ["replaceCalibration", "clearCalibration", "replaceMeasurement", "replaceModel", "replacePrediction", "replaceDesign", "setPhase", "editSection"];
+    if (!hasMethods(persistence, persistenceMethods) || !Array.isArray(persistence.PHASES) || !hasMethods(persistence.transitions, transitionMethods)) return "persistence";
+    return null;
+  }
+  function createBootstrapFailureApi() {
+    const message = "活動程式未能安全啟動；操作及分數均未確認。";
+    function lockDocument() {
+      if (typeof document === "undefined") return;
+      const answerPanelIds = ["investigatePanel", "modelPanel", "predictPanel", "designPanel", "reviewPanel", "resultPanel", "debugPanel"];
+      answerPanelIds.forEach((id) => document.getElementById(id)?.classList.add("is-hidden"));
+      const technical = document.getElementById("technicalPanel");
+      technical?.classList.remove("is-hidden");
+      const technicalTitle = document.getElementById("technicalTitle");
+      if (technicalTitle) technicalTitle.textContent = "活動暫時鎖定";
+      const technicalMessage = document.getElementById("technicalMessage");
+      if (technicalMessage) {
+        technicalMessage.textContent = message;
+        technicalMessage.dataset.kind = "technical";
+      }
+      document.getElementById("technicalActions")?.replaceChildren();
+      document.getElementById("resultPanel")?.replaceChildren();
+      document.getElementById("stageSvg")?.replaceChildren();
+      document.querySelectorAll("[data-action]").forEach((node) => {
+        if ("disabled" in node) node.disabled = true;
+        node.setAttribute("aria-disabled", "true");
+      });
+      document.querySelectorAll(".drag-target").forEach((node) => { node.hidden = true; node.disabled = true; });
+      document.getElementById("app")?.setAttribute("data-presentation", "technical");
+      const live = document.getElementById("liveRegion");
+      if (live) live.textContent = message;
+    }
+    function boot() {
+      lockDocument();
+      return {
+        activity: ACTIVITY,
+        getState: () => null,
+        getPresentation: () => "technical",
+        getScenario: () => null,
+        getResult: () => null,
+        mayReveal: () => false,
+        interactionEvidence: () => ({ locked: true }),
+        render: lockDocument,
+        routeAttempt: () => false,
+        routeStartup: () => "load-error",
+        routeSubmission: () => false,
+        cancelDrag: () => {}
+      };
+    }
+    return { activity: ACTIVITY, boot };
+  }
+
+  const G = isCommonJs ? loadModule(() => require("./generator.js")) : root.HookesLawGenerator;
+  const M = isCommonJs ? loadModule(() => require("./model.js")) : root.HookesLawModel;
+  const A = isCommonJs ? loadModule(() => require("./animation.js")) : root.HookesLawAnimation;
+  const S = isCommonJs ? loadModule(() => require("./scoring.js")) : root.HookesLawScoring;
+  const P = isCommonJs ? loadModule(() => require("./persistence.js")) : root.HookesLawPersistence;
+  let api;
+  try {
+    api = dependencyIssue(G, M, A, S, P) ? createBootstrapFailureApi() : factory(G, M, A, S, P);
+  } catch {
+    api = createBootstrapFailureApi();
+  }
+  if (isCommonJs) module.exports = api;
   if (root) root.HookesLawApp = api;
-  if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => { root.__hookesLawDebug = api.boot(); });
+  if (typeof document !== "undefined") {
+    const start = () => {
+      try { root.__hookesLawDebug = api.boot(); }
+      catch { const fallback = createBootstrapFailureApi(); root.HookesLawApp = fallback; root.__hookesLawDebug = fallback.boot(); }
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+    else start();
+  }
 })(typeof window !== "undefined" ? window : globalThis, function (Generator, Model, Animation, Scoring, Persistence) {
   "use strict";
 
@@ -366,9 +440,22 @@
     function ensureServices() {
       const scormMethods = ["loadAttempt", "makeSnapshot", "saveDraft", "setDraftProvider", "submitWithCallbacks", "retryPending", "quarantinePending", "finish"];
       const flowMethods = ["startup", "submission", "reviewResult", "completionLabel"];
-      if (!SimScorm || scormMethods.some((method) => typeof SimScorm[method] !== "function") || !SimActivityFlow || flowMethods.some((method) => typeof SimActivityFlow[method] !== "function")) {
-        throw new Error("Shared activity services unavailable");
-      }
+      const activityMethods = {
+        generator: ["generateScenario"],
+        model: ["endpointM", "extensionM", "measuredExtensionM", "graphPointFromPhysics", "physicsFromGraphPoint", "kFromModelHandle"],
+        animation: ["createAnimator"],
+        scoring: ["scoreAnswer"],
+        persistence: ["freshState", "clone", "validateAnswer", "answerForSnapshot", "decodeSnapshot", "hasAllCalibrationsAndMeasurements", "hasAllModels", "hasAllPredictions", "hasCompleteAnswer", "sameMeasurement"]
+      };
+      const transitions = ["replaceCalibration", "clearCalibration", "replaceMeasurement", "replaceModel", "replacePrediction", "replaceDesign", "setPhase", "editSection"];
+      const localReady = Object.entries(activityMethods).every(([name, methods]) => {
+        const value = { generator: Generator, model: Model, animation: Animation, scoring: Scoring, persistence: Persistence }[name];
+        return value && methods.every((method) => typeof value[method] === "function");
+      }) && Number.isFinite(Generator.MAX_LINEAR_EXTENSION_M) && Number.isFinite(Generator.STAGE_SPAN_M) && Number.isFinite(Generator.FLOAT_EPSILON) &&
+        Number.isFinite(Model.FLOAT_EPSILON) && Number.isFinite(Model.MIN_EXTENSION_M) && Number.isFinite(Model.MIN_OPERATION_MOVE_M) && Number.isFinite(Model.MODEL_HANDLE_FORCE_N) &&
+        Scoring.forceByKey && typeof Scoring.forceByKey === "object" && Array.isArray(Persistence.PHASES) && Persistence.transitions && transitions.every((method) => typeof Persistence.transitions[method] === "function");
+      if (!SimScorm || scormMethods.some((method) => typeof SimScorm[method] !== "function") || !SimActivityFlow || flowMethods.some((method) => typeof SimActivityFlow[method] !== "function")) throw new Error("Shared activity services unavailable");
+      if (!localReady) throw new Error("Activity dependencies unavailable");
     }
     function setText(node, value) { if (node) node.textContent = value == null ? "" : String(value); }
     function setMathContent(node, parts) {
@@ -1092,7 +1179,7 @@
       wrapper.dataset.reviewMeasurement = springKey;
       const title = element("h4", springLabel(springKey));
       const zero = element("p", undefined, "review-zero");
-      appendParts(zero, ["伸長量零位（原長基準）：", mathLength(zeroM)]);
+      appendParts(zero, ["伸長量零位（對應原長 ", mathVariable("L"), mathSubscript("0"), "）：", mathLength(zeroM)]);
       const table = element("table", undefined, "review-measurement-table");
       table.dataset.spring = springKey;
       const caption = element("caption", `${springLabel(springKey)}三項正式量度`);

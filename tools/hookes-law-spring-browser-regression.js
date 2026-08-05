@@ -326,6 +326,42 @@ async function runMissingServiceLock(cdp, baseUrl, launchPath, label, missingGlo
   return `${label}: missing ${missingGlobal} fails closed safely`;
 }
 
+async function runFirstLoadDependencyLock(cdp, baseUrl, launchPath, label, dependencyFile) {
+  await setViewport(cdp, 390, 700, false);
+  const bootErrors = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: "window.__hookesLawBootErrors=[]; window.addEventListener('error',event=>window.__hookesLawBootErrors.push(event.message||event.type)); window.addEventListener('unhandledrejection',event=>window.__hookesLawBootErrors.push(event.reason?.message||String(event.reason||'unhandled rejection')));" });
+  const blockedUrls = [];
+  const removePaused = cdp.on("Fetch.requestPaused", async (event) => {
+    try {
+      const requestUrl = event.request?.url || "";
+      if (requestUrl.split("?")[0].endsWith(`/${dependencyFile}`)) {
+        blockedUrls.push(requestUrl);
+        await cdp.send("Fetch.failRequest", { requestId: event.requestId, errorReason: "BlockedByClient" });
+      } else await cdp.send("Fetch.continueRequest", { requestId: event.requestId });
+    } catch {}
+  });
+  await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "*", resourceType: "Script", requestStage: "Request" }] });
+  try {
+    await navigate(cdp, `${baseUrl}${launchPath}?first-load-missing=${label}-${dependencyFile}`);
+    const outcome = await evaluate(cdp, "(() => { const panelIds=['investigatePanel','modelPanel','predictPanel','designPanel','reviewPanel'],answerControls=[...document.querySelectorAll(panelIds.map((id)=>'#'+id+' [data-action]').join(','))]; return {presentation:window.__hookesLawDebug?.getPresentation?.()||null,state:window.__hookesLawDebug?.getState?.()||null,result:window.__hookesLawDebug?.getResult?.()||null,technicalHidden:document.getElementById('technicalPanel')?.classList.contains('is-hidden')??true,answerPanelsHidden:panelIds.every((id)=>document.getElementById(id)?.classList.contains('is-hidden')),resultHidden:document.getElementById('resultPanel')?.classList.contains('is-hidden')??true,resultText:document.getElementById('resultPanel')?.textContent||'',visibleEnabledAnswerControls:answerControls.filter((node)=>!node.disabled&&!node.closest('.is-hidden')).length,stageChildCount:document.getElementById('stageSvg')?.childElementCount??-1,bootErrors:window.__hookesLawBootErrors||[]}; })()");
+    assert.equal(blockedUrls.length, 1, `${label}: first-load test blocked exactly ${dependencyFile}`);
+    assert.equal(outcome.presentation, "technical", `${label}: missing ${dependencyFile} enters the technical-lock presentation on first load`);
+    assert.equal(outcome.state, null, `${label}: missing ${dependencyFile} does not create an answer state`);
+    assert.equal(outcome.result, null, `${label}: missing ${dependencyFile} does not create a result`);
+    assert.equal(outcome.technicalHidden, false, `${label}: missing ${dependencyFile} shows the technical panel on first load`);
+    assert.equal(outcome.answerPanelsHidden, true, `${label}: missing ${dependencyFile} hides every answer panel on first load`);
+    assert.equal(outcome.resultHidden, true, `${label}: missing ${dependencyFile} keeps the result panel hidden`);
+    assert.equal(outcome.resultText, "", `${label}: missing ${dependencyFile} leaves the result panel empty`);
+    assert.equal(outcome.visibleEnabledAnswerControls, 0, `${label}: missing ${dependencyFile} exposes no enabled answer control`);
+    assert.equal(outcome.stageChildCount, 0, `${label}: missing ${dependencyFile} does not render an answer stage`);
+    assert.deepEqual(outcome.bootErrors, [], `${label}: missing ${dependencyFile} produces no uncaught boot error`);
+    return `${label}: first-load missing ${dependencyFile} fails closed safely`;
+  } finally {
+    removePaused();
+    try { await cdp.send("Fetch.disable"); } catch {}
+    try { await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: bootErrors.identifier }); } catch {}
+  }
+}
+
 async function iframeMetrics(cdp) {
   return evaluate(cdp, `(() => { const frame=document.getElementById('activity'),fr=frame.getBoundingClientRect(),d=frame.contentDocument,p=d.getElementById('controlPanel'),a=d.getElementById('app');return {
     frame:{left:fr.left,top:fr.top,width:fr.width,height:fr.height},
@@ -648,13 +684,18 @@ async function main() {
     const sourceMissingFlow = await runMissingServiceLock(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "SimActivityFlow");
     const packageMissingScorm = await runMissingServiceLock(cdp, packageBase, extracted.activityPath, "package", "SimScorm");
     const packageMissingFlow = await runMissingServiceLock(cdp, packageBase, extracted.activityPath, "package", "SimActivityFlow");
+    const localDependencyFiles = ["generator.js", "model.js", "animation.js", "scoring.js", "persistence.js"];
+    const sourceMissingLocal = [];
+    const packageMissingLocal = [];
+    for (const dependencyFile of localDependencyFiles) sourceMissingLocal.push(await runFirstLoadDependencyLock(cdp, sourceBase, `/sim/${slug}/index.html`, "source", dependencyFile));
+    for (const dependencyFile of localDependencyFiles) packageMissingLocal.push(await runFirstLoadDependencyLock(cdp, packageBase, extracted.activityPath, "package", dependencyFile));
     const sourceDirect = await runDirectFlow(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDirect = await runDirectFlow(cdp, packageBase, extracted.activityPath, "package");
     const sourcePointer = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packagePointer = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboard = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source", true);
     const packageKeyboard = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package", true);
-    summary = `Hooke's law browser regression passed: ${sourceDebug}; ${packageDebug}; ${sourceMissingScorm}; ${sourceMissingFlow}; ${packageMissingScorm}; ${packageMissingFlow}; ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
+    summary = `Hooke's law browser regression passed: ${sourceDebug}; ${packageDebug}; ${sourceMissingScorm}; ${sourceMissingFlow}; ${packageMissingScorm}; ${packageMissingFlow}; ${sourceMissingLocal.join("; ")}; ${packageMissingLocal.join("; ")}; ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

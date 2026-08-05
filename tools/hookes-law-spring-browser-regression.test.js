@@ -22,5 +22,8 @@ assert.match(browser, /isTrusted/);
 assert.match(browser, /sourceTouch/);
 assert.match(browser, /packageTouch/);
 assert.match(browser, /__embed-scroll-test\.html/);
+assert.match(browser, /runFirstLoadDependencyLock/);
+assert.match(browser, /Fetch\.requestPaused/);
+for (const dependencyFile of ["generator.js", "model.js", "animation.js", "scoring.js", "persistence.js"]) assert.match(browser, new RegExp(dependencyFile.replace(".", "\\.")), `browser regression covers first-load ${dependencyFile} failure`);
 
 console.log("Hooke's law browser regression wiring checks passed");
