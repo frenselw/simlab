@@ -1210,8 +1210,10 @@
       const endpointY = yForExtension(calculation?.extensionM ?? 0.02);
       const statusColor = calculation ? "#2563eb" : "#64748b";
 
-      dom.svg.append(drawMathText(36, 32, ["安全承載設計・用你的 ", { text: "F", class: "math-variable" }, " = ", { text: "kx", class: "math-variable" }], { "font-size": 20, "font-weight": 700 }));
-      dom.svg.append(drawLine(ruler.x, ruler.top, 700, ruler.top, { stroke: "#334155", "stroke-width": 5 }), drawText(690, 68, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
+      const ceilingEndX = 625;
+      const ceilingLabelX = 640;
+      dom.svg.append(drawText(36, 32, "安全承載設計・找出最大安全負載", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawLine(ruler.x, ruler.top, ceilingEndX, ruler.top, { stroke: "#334155", "stroke-width": 5 }), drawText(ceilingLabelX, 54, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
 
       dom.svg.append(drawLine(ruler.x, ruler.top, ruler.x, ruler.bottom, { stroke: "#64748b", "stroke-width": 3 }));
       for (const extensionM of [0, .05, .10, .15, .18]) {
