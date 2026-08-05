@@ -872,6 +872,8 @@ review 只標示：
 
 不清除 measurements。
 
+真正修改並清除 predictions／design 後，必須同時提供 learner-facing 的可見及 `aria-live` 通知，明確說明哪一條彈簧的模型已更新、哪些後續答案因依賴舊模型而被清除，以及學生需要重新完成哪些後續階段；不可暗示原答案本身「錯誤」。首次建立模型或沒有下游答案時可保留簡短的「已記錄直線斜率」訊息。same-line／same-value no-op 不得顯示或宣告 invalidation 通知。
+
 ### 9.4 修改 prediction
 
 - 不清除其他 predictions；
@@ -889,7 +891,7 @@ review 只標示：
 
 - 不改其他資料。
 
-任何 destructive invalidation 前要有中性確認；只說依賴資料會失效，不能暗示原答案錯。
+任何 destructive invalidation 都要有中性通知；只說依賴資料會失效，不能暗示原答案錯。
 
 建議 pure functions：
 
@@ -1864,6 +1866,8 @@ Browser acceptance 亦必須覆蓋：
 - [ ] source 及 packaged launch 都以鍵盤操作驗證彈簧 button group 的 `aria-pressed` 與 `activeSpring` 同步；
 - [ ] 同一模型線的垂直 handle 操作不改變 authority、predictions、design 或 review continuation；
 - [ ] 真正水平模型變更立即更新 authority，並只在此時執行 model downstream invalidation。
+- [ ] 真正模型變更清除下游答案時，`modelStatus` 及 live region 都說明清除原因及需重新完成的後續階段；
+- [ ] same-line／same-value no-op 的可見及 live status 都不誤報下游答案已清除。
 
 ### 21.7 Lifecycle
 

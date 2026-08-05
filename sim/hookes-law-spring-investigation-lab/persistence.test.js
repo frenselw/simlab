@@ -87,6 +87,8 @@ assert.ok(editModel.predictions.every(Boolean));
 assert.ok(editModel.design);
 const unchangedModel = P.transitions.replaceModel(editModel, "A", editModel.models.A.handleExtensionM, scenario);
 assert.deepEqual(unchangedModel, editModel, "re-saving the same model handle is a no-op");
+const epsilonModel = P.transitions.replaceModel(editModel, "A", editModel.models.A.handleExtensionM + M.FLOAT_EPSILON, scenario);
+assert.deepEqual(epsilonModel, editModel, "a model handle change within epsilon is a no-op");
 const changedModel = P.transitions.replaceModel(editModel, "A", editModel.models.A.handleExtensionM + 0.001, scenario);
 assert.equal(changedModel.fromReview, false, "a semantic model change leaves review continuation");
 assert.ok(changedModel.predictions.every((item) => item === null), "a semantic model change clears predictions");

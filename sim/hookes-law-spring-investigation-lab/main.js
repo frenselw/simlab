@@ -83,6 +83,12 @@
   function n(value, digits = 1) { return finite(value) ? Number(value).toFixed(digits) : "--"; }
   function forceLabel(key) { return ({ F1: "1.0 N", F2: "2.0 N", F3: "3.0 N" })[key] || "--"; }
   function springLabel(key) { return key === "A" ? "彈簧 A" : "彈簧 B"; }
+  function modelRecordMessage(springKey, hadPredictions, hadDesign) {
+    if (!hadPredictions && !hadDesign) return `已記錄${springLabel(springKey)}的直線斜率。`;
+    const dependent = hadPredictions && hadDesign ? "原有預測及工程方案" : hadPredictions ? "原有預測" : "原有工程方案";
+    const phases = hadPredictions && hadDesign ? "第三、四階段" : hadPredictions ? "第三階段" : "第四階段";
+    return `已更新${springLabel(springKey)}的直線斜率；${dependent}依賴舊模型，已清除，請重新完成${phases}。`;
+  }
   function operationMode(mode) { return mode === "keyboard" ? "keyboard" : "pointer"; }
   function mayRevealCorrectness(activityState) {
     return ["submitted-success", "submitted-committed", "trusted-finished-review"].includes(activityState);
@@ -319,6 +325,8 @@
     let modelDraftM = 0.08;
     let modelDraftForceN = Model.MODEL_HANDLE_FORCE_N;
     let modelBaselineM = 0.08;
+    let modelStatusMessage = "";
+    let modelStatusSpring = null;
     let predictionDraftM = 0;
     let zeroMoveM = 0;
     let cursorMoveM = 0;
@@ -478,6 +486,10 @@
       const nextScenario = scenarioFor(next);
       const kind = next.phase === "review" ? "review" : "draft";
       if (!Persistence.validateAnswer(next, nextScenario, { kind }).ok) return false;
+      if (next.phase !== "model") {
+        modelStatusMessage = "";
+        modelStatusSpring = null;
+      }
       state = next;
       scenario = nextScenario;
       syncRuntime();
@@ -598,6 +610,10 @@
     }
     function beginModelSpring(key) {
       if (!SPRINGS.includes(key) || state.phase !== "model") return;
+      if (modelStatusSpring !== key) {
+        modelStatusMessage = "";
+        modelStatusSpring = null;
+      }
       modelMoveM = 0;
       modelMode = "pointer";
       modelDraftM = state.models[key]?.handleExtensionM ?? 0.08;
@@ -612,9 +628,15 @@
         modelMoveM = 0;
         return;
       }
-      const next = Persistence.transitions.replaceModel(state, state.activeSpring, modelDraftM, scenario);
+      const springKey = state.activeSpring;
+      const hadPredictions = state.predictions.some(Boolean);
+      const hadDesign = Boolean(state.design);
+      const next = Persistence.transitions.replaceModel(state, springKey, modelDraftM, scenario);
       modelMoveM = 0;
-      setState(next, `已記錄${springLabel(state.activeSpring)}的直線斜率。`);
+      const message = modelRecordMessage(springKey, hadPredictions, hadDesign);
+      modelStatusMessage = message;
+      modelStatusSpring = springKey;
+      setState(next, message);
     }
     function choosePrediction(index) {
       if (locked || state.phase !== "predict" || !Number.isInteger(index) || index < 0 || index > 2) return;
@@ -670,6 +692,10 @@
       if (locked || state.phase !== "review") return;
       try {
         const next = Persistence.transitions.editSection(state, phase, scenario);
+        if (phase === "model") {
+          modelStatusMessage = "";
+          modelStatusSpring = null;
+        }
         lastDraftState = Persistence.clone(next);
         registerDraftProvider();
         setState(next, `已返回${PHASE_LABELS[phase]}；不改動答案即可返回提交前檢查。`, true);
@@ -895,7 +921,10 @@
       appendParts(modelCopy, ["觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線；直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "。"]);
       dom.modelData.append(modelCopy, list);
       setMathContent(dom.modelReadout, ["直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "；參考 ", mathForceValue(Model.MODEL_HANDLE_FORCE_N), " 時伸長 ", mathLength(modelDraftM)]);
-      setText(dom.modelStatus, state.models[key] ? `已保存${springLabel(key)}的直線斜率；可再次調整。` : "尚未保存這條彈簧的直線斜率。");
+      const status = modelStatusSpring === key && modelStatusMessage
+        ? modelStatusMessage
+        : state.models[key] ? `已保存${springLabel(key)}的直線斜率；可再次調整。` : "尚未保存這條彈簧的直線斜率。";
+      setText(dom.modelStatus, status);
       dom.toPredict.disabled = Boolean(locked || !Persistence.hasAllModels(state));
       dom.toPredict.textContent = state.fromReview ? "返回第三階段預測" : "兩條直線都有斜率後繼續";
     }
