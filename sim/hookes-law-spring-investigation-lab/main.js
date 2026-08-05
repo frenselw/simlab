@@ -1226,7 +1226,8 @@
       dom.svg.append(drawMathText(470, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-variable" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
 
       if (!calculation) {
-        dom.svg.append(drawMathText(235, 220, ["先在左側選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, 252, "圖台會用你的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+        const emptyInstructionY = Math.min(ruler.bottom - 78, limitY + 72);
+        dom.svg.append(drawMathText(235, emptyInstructionY, ["先在左側選擇彈簧及負載。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "圖台會用你的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
         return;
       }
 

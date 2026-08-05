@@ -126,6 +126,7 @@ assert.match(source, /const ruler = \{ x: 96, top: 62, bottom: 390 \}/);
 assert.match(source, /安全承載設計・找出最大安全負載/);
 assert.match(source, /const ceilingEndX = 625/);
 assert.match(source, /const ceilingLabelX = 640/);
+assert.match(source, /const emptyInstructionY = Math\.min\(ruler\.bottom - 78, limitY \+ 72\)/);
 assert.match(source, /design-load/);
 assert.match(source, /for \(let index = 0; index < calculation\.moduleCount; index \+= 1\)/);
 assert.match(source, /const moduleHeight = 12/);
