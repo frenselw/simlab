@@ -130,6 +130,9 @@ F=kx
 - 階段三使用「未量度負載的模型預測」，說明學生以自己的 \(k\) 預測伸長量，再用 \(L=L_0+x\) 預測總長度；
 - 階段四使用「最大安全負載挑戰」、「負載塊」及「總作用力」；手機版控制面板位於舞台下方，文案不得指示學生到「左側」操作；
 - review 使用「提交前檢查」及「模擬設定下的結果」等中文，不顯示英文 review／「圖台」等內部術語。
+- 提交後回饋沿用同一套術語：伸長量零位／原長、\(F–x\)、模擬中的伸長量、負載塊、總作用力及最大安全負載方案；不得退回「自然長度基準」、「F-x 線」、「實際伸長」、「工程方案」、「模組」、「總負載」或「最大安全方案」等舊詞。
+- 重新保存模型時，狀態訊息寫成「已保存／已更新彈簧 A／B 的模型（\(k=…\,\mathrm{N/m}\)）」；第四階段舞台數值若由 \(x=F/k\) 得出，標為「預測的伸長量」，不可稱為「預測的末端」。
+- 網絡、Moodle 或活動程式異常時，學生可見訊息使用「答案資料」、「最終提交狀態」、「活動程式」及「已合格／未合格」，不得直接顯示 `authority`、`final state`、`runtime` 或 raw `passed`／`failed`。
 
 #### 2.5 以最終語意狀態及精簡操作證據評分
 
@@ -1125,11 +1128,11 @@ const MIN_OPERATION_MOVE_M = 0.005;
 ### 12.1 Calibration／measurement
 
 - zero 偏差大：
-  - 「你記錄的零位與未加負載時的彈簧末端有明顯差距。伸長量應由自然長度位置量起。」
+  - 「你記錄的伸長量零位與未加負載時的彈簧末端有明顯差距。伸長量應由原長 \(L_0\) 的零位起計。」
 - zero 準但 cursor 不準：
-  - 「自然長度基準合理，但部分游標未對準負載穩定後的末端。」
+  - 「伸長量零位合理，但部分量度游標未對準彈簧穩定後的末端。」
 - 兩者合理：
-  - 「你能以自然長度作基準並量度伸長。」
+  - 「你能以伸長量零位作基準，量度不同負載下的伸長量。」
 
 ### 12.2 Model
 
@@ -1138,7 +1141,7 @@ const MIN_OPERATION_MOVE_M = 0.005;
 - data 好、model 不接近 own fit：
   - 「量度點合理，但模型直線的斜率未能代表這組數據。」
 - slope order 反轉：
-  - 「同一作用力下伸長較少的彈簧應有較大的 \(k\)，其 \(F-x\) 線亦較斜。」
+  - 「同一作用力下，伸長量較小的彈簧有較大的 \(k\)；它的 \(F–x\) 直線斜率較大（直線更陡）。」
 - model good：
   - 「你建立的通過原點直線能代表 \(F=kx\)。 」
 
@@ -1146,9 +1149,9 @@ const MIN_OPERATION_MOVE_M = 0.005;
 
 逐題顯示：
 
-- student predicted extension；
-- actual extension；
-- absolute difference；
+- student predicted extension（預測伸長量）；
+- 模擬中的伸長量；
+- absolute difference（差距）；
 - 同一 force 下 \(k\) 對 extension 的影響。
 
 不使用侮辱性或只說「錯」。
@@ -1157,14 +1160,14 @@ const MIN_OPERATION_MOVE_M = 0.005;
 
 顯示：
 
-- selected spring；
-- load；
-- actual extension；
-- limit；
+- 最大安全負載方案所選彈簧；
+- 負載塊數量；
+- 總作用力；
+- 模擬中的伸長量及安全伸長上限；
 - safe／unsafe；
-- optimal safe design；
-- 若過分保守，說明仍可增加多少 module；
-- 若 unsafe，說明 \(F/k\) 超過限制。
+- 模擬設定下的最大安全負載方案；
+- 若過分保守，說明仍可增加多少負載塊；
+- 若 unsafe，說明按模型計算的 \(F/k\) 超過限制。
 
 ---
 
@@ -1276,7 +1279,7 @@ function clientToSvg(svg, clientX, clientY) {
 - zero／cursor／prediction：物理位置向下（伸長增加）用 ArrowDown，向上（伸長減少）用 ArrowUp；每次 `0.001 m`，Shift+Arrow 每次 `0.005 m`；
 - model handle：ArrowUp 增加模型力，ArrowDown 減少模型力；ArrowRight 增加伸長量，ArrowLeft 減少伸長量；步幅按方向使用 `0.001 m`，Shift+Arrow 使用 `0.005 m`；
 - focusable native button overlays；
-- 動態 accessible name 例如：「彈簧 A 伸長量零位，目前 8.4 cm」及「2.0 N 量度游標，目前伸長 6.1 cm」；每次切換彈簧／負載／題目或移動控制點都要同步更新名稱及 aria-valuetext；
+- 動態 accessible name 例如：「彈簧 A 伸長量零位，目前 8.4 cm」及「2.0 N 量度游標，目前伸長 6.1 cm」；每次切換彈簧／負載／題目或移動控制點都要同步更新原生 button 的 `aria-label`。這些控制不是 range widget，因此不使用 `aria-valuetext`；如日後改用 slider，才另行提供完整的 range semantics；
 - `aria-describedby` 說明拖動及方向鍵；
 - A／B、data points、lines 使用文字、形狀及 dash pattern，不只顏色；
 - focus-visible 清楚；
@@ -1867,7 +1870,10 @@ Browser-level assertions，不只 source-string：
 - [ ] prediction phase can return to model/investigate and resume without changing recorded predictions；
 - [ ] debug shortcut 直接進入 predict phase 後，仍可返回 model 查看兩條已自動填入的斜率，再返回 predict；
 - [ ] design phase不動畫實際 extension；
+- [ ] review 的每張學生模型圖以 `endX = min(maxX, maxF / k)`、`endF = k * endX` 裁切；`k=20 N/m` 應到右邊界 `(0.18 m, 3.6 N)`，`k=50 N/m` 應到上邊界 `(0.08 m, 4 N)`；由 SVG 終點反算的斜率在 epsilon 內等於學生模型，source／package 都測試；
 - [ ] review 無 score／correctness；
+- [ ] result feedback 要求「伸長量零位／原長」、「F–x」、「模擬中的伸長量」、「負載塊」、「總作用力」及「最大安全負載方案」，並拒絕舊的「自然長度基準／F-x／實際伸長／工程方案／模組／總負載／最大安全方案」用語；
+- [ ] 異常及 fallback copy 不暴露 `authority`、`final state`、`runtime` 或 raw `passed`／`failed`；
 - [ ] repeated prediction adjustments不產生 feedback；
 - [ ] switching A→B 不產生安全結果；
 - [ ] `frozen` 不 reveal；
@@ -1934,6 +1940,7 @@ Browser acceptance 亦必須覆蓋：
 - [ ] focus order；
 - [ ] visible focus；
 - [ ] accessible names；
+- [ ] native drag buttons 只更新含彈簧／負載／題目／目前值的 `aria-label`，不使用不完整的 `aria-valuetext`；
 - [ ] neutral live announcements；
 - [ ] editable accessibility tree無答案；
 - [ ] reduced motion；

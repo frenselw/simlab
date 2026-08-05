@@ -21,7 +21,7 @@
   <header class="app-header">
     <div>
       <h1>胡克定律：彈簧探究與預測實驗室</h1>
-      <p>量度伸長、建立 <span class="math-inline"><var class="math-variable">F</var>–<var class="math-variable">x</var></span> 關係，再用斜率完成預測與安全承載設計。</p>
+      <p>量度伸長量、建立 <span class="math-inline"><var class="math-variable">F</var>–<var class="math-variable">x</var></span> 關係，再用斜率完成預測與最大安全負載方案。</p>
     </div>
     <div class="header-status">
       <span id="phaseBadge" class="phase-badge">探究與量度</span>
@@ -60,12 +60,12 @@
           <div class="readout-row"><span>目前游標</span><strong id="zeroReadout" class="math-readout">--</strong></div>
           <div class="button-row">
             <button type="button" id="recordCalibration" data-action="record-calibration">記錄零位</button>
-            <button type="button" id="recalibrate" data-action="request-recalibrate" class="secondary-button">重新標定</button>
+            <button type="button" id="recalibrate" data-action="request-recalibrate" class="secondary-button">重新設定零位</button>
           </div>
           <p id="calibrationStatus" class="neutral-status math-context" aria-live="polite"></p>
         </section>
         <section class="subsection" aria-labelledby="loadTitle">
-          <h3 id="loadTitle">指定探究負載</h3>
+          <h3 id="loadTitle">選擇量度負載</h3>
           <div id="loadCards" class="choice-grid" aria-label="選擇負載">
             <button type="button" class="math-quantity" data-action="select-load" data-load="F1"><span class="math-number">1.0</span><span class="math-unit">N</span></button>
             <button type="button" class="math-quantity" data-action="select-load" data-load="F2"><span class="math-number">2.0</span><span class="math-unit">N</span></button>
@@ -100,7 +100,7 @@
         <div class="readout-row"><span>直線斜率</span><strong id="modelReadout" class="math-readout">--</strong></div>
         <p id="modelStatus" class="neutral-status math-context" aria-live="polite"></p>
         <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="investigate" class="secondary-button">返回第一階段查看量度</button></div>
-        <button type="button" id="toPredict" data-action="to-predict" class="primary-button next-button">兩條直線都有斜率後繼續</button>
+        <button type="button" id="toPredict" data-action="to-predict" class="primary-button next-button">完成兩條彈簧的模型後繼續</button>
       </section>
 
       <section id="predictPanel" class="panel-section is-hidden">
@@ -141,7 +141,7 @@
         <h2 tabindex="-1">檢查自己的最終答案</h2>
         <p class="task-copy">這裡列出你已記錄的全部作答。請逐項核對；提交後本次作答會鎖定，才會顯示評分及模擬設定下的結果。</p>
         <div id="reviewSummary" class="review-summary math-context"></div>
-        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改安全承載設計</button></div>
+        <div class="review-actions"><button type="button" data-action="edit-section" data-edit-phase="investigate">修改量度</button><button type="button" data-action="edit-section" data-edit-phase="model">修改線性關係</button><button type="button" data-action="edit-section" data-edit-phase="predict">修改預測</button><button type="button" data-action="edit-section" data-edit-phase="design">修改最大安全負載方案</button></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
         <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
       </section>
@@ -170,9 +170,9 @@
 
 <dialog id="recalibrationDialog">
   <form method="dialog" class="dialog-content">
-    <h2>重新標定</h2>
-    <p id="recalibrationMessage">重新標定會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／安全負載方案。</p>
-    <div class="button-row"><button value="cancel">保留目前資料</button><button id="confirmRecalibration" value="confirm" class="primary-button">清除並重新標定</button></div>
+    <h2>重新設定零位</h2>
+    <p id="recalibrationMessage">重新設定零位會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／最大安全負載方案。</p>
+    <div class="button-row"><button value="cancel">保留目前資料</button><button id="confirmRecalibration" value="confirm" class="primary-button">清除並重新設定零位</button></div>
   </form>
 </dialog>
 </body>

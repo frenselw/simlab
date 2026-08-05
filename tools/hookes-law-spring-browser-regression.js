@@ -66,12 +66,16 @@ async function touch(cdp, start, end) {
   await delay(100);
 }
 
-function fixtureExpression(seed = 123) {
+function fixtureExpression(seed = 123, modelK = null) {
+  const modelHandle = (springKey) => {
+    const k = modelK?.[springKey];
+    return Number.isFinite(k) && k > 0 ? String(2.5 / k) : `2.5/scenario.springs.${springKey}.kNPerM`;
+  };
   return `(() => {
     const G=window.HookesLawGenerator,M=window.HookesLawModel,S=window.HookesLawScoring,P=window.HookesLawPersistence;
     const scenario=G.generateScenario({seed:${seed}}); let state=P.freshState(${seed});
     for(const springKey of ['A','B']){const spring=scenario.springs[springKey];state=P.transitions.replaceCalibration(state,springKey,{zeroM:spring.naturalLengthM,mode:'keyboard',moveM:.01},scenario);for(const loadKey of ['F1','F2','F3'])state=P.transitions.replaceMeasurement(state,springKey,loadKey,{loadKey,cursorM:M.endpointM(spring.naturalLengthM,S.forceByKey[loadKey],spring.kNPerM),mode:'keyboard',moveM:.01},scenario);}
-    state=P.transitions.replaceModel(state,'A',2.5/scenario.springs.A.kNPerM,scenario);state=P.transitions.replaceModel(state,'B',2.5/scenario.springs.B.kNPerM,scenario);state=P.transitions.setPhase(state,'predict',scenario);
+    state=P.transitions.replaceModel(state,'A',${modelHandle("A")},scenario);state=P.transitions.replaceModel(state,'B',${modelHandle("B")},scenario);state=P.transitions.setPhase(state,'predict',scenario);
     for(const [index,spec] of scenario.predictions.entries())state=P.transitions.replacePrediction(state,index,spec.trueExtensionM,scenario);state=P.transitions.setPhase(state,'design',scenario);const best=M.optimalSafeDesign(scenario);state=P.transitions.replaceDesign(state,best.springKey,best.moduleCount,scenario);
     return state;
   })()`;
@@ -99,7 +103,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(initial.resultHidden, true, `${label}: result panel starts hidden`);
   assert.equal(initial.resultHtml, "", `${label}: result DOM starts empty`);
   assert.equal(initial.debugPanelHidden, true, `${label}: debug shortcut stays hidden without debug=1`);
-  assert.doesNotMatch(initial.body, /理想 k|最佳安全方案|實際伸長/, `${label}: editable accessibility tree has no reveal data`);
+  assert.doesNotMatch(initial.body, /理想 k|最佳安全方案|實際伸長|自然長度基準|工程方案/, `${label}: editable accessibility tree has no reveal data`);
   assert.equal(initial.stageTouch, "pan-y", `${label}: stage owns the non-interactive pan-y contract`);
   assert.ok(initial.panelRange > 20, `${label}: control panel has an independent range`);
   assert.ok(initial.targetSizes.every(({ w, h }) => w >= 44 && h >= 44), `${label}: stable drag targets meet 44px minimum`);
@@ -202,6 +206,23 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.match(reviewEvidence.modelText, /彈簧 A/);
   assert.match(reviewEvidence.modelText, /彈簧 B/);
   assert.match(reviewEvidence.modelText, /N\/m/);
+  for (const testCase of [
+    { modelK: { A: 20, B: 40 }, springKey: "A", expectedK: 20, expectedX: 0.18, expectedF: 3.6 },
+    { modelK: { A: 30, B: 50 }, springKey: "B", expectedK: 50, expectedX: 0.08, expectedF: 4 }
+  ]) {
+    await evaluate(cdp, `(() => { const answer=${fixtureExpression(123, testCase.modelK)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
+    await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: review geometry fixture did not load`);
+    await clickDirect(cdp, "[data-action='to-review']");
+    await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'review'", `${label}: review geometry fixture did not open review`);
+    const geometry = await evaluate(cdp, `(() => { const svg=document.querySelector('#reviewSummary svg[data-review-model="${testCase.springKey}"]'),line=svg?.querySelector('[data-review-line="learner-model"]'),left=34,top=14,width=208,height=106,maxX=.18,maxF=4,x2=Number(line?.getAttribute('x2')),y2=Number(line?.getAttribute('y2')),endX=(x2-left)/width*maxX,endF=(top+height-y2)/height*maxF; return {endX,endF,slope:endF/endX,model:window.__hookesLawDebug.getState().models.${testCase.springKey}.handleExtensionM}; })()`);
+    assert.ok(Math.abs(geometry.endX - testCase.expectedX) < 1e-9, `${label}: k=${testCase.expectedK} model line reaches the correct x boundary ${JSON.stringify(geometry)}`);
+    assert.ok(Math.abs(geometry.endF - testCase.expectedF) < 1e-9, `${label}: k=${testCase.expectedK} model line reaches the correct force boundary ${JSON.stringify(geometry)}`);
+    assert.ok(Math.abs(geometry.slope - testCase.expectedK) < 1e-9, `${label}: k=${testCase.expectedK} review SVG line preserves the learner-model slope ${JSON.stringify(geometry)}`);
+    assert.ok(Math.abs(geometry.slope - 2.5 / geometry.model) < 1e-9, `${label}: review SVG slope matches the saved learner model ${JSON.stringify(geometry)}`);
+  }
+  await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
+  await clickDirect(cdp, "[data-action='to-review']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'review'", `${label}: original review fixture could not be restored after geometry checks`);
   await clickDirect(cdp, "[data-action='edit-section'][data-edit-phase='model']");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: review model edit did not reopen the model phase`);
   const editFocus = await evaluate(cdp, "(() => ({tag:document.activeElement?.tagName||'',panel:document.activeElement?.closest('.panel-section')?.id||'',text:document.activeElement?.textContent||''}))()");
@@ -220,7 +241,8 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(result.presentation, "submitted-success", `${label}: standalone submission reaches success`);
   assert.equal(result.hidden, false, `${label}: result panel is revealed only after success`);
   assert.equal(result.score, 100, `${label}: perfect fixture rescores to 100`);
-  assert.match(result.text, /理想 k|最佳安全方案|實際伸長/, `${label}: result contains post-submit reveal data`);
+  assert.match(result.text, /最大安全負載方案|模擬中的伸長量|總作用力/, `${label}: result contains post-submit reveal data with the current terminology`);
+  assert.doesNotMatch(result.text, /自然長度基準|F-x|實際伸長|工程方案|模組|總負載|最大安全方案(?!負載)/, `${label}: result does not regress to the previous terminology`);
   return `${label}: delayed feedback and success result passed`;
 }
 
@@ -488,7 +510,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   const designCalculation = await evaluate(cdp, "(() => { const nodes=[...document.querySelectorAll('#stageSvg [data-role=design-load]')]; const tops=nodes.map((node)=>Number(node.getAttribute('y'))); const bottoms=nodes.map((node)=>Number(node.getAttribute('y'))+Number(node.getAttribute('height'))); return {calculation:document.getElementById('designCalculation')?.textContent||'',summary:document.getElementById('designSummary')?.textContent||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),kA:document.getElementById('designK_A')?.textContent||'',loadCount:nodes.length,loadHeight:nodes.length?Math.max(...bottoms)-Math.min(...tops):0}; })()");
   assert.ok(designCalculation.calculation.includes("F") && designCalculation.calculation.includes("x") && designCalculation.calculation.includes("安全上限"), `${label}: fourth phase shows the learner-model force and extension calculation`);
   assert.ok(designCalculation.summary.includes("總作用力"), `${label}: fourth phase shows the current total force summary`);
-  assert.ok(designCalculation.stageText.some((text) => text.includes("按你的模型預測的末端")), `${label}: fourth phase stage shows the learner-model endpoint`);
+  assert.ok(designCalculation.stageText.some((text) => text.includes("按你的模型預測的伸長量")), `${label}: fourth phase stage labels the learner-model extension`);
   assert.ok(designCalculation.kA.includes("N/m"), `${label}: fourth phase shows the learner's spring slope`);
   assert.equal(designCalculation.loadCount, 1, `${label}: selecting a spring starts with one small hanging load block`);
   await clickDirect(cdp, "[data-action='module-plus']");

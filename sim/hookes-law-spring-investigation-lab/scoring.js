@@ -141,9 +141,9 @@
     const measurementErrors = ["A", "B"].flatMap((key) => FORCE_KEYS.map((loadKey) => breakdown.measurements[key][loadKey].errorM)).filter(finite);
     const zeroLarge = calibration.some((item) => item.errorM !== null && item.errorM > ZERO_PARTIAL_ERROR_M);
     const cursorLarge = measurementErrors.some((errorM) => errorM > CURSOR_PARTIAL_ERROR_M);
-    if (zeroLarge) items.push("你記錄的零位與未加負載時的彈簧末端有明顯差距。伸長量應由自然長度位置量起。");
-    else if (cursorLarge) items.push("自然長度基準合理，但部分游標未對準負載穩定後的末端。");
-    else items.push("你能以自然長度作基準並量度伸長。");
+    if (zeroLarge) items.push("你記錄的伸長量零位與未加負載時的彈簧末端有明顯差距。伸長量應由原長 L₀ 的零位起計。");
+    else if (cursorLarge) items.push("伸長量零位合理，但部分量度游標未對準彈簧穩定後的末端。");
+    else items.push("你能以伸長量零位作基準，量度不同負載下的伸長量。");
 
     for (const springKey of ["A", "B"]) {
       const model = breakdown.models[springKey];
@@ -154,19 +154,19 @@
     }
     const trueOrder = Math.sign(scenario.springs.A.kNPerM - scenario.springs.B.kNPerM);
     const modelOrder = Math.sign((breakdown.models.A.kModel || 0) - (breakdown.models.B.kModel || 0));
-    if (trueOrder !== modelOrder) items.push("同一作用力下伸長較少的彈簧應有較大的 k，其 F-x 線亦較斜。");
+    if (trueOrder !== modelOrder) items.push("同一作用力下，伸長量較小的彈簧有較大的 k；它的 F–x 直線斜率較大（直線更陡）。");
 
     breakdown.predictions.forEach((prediction, index) => {
-      items.push(`預測 ${index + 1}：你的伸長 ${displayCm(prediction.predictedExtensionM)} cm；實際伸長 ${displayCm(prediction.actualM)} cm；差距 ${displayCm(prediction.errorM)} cm。`);
+      items.push(`預測 ${index + 1}：你的預測伸長量 ${displayCm(prediction.predictedExtensionM)} cm；模擬中的伸長量 ${displayCm(prediction.actualM)} cm；差距 ${displayCm(prediction.errorM)} cm。`);
     });
     const engineering = breakdown.engineering;
     if (engineering.safe) {
       const optimal = engineering.optimal;
       const extra = optimal ? optimal.moduleCount - state.design.moduleCount : 0;
-      items.push(`工程方案：選擇彈簧 ${state.design.springKey}、${state.design.moduleCount} 個模組，總負載 ${engineering.forceN.toFixed(1)} N，伸長 ${displayCm(engineering.extensionM)} cm，限制 ${displayCm(scenario.design.limitM)} cm。`);
-      if (extra > 0) items.push(`方案仍可增加 ${extra} 個模組而不超過限制；最大安全方案是彈簧 ${optimal.springKey}、${optimal.moduleCount} 個模組。`);
-      else if (optimal) items.push(`這是最大安全方案：彈簧 ${optimal.springKey}、${optimal.moduleCount} 個模組。`);
-    } else items.push(`工程方案不安全：${displayCm(engineering.extensionM || 0)} cm 的伸長超過 ${displayCm(scenario.design.limitM)} cm 限制。`);
+      items.push(`最大安全負載方案：選擇彈簧 ${state.design.springKey}、${state.design.moduleCount} 個負載塊；總作用力 ${engineering.forceN.toFixed(1)} N；模擬中的伸長量 ${displayCm(engineering.extensionM)} cm；安全伸長上限 ${displayCm(scenario.design.limitM)} cm。`);
+      if (extra > 0) items.push(`方案仍可增加 ${extra} 個負載塊而不超過限制；最大安全負載方案是彈簧 ${optimal.springKey}、${optimal.moduleCount} 個負載塊。`);
+      else if (optimal) items.push(`這是最大安全負載方案：彈簧 ${optimal.springKey}、${optimal.moduleCount} 個負載塊。`);
+    } else items.push(`最大安全負載方案不安全：${displayCm(engineering.extensionM || 0)} cm 的伸長量超過 ${displayCm(scenario.design.limitM)} cm 限制。`);
     return items;
   }
 

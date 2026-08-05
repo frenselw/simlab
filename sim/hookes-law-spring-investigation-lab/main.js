@@ -85,11 +85,12 @@
   function n(value, digits = 1) { return finite(value) ? Number(value).toFixed(digits) : "--"; }
   function forceLabel(key) { return ({ F1: "1.0 N", F2: "2.0 N", F3: "3.0 N" })[key] || "--"; }
   function springLabel(key) { return key === "A" ? "彈簧 A" : "彈簧 B"; }
-  function modelRecordMessage(springKey, hadPredictions, hadDesign) {
-    if (!hadPredictions && !hadDesign) return `已記錄${springLabel(springKey)}的直線斜率。`;
-    const dependent = hadPredictions && hadDesign ? "原有預測及工程方案" : hadPredictions ? "原有預測" : "原有工程方案";
+  function modelRecordMessage(springKey, hadPredictions, hadDesign, handleExtensionM) {
+    const kLabel = finite(handleExtensionM) ? `（k = ${n(Model.kFromModelHandle(handleExtensionM), 1)} N/m）` : "";
+    if (!hadPredictions && !hadDesign) return `已保存${springLabel(springKey)}的模型${kLabel}。`;
+    const dependent = hadPredictions && hadDesign ? "原有預測及最大安全負載方案" : hadPredictions ? "原有預測" : "原有最大安全負載方案";
     const phases = hadPredictions && hadDesign ? "第三、四階段" : hadPredictions ? "第三階段" : "第四階段";
-    return `已更新${springLabel(springKey)}的直線斜率；${dependent}依賴舊模型，已清除，請重新完成${phases}。`;
+    return `已更新${springLabel(springKey)}的模型${kLabel}；${dependent}依賴舊模型，已清除，請重新完成${phases}。`;
   }
   function measurementRecordMessage(springKey, loadKey, changed, hadModel, hadPredictions, hadDesign) {
     const label = `${springLabel(springKey)}在 ${forceLabel(loadKey)} 下的量度`;
@@ -97,7 +98,7 @@
     const cleared = [];
     if (hadModel) cleared.push(`${springLabel(springKey)}的模型`);
     if (hadPredictions) cleared.push("由舊模型建立的預測");
-    if (hadDesign) cleared.push("由舊模型建立的安全負載方案");
+    if (hadDesign) cleared.push("由舊模型建立的最大安全負載方案");
     const phases = [hadModel ? "第二階段" : null, hadPredictions ? "第三階段" : null, hadDesign ? "第四階段" : null].filter(Boolean).join("、");
     return `已更新${label}；${cleared.join("、")}已清除，請重新完成${phases}。`;
   }
@@ -666,7 +667,7 @@
       const hadDesign = Boolean(state.design);
       const next = Persistence.transitions.replaceModel(state, springKey, modelDraftM, scenario);
       modelMoveM = 0;
-      const message = modelRecordMessage(springKey, hadPredictions, hadDesign);
+      const message = modelRecordMessage(springKey, hadPredictions, hadDesign, modelDraftM);
       modelStatusMessage = message;
       modelStatusSpring = springKey;
       setState(next, message);
@@ -700,14 +701,14 @@
     function goPhase(phase) {
       if (locked || !state) return;
       if (!Object.hasOwn(PHASE_LABELS, phase) || phase === "review" && state.phase !== "review" && !Persistence.hasCompleteAnswer(state, scenario)) {
-        if (phase === "review") announce("請先完成所有量度、模型、預測及工程方案。");
+        if (phase === "review") announce("請先完成所有量度、模型、預測及最大安全負載方案。");
         return;
       }
       if (phase === "model" && !Persistence.hasAllCalibrationsAndMeasurements(state)) return announce("兩條彈簧各三項量度完成後，才可找出線性關係。");
       if (phase === "predict" && !Persistence.hasAllModels(state)) return announce("完成兩條彈簧的模型後，才可進行未量度負載的模型預測。");
       if (phase === "design" && (!Persistence.hasAllModels(state) || !Persistence.hasAllPredictions(state))) return announce("三項預測完成後，才可進行最大安全負載挑戰。");
       if (phase === "review") {
-        if (!Persistence.hasCompleteAnswer(state, scenario)) return announce("請先完成所有量度、模型、預測及工程方案。");
+        if (!Persistence.hasCompleteAnswer(state, scenario)) return announce("請先完成所有量度、模型、預測及最大安全負載方案。");
         if (!checkpoint()) return;
       }
       try {
@@ -742,7 +743,7 @@
     function requestRecalibration() {
       if (locked || !state.calibrations[state.activeSpring]) return;
       if (dom.dialog?.showModal) dom.dialog.showModal();
-      else if (host.confirm?.("重新標定會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／安全負載方案。")) confirmRecalibration();
+      else if (host.confirm?.("重新設定零位會清除這條彈簧已記錄的量度、模型及由舊模型建立的預測／最大安全負載方案。")) confirmRecalibration();
     }
     function confirmRecalibration() {
       if (dom.dialog?.open) dom.dialog.close("confirm");
@@ -752,7 +753,7 @@
         cursorMoveM = 0;
         stopAnimation();
         setState(next, `已清除${springLabel(state.activeSpring)}的後續答案；請重新設定伸長量零位。`);
-      } catch { technicalLock("重新標定未能安全完成；操作已鎖定。"); }
+      } catch { technicalLock("重新設定零位未能安全完成；操作已鎖定。"); }
     }
     function toReviewEditOrNext() {
       if (state.phase === "investigate") return goPhase("model");
@@ -766,7 +767,7 @@
         latestResult = Scoring.scoreAnswer(state, scenario);
         latestReviewSnapshot = SimScorm.makeSnapshot(ACTIVITY, "review", Persistence.answerForSnapshot(state, "review", scenario), latestResult);
         pendingExpected = { reviewJson: JSON.stringify(latestReviewSnapshot), score: latestResult.score, maxScore: latestResult.maxScore, passed: latestResult.passed };
-      } catch { return technicalLock("提交前的權威答案未能安全編碼；沒有送出未確認的資料。"); }
+      } catch { return technicalLock("準備提交的答案資料未能安全處理；沒有送出未確認的資料。"); }
       locked = true;
       presentation = "submitting";
       SimScorm.setDraftProvider(null);
@@ -784,7 +785,7 @@
           if (outcome?.retryable) {
             locked = false;
             presentation = "editable";
-            submitMessage = "提交尚未建立已確認的 final state；答案仍可安全保留並重試。";
+            submitMessage = "提交尚未建立已確認的最終提交狀態；答案仍可保留並重試。";
             registerDraftProvider();
             render();
             announce(submitMessage);
@@ -849,7 +850,8 @@
       dom.result.classList.remove("is-hidden");
       const section = element("section", undefined, "result-block");
       section.append(element("h2", "已完成的 Moodle 本次作答"), element("p", message));
-      const summary = element("p", `Moodle 已記錄分數：${String(attempt.score ?? "未提供")}；狀態：${attempt.status === "passed" ? "passed" : attempt.status === "failed" ? "failed" : "未提供"}。`);
+      const status = attempt.status === "passed" ? "已合格" : attempt.status === "failed" ? "未合格" : "未提供";
+      const summary = element("p", `Moodle 已記錄分數：${String(attempt.score ?? "未提供")}；狀態：${status}。`);
       section.append(summary, element("p", "詳細活動答案未能安全驗證，因此不顯示活動重算結果。"));
       dom.result.append(section);
       renderStage();
@@ -966,7 +968,7 @@
       else if (state.models[key]) setMathContent(dom.modelStatus, ["已保存", springLabel(key), "的模型（", mathKFormula(Model.kFromModelHandle(state.models[key].handleExtensionM)), "）；可再次調整。"]);
       else setText(dom.modelStatus, "尚未保存這條彈簧的模型。");
       dom.toPredict.disabled = Boolean(locked || !Persistence.hasAllModels(state));
-      dom.toPredict.textContent = state.fromReview ? "返回第三階段預測" : "兩條直線都有斜率後繼續";
+      dom.toPredict.textContent = state.fromReview ? "返回第三階段預測" : "完成兩條彈簧的模型後繼續";
     }
     function renderPredict() {
       if (!state || state.phase !== "predict") return;
@@ -992,7 +994,7 @@
       });
       setText(dom.predictionStatus, `${state.predictions.filter(Boolean).length}/3 項預測已填寫；這裡不會顯示模擬中的結果。`);
       dom.toDesign.disabled = Boolean(locked || !Persistence.hasAllPredictions(state));
-      dom.toDesign.textContent = state.fromReview ? "返回第四階段安全承載設計" : "完成三項預測後繼續";
+      dom.toDesign.textContent = state.fromReview ? "返回第四階段最大安全負載挑戰" : "完成三項預測後繼續";
     }
     function designCalculation() {
       const design = state?.design;
@@ -1074,8 +1076,9 @@
         svg.append(svgElement("circle", { cx: p.x, cy: p.y, r: 4, fill: "#0f766e", "data-review-point": row.loadKey }));
       }
       if (model && finite(model.kModelNPerM)) {
-        const endForce = Math.min(plot.maxF, model.kModelNPerM * plot.maxX);
-        const end = point(plot.maxX * endForce / Math.max(plot.maxF, model.kModelNPerM * plot.maxX), endForce);
+        const k = model.kModelNPerM;
+        const endExtensionM = Math.min(plot.maxX, plot.maxF / k);
+        const end = point(endExtensionM, k * endExtensionM);
         svg.append(drawLine(plot.left, plot.top + plot.height, end.x, end.y, { stroke: "#2563eb", "stroke-width": 2.5, "data-review-line": "learner-model" }));
       }
       return svg;
@@ -1190,12 +1193,12 @@
       view.predictions.forEach((prediction, index) => {
         const value = element("strong");
         value.append(mathLength(prediction.actualExtensionM));
-        rows.append(element("span", `預測 ${index + 1} 模擬中的伸長`), value);
+        rows.append(element("span", `預測 ${index + 1} 模擬中的伸長量`), value);
       });
       if (view.engineering) {
         const extension = element("strong");
         extension.append(mathLength(view.engineering.extensionM));
-        rows.append(element("span", "方案在模擬中的伸長"), extension, element("span", "模擬設定下的最大安全方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個負載塊` : "--"));
+        rows.append(element("span", "方案在模擬中的伸長量"), extension, element("span", "模擬設定下的最大安全負載方案"), element("strong", view.engineering.optimal ? `${springLabel(view.engineering.optimal.springKey)}、${view.engineering.optimal.moduleCount} 個負載塊` : "--"));
       }
       reveal.append(rows); dom.result.append(reveal);
       if (presentation === "submitted-committed") {
@@ -1414,7 +1417,7 @@
         }));
       }
       dom.svg.append(drawLine(142, endpointY, 705, endpointY, { stroke: statusColor, "stroke-width": 2, "stroke-dasharray": "4 4" }));
-      dom.svg.append(drawMathText(470, 430, ["按你的模型預測的末端：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawMathText(470, 430, ["按你的模型預測的伸長量：", { text: n(calculation.extensionM * 100, 1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: statusColor, "font-size": 15, "font-weight": 700 }));
     }
     function drawReviewStage() {
       dom.svg.append(drawText(36, 32, "提交前檢查・只顯示你的答案", { class: "math-svg", "font-size": 20, "font-weight": 700 }));
@@ -1457,7 +1460,6 @@
       target.hidden = !visible;
       target.style.left = `${left}%`; target.style.top = `${top}%`;
       target.setAttribute("aria-label", label);
-      target.setAttribute("aria-valuetext", label);
       target.textContent = text;
       target.classList.toggle("is-dragging", Boolean(drag && drag.target === target));
     }
@@ -1717,7 +1719,7 @@
     ensureServices();
     bind();
     let attempt;
-    try { attempt = options.attempt || SimScorm.loadAttempt(ACTIVITY); startup(attempt); } catch { technicalLock("活動共享 runtime 未能安全啟動；操作及分數均未確認。"); }
+    try { attempt = options.attempt || SimScorm.loadAttempt(ACTIVITY); startup(attempt); } catch { technicalLock("活動程式未能安全啟動；操作及分數均未確認。"); }
     return {
       activity: ACTIVITY,
       getState: () => clone(state),
