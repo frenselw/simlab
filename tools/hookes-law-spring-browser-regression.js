@@ -323,6 +323,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.equal(predictionStage.draftM, 0, `${label}: prediction starts at zero extension`);
   assert.equal(predictionStage.hasSpring, true, `${label}: prediction screen draws the spring before dragging`);
   assert.equal(predictionStage.hasLoad, true, `${label}: prediction screen draws the specified load before dragging`);
+  assert.ok(predictionStage.stageText.some((text) => text.includes("負載下的伸長量")), `${label}: prediction stage uses a clear learner-facing heading`);
   assert.ok(predictionStage.stageText.includes("最短位置（x = 0 cm）"), `${label}: prediction screen labels the shortest position`);
   assert.ok(predictionStage.stageText.includes("伸長量 x / cm"), `${label}: prediction screen labels extension in cm`);
   assert.ok(Math.abs(predictionStage.targetY - predictionStage.loadY) < 12, `${label}: prediction marker starts beside the load`);

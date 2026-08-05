@@ -1184,7 +1184,7 @@
         const x = springX + (index % 2 ? 26 : -26);
         coils.push(`${x},${y}`);
       }
-      dom.svg.append(drawSvgFxFormula(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}・`, "負載", { "font-size": 20, "font-weight": 700 }));
+      dom.svg.append(drawText(36, 32, `預測 ${state.activePredictionIndex + 1}・${springLabel(spec.springKey)}・負載下的伸長量`, { class: "math-svg", "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(225, 55, 595, 55, { stroke: "#334155", "stroke-width": 5 }), drawText(605, 61, "固定端／天花板", { class: "math-svg", "font-size": 15, "font-weight": 700 }));
       dom.svg.append(drawLine(springX, 55, springX, PREDICTION_STAGE.springTopY, { stroke: "#94a3b8", "stroke-width": 2 }));
       dom.svg.append(drawLine(PREDICTION_STAGE.guideLeft, shortestLoadBottomY, PREDICTION_STAGE.guideRight, shortestLoadBottomY, { stroke: "#7c3aed", "stroke-dasharray": "6 5", "stroke-width": 2 }), drawMathText(PREDICTION_STAGE.guideLeft + 8, shortestLoadBottomY - 10, ["最短位置（", { text: "x", class: "math-variable" }, " = ", { text: "0", class: "math-number" }, { text: " cm", class: "math-unit" }, "）"], { fill: "#6d28d9", "font-size": 15, "font-weight": 700 }));

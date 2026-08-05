@@ -112,6 +112,7 @@ assert.match(source, /const debugAvailable = debugQueryEnabled\(host\.location\?
 assert.match(source, /function modelDraftPoint\(\)/);
 assert.match(source, /function modelValueFromPoint\(point\)/);
 assert.match(source, /modelDraftForceN/);
+assert.match(source, /負載下的伸長量/);
 assert.match(html, /直線的斜率/);
 assert.match(html, /彈簧的彈力與伸長量成正比/);
 assert.match(html, /最大安全負載/);
