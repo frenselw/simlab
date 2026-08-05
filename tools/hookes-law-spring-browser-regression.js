@@ -290,6 +290,42 @@ async function runDebugShortcut(cdp, baseUrl, launchPath, label) {
   return `${label}: first- and second-phase debug shortcuts passed`;
 }
 
+async function runMissingServiceLock(cdp, baseUrl, launchPath, label, missingGlobal) {
+  await setViewport(cdp, 390, 700, false);
+  await navigate(cdp, `${baseUrl}${launchPath}?missing-service=${label}-${missingGlobal}`);
+  const outcome = await evaluate(cdp, `(() => {
+    const missing=${JSON.stringify(missingGlobal)}, saved=window[missing];
+    window[missing]=undefined;
+    let thrown=false, debug=null;
+    try { debug=window.HookesLawApp.boot({}); } catch { thrown=true; }
+    window[missing]=saved;
+    const panelIds=['investigatePanel','modelPanel','predictPanel','designPanel','reviewPanel'];
+    const answerControls=[...document.querySelectorAll(panelIds.map((id)=>'#'+id+' [data-action]').join(','))];
+    const visibleEnabledAnswerControls=answerControls.filter((node)=>!node.disabled && !node.closest('.is-hidden')).length;
+    return {
+      thrown,
+      presentation:debug?.getPresentation?.()||null,
+      state:debug?.getState?.()||null,
+      result:debug?.getResult?.()||null,
+      technicalHidden:document.getElementById('technicalPanel')?.classList.contains('is-hidden') ?? true,
+      answerPanelsHidden:panelIds.every((id)=>document.getElementById(id)?.classList.contains('is-hidden')),
+      resultHidden:document.getElementById('resultPanel')?.classList.contains('is-hidden') ?? true,
+      resultText:document.getElementById('resultPanel')?.textContent||'',
+      visibleEnabledAnswerControls
+    };
+  })()`);
+  assert.equal(outcome.thrown, false, `${label}: missing ${missingGlobal} boot does not throw`);
+  assert.equal(outcome.presentation, "technical", `${label}: missing ${missingGlobal} enters the technical-lock presentation`);
+  assert.equal(outcome.state, null, `${label}: missing ${missingGlobal} does not create an answer state`);
+  assert.equal(outcome.result, null, `${label}: missing ${missingGlobal} does not create a result`);
+  assert.equal(outcome.technicalHidden, false, `${label}: missing ${missingGlobal} shows the technical panel`);
+  assert.equal(outcome.answerPanelsHidden, true, `${label}: missing ${missingGlobal} hides every answer panel`);
+  assert.equal(outcome.resultHidden, true, `${label}: missing ${missingGlobal} keeps the result panel hidden`);
+  assert.equal(outcome.resultText, "", `${label}: missing ${missingGlobal} leaves the result panel empty`);
+  assert.equal(outcome.visibleEnabledAnswerControls, 0, `${label}: missing ${missingGlobal} exposes no enabled answer control`);
+  return `${label}: missing ${missingGlobal} fails closed safely`;
+}
+
 async function iframeMetrics(cdp) {
   return evaluate(cdp, `(() => { const frame=document.getElementById('activity'),fr=frame.getBoundingClientRect(),d=frame.contentDocument,p=d.getElementById('controlPanel'),a=d.getElementById('app');return {
     frame:{left:fr.left,top:fr.top,width:fr.width,height:fr.height},
@@ -396,7 +432,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model phase did not open`);
   const modelDragLabel = await evaluate(cdp, "document.getElementById('modelDrag')?.getAttribute('aria-label')||''");
   assert.match(modelDragLabel, /彈簧 [AB]模型.*k = .*N\/m.*左右鍵改變斜率/, `${label}: model control exposes spring, k and keyboard ownership`);
-  const modelAxis = await evaluate(cdp, "(() => { const d=document,f=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),fRect=f?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect(),x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {fX:Number(f?.getAttribute('x')),fAnchor:f?.getAttribute('text-anchor')||'',fRight:fRect?.right,fTickLeft:tickRect?.left,xX:Number(x?.getAttribute('x')),xY:Number(x?.getAttribute('y')),xAnchor:x?.getAttribute('text-anchor')||'',xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
+  const modelAxis = await evaluate(cdp, "(() => { const d=document,f=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='F / N'),fRect=f?.getBoundingClientRect(),tick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='4'),tickRect=tick?.getBoundingClientRect(),x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長量 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {fX:Number(f?.getAttribute('x')),fAnchor:f?.getAttribute('text-anchor')||'',fRight:fRect?.right,fTickLeft:tickRect?.left,xX:Number(x?.getAttribute('x')),xY:Number(x?.getAttribute('y')),xAnchor:x?.getAttribute('text-anchor')||'',xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
   assert.ok(modelAxis.fX < 80 && modelAxis.fAnchor === "end", `${label}: vertical F axis label is separated from the tick numbers`);
   assert.ok(modelAxis.fRight < modelAxis.fTickLeft, `${label}: vertical F axis label does not overlap the tick numbers`);
   assert.equal(modelAxis.xY, 460, `${label}: horizontal axis label uses the dedicated row below the tick labels`);
@@ -404,7 +440,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.ok(modelAxis.xTop > modelAxis.xTickBottom, `${label}: horizontal axis label does not overlap the tick numbers`);
   await setViewport(cdp, 1280, 800, false);
   await delay(80);
-  const desktopModelAxis = await evaluate(cdp, "(() => { const d=document,x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
+  const desktopModelAxis = await evaluate(cdp, "(() => { const d=document,x=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='伸長量 x / cm'),xRect=x?.getBoundingClientRect(),xTick=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='18.0 cm'),xTickRect=xTick?.getBoundingClientRect();return {xTop:xRect?.top,xTickBottom:xTickRect?.bottom}; })()");
   assert.ok(desktopModelAxis.xTop > desktopModelAxis.xTickBottom, `${label}: desktop horizontal axis label does not overlap the tick numbers`);
   await setViewport(cdp, 390, 700, false);
   await delay(80);
@@ -477,10 +513,10 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   assert.equal(completedPredictionPhase.toDesignDisabled, false, `${label}: continue-to-design is enabled after all predictions are recorded`);
   await clickDirect(cdp, "#toDesign");
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: design phase did not open`);
-  const designInitial = await evaluate(cdp, "(() => { const zero=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='0.0 cm'),ceiling=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='96'&&node.getAttribute('x2')==='625'&&node.getAttribute('y1')==='62'),ceilingLabel=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='固定端／天花板'),limitLine=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='142'&&node.getAttribute('x2')==='705'&&node.getAttribute('stroke')==='#dc2626'),limitText=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('安全上限')),limitMax=limitText?.querySelector('tspan.math-subscript'),emptyHeading=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='請先選擇彈簧及負載塊。'),emptyHelp=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('系統會用你建立的斜率')); return {heading:document.querySelector('#designPanel h2')?.textContent||'',calculationState:document.getElementById('designCalculation')?.dataset.state||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),zeroY:Number(zero?.getAttribute('y')),ceilingY:Number(ceiling?.getAttribute('y1')),ceilingEndX:Number(ceiling?.getAttribute('x2')),ceilingLabelX:Number(ceilingLabel?.getAttribute('x')),limitY:Number(limitLine?.getAttribute('y1')),limitMaxShift:limitMax?.getAttribute('baseline-shift')||'',emptyHeadingY:Number(emptyHeading?.getAttribute('y')),emptyHelpY:Number(emptyHelp?.getAttribute('y'))}; })()");
+  const designInitial = await evaluate(cdp, "(() => { const zero=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='0.0 cm'),ceiling=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='96'&&node.getAttribute('x2')==='625'&&node.getAttribute('y1')==='62'),ceilingLabel=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='固定端／天花板'),limitLine=[...document.querySelectorAll('#stageSvg line')].find((node)=>node.getAttribute('x1')==='142'&&node.getAttribute('x2')==='705'&&node.getAttribute('stroke')==='#dc2626'),limitText=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('安全伸長量上限')),limitMax=limitText?.querySelector('tspan.math-subscript'),emptyHeading=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent==='請先選擇彈簧及負載塊。'),emptyHelp=[...document.querySelectorAll('#stageSvg text')].find((node)=>node.textContent.includes('系統會用你建立的模型')); return {heading:document.querySelector('#designPanel h2')?.textContent||'',calculationState:document.getElementById('designCalculation')?.dataset.state||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),zeroY:Number(zero?.getAttribute('y')),ceilingY:Number(ceiling?.getAttribute('y1')),ceilingEndX:Number(ceiling?.getAttribute('x2')),ceilingLabelX:Number(ceilingLabel?.getAttribute('x')),limitY:Number(limitLine?.getAttribute('y1')),limitMaxShift:limitMax?.getAttribute('baseline-shift')||'',emptyHeadingY:Number(emptyHeading?.getAttribute('y')),emptyHelpY:Number(emptyHelp?.getAttribute('y'))}; })()");
   assert.ok(designInitial.heading.includes("最大安全負載"), `${label}: fourth phase explains the maximum-safe-load task`);
   assert.equal(designInitial.calculationState, "empty", `${label}: fourth phase asks for a spring before showing a calculation`);
-  assert.ok(designInitial.stageText.some((text) => text.includes("安全上限")), `${label}: fourth phase stage labels the safety limit`);
+  assert.ok(designInitial.stageText.some((text) => text.includes("安全伸長量上限")), `${label}: fourth phase stage labels the safety limit`);
   assert.ok(designInitial.stageText.some((text) => text.includes("最大安全負載挑戰・找出安全方案")), `${label}: fourth phase stage has a clear task heading`);
   assert.equal(designInitial.limitMaxShift, "sub", `${label}: safety-limit max is rendered as a subscript`);
   assert.equal(designInitial.zeroY, designInitial.ceilingY + 5, `${label}: fourth phase zero tick aligns with the ceiling`);
@@ -508,7 +544,7 @@ async function completeLearnerPath(cdp, baseUrl, launchPath, label, keyboard = f
   await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'design'", `${label}: prediction phase could not return to design`);
   await clickDirect(cdp, "[data-action='design-spring'][value='A']");
   const designCalculation = await evaluate(cdp, "(() => { const nodes=[...document.querySelectorAll('#stageSvg [data-role=design-load]')]; const tops=nodes.map((node)=>Number(node.getAttribute('y'))); const bottoms=nodes.map((node)=>Number(node.getAttribute('y'))+Number(node.getAttribute('height'))); return {calculation:document.getElementById('designCalculation')?.textContent||'',summary:document.getElementById('designSummary')?.textContent||'',stageText:[...document.querySelectorAll('#stageSvg text')].map((node)=>node.textContent),kA:document.getElementById('designK_A')?.textContent||'',loadCount:nodes.length,loadHeight:nodes.length?Math.max(...bottoms)-Math.min(...tops):0}; })()");
-  assert.ok(designCalculation.calculation.includes("F") && designCalculation.calculation.includes("x") && designCalculation.calculation.includes("安全上限"), `${label}: fourth phase shows the learner-model force and extension calculation`);
+  assert.ok(designCalculation.calculation.includes("F") && designCalculation.calculation.includes("x") && designCalculation.calculation.includes("安全伸長量上限"), `${label}: fourth phase shows the learner-model force and extension calculation`);
   assert.ok(designCalculation.summary.includes("總作用力"), `${label}: fourth phase shows the current total force summary`);
   assert.ok(designCalculation.stageText.some((text) => text.includes("按你的模型預測的伸長量")), `${label}: fourth phase stage labels the learner-model extension`);
   assert.ok(designCalculation.kA.includes("N/m"), `${label}: fourth phase shows the learner's spring slope`);
@@ -608,13 +644,17 @@ async function main() {
     const packageTouch = await runTouchMatrix(cdp, packageBase, extracted.activityPath, "package");
     const sourceDebug = await runDebugShortcut(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDebug = await runDebugShortcut(cdp, packageBase, extracted.activityPath, "package");
+    const sourceMissingScorm = await runMissingServiceLock(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "SimScorm");
+    const sourceMissingFlow = await runMissingServiceLock(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "SimActivityFlow");
+    const packageMissingScorm = await runMissingServiceLock(cdp, packageBase, extracted.activityPath, "package", "SimScorm");
+    const packageMissingFlow = await runMissingServiceLock(cdp, packageBase, extracted.activityPath, "package", "SimActivityFlow");
     const sourceDirect = await runDirectFlow(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDirect = await runDirectFlow(cdp, packageBase, extracted.activityPath, "package");
     const sourcePointer = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packagePointer = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboard = await completeLearnerPath(cdp, sourceBase, `/sim/${slug}/index.html`, "source", true);
     const packageKeyboard = await completeLearnerPath(cdp, packageBase, extracted.activityPath, "package", true);
-    summary = `Hooke's law browser regression passed: ${sourceDebug}; ${packageDebug}; ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
+    summary = `Hooke's law browser regression passed: ${sourceDebug}; ${packageDebug}; ${sourceMissingScorm}; ${sourceMissingFlow}; ${packageMissingScorm}; ${packageMissingFlow}; ${sourceDirect}; ${packageDirect}; ${sourcePointer}; ${packagePointer}; ${sourceKeyboard}; ${packageKeyboard}; ${sourceTouch}; ${packageTouch}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

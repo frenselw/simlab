@@ -91,7 +91,7 @@
       <section id="modelPanel" class="panel-section is-hidden">
         <p class="section-label">第二階段・找出線性關係</p>
         <h2 tabindex="-1">由數據點找出直線關係和斜率</h2>
-        <p class="task-copy">圖中橫軸是伸長量 <span class="math-inline"><var class="math-variable">x</var></span>，縱軸是所掛負載對彈簧的作用力 <span class="math-inline"><var class="math-variable">F</var></span>。彈簧靜止時，這個作用力的大小等於彈簧回復力的大小。請拖動控制點，畫出一條由原點出發、最能代表三個量度點的直線。因為直線通過原點，其斜率 <span class="math-inline"><var class="math-variable">k</var> = Δ<var class="math-variable">F</var>/Δ<var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">x</var></span>。<var class="math-variable">k</var> 稱為彈簧常數（勁度），單位是 <span class="math-inline"><span class="math-unit">N/m</span></span>；<var class="math-variable">k</var> 越大，同一作用力造成的伸長越小。你的胡克定律模型是 <span class="math-inline"><var class="math-variable">F</var> = <var class="math-variable">k</var><var class="math-variable">x</var></span>。</p>
+        <p class="task-copy">圖中橫軸是伸長量 <span class="math-inline"><var class="math-variable">x</var></span>，縱軸是所掛負載對彈簧的作用力 <span class="math-inline"><var class="math-variable">F</var></span>。彈簧靜止時，這個作用力的大小等於彈簧回復力的大小。請拖動控制點，畫出一條由原點出發、最能代表三個量度點的直線。因為直線通過原點，其斜率 <span class="math-inline"><var class="math-variable">k</var> = Δ<var class="math-variable">F</var>/Δ<var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">x</var></span>。<var class="math-variable">k</var> 稱為彈簧常數（勁度），單位是 <span class="math-inline"><span class="math-unit">N/m</span></span>；<var class="math-variable">k</var> 越大，同一作用力造成的伸長量越小。你的胡克定律模型是 <span class="math-inline"><var class="math-variable">F</var> = <var class="math-variable">k</var><var class="math-variable">x</var></span>。</p>
         <div class="spring-tabs" role="group" aria-label="選擇要建立模型的彈簧">
           <button type="button" data-action="model-spring-tab" data-spring="A" aria-pressed="true">彈簧 A</button>
           <button type="button" data-action="model-spring-tab" data-spring="B" aria-pressed="false">彈簧 B</button>
@@ -106,9 +106,9 @@
       <section id="predictPanel" class="panel-section is-hidden">
         <p class="section-label">第三階段・未量度負載的模型預測</p>
         <h2 tabindex="-1">用你的模型預測伸長量</h2>
-        <p class="task-copy">每題會指定一條彈簧和一個第一階段未量度的作用力。畫面起初放在未伸長位置（<span class="math-inline"><var class="math-variable">x</var> = <span class="math-number">0</span><span class="math-unit"> cm</span></span>）。上下移動橙色「預測」標記，設定你預測的伸長量 <span class="math-inline"><var class="math-variable">x</var></span>；重物會隨標記上下移動，系統亦會用 <span class="math-inline"><var class="math-variable">L</var> = <var class="math-variable">L</var><sub>0</sub> + <var class="math-variable">x</var></span> 顯示預測總長度。你可以返回第二階段查看自己的數據、直線和 <span class="math-inline"><var class="math-variable">k</var></span>，已記錄的預測會保留。</p>
+          <p class="task-copy">每題會指定一條彈簧和一個第一階段未量度的作用力。畫面起初放在未伸長位置（<span class="math-inline"><var class="math-variable">x</var> = <span class="math-number">0</span><span class="math-unit"> cm</span></span>）。上下移動橙色「預測」標記，設定你預測的伸長量 <span class="math-inline"><var class="math-variable">x</var></span>；重物會隨標記上下移動，系統亦會用 <span class="math-inline"><var class="math-variable">L</var> = <var class="math-variable">L</var><sub>0</sub> + <var class="math-variable">x</var></span> 顯示預測總長度。你可以返回第二階段查看自己的數據、模型和 <span class="math-inline"><var class="math-variable">k</var></span>，已記錄的預測會保留。</p>
         <div id="predictionCards" class="prediction-cards math-context"></div>
-        <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看線性關係</button><button type="button" data-action="navigate-phase" data-phase="investigate" class="secondary-button">返回第一階段查看量度</button></div>
+        <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看模型</button><button type="button" data-action="navigate-phase" data-phase="investigate" class="secondary-button">返回第一階段查看量度</button></div>
         <p id="predictionStatus" class="neutral-status math-context" aria-live="polite"></p>
         <button type="button" id="toDesign" data-action="to-design" class="primary-button next-button">完成三項預測後繼續</button>
       </section>
@@ -116,13 +116,13 @@
       <section id="designPanel" class="panel-section is-hidden">
         <p class="section-label">第四階段・最大安全負載挑戰</p>
         <h2 tabindex="-1">用 <span class="math-inline"><var class="math-variable">F</var> = <var class="math-variable">k</var><var class="math-variable">x</var></span> 設計最大安全負載</h2>
-        <p class="task-copy">根據你建立的彈簧常數 <span class="math-inline"><var class="math-variable">k</var></span>，選擇你預測不會超過伸長上限、而且總作用力最大的方案。這裡顯示的是按你的模型計算的結果；提交後，系統才會用模擬設定值檢查方案是否安全。</p>
+        <p class="task-copy">根據你建立的彈簧常數 <span class="math-inline"><var class="math-variable">k</var></span>，選擇你預測不會超過伸長量上限、而且總作用力最大的方案。這裡顯示的是按你的模型計算的結果；提交後，系統才會用模擬設定值檢查方案是否安全。</p>
         <div class="design-brief math-context">
           <strong>做法</strong>
-          <ol><li>選擇彈簧 A 或 B，查看你為它建立的 <span class="math-inline"><var class="math-variable">k</var></span>。</li><li>每次加減一個 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載塊。</li><li>用 <span class="math-inline"><var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">k</var></span> 檢查伸長，令 <span class="math-inline"><var class="math-variable">x</var> ≤ <var class="math-variable">x</var><sub>max</sub></span>，再在安全方案中選總作用力最大的方案。</li></ol>
+          <ol><li>選擇彈簧 A 或 B，查看你為它建立的 <span class="math-inline"><var class="math-variable">k</var></span>。</li><li>每次加減一個 <span class="math-inline"><span class="math-number">0.5</span><span class="math-unit">N</span></span> 負載塊。</li><li>用 <span class="math-inline"><var class="math-variable">x</var> = <var class="math-variable">F</var>/<var class="math-variable">k</var></span> 檢查伸長量，令 <span class="math-inline"><var class="math-variable">x</var> ≤ <var class="math-variable">x</var><sub>max</sub></span>，再在安全方案中選總作用力最大的方案。</li></ol>
         </div>
-        <div class="challenge-note">本題安全伸長上限 <span class="math-inline"><var class="math-variable">x</var><sub>max</sub></span>：<strong id="designLimit" class="math-readout">--</strong></div>
-        <fieldset class="choice-fieldset design-spring-choices"><legend>1. 選擇彈簧，先比較你的斜率</legend>
+        <div class="challenge-note">本題安全伸長量上限 <span class="math-inline"><var class="math-variable">x</var><sub>max</sub></span>：<strong id="designLimit" class="math-readout">--</strong></div>
+        <fieldset class="choice-fieldset design-spring-choices"><legend>1. 選擇彈簧，先比較你建立的模型及彈簧常數 <span class="math-inline"><var class="math-variable">k</var></span></legend>
           <label><input type="radio" name="designSpring" value="A" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 A</strong><small id="designK_A" class="math-context">你的 <var class="math-variable">k</var>：--</small></span></label>
           <label><input type="radio" name="designSpring" value="B" data-action="design-spring"><span class="design-option-copy"><strong>彈簧 B</strong><small id="designK_B" class="math-context">你的 <var class="math-variable">k</var>：--</small></span></label>
         </fieldset>
@@ -132,7 +132,7 @@
         </div>
         <div id="designCalculation" class="design-calculation math-context" aria-live="polite"></div>
         <div id="designSummary" class="design-summary math-context"></div>
-        <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="predict" class="secondary-button">返回第三階段查看預測</button><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看斜率</button></div>
+        <div class="phase-navigation" aria-label="查看前面階段"><button type="button" data-action="navigate-phase" data-phase="predict" class="secondary-button">返回第三階段查看預測</button><button type="button" data-action="navigate-phase" data-phase="model" class="secondary-button">返回第二階段查看模型</button></div>
         <button type="button" id="toReview" data-action="to-review" class="primary-button next-button">完成設計，前往提交前檢查</button>
       </section>
 

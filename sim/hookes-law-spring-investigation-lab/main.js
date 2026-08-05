@@ -364,7 +364,11 @@
       return Generator.generateScenario({ seed: answer.seed, generatorVersion: answer.generatorVersion });
     }
     function ensureServices() {
-      if (!SimScorm || !SimActivityFlow) throw new Error("Shared SCORM runtime unavailable");
+      const scormMethods = ["loadAttempt", "makeSnapshot", "saveDraft", "setDraftProvider", "submitWithCallbacks", "retryPending", "quarantinePending", "finish"];
+      const flowMethods = ["startup", "submission", "reviewResult", "completionLabel"];
+      if (!SimScorm || scormMethods.some((method) => typeof SimScorm[method] !== "function") || !SimActivityFlow || flowMethods.some((method) => typeof SimActivityFlow[method] !== "function")) {
+        throw new Error("Shared activity services unavailable");
+      }
     }
     function setText(node, value) { if (node) node.textContent = value == null ? "" : String(value); }
     function setMathContent(node, parts) {
@@ -696,7 +700,7 @@
     function changeDesign(springKey, moduleCount) {
       if (locked || state.phase !== "design" || !SPRINGS.includes(springKey) || !Number.isInteger(moduleCount)) return;
       const next = Persistence.transitions.replaceDesign(state, springKey, moduleCount, scenario);
-      setState(next, `已記錄${springLabel(springKey)}、${moduleCount} 個負載塊的安全負載方案。`);
+      setState(next, `已更新負載方案：${springLabel(springKey)}、${moduleCount} 個負載塊。`);
     }
     function goPhase(phase) {
       if (locked || !state) return;
@@ -774,7 +778,7 @@
       renderReview("提交中；請勿離開這個視窗。", false);
       try {
         SimScorm.submitWithCallbacks(latestResult, latestReviewSnapshot, { onSuccess: routeSubmissionOutcome, onFailure: routeSubmissionOutcome });
-      } catch { technicalLock("提交呼叫未能完成；結果未確認。"); }
+      } catch { technicalLock("提交程序未能完成；結果未確認。"); }
     }
     function routeSubmissionOutcome(outcome) {
       routeSubmission(outcome, SimActivityFlow, {
@@ -807,7 +811,7 @@
     function retryPending() {
       if (presentation === "submitted-committed") return finishCommitted();
       let outcome;
-      try { outcome = SimScorm.retryPending(); } catch { return technicalLock("重試呼叫未能完成；提交狀態未確認。"); }
+      try { outcome = SimScorm.retryPending(); } catch { return technicalLock("重試程序未能完成；提交狀態未確認。"); }
       if ((outcome?.ok || outcome?.committed) && !verifyPendingOutcome(outcome)) {
         SimScorm.quarantinePending();
         return technicalLock("重試回傳資料與原有凍結提交不一致；已停止繼續處理。");
@@ -920,7 +924,7 @@
       setText(dom.measurementStatus, measurementNotice);
       renderDataTables();
       dom.toModel.disabled = Boolean(locked || !Persistence.hasAllCalibrationsAndMeasurements(state));
-      dom.toModel.textContent = state.fromReview ? "返回第二階段線性關係" : "完成量度後找出線性關係";
+      dom.toModel.textContent = state.fromReview ? "返回第二階段查看模型" : "完成量度後建立模型";
     }
     function renderDataTables() {
       dom.dataTable.replaceChildren();
@@ -932,7 +936,7 @@
         const headRow = element("tr");
         headRow.append(element("th"), element("th"));
         setMathContent(headRow.firstChild, [mathAxisLabel("", "F", "N")]);
-        setMathContent(headRow.lastChild, [mathAxisLabel("學生伸長", "x", "cm")]);
+        setMathContent(headRow.lastChild, [mathAxisLabel("伸長量", "x", "cm")]);
         head.append(headRow);
         const body = element("tbody");
         for (const row of measuredRows(state, key)) {
@@ -963,7 +967,7 @@
       const modelCopy = element("p");
       appendParts(modelCopy, ["觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線；直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "。"]);
       dom.modelData.append(modelCopy, list);
-      setMathContent(dom.modelReadout, ["直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "；參考 ", mathForceValue(Model.MODEL_HANDLE_FORCE_N), " 時伸長 ", mathLength(modelDraftM)]);
+      setMathContent(dom.modelReadout, ["直線斜率 ", mathKFormula(Model.kFromModelHandle(modelDraftM)), "；參考 ", mathForceValue(Model.MODEL_HANDLE_FORCE_N), " 時的伸長量 ", mathLength(modelDraftM)]);
       if (modelStatusSpring === key && modelStatusMessage) setText(dom.modelStatus, modelStatusMessage);
       else if (state.models[key]) setMathContent(dom.modelStatus, ["已保存", springLabel(key), "的模型（", mathKFormula(Model.kFromModelHandle(state.models[key].handleExtensionM)), "）；可再次調整。"]);
       else setText(dom.modelStatus, "尚未保存這條彈簧的模型。");
@@ -1042,8 +1046,8 @@
         const formulaForce = element("p");
         appendParts(formulaForce, ["你的模型計算：", mathVariable("F"), " = ", mathNumber(calculation.moduleCount), " × ", mathQuantity(scenario.design.moduleForceN.toFixed(1), "N"), " = ", mathForceValue(calculation.forceN)]);
         const formulaExtension = element("p");
-        appendParts(formulaExtension, [mathVariable("x"), " = ", mathVariable("F"), " / ", mathVariable("k"), " = ", mathLength(calculation.extensionM), "；安全上限 ", mathVariable("x"), mathSubscript("max"), " = ", mathLength(calculation.limitM)]);
-        const status = element("p", "請把上面的 x 與安全上限比較；在不超過上限的方案中，找出總作用力最大的方案。");
+        appendParts(formulaExtension, [mathVariable("x"), " = ", mathVariable("F"), " / ", mathVariable("k"), " = ", mathLength(calculation.extensionM), "；安全伸長量上限 ", mathVariable("x"), mathSubscript("max"), " = ", mathLength(calculation.limitM)]);
+        const status = element("p", "請把上面的 x 與安全伸長量上限比較；在不超過上限的方案中，找出總作用力最大的方案。");
         status.className = "design-status";
         dom.designCalculation.append(formulaForce, formulaExtension, status);
       }
@@ -1155,7 +1159,7 @@
       dom.reviewSummary.append(measurementSection, modelSection, predictionSection, designSection);
       document.querySelectorAll("[data-action='edit-section']").forEach((button) => { button.disabled = locked || submitting; });
       dom.submit.disabled = Boolean(locked || submitting || !required);
-      setText(dom.submitStatus, submitting ? "提交呼叫進行中；未顯示結果。" : required ? "所有必要答案已具備，可以一次提交。" : "仍有未完成的必要答案。 ");
+      setText(dom.submitStatus, submitting ? "提交程序進行中；未顯示結果。" : required ? "所有必要答案已具備，可以一次提交。" : "仍有未完成的必要答案。 ");
     }
     function renderResult(message = "") {
       if (!latestResult || !state || !scenario || !mayRevealCorrectness(presentation)) return renderTechnical("結果未能安全驗證；沒有顯示推測分數或正確性。 ");
@@ -1308,7 +1312,7 @@
       const key = state.activeSpring;
       dom.svg.append(drawSvgFxFormula(36, 32, `${springLabel(key)}・`, " 線性關係", { "font-size": 20, "font-weight": 700 }));
       dom.svg.append(drawLine(GRAPH.left, GRAPH.top + GRAPH.height, GRAPH.left + GRAPH.width, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }), drawLine(GRAPH.left, GRAPH.top, GRAPH.left, GRAPH.top + GRAPH.height, { stroke: "#334155", "stroke-width": 3 }));
-      dom.svg.append(drawSvgAxisLabel(GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, "伸長", "x", "cm", { "font-size": 16, "font-weight": 700, "text-anchor": "middle" }), drawSvgAxisLabel(GRAPH.left - 50, GRAPH.top + 8, "", "F", "N", { "font-size": 16, "font-weight": 700, "text-anchor": "end" }));
+      dom.svg.append(drawSvgAxisLabel(GRAPH_X_AXIS_LABEL_X, GRAPH_X_AXIS_LABEL_Y, "伸長量", "x", "cm", { "font-size": 16, "font-weight": 700, "text-anchor": "middle" }), drawSvgAxisLabel(GRAPH.left - 50, GRAPH.top + 8, "", "F", "N", { "font-size": 16, "font-weight": 700, "text-anchor": "end" }));
       dom.svg.append(drawMathText(GRAPH.left - 34, GRAPH.top + GRAPH.height + 6, [{ text: "0", class: "math-number" }], { "font-size": 15, "font-weight": 700 }));
       for (const forceN of [1, 2, 3, 4]) { const y = GRAPH.top + GRAPH.height - forceN / GRAPH.maxForceN * GRAPH.height; dom.svg.append(drawLine(GRAPH.left - 5, y, GRAPH.left + GRAPH.width, y, { stroke: "#e2e8f0", "stroke-width": 1 }), drawMathText(GRAPH.left - 34, y + 5, [{ text: String(forceN), class: "math-number" }], { "font-size": 15 })); }
       for (const xM of [0, .05, .10, .15, .18]) { const point = graphPoint(xM, 0); dom.svg.append(drawLine(point.x, GRAPH.top + GRAPH.height, point.x, GRAPH.top + GRAPH.height + 5, { stroke: "#334155", "stroke-width": 2 }), drawSvgLength(point.x - 18, GRAPH.top + GRAPH.height + 22, xM, { "font-size": 14 })); }
@@ -1372,14 +1376,14 @@
         const y = yForExtension(extensionM);
         dom.svg.append(drawLine(ruler.x - 7, y, ruler.x + 10, y, { stroke: "#64748b", "stroke-width": 2 }), drawSvgLength(ruler.x - 13, y + 5, extensionM, { "font-size": 14, "text-anchor": "end" }));
       }
-      dom.svg.append(drawSvgAxisLabel(ruler.x, 430, "伸長", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
+      dom.svg.append(drawSvgAxisLabel(ruler.x, 430, "伸長量", "x", "cm", { "font-size": 15, fill: "#64748b", "font-weight": 700, "text-anchor": "middle" }));
 
       dom.svg.append(drawLine(142, limitY, 705, limitY, { stroke: "#dc2626", "stroke-dasharray": "8 5", "stroke-width": 3 }));
-      dom.svg.append(drawMathText(470, limitY - 10, ["安全上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-subscript", "baseline-shift": "sub", "font-size": "70%" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
+      dom.svg.append(drawMathText(470, limitY - 10, ["安全伸長量上限 ", { text: "x", class: "math-variable" }, { text: "max", class: "math-subscript", "baseline-shift": "sub", "font-size": "70%" }, " = ", { text: (scenario.design.limitM * 100).toFixed(1), class: "math-number" }, { text: " cm", class: "math-unit" }], { fill: "#b91c1c", "font-size": 15, "font-weight": 700 }));
 
       if (!calculation) {
         const emptyInstructionY = Math.min(ruler.bottom - 78, limitY + 72);
-        dom.svg.append(drawMathText(235, emptyInstructionY, ["請先選擇彈簧及負載塊。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "系統會用你建立的斜率預測伸長，再與紅色安全上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
+        dom.svg.append(drawMathText(235, emptyInstructionY, ["請先選擇彈簧及負載塊。"], { "font-size": 20, "font-weight": 700 }), drawText(235, emptyInstructionY + 32, "系統會用你建立的模型預測伸長量，再與紅色安全伸長量上限比較。", { class: "math-svg", fill: "#64748b", "font-size": 15 }));
         return;
       }
 
@@ -1449,7 +1453,7 @@
         : state?.phase === "predict"
           ? "第三階段畫面顯示題目指定的彈簧和負載；拖動預測標記會令兩者隨預測伸長量移動，提交前不顯示模擬中的結果。"
           : state?.phase === "design"
-            ? "第四階段用你第二階段建立的斜率計算 x = F/k；紅色虛線是安全伸長上限，請在安全方案中找出負載最大的方案。"
+            ? "第四階段用你第二階段建立的模型計算 x = F/k；紅色虛線是安全伸長量上限，請在安全方案中找出負載最大的方案。"
           : "畫面只顯示目前可觀察的探究現象、學生自己的資料或學生自己的標記；提交前不顯示正確性。";
       setText($("stageDescription"), stageDescription);
       positionDragTargets();
@@ -1470,13 +1474,13 @@
         const loadKey = state?.activeLoadKey;
         const calibration = state?.calibrations?.[springKey];
         const extensionM = calibration && state?.working?.cursorDraftM !== null ? Model.measuredExtensionM(calibration.zeroM, state.working.cursorDraftM) : null;
-        return `${springLabel(springKey)}，${forceLabel(loadKey)}量度游標，目前伸長 ${cm(extensionM)}`;
+        return `${springLabel(springKey)}，${forceLabel(loadKey)}量度游標，目前伸長量 ${cm(extensionM)}`;
       }
       if (kind === "model") {
         return `${springLabel(springKey)}模型，彈簧常數 k = ${n(Model.kFromModelHandle(modelDraftM), 1)} N/m；左右鍵改變斜率，上下鍵只沿直線移動控制點`;
       }
       const spec = scenario?.predictions?.[state?.activePredictionIndex ?? 0];
-      return `預測 ${(state?.activePredictionIndex ?? 0) + 1}，${springLabel(spec?.springKey)}，${n(spec?.forceN, 2)} N，目前預測伸長 ${cm(predictionDraftM)}`;
+      return `預測 ${(state?.activePredictionIndex ?? 0) + 1}，${springLabel(spec?.springKey)}，${n(spec?.forceN, 2)} N，目前預測伸長量 ${cm(predictionDraftM)}`;
     }
     function positionDragTargets() {
       const focusedTarget = Object.values(dragTargets).find((target) => target && target === document.activeElement);
@@ -1716,10 +1720,13 @@
         } catch { SimScorm.quarantinePending(); technicalLock("待確認提交資料未能安全驗證；已停止重試。"); }
       } else technicalLock("無法安全讀取 Moodle 本次作答；操作及分數均未確認。");
     }
-    ensureServices();
-    bind();
     let attempt;
-    try { attempt = options.attempt || SimScorm.loadAttempt(ACTIVITY); startup(attempt); } catch { technicalLock("活動程式未能安全啟動；操作及分數均未確認。"); }
+    try {
+      ensureServices();
+      bind();
+      attempt = options.attempt || SimScorm.loadAttempt(ACTIVITY);
+      startup(attempt);
+    } catch { technicalLock("活動程式未能安全啟動；操作及分數均未確認。"); }
     return {
       activity: ACTIVITY,
       getState: () => clone(state),

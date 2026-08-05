@@ -74,4 +74,30 @@ assert.equal(S.scoreEngineering(unsafe.design, scenario).score, 0);
 assert.equal(S.scoreEngineering({ springKey: optimal.springKey, moduleCount: optimal.moduleCount }, scenario).score, 24);
 assert.equal(S.scoreAnswer({ ...perfect, predictions: [null, null, null], design: null }, scenario).score >= 0, true);
 
+const crossSpringScenario = G.generateScenario({ seed: 60 });
+const crossSpringState = completeState(crossSpringScenario);
+assert.equal(S.sameSpringMaximumDesign(crossSpringScenario, "A").moduleCount, 3);
+assert.equal(S.sameSpringMaximumDesign(crossSpringScenario, "B").moduleCount, 7);
+
+crossSpringState.design = { springKey: "A", moduleCount: 3 };
+const safeLowerChoice = S.scoreAnswer(crossSpringState, crossSpringScenario);
+assert.match(safeLowerChoice.feedback, /你選擇的負載方案：彈簧 A、3 個負載塊/);
+assert.match(safeLowerChoice.feedback, /彈簧 A 已不能再安全增加負載塊/);
+assert.match(safeLowerChoice.feedback, /整體最大安全負載方案需要改用彈簧 B、7 個負載塊/);
+assert.doesNotMatch(safeLowerChoice.feedback, /最多仍可增加/);
+
+crossSpringState.design = { springKey: "B", moduleCount: 3 };
+const sameSpringHeadroom = S.scoreAnswer(crossSpringState, crossSpringScenario);
+assert.match(sameSpringHeadroom.feedback, /如保持使用彈簧 B，最多仍可增加 4 個負載塊/);
+assert.match(sameSpringHeadroom.feedback, /模擬設定下的最大安全負載方案是彈簧 B、7 個負載塊/);
+
+crossSpringState.design = { springKey: "A", moduleCount: 7 };
+const unsafeChoice = S.scoreAnswer(crossSpringState, crossSpringScenario);
+assert.match(unsafeChoice.feedback, /你選擇的負載方案不安全/);
+assert.doesNotMatch(unsafeChoice.feedback, /整體最大安全負載方案需要改用/);
+
+crossSpringState.design = { springKey: "B", moduleCount: 7 };
+const exactOptimalChoice = S.scoreAnswer(crossSpringState, crossSpringScenario);
+assert.match(exactOptimalChoice.feedback, /你選擇的方案已是模擬設定下的最大安全負載方案/);
+
 console.log("Hooke's law scoring checks passed");
