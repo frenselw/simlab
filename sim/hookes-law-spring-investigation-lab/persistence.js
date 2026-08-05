@@ -70,6 +70,9 @@
   function modelValid(record, scenario) {
     return record === null || (exactKeys(record, ["handleExtensionM"]) && Scoring.validModel(record, scenario));
   }
+  function sameModelHandle(first, second) {
+    return finite(first) && finite(second) && Math.abs(first - second) <= Model.FLOAT_EPSILON;
+  }
   function predictionValid(record, scenario) {
     return record === null || (exactKeys(record, ["extensionM"]) && Scoring.validPrediction(record, scenario));
   }
@@ -236,6 +239,7 @@
       next.fromReview = false;
     } else if (event.type === "replaceModel") {
       if (!event.evidence || !modelValid(event.evidence, scenario)) throw new Error("Invalid model evidence");
+      if (sameModelHandle(next.models[springKey]?.handleExtensionM, event.evidence.handleExtensionM)) return original;
       next.models[springKey] = { handleExtensionM: event.evidence.handleExtensionM };
       next.predictions = [null, null, null];
       next.design = null;
@@ -309,6 +313,7 @@
     makeSnapshot,
     decodeSnapshot,
     normalizePhase,
+    sameModelHandle,
     apply,
     transitions: Object.freeze({
       replaceCalibration: (state, springKey, evidence, scenario) => apply(state, { type: "replaceCalibration", springKey, evidence }, scenario),

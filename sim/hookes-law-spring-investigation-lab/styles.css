@@ -69,7 +69,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .task-copy, .instruction { margin: .25rem 0 .8rem; color: var(--muted); font-size: .92rem; line-height: 1.55; }
 .subsection { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--border-light); }
 .spring-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: .65rem 0; }
-.spring-tabs button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: #1d4ed8; font-weight: 700; }
+.spring-tabs button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: #1d4ed8; font-weight: 700; }
 .choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; margin: .5rem 0; }
 .choice-grid button[data-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: #1d4ed8; font-weight: 700; }
 .button-row, .review-actions { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }
@@ -173,6 +173,6 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 }
 
 @media (forced-colors: active) {
-  .drag-target, .phase-badge, .choice-grid button[data-selected="true"], .spring-tabs button[aria-selected="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
+  .drag-target, .phase-badge, .choice-grid button[data-selected="true"], .spring-tabs button[aria-pressed="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
   .primary-button { forced-color-adjust: auto; border-color: ButtonText; background: ButtonText; color: ButtonFace; }
 }

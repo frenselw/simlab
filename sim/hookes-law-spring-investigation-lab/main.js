@@ -318,6 +318,7 @@
     let stable = true;
     let modelDraftM = 0.08;
     let modelDraftForceN = Model.MODEL_HANDLE_FORCE_N;
+    let modelBaselineM = 0.08;
     let predictionDraftM = 0;
     let zeroMoveM = 0;
     let cursorMoveM = 0;
@@ -403,6 +404,7 @@
         else visualPositionM = state.working.zeroDraftM ?? defaultZero;
       } else if (state.phase === "model") {
         modelDraftM = state.models[state.activeSpring]?.handleExtensionM ?? 0.08;
+        modelBaselineM = modelDraftM;
       } else if (state.phase === "predict") {
         predictionDraftM = snapPredictionValue(state.predictions[state.activePredictionIndex]?.extensionM ?? 0);
       }
@@ -603,7 +605,13 @@
       activeSelection(key, `現在調整${springLabel(key)}的 F–x 直線。`);
     }
     function recordModel() {
-      if (locked || state.phase !== "model" || modelMoveM < Model.MIN_OPERATION_MOVE_M) return;
+      if (locked || state.phase !== "model") return;
+      const savedHandleM = state.models[state.activeSpring]?.handleExtensionM;
+      const baselineM = finite(savedHandleM) ? savedHandleM : modelBaselineM;
+      if (!finite(modelDraftM) || !finite(baselineM) || Math.abs(modelDraftM - baselineM) <= Model.FLOAT_EPSILON) {
+        modelMoveM = 0;
+        return;
+      }
       const next = Persistence.transitions.replaceModel(state, state.activeSpring, modelDraftM, scenario);
       modelMoveM = 0;
       setState(next, `已記錄${springLabel(state.activeSpring)}的直線斜率。`);
@@ -831,7 +839,7 @@
       dom.recordCalibration.disabled = Boolean(locked || calibration || active || zeroMoveM < Model.MIN_OPERATION_MOVE_M);
       dom.recalibrate.disabled = Boolean(locked || !calibration);
       setText(dom.calibrationStatus, calibration ? `已記錄${springLabel(key)}的自然長度位置。` : "尚未記錄；系統只保存你按下記錄時的游標位置。");
-      document.querySelectorAll("[data-action='spring-tab']").forEach((button) => { button.setAttribute("aria-selected", String(button.dataset.spring === key)); button.disabled = locked; });
+      document.querySelectorAll("[data-action='spring-tab']").forEach((button) => { button.setAttribute("aria-pressed", String(button.dataset.spring === key)); button.disabled = locked; });
       document.querySelectorAll("[data-action='select-load']").forEach((button) => { button.dataset.selected = String(button.dataset.load === selectedLoadKey); button.disabled = locked || !calibration; });
       dom.attachLoad.disabled = Boolean(locked || !calibration || !LOADS.includes(selectedLoadKey) || !stable);
       if (active) setMathContent(dom.loadStatus, ["目前觀察負載：", mathForce(active), stable ? "；彈簧已穩定。" : "；等待穩定。"]);
@@ -875,7 +883,7 @@
     function renderModel() {
       if (!state || state.phase !== "model") return;
       const key = state.activeSpring;
-      document.querySelectorAll("[data-action='model-spring-tab']").forEach((button) => { button.setAttribute("aria-selected", String(button.dataset.spring === key)); button.disabled = locked; });
+      document.querySelectorAll("[data-action='model-spring-tab']").forEach((button) => { button.setAttribute("aria-pressed", String(button.dataset.spring === key)); button.disabled = locked; });
       dom.modelData.replaceChildren();
       const list = element("ul");
       for (const row of measuredRows(state, key)) {
@@ -1445,6 +1453,14 @@
       target.addEventListener("keydown", (event) => keyboardAdjust(event, kind, target));
     }
     function bind() {
+      document.querySelectorAll("[data-action='spring-tab'], [data-action='model-spring-tab']").forEach((button) => {
+        button.addEventListener("keydown", (event) => {
+          if (!button.disabled && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            button.click();
+          }
+        });
+      });
       dom.panel.addEventListener("click", (event) => {
         const actionNode = event.target.closest?.("[data-action]"); if (!actionNode) return;
         const action = actionNode.dataset.action;

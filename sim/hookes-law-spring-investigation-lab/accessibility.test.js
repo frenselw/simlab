@@ -14,8 +14,9 @@ for (const target of ["zeroDrag", "cursorDrag", "modelDrag", "predictionDrag"]) 
   assert.match(html, new RegExp(`id="${target}"[^>]*class="drag-target"`));
   assert.match(html, new RegExp(`id="${target}"[^>]*aria-describedby="[^"]+"`));
 }
-assert.match(html, /role="tablist"/);
-assert.match(html, /role="tab"/);
+assert.equal((html.match(/class="spring-tabs" role="group"/g) || []).length, 2, "both spring selectors use button groups");
+assert.equal((html.match(/aria-pressed="(?:true|false)"/g) || []).length, 4, "all spring buttons expose pressed state");
+assert.doesNotMatch(html, /role="tablist"|role="tab"|aria-selected=/, "spring selectors do not advertise incomplete tab semantics");
 assert.match(html, /aria-live="polite"/);
 assert.match(html, /<dialog id="recalibrationDialog"/);
 assert.match(css, /min-height[^}]*44px/);
@@ -32,6 +33,9 @@ assert.match(main, /ArrowRight/);
 assert.match(main, /setPointerCapture/);
 assert.match(main, /pointercancel/);
 assert.match(main, /event.isPrimary === false/);
+assert.match(main, /setAttribute\("aria-pressed", String\(button.dataset.spring === key\)\)/);
+assert.doesNotMatch(main, /setAttribute\("aria-selected"/);
+assert.match(main, /event\.key === "Enter" \|\| event\.key === " "/);
 assert.match(main, /host.parent.scrollBy/);
 assert.doesNotMatch(main, /innerHTML\s*=/, "runtime uses DOM nodes/textContent for dynamic learner data");
 

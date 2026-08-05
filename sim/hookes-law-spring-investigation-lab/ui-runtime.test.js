@@ -112,6 +112,11 @@ assert.match(source, /const debugAvailable = debugQueryEnabled\(host\.location\?
 assert.match(source, /function modelDraftPoint\(\)/);
 assert.match(source, /function modelValueFromPoint\(point\)/);
 assert.match(source, /modelDraftForceN/);
+assert.match(source, /modelBaselineM/);
+assert.match(source, /Math\.abs\(modelDraftM - baselineM\) <= Model\.FLOAT_EPSILON/);
+assert.match(source, /setAttribute\("aria-pressed", String\(button.dataset.spring === key\)\)/);
+assert.doesNotMatch(source, /setAttribute\("aria-selected"/);
+assert.match(fs.readFileSync(path.join(__dirname, "persistence.js"), "utf8"), /sameModelHandle/);
 assert.match(source, /負載下的伸長量/);
 assert.match(html, /直線的斜率/);
 assert.match(html, /彈簧的彈力與伸長量成正比/);

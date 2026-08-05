@@ -50,9 +50,9 @@
         <p class="section-label">第一階段・探究與量度</p>
         <h2>先找出自然長度，再記錄三個負載</h2>
         <p class="task-copy">切換彈簧 A／B，標定未加負載時的末端位置。掛上指定負載並等待穩定，再把游標移到你認為的末端並記錄。</p>
-        <div class="spring-tabs" role="tablist" aria-label="選擇彈簧">
-          <button type="button" role="tab" data-action="spring-tab" data-spring="A" aria-selected="true">彈簧 A</button>
-          <button type="button" role="tab" data-action="spring-tab" data-spring="B" aria-selected="false">彈簧 B</button>
+        <div class="spring-tabs" role="group" aria-label="選擇彈簧">
+          <button type="button" data-action="spring-tab" data-spring="A" aria-pressed="true">彈簧 A</button>
+          <button type="button" data-action="spring-tab" data-spring="B" aria-pressed="false">彈簧 B</button>
         </div>
         <section class="subsection" aria-labelledby="calibrationTitle">
           <h3 id="calibrationTitle">自然長度零位</h3>
@@ -92,9 +92,9 @@
         <p class="section-label">第二階段・找出線性關係</p>
         <h2>由數據點找出直線關係和斜率</h2>
         <p class="task-copy">先觀察三個數據點是否接近一直線。拖動圖上的「線」標記，調整一條由原點出發的直線，令它代表你的數據。直線的斜率 <span class="math-inline"><i class="math-variable">k</i> = <i class="math-variable">F</i>/<i class="math-variable">x</i></span>；<span class="math-inline"><i class="math-variable">k</i></span> 是彈簧的勁度，而 <span class="math-inline"><i class="math-variable">x</i></span> 是伸長量。最後建立胡克定律的模型：<span class="math-inline"><i class="math-variable">F</i> = <i class="math-variable">k</i><i class="math-variable">x</i></span>，表示彈簧的彈力與伸長量成正比。</p>
-        <div class="spring-tabs" role="tablist" aria-label="選擇要建立模型的彈簧">
-          <button type="button" data-action="model-spring-tab" data-spring="A" aria-selected="true">彈簧 A</button>
-          <button type="button" data-action="model-spring-tab" data-spring="B" aria-selected="false">彈簧 B</button>
+        <div class="spring-tabs" role="group" aria-label="選擇要建立模型的彈簧">
+          <button type="button" data-action="model-spring-tab" data-spring="A" aria-pressed="true">彈簧 A</button>
+          <button type="button" data-action="model-spring-tab" data-spring="B" aria-pressed="false">彈簧 B</button>
         </div>
         <div id="modelData" class="model-data math-context"></div>
         <div class="readout-row"><span>直線斜率</span><strong id="modelReadout" class="math-readout">--</strong></div>

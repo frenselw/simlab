@@ -86,6 +86,7 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
     debugPanelHidden:d.getElementById('debugPanel').classList.contains('is-hidden'),
     panelRange:d.getElementById('controlPanel').scrollHeight-d.getElementById('controlPanel').clientHeight,
     targetSizes:[...d.querySelectorAll('.drag-target:not([hidden])')].map((node)=>({w:node.getBoundingClientRect().width,h:node.getBoundingClientRect().height})),
+    springGroups:[...d.querySelectorAll('.spring-tabs')].map((group)=>({role:group.getAttribute('role'),label:group.getAttribute('aria-label'),buttons:[...group.querySelectorAll('button')].map((button)=>({text:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),selected:button.getAttribute('aria-selected')}))})),
     stageText:[...d.querySelectorAll('#stageSvg text')].map((node)=>node.textContent).filter(Boolean),
     mathPhysical:{zeroQuantity:Boolean(d.querySelector('#zeroReadout .math-quantity .math-number')),zeroUnit:d.querySelector('#zeroReadout .math-unit')?.textContent||'',forceButtons:[...d.querySelectorAll('[data-action=select-load]')].every((node)=>node.matches('.math-quantity')&&node.querySelector('.math-number')&&node.querySelector('.math-unit')),stageUnits:d.querySelectorAll('#stageSvg .math-unit').length,stageVariables:d.querySelectorAll('#stageSvg .math-variable').length},
     stageRectCount:d.querySelectorAll('#stageSvg rect').length,
@@ -102,6 +103,13 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   assert.equal(initial.stageTouch, "pan-y", `${label}: stage owns the non-interactive pan-y contract`);
   assert.ok(initial.panelRange > 20, `${label}: control panel has an independent range`);
   assert.ok(initial.targetSizes.every(({ w, h }) => w >= 44 && h >= 44), `${label}: stable drag targets meet 44px minimum`);
+  assert.deepEqual(initial.springGroups.map((group) => group.role), ["group", "group"], `${label}: spring selectors use button groups`);
+  assert.ok(initial.springGroups.every((group) => group.label && group.buttons.length === 2 && group.buttons.every((button) => button.pressed && button.selected === null)), `${label}: spring selector buttons expose pressed state without tab state`);
+  await pressKey(cdp, "[data-action='spring-tab'][data-spring='B']", "Enter");
+  const switchedSpring = await evaluate(cdp, "(() => ({active:window.__hookesLawDebug.getState().activeSpring,pressed:[...document.querySelectorAll('[data-action=\\\"spring-tab\\\"]')].map((node)=>node.getAttribute('aria-pressed'))}))()");
+  assert.equal(switchedSpring.active, "B", `${label}: keyboard activation changes the active spring`);
+  assert.deepEqual(switchedSpring.pressed, ["false", "true"], `${label}: keyboard activation synchronizes pressed state`);
+  await clickDirect(cdp, "[data-action='spring-tab'][data-spring='A']");
   assert.equal(initial.mathPhysical.zeroQuantity, true, `${label}: live position readout uses a structured math quantity`);
   assert.equal(initial.mathPhysical.zeroUnit, "cm", `${label}: live position readout exposes cm as a unit span`);
   assert.equal(initial.mathPhysical.forceButtons, true, `${label}: force choices use structured number/unit spans`);
@@ -138,6 +146,23 @@ async function runDirectFlow(cdp, baseUrl, launchPath, label) {
   const cursorGuideAfter = await evaluate(cdp, "(() => { const d=document,node=[...d.querySelectorAll('#stageSvg text')].find((text)=>text.textContent==='游標');return {present:Boolean(node),x:Number(node?.getAttribute('x')),anchor:node?.getAttribute('text-anchor')||''}; })()");
   assert.deepEqual(cursorGuideAfter, { present:true, x:596, anchor:"end" }, `${label}: cursor guide label remains visible after moving the measurement line`);
 
+  await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
+  await clickDirect(cdp, "[data-action='navigate-phase'][data-phase='model']");
+  await waitUntil(cdp, "window.__hookesLawDebug.getState().phase === 'model'", `${label}: model semantic regression could not open the model phase`);
+  const modelBeforeNoOp = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),key=state.activeSpring; return {key,handle:state.models[key].handleExtensionM,predictions:JSON.stringify(state.predictions),design:JSON.stringify(state.design),fromReview:state.fromReview}; })()");
+  await pressKey(cdp, "#modelDrag", "ArrowUp");
+  const modelAfterVertical = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),key=state.activeSpring; return {handle:state.models[key].handleExtensionM,predictions:JSON.stringify(state.predictions),design:JSON.stringify(state.design),fromReview:state.fromReview,force:window.__hookesLawDebug.interactionEvidence().modelDraftForceN}; })()");
+  assert.equal(modelAfterVertical.handle, modelBeforeNoOp.handle, `${label}: moving the model handle along the same line does not change the saved slope`);
+  assert.equal(modelAfterVertical.predictions, modelBeforeNoOp.predictions, `${label}: same-line model movement preserves predictions`);
+  assert.equal(modelAfterVertical.design, modelBeforeNoOp.design, `${label}: same-line model movement preserves design`);
+  assert.equal(modelAfterVertical.fromReview, modelBeforeNoOp.fromReview, `${label}: same-line model movement preserves review continuation`);
+  assert.notEqual(modelAfterVertical.force, 2.5, `${label}: same-line browser test actually moved the force handle`);
+  await pressKey(cdp, "#modelDrag", "ArrowRight");
+  const modelAfterHorizontal = await evaluate(cdp, "(() => { const state=window.__hookesLawDebug.getState(),key=state.activeSpring,evidence=window.__hookesLawDebug.interactionEvidence(); return {handle:state.models[key].handleExtensionM,draft:evidence.modelDraftM,move:evidence.modelMoveM,predictions:state.predictions.filter(Boolean).length,design:state.design,fromReview:state.fromReview}; })()");
+  assert.notEqual(modelAfterHorizontal.handle, modelBeforeNoOp.handle, `${label}: horizontal model movement commits a changed slope`);
+  assert.equal(modelAfterHorizontal.predictions, 0, `${label}: changed model clears predictions`);
+  assert.equal(modelAfterHorizontal.design, null, `${label}: changed model clears design`);
+  assert.equal(modelAfterHorizontal.fromReview, false, `${label}: changed model exits review continuation`);
   await evaluate(cdp, `(() => { const answer=${fixtureExpression(123)}; window.__hookesLawDebug.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer}}); })()`);
   await evaluate(cdp, "document.querySelector('[data-action=to-review]').click()");
   await delay(80);
@@ -249,10 +274,10 @@ async function waitUntil(cdp, expression, message) {
 
 async function pressKey(cdp, selector, key, count = 1) {
   await evaluate(cdp, `document.querySelector(${JSON.stringify(selector)})?.focus()`);
-  const virtualKeyCodes = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+  const virtualKeyCodes = { Enter: 13, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
   for (let index = 0; index < count; index += 1) {
     const virtualKeyCode = virtualKeyCodes[key];
-    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code: key, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode });
+    await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key, code: key, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode });
     await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code: key, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode });
     await delay(18);
   }

@@ -12,7 +12,7 @@
 - 學生可見標題：`胡克定律：彈簧探究與預測實驗室`
 - Learning objective：學生透過量度兩條未知彈簧在不同作用力下的伸長建立 \(F-x\) 關係，理解彈簧常數 \(k\)，並把自己建立的模型用於未量度情境的預測及安全承載設計。
 - Learner task：標定自然長度、完成兩條彈簧共六次量度、建立兩條通過原點的模型線、完成三次盲測預測與一次安全承載設計，在提交前檢查答案後一次提交，再查看結果。
-- Main interactions：spring tabs、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、第三階段的彈簧＋負載聯動預測、跨階段返回／繼續、module `− / count / +`、review-edit、final submit。
+- Main interactions：彈簧 A／B button group、固定負載選擇、zero marker／measurement cursor／model handle／prediction marker 拖動及鍵盤替代、第三階段的彈簧＋負載聯動預測、跨階段返回／繼續、module `− / count / +`、review-edit、final submit。
 - Runtime files：`index.html`、`styles.css`、`generator.js`、`model.js`、`animation.js`、`scoring.js`、`persistence.js`、`main.js`，以及對應 tests、manifest 與 browser regression。
 - Shared runtime：`sim/shared/styles.css`、`sim/shared/scorm.js`、`sim/shared/activity-flow.js`。
 - Libraries：`none`
@@ -570,7 +570,7 @@ investigate
 #### A1. Spring tabs
 
 - `彈簧 A`／`彈簧 B`；
-- tab 可自由切換；
+- 使用 `role="group"` 的 toggle-button group，可自由切換；每個按鈕以 `aria-pressed` 表示目前選擇，不使用未完成的 tab／tabpanel semantics；
 - 顯示文字 identity，不只靠顏色；
 - 每條 spring 保存獨立零位、量度及 active load；
 - 畫面只顯示一條 spring，避免手機並排過窄；
@@ -697,6 +697,8 @@ measurement record 另帶：
 5. readout 顯示學生自己的：
    - `2.5 N 對應的模型伸長`；
    - `模型 k = ... N/m`。
+
+模型的 canonical／semantic value 只有 handle 的伸長量 `handleExtensionM`。沿着同一條模型線上下移動 handle 只改變視覺控制點位置，不改變模型、不可保存亦不可觸發下游 invalidation；水平移動只要真正改變 `handleExtensionM`，pointerup／每次方向鍵操作便立即同步權威 `state.models`，不以累積手勢距離作保存門檻。保存同一個 handle 值是 no-op，必須保留既有 predictions、design 及 `fromReview`。
 
 這不是正確性回饋，因為數值完全由學生目前線的位置計算。
 
@@ -865,6 +867,8 @@ review 只標示：
 
 - 三個 predictions；
 - design。
+
+只有 canonical `handleExtensionM` 與既有值真正不同時才算「修改」；沿同一模型線移動控制點或重新保存 epsilon 內相同值是 no-op，不清除任何下游答案，亦不離開 `fromReview` continuation。
 
 不清除 measurements。
 
@@ -1617,6 +1621,8 @@ tools/
 - `sim/config.js`
 - `tools/run-tests.js`
 
+Quality workflow 亦必須在 `npm run package:all` 後實際執行完整的 `npm run test:browser:hookes-law`；`tools/hookes-law-spring-browser-regression.test.js` 只保留作快速 wiring／parity guard，不能代替啟動 Chrome 的 source/package browser regression。
+
 ### `generator.js`
 
 - deterministic PRNG；
@@ -1853,6 +1859,12 @@ Browser-level assertions，不只 source-string：
 - [ ] hidden／offscreen／ARIA／data attribute 無答案 leakage；
 - [ ] result lock 後 drag owners disabled。
 
+Browser acceptance 亦必須覆蓋：
+
+- [ ] source 及 packaged launch 都以鍵盤操作驗證彈簧 button group 的 `aria-pressed` 與 `activeSpring` 同步；
+- [ ] 同一模型線的垂直 handle 操作不改變 authority、predictions、design 或 review continuation；
+- [ ] 真正水平模型變更立即更新 authority，並只在此時執行 model downstream invalidation。
+
 ### 21.7 Lifecycle
 
 - [ ] startup `review`；
@@ -1920,6 +1932,7 @@ Browser-level assertions，不只 source-string：
 - [ ] `npm.cmd test`；
 - [ ] `npm.cmd run package -- hookes-law-spring-investigation-lab`；
 - [ ] `npm.cmd run package:all`；
+- [ ] `npm.cmd run test:browser:hookes-law` 由 Quality workflow 實際執行 source/package trusted browser flow；
 - [ ] ZIP root `imsmanifest.xml`；
 - [ ] built/extracted browser smoke；
 - [ ] no CDN／network dependency；
@@ -1989,5 +2002,6 @@ Browser-level assertions，不只 source-string：
 - [ ] snapshot <4000 bytes；
 - [ ] SCORM startup／submission 全 outcomes 完整；
 - [ ] source／package trusted-touch pass；
+- [ ] Quality workflow 不只通過 Hooke browser wiring test，而是通過完整 Hooke browser regression；
 - [ ] package-ready；
 - [ ] 真實 Moodle 驗收後才標記 Moodle-ready。
