@@ -26,8 +26,8 @@ assert(!Levels.LEVELS[4].segments.some((segment) => segment.target === "transiti
 assert.equal(Levels.scoredZones(Levels.LEVELS[4]).length, 4);
 assert.equal(Levels.LEVELS.flatMap(Levels.scoredZones).reduce((sum, zone) => sum + zone.points, 0), 90);
 const catalog = fs.readFileSync(path.join(__dirname, "..", "config.js"), "utf8");
-assert.match(catalog, /folder:\s*"kinematics-driving-challenge"[\s\S]*?status:\s*"planned"/,
-  "the activity remains planned until real-Moodle current/new-window and phone verification finish");
+assert.match(catalog, /folder:\s*"kinematics-driving-challenge"[\s\S]*?status:\s*"active"/,
+  "the deployable activity is active in the catalogue");
 
 function simpleControlFor(zone, speed = 8) {
   if (zone.target === "accelerating") return 2;
