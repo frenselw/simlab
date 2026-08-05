@@ -1868,7 +1868,7 @@ Browser-level assertions，不只 source-string：
 - [ ] prediction phase DOM／accessibility tree 無 actual endpoint；
 - [ ] prediction phase clearly names the target spring/load、draws both from the shortest \(x=0\) position、moves them together with the marker、and shows only student extension/total-length readouts；
 - [ ] prediction phase can return to model/investigate and resume without changing recorded predictions；
-- [ ] debug shortcut 直接進入 predict phase 後，仍可返回 model 查看兩條已自動填入的斜率，再返回 predict；
+- [ ] 正常完成 model phase 並進入 predict 後，仍可返回 model 查看兩條已記錄的模型，再返回 predict；
 - [ ] design phase不動畫實際 extension；
 - [ ] review 的每張學生模型圖以 `endX = min(maxX, maxF / k)`、`endF = k * endX` 裁切；`k=20 N/m` 應到右邊界 `(0.18 m, 3.6 N)`，`k=50 N/m` 應到上邊界 `(0.08 m, 4 N)`；由 SVG 終點反算的斜率在 epsilon 內等於學生模型，source／package 都測試；
 - [ ] review 無 score／correctness；
