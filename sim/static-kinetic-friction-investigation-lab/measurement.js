@@ -324,7 +324,10 @@
     const vm = (v0 + v1) / 2;
     const fm = (f0 + f1) / 2;
     const slope = (v1 - v0) / dt;
-    if (targetType === "static") return vm <= (constants.maxVelocityMps ?? MAX_STATIC_ABS_VELOCITY_MPS);
+    if (targetType === "static") {
+      const minForceSlope = constants.minForceSlopeNPerS ?? MIN_STATIC_RISE_FORCE_SLOPE_N_PER_S;
+      return vm <= (constants.maxVelocityMps ?? MAX_STATIC_ABS_VELOCITY_MPS) && (f1 - f0) / dt >= minForceSlope;
+    }
     if (targetType === "slow") return vm >= (constants.minSpeedMps ?? MIN_MOVING_SPEED_MPS) && vm >= SLOW_SPEED_MIN_MPS && vm <= SLOW_SPEED_MAX_MPS && Math.abs(slope) <= (constants.maxSlopeMps2 ?? MAX_PLATEAU_ABS_SLOPE_MPS2) && fm <= (constants.maxForceN ?? MAX_FORCE_CN / 100);
     if (targetType === "fast") return vm >= (constants.minSpeedMps ?? MIN_MOVING_SPEED_MPS) && vm >= FAST_SPEED_MIN_MPS && vm <= FAST_SPEED_MAX_MPS && Math.abs(slope) <= (constants.maxSlopeMps2 ?? MAX_PLATEAU_ABS_SLOPE_MPS2) && fm <= (constants.maxForceN ?? MAX_FORCE_CN / 100);
     if (targetType === "acceleration") return slope >= (constants.minSlopeMps2 ?? MIN_ACCELERATION_SLOPE_MPS2);
@@ -353,7 +356,18 @@
         }
       }
     };
-    addRuns("static", (s, i) => i <= breakIndex && s.measuredVelocityMps <= MAX_STATIC_ABS_VELOCITY_MPS, MIN_STATIC_RISE_DURATION_S, (stats, start, end) => isStaticRise(stats) && end <= breakIndex);
+    const addAllWindows = (kind, predicate, minDurationS, qualifier = () => true) => {
+      for (let start = 0; start <= breakIndex; start += 1) {
+        if (!predicate(samples[start], start)) continue;
+        for (let end = start + 1; end <= breakIndex; end += 1) {
+          if (!predicate(samples[end], end)) break;
+          if (samples[end].timeS - samples[start].timeS < minDurationS) continue;
+          const stats = intervalStats(decoded, start, end);
+          if (qualifier(stats, start, end)) candidates[kind].push({ startIndex: start, endIndex: end, stats });
+        }
+      }
+    };
+    addAllWindows("static", (s) => s.measuredVelocityMps <= MAX_STATIC_ABS_VELOCITY_MPS, MIN_STATIC_RISE_DURATION_S, (stats) => isStaticRise(stats));
     addRuns("slow", (s, i) => i > breakIndex && s.measuredVelocityMps >= SLOW_SPEED_MIN_MPS && s.measuredVelocityMps <= SLOW_SPEED_MAX_MPS, MIN_PLATEAU_DURATION_S, isVelocityPlateau);
     addRuns("fast", (s, i) => i > breakIndex && s.measuredVelocityMps >= FAST_SPEED_MIN_MPS && s.measuredVelocityMps <= FAST_SPEED_MAX_MPS, MIN_PLATEAU_DURATION_S, isVelocityPlateau);
     const velocity = samples.map((s) => s.measuredVelocityMps);

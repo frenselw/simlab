@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`2`（2026-08-07；整合 physics/pedagogy 與 platform/runtime 兩份獨立審核）。
+> Plan revision：`3`（2026-08-08；補充 static-rise pair classifier 的局部力斜率邊界與 regression contract）。
 
 本計劃必須遵從：
 
@@ -1980,7 +1980,7 @@ otherPhaseFraction = otherDuration / learnerWindowDuration;
 
 Event sidecar 造成的非等距 interval 使用其真實 `timeMs`，不可按 sample count 近似 duration。
 
-Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair, targetType, constants)`；window-level slope、duration、CV predicates 保持另一組 pure helpers，禁止互相偷用造成 classifier 與 candidate finder 漂移。
+Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair, targetType, constants)`；static-rise pair 除低速外必須有 `ΔF/Δt ≥ 0.30 N/s`，因此先保持恆定拉力的 preload 不可冒充上升段；window-level slope、duration、CV predicates 保持另一組 pure helpers，禁止互相偷用造成 classifier 與 candidate finder 漂移。
 
 ---
 

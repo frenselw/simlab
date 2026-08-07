@@ -133,7 +133,7 @@ select {
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: .8rem 1rem 1.3rem;
+  padding: .8rem 1rem 3rem;
   background: var(--panel);
   scrollbar-gutter: stable;
   contain: size layout paint;
@@ -177,10 +177,12 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .analysis-graphs { min-height: 240px; margin: .6rem 0; border: 1px solid var(--border); border-radius: 8px; background: white; overflow: hidden; }
 .formula-hint { padding: .45rem .6rem; border-left: 3px solid var(--blue); background: #eef4ff; font-variant-numeric: tabular-nums; }
 .data-view { margin: .6rem 0; padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: white; }
-.table-scroll { max-height: 13rem; overflow: auto; }
+.table-scroll { overflow: visible; }
 table { width: 100%; border-collapse: collapse; font-size: .78rem; font-variant-numeric: tabular-nums; }
 th, td { padding: .25rem .35rem; border-bottom: 1px solid #e5e7eb; text-align: right; }
 th:first-child, td:first-child { text-align: left; }
+.interval-stats-list { display: grid; gap: .45rem; }
+.interval-stat { margin: 0; padding: .45rem .55rem; border-left: 3px solid var(--blue); background: #f8fbff; font-size: .8rem; line-height: 1.5; }
 .analysis-tasks { display: grid; gap: .5rem; }
 .prediction-cards { display: grid; gap: .5rem; }
 .review-actions { display: grid; gap: .4rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }

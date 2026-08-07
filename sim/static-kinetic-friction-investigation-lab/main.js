@@ -247,6 +247,16 @@
         row.setAttribute("aria-label", `樣本 ${sample.canonicalIndex}，時間 ${sample.timeS.toFixed(2)} 秒，拉力 ${sample.measuredPullN.toFixed(2)} 牛頓，速度 ${sample.measuredVelocityMps.toFixed(3)} 米每秒`);
         body.append(row);
       });
+      const statsHost = q("intervalStatsList"); if (!statsHost) return;
+      statsHost.replaceChildren();
+      const draft = analysisDraft || state.analysis;
+      const labels = { staticInterval: "C1 靜止上升", slowPlateau: "C3 低速平台", acceleration: "C4 加速", fastPlateau: "C5 高速平台" };
+      Object.entries(labels).forEach(([key, label]) => {
+        const selection = draft?.[key]; const stats = selection?.startIndex != null && selection?.endIndex != null ? Measurement.intervalStats(decoded, selection.startIndex, selection.endIndex) : null;
+        const item = document.createElement("p"); item.className = "interval-stat"; item.id = `interval-stat-${key}`;
+        item.textContent = stats ? `${label}：${stats.startTimeS.toFixed(2)}–${stats.endTimeS.toFixed(2)} s；duration ${stats.durationS.toFixed(2)} s；平均拉力 ${stats.meanPullN.toFixed(2)} N；平均速度 ${stats.meanVelocityMps.toFixed(3)} m/s；速度斜率 ${stats.velocitySlopeMps2.toFixed(3)} m/s²；拉力標準差 ${stats.forceStdN.toFixed(3)} N。` : `${label}：尚未選取完整區段。`;
+        statsHost.append(item);
+      });
     }
     function ensureAnalysisDraft() {
       if (!state?.trial) return null;
@@ -267,7 +277,7 @@
         ["fastPlateau", "C5 較高速近似勻速區段", "speedComparison", [["same-average", "平均值基本相同"], ["higher-at-fast-speed", "高速較大"], ["lower-at-fast-speed", "高速較小"]]]
       ];
       specs.forEach(([key, title, field, options]) => {
-        const card = document.createElement("section"); card.className = "task-card"; card.dataset.analysisTask = key;
+        const card = document.createElement("section"); card.className = "task-card"; card.dataset.analysisTask = key; if (key !== "breakaway") card.setAttribute("aria-describedby", `interval-stat-${key}`);
         const task = draft[key] || {};
         card.innerHTML = `<p class="task-title">${title}</p>`;
         if (key === "breakaway") {
@@ -280,6 +290,8 @@
         if (options.length) card.innerHTML += `<label>判斷<select data-analysis-field="${field}">${options.map(([value, label]) => `<option value="${value}" ${task[field] === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
         if (key === "staticInterval") card.innerHTML += `<label>拉力和靜摩擦力的關係<select data-analysis-field="relation"><option value="">請選擇</option><option value="equal" ${task.relation === "equal" ? "selected" : ""}>拉力等於靜摩擦力</option><option value="pull-greater" ${task.relation === "pull-greater" ? "selected" : ""}>拉力大於靜摩擦力</option><option value="pull-less" ${task.relation === "pull-less" ? "selected" : ""}>拉力小於靜摩擦力</option></select></label>`;
         if (key === "acceleration") card.innerHTML += `<label>這段平均測力計讀數可否直接當作 fk？<select data-analysis-field="pullEqualsFk"><option value="">請選擇</option><option value="yes" ${task.pullEqualsFk === "yes" ? "selected" : ""}>可以</option><option value="no" ${task.pullEqualsFk === "no" ? "selected" : ""}>不可以</option></select></label>`;
+        const targetKey = state.fromReview && state.working?.reviewEditTarget?.section === "analysis" ? state.working.reviewEditTarget.semanticKey : null;
+        if (targetKey && targetKey !== "all" && targetKey !== key) card.querySelectorAll("input,select").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
         host.append(card);
       });
       renderGraph();
@@ -292,25 +304,43 @@
     function commitAnalysisDraft(draft) {
       if (!draft) return false;
       if (state.fromReview) {
-        const changed = JSON.stringify(state.analysis) !== JSON.stringify(draft);
+        const target = state.working?.reviewEditTarget?.semanticKey;
+        const changed = target === "all" ? JSON.stringify(state.analysis) !== JSON.stringify(draft) : JSON.stringify(state.analysis?.[target]) !== JSON.stringify(draft?.[target]);
         if (!changed) state = Persistence.transitions.cancelReviewEdit(state);
         else {
-          const next = clone(state); next.analysis = clone(draft); next.predictions = [null, null, null, null]; next.phase = "predict"; next.fromReview = false; next.working = Persistence.emptyWorking(); next.variant = Persistence.inferVariant(next); Persistence.validateState(next); state = next;
+          const next = clone(state); next.analysis = target === "all" ? clone(draft) : { ...next.analysis, [target]: clone(draft[target]) }; next.predictions = [null, null, null, null]; next.phase = "predict"; next.fromReview = false; next.working = Persistence.emptyWorking(); next.variant = Persistence.inferVariant(next); Persistence.validateState(next); state = next;
         }
         return true;
       }
-      for (const key of Persistence.ANALYSIS_KEYS) state = Persistence.transitions.setAnalysisTask(state, key, draft[key]);
+      for (const key of Persistence.ANALYSIS_KEYS) {
+        state = Persistence.transitions.setAnalysisTask(state, key, draft[key]);
+        if (!Persistence.analysisTaskComplete(key, draft[key])) break;
+      }
       return true;
     }
     function renderPredictions() {
       const host = q("predictionCards"); if (!host || !scenario) return;
       host.replaceChildren();
-      const answers = state.predictions || predictionDraft;
+      const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : answer) || predictionDraft;
       scenario.predictions.forEach((spec, index) => {
         const response = answers[index] || {}; const card = document.createElement("article"); card.className = "prediction-card"; card.dataset.predictionIndex = index;
         card.innerHTML = `<p class="task-title">${spec.id}：拉力 ${spec.pullN.toFixed(1)} N；物體目前速度 ${spec.velocityMps.toFixed(2)} m/s</p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>方向<select data-prediction-field="direction"><option value="">請選擇</option><option value="none" ${response.direction === "none" ? "selected" : ""}>沒有方向</option><option value="left" ${response.direction === "left" ? "selected" : ""}>向左</option><option value="right" ${response.direction === "right" ? "selected" : ""}>向右</option></select></label><label>摩擦力大小（N）<input type="number" min="0" max="12" step="0.01" value="${response.magnitudeCN == null ? "" : response.magnitudeCN / 100}" data-prediction-field="magnitudeCN"></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><button type="button" data-action="save-prediction">保存這題預測</button>`;
+        if (response.committed && !state.fromReview) card.insertAdjacentHTML("beforeend", index < scenario.predictions.length - 1 ? `<button type="button" data-action="advance-prediction">下一題</button>` : "");
+        const targetIndex = state.fromReview && state.working?.reviewEditTarget?.section === "predict" ? state.working.reviewEditTarget.semanticKey : state.working?.activePredictionIndex ?? 0;
+        if (index !== targetIndex) card.querySelectorAll("select,input,button").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
         host.append(card);
       });
+    }
+    function collectPredictionDraft(card) {
+      if (!card || !state || !scenario) return;
+      const index = Number(card.dataset.predictionIndex);
+      if (!Number.isInteger(index)) return;
+      const values = {};
+      card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value) * 100)) : (input.value || null); });
+      try {
+        state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN: values.magnitudeCN, motionOutcome: values.motionOutcome, committed: false });
+        saveDraft();
+      } catch {}
     }
     function renderReview() {
       const host = q("reviewSummary"); if (!host || !state) return;
@@ -318,6 +348,10 @@
       const balanceEditButtons = state.balance.observations.map((observation) => `<button type="button" data-action="edit-balance-observation" data-observation-id="${observation.id}">修改${observation.id === "zero-pull" ? "無拉力" : observation.id === "static-low" ? "較小非零拉力" : "較大非零拉力"}</button>`).join("");
       host.innerHTML = `<ul><li>力平衡觀察：${state.balance.observations.length}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像分析：${Persistence.hasAllAnalysisFields(state) ? "五項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
       q("submit")?.toggleAttribute("disabled", !complete);
+      const analysisButtons = q("analysisEditButtons");
+      if (analysisButtons) analysisButtons.innerHTML = Persistence.ANALYSIS_KEYS.map((key, index) => `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>`).join("");
+      const predictionButtons = q("predictionEditButtons");
+      if (predictionButtons) predictionButtons.innerHTML = state.predictions.map((prediction, index) => `<button type="button" data-action="edit-predict" data-prediction-index="${index}">修改預測 ${index + 1}</button>`).join("");
       q("submit")?.classList.toggle("is-hidden", presentation !== "editable");
       q("cancelReviewEdit")?.classList.toggle("is-hidden", !state.fromReview);
     }
@@ -405,12 +439,13 @@
           else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (draft && Object.values(draft).every(Boolean)) { commitAnalysisDraft(draft); if (state.phase === "analysis") state.variant = Persistence.inferVariant(state); saveDraft(); announce("圖像分析已保存"); } }
           else if (action === "to-predict") { const draft = collectAnalysisDraft(); if (draft && Object.values(draft).every(Boolean)) { commitAnalysisDraft(draft); if (state.phase !== "predict") state = Persistence.transitions.setPhase(state, "predict"); saveDraft(); } }
           else if (action === "save-prediction") { const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {}; card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? Math.round(Number(input.value || 0) * 100) : input.value || null; }); if (values.frictionType && values.direction && values.motionOutcome) { state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, ...values, committed: true }); saveDraft(); } }
+          else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
           else if (action === "to-review") { if (Persistence.hasAllPredictions(state)) { state = Persistence.transitions.setPhase(state, "review"); saveDraft(); } }
           else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", state.balance.observations[0]?.id || "zero-pull"); saveDraft(); }
           else if (action === "edit-balance-observation") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-observation-id]")?.dataset.observationId || "zero-pull"); saveDraft(); }
           else if (action === "edit-experiment") { state = Persistence.transitions.enterReviewEdit(state, "experiment", null); saveDraft(); }
-          else if (action === "edit-analysis") { state = Persistence.transitions.enterReviewEdit(state, "analysis", null); analysisDraft = clone(state.analysis); saveDraft(); }
-          else if (action === "edit-predict") { state = Persistence.transitions.enterReviewEdit(state, "predict", null); saveDraft(); }
+          else if (action === "edit-analysis") { state = Persistence.transitions.enterReviewEdit(state, "analysis", event.target.closest("[data-analysis-key]")?.dataset.analysisKey || "all"); analysisDraft = clone(state.analysis); saveDraft(); }
+          else if (action === "edit-predict") { state = Persistence.transitions.enterReviewEdit(state, "predict", Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex ?? 0)); saveDraft(); }
           else if (action === "cancel-review-edit") { state = Persistence.transitions.cancelReviewEdit(state); analysisDraft = null; saveDraft(); announce("已取消修改，回到提交前檢查"); }
           else if (action === "retry-finish") { const outcome = typeof SimScorm !== "undefined" ? SimScorm.retryFinish?.() : null; if (outcome?.ok) { presentation = "submitted-success"; render(); } else if (outcome?.committed) { setText("submitStatus", "完成程序仍未成功；已保留鎖定結果，可稍後重試。"); } }
           else if (action === "retry-pending") { const outcome = typeof SimScorm !== "undefined" ? SimScorm.retryPending?.() : null; if (outcome?.ok || outcome?.committed) { pendingRetryAvailable = false; presentation = outcome.finished ? "submitted-success" : "submitted-committed"; render(); } else { setText("technicalMessage", "技術提交仍未完成；操作及分數均未確認，請稍後再試。"); } }
@@ -497,7 +532,8 @@
       };
       q("controlPanel")?.addEventListener("touchend", finishPanelTouch, { passive: true });
       q("controlPanel")?.addEventListener("touchcancel", finishPanelTouch, { passive: true });
-      document.addEventListener("input", (event) => { const field = event.target.dataset?.analysisField; if (field && analysisDraft) { collectAnalysisDraft(); renderGraph(); } });
+      document.addEventListener("input", (event) => { const field = event.target.dataset?.analysisField; if (field && analysisDraft) { collectAnalysisDraft(); renderGraph(); } if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
+      document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
         const target = event.target;
         if (target.id === "forceGrip" && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); const step = event.shiftKey ? .02 : .005; const input = q("gripPosition"); if (input) { input.value = clamp(Number(input.value) + (event.key === "ArrowRight" ? step : -step), .18, 1.4); input.dispatchEvent(new Event("input", { bubbles: true })); } }

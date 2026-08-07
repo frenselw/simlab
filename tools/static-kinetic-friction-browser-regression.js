@@ -52,7 +52,7 @@ async function frameEvaluate(cdp, expression) {
   })()`);
 }
 async function navigateEmbedded(cdp, base, launch) {
-  await cdp.send("Page.navigate", { url: `${base}/__embed-scroll-test.html?src=${encodeURIComponent(launch)}` });
+  await cdp.send("Page.navigate", { url: `${base}/__embed-scroll-test.html?fluid=1&src=${encodeURIComponent(launch)}` });
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if (await frameEvaluate(cdp, "document.readyState === 'complete' && Boolean(window.__staticKineticFrictionApp)")) return;
     await delay(50);
@@ -115,7 +115,9 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   await delay(120);
   const panelPoint = await frameEvaluate(cdp, `(() => { const frame = window.frameElement.getBoundingClientRect(); const panel = document.getElementById('controlPanel'); const r = panel.getBoundingClientRect(); for (let y = r.top + 12; y < r.bottom - 12; y += 12) { const hit = document.elementFromPoint(r.left + r.width / 2, y); if (!hit?.closest('button,input,select,.drag-target')) return { x: frame.left + r.left + r.width / 2, y: frame.top + y }; } return { x: frame.left + r.left + r.width / 2, y: frame.top + r.top + 12 }; })()`);
   const panelRange = await frameEvaluate(cdp, "(() => { const panel = document.getElementById('controlPanel'); return panel.scrollHeight - panel.clientHeight; })()");
-  const panelDelta = Math.max(8, Math.min(24, panelRange / 4));
+  // Exceed Chromium's touch-slop so the trusted gesture produces touchmove
+  // events even when the panel has only a short remaining scroll range.
+  const panelDelta = Math.max(16, Math.min(24, panelRange / 4));
   await frameEvaluate(cdp, `(() => { const panel = document.getElementById('controlPanel'); panel.scrollTop = ${panelRange / 2}; return true; })()`);
   await evaluate(cdp, "window.__panelTestLockY=scrollY; window.__panelTestLock=()=>scrollTo(0,window.__panelTestLockY); addEventListener('scroll',window.__panelTestLock,{passive:true}); document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden'; document.scrollingElement.style.overflow='hidden';");
   const beforePanel = await metrics();

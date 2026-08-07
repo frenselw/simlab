@@ -47,13 +47,20 @@
   function hasZero(state) { return Boolean(observationFor(state, "zero-pull")); }
   function nonzeroObservations(state) { return state.balance.observations.filter((observation) => observation.measuredPullCN > 0); }
   function allBalanceAnswersCommitted(state) { return state.balance.observations.length === 3 && state.balance.observations.every((observation) => observation.learnerForce?.committed === true); }
+  function analysisTaskComplete(key, value) {
+    if (!value) return false;
+    if (key === "breakaway") return integer(value.markerIndex) && integer(value.estimatedFsMaxCN) && typeof value.identifiedAs === "string";
+    if (!(integer(value.startIndex) && integer(value.endIndex))) return false;
+    if (key === "staticInterval") return typeof value.frictionType === "string" && typeof value.relation === "string";
+    if (key === "slowPlateau" || key === "fastPlateau") return integer(value.estimatedFkCN) && (key !== "fastPlateau" || typeof value.speedComparison === "string");
+    return typeof value.relation === "string" && typeof value.pullEqualsFk === "string";
+  }
+  function analysisTaskHasSelection(key, value) {
+    if (!value) return false;
+    return key === "breakaway" ? integer(value.markerIndex) : integer(value.startIndex) && integer(value.endIndex);
+  }
   function hasAllAnalysisFields(state) {
-    const a = state.analysis;
-    return Boolean(a.staticInterval?.startIndex != null && a.staticInterval?.endIndex != null && a.staticInterval.frictionType && a.staticInterval.relation &&
-      a.breakaway?.markerIndex != null && a.breakaway.estimatedFsMaxCN != null && a.breakaway.identifiedAs &&
-      a.slowPlateau?.startIndex != null && a.slowPlateau?.endIndex != null && a.slowPlateau.estimatedFkCN != null &&
-      a.acceleration?.startIndex != null && a.acceleration?.endIndex != null && a.acceleration.relation && a.acceleration.pullEqualsFk &&
-      a.fastPlateau?.startIndex != null && a.fastPlateau?.endIndex != null && a.fastPlateau.estimatedFkCN != null && a.fastPlateau.speedComparison);
+    return ANALYSIS_KEYS.every((key) => analysisTaskComplete(key, state.analysis?.[key]));
   }
   function hasAllPredictions(state) { return state.predictions.length === PREDICTION_COUNT && state.predictions.every((prediction) => prediction?.committed === true); }
   function inferVariant(state) {
@@ -115,6 +122,37 @@
     if (key === "fastPlateau" && value.speedComparison != null && !["same-average", "higher-at-fast-speed", "lower-at-fast-speed"].includes(value.speedComparison)) return false;
     return true;
   }
+  function validatePrediction(prediction) {
+    if (!prediction || typeof prediction.id !== "string" || typeof prediction.scenarioId !== "string" || typeof prediction.committed !== "boolean") return false;
+    if (prediction.frictionType != null && !["none", "static", "kinetic"].includes(prediction.frictionType)) return false;
+    if (prediction.direction != null && !["none", "left", "right"].includes(prediction.direction)) return false;
+    if (prediction.magnitudeCN != null && (!integer(prediction.magnitudeCN) || prediction.magnitudeCN < 0 || prediction.magnitudeCN > 1200)) return false;
+    if (prediction.motionOutcome != null && !["remain-still", "speed-up", "slow-down", "start-sliding"].includes(prediction.motionOutcome)) return false;
+    if (prediction.committed) {
+      if (prediction.frictionType == null || prediction.direction == null || prediction.magnitudeCN == null || prediction.motionOutcome == null) return false;
+      if (prediction.frictionType === "none" && prediction.direction !== "none") return false;
+    }
+    return true;
+  }
+  function validateAnalysisProgress(state) {
+    if (state.phase !== "analysis" || state.fromReview) return;
+    const active = state.working.activeAnalysisTask;
+    ANALYSIS_KEYS.forEach((key, index) => {
+      const value = state.analysis[key];
+      if (index < active && !analysisTaskComplete(key, value)) throw new Error("analysis has incomplete earlier task");
+      if (index === active && value != null && !analysisTaskHasSelection(key, value)) throw new Error("analysis active task has no selection");
+      if (index > active && value != null) throw new Error("analysis contains future task");
+    });
+  }
+  function validatePredictionProgress(state) {
+    if (state.phase !== "predict" || state.fromReview) return;
+    const active = state.working.activePredictionIndex;
+    state.predictions.forEach((prediction, index) => {
+      if (prediction != null && !validatePrediction(prediction)) throw new Error("invalid prediction");
+      if (index < active && (!prediction || !prediction.committed)) throw new Error("prediction has incomplete earlier answer");
+      if (index > active && prediction != null) throw new Error("prediction contains future answer");
+    });
+  }
   function validateState(state, options = {}) {
     if (!state || state.schemaVersion !== SCHEMA_VERSION || state.generatorVersion !== 1 || state.physicsVersion !== 1 || state.measurementVersion !== 1 || state.rubricVersion !== 1 || !integer(state.seed) || state.seed < 0 || state.seed > 0xffffffff || !PHASES.includes(state.phase) || typeof state.fromReview !== "boolean" || !state.balance || typeof state.balance.tared !== "boolean" || !Array.isArray(state.balance.observations) || !Array.isArray(state.predictions) || state.predictions.length !== PREDICTION_COUNT || !state.analysis || ANALYSIS_KEYS.some((key) => !Object.hasOwn(state.analysis, key)) || (state.phase !== "review" && !state.working)) throw new Error("invalid state shape");
     if (!state.fromReview && state.phase === "review" && state.working && JSON.stringify(state.working) !== JSON.stringify(emptyWorking())) throw new Error("complete review cannot contain working state");
@@ -141,12 +179,14 @@
     }
     const sampleCount = decodedTrial?.merged?.length || 0;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.analysis[key], sampleCount || 1))) throw new Error("invalid analysis task");
+    if (state.phase === "analysis" && !state.fromReview) validateAnalysisProgress(state);
     if (["experiment", "analysis", "predict", "review"].includes(state.phase) && !state.fromReview && !allBalanceAnswersCommitted(state)) throw new Error("balance must be complete before experiment");
     if ((state.phase === "predict" || state.phase === "review") && !hasAllAnalysisFields(state)) throw new Error("prediction requires analysis");
     if (state.phase === "review" && !hasAllPredictions(state)) throw new Error("review requires predictions");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
-    state.predictions.forEach((prediction) => { if (prediction && (!prediction.id || predictionIds.has(prediction.id) || !prediction.scenarioId || scenarioIds.has(prediction.scenarioId) || !["none", "static", "kinetic"].includes(prediction.frictionType) || !["none", "left", "right"].includes(prediction.direction) || !integer(prediction.magnitudeCN) || prediction.magnitudeCN < 0 || prediction.magnitudeCN > 1200 || !["remain-still", "speed-up", "slow-down", "start-sliding"].includes(prediction.motionOutcome) || typeof prediction.committed !== "boolean")) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
+    state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
+    if (state.phase === "predict" && !state.fromReview) validatePredictionProgress(state);
     if (state.phase === "analysis" && !state.fromReview && state.predictions.some(Boolean)) throw new Error("analysis cannot contain future predictions");
     if (state.phase === "experiment" && !state.fromReview && state.analysis && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("experiment cannot contain analysis");
     if (state.phase === "balance" && !state.fromReview && (state.analysis && ANALYSIS_KEYS.some((key) => state.analysis[key] != null) || state.predictions.some(Boolean))) throw new Error("balance cannot contain future answers");
@@ -154,7 +194,12 @@
     if (state.working && (!Number.isInteger(state.working.activeAnalysisTask) || state.working.activeAnalysisTask < 0 || state.working.activeAnalysisTask >= ANALYSIS_KEYS.length || !Number.isInteger(state.working.activePredictionIndex) || state.working.activePredictionIndex < 0 || state.working.activePredictionIndex >= PREDICTION_COUNT || (state.working.activeBalanceStep !== null && (!Number.isInteger(state.working.activeBalanceStep) || state.working.activeBalanceStep < 0 || state.working.activeBalanceStep > 2)))) throw new Error("invalid working cursor");
     if (!state.fromReview && state.working && (state.working.reviewEditTarget != null || state.working.editDraft != null)) throw new Error("working edit draft outside review-edit");
     if (state.fromReview && state.working.reviewEditTarget.semanticKey != null && typeof state.working.reviewEditTarget.semanticKey !== "string" && !Number.isInteger(state.working.reviewEditTarget.semanticKey)) throw new Error("invalid review edit key");
-    if (state.fromReview && state.working.editDraft != null && typeof state.working.editDraft !== "object") throw new Error("invalid review edit draft");
+    if (state.fromReview && state.working.reviewEditTarget.section === "analysis" && state.working.reviewEditTarget.semanticKey !== "all" && !ANALYSIS_KEYS.includes(state.working.reviewEditTarget.semanticKey)) throw new Error("invalid analysis review-edit key");
+    if (state.fromReview && state.working.reviewEditTarget.section === "predict" && (!Number.isInteger(state.working.reviewEditTarget.semanticKey) || state.working.reviewEditTarget.semanticKey < 0 || state.working.reviewEditTarget.semanticKey >= PREDICTION_COUNT)) throw new Error("invalid prediction review-edit key");
+    if (state.fromReview && state.working.editDraft != null) {
+      if (typeof state.working.editDraft !== "object" || !["observation", "analysis-task", "prediction"].includes(state.working.editDraft.kind) || !Object.hasOwn(state.working.editDraft, "value")) throw new Error("invalid review edit draft");
+      if (state.working.editDraft.kind === "prediction" && !validatePrediction(state.working.editDraft.value)) throw new Error("invalid prediction review-edit draft");
+    }
     if (!options.skipVariant && inferVariant(state) !== state.variant) throw new Error("variant does not match matrix");
     return true;
   }
@@ -185,10 +230,21 @@
   function setAnalysisTask(state, key, value) {
     if (!ANALYSIS_KEYS.includes(key) || !value) throw new Error("invalid analysis task");
     const editingReview = Boolean(state.fromReview);
+    const index = ANALYSIS_KEYS.indexOf(key);
+    if (editingReview && state.working?.reviewEditTarget?.section === "analysis" && state.working.reviewEditTarget.semanticKey !== "all" && state.working.reviewEditTarget.semanticKey !== key) throw new Error("analysis task is not the review-edit target");
+    if (!editingReview) {
+      if (state.phase !== "analysis") throw new Error("analysis task outside analysis phase");
+      const active = state.working?.activeAnalysisTask ?? 0;
+      const activeComplete = analysisTaskComplete(ANALYSIS_KEYS[active], state.analysis[ANALYSIS_KEYS[active]]);
+      if (index < active || index > active + (activeComplete ? 1 : 0)) throw new Error("analysis task is not the active or next task");
+    }
     const next = clone(state);
     const allowed = key === "breakaway" ? ["markerIndex", "estimatedFsMaxCN", "identifiedAs"] : key === "staticInterval" ? ["startIndex", "endIndex", "frictionType", "relation"] : key === "slowPlateau" ? ["startIndex", "endIndex", "estimatedFkCN"] : key === "acceleration" ? ["startIndex", "endIndex", "relation", "pullEqualsFk"] : ["startIndex", "endIndex", "estimatedFkCN", "speedComparison"];
     const replacement = Object.fromEntries(allowed.filter((field) => Object.hasOwn(value, field)).map((field) => [field, clone(value[field])]));
     const changed = JSON.stringify(state.analysis[key]) !== JSON.stringify(replacement);
+    if (editingReview && !analysisTaskHasSelection(key, replacement)) {
+      const draft = clone(state); draft.working = { ...draft.working, editDraft: { kind: "analysis-task", value: replacement } }; return update(draft, {});
+    }
     next.analysis[key] = replacement;
     if (editingReview && !changed) {
       // A same-value review edit is a no-op: leave every upstream answer and
@@ -201,7 +257,7 @@
     next.phase = editingReview ? "predict" : "analysis";
     next.fromReview = false;
     next.working = emptyWorking();
-    if (!editingReview) next.working.activeAnalysisTask = ANALYSIS_KEYS.indexOf(key);
+    if (!editingReview) next.working.activeAnalysisTask = index;
     if (changed) {
       next.predictions = [null, null, null, null];
       if (editingReview) next.working.activePredictionIndex = 0;
@@ -210,8 +266,27 @@
   }
   function setPrediction(state, index, prediction) {
     if (!integer(index) || index < 0 || index >= PREDICTION_COUNT || !prediction) throw new Error("invalid prediction index");
+    if (!validatePrediction(prediction)) throw new Error("invalid prediction");
     const editingReview = Boolean(state.fromReview);
-    const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = Math.min(PREDICTION_COUNT - 1, index + 1); next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) next.working = emptyWorking(); return update(next, {});
+    if (!editingReview) {
+      if (state.phase !== "predict") throw new Error("prediction outside predict phase");
+      if (index !== (state.working?.activePredictionIndex ?? 0)) throw new Error("prediction is not the active answer");
+      if (state.predictions.slice(index + 1).some(Boolean)) throw new Error("prediction contains future answer");
+    } else {
+      const target = state.working?.reviewEditTarget;
+      if (target?.section !== "predict" || target.semanticKey !== index) throw new Error("prediction is not the review-edit target");
+      if (!prediction.committed) {
+        const draft = clone(state); draft.working = { ...draft.working, editDraft: { kind: "prediction", value: clone(prediction) } }; return update(draft, {});
+      }
+    }
+    const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = index; next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) next.working = emptyWorking(); return update(next, {});
+  }
+  function advancePrediction(state) {
+    if (state.fromReview || state.phase !== "predict") throw new Error("prediction advance outside predict phase");
+    const index = state.working?.activePredictionIndex ?? 0;
+    if (!state.predictions[index]?.committed) throw new Error("prediction must be committed before advance");
+    if (index >= PREDICTION_COUNT - 1) return update(clone(state), {});
+    const next = clone(state); next.working.activePredictionIndex = index + 1; return update(next, {});
   }
   function setPhase(state, phase) {
     if (!PHASES.includes(phase)) throw new Error("invalid phase");
@@ -224,7 +299,11 @@
   }
   function enterReviewEdit(state, section, semanticKey = null) {
     if (state.phase !== "review" || !["balance", "experiment", "analysis", "predict"].includes(section)) throw new Error("invalid review edit");
-    const next = clone(state); next.fromReview = true; next.phase = section; next.working = next.working || emptyWorking(); next.working.reviewEditTarget = { section, semanticKey }; next.working.editDraft = section === "analysis" && semanticKey ? clone(next.analysis[semanticKey]) : section === "predict" && Number.isInteger(semanticKey) ? clone(next.predictions[semanticKey]) : null; return update(next, {});
+    if (section === "analysis" && semanticKey !== "all" && !ANALYSIS_KEYS.includes(semanticKey)) throw new Error("analysis review-edit needs a task target");
+    if (section === "predict" && !Number.isInteger(semanticKey)) throw new Error("prediction review-edit needs an index target");
+    const next = clone(state); next.fromReview = true; next.phase = section; next.working = next.working || emptyWorking(); next.working.reviewEditTarget = { section, semanticKey };
+    next.working.editDraft = section === "analysis" ? { kind: "analysis-task", value: semanticKey === "all" ? clone(next.analysis) : clone(next.analysis[semanticKey]) } : section === "predict" ? { kind: "prediction", value: clone(next.predictions[semanticKey]) } : null;
+    return update(next, {});
   }
   function cancelReviewEdit(state) {
     if (!state.fromReview) return clone(state);
@@ -242,30 +321,32 @@
   const OUTCOME_CODE = Object.freeze({ "remain-still": 0, "speed-up": 1, "slow-down": 2, "start-sliding": 3 });
   const inverse = (table) => Object.fromEntries(Object.entries(table).map(([key, value]) => [value, key]));
   const TYPE_FROM_CODE = inverse(TYPE_CODE), DIR_FROM_CODE = inverse(DIR_CODE), REL_FROM_CODE = inverse(REL_CODE), OUTCOME_FROM_CODE = inverse(OUTCOME_CODE);
-  function encodeForce(force) { return force == null ? null : [TYPE_CODE[force.frictionType], DIR_CODE[force.direction], force.frictionMagnitudeCN, force.operationDeltaCN, force.committed ? 1 : 0]; }
-  function decodeForce(value) { return value == null ? null : { frictionType: TYPE_FROM_CODE[value[0]], direction: DIR_FROM_CODE[value[1]], frictionMagnitudeCN: value[2], operationDeltaCN: value[3], committed: value[4] === 1 }; }
+  function encodeCode(table, value) { return value == null ? null : table[value]; }
+  function decodeCode(table, value) { if (value == null) return null; if (!Object.hasOwn(table, value)) throw new Error("invalid enum code"); return table[value]; }
+  function encodeForce(force) { return force == null ? null : [encodeCode(TYPE_CODE, force.frictionType), encodeCode(DIR_CODE, force.direction), force.frictionMagnitudeCN, force.operationDeltaCN, force.committed ? 1 : 0]; }
+  function decodeForce(value) { return value == null ? null : { frictionType: decodeCode(TYPE_FROM_CODE, value[0]), direction: decodeCode(DIR_FROM_CODE, value[1]), frictionMagnitudeCN: value[2], operationDeltaCN: value[3], committed: value[4] === 1 }; }
   function encodeAnalysisTask(key, value) {
     if (!value) return null;
-    if (key === "staticInterval") return [value.startIndex, value.endIndex, TYPE_CODE[value.frictionType], REL_CODE[value.relation]];
+    if (key === "staticInterval") return [value.startIndex, value.endIndex, encodeCode(TYPE_CODE, value.frictionType), encodeCode(REL_CODE, value.relation)];
     if (key === "breakaway") return [value.markerIndex, value.estimatedFsMaxCN, value.identifiedAs];
     if (key === "slowPlateau") return [value.startIndex, value.endIndex, value.estimatedFkCN];
-    if (key === "acceleration") return [value.startIndex, value.endIndex, REL_CODE[value.relation], value.pullEqualsFk];
+    if (key === "acceleration") return [value.startIndex, value.endIndex, encodeCode(REL_CODE, value.relation), value.pullEqualsFk ?? null];
     return [value.startIndex, value.endIndex, value.estimatedFkCN, value.speedComparison];
   }
   function decodeAnalysisTask(key, value) {
     if (!value) return null;
-    if (key === "staticInterval") return { startIndex: value[0], endIndex: value[1], frictionType: TYPE_FROM_CODE[value[2]], relation: REL_FROM_CODE[value[3]] };
+    if (key === "staticInterval") return { startIndex: value[0], endIndex: value[1], frictionType: decodeCode(TYPE_FROM_CODE, value[2]), relation: decodeCode(REL_FROM_CODE, value[3]) };
     if (key === "breakaway") return { markerIndex: value[0], estimatedFsMaxCN: value[1], identifiedAs: value[2] };
     if (key === "slowPlateau") return { startIndex: value[0], endIndex: value[1], estimatedFkCN: value[2] };
-    if (key === "acceleration") return { startIndex: value[0], endIndex: value[1], relation: REL_FROM_CODE[value[2]], pullEqualsFk: value[3] };
-    return { startIndex: value[0], endIndex: value[1], estimatedFkCN: value[2], speedComparison: value[3] };
+    if (key === "acceleration") return { startIndex: value[0], endIndex: value[1], relation: decodeCode(REL_FROM_CODE, value[2]), pullEqualsFk: value[3] ?? null };
+    return { startIndex: value[0], endIndex: value[1], estimatedFkCN: value[2], speedComparison: value[3] ?? null };
   }
   function compactTrial(trial) { return trial == null ? null : { d: trial.sampleDtMs, n: trial.regularSampleCount, x: trial.forceVelocityBase64, b: trial.breakaway ? [trial.breakaway.timeMs, trial.breakaway.measuredPullCN, trial.breakaway.measuredVelocityMMps, trial.breakaway.preBreakPeakGridIndex] : null }; }
   function expandTrial(trial) { return trial == null ? null : { sampleDtMs: trial.d, regularSampleCount: trial.n, forceVelocityBase64: trial.x, breakaway: trial.b ? { timeMs: trial.b[0], measuredPullCN: trial.b[1], measuredVelocityMMps: trial.b[2], preBreakPeakGridIndex: trial.b[3] } : null }; }
   const ANALYSIS_WIRE_KEYS = Object.freeze({ staticInterval: "i", breakaway: "b", slowPlateau: "l", acceleration: "c", fastPlateau: "f" });
   function compactAnswer(state, includeWorking) {
     validateState(state, { skipVariant: state.phase === "review" });
-    const answer = { w: "s1", v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { t: Boolean(state.balance.tared), c: state.balance.tareCorrectionCN, o: state.balance.observations.map((observation) => [observation.id, observation.measuredPullCN, observation.measuredVelocityMMps, encodeForce(observation.learnerForce)]) }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, TYPE_CODE[prediction.frictionType], DIR_CODE[prediction.direction], prediction.magnitudeCN, OUTCOME_CODE[prediction.motionOutcome], prediction.committed ? 1 : 0] : null) };
+    const answer = { w: "s1", v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { t: Boolean(state.balance.tared), c: state.balance.tareCorrectionCN, o: state.balance.observations.map((observation) => [observation.id, observation.measuredPullCN, observation.measuredVelocityMMps, encodeForce(observation.learnerForce)]) }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null) };
     if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null };
     return answer;
   }
@@ -286,7 +367,7 @@
     const versions = answer.v || [];
     const analysis = {};
     ANALYSIS_KEYS.forEach((key) => { analysis[key] = decodeAnalysisTask(key, answer.a?.[ANALYSIS_WIRE_KEYS[key]] || null); });
-    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { tared: Boolean(answer.b?.t), tareCorrectionCN: answer.b?.c ?? null, observations: (answer.b?.o || []).map((item) => ({ id: item[0], measuredPullCN: item[1], measuredVelocityMMps: item[2], learnerForce: decodeForce(item[3]) })) }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: TYPE_FROM_CODE[item[2]], direction: DIR_FROM_CODE[item[3]], magnitudeCN: item[4], motionOutcome: OUTCOME_FROM_CODE[item[5]], committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null } };
+    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { tared: Boolean(answer.b?.t), tareCorrectionCN: answer.b?.c ?? null, observations: (answer.b?.o || []).map((item) => ({ id: item[0], measuredPullCN: item[1], measuredVelocityMMps: item[2], learnerForce: decodeForce(item[3]) })) }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null } };
   }
   function encodeDraft(state) { validateState(state); return compactAnswer(state, true); }
   function encodeReview(state) { const review = normalizeReview(state); validateState({ ...review, working: emptyWorking(), variant: "complete" }, { skipVariant: true }); return compactAnswer({ ...review, working: emptyWorking() }, false); }
@@ -303,8 +384,8 @@
   }
   function answerForSnapshot(state, kind = "draft") { return kind === "review" ? encodeReview(state) : encodeDraft(state); }
   function hasCompleteAnswer(state) { return state.phase === "review" && allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state) && hasAllPredictions(state); }
-  function transitionNames() { return ["setTare", "recordObservation", "setObservationAnswer", "acceptTrial", "setAnalysisTask", "setPrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
+  function transitionNames() { return ["setTare", "recordObservation", "setObservationAnswer", "acceptTrial", "setAnalysisTask", "setPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
 
-  const transitions = { setTare, tare: setTare, recordObservation, setObservationAnswer, acceptTrial, setAnalysisTask, replaceAnalysis: setAnalysisTask, setPrediction, replacePrediction: setPrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
-  return Object.freeze({ SCHEMA_VERSION, PHASES, OBSERVATION_IDS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, canonicalObservationIds, normalizeObservationList, observationFor, hasZero, nonzeroObservations, allBalanceAnswersCommitted, hasAllAnalysisFields, hasAllPredictions, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
+  const transitions = { setTare, tare: setTare, recordObservation, setObservationAnswer, acceptTrial, setAnalysisTask, replaceAnalysis: setAnalysisTask, setPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
+  return Object.freeze({ SCHEMA_VERSION, PHASES, OBSERVATION_IDS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, canonicalObservationIds, normalizeObservationList, observationFor, hasZero, nonzeroObservations, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
 });

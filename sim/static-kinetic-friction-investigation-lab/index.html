@@ -89,6 +89,7 @@
         <p class="formula-hint"><var>F</var><sub>拉</sub> − <var>f</var><sub>k</sub> = <var>ma</var>；近似勻速時才可用平均 <var>F</var><sub>拉</sub> 估計 <var>f</var><sub>k</sub>。</p>
         <div id="analysisGraphs" class="analysis-graphs"><svg id="graphSvg" viewBox="0 0 820 430" role="img" aria-label="同步拉力—時間及速度—時間圖"></svg></div>
         <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出時間、測力計拉力與速度；這些是你自己的記錄，不標示正確區段。</p><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col">時間 / s</th><th scope="col">拉力 / N</th><th scope="col">速度 / m/s</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
+        <section id="intervalStats" class="data-view" aria-labelledby="intervalStatsTitle"><h3 id="intervalStatsTitle">目前所選區段統計</h3><p id="intervalStatsHelp">統計只根據你目前拖曳選取的區段，不代表系統答案。</p><div id="intervalStatsList"></div></section>
         <div id="analysisTasks" class="analysis-tasks"></div>
         <button type="button" data-action="save-analysis" class="primary-button">保存圖像分析</button>
         <button type="button" data-action="to-predict" class="primary-button next-button">完成五項分析，進入預測</button>
@@ -107,7 +108,9 @@
         <h2>核對自己的最終答案</h2>
         <p>提交後本次作答會鎖定，才會顯示分數及模擬設定下的物理解釋。</p>
         <div id="reviewSummary" class="review-summary"></div>
-        <div class="review-actions"><button type="button" data-action="edit-balance">修改力平衡答案</button><button type="button" data-action="edit-experiment">重新做實驗</button><button type="button" data-action="edit-analysis">修改圖像分析</button><button type="button" data-action="edit-predict">修改預測</button></div>
+        <div class="review-actions"><button type="button" data-action="edit-balance">修改力平衡答案</button><button type="button" data-action="edit-experiment">重新做實驗</button></div>
+        <div id="analysisEditButtons" class="review-actions" aria-label="選擇要修改的圖像分析項目"></div>
+        <div id="predictionEditButtons" class="review-actions" aria-label="選擇要修改的預測題目"></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>
         <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
       </section>

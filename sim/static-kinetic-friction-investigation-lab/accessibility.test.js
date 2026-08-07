@@ -9,6 +9,7 @@ for (const target of ["force-grip", "balance-friction", "prediction-friction", "
 assert.match(html, /aria-live="polite"/);
 assert.match(html, /type="range"/);
 assert.match(html, /id="traceTable"/);
+assert.match(html, /id="intervalStats"/);
 assert.match(html, /<var>F<\/var><sub>拉<\/sub>/);
 assert.match(css, /\.stage[^}]*touch-action:\s*pan-y/);
 assert.match(css, /\.drag-target[^}]*touch-action:\s*none/);
@@ -19,4 +20,6 @@ assert.match(main, /setPointerCapture/);
 assert.match(main, /pointercancel/);
 assert.match(main, /event\.isPrimary === false/);
 assert.match(main, /hostSwipe/);
+assert.match(main, /intervalStatsList/);
+assert.match(main, /aria-describedby/);
 console.log("Static/kinetic friction accessibility checks passed");
