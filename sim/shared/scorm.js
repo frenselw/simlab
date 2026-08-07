@@ -11,6 +11,7 @@
   let pendingFinal = null;
   let pendingCheckpoint = "";
   let pendingCheckpointCommitted = false;
+  let lastFinalPayload = null;
   let writesBlocked = false;
   let lastDraftCheckpoint = "";
   const localLog = [];
@@ -205,6 +206,7 @@
     for (const [key, value, reason] of writes) if (!setValue(key, value)) return { ok: false, reason };
     if (!commit()) return { ok: false, reason: "commit" };
     finalCommitted = true;
+    lastFinalPayload = payload;
     pendingFinal = null;
     pendingCheckpoint = "";
     pendingCheckpointCommitted = false;
@@ -235,6 +237,13 @@
       ? { ok: true, committed: true, finished: true, review: final.review, score: final.score, status: final.status }
       : { ok: false, committed: true, finished: false, retryable: true, frozen: true, reason: "finish", review: final.review, score: final.score, status: final.status };
   }
+  function retryFinish() {
+    if (!finalCommitted) return { ok: false, committed: false, retryable: true, reason: "no-final" };
+    const finishOk = finish();
+    return finishOk
+      ? { ok: true, committed: true, finished: true, review: lastFinalPayload ? parseSnapshot(lastFinalPayload.reviewJson) : null, score: lastFinalPayload?.score ?? null, status: lastFinalPayload?.passed ? "passed" : "failed" }
+      : { ok: false, committed: true, finished: false, retryable: true, frozen: true, reason: "finish" };
+  }
 
   function quarantinePending() {
     if (!pendingFinal || finalCommitted) return false;
@@ -252,10 +261,7 @@
     submitting = true;
     try {
       if (!init()) return { ok: false, retryable: true, reason: "initialize", result };
-      if (finalCommitted) {
-        const ok = finish();
-        return ok ? { ok: true, committed: true, finished: true, result } : { ok: false, committed: true, retryable: true, frozen: true, reason: "finish", result };
-      }
+      if (finalCommitted) return { ...retryFinish(), result };
       if (pendingFinal) return { ...retryPending(), result };
       let prepared;
       try { prepared = makePending(result, reviewState); } catch (error) { return { ok: false, retryable: false, reason: "preflight", error, result }; }
@@ -305,7 +311,7 @@
 
   window.SimScorm = {
     init, readValue, getValue, loadAttempt, isAttemptFinished: () => FINISHED.includes(getValue("cmi.core.lesson_status")),
-    submitResult, submitWithCallbacks, retryPending, quarantinePending, makeSnapshot, readSnapshot, saveDraft,
+    submitResult, submitWithCallbacks, retryPending, retryFinish, quarantinePending, makeSnapshot, readSnapshot, saveDraft,
     setDraftProvider: (provider) => { draftProvider = provider; }, snapshotBytes, finish,
     getLocalLog: () => localLog.slice()
   };

@@ -1,0 +1,17 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { XMLParser } = require("fast-xml-parser");
+const root = path.resolve(__dirname, "../..");
+const slug = "static-kinetic-friction-investigation-lab";
+const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const manifest = fs.readFileSync(path.join(root, "sim/manifests", `${slug}.xml`), "utf8");
+const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((x) => /\.(?:js|css)$/.test(x) && x !== "../config.js").map((x) => x.startsWith("../") ? x.slice(3) : `${slug}/${x}`).sort();
+const parsed = new XMLParser({ ignoreAttributes: false }).parse(manifest);
+const files = [].concat(parsed.manifest.resources.resource.file || []).map((entry) => entry["@_href"]).filter((x) => x !== "config.js" && x !== `${slug}/index.html`).sort();
+assert.deepEqual(refs, files);
+for (const href of files.concat([`${slug}/index.html`, "config.js"])) assert.ok(fs.existsSync(path.join(root, "sim", href)));
+assert.equal(parsed.manifest.resources.resource["@_adlcp:scormtype"], "sco");
+assert.match(fs.readFileSync(path.join(__dirname, "main.js"), "utf8"), /loadAttempt/);
+console.log("Static/kinetic friction production wiring checks passed");

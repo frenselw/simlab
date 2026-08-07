@@ -1,0 +1,17 @@
+"use strict";
+const assert = require("node:assert/strict");
+const M = require("./measurement.js");
+const Graph = require("./graph.js");
+const regular = Array.from({ length: 20 }, (_, i) => ({ timeS: i * .04, pullCN: i * 10, velocityMMps: i * 5 }));
+const trace = M.packTrace({ regularSamples: regular });
+assert.equal(Graph.timeToX(0), Graph.GRAPH.left);
+assert.equal(Graph.canonicalIndexAtTime(trace, .4), 10);
+assert.match(Graph.svgPath(trace, "force"), /^M/);
+assert.deepEqual(Graph.normalizeSelection(trace, 8, 3), { startIndex: 3, endIndex: 8 });
+assert.equal(Graph.intervalIoU({ startIndex: 2, endIndex: 5 }, { startIndex: 3, endIndex: 6 }), 3 / 5);
+const stats = Graph.selectionStats(trace, { startIndex: 2, endIndex: 10 });
+assert.equal(stats.startIndex, 2);
+assert.ok(stats.durationS > 0 && Number.isFinite(stats.velocitySlopeMps2));
+const set = Graph.createSelectionSet(trace);
+assert.ok(set.staticInterval && set.breakaway && set.fastPlateau);
+console.log("Static/kinetic friction graph-analysis checks passed");

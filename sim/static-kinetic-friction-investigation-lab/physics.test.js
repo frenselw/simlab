@@ -1,0 +1,26 @@
+"use strict";
+const assert = require("node:assert/strict");
+const G = require("./generator.js");
+const P = require("./physics.js");
+const scenario = G.generateScenario({ seed: 23 });
+assert.equal(P.connectorTension(.1, 0, .35, 0, scenario.connector), 0, "slack connector cannot create dashpot force");
+assert.ok(P.connectorTension(.20, 0, 0, 0, scenario.connector) > 0);
+assert.equal(P.smoothstep(0, .004, 0), 0);
+assert.equal(P.smoothstep(0, .004, .004), 1);
+const handle = P.stepHandle({ targetPositionM: .18, positionM: .18, velocityMps: 0 }, 1.2, P.PHYSICS_DT_S);
+assert.ok(Math.abs(handle.velocityMps) <= .35);
+let state = P.createInitialState(scenario); const events = [];
+for (let i = 0; i < 1600; i += 1) { state = P.stepPhysics(state, { handleTargetPositionM: .85 }, scenario); events.push(...state.events); }
+assert.ok(state.block.positionM >= 0);
+assert.ok(state.block.velocityMps >= 0);
+assert.ok(events.some((event) => event.type === "breakaway"));
+assert.ok(events.every((event) => !Object.hasOwn(event, "measuredPullCN") && !Object.hasOwn(event, "preBreakPeakGridIndex")));
+const queue = P.createInputQueue();
+P.enqueueInput(queue, { timeS: .1, handleTargetPositionM: .4 });
+assert.equal(P.inputAt(queue, .09, .18).handleTargetPositionM, .18);
+assert.equal(P.inputAt(queue, .1, .18).handleTargetPositionM, .4);
+const runner = P.runFixedStep(scenario, { inputs: [{ timeS: .2, handleTargetPositionM: .5 }] });
+runner.advanceFrame(16.67); runner.advanceFrame(16.67); assert.ok(runner.getState().timeS > 0);
+const stalled = P.runFixedStep(scenario); stalled.advanceFrame(60); assert.equal(stalled.getRunning(), false); assert.equal(stalled.advanceFrame(16).steps, 0);
+assert.ok(P.splitAtRestLengthCrossing({ ...P.createInitialState(scenario), handle: { ...P.createInitialState(scenario).handle, positionM: scenario.connector.restLengthM - .01 } }, { ...state.handle, positionM: scenario.connector.restLengthM + .01 }, scenario.connector.restLengthM, .1).crossed);
+console.log("Static/kinetic friction physics checks passed");
