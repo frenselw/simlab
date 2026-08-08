@@ -274,6 +274,8 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
       zeroTask: document.getElementById('zeroTask').textContent,
       sensorReadoutsHidden: document.getElementById('liveReadouts').classList.contains('is-hidden'),
       explanation: document.querySelector('.first-step-explanation').textContent,
+      headerHasSimLab: document.querySelector('.sim-header').textContent.includes('SimLab'),
+      stageLabels: document.getElementById('apparatusSvg').textContent,
       targets: [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node => { const r = node.getBoundingClientRect(); return { w: r.width, h: r.height }; })
     };
   })()`);
@@ -288,7 +290,10 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.match(layout.coach, /A1.*沒有水平拉力/s, `${label}: startup coach names the zero-horizontal-force task`);
   assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: A1 asks for friction type, direction and magnitude`);
   assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`);
+  assert.equal(layout.headerHasSimLab, false, `${label}: the activity header does not repeat the SimLab brand`);
+  assert.doesNotMatch(layout.stageLabels, /水平粗糙面|Part A：只看水平力的大小和方向/, `${label}: redundant stage labels are removed`);
   assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: Part A explicitly removes instrument calibration`);
+  assert.ok(layout.stageHeight <= layout.shellHeight * .48, `${label}: the phone stage leaves most of the bounded shell to the control panel (${layout.stageHeight}/${layout.shellHeight})`);
   assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: embedded targets are stable touch sizes`);
   await evaluate(cdp, "scrollTo({ top: 300, behavior: 'instant' })");
   await delay(120);

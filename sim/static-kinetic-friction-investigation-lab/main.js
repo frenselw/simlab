@@ -465,12 +465,12 @@
       }
       const labels = predictionMode ? [
         [x + 46, groundY + 62, "預測情境中的物體"], [Math.min(830, hx), groundY - 58, "已知向右拉力"],
-        [92, 75, "水平粗糙面"], [185, 102, "藍色箭嘴是你建立的摩擦力"]
+        [185, 102, "藍色箭嘴是你建立的摩擦力"]
       ] : balanceMode ? [
-        [x + 46, groundY + 62, "物體"], [64, 75, "水平粗糙面"], [64, 102, "Part A：只看水平力的大小和方向"]
+        [x + 46, groundY + 62, "物體"]
       ] : [
         [x + 46, groundY + 62, "物體"], [Math.min(830, hx), groundY - 58, "測力計握把"],
-        [64, 75, "水平粗糙面"], [64, 102, "F拉—t 與 v—t 來自同一次物理記錄"]
+        [64, 102, "F拉—t 與 v—t 來自同一次物理記錄"]
       ];
       labels.forEach(([tx, ty, text]) => { const label = svgElement("text", { x: tx, y: ty, "text-anchor": tx <= 100 ? "start" : "middle" }); label.appendChild(document.createTextNode(text)); svg.append(label); });
       const grip = q("forceGrip");

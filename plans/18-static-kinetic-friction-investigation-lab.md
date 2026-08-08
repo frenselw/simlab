@@ -2315,7 +2315,7 @@ body {
 
 .app {
   --header-track: auto;
-  --stage-track: minmax(14rem, 47vh);
+  --stage-track: minmax(12rem, 34vh);
   height: 100vh;
   height: 100dvh;
   display: grid;
@@ -2345,11 +2345,17 @@ Graph phase 可以將 stage track 調至：
 --stage-track: minmax(15rem, 50dvh);
 ```
 
+本活動的 Part A 舞台是橫向受力圖，主要視覺內容按手機寬度縮放；若沿用
+baseline 的較高舞台，上下會出現 letterbox 空位，並把 control panel 壓到
+只剩一小段。因此一般手機採用 `minmax(12rem, 34dvh)`（不支援 `dvh` 時
+退回 `34vh`），把餘下高度交給 panel；這仍然保留完整物體、地面、力箭嘴及
+小型重心提示點。
+
 但 `320×500` 和 `390×500` 下仍要確保 panel 有可用高度。
 
 具體 compact policy：
 
-- effective CSS viewport `376–560px` 高或 200% zoom 時，header 收成單行 `2.5rem`、stage track 降至 `11rem`，移除非必要 subtitle；只縮小 apparatus／graph geometry，不縮小文字或 44 px targets；
+- effective CSS viewport `376–560px` 高或 200% zoom 時，header 收成單行 `2.5rem`、stage track 使用 `minmax(10rem, 34dvh)`，移除非必要 subtitle；只縮小 apparatus／graph geometry，不縮小文字或 44 px targets；
 - effective height `<376px` 時進入 ultra-compact：`--header-track:2rem`、`--stage-track:clamp(5rem,32dvh,7rem)`；Part A apparatus 只保留物體、水平面、中央力箭嘴及 active target，Part B 才保留繩及測力計讀數，graph 只顯示 active pane＋同步文字 summary。Panel 使用全部餘高，不再宣稱固定 `10rem` minimum，但必須至少完整顯示兩個 44 px controls，其他 controls 可在同一 panel 內捲到；
 - graph phase 改成「拉力／速度」兩個可切換視覺 panes，但 shared cursor、兩圖同時的文字讀數及 interval authority 保持同步；
 - 非 ultra-compact 時 control panel 可用高度不得低於 `10rem`；所有模式的 primary action 永遠在 panel 正常 flow 的末端可捲到；

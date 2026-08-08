@@ -9,6 +9,8 @@ for (const target of ["force-grip", "balance-origin", "prediction-friction", "br
 for (const id of ["zeroTask", "zeroFrictionType", "zeroFrictionDirection", "zeroFrictionMagnitude", "staticTask", "staticPullPrompt", "staticAppliedReadout", "staticFrictionReadout", "breakawayTask", "breakawayMotionStatus", "breakawayAnswer"]) assert.match(html, new RegExp(`id="${id}"`));
 const blankOptions = html.match(/<option value="" selected disabled>請選擇<\/option>/g) || [];
 assert.equal(blankOptions.length, 2, "A1 type and direction both start at 請選擇");
+assert.doesNotMatch(html, /SimLab/);
+assert.doesNotMatch(html, /先用受力圖建立靜摩擦力概念/);
 assert.match(html, /Part A 不使用測力計或歸零操作/);
 assert.doesNotMatch(html, /id="recordBalance"|id="balanceObservations"|data-action="record-balance"|data-action="save-balance-answer"/);
 assert.doesNotMatch(html, /data-action="pull-left"|data-action="pull-right"|data-action="reset-breakaway"/);
@@ -47,6 +49,8 @@ assert.match(main, /stepDirectForce/);
 assert.match(main, /balanceCurrentForceN/);
 assert.doesNotMatch(html, /受力圖由重心出發/);
 assert.doesNotMatch(main, /受力圖由重心出發/);
+assert.doesNotMatch(main, /水平粗糙面/);
+assert.doesNotMatch(main, /Part A：只看水平力的大小和方向/);
 assert.doesNotMatch(main, /balanceFriction/);
 assert.match(main, /\[data-action\], input, select, \.drag-target/);
 console.log("Static/kinetic friction accessibility checks passed");
