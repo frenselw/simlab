@@ -13,8 +13,8 @@
     <div>
       <h1>靜摩擦力與滑動摩擦力探究實驗室</h1>
     </div>
-    <div class="phase-strip" aria-label="活動階段">
-      <span data-phase-pill="balance">A 力平衡</span><span data-phase-pill="experiment">B 實驗</span><span data-phase-pill="analysis">C 圖像分析</span><span data-phase-pill="predict">D 預測</span><span data-phase-pill="review">檢查與提交</span>
+    <div class="phase-strip" aria-label="活動任務，可自由切換">
+      <button type="button" class="phase-pill" data-action="navigate-phase" data-phase="balance" data-phase-pill="balance">A 力平衡</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="experiment" data-phase-pill="experiment">B 實驗</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="analysis" data-phase-pill="analysis">C 圖像分析</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="predict" data-phase-pill="predict">D 預測</button><span class="phase-pill phase-pill-review" data-phase-pill="review">檢查與提交</span>
     </div>
   </header>
 
@@ -65,7 +65,7 @@
       <section id="balancePanel" class="panel-section" data-panel="balance">
         <p class="section-label">第一階段・三個簡單受力圖任務</p>
         <h2>A：用受力圖學習靜摩擦力</h2>
-        <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>請直接在物體中央畫出水平力箭嘴；先完成三個概念任務，再進入 Part B 的完整實驗。</p>
+        <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>請直接在物體中央畫出水平力箭嘴。上方 A／B／C／D 任務可以自由切換；未完成的資料會在對應部分提示，你亦可以返回修改已保存答案。</p>
         <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。</p>
 
         <article id="zeroTask" class="task-card balance-task">
@@ -115,40 +115,40 @@
           </div>
         </article>
         <div class="button-row review-balance-edits" data-balance-review><button type="button" data-action="cancel-review-edit">取消修改</button></div>
-        <button type="button" id="to-experiment" data-action="to-experiment" class="primary-button next-button">完成 Part A，開始正式實驗</button>
+        <button type="button" id="to-experiment" data-action="to-experiment" class="primary-button next-button">前往 Part B 實驗</button>
       </section>
 
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・產生同步實驗數據</p>
         <h2>拖動實驗用握把，形成一條完整記錄</h2>
-        <p>Part A 已經用受力圖建立概念。現在用實驗用握把慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的數值只代表觀察量。</p>
+        <p>你可以先完成 Part B，亦可以稍後返回 Part A 修改答案。用實驗用握把慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的數值只代表觀察量。</p>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並檢查資料</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始這次實驗</button></div>
-        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始實驗</h3><p>這會清除目前實驗記錄，以及依賴它的圖像分析和預測；不會顯示任何答案是否正確。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認清除並重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
+        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始實驗</h3><p>這會清除目前實驗記錄及依賴它的圖像分析；Part D 預測屬於獨立情境答案，會保留。不會顯示任何答案是否正確。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認清除並重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
         <p id="experimentStatus" class="neutral-status" aria-live="off">尚未開始記錄。</p>
         <div id="gripControls"><label class="range-row">鍵盤／滑鼠握把位置<input id="gripPosition" type="range" min="0.18" max="1.4" step="0.001" value="0.18" aria-describedby="gripHelp"></label>
         <p id="gripHelp" class="instruction">也可在舞台拖動「實驗用握把」；方向鍵可微調，Shift 會使用較大步幅。</p></div>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="keep-trial" class="primary-button is-hidden" id="keepTrial">保留這次實驗，進入圖像分析</button>
-        <button type="button" data-action="to-analysis" class="primary-button next-button">前往同步圖像分析</button>
+        <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C 同步圖像分析</button>
       </section>
 
       <section id="analysisPanel" class="panel-section is-hidden" data-panel="analysis">
         <p class="section-label">第三階段・同步圖像分析</p>
         <h2>在同一條記錄中標示五個部分</h2>
-        <p>上圖是「測力計讀數（拉力） F拉—時間 t」，下圖是「速度 v—時間 t」。選取的一律是一般時間樣本；系統只在提交後判斷正確性。</p>
+        <p>有了 Part B 的實驗記錄後，才可以在上圖「測力計讀數（拉力） F拉—時間 t」及下圖「速度 v—時間 t」選取資料。你可以隨時切換到其他 Part，之後再返回修改。</p>
         <p class="formula-hint"><var>F</var><sub>拉</sub> − <var>f</var><sub>k</sub> = <var>ma</var>；近似勻速時才可用平均 <var>F</var><sub>拉</sub> 估計 <var>f</var><sub>k</sub>。</p>
         <p class="instruction">同步圖像固定顯示在舞台；控制區只保存你目前項目的選取與推斷。</p>
         <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出時間、測力計拉力與速度；這些是你自己的記錄，不標示正確區段。</p><div id="traceNavigation" class="button-row" aria-label="資料表快速導航"><button type="button" id="previousExtremum" data-action="previous-extremum">前一個局部極值</button><button type="button" id="nextExtremum" data-action="next-extremum">後一個局部極值</button><button type="button" id="jumpSelectionStart" data-action="jump-selection-start">目前選區開始</button><button type="button" id="jumpSelectionEnd" data-action="jump-selection-end">目前選區結束</button></div><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col">時間 / s</th><th scope="col">拉力 / N</th><th scope="col">速度 / m/s</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
         <section id="intervalStats" class="data-view" aria-labelledby="intervalStatsTitle"><h3 id="intervalStatsTitle">目前所選區段統計</h3><p id="intervalStatsHelp">統計只根據你目前拖曳選取的區段，不代表系統答案。</p><div id="intervalStatsList"></div></section>
         <div id="analysisTasks" class="analysis-tasks"></div>
         <button type="button" data-action="save-analysis" class="primary-button">保存圖像分析</button>
-        <button type="button" data-action="to-predict" class="primary-button next-button">完成五項分析，進入預測</button>
+        <button type="button" data-action="to-predict" class="primary-button next-button">前往 Part D 預測</button>
       </section>
 
       <section id="predictPanel" class="panel-section is-hidden" data-panel="predict">
         <p class="section-label">第四階段・未直接測試情境預測</p>
         <h2>用自己的模型預測摩擦力與運動結果</h2>
-        <p>每題都要明確選擇摩擦力類型、方向、平均大小及運動結果；沒有預先選好的答案。</p>
+        <p>每題都要明確選擇摩擦力類型、方向、平均大小及運動結果；沒有預先選好的答案。你可以自由切換 A、B、C、D，並返回修改任何已保存的預測。</p>
         <div id="predictionCards" class="prediction-cards"></div>
         <button type="button" data-action="to-review" class="primary-button next-button">完成四個預測，前往提交前檢查</button>
       </section>

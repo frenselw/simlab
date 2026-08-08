@@ -153,10 +153,35 @@
     function announce(text) { const live = q("liveRegion"); if (live) live.textContent = text; }
     function markRecordingActive(active) { try { if (typeof sessionStorage !== "undefined") { if (active) sessionStorage.setItem(RECORDING_MARKER, "1"); else sessionStorage.removeItem(RECORDING_MARKER); } } catch {} }
     function consumeInterruptedRecording() { try { if (typeof sessionStorage === "undefined") return false; const active = sessionStorage.getItem(RECORDING_MARKER) === "1"; sessionStorage.removeItem(RECORDING_MARKER); return active; } catch { return false; } }
-    function updatePills() { document.querySelectorAll("[data-phase-pill]").forEach((pill) => pill.classList.toggle("is-current", pill.dataset.phasePill === state?.phase)); }
+    function updatePills() {
+      document.querySelectorAll("[data-phase-pill]").forEach((pill) => {
+        const current = pill.dataset.phasePill === state?.phase;
+        pill.classList.toggle("is-current", current);
+        if (pill.matches("button")) pill.setAttribute("aria-current", current ? "step" : "false");
+      });
+    }
     function showPanel(panel) {
       ["balance", "experiment", "analysis", "predict", "review"].forEach((name) => q(`${name}Panel`)?.classList.toggle("is-hidden", name !== panel));
       q("resultPanel")?.classList.toggle("is-hidden", !mayRevealCorrectness(presentation));
+    }
+    function navigateToPhase(phase) {
+      if (!state || !Persistence.PHASES.includes(phase) || phase === "review") throw new Error("invalid learner task navigation");
+      if (state.phase === phase) return;
+      if (state.phase === "experiment" && recorder?.running) stopRecording();
+      cancelBalanceMotion();
+      state = Persistence.transitions.setPhase(state, phase);
+      analysisDraft = phase === "analysis" ? null : analysisDraft;
+      predictionDraft = phase === "predict" ? [] : predictionDraft;
+      tableCursorIndex = phase === "analysis" ? null : tableCursorIndex;
+      if (phase === "balance") {
+        resetBalanceTrialView();
+        resetIdleRig(scenario?.connector?.restLengthM);
+      } else if (phase === "experiment") {
+        if (q("gripPosition")) q("gripPosition").value = String(scenario?.connector?.restLengthM || q("gripPosition").value);
+        resetIdleRig(Number(q("gripPosition")?.value || scenario?.connector?.restLengthM));
+      }
+      saveDraft();
+      announce(`已切換到 ${({ balance: "A 力平衡", experiment: "B 實驗", analysis: "C 圖像分析", predict: "D 預測" })[phase] || phase}`);
     }
     function setLockedPresentation(locked) {
       if (typeof document === "undefined") return;
@@ -211,7 +236,7 @@
       ));
     }
     function balanceHasBreakawayTask() {
-      return Boolean(state?.phase === "balance" && state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true && state.balance.breakaway?.committed !== true && !state.fromReview);
+      return Boolean(state?.phase === "balance" && state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true && !state.fromReview);
     }
     // Direct dragging is quantized to 0.1 N semantic steps, so the first
     // sliding value is reachable rather than an arbitrary centinewton value.
@@ -297,7 +322,7 @@
         } else if (state.balance.breakaway.learnerMaxCN == null) {
           step = "A3✓"; title = "已找到開始滑動的臨界力"; text = "根據你觀察到的臨界值，填寫最大靜摩擦力估計。";
         } else {
-          step = "A✓"; title = "Part A 三個概念任務已完成"; text = "按右邊的按鈕，進入正式拉力—時間實驗。";
+          step = "A✓"; title = "Part A 三個概念任務已完成"; text = "可以用上方任務列自由切換到 Part B、C 或 D；之後仍可返回修改 Part A。";
         }
       } else if (state.phase === "experiment") {
         step = recorder?.running ? "B2" : "B1";
@@ -552,16 +577,16 @@
       document.querySelectorAll("[data-balance-drawing]").forEach((node) => node.setAttribute("aria-pressed", String(node.dataset.action === `draw-${balanceDrawMode}`)));
       setText("save-zero-force", state.balance.zeroForce?.committed ? "更新 A1 判斷" : "保存 A1 判斷");
       setText("save-static-force", state.balance.staticCase?.learnerAppliedForce?.committed ? "更新 A2 力平衡判斷" : "保存 A2 力平衡判斷");
-      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。" : balanceStaticInteractionActive() ? "完成 A2：由物體中央畫出指定拉力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceOffscreen ? "物體已離開畫面；按返回中央後可以繼續試拉。" : "由物體中央按住拉力箭嘴，向左或向右改變拉力，觀察物體的運動狀態。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
+      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "A1 尚未保存；完成後仍可用上方任務列切換到 B、C 或 D。" : balanceStaticInteractionActive() ? "完成 A2：由物體中央畫出指定拉力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceOffscreen ? "物體已離開畫面；按返回中央後可以繼續試拉。" : "由物體中央按住拉力箭嘴，向左或向右改變拉力，觀察物體的運動狀態。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成；可以自由切換其他任務，之後仍可返回修改。" );
       const zeroSaved = state.balance.zeroForce?.committed === true;
       const staticSaved = state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true;
       const setTaskDisabled = (selector, disabled) => document.querySelectorAll(selector).forEach((node) => { node.disabled = disabled; node.setAttribute("aria-disabled", String(disabled)); });
       setTaskDisabled("#zeroTask input, #zeroTask select, #zeroTask [data-balance-normal]", state.fromReview ? target !== "zero-force" : false);
       setTaskDisabled("#staticTask input, #staticTask select, #staticTask [data-balance-normal]", state.fromReview ? target !== "static-case" : !zeroSaved);
-      setTaskDisabled("#breakawayTask input, #breakawayTask select, #breakawayTask [data-balance-normal]", state.fromReview ? target !== "breakaway" : !staticSaved || state.balance.breakaway?.committed === true);
+      setTaskDisabled("#breakawayTask input, #breakawayTask select, #breakawayTask [data-balance-normal]", state.fromReview ? target !== "breakaway" : !staticSaved);
       q("staticTask")?.classList.toggle("is-disabled", !zeroSaved && !target);
       q("breakawayTask")?.classList.toggle("is-disabled", !staticSaved && !target);
-      q("to-experiment")?.toggleAttribute("disabled", !Persistence.allBalanceAnswersCommitted(state));
+      q("to-experiment")?.toggleAttribute("disabled", false);
       q("to-experiment")?.classList.toggle("is-hidden", Boolean(state.fromReview));
       document.querySelectorAll("[data-balance-review]").forEach((node) => node.classList.toggle("is-hidden", !state.fromReview));
       renderApparatus();
@@ -632,7 +657,8 @@
       stopLoop(); recorder.measurement = measurementState; const stopped = Measurement.stopRecorder(recorder); if (stopped.accepted) renderQuality(); else setText("experimentStatus", "上次記錄因技術時間間隔中斷，請重新開始這次記錄。"); recorder.running = false; markRecordingActive(false); announce("實驗記錄已停止"); return stopped.accepted;
     }
     function renderGraph() {
-      const svg = q("graphSvg"); if (!svg || !state?.trial) return;
+      const svg = q("graphSvg"); if (!svg) return;
+      if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄，之後返回 Part C 分析。"); return; }
       svg.replaceChildren();
       const decoded = Measurement.unpackTrace(state.trial);
       const activeKey = currentAnalysisKey();
@@ -661,7 +687,8 @@
       } else setText("graphCursorReadout", "尚未選取圖像時間。");
     }
     function renderDataTable() {
-      const body = q("traceTable"); if (!body || !state?.trial) return;
+      const body = q("traceTable"); if (!body) return;
+      if (!state?.trial) { body.replaceChildren(); q("intervalStatsList")?.replaceChildren(); return; }
       const decoded = Measurement.unpackTrace(state.trial); body.replaceChildren();
       if (!Number.isInteger(tableCursorIndex) || tableCursorIndex < 0 || tableCursorIndex >= decoded.merged.length) tableCursorIndex = null;
       decoded.merged.forEach((sample, index) => {
@@ -720,8 +747,14 @@
       return analysisDraft;
     }
     function renderAnalysisTasks() {
-      const host = q("analysisTasks"); if (!host || !state?.trial) return;
-      const draft = ensureAnalysisDraft(); const decoded = Measurement.unpackTrace(state.trial); const max = decoded.merged.length - 1;
+      const host = q("analysisTasks"); if (!host) return;
+      if (!state?.trial) {
+        host.innerHTML = '<p class="neutral-status">目前沒有可分析的實驗記錄。你可以先切換到 Part B；完成並保存有效記錄後，再返回 Part C。</p>';
+        q("to-predict")?.toggleAttribute("disabled", true);
+        renderGraph();
+        return;
+      }
+      const draft = ensureAnalysisDraft(); const decoded = Measurement.unpackTrace(state.trial); const max = decoded.merged.length - 1; const activeKey = currentAnalysisKey();
       host.replaceChildren();
       const specs = [
         ["staticInterval", "C1 靜止而拉力增加的區段", "frictionType", [["static", "靜摩擦力"], ["kinetic", "滑動摩擦力"], ["none", "沒有摩擦力"]]],
@@ -733,7 +766,7 @@
       specs.forEach(([key, title, field, options]) => {
         const card = document.createElement("section"); card.className = "task-card"; card.dataset.analysisTask = key; if (key !== "breakaway") card.setAttribute("aria-describedby", `interval-stat-${key}`);
         const task = draft[key] || {};
-        card.innerHTML = `<p class="task-title">${title}</p>`;
+        card.innerHTML = `<div class="task-card-heading"><p class="task-title">${title}</p><button type="button" data-action="select-analysis-task" data-analysis-key="${key}" class="task-select-button">${activeKey === key ? "正在編輯" : "編輯此項"}</button></div>`;
         if (key === "breakaway") {
           card.innerHTML += `<label>時間標記（秒）<input type="range" min="0" max="${max}" value="${task.markerIndex ?? 0}" data-analysis-field="markerIndex" aria-label="最大靜摩擦力時間標記"><output data-analysis-readout="markerIndex">${(decoded.merged[task.markerIndex ?? 0]?.timeS || 0).toFixed(2)} s</output></label><label>你讀到的最大靜摩擦力（N）<input type="number" min="0" max="12" step="0.01" value="${task.estimatedFsMaxCN == null ? "" : task.estimatedFsMaxCN / 100}" data-analysis-field="estimatedFsMaxCN"></label>`;
         } else if (key === "slowPlateau" || key === "fastPlateau") {
@@ -744,7 +777,6 @@
         if (options.length) card.innerHTML += `<label>判斷<select data-analysis-field="${field}"><option value="">請選擇</option>${options.map(([value, label]) => `<option value="${value}" ${task[field] === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
         if (key === "staticInterval") card.innerHTML += `<label>拉力和靜摩擦力的關係<select data-analysis-field="relation"><option value="">請選擇</option><option value="equal" ${task.relation === "equal" ? "selected" : ""}>拉力等於靜摩擦力</option><option value="pull-greater" ${task.relation === "pull-greater" ? "selected" : ""}>拉力大於靜摩擦力</option><option value="pull-less" ${task.relation === "pull-less" ? "selected" : ""}>拉力小於靜摩擦力</option></select></label>`;
         if (key === "acceleration") card.innerHTML += `<label>這段平均測力計讀數可否直接當作 fk？<select data-analysis-field="pullEqualsFk"><option value="">請選擇</option><option value="yes" ${task.pullEqualsFk === "yes" ? "selected" : ""}>可以</option><option value="no" ${task.pullEqualsFk === "no" ? "selected" : ""}>不可以</option></select></label>`;
-        const activeKey = currentAnalysisKey();
         if (activeKey !== key) { card.setAttribute("aria-disabled", "true"); card.querySelectorAll("input,select").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); }); }
         host.append(card);
       });
@@ -779,10 +811,10 @@
       const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : answer) || predictionDraft;
       scenario.predictions.forEach((spec, index) => {
         const response = answers[index] || {}; const card = document.createElement("article"); card.className = "prediction-card"; card.dataset.predictionIndex = index;
-        card.innerHTML = `<p class="task-title">${spec.id}：拉力 ${spec.pullN.toFixed(1)} N；物體目前速度 ${spec.velocityMps.toFixed(2)} m/s</p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>方向<select data-prediction-field="direction"><option value="">請選擇</option><option value="none" ${response.direction === "none" ? "selected" : ""}>沒有方向</option><option value="left" ${response.direction === "left" ? "selected" : ""}>向左</option><option value="right" ${response.direction === "right" ? "selected" : ""}>向右</option></select></label><label>摩擦力大小（N）<input type="number" min="0" max="12" step="0.01" value="${response.magnitudeCN == null ? "" : response.magnitudeCN / 100}" data-prediction-field="magnitudeCN"></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><button type="button" data-action="save-prediction">保存這題預測</button>`;
+        card.innerHTML = `<div class="task-card-heading"><p class="task-title">${spec.id}：拉力 ${spec.pullN.toFixed(1)} N；物體目前速度 ${spec.velocityMps.toFixed(2)} m/s</p><button type="button" data-action="select-prediction" class="task-select-button">${index === currentPredictionIndex() ? "正在編輯" : "編輯此題"}</button></div><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>方向<select data-prediction-field="direction"><option value="">請選擇</option><option value="none" ${response.direction === "none" ? "selected" : ""}>沒有方向</option><option value="left" ${response.direction === "left" ? "selected" : ""}>向左</option><option value="right" ${response.direction === "right" ? "selected" : ""}>向右</option></select></label><label>摩擦力大小（N）<input type="number" min="0" max="12" step="0.01" value="${response.magnitudeCN == null ? "" : response.magnitudeCN / 100}" data-prediction-field="magnitudeCN"></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><button type="button" data-action="save-prediction">保存這題預測</button>`;
         if (response.committed && !state.fromReview) card.insertAdjacentHTML("beforeend", index < scenario.predictions.length - 1 ? `<button type="button" data-action="advance-prediction">下一題</button>` : "");
         const targetIndex = currentPredictionIndex();
-        if (index !== targetIndex) card.querySelectorAll("select,input,button").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
+        if (index !== targetIndex) card.querySelectorAll("select,input,button:not([data-action='select-prediction'])").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
         host.append(card);
       });
       const activeIndex = currentPredictionIndex(); const magnitude = answers[activeIndex]?.magnitudeCN;
@@ -907,7 +939,9 @@
       presentation = "load-error"; if (typeof document !== "undefined") { setText("technicalTitle", "活動暫時鎖定"); setText("technicalMessage", "無法安全讀取這次活動；操作及分數均未確認。"); } render(); return false;
     }
     function focusAfterAction(action) {
-      if (["to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
+      if (["navigate-phase", "to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
+      if (action === "select-analysis-task") { focusNode(q(`[data-analysis-task="${currentAnalysisKey()}"]`)?.querySelector("input,select")); return; }
+      if (action === "select-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("input,select")); return; }
       if (action === "save-zero-force") { focusNode(q("draw-applied")); return; }
       if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
@@ -935,7 +969,10 @@
           if (["technical", "load-error", "trusted-finished-review", "submitted-success"].includes(presentation) || (presentation === "frozen" && action !== "retry-pending") || (presentation === "submitted-committed" && action !== "retry-finish")) return;
         try {
           document.querySelectorAll(".validation-status").forEach((node) => { node.classList.add("is-hidden"); node.textContent = ""; });
-          if (action === "save-zero-force") {
+          if (action === "navigate-phase") navigateToPhase(event.target.closest("[data-phase]")?.dataset.phase);
+          else if (action === "select-analysis-task") { state = Persistence.transitions.selectAnalysisTask(state, event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; tableCursorIndex = null; saveDraft(); }
+          else if (action === "select-prediction") { state = Persistence.transitions.selectPrediction(state, Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex)); predictionDraft = []; saveDraft(); }
+          else if (action === "save-zero-force") {
             const type = q("zeroFrictionType")?.value || null; const direction = type === "none" ? "none" : q("zeroFrictionDirection")?.value || null; const magnitudeCN = type === "none" ? 0 : Math.round(Number(q("zeroFrictionMagnitude")?.value || 0) * 100);
             if (!type || !direction) throw new Error("explicit zero-force answer required");
             state = Persistence.transitions.setZeroForceAnswer(state, { frictionType: type, direction, frictionMagnitudeCN: magnitudeCN, committed: true }); balanceInteractionMode = "static"; balanceDrawMode = "applied"; saveDraft();
@@ -959,7 +996,7 @@
           else if (action === "stop-recording") stopRecording();
           else if (action === "request-redo-experiment") { redoConfirmationVisible = true; }
           else if (action === "cancel-redo-experiment") { redoConfirmationVisible = false; if (state.fromReview) state = Persistence.transitions.cancelReviewEdit(state); }
-          else if (action === "confirm-redo-experiment") { state = Persistence.transitions.redoExperiment(state); recorder = null; redoConfirmationVisible = false; stopLoop(); markRecordingActive(false); if (q("gripPosition")) q("gripPosition").value = String(scenario.connector.restLengthM); resetIdleRig(scenario.connector.restLengthM); saveDraft(); setText("experimentStatus", "已清除這次實驗的圖像分析及預測，請重新開始記錄。"); }
+          else if (action === "confirm-redo-experiment") { state = Persistence.transitions.redoExperiment(state); recorder = null; redoConfirmationVisible = false; stopLoop(); markRecordingActive(false); if (q("gripPosition")) q("gripPosition").value = String(scenario.connector.restLengthM); resetIdleRig(scenario.connector.restLengthM); saveDraft(); setText("experimentStatus", "已清除這次實驗的圖像分析；Part D 預測保留，請重新開始記錄。"); }
           else if (action === "keep-trial") { if (recorder?.trace && Measurement.assessTrial(recorder.trace).valid) { state = Persistence.transitions.acceptTrial(state, recorder.trace); analysisDraft = null; saveDraft(); } }
           else if (action === "to-analysis") { if (state.trial) { state = Persistence.transitions.setPhase(state, "analysis"); analysisDraft = null; saveDraft(); } }
           else if (["previous-extremum", "next-extremum", "jump-selection-start", "jump-selection-end"].includes(action)) { if (!moveTableCursor(action)) throw new Error("no matching data-table destination"); }

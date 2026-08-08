@@ -76,7 +76,7 @@
     }
     if (state.phase === "experiment") return state.trial ? "accepted" : "ready";
     if (state.phase === "analysis") {
-      if (state.fromReview) return "review-edit";
+      if (!state.trial) return "waiting-for-trial";
       const completed = ANALYSIS_KEYS.filter((key) => state.analysis[key] != null).length;
       if (!completed) return "selection-ready";
       if (hasAllAnalysisFields(state)) return "complete";
@@ -158,25 +158,6 @@
     }
     return true;
   }
-  function validateAnalysisProgress(state) {
-    if (state.phase !== "analysis" || state.fromReview) return;
-    const active = state.working.activeAnalysisTask;
-    ANALYSIS_KEYS.forEach((key, index) => {
-      const value = state.analysis[key];
-      if (index < active && !analysisTaskComplete(key, value)) throw new Error("analysis has incomplete earlier task");
-      if (index === active && value != null && !analysisTaskHasSelection(key, value)) throw new Error("analysis active task has no selection");
-      if (index > active && value != null) throw new Error("analysis contains future task");
-    });
-  }
-  function validatePredictionProgress(state) {
-    if (state.phase !== "predict" || state.fromReview) return;
-    const active = state.working.activePredictionIndex;
-    state.predictions.forEach((prediction, index) => {
-      if (prediction != null && !validatePrediction(prediction)) throw new Error("invalid prediction");
-      if (index < active && (!prediction || !prediction.committed)) throw new Error("prediction has incomplete earlier answer");
-      if (index > active && prediction != null) throw new Error("prediction contains future answer");
-    });
-  }
   function validateState(state, options = {}) {
     const stateKeys = ["schemaVersion", "generatorVersion", "physicsVersion", "measurementVersion", "rubricVersion", "seed", "phase", "variant", "fromReview", "balance", "trial", "analysis", "predictions", ...(state?.working ? ["working"] : [])];
     if (!exactKeys(state, stateKeys) || state.schemaVersion !== SCHEMA_VERSION || state.generatorVersion !== GENERATOR_VERSION || state.physicsVersion !== PHYSICS_VERSION || state.measurementVersion !== MEASUREMENT_VERSION || state.rubricVersion !== RUBRIC_VERSION || !integer(state.seed) || state.seed < 0 || state.seed > 0xffffffff || !PHASES.includes(state.phase) || typeof state.fromReview !== "boolean" || !exactKeys(state.balance, ["breakaway", "staticCase", "zeroForce"]) || !Array.isArray(state.predictions) || state.predictions.length !== PREDICTION_COUNT || !exactKeys(state.analysis, ANALYSIS_KEYS) || (state.phase !== "review" && !state.working)) throw new Error("invalid state shape");
@@ -195,23 +176,14 @@
       const quality = Measurement.assessTrial(decodedTrial);
       if (!quality.valid && ["analysis", "predict", "review"].includes(state.phase)) throw new Error("trial does not satisfy quality gate");
     }
-    if (state.phase === "balance" && state.trial && !state.fromReview) throw new Error("trial before experiment");
-    if (state.phase === "analysis" || state.phase === "predict" || state.phase === "review") {
-      if (!state.trial) throw new Error("analysis requires accepted trial");
-    }
+    if (!state.trial && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("analysis answers require accepted trial");
     const sampleCount = decodedTrial?.merged?.length || 0;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.analysis[key], sampleCount || 1))) throw new Error("invalid analysis task");
-    if (state.phase === "analysis" && !state.fromReview) validateAnalysisProgress(state);
-    if (["experiment", "analysis", "predict", "review"].includes(state.phase) && !state.fromReview && !allBalanceAnswersCommitted(state)) throw new Error("balance must be complete before experiment");
-    if ((state.phase === "predict" || state.phase === "review") && !hasAllAnalysisFields(state)) throw new Error("prediction requires analysis");
     if (state.phase === "review" && !hasAllPredictions(state)) throw new Error("review requires predictions");
+    if (state.phase === "review" && !hasAllAnalysisFields(state)) throw new Error("review requires analysis");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
     state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
-    if (state.phase === "predict" && !state.fromReview) validatePredictionProgress(state);
-    if (state.phase === "analysis" && !state.fromReview && state.predictions.some(Boolean)) throw new Error("analysis cannot contain future predictions");
-    if (state.phase === "experiment" && !state.fromReview && state.analysis && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("experiment cannot contain analysis");
-    if (state.phase === "balance" && !state.fromReview && (state.analysis && ANALYSIS_KEYS.some((key) => state.analysis[key] != null) || state.predictions.some(Boolean))) throw new Error("balance cannot contain future answers");
     if (state.fromReview && (!state.working || !state.working.reviewEditTarget || !["balance", "experiment", "analysis", "predict"].includes(state.working.reviewEditTarget.section))) throw new Error("review-edit needs target");
     if (state.fromReview && !exactKeys(state.working.reviewEditTarget, ["section", "semanticKey"])) throw new Error("invalid review edit target shape");
     if (state.fromReview && state.phase !== state.working.reviewEditTarget.section) throw new Error("review-edit phase and target section differ");
@@ -246,16 +218,9 @@
     const changed = JSON.stringify(state.balance.zeroForce) !== JSON.stringify(learnerForce);
     const next = clone(state);
     next.balance.zeroForce = clone(learnerForce);
-    if (changed) {
-      next.balance.staticCase = null;
-      next.balance.breakaway = emptyBreakaway();
-      next.trial = null;
-      next.analysis = emptyAnalysis();
-      next.predictions = [null, null, null, null];
-    }
     next.phase = editingReview && !changed ? "review" : "balance";
     next.fromReview = false;
-    next.working = emptyWorking();
+    next.working = editingReview ? emptyWorking() : (next.working || emptyWorking());
     return update(next, {});
   }
   function setStaticForceAnswer(state, applied, learnerAppliedForce, learnerForce) {
@@ -268,15 +233,9 @@
     const changed = JSON.stringify(state.balance.staticCase) !== JSON.stringify(candidate);
     const next = clone(state);
     next.balance.staticCase = candidate;
-    if (changed) {
-      next.balance.breakaway = emptyBreakaway();
-      next.trial = null;
-      next.analysis = emptyAnalysis();
-      next.predictions = [null, null, null, null];
-    }
     next.phase = editingReview && !changed ? "review" : "balance";
     next.fromReview = false;
-    next.working = emptyWorking();
+    next.working = editingReview ? emptyWorking() : (next.working || emptyWorking());
     return update(next, {});
   }
   function recordBreakawayTrial(state, trial) {
@@ -292,13 +251,13 @@
     if (!editingReview && state.phase !== "balance") throw new Error("maximum static-friction answer outside balance phase");
     if (!editingReview && state.balance.breakaway?.bestPullCN === null) throw new Error("find breakaway before answering maximum static friction");
     if (editingReview && (state.working?.reviewEditTarget?.section !== "balance" || state.working.reviewEditTarget.semanticKey !== "breakaway")) throw new Error("maximum static-friction answer is not the review-edit target");
-    const next = clone(state); next.balance.breakaway.learnerMaxCN = learnerMaxCN; next.balance.breakaway.committed = true; next.phase = editingReview ? "review" : "balance"; next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.balance.breakaway.learnerMaxCN = learnerMaxCN; next.balance.breakaway.committed = true; next.phase = editingReview ? "review" : "balance"; next.fromReview = false; next.working = editingReview ? emptyWorking() : (next.working || emptyWorking()); return update(next, {});
   }
   function acceptTrial(state, trial) {
-    if (state.fromReview || state.phase !== "experiment" || !allBalanceAnswersCommitted(state)) throw new Error("trial outside experiment phase");
+    if (state.fromReview || state.phase !== "experiment") throw new Error("trial outside experiment phase");
     const decoded = Measurement.unpackTrace(trial);
     if (!Measurement.assessTrial(decoded).valid) throw new Error("trial quality incomplete");
-    const next = clone(state); next.trial = clone(trial); next.phase = "experiment"; next.fromReview = false; next.analysis = emptyAnalysis(); next.predictions = [null, null, null, null]; next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.trial = clone(trial); next.phase = "experiment"; next.fromReview = false; next.analysis = emptyAnalysis(); next.working = next.working || emptyWorking(); return update(next, {});
   }
   function setAnalysisTask(state, key, value) {
     if (!ANALYSIS_KEYS.includes(key) || !value) throw new Error("invalid analysis task");
@@ -307,6 +266,7 @@
     if (editingReview && (state.working?.reviewEditTarget?.section !== "analysis" || state.working.reviewEditTarget.semanticKey !== key)) throw new Error("analysis task is not the review-edit target");
     if (!editingReview) {
       if (state.phase !== "analysis") throw new Error("analysis task outside analysis phase");
+      if (!state.trial) throw new Error("analysis task needs an accepted trial");
       const active = state.working?.activeAnalysisTask ?? 0;
       if (index !== active) throw new Error("analysis task is not the active task");
     }
@@ -329,11 +289,12 @@
     next.fromReview = editingReview ? false : state.fromReview;
     next.working = editingReview ? emptyWorking() : clone(state.working);
     if (!editingReview) next.working.activeAnalysisTask = index;
-    if (changed) {
-      next.predictions = [null, null, null, null];
-      if (editingReview) next.working.activePredictionIndex = 0;
-    }
     return update(next, {});
+  }
+  function selectAnalysisTask(state, key) {
+    if (!ANALYSIS_KEYS.includes(key) || state.fromReview || state.phase !== "analysis") throw new Error("invalid analysis task selection");
+    if (!state.trial) throw new Error("analysis task needs an accepted trial");
+    const next = clone(state); next.working.activeAnalysisTask = ANALYSIS_KEYS.indexOf(key); return update(next, {});
   }
   function setAnalysisDraft(state, key, value) {
     if (!state.fromReview) return setAnalysisTask(state, key, value);
@@ -356,8 +317,6 @@
     const editingReview = Boolean(state.fromReview);
     if (!editingReview) {
       if (state.phase !== "predict") throw new Error("prediction outside predict phase");
-      if (index !== (state.working?.activePredictionIndex ?? 0)) throw new Error("prediction is not the active answer");
-      if (state.predictions.slice(index + 1).some(Boolean)) throw new Error("prediction contains future answer");
     } else {
       const target = state.working?.reviewEditTarget;
       if (target?.section !== "predict" || target.semanticKey !== index) throw new Error("prediction is not the review-edit target");
@@ -366,6 +325,10 @@
       }
     }
     const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = index; next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) next.working = emptyWorking(); return update(next, {});
+  }
+  function selectPrediction(state, index) {
+    if (!integer(index) || index < 0 || index >= PREDICTION_COUNT || state.fromReview || state.phase !== "predict") throw new Error("invalid prediction selection");
+    const next = clone(state); next.working.activePredictionIndex = index; return update(next, {});
   }
   function advancePrediction(state) {
     if (state.fromReview || state.phase !== "predict") throw new Error("prediction advance outside predict phase");
@@ -377,13 +340,9 @@
   function setPhase(state, phase) {
     if (!PHASES.includes(phase)) throw new Error("invalid phase");
     if (state.fromReview) throw new Error("review-edit must use its dedicated save or cancel transition");
-    const allowed = { balance: "experiment", experiment: "analysis", analysis: "predict", predict: "review" };
-    if (allowed[state.phase] !== phase) throw new Error("invalid phase transition");
-    const next = clone(state); next.phase = phase; next.fromReview = false; next.working = emptyWorking();
-    if (phase === "experiment" && !allBalanceAnswersCommitted(next)) throw new Error("balance incomplete");
-    if (phase === "analysis" && (!next.trial || !Measurement.assessTrial(next.trial).valid)) throw new Error("trial incomplete");
-    if (phase === "predict" && !hasAllAnalysisFields(next)) throw new Error("analysis incomplete");
+    const next = clone(state); next.phase = phase; next.fromReview = false; next.working = next.working || emptyWorking();
     if (phase === "review" && (!hasAllAnalysisFields(next) || !hasAllPredictions(next))) throw new Error("prediction incomplete");
+    if (phase === "review") next.working = emptyWorking();
     return update(next, {});
   }
   function enterReviewEdit(state, section, semanticKey = null) {
@@ -404,7 +363,7 @@
   function redoExperiment(state) {
     if (state.fromReview && state.working?.reviewEditTarget?.section !== "experiment") throw new Error("redo is not the review-edit target");
     if (!state.fromReview && state.phase !== "experiment") throw new Error("redo outside experiment phase");
-    const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.predictions = [null, null, null, null]; next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.fromReview = false; next.working = emptyWorking(); return update(next, {});
   }
   function normalizeReview(state) {
     const next = clone(state); next.phase = "review"; next.variant = "complete"; next.fromReview = false; delete next.working; return next;
@@ -503,8 +462,8 @@
   }
   function answerForSnapshot(state, kind = "draft") { return kind === "review" ? encodeReview(state) : encodeDraft(state); }
   function hasCompleteAnswer(state) { return state.phase === "review" && allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state) && hasAllPredictions(state); }
-  function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
+  function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "selectAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "selectPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
 
-  const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
+  const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, selectAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, selectPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
   return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
 });

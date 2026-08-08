@@ -54,8 +54,10 @@ select {
 .eyebrow { color: var(--blue) !important; font-size: .72rem !important; font-weight: 700; letter-spacing: .08em; }
 
 .phase-strip { display: flex; gap: .35rem; margin-top: .45rem; overflow-x: auto; white-space: nowrap; }
-.phase-strip span { padding: .22rem .5rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: .72rem; }
-.phase-strip span.is-current { border-color: var(--blue); color: var(--blue); background: #e8efff; font-weight: 700; }
+.phase-strip .phase-pill { min-height: 0; padding: .22rem .5rem; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); font-size: .72rem; }
+.phase-strip .phase-pill:hover { border-color: var(--blue); }
+.phase-strip .phase-pill.is-current { border-color: var(--blue); color: var(--blue); background: #e8efff; font-weight: 700; }
+.phase-strip .phase-pill-review { display: inline-flex; align-items: center; }
 
 .friction-shell {
   min-height: 0;
@@ -338,6 +340,9 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .observation-card button { margin-top: .35rem; }
 .task-card legend { font-weight: 700; }
 .task-card .task-title { margin: 0 0 .25rem; font-weight: 700; }
+.task-card-heading { display: flex; align-items: center; justify-content: space-between; gap: .55rem; }
+.task-card-heading .task-title { flex: 1 1 auto; }
+.task-select-button { flex: 0 0 auto; min-height: 36px; padding: .3rem .55rem; font-size: .78rem; }
 .task-card .stats { color: var(--muted); font-size: .8rem; }
 .analysis-graphs { min-height: 240px; margin: .6rem 0; border: 1px solid var(--border); border-radius: 8px; background: white; overflow: hidden; }
 .formula-hint { padding: .45rem .6rem; border-left: 3px solid var(--blue); background: #eef4ff; font-variant-numeric: tabular-nums; }

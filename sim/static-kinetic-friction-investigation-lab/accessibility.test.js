@@ -24,6 +24,8 @@ assert.ok(html.indexOf('id="stageGraph"') < html.indexOf('id="controlPanel"'), "
 assert.match(html, /id="redoExperimentConfirm"[^>]*role="group"/);
 assert.match(html, /id="validationStatus"[^>]*tabindex="-1"[^>]*aria-live="off"/);
 assert.match(html, /class="save-action-row"/);
+for (const phase of ["balance", "experiment", "analysis", "predict"]) assert.match(html, new RegExp(`data-action="navigate-phase"[^>]*data-phase="${phase}"`));
+assert.match(html, /活動任務，可自由切換/);
 assert.doesNotMatch(html, /id="balanceNetForce"|水平合力/);
 assert.match(html, /id="predictionReadout"[^>]*aria-live="off"/);
 assert.match(html, /<var>F<\/var><sub>拉<\/sub>/);
@@ -44,6 +46,9 @@ assert.match(main, /intervalStatsList/);
 assert.match(main, /aria-describedby/);
 assert.match(main, /localExtremaIndices/);
 assert.match(main, /focusAfterAction/);
+assert.match(main, /navigateToPhase/);
+assert.match(main, /selectAnalysisTask/);
+assert.match(main, /selectPrediction/);
 assert.match(main, /prediction-friction-arrow/);
 assert.match(main, /balance-origin/);
 assert.match(main, /const comY = groundY - 27/);

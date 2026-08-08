@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`12`（2026-08-08；收窄 desktop header、移除 apparatus 物體文字及 A2 水平合力 readout，A1／A2／A3 保存錯誤提示改放在各自保存掣旁，A3 數值輸入框統一為 touch-friendly 高度）。
+> Plan revision：`13`（2026-08-09；A／B／C／D 改為可由任務列自由切換，允許未完成前置任務先進入其他 Part，返回後可修改已保存的 A、C、D 子任務，並保留彼此獨立的作答資料）。
 
 本計劃必須遵從：
 
@@ -100,9 +100,10 @@
 
 ### 1.3 Main interactions
 
-- A1 選擇摩擦力類型、方向及大小；保存後仍可修改，改動會清除依賴它的 A2／A3／後續資料；
+- A1 選擇摩擦力類型、方向及大小；保存後仍可直接返回修改，不清除 B／C／D 的獨立資料；
 - A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
 - A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭嘴，箭嘴端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
+- A／B／C／D 任務列可直接切換；Part B 不要求先完成 Part A，Part C 沒有有效 trace 時顯示中性等待提示，Part D 可先完成預測；
 - Part B 拖動測力計握把；
 - 用鍵盤方向鍵操作測力計握把；
 - 暫停、重設及重新進行實驗；
@@ -312,7 +313,7 @@ force += (Math.random() - 0.5) * 0.8;
 - 「記錄時間太短」；
 - 「未有一段足夠長的近似勻速資料」；
 - 「測力計超出量程」；
-- 「重新實驗會清除圖像分析及預測」等中性依賴提示。
+- 「重新實驗會清除圖像分析，但保留獨立的 Part D 預測」等中性依賴提示。
 
 提交前不可提供：
 
@@ -370,16 +371,15 @@ force += (Math.random() - 0.5) * 0.8;
 ## 5. 整體流程
 
 ```text
-balance
-→ experiment
-→ analysis
-→ predict
-→ review
+A／B／C／D 任務可自由切換
+→ 各 Part 保存自己的作答資料
+→ 可返回修改，保留其他 Part
+→ review（所有資料完整後）
 → submit
 → locked result
 ```
 
-第一畫面直接進入任務，不設 landing page。
+第一畫面直接進入任務，不設 landing page。上方 A／B／C／D 使用可操作任務列；切換只改變目前顯示的 Part，不代表答案完成或顯示正誤。B 的實驗記錄可在 A 未完成時開始；C 必須有 B 的有效 trace 才能進行圖像操作；D 的情境預測可在 C 未完成時先作答。所有未提交的 Part 都可以返回修改。
 
 ---
 
@@ -397,7 +397,7 @@ Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水�
 
 兩個選單初始都顯示 disabled 的「請選擇」，大小讀數亦顯示「請選擇」；系統不預選「沒有摩擦力」，學生必須明確揀選類型、方向及大小。若新開題或 draft 的 canonical `zeroForce` 仍為 `null`，啟動時會清除瀏覽器可能復原的表單值，確保畫面仍從「請選擇」開始；已有明確保存答案的 draft／review 則照常復原。學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分。
 
-A1 保存按鈕在正常 `balance` phase 不會因已保存而鎖定。若學生改動並重新保存，只有語意有變時才清除 A2、A3、實驗 trace、圖像分析及預測；相同答案重存視為 no-op。
+A1 保存按鈕在正常 `balance` phase 不會因已保存而鎖定。若學生改動並重新保存，只更新 A1 authority，不清除 A2、A3、實驗 trace、圖像分析及預測；相同答案重存視為 no-op。
 
 ### 6.2 A2：指定較小拉力下的靜摩擦力
 
@@ -422,7 +422,7 @@ balancePullN = quantize(staticLimitMeanN * pick([0.24, 0.28, 0.32, 0.36]), 0.1);
 - 「畫摩擦力」模式建立學生的 static-friction 向量；
 - 「不畫摩擦力」清除藍色箭嘴，明確代表沒有摩擦力。
 
-兩支箭嘴都由物體中央出發，箭嘴方向及長度由學生拖動決定；不以 control-panel range 或測力計讀數代替。畫面上的學生施加水平力統一稱為「拉力」，紅／藍箭嘴文字分別在物體上方錯開排列，避免名稱與數字重疊。保存後 A2 仍可重新選模式、重畫並更新答案；語意有變時清除 A3 trial、實驗 trace、分析及預測，相同答案重存則保留下游 authority。A2 評分為 6 分：學生拉力方向 1 分、學生拉力大小 2 分、摩擦力類型 1 分、方向 1 分、大小 1 分；拉力及摩擦力大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
+兩支箭嘴都由物體中央出發，箭嘴方向及長度由學生拖動決定；不以 control-panel range 或測力計讀數代替。畫面上的學生施加水平力統一稱為「拉力」，紅／藍箭嘴文字分別在物體上方錯開排列，避免名稱與數字重疊。保存後 A2 仍可重新選模式、重畫並更新答案；只更新 A2 authority，不清除 A3 trial、實驗 trace、分析及預測，相同答案重存則保留下游 authority。A2 評分為 6 分：學生拉力方向 1 分、學生拉力大小 2 分、摩擦力類型 1 分、方向 1 分、大小 1 分；拉力及摩擦力大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
 
 Part A 內所有水平力箭嘴的 line 都使用同一個物體幾何中心 `comY` 作為起點；文字 label 可以放在物體上方以保持可讀性，但不改變力向量的起點。中心只保留一個約 `8 px` 的小閃爍圓點作提示，外層 `48×48 px` 透明 overlay 只作穩定觸控 hit target，不再顯示大型圓圈或「受力圖由重心出發」文字。Prediction stage 沿用同一種中心起點視覺規格。
 
@@ -448,7 +448,7 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ### 6.4 Part A 完成條件
 
-三項答案均明確保存，且 A3 至少有一次開始滑動試拉，才可進入 Part B。Part A 完成後不顯示正誤、真實摩擦係數或隱藏的最大值；完整分數及物理解釋只在提交後顯示。
+三項答案均明確保存，且 A3 至少有一次開始滑動試拉，Part A 才算完成；但這個完成狀態不再鎖住 Part B、C 或 D。Part A 完成後不顯示正誤、真實摩擦係數或隱藏的最大值；完整分數及物理解釋只在提交後顯示。返回 A 修改時保留 B 的 trace、C 的分析及 D 的預測；若學生在 A 仍未完成時先做 B／D，之後返回 A 仍可保存答案。
 
 ---
 
@@ -2000,7 +2000,7 @@ passed =
   predictionScore >= 8;
 ```
 
-Part B 是可提交前的 completion prerequisite：任何能進入 analysis 並最後提交的 learner 都已有四類最低可分析證據，故取得 20 分。它獎勵完成探究操作，但不另設沒有區辨力的 mastery gate；概念 mastery 由 Part A、C、D gates 判定。
+Part B 是最終提交前的 completion prerequisite：學生仍可在未完成 A 時直接進入 B、開始記錄及返回其他 Part；只有最終提交時，沒有有效 B trace 才不算完整。它獎勵完成探究操作，但不另設沒有區辨力的 navigation gate；概念 mastery 由 Part A、C、D gates 判定。
 
 ### 16.2 Part A：力平衡，20 分
 
@@ -2243,19 +2243,18 @@ function trimmedMean(values, trimFraction = 0.10) {
 
 ### 19.1 修改 Part A
 
-A1／A2 在正常 `balance` phase 均可重畫／重選後重新保存。若 canonical answer 有語意改變，必須原子式清除所有依賴它的下游 authority：A2／A3（A1 改動時）、A3（A2 改動時）、trial、analysis 及 predictions，並返回 `balance` 的正確 next-action variant；相同答案重存是 no-op。review-edit 亦遵守相同規則：相同值返回完整 review，改變值返回可繼續的 `balance`，不可保留失效的 review-complete 下游資料。
+A1／A2／A3 在正常 `balance` phase 均可重選／重畫／重試後重新保存。A 的 canonical answer 有語意改變時，只更新 A 自己的 authority；B trace、C analysis 及 D predictions 仍可保留，因四個 Part 可以獨立完成及返回修改。review-edit 仍保留原有完整 review authority，只有提交後的正式修改才進入 locked attempt 外的新 attempt。
 
 ### 19.2 重新做實驗
 
 必須中性確認：
 
-> 重新保留另一組實驗資料，會清除目前所有圖像標記、摩擦力推斷及預測答案。
+> 重新保留另一組實驗資料，會清除目前依賴該 trace 的圖像標記；Part D 預測屬獨立情境答案，會保留。
 
 確認後原子式清除：
 
 ```js
 analysis = createEmptyAnalysis();
-predictions = createEmptyPredictions();
 trial = null;
 phase = "experiment";
 ```
@@ -2504,78 +2503,45 @@ Scroll topology：
 
 ## 23. Phase/state matrix
 
-| Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed next |
+| Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed navigation |
 |---|---|---:|---|---|---|
-| `balance` | `zero-ready` | A1 | versions、seed；`zeroForce=null`、`staticCase=null`、空 A3 trial summary | trial、analysis、predictions、review draft | save explicit zero-force answer |
-| `balance` | `static-ready` | A2 setup | A1 committed；`staticCase=null`；scenario 的指定方向／大小由 seed 重建 | A3 attempts、trial、analysis、predictions | save A2 force answer |
-| `balance` | `static-answer-pending` | A2 answer | A1 committed；A2 scenario 指定方向／大小已保存；`learnerAppliedForce` 或 `learnerForce` 尚未 committed（摩擦力可明確保存為 `none`） | A3 attempts、trial、analysis、predictions | commit A2 applied／friction vectors |
-| `balance` | `breakaway-ready` | A3 trial | A1 及 A2 committed；A3 `attempts=0` 或已保存 attempts、`learnerMaxCN=null` | experiment trial、analysis、predictions | record one or more breakaway trials |
-| `balance` | `breakaway-answer-pending` | A3 answer | A3 `bestPullCN`／direction 已保存；`learnerMaxCN=null` | trial、analysis、predictions | save maximum-static-friction estimate |
-| `balance` | `answer-complete` | A✓ | A1、A2、A3 三項 committed；A3 至少一個 trial | trial、analysis、predictions | go experiment |
-| `balance` | `review-edit` | A1/A2/A3 target | 原本 review-complete authority 全部保留；`fromReview=true`；`working.editDraft.kind="balance"`；A2 draft 是完整 staticCase（含兩個 learner vectors） | active drag／DOM state | cancel to review／same-value save／changed save 回 balance |
-| `experiment` | `ready` | — | balance complete；`trial=null` | analysis、predictions、edit draft | start recording |
-| `experiment` | `running`（transient） | — | recording 前 `ready` checkpoint＋in-memory physics/measurement | running state 不可進 snapshot | stop／cancel／auto-stop |
-| `experiment` | `accepted` | — | canonical packed regular trace＋breakaway sidecar | analysis、predictions | go analysis／request redo |
-| `experiment` | `review-edit` | — | 原本完整 trial、analysis、predictions 保留；`fromReview=true` | running trial、active pointer | cancel to review／confirm redo |
-| `analysis` | `selection-ready` | 0–4 | accepted trial＋所有較早 tasks complete | active/future task、predictions | set marker/interval |
-| `analysis` | `selection-only` | 0–4 | active marker/interval indices 已保存；該 task inference fields 為 `null` | future task、predictions | save inference／adjust selection |
-| `analysis` | `task-complete` | 0–4 | active task selection＋全部明確 inference fields | future task、predictions | advance／edit active task |
-| `analysis` | `complete` | 5 | 五個 tasks complete | predictions | go predict／edit |
-| `analysis` | `review-edit` | 0–4 target | 原本完整 authority及predictions保留；`fromReview=true`；optional persisted `working.editDraft` 可為 selection-only／complete | active pointer／DOM | cancel／same-value save to review；changed save to predict/answer-ready 0 |
-| `predict` | `answer-ready` | 0–3 | complete analysis＋較早 committed predictions | active/future predictions | start answer |
-| `predict` | `answer-draft` | 0–3 | active object可有合法 partial enums/value；`committed=false` | future predictions | complete／adjust answer |
-| `predict` | `answer-complete` | 0–3 | active及較早 predictions `committed=true` | future predictions | advance／edit active answer |
-| `predict` | `complete` | 4 | 四個 committed predictions | edit draft | go review |
-| `predict` | `review-edit` | 0–3 target | 原本四個 predictions及上游 authority保留；`fromReview=true`；optional persisted `working.editDraft` | active pointer／DOM | cancel to review／save replacement |
-| `review` | `complete` | — | 所有 authority完整；`fromReview=false`；無 edit draft | transient drag／running trial | submit／enter exact review-edit row |
+| `balance` | `zero-ready`／`static-ready`／`breakaway-ready`／`answer-complete` | A1–A3 | A 部分可以是任何已保存／未完成組合；B 的 trace、C 的分析及 D 的預測可同時保留 | 只有 transient drag 不入 snapshot | A／B／C／D；保存 A 答案後仍留在 A |
+| `balance` | `review-edit` | A1/A2/A3 target | review authority 保留；`fromReview=true`；`working.editDraft.kind="balance"` | active drag／DOM state | cancel／same-value save 回 review；changed save 回 balance |
+| `experiment` | `ready` | B | `trial=null`；A 可完整、部分完成或仍為空；D 預測可已存在 | analysis 只可在有 trial 後保存；running state 不入 snapshot | A／B／C／D；start recording |
+| `experiment` | `running`（transient） | B | recording 前 semantic checkpoint＋in-memory physics/measurement | running state 不可進 snapshot | 停止記錄後可切換；中斷恢復 checkpoint |
+| `experiment` | `accepted` | B | canonical packed regular trace＋breakaway sidecar；C 可空或已有舊分析 | 不把 transient recorder 寫入 snapshot | A／B／C／D；C 需有效 trace |
+| `experiment` | `review-edit` | B | 原本完整 trial 保留；`fromReview=true` | running trial／active pointer | cancel／確認重新實驗 |
+| `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
+| `analysis` | `selection-ready`／`selection-only`／`task-complete`／`complete` | C1–C5 | accepted trial；`working.activeAnalysisTask` 指向目前選取的 C 子任務；其餘 C 子任務可為空、partial 或 complete | 不保存無 trial 的 C authority | A／B／C／D；可用 C 子任務選擇器返回修改 |
+| `analysis` | `review-edit` | C1–C5 target | review authority 保留；可保存 target replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
+| `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 四題可以按任意順序保存；`working.activePredictionIndex` 只代表舞台目前顯示題目 | 不要求 C complete；partial prediction 仍不算提交完整 | A／B／C／D；可選擇任一 D 子題返回修改 |
+| `predict` | `review-edit` | D1–D4 target | 原本 prediction authority 保留；`working.editDraft` 可存在 | active pointer／DOM state | cancel／save replacement |
+| `review` | `complete` | — | 所有 A、B、C、D authority 完整；`fromReview=false`；無 edit draft | transient drag／running trial | submit／enter exact review-edit row |
 | locked result | `submitted` | — | validated review snapshot＋recomputed trusted result | editable controls／draft provider | review only |
 
 Transitions：
 
 ```text
-balance -> experiment
-  when A1 zero-force answer, A2 force-balance answer and one A3 breakaway trial plus estimate exist
+A／B／C／D -> A／B／C／D
+  由任務列直接切換；setPhase 不再要求順序，也不清除其他 Part 的 authority。
 
-experiment -> analysis
-  when one accepted trace passes quality validation
+B -> C
+  只有在有 accepted trace 時 C 才可實際保存分析；沒有 trace 仍可進入等待畫面。
 
-analysis -> predict
-  when all graph selections and inferences exist
+C -> D
+  不要求 C complete；D 可先保存任意一題，之後返回 C。
 
-predict -> review
-  when all four predictions exist
+C 子任務／D 子題 -> 另一個子任務／子題
+  working cursor 記住目前舞台；選擇器讓學生返回修改已保存項目。
+
+A／C／D 保存
+  只更新該 Part 的 authority；不因返回修改而清除其他 Part。
 
 review -> submit
-  when canonical completeness validation passes
+  只有 A、B、C、D 全部完整時 canonical completeness validation 才會通過。
 
 review -> section
-  when learner chooses edit; enter that section's exact review-edit row,
-  set fromReview=true and keep original authority immutable until save
-
-section -> review
-  when learner cancels; discard working.editDraft and restore original authority
-
-section review-edit -> review
-  when learner cancels or saves a canonically unchanged value;
-  clear working.editDraft and set fromReview=false
-
-analysis review-edit -> predict/answer-ready index 0
-  when learner saves a canonically changed selection/inference;
-  atomically replace target, clear all predictions/editDraft and set fromReview=false
-
-balance or predict review-edit -> review
-  when learner saves; atomically replace target, run its dependency map,
-  clear working.editDraft and set fromReview=false
-
-experiment review-edit -> experiment/ready
-  when learner confirms redo; atomically clear trial, analysis, predictions
-  and editDraft, then set fromReview=false
-
-experiment accepted -> experiment ready
-  when learner confirms redo; atomically set trial=null and clear analysis/predictions
-
-analysis replacement -> predict/answer-ready index 0
-  when any conceptual analysis selection/inference changes; all predictions empty
+  仍可用原有 review-edit 進入精確修改 row；提交後整個 attempt 鎖定。
 ```
 
 Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前最後 semantic checkpoint。每個 saveable row 都要有 production-shaped encode/decode/restore fixture，並在 restore 後執行表中一個合法 next action；generic `editable phase` fixture 不算覆蓋。
@@ -2812,7 +2778,7 @@ Scenario 由 seed 及 versions 重建；stats 由 trace 重算。
 - analysis 在 trial 之前存在；
 - interval end 早於 start；
 - interval 超出 trace；
-- prediction 在 analysis 未完成時存在；
+- prediction 欄位 shape／scenario identity 非法；D 預測可以在 C 未完成時保存，只有進入 review 才要求四項 C 分析及四項 D 預測完整；
 - duplicate scenarioId；
 - dangling relationship；
 - review 不完整；

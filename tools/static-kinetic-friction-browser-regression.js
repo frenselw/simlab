@@ -98,6 +98,10 @@ async function semanticSmoke(cdp, url, label) {
   await tapSelector(cdp, "[data-action='save-zero-force']");
   const a1 = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce");
   assert.deepEqual(a1, { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, `${label}: A1 stores explicit zero friction`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='experiment']");
+  const earlyExperiment = await evaluate(cdp, "({ phase:window.__staticKineticFrictionApp.getState().phase, startDisabled:document.getElementById('startRecording').disabled })");
+  assert.deepEqual(earlyExperiment, { phase: "experiment", startDisabled: false }, `${label}: Part B is directly selectable before Part A is complete`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='balance']");
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','static');set('zeroFrictionDirection','right');set('zeroFrictionMagnitude','0.1','input');document.querySelector('[data-action="save-zero-force"]').click();return true; })()`);
   const resetByA1 = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.staticCase");
   assert.equal(resetByA1, null, `${label}: changing a saved A1 answer clears the dependent A2 answer`);
@@ -128,7 +132,7 @@ async function semanticSmoke(cdp, url, label) {
   drag = await forceEndpoint(staticSetup.magnitudeCN / 100 + .2, staticSetup.direction); await touch(cdp, drag.start, drag.end);
   await tapSelector(cdp, "[data-action='save-static-force']");
   const a2Edited = await evaluate(cdp, "window.__staticKineticFrictionApp.getState()");
-  assert.equal(a2Edited.balance.breakaway.bestPullCN, null, `${label}: changing a saved A2 answer clears the dependent A3 trial`);
+  assert.equal(a2Edited.balance.breakaway.bestPullCN, null, `${label}: A2 remains editable before an A3 trial has been recorded`);
   assert.equal(a2Edited.balance.staticCase.learnerAppliedForce.magnitudeCN, staticSetup.magnitudeCN + 20, `${label}: A2 can be updated after its first save`);
   await tapSelector(cdp, "#draw-friction");
   await tapSelector(cdp, "#clear-friction");
@@ -188,7 +192,7 @@ async function semanticSmoke(cdp, url, label) {
   await evaluate(cdp, "document.getElementById('breakawayAnswer').value=(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN).toFixed(1)");
   await tapSelector(cdp, "[data-action='save-breakaway-answer']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().variant"), "answer-complete", `${label}: all three Part A tasks complete`);
-  assert.equal(await evaluate(cdp, "document.getElementById('balanceOrigin').classList.contains('is-hidden')"), true, `${label}: A3 drawing target hides after the estimate is saved`);
+  assert.equal(await evaluate(cdp, "document.getElementById('balanceOrigin').classList.contains('is-hidden')"), false, `${label}: A3 remains editable after the estimate is saved`);
   await tapSelector(cdp, "#to-experiment");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().phase"), "experiment", `${label}: sequential Part A continues legally`);
   await tapSelector(cdp, "#startRecording");
@@ -196,11 +200,16 @@ async function semanticSmoke(cdp, url, label) {
   assert.deepEqual(interrupted, { checkpointPhase: "experiment", checkpointVariant: "ready", phase: "experiment", variant: "ready", trial: null, status: "上次實驗記錄未完成，請重新開始這次記錄。", running: false, startDisabled: false }, `${label}: active recording restores the pre-record checkpoint with an interruption message and legal restart`);
 
   await evaluate(cdp, analysisFixtureScript(0));
-  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),Graph=window.StaticKineticFrictionGraph,M=window.StaticKineticFrictionMeasurement,svg=document.getElementById('graphSvg'),handle=document.getElementById('static-start'),sample=M.unpackTrace(state.trial).merged[0],sr=svg.getBoundingClientRect(),hr=handle.getBoundingClientRect(),expected=sr.left+Graph.timeToX(sample.timeS)/820*sr.width;return { type: document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="frictionType"]').value, relation: document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="relation"]').value, graphInStage: document.getElementById('stage').contains(svg), handleDelta:Math.abs(hr.left+hr.width/2-expected), visible: [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node=>node.dataset.dragTarget) } })()`);
+  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),Graph=window.StaticKineticFrictionGraph,M=window.StaticKineticFrictionMeasurement,svg=document.getElementById('graphSvg'),handle=document.getElementById('static-start'),typeNode=document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="frictionType"]'),relationNode=document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="relation"]'); if (!state?.trial || !svg || !handle || !typeNode || !relationNode) return { phase:state?.phase, hasTrial:Boolean(state?.trial), hasGraph:Boolean(svg), hasHandle:Boolean(handle), hasType:Boolean(typeNode), hasRelation:Boolean(relationNode), panelHidden:document.getElementById('analysisPanel')?.classList.contains('is-hidden') }; const sample=M.unpackTrace(state.trial).merged[0],sr=svg.getBoundingClientRect(),hr=handle.getBoundingClientRect(),expected=sr.left+Graph.timeToX(sample.timeS)/820*sr.width;return { type:typeNode.value, relation:relationNode.value, graphInStage:document.getElementById('stage').contains(svg), handleDelta:Math.abs(hr.left+hr.width/2-expected), visible:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node=>node.dataset.dragTarget) } })()`);
+  if (!Object.hasOwn(blankAnalysis, "type")) throw new Error(`${label}: C analysis fixture did not render expected controls: ${JSON.stringify(blankAnalysis)}`);
   assert.equal(blankAnalysis.type, "", `${label}: C1 type starts explicitly blank`); assert.equal(blankAnalysis.relation, "", `${label}: C1 relation starts explicitly blank`);
   assert.equal(blankAnalysis.graphInStage, true, `${label}: graph and handles share the stage coordinate space`);
   assert.ok(blankAnalysis.handleDelta <= 4, `${label}: graph handle is spatially aligned with its sample (${blankAnalysis.handleDelta}px)`);
   assert.deepEqual(blankAnalysis.visible.sort(), ["static-end", "static-start"], `${label}: only active graph handles are exposed`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
+  const earlyPrediction = await evaluate(cdp, "({ phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards [data-prediction-index]').length, firstEnabled:!document.querySelector('#predictionCards [data-prediction-index=\"0\"] select').disabled })");
+  assert.deepEqual(earlyPrediction, { phase: "predict", cards: 4, firstEnabled: true }, `${label}: Part D is directly selectable while Part C is still incomplete`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
   await pressKeyOn(cdp, "#static-start", "ArrowRight");
   const partial = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;const state=app.getState();window.__analysisSnapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(state)};app.routeAttempt({state:'draft',snapshot:window.__analysisSnapshot});const restored=app.getState();return {variant:restored.variant,active:restored.working.activeAnalysisTask,future:P.ANALYSIS_KEYS.slice(1).every(key=>restored.analysis[key]===null)} })()`);
   assert.deepEqual(partial, { variant: "selection-only", active: 0, future: true }, `${label}: graph handle persists and restores only the active partial task`);
