@@ -1046,11 +1046,18 @@
       return { direction: signedN < 0 ? "left" : "right", magnitudeCN: clamp(Math.round(Math.abs(signedN) * 10) * 10, 1, 1200) };
     }
     function prepareBreakawayDrag() {
-      if (!balanceTrialRecorded && !balanceMotionActive) return;
+      if (!balanceTrialRecorded && !balanceMotionActive) return false;
       cancelBalanceMotion();
       balanceTrialPullCN = 0;
       balanceTrialRecorded = false;
       balanceTrialDirection = state?.balance?.breakaway?.bestDirection || scenario?.balancePullDirection || "right";
+      // A completed trial is transient visual state. Recenter the block and
+      // target before the next pointer movement so the new drag starts from a
+      // stable origin instead of mixing the previous motion offset into its
+      // first force sample.
+      balanceMotionOffsetM = 0;
+      renderBalance();
+      return true;
     }
     function updateBalanceDrawFromPointer(event) {
       if (!dragging || dragging.kind !== "balance-draw") return;
@@ -1068,11 +1075,15 @@
       if (event.isPrimary === false || dragging) return;
       const target = event.currentTarget.dataset.dragTarget;
       if (target === "balance-origin") {
-        if (balanceInteractionMode === "breakaway") prepareBreakawayDrag();
+        const pointerPoint = svgPointFromEvent(event);
+        const restartedBreakaway = balanceInteractionMode === "breakaway" ? prepareBreakawayDrag() : false;
         dragging = {
           kind: "balance-draw", target: event.currentTarget, pointerId: event.pointerId,
           mode: balanceInteractionMode === "breakaway" ? "breakaway" : balanceDrawMode,
-          originX: balanceComX(), checkpoint: clone(state), checkpointDraft: clone(analysisDraft),
+          // When a previous trial has just been recentered, use the actual
+          // pointer-down position as the zero-length anchor. The target may
+          // have been rendered at the previous block position for that event.
+          originX: restartedBreakaway ? pointerPoint.x : balanceComX(), checkpoint: clone(state), checkpointDraft: clone(analysisDraft),
           balanceDrawings: clone(balanceDrawings), balanceDrawingsSource, balanceTrialDirection, balanceTrialPullCN, balanceTrialRecorded,
           motionActive: balanceMotionActive, motionOffsetM: balanceMotionOffsetM
         };
@@ -1085,6 +1096,7 @@
       if (target === "force-grip") return;
       if (target === "balance-origin") {
         if (balanceInteractionMode === "breakaway") {
+          if (balanceTrialRecorded || balanceMotionActive) prepareBreakawayDrag();
           const signedN = signedForce(balanceTrialDirection, balanceTrialPullCN / 100) + direction * magnitude * .1;
           const force = forceFromPointer(0, signedN * 18);
           updateBreakawayPull(force?.magnitudeCN || 0, force?.direction || null);

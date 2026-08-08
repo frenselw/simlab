@@ -135,6 +135,13 @@ async function semanticSmoke(cdp, url, label) {
   const motion = await evaluate(cdp, `(() => ({pull:document.getElementById('breakawayPullValue').textContent,status:document.getElementById('breakawayMotionStatus').textContent,friction:document.querySelectorAll('.learner-friction-arrow').length,arrow:document.querySelectorAll('.pull-arrow').length,block:document.querySelector('.apparatus-block')?.getAttribute('x')}))()`);
   assert.equal(motion.friction, 0, `${label}: A3 does not display static friction`);
   assert.ok(motion.arrow >= 1 && /滑動並加速/.test(motion.status) && motion.block !== blockBefore, `${label}: A3 shows the pull arrow and motion after breakaway ${JSON.stringify(motion)}`);
+  for (const direction of [staticSetup.opposite, staticSetup.direction]) {
+    drag = await forceEndpoint(threshold / 100 + .2, direction); await touch(cdp, drag.start, drag.end); await delay(100);
+  }
+  const repeatedTrials = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),target=document.getElementById('balanceOrigin'); return { attempts:state.balance.breakaway.attempts, bestPullCN:state.balance.breakaway.bestPullCN, targetHidden:target.classList.contains('is-hidden'), pull:document.getElementById('breakawayPullValue').textContent, motion:document.getElementById('breakawayMotionStatus').textContent }; })()`);
+  assert.equal(repeatedTrials.attempts, 3, `${label}: A3 can repeat breakaway trials after reversing direction ${JSON.stringify(repeatedTrials)}`);
+  assert.equal(repeatedTrials.bestPullCN, threshold, `${label}: repeated A3 trials preserve the best threshold`);
+  assert.equal(repeatedTrials.targetHidden, false, `${label}: A3 keeps the drawing target available before the estimate is saved`);
   await evaluate(cdp, "document.getElementById('breakawayAnswer').value=(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN).toFixed(1)");
   await tapSelector(cdp, "[data-action='save-breakaway-answer']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().variant"), "answer-complete", `${label}: all three Part A tasks complete`);
