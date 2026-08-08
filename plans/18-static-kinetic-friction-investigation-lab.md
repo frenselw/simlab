@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`7`（2026-08-08；補充 A1 初始空白選擇狀態，並令 Part A／prediction 水平力箭嘴的視覺起點與物體重心同一座標）。
+> Plan revision：`8`（2026-08-08；補充 A1 初始空白選擇狀態、中心小圓點提示、拉力標籤及 Part A／prediction 水平力箭嘴的視覺起點規格）。
 
 本計劃必須遵從：
 
@@ -90,8 +90,8 @@
 學生需要：
 
 1. 在沒有水平外力時，選擇摩擦力為零的類型、方向及大小；
-2. 在指定的較小水平外力下，直接由物體重心拖出外力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
-3. 直接拖拉物體並逐步增加外力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
+2. 在指定的較小水平拉力下，直接由物體中央拖出拉力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
+3. 直接拖拉物體並逐步增加拉力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
 4. 進入 Part B，實際拖動測力計並完成低速、加速及高速平台資料；
 5. 從同一次實驗的同步力圖及速度圖標示關鍵區段；
 6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
@@ -101,8 +101,8 @@
 ### 1.3 Main interactions
 
 - A1 選擇摩擦力類型、方向及大小；保存後仍可修改，改動會清除依賴它的 A2／A3／後續資料；
-- A2 在控制欄選擇「畫外力」或「畫摩擦力」，再直接由物體重心拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
-- A3 按向左／向右試拉，直接由物體重心逐步拖遠外力箭嘴並重試；
+- A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
+- A3 按向左／向右試拉，直接由物體中央逐步拖遠拉力箭嘴並重試；
 - Part B 拖動測力計握把；
 - 用鍵盤方向鍵操作測力計握把；
 - 暫停、重設及重新進行實驗；
@@ -386,7 +386,7 @@ balance
 
 ## 6. Part A：三個簡單受力圖／試拉任務
 
-Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水平面、物體及由物體重心出發的簡化受力箭嘴；測力計只在 Part B 正式實驗出現。
+Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水平面、物體及由物體中央出發的簡化受力箭嘴；測力計只在 Part B 正式實驗出現。
 
 ### 6.1 A1：沒有水平外力時，摩擦力為零
 
@@ -400,9 +400,9 @@ Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水�
 
 A1 保存按鈕在正常 `balance` phase 不會因已保存而鎖定。若學生改動並重新保存，只有語意有變時才清除 A2、A3、實驗 trace、圖像分析及預測；相同答案重存視為 no-op。
 
-### 6.2 A2：指定較小外力下的靜摩擦力
+### 6.2 A2：指定較小拉力下的靜摩擦力
 
-系統為每個 seed 生成一個固定的指定外力：
+系統為每個 seed 生成一個固定的指定拉力：
 
 ```js
 balancePullDirection = "left" | "right";
@@ -413,31 +413,31 @@ balancePullN = quantize(staticLimitMeanN * pick([0.24, 0.28, 0.32, 0.36]), 0.1);
 
 ```text
 靜摩擦力類型：static
-大小：與指定外力相同
-方向：與指定外力相反
+大小：與指定拉力相同
+方向：與指定拉力相反
 ```
 
-控制欄只顯示指定外力的方向／大小，並提供目前繪圖模式。學生用手指或滑鼠直接在物體重心上開始拖動：
+控制欄只顯示指定拉力的方向／大小，並提供目前繪圖模式。學生用手指或滑鼠直接在物體中央開始拖動：
 
-- 「畫外力」模式建立學生的 applied-force 向量；
+- 「畫拉力」模式建立學生的 applied-force 向量；
 - 「畫摩擦力」模式建立學生的 static-friction 向量；
 - 「不畫摩擦力」清除藍色箭嘴，明確代表沒有摩擦力。
 
-兩支箭嘴都由物體重心出發，箭嘴方向及長度由學生拖動決定；不以 control-panel range 或測力計讀數代替。保存後 A2 仍可重新選模式、重畫並更新答案；語意有變時清除 A3 trial、實驗 trace、分析及預測，相同答案重存則保留下游 authority。A2 評分為 6 分：學生外力方向 1 分、學生外力大小 2 分、摩擦力類型 1 分、方向 1 分、大小 1 分；外力及摩擦力大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
+兩支箭嘴都由物體中央出發，箭嘴方向及長度由學生拖動決定；不以 control-panel range 或測力計讀數代替。畫面上的學生施加水平力統一稱為「拉力」，紅／藍箭嘴文字分別在物體上方錯開排列，避免名稱與數字重疊。保存後 A2 仍可重新選模式、重畫並更新答案；語意有變時清除 A3 trial、實驗 trace、分析及預測，相同答案重存則保留下游 authority。A2 評分為 6 分：學生拉力方向 1 分、學生拉力大小 2 分、摩擦力類型 1 分、方向 1 分、大小 1 分；拉力及摩擦力大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
 
-Part A 內所有水平力箭嘴的 line 都使用同一個物體幾何中心 `comY` 作為起點；文字 label 可以放在物體上方以保持可讀性，但不改變力向量的起點。Prediction stage 沿用同一種中心起點視覺規格。
+Part A 內所有水平力箭嘴的 line 都使用同一個物體幾何中心 `comY` 作為起點；文字 label 可以放在物體上方以保持可讀性，但不改變力向量的起點。中心只保留一個約 `8 px` 的小閃爍圓點作提示，外層 `48×48 px` 透明 overlay 只作穩定觸控 hit target，不再顯示大型圓圈或「受力圖由重心出發」文字。Prediction stage 沿用同一種中心起點視覺規格。
 
 學生在此觀察到：物體仍然靜止，所以水平方向合力為零，而靜摩擦力會按需要調整，並不是固定的最大值。
 
-### 6.3 A3：逐步增加外力，找出最大靜摩擦力
+### 6.3 A3：逐步增加拉力，找出最大靜摩擦力
 
-完成 A2 後，學生可選「向左試拉」或「向右試拉」，直接由物體重心慢慢向左／向右拖遠外力箭嘴。拖動一開始物體保持靜止；當外力達到可操作的第一個臨界值時：
+完成 A2 後，學生可選「向左試拉」或「向右試拉」，直接由物體中央慢慢向左／向右拖遠拉力箭嘴。拖動一開始物體保持靜止；當拉力達到可操作的第一個臨界值時：
 
 ```js
 breakawayThresholdCN = Math.ceil(staticLimitMeanN * 10) * 10;
 ```
 
-物體在舞台上突然開始滑動並加速；A3 舞台只顯示紅色學生外力箭嘴，完全不顯示靜摩擦力箭嘴或假定的摩擦力讀數。學生可按「重新試拉」回到 0 N、轉換方向及重複多次；系統只保存試拉次數、最小開始滑動外力及方向，不保存 pointer path 或操作時間。臨界值採 0.1 N 語意步進，確保學生實際可以逐步接近。
+物體在舞台上突然開始滑動並加速；A3 舞台只顯示紅色學生拉力箭嘴，完全不顯示靜摩擦力箭嘴或假定的摩擦力讀數。學生可按「重新試拉」回到 0 N、轉換方向及重複多次；系統只保存試拉次數、最小開始滑動拉力及方向，不保存 pointer path 或操作時間。臨界值採 0.1 N 語意步進，確保學生實際可以逐步接近。
 
 找到至少一次臨界值後，學生填寫「我估計最大靜摩擦力」並保存。A3 評分為 10 分；答案與生成的 `staticLimitMeanN` 比較，容許：
 
@@ -2005,21 +2005,21 @@ Part B 是可提交前的 completion prerequisite：任何能進入 analysis 並
 
 ### 16.2 Part A：力平衡，20 分
 
-#### A1：沒有水平外力，4 分
+#### A1：沒有水平拉力，4 分
 
 - 類型選 `none`：1；
 - 方向選 `none`：1；
 - 大小為 `0 N`（`0.10 N` 內）：2。
 
-#### A2：指定小外力的力平衡，6 分
+#### A2：指定小拉力的力平衡，6 分
 
-- 學生直接畫出的外力方向符合指定方向：1；
-- 學生直接畫出的外力大小符合指定大小：2；
+- 學生直接畫出的拉力方向符合指定方向：1；
+- 學生直接畫出的拉力大小符合指定大小：2；
 - 摩擦力類型選 `static`（若不畫，保存為 `none`，不取得此分）：1；
-- 摩擦力方向與指定外力相反：1；
-- 摩擦力大小等於指定外力：1。
+- 摩擦力方向與指定拉力相反：1；
+- 摩擦力大小等於指定拉力：1。
 
-指定外力由 scenario 固定保存，不來自測力計讀數。
+指定拉力由 scenario 固定保存，不來自測力計讀數。
 
 #### A3：最大靜摩擦力估計，10 分
 
@@ -2351,7 +2351,7 @@ Graph phase 可以將 stage track 調至：
 具體 compact policy：
 
 - effective CSS viewport `376–560px` 高或 200% zoom 時，header 收成單行 `2.5rem`、stage track 降至 `11rem`，移除非必要 subtitle；只縮小 apparatus／graph geometry，不縮小文字或 44 px targets；
-- effective height `<376px` 時進入 ultra-compact：`--header-track:2rem`、`--stage-track:clamp(5rem,32dvh,7rem)`；Part A apparatus 只保留物體、水平面、重心力箭嘴及 active target，Part B 才保留繩及測力計讀數，graph 只顯示 active pane＋同步文字 summary。Panel 使用全部餘高，不再宣稱固定 `10rem` minimum，但必須至少完整顯示兩個 44 px controls，其他 controls 可在同一 panel 內捲到；
+- effective height `<376px` 時進入 ultra-compact：`--header-track:2rem`、`--stage-track:clamp(5rem,32dvh,7rem)`；Part A apparatus 只保留物體、水平面、中央力箭嘴及 active target，Part B 才保留繩及測力計讀數，graph 只顯示 active pane＋同步文字 summary。Panel 使用全部餘高，不再宣稱固定 `10rem` minimum，但必須至少完整顯示兩個 44 px controls，其他 controls 可在同一 panel 內捲到；
 - graph phase 改成「拉力／速度」兩個可切換視覺 panes，但 shared cursor、兩圖同時的文字讀數及 interval authority 保持同步；
 - 非 ultra-compact 時 control panel 可用高度不得低於 `10rem`；所有模式的 primary action 永遠在 panel 正常 flow 的末端可捲到；
 - `html > body > .app > .activity-main > .stage/.control-panel` 整條 shrinking chain 均設 `min-height: 0`，只有 `.control-panel` 有 `overflow-y: auto`；
@@ -2397,7 +2397,7 @@ Graph phase 可以將 stage track 調至：
 | Target | Hit-target strategy | Capture target | Render 期間可替換？ |
 |---|---|---|---:|
 | Part B 測力計握把 | 穩定 48×48 px HTML overlay；只在 experiment recording 顯示 | 同一 overlay | No |
-| Part A2／A3 物體重心繪圖 target | 穩定 56×56 px HTML overlay，位置跟隨物體重心；A2 依目前模式畫外力／摩擦力，A3 畫外力 | 同一 overlay | No |
+| Part A2／A3 物體中央繪圖 target | 穩定 48×48 px 透明 HTML overlay，位置跟隨物體中央；只顯示約 8 px 小閃爍圓點；A2 依目前模式畫拉力／摩擦力，A3 畫拉力 | 同一 overlay | No |
 | Prediction friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
 | Breakaway time marker | 穩定 44 px 寬 HTML overlay | 同一 overlay | No |
 | 每個 interval start handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
@@ -2412,7 +2412,7 @@ Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render �
 | 非互動 stage 空白位置 | Moodle／enclosing host | host scroll 及 iframe rectangle delta 非零；activity document、activity visual viewport 及 panel delta=0；learner state 不變 |
 | Control panel（含 top/bottom boundary） | panel | panel 有 range 時 delta 非零；host、host/activity visual viewport、iframe rectangle、stage及activity document delta=0；learner state不變 |
 | 測力計握把 | simulation | 握把改變；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
-| Part A2／A3 物體重心繪圖 target | simulation | 外力／摩擦力向量端點或 A3 pull 改變；物體重心作為穩定起點；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel；A3 越過臨界力後只顯示外力並令物體位移／加速 |
+| Part A2／A3 物體中央繪圖 target | simulation | 拉力／摩擦力向量端點或 A3 pull 改變；物體中央作為穩定起點；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel；A3 越過臨界力後只顯示拉力並令物體位移／加速 |
 | Prediction friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Breakaway time marker | simulation | marker index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Interval start handle（逐一測五類） | simulation | 對應 start index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
@@ -2458,14 +2458,14 @@ Scroll topology：
 - graph marker：
   - ArrowLeft／Right：一個 sample；
   - Shift＋Arrow：五個 samples；
-- A2 物體重心繪圖 target：
-  - 先用「畫外力」／「畫摩擦力」按鈕選擇向量，再由 target 的 ArrowLeft／Right 改變端點；
+- A2 物體中央繪圖 target：
+  - 先用「畫拉力」／「畫摩擦力」按鈕選擇向量，再由 target 的 ArrowLeft／Right 改變端點；
   - `Shift` 使用較大步幅；
   - 「不畫摩擦力」清除可選的摩擦力向量；
-- A3 物體重心繪圖 target：
-  - ArrowLeft／Right 逐步增加／減少目前外力並保留方向；
+- A3 物體中央繪圖 target：
+  - ArrowLeft／Right 逐步增加／減少目前拉力並保留方向；
   - Shift 使用較大步幅；
-  - 達到臨界值後只顯示外力及中性滑動／加速狀態；
+  - 達到臨界值後只顯示拉力及中性滑動／加速狀態；
 - 所有 hit target 至少 44×44 px；
 - focus-visible 清楚；
 - graph line 有文字 label 及 dash pattern；

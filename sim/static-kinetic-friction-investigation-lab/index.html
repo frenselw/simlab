@@ -26,7 +26,7 @@
       <div id="stageCoach" class="stage-coach" role="note">
         <span id="stageCoachStep" class="stage-coach-step">1</span>
         <strong id="stageCoachTitle">先完成 A1 受力圖</strong>
-        <span id="stageCoachText">沒有水平外力時，摩擦力大小和方向都應為零。</span>
+        <span id="stageCoachText">沒有水平拉力時，摩擦力大小和方向都應為零。</span>
       </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="stageGraph" class="stage-graph is-hidden">
@@ -35,7 +35,7 @@
       </div>
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
         <button type="button" id="forceGrip" class="drag-target apparatus-drag-target grip-drag-target is-hidden" data-drag-target="force-grip" aria-describedby="stageCoachText" aria-label="實驗用握把，目前可拖動位置"><span aria-hidden="true">實驗拉力 <b>→</b></span></button>
-        <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體重心拖出水平力箭嘴"></button>
+        <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
         <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
         <button type="button" id="breakawayMarker" class="drag-target graph-handle" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
         <button type="button" id="static-start" class="drag-target graph-handle interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
@@ -47,7 +47,7 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 的水平受力箭嘴全部由物體重心出發。A2 和 A3 要直接在物體上拖出外力；A3 只顯示外力箭嘴，物體在達到臨界力後開始加速。</p>
+      <p id="stageDescription" class="sr-only">Part A 要直接在物體中央拖出水平力；A2 和 A3 的拉力箭嘴由你在物體上畫出。A3 只顯示拉力箭嘴，物體在達到臨界力後開始加速。</p>
       <div id="liveReadouts" class="live-readouts" aria-live="off">
         <span>拉力 <strong id="forceReadout">0.00 N</strong></span>
         <span>速度 <strong id="velocityReadout">0.000 m/s</strong></span>
@@ -66,12 +66,12 @@
       <section id="balancePanel" class="panel-section" data-panel="balance">
         <p class="section-label">第一階段・三個簡單受力圖任務</p>
         <h2>A：用受力圖學習靜摩擦力</h2>
-        <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>所有水平力箭嘴都由物體重心出發；先完成三個概念任務，再進入 Part B 的完整實驗。</p>
-        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：無水平外力時，摩擦力大小和方向都應為零。</p>
+        <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>請直接在物體中央畫出水平力箭嘴；先完成三個概念任務，再進入 Part B 的完整實驗。</p>
+        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。</p>
 
         <article id="zeroTask" class="task-card balance-task">
-          <h3>A1　沒有水平外力</h3>
-          <p>物體放在水平面上，沒有任何水平外力而且保持靜止。請選出摩擦力的類型、方向和大小。</p>
+          <h3>A1　沒有水平拉力</h3>
+          <p>物體放在水平面上，沒有任何水平拉力而且保持靜止。請選出摩擦力的類型、方向和大小。</p>
           <div class="answer-grid">
             <label>摩擦力類型<select id="zeroFrictionType"><option value="" selected disabled>請選擇</option><option value="none">沒有摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
             <label>方向<select id="zeroFrictionDirection"><option value="" selected disabled>請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
@@ -81,27 +81,27 @@
         </article>
 
         <article id="staticTask" class="task-card balance-task">
-          <h3>A2　指定小外力，但物體仍靜止</h3>
-          <p id="staticPullPrompt">指定外力：載入中</p>
-          <p>控制欄只顯示要求；請用手指或滑鼠直接由物體重心拖出箭嘴，讓方向和長度代表你的答案。</p>
+          <h3>A2　指定小拉力，但物體仍靜止</h3>
+          <p id="staticPullPrompt">指定拉力：載入中</p>
+          <p>控制欄只顯示要求；請用手指或滑鼠直接由物體中央拖出箭嘴，讓方向和長度代表你的答案。</p>
           <div class="force-draw-controls" role="group" aria-label="選擇要在物體上畫出的力">
-            <button type="button" id="draw-applied" data-action="draw-applied" data-balance-drawing aria-pressed="true">畫外力</button>
+            <button type="button" id="draw-applied" data-action="draw-applied" data-balance-drawing aria-pressed="true">畫拉力</button>
             <button type="button" id="draw-friction" data-action="draw-friction" data-balance-drawing aria-pressed="false">畫摩擦力</button>
             <button type="button" id="clear-friction" data-action="clear-friction" data-balance-drawing>不畫摩擦力</button>
           </div>
-          <p id="staticAppliedReadout" class="force-builder-readout">你的外力：尚未畫出</p>
+          <p id="staticAppliedReadout" class="force-builder-readout">你的拉力：尚未畫出</p>
           <p id="staticFrictionReadout" class="force-builder-readout">你的摩擦力：尚未畫出（代表沒有摩擦力）</p>
           <p id="balanceNetForce" class="force-builder-readout">水平合力 ΣFx：0.0 N</p>
           <button type="button" id="save-static-force" data-action="save-static-force" class="primary-button" data-balance-normal>保存 A2 力平衡判斷</button>
         </article>
 
         <article id="breakawayTask" class="task-card balance-task">
-          <h3>A3　逐步增加外力，找出最大靜摩擦力</h3>
-          <p>直接由物體重心向左或向右拖拉，慢慢增加外力。物體一開始保持靜止；當外力達到臨界值，物體會突然開始滑動並加速。畫面只顯示你施加的外力，不顯示靜摩擦力。</p>
+          <h3>A3　逐步增加拉力，找出最大靜摩擦力</h3>
+          <p>直接由物體中央向左或向右拖拉，慢慢增加拉力。物體一開始保持靜止；當拉力達到臨界值，物體會突然開始滑動並加速。畫面只顯示你施加的拉力，不顯示靜摩擦力。</p>
           <div class="button-row balance-direction-buttons" data-balance-normal>
             <button type="button" data-action="pull-left">向左試拉</button><button type="button" data-action="pull-right">向右試拉</button><button type="button" data-action="reset-breakaway">重新試拉</button>
           </div>
-          <p class="force-builder-readout">目前外力：<output id="breakawayPullValue">0.0 N</output></p>
+          <p class="force-builder-readout">目前拉力：<output id="breakawayPullValue">0.0 N</output></p>
           <p id="breakawayMotionStatus" class="instruction">尚未開始試拉。</p>
           <p id="breakawayAttempts" class="instruction">已完成試拉 0 次</p>
           <p id="breakawayBest" class="neutral-status">尚未找到臨界值。</p>

@@ -264,13 +264,13 @@
       if (state.phase === "balance") {
         if (state.fromReview) {
           const target = state.working?.reviewEditTarget?.semanticKey;
-          step = "A"; title = "正在修改 Part A 答案"; text = target === "zero-force" ? "修改 A1：無水平外力時，摩擦力是否存在？" : target === "static-case" ? "修改 A2：由物體重心重新拖出外力和摩擦力箭嘴。" : "修改 A3：重新輸入你估計的最大靜摩擦力。";
+          step = "A"; title = "正在修改 Part A 答案"; text = target === "zero-force" ? "修改 A1：沒有水平拉力時，摩擦力是否存在？" : target === "static-case" ? "修改 A2：重新畫出拉力和摩擦力箭嘴。" : "修改 A3：重新輸入你估計的最大靜摩擦力。";
         } else if (!state.balance.zeroForce) {
-          step = "A1"; title = "先判斷沒有水平外力時的摩擦力"; text = "請在控制欄選擇摩擦力的類型、方向和大小；沒有水平外力時，摩擦力應為零。";
+          step = "A1"; title = "先判斷沒有水平拉力時的摩擦力"; text = "請在控制欄選擇摩擦力的類型、方向和大小；沒有水平拉力時，摩擦力應為零。";
         } else if (balanceStaticInteractionActive()) {
-          step = "A2"; title = "直接由物體重心畫出兩個水平力"; text = `先畫${balanceDrawMode === "friction" ? "摩擦力" : "指定外力"}；箭嘴長度代表大小，方向要${balanceDrawMode === "friction" ? "與外力相反" : "符合指定外力要求"}。`;
+          step = "A2"; title = "直接由物體中央畫出兩個水平力"; text = `先畫${balanceDrawMode === "friction" ? "摩擦力" : "指定拉力"}；箭嘴長度代表大小，方向要${balanceDrawMode === "friction" ? "與拉力相反" : "符合指定拉力要求"}。`;
         } else if (state.balance.breakaway?.bestPullCN == null) {
-          step = "A3"; title = "直接拖拉物體，試到它開始滑動"; text = "選擇左右方向後，由物體重心慢慢向外拖；臨界力一到，物體會開始滑動並加速。";
+          step = "A3"; title = "直接拖拉物體，試到它開始滑動"; text = "選擇左右方向後，由物體中央慢慢向外拖；臨界力一到，物體會開始滑動並加速。";
         } else if (state.balance.breakaway.learnerMaxCN == null) {
           step = "A3✓"; title = "已找到開始滑動的臨界力"; text = "根據你觀察到的臨界值，填寫最大靜摩擦力估計。";
         } else {
@@ -361,7 +361,7 @@
         announce("物體已開始滑動並加速");
       }
       setText("breakawayPullValue", `${(balanceTrialPullCN / 100).toFixed(1)} N`);
-      setText("breakawayMotionStatus", balanceMotionActive ? "物體已越過最大靜摩擦力，現在開始滑動並加速；畫面只顯示外力。" : balanceTrialPullCN > 0 ? "物體仍然靜止；繼續慢慢增加外力。" : "尚未開始試拉。");
+      setText("breakawayMotionStatus", balanceMotionActive ? "物體已越過最大靜摩擦力，現在開始滑動並加速；畫面只顯示拉力。" : balanceTrialPullCN > 0 ? "物體仍然靜止；繼續慢慢增加拉力。" : "尚未開始試拉。");
     }
     function appendForceArrow(svg, startX, endX, y, className, color, label, labelY = y - 13) {
       if (Math.abs(endX - startX) < 1) return;
@@ -408,7 +408,7 @@
         [x + 46, groundY + 62, "預測情境中的物體"], [Math.min(830, hx), groundY - 58, "已知向右拉力"],
         [92, 75, "水平粗糙面"], [185, 102, "藍色箭嘴是你建立的摩擦力"]
       ] : balanceMode ? [
-        [x + 46, groundY + 62, "物體（受力圖由重心出發）"], [64, 75, "水平粗糙面"], [64, 102, "Part A：只看水平力的大小和方向"]
+        [x + 46, groundY + 62, "物體"], [64, 75, "水平粗糙面"], [64, 102, "Part A：只看水平力的大小和方向"]
       ] : [
         [x + 46, groundY + 62, "物體"], [Math.min(830, hx), groundY - 58, "測力計握把"],
         [64, 75, "水平粗糙面"], [64, 102, "F拉—t 與 v—t 來自同一次物理記錄"]
@@ -421,7 +421,8 @@
         syncBalanceDrawings();
         const comX = x + 46;
         const comY = groundY - 27;
-        const forceLabelY = groundY - 64;
+        const pullLabelY = groundY - 64;
+        const frictionLabelY = groundY - 84;
         const scale = 18;
         const readForce = (typeId, directionId, magnitudeId) => {
           const type = q(typeId)?.value || null;
@@ -432,35 +433,35 @@
         const signed = (direction, magnitude) => direction === "left" ? -magnitude : direction === "right" ? magnitude : 0;
         if (!state.balance.zeroForce || state.fromReview && state.working?.reviewEditTarget?.semanticKey === "zero-force") {
           const force = readForce("zeroFrictionType", "zeroFrictionDirection", "zeroFrictionMagnitude");
-          appendForceArrow(svg, comX, comX + clamp(signed(force.direction, force.magnitude) * scale, -180, 180), comY, "learner-friction-arrow", "#1d4ed8", force.type === "none" ? "摩擦力 0 N" : `摩擦力 ${force.magnitude.toFixed(1)} N`, forceLabelY);
+          appendForceArrow(svg, comX, comX + clamp(signed(force.direction, force.magnitude) * scale, -180, 180), comY, "learner-friction-arrow", "#1d4ed8", force.type === "none" ? "摩擦力 0 N" : `摩擦力 ${force.magnitude.toFixed(1)} N`, frictionLabelY);
         }
         if (balanceStaticInteractionActive() && state.balance.zeroForce?.committed) {
           const applied = balanceDrawings.applied;
           const friction = balanceDrawings.friction;
           const appliedN = balanceDrawnForceN(applied);
           const frictionN = balanceDrawnForceN(friction);
-          if (applied) appendForceArrow(svg, comX, comX + clamp(signed(applied.direction, appliedN) * scale, -216, 216), comY, "pull-arrow", "#b91c1c", `你的外力 ${appliedN.toFixed(1)} N`, forceLabelY);
-          if (friction) appendForceArrow(svg, comX, comX + clamp(signed(friction.direction, frictionN) * scale, -216, 216), comY, "learner-friction-arrow", "#1d4ed8", `你的摩擦力 ${frictionN.toFixed(1)} N`, forceLabelY);
+          if (applied) appendForceArrow(svg, comX, comX + clamp(signed(applied.direction, appliedN) * scale, -216, 216), comY, "pull-arrow", "#b91c1c", `拉力 ${appliedN.toFixed(1)} N`, pullLabelY);
+          if (friction) appendForceArrow(svg, comX, comX + clamp(signed(friction.direction, frictionN) * scale, -216, 216), comY, "learner-friction-arrow", "#1d4ed8", `摩擦力 ${frictionN.toFixed(1)} N`, frictionLabelY);
           setText("balanceNetForce", `水平合力 ΣFx：${(signed(applied?.direction, appliedN) + signed(friction?.direction, frictionN)).toFixed(1)} N`);
         }
         if (balanceHasBreakawayTask() && balanceInteractionMode === "breakaway") {
           const pullN = balanceTrialPullCN / 100;
-          if (pullN > 0) appendForceArrow(svg, comX, comX + clamp(signed(balanceTrialDirection, pullN) * scale, -216, 216), comY, "pull-arrow", "#b91c1c", `目前外力 ${pullN.toFixed(1)} N`, forceLabelY);
+          if (pullN > 0) appendForceArrow(svg, comX, comX + clamp(signed(balanceTrialDirection, pullN) * scale, -216, 216), comY, "pull-arrow", "#b91c1c", `目前拉力 ${pullN.toFixed(1)} N`, pullLabelY);
         }
         const originTarget = q("balanceOrigin");
         if (originTarget && (balanceStaticInteractionActive() || balanceHasBreakawayTask() && balanceInteractionMode === "breakaway")) {
           positionApparatusTarget(originTarget, comX, comY);
-          originTarget.setAttribute("aria-label", balanceStaticInteractionActive() ? `由物體重心拖出${balanceDrawMode === "friction" ? "摩擦力" : "外力"}箭嘴` : `由物體重心拖拉，現在外力 ${(balanceTrialPullCN / 100).toFixed(1)} 牛頓`);
+          originTarget.setAttribute("aria-label", balanceStaticInteractionActive() ? `由物體中央拖出${balanceDrawMode === "friction" ? "摩擦力" : "拉力"}箭嘴` : `由物體中央拖拉，現在拉力 ${(balanceTrialPullCN / 100).toFixed(1)} 牛頓`);
         }
       }
       if (predictionMode) {
         const index = currentPredictionIndex(); const spec = scenario?.predictions?.[index]; const response = currentPredictionResponse();
         const frictionN = Number.isInteger(response?.magnitudeCN) ? response.magnitudeCN / 100 : 0;
         const signedFrictionN = response?.direction === "left" ? -frictionN : response?.direction === "right" ? frictionN : 0;
-        const comX = x + 46; const comY = groundY - 27; const forceLabelY = groundY - 64;
+        const comX = x + 46; const comY = groundY - 27; const pullLabelY = groundY - 64; const frictionLabelY = groundY - 84;
         const scale = 18; const endpoint = comX + clamp(signedFrictionN * scale, -180, 180);
-        appendForceArrow(svg, comX, comX + Math.min(180, (spec?.pullN || 0) * scale), comY, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`, forceLabelY);
-        appendForceArrow(svg, comX, comX + clamp(signedFrictionN * scale, -180, 180), comY, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `你的摩擦力 ${frictionN.toFixed(2)} N`, forceLabelY);
+        appendForceArrow(svg, comX, comX + Math.min(180, (spec?.pullN || 0) * scale), comY, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`, pullLabelY);
+        appendForceArrow(svg, comX, comX + clamp(signedFrictionN * scale, -180, 180), comY, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `摩擦力 ${frictionN.toFixed(2)} N`, frictionLabelY);
         const predictionHandle = q("predictionFriction"); if (predictionHandle) { positionApparatusTarget(predictionHandle, endpoint, comY); predictionHandle.setAttribute("aria-label", `預測 ${index + 1} 的摩擦力箭嘴，目前 ${response?.magnitudeCN == null ? "未輸入" : `${frictionN.toFixed(2)} 牛頓`}`); }
         setText("predictionReadout", `情境 ${index + 1}：已知向右拉力 ${(spec?.pullN || 0).toFixed(1)} N；初速 ${(spec?.velocityMps || 0).toFixed(2)} m/s；你的摩擦力 ${response?.magnitudeCN == null ? "尚未輸入" : `${frictionN.toFixed(2)} N`}。`);
       }
@@ -477,24 +478,24 @@
       if (zero) { setValue("zeroFrictionType", zero.frictionType); setValue("zeroFrictionDirection", zero.direction); setValue("zeroFrictionMagnitude", (zero.frictionMagnitudeCN || 0) / 100); }
       if (breakawayValue != null) setValue("breakawayAnswer", breakawayValue / 100);
       const spec = balanceStaticSpec();
-      setText("staticPullPrompt", `指定外力：${spec.direction === "left" ? "向左" : "向右"} ${ (spec.magnitudeCN / 100).toFixed(1) } N（小於最大靜摩擦力，物體保持靜止）`);
+      setText("staticPullPrompt", `指定拉力：${spec.direction === "left" ? "向左" : "向右"} ${ (spec.magnitudeCN / 100).toFixed(1) } N（小於最大靜摩擦力，物體保持靜止）`);
       const zeroTypeSelection = q("zeroFrictionType")?.value || "";
       setText("zeroFrictionMagnitudeValue", zeroTypeSelection ? `${(Number(q("zeroFrictionMagnitude")?.value || 0)).toFixed(1)} N` : "請選擇");
       setText("breakawayPullValue", `${(balanceTrialPullCN / 100).toFixed(1)} N`);
       const best = state.balance.breakaway?.bestPullCN;
-      setText("breakawayBest", best == null ? "尚未找到臨界值。" : `你已觀察到開始滑動的臨界外力約 ${(best / 100).toFixed(1)} N；可再轉換方向重試。`);
+      setText("breakawayBest", best == null ? "尚未找到臨界值。" : `你已觀察到開始滑動的臨界拉力約 ${(best / 100).toFixed(1)} N；可再轉換方向重試。`);
       setText("breakawayAttempts", `已完成試拉 ${state.balance.breakaway?.attempts || 0} 次`);
       const applied = balanceDrawings.applied;
       const friction = balanceDrawings.friction;
       const directionText = (direction) => direction === "left" ? "向左" : "向右";
-      setText("staticAppliedReadout", applied ? `你的外力：${directionText(applied.direction)} ${(applied.magnitudeCN / 100).toFixed(1)} N` : "你的外力：尚未畫出");
+      setText("staticAppliedReadout", applied ? `你的拉力：${directionText(applied.direction)} ${(applied.magnitudeCN / 100).toFixed(1)} N` : "你的拉力：尚未畫出");
       setText("staticFrictionReadout", friction ? `你的摩擦力：${directionText(friction.direction)} ${(friction.magnitudeCN / 100).toFixed(1)} N（靜摩擦力）` : "你的摩擦力：尚未畫出（代表沒有摩擦力）");
       setText("balanceNetForce", `水平合力 ΣFx：${(signedForce(applied?.direction, balanceDrawnForceN(applied)) + signedForce(friction?.direction, balanceDrawnForceN(friction))).toFixed(1)} N`);
       document.querySelectorAll("[data-balance-drawing]").forEach((node) => node.setAttribute("aria-pressed", String(node.dataset.action === `draw-${balanceDrawMode}`)));
       setText("save-zero-force", state.balance.zeroForce?.committed ? "更新 A1 判斷" : "保存 A1 判斷");
       setText("save-static-force", state.balance.staticCase?.learnerAppliedForce?.committed ? "更新 A2 力平衡判斷" : "保存 A2 力平衡判斷");
-      setText("breakawayMotionStatus", balanceMotionActive ? "物體已越過最大靜摩擦力，現在開始滑動並加速；畫面只顯示外力。" : balanceTrialPullCN > 0 ? "物體仍然靜止；繼續慢慢增加外力。" : "尚未開始試拉。");
-      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "先完成 A1：無水平外力時，摩擦力大小和方向都應為零。" : balanceStaticInteractionActive() ? "完成 A2：由物體重心畫出指定外力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceMotionActive ? "物體已開始滑動；記下開始滑動一刻的外力，再按「重新試拉」重複驗證。" : "選擇左右方向，由物體重心慢慢增加外力，直到物體開始滑動。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
+      setText("breakawayMotionStatus", balanceMotionActive ? "物體已越過最大靜摩擦力，現在開始滑動並加速；畫面只顯示拉力。" : balanceTrialPullCN > 0 ? "物體仍然靜止；繼續慢慢增加拉力。" : "尚未開始試拉。");
+      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。" : balanceStaticInteractionActive() ? "完成 A2：由物體中央畫出指定拉力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceMotionActive ? "物體已開始滑動；記下開始滑動一刻的拉力，再按「重新試拉」重複驗證。" : "選擇左右方向，由物體中央慢慢增加拉力，直到物體開始滑動。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
       const zeroSaved = state.balance.zeroForce?.committed === true;
       const staticSaved = state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true;
       const setTaskDisabled = (selector, disabled) => document.querySelectorAll(selector).forEach((node) => { node.disabled = disabled; node.setAttribute("aria-disabled", String(disabled)); });
@@ -747,7 +748,7 @@
     function renderReview() {
       const host = q("reviewSummary"); if (!host || !state) return;
       const complete = Persistence.hasCompleteAnswer(state);
-      const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零外力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
+      const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
       const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
       host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像分析：${Persistence.hasAllAnalysisFields(state) ? "五項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
       q("submit")?.toggleAttribute("disabled", !complete);
@@ -859,7 +860,7 @@
     }
     function validationMessage(action) {
       if (action === "save-zero-force") return "請先選擇 A1 的摩擦力類型、方向及大小。";
-      if (action === "save-static-force") return "請先由物體重心畫出 A2 外力；摩擦力可以畫出，亦可以不畫。";
+      if (action === "save-static-force") return "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。";
       if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
       if (action === "save-analysis") return "請完成目前圖像項目的選區、數值及判斷，然後再保存。";
       if (action === "save-prediction") return "請完成這題的摩擦力類型、方向、大小及運動結果，然後再保存。";
@@ -877,8 +878,8 @@
             if (!type || !direction) throw new Error("explicit zero-force answer required");
             state = Persistence.transitions.setZeroForceAnswer(state, { frictionType: type, direction, frictionMagnitudeCN: magnitudeCN, committed: true }); balanceInteractionMode = "static"; balanceDrawMode = "applied"; saveDraft();
           }
-          else if (action === "draw-applied") { balanceInteractionMode = "static"; balanceDrawMode = "applied"; announce("請由物體重心拖出指定外力箭嘴"); }
-          else if (action === "draw-friction") { balanceInteractionMode = "static"; balanceDrawMode = "friction"; announce("請由物體重心拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力"); }
+          else if (action === "draw-applied") { balanceInteractionMode = "static"; balanceDrawMode = "applied"; announce("請由物體中央拖出指定拉力箭嘴"); }
+          else if (action === "draw-friction") { balanceInteractionMode = "static"; balanceDrawMode = "friction"; announce("請由物體中央拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力"); }
           else if (action === "clear-friction") { balanceInteractionMode = "static"; balanceDrawings.friction = null; balanceDrawMode = "friction"; announce("已清除摩擦力箭嘴，代表沒有摩擦力"); }
           else if (action === "save-static-force") {
             const applied = balanceDrawings.applied;
