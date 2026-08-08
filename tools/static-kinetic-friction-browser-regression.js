@@ -91,6 +91,9 @@ async function semanticSmoke(cdp, url, label) {
   await navigate(cdp, url);
   const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); type.value='none'; direction.value='none'; magnitude.value='0'; document.getElementById('zeroFrictionMagnitudeValue').textContent='0.0 N'; window.__staticKineticFrictionApp.routeAttempt({state:'new'}); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:document.getElementById('zeroFrictionMagnitudeValue').textContent}; })()`);
   assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "請選擇" }, `${label}: A1 starts blank and requires an explicit selection`);
+  await tapSelector(cdp, "[data-action='save-zero-force']");
+  const blankA1Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('zeroValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('zeroValidationStatus').textContent, focused:document.activeElement===document.getElementById('zeroValidationStatus') }))()`);
+  assert.deepEqual(blankA1Validation, { localVisible: true, globalVisible: false, text: "請先選擇 A1 的摩擦力類型、方向及大小。", focused: true }, `${label}: blank A1 validation stays beside its save button`);
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');return true; })()`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
   const a1 = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce");
@@ -100,21 +103,27 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(resetByA1, null, `${label}: changing a saved A1 answer clears the dependent A2 answer`);
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');document.querySelector('[data-action="save-zero-force"]').click();return true; })()`);
   const staticSetup = await evaluate(cdp, `(() => { const scenario=window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}); return {direction:scenario.balancePullDirection,magnitudeCN:scenario.balancePullCN,opposite:scenario.balancePullDirection==='left'?'right':'left'}; })()`);
+  await tapSelector(cdp, "#save-static-force");
+  const blankA2Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('staticValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('staticValidationStatus').textContent, focused:document.activeElement===document.getElementById('staticValidationStatus') }))()`);
+  assert.deepEqual(blankA2Validation, { localVisible: true, globalVisible: false, text: "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。", focused: true }, `${label}: blank A2 validation stays beside its save button`);
   const forceEndpoint = async (magnitudeN, direction) => evaluate(cdp, `(() => { const node=document.getElementById('balanceOrigin'),svg=document.getElementById('apparatusSvg'); const r=node.getBoundingClientRect(),s=svg.getBoundingClientRect().width/900; return { start:{x:r.left+r.width/2,y:r.top+r.height/2}, end:{x:r.left+r.width/2+${direction === "left" ? -1 : 1}*${magnitudeN}*18*s,y:r.top+r.height/2} }; })()`);
   await tapSelector(cdp, "#draw-applied");
   let drag = await forceEndpoint(staticSetup.magnitudeCN / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end);
   await tapSelector(cdp, "#draw-friction");
   drag = await forceEndpoint(staticSetup.magnitudeCN / 100, staticSetup.opposite); await touch(cdp, drag.start, drag.end);
-  const drawnBalance = await evaluate(cdp, `(() => { const block=document.querySelector('.apparatus-block'),centerY=Number(block.getAttribute('y'))+Number(block.getAttribute('height'))/2,arrows=[...document.querySelectorAll('.pull-arrow,.learner-friction-arrow')],labels=[...document.querySelectorAll('.force-builder-label')].map((node)=>({text:node.textContent,y:Number(node.getAttribute('y'))})); return { arrows:arrows.length, sigma:document.getElementById('balanceNetForce').textContent,centerY,starts:arrows.map((node)=>Number(node.getAttribute('y1'))),labels }; })()`);
+  const drawnBalance = await evaluate(cdp, `(() => { const block=document.querySelector('.apparatus-block'),centerY=Number(block.getAttribute('y'))+Number(block.getAttribute('height'))/2,arrows=[...document.querySelectorAll('.pull-arrow,.learner-friction-arrow')],labels=[...document.querySelectorAll('.force-builder-label')].map((node)=>({text:node.textContent,y:Number(node.getAttribute('y'))})); return { arrows:arrows.length,centerY,starts:arrows.map((node)=>Number(node.getAttribute('y1'))),labels }; })()`);
   const labelYs = drawnBalance.labels.map((label) => label.y);
-  assert.ok(drawnBalance.arrows >= 2 && /ΣFx/.test(drawnBalance.sigma) && drawnBalance.starts.every((y) => Math.abs(y - drawnBalance.centerY) < .1) && drawnBalance.labels.some((label) => /^拉力 /.test(label.text)) && drawnBalance.labels.some((label) => /^摩擦力 /.test(label.text)) && Math.max(...labelYs) - Math.min(...labelYs) >= 10, `${label}: Part A force arrows start at the block centre, use separated pull/friction labels and show net force ${JSON.stringify(drawnBalance)}`);
+  assert.ok(drawnBalance.arrows >= 2 && drawnBalance.starts.every((y) => Math.abs(y - drawnBalance.centerY) < .1) && drawnBalance.labels.some((label) => /^拉力 /.test(label.text)) && drawnBalance.labels.some((label) => /^摩擦力 /.test(label.text)) && Math.max(...labelYs) - Math.min(...labelYs) >= 10, `${label}: Part A force arrows start at the block centre and use separated pull/friction labels ${JSON.stringify(drawnBalance)}`);
   await tapSelector(cdp, "[data-action='save-static-force']");
-  let balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, sigma:document.getElementById('balanceNetForce').textContent, forceGripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'), phase:state.phase }; })()`);
+  let balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, forceGripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'), phase:state.phase }; })()`);
   const breakawayControls = await evaluate(cdp, `([...document.querySelectorAll('#breakawayTask [data-action]')].map((node)=>node.dataset.action))`);
   assert.equal(breakawayControls.includes('pull-left') || breakawayControls.includes('pull-right') || breakawayControls.includes('reset-breakaway'), false, `${label}: A3 has no direction or reset buttons`);
   assert.equal(balance.staticCase.learnerAppliedForce.direction, staticSetup.direction, `${label}: A2 stores the direction of the directly drawn applied force`);
   assert.equal(balance.staticCase.learnerAppliedForce.magnitudeCN, staticSetup.magnitudeCN, `${label}: A2 stores the directly drawn applied force magnitude`);
   assert.equal(balance.staticCase.learnerForce.direction, staticSetup.opposite, `${label}: A2 friction direction is opposite the drawn applied force`);
+  await tapSelector(cdp, "[data-action='save-breakaway-answer']");
+  const blankA3Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('breakawayValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('breakawayValidationStatus').textContent, focused:document.activeElement===document.getElementById('breakawayValidationStatus') }))()`);
+  assert.deepEqual(blankA3Validation, { localVisible: true, globalVisible: false, text: "請先完成試拉，然後填寫最大靜摩擦力估計。", focused: true }, `${label}: blank A3 validation stays beside its save button`);
   await tapSelector(cdp, "#draw-applied");
   drag = await forceEndpoint(staticSetup.magnitudeCN / 100 + .2, staticSetup.direction); await touch(cdp, drag.start, drag.end);
   await tapSelector(cdp, "[data-action='save-static-force']");
@@ -276,6 +285,7 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
       explanation: document.querySelector('.first-step-explanation').textContent,
       headerHasSimLab: document.querySelector('.sim-header').textContent.includes('SimLab'),
       stageLabels: document.getElementById('apparatusSvg').textContent,
+      breakawayInputHeight: document.getElementById('breakawayAnswer').getBoundingClientRect().height,
       targets: [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node => { const r = node.getBoundingClientRect(); return { w: r.width, h: r.height }; })
     };
   })()`);
@@ -291,9 +301,10 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: A1 asks for friction type, direction and magnitude`);
   assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`);
   assert.equal(layout.headerHasSimLab, false, `${label}: the activity header does not repeat the SimLab brand`);
-  assert.doesNotMatch(layout.stageLabels, /水平粗糙面|Part A：只看水平力的大小和方向/, `${label}: redundant stage labels are removed`);
+  assert.doesNotMatch(layout.stageLabels, /物體|水平粗糙面|Part A：只看水平力的大小和方向/, `${label}: redundant stage labels are removed`);
   assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: Part A explicitly removes instrument calibration`);
   assert.ok(layout.stageHeight <= layout.shellHeight * .48, `${label}: the phone stage leaves most of the bounded shell to the control panel (${layout.stageHeight}/${layout.shellHeight})`);
+  assert.ok(layout.breakawayInputHeight >= 44, `${label}: A3 estimate input keeps a 44px touch height (${layout.breakawayInputHeight}px)`);
   assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: embedded targets are stable touch sizes`);
   await evaluate(cdp, "scrollTo({ top: 300, behavior: 'instant' })");
   await delay(120);
@@ -360,7 +371,7 @@ async function desktopSmoke(cdp, url, label, width, height, deviceScaleFactor) {
   assert.ok(layout.stage.right <= layout.panel.left + 1, `${label}: desktop stage precedes the control panel visually`);
   assert.ok(layout.stage.width >= layout.panel.width * 1.35, `${label}: desktop stage remains the primary visual region (${layout.stage.width}/${layout.panel.width})`);
   assert.ok(layout.panel.right <= width + 1 && layout.panel.width >= 384 && layout.panel.width <= 513, `${label}: desktop control panel stays within its bounded width`);
-  assert.ok(layout.headerHeight >= 90, `${label}: high-density desktop does not trigger the short-screen header (${layout.headerHeight}px at dpr ${layout.dpr})`);
+  assert.ok(layout.headerHeight >= 64 && layout.headerHeight <= 96, `${label}: desktop header stays compact without clipping (${layout.headerHeight}px at dpr ${layout.dpr})`);
   assert.ok(layout.docWidth <= layout.innerWidth + 1, `${label}: desktop has no horizontal document overflow`);
   assert.equal(layout.textInside, true, `${label}: apparatus labels remain inside the stage`);
   assert.equal(layout.gripHidden, true, `${label}: desktop Part A hides the experiment grip`);

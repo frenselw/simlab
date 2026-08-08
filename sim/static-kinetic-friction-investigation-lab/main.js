@@ -464,12 +464,10 @@
         svg.append(svgElement("rect", { x: hx - 12, y: groundY - 43, width: 34, height: 32, rx: 7, class: "apparatus-grip" }));
       }
       const labels = predictionMode ? [
-        [x + 46, groundY + 62, "預測情境中的物體"], [Math.min(830, hx), groundY - 58, "已知向右拉力"],
+        [Math.min(830, hx), groundY - 58, "已知向右拉力"],
         [185, 102, "藍色箭嘴是你建立的摩擦力"]
-      ] : balanceMode ? [
-        [x + 46, groundY + 62, "物體"]
-      ] : [
-        [x + 46, groundY + 62, "物體"], [Math.min(830, hx), groundY - 58, "測力計握把"],
+      ] : balanceMode ? [] : [
+        [Math.min(830, hx), groundY - 58, "測力計握把"],
         [64, 102, "F拉—t 與 v—t 來自同一次物理記錄"]
       ];
       labels.forEach(([tx, ty, text]) => { const label = svgElement("text", { x: tx, y: ty, "text-anchor": tx <= 100 ? "start" : "middle" }); label.appendChild(document.createTextNode(text)); svg.append(label); });
@@ -501,7 +499,6 @@
           const frictionN = balanceDrawnForceN(friction);
           if (applied) appendForceArrow(svg, comX, comX + clamp(signed(applied.direction, appliedN) * scale, -216, 216), comY, "pull-arrow", "#b91c1c", `拉力 ${appliedN.toFixed(1)} N`, pullLabelY);
           if (friction) appendForceArrow(svg, comX, comX + clamp(signed(friction.direction, frictionN) * scale, -216, 216), comY, "learner-friction-arrow", "#1d4ed8", `摩擦力 ${frictionN.toFixed(1)} N`, frictionLabelY);
-          setText("balanceNetForce", `水平合力 ΣFx：${(signed(applied?.direction, appliedN) + signed(friction?.direction, frictionN)).toFixed(1)} N`);
         }
         if (balanceHasBreakawayTask() && balanceInteractionMode === "breakaway") {
           const pullN = balanceCurrentForceN();
@@ -552,7 +549,6 @@
       const directionText = (direction) => direction === "left" ? "向左" : "向右";
       setText("staticAppliedReadout", applied ? `你的拉力：${directionText(applied.direction)} ${(applied.magnitudeCN / 100).toFixed(1)} N` : "你的拉力：尚未畫出");
       setText("staticFrictionReadout", friction ? `你的摩擦力：${directionText(friction.direction)} ${(friction.magnitudeCN / 100).toFixed(1)} N（靜摩擦力）` : "你的摩擦力：尚未畫出（代表沒有摩擦力）");
-      setText("balanceNetForce", `水平合力 ΣFx：${(signedForce(applied?.direction, balanceDrawnForceN(applied)) + signedForce(friction?.direction, balanceDrawnForceN(friction))).toFixed(1)} N`);
       document.querySelectorAll("[data-balance-drawing]").forEach((node) => node.setAttribute("aria-pressed", String(node.dataset.action === `draw-${balanceDrawMode}`)));
       setText("save-zero-force", state.balance.zeroForce?.committed ? "更新 A1 判斷" : "保存 A1 判斷");
       setText("save-static-force", state.balance.staticCase?.learnerAppliedForce?.committed ? "更新 A2 力平衡判斷" : "保存 A2 力平衡判斷");
@@ -928,13 +924,17 @@
       if (action === "save-prediction") return "請完成這題的摩擦力類型、方向、大小及運動結果，然後再保存。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
     }
+    function validationNode(action) {
+      const localId = action === "save-zero-force" ? "zeroValidationStatus" : action === "save-static-force" ? "staticValidationStatus" : action === "save-breakaway-answer" ? "breakawayValidationStatus" : "validationStatus";
+      return q(localId) || q("validationStatus");
+    }
     function wireEvents() {
       if (typeof document === "undefined") return;
       document.addEventListener("click", (event) => {
         const action = event.target.closest?.("[data-action]")?.dataset.action; if (!action || !state) return;
           if (["technical", "load-error", "trusted-finished-review", "submitted-success"].includes(presentation) || (presentation === "frozen" && action !== "retry-pending") || (presentation === "submitted-committed" && action !== "retry-finish")) return;
         try {
-          q("validationStatus")?.classList.add("is-hidden"); setText("validationStatus", "");
+          document.querySelectorAll(".validation-status").forEach((node) => { node.classList.add("is-hidden"); node.textContent = ""; });
           if (action === "save-zero-force") {
             const type = q("zeroFrictionType")?.value || null; const direction = type === "none" ? "none" : q("zeroFrictionDirection")?.value || null; const magnitudeCN = type === "none" ? 0 : Math.round(Number(q("zeroFrictionMagnitude")?.value || 0) * 100);
             if (!type || !direction) throw new Error("explicit zero-force answer required");
@@ -979,7 +979,7 @@
           else if (action === "submit") submit();
           render();
           focusAfterAction(action);
-        } catch (error) { console.warn(error); render(); const status = q("validationStatus"); if (status) { status.textContent = validationMessage(action); status.classList.remove("is-hidden"); focusNode(status); } }
+        } catch (error) { console.warn(error); render(); const status = validationNode(action); if (status) { status.textContent = validationMessage(action); status.classList.remove("is-hidden"); focusNode(status); } }
       });
       q("zeroFrictionMagnitude")?.addEventListener("input", (event) => { setText("zeroFrictionMagnitudeValue", `${Number(event.target.value).toFixed(1)} N`); renderApparatus(); });
       q("zeroFrictionType")?.addEventListener("change", renderBalance); q("zeroFrictionDirection")?.addEventListener("change", renderApparatus);

@@ -76,7 +76,10 @@
             <label>方向<select id="zeroFrictionDirection" autocomplete="off"><option value="" selected disabled>請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
             <label>大小 <output id="zeroFrictionMagnitudeValue">請選擇</output><input id="zeroFrictionMagnitude" type="range" min="0" max="12" step="0.1" value="0" aria-label="A1 摩擦力大小"></label>
           </div>
-          <button type="button" data-action="save-zero-force" class="primary-button" data-balance-normal>保存 A1 判斷</button>
+          <div class="save-action-row">
+            <button type="button" data-action="save-zero-force" class="primary-button" data-balance-normal>保存 A1 判斷</button>
+            <p id="zeroValidationStatus" class="neutral-status validation-status is-hidden" role="status" aria-live="polite" tabindex="-1"></p>
+          </div>
         </article>
 
         <article id="staticTask" class="task-card balance-task">
@@ -90,8 +93,10 @@
           </div>
           <p id="staticAppliedReadout" class="force-builder-readout">你的拉力：尚未畫出</p>
           <p id="staticFrictionReadout" class="force-builder-readout">你的摩擦力：尚未畫出（代表沒有摩擦力）</p>
-          <p id="balanceNetForce" class="force-builder-readout">水平合力 ΣFx：0.0 N</p>
-          <button type="button" id="save-static-force" data-action="save-static-force" class="primary-button" data-balance-normal>保存 A2 力平衡判斷</button>
+          <div class="save-action-row">
+            <button type="button" id="save-static-force" data-action="save-static-force" class="primary-button" data-balance-normal>保存 A2 力平衡判斷</button>
+            <p id="staticValidationStatus" class="neutral-status validation-status is-hidden" role="status" aria-live="polite" tabindex="-1"></p>
+          </div>
         </article>
 
         <article id="breakawayTask" class="task-card balance-task">
@@ -103,7 +108,10 @@
           <p id="breakawayBest" class="neutral-status">尚未找到臨界值。</p>
           <div id="breakawayAnswerCard" class="answer-card">
             <label>我估計最大靜摩擦力（N）<input id="breakawayAnswer" type="number" min="0" max="12" step="0.1" aria-label="最大靜摩擦力估計"></label>
-            <button type="button" data-action="save-breakaway-answer" class="primary-button" data-balance-normal>保存 A3 估計</button>
+            <div class="save-action-row">
+              <button type="button" data-action="save-breakaway-answer" class="primary-button" data-balance-normal>保存 A3 估計</button>
+              <p id="breakawayValidationStatus" class="neutral-status validation-status is-hidden" role="status" aria-live="polite" tabindex="-1"></p>
+            </div>
           </div>
         </article>
         <div class="button-row review-balance-edits" data-balance-review><button type="button" data-action="cancel-review-edit">取消修改</button></div>

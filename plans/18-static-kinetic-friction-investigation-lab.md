@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`11`（2026-08-08；A3 改為連續直接施力：拉力箭嘴端點跟隨手指／滑鼠，物體按靜摩擦、滑動摩擦及合力連續運動，支援加速、勻速、減速及反向；物體離開舞台後可一鍵返回中央）。
+> Plan revision：`12`（2026-08-08；收窄 desktop header、移除 apparatus 物體文字及 A2 水平合力 readout，A1／A2／A3 保存錯誤提示改放在各自保存掣旁，A3 數值輸入框統一為 touch-friendly 高度）。
 
 本計劃必須遵從：
 
@@ -2368,6 +2368,7 @@ baseline 的較高舞台，上下會出現 letterbox 空位，並把 control pan
 
 - controls 左側約 `20–24rem`；
 - stage 右側；
+- desktop header 使用 `clamp(4.5rem, 8vh, 5.5rem)`，只保留一行主標題及階段列，不以固定高 header 留白；
 - graph 仍上下排列；
 - 不新增 desktop-only 必要操作；
 - DOM reading order：controls 先，stage 後；
