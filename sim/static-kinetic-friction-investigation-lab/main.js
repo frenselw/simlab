@@ -135,6 +135,13 @@
       return /[.#\[\s:]/.test(id) ? document.querySelector(id) : null;
     };
     function setText(id, value) { const node = q(id); if (node) node.textContent = String(value); }
+    function clearZeroForceControls() {
+      const type = q("zeroFrictionType"); const direction = q("zeroFrictionDirection"); const magnitude = q("zeroFrictionMagnitude");
+      if (type) type.value = "";
+      if (direction) direction.value = "";
+      if (magnitude) magnitude.value = "0";
+      setText("zeroFrictionMagnitudeValue", "請選擇");
+    }
     function svgElement(tag, attrs = {}) { const node = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value))); return node; }
     function saveDraft() {
       if (presentation !== "editable" || !state || typeof SimScorm === "undefined" || !SimScorm.saveDraft) return false;
@@ -201,7 +208,7 @@
       ));
     }
     function balanceHasBreakawayTask() {
-      return Boolean(state?.phase === "balance" && state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true && !state.fromReview);
+      return Boolean(state?.phase === "balance" && state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true && state.balance.breakaway?.committed !== true && !state.fromReview);
     }
     // Direct dragging is quantized to 0.1 N semantic steps, so the first
     // sliding value is reachable rather than an arbitrary centinewton value.
@@ -270,7 +277,7 @@
         } else if (balanceStaticInteractionActive()) {
           step = "A2"; title = "直接由物體中央畫出兩個水平力"; text = `先畫${balanceDrawMode === "friction" ? "摩擦力" : "指定拉力"}；箭嘴長度代表大小，方向要${balanceDrawMode === "friction" ? "與拉力相反" : "符合指定拉力要求"}。`;
         } else if (state.balance.breakaway?.bestPullCN == null) {
-          step = "A3"; title = "直接拖拉物體，試到它開始滑動"; text = "選擇左右方向後，由物體中央慢慢向外拖；臨界力一到，物體會開始滑動並加速。";
+          step = "A3"; title = "直接拖拉物體，試到它開始滑動"; text = "由物體中央自由向左或向右慢慢拖；拖得越遠拉力越大，臨界力一到物體會開始滑動並加速。";
         } else if (state.balance.breakaway.learnerMaxCN == null) {
           step = "A3✓"; title = "已找到開始滑動的臨界力"; text = "根據你觀察到的臨界值，填寫最大靜摩擦力估計。";
         } else {
@@ -483,7 +490,7 @@
       setText("zeroFrictionMagnitudeValue", zeroTypeSelection ? `${(Number(q("zeroFrictionMagnitude")?.value || 0)).toFixed(1)} N` : "請選擇");
       setText("breakawayPullValue", `${(balanceTrialPullCN / 100).toFixed(1)} N`);
       const best = state.balance.breakaway?.bestPullCN;
-      setText("breakawayBest", best == null ? "尚未找到臨界值。" : `你已觀察到開始滑動的臨界拉力約 ${(best / 100).toFixed(1)} N；可再轉換方向重試。`);
+      setText("breakawayBest", best == null ? "尚未找到臨界值。" : `你已觀察到開始滑動的臨界拉力約 ${(best / 100).toFixed(1)} N；可直接改變方向或大小重試。`);
       setText("breakawayAttempts", `已完成試拉 ${state.balance.breakaway?.attempts || 0} 次`);
       const applied = balanceDrawings.applied;
       const friction = balanceDrawings.friction;
@@ -495,7 +502,7 @@
       setText("save-zero-force", state.balance.zeroForce?.committed ? "更新 A1 判斷" : "保存 A1 判斷");
       setText("save-static-force", state.balance.staticCase?.learnerAppliedForce?.committed ? "更新 A2 力平衡判斷" : "保存 A2 力平衡判斷");
       setText("breakawayMotionStatus", balanceMotionActive ? "物體已越過最大靜摩擦力，現在開始滑動並加速；畫面只顯示拉力。" : balanceTrialPullCN > 0 ? "物體仍然靜止；繼續慢慢增加拉力。" : "尚未開始試拉。");
-      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。" : balanceStaticInteractionActive() ? "完成 A2：由物體中央畫出指定拉力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceMotionActive ? "物體已開始滑動；記下開始滑動一刻的拉力，再按「重新試拉」重複驗證。" : "選擇左右方向，由物體中央慢慢增加拉力，直到物體開始滑動。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
+      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；可直接重新畫箭嘴，保存後會套用新答案。" : !state.balance.zeroForce ? "先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。" : balanceStaticInteractionActive() ? "完成 A2：由物體中央畫出指定拉力，再畫出等大反向的靜摩擦力；也可以不畫摩擦力。" : best == null ? (balanceMotionActive ? "物體已開始滑動；記下開始滑動一刻的拉力，再由物體中央重新拖動驗證。" : "由物體中央向左或向右慢慢增加拉力，直到物體開始滑動。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
       const zeroSaved = state.balance.zeroForce?.committed === true;
       const staticSaved = state.balance.staticCase?.learnerAppliedForce?.committed === true && state.balance.staticCase?.learnerForce?.committed === true;
       const setTaskDisabled = (selector, disabled) => document.querySelectorAll(selector).forEach((node) => { node.disabled = disabled; node.setAttribute("aria-disabled", String(disabled)); });
@@ -817,6 +824,7 @@
           if (attempt.state === "draft" && attempt.snapshot) { state = Persistence.decodeSnapshot(attempt.snapshot, null, "draft"); scenario = Generator.generateScenario({ seed: state.seed }); state = Persistence.decodeSnapshot(attempt.snapshot, scenario, "draft"); }
           else { scenario = Generator.generateScenario({ seed: randomSeed() }); state = Persistence.freshState(scenario.seed); }
           presentation = "editable"; latestResult = null; analysisDraft = null; redoConfirmationVisible = false; resetBalanceTrialView();
+          if (state.balance.zeroForce == null) clearZeroForceControls();
           if (q("gripPosition")) q("gripPosition").value = String(scenario.connector.restLengthM);
           resetIdleRig(scenario.connector.restLengthM);
           if (typeof SimScorm !== "undefined" && SimScorm.setDraftProvider) SimScorm.setDraftProvider(() => SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encodeDraft(state)));
@@ -851,7 +859,7 @@
     function focusAfterAction(action) {
       if (["to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
       if (action === "save-zero-force") { focusNode(q("draw-applied")); return; }
-      if (action === "save-static-force") { focusNode(q("pull-right")); return; }
+      if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
       if (action === "save-analysis") { focusNode(q(`[data-analysis-task="${currentAnalysisKey()}"]`)?.querySelector("input,select")); return; }
       if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select,input")); return; }
@@ -887,8 +895,6 @@
             const friction = balanceDrawings.friction ? { frictionType: "static", direction: balanceDrawings.friction.direction, frictionMagnitudeCN: balanceDrawings.friction.magnitudeCN, committed: true } : { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true };
             state = Persistence.transitions.setStaticForceAnswer(state, balanceStaticSpec(), { direction: applied.direction, magnitudeCN: applied.magnitudeCN, committed: true }, friction); balanceInteractionMode = "breakaway"; balanceDrawMode = "applied"; saveDraft();
           }
-          else if (["pull-left", "pull-right"].includes(action)) { balanceInteractionMode = "breakaway"; balanceTrialDirection = action === "pull-left" ? "left" : "right"; renderApparatus(); renderBalance(); }
-          else if (action === "reset-breakaway") { balanceInteractionMode = "breakaway"; cancelBalanceMotion(); balanceTrialPullCN = 0; balanceTrialRecorded = false; updateBreakawayPull(0); renderApparatus(); renderBalance(); }
           else if (action === "save-breakaway-answer") {
             const value = q("breakawayAnswer")?.value; if (value === "" || !Number.isFinite(Number(value))) throw new Error("maximum static-friction estimate required");
             state = Persistence.transitions.setBreakawayAnswer(state, Math.round(Number(value) * 100)); saveDraft();
@@ -1039,6 +1045,13 @@
       if (Math.abs(signedN) < .05) return null;
       return { direction: signedN < 0 ? "left" : "right", magnitudeCN: clamp(Math.round(Math.abs(signedN) * 10) * 10, 1, 1200) };
     }
+    function prepareBreakawayDrag() {
+      if (!balanceTrialRecorded && !balanceMotionActive) return;
+      cancelBalanceMotion();
+      balanceTrialPullCN = 0;
+      balanceTrialRecorded = false;
+      balanceTrialDirection = state?.balance?.breakaway?.bestDirection || scenario?.balancePullDirection || "right";
+    }
     function updateBalanceDrawFromPointer(event) {
       if (!dragging || dragging.kind !== "balance-draw") return;
       const point = svgPointFromEvent(event);
@@ -1055,6 +1068,7 @@
       if (event.isPrimary === false || dragging) return;
       const target = event.currentTarget.dataset.dragTarget;
       if (target === "balance-origin") {
+        if (balanceInteractionMode === "breakaway") prepareBreakawayDrag();
         dragging = {
           kind: "balance-draw", target: event.currentTarget, pointerId: event.pointerId,
           mode: balanceInteractionMode === "breakaway" ? "breakaway" : balanceDrawMode,

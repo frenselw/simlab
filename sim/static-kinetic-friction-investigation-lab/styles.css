@@ -294,7 +294,6 @@ select {
 .balance-task.is-disabled { opacity: .62; }
 .answer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; align-items: end; }
 .answer-grid label { min-width: 0; }
-.balance-direction-buttons button { flex: 1 1 8rem; }
 .force-draw-controls { display: flex; gap: .45rem; flex-wrap: wrap; margin: .65rem 0; }
 .force-draw-controls button { flex: 1 1 8rem; }
 .force-draw-controls button[aria-pressed="true"] { border-color: var(--blue); background: #e8efff; color: #1e3a8a; font-weight: 700; }

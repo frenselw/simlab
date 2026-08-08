@@ -11,6 +11,7 @@ const blankOptions = html.match(/<option value="" selected disabled>請選擇<\/
 assert.equal(blankOptions.length, 2, "A1 type and direction both start at 請選擇");
 assert.match(html, /Part A 不使用測力計或歸零操作/);
 assert.doesNotMatch(html, /id="recordBalance"|id="balanceObservations"|data-action="record-balance"|data-action="save-balance-answer"/);
+assert.doesNotMatch(html, /data-action="pull-left"|data-action="pull-right"|data-action="reset-breakaway"/);
 assert.match(html, /id="liveReadouts"[^>]*aria-live="off"/);
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
 assert.match(html, /type="range"/);
@@ -40,6 +41,8 @@ assert.match(main, /focusAfterAction/);
 assert.match(main, /prediction-friction-arrow/);
 assert.match(main, /balance-origin/);
 assert.match(main, /const comY = groundY - 27/);
+assert.match(main, /clearZeroForceControls/);
+assert.match(main, /prepareBreakawayDrag/);
 assert.doesNotMatch(html, /受力圖由重心出發/);
 assert.doesNotMatch(main, /受力圖由重心出發/);
 assert.doesNotMatch(main, /balanceFriction/);
