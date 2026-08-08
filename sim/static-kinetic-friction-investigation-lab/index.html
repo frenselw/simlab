@@ -36,6 +36,7 @@
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
         <button type="button" id="forceGrip" class="drag-target apparatus-drag-target grip-drag-target is-hidden" data-drag-target="force-grip" aria-describedby="stageCoachText" aria-label="實驗用握把，目前可拖動位置"><span aria-hidden="true">實驗拉力 <b>→</b></span></button>
         <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
+        <button type="button" id="resetBalanceObject" class="balance-reset-button primary-button is-hidden" data-action="reset-balance-object" aria-describedby="stageCoachText">物體返回中央</button>
         <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
         <button type="button" id="breakawayMarker" class="drag-target graph-handle" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
         <button type="button" id="static-start" class="drag-target graph-handle interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
@@ -47,7 +48,7 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 要直接在物體中央拖出水平力；A2 和 A3 的拉力箭嘴由你在物體上畫出。A3 只顯示拉力箭嘴，物體在達到臨界力後開始加速。</p>
+      <p id="stageDescription" class="sr-only">Part A 要直接在物體中央拖出水平力；A2 和 A3 的拉力箭嘴由你在物體上畫出。A3 的箭嘴端點跟隨手指或滑鼠，放手後拉力歸零，物體按合力連續加速、勻速、減速或反向；離開畫面後可把物體返回中央。</p>
       <div id="liveReadouts" class="live-readouts" aria-live="off">
         <span>拉力 <strong id="forceReadout">0.00 N</strong></span>
         <span>速度 <strong id="velocityReadout">0.000 m/s</strong></span>

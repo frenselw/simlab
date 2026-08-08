@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`10`（2026-08-08；修正 A3 完成一次滑動後的重複試拉：放手後可再次按住物體中央，先清除上一輪暫態位移，再向相反方向反覆試拉）。
+> Plan revision：`11`（2026-08-08；A3 改為連續直接施力：拉力箭嘴端點跟隨手指／滑鼠，物體按靜摩擦、滑動摩擦及合力連續運動，支援加速、勻速、減速及反向；物體離開舞台後可一鍵返回中央）。
 
 本計劃必須遵從：
 
@@ -102,7 +102,7 @@
 
 - A1 選擇摩擦力類型、方向及大小；保存後仍可修改，改動會清除依賴它的 A2／A3／後續資料；
 - A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
-- A3 不設向左／向右／重新試拉按鈕；直接由物體中央逐步拖遠拉力箭嘴，拖動方向和距離由學生自由決定；
+- A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭嘴，箭嘴端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
 - Part B 拖動測力計握把；
 - 用鍵盤方向鍵操作測力計握把；
 - 暫停、重設及重新進行實驗；
@@ -161,7 +161,6 @@ tools/static-kinetic-friction-browser-regression.js
 - 摩擦生熱；
 - 空氣阻力；
 - 速度非常高時摩擦係數改變；
-- 反向運動；
 - 任意二維拖動；
 - 真實繩索鬆弛、碰撞或旋轉；
 - 學生自行輸入任意公式；
@@ -431,13 +430,13 @@ Part A 內所有水平力箭嘴的 line 都使用同一個物體幾何中心 `co
 
 ### 6.3 A3：逐步增加拉力，找出最大靜摩擦力
 
-完成 A2 後，物體中央的拉力繪圖 target 會直接開放。學生可由物體中央向左／向右自由拖動，拖動距離代表拉力大小，亦可在放手後下一次重新按住時改變方向或大小；每次新一輪試拉會先清除上一輪的暫態位移，並以該次 pointer-down 位置作為零長度起點，避免把上一輪滑動位置混入新拉力。不設「向左試拉」、「向右試拉」或「重新試拉」按鈕。拖動一開始物體保持靜止；當拉力達到可操作的第一個臨界值時：
+完成 A2 後，物體中央的拉力繪圖 target 會直接開放。學生由物體中央按住並拖動拉力箭嘴；箭嘴由物體重心出發，箭嘴端點和拉力大小／方向即時跟隨手指／滑鼠，不設「向左試拉」、「向右試拉」或「重新試拉」按鈕。拖動期間的水平拉力取為重心至箭嘴端點的有向距離；放手代表拉力即時回到 `0 N`，物體不會被重置或突然停下，而會按當時速度及滑動摩擦力自然減速。學生可以在物體仍運動時重新按住物體，向相反方向施力；物體會按合力連續出現由靜止開始加速、勻速、減速及倒轉方向的運動：
 
 ```js
 breakawayThresholdCN = Math.ceil(staticLimitMeanN * 10) * 10;
 ```
 
-物體在舞台上突然開始滑動並加速；A3 舞台只顯示紅色學生拉力箭嘴，完全不顯示靜摩擦力箭嘴或假定的摩擦力讀數。學生把拉力拖回中央或下一次重新拖動時，便可回到 0 N、改變方向及重複試拉；系統只保存試拉次數、最小開始滑動拉力及方向，不保存 pointer path 或操作時間。臨界值採 0.1 N 語意步進，確保學生實際可以逐步接近。
+物體在舞台上由靜止轉為滑動；A3 舞台只顯示紅色學生拉力箭嘴，完全不顯示靜摩擦力箭嘴或假定的摩擦力讀數。放手後拉力歸零，物體仍可繼續滑行並減速；下一次按住物體即可即時改變方向及大小。當物體離開可見舞台範圍時，舞台才顯示「物體返回中央」按鈕；按下後只把 A3 的暫態位置、速度及當前拉力重設為中央、靜止、`0 N`，不清除已保存的試拉證據。系統只保存試拉次數、最小開始滑動拉力及方向，不保存 pointer path 或操作時間。臨界值採 0.1 N 語意步進，確保學生實際可以逐步接近。
 
 找到至少一次臨界值後，學生填寫「我估計最大靜摩擦力」並保存。A3 評分為 10 分；答案與生成的 `staticLimitMeanN` 比較，容許：
 
@@ -2397,7 +2396,7 @@ Graph phase 可以將 stage track 調至：
 | Target | Hit-target strategy | Capture target | Render 期間可替換？ |
 |---|---|---|---:|
 | Part B 測力計握把 | 穩定 48×48 px HTML overlay；只在 experiment recording 顯示 | 同一 overlay | No |
-| Part A2／A3 物體中央繪圖 target | 穩定 48×48 px 透明 HTML overlay，位置跟隨物體中央；只顯示約 8 px 小閃爍圓點；A2 依目前模式畫拉力／摩擦力，A3 直接自由畫拉力，A2 保存後即開放、每次新拖動可重設上一個 transient 試拉 | 同一 overlay | No |
+| Part A2／A3 物體中央繪圖 target | 穩定 48×48 px 透明 HTML overlay，位置跟隨物體中央；只顯示約 8 px 小閃爍圓點；A2 依目前模式畫拉力／摩擦力，A3 直接自由畫拉力，拉力端點跟隨 active pointer；物體離開舞台後 target 隱藏並顯示中央回復按鈕 | 同一 overlay | No |
 | Prediction friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
 | Breakaway time marker | 穩定 44 px 寬 HTML overlay | 同一 overlay | No |
 | 每個 interval start handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
@@ -2412,7 +2411,7 @@ Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render �
 | 非互動 stage 空白位置 | Moodle／enclosing host | host scroll 及 iframe rectangle delta 非零；activity document、activity visual viewport 及 panel delta=0；learner state 不變 |
 | Control panel（含 top/bottom boundary） | panel | panel 有 range 時 delta 非零；host、host/activity visual viewport、iframe rectangle、stage及activity document delta=0；learner state不變 |
 | 測力計握把 | simulation | 握把改變；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
-| Part A2／A3 物體中央繪圖 target | simulation | 拉力／摩擦力向量端點或 A3 pull 改變；物體中央作為穩定起點；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel；A3 越過臨界力後只顯示拉力並令物體位移／加速 |
+| Part A2／A3 物體中央繪圖 target | simulation | A2 拉力／摩擦力向量端點或 A3 即時拉力端點改變；A3 物體按合力連續位移／加速／減速／反向，pointerup 令拉力歸零但保留物體運動；物體離開舞台後顯示中央回復按鈕；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
 | Prediction friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Breakaway time marker | simulation | marker index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Interval start handle（逐一測五類） | simulation | 對應 start index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
@@ -3120,16 +3119,19 @@ same seed reproduces same scenario
 7. 重新高速勻速後拉力回到相同平均平台；
 8. 拉力減少後物體減速；
 9. 停止後重新 static；
-10. runtime `surfaceVariation()` 在 active grid 平均接近零且所有位置受限；
-11. 相同位置重現相同表面 variation；
-12. slack connector 在任何 relative velocity 下 tension 都為 0；
-13. tautening／slack release 邊界連續且無單步 impulse；
-14. `0.35 m/s` worst-case approach 的首個 taut substep 不會單靠 dashpot 觸發 breakaway，damping由0單調engage；
-15. 相同 timestamped input path 在 60／90／120 Hz、coalescing 及短 stall schedules 產生同一 canonical trace；
-16. 超過 50 ms stall 令 running trial 中性作廢而不 catch-up；
-17. physics 結果不受 sensor noise 影響；
-18. 無 NaN／Infinity；
-19. energy／速度不會數值爆炸。
+10. 直接施力低於最大靜摩擦時保持靜止，超過上限後開始滑動；
+11. 直接施力放手後按滑動摩擦自然減速，反向施力可令物體減速後倒轉；
+12. 直接施力在合力接近零時可維持近似勻速；
+13. runtime `surfaceVariation()` 在 active grid 平均接近零且所有位置受限；
+14. 相同位置重現相同表面 variation；
+15. slack connector 在任何 relative velocity 下 tension 都為 0；
+16. tautening／slack release 邊界連續且無單步 impulse；
+17. `0.35 m/s` worst-case approach 的首個 taut substep 不會單靠 dashpot 觸發 breakaway，damping由0單調engage；
+18. 相同 timestamped input path 在 60／90／120 Hz、coalescing 及短 stall schedules 產生同一 canonical trace；
+19. 超過 50 ms stall 令 running trial 中性作廢而不 catch-up；
+20. physics 結果不受 sensor noise 影響；
+21. 無 NaN／Infinity；
+22. energy／速度不會數值爆炸。
 
 ### 27.3 Measurement tests
 

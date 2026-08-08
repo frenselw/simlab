@@ -193,6 +193,15 @@ select {
 }
 .stage-coach strong { align-self: end; font-size: .84rem; line-height: 1.25; }
 .stage-coach > span:last-child { align-self: start; color: var(--muted); font-size: .74rem; line-height: 1.35; }
+.balance-reset-button {
+  position: absolute;
+  left: 50%;
+  bottom: .8rem;
+  z-index: 4;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  white-space: nowrap;
+}
 
 @keyframes grip-pulse {
   0%, 100% { box-shadow: 0 5px 16px rgba(154, 52, 18, .28), 0 0 0 5px rgba(245, 158, 11, .12); }

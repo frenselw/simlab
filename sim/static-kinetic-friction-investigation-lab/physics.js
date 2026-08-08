@@ -98,6 +98,114 @@
     }
     return null;
   }
+
+  // Part A3 uses a direct, transient force vector rather than the Part B
+  // spring/handle rig.  The signed force is the learner's live arrow; the
+  // contact model still uses the same seeded static/kinetic friction values.
+  function createDirectForceState(scenario, positionM = 0.72) {
+    if (!scenario) throw new Error("scenario required");
+    const position = finite(positionM, 0.72);
+    return {
+      timeS: 0,
+      block: { positionM: position, velocityMps: 0, accelerationMps2: 0 },
+      appliedForceN: 0,
+      contact: { mode: "static", frictionPhysicalN: 0 },
+      events: []
+    };
+  }
+
+  function stepDirectForce(state, appliedForceN, scenario, dt = PHYSICS_DT_S) {
+    if (!state || !scenario) throw new Error("state and scenario required");
+    const stepS = Math.max(0, finite(dt));
+    const forceN = finite(appliedForceN);
+    const massKg = scenario.massKg;
+    const startPositionM = finite(state.block?.positionM);
+    const startVelocityMps = finite(state.block?.velocityMps);
+    const staticLimitN = staticLimitAt({ block: { positionM: startPositionM } }, scenario);
+    const events = [];
+    let positionM = startPositionM;
+    let velocityMps = startVelocityMps;
+    let accelerationMps2 = 0;
+    let mode = "static";
+    let frictionPhysicalN = Math.abs(forceN);
+
+    const appendBreakaway = (timeS, limitN, physicalForceN = forceN) => {
+      events.push({ type: "breakaway", timeS, physicalForceN, staticLimitN: limitN });
+    };
+    const advanceSliding = (initialPositionM, initialVelocityMps, initialAccelerationMps2, durationS) => ({
+      positionM: initialPositionM + initialVelocityMps * durationS + 0.5 * initialAccelerationMps2 * durationS * durationS,
+      velocityMps: initialVelocityMps + initialAccelerationMps2 * durationS
+    });
+
+    if (Math.abs(startVelocityMps) <= V_STICK_MPS) {
+      if (Math.abs(forceN) <= staticLimitN + FORCE_EPSILON_N || stepS <= 0) {
+        mode = "static";
+        velocityMps = 0;
+        frictionPhysicalN = Math.abs(forceN);
+      } else {
+        const direction = Math.sign(forceN);
+        const kineticN = kineticFrictionAt({ block: { positionM: startPositionM } }, scenario);
+        accelerationMps2 = (forceN - direction * kineticN) / massKg;
+        const advanced = advanceSliding(startPositionM, 0, accelerationMps2, stepS);
+        positionM = advanced.positionM;
+        velocityMps = advanced.velocityMps;
+        mode = "sliding";
+        frictionPhysicalN = kineticN;
+        appendBreakaway(finite(state.timeS) + Math.min(stepS, 1e-6), staticLimitN);
+      }
+    } else {
+      const direction = Math.sign(startVelocityMps);
+      const kineticN = kineticFrictionAt({ block: { positionM: startPositionM } }, scenario);
+      accelerationMps2 = (forceN - direction * kineticN) / massKg;
+      const stopTimeS = accelerationMps2 * startVelocityMps < 0
+        ? clamp(-startVelocityMps / accelerationMps2, 0, stepS)
+        : null;
+      if (stopTimeS != null && stopTimeS < stepS - 1e-12) {
+        const stopped = advanceSliding(startPositionM, startVelocityMps, accelerationMps2, stopTimeS);
+        positionM = stopped.positionM;
+        const restLimitN = staticLimitAt({ block: { positionM } }, scenario);
+        if (Math.abs(forceN) <= restLimitN + FORCE_EPSILON_N) {
+          mode = "static";
+          velocityMps = 0;
+          accelerationMps2 = 0;
+          frictionPhysicalN = Math.abs(forceN);
+        } else {
+          const reverseDirection = Math.sign(forceN);
+          const reverseKineticN = kineticFrictionAt({ block: { positionM } }, scenario);
+          accelerationMps2 = (forceN - reverseDirection * reverseKineticN) / massKg;
+          const remainingS = stepS - stopTimeS;
+          const reversed = advanceSliding(positionM, 0, accelerationMps2, remainingS);
+          positionM = reversed.positionM;
+          velocityMps = reversed.velocityMps;
+          mode = "sliding";
+          frictionPhysicalN = reverseKineticN;
+          events.push({ type: "direction-reversal", timeS: finite(state.timeS) + stopTimeS, physicalForceN: forceN });
+        }
+      } else {
+        const advanced = advanceSliding(startPositionM, startVelocityMps, accelerationMps2, stepS);
+        positionM = advanced.positionM;
+        velocityMps = advanced.velocityMps;
+        mode = "sliding";
+        frictionPhysicalN = kineticN;
+      }
+    }
+
+    if (mode === "sliding" && Math.abs(velocityMps) <= V_STICK_MPS && Math.abs(forceN) <= staticLimitAt({ block: { positionM } }, scenario) + FORCE_EPSILON_N) {
+      mode = "static";
+      velocityMps = 0;
+      accelerationMps2 = 0;
+      frictionPhysicalN = Math.abs(forceN);
+    }
+    const next = {
+      timeS: finite(state.timeS) + stepS,
+      block: { positionM, velocityMps, accelerationMps2 },
+      appliedForceN: forceN,
+      contact: { mode, frictionPhysicalN },
+      events
+    };
+    if (![next.timeS, next.block.positionM, next.block.velocityMps, next.block.accelerationMps2, next.appliedForceN].every(Number.isFinite)) throw new Error("non-finite direct-force state");
+    return next;
+  }
   function interpolateHandle(start, end, fraction) {
     const u = clamp(fraction, 0, 1);
     return {
@@ -298,6 +406,6 @@
     smoothstep, createInitialState, stepHandle, connectorTension, connectorExtension,
     splitAtRestLengthCrossing, staticLimitAt, kineticFrictionAt, resolveStaticContact,
     resolveSlidingContact, maybeRestick, predictedBlockPosition, stepPhysics, createInputQueue, enqueueInput,
-    inputAt, simulate, runFixedStep, simulateRenderSchedule
+    inputAt, simulate, runFixedStep, simulateRenderSchedule, createDirectForceState, stepDirectForce
   });
 });

@@ -28,6 +28,10 @@ async function navigate(cdp, url) {
   throw new Error(`activity did not become ready: ${url}`);
 }
 async function touch(cdp, start, end) {
+  await touchStartMove(cdp, start, end);
+  await touchEnd(cdp);
+}
+async function touchStartMove(cdp, start, end) {
   const id = 17;
   const point = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(start)] });
@@ -35,6 +39,8 @@ async function touch(cdp, start, end) {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point({ x: start.x + (end.x - start.x) * index / 8, y: start.y + (end.y - start.y) * index / 8 })] });
     await delay(8);
   }
+}
+async function touchEnd(cdp) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
 async function tap(cdp, point) {
@@ -128,20 +134,48 @@ async function semanticSmoke(cdp, url, label) {
   const threshold = await evaluate(cdp, "Math.ceil(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN * 10) * 10");
   let blockBefore = await evaluate(cdp, "document.querySelector('.apparatus-block')?.getAttribute('x')");
   for (let n = 20; n < threshold; n += 20) { drag = await forceEndpoint(n / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end); }
-  drag = await forceEndpoint(threshold / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end);
-  await delay(100);
+  drag = await forceEndpoint(threshold / 100 + .2, staticSetup.direction);
+  await touchStartMove(cdp, drag.start, drag.end);
+  await delay(120);
+  const motion = await evaluate(cdp, `(() => { const line=document.querySelector('.pull-arrow'),svg=document.getElementById('apparatusSvg'); let end=null; if(line){const point=svg.createSVGPoint();point.x=Number(line.getAttribute('x2'));point.y=Number(line.getAttribute('y2'));const screen=point.matrixTransform(svg.getScreenCTM());end={x:screen.x,y:screen.y};} return {pull:document.getElementById('breakawayPullValue').textContent,status:document.getElementById('breakawayMotionStatus').textContent,friction:document.querySelectorAll('.learner-friction-arrow').length,arrow:document.querySelectorAll('.pull-arrow').length,block:document.querySelector('.apparatus-block')?.getAttribute('x'),motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion,arrowEnd:end}; })()`);
   const breakaway = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.breakaway");
   assert.ok(breakaway.bestPullCN >= threshold && breakaway.attempts >= 1, `${label}: A3 records a breakaway trial after gradual force increase`);
-  const motion = await evaluate(cdp, `(() => ({pull:document.getElementById('breakawayPullValue').textContent,status:document.getElementById('breakawayMotionStatus').textContent,friction:document.querySelectorAll('.learner-friction-arrow').length,arrow:document.querySelectorAll('.pull-arrow').length,block:document.querySelector('.apparatus-block')?.getAttribute('x')}))()`);
   assert.equal(motion.friction, 0, `${label}: A3 does not display static friction`);
-  assert.ok(motion.arrow >= 1 && /滑動並加速/.test(motion.status) && motion.block !== blockBefore, `${label}: A3 shows the pull arrow and motion after breakaway ${JSON.stringify(motion)}`);
-  for (const direction of [staticSetup.opposite, staticSetup.direction]) {
-    drag = await forceEndpoint(threshold / 100 + .2, direction); await touch(cdp, drag.start, drag.end); await delay(100);
+  const initialSign = staticSetup.direction === "left" ? -1 : 1;
+  assert.ok(motion.arrow >= 1 && motion.block !== blockBefore && motion.motion?.velocityMps * initialSign > 0 && motion.arrowEnd && Math.abs(motion.arrowEnd.x - drag.end.x) < 6, `${label}: A3 pull arrow follows the trusted pointer while the block moves ${JSON.stringify(motion)}`);
+  await touchEnd(cdp);
+  await delay(120);
+  const released = await evaluate(cdp, `(() => ({pull:document.getElementById('breakawayPullValue').textContent,arrow:document.querySelectorAll('.pull-arrow').length,status:document.getElementById('breakawayMotionStatus').textContent,block:document.querySelector('.apparatus-block')?.getAttribute('x'),motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion}))()`);
+  assert.deepEqual(released.pull, "0.0 N", `${label}: pointerup releases the A3 pull`);
+  assert.equal(released.arrow, 0, `${label}: A3 hides the released pull arrow`);
+  assert.ok(released.motion && Math.abs(released.motion.appliedForceN) < 1e-8 && released.block !== blockBefore && /靜止|減速|勻速/.test(released.status), `${label}: the block keeps its continuous post-release motion ${JSON.stringify(released)}`);
+  const reverseDrag = await forceEndpoint(threshold / 100 + .5, staticSetup.opposite);
+  await touchStartMove(cdp, reverseDrag.start, reverseDrag.end);
+  await delay(360);
+  const reverseMotion = await evaluate(cdp, `(() => { const block=document.querySelector('.apparatus-block'); return {x:block?.getAttribute('x'),status:document.getElementById('breakawayMotionStatus').textContent,motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion}; })()`);
+  const reverseSign = staticSetup.opposite === "left" ? -1 : 1;
+  assert.ok(reverseMotion.motion && reverseMotion.motion.velocityMps * reverseSign > 0, `${label}: A3 accepts a live opposite-direction pull and reverses the block ${JSON.stringify(reverseMotion)}`);
+  await touchEnd(cdp);
+  await delay(1400);
+  for (const direction of [staticSetup.direction, staticSetup.opposite]) {
+    drag = await forceEndpoint(threshold / 100 + .2, direction); await touch(cdp, drag.start, drag.end); await delay(900);
   }
   const repeatedTrials = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),target=document.getElementById('balanceOrigin'); return { attempts:state.balance.breakaway.attempts, bestPullCN:state.balance.breakaway.bestPullCN, targetHidden:target.classList.contains('is-hidden'), pull:document.getElementById('breakawayPullValue').textContent, motion:document.getElementById('breakawayMotionStatus').textContent }; })()`);
-  assert.equal(repeatedTrials.attempts, 3, `${label}: A3 can repeat breakaway trials after reversing direction ${JSON.stringify(repeatedTrials)}`);
-  assert.equal(repeatedTrials.bestPullCN, threshold, `${label}: repeated A3 trials preserve the best threshold`);
+  assert.ok(repeatedTrials.attempts >= 3, `${label}: A3 can repeat breakaway trials after reversing direction ${JSON.stringify(repeatedTrials)}`);
+  assert.ok(repeatedTrials.bestPullCN >= threshold, `${label}: repeated A3 trials preserve the measured threshold range`);
   assert.equal(repeatedTrials.targetHidden, false, `${label}: A3 keeps the drawing target available before the estimate is saved`);
+  const offscreenDrag = await forceEndpoint(12, staticSetup.direction);
+  await touchStartMove(cdp, offscreenDrag.start, { x: offscreenDrag.start.x + (staticSetup.direction === "left" ? -1200 : 1200), y: offscreenDrag.start.y });
+  await delay(1200);
+  const offscreen = await evaluate(cdp, `(() => ({motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion,buttonHidden:document.getElementById('resetBalanceObject').classList.contains('is-hidden'),targetHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')}))()`);
+  assert.equal(offscreen.motion?.offscreen, true, `${label}: A3 exposes the return button when continuous motion leaves the stage ${JSON.stringify(offscreen)}`);
+  assert.equal(offscreen.buttonHidden, false, `${label}: A3 return button is visible offscreen`);
+  await touchEnd(cdp);
+  await tapSelector(cdp, "[data-action='reset-balance-object']");
+  const resetObject = await evaluate(cdp, `(() => { const motion=window.__staticKineticFrictionApp.interactionEvidence().balanceMotion; return {motion,buttonHidden:document.getElementById('resetBalanceObject').classList.contains('is-hidden'),targetHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')}; })()`);
+  assert.ok(resetObject.motion && Math.abs(resetObject.motion.positionM - .72) < 1e-9 && resetObject.motion.velocityMps === 0 && resetObject.motion.appliedForceN === 0, `${label}: A3 return button recenters and stops the object without clearing trials ${JSON.stringify(resetObject)}`);
+  assert.equal(resetObject.buttonHidden, true, `${label}: A3 hides the return button after reset`);
+  assert.equal(resetObject.targetHidden, false, `${label}: A3 restores the central drag target after reset`);
   await evaluate(cdp, "document.getElementById('breakawayAnswer').value=(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN).toFixed(1)");
   await tapSelector(cdp, "[data-action='save-breakaway-answer']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().variant"), "answer-complete", `${label}: all three Part A tasks complete`);
