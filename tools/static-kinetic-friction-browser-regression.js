@@ -83,6 +83,8 @@ function analysisFixtureScript(activeIndex = 0) {
 }
 async function semanticSmoke(cdp, url, label) {
   await navigate(cdp, url);
+  const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:document.getElementById('zeroFrictionMagnitudeValue').textContent}; })()`);
+  assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "請選擇" }, `${label}: A1 starts blank and requires an explicit selection`);
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');return true; })()`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
   const a1 = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce");
@@ -97,8 +99,8 @@ async function semanticSmoke(cdp, url, label) {
   let drag = await forceEndpoint(staticSetup.magnitudeCN / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end);
   await tapSelector(cdp, "#draw-friction");
   drag = await forceEndpoint(staticSetup.magnitudeCN / 100, staticSetup.opposite); await touch(cdp, drag.start, drag.end);
-  const drawnBalance = await evaluate(cdp, `(() => ({ arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, sigma:document.getElementById('balanceNetForce').textContent }))()`);
-  assert.ok(drawnBalance.arrows >= 2 && /ΣFx/.test(drawnBalance.sigma), `${label}: Part A renders centre-of-mass force arrows and net force ${JSON.stringify(drawnBalance)}`);
+  const drawnBalance = await evaluate(cdp, `(() => { const block=document.querySelector('.apparatus-block'),centerY=Number(block.getAttribute('y'))+Number(block.getAttribute('height'))/2,arrows=[...document.querySelectorAll('.pull-arrow,.learner-friction-arrow')]; return { arrows:arrows.length, sigma:document.getElementById('balanceNetForce').textContent,centerY,starts:arrows.map((node)=>Number(node.getAttribute('y1'))) }; })()`);
+  assert.ok(drawnBalance.arrows >= 2 && /ΣFx/.test(drawnBalance.sigma) && drawnBalance.starts.every((y) => Math.abs(y - drawnBalance.centerY) < .1), `${label}: Part A force arrows start at the block centre and show net force ${JSON.stringify(drawnBalance)}`);
   await tapSelector(cdp, "[data-action='save-static-force']");
   let balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, sigma:document.getElementById('balanceNetForce').textContent, forceGripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'), phase:state.phase }; })()`);
   assert.equal(balance.staticCase.learnerAppliedForce.direction, staticSetup.direction, `${label}: A2 stores the direction of the directly drawn applied force`);

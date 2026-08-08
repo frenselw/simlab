@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`6`（2026-08-08；按最新教學要求把 A2／A3 改為物體重心直接拖箭嘴，允許 A1／A2 正常重改，A3 只顯示外力並呈現由靜止到滑動加速，同步更新 schema、scoring、touch contract 及 browser regression）。
+> Plan revision：`7`（2026-08-08；補充 A1 初始空白選擇狀態，並令 Part A／prediction 水平力箭嘴的視覺起點與物體重心同一座標）。
 
 本計劃必須遵從：
 
@@ -396,7 +396,7 @@ Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水�
 - 方向：`none`；
 - 大小：`0 N`。
 
-學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分。
+兩個選單初始都顯示 disabled 的「請選擇」，大小讀數亦顯示「請選擇」；系統不預選「沒有摩擦力」，學生必須明確揀選類型、方向及大小。學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分。
 
 A1 保存按鈕在正常 `balance` phase 不會因已保存而鎖定。若學生改動並重新保存，只有語意有變時才清除 A2、A3、實驗 trace、圖像分析及預測；相同答案重存視為 no-op。
 
@@ -424,6 +424,8 @@ balancePullN = quantize(staticLimitMeanN * pick([0.24, 0.28, 0.32, 0.36]), 0.1);
 - 「不畫摩擦力」清除藍色箭嘴，明確代表沒有摩擦力。
 
 兩支箭嘴都由物體重心出發，箭嘴方向及長度由學生拖動決定；不以 control-panel range 或測力計讀數代替。保存後 A2 仍可重新選模式、重畫並更新答案；語意有變時清除 A3 trial、實驗 trace、分析及預測，相同答案重存則保留下游 authority。A2 評分為 6 分：學生外力方向 1 分、學生外力大小 2 分、摩擦力類型 1 分、方向 1 分、大小 1 分；外力及摩擦力大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
+
+Part A 內所有水平力箭嘴的 line 都使用同一個物體幾何中心 `comY` 作為起點；文字 label 可以放在物體上方以保持可讀性，但不改變力向量的起點。Prediction stage 沿用同一種中心起點視覺規格。
 
 學生在此觀察到：物體仍然靜止，所以水平方向合力為零，而靜摩擦力會按需要調整，並不是固定的最大值。
 
@@ -3165,6 +3167,7 @@ same seed reproduces same scenario
 ### 27.5 Scoring tests
 
 - 每項滿分／部分／零分；
+- A1 初始兩個 select 及大小 readout 均為「請選擇」，不可由預選值直接保存；
 - tolerance just-inside／just-outside；
 - A3 沒有合法開始滑動試拉，即使估計值填對都不能保存／得 A3 分；
 - A2 未保存的 learner applied／friction vector 不可由 default 得分；`none` 必須以 committed 摩擦力答案保存；prediction `committed=false` 不可由 default 得分；
