@@ -20,8 +20,8 @@ assert.equal(S.approx(4.201, 4, .2), false);
 const wrongBalanceMagnitude = JSON.parse(JSON.stringify(perfect));
 wrongBalanceMagnitude.balance.staticCase.learnerForce.frictionMagnitudeCN += 200;
 const partialBalance = S.balanceScore(wrongBalanceMagnitude, scenario);
-assert.equal(partialBalance.score, 18, "a wrong A2 magnitude loses only its magnitude component");
-assert.equal(partialBalance.detail.find((item) => item.key === "static-case").points, 4);
+assert.equal(partialBalance.score, 19, "a wrong A2 friction magnitude loses only its magnitude component");
+assert.equal(partialBalance.detail.find((item) => item.key === "static-case").points, 5);
 
 const wrongZeroForce = JSON.parse(JSON.stringify(perfect));
 wrongZeroForce.balance.zeroForce = { frictionType: "static", direction: "right", frictionMagnitudeCN: 100, committed: true };

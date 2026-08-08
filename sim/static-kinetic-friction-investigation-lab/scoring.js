@@ -45,14 +45,17 @@
     score += zeroPoints; detail.push({ key: "zero-force", points: zeroPoints, max: 4, correct: zeroType && zeroDirection && zeroMagnitude, type: zeroType, direction: zeroDirection, magnitude: zeroMagnitude, expectedN: 0 });
 
     const staticCase = balance.staticCase;
+    const appliedForce = staticCase?.learnerAppliedForce;
     const staticForce = staticCase?.learnerForce;
     const expectedStaticN = Number(scenario?.balancePullN ?? scenario?.staticLimitMeanN * 0.3);
-    const expectedStaticDirection = staticCase?.appliedDirection === "left" ? "right" : "left";
+    const appliedDirection = Boolean(appliedForce?.committed && appliedForce.direction === scenario?.balancePullDirection);
+    const appliedMagnitude = Boolean(appliedForce?.committed && approx(appliedForce.magnitudeCN / 100, expectedStaticN, balanceToleranceN(expectedStaticN)));
+    const expectedStaticDirection = scenario?.balancePullDirection === "left" ? "right" : "left";
     const staticType = Boolean(staticForce?.committed && staticForce.frictionType === "static");
     const staticDirection = Boolean(staticForce?.committed && staticForce.direction === expectedStaticDirection);
     const staticMagnitude = Boolean(staticForce?.committed && approx(staticForce.frictionMagnitudeCN / 100, expectedStaticN, balanceToleranceN(expectedStaticN)));
-    const staticPoints = (staticType ? 2 : 0) + (staticDirection ? 2 : 0) + (staticMagnitude ? 2 : 0);
-    score += staticPoints; detail.push({ key: "static-case", points: staticPoints, max: 6, correct: staticType && staticDirection && staticMagnitude, type: staticType, direction: staticDirection, magnitude: staticMagnitude, expectedN: finite(expectedStaticN) ? expectedStaticN : null });
+    const staticPoints = (appliedDirection ? 1 : 0) + (appliedMagnitude ? 2 : 0) + (staticType ? 1 : 0) + (staticDirection ? 1 : 0) + (staticMagnitude ? 1 : 0);
+    score += staticPoints; detail.push({ key: "static-case", points: staticPoints, max: 6, correct: appliedDirection && appliedMagnitude && staticType && staticDirection && staticMagnitude, appliedDirection, appliedMagnitude, type: staticType, direction: staticDirection, magnitude: staticMagnitude, expectedN: finite(expectedStaticN) ? expectedStaticN : null });
 
     const breakaway = balance.breakaway;
     const maximumStatic = Boolean(breakaway?.committed && integer(breakaway.learnerMaxCN) && approx(breakaway.learnerMaxCN / 100, scenario?.staticLimitMeanN, maximumStaticBalanceToleranceN(scenario?.staticLimitMeanN)));
@@ -177,8 +180,8 @@
     const oppositeDirection = appliedDirection === "left" ? "right" : "left";
     const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 3, generatorVersion: 1, physicsVersion: 1, measurementVersion: 2, rubricVersion: 1, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
-      balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
+      schemaVersion: 4, generatorVersion: 1, physicsVersion: 1, measurementVersion: 2, rubricVersion: 1, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerAppliedForce: { direction: appliedDirection, magnitudeCN: appliedMagnitudeCN, committed: true }, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
       analysis: { staticInterval: { ...choose(candidates.static, "static"), frictionType: "static", relation: "equal" }, breakaway: { markerIndex: decoded.breakaway ? decoded.merged.findIndex((s) => s.kind === "breakaway") : 0, estimatedFsMaxCN: decoded.visibleBreakawayPeakCN || 0, identifiedAs: "maximum-static-friction" }, slowPlateau: { ...choose(candidates.slow, "slow"), estimatedFkCN: slowMeanCN }, acceleration: { ...choose(candidates.acceleration, "acceleration"), relation: "pull-greater", pullEqualsFk: "no" }, fastPlateau: { ...choose(candidates.fast, "fast"), estimatedFkCN: fastMeanCN, speedComparison: "same-average" } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))
     };

@@ -6,8 +6,8 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Measurement) {
   "use strict";
 
-  const SCHEMA_VERSION = 3;
-  const WIRE_VERSION = "s3";
+  const SCHEMA_VERSION = 4;
+  const WIRE_VERSION = "s4";
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 1;
   const MEASUREMENT_VERSION = 2;
@@ -43,6 +43,7 @@
   function forceAnswerComplete(force) { return Boolean(force?.committed === true); }
   function allBalanceAnswersCommitted(state) {
     return forceAnswerComplete(state?.balance?.zeroForce) &&
+      forceAnswerComplete(state?.balance?.staticCase?.learnerAppliedForce) &&
       forceAnswerComplete(state?.balance?.staticCase?.learnerForce) &&
       state?.balance?.breakaway?.committed === true &&
       integer(state.balance.breakaway.learnerMaxCN);
@@ -68,7 +69,7 @@
     if (state.phase === "balance") {
       if (!state.balance.zeroForce) return "zero-ready";
       if (!state.balance.staticCase) return "static-ready";
-      if (!state.balance.staticCase.learnerForce) return "static-answer-pending";
+      if (!state.balance.staticCase.learnerAppliedForce || !state.balance.staticCase.learnerForce) return "static-answer-pending";
       if (state.balance.breakaway.bestPullCN == null) return "breakaway-ready";
       if (state.balance.breakaway.learnerMaxCN == null) return "breakaway-answer-pending";
       return allBalanceAnswersCommitted(state) ? "answer-complete" : "breakaway-answer-pending";
@@ -110,11 +111,16 @@
     if (force.frictionType !== "none" && !["left", "right"].includes(force.direction)) return false;
     return true;
   }
-  function validateStaticCase(value) {
+  function validateAppliedForce(force, options = {}) {
+    if (!exactKeys(force, ["direction", "magnitudeCN", "committed"]) || !["left", "right"].includes(force.direction) || !integer(force.magnitudeCN) || force.magnitudeCN <= 0 || force.magnitudeCN > 1200 || ![true, false].includes(force.committed)) return false;
+    if (!options.allowUncommitted && force.committed !== true) return false;
+    return true;
+  }
+  function validateStaticCase(value, options = {}) {
     if (value == null) return true;
-    return exactKeys(value, ["appliedDirection", "appliedMagnitudeCN", "learnerForce"]) &&
+    return exactKeys(value, ["appliedDirection", "appliedMagnitudeCN", "learnerAppliedForce", "learnerForce"]) &&
       ["left", "right"].includes(value.appliedDirection) && integer(value.appliedMagnitudeCN) && value.appliedMagnitudeCN > 0 && value.appliedMagnitudeCN <= 1200 &&
-      validateLearnerForce(value.learnerForce);
+      validateAppliedForce(value.learnerAppliedForce, options) && validateLearnerForce(value.learnerForce, options);
   }
   function validateBreakaway(value) {
     return exactKeys(value, ["attempts", "bestPullCN", "bestDirection", "learnerMaxCN", "committed"]) &&
@@ -180,7 +186,7 @@
     if (state.fromReview && state.phase === "review") throw new Error("review-edit must target an editable section");
     if (!validateLearnerForce(state.balance.zeroForce) || !validateStaticCase(state.balance.staticCase) || !validateBreakaway(state.balance.breakaway)) throw new Error("invalid balance answers");
     if (state.balance.zeroForce?.committed !== true && state.balance.staticCase !== null) throw new Error("static task cannot precede zero-force answer");
-    if (state.balance.staticCase?.learnerForce?.committed !== true && state.balance.breakaway.bestPullCN !== null) throw new Error("breakaway trial cannot precede static-force answer");
+    if ((state.balance.staticCase?.learnerAppliedForce?.committed !== true || state.balance.staticCase?.learnerForce?.committed !== true) && state.balance.breakaway.bestPullCN !== null) throw new Error("breakaway trial cannot precede static-force answer");
     if (state.balance.breakaway.bestPullCN === null && state.balance.breakaway.learnerMaxCN !== null) throw new Error("maximum-friction answer needs a trial");
     if (state.balance.breakaway.learnerMaxCN !== null && state.balance.breakaway.committed !== true) throw new Error("maximum-friction answer must be committed");
     let decodedTrial = null;
@@ -224,7 +230,7 @@
       if (expectedKind && state.working.editDraft.kind !== expectedKind) throw new Error("review edit draft kind does not match target");
       if (target.section === "balance" && state.working.editDraft.kind !== "balance") throw new Error("invalid balance review-edit draft");
       if (target.section === "balance" && target.semanticKey === "zero-force" && !validateLearnerForce(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid zero-force review-edit draft");
-      if (target.section === "balance" && target.semanticKey === "static-case" && !validateLearnerForce(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid static-force review-edit draft");
+      if (target.section === "balance" && target.semanticKey === "static-case" && !validateStaticCase(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid static-force review-edit draft");
       if (target.section === "balance" && target.semanticKey === "breakaway" && (!integer(state.working.editDraft.value) || state.working.editDraft.value < 0 || state.working.editDraft.value > 1200)) throw new Error("invalid maximum-friction review-edit draft");
       if (target.section === "analysis" && (state.working.editDraft.kind !== "analysis-task" || !validateAnalysisTask(target.semanticKey, state.working.editDraft.value, sampleCount || 1))) throw new Error("invalid analysis review-edit draft");
       if (state.working.editDraft.kind === "prediction" && !validatePrediction(state.working.editDraft.value)) throw new Error("invalid prediction review-edit draft");
@@ -237,18 +243,44 @@
     const editingReview = Boolean(state.fromReview);
     if (!editingReview && state.phase !== "balance") throw new Error("zero-force answer outside balance phase");
     if (editingReview && (state.working?.reviewEditTarget?.section !== "balance" || state.working.reviewEditTarget.semanticKey !== "zero-force")) throw new Error("zero-force answer is not the review-edit target");
-    const next = clone(state); next.balance.zeroForce = clone(learnerForce); next.phase = editingReview ? "review" : "balance"; next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const changed = JSON.stringify(state.balance.zeroForce) !== JSON.stringify(learnerForce);
+    const next = clone(state);
+    next.balance.zeroForce = clone(learnerForce);
+    if (changed) {
+      next.balance.staticCase = null;
+      next.balance.breakaway = emptyBreakaway();
+      next.trial = null;
+      next.analysis = emptyAnalysis();
+      next.predictions = [null, null, null, null];
+    }
+    next.phase = editingReview && !changed ? "review" : "balance";
+    next.fromReview = false;
+    next.working = emptyWorking();
+    return update(next, {});
   }
-  function setStaticForceAnswer(state, applied, learnerForce) {
-    if (!exactKeys(applied, ["direction", "magnitudeCN"]) || !["left", "right"].includes(applied.direction) || !integer(applied.magnitudeCN) || applied.magnitudeCN <= 0 || applied.magnitudeCN > 1200 || !validateLearnerForce(learnerForce) || !learnerForce?.committed) throw new Error("explicit committed static-force answer required");
+  function setStaticForceAnswer(state, applied, learnerAppliedForce, learnerForce) {
+    const candidate = { appliedDirection: applied?.direction, appliedMagnitudeCN: applied?.magnitudeCN, learnerAppliedForce: clone(learnerAppliedForce), learnerForce: clone(learnerForce) };
+    if (!exactKeys(applied, ["direction", "magnitudeCN"]) || !validateStaticCase(candidate) || !candidate.learnerAppliedForce?.committed || !candidate.learnerForce?.committed) throw new Error("explicit committed applied-force and friction-force answers required");
     const editingReview = Boolean(state.fromReview);
     if (!editingReview && state.phase !== "balance") throw new Error("static-force answer outside balance phase");
     if (!editingReview && state.balance.zeroForce?.committed !== true) throw new Error("zero-force task must be complete first");
     if (editingReview && (state.working?.reviewEditTarget?.section !== "balance" || state.working.reviewEditTarget.semanticKey !== "static-case")) throw new Error("static-force answer is not the review-edit target");
-    const next = clone(state); next.balance.staticCase = { appliedDirection: applied.direction, appliedMagnitudeCN: applied.magnitudeCN, learnerForce: clone(learnerForce) }; next.phase = editingReview ? "review" : "balance"; next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const changed = JSON.stringify(state.balance.staticCase) !== JSON.stringify(candidate);
+    const next = clone(state);
+    next.balance.staticCase = candidate;
+    if (changed) {
+      next.balance.breakaway = emptyBreakaway();
+      next.trial = null;
+      next.analysis = emptyAnalysis();
+      next.predictions = [null, null, null, null];
+    }
+    next.phase = editingReview && !changed ? "review" : "balance";
+    next.fromReview = false;
+    next.working = emptyWorking();
+    return update(next, {});
   }
   function recordBreakawayTrial(state, trial) {
-    if (state.fromReview || state.phase !== "balance" || state.balance.staticCase?.learnerForce?.committed !== true) throw new Error("breakaway trial outside balance phase");
+    if (state.fromReview || state.phase !== "balance" || state.balance.staticCase?.learnerAppliedForce?.committed !== true || state.balance.staticCase?.learnerForce?.committed !== true) throw new Error("breakaway trial outside balance phase");
     if (!exactKeys(trial, ["direction", "pullCN"]) || !["left", "right"].includes(trial.direction) || !integer(trial.pullCN) || trial.pullCN <= 0 || trial.pullCN > 1200) throw new Error("invalid breakaway trial");
     const next = clone(state); const current = next.balance.breakaway || emptyBreakaway(); current.attempts += 1;
     if (current.bestPullCN === null || trial.pullCN < current.bestPullCN) { current.bestPullCN = trial.pullCN; current.bestDirection = trial.direction; }
@@ -361,7 +393,7 @@
     if (section === "analysis" && !ANALYSIS_KEYS.includes(semanticKey)) throw new Error("analysis review-edit needs a task target");
     if (section === "predict" && (!Number.isInteger(semanticKey) || semanticKey < 0 || semanticKey >= PREDICTION_COUNT || !state.predictions[semanticKey]?.committed)) throw new Error("prediction review-edit needs an existing answer target");
     const next = clone(state); next.fromReview = true; next.phase = section; next.working = next.working || emptyWorking(); next.working.reviewEditTarget = { section, semanticKey };
-    const balanceValue = semanticKey === "zero-force" ? next.balance.zeroForce : semanticKey === "static-case" ? next.balance.staticCase.learnerForce : next.balance.breakaway.learnerMaxCN;
+    const balanceValue = semanticKey === "zero-force" ? next.balance.zeroForce : semanticKey === "static-case" ? next.balance.staticCase : next.balance.breakaway.learnerMaxCN;
     next.working.editDraft = section === "balance" ? { kind: "balance", value: clone(balanceValue) } : section === "analysis" ? { kind: "analysis-task", value: clone(next.analysis[semanticKey]) } : section === "predict" ? { kind: "prediction", value: clone(next.predictions[semanticKey]) } : null;
     return update(next, {});
   }
@@ -386,10 +418,16 @@
   function encodeCode(table, value) { return value == null ? null : table[value]; }
   function decodeCode(table, value) { if (value == null) return null; if (!Object.hasOwn(table, value)) throw new Error("invalid enum code"); return table[value]; }
   function encodeForce(force) { return force == null ? null : [encodeCode(TYPE_CODE, force.frictionType), encodeCode(DIR_CODE, force.direction), force.frictionMagnitudeCN, force.committed ? 1 : 0]; }
+  function encodeAppliedForce(force) { return force == null ? null : [encodeCode(DIR_CODE, force.direction), force.magnitudeCN, force.committed ? 1 : 0]; }
   function decodeForce(value) {
     if (value == null) return null;
     if (!Array.isArray(value) || (value.length !== 4 && value.length !== 5)) throw new Error("invalid force wire");
     return { frictionType: decodeCode(TYPE_FROM_CODE, value[0]), direction: decodeCode(DIR_FROM_CODE, value[1]), frictionMagnitudeCN: value[2], committed: value[value.length - 1] === 1 };
+  }
+  function decodeAppliedForce(value) {
+    if (value == null) return null;
+    if (!Array.isArray(value) || value.length !== 3) throw new Error("invalid applied-force wire");
+    return { direction: decodeCode(DIR_FROM_CODE, value[0]), magnitudeCN: value[1], committed: value[2] === 1 };
   }
   function encodeAnalysisTask(key, value) {
     if (!value) return null;
@@ -413,19 +451,19 @@
   function compactAnswer(state, includeWorking) {
     validateState(state, { skipVariant: state.phase === "review" });
     const breakaway = state.balance.breakaway;
-    const answer = { w: WIRE_VERSION, v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { z: encodeForce(state.balance.zeroForce), s: state.balance.staticCase ? [encodeCode(DIR_CODE, state.balance.staticCase.appliedDirection), state.balance.staticCase.appliedMagnitudeCN, encodeForce(state.balance.staticCase.learnerForce)] : null, r: [breakaway.attempts, breakaway.bestPullCN, encodeCode(DIR_CODE, breakaway.bestDirection), breakaway.learnerMaxCN, breakaway.committed ? 1 : 0] }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null) };
+    const answer = { w: WIRE_VERSION, v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { z: encodeForce(state.balance.zeroForce), s: state.balance.staticCase ? [encodeCode(DIR_CODE, state.balance.staticCase.appliedDirection), state.balance.staticCase.appliedMagnitudeCN, encodeAppliedForce(state.balance.staticCase.learnerAppliedForce), encodeForce(state.balance.staticCase.learnerForce)] : null, r: [breakaway.attempts, breakaway.bestPullCN, encodeCode(DIR_CODE, breakaway.bestDirection), breakaway.learnerMaxCN, breakaway.committed ? 1 : 0] }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null) };
     if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null };
     return answer;
   }
   function migrateLegacyAnswer(answer, kind) {
-    if (!answer || !["s1", "s2"].includes(answer.w)) return answer;
+    if (!answer || !["s1", "s2", "s3"].includes(answer.w)) return answer;
     if (kind === "review") throw new Error("legacy review cannot be safely migrated to the new Part A contract");
     return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { i: null, b: null, l: null, c: null, f: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null } };
   }
   function validateWireAnswer(answer, kind) {
     const answerKeys = ["w", "v", "s", "p", "q", "R", "b", "t", "a", "P", ...(kind === "draft" ? ["k"] : [])];
     if (!exactKeys(answer, answerKeys) || answer.w !== WIRE_VERSION || !Array.isArray(answer.v) || answer.v.length !== 5 || answer.v[0] !== SCHEMA_VERSION || answer.v[1] !== GENERATOR_VERSION || answer.v[2] !== PHYSICS_VERSION || answer.v[3] !== MEASUREMENT_VERSION || answer.v[4] !== RUBRIC_VERSION || !integer(answer.s) || answer.s < 0 || answer.s > 0xffffffff || !PHASES.includes(answer.p) || typeof answer.q !== "string" || typeof answer.R !== "boolean") throw new Error("invalid answer wire header");
-    if (!exactKeys(answer.b, ["r", "s", "z"]) || (answer.b.z !== null && (!Array.isArray(answer.b.z) || (answer.b.z.length !== 4 && answer.b.z.length !== 5))) || (answer.b.s !== null && (!Array.isArray(answer.b.s) || answer.b.s.length !== 3)) || !Array.isArray(answer.b.r) || answer.b.r.length !== 5) throw new Error("invalid answer balance wire");
+    if (!exactKeys(answer.b, ["r", "s", "z"]) || (answer.b.z !== null && (!Array.isArray(answer.b.z) || (answer.b.z.length !== 4 && answer.b.z.length !== 5))) || (answer.b.s !== null && (!Array.isArray(answer.b.s) || answer.b.s.length !== 4)) || !Array.isArray(answer.b.r) || answer.b.r.length !== 5) throw new Error("invalid answer balance wire");
     if (!answer.a || typeof answer.a !== "object" || Object.keys(answer.a).sort().join(",") !== Object.values(ANALYSIS_WIRE_KEYS).sort().join(",")) throw new Error("invalid answer analysis wire");
     if (!Array.isArray(answer.P) || answer.P.length !== PREDICTION_COUNT) throw new Error("invalid answer prediction wire");
     if (answer.t !== null && (!exactKeys(answer.t, ["d", "n", "x", "b"]) || !integer(answer.t.d) || !integer(answer.t.n) || typeof answer.t.x !== "string" || (answer.t.b !== null && (!Array.isArray(answer.t.b) || answer.t.b.length !== 4)))) throw new Error("invalid answer trial wire");
@@ -433,7 +471,7 @@
     if (kind === "review" && Object.hasOwn(answer, "k")) throw new Error("review answer contains working wire");
     if (kind === "review" && (answer.p !== "review" || answer.q !== "complete" || answer.R !== false)) throw new Error("review answer has a noncanonical header");
     if (answer.b.z !== null && (!Number.isInteger(answer.b.z[2]) || ![0, 1].includes(answer.b.z[answer.b.z.length - 1]))) throw new Error("invalid zero-force wire");
-    if (answer.b.s !== null && (!Object.hasOwn(DIR_FROM_CODE, answer.b.s[0]) || !Number.isInteger(answer.b.s[1]) || answer.b.s[1] <= 0 || answer.b.s[1] > 1200 || answer.b.s[2] !== null && (!Array.isArray(answer.b.s[2]) || (answer.b.s[2].length !== 4 && answer.b.s[2].length !== 5)))) throw new Error("invalid static-force wire");
+    if (answer.b.s !== null && (!Object.hasOwn(DIR_FROM_CODE, answer.b.s[0]) || !Number.isInteger(answer.b.s[1]) || answer.b.s[1] <= 0 || answer.b.s[1] > 1200 || !Array.isArray(answer.b.s[2]) || answer.b.s[2].length !== 3 || !Object.hasOwn(DIR_FROM_CODE, answer.b.s[2][0]) || !Number.isInteger(answer.b.s[2][1]) || answer.b.s[2][1] <= 0 || answer.b.s[2][1] > 1200 || ![0, 1].includes(answer.b.s[2][2]) || !Array.isArray(answer.b.s[3]) || (answer.b.s[3].length !== 4 && answer.b.s[3].length !== 5))) throw new Error("invalid static-force wire");
     if (!Number.isInteger(answer.b.r[0]) || answer.b.r[0] < 0 || answer.b.r[0] > 1000 || (answer.b.r[1] !== null && (!Number.isInteger(answer.b.r[1]) || answer.b.r[1] <= 0 || answer.b.r[1] > 1200)) || (answer.b.r[2] !== null && !Object.hasOwn(DIR_FROM_CODE, answer.b.r[2])) || (answer.b.r[3] !== null && (!Number.isInteger(answer.b.r[3]) || answer.b.r[3] < 0 || answer.b.r[3] > 1200)) || ![0, 1].includes(answer.b.r[4])) throw new Error("invalid breakaway wire");
     for (const item of answer.P) if (item !== null && (!Array.isArray(item) || item.length !== 7 || ![0, 1].includes(item[6]))) throw new Error("invalid prediction wire");
     const analysisLengths = { i: 4, b: 3, l: 3, c: 4, f: 4 };
@@ -447,7 +485,7 @@
     ANALYSIS_KEYS.forEach((key) => { analysis[key] = decodeAnalysisTask(key, answer.a?.[ANALYSIS_WIRE_KEYS[key]] || null); });
     const staticWire = answer.b?.s;
     const breakawayWire = answer.b?.r || [0, null, null, null, 0];
-    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerForce: decodeForce(staticWire[2]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null } };
+    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null } };
   }
   function encodeDraft(state) { validateState(state); return compactAnswer(state, true); }
   function encodeReview(state) { const review = normalizeReview(state); validateState({ ...review, working: emptyWorking(), variant: "complete" }, { skipVariant: true }); return compactAnswer({ ...review, working: emptyWorking() }, false); }

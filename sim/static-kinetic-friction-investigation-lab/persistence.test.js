@@ -19,12 +19,13 @@ function roundTrip(state, label) {
   return restored;
 }
 function force(frictionType, direction, frictionMagnitudeCN, committed = true) { return { frictionType, direction, frictionMagnitudeCN, committed }; }
+function applied(direction, magnitudeCN, committed = true) { return { direction, magnitudeCN, committed }; }
 function opposite(direction) { return direction === "left" ? "right" : "left"; }
 function finishBalance() {
   let state = roundTrip(P.freshState(scenario.seed), "zero-ready");
   state = roundTrip(P.transitions.setZeroForceAnswer(state, force("none", "none", 0)), "zero answer-complete");
   assert.equal(state.variant, "static-ready");
-  state = roundTrip(P.transitions.setStaticForceAnswer(state, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, force("static", opposite(scenario.balancePullDirection), scenario.balancePullCN)), "static answer-complete");
+  state = roundTrip(P.transitions.setStaticForceAnswer(state, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, applied(scenario.balancePullDirection, scenario.balancePullCN), force("static", opposite(scenario.balancePullDirection), scenario.balancePullCN)), "static answer-complete");
   assert.equal(state.variant, "breakaway-ready");
   state = roundTrip(P.transitions.recordBreakawayTrial(state, { direction: "left", pullCN: 700 }), "breakaway first trial");
   state = roundTrip(P.transitions.recordBreakawayTrial(state, { direction: "right", pullCN: 680 }), "breakaway repeated better trial");
@@ -38,7 +39,7 @@ function finishBalance() {
 let state = finishBalance();
 assert.equal(P.transitions.setTare, undefined, "learner tare is not a public transition");
 assert.throws(() => P.transitions.setZeroForceAnswer(P.freshState(1), force("none", "none", 0, false)), /committed/);
-assert.throws(() => P.transitions.setStaticForceAnswer(P.freshState(1), { direction: "right", magnitudeCN: 100 }, force("static", "left", 100)), /zero-force/);
+assert.throws(() => P.transitions.setStaticForceAnswer(P.freshState(1), { direction: "right", magnitudeCN: 100 }, applied("right", 100), force("static", "left", 100)), /zero-force/);
 assert.throws(() => P.transitions.recordBreakawayTrial(P.freshState(1), { direction: "right", pullCN: 500 }), /breakaway/);
 assert.throws(() => P.transitions.setBreakawayAnswer(P.freshState(1), 100), /find breakaway/);
 
@@ -72,9 +73,22 @@ scenario.predictions.forEach((spec, index) => {
 state = P.transitions.setPhase(state, "review");
 assert.equal(P.hasCompleteAnswer(state), true);
 
+// A1 and A2 are normal editable answers too: a changed earlier answer clears
+// only the downstream authority that can no longer be trusted.
+let normalEdit = P.transitions.setZeroForceAnswer(finishBalance(), force("static", "right", 100));
+assert.equal(normalEdit.phase, "balance");
+assert.equal(normalEdit.balance.staticCase, null);
+assert.equal(normalEdit.trial, null);
+normalEdit = P.transitions.setZeroForceAnswer(normalEdit, force("none", "none", 0));
+normalEdit = P.transitions.setStaticForceAnswer(normalEdit, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, applied(scenario.balancePullDirection, scenario.balancePullCN), force("static", opposite(scenario.balancePullDirection), scenario.balancePullCN));
+normalEdit = P.transitions.recordBreakawayTrial(normalEdit, { direction: scenario.balancePullDirection, pullCN: 700 });
+normalEdit = P.transitions.setStaticForceAnswer(normalEdit, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, applied(opposite(scenario.balancePullDirection), scenario.balancePullCN + 50), force("none", "none", 0));
+assert.equal(normalEdit.balance.breakaway.bestPullCN, null);
+assert.equal(normalEdit.balance.staticCase.learnerAppliedForce.direction, opposite(scenario.balancePullDirection));
+
 for (const [key, save] of [
   ["zero-force", (edit) => P.transitions.setZeroForceAnswer(edit, force("none", "none", 0))],
-  ["static-case", (edit) => P.transitions.setStaticForceAnswer(edit, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, force("static", opposite(scenario.balancePullDirection), scenario.balancePullCN))],
+  ["static-case", (edit) => P.transitions.setStaticForceAnswer(edit, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, applied(scenario.balancePullDirection, scenario.balancePullCN), force("static", opposite(scenario.balancePullDirection), scenario.balancePullCN))],
   ["breakaway", (edit) => P.transitions.setBreakawayAnswer(edit, state.balance.breakaway.learnerMaxCN)]
 ]) {
   const edit = roundTrip(P.transitions.enterReviewEdit(state, "balance", key), `review-edit ${key}`);
@@ -90,7 +104,7 @@ const predictionDraft = P.transitions.setPrediction(predictionEdit, 1, { ...stat
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(predictionDraft, "prediction partial review draft")), state, "prediction review draft cancellation restores authority");
 
 const review = P.encodeReview(state);
-assert.equal(review.w, "s3");
+assert.equal(review.w, "s4");
 assert.ok(Buffer.byteLength(JSON.stringify({ version: 1, activity: ACTIVITY, kind: "review", answer: review }), "utf8") < 4000, "canonical review fits suspend_data");
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: review }, scenario, "review"), P.normalizeReview(state));
 assert.throws(() => P.validateState({ ...state, balance: { ...state.balance, tareCorrectionCN: 3 } }), /invalid/);

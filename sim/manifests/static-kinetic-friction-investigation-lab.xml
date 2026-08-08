@@ -8,8 +8,8 @@
   <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
   <organizations default="ORG-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB">
     <organization identifier="ORG-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB">
-      <title>靜摩擦力與滑動摩擦力：測力計探究實驗室</title>
-      <item identifier="ITEM-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB" identifierref="RES-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB"><title>靜摩擦力與滑動摩擦力：測力計探究實驗室</title></item>
+      <title>靜摩擦力與滑動摩擦力探究實驗室</title>
+      <item identifier="ITEM-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB" identifierref="RES-STATIC-KINETIC-FRICTION-INVESTIGATION-LAB"><title>靜摩擦力與滑動摩擦力探究實驗室</title></item>
     </organization>
   </organizations>
   <resources>

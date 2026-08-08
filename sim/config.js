@@ -96,7 +96,7 @@ const simulationList = [
     status: "active"
   },
   {
-    title: "靜摩擦力與滑動摩擦力：測力計探究實驗室",
+    title: "靜摩擦力與滑動摩擦力探究實驗室",
     folder: "static-kinetic-friction-investigation-lab",
     categories: ["Mechanics"],
     description: "拖動測力計拉動物體，利用同步拉力—時間及速度—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
