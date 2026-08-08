@@ -18,10 +18,21 @@ assert.equal(S.approx(4.2, 4, .2), true);
 assert.equal(S.approx(4.201, 4, .2), false);
 
 const wrongBalanceMagnitude = JSON.parse(JSON.stringify(perfect));
-wrongBalanceMagnitude.balance.observations.find((item) => item.id === "static-low").learnerForce.frictionMagnitudeCN += 200;
+wrongBalanceMagnitude.balance.staticCase.learnerForce.frictionMagnitudeCN += 200;
 const partialBalance = S.balanceScore(wrongBalanceMagnitude, scenario);
-assert.equal(partialBalance.score, 17, "a wrong magnitude loses only the 3-point magnitude component");
-assert.equal(partialBalance.detail.find((item) => item.key === "static-low").points, 4);
+assert.equal(partialBalance.score, 18, "a wrong A2 magnitude loses only its magnitude component");
+assert.equal(partialBalance.detail.find((item) => item.key === "static-case").points, 4);
+
+const wrongZeroForce = JSON.parse(JSON.stringify(perfect));
+wrongZeroForce.balance.zeroForce = { frictionType: "static", direction: "right", frictionMagnitudeCN: 100, committed: true };
+assert.equal(S.balanceScore(wrongZeroForce, scenario).detail.find((item) => item.key === "zero-force").points, 0, "A1 must explicitly identify zero friction");
+
+const justInsideMaximum = JSON.parse(JSON.stringify(perfect));
+justInsideMaximum.balance.breakaway.learnerMaxCN = Math.round((scenario.staticLimitMeanN + S.maximumStaticBalanceToleranceN(scenario.staticLimitMeanN) - .01) * 100);
+assert.equal(S.balanceScore(justInsideMaximum, scenario).detail.find((item) => item.key === "maximum-static-friction").points, 10);
+const justOutsideMaximum = JSON.parse(JSON.stringify(perfect));
+justOutsideMaximum.balance.breakaway.learnerMaxCN = Math.round((scenario.staticLimitMeanN + S.maximumStaticBalanceToleranceN(scenario.staticLimitMeanN) + .01) * 100);
+assert.equal(S.balanceScore(justOutsideMaximum, scenario).detail.find((item) => item.key === "maximum-static-friction").points, 0);
 
 const wrongC1Relation = JSON.parse(JSON.stringify(perfect));
 wrongC1Relation.analysis.staticInterval.relation = "pull-greater";

@@ -12,6 +12,8 @@
   const ZERO_FRICTION_TOLERANCE_N = 0.10;
   const BALANCE_ABS_TOLERANCE_N = 0.15;
   const BALANCE_REL_TOLERANCE = 0.05;
+  const MAX_STATIC_BALANCE_ABS_TOLERANCE_N = 0.30;
+  const MAX_STATIC_BALANCE_REL_TOLERANCE = 0.05;
   const BREAKAWAY_TIME_TOLERANCE_S = 0.16;
   const FS_MAX_ABS_TOLERANCE_N = 0.20;
   const FS_MAX_REL_TOLERANCE = 0.04;
@@ -23,33 +25,39 @@
   const FLOAT_EPSILON = 1e-9;
   const forceByKey = Object.freeze({});
   function finite(v) { return Number.isFinite(v); }
+  function integer(v) { return Number.isInteger(v); }
   function balanceToleranceN(expectedN) { return Math.max(BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE * Math.abs(expectedN)); }
+  function maximumStaticBalanceToleranceN(expectedN) { return Math.max(MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE * Math.abs(expectedN)); }
   function fsToleranceN(expectedN) { return Math.max(FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE * Math.abs(expectedN)); }
   function fkToleranceN(expectedN) { return Math.max(FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE * Math.abs(expectedN)); }
   function platformToleranceN(referenceN) { return Math.max(PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL * Math.abs(referenceN)); }
   function approx(actual, expected, tolerance) { return finite(actual) && finite(expected) && Math.abs(actual - expected) <= tolerance + FLOAT_EPSILON; }
-  function observationList(answer) { return answer?.balance?.observations || answer?.observations || []; }
   function answerAnalysis(answer) { return answer?.analysis || {}; }
   function balanceScore(answer, scenario) {
-    const observations = observationList(answer);
-    const zero = observations.find((item) => item.id === "zero-pull" || item.measuredPullCN === 0);
-    const nonzero = observations.filter((item) => item.id === "static-low" || item.id === "static-high" || item.id === "static-1").sort((a, b) => a.measuredPullCN - b.measuredPullCN);
+    const balance = answer?.balance || {};
     const detail = [];
     let score = 0;
-    const zeroForce = zero?.learnerForce;
-    const zeroCorrect = Boolean(zero?.learnerForce?.committed && zeroForce.frictionType === "none" && zeroForce.direction === "none" && Math.abs(zeroForce.frictionMagnitudeCN / 100) <= ZERO_FRICTION_TOLERANCE_N);
-    if (zeroCorrect) score += 6;
-    detail.push({ key: "zero", points: zeroCorrect ? 6 : 0, max: 6, correct: zeroCorrect });
-    for (let index = 0; index < 2; index += 1) {
-      const observation = nonzero[index];
-      const force = observation?.learnerForce;
-      const expectedN = observation ? observation.measuredPullCN / 100 : NaN;
-      const type = Boolean(observation && force?.committed && force.frictionType === "static");
-      const direction = Boolean(observation && force?.committed && force.direction === "left");
-      const magnitude = Boolean(observation && force?.committed && approx(force.frictionMagnitudeCN / 100, expectedN, balanceToleranceN(expectedN)));
-      const points = (type ? 2 : 0) + (direction ? 2 : 0) + (magnitude ? 3 : 0);
-      score += points; detail.push({ key: index === 0 ? "static-low" : "static-high", points, max: 7, correct: type && direction && magnitude, type, direction, magnitude, expectedN: finite(expectedN) ? expectedN : null });
-    }
+    const zero = balance.zeroForce;
+    const zeroType = Boolean(zero?.committed && zero.frictionType === "none");
+    const zeroDirection = Boolean(zero?.committed && zero.direction === "none");
+    const zeroMagnitude = Boolean(zero?.committed && approx((zero.frictionMagnitudeCN || 0) / 100, 0, ZERO_FRICTION_TOLERANCE_N));
+    const zeroPoints = (zeroType ? 1 : 0) + (zeroDirection ? 1 : 0) + (zeroMagnitude ? 2 : 0);
+    score += zeroPoints; detail.push({ key: "zero-force", points: zeroPoints, max: 4, correct: zeroType && zeroDirection && zeroMagnitude, type: zeroType, direction: zeroDirection, magnitude: zeroMagnitude, expectedN: 0 });
+
+    const staticCase = balance.staticCase;
+    const staticForce = staticCase?.learnerForce;
+    const expectedStaticN = Number(scenario?.balancePullN ?? scenario?.staticLimitMeanN * 0.3);
+    const expectedStaticDirection = staticCase?.appliedDirection === "left" ? "right" : "left";
+    const staticType = Boolean(staticForce?.committed && staticForce.frictionType === "static");
+    const staticDirection = Boolean(staticForce?.committed && staticForce.direction === expectedStaticDirection);
+    const staticMagnitude = Boolean(staticForce?.committed && approx(staticForce.frictionMagnitudeCN / 100, expectedStaticN, balanceToleranceN(expectedStaticN)));
+    const staticPoints = (staticType ? 2 : 0) + (staticDirection ? 2 : 0) + (staticMagnitude ? 2 : 0);
+    score += staticPoints; detail.push({ key: "static-case", points: staticPoints, max: 6, correct: staticType && staticDirection && staticMagnitude, type: staticType, direction: staticDirection, magnitude: staticMagnitude, expectedN: finite(expectedStaticN) ? expectedStaticN : null });
+
+    const breakaway = balance.breakaway;
+    const maximumStatic = Boolean(breakaway?.committed && integer(breakaway.learnerMaxCN) && approx(breakaway.learnerMaxCN / 100, scenario?.staticLimitMeanN, maximumStaticBalanceToleranceN(scenario?.staticLimitMeanN)));
+    const breakawayPoints = maximumStatic ? 10 : 0;
+    score += breakawayPoints; detail.push({ key: "maximum-static-friction", points: breakawayPoints, max: 10, correct: maximumStatic, expectedN: finite(scenario?.staticLimitMeanN) ? scenario.staticLimitMeanN : null, toleranceN: finite(scenario?.staticLimitMeanN) ? maximumStaticBalanceToleranceN(scenario.staticLimitMeanN) : null, observedN: integer(breakaway?.bestPullCN) ? breakaway.bestPullCN / 100 : null });
     return { score, maxScore: 20, detail };
   }
   function experimentScore(answer) {
@@ -145,7 +153,6 @@
     const score = Math.max(0, Math.min(100, balance.score + experiment.score + analysis.score + predictions.score));
     const passed = score >= PASSING_SCORE && balance.score >= 10 && analysis.score >= 20 && predictions.score >= 8;
     const feedbackItems = [];
-    if (balance.detail.find((item) => item.key === "zero" && !item.correct)) feedbackItems.push("沒有水平外力時，應由力平衡判斷水平摩擦力是否存在。");
     if (analysis.detail.find((item) => item.key === "acceleration" && !item.correct)) feedbackItems.push("加速區段的測力計讀數還包括令物體加速的合力，不能直接當作滑動摩擦力。");
     if (analysis.detail.find((item) => item.key === "fast" && !item.correct)) feedbackItems.push("兩段近似勻速區段可用平均拉力估計滑動摩擦力；細微波動不代表平均值隨速度改變。");
     return { score, maxScore: 100, passed, completed: Boolean(answer), breakdown: { balance, experiment, analysis, predictions }, feedbackItems };
@@ -166,17 +173,15 @@
     const fast = candidates.fast[0];
     const slowMeanCN = Math.round((slow?.stats.meanPullN || scenario.kineticFrictionMeanN) * 100);
     const fastMeanCN = Math.round((fast?.stats.meanPullN || scenario.kineticFrictionMeanN) * 100);
-    const observations = [
-      { id: "zero-pull", measuredPullCN: 0, measuredVelocityMMps: 0, learnerForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true, operationDeltaCN: 0 } },
-      { id: "static-low", measuredPullCN: Math.round(scenario.staticLimitMeanN * 0.35 * 100), measuredVelocityMMps: 0, learnerForce: { frictionType: "static", direction: "left", frictionMagnitudeCN: Math.round(scenario.staticLimitMeanN * 0.35 * 100), committed: true, operationDeltaCN: 0 } },
-      { id: "static-high", measuredPullCN: Math.round(scenario.staticLimitMeanN * 0.55 * 100), measuredVelocityMMps: 0, learnerForce: { frictionType: "static", direction: "left", frictionMagnitudeCN: Math.round(scenario.staticLimitMeanN * 0.55 * 100), committed: true, operationDeltaCN: 0 } }
-    ];
+    const appliedDirection = scenario.balancePullDirection || "right";
+    const oppositeDirection = appliedDirection === "left" ? "right" : "left";
+    const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 1, generatorVersion: 1, physicsVersion: 1, measurementVersion: 1, rubricVersion: 1, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
-      balance: { tared: true, tareCorrectionCN: 0, observations }, trial,
+      schemaVersion: 3, generatorVersion: 1, physicsVersion: 1, measurementVersion: 2, rubricVersion: 1, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
       analysis: { staticInterval: { ...choose(candidates.static, "static"), frictionType: "static", relation: "equal" }, breakaway: { markerIndex: decoded.breakaway ? decoded.merged.findIndex((s) => s.kind === "breakaway") : 0, estimatedFsMaxCN: decoded.visibleBreakawayPeakCN || 0, identifiedAs: "maximum-static-friction" }, slowPlateau: { ...choose(candidates.slow, "slow"), estimatedFkCN: slowMeanCN }, acceleration: { ...choose(candidates.acceleration, "acceleration"), relation: "pull-greater", pullEqualsFk: "no" }, fastPlateau: { ...choose(candidates.fast, "fast"), estimatedFkCN: fastMeanCN, speedComparison: "same-average" } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))
     };
   }
-  return Object.freeze({ PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
+  return Object.freeze({ PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, maximumStaticBalanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
 });

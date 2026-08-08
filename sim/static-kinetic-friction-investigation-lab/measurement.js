@@ -10,7 +10,6 @@
   const GRAPH_SAMPLE_DT_MS = 40;
   const MAX_TRIAL_DURATION_S = 12;
   const MAX_REGULAR_SAMPLE_COUNT = 301;
-  const FORCE_SENSOR_BIAS_MAX_ABS_N = 0.04;
   const FORCE_SENSOR_TAU_S = 0.025;
   const VELOCITY_SENSOR_TAU_S = 0.040;
   const FORCE_SENSOR_NOISE_SIGMA_N = 0.015;
@@ -78,13 +77,8 @@
   }
   function createMeasurementState(scenario, options = {}) {
     const seed = Number.isInteger(options.sensorSeed) ? options.sensorSeed >>> 0 : scenario.sensorSeed;
-    const rng = Generator.createRng(seed);
-    const forceBiasN = (rng.next() * 2 - 1) * FORCE_SENSOR_BIAS_MAX_ABS_N;
     return {
       sensorSeed: seed,
-      forceBiasN,
-      tareCorrectionCN: Number.isInteger(options.tareCorrectionCN) ? options.tareCorrectionCN : 0,
-      tared: Boolean(options.tared),
       forceFilteredN: 0,
       velocityFilteredMps: 0,
       forceNoise: 0,
@@ -106,19 +100,8 @@
     next.velocityFilteredMps = lowPass(state.velocityFilteredMps, Math.max(0, finite(physical?.block?.velocityMps)), dt, VELOCITY_SENSOR_TAU_S);
     return { state: next, live: liveReading(next) };
   }
-  function tare(state, physical = null, scenario = null) {
-    if (physical && scenario) {
-      const tension = finite(physical.connector?.tensionPhysicalN);
-      const velocity = Math.abs(finite(physical.block?.velocityMps));
-      const slack = (physical.connector?.extensionM ?? 0) <= 1e-9;
-      if (physical.contact?.mode !== "static" || velocity > 1e-5 || !slack || tension >= 0.02) throw new Error("tare requires a static slack state");
-    }
-    const correctionCN = Math.round((state.forceFilteredN + state.forceBiasN) * 100);
-    return { ...cloneMeasurementState(state), tareCorrectionCN: correctionCN, tared: true, forceNoise: 0, velocityNoise: 0 };
-  }
   function liveReading(state) {
-    const correctionN = state.tareCorrectionCN / 100;
-    const forceN = Math.max(0, state.forceFilteredN + state.forceBiasN - (state.tared ? correctionN : 0));
+    const forceN = Math.max(0, state.forceFilteredN);
     return { forceN, velocityMps: Math.max(0, state.velocityFilteredMps), forceCN: Math.round(forceN * 100), velocityMMps: Math.round(Math.max(0, state.velocityFilteredMps) * 1000) };
   }
   function captureSample(state, physical, scenario, options = {}) {
@@ -135,10 +118,9 @@
         const velocityRng = options.velocityRng || Generator.createRng(Generator.deriveSeed(next.sensorSeed, `v:${index}`));
         next.forceNoise = stepCorrelatedNoise(next.forceNoise, forceRng, FORCE_SENSOR_NOISE_RHO);
         next.velocityNoise = stepCorrelatedNoise(next.velocityNoise, velocityRng, VELOCITY_NOISE_RHO);
-        const correctionN = next.tared ? next.tareCorrectionCN / 100 : 0;
         const forceNoiseN = clamp(FORCE_SENSOR_NOISE_SIGMA_N * next.forceNoise, -FORCE_SENSOR_NOISE_MAX_ABS_N, FORCE_SENSOR_NOISE_MAX_ABS_N);
         const velocityNoiseMps = clamp(VELOCITY_NOISE_SIGMA_MPS * next.velocityNoise, -VELOCITY_NOISE_MAX_ABS_MPS, VELOCITY_NOISE_MAX_ABS_MPS);
-        const forceSignalN = Math.max(0, next.forceFilteredN + next.forceBiasN - correctionN);
+        const forceSignalN = Math.max(0, next.forceFilteredN);
         const velocitySignalMps = Math.max(0, next.velocityFilteredMps);
         const measuredPullN = quantize(Math.max(0, forceSignalN + forceNoiseN), FORCE_SENSOR_RESOLUTION_N);
         const measuredVelocityMps = quantize(Math.max(0, next.velocityFilteredMps + velocityNoiseMps), VELOCITY_RESOLUTION_MPS);
@@ -427,13 +409,13 @@
   }
   return Object.freeze({
     GRAPH_SAMPLE_DT_S, GRAPH_SAMPLE_DT_MS, MAX_TRIAL_DURATION_S, MAX_REGULAR_SAMPLE_COUNT,
-    FORCE_SENSOR_BIAS_MAX_ABS_N, FORCE_SENSOR_TAU_S, VELOCITY_SENSOR_TAU_S,
+    FORCE_SENSOR_TAU_S, VELOCITY_SENSOR_TAU_S,
     FORCE_SENSOR_NOISE_SIGMA_N, FORCE_SENSOR_RESOLUTION_N, FORCE_SENSOR_NOISE_RHO, FORCE_SENSOR_NOISE_MAX_ABS_N,
     VELOCITY_NOISE_SIGMA_MPS, VELOCITY_RESOLUTION_MPS, VELOCITY_NOISE_MAX_ABS_MPS, VELOCITY_NOISE_RHO,
     MAX_FORCE_CN, MIN_VELOCITY_MMPS, MAX_VELOCITY_MMPS, MIN_STATIC_OBSERVATION_SEPARATION_N, MIN_PREBREAK_DURATION_S, MIN_FORCE_RISE_N, MAX_LOADING_SLOPE_N_PER_S,
     MIN_POSTBREAK_MOVE_S, MIN_PLATEAU_DURATION_S, MAX_PLATEAU_ABS_SLOPE_MPS2, MIN_MOVING_SPEED_MPS, MIN_ACCELERATION_DURATION_S, MIN_ACCELERATION_DELTA_V_MPS, MIN_ACCELERATION_SLOPE_MPS2, MAX_PLATEAU_FORCE_CV, MAX_OTHER_PHASE_FRACTION, MIN_STATIC_RISE_DURATION_S, MIN_STATIC_RISE_FORCE_DELTA_N, MIN_STATIC_RISE_FORCE_SLOPE_N_PER_S, MAX_STATIC_ABS_VELOCITY_MPS,
     SLOW_SPEED_MIN_MPS, SLOW_SPEED_MAX_MPS, FAST_SPEED_MIN_MPS, FAST_SPEED_MAX_MPS, MIN_SPEED_DIFFERENCE_MPS,
-    lowPass, stepCorrelatedNoise, gaussian, createMeasurementState, cloneMeasurementState, step, tare, liveReading, captureSample, enrichBreakaway, continuousMovingDuration,
+    lowPass, stepCorrelatedNoise, gaussian, createMeasurementState, cloneMeasurementState, step, liveReading, captureSample, enrichBreakaway, continuousMovingDuration,
     createRecorder, stopRecorder, trimmedMean, linearSlope, standardDeviation, otherPhaseFraction, classifyPairForTarget, isStaticRise, isVelocityPlateau, isAccelerationWindow, packTrace, unpackTrace, mergeCanonicalSamples, intervalSamples, intervalStats, findCandidateWindows, assessTrial
   });
 });

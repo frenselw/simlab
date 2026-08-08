@@ -7,6 +7,9 @@ for (const scenario of scenarios) {
   assert.ok(scenario.staticLimitMeanN >= 4.5 && scenario.staticLimitMeanN <= 9);
   assert.ok(scenario.kineticFrictionMeanN >= 3.2 && scenario.kineticFrictionMeanN <= 7);
   assert.ok(scenario.staticLimitMeanN - scenario.kineticFrictionMeanN >= .8);
+  assert.ok(["left", "right"].includes(scenario.balancePullDirection));
+  assert.ok(scenario.balancePullN > 0 && scenario.balancePullN < scenario.staticLimitMeanN, "A2 supplied pull stays below maximum static friction");
+  assert.equal(scenario.balancePullCN, Math.round(scenario.balancePullN * 100));
   assert.equal(scenario.predictions.length, 4);
   assert.deepEqual(scenario, G.generateScenario({ seed: scenario.seed }));
   const values = Array.from({ length: 100 }, (_, i) => G.surfaceVariation(i * .01, scenario.surfaceProfile));

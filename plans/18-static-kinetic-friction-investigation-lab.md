@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`3`（2026-08-08；補充 static-rise pair classifier 的局部力斜率邊界與 regression contract）。
+> Plan revision：`5`（2026-08-08；Part A 徹底改為三個不使用測力計的受力圖／試拉任務，並同步更新 generator、scoring、persistence、touch contract 及 browser regression）。
 
 本計劃必須遵從：
 
@@ -52,8 +52,8 @@
 
 完成活動後，學生應能：
 
-1. 說明粗糙面存在並不代表物體一定受到摩擦力；
-2. 由物體靜止及水平方向力平衡，推出無水平外力時：
+1. 說明摩擦力會因應接觸面的相對滑動趨勢而調整；
+2. 由物體沒有水平外力及水平方向力平衡，推出：
 
    \[
    f_s=0
@@ -68,8 +68,8 @@
    \[
    0\leq f_s\leq f_{s,\max}
    \]
-5. 由測力計讀數峰值及物體開始運動的時刻，估計最大靜摩擦力；
-6. 由物體近似勻速滑動，推出：
+5. 透過逐步增加外力、反覆向左／向右試拉，找出物體開始滑動的臨界值，並估計最大靜摩擦力；
+6. 由 Part B 的物體近似勻速滑動，推出：
 
    \[
    f_k\approx F_{\text{拉}}
@@ -89,28 +89,24 @@
 
 學生需要：
 
-1. 將虛擬測力計歸零；
-2. 記錄無水平拉力時的靜止狀態；
-3. 記錄兩個不同非零拉力、但物體仍未移動的狀態；
-4. 為三個靜止狀態建立水平受力圖；
-5. 實際拖動測力計，逐步增加拉力至物體開始滑動；
-6. 保持一段低速近似勻速滑動；
-7. 將物體加速至較高速度；
-8. 再保持一段較高速近似勻速滑動；
-9. 從同一次實驗的同步力圖及速度圖標示關鍵區段；
-10. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
-11. 完成四個未直接測試情境的操作式預測；
-12. 進入提交前檢查，一次提交後查看完整結果。
+1. 在沒有水平外力時，選擇摩擦力為零的類型、方向及大小；
+2. 在指定的較小水平外力下，建立由物體重心出發、等大反向的靜摩擦力箭嘴；
+3. 逐步增加外力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
+4. 進入 Part B，實際拖動測力計並完成低速、加速及高速平台資料；
+5. 從同一次實驗的同步力圖及速度圖標示關鍵區段；
+6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
+7. 完成四個未直接測試情境的操作式預測；
+8. 進入提交前檢查，一次提交後查看完整結果。
 
 ### 1.3 Main interactions
 
-- 按「測力計歸零」；
-- 拖動測力計握把；
+- A1 選擇摩擦力類型、方向及大小；
+- A2 操作由物體重心出發的摩擦力箭嘴，或用鍵盤調整大小；
+- A3 按向左／向右試拉，逐步增加 0.1 N 外力並重試；
+- Part B 拖動測力計握把；
 - 用鍵盤方向鍵操作測力計握把；
 - 暫停、重設及重新進行實驗；
-- 記錄靜止狀態；
-- 拖動水平摩擦力箭嘴的大小；
-- 選擇摩擦力方向及類型；
+- 選擇 Part A 的摩擦力方向及類型；
 - 拖動同步圖像的：
   - 開始移動時間 marker；
   - 靜止區段 start/end；
@@ -213,11 +209,12 @@ tools/static-kinetic-friction-browser-regression.js
 
 學生可以直接觀察或量度：
 
-- 測力計讀數／拉力 `F拉`；
+- Part B 測力計讀數／拉力 `F拉`；
 - 物體位置 `x`；
 - 物體速度 `v`；
 - 物體有沒有移動；
 - 自己畫的受力箭嘴；
+- Part A 指定外力及物體有沒有開始滑動；
 - 自己選取圖像區段的統計值。
 
 學生在提交前**不會直接看到**：
@@ -344,10 +341,9 @@ force += (Math.random() - 0.5) * 0.8;
 
 只保存：
 
-- 已記錄的三個靜止狀態；
-- 每個狀態的實際量測值；
-- 學生最後保存的受力推斷；
-- 學生是否明確確認該語意答案；
+- A1 的零摩擦力答案；
+- A2 的指定外力及學生靜摩擦力答案；
+- A3 的試拉次數、最佳臨界值、方向及最大靜摩擦力估計；
 - 一次獲接受的實驗 trace；
 - 實驗產生的 breakaway event；
 - 學生最後選擇的 graph marker／interval；
@@ -360,8 +356,8 @@ force += (Math.random() - 0.5) * 0.8;
 
 | 錯誤概念 | 活動如何處理 |
 |---|---|
-| 粗糙面一定有摩擦力 | 無水平外力、物體靜止；學生必須建立 `f=0` 受力圖 |
-| 靜摩擦力是固定數值 | 記錄兩個不同拉力但仍靜止的狀態，分別推出 `fs=F拉` |
+| 粗糙面一定有摩擦力 | Part A1 直接要求學生在無水平外力時選擇 `f=0`，D1 再以未直接測試情境應用同一概念 |
+| 靜摩擦力是固定數值 | Part A2 用一個小於上限的指定外力建立等大反向箭嘴；A3 再逐步試拉找上限 |
 | 靜摩擦力永遠等於 `μsN` | 圖像顯示拉力可由 0 一直增加，`μsN` 只是上限 |
 | 物體一移動，測力計讀數就一定等於滑動摩擦力 | 加速區段要求學生用 `F拉−fk=ma` 分析 |
 | 滑得越快，滑動摩擦力一定越大 | 比較兩段不同速度但近似勻速的平均拉力 |
@@ -388,157 +384,62 @@ balance
 
 ---
 
-## 6. Part A：由力平衡推斷靜摩擦力
+## 6. Part A：三個簡單受力圖／試拉任務
 
-### 6.1 A0：測力計歸零
+Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水平面、物體及由物體重心出發的簡化受力箭嘴；測力計只在 Part B 正式實驗出現。
 
-初始狀態：
+### 6.1 A1：沒有水平外力時，摩擦力為零
 
-- 物體放在水平粗糙面；
-- 繩保持鬆弛；
-- 測力計握把未被拉動；
-- 物體速度為零；
-- 顯示測力計原始讀數，例如有極小 offset；
-- 學生按「測力計歸零」。
+初始情境固定為物體放在水平粗糙面上，但沒有任何水平外力。學生直接選擇：
 
-歸零只屬實驗操作，不計分。
+- 摩擦力類型：`none`；
+- 方向：`none`；
+- 大小：`0 N`。
 
-學生可見訊息：
+學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分。
 
-> 測力計已歸零。現在可以記錄第一個靜止狀態。
+### 6.2 A2：指定較小外力下的靜摩擦力
 
-不顯示「正確歸零」。
+系統為每個 seed 生成一個固定的指定外力：
 
-### 6.2 A1：沒有水平拉力
+```js
+balancePullDirection = "left" | "right";
+balancePullN = quantize(staticLimitMeanN * pick([0.24, 0.28, 0.32, 0.36]), 0.1);
+```
 
-畫面直接量到：
-
-\[
-F_{\text{拉}}\approx0
-\]
-
-物體：
-
-\[
-v=0,\qquad a=0
-\]
-
-控制面板顯示一個水平受力建構器：
+它必定小於本情境的最大靜摩擦力，並以文字明確顯示，例如「向右 2.1 N」。學生不需要、亦不能自行把力拉到會滑動的程度；只需在受力圖上建立靜摩擦力：
 
 ```text
-向左                       向右
-← 摩擦力？       物體       拉力 →
+靜摩擦力類型：static
+大小：與指定外力相同
+方向：與指定外力相反
 ```
 
-拉力箭嘴由實際測力計讀數自動畫出；學生只操作接觸面的水平作用力。
+紅色指定外力和藍色學生箭嘴都由物體重心出發。學生可以拖動藍色箭嘴的末端，亦可用鍵盤逐步調整大小／方向，最後按「保存 A2 力平衡判斷」。A2 評分為 6 分：類型 2 分、方向 2 分、大小 2 分；大小使用 `max(0.15 N, 5%)` 的 inclusive tolerance。
 
-學生可以：
+學生在此觀察到：物體仍然靜止，所以水平方向合力為零，而靜摩擦力會按需要調整，並不是固定的最大值。
 
-- 選「沒有水平摩擦力」；
-- 或加入向左／向右箭嘴；
-- 拖動箭嘴長度；
-- 查看**自己畫出來的** `ΣFx`。
+### 6.3 A3：逐步增加外力，找出最大靜摩擦力
 
-系統不告知正確答案，但題目已提供物體保持靜止，因此學生應用：
-
-\[
-a=0\Rightarrow\sum F_x=0
-\]
-
-推出：
-
-\[
-f=0
-\]
-
-保存證據：
+完成 A2 後，學生可選「向左拉」或「向右拉」，用控制欄的 0.1 N 滑桿慢慢增加目前外力。當外力達到可由滑桿表示的第一個臨界值時：
 
 ```js
-{
-  observationId: "zero-pull",
-  measuredPullN,
-  measuredVelocityMps,
-  learnerForce: {
-    present: false | true,
-    direction: "none" | "left" | "right",
-    magnitudeN,
-    operationDeltaN,
-    committed: true
-  }
-}
+breakawayThresholdCN = Math.ceil(staticLimitMeanN * 10) * 10;
 ```
 
-Editable 初值是 `learnerForce: null`，不能把畫面預設的「沒有摩擦力」當作已作答。`committed` 只表示學生曾明確保存語意答案；不保存或評分 pointer、touch、mouse、keyboard 等輸入方式。
+物體在舞台上開始滑動，系統保存該次試拉的方向及 `pullCN`。學生可以按「重新試拉」回到 0 N、轉換方向及重複多次；系統只保存試拉次數、最小開始滑動外力及方向，不保存 pointer path 或操作時間。臨界值採 0.1 N 步進，確保學生實際可以到達。
 
-### 6.3 A2、A3：兩個不同非零拉力但仍靜止
-
-學生慢慢拖動測力計握把，但不可以拉到物體開始移動。
-
-當物體仍保持靜止時，學生按：
-
-> 記錄此刻狀態
-
-系統記錄：
-
-- 測力計拉力；
-- 物體速度；
-- 當時物體未移動；
-- timestamp。
-
-要求兩個非零記錄：
-
-```text
-Observation 2：較小拉力
-Observation 3：較大而不同的拉力
-```
-
-兩個讀數必須：
+找到至少一次臨界值後，學生填寫「我估計最大靜摩擦力」並保存。A3 評分為 10 分；答案與生成的 `staticLimitMeanN` 比較，容許：
 
 ```js
-Math.abs(pull2N - pull1N) >= MIN_STATIC_OBSERVATION_SEPARATION_N
+Math.max(0.30, 0.05 * staticLimitMeanN)
 ```
 
-建議：
+這個誤差容許學生因逐步加力或未能一次精準踩在臨界點而仍能表達正確概念。A3 的試拉本身是學習證據及進入答案欄的 prerequisite，不以試拉次數或方向扣分。
 
-```js
-const MIN_STATIC_OBSERVATION_SEPARATION_N = 1.0;
-```
+### 6.4 Part A 完成條件
 
-學生可按任意力值順序記錄。第一筆暫用 `static-1`，第二筆接受後按 canonical measured pull 排序並原子式賦予 `static-low`／`static-high`；learner answer 與其 observation object 一起移動，不以作答先後決定語意。兩種順序都要通過 restore/scoring 測試。
-
-系統只作中性提示：
-
-> 第二次記錄的拉力需要和第一次有較明顯差別。
-
-不會告知：
-
-> 靜摩擦力應該等於拉力。
-
-學生要為每個狀態拖動向左摩擦力箭嘴，令自己畫出的：
-
-\[
-\sum F_x\approx0
-\]
-
-從而得到：
-
-\[
-f_s=F_{\text{拉}}
-\]
-
-#### 教學意義
-
-三個記錄合起來形成：
-
-| 測力計拉力 | 運動狀態 | 學生推斷摩擦力 |
-|---:|---|---:|
-| 約 0 N | 靜止 | 0 N |
-| 較小非零值 | 靜止 | 等於拉力 |
-| 較大非零值 | 靜止 | 亦等於拉力 |
-
-學生由力平衡發現：
-
-> 靜摩擦力不是固定存在的一個數值，而是按維持接觸面不相對滑動所需而調整。
+三項答案均明確保存，且 A3 至少有一次開始滑動試拉，才可進入 Part B。Part A 完成後不顯示正誤、真實摩擦係數或隱藏的最大值；完整分數及物理解釋只在提交後顯示。
 
 ---
 
@@ -1003,7 +904,7 @@ Physics 使用完整 SI precision。量測層先按本 plan 的 resolution 量�
 }
 ```
 
-Sensor、tare、noise PRNG 及 recorder state 屬 `measurement.js`，不放入 `physics.js` 的 state。`physics.step()` 只輸出 physical state 與 transition events；`measurement.step()` 消費該輸出，且任何 measured value 都不可反饋 physics。
+Sensor calibration、noise PRNG 及 recorder state 屬 `measurement.js`，不放入 `physics.js` 的 state。`physics.step()` 只輸出 physical state 與 transition events；`measurement.step()` 消費該輸出，且任何 measured value 都不可反饋 physics。
 
 ### 11.3 測力計／繩系統
 
@@ -1548,40 +1449,18 @@ const SURFACE_VARIATION_FRACTION = 0.02;
 
 這些會經有限剛度連接系統自然反映在拉力圖，不需要人工加入大幅 noise。
 
-### 12.3 Sensor bias 及 tare
+### 12.3 Sensor calibration
 
-每個 attempt 由 `sensorSeed` 生成一個固定 bias：
-
-```js
-const FORCE_SENSOR_BIAS_MAX_ABS_N = 0.04;
-forceBiasN = uniform(-FORCE_SENSOR_BIAS_MAX_ABS_N,
-                     FORCE_SENSOR_BIAS_MAX_ABS_N);
-```
-
-未歸零時顯示 `forceFilteredN + forceBiasN` 的量化讀數。只可在繩 slack、物體靜止且 physical tension 小於 `0.02 N` 時 tare；按鍵後：
-
-```js
-measurement.tareCorrectionCN = Math.round(
-  (measurement.forceFilteredN + measurement.forceBiasN) * 100
-);
-measurement.tareCorrectionN =
-  measurement.tareCorrectionCN / 100;
-measurement.forceNoise = 0;
-measurement.velocityNoise = 0;
-measurement.tared = true;
-```
-
-之後：
+每個 attempt 開始時，Part B 測力計的零點由系統固定校準，不生成需要學生修正的 bias，也不保存 tare correction。這個校準是 Part B runtime 的量測前提，不是 learner action；Part A 完全不建立測力計或讀數流程。
 
 ```js
 forceMeasuredN = quantize(
-  Math.max(0,
-    forceFilteredN + forceBiasN - tareCorrectionN + boundedNoiseN),
+  Math.max(0, forceFilteredN + boundedNoiseN),
   FORCE_SENSOR_RESOLUTION_N
 );
 ```
 
-Tare 當刻的 live correction 已 canonicalize 成 centinewton 整數，Draft 直接保存同一 `tareCorrectionCN`；restore 不再做第二次 rounding，也不重播指標路徑，而是由該 correction、seed 及 semantic checkpoint 重建 idle measurement state。重新做 Part B 不取消 tare；開新 attempt 才產生新 bias。Tare 不計分，但它是進入第一個 observation 的必要 invariant。測試要求不中斷與 tare 後立即 restore 在相同 timestamped input 下產生 byte-identical trace。
+`measurement.js` 不再提供 `tare()`，measurement state 不包含 `tared`、`tareCorrectionCN` 或 `forceBiasN`。零拉力時的 Part B 顯示讀數只受 bounded noise 影響；Part A 沒有 measurement record、sensor input 或 tare control。這些欄位及操作不可出現在 draft、review 或 pending-final snapshot。
 
 ### 12.4 感測器響應
 
@@ -1639,8 +1518,6 @@ forceMeasuredN =
     Math.max(
       0,
       forceFilteredN +
-        forceBiasN -
-        tareCorrectionN +
         FORCE_SENSOR_NOISE_SIGMA_N * forceNoise
     ),
     FORCE_SENSOR_RESOLUTION_N
@@ -1711,7 +1588,7 @@ const VELOCITY_RESOLUTION_MPS = 0.001;
 peak force > kinetic plateau mean by at least 10%
 slow/fast plateau mean ratio: 0.94–1.06
 plateau force coefficient of variation: about 1%–5%
-force baseline RMS after tare: small relative to kinetic plateau
+force baseline RMS after calibrated startup: small relative to kinetic plateau
 acceleration interval mean force > plateau mean
 ```
 
@@ -1993,7 +1870,7 @@ generateScenario({
   seed,
   generatorVersion: 1,
   physicsVersion: 1,
-  measurementVersion: 1
+  measurementVersion: 2
 });
 ```
 
@@ -2034,6 +1911,16 @@ const FRICTION_PAIRS = [
 5. breakaway 峰值可在圖上清楚辨認
 6. 所有預測情境值可顯示至 0.1 N 而不產生邊界歧義
 7. 慢速與高速平台平均值 authority 相同
+
+Part A 額外生成：
+
+```js
+const BALANCE_PULL_FRACTIONS = [0.24, 0.28, 0.32, 0.36];
+balancePullDirection = pick(["left", "right"]);
+balancePullN = quantize(staticLimitMeanN * pick(BALANCE_PULL_FRACTIONS), 0.1);
+```
+
+`balancePullN` 必須大於 0 且小於 `staticLimitMeanN`；A3 的可操作臨界值為 `ceil(staticLimitMeanN * 10) * 10` centinewton，配合 0.1 N range step。
 ```
 
 物體質量及摩擦係數提交前不顯示。
@@ -2109,22 +1996,25 @@ Part B 是可提交前的 completion prerequisite：任何能進入 analysis 並
 
 ### 16.2 Part A：力平衡，20 分
 
-#### 無水平拉力：6 分
+#### A1：沒有水平外力，4 分
 
-- 正確表示無水平摩擦力：6；
-- 有非零摩擦力：0。
+- 類型選 `none`：1；
+- 方向選 `none`：1；
+- 大小為 `0 N`（`0.10 N` 內）：2。
 
-要求有效 zero-pull observation evidence。
+#### A2：指定小外力的力平衡，6 分
 
-#### 兩個非零靜止狀態：每個 7 分
+- 類型選 `static`：2；
+- 方向與指定外力相反：2；
+- 大小等於指定外力：2。
 
-每個：
+指定外力由 scenario 固定保存，不來自測力計讀數。
 
-- 類型選靜摩擦力：2；
-- 方向向左：2；
-- 大小符合 `fs=F拉`：3。
+#### A3：最大靜摩擦力估計，10 分
 
-若沒有相應實際量測記錄，該項 0 分。
+- 至少一次合法試拉到物體開始滑動，才可保存估計；
+- 學生填寫的最大靜摩擦力在 `max(0.30 N, 5%)` 內得 10 分；
+- 試拉方向、次數及是否一次命中不另扣分。
 
 ### 16.3 Part B：最低可分析實驗操作證據，20 分
 
@@ -2211,6 +2101,8 @@ const ZERO_FRICTION_TOLERANCE_N = 0.10;
 
 const BALANCE_ABS_TOLERANCE_N = 0.15;
 const BALANCE_REL_TOLERANCE = 0.05;
+const MAX_STATIC_BALANCE_ABS_TOLERANCE_N = 0.30;
+const MAX_STATIC_BALANCE_REL_TOLERANCE = 0.05;
 
 const BREAKAWAY_TIME_TOLERANCE_S = 0.16;
 
@@ -2238,11 +2130,21 @@ function balanceToleranceN(expectedN) {
 }
 ```
 
-例如預期 `4.0 N`：
+這個 tolerance 用於 A2 的指定外力平衡；例如預期 `4.0 N`：
 
 - `4.20 N`：剛好 5%，接受；
 - `4.21 N`：同時超過 `0.15 N` absolute 及 5% relative tolerance，不接受；
 - 所有邊界 inclusive。
+
+A1 的零摩擦力使用 `ZERO_FRICTION_TOLERANCE_N = 0.10 N`，但類型及方向仍必須明確選擇 `none`。A3 的最大靜摩擦力估計使用獨立、較寬鬆的：
+
+```js
+function maximumStaticBalanceToleranceN(expectedN) {
+  return Math.max(0.30, 0.05 * expectedN);
+}
+```
+
+A3 臨界試拉值以 0.1 N control step 量化，故首次滑動值為 `ceil(staticLimitMeanN * 10) * 10` centinewton；這個操作值只作學習及可恢復的試拉證據，評分仍以學生填寫的估計與生成的物理上限比較。
 
 ### 17.2 Breakaway marker
 
@@ -2438,7 +2340,7 @@ Graph phase 可以將 stage track 調至：
 具體 compact policy：
 
 - effective CSS viewport `376–560px` 高或 200% zoom 時，header 收成單行 `2.5rem`、stage track 降至 `11rem`，移除非必要 subtitle；只縮小 apparatus／graph geometry，不縮小文字或 44 px targets；
-- effective height `<376px` 時進入 ultra-compact：`--header-track:2rem`、`--stage-track:clamp(5rem,32dvh,7rem)`；apparatus 只保留物體、繩、測力計讀數及 active target，graph 只顯示 active pane＋同步文字 summary。Panel 使用全部餘高，不再宣稱固定 `10rem` minimum，但必須至少完整顯示兩個 44 px controls，其他 controls 可在同一 panel 內捲到；
+- effective height `<376px` 時進入 ultra-compact：`--header-track:2rem`、`--stage-track:clamp(5rem,32dvh,7rem)`；Part A apparatus 只保留物體、水平面、重心力箭嘴及 active target，Part B 才保留繩及測力計讀數，graph 只顯示 active pane＋同步文字 summary。Panel 使用全部餘高，不再宣稱固定 `10rem` minimum，但必須至少完整顯示兩個 44 px controls，其他 controls 可在同一 panel 內捲到；
 - graph phase 改成「拉力／速度」兩個可切換視覺 panes，但 shared cursor、兩圖同時的文字讀數及 interval authority 保持同步；
 - 非 ultra-compact 時 control panel 可用高度不得低於 `10rem`；所有模式的 primary action 永遠在 panel 正常 flow 的末端可捲到；
 - `html > body > .app > .activity-main > .stage/.control-panel` 整條 shrinking chain 均設 `min-height: 0`，只有 `.control-panel` 有 `overflow-y: auto`；
@@ -2483,8 +2385,9 @@ Graph phase 可以將 stage track 調至：
 
 | Target | Hit-target strategy | Capture target | Render 期間可替換？ |
 |---|---|---|---:|
-| 測力計握把 | 穩定 48×48 px HTML overlay | 同一 overlay | No |
+| Part B 測力計握把 | 穩定 48×48 px HTML overlay；只在 experiment recording 顯示 | 同一 overlay | No |
 | Balance friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
+| Part A3 目前外力 range | 原生 control-panel range；不是 stage drag target | panel 本身 | N/A |
 | Prediction friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
 | Breakaway time marker | 穩定 44 px 寬 HTML overlay | 同一 overlay | No |
 | 每個 interval start handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
@@ -2500,6 +2403,7 @@ Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render �
 | Control panel（含 top/bottom boundary） | panel | panel 有 range 時 delta 非零；host、host/activity visual viewport、iframe rectangle、stage及activity document delta=0；learner state不變 |
 | 測力計握把 | simulation | 握把改變；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
 | Balance friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
+| Part A3 目前外力 range | panel | 只改變目前外力；stage、host、activity document、iframe rectangle 及 panel scroll owner 不被改派；物體開始滑動時顯示中性物理狀態 |
 | Prediction friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Breakaway time marker | simulation | marker index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Interval start handle（逐一測五類） | simulation | 對應 start index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
@@ -2564,7 +2468,6 @@ Scroll topology：
   - 「低速區段開始，目前 3.20 秒」
 - live region 最多每秒更新 3–4 次，不逐 frame announce；
 - 只 announce：
-  - 已歸零；
   - 記錄開始；
   - 物體開始移動；
   - 區段已記錄；
@@ -2585,11 +2488,13 @@ Scroll topology：
 
 | Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed next |
 |---|---|---:|---|---|---|
-| `balance` | `untared` | 0 | versions、seed；`tared=false` | tare correction、observations、trial、analysis、predictions、edit draft | tare |
-| `balance` | `observation-ready` | 0–2 | tare correction＋所有較早 completed observations | active/future observations、trial、analysis、predictions | record measurement |
-| `balance` | `answer-pending` | 0–2 | 較早 completed observations＋active measured observation；`learnerForce=null` | future observations、trial、analysis、predictions | commit explicit answer |
-| `balance` | `answer-complete` | 1–3 | 至 current 為止的 completed observations；只有一筆 nonzero 時 ID=`static-1`，第二筆接受後原子 canonicalize 為 low/high | future observations、trial、analysis、predictions | next observation／go experiment |
-| `balance` | `review-edit` | 0–2 target | 原本 review-complete authority全部保留；`fromReview=true`；optional persisted `working.editDraft` 指向一個 observation | active pointer／DOM | cancel to review／save replacement |
+| `balance` | `zero-ready` | A1 | versions、seed；`zeroForce=null`、`staticCase=null`、空 A3 trial summary | trial、analysis、predictions、review draft | save explicit zero-force answer |
+| `balance` | `static-ready` | A2 setup | A1 committed；`staticCase=null`；scenario 的指定方向／大小由 seed 重建 | A3 attempts、trial、analysis、predictions | save A2 force answer |
+| `balance` | `static-answer-pending` | A2 answer | A1 committed；A2 指定方向／大小已保存；`learnerForce` 尚未 committed | A3 attempts、trial、analysis、predictions | commit A2 force answer |
+| `balance` | `breakaway-ready` | A3 trial | A1 及 A2 committed；A3 `attempts=0` 或已保存 attempts、`learnerMaxCN=null` | experiment trial、analysis、predictions | record one or more breakaway trials |
+| `balance` | `breakaway-answer-pending` | A3 answer | A3 `bestPullCN`／direction 已保存；`learnerMaxCN=null` | trial、analysis、predictions | save maximum-static-friction estimate |
+| `balance` | `answer-complete` | A✓ | A1、A2、A3 三項 committed；A3 至少一個 trial | trial、analysis、predictions | go experiment |
+| `balance` | `review-edit` | A1/A2/A3 target | 原本 review-complete authority 全部保留；`fromReview=true`；`working.editDraft.kind="balance"` | active drag／DOM state | cancel to review／save replacement |
 | `experiment` | `ready` | — | balance complete；`trial=null` | analysis、predictions、edit draft | start recording |
 | `experiment` | `running`（transient） | — | recording 前 `ready` checkpoint＋in-memory physics/measurement | running state 不可進 snapshot | stop／cancel／auto-stop |
 | `experiment` | `accepted` | — | canonical packed regular trace＋breakaway sidecar | analysis、predictions | go analysis／request redo |
@@ -2611,7 +2516,7 @@ Transitions：
 
 ```text
 balance -> experiment
-  when tare and three observations exist
+  when A1 zero-force answer, A2 force-balance answer and one A3 breakaway trial plus estimate exist
 
 experiment -> analysis
   when one accepted trace passes quality validation
@@ -2667,10 +2572,10 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 ```js
 {
-  schemaVersion: 1,
+  schemaVersion: 3,
   generatorVersion: 1,
   physicsVersion: 1,
-  measurementVersion: 1,
+  measurementVersion: 2,
   rubricVersion: 1,
 
   seed: 1234567890,
@@ -2686,41 +2591,29 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
   fromReview: false,
 
   balance: {
-    tared: true,
-    tareCorrectionCN: 3,
-
-    observations: [
-      {
-        id: "zero-pull",
-        measuredPullCN: 0,
-        measuredVelocityMMps: 0,
-        learnerForce: {
-          frictionType: "none",
-          frictionDirection: "none",
-          frictionMagnitudeCN: 0,
-          committed: true,
-          operationDeltaCN: 0
-        }
-      },
-      {
-        id: "static-low", // partial one-nonzero variant uses "static-1"
-        measuredPullCN: 238,
-        measuredVelocityMMps: 0,
-        learnerForce: {
-          frictionType: "static",
-          frictionDirection: "left",
-          frictionMagnitudeCN: 240,
-          committed: true,
-          operationDeltaCN: 210
-        }
-      },
-      {
-        id: "static-high",
-        measuredPullCN: 471,
-        measuredVelocityMMps: 0,
-        learnerForce: null // answer-pending variant, otherwise same shape above
+    zeroForce: null | {
+      frictionType: "none" | "static" | "kinetic",
+      direction: "none" | "left" | "right",
+      frictionMagnitudeCN: integer,
+      committed: true
+    },
+    staticCase: null | {
+      appliedDirection: "left" | "right",
+      appliedMagnitudeCN: integer,
+      learnerForce: null | {
+        frictionType: "static" | "kinetic" | "none",
+        direction: "none" | "left" | "right",
+        frictionMagnitudeCN: integer,
+        committed: true
       }
-    ]
+    },
+    breakaway: {
+      attempts: integer,
+      bestPullCN: null | integer,
+      bestDirection: null | "left" | "right",
+      learnerMaxCN: null | integer,
+      committed: false | true
+    }
   },
 
   trial: null | {
@@ -2810,7 +2703,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
       semanticKey
     },
     editDraft: null | {
-      kind: "observation" | "analysis-task" | "prediction",
+      kind: "balance" | "analysis-task" | "prediction",
       value
     }
   }
@@ -2821,7 +2714,9 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 `learnerForce=null`、nullable analysis inference fields、partial prediction 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Review normalization 固定 `phase:"review"`、`variant:"complete"`、`fromReview:false`，要求所有 answer fields committed/non-null，並移除整個 `working`。
 
-Observation ID union 為 `zero-pull | static-1 | static-low | static-high`。`static-1` 只可在恰有一個 nonzero observation 的 ready／answer-pending／answer-complete rows；第二個 nonzero measurement 一經接受，就在同一 semantic transaction 依 measured pull 將兩個 objects（連同 learnerForce）改成 `static-low/high`，其後 decoder 拒絕 `static-1`。C3／C5 `selection-only` 明確要求 `estimatedFkCN:null`，C5 另要求 `speedComparison:null`；task-complete 才要求非 null。
+Part A 使用 `s3` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小及學生力答案）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）。力答案以 fixed-order `[typeCode, directionCode, magnitudeCN, committed]` 儲存；A2 指定外力以 centinewton 保存，不保存任何 sensor reading。A3 的 `bestPullCN` 必須來自至少一個合法試拉，並以 0.1 N control step 對齊；`learnerMaxCN` 只可在 A3 trial 後提交。C3／C5 `selection-only` 明確要求 `estimatedFkCN:null`，C5 另要求 `speedComparison:null`；task-complete 才要求非 null。
+
+舊 `s1`／`s2` editable draft 只以其 seed 安全重開為 `zero-ready`，不把舊測力計／tare／observation 資料冒充成新 Part A 答案；舊 finished review 因 Part A semantic contract 不相容而 fail closed，顯示 technical load error，不重算成新答案。
 
 ### 24.2 Review snapshot
 
@@ -2829,7 +2724,7 @@ Review 保存：
 
 - versions；
 - seed；
-- 三個 balance observations；
+- A1 zero-force answer、A2 specified-pull/learner-force answer 及 A3 trial summary；
 - packed trace；
 - breakaway event；
 - 所有 graph selections 及推斷；
@@ -2886,8 +2781,8 @@ Scenario 由 seed 及 versions 重建；stats 由 trace 重算。
 - unknown version；
 - invalid seed；
 - invalid phase；
-- observations 次序錯；
-- nonzero static observations 沒有足夠讀數差；
+- A1／A2／A3 欄位 shape、提交次序或 `committed` invariant 錯；
+- A2 指定外力不是由合法 scenario value 產生，或 A3 沒有試拉就提交估計；
 - trial byte length 和 `regularSampleCount` 不一致；
 - trace 超出量程；
 - breakaway time/value、pre-break grid index 或 merged canonical index 非法；
@@ -2998,9 +2893,9 @@ decode pending checkpoint and nested reviewJson
 
 只在 semantic change 後更新：
 
-- tare；
-- observation record；
-- observation answer 保存；
+- A1 zero-force answer 保存；
+- A2 force-balance answer 保存；
+- A3 每次達到滑動臨界值及最大靜摩擦力估計保存；
 - accepted trial；
 - graph handle pointerup；
 - graph keyboard adjustment；
@@ -3111,14 +3006,14 @@ Pure／Node-testable：
 - physical transition events；
 - physical invariants。
 
-不可接觸 sensor filter、noise、tare、graph recorder 或 DOM。
+不可接觸 sensor filter、noise、graph recorder 或 DOM。
 
 ### `measurement.js`
 
 負責：
 
 - sensor response；
-- deterministic bias 及 tare correction；
+- deterministic calibrated-zero measurement configuration；
 - seeded measurement noise；
 - measurement state／PRNG/sample index；
 - graph sampling；
@@ -3199,7 +3094,7 @@ same seed reproduces same scenario
 
 必須包括：
 
-1. 無拉力：`f=0, v=0`；
+1. 物理模型無拉力（對應 Part A1 概念，但不是 sensor observation）：`f=0, v=0`；
 2. 拉力低於最大靜摩擦：`fs=F拉, a=0`；
 3. 超過上限：`static -> sliding`；
 4. breakaway 後拉力自然下降；
@@ -3227,8 +3122,8 @@ same seed reproduces same scenario
 - breakaway event sample 必定保存；
 - raw physics event 不含 measured/index 欄位；measurement sidecar enrichment 只發生一次；
 - 大量 seeds 的 force noise 絕對值 ≤ `0.045 N`、velocity noise ≤ `0.0075 m/s`；
-- tare 前 seeded bias、tare 後 baseline、draft restore 的 correction 一致；
-- baseline 接近零；
+- 每個 attempt 的 calibrated baseline 接近零；
+- measurement state 不含 tare／bias 欄位，draft／review restore 不會重建這些欄位；
 - sensor filter 有預期 response；
 - slow／fast 平均平台近似；
 - 快速經過相同 surface 時，波動在 time axis 變密；
@@ -3256,7 +3151,7 @@ same seed reproduces same scenario
 
 - 每項滿分／部分／零分；
 - tolerance just-inside／just-outside；
-- 沒有 operation evidence，即使答案正確都沒有相關分；
+- A3 沒有合法開始滑動試拉，即使估計值填對都不能保存／得 A3 分；
 - `learnerForce=null`／prediction `committed=false` 不可由 default 得分；
 - C2 `identifiedAs` 及 C4 `pullEqualsFk` 各有唯一 authority source；
 - `f_s,max` 估值只對 visible measured peak，不對 hidden static limit；
@@ -3283,7 +3178,7 @@ encode
 
 包括：
 
-- balance 每個 ready／answer-pending／answer-complete step及兩種 static observation 順序；
+- balance 的 `zero-ready`、`static-ready`、`static-answer-pending`、`breakaway-ready`、`breakaway-answer-pending`、`answer-complete` 及三個 balance review-edit target；
 - experiment ready；
 - accepted trial；
 - analysis 每個 task 的 selection-ready／selection-only／task-complete；
@@ -3368,7 +3263,7 @@ effective height below 376 CSS px ultra-compact
 
 1. **Generator／physics core**：凍結 seed streams、單向 connector、contact model、timestamped input queue；unit tests 全綠才前進。
 2. **Calibration／model freeze**：完成 plan 要求的 PASCO 兩組各 5–10 次量測，保存 peak/platform、CV、autocorrelation及acceleration evidence；據此凍結 physics／measurement constants並更新相應 versions。
-3. **Measurement／canonical trace**：完成 tare、bounded noise、25 Hz grid＋event sidecar、12 s limit及 pack round-trip；禁止 UI 先另造 trace shape。
+3. **Measurement／canonical trace**：完成 calibrated-zero measurement、bounded noise、25 Hz grid＋event sidecar、12 s limit及 pack round-trip；禁止 UI 先另造 trace shape。
 4. **Analysis／scoring freeze**：完成 candidate-set、IoU、visible-peak authority、D1–D4 generator、100-point rubric及所有 boundary tests；任何 rubric 改動提升 `rubricVersion`。
 5. **Persistence／SCORM size**：逐 matrix row round-trip＋legal continuation，通過 max draft/review/pending byte tests及 frozen trust/quarantine tests。
 6. **Learner UI／accessibility**：實作 bounded split-panel、direct manipulation、keyboard/screen-reader data view、delayed feedback及review-edit invalidation。
@@ -3473,10 +3368,10 @@ effective height below 376 CSS px ultra-compact
 整個活動的認知鏈必須是：
 
 ```text
-直接量到拉力及運動
-→ 由靜止推出水平合力為零
-→ 推斷靜摩擦力會配合拉力
-→ 找到開始移動前的臨界峰值
+沒有水平外力時判斷摩擦力為零
+→ 在指定小外力下畫出等大反向靜摩擦力
+→ 逐步試拉找到開始移動前的臨界值
+→ 再於 Part B 直接量到拉力及運動
 → 在勻速滑動區推斷滑動摩擦力
 → 在加速區發現拉力不等於摩擦力
 → 比較兩個速度的勻速平台

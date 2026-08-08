@@ -13,7 +13,7 @@
     <div>
       <p class="eyebrow">SimLab・力學探究</p>
       <h1>靜摩擦力與滑動摩擦力：測力計探究實驗室</h1>
-      <p>拖動測力計，從同一次實驗的拉力—時間圖與速度—時間圖找出摩擦力模型。</p>
+      <p>先用受力圖建立靜摩擦力概念，再用同一次實驗的拉力—時間圖與速度—時間圖找出摩擦力模型。</p>
     </div>
     <div class="phase-strip" aria-label="活動階段">
       <span data-phase-pill="balance">A 力平衡</span><span data-phase-pill="experiment">B 實驗</span><span data-phase-pill="analysis">C 圖像分析</span><span data-phase-pill="predict">D 預測</span><span data-phase-pill="review">檢查與提交</span>
@@ -22,16 +22,21 @@
 
   <div class="friction-shell">
     <section id="stage" class="stage" aria-labelledby="stageTitle">
-      <h2 id="stageTitle" class="sr-only">水平面測力計與同步圖像舞台</h2>
+      <h2 id="stageTitle" class="sr-only">水平面受力圖與同步圖像舞台</h2>
+      <div id="stageCoach" class="stage-coach" role="note">
+        <span id="stageCoachStep" class="stage-coach-step">1</span>
+        <strong id="stageCoachTitle">先完成 A1 受力圖</strong>
+        <span id="stageCoachText">沒有水平外力時，摩擦力大小和方向都應為零。</span>
+      </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="stageGraph" class="stage-graph is-hidden">
         <svg id="graphSvg" viewBox="0 0 820 430" preserveAspectRatio="none" role="img" aria-label="同步拉力—時間及速度—時間圖"></svg>
         <p id="graphCursorReadout" class="graph-cursor-readout" tabindex="0">尚未選取圖像時間。</p>
       </div>
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
-        <button type="button" id="forceGrip" class="drag-target" data-drag-target="force-grip" aria-label="測力計握把，目前可拖動位置"></button>
-        <button type="button" id="balanceFriction" class="drag-target" data-drag-target="balance-friction" aria-label="靜止狀態的水平摩擦力箭嘴"></button>
-        <button type="button" id="predictionFriction" class="drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
+        <button type="button" id="forceGrip" class="drag-target apparatus-drag-target grip-drag-target is-hidden" data-drag-target="force-grip" aria-describedby="stageCoachText" aria-label="實驗用握把，目前可拖動位置"><span aria-hidden="true">實驗拉力 <b>→</b></span></button>
+        <button type="button" id="balanceFriction" class="drag-target apparatus-drag-target" data-drag-target="balance-friction" aria-label="靜止狀態的水平摩擦力箭嘴"></button>
+        <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
         <button type="button" id="breakawayMarker" class="drag-target graph-handle" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
         <button type="button" id="static-start" class="drag-target graph-handle interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
         <button type="button" id="static-end" class="drag-target graph-handle interval-handle" data-drag-target="static-end" aria-label="靜止上升區段結束"></button>
@@ -42,7 +47,7 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">舞台只顯示學生目前可觀察的測力計讀數、物體速度與由同一次記錄產生的兩幅同步圖。</p>
+      <p id="stageDescription" class="sr-only">Part A 的受力箭嘴全部由物體重心出發；Part B 才顯示測力計拉力、物體速度與同步圖像。</p>
       <div id="liveReadouts" class="live-readouts" aria-live="off">
         <span>拉力 <strong id="forceReadout">0.00 N</strong></span>
         <span>速度 <strong id="velocityReadout">0.000 m/s</strong></span>
@@ -59,32 +64,62 @@
       <p id="validationStatus" class="neutral-status validation-status is-hidden" tabindex="-1" aria-live="off"></p>
 
       <section id="balancePanel" class="panel-section" data-panel="balance">
-        <p class="section-label">第一階段・由力平衡推斷靜摩擦力</p>
-        <h2>先歸零，再記錄三個靜止狀態</h2>
-        <p>粗糙面不代表一定有摩擦力。請先歸零，記錄無拉力及兩個不同的非零拉力，然後用水平力平衡建立自己的摩擦力箭嘴。</p>
-        <div id="balanceCaptureActions" class="button-row"><button type="button" id="tareButton" data-action="tare" class="primary-button">測力計歸零</button><button type="button" id="recordBalance" data-action="record-balance">記錄目前狀態</button></div>
-        <p id="balanceStatus" class="neutral-status" aria-live="off">尚未歸零。</p>
-        <div id="balanceObservations" class="observation-list"></div>
-        <div id="balanceAnswer" class="answer-card is-hidden" aria-labelledby="balanceAnswerTitle">
-          <h3 id="balanceAnswerTitle">為目前記錄建立水平摩擦力</h3>
-          <label>類型<select id="balanceType"><option value="">請選擇</option><option value="none">沒有水平摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
-          <label>方向<select id="balanceDirection"><option value="">請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
-          <label>大小 <output id="balanceMagnitudeValue">0.00 N</output><input id="balanceMagnitude" type="range" min="0" max="12" step="0.01" value="0" aria-label="目前靜止狀態的摩擦力大小"></label>
-          <p id="balanceNetForce" class="force-builder-readout">你畫的水平合力 ΣFx：0.00 N</p>
-          <button type="button" data-action="save-balance-answer" class="primary-button">保存這個力平衡判斷</button>
-        </div>
-        <button type="button" id="to-experiment" data-action="to-experiment" class="primary-button next-button">完成三個狀態，開始實驗</button>
+        <p class="section-label">第一階段・三個簡單受力圖任務</p>
+        <h2>A：用受力圖學習靜摩擦力</h2>
+        <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>所有水平力箭嘴都由物體重心出發；先完成三個概念任務，再進入 Part B 的完整實驗。</p>
+        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：無水平外力時，摩擦力大小和方向都應為零。</p>
+
+        <article id="zeroTask" class="task-card balance-task">
+          <h3>A1　沒有水平外力</h3>
+          <p>物體放在水平面上，沒有任何水平外力而且保持靜止。請選出摩擦力的類型、方向和大小。</p>
+          <div class="answer-grid">
+            <label>摩擦力類型<select id="zeroFrictionType"><option value="">請選擇</option><option value="none">沒有摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
+            <label>方向<select id="zeroFrictionDirection"><option value="">請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
+            <label>大小 <output id="zeroFrictionMagnitudeValue">0.0 N</output><input id="zeroFrictionMagnitude" type="range" min="0" max="12" step="0.1" value="0" aria-label="A1 摩擦力大小"></label>
+          </div>
+          <button type="button" data-action="save-zero-force" class="primary-button" data-balance-normal>保存 A1 判斷</button>
+        </article>
+
+        <article id="staticTask" class="task-card balance-task">
+          <h3>A2　指定小外力，但物體仍靜止</h3>
+          <p id="staticPullPrompt">指定外力：載入中</p>
+          <p>請判斷有沒有靜摩擦力，並把藍色箭嘴調到與紅色外力<strong>大小相同、方向相反</strong>。可直接拖動箭嘴或使用大小控制。</p>
+          <div class="answer-grid">
+            <label>摩擦力類型<select id="balanceType"><option value="">請選擇</option><option value="none">沒有摩擦力</option><option value="static">靜摩擦力</option></select></label>
+            <label>方向<select id="balanceDirection"><option value="">請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
+            <label>大小 <output id="balanceMagnitudeValue">0.0 N</output><input id="balanceMagnitude" type="range" min="0" max="12" step="0.1" value="0" aria-label="A2 靜摩擦力大小"></label>
+          </div>
+          <p id="balanceNetForce" class="force-builder-readout">水平合力 ΣFx：0.0 N</p>
+          <button type="button" id="save-static-force" data-action="save-static-force" class="primary-button" data-balance-normal>保存 A2 力平衡判斷</button>
+        </article>
+
+        <article id="breakawayTask" class="task-card balance-task">
+          <h3>A3　逐步增加外力，找出最大靜摩擦力</h3>
+          <p>選擇向左或向右拉，慢慢增加目前外力。物體開始滑動後，可以按「重新試拉」把這次降回零，再換方向或重複試驗。</p>
+          <div class="button-row balance-direction-buttons" data-balance-normal>
+            <button type="button" data-action="pull-left">向左拉</button><button type="button" data-action="pull-right">向右拉</button><button type="button" data-action="reset-breakaway">重新試拉</button>
+          </div>
+          <label class="range-row">目前外力 <output id="breakawayPullValue">0.0 N</output><input id="breakawayPull" type="range" min="0" max="12" step="0.1" value="0" aria-label="A3 目前外力大小"></label>
+          <p id="breakawayAttempts" class="instruction">已完成試拉 0 次</p>
+          <p id="breakawayBest" class="neutral-status">尚未找到臨界值。</p>
+          <div id="breakawayAnswerCard" class="answer-card">
+            <label>我估計最大靜摩擦力（N）<input id="breakawayAnswer" type="number" min="0" max="12" step="0.1" aria-label="最大靜摩擦力估計"></label>
+            <button type="button" data-action="save-breakaway-answer" class="primary-button" data-balance-normal>保存 A3 估計</button>
+          </div>
+        </article>
+        <div class="button-row review-balance-edits" data-balance-review><button type="button" data-action="cancel-review-edit">取消修改</button></div>
+        <button type="button" id="to-experiment" data-action="to-experiment" class="primary-button next-button">完成 Part A，開始正式實驗</button>
       </section>
 
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・產生同步實驗數據</p>
-        <h2>拖動測力計，形成一條完整記錄</h2>
-        <p>慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的讀數只代表測力計與速度感測器觀察量。</p>
+        <h2>拖動實驗用握把，形成一條完整記錄</h2>
+        <p>Part A 已經用受力圖建立概念。現在用實驗用握把慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的數值只代表觀察量。</p>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並檢查資料</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始這次實驗</button></div>
         <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始實驗</h3><p>這會清除目前實驗記錄，以及依賴它的圖像分析和預測；不會顯示任何答案是否正確。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認清除並重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
         <p id="experimentStatus" class="neutral-status" aria-live="off">尚未開始記錄。</p>
         <div id="gripControls"><label class="range-row">鍵盤／滑鼠握把位置<input id="gripPosition" type="range" min="0.18" max="1.4" step="0.001" value="0.18" aria-describedby="gripHelp"></label>
-        <p id="gripHelp" class="instruction">也可在舞台拖動「測力計握把」；方向鍵可微調，Shift 會使用較大步幅。</p></div>
+        <p id="gripHelp" class="instruction">也可在舞台拖動「實驗用握把」；方向鍵可微調，Shift 會使用較大步幅。</p></div>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="keep-trial" class="primary-button is-hidden" id="keepTrial">保留這次實驗，進入圖像分析</button>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往同步圖像分析</button>

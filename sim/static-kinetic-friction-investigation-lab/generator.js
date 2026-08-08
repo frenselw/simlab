@@ -7,7 +7,7 @@
 
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 1;
-  const MEASUREMENT_VERSION = 1;
+  const MEASUREMENT_VERSION = 2;
   const RUBRIC_VERSION = 1;
   const GRAVITY_MPS2 = 9.81;
   const MASS_OPTIONS_KG = Object.freeze([1.5, 1.7, 1.9, 2.1]);
@@ -28,6 +28,7 @@
   const MAX_TRIAL_DURATION_S = 12;
   const STAGE_LENGTH_M = 1.65;
   const SENSOR_RANGE_N = 12;
+  const BALANCE_PULL_FRACTIONS = Object.freeze([0.24, 0.28, 0.32, 0.36]);
   const PREDICTION_BOUNDARY_MARGIN_N = 0.60;
   const PREDICTION_FORCE_STEP_N = 0.10;
   const FLOAT_EPSILON = 1e-9;
@@ -155,6 +156,8 @@
     if (staticLimitMeanN < 4.5 || staticLimitMeanN > 9 || kineticFrictionMeanN < 3.2 || kineticFrictionMeanN > 7 || staticLimitMeanN - kineticFrictionMeanN < 0.8) {
       throw new Error("Generated scenario violates friction constraints");
     }
+    const balancePullDirection = parameterRng.pick(["left", "right"]);
+    const balancePullN = quantize(staticLimitMeanN * parameterRng.pick(BALANCE_PULL_FRACTIONS), 0.1);
     const surfaceRng = createRng(deriveSeed(seed, "surface"));
     const surfaceProfile = {
       lambda1M: 0.18 + surfaceRng.next() * 0.10,
@@ -181,6 +184,9 @@
       muK: pair.muK,
       staticLimitMeanN,
       kineticFrictionMeanN,
+      balancePullDirection,
+      balancePullN,
+      balancePullCN: Math.round(balancePullN * 100),
       surfaceVariationFraction: SURFACE_VARIATION_FRACTION,
       surfaceProfile,
       connector: CONNECTOR,
@@ -198,7 +204,7 @@
     GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION,
     GRAVITY_MPS2, MASS_OPTIONS_KG, FRICTION_PAIRS, CONNECTOR, SURFACE_VARIATION_FRACTION,
     SURFACE_GRID_STEP_M, MAX_TRIAL_DURATION_S, STAGE_LENGTH_M, SENSOR_RANGE_N,
-    PREDICTION_BOUNDARY_MARGIN_N, PREDICTION_FORCE_STEP_N, FLOAT_EPSILON,
+    PREDICTION_BOUNDARY_MARGIN_N, PREDICTION_FORCE_STEP_N, BALANCE_PULL_FRACTIONS, FLOAT_EPSILON,
     deriveSeed, createRng, rawSurface, surfaceVariation, generateScenario,
     staticLimitAt(positionM, scenario) { return scenario.staticLimitMeanN; },
     kineticFrictionAt(positionM, scenario) { return scenario.kineticFrictionMeanN * (1 + scenario.surfaceVariationFraction * surfaceVariation(positionM, scenario.surfaceProfile)); },

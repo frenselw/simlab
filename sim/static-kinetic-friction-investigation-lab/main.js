@@ -31,7 +31,7 @@
   function buildEditableViewModel(state, scenario) {
     return {
       phase: state.phase, variant: state.variant, fromReview: Boolean(state.fromReview),
-      balance: { tared: state.balance.tared, tareCorrectionCN: state.balance.tareCorrectionCN, observations: clone(state.balance.observations) },
+      balance: clone(state.balance),
       trial: state.trial ? { sampleDtMs: state.trial.sampleDtMs, regularSampleCount: state.trial.regularSampleCount } : null,
       analysis: clone(state.analysis), predictions: clone(state.predictions), working: clone(state.working || {})
     };
@@ -56,11 +56,11 @@
     if (Flow?.submission) return Flow.submission(outcome, handlers);
     (handlers[state] || handlers.retry || (() => {}))(outcome); return state;
   }
-  function simulateBalanceRig(scenario, targetPositionM, options = {}) {
+  function simulateBalanceRig(scenario, targetPositionM) {
     if (!scenario) throw new Error("scenario required");
     const target = clamp(Number(targetPositionM), scenario.connector.restLengthM, scenario.stage.lengthM);
-    const simulation = Physics.simulate([{ timeS: 0, handleTargetPositionM: target }], scenario, { durationS: options.durationS ?? 0.75 });
-    let measurement = Measurement.createMeasurementState(scenario, { tared: Boolean(options.tared), tareCorrectionCN: Number.isInteger(options.tareCorrectionCN) ? options.tareCorrectionCN : 0 });
+    const simulation = Physics.simulate([{ timeS: 0, handleTargetPositionM: target }], scenario, { durationS: 0.75 });
+    let measurement = Measurement.createMeasurementState(scenario);
     for (const physical of simulation.states.slice(1)) measurement = Measurement.step(measurement, physical, scenario, Physics.PHYSICS_DT_S).state;
     return { physicsState: simulation.state, measurementState: measurement, reading: Measurement.liveReading(measurement), moved: simulation.events.some((event) => event.type === "breakaway") || simulation.state.block.positionM > 1e-6 };
   }
@@ -113,7 +113,11 @@
     let redoConfirmationVisible = false;
     let idleRigMoved = false;
     let breakawayAnnounced = false;
+    let balanceTrialDirection = "right";
+    let balanceTrialPullCN = 0;
+    let balanceTrialRecorded = false;
     let tableCursorIndex = null;
+    let stageResizeObserver = null;
     const RECORDING_MARKER = `simlab:${ACTIVITY}:recording-active`;
 
     const q = (id) => {
@@ -174,20 +178,107 @@
       target.tabIndex = visible ? 0 : -1;
       target.setAttribute("aria-hidden", String(!visible));
     }
+    function balanceCanDragGrip() {
+      return false;
+    }
+    function balanceStaticSpec() {
+      return scenario ? { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN } : { direction: "right", magnitudeCN: 0 };
+    }
+    function balanceOpposite(direction) { return direction === "left" ? "right" : "left"; }
+    function balanceHasStaticTask() {
+      return Boolean(state?.phase === "balance" && state.balance.zeroForce?.committed === true && (!state.balance.staticCase || !state.balance.staticCase.learnerForce?.committed));
+    }
+    function balanceHasBreakawayTask() {
+      return Boolean(state?.phase === "balance" && state.balance.staticCase?.learnerForce?.committed === true && !state.fromReview);
+    }
+    // The learner increases the pull in 0.1 N steps, so the first sliding
+    // value must be reachable on that control rather than an arbitrary 0.01 N
+    // centinewton boundary.
+    function balanceBreakawayThresholdCN() { return scenario ? Math.ceil(scenario.staticLimitMeanN * 10) * 10 : 0; }
+    function resetBalanceTrialView() {
+      balanceTrialDirection = state?.balance?.breakaway?.bestDirection || scenario?.balancePullDirection || "right";
+      balanceTrialPullCN = 0;
+      balanceTrialRecorded = false;
+    }
     function renderDragTargets() {
       const phase = state?.phase;
-      const activeBalance = phase === "balance" && Boolean(state?.balance?.observations.find((observation) => !observation.learnerForce?.committed) || (state?.fromReview && state.working?.reviewEditTarget?.section === "balance"));
-      setTargetVisible("forceGrip", (phase === "balance" || phase === "experiment") && !state?.fromReview);
+      const activeBalance = balanceHasStaticTask() || (state?.fromReview && state.working?.reviewEditTarget?.section === "balance" && state.working.reviewEditTarget.semanticKey === "static-case");
+      const showGrip = balanceCanDragGrip() || (phase === "experiment" && !state?.fromReview && Boolean(recorder?.running));
+      setTargetVisible("forceGrip", showGrip);
+      q("forceGrip")?.classList.toggle("is-coached", showGrip);
       setTargetVisible("balanceFriction", activeBalance);
       setTargetVisible("predictionFriction", phase === "predict");
       setTargetVisible("breakawayMarker", phase === "analysis" && currentAnalysisKey() === "breakaway");
       const interval = { staticInterval: "static", slowPlateau: "slow", acceleration: "acceleration", fastPlateau: "fast" }[currentAnalysisKey()];
       for (const prefix of ["static", "slow", "acceleration", "fast"]) for (const edge of ["start", "end"]) setTargetVisible(`${prefix}-${edge}`, phase === "analysis" && interval === prefix);
     }
+    function renderStageCoach() {
+      const coach = q("stageCoach");
+      if (!coach || !state || ["analysis", "review"].includes(state.phase)) {
+        coach?.classList.add("is-hidden");
+        return;
+      }
+      coach.classList.remove("is-hidden");
+      let step = "";
+      let title = "";
+      let text = "";
+      if (state.phase === "balance") {
+        if (state.fromReview) {
+          const target = state.working?.reviewEditTarget?.semanticKey;
+          step = "A"; title = "正在修改 Part A 答案"; text = target === "zero-force" ? "修改 A1：無水平外力時，摩擦力是否存在？" : target === "static-case" ? "修改 A2：藍色箭嘴要與指定外力等大反向。" : "修改 A3：重新輸入你估計的最大靜摩擦力。";
+        } else if (!state.balance.zeroForce) {
+          step = "A1"; title = "先畫出沒有水平外力的受力圖"; text = "請在控制欄選擇摩擦力的大小和方向；沒有水平外力時，摩擦力應為零。";
+        } else if (!state.balance.staticCase?.learnerForce?.committed) {
+          step = "A2"; title = "用指定小外力建立平衡"; text = `物體仍然不動；藍色摩擦力箭嘴要與${scenario?.balancePullDirection === "left" ? "向左" : "向右"}外力等大反向。`;
+        } else if (state.balance.breakaway?.bestPullCN == null) {
+          step = "A3"; title = "逐步增加外力，試到物體開始滑動"; text = "可選向左或向右，慢慢增加拉力；滑動後按「重新試拉」仍可重複驗證。";
+        } else if (state.balance.breakaway.learnerMaxCN == null) {
+          step = "A3✓"; title = "已找到開始滑動的臨界力"; text = "根據你觀察到的臨界值，填寫最大靜摩擦力估計。";
+        } else {
+          step = "A✓"; title = "Part A 三個概念任務已完成"; text = "按右邊的按鈕，進入正式拉力—時間實驗。";
+        }
+      } else if (state.phase === "experiment") {
+        step = recorder?.running ? "B2" : "B1";
+        if (state.fromReview || redoConfirmationVisible) {
+          title = "先在控制欄確認是否重新實驗"; text = "確認前舞台不接受拖動，以免意外改變已記錄資料。";
+        } else if (state.trial) {
+          title = "實驗資料已保留"; text = "下一步前往同步圖像分析。";
+        } else if (recorder?.trace) {
+          title = "記錄已停止"; text = "先在右邊檢查資料品質，再決定保留或重新開始。";
+        } else if (recorder?.running) {
+          title = "記錄中：拖動實驗用握把"; text = "先慢慢加力至物體移動，保持低速，再加速並保持較高速度。";
+        } else {
+          title = "先按右邊的「開始記錄」"; text = "開始後，實驗用拖曳把手會出現在舞台上。";
+        }
+      } else if (state.phase === "predict") {
+        step = `D${currentPredictionIndex() + 1}`; title = "拖動藍色箭嘴建立摩擦力"; text = "同時在右邊完成類型、方向、大小和運動結果。";
+      }
+      setText("stageCoachStep", step);
+      setText("stageCoachTitle", title);
+      setText("stageCoachText", text);
+    }
+    function apparatusLayout() {
+      const svg = q("apparatusSvg"); const stage = q("stage");
+      if (!svg || !stage) return null;
+      const svgRect = svg.getBoundingClientRect(); const stageRect = stage.getBoundingClientRect();
+      if (!(svgRect.width > 0) || !(svgRect.height > 0)) return null;
+      const scale = Math.min(svgRect.width / 900, svgRect.height / 430);
+      return {
+        scale,
+        left: svgRect.left - stageRect.left + (svgRect.width - 900 * scale) / 2,
+        top: svgRect.top - stageRect.top + (svgRect.height - 430 * scale) / 2
+      };
+    }
+    function positionApparatusTarget(target, viewX, viewY) {
+      const layout = apparatusLayout();
+      if (!target || !layout) return;
+      target.style.left = `${layout.left + clamp(viewX, 0, 900) * layout.scale}px`;
+      target.style.top = `${layout.top + clamp(viewY, 0, 430) * layout.scale}px`;
+    }
     function resetIdleRig(targetPositionM = null) {
       if (!scenario) return;
       const target = targetPositionM ?? Number(q("gripPosition")?.value || scenario.connector.restLengthM);
-      const rig = simulateBalanceRig(scenario, target, { tared: Boolean(state?.balance?.tared), tareCorrectionCN: state?.balance?.tareCorrectionCN ?? 0 });
+      const rig = simulateBalanceRig(scenario, target);
       physicsState = rig.physicsState; measurementState = rig.measurementState; idleRigMoved = rig.moved;
     }
     function appendForceArrow(svg, startX, endX, y, className, color, label) {
@@ -201,85 +292,120 @@
       const svg = q("apparatusSvg"); if (!svg) return;
       const graphMode = state?.phase === "analysis";
       const predictionMode = state?.phase === "predict";
+      const balanceMode = state?.phase === "balance";
       svg.classList.toggle("is-hidden", graphMode);
       q("stageGraph")?.classList.toggle("is-hidden", !graphMode);
-      q("liveReadouts")?.classList.toggle("is-hidden", graphMode || predictionMode);
+      q("liveReadouts")?.classList.toggle("is-hidden", graphMode || predictionMode || balanceMode);
       q("predictionReadout")?.classList.toggle("is-hidden", !predictionMode);
       renderDragTargets();
+      renderStageCoach();
       if (graphMode) { renderGraph(); return; }
       svg.replaceChildren();
       const width = 900, groundY = 300;
       svg.append(svgElement("rect", { x: 35, y: groundY, width: 830, height: 35, class: "apparatus-surface" }));
-      const position = predictionMode ? .45 : physicsState?.block?.positionM ?? 0;
+      const breakawaySliding = balanceMode && balanceTrialPullCN >= balanceBreakawayThresholdCN() && balanceTrialPullCN > 0;
+      const balanceOffset = breakawaySliding ? (balanceTrialDirection === "left" ? -.055 : .055) : 0;
+      const position = predictionMode ? .45 : balanceMode ? .72 + balanceOffset : physicsState?.block?.positionM ?? 0;
       const target = predictionMode ? .95 : physicsState?.handle?.positionM ?? (scenario?.connector.restLengthM || .18);
       const x = 100 + clamp(position / (scenario?.stage.lengthM || 1.65), 0, 1) * 650;
       const hx = 100 + clamp(target / (scenario?.stage.lengthM || 1.65), 0, 1) * 650;
       svg.append(svgElement("rect", { x, y: groundY - 54, width: 92, height: 54, rx: 8, class: "apparatus-block" }));
-      svg.append(svgElement("line", { x1: x + 92, y1: groundY - 27, x2: hx, y2: groundY - 27, class: "apparatus-rope" }));
-      svg.append(svgElement("rect", { x: hx - 12, y: groundY - 43, width: 34, height: 32, rx: 7, class: "apparatus-grip" }));
+      if (!balanceMode) {
+        svg.append(svgElement("line", { x1: x + 92, y1: groundY - 27, x2: hx, y2: groundY - 27, class: "apparatus-rope" }));
+        svg.append(svgElement("rect", { x: hx - 12, y: groundY - 43, width: 34, height: 32, rx: 7, class: "apparatus-grip" }));
+      }
       const labels = predictionMode ? [
         [x + 46, groundY + 62, "預測情境中的物體"], [Math.min(830, hx), groundY - 58, "已知向右拉力"],
         [92, 75, "水平粗糙面"], [185, 102, "藍色箭嘴是你建立的摩擦力"]
+      ] : balanceMode ? [
+        [x + 46, groundY + 62, "物體（受力圖由重心出發）"], [64, 75, "水平粗糙面"], [64, 102, "Part A：只看水平力的大小和方向"]
       ] : [
         [x + 46, groundY + 62, "物體"], [Math.min(830, hx), groundY - 58, "測力計握把"],
         [64, 75, "水平粗糙面"], [64, 102, "F拉—t 與 v—t 來自同一次物理記錄"]
       ];
-      labels.forEach(([tx, ty, text]) => { const label = svgElement("text", { x: tx, y: ty, "text-anchor": "middle" }); label.appendChild(document.createTextNode(text)); svg.append(label); });
-      const grip = q("forceGrip"); if (grip) { grip.style.left = `${clamp(hx / 900 * 100 - 3, 0, 94)}%`; grip.style.top = `${clamp((groundY - 43) / 430 * 100 - 2, 0, 92)}%`; }
+      labels.forEach(([tx, ty, text]) => { const label = svgElement("text", { x: tx, y: ty, "text-anchor": tx <= 100 ? "start" : "middle" }); label.appendChild(document.createTextNode(text)); svg.append(label); });
+      const grip = q("forceGrip");
+      if (!balanceMode) positionApparatusTarget(grip, hx + 5, groundY - 27);
       const reading = Measurement.liveReading(measurementState || Measurement.createMeasurementState(scenario || Generator.generateScenario({ seed: 1 })));
-      if (state?.phase === "balance") {
-        const active = state.balance.observations.find((observation) => !observation.learnerForce?.committed) || (state.fromReview ? state.balance.observations.find((observation) => observation.id === state.working?.reviewEditTarget?.semanticKey) : null) || state.balance.observations.at(-1);
-        const pullN = active ? active.measuredPullCN / 100 : reading.forceN;
-        const inputType = q("balanceType")?.value || null; const savedForce = active?.learnerForce?.committed ? active.learnerForce : null;
-        const frictionType = inputType || savedForce?.frictionType || null;
-        const direction = frictionType === "none" ? "none" : q("balanceDirection")?.value || savedForce?.direction || null;
-        const frictionN = frictionType && frictionType !== "none" ? (inputType ? Number(q("balanceMagnitude")?.value || 0) : (savedForce?.frictionMagnitudeCN || 0) / 100) : 0;
-        const signedFrictionN = direction === "left" ? -frictionN : direction === "right" ? frictionN : 0;
+      if (balanceMode) {
+        const comX = x + 46;
         const scale = 18;
-        appendForceArrow(svg, x + 92, x + 92 + Math.min(150, pullN * scale), groundY - 90, "pull-arrow", "#b91c1c", `拉力 ${pullN.toFixed(2)} N`);
-        appendForceArrow(svg, x, x + clamp(signedFrictionN * scale, -150, 150), groundY - 130, "learner-friction-arrow", "#1d4ed8", `你的摩擦力 ${frictionN.toFixed(2)} N`);
-        setText("balanceNetForce", `你畫的水平合力 ΣFx：${(pullN + signedFrictionN).toFixed(2)} N`);
-        const balanceHandle = q("balanceFriction"); if (balanceHandle) { const endpoint = x + clamp(signedFrictionN * scale, -150, 150); balanceHandle.style.left = `${clamp(endpoint / 900 * 100 - 2.7, 0, 94)}%`; balanceHandle.style.top = "34%"; balanceHandle.setAttribute("aria-label", `靜止狀態的水平摩擦力箭嘴，目前 ${frictionN.toFixed(2)} 牛頓`); }
+        const readForce = (typeId, directionId, magnitudeId) => {
+          const type = q(typeId)?.value || null;
+          const direction = type === "none" ? "none" : q(directionId)?.value || null;
+          const magnitude = type && type !== "none" ? Number(q(magnitudeId)?.value || 0) : 0;
+          return { type, direction, magnitude: Number.isFinite(magnitude) ? magnitude : 0 };
+        };
+        const signed = (direction, magnitude) => direction === "left" ? -magnitude : direction === "right" ? magnitude : 0;
+        if (!state.balance.zeroForce || state.fromReview && state.working?.reviewEditTarget?.semanticKey === "zero-force") {
+          const force = readForce("zeroFrictionType", "zeroFrictionDirection", "zeroFrictionMagnitude");
+          appendForceArrow(svg, comX, comX + clamp(signed(force.direction, force.magnitude) * scale, -180, 180), groundY - 112, "learner-friction-arrow", "#1d4ed8", force.type === "none" ? "摩擦力 0 N" : `摩擦力 ${force.magnitude.toFixed(1)} N`);
+        }
+        const showStaticCase = state.balance.zeroForce?.committed && (
+          state.balance.staticCase?.learnerForce?.committed !== true ||
+          (state.phase === "balance" && balanceTrialPullCN === 0) ||
+          (state.fromReview && state.working?.reviewEditTarget?.semanticKey === "static-case")
+        );
+        if (showStaticCase) {
+          const spec = balanceStaticSpec();
+          const force = readForce("balanceType", "balanceDirection", "balanceMagnitude");
+          const appliedN = spec.magnitudeCN / 100;
+          appendForceArrow(svg, comX, comX + clamp(signed(spec.direction, appliedN) * scale, -180, 180), groundY - 88, "pull-arrow", "#b91c1c", `指定外力 ${appliedN.toFixed(1)} N`);
+          appendForceArrow(svg, comX, comX + clamp(signed(force.direction, force.magnitude) * scale, -180, 180), groundY - 132, "learner-friction-arrow", "#1d4ed8", force.type === "none" ? "你的摩擦力 0 N" : `你的摩擦力 ${force.magnitude.toFixed(1)} N`);
+          const balanceHandle = q("balanceFriction"); if (balanceHandle) { const endpoint = comX + clamp(signed(force.direction, force.magnitude) * scale, -180, 180); positionApparatusTarget(balanceHandle, endpoint, groundY - 132); balanceHandle.setAttribute("aria-label", `靜摩擦力箭嘴，目前 ${force.magnitude.toFixed(1)} 牛頓`); }
+          setText("balanceNetForce", `水平合力 ΣFx：${(signed(spec.direction, appliedN) + signed(force.direction, force.magnitude)).toFixed(1)} N`);
+        }
+        if (state.balance.staticCase?.learnerForce?.committed && !state.fromReview) {
+          const pullN = balanceTrialPullCN / 100;
+          const frictionN = breakawaySliding ? (scenario?.kineticFrictionMeanN || 0) : pullN;
+          appendForceArrow(svg, comX, comX + clamp(signed(balanceTrialDirection, pullN) * scale, -200, 200), groundY - 88, "pull-arrow", "#b91c1c", `目前外力 ${pullN.toFixed(1)} N`);
+          if (frictionN > 0) appendForceArrow(svg, comX, comX + clamp(signed(balanceOpposite(balanceTrialDirection), frictionN) * scale, -200, 200), groundY - 132, "learner-friction-arrow", "#1d4ed8", `${breakawaySliding ? "滑動" : "靜"}摩擦力 ${frictionN.toFixed(1)} N`);
+        }
       }
       if (predictionMode) {
         const index = currentPredictionIndex(); const spec = scenario?.predictions?.[index]; const response = currentPredictionResponse();
         const frictionN = Number.isInteger(response?.magnitudeCN) ? response.magnitudeCN / 100 : 0;
         const signedFrictionN = response?.direction === "left" ? -frictionN : response?.direction === "right" ? frictionN : 0;
         const scale = 18; const endpoint = x + clamp(signedFrictionN * scale, -180, 180);
-        appendForceArrow(svg, x + 92, x + 92 + Math.min(180, (spec?.pullN || 0) * scale), groundY - 90, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`);
-        appendForceArrow(svg, x, endpoint, groundY - 130, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `你的摩擦力 ${frictionN.toFixed(2)} N`);
-        const predictionHandle = q("predictionFriction"); if (predictionHandle) { predictionHandle.style.left = `${clamp(endpoint / 900 * 100 - 2.7, 0, 94)}%`; predictionHandle.style.top = `${clamp((groundY - 130) / 430 * 100 - 5, 0, 90)}%`; predictionHandle.setAttribute("aria-label", `預測 ${index + 1} 的摩擦力箭嘴，目前 ${response?.magnitudeCN == null ? "未輸入" : `${frictionN.toFixed(2)} 牛頓`}`); }
+        appendForceArrow(svg, x + 46, x + 46 + Math.min(180, (spec?.pullN || 0) * scale), groundY - 90, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`);
+        appendForceArrow(svg, x + 46, x + 46 + clamp(signedFrictionN * scale, -180, 180), groundY - 130, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `你的摩擦力 ${frictionN.toFixed(2)} N`);
+        const predictionHandle = q("predictionFriction"); if (predictionHandle) { positionApparatusTarget(predictionHandle, endpoint, groundY - 130); predictionHandle.setAttribute("aria-label", `預測 ${index + 1} 的摩擦力箭嘴，目前 ${response?.magnitudeCN == null ? "未輸入" : `${frictionN.toFixed(2)} 牛頓`}`); }
         setText("predictionReadout", `情境 ${index + 1}：已知向右拉力 ${(spec?.pullN || 0).toFixed(1)} N；初速 ${(spec?.velocityMps || 0).toFixed(2)} m/s；你的摩擦力 ${response?.magnitudeCN == null ? "尚未輸入" : `${frictionN.toFixed(2)} N`}。`);
       }
-      if (grip) grip.setAttribute("aria-label", `測力計握把，目前讀數 ${reading.forceN.toFixed(2)} 牛頓`);
+      if (grip) grip.setAttribute("aria-label", `實驗用握把，目前讀數 ${reading.forceN.toFixed(2)} 牛頓`);
       setText("forceReadout", `${reading.forceN.toFixed(2)} N`); setText("velocityReadout", `${reading.velocityMps.toFixed(3)} m/s`); setText("timeReadout", `${finite(physicsState?.timeS).toFixed(2)} s`);
     }
     function renderBalance() {
-      const list = q("balanceObservations"); if (!list || !state) return;
-      list.replaceChildren();
-      state.balance.observations.forEach((observation) => {
-        const card = document.createElement("article"); card.className = "observation-card";
-        const force = observation.learnerForce;
-        card.innerHTML = `<strong>${observation.id === "zero-pull" ? "無拉力狀態" : observation.id === "static-low" ? "較小非零拉力" : observation.id === "static-high" ? "較大非零拉力" : "非零拉力狀態"}</strong><span>測力計讀數：${(observation.measuredPullCN / 100).toFixed(2)} N；速度：${(observation.measuredVelocityMMps / 1000).toFixed(3)} m/s</span><span>${force?.committed ? `你的判斷：${force.frictionType}／${force.direction}／${(force.frictionMagnitudeCN / 100).toFixed(2)} N` : "尚未保存水平力判斷"}</span>`;
-        list.append(card);
-      });
-      const reviewBalanceTarget = state.fromReview && state.working?.reviewEditTarget?.section === "balance" ? state.working.reviewEditTarget.semanticKey : null;
-      const active = state.balance.observations.find((observation) => !observation.learnerForce?.committed) || (reviewBalanceTarget ? state.balance.observations.find((observation) => observation.id === reviewBalanceTarget) : null);
-      q("balanceAnswer")?.classList.toggle("is-hidden", !active);
-      if (active) {
-        q("balanceAnswer")?.setAttribute("data-observation-id", active.id);
-        const reviewDraft = state.fromReview && state.working?.editDraft?.kind === "observation" ? state.working.editDraft.value : null;
-        const shownForce = reviewDraft || (state.fromReview ? active.learnerForce : null);
-        if (shownForce) { if (q("balanceType")) q("balanceType").value = shownForce.frictionType; if (q("balanceDirection")) q("balanceDirection").value = shownForce.direction; if (q("balanceMagnitude")) q("balanceMagnitude").value = String(shownForce.frictionMagnitudeCN / 100); }
-        setText("balanceMagnitudeValue", `${(Number(q("balanceMagnitude")?.value || 0)).toFixed(2)} N`);
-      }
-      const complete = Persistence.allBalanceAnswersCommitted(state);
-      q("to-experiment")?.toggleAttribute("disabled", !complete);
+      if (!state) return;
+      const target = state.fromReview && state.working?.reviewEditTarget?.section === "balance" ? state.working.reviewEditTarget.semanticKey : null;
+      const zero = target === "zero-force" && state.working?.editDraft?.kind === "balance" ? state.working.editDraft.value : state.balance.zeroForce;
+      const staticForce = target === "static-case" && state.working?.editDraft?.kind === "balance" ? state.working.editDraft.value : state.balance.staticCase?.learnerForce;
+      const breakawayValue = target === "breakaway" && state.working?.editDraft?.kind === "balance" ? state.working.editDraft.value : state.balance.breakaway?.learnerMaxCN;
+      const setValue = (id, value) => { const node = q(id); if (node && value != null) node.value = String(value); };
+      if (zero) { setValue("zeroFrictionType", zero.frictionType); setValue("zeroFrictionDirection", zero.direction); setValue("zeroFrictionMagnitude", (zero.frictionMagnitudeCN || 0) / 100); }
+      if (staticForce) { setValue("balanceType", staticForce.frictionType); setValue("balanceDirection", staticForce.direction); setValue("balanceMagnitude", (staticForce.frictionMagnitudeCN || 0) / 100); }
+      if (breakawayValue != null) setValue("breakawayAnswer", breakawayValue / 100);
+      const spec = balanceStaticSpec();
+      setText("staticPullPrompt", `指定外力：${spec.direction === "left" ? "向左" : "向右"} ${ (spec.magnitudeCN / 100).toFixed(1) } N（小於最大靜摩擦力，物體保持靜止）`);
+      setText("zeroFrictionMagnitudeValue", `${(Number(q("zeroFrictionMagnitude")?.value || 0)).toFixed(1)} N`);
+      setText("balanceMagnitudeValue", `${(Number(q("balanceMagnitude")?.value || 0)).toFixed(1)} N`);
+      setText("breakawayPullValue", `${(balanceTrialPullCN / 100).toFixed(1)} N`);
+      const best = state.balance.breakaway?.bestPullCN;
+      setText("breakawayBest", best == null ? "尚未找到臨界值。" : `你已觀察到開始滑動的臨界外力約 ${(best / 100).toFixed(1)} N；可再轉換方向重試。`);
+      setText("breakawayAttempts", `已完成試拉 ${state.balance.breakaway?.attempts || 0} 次`);
+      setText("balanceStatus", target ? "正在修改 Part A 的一項答案；保存後會回到提交前檢查。" : !state.balance.zeroForce ? "先完成 A1：無水平外力時，摩擦力大小和方向都應為零。" : !state.balance.staticCase?.learnerForce?.committed ? "完成 A2：把藍色靜摩擦力箭嘴調到與指定外力等大反向。" : best == null ? (balanceTrialPullCN >= balanceBreakawayThresholdCN() && balanceTrialPullCN > 0 ? "物體已開始滑動；你可以保存臨界值，或按「重新試拉」再驗證。" : "選擇左右方向，慢慢增加外力，直到物體開始滑動。") : breakawayValue == null ? "已找到臨界值，請填寫你估計的最大靜摩擦力。" : "Part A 已完成，可以開始正式實驗。" );
+      const zeroSaved = state.balance.zeroForce?.committed === true;
+      const staticSaved = state.balance.staticCase?.learnerForce?.committed === true;
+      const setTaskDisabled = (selector, disabled) => document.querySelectorAll(selector).forEach((node) => { node.disabled = disabled; node.setAttribute("aria-disabled", String(disabled)); });
+      setTaskDisabled("#zeroTask input, #zeroTask select, #zeroTask [data-balance-normal]", state.fromReview ? target !== "zero-force" : zeroSaved);
+      setTaskDisabled("#staticTask input, #staticTask select, #staticTask [data-balance-normal]", state.fromReview ? target !== "static-case" : !zeroSaved || staticSaved);
+      setTaskDisabled("#breakawayTask input, #breakawayTask select, #breakawayTask [data-balance-normal]", state.fromReview ? target !== "breakaway" : !staticSaved || state.balance.breakaway?.committed === true);
+      q("staticTask")?.classList.toggle("is-disabled", !zeroSaved && !target);
+      q("breakawayTask")?.classList.toggle("is-disabled", !staticSaved && !target);
+      q("to-experiment")?.toggleAttribute("disabled", !Persistence.allBalanceAnswersCommitted(state));
       q("to-experiment")?.classList.toggle("is-hidden", Boolean(state.fromReview));
-      q("balanceCaptureActions")?.classList.toggle("is-hidden", Boolean(state.fromReview));
-      q("tareButton")?.toggleAttribute("disabled", state.balance.tared || state.balance.observations.length > 0);
-      const pendingAnswer = state.balance.observations.some((observation) => !observation.learnerForce?.committed);
-      q("recordBalance")?.toggleAttribute("disabled", !state.balance.tared || pendingAnswer || state.balance.observations.length >= 3);
+      document.querySelectorAll("[data-balance-normal]").forEach((node) => node.classList.toggle("is-hidden", Boolean(state.fromReview)));
+      document.querySelectorAll("[data-balance-review]").forEach((node) => node.classList.toggle("is-hidden", !state.fromReview));
       renderApparatus();
     }
     function renderQuality() {
@@ -341,7 +467,7 @@
     }
     function startRecording() {
       if (!scenario || !state || presentation !== "editable" || state.phase !== "experiment" || state.fromReview || state.trial || recorder?.running || recorder?.trace) return false;
-      recorder = Measurement.createRecorder(scenario, { tared: state.balance.tared, tareCorrectionCN: state.balance.tareCorrectionCN }); recorder.running = true; breakawayAnnounced = false; measurementState = recorder.measurement; physicsState = Physics.createInitialState(scenario); fixedRunner = Physics.runFixedStep(scenario); inputTimeOriginMs = typeof performance !== "undefined" ? performance.now() : 0; Physics.enqueueInput(fixedRunner.queue, { timeS: 0, handleTargetPositionM: Number(q("gripPosition")?.value || scenario.connector.restLengthM) }); recorder.startedAtS = 0; markRecordingActive(true); announce("記錄開始"); setText("experimentStatus", "記錄進行中：慢慢增加拉力，再保持兩段不同速度。"); startLoop(); return true;
+      recorder = Measurement.createRecorder(scenario); recorder.running = true; breakawayAnnounced = false; measurementState = recorder.measurement; physicsState = Physics.createInitialState(scenario); fixedRunner = Physics.runFixedStep(scenario); inputTimeOriginMs = typeof performance !== "undefined" ? performance.now() : 0; Physics.enqueueInput(fixedRunner.queue, { timeS: 0, handleTargetPositionM: Number(q("gripPosition")?.value || scenario.connector.restLengthM) }); recorder.startedAtS = 0; markRecordingActive(true); announce("記錄開始"); setText("experimentStatus", "記錄進行中：慢慢增加拉力，再保持兩段不同速度。"); startLoop(); return true;
     }
     function stopRecording() {
       if (!recorder?.running || state?.phase !== "experiment" || state?.fromReview) return false;
@@ -521,8 +647,9 @@
     function renderReview() {
       const host = q("reviewSummary"); if (!host || !state) return;
       const complete = Persistence.hasCompleteAnswer(state);
-      const balanceEditButtons = state.balance.observations.map((observation) => `<button type="button" data-action="edit-balance-observation" data-observation-id="${observation.id}">修改${observation.id === "zero-pull" ? "無拉力" : observation.id === "static-low" ? "較小非零拉力" : "較大非零拉力"}</button>`).join("");
-      host.innerHTML = `<ul><li>力平衡觀察：${state.balance.observations.length}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像分析：${Persistence.hasAllAnalysisFields(state) ? "五項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
+      const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零外力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 指定外力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
+      const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
+      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像分析：${Persistence.hasAllAnalysisFields(state) ? "五項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
       q("submit")?.toggleAttribute("disabled", !complete);
       const analysisButtons = q("analysisEditButtons");
       if (analysisButtons) analysisButtons.innerHTML = Persistence.ANALYSIS_KEYS.map((key, index) => `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>`).join("");
@@ -588,7 +715,7 @@
         try {
           if (attempt.state === "draft" && attempt.snapshot) { state = Persistence.decodeSnapshot(attempt.snapshot, null, "draft"); scenario = Generator.generateScenario({ seed: state.seed }); state = Persistence.decodeSnapshot(attempt.snapshot, scenario, "draft"); }
           else { scenario = Generator.generateScenario({ seed: randomSeed() }); state = Persistence.freshState(scenario.seed); }
-          presentation = "editable"; latestResult = null; analysisDraft = null; redoConfirmationVisible = false;
+          presentation = "editable"; latestResult = null; analysisDraft = null; redoConfirmationVisible = false; resetBalanceTrialView();
           if (q("gripPosition")) q("gripPosition").value = String(scenario.connector.restLengthM);
           resetIdleRig(scenario.connector.restLengthM);
           if (typeof SimScorm !== "undefined" && SimScorm.setDraftProvider) SimScorm.setDraftProvider(() => SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encodeDraft(state)));
@@ -621,18 +748,19 @@
       presentation = "load-error"; if (typeof document !== "undefined") { setText("technicalTitle", "活動暫時鎖定"); setText("technicalMessage", "無法安全讀取這次活動；操作及分數均未確認。"); } render(); return false;
     }
     function focusAfterAction(action) {
-      if (["to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-observation", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
-      if (action === "tare") { focusNode(q("recordBalance")); return; }
-      if (action === "record-balance") { focusNode(q("balanceType")); return; }
-      if (action === "save-balance-answer") { focusNode(Persistence.allBalanceAnswersCommitted(state) ? q("to-experiment") : q("recordBalance")); return; }
+      if (["to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
+      if (action === "save-zero-force") { focusNode(q("save-static-force")); return; }
+      if (action === "save-static-force") { focusNode(q("breakawayPull")); return; }
+      if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
       if (action === "save-analysis") { focusNode(q(`[data-analysis-task="${currentAnalysisKey()}"]`)?.querySelector("input,select")); return; }
       if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select,input")); return; }
       if (["previous-extremum", "next-extremum", "jump-selection-start", "jump-selection-end"].includes(action)) { focusNode(q(`[data-sample-index="${tableCursorIndex}"]`)); return; }
       if (action === "request-redo-experiment") focusNode(q("redoExperimentTitle"));
     }
     function validationMessage(action) {
-      if (action === "save-balance-answer") return "請先明確選擇摩擦力類型、方向及大小，然後再保存。";
-      if (action === "record-balance") return "目前狀態未能記錄；請按上方提示調整握把或先完成上一筆判斷。";
+      if (action === "save-zero-force") return "請先選擇 A1 的摩擦力類型、方向及大小。";
+      if (action === "save-static-force") return "請先完成 A2 的靜摩擦力類型、方向及大小。";
+      if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
       if (action === "save-analysis") return "請完成目前圖像項目的選區、數值及判斷，然後再保存。";
       if (action === "save-prediction") return "請完成這題的摩擦力類型、方向、大小及運動結果，然後再保存。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
@@ -644,19 +772,22 @@
           if (["technical", "load-error", "trusted-finished-review", "submitted-success"].includes(presentation) || (presentation === "frozen" && action !== "retry-pending") || (presentation === "submitted-committed" && action !== "retry-finish")) return;
         try {
           q("validationStatus")?.classList.add("is-hidden"); setText("validationStatus", "");
-          if (action === "tare") { physicsState ||= Physics.createInitialState(scenario); measurementState ||= Measurement.createMeasurementState(scenario); measurementState = Measurement.tare(measurementState, physicsState, scenario); state = Persistence.transitions.setTare(state, measurementState.tareCorrectionCN); resetIdleRig(scenario.connector.restLengthM); setText("balanceStatus", "測力計已歸零。現在可以記錄第一個靜止狀態。"); announce("測力計已歸零"); saveDraft(); }
-          else if (action === "record-balance") {
-            const reading = Measurement.liveReading(measurementState || Measurement.createMeasurementState(scenario)); const first = state.balance.observations.length === 0;
-            const staticState = !idleRigMoved && physicsState?.contact?.mode === "static" && Math.abs(physicsState?.block?.velocityMps || 0) <= Measurement.MAX_STATIC_ABS_VELOCITY_MPS && reading.velocityMMps <= Math.round(Measurement.MAX_STATIC_ABS_VELOCITY_MPS * 1000);
-            const slack = (physicsState?.connector?.extensionM || 0) <= 1e-9;
-            if (first && (!slack || reading.forceCN !== 0 || !staticState)) { setText("balanceStatus", "第一筆需要在繩保持鬆弛、物體靜止及測力計為零時記錄。"); throw new Error("zero observation requires a tared slack state"); }
-            if (!first && (!staticState || reading.forceCN <= 0)) { setText("balanceStatus", "目前狀態不是可記錄的非零靜止狀態；請調整握把並保持物體靜止。"); throw new Error("nonzero observation requires a measured static state"); }
-            try { state = Persistence.transitions.recordObservation(state, { id: first ? "zero-pull" : "static-1", measuredPullCN: reading.forceCN, measuredVelocityMMps: reading.velocityMMps, learnerForce: null }); }
-            catch (error) { setText("balanceStatus", /too close/.test(error.message) ? "第二次記錄的拉力需要和第一次有較明顯差別。" : "目前狀態未能記錄；請先完成上一筆判斷。"); throw error; }
-            if (q("balanceType")) q("balanceType").value = ""; if (q("balanceDirection")) q("balanceDirection").value = ""; if (q("balanceMagnitude")) q("balanceMagnitude").value = "0";
-            setText("balanceStatus", "已記錄此刻的實際測力計與速度狀態；請保存你自己的水平力判斷。"); saveDraft();
+          if (action === "save-zero-force") {
+            const type = q("zeroFrictionType")?.value || null; const direction = type === "none" ? "none" : q("zeroFrictionDirection")?.value || null; const magnitudeCN = type === "none" ? 0 : Math.round(Number(q("zeroFrictionMagnitude")?.value || 0) * 100);
+            if (!type || !direction) throw new Error("explicit zero-force answer required");
+            state = Persistence.transitions.setZeroForceAnswer(state, { frictionType: type, direction, frictionMagnitudeCN: magnitudeCN, committed: true }); saveDraft();
           }
-          else if (action === "save-balance-answer") { const id = q("balanceAnswer")?.dataset.observationId; const type = q("balanceType")?.value || null; const direction = type === "none" ? "none" : q("balanceDirection")?.value || null; const magnitudeCN = Math.round(Number(q("balanceMagnitude")?.value || 0) * 100); if (!type || !direction) throw new Error("explicit balance type and direction required"); state = Persistence.transitions.setObservationAnswer(state, id, { frictionType: type, direction, frictionMagnitudeCN: type === "none" ? 0 : magnitudeCN, operationDeltaCN: type === "none" ? 0 : magnitudeCN, committed: true }); if (q("balanceType")) q("balanceType").value = ""; if (q("balanceDirection")) q("balanceDirection").value = ""; if (q("balanceMagnitude")) q("balanceMagnitude").value = "0"; setText("balanceStatus", "已保存你自己的力平衡判斷。"); saveDraft(); }
+          else if (action === "save-static-force") {
+            const type = q("balanceType")?.value || null; const direction = type === "none" ? "none" : q("balanceDirection")?.value || null; const magnitudeCN = type === "none" ? 0 : Math.round(Number(q("balanceMagnitude")?.value || 0) * 100);
+            if (!type || !direction) throw new Error("explicit static-force answer required");
+            state = Persistence.transitions.setStaticForceAnswer(state, balanceStaticSpec(), { frictionType: type, direction, frictionMagnitudeCN: magnitudeCN, committed: true }); saveDraft();
+          }
+          else if (["pull-left", "pull-right"].includes(action)) { balanceTrialDirection = action === "pull-left" ? "left" : "right"; renderApparatus(); renderBalance(); }
+          else if (action === "reset-breakaway") { balanceTrialPullCN = 0; balanceTrialRecorded = false; if (q("breakawayPull")) q("breakawayPull").value = "0"; renderApparatus(); renderBalance(); }
+          else if (action === "save-breakaway-answer") {
+            const value = q("breakawayAnswer")?.value; if (value === "" || !Number.isFinite(Number(value))) throw new Error("maximum static-friction estimate required");
+            state = Persistence.transitions.setBreakawayAnswer(state, Math.round(Number(value) * 100)); saveDraft();
+          }
           else if (action === "to-experiment") { state = Persistence.transitions.setPhase(state, "experiment"); if (q("gripPosition")) q("gripPosition").value = String(scenario.connector.restLengthM); resetIdleRig(scenario.connector.restLengthM); saveDraft(); }
           else if (action === "start-recording") startRecording();
           else if (action === "stop-recording") stopRecording();
@@ -671,8 +802,8 @@
           else if (action === "save-prediction") { const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {}; card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value) * 100)) : input.value || null; }); if (!values.frictionType || !values.direction || values.magnitudeCN == null || !values.motionOutcome) throw new Error("complete every prediction field"); state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, ...values, committed: true }); saveDraft(); }
           else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
           else if (action === "to-review") { if (Persistence.hasAllPredictions(state)) { state = Persistence.transitions.setPhase(state, "review"); saveDraft(); } }
-          else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", state.balance.observations[0]?.id || "zero-pull"); saveDraft(); }
-          else if (action === "edit-balance-observation") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-observation-id]")?.dataset.observationId || "zero-pull"); saveDraft(); }
+          else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", "zero-force"); saveDraft(); }
+          else if (action === "edit-balance-task") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-balance-key]")?.dataset.balanceKey); saveDraft(); }
           else if (action === "edit-experiment") { state = Persistence.transitions.enterReviewEdit(state, "experiment", null); redoConfirmationVisible = true; saveDraft(); }
           else if (action === "edit-analysis") { state = Persistence.transitions.enterReviewEdit(state, "analysis", event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; saveDraft(); }
           else if (action === "edit-predict") { state = Persistence.transitions.enterReviewEdit(state, "predict", Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex ?? 0)); saveDraft(); }
@@ -684,9 +815,17 @@
           focusAfterAction(action);
         } catch (error) { console.warn(error); render(); const status = q("validationStatus"); if (status) { status.textContent = validationMessage(action); status.classList.remove("is-hidden"); focusNode(status); } }
       });
-      q("balanceMagnitude")?.addEventListener("input", (event) => { setText("balanceMagnitudeValue", `${Number(event.target.value).toFixed(2)} N`); renderApparatus(); });
+      q("zeroFrictionMagnitude")?.addEventListener("input", (event) => { setText("zeroFrictionMagnitudeValue", `${Number(event.target.value).toFixed(1)} N`); renderApparatus(); });
+      q("zeroFrictionType")?.addEventListener("change", renderApparatus); q("zeroFrictionDirection")?.addEventListener("change", renderApparatus);
+      q("balanceMagnitude")?.addEventListener("input", (event) => { setText("balanceMagnitudeValue", `${Number(event.target.value).toFixed(1)} N`); renderApparatus(); });
       q("balanceType")?.addEventListener("change", renderApparatus); q("balanceDirection")?.addEventListener("change", renderApparatus);
-      q("gripPosition")?.addEventListener("input", (event) => { if (recorder?.running && fixedRunner) { const raw = Number(event.timeStamp); const now = typeof performance !== "undefined" ? performance.now() : 0; const pageMs = Number.isFinite(raw) && raw > 0 && raw < 1e9 ? raw : now; const origin = inputTimeOriginMs ?? pageMs; const timeS = Math.max(fixedRunner.getState().timeS, (pageMs - origin) / 1000); Physics.enqueueInput(fixedRunner.queue, { timeS, handleTargetPositionM: Number(event.target.value) }); } else if (state?.phase === "balance" || state?.phase === "experiment") resetIdleRig(Number(event.target.value)); renderApparatus(); });
+      q("breakawayPull")?.addEventListener("input", (event) => {
+        balanceTrialPullCN = Math.round(Number(event.target.value || 0) * 100);
+        const sliding = balanceTrialPullCN >= balanceBreakawayThresholdCN() && balanceTrialPullCN > 0;
+        if (sliding && !balanceTrialRecorded && balanceHasBreakawayTask()) { state = Persistence.transitions.recordBreakawayTrial(state, { direction: balanceTrialDirection, pullCN: balanceTrialPullCN }); balanceTrialRecorded = true; saveDraft(); announce("物體已開始滑動"); }
+        setText("breakawayPullValue", `${(balanceTrialPullCN / 100).toFixed(1)} N`); renderApparatus(); renderBalance();
+      });
+      q("gripPosition")?.addEventListener("input", (event) => { if (recorder?.running && fixedRunner) { const raw = Number(event.timeStamp); const now = typeof performance !== "undefined" ? performance.now() : 0; const pageMs = Number.isFinite(raw) && raw > 0 && raw < 1e9 ? raw : now; const origin = inputTimeOriginMs ?? pageMs; const timeS = Math.max(fixedRunner.getState().timeS, (pageMs - origin) / 1000); Physics.enqueueInput(fixedRunner.queue, { timeS, handleTargetPositionM: Number(event.target.value) }); } else if (state?.phase === "experiment") resetIdleRig(Number(event.target.value)); renderApparatus(); });
       let stageTouchY = null;
       q("stage")?.addEventListener("touchstart", (event) => { if (event.touches.length === 1 && !event.target.closest?.(".drag-target")) stageTouchY = event.touches[0].clientY; }, { passive: true });
       q("stage")?.addEventListener("touchmove", (event) => { if (stageTouchY == null || event.touches.length !== 1 || event.target.closest?.(".drag-target")) return; const y = event.touches[0].clientY; const delta = stageTouchY - y; stageTouchY = y; hostSwipe(event, delta); }, { passive: true });
@@ -773,6 +912,14 @@
         if (target.classList?.contains("drag-target") && event.key === "Escape") cancelDrag();
       });
       document.querySelectorAll(".drag-target").forEach((target) => { target.addEventListener("pointerdown", beginDrag); target.addEventListener("pointermove", moveDrag); target.addEventListener("pointerup", endDrag); target.addEventListener("pointercancel", cancelDrag); });
+      const stage = q("stage");
+      if (stage && typeof ResizeObserver === "function" && !stageResizeObserver) {
+        stageResizeObserver = new ResizeObserver(() => { if (!dragging) renderApparatus(); });
+        stageResizeObserver.observe(stage);
+      } else if (typeof window !== "undefined" && !stageResizeObserver) {
+        window.addEventListener("resize", () => { if (!dragging) renderApparatus(); });
+        stageResizeObserver = { disconnect() {} };
+      }
     }
     function beginDrag(event) { if (event.isPrimary === false || dragging) return; dragging = { target: event.currentTarget, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, checkpoint: clone(state), checkpointDraft: clone(analysisDraft), gripValue: q("gripPosition")?.value, balanceMagnitude: q("balanceMagnitude")?.value, predictionMagnitudes: [...document.querySelectorAll("[data-prediction-field='magnitudeCN']")].map((input) => input.value) }; try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} }
     function adjustDragTarget(target, direction, magnitude = 1) {
@@ -786,7 +933,7 @@
       const match = /^(static|slow|acceleration|fast)-(start|end)$/.exec(target); if (!match) return;
       const key = { static: "staticInterval", slow: "slowPlateau", acceleration: "acceleration", fast: "fastPlateau" }[match[1]]; const field = `${match[2]}Index`; analysisDraft[key] ||= {}; analysisDraft[key][field] = clamp((analysisDraft[key][field] ?? 0) + direction * magnitude, 0, decoded.merged.length - 1); renderGraph();
     }
-    function moveDrag(event) { if (!dragging || dragging.target !== event.currentTarget || event.isPrimary === false) return; const target = event.currentTarget.dataset.dragTarget; if (target === "force-grip") { const input = q("gripPosition"); if (input) { input.value = clamp(Number(input.value) + (event.clientX - dragging.startX) / 350, .18, 1.4); dragging.startX = event.clientX; input.dispatchEvent(new Event("input", { bubbles: true })); } } else { const steps = Math.round((event.clientX - dragging.startX) / 10); if (steps) { adjustDragTarget(target, steps > 0 ? 1 : -1, Math.abs(steps)); dragging.startX = event.clientX; } } }
+    function moveDrag(event) { if (!dragging || dragging.target !== event.currentTarget || event.isPrimary === false) return; const target = event.currentTarget.dataset.dragTarget; if (target === "force-grip") { const input = q("gripPosition"); if (input) { const layout = apparatusLayout(); const metresPerPixel = layout?.scale > 0 ? (scenario?.stage.lengthM || 1.65) / (650 * layout.scale) : 1 / 350; input.value = clamp(Number(input.value) + (event.clientX - dragging.startX) * metresPerPixel, .18, 1.4); dragging.startX = event.clientX; input.dispatchEvent(new Event("input", { bubbles: true })); } } else { const steps = Math.round((event.clientX - dragging.startX) / 10); if (steps) { adjustDragTarget(target, steps > 0 ? 1 : -1, Math.abs(steps)); dragging.startX = event.clientX; } } }
     function endDrag(event) { if (!dragging || dragging.target !== event.currentTarget) return; try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {} if (analysisDraft && state?.phase === "analysis") persistAnalysisDraft(); dragging = null; saveDraft(); render(); }
     function cancelDrag() { if (!dragging) return; try { dragging.target.releasePointerCapture?.(dragging.pointerId); } catch {} if (dragging.checkpoint && state && !recorder?.running) state = dragging.checkpoint; analysisDraft = clone(dragging.checkpointDraft); if (q("gripPosition") && dragging.gripValue != null) { q("gripPosition").value = dragging.gripValue; if (!recorder?.running && (state?.phase === "balance" || state?.phase === "experiment")) resetIdleRig(Number(dragging.gripValue)); } if (q("balanceMagnitude") && dragging.balanceMagnitude != null) q("balanceMagnitude").value = dragging.balanceMagnitude; document.querySelectorAll("[data-prediction-field='magnitudeCN']").forEach((input, index) => { if (dragging.predictionMagnitudes?.[index] != null) input.value = dragging.predictionMagnitudes[index]; }); dragging = null; render(); }
     function hostSwipe(event, delta) { if (event?.target?.closest?.(".drag-target")) return false; try { const host = window.parent; if (host && host !== window && host.scrollBy) { host.scrollBy(0, delta); return true; } } catch {} return false; }
@@ -804,7 +951,7 @@
       if (typeof document === "undefined") return;
       const shell = document.querySelector(".friction-shell"); const stage = q("stage"); const panel = q("controlPanel");
       // Controls are first in the live reading order while CSS keeps the
-      // stage visible above them on phones and to their right on desktop.
+      // stage visible above them on phones and to their left on desktop.
       if (shell && panel && stage && shell.firstElementChild !== panel) shell.insertBefore(panel, stage);
     }
     function submit() {

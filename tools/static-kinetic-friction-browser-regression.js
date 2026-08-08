@@ -60,13 +60,11 @@ function analysisFixtureScript(activeIndex = 0) {
     const samples = Array.from({ length: 301 }, (_, i) => ({ timeS: i * .04, pullCN: i < 50 ? i * 12 : 500, velocityMMps: i < 50 ? 0 : i < 90 ? 100 : i < 110 ? 100 + (i - 90) * 6 : 220 }));
     const trial = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 49 } });
     let state = P.freshState(scenario.seed);
-    state = P.transitions.setTare(state, 0);
-    const rows = [
-      [{ id: 'zero-pull', measuredPullCN: 0, measuredVelocityMMps: 0, learnerForce: null }, { frictionType: 'none', direction: 'none', frictionMagnitudeCN: 0, operationDeltaCN: 0, committed: true }],
-      [{ id: 'static-1', measuredPullCN: 220, measuredVelocityMMps: 0, learnerForce: null }, { frictionType: 'static', direction: 'left', frictionMagnitudeCN: 220, operationDeltaCN: 220, committed: true }],
-      [{ id: 'static-1', measuredPullCN: 450, measuredVelocityMMps: 0, learnerForce: null }, { frictionType: 'static', direction: 'left', frictionMagnitudeCN: 450, operationDeltaCN: 450, committed: true }]
-    ];
-    for (const [row, answer] of rows) { state = P.transitions.recordObservation(state, row); const id = state.balance.observations.find(item => !item.learnerForce)?.id; state = P.transitions.setObservationAnswer(state, id, answer); }
+    const opposite = scenario.balancePullDirection === 'left' ? 'right' : 'left';
+    state = P.transitions.setZeroForceAnswer(state, { frictionType: 'none', direction: 'none', frictionMagnitudeCN: 0, committed: true });
+    state = P.transitions.setStaticForceAnswer(state, { direction: scenario.balancePullDirection, magnitudeCN: scenario.balancePullCN }, { frictionType: 'static', direction: opposite, frictionMagnitudeCN: scenario.balancePullCN, committed: true });
+    state = P.transitions.recordBreakawayTrial(state, { direction: scenario.balancePullDirection, pullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10 });
+    state = P.transitions.setBreakawayAnswer(state, Math.round(scenario.staticLimitMeanN * 100));
     state = P.transitions.setPhase(state, 'experiment'); state = P.transitions.acceptTrial(state, trial); state = P.transitions.setPhase(state, 'analysis');
     const candidates = M.findCandidateWindows(trial);
     const tasks = [
@@ -85,23 +83,24 @@ function analysisFixtureScript(activeIndex = 0) {
 }
 async function semanticSmoke(cdp, url, label) {
   await navigate(cdp, url);
-  await tapSelector(cdp, "#tareButton"); await tapSelector(cdp, "#recordBalance");
-  await evaluate(cdp, `(() => { const type = document.getElementById('balanceType'); type.value='none'; type.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
-  await tapSelector(cdp, "[data-action='save-balance-answer']");
-  await pressKeyOn(cdp, "#forceGrip", "ArrowRight");
-  const firstReadingCN = await evaluate(cdp, "Math.round(parseFloat(document.getElementById('forceReadout').textContent) * 100)");
-  await tapSelector(cdp, "#recordBalance");
-  await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); const row=state.balance.observations.find(item=>!item.learnerForce); const set=(id,value)=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event('change',{bubbles:true}))}; set('balanceType','static');set('balanceDirection','left');set('balanceMagnitude',String(row.measuredPullCN/100));document.getElementById('balanceMagnitude').dispatchEvent(new Event('input',{bubbles:true}));return true; })()`);
-  await tapSelector(cdp, "[data-action='save-balance-answer']");
-  await pressKeyOn(cdp, "#forceGrip", "ArrowRight");
-  const secondReadingCN = await evaluate(cdp, "Math.round(parseFloat(document.getElementById('forceReadout').textContent) * 100)");
-  await tapSelector(cdp, "#recordBalance");
-  await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); const row=state.balance.observations.find(item=>!item.learnerForce); const set=(id,value)=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event('change',{bubbles:true}))}; set('balanceType','static');set('balanceDirection','left');set('balanceMagnitude',String(row.measuredPullCN/100));document.getElementById('balanceMagnitude').dispatchEvent(new Event('input',{bubbles:true}));return true; })()`);
-  await tapSelector(cdp, "[data-action='save-balance-answer']");
-  const balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { rows: state.balance.observations.map(row=>row.measuredPullCN), arrows: document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, sigma: document.getElementById('balanceNetForce').textContent, phase: state.phase }; })()`);
-  assert.deepEqual(balance.rows, [0, firstReadingCN, secondReadingCN], `${label}: Part A persists actual fixed-step sensor readings`);
-  assert.ok(secondReadingCN - firstReadingCN >= 100, `${label}: Part A nonzero readings meet the physical separation gate`);
-  assert.ok(balance.arrows >= 2 && /ΣFx/.test(balance.sigma), `${label}: Part A renders pull/friction arrows and learner ΣFx`);
+  await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');return true; })()`);
+  await tapSelector(cdp, "[data-action='save-zero-force']");
+  const a1 = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce");
+  assert.deepEqual(a1, { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, `${label}: A1 stores explicit zero friction`);
+  const staticSetup = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(), opposite=state.balance.zeroForce ? (window.StaticKineticFrictionGenerator.generateScenario({seed:state.seed}).balancePullDirection==='left'?'right':'left') : 'left'; const scenario=window.StaticKineticFrictionGenerator.generateScenario({seed:state.seed}); const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('balanceType','static');set('balanceDirection',opposite);set('balanceMagnitude',String(scenario.balancePullN),'input');return {direction:scenario.balancePullDirection,magnitudeCN:scenario.balancePullCN,opposite}; })()`);
+  await tapSelector(cdp, "[data-action='save-static-force']");
+  const balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, sigma:document.getElementById('balanceNetForce').textContent, forceGripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'), phase:state.phase }; })()`);
+  assert.equal(balance.staticCase.appliedMagnitudeCN, staticSetup.magnitudeCN, `${label}: A2 stores the specified small pull rather than a sensor reading`);
+  assert.equal(balance.staticCase.learnerForce.direction, staticSetup.opposite, `${label}: A2 friction direction is opposite the applied force`);
+  assert.ok(balance.arrows >= 2 && /ΣFx/.test(balance.sigma), `${label}: Part A renders centre-of-mass force arrows and net force ${JSON.stringify(balance)}`);
+  const threshold = await evaluate(cdp, "Math.ceil(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN * 10) * 10");
+  await evaluate(cdp, `(async()=>{const node=document.getElementById('breakawayPull');for(let n=0;n<=${threshold};n+=10){node.value=String(n/100);node.dispatchEvent(new Event('input',{bubbles:true}));}return true})()`);
+  await delay(100);
+  const breakaway = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.breakaway");
+  assert.ok(breakaway.bestPullCN >= threshold && breakaway.attempts >= 1, `${label}: A3 records a breakaway trial after gradual force increase`);
+  await evaluate(cdp, "document.getElementById('breakawayAnswer').value=(window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}).staticLimitMeanN).toFixed(1)");
+  await tapSelector(cdp, "[data-action='save-breakaway-answer']");
+  assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().variant"), "answer-complete", `${label}: all three Part A tasks complete`);
   await tapSelector(cdp, "#to-experiment");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().phase"), "experiment", `${label}: sequential Part A continues legally`);
   await tapSelector(cdp, "#startRecording");
@@ -185,11 +184,17 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
       html: document.documentElement.scrollHeight,
       inner: innerHeight,
       panelRange: panel.scrollHeight - panel.clientHeight,
+      panelOverflowY: getComputedStyle(panel).overflowY,
       appHeight: document.getElementById('app').getBoundingClientRect().height,
       shellHeight: document.querySelector('.friction-shell').getBoundingClientRect().height,
       stageHeight: stage.getBoundingClientRect().height,
       panelHeight: panel.getBoundingClientRect().height,
       controlsFirst: document.querySelector('.friction-shell').firstElementChild === panel,
+      gripHidden: document.getElementById('forceGrip').classList.contains('is-hidden'),
+      coach: document.getElementById('stageCoach').textContent,
+      zeroTask: document.getElementById('zeroTask').textContent,
+      sensorReadoutsHidden: document.getElementById('liveReadouts').classList.contains('is-hidden'),
+      explanation: document.querySelector('.first-step-explanation').textContent,
       targets: [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node => { const r = node.getBoundingClientRect(); return { w: r.width, h: r.height }; })
     };
   })()`);
@@ -198,14 +203,16 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.equal(layout.touch, "pan-y", `${label}: embedded stage touch action`);
   assert.ok(layout.html <= layout.inner + 1, `${label}: embedded activity document is bounded (${layout.html}/${layout.inner}; app=${layout.appHeight}, shell=${layout.shellHeight}, stage=${layout.stageHeight}, panel=${layout.panelHeight})`);
   assert.ok(layout.panelRange > 8, `${label}: embedded panel has independent scroll range`);
+  assert.equal(layout.panelOverflowY, "auto", `${label}: embedded control panel is the declared independent scroll owner`);
   assert.equal(layout.controlsFirst, true, `${label}: controls precede stage in live DOM order`);
+  assert.equal(layout.gripHidden, true, `${label}: Part A does not expose a measurement grip`);
+  assert.match(layout.coach, /A1.*沒有水平外力/s, `${label}: startup coach names the zero-horizontal-force task`);
+  assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: A1 asks for friction type, direction and magnitude`);
+  assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`);
+  assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: Part A explicitly removes instrument calibration`);
   assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: embedded targets are stable touch sizes`);
   await evaluate(cdp, "scrollTo({ top: 300, behavior: 'instant' })");
   await delay(120);
-  const tarePoint = await frameEvaluate(cdp, `(() => { const frame = window.frameElement.getBoundingClientRect(); const r = document.getElementById('tareButton').getBoundingClientRect(); return { x: frame.left + r.left + r.width / 2, y: frame.top + r.top + r.height / 2 }; })()`);
-  await tap(cdp, tarePoint);
-  await delay(500);
-  assert.equal(await frameEvaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.tared"), true, `${label}: panel tap synthesizes tare click`);
   const metrics = () => frameEvaluate(cdp, `(() => ({ panel: document.getElementById('controlPanel').scrollTop, activity: window.scrollY, host: window.parent.scrollY }))()`);
   await evaluate(cdp, "scrollTo({ top: 120, behavior: 'instant' })");
   await delay(120);
@@ -221,10 +228,13 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   const afterStage = await metrics();
   assert.notEqual(afterStage.host, beforeStage.host, `${label}: stage swipe owns enclosing Moodle host scroll`);
   assert.equal(afterStage.panel, beforeStage.panel, `${label}: stage swipe does not scroll control panel`);
+  await navigateEmbedded(cdp, base, launch);
+  await frameEvaluate(cdp, `(() => { window.__trustedEvents = []; for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) document.addEventListener(type, event => window.__trustedEvents.push({ type, trusted: event.isTrusted, pointerType: event.pointerType }), true); return true; })()`);
   await evaluate(cdp, "scrollTo({ top: 300, behavior: 'instant' })");
   await delay(120);
   const panelPoint = await frameEvaluate(cdp, `(() => { const frame = window.frameElement.getBoundingClientRect(); const panel = document.getElementById('controlPanel'); const r = panel.getBoundingClientRect(); for (let y = r.top + 12; y < r.bottom - 12; y += 12) { const hit = document.elementFromPoint(r.left + r.width / 2, y); if (!hit?.closest('button,input,select,.drag-target')) return { x: frame.left + r.left + r.width / 2, y: frame.top + y }; } return { x: frame.left + r.left + r.width / 2, y: frame.top + r.top + 12 }; })()`);
   const panelRange = await frameEvaluate(cdp, "(() => { const panel = document.getElementById('controlPanel'); return panel.scrollHeight - panel.clientHeight; })()");
+  assert.ok(panelRange > 8, `${label}: expanded control panel has independent scroll range (${panelRange})`);
   // Exceed Chromium's touch-slop so the trusted gesture produces touchmove
   // events even when the panel has only a short remaining scroll range.
   const panelDelta = Math.max(16, Math.min(24, panelRange / 4));
@@ -235,15 +245,44 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   const afterPanel = await metrics();
   assert(afterPanel.panel > beforePanel.panel, `${label}: control panel swipe owns panel scroll`);
   assert.ok(Math.abs(afterPanel.host - beforePanel.host) <= 1, `${label}: panel swipe leaves enclosing host fixed (≤1 CSS px rounding)`);
-  const targets = await frameEvaluate(cdp, `(() => { const frame = window.frameElement.getBoundingClientRect(); return [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node => { const r = node.getBoundingClientRect(); return { x: frame.left + r.left + r.width / 2, y: frame.top + r.top + r.height / 2, id: node.dataset.dragTarget }; }); })()`);
-  for (const target of targets) {
-    await frameEvaluate(cdp, "window.__trustedEvents = []");
-    await touch(cdp, target, { x: target.x + 18, y: target.y });
-    const events = await frameEvaluate(cdp, "window.__trustedEvents.slice()");
-    const touchEvents = events.filter((event) => event.pointerType === "touch");
-    assert(touchEvents.some((event) => event.type === "pointerup" && event.trusted), `${label}: ${target.id} has trusted pointerup`);
-    assert.equal(touchEvents.some((event) => event.type === "pointercancel"), false, `${label}: ${target.id} has no pointercancel`);
-  }
+  const prepared = await frameEvaluate(cdp, `(() => {
+    const state=window.__staticKineticFrictionApp.getState();
+    return {zero:state.balance.zeroForce,gripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'),frictionHidden:document.getElementById('balanceFriction').classList.contains('is-hidden')};
+  })()`);
+  assert.deepEqual(prepared, { zero: null, gripHidden: true, frictionHidden: true }, `${label}: Part A startup exposes only the A1 control task`);
+  await frameEvaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))};set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');document.querySelector('[data-action="save-zero-force"]').click();return true; })()`);
+  await delay(120);
+  const frictionTarget = await frameEvaluate(cdp, `(() => { const frame=window.frameElement.getBoundingClientRect(),node=document.getElementById('balanceFriction'),r=node.getBoundingClientRect();return {x:frame.left+r.left+r.width/2,y:frame.top+r.top+r.height/2,hidden:node.classList.contains('is-hidden'),arrowStart:document.querySelector('.learner-friction-arrow')?.getAttribute('x1'),comX:[...document.querySelectorAll('.apparatus-block')][0] ? 0 : null}; })()`);
+  assert.equal(frictionTarget.hidden, false, `${label}: A2 exposes the draggable friction arrow after A1`);
+  await frameEvaluate(cdp, "window.__trustedEvents = []");
+  await touch(cdp, frictionTarget, { x: frictionTarget.x + 18, y: frictionTarget.y });
+  const events = await frameEvaluate(cdp, "window.__trustedEvents.slice()");
+  const touchEvents = events.filter((event) => event.pointerType === "touch");
+  assert(touchEvents.some((event) => event.type === "pointerup" && event.trusted), `${label}: A2 friction arrow has trusted pointerup`);
+  assert.equal(touchEvents.some((event) => event.type === "pointercancel"), false, `${label}: A2 friction arrow has no pointercancel`);
+}
+async function desktopSmoke(cdp, url, label, width, height, deviceScaleFactor) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  await navigate(cdp, url);
+  const layout = await evaluate(cdp, `(() => {
+    const stage=document.getElementById('stage').getBoundingClientRect();
+    const panel=document.getElementById('controlPanel').getBoundingClientRect();
+    const header=document.querySelector('.sim-header').getBoundingClientRect();
+    const text=[...document.querySelectorAll('#apparatusSvg text')].map(node=>node.getBoundingClientRect());
+    return {stage:{left:stage.left,right:stage.right,width:stage.width},panel:{left:panel.left,right:panel.right,width:panel.width},headerHeight:header.height,dpr:devicePixelRatio,docWidth:document.documentElement.scrollWidth,innerWidth,gripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'),coach:document.getElementById('stageCoach').textContent,zeroTask:document.getElementById('zeroTask').textContent,explanation:document.querySelector('.first-step-explanation').textContent,textInside:text.every(rect=>rect.left>=stage.left-2&&rect.right<=stage.right+2)};
+  })()`);
+  assert.equal(layout.stage.left, 0, `${label}: desktop stage starts at the left edge`);
+  assert.ok(layout.stage.right <= layout.panel.left + 1, `${label}: desktop stage precedes the control panel visually`);
+  assert.ok(layout.stage.width >= layout.panel.width * 1.35, `${label}: desktop stage remains the primary visual region (${layout.stage.width}/${layout.panel.width})`);
+  assert.ok(layout.panel.right <= width + 1 && layout.panel.width >= 384 && layout.panel.width <= 513, `${label}: desktop control panel stays within its bounded width`);
+  assert.ok(layout.headerHeight >= 90, `${label}: high-density desktop does not trigger the short-screen header (${layout.headerHeight}px at dpr ${layout.dpr})`);
+  assert.ok(layout.docWidth <= layout.innerWidth + 1, `${label}: desktop has no horizontal document overflow`);
+  assert.equal(layout.textInside, true, `${label}: apparatus labels remain inside the stage`);
+  assert.equal(layout.gripHidden, true, `${label}: desktop Part A hides the experiment grip`);
+  assert.match(layout.coach, /A1.*沒有水平外力/s, `${label}: desktop coach shows the zero-force task`);
+  assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: desktop A1 asks for all force-vector fields`);
+  assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: desktop explanation removes calibration from Part A`);
 }
 async function realSmoke() {
   const tempRoot = fs.realpathSync(os.tmpdir());
@@ -259,12 +298,10 @@ async function realSmoke() {
     for (const [base, launch, label] of [[sourceBase, `/sim/${slug}/index.html`, "source"], [packageBase, extracted.activityPath, "package"]]) {
       await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
       await navigate(cdp, `${base}${launch}`);
-      const layout = await evaluate(cdp, `(()=>{const stage=document.getElementById('stage'),panel=document.getElementById('controlPanel'),app=document.getElementById('app'),shell=document.querySelector('.friction-shell');window.__trustedEvents=[];for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])document.addEventListener(type,e=>window.__trustedEvents.push({type,isTrusted:e.isTrusted,pointerType:e.pointerType}),true);return {presentation:window.__staticKineticFrictionApp.getPresentation(),phase:window.__staticKineticFrictionApp.getState().phase,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),touch:getComputedStyle(stage).touchAction,html:document.documentElement.scrollHeight,inner:innerHeight,panelRange:panel.scrollHeight-panel.clientHeight,panelClientHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight,appHeight:app.getBoundingClientRect().height,shellHeight:shell.getBoundingClientRect().height,targets:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(x=>({w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height}))}})()`);
-      assert.equal(layout.presentation, "editable", `${label}: startup presentation`); assert.equal(layout.phase, "balance", `${label}: startup phase`); assert.equal(layout.resultHidden, true, `${label}: result starts hidden`); assert.equal(layout.touch, "pan-y", `${label}: stage touch action`); assert.ok(layout.html <= layout.inner + 1, `${label}: activity document is bounded`); assert.ok(layout.panelRange > 8, `${label}: panel has independent scroll range (${layout.panelRange}; client=${layout.panelClientHeight}, scroll=${layout.panelScrollHeight}, app=${layout.appHeight}, shell=${layout.shellHeight})`); assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: touch targets are stable`);
+      const layout = await evaluate(cdp, `(()=>{const stage=document.getElementById('stage'),panel=document.getElementById('controlPanel'),app=document.getElementById('app'),shell=document.querySelector('.friction-shell');return {presentation:window.__staticKineticFrictionApp.getPresentation(),phase:window.__staticKineticFrictionApp.getState().phase,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),touch:getComputedStyle(stage).touchAction,html:document.documentElement.scrollHeight,inner:innerHeight,panelRange:panel.scrollHeight-panel.clientHeight,panelClientHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight,appHeight:app.getBoundingClientRect().height,shellHeight:shell.getBoundingClientRect().height,gripHidden:document.getElementById('forceGrip').classList.contains('is-hidden'),coach:document.getElementById('stageCoach').textContent,zeroTask:document.getElementById('zeroTask').textContent,sensorReadoutsHidden:document.getElementById('liveReadouts').classList.contains('is-hidden'),targets:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(x=>({w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height}))}})()`);
+      assert.equal(layout.presentation, "editable", `${label}: startup presentation`); assert.equal(layout.phase, "balance", `${label}: startup phase`); assert.equal(layout.resultHidden, true, `${label}: result starts hidden`); assert.equal(layout.touch, "pan-y", `${label}: stage touch action`); assert.ok(layout.html <= layout.inner + 1, `${label}: activity document is bounded`); assert.ok(layout.panelRange > 8, `${label}: panel has independent scroll range (${layout.panelRange}; client=${layout.panelClientHeight}, scroll=${layout.panelScrollHeight}, app=${layout.appHeight}, shell=${layout.shellHeight})`); assert.equal(layout.gripHidden, true, `${label}: Part A hides the experiment grip`); assert.match(layout.coach, /A1.*沒有水平外力/s, `${label}: startup coach is actionable`); assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: startup contains the A1 force-vector task`); assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`); assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: touch targets are stable`);
       const stage = await evaluate(cdp, "(()=>{const r=document.getElementById('stage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()"); await touch(cdp, stage, { x: stage.x, y: stage.y - 55 });
-      await evaluate(cdp, "window.__trustedEvents=[]");
-      const target = await evaluate(cdp, "(()=>{const r=document.getElementById('forceGrip').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()"); await touch(cdp, target, { x: target.x + 45, y: target.y });
-      const trusted = await evaluate(cdp, "({events:window.__trustedEvents,host:scrollY,panel:document.getElementById('controlPanel').scrollTop})"); assert.ok(trusted.events.some((event) => event.type === "pointermove" && event.isTrusted), `${label}: trusted pointermove delivered`); assert.ok(trusted.events.some((event) => event.type === "pointerup" && event.isTrusted), `${label}: trusted pointerup delivered`); assert.equal(trusted.events.some((event) => event.type === "pointercancel"), false, `${label}: no pointercancel`);
+      for (const [width, height, dpr] of [[1024, 768, 1], [2048, 1167, 2]]) await desktopSmoke(cdp, `${base}${launch}`, `${label} desktop ${width}x${height}@${dpr}`, width, height, dpr);
       await semanticSmoke(cdp, `${base}${launch}`, label);
       for (const [width, height] of [[320, 500], [390, 600], [600, 390], [768, 800]]) {
         await embeddedSmoke(cdp, base, launch, `${label} iframe ${width}x${height}`, width, height);

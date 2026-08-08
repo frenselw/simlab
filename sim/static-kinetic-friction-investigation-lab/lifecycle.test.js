@@ -17,10 +17,10 @@ for (const activityState of ["success", "committed", "frozen", "retry"]) { let c
 assert.equal(App.mayRevealCorrectness("editable"), false);
 assert.equal(App.mayRevealCorrectness("submitted-success"), true);
 const scenario = Generator.generateScenario({ seed: 17 });
-const slack = App.simulateBalanceRig(scenario, scenario.connector.restLengthM, { tared: true, tareCorrectionCN: 0 });
-const low = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .005, { tared: true, tareCorrectionCN: 0 });
-const high = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .010, { tared: true, tareCorrectionCN: 0 });
-const crossed = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .030, { tared: true, tareCorrectionCN: 0 });
+const slack = App.simulateBalanceRig(scenario, scenario.connector.restLengthM);
+const low = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .005);
+const high = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .010);
+const crossed = App.simulateBalanceRig(scenario, scenario.connector.restLengthM + .030);
 assert.equal(slack.reading.forceCN, 0);
 assert.equal(low.physicsState.contact.mode, "static"); assert.equal(high.physicsState.contact.mode, "static");
 assert.ok(high.reading.forceCN - low.reading.forceCN >= 100, "Part A readings come from physically separated static equilibria");
