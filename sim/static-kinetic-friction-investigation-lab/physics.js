@@ -170,7 +170,7 @@
             // the measurement layer can interpolate the sensor state at the
             // same timestamp.
             const transitionTensionN = clamp(priorTension + denominator * u, 0, tensionN);
-            events.push({ type: "breakaway", timeS: state.timeS + u * dt, physicalTensionN: transitionTensionN, staticLimitN: limitN, transitionFraction: u });
+            events.push({ type: "breakaway", timeS: state.timeS + u * dt, physicalTensionN: transitionTensionN, staticLimitN: limitN });
           }
         }
       }
@@ -193,7 +193,10 @@
       block: { positionM, velocityMps: contact.velocityMps ?? velocityMps, accelerationMps2: contact.accelerationMps2 ?? accelerationMps2 },
       handle: h,
       connector: { extensionM: nextExtensionM, tensionPhysicalN: nextTensionN },
-      contact: { mode: contact.mode, frictionPhysicalN: contact.frictionN },
+      // At a re-stick tick the connector damping term is recomputed with the
+      // final zero block velocity. Static friction must balance that final
+      // connector tension exactly, not the pre-restick estimate.
+      contact: { mode: contact.mode, frictionPhysicalN: contact.mode === "static" ? nextTensionN : contact.frictionN },
       events
     };
     if (![next.timeS, next.block.positionM, next.block.velocityMps, next.block.accelerationMps2, next.handle.positionM, next.connector.tensionPhysicalN].every(Number.isFinite)) throw new Error("non-finite physics state");

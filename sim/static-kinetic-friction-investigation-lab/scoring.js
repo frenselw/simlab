@@ -44,9 +44,11 @@
       const observation = nonzero[index];
       const force = observation?.learnerForce;
       const expectedN = observation ? observation.measuredPullCN / 100 : NaN;
-      const correct = Boolean(observation && force?.committed && force.frictionType === "static" && force.direction === "left" && approx(force.frictionMagnitudeCN / 100, expectedN, balanceToleranceN(expectedN)));
-      const points = correct ? 7 : 0;
-      score += points; detail.push({ key: index === 0 ? "static-low" : "static-high", points, max: 7, correct, expectedN: finite(expectedN) ? expectedN : null });
+      const type = Boolean(observation && force?.committed && force.frictionType === "static");
+      const direction = Boolean(observation && force?.committed && force.direction === "left");
+      const magnitude = Boolean(observation && force?.committed && approx(force.frictionMagnitudeCN / 100, expectedN, balanceToleranceN(expectedN)));
+      const points = (type ? 2 : 0) + (direction ? 2 : 0) + (magnitude ? 3 : 0);
+      score += points; detail.push({ key: index === 0 ? "static-low" : "static-high", points, max: 7, correct: type && direction && magnitude, type, direction, magnitude, expectedN: finite(expectedN) ? expectedN : null });
     }
     return { score, maxScore: 20, detail };
   }
@@ -92,8 +94,9 @@
     let score = 0;
     const c1 = selectionScore(decoded, analysis.staticInterval, candidates.static, "static", candidates);
     const c1Concept = c1.valid;
-    const c1Answer = analysis.staticInterval?.frictionType === "static" && analysis.staticInterval?.relation === "equal";
-    const c1Points = (c1Concept ? 3 : 0) + (c1Answer ? 4 : 0); score += c1Points; detail.push({ key: "static-rise", points: c1Points, max: 7, correct: c1Concept && c1Answer, iou: c1.iou });
+    const c1Type = analysis.staticInterval?.frictionType === "static";
+    const c1Relation = analysis.staticInterval?.relation === "equal";
+    const c1Points = (c1Concept ? 3 : 0) + (c1Type ? 2 : 0) + (c1Relation ? 2 : 0); score += c1Points; detail.push({ key: "static-rise", points: c1Points, max: 7, correct: c1Concept && c1Type && c1Relation, interval: c1Concept, type: c1Type, relation: c1Relation, iou: c1.iou });
     const eventTimeS = decoded.breakaway ? decoded.breakaway.timeMs / 1000 : NaN;
     const markerTimeS = decoded.merged[analysis.breakaway?.markerIndex]?.timeS;
     const markerCorrect = approx(markerTimeS, eventTimeS, BREAKAWAY_TIME_TOLERANCE_S);
@@ -107,7 +110,7 @@
     const c3Concept = c3.valid && approx(fkSlow, c3.stats.meanPullN, fkToleranceN(c3.stats.meanPullN));
     const c3Points = (c3.valid ? 4 : 0) + (c3Concept ? 4 : 0); score += c3Points; detail.push({ key: "slow", points: c3Points, max: 8, correct: c3Concept, iou: c3.iou });
     const c4 = selectionScore(decoded, analysis.acceleration, candidates.acceleration, "acceleration", candidates);
-    const c4Concept = c4.valid && analysis.acceleration?.relation === "pull-greater";
+    const c4Concept = analysis.acceleration?.relation === "pull-greater";
     const c4NoEquals = analysis.acceleration?.pullEqualsFk === "no";
     const c4Points = (c4.valid ? 3 : 0) + (c4Concept ? 2 : 0) + (c4NoEquals ? 2 : 0); score += c4Points; detail.push({ key: "acceleration", points: c4Points, max: 7, correct: c4Concept && c4NoEquals, iou: c4.iou });
     const c5 = selectionScore(decoded, analysis.fastPlateau, candidates.fast, "fast", candidates);
@@ -125,9 +128,9 @@
     for (const spec of scenario.predictions || []) {
       const response = answers.find((item) => item?.scenarioId === spec.scenarioId) || answers.find((item) => item?.id === spec.id);
       const type = Boolean(response?.committed && response.frictionType === spec.frictionType);
-      const direction = Boolean(type && response.direction === spec.direction);
+      const direction = Boolean(response?.committed && response.direction === spec.direction);
       const expectedTolerance = spec.frictionType === "static" ? balanceToleranceN(spec.magnitudeN) : spec.frictionType === "kinetic" ? fkToleranceN(spec.magnitudeN) : ZERO_FRICTION_TOLERANCE_N;
-      const magnitude = Boolean(direction && approx(Number(response?.magnitudeCN) / 100, spec.magnitudeN, expectedTolerance));
+      const magnitude = Boolean(type && direction && Number.isInteger(response?.magnitudeCN) && approx(response.magnitudeCN / 100, spec.magnitudeN, expectedTolerance));
       const outcome = Boolean(response?.committed && response.motionOutcome === spec.motionOutcome);
       const points = (type ? 1 : 0) + (direction ? 1 : 0) + (magnitude ? 2 : 0) + (outcome ? 1 : 0);
       score += points; detail.push({ key: spec.scenarioId, points, max: 5, correct: points === 5, type, direction, magnitude, outcome });

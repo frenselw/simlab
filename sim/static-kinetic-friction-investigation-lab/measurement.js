@@ -46,6 +46,7 @@
   const FAST_SPEED_MIN_MPS = 0.16;
   const FAST_SPEED_MAX_MPS = 0.23;
   const MIN_SPEED_DIFFERENCE_MPS = 0.06;
+  const candidateCache = new Map();
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function finite(v, fallback = 0) { return Number.isFinite(v) ? v : fallback; }
@@ -137,9 +138,14 @@
         const correctionN = next.tared ? next.tareCorrectionCN / 100 : 0;
         const forceNoiseN = clamp(FORCE_SENSOR_NOISE_SIGMA_N * next.forceNoise, -FORCE_SENSOR_NOISE_MAX_ABS_N, FORCE_SENSOR_NOISE_MAX_ABS_N);
         const velocityNoiseMps = clamp(VELOCITY_NOISE_SIGMA_MPS * next.velocityNoise, -VELOCITY_NOISE_MAX_ABS_MPS, VELOCITY_NOISE_MAX_ABS_MPS);
-        const measuredPullN = quantize(Math.max(0, next.forceFilteredN + next.forceBiasN - correctionN + forceNoiseN), FORCE_SENSOR_RESOLUTION_N);
+        const forceSignalN = Math.max(0, next.forceFilteredN + next.forceBiasN - correctionN);
+        const velocitySignalMps = Math.max(0, next.velocityFilteredMps);
+        const measuredPullN = quantize(Math.max(0, forceSignalN + forceNoiseN), FORCE_SENSOR_RESOLUTION_N);
         const measuredVelocityMps = quantize(Math.max(0, next.velocityFilteredMps + velocityNoiseMps), VELOCITY_RESOLUTION_MPS);
-        if (measuredPullN * 100 > MAX_FORCE_CN || measuredVelocityMps * 1000 < MIN_VELOCITY_MMPS || measuredVelocityMps * 1000 > MAX_VELOCITY_MMPS) next.overrange = true;
+        // Range validity is deterministic for a physical/filtered signal.
+        // A particular random draw must never be the sole reason a trial is
+        // rejected, so reserve the full bounded-noise envelope here.
+        if ((forceSignalN + FORCE_SENSOR_NOISE_MAX_ABS_N) * 100 > MAX_FORCE_CN || (velocitySignalMps + VELOCITY_NOISE_MAX_ABS_MPS) * 1000 > MAX_VELOCITY_MMPS) next.overrange = true;
         const sampleTimeS = index * GRAPH_SAMPLE_DT_S;
         sample = { timeS: Number(sampleTimeS.toFixed(3)), timeMs: index * GRAPH_SAMPLE_DT_MS, measuredPullN: Math.min(measuredPullN, MAX_FORCE_CN / 100), measuredVelocityMps: clamp(measuredVelocityMps, MIN_VELOCITY_MMPS / 1000, MAX_VELOCITY_MMPS / 1000), pullCN: clamp(Math.round(measuredPullN * 100), 0, MAX_FORCE_CN), velocityMMps: clamp(Math.round(measuredVelocityMps * 1000), MIN_VELOCITY_MMPS, MAX_VELOCITY_MMPS), kind: "grid", index };
         next.regularSamples.push({ ...sample });
@@ -227,7 +233,9 @@
       if (preTimeMs > breakaway.timeMs || breakaway.preBreakPeakGridIndex > eventGridIndex) throw new Error("breakaway sidecar peak is after event");
     }
     const merged = mergeCanonicalSamples(regularSamples, breakaway);
-    return { sampleDtMs: GRAPH_SAMPLE_DT_MS, regularSampleCount: regularSamples.length, regularSamples, breakaway, merged, visibleBreakawayPeakCN: breakaway ? Math.max(regularSamples[breakaway.preBreakPeakGridIndex]?.pullCN || 0, breakaway.measuredPullCN) : null };
+    const decoded = { sampleDtMs: GRAPH_SAMPLE_DT_MS, regularSampleCount: regularSamples.length, regularSamples, breakaway, merged, visibleBreakawayPeakCN: breakaway ? Math.max(regularSamples[breakaway.preBreakPeakGridIndex]?.pullCN || 0, breakaway.measuredPullCN) : null };
+    Object.defineProperty(decoded, "candidateCacheKey", { value: `${trace.forceVelocityBase64}|${breakaway ? `${breakaway.timeMs},${breakaway.measuredPullCN},${breakaway.measuredVelocityMMps},${breakaway.preBreakPeakGridIndex}` : "-"}`, enumerable: false });
+    return decoded;
   }
   function packTrace(input) {
     const regularSamples = input?.regularSamples || input?.regular || [];
@@ -338,24 +346,11 @@
   function isAccelerationWindow(stats) { return Boolean(stats && stats.durationS >= MIN_ACCELERATION_DURATION_S && stats.velocityChangeMps >= MIN_ACCELERATION_DELTA_V_MPS && stats.velocitySlopeMps2 >= MIN_ACCELERATION_SLOPE_MPS2); }
   function findCandidateWindows(trace) {
     const decoded = trace?.merged ? trace : unpackTrace(trace);
+    const cacheKey = decoded.candidateCacheKey;
+    if (cacheKey && candidateCache.has(cacheKey)) return candidateCache.get(cacheKey);
     const samples = decoded.merged;
     const candidates = { static: [], slow: [], acceleration: [], fast: [] };
     const breakIndex = decoded.breakaway ? samples.findIndex((s) => Math.abs(s.timeMs - decoded.breakaway.timeMs) < 1e-9) : Math.floor(samples.length * 0.2);
-    const addRuns = (kind, predicate, minDurationS, qualifier = () => true) => {
-      let start = -1;
-      for (let i = 0; i <= samples.length; i += 1) {
-        const yes = i < samples.length && predicate(samples[i], i);
-        if (yes && start < 0) start = i;
-        if ((!yes || i === samples.length) && start >= 0) {
-          const end = i - 1;
-          if (end >= start && samples[end].timeS - samples[start].timeS >= minDurationS) {
-            const stats = intervalStats(decoded, start, end);
-            if (qualifier(stats, start, end)) candidates[kind].push({ startIndex: start, endIndex: end, stats });
-          }
-          start = -1;
-        }
-      }
-    };
     const addAllWindows = (kind, predicate, minDurationS, qualifier = () => true) => {
       for (let start = 0; start <= breakIndex; start += 1) {
         if (!predicate(samples[start], start)) continue;
@@ -368,8 +363,18 @@
       }
     };
     addAllWindows("static", (s) => s.measuredVelocityMps <= MAX_STATIC_ABS_VELOCITY_MPS, MIN_STATIC_RISE_DURATION_S, (stats) => isStaticRise(stats));
-    addRuns("slow", (s, i) => i > breakIndex && s.measuredVelocityMps >= SLOW_SPEED_MIN_MPS && s.measuredVelocityMps <= SLOW_SPEED_MAX_MPS, MIN_PLATEAU_DURATION_S, isVelocityPlateau);
-    addRuns("fast", (s, i) => i > breakIndex && s.measuredVelocityMps >= FAST_SPEED_MIN_MPS && s.measuredVelocityMps <= FAST_SPEED_MAX_MPS, MIN_PLATEAU_DURATION_S, isVelocityPlateau);
+    const addPlateauWindows = (kind) => {
+      for (let start = Math.max(0, breakIndex + 1); start < samples.length - 1; start += 1) {
+        for (let end = start + 1; end < samples.length; end += 1) {
+          if (!classifyPairForTarget({ start: samples[end - 1], end: samples[end] }, kind)) break;
+          if (samples[end].timeS - samples[start].timeS < MIN_PLATEAU_DURATION_S) continue;
+          const stats = intervalStats(decoded, start, end);
+          if (isVelocityPlateau(stats)) candidates[kind].push({ startIndex: start, endIndex: end, stats });
+        }
+      }
+    };
+    addPlateauWindows("slow");
+    addPlateauWindows("fast");
     const velocity = samples.map((s) => s.measuredVelocityMps);
     for (let i = Math.max(0, breakIndex + 1); i < samples.length - 1; i += 1) {
       for (let j = i + Math.ceil(MIN_ACCELERATION_DURATION_S / GRAPH_SAMPLE_DT_S); j < samples.length; j += 1) {
@@ -377,19 +382,10 @@
         if (isAccelerationWindow(stats)) candidates.acceleration.push({ startIndex: i, endIndex: j, stats });
       }
     }
-    const trimPairRuns = (kind) => {
-      candidates[kind] = candidates[kind].map((candidate) => {
-        let start = candidate.startIndex;
-        let end = candidate.endIndex;
-        while (start < end && !classifyPairForTarget({ start: samples[start], end: samples[start + 1] }, kind)) start += 1;
-        for (let i = start; i < end; i += 1) {
-          if (!classifyPairForTarget({ start: samples[i], end: samples[i + 1] }, kind)) { end = i; break; }
-        }
-        const stats = intervalStats(decoded, start, end);
-        return { startIndex: start, endIndex: end, stats };
-      }).filter((candidate) => candidate.stats && isVelocityPlateau(candidate.stats));
-    };
-    trimPairRuns("slow"); trimPairRuns("fast");
+    if (cacheKey) {
+      candidateCache.set(cacheKey, candidates);
+      while (candidateCache.size > 8) candidateCache.delete(candidateCache.keys().next().value);
+    }
     return candidates;
   }
   function continuousMovingDuration(samples, startTimeS, minVelocityMps = MIN_MOVING_SPEED_MPS) {
@@ -421,11 +417,12 @@
     const preDuration = pre.length ? pre[pre.length - 1].timeS - pre[0].timeS : 0;
     const slow = candidates.slow[0]?.stats;
     const fast = candidates.fast[0]?.stats;
+    const separatedPlateauPair = candidates.slow.some((slowCandidate) => candidates.fast.some((fastCandidate) => fastCandidate.stats.meanVelocityMps - slowCandidate.stats.meanVelocityMps >= MIN_SPEED_DIFFERENCE_MPS));
     const trim = Math.min(Math.floor(pre.length * 0.10), Math.floor((pre.length - 1) / 2));
     const loadingSlopeNPerS = pre.length > 1 ? linearSlope(pre.slice(trim, pre.length - trim), "measuredPullN") : Infinity;
     const postBreakMoveDurationS = breakaway ? continuousMovingDuration(decoded.merged, breakaway.timeMs / 1000, MIN_MOVING_SPEED_MPS) : 0;
     const maxForceN = decoded.merged.length ? Math.max(...decoded.merged.map((s) => s.measuredPullN)) : Infinity;
-    const valid = Boolean(breakaway && preDuration >= MIN_PREBREAK_DURATION_S && forceRise >= MIN_FORCE_RISE_N && loadingSlopeNPerS <= MAX_LOADING_SLOPE_N_PER_S && maxForceN <= MAX_FORCE_CN / 100 && postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S && candidates.slow.length && candidates.acceleration.length && candidates.fast.length && slow && fast && isVelocityPlateau(slow) && isVelocityPlateau(fast) && fast.meanVelocityMps - slow.meanVelocityMps >= MIN_SPEED_DIFFERENCE_MPS);
+    const valid = Boolean(breakaway && preDuration >= MIN_PREBREAK_DURATION_S && forceRise >= MIN_FORCE_RISE_N && loadingSlopeNPerS <= MAX_LOADING_SLOPE_N_PER_S && maxForceN <= MAX_FORCE_CN / 100 && postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S && candidates.slow.length && candidates.acceleration.length && candidates.fast.length && slow && fast && isVelocityPlateau(slow) && isVelocityPlateau(fast) && separatedPlateauPair);
     return { valid, breakaway: Boolean(breakaway), preDuration, forceRise, loadingSlopeNPerS, maxForceN, postBreakMoveDurationS, candidates, evidence: { breakaway: Boolean(breakaway), slow: candidates.slow.length > 0 && isVelocityPlateau(slow), acceleration: candidates.acceleration.length > 0, fast: candidates.fast.length > 0 && isVelocityPlateau(fast) }, neutralMessage: valid ? "記錄已完成，可以保留這次實驗。" : "資料尚未形成足夠的可分析實驗，請檢查記錄時間與速度變化後重新開始。" };
   }
   return Object.freeze({

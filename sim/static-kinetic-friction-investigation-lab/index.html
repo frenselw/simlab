@@ -24,26 +24,31 @@
     <section id="stage" class="stage" aria-labelledby="stageTitle">
       <h2 id="stageTitle" class="sr-only">水平面測力計與同步圖像舞台</h2>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
+      <div id="stageGraph" class="stage-graph is-hidden">
+        <svg id="graphSvg" viewBox="0 0 820 430" preserveAspectRatio="none" role="img" aria-label="同步拉力—時間及速度—時間圖"></svg>
+        <p id="graphCursorReadout" class="graph-cursor-readout" tabindex="0">尚未選取圖像時間。</p>
+      </div>
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
         <button type="button" id="forceGrip" class="drag-target" data-drag-target="force-grip" aria-label="測力計握把，目前可拖動位置"></button>
         <button type="button" id="balanceFriction" class="drag-target" data-drag-target="balance-friction" aria-label="靜止狀態的水平摩擦力箭嘴"></button>
         <button type="button" id="predictionFriction" class="drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
-        <button type="button" id="breakawayMarker" class="drag-target" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
-        <button type="button" id="static-start" class="drag-target interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
-        <button type="button" id="static-end" class="drag-target interval-handle" data-drag-target="static-end" aria-label="靜止上升區段結束"></button>
-        <button type="button" id="slow-start" class="drag-target interval-handle" data-drag-target="slow-start" aria-label="低速平台區段開始"></button>
-        <button type="button" id="slow-end" class="drag-target interval-handle" data-drag-target="slow-end" aria-label="低速平台區段結束"></button>
-        <button type="button" id="acceleration-start" class="drag-target interval-handle" data-drag-target="acceleration-start" aria-label="加速區段開始"></button>
-        <button type="button" id="acceleration-end" class="drag-target interval-handle" data-drag-target="acceleration-end" aria-label="加速區段結束"></button>
-        <button type="button" id="fast-start" class="drag-target interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
-        <button type="button" id="fast-end" class="drag-target interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
+        <button type="button" id="breakawayMarker" class="drag-target graph-handle" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
+        <button type="button" id="static-start" class="drag-target graph-handle interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
+        <button type="button" id="static-end" class="drag-target graph-handle interval-handle" data-drag-target="static-end" aria-label="靜止上升區段結束"></button>
+        <button type="button" id="slow-start" class="drag-target graph-handle interval-handle" data-drag-target="slow-start" aria-label="低速平台區段開始"></button>
+        <button type="button" id="slow-end" class="drag-target graph-handle interval-handle" data-drag-target="slow-end" aria-label="低速平台區段結束"></button>
+        <button type="button" id="acceleration-start" class="drag-target graph-handle interval-handle" data-drag-target="acceleration-start" aria-label="加速區段開始"></button>
+        <button type="button" id="acceleration-end" class="drag-target graph-handle interval-handle" data-drag-target="acceleration-end" aria-label="加速區段結束"></button>
+        <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
+        <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
       <p id="stageDescription" class="sr-only">舞台只顯示學生目前可觀察的測力計讀數、物體速度與由同一次記錄產生的兩幅同步圖。</p>
-      <div id="liveReadouts" class="live-readouts" aria-live="polite">
+      <div id="liveReadouts" class="live-readouts" aria-live="off">
         <span>拉力 <strong id="forceReadout">0.00 N</strong></span>
         <span>速度 <strong id="velocityReadout">0.000 m/s</strong></span>
         <span>時間 <strong id="timeReadout">0.00 s</strong></span>
       </div>
+      <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
     </section>
 
     <aside id="controlPanel" class="control-panel" aria-label="活動控制與作答區">
@@ -51,19 +56,21 @@
         <h2 id="technicalTitle">活動暫時鎖定</h2><p id="technicalMessage"></p><div id="technicalActions"></div>
       </section>
       <button type="button" id="cancelReviewEdit" data-action="cancel-review-edit" class="secondary-button is-hidden">取消修改，回到提交前檢查</button>
+      <p id="validationStatus" class="neutral-status validation-status is-hidden" tabindex="-1" aria-live="off"></p>
 
       <section id="balancePanel" class="panel-section" data-panel="balance">
         <p class="section-label">第一階段・由力平衡推斷靜摩擦力</p>
         <h2>先歸零，再記錄三個靜止狀態</h2>
         <p>粗糙面不代表一定有摩擦力。請先歸零，記錄無拉力及兩個不同的非零拉力，然後用水平力平衡建立自己的摩擦力箭嘴。</p>
-        <div class="button-row"><button type="button" id="tareButton" data-action="tare" class="primary-button">測力計歸零</button><button type="button" id="recordBalance" data-action="record-balance">記錄目前狀態</button></div>
-        <p id="balanceStatus" class="neutral-status" aria-live="polite">尚未歸零。</p>
+        <div id="balanceCaptureActions" class="button-row"><button type="button" id="tareButton" data-action="tare" class="primary-button">測力計歸零</button><button type="button" id="recordBalance" data-action="record-balance">記錄目前狀態</button></div>
+        <p id="balanceStatus" class="neutral-status" aria-live="off">尚未歸零。</p>
         <div id="balanceObservations" class="observation-list"></div>
         <div id="balanceAnswer" class="answer-card is-hidden" aria-labelledby="balanceAnswerTitle">
           <h3 id="balanceAnswerTitle">為目前記錄建立水平摩擦力</h3>
-          <label>類型<select id="balanceType"><option value="none">沒有水平摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
-          <label>方向<select id="balanceDirection"><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
+          <label>類型<select id="balanceType"><option value="">請選擇</option><option value="none">沒有水平摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
+          <label>方向<select id="balanceDirection"><option value="">請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
           <label>大小 <output id="balanceMagnitudeValue">0.00 N</output><input id="balanceMagnitude" type="range" min="0" max="12" step="0.01" value="0" aria-label="目前靜止狀態的摩擦力大小"></label>
+          <p id="balanceNetForce" class="force-builder-readout">你畫的水平合力 ΣFx：0.00 N</p>
           <button type="button" data-action="save-balance-answer" class="primary-button">保存這個力平衡判斷</button>
         </div>
         <button type="button" id="to-experiment" data-action="to-experiment" class="primary-button next-button">完成三個狀態，開始實驗</button>
@@ -73,10 +80,11 @@
         <p class="section-label">第二階段・產生同步實驗數據</p>
         <h2>拖動測力計，形成一條完整記錄</h2>
         <p>慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的讀數只代表測力計與速度感測器觀察量。</p>
-        <div class="button-row"><button type="button" data-action="start-recording" class="primary-button">開始記錄</button><button type="button" data-action="stop-recording">停止並檢查資料</button><button type="button" data-action="redo-experiment" class="secondary-button">重新開始這次實驗</button></div>
-        <p id="experimentStatus" class="neutral-status" aria-live="polite">尚未開始記錄。</p>
-        <label class="range-row">鍵盤／滑鼠握把位置<input id="gripPosition" type="range" min="0.18" max="1.4" step="0.001" value="0.18" aria-describedby="gripHelp"></label>
-        <p id="gripHelp" class="instruction">也可在舞台拖動「測力計握把」；方向鍵可微調，Shift 會使用較大步幅。</p>
+        <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並檢查資料</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始這次實驗</button></div>
+        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始實驗</h3><p>這會清除目前實驗記錄，以及依賴它的圖像分析和預測；不會顯示任何答案是否正確。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認清除並重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
+        <p id="experimentStatus" class="neutral-status" aria-live="off">尚未開始記錄。</p>
+        <div id="gripControls"><label class="range-row">鍵盤／滑鼠握把位置<input id="gripPosition" type="range" min="0.18" max="1.4" step="0.001" value="0.18" aria-describedby="gripHelp"></label>
+        <p id="gripHelp" class="instruction">也可在舞台拖動「測力計握把」；方向鍵可微調，Shift 會使用較大步幅。</p></div>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="keep-trial" class="primary-button is-hidden" id="keepTrial">保留這次實驗，進入圖像分析</button>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往同步圖像分析</button>
@@ -87,8 +95,8 @@
         <h2>在同一條記錄中標示五個部分</h2>
         <p>上圖是「測力計讀數（拉力） F拉—時間 t」，下圖是「速度 v—時間 t」。選取的一律是一般時間樣本；系統只在提交後判斷正確性。</p>
         <p class="formula-hint"><var>F</var><sub>拉</sub> − <var>f</var><sub>k</sub> = <var>ma</var>；近似勻速時才可用平均 <var>F</var><sub>拉</sub> 估計 <var>f</var><sub>k</sub>。</p>
-        <div id="analysisGraphs" class="analysis-graphs"><svg id="graphSvg" viewBox="0 0 820 430" role="img" aria-label="同步拉力—時間及速度—時間圖"></svg></div>
-        <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出時間、測力計拉力與速度；這些是你自己的記錄，不標示正確區段。</p><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col">時間 / s</th><th scope="col">拉力 / N</th><th scope="col">速度 / m/s</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
+        <p class="instruction">同步圖像固定顯示在舞台；控制區只保存你目前項目的選取與推斷。</p>
+        <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出時間、測力計拉力與速度；這些是你自己的記錄，不標示正確區段。</p><div id="traceNavigation" class="button-row" aria-label="資料表快速導航"><button type="button" id="previousExtremum" data-action="previous-extremum">前一個局部極值</button><button type="button" id="nextExtremum" data-action="next-extremum">後一個局部極值</button><button type="button" id="jumpSelectionStart" data-action="jump-selection-start">目前選區開始</button><button type="button" id="jumpSelectionEnd" data-action="jump-selection-end">目前選區結束</button></div><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col">時間 / s</th><th scope="col">拉力 / N</th><th scope="col">速度 / m/s</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
         <section id="intervalStats" class="data-view" aria-labelledby="intervalStatsTitle"><h3 id="intervalStatsTitle">目前所選區段統計</h3><p id="intervalStatsHelp">統計只根據你目前拖曳選取的區段，不代表系統答案。</p><div id="intervalStatsList"></div></section>
         <div id="analysisTasks" class="analysis-tasks"></div>
         <button type="button" data-action="save-analysis" class="primary-button">保存圖像分析</button>

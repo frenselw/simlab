@@ -16,4 +16,25 @@ assert.ok(S.scoreAnswer(bad, scenario).score < 100);
 assert.equal(S.balanceToleranceN(4), .2);
 assert.equal(S.approx(4.2, 4, .2), true);
 assert.equal(S.approx(4.201, 4, .2), false);
+
+const wrongBalanceMagnitude = JSON.parse(JSON.stringify(perfect));
+wrongBalanceMagnitude.balance.observations.find((item) => item.id === "static-low").learnerForce.frictionMagnitudeCN += 200;
+const partialBalance = S.balanceScore(wrongBalanceMagnitude, scenario);
+assert.equal(partialBalance.score, 17, "a wrong magnitude loses only the 3-point magnitude component");
+assert.equal(partialBalance.detail.find((item) => item.key === "static-low").points, 4);
+
+const wrongC1Relation = JSON.parse(JSON.stringify(perfect));
+wrongC1Relation.analysis.staticInterval.relation = "pull-greater";
+const partialAnalysis = S.analysisScore(wrongC1Relation, scenario);
+assert.equal(partialAnalysis.detail.find((item) => item.key === "static-rise").points, 5, "C1 interval and type credit remain independent of relation");
+
+const wrongPredictionType = JSON.parse(JSON.stringify(perfect));
+const predictionSpec = scenario.predictions[0];
+wrongPredictionType.predictions[0].frictionType = predictionSpec.frictionType === "static" ? "kinetic" : "static";
+const predictionDetail = S.predictionScore(wrongPredictionType, scenario).detail[0];
+assert.equal(predictionDetail.direction, true, "direction credit is independent of type");
+assert.equal(predictionDetail.magnitude, false, "magnitude remains gated by correct type and direction");
+const blankPredictionMagnitude = JSON.parse(JSON.stringify(perfect));
+blankPredictionMagnitude.predictions[0].magnitudeCN = null;
+assert.equal(S.predictionScore(blankPredictionMagnitude, scenario).detail[0].magnitude, false, "blank magnitude cannot be coerced to zero for credit");
 console.log("Static/kinetic friction scoring checks passed");
