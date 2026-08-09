@@ -22,6 +22,7 @@
   const EXPERIMENT_START_POSITION_M = 0;
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
+  const EXPERIMENT_ACTIVE_HANDLE_SPEED_LIMIT_MPS = 0.24;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
   function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, value)); }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
@@ -108,6 +109,8 @@
     let loop = null;
     let directExperimentState = null;
     let experimentAppliedForceN = 0;
+    let experimentPullHasBrokenAway = false;
+    let experimentForceControlActive = false;
     let experimentAccumulatorS = 0;
     let experimentQuality = null;
     let experimentTimedOut = false;
@@ -381,6 +384,8 @@
       physicsState = directExperimentState;
       measurementState = scenario ? Measurement.createMeasurementState(scenario) : null;
       experimentAppliedForceN = 0;
+      experimentPullHasBrokenAway = false;
+      experimentForceControlActive = false;
       experimentAccumulatorS = 0;
       experimentQuality = null;
       experimentTimedOut = false;
@@ -398,29 +403,57 @@
       recorder = null;
       markRecordingActive(false);
       experimentAppliedForceN = 0;
+      experimentForceControlActive = false;
       experimentAccumulatorS = 0;
       stopLoop();
       if (message) setText("experimentStatus", message);
     }
     function setExperimentAppliedForce(value) {
+      const previousForceN = experimentAppliedForceN;
       experimentAppliedForceN = clamp(finite(value), 0, EXPERIMENT_MAX_FORCE_N);
+      if (Math.abs(experimentAppliedForceN - previousForceN) > 0.001 && experimentPullHasBrokenAway && directExperimentState?.contact?.mode === "sliding") {
+        experimentForceControlActive = true;
+      }
     }
     function experimentHandleTargetPositionM() {
       if (!scenario) return 0.18;
-      const stiffness = Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
-      const rest = finite(scenario.connector?.restLengthM, 0.18);
-      const appliedForceN = clamp(experimentAppliedForceN, 0, EXPERIMENT_MAX_FORCE_N);
-      // Never replace the learner's hand target with an automatic
-      // kinetic-friction follow-through. After breakaway, the learner's
-      // force command remains the only input that changes spring extension;
-      // the connector physics determines acceleration, deceleration and
-      // re-sticking.
       const blockPositionM = finite(directExperimentState?.block?.positionM, 0);
-      return blockPositionM + rest + appliedForceN / stiffness;
+      return blockPositionM + finite(scenario.connector?.restLengthM, 0.18) + clamp(experimentAppliedForceN, 0, EXPERIMENT_MAX_FORCE_N) / Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
     }
     function experimentVisibleForceN() {
       if (!recorder?.running || !directExperimentState || experimentAppliedForceN <= 0.01) return 0;
       return clamp(Math.max(0, finite(directExperimentState.connector?.tensionPhysicalN)), 0, EXPERIMENT_MAX_FORCE_N);
+    }
+    function resetExperimentHandleToRest() {
+      if (!directExperimentState?.handle || !scenario) return;
+      const restPositionM = finite(directExperimentState.block?.positionM) + finite(scenario.connector?.restLengthM, 0.18);
+      directExperimentState.handle.positionM = restPositionM;
+      directExperimentState.handle.targetPositionM = restPositionM;
+      directExperimentState.handle.velocityMps = finite(directExperimentState.block?.velocityMps);
+      directExperimentState.connector.extensionM = 0;
+      directExperimentState.connector.tensionPhysicalN = 0;
+    }
+    function stepExperimentForceControl(stepS) {
+      // The first breakaway is deliberately produced by the spring/connector
+      // rig so the measured peak can drop to the kinetic plateau. Once the
+      // learner changes the force again while the block is sliding, switch
+      // to a direct applied-force hand model: the new force must be able to
+      // increase immediately and remain steady while the pointer is held.
+      const directInputState = {
+        timeS: directExperimentState.timeS,
+        block: directExperimentState.block,
+        contact: directExperimentState.contact
+      };
+      const next = Physics.stepDirectForce(directInputState, experimentAppliedForceN, scenario, stepS);
+      const stiffness = Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
+      const extensionM = Math.max(0, experimentAppliedForceN) / stiffness;
+      const handlePositionM = next.block.positionM + finite(scenario.connector?.restLengthM, 0.18) + extensionM;
+      return {
+        ...next,
+        handle: { targetPositionM: handlePositionM, positionM: handlePositionM, velocityMps: next.block.velocityMps },
+        connector: { extensionM, tensionPhysicalN: Math.max(0, experimentAppliedForceN) },
+        contact: { mode: next.contact.mode, frictionPhysicalN: next.contact.frictionPhysicalN }
+      };
     }
     function cancelBalanceMotion() {
       if (balanceMotionRaf != null) {
@@ -731,7 +764,11 @@
           const stepS = Math.min(Physics.PHYSICS_DT_S, Measurement.MAX_TRIAL_DURATION_S - directExperimentState.timeS);
           const previousPhysical = directExperimentState;
           const previousMeasurement = measurementState;
-          const nextPhysical = Physics.stepPhysics(directExperimentState, { handleTargetPositionM: experimentHandleTargetPositionM(stepS) }, scenario, stepS);
+          const handleInput = { handleTargetPositionM: experimentHandleTargetPositionM(stepS) };
+          if (dragging?.kind === "experiment-pull" && experimentPullHasBrokenAway) handleInput.handleSpeedLimitMps = EXPERIMENT_ACTIVE_HANDLE_SPEED_LIMIT_MPS;
+          const nextPhysical = experimentForceControlActive && dragging?.kind === "experiment-pull"
+            ? stepExperimentForceControl(stepS)
+            : Physics.stepPhysics(directExperimentState, handleInput, scenario, stepS);
           const stepped = Measurement.step(measurementState, nextPhysical, scenario, stepS);
           measurementState = stepped.state;
           const nextGridTime = measurementState.regularSamples.length * Measurement.GRAPH_SAMPLE_DT_S;
@@ -742,6 +779,7 @@
             measurementState = Measurement.enrichBreakaway(measurementState, event, previousMeasurement, measurementState, previousPhysical, nextPhysical);
             if (event.type === "breakaway" && !breakawayAnnounced) {
               breakawayAnnounced = true;
+              experimentPullHasBrokenAway = true;
               announce("物體已開始移動");
             }
           }
@@ -769,6 +807,8 @@
       experimentQuality = null;
       experimentTimedOut = false;
       experimentAppliedForceN = 0;
+      experimentPullHasBrokenAway = false;
+      experimentForceControlActive = false;
       experimentAccumulatorS = 0;
       breakawayAnnounced = false;
       markRecordingActive(true);
@@ -816,6 +856,7 @@
       experimentQuality = quality;
       recorder = null;
       experimentAppliedForceN = 0;
+      experimentForceControlActive = false;
       announce(quality.valid ? "實驗記錄已保存" : "記錄未完成，請重新開始");
       if (quality.valid) {
         state = Persistence.transitions.acceptTrial(state, stopped.trial);
@@ -835,6 +876,7 @@
       recorder.measurement = measurementState;
       experimentTimedOut = true;
       experimentAppliedForceN = 0;
+      experimentForceControlActive = false;
       markRecordingActive(false);
       recorder = null;
       experimentQuality = { valid: false, neutralMessage: "時間已經超時，請重新開始記錄。" };
@@ -1081,7 +1123,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; tableCursorIndex = null; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAccumulatorS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; tableCursorIndex = null; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentPullHasBrokenAway = false; experimentForceControlActive = false; experimentAccumulatorS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1349,8 +1391,10 @@
       if (target === "experiment-origin") {
         if (state?.phase !== "experiment" || !recorder?.running || state.fromReview) return;
         const point = svgPointFromEvent(event);
-        dragging = { kind: "experiment-pull", target: event.currentTarget, pointerId: event.pointerId, startPointX: point.x };
+        dragging = { kind: "experiment-pull", target: event.currentTarget, pointerId: event.pointerId, lastPointX: point.x };
         experimentAppliedForceN = 0;
+        experimentPullHasBrokenAway = directExperimentState?.contact?.mode === "sliding" || Math.abs(finite(directExperimentState?.block?.velocityMps)) > 0.01;
+        experimentForceControlActive = false;
         renderApparatus();
       } else if (target === "balance-origin") {
         dragging = {
@@ -1404,7 +1448,11 @@
       if (dragging.kind === "balance-draw") { updateBalanceDrawFromPointer(event); return; }
       if (dragging.kind === "experiment-pull") {
         const point = svgPointFromEvent(event);
-        setExperimentAppliedForce((point.x - dragging.startPointX) / EXPERIMENT_FORCE_SCALE_PX_PER_N);
+        const deltaForceN = (point.x - dragging.lastPointX) / EXPERIMENT_FORCE_SCALE_PX_PER_N;
+        if (Math.abs(deltaForceN) > 0.001) {
+          setExperimentAppliedForce(experimentAppliedForceN + deltaForceN);
+          dragging.lastPointX = point.x;
+        }
         renderApparatus();
         return;
       }
@@ -1423,7 +1471,11 @@
         updateBreakawayReadout(0);
         ensureBalanceMotionLoop();
       }
-      if (releasedExperiment) experimentAppliedForceN = 0;
+      if (releasedExperiment) {
+        experimentAppliedForceN = 0;
+        experimentForceControlActive = false;
+        resetExperimentHandleToRest();
+      }
       saveDraft(); render();
     }
     function cancelDrag() {
@@ -1431,6 +1483,8 @@
       try { dragging.target.releasePointerCapture?.(dragging.pointerId); } catch {}
       if (dragging.kind === "experiment-pull") {
         experimentAppliedForceN = 0;
+        experimentForceControlActive = false;
+        resetExperimentHandleToRest();
         dragging = null;
         render();
         return;

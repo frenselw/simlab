@@ -39,11 +39,12 @@
       events: []
     };
   }
-  function stepHandle(handle, targetPositionM, dt) {
+  function stepHandle(handle, targetPositionM, dt, speedLimitMps = HANDLE_SPEED_LIMIT_MPS) {
     const target = finite(targetPositionM, handle.targetPositionM);
     const acceleration = HANDLE_OMEGA * HANDLE_OMEGA * (target - handle.positionM) -
       2 * HANDLE_ZETA * HANDLE_OMEGA * handle.velocityMps;
-    const velocityMps = clamp(handle.velocityMps + acceleration * dt, -HANDLE_SPEED_LIMIT_MPS, HANDLE_SPEED_LIMIT_MPS);
+    const limit = Math.max(0, finite(speedLimitMps, HANDLE_SPEED_LIMIT_MPS));
+    const velocityMps = clamp(handle.velocityMps + acceleration * dt, -limit, limit);
     return { targetPositionM: target, velocityMps, positionM: handle.positionM + velocityMps * dt };
   }
   function connectorTension(handlePositionM, blockPositionM, handleVelocityMps, blockVelocityMps, connector = Generator.CONNECTOR) {
@@ -219,7 +220,10 @@
   }
   function stepPhysics(state, input = {}, scenario, dt = PHYSICS_DT_S, forcedHandle = null, crossingDepth = 0) {
     if (!scenario) throw new Error("scenario required");
-    const h = forcedHandle || stepHandle(state.handle, input.handleTargetPositionM ?? state.handle.targetPositionM, dt);
+    const handleSpeedLimitMps = Number.isFinite(input.handleSpeedLimitMps)
+      ? Math.max(0, input.handleSpeedLimitMps)
+      : HANDLE_SPEED_LIMIT_MPS;
+    const h = forcedHandle || stepHandle(state.handle, input.handleTargetPositionM ?? state.handle.targetPositionM, dt, handleSpeedLimitMps);
     // A connector cannot push.  When a render/physics step crosses its rest
     // length, split the step at the crossing so the slack part has exactly
     // zero tension and the taut part starts from zero extension.  This also

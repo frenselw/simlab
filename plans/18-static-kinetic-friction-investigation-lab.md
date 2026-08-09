@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`23`（2026-08-09；Part B 移除 control panel 拉力 slider，恢復由舞台物體中央直接拖動拉力；B 使用 spring／connector 物理模型記錄測力計等效拉力，保留最大靜摩擦力突破後的張力下降及自然減速。物體由最左開始並以 `0.06 m/s` 操作速度上限保持慢速。移除 breakaway 後自動維持滑動摩擦力的 kinetic-follow 輔助，讓手指位置在整個滑動過程直接控制彈簧目標及拉力；活動簡介明確要求學生最後盡量保持勻速直線運動。重新開始改為一按即時清除舊 B／C 記錄並重開 30 秒，不再顯示確認／保留流程；F–t 圖移除頂部冗餘標籤並放大刻度文字。`physicsVersion` 提升至 7，`measurementVersion` 維持 4）。
+> Plan revision：`24`（2026-08-09；修正 Part B 在物體已開始滑動後只能減力、不能加力的互動缺陷。首次突破最大靜摩擦力仍由 spring／connector 產生自然 breakaway drop；學生在滑動期間再次改變手指位置後，切換到直接施加拉力的 Newton force-control，讓新拉力即時增加／減少並在手指停住時保持，放手仍回到零拉力並按牛頓第二定律減速、停下。新的 force-control 只存在於目前拖動期間，不寫入持久化狀態；預設 handle response 仍以 `0.06 m/s` 保持慢速，滑動後的 connector response 允許短暫以 `0.24 m/s` 追上學生輸入。同步增加瀏覽器回歸測試，驗證滑動後量測到的拉力確實會隨向右拖動上升。`physicsVersion` 維持 7，`measurementVersion` 維持 4）。
 
 本計劃必須遵從：
 
@@ -471,9 +471,9 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 1. 先慢慢向右增加拉力，直至物體開始移動；
 2. 開始移動後繼續施力，盡量保持勻速直線運動；
 3. 手指停住時，直接拖動 target 保持目前的拉力；手指向右移少量，向右拉力相應增加少量；向左移只會減少目前向右拉力，不能改成向左拉力；有效範圍為 `0–12 N`；
-4. 直接拖動輸入轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力。breakaway 後不再以 kinetic-follow 或其他自動補力改寫 target；學生每次拖動的位置都直接改變彈簧伸長，物體的加速、減速或重新停下由實際合力決定；
+4. 直接拖動輸入先轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力。學生在滑動期間再次改變手指位置時，才進入本次拖動的 direct force-control，讓拉力可即時增加／減少並保持；這不是自動勻速或 kinetic-follow 輔助，而是學生新輸入的實際水平力，物體的加速、減速或重新停下由 `F_{\mathrm{net}}=ma` 決定；
 5. 放手後 target 回到無拉力狀態，物體不會瞬間停下，而會按 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma` 先減速，速度降至零後才重新進入 static；未到 30 秒，學生仍可再次按住物體中央施力令物體重新運動；
-6. 物理操作的 handle response 使用 `HANDLE_OMEGA=24` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，令物體在手機窄舞台上明顯慢速移動，仍保留加速、勻速、減速及重新施力的連續行為；
+6. 物理操作的 handle response 預設使用 `HANDLE_OMEGA=24` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，令物體在手機窄舞台上明顯慢速移動；滑動期間學生再次改力時可暫用 `0.24 m/s` 的 handle response 追上新輸入，之後仍保留加速、勻速、減速及重新施力的連續行為；
 7. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄；「重新開始」在沒有 accepted trial、只有未保存／失敗記錄或已有 accepted trial 時都可使用，一按即清除舊 B trace／C analysis 並直接開始新的 30 秒記錄，不需停止、確認或保留目前資料。
 
 記錄時間不可超過 `30 s`。若時間達到上限，立即停止物理更新並顯示：
@@ -789,15 +789,15 @@ kineticFrictionAt(x) = scenario.muK * normalForceN *
 
 V1 的最大靜摩擦力不隨位置變；只有滑動摩擦力有小幅、active-track 零平均的空間 variation。所有可到達位置仍必須滿足 `staticLimitAt(x) > kineticFrictionAt(x)`。
 
-對每一個 physics tick，先以 handle response、connector extension 及 damping 計算實際張力，再用牛頓第二定律更新：
+對每一個 physics tick，初次拉動先以 handle response、connector extension 及 damping 計算實際張力，再用牛頓第二定律更新：
 
 \[
 F_{\text{net}}=F_{\text{拉}}-f_k=ma
 \]
 
-物體靜止時，若 connector tension 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。因為 `f_k<f_{s,max}`，breakaway tick 後實際 connector tension 會由峰值落到滑動平台，不可把拉力鎖定為學生剛才的數值。滑動後若 connector tension `< f_k` 或放手令 tension 降至 `0 N`，`a<0`，物體先按目前速度減速，速度降至零才回到 static；因此學生可在同一段 30 秒記錄中重新加力、減力或令物體再次移動。圖像只顯示量測到的 `F拉`，不顯示 `f_s` 或 `f_k`。
+物體靜止時，若 connector tension 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。因為 `f_k<f_{s,max}`，breakaway tick 後實際 connector tension 會由峰值落到滑動平台，不可把拉力鎖定為學生剛才的數值。滑動後，學生若再次改變手指位置，該次拖動進入 direct force-control，拉力數值直接成為這次新的施力；手指停住時保持，向左移只減少向右力，放手則回到 `0 N`。在兩種模式下，物體都以 `F_{\mathrm{net}}=ma` 更新；若拉力 `< f_k` 或放手令拉力降至 `0 N`，`a<0`，物體先按目前速度減速，速度降至零才回到 static，因此學生可在同一段 30 秒記錄中重新加力、減力或令物體再次移動。圖像只顯示量測到的 `F拉`，不顯示 `f_s` 或 `f_k`。
 
-為配合手機窄舞台，handle response 固定為 `HANDLE_OMEGA=24`、`HANDLE_ZETA=1`、`HANDLE_SPEED_LIMIT_MPS=0.06`。這個速度上限只限制直接操控的 handle／connector response，不改寫摩擦模型；block 仍由 `Physics.stepPhysics` 的實際張力、摩擦及質量自然決定加速度、減速度、停下及再次運動。
+為配合手機窄舞台，未突破或尚未再次改力時的 handle response 固定為 `HANDLE_OMEGA=24`、`HANDLE_ZETA=1`、`HANDLE_SPEED_LIMIT_MPS=0.06`。滑動中學生再次改力後，runtime 以明確的 `0.24 m/s` response limit 讓 connector 有機會追上新施力；若該次拖動已進入 direct force-control，物理引擎直接以學生的新拉力及 `F_{\mathrm{net}}=ma` 更新 block。這個 transient control 不進 snapshot，放手時清除並把 handle 放回無拉力位置；block 仍按實際摩擦、質量及剩餘速度自然減速或再次運動。
 
 ### 11.4 Part B 運動提示
 
@@ -2293,7 +2293,7 @@ Scroll topology：
 | `balance` | `zero-ready`／`static-ready`／`breakaway-ready`／`answer-complete` | A1–A3 | A 部分可以是任何已保存／未完成組合；B 的 trace、C 的分析及 D 的預測可同時保留 | 只有 transient drag 不入 snapshot | A／B／C／D；保存 A 答案後仍留在 A |
 | `balance` | `review-edit` | A1/A2/A3 target | review authority 保留；`fromReview=true`；`working.editDraft.kind="balance"` | active drag／DOM state | cancel／same-value save 回 review；changed save 回 balance |
 | `experiment` | `ready` | B | `trial=null`；A 可完整、部分完成或仍為空；D 預測可已存在；B 舞台顯示空白 0–30 s F–T 軸 | analysis 只可在有 trial 後保存；running state 不入 snapshot | A／B／C／D；開始 30 秒記錄 |
-| `experiment` | `running`（transient） | B | `experimentOrigin` direct-drag force state＋spring/connector in-memory measurement；物體由舞台最左開始、中央紅色拉力箭嘴、即時 F–T 線及速度提示 | running state、pointer path、超時 transient 不可進 snapshot | 停止並保存，或一按「重新開始」立即清除並重開；切換時先中止 transient |
+| `experiment` | `running`（transient） | B | `experimentOrigin` direct-drag force state；初次 breakaway 使用 spring/connector，滑動中再次改力可進入 direct Newton force-control；物體由舞台最左開始、中央紅色拉力箭嘴、即時 F–T 線及速度提示 | running state、pointer path、force-control mode、超時 transient 不可進 snapshot | 停止並保存，或一按「重新開始」立即清除並重開；切換時先中止 transient |
 | `experiment` | `accepted` | B | canonical packed 0–30 s regular trace＋breakaway sidecar；C 可空或已有舊分析 | 不把 transient recorder 寫入 snapshot | A／B／C／D；C 需有效 trace |
 | `experiment` | `review-edit` | B | 從檢查頁按「重新做實驗」即清除舊 trial／C analysis，轉為新的 running B；`fromReview=false` | 舊 running trial／active pointer／確認或保留 prompt | 新的 30 秒記錄、A／B／C／D |
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
@@ -3171,7 +3171,7 @@ effective height below 376 CSS px ultra-compact
 目前三個關鍵產品決定：
 
 1. **Part A 顯示學生自己受力圖的 `ΣFx`，但不提供正誤；**
-2. **Part B 使用舞台物體中央 direct-drag＋寬鬆 pacing guide；物理更新採 spring／connector 及牛頓第二定律，實際呈現 breakaway drop、慢速連續運動及放手後減速；**
+2. **Part B 使用舞台物體中央 direct-drag＋寬鬆 pacing guide；初次拉動採 spring／connector 產生 breakaway drop，滑動中再次改力採 direct Newton force-control，仍呈現可調拉力、連續運動及放手後減速；**
 3. **重新做實驗會清除全部 graph analysis 及舊 trace，但保留獨立的 Part D 預測；沒有已保存 trace 時同樣可以重新開始。**
 
 ---

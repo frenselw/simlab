@@ -234,6 +234,7 @@ async function semanticSmoke(cdp, url, label) {
   await delay(100);
   const increasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
   assert.ok(increasedExperimentForce.appliedForceN > heldForce + .5, `${label}: a rightward movement increases force after sliding starts ${JSON.stringify(increasedExperimentForce)}`);
+  assert.ok(increasedExperimentForce.measuredForceN > experimentHeld.measuredForce + .5, `${label}: the measured pull also increases after sliding starts ${JSON.stringify({ held: experimentHeld.measuredForce, increased: increasedExperimentForce.measuredForceN, positionM: increasedExperimentForce.positionM, velocityMps: increasedExperimentForce.velocityMps })}`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 6, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(100);
   const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");

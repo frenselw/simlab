@@ -10,6 +10,8 @@ assert.equal(P.smoothstep(0, .004, .004), 1);
 const handle = P.stepHandle({ targetPositionM: .18, positionM: .18, velocityMps: 0 }, 1.2, P.PHYSICS_DT_S);
 assert.ok(P.HANDLE_SPEED_LIMIT_MPS <= .06, "Part B handle speed stays slow enough for the compact stage");
 assert.ok(Math.abs(handle.velocityMps) <= P.HANDLE_SPEED_LIMIT_MPS);
+const responsiveHandle = P.stepHandle({ targetPositionM: .18, positionM: .18, velocityMps: 0 }, 1.2, P.PHYSICS_DT_S, .24);
+assert.ok(Math.abs(responsiveHandle.velocityMps) <= .24, "the active sliding response accepts its explicit handle speed limit");
 const belowLimit = P.simulate([{ timeS: 0, handleTargetPositionM: .19 }], scenario, { durationS: .75 });
 assert.equal(belowLimit.events.length, 0);
 assert.equal(belowLimit.state.contact.mode, "static");
