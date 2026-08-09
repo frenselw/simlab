@@ -25,7 +25,7 @@
   // The B physics remains the ordinary fixed-kinetic-friction Newton model.
   // Give the compact stage more visual track length so a large but valid
   // force leaves the learner time to adjust without changing F = ma.
-  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 5;
+  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 4;
   const EXPERIMENT_AUTO_LAUNCH_DURATION_S = 0.18;
   const EXPERIMENT_AUTO_LAUNCH_SURPLUS_N = 0.50;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
