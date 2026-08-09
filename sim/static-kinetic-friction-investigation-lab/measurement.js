@@ -157,7 +157,11 @@
     // then contract sharply during the same physics interval. Preserve that
     // physical peak in the breakaway sidecar instead of letting interpolation
     // between the pre- and post-drop filtered states erase it.
-    const eventForceN = Number.isFinite(rawEvent.physicalTensionN) ? Math.max(0, rawEvent.physicalTensionN) : measured.forceN;
+    const eventForceN = Number.isFinite(rawEvent.physicalTensionN)
+      ? Math.max(0, rawEvent.physicalTensionN)
+      : Number.isFinite(rawEvent.physicalForceN)
+        ? Math.abs(rawEvent.physicalForceN)
+        : measured.forceN;
     const breakawayForceN = Math.max(measured.forceN, eventForceN);
     const event = {
       timeMs: Math.round(rawEvent.timeS * 1000),

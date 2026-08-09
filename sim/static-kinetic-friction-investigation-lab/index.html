@@ -32,7 +32,6 @@
         <p id="graphCursorReadout" class="graph-cursor-readout" tabindex="0">尚未選取圖像時間。</p>
       </div>
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
-        <button type="button" id="experimentOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="experiment-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖動拉力"></button>
         <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
         <button type="button" id="resetBalanceObject" class="balance-reset-button primary-button is-hidden" data-action="reset-balance-object" aria-describedby="stageCoachText">物體返回中央</button>
         <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
@@ -46,11 +45,7 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 按住物體中央向右拖動；向左移只會減少向右拉力，不會令物體受向左拉力。手指停住時，物體未滑動前拉力會保持；物體開始滑動後仍可再次按住物體中央，向右增加或向左減少拉力。放手後拉力回到零；未到 30 秒，物體停低後仍可重新施力。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
-      <div id="liveReadouts" class="live-readouts" aria-live="off">
-        <span><var>F</var><sub>拉</sub> <strong id="forceReadout">0.00 N</strong></span>
-        <span><var>t</var> <strong id="timeReadout">0.00 s</strong></span>
-      </div>
+      <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 開始記錄後，使用控制欄的拉力滑桿；向右增加、向左減少，只能施加向右拉力。物體會按牛頓第二定律加速、勻速、減速或停下；把拉力降到零後，物體會受滑動摩擦力自然減速。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
     </section>
 
@@ -118,13 +113,18 @@
       </section>
 
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
-        <p class="section-label">第二階段・直接拉物體</p>
+        <p class="section-label">第二階段・用拉力滑桿施力</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
-        <p>按「開始 30 秒記錄」後，直接按住舞台上的物體中央向右拖。你施加的拉力就相當於測力計讀數；摩擦力數值在 B 完全未知。向左移只會減少向右拉力，不會令物體受向左拉力。物體未滑動時，手指停住會令拉力保持；物體啱啱開始滑動時，彈簧會收短，拉力會由最大靜摩擦力突然下降到較低的滑動摩擦力附近。之後仍可再次按住物體中央，向右加力或向左減力；即使物體中途停低，只要未到 30 秒仍可重新施力。放手，拉力回到零。</p>
+        <p>按「開始 30 秒記錄」後，使用控制欄的拉力滑桿。滑桿讀數就相當於測力計量到的拉力；摩擦力數值在 B 完全未知。向右增加拉力，向左減少拉力，不能施加向左拉力。物體會按牛頓第二定律運動；把拉力降到零後，物體會受滑動摩擦力先減速，再停下，之後仍可繼續調整滑桿。</p>
         <div class="experiment-instruction"><strong>任務：</strong>慢慢增加拉力，令物體開始並繼續移動；之後盡量保持勻速直線運動。</div>
+        <div class="experiment-force-control" role="group" aria-labelledby="experimentForceLabel">
+          <div class="experiment-force-control-header"><span id="experimentForceLabel">拉力 <var>F</var><sub>拉</sub></span><output id="experimentForceSliderValue" for="experimentForceSlider">0.0 N</output></div>
+          <input id="experimentForceSlider" class="experiment-force-slider" type="range" min="0" max="12" step="0.1" value="0" aria-label="B 部分向右拉力大小" aria-describedby="experimentForceHint" disabled>
+          <span id="experimentForceHint" class="instruction">用滑桿向右增加拉力，向左減少拉力；0 N 代表暫時沒有拉力。</span>
+        </div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始記錄</button></div>
-        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始記錄</h3><p>這會清除目前 B 記錄及依賴它的 C 分析；Part D 預測屬於獨立情境答案，會保留。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
-        <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再直接拖動物體中央。</p>
+        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始記錄</h3><p>這會清除目前 B 記錄（如有）及依賴它的 C 分析；即使未保存記錄，也可以重新開始。Part D 預測屬於獨立情境答案，會保留。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
+        <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再用控制欄的拉力滑桿。</p>
         <p id="experimentFeedback" class="experiment-feedback neutral-status" aria-live="polite">拉力數值會同步畫在舞台下方的 <var>F</var><sub>拉</sub>–<var>t</var> 圖；系統不會顯示摩擦力。</p>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>

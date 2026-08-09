@@ -59,6 +59,17 @@ async function pressKeyOn(cdp, selector, key, code = key) {
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code });
   await delay(100);
 }
+async function setRangeByKeyboard(cdp, selector, valueN, stepN = .1) {
+  await evaluate(cdp, `(() => { const node = document.querySelector(${JSON.stringify(selector)}); if (!node) throw new Error(${JSON.stringify(`missing range target: ${selector}`)}); node.focus(); return true; })()`);
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Home", code: "Home" });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Home", code: "Home" });
+  const steps = Math.max(0, Math.round(Number(valueN) / stepN));
+  for (let index = 0; index < steps; index += 1) {
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight" });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight" });
+  }
+  await delay(100);
+}
 function analysisFixtureScript(activeIndex = 0) {
   return `(() => {
     const G = window.StaticKineticFrictionGenerator, M = window.StaticKineticFrictionMeasurement, P = window.StaticKineticFrictionPersistence;
@@ -88,6 +99,8 @@ function analysisFixtureScript(activeIndex = 0) {
   })()`;
 }
 async function semanticSmoke(cdp, url, label) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
   await navigate(cdp, url);
   const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); type.value='none'; direction.value='none'; magnitude.value='0'; document.getElementById('zeroFrictionMagnitudeValue').textContent='0.0 N'; window.__staticKineticFrictionApp.routeAttempt({state:'new'}); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:document.getElementById('zeroFrictionMagnitudeValue').textContent}; })()`);
   assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "請選擇" }, `${label}: A1 starts blank and requires an explicit selection`);
@@ -110,7 +123,7 @@ async function semanticSmoke(cdp, url, label) {
   await tapSelector(cdp, "#save-static-force");
   const blankA2Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('staticValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('staticValidationStatus').textContent, focused:document.activeElement===document.getElementById('staticValidationStatus') }))()`);
   assert.deepEqual(blankA2Validation, { localVisible: true, globalVisible: false, text: "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。", focused: true }, `${label}: blank A2 validation stays beside its save button`);
-  const forceEndpoint = async (magnitudeN, direction) => evaluate(cdp, `(() => { const node=document.getElementById('balanceOrigin'),svg=document.getElementById('apparatusSvg'); const r=node.getBoundingClientRect(),s=svg.getBoundingClientRect().width/900; return { start:{x:r.left+r.width/2,y:r.top+r.height/2}, end:{x:r.left+r.width/2+${direction === "left" ? -1 : 1}*${magnitudeN}*18*s,y:r.top+r.height/2} }; })()`);
+  const forceEndpoint = async (magnitudeN, direction) => evaluate(cdp, `(() => { const node=document.getElementById('balanceOrigin'),svg=document.getElementById('apparatusSvg'); const r=node.getBoundingClientRect(),svgRect=svg.getBoundingClientRect(),s=Math.min(svgRect.width/900,svgRect.height/430); return { start:{x:r.left+r.width/2,y:r.top+r.height/2}, end:{x:r.left+r.width/2+${direction === "left" ? -1 : 1}*${magnitudeN}*18*s,y:r.top+r.height/2} }; })()`);
   await tapSelector(cdp, "#draw-applied");
   let drag = await forceEndpoint(staticSetup.magnitudeCN / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end);
   await tapSelector(cdp, "#draw-friction");
@@ -119,7 +132,7 @@ async function semanticSmoke(cdp, url, label) {
   const labelYs = drawnBalance.labels.map((label) => label.y);
   assert.ok(drawnBalance.arrows >= 2 && drawnBalance.starts.every((y) => Math.abs(y - drawnBalance.centerY) < .1) && drawnBalance.labels.some((label) => /^拉力 /.test(label.text)) && drawnBalance.labels.some((label) => /^摩擦力 /.test(label.text)) && Math.max(...labelYs) - Math.min(...labelYs) >= 10, `${label}: Part A force arrows start at the block centre and use separated pull/friction labels ${JSON.stringify(drawnBalance)}`);
   await tapSelector(cdp, "[data-action='save-static-force']");
-  let balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'), phase:state.phase }; })()`);
+  let balance = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { staticCase:state.balance.staticCase, arrows:document.querySelectorAll('.pull-arrow,.learner-friction-arrow').length, experimentOriginHidden:!document.getElementById('experimentOrigin'), phase:state.phase }; })()`);
   const breakawayControls = await evaluate(cdp, `([...document.querySelectorAll('#breakawayTask [data-action]')].map((node)=>node.dataset.action))`);
   assert.equal(breakawayControls.includes('pull-left') || breakawayControls.includes('pull-right') || breakawayControls.includes('reset-breakaway'), false, `${label}: A3 has no direction or reset buttons`);
   assert.equal(balance.staticCase.learnerAppliedForce.direction, staticSetup.direction, `${label}: A2 stores the direction of the directly drawn applied force`);
@@ -195,54 +208,55 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(await evaluate(cdp, "document.getElementById('balanceOrigin').classList.contains('is-hidden')"), false, `${label}: A3 remains editable after the estimate is saved`);
   await tapSelector(cdp, "#to-experiment");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().phase"), "experiment", `${label}: sequential Part A continues legally`);
+  const readyExperiment = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, trial:window.__staticKineticFrictionApp.getState().trial, startDisabled:document.getElementById('startRecording').disabled, redoDisabled:document.getElementById('requestRedoExperiment').disabled, sliderDisabled:document.getElementById('experimentForceSlider').disabled, sliderValue:document.getElementById('experimentForceSlider').value, originPresent:Boolean(document.getElementById('experimentOrigin')) }))()");
+  assert.deepEqual(readyExperiment, { phase: "experiment", trial: null, startDisabled: false, redoDisabled: false, sliderDisabled: true, sliderValue: "0", originPresent: false }, `${label}: B exposes a retry action and a disabled force slider before recording`);
+  await tapSelector(cdp, "#requestRedoExperiment");
+  assert.equal(await evaluate(cdp, "!document.getElementById('redoExperimentConfirm').classList.contains('is-hidden')"), true, `${label}: B can request a fresh run before any accepted trial exists`);
+  await tapSelector(cdp, "[data-action='confirm-redo-experiment']");
+  assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().trial"), null, `${label}: confirming an empty retry keeps B without a trial`);
   await tapSelector(cdp, "#startRecording");
   const experimentInitial = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
   assert.ok(experimentInitial && Math.abs(experimentInitial.positionM) < 1e-9, `${label}: B starts the object at the left edge of the track ${JSON.stringify(experimentInitial)}`);
-  const experimentTarget = await evaluate(cdp, `(() => { const node=document.getElementById('experimentOrigin'); node.scrollIntoView({block:'center',inline:'center'}); const r=node.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,hidden:node.classList.contains('is-hidden'),width:r.width,height:r.height}; })()`);
-  assert.equal(experimentTarget.hidden, false, `${label}: B exposes the direct-pull target only after recording starts`);
-  assert.ok(experimentTarget.width >= 44 && experimentTarget.height >= 44, `${label}: B direct-pull target is a stable touch target`);
-  await touchStartMove(cdp, experimentTarget, { x: experimentTarget.x + 120, y: experimentTarget.y });
-  await delay(160);
-  const experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,time:evidence.experiment?.timeS,forceReadout:document.getElementById('forceReadout').textContent,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:document.getElementById('apparatusSvg').textContent,feedback:document.getElementById('experimentFeedback').textContent,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null}; })()`);
-  assert.equal(experimentHeld.running, true, `${label}: B recorder remains active during a direct pull ${JSON.stringify(experimentHeld)}`);
-  assert.ok(experimentHeld.force > .5 && experimentHeld.force <= 12 && experimentHeld.time > 0, `${label}: direct touch movement maps to a held rightward pull force ${JSON.stringify(experimentHeld)}`);
+  const slider = await evaluate(cdp, `(() => { const node=document.getElementById('experimentForceSlider'); node.scrollIntoView({block:'center',inline:'center'}); const r=node.getBoundingClientRect(); return {x:r.left,y:r.top+r.height/2,width:r.width,height:r.height,disabled:node.disabled}; })()`);
+  assert.equal(slider.disabled, false, `${label}: B enables the control-panel force slider only while recording`);
+  assert.ok(slider.width >= 160 && slider.height >= 32, `${label}: B slider has a usable touch target`);
+  await touchStartMove(cdp, { x: slider.x + 2, y: slider.y }, { x: slider.x + slider.width * .78, y: slider.y });
+  await delay(140);
+  const experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'),slider=document.getElementById('experimentForceSlider'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,time:evidence.experiment?.timeS,sliderValue:slider.value,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:document.getElementById('apparatusSvg').textContent,feedback:document.getElementById('experimentFeedback').textContent,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts')}; })()`);
+  assert.equal(experimentHeld.running, true, `${label}: B recorder remains active during slider input ${JSON.stringify(experimentHeld)}`);
+  assert.ok(experimentHeld.force > 6 && experimentHeld.force <= 12 && experimentHeld.time > 0, `${label}: trusted slider touch sets a rightward applied force ${JSON.stringify(experimentHeld)}`);
+  assert.equal(Number(experimentHeld.sliderValue), experimentHeld.force, `${label}: slider value and physical applied force stay synchronized`);
   assert.ok(experimentHeld.arrowEnd > experimentHeld.arrowStart, `${label}: B renders the pull arrow only toward the right ${JSON.stringify(experimentHeld)}`);
   assert.equal(experimentHeld.graphLines, 1, `${label}: B renders a live force-time path`);
   assert.equal(experimentHeld.velocityLines, 0, `${label}: B does not render a velocity-time path`);
   assert.match(experimentHeld.graphText, /拉力.*t.*圖.*30/, `${label}: B graph labels the 0–30 second force-time range with lowercase t`);
   assert.doesNotMatch(experimentHeld.graphText, /速度|velocity/i, `${label}: B learner-facing stage contains no velocity quantity`);
-  assert.match(experimentHeld.feedback, /大力啲|細力啲|拉力合適|慢慢增加拉力/, `${label}: B gives force/speed guidance while dragging`);
+  assert.match(experimentHeld.feedback, /大力啲|細力啲|拉力合適|慢慢增加拉力/, `${label}: B gives force/speed guidance while using the slider`);
+  assert.equal(experimentHeld.liveReadout, null, `${label}: the obsolete live readout overlay is removed from the F–t graph`);
   const heldForce = experimentHeld.force;
   await delay(120);
   const stillHeld = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN");
-  assert.ok(Math.abs(stillHeld - heldForce) < .001, `${label}: holding the pointer still keeps the pull force unchanged (${heldForce} → ${stillHeld})`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + 300, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
-  await delay(100);
-  const increasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(increasedExperimentForce.appliedForceN > heldForce + .5, `${label}: a rightward movement can increase force after sliding starts ${JSON.stringify(increasedExperimentForce)}`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + 180, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
-  await delay(100);
-  const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(decreasedExperimentForce.appliedForceN < increasedExperimentForce.appliedForceN - .5 && decreasedExperimentForce.appliedForceN > .5 && decreasedExperimentForce.kineticFollowActive === false, `${label}: a leftward movement can decrease force after sliding starts ${JSON.stringify(decreasedExperimentForce)}`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x - 120, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
+  assert.ok(Math.abs(stillHeld - heldForce) < .001, `${label}: leaving the slider untouched keeps the pull force unchanged (${heldForce} → ${stillHeld})`);
+  await touchEnd(cdp);
+  await setRangeByKeyboard(cdp, "#experimentForceSlider", 0);
   await delay(80);
-  const leftwardAttempt = await evaluate(cdp, "(() => ({force:window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length}))()");
-  assert.deepEqual(leftwardAttempt, { force: 0, arrow: 0 }, `${label}: moving the B pointer left only reduces the rightward force and never creates a leftward pull`);
-  await touchEnd(cdp);
-  await delay(120);
-  const releasedExperiment = await evaluate(cdp, `(() => ({force:window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning,graphLines:document.querySelectorAll('.experiment-force-line').length}))()`);
-  assert.equal(releasedExperiment.force, 0, `${label}: releasing the direct-pull target returns the applied force to zero`);
-  assert.equal(releasedExperiment.arrow, 0, `${label}: releasing the direct-pull target removes the live pull arrow`);
-  assert.equal(releasedExperiment.running, true, `${label}: releasing does not end the 30-second recording`);
-  assert.equal(releasedExperiment.graphLines, 1, `${label}: the force-time trace remains visible after release`);
-  await delay(800);
+  const releasedExperiment = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'); return {force:evidence.experiment?.appliedForceN,velocity:evidence.experiment?.velocityMps,acceleration:evidence.experiment?.accelerationMps2,mode:evidence.experiment?.contactMode,position:evidence.experiment?.positionM,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,running:evidence.recorderRunning,graphLines:document.querySelectorAll('.experiment-force-line').length}; })()`);
+  assert.equal(releasedExperiment.force, 0, `${label}: lowering the slider to zero removes the applied force`);
+  assert.ok(releasedExperiment.velocity > .05 && releasedExperiment.acceleration < 0, `${label}: removing the force produces negative acceleration before the object stops ${JSON.stringify(releasedExperiment)}`);
+  assert.equal(releasedExperiment.arrow, 0, `${label}: zero slider removes the live pull arrow`);
+  assert.equal(releasedExperiment.running, true, `${label}: changing the slider does not end the 30-second recording`);
+  assert.equal(releasedExperiment.graphLines, 1, `${label}: the force-time trace remains visible after force reduction`);
+  await delay(520);
   const stoppedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  const regrabTarget = await evaluate(cdp, `(() => { const node=document.getElementById('experimentOrigin'),r=node.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
-  await touchStartMove(cdp, regrabTarget, { x: regrabTarget.x + 420, y: regrabTarget.y });
-  await delay(120);
-  const regrabbedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(stoppedExperiment && Math.abs(stoppedExperiment.velocityMps) < .02 && regrabbedExperiment?.appliedForceN > 6 && regrabbedExperiment.measuredForceN > .5, `${label}: a stopped block can be re-grabbed and pulled again before 30 seconds ${JSON.stringify({ stoppedExperiment, regrabbedExperiment })}`);
-  await touchEnd(cdp);
+  assert.ok(stoppedExperiment && Math.abs(stoppedExperiment.velocityMps) < .02 && stoppedExperiment.contactMode === "static" && stoppedExperiment.positionM > 0, `${label}: the released block decelerates and then re-sticks with its displacement ${JSON.stringify(stoppedExperiment)}`);
+  await setRangeByKeyboard(cdp, "#experimentForceSlider", 8.6);
+  await delay(260);
+  const reloadedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
+  assert.ok(reloadedExperiment.appliedForceN > 6 && reloadedExperiment.velocityMps > .05, `${label}: a stopped object can be pulled again before 30 seconds ${JSON.stringify(reloadedExperiment)}`);
+  await setRangeByKeyboard(cdp, "#experimentForceSlider", 6.2);
+  await delay(80);
+  const adjustedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
+  assert.ok(adjustedExperiment.appliedForceN < reloadedExperiment.appliedForceN - .5 && adjustedExperiment.appliedForceN > 0, `${label}: the slider can reduce force again while the object is moving ${JSON.stringify(adjustedExperiment)}`);
   await delay(80);
   const interrupted = await evaluate(cdp, `(() => { window.dispatchEvent(new Event('pagehide')); const raw=window.SimScorm.getLocalLog().filter(item=>item.key==='cmi.suspend_data').at(-1)?.value;const snapshot=JSON.parse(raw);window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});const state=window.__staticKineticFrictionApp.getState();return {checkpointPhase:snapshot.answer.p,checkpointVariant:snapshot.answer.q,phase:state.phase,variant:state.variant,trial:state.trial,status:document.getElementById('experimentStatus').textContent,running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning,startDisabled:document.getElementById('startRecording').disabled}; })()`);
   assert.deepEqual(interrupted, { checkpointPhase: "experiment", checkpointVariant: "ready", phase: "experiment", variant: "ready", trial: null, status: "上次實驗記錄未完成，請重新開始這次記錄。", running: false, startDisabled: false }, `${label}: active recording restores the pre-record checkpoint with an interruption message and legal restart`);
@@ -335,10 +349,10 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
       stageHeight: stage.getBoundingClientRect().height,
       panelHeight: panel.getBoundingClientRect().height,
       controlsFirst: document.querySelector('.friction-shell').firstElementChild === panel,
-      experimentOriginHidden: document.getElementById('experimentOrigin').classList.contains('is-hidden'),
+      experimentOriginHidden: !document.getElementById('experimentOrigin'),
       coach: document.getElementById('stageCoach').textContent,
       zeroTask: document.getElementById('zeroTask').textContent,
-      sensorReadoutsHidden: document.getElementById('liveReadouts').classList.contains('is-hidden'),
+      sensorReadoutsHidden: !document.getElementById('liveReadouts'),
       explanation: document.querySelector('.first-step-explanation').textContent,
       headerHasSimLab: document.querySelector('.sim-header').textContent.includes('SimLab'),
       stageLabels: document.getElementById('apparatusSvg').textContent,
@@ -399,7 +413,7 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.ok(Math.abs(afterPanel.host - beforePanel.host) <= 1, `${label}: panel swipe leaves enclosing host fixed (≤1 CSS px rounding)`);
   const prepared = await frameEvaluate(cdp, `(() => {
     const state=window.__staticKineticFrictionApp.getState();
-    return {zero:state.balance.zeroForce,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),originHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')};
+    return {zero:state.balance.zeroForce,experimentOriginHidden:!document.getElementById('experimentOrigin'),originHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')};
   })()`);
   assert.deepEqual(prepared, { zero: null, experimentOriginHidden: true, originHidden: true }, `${label}: Part A startup exposes only the A1 control task`);
   await frameEvaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))};set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');document.querySelector('[data-action="save-zero-force"]').click();return true; })()`);
@@ -422,7 +436,7 @@ async function desktopSmoke(cdp, url, label, width, height, deviceScaleFactor) {
     const panel=document.getElementById('controlPanel').getBoundingClientRect();
     const header=document.querySelector('.sim-header').getBoundingClientRect();
     const text=[...document.querySelectorAll('#apparatusSvg text')].map(node=>node.getBoundingClientRect());
-    return {stage:{left:stage.left,right:stage.right,width:stage.width},panel:{left:panel.left,right:panel.right,width:panel.width},headerHeight:header.height,dpr:devicePixelRatio,docWidth:document.documentElement.scrollWidth,innerWidth,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),coach:document.getElementById('stageCoach').textContent,zeroTask:document.getElementById('zeroTask').textContent,explanation:document.querySelector('.first-step-explanation').textContent,textInside:text.every(rect=>rect.left>=stage.left-2&&rect.right<=stage.right+2)};
+    return {stage:{left:stage.left,right:stage.right,width:stage.width},panel:{left:panel.left,right:panel.right,width:panel.width},headerHeight:header.height,dpr:devicePixelRatio,docWidth:document.documentElement.scrollWidth,innerWidth,experimentOriginHidden:!document.getElementById('experimentOrigin'),coach:document.getElementById('stageCoach').textContent,zeroTask:document.getElementById('zeroTask').textContent,explanation:document.querySelector('.first-step-explanation').textContent,textInside:text.every(rect=>rect.left>=stage.left-2&&rect.right<=stage.right+2)};
   })()`);
   assert.equal(layout.stage.left, 0, `${label}: desktop stage starts at the left edge`);
   assert.ok(layout.stage.right <= layout.panel.left + 1, `${label}: desktop stage precedes the control panel visually`);
@@ -450,7 +464,7 @@ async function realSmoke() {
     for (const [base, launch, label] of [[sourceBase, `/sim/${slug}/index.html`, "source"], [packageBase, extracted.activityPath, "package"]]) {
       await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
       await navigate(cdp, `${base}${launch}`);
-      const layout = await evaluate(cdp, `(()=>{const stage=document.getElementById('stage'),panel=document.getElementById('controlPanel'),app=document.getElementById('app'),shell=document.querySelector('.friction-shell'),coach=document.getElementById('stageCoach'),block=document.querySelector('#apparatusSvg .apparatus-block'),coachRect=coach.getBoundingClientRect(),blockRect=block?.getBoundingClientRect();return {presentation:window.__staticKineticFrictionApp.getPresentation(),phase:window.__staticKineticFrictionApp.getState().phase,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),touch:getComputedStyle(stage).touchAction,html:document.documentElement.scrollHeight,inner:innerHeight,panelRange:panel.scrollHeight-panel.clientHeight,panelClientHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight,appHeight:app.getBoundingClientRect().height,shellHeight:shell.getBoundingClientRect().height,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),coach:document.getElementById('stageCoach').textContent,coachBottom:coachRect.bottom,blockTop:blockRect?.top,coachBlockOverlap:Boolean(blockRect&&coachRect.bottom>blockRect.top&&coachRect.top<blockRect.bottom),zeroTask:document.getElementById('zeroTask').textContent,sensorReadoutsHidden:document.getElementById('liveReadouts').classList.contains('is-hidden'),targets:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(x=>({w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height}))}})()`);
+      const layout = await evaluate(cdp, `(()=>{const stage=document.getElementById('stage'),panel=document.getElementById('controlPanel'),app=document.getElementById('app'),shell=document.querySelector('.friction-shell'),coach=document.getElementById('stageCoach'),block=document.querySelector('#apparatusSvg .apparatus-block'),coachRect=coach.getBoundingClientRect(),blockRect=block?.getBoundingClientRect();return {presentation:window.__staticKineticFrictionApp.getPresentation(),phase:window.__staticKineticFrictionApp.getState().phase,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),touch:getComputedStyle(stage).touchAction,html:document.documentElement.scrollHeight,inner:innerHeight,panelRange:panel.scrollHeight-panel.clientHeight,panelClientHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight,appHeight:app.getBoundingClientRect().height,shellHeight:shell.getBoundingClientRect().height,experimentOriginHidden:!document.getElementById('experimentOrigin'),coach:document.getElementById('stageCoach').textContent,coachBottom:coachRect.bottom,blockTop:blockRect?.top,coachBlockOverlap:Boolean(blockRect&&coachRect.bottom>blockRect.top&&coachRect.top<blockRect.bottom),zeroTask:document.getElementById('zeroTask').textContent,sensorReadoutsHidden:!document.getElementById('liveReadouts'),targets:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(x=>({w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height}))}})()`);
       assert.equal(layout.presentation, "editable", `${label}: startup presentation`); assert.equal(layout.phase, "balance", `${label}: startup phase`); assert.equal(layout.resultHidden, true, `${label}: result starts hidden`); assert.equal(layout.touch, "pan-y", `${label}: stage touch action`); assert.ok(layout.html <= layout.inner + 1, `${label}: activity document is bounded`); assert.ok(layout.panelRange > 8, `${label}: panel has independent scroll range (${layout.panelRange}; client=${layout.panelClientHeight}, scroll=${layout.panelScrollHeight}, app=${layout.appHeight}, shell=${layout.shellHeight})`); assert.equal(layout.experimentOriginHidden, true, `${label}: Part A hides the B direct-pull target`); assert.match(layout.coach, /A1.*沒有水平拉力/s, `${label}: startup coach is actionable`); assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: startup contains the A1 force-vector task`); assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`); assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: touch targets are stable`); assert.equal(layout.coachBlockOverlap, false, `${label}: mobile stage guidance reserves space instead of covering the object (${JSON.stringify({ coachBottom: layout.coachBottom, blockTop: layout.blockTop })})`);
       const stage = await evaluate(cdp, "(()=>{const r=document.getElementById('stage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()"); await touch(cdp, stage, { x: stage.x, y: stage.y - 55 });
       for (const [width, height, dpr] of [[1024, 768, 1], [2048, 1167, 2]]) await desktopSmoke(cdp, `${base}${launch}`, `${label} desktop ${width}x${height}@${dpr}`, width, height, dpr);

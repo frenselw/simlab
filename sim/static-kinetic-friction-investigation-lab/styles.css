@@ -101,8 +101,8 @@ select {
 .force-builder-label { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
 .graph-axis { stroke: #334155; stroke-width: 1.8; }
-.graph-axis-label, .experiment-graph-title { font-size: 12px !important; font-variant-numeric: tabular-nums; }
-.experiment-graph-title { font-weight: 700; }
+.graph-axis-label { font-size: 16px !important; font-variant-numeric: tabular-nums; }
+.experiment-graph-title { font-size: 17px !important; font-weight: 700; }
 .graph-cursor { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 4; }
 
 .drag-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -218,20 +218,6 @@ select {
   50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; box-shadow: 0 0 0 5px rgba(29, 78, 216, .24); }
 }
 
-.live-readouts {
-  position: absolute;
-  left: .7rem;
-  bottom: .6rem;
-  display: flex;
-  gap: .55rem;
-  flex-wrap: wrap;
-  padding: .35rem .55rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .92);
-  font-size: .8rem;
-}
-.live-readouts strong { font-variant-numeric: tabular-nums; }
 .prediction-readout {
   position: absolute;
   left: .75rem;
@@ -286,6 +272,11 @@ select {
 .instruction, .neutral-status { color: var(--muted); font-size: .84rem; }
 .experiment-instruction, .experiment-feedback { margin: .65rem 0; padding: .55rem .65rem; border-left: 4px solid var(--blue); border-radius: 0 .55rem .55rem 0; background: #eef4ff; line-height: 1.45; }
 .experiment-feedback { border-left-color: #c2410c; background: #fff7ed; color: #7c2d12; font-weight: 700; }
+.experiment-force-control { display: grid; gap: .35rem; margin: .7rem 0; padding: .7rem .75rem; border: 1px solid var(--border); border-radius: .65rem; background: #fff; }
+.experiment-force-control-header { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; font-weight: 700; }
+.experiment-force-control-header output { color: var(--blue); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.experiment-force-slider { width: 100%; min-height: 2.25rem; margin: 0; touch-action: none; }
+.experiment-force-slider:disabled { opacity: .55; }
 .button-row { display: flex; gap: .5rem; flex-wrap: wrap; margin: .7rem 0; }
 .first-step-explanation {
   margin: .7rem 0;
