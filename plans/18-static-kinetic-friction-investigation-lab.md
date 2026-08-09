@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`21`（2026-08-09；Part B 改用 control panel 拉力 slider，移除舞台直接拖動 target；B 改用 `Physics.stepDirectForce` 以牛頓第二定律直接模擬，拉力降至零後由滑動摩擦力令物體減速再停，並可在 30 秒內再次調整。移除遮住 F–t 圖的 live readout overlay、放大圖表文字；未有 accepted trial 時亦可要求重新開始。同步修正 B 的 physics／state matrix，並提升 `physicsVersion` 至 5，`measurementVersion` 維持 4）。
+> Plan revision：`22`（2026-08-09；Part B 移除 control panel 拉力 slider，恢復由舞台物體中央直接拖動拉力；B 使用 spring／connector 物理模型記錄測力計等效拉力，保留最大靜摩擦力突破後的張力下降及自然減速。物體由最左開始並以 `0.06 m/s` 操作速度上限保持慢速。重新開始改為一按即時清除舊 B／C 記錄並重開 30 秒，不再顯示確認／保留流程；F–t 圖移除頂部冗餘標籤並放大刻度文字。`physicsVersion` 提升至 6，`measurementVersion` 維持 4）。
 
 本計劃必須遵從：
 
@@ -92,7 +92,7 @@
 1. 在沒有水平外力時，選擇摩擦力為零的類型、方向及大小；
 2. 在指定的較小水平拉力下，直接由物體中央拖出拉力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
 3. 直接拖拉物體並逐步增加拉力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
-4. 進入 Part B，從舞台最左位置用 control panel slider 只向右施加拉力，在 30 秒內令物體開始並繼續移動；
+4. 進入 Part B，從舞台最左位置直接按住物體中央向右拖動拉力，在 30 秒內令物體開始並繼續移動；
 5. 從同一次實驗即時產生的單一拉力—時間圖標示關鍵區段；
 6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
 7. 完成四個未直接測試情境的操作式預測；
@@ -104,8 +104,8 @@
 - A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
 - A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭嘴，箭嘴端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
 - A／B／C／D 任務列可直接切換；Part B 不要求先完成 Part A，Part C 沒有有效 trace 時顯示中性等待提示，Part D 可先完成預測；
-- Part B 使用 control panel 的 `0–12 N` 拉力 slider；物體由舞台最左位置開始，拉力只可向右；slider 的向右增加／向左減少對應學生調整測力計拉力，停住時力值保持；
-- slider 讀數直接作為 B 的外加拉力輸入；把值降至 `0 N` 後，物體按滑動摩擦力自然減速，未到 30 秒仍可再次增加拉力，不因物體停下而鎖定；
+- Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；手指向右移少量便增加拉力，向左移只會減少向右拉力至零，手指停住時力值保持；
+- 放手後拉力回到 `0 N`，物體按滑動摩擦力自然減速，未到 30 秒仍可再次按住物體中央施力，不因物體停下而鎖定；
 - 30 秒時間上限、超時提示及重新開始記錄；
 - 物體移動太快／太慢時顯示「細力啲」／「大力啲」；
 - 只顯示與測力計等效的拉力及 `F拉–t` 圖，不顯示摩擦力數值；
@@ -183,7 +183,7 @@ tools/static-kinetic-friction-browser-regression.js
   folder: "static-kinetic-friction-investigation-lab",
   categories: ["Mechanics"],
   description:
-    "用 control panel 拉力 slider 在 30 秒內同步記錄拉力—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
+    "直接拖動物體在 30 秒內同步記錄拉力—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
   tags: [
     "physics",
     "mechanics",
@@ -450,11 +450,11 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ---
 
-## 7. Part B：用 control panel 拉力 slider 並同步產生 `F拉–t` 圖
+## 7. Part B：直接拖動物體並同步產生 `F拉–t` 圖
 
 ### 7.1 舞台與可見量
 
-舞台模仿 Part A：只顯示水平粗糙面、物體及由物體重心出發的紅色向右拉力箭嘴；不顯示測力計圖案、繩或摩擦力箭嘴。物體由舞台最左位置開始；B 不在舞台暴露直接拖動 target，所有拉力輸入由 control panel 的 slider 負責。Slider 只可建立向右拉力，向左移動 slider 只會把目前向右拉力減少至零。
+舞台模仿 Part A：只顯示水平粗糙面、物體及由物體重心出發的紅色向右拉力箭嘴；不顯示測力計圖案、繩或摩擦力箭嘴。物體由舞台最左位置開始。記錄期間，物體中央顯示一個很小的閃爍圓點作為 `experimentOrigin` 觸控／滑鼠 target；學生直接按住該圓點向右拖動，拉力箭嘴跟手指同步改變。向左移只會減少向右拉力，不能施加向左拉力。
 
 物體下方固定顯示一張單一圖：
 
@@ -466,14 +466,15 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ### 7.2 操作與 30 秒限制
 
-學生按「開始 30 秒記錄」後，物體放在舞台最左位置；用 control panel slider 調整向右拉力：
+學生按「開始 30 秒記錄」後，物體放在舞台最左位置；按住物體中央的直接拖動 target 調整向右拉力：
 
 1. 先慢慢向右增加拉力，直至物體開始移動；
 2. 開始移動後繼續施力，盡量保持勻速直線運動；
-3. slider 停住時，拉力保持上一個值；向右增加少量，向右拉力相應增加少量；向左減少少量，不能改成向左拉力；有效範圍為 `0–12 N`；
-4. 當拉力超過最大靜摩擦力，`Physics.stepDirectForce` 將接觸狀態由 static 轉為 sliding，並按 `F拉−f_k=ma` 更新位置、速度及加速度；
-5. 拉力降低至低於滑動摩擦力或 `0 N` 時，物體不會瞬間停下，而會先按負加速度減速，速度降至零後才重新進入 static；未到 30 秒，slider 仍可再次增加拉力令物體重新運動；
-6. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄；「重新開始記錄」在沒有 accepted trial、只有未保存／失敗記錄或已有 accepted trial 時都可使用，但記錄進行中須先停止才可確認重開。
+3. 手指停住時，直接拖動 target 保持目前的拉力；手指向右移少量，向右拉力相應增加少量；向左移只會減少目前向右拉力，不能改成向左拉力；有效範圍為 `0–12 N`；
+4. 直接拖動輸入轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力；
+5. 放手後 target 回到無拉力狀態，物體不會瞬間停下，而會按 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma` 先減速，速度降至零後才重新進入 static；未到 30 秒，學生仍可再次按住物體中央施力令物體重新運動；
+6. 物理操作的 handle response 使用 `HANDLE_OMEGA=24` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，令物體在手機窄舞台上明顯慢速移動，仍保留加速、勻速、減速及重新施力的連續行為；
+7. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄；「重新開始」在沒有 accepted trial、只有未保存／失敗記錄或已有 accepted trial 時都可使用，一按即清除舊 B trace／C analysis 並直接開始新的 30 秒記錄，不需停止、確認或保留目前資料。
 
 記錄時間不可超過 `30 s`。若時間達到上限，立即停止物理更新並顯示：
 
@@ -490,7 +491,7 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 - 移動太慢或即將停下：「大力啲。」
 - 速度在適合範圍：「保持呢個拉力，盡量保持勻速直線運動。」
 
-slider 的 `0.1 N` step 改善學生微調拉力時的操作解析度；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
+直接拖動的水平位移映射改善學生微調拉力時的操作解析度；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
 
 系統不要求特定拉力上升曲線、不預先標示峰值、不顯示摩擦力，亦不因學生的拉力路徑不同而即時判斷答案正誤。保存前只檢查是否已開始移動、是否在 30 秒內及是否有足夠的持續移動資料。
 
@@ -771,9 +772,11 @@ Physics 使用完整 SI precision。量測層先按本 plan 的 resolution 量�
 
 Sensor calibration、noise PRNG 及 recorder state 屬 `measurement.js`，不放入 `physics.js` 的 state。`physics.step()` 只輸出 physical state 與 transition events；`measurement.step()` 消費該輸出，且任何 measured value 都不可反饋 physics。
 
-### 11.3 Part B slider／直接力模型
+### 11.3 Part B 舞台直接拖動／spring connector 模型
 
-Part B 不再用舞台上的繩、握把或直接拖動 target 產生拉力。學生在 control panel 調整 `0–12 N` 的原生 range slider；slider 數值就是向右施加的 `F拉`，以 `0.1 N` 量化，停住時保持不變。slider 輸入由 pointer、觸控及鍵盤共用同一套數值映射，水平 slider 手勢由 slider 自己擁有，不交給 control panel 的垂直捲動處理。
+Part B 使用固定於物體中央、穩定 48×48 CSS px 的 `experimentOrigin` overlay。學生按住舞台上的小圓點向右拖動；pointer 位移透過同一個 semantic update function 轉為 connector handle target，向右位移增加 `0–12 N` 的目標拉力，向左位移只會把向右拉力減少至零，不能產生向左拉力。pointer 停住時 target 不變，拉力保持；pointerup／pointercancel 令施加拉力回到零，但不清除物體的物理速度或圖線。mouse、trusted touch 及 keyboard 方向鍵使用同一套 force update。
+
+舞台只顯示由物體重心出發的紅色拉力箭嘴；B 不顯示 `f_s`、`f_k` 或任何摩擦力箭嘴。F–t 圖只畫由 measurement layer 量到的 connector tension；圖上不再顯示「拉力」／「F–t 圖 0–30 秒」的冗餘頂部標籤，只保留放大的刻度、`F拉/N` 及小寫 `t/s` 軸標籤。
 
 正向力及摩擦 authority：
 
@@ -786,13 +789,15 @@ kineticFrictionAt(x) = scenario.muK * normalForceN *
 
 V1 的最大靜摩擦力不隨位置變；只有滑動摩擦力有小幅、active-track 零平均的空間 variation。所有可到達位置仍必須滿足 `staticLimitAt(x) > kineticFrictionAt(x)`。
 
-對每一個 physics tick，直接用牛頓第二定律更新：
+對每一個 physics tick，先以 handle response、connector extension 及 damping 計算實際張力，再用牛頓第二定律更新：
 
 \[
 F_{\text{net}}=F_{\text{拉}}-f_k=ma
 \]
 
-物體靜止時，若 `F拉` 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。滑動後若 `F拉 < f_k` 或降至 `0 N`，`a<0`，物體先按目前速度減速，速度降至零才回到 static；因此學生可在同一段 30 秒記錄中重新加力、減力或令物體再次移動。圖像只顯示學生輸入的 `F拉`，不顯示 `f_s` 或 `f_k`。
+物體靜止時，若 connector tension 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。因為 `f_k<f_{s,max}`，breakaway tick 後實際 connector tension 會由峰值落到滑動平台，不可把拉力鎖定為學生剛才的數值。滑動後若 connector tension `< f_k` 或放手令 tension 降至 `0 N`，`a<0`，物體先按目前速度減速，速度降至零才回到 static；因此學生可在同一段 30 秒記錄中重新加力、減力或令物體再次移動。圖像只顯示量測到的 `F拉`，不顯示 `f_s` 或 `f_k`。
+
+為配合手機窄舞台，handle response 固定為 `HANDLE_OMEGA=24`、`HANDLE_ZETA=1`、`HANDLE_SPEED_LIMIT_MPS=0.06`。這個速度上限只限制直接操控的 handle／connector response，不改寫摩擦模型；block 仍由 `Physics.stepPhysics` 的實際張力、摩擦及質量自然決定加速度、減速度、停下及再次運動。
 
 ### 11.4 Part B 運動提示
 
@@ -1659,7 +1664,7 @@ Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair,
 generateScenario({
   seed,
   generatorVersion: 1,
-  physicsVersion: 5,
+  physicsVersion: 6,
   measurementVersion: 4
 });
 ```
@@ -2182,7 +2187,7 @@ baseline 的較高舞台，上下會出現 letterbox 空位，並把 control pan
 
 | Target | Hit-target strategy | Capture target | Render 期間可替換？ |
 |---|---|---|---:|
-| Part B control panel 拉力 slider | 原生 `input[type="range"]`；只在 experiment recording 啟用，`0–12 N`、`0.1 N` step | slider 本身 | No |
+| Part B 物體中央 `experimentOrigin` | 穩定 48×48 px HTML overlay；只在 experiment recording 顯示，位置跟隨物體重心；可見提示只保留很小閃爍圓點 | 同一 overlay | No |
 | Part A2／A3 物體中央繪圖 target | 穩定 48×48 px 透明 HTML overlay，位置跟隨物體中央；只顯示約 8 px 小閃爍圓點；A2 依目前模式畫拉力／摩擦力，A3 直接自由畫拉力，拉力端點跟隨 active pointer；物體離開舞台後 target 隱藏並顯示中央回復按鈕 | 同一 overlay | No |
 | Prediction friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
 | Breakaway time marker | 穩定 44 px 寬 HTML overlay | 同一 overlay | No |
@@ -2197,7 +2202,7 @@ Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render �
 |---|---|---|
 | 非互動 stage 空白位置 | Moodle／enclosing host | host scroll 及 iframe rectangle delta 非零；activity document、activity visual viewport 及 panel delta=0；learner state 不變 |
 | Control panel（含 top/bottom boundary） | panel | panel 有 range 時 delta 非零；host、host/activity visual viewport、iframe rectangle、stage及activity document delta=0；learner state不變 |
-| Part B control panel 拉力 slider | slider | trusted horizontal touch／keyboard 調整 `0–12 N` 拉力；物體按牛頓第二定律移動，放低到 0 N 後先減速再停；host、兩個 visual viewport、iframe rectangle、activity document及stage delta=0；slider gesture 不可被 panel vertical scroll handler 攔截 |
+| Part B 物體中央 `experimentOrigin` | simulation | trusted touch／mouse／keyboard 直接拖動物體中央，按 pointer 位移調整 `0–12 N` 向右拉力；放手後 tension 回零，物體按 spring／connector 及牛頓第二定律先減速再停，仍可再次施力；host、兩個 visual viewport、iframe rectangle、activity document、panel及stage delta=0；pointermove、pointerup；無 pointercancel |
 | Part A2／A3 物體中央繪圖 target | simulation | A2 拉力／摩擦力向量端點或 A3 即時拉力端點改變；A3 物體按合力連續位移／加速／減速／反向，pointerup 令拉力歸零但保留物體運動；物體離開舞台後顯示中央回復按鈕；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
 | Prediction friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 | Breakaway time marker | simulation | marker index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
@@ -2288,9 +2293,9 @@ Scroll topology：
 | `balance` | `zero-ready`／`static-ready`／`breakaway-ready`／`answer-complete` | A1–A3 | A 部分可以是任何已保存／未完成組合；B 的 trace、C 的分析及 D 的預測可同時保留 | 只有 transient drag 不入 snapshot | A／B／C／D；保存 A 答案後仍留在 A |
 | `balance` | `review-edit` | A1/A2/A3 target | review authority 保留；`fromReview=true`；`working.editDraft.kind="balance"` | active drag／DOM state | cancel／same-value save 回 review；changed save 回 balance |
 | `experiment` | `ready` | B | `trial=null`；A 可完整、部分完成或仍為空；D 預測可已存在；B 舞台顯示空白 0–30 s F–T 軸 | analysis 只可在有 trial 後保存；running state 不入 snapshot | A／B／C／D；開始 30 秒記錄 |
-| `experiment` | `running`（transient） | B | slider force state＋in-memory measurement；物體由舞台最左開始、中央紅色拉力箭嘴、即時 F–T 線及速度提示 | running state、pointer path、超時 transient 不可進 snapshot | 停止並保存或重新開始；切換時先中止 transient |
+| `experiment` | `running`（transient） | B | `experimentOrigin` direct-drag force state＋spring/connector in-memory measurement；物體由舞台最左開始、中央紅色拉力箭嘴、即時 F–T 線及速度提示 | running state、pointer path、超時 transient 不可進 snapshot | 停止並保存，或一按「重新開始」立即清除並重開；切換時先中止 transient |
 | `experiment` | `accepted` | B | canonical packed 0–30 s regular trace＋breakaway sidecar；C 可空或已有舊分析 | 不把 transient recorder 寫入 snapshot | A／B／C／D；C 需有效 trace |
-| `experiment` | `review-edit` | B | 原本完整 trial 保留；`fromReview=true` | running trial／active pointer | cancel／確認重新實驗 |
+| `experiment` | `review-edit` | B | 從檢查頁按「重新做實驗」即清除舊 trial／C analysis，轉為新的 running B；`fromReview=false` | 舊 running trial／active pointer／確認或保留 prompt | 新的 30 秒記錄、A／B／C／D |
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
 | `analysis` | `selection-ready`／`selection-only`／`task-complete`／`complete` | C1–C5 | accepted trial；單一 0–30 s F–T 圖；`working.activeAnalysisTask` 指向目前選取的 C 子任務；其餘 C 子任務可為空、partial 或 complete | 不保存無 trial 的 C authority；不再保存第二張 learner-facing velocity graph | A／B／C／D；可用 C 子任務選擇器返回修改 |
 | `analysis` | `review-edit` | C1–C5 target | review authority 保留；可保存 target replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
@@ -2306,7 +2311,7 @@ A／B／C／D -> A／B／C／D
   由任務列直接切換；setPhase 不再要求順序，也不清除其他 Part 的 authority。
 
 B -> C
-  B 只在 30 秒內完成並保存有效 slider-controlled trace 後，C 才可實際保存分析；沒有 trace 仍可進入等待畫面。
+B 只在 30 秒內完成並保存有效 direct-drag trace 後，C 才可實際保存分析；沒有 trace 仍可進入等待畫面。
 
 C -> D
   不要求 C complete；D 可先保存任意一題，之後返回 C。
@@ -2338,7 +2343,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 {
   schemaVersion: 5,
   generatorVersion: 1,
-  physicsVersion: 5,
+  physicsVersion: 6,
   measurementVersion: 4,
   rubricVersion: 2,
 
@@ -2879,7 +2884,7 @@ same seed reproduces same scenario
 14. 相同位置重現相同表面 variation；
 15. slack connector 在任何 relative velocity 下 tension 都為 0；
 16. tautening／slack release 邊界連續且無單步 impulse；
-17. `0.35 m/s` worst-case approach 的首個 taut substep 不會單靠 dashpot 觸發 breakaway，damping由0單調engage；
+17. `0.06 m/s` slow-handle approach 的首個 taut substep 不會單靠 dashpot 觸發 breakaway，damping由0單調engage；
 18. 相同 timestamped input path 在 60／90／120 Hz、coalescing 及短 stall schedules 產生同一 canonical trace；
 19. 超過 50 ms stall 令 running trial 中性作廢而不 catch-up；
 20. physics 結果不受 sensor noise 影響；
@@ -3144,7 +3149,7 @@ effective height below 376 CSS px ultra-compact
 沒有水平外力時判斷摩擦力為零
 → 在指定小外力下畫出等大反向靜摩擦力
 → 逐步試拉找到開始移動前的臨界值
-→ 再於 Part B 用拉力 slider 量到拉力及運動
+→ 再於 Part B 直接拖動物體，用 connector 張力量到拉力及運動
 → 在勻速滑動區推斷滑動摩擦力
 → 在加速區發現拉力不等於摩擦力
 → 比較兩個速度的勻速平台
@@ -3166,7 +3171,7 @@ effective height below 376 CSS px ultra-compact
 目前三個關鍵產品決定：
 
 1. **Part A 顯示學生自己受力圖的 `ΣFx`，但不提供正誤；**
-2. **Part B 使用 control panel 拉力 slider＋寬鬆 pacing guide；物理更新採 direct-force 牛頓第二定律，而不是舞台拖動或自動馬達；**
+2. **Part B 使用舞台物體中央 direct-drag＋寬鬆 pacing guide；物理更新採 spring／connector 及牛頓第二定律，實際呈現 breakaway drop、慢速連續運動及放手後減速；**
 3. **重新做實驗會清除全部 graph analysis 及舊 trace，但保留獨立的 Part D 預測；沒有已保存 trace 時同樣可以重新開始。**
 
 ---

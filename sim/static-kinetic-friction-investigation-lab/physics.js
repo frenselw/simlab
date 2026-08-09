@@ -7,9 +7,12 @@
   "use strict";
 
   const PHYSICS_DT_S = 1 / 240;
-  const HANDLE_OMEGA = 40;
+  // Keep the Part B block visibly slow on the compact stage.  The learner
+  // still controls the connector directly, but the handle response and its
+  // speed ceiling prevent a small phone viewport from being crossed too fast.
+  const HANDLE_OMEGA = 24;
   const HANDLE_ZETA = 1;
-  const HANDLE_SPEED_LIMIT_MPS = 0.35;
+  const HANDLE_SPEED_LIMIT_MPS = 0.06;
   const V_STICK_MPS = 1e-5;
   const FORCE_EPSILON_N = 1e-8;
   const RESTICK_EPSILON_N = 1e-7;

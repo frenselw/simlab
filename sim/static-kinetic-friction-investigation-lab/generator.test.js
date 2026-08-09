@@ -23,5 +23,6 @@ assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 2 }), /Unsuppo
 assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 1 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 3 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 4 }), /Unsupported/);
+assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 5 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, measurementVersion: 3 }), /Unsupported/);
 console.log("Static/kinetic friction generator checks passed");
