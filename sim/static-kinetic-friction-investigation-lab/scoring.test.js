@@ -34,10 +34,13 @@ const justOutsideMaximum = JSON.parse(JSON.stringify(perfect));
 justOutsideMaximum.balance.breakaway.learnerMaxCN = Math.round((scenario.staticLimitMeanN + S.maximumStaticBalanceToleranceN(scenario.staticLimitMeanN) + .01) * 100);
 assert.equal(S.balanceScore(justOutsideMaximum, scenario).detail.find((item) => item.key === "maximum-static-friction").points, 0);
 
-const wrongC1Relation = JSON.parse(JSON.stringify(perfect));
-wrongC1Relation.analysis.staticInterval.relation = "pull-greater";
-const partialAnalysis = S.analysisScore(wrongC1Relation, scenario);
-assert.equal(partialAnalysis.detail.find((item) => item.key === "static-rise").points, 5, "C1 interval and type credit remain independent of relation");
+const wrongStaticMarker = JSON.parse(JSON.stringify(perfect));
+wrongStaticMarker.analysis.staticFriction.index = wrongStaticMarker.trial.regularSampleCount;
+const partialAnalysis = S.analysisScore(wrongStaticMarker, scenario);
+assert.equal(partialAnalysis.detail.find((item) => item.key === "static-friction").points, 0, "an incorrectly placed static-friction marker receives no C1 credit");
+const wrongKineticMarker = JSON.parse(JSON.stringify(perfect));
+wrongKineticMarker.analysis.kineticFriction.index = 0;
+assert.equal(S.analysisScore(wrongKineticMarker, scenario).detail.find((item) => item.key === "kinetic-friction").points, 0, "a pre-breakaway marker is not kinetic friction");
 
 const wrongPredictionType = JSON.parse(JSON.stringify(perfect));
 const predictionSpec = scenario.predictions[0];

@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`32`（2026-08-10；延續 revision 31 的 B 上下分區。今次修正 `F拉–t` 圖縱軸箭嘴為向上，並把圖內 chart content 在下方區向下微調，避免手機顯示偏上；同時精簡 B control panel 文案，移除「學生」稱呼。物理模型、畫面軌道映射、`physicsVersion`、`measurementVersion` 及 C 的分析 rubric 不變。）
+> Plan revision：`34`（2026-08-10；Part B 的 F–t 圖增大軸箭嘴、收窄手機留白並讓圖表填滿可用區域；Part C 沿用 Part B 同一張圖，直接拖動三個未預選的標記，分別標示靜摩擦力、最大靜摩擦力及滑動摩擦力。三個 marker 必須由操作後才產生 sample index，避免預先洩露答案；同步更新 C 的學習目標、評分、狀態／snapshot schema 至 `schemaVersion=6`、`WIRE_VERSION=s6`、`rubricVersion=3`。）
 
 本計劃必須遵從：
 
@@ -69,21 +69,19 @@
    0\leq f_s\leq f_{s,\max}
    \]
 5. 透過逐步增加拉力、直接反覆向左／向右拖拉，找出物體開始滑動的臨界值，並估計最大靜摩擦力；
-6. 由 Part B 的物體近似勻速滑動，推出：
+6. 由 Part B 的物體開始滑動後的拉力平台，辨認滑動摩擦力：
 
    \[
    f_k\approx F_{\text{拉}}
    \]
-7. 說明物體正在加速時：
+7. 說明物體開始移動一刻的拉力代表最大靜摩擦力，並分辨三種圖上位置：
 
    \[
    F_{\text{拉}}-f_k=ma
    \]
 
-   因此此時測力計讀數不能直接當作滑動摩擦力；
-8. 比較低速及較高速近似勻速區段的平均拉力，認識在本活動採用的高中理想模型下，滑動摩擦力的平均值基本不隨速度改變；
-9. 分辨「直接量得的拉力」和「由運動狀態及牛頓定律推斷的摩擦力」；
-10. 從自己產生的單一 `F拉–t` 圖建立及應用摩擦力模型；速度只作模擬內部回饋及評分判斷，不直接呈現給學生。
+   其中靜摩擦力可在物體仍靜止的拉力上升段標示；
+8. 從自己產生的單一 `F拉–t` 圖，直接標示三個關鍵位置；速度只作模擬內部回饋及評分判斷，不直接呈現。
 
 ### 1.2 Learner task
 
@@ -93,8 +91,8 @@
 2. 在指定的較小水平拉力下，直接由物體中央拖出拉力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
 3. 直接拖拉物體並逐步增加拉力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
 4. 進入 Part B，從舞台最左位置直接按住物體中央向右逐漸增加拉力，在 30 秒內令物體啱啱開始移動；開始移動後由系統自動維持接近勻速；
-5. 從同一次實驗即時產生的單一拉力—時間圖標示關鍵區段；
-6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
+5. 從同一次實驗即時產生的單一拉力—時間圖，直接拖動三個標記；
+6. 由三個標記位置分辨靜摩擦力、最大靜摩擦力及滑動摩擦力；
 7. 完成四個未直接測試情境的操作式預測；
 8. 進入提交前檢查，一次提交後查看完整結果。
 
@@ -110,13 +108,8 @@
 - 物體尚未移動時提示逐漸增加拉力；開始移動後提示系統已接手維持接近勻速；
 - 只顯示與測力計等效的拉力及 `F拉–t` 圖，不顯示摩擦力數值；
 - 選擇 Part A 的摩擦力方向及類型；
-- 拖動同步圖像的：
-  - 開始移動時間 marker；
-  - 靜止區段 start/end；
-  - 低速勻速區段 start/end；
-  - 加速區段 start/end；
-  - 高速勻速區段 start/end；
-- 查看自己所選區段的時間、平均拉力、拉力變化量及拉力標準差；
+- 在同一張同步圖像上拖動三個位置 marker：靜摩擦力、最大靜摩擦力、滑動摩擦力；
+- 隨時重新拖動及保存三個 marker，不需要輸入額外數值或選擇區間；
 - 完成四個預測情境；
 - review-edit；
 - final submit。
@@ -214,7 +207,7 @@ tools/static-kinetic-friction-browser-regression.js
 - 物體有沒有移動及移動快慢的文字提示；
 - 自己畫的受力箭嘴；
 - Part A 指定外力及物體有沒有開始滑動；
-- 自己選取圖像區段的時間及拉力統計值。
+- 自己拖動三個圖上 marker 後的時間及拉力讀數。
 
 學生在提交前**不會直接看到**：
 
@@ -223,8 +216,7 @@ tools/static-kinetic-friction-browser-regression.js
 - 即時 `fk`；
 - 真實 `fs,max`；
 - 真實 `μs` 或 `μk`；
-- 正確 graph marker；
-- 正確區段；
+- 正確 marker 位置；
 - 系統判定「靜摩擦／滑動摩擦」；
 - 正確性顏色；
 - 分數或合格狀態。
@@ -306,7 +298,7 @@ force += (Math.random() - 0.5) * 0.8;
 - 測力計讀數；
 - 物體開始移動及系統接手維持平台的提示；
 - 單一 F–T 同步圖線；
-- 學生自己所選區段的統計值；
+- 學生自己三個 marker 的時間／拉力讀數；
 - 實驗資料是否足夠完整的技術提示；
 - 「記錄時間太短」；
 - 「未有一段足夠長的近似勻速資料」；
@@ -317,12 +309,12 @@ force += (Math.random() - 0.5) * 0.8;
 
 - 正確／錯誤；
 - 峰值選得太早／太遲；
-- 區段選得好／不好；
+- marker 放得好／不好；
 - 正確滑動摩擦力；
 - 正確最大靜摩擦力；
 - 正確答案範圍；
 - 綠剔、紅交叉；
-- 正確 graph overlay；
+- 正確 marker overlay；
 - 隱藏在 DOM、ARIA、`data-*` 或透明圖層的答案。
 
 ### 3.5 只保存語意操作證據
@@ -344,8 +336,7 @@ force += (Math.random() - 0.5) * 0.8;
 - A3 的試拉次數、最佳臨界值、方向及最大靜摩擦力估計；
 - 一次獲接受的實驗 trace；
 - 實驗產生的 breakaway event；
-- 學生最後選擇的 graph marker／interval；
-- 學生的摩擦力推斷；
+- 學生最後保存的三個 graph marker；
 - 四個預測答案。
 
 ---
@@ -357,12 +348,12 @@ force += (Math.random() - 0.5) * 0.8;
 | 粗糙面一定有摩擦力 | Part A1 直接要求學生在無水平外力時選擇 `f=0`，D1 再以未直接測試情境應用同一概念 |
 | 靜摩擦力是固定數值 | Part A2 用一個小於上限的指定外力建立等大反向箭嘴；A3 再逐步試拉找上限 |
 | 靜摩擦力永遠等於 `μsN` | 圖像顯示拉力可由 0 一直增加，`μsN` 只是上限 |
-| 物體一移動，測力計讀數就一定等於滑動摩擦力 | 加速區段要求學生用 `F拉−fk=ma` 分析 |
-| 滑得越快，滑動摩擦力一定越大 | 比較兩段不同速度但近似勻速的平均拉力 |
+| 物體一移動，測力計讀數就一定等於滑動摩擦力 | Part C 分開標示臨界峰值與移動後拉力平台；D 再用 `F拉−fk=ma` 判斷運動 |
+| 滑得越快，滑動摩擦力一定越大 | Part C 只標示移動後的滑動摩擦力平台，不把速度快慢當成另一個 C 作答項目 |
 | 最大靜摩擦力是開始運動後的力 | 由物體實際開始移動的 hidden physics event 對齊單一 F–T 圖，峰值取自之前／臨界位置 |
 | 摩擦力總是阻止物體「移動」 | 結果回饋改寫為「阻礙接觸面之間的相對滑動或相對滑動趨勢」 |
 | 物體靜止就一定沒有力 | 靜止但有非零拉力及非零靜摩擦力 |
-| 速度不變代表完全沒有力 | 低速／高速勻速區段都有拉力及摩擦力，但合力近似零 |
+| 速度不變代表完全沒有力 | Part B 系統維持接近勻速時仍有拉力及摩擦力，合力只接近零 |
 
 ---
 
@@ -493,136 +484,45 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ---
 
-## 8. Part C：從同一張 `F拉–t` 圖找出摩擦力概念
+## 8. Part C：在同一張 `F拉–t` 圖直接標示三種摩擦力
 
 ### 8.1 圖像與介面
 
-C 只保留 B 產生的單一 `F拉–t` 圖，時間軸仍為 `0–30 s`，不再同時放置第二張速度圖、速度游標或另一套圖表操作。學生返回 C 後，圖線和 B 完全相同；所有分析控制均在圖下方逐項完成，當前項目才可操作，其餘項目保持清楚的「未開始／已保存」狀態。
+C 必須把 Part B 已保存的同一張 `F拉–t` 圖放在舞台內，時間軸仍為 `0–30 s`，圖線、刻度及拉力讀數完全沿用 B 的 trace。不再顯示第二張速度圖、任何額外區間統計、速度游標或舊有五段分析表；沒有 B trace 時只顯示中性等待提示。
 
-### 8.2 學生要完成的五個簡單項目
+圖上同時顯示三個可拖動的彩色圓點／垂直 marker：
 
-#### C1：物體仍然靜止而拉力增加的區段
+| Marker | 要標示的位置 | 學習意義 |
+|---|---|---|
+| 藍色 | 靜止而拉力逐漸上升的任一位置 | 此時 `f_s=F拉` |
+| 橙色 | 物體啱啱開始移動的峰值／breakaway 位置 | `f_{s,max}` |
+| 綠色 | 開始移動後較穩定的拉力平台 | `f_k` |
 
-學生在 F–T 圖拖動一對開始／結束 handles，選出物體仍然靜止而拉力增加的區段。
+三個 marker 都直接由手指／滑鼠拖動，放手後位置保留；鍵盤方向鍵使用同一個 index update。標示可隨時重新拖動，控制欄只列出三個目前時間／拉力讀數及一個「保存三個圖上標示」按鈕。
 
-所選區段統計顯示：
+### 8.2 作答與評分
 
-- 開始及結束時間；
-- 平均拉力；
-- 拉力變化量；
-- 拉力標準差。
+C 只要求三個位置，不要求輸入力值、選擇摩擦力類型、選區間 start/end、比較兩段平台或回答額外判斷題。保存前只檢查三個 marker 都有合法的 merged-trace sample index；正確性在提交時計算：
 
-學生再選擇：
+- 靜摩擦力 marker 落在 measurement layer 找出的 static-rise candidate window：13 分；
+- 最大靜摩擦力 marker 與 physics breakaway time 相差不超過 `BREAKAWAY_TIME_TOLERANCE_S`：14 分；
+- 滑動摩擦力 marker 落在 breakaway 後的穩定拉力平台 candidate window：13 分。
 
-- 摩擦力類型；
-- 摩擦力和拉力的關係。
+三項共 40 分。系統不在作答時移動 marker、顯示正確位置或透露答案；若返回修改，三個 marker 仍可直接重新拖動並保存。
 
-正確概念：
+### 8.3 C 的 persistence 與 review edit
 
-\[
-v=0,\quad a=0
-\]
+`analysis` authority 只保存三個 exact records：
 
-所以：
-
-\[
-f_s=F_{\text{拉}}
-\]
-
-#### C2：物體剛開始移動的時刻
-
-學生拖動一條垂直 marker，放在物體由靜止開始移動的時刻；畫面只讀出該時刻的 F–T 拉力。
-
-學生輸入／拖動一個最大靜摩擦力估值：
-
-\[
-f_{s,\max}\approx F_{\text{拉,peak}}
-\]
-
-學生選取的讀數完全來自自己的圖。
-
-學生亦須明確把該估值標示為「最大靜摩擦力」；此 enum 初值為 `null`，不由題目預先選好。
-
-#### C3：開始移動後的穩定拉力區段
-
-學生在 breakaway 之後選取一段較穩定的拉力區段，估計滑動摩擦力。系統只顯示：
-
-```text
-平均拉力
-拉力變化量
-拉力標準差
+```js
+{
+  staticFriction: { index, committed },
+  maximumStaticFriction: { index, committed },
+  kineticFriction: { index, committed }
+}
 ```
 
-在勻速近似下：
-
-\[
-f_k\approx\overline{F_{\text{拉}}}
-\]
-
-#### C4：拉力較大而令物體加速的區段
-
-學生根據 F–T 圖選取開始移動後拉力明顯高於穩定平台的區段。
-
-學生要判斷：
-
-\[
-F_{\text{拉}}\quad ?\quad f_k
-\]
-
-正確是：
-
-\[
-F_{\text{拉}}>f_k
-\]
-
-系統保留物體運動狀態作提交後判斷，學生只需由圖理解：
-
-\[
-F_{\text{拉}}-f_k=ma
-\]
-
-學生不可以將這段較大的拉力直接當成滑動摩擦力。
-
-UI 另問「這段的平均測力計讀數可否直接當作 `fk`？」並保存 `pullEqualsFk: "yes" | "no"`；初值為 `null`。
-
-這一部分用來防止學生只記：
-
-> 開始滑動後，測力計讀數就是滑動摩擦力。
-
-#### C5：比較另一段移動後的拉力平台
-
-學生再選取另一段移動後較穩定的拉力平台，並比較兩段平台平均值：
-
-\[
-f_k\approx\overline{F_{\text{拉,fast}}}
-\]
-
-預期兩者平均值接近，但瞬時 F–T 曲線可以有細微波動。
-
-學生最後選擇一個敘述：
-
-> 在本活動所採用的高中理想模型下，速度改變時，滑動摩擦力的平均值基本保持不變。
-
-### 8.3 Graph selection UI
-
-每一個區段有：
-
-- 半透明選區；
-- start handle；
-- end handle；
-- 區段名稱；
-- 只與目前項目相關的數據統計。
-
-Graph handles 不吸附到正確區段，只可吸附到一般 sampling timestamp。
-
-系統可以防止：
-
-- end 早於 start；
-- 區段短過最小長度；
-- 選區超出 `0–30 s`；
-- 所選區段超出 trace。
-
-系統不會在操作時告訴學生哪一段正確；正確性只在提交後判定。C 的五項均來自 B 的同一張圖，不要求學生重新操作另一張圖或重新學習另一套游標。
+`index` 指向同一張 merged canonical trace；尚未拖動的 marker 以 `index:null, committed:false` 保存，拖動後才產生合法 sample index；按一次保存後三項一併轉為 `committed:true`。review edit 可指定其中一個 marker，取消修改必須完整恢復原 authority。C 的 schema 變更使 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`；舊 s5 draft 只保留 A／B／D，C authority 安全清空並回到 C 的標示起點，舊 review 不作不安全自動遷移。
 
 ---
 
@@ -698,7 +598,7 @@ f_s=F_{\text{拉}}
 提交前只顯示：
 
 - 學生自己量到的數據；
-- 學生自己選取區段的統計值；
+- 學生自己三個 marker 的時間／拉力讀數；
 - 學生自己建立的力箭嘴；
 - 完成狀態；
 - 技術性資料質素；
@@ -706,7 +606,6 @@ f_s=F_{\text{拉}}
 
 提交前禁止：
 
-- 正確區段；
 - 正確 marker；
 - 正確摩擦力；
 - 正確公式提示；
@@ -1514,11 +1413,11 @@ function packTrace(samples) {
 - maximum trace duration。
 
 ```js
-const MAX_RECORDING_DURATION_S = 12.0;
-const MAX_REGULAR_SAMPLE_COUNT = 301; // t = 0.00 ... 12.00 s
+const MAX_RECORDING_DURATION_S = 30.0;
+const MAX_REGULAR_SAMPLE_COUNT = 301; // t = 0.00 ... 30.00 s
 ```
 
-畫面在剩餘 `2 s` 顯示中性倒數，到 `12.0 s` 自動停止；若必要區段仍不完整，trial 不接受並可重做。超過上限的 sample 永不進 authority。Canonical packing 在「保留這次實驗」時只做一次，draft、review、graph、scoring 共用同一 bytes；提交時不得按 viewport pixel 或不同 rate 再 decimate。
+畫面在剩餘 `2 s` 顯示中性倒數，到 `30.0 s` 自動停止；若未完成「開始移動並繼續移動」門檻，trial 不接受並可重做。超過上限的 sample 永不進 authority。Canonical packing 在「保留這次實驗」時只做一次，draft、review、graph、scoring 共用同一 bytes；提交時不得按 viewport pixel 或不同 rate 再 decimate。
 
 ---
 
@@ -1617,7 +1516,7 @@ const MAX_STATIC_ABS_VELOCITY_MPS = 0.012;
 
 - 判斷實驗是否有足夠可分析資料；
 - 建立提交後正確 overlay；
-- 評分學生所選區段。
+- 評分三個 marker 的 sample index。
 
 Editable graph 不會顯示 authority windows。
 
@@ -1630,25 +1529,11 @@ Editable graph 不會顯示 authority windows。
 - breakaway 後至少 `1.00 s` 持續移動（方向可由學生操作決定）；
 - 記錄在 30 秒上限內完成。
 
-接受 trial 只檢查「開始移動＋繼續移動」這個 B 任務門檻，不要求學生採用特定拉力曲線、平台速度或加速段。C 的 hidden-velocity candidate finder 另行枚舉所有滿足自身統計及合理時序的 contiguous windows，不把單一 hidden window 當唯一答案；學生 interval 必須滿足自身統計、other-phase fraction 不高於 `0.15`，並與**任一**同類 authority candidate 達到最佳 IoU：
-
-```js
-intersectionDuration / unionDuration >= INTERVAL_MIN_IOU;
-```
-
-若提交後 overlay 只顯示一個代表 window，deterministic tie-break 依序是：最大 duration、最低 hidden `abs(velocitySlope)`／force CV、最早 start index。Tie-break 不會排斥另一個同樣有效的 learner window。測試必須包含多個合法 plateau、邊界相等、全圖選取及跨 phase 過多四類 case。
+接受 trial 只檢查「開始移動＋繼續移動」這個 B 任務門檻，不要求學生採用特定拉力曲線、平台速度或加速段。C 的 candidate finder 只供提交時計分，對三個 marker 分別提供 static-rise、breakaway 及 post-breakaway plateau 的合法 sample windows；這些 windows 不會在 editable DOM、ARIA 或圖像上預先顯示。
 
 C1 static-rise candidate 另須全部滿足：duration ≥ `0.60 s`、`maxPull-minPull ≥ 0.80 N`、force least-squares slope ≥ `0.30 N/s`、所有 sample time 不晚於 `breakaway.timeMs`，且 `max(abs(measuredVelocity)) ≤ 0.012 m/s`。
 
-Other-phase fraction 用相鄰 sample pair 的 midpoint classifier 計算：每個 pair 的 duration 為 `t[i+1]-t[i]`；若 midpoint 不符合目標類型的上述 predicate（static-rise、plateau 或 acceleration），該 duration 計入 `otherDuration`。正式分母固定為 `learnerWindowEndTime - learnerWindowStartTime`：
-
-```js
-otherPhaseFraction = otherDuration / learnerWindowDuration;
-```
-
-Event sidecar 造成的非等距 interval 使用其真實 `timeMs`，不可按 sample count 近似 duration。
-
-Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair, targetType, constants)`；static-rise pair 除低速外必須有 `ΔF/Δt ≥ 0.30 N/s`，因此先保持恆定拉力的 preload 不可冒充上升段；window-level slope、duration、CV predicates 保持另一組 pure helpers，禁止互相偷用造成 classifier 與 candidate finder 漂移。
+breakaway marker 使用 physics event time tolerance；static／kinetic marker 使用對應 candidate window 內的 merged sample index。所有邊界 inclusive，sample index 必須在同一張 canonical trace 內；不得以 viewport pixel 或未保存的第二張圖重新計算位置。
 
 ---
 
@@ -1701,7 +1586,7 @@ const FRICTION_PAIRS = [
 4. force sensor range 足夠
 5. breakaway 峰值可在圖上清楚辨認
 6. 所有預測情境值可顯示至 0.1 N 而不產生邊界歧義
-7. 慢速與高速平台平均值 authority 相同
+7. breakaway 後穩定拉力平台的平均值可重現
 
 Part A 額外生成：
 
@@ -1812,10 +1697,8 @@ Part B 是最終提交前的 completion prerequisite：學生仍可在未完成 
 
 | 證據 | 分數 |
 |---|---:|
-| 逐步增加拉力並形成有效 breakaway | 6 |
-| 有效低速近似勻速區段 | 5 |
-| 有效加速區段 | 4 |
-| 有效較高速近似勻速區段 | 5 |
+| 逐步增加拉力並形成有效 breakaway | 10 |
+| breakaway 後仍有足夠持續移動資料 | 10 |
 
 這部分不按：
 
@@ -1826,38 +1709,17 @@ Part B 是最終提交前的 completion prerequisite：學生仍可在未完成 
 
 只判斷是否產生足夠的物理證據。
 
-未齊四項時只能中性重做，不能進入 analysis；因此本部分是明示的 completion credit，不應在 feedback 假裝能區分已提交 learners 的不同能力。
+未齊兩項時只能中性重做，不能進入 analysis；因此本部分是明示的 completion credit，不應在 feedback 假裝能區分已提交 learners 的不同能力。
 
 ### 16.4 Part C：同步圖像分析，40 分
 
-#### 靜止上升區段：7 分
+#### 三個圖上 marker：40 分
 
-- 區段符合物體未移動、拉力上升：3；
-- 選靜摩擦力：2；
-- 說明 `fs=F拉`：2。
+- 靜摩擦力 marker 在 static-rise candidate window：13；
+- 最大靜摩擦力 marker 在 breakaway time tolerance 內：14；
+- 滑動摩擦力 marker 在 breakaway 後穩定拉力平台 candidate window：13。
 
-#### 最大靜摩擦力：9 分
-
-- breakaway marker：4；
-- 讀取 peak：3；
-- `identifiedAs: "maximum-static-friction"`：2。
-
-#### 低速勻速及滑動摩擦力：8 分
-
-- 區段有效：4；
-- 以平均拉力估計 `fk`：4。
-
-#### 加速區段：7 分
-
-- 區段有效：3；
-- 判斷 `F拉>fk`：2；
-- `pullEqualsFk: "no"`：2。
-
-#### 高速勻速與速度比較：9 分
-
-- 區段有效：4；
-- 高速平台 `fk` 估值：3；
-- 正確比較慢／快平台平均值：2。
+C 不再評估區段 start/end、額外數值、加速區段判斷或高速平台比較；C 只要求三個圖上 marker，其他物理判斷留在 D 的預測題。
 
 ### 16.5 Part D：四個預測，20 分
 
@@ -1956,16 +1818,16 @@ t_b=2.40\,\mathrm s
 
 Marker time 以 physics transition 的 `breakaway.timeMs` 為 authority；學生 marker 可落在 merged canonical trace 的 event 或 grid timestamps。`estimatedFsMaxCN` 則與 `visibleBreakawayPeakCN` 比較，不與 hidden physical limit 比較。若 visible peak 為 `6.00 N`，tolerance 是 `max(0.20 N, 4%) = 0.24 N`：`6.24 N` 接受，`6.241 N` 不接受。
 
-### 17.3 Interval scoring
+### 17.3 Marker scoring
 
-學生區段要同時：
+學生 marker 要同時：
 
-1. 時間長度足夠；
-2. 自身統計符合該類型；
-3. 和任一同類 experiment authority candidate 有 `IoU >= 0.70`；
-4. 不包含大量其他 phase。
+1. 由實際拖動產生合法 merged-trace sample index；
+2. 靜摩擦力 marker 落在 static-rise candidate window；
+3. 最大靜摩擦力 marker 落在 breakaway time tolerance；
+4. 滑動摩擦力 marker 落在 breakaway 後 plateau candidate window。
 
-避免學生選一小點或全圖都得分。
+未選取的 marker 不可保存為 committed，也不可取得分數；同一 sample index 可作為不同概念的答案，但分數按各自位置規則獨立計算。
 
 ### 17.4 `fk` 平台估值
 
@@ -1995,9 +1857,8 @@ function trimmedMean(values, trimFraction = 0.10) {
 - 真實 `fs,max`；
 - 學生 marker；
 - 正確 breakaway marker；
-- 學生選擇區段；
-- 最佳匹配的 experiment authority candidate window；
-- 慢／快平台 trimmed mean；
+- 三個學生 marker 的時間／拉力讀數；
+- 各 marker 對應的概念判斷；
 - 每部分分數；
 - 物理解釋。
 
@@ -2015,9 +1876,9 @@ function trimmedMean(values, trimFraction = 0.10) {
 
 > 這段速度正在增加，所以合力不是零。測力計讀數包括用來克服滑動摩擦力和令物體加速的部分，不可以直接當成滑動摩擦力。
 
-#### 慢速及高速平台比較錯誤
+#### 將加速段當成滑動摩擦力
 
-> 兩段速度不同，但都近似勻速，因此兩段都可以用平均拉力估計滑動摩擦力。細微上下波動不代表平均滑動摩擦力隨速度增加。
+> 加速段的拉力還包含令物體加速的合力；標示滑動摩擦力時，應找開始移動後較穩定的拉力平台。
 
 ---
 
@@ -2047,15 +1908,9 @@ phase = "experiment";
 
 若改變以下任何一項：
 
-- static interval 的 start/end、friction type 或 relation；
-- breakaway marker；
-- slow plateau；
-- acceleration interval；
-- fast plateau；
-- `fs,max`；
-- `fk`；
-- acceleration 的 `pullEqualsFk`；
-- fast plateau 的 `speedComparison`；
+- 靜摩擦力 marker；
+- 最大靜摩擦力 marker；
+- 滑動摩擦力 marker；
 
 清除 prediction answers，因為 prediction 應建立在學生最新模型上。
 
@@ -2186,9 +2041,9 @@ baseline 的較高舞台，上下會出現 letterbox 空位，並把 control pan
 | Part B 物體中央 `experimentOrigin` | 穩定 48×48 px HTML overlay；只在 experiment recording 顯示，位置跟隨物體重心；可見提示只保留很小閃爍圓點 | 同一 overlay | No |
 | Part A2／A3 物體中央繪圖 target | 穩定 48×48 px 透明 HTML overlay，位置跟隨物體中央；只顯示約 8 px 小閃爍圓點；A2 依目前模式畫拉力／摩擦力，A3 直接自由畫拉力，拉力端點跟隨 active pointer；物體離開舞台後 target 隱藏並顯示中央回復按鈕 | 同一 overlay | No |
 | Prediction friction magnitude handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
-| Breakaway time marker | 穩定 44 px 寬 HTML overlay | 同一 overlay | No |
-| 每個 interval start handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
-| 每個 interval end handle | 穩定 44×44 px HTML overlay | 同一 overlay | No |
+| C 靜摩擦力 marker | 穩定 44×44 px HTML overlay；位置跟隨 static-rise sample | 同一 overlay | No |
+| C 最大靜摩擦力 marker | 穩定 44×44 px HTML overlay；位置跟隨 breakaway sample | 同一 overlay | No |
+| C 滑動摩擦力 marker | 穩定 44×44 px HTML overlay；位置跟隨 kinetic plateau sample | 同一 overlay | No |
 
 Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render 被重建。
 
@@ -2201,9 +2056,7 @@ Canvas／SVG 只負責畫 visual；pointer capture target 不可以因 render �
 | Part B 物體中央 `experimentOrigin` | simulation | trusted touch／mouse／keyboard 直接拖動物體中央，按 pointer 位移調整 `0–12 N` 向右拉力；放手後 tension 回零，物體按 spring／connector 及牛頓第二定律先減速再停，仍可再次施力；host、兩個 visual viewport、iframe rectangle、activity document、panel及stage delta=0；pointermove、pointerup；無 pointercancel |
 | Part A2／A3 物體中央繪圖 target | simulation | A2 拉力／摩擦力向量端點或 A3 即時拉力端點改變；A3 物體按合力連續位移／加速／減速／反向，pointerup 令拉力歸零但保留物體運動；物體離開舞台後顯示中央回復按鈕；host、兩個 visual viewport、iframe rectangle、activity document、panel delta=0；pointermove、pointerup；無 pointercancel |
 | Prediction friction magnitude handle | simulation | 對應 magnitude 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
-| Breakaway time marker | simulation | marker index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
-| Interval start handle（逐一測五類） | simulation | 對應 start index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
-| Interval end handle（逐一測五類） | simulation | 對應 end index 改變；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
+| C 三個圖上 marker（逐一測試） | simulation | 對應 marker index 改變；三個 marker 均可直接拖動；上述全部位置 delta=0；pointermove、pointerup；無 pointercancel |
 
 Rules：
 
@@ -2242,7 +2095,7 @@ Scroll topology：
   - ArrowRight：增加向右拉力；
   - ArrowLeft：減少向右拉力至零，不會建立向左拉力；
   - Shift＋Arrow：較大步幅；
-- graph marker：
+- C 圖上三個 marker：
   - ArrowLeft／Right：一個 sample；
   - Shift＋Arrow：五個 samples；
 - A2 物體中央繪圖 target：
@@ -2256,19 +2109,17 @@ Scroll topology：
 - 所有 hit target 至少 44×44 px；
 - focus-visible 清楚；
 - graph line 有文字 label；
-- 同步 cursor 有可聚焦文字讀數，逐 sample 宣告 `timeS`、`measuredPullN`；
-- 提供 keyboard-only／screen-reader data view（virtualized table 或分頁 table），欄位為時間、拉力；可跳到前／後 local extremum 及已選 interval 邊界，但不可標示 authority breakaway 或正確 window；
-- 每個 interval 的可存取統計區完整讀出 start/end、duration、平均拉力、拉力變化量及拉力標準差，並由 headings／`aria-describedby` 關聯至目前 task；
+- 圖上三個 marker 有可聚焦文字讀數，宣告 `timeS`、`measuredPullN` 及目前標籤；
 - `aria-describedby` 解釋操作；
 - 動態 accessible name，例如：
   - 「物體中央拉力 target，目前 4.2 牛頓」
-  - 「最大靜摩擦力時間標記，目前 2.44 秒」
-  - 「低速區段開始，目前 3.20 秒」
+  - 「最大靜摩擦力位置，目前 2.44 秒、6.20 牛頓」
+  - 「滑動摩擦力位置，目前 3.20 秒、4.90 牛頓」
 - live region 最多每秒更新 3–4 次，不逐 frame announce；
 - 只 announce：
   - 記錄開始；
   - 物體開始移動；
-  - 區段已記錄；
+  - marker 已保存；
   - 實驗已停止；
 - editable accessibility tree 不可以包含正確答案；
 - `prefers-reduced-motion`：
@@ -2293,8 +2144,8 @@ Scroll topology：
 | `experiment` | `accepted` | B | canonical packed 0–30 s regular trace＋breakaway sidecar；C 可空或已有舊分析 | 不把 transient recorder 寫入 snapshot | A／B／C／D；C 需有效 trace |
 | `experiment` | `review-edit` | B | 從檢查頁按「重新做實驗」即清除舊 trial／C analysis，轉為新的 running B；`fromReview=false` | 舊 running trial／active pointer／確認或保留 prompt | 新的 30 秒記錄、A／B／C／D |
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
-| `analysis` | `selection-ready`／`selection-only`／`task-complete`／`complete` | C1–C5 | accepted trial；單一 0–30 s F–T 圖；`working.activeAnalysisTask` 指向目前選取的 C 子任務；其餘 C 子任務可為空、partial 或 complete | 不保存無 trial 的 C authority；不再保存第二張 learner-facing velocity graph | A／B／C／D；可用 C 子任務選擇器返回修改 |
-| `analysis` | `review-edit` | C1–C5 target | review authority 保留；可保存 target replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
+| `analysis` | `selection-ready`／`selection-only`／`complete` | C 三個 marker | accepted trial；舞台直接顯示同一張 0–30 s F–T 圖；三個 marker 可 partial 或 complete；一次保存可提交三項 | 不保存無 trial 的 C authority；不再保存第二張 learner-facing velocity graph、區段或額外數值 | A／B／C／D；三個 marker 可隨時拖動修改 |
+| `analysis` | `review-edit` | C marker target | review authority 保留；可保存指定 marker replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
 | `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 四題可以按任意順序保存；`working.activePredictionIndex` 只代表舞台目前顯示題目 | 不要求 C complete；partial prediction 仍不算提交完整 | A／B／C／D；可選擇任一 D 子題返回修改 |
 | `predict` | `review-edit` | D1–D4 target | 原本 prediction authority 保留；`working.editDraft` 可存在 | active pointer／DOM state | cancel／save replacement |
 | `review` | `complete` | — | 所有 A、B、C、D authority 完整；`fromReview=false`；無 edit draft | transient drag／running trial | submit／enter exact review-edit row |
@@ -2312,8 +2163,8 @@ B 只在 30 秒內完成並保存有效 direct-drag trace 後，C 才可實際�
 C -> D
   不要求 C complete；D 可先保存任意一題，之後返回 C。
 
-C 子任務／D 子題 -> 另一個子任務／子題
-  working cursor 記住目前舞台；選擇器讓學生返回修改已保存項目。
+C marker／D 子題 -> 另一個 marker／子題
+  三個 marker 同時可見；拖動任何 marker 都只改該 marker 的 draft。
 
 A／C／D 保存
   只更新該 Part 的 authority；不因返回修改而清除其他 Part。
@@ -2337,11 +2188,11 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 ```js
 {
-  schemaVersion: 5,
+  schemaVersion: 6,
   generatorVersion: 1,
   physicsVersion: 7,
   measurementVersion: 4,
-  rubricVersion: 2,
+  rubricVersion: 3,
 
   seed: 1234567890,
 
@@ -2399,50 +2250,9 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
   },
 
   analysis: {
-    staticInterval: null | {
-      startIndex,
-      endIndex,
-      frictionType: null | "static" | "kinetic" | "none",
-      relation: null | "equal" | "less" | "greater"
-    },
-
-    breakaway: null | {
-      markerIndex,
-      estimatedFsMaxCN: null | integer,
-      identifiedAs:
-        null |
-        "maximum-static-friction" |
-        "kinetic-friction" |
-        "applied-force"
-    },
-
-    slowPlateau: null | {
-      startIndex,
-      endIndex,
-      estimatedFkCN: null | integer
-    },
-
-    acceleration: null | {
-      startIndex,
-      endIndex,
-      relation:
-        null |
-        "pull-greater" |
-        "equal" |
-        "pull-less",
-      pullEqualsFk: null | "yes" | "no"
-    },
-
-    fastPlateau: null | {
-      startIndex,
-      endIndex,
-      estimatedFkCN: null | integer,
-      speedComparison:
-        null |
-        "same-average" |
-        "higher-at-fast-speed" |
-        "lower-at-fast-speed"
-    }
+    staticFriction: null | { index, committed: false | true },
+    maximumStaticFriction: null | { index, committed: false | true },
+    kineticFriction: null | { index, committed: false | true }
   },
 
   predictions: [
@@ -2484,7 +2294,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 `learnerAppliedForce`／`learnerForce` 的 incomplete draft 只可存在於未提交的 DOM／local interaction state；saveable snapshot 只保存 committed vectors（沒有摩擦力時保存 committed `none` force）。nullable analysis inference fields、partial prediction 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Review normalization 固定 `phase:"review"`、`variant:"complete"`、`fromReview:false`，要求所有 answer fields committed/non-null，並移除整個 `working`。
 
-Part A／B 使用 `s5` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、學生 applied vector 及學生 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, learnerAppliedForce, learnerForce]`；applied force 使用 `[directionCode, magnitudeCN, committed]`，摩擦力使用 `[typeCode, directionCode, magnitudeCN, committed]`。B 的 trial 使用 `100 ms`、`0–30 s` 的 301-point canonical grid；packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的 `bestPullCN` 必須來自至少一個合法試拉，並以 0.1 N 語意步進對齊；`learnerMaxCN` 只可在 A3 trial 後提交。C3／C5 `selection-only` 明確要求 `estimatedFkCN:null`，C5 另要求 `speedComparison:null`；task-complete 才要求非 null。
+Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、`0–30 s` 的 canonical grid；packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的 `bestPullCN` 必須來自至少一個合法試拉，並以 0.1 N 語意步進對齊；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records，分別代表 static、maximum-static 及 kinetic marker；拖動 draft 可為 `committed:false`，保存後三項一併為 `true`。
 
 舊 `s1`／`s2`／`s3` editable draft 只以其 seed 安全重開為 `zero-ready`，不把舊測力計／tare／observation 或舊 A2 force shape 冒充成新 Part A 答案；舊 finished review 因 Part A semantic contract 不相容而 fail closed，顯示 technical load error，不重算成新答案。
 
@@ -2497,7 +2307,7 @@ Review 保存：
 - A1 zero-force answer、A2 specified-pull／learner-applied-force／learner-friction-force answer 及 A3 trial summary；
 - packed trace；
 - breakaway event；
-- 所有 graph selections 及推斷；
+- 三個 graph marker records 及其 committed 狀態；
 - 四個 predictions。
 
 移除：
@@ -2534,7 +2344,7 @@ Saved score／pass 只屬 comparison metadata。
 - surface waveform parameters；
 - prediction question authority；
 - graph SVG path；
-- interval statistics；
+- marker 的時間／拉力讀數；
 - score；
 - pass；
 - button enabled state；
@@ -2557,9 +2367,8 @@ Scenario 由 seed 及 versions 重建；stats 由 trace 重算。
 - trace 超出量程；
 - breakaway time/value、pre-break grid index 或 merged canonical index 非法；
 - analysis 在 trial 之前存在；
-- interval end 早於 start；
-- interval 超出 trace；
-- prediction 欄位 shape／scenario identity 非法；D 預測可以在 C 未完成時保存，只有進入 review 才要求四項 C 分析及四項 D 預測完整；
+- marker index 超出 trace 或未選取時錯誤標記為 committed；
+- prediction 欄位 shape／scenario identity 非法；D 預測可以在 C 未完成時保存，只有進入 review 才要求三項 C marker 及四項 D 預測完整；
 - duplicate scenarioId；
 - dangling relationship；
 - review 不完整；
@@ -2799,7 +2608,7 @@ Pure／Node-testable：
 - physics/data → SVG coordinate；
 - SVG path；
 - time marker；
-- interval handles；
+- 三個 marker 的 sample-index mapping；
 - client↔graph conversion；
 - accessible labels；
 - graph selection geometry。
@@ -2898,24 +2707,19 @@ same seed reproduces same scenario
 - 每個 attempt 的 calibrated baseline 接近零；
 - measurement state 不含 tare／bias 欄位，draft／review restore 不會重建這些欄位；
 - sensor filter 有預期 response；
-- slow／fast 平均平台近似；
+- breakaway 後穩定拉力平台平均值近似滑動摩擦力；
 - 快速經過相同 surface 時，波動在 time axis 變密；
 - pack→unpack 保留 regular timestamps、breakaway event time/value、visible peak、merged indices、window stats及marker score；
-- 12.0 s 自動停止且 `regularSampleCount <= 301`；
+- 30.0 s 自動停止且 `regularSampleCount <= 301`；
 - corrupt base64 fail closed；
 - max draft ≤ 4000 bytes、max review ≤ 2800 bytes、production pending checkpoint ≤ 4000 bytes。
 
-### 27.4 Graph analysis tests
+### 27.4 Graph marker tests
 
 - coordinate mapping；
-- interval order；
-- minimum duration；
-- inclusive boundary；
-- slope calculation；
-- trimmed mean；
-- 對任一 candidate 的 best IoU；
-- 多個同樣有效 plateau／acceleration windows；
-- marker tolerance；
+- 三個 marker 的 empty／selected／committed 狀態；
+- 未拖動 marker 不會預先取得 candidate index；
+- static-rise、breakaway、kinetic candidate window 及 breakaway tolerance；
 - graph resize 不改變 semantic sample index；
 - SVG path 不成為 authority；
 - event sidecar peak 在 pack／unpack 後不消失或改變時間。
@@ -2927,11 +2731,11 @@ same seed reproduces same scenario
 - tolerance just-inside／just-outside；
 - A3 沒有合法開始滑動試拉，即使估計值填對都不能保存／得 A3 分；
 - A2 未保存的 learner applied／friction vector 不可由 default 得分；`none` 必須以 committed 摩擦力答案保存；prediction `committed=false` 不可由 default 得分；
-- C2 `identifiedAs` 及 C4 `pullEqualsFk` 各有唯一 authority source；
+- C 三個 marker 的 index、提交狀態及 candidate／event tolerance 各有唯一 authority source；
 - `f_s,max` 估值只對 visible measured peak，不對 hidden static limit；
 - D1–D4 type/direction/magnitude/outcome dependency及各自 tolerance；
 - acceleration force 不可以取得 kinetic plateau 分；
-- selecting entire graph 不會取得全部 interval 分；
+- 未拖動而保持未選取的 marker 不可取得分數；
 - duplicate prediction 不增加分；
 - score floor 0；
 - score ceiling 100；
@@ -2960,7 +2764,7 @@ encode
 - review；
 - balance／experiment／每個 analysis task／每個 prediction 的 exact review-edit row及 cancel/save；
 - analysis review-edit 的 cancel、same-value save、changed-value save→predict/answer-ready，以及 restore 後 continuation；
-- C3／C5 selection-only nullable inference restore 後可保存並成為 task-complete；
+- 三個 C marker 的 partial draft restore 後可再拖動並一次保存成為 complete；
 - invalid future data；
 - page lifecycle during running saves pre-record checkpoint；fabricated serialized running variant is rejected；
 - finished invalid review；
@@ -2976,7 +2780,7 @@ Editable DOM／accessibility tree 不可包含：
 - true `μk`；
 - true `fk`；
 - true `fs,max`；
-- authority intervals；
+- authority candidate windows；
 - correct marker；
 - result score；
 - pass/fail；
@@ -3008,8 +2812,7 @@ effective height below 376 CSS px ultra-compact
 - panel swipe 及 panel 邊界；
 - force handle drag；
 - friction handle drag；
-- breakaway marker drag；
-- 每種 interval handle；
+- 三個 C marker drag（含未標示起點及已標示位置）；
 - pointerup；
 - no pointercancel；
 - source page；
@@ -3027,7 +2830,7 @@ effective height below 376 CSS px ultra-compact
 - canonical answer match/mismatch、score/status mismatch、unknown Moodle status；
 - invalid nested pending → quarantine → `retryPending()` 回 `no-pending`。
 
-`accessibility.test.js` 覆蓋完整 keyboard-only 作答、逐 sample accessible data view、同步文字讀數、interval statistics relationships、phase/review-edit focus，以及 editable tree 無 authority answer。`production-wiring.test.js` 驗證 HTML runtime dependency、manifest、唯一 `sim/config.js` metadata、planned/active gate及 test runner registration。
+`accessibility.test.js` 覆蓋完整 keyboard-only 作答、三個圖上 marker 的 accessible name／keyboard step、同步文字讀數、phase/review-edit focus，以及 editable tree 無 authority answer。`production-wiring.test.js` 驗證 HTML runtime dependency、manifest、唯一 `sim/config.js` metadata、planned/active gate及 test runner registration。
 
 所有 `sim/static-kinetic-friction-investigation-lab/*.test.js` **以及** `tools/static-kinetic-friction-browser-regression.js` 必須逐一加入 `tools/run-tests.js`；runner 的 browser entry 實際驅動 production regression，而不是只作 source-string proxy。Browser regression 亦保留明確的獨立 package-ready npm command，並對 source 及 extracted ZIP 各跑一次；遺漏 registration 或任何 `### Error` 均令 gate failure。
 
@@ -3040,7 +2843,7 @@ effective height below 376 CSS px ultra-compact
 3. **Measurement／canonical trace**：完成 calibrated-zero measurement、bounded noise、25 Hz grid＋event sidecar、12 s limit及 pack round-trip；禁止 UI 先另造 trace shape。
 4. **Analysis／scoring freeze**：完成 candidate-set、IoU、visible-peak authority、D1–D4 generator、100-point rubric及所有 boundary tests；任何 rubric 改動提升 `rubricVersion`。
 5. **Persistence／SCORM size**：逐 matrix row round-trip＋legal continuation，通過 max draft/review/pending byte tests及 frozen trust/quarantine tests。
-6. **Learner UI／accessibility**：實作 bounded split-panel、direct manipulation、keyboard/screen-reader data view、delayed feedback及review-edit invalidation。
+6. **Learner UI／accessibility**：實作 bounded split-panel、direct manipulation、三個圖上 marker 的 keyboard／screen-reader 操作、delayed feedback 及 review-edit invalidation。
 7. **Lifecycle integration**：只用 shared startup/submission API，實際通過完整 review envelope preflight及全部 outcomes。
 8. **Registration／package**：更新 `sim/config.js`（先保持 `planned`）、manifest、`tools/run-tests.js`、browser npm gate；核對所有 local dependencies。
 9. **Artifact verification**：source及built/extracted package browser smoke、完整 trusted-touch matrix、responsive/zoom checks、all quality commands。

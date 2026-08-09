@@ -19,6 +19,11 @@
   const NS = "http://www.w3.org/2000/svg";
   const PHASES = ["balance", "experiment", "analysis", "predict", "review"];
   const PHASE_LABELS = Object.freeze({ balance: "A 力平衡", experiment: "B 實驗", analysis: "C 圖像分析", predict: "D 預測", review: "檢查與提交" });
+  const ANALYSIS_MARKER_META = Object.freeze([
+    Object.freeze({ key: "staticFriction", id: "staticFrictionMarker", target: "static-friction-marker", label: "靜摩擦力", color: "#2563eb", className: "analysis-marker-static" }),
+    Object.freeze({ key: "maximumStaticFriction", id: "maximumStaticFrictionMarker", target: "maximum-static-friction-marker", label: "最大靜摩擦力", color: "#c2410c", className: "analysis-marker-maximum" }),
+    Object.freeze({ key: "kineticFriction", id: "kineticFrictionMarker", target: "kinetic-friction-marker", label: "滑動摩擦力", color: "#15803d", className: "analysis-marker-kinetic" })
+  ]);
   const EXPERIMENT_START_POSITION_M = 0;
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
@@ -140,7 +145,6 @@
     let balanceDirectState = null;
     let balanceForceEndpointX = null;
     let balanceOffscreen = false;
-    let tableCursorIndex = null;
     let stageResizeObserver = null;
     const RECORDING_MARKER = `simlab:${ACTIVITY}:recording-active`;
 
@@ -158,7 +162,7 @@
       if (magnitude) magnitude.value = "0";
       setText("zeroFrictionMagnitudeValue", "請選擇");
     }
-    function svgElement(tag, attrs = {}) { const node = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value))); return node; }
+    function svgElement(tag, attrs = {}, textContent = null) { const node = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value))); if (textContent != null) node.append(document.createTextNode(String(textContent))); return node; }
     function saveDraft() {
       if (presentation !== "editable" || !state || typeof SimScorm === "undefined" || !SimScorm.saveDraft) return false;
       try { return SimScorm.saveDraft(SimScorm.makeSnapshot(ACTIVITY, "draft", Persistence.encodeDraft(state))); } catch { return false; }
@@ -185,7 +189,6 @@
       state = Persistence.transitions.setPhase(state, phase);
       analysisDraft = phase === "analysis" ? null : analysisDraft;
       predictionDraft = phase === "predict" ? [] : predictionDraft;
-      tableCursorIndex = phase === "analysis" ? null : tableCursorIndex;
       if (phase === "balance") {
         resetBalanceTrialView();
         resetIdleRig(scenario?.connector?.restLengthM);
@@ -217,6 +220,13 @@
       if (!state) return null;
       if (state.fromReview && state.working?.reviewEditTarget?.section === "analysis") return state.working.reviewEditTarget.semanticKey;
       return Persistence.ANALYSIS_KEYS[state.working?.activeAnalysisTask ?? 0] || null;
+    }
+    function analysisMarkerDefaults(trial) {
+      // Keep the three graph targets unselected until the learner drags them.
+      // Candidate windows are scoring authority only and must never become
+      // editable defaults or hidden answer overlays.
+      if (!trial) return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
+      return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
     }
     function currentPredictionIndex() {
       if (!state) return 0;
@@ -307,9 +317,11 @@
       q("balanceOrigin")?.classList.toggle("is-coached", activeBalance);
       setTargetVisible("resetBalanceObject", activeBalance && balanceOffscreen);
       setTargetVisible("predictionFriction", phase === "predict");
-      setTargetVisible("breakawayMarker", phase === "analysis" && currentAnalysisKey() === "breakaway");
-      const interval = { staticInterval: "static", slowPlateau: "slow", acceleration: "acceleration", fastPlateau: "fast" }[currentAnalysisKey()];
-      for (const prefix of ["static", "slow", "acceleration", "fast"]) for (const edge of ["start", "end"]) setTargetVisible(`${prefix}-${edge}`, phase === "analysis" && interval === prefix);
+      const reviewKey = state?.fromReview && state.working?.reviewEditTarget?.section === "analysis" ? state.working.reviewEditTarget.semanticKey : null;
+      for (const marker of ANALYSIS_MARKER_META) {
+        const visible = phase === "analysis" && Boolean(state?.trial) && (!state.fromReview || reviewKey === marker.key);
+        setTargetVisible(marker.id, visible);
+      }
     }
     function renderStageCoach() {
       const coach = q("stageCoach");
@@ -566,10 +578,10 @@
     function renderExperimentForceGraph(svg) {
       let defs = svg.querySelector("defs");
       if (!defs) { defs = svgElement("defs"); svg.append(defs); }
-      const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" });
+      const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 15, markerHeight: 15, markerUnits: "userSpaceOnUse", orient: "auto" });
       axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
       defs.append(axisMarker);
-      const chart = { left: 64, top: 34, width: 772, height: 150, maxTimeS: 30, maxForceN: 12 };
+      const chart = { left: 54, top: 28, width: 792, height: 168, maxTimeS: 30, maxForceN: 12 };
       const xFor = (timeS) => chart.left + clamp(timeS, 0, chart.maxTimeS) / chart.maxTimeS * chart.width;
       const yFor = (forceN) => chart.top + chart.height - clamp(forceN, 0, chart.maxForceN) / chart.maxForceN * chart.height;
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
@@ -924,94 +936,48 @@
     }
     function renderGraph() {
       const svg = q("graphSvg"); if (!svg) return;
-      if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄，之後返回 Part C 分析。"); return; }
+      if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
       svg.replaceChildren();
       const decoded = Measurement.unpackTrace(state.trial);
-      const activeKey = currentAnalysisKey();
-      const activeTask = analysisDraft?.[activeKey] || state.analysis?.[activeKey];
-      for (let i = 0; i <= 6; i += 1) { const x = Graph.timeToX(i * 5); svg.append(svgElement("line", { x1: x, y1: Graph.GRAPH.top, x2: x, y2: Graph.GRAPH.top + Graph.GRAPH.height, class: "graph-grid" })); }
-      for (let i = 0; i <= 4; i += 1) { const y = Graph.forceToY(i * 3); svg.append(svgElement("line", { x1: Graph.GRAPH.left, y1: y, x2: Graph.GRAPH.left + Graph.GRAPH.width, y2: y, class: "graph-grid" })); }
-      if (activeKey !== "breakaway" && Number.isInteger(activeTask?.startIndex) && Number.isInteger(activeTask?.endIndex)) {
-        const x0 = Graph.timeToX(decoded.merged[activeTask.startIndex]?.timeS || 0); const x1 = Graph.timeToX(decoded.merged[activeTask.endIndex]?.timeS || 0);
-        svg.append(svgElement("rect", { x: Math.min(x0, x1), y: Graph.GRAPH.top, width: Math.max(1, Math.abs(x1 - x0)), height: Graph.GRAPH.height, fill: "rgba(124,58,237,.10)" }));
-      }
-      const forcePath = svgElement("path", { d: Graph.svgPath(decoded, "force"), class: "force-line", "aria-label": "拉力 F拉—時間 t" }); svg.append(forcePath);
-      const forceLabel = svgElement("text", { x: 410, y: 20, "text-anchor": "middle" });
-      forceLabel.append(document.createTextNode("拉力 "));
-      const graphF = svgElement("tspan", { "font-style": "italic" }); graphF.textContent = "F"; forceLabel.append(graphF);
-      const graphSub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); graphSub.textContent = "拉"; forceLabel.append(graphSub);
-      const graphT = svgElement("tspan", { "font-style": "italic" }); graphT.textContent = "–t"; forceLabel.append(graphT);
-      forceLabel.append(document.createTextNode(" 圖")); svg.append(forceLabel);
-      const yLabel = svgElement("text", { x: 18, y: 200, transform: "rotate(-90 18 200)", "text-anchor": "middle" });
-      const graphYF = svgElement("tspan", { "font-style": "italic" }); graphYF.textContent = "F"; yLabel.append(graphYF);
-      const graphYSub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); graphYSub.textContent = "拉"; yLabel.append(graphYSub);
-      yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);
-      const xLabel = svgElement("text", { x: 410, y: 425, "text-anchor": "middle" });
-      const graphXT = svgElement("tspan", { "font-style": "italic" }); graphXT.textContent = "t"; xLabel.append(graphXT);
-      xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
-      const marker = activeKey === "breakaway" ? activeTask?.markerIndex : null;
-      if (Number.isInteger(marker) && decoded.merged[marker]) {
-        const sample = decoded.merged[marker]; const x = Graph.timeToX(sample.timeS); svg.append(svgElement("line", { x1: x, y1: 25, x2: x, y2: 402, class: "graph-cursor" }));
-        const markerTarget = q("breakawayMarker"); if (markerTarget) { markerTarget.style.left = `${clamp(x / 820 * 100, 0, 100)}%`; markerTarget.style.top = "48%"; markerTarget.setAttribute("aria-label", `最大靜摩擦力時間標記，目前 ${sample.timeS.toFixed(2)} 秒`); }
-        setText("graphCursorReadout", `目前時間 ${sample.timeS.toFixed(2)} s；拉力 ${sample.measuredPullN.toFixed(2)} N。`);
-      } else if (activeTask && Number.isInteger(activeTask.startIndex) && Number.isInteger(activeTask.endIndex)) {
-        const prefix = { staticInterval: "static", slowPlateau: "slow", acceleration: "acceleration", fastPlateau: "fast" }[activeKey];
-        for (const edge of ["start", "end"]) {
-          const index = activeTask[`${edge}Index`]; const sample = decoded.merged[index]; const target = q(`${prefix}-${edge}`);
-          if (target && sample) { target.style.left = `${clamp(Graph.timeToX(sample.timeS) / 820 * 100, 0, 100)}%`; target.style.top = edge === "start" ? "70%" : "82%"; target.setAttribute("aria-label", `${activeKey} 區段${edge === "start" ? "開始" : "結束"}，目前 ${sample.timeS.toFixed(2)} 秒`); }
+      const chart = Graph.GRAPH;
+      const defs = svgElement("defs");
+      const axisMarker = svgElement("marker", { id: "analysis-axis-arrow", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 14, markerHeight: 14, markerUnits: "userSpaceOnUse", orient: "auto" });
+      axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
+      defs.append(axisMarker); svg.append(defs);
+      for (let i = 0; i <= 6; i += 1) { const x = Graph.timeToX(i * 5); svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: "graph-grid" })); }
+      for (let i = 0; i <= 4; i += 1) { const y = Graph.forceToY(i * 3); svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" })); }
+      svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left, y2: chart.top, class: "graph-axis", "marker-end": "url(#analysis-axis-arrow)" }));
+      svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#analysis-axis-arrow)" }));
+      for (let i = 0; i <= 6; i += 1) svg.append(svgElement("text", { x: Graph.timeToX(i * 5), y: chart.top + chart.height + 27, "text-anchor": "middle", class: "graph-tick-label" }, `${i * 5}`));
+      for (let i = 0; i <= 4; i += 1) svg.append(svgElement("text", { x: chart.left - 12, y: Graph.forceToY(i * 3) + 6, "text-anchor": "end", class: "graph-tick-label" }, `${i * 3}`));
+      svg.append(svgElement("path", { d: Graph.svgPath(decoded, "force"), class: "force-line analysis-force-line", "aria-label": "拉力 F拉—時間 t" }));
+      const yLabel = svgElement("text", { x: 18, y: 198, transform: "rotate(-90 18 198)", "text-anchor": "middle", class: "graph-axis-label" });
+      const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
+      const ySub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); ySub.textContent = "拉"; yLabel.append(ySub); yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);
+      const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: 418, "text-anchor": "middle", class: "graph-axis-label" });
+      const xT = svgElement("tspan", { "font-style": "italic" }); xT.textContent = "t"; xLabel.append(xT); xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
+      const draft = ensureAnalysisDraft();
+      const readouts = [];
+      ANALYSIS_MARKER_META.forEach((marker, markerIndex) => {
+        const selectedIndex = Number.isInteger(draft?.[marker.key]?.index) ? draft[marker.key].index : null;
+        const index = selectedIndex == null ? null : clamp(Math.round(selectedIndex), 0, decoded.merged.length - 1);
+        const sample = index == null ? null : decoded.merged[index];
+        const target = q(marker.id);
+        if (sample) {
+          const x = Graph.timeToX(sample.timeS); const y = Graph.forceToY(sample.measuredPullN);
+          svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, stroke: marker.color }));
+          svg.append(svgElement("circle", { cx: x, cy: y, r: 7, class: `analysis-marker-dot ${marker.className}`, fill: marker.color }));
+          svg.append(svgElement("text", { x, y: 14 + markerIndex * 14, "text-anchor": "middle", class: `analysis-marker-label ${marker.className}`, fill: marker.color }, marker.label));
+          if (target) { target.style.left = `${clamp(x / 820 * 100, 0, 100)}%`; target.style.top = `${clamp(y / 430 * 100, 10, 84)}%`; target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
+          readouts.push(`${marker.label}：${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N`);
+        } else if (target) {
+          const x0 = chart.left + 24 + markerIndex * 34;
+          target.style.left = `${clamp(x0 / 820 * 100, 0, 100)}%`;
+          target.style.top = "82%";
+          target.setAttribute("aria-label", `${marker.label}位置，尚未標示；拖動此圓點到圖線上的位置`);
         }
-        const start = decoded.merged[activeTask.startIndex], end = decoded.merged[activeTask.endIndex];
-        if (start && end) setText("graphCursorReadout", `目前區段 ${start.timeS.toFixed(2)}–${end.timeS.toFixed(2)} s；開始拉力 ${start.measuredPullN.toFixed(2)} N；結束拉力 ${end.measuredPullN.toFixed(2)} N。`);
-      } else setText("graphCursorReadout", "尚未選取圖像時間。");
-    }
-    function renderDataTable() {
-      const body = q("traceTable"); if (!body) return;
-      if (!state?.trial) { body.replaceChildren(); q("intervalStatsList")?.replaceChildren(); return; }
-      const decoded = Measurement.unpackTrace(state.trial); body.replaceChildren();
-      if (!Number.isInteger(tableCursorIndex) || tableCursorIndex < 0 || tableCursorIndex >= decoded.merged.length) tableCursorIndex = null;
-      decoded.merged.forEach((sample, index) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `<th scope="row">${sample.canonicalIndex}</th><td>${sample.timeS.toFixed(2)}</td><td>${sample.measuredPullN.toFixed(2)}</td>`;
-        row.setAttribute("aria-label", `樣本 ${sample.canonicalIndex}，時間 ${sample.timeS.toFixed(2)} 秒，拉力 ${sample.measuredPullN.toFixed(2)} 牛頓`);
-        row.dataset.sampleIndex = String(index); row.tabIndex = index === tableCursorIndex ? 0 : -1;
-        body.append(row);
       });
-      const task = (analysisDraft || state.analysis)?.[currentAnalysisKey()] || null;
-      const startIndex = currentAnalysisKey() === "breakaway" ? task?.markerIndex : task?.startIndex;
-      const endIndex = currentAnalysisKey() === "breakaway" ? task?.markerIndex : task?.endIndex;
-      q("jumpSelectionStart")?.toggleAttribute("disabled", !Number.isInteger(startIndex));
-      q("jumpSelectionEnd")?.toggleAttribute("disabled", !Number.isInteger(endIndex));
-      const extrema = localExtremaIndices(decoded.merged); const cursor = tableCursorIndex ?? -1;
-      q("previousExtremum")?.toggleAttribute("disabled", !extrema.some((index) => index < cursor));
-      q("nextExtremum")?.toggleAttribute("disabled", !extrema.some((index) => index > cursor));
-      if (Number.isInteger(tableCursorIndex)) {
-        const sample = decoded.merged[tableCursorIndex];
-        setText("graphCursorReadout", `資料表游標：時間 ${sample.timeS.toFixed(2)} s；拉力 ${sample.measuredPullN.toFixed(2)} N。`);
-      }
-      const statsHost = q("intervalStatsList"); if (!statsHost) return;
-      statsHost.replaceChildren();
-      const draft = analysisDraft || state.analysis;
-      const labels = { staticInterval: "C1 靜止時拉力上升", slowPlateau: "C3 移動後穩定拉力", acceleration: "C4 拉力較大而加速", fastPlateau: "C5 另一段移動後平台" };
-      Object.entries(labels).forEach(([key, label]) => {
-        const selection = draft?.[key]; const stats = selection?.startIndex != null && selection?.endIndex != null ? Measurement.intervalStats(decoded, selection.startIndex, selection.endIndex) : null;
-        const item = document.createElement("p"); item.className = "interval-stat"; item.id = `interval-stat-${key}`;
-        item.textContent = stats ? `${label}：${stats.startTimeS.toFixed(2)}–${stats.endTimeS.toFixed(2)} s；duration ${stats.durationS.toFixed(2)} s；平均拉力 ${stats.meanPullN.toFixed(2)} N；拉力變化量 ${stats.forceRangeN.toFixed(2)} N；拉力標準差 ${stats.forceStdN.toFixed(3)} N。` : `${label}：尚未選取完整區段。`;
-        statsHost.append(item);
-      });
-    }
-    function moveTableCursor(action) {
-      if (!state?.trial) return false;
-      const decoded = Measurement.unpackTrace(state.trial); const task = (analysisDraft || state.analysis)?.[currentAnalysisKey()] || null;
-      let next = null;
-      if (action === "jump-selection-start") next = currentAnalysisKey() === "breakaway" ? task?.markerIndex : task?.startIndex;
-      else if (action === "jump-selection-end") next = currentAnalysisKey() === "breakaway" ? task?.markerIndex : task?.endIndex;
-      else {
-        const extrema = localExtremaIndices(decoded.merged); const cursor = tableCursorIndex ?? (action === "previous-extremum" ? decoded.merged.length : -1);
-        const choices = extrema.filter((index) => action === "previous-extremum" ? index < cursor : index > cursor);
-        next = action === "previous-extremum" ? choices.at(-1) : choices[0];
-      }
-      if (!Number.isInteger(next) || !decoded.merged[next]) return false;
-      tableCursorIndex = next; return true;
+      setText("graphCursorReadout", readouts.length ? readouts.join("；") : "三個位置尚未標示；請拖動圖上的彩色圓點。 ");
     }
     function ensureAnalysisDraft() {
       if (!state?.trial) return null;
@@ -1019,67 +985,48 @@
         analysisDraft = clone(state.analysis);
         if (state.fromReview && state.working?.editDraft?.kind === "analysis-task") analysisDraft[state.working.reviewEditTarget.semanticKey] = clone(state.working.editDraft.value);
       }
-      const defaults = Graph.createSelectionSet(state.trial);
-      const key = currentAnalysisKey();
-      if (key && !analysisDraft[key]) analysisDraft[key] = clone(defaults[key]);
+      const defaults = analysisMarkerDefaults(state.trial);
+      Persistence.ANALYSIS_KEYS.forEach((key) => { if (!(key in analysisDraft)) analysisDraft[key] = clone(defaults[key]); });
       return analysisDraft;
     }
     function renderAnalysisTasks() {
       const host = q("analysisTasks"); if (!host) return;
       if (!state?.trial) {
-        host.innerHTML = '<p class="neutral-status">目前沒有可分析的實驗記錄。你可以先切換到 Part B；完成並保存有效記錄後，再返回 Part C。</p>';
+        host.innerHTML = '<p class="neutral-status">目前沒有可分析的實驗記錄；請先完成 Part B。</p>';
         q("to-predict")?.toggleAttribute("disabled", true);
         renderGraph();
         return;
       }
-      const draft = ensureAnalysisDraft(); const decoded = Measurement.unpackTrace(state.trial); const max = decoded.merged.length - 1; const activeKey = currentAnalysisKey();
-      host.replaceChildren();
-      const specs = [
-        ["staticInterval", "C1　找出物體仍靜止而拉力上升的區段", "frictionType", [["static", "靜摩擦力"], ["kinetic", "滑動摩擦力"], ["none", "沒有摩擦力"]]],
-        ["breakaway", "C2　標記物體開始移動的一刻", "identifiedAs", [["maximum-static-friction", "最大靜摩擦力"], ["kinetic-friction", "滑動摩擦力"], ["applied-force", "施加拉力"]]],
-        ["slowPlateau", "C3　選出移動後的穩定拉力區段", "estimatedFkCN", []],
-        ["acceleration", "C4　找出拉力令物體加速的區段", "relation", [["pull-greater", "<var>F</var><sub>拉</sub> 大於 <var>f</var><sub>k</sub>"], ["equal", "<var>F</var><sub>拉</sub> 等於 <var>f</var><sub>k</sub>"], ["pull-less", "<var>F</var><sub>拉</sub> 小於 <var>f</var><sub>k</sub>"]]],
-        ["fastPlateau", "C5　比較另一段移動後的拉力平台", "speedComparison", [["same-average", "兩段平均拉力基本相同"], ["higher-at-fast-speed", "後段平均拉力較大"], ["lower-at-fast-speed", "後段平均拉力較小"]]]
-      ];
-      specs.forEach(([key, title, field, options]) => {
-        const card = document.createElement("section"); card.className = "task-card"; card.dataset.analysisTask = key; if (key !== "breakaway") card.setAttribute("aria-describedby", `interval-stat-${key}`);
-        const task = draft[key] || {};
-        card.innerHTML = `<div class="task-card-heading"><p class="task-title">${title}</p><button type="button" data-action="select-analysis-task" data-analysis-key="${key}" class="task-select-button">${activeKey === key ? "正在編輯" : "編輯此項"}</button></div>`;
-        if (key === "breakaway") {
-          card.innerHTML += `<label><var>t</var> 標記（秒）<input type="range" min="0" max="${max}" value="${task.markerIndex ?? 0}" data-analysis-field="markerIndex" aria-label="最大靜摩擦力時間標記"><output data-analysis-readout="markerIndex">${(decoded.merged[task.markerIndex ?? 0]?.timeS || 0).toFixed(2)} s</output></label><label>你讀到的最大 <var>f</var><sub>s,max</sub>（N）<input type="number" min="0" max="12" step="0.01" value="${task.estimatedFsMaxCN == null ? "" : task.estimatedFsMaxCN / 100}" data-analysis-field="estimatedFsMaxCN"></label>`;
-        } else if (key === "slowPlateau" || key === "fastPlateau") {
-          card.innerHTML += `<label>開始樣本<input type="range" min="0" max="${max}" value="${task.startIndex ?? 0}" data-analysis-field="startIndex"></label><label>結束樣本<input type="range" min="0" max="${max}" value="${task.endIndex ?? 1}" data-analysis-field="endIndex"></label><label>估計平均 <var>f</var><sub>k</sub>（N）<input type="number" min="0" max="12" step="0.01" value="${task.estimatedFkCN == null ? "" : task.estimatedFkCN / 100}" data-analysis-field="estimatedFkCN"></label>`;
-        } else {
-          card.innerHTML += `<label>開始樣本<input type="range" min="0" max="${max}" value="${task.startIndex ?? 0}" data-analysis-field="startIndex"></label><label>結束樣本<input type="range" min="0" max="${max}" value="${task.endIndex ?? 1}" data-analysis-field="endIndex"></label>`;
-        }
-        if (options.length) card.innerHTML += `<label>判斷<select data-analysis-field="${field}"><option value="">請選擇</option>${options.map(([value, label]) => `<option value="${value}" ${task[field] === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
-        if (key === "staticInterval") card.innerHTML += `<label><var>F</var><sub>拉</sub> 和 <var>f</var><sub>s</sub> 的關係<select data-analysis-field="relation"><option value="">請選擇</option><option value="equal" ${task.relation === "equal" ? "selected" : ""}>拉力等於靜摩擦力</option><option value="pull-greater" ${task.relation === "pull-greater" ? "selected" : ""}>拉力大於靜摩擦力</option><option value="pull-less" ${task.relation === "pull-less" ? "selected" : ""}>拉力小於靜摩擦力</option></select></label>`;
-        if (key === "acceleration") card.innerHTML += `<label>這段拉力可否直接當作滑動摩擦力？<select data-analysis-field="pullEqualsFk"><option value="">請選擇</option><option value="yes" ${task.pullEqualsFk === "yes" ? "selected" : ""}>可以</option><option value="no" ${task.pullEqualsFk === "no" ? "selected" : ""}>不可以</option></select></label>`;
-        if (activeKey !== key) { card.setAttribute("aria-disabled", "true"); card.querySelectorAll("input,select").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); }); }
-        host.append(card);
-      });
+      const draft = ensureAnalysisDraft(); const decoded = Measurement.unpackTrace(state.trial);
+      const rows = ANALYSIS_MARKER_META.map((marker, index) => {
+        const sample = decoded.merged[clamp(Math.round(draft?.[marker.key]?.index ?? 0), 0, decoded.merged.length - 1)];
+        const saved = Persistence.analysisTaskComplete(marker.key, state.analysis?.[marker.key]);
+        return `<div class="analysis-marker-row"><span class="analysis-marker-swatch ${marker.className}" aria-hidden="true"></span><span><strong>C${index + 1}　${marker.label}</strong><small>${sample ? `${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N` : "未標示"}${saved ? "・已保存" : ""}</small></span></div>`;
+      }).join("");
+      host.innerHTML = `<div class="analysis-marker-card"><p><strong>操作：</strong>直接拖動圖上的彩色圓點；三個位置都完成後按保存。</p><div class="analysis-marker-list">${rows}</div><p class="instruction">標示可隨時再拖動修改。</p></div>`;
       q("to-predict")?.toggleAttribute("disabled", !Persistence.hasAllAnalysisFields(state));
       q("to-predict")?.classList.toggle("is-hidden", Boolean(state.fromReview));
       renderGraph();
     }
     function collectAnalysisDraft() {
-      const draft = ensureAnalysisDraft(); if (!draft) return null;
-      const key = currentAnalysisKey(); const card = document.querySelector(`[data-analysis-task="${key}"]`); if (!card) return draft;
-      draft[key] ||= {};
-      card.querySelectorAll("[data-analysis-field]").forEach((input) => { const field = input.dataset.analysisField; if (["startIndex", "endIndex", "markerIndex"].includes(field)) draft[key][field] = Math.round(Number(input.value)); else if (field === "estimatedFsMaxCN" || field === "estimatedFkCN") draft[key][field] = input.value === "" ? null : Math.round(Number(input.value) * 100); else draft[key][field] = input.value || null; });
-      if (key !== "breakaway") { const selection = Graph.normalizeSelection(state.trial, draft[key].startIndex, draft[key].endIndex); draft[key].startIndex = selection.startIndex; draft[key].endIndex = selection.endIndex; }
-      return draft;
+      return ensureAnalysisDraft();
     }
     function persistAnalysisDraft() {
-      const draft = collectAnalysisDraft(); const key = currentAnalysisKey(); if (!draft || !key || !draft[key]) return false;
-      state = state.fromReview ? Persistence.transitions.setAnalysisDraft(state, key, draft[key]) : Persistence.transitions.setAnalysisTask(state, key, draft[key]);
+      const draft = collectAnalysisDraft(); const key = currentAnalysisKey(); if (!draft || !key) return false;
+      state = state.fromReview ? Persistence.transitions.setAnalysisDraft(state, key, draft[key]) : Persistence.transitions.setAnalysisMarkersDraft(state, draft);
       saveDraft(); return true;
     }
     function commitAnalysisDraft(draft) {
-      const key = currentAnalysisKey(); if (!draft || !key || !Persistence.analysisTaskComplete(key, draft[key])) return false;
+      const key = currentAnalysisKey(); if (!draft || !key) return false;
       const editingReview = state.fromReview;
-      state = Persistence.transitions.setAnalysisTask(state, key, draft[key]);
-      if (!editingReview && state.phase === "analysis" && state.working.activeAnalysisTask < Persistence.ANALYSIS_KEYS.length - 1) state = Persistence.transitions.advanceAnalysisTask(state);
+      if (editingReview) {
+        if (!Persistence.analysisTaskHasSelection(key, draft[key])) return false;
+        state = Persistence.transitions.setAnalysisTask(state, key, { index: draft[key].index, committed: true });
+      } else {
+        const completed = Object.fromEntries(Persistence.ANALYSIS_KEYS.map((analysisKey) => [analysisKey, { index: Math.round(draft[analysisKey]?.index), committed: true }]));
+        if (Persistence.ANALYSIS_KEYS.some((analysisKey) => !Number.isInteger(completed[analysisKey].index))) return false;
+        state = Persistence.transitions.setAnalysisMarkers(state, completed);
+      }
       analysisDraft = null;
       return true;
     }
@@ -1117,7 +1064,7 @@
       const complete = Persistence.hasCompleteAnswer(state);
       const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
       const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
-      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像分析：${Persistence.hasAllAnalysisFields(state) ? "五項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
+      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
       q("submit")?.toggleAttribute("disabled", !complete);
       const analysisButtons = q("analysisEditButtons");
       if (analysisButtons) analysisButtons.innerHTML = Persistence.ANALYSIS_KEYS.map((key, index) => `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>`).join("");
@@ -1142,7 +1089,7 @@
         showPanel(presentation === "trusted-finished-review" || presentation.startsWith("submitted") ? "review" : state.phase); renderApparatus(); renderBalance();
         if (state.phase === "experiment" && experimentQuality) renderQuality();
         if (state.phase === "experiment" && state.trial && !experimentQuality) setText("experimentStatus", "B 記錄已保存，可以前往 Part C 分析這張 F拉–t 圖。");
-        if (state.phase === "analysis") { renderAnalysisTasks(); renderDataTable(); } if (state.phase === "predict") renderPredictions(); if (state.phase === "review") renderReview(); renderResult();
+        if (state.phase === "analysis") renderAnalysisTasks(); if (state.phase === "predict") renderPredictions(); if (state.phase === "review") renderReview(); renderResult();
       }
       const experimentReview = state?.fromReview && state.working?.reviewEditTarget?.section === "experiment";
       q("experimentRunActions")?.classList.toggle("is-hidden", Boolean(experimentReview));
@@ -1161,7 +1108,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; tableCursorIndex = null; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1216,21 +1163,20 @@
     }
     function focusAfterAction(action) {
       if (["navigate-phase", "to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-experiment", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
-      if (action === "select-analysis-task") { focusNode(q(`[data-analysis-task="${currentAnalysisKey()}"]`)?.querySelector("input,select")); return; }
+      if (action === "select-analysis-task") { focusNode(q(currentAnalysisKey() ? ANALYSIS_MARKER_META.find((marker) => marker.key === currentAnalysisKey())?.id : null)); return; }
       if (action === "select-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("input,select")); return; }
       if (action === "save-zero-force") { focusNode(q("draw-applied")); return; }
       if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
-      if (action === "save-analysis") { focusNode(q(`[data-analysis-task="${currentAnalysisKey()}"]`)?.querySelector("input,select")); return; }
+      if (action === "save-analysis") { focusNode(q("analysisTasks")); return; }
       if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select,input")); return; }
-      if (["previous-extremum", "next-extremum", "jump-selection-start", "jump-selection-end"].includes(action)) { focusNode(q(`[data-sample-index="${tableCursorIndex}"]`)); return; }
       if (action === "request-redo-experiment") focusNode(q("experimentOrigin") || q("startRecording"));
     }
     function validationMessage(action) {
       if (action === "save-zero-force") return "請先選擇 A1 的摩擦力類型、方向及大小。";
       if (action === "save-static-force") return "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。";
       if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
-      if (action === "save-analysis") return "請完成目前圖像項目的選區、數值及判斷，然後再保存。";
+      if (action === "save-analysis") return "請先在圖上放好靜摩擦力、最大靜摩擦力及滑動摩擦力三個標記。";
       if (action === "save-prediction") return "請完成這題的摩擦力類型、方向、大小及運動結果，然後再保存。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
     }
@@ -1246,7 +1192,7 @@
         try {
           document.querySelectorAll(".validation-status").forEach((node) => { node.classList.add("is-hidden"); node.textContent = ""; });
           if (action === "navigate-phase") navigateToPhase(event.target.closest("[data-phase]")?.dataset.phase);
-          else if (action === "select-analysis-task") { state = Persistence.transitions.selectAnalysisTask(state, event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; tableCursorIndex = null; saveDraft(); }
+          else if (action === "select-analysis-task") { state = Persistence.transitions.selectAnalysisTask(state, event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; saveDraft(); }
           else if (action === "select-prediction") { state = Persistence.transitions.selectPrediction(state, Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex)); predictionDraft = []; saveDraft(); }
           else if (action === "save-zero-force") {
             const type = q("zeroFrictionType")?.value || null; const direction = type === "none" ? "none" : q("zeroFrictionDirection")?.value || null; const magnitudeCN = type === "none" ? 0 : Math.round(Number(q("zeroFrictionMagnitude")?.value || 0) * 100);
@@ -1272,8 +1218,7 @@
           else if (action === "stop-recording") stopRecording();
           else if (action === "request-redo-experiment") restartExperimentImmediately();
           else if (action === "to-analysis") { if (state.trial) { state = Persistence.transitions.setPhase(state, "analysis"); analysisDraft = null; saveDraft(); } }
-          else if (["previous-extremum", "next-extremum", "jump-selection-start", "jump-selection-end"].includes(action)) { if (!moveTableCursor(action)) throw new Error("no matching data-table destination"); }
-          else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (!commitAnalysisDraft(draft)) throw new Error("complete the active analysis task before saving"); saveDraft(); announce("區段已記錄"); }
+          else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (!commitAnalysisDraft(draft)) throw new Error("complete the active analysis task before saving"); saveDraft(); announce("三個 marker 已保存"); }
           else if (action === "to-predict") { if (!Persistence.hasAllAnalysisFields(state)) throw new Error("analysis incomplete"); state = Persistence.transitions.setPhase(state, "predict"); analysisDraft = null; saveDraft(); }
           else if (action === "save-prediction") { const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {}; card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value) * 100)) : input.value || null; }); if (!values.frictionType || !values.direction || values.magnitudeCN == null || !values.motionOutcome) throw new Error("complete every prediction field"); state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, ...values, committed: true }); saveDraft(); }
           else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
@@ -1371,8 +1316,8 @@
       };
       q("controlPanel")?.addEventListener("touchend", finishPanelTouch, { passive: true });
       q("controlPanel")?.addEventListener("touchcancel", finishPanelTouch, { passive: true });
-      document.addEventListener("input", (event) => { const field = event.target.dataset?.analysisField; if (field && state?.phase === "analysis") { ensureAnalysisDraft(); try { persistAnalysisDraft(); } catch {} renderGraph(); renderDataTable(); } if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
-      document.addEventListener("change", (event) => { if (event.target.dataset?.analysisField && state?.phase === "analysis") { ensureAnalysisDraft(); try { persistAnalysisDraft(); } catch {} renderGraph(); renderDataTable(); } if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
+      document.addEventListener("input", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
+      document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
         const target = event.target;
         if (target.id === "experimentOrigin" && recorder?.running && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); setExperimentAppliedForce(experimentAppliedForceN + (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? .5 : .1)); renderApparatus(); }
@@ -1478,9 +1423,11 @@
       if (!state?.trial) return;
       ensureAnalysisDraft();
       const decoded = Measurement.unpackTrace(state.trial);
-      if (target === "breakaway-marker") { analysisDraft.breakaway ||= {}; analysisDraft.breakaway.markerIndex = clamp((analysisDraft.breakaway.markerIndex ?? 0) + direction * magnitude, 0, decoded.merged.length - 1); renderGraph(); return; }
-      const match = /^(static|slow|acceleration|fast)-(start|end)$/.exec(target); if (!match) return;
-      const key = { static: "staticInterval", slow: "slowPlateau", acceleration: "acceleration", fast: "fastPlateau" }[match[1]]; const field = `${match[2]}Index`; analysisDraft[key] ||= {}; analysisDraft[key][field] = clamp((analysisDraft[key][field] ?? 0) + direction * magnitude, 0, decoded.merged.length - 1); renderGraph();
+      const marker = ANALYSIS_MARKER_META.find((item) => item.target === target); if (!marker) return;
+      analysisDraft[marker.key] ||= { index: 0, committed: false };
+      analysisDraft[marker.key].index = clamp((analysisDraft[marker.key].index ?? 0) + direction * magnitude, 0, decoded.merged.length - 1);
+      analysisDraft[marker.key].committed = false;
+      renderGraph();
     }
     function moveDrag(event) {
       if (!dragging || dragging.target !== event.currentTarget || event.isPrimary === false) return;

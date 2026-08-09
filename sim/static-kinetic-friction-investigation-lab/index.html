@@ -28,7 +28,7 @@
       </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="experimentGraphStage" class="experiment-graph-stage is-hidden" aria-label="B 實驗的拉力—時間圖">
-        <svg id="experimentGraphSvg" viewBox="0 0 900 260" role="img" aria-label="F拉–t 圖（拉力—時間圖）"></svg>
+        <svg id="experimentGraphSvg" viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="F拉–t 圖（拉力—時間圖）"></svg>
       </div>
       <div id="stageGraph" class="stage-graph is-hidden">
         <svg id="graphSvg" viewBox="0 0 820 430" preserveAspectRatio="none" role="img" aria-label="F拉–t 圖（拉力—時間圖）"></svg>
@@ -39,15 +39,9 @@
         <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
         <button type="button" id="resetBalanceObject" class="balance-reset-button primary-button is-hidden" data-action="reset-balance-object" aria-describedby="stageCoachText">物體返回中央</button>
         <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
-        <button type="button" id="breakawayMarker" class="drag-target graph-handle" data-drag-target="breakaway-marker" aria-label="最大靜摩擦力時間標記"></button>
-        <button type="button" id="static-start" class="drag-target graph-handle interval-handle" data-drag-target="static-start" aria-label="靜止上升區段開始"></button>
-        <button type="button" id="static-end" class="drag-target graph-handle interval-handle" data-drag-target="static-end" aria-label="靜止上升區段結束"></button>
-        <button type="button" id="slow-start" class="drag-target graph-handle interval-handle" data-drag-target="slow-start" aria-label="低速平台區段開始"></button>
-        <button type="button" id="slow-end" class="drag-target graph-handle interval-handle" data-drag-target="slow-end" aria-label="低速平台區段結束"></button>
-        <button type="button" id="acceleration-start" class="drag-target graph-handle interval-handle" data-drag-target="acceleration-start" aria-label="加速區段開始"></button>
-        <button type="button" id="acceleration-end" class="drag-target graph-handle interval-handle" data-drag-target="acceleration-end" aria-label="加速區段結束"></button>
-        <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
-        <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
+        <button type="button" id="staticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-static is-hidden" data-drag-target="static-friction-marker" aria-label="靜摩擦力位置標記"></button>
+        <button type="button" id="maximumStaticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-maximum is-hidden" data-drag-target="maximum-static-friction-marker" aria-label="最大靜摩擦力位置標記"></button>
+        <button type="button" id="kineticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-kinetic is-hidden" data-drag-target="kinetic-friction-marker" aria-label="滑動摩擦力位置標記"></button>
       </div>
     <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 開始記錄後，按住舞台上的物體中央向右拖動，逐漸增加拉力直到物體啱啱開始移動；向左移只會減少向右拉力，不會施加向左拉力。物體開始移動後，系統會把拉力降至滑動摩擦力附近並自動維持接近勻速。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
@@ -131,13 +125,10 @@
       <section id="analysisPanel" class="panel-section is-hidden" data-panel="analysis">
         <p class="section-label">第三階段・同步圖像分析</p>
         <h2>C：從這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖找出摩擦力概念</h2>
-        <p>這裡只重看 Part B 同一張「<var>F</var><sub>拉</sub>–<var>t</var> 圖」，不再顯示第二張速度圖。按項目旁的「編輯此項」，逐項找出靜止上升、開始移動及移動後穩定拉力。</p>
-        <p class="formula-hint"><var>v</var>=0、<var>a</var>=0 時，<var>f</var><sub>s</sub>=<var>F</var><sub>拉</sub>；物體近似勻速時，平均 <var>F</var><sub>拉</sub> 可用來估計 <var>f</var><sub>k</sub>。</p>
-        <p class="instruction"><var>F</var><sub>拉</sub>–<var>t</var> 圖上的拉力是真正記錄；C 不會直接替你標示答案。</p>
-        <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出同一張 <var>F</var><sub>拉</sub>–<var>t</var> 圖的時間和拉力；這些是你自己的記錄，不標示正確區段。</p><div id="traceNavigation" class="button-row" aria-label="資料表快速導航"><button type="button" id="previousExtremum" data-action="previous-extremum">前一個拉力轉折</button><button type="button" id="nextExtremum" data-action="next-extremum">後一個拉力轉折</button><button type="button" id="jumpSelectionStart" data-action="jump-selection-start">目前選區開始</button><button type="button" id="jumpSelectionEnd" data-action="jump-selection-end">目前選區結束</button></div><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col"><var>t</var> / s</th><th scope="col"><var>F</var><sub>拉</sub> / N</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
-        <section id="intervalStats" class="data-view" aria-labelledby="intervalStatsTitle"><h3 id="intervalStatsTitle">目前所選區段統計</h3><p id="intervalStatsHelp">統計只根據你目前拖曳選取的區段，不代表系統答案。</p><div id="intervalStatsList"></div></section>
+        <p>Part B 完成後，同一張 <var>F</var><sub>拉</sub>–<var>t</var> 圖會顯示在上方舞台。請直接拖動圖上的三個彩色標記，分別放在代表靜摩擦力、最大靜摩擦力和滑動摩擦力的位置。</p>
+        <div class="analysis-legend" aria-label="圖上標記說明"><span class="analysis-legend-item analysis-legend-static">靜摩擦力</span><span class="analysis-legend-item analysis-legend-maximum">最大靜摩擦力</span><span class="analysis-legend-item analysis-legend-kinetic">滑動摩擦力</span></div>
         <div id="analysisTasks" class="analysis-tasks"></div>
-        <button type="button" data-action="save-analysis" class="primary-button">保存圖像分析</button>
+        <button type="button" data-action="save-analysis" class="primary-button">保存三個圖上標示</button>
         <button type="button" data-action="to-predict" class="primary-button next-button">前往 Part D 預測</button>
       </section>
 

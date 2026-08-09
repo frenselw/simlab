@@ -99,14 +99,14 @@ select {
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: .55rem 1rem;
+  padding: .08rem .12rem;
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, .92);
 }
 .experiment-graph-stage.is-hidden { display: none !important; }
 #experimentGraphSvg { width: min(100%, 58rem); min-height: 0; }
-.stage-graph { position: absolute; inset: 0; min-width: 0; min-height: 0; background: #fff; }
-.stage-graph #graphSvg { height: calc(100% - 2.4rem); }
+.stage-graph { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #fff; }
+.stage-graph #graphSvg { height: 100%; min-height: 0; }
 #apparatusSvg text, #graphSvg text, #experimentGraphSvg text { fill: var(--ink); font-size: 14px; }
 .apparatus-surface { fill: #d7dee7; stroke: none; }
 .apparatus-ground-line { stroke: #111827; stroke-width: 4; }
@@ -124,7 +124,14 @@ select {
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
 .graph-axis { stroke: #334155; stroke-width: 1.8; }
 .graph-axis-label { font-size: 28px !important; font-variant-numeric: tabular-nums; }
+.graph-tick-label { font-size: 18px !important; font-variant-numeric: tabular-nums; }
 .graph-cursor { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 4; }
+.analysis-marker-line { stroke-width: 3; stroke-dasharray: 8 5; opacity: .8; }
+.analysis-marker-dot { stroke: #fff; stroke-width: 3; }
+.analysis-marker-label { font-size: 18px !important; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+.analysis-marker-static { border-color: #2563eb; background: rgba(37, 99, 235, .18); }
+.analysis-marker-maximum { border-color: #c2410c; background: rgba(194, 65, 12, .18); }
+.analysis-marker-kinetic { border-color: #15803d; background: rgba(21, 128, 61, .18); }
 
 .drag-layer { position: absolute; inset: 0; pointer-events: none; }
 .drag-target {
@@ -366,6 +373,19 @@ th:first-child, td:first-child { text-align: left; }
 .interval-stats-list { display: grid; gap: .45rem; }
 .interval-stat { margin: 0; padding: .45rem .55rem; border-left: 3px solid var(--blue); background: #f8fbff; font-size: .8rem; line-height: 1.5; }
 .analysis-tasks { display: grid; gap: .5rem; }
+.analysis-marker-card { padding: .65rem; border: 1px solid #bfdbfe; border-radius: 9px; background: #f8fbff; }
+.analysis-marker-list { display: grid; gap: .35rem; margin: .55rem 0; }
+.analysis-marker-row { display: flex; align-items: center; gap: .55rem; min-height: 2.6rem; padding: .38rem .5rem; border-radius: .55rem; background: #fff; }
+.analysis-marker-row small { display: block; margin-top: .12rem; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.analysis-marker-swatch { flex: 0 0 1rem; width: 1rem; height: 1rem; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px currentColor; }
+.analysis-marker-swatch.analysis-marker-static { color: #2563eb; background: #2563eb; }
+.analysis-marker-swatch.analysis-marker-maximum { color: #c2410c; background: #c2410c; }
+.analysis-marker-swatch.analysis-marker-kinetic { color: #15803d; background: #15803d; }
+.analysis-legend { display: flex; flex-wrap: wrap; gap: .45rem .75rem; margin: .55rem 0; font-size: .8rem; font-weight: 700; }
+.analysis-legend-item::before { content: ""; display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; border-radius: 50%; background: currentColor; }
+.analysis-legend-static { color: #2563eb; }
+.analysis-legend-maximum { color: #c2410c; }
+.analysis-legend-kinetic { color: #15803d; }
 .prediction-cards { display: grid; gap: .5rem; }
 .review-actions { display: grid; gap: .4rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .review-summary ul { margin: .4rem 0; padding-left: 1.15rem; }
@@ -405,7 +425,7 @@ th:first-child, td:first-child { text-align: left; }
     grid-template-rows: auto minmax(0, 1fr);
   }
   .stage.has-experiment-graph {
-    grid-template-rows: auto minmax(0, 1.08fr) minmax(0, .92fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
   }
   .stage-coach {
     position: relative;
@@ -417,15 +437,15 @@ th:first-child, td:first-child { text-align: left; }
     transform: none;
     grid-row: 1;
     grid-column: 1;
-    margin: .25rem .6rem .05rem;
-    padding: .35rem .55rem;
+    margin: .12rem .35rem 0;
+    padding: .25rem .4rem;
     column-gap: .5rem;
   }
   .stage-coach-step { width: 1.8rem; height: 1.8rem; }
   .stage-coach strong { font-size: .78rem; }
   .stage-coach > span:last-child { font-size: .7rem; }
   #apparatusSvg { grid-row: 2; min-height: 0; }
-  .experiment-graph-stage { grid-row: 3; padding: .35rem .55rem; }
+  .experiment-graph-stage { grid-row: 3; padding: 0; }
   .stage-graph { position: relative; inset: auto; grid-row: 2; height: 100%; min-height: 0; }
   .answer-grid { grid-template-columns: 1fr; }
   .save-action-row .validation-status { flex-basis: 100%; }

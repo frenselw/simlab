@@ -82,14 +82,6 @@ function analysisFixtureScript(activeIndex = 0) {
     state = P.transitions.setBreakawayAnswer(state, Math.round(scenario.staticLimitMeanN * 100));
     state = P.transitions.setPhase(state, 'experiment'); state = P.transitions.acceptTrial(state, trial); state = P.transitions.setPhase(state, 'analysis');
     const candidates = M.findCandidateWindows(trial);
-    const tasks = [
-      ['staticInterval', { ...candidates.static[0], frictionType: 'static', relation: 'equal' }],
-      ['breakaway', { markerIndex: 20, estimatedFsMaxCN: 600, identifiedAs: 'maximum-static-friction' }],
-      ['slowPlateau', { ...candidates.slow[0], estimatedFkCN: 500 }],
-      ['acceleration', { ...candidates.acceleration[0], relation: 'pull-greater', pullEqualsFk: 'no' }],
-      ['fastPlateau', { ...candidates.fast[0], estimatedFkCN: 500, speedComparison: 'same-average' }]
-    ];
-    for (let index = 0; index < ${activeIndex}; index += 1) { state = P.transitions.setAnalysisTask(state, tasks[index][0], tasks[index][1]); state = P.transitions.advanceAnalysisTask(state); }
     const snapshot = { version: 1, activity: '${slug}', kind: 'draft', answer: P.encodeDraft(state) };
     window.__staticKineticFrictionApp.routeAttempt({ state: 'draft', snapshot });
     window.__frictionFixture = { scenario, trial, candidates };
@@ -277,26 +269,29 @@ async function semanticSmoke(cdp, url, label) {
   assert.deepEqual(interrupted, { checkpointPhase: "experiment", checkpointVariant: "ready", phase: "experiment", variant: "ready", trial: null, status: "上次實驗記錄未完成，請重新開始這次記錄。", running: false, startDisabled: false }, `${label}: active recording restores the pre-record checkpoint with an interruption message and legal restart`);
 
   await evaluate(cdp, analysisFixtureScript(0));
-  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),Graph=window.StaticKineticFrictionGraph,M=window.StaticKineticFrictionMeasurement,svg=document.getElementById('graphSvg'),handle=document.getElementById('static-start'),typeNode=document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="frictionType"]'),relationNode=document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="relation"]'); if (!state?.trial || !svg || !handle || !typeNode || !relationNode) return { phase:state?.phase, hasTrial:Boolean(state?.trial), hasGraph:Boolean(svg), hasHandle:Boolean(handle), hasType:Boolean(typeNode), hasRelation:Boolean(relationNode), panelHidden:document.getElementById('analysisPanel')?.classList.contains('is-hidden') }; const sample=M.unpackTrace(state.trial).merged[0],sr=svg.getBoundingClientRect(),hr=handle.getBoundingClientRect(),expected=sr.left+Graph.timeToX(sample.timeS)/820*sr.width;return { type:typeNode.value, relation:relationNode.value, graphInStage:document.getElementById('stage').contains(svg), handleDelta:Math.abs(hr.left+hr.width/2-expected), visible:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node=>node.dataset.dragTarget) } })()`);
-  if (!Object.hasOwn(blankAnalysis, "type")) throw new Error(`${label}: C analysis fixture did not render expected controls: ${JSON.stringify(blankAnalysis)}`);
-  assert.equal(blankAnalysis.type, "", `${label}: C1 type starts explicitly blank`); assert.equal(blankAnalysis.relation, "", `${label}: C1 relation starts explicitly blank`);
-  assert.equal(blankAnalysis.graphInStage, true, `${label}: graph and handles share the stage coordinate space`);
-  assert.ok(blankAnalysis.handleDelta <= 4, `${label}: graph handle is spatially aligned with its sample (${blankAnalysis.handleDelta}px)`);
-  assert.deepEqual(blankAnalysis.visible.sort(), ["static-end", "static-start"], `${label}: only active graph handles are exposed`);
+  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),svg=document.getElementById('graphSvg'),handles=[...document.querySelectorAll('.analysis-marker')]; return { phase:state?.phase, hasTrial:Boolean(state?.trial), graphInStage:document.getElementById('stage').contains(svg), visible:handles.filter(node=>!node.classList.contains('is-hidden')).map(node=>node.dataset.dragTarget), graphText:svg?.textContent || '', panelText:document.getElementById('analysisPanel')?.textContent || '' }; })()`);
+  assert.equal(blankAnalysis.phase, "analysis", `${label}: C fixture opens in analysis phase`);
+  assert.equal(blankAnalysis.hasTrial, true, `${label}: C receives the B trial`);
+  assert.equal(blankAnalysis.graphInStage, true, `${label}: B graph and C markers share the stage coordinate space`);
+  assert.deepEqual(blankAnalysis.visible.sort(), ["kinetic-friction-marker", "maximum-static-friction-marker", "static-friction-marker"], `${label}: C exposes the three simple graph markers`);
+  assert.match(blankAnalysis.panelText, /靜摩擦力/);
+  assert.match(blankAnalysis.panelText, /最大靜摩擦力/);
+  assert.match(blankAnalysis.panelText, /滑動摩擦力/);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const earlyPrediction = await evaluate(cdp, "({ phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards [data-prediction-index]').length, firstEnabled:!document.querySelector('#predictionCards [data-prediction-index=\"0\"] select').disabled })");
   assert.deepEqual(earlyPrediction, { phase: "predict", cards: 4, firstEnabled: true }, `${label}: Part D is directly selectable while Part C is still incomplete`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
-  await pressKeyOn(cdp, "#static-start", "ArrowRight");
-  const partial = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;const state=app.getState();window.__analysisSnapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(state)};app.routeAttempt({state:'draft',snapshot:window.__analysisSnapshot});const restored=app.getState();return {variant:restored.variant,active:restored.working.activeAnalysisTask,future:P.ANALYSIS_KEYS.slice(1).every(key=>restored.analysis[key]===null)} })()`);
-  assert.deepEqual(partial, { variant: "selection-only", active: 0, future: true }, `${label}: graph handle persists and restores only the active partial task`);
-  await evaluate(cdp, `(() => { const set=(field,value)=>{const node=document.querySelector('[data-analysis-task="staticInterval"] [data-analysis-field="'+field+'"]');node.value=value;node.dispatchEvent(new Event('input',{bubbles:true}))};set('frictionType','static');set('relation','equal');return true })()`);
+  await pressKeyOn(cdp, "#staticFrictionMarker", "ArrowRight");
+  const partial = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;const state=app.getState();window.__analysisSnapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(state)};app.routeAttempt({state:'draft',snapshot:window.__analysisSnapshot});const restored=app.getState();return {variant:restored.variant,active:restored.working.activeAnalysisTask,selected:restored.analysis.staticFriction?.index,unselected:[restored.analysis.maximumStaticFriction,restored.analysis.kineticFriction]} })()`);
+  assert.deepEqual(partial, { variant: "selection-only", active: 0, selected: 1, unselected: [null, null] }, `${label}: graph marker drafts persist without preselecting the other answers`);
+  await pressKeyOn(cdp, "#maximumStaticFrictionMarker", "ArrowRight");
+  await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight");
   await tapSelector(cdp, "[data-action='save-analysis']");
-  const continued = await evaluate(cdp, `(() => ({active:window.__staticKineticFrictionApp.getState().working.activeAnalysisTask,blank:document.querySelector('[data-analysis-task="breakaway"] [data-analysis-field="identifiedAs"]').value,visible:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node=>node.dataset.dragTarget)}))()`);
-  assert.equal(continued.active, 1, `${label}: restored partial analysis executes its legal continuation`); assert.equal(continued.blank, "", `${label}: C2 authority enum starts null`); assert.deepEqual(continued.visible, ["breakaway-marker"], `${label}: active marker alone is exposed and aligned to graph stage`);
+  const continued = await evaluate(cdp, `(() => ({complete:window.StaticKineticFrictionPersistence.hasAllAnalysisFields(window.__staticKineticFrictionApp.getState()),visible:[...document.querySelectorAll('.analysis-marker:not(.is-hidden)')].map(node=>node.dataset.dragTarget)}))()`);
+  assert.equal(continued.complete, true, `${label}: one save commits all three graph markers`); assert.deepEqual(continued.visible.sort(), ["kinetic-friction-marker", "maximum-static-friction-marker", "static-friction-marker"], `${label}: all graph markers remain available for revision`);
 
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});window.__reviewAuthority=JSON.stringify({analysis:perfect.analysis,predictions:perfect.predictions});return true })()`);
-  await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='slowPlateau']"); await pressKeyOn(cdp, "#slow-start", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");
+  await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='kineticFriction']"); await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");
   assert.equal(await evaluate(cdp, "JSON.stringify({analysis:window.__staticKineticFrictionApp.getState().analysis,predictions:window.__staticKineticFrictionApp.getState().predictions})===window.__reviewAuthority"), true, `${label}: cancelling graph review edit restores immutable authority`);
   await tapSelector(cdp, "[data-action='edit-predict'][data-prediction-index='1']");
   const predictionVisualBefore = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),r=document.getElementById('predictionFriction').getBoundingClientRect();return {magnitude:state.predictions[1].magnitudeCN,handleX:r.left+r.width/2,arrow:Boolean(document.querySelector('.prediction-friction-arrow')),readout:document.getElementById('predictionReadout').textContent} })()`);

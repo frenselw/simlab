@@ -6,29 +6,23 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Measurement) {
   "use strict";
 
-  const SCHEMA_VERSION = 5;
-  const WIRE_VERSION = "s5";
+  const SCHEMA_VERSION = 6;
+  const WIRE_VERSION = "s6";
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 7;
   const MEASUREMENT_VERSION = 4;
-  const RUBRIC_VERSION = 2;
+  const RUBRIC_VERSION = 3;
   const ACTIVITY = "static-kinetic-friction-investigation-lab";
   const PHASES = Object.freeze(["balance", "experiment", "analysis", "predict", "review"]);
   const BALANCE_EDIT_KEYS = Object.freeze(["zero-force", "static-case", "breakaway"]);
   const PREDICTION_COUNT = 4;
-  const ANALYSIS_KEYS = Object.freeze(["staticInterval", "breakaway", "slowPlateau", "acceleration", "fastPlateau"]);
+  const ANALYSIS_KEYS = Object.freeze(["staticFriction", "maximumStaticFriction", "kineticFriction"]);
 
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function integer(value) { return Number.isInteger(value); }
   function exactKeys(value, keys) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).sort().join(",") === keys.slice().sort().join(",")); }
   function emptyAnalysis() {
-    return {
-      staticInterval: null,
-      breakaway: null,
-      slowPlateau: null,
-      acceleration: null,
-      fastPlateau: null
-    };
+    return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
   }
   function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null }; }
   function freshState(seed) {
@@ -49,16 +43,10 @@
       integer(state.balance.breakaway.learnerMaxCN);
   }
   function analysisTaskComplete(key, value) {
-    if (!value) return false;
-    if (key === "breakaway") return integer(value.markerIndex) && integer(value.estimatedFsMaxCN) && typeof value.identifiedAs === "string";
-    if (!(integer(value.startIndex) && integer(value.endIndex))) return false;
-    if (key === "staticInterval") return typeof value.frictionType === "string" && typeof value.relation === "string";
-    if (key === "slowPlateau" || key === "fastPlateau") return integer(value.estimatedFkCN) && (key !== "fastPlateau" || typeof value.speedComparison === "string");
-    return typeof value.relation === "string" && typeof value.pullEqualsFk === "string";
+    return Boolean(value && value.committed === true && integer(value.index));
   }
   function analysisTaskHasSelection(key, value) {
-    if (!value) return false;
-    return key === "breakaway" ? integer(value.markerIndex) : integer(value.startIndex) && integer(value.endIndex);
+    return Boolean(value && integer(value.index));
   }
   function hasAllAnalysisFields(state) {
     return ANALYSIS_KEYS.every((key) => analysisTaskComplete(key, state.analysis?.[key]));
@@ -80,14 +68,7 @@
       const completed = ANALYSIS_KEYS.filter((key) => state.analysis[key] != null).length;
       if (!completed) return "selection-ready";
       if (hasAllAnalysisFields(state)) return "complete";
-      const activeKey = ANALYSIS_KEYS[Math.min(ANALYSIS_KEYS.length - 1, state.working?.activeAnalysisTask ?? 0)];
-      const active = state.analysis[activeKey];
-      if (active && ((active.startIndex != null && active.endIndex != null) || active.markerIndex != null)) {
-        const required = activeKey === "breakaway" ? ["estimatedFsMaxCN", "identifiedAs"] : activeKey === "staticInterval" ? ["frictionType", "relation"] : activeKey === "slowPlateau" ? ["estimatedFkCN"] : activeKey === "acceleration" ? ["relation", "pullEqualsFk"] : ["estimatedFkCN", "speedComparison"];
-        if (required.every((field) => active[field] != null)) return "task-complete";
-        return "selection-only";
-      }
-      return "selection-ready";
+      return "selection-only";
     }
     if (state.phase === "predict") {
       if (state.fromReview) return "review-edit";
@@ -134,17 +115,10 @@
   }
   function validateAnalysisTask(key, value, sampleCount) {
     if (value == null) return true;
-    const allowed = key === "breakaway" ? ["markerIndex", "estimatedFsMaxCN", "identifiedAs"] : key === "staticInterval" ? ["startIndex", "endIndex", "frictionType", "relation"] : key === "slowPlateau" ? ["startIndex", "endIndex", "estimatedFkCN"] : key === "acceleration" ? ["startIndex", "endIndex", "relation", "pullEqualsFk"] : key === "fastPlateau" ? ["startIndex", "endIndex", "estimatedFkCN", "speedComparison"] : [];
-    if (!allowed.length || !exactKeys(value, allowed)) return false;
-    const indexFields = key === "breakaway" ? ["markerIndex"] : ["startIndex", "endIndex"];
-    if (indexFields.some((field) => !integer(value[field]) || value[field] < 0 || value[field] >= sampleCount)) return false;
-    if (key !== "breakaway" && value.endIndex < value.startIndex) return false;
-    if (key === "staticInterval" && (value.frictionType != null && !["none", "static", "kinetic"].includes(value.frictionType) || value.relation != null && !["equal", "pull-greater", "pull-less"].includes(value.relation))) return false;
-    if (key === "breakaway" && (value.estimatedFsMaxCN != null && (!integer(value.estimatedFsMaxCN) || value.estimatedFsMaxCN < 0 || value.estimatedFsMaxCN > 1200) || value.identifiedAs != null && !["maximum-static-friction", "kinetic-friction", "applied-force"].includes(value.identifiedAs))) return false;
-    if (["slowPlateau", "fastPlateau"].includes(key) && value.estimatedFkCN != null && (!integer(value.estimatedFkCN) || value.estimatedFkCN < 0 || value.estimatedFkCN > 1200)) return false;
-    if (key === "acceleration" && (value.relation != null && !["equal", "pull-greater", "pull-less"].includes(value.relation) || value.pullEqualsFk != null && !["yes", "no"].includes(value.pullEqualsFk))) return false;
-    if (key === "fastPlateau" && value.speedComparison != null && !["same-average", "higher-at-fast-speed", "lower-at-fast-speed"].includes(value.speedComparison)) return false;
-    return true;
+    if (!ANALYSIS_KEYS.includes(key) || !exactKeys(value, ["index", "committed"])) return false;
+    if (![true, false].includes(value.committed)) return false;
+    if (value.index === null) return value.committed === false;
+    return integer(value.index) && value.index >= 0 && value.index < sampleCount;
   }
   function validatePrediction(prediction) {
     if (!exactKeys(prediction, ["id", "scenarioId", "frictionType", "direction", "magnitudeCN", "motionOutcome", "committed"]) || typeof prediction.id !== "string" || typeof prediction.scenarioId !== "string" || typeof prediction.committed !== "boolean") return false;
@@ -271,8 +245,7 @@
       if (index !== active) throw new Error("analysis task is not the active task");
     }
     const next = clone(state);
-    const allowed = key === "breakaway" ? ["markerIndex", "estimatedFsMaxCN", "identifiedAs"] : key === "staticInterval" ? ["startIndex", "endIndex", "frictionType", "relation"] : key === "slowPlateau" ? ["startIndex", "endIndex", "estimatedFkCN"] : key === "acceleration" ? ["startIndex", "endIndex", "relation", "pullEqualsFk"] : ["startIndex", "endIndex", "estimatedFkCN", "speedComparison"];
-    const replacement = Object.fromEntries(allowed.filter((field) => Object.hasOwn(value, field)).map((field) => [field, clone(value[field])]));
+    const replacement = { index: clone(value.index), committed: Boolean(value.committed) };
     const changed = JSON.stringify(state.analysis[key]) !== JSON.stringify(replacement);
     if (!validateAnalysisTask(key, replacement, state.trial ? Measurement.unpackTrace(state.trial).merged.length : 1) || !analysisTaskHasSelection(key, replacement)) throw new Error("invalid analysis task value");
     if (editingReview && !analysisTaskComplete(key, replacement)) throw new Error("review analysis replacement must be complete");
@@ -289,6 +262,25 @@
     next.fromReview = editingReview ? false : state.fromReview;
     next.working = editingReview ? emptyWorking() : clone(state.working);
     if (!editingReview) next.working.activeAnalysisTask = index;
+    return update(next, {});
+  }
+  function setAnalysisMarkersDraft(state, values) {
+    if (state.fromReview || state.phase !== "analysis" || !state.trial || !exactKeys(values, ANALYSIS_KEYS)) throw new Error("invalid analysis marker draft");
+    const sampleCount = Measurement.unpackTrace(state.trial).merged.length;
+    if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, values[key], sampleCount))) throw new Error("invalid analysis marker draft value");
+    const next = clone(state);
+    next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
+    const nextActive = ANALYSIS_KEYS.findIndex((key) => !analysisTaskComplete(key, next.analysis[key]));
+    next.working.activeAnalysisTask = nextActive < 0 ? ANALYSIS_KEYS.length - 1 : nextActive;
+    return update(next, {});
+  }
+  function setAnalysisMarkers(state, values) {
+    if (state.fromReview || state.phase !== "analysis" || !state.trial || !exactKeys(values, ANALYSIS_KEYS)) throw new Error("invalid analysis markers");
+    const sampleCount = Measurement.unpackTrace(state.trial).merged.length;
+    if (ANALYSIS_KEYS.some((key) => !analysisTaskComplete(key, values[key]) || !validateAnalysisTask(key, values[key], sampleCount))) throw new Error("all analysis markers must be complete");
+    const next = clone(state);
+    next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
+    next.working.activeAnalysisTask = ANALYSIS_KEYS.length - 1;
     return update(next, {});
   }
   function selectAnalysisTask(state, key) {
@@ -390,23 +382,15 @@
   }
   function encodeAnalysisTask(key, value) {
     if (!value) return null;
-    if (key === "staticInterval") return [value.startIndex, value.endIndex, encodeCode(TYPE_CODE, value.frictionType), encodeCode(REL_CODE, value.relation)];
-    if (key === "breakaway") return [value.markerIndex, value.estimatedFsMaxCN, value.identifiedAs];
-    if (key === "slowPlateau") return [value.startIndex, value.endIndex, value.estimatedFkCN];
-    if (key === "acceleration") return [value.startIndex, value.endIndex, encodeCode(REL_CODE, value.relation), value.pullEqualsFk ?? null];
-    return [value.startIndex, value.endIndex, value.estimatedFkCN, value.speedComparison];
+    return [value.index, value.committed ? 1 : 0];
   }
   function decodeAnalysisTask(key, value) {
     if (!value) return null;
-    if (key === "staticInterval") return { startIndex: value[0], endIndex: value[1], frictionType: decodeCode(TYPE_FROM_CODE, value[2]), relation: decodeCode(REL_FROM_CODE, value[3]) };
-    if (key === "breakaway") return { markerIndex: value[0], estimatedFsMaxCN: value[1], identifiedAs: value[2] };
-    if (key === "slowPlateau") return { startIndex: value[0], endIndex: value[1], estimatedFkCN: value[2] };
-    if (key === "acceleration") return { startIndex: value[0], endIndex: value[1], relation: decodeCode(REL_FROM_CODE, value[2]), pullEqualsFk: value[3] ?? null };
-    return { startIndex: value[0], endIndex: value[1], estimatedFkCN: value[2], speedComparison: value[3] ?? null };
+    return { index: value[0], committed: value[1] === 1 };
   }
   function compactTrial(trial) { return trial == null ? null : { d: trial.sampleDtMs, n: trial.regularSampleCount, x: trial.forceVelocityBase64, b: trial.breakaway ? [trial.breakaway.timeMs, trial.breakaway.measuredPullCN, trial.breakaway.measuredVelocityMMps, trial.breakaway.preBreakPeakGridIndex] : null }; }
   function expandTrial(trial) { return trial == null ? null : { sampleDtMs: trial.d, regularSampleCount: trial.n, forceVelocityBase64: trial.x, breakaway: trial.b ? { timeMs: trial.b[0], measuredPullCN: trial.b[1], measuredVelocityMMps: trial.b[2], preBreakPeakGridIndex: trial.b[3] } : null }; }
-  const ANALYSIS_WIRE_KEYS = Object.freeze({ staticInterval: "i", breakaway: "b", slowPlateau: "l", acceleration: "c", fastPlateau: "f" });
+  const ANALYSIS_WIRE_KEYS = Object.freeze({ staticFriction: "s", maximumStaticFriction: "m", kineticFriction: "k" });
   function compactAnswer(state, includeWorking) {
     validateState(state, { skipVariant: state.phase === "review" });
     const breakaway = state.balance.breakaway;
@@ -415,9 +399,13 @@
     return answer;
   }
   function migrateLegacyAnswer(answer, kind) {
-    if (!answer || !["s1", "s2", "s3"].includes(answer.w)) return answer;
-    if (kind === "review") throw new Error("legacy review cannot be safely migrated to the new Part A contract");
-    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { i: null, b: null, l: null, c: null, f: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null } };
+    if (!answer || !["s1", "s2", "s3", "s5"].includes(answer.w)) return answer;
+    if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated to the redesigned Part C contract");
+    if (answer.w !== "s5") return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { s: null, m: null, k: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null } };
+    const hasTrial = Boolean(answer.t);
+    const preservedPhase = hasTrial && ["analysis", "predict"].includes(answer.p) ? "analysis" : answer.p === "experiment" ? "experiment" : "balance";
+    const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
+    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: preservedPhase, q: "ready", R: false, b: preservedBalance, t: answer.t || null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: answer.k?.b ?? null, a: 0, p: answer.k?.p ?? 0, e: null, d: null } };
   }
   function validateWireAnswer(answer, kind) {
     const answerKeys = ["w", "v", "s", "p", "q", "R", "b", "t", "a", "P", ...(kind === "draft" ? ["k"] : [])];
@@ -433,7 +421,7 @@
     if (answer.b.s !== null && (!Object.hasOwn(DIR_FROM_CODE, answer.b.s[0]) || !Number.isInteger(answer.b.s[1]) || answer.b.s[1] <= 0 || answer.b.s[1] > 1200 || !Array.isArray(answer.b.s[2]) || answer.b.s[2].length !== 3 || !Object.hasOwn(DIR_FROM_CODE, answer.b.s[2][0]) || !Number.isInteger(answer.b.s[2][1]) || answer.b.s[2][1] <= 0 || answer.b.s[2][1] > 1200 || ![0, 1].includes(answer.b.s[2][2]) || !Array.isArray(answer.b.s[3]) || (answer.b.s[3].length !== 4 && answer.b.s[3].length !== 5))) throw new Error("invalid static-force wire");
     if (!Number.isInteger(answer.b.r[0]) || answer.b.r[0] < 0 || answer.b.r[0] > 1000 || (answer.b.r[1] !== null && (!Number.isInteger(answer.b.r[1]) || answer.b.r[1] <= 0 || answer.b.r[1] > 1200)) || (answer.b.r[2] !== null && !Object.hasOwn(DIR_FROM_CODE, answer.b.r[2])) || (answer.b.r[3] !== null && (!Number.isInteger(answer.b.r[3]) || answer.b.r[3] < 0 || answer.b.r[3] > 1200)) || ![0, 1].includes(answer.b.r[4])) throw new Error("invalid breakaway wire");
     for (const item of answer.P) if (item !== null && (!Array.isArray(item) || item.length !== 7 || ![0, 1].includes(item[6]))) throw new Error("invalid prediction wire");
-    const analysisLengths = { i: 4, b: 3, l: 3, c: 4, f: 4 };
+    const analysisLengths = { s: 2, m: 2, k: 2 };
     for (const [key, length] of Object.entries(analysisLengths)) if (answer.a[key] !== null && (!Array.isArray(answer.a[key]) || answer.a[key].length !== length)) throw new Error("invalid analysis wire");
     return true;
   }
@@ -462,8 +450,8 @@
   }
   function answerForSnapshot(state, kind = "draft") { return kind === "review" ? encodeReview(state) : encodeDraft(state); }
   function hasCompleteAnswer(state) { return state.phase === "review" && allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state) && hasAllPredictions(state); }
-  function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "selectAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "selectPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
+  function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "setAnalysisMarkersDraft", "setAnalysisMarkers", "selectAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "selectPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
 
-  const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, selectAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, selectPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
+  const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, setAnalysisMarkersDraft, setAnalysisMarkers, selectAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, selectPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
   return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
 });

@@ -93,6 +93,9 @@
     const valid = Boolean(stats && own && iou >= INTERVAL_MIN_IOU && otherFraction <= Measurement.MAX_OTHER_PHASE_FRACTION + FLOAT_EPSILON);
     return { valid, iou, stats, own, otherPhaseFraction: otherFraction };
   }
+  function pointInWindows(index, windows = []) {
+    return integer(index) && windows.some((window) => integer(window?.startIndex) && integer(window?.endIndex) && index >= window.startIndex && index <= window.endIndex);
+  }
   function analysisScore(answer, scenario) {
     const analysis = answerAnalysis(answer);
     let decoded;
@@ -101,33 +104,23 @@
     const candidates = Measurement.findCandidateWindows(decoded);
     const detail = [];
     let score = 0;
-    const c1 = selectionScore(decoded, analysis.staticInterval, candidates.static, "static", candidates);
-    const c1Concept = c1.valid;
-    const c1Type = analysis.staticInterval?.frictionType === "static";
-    const c1Relation = analysis.staticInterval?.relation === "equal";
-    const c1Points = (c1Concept ? 3 : 0) + (c1Type ? 2 : 0) + (c1Relation ? 2 : 0); score += c1Points; detail.push({ key: "static-rise", points: c1Points, max: 7, correct: c1Concept && c1Type && c1Relation, interval: c1Concept, type: c1Type, relation: c1Relation, iou: c1.iou });
+    const staticIndex = analysis.staticFriction?.index;
+    const staticCorrect = pointInWindows(staticIndex, candidates.static);
+    const staticPoints = staticCorrect ? 13 : 0;
+    score += staticPoints;
+    detail.push({ key: "static-friction", points: staticPoints, max: 13, correct: staticCorrect, index: staticIndex });
     const eventTimeS = decoded.breakaway ? decoded.breakaway.timeMs / 1000 : NaN;
-    const markerTimeS = decoded.merged[analysis.breakaway?.markerIndex]?.timeS;
-    const markerCorrect = approx(markerTimeS, eventTimeS, BREAKAWAY_TIME_TOLERANCE_S);
-    const visiblePeakN = decoded.visibleBreakawayPeakCN == null ? NaN : decoded.visibleBreakawayPeakCN / 100;
-    const fsEstimateN = Number(analysis.breakaway?.estimatedFsMaxCN) / 100;
-    const fsCorrect = approx(fsEstimateN, visiblePeakN, fsToleranceN(visiblePeakN));
-    const fsLabel = analysis.breakaway?.identifiedAs === "maximum-static-friction";
-    const c2Points = (markerCorrect ? 4 : 0) + (fsCorrect ? 3 : 0) + (fsLabel ? 2 : 0); score += c2Points; detail.push({ key: "breakaway", points: c2Points, max: 9, correct: markerCorrect && fsCorrect && fsLabel });
-    const c3 = selectionScore(decoded, analysis.slowPlateau, candidates.slow, "slow", candidates);
-    const fkSlow = Number(analysis.slowPlateau?.estimatedFkCN) / 100;
-    const c3Concept = c3.valid && approx(fkSlow, c3.stats.meanPullN, fkToleranceN(c3.stats.meanPullN));
-    const c3Points = (c3.valid ? 4 : 0) + (c3Concept ? 4 : 0); score += c3Points; detail.push({ key: "slow", points: c3Points, max: 8, correct: c3Concept, iou: c3.iou });
-    const c4 = selectionScore(decoded, analysis.acceleration, candidates.acceleration, "acceleration", candidates);
-    const c4Concept = analysis.acceleration?.relation === "pull-greater";
-    const c4NoEquals = analysis.acceleration?.pullEqualsFk === "no";
-    const c4Points = (c4.valid ? 3 : 0) + (c4Concept ? 2 : 0) + (c4NoEquals ? 2 : 0); score += c4Points; detail.push({ key: "acceleration", points: c4Points, max: 7, correct: c4Concept && c4NoEquals, iou: c4.iou });
-    const c5 = selectionScore(decoded, analysis.fastPlateau, candidates.fast, "fast", candidates);
-    const fkFast = Number(analysis.fastPlateau?.estimatedFkCN) / 100;
-    const c5Estimate = c5.valid && approx(fkFast, c5.stats.meanPullN, fkToleranceN(c5.stats.meanPullN));
-    const slowMean = c3.stats?.meanPullN;
-    const comparison = c5.valid && finite(slowMean) && finite(c5.stats.meanPullN) && Math.abs(slowMean - c5.stats.meanPullN) <= platformToleranceN(slowMean) && analysis.fastPlateau?.speedComparison === "same-average";
-    const c5Points = (c5.valid ? 4 : 0) + (c5Estimate ? 3 : 0) + (comparison ? 2 : 0); score += c5Points; detail.push({ key: "fast", points: c5Points, max: 9, correct: c5Estimate && comparison, iou: c5.iou });
+    const markerTimeS = decoded.merged[analysis.maximumStaticFriction?.index]?.timeS;
+    const maximumCorrect = approx(markerTimeS, eventTimeS, BREAKAWAY_TIME_TOLERANCE_S);
+    const maximumPoints = maximumCorrect ? 14 : 0;
+    score += maximumPoints;
+    detail.push({ key: "maximum-static-friction", points: maximumPoints, max: 14, correct: maximumCorrect, index: analysis.maximumStaticFriction?.index });
+    const kineticIndex = analysis.kineticFriction?.index;
+    const kineticWindows = [...(candidates.slow || []), ...(candidates.fast || [])];
+    const kineticCorrect = pointInWindows(kineticIndex, kineticWindows);
+    const kineticPoints = kineticCorrect ? 13 : 0;
+    score += kineticPoints;
+    detail.push({ key: "kinetic-friction", points: kineticPoints, max: 13, correct: kineticCorrect, index: kineticIndex });
     return { score, maxScore: 40, detail, candidates, decoded };
   }
   function predictionScore(answer, scenario) {
@@ -154,33 +147,28 @@
     const score = Math.max(0, Math.min(100, balance.score + experiment.score + analysis.score + predictions.score));
     const passed = score >= PASSING_SCORE && balance.score >= 10 && analysis.score >= 20 && predictions.score >= 8;
     const feedbackItems = [];
-    if (analysis.detail.find((item) => item.key === "acceleration" && !item.correct)) feedbackItems.push("加速區段的測力計讀數還包括令物體加速的合力，不能直接當作滑動摩擦力。");
-    if (analysis.detail.find((item) => item.key === "fast" && !item.correct)) feedbackItems.push("兩段近似勻速區段可用平均拉力估計滑動摩擦力；細微波動不代表平均值隨速度改變。");
+    if (analysis.detail.find((item) => item.key === "static-friction" && !item.correct)) feedbackItems.push("靜摩擦力可在物體仍靜止、拉力逐漸增加的圖線位置標示。");
+    if (analysis.detail.find((item) => item.key === "maximum-static-friction" && !item.correct)) feedbackItems.push("最大靜摩擦力在物體啱啱開始移動的峰值位置。");
+    if (analysis.detail.find((item) => item.key === "kinetic-friction" && !item.correct)) feedbackItems.push("滑動摩擦力在開始移動後較平穩的拉力平台位置。");
     return { score, maxScore: 100, passed, completed: Boolean(answer), breakdown: { balance, experiment, analysis, predictions }, feedbackItems };
   }
   function perfectAnswer(scenario, trial) {
     const decoded = Measurement.unpackTrace(trial);
     const candidates = Measurement.findCandidateWindows(decoded);
-    const choose = (list, kind) => {
-      if (!list?.length) return { startIndex: 0, endIndex: 1 };
-      const ranked = list.slice().sort((a, b) => {
-        const aOther = Measurement.otherPhaseFraction(a, [{}], decoded, kind);
-        const bOther = Measurement.otherPhaseFraction(b, [{}], decoded, kind);
-        return aOther - bOther || (b.stats?.durationS || 0) - (a.stats?.durationS || 0) || a.startIndex - b.startIndex;
-      });
-      return { startIndex: ranked[0].startIndex, endIndex: ranked[0].endIndex };
+    const pointFromWindow = (list, fallback = 0) => {
+      const window = list?.[0];
+      return window ? Math.round((window.startIndex + window.endIndex) / 2) : fallback;
     };
-    const slow = candidates.slow[0];
-    const fast = candidates.fast[0];
-    const slowMeanCN = Math.round((slow?.stats.meanPullN || scenario.kineticFrictionMeanN) * 100);
-    const fastMeanCN = Math.round((fast?.stats.meanPullN || scenario.kineticFrictionMeanN) * 100);
+    const breakawayIndex = decoded.breakaway ? Math.max(0, decoded.merged.findIndex((sample) => sample.kind === "breakaway")) : pointFromWindow(candidates.static, 0);
+    const kineticWindow = candidates.slow?.[0] || candidates.fast?.[0];
+    const kineticFallback = breakawayIndex < decoded.merged.length - 1 ? breakawayIndex + 1 : breakawayIndex;
     const appliedDirection = scenario.balancePullDirection || "right";
     const oppositeDirection = appliedDirection === "left" ? "right" : "left";
     const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 5, generatorVersion: 1, physicsVersion: 7, measurementVersion: 4, rubricVersion: 2, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      schemaVersion: 6, generatorVersion: 1, physicsVersion: 7, measurementVersion: 4, rubricVersion: 3, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
       balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerAppliedForce: { direction: appliedDirection, magnitudeCN: appliedMagnitudeCN, committed: true }, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
-      analysis: { staticInterval: { ...choose(candidates.static, "static"), frictionType: "static", relation: "equal" }, breakaway: { markerIndex: decoded.breakaway ? decoded.merged.findIndex((s) => s.kind === "breakaway") : 0, estimatedFsMaxCN: decoded.visibleBreakawayPeakCN || 0, identifiedAs: "maximum-static-friction" }, slowPlateau: { ...choose(candidates.slow, "slow"), estimatedFkCN: slowMeanCN }, acceleration: { ...choose(candidates.acceleration, "acceleration"), relation: "pull-greater", pullEqualsFk: "no" }, fastPlateau: { ...choose(candidates.fast, "fast"), estimatedFkCN: fastMeanCN, speedComparison: "same-average" } },
+      analysis: { staticFriction: { index: pointFromWindow(candidates.static, 0), committed: true }, maximumStaticFriction: { index: breakawayIndex, committed: true }, kineticFriction: { index: kineticWindow ? Math.round((kineticWindow.startIndex + kineticWindow.endIndex) / 2) : kineticFallback, committed: true } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))
     };
   }
