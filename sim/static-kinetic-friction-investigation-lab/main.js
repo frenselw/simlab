@@ -23,12 +23,10 @@
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
   const EXPERIMENT_ACTIVE_HANDLE_SPEED_LIMIT_MPS = 0.24;
-  // Keep the direct post-breakaway interaction easy to control on a narrow
-  // phone stage.  This is a velocity-proportional motion response term, not
-  // an automatic kinetic-friction force: the learner's pull remains the
-  // displayed arrow and measured F拉 value, while the block's net force is
-  // integrated with the extra response term.
-  const EXPERIMENT_DIRECT_MOTION_DAMPING_NS_PER_M = 36;
+  // The B physics remains the ordinary fixed-kinetic-friction Newton model.
+  // Give the compact stage more visual track length so a large but valid
+  // force leaves the learner time to adjust without changing F = ma.
+  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 8;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
   function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, value)); }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
@@ -450,13 +448,7 @@
         block: directExperimentState.block,
         contact: directExperimentState.contact
       };
-      const next = Physics.stepDirectForce(
-        directInputState,
-        experimentAppliedForceN,
-        scenario,
-        stepS,
-        { dampingNsPerM: EXPERIMENT_DIRECT_MOTION_DAMPING_NS_PER_M }
-      );
+      const next = Physics.stepDirectForce(directInputState, experimentAppliedForceN, scenario, stepS);
       const stiffness = Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
       const extensionM = Math.max(0, experimentAppliedForceN) / stiffness;
       const handlePositionM = next.block.positionM + finite(scenario.connector?.restLengthM, 0.18) + extensionM;
@@ -624,7 +616,9 @@
       svg.append(svgElement("line", { x1: 35, y1: groundY, x2: 865, y2: groundY, class: "apparatus-ground-line" }));
       const position = predictionMode ? .45 : balanceMode ? (balanceDirectState?.block?.positionM ?? (.72 + balanceMotionOffsetM)) : experimentMode ? (directExperimentState?.block?.positionM ?? EXPERIMENT_START_POSITION_M) : physicsState?.block?.positionM ?? 0;
       const target = predictionMode ? .95 : physicsState?.handle?.positionM ?? (scenario?.connector.restLengthM || .18);
-      const positionFraction = position / (scenario?.stage.lengthM || 1.65);
+      const physicsTrackLengthM = scenario?.stage.lengthM || 1.65;
+      const renderTrackLengthM = experimentMode ? physicsTrackLengthM * EXPERIMENT_RENDER_TRACK_MULTIPLIER : physicsTrackLengthM;
+      const positionFraction = position / renderTrackLengthM;
       const x = balanceMode ? 100 + positionFraction * 650 : experimentMode ? 45 + clamp(positionFraction, 0, 1) * 728 : 100 + clamp(positionFraction, .04, .88) * 650;
       const hx = 100 + clamp(target / (scenario?.stage.lengthM || 1.65), 0, 1) * 650;
       svg.append(svgElement("rect", { x, y: groundY - 54, width: 92, height: 54, rx: 8, class: "apparatus-block" }));

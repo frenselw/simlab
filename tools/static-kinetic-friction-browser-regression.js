@@ -235,7 +235,7 @@ async function semanticSmoke(cdp, url, label) {
   const increasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
   assert.ok(increasedExperimentForce.appliedForceN > heldForce + .5, `${label}: a rightward movement increases force after sliding starts ${JSON.stringify(increasedExperimentForce)}`);
   assert.ok(increasedExperimentForce.measuredForceN > experimentHeld.measuredForce + .5, `${label}: the measured pull also increases after sliding starts ${JSON.stringify({ held: experimentHeld.measuredForce, increased: increasedExperimentForce.measuredForceN, positionM: increasedExperimentForce.positionM, velocityMps: increasedExperimentForce.velocityMps })}`);
-  assert.ok(Math.abs(increasedExperimentForce.velocityMps) < .24, `${label}: the post-breakaway direct pull remains slow enough to adjust on the compact stage ${JSON.stringify(increasedExperimentForce)}`);
+  assert.ok(increasedExperimentForce.accelerationMps2 > 0, `${label}: a post-breakaway pull above kinetic friction accelerates the block ${JSON.stringify(increasedExperimentForce)}`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 6, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(100);
   const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
@@ -252,6 +252,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(releasedExperiment.arrow, 0, `${label}: releasing removes the live pull arrow`);
   assert.equal(releasedExperiment.running, true, `${label}: releasing the pointer does not end the 30-second recording`);
   assert.equal(releasedExperiment.graphLines, 1, `${label}: the force-time trace remains visible after force reduction`);
+  assert.ok(releasedExperiment.acceleration < 0 || releasedExperiment.mode === "static", `${label}: removing the pull leaves the block decelerating under kinetic friction ${JSON.stringify(releasedExperiment)}`);
   await delay(720);
   const stoppedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
   assert.ok(stoppedExperiment && Math.abs(stoppedExperiment.velocityMps) < .02 && stoppedExperiment.contactMode === "static" && stoppedExperiment.positionM > 0, `${label}: the released block decelerates and then re-sticks with its displacement ${JSON.stringify(stoppedExperiment)}`);
