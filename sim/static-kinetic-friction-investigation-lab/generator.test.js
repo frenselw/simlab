@@ -21,5 +21,6 @@ assert.notEqual(G.deriveSeed(10, "surface"), G.deriveSeed(10, "sensor"));
 assert.throws(() => G.generateScenario({ seed: -1 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 2 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 1 }), /Unsupported/);
+assert.throws(() => G.generateScenario({ seed: 1, physicsVersion: 3 }), /Unsupported/);
 assert.throws(() => G.generateScenario({ seed: 1, measurementVersion: 3 }), /Unsupported/);
 console.log("Static/kinetic friction generator checks passed");

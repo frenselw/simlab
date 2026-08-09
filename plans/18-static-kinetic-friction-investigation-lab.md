@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`18`（2026-08-09；B 在突破最大靜摩擦力後加入不顯示的握把跟隨機制，令施加拉力維持在滑動摩擦力附近或略高，避免物體因張力跌穿滑動摩擦力而立即重新靜止；同步提升 `physicsVersion` 至 3，`measurementVersion` 維持 4，學生向左減力或放手即可解除跟隨）。
+> Plan revision：`19`（2026-08-09；修正 B 的連續直接施力互動：突破最大靜摩擦力後的短暫握把跟隨只維持到學生再次作出有意義的加／減力輸入；此後拉力目標以物體當前位置為基準，物體放手後即使減速至停下，30 秒內仍可重新抓取、加力或減力。手機版舞台把提示卡片放在獨立上方 row，避免遮住物體；同步提升 `physicsVersion` 至 4，`measurementVersion` 維持 4）。
 
 本計劃必須遵從：
 
@@ -472,7 +472,8 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 1. 先慢慢向右增加拉力，直至物體開始移動；
 2. 開始移動後繼續施力，盡量保持勻速直線運動；
 3. 手指／滑鼠停住時，拉力保持上一個值；向右移少量，向右拉力相應增加少量；向左移只會減少向右拉力，不能改成向左拉力；放手後拉力回到零。輸入比例為 `30 px/N`，有效範圍為 `0–12 N`；
-4. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄。
+4. 突破最大靜摩擦力後，系統只在學生尚未重新調整拉力時提供短暫的隱藏握把跟隨，避免拉力跌穿滑動摩擦力而立即重新靜止；學生一旦向右加力或向左減力，即恢復完全手動控制。此後拉力目標以物體當前位置為基準，所以物體即使因放手而停下，只要記錄仍在 30 秒內，學生仍可重新按住物體中央再次施力、改變大小，並令物體重新開始運動；
+5. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄。
 
 記錄時間不可超過 `30 s`。若時間達到上限，立即停止物理更新並顯示：
 
@@ -1731,7 +1732,7 @@ Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair,
 generateScenario({
   seed,
   generatorVersion: 1,
-  physicsVersion: 3,
+  physicsVersion: 4,
   measurementVersion: 4
 });
 ```
@@ -2410,7 +2411,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 {
   schemaVersion: 5,
   generatorVersion: 1,
-  physicsVersion: 3,
+  physicsVersion: 4,
   measurementVersion: 4,
   rubricVersion: 2,
 
