@@ -119,11 +119,11 @@
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・直接拖動物體</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
-          <p><strong>活動簡介：</strong>按「開始 30 秒記錄」後，用手指或滑鼠直接拖動舞台上的物體中央，模擬用測力計拉動物體；你施加的拉力就是測力計讀數，摩擦力數值在 B 完全未知。<strong>學生只需要逐漸增加拉力，直到物體啱啱開始移動。</strong>系統會在開始移動的一刻顯示拉力由最大靜摩擦力突然降至滑動摩擦力附近，之後由系統自動維持接近勻速的拉力。</p>
-          <div class="experiment-instruction"><strong>操作要求：</strong>拉力只可向右；按住物體中央，逐漸向右增加拉力，直到物體啱啱開始滑動。成功開始移動後，系統會自動維持接近勻速，你不需要再自行調整拉力；下方的 <var>F</var><sub>拉</sub>–<var>t</var> 圖會同步記錄拉力突然下降及其後的平台。</div>
+          <p><strong>活動簡介：</strong>按「開始 30 秒記錄」，由物體中央逐漸向右增加拉力，直到物體開始移動。拉力等同測力計讀數；摩擦力數值未知。物體開始移動時，拉力會由最大靜摩擦力突然降至滑動摩擦力附近，之後系統維持近似勻速。</p>
+          <div class="experiment-instruction"><strong>操作：</strong>拉力只可向右；按住物體中央，逐漸加力至開始滑動。之後系統自動維持近似勻速，<var>F</var><sub>拉</sub>–<var>t</var> 圖同步記錄。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始</button></div>
-        <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再逐漸增加物體中央的向右拉力，直到物體啱啱開始移動。</p>
-        <p id="experimentFeedback" class="experiment-feedback neutral-status" aria-live="polite">學生只需找出物體啱啱開始移動的一刻；系統之後會自動維持接近勻速。</p>
+        <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再由物體中央逐漸增加向右拉力，直到開始移動。</p>
+        <p id="experimentFeedback" class="experiment-feedback neutral-status" aria-live="polite">先找出物體開始移動的一刻；之後系統自動維持近似勻速。</p>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>
       </section>

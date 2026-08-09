@@ -569,7 +569,7 @@
       const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" });
       axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
       defs.append(axisMarker);
-      const chart = { left: 64, top: 18, width: 772, height: 150, maxTimeS: 30, maxForceN: 12 };
+      const chart = { left: 64, top: 34, width: 772, height: 150, maxTimeS: 30, maxForceN: 12 };
       const xFor = (timeS) => chart.left + clamp(timeS, 0, chart.maxTimeS) / chart.maxTimeS * chart.width;
       const yFor = (forceN) => chart.top + chart.height - clamp(forceN, 0, chart.maxForceN) / chart.maxForceN * chart.height;
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
@@ -582,7 +582,7 @@
         svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" }));
         const label = svgElement("text", { x: chart.left - 10, y: y + 5, "text-anchor": "end", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(force))); svg.append(label);
       }
-      svg.append(svgElement("line", { x1: chart.left, y1: chart.top, x2: chart.left, y2: chart.top + chart.height, class: "graph-axis", "marker-start": "url(#graph-axis-arrow)" }));
+      svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left, y2: chart.top, class: "graph-axis", "marker-end": "url(#graph-axis-arrow)" }));
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#graph-axis-arrow)" }));
       const yLabel = svgElement("text", { x: 22, y: chart.top + chart.height / 2, transform: `rotate(-90 22 ${chart.top + chart.height / 2})`, "text-anchor": "middle", class: "graph-axis-label" });
       const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
