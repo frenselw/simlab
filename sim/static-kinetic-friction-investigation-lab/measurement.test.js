@@ -4,6 +4,8 @@ const G = require("./generator.js");
 const P = require("./physics.js");
 const M = require("./measurement.js");
 const scenario = G.generateScenario({ seed: 42 });
+assert.equal(M.GRAPH_SAMPLE_DT_S, .1);
+assert.equal(M.MAX_TRIAL_DURATION_S, 30);
 let state = M.createMeasurementState(scenario);
 const physical = P.createInitialState(scenario);
 const physicalCheckpoint = JSON.stringify(physical);
@@ -12,8 +14,8 @@ assert.equal(JSON.stringify(physical), physicalCheckpoint, "measurement filterin
 const before = M.liveReading(state);
 assert.equal(before.forceCN, 0, "the calibrated startup reading is already zero without a learner tare step");
 const samples = [];
-for (let i = 0; i <= 300; i += 1) samples.push({ timeS: i * .04, pullCN: Math.min(1100, i * 3), velocityMMps: i > 80 ? Math.min(250, i - 80) : 0 });
-const trace = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 3200, measuredPullCN: 720, measuredVelocityMMps: 4, preBreakPeakGridIndex: 80 } });
+for (let i = 0; i <= 300; i += 1) samples.push({ timeS: i * .1, pullCN: Math.min(1100, i * 3), velocityMMps: i > 80 ? Math.min(250, i - 80) : 0 });
+const trace = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 3200, measuredPullCN: 720, measuredVelocityMMps: 4, preBreakPeakGridIndex: 31 } });
 const unpacked = M.unpackTrace(trace);
 assert.equal(unpacked.regularSampleCount, 301);
 assert.equal(unpacked.merged.length, 301);
@@ -21,15 +23,15 @@ assert.equal(unpacked.breakaway.timeMs, 3200);
 assert.equal(unpacked.visibleBreakawayPeakCN, 720);
 assert.ok(M.assessTrial(trace).candidates);
 const preloadThenRise = Array.from({ length: 225 }, (_, i) => ({
-  timeS: i * .04,
-  pullCN: i < 50 ? 200 : Math.round((2 + (i - 50) * .04 * .4) * 100),
+  timeS: i * .1,
+  pullCN: i < 50 ? 200 : Math.round((2 + (i - 50) * .1 * .4) * 100),
   velocityMMps: 0
 }));
-const preloadTrace = M.packTrace({ regularSamples: preloadThenRise, breakaway: { timeMs: 9000, measuredPullCN: 560, measuredVelocityMMps: 20, preBreakPeakGridIndex: 224 } });
+const preloadTrace = M.packTrace({ regularSamples: preloadThenRise, breakaway: { timeMs: 22400, measuredPullCN: 560, measuredVelocityMMps: 20, preBreakPeakGridIndex: 224 } });
 const preloadDecoded = M.unpackTrace(preloadTrace);
 assert.ok(M.otherPhaseFraction({ startIndex: 0, endIndex: 224 }, [], preloadDecoded, "static") > .15, "a flat preload is other phase for static-rise selection");
-const shortRiseThenHold = Array.from({ length: 225 }, (_, i) => ({ timeS: i * .04, pullCN: Math.round((2 + Math.min(i, 20) * .04 * 1.25) * 100), velocityMMps: 0 }));
-const shortRiseTrace = M.packTrace({ regularSamples: shortRiseThenHold, breakaway: { timeMs: 9000, measuredPullCN: 300, measuredVelocityMMps: 20, preBreakPeakGridIndex: 224 } });
+const shortRiseThenHold = Array.from({ length: 225 }, (_, i) => ({ timeS: i * .1, pullCN: Math.round((2 + Math.min(i, 20) * .1 * 1.25) * 100), velocityMMps: 0 }));
+const shortRiseTrace = M.packTrace({ regularSamples: shortRiseThenHold, breakaway: { timeMs: 22400, measuredPullCN: 300, measuredVelocityMMps: 20, preBreakPeakGridIndex: 224 } });
 assert.ok(M.findCandidateWindows(shortRiseTrace).static.some((candidate) => candidate.startIndex === 0 && candidate.endIndex <= 20), "static candidate finder enumerates the valid rise before a static hold");
 
 const plateauSamples = Array.from({ length: 251 }, (_, i) => {
@@ -37,9 +39,9 @@ const plateauSamples = Array.from({ length: 251 }, (_, i) => {
   if (i > 50 && i <= 150) { velocityMMps = 100; pullCN = 500; }
   else if (i > 150 && i <= 170) { velocityMMps = 100 + (i - 150) * 5; pullCN = 600; }
   else if (i > 170) { velocityMMps = 200; pullCN = 500; }
-  return { timeS: i * .04, pullCN, velocityMMps };
+  return { timeS: i * .1, pullCN, velocityMMps };
 });
-const plateauTrace = M.packTrace({ regularSamples: plateauSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 49 } });
+const plateauTrace = M.packTrace({ regularSamples: plateauSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 19 } });
 const plateauCandidates = M.findCandidateWindows(plateauTrace);
 assert.ok(plateauCandidates.slow.some((candidate) => candidate.startIndex === 60 && candidate.endIndex === 90), "every qualifying slow plateau subwindow is an authority candidate");
 assert.ok(plateauCandidates.fast.some((candidate) => candidate.startIndex === 180 && candidate.endIndex === 220), "every qualifying fast plateau subwindow is an authority candidate");
@@ -51,9 +53,9 @@ const multipleFastSamples = Array.from({ length: 251 }, (_, i) => {
   else if (i > 105 && i <= 140) { velocityMMps = 170; pullCN = 500; }
   else if (i > 140 && i <= 155) { velocityMMps = 170 + (i - 140) * 4; pullCN = 600; }
   else if (i > 155) { velocityMMps = 230; pullCN = 500; }
-  return { timeS: i * .04, pullCN, velocityMMps };
+  return { timeS: i * .1, pullCN, velocityMMps };
 });
-const multipleFastTrace = M.packTrace({ regularSamples: multipleFastSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 49 } });
+const multipleFastTrace = M.packTrace({ regularSamples: multipleFastSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 19 } });
 const multipleFastQuality = M.assessTrial(multipleFastTrace);
 assert.equal(multipleFastQuality.valid, true, "trial acceptance considers any separated slow/fast candidate pair, not only the first pair");
 

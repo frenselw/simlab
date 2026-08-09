@@ -2,10 +2,10 @@
 const assert = require("node:assert/strict");
 const M = require("./measurement.js");
 const Graph = require("./graph.js");
-const regular = Array.from({ length: 20 }, (_, i) => ({ timeS: i * .04, pullCN: i * 10, velocityMMps: i * 5 }));
+const regular = Array.from({ length: 20 }, (_, i) => ({ timeS: i * .1, pullCN: i * 10, velocityMMps: i * 5 }));
 const trace = M.packTrace({ regularSamples: regular });
 assert.equal(Graph.timeToX(0), Graph.GRAPH.left);
-assert.equal(Graph.canonicalIndexAtTime(trace, .4), 10);
+assert.equal(Graph.canonicalIndexAtTime(trace, .4), 4);
 assert.match(Graph.svgPath(trace, "force"), /^M/);
 assert.deepEqual(Graph.normalizeSelection(trace, 8, 3), { startIndex: 3, endIndex: 8 });
 assert.equal(Graph.intervalIoU({ startIndex: 2, endIndex: 5 }, { startIndex: 3, endIndex: 6 }), 3 / 5);

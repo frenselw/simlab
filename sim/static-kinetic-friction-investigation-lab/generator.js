@@ -7,8 +7,8 @@
 
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 1;
-  const MEASUREMENT_VERSION = 2;
-  const RUBRIC_VERSION = 1;
+  const MEASUREMENT_VERSION = 3;
+  const RUBRIC_VERSION = 2;
   const GRAVITY_MPS2 = 9.81;
   const MASS_OPTIONS_KG = Object.freeze([1.5, 1.7, 1.9, 2.1]);
   const FRICTION_PAIRS = Object.freeze([
@@ -25,7 +25,7 @@
   });
   const SURFACE_VARIATION_FRACTION = 0.02;
   const SURFACE_GRID_STEP_M = 0.002;
-  const MAX_TRIAL_DURATION_S = 12;
+  const MAX_TRIAL_DURATION_S = 30;
   const STAGE_LENGTH_M = 1.65;
   const SENSOR_RANGE_N = 12;
   const BALANCE_PULL_FRACTIONS = Object.freeze([0.24, 0.28, 0.32, 0.36]);

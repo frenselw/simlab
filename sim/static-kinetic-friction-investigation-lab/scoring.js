@@ -66,12 +66,10 @@
   function experimentScore(answer) {
     let quality = null;
     try { if (answer?.trial) quality = Measurement.assessTrial(answer.trial); } catch { quality = null; }
-    const evidence = quality?.evidence || { breakaway: false, slow: false, acceleration: false, fast: false };
+    const evidence = quality?.evidence || { breakaway: false, slow: false };
     const detail = [
-      { key: "breakaway", points: evidence.breakaway ? 6 : 0, max: 6, correct: Boolean(evidence.breakaway) },
-      { key: "slow", points: evidence.slow ? 5 : 0, max: 5, correct: Boolean(evidence.slow) },
-      { key: "acceleration", points: evidence.acceleration ? 4 : 0, max: 4, correct: Boolean(evidence.acceleration) },
-      { key: "fast", points: evidence.fast ? 5 : 0, max: 5, correct: Boolean(evidence.fast) }
+      { key: "breakaway", points: evidence.breakaway ? 10 : 0, max: 10, correct: Boolean(evidence.breakaway) },
+      { key: "continued-motion", points: evidence.slow ? 10 : 0, max: 10, correct: Boolean(evidence.slow) }
     ];
     const valid = Boolean(quality?.valid);
     // Part B is a gate: an incomplete/invalid trace cannot contribute partial
@@ -180,7 +178,7 @@
     const oppositeDirection = appliedDirection === "left" ? "right" : "left";
     const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 4, generatorVersion: 1, physicsVersion: 1, measurementVersion: 2, rubricVersion: 1, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      schemaVersion: 5, generatorVersion: 1, physicsVersion: 1, measurementVersion: 3, rubricVersion: 2, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
       balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerAppliedForce: { direction: appliedDirection, magnitudeCN: appliedMagnitudeCN, committed: true }, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
       analysis: { staticInterval: { ...choose(candidates.static, "static"), frictionType: "static", relation: "equal" }, breakaway: { markerIndex: decoded.breakaway ? decoded.merged.findIndex((s) => s.kind === "breakaway") : 0, estimatedFsMaxCN: decoded.visibleBreakawayPeakCN || 0, identifiedAs: "maximum-static-friction" }, slowPlateau: { ...choose(candidates.slow, "slow"), estimatedFkCN: slowMeanCN }, acceleration: { ...choose(candidates.acceleration, "acceleration"), relation: "pull-greater", pullEqualsFk: "no" }, fastPlateau: { ...choose(candidates.fast, "fast"), estimatedFkCN: fastMeanCN, speedComparison: "same-average" } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))

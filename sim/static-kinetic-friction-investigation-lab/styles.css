@@ -96,10 +96,13 @@ select {
 .pull-arrow { stroke: #b91c1c; stroke-width: 4; stroke-linecap: round; }
 .learner-friction-arrow { stroke: #1d4ed8; stroke-width: 4; stroke-linecap: round; }
 .force-line { fill: none; pointer-events: none; stroke-width: 3; }
+.experiment-force-line { stroke: #b91c1c; stroke-width: 3.5; }
 .force-arrow-head { fill: currentColor; }
 .force-builder-label { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
-.velocity-line { fill: none; stroke: #1d4ed8; stroke-width: 3; stroke-dasharray: 8 5; }
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
+.graph-axis { stroke: #334155; stroke-width: 1.8; }
+.graph-axis-label, .experiment-graph-title { font-size: 12px !important; font-variant-numeric: tabular-nums; }
+.experiment-graph-title { font-weight: 700; }
 .graph-cursor { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 4; }
 
 .drag-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -281,6 +284,8 @@ select {
 .panel-section p { line-height: 1.55; }
 .section-label { margin: 0 0 .3rem; color: var(--blue); font-size: .74rem; font-weight: 700; letter-spacing: .04em; }
 .instruction, .neutral-status { color: var(--muted); font-size: .84rem; }
+.experiment-instruction, .experiment-feedback { margin: .65rem 0; padding: .55rem .65rem; border-left: 4px solid var(--blue); border-radius: 0 .55rem .55rem 0; background: #eef4ff; line-height: 1.45; }
+.experiment-feedback { border-left-color: #c2410c; background: #fff7ed; color: #7c2d12; font-weight: 700; }
 .button-row { display: flex; gap: .5rem; flex-wrap: wrap; margin: .7rem 0; }
 .first-step-explanation {
   margin: .7rem 0;
@@ -418,7 +423,7 @@ th:first-child, td:first-child { text-align: left; }
 }
 
 @media (forced-colors: active) {
-  .force-line, .velocity-line, .graph-cursor { stroke: CanvasText; }
+  .force-line, .graph-cursor { stroke: CanvasText; }
   .drag-target { border-color: ButtonText; background: Canvas; }
   .primary-button { forced-color-adjust: none; background: Highlight; color: HighlightText; }
 }

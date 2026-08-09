@@ -99,8 +99,8 @@ const simulationList = [
     title: "靜摩擦力與滑動摩擦力探究實驗室",
     folder: "static-kinetic-friction-investigation-lab",
     categories: ["Mechanics"],
-    description: "拖動測力計拉動物體，利用同步拉力—時間及速度—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
-    tags: ["physics", "mechanics", "friction", "static-friction", "kinetic-friction", "force-sensor", "newtons-laws", "force-time-graph", "velocity-time-graph", "measurement", "scorm"],
+    description: "直接拖動物體，在 30 秒內同步記錄拉力—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
+    tags: ["physics", "mechanics", "friction", "static-friction", "kinetic-friction", "direct-manipulation", "newtons-laws", "force-time-graph", "measurement", "scorm"],
     status: "active"
   }
 ];

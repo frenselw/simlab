@@ -6,9 +6,9 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Generator) {
   "use strict";
 
-  const GRAPH_SAMPLE_DT_S = 0.04;
-  const GRAPH_SAMPLE_DT_MS = 40;
-  const MAX_TRIAL_DURATION_S = 12;
+  const GRAPH_SAMPLE_DT_S = 0.10;
+  const GRAPH_SAMPLE_DT_MS = 100;
+  const MAX_TRIAL_DURATION_S = 30;
   const MAX_REGULAR_SAMPLE_COUNT = 301;
   const FORCE_SENSOR_TAU_S = 0.025;
   const VELOCITY_SENSOR_TAU_S = 0.040;
@@ -27,7 +27,7 @@
   const MIN_PREBREAK_DURATION_S = 0.8;
   const MIN_FORCE_RISE_N = 1;
   const MAX_LOADING_SLOPE_N_PER_S = 6;
-  const MIN_POSTBREAK_MOVE_S = 0.4;
+  const MIN_POSTBREAK_MOVE_S = 1.0;
   const MIN_PLATEAU_DURATION_S = 1.2;
   const MAX_PLATEAU_ABS_SLOPE_MPS2 = 0.04;
   const MIN_MOVING_SPEED_MPS = 0.04;
@@ -96,8 +96,10 @@
   }
   function step(state, physical, scenario, dt) {
     const next = cloneMeasurementState(state);
-    next.forceFilteredN = lowPass(state.forceFilteredN, finite(physical?.connector?.tensionPhysicalN), dt, FORCE_SENSOR_TAU_S);
-    next.velocityFilteredMps = lowPass(state.velocityFilteredMps, Math.max(0, finite(physical?.block?.velocityMps)), dt, VELOCITY_SENSOR_TAU_S);
+    const directForceN = Number.isFinite(physical?.appliedForceN) ? Math.abs(physical.appliedForceN) : finite(physical?.connector?.tensionPhysicalN);
+    const directVelocityMps = Number.isFinite(physical?.appliedForceN) ? Math.abs(finite(physical?.block?.velocityMps)) : Math.max(0, finite(physical?.block?.velocityMps));
+    next.forceFilteredN = lowPass(state.forceFilteredN, directForceN, dt, FORCE_SENSOR_TAU_S);
+    next.velocityFilteredMps = lowPass(state.velocityFilteredMps, directVelocityMps, dt, VELOCITY_SENSOR_TAU_S);
     return { state: next, live: liveReading(next) };
   }
   function liveReading(state) {
@@ -397,15 +399,19 @@
     const pre = breakaway ? decoded.merged.filter((s) => s.timeS <= breakaway.timeMs / 1000) : [];
     const forceRise = pre.length ? Math.max(...pre.map((s) => s.measuredPullN)) - Math.min(...pre.map((s) => s.measuredPullN)) : 0;
     const preDuration = pre.length ? pre[pre.length - 1].timeS - pre[0].timeS : 0;
-    const slow = candidates.slow[0]?.stats;
-    const fast = candidates.fast[0]?.stats;
-    const separatedPlateauPair = candidates.slow.some((slowCandidate) => candidates.fast.some((fastCandidate) => fastCandidate.stats.meanVelocityMps - slowCandidate.stats.meanVelocityMps >= MIN_SPEED_DIFFERENCE_MPS));
     const trim = Math.min(Math.floor(pre.length * 0.10), Math.floor((pre.length - 1) / 2));
     const loadingSlopeNPerS = pre.length > 1 ? linearSlope(pre.slice(trim, pre.length - trim), "measuredPullN") : Infinity;
     const postBreakMoveDurationS = breakaway ? continuousMovingDuration(decoded.merged, breakaway.timeMs / 1000, MIN_MOVING_SPEED_MPS) : 0;
     const maxForceN = decoded.merged.length ? Math.max(...decoded.merged.map((s) => s.measuredPullN)) : Infinity;
-    const valid = Boolean(breakaway && preDuration >= MIN_PREBREAK_DURATION_S && forceRise >= MIN_FORCE_RISE_N && loadingSlopeNPerS <= MAX_LOADING_SLOPE_N_PER_S && maxForceN <= MAX_FORCE_CN / 100 && postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S && candidates.slow.length && candidates.acceleration.length && candidates.fast.length && slow && fast && isVelocityPlateau(slow) && isVelocityPlateau(fast) && separatedPlateauPair);
-    return { valid, breakaway: Boolean(breakaway), preDuration, forceRise, loadingSlopeNPerS, maxForceN, postBreakMoveDurationS, candidates, evidence: { breakaway: Boolean(breakaway), slow: candidates.slow.length > 0 && isVelocityPlateau(slow), acceleration: candidates.acceleration.length > 0, fast: candidates.fast.length > 0 && isVelocityPlateau(fast) }, neutralMessage: valid ? "記錄已完成，可以保留這次實驗。" : "資料尚未形成足夠的可分析實驗，請檢查記錄時間與速度變化後重新開始。" };
+    const valid = Boolean(breakaway && preDuration >= MIN_PREBREAK_DURATION_S && forceRise >= MIN_FORCE_RISE_N && maxForceN <= MAX_FORCE_CN / 100 && postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S);
+    const neutralMessage = !breakaway
+      ? "物體尚未開始移動；請慢慢增加拉力後再繼續。"
+      : postBreakMoveDurationS < MIN_POSTBREAK_MOVE_S
+        ? "物體開始移動後的記錄太短；請繼續拉一段時間再停止。"
+        : maxForceN > MAX_FORCE_CN / 100
+          ? "拉力超出可記錄範圍；請重新開始並減少拉力。"
+          : valid ? "記錄已完成，可以保存並進入 Part C。" : "記錄未能形成可分析資料，請重新開始。";
+    return { valid, breakaway: Boolean(breakaway), preDuration, forceRise, loadingSlopeNPerS, maxForceN, postBreakMoveDurationS, candidates, evidence: { breakaway: Boolean(breakaway), slow: postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S, acceleration: candidates.acceleration.length > 0, fast: candidates.fast.length > 0 }, neutralMessage };
   }
   return Object.freeze({
     GRAPH_SAMPLE_DT_S, GRAPH_SAMPLE_DT_MS, MAX_TRIAL_DURATION_S, MAX_REGULAR_SAMPLE_COUNT,

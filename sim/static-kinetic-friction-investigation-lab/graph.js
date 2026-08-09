@@ -6,7 +6,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Measurement) {
   "use strict";
 
-  const GRAPH = Object.freeze({ left: 60, top: 30, width: 700, height: 170, gap: 50, velocityHeight: 150, maxTimeS: 12, maxForceN: 12, maxVelocityMps: 0.35 });
+  const GRAPH = Object.freeze({ left: 60, top: 30, width: 700, height: 330, gap: 0, velocityHeight: 0, maxTimeS: 30, maxForceN: 12, maxVelocityMps: 0.35 });
   function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, value)); }
   function traceData(trace) { return trace?.merged ? trace : Measurement.unpackTrace(trace); }
   function timeToX(timeS, config = GRAPH) { return config.left + clamp(timeS, 0, config.maxTimeS) / config.maxTimeS * config.width; }
@@ -58,7 +58,7 @@
   function intervalLabel(trace, selection, label) {
     const stats = selectionStats(trace, selection);
     if (!stats) return `${label}，未選取有效區段`;
-    return `${label}，${stats.startTimeS.toFixed(2)} 至 ${stats.endTimeS.toFixed(2)} 秒，平均拉力 ${stats.meanPullN.toFixed(2)} 牛頓，平均速度 ${stats.meanVelocityMps.toFixed(3)} 米每秒`;
+    return `${label}，${stats.startTimeS.toFixed(2)} 至 ${stats.endTimeS.toFixed(2)} 秒，平均拉力 ${stats.meanPullN.toFixed(2)} 牛頓`;
   }
   function createSelectionSet(trace) {
     const max = Math.max(0, traceData(trace).merged.length - 1);
@@ -75,8 +75,7 @@
     const ns = "http://www.w3.org/2000/svg";
     const root = document.createElementNS(ns, "g");
     const force = document.createElementNS(ns, "path"); force.setAttribute("d", svgPath(trace, "force", config)); force.setAttribute("class", "force-line"); force.setAttribute("aria-label", "測力計讀數（拉力） F拉—時間 t");
-    const velocity = document.createElementNS(ns, "path"); velocity.setAttribute("d", svgPath(trace, "velocity", config)); velocity.setAttribute("class", "velocity-line"); velocity.setAttribute("aria-label", "速度 v—時間 t");
-    root.append(force, velocity); container.append(root); return root;
+    root.append(force); container.append(root); return root;
   }
   return Object.freeze({ GRAPH, timeToX, forceToY, velocityToY, pointForSample, svgPath, canonicalIndexAtTime, normalizeSelection, selectionStats, intervalIoU, bestCandidateIoU, intervalLabel, createSelectionSet, renderSvgPaths });
 });

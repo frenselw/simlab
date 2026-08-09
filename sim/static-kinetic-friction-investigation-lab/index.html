@@ -28,11 +28,11 @@
       </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="stageGraph" class="stage-graph is-hidden">
-        <svg id="graphSvg" viewBox="0 0 820 430" preserveAspectRatio="none" role="img" aria-label="同步拉力—時間及速度—時間圖"></svg>
+        <svg id="graphSvg" viewBox="0 0 820 430" preserveAspectRatio="none" role="img" aria-label="F拉–t 圖（拉力—時間圖）"></svg>
         <p id="graphCursorReadout" class="graph-cursor-readout" tabindex="0">尚未選取圖像時間。</p>
       </div>
       <div id="dragLayer" class="drag-layer" aria-label="可操作目標">
-        <button type="button" id="forceGrip" class="drag-target apparatus-drag-target grip-drag-target is-hidden" data-drag-target="force-grip" aria-describedby="stageCoachText" aria-label="實驗用握把，目前可拖動位置"><span aria-hidden="true">實驗拉力 <b>→</b></span></button>
+        <button type="button" id="experimentOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="experiment-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖動拉力"></button>
         <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
         <button type="button" id="resetBalanceObject" class="balance-reset-button primary-button is-hidden" data-action="reset-balance-object" aria-describedby="stageCoachText">物體返回中央</button>
         <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
@@ -46,11 +46,10 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 要直接在物體中央拖出水平力；A2 和 A3 的拉力箭嘴由你在物體上畫出。A3 的箭嘴端點跟隨手指或滑鼠，放手後拉力歸零，物體按合力連續加速、勻速、減速或反向；離開畫面後可把物體返回中央。</p>
+      <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 按住物體中央向右拖動；向左移只會減少向右拉力，不會產生向左拉力。手指停住時拉力保持，放手後拉力回到零。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <div id="liveReadouts" class="live-readouts" aria-live="off">
-        <span>拉力 <strong id="forceReadout">0.00 N</strong></span>
-        <span>速度 <strong id="velocityReadout">0.000 m/s</strong></span>
-        <span>時間 <strong id="timeReadout">0.00 s</strong></span>
+        <span><var>F</var><sub>拉</sub> <strong id="forceReadout">0.00 N</strong></span>
+        <span><var>t</var> <strong id="timeReadout">0.00 s</strong></span>
       </div>
       <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
     </section>
@@ -119,26 +118,25 @@
       </section>
 
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
-        <p class="section-label">第二階段・產生同步實驗數據</p>
-        <h2>拖動實驗用握把，形成一條完整記錄</h2>
-        <p>你可以先完成 Part B，亦可以稍後返回 Part A 修改答案。用實驗用握把慢慢增加拉力，讓物體開始移動；先保持低速，再加速至較高速度並保持。舞台上的數值只代表觀察量。</p>
-        <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並檢查資料</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始這次實驗</button></div>
-        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始實驗</h3><p>這會清除目前實驗記錄及依賴它的圖像分析；Part D 預測屬於獨立情境答案，會保留。不會顯示任何答案是否正確。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認清除並重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
-        <p id="experimentStatus" class="neutral-status" aria-live="off">尚未開始記錄。</p>
-        <div id="gripControls"><label class="range-row">鍵盤／滑鼠握把位置<input id="gripPosition" type="range" min="0.18" max="1.4" step="0.001" value="0.18" aria-describedby="gripHelp"></label>
-        <p id="gripHelp" class="instruction">也可在舞台拖動「實驗用握把」；方向鍵可微調，Shift 會使用較大步幅。</p></div>
+        <p class="section-label">第二階段・直接拉物體</p>
+        <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
+        <p>按「開始 30 秒記錄」後，直接按住舞台上的物體中央向右拖。你施加的拉力就相當於測力計讀數；摩擦力數值在 B 完全未知。向左移只會減少向右拉力，不會令物體受向左拉力。手指停住，拉力保持不變；放手，拉力回到零。</p>
+        <div class="experiment-instruction"><strong>任務：</strong>慢慢增加拉力，令物體開始並繼續移動；之後盡量保持勻速直線運動。</div>
+        <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始記錄</button></div>
+        <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始記錄</h3><p>這會清除目前 B 記錄及依賴它的 C 分析；Part D 預測屬於獨立情境答案，會保留。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>
+        <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再直接拖動物體中央。</p>
+        <p id="experimentFeedback" class="experiment-feedback neutral-status" aria-live="polite">拉力數值會同步畫在舞台下方的 <var>F</var><sub>拉</sub>–<var>t</var> 圖；系統不會顯示摩擦力。</p>
         <div id="trialQuality" class="quality-card is-hidden"></div>
-        <button type="button" data-action="keep-trial" class="primary-button is-hidden" id="keepTrial">保留這次實驗，進入圖像分析</button>
-        <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C 同步圖像分析</button>
+        <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>
       </section>
 
       <section id="analysisPanel" class="panel-section is-hidden" data-panel="analysis">
         <p class="section-label">第三階段・同步圖像分析</p>
-        <h2>在同一條記錄中標示五個部分</h2>
-        <p>有了 Part B 的實驗記錄後，才可以在上圖「測力計讀數（拉力） F拉—時間 t」及下圖「速度 v—時間 t」選取資料。你可以隨時切換到其他 Part，之後再返回修改。</p>
-        <p class="formula-hint"><var>F</var><sub>拉</sub> − <var>f</var><sub>k</sub> = <var>ma</var>；近似勻速時才可用平均 <var>F</var><sub>拉</sub> 估計 <var>f</var><sub>k</sub>。</p>
-        <p class="instruction">同步圖像固定顯示在舞台；控制區只保存你目前項目的選取與推斷。</p>
-        <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出時間、測力計拉力與速度；這些是你自己的記錄，不標示正確區段。</p><div id="traceNavigation" class="button-row" aria-label="資料表快速導航"><button type="button" id="previousExtremum" data-action="previous-extremum">前一個局部極值</button><button type="button" id="nextExtremum" data-action="next-extremum">後一個局部極值</button><button type="button" id="jumpSelectionStart" data-action="jump-selection-start">目前選區開始</button><button type="button" id="jumpSelectionEnd" data-action="jump-selection-end">目前選區結束</button></div><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col">時間 / s</th><th scope="col">拉力 / N</th><th scope="col">速度 / m/s</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
+        <h2>C：從這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖找出摩擦力概念</h2>
+        <p>這裡只重看 Part B 同一張「<var>F</var><sub>拉</sub>–<var>t</var> 圖」，不再顯示第二張速度圖。按項目旁的「編輯此項」，逐項找出靜止上升、開始移動及移動後穩定拉力。</p>
+        <p class="formula-hint"><var>v</var>=0、<var>a</var>=0 時，<var>f</var><sub>s</sub>=<var>F</var><sub>拉</sub>；物體近似勻速時，平均 <var>F</var><sub>拉</sub> 可用來估計 <var>f</var><sub>k</sub>。</p>
+        <p class="instruction"><var>F</var><sub>拉</sub>–<var>t</var> 圖上的拉力是真正記錄；C 不會直接替你標示答案。</p>
+        <details id="dataView" class="data-view"><summary>鍵盤／讀屏資料視圖</summary><p>逐樣本讀出同一張 <var>F</var><sub>拉</sub>–<var>t</var> 圖的時間和拉力；這些是你自己的記錄，不標示正確區段。</p><div id="traceNavigation" class="button-row" aria-label="資料表快速導航"><button type="button" id="previousExtremum" data-action="previous-extremum">前一個拉力轉折</button><button type="button" id="nextExtremum" data-action="next-extremum">後一個拉力轉折</button><button type="button" id="jumpSelectionStart" data-action="jump-selection-start">目前選區開始</button><button type="button" id="jumpSelectionEnd" data-action="jump-selection-end">目前選區結束</button></div><div class="table-scroll"><table><thead><tr><th scope="col">樣本</th><th scope="col"><var>t</var> / s</th><th scope="col"><var>F</var><sub>拉</sub> / N</th></tr></thead><tbody id="traceTable"></tbody></table></div></details>
         <section id="intervalStats" class="data-view" aria-labelledby="intervalStatsTitle"><h3 id="intervalStatsTitle">目前所選區段統計</h3><p id="intervalStatsHelp">統計只根據你目前拖曳選取的區段，不代表系統答案。</p><div id="intervalStatsList"></div></section>
         <div id="analysisTasks" class="analysis-tasks"></div>
         <button type="button" data-action="save-analysis" class="primary-button">保存圖像分析</button>

@@ -6,12 +6,12 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Measurement) {
   "use strict";
 
-  const SCHEMA_VERSION = 4;
-  const WIRE_VERSION = "s4";
+  const SCHEMA_VERSION = 5;
+  const WIRE_VERSION = "s5";
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 1;
-  const MEASUREMENT_VERSION = 2;
-  const RUBRIC_VERSION = 1;
+  const MEASUREMENT_VERSION = 3;
+  const RUBRIC_VERSION = 2;
   const ACTIVITY = "static-kinetic-friction-investigation-lab";
   const PHASES = Object.freeze(["balance", "experiment", "analysis", "predict", "review"]);
   const BALANCE_EDIT_KEYS = Object.freeze(["zero-force", "static-case", "breakaway"]);

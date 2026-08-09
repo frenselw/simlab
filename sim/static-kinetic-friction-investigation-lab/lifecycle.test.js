@@ -52,8 +52,8 @@ function fakeRuntime(initial = {}) {
   vm.runInNewContext(scormSource, { window, console, JSON, TextEncoder });
   return { scorm: window.SimScorm, control, listeners };
 }
-const lifecycleSamples = Array.from({ length: 301 }, (_, i) => ({ timeS: i * .04, pullCN: i < 50 ? i * 12 : 500, velocityMMps: i < 50 ? 0 : i < 90 ? 100 : i < 110 ? 100 + (i - 90) * 6 : 220 }));
-const lifecycleTrial = Measurement.packTrace({ regularSamples: lifecycleSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 49 } });
+const lifecycleSamples = Array.from({ length: 301 }, (_, i) => ({ timeS: i * .1, pullCN: i < 50 ? i * 12 : 500, velocityMMps: i < 50 ? 0 : i < 90 ? 100 : i < 110 ? 100 + (i - 90) * 6 : 220 }));
+const lifecycleTrial = Measurement.packTrace({ regularSamples: lifecycleSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 19 } });
 const lifecycleReview = Scoring.perfectAnswer(scenario, lifecycleTrial);
 const lifecycleResult = Scoring.scoreAnswer(lifecycleReview, scenario);
 const envelopeRuntime = fakeRuntime();

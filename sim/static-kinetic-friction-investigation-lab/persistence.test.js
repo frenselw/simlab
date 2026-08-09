@@ -7,8 +7,8 @@ const P = require("./persistence.js");
 
 const ACTIVITY = "static-kinetic-friction-investigation-lab";
 const scenario = G.generateScenario({ seed: 9 });
-const samples = Array.from({ length: 301 }, (_, i) => ({ timeS: i * .04, pullCN: i < 50 ? i * 12 : 500, velocityMMps: i < 50 ? 0 : i < 90 ? 100 : i < 110 ? 100 + (i - 90) * 6 : 220 }));
-const trial = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 49 } });
+const samples = Array.from({ length: 301 }, (_, i) => ({ timeS: i * .1, pullCN: i < 50 ? i * 12 : 500, velocityMMps: i < 50 ? 0 : i < 90 ? 100 : i < 110 ? 100 + (i - 90) * 6 : 220 }));
+const trial = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 4, preBreakPeakGridIndex: 19 } });
 const snapshot = (state, kind = "draft") => ({ version: 1, activity: ACTIVITY, kind, answer: kind === "review" ? P.encodeReview(state) : P.encodeDraft(state) });
 let maximumDraftBytes = 0;
 function roundTrip(state, label) {
@@ -128,7 +128,7 @@ const predictionDraft = P.transitions.setPrediction(predictionEdit, 1, { ...stat
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(predictionDraft, "prediction partial review draft")), state, "prediction review draft cancellation restores authority");
 
 const review = P.encodeReview(state);
-assert.equal(review.w, "s4");
+assert.equal(review.w, "s5");
 assert.ok(Buffer.byteLength(JSON.stringify({ version: 1, activity: ACTIVITY, kind: "review", answer: review }), "utf8") < 4000, "canonical review fits suspend_data");
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: review }, scenario, "review"), P.normalizeReview(state));
 assert.throws(() => P.validateState({ ...state, balance: { ...state.balance, tareCorrectionCN: 3 } }), /invalid/);
