@@ -45,25 +45,29 @@ const springPostDrop = springSamples.find((sample) => sample.timeS >= springBrea
 assert.ok(springPostDrop, "spring pull has a post-breakaway sample");
 assert.ok(springPeak - springPostDrop.connector.tensionPhysicalN >= 0.8, "spring tension visibly drops after breakaway");
 assert.ok(springPostDrop.block.velocityMps < 0.2, "spring release keeps post-breakaway speed controllable");
-let assistedSpring = P.createInitialState(scenario);
-let assistedBreakaway = null;
-let minimumAppliedTensionGap = Infinity;
-for (let index = 0; index < 720; index += 1) {
-  let target = springTarget;
-  if (assistedBreakaway && assistedSpring.contact.mode === "sliding") {
-    const minimumTensionN = P.kineticFrictionAt(assistedSpring, scenario) + 0.02;
-    target = P.kineticFollowTargetPosition(assistedSpring, minimumTensionN, scenario);
-    const followedHandle = P.stepHandle(assistedSpring.handle, target, P.PHYSICS_DT_S);
-    const appliedTensionN = P.connectorTension(followedHandle.positionM, assistedSpring.block.positionM, followedHandle.velocityMps, assistedSpring.block.velocityMps, scenario.connector);
-    minimumAppliedTensionGap = Math.min(minimumAppliedTensionGap, appliedTensionN - P.kineticFrictionAt(assistedSpring, scenario));
-  }
-  assistedSpring = P.stepPhysics(assistedSpring, { handleTargetPositionM: target }, scenario);
-  if (!assistedBreakaway) assistedBreakaway = assistedSpring.events.find((event) => event.type === "breakaway") || null;
+assert.equal(P.kineticFollowTargetPosition, undefined, "physics exposes no automatic kinetic-follow assist");
+let userControlledSpring = P.createInitialState(scenario);
+let userBreakaway = null;
+for (let index = 0; index < 120; index += 1) {
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: springTarget }, scenario);
+  if (!userBreakaway) userBreakaway = userControlledSpring.events.find((event) => event.type === "breakaway") || null;
 }
-assert.ok(assistedBreakaway, "kinetic follow-through still observes breakaway");
-assert.ok(minimumAppliedTensionGap >= 0.019, "kinetic follow-through keeps applied tension at or just above kinetic friction");
-assert.equal(assistedSpring.contact.mode, "sliding", "kinetic follow-through prevents immediate re-stick");
-assert.ok(assistedSpring.block.positionM > 0.02 && assistedSpring.block.velocityMps > 0.01, "kinetic follow-through keeps the block moving at a controllable speed");
+assert.ok(userBreakaway, "direct spring input observes breakaway");
+const speedBeforeRelease = userControlledSpring.block.velocityMps;
+for (let index = 0; index < 240; index += 1) {
+  const releaseTarget = userControlledSpring.block.positionM + scenario.connector.restLengthM;
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: releaseTarget }, scenario);
+}
+assert.ok(userControlledSpring.block.velocityMps < speedBeforeRelease, "directly reducing the hand target reduces sliding speed");
+assert.equal(userControlledSpring.contact.mode, "static", "directly reducing the hand target can re-stick the block");
+let reapplyBreakaway = null;
+for (let index = 0; index < 240; index += 1) {
+  const reapplyTarget = userControlledSpring.block.positionM + scenario.connector.restLengthM + (scenario.staticLimitMeanN + 1.5) / scenario.connector.stiffnessNPerM;
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: reapplyTarget }, scenario);
+  if (!reapplyBreakaway) reapplyBreakaway = userControlledSpring.events.find((event) => event.type === "breakaway") || null;
+}
+assert.ok(reapplyBreakaway, "direct spring input can be increased again after re-sticking");
+assert.equal(userControlledSpring.contact.mode, "sliding", "the re-applied spring input starts sliding again");
 let state = P.createInitialState(scenario); const events = [];
 for (let i = 0; i < 1600; i += 1) { state = P.stepPhysics(state, { handleTargetPositionM: .85 }, scenario); events.push(...state.events); }
 assert.ok(state.block.positionM >= 0);

@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`22`（2026-08-09；Part B 移除 control panel 拉力 slider，恢復由舞台物體中央直接拖動拉力；B 使用 spring／connector 物理模型記錄測力計等效拉力，保留最大靜摩擦力突破後的張力下降及自然減速。物體由最左開始並以 `0.06 m/s` 操作速度上限保持慢速。重新開始改為一按即時清除舊 B／C 記錄並重開 30 秒，不再顯示確認／保留流程；F–t 圖移除頂部冗餘標籤並放大刻度文字。`physicsVersion` 提升至 6，`measurementVersion` 維持 4）。
+> Plan revision：`23`（2026-08-09；Part B 移除 control panel 拉力 slider，恢復由舞台物體中央直接拖動拉力；B 使用 spring／connector 物理模型記錄測力計等效拉力，保留最大靜摩擦力突破後的張力下降及自然減速。物體由最左開始並以 `0.06 m/s` 操作速度上限保持慢速。移除 breakaway 後自動維持滑動摩擦力的 kinetic-follow 輔助，讓手指位置在整個滑動過程直接控制彈簧目標及拉力；活動簡介明確要求學生最後盡量保持勻速直線運動。重新開始改為一按即時清除舊 B／C 記錄並重開 30 秒，不再顯示確認／保留流程；F–t 圖移除頂部冗餘標籤並放大刻度文字。`physicsVersion` 提升至 7，`measurementVersion` 維持 4）。
 
 本計劃必須遵從：
 
@@ -92,7 +92,7 @@
 1. 在沒有水平外力時，選擇摩擦力為零的類型、方向及大小；
 2. 在指定的較小水平拉力下，直接由物體中央拖出拉力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
 3. 直接拖拉物體並逐步增加拉力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
-4. 進入 Part B，從舞台最左位置直接按住物體中央向右拖動拉力，在 30 秒內令物體開始並繼續移動；
+4. 進入 Part B，從舞台最左位置直接按住物體中央向右拖動拉力，在 30 秒內令物體開始並繼續移動，並在開始滑動後盡量調整至勻速直線運動；
 5. 從同一次實驗即時產生的單一拉力—時間圖標示關鍵區段；
 6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
 7. 完成四個未直接測試情境的操作式預測；
@@ -104,7 +104,7 @@
 - A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
 - A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭嘴，箭嘴端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
 - A／B／C／D 任務列可直接切換；Part B 不要求先完成 Part A，Part C 沒有有效 trace 時顯示中性等待提示，Part D 可先完成預測；
-- Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；手指向右移少量便增加拉力，向左移只會減少向右拉力至零，手指停住時力值保持；
+- Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；手指向右移少量便增加拉力，向左移只會減少向右拉力至零，手指停住時力值保持；開始滑動後仍由手指位置直接控制拉力，不會被自動勻速輔助覆蓋；
 - 放手後拉力回到 `0 N`，物體按滑動摩擦力自然減速，未到 30 秒仍可再次按住物體中央施力，不因物體停下而鎖定；
 - 30 秒時間上限、超時提示及重新開始記錄；
 - 物體移動太快／太慢時顯示「細力啲」／「大力啲」；
@@ -471,7 +471,7 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 1. 先慢慢向右增加拉力，直至物體開始移動；
 2. 開始移動後繼續施力，盡量保持勻速直線運動；
 3. 手指停住時，直接拖動 target 保持目前的拉力；手指向右移少量，向右拉力相應增加少量；向左移只會減少目前向右拉力，不能改成向左拉力；有效範圍為 `0–12 N`；
-4. 直接拖動輸入轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力；
+4. 直接拖動輸入轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力。breakaway 後不再以 kinetic-follow 或其他自動補力改寫 target；學生每次拖動的位置都直接改變彈簧伸長，物體的加速、減速或重新停下由實際合力決定；
 5. 放手後 target 回到無拉力狀態，物體不會瞬間停下，而會按 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma` 先減速，速度降至零後才重新進入 static；未到 30 秒，學生仍可再次按住物體中央施力令物體重新運動；
 6. 物理操作的 handle response 使用 `HANDLE_OMEGA=24` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，令物體在手機窄舞台上明顯慢速移動，仍保留加速、勻速、減速及重新施力的連續行為；
 7. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄；「重新開始」在沒有 accepted trial、只有未保存／失敗記錄或已有 accepted trial 時都可使用，一按即清除舊 B trace／C analysis 並直接開始新的 30 秒記錄，不需停止、確認或保留目前資料。
@@ -489,7 +489,7 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 - 尚未移動：「慢慢增加拉力，令物體開始移動。」
 - 移動太快：「細力啲。」
 - 移動太慢或即將停下：「大力啲。」
-- 速度在適合範圍：「保持呢個拉力，盡量保持勻速直線運動。」
+- 速度在適合範圍：「保持呢個拉力，盡量保持勻速直線運動。」活動簡介及操作要求亦明確指出，開始滑動後的主要目標是盡量保持勻速直線運動；系統只提供「細力啲／大力啲」方向提示，不會自動把拉力鎖定在勻速值。
 
 直接拖動的水平位移映射改善學生微調拉力時的操作解析度；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
 
@@ -1664,7 +1664,7 @@ Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair,
 generateScenario({
   seed,
   generatorVersion: 1,
-  physicsVersion: 6,
+  physicsVersion: 7,
   measurementVersion: 4
 });
 ```
@@ -2343,7 +2343,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 {
   schemaVersion: 5,
   generatorVersion: 1,
-  physicsVersion: 6,
+  physicsVersion: 7,
   measurementVersion: 4,
   rubricVersion: 2,
 

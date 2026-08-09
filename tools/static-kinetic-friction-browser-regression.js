@@ -237,7 +237,7 @@ async function semanticSmoke(cdp, url, label) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 6, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(100);
   const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(decreasedExperimentForce.appliedForceN < increasedExperimentForce.appliedForceN - .5 && decreasedExperimentForce.appliedForceN > .5 && decreasedExperimentForce.kineticFollowActive === false, `${label}: a leftward movement decreases force after sliding starts ${JSON.stringify(decreasedExperimentForce)}`);
+  assert.ok(decreasedExperimentForce.appliedForceN < increasedExperimentForce.appliedForceN - .5 && decreasedExperimentForce.appliedForceN > .5 && !Object.hasOwn(decreasedExperimentForce, "kineticFollowActive"), `${label}: a leftward movement directly decreases force after sliding starts without an automatic kinetic-follow override ${JSON.stringify(decreasedExperimentForce)}`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x - 120, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(80);
   const leftwardAttempt = await evaluate(cdp, "(() => ({force:window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length}))()");

@@ -6,7 +6,7 @@
   "use strict";
 
   const GENERATOR_VERSION = 1;
-  const PHYSICS_VERSION = 6;
+  const PHYSICS_VERSION = 7;
   const MEASUREMENT_VERSION = 4;
   const RUBRIC_VERSION = 2;
   const GRAVITY_MPS2 = 9.81;

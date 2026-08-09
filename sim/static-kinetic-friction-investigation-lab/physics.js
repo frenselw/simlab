@@ -83,34 +83,6 @@
   }
   function staticLimitAt(state, scenario) { return Generator.staticLimitAt(state.block.positionM, scenario); }
   function kineticFrictionAt(state, scenario) { return Generator.kineticFrictionAt(state.block.positionM, scenario); }
-  // Once breakaway has happened, the learner's hand should follow the block
-  // closely enough that the connector does not fall back below kinetic
-  // friction and immediately re-stick it.  Solve for the next hand target
-  // using the same handle response that stepPhysics will use.  This is an
-  // interaction assist, not a friction readout: the caller supplies the
-  // minimum applied tension it wants to preserve.
-  function kineticFollowTargetPosition(state, minimumTensionN, scenario, dt = PHYSICS_DT_S) {
-    if (!state || !scenario || state.contact?.mode !== "sliding") return finite(state?.handle?.targetPositionM, scenario?.connector?.restLengthM ?? 0.18);
-    const stepS = Math.max(0, finite(dt, PHYSICS_DT_S));
-    if (stepS <= 0) return finite(state.handle.targetPositionM, scenario.connector.restLengthM);
-    const desiredN = Math.max(0, finite(minimumTensionN));
-    if (desiredN <= 0) return finite(state.handle.targetPositionM, scenario.connector.restLengthM);
-    const rest = finite(scenario.connector?.restLengthM, 0.18);
-    const baseTargetM = finite(state.block?.positionM) + rest;
-    const tensionForTarget = (targetPositionM) => {
-      const handle = stepHandle(state.handle, targetPositionM, stepS);
-      return connectorTension(handle.positionM, state.block.positionM, handle.velocityMps, state.block.velocityMps, scenario.connector);
-    };
-    let lowerM = baseTargetM;
-    let upperM = Math.max(baseTargetM + 0.08, finite(state.handle.targetPositionM, baseTargetM));
-    for (let index = 0; index < 48 && tensionForTarget(upperM) < desiredN; index += 1) upperM += 0.02;
-    for (let index = 0; index < 32; index += 1) {
-      const middleM = (lowerM + upperM) / 2;
-      if (tensionForTarget(middleM) >= desiredN) upperM = middleM;
-      else lowerM = middleM;
-    }
-    return upperM;
-  }
   function resolveStaticContact(state, tensionN, scenario) {
     const limitN = staticLimitAt(state, scenario);
     if (Math.abs(state.block.velocityMps) <= V_STICK_MPS && tensionN <= limitN + FORCE_EPSILON_N) {
@@ -435,7 +407,7 @@
   return Object.freeze({
     PHYSICS_DT_S, HANDLE_OMEGA, HANDLE_ZETA, HANDLE_SPEED_LIMIT_MPS, V_STICK_MPS,
     smoothstep, createInitialState, stepHandle, connectorTension, connectorExtension,
-    splitAtRestLengthCrossing, staticLimitAt, kineticFrictionAt, kineticFollowTargetPosition, resolveStaticContact,
+    splitAtRestLengthCrossing, staticLimitAt, kineticFrictionAt, resolveStaticContact,
     resolveSlidingContact, maybeRestick, predictedBlockPosition, stepPhysics, createInputQueue, enqueueInput,
     inputAt, simulate, runFixedStep, simulateRenderSchedule, createDirectForceState, stepDirectForce
   });
