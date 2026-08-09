@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`26`（2026-08-09；移除會造成終端速度、令大力細力都近似勻速的速度比例阻尼。Part B 滑動後 direct Newton force-control 仍讓拉力即時增加／減少並保持；物理只使用固定 `f_k`，按 `F_net = F拉 - f_k = ma` 更新，`F拉 > f_k` 必定加速，`F拉 < f_k` 必定減速，放手後先減速再停下。為配合手機舞台而不改變力學計算，B 的 render track length 改為 physics track 的 `8×` 視覺映射；不改 scenario 質量、固定滑動摩擦力、力讀數、時間軸或 snapshot。`physicsVersion` 維持 7，`measurementVersion` 維持 4，並增加 unit／browser regression 驗證高力加速及低力／零力減速。）
+> Plan revision：`27`（2026-08-09；按測試結果降低 Part B 學生操作要求。學生只需逐漸增加向右拉力至物體啱啱開始移動；breakaway 仍由 spring／connector 產生最大靜摩擦力峰值及突然下降。breakaway 後由系統短暫作低幅度啟動過渡，隨後以當前位置的固定滑動摩擦力自動施力，維持物體接近勻速；學生不再需要自行調整拉力或保持勻速。B control-panel／stage coach／sr-only instructions 全部改為只要求找出開始移動一刻；B 的 F拉–t 圖保留峰值下降及其後平台。`physicsVersion` 維持 7，`measurementVersion` 維持 4；C 的分析 rubric 今次不改，留待下一輪另行處理。）
 
 本計劃必須遵從：
 
@@ -92,7 +92,7 @@
 1. 在沒有水平外力時，選擇摩擦力為零的類型、方向及大小；
 2. 在指定的較小水平拉力下，直接由物體中央拖出拉力箭嘴，再選擇是否拖出等大反向的靜摩擦力箭嘴；
 3. 直接拖拉物體並逐步增加拉力，向左／向右反覆試拉至物體開始滑動，再填寫最大靜摩擦力估計；
-4. 進入 Part B，從舞台最左位置直接按住物體中央向右拖動拉力，在 30 秒內令物體開始並繼續移動，並在開始滑動後盡量調整至勻速直線運動；
+4. 進入 Part B，從舞台最左位置直接按住物體中央向右逐漸增加拉力，在 30 秒內令物體啱啱開始移動；開始移動後由系統自動維持接近勻速；
 5. 從同一次實驗即時產生的單一拉力—時間圖標示關鍵區段；
 6. 由量測結果推斷靜摩擦力、最大靜摩擦力及滑動摩擦力；
 7. 完成四個未直接測試情境的操作式預測；
@@ -104,10 +104,10 @@
 - A2 在控制欄選擇「畫拉力」或「畫摩擦力」，再直接由物體中央拖出對應箭嘴；可清除摩擦力箭嘴表示沒有摩擦力，保存後仍可重畫並修改；
 - A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭嘴，箭嘴端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
 - A／B／C／D 任務列可直接切換；Part B 不要求先完成 Part A，Part C 沒有有效 trace 時顯示中性等待提示，Part D 可先完成預測；
-- Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；手指向右移少量便增加拉力，向左移只會減少向右拉力至零，手指停住時力值保持；開始滑動後仍由手指位置直接控制拉力，不會被自動勻速輔助覆蓋；
-- 放手後拉力回到 `0 N`，物體按滑動摩擦力自然減速，未到 30 秒仍可再次按住物體中央施力，不因物體停下而鎖定；
+- Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；學生逐漸向右移動手指增加拉力，直到物體啱啱開始移動；breakaway 後 target 隱藏，由系統自動把拉力維持在滑動摩擦力附近；
+- breakaway 後由系統維持接近勻速，學生不需要自行追蹤速度或再次調整拉力；記錄仍可在 30 秒內停止並保存或重新開始；
 - 30 秒時間上限、超時提示及重新開始記錄；
-- 物體移動太快／太慢時顯示「細力啲」／「大力啲」；
+- 物體尚未移動時提示逐漸增加拉力；開始移動後提示系統已接手維持接近勻速；
 - 只顯示與測力計等效的拉力及 `F拉–t` 圖，不顯示摩擦力數值；
 - 選擇 Part A 的摩擦力方向及類型；
 - 拖動同步圖像的：
@@ -262,7 +262,7 @@ if (phase === "breakaway") {
 → 牛頓第二定律計算加速度
 → 更新速度與位置
 → 感測器量測層
-→ 同一 timestamp 記錄拉力，並保留隱藏速度供「細力啲／大力啲」回饋、trial acceptance 及 C 評分
+→ 同一 timestamp 記錄拉力，並保留隱藏速度供自動接手後的運動檢查、trial acceptance 及 C 評分
 ```
 
 每一個 graph sample 必須包含同一時刻的：
@@ -304,7 +304,7 @@ force += (Math.random() - 0.5) * 0.8;
 
 - 真實模擬現象；
 - 測力計讀數；
-- 物體移動及速度調節提示；
+- 物體開始移動及系統接手維持平台的提示；
 - 單一 F–T 同步圖線；
 - 學生自己所選區段的統計值；
 - 實驗資料是否足夠完整的技術提示；
@@ -468,13 +468,10 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 學生按「開始 30 秒記錄」後，物體放在舞台最左位置；按住物體中央的直接拖動 target 調整向右拉力：
 
-1. 先慢慢向右增加拉力，直至物體開始移動；
-2. 開始移動後繼續施力，盡量保持勻速直線運動；
-3. 手指停住時，直接拖動 target 保持目前的拉力；手指向右移少量，向右拉力相應增加少量；向左移只會減少目前向右拉力，不能改成向左拉力；有效範圍為 `0–12 N`；
-4. 直接拖動輸入先轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力。學生在滑動期間再次改變手指位置時，才進入本次拖動的 direct force-control，讓拉力可即時增加／減少並保持；這不是自動勻速或 kinetic-follow 輔助，而是學生新輸入的實際水平力，物體的加速、減速或重新停下由 `F_{\mathrm{net}}=ma` 決定；
-5. 放手後 target 回到無拉力狀態，物體不會瞬間停下，而會按 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma` 先減速，速度降至零後才重新進入 static；未到 30 秒，學生仍可再次按住物體中央施力令物體重新運動；
-6. 物理操作的 handle response 預設使用 `HANDLE_OMEGA=24` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，令物體在手機窄舞台上明顯慢速移動；滑動期間學生再次改力時可暫用 `0.24 m/s` 的 handle response 追上新輸入，之後仍保留加速、勻速、減速及重新施力的連續行為；
-7. 可在任何時刻停止並保存一次已開始移動且有持續移動的記錄；「重新開始」在沒有 accepted trial、只有未保存／失敗記錄或已有 accepted trial 時都可使用，一按即清除舊 B trace／C analysis 並直接開始新的 30 秒記錄，不需停止、確認或保留目前資料。
+1. 只需先慢慢向右增加拉力，直至物體啱啱開始移動；
+2. 直接拖動輸入先轉為 connector handle target，`Physics.stepPhysics` 以 spring／connector 的實際張力作為測力計等效讀數。當張力超過最大靜摩擦力，接觸狀態由 static 轉為 sliding；滑動開始時因 `f_k<f_{s,max}`，張力會自然出現 breakaway drop，不能由程式硬畫成固定拉力；
+3. breakaway event 發生後，runtime 將 learner target 隱藏，先以短暫、低幅度的系統啟動過渡令物體的滑動清楚可見，再在每個 physics tick 以當前位置的 `kineticFrictionAt(x)` 作為向右拉力；整段過渡均使用 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma`，過渡完成後速度保持近似不變。學生不需要自行保持勻速或再調整拉力；
+4. 系統自動維持的拉力只存在於本次 transient recording，不寫入 snapshot；學生可在系統維持平台後按「停止並保存記錄」，或按「重新開始」重新嘗試。
 
 記錄時間不可超過 `30 s`。若時間達到上限，立即停止物理更新並顯示：
 
@@ -484,16 +481,15 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ### 7.3 即時輔助提示
 
-輔助只描述運動速度，不透露摩擦力答案：
+輔助只描述目前任務狀態，不透露摩擦力答案：
 
-- 尚未移動：「慢慢增加拉力，令物體開始移動。」
-- 移動太快：「細力啲。」
-- 移動太慢或即將停下：「大力啲。」
-- 速度在適合範圍：「保持呢個拉力，盡量保持勻速直線運動。」活動簡介及操作要求亦明確指出，開始滑動後的主要目標是盡量保持勻速直線運動；系統只提供「細力啲／大力啲」方向提示，不會自動把拉力鎖定在勻速值。
+- 尚未移動：「慢慢增加拉力，直到物體開始移動。」
+- 已開始移動：「物體已開始移動；系統正維持接近勻速的拉力。」
+- 系統接手後不再要求學生根據速度自行加力或減力。
 
-直接拖動的水平位移映射改善學生微調拉力時的操作解析度；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
+直接拖動的水平位移映射只用於 breakaway 前的逐漸加力；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
 
-系統不要求特定拉力上升曲線、不預先標示峰值、不顯示摩擦力，亦不因學生的拉力路徑不同而即時判斷答案正誤。保存前只檢查是否已開始移動、是否在 30 秒內及是否有足夠的持續移動資料。
+系統不要求特定拉力上升曲線、不預先標示峰值、不顯示摩擦力，亦不因學生的拉力路徑不同而即時判斷答案正誤。保存前只檢查是否已開始移動、是否在 30 秒內及系統自動平台是否有足夠的持續移動資料；不檢查學生能否自行保持勻速。
 
 ---
 
@@ -795,13 +791,13 @@ V1 的最大靜摩擦力不隨位置變；只有滑動摩擦力有小幅、activ
 F_{\text{net}}=F_{\text{拉}}-f_k=ma
 \]
 
-物體靜止時，若 connector tension 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。因為 `f_k<f_{s,max}`，breakaway tick 後實際 connector tension 會由峰值落到滑動平台，不可把拉力鎖定為學生剛才的數值。滑動後，學生若再次改變手指位置，該次拖動進入 direct force-control，拉力數值直接成為這次新的施力；手指停住時保持，向左移只減少向右力，放手則回到 `0 N`。在兩種模式下，物體都以 `F_{\mathrm{net}}=ma` 更新；若拉力 `< f_k` 或放手令拉力降至 `0 N`，`a<0`，物體先按目前速度減速，速度降至零才回到 static，因此學生可在同一段 30 秒記錄中重新加力、減力或令物體再次移動。圖像只顯示量測到的 `F拉`，不顯示 `f_s` 或 `f_k`。
+物體靜止時，若 connector tension 未超過最大靜摩擦力，接觸狀態保持 static；超過臨界值便轉為 sliding。因為 `f_k<f_{s,max}`，breakaway tick 後實際 connector tension 會由峰值自然落到較低平台。breakaway event 被 measurement layer 記錄後，runtime 把 `experimentOrigin` 隱藏並進入 transient `autoKineticHold`；先用短暫低幅度啟動過渡，之後每個 physics tick 以當前位置的 `kineticFrictionAt(x)` 作為向右拉力，按 `F_{\mathrm{net}}=F拉-f_k=ma` 更新 block，使速度保持近似不變。圖像只顯示量測到的 `F拉`，不顯示 `f_s` 或 `f_k`；系統接手的 auto hold 不進 snapshot。
 
-為配合手機窄舞台，未突破或尚未再次改力時的 handle response 固定為 `HANDLE_OMEGA=24`、`HANDLE_ZETA=1`、`HANDLE_SPEED_LIMIT_MPS=0.06`。滑動中學生再次改力後，runtime 以明確的 `0.24 m/s` response limit 讓 connector 有機會追上新施力；若該次拖動已進入 direct force-control，物理引擎直接以學生的新拉力及 `F_{\mathrm{net}}=ma` 更新 block。這個 transient control 不進 snapshot，放手時清除並把 handle 放回無拉力位置；block 仍按實際摩擦、質量及剩餘速度自然減速或再次運動。
+breakaway 前的 handle response 使用 `HANDLE_OMEGA=24`、`HANDLE_ZETA=1` 及 `HANDLE_SPEED_LIMIT_MPS=0.06`，讓學生可以慢慢增加拉力。breakaway 後不再接受 learner force update，亦不要求學生拖住 target；系統用 `EXPERIMENT_AUTO_LAUNCH_DURATION_S=0.18`、`EXPERIMENT_AUTO_LAUNCH_SURPLUS_N=0.50` 作低幅度啟動過渡，之後直接以同一 seeded friction model 的 `kineticFrictionAt(x)` 維持接近勻速。停止保存或重新開始時清除 transient auto hold；C 只收到已保存的同一張 F拉–t trace。
 
 ### 11.4 Part B 運動提示
 
-提示根據速度及加速度提供 pacing guidance，不會寫出摩擦力數值或正確答案：物體未動時提示慢慢增加拉力；移動太快時提示「細力啲」；移動太慢或即將停下時提示「大力啲」；速度在合適範圍時提示保持拉力、盡量勻速。提示只影響 learner feedback，不會改寫物理 state。
+提示只描述目前任務狀態，不透露摩擦力答案：breakaway 前顯示「慢慢增加拉力，直到物體開始移動」；breakaway 後顯示「物體已開始移動；系統正維持接近勻速的拉力」。系統接手後不再要求學生根據速度自行加力、減力或保持勻速；提示只影響 learner feedback，不會改寫物理 state。
 
 ### 11.5 靜摩擦狀態
 

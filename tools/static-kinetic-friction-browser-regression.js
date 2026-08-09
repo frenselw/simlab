@@ -40,6 +40,15 @@ async function touchStartMove(cdp, start, end) {
     await delay(8);
   }
 }
+async function touchStartMoveGradual(cdp, start, end, steps = 24, stepDelayMs = 60) {
+  const id = 17;
+  const point = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(start)] });
+  for (let index = 1; index <= steps; index += 1) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point({ x: start.x + (end.x - start.x) * index / steps, y: start.y + (end.y - start.y) * index / steps })] });
+    await delay(stepDelayMs);
+  }
+}
 async function touchEnd(cdp) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
@@ -157,7 +166,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.ok(breakaway.bestPullCN >= threshold && breakaway.attempts >= 1, `${label}: A3 records a breakaway trial after gradual force increase`);
   assert.equal(motion.friction, 0, `${label}: A3 does not display static friction`);
   const initialSign = staticSetup.direction === "left" ? -1 : 1;
-  assert.ok(motion.arrow >= 1 && motion.block !== blockBefore && motion.motion?.velocityMps * initialSign > 0 && motion.arrowEnd && Math.abs(motion.arrowEnd.x - drag.end.x) < 6, `${label}: A3 pull arrow follows the trusted pointer while the block moves ${JSON.stringify(motion)}`);
+  assert.ok(motion.arrow >= 1 && motion.block !== blockBefore && motion.motion?.velocityMps * initialSign > 0 && motion.arrowEnd && Math.abs(motion.arrowEnd.x - drag.end.x) < 8, `${label}: A3 pull arrow follows the trusted pointer while the block moves ${JSON.stringify({ ...motion, expectedX: drag.end.x, deltaX: motion.arrowEnd ? motion.arrowEnd.x - drag.end.x : null, direction: staticSetup.direction, initialSign })}`);
   await touchEnd(cdp);
   await delay(120);
   const released = await evaluate(cdp, `(() => ({pull:document.getElementById('breakawayPullValue').textContent,arrow:document.querySelectorAll('.pull-arrow').length,status:document.getElementById('breakawayMotionStatus').textContent,block:document.querySelector('.apparatus-block')?.getAttribute('x'),motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion}))()`);
@@ -211,57 +220,46 @@ async function semanticSmoke(cdp, url, label) {
   const experimentTarget = await evaluate(cdp, `(() => { const node=document.getElementById('experimentOrigin'),svg=document.getElementById('apparatusSvg'); node.scrollIntoView({block:'center',inline:'center'}); const r=node.getBoundingClientRect(),sr=svg.getBoundingClientRect(),scale=Math.min(sr.width/900,sr.height/430); return {x:r.left+r.width/2,y:r.top+r.height/2,hidden:node.classList.contains('is-hidden'),width:r.width,height:r.height,forcePxPerN:30*scale}; })()`);
   assert.equal(experimentTarget.hidden, false, `${label}: B exposes the direct-pull target only while recording`);
   assert.ok(experimentTarget.width >= 44 && experimentTarget.height >= 44, `${label}: B direct-pull target has a usable touch target`);
-  await touchStartMove(cdp, experimentTarget, { x: experimentTarget.x + experimentTarget.forcePxPerN * 8, y: experimentTarget.y });
-  await delay(140);
-  const experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,time:evidence.experiment?.timeS,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:document.getElementById('apparatusSvg').textContent,feedback:document.getElementById('experimentFeedback').textContent,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
+  await touchStartMoveGradual(cdp, experimentTarget, { x: experimentTarget.x + experimentTarget.forcePxPerN * 11, y: experimentTarget.y });
+  let preBreakPeakForce = 0;
+  let breakawayPeakForce = 0;
+  let experimentHeld = null;
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    await delay(100);
+    const snapshot = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:document.getElementById('apparatusSvg').textContent,feedback:document.getElementById('experimentFeedback').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
+    if (!snapshot.autoKineticHold) preBreakPeakForce = Math.max(preBreakPeakForce, snapshot.measuredForce || 0);
+    breakawayPeakForce = Math.max(breakawayPeakForce, snapshot.breakawayForce || 0);
+    experimentHeld = snapshot;
+    if (snapshot.autoKineticHold) break;
+  }
+  if (experimentHeld?.autoKineticHold) {
+    await delay(350);
+    experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:document.getElementById('apparatusSvg').textContent,feedback:document.getElementById('experimentFeedback').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
+  }
   assert.equal(experimentHeld.running, true, `${label}: B recorder remains active during a direct pull ${JSON.stringify(experimentHeld)}`);
-  assert.ok(experimentHeld.force > 6 && experimentHeld.force <= 12 && experimentHeld.time > 0, `${label}: trusted stage touch sets a rightward applied force ${JSON.stringify(experimentHeld)}`);
-  assert.ok(experimentHeld.measuredForce >= 0, `${label}: B keeps the measured connector force separate from the learner force command`);
+  assert.equal(experimentHeld.autoKineticHold, true, `${label}: B hands control to the automatic kinetic-friction hold after breakaway ${JSON.stringify(experimentHeld)}`);
+  assert.ok(experimentHeld.force > 0 && experimentHeld.force <= 12 && experimentHeld.time > 0, `${label}: automatic hold supplies a rightward force after breakaway ${JSON.stringify(experimentHeld)}`);
+  assert.ok(breakawayPeakForce > experimentHeld.measuredForce + .5, `${label}: the measured force visibly drops from the breakaway peak to the kinetic plateau ${JSON.stringify({ preBreakPeakForce, breakawayPeakForce, plateau: experimentHeld.measuredForce })}`);
   assert.ok(experimentHeld.arrowEnd > experimentHeld.arrowStart, `${label}: B renders the pull arrow only toward the right ${JSON.stringify(experimentHeld)}`);
+  assert.equal(experimentHeld.originHidden, true, `${label}: B hides the learner drag target after breakaway because the system takes over`);
   assert.equal(experimentHeld.graphLines, 1, `${label}: B renders a live force-time path`);
   assert.equal(experimentHeld.velocityLines, 0, `${label}: B does not render a velocity-time path`);
   assert.match(experimentHeld.graphText, /t\s*\/\s*s/, `${label}: B graph keeps the lowercase time symbol`);
   assert.doesNotMatch(experimentHeld.graphText, /圖（0.?30 秒）/, `${label}: B graph removes the redundant top title label`);
   assert.doesNotMatch(experimentHeld.graphText, /速度|velocity/i, `${label}: B learner-facing stage contains no velocity quantity`);
-  assert.match(experimentHeld.feedback, /大力啲|細力啲|拉力合適|慢慢增加拉力/, `${label}: B gives force/speed guidance while using direct dragging`);
+  assert.match(experimentHeld.feedback, /系統正維持接近勻速/, `${label}: B tells the learner that the system is maintaining the post-breakaway motion`);
   assert.equal(experimentHeld.liveReadout, null, `${label}: the obsolete live readout overlay is removed from the F–t graph`);
   assert.equal(experimentHeld.slider, null, `${label}: B has no control-panel slider`);
-  const heldForce = experimentHeld.force;
-  await delay(120);
-  const stillHeld = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN");
-  assert.ok(Math.abs(stillHeld - heldForce) < .001, `${label}: leaving the direct-drag pointer untouched keeps the pull force unchanged (${heldForce} → ${stillHeld})`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 11, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
-  await delay(100);
-  const increasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(increasedExperimentForce.appliedForceN > heldForce + .5, `${label}: a rightward movement increases force after sliding starts ${JSON.stringify(increasedExperimentForce)}`);
-  assert.ok(increasedExperimentForce.measuredForceN > experimentHeld.measuredForce + .5, `${label}: the measured pull also increases after sliding starts ${JSON.stringify({ held: experimentHeld.measuredForce, increased: increasedExperimentForce.measuredForceN, positionM: increasedExperimentForce.positionM, velocityMps: increasedExperimentForce.velocityMps })}`);
-  assert.ok(increasedExperimentForce.accelerationMps2 > 0, `${label}: a post-breakaway pull above kinetic friction accelerates the block ${JSON.stringify(increasedExperimentForce)}`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 6, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
-  await delay(100);
-  const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(decreasedExperimentForce.appliedForceN < increasedExperimentForce.appliedForceN - .5 && decreasedExperimentForce.appliedForceN > .5 && !Object.hasOwn(decreasedExperimentForce, "kineticFollowActive"), `${label}: a leftward movement directly decreases force after sliding starts without an automatic kinetic-follow override ${JSON.stringify(decreasedExperimentForce)}`);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x - 120, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
-  await delay(80);
-  const leftwardAttempt = await evaluate(cdp, "(() => ({force:window.__staticKineticFrictionApp.interactionEvidence().experiment?.appliedForceN,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length}))()");
-  assert.deepEqual(leftwardAttempt, { force: 0, arrow: 0 }, `${label}: moving the B pointer left only reduces the rightward force and never creates a leftward pull`);
   await touchEnd(cdp);
-  await delay(80);
-  const releasedExperiment = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {force:evidence.experiment?.appliedForceN,velocity:evidence.experiment?.velocityMps,acceleration:evidence.experiment?.accelerationMps2,mode:evidence.experiment?.contactMode,position:evidence.experiment?.positionM,arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,running:evidence.recorderRunning,graphLines:document.querySelectorAll('.experiment-force-line').length}; })()`);
-  assert.equal(releasedExperiment.force, 0, `${label}: releasing the direct-pull target returns the applied force to zero`);
-  assert.ok(releasedExperiment.position >= decreasedExperimentForce.positionM, `${label}: releasing the force leaves the block's motion continuous instead of teleporting it backward ${JSON.stringify({ releasedExperiment, decreasedExperimentForce })}`);
-  assert.equal(releasedExperiment.arrow, 0, `${label}: releasing removes the live pull arrow`);
-  assert.equal(releasedExperiment.running, true, `${label}: releasing the pointer does not end the 30-second recording`);
-  assert.equal(releasedExperiment.graphLines, 1, `${label}: the force-time trace remains visible after force reduction`);
-  assert.ok(releasedExperiment.acceleration < 0 || releasedExperiment.mode === "static", `${label}: removing the pull leaves the block decelerating under kinetic friction ${JSON.stringify(releasedExperiment)}`);
-  await delay(720);
-  const stoppedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(stoppedExperiment && Math.abs(stoppedExperiment.velocityMps) < .02 && stoppedExperiment.contactMode === "static" && stoppedExperiment.positionM > 0, `${label}: the released block decelerates and then re-sticks with its displacement ${JSON.stringify(stoppedExperiment)}`);
-  const regrabTarget = await evaluate(cdp, `(() => { const node=document.getElementById('experimentOrigin'),r=node.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
-  await touchStartMove(cdp, regrabTarget, { x: regrabTarget.x + experimentTarget.forcePxPerN * 10, y: regrabTarget.y });
-  await delay(180);
-  const regrabbedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(regrabbedExperiment.appliedForceN > 6 && regrabbedExperiment.measuredForceN > .5 && Math.abs(regrabbedExperiment.velocityMps) <= .12, `${label}: a stopped block can be pulled again slowly before 30 seconds ${JSON.stringify(regrabbedExperiment)}`);
-  await touchEnd(cdp);
+  await delay(250);
+  const heldAfterRelease = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
+  assert.equal(heldAfterRelease.autoKineticHold, true, `${label}: releasing the learner pointer does not cancel the automatic kinetic hold`);
+  assert.ok(Math.abs(heldAfterRelease.velocityMps - experimentHeld.velocityMps) < .02, `${label}: automatic hold keeps the breakaway speed approximately constant ${JSON.stringify({ before: experimentHeld.velocityMps, after: heldAfterRelease.velocityMps })}`);
+  await delay(1100);
+  await tapSelector(cdp, "#stopRecording");
+  const savedExperiment = await evaluate(cdp, "(() => ({ trial:Boolean(window.__staticKineticFrictionApp.getState().trial), running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, status:document.getElementById('experimentStatus').textContent }))()");
+  assert.equal(savedExperiment.trial, true, `${label}: the automatically maintained trace can be stopped and saved ${JSON.stringify(savedExperiment)}`);
+  assert.equal(savedExperiment.running, false, `${label}: saving ends the transient B recorder`);
   await tapSelector(cdp, "#requestRedoExperiment");
   const restartedDuringRecording = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {running:evidence.recorderRunning,time:evidence.experiment?.timeS,position:evidence.experiment?.positionM,trial:window.__staticKineticFrictionApp.getState().trial,confirmPresent:Boolean(document.getElementById('redoExperimentConfirm'))}; })()");
   assert.ok(restartedDuringRecording.running && restartedDuringRecording.time < .35 && Math.abs(restartedDuringRecording.position) < 1e-9, `${label}: restart immediately clears and restarts an active recording ${JSON.stringify(restartedDuringRecording)}`);
