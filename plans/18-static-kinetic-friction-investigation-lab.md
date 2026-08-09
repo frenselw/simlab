@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`27`（2026-08-09；按測試結果降低 Part B 學生操作要求。學生只需逐漸增加向右拉力至物體啱啱開始移動；breakaway 仍由 spring／connector 產生最大靜摩擦力峰值及突然下降。breakaway 後由系統短暫作低幅度啟動過渡，隨後以當前位置的固定滑動摩擦力自動施力，維持物體接近勻速；學生不再需要自行調整拉力或保持勻速。B control-panel／stage coach／sr-only instructions 全部改為只要求找出開始移動一刻；B 的 F拉–t 圖保留峰值下降及其後平台。`physicsVersion` 維持 7，`measurementVersion` 維持 4；C 的分析 rubric 今次不改，留待下一輪另行處理。）
+> Plan revision：`28`（2026-08-09；延續 revision 27 的 Part B 學生操作要求及自動勻速模型，今次只調整手機版呈現：收窄舞台上方無效空間、增加 B 的 F拉–t 圖繪圖高度、放大圖表刻度及舞台拉力數字標籤；把物體嘅畫面位置映射由 8 倍物理軌道縮至 5 倍，讓自動維持勻速後的移動更容易觀察。`physicsVersion` 維持 7，`measurementVersion` 維持 4；C 的分析 rubric 今次不改。）
 
 本計劃必須遵從：
 

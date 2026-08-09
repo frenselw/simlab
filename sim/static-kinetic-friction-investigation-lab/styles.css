@@ -99,9 +99,10 @@ select {
 .experiment-force-line { stroke: #b91c1c; stroke-width: 3.5; }
 .force-arrow-head { fill: currentColor; }
 .force-builder-label { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
+.experiment-force-label { font-size: 30px; font-weight: 800; stroke-width: 6px; }
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
 .graph-axis { stroke: #334155; stroke-width: 1.8; }
-.graph-axis-label { font-size: 21px !important; font-variant-numeric: tabular-nums; }
+.graph-axis-label { font-size: 28px !important; font-variant-numeric: tabular-nums; }
 .graph-cursor { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 4; }
 
 .drag-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -371,10 +372,10 @@ th:first-child, td:first-child { text-align: left; }
 @media (max-width: 819px) {
   :root {
     --header-track: auto;
-    --stage-track: minmax(12rem, 34vh);
+    --stage-track: minmax(13rem, 40vh);
   }
   @supports (height: 100dvh) {
-    :root { --stage-track: minmax(12rem, 34dvh); }
+    :root { --stage-track: minmax(13rem, 40dvh); }
   }
   .sim-header { padding: .65rem .8rem .45rem; }
   .sim-header h1 { font-size: clamp(1.08rem, 4.8vw, 1.35rem); }
@@ -392,8 +393,8 @@ th:first-child, td:first-child { text-align: left; }
     transform: none;
     grid-row: 1;
     grid-column: 1;
-    margin: .4rem .6rem .15rem;
-    padding: .4rem .55rem;
+    margin: .25rem .6rem .05rem;
+    padding: .35rem .55rem;
     column-gap: .5rem;
   }
   .stage-coach-step { width: 1.8rem; height: 1.8rem; }
@@ -416,9 +417,9 @@ th:first-child, td:first-child { text-align: left; }
 }
 
 @media (min-height: 376px) and (max-height: 560px) {
-  :root { --header-track: 2.5rem; --stage-track: minmax(10rem, 34vh); }
+  :root { --header-track: 2.5rem; --stage-track: minmax(10rem, 38vh); }
   @supports (height: 100dvh) {
-    :root { --stage-track: minmax(10rem, 34dvh); }
+    :root { --stage-track: minmax(10rem, 38dvh); }
   }
   .sim-header { padding: .28rem .7rem; }
   .sim-header p:not(.eyebrow) { display: none; }

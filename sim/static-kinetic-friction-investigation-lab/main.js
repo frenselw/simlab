@@ -25,7 +25,7 @@
   // The B physics remains the ordinary fixed-kinetic-friction Newton model.
   // Give the compact stage more visual track length so a large but valid
   // force leaves the learner time to adjust without changing F = ma.
-  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 8;
+  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 5;
   const EXPERIMENT_AUTO_LAUNCH_DURATION_S = 0.18;
   const EXPERIMENT_AUTO_LAUNCH_SURPLUS_N = 0.50;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
@@ -548,7 +548,8 @@
       if (Math.abs(endX - startX) < 1) return;
       const marker = className.includes("learner-friction") ? "friction" : "applied";
       svg.append(svgElement("line", { x1: startX, y1: y, x2: endX, y2: y, class: `${className} force-line`, stroke: color, "marker-end": `url(#arrow-${marker})` }));
-      const text = svgElement("text", { x: (startX + endX) / 2, y: labelY, "text-anchor": "middle", class: "force-builder-label", fill: color }); text.appendChild(document.createTextNode(label)); svg.append(text);
+      const textClass = `force-builder-label${className.includes("experiment-force-arrow") ? " experiment-force-label" : ""}`;
+      const text = svgElement("text", { x: (startX + endX) / 2, y: labelY, "text-anchor": "middle", class: textClass, fill: color }); text.appendChild(document.createTextNode(label)); svg.append(text);
     }
     function experimentFeedbackText() {
       if (experimentTimedOut) return "時間已經超時，請重新開始記錄。";
@@ -558,7 +559,7 @@
       return "繼續逐漸增加拉力，直到物體啱啱開始移動。";
     }
     function renderExperimentForceGraph(svg) {
-      const chart = { left: 64, top: 224, width: 772, height: 154, maxTimeS: 30, maxForceN: 12 };
+      const chart = { left: 64, top: 164, width: 772, height: 220, maxTimeS: 30, maxForceN: 12 };
       const xFor = (timeS) => chart.left + clamp(timeS, 0, chart.maxTimeS) / chart.maxTimeS * chart.width;
       const yFor = (forceN) => chart.top + chart.height - clamp(forceN, 0, chart.maxForceN) / chart.maxForceN * chart.height;
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
@@ -573,7 +574,7 @@
       }
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top, x2: chart.left, y2: chart.top + chart.height, class: "graph-axis" }));
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis" }));
-      const yLabel = svgElement("text", { x: 18, y: chart.top + chart.height / 2, transform: `rotate(-90 18 ${chart.top + chart.height / 2})`, "text-anchor": "middle", class: "graph-axis-label" });
+      const yLabel = svgElement("text", { x: 22, y: chart.top + chart.height / 2, transform: `rotate(-90 22 ${chart.top + chart.height / 2})`, "text-anchor": "middle", class: "graph-axis-label" });
       const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
       const ySub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); ySub.textContent = "拉"; yLabel.append(ySub);
       yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);
@@ -608,7 +609,7 @@
       renderStageCoach();
       if (graphMode) { renderGraph(); return; }
       svg.replaceChildren();
-      const groundY = experimentMode ? 170 : 300;
+      const groundY = experimentMode ? 110 : 300;
       const defs = svgElement("defs");
       const groundPattern = svgElement("pattern", { id: "ground-hatch", width: 18, height: 18, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
       groundPattern.append(svgElement("line", { x1: 0, y1: 0, x2: 0, y2: 18, class: "surface-hatch" }));
@@ -644,7 +645,7 @@
         const comY = groundY - 27;
         const visibleForceN = experimentVisibleForceN();
         const endpoint = clamp(comX + visibleForceN * EXPERIMENT_FORCE_SCALE_PX_PER_N, comX, 880);
-        if (visibleForceN > .01) appendForceArrow(svg, comX, endpoint, comY, "pull-arrow", "#b91c1c", `拉力 ${visibleForceN.toFixed(2)} N`, groundY - 64);
+        if (visibleForceN > .01) appendForceArrow(svg, comX, endpoint, comY, "pull-arrow experiment-force-arrow", "#b91c1c", `拉力 ${visibleForceN.toFixed(2)} N`, groundY - 64);
         if (experimentOrigin) {
           positionApparatusTarget(experimentOrigin, comX, comY);
           experimentOrigin.setAttribute("aria-label", `由物體中央向右拖動拉力，目前 ${visibleForceN.toFixed(2)} 牛頓`);
