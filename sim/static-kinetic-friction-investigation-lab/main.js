@@ -25,7 +25,7 @@
   // The B physics remains the ordinary fixed-kinetic-friction Newton model.
   // Give the compact stage more visual track length so a large but valid
   // force leaves the learner time to adjust without changing F = ma.
-  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 4;
+  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 2;
   const EXPERIMENT_AUTO_LAUNCH_DURATION_S = 0.18;
   const EXPERIMENT_AUTO_LAUNCH_SURPLUS_N = 0.50;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
@@ -559,26 +559,32 @@
       return "繼續逐漸增加拉力，直到物體啱啱開始移動。";
     }
     function renderExperimentForceGraph(svg) {
-      const chart = { left: 64, top: 164, width: 772, height: 220, maxTimeS: 30, maxForceN: 12 };
+      const defs = svg.querySelector("defs");
+      if (defs) {
+        const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" });
+        axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
+        defs.append(axisMarker);
+      }
+      const chart = { left: 64, top: 150, width: 772, height: 210, maxTimeS: 30, maxForceN: 12 };
       const xFor = (timeS) => chart.left + clamp(timeS, 0, chart.maxTimeS) / chart.maxTimeS * chart.width;
       const yFor = (forceN) => chart.top + chart.height - clamp(forceN, 0, chart.maxForceN) / chart.maxForceN * chart.height;
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
         const x = xFor(time);
         svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: "graph-grid" }));
-        const label = svgElement("text", { x, y: chart.top + chart.height + 19, "text-anchor": "middle", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(time))); svg.append(label);
+        const label = svgElement("text", { x, y: chart.top + chart.height + 28, "text-anchor": "middle", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(time))); svg.append(label);
       }
       for (let force = 0; force <= chart.maxForceN; force += 3) {
         const y = yFor(force);
         svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" }));
         const label = svgElement("text", { x: chart.left - 10, y: y + 5, "text-anchor": "end", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(force))); svg.append(label);
       }
-      svg.append(svgElement("line", { x1: chart.left, y1: chart.top, x2: chart.left, y2: chart.top + chart.height, class: "graph-axis" }));
-      svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis" }));
+      svg.append(svgElement("line", { x1: chart.left, y1: chart.top, x2: chart.left, y2: chart.top + chart.height, class: "graph-axis", "marker-start": "url(#graph-axis-arrow)" }));
+      svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#graph-axis-arrow)" }));
       const yLabel = svgElement("text", { x: 22, y: chart.top + chart.height / 2, transform: `rotate(-90 22 ${chart.top + chart.height / 2})`, "text-anchor": "middle", class: "graph-axis-label" });
       const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
       const ySub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); ySub.textContent = "拉"; yLabel.append(ySub);
       yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);
-      const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: chart.top + chart.height + 39, "text-anchor": "middle", class: "graph-axis-label" });
+      const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: chart.top + chart.height + 55, "text-anchor": "middle", class: "graph-axis-label" });
       const xT = svgElement("tspan", { "font-style": "italic" }); xT.textContent = "t"; xLabel.append(xT);
       xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
       const points = (measurementState?.regularSamples || []).map((sample) => ({ timeS: sample.timeS, forceN: sample.measuredPullN, kind: "regular" }));

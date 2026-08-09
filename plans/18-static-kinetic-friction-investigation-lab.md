@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`29`（2026-08-09；延續 revision 28 的 Part B 學生操作要求、自動勻速模型及手機版圖表版面，將自動勻速後物體的畫面位置映射由 5 倍物理軌道縮至 4 倍，讓移動再快少少、更容易觀察；不改物理速度、拉力平台、`physicsVersion`、`measurementVersion` 或 C 的分析 rubric。）
+> Plan revision：`30`（2026-08-09；延續 revision 29 的 Part B 學生操作要求及自動勻速模型。今次再將物體嘅畫面位置映射由 4 倍物理軌道縮至 2 倍；手機版舞台高度改為貼近實際圖表內容，移除 F拉–t 圖下方多餘空間；橫座標數字下移，並為正方向橫軸右端及縱軸頂端加入箭嘴。物理速度、拉力平台、`physicsVersion`、`measurementVersion` 及 C 的分析 rubric 不變。）
 
 本計劃必須遵從：
 
