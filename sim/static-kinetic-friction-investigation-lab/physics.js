@@ -118,10 +118,16 @@
     };
   }
 
-  function stepDirectForce(state, appliedForceN, scenario, dt = PHYSICS_DT_S) {
+  function stepDirectForce(state, appliedForceN, scenario, dt = PHYSICS_DT_S, options = {}) {
     if (!state || !scenario) throw new Error("state and scenario required");
     const stepS = Math.max(0, finite(dt));
     const forceN = finite(appliedForceN);
+    // Part B's compact direct-drag interaction includes a small velocity-
+    // proportional response term.  It is an optional interaction parameter,
+    // not friction and not part of the learner-visible force reading.  The
+    // default remains zero so Part A3 and standalone direct-force tests keep
+    // the ordinary dry-friction model.
+    const dampingNsPerM = Math.max(0, finite(options?.dampingNsPerM));
     const massKg = scenario.massKg;
     const startPositionM = finite(state.block?.positionM);
     const startVelocityMps = finite(state.block?.velocityMps);
@@ -140,6 +146,8 @@
       positionM: initialPositionM + initialVelocityMps * durationS + 0.5 * initialAccelerationMps2 * durationS * durationS,
       velocityMps: initialVelocityMps + initialAccelerationMps2 * durationS
     });
+    const slidingAcceleration = (inputForceN, direction, kineticN, velocityMps) =>
+      (inputForceN - direction * kineticN - dampingNsPerM * velocityMps) / massKg;
 
     if (Math.abs(startVelocityMps) <= V_STICK_MPS) {
       if (Math.abs(forceN) <= staticLimitN + FORCE_EPSILON_N || stepS <= 0) {
@@ -149,7 +157,7 @@
       } else {
         const direction = Math.sign(forceN);
         const kineticN = kineticFrictionAt({ block: { positionM: startPositionM } }, scenario);
-        accelerationMps2 = (forceN - direction * kineticN) / massKg;
+        accelerationMps2 = slidingAcceleration(forceN, direction, kineticN, 0);
         const advanced = advanceSliding(startPositionM, 0, accelerationMps2, stepS);
         positionM = advanced.positionM;
         velocityMps = advanced.velocityMps;
@@ -160,7 +168,7 @@
     } else {
       const direction = Math.sign(startVelocityMps);
       const kineticN = kineticFrictionAt({ block: { positionM: startPositionM } }, scenario);
-      accelerationMps2 = (forceN - direction * kineticN) / massKg;
+      accelerationMps2 = slidingAcceleration(forceN, direction, kineticN, startVelocityMps);
       const stopTimeS = accelerationMps2 * startVelocityMps < 0
         ? clamp(-startVelocityMps / accelerationMps2, 0, stepS)
         : null;
@@ -176,7 +184,7 @@
         } else {
           const reverseDirection = Math.sign(forceN);
           const reverseKineticN = kineticFrictionAt({ block: { positionM } }, scenario);
-          accelerationMps2 = (forceN - reverseDirection * reverseKineticN) / massKg;
+          accelerationMps2 = slidingAcceleration(forceN, reverseDirection, reverseKineticN, 0);
           const remainingS = stepS - stopTimeS;
           const reversed = advanceSliding(positionM, 0, accelerationMps2, remainingS);
           positionM = reversed.positionM;

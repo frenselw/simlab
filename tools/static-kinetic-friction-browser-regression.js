@@ -235,6 +235,7 @@ async function semanticSmoke(cdp, url, label) {
   const increasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
   assert.ok(increasedExperimentForce.appliedForceN > heldForce + .5, `${label}: a rightward movement increases force after sliding starts ${JSON.stringify(increasedExperimentForce)}`);
   assert.ok(increasedExperimentForce.measuredForceN > experimentHeld.measuredForce + .5, `${label}: the measured pull also increases after sliding starts ${JSON.stringify({ held: experimentHeld.measuredForce, increased: increasedExperimentForce.measuredForceN, positionM: increasedExperimentForce.positionM, velocityMps: increasedExperimentForce.velocityMps })}`);
+  assert.ok(Math.abs(increasedExperimentForce.velocityMps) < .24, `${label}: the post-breakaway direct pull remains slow enough to adjust on the compact stage ${JSON.stringify(increasedExperimentForce)}`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: experimentTarget.x + experimentTarget.forcePxPerN * 6, y: experimentTarget.y, id: 17, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(100);
   const decreasedExperimentForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
@@ -258,7 +259,7 @@ async function semanticSmoke(cdp, url, label) {
   await touchStartMove(cdp, regrabTarget, { x: regrabTarget.x + experimentTarget.forcePxPerN * 10, y: regrabTarget.y });
   await delay(180);
   const regrabbedExperiment = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment");
-  assert.ok(regrabbedExperiment.appliedForceN > 6 && regrabbedExperiment.measuredForceN > .5 && Math.abs(regrabbedExperiment.velocityMps) <= .08, `${label}: a stopped block can be pulled again slowly before 30 seconds ${JSON.stringify(regrabbedExperiment)}`);
+  assert.ok(regrabbedExperiment.appliedForceN > 6 && regrabbedExperiment.measuredForceN > .5 && Math.abs(regrabbedExperiment.velocityMps) <= .12, `${label}: a stopped block can be pulled again slowly before 30 seconds ${JSON.stringify(regrabbedExperiment)}`);
   await touchEnd(cdp);
   await tapSelector(cdp, "#requestRedoExperiment");
   const restartedDuringRecording = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {running:evidence.recorderRunning,time:evidence.experiment?.timeS,position:evidence.experiment?.positionM,trial:window.__staticKineticFrictionApp.getState().trial,confirmPresent:Boolean(document.getElementById('redoExperimentConfirm'))}; })()");

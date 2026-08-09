@@ -23,6 +23,12 @@
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
   const EXPERIMENT_ACTIVE_HANDLE_SPEED_LIMIT_MPS = 0.24;
+  // Keep the direct post-breakaway interaction easy to control on a narrow
+  // phone stage.  This is a velocity-proportional motion response term, not
+  // an automatic kinetic-friction force: the learner's pull remains the
+  // displayed arrow and measured F拉 value, while the block's net force is
+  // integrated with the extra response term.
+  const EXPERIMENT_DIRECT_MOTION_DAMPING_NS_PER_M = 36;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
   function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, value)); }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
@@ -444,7 +450,13 @@
         block: directExperimentState.block,
         contact: directExperimentState.contact
       };
-      const next = Physics.stepDirectForce(directInputState, experimentAppliedForceN, scenario, stepS);
+      const next = Physics.stepDirectForce(
+        directInputState,
+        experimentAppliedForceN,
+        scenario,
+        stepS,
+        { dampingNsPerM: EXPERIMENT_DIRECT_MOTION_DAMPING_NS_PER_M }
+      );
       const stiffness = Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
       const extensionM = Math.max(0, experimentAppliedForceN) / stiffness;
       const handlePositionM = next.block.positionM + finite(scenario.connector?.restLengthM, 0.18) + extensionM;

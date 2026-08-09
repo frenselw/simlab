@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`24`（2026-08-09；修正 Part B 在物體已開始滑動後只能減力、不能加力的互動缺陷。首次突破最大靜摩擦力仍由 spring／connector 產生自然 breakaway drop；學生在滑動期間再次改變手指位置後，切換到直接施加拉力的 Newton force-control，讓新拉力即時增加／減少並在手指停住時保持，放手仍回到零拉力並按牛頓第二定律減速、停下。新的 force-control 只存在於目前拖動期間，不寫入持久化狀態；預設 handle response 仍以 `0.06 m/s` 保持慢速，滑動後的 connector response 允許短暫以 `0.24 m/s` 追上學生輸入。同步增加瀏覽器回歸測試，驗證滑動後量測到的拉力確實會隨向右拖動上升。`physicsVersion` 維持 7，`measurementVersion` 維持 4）。
+> Plan revision：`25`（2026-08-09；保留 Part B 滑動後拉力可即時增加／減少的 direct Newton force-control，但修正高拉力下物體過快衝到舞台盡頭的互動問題。direct force-control 只在滑動期間再次改變手指位置後啟用；學生的拉力箭嘴及量測到的 `F拉` 仍跟隨輸入，不會自動鎖定勻速值。為配合手機舞台，直接施力的運動更新加入明確、非摩擦的速度比例反應阻尼 `36 N·s/m`，令 `F_net` 隨速度增加而較易控制；放手仍回到零拉力並先減速、再停下，學生仍可於同一 30 秒記錄內重新施力。此為 runtime interaction parameter，不寫入 snapshot；`physicsVersion` 維持 7，`measurementVersion` 維持 4，並增加 unit／browser regression 驗證加力可用及移動速度受控。）
 
 本計劃必須遵從：
 
