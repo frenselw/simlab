@@ -17,6 +17,8 @@ assert.doesNotMatch(html, /id="recordBalance"|id="balanceObservations"|data-acti
 assert.doesNotMatch(html, /data-action="pull-left"|data-action="pull-right"|data-action="reset-breakaway"/);
 assert.doesNotMatch(html, /id="liveReadouts"/);
 assert.match(html, /id="experimentOrigin"[^>]*data-drag-target="experiment-origin"/);
+assert.match(html, /id="experimentGraphStage"/);
+assert.match(html, /id="experimentGraphSvg"/);
 assert.doesNotMatch(html, /experimentForceSlider|拉力滑桿/);
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
 assert.match(html, /開始 30 秒記錄/);
@@ -69,6 +71,8 @@ assert.match(main, /stepDirectForce/);
 assert.match(main, /experimentAppliedForceN/);
 assert.doesNotMatch(main, /experimentForceSlider/);
 assert.match(main, /renderExperimentForceGraph/);
+assert.match(main, /has-experiment-graph/);
+assert.match(main, /viewBox.*0 0 900 260/);
 assert.match(main, /graph-axis-arrow/);
 assert.match(main, /marker-start.*graph-axis-arrow/);
 assert.match(main, /marker-end.*graph-axis-arrow/);

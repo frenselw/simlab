@@ -23,9 +23,9 @@
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
   // The B physics remains the ordinary fixed-kinetic-friction Newton model.
-  // Give the compact stage more visual track length so a large but valid
-  // force leaves the learner time to adjust without changing F = ma.
-  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 2;
+  // Keep the visual track close to the physical track so the automatically
+  // maintained post-breakaway motion is clearly visible within 30 seconds.
+  const EXPERIMENT_RENDER_TRACK_MULTIPLIER = 1;
   const EXPERIMENT_AUTO_LAUNCH_DURATION_S = 0.18;
   const EXPERIMENT_AUTO_LAUNCH_SURPLUS_N = 0.50;
   function finite(value, fallback = 0) { return Number.isFinite(value) ? value : fallback; }
@@ -363,18 +363,23 @@
       if (!svg || !stage) return null;
       const svgRect = svg.getBoundingClientRect(); const stageRect = stage.getBoundingClientRect();
       if (!(svgRect.width > 0) || !(svgRect.height > 0)) return null;
-      const scale = Math.min(svgRect.width / 900, svgRect.height / 430);
+      const viewBox = svg.viewBox?.baseVal;
+      const viewWidth = finite(viewBox?.width, 900) || 900;
+      const viewHeight = finite(viewBox?.height, 430) || 430;
+      const scale = Math.min(svgRect.width / viewWidth, svgRect.height / viewHeight);
       return {
         scale,
-        left: svgRect.left - stageRect.left + (svgRect.width - 900 * scale) / 2,
-        top: svgRect.top - stageRect.top + (svgRect.height - 430 * scale) / 2
+        viewWidth,
+        viewHeight,
+        left: svgRect.left - stageRect.left + (svgRect.width - viewWidth * scale) / 2,
+        top: svgRect.top - stageRect.top + (svgRect.height - viewHeight * scale) / 2
       };
     }
     function positionApparatusTarget(target, viewX, viewY) {
       const layout = apparatusLayout();
       if (!target || !layout) return;
-      target.style.left = `${layout.left + clamp(viewX, 0, 900) * layout.scale}px`;
-      target.style.top = `${layout.top + clamp(viewY, 0, 430) * layout.scale}px`;
+      target.style.left = `${layout.left + clamp(viewX, 0, layout.viewWidth) * layout.scale}px`;
+      target.style.top = `${layout.top + clamp(viewY, 0, layout.viewHeight) * layout.scale}px`;
     }
     function resetIdleRig(targetPositionM = null) {
       if (!scenario) return;
@@ -559,13 +564,12 @@
       return "繼續逐漸增加拉力，直到物體啱啱開始移動。";
     }
     function renderExperimentForceGraph(svg) {
-      const defs = svg.querySelector("defs");
-      if (defs) {
-        const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" });
-        axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
-        defs.append(axisMarker);
-      }
-      const chart = { left: 64, top: 150, width: 772, height: 210, maxTimeS: 30, maxForceN: 12 };
+      let defs = svg.querySelector("defs");
+      if (!defs) { defs = svgElement("defs"); svg.append(defs); }
+      const axisMarker = svgElement("marker", { id: "graph-axis-arrow", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" });
+      axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
+      defs.append(axisMarker);
+      const chart = { left: 64, top: 18, width: 772, height: 150, maxTimeS: 30, maxForceN: 12 };
       const xFor = (timeS) => chart.left + clamp(timeS, 0, chart.maxTimeS) / chart.maxTimeS * chart.width;
       const yFor = (forceN) => chart.top + chart.height - clamp(forceN, 0, chart.maxForceN) / chart.maxForceN * chart.height;
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
@@ -610,12 +614,17 @@
       const experimentMode = state?.phase === "experiment";
       svg.classList.toggle("is-hidden", graphMode);
       q("stageGraph")?.classList.toggle("is-hidden", !graphMode);
+      q("experimentGraphStage")?.classList.toggle("is-hidden", !experimentMode || graphMode);
+      q("stage")?.classList.toggle("has-experiment-graph", experimentMode && !graphMode);
       q("predictionReadout")?.classList.toggle("is-hidden", !predictionMode);
+      const experimentGraphSvg = q("experimentGraphSvg");
+      if (!experimentMode) experimentGraphSvg?.replaceChildren();
       renderDragTargets();
       renderStageCoach();
       if (graphMode) { renderGraph(); return; }
       svg.replaceChildren();
-      const groundY = experimentMode ? 110 : 300;
+      svg.setAttribute("viewBox", experimentMode ? "0 0 900 260" : "0 0 900 430");
+      const groundY = experimentMode ? 170 : 300;
       const defs = svgElement("defs");
       const groundPattern = svgElement("pattern", { id: "ground-hatch", width: 18, height: 18, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
       groundPattern.append(svgElement("line", { x1: 0, y1: 0, x2: 0, y2: 18, class: "surface-hatch" }));
@@ -656,7 +665,10 @@
           positionApparatusTarget(experimentOrigin, comX, comY);
           experimentOrigin.setAttribute("aria-label", `由物體中央向右拖動拉力，目前 ${visibleForceN.toFixed(2)} 牛頓`);
         }
-        renderExperimentForceGraph(svg);
+        if (experimentGraphSvg) {
+          experimentGraphSvg.replaceChildren();
+          renderExperimentForceGraph(experimentGraphSvg);
+        }
       }
       if (balanceMode) {
         syncBalanceDrawings();
@@ -1386,7 +1398,10 @@
         return { x: transformed.x, y: transformed.y };
       } catch {
         const rect = svg.getBoundingClientRect();
-        return { x: (event.clientX - rect.left) * 900 / Math.max(1, rect.width), y: (event.clientY - rect.top) * 430 / Math.max(1, rect.height) };
+        const viewBox = svg.viewBox?.baseVal;
+        const viewWidth = finite(viewBox?.width, 900) || 900;
+        const viewHeight = finite(viewBox?.height, 430) || 430;
+        return { x: (event.clientX - rect.left) * viewWidth / Math.max(1, rect.width), y: (event.clientY - rect.top) * viewHeight / Math.max(1, rect.height) };
       }
     }
     function balanceComX() {

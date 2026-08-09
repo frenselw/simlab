@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`30`（2026-08-09；延續 revision 29 的 Part B 學生操作要求及自動勻速模型。今次再將物體嘅畫面位置映射由 4 倍物理軌道縮至 2 倍；手機版舞台高度改為貼近實際圖表內容，移除 F拉–t 圖下方多餘空間；橫座標數字下移，並為正方向橫軸右端及縱軸頂端加入箭嘴。物理速度、拉力平台、`physicsVersion`、`measurementVersion` 及 C 的分析 rubric 不變。）
+> Plan revision：`31`（2026-08-10；延續 revision 30 的 B 圖表軸線調整。今次將 B 舞台明確拆成上下兩個 grid region：上方只置中顯示物體及地面，下方只置中顯示 `F拉–t` 圖；B 物體的畫面軌道映射由 2 倍物理軌道改回 1 倍，讓自動勻速移動在 30 秒記錄內有更清楚的位移。A／C／D 的畫面比例、物理速度、拉力平台、`physicsVersion`、`measurementVersion` 及 C 的分析 rubric 不變。）
 
 本計劃必須遵從：
 
@@ -454,9 +454,9 @@ Math.max(0.30, 0.05 * staticLimitMeanN)
 
 ### 7.1 舞台與可見量
 
-舞台模仿 Part A：只顯示水平粗糙面、物體及由物體重心出發的紅色向右拉力箭嘴；不顯示測力計圖案、繩或摩擦力箭嘴。物體由舞台最左位置開始。記錄期間，物體中央顯示一個很小的閃爍圓點作為 `experimentOrigin` 觸控／滑鼠 target；學生直接按住該圓點向右拖動，拉力箭嘴跟手指同步改變。向左移只會減少向右拉力，不能施加向左拉力。
+舞台在 B 明確分成上下兩個獨立顯示區：上方區只置中顯示水平粗糙面、物體及由物體重心出發的紅色向右拉力箭嘴；下方區只置中顯示單一 `F拉–t` 圖。兩區不共用同一個 SVG 畫布，令 desktop 及手機版都不會把物體、地面及圖表擠在同一條垂直座標帶。B 不顯示測力計圖案、繩或摩擦力箭嘴。物體由上方區最左位置開始；記錄期間，物體中央顯示一個很小的閃爍圓點作為 `experimentOrigin` 觸控／滑鼠 target；學生直接按住該圓點向右拖動，拉力箭嘴跟手指同步改變。向左移只會減少向右拉力，不能施加向左拉力。
 
-物體下方固定顯示一張單一圖：
+下方區固定顯示一張單一圖：
 
 \[
 \text{拉力 }F_{\text{拉}}\text{—時間 }t
@@ -2141,7 +2141,7 @@ baseline 的較高舞台，上下會出現 letterbox 空位，並把 control pan
 - B／C 不設「拉力／速度」切換 panes；B 的即時 F–T 圖與 C 的分析 F–T 圖共用同一時間軸及資料格式，C 的 handles 只操作目前選區；
 - 非 ultra-compact 時 control panel 可用高度不得低於 `10rem`；所有模式的 primary action 永遠在 panel 正常 flow 的末端可捲到；
 - `html > body > .app > .activity-main > .stage/.control-panel` 整條 shrinking chain 均設 `min-height: 0`，只有 `.control-panel` 有 `overflow-y: auto`；
-- stage 內容在 extreme height 內 reflow／scale，不建立第三個 stage scroller。
+- stage 內容在 extreme height 內 reflow／scale，不建立第三個 stage scroller；B 的 stage 內再以兩個 grid row 分開上方物體／地面區及下方 `F拉–t` 圖區，兩區內容各自水平及垂直置中。
 
 自動驗收量測 header/stage/panel rectangles、`panel.scrollHeight/clientHeight`、最後 focus target rectangle，以及 `html/body/app.scrollHeight === clientHeight`（容許 1 px rounding）。
 
@@ -2150,7 +2150,7 @@ baseline 的較高舞台，上下會出現 letterbox 空位，並把 control pan
 - controls 左側約 `20–24rem`；
 - stage 右側；
 - desktop header 使用 `clamp(4.5rem, 8vh, 5.5rem)`，只保留一行主標題及階段列，不以固定高 header 留白；
-- graph 仍上下排列；
+- B graph 與物體／地面仍上下排列，但屬於兩個獨立 stage region；每個 region 內的 SVG 內容均置中，不以同一個高畫布製造上下留白；
 - 不新增 desktop-only 必要操作；
 - DOM reading order：controls 先，stage 後；
 - 不使用橫向捲動。
