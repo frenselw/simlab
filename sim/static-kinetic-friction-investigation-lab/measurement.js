@@ -153,9 +153,15 @@
       velocityNoise: finite(previousMeasurement?.velocityNoise) + (finite(currentMeasurement?.velocityNoise) - finite(previousMeasurement?.velocityNoise)) * u
     };
     const measured = liveReading(interpolated);
+    // A spring scale can reach the static-friction peak at the transition and
+    // then contract sharply during the same physics interval. Preserve that
+    // physical peak in the breakaway sidecar instead of letting interpolation
+    // between the pre- and post-drop filtered states erase it.
+    const eventForceN = Number.isFinite(rawEvent.physicalTensionN) ? Math.max(0, rawEvent.physicalTensionN) : measured.forceN;
+    const breakawayForceN = Math.max(measured.forceN, eventForceN);
     const event = {
       timeMs: Math.round(rawEvent.timeS * 1000),
-      measuredPullCN: clamp(Math.round(measured.forceN * 100), 0, 65535),
+      measuredPullCN: clamp(Math.round(breakawayForceN * 100), 0, 65535),
       measuredVelocityMMps: clamp(Math.round(measured.velocityMps * 1000), -32768, 32767),
       preBreakPeakGridIndex
     };

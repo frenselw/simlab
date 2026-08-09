@@ -46,7 +46,7 @@
         <button type="button" id="fast-start" class="drag-target graph-handle interval-handle" data-drag-target="fast-start" aria-label="高速平台區段開始"></button>
         <button type="button" id="fast-end" class="drag-target graph-handle interval-handle" data-drag-target="fast-end" aria-label="高速平台區段結束"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 按住物體中央向右拖動；向左移只會減少向右拉力，不會產生向左拉力。手指停住時拉力保持，放手後拉力回到零。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
+      <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 按住物體中央向右拖動；向左移只會減少向右拉力，不會產生向左拉力。手指停住時，物體未滑動前拉力會保持；物體開始滑動後彈簧會收短，拉力會突然下降。放手後拉力回到零。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <div id="liveReadouts" class="live-readouts" aria-live="off">
         <span><var>F</var><sub>拉</sub> <strong id="forceReadout">0.00 N</strong></span>
         <span><var>t</var> <strong id="timeReadout">0.00 s</strong></span>
@@ -120,7 +120,7 @@
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・直接拉物體</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
-        <p>按「開始 30 秒記錄」後，直接按住舞台上的物體中央向右拖。你施加的拉力就相當於測力計讀數；摩擦力數值在 B 完全未知。向左移只會減少向右拉力，不會令物體受向左拉力。手指停住，拉力保持不變；放手，拉力回到零。</p>
+        <p>按「開始 30 秒記錄」後，直接按住舞台上的物體中央向右拖。你施加的拉力就相當於測力計讀數；摩擦力數值在 B 完全未知。向左移只會減少向右拉力，不會令物體受向左拉力。物體未滑動時，手指停住會令拉力保持；物體啱啱開始滑動時，彈簧會收短，拉力會由最大靜摩擦力突然下降到較低的滑動摩擦力附近。放手，拉力回到零。</p>
         <div class="experiment-instruction"><strong>任務：</strong>慢慢增加拉力，令物體開始並繼續移動；之後盡量保持勻速直線運動。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始記錄</button></div>
         <div id="redoExperimentConfirm" class="quality-card is-hidden" role="group" aria-labelledby="redoExperimentTitle"><h3 id="redoExperimentTitle">確認重新開始記錄</h3><p>這會清除目前 B 記錄及依賴它的 C 分析；Part D 預測屬於獨立情境答案，會保留。</p><div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">確認重新開始</button><button type="button" data-action="cancel-redo-experiment">保留目前資料</button></div></div>

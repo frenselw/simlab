@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`16`（2026-08-09；B 由舞台最左位置開始，拉力限制為只向右；拖動輸入改為 30 px/N 以避免小幅手勢造成過大超調；B／C 的 learner-facing 圖軸及符號統一使用小寫 `t`、斜體物理量及下標格式）。
+> Plan revision：`17`（2026-08-09；B 改用握把／彈簧張力作為測力計讀數，突破最大靜摩擦力後保留峰值並自然跌至較低滑動摩擦力平台；同步提升 `physicsVersion` 至 2、`measurementVersion` 至 4，並保留 30 px/N 右向拖動控制以減少過大超調）。
 
 本計劃必須遵從：
 
@@ -1729,8 +1729,8 @@ Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair,
 generateScenario({
   seed,
   generatorVersion: 1,
-  physicsVersion: 1,
-  measurementVersion: 3
+  physicsVersion: 2,
+  measurementVersion: 4
 });
 ```
 
@@ -2408,8 +2408,8 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 {
   schemaVersion: 5,
   generatorVersion: 1,
-  physicsVersion: 1,
-  measurementVersion: 3,
+  physicsVersion: 2,
+  measurementVersion: 4,
   rubricVersion: 2,
 
   seed: 1234567890,

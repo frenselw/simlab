@@ -29,6 +29,21 @@ let reversedDirect = P.stepDirectForce(directBreakaway, scenario.staticLimitMean
 const forwardVelocity = reversedDirect.block.velocityMps;
 for (let index = 0; index < 120; index += 1) reversedDirect = P.stepDirectForce(reversedDirect, -(scenario.staticLimitMeanN + .5), scenario, .01);
 assert.ok(forwardVelocity > 0 && reversedDirect.block.velocityMps < 0, "opposite direct pull decelerates and reverses the block");
+let spring = P.createInitialState(scenario);
+const springTarget = scenario.connector.restLengthM + (scenario.staticLimitMeanN + 1.5) / scenario.connector.stiffnessNPerM;
+const springSamples = [];
+let springBreakaway = null;
+for (let index = 0; index < 120; index += 1) {
+  spring = P.stepPhysics(spring, { handleTargetPositionM: springTarget }, scenario);
+  springSamples.push(spring);
+  if (!springBreakaway) springBreakaway = spring.events.find((event) => event.type === "breakaway") || null;
+}
+assert.ok(springBreakaway, "spring pull crosses the static-friction limit");
+const springPeak = Math.max(...springSamples.filter((sample) => sample.timeS <= springBreakaway.timeS + 0.08).map((sample) => sample.connector.tensionPhysicalN));
+const springPostDrop = springSamples.find((sample) => sample.timeS >= springBreakaway.timeS + 0.12);
+assert.ok(springPostDrop, "spring pull has a post-breakaway sample");
+assert.ok(springPeak - springPostDrop.connector.tensionPhysicalN >= 0.8, "spring tension visibly drops after breakaway");
+assert.ok(springPostDrop.block.velocityMps < 0.2, "spring release keeps post-breakaway speed controllable");
 let state = P.createInitialState(scenario); const events = [];
 for (let i = 0; i < 1600; i += 1) { state = P.stepPhysics(state, { handleTargetPositionM: .85 }, scenario); events.push(...state.events); }
 assert.ok(state.block.positionM >= 0);

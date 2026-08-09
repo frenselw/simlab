@@ -13,6 +13,8 @@ for (let i = 0; i < 120; i += 1) state = M.step(state, physical, scenario, 1 / 2
 assert.equal(JSON.stringify(physical), physicalCheckpoint, "measurement filtering never mutates or feeds back into physics state");
 const before = M.liveReading(state);
 assert.equal(before.forceCN, 0, "the calibrated startup reading is already zero without a learner tare step");
+const breakawayPeak = M.enrichBreakaway(M.createMeasurementState(scenario), { type: "breakaway", timeS: 0.25, physicalTensionN: 7.08 }, M.createMeasurementState(scenario), M.createMeasurementState(scenario));
+assert.equal(breakawayPeak.breakaway.measuredPullCN, 708, "breakaway sidecar preserves the physical spring peak after a same-step force drop");
 const samples = [];
 for (let i = 0; i <= 300; i += 1) samples.push({ timeS: i * .1, pullCN: Math.min(1100, i * 3), velocityMMps: i > 80 ? Math.min(250, i - 80) : 0 });
 const trace = M.packTrace({ regularSamples: samples, breakaway: { timeMs: 3200, measuredPullCN: 720, measuredVelocityMMps: 4, preBreakPeakGridIndex: 31 } });
