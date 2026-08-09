@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`17`（2026-08-09；B 改用握把／彈簧張力作為測力計讀數，突破最大靜摩擦力後保留峰值並自然跌至較低滑動摩擦力平台；同步提升 `physicsVersion` 至 2、`measurementVersion` 至 4，並保留 30 px/N 右向拖動控制以減少過大超調）。
+> Plan revision：`18`（2026-08-09；B 在突破最大靜摩擦力後加入不顯示的握把跟隨機制，令施加拉力維持在滑動摩擦力附近或略高，避免物體因張力跌穿滑動摩擦力而立即重新靜止；同步提升 `physicsVersion` 至 3，`measurementVersion` 維持 4，學生向左減力或放手即可解除跟隨）。
 
 本計劃必須遵從：
 
@@ -828,6 +828,8 @@ V1 的最大靜摩擦力不隨位置變；只有滑動摩擦力有小幅、activ
 - 拉力峰值及下降自然由運動產生；
 - 學生增加握把速度時，拉力會短暫上升；
 - 物體追上握把並重新勻速時，拉力返回滑動摩擦平台附近。
+
+Part B 在第一次 breakaway 後啟用短暫的 kinetic follow-through：系統用同一個有限響應的握把模型，讓物理握把目標隨物體位置更新，並把下一步的施加拉力目標維持在當地 `f_k+0.02 N` 附近。這個是為了讓學生能看見「峰值突然下降至滑動平台後繼續運動」的互動輔助，不會顯示摩擦力數值，也不會寫入答案。學生直接向左移動以減少拉力時，跟隨立即解除，物體便按實際合力減速；放手則將拉力歸零。
 
 ### 11.4 握把控制器
 
@@ -1729,7 +1731,7 @@ Pair-level midpoint/local predicates 集中在 pure `classifyPairForTarget(pair,
 generateScenario({
   seed,
   generatorVersion: 1,
-  physicsVersion: 2,
+  physicsVersion: 3,
   measurementVersion: 4
 });
 ```
@@ -2408,7 +2410,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 {
   schemaVersion: 5,
   generatorVersion: 1,
-  physicsVersion: 2,
+  physicsVersion: 3,
   measurementVersion: 4,
   rubricVersion: 2,
 
