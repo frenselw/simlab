@@ -507,6 +507,9 @@ th:first-child, td:first-child { text-align: left; }
   .stage.has-experiment-graph {
     grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
   }
+  .stage.has-prediction {
+    grid-template-rows: minmax(0, 1fr);
+  }
   .stage-coach {
     position: relative;
     top: auto;
@@ -525,6 +528,7 @@ th:first-child, td:first-child { text-align: left; }
   .stage-coach strong { font-size: .78rem; }
   .stage-coach > span:last-child { font-size: .7rem; }
   #apparatusSvg { grid-row: 2; min-height: 0; }
+  .stage.has-prediction #apparatusSvg { grid-row: 1; }
   .experiment-graph-stage { grid-row: 3; padding: 0; }
   .stage-graph { position: relative; inset: auto; grid-row: 2; height: 100%; min-height: 0; }
   .answer-grid { grid-template-columns: 1fr; }

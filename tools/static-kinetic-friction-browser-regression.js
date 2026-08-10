@@ -56,7 +56,9 @@ async function tap(cdp, point) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: point.x, y: point.y, id: 18, radiusX: 1, radiusY: 1, force: 1 }] });
   await delay(40);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await delay(120);
+  // Allow the trusted mobile click synthesis and the following render to
+  // settle before reading validation or phase state under a busy test run.
+  await delay(220);
 }
 async function tapSelector(cdp, selector) {
   const point = await evaluate(cdp, `(() => { const node = document.querySelector(${JSON.stringify(selector)}); if (!node) throw new Error(${JSON.stringify(`missing selector: ${selector}`)}); node.scrollIntoView({ block: 'center', inline: 'center' }); const r = node.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
@@ -312,6 +314,10 @@ async function semanticSmoke(cdp, url, label) {
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const earlyPrediction = await evaluate(cdp, "(() => { const card=document.querySelector('#predictionCards [data-prediction-index=\"0\"]'); return { phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards [data-prediction-index]').length, firstEnabled:!card.querySelector('select').disabled, progress:document.querySelectorAll('.prediction-progress-step').length, numericInput:Boolean(card.querySelector('input[type=number]')) }; })()");
   assert.deepEqual(earlyPrediction, { phase: "predict", cards: 1, firstEnabled: true, progress: 4, numericInput: false }, `${label}: Part D is directly selectable with one sequential active question while Part C is still incomplete`);
+  const predictionStageLayout = await evaluate(cdp, "(() => { const stage=document.getElementById('stage'),coach=document.getElementById('stageCoach'),readout=document.getElementById('predictionReadout'),block=document.querySelector('#apparatusSvg .apparatus-block'),surface=document.querySelector('#apparatusSvg .apparatus-surface'),blockRect=block?.getBoundingClientRect(),surfaceRect=surface?.getBoundingClientRect(); return { stagePrediction:stage.classList.contains('has-prediction'), coachHidden:coach.classList.contains('is-hidden'), coachDisplay:getComputedStyle(coach).display, readoutHidden:readout.classList.contains('is-hidden'), readoutDisplay:getComputedStyle(readout).display, blockTop:blockRect?.top, surfaceTop:surfaceRect?.top }; })()");
+  assert.equal(predictionStageLayout.stagePrediction, true, `${label}: Part D uses the compact single-row stage layout`);
+  assert.equal(predictionStageLayout.coachHidden, true, `${label}: Part D hides the redundant stage coach so it cannot cover the apparatus`);
+  assert.equal(predictionStageLayout.readoutHidden, true, `${label}: Part D hides the redundant stage readout so it cannot cover the apparatus`);
   const predictionTarget = await evaluate(cdp, `(() => { const node=document.getElementById('predictionFriction'),r=node.getBoundingClientRect(); return { x:r.left+r.width/2, y:r.top+r.height/2, hidden:node.classList.contains('is-hidden') }; })()`);
   assert.equal(predictionTarget.hidden, false, `${label}: Part D exposes the small direct force target`);
   await touch(cdp, predictionTarget, { x: predictionTarget.x - 58, y: predictionTarget.y });
@@ -344,13 +350,16 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(partialReview.hasRope, false, `${label}: submission review uses the clean apparatus without the old rope`);
   assert.equal(partialReview.hasGrip, false, `${label}: submission review uses the clean apparatus without the old orange grip`);
   assert.ok(partialReview.blockX > 380 && partialReview.blockX < 470, `${label}: submission review centers the clean block ${JSON.stringify(partialReview)}`);
-  assert.match(partialReview.summary, /可以直接提交.*0 分/, `${label}: submission review explains incomplete scoring`);
-  await evaluate(cdp, "window.SimScorm.submitWithCallbacks=(result,snapshot,handlers)=>{handlers.onSuccess({activityState:'success',finished:true});return {activityState:'success',finished:true}};"); await tapSelector(cdp, "#submit");
+  assert.match(partialReview.summary, /可先核對已保存答案，再提交/, `${label}: submission review uses neutral pre-submit guidance`);
+  await tapSelector(cdp, "#submit");
   const partialResult = await evaluate(cdp, "(() => ({presentation:window.__staticKineticFrictionApp.getPresentation(),text:document.getElementById('resultPanel').textContent}))()");
   assert.equal(partialResult.presentation, "submitted-success", `${label}: incomplete submission can finish successfully`);
   assert.match(partialResult.text, /各部分得分及扣分/, `${label}: submitted result has the score ledger heading`);
   assert.match(partialResult.text, /Part A.*扣/, `${label}: submitted result identifies deductions in Part A`);
   assert.match(partialResult.text, /未完成或未得分/, `${label}: submitted result explains zero-score incomplete items`);
+
+  await navigate(cdp, url);
+  await evaluate(cdp, analysisFixtureScript(0));
 
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});window.__reviewAuthority=JSON.stringify({analysis:perfect.analysis,predictions:perfect.predictions});return true })()`);
   await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='kineticFriction']"); await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");

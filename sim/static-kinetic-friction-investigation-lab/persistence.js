@@ -56,7 +56,7 @@
     return allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state);
   }
   function hasSubmittableAnswer(state) {
-    return state?.phase === "review" && state.fromReview === false;
+    return state?.phase === "review" && state.fromReview !== true;
   }
   function hasRequiredAnswer(state) { return state?.phase === "review" && hasRequiredAuthority(state); }
   function inferVariant(state) {

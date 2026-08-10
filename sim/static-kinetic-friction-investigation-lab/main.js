@@ -337,7 +337,7 @@
     }
     function renderStageCoach() {
       const coach = q("stageCoach");
-      if (!coach || !state || ["analysis", "review"].includes(state.phase)) {
+      if (!coach || !state || ["analysis", "predict", "review"].includes(state.phase)) {
         coach?.classList.add("is-hidden");
         return;
       }
@@ -651,7 +651,10 @@
       q("stageGraph")?.classList.toggle("is-hidden", !graphMode);
       q("experimentGraphStage")?.classList.toggle("is-hidden", !experimentMode || graphMode);
       q("stage")?.classList.toggle("has-experiment-graph", experimentMode && !graphMode);
-      q("predictionReadout")?.classList.toggle("is-hidden", !predictionMode);
+      q("stage")?.classList.toggle("has-prediction", predictionMode);
+      // The control card already exposes the prediction details.  Keep the
+      // stage clear so a long mobile readout cannot cover the block.
+      q("predictionReadout")?.classList.add("is-hidden");
       const experimentGraphSvg = q("experimentGraphSvg");
       if (!experimentMode) experimentGraphSvg?.replaceChildren();
       renderDragTargets();
@@ -659,7 +662,7 @@
       if (graphMode) { renderGraph(); return; }
       svg.replaceChildren();
       svg.setAttribute("viewBox", experimentMode ? "0 0 900 260" : "0 0 900 430");
-      const groundY = experimentMode ? 170 : 300;
+      const groundY = experimentMode ? 170 : predictionMode ? 240 : 300;
       const defs = svgElement("defs");
       const groundPattern = svgElement("pattern", { id: "ground-hatch", width: 18, height: 18, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
       groundPattern.append(svgElement("line", { x1: 0, y1: 0, x2: 0, y2: 18, class: "surface-hatch" }));
@@ -1186,8 +1189,8 @@
       const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
       const requiredComplete = Persistence.hasRequiredAuthority(state);
       const predictionDone = state.predictions.filter((prediction) => prediction?.committed === true).length;
-      const reviewMessage = requiredComplete ? "作答資料全部完成，可以提交；提交後會顯示逐項得分。" : "可以直接提交；未完成或未得分的項目會按 rubric 計 0 分。";
-      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>Part B 實驗記錄：${state.trial ? "已保存" : "未完成（該部分得 0 分）"}</li><li>Part C 圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整（未完成項目得 0 分）"}</li><li>Part D 預測：${predictionDone}/4（未答題目得 0 分）</li></ul><p class="${requiredComplete ? "result-good" : "result-neutral"}">${reviewMessage}</p>`;
+      const reviewMessage = requiredComplete ? "已保存的作答資料完整，可以提交。" : "可先核對已保存答案，再提交。";
+      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>Part B 實驗記錄：${state.trial ? "已保存" : "未完成"}</li><li>Part C 圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整"}</li><li>Part D 預測：${predictionDone}/4</li></ul><p class="${requiredComplete ? "result-good" : "result-neutral"}">${reviewMessage}</p>`;
       const editActions = [];
       if (state.balance.zeroForce?.committed) editActions.push('<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button>');
       if (state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed) editActions.push('<button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button>');
@@ -1337,7 +1340,7 @@
       if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
       if (action === "save-analysis") return "請先在圖上放好靜摩擦力、最大靜摩擦力及滑動摩擦力三個標記。";
       if (action === "save-prediction") return "請先在圖上畫出摩擦力（不畫代表零），再選擇摩擦力類型及運動結果。";
-      if (action === "to-review") return "可以直接提交；未完成項目會在提交結果中按 rubric 扣分。";
+      if (action === "to-review") return "可以前往提交前檢查；提交後答案會鎖定。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
     }
     function validationNode(action) {
