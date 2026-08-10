@@ -946,22 +946,45 @@
       if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
       svg.replaceChildren();
       const decoded = Measurement.unpackTrace(state.trial);
-      const chart = Graph.GRAPH;
+      const observedTimeS = decoded.merged.reduce((latest, sample) => Math.max(latest, finite(sample.timeS)), 0);
+      const chart = {
+        ...Graph.GRAPH,
+        // Leave a clear frame around the plot and use the actual recorded
+        // duration instead of reserving empty space up to 30 seconds.
+        left: 108,
+        top: 54,
+        width: 660,
+        height: 294,
+        maxTimeS: Math.min(30, Math.max(5, Math.ceil(Math.max(1, observedTimeS) / 5) * 5)),
+        viewWidth: 820,
+        viewHeight: 430,
+        timeTickCount: 5
+      };
+      const formatTimeTick = (value) => Number.isInteger(value) ? String(value) : value.toFixed(1);
       const defs = svgElement("defs");
       const axisMarker = svgElement("marker", { id: "analysis-axis-arrow", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 14, markerHeight: 14, markerUnits: "userSpaceOnUse", orient: "auto" });
       axisMarker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#334155" }));
       defs.append(axisMarker); svg.append(defs);
-      for (let i = 0; i <= 6; i += 1) { const x = Graph.timeToX(i * 5); svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: "graph-grid" })); }
-      for (let i = 0; i <= 4; i += 1) { const y = Graph.forceToY(i * 3); svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" })); }
+      for (let i = 0; i <= chart.timeTickCount; i += 1) {
+        const timeS = chart.maxTimeS * i / chart.timeTickCount;
+        const x = Graph.timeToX(timeS, chart);
+        svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: "graph-grid" }));
+      }
+      for (let i = 0; i <= 4; i += 1) { const y = Graph.forceToY(i * 3, chart); svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" })); }
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left, y2: chart.top, class: "graph-axis", "marker-end": "url(#analysis-axis-arrow)" }));
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#analysis-axis-arrow)" }));
-      for (let i = 0; i <= 6; i += 1) svg.append(svgElement("text", { x: Graph.timeToX(i * 5), y: chart.top + chart.height + 27, "text-anchor": "middle", class: "graph-tick-label" }, `${i * 5}`));
-      for (let i = 0; i <= 4; i += 1) svg.append(svgElement("text", { x: chart.left - 12, y: Graph.forceToY(i * 3) + 6, "text-anchor": "end", class: "graph-tick-label" }, `${i * 3}`));
-      svg.append(svgElement("path", { d: Graph.svgPath(decoded, "force"), class: "force-line analysis-force-line", stroke: "#b91c1c", "aria-label": "拉力 F拉—時間 t" }));
-      const yLabel = svgElement("text", { x: 18, y: 198, transform: "rotate(-90 18 198)", "text-anchor": "middle", class: "graph-axis-label" });
+      for (let i = 0; i <= chart.timeTickCount; i += 1) {
+        const timeS = chart.maxTimeS * i / chart.timeTickCount;
+        svg.append(svgElement("text", { x: Graph.timeToX(timeS, chart), y: chart.top + chart.height + 27, "text-anchor": "middle", class: "graph-tick-label" }, formatTimeTick(timeS)));
+      }
+      for (let i = 0; i <= 4; i += 1) svg.append(svgElement("text", { x: chart.left - 14, y: Graph.forceToY(i * 3, chart) + 6, "text-anchor": "end", class: "graph-tick-label" }, `${i * 3}`));
+      svg.append(svgElement("path", { d: Graph.svgPath(decoded, "force", chart), class: "force-line analysis-force-line", stroke: "#b91c1c", "aria-label": "拉力 F拉—時間 t" }));
+      const yLabelX = 42;
+      const graphCenterY = chart.top + chart.height / 2;
+      const yLabel = svgElement("text", { x: yLabelX, y: graphCenterY, transform: `rotate(-90 ${yLabelX} ${graphCenterY})`, "text-anchor": "middle", class: "graph-axis-label" });
       const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
       const ySub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); ySub.textContent = "拉"; yLabel.append(ySub); yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);
-      const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: 418, "text-anchor": "middle", class: "graph-axis-label" });
+      const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: chart.top + chart.height + 61, "text-anchor": "middle", class: "graph-axis-label" });
       const xT = svgElement("tspan", { "font-style": "italic" }); xT.textContent = "t"; xLabel.append(xT); xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
       const draft = ensureAnalysisDraft();
       const readouts = [];
@@ -971,16 +994,20 @@
         const sample = index == null ? null : decoded.merged[index];
         const target = q(marker.id);
         if (sample) {
-          const x = Graph.timeToX(sample.timeS); const y = Graph.forceToY(sample.measuredPullN);
+          const x = Graph.timeToX(sample.timeS, chart); const y = Graph.forceToY(sample.measuredPullN, chart);
           svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, stroke: marker.color }));
           svg.append(svgElement("circle", { cx: x, cy: y, r: 7, class: `analysis-marker-dot ${marker.className}`, fill: marker.color }));
-          svg.append(svgElement("text", { x, y: 14 + markerIndex * 14, "text-anchor": "middle", class: `analysis-marker-label ${marker.className}`, fill: marker.color }, marker.label));
-          if (target) { target.style.left = `${clamp(x / 820 * 100, 0, 100)}%`; target.style.top = `${clamp(y / 430 * 100, 10, 84)}%`; target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
+          // Keep the three explanatory labels in evenly spaced columns. They
+          // identify the coloured vertical guides without colliding when the
+          // selected samples happen to be close in time.
+          const labelX = chart.left + (markerIndex + .5) * chart.width / ANALYSIS_MARKER_META.length;
+          svg.append(svgElement("text", { x: labelX, y: chart.top - 18, "text-anchor": "middle", class: `analysis-marker-label ${marker.className}`, fill: marker.color }, marker.label));
+          if (target) { target.style.left = `${clamp(x / chart.viewWidth * 100, 0, 100)}%`; target.style.top = `${clamp(y / chart.viewHeight * 100, 10, 84)}%`; target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
           readouts.push(`${marker.label}：${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N`);
         } else if (target) {
-          const x0 = chart.left + 24 + markerIndex * 34;
-          target.style.left = `${clamp(x0 / 820 * 100, 0, 100)}%`;
-          target.style.top = "82%";
+          const x0 = chart.left + (markerIndex + .5) * chart.width / ANALYSIS_MARKER_META.length;
+          target.style.left = `${clamp(x0 / chart.viewWidth * 100, 0, 100)}%`;
+          target.style.top = `${clamp((chart.top + chart.height - 20) / chart.viewHeight * 100, 10, 84)}%`;
           target.setAttribute("aria-label", `${marker.label}位置，尚未標示；拖動此圓點到圖線上的位置`);
         }
       });

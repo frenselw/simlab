@@ -108,6 +108,7 @@ select {
 .stage-graph { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #fff; }
 .stage-graph #graphSvg { height: 100%; min-height: 0; }
 #apparatusSvg text, #graphSvg text, #experimentGraphSvg text { fill: var(--ink); font-size: 14px; }
+#graphSvg text { font-family: "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
 .apparatus-surface { fill: #d7dee7; stroke: none; }
 .apparatus-ground-line { stroke: #111827; stroke-width: 4; }
 .surface-hatch { stroke: #111827; stroke-width: 2.5; }
@@ -124,12 +125,12 @@ select {
 .experiment-force-label { font-size: 30px; font-weight: 800; stroke-width: 6px; }
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
 .graph-axis { stroke: #334155; stroke-width: 1.8; }
-.graph-axis-label { font-size: 28px !important; font-variant-numeric: tabular-nums; }
-.graph-tick-label { font-size: 18px !important; font-variant-numeric: tabular-nums; }
+.graph-axis-label { font-size: 24px !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+.graph-tick-label { font-size: 17px !important; font-weight: 500; font-variant-numeric: tabular-nums; }
 .graph-cursor { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 4; }
 .analysis-marker-line { stroke-width: 3; stroke-dasharray: 8 5; opacity: .8; }
 .analysis-marker-dot { stroke: #fff; stroke-width: 3; }
-.analysis-marker-label { font-size: 18px !important; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+.analysis-marker-label { font-size: 17px !important; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
 .analysis-marker-static { border-color: #2563eb; background: rgba(37, 99, 235, .18); }
 .analysis-marker-maximum { border-color: #c2410c; background: rgba(194, 65, 12, .18); }
 .analysis-marker-kinetic { border-color: #15803d; background: rgba(21, 128, 61, .18); }

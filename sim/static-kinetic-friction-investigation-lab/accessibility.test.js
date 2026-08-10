@@ -48,7 +48,7 @@ assert.match(css, /html,[\s\S]*body[\s\S]*overflow:\s*hidden/);
 assert.match(css, /--header-track:\s*clamp\(4\.5rem, 8vh, 5\.5rem\)/);
 assert.match(css, /\.answer-card input\[type="number"\][\s\S]*min-height:\s*44px/);
 assert.doesNotMatch(css, /experiment-force-slider|experiment-force-control/);
-assert.match(css, /\.graph-axis-label[^}]*font-size:\s*28px/);
+assert.match(css, /\.graph-axis-label[^}]*font-size:\s*24px/);
 assert.doesNotMatch(css, /experiment-graph-title/);
 assert.match(main, /setPointerCapture/);
 assert.match(main, /pointercancel/);
