@@ -323,6 +323,14 @@ async function semanticSmoke(cdp, url, label) {
   await touch(cdp, predictionTarget, { x: predictionTarget.x - 58, y: predictionTarget.y });
   const drawnPrediction = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { direction:state.predictions[0]?.direction, magnitudeCN:state.predictions[0]?.magnitudeCN, arrow:Boolean(document.querySelector('.prediction-friction-arrow')), readout:document.querySelector('[data-prediction-magnitude-readout]')?.textContent }; })()`);
   assert.ok(drawnPrediction.direction === "left" && drawnPrediction.magnitudeCN > 0 && drawnPrediction.arrow && /N/.test(drawnPrediction.readout), `${label}: dragging the Part D target draws a leftward force and synchronises the readout ${JSON.stringify(drawnPrediction)}`);
+  await tapSelector(cdp, "[data-action='to-review']");
+  const dReview = await evaluate(cdp, `(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, presentation:window.__staticKineticFrictionApp.getPresentation(), predictHidden:document.getElementById('predictPanel').classList.contains('is-hidden'), reviewVisible:!document.getElementById('reviewPanel').classList.contains('is-hidden'), submitDisabled:document.getElementById('submit').disabled }))()`);
+  assert.deepEqual(dReview, { phase: "review", presentation: "editable", predictHidden: true, reviewVisible: true, submitDisabled: false }, `${label}: Part D can enter the review page directly without returning to D`);
+  await tapSelector(cdp, "#submit");
+  const dResult = await evaluate(cdp, `(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, presentation:window.__staticKineticFrictionApp.getPresentation(), predictHidden:document.getElementById('predictPanel').classList.contains('is-hidden'), reviewVisible:!document.getElementById('reviewPanel').classList.contains('is-hidden'), resultVisible:!document.getElementById('resultPanel').classList.contains('is-hidden') }))()`);
+  assert.deepEqual(dResult, { phase: "review", presentation: "submitted-success", predictHidden: true, reviewVisible: true, resultVisible: true }, `${label}: submitting from Part D stays on the review/result page`);
+  await navigate(cdp, url);
+  await evaluate(cdp, analysisFixtureScript(0));
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
   await pressKeyOn(cdp, "#staticFrictionMarker", "ArrowRight");
   const partial = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;const state=app.getState();window.__analysisSnapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(state)};app.routeAttempt({state:'draft',snapshot:window.__analysisSnapshot});const restored=app.getState();return {variant:restored.variant,active:restored.working.activeAnalysisTask,selected:restored.analysis.staticFriction?.index,unselected:[restored.analysis.maximumStaticFriction,restored.analysis.kineticFriction]} })()`);
@@ -497,6 +505,16 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   const afterPanel = await metrics();
   assert(afterPanel.panel > beforePanel.panel, `${label}: control panel swipe owns panel scroll`);
   assert.ok(Math.abs(afterPanel.host - beforePanel.host) <= 1, `${label}: panel swipe leaves enclosing host fixed (≤1 CSS px rounding)`);
+  await delay(500);
+  const momentumDistance = Math.min(72, Math.max(28, panelRange * .12));
+  await frameEvaluate(cdp, `(() => { const panel = document.getElementById('controlPanel'); panel.scrollTop = ${panelRange * .15}; return true; })()`);
+  await touchStartMoveGradual(cdp, panelPoint, { x: panelPoint.x, y: panelPoint.y - momentumDistance }, 16, 24);
+  await touchEnd(cdp);
+  const panelAtRelease = await metrics();
+  await delay(180);
+  const panelAfterMomentum = await metrics();
+  assert.ok(panelAfterMomentum.panel > panelAtRelease.panel + 1, `${label}: releasing a panel swipe keeps native momentum scrolling (${JSON.stringify({ atRelease: panelAtRelease.panel, afterMomentum: panelAfterMomentum.panel, distance: momentumDistance })})`);
+  assert.ok(Math.abs(panelAfterMomentum.host - panelAtRelease.host) <= 1, `${label}: panel momentum leaves enclosing host fixed`);
   const prepared = await frameEvaluate(cdp, `(() => {
     const state=window.__staticKineticFrictionApp.getState();
     return {zero:state.balance.zeroForce,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),originHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')};

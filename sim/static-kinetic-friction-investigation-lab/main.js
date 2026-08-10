@@ -187,6 +187,11 @@
       if (state.phase === "experiment" && recorder?.running) abortExperimentRecording("已中止未完成的 B 記錄；切換任務後可重新開始。");
       cancelBalanceMotion();
       state = Persistence.transitions.setPhase(state, phase);
+      if (phase === "review") {
+        presentation = "editable";
+        latestResult = null;
+        q("controlPanel")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
       analysisDraft = phase === "analysis" ? null : analysisDraft;
       predictionDraft = phase === "predict" ? [] : predictionDraft;
       if (phase === "balance") {
@@ -227,6 +232,10 @@
       if (typeof requestAnimationFrame === "function") requestAnimationFrame(focus); else setTimeout(focus, 0);
     }
     function focusPhase(phase = state?.phase) { focusNode(q(`${phase}Panel`)?.querySelector("h2")); }
+    function focusReviewSurface() {
+      q("controlPanel")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      focusPhase("review");
+    }
     function currentAnalysisKey() {
       if (!state) return null;
       if (state.fromReview && state.working?.reviewEditTarget?.section === "analysis") return state.working.reviewEditTarget.semanticKey;
@@ -1397,7 +1406,7 @@
             state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN, motionOutcome: values.motionOutcome, committed: true }); saveDraft();
           }
           else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
-          else if (action === "to-review") { state = Persistence.transitions.setPhase(state, "review"); saveDraft(); }
+          else if (action === "to-review") navigateToPhase("review");
           else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", "zero-force"); saveDraft(); }
           else if (action === "edit-balance-task") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-balance-key]")?.dataset.balanceKey); saveDraft(); }
           else if (action === "edit-experiment") restartExperimentImmediately();
@@ -1450,18 +1459,20 @@
         } catch { panelHostScrollY = null; panelHostOverflow = null; panelHostBodyOverflow = null; panelHostOverscroll = null; panelHostBodyOverscroll = null; panelHostTouchAction = null; panelHostBodyTouchAction = null; }
         notifyPanelHost("start");
         if (panelHostScrollY != null) try { window.parent.scrollTo(0, panelHostScrollY); } catch {}
-      }, { passive: false });
+      }, { passive: true });
       q("controlPanel")?.addEventListener("touchmove", (event) => {
         if (panelTouchY == null || event.touches.length !== 1) return;
-        const panel = q("controlPanel"); const y = event.touches[0].clientY; const delta = panelTouchY - y; panelTouchY = y;
+        const y = event.touches[0].clientY; panelTouchY = y;
         if (!panelTouchMoved && Math.abs(y - panelTouchStartY) < 2) return;
         panelTouchMoved = true;
-        panel.scrollTop = clamp(panel.scrollTop + delta, 0, Math.max(0, panel.scrollHeight - panel.clientHeight));
+        // Let the browser's native overflow scroller own the panel gesture.
+        // In particular, do not write scrollTop or cancel touchmove here:
+        // those two operations disable the release velocity that provides
+        // normal touch momentum scrolling.
         // An iframe's native pan chain may otherwise move the Moodle host
         // when the panel is at an edge. Keep this gesture owned by the panel.
-        event.preventDefault();
         if (panelHostScrollY != null) try { window.parent.scrollTo(0, panelHostScrollY); } catch {}
-      }, { passive: false });
+      }, { passive: true });
       const finishPanelTouch = () => {
         if (panelTouchY == null && panelHostScrollY == null) return;
         if (panelHostRestoreTimer != null) clearTimeout(panelHostRestoreTimer);
@@ -1758,8 +1769,8 @@
       const result = Scoring.scoreAnswer(state, scenario); const reviewState = Persistence.normalizeReview(state); const review = Persistence.encodeReview(reviewState); const reviewSnapshot = SimScorm.makeSnapshot(ACTIVITY, "review", review, result);
       const Flow = typeof SimActivityFlow !== "undefined" ? SimActivityFlow : null;
       const callbacks = {
-        success: () => { latestResult = result; presentation = "submitted-success"; state = reviewState; render(); setText("submitStatus", "已提交並完成此活動。"); },
-        committed: () => { latestResult = result; presentation = "submitted-committed"; state = reviewState; render(); setText("submitStatus", "資料已提交；活動已鎖定，完成程序可稍後重試。"); },
+        success: () => { latestResult = result; presentation = "submitted-success"; state = reviewState; render(); focusReviewSurface(); setText("submitStatus", "已提交並完成此活動。"); },
+        committed: () => { latestResult = result; presentation = "submitted-committed"; state = reviewState; render(); focusReviewSurface(); setText("submitStatus", "資料已提交；活動已鎖定，完成程序可稍後重試。"); },
         frozen: () => { pendingRetryAvailable = true; presentation = "frozen"; setText("submitStatus", "技術提交暫時凍結；操作及分數均未確認。"); render(); },
         retry: (outcome) => { if (outcome?.retryable === false) { presentation = "technical"; setText("technicalTitle", "提交前技術檢查失敗"); setText("technicalMessage", "提交前檢查未能安全完成；活動已鎖定，操作及分數均未確認。"); } else setText("submitStatus", "技術提交未完成；請稍後重試，操作及分數均未確認。"); render(); if (outcome?.retryable === false) focusNode(q("technicalTitle")); }
       };

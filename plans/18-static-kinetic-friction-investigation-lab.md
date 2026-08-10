@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`37`（2026-08-10；提交頁面沿用 A／B／C／D 的新版乾淨舞台，移除舊 rope／橙色 grip；review control panel 改用一致 grid 間距。提交不再要求 A、B、C 或 D 全部完成：由任一 Part／任務列都可進入 review，任何未完成或未得分項目按其 rubric 計 0 分／扣除未取得分數。提交前只顯示中性核對提示，不預告扣分；提交結果必須逐 Part、逐小題顯示得分、滿分及扣分原因。合法空白 review 亦可提交。Part D 手機版隱藏重複的舞台提示及讀數，並把物體／地面上移以免遮擋物體。現有 `s6` review wire 已能保存 nullable A／B／C／D authority，因此不提升 schema／wire version。）
+> Plan revision：`38`（2026-08-10；提交頁面沿用 A／B／C／D 的新版乾淨舞台，移除舊 rope／橙色 grip；review control panel 改用一致 grid 間距。提交不再要求 A、B、C 或 D 全部完成：由任一 Part／任務列都可進入 review，任何未完成或未得分項目按其 rubric 計 0 分／扣除未取得分數。提交前只顯示中性核對提示，不預告扣分；提交結果必須逐 Part、逐小題顯示得分、滿分及扣分原因。合法空白 review 亦可提交。Part D 手機版隱藏重複的舞台提示及讀數，並把物體／地面上移以免遮擋物體。現有 `s6` review wire 已能保存 nullable A／B／C／D authority，因此不提升 schema／wire version。本修訂固定 D／任何 Part 進入 review 後的提交結果路由留在 review／結果畫面；control panel 由瀏覽器原生 overflow scroller 處理 touch momentum，activity 只保留同源 Moodle host lock，不在 `touchmove` 手動寫 `scrollTop` 或 `preventDefault()`。）
 
 本計劃必須遵從：
 
