@@ -8,6 +8,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Measurement, Generator, Graph) {
   "use strict";
 
+  const RUBRIC_VERSION = Generator.RUBRIC_VERSION;
   const PASSING_SCORE = 60;
   const ZERO_FRICTION_TOLERANCE_N = 0.10;
   const BALANCE_ABS_TOLERANCE_N = 0.15;
@@ -179,11 +180,11 @@
     const oppositeDirection = appliedDirection === "left" ? "right" : "left";
     const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 6, generatorVersion: 1, physicsVersion: 7, measurementVersion: 4, rubricVersion: 3, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      schemaVersion: 6, generatorVersion: 1, physicsVersion: 7, measurementVersion: 4, rubricVersion: RUBRIC_VERSION, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
       balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerAppliedForce: { direction: appliedDirection, magnitudeCN: appliedMagnitudeCN, committed: true }, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
       analysis: { staticFriction: { index: pointFromWindow(candidates.static, 0), committed: true }, maximumStaticFriction: { index: breakawayIndex, committed: true }, kineticFriction: { index: kineticWindow ? Math.round((kineticWindow.startIndex + kineticWindow.endIndex) / 2) : kineticFallback, committed: true } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))
     };
   }
-  return Object.freeze({ PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, KINETIC_MARKER_SETTLE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, maximumStaticBalanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, postBreakawayKineticMarker, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
+  return Object.freeze({ RUBRIC_VERSION, PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, KINETIC_MARKER_SETTLE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, maximumStaticBalanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, postBreakawayKineticMarker, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
 });

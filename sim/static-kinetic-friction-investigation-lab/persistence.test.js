@@ -150,9 +150,13 @@ const predictionDraft = P.transitions.setPrediction(predictionEdit, 1, { ...stat
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(predictionDraft, "prediction partial review draft")), state, "prediction review draft cancellation restores authority");
 
 const review = P.encodeReview(state);
+assert.equal(G.RUBRIC_VERSION, P.RUBRIC_VERSION, "generator and persistence use one rubric authority");
+assert.equal(S.RUBRIC_VERSION, P.RUBRIC_VERSION, "scoring and persistence use one rubric authority");
+assert.equal(review.v[4], P.RUBRIC_VERSION, "snapshot header uses the shared rubric authority");
 assert.equal(review.w, "s6");
 assert.ok(Buffer.byteLength(JSON.stringify({ version: 1, activity: ACTIVITY, kind: "review", answer: review }), "utf8") < 4000, "canonical review fits suspend_data");
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: review }, scenario, "review"), P.normalizeReview(state));
+assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: review }, { ...scenario, rubricVersion: 2 }, "review"), /scenario mismatch/, "a mismatched scenario rubric is rejected");
 assert.throws(() => P.validateState({ ...state, balance: { ...state.balance, tareCorrectionCN: 3 } }), /invalid/);
 const malformedForce = P.clone(review); malformedForce.b.z = [0, 0, 0, 2]; assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: malformedForce }, scenario, "review"), /force|zero/);
 const malformedBreakaway = P.clone(review); malformedBreakaway.b.r[4] = 2; assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: malformedBreakaway }, scenario, "review"), /breakaway/);

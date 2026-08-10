@@ -125,6 +125,9 @@
     let experimentQuality = null;
     let experimentTimedOut = false;
     let previousFrameMs = null;
+    let experimentInputQueue = null;
+    let experimentInputPageOriginMs = 0;
+    let experimentInputSimulationOriginS = 0;
     let analysisDraft = null;
     let predictionDraft = [];
     let dragging = null;
@@ -378,7 +381,7 @@
           const target = state.working?.reviewEditTarget?.semanticKey;
           step = "A"; title = "正在修改 Part A 答案"; text = target === "zero-force" ? "修改 A1：沒有水平拉力時，摩擦力是否存在？" : target === "static-case" ? "修改 A2：重新畫出拉力和摩擦力箭嘴。" : "修改 A3：重新輸入你估計的最大靜摩擦力。";
         } else if (!state.balance.zeroForce) {
-          step = "A1"; title = "先判斷沒有水平拉力時的摩擦力"; text = "請在控制欄選擇摩擦力的類型、方向和大小；沒有水平拉力時，摩擦力應為零。";
+          step = "A1"; title = "先判斷沒有水平拉力時的摩擦力"; text = "請在控制欄選擇摩擦力的類型、方向和大小。";
         } else if (balanceStaticInteractionActive()) {
           step = "A2"; title = "直接由物體中央畫出兩個水平力"; text = `先畫${balanceDrawMode === "friction" ? "摩擦力" : "指定拉力"}；箭嘴長度代表大小，方向要${balanceDrawMode === "friction" ? "與拉力相反" : "符合指定拉力要求"}。`;
         } else if (state.balance.breakaway?.bestPullCN == null) {
@@ -455,6 +458,9 @@
       experimentQuality = null;
       experimentTimedOut = false;
       previousFrameMs = null;
+      experimentInputQueue = null;
+      experimentInputPageOriginMs = 0;
+      experimentInputSimulationOriginS = 0;
       breakawayAnnounced = false;
       q("trialQuality")?.classList.add("is-hidden");
       setText("trialQuality", "");
@@ -471,30 +477,43 @@
       experimentAutoKineticHold = false;
       experimentAutoHoldElapsedS = 0;
       experimentAccumulatorS = 0;
+      experimentInputQueue = null;
       stopLoop();
       if (message) setText("experimentStatus", message);
     }
-    function setExperimentAppliedForce(value) {
-      if (experimentAutoKineticHold) return;
-      experimentAppliedForceN = clamp(finite(value), 0, EXPERIMENT_MAX_FORCE_N);
+    function currentPageClockMs() {
+      return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     }
-    function experimentHandleTargetPositionM() {
+    function normalizeInputTimestampMs(value) {
+      const numeric = finite(Number(value), currentPageClockMs());
+      if (numeric > 1e12 && typeof performance !== "undefined" && Number.isFinite(performance.timeOrigin)) return numeric - performance.timeOrigin;
+      return numeric;
+    }
+    function inputSimulationTimeS(eventTimestampMs) {
+      const elapsedS = Math.max(0, (normalizeInputTimestampMs(eventTimestampMs) - experimentInputPageOriginMs) / 1000);
+      return clamp(experimentInputSimulationOriginS + elapsedS, experimentInputSimulationOriginS, Measurement.MAX_TRIAL_DURATION_S);
+    }
+    function handleTargetForForce(forceN) {
       if (!scenario) return 0.18;
       const blockPositionM = finite(directExperimentState?.block?.positionM, 0);
-      return blockPositionM + finite(scenario.connector?.restLengthM, 0.18) + clamp(experimentAppliedForceN, 0, EXPERIMENT_MAX_FORCE_N) / Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
+      return blockPositionM + finite(scenario.connector?.restLengthM, 0.18) + clamp(forceN, 0, EXPERIMENT_MAX_FORCE_N) / Math.max(1, finite(scenario.connector?.stiffnessNPerM, 300));
+    }
+    function resetExperimentInputQueue(pageNowMs = currentPageClockMs()) {
+      experimentInputQueue = Physics.createInputQueue();
+      experimentInputPageOriginMs = normalizeInputTimestampMs(pageNowMs);
+      experimentInputSimulationOriginS = finite(directExperimentState?.timeS, 0);
+      Physics.enqueueInput(experimentInputQueue, { timeS: experimentInputSimulationOriginS, handleTargetPositionM: handleTargetForForce(experimentAppliedForceN) });
+    }
+    function setExperimentAppliedForce(value, eventTimestampMs = currentPageClockMs()) {
+      if (experimentAutoKineticHold) return;
+      experimentAppliedForceN = clamp(finite(value), 0, EXPERIMENT_MAX_FORCE_N);
+      if (recorder?.running && experimentInputQueue) {
+        Physics.enqueueInput(experimentInputQueue, { timeS: inputSimulationTimeS(eventTimestampMs), handleTargetPositionM: handleTargetForForce(experimentAppliedForceN) });
+      }
     }
     function experimentVisibleForceN() {
       if (!recorder?.running || !directExperimentState || experimentAppliedForceN <= 0.01) return 0;
       return clamp(Math.max(0, finite(directExperimentState.connector?.tensionPhysicalN)), 0, EXPERIMENT_MAX_FORCE_N);
-    }
-    function resetExperimentHandleToRest() {
-      if (!directExperimentState?.handle || !scenario) return;
-      const restPositionM = finite(directExperimentState.block?.positionM) + finite(scenario.connector?.restLengthM, 0.18);
-      directExperimentState.handle.positionM = restPositionM;
-      directExperimentState.handle.targetPositionM = restPositionM;
-      directExperimentState.handle.velocityMps = finite(directExperimentState.block?.velocityMps);
-      directExperimentState.connector.extensionM = 0;
-      directExperimentState.connector.tensionPhysicalN = 0;
     }
     function experimentKineticHoldForceN() {
       if (!scenario || !directExperimentState) return 0;
@@ -825,7 +844,7 @@
     function renderQuality() {
       const box = q("trialQuality"); if (!box || !experimentQuality) return;
       box.classList.remove("is-hidden"); box.textContent = experimentQuality.neutralMessage;
-      setText("experimentStatus", state?.trial ? "已保存這次實驗，可以前往 Part C 分析。" : experimentQuality.neutralMessage);
+      setText("experimentStatus", state?.trial ? (experimentTimedOut ? "30 秒記錄已自動停止並保存，可以前往 Part C 分析。" : "已保存這次實驗，可以前往 Part C 分析。") : experimentQuality.neutralMessage);
     }
     function stopLoop() {
       if (loop != null) {
@@ -834,65 +853,81 @@
       }
       previousFrameMs = null;
     }
+    function abortExperimentForTimingGap() {
+      if (recorder) { recorder.stalled = true; recorder.running = false; }
+      stopLoop();
+      markRecordingActive(false);
+      recorder = null;
+      experimentInputQueue = null;
+      experimentAppliedForceN = 0;
+      experimentAutoKineticHold = false;
+      experimentAutoHoldElapsedS = 0;
+      setText("experimentStatus", "這次記錄因技術時間間隔中斷；未確認資料，請重新開始。");
+      announce("記錄因技術時間間隔中斷，請重新開始");
+      renderApparatus();
+      return { running: false, abortedOnStall: true, steps: 0 };
+    }
+    function advanceExperimentFrame(nowMs, options = {}) {
+      if (!recorder?.running || !scenario || !directExperimentState) return { running: false, abortedOnStall: false, steps: 0 };
+      const normalizedNowMs = normalizeInputTimestampMs(nowMs);
+      if (previousFrameMs == null) previousFrameMs = normalizedNowMs;
+      const frameDurationMs = Math.max(0, normalizedNowMs - previousFrameMs);
+      previousFrameMs = normalizedNowMs;
+      if (frameDurationMs > 50) return abortExperimentForTimingGap();
+      experimentAccumulatorS += frameDurationMs / 1000;
+      let steps = 0;
+      while (experimentAccumulatorS >= Physics.PHYSICS_DT_S - 1e-9 && directExperimentState.timeS < Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
+        const stepS = Math.min(Physics.PHYSICS_DT_S, Measurement.MAX_TRIAL_DURATION_S - directExperimentState.timeS);
+        const previousPhysical = directExperimentState;
+        const previousMeasurement = measurementState;
+        const tickTimeS = directExperimentState.timeS + stepS;
+        const handleInput = experimentAutoKineticHold
+          ? null
+          : Physics.inputAt(experimentInputQueue, tickTimeS, directExperimentState.handle.targetPositionM);
+        const nextPhysical = experimentAutoKineticHold
+          ? stepExperimentKineticHold(stepS)
+          : Physics.stepPhysics(directExperimentState, handleInput, scenario, stepS);
+        if (experimentAutoKineticHold) experimentAutoHoldElapsedS += stepS;
+        const stepped = Measurement.step(measurementState, nextPhysical, scenario, stepS);
+        measurementState = stepped.state;
+        const nextGridTime = measurementState.regularSamples.length * Measurement.GRAPH_SAMPLE_DT_S;
+        if (measurementState.regularSamples.length === 0 || nextPhysical.timeS >= nextGridTime - 1e-6) {
+          const captured = Measurement.captureSample(measurementState, nextPhysical, scenario, { timeS: nextPhysical.timeS }); measurementState = captured.state;
+        }
+        if (nextPhysical.events?.length) for (const event of nextPhysical.events) {
+          measurementState = Measurement.enrichBreakaway(measurementState, event, previousMeasurement, measurementState, previousPhysical, nextPhysical);
+          if (event.type === "breakaway" && !breakawayAnnounced) {
+            breakawayAnnounced = true;
+            experimentAutoKineticHold = true;
+            experimentAutoHoldElapsedS = 0;
+            experimentAppliedForceN = experimentKineticHoldForceN();
+            if (experimentInputQueue) experimentInputQueue.entries.length = 0;
+            announce("物體已開始移動；系統正維持接近勻速的拉力");
+            setText("experimentStatus", "物體已開始移動；系統正維持接近勻速的拉力。請稍後按「停止並保存記錄」。");
+          }
+        }
+        directExperimentState = nextPhysical;
+        physicsState = nextPhysical;
+        experimentAccumulatorS -= stepS;
+        steps += 1;
+      }
+      if (directExperimentState.timeS >= Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
+        timeoutExperiment();
+        return { running: false, abortedOnStall: false, steps };
+      }
+      if (options.renderFrame !== false) renderApparatus();
+      return { running: Boolean(recorder?.running), abortedOnStall: false, steps };
+    }
     function startLoop() {
       stopLoop();
       const frame = (nowMs) => {
-        if (!recorder?.running || !scenario || !directExperimentState) return;
-        if (previousFrameMs == null) previousFrameMs = nowMs;
-        const frameDurationMs = Math.max(0, nowMs - previousFrameMs);
-        previousFrameMs = nowMs;
-        // A normal phone frame can occasionally exceed 50 ms while the
-        // browser is handling a touch event. Keep the 50 ms physics step,
-        // but only treat a long visibility/load pause as a technical gap.
-        if (frameDurationMs > 250) {
-          recorder.stalled = true; recorder.running = false; stopLoop();
-          markRecordingActive(false);
-          recorder = null;
-          setText("experimentStatus", "這次記錄因技術時間間隔中斷；未確認資料，請重新開始。");
-          renderApparatus();
-          return;
-        }
-        experimentAccumulatorS += frameDurationMs / 1000;
-        while (experimentAccumulatorS >= Physics.PHYSICS_DT_S - 1e-9 && directExperimentState.timeS < Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
-          const stepS = Math.min(Physics.PHYSICS_DT_S, Measurement.MAX_TRIAL_DURATION_S - directExperimentState.timeS);
-          const previousPhysical = directExperimentState;
-          const previousMeasurement = measurementState;
-          const handleInput = { handleTargetPositionM: experimentHandleTargetPositionM(stepS) };
-          const nextPhysical = experimentAutoKineticHold
-            ? stepExperimentKineticHold(stepS)
-            : Physics.stepPhysics(directExperimentState, handleInput, scenario, stepS);
-          if (experimentAutoKineticHold) experimentAutoHoldElapsedS += stepS;
-          const stepped = Measurement.step(measurementState, nextPhysical, scenario, stepS);
-          measurementState = stepped.state;
-          const nextGridTime = measurementState.regularSamples.length * Measurement.GRAPH_SAMPLE_DT_S;
-          if (measurementState.regularSamples.length === 0 || nextPhysical.timeS >= nextGridTime - 1e-6) {
-            const captured = Measurement.captureSample(measurementState, nextPhysical, scenario, { timeS: nextPhysical.timeS }); measurementState = captured.state;
-          }
-          if (nextPhysical.events?.length) for (const event of nextPhysical.events) {
-            measurementState = Measurement.enrichBreakaway(measurementState, event, previousMeasurement, measurementState, previousPhysical, nextPhysical);
-            if (event.type === "breakaway" && !breakawayAnnounced) {
-              breakawayAnnounced = true;
-              experimentAutoKineticHold = true;
-              experimentAutoHoldElapsedS = 0;
-              experimentAppliedForceN = experimentKineticHoldForceN();
-              announce("物體已開始移動；系統正維持接近勻速的拉力");
-              setText("experimentStatus", "物體已開始移動；拉力已由峰值降至滑動摩擦力附近，系統會自動維持接近勻速。請稍後按「停止並保存記錄」。");
-            }
-          }
-          directExperimentState = nextPhysical;
-          physicsState = nextPhysical;
-          experimentAccumulatorS -= stepS;
-        }
-        if (directExperimentState.timeS >= Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
-          timeoutExperiment();
-          return;
-        }
-        renderApparatus();
-        if (typeof requestAnimationFrame === "function") loop = requestAnimationFrame(frame); else loop = setTimeout(() => frame(performance.now()), 16);
+        const result = advanceExperimentFrame(nowMs);
+        if (!result.running) return;
+        if (typeof requestAnimationFrame === "function") loop = requestAnimationFrame(frame); else loop = setTimeout(() => frame(currentPageClockMs()), 16);
       };
-      if (typeof requestAnimationFrame === "function") loop = requestAnimationFrame(frame); else loop = setTimeout(() => frame(performance.now()), 16);
+      if (typeof requestAnimationFrame === "function") loop = requestAnimationFrame(frame); else loop = setTimeout(() => frame(currentPageClockMs()), 16);
     }
-    function startRecording() {
+    function startRecording(options = {}) {
       if (!scenario || !state || presentation !== "editable" || state.phase !== "experiment" || state.fromReview || state.trial || recorder?.running) return false;
       resetExperimentRig();
       recorder = Measurement.createRecorder(scenario); recorder.running = true;
@@ -907,11 +942,12 @@
       experimentAutoHoldElapsedS = 0;
       experimentAccumulatorS = 0;
       breakawayAnnounced = false;
+      resetExperimentInputQueue(options.pageNowMs ?? currentPageClockMs());
       markRecordingActive(true);
       announce("記錄開始");
       setText("experimentStatus", "記錄進行中：逐漸增加物體中央的向右拉力，直到物體啱啱開始移動；30 秒內完成。");
       renderApparatus();
-      startLoop();
+      if (!options.manualClock) startLoop();
       return true;
     }
     function restartExperimentImmediately() {
@@ -934,14 +970,16 @@
       render();
       return started;
     }
-    function stopRecording() {
+    function finalizeExperimentRecording({ timedOut = false } = {}) {
       if (!recorder?.running || state?.phase !== "experiment" || state?.fromReview) return false;
       stopLoop();
       recorder.measurement = measurementState;
       const stopped = Measurement.stopRecorder(recorder);
+      experimentTimedOut = Boolean(timedOut);
       markRecordingActive(false);
       if (!stopped.accepted) {
         recorder = null;
+        experimentInputQueue = null;
         experimentAutoHoldElapsedS = 0;
         experimentQuality = { valid: false, neutralMessage: stopped.reason === "sensor-overrange" ? "拉力超出可記錄範圍，請重新開始並減少拉力。" : "這次記錄未能安全保存，請重新開始。" };
         setText("experimentStatus", experimentQuality.neutralMessage);
@@ -955,33 +993,24 @@
       experimentAppliedForceN = 0;
       experimentAutoKineticHold = false;
       experimentAutoHoldElapsedS = 0;
+      experimentInputQueue = null;
       announce(quality.valid ? "實驗記錄已保存" : "記錄未完成，請重新開始");
       if (quality.valid) {
         state = Persistence.transitions.acceptTrial(state, stopped.trial);
         analysisDraft = null;
         saveDraft();
-        setText("experimentStatus", "記錄已保存，可以前往 Part C 分析這張 F拉–t 圖。");
+        setText("experimentStatus", timedOut ? "30 秒記錄已自動停止並保存，可以前往 Part C 分析這張 F拉–t 圖。" : "記錄已保存，可以前往 Part C 分析這張 F拉–t 圖。");
       } else {
-        setText("experimentStatus", quality.neutralMessage);
+        const message = timedOut ? "30 秒記錄已結束；這次記錄未能形成可分析資料，請重新開始。" : quality.neutralMessage;
+        experimentQuality = { ...quality, neutralMessage: message };
+        setText("experimentStatus", message);
       }
       render();
       return quality.valid;
     }
+    function stopRecording() { return finalizeExperimentRecording({ timedOut: false }); }
     function timeoutExperiment() {
-      if (!recorder?.running) return;
-      stopLoop();
-      recorder.running = false;
-      recorder.measurement = measurementState;
-      experimentTimedOut = true;
-      experimentAppliedForceN = 0;
-      experimentAutoKineticHold = false;
-      experimentAutoHoldElapsedS = 0;
-      markRecordingActive(false);
-      recorder = null;
-      experimentQuality = { valid: false, neutralMessage: "時間已經超時，請重新開始記錄。" };
-      setText("experimentStatus", "時間已經超時，請重新開始記錄。");
-      announce("時間已經超時，請重新開始記錄");
-      render();
+      return finalizeExperimentRecording({ timedOut: true });
     }
     function analysisChartConfig(decoded) {
       const observedTimeS = decoded.merged.reduce((latest, sample) => Math.max(latest, finite(sample.timeS)), 0);
@@ -1298,7 +1327,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1525,8 +1554,7 @@
       document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
         const target = event.target;
-        if (target.id === "experimentOrigin" && recorder?.running && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); setExperimentAppliedForce(experimentAppliedForceN + (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? .5 : .1)); renderApparatus(); }
-        if (target.classList?.contains("drag-target") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); adjustDragTarget(target.dataset.dragTarget, (event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : -1), event.shiftKey ? 5 : 1); if (state?.phase === "analysis") persistAnalysisDraft(); saveDraft(); render(); }
+        if (target.classList?.contains("drag-target") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); adjustDragTarget(target.dataset.dragTarget, (event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : -1), event.shiftKey ? 5 : 1, event.timeStamp); if (state?.phase === "analysis") persistAnalysisDraft(); saveDraft(); render(); }
         if (target.classList?.contains("drag-target") && event.key === "Escape") cancelDrag();
       });
       document.querySelectorAll(".drag-target").forEach((target) => { target.addEventListener("pointerdown", beginDrag); target.addEventListener("pointermove", moveDrag); target.addEventListener("pointerup", endDrag); target.addEventListener("pointercancel", cancelDrag); });
@@ -1613,7 +1641,7 @@
         if (state?.phase !== "experiment" || !recorder?.running || state.fromReview || experimentAutoKineticHold) return;
         const point = svgPointFromEvent(event);
         dragging = { kind: "experiment-pull", target: event.currentTarget, pointerId: event.pointerId, lastPointX: point.x };
-        experimentAppliedForceN = 0;
+        setExperimentAppliedForce(0, event.timeStamp);
         renderApparatus();
       } else if (target === "balance-origin") {
         dragging = {
@@ -1647,10 +1675,10 @@
       }
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
     }
-    function adjustDragTarget(target, direction, magnitude = 1) {
+    function adjustDragTarget(target, direction, magnitude = 1, eventTimestampMs = currentPageClockMs()) {
       if (target === "experiment-origin") {
         if (!recorder?.running || experimentAutoKineticHold) return;
-        setExperimentAppliedForce(experimentAppliedForceN + direction * magnitude * .1);
+        setExperimentAppliedForce(experimentAppliedForceN + direction * magnitude * .1, eventTimestampMs);
         renderApparatus();
         return;
       }
@@ -1689,11 +1717,15 @@
       if (dragging.kind === "balance-draw") { updateBalanceDrawFromPointer(event); return; }
       if (dragging.kind === "prediction-friction") { updatePredictionForceFromPointer(event); return; }
       if (dragging.kind === "experiment-pull") {
-        const point = svgPointFromEvent(event);
-        const deltaForceN = (point.x - dragging.lastPointX) / EXPERIMENT_FORCE_SCALE_PX_PER_N;
-        if (Math.abs(deltaForceN) > 0.001) {
-          setExperimentAppliedForce(experimentAppliedForceN + deltaForceN);
-          dragging.lastPointX = point.x;
+        const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+        const samples = coalesced.length ? coalesced : [event];
+        for (const sample of samples) {
+          const point = svgPointFromEvent(sample);
+          const deltaForceN = (point.x - dragging.lastPointX) / EXPERIMENT_FORCE_SCALE_PX_PER_N;
+          if (Math.abs(deltaForceN) > 0.001) {
+            setExperimentAppliedForce(experimentAppliedForceN + deltaForceN, sample.timeStamp);
+            dragging.lastPointX = point.x;
+          }
         }
         renderApparatus();
         return;
@@ -1724,19 +1756,17 @@
       }
       if (releasedExperiment) {
         if (!experimentAutoKineticHold) {
-          experimentAppliedForceN = 0;
-          resetExperimentHandleToRest();
+          setExperimentAppliedForce(0, event.timeStamp);
         }
       }
       saveDraft(); render();
     }
-    function cancelDrag() {
+    function cancelDrag(event = null) {
       if (!dragging) return;
       try { dragging.target.releasePointerCapture?.(dragging.pointerId); } catch {}
       if (dragging.kind === "experiment-pull") {
         if (!experimentAutoKineticHold) {
-          experimentAppliedForceN = 0;
-          resetExperimentHandleToRest();
+          setExperimentAppliedForce(0, event?.timeStamp ?? currentPageClockMs());
         }
         dragging = null;
         render();
@@ -1804,7 +1834,14 @@
       if (!attempt) attempt = { state: "new" };
       applyAttempt(attempt); return controllerApi;
     }
-    const controllerApi = { activity: ACTIVITY, boot, getState: () => clone(state), getScenario: () => scenario, getPresentation: () => presentation, getResult: () => clone(latestResult), mayReveal: () => mayRevealCorrectness(presentation), interactionEvidence: () => ({ dragging: Boolean(dragging), recorderRunning: Boolean(recorder?.running), phase: state?.phase, experiment: directExperimentState ? { positionM: directExperimentState.block.positionM, velocityMps: directExperimentState.block.velocityMps, accelerationMps2: directExperimentState.block.accelerationMps2, appliedForceN: experimentAppliedForceN, measuredForceN: experimentVisibleForceN(), breakawayForceN: measurementState?.breakaway ? measurementState.breakaway.measuredPullCN / 100 : null, timeS: directExperimentState.timeS, timedOut: experimentTimedOut, contactMode: directExperimentState.contact?.mode, autoKineticHold: experimentAutoKineticHold } : null, balanceMotion: balanceDirectState ? { positionM: balanceDirectState.block.positionM, velocityMps: balanceDirectState.block.velocityMps, accelerationMps2: balanceDirectState.block.accelerationMps2, appliedForceN: balanceCurrentForceN(), offscreen: balanceOffscreen } : null }), render, routeAttempt: applyAttempt, routeStartup, routeSubmission, cancelDrag, hostSwipe };
+    const regression = Object.freeze({
+      startExperiment: (pageNowMs = 0) => startRecording({ manualClock: true, pageNowMs }),
+      queueExperimentForce: (forceN, eventTimestampMs) => setExperimentAppliedForce(forceN, eventTimestampMs),
+      queueExperimentForces: (entries) => { for (const entry of entries || []) setExperimentAppliedForce(entry.forceN, entry.timeStampMs); return experimentInputQueue?.entries.length || 0; },
+      advanceExperimentFrame: (nowMs) => advanceExperimentFrame(nowMs, { renderFrame: false }),
+      finalizeExperiment: (timedOut = false) => finalizeExperimentRecording({ timedOut: Boolean(timedOut) })
+    });
+    const controllerApi = { activity: ACTIVITY, boot, getState: () => clone(state), getScenario: () => scenario, getPresentation: () => presentation, getResult: () => clone(latestResult), mayReveal: () => mayRevealCorrectness(presentation), interactionEvidence: () => ({ dragging: Boolean(dragging), recorderRunning: Boolean(recorder?.running), phase: state?.phase, experiment: directExperimentState ? { positionM: directExperimentState.block.positionM, velocityMps: directExperimentState.block.velocityMps, accelerationMps2: directExperimentState.block.accelerationMps2, appliedForceN: experimentAppliedForceN, measuredForceN: experimentVisibleForceN(), breakawayForceN: measurementState?.breakaway ? measurementState.breakaway.measuredPullCN / 100 : null, timeS: directExperimentState.timeS, timedOut: experimentTimedOut, contactMode: directExperimentState.contact?.mode, autoKineticHold: experimentAutoKineticHold } : null, balanceMotion: balanceDirectState ? { positionM: balanceDirectState.block.positionM, velocityMps: balanceDirectState.block.velocityMps, accelerationMps2: balanceDirectState.block.accelerationMps2, appliedForceN: balanceCurrentForceN(), offscreen: balanceOffscreen } : null }), render, routeAttempt: applyAttempt, routeStartup, routeSubmission, cancelDrag, hostSwipe, regression };
     return controllerApi;
   }
   function boot() { if (dependencyIssue()) return createTechnicalApp(new Error("missing activity dependency")); return createController().boot(); }

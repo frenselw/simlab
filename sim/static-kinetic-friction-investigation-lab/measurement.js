@@ -113,7 +113,7 @@
     const targetIndex = Math.min(MAX_REGULAR_SAMPLE_COUNT - 1, Math.floor((timeS + 1e-9) / GRAPH_SAMPLE_DT_S));
     if (timeS >= -1e-9 && timeS <= MAX_TRIAL_DURATION_S + 1e-9 && targetIndex >= 0) {
       // The recorder can be called after a render frame has crossed more than
-      // one 40 ms boundary.  Fill every missed canonical index instead of
+      // one 100 ms boundary. Fill every missed canonical index instead of
       // rounding the current physics time (which creates gaps such as 9, 11).
       for (let index = next.regularSamples.length; index <= targetIndex && index < MAX_REGULAR_SAMPLE_COUNT; index += 1) {
         const forceRng = options.rng || Generator.createRng(Generator.deriveSeed(next.sensorSeed, `f:${index}`));
@@ -152,21 +152,23 @@
       forceNoise: finite(previousMeasurement?.forceNoise) + (finite(currentMeasurement?.forceNoise) - finite(previousMeasurement?.forceNoise)) * u,
       velocityNoise: finite(previousMeasurement?.velocityNoise) + (finite(currentMeasurement?.velocityNoise) - finite(previousMeasurement?.velocityNoise)) * u
     };
-    const measured = liveReading(interpolated);
-    // A spring scale can reach the static-friction peak at the transition and
-    // then contract sharply during the same physics interval. Preserve that
-    // physical peak in the breakaway sidecar instead of letting interpolation
-    // between the pre- and post-drop filtered states erase it.
-    const eventForceN = Number.isFinite(rawEvent.physicalTensionN)
-      ? Math.max(0, rawEvent.physicalTensionN)
-      : Number.isFinite(rawEvent.physicalForceN)
-        ? Math.abs(rawEvent.physicalForceN)
-        : measured.forceN;
-    const breakawayForceN = Math.max(measured.forceN, eventForceN);
+    const eventTimeMs = Math.round(rawEvent.timeS * 1000);
+    // The event sidecar is another sensor observation, not a shortcut to the
+    // hidden physical threshold. Apply the same seeded correlated-noise and
+    // resolution policy used by regular graph samples at the precise event
+    // timestamp so the learner-facing peak has one measurement authority.
+    const forceRng = Generator.createRng(Generator.deriveSeed(interpolated.sensorSeed, `breakaway-force:${eventTimeMs}`));
+    const velocityRng = Generator.createRng(Generator.deriveSeed(interpolated.sensorSeed, `breakaway-velocity:${eventTimeMs}`));
+    const forceNoise = stepCorrelatedNoise(interpolated.forceNoise, forceRng, FORCE_SENSOR_NOISE_RHO);
+    const velocityNoise = stepCorrelatedNoise(interpolated.velocityNoise, velocityRng, VELOCITY_NOISE_RHO);
+    const forceNoiseN = clamp(FORCE_SENSOR_NOISE_SIGMA_N * forceNoise, -FORCE_SENSOR_NOISE_MAX_ABS_N, FORCE_SENSOR_NOISE_MAX_ABS_N);
+    const velocityNoiseMps = clamp(VELOCITY_NOISE_SIGMA_MPS * velocityNoise, -VELOCITY_NOISE_MAX_ABS_MPS, VELOCITY_NOISE_MAX_ABS_MPS);
+    const measuredPullN = quantize(Math.max(0, interpolated.forceFilteredN + forceNoiseN), FORCE_SENSOR_RESOLUTION_N);
+    const measuredVelocityMps = quantize(Math.max(0, interpolated.velocityFilteredMps + velocityNoiseMps), VELOCITY_RESOLUTION_MPS);
     const event = {
-      timeMs: Math.round(rawEvent.timeS * 1000),
-      measuredPullCN: clamp(Math.round(breakawayForceN * 100), 0, 65535),
-      measuredVelocityMMps: clamp(Math.round(measured.velocityMps * 1000), -32768, 32767),
+      timeMs: eventTimeMs,
+      measuredPullCN: clamp(Math.round(measuredPullN * 100), 0, MAX_FORCE_CN),
+      measuredVelocityMMps: clamp(Math.round(measuredVelocityMps * 1000), MIN_VELOCITY_MMPS, MAX_VELOCITY_MMPS),
       preBreakPeakGridIndex
     };
     return { ...cloneMeasurementState(state), breakaway: event };

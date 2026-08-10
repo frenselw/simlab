@@ -4,6 +4,7 @@ const G = require("./generator.js");
 const scenarios = Array.from({ length: 400 }, (_, seed) => G.generateScenario({ seed }));
 for (const scenario of scenarios) {
   assert.equal(scenario.generatorVersion, 1);
+  assert.equal(scenario.rubricVersion, 3);
   assert.ok(scenario.staticLimitMeanN >= 4.5 && scenario.staticLimitMeanN <= 9);
   assert.ok(scenario.kineticFrictionMeanN >= 3.2 && scenario.kineticFrictionMeanN <= 7);
   assert.ok(scenario.staticLimitMeanN - scenario.kineticFrictionMeanN >= .8);

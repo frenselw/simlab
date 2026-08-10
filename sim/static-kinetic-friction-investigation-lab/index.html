@@ -24,7 +24,7 @@
       <div id="stageCoach" class="stage-coach" role="note">
         <span id="stageCoachStep" class="stage-coach-step">1</span>
         <strong id="stageCoachTitle">先完成 A1 受力圖</strong>
-        <span id="stageCoachText">沒有水平拉力時，摩擦力大小和方向都應為零。</span>
+        <span id="stageCoachText">請判斷沒有水平拉力時，物體受到的摩擦力。</span>
       </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="experimentGraphStage" class="experiment-graph-stage is-hidden" aria-label="B 實驗的拉力—時間圖">
@@ -43,7 +43,7 @@
         <button type="button" id="maximumStaticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-maximum is-hidden" data-drag-target="maximum-static-friction-marker" aria-label="最大靜摩擦力位置標記"></button>
         <button type="button" id="kineticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-kinetic is-hidden" data-drag-target="kinetic-friction-marker" aria-label="滑動摩擦力位置標記"></button>
       </div>
-    <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 開始記錄後，按住舞台上的物體中央向右拖動，逐漸增加拉力直到物體啱啱開始移動；向左移只會減少向右拉力，不會施加向左拉力。物體開始移動後，系統會把拉力降至滑動摩擦力附近並自動維持接近勻速。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
+    <p id="stageDescription" class="sr-only">Part A 由物體重心出發畫力。Part B 開始記錄後，按住舞台上的物體中央向右拖動，逐漸增加拉力直到物體啱啱開始移動；向左移只會減少向右拉力，不會施加向左拉力。物體開始移動後，系統正維持接近勻速的拉力。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
     </section>
 
@@ -58,7 +58,7 @@
         <p class="section-label">第一階段・三個簡單受力圖任務</p>
         <h2>A：用受力圖學習靜摩擦力</h2>
         <p class="first-step-explanation"><strong>Part A 不使用測力計或歸零操作。</strong>請直接在物體中央畫出水平力箭嘴。上方 A／B／C／D 任務可以自由切換；未完成的資料會在對應部分提示，你亦可以返回修改已保存答案。</p>
-        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：沒有水平拉力時，摩擦力大小和方向都應為零。</p>
+        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：判斷沒有水平拉力時，物體受到的摩擦力。</p>
 
         <article id="zeroTask" class="task-card balance-task">
           <h3>A1　沒有水平拉力</h3>
@@ -113,7 +113,7 @@
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・直接拖動物體</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
-          <p><strong>活動簡介：</strong>按「開始 30 秒記錄」，由物體中央逐漸向右增加拉力，直到物體開始移動。拉力等同測力計讀數；摩擦力數值未知。物體開始移動時，拉力會由最大靜摩擦力突然降至滑動摩擦力附近，之後系統維持近似勻速。</p>
+          <p><strong>活動簡介：</strong>按「開始 30 秒記錄」，由物體中央逐漸向右增加拉力，直到物體開始移動。拉力等同測力計讀數；摩擦力數值未知。請觀察物體開始移動一刻的拉力讀數變化；之後系統維持近似勻速。</p>
           <div class="experiment-instruction"><strong>操作：</strong>拉力只可向右；按住物體中央，逐漸加力至開始滑動。之後系統自動維持近似勻速，<var>F</var><sub>拉</sub>–<var>t</var> 圖同步記錄。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始</button></div>
         <p id="experimentStatus" class="neutral-status" aria-live="polite">按「開始 30 秒記錄」，再由物體中央逐漸增加向右拉力，直到開始移動。</p>

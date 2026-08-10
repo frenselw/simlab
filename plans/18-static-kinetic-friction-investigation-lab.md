@@ -1415,7 +1415,7 @@ function packTrace(samples) {
 
 `unpackTrace()` 必須驗證：
 
-- `sampleDtMs === 40`；
+- `sampleDtMs === 100`；
 - `regularSampleCount`；
 - exact byte length；
 - force range；

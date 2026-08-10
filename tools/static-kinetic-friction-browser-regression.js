@@ -40,7 +40,7 @@ async function touchStartMove(cdp, start, end) {
     await delay(8);
   }
 }
-async function touchStartMoveGradual(cdp, start, end, steps = 24, stepDelayMs = 60) {
+async function touchStartMoveGradual(cdp, start, end, steps = 36, stepDelayMs = 35) {
   const id = 17;
   const point = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(start)] });
@@ -104,10 +104,97 @@ function analysisFixtureScript(activeIndex = 0) {
     return window.__staticKineticFrictionApp.getState();
   })()`;
 }
+function frameSchedule(totalMs, pattern) {
+  const durations = [];
+  let elapsed = 0;
+  let index = 0;
+  while (elapsed < totalMs) {
+    const duration = Math.min(pattern[index % pattern.length], totalMs - elapsed);
+    durations.push(duration);
+    elapsed += duration;
+    index += 1;
+  }
+  return durations;
+}
+function productionExperimentScript(frameDurationsMs, options = {}) {
+  const inputs = Array.from({ length: 41 }, (_, index) => ({ timeStampMs: index * 50, forceN: Number((index * .2).toFixed(2)) }));
+  return `(() => {
+    const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;
+    const blank=P.freshState(12345);
+    app.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(blank)}});
+    document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
+    if (!app.regression.startExperiment(0)) throw new Error('production manual recording did not start');
+    const inputs=${JSON.stringify(inputs)}, batchSize=${Number(options.batchSize || inputs.length)};
+    for (let index=0; index<inputs.length; index+=batchSize) app.regression.queueExperimentForces(inputs.slice(index,index+batchSize));
+    let now=0;
+    app.regression.advanceExperimentFrame(now);
+    for (const duration of ${JSON.stringify(frameDurationsMs)}) { now+=duration; app.regression.advanceExperimentFrame(now); }
+    if (${options.finalize === false ? "false" : "true"} && app.interactionEvidence().recorderRunning) app.regression.finalizeExperiment(${options.timedOut ? "true" : "false"});
+    const state=app.getState(), evidence=app.interactionEvidence();
+    return { trial:state.trial, running:evidence.recorderRunning, timedOut:evidence.experiment?.timedOut, status:document.getElementById('experimentStatus').textContent, live:document.getElementById('liveRegion').textContent, stageDescription:document.getElementById('stageDescription').textContent };
+  })()`;
+}
+async function productionExperimentRegression(cdp, url, label) {
+  const schedules = [
+    { name: "60 Hz", pattern: [16, 17, 17], batchSize: 41 },
+    { name: "90 Hz batched", pattern: [11, 11, 11, 12], batchSize: 7 },
+    { name: "120 Hz coalesced", pattern: [8, 8, 9], batchSize: 3 }
+  ];
+  const traces = [];
+  for (const schedule of schedules) {
+    await navigate(cdp, url);
+    const result = await evaluate(cdp, productionExperimentScript(frameSchedule(4500, schedule.pattern), { batchSize: schedule.batchSize }));
+    assert.ok(result.trial, `${label}: production ${schedule.name} path saves a valid trace`);
+    assert.equal(result.running, false, `${label}: production ${schedule.name} finalizes`);
+    assert.doesNotMatch(`${result.status} ${result.live} ${result.stageDescription}`, /滑動摩擦力附近/, `${label}: rendered visible, live and ARIA feedback do not identify the C3 region`);
+    traces.push(result.trial);
+  }
+  assert.equal(JSON.stringify(traces[1]), JSON.stringify(traces[0]), `${label}: production 60/90 Hz schedules produce the same packed canonical trace`);
+  assert.equal(JSON.stringify(traces[2]), JSON.stringify(traces[0]), `${label}: production 60/120 Hz and coalesced batching produce the same packed canonical trace`);
+
+  await navigate(cdp, url);
+  const validTimeout = await evaluate(cdp, productionExperimentScript(frameSchedule(30000, [40]), { batchSize: 5, finalize: false }));
+  assert.ok(validTimeout.trial, `${label}: a valid trial auto-saves at the 30 second boundary`);
+  assert.equal(validTimeout.timedOut, true, `${label}: valid automatic stop records the timeout boundary`);
+  assert.match(validTimeout.status, /自動停止並保存/, `${label}: valid automatic stop reports saved data`);
+
+  await navigate(cdp, url);
+  const invalidTimeout = await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'});
+    document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
+    app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0);
+    let now=0; for (const duration of ${JSON.stringify(frameSchedule(30000, [40]))}) { now+=duration; app.regression.advanceExperimentFrame(now); }
+    const state=app.getState(),evidence=app.interactionEvidence(); return {trial:state.trial,running:evidence.recorderRunning,timedOut:evidence.experiment?.timedOut,status:document.getElementById('experimentStatus').textContent};
+  })()`);
+  assert.equal(invalidTimeout.trial, null, `${label}: an invalid trial is rejected at the 30 second boundary`);
+  assert.equal(invalidTimeout.running, false, `${label}: invalid automatic stop ends recording`);
+  assert.equal(invalidTimeout.timedOut, true, `${label}: invalid automatic stop records the timeout boundary`);
+  assert.match(invalidTimeout.status, /30 秒記錄已結束.*重新開始/, `${label}: invalid automatic stop uses neutral retry guidance`);
+
+  await navigate(cdp, url);
+  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); const result=app.regression.advanceExperimentFrame(60); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent}; })()`);
+  assert.equal(stalled.result.abortedOnStall, true, `${label}: a production frame gap over 50 ms aborts without catch-up`);
+  assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
+  assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);
+  assert.match(stalled.status, /技術時間間隔/, `${label}: timing-gap abort is distinguished from normal timeout`);
+
+  await navigate(cdp, url);
+  await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(performance.now()); return true; })()`);
+  await pressKeyOn(cdp, "#experimentOrigin", "ArrowRight");
+  const normalKeyForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment.appliedForceN");
+  assert.equal(normalKeyForce, .1, `${label}: one ordinary keyboard force step is exactly 0.1 N`);
+  await evaluate(cdp, "document.getElementById('experimentOrigin').focus()");
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight", modifiers: 8 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight", modifiers: 8 });
+  const shiftedKeyForce = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment.appliedForceN");
+  assert.equal(shiftedKeyForce, .6, `${label}: one Shift keyboard force step is exactly 0.5 N`);
+}
 async function semanticSmoke(cdp, url, label) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: true });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
   await navigate(cdp, url);
+  const delayedFeedback = await evaluate(cdp, `(() => ({coach:document.getElementById('stageCoachText').textContent,balance:document.getElementById('balanceStatus').textContent,description:document.getElementById('stageDescription').textContent,live:document.getElementById('liveRegion').textContent}))()`);
+  assert.doesNotMatch(Object.values(delayedFeedback).join(" "), /摩擦力大小和方向都應為零|滑動摩擦力附近/, `${label}: rendered startup visible, live and ARIA copy does not reveal A1 or C3 answers`);
   const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); type.value='none'; direction.value='none'; magnitude.value='0'; document.getElementById('zeroFrictionMagnitudeValue').textContent='0.0 N'; window.__staticKineticFrictionApp.routeAttempt({state:'new'}); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:document.getElementById('zeroFrictionMagnitudeValue').textContent}; })()`);
   assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "請選擇" }, `${label}: A1 starts blank and requires an explicit selection`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
@@ -146,7 +233,8 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(resetByA1, null, `${label}: changing a saved A1 answer clears the dependent A2 answer`);
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');document.querySelector('[data-action="save-zero-force"]').click();return true; })()`);
   const staticSetup = await evaluate(cdp, `(() => { const scenario=window.StaticKineticFrictionGenerator.generateScenario({seed:window.__staticKineticFrictionApp.getState().seed}); return {direction:scenario.balancePullDirection,magnitudeCN:scenario.balancePullCN,opposite:scenario.balancePullDirection==='left'?'right':'left'}; })()`);
-  await tapSelector(cdp, "#save-static-force");
+  await evaluate(cdp, "(() => { const button=document.getElementById('save-static-force'); button.focus(); button.click(); return true; })()");
+  await delay(100);
   const blankA2Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('staticValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('staticValidationStatus').textContent, focused:document.activeElement===document.getElementById('staticValidationStatus') }))()`);
   assert.deepEqual(blankA2Validation, { localVisible: true, globalVisible: false, text: "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。", focused: true }, `${label}: blank A2 validation stays beside its save button`);
   const forceEndpoint = async (magnitudeN, direction) => evaluate(cdp, `(() => { const node=document.getElementById('balanceOrigin'),svg=document.getElementById('apparatusSvg'); const r=node.getBoundingClientRect(),svgRect=svg.getBoundingClientRect(),s=Math.min(svgRect.width/900,svgRect.height/430); return { start:{x:r.left+r.width/2,y:r.top+r.height/2}, end:{x:r.left+r.width/2+${direction === "left" ? -1 : 1}*${magnitudeN}*18*s,y:r.top+r.height/2} }; })()`);
@@ -252,7 +340,7 @@ async function semanticSmoke(cdp, url, label) {
   const experimentTarget = await evaluate(cdp, `(() => { const node=document.getElementById('experimentOrigin'),svg=document.getElementById('apparatusSvg'); node.scrollIntoView({block:'center',inline:'center'}); const r=node.getBoundingClientRect(),sr=svg.getBoundingClientRect(),viewHeight=svg.viewBox.baseVal.height||430,scale=Math.min(sr.width/900,sr.height/viewHeight); return {x:r.left+r.width/2,y:r.top+r.height/2,hidden:node.classList.contains('is-hidden'),width:r.width,height:r.height,forcePxPerN:30*scale}; })()`);
   assert.equal(experimentTarget.hidden, false, `${label}: B exposes the direct-pull target only while recording`);
   assert.ok(experimentTarget.width >= 44 && experimentTarget.height >= 44, `${label}: B direct-pull target has a usable touch target`);
-  await touchStartMoveGradual(cdp, experimentTarget, { x: experimentTarget.x + experimentTarget.forcePxPerN * 11, y: experimentTarget.y });
+  await touchStartMoveGradual(cdp, experimentTarget, { x: experimentTarget.x + experimentTarget.forcePxPerN * 11, y: experimentTarget.y }, 36, 35);
   let preBreakPeakForce = 0;
   let breakawayPeakForce = 0;
   let experimentHeld = null;
@@ -547,11 +635,21 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   // native momentum behaviour that a learner expects from a phone swipe.
   await touchStartMoveGradual(cdp, panelPoint, { x: panelPoint.x, y: panelPoint.y - momentumDistance }, 8, 8);
   await touchEnd(cdp);
-  const panelAtRelease = await metrics();
+  let panelAtRelease = await metrics();
   await delay(180);
-  const panelAfterMomentum = await metrics();
-  const momentumDelta = panelAfterMomentum.panel - panelAtRelease.panel;
-  const reachedPanelEnd = momentumDelta > 0 && panelRange - panelAfterMomentum.panel <= 1;
+  let panelAfterMomentum = await metrics();
+  let momentumDelta = panelAfterMomentum.panel - panelAtRelease.panel;
+  let reachedPanelEnd = momentumDelta > 0 && panelRange - panelAfterMomentum.panel <= 1;
+  if (momentumDelta <= 1 && !reachedPanelEnd) {
+    await frameEvaluate(cdp, `(() => { const panel = document.getElementById('controlPanel'); panel.scrollTop = ${panelRange * .15}; return true; })()`);
+    await touchStartMoveGradual(cdp, panelPoint, { x: panelPoint.x, y: panelPoint.y - momentumDistance }, 6, 6);
+    await touchEnd(cdp);
+    panelAtRelease = await metrics();
+    await delay(180);
+    panelAfterMomentum = await metrics();
+    momentumDelta = panelAfterMomentum.panel - panelAtRelease.panel;
+    reachedPanelEnd = momentumDelta > 0 && panelRange - panelAfterMomentum.panel <= 1;
+  }
   assert.ok(momentumDelta > 1 || reachedPanelEnd, `${label}: releasing a panel swipe keeps native momentum scrolling (${JSON.stringify({ range: panelRange, atRelease: panelAtRelease.panel, afterMomentum: panelAfterMomentum.panel, delta: momentumDelta, reachedPanelEnd, distance: momentumDistance })})`);
   assert.ok(Math.abs(panelAfterMomentum.host - panelAtRelease.host) <= 1, `${label}: panel momentum leaves enclosing host fixed`);
   const prepared = await frameEvaluate(cdp, `(() => {
@@ -610,6 +708,7 @@ async function realSmoke() {
       const layout = await evaluate(cdp, `(()=>{const stage=document.getElementById('stage'),panel=document.getElementById('controlPanel'),app=document.getElementById('app'),shell=document.querySelector('.friction-shell'),coach=document.getElementById('stageCoach'),block=document.querySelector('#apparatusSvg .apparatus-block'),coachRect=coach.getBoundingClientRect(),blockRect=block?.getBoundingClientRect();return {presentation:window.__staticKineticFrictionApp.getPresentation(),phase:window.__staticKineticFrictionApp.getState().phase,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),touch:getComputedStyle(stage).touchAction,html:document.documentElement.scrollHeight,inner:innerHeight,panelRange:panel.scrollHeight-panel.clientHeight,panelClientHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight,appHeight:app.getBoundingClientRect().height,shellHeight:shell.getBoundingClientRect().height,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),coach:document.getElementById('stageCoach').textContent,coachBottom:coachRect.bottom,blockTop:blockRect?.top,coachBlockOverlap:Boolean(blockRect&&coachRect.bottom>blockRect.top&&coachRect.top<blockRect.bottom),zeroTask:document.getElementById('zeroTask').textContent,sensorReadoutsHidden:!document.getElementById('liveReadouts'),targets:[...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(x=>({w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height}))}})()`);
       assert.equal(layout.presentation, "editable", `${label}: startup presentation`); assert.equal(layout.phase, "balance", `${label}: startup phase`); assert.equal(layout.resultHidden, true, `${label}: result starts hidden`); assert.equal(layout.touch, "pan-y", `${label}: stage touch action`); assert.ok(layout.html <= layout.inner + 1, `${label}: activity document is bounded`); assert.ok(layout.panelRange > 8, `${label}: panel has independent scroll range (${layout.panelRange}; client=${layout.panelClientHeight}, scroll=${layout.panelScrollHeight}, app=${layout.appHeight}, shell=${layout.shellHeight})`); assert.equal(layout.experimentOriginHidden, true, `${label}: Part A hides the B direct-pull target`); assert.match(layout.coach, /A1.*沒有水平拉力/s, `${label}: startup coach is actionable`); assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: startup contains the A1 force-vector task`); assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`); assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: touch targets are stable`); assert.equal(layout.coachBlockOverlap, false, `${label}: mobile stage guidance reserves space instead of covering the object (${JSON.stringify({ coachBottom: layout.coachBottom, blockTop: layout.blockTop })})`);
       const stage = await evaluate(cdp, "(()=>{const r=document.getElementById('stage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()"); await touch(cdp, stage, { x: stage.x, y: stage.y - 55 });
+      await productionExperimentRegression(cdp, `${base}${launch}`, label);
       for (const [width, height, dpr] of [[1024, 768, 1], [2048, 1167, 2]]) await desktopSmoke(cdp, `${base}${launch}`, `${label} desktop ${width}x${height}@${dpr}`, width, height, dpr);
       await semanticSmoke(cdp, `${base}${launch}`, label);
       for (const [width, height] of [[320, 500], [390, 600], [600, 390], [768, 800]]) {

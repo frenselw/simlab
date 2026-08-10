@@ -13,5 +13,15 @@ const files = [].concat(parsed.manifest.resources.resource.file || []).map((entr
 assert.deepEqual(refs, files);
 for (const href of files.concat([`${slug}/index.html`, "config.js"])) assert.ok(fs.existsSync(path.join(root, "sim", href)));
 assert.equal(parsed.manifest.resources.resource["@_adlcp:scormtype"], "sco");
-assert.match(fs.readFileSync(path.join(__dirname, "main.js"), "utf8"), /loadAttempt/);
+const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+assert.match(main, /loadAttempt/);
+assert.match(main, /Physics\.createInputQueue/);
+assert.match(main, /Physics\.enqueueInput/);
+assert.match(main, /Physics\.inputAt/);
+assert.match(main, /event\.timeStamp/);
+assert.match(main, /getCoalescedEvents/);
+assert.match(main, /frameDurationMs > 50/);
+assert.doesNotMatch(main, /frameDurationMs > 250/);
+assert.match(main, /finalizeExperimentRecording\(\{ timedOut: true \}\)/);
+assert.match(main, /function stopRecording\(\) \{ return finalizeExperimentRecording/);
 console.log("Static/kinetic friction production wiring checks passed");

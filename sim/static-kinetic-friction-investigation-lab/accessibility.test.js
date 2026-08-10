@@ -109,7 +109,7 @@ assert.match(main, /EXPERIMENT_START_POSITION_M = 0/);
 assert.match(main, /EXPERIMENT_FORCE_SCALE_PX_PER_N = 30/);
 assert.match(main, /clamp\(.*0, EXPERIMENT_MAX_FORCE_N\)/);
 assert.match(main, /timeoutExperiment/);
-assert.match(main, /時間已經超時/);
+assert.match(main, /30 秒記錄已自動停止並保存/);
 assert.match(main, /系統正維持接近勻速/);
 assert.doesNotMatch(main, /細力啲/);
 assert.doesNotMatch(main, /大力啲/);
