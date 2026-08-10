@@ -181,17 +181,30 @@
       ["balance", "experiment", "analysis", "predict", "review"].forEach((name) => q(`${name}Panel`)?.classList.toggle("is-hidden", name !== panel));
       q("resultPanel")?.classList.toggle("is-hidden", !mayRevealCorrectness(presentation));
     }
+    function enterSubmissionReview() {
+      if (!state) throw new Error("activity state is unavailable");
+      if (state.phase === "experiment" && recorder?.running) abortExperimentRecording("已中止未完成的 B 記錄；切換任務後可重新開始。");
+      cancelBalanceMotion();
+      // Review is a legal destination from every editable phase, including a
+      // blank D or a draft restored from an older route. Normalize directly
+      // to the canonical review state so a stale working cursor can never
+      // block the lower "前往提交前檢查" action.
+      state = Persistence.normalizeReview(state);
+      presentation = "editable";
+      latestResult = null;
+      analysisDraft = null;
+      predictionDraft = [];
+      saveDraft();
+      focusReviewSurface();
+      announce("已進入提交前檢查；未完成部分仍可直接提交。");
+    }
     function navigateToPhase(phase) {
       if (!state || !Persistence.PHASES.includes(phase)) throw new Error("invalid learner task navigation");
       if (state.phase === phase) return;
+      if (phase === "review") { enterSubmissionReview(); return; }
       if (state.phase === "experiment" && recorder?.running) abortExperimentRecording("已中止未完成的 B 記錄；切換任務後可重新開始。");
       cancelBalanceMotion();
       state = Persistence.transitions.setPhase(state, phase);
-      if (phase === "review") {
-        presentation = "editable";
-        latestResult = null;
-        q("controlPanel")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      }
       analysisDraft = phase === "analysis" ? null : analysisDraft;
       predictionDraft = phase === "predict" ? [] : predictionDraft;
       if (phase === "balance") {
@@ -233,7 +246,13 @@
     }
     function focusPhase(phase = state?.phase) { focusNode(q(`${phase}Panel`)?.querySelector("h2")); }
     function focusReviewSurface() {
-      q("controlPanel")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const panel = q("controlPanel");
+      try {
+        if (typeof panel?.scrollTo === "function") panel.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        else if (panel) panel.scrollTop = 0;
+      } catch {
+        try { if (panel) panel.scrollTop = 0; } catch { /* navigation must remain usable */ }
+      }
       focusPhase("review");
     }
     function currentAnalysisKey() {

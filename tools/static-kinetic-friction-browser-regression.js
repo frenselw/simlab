@@ -12,7 +12,7 @@ const slug = "static-kinetic-friction-investigation-lab";
 function parity() {
   const html = fs.readFileSync(path.join(root, "sim", slug, "index.html"), "utf8");
   const manifest = new XMLParser({ ignoreAttributes: false }).parse(fs.readFileSync(path.join(root, "sim/manifests", `${slug}.xml`), "utf8"));
-  const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((x) => /\.(?:js|css)$/.test(x) && x !== "../config.js").map((x) => x.startsWith("../") ? x.slice(3) : `${slug}/${x}`).sort();
+  const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((x) => /\.(?:js|css)(?:[?#]|$)/.test(x) && x !== "../config.js").map((x) => { const clean = x.split(/[?#]/)[0]; return clean.startsWith("../") ? clean.slice(3) : `${slug}/${clean}`; }).sort();
   const files = [].concat(manifest.manifest.resources.resource.file || []).map((entry) => entry["@_href"]).filter((x) => x !== "config.js" && x !== `${slug}/index.html`).sort();
   assert.deepEqual(refs, files, "source HTML and SCORM manifest runtime references differ");
   assert.equal(fs.readFileSync(path.join(root, "sim", slug, "styles.css"), "utf8").includes("touch-action: pan-y"), true);

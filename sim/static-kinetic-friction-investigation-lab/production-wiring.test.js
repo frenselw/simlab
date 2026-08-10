@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, "../..");
 const slug = "static-kinetic-friction-investigation-lab";
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const manifest = fs.readFileSync(path.join(root, "sim/manifests", `${slug}.xml`), "utf8");
-const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((x) => /\.(?:js|css)$/.test(x) && x !== "../config.js").map((x) => x.startsWith("../") ? x.slice(3) : `${slug}/${x}`).sort();
+const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((x) => /\.(?:js|css)(?:[?#]|$)/.test(x) && x !== "../config.js").map((x) => { const clean = x.split(/[?#]/)[0]; return clean.startsWith("../") ? clean.slice(3) : `${slug}/${clean}`; }).sort();
 const parsed = new XMLParser({ ignoreAttributes: false }).parse(manifest);
 const files = [].concat(parsed.manifest.resources.resource.file || []).map((entry) => entry["@_href"]).filter((x) => x !== "config.js" && x !== `${slug}/index.html`).sort();
 assert.deepEqual(refs, files);
