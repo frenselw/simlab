@@ -1268,7 +1268,7 @@
       q("startRecording")?.toggleAttribute("disabled", state?.phase !== "experiment" || Boolean(state?.fromReview) || Boolean(state?.trial) || Boolean(recorder?.running));
       q("stopRecording")?.toggleAttribute("disabled", state?.phase !== "experiment" || !recorder?.running || Boolean(state?.fromReview));
       q("requestRedoExperiment")?.toggleAttribute("disabled", state?.phase !== "experiment" || Boolean(state?.fromReview));
-      q("to-analysis")?.toggleAttribute("disabled", !state?.trial);
+      q("to-analysis")?.toggleAttribute("disabled", false);
       q("technicalPanel")?.classList.toggle("is-hidden", !["technical", "frozen", "load-error"].includes(presentation));
       const technicalActions = q("technicalActions");
       if (technicalActions) technicalActions.innerHTML = presentation === "frozen" && pendingRetryAvailable ? '<button type="button" data-action="retry-pending" class="primary-button">重試提交</button>' : "";
@@ -1389,7 +1389,7 @@
           else if (action === "start-recording") startRecording();
           else if (action === "stop-recording") stopRecording();
           else if (action === "request-redo-experiment") restartExperimentImmediately();
-          else if (action === "to-analysis") { if (state.trial) { state = Persistence.transitions.setPhase(state, "analysis"); analysisDraft = null; saveDraft(); } }
+          else if (action === "to-analysis") { state = Persistence.transitions.setPhase(state, "analysis"); analysisDraft = null; saveDraft(); }
           else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (!commitAnalysisDraft(draft)) throw new Error("complete the active analysis task before saving"); saveDraft(); announce("三個 marker 已保存"); }
           else if (action === "to-predict") { if (!Persistence.hasAllAnalysisFields(state)) throw new Error("analysis incomplete"); state = Persistence.transitions.setPhase(state, "predict"); analysisDraft = null; saveDraft(); }
           else if (action === "save-prediction") {
