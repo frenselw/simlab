@@ -979,6 +979,23 @@
       const timeS = clamp((point.x - chart.left) / chart.width * chart.maxTimeS, 0, chart.maxTimeS);
       return Graph.canonicalIndexAtTime(decoded, timeS);
     }
+    function analysisMarkerLabelLayout(selectedMarkers, chart) {
+      const rows = [];
+      const layout = {};
+      const rowGap = 8;
+      selectedMarkers.forEach(({ markerIndex, label, x }) => {
+        const width = Math.max(52, Array.from(label).length * 17);
+        const anchor = x - chart.left < width / 2 ? "start" : x + width / 2 > chart.left + chart.width ? "end" : "middle";
+        const left = anchor === "start" ? x : anchor === "end" ? x - width : x - width / 2;
+        const right = anchor === "start" ? x + width : anchor === "end" ? x : x + width / 2;
+        let row = 0;
+        while (rows[row]?.some((box) => left < box.right + rowGap && right > box.left - rowGap)) row += 1;
+        rows[row] ||= [];
+        rows[row].push({ left, right });
+        layout[markerIndex] = { x, y: chart.top - 18 + row * 22, anchor };
+      });
+      return layout;
+    }
     function renderGraph() {
       const svg = q("graphSvg"); if (!svg) return;
       if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
@@ -1013,20 +1030,26 @@
       const xT = svgElement("tspan", { "font-style": "italic" }); xT.textContent = "t"; xLabel.append(xT); xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
       const draft = ensureAnalysisDraft();
       const readouts = [];
-      ANALYSIS_MARKER_META.forEach((marker, markerIndex) => {
+      const markerPositions = ANALYSIS_MARKER_META.map((marker, markerIndex) => {
         const selectedIndex = Number.isInteger(draft?.[marker.key]?.index) ? draft[marker.key].index : null;
         const index = selectedIndex == null ? null : clamp(Math.round(selectedIndex), 0, decoded.merged.length - 1);
         const sample = index == null ? null : decoded.merged[index];
+        return sample ? { markerIndex, sample, x: Graph.timeToX(sample.timeS, chart), label: marker.label } : null;
+      });
+      const labelLayout = analysisMarkerLabelLayout(markerPositions.filter(Boolean), chart);
+      ANALYSIS_MARKER_META.forEach((marker, markerIndex) => {
+        const markerPosition = markerPositions[markerIndex];
+        const sample = markerPosition?.sample || null;
         const target = q(marker.id);
         if (sample) {
-          const x = Graph.timeToX(sample.timeS, chart); const y = Graph.forceToY(sample.measuredPullN, chart);
-          svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, stroke: marker.color }));
+          const x = markerPosition.x; const y = Graph.forceToY(sample.measuredPullN, chart);
+          svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, "data-marker-key": marker.key, stroke: marker.color }));
           svg.append(svgElement("circle", { cx: x, cy: y, r: 7, class: `analysis-marker-dot ${marker.className}`, fill: marker.color }));
-          // Keep the three explanatory labels in evenly spaced columns. They
-          // identify the coloured vertical guides without colliding when the
-          // selected samples happen to be close in time.
-          const labelX = chart.left + (markerIndex + .5) * chart.width / ANALYSIS_MARKER_META.length;
-          svg.append(svgElement("text", { x: labelX, y: chart.top - 18, "text-anchor": "middle", class: `analysis-marker-label ${marker.className}`, fill: marker.color }, marker.label));
+          // Keep each label on the same x-coordinate as its coloured guide.
+          // If guides are close, place the labels on separate rows instead of
+          // moving them into fixed columns that lose the visual association.
+          const labelPosition = labelLayout[markerIndex];
+          svg.append(svgElement("text", { x: labelPosition.x, y: labelPosition.y, "text-anchor": labelPosition.anchor, class: `analysis-marker-label ${marker.className}`, "data-marker-key": marker.key, fill: marker.color }, marker.label));
           if (target) { target.style.left = `${clamp(x / chart.viewWidth * 100, 0, 100)}%`; target.style.top = `${clamp(y / chart.viewHeight * 100, 10, 84)}%`; target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
           readouts.push(`${marker.label}：${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N`);
         } else if (target) {
