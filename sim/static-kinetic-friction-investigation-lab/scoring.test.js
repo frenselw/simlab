@@ -42,6 +42,31 @@ const wrongKineticMarker = JSON.parse(JSON.stringify(perfect));
 wrongKineticMarker.analysis.kineticFriction.index = 0;
 assert.equal(S.analysisScore(wrongKineticMarker, scenario).detail.find((item) => item.key === "kinetic-friction").points, 0, "a pre-breakaway marker is not kinetic friction");
 
+// Part B now automatically holds the post-breakaway pull near the kinetic
+// friction value. A stable speed between the historical slow/fast bands is
+// still a valid C3 tail, so a late marker must receive credit even when the
+// candidate finder has no speed-band window for it.
+const stablePostBreakSamples = Array.from({ length: 301 }, (_, index) => {
+  const timeS = index * 0.1;
+  const beforeBreakaway = timeS < 2;
+  return { timeS, pullCN: Math.round((beforeBreakaway ? timeS * 3 : 5) * 100), velocityMMps: beforeBreakaway ? 0 : 140 };
+});
+const stablePostBreakTrace = M.packTrace({ regularSamples: stablePostBreakSamples, breakaway: { timeMs: 2000, measuredPullCN: 600, measuredVelocityMMps: 140, preBreakPeakGridIndex: 19 } });
+const stablePostBreakCandidates = M.findCandidateWindows(stablePostBreakTrace);
+assert.equal(stablePostBreakCandidates.slow.length, 0);
+assert.equal(stablePostBreakCandidates.fast.length, 0);
+const stablePostBreakDecoded = M.unpackTrace(stablePostBreakTrace);
+const stablePostBreakAnswer = JSON.parse(JSON.stringify(perfect));
+stablePostBreakAnswer.trial = stablePostBreakTrace;
+stablePostBreakAnswer.analysis = {
+  staticFriction: { index: stablePostBreakCandidates.static[0].startIndex, committed: true },
+  maximumStaticFriction: { index: stablePostBreakDecoded.merged.findIndex((sample) => sample.kind === "breakaway"), committed: true },
+  kineticFriction: { index: stablePostBreakDecoded.merged.length - 1, committed: true }
+};
+const stablePostBreakC3 = S.analysisScore(stablePostBreakAnswer, scenario).detail.find((item) => item.key === "kinetic-friction");
+assert.equal(stablePostBreakC3.points, 13, "a late stable post-breakaway marker receives C3 credit outside speed bands");
+assert.equal(stablePostBreakC3.settledPostBreak, true);
+
 const wrongPredictionType = JSON.parse(JSON.stringify(perfect));
 const predictionSpec = scenario.predictions[0];
 wrongPredictionType.predictions[0].frictionType = predictionSpec.frictionType === "static" ? "kinetic" : "static";

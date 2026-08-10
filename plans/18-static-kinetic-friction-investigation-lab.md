@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`40`（2026-08-10；提交頁面沿用 A／B／C／D 的新版乾淨舞台，移除舊 rope／橙色 grip；review control panel 改用一致 grid 間距。提交不再要求 A、B、C 或 D 全部完成：由任一 Part／任務列都可進入 review，任何未完成或未得分項目按其 rubric 計 0 分／扣除未取得分數。提交前只顯示中性核對提示，不預告扣分；提交結果必須逐 Part、逐小題顯示得分、滿分及扣分原因。合法空白 review 亦可提交。Part D 手機版隱藏重複的舞台提示及讀數，並把物體／地面上移以免遮擋物體。現有 `s6` review wire 已能保存 nullable A／B／C／D authority，因此不提升 schema／wire version。本修訂固定 D／任何 Part 進入 review 後的提交結果路由留在 review／結果畫面；control panel 由瀏覽器原生 overflow scroller 處理 touch momentum，activity 只保留同源 Moodle host lock，不在 `touchmove` 手動寫 `scrollTop` 或 `preventDefault()`；Part B 下方可進入 Part C，即使未有 B 記錄，Part C 以中性空白狀態展示，方便自由切換及在 review 直接提交未完成作答；本修訂新增 canonical blank／stale draft review route，D 下方 review button 不再依賴一般 phase transition；activity main/style 加 query build marker，避免 Sites same-URL deployment 使用舊 cached runtime。）
+> Plan revision：`42`（2026-08-10；提交頁面沿用 A／B／C／D 的新版乾淨舞台，移除舊 rope／橙色 grip；review control panel 改用一致 grid 間距。提交不再要求 A、B、C 或 D 全部完成：由任一 Part／任務列都可進入 review，任何未完成或未得分項目按其 rubric 計 0 分／扣除未取得分數。提交前只顯示中性核對提示，不預告扣分；提交結果必須逐 Part、逐小題顯示得分、滿分及扣分原因。合法空白 review 亦可提交。Part D 手機版隱藏重複的舞台提示及讀數，並把物體／地面上移以免遮擋物體。現有 `s6` review wire 已能保存 nullable A／B／C／D authority，因此不提升 schema／wire version。本修訂固定 D／任何 Part 進入 review 後的提交結果路由留在 review／結果畫面；control panel 由瀏覽器原生 overflow scroller 處理 touch momentum，activity 只保留同源 Moodle host lock，不在 `touchmove` 手動寫 `scrollTop` 或 `preventDefault()`；Part B 下方可進入 Part C，即使未有 B 記錄，Part C 以中性空白狀態展示，方便自由切換及在 review 直接提交未完成作答；本修訂新增 canonical blank／stale draft review route，D 下方 review button 不再依賴一般 phase transition；activity main/style/scoring 加 query build marker，避免 Sites same-URL deployment 使用舊 cached runtime；C3 改為接受本活動在 breakaway 後自動維持勻速所形成的穩定後段，後段 marker 不再受 slow／fast 速度分類邊界誤判。）
 
 本計劃必須遵從：
 
@@ -509,7 +509,7 @@ C 只要求三個位置，不要求輸入力值、選擇摩擦力類型、選區
 
 - 靜摩擦力 marker 落在 measurement layer 找出的 static-rise candidate window：13 分；
 - 最大靜摩擦力 marker 與 physics breakaway time 相差不超過 `BREAKAWAY_TIME_TOLERANCE_S`：14 分；
-- 滑動摩擦力 marker 落在 breakaway 後的穩定拉力平台 candidate window：13 分。
+- 滑動摩擦力 marker 落在 breakaway 後的穩定拉力平台：13 分；本活動會自動維持接近勻速，marker 只要位於 breakaway 後完成約 `0.25 s` 轉換的後段即可接受，不受 slow／fast 速度分類邊界限制。
 
 三項共 40 分。系統不在作答時移動 marker、顯示正確位置或透露答案；若返回修改，三個 marker 仍可直接重新拖動並保存。
 
@@ -1541,11 +1541,11 @@ Editable graph 不會顯示 authority windows。
 - breakaway 後至少 `1.00 s` 持續移動（方向可由學生操作決定）；
 - 記錄在 30 秒上限內完成。
 
-接受 trial 只檢查「開始移動＋繼續移動」這個 B 任務門檻，不要求學生採用特定拉力曲線、平台速度或加速段。C 的 candidate finder 只供提交時計分，對三個 marker 分別提供 static-rise、breakaway 及 post-breakaway plateau 的合法 sample windows；這些 windows 不會在 editable DOM、ARIA 或圖像上預先顯示。
+接受 trial 只檢查「開始移動＋繼續移動」這個 B 任務門檻，不要求學生採用特定拉力曲線、平台速度或加速段。C 的 candidate finder 只供提交時計分，對三個 marker 分別提供 static-rise、breakaway 及 post-breakaway plateau 的合法 sample windows；由於本活動在 breakaway 後自動維持接近勻速，C3 另接受 breakaway 後完成 `0.25 s` 轉換的任何 merged-trace sample；這些 windows 不會在 editable DOM、ARIA 或圖像上預先顯示。
 
 C1 static-rise candidate 另須全部滿足：duration ≥ `0.60 s`、`maxPull-minPull ≥ 0.80 N`、force least-squares slope ≥ `0.30 N/s`、所有 sample time 不晚於 `breakaway.timeMs`，且 `max(abs(measuredVelocity)) ≤ 0.012 m/s`。
 
-breakaway marker 使用 physics event time tolerance；static／kinetic marker 使用對應 candidate window 內的 merged sample index。所有邊界 inclusive，sample index 必須在同一張 canonical trace 內；不得以 viewport pixel 或未保存的第二張圖重新計算位置。
+breakaway marker 使用 physics event time tolerance；static marker 使用對應 candidate window 內的 merged sample index；kinetic marker 使用對應 candidate window，或使用 breakaway 後 `0.25 s` 轉換完成後的任何 merged sample index。所有邊界 inclusive，sample index 必須在同一張 canonical trace 內；不得以 viewport pixel 或未保存的第二張圖重新計算位置。
 
 ---
 
@@ -1729,7 +1729,7 @@ Part B 的有效 trace 仍是 B 的 20 分得分條件，但不是 review／提�
 
 - 靜摩擦力 marker 在 static-rise candidate window：13；
 - 最大靜摩擦力 marker 在 breakaway time tolerance 內：14；
-- 滑動摩擦力 marker 在 breakaway 後穩定拉力平台 candidate window：13。
+- 滑動摩擦力 marker 在 breakaway 後自動維持的穩定拉力後段：13；breakaway 後 `0.25 s` 起的任何後段 sample 均可。
 
 C 不再評估區段 start/end、額外數值、加速區段判斷或高速平台比較；C 只要求三個圖上 marker，其他物理判斷留在 D 的預測題。
 
@@ -1837,7 +1837,7 @@ Marker time 以 physics transition 的 `breakaway.timeMs` 為 authority；學生
 1. 由實際拖動產生合法 merged-trace sample index；
 2. 靜摩擦力 marker 落在 static-rise candidate window；
 3. 最大靜摩擦力 marker 落在 breakaway time tolerance；
-4. 滑動摩擦力 marker 落在 breakaway 後 plateau candidate window。
+4. 滑動摩擦力 marker 落在 breakaway 後 plateau candidate window，或落在 breakaway 後 `0.25 s` 起的自動勻速後段。
 
 未選取的 marker 不可保存為 committed，也不可取得分數；同一 sample index 可作為不同概念的答案，但分數按各自位置規則獨立計算。
 
@@ -2744,7 +2744,7 @@ same seed reproduces same scenario
 - tolerance just-inside／just-outside；
 - A3 沒有合法開始滑動試拉，即使估計值填對都不能保存／得 A3 分；
 - A2 未保存的 learner applied／friction vector 不可由 default 得分；`none` 必須以 committed 摩擦力答案保存；prediction `committed=false` 不可由 default 得分；
-- C 三個 marker 的 index、提交狀態及 candidate／event tolerance 各有唯一 authority source；
+- C 三個 marker 的 index、提交狀態及 candidate／event／自動勻速後段 tolerance 各有唯一 authority source；
 - `f_s,max` 估值只對 visible measured peak，不對 hidden static limit；
 - D1–D4 type/direction/magnitude/outcome dependency及各自 tolerance；
 - acceleration force 不可以取得 kinetic plateau 分；

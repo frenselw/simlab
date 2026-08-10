@@ -15,6 +15,7 @@
   const MAX_STATIC_BALANCE_ABS_TOLERANCE_N = 0.30;
   const MAX_STATIC_BALANCE_REL_TOLERANCE = 0.05;
   const BREAKAWAY_TIME_TOLERANCE_S = 0.16;
+  const KINETIC_MARKER_SETTLE_S = 0.25;
   const FS_MAX_ABS_TOLERANCE_N = 0.20;
   const FS_MAX_REL_TOLERANCE = 0.04;
   const FK_ABS_TOLERANCE_N = 0.15;
@@ -96,6 +97,12 @@
   function pointInWindows(index, windows = []) {
     return integer(index) && windows.some((window) => integer(window?.startIndex) && integer(window?.endIndex) && index >= window.startIndex && index <= window.endIndex);
   }
+  function postBreakawayKineticMarker(index, decoded) {
+    if (!integer(index) || !decoded?.breakaway || !Array.isArray(decoded.merged)) return false;
+    const sample = decoded.merged[index];
+    const breakawayTimeS = decoded.breakaway.timeMs / 1000;
+    return Boolean(sample && finite(breakawayTimeS) && sample.timeS >= breakawayTimeS + KINETIC_MARKER_SETTLE_S - FLOAT_EPSILON);
+  }
   function analysisScore(answer, scenario) {
     const analysis = answerAnalysis(answer);
     let decoded;
@@ -117,10 +124,16 @@
     detail.push({ key: "maximum-static-friction", points: maximumPoints, max: 14, correct: maximumCorrect, index: analysis.maximumStaticFriction?.index });
     const kineticIndex = analysis.kineticFriction?.index;
     const kineticWindows = [...(candidates.slow || []), ...(candidates.fast || [])];
-    const kineticCorrect = pointInWindows(kineticIndex, kineticWindows);
+    // Part B now takes over the pull after breakaway and maintains the
+    // near-uniform-speed force automatically. A late marker on that stable
+    // tail is therefore equivalent to a candidate plateau marker, even when
+    // its measured speed falls between the historical slow/fast bands.
+    const kineticCandidateCorrect = pointInWindows(kineticIndex, kineticWindows);
+    const kineticSettledCorrect = postBreakawayKineticMarker(kineticIndex, decoded);
+    const kineticCorrect = kineticCandidateCorrect || kineticSettledCorrect;
     const kineticPoints = kineticCorrect ? 13 : 0;
     score += kineticPoints;
-    detail.push({ key: "kinetic-friction", points: kineticPoints, max: 13, correct: kineticCorrect, index: kineticIndex });
+    detail.push({ key: "kinetic-friction", points: kineticPoints, max: 13, correct: kineticCorrect, candidate: kineticCandidateCorrect, settledPostBreak: kineticSettledCorrect, index: kineticIndex });
     return { score, maxScore: 40, detail, candidates, decoded };
   }
   function predictionScore(answer, scenario) {
@@ -172,5 +185,5 @@
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))
     };
   }
-  return Object.freeze({ PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, maximumStaticBalanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
+  return Object.freeze({ PASSING_SCORE, ZERO_FRICTION_TOLERANCE_N, BALANCE_ABS_TOLERANCE_N, BALANCE_REL_TOLERANCE, MAX_STATIC_BALANCE_ABS_TOLERANCE_N, MAX_STATIC_BALANCE_REL_TOLERANCE, BREAKAWAY_TIME_TOLERANCE_S, KINETIC_MARKER_SETTLE_S, FS_MAX_ABS_TOLERANCE_N, FS_MAX_REL_TOLERANCE, FK_ABS_TOLERANCE_N, FK_REL_TOLERANCE, INTERVAL_MIN_IOU, PLATFORM_COMPARISON_ABS_N, PLATFORM_COMPARISON_REL, FLOAT_EPSILON, forceByKey, balanceToleranceN, maximumStaticBalanceToleranceN, fsToleranceN, fkToleranceN, platformToleranceN, approx, postBreakawayKineticMarker, balanceScore, experimentScore, selectionScore, analysisScore, predictionScore, scoreAnswer, perfectAnswer });
 });
