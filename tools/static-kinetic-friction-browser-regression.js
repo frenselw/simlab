@@ -542,7 +542,10 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   await delay(500);
   const momentumDistance = Math.min(72, Math.max(28, panelRange * .12));
   await frameEvaluate(cdp, `(() => { const panel = document.getElementById('controlPanel'); panel.scrollTop = ${panelRange * .15}; return true; })()`);
-  await touchStartMoveGradual(cdp, panelPoint, { x: panelPoint.x, y: panelPoint.y - momentumDistance }, 16, 24);
+  // Use a genuine quick flick.  A 384 ms drag can correctly retain almost no
+  // release velocity on Linux headless Chrome and therefore does not test the
+  // native momentum behaviour that a learner expects from a phone swipe.
+  await touchStartMoveGradual(cdp, panelPoint, { x: panelPoint.x, y: panelPoint.y - momentumDistance }, 8, 8);
   await touchEnd(cdp);
   const panelAtRelease = await metrics();
   await delay(180);
