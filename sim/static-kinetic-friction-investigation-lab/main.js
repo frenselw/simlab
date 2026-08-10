@@ -587,12 +587,12 @@
       for (let time = 0; time <= chart.maxTimeS; time += 5) {
         const x = xFor(time);
         svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: "graph-grid" }));
-        const label = svgElement("text", { x, y: chart.top + chart.height + 28, "text-anchor": "middle", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(time))); svg.append(label);
+        const label = svgElement("text", { x, y: chart.top + chart.height + 28, "text-anchor": "middle", class: "graph-tick-label" }); label.appendChild(document.createTextNode(String(time))); svg.append(label);
       }
       for (let force = 0; force <= chart.maxForceN; force += 3) {
         const y = yFor(force);
         svg.append(svgElement("line", { x1: chart.left, y1: y, x2: chart.left + chart.width, y2: y, class: "graph-grid" }));
-        const label = svgElement("text", { x: chart.left - 10, y: y + 5, "text-anchor": "end", class: "graph-axis-label" }); label.appendChild(document.createTextNode(String(force))); svg.append(label);
+        const label = svgElement("text", { x: chart.left - 10, y: y + 5, "text-anchor": "end", class: "graph-tick-label" }); label.appendChild(document.createTextNode(String(force))); svg.append(label);
       }
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left, y2: chart.top, class: "graph-axis", "marker-end": "url(#graph-axis-arrow)" }));
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#graph-axis-arrow)" }));
@@ -996,6 +996,21 @@
       });
       return layout;
     }
+    function setAnalysisTargetPosition(target, svg, x, y, chart) {
+      if (!target || !svg) return;
+      const layer = q("dragLayer")?.getBoundingClientRect();
+      try {
+        const point = svg.createSVGPoint(); point.x = x; point.y = y;
+        const screen = point.matrixTransform(svg.getScreenCTM());
+        if (layer?.width && layer?.height) {
+          target.style.left = `${clamp((screen.x - layer.left) / layer.width * 100, 0, 100)}%`;
+          target.style.top = `${clamp((screen.y - layer.top) / layer.height * 100, 0, 100)}%`;
+          return;
+        }
+      } catch {}
+      target.style.left = `${clamp(x / chart.viewWidth * 100, 0, 100)}%`;
+      target.style.top = `${clamp(y / chart.viewHeight * 100, 0, 100)}%`;
+    }
     function renderGraph() {
       const svg = q("graphSvg"); if (!svg) return;
       if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
@@ -1050,12 +1065,11 @@
           // moving them into fixed columns that lose the visual association.
           const labelPosition = labelLayout[markerIndex];
           svg.append(svgElement("text", { x: labelPosition.x, y: labelPosition.y, "text-anchor": labelPosition.anchor, class: `analysis-marker-label ${marker.className}`, "data-marker-key": marker.key, fill: marker.color }, marker.label));
-          if (target) { target.style.left = `${clamp(x / chart.viewWidth * 100, 0, 100)}%`; target.style.top = `${clamp(y / chart.viewHeight * 100, 10, 84)}%`; target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
+          if (target) { setAnalysisTargetPosition(target, svg, x, chart.top + chart.height - 20, chart); target.setAttribute("aria-label", `${marker.label}位置，目前 ${sample.timeS.toFixed(2)} 秒、${sample.measuredPullN.toFixed(2)} 牛頓`); }
           readouts.push(`${marker.label}：${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N`);
         } else if (target) {
           const x0 = chart.left + (markerIndex + .5) * chart.width / ANALYSIS_MARKER_META.length;
-          target.style.left = `${clamp(x0 / chart.viewWidth * 100, 0, 100)}%`;
-          target.style.top = `${clamp((chart.top + chart.height - 20) / chart.viewHeight * 100, 10, 84)}%`;
+          setAnalysisTargetPosition(target, svg, x0, chart.top + chart.height - 20, chart);
           target.setAttribute("aria-label", `${marker.label}位置，尚未標示；拖動此圓點到圖線上的位置`);
         }
       });
