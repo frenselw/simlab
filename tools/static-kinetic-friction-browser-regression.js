@@ -547,7 +547,9 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   const panelAtRelease = await metrics();
   await delay(180);
   const panelAfterMomentum = await metrics();
-  assert.ok(panelAfterMomentum.panel > panelAtRelease.panel + 1, `${label}: releasing a panel swipe keeps native momentum scrolling (${JSON.stringify({ atRelease: panelAtRelease.panel, afterMomentum: panelAfterMomentum.panel, distance: momentumDistance })})`);
+  const momentumDelta = panelAfterMomentum.panel - panelAtRelease.panel;
+  const reachedPanelEnd = momentumDelta > 0 && panelRange - panelAfterMomentum.panel <= 1;
+  assert.ok(momentumDelta > 1 || reachedPanelEnd, `${label}: releasing a panel swipe keeps native momentum scrolling (${JSON.stringify({ range: panelRange, atRelease: panelAtRelease.panel, afterMomentum: panelAfterMomentum.panel, delta: momentumDelta, reachedPanelEnd, distance: momentumDistance })})`);
   assert.ok(Math.abs(panelAfterMomentum.host - panelAtRelease.host) <= 1, `${label}: panel momentum leaves enclosing host fixed`);
   const prepared = await frameEvaluate(cdp, `(() => {
     const state=window.__staticKineticFrictionApp.getState();
