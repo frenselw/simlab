@@ -38,7 +38,7 @@
         <button type="button" id="experimentOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="experiment-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖動拉力"></button>
         <button type="button" id="balanceOrigin" class="drag-target apparatus-drag-target balance-origin-target is-hidden" data-drag-target="balance-origin" aria-describedby="stageCoachText" aria-label="由物體中央拖出水平力箭嘴"></button>
         <button type="button" id="resetBalanceObject" class="balance-reset-button primary-button is-hidden" data-action="reset-balance-object" aria-describedby="stageCoachText">物體返回中央</button>
-        <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target" data-drag-target="prediction-friction" aria-label="預測情境的摩擦力大小"></button>
+        <button type="button" id="predictionFriction" class="drag-target apparatus-drag-target prediction-friction-target" data-drag-target="prediction-friction" aria-describedby="stageCoachText" aria-label="由物體中央拖出預測摩擦力箭嘴"></button>
         <button type="button" id="staticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-static is-hidden" data-drag-target="static-friction-marker" aria-label="靜摩擦力位置標記"></button>
         <button type="button" id="maximumStaticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-maximum is-hidden" data-drag-target="maximum-static-friction-marker" aria-label="最大靜摩擦力位置標記"></button>
         <button type="button" id="kineticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-kinetic is-hidden" data-drag-target="kinetic-friction-marker" aria-label="滑動摩擦力位置標記"></button>
@@ -133,11 +133,11 @@
       </section>
 
       <section id="predictPanel" class="panel-section is-hidden" data-panel="predict">
-        <p class="section-label">第四階段・未直接測試情境預測</p>
-        <h2>用自己的模型預測摩擦力與運動結果</h2>
-        <p>每題都要明確選擇摩擦力類型、方向、平均大小及運動結果；沒有預先選好的答案。你可以自由切換 A、B、C、D，並返回修改任何已保存的預測。</p>
+        <p class="section-label">第四階段・逐題預測</p>
+        <h2>D：預測摩擦力與運動結果</h2>
+        <p>一次完成一題。請在舞台由物體中央畫出摩擦力箭嘴；不畫代表摩擦力為零。畫出箭嘴後，在這裡選擇摩擦力類型及運動結果，箭嘴大小會同步顯示。D 題可以跳過，未答題目得 0 分。</p>
         <div id="predictionCards" class="prediction-cards"></div>
-        <button type="button" data-action="to-review" class="primary-button next-button">完成四個預測，前往提交前檢查</button>
+        <button type="button" data-action="to-review" class="primary-button next-button">前往提交前檢查（D 可跳過）</button>
       </section>
 
       <section id="reviewPanel" class="panel-section is-hidden" data-panel="review">

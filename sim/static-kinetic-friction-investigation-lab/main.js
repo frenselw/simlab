@@ -317,6 +317,7 @@
       q("balanceOrigin")?.classList.toggle("is-coached", activeBalance);
       setTargetVisible("resetBalanceObject", activeBalance && balanceOffscreen);
       setTargetVisible("predictionFriction", phase === "predict");
+      q("predictionFriction")?.classList.toggle("is-coached", phase === "predict");
       const reviewKey = state?.fromReview && state.working?.reviewEditTarget?.section === "analysis" ? state.working.reviewEditTarget.semanticKey : null;
       for (const marker of ANALYSIS_MARKER_META) {
         const visible = phase === "analysis" && Boolean(state?.trial) && (!state.fromReview || reviewKey === marker.key);
@@ -364,7 +365,10 @@
           title = "先按右邊的「開始 30 秒記錄」"; text = "開始後按住物體中央的小圓點向右拖動，逐漸增加拉力，直到物體啱啱開始移動。";
         }
       } else if (state.phase === "predict") {
-        step = `D${currentPredictionIndex() + 1}`; title = "拖動藍色箭嘴建立摩擦力"; text = "同時在右邊完成類型、方向、大小和運動結果。";
+        const index = currentPredictionIndex();
+        step = `D${index + 1}/4`;
+        title = state.fromReview ? `修改 D${index + 1}：重畫摩擦力` : `D${index + 1}：先畫出摩擦力`;
+        text = "由物體中央旁的藍色小圓點拖出箭嘴；不畫代表摩擦力為零，然後在控制欄選擇類型及運動結果。";
       }
       setText("stageCoachStep", step);
       setText("stageCoachTitle", title);
@@ -664,15 +668,10 @@
       const x = balanceMode ? 100 + positionFraction * 650 : experimentMode ? 45 + clamp(positionFraction, 0, 1) * 728 : 100 + clamp(positionFraction, .04, .88) * 650;
       const hx = 100 + clamp(target / (scenario?.stage.lengthM || 1.65), 0, 1) * 650;
       svg.append(svgElement("rect", { x, y: groundY - 54, width: 92, height: 54, rx: 8, class: "apparatus-block" }));
-      if (!balanceMode && !experimentMode) {
+      if (!balanceMode && !experimentMode && !predictionMode) {
         svg.append(svgElement("line", { x1: x + 92, y1: groundY - 27, x2: hx, y2: groundY - 27, class: "apparatus-rope" }));
         svg.append(svgElement("rect", { x: hx - 12, y: groundY - 43, width: 34, height: 32, rx: 7, class: "apparatus-grip" }));
       }
-      const labels = predictionMode ? [
-        [Math.min(830, hx), groundY - 58, "已知向右拉力"],
-        [185, 102, "藍色箭嘴是你建立的摩擦力"]
-      ] : [];
-      labels.forEach(([tx, ty, text]) => { const label = svgElement("text", { x: tx, y: ty, "text-anchor": tx <= 100 ? "start" : "middle" }); label.appendChild(document.createTextNode(text)); svg.append(label); });
       const experimentOrigin = q("experimentOrigin");
       if (experimentMode) {
         const comX = x + 46;
@@ -734,10 +733,10 @@
         const signedFrictionN = response?.direction === "left" ? -frictionN : response?.direction === "right" ? frictionN : 0;
         const comX = x + 46; const comY = groundY - 27; const pullLabelY = groundY - 64; const frictionLabelY = groundY - 84;
         const scale = 18; const endpoint = comX + clamp(signedFrictionN * scale, -180, 180);
-        appendForceArrow(svg, comX, comX + Math.min(180, (spec?.pullN || 0) * scale), comY, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`, pullLabelY);
-        appendForceArrow(svg, comX, comX + clamp(signedFrictionN * scale, -180, 180), comY, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `摩擦力 ${frictionN.toFixed(2)} N`, frictionLabelY);
-        const predictionHandle = q("predictionFriction"); if (predictionHandle) { positionApparatusTarget(predictionHandle, endpoint, comY); predictionHandle.setAttribute("aria-label", `預測 ${index + 1} 的摩擦力箭嘴，目前 ${response?.magnitudeCN == null ? "未輸入" : `${frictionN.toFixed(2)} 牛頓`}`); }
-        setText("predictionReadout", `情境 ${index + 1}：已知向右拉力 ${(spec?.pullN || 0).toFixed(1)} N；初速 ${(spec?.velocityMps || 0).toFixed(2)} m/s；你的摩擦力 ${response?.magnitudeCN == null ? "尚未輸入" : `${frictionN.toFixed(2)} N`}。`);
+        if ((spec?.pullN || 0) > .01) appendForceArrow(svg, comX, comX + Math.min(180, (spec?.pullN || 0) * scale), comY, "pull-arrow prediction-pull-arrow", "#b91c1c", `已知拉力 ${(spec?.pullN || 0).toFixed(1)} N`, pullLabelY);
+        if (frictionN > .01 && ["left", "right"].includes(response?.direction)) appendForceArrow(svg, comX, comX + clamp(signedFrictionN * scale, -180, 180), comY, "learner-friction-arrow prediction-friction-arrow", "#1d4ed8", `摩擦力 ${frictionN.toFixed(2)} N`, frictionLabelY);
+        const predictionHandle = q("predictionFriction"); if (predictionHandle) { positionApparatusTarget(predictionHandle, endpoint, comY); predictionHandle.setAttribute("aria-label", `D${index + 1} 摩擦力箭嘴，目前 ${frictionN > .01 ? `${frictionN.toFixed(2)} 牛頓、方向${response?.direction === "left" ? "向左" : "向右"}` : "未畫出（0 牛頓）"}`); }
+        setText("predictionReadout", `D${index + 1}：已知拉力 ${(spec?.pullN || 0).toFixed(1)} N；初速度 ${(spec?.velocityMps || 0).toFixed(2)} m/s；畫出的摩擦力 ${frictionN > .01 ? `${frictionN.toFixed(2)} N` : "0 N"}。`);
       }
       setText("experimentFeedback", experimentFeedbackText());
     }
@@ -1130,19 +1129,33 @@
     function renderPredictions() {
       const host = q("predictionCards"); if (!host || !scenario) return;
       host.replaceChildren();
-      const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : answer) || predictionDraft;
+      const activeIndex = currentPredictionIndex();
+      const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : answer);
+      const progress = document.createElement("div");
+      progress.className = "prediction-progress";
+      progress.setAttribute("aria-label", "Part D 題目進度");
       scenario.predictions.forEach((spec, index) => {
-        const response = answers[index] || {}; const card = document.createElement("article"); card.className = "prediction-card"; card.dataset.predictionIndex = index;
-        card.innerHTML = `<div class="task-card-heading"><p class="task-title">${spec.id}：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；物體目前 <var>v</var> = ${spec.velocityMps.toFixed(2)} m/s</p><button type="button" data-action="select-prediction" class="task-select-button">${index === currentPredictionIndex() ? "正在編輯" : "編輯此題"}</button></div><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>方向<select data-prediction-field="direction"><option value="">請選擇</option><option value="none" ${response.direction === "none" ? "selected" : ""}>沒有方向</option><option value="left" ${response.direction === "left" ? "selected" : ""}>向左</option><option value="right" ${response.direction === "right" ? "selected" : ""}>向右</option></select></label><label>摩擦力大小（N）<input type="number" min="0" max="12" step="0.01" value="${response.magnitudeCN == null ? "" : response.magnitudeCN / 100}" data-prediction-field="magnitudeCN"></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><button type="button" data-action="save-prediction">保存這題預測</button>`;
-        if (response.committed && !state.fromReview) card.insertAdjacentHTML("beforeend", index < scenario.predictions.length - 1 ? `<button type="button" data-action="advance-prediction">下一題</button>` : "");
-        const targetIndex = currentPredictionIndex();
-        if (index !== targetIndex) card.querySelectorAll("select,input,button:not([data-action='select-prediction'])").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
-        host.append(card);
+        const answer = answers[index];
+        const step = document.createElement("span");
+        step.className = `prediction-progress-step${index === activeIndex ? " is-current" : ""}${answer?.committed ? " is-complete" : ""}`;
+        step.innerHTML = `${spec.id}<small>${answer?.committed ? "已保存" : index === activeIndex ? "目前" : "未完成"}</small>`;
+        progress.append(step);
       });
-      const activeIndex = currentPredictionIndex(); const magnitude = answers[activeIndex]?.magnitudeCN;
+      host.append(progress);
+      const spec = scenario.predictions[activeIndex];
+      const response = answers[activeIndex] || {};
+      const magnitude = Number.isInteger(response.magnitudeCN) ? response.magnitudeCN : null;
+      const magnitudeText = magnitude == null ? "尚未畫出" : `${(magnitude / 100).toFixed(2)} N`;
+      const card = document.createElement("article");
+      card.className = "prediction-card prediction-card-active";
+      card.dataset.predictionIndex = activeIndex;
+      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">先由物體中央旁的藍色小圓點拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力。畫出箭嘴後，選擇它是靜摩擦力還是滑動摩擦力。</p><p class="prediction-scenario">已知拉力：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；初速度：<var>v</var> = ${spec.velocityMps.toFixed(2)} m/s</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">畫出的摩擦力：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
+      if (response.committed && !state.fromReview && activeIndex < scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<button type="button" data-action="advance-prediction" class="next-button">下一題 D${activeIndex + 2}</button>`);
+      if (response.committed && !state.fromReview && activeIndex >= scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<p class="neutral-status">四題已保存；亦可直接前往提交前檢查。</p>`);
+      host.append(card);
       const predictionHandle = q("predictionFriction");
-      if (predictionHandle) predictionHandle.setAttribute("aria-label", `預測 ${activeIndex + 1} 的摩擦力大小，目前 ${magnitude == null ? "未輸入" : `${(magnitude / 100).toFixed(2)} 牛頓`}`);
-      q("to-review")?.toggleAttribute("disabled", !Persistence.hasAllPredictions(state));
+      if (predictionHandle) predictionHandle.setAttribute("aria-label", `D${activeIndex + 1} 摩擦力箭嘴，目前 ${magnitude == null || magnitude === 0 ? "未畫出（0 牛頓）" : `${(magnitude / 100).toFixed(2)} 牛頓、方向${response.direction === "left" ? "向左" : "向右"}`}`);
+      q("to-review")?.toggleAttribute("disabled", !Persistence.hasRequiredAuthority(state));
       q("to-review")?.classList.toggle("is-hidden", Boolean(state.fromReview));
     }
     function collectPredictionDraft(card) {
@@ -1150,7 +1163,7 @@
       const index = Number(card.dataset.predictionIndex);
       if (!Number.isInteger(index)) return;
       const values = {};
-      card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value) * 100)) : (input.value || null); });
+      card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value))) : (input.value || null); });
       try {
         state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN: values.magnitudeCN, motionOutcome: values.motionOutcome, committed: false });
         saveDraft();
@@ -1161,12 +1174,14 @@
       const complete = Persistence.hasCompleteAnswer(state);
       const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
       const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
-      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整"}</li><li>預測：${state.predictions.filter(Boolean).length}/4</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${complete ? "作答資料完整，可以提交。" : "尚有作答資料未完成；提交按鈕會保持鎖定。"}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
+      const predictionDone = state.predictions.filter((prediction) => prediction?.committed === true).length;
+      const reviewMessage = complete ? (predictionDone === scenario.predictions.length ? "作答資料完整，可以提交。" : `A、B、C 必要資料完整；D 已完成 ${predictionDone}/4 題，未答題目會得 0 分。`) : "Part A、B 或 C 尚有必要資料未完成；Part D 可以跳過。";
+      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整"}</li><li>Part D 預測：${predictionDone}/4（未答題目得 0 分）</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${reviewMessage}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
       q("submit")?.toggleAttribute("disabled", !complete);
       const analysisButtons = q("analysisEditButtons");
       if (analysisButtons) analysisButtons.innerHTML = Persistence.ANALYSIS_KEYS.map((key, index) => `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>`).join("");
       const predictionButtons = q("predictionEditButtons");
-      if (predictionButtons) predictionButtons.innerHTML = state.predictions.map((prediction, index) => `<button type="button" data-action="edit-predict" data-prediction-index="${index}">修改預測 ${index + 1}</button>`).join("");
+      if (predictionButtons) predictionButtons.innerHTML = state.predictions.map((prediction, index) => prediction?.committed ? `<button type="button" data-action="edit-predict" data-prediction-index="${index}">修改 D${index + 1}</button>` : "").join("");
       q("submit")?.classList.toggle("is-hidden", presentation !== "editable");
       q("cancelReviewEdit")?.classList.toggle("is-hidden", !state.fromReview);
     }
@@ -1266,7 +1281,7 @@
       if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
       if (action === "save-analysis") { focusNode(q("analysisTasks")); return; }
-      if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select,input")); return; }
+      if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select")); return; }
       if (action === "request-redo-experiment") focusNode(q("experimentOrigin") || q("startRecording"));
     }
     function validationMessage(action) {
@@ -1274,7 +1289,8 @@
       if (action === "save-static-force") return "請先由物體中央畫出 A2 拉力；摩擦力可以畫出，亦可以不畫。";
       if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
       if (action === "save-analysis") return "請先在圖上放好靜摩擦力、最大靜摩擦力及滑動摩擦力三個標記。";
-      if (action === "save-prediction") return "請完成這題的摩擦力類型、方向、大小及運動結果，然後再保存。";
+      if (action === "save-prediction") return "請先在圖上畫出摩擦力（不畫代表零），再選擇摩擦力類型及運動結果。";
+      if (action === "to-review") return "請先完成 Part A、B、C 的必要資料；Part D 可以全部跳過。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
     }
     function validationNode(action) {
@@ -1317,9 +1333,21 @@
           else if (action === "to-analysis") { if (state.trial) { state = Persistence.transitions.setPhase(state, "analysis"); analysisDraft = null; saveDraft(); } }
           else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (!commitAnalysisDraft(draft)) throw new Error("complete the active analysis task before saving"); saveDraft(); announce("三個 marker 已保存"); }
           else if (action === "to-predict") { if (!Persistence.hasAllAnalysisFields(state)) throw new Error("analysis incomplete"); state = Persistence.transitions.setPhase(state, "predict"); analysisDraft = null; saveDraft(); }
-          else if (action === "save-prediction") { const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {}; card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value) * 100)) : input.value || null; }); if (!values.frictionType || !values.direction || values.magnitudeCN == null || !values.motionOutcome) throw new Error("complete every prediction field"); state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, ...values, committed: true }); saveDraft(); }
+          else if (action === "save-prediction") {
+            const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {};
+            card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Number(input.value)) : input.value || null; });
+            const magnitudeCN = values.magnitudeCN == null ? 0 : Math.round(Number(values.magnitudeCN));
+            if (!values.frictionType || !values.motionOutcome) throw new Error("complete the drawn force type and motion result");
+            if (values.frictionType === "none") {
+              if (magnitudeCN !== 0) throw new Error("no-friction answer cannot contain an arrow");
+              values.direction = "none";
+            } else if (!Number.isInteger(magnitudeCN) || magnitudeCN <= 0 || !["left", "right"].includes(values.direction)) {
+              throw new Error("draw a non-zero friction arrow and choose its type");
+            }
+            state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN, motionOutcome: values.motionOutcome, committed: true }); saveDraft();
+          }
           else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
-          else if (action === "to-review") { if (Persistence.hasAllPredictions(state)) { state = Persistence.transitions.setPhase(state, "review"); saveDraft(); } }
+          else if (action === "to-review") { if (!Persistence.hasRequiredAuthority(state)) throw new Error("required Part A to C answers incomplete"); state = Persistence.transitions.setPhase(state, "review"); saveDraft(); }
           else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", "zero-force"); saveDraft(); }
           else if (action === "edit-balance-task") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-balance-key]")?.dataset.balanceKey); saveDraft(); }
           else if (action === "edit-experiment") restartExperimentImmediately();
@@ -1456,6 +1484,36 @@
       if (Math.abs(signedN) < .05) return null;
       return { direction: signedN < 0 ? "left" : "right", magnitudeCN: clamp(Math.round(Math.abs(signedN) * 10) * 10, 1, 1200) };
     }
+    function predictionComPoint() {
+      const block = q("apparatusSvg")?.querySelector(".apparatus-block");
+      if (!block) return { x: 146, y: 273 };
+      return { x: Number(block.getAttribute("x")) + Number(block.getAttribute("width")) / 2, y: Number(block.getAttribute("y")) + Number(block.getAttribute("height")) / 2 };
+    }
+    function setPredictionForceDraft(card, force) {
+      if (!card || !state || !scenario) return;
+      const index = Number(card.dataset.predictionIndex);
+      if (!Number.isInteger(index)) return;
+      const direction = force?.direction || "none";
+      const magnitudeCN = force?.magnitudeCN || 0;
+      const frictionType = card.querySelector("[data-prediction-field='frictionType']")?.value || null;
+      const motionOutcome = card.querySelector("[data-prediction-field='motionOutcome']")?.value || null;
+      const directionInput = card.querySelector("[data-prediction-field='direction']");
+      const magnitudeInput = card.querySelector("[data-prediction-field='magnitudeCN']");
+      if (directionInput) directionInput.value = direction;
+      if (magnitudeInput) magnitudeInput.value = String(magnitudeCN);
+      try {
+        state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType, direction, magnitudeCN, motionOutcome, committed: false });
+        saveDraft();
+      } catch {}
+      const output = card.querySelector("[data-prediction-magnitude-readout]");
+      if (output) output.textContent = magnitudeCN ? `${(magnitudeCN / 100).toFixed(2)} N` : "尚未畫出";
+    }
+    function updatePredictionForceFromPointer(event) {
+      if (!dragging || dragging.kind !== "prediction-friction") return;
+      const point = svgPointFromEvent(event);
+      setPredictionForceDraft(dragging.card, forceFromPointer(dragging.originX, point.x));
+      renderApparatus();
+    }
     function updateBalanceDrawFromPointer(event) {
       if (!dragging || dragging.kind !== "balance-draw") return;
       const point = svgPointFromEvent(event);
@@ -1497,6 +1555,13 @@
           checkpoint: clone(state), checkpointDraft: clone(analysisDraft),
           predictionMagnitudes: [...document.querySelectorAll("[data-prediction-field='magnitudeCN']")].map((input) => input.value)
         };
+      } else if (target === "prediction-friction" && state?.phase === "predict") {
+        const point = predictionComPoint();
+        dragging = {
+          kind: "prediction-friction", target: event.currentTarget, pointerId: event.pointerId,
+          originX: point.x, originY: point.y, card: q(`#predictionCards [data-prediction-index="${currentPredictionIndex()}"]`),
+          checkpoint: clone(state), checkpointDraft: clone(analysisDraft)
+        };
       } else {
         dragging = { target: event.currentTarget, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, checkpoint: clone(state), checkpointDraft: clone(analysisDraft), predictionMagnitudes: [...document.querySelectorAll("[data-prediction-field='magnitudeCN']")].map((input) => input.value) };
       }
@@ -1523,7 +1588,13 @@
         renderApparatus(); renderBalance();
         return;
       }
-      if (target === "prediction-friction") { const index = currentPredictionIndex(); const input = q(`#predictionCards [data-prediction-index="${index}"] [data-prediction-field="magnitudeCN"]`); if (input) { input.value = clamp(Number(input.value || 0) + direction * magnitude * 0.05, 0, 12).toFixed(2); input.dispatchEvent(new Event("input", { bubbles: true })); } return; }
+      if (target === "prediction-friction") {
+        const index = currentPredictionIndex(); const card = q(`#predictionCards [data-prediction-index="${index}"]`); if (!card) return;
+        const directionInput = card.querySelector("[data-prediction-field='direction']"); const magnitudeInput = card.querySelector("[data-prediction-field='magnitudeCN']");
+        const currentSignedN = (directionInput?.value === "left" ? -1 : directionInput?.value === "right" ? 1 : 0) * Number(magnitudeInput?.value || 0) / 100;
+        const next = currentSignedN + direction * magnitude * .1;
+        setPredictionForceDraft(card, forceFromPointer(0, next * 18)); renderApparatus(); return;
+      }
       if (!state?.trial) return;
       ensureAnalysisDraft();
       const decoded = Measurement.unpackTrace(state.trial);
@@ -1536,6 +1607,7 @@
     function moveDrag(event) {
       if (!dragging || dragging.target !== event.currentTarget || event.isPrimary === false) return;
       if (dragging.kind === "balance-draw") { updateBalanceDrawFromPointer(event); return; }
+      if (dragging.kind === "prediction-friction") { updatePredictionForceFromPointer(event); return; }
       if (dragging.kind === "experiment-pull") {
         const point = svgPointFromEvent(event);
         const deltaForceN = (point.x - dragging.lastPointX) / EXPERIMENT_FORCE_SCALE_PX_PER_N;

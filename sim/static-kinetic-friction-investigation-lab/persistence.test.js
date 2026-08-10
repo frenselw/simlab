@@ -65,6 +65,7 @@ state = P.transitions.setAnalysisMarkers(state, {
 });
 assert.equal(P.hasAllAnalysisFields(state), true);
 state = P.transitions.setPhase(state, "predict");
+const requiredOnly = state;
 scenario.predictions.forEach((spec, index) => {
   const partial = { id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: null, magnitudeCN: null, motionOutcome: null, committed: false };
   state = P.transitions.setPrediction(state, index, partial);
@@ -74,6 +75,16 @@ scenario.predictions.forEach((spec, index) => {
 });
 state = P.transitions.setPhase(state, "review");
 assert.equal(P.hasCompleteAnswer(state), true);
+
+// Part D is optional at submission: an A/B/C-complete state may enter review
+// with all four prediction slots still null, and scoring leaves Part D at 0.
+const sparseReview = P.transitions.setPhase(requiredOnly, "review");
+assert.equal(P.hasRequiredAuthority(sparseReview), true);
+assert.equal(P.hasRequiredAnswer(sparseReview), true);
+assert.equal(P.hasAllPredictions(sparseReview), false);
+assert.equal(S.scoreAnswer(sparseReview, scenario).breakdown.predictions.score, 0);
+const sparseReviewWire = P.encodeReview(sparseReview);
+assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: sparseReviewWire }, scenario, "review"), P.normalizeReview(sparseReview));
 
 // A1 and A2 are normal editable answers too: changing one Part A answer does
 // not erase independently completed work in another task.
@@ -89,8 +100,8 @@ assert.equal(normalEdit.balance.breakaway.bestPullCN, 680);
 assert.equal(normalEdit.balance.staticCase.learnerAppliedForce.direction, opposite(scenario.balancePullDirection));
 
 // A/B/C/D are independently navigable. B can start before Part A is complete,
-// D can hold predictions before C is finished, and returning to an earlier
-// part preserves the work already made elsewhere.
+// D can hold the current sequential prediction before C is finished, and
+// returning to an earlier part preserves the work already made elsewhere.
 let freeNavigation = P.freshState(scenario.seed);
 freeNavigation = P.transitions.setPhase(freeNavigation, "experiment");
 assert.equal(freeNavigation.phase, "experiment");
@@ -98,19 +109,18 @@ let waitingAnalysis = P.transitions.setPhase(P.freshState(scenario.seed), "analy
 assert.equal(waitingAnalysis.variant, "waiting-for-trial");
 freeNavigation = P.transitions.acceptTrial(freeNavigation, trial);
 freeNavigation = P.transitions.setPhase(freeNavigation, "predict");
-const earlyPrediction = scenario.predictions[2];
-freeNavigation = P.transitions.setPrediction(freeNavigation, 2, { id: earlyPrediction.id, scenarioId: earlyPrediction.scenarioId, frictionType: earlyPrediction.frictionType, direction: earlyPrediction.direction, magnitudeCN: earlyPrediction.magnitudeCN, motionOutcome: earlyPrediction.motionOutcome, committed: true });
-freeNavigation = roundTrip(freeNavigation, "free navigation with early D answer");
+const earlyPrediction = scenario.predictions[0];
+freeNavigation = P.transitions.setPrediction(freeNavigation, 0, { id: earlyPrediction.id, scenarioId: earlyPrediction.scenarioId, frictionType: earlyPrediction.frictionType, direction: earlyPrediction.direction, magnitudeCN: earlyPrediction.magnitudeCN, motionOutcome: earlyPrediction.motionOutcome, committed: true });
+freeNavigation = roundTrip(freeNavigation, "free navigation with first D answer");
 freeNavigation = P.transitions.setPhase(freeNavigation, "balance");
 assert.equal(freeNavigation.phase, "balance");
-assert.equal(freeNavigation.predictions[2].committed, true);
+assert.equal(freeNavigation.predictions[0].committed, true);
 freeNavigation = P.transitions.setPhase(freeNavigation, "analysis");
 assert.equal(freeNavigation.phase, "analysis");
 freeNavigation = P.transitions.selectAnalysisTask(freeNavigation, "maximumStaticFriction");
 assert.equal(freeNavigation.working.activeAnalysisTask, 1);
 freeNavigation = P.transitions.setPhase(freeNavigation, "predict");
-freeNavigation = P.transitions.selectPrediction(freeNavigation, 0);
-assert.equal(freeNavigation.working.activePredictionIndex, 0);
+assert.equal(freeNavigation.working.activePredictionIndex, 1, "returning to D resumes the next unanswered question");
 
 for (const [key, save] of [
   ["zero-force", (edit) => P.transitions.setZeroForceAnswer(edit, force("none", "none", 0))],

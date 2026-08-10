@@ -52,6 +52,10 @@
     return ANALYSIS_KEYS.every((key) => analysisTaskComplete(key, state.analysis?.[key]));
   }
   function hasAllPredictions(state) { return state.predictions.length === PREDICTION_COUNT && state.predictions.every((prediction) => prediction?.committed === true); }
+  function hasRequiredAuthority(state) {
+    return allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state);
+  }
+  function hasRequiredAnswer(state) { return state?.phase === "review" && hasRequiredAuthority(state); }
   function inferVariant(state) {
     if (state.fromReview) return "review-edit";
     if (state.phase === "balance") {
@@ -153,7 +157,7 @@
     if (!state.trial && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("analysis answers require accepted trial");
     const sampleCount = decodedTrial?.merged?.length || 0;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.analysis[key], sampleCount || 1))) throw new Error("invalid analysis task");
-    if (state.phase === "review" && !hasAllPredictions(state)) throw new Error("review requires predictions");
+    if (state.phase === "review" && (!allBalanceAnswersCommitted(state) || !state.trial)) throw new Error("review requires Part A and B");
     if (state.phase === "review" && !hasAllAnalysisFields(state)) throw new Error("review requires analysis");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
@@ -161,7 +165,7 @@
     if (state.fromReview && (!state.working || !state.working.reviewEditTarget || !["balance", "experiment", "analysis", "predict"].includes(state.working.reviewEditTarget.section))) throw new Error("review-edit needs target");
     if (state.fromReview && !exactKeys(state.working.reviewEditTarget, ["section", "semanticKey"])) throw new Error("invalid review edit target shape");
     if (state.fromReview && state.phase !== state.working.reviewEditTarget.section) throw new Error("review-edit phase and target section differ");
-    if (state.fromReview && (!allBalanceAnswersCommitted(state) || !state.trial || !hasAllAnalysisFields(state) || !hasAllPredictions(state))) throw new Error("review-edit must preserve complete authority");
+    if (state.fromReview && (!allBalanceAnswersCommitted(state) || !state.trial || !hasAllAnalysisFields(state))) throw new Error("review-edit must preserve required authority");
     if (state.working && (!Number.isInteger(state.working.activeAnalysisTask) || state.working.activeAnalysisTask < 0 || state.working.activeAnalysisTask >= ANALYSIS_KEYS.length || !Number.isInteger(state.working.activePredictionIndex) || state.working.activePredictionIndex < 0 || state.working.activePredictionIndex >= PREDICTION_COUNT || (state.working.activeBalanceStep !== null && (!Number.isInteger(state.working.activeBalanceStep) || state.working.activeBalanceStep < 0 || state.working.activeBalanceStep > 2)))) throw new Error("invalid working cursor");
     if (!state.fromReview && state.working && (state.working.reviewEditTarget != null || state.working.editDraft != null)) throw new Error("working edit draft outside review-edit");
     if (state.fromReview && state.working.reviewEditTarget.semanticKey != null && typeof state.working.reviewEditTarget.semanticKey !== "string" && !Number.isInteger(state.working.reviewEditTarget.semanticKey)) throw new Error("invalid review edit key");
@@ -309,6 +313,8 @@
     const editingReview = Boolean(state.fromReview);
     if (!editingReview) {
       if (state.phase !== "predict") throw new Error("prediction outside predict phase");
+      const activeIndex = state.working?.activePredictionIndex ?? 0;
+      if (index !== activeIndex) throw new Error("prediction must follow sequence");
     } else {
       const target = state.working?.reviewEditTarget;
       if (target?.section !== "predict" || target.semanticKey !== index) throw new Error("prediction is not the review-edit target");
@@ -333,7 +339,11 @@
     if (!PHASES.includes(phase)) throw new Error("invalid phase");
     if (state.fromReview) throw new Error("review-edit must use its dedicated save or cancel transition");
     const next = clone(state); next.phase = phase; next.fromReview = false; next.working = next.working || emptyWorking();
-    if (phase === "review" && (!hasAllAnalysisFields(next) || !hasAllPredictions(next))) throw new Error("prediction incomplete");
+    if (phase === "predict") {
+      const nextUncommitted = next.predictions.findIndex((prediction) => !prediction?.committed);
+      next.working.activePredictionIndex = nextUncommitted >= 0 ? nextUncommitted : PREDICTION_COUNT - 1;
+    }
+    if (phase === "review" && (!allBalanceAnswersCommitted(next) || !next.trial || !hasAllAnalysisFields(next))) throw new Error("required answer incomplete");
     if (phase === "review") next.working = emptyWorking();
     return update(next, {});
   }
@@ -449,9 +459,9 @@
     return answer;
   }
   function answerForSnapshot(state, kind = "draft") { return kind === "review" ? encodeReview(state) : encodeDraft(state); }
-  function hasCompleteAnswer(state) { return state.phase === "review" && allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state) && hasAllPredictions(state); }
+  function hasCompleteAnswer(state) { return hasRequiredAnswer(state); }
   function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "setAnalysisMarkersDraft", "setAnalysisMarkers", "selectAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "selectPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
 
   const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, setAnalysisMarkersDraft, setAnalysisMarkers, selectAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, selectPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
-  return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
+  return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, hasRequiredAuthority, hasRequiredAnswer, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
 });
