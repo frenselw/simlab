@@ -118,6 +118,7 @@ select {
 .learner-friction-arrow { stroke: #1d4ed8; stroke-width: 4; stroke-linecap: round; }
 .force-line { fill: none; pointer-events: none; stroke-width: 3; }
 .experiment-force-line { stroke: #b91c1c; stroke-width: 3.5; }
+.analysis-force-line { stroke: #b91c1c; stroke-width: 3.5; }
 .force-arrow-head { fill: currentColor; }
 .force-builder-label { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
 .experiment-force-label { font-size: 30px; font-weight: 800; stroke-width: 6px; }
@@ -262,11 +263,10 @@ select {
 .save-action-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .7rem; }
 .save-action-row .validation-status { flex: 1 1 15rem; min-width: 0; margin: 0; padding: .45rem .6rem; background: #fff8e1; font-size: .82rem; line-height: 1.35; }
 .graph-cursor-readout {
-  position: absolute;
-  left: .7rem;
-  right: .7rem;
-  bottom: .35rem;
-  margin: 0;
+  grid-row: 2;
+  position: static;
+  min-width: 0;
+  margin: .1rem .7rem .35rem;
   padding: .3rem .5rem;
   border: 1px solid var(--border);
   border-radius: 7px;

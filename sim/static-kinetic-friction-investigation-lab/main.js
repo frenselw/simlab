@@ -603,9 +603,16 @@
       const xLabel = svgElement("text", { x: chart.left + chart.width / 2, y: chart.top + chart.height + 55, "text-anchor": "middle", class: "graph-axis-label" });
       const xT = svgElement("tspan", { "font-style": "italic" }); xT.textContent = "t"; xLabel.append(xT);
       xLabel.append(document.createTextNode(" / s")); svg.append(xLabel);
-      const points = (measurementState?.regularSamples || []).map((sample) => ({ timeS: sample.timeS, forceN: sample.measuredPullN, kind: "regular" }));
-      if (measurementState?.breakaway) {
-        points.push({ timeS: measurementState.breakaway.timeMs / 1000, forceN: measurementState.breakaway.measuredPullCN / 100, kind: "breakaway" });
+      // Entering B again deliberately resets the transient physics and sensor
+      // state.  The accepted trial is the durable source for both B and C;
+      // use it whenever there is no live recording to render.
+      const savedTrace = state?.trial ? Measurement.unpackTrace(state.trial) : null;
+      const liveSamples = measurementState?.regularSamples || [];
+      const samples = liveSamples.length ? liveSamples : (savedTrace?.regularSamples || []);
+      const breakaway = measurementState?.breakaway || savedTrace?.breakaway || null;
+      const points = samples.map((sample) => ({ timeS: sample.timeS, forceN: sample.measuredPullN, kind: "regular" }));
+      if (breakaway) {
+        points.push({ timeS: breakaway.timeMs / 1000, forceN: breakaway.measuredPullCN / 100, kind: "breakaway" });
       }
       if (directExperimentState && (recorder?.running || experimentTimedOut) && measurementState) {
         const live = Measurement.liveReading(measurementState);
@@ -950,7 +957,7 @@
       svg.append(svgElement("line", { x1: chart.left, y1: chart.top + chart.height, x2: chart.left + chart.width, y2: chart.top + chart.height, class: "graph-axis", "marker-end": "url(#analysis-axis-arrow)" }));
       for (let i = 0; i <= 6; i += 1) svg.append(svgElement("text", { x: Graph.timeToX(i * 5), y: chart.top + chart.height + 27, "text-anchor": "middle", class: "graph-tick-label" }, `${i * 5}`));
       for (let i = 0; i <= 4; i += 1) svg.append(svgElement("text", { x: chart.left - 12, y: Graph.forceToY(i * 3) + 6, "text-anchor": "end", class: "graph-tick-label" }, `${i * 3}`));
-      svg.append(svgElement("path", { d: Graph.svgPath(decoded, "force"), class: "force-line analysis-force-line", "aria-label": "拉力 F拉—時間 t" }));
+      svg.append(svgElement("path", { d: Graph.svgPath(decoded, "force"), class: "force-line analysis-force-line", stroke: "#b91c1c", "aria-label": "拉力 F拉—時間 t" }));
       const yLabel = svgElement("text", { x: 18, y: 198, transform: "rotate(-90 18 198)", "text-anchor": "middle", class: "graph-axis-label" });
       const yF = svgElement("tspan", { "font-style": "italic" }); yF.textContent = "F"; yLabel.append(yF);
       const ySub = svgElement("tspan", { "baseline-shift": "sub", "font-size": "70%" }); ySub.textContent = "拉"; yLabel.append(ySub); yLabel.append(document.createTextNode(" / N")); svg.append(yLabel);

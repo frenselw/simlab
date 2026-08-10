@@ -259,6 +259,18 @@ async function semanticSmoke(cdp, url, label) {
   const savedExperiment = await evaluate(cdp, "(() => ({ trial:Boolean(window.__staticKineticFrictionApp.getState().trial), running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, status:document.getElementById('experimentStatus').textContent }))()");
   assert.equal(savedExperiment.trial, true, `${label}: the automatically maintained trace can be stopped and saved ${JSON.stringify(savedExperiment)}`);
   assert.equal(savedExperiment.running, false, `${label}: saving ends the transient B recorder`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
+  const retainedInAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),svg=document.getElementById('graphSvg'),path=svg?.querySelector('.analysis-force-line'),readout=document.getElementById('graphCursorReadout'); const pick=(node)=>{const r=node.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}}; return {phase:state.phase,hasTrial:Boolean(state.trial),pathD:path?.getAttribute('d')||'',pathStroke:path?.getAttribute('stroke')||getComputedStyle(path||document.body).stroke,svg:pick(svg),readout:pick(readout)}; })()`);
+  assert.equal(retainedInAnalysis.phase, "analysis", `${label}: saved B trace can be opened in Part C`);
+  assert.equal(retainedInAnalysis.hasTrial, true, `${label}: Part C keeps the accepted B trial in state`);
+  assert.ok(retainedInAnalysis.pathD.startsWith("M") && retainedInAnalysis.pathD.length > 20, `${label}: Part C renders the saved B force-time trace ${JSON.stringify(retainedInAnalysis)}`);
+  assert.equal(retainedInAnalysis.pathStroke, "#b91c1c", `${label}: Part C force-time trace is visibly styled`);
+  assert.ok(retainedInAnalysis.readout.top >= retainedInAnalysis.svg.bottom - 1, `${label}: Part C readout sits below the graph instead of covering the x-axis ${JSON.stringify(retainedInAnalysis)}`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='experiment']");
+  const retainedInExperiment = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),svg=document.getElementById('experimentGraphSvg'),path=svg?.querySelector('.experiment-force-line'); return {phase:state.phase,hasTrial:Boolean(state.trial),pathD:path?.getAttribute('d')||'',graphVisible:!document.getElementById('experimentGraphStage').classList.contains('is-hidden')}; })()`);
+  assert.equal(retainedInExperiment.phase, "experiment", `${label}: navigation returns to Part B`);
+  assert.equal(retainedInExperiment.hasTrial, true, `${label}: returning to Part B preserves the accepted trial`);
+  assert.ok(retainedInExperiment.graphVisible && retainedInExperiment.pathD.startsWith("M") && retainedInExperiment.pathD.length > 20, `${label}: Part B redraws its saved force-time graph after returning from Part C ${JSON.stringify(retainedInExperiment)}`);
   await tapSelector(cdp, "#requestRedoExperiment");
   const restartedDuringRecording = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {running:evidence.recorderRunning,time:evidence.experiment?.timeS,position:evidence.experiment?.positionM,trial:window.__staticKineticFrictionApp.getState().trial,confirmPresent:Boolean(document.getElementById('redoExperimentConfirm'))}; })()");
   assert.ok(restartedDuringRecording.running && restartedDuringRecording.time < .35 && Math.abs(restartedDuringRecording.position) < 1e-9, `${label}: restart immediately clears and restarts an active recording ${JSON.stringify(restartedDuringRecording)}`);
@@ -269,10 +281,12 @@ async function semanticSmoke(cdp, url, label) {
   assert.deepEqual(interrupted, { checkpointPhase: "experiment", checkpointVariant: "ready", phase: "experiment", variant: "ready", trial: null, status: "上次實驗記錄未完成，請重新開始這次記錄。", running: false, startDisabled: false }, `${label}: active recording restores the pre-record checkpoint with an interruption message and legal restart`);
 
   await evaluate(cdp, analysisFixtureScript(0));
-  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),svg=document.getElementById('graphSvg'),handles=[...document.querySelectorAll('.analysis-marker')]; return { phase:state?.phase, hasTrial:Boolean(state?.trial), graphInStage:document.getElementById('stage').contains(svg), visible:handles.filter(node=>!node.classList.contains('is-hidden')).map(node=>node.dataset.dragTarget), graphText:svg?.textContent || '', panelText:document.getElementById('analysisPanel')?.textContent || '' }; })()`);
+  const blankAnalysis = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),svg=document.getElementById('graphSvg'),path=svg?.querySelector('.analysis-force-line'),readout=document.getElementById('graphCursorReadout'),handles=[...document.querySelectorAll('.analysis-marker')]; const svgRect=svg?.getBoundingClientRect(),readoutRect=readout?.getBoundingClientRect(); return { phase:state?.phase, hasTrial:Boolean(state?.trial), graphInStage:document.getElementById('stage').contains(svg), visible:handles.filter(node=>!node.classList.contains('is-hidden')).map(node=>node.dataset.dragTarget), graphText:svg?.textContent || '', pathD:path?.getAttribute('d') || '', readoutBelowAxis:Boolean(readoutRect && svgRect && readoutRect.top >= svgRect.bottom - 1), panelText:document.getElementById('analysisPanel')?.textContent || '' }; })()`);
   assert.equal(blankAnalysis.phase, "analysis", `${label}: C fixture opens in analysis phase`);
   assert.equal(blankAnalysis.hasTrial, true, `${label}: C receives the B trial`);
   assert.equal(blankAnalysis.graphInStage, true, `${label}: B graph and C markers share the stage coordinate space`);
+  assert.ok(blankAnalysis.pathD.startsWith("M") && blankAnalysis.pathD.length > 20, `${label}: C fixture renders a visible saved force-time trace`);
+  assert.equal(blankAnalysis.readoutBelowAxis, true, `${label}: C readout does not cover the x-axis`);
   assert.deepEqual(blankAnalysis.visible.sort(), ["kinetic-friction-marker", "maximum-static-friction-marker", "static-friction-marker"], `${label}: C exposes the three simple graph markers`);
   assert.match(blankAnalysis.panelText, /靜摩擦力/);
   assert.match(blankAnalysis.panelText, /最大靜摩擦力/);
