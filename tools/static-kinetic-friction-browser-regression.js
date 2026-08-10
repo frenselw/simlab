@@ -336,6 +336,22 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(selectedMarkerVisuals.dots.length, 3, `${label}: C renders three coloured graph dots`);
   assert.equal(selectedMarkerVisuals.dots.every((marker) => Math.abs(marker.width - marker.height) < 1), true, `${label}: C graph dots stay circular after SVG scaling ${JSON.stringify(selectedMarkerVisuals)}`);
 
+  await evaluate(cdp, `(() => { const P=window.StaticKineticFrictionPersistence, app=window.__staticKineticFrictionApp, blank=P.freshState(window.__frictionFixture.scenario.seed); app.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(blank)}}); return true })()`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='review']");
+  const partialReview = await evaluate(cdp, `(() => { const block=document.querySelector('#apparatusSvg .apparatus-block'), state=window.__staticKineticFrictionApp.getState(); return {phase:state.phase, submitDisabled:document.getElementById('submit').disabled, hasRope:Boolean(document.querySelector('#apparatusSvg .apparatus-rope')), hasGrip:Boolean(document.querySelector('#apparatusSvg .apparatus-grip')), blockX:Number(block?.getAttribute('x')), summary:document.getElementById('reviewSummary').textContent}; })()`);
+  assert.equal(partialReview.phase, "review", `${label}: incomplete work can enter the submission review`);
+  assert.equal(partialReview.submitDisabled, false, `${label}: incomplete work can be submitted`);
+  assert.equal(partialReview.hasRope, false, `${label}: submission review uses the clean apparatus without the old rope`);
+  assert.equal(partialReview.hasGrip, false, `${label}: submission review uses the clean apparatus without the old orange grip`);
+  assert.ok(partialReview.blockX > 380 && partialReview.blockX < 470, `${label}: submission review centers the clean block ${JSON.stringify(partialReview)}`);
+  assert.match(partialReview.summary, /可以直接提交.*0 分/, `${label}: submission review explains incomplete scoring`);
+  await evaluate(cdp, "window.SimScorm.submitWithCallbacks=(result,snapshot,handlers)=>{handlers.onSuccess({activityState:'success',finished:true});return {activityState:'success',finished:true}};"); await tapSelector(cdp, "#submit");
+  const partialResult = await evaluate(cdp, "(() => ({presentation:window.__staticKineticFrictionApp.getPresentation(),text:document.getElementById('resultPanel').textContent}))()");
+  assert.equal(partialResult.presentation, "submitted-success", `${label}: incomplete submission can finish successfully`);
+  assert.match(partialResult.text, /各部分得分及扣分/, `${label}: submitted result has the score ledger heading`);
+  assert.match(partialResult.text, /Part A.*扣/, `${label}: submitted result identifies deductions in Part A`);
+  assert.match(partialResult.text, /未完成或未得分/, `${label}: submitted result explains zero-score incomplete items`);
+
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});window.__reviewAuthority=JSON.stringify({analysis:perfect.analysis,predictions:perfect.predictions});return true })()`);
   await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='kineticFriction']"); await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");
   assert.equal(await evaluate(cdp, "JSON.stringify({analysis:window.__staticKineticFrictionApp.getState().analysis,predictions:window.__staticKineticFrictionApp.getState().predictions})===window.__reviewAuthority"), true, `${label}: cancelling graph review edit restores immutable authority`);

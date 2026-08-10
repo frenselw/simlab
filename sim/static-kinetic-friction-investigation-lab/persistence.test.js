@@ -86,6 +86,16 @@ assert.equal(S.scoreAnswer(sparseReview, scenario).breakdown.predictions.score, 
 const sparseReviewWire = P.encodeReview(sparseReview);
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: sparseReviewWire }, scenario, "review"), P.normalizeReview(sparseReview));
 
+// A completely unanswered attempt is still a legal review/submit snapshot;
+// scoring, rather than persistence validation, assigns zero to every rubric.
+const blankReview = P.transitions.setPhase(P.freshState(scenario.seed), "review");
+assert.equal(P.hasSubmittableAnswer(blankReview), true);
+assert.equal(P.hasRequiredAuthority(blankReview), false);
+assert.equal(P.hasCompleteAnswer(blankReview), false);
+const blankResult = S.scoreAnswer(blankReview, scenario);
+assert.equal(blankResult.score, 0);
+assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: P.encodeReview(blankReview) }, scenario, "review"), P.normalizeReview(blankReview));
+
 // A1 and A2 are normal editable answers too: changing one Part A answer does
 // not erase independently completed work in another task.
 let normalEdit = P.transitions.setZeroForceAnswer(finishBalance(), force("static", "right", 100));

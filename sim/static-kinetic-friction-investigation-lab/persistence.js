@@ -55,6 +55,9 @@
   function hasRequiredAuthority(state) {
     return allBalanceAnswersCommitted(state) && Boolean(state.trial) && hasAllAnalysisFields(state);
   }
+  function hasSubmittableAnswer(state) {
+    return state?.phase === "review" && state.fromReview === false;
+  }
   function hasRequiredAnswer(state) { return state?.phase === "review" && hasRequiredAuthority(state); }
   function inferVariant(state) {
     if (state.fromReview) return "review-edit";
@@ -81,7 +84,7 @@
       if (current.committed) return hasAllPredictions(state) ? "complete" : "answer-complete";
       return "answer-draft";
     }
-    return state.fromReview ? "review-edit" : "complete";
+    return state.fromReview ? "review-edit" : hasRequiredAuthority(state) ? "complete" : "partial";
   }
   function update(state, patch) {
     const next = { ...clone(state), ...patch };
@@ -157,15 +160,12 @@
     if (!state.trial && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("analysis answers require accepted trial");
     const sampleCount = decodedTrial?.merged?.length || 0;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.analysis[key], sampleCount || 1))) throw new Error("invalid analysis task");
-    if (state.phase === "review" && (!allBalanceAnswersCommitted(state) || !state.trial)) throw new Error("review requires Part A and B");
-    if (state.phase === "review" && !hasAllAnalysisFields(state)) throw new Error("review requires analysis");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
     state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
     if (state.fromReview && (!state.working || !state.working.reviewEditTarget || !["balance", "experiment", "analysis", "predict"].includes(state.working.reviewEditTarget.section))) throw new Error("review-edit needs target");
     if (state.fromReview && !exactKeys(state.working.reviewEditTarget, ["section", "semanticKey"])) throw new Error("invalid review edit target shape");
     if (state.fromReview && state.phase !== state.working.reviewEditTarget.section) throw new Error("review-edit phase and target section differ");
-    if (state.fromReview && (!allBalanceAnswersCommitted(state) || !state.trial || !hasAllAnalysisFields(state))) throw new Error("review-edit must preserve required authority");
     if (state.working && (!Number.isInteger(state.working.activeAnalysisTask) || state.working.activeAnalysisTask < 0 || state.working.activeAnalysisTask >= ANALYSIS_KEYS.length || !Number.isInteger(state.working.activePredictionIndex) || state.working.activePredictionIndex < 0 || state.working.activePredictionIndex >= PREDICTION_COUNT || (state.working.activeBalanceStep !== null && (!Number.isInteger(state.working.activeBalanceStep) || state.working.activeBalanceStep < 0 || state.working.activeBalanceStep > 2)))) throw new Error("invalid working cursor");
     if (!state.fromReview && state.working && (state.working.reviewEditTarget != null || state.working.editDraft != null)) throw new Error("working edit draft outside review-edit");
     if (state.fromReview && state.working.reviewEditTarget.semanticKey != null && typeof state.working.reviewEditTarget.semanticKey !== "string" && !Number.isInteger(state.working.reviewEditTarget.semanticKey)) throw new Error("invalid review edit key");
@@ -343,7 +343,6 @@
       const nextUncommitted = next.predictions.findIndex((prediction) => !prediction?.committed);
       next.working.activePredictionIndex = nextUncommitted >= 0 ? nextUncommitted : PREDICTION_COUNT - 1;
     }
-    if (phase === "review" && (!allBalanceAnswersCommitted(next) || !next.trial || !hasAllAnalysisFields(next))) throw new Error("required answer incomplete");
     if (phase === "review") next.working = emptyWorking();
     return update(next, {});
   }
@@ -368,7 +367,7 @@
     const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.fromReview = false; next.working = emptyWorking(); return update(next, {});
   }
   function normalizeReview(state) {
-    const next = clone(state); next.phase = "review"; next.variant = "complete"; next.fromReview = false; delete next.working; return next;
+    const next = clone(state); next.phase = "review"; next.variant = hasRequiredAuthority(next) ? "complete" : "partial"; next.fromReview = false; delete next.working; return next;
   }
   const TYPE_CODE = Object.freeze({ none: 0, static: 1, kinetic: 2 });
   const DIR_CODE = Object.freeze({ none: 0, left: 1, right: 2 });
@@ -426,7 +425,7 @@
     if (answer.t !== null && (!exactKeys(answer.t, ["d", "n", "x", "b"]) || !integer(answer.t.d) || !integer(answer.t.n) || typeof answer.t.x !== "string" || (answer.t.b !== null && (!Array.isArray(answer.t.b) || answer.t.b.length !== 4)))) throw new Error("invalid answer trial wire");
     if (kind === "draft" && (!answer.k || typeof answer.k !== "object" || Object.keys(answer.k).sort().join(",") !== ["a", "b", "d", "e", "p"].join(","))) throw new Error("draft answer missing working wire");
     if (kind === "review" && Object.hasOwn(answer, "k")) throw new Error("review answer contains working wire");
-    if (kind === "review" && (answer.p !== "review" || answer.q !== "complete" || answer.R !== false)) throw new Error("review answer has a noncanonical header");
+    if (kind === "review" && (answer.p !== "review" || !["partial", "complete"].includes(answer.q) || answer.R !== false)) throw new Error("review answer has a noncanonical header");
     if (answer.b.z !== null && (!Number.isInteger(answer.b.z[2]) || ![0, 1].includes(answer.b.z[answer.b.z.length - 1]))) throw new Error("invalid zero-force wire");
     if (answer.b.s !== null && (!Object.hasOwn(DIR_FROM_CODE, answer.b.s[0]) || !Number.isInteger(answer.b.s[1]) || answer.b.s[1] <= 0 || answer.b.s[1] > 1200 || !Array.isArray(answer.b.s[2]) || answer.b.s[2].length !== 3 || !Object.hasOwn(DIR_FROM_CODE, answer.b.s[2][0]) || !Number.isInteger(answer.b.s[2][1]) || answer.b.s[2][1] <= 0 || answer.b.s[2][1] > 1200 || ![0, 1].includes(answer.b.s[2][2]) || !Array.isArray(answer.b.s[3]) || (answer.b.s[3].length !== 4 && answer.b.s[3].length !== 5))) throw new Error("invalid static-force wire");
     if (!Number.isInteger(answer.b.r[0]) || answer.b.r[0] < 0 || answer.b.r[0] > 1000 || (answer.b.r[1] !== null && (!Number.isInteger(answer.b.r[1]) || answer.b.r[1] <= 0 || answer.b.r[1] > 1200)) || (answer.b.r[2] !== null && !Object.hasOwn(DIR_FROM_CODE, answer.b.r[2])) || (answer.b.r[3] !== null && (!Number.isInteger(answer.b.r[3]) || answer.b.r[3] < 0 || answer.b.r[3] > 1200)) || ![0, 1].includes(answer.b.r[4])) throw new Error("invalid breakaway wire");
@@ -453,7 +452,7 @@
     if (scenario && (scenario.seed !== wire.s || scenario.generatorVersion !== GENERATOR_VERSION || scenario.physicsVersion !== PHYSICS_VERSION || scenario.measurementVersion !== MEASUREMENT_VERSION || (Array.isArray(scenario.predictions) && scenario.predictions.some((spec, index) => wire.P[index] && (wire.P[index][0] !== spec.id || wire.P[index][1] !== spec.scenarioId))))) throw new Error("snapshot scenario mismatch");
     let answer = expandAnswer(wire);
     if (kind === "review") {
-      delete answer.working; answer.phase = "review"; answer.variant = "complete"; answer.fromReview = false;
+      delete answer.working; answer.phase = "review"; answer.fromReview = false; answer.variant = inferVariant(answer);
     } else answer.variant = inferVariant(answer);
     validateState(answer, { skipVariant: kind === "review" });
     return answer;
@@ -463,5 +462,5 @@
   function transitionNames() { return ["setZeroForceAnswer", "setStaticForceAnswer", "recordBreakawayTrial", "setBreakawayAnswer", "acceptTrial", "setAnalysisTask", "setAnalysisMarkersDraft", "setAnalysisMarkers", "selectAnalysisTask", "setAnalysisDraft", "advanceAnalysisTask", "setPrediction", "selectPrediction", "advancePrediction", "setPhase", "enterReviewEdit", "cancelReviewEdit", "redoExperiment"]; }
 
   const transitions = { setZeroForceAnswer, setStaticForceAnswer, recordBreakawayTrial, setBreakawayAnswer, acceptTrial, setAnalysisTask, setAnalysisMarkersDraft, setAnalysisMarkers, selectAnalysisTask, setAnalysisDraft, replaceAnalysis: setAnalysisTask, advanceAnalysisTask, setPrediction, selectPrediction, replacePrediction: setPrediction, advancePrediction, setPhase, enterReviewEdit, editSection: enterReviewEdit, cancelReviewEdit, redoExperiment, clearTrial: redoExperiment };
-  return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, hasRequiredAuthority, hasRequiredAnswer, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
+  return Object.freeze({ SCHEMA_VERSION, WIRE_VERSION, PHASES, BALANCE_EDIT_KEYS, PREDICTION_COUNT, ANALYSIS_KEYS, freshState, clone, allBalanceAnswersCommitted, analysisTaskComplete, analysisTaskHasSelection, hasAllAnalysisFields, hasAllPredictions, hasRequiredAuthority, hasSubmittableAnswer, hasRequiredAnswer, inferVariant, validateState, validateAnswer: validateState, encodeDraft, encodeReview, answerForSnapshot, decodeSnapshot, normalizeReview, hasCompleteAnswer, transitionNames, transitions, emptyAnalysis, emptyWorking });
 });

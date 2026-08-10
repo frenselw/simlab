@@ -14,7 +14,7 @@
       <h1>靜摩擦力與滑動摩擦力探究實驗室</h1>
     </div>
     <div class="phase-strip" aria-label="活動任務，可自由切換">
-      <button type="button" class="phase-pill" data-action="navigate-phase" data-phase="balance" data-phase-pill="balance">A 力平衡</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="experiment" data-phase-pill="experiment">B 實驗</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="analysis" data-phase-pill="analysis">C 圖像分析</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="predict" data-phase-pill="predict">D 預測</button><span class="phase-pill phase-pill-review" data-phase-pill="review">檢查與提交</span>
+      <button type="button" class="phase-pill" data-action="navigate-phase" data-phase="balance" data-phase-pill="balance">A 力平衡</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="experiment" data-phase-pill="experiment">B 實驗</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="analysis" data-phase-pill="analysis">C 圖像分析</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="predict" data-phase-pill="predict">D 預測</button><button type="button" class="phase-pill phase-pill-review" data-action="navigate-phase" data-phase="review" data-phase-pill="review">檢查與提交</button>
     </div>
   </header>
 
@@ -143,9 +143,10 @@
       <section id="reviewPanel" class="panel-section is-hidden" data-panel="review">
         <p class="section-label">提交前檢查</p>
         <h2>核對自己的最終答案</h2>
-        <p>提交後本次作答會鎖定，才會顯示分數及模擬設定下的物理解釋。</p>
+        <p>任何完成度都可以提交；未完成或未得分的項目會按 rubric 扣分。提交後本次作答會鎖定，並顯示逐部分得分及扣分位置。</p>
         <div id="reviewSummary" class="review-summary"></div>
-        <div class="review-actions"><button type="button" data-action="edit-balance">修改力平衡答案</button><button type="button" data-action="edit-experiment">重新做實驗</button></div>
+        <h3 class="review-edit-heading">可返回修改已保存答案</h3>
+        <div id="reviewEditActions" class="review-actions" aria-label="選擇要修改的已保存答案"></div>
         <div id="analysisEditButtons" class="review-actions" aria-label="選擇要修改的圖像分析項目"></div>
         <div id="predictionEditButtons" class="review-actions" aria-label="選擇要修改的預測題目"></div>
         <button type="button" id="submit" data-action="submit" class="primary-button submit-button">提交並查看結果</button>

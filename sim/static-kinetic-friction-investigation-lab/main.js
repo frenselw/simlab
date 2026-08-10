@@ -182,7 +182,7 @@
       q("resultPanel")?.classList.toggle("is-hidden", !mayRevealCorrectness(presentation));
     }
     function navigateToPhase(phase) {
-      if (!state || !Persistence.PHASES.includes(phase) || phase === "review") throw new Error("invalid learner task navigation");
+      if (!state || !Persistence.PHASES.includes(phase)) throw new Error("invalid learner task navigation");
       if (state.phase === phase) return;
       if (state.phase === "experiment" && recorder?.running) abortExperimentRecording("已中止未完成的 B 記錄；切換任務後可重新開始。");
       cancelBalanceMotion();
@@ -203,9 +203,20 @@
       document.querySelectorAll("[data-action], input, select, .drag-target").forEach((node) => {
         const finishRetry = node.dataset.action === "retry-finish" && presentation === "submitted-committed";
         const pendingRetry = node.dataset.action === "retry-pending" && presentation === "frozen" && pendingRetryAvailable;
-        const disabled = locked ? !finishRetry && !pendingRetry : Boolean(node.disabled);
-        if (locked) node.disabled = disabled;
-        node.setAttribute("aria-disabled", String(disabled));
+        const allowedWhileLocked = finishRetry || pendingRetry;
+        if (locked) {
+          if (allowedWhileLocked) {
+            node.disabled = false;
+            delete node.dataset.lockDisabled;
+          } else {
+            if (!node.disabled) node.dataset.lockDisabled = "true";
+            node.disabled = true;
+          }
+        } else if (node.dataset.lockDisabled === "true") {
+          node.disabled = false;
+          delete node.dataset.lockDisabled;
+        }
+        node.setAttribute("aria-disabled", String(Boolean(node.disabled)));
       });
       document.querySelectorAll("[data-action^='edit-']").forEach((node) => node.classList.toggle("is-hidden", Boolean(locked)));
     }
@@ -635,6 +646,7 @@
       const predictionMode = state?.phase === "predict";
       const balanceMode = state?.phase === "balance";
       const experimentMode = state?.phase === "experiment";
+      const reviewMode = state?.phase === "review";
       svg.classList.toggle("is-hidden", graphMode);
       q("stageGraph")?.classList.toggle("is-hidden", !graphMode);
       q("experimentGraphStage")?.classList.toggle("is-hidden", !experimentMode || graphMode);
@@ -660,15 +672,15 @@
       svg.append(defs);
       svg.append(svgElement("rect", { x: 35, y: groundY, width: 830, height: 35, fill: "url(#ground-hatch)", class: "apparatus-surface" }));
       svg.append(svgElement("line", { x1: 35, y1: groundY, x2: 865, y2: groundY, class: "apparatus-ground-line" }));
-      const position = predictionMode ? .45 : balanceMode ? (balanceDirectState?.block?.positionM ?? (.72 + balanceMotionOffsetM)) : experimentMode ? (directExperimentState?.block?.positionM ?? EXPERIMENT_START_POSITION_M) : physicsState?.block?.positionM ?? 0;
-      const target = predictionMode ? .95 : physicsState?.handle?.positionM ?? (scenario?.connector.restLengthM || .18);
       const physicsTrackLengthM = scenario?.stage.lengthM || 1.65;
+      const position = predictionMode ? .45 : reviewMode ? physicsTrackLengthM / 2 : balanceMode ? (balanceDirectState?.block?.positionM ?? (.72 + balanceMotionOffsetM)) : experimentMode ? (directExperimentState?.block?.positionM ?? EXPERIMENT_START_POSITION_M) : physicsState?.block?.positionM ?? 0;
+      const target = predictionMode ? .95 : physicsState?.handle?.positionM ?? (scenario?.connector.restLengthM || .18);
       const renderTrackLengthM = experimentMode ? physicsTrackLengthM * EXPERIMENT_RENDER_TRACK_MULTIPLIER : physicsTrackLengthM;
       const positionFraction = position / renderTrackLengthM;
       const x = balanceMode ? 100 + positionFraction * 650 : experimentMode ? 45 + clamp(positionFraction, 0, 1) * 728 : 100 + clamp(positionFraction, .04, .88) * 650;
       const hx = 100 + clamp(target / (scenario?.stage.lengthM || 1.65), 0, 1) * 650;
       svg.append(svgElement("rect", { x, y: groundY - 54, width: 92, height: 54, rx: 8, class: "apparatus-block" }));
-      if (!balanceMode && !experimentMode && !predictionMode) {
+      if (!balanceMode && !experimentMode && !predictionMode && !reviewMode) {
         svg.append(svgElement("line", { x1: x + 92, y1: groundY - 27, x2: hx, y2: groundY - 27, class: "apparatus-rope" }));
         svg.append(svgElement("rect", { x: hx - 12, y: groundY - 43, width: 34, height: 32, rx: 7, class: "apparatus-grip" }));
       }
@@ -1155,7 +1167,7 @@
       host.append(card);
       const predictionHandle = q("predictionFriction");
       if (predictionHandle) predictionHandle.setAttribute("aria-label", `D${activeIndex + 1} 摩擦力箭嘴，目前 ${magnitude == null || magnitude === 0 ? "未畫出（0 牛頓）" : `${(magnitude / 100).toFixed(2)} 牛頓、方向${response.direction === "left" ? "向左" : "向右"}`}`);
-      q("to-review")?.toggleAttribute("disabled", !Persistence.hasRequiredAuthority(state));
+      q("to-review")?.toggleAttribute("disabled", false);
       q("to-review")?.classList.toggle("is-hidden", Boolean(state.fromReview));
     }
     function collectPredictionDraft(card) {
@@ -1171,19 +1183,54 @@
     }
     function renderReview() {
       const host = q("reviewSummary"); if (!host || !state) return;
-      const complete = Persistence.hasCompleteAnswer(state);
-      const balanceEditButtons = `<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button><button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>`;
       const balanceDone = [state.balance.zeroForce?.committed, state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed, state.balance.breakaway?.committed].filter(Boolean).length;
+      const requiredComplete = Persistence.hasRequiredAuthority(state);
       const predictionDone = state.predictions.filter((prediction) => prediction?.committed === true).length;
-      const reviewMessage = complete ? (predictionDone === scenario.predictions.length ? "作答資料完整，可以提交。" : `A、B、C 必要資料完整；D 已完成 ${predictionDone}/4 題，未答題目會得 0 分。`) : "Part A、B 或 C 尚有必要資料未完成；Part D 可以跳過。";
-      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>實驗記錄：${state.trial ? "已保留" : "未完成"}</li><li>圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整"}</li><li>Part D 預測：${predictionDone}/4（未答題目得 0 分）</li></ul><p class="${complete ? "result-good" : "result-neutral"}">${reviewMessage}</p><div class="review-balance-edits">${balanceEditButtons}</div>`;
-      q("submit")?.toggleAttribute("disabled", !complete);
+      const reviewMessage = requiredComplete ? "作答資料全部完成，可以提交；提交後會顯示逐項得分。" : "可以直接提交；未完成或未得分的項目會按 rubric 計 0 分。";
+      host.innerHTML = `<ul><li>Part A 三項任務：${balanceDone}/3</li><li>Part B 實驗記錄：${state.trial ? "已保存" : "未完成（該部分得 0 分）"}</li><li>Part C 圖像標示：${Persistence.hasAllAnalysisFields(state) ? "三項已保存" : "尚未完整（未完成項目得 0 分）"}</li><li>Part D 預測：${predictionDone}/4（未答題目得 0 分）</li></ul><p class="${requiredComplete ? "result-good" : "result-neutral"}">${reviewMessage}</p>`;
+      const editActions = [];
+      if (state.balance.zeroForce?.committed) editActions.push('<button type="button" data-action="edit-balance">修改 A1 零拉力判斷</button>');
+      if (state.balance.staticCase?.learnerAppliedForce?.committed && state.balance.staticCase?.learnerForce?.committed) editActions.push('<button type="button" data-action="edit-balance-task" data-balance-key="static-case">修改 A2 力箭嘴判斷</button>');
+      if (state.balance.breakaway?.committed) editActions.push('<button type="button" data-action="edit-balance-task" data-balance-key="breakaway">修改 A3 最大靜摩擦力估計</button>');
+      if (state.trial) editActions.push('<button type="button" data-action="edit-experiment">重新做 B 實驗</button>');
+      const reviewEditActions = q("reviewEditActions");
+      if (reviewEditActions) reviewEditActions.innerHTML = editActions.length ? editActions.join("") : '<p class="neutral-status review-empty-actions">目前沒有已保存答案；可用上方任務列返回作答。</p>';
+      q("submit")?.toggleAttribute("disabled", !Persistence.hasSubmittableAnswer(state));
       const analysisButtons = q("analysisEditButtons");
-      if (analysisButtons) analysisButtons.innerHTML = Persistence.ANALYSIS_KEYS.map((key, index) => `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>`).join("");
+      if (analysisButtons) {
+        const savedAnalysis = Persistence.ANALYSIS_KEYS.map((key, index) => state.analysis?.[key]?.committed ? `<button type="button" data-action="edit-analysis" data-analysis-key="${key}">修改 C${index + 1}</button>` : "").filter(Boolean);
+        analysisButtons.innerHTML = savedAnalysis.join("");
+      }
       const predictionButtons = q("predictionEditButtons");
       if (predictionButtons) predictionButtons.innerHTML = state.predictions.map((prediction, index) => prediction?.committed ? `<button type="button" data-action="edit-predict" data-prediction-index="${index}">修改 D${index + 1}</button>` : "").join("");
       q("submit")?.classList.toggle("is-hidden", presentation !== "editable");
       q("cancelReviewEdit")?.classList.toggle("is-hidden", !state.fromReview);
+    }
+    function scoreBreakdownMarkup(result, currentScenario) {
+      const breakdown = result?.breakdown;
+      if (!breakdown) return '<p class="neutral-status">目前只有可信的總分摘要，沒有可重建的逐項得分資料。</p>';
+      const groups = [
+        { key: "balance", title: "Part A：受力圖與最大靜摩擦力", items: [["zero-force", "A1 零拉力判斷", 4], ["static-case", "A2 力平衡判斷", 6], ["maximum-static-friction", "A3 最大靜摩擦力估計", 10]] },
+        { key: "experiment", title: "Part B：拉力—時間實驗", items: [["breakaway", "B1 觀察開始滑動", 10], ["continued-motion", "B2 觀察持續移動", 10]] },
+        { key: "analysis", title: "Part C：圖像分析", items: [["static-friction", "C1 靜摩擦力位置", 13], ["maximum-static-friction", "C2 最大靜摩擦力位置", 14], ["kinetic-friction", "C3 滑動摩擦力位置", 13]] },
+        { key: "predictions", title: "Part D：情境預測", items: (currentScenario?.predictions || []).map((spec, index) => [spec.scenarioId || spec.id || `D${index + 1}`, `${spec.id || `D${index + 1}`} 預測`, 5]) }
+      ];
+      return `<section class="score-breakdown" aria-label="逐部分得分及扣分"><h3>各部分得分及扣分</h3>${groups.map((group) => {
+        const part = breakdown[group.key] || {};
+        const partScore = Number.isFinite(part.score) ? part.score : 0;
+        const partMax = Number.isFinite(part.maxScore) ? part.maxScore : group.items.reduce((sum, [, , max]) => sum + max, 0);
+        const details = Array.isArray(part.detail) ? part.detail : [];
+        const rows = group.items.map(([key, label, fallbackMax], index) => {
+          const found = details.find((item) => item?.key === key) || details[index] || {};
+          const max = Number.isFinite(found.max) ? found.max : fallbackMax;
+          const points = Number.isFinite(found.points) ? found.points : 0;
+          const lost = Math.max(0, max - points);
+          const status = lost === 0 ? "未扣分" : `扣 ${lost} 分${points === 0 ? "（未完成或未得分）" : ""}`;
+          const statusClass = lost === 0 ? "score-full" : points === 0 ? "score-zero" : "score-partial";
+          return `<li class="score-breakdown-row"><span>${label}</span><strong>${points} / ${max}</strong><em class="${statusClass}">${status}</em></li>`;
+        }).join("");
+        return `<section class="score-breakdown-part"><div class="score-breakdown-heading"><strong>${group.title}</strong><span>${partScore} / ${partMax}</span></div><ul>${rows}</ul></section>`;
+      }).join("")}</section>`;
     }
     function renderResult() {
       const panel = q("resultPanel"); if (!panel || !latestResult || !mayRevealCorrectness(presentation)) return;
@@ -1191,7 +1238,7 @@
       panel.classList.remove("is-hidden");
       const explanation = scenario ? `<details><summary>物理解釋與各部分分數</summary><p>提交後才顯示的模擬設定：質量 ${scenario.massKg.toFixed(1)} kg；最大靜摩擦力約 ${scenario.staticLimitMeanN.toFixed(2)} N；平均滑動摩擦力約 ${scenario.kineticFrictionMeanN.toFixed(2)} N。</p></details>` : "<p>此頁只顯示可信的 Moodle 成績摘要；原始活動答案未被信任。</p>";
       const finishRetry = presentation === "submitted-committed" ? '<button type="button" data-action="retry-finish">重試完成提交</button>' : "";
-      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已完成的 Moodle 成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p><ul>${(latestResult.feedbackItems || []).map((item) => `<li>${item}</li>`).join("")}</ul>${explanation}${finishRetry}`;
+      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已完成的 Moodle 成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p><p class="result-neutral">以下列出每一部分邊度得分、邊度扣分；「未扣分」代表該小題已取得滿分。</p>${scoreBreakdownMarkup(latestResult, scenario)}<ul>${(latestResult.feedbackItems || []).map((item) => `<li>${item}</li>`).join("")}</ul>${explanation}${finishRetry}`;
     }
     function render() {
       if (typeof document === "undefined") return;
@@ -1290,7 +1337,7 @@
       if (action === "save-breakaway-answer") return "請先完成試拉，然後填寫最大靜摩擦力估計。";
       if (action === "save-analysis") return "請先在圖上放好靜摩擦力、最大靜摩擦力及滑動摩擦力三個標記。";
       if (action === "save-prediction") return "請先在圖上畫出摩擦力（不畫代表零），再選擇摩擦力類型及運動結果。";
-      if (action === "to-review") return "請先完成 Part A、B、C 的必要資料；Part D 可以全部跳過。";
+      if (action === "to-review") return "可以直接提交；未完成項目會在提交結果中按 rubric 扣分。";
       return "目前操作未能保存；請檢查這一階段的資料是否完整。";
     }
     function validationNode(action) {
@@ -1347,7 +1394,7 @@
             state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN, motionOutcome: values.motionOutcome, committed: true }); saveDraft();
           }
           else if (action === "advance-prediction") { state = Persistence.transitions.advancePrediction(state); saveDraft(); }
-          else if (action === "to-review") { if (!Persistence.hasRequiredAuthority(state)) throw new Error("required Part A to C answers incomplete"); state = Persistence.transitions.setPhase(state, "review"); saveDraft(); }
+          else if (action === "to-review") { state = Persistence.transitions.setPhase(state, "review"); saveDraft(); }
           else if (action === "edit-balance") { state = Persistence.transitions.enterReviewEdit(state, "balance", "zero-force"); saveDraft(); }
           else if (action === "edit-balance-task") { state = Persistence.transitions.enterReviewEdit(state, "balance", event.target.closest("[data-balance-key]")?.dataset.balanceKey); saveDraft(); }
           else if (action === "edit-experiment") restartExperimentImmediately();
@@ -1704,7 +1751,7 @@
       if (shell && panel && stage && shell.firstElementChild !== panel) shell.insertBefore(panel, stage);
     }
     function submit() {
-      if (!state || !Persistence.hasCompleteAnswer(state) || typeof SimScorm === "undefined") return;
+      if (!state || !Persistence.hasSubmittableAnswer(state) || typeof SimScorm === "undefined") return;
       const result = Scoring.scoreAnswer(state, scenario); const reviewState = Persistence.normalizeReview(state); const review = Persistence.encodeReview(reviewState); const reviewSnapshot = SimScorm.makeSnapshot(ACTIVITY, "review", review, result);
       const Flow = typeof SimActivityFlow !== "undefined" ? SimActivityFlow : null;
       const callbacks = {

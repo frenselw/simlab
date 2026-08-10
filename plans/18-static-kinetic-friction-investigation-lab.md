@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`35`（2026-08-10；重新設計 Part D 的學習流程及展示。D1–D4 改為一次只顯示一題、依次保存及進入下一題；舞台以細小藍色透明拖動點直接畫摩擦力，控制欄選擇摩擦力類型及運動結果，移除橙色方塊及可編輯數值輸入。Part D 可以完全跳過；未保存的 D 題保留為 `null`，進入 review／提交時該題計 0 分。現有 `s6` wire 已能保存 nullable predictions，因此不提升 schema／wire version。）
+> Plan revision：`36`（2026-08-10；提交頁面沿用 A／B／C／D 的新版乾淨舞台，移除舊 rope／橙色 grip；review control panel 改用一致 grid 間距。提交不再要求 A、B、C 或 D 全部完成：由任一 Part／任務列都可進入 review，任何未完成或未得分項目按其 rubric 計 0 分／扣除未取得分數。提交結果必須逐 Part、逐小題顯示得分、滿分及扣分原因。現有 `s6` review wire 已能保存 nullable A／B／C／D authority，因此不提升 schema／wire version。）
 
 本計劃必須遵從：
 
@@ -95,6 +95,7 @@
 6. 由三個標記位置分辨靜摩擦力、最大靜摩擦力及滑動摩擦力；
 7. 按 D1→D4 順序完成四個未直接測試情境的操作式預測；每題可從舞台直接畫摩擦力，並在控制欄選擇類型及運動結果；
 8. 進入提交前檢查，一次提交後查看完整結果。
+9. 可在任何完成度進入提交前檢查及提交；未完成項目不阻塞提交，提交結果清楚列出各 Part／小題得分及扣分。
 
 ### 1.3 Main interactions
 
@@ -111,7 +112,8 @@
 - 在同一張同步圖像上拖動三個位置 marker：靜摩擦力、最大靜摩擦力、滑動摩擦力；
 - 隨時重新拖動及保存三個 marker，不需要輸入額外數值或選擇區間；
 - Part D 一次只顯示一個 D 題卡，依 D1→D4 順序保存；不畫摩擦力箭嘴代表摩擦力為零，畫出後控制欄選擇「靜摩擦力」或「滑動摩擦力」，摩擦力大小由箭嘴同步讀數，不設可直接輸入的大小框；
-- Part D 可按「前往提交前檢查」跳過；未保存的 D 題維持 `null`，每題得 0 分，不阻塞 review／提交（A、B、C 的必要資料仍須完整）；
+- Part D 可按「前往提交前檢查」跳過；未保存的 D 題維持 `null`，每題得 0 分；A／B／C／D 任一 Part 都可由任務列進入 review，不以完成度阻塞提交；
+- review 先顯示各 Part 的完成／未完成狀態；提交後顯示每一 Part 及每一可評小題的 `得分／滿分`、`未扣分` 或 `扣 X 分`，未完成小題明確標示為 0 分；
 - review-edit；
 - final submit。
 
@@ -1677,7 +1679,7 @@ passed =
   predictionScore >= 8;
 ```
 
-Part B 是最終提交前的 completion prerequisite：學生仍可在未完成 A 時直接進入 B、開始記錄及返回其他 Part；只有最終提交時，沒有有效 B trace 才不算完整。它獎勵完成探究操作，但不另設沒有區辨力的 navigation gate；概念 mastery 由 Part A、C、D gates 判定。
+Part B 的有效 trace 仍是 B 的 20 分得分條件，但不是 review／提交 prerequisite：學生可以在未完成任何其他 Part 時提交，沒有有效 B trace 時 B 部分按 rubric 得 0 分。提交入口不設 completion gate；概念 mastery 仍由總分及 Part A／C／D gates 判定。
 
 ### 16.2 Part A：力平衡，20 分
 
@@ -1871,6 +1873,7 @@ function trimmedMean(values, trimFraction = 0.10) {
 - 各 marker 對應的概念判斷；
 - 每部分分數；
 - 物理解釋。
+- 逐 Part 及逐小題的得分帳：顯示 `得分／滿分`，滿分項目標示「未扣分」，其餘標示「扣 X 分」；未完成的 A／B／C／D 小題明確列為 0 分及扣分原因。
 
 ### 常見診斷
 
@@ -1896,7 +1899,7 @@ function trimmedMean(values, trimFraction = 0.10) {
 
 ### 19.1 修改 Part A
 
-A1／A2／A3 在正常 `balance` phase 均可重選／重畫／重試後重新保存。A 的 canonical answer 有語意改變時，只更新 A 自己的 authority；B trace、C analysis 及 D predictions 仍可保留，因四個 Part 可以獨立完成及返回修改。review-edit 仍保留原有完整 review authority，只有提交後的正式修改才進入 locked attempt 外的新 attempt。
+A1／A2／A3 在正常 `balance` phase 均可重選／重畫／重試後重新保存。A 的 canonical answer 有語意改變時，只更新 A 自己的 authority；B trace、C analysis 及 D predictions 仍可保留，因四個 Part 可以獨立完成及返回修改。review-edit 會保留當前已有的 authority，只提供已保存答案的精確修改；未完成部分不會自動補成答案，提交後仍按 rubric 計分並鎖定本次 attempt。
 
 ### 19.2 重新做實驗
 
@@ -2156,9 +2159,9 @@ Scroll topology：
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
 | `analysis` | `selection-ready`／`selection-only`／`complete` | C 三個 marker | accepted trial；舞台直接顯示同一張 0–30 s F–T 圖；三個 marker 可 partial 或 complete；一次保存可提交三項 | 不保存無 trial 的 C authority；不再保存第二張 learner-facing velocity graph、區段或額外數值 | A／B／C／D；三個 marker 可隨時拖動修改 |
 | `analysis` | `review-edit` | C marker target | review authority 保留；可保存指定 marker replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
-| `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 只顯示 `working.activePredictionIndex` 指向的一題；正常流程按 D1→D4 順序保存，前一題保存後才可進入下一題；未作答 slots 保持 `null` | 不要求 C complete；partial prediction 仍可保存為 draft，但未保存 D 題不會被補成預設答案 | A／B／C／D；可從 D 直接進 review（A／B／C 必要資料完整時），D 題可跳過 |
+| `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 只顯示 `working.activePredictionIndex` 指向的一題；正常流程按 D1→D4 順序保存，前一題保存後才可進入下一題；未作答 slots 保持 `null` | 不要求 C complete；partial prediction 仍可保存為 draft，但未保存 D 題不會被補成預設答案 | A／B／C／D；可從 D 直接進 review，D 題可跳過 |
 | `predict` | `review-edit` | D1–D4 target | 原本 prediction authority 保留；`working.editDraft` 可存在 | active pointer／DOM state | cancel／save replacement |
-| `review` | `complete` | — | A、B、C 必要 authority 完整；D predictions 可以是已保存答案或 `null`；`fromReview=false`；無 edit draft | transient drag／running trial；不把空白 D 題轉成答案 | submit（空白 D 題各自得 0 分）／enter exact review-edit row |
+| `review` | `partial`／`complete` | — | A、B、C、D authority 可任意 partial／null；`fromReview=false`；無 edit draft；review snapshot 可重建及重評分 | transient drag／running trial；不把空白答案轉成預設答案 | submit（每個未完成 rubric item 得 0 分）／返回任務列修改已保存資料 |
 | locked result | `submitted` | — | validated review snapshot＋recomputed trusted result | editable controls／draft provider | review only |
 
 Transitions：
@@ -2180,7 +2183,7 @@ A／C／D 保存
   只更新該 Part 的 authority；不因返回修改而清除其他 Part。
 
 review -> submit
-  A、B、C 必要資料完整時 canonical completeness validation 即通過；D 可以全部跳過，空白 D 題由 scoring 計 0 分。
+  只要 state 是合法的 `phase:"review"` snapshot 即可 canonical validate／submit；A、B、C、D 任意未完成項目由 scoring 直接計 0 分，不能因未完成而阻塞提交。
 
 review -> section
   仍可用原有 review-edit 進入精確修改 row；提交後整個 attempt 鎖定。
@@ -2302,7 +2305,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 力以 centinewton、速度以 mm/s 儲存，減少 JSON 長度並避免浮點 serialization drift。
 
-`learnerAppliedForce`／`learnerForce` 的 incomplete draft 只可存在於未提交的 DOM／local interaction state；saveable snapshot 只保存 committed vectors（沒有摩擦力時保存 committed `none` force）。nullable analysis inference fields、partial prediction 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Review normalization 固定 `phase:"review"`、`variant:"complete"`、`fromReview:false`，要求 A／B／C 必要 answer fields committed/non-null；D prediction slots 可以是 `null`，空白 slot 經 scoring 計 0 分，並移除整個 `working`。
+`learnerAppliedForce`／`learnerForce` 的 incomplete draft 只可存在於未提交的 DOM／local interaction state；saveable snapshot 只保存 committed vectors（沒有摩擦力時保存 committed `none` force）。nullable A／B／C authority、partial prediction 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Review normalization 固定 `phase:"review"`、`fromReview:false`，並按目前 authority 設 `variant:"partial"` 或 `"complete"`；允許 A／B／C／D answer fields 為 `null` 或未 committed。每個缺少的 rubric item 經 scoring 計 0 分，並移除整個 `working`。
 
 Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、`0–30 s` 的 canonical grid；packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的 `bestPullCN` 必須來自至少一個合法試拉，並以 0.1 N 語意步進對齊；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records，分別代表 static、maximum-static 及 kinetic marker；拖動 draft 可為 `committed:false`，保存後三項一併為 `true`。
 
@@ -2378,10 +2381,10 @@ Scenario 由 seed 及 versions 重建；stats 由 trace 重算。
 - breakaway time/value、pre-break grid index 或 merged canonical index 非法；
 - analysis 在 trial 之前存在；
 - marker index 超出 trace 或未選取時錯誤標記為 committed；
-- prediction 欄位 shape／scenario identity 非法；D 預測可以在 C 未完成時保存，進入 review 只要求三項 C marker 完整，四個 D slot 可以保留 `null`；
+- prediction 欄位 shape／scenario identity 非法；D 預測可以在 C 未完成時保存，進入 review 時四個 D slot 可以保留 `null`；
 - duplicate scenarioId；
 - dangling relationship；
-- review 不完整；
+- review snapshot shape／phase／authority relationship 非法；合法 partial review 必須接受；
 - saveable phase 沒有合法下一步；
 - running trial 被序列化；
 - stale future data 違反 invalidation policy。
