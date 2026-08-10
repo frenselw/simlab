@@ -292,6 +292,13 @@ async function semanticSmoke(cdp, url, label) {
   assert.match(blankAnalysis.panelText, /靜摩擦力/);
   assert.match(blankAnalysis.panelText, /最大靜摩擦力/);
   assert.match(blankAnalysis.panelText, /滑動摩擦力/);
+  const blankMarker = await evaluate(cdp, `(() => { const node=document.getElementById('maximumStaticFrictionMarker'),r=node.getBoundingClientRect(),state=window.__staticKineticFrictionApp.getState(); return {x:r.left+r.width/2,y:r.top+r.height/2,index:state.analysis.maximumStaticFriction}; })()`);
+  await touch(cdp, { x: blankMarker.x, y: blankMarker.y }, { x: blankMarker.x + 8, y: blankMarker.y });
+  const draggedMarker = await evaluate(cdp, `(() => { const node=document.getElementById('maximumStaticFrictionMarker'),r=node.getBoundingClientRect(),state=window.__staticKineticFrictionApp.getState(); return {x:r.left+r.width/2,y:r.top+r.height/2,index:state.analysis.maximumStaticFriction?.index}; })()`);
+  assert.equal(blankMarker.index, null, `${label}: an unselected C marker starts without an answer`);
+  assert.ok(Number.isInteger(draggedMarker.index) && draggedMarker.index > 10, `${label}: dragging an unselected C marker uses its graph position instead of jumping to sample zero ${JSON.stringify({ blankMarker, draggedMarker })}`);
+  assert.ok(Math.abs(draggedMarker.x - blankMarker.x) < 24, `${label}: the first C marker drag follows the pointer without a large jump ${JSON.stringify({ blankMarker, draggedMarker })}`);
+  await evaluate(cdp, analysisFixtureScript(0));
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const earlyPrediction = await evaluate(cdp, "({ phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards [data-prediction-index]').length, firstEnabled:!document.querySelector('#predictionCards [data-prediction-index=\"0\"] select').disabled })");
   assert.deepEqual(earlyPrediction, { phase: "predict", cards: 4, firstEnabled: true }, `${label}: Part D is directly selectable while Part C is still incomplete`);

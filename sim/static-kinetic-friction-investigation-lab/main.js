@@ -941,13 +941,9 @@
       announce("時間已經超時，請重新開始記錄");
       render();
     }
-    function renderGraph() {
-      const svg = q("graphSvg"); if (!svg) return;
-      if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
-      svg.replaceChildren();
-      const decoded = Measurement.unpackTrace(state.trial);
+    function analysisChartConfig(decoded) {
       const observedTimeS = decoded.merged.reduce((latest, sample) => Math.max(latest, finite(sample.timeS)), 0);
-      const chart = {
+      return {
         ...Graph.GRAPH,
         // Leave a clear frame around the plot and use the actual recorded
         // duration instead of reserving empty space up to 30 seconds.
@@ -960,6 +956,35 @@
         viewHeight: 430,
         timeTickCount: 5
       };
+    }
+    function analysisGraphPointFromEvent(event) {
+      const svg = q("graphSvg");
+      if (!svg) return null;
+      try {
+        const point = svg.createSVGPoint(); point.x = event.clientX; point.y = event.clientY;
+        const transformed = point.matrixTransform(svg.getScreenCTM().inverse());
+        return { x: transformed.x, y: transformed.y };
+      } catch {
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.viewBox?.baseVal;
+        const viewWidth = finite(viewBox?.width, 820) || 820;
+        const viewHeight = finite(viewBox?.height, 430) || 430;
+        return { x: (event.clientX - rect.left) * viewWidth / Math.max(1, rect.width), y: (event.clientY - rect.top) * viewHeight / Math.max(1, rect.height) };
+      }
+    }
+    function analysisIndexFromPointer(event, decoded) {
+      const point = analysisGraphPointFromEvent(event);
+      if (!point || !decoded?.merged?.length) return 0;
+      const chart = analysisChartConfig(decoded);
+      const timeS = clamp((point.x - chart.left) / chart.width * chart.maxTimeS, 0, chart.maxTimeS);
+      return Graph.canonicalIndexAtTime(decoded, timeS);
+    }
+    function renderGraph() {
+      const svg = q("graphSvg"); if (!svg) return;
+      if (!state?.trial) { svg.replaceChildren(); setText("graphCursorReadout", "請先在 Part B 完成並保存一份有效的實驗記錄。"); return; }
+      svg.replaceChildren();
+      const decoded = Measurement.unpackTrace(state.trial);
+      const chart = analysisChartConfig(decoded);
       const formatTimeTick = (value) => Number.isInteger(value) ? String(value) : value.toFixed(1);
       const defs = svgElement("defs");
       const axisMarker = svgElement("marker", { id: "analysis-axis-arrow", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 14, markerHeight: 14, markerUnits: "userSpaceOnUse", orient: "auto" });
@@ -1033,7 +1058,8 @@
       }
       const draft = ensureAnalysisDraft(); const decoded = Measurement.unpackTrace(state.trial);
       const rows = ANALYSIS_MARKER_META.map((marker, index) => {
-        const sample = decoded.merged[clamp(Math.round(draft?.[marker.key]?.index ?? 0), 0, decoded.merged.length - 1)];
+        const selectedIndex = Number.isInteger(draft?.[marker.key]?.index) ? draft[marker.key].index : null;
+        const sample = selectedIndex == null ? null : decoded.merged[clamp(Math.round(selectedIndex), 0, decoded.merged.length - 1)];
         const saved = Persistence.analysisTaskComplete(marker.key, state.analysis?.[marker.key]);
         return `<div class="analysis-marker-row"><span class="analysis-marker-swatch ${marker.className}" aria-hidden="true"></span><span><strong>C${index + 1}　${marker.label}</strong><small>${sample ? `${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N` : "未標示"}${saved ? "・已保存" : ""}</small></span></div>`;
       }).join("");
@@ -1427,6 +1453,13 @@
           updateBreakawayReadout(0);
           ensureBalanceMotionLoop();
         }
+      } else if (ANALYSIS_MARKER_META.some((marker) => marker.target === target) && state?.phase === "analysis" && state.trial) {
+        const marker = ANALYSIS_MARKER_META.find((item) => item.target === target);
+        dragging = {
+          kind: "analysis-marker", target: event.currentTarget, pointerId: event.pointerId, markerKey: marker.key,
+          checkpoint: clone(state), checkpointDraft: clone(analysisDraft),
+          predictionMagnitudes: [...document.querySelectorAll("[data-prediction-field='magnitudeCN']")].map((input) => input.value)
+        };
       } else {
         dragging = { target: event.currentTarget, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, checkpoint: clone(state), checkpointDraft: clone(analysisDraft), predictionMagnitudes: [...document.querySelectorAll("[data-prediction-field='magnitudeCN']")].map((input) => input.value) };
       }
@@ -1474,6 +1507,15 @@
           dragging.lastPointX = point.x;
         }
         renderApparatus();
+        return;
+      }
+      if (dragging.kind === "analysis-marker") {
+        const decoded = Measurement.unpackTrace(state.trial);
+        const marker = ANALYSIS_MARKER_META.find((item) => item.key === dragging.markerKey);
+        const index = analysisIndexFromPointer(event, decoded);
+        ensureAnalysisDraft();
+        analysisDraft[marker.key] = { index, committed: false };
+        renderGraph();
         return;
       }
       const target = event.currentTarget.dataset.dragTarget;
