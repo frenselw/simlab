@@ -61,8 +61,22 @@ async function tap(cdp, point) {
   await delay(220);
 }
 async function tapSelector(cdp, selector) {
-  const point = await evaluate(cdp, `(() => { const node = document.querySelector(${JSON.stringify(selector)}); if (!node) throw new Error(${JSON.stringify(`missing selector: ${selector}`)}); node.scrollIntoView({ block: 'center', inline: 'center' }); const r = node.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-  await delay(80); await tap(cdp, point);
+  await evaluate(cdp, `(() => { const node = document.querySelector(${JSON.stringify(selector)}); if (!node) throw new Error(${JSON.stringify(`missing selector: ${selector}`)}); node.scrollIntoView({ block: 'center', inline: 'center' }); return true; })()`);
+  // Let the compositor apply the independently scrolling panel position and
+  // finish any preceding trusted drag before deriving viewport coordinates.
+  // Reading the rect in the same task as scrollIntoView can leave Linux
+  // headless Chrome tapping the button's pre-scroll position.
+  await delay(180);
+  const point = await evaluate(cdp, `(() => {
+    const node = document.querySelector(${JSON.stringify(selector)});
+    if (!node) throw new Error(${JSON.stringify(`missing selector: ${selector}`)});
+    const r = node.getBoundingClientRect();
+    const point = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    const hit = document.elementFromPoint(point.x, point.y);
+    if (!hit || (hit !== node && !node.contains(hit))) throw new Error(${JSON.stringify(`selector is not hit-testable after scrolling: ${selector}`)});
+    return point;
+  })()`);
+  await tap(cdp, point);
 }
 async function pressKeyOn(cdp, selector, key, code = key) {
   await evaluate(cdp, `(() => { const node = document.querySelector(${JSON.stringify(selector)}); if (!node) throw new Error(${JSON.stringify(`missing key target: ${selector}`)}); node.focus(); return true; })()`);
