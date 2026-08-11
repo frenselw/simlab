@@ -126,6 +126,7 @@
     let experimentTimedOut = false;
     let experimentStatusOverride = null;
     let previousFrameMs = null;
+    let experimentStartupGraceFrames = 0;
     let experimentInputQueue = null;
     let experimentInputPageOriginMs = 0;
     let experimentInputSimulationOriginS = 0;
@@ -466,6 +467,7 @@
       experimentTimedOut = false;
       experimentStatusOverride = null;
       previousFrameMs = null;
+      experimentStartupGraceFrames = 0;
       experimentInputQueue = null;
       experimentInputPageOriginMs = 0;
       experimentInputSimulationOriginS = 0;
@@ -904,6 +906,7 @@
       experimentAppliedForceN = 0;
       experimentAutoKineticHold = false;
       experimentAutoHoldElapsedS = 0;
+      experimentStartupGraceFrames = 0;
       experimentStatusOverride = "這次記錄中斷，資料未能保存。請重新開始。";
       setText("experimentStatus", experimentStatusOverride);
       announce("記錄中斷，請重新開始");
@@ -913,14 +916,27 @@
     function advanceExperimentFrame(nowMs, options = {}) {
       if (!recorder?.running || !scenario || !directExperimentState) return { running: false, abortedOnStall: false, steps: 0 };
       const normalizedNowMs = normalizeInputTimestampMs(nowMs);
-      if (previousFrameMs == null) {
+      const firstDeliveredFrame = previousFrameMs == null;
+      if (firstDeliveredFrame) {
         previousFrameMs = normalizedNowMs;
         establishExperimentInputClock(normalizedNowMs);
       }
       const frameDurationMs = Math.max(0, normalizedNowMs - previousFrameMs);
       previousFrameMs = normalizedNowMs;
-      if (frameDurationMs > 50) return abortExperimentForTimingGap();
-      experimentAccumulatorS += frameDurationMs / 1000;
+      if (firstDeliveredFrame) {
+        // Establishing the clock is not a physics frame.  Keep one startup
+        // grace interval for a slow confirmation/render hand-off.
+      } else if (frameDurationMs > 50) {
+        if (experimentStartupGraceFrames > 0) {
+          experimentStartupGraceFrames -= 1;
+          experimentAccumulatorS = 0;
+        } else {
+          return abortExperimentForTimingGap();
+        }
+      } else {
+        experimentStartupGraceFrames = 0;
+        experimentAccumulatorS += frameDurationMs / 1000;
+      }
       let steps = 0;
       while (experimentAccumulatorS >= Physics.PHYSICS_DT_S - 1e-9 && directExperimentState.timeS < Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
         const stepS = Math.min(Physics.PHYSICS_DT_S, Measurement.MAX_TRIAL_DURATION_S - directExperimentState.timeS);
@@ -997,8 +1013,9 @@
       if (!options.manualClock) startLoop();
       // The first delivered frame establishes the recording clock.  A slow
       // confirmation render must not be mistaken for an in-recording stall;
-      // only gaps between two delivered recording frames are monitored.
+      // one startup interval after that baseline is also tolerated.
       previousFrameMs = null;
+      experimentStartupGraceFrames = 1;
       return true;
     }
     function hideRedoExperimentConfirmation() {
@@ -1439,7 +1456,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; experimentStartupGraceFrames = 0; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {

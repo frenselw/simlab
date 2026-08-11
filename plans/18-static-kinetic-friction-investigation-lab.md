@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`50`（2026-08-11；完成 PR #12 第三輪 student-facing copy polish：D 零拉力情境改用「沒有水平拉力」；A2 舞台提示及 Part A review 狀態按目前操作模式／任務分開顯示；B1／B2 只在相應記錄階段顯示，超時提示改用「重新開始」及中性記錄說明；移除重複的 B 品質訊息；D 題卡及驗證提示改用「舞台」與「表示摩擦力」；清理成績 fallback、A1「沒有水平外力」及 A3 初始重複狀態。Runtime build marker 提升至 49。）
+> Plan revision：`51`（2026-08-11；跟進 PR #12 重審：修正 Part B 重做後首個時鐘 baseline 之後的 startup render gap，首個 startup interval 不會被誤判為 stall，其後超過 50 ms 的 gap 仍會中止記錄；修正 review 可在任何完成度進入、重做 B 清除 B/C/D 的流程 contract。Runtime build marker 提升至 50。）
 
 本計劃必須遵從：
 
@@ -306,7 +306,7 @@ force += (Math.random() - 0.5) * 0.8;
 - 「記錄時間太短」；
 - 「未有一段足夠長的近似勻速資料」；
 - 「測力計超出量程」；
-- 「重新實驗會清除圖像分析，但保留獨立的 Part D 預測」等中性依賴提示。
+- 「重新實驗會清除目前的 B 實驗、C 圖上標記及 D 預測」等中性依賴提示。
 
 提交前不可提供：
 
@@ -366,7 +366,7 @@ force += (Math.random() - 0.5) * 0.8;
 A／B／C／D 任務可自由切換
 → 各 Part 保存自己的作答資料
 → 可返回修改，保留其他 Part
-→ review（所有資料完整後）
+→ review（可在任何完成度進入；未完成項目按未作答計分）
 → submit
 → locked result
 ```
@@ -542,7 +542,7 @@ C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft wor
 3. 選擇運動結果：保持靜止、開始滑動、加速或減速；
 4. 按「保存 Dn 答案」後才進入下一題。已保存的題目在 review 可逐題返回修改；未保存題目不會被系統補上預設答案。
 
-Part D 的「前往提交前檢查」按鈕在 A、B、C 必要資料完整後一直可用，即使四題都未回答。進入 review 時只保留已保存的 prediction authority；其餘 slots 為 `null`，每個空白 slot 的 Part D 5 分全部為 0。
+Part D 的「前往提交前檢查」按鈕不受 A、B、C 或 D 完成度限制；未完成項目進入 review 後按未作答計分。進入 review 時只保留已保存的 prediction authority；其餘 slots 為 `null`，每個空白 slot 的 Part D 5 分全部為 0。
 
 ### D1：沒有水平拉力，物體靜止
 
@@ -1068,7 +1068,7 @@ function animationFrame(nowMs) {
 
 Pointer、keyboard 及 coalesced input 必須用 `event.timeStamp` 經固定 page-time→simulation-time offset 轉成 simulation-clock timestamp 並進入 queue；每個 physics tick 使用該 tick 時刻以前的最後 target（zero-order hold）。同 timestamp 依 browser event order，舊 queue entries 在所有較早 ticks 消費後才移除。不可把最新 target 追溯套用到積壓 ticks。
 
-第一個 delivered recording frame 同時建立 physics clock baseline 及固定 page-time→simulation-time input offset，不累積 physics time，也不參與 stall 判定；確認重做、authority transition及完整 render所需時間不得被算入 trial。第一幀前已收到的 input 依 event order deterministic 地映射到 simulation time 0；第一幀後 input 以新 offset 排程。由第二個 delivered frame 起，超過 `50 ms` 的相鄰 frame gap 明確丟棄，不作 catch-up；若正在記錄，該次 trial 以中性技術原因作廢並返回 recording 前 checkpoint。相同 seed、相同相對 timestamped input path 和相同 versions，首幀為 0 ms 或延遲 120 ms，以及 60／90／120 Hz、coalesced events及含短 stall 的 render schedules，必須產生同一 canonical trace。
+第一個 delivered recording frame 同時建立 physics clock baseline 及固定 page-time→simulation-time input offset，不累積 physics time，也不參與 stall 判定；確認重做、authority transition及完整 render所需時間不得被算入 trial。第一幀前已收到的 input 依 event order deterministic 地映射到 simulation time 0；第一幀後 input 以新 offset 排程。建立 baseline 後的第一個 startup frame interval 只作啟動緩衝，不會因確認／render hand-off 的短暫延遲而中止；其後相鄰 frame gap 超過 `50 ms` 時明確丟棄，不作 catch-up；若正在記錄，該次 trial 以中性技術原因作廢並返回 recording 前 checkpoint。相同 seed、相同相對 timestamped input path 和相同 versions，首幀為 0 ms 或延遲 120 ms，以及 60／90／120 Hz、coalesced events及含短 stall 的 render schedules，必須產生同一 canonical trace。
 
 ---
 

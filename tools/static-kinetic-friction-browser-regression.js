@@ -216,7 +216,7 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.deepEqual(baselineAlignedTraces[1], baselineAlignedTraces[0], `${label}: rebased timestamped input produces the same packed trace after a 0 or 120 ms first frame`);
 
   await navigate(cdp, url);
-  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); const result=app.regression.advanceExperimentFrame(60); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent,startDisabled:document.getElementById('startRecording').disabled}; })()`);
+  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); app.regression.advanceExperimentFrame(16); const result=app.regression.advanceExperimentFrame(76); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent,startDisabled:document.getElementById('startRecording').disabled}; })()`);
   assert.equal(stalled.result.abortedOnStall, true, `${label}: a production frame gap over 50 ms aborts without catch-up`);
   assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
   assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);

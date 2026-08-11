@@ -23,6 +23,8 @@ assert.match(main, /getCoalescedEvents/);
 assert.match(main, /frameDurationMs > 50/);
 assert.doesNotMatch(main, /frameDurationMs > 250/);
 assert.match(main, /first delivered frame establishes the recording clock/);
+assert.match(main, /experimentStartupGraceFrames/);
+assert.match(main, /one startup interval after that baseline is also tolerated/);
 assert.match(main, /function establishExperimentInputClock/);
 assert.match(main, /input\.pageTimeMs - experimentInputPageOriginMs/);
 assert.match(main, /state\.working\?\.analysisDraft \|\| state\.analysis/);

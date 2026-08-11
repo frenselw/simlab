@@ -113,7 +113,7 @@ assert.match(main, /timeoutExperiment/);
 assert.match(main, /這次記錄符合要求，可以進入 Part C/);
 assert.match(main, /系統正自動調節拉力，使物體保持接近勻速運動/);
 assert.doesNotMatch(main, /等大反向|與拉力相反/);
-for (const asset of ["styles.css", "generator.js", "physics.js", "measurement.js", "graph.js", "scoring.js", "persistence.js", "main.js"]) assert.match(html, new RegExp(`${asset.replace(".", "\\.")}\\?v=49`));
+for (const asset of ["styles.css", "generator.js", "physics.js", "measurement.js", "graph.js", "scoring.js", "persistence.js", "main.js"]) assert.match(html, new RegExp(`${asset.replace(".", "\\.")}\\?v=50`));
 assert.match(main, /估計此情境中摩擦力的平均大小/);
 assert.match(main, /你估計的摩擦力平均大小/);
 assert.doesNotMatch(main, /建立的模型|表面位置的微小差異|畫出的平均摩擦力估值/);
