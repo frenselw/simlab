@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>靜摩擦力與滑動摩擦力探究實驗室</title>
   <link rel="stylesheet" href="../shared/styles.css">
-  <link rel="stylesheet" href="styles.css?v=48">
+  <link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
 <main id="app" class="friction-app" data-presentation="editable">
@@ -24,7 +24,7 @@
       <div id="stageCoach" class="stage-coach" role="note">
         <span id="stageCoachStep" class="stage-coach-step">1</span>
         <strong id="stageCoachTitle">先完成 A1 水平方向受力分析</strong>
-        <span id="stageCoachText">請判斷沒有水平拉力時，物體受到的摩擦力。</span>
+        <span id="stageCoachText">請判斷沒有水平外力時，物體受到的摩擦力。</span>
       </div>
       <svg id="apparatusSvg" viewBox="0 0 900 430" role="img" aria-describedby="stageDescription"></svg>
       <div id="experimentGraphStage" class="experiment-graph-stage is-hidden" aria-label="B 實驗的拉力—時間圖">
@@ -58,11 +58,11 @@
         <p class="section-label">第一階段・三個水平受力任務</p>
         <h2>A：水平方向的受力與靜摩擦力</h2>
         <p class="first-step-explanation">請根據各情境判斷物體在水平方向所受的力。你可以使用上方任務列自由切換各部分，並隨時返回修改已保存的答案。</p>
-        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：判斷沒有水平拉力時，物體受到的摩擦力。</p>
+        <p id="balanceStatus" class="neutral-status balance-status" aria-live="off">先完成 A1：判斷沒有水平外力時，物體受到的摩擦力。</p>
 
         <article id="zeroTask" class="task-card balance-task">
-          <h3>A1　沒有水平拉力</h3>
-          <p>物體放在水平面上，沒有任何水平拉力而且保持靜止。請選出摩擦力的類型、方向和大小。</p>
+          <h3>A1　沒有水平外力</h3>
+          <p>物體放在水平面上，沒有受到任何水平外力，並保持靜止。請判斷摩擦力的類型、方向和大小。</p>
           <div class="answer-grid">
             <label>摩擦力類型<select id="zeroFrictionType" autocomplete="off"><option value="" selected disabled>請選擇</option><option value="none">沒有摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
             <label>方向<select id="zeroFrictionDirection" autocomplete="off"><option value="" selected disabled>請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
@@ -96,8 +96,8 @@
           <p>直接在物體中央拖動拉力箭頭：向左或向右均可，拖得越遠拉力越大，也可以隨時改變方向和大小。物體一開始保持靜止；當拉力達到臨界值，物體會突然開始滑動並加速。畫面只顯示你施加的拉力，不顯示靜摩擦力。</p>
           <p class="force-builder-readout">目前拉力：<output id="breakawayPullValue">0.0 N</output></p>
           <p id="breakawayMotionStatus" class="instruction">尚未開始試拉。</p>
-          <p id="breakawayAttempts" class="instruction">已完成試拉 0 次</p>
-          <p id="breakawayBest" class="neutral-status">尚未找到臨界值。</p>
+          <p id="breakawayAttempts" class="instruction">試拉次數：0</p>
+          <p id="breakawayBest" class="neutral-status"></p>
           <div id="breakawayAnswerCard" class="answer-card">
             <label>我估計最大靜摩擦力（N）<input id="breakawayAnswer" type="number" min="0" max="12" step="0.1" aria-label="最大靜摩擦力估計"></label>
             <div class="save-action-row">
@@ -117,7 +117,6 @@
           <div class="experiment-instruction"><strong>操作：</strong>按「開始 30 秒記錄」，再按住物體中央向右拖動，逐漸增加拉力。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始</button></div>
         <p id="experimentStatus" class="neutral-status" aria-live="polite">尚未開始記錄。</p>
-        <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>
       </section>
 
@@ -167,12 +166,12 @@
 <script src="../config.js"></script>
 <script src="../shared/scorm.js"></script>
 <script src="../shared/activity-flow.js"></script>
-<script src="generator.js?v=48"></script>
-<script src="physics.js?v=48"></script>
-<script src="measurement.js?v=48"></script>
-<script src="graph.js?v=48"></script>
-<script src="scoring.js?v=48"></script>
-<script src="persistence.js?v=48"></script>
-<script src="main.js?v=48"></script>
+<script src="generator.js?v=49"></script>
+<script src="physics.js?v=49"></script>
+<script src="measurement.js?v=49"></script>
+<script src="graph.js?v=49"></script>
+<script src="scoring.js?v=49"></script>
+<script src="persistence.js?v=49"></script>
+<script src="main.js?v=49"></script>
 </body>
 </html>
