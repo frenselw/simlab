@@ -1,0 +1,102 @@
+"use strict";
+const assert = require("node:assert/strict");
+const G = require("./generator.js");
+const P = require("./physics.js");
+const scenario = G.generateScenario({ seed: 23 });
+assert.equal(P.connectorTension(.1, 0, .35, 0, scenario.connector), 0, "slack connector cannot create dashpot force");
+assert.ok(P.connectorTension(.20, 0, 0, 0, scenario.connector) > 0);
+assert.equal(P.smoothstep(0, .004, 0), 0);
+assert.equal(P.smoothstep(0, .004, .004), 1);
+const handle = P.stepHandle({ targetPositionM: .18, positionM: .18, velocityMps: 0 }, 1.2, P.PHYSICS_DT_S);
+assert.ok(P.HANDLE_SPEED_LIMIT_MPS <= .06, "Part B handle speed stays slow enough for the compact stage");
+assert.ok(Math.abs(handle.velocityMps) <= P.HANDLE_SPEED_LIMIT_MPS);
+const responsiveHandle = P.stepHandle({ targetPositionM: .18, positionM: .18, velocityMps: 0 }, 1.2, P.PHYSICS_DT_S, .24);
+assert.ok(Math.abs(responsiveHandle.velocityMps) <= .24, "the active sliding response accepts its explicit handle speed limit");
+const belowLimit = P.simulate([{ timeS: 0, handleTargetPositionM: .19 }], scenario, { durationS: .75 });
+assert.equal(belowLimit.events.length, 0);
+assert.equal(belowLimit.state.contact.mode, "static");
+assert.equal(belowLimit.state.block.positionM, 0);
+assert.ok(Math.abs(belowLimit.state.contact.frictionPhysicalN - belowLimit.state.connector.tensionPhysicalN) < 1e-10, "static friction balances the actual connector tension below the limit");
+let direct = P.createDirectForceState(scenario, .72);
+direct = P.stepDirectForce(direct, scenario.staticLimitMeanN * .5, scenario, .1);
+assert.equal(direct.contact.mode, "static", "direct pull below the static limit keeps the block still");
+assert.equal(direct.block.velocityMps, 0);
+const directBreakaway = P.stepDirectForce(direct, scenario.staticLimitMeanN + .5, scenario, .02);
+assert.equal(directBreakaway.contact.mode, "sliding", "direct pull above the static limit starts sliding");
+assert.ok(directBreakaway.events.some((event) => event.type === "breakaway"));
+const highDirectPull = P.stepDirectForce(directBreakaway, scenario.kineticFrictionMeanN + 1.5, scenario, .1);
+assert.ok(highDirectPull.block.accelerationMps2 > 0, "a pull above kinetic friction accelerates the sliding block");
+const lowDirectPull = P.stepDirectForce(highDirectPull, Math.max(0, scenario.kineticFrictionMeanN - 1.5), scenario, .1);
+assert.ok(lowDirectPull.block.accelerationMps2 < 0, "a pull below kinetic friction decelerates the sliding block");
+let releasedDirect = directBreakaway;
+for (let index = 0; index < 240; index += 1) releasedDirect = P.stepDirectForce(releasedDirect, 0, scenario, .01);
+assert.equal(releasedDirect.contact.mode, "static", "releasing a direct pull eventually re-sticks the block");
+assert.ok(releasedDirect.block.positionM > .72, "released block retains its forward displacement");
+let reversedDirect = P.stepDirectForce(directBreakaway, scenario.staticLimitMeanN + .5, scenario, .15);
+const forwardVelocity = reversedDirect.block.velocityMps;
+for (let index = 0; index < 120; index += 1) reversedDirect = P.stepDirectForce(reversedDirect, -(scenario.staticLimitMeanN + .5), scenario, .01);
+assert.ok(forwardVelocity > 0 && reversedDirect.block.velocityMps < 0, "opposite direct pull decelerates and reverses the block");
+let spring = P.createInitialState(scenario);
+const springTarget = scenario.connector.restLengthM + (scenario.staticLimitMeanN + 1.5) / scenario.connector.stiffnessNPerM;
+const springSamples = [];
+let springBreakaway = null;
+for (let index = 0; index < 120; index += 1) {
+  spring = P.stepPhysics(spring, { handleTargetPositionM: springTarget }, scenario);
+  springSamples.push(spring);
+  if (!springBreakaway) springBreakaway = spring.events.find((event) => event.type === "breakaway") || null;
+}
+assert.ok(springBreakaway, "spring pull crosses the static-friction limit");
+const springPeak = Math.max(...springSamples.filter((sample) => sample.timeS <= springBreakaway.timeS + 0.08).map((sample) => sample.connector.tensionPhysicalN));
+const springPostDrop = springSamples.find((sample) => sample.timeS >= springBreakaway.timeS + 0.12);
+assert.ok(springPostDrop, "spring pull has a post-breakaway sample");
+assert.ok(springPeak - springPostDrop.connector.tensionPhysicalN >= 0.8, "spring tension visibly drops after breakaway");
+assert.ok(springPostDrop.block.velocityMps < 0.2, "spring release keeps post-breakaway speed controllable");
+assert.equal(P.kineticFollowTargetPosition, undefined, "physics exposes no automatic kinetic-follow assist");
+let userControlledSpring = P.createInitialState(scenario);
+let userBreakaway = null;
+for (let index = 0; index < 120; index += 1) {
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: springTarget }, scenario);
+  if (!userBreakaway) userBreakaway = userControlledSpring.events.find((event) => event.type === "breakaway") || null;
+}
+assert.ok(userBreakaway, "direct spring input observes breakaway");
+const speedBeforeRelease = userControlledSpring.block.velocityMps;
+for (let index = 0; index < 240; index += 1) {
+  const releaseTarget = userControlledSpring.block.positionM + scenario.connector.restLengthM;
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: releaseTarget }, scenario);
+}
+assert.ok(userControlledSpring.block.velocityMps < speedBeforeRelease, "directly reducing the hand target reduces sliding speed");
+assert.equal(userControlledSpring.contact.mode, "static", "directly reducing the hand target can re-stick the block");
+let reapplyBreakaway = null;
+for (let index = 0; index < 240; index += 1) {
+  const reapplyTarget = userControlledSpring.block.positionM + scenario.connector.restLengthM + (scenario.staticLimitMeanN + 1.5) / scenario.connector.stiffnessNPerM;
+  userControlledSpring = P.stepPhysics(userControlledSpring, { handleTargetPositionM: reapplyTarget }, scenario);
+  if (!reapplyBreakaway) reapplyBreakaway = userControlledSpring.events.find((event) => event.type === "breakaway") || null;
+}
+assert.ok(reapplyBreakaway, "direct spring input can be increased again after re-sticking");
+assert.equal(userControlledSpring.contact.mode, "sliding", "the re-applied spring input starts sliding again");
+let state = P.createInitialState(scenario); const events = [];
+for (let i = 0; i < 1600; i += 1) { state = P.stepPhysics(state, { handleTargetPositionM: .85 }, scenario); events.push(...state.events); }
+assert.ok(state.block.positionM >= 0);
+assert.ok(state.block.velocityMps >= 0);
+assert.ok(events.some((event) => event.type === "breakaway"));
+assert.ok(events.every((event) => !Object.hasOwn(event, "measuredPullCN") && !Object.hasOwn(event, "preBreakPeakGridIndex")));
+for (const event of events) assert.deepEqual(Object.keys(event).sort(), ["physicalTensionN", "staticLimitN", "timeS", "type"], "raw physics event has the exact plan-owned schema");
+const queue = P.createInputQueue();
+P.enqueueInput(queue, { timeS: .1, handleTargetPositionM: .4 });
+assert.equal(P.inputAt(queue, .09, .18).handleTargetPositionM, .18);
+assert.equal(P.inputAt(queue, .1, .18).handleTargetPositionM, .4);
+const runner = P.runFixedStep(scenario, { inputs: [{ timeS: .2, handleTargetPositionM: .5 }] });
+runner.advanceFrame(16.67); runner.advanceFrame(16.67); assert.ok(runner.getState().timeS > 0);
+const stalled = P.runFixedStep(scenario); stalled.advanceFrame(60); assert.equal(stalled.getRunning(), false); assert.equal(stalled.advanceFrame(16).steps, 0);
+assert.ok(P.splitAtRestLengthCrossing({ ...P.createInitialState(scenario), handle: { ...P.createInitialState(scenario).handle, positionM: scenario.connector.restLengthM - .01 } }, { ...state.handle, positionM: scenario.connector.restLengthM + .01 }, scenario.connector.restLengthM, .1).crossed);
+const scheduleInputs = [{ timeS: 0, handleTargetPositionM: .18 }, { timeS: .5, handleTargetPositionM: .205 }, { timeS: 2, handleTargetPositionM: .18 }];
+const scheduled = [60, 90, 120].map((hz) => P.simulateRenderSchedule(scheduleInputs, scenario, Array.from({ length: hz * 4 }, () => 1000 / hz)));
+assert.deepEqual(scheduled[0].state, scheduled[1].state);
+assert.deepEqual(scheduled[1].state, scheduled[2].state);
+assert.deepEqual(scheduled[0].events, scheduled[2].events, "fixed-step events are independent of render refresh rate");
+assert.ok(scheduled[0].events.some((event) => event.type === "breakaway"));
+assert.equal(scheduled[0].state.contact.mode, "static", "the block re-sticks after the pull is released");
+for (const physicalState of scheduled[0].samples.filter((sample) => sample.contact.mode === "static")) assert.ok(Math.abs(physicalState.contact.frictionPhysicalN - physicalState.connector.tensionPhysicalN) < 1e-10, "re-stick tick preserves exact force balance");
+const longRun = P.simulate([{ timeS: 0, handleTargetPositionM: .3 }, { timeS: 5, handleTargetPositionM: .18 }], scenario, { durationS: 20 });
+assert.ok([longRun.state.timeS, longRun.state.block.positionM, longRun.state.block.velocityMps, longRun.state.connector.tensionPhysicalN].every(Number.isFinite));
+console.log("Static/kinetic friction physics checks passed");

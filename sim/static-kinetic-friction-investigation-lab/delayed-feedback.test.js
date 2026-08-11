@@ -1,0 +1,16 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const App = require("./main.js");
+const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const source = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+const editable = html.slice(0, html.indexOf('<section id="resultPanel"'));
+assert.doesNotMatch(editable, /真實設定|最大靜摩擦力約|平均滑動摩擦力約|score/);
+assert.doesNotMatch(editable, /摩擦力大小和方向都應為零|滑動摩擦力附近/);
+assert.doesNotMatch(source, /沒有水平拉力時，摩擦力應為零|滑動摩擦力附近/);
+assert.match(html, /id="resultPanel" class="panel-section is-hidden"/);
+assert.match(source, /mayRevealCorrectness/);
+assert.match(source, /SimScorm\.submitWithCallbacks/);
+for (const state of ["editable", "retry", "frozen", "load-error"]) assert.equal(App.mayRevealCorrectness(state), false);
+console.log("Static/kinetic friction delayed-feedback checks passed");
