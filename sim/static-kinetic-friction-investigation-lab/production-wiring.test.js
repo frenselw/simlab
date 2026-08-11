@@ -26,6 +26,8 @@ assert.match(main, /first delivered frame establishes the recording clock/);
 assert.match(main, /function establishExperimentInputClock/);
 assert.match(main, /input\.pageTimeMs - experimentInputPageOriginMs/);
 assert.match(main, /state\.working\?\.analysisDraft \|\| state\.analysis/);
+assert.match(main, /const analysisDraft = state\.working\?\.analysisDraft/);
+assert.match(main, /Boolean\(analysisDraft\) && Persistence\.ANALYSIS_KEYS\.some/);
 const persistAnalysisDraft = main.slice(main.indexOf("function persistAnalysisDraft"), main.indexOf("function commitAnalysisDraft"));
 assert.doesNotMatch(persistAnalysisDraft, /saveDraft\(/, "Part C draft transition does not perform a second LMS commit");
 assert.match(main, /finalizeExperimentRecording\(\{ timedOut: true \}\)/);

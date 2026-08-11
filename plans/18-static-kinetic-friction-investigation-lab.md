@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`46`（2026-08-11；延續 PR #12 重審修正，補上 A1 數字輸入框與選單統一為 44px 觸控高度；A3 尚未有 breakaway 估計時明確清空輸入框，避免瀏覽器殘留值造成誤導；Part C 即使沒有任何分析資料，下方前往 Part D 按鈕仍可直接切換階段，與上方導覽一致。Runtime build marker 提升至 45。）
+> Plan revision：`47`（2026-08-11；跟進 PR #12 最新重審：Review 只在存在 `working.analysisDraft` 且 marker index 與 canonical 不同時顯示 Part C「有未保存修改」，乾淨且已保存的 C 不再誤報；D3／D4 平均摩擦力提示改用中性 `prediction-average-prompt` class，不在 DOM class 名稱留下 kinetic 類型線索。Runtime build marker 提升至 46。）
 
 本計劃必須遵從：
 
