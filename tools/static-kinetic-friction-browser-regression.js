@@ -131,7 +131,7 @@ function productionExperimentScript(frameDurationsMs, options = {}) {
     for (const duration of ${JSON.stringify(frameDurationsMs)}) { now+=duration; app.regression.advanceExperimentFrame(now); }
     if (${options.finalize === false ? "false" : "true"} && app.interactionEvidence().recorderRunning) app.regression.finalizeExperiment(${options.timedOut ? "true" : "false"});
     const state=app.getState(), evidence=app.interactionEvidence();
-    return { trial:state.trial, running:evidence.recorderRunning, timedOut:evidence.experiment?.timedOut, status:document.getElementById('experimentStatus').textContent, feedback:document.getElementById('experimentFeedback').textContent, live:document.getElementById('liveRegion').textContent, stageDescription:document.getElementById('stageDescription').textContent };
+    return { trial:state.trial, running:evidence.recorderRunning, timedOut:evidence.experiment?.timedOut, status:document.getElementById('experimentStatus').textContent, feedback:document.getElementById('experimentStatus').textContent, live:document.getElementById('liveRegion').textContent, stageDescription:document.getElementById('stageDescription').textContent };
   })()`;
 }
 async function productionExperimentRegression(cdp, url, label) {
@@ -168,7 +168,7 @@ async function productionExperimentRegression(cdp, url, label) {
   const validTimeout = await evaluate(cdp, productionExperimentScript(frameSchedule(30000, [40]), { batchSize: 5, finalize: false }));
   assert.ok(validTimeout.trial, `${label}: a valid trial auto-saves at the 30 second boundary`);
   assert.equal(validTimeout.timedOut, true, `${label}: valid automatic stop records the timeout boundary`);
-  assert.match(validTimeout.status, /自動停止並保存/, `${label}: valid automatic stop reports saved data`);
+  assert.match(validTimeout.status, /這次記錄符合要求/, `${label}: valid automatic stop reports saved data`);
   assert.doesNotMatch(validTimeout.feedback, /超時.*重新開始/, `${label}: valid automatic stop never contradicts its saved status`);
 
   await navigate(cdp, url);
@@ -182,7 +182,7 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(invalidTimeout.trial, null, `${label}: an invalid trial is rejected at the 30 second boundary`);
   assert.equal(invalidTimeout.running, false, `${label}: invalid automatic stop ends recording`);
   assert.equal(invalidTimeout.timedOut, true, `${label}: invalid automatic stop records the timeout boundary`);
-  assert.match(invalidTimeout.status, /30 秒記錄已結束.*重新開始/, `${label}: invalid automatic stop uses neutral retry guidance`);
+  assert.match(invalidTimeout.status, /這次記錄未出現物體開始滑動.*請重新開始/, `${label}: invalid automatic stop uses neutral retry guidance`);
 
   await navigate(cdp, url);
   const emptyStop = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); const accepted=app.regression.finalizeExperiment(false); const canRestart=app.regression.startExperiment(10); return {accepted,canRestart,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent}; })()`);
@@ -221,7 +221,7 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
   assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);
   assert.equal(stalled.startDisabled, false, `${label}: timing-gap abort fully refreshes the controls`);
-  assert.match(stalled.status, /這次記錄中斷/, `${label}: timing-gap abort is distinguished from normal timeout`);
+  assert.match(stalled.status, /這次記錄中斷，資料未能保存/, `${label}: timing-gap abort is distinguished from normal timeout`);
 
   await navigate(cdp, url);
   await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(performance.now()); return true; })()`);
@@ -405,7 +405,7 @@ async function semanticSmoke(cdp, url, label) {
   let experimentHeld = null;
   for (let attempt = 0; attempt < 16; attempt += 1) {
     await delay(100);
-    const snapshot = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'),graph=document.getElementById('experimentGraphSvg'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:graph?.textContent || '',graphRegion:!document.getElementById('experimentGraphStage').classList.contains('is-hidden'),graphAxisArrows:graph?.querySelectorAll('.graph-axis[marker-start],.graph-axis[marker-end]').length || 0,graphYAxisUp:[...(graph?.querySelectorAll('.graph-axis[marker-end]') || [])].some(axis=>Number(axis.getAttribute('x1'))===Number(axis.getAttribute('x2'))&&Number(axis.getAttribute('y1'))>Number(axis.getAttribute('y2'))),feedback:document.getElementById('experimentFeedback').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
+    const snapshot = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'),graph=document.getElementById('experimentGraphSvg'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:graph?.textContent || '',graphRegion:!document.getElementById('experimentGraphStage').classList.contains('is-hidden'),graphAxisArrows:graph?.querySelectorAll('.graph-axis[marker-start],.graph-axis[marker-end]').length || 0,graphYAxisUp:[...(graph?.querySelectorAll('.graph-axis[marker-end]') || [])].some(axis=>Number(axis.getAttribute('x1'))===Number(axis.getAttribute('x2'))&&Number(axis.getAttribute('y1'))>Number(axis.getAttribute('y2'))),feedback:document.getElementById('experimentStatus').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
     if (!snapshot.autoKineticHold) preBreakPeakForce = Math.max(preBreakPeakForce, snapshot.measuredForce || 0);
     breakawayPeakForce = Math.max(breakawayPeakForce, snapshot.breakawayForce || 0);
     experimentHeld = snapshot;
@@ -413,7 +413,7 @@ async function semanticSmoke(cdp, url, label) {
   }
   if (experimentHeld?.autoKineticHold) {
     await delay(350);
-    experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'),graph=document.getElementById('experimentGraphSvg'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:graph?.textContent || '',graphRegion:!document.getElementById('experimentGraphStage').classList.contains('is-hidden'),graphAxisArrows:graph?.querySelectorAll('.graph-axis[marker-start],.graph-axis[marker-end]').length || 0,graphYAxisUp:[...(graph?.querySelectorAll('.graph-axis[marker-end]') || [])].some(axis=>Number(axis.getAttribute('x1'))===Number(axis.getAttribute('x2'))&&Number(axis.getAttribute('y1'))>Number(axis.getAttribute('y2'))),feedback:document.getElementById('experimentFeedback').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
+    experimentHeld = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),line=document.querySelector('#apparatusSvg .pull-arrow'),graph=document.getElementById('experimentGraphSvg'); return {running:evidence.recorderRunning,force:evidence.experiment?.appliedForceN,measuredForce:evidence.experiment?.measuredForceN,breakawayForce:evidence.experiment?.breakawayForceN,velocityMps:evidence.experiment?.velocityMps,time:evidence.experiment?.timeS,autoKineticHold:evidence.experiment?.autoKineticHold,graphLines:document.querySelectorAll('.experiment-force-line').length,velocityLines:document.querySelectorAll('.velocity-line').length,graphText:graph?.textContent || '',graphRegion:!document.getElementById('experimentGraphStage').classList.contains('is-hidden'),graphAxisArrows:graph?.querySelectorAll('.graph-axis[marker-start],.graph-axis[marker-end]').length || 0,graphYAxisUp:[...(graph?.querySelectorAll('.graph-axis[marker-end]') || [])].some(axis=>Number(axis.getAttribute('x1'))===Number(axis.getAttribute('x2'))&&Number(axis.getAttribute('y1'))>Number(axis.getAttribute('y2'))),feedback:document.getElementById('experimentStatus').textContent,originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),arrow:document.querySelectorAll('#apparatusSvg .pull-arrow').length,arrowStart:line?Number(line.getAttribute('x1')):null,arrowEnd:line?Number(line.getAttribute('x2')):null,liveReadout:document.querySelector('.live-readouts'),slider:document.getElementById('experimentForceSlider')}; })()`);
   }
   assert.equal(experimentHeld.running, true, `${label}: B recorder remains active during a direct pull ${JSON.stringify(experimentHeld)}`);
   assert.equal(experimentHeld.autoKineticHold, true, `${label}: B hands control to the automatic kinetic-friction hold after breakaway ${JSON.stringify(experimentHeld)}`);
@@ -583,7 +583,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(unsavedNormalC.predictionsSame, true, `${label}: normal C dragging leaves D authority unchanged before save`);
   assert.notEqual(unsavedNormalC.draftIndex, unsavedNormalC.canonicalIndex, `${label}: normal C dragging persists a distinct working marker draft`);
   const dirtyMarkerCopy = await evaluate(cdp, `document.getElementById('analysisTasks').textContent`);
-  assert.match(dirtyMarkerCopy, /C3.*有未保存修改/s, `${label}: a changed C3 marker is labelled as unsaved rather than saved`);
+  assert.match(dirtyMarkerCopy, /C3.*有未保存的修改/s, `${label}: a changed C3 marker is labelled as unsaved rather than saved`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='review']");
   const dirtyCReview = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),saved=JSON.parse(window.__reviewAuthority),wire=window.StaticKineticFrictionPersistence.encodeReview(state); return {canonicalSame:JSON.stringify(state.analysis)===JSON.stringify(saved.analysis),draftIndex:state.working?.analysisDraft?.kineticFriction?.index,wireIndex:wire.a.k?.[0],summary:document.getElementById('reviewSummary').textContent}; })()`);
   assert.equal(dirtyCReview.canonicalSame, true, `${label}: editable review reads the saved C authority`);
@@ -602,7 +602,7 @@ async function semanticSmoke(cdp, url, label) {
   const kineticPredictionIndex = await evaluate(cdp, "window.__staticKineticFrictionApp.getScenario().predictions.findIndex(spec=>spec.frictionType==='kinetic')");
   await tapSelector(cdp, `[data-action='edit-predict'][data-prediction-index='${kineticPredictionIndex}']`);
   const kineticPredictionCopy = await evaluate(cdp, `(() => { const card=document.querySelector('#predictionCards [data-prediction-index="${kineticPredictionIndex}"]');return [card.querySelector('.prediction-average-prompt')?.textContent,card.querySelector('.prediction-force-readout')?.textContent].join(' '); })()`);
-  assert.match(kineticPredictionCopy, /摩擦力的平均大小.*畫出的平均摩擦力估值/s, `${label}: kinetic prediction clarifies the average magnitude without revealing its type`);
+  assert.match(kineticPredictionCopy, /估計此情境中摩擦力的平均大小.*你估計的摩擦力平均大小/s, `${label}: kinetic prediction clarifies the average magnitude without revealing its type`);
   assert.doesNotMatch(kineticPredictionCopy, /滑動摩擦力/, `${label}: pre-submit average-value guidance does not reveal the scored friction type`);
   await tapSelector(cdp, "#cancelReviewEdit");
   await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='kineticFriction']"); await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");

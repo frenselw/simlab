@@ -18,7 +18,7 @@
   const ACTIVITY = "static-kinetic-friction-investigation-lab";
   const NS = "http://www.w3.org/2000/svg";
   const PHASES = ["balance", "experiment", "analysis", "predict", "review"];
-  const PHASE_LABELS = Object.freeze({ balance: "A 力平衡", experiment: "B 實驗", analysis: "C 圖上標記", predict: "D 預測", review: "檢查與提交" });
+  const PHASE_LABELS = Object.freeze({ balance: "A 水平受力", experiment: "B 實驗", analysis: "C 圖上標記", predict: "D 預測", review: "檢查與提交" });
   const ANALYSIS_MARKER_META = Object.freeze([
     Object.freeze({ key: "staticFriction", id: "staticFrictionMarker", target: "static-friction-marker", label: "靜摩擦力", color: "#2563eb", className: "analysis-marker-static" }),
     Object.freeze({ key: "maximumStaticFriction", id: "maximumStaticFrictionMarker", target: "maximum-static-friction-marker", label: "最大靜摩擦力", color: "#c2410c", className: "analysis-marker-maximum" }),
@@ -98,7 +98,7 @@
     function lock() {
       if (typeof document === "undefined") return;
       document.getElementById("technicalPanel")?.classList.remove("is-hidden");
-      const title = document.getElementById("technicalTitle"); if (title) title.textContent = "活動暫時鎖定";
+      const title = document.getElementById("technicalTitle"); if (title) title.textContent = "活動暫時無法使用";
       const text = document.getElementById("technicalMessage"); if (text) text.textContent = message;
       document.querySelectorAll("[data-action], input, select, .drag-target").forEach((node) => { node.disabled = true; node.setAttribute("aria-disabled", "true"); });
       document.getElementById("app")?.setAttribute("data-presentation", "technical");
@@ -124,6 +124,7 @@
     let experimentAccumulatorS = 0;
     let experimentQuality = null;
     let experimentTimedOut = false;
+    let experimentStatusOverride = null;
     let previousFrameMs = null;
     let experimentInputQueue = null;
     let experimentInputPageOriginMs = 0;
@@ -144,6 +145,7 @@
     let balanceDrawMode = "applied";
     let balanceDrawings = { applied: null, friction: null };
     let balanceDrawingsSource = null;
+    let balanceFrictionCleared = false;
     let balanceMotionRaf = null;
     let balanceMotionActive = false;
     let balanceMotionOffsetM = 0;
@@ -220,7 +222,7 @@
         resetExperimentRig();
       }
       saveDraft();
-      announce(`已切換到 ${({ balance: "A 力平衡", experiment: "B 實驗", analysis: "C 圖上標記", predict: "D 預測" })[phase] || phase}`);
+      announce(`已切換到 ${({ balance: "A 水平受力", experiment: "B 實驗", analysis: "C 圖上標記", predict: "D 預測" })[phase] || phase}`);
     }
     function setLockedPresentation(locked) {
       if (typeof document === "undefined") return;
@@ -323,6 +325,7 @@
       } : null);
       if (balanceDrawingsSource === key) return;
       balanceDrawingsSource = key;
+      balanceFrictionCleared = source?.learnerForce?.committed === true && source.learnerForce.frictionType === "none";
       balanceDrawings = {
         applied: source?.learnerAppliedForce ? { direction: source.learnerAppliedForce.direction, magnitudeCN: source.learnerAppliedForce.magnitudeCN } : null,
         friction: source?.learnerForce?.frictionType && source.learnerForce.frictionType !== "none" ? { direction: source.learnerForce.direction, magnitudeCN: source.learnerForce.frictionMagnitudeCN } : null
@@ -387,18 +390,18 @@
         } else if (!state.balance.zeroForce) {
           step = "A1"; title = "先判斷沒有水平拉力時的摩擦力"; text = "請選擇摩擦力的類型、方向和大小。";
         } else if (balanceStaticInteractionActive()) {
-          step = "A2"; title = "直接由物體中央畫出兩個水平力"; text = `先畫${balanceDrawMode === "friction" ? "摩擦力" : "指定拉力"}；箭頭方向和長度代表你的答案。`;
+          step = "A2"; title = "先畫出指定拉力，再判斷是否需要畫出摩擦力"; text = `先畫指定拉力；箭頭方向和長度代表你的答案。`;
         } else if (state.balance.breakaway?.bestPullCN == null) {
           step = "A3"; title = "直接拖拉物體，觀察連續運動"; text = "按住物體中央的拉力箭頭，讓箭頭跟手指向左或向右移動；放手後拉力變為零，若物體正在滑動，滑動摩擦力會使它逐漸減速直至停止。你亦可在物體停下前再次施力，改變其運動。";
         } else if (state.balance.breakaway.learnerMaxCN == null) {
-          step = "A3✓"; title = "已找到開始滑動的臨界力"; text = "根據你觀察到的臨界值，填寫最大靜摩擦力估計。";
+          step = "A3✓"; title = "已找到開始滑動的臨界拉力"; text = "根據你觀察到的臨界拉力，填寫最大靜摩擦力估計。";
         } else {
           step = "A✓"; title = "Part A 三個概念任務已完成"; text = "可以用上方任務列自由切換到 Part B、C 或 D；之後仍可返回修改 Part A。";
         }
       } else if (state.phase === "experiment") {
         step = recorder?.running ? "B2" : state.trial ? "B✓" : "B1";
         if (state.fromReview) {
-          title = "正在修改 Part B 實驗"; text = "按「重新開始」會立即清除舊記錄並開始新的 30 秒拉動。";
+          title = "正在修改 Part B 實驗"; text = "按「重新開始」會清除舊記錄，並開始新的 30 秒記錄。";
         } else if (state.trial) {
           title = "B 記錄已保存"; text = "可以前往 Part C 分析同一張 F拉–t 圖；亦可以自由切換其他任務。";
         } else if (experimentTimedOut) {
@@ -408,7 +411,7 @@
         } else if (recorder?.running) {
           title = "記錄中：逐漸增加拉力至物體開始滑動"; text = experimentAutoKineticHold ? "物體已開始滑動；系統會自動調節拉力，使物體保持接近勻速運動。" : "按住中央小圓點向右拖，逐漸增加拉力，直到物體開始滑動；之後由系統自動調節拉力。";
         } else {
-          title = "先按右邊的「開始 30 秒記錄」"; text = "開始後按住物體中央的小圓點向右拖動，逐漸增加拉力，直到物體開始滑動。";
+          title = "先按「開始 30 秒記錄」"; text = "開始後按住物體中央的小圓點向右拖動，逐漸增加拉力，直到物體開始滑動。";
         }
       } else if (state.phase === "predict") {
         const index = currentPredictionIndex();
@@ -461,6 +464,7 @@
       experimentAccumulatorS = 0;
       experimentQuality = null;
       experimentTimedOut = false;
+      experimentStatusOverride = null;
       previousFrameMs = null;
       experimentInputQueue = null;
       experimentInputPageOriginMs = 0;
@@ -486,6 +490,7 @@
       experimentInputQueue = null;
       experimentInputClockReady = false;
       experimentPendingInputs = [];
+      experimentStatusOverride = message || null;
       stopLoop();
       if (message) setText("experimentStatus", message);
     }
@@ -587,10 +592,10 @@
       if (balanceOffscreen) return "物體已離開畫面；按「物體返回中央」後可以繼續試拉。";
       const velocity = finite(balanceDirectState?.block?.velocityMps);
       const acceleration = finite(balanceDirectState?.block?.accelerationMps2);
-      if (Math.abs(velocity) <= 1e-5) return Math.abs(forceN) > 1e-4 ? "拉力未超過最大靜摩擦力，物體仍然靜止；可以繼續改變拉力。" : "物體目前靜止；按住物體中央的箭頭即可向左或向右施力。";
+      if (Math.abs(velocity) <= 1e-5) return Math.abs(forceN) > 1e-4 ? "拉力未超過最大靜摩擦力，物體仍然靜止；可以繼續改變拉力。" : "物體目前靜止；按住物體中央的拉力箭頭，即可向左或向右施力。";
       if (Math.abs(acceleration) < .035) return "物體正在近似勻速運動；拉力箭頭仍可即時向左或向右改變。";
       if (velocity * acceleration > 0) return "物體正在加速；拉力箭頭仍可即時向左或向右改變。";
-      return "物體正在減速；反方向施力可以令它停下並倒轉方向。";
+      return "物體正在減速；向運動的相反方向施力，可使物體停下並反向運動。";
     }
     function updateBreakawayReadout(forceN = balanceCurrentForceN()) {
       balanceTrialPullCN = clamp(Math.round(Math.abs(forceN) * 10) * 10, 0, 1200);
@@ -654,13 +659,13 @@
       const textClass = `force-builder-label${className.includes("experiment-force-arrow") ? " experiment-force-label" : ""}`;
       const text = svgElement("text", { x: (startX + endX) / 2, y: labelY, "text-anchor": "middle", class: textClass, fill: color }); text.appendChild(document.createTextNode(label)); svg.append(text);
     }
-    function experimentFeedbackText() {
-      if (state?.trial) return experimentTimedOut ? "30 秒記錄已自動停止並保存，可以前往 Part C 分析。" : "記錄已保存，可以前往 Part C 分析。";
+    function experimentStatusText() {
+      if (experimentStatusOverride) return experimentStatusOverride;
+      if (state?.trial) return "記錄已保存，可以前往 Part C。";
       if (experimentTimedOut) return "時間已經超時，請重新開始記錄。";
       if (!recorder?.running || !directExperimentState) return "尚未開始記錄。";
       if (experimentAutoKineticHold) return "物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。";
-      if (directExperimentState.contact?.mode === "static" || Math.abs(finite(directExperimentState.block?.velocityMps)) < 0.015) return "記錄中：逐漸增加拉力，直到物體開始滑動。";
-      return "記錄中：逐漸增加拉力，直到物體開始滑動。";
+      return "記錄中：逐漸增加拉力。";
     }
     function renderExperimentForceGraph(svg) {
       let defs = svg.querySelector("defs");
@@ -825,7 +830,7 @@
         const predictionHandle = q("predictionFriction"); if (predictionHandle) { positionApparatusTarget(predictionHandle, endpoint, comY); predictionHandle.setAttribute("aria-label", `D${index + 1} 摩擦力箭頭，目前 ${frictionN > .01 ? `${frictionN.toFixed(2)} 牛頓、方向${response?.direction === "left" ? "向左" : "向右"}` : "未畫出（0 牛頓）"}`); }
         setText("predictionReadout", `D${index + 1}：已知拉力 ${(spec?.pullN || 0).toFixed(1)} N；初速度 ${(spec?.velocityMps || 0).toFixed(2)} m/s；畫出的摩擦力 ${frictionN > .01 ? `${frictionN.toFixed(2)} N` : "0 N"}。`);
       }
-      setText("experimentFeedback", experimentFeedbackText());
+      setText("experimentStatus", experimentStatusText());
     }
     function renderBalance() {
       if (!state) return;
@@ -846,7 +851,8 @@
       const friction = balanceDrawings.friction;
       const directionText = (direction) => direction === "left" ? "向左" : "向右";
       setText("staticAppliedReadout", applied ? `你的拉力：${directionText(applied.direction)} ${(applied.magnitudeCN / 100).toFixed(1)} N` : "你的拉力：尚未畫出");
-      setText("staticFrictionReadout", friction ? `你的摩擦力：${directionText(friction.direction)} ${(friction.magnitudeCN / 100).toFixed(1)} N（靜摩擦力）` : "你的摩擦力：尚未畫出（代表沒有摩擦力）");
+      const frictionExplicitlyNone = balanceFrictionCleared;
+      setText("staticFrictionReadout", friction ? `你的摩擦力：${directionText(friction.direction)} ${(friction.magnitudeCN / 100).toFixed(1)} N（靜摩擦力）` : frictionExplicitlyNone ? "你的摩擦力：沒有摩擦力" : "你的摩擦力：未畫出（若直接保存，將視為沒有摩擦力）");
       document.querySelectorAll("[data-balance-drawing]").forEach((node) => node.setAttribute("aria-pressed", String(node.dataset.action === `draw-${balanceDrawMode}`)));
       setText("save-zero-force", state.balance.zeroForce?.committed ? "更新 A1 判斷" : "保存 A1 判斷");
       setText("save-static-force", state.balance.staticCase?.learnerAppliedForce?.committed ? "更新 A2 力平衡判斷" : "保存 A2 力平衡判斷");
@@ -867,7 +873,7 @@
     function renderQuality() {
       const box = q("trialQuality"); if (!box || !experimentQuality) return;
       box.classList.remove("is-hidden"); box.textContent = experimentQuality.neutralMessage;
-      setText("experimentStatus", state?.trial ? (experimentTimedOut ? "30 秒記錄已自動停止並保存，可以前往 Part C 分析。" : "已保存這次實驗，可以前往 Part C 分析。") : experimentQuality.neutralMessage);
+      setText("experimentStatus", state?.trial ? "這次記錄符合要求，可以進入 Part C。" : experimentQuality.neutralMessage);
     }
     function stopLoop() {
       if (loop != null) {
@@ -887,7 +893,8 @@
       experimentAppliedForceN = 0;
       experimentAutoKineticHold = false;
       experimentAutoHoldElapsedS = 0;
-      setText("experimentStatus", "這次記錄中斷，資料未能保存。請重新開始。");
+      experimentStatusOverride = "這次記錄中斷，資料未能保存。請重新開始。";
+      setText("experimentStatus", experimentStatusOverride);
       announce("記錄中斷，請重新開始");
       render();
       return { running: false, abortedOnStall: true, steps: 0 };
@@ -932,7 +939,7 @@
             if (experimentInputQueue) experimentInputQueue.entries.length = 0;
             experimentPendingInputs = [];
             announce("物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動");
-            setText("experimentStatus", "物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。請稍後按「停止並保存記錄」。");
+            setText("experimentStatus", "物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。");
           }
         }
         directExperimentState = nextPhysical;
@@ -974,7 +981,7 @@
       resetExperimentInputQueue(options.pageNowMs ?? currentPageClockMs());
       markRecordingActive(true);
       announce("記錄開始");
-      setText("experimentStatus", "記錄中：逐漸增加物體中央的向右拉力，直到物體開始滑動；30 秒內完成。");
+      setText("experimentStatus", "記錄中：逐漸增加拉力。");
       renderApparatus();
       if (!options.manualClock) startLoop();
       // The first delivered frame establishes the recording clock.  A slow
@@ -1012,7 +1019,7 @@
       saveDraft();
       const started = startRecording();
       if (started) {
-        setText("experimentStatus", "已重新開始記錄：逐漸增加向右拉力，直到物體開始滑動；30 秒內完成。");
+        setText("experimentStatus", "記錄中：逐漸增加拉力。");
         announce("已重新開始記錄");
       }
       render();
@@ -1031,7 +1038,7 @@
         experimentInputClockReady = false;
         experimentPendingInputs = [];
         experimentAutoHoldElapsedS = 0;
-        experimentQuality = { valid: false, neutralMessage: stopped.reason === "sensor-overrange" ? "拉力超出可記錄範圍，請重新開始並減少拉力。" : "這次記錄未能安全保存，請重新開始。" };
+        experimentQuality = { valid: false, neutralMessage: stopped.reason === "sensor-overrange" ? "測力計讀數超出量程。請重新開始，並減少拉力。" : "這次記錄未能安全保存。請重新開始。" };
         setText("experimentStatus", experimentQuality.neutralMessage);
         announce("記錄未保存，請重新開始");
         render();
@@ -1051,9 +1058,9 @@
         state = Persistence.transitions.acceptTrial(state, stopped.trial);
         analysisDraft = null;
         saveDraft();
-        setText("experimentStatus", timedOut ? "30 秒記錄已自動停止並保存，可以前往 Part C 分析這張 F拉–t 圖。" : "記錄已保存，可以前往 Part C 分析這張 F拉–t 圖。");
+        setText("experimentStatus", "這次記錄符合要求，可以進入 Part C。");
       } else {
-        const message = timedOut ? "30 秒記錄已結束；這次記錄未能形成可分析資料，請重新開始。" : quality.neutralMessage;
+        const message = quality.neutralMessage;
         experimentQuality = { ...quality, neutralMessage: message };
         setText("experimentStatus", message);
       }
@@ -1210,7 +1217,7 @@
           target.setAttribute("aria-label", `${marker.label}位置，尚未標示；拖動此圓點到圖線上的位置`);
         }
       });
-      setText("graphCursorReadout", readouts.length ? readouts.join("；") : "尚未標示任何位置；請拖動圖上的三個標記。 ");
+      setText("graphCursorReadout", readouts.length ? readouts.join("；") : "尚未標示任何位置；請拖動圖上的三個標記。");
     }
     function ensureAnalysisDraft() {
       if (!state?.trial) return null;
@@ -1237,7 +1244,7 @@
         const sample = selectedIndex == null ? null : decoded.merged[clamp(Math.round(selectedIndex), 0, decoded.merged.length - 1)];
         const canonicalIndex = Number.isInteger(state.analysis?.[marker.key]?.index) ? state.analysis[marker.key].index : null;
         const dirty = selectedIndex !== canonicalIndex;
-        const status = dirty ? "・有未保存修改" : Persistence.analysisTaskComplete(marker.key, state.analysis?.[marker.key]) ? "・已保存" : "";
+        const status = dirty ? "・有未保存的修改" : Persistence.analysisTaskComplete(marker.key, state.analysis?.[marker.key]) ? "・已保存" : "";
         return `<div class="analysis-marker-row"><span class="analysis-marker-swatch ${marker.className}" aria-hidden="true"></span><span><strong>C${index + 1}　${marker.label}</strong><small>${sample ? `${sample.timeS.toFixed(2)} s，${sample.measuredPullN.toFixed(2)} N` : "未標示"}${status}</small></span></div>`;
       }).join("");
       host.innerHTML = `<div class="analysis-marker-card"><p><strong>操作：</strong>直接拖動圖上的三個標記；完成後按保存。</p><div class="analysis-marker-list">${rows}</div><p class="instruction">標記可隨時再拖動修改。</p></div>`;
@@ -1287,13 +1294,13 @@
       const response = answers[activeIndex] || {};
       const magnitude = Number.isInteger(response.magnitudeCN) ? response.magnitudeCN : null;
       const magnitudeText = magnitude == null ? "尚未畫出" : `${(magnitude / 100).toFixed(2)} N`;
-      const velocityText = spec.velocityMps > 0 ? `物體正向右移動，初速度：<var>v</var> = ${spec.velocityMps.toFixed(2)} m/s` : `物體初速度：<var>v</var> = 0.00 m/s`;
-      const kineticPrompt = spec.frictionType === "kinetic" ? "請以本次實驗建立的模型，估計此情境中摩擦力的平均大小；不需要考慮表面位置的微小差異。" : "";
-      const forceReadoutLabel = spec.frictionType === "kinetic" ? "畫出的平均摩擦力估值" : "畫出的摩擦力";
+      const velocityText = spec.velocityMps > 0 ? `物體正以 ${spec.velocityMps.toFixed(2)} m/s 向右運動` : "物體初速度為 0.00 m/s";
+      const kineticPrompt = spec.frictionType === "kinetic" ? "請估計此情境中摩擦力的平均大小。" : "";
+      const forceReadoutLabel = spec.frictionType === "kinetic" ? "你估計的摩擦力平均大小" : "畫出的摩擦力";
       const card = document.createElement("article");
       card.className = "prediction-card prediction-card-active";
       card.dataset.predictionIndex = activeIndex;
-      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">先由物體中央旁的藍色小圓點拖出摩擦力箭頭；不畫箭頭代表沒有摩擦力。畫出箭頭後，選擇它是靜摩擦力還是滑動摩擦力。</p>${kineticPrompt ? `<p class="prediction-average-prompt">${kineticPrompt}</p>` : ""}<p class="prediction-scenario">已知向右拉力：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；${velocityText}</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">${forceReadoutLabel}：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
+      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">請根據以下情境畫出摩擦力，並選擇摩擦力類型及運動結果。</p>${kineticPrompt ? `<p class="prediction-average-prompt">${kineticPrompt}</p>` : ""}<p class="prediction-scenario">已知向右拉力：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；${velocityText}</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">${forceReadoutLabel}：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
       if (response.committed && !state.fromReview && activeIndex < scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<button type="button" data-action="advance-prediction" class="next-button">下一題 D${activeIndex + 2}</button>`);
       if (response.committed && !state.fromReview && activeIndex >= scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<p class="neutral-status">四題已保存；亦可直接前往提交前檢查。</p>`);
       host.append(card);
@@ -1347,23 +1354,23 @@
         if (!found.type) missing.push("摩擦力類型"); if (!found.direction) missing.push("方向"); if (!found.magnitude) missing.push("大小");
       } else if (key === "static-case") {
         if (!found.appliedDirection) missing.push("拉力方向"); if (!found.appliedMagnitude) missing.push("拉力大小"); if (!found.type) missing.push("摩擦力類型"); if (!found.direction) missing.push("摩擦力方向"); if (!found.magnitude) missing.push("摩擦力大小");
-      } else if (key === "maximum-static-friction" && Object.hasOwn(found || {}, "toleranceN")) return "估計值未落在容許誤差內，或尚未保存";
-      else if (key === "breakaway") return "未能保存清楚記錄物體開始滑動過程的有效資料。";
-      else if (key === "continued-motion") return "物體開始滑動後的記錄時間不足。";
-      else if (key === "static-friction") return "標記未保存，或未位於物體仍靜止且拉力逐漸增加的區段。";
-      else if (key === "maximum-static-friction") return "標記未保存，或未位於物體剛開始滑動的時刻附近。";
-      else if (key === "kinetic-friction") return "標記未保存，或未位於物體開始滑動後近似勻速運動的區段。";
+      } else if (key === "maximum-static-friction" && Object.hasOwn(found || {}, "toleranceN")) return "估計值尚未保存，或超出容許誤差範圍";
+      else if (key === "breakaway") return "未保存到能清楚顯示物體開始滑動的有效記錄";
+      else if (key === "continued-motion") return "物體開始滑動後的記錄時間不足";
+      else if (key === "static-friction") return "標記尚未保存，或不在物體仍靜止且拉力逐漸增加的區段";
+      else if (key === "maximum-static-friction") return "標記尚未保存，或不在物體剛開始滑動的時刻附近";
+      else if (key === "kinetic-friction") return "標記尚未保存，或不在物體開始滑動後近似勻速運動的區段";
       else {
         if (!found.type) missing.push("摩擦力類型"); if (!found.direction) missing.push("方向"); if (!found.magnitude) missing.push("大小"); if (!found.outcome) missing.push("運動結果");
       }
-      return missing.length ? `${missing.join("、")}未得分` : "未完成或答案不符";
+      return missing.length ? `以下部分未得分：${missing.join("、")}` : "未完成，或答案不符合要求";
     }
     function scoreBreakdownMarkup(result, currentScenario) {
       const breakdown = result?.breakdown;
       if (!breakdown) return '<p class="neutral-status">只能顯示已保存的總分，無法還原各小題得分。</p>';
       const groups = [
         { key: "balance", title: "Part A：水平方向受力與最大靜摩擦力", items: [["zero-force", "A1 零拉力判斷", 4], ["static-case", "A2 力平衡判斷", 6], ["maximum-static-friction", "A3 最大靜摩擦力估計", 10]] },
-        { key: "experiment", title: "Part B：拉力—時間實驗", items: [["breakaway", "B1 觀察開始滑動", 10], ["continued-motion", "B2 觀察持續移動", 10]] },
+        { key: "experiment", title: "Part B：拉力—時間實驗", items: [["breakaway", "B1 記錄物體開始滑動", 10], ["continued-motion", "B2 記錄滑動後的持續運動", 10]] },
         { key: "analysis", title: "Part C：圖上標記", items: [["static-friction", "C1 靜摩擦力位置", 13], ["maximum-static-friction", "C2 最大靜摩擦力位置", 14], ["kinetic-friction", "C3 滑動摩擦力位置", 13]] },
         { key: "predictions", title: "Part D：情境預測", items: (currentScenario?.predictions || []).map((spec, index) => [spec.scenarioId || spec.id || `D${index + 1}`, `${spec.id || `D${index + 1}`} 預測`, 5]) }
       ];
@@ -1378,7 +1385,7 @@
           const points = Number.isFinite(found.points) ? found.points : 0;
           const lost = Math.max(0, max - points);
           const reason = scoreDetailReason(key, { ...found, points, max });
-          const status = lost === 0 ? "未扣分" : `扣 ${lost} 分：${reason}`;
+          const status = lost === 0 ? "滿分" : `扣 ${lost} 分：${reason}`;
           const statusClass = lost === 0 ? "score-full" : points === 0 ? "score-zero" : "score-partial";
           return `<li class="score-breakdown-row"><span>${label}</span><strong>${points} / ${max}</strong><em class="${statusClass}">${status}</em></li>`;
         }).join("");
@@ -1389,10 +1396,10 @@
       const panel = q("resultPanel"); if (!panel || !latestResult || !mayRevealCorrectness(presentation)) return;
       const label = latestResult.passed === true ? "已通過" : latestResult.passed === false ? "未通過" : "暫時無法確認是否通過。";
       panel.classList.remove("is-hidden");
-      const explanation = scenario ? `<details><summary>本次模擬的參考值</summary><p>本次模擬參考值：物體質量 ${scenario.massKg.toFixed(1)} kg；最大靜摩擦力約 ${scenario.staticLimitMeanN.toFixed(2)} N；平均滑動摩擦力約 ${scenario.kineticFrictionMeanN.toFixed(2)} N。</p></details>` : "<p>只能顯示已保存的總分，無法還原各小題得分。</p>";
+      const explanation = scenario ? `<details><summary>本次模擬的參考值</summary><p>物體質量 ${scenario.massKg.toFixed(1)} kg；最大靜摩擦力約 ${scenario.staticLimitMeanN.toFixed(2)} N；平均滑動摩擦力約 ${scenario.kineticFrictionMeanN.toFixed(2)} N。</p></details>` : "<p>只能顯示已保存的總分，無法還原各小題得分。</p>";
       const graphSummary = state?.trial ? `<section class="result-analysis-summary"><h3>Part C 圖上標記結果</h3><p>上方只讀 <var>F</var><sub>拉</sub>–<var>t</var> 圖顯示你的三個標記及正確範圍；圖下列出各標記的時間和拉力讀數。</p></section>` : "";
       const finishRetry = presentation === "submitted-committed" ? '<button type="button" data-action="retry-finish">重試完成提交</button>' : "";
-      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已保存的成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p>${graphSummary}<p class="result-neutral">以下列出各部分及各小題的得分與扣分原因；「未扣分」表示該小題取得滿分。</p>${scoreBreakdownMarkup(latestResult, scenario)}<ul>${(latestResult.feedbackItems || []).map((item) => `<li>${item}</li>`).join("")}</ul>${explanation}${finishRetry}`;
+      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已保存的成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p>${graphSummary}<p class="result-neutral">以下列出各部分及各小題的得分與扣分原因。</p>${scoreBreakdownMarkup(latestResult, scenario)}${explanation}${finishRetry}`;
     }
     function render() {
       if (typeof document === "undefined") return;
@@ -1401,7 +1408,7 @@
       else {
         showPanel(presentation === "trusted-finished-review" || presentation.startsWith("submitted") ? "review" : state.phase); renderApparatus(); renderBalance();
         if (state.phase === "experiment" && experimentQuality) renderQuality();
-        if (state.phase === "experiment" && state.trial && !experimentQuality) setText("experimentStatus", "B 記錄已保存，可以前往 Part C 分析這張 F拉–t 圖。");
+        if (state.phase === "experiment" && state.trial && !experimentQuality) setText("experimentStatus", "記錄已保存，可以前往 Part C。");
         if (state.phase === "analysis") renderAnalysisTasks(); if (state.phase === "predict") renderPredictions(); if (state.phase === "review") renderReview(); renderResult();
       }
       const experimentReview = state?.fromReview && state.working?.reviewEditTarget?.section === "experiment";
@@ -1421,7 +1428,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1472,7 +1479,7 @@
         }
         if (typeof document !== "undefined") { setText("technicalTitle", "提交暫時未完成"); setText("technicalMessage", "暫時無法確認提交結果；請稍後重試。"); } render(); return false;
       }
-      presentation = "load-error"; if (typeof document !== "undefined") { setText("technicalTitle", "活動暫時鎖定"); setText("technicalMessage", "暫時無法讀取這次活動，未能確認本次作答；請稍後重試。"); } render(); return false;
+      presentation = "load-error"; if (typeof document !== "undefined") { setText("technicalTitle", "活動暫時無法使用"); setText("technicalMessage", "暫時無法讀取這次活動，未能確認本次作答；請稍後重試。"); } render(); return false;
     }
     function focusAfterAction(action) {
       if (["edit-experiment", "request-redo-experiment"].includes(action)) { if (redoExperimentPending) focusNode(q("[data-action='confirm-redo-experiment']")); else focusPhase(); return; }
@@ -1516,8 +1523,8 @@
             state = Persistence.transitions.setZeroForceAnswer(state, { frictionType: type, direction, frictionMagnitudeCN: magnitudeCN, committed: true }); balanceInteractionMode = "static"; balanceDrawMode = "applied"; saveDraft();
           }
           else if (action === "draw-applied") { balanceInteractionMode = "static"; balanceDrawMode = "applied"; announce("請由物體中央拖出指定拉力箭頭"); }
-          else if (action === "draw-friction") { balanceInteractionMode = "static"; balanceDrawMode = "friction"; announce("請由物體中央拖出摩擦力箭頭；不畫箭頭代表沒有摩擦力"); }
-          else if (action === "clear-friction") { balanceInteractionMode = "static"; balanceDrawings.friction = null; balanceDrawMode = "friction"; announce("已清除摩擦力箭頭，代表沒有摩擦力"); }
+          else if (action === "draw-friction") { balanceInteractionMode = "static"; balanceDrawMode = "friction"; balanceFrictionCleared = false; announce("請由物體中央拖出摩擦力箭頭；不畫箭頭代表沒有摩擦力"); }
+          else if (action === "clear-friction") { balanceInteractionMode = "static"; balanceDrawings.friction = null; balanceFrictionCleared = true; balanceDrawMode = "friction"; announce("已清除摩擦力箭頭，代表沒有摩擦力"); }
           else if (action === "reset-balance-object") { cancelBalanceMotion(); balanceDirectState = Physics.createDirectForceState(scenario, .72); balanceMotionOffsetM = 0; balanceForceEndpointX = null; balanceOffscreen = false; balanceTrialPullCN = 0; balanceTrialRecorded = false; announce("物體已返回中央，可以繼續試拉"); }
           else if (action === "save-static-force") {
             const applied = balanceDrawings.applied;
@@ -1559,7 +1566,7 @@
           else if (action === "edit-analysis") { state = Persistence.transitions.enterReviewEdit(state, "analysis", event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; saveDraft(); }
           else if (action === "edit-predict") { state = Persistence.transitions.enterReviewEdit(state, "predict", Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex ?? 0)); saveDraft(); }
           else if (action === "cancel-review-edit") { state = Persistence.transitions.cancelReviewEdit(state); analysisDraft = null; saveDraft(); }
-          else if (action === "retry-finish") { const outcome = typeof SimScorm !== "undefined" ? SimScorm.retryFinish?.() : null; if (outcome?.ok) { presentation = "submitted-success"; render(); } else if (outcome?.committed) { setText("submitStatus", "完成程序仍未成功；已保留鎖定結果，可稍後重試。"); } }
+          else if (action === "retry-finish") { const outcome = typeof SimScorm !== "undefined" ? SimScorm.retryFinish?.() : null; if (outcome?.ok) { presentation = "submitted-success"; render(); } else if (outcome?.committed) { setText("submitStatus", "答案和分數已安全保存，活動亦已鎖定；請稍後重試完成提交。"); } }
           else if (action === "retry-pending") { const outcome = typeof SimScorm !== "undefined" ? SimScorm.retryPending?.() : null; if (outcome?.ok || outcome?.committed) { pendingRetryAvailable = false; presentation = outcome.finished ? "submitted-success" : "submitted-committed"; render(); } else { setText("technicalMessage", "暫時無法確認提交結果；請稍後再試。"); } }
           else if (action === "submit") submit();
           render();
@@ -1916,7 +1923,7 @@
       const Flow = typeof SimActivityFlow !== "undefined" ? SimActivityFlow : null;
       const callbacks = {
         success: () => { latestResult = result; presentation = "submitted-success"; state = reviewState; render(); focusReviewSurface(); setText("submitStatus", "已提交並完成此活動。"); },
-        committed: () => { latestResult = result; presentation = "submitted-committed"; state = reviewState; render(); focusReviewSurface(); setText("submitStatus", "資料已提交；活動已鎖定，完成程序可稍後重試。"); },
+        committed: () => { latestResult = result; presentation = "submitted-committed"; state = reviewState; render(); focusReviewSurface(); setText("submitStatus", "答案和分數已保存，但系統尚未完成提交；請稍後重試。"); },
         frozen: () => { pendingRetryAvailable = true; presentation = "frozen"; setText("submitStatus", "提交暫時未完成；請稍後重試。"); render(); },
         retry: (outcome) => { if (outcome?.retryable === false) { presentation = "technical"; setText("technicalTitle", "提交暫時未完成"); setText("technicalMessage", "暫時無法確認提交結果；活動已暫時鎖定，請稍後再試。"); } else setText("submitStatus", "提交未完成；請稍後重試。"); render(); if (outcome?.retryable === false) focusNode(q("technicalTitle")); }
       };

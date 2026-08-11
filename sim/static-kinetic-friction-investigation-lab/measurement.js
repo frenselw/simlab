@@ -421,12 +421,12 @@
     const maxForceN = decoded.merged.length ? Math.max(...decoded.merged.map((s) => s.measuredPullN)) : Infinity;
     const valid = Boolean(breakaway && preDuration >= MIN_PREBREAK_DURATION_S && forceRise >= MIN_FORCE_RISE_N && maxForceN <= MAX_FORCE_CN / 100 && postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S);
     const neutralMessage = !breakaway
-      ? "物體尚未開始移動；請慢慢增加拉力後再繼續。"
+      ? "這次記錄未出現物體開始滑動。請重新開始，並逐漸增加拉力，直到物體開始滑動。"
       : postBreakMoveDurationS < MIN_POSTBREAK_MOVE_S
-        ? "物體開始移動後的記錄太短；請繼續拉一段時間再停止。"
+        ? "物體開始滑動後的記錄時間不足。請重新開始，並在物體開始滑動後稍候片刻再停止記錄。"
         : maxForceN > MAX_FORCE_CN / 100
-          ? "拉力超出可記錄範圍；請重新開始並減少拉力。"
-          : valid ? "記錄已完成，可以保存並進入 Part C。" : "記錄未能形成可分析資料，請重新開始。";
+          ? "測力計讀數超出量程。請重新開始，並減少拉力。"
+          : valid ? "這次記錄符合要求，可以進入 Part C。" : "這次記錄未能形成可分析資料。請重新開始。";
     return { valid, breakaway: Boolean(breakaway), preDuration, forceRise, loadingSlopeNPerS, maxForceN, postBreakMoveDurationS, candidates, evidence: { breakaway: Boolean(breakaway), slow: postBreakMoveDurationS >= MIN_POSTBREAK_MOVE_S, acceleration: candidates.acceleration.length > 0, fast: candidates.fast.length > 0 }, neutralMessage };
   }
   return Object.freeze({

@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`48`（2026-08-11；完成 PR #12 student-facing copy polish：Part A 改用「水平方向受力分析」、移除測力計／歸零的開發歷史說明；A3 放手後行為、B 的自動調節拉力及「開始滑動」術語改為物理上準確的文字；C 統一使用「拉力—時間圖／圖上標記」；D、Review、結果頁及技術回饋改用清晰的學習者語言，並保留未完成項目可提交的說明。Runtime build marker 提升至 47。）
+> Plan revision：`49`（2026-08-11；完成 PR #12 第二輪 student-facing copy polish：修正 B 無效記錄、量程及保存提示與實際流程的一致性；A2 改用中性提示、A3 統一「臨界拉力」及反向運動用語；D3／D4 移除隱藏模型說明並簡化題卡；結果頁改用「滿分」、統一扣分原因、移除重複 C 回饋及重複參考值；技術提交狀態改用學生可理解的保存／重試說明；任務列改為「A 水平受力」。Runtime build marker 提升至 48。）
 
 本計劃必須遵從：
 
@@ -113,7 +113,7 @@
 - 隨時重新拖動及保存三個標記，不需要輸入額外數值或選擇區間；
 - Part D 一次只顯示一個 D 題卡，依 D1→D4 順序保存；不畫摩擦力箭頭代表摩擦力為零，畫出後控制欄選擇「靜摩擦力」或「滑動摩擦力」，摩擦力大小由箭頭同步讀數，不設可直接輸入的大小框；
 - Part D 可按「前往提交前檢查」跳過；未保存的 D 題維持 `null`，每題得 0 分；A／B／C／D 任一 Part 都可由任務列進入 review，不以完成度阻塞提交；
-- review 先顯示各 Part 的完成／未完成狀態；提交後顯示每一 Part 及每一可評小題的 `得分／滿分`、`未扣分` 或 `扣 X 分`，未完成小題明確標示為 0 分；
+- review 先顯示各 Part 的完成／未完成狀態；提交後顯示每一 Part 及每一可評小題的 `得分／滿分`、`滿分` 或 `扣 X 分`，未完成小題明確標示為 0 分；
 - review-edit；
 - final submit。
 
@@ -473,7 +473,7 @@ B 是 30 秒限時記錄舞台，空白、recording 及保存後都保留 `0–3
 
 > 時間已經超時，請重新開始記錄。
 
-只有不合格的超時記錄不會成為 C 的資料；有效的 30 秒記錄與手動停止所得的有效記錄使用同一 accepted-trial contract。學生按「重新開始記錄」後，物體、時間及 `F拉–t` 圖全部回到空白狀態。學生可以無限重試，不因超時扣分。
+只有不合格的超時記錄不會成為 C 的資料；有效的 30 秒記錄與手動停止所得的有效記錄使用同一 accepted-trial contract。評估後的無效記錄直接顯示重新開始提示：未開始滑動時要求重新逐漸增加拉力，滑動後記錄不足時要求重新開始並稍候片刻，超出量程時要求減少拉力。學生按「重新開始記錄」後，物體、時間及 `F拉–t` 圖全部回到空白狀態。學生可以無限重試，不因超時扣分。
 
 ### 7.3 即時輔助提示
 
@@ -481,7 +481,7 @@ B 是 30 秒限時記錄舞台，空白、recording 及保存後都保留 `0–3
 
 - 尚未開始滑動：「慢慢增加拉力，直到物體開始滑動。」
 - 已開始滑動：「物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。」
-- 系統接手後不再要求學生根據速度自行加力或減力。
+- 系統接手後不再要求學生根據速度自行加力或減力；`experimentStatus` 只顯示目前記錄狀態，不另設重複的即時說明。
 
 直接拖動的水平位移映射只用於 breakaway 前的逐漸加力；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
 
@@ -527,7 +527,7 @@ C 只要求三個位置，不要求輸入力值、選擇摩擦力類型、選區
 }
 ```
 
-`index` 指向同一張 merged canonical trace。`state.analysis` 永遠是最後一次明確保存的 canonical authority；首次作答或再次拖動的未保存位置只寫入 `working.analysisDraft`，每個 record 可為 `null` 或 `{ index, committed:false }`，不得覆寫 canonical C、不得參與 scoring／review。Pointerup／keyboard step 可各自作一次 LMS checkpoint，reload／離開後返回 C 可繼續；按一次保存才把三項一併寫成 `state.analysis.*.committed:true` 並清空 working draft。控制欄必須逐 marker 區分「已保存」、「有未保存修改」及「尚未標示」，不得用 canonical committed flag 把 dirty 位置稱為已保存。進入 editable review 時保留 `working.analysisDraft`，review summary 明示評分使用已保存標示；返回 C 恢復 draft。Final review wire 只保存 canonical C。保存時必須與保存前 canonical C 比較：同值 no-op 保留 D，改值才原子式清除 D。Review edit 仍使用獨立 `working.editDraft` 指定其中一個 marker，取消修改完整恢復原 authority。
+`index` 指向同一張 merged canonical trace。`state.analysis` 永遠是最後一次明確保存的 canonical authority；首次作答或再次拖動的未保存位置只寫入 `working.analysisDraft`，每個 record 可為 `null` 或 `{ index, committed:false }`，不得覆寫 canonical C、不得參與 scoring／review。Pointerup／keyboard step 可各自作一次 LMS checkpoint，reload／離開後返回 C 可繼續；按一次保存才把三項一併寫成 `state.analysis.*.committed:true` 並清空 working draft。控制欄必須逐 marker 區分「已保存」、「有未保存的修改」及「尚未標示」，不得用 canonical committed flag 把 dirty 位置稱為已保存。進入 editable review 時保留 `working.analysisDraft`，review summary 明示評分使用已保存標示；返回 C 恢復 draft。Final review wire 只保存 canonical C。保存時必須與保存前 canonical C 比較：同值 no-op 保留 D，改值才原子式清除 D。Review edit 仍使用獨立 `working.editDraft` 指定其中一個 marker，取消修改完整恢復原 authority。
 
 C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft working wire 新增 `k.m` 保存三個未提交 marker；同 measurement version、尚未含 `k.m` 的既有 s6 draft 解碼時補 `null`。Measurement contract migration 採明確 header 白名單：只接受 s6 `[6,1,7,4,3]` 及緊接前版 s5 `[5,1,7,4,2]` editable draft，保留與量測 trace 無關的 A／D authority、清除 B trace 及 C marker並回到 `experiment/ready`。未知 future version、mixed version、非數字或缺失 header 一律 fail closed；任何舊 finished review 亦 fail closed，不把舊 trace 重新標示成 v5 後重評。
 
@@ -537,8 +537,8 @@ C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft wor
 
 每個 attempt 由 seed 生成四個情境。畫面一次只顯示目前一題，依次完成 D1、D2、D3、D4；不顯示「正在編輯」或四張同時可操作的題卡。每題要：
 
-1. 直接按住物體中央旁的細小藍色透明拖動點，向左／向右拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力；
-2. 若畫出箭嘴，在控制欄選擇靜摩擦力或滑動摩擦力；方向及大小以舞台箭嘴為準，控制欄只顯示同步讀數，不提供另一個可輸入大小；
+1. 直接按住物體中央旁的細小藍色透明拖動點，向左／向右拖出摩擦力箭頭；不畫箭頭代表沒有摩擦力；
+2. 若畫出箭頭，在控制欄選擇靜摩擦力或滑動摩擦力；方向及大小以舞台箭頭為準，控制欄只顯示同步讀數，不提供另一個可輸入大小；
 3. 選擇運動結果：保持靜止、開始滑動、加速或減速；
 4. 按「保存 Dn 答案」後才進入下一題。已保存的題目在 review 可逐題返回修改；未保存題目不會被系統補上預設答案。
 
@@ -562,7 +562,7 @@ f_s=F_{\text{拉}}
 
 ### D3：物體已經向右滑動，拉力大於滑動摩擦力
 
-題卡明示：「以本次實驗建立的模型，估計此情境中**摩擦力的平均大小**；不需要考慮表面位置的微小差異」，箭嘴 label 顯示「平均摩擦力估值」。提交前不得直接講出「滑動摩擦力」，因摩擦力類型仍是本題計分欄位。
+題卡明示：「請估計此情境中**摩擦力的平均大小**」，箭頭標籤顯示「你估計的摩擦力平均大小」。提交前不得直接講出「滑動摩擦力」，因摩擦力類型仍是本題計分欄位。
 
 權威關係：
 
@@ -1877,7 +1877,7 @@ function trimmedMean(values, trimFraction = 0.10) {
 - 各 marker 對應的概念判斷；
 - 每部分分數；
 - 物理解釋。
-- 逐 Part 及逐小題的得分帳：顯示 `得分／滿分`，滿分項目標示「未扣分」，其餘標示「扣 X 分」；未完成的 A／B／C／D 小題明確列為 0 分及扣分原因。
+- 逐 Part 及逐小題的得分帳：顯示 `得分／滿分`，滿分項目標示「滿分」，其餘標示「扣 X 分」；未完成的 A／B／C／D 小題明確列為 0 分及扣分原因。
 
 結果 presentation 的舞台必須切換到真正可見的只讀 Part C 圖：同時顯示學生三個 marker guide／dot、正確 static-rise／breakaway tolerance／post-breakaway ranges，以及圖下三個 marker 的 `time, F拉` 讀數。所有 `.analysis-marker` drag targets 必須隱藏及鎖定；editable presentation 不得出現正確 range overlay。
 
@@ -2569,7 +2569,7 @@ function submitFinalAnswer() {
 | Outcome | Learner-facing behavior |
 |---|---|
 | `success` | 已提交，locked result |
-| `committed` | 成績已寫入但完成程序未結束；locked；可重試 finish |
+| `committed` | 答案和分數已安全保存，活動已鎖定；提交尚未完成，可稍後重試 |
 | `frozen` | 最終提交狀態未確認；不顯示分數、合格或正確答案 |
 | retryable `retry` | 保留 editable answer，可再嘗試提交 |
 | non-retryable `retry` | technical error；不承諾可以重試 |

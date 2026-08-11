@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>靜摩擦力與滑動摩擦力探究實驗室</title>
   <link rel="stylesheet" href="../shared/styles.css">
-  <link rel="stylesheet" href="styles.css?v=47">
+  <link rel="stylesheet" href="styles.css?v=48">
 </head>
 <body>
 <main id="app" class="friction-app" data-presentation="editable">
@@ -14,13 +14,13 @@
       <h1>靜摩擦力與滑動摩擦力探究實驗室</h1>
     </div>
     <div class="phase-strip" aria-label="活動任務，可自由切換">
-      <button type="button" class="phase-pill" data-action="navigate-phase" data-phase="balance" data-phase-pill="balance">A 力平衡</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="experiment" data-phase-pill="experiment">B 實驗</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="analysis" data-phase-pill="analysis">C 圖上標記</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="predict" data-phase-pill="predict">D 預測</button><button type="button" class="phase-pill phase-pill-review" data-action="navigate-phase" data-phase="review" data-phase-pill="review">檢查與提交</button>
+      <button type="button" class="phase-pill" data-action="navigate-phase" data-phase="balance" data-phase-pill="balance">A 水平受力</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="experiment" data-phase-pill="experiment">B 實驗</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="analysis" data-phase-pill="analysis">C 圖上標記</button><button type="button" class="phase-pill" data-action="navigate-phase" data-phase="predict" data-phase-pill="predict">D 預測</button><button type="button" class="phase-pill phase-pill-review" data-action="navigate-phase" data-phase="review" data-phase-pill="review">檢查與提交</button>
     </div>
   </header>
 
   <div class="friction-shell">
     <section id="stage" class="stage" aria-labelledby="stageTitle">
-      <h2 id="stageTitle" class="sr-only">水平面水平方向受力分析與拉力—時間圖舞台</h2>
+      <h2 id="stageTitle" class="sr-only">水平面上物體的水平受力分析與拉力—時間圖</h2>
       <div id="stageCoach" class="stage-coach" role="note">
         <span id="stageCoachStep" class="stage-coach-step">1</span>
         <strong id="stageCoachTitle">先完成 A1 水平方向受力分析</strong>
@@ -49,7 +49,7 @@
 
     <aside id="controlPanel" class="control-panel" aria-label="活動控制與作答區">
       <section id="technicalPanel" class="panel-section is-hidden" aria-live="polite">
-        <h2 id="technicalTitle">活動暫時鎖定</h2><p id="technicalMessage"></p><div id="technicalActions"></div>
+        <h2 id="technicalTitle">活動暫時無法使用</h2><p id="technicalMessage"></p><div id="technicalActions"></div>
       </section>
       <button type="button" id="cancelReviewEdit" data-action="cancel-review-edit" class="secondary-button is-hidden">取消修改，回到提交前檢查</button>
       <p id="validationStatus" class="neutral-status validation-status is-hidden" tabindex="-1" aria-live="off"></p>
@@ -84,7 +84,7 @@
             <button type="button" id="clear-friction" data-action="clear-friction" data-balance-drawing>不畫摩擦力</button>
           </div>
           <p id="staticAppliedReadout" class="force-builder-readout">你的拉力：尚未畫出</p>
-          <p id="staticFrictionReadout" class="force-builder-readout">你的摩擦力：尚未畫出（代表沒有摩擦力）</p>
+          <p id="staticFrictionReadout" class="force-builder-readout">你的摩擦力：未畫出（若直接保存，將視為沒有摩擦力）</p>
           <div class="save-action-row">
             <button type="button" id="save-static-force" data-action="save-static-force" class="primary-button" data-balance-normal>保存 A2 力平衡判斷</button>
             <p id="staticValidationStatus" class="neutral-status validation-status is-hidden" role="status" aria-live="polite" tabindex="-1"></p>
@@ -113,11 +113,10 @@
       <section id="experimentPanel" class="panel-section is-hidden" data-panel="experiment">
         <p class="section-label">第二階段・直接拖動物體</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
-          <p><strong>活動簡介：</strong>在 30 秒內逐漸增加向右拉力，觀察物體由靜止開始滑動時的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。本活動以測力計讀數表示拉力大小；摩擦力數值未知。物體開始滑動後，系統會自動調節拉力，使物體保持接近勻速運動。</p>
+          <p><strong>活動簡介：</strong>在 30 秒內逐漸增加向右拉力，記錄物體由靜止到開始滑動過程中的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。圖中顯示測力計所量得的拉力；摩擦力大小不會直接顯示。物體開始滑動後，系統會自動調節拉力，使物體作近似勻速運動。</p>
           <div class="experiment-instruction"><strong>操作：</strong>按「開始 30 秒記錄」，再按住物體中央向右拖動，逐漸增加拉力。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始</button></div>
         <p id="experimentStatus" class="neutral-status" aria-live="polite">尚未開始記錄。</p>
-        <p id="experimentFeedback" class="experiment-feedback neutral-status" aria-live="polite">開始記錄後，逐漸增加拉力，直到物體開始滑動。</p>
         <div id="trialQuality" class="quality-card is-hidden"></div>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>
       </section>
@@ -168,12 +167,12 @@
 <script src="../config.js"></script>
 <script src="../shared/scorm.js"></script>
 <script src="../shared/activity-flow.js"></script>
-<script src="generator.js?v=47"></script>
-<script src="physics.js?v=47"></script>
-<script src="measurement.js?v=47"></script>
-<script src="graph.js?v=47"></script>
-<script src="scoring.js?v=47"></script>
-<script src="persistence.js?v=47"></script>
-<script src="main.js?v=47"></script>
+<script src="generator.js?v=48"></script>
+<script src="physics.js?v=48"></script>
+<script src="measurement.js?v=48"></script>
+<script src="graph.js?v=48"></script>
+<script src="scoring.js?v=48"></script>
+<script src="persistence.js?v=48"></script>
+<script src="main.js?v=48"></script>
 </body>
 </html>
