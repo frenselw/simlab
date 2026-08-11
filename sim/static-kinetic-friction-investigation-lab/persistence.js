@@ -26,6 +26,22 @@
   }
   function emptyPredictions() { return [null, null, null, null]; }
   function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null, analysisDraft: null }; }
+  function reviewWorkingFrom(state) {
+    if (!state?.working?.analysisDraft) return null;
+    const working = emptyWorking();
+    working.activeAnalysisTask = Number.isInteger(state?.working?.activeAnalysisTask) ? state.working.activeAnalysisTask : 0;
+    working.analysisDraft = clone(state?.working?.analysisDraft || null);
+    return working;
+  }
+  function committedPredictions(predictions) {
+    return (predictions || emptyPredictions()).map((prediction) => prediction?.committed === true ? clone(prediction) : null);
+  }
+  function restoreWorkingAfterReviewEdit(next, source) {
+    const working = reviewWorkingFrom(source);
+    if (working) next.working = working;
+    else if (next.phase === "review") delete next.working;
+    else next.working = emptyWorking();
+  }
   function freshState(seed) {
     if (!integer(seed) || seed < 0 || seed > 0xffffffff) throw new Error("invalid seed");
     return {
@@ -152,7 +168,7 @@
     if (!exactKeys(state, stateKeys) || state.schemaVersion !== SCHEMA_VERSION || state.generatorVersion !== GENERATOR_VERSION || state.physicsVersion !== PHYSICS_VERSION || state.measurementVersion !== MEASUREMENT_VERSION || state.rubricVersion !== RUBRIC_VERSION || !integer(state.seed) || state.seed < 0 || state.seed > 0xffffffff || !PHASES.includes(state.phase) || typeof state.fromReview !== "boolean" || !exactKeys(state.balance, ["breakaway", "staticCase", "zeroForce"]) || !Array.isArray(state.predictions) || state.predictions.length !== PREDICTION_COUNT || !exactKeys(state.analysis, ANALYSIS_KEYS) || (state.phase !== "review" && !state.working)) throw new Error("invalid state shape");
     if (state.working && !exactKeys(state.working, ["activeBalanceStep", "activeAnalysisTask", "activePredictionIndex", "reviewEditTarget", "editDraft", "analysisDraft"])) throw new Error("invalid working shape");
     if (state.trial != null && (!exactKeys(state.trial, ["sampleDtMs", "regularSampleCount", "forceVelocityBase64", "breakaway"]) || state.trial.breakaway != null && !exactKeys(state.trial.breakaway, ["timeMs", "measuredPullCN", "measuredVelocityMMps", "preBreakPeakGridIndex"]))) throw new Error("invalid trial shape");
-    if (!state.fromReview && state.phase === "review" && state.working && JSON.stringify(state.working) !== JSON.stringify(emptyWorking())) throw new Error("complete review cannot contain working state");
+    if (!state.fromReview && state.phase === "review" && state.working && (state.working.activeBalanceStep !== null || state.working.activePredictionIndex !== 0 || state.working.reviewEditTarget !== null || state.working.editDraft !== null)) throw new Error("review may only retain an analysis working draft");
     if (state.fromReview && state.phase === "review") throw new Error("review-edit must target an editable section");
     if (!validateZeroForceAnswer(state.balance.zeroForce) || !validateStaticCase(state.balance.staticCase) || !validateBreakaway(state.balance.breakaway)) throw new Error("invalid balance answers");
     if (state.balance.zeroForce?.committed !== true && state.balance.staticCase !== null) throw new Error("static task cannot precede zero-force answer");
@@ -209,7 +225,8 @@
     next.balance.zeroForce = clone(learnerForce);
     next.phase = editingReview && !changed ? "review" : "balance";
     next.fromReview = false;
-    next.working = editingReview ? emptyWorking() : (next.working || emptyWorking());
+    if (editingReview) restoreWorkingAfterReviewEdit(next, state);
+    else next.working = next.working || emptyWorking();
     return update(next, {});
   }
   function setStaticForceAnswer(state, applied, learnerAppliedForce, learnerForce) {
@@ -224,7 +241,8 @@
     next.balance.staticCase = candidate;
     next.phase = editingReview && !changed ? "review" : "balance";
     next.fromReview = false;
-    next.working = editingReview ? emptyWorking() : (next.working || emptyWorking());
+    if (editingReview) restoreWorkingAfterReviewEdit(next, state);
+    else next.working = next.working || emptyWorking();
     return update(next, {});
   }
   function recordBreakawayTrial(state, trial) {
@@ -240,7 +258,7 @@
     if (!editingReview && state.phase !== "balance") throw new Error("maximum static-friction answer outside balance phase");
     if (!editingReview && state.balance.breakaway?.bestPullCN === null) throw new Error("find breakaway before answering maximum static friction");
     if (editingReview && (state.working?.reviewEditTarget?.section !== "balance" || state.working.reviewEditTarget.semanticKey !== "breakaway")) throw new Error("maximum static-friction answer is not the review-edit target");
-    const next = clone(state); next.balance.breakaway.learnerMaxCN = learnerMaxCN; next.balance.breakaway.committed = true; next.phase = editingReview ? "review" : "balance"; next.fromReview = false; next.working = editingReview ? emptyWorking() : (next.working || emptyWorking()); return update(next, {});
+    const next = clone(state); next.balance.breakaway.learnerMaxCN = learnerMaxCN; next.balance.breakaway.committed = true; next.phase = editingReview ? "review" : "balance"; next.fromReview = false; if (editingReview) restoreWorkingAfterReviewEdit(next, state); else next.working = next.working || emptyWorking(); return update(next, {});
   }
   function acceptTrial(state, trial) {
     if (state.fromReview || state.phase !== "experiment") throw new Error("trial outside experiment phase");
@@ -269,14 +287,15 @@
       // the complete review row intact, with no dangling working cursor.
       next.phase = "review";
       next.fromReview = false;
-      next.working = emptyWorking();
+      restoreWorkingAfterReviewEdit(next, state);
       return update(next, {});
     }
     next.analysis[key] = replacement;
     if (replacement.committed && changed && next.predictions.some(Boolean)) next.predictions = emptyPredictions();
     next.phase = editingReview ? "predict" : "analysis";
     next.fromReview = editingReview ? false : state.fromReview;
-    next.working = editingReview ? emptyWorking() : clone(state.working);
+    if (editingReview) restoreWorkingAfterReviewEdit(next, state);
+    else next.working = clone(state.working);
     if (!editingReview) next.working.activeAnalysisTask = index;
     return update(next, {});
   }
@@ -341,7 +360,7 @@
         const draft = clone(state); draft.working = { ...draft.working, editDraft: { kind: "prediction", value: clone(prediction) } }; return update(draft, {});
       }
     }
-    const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = index; next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = index; next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) restoreWorkingAfterReviewEdit(next, state); return update(next, {});
   }
   function selectPrediction(state, index) {
     if (!integer(index) || index < 0 || index >= PREDICTION_COUNT || state.fromReview || state.phase !== "predict") throw new Error("invalid prediction selection");
@@ -362,7 +381,12 @@
       const nextUncommitted = next.predictions.findIndex((prediction) => !prediction?.committed);
       next.working.activePredictionIndex = nextUncommitted >= 0 ? nextUncommitted : PREDICTION_COUNT - 1;
     }
-    if (phase === "review") next.working = emptyWorking();
+    if (phase === "review") {
+      next.predictions = committedPredictions(next.predictions);
+      const reviewWorking = reviewWorkingFrom(state);
+      if (reviewWorking) next.working = reviewWorking;
+      else delete next.working;
+    }
     return update(next, {});
   }
   function enterReviewEdit(state, section, semanticKey = null) {
@@ -378,7 +402,11 @@
   }
   function cancelReviewEdit(state) {
     if (!state.fromReview) return clone(state);
-    const next = clone(state); next.phase = "review"; next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.phase = "review"; next.fromReview = false;
+    const reviewWorking = reviewWorkingFrom(state);
+    if (reviewWorking) next.working = reviewWorking;
+    else delete next.working;
+    return update(next, {});
   }
   function redoExperiment(state) {
     if (state.fromReview && state.working?.reviewEditTarget?.section !== "experiment") throw new Error("redo is not the review-edit target");
@@ -386,7 +414,15 @@
     const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.predictions = emptyPredictions(); next.fromReview = false; next.working = emptyWorking(); return update(next, {});
   }
   function normalizeReview(state) {
-    const next = clone(state); next.phase = "review"; next.variant = hasRequiredAuthority(next) ? "complete" : "partial"; next.fromReview = false; delete next.working; return next;
+    const next = clone(state);
+    next.phase = "review";
+    next.predictions = committedPredictions(next.predictions);
+    next.variant = hasRequiredAuthority(next) ? "complete" : "partial";
+    next.fromReview = false;
+    const reviewWorking = reviewWorkingFrom(state);
+    if (reviewWorking) next.working = reviewWorking;
+    else delete next.working;
+    return next;
   }
   const TYPE_CODE = Object.freeze({ none: 0, static: 1, kinetic: 2 });
   const DIR_CODE = Object.freeze({ none: 0, left: 1, right: 2 });
@@ -419,6 +455,14 @@
   function compactTrial(trial) { return trial == null ? null : { d: trial.sampleDtMs, n: trial.regularSampleCount, x: trial.forceVelocityBase64, b: trial.breakaway ? [trial.breakaway.timeMs, trial.breakaway.measuredPullCN, trial.breakaway.measuredVelocityMMps, trial.breakaway.preBreakPeakGridIndex] : null }; }
   function expandTrial(trial) { return trial == null ? null : { sampleDtMs: trial.d, regularSampleCount: trial.n, forceVelocityBase64: trial.x, breakaway: trial.b ? { timeMs: trial.b[0], measuredPullCN: trial.b[1], measuredVelocityMMps: trial.b[2], preBreakPeakGridIndex: trial.b[3] } : null }; }
   const ANALYSIS_WIRE_KEYS = Object.freeze({ staticFriction: "s", maximumStaticFriction: "m", kineticFriction: "k" });
+  const CURRENT_HEADER = Object.freeze([SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION]);
+  const LEGACY_MEASUREMENT_HEADERS = Object.freeze({
+    s6: Object.freeze([6, 1, 7, 4, 3]),
+    s5: Object.freeze([5, 1, 7, 4, 2])
+  });
+  function hasHeader(answer, expected) {
+    return Array.isArray(answer?.v) && answer.v.length === expected.length && answer.v.every((value, index) => value === expected[index]);
+  }
   function compactAnswer(state, includeWorking) {
     validateState(state, { skipVariant: state.phase === "review" });
     const breakaway = state.balance.breakaway;
@@ -428,9 +472,10 @@
   }
   function migrateLegacyAnswer(answer, kind) {
     if (!answer) return answer;
-    if (answer.w === WIRE_VERSION && kind === "draft" && answer.k && !Object.hasOwn(answer.k, "m")) answer = { ...clone(answer), k: { ...clone(answer.k), m: null } };
-    const measurementVersion = Array.isArray(answer.v) ? answer.v[3] : null;
-    if (answer.w === "s5" || (answer.w === WIRE_VERSION && measurementVersion !== MEASUREMENT_VERSION)) {
+    if (answer.w === WIRE_VERSION && hasHeader(answer, CURRENT_HEADER) && kind === "draft" && answer.k && !Object.hasOwn(answer.k, "m")) answer = { ...clone(answer), k: { ...clone(answer.k), m: null } };
+    const knownOldS6 = answer.w === WIRE_VERSION && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s6);
+    const knownS5 = answer.w === "s5" && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s5);
+    if (knownOldS6 || knownS5) {
       if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated across measurement contracts");
       const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
       return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null } };
@@ -467,7 +512,7 @@
     return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null, analysisDraft: answer.k?.m || null } };
   }
   function encodeDraft(state) { validateState(state); return compactAnswer(state, true); }
-  function encodeReview(state) { const review = normalizeReview(state); validateState({ ...review, working: emptyWorking(), variant: "complete" }, { skipVariant: true }); return compactAnswer({ ...review, working: emptyWorking() }, false); }
+  function encodeReview(state) { const review = normalizeReview(state); const canonical = { ...review, working: emptyWorking() }; validateState({ ...canonical, variant: "complete" }, { skipVariant: true }); return compactAnswer(canonical, false); }
   function decodeSnapshot(snapshot, scenario, kind = "draft") {
     if (!snapshot || snapshot.version !== 1 || snapshot.activity !== ACTIVITY || snapshot.kind !== kind || !snapshot.answer) throw new Error("invalid snapshot envelope");
     const wire = migrateLegacyAnswer(snapshot.answer, kind);

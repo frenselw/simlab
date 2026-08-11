@@ -90,6 +90,14 @@ assert.equal(S.scoreAnswer(sparseReview, scenario).breakdown.predictions.score, 
 const sparseReviewWire = P.encodeReview(sparseReview);
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: sparseReviewWire }, scenario, "review"), P.normalizeReview(sparseReview));
 
+// Uncommitted D input is a working draft only. Entering review drops it from
+// both the editable review state and the final canonical review wire.
+const firstPredictionSpec = scenario.predictions[0];
+const uncommittedPrediction = P.transitions.setPrediction(requiredOnly, 0, { id: firstPredictionSpec.id, scenarioId: firstPredictionSpec.scenarioId, frictionType: firstPredictionSpec.frictionType, direction: null, magnitudeCN: null, motionOutcome: null, committed: false });
+const normalizedUncommittedPrediction = P.normalizeReview(uncommittedPrediction);
+assert.equal(normalizedUncommittedPrediction.predictions[0], null, "uncommitted D is null in editable review");
+assert.equal(P.encodeReview(uncommittedPrediction).P[0], null, "uncommitted D is absent from the final review wire");
+
 // A completely unanswered attempt is still a legal review/submit snapshot;
 // scoring, rather than persistence validation, assigns zero to every rubric.
 const blankReview = P.transitions.setPhase(P.freshState(scenario.seed), "review");
@@ -187,6 +195,11 @@ assert.deepEqual(normalAnalysisDraft.analysis, canonicalAnalysis, "leaving C wit
 assert.deepEqual(normalAnalysisDraft.predictions, canonicalPredictions, "leaving C without saving preserves D");
 normalAnalysisDraft = P.transitions.setPhase(normalAnalysisDraft, "analysis");
 assert.equal(normalAnalysisDraft.working.analysisDraft.kineticFriction.index, changedKineticIndex, "returning to C restores the unsaved working draft");
+const dirtyAnalysisReview = roundTrip(P.normalizeReview(normalAnalysisDraft), "review retaining unsaved Part C marker draft");
+assert.deepEqual(dirtyAnalysisReview.analysis, canonicalAnalysis, "review uses only saved Part C authority");
+assert.equal(dirtyAnalysisReview.working.analysisDraft.kineticFriction.index, changedKineticIndex, "editable review retains the unsaved C marker separately");
+const returnedDirtyAnalysis = P.transitions.setPhase(dirtyAnalysisReview, "analysis");
+assert.equal(returnedDirtyAnalysis.working.analysisDraft.kineticFriction.index, changedKineticIndex, "returning from review resumes the unsaved C marker");
 const sameValueSave = P.transitions.setAnalysisMarkers(normalAnalysisDraft, Object.fromEntries(P.ANALYSIS_KEYS.map((key) => [key, { index: canonicalAnalysis[key].index, committed: true }])));
 assert.deepEqual(sameValueSave.analysis, canonicalAnalysis, "saving the original C indices is a semantic no-op");
 assert.deepEqual(sameValueSave.predictions, canonicalPredictions, "same-value normal C save preserves D");
@@ -225,7 +238,7 @@ assert.equal(migratedV4.trial, null);
 assert.deepEqual(migratedV4.analysis, P.emptyAnalysis());
 assert.deepEqual(migratedV4.balance, oldMeasurementState.balance);
 assert.deepEqual(migratedV4.predictions, oldMeasurementState.predictions);
-const oldS5Wire = P.clone(P.encodeDraft(oldMeasurementState)); oldS5Wire.w = "s5";
+const oldS5Wire = P.clone(P.encodeDraft(oldMeasurementState)); oldS5Wire.w = "s5"; oldS5Wire.v = [5, 1, 7, 4, 2]; delete oldS5Wire.k.m;
 const migratedS5 = P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: oldS5Wire }, scenario, "draft");
 assert.equal(migratedS5.trial, null, "s5 traces are cleared even if their header was manually relabelled v5");
 assert.deepEqual(migratedS5.analysis, P.emptyAnalysis());
@@ -234,5 +247,13 @@ const preWorkingDraftWire = P.clone(P.encodeDraft(oldMeasurementState)); delete 
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: preWorkingDraftWire }, scenario, "draft"), oldMeasurementState, "current s6 drafts written before working C draft storage remain compatible");
 const oldV4Review = P.clone(review); oldV4Review.v[3] = 4;
 assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: oldV4Review }, scenario, "review"), /legacy review/, "finished reviews are never silently rescored under a new measurement contract");
+for (const futureOrCorruptMeasurement of [6, 999, "corrupt", null]) {
+  const unsupported = P.clone(P.encodeDraft(oldMeasurementState)); unsupported.v[3] = futureOrCorruptMeasurement;
+  assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: unsupported }, scenario, "draft"), /header/, `measurement header ${String(futureOrCorruptMeasurement)} fails closed`);
+}
+const mixedLegacyHeader = P.clone(P.encodeDraft(oldMeasurementState)); mixedLegacyHeader.v = [6, 1, 6, 4, 3];
+assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: mixedLegacyHeader }, scenario, "draft"), /header/, "mixed old measurement header fails closed");
+const unknownS5Header = P.clone(oldS5Wire); unknownS5Header.v = [5, 1, 99, 4, 2];
+assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: unknownS5Header }, scenario, "draft"), /header/, "unknown s5 header fails closed");
 assert.ok(maximumDraftBytes < 4000, `all production-shaped draft rows fit suspend_data (${maximumDraftBytes} bytes)`);
 console.log("Static/kinetic friction persistence checks passed");

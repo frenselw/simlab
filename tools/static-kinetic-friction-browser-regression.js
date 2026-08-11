@@ -194,6 +194,27 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(delayedFirstFrame.result.abortedOnStall, false, `${label}: a delayed first recording frame only establishes the clock`);
   assert.equal(delayedFirstFrame.running, true, `${label}: confirmation/render delay cannot stop a newly started recorder`);
 
+  const baselineAlignedTraces = await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;
+    const relativeInputs=${JSON.stringify(Array.from({ length: 41 }, (_, index) => ({ timeStampMs: index * 50, forceN: Number((index * .2).toFixed(2)) })))};
+    const durations=${JSON.stringify(frameSchedule(4500, [16, 17, 17]))};
+    const run=(firstFrameMs)=>{
+      const blank=P.freshState(12345);
+      app.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(blank)}});
+      document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
+      app.regression.startExperiment(0);
+      app.regression.advanceExperimentFrame(firstFrameMs);
+      app.regression.queueExperimentForces(relativeInputs.map(input=>({forceN:input.forceN,timeStampMs:firstFrameMs+input.timeStampMs})));
+      let now=firstFrameMs;
+      for(const duration of durations){now+=duration;app.regression.advanceExperimentFrame(now);}
+      if(app.interactionEvidence().recorderRunning)app.regression.finalizeExperiment(false);
+      return app.getState().trial;
+    };
+    return [run(0),run(120)];
+  })()`);
+  assert.ok(baselineAlignedTraces.every(Boolean), `${label}: both first-frame schedules create valid canonical trials`);
+  assert.deepEqual(baselineAlignedTraces[1], baselineAlignedTraces[0], `${label}: rebased timestamped input produces the same packed trace after a 0 or 120 ms first frame`);
+
   await navigate(cdp, url);
   const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); const result=app.regression.advanceExperimentFrame(60); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent,startDisabled:document.getElementById('startRecording').disabled}; })()`);
   assert.equal(stalled.result.abortedOnStall, true, `${label}: a production frame gap over 50 ms aborts without catch-up`);
@@ -227,10 +248,11 @@ async function semanticSmoke(cdp, url, label) {
   await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'); type.value='none'; type.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce"), null, `${label}: choosing only 'no friction' cannot auto-fill A1 direction or magnitude`);
-  await evaluate(cdp, `(() => { const direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); direction.value='right'; direction.dispatchEvent(new Event('change',{bubbles:true})); magnitude.value='0'; magnitude.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
+  const inconsistentA1Visual = await evaluate(cdp, `(() => { const direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); direction.value='right'; direction.dispatchEvent(new Event('change',{bubbles:true})); magnitude.value='1'; magnitude.dispatchEvent(new Event('input',{bubbles:true})); const arrow=document.querySelector('#apparatusSvg .learner-friction-arrow'),label=[...document.querySelectorAll('#apparatusSvg .force-builder-label')].find(node=>/摩擦力/.test(node.textContent)); return {x1:Number(arrow?.getAttribute('x1')),x2:Number(arrow?.getAttribute('x2')),label:label?.textContent}; })()`);
+  assert.ok(inconsistentA1Visual.x2 > inconsistentA1Visual.x1 && inconsistentA1Visual.label === "摩擦力 1.0 N", `${label}: A1 stage faithfully draws the selected direction and magnitude even when the selected type is no friction ${JSON.stringify(inconsistentA1Visual)}`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
   const completeWrongA1 = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,S=window.StaticKineticFrictionScoring;const state=app.getState();return {answer:state.balance.zeroForce,points:S.balanceScore(state,app.getScenario()).detail.find(item=>item.key==='zero-force').points,validationHidden:document.getElementById('zeroValidationStatus').classList.contains('is-hidden')}; })()`);
-  assert.deepEqual(completeWrongA1, { answer: { frictionType: "none", direction: "right", frictionMagnitudeCN: 0, committed: true }, points: 3, validationHidden: true }, `${label}: complete but physically inconsistent A1 answers save and receive component credit`);
+  assert.deepEqual(completeWrongA1, { answer: { frictionType: "none", direction: "right", frictionMagnitudeCN: 100, committed: true }, points: 1, validationHidden: true }, `${label}: complete but physically inconsistent A1 answers save and receive component credit`);
   await evaluate(cdp, "window.__staticKineticFrictionApp.routeAttempt({state:'new'})");
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const blankDPredict = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, buttonDisabled:document.querySelector('[data-action=to-review]').disabled }))()");
@@ -251,6 +273,11 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(blankC.phase, "analysis", `${label}: blank Part B lower button reaches Part C`);
   assert.equal(blankC.analysisVisible, true, `${label}: blank Part B lower button shows Part C`);
   assert.match(blankC.text, /沒有可分析的實驗記錄/, `${label}: blank Part C explains its missing B trace without blocking navigation`);
+  const blankCPredictButton = await evaluate(cdp, "(() => ({ disabled:document.getElementById('to-predict').disabled, validation:document.getElementById('validationStatus').textContent }))()");
+  assert.deepEqual(blankCPredictButton, { disabled: false, validation: "" }, `${label}: blank Part C keeps the lower Part D navigation available without validation`);
+  await tapSelector(cdp, "#to-predict");
+  const blankDPredictFromC = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, predictVisible:!document.getElementById('predictPanel').classList.contains('is-hidden'), validation:document.getElementById('validationStatus').textContent }))()");
+  assert.deepEqual(blankDPredictFromC, { phase: "predict", predictVisible: true, validation: "" }, `${label}: blank Part C lower Part D button navigates like the upper phase menu`);
   await evaluate(cdp, "window.__staticKineticFrictionApp.routeAttempt({state:'new'})");
   await evaluate(cdp, `(() => { const set=(id,value,eventName='change')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(eventName,{bubbles:true}))}; set('zeroFrictionType','none');set('zeroFrictionDirection','none');set('zeroFrictionMagnitude','0','input');return true; })()`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
@@ -462,11 +489,13 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(blankMarkerVisuals.every((marker) => Math.abs(marker.width - marker.height) < 1), true, `${label}: C draggable markers keep a circular touch target ${JSON.stringify(blankMarkerVisuals)}`);
   assert.equal(Math.max(...blankMarkerVisuals.map((marker) => marker.top)) - Math.min(...blankMarkerVisuals.map((marker) => marker.top)) < 1, true, `${label}: unselected C markers share one horizontal drag row ${JSON.stringify(blankMarkerVisuals)}`);
   const blankMarker = await evaluate(cdp, `(() => { const node=document.getElementById('maximumStaticFrictionMarker'),r=node.getBoundingClientRect(),state=window.__staticKineticFrictionApp.getState(); return {x:r.left+r.width/2,y:r.top+r.height/2,index:state.working.analysisDraft?.maximumStaticFriction || state.analysis.maximumStaticFriction}; })()`);
+  await evaluate(cdp, `(() => { window.__originalSaveDraft=window.SimScorm.saveDraft;window.__analysisDraftCommits=0;window.SimScorm.saveDraft=(...args)=>{window.__analysisDraftCommits+=1;return window.__originalSaveDraft(...args)};return true; })()`);
   await touch(cdp, { x: blankMarker.x, y: blankMarker.y }, { x: blankMarker.x + 8, y: blankMarker.y });
-  const draggedMarker = await evaluate(cdp, `(() => { const node=document.getElementById('maximumStaticFrictionMarker'),r=node.getBoundingClientRect(),state=window.__staticKineticFrictionApp.getState(); return {x:r.left+r.width/2,y:r.top+r.height/2,index:state.working.analysisDraft?.maximumStaticFriction?.index}; })()`);
+  const draggedMarker = await evaluate(cdp, `(() => { const node=document.getElementById('maximumStaticFrictionMarker'),r=node.getBoundingClientRect(),state=window.__staticKineticFrictionApp.getState(),commits=window.__analysisDraftCommits;window.SimScorm.saveDraft=window.__originalSaveDraft;delete window.__originalSaveDraft;return {x:r.left+r.width/2,y:r.top+r.height/2,index:state.working.analysisDraft?.maximumStaticFriction?.index,commits}; })()`);
   assert.equal(blankMarker.index, null, `${label}: an unselected C marker starts without an answer`);
   assert.ok(Number.isInteger(draggedMarker.index) && draggedMarker.index > 10, `${label}: dragging an unselected C marker uses its graph position instead of jumping to sample zero ${JSON.stringify({ blankMarker, draggedMarker })}`);
   assert.ok(Math.abs(draggedMarker.x - blankMarker.x) < 24, `${label}: the first C marker drag follows the pointer without a large jump ${JSON.stringify({ blankMarker, draggedMarker })}`);
+  assert.equal(draggedMarker.commits, 1, `${label}: one C pointerup checkpoints the marker draft exactly once`);
   await evaluate(cdp, analysisFixtureScript(0));
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const earlyPrediction = await evaluate(cdp, "(() => { const card=document.querySelector('#predictionCards [data-prediction-index=\"0\"]'); return { phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards [data-prediction-index]').length, firstEnabled:!card.querySelector('select').disabled, progress:document.querySelectorAll('.prediction-progress-step').length, numericInput:Boolean(card.querySelector('input[type=number]')) }; })()");
@@ -489,7 +518,10 @@ async function semanticSmoke(cdp, url, label) {
   await navigate(cdp, url);
   await evaluate(cdp, analysisFixtureScript(0));
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
+  await evaluate(cdp, `(() => { window.__originalSaveDraft=window.SimScorm.saveDraft;window.__analysisDraftCommits=0;window.SimScorm.saveDraft=(...args)=>{window.__analysisDraftCommits+=1;return window.__originalSaveDraft(...args)};return true; })()`);
   await pressKeyOn(cdp, "#staticFrictionMarker", "ArrowRight");
+  const keyboardDraftCommits = await evaluate(cdp, `(() => { const commits=window.__analysisDraftCommits;window.SimScorm.saveDraft=window.__originalSaveDraft;delete window.__originalSaveDraft;return commits; })()`);
+  assert.equal(keyboardDraftCommits, 1, `${label}: one C keyboard step checkpoints the marker draft exactly once`);
   const partial = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;const state=app.getState();window.__analysisSnapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(state)};app.routeAttempt({state:'draft',snapshot:window.__analysisSnapshot});const restored=app.getState(),draft=restored.working.analysisDraft;return {variant:restored.variant,active:restored.working.activeAnalysisTask,canonical:restored.analysis.staticFriction,selected:draft.staticFriction?.index,unselected:[draft.maximumStaticFriction,draft.kineticFriction]} })()`);
   assert.deepEqual(partial, { variant: "selection-only", active: 1, canonical: null, selected: 1, unselected: [null, null] }, `${label}: graph marker drafts persist separately without replacing canonical C authority`);
   await pressKeyOn(cdp, "#maximumStaticFrictionMarker", "ArrowRight");
@@ -547,6 +579,16 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(unsavedNormalC.canonicalSame, true, `${label}: normal C dragging leaves saved C authority unchanged before save`);
   assert.equal(unsavedNormalC.predictionsSame, true, `${label}: normal C dragging leaves D authority unchanged before save`);
   assert.notEqual(unsavedNormalC.draftIndex, unsavedNormalC.canonicalIndex, `${label}: normal C dragging persists a distinct working marker draft`);
+  const dirtyMarkerCopy = await evaluate(cdp, `document.getElementById('analysisTasks').textContent`);
+  assert.match(dirtyMarkerCopy, /C3.*有未保存修改/s, `${label}: a changed C3 marker is labelled as unsaved rather than saved`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='review']");
+  const dirtyCReview = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),saved=JSON.parse(window.__reviewAuthority),wire=window.StaticKineticFrictionPersistence.encodeReview(state); return {canonicalSame:JSON.stringify(state.analysis)===JSON.stringify(saved.analysis),draftIndex:state.working?.analysisDraft?.kineticFriction?.index,wireIndex:wire.a.k?.[0],summary:document.getElementById('reviewSummary').textContent}; })()`);
+  assert.equal(dirtyCReview.canonicalSame, true, `${label}: editable review reads the saved C authority`);
+  assert.equal(dirtyCReview.draftIndex, unsavedNormalC.draftIndex, `${label}: editable review retains the unsaved C draft separately`);
+  assert.equal(dirtyCReview.wireIndex, unsavedNormalC.canonicalIndex, `${label}: final review wire uses the saved C3 marker, not the dirty draft`);
+  assert.match(dirtyCReview.summary, /Part C 有未保存修改.*評分仍使用已保存標示/s, `${label}: review explicitly explains how the dirty C draft is handled`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
+  assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().working.analysisDraft.kineticFriction.index"), unsavedNormalC.draftIndex, `${label}: returning from review resumes the unsaved C marker`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const leftUnsavedC = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),saved=JSON.parse(window.__reviewAuthority); return {canonicalSame:JSON.stringify(state.analysis)===JSON.stringify(saved.analysis),predictionsSame:JSON.stringify(state.predictions)===JSON.stringify(saved.predictions),draftIndex:state.working.analysisDraft?.kineticFriction?.index}; })()`);
   assert.deepEqual(leftUnsavedC, { canonicalSame: true, predictionsSame: true, draftIndex: unsavedNormalC.draftIndex }, `${label}: leaving C preserves authority and the resumable working draft`);
@@ -556,8 +598,9 @@ async function semanticSmoke(cdp, url, label) {
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});window.__reviewAuthority=JSON.stringify({analysis:perfect.analysis,predictions:perfect.predictions});return true })()`);
   const kineticPredictionIndex = await evaluate(cdp, "window.__staticKineticFrictionApp.getScenario().predictions.findIndex(spec=>spec.frictionType==='kinetic')");
   await tapSelector(cdp, `[data-action='edit-predict'][data-prediction-index='${kineticPredictionIndex}']`);
-  const kineticPredictionCopy = await evaluate(cdp, `document.querySelector('#predictionCards [data-prediction-index="${kineticPredictionIndex}"]').textContent`);
-  assert.match(kineticPredictionCopy, /平均滑動摩擦力.*畫出的平均滑動摩擦力估值/s, `${label}: every kinetic prediction explicitly asks for and labels the average kinetic-friction estimate`);
+  const kineticPredictionCopy = await evaluate(cdp, `(() => { const card=document.querySelector('#predictionCards [data-prediction-index="${kineticPredictionIndex}"]');return [card.querySelector('.prediction-kinetic-prompt')?.textContent,card.querySelector('.prediction-force-readout')?.textContent].join(' '); })()`);
+  assert.match(kineticPredictionCopy, /摩擦力的平均大小.*畫出的平均摩擦力估值/s, `${label}: kinetic prediction clarifies the average magnitude without revealing its type`);
+  assert.doesNotMatch(kineticPredictionCopy, /滑動摩擦力/, `${label}: pre-submit average-value guidance does not reveal the scored friction type`);
   await tapSelector(cdp, "#cancelReviewEdit");
   await tapSelector(cdp, "[data-action='edit-analysis'][data-analysis-key='kineticFriction']"); await pressKeyOn(cdp, "#kineticFrictionMarker", "ArrowRight"); await tapSelector(cdp, "#cancelReviewEdit");
   assert.equal(await evaluate(cdp, "JSON.stringify({analysis:window.__staticKineticFrictionApp.getState().analysis,predictions:window.__staticKineticFrictionApp.getState().predictions})===window.__reviewAuthority"), true, `${label}: cancelling graph review edit restores immutable authority`);
@@ -642,7 +685,11 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
       explanation: document.querySelector('.first-step-explanation').textContent,
       headerHasSimLab: document.querySelector('.sim-header').textContent.includes('SimLab'),
       stageLabels: document.getElementById('apparatusSvg').textContent,
+      zeroMagnitudeHeight: document.getElementById('zeroFrictionMagnitude').getBoundingClientRect().height,
+      zeroTypeHeight: document.getElementById('zeroFrictionType').getBoundingClientRect().height,
+      zeroDirectionHeight: document.getElementById('zeroFrictionDirection').getBoundingClientRect().height,
       breakawayInputHeight: document.getElementById('breakawayAnswer').getBoundingClientRect().height,
+      breakawayInputValue: document.getElementById('breakawayAnswer').value,
       targets: [...document.querySelectorAll('.drag-target:not(.is-hidden)')].map(node => { const r = node.getBoundingClientRect(); return { w: r.width, h: r.height }; })
     };
   })()`);
@@ -661,7 +708,9 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.doesNotMatch(layout.stageLabels, /物體|水平粗糙面|Part A：只看水平力的大小和方向/, `${label}: redundant stage labels are removed`);
   assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: Part A explicitly removes instrument calibration`);
   assert.ok(layout.stageHeight <= layout.shellHeight * .48, `${label}: the phone stage leaves most of the bounded shell to the control panel (${layout.stageHeight}/${layout.shellHeight})`);
+  assert.ok(Math.abs(layout.zeroMagnitudeHeight - layout.zeroTypeHeight) < 1 && Math.abs(layout.zeroMagnitudeHeight - layout.zeroDirectionHeight) < 1, `${label}: A1 magnitude input matches both select heights (${JSON.stringify(layout)})`);
   assert.ok(layout.breakawayInputHeight >= 44, `${label}: A3 estimate input keeps a 44px touch height (${layout.breakawayInputHeight}px)`);
+  assert.equal(layout.breakawayInputValue, "", `${label}: A3 estimate input starts blank before a breakaway trial`);
   assert.ok(layout.targets.every((target) => target.w >= 44 && target.h >= 44), `${label}: embedded targets are stable touch sizes`);
   await evaluate(cdp, "scrollTo({ top: 300, behavior: 'instant' })");
   await delay(120);
