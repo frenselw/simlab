@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`54`（2026-08-12；分離 Part D 已保存答案與未保存 working draft，修正自由切題後舊答案被覆蓋；補回 D 題鍵盤 focus、目前／已保存狀態及 active card selector；重做 B 後為真實瀏覽器交接保留短暫 startup grace，同時維持 manual clock 的 stall regression。Runtime build marker 提升至 52。）
+> Plan revision：`55`（2026-08-12；修正 Part B 首幀後只容許一個 startup interval，並在 startup hand-off 重新對齊 input clock／queue；Part C 改值保存會同時清除 canonical 及 working Part D，保存前兼容舊 s6／v51 draft 將未提交 P slot 遷移到 `k.n`。Runtime build marker 提升至 53。）
 
 本計劃必須遵從：
 
@@ -527,7 +527,7 @@ C 只要求三個位置，不要求輸入力值、選擇摩擦力類型、選區
 }
 ```
 
-`index` 指向同一張 merged canonical trace。`state.analysis` 永遠是最後一次明確保存的 canonical authority；首次作答或再次拖動的未保存位置只寫入 `working.analysisDraft`，每個 record 可為 `null` 或 `{ index, committed:false }`，不得覆寫 canonical C、不得參與 scoring／review。Pointerup／keyboard step 可各自作一次 LMS checkpoint，reload／離開後返回 C 可繼續；按一次保存才把三項一併寫成 `state.analysis.*.committed:true` 並清空 working draft。控制欄必須逐 marker 區分「已保存」、「有未保存的修改」及「尚未標示」，不得用 canonical committed flag 把 dirty 位置稱為已保存。進入 editable review 時保留 `working.analysisDraft`，review summary 明示評分使用已保存標示；返回 C 恢復 draft。Final review wire 只保存 canonical C。保存時必須與保存前 canonical C 比較：同值 no-op 保留 D，改值才原子式清除 D。Review edit 仍使用獨立 `working.editDraft` 指定其中一個 marker，取消修改完整恢復原 authority。
+`index` 指向同一張 merged canonical trace。`state.analysis` 永遠是最後一次明確保存的 canonical authority；首次作答或再次拖動的未保存位置只寫入 `working.analysisDraft`，每個 record 可為 `null` 或 `{ index, committed:false }`，不得覆寫 canonical C、不得參與 scoring／review。Pointerup／keyboard step 可各自作一次 LMS checkpoint，reload／離開後返回 C 可繼續；按一次保存才把三項一併寫成 `state.analysis.*.committed:true` 並清空 working draft。控制欄必須逐 marker 區分「已保存」、「有未保存的修改」及「尚未標示」，不得用 canonical committed flag 把 dirty 位置稱為已保存。進入 editable review 時保留 `working.analysisDraft`，review summary 明示評分使用已保存標示；返回 C 恢復 draft。Final review wire 只保存 canonical C。保存時必須與保存前 canonical C 比較：同值 no-op 保留 canonical D 及 `working.predictionDraft`，改值才原子式清除兩者。Review edit 仍使用獨立 `working.editDraft` 指定其中一個 marker，取消修改完整恢復原 authority。
 
 C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft working wire 使用 `k.m` 保存三個未提交 C marker，並以 `k.n` 保存四個未提交 D prediction drafts；同 measurement version、尚未含 `k.m` 或 `k.n` 的既有 s6 draft 解碼時分別補 `null`／四個空 slot。Measurement contract migration 採明確 header 白名單：只接受 s6 `[6,1,7,4,3]` 及緊接前版 s5 `[5,1,7,4,2]` editable draft，保留與量測 trace 無關的 A／D authority、清除 B trace 及 C marker並回到 `experiment/ready`。未知 future version、mixed version、非數字或缺失 header 一律 fail closed；任何舊 finished review 亦 fail closed，不把舊 trace 重新標示成 v5 後重評。
 
@@ -2328,7 +2328,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 `learnerAppliedForce`／`learnerForce` 的 incomplete draft 只可存在於未提交的 DOM／local interaction state；saveable snapshot 只保存 committed vectors（沒有摩擦力時保存 committed `none` force）。nullable A／B／C authority、partial prediction、`working.predictionDraft` 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Editable review normalization固定 `phase:"review"`、`fromReview:false`，未 committed prediction slots轉為 `null`，並按 canonical authority設 `variant:"partial"` 或 `"complete"`；若存在 Part C dirty draft，只保留 `working.analysisDraft`，Part D dirty draft則丟棄而不改 canonical。Final review encode移除整個 `working`。每個缺少的 rubric item經 scoring計0分。
 
-Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、最長 `0–30 s` 的 canonical grid；B 保留 0–30 s frame，C 的 learner-facing viewport 顯示實際記錄範圍。packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的拉力在進入 physics 前先以 0.1 N 語意步進量化，`bestPullCN` 必須來自至少一個合法試拉；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 canonical `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records；未保存的三-marker working draft 只保存於 draft-only `k.m`，D 的未保存 prediction draft 保存於 draft-only `k.n`，兩者永不進 review snapshot或 scoring。
+Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、最長 `0–30 s` 的 canonical grid；B 保留 0–30 s frame，C 的 learner-facing viewport 顯示實際記錄範圍。packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的拉力在進入 physics 前先以 0.1 N 語意步進量化，`bestPullCN` 必須來自至少一個合法試拉；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 canonical `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records；未保存的三-marker working draft 只保存於 draft-only `k.m`，D 的未保存 prediction draft 保存於 draft-only `k.n`，兩者永不進 review snapshot或 scoring。早期 s6／v51 draft 如缺少 `k.n`，只可按已知 wire shape 將舊 `P` 中 `committed:true` 的 slot留在 canonical、`committed:false` 的 slot遷移到 `k.n`；未知或不符合 shape 的版本必須 fail closed。
 
 舊 `s1`／`s2`／`s3` editable draft 只以其 seed 安全重開為 `zero-ready`，不把舊測力計／tare／observation 或舊 A2 force shape 冒充成新 Part A 答案；舊 finished review 因 Part A semantic contract 不相容而 fail closed，顯示 technical load error，不重算成新答案。
 

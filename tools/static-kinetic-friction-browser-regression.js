@@ -194,6 +194,22 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(delayedFirstFrame.result.abortedOnStall, false, `${label}: a delayed first recording frame only establishes the clock`);
   assert.equal(delayedFirstFrame.running, true, `${label}: confirmation/render delay cannot stop a newly started recorder`);
 
+  await navigate(cdp, url);
+  const realStartup = await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'});
+    document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
+    const started=app.regression.startExperimentReal();
+    const block=(durationMs)=>{const end=performance.now()+durationMs;while(performance.now()<end){}};
+    requestAnimationFrame(()=>setTimeout(()=>{block(80);requestAnimationFrame(()=>block(80));},0));
+    return {started,running:app.interactionEvidence().recorderRunning};
+  })()`);
+  assert.deepEqual(realStartup, { started: true, running: true }, `${label}: real recording starts before the startup-gap regression`);
+  await delay(350);
+  const realStartupAfterGap = await evaluate(cdp, `(() => ({ running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, trial:window.__staticKineticFrictionApp.getState().trial, status:document.getElementById('experimentStatus').textContent }))()`);
+  assert.equal(realStartupAfterGap.running, false, `${label}: a real post-baseline gap still arms the 50 ms watchdog after one startup interval`);
+  assert.equal(realStartupAfterGap.trial, null, `${label}: the real startup-gap regression creates no authority trace`);
+  assert.match(realStartupAfterGap.status, /這次記錄中斷，資料未能保存/, `${label}: the real startup-gap regression reports a neutral timing interruption`);
+
   const baselineAlignedTraces = await evaluate(cdp, `(() => {
     const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;
     const relativeInputs=${JSON.stringify(Array.from({ length: 41 }, (_, index) => ({ timeStampMs: index * 50, forceN: Number((index * .2).toFixed(2)) })))};

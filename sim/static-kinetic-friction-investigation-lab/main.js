@@ -531,6 +531,17 @@
       }
       experimentPendingInputs = [];
     }
+    function rebaseExperimentInputClock(pageNowMs) {
+      const nextPageOriginMs = normalizeInputTimestampMs(pageNowMs);
+      const elapsedS = Math.max(0, (nextPageOriginMs - experimentInputPageOriginMs) / 1000);
+      const nextSimulationOriginS = finite(directExperimentState?.timeS, 0);
+      if (experimentInputQueue && elapsedS > 0) {
+        for (const entry of experimentInputQueue.entries) entry.timeS = Math.max(nextSimulationOriginS, entry.timeS - elapsedS);
+        experimentInputQueue.entries.sort((a, b) => a.timeS - b.timeS || a.order - b.order);
+      }
+      experimentInputPageOriginMs = nextPageOriginMs;
+      experimentInputSimulationOriginS = nextSimulationOriginS;
+    }
     function setExperimentAppliedForce(value, eventTimestampMs = currentPageClockMs()) {
       if (experimentAutoKineticHold) return;
       experimentAppliedForceN = clamp(finite(value), 0, EXPERIMENT_MAX_FORCE_N);
@@ -929,6 +940,7 @@
       } else if (frameDurationMs > 50) {
         if (experimentStartupGraceFrames > 0) {
           experimentStartupGraceFrames -= 1;
+          rebaseExperimentInputClock(normalizedNowMs);
           experimentAccumulatorS = 0;
         } else {
           return abortExperimentForTimingGap();
@@ -1010,13 +1022,12 @@
       announce("記錄開始");
       setText("experimentStatus", "記錄中：逐漸增加拉力。");
       renderApparatus();
-      if (!options.manualClock) startLoop();
-      // The first delivered frame establishes the recording clock. A real
-      // confirmation-to-recording hand-off can span more than one delayed
-      // animation frame while the refreshed controls are laid out, so keep a
-      // short real-render startup window before arming the stall watchdog.
+      if (!options.manualClock && !options.deferLoop) startLoop();
+      // The first delivered frame establishes the recording clock. The first
+      // interval after that baseline is the only startup hand-off grace; the
+      // normal 50 ms stall watchdog applies from the next interval onward.
       previousFrameMs = null;
-      experimentStartupGraceFrames = options.manualClock ? 1 : 4;
+      experimentStartupGraceFrames = 1;
       return true;
     }
     function hideRedoExperimentConfirmation() {
@@ -1046,12 +1057,13 @@
       state = Persistence.transitions.redoExperiment(state);
       resetExperimentRig();
       saveDraft();
-      const started = startRecording();
+      const started = startRecording({ deferLoop: true });
       if (started) {
         setText("experimentStatus", "記錄中：逐漸增加拉力。");
         announce("已重新開始記錄");
       }
       render();
+      if (started) startLoop();
       return started;
     }
     function finalizeExperimentRecording({ timedOut = false } = {}) {
@@ -1988,6 +2000,7 @@
     }
     const regression = Object.freeze({
       startExperiment: (pageNowMs = 0) => startRecording({ manualClock: true, pageNowMs }),
+      startExperimentReal: () => startRecording(),
       queueExperimentForce: (forceN, eventTimestampMs) => setExperimentAppliedForce(forceN, eventTimestampMs),
       queueExperimentForces: (entries) => { for (const entry of entries || []) setExperimentAppliedForce(entry.forceN, entry.timeStampMs); return experimentInputQueue?.entries.length || 0; },
       advanceExperimentFrame: (nowMs) => advanceExperimentFrame(nowMs, { renderFrame: false }),

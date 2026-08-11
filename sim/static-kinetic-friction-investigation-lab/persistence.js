@@ -36,6 +36,16 @@
   function committedPredictions(predictions) {
     return (predictions || emptyPredictions()).map((prediction) => prediction?.committed === true ? clone(prediction) : null);
   }
+  function hasPredictionWork(state) {
+    return Boolean(state?.predictions?.some(Boolean) || state?.working?.predictionDraft?.some(Boolean));
+  }
+  function splitPredictionWire(predictions) {
+    const source = Array.isArray(predictions) && predictions.length === PREDICTION_COUNT ? predictions : emptyPredictions();
+    return {
+      canonical: source.map((prediction) => prediction?.[6] === 1 ? clone(prediction) : null),
+      draft: source.map((prediction) => prediction?.[6] === 0 ? clone(prediction) : null)
+    };
+  }
   function restoreWorkingAfterReviewEdit(next, source) {
     const working = reviewWorkingFrom(source);
     if (working) next.working = working;
@@ -190,7 +200,7 @@
     if (state.working && (!Array.isArray(state.working.predictionDraft) || state.working.predictionDraft.length !== PREDICTION_COUNT || state.working.predictionDraft.some((prediction) => prediction != null && (!validatePrediction(prediction) || prediction.committed === true)))) throw new Error("invalid working prediction draft");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
-    state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
+    state.predictions.forEach((prediction) => { if (prediction && (prediction.committed !== true || !validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid canonical prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
     if (state.fromReview && (!state.working || !state.working.reviewEditTarget || !["balance", "experiment", "analysis", "predict"].includes(state.working.reviewEditTarget.section))) throw new Error("review-edit needs target");
     if (state.fromReview && !exactKeys(state.working.reviewEditTarget, ["section", "semanticKey"])) throw new Error("invalid review edit target shape");
     if (state.fromReview && state.phase !== state.working.reviewEditTarget.section) throw new Error("review-edit phase and target section differ");
@@ -292,11 +302,15 @@
       return update(next, {});
     }
     next.analysis[key] = replacement;
-    if (replacement.committed && changed && next.predictions.some(Boolean)) next.predictions = emptyPredictions();
+    const invalidatesPredictions = replacement.committed && changed && hasPredictionWork(next);
+    if (invalidatesPredictions) {
+      next.predictions = emptyPredictions();
+      next.working = emptyWorking();
+    }
     next.phase = editingReview ? "predict" : "analysis";
     next.fromReview = editingReview ? false : state.fromReview;
     if (editingReview) restoreWorkingAfterReviewEdit(next, state);
-    else next.working = clone(state.working);
+    else if (!invalidatesPredictions) next.working = clone(state.working);
     if (!editingReview) next.working.activeAnalysisTask = index;
     return update(next, {});
   }
@@ -318,7 +332,7 @@
     const changed = ANALYSIS_KEYS.some((key) => state.analysis[key]?.committed !== true || state.analysis[key]?.index !== values[key].index);
     next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
     next.working.analysisDraft = null;
-    const invalidatesPredictions = changed && next.predictions.some(Boolean);
+    const invalidatesPredictions = changed && hasPredictionWork(next);
     if (invalidatesPredictions) {
       next.predictions = emptyPredictions();
       next.phase = "predict";
@@ -490,13 +504,21 @@
   }
   function migrateLegacyAnswer(answer, kind) {
     if (!answer) return answer;
-    if (answer.w === WIRE_VERSION && hasHeader(answer, CURRENT_HEADER) && kind === "draft" && answer.k && (!Object.hasOwn(answer.k, "m") || !Object.hasOwn(answer.k, "n"))) answer = { ...clone(answer), k: { ...clone(answer.k), m: answer.k.m ?? null, n: Array.isArray(answer.k.n) ? answer.k.n : [null, null, null, null] } };
+    if (answer.w === WIRE_VERSION && hasHeader(answer, CURRENT_HEADER) && kind === "draft" && answer.k && (!Object.hasOwn(answer.k, "m") || !Object.hasOwn(answer.k, "n"))) {
+      const migrated = clone(answer);
+      const hasPredictionDraftWire = Object.hasOwn(answer.k, "n");
+      const split = splitPredictionWire(answer.P);
+      migrated.P = hasPredictionDraftWire || !Array.isArray(answer.P) || answer.P.length !== PREDICTION_COUNT ? clone(answer.P) : split.canonical;
+      migrated.k = { ...clone(answer.k), m: answer.k.m ?? null, n: hasPredictionDraftWire ? clone(answer.k.n) : split.draft };
+      answer = migrated;
+    }
     const knownOldS6 = answer.w === WIRE_VERSION && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s6);
     const knownS5 = answer.w === "s5" && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s5);
     if (knownOldS6 || knownS5) {
       if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated across measurement contracts");
       const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
-      return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null, n: [null, null, null, null] } };
+      const split = splitPredictionWire(answer.P);
+      return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: split.canonical, k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null, n: split.draft } };
     }
     if (!["s1", "s2", "s3"].includes(answer.w)) return answer;
     if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated to the redesigned Part C contract");
