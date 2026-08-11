@@ -162,9 +162,9 @@
     const score = Math.max(0, Math.min(100, balance.score + experiment.score + analysis.score + predictions.score));
     const passed = score >= PASSING_SCORE && balance.score >= 10 && analysis.score >= 20 && predictions.score >= 8;
     const feedbackItems = [];
-    if (analysis.detail.find((item) => item.key === "static-friction" && !item.correct)) feedbackItems.push("靜摩擦力可在物體仍靜止、拉力逐漸增加的圖線位置標示。");
-    if (analysis.detail.find((item) => item.key === "maximum-static-friction" && !item.correct)) feedbackItems.push("最大靜摩擦力在物體啱啱開始移動的峰值位置。");
-    if (analysis.detail.find((item) => item.key === "kinetic-friction" && !item.correct)) feedbackItems.push("滑動摩擦力在開始移動後較平穩的拉力平台位置。");
+    if (analysis.detail.find((item) => item.key === "static-friction" && !item.correct)) feedbackItems.push("靜摩擦力應標記在物體仍靜止、拉力逐漸增加的區段。");
+    if (analysis.detail.find((item) => item.key === "maximum-static-friction" && !item.correct)) feedbackItems.push("最大靜摩擦力在物體剛開始滑動的時刻附近。");
+    if (analysis.detail.find((item) => item.key === "kinetic-friction" && !item.correct)) feedbackItems.push("滑動摩擦力在物體開始滑動後近似勻速運動的區段。");
     return { score, maxScore: 100, passed, completed: Boolean(answer), breakdown: { balance, experiment, analysis, predictions }, feedbackItems };
   }
   function perfectAnswer(scenario, trial) {

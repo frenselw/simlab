@@ -221,7 +221,7 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
   assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);
   assert.equal(stalled.startDisabled, false, `${label}: timing-gap abort fully refreshes the controls`);
-  assert.match(stalled.status, /技術時間間隔/, `${label}: timing-gap abort is distinguished from normal timeout`);
+  assert.match(stalled.status, /這次記錄中斷/, `${label}: timing-gap abort is distinguished from normal timeout`);
 
   await navigate(cdp, url);
   await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(performance.now()); return true; })()`);
@@ -429,7 +429,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.match(experimentHeld.graphText, /t\s*\/\s*s/, `${label}: B graph keeps the lowercase time symbol`);
   assert.doesNotMatch(experimentHeld.graphText, /圖（0.?30 秒）/, `${label}: B graph removes the redundant top title label`);
   assert.doesNotMatch(experimentHeld.graphText, /速度|velocity/i, `${label}: B learner-facing stage contains no velocity quantity`);
-  assert.match(experimentHeld.feedback, /系統正維持接近勻速/, `${label}: B tells the learner that the system is maintaining the post-breakaway motion`);
+  assert.match(experimentHeld.feedback, /系統正自動調節拉力，使物體保持接近勻速運動/, `${label}: B explains the automatic force adjustment after breakaway`);
   assert.equal(experimentHeld.liveReadout, null, `${label}: the obsolete live readout overlay is removed from the F–t graph`);
   assert.equal(experimentHeld.slider, null, `${label}: B has no control-panel slider`);
   await touchEnd(cdp);
@@ -547,7 +547,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(partialReview.hasRope, false, `${label}: submission review uses the clean apparatus without the old rope`);
   assert.equal(partialReview.hasGrip, false, `${label}: submission review uses the clean apparatus without the old orange grip`);
   assert.ok(partialReview.blockX > 380 && partialReview.blockX < 470, `${label}: submission review centers the clean block ${JSON.stringify(partialReview)}`);
-  assert.match(partialReview.summary, /可先核對已保存答案，再提交/, `${label}: submission review uses neutral pre-submit guidance`);
+  assert.match(partialReview.summary, /請核對已保存的答案.*未完成項目會按未作答計分/s, `${label}: submission review explains that unfinished items may be submitted without credit`);
   await tapSelector(cdp, "#submit");
   const partialResult = await evaluate(cdp, "(() => ({presentation:window.__staticKineticFrictionApp.getPresentation(),text:document.getElementById('resultPanel').textContent}))()");
   assert.equal(partialResult.presentation, "submitted-success", `${label}: incomplete submission can finish successfully`);
@@ -559,7 +559,7 @@ async function semanticSmoke(cdp, url, label) {
   await evaluate(cdp, analysisFixtureScript(0));
 
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});window.__reviewAuthority=JSON.stringify({analysis:perfect.analysis,predictions:perfect.predictions});return true })()`);
-  const cleanCReview = await evaluate(cdp, `(() => { const summary=document.getElementById('reviewSummary').textContent; return {hasDirtyMessage:summary.includes('Part C 有未保存修改'),hasDraft:Boolean(window.__staticKineticFrictionApp.getState().working?.analysisDraft),summary}; })()`);
+  const cleanCReview = await evaluate(cdp, `(() => { const summary=document.getElementById('reviewSummary').textContent; return {hasDirtyMessage:summary.includes('Part C 有未保存的修改'),hasDraft:Boolean(window.__staticKineticFrictionApp.getState().working?.analysisDraft),summary}; })()`);
   assert.equal(cleanCReview.hasDirtyMessage, false, `${label}: a clean saved Part C does not show an unsaved-change warning`);
   assert.equal(cleanCReview.hasDraft, false, `${label}: a clean saved Part C has no working marker draft`);
   await tapSelector(cdp, "#submit");
@@ -571,7 +571,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(submittedGraph.learnerDots, 3, `${label}: submitted graph shows all three learner marker readings`);
   assert.equal(submittedGraph.editableTargets, 0, `${label}: submitted graph exposes no editable marker target`);
   assert.match(submittedGraph.readout, /靜摩擦力.*s.*N.*最大靜摩擦力.*s.*N.*滑動摩擦力.*s.*N/s, `${label}: submitted graph lists learner marker time and pull readings`);
-  assert.match(submittedGraph.result, /Part C 圖像結果.*上方只讀/s, `${label}: result panel points learners to the visible read-only graph`);
+  assert.match(submittedGraph.result, /Part C 圖上標記結果.*上方只讀/s, `${label}: result panel points learners to the visible read-only graph`);
 
   await navigate(cdp, url);
   await evaluate(cdp, analysisFixtureScript(0));
@@ -589,7 +589,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(dirtyCReview.canonicalSame, true, `${label}: editable review reads the saved C authority`);
   assert.equal(dirtyCReview.draftIndex, unsavedNormalC.draftIndex, `${label}: editable review retains the unsaved C draft separately`);
   assert.equal(dirtyCReview.wireIndex, unsavedNormalC.canonicalIndex, `${label}: final review wire uses the saved C3 marker, not the dirty draft`);
-  assert.match(dirtyCReview.summary, /Part C 有未保存修改.*評分仍使用已保存標示/s, `${label}: review explicitly explains how the dirty C draft is handled`);
+  assert.match(dirtyCReview.summary, /Part C 有未保存的修改.*系統只會計算已保存的標記/s, `${label}: review explicitly explains how the dirty C draft is handled`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().working.analysisDraft.kineticFriction.index"), unsavedNormalC.draftIndex, `${label}: returning from review resumes the unsaved C marker`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
@@ -634,7 +634,7 @@ async function semanticSmoke(cdp, url, label) {
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});return true })()`);
   await evaluate(cdp, "window.SimScorm.submitWithCallbacks=(result,snapshot,handlers)=>{handlers.onFailure({activityState:'retry',retryable:true});return {activityState:'retry',retryable:true}};"); await tapSelector(cdp, "#submit");
   const retryable = await evaluate(cdp, `(() => ({presentation:window.__staticKineticFrictionApp.getPresentation(),status:document.getElementById('submitStatus').textContent,submitDisabled:document.getElementById('submit').disabled,resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden')}))()`);
-  assert.equal(retryable.presentation, "editable", `${label}: retryable submission remains editable`); assert.match(retryable.status, /技術提交未完成.*分數均未確認/, `${label}: retryable submission shows a neutral status`); assert.equal(retryable.submitDisabled, false); assert.equal(retryable.resultHidden, true, `${label}: retryable submission reveals no result`);
+  assert.equal(retryable.presentation, "editable", `${label}: retryable submission remains editable`); assert.match(retryable.status, /提交未完成；請稍後重試/, `${label}: retryable submission shows a neutral status`); assert.equal(retryable.submitDisabled, false); assert.equal(retryable.resultHidden, true, `${label}: retryable submission reveals no result`);
   await evaluate(cdp, "window.SimScorm.submitWithCallbacks=(result,snapshot,handlers)=>{handlers.onFailure({activityState:'retry',retryable:false});return {activityState:'retry',retryable:false}};"); await tapSelector(cdp, "#submit");
   const technical = await evaluate(cdp, `(() => ({presentation:window.__staticKineticFrictionApp.getPresentation(),technical:!document.getElementById('technicalPanel').classList.contains('is-hidden'),resultHidden:document.getElementById('resultPanel').classList.contains('is-hidden'),unsafeEnabled:[...document.querySelectorAll('[data-action]')].filter(node=>!node.disabled).map(node=>node.dataset.action)}))()`);
   assert.equal(technical.presentation, "technical", `${label}: non-retryable submission enters technical lock`); assert.equal(technical.technical, true); assert.equal(technical.resultHidden, true, `${label}: technical lock reveals no score`); assert.deepEqual(technical.unsafeEnabled, [], `${label}: technical lock disables unsafe actions`);
@@ -709,7 +709,7 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   assert.equal(layout.sensorReadoutsHidden, true, `${label}: Part A hides experiment readouts`);
   assert.equal(layout.headerHasSimLab, false, `${label}: the activity header does not repeat the SimLab brand`);
   assert.doesNotMatch(layout.stageLabels, /物體|水平粗糙面|Part A：只看水平力的大小和方向/, `${label}: redundant stage labels are removed`);
-  assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: Part A explicitly removes instrument calibration`);
+  assert.match(layout.explanation, /請根據各情境判斷物體在水平方向所受的力/s, `${label}: Part A gives concise horizontal-force guidance`);
   assert.ok(layout.stageHeight <= layout.shellHeight * .48, `${label}: the phone stage leaves most of the bounded shell to the control panel (${layout.stageHeight}/${layout.shellHeight})`);
   assert.ok(Math.abs(layout.zeroMagnitudeHeight - layout.zeroTypeHeight) < 1 && Math.abs(layout.zeroMagnitudeHeight - layout.zeroDirectionHeight) < 1, `${label}: A1 magnitude input matches both select heights (${JSON.stringify(layout)})`);
   assert.ok(layout.breakawayInputHeight >= 44, `${label}: A3 estimate input keeps a 44px touch height (${layout.breakawayInputHeight}px)`);
@@ -811,7 +811,7 @@ async function desktopSmoke(cdp, url, label, width, height, deviceScaleFactor) {
   assert.equal(layout.experimentOriginHidden, true, `${label}: desktop Part A hides the B direct-pull target`);
   assert.match(layout.coach, /A1.*沒有水平拉力/s, `${label}: desktop coach shows the zero-force task`);
   assert.match(layout.zeroTask, /摩擦力.*方向.*大小/s, `${label}: desktop A1 asks for all force-vector fields`);
-  assert.match(layout.explanation, /不使用測力計.*歸零/s, `${label}: desktop explanation removes calibration from Part A`);
+  assert.match(layout.explanation, /請根據各情境判斷物體在水平方向所受的力/s, `${label}: desktop Part A gives concise horizontal-force guidance`);
 }
 async function realSmoke() {
   const tempRoot = fs.realpathSync(os.tmpdir());
