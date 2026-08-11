@@ -57,13 +57,17 @@ state = P.transitions.setAnalysisMarkersDraft(state, {
   kineticFriction: { index: candidates.slow[0].startIndex, committed: false }
 });
 assert.equal(state.variant, "selection-only");
+assert.deepEqual(state.analysis, P.emptyAnalysis(), "an unsaved C marker draft never replaces canonical analysis authority");
+assert.equal(state.working.analysisDraft.maximumStaticFriction.index, 50);
 state = P.decodeSnapshot(snapshot(state), scenario, "draft");
+assert.equal(state.working.analysisDraft.kineticFriction.index, candidates.slow[0].startIndex, "working C marker draft survives a draft round-trip");
 state = P.transitions.setAnalysisMarkers(state, {
   staticFriction: { index: candidates.static[0].startIndex, committed: true },
   maximumStaticFriction: { index: 50, committed: true },
   kineticFriction: { index: candidates.slow[0].startIndex, committed: true }
 });
 assert.equal(P.hasAllAnalysisFields(state), true);
+assert.equal(state.working.analysisDraft, null, "saving all C markers clears only the working draft");
 state = P.transitions.setPhase(state, "predict");
 const requiredOnly = state;
 scenario.predictions.forEach((spec, index) => {
@@ -95,6 +99,19 @@ assert.equal(P.hasCompleteAnswer(blankReview), false);
 const blankResult = S.scoreAnswer(blankReview, scenario);
 assert.equal(blankResult.score, 0);
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: P.encodeReview(blankReview) }, scenario, "review"), P.normalizeReview(blankReview));
+
+// A1 persistence validates only answer structure.  Physics consistency is a
+// scoring concern so complete but incorrect combinations remain saveable.
+for (const [answer, expectedPoints] of [
+  [force("none", "right", 0), 3],
+  [force("none", "none", 100), 2],
+  [force("static", "none", 0), 3]
+]) {
+  const saved = P.transitions.setZeroForceAnswer(P.freshState(scenario.seed), answer);
+  const restored = roundTrip(saved, `A1 independent component answer ${JSON.stringify(answer)}`);
+  assert.deepEqual(restored.balance.zeroForce, answer);
+  assert.equal(S.balanceScore(restored, scenario).detail.find((item) => item.key === "zero-force").points, expectedPoints);
+}
 
 // A1 and A2 are normal editable answers too: changing one Part A answer does
 // not erase independently completed work in another task.
@@ -152,6 +169,29 @@ const changedKineticIndex = currentKineticIndex < M.unpackTrace(state.trial).mer
 const changedAnalysis = P.transitions.setAnalysisTask(analysisEdit, "kineticFriction", { index: changedKineticIndex, committed: true });
 assert.equal(changedAnalysis.phase, "predict", "a changed Part C authority returns to prediction");
 assert.deepEqual(changedAnalysis.predictions, [null, null, null, null], "a changed Part C authority invalidates all dependent Part D answers");
+
+// The normal Part C route keeps canonical markers and dependent D answers
+// immutable until the learner explicitly saves the working marker draft.
+const canonicalAnalysis = P.clone(state.analysis);
+const canonicalPredictions = P.clone(state.predictions);
+let normalAnalysisDraft = P.transitions.setPhase(state, "analysis");
+normalAnalysisDraft = P.transitions.setAnalysisMarkersDraft(normalAnalysisDraft, {
+  ...P.clone(canonicalAnalysis),
+  kineticFriction: { index: changedKineticIndex, committed: false }
+});
+normalAnalysisDraft = roundTrip(normalAnalysisDraft, "normal Part C unsaved marker draft");
+assert.deepEqual(normalAnalysisDraft.analysis, canonicalAnalysis, "normal C dragging leaves saved C authority unchanged");
+assert.deepEqual(normalAnalysisDraft.predictions, canonicalPredictions, "normal C dragging leaves D authority unchanged");
+normalAnalysisDraft = P.transitions.setPhase(normalAnalysisDraft, "predict");
+assert.deepEqual(normalAnalysisDraft.analysis, canonicalAnalysis, "leaving C without saving preserves canonical C");
+assert.deepEqual(normalAnalysisDraft.predictions, canonicalPredictions, "leaving C without saving preserves D");
+normalAnalysisDraft = P.transitions.setPhase(normalAnalysisDraft, "analysis");
+assert.equal(normalAnalysisDraft.working.analysisDraft.kineticFriction.index, changedKineticIndex, "returning to C restores the unsaved working draft");
+const sameValueSave = P.transitions.setAnalysisMarkers(normalAnalysisDraft, Object.fromEntries(P.ANALYSIS_KEYS.map((key) => [key, { index: canonicalAnalysis[key].index, committed: true }])));
+assert.deepEqual(sameValueSave.analysis, canonicalAnalysis, "saving the original C indices is a semantic no-op");
+assert.deepEqual(sameValueSave.predictions, canonicalPredictions, "same-value normal C save preserves D");
+const changedValueSave = P.transitions.setAnalysisMarkers(normalAnalysisDraft, Object.fromEntries(P.ANALYSIS_KEYS.map((key) => [key, { index: key === "kineticFriction" ? changedKineticIndex : canonicalAnalysis[key].index, committed: true }])));
+assert.deepEqual(changedValueSave.predictions, [null, null, null, null], "changed normal C save invalidates D only at explicit save");
 const predictionEdit = roundTrip(P.transitions.enterReviewEdit(state, "predict", 1), "prediction review edit");
 const predictionDraft = P.transitions.setPrediction(predictionEdit, 1, { ...state.predictions[1], magnitudeCN: null, committed: false });
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(predictionDraft, "prediction partial review draft")), state, "prediction review draft cancellation restores authority");
@@ -173,5 +213,26 @@ const legacyDraft = P.clone(P.encodeDraft(P.freshState(41))); legacyDraft.w = "s
 const migrated = P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: legacyDraft }, null, "draft");
 assert.equal(migrated.variant, "zero-ready"); assert.deepEqual(migrated.balance, P.freshState(41).balance);
 assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: { ...review, w: "s2" } }, scenario, "review"), /legacy review/);
+
+// Measurement v5 never relabels an older B trace as current authority.  Draft
+// migration preserves independent A/D answers but clears B/C and resumes at B.
+const oldMeasurementSpec = scenario.predictions[0];
+const oldMeasurementState = P.transitions.setPrediction(requiredOnly, 0, { id: oldMeasurementSpec.id, scenarioId: oldMeasurementSpec.scenarioId, frictionType: oldMeasurementSpec.frictionType, direction: oldMeasurementSpec.direction, magnitudeCN: oldMeasurementSpec.magnitudeCN, motionOutcome: oldMeasurementSpec.motionOutcome, committed: true });
+const oldV4Wire = P.clone(P.encodeDraft(oldMeasurementState)); oldV4Wire.v[3] = 4;
+const migratedV4 = P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: oldV4Wire }, scenario, "draft");
+assert.equal(migratedV4.phase, "experiment");
+assert.equal(migratedV4.trial, null);
+assert.deepEqual(migratedV4.analysis, P.emptyAnalysis());
+assert.deepEqual(migratedV4.balance, oldMeasurementState.balance);
+assert.deepEqual(migratedV4.predictions, oldMeasurementState.predictions);
+const oldS5Wire = P.clone(P.encodeDraft(oldMeasurementState)); oldS5Wire.w = "s5";
+const migratedS5 = P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: oldS5Wire }, scenario, "draft");
+assert.equal(migratedS5.trial, null, "s5 traces are cleared even if their header was manually relabelled v5");
+assert.deepEqual(migratedS5.analysis, P.emptyAnalysis());
+assert.deepEqual(migratedS5.predictions, oldMeasurementState.predictions);
+const preWorkingDraftWire = P.clone(P.encodeDraft(oldMeasurementState)); delete preWorkingDraftWire.k.m;
+assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: preWorkingDraftWire }, scenario, "draft"), oldMeasurementState, "current s6 drafts written before working C draft storage remain compatible");
+const oldV4Review = P.clone(review); oldV4Review.v[3] = 4;
+assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: oldV4Review }, scenario, "review"), /legacy review/, "finished reviews are never silently rescored under a new measurement contract");
 assert.ok(maximumDraftBytes < 4000, `all production-shaped draft rows fit suspend_data (${maximumDraftBytes} bytes)`);
 console.log("Static/kinetic friction persistence checks passed");

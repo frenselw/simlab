@@ -22,6 +22,8 @@ assert.match(main, /event\.timeStamp/);
 assert.match(main, /getCoalescedEvents/);
 assert.match(main, /frameDurationMs > 50/);
 assert.doesNotMatch(main, /frameDurationMs > 250/);
+assert.match(main, /first delivered frame establishes the recording clock/);
+assert.match(main, /state\.working\?\.analysisDraft \|\| state\.analysis/);
 assert.match(main, /finalizeExperimentRecording\(\{ timedOut: true \}\)/);
 assert.match(main, /function stopRecording\(\) \{ return finalizeExperimentRecording/);
 const predictionDragDraft = main.slice(main.indexOf("function setPredictionForceDraft"), main.indexOf("function updatePredictionForceFromPointer"));

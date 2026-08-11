@@ -949,7 +949,10 @@
       setText("experimentStatus", "記錄進行中：逐漸增加物體中央的向右拉力，直到物體啱啱開始移動；30 秒內完成。");
       renderApparatus();
       if (!options.manualClock) startLoop();
-      previousFrameMs = normalizeInputTimestampMs(options.pageNowMs ?? currentPageClockMs());
+      // The first delivered frame establishes the recording clock.  A slow
+      // confirmation render must not be mistaken for an in-recording stall;
+      // only gaps between two delivered recording frames are monitored.
+      previousFrameMs = null;
       return true;
     }
     function hideRedoExperimentConfirmation() {
@@ -1137,7 +1140,7 @@
         const addRange = (startTimeS, endTimeS, color, label) => {
           if (!Number.isFinite(startTimeS) || !Number.isFinite(endTimeS)) return;
           const x1 = Graph.timeToX(startTimeS, chart); const x2 = Graph.timeToX(endTimeS, chart);
-          svg.append(svgElement("rect", { x: Math.min(x1, x2), y: chart.top, width: Math.max(4, Math.abs(x2 - x1)), height: chart.height, fill: color, "fill-opacity": .10, "aria-label": `${label}正確範圍` }));
+          svg.append(svgElement("rect", { x: Math.min(x1, x2), y: chart.top, width: Math.max(4, Math.abs(x2 - x1)), height: chart.height, fill: color, "fill-opacity": .10, "data-correct-range": label, "aria-label": `${label}正確範圍` }));
         };
         for (const window of candidates.static || []) addRange(decoded.merged[window.startIndex]?.timeS, decoded.merged[window.endIndex]?.timeS, "#2563eb", "靜摩擦力");
         const breakawayTimeS = decoded.breakaway?.timeMs / 1000;
@@ -1160,8 +1163,8 @@
         const target = q(marker.id);
         if (sample) {
           const x = markerPosition.x; const y = Graph.forceToY(sample.measuredPullN, chart);
-          svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, "data-marker-key": marker.key, stroke: marker.color }));
-          svg.append(svgElement("circle", { cx: x, cy: y, r: 7, class: `analysis-marker-dot ${marker.className}`, fill: marker.color }));
+          svg.append(svgElement("line", { x1: x, y1: chart.top, x2: x, y2: chart.top + chart.height, class: `analysis-marker-line ${marker.className}`, "data-marker-key": marker.key, "data-learner-marker": marker.label, stroke: marker.color }));
+          svg.append(svgElement("circle", { cx: x, cy: y, r: 7, class: `analysis-marker-dot ${marker.className}`, "data-learner-marker": marker.label, fill: marker.color }));
           // Keep each label on the same x-coordinate as its coloured guide.
           // If guides are close, place the labels on separate rows instead of
           // moving them into fixed columns that lose the visual association.
@@ -1180,7 +1183,7 @@
     function ensureAnalysisDraft() {
       if (!state?.trial) return null;
       if (!analysisDraft) {
-        analysisDraft = clone(state.analysis);
+        analysisDraft = clone(state.working?.analysisDraft || state.analysis);
         if (state.fromReview && state.working?.editDraft?.kind === "analysis-task") analysisDraft[state.working.reviewEditTarget.semanticKey] = clone(state.working.editDraft.value);
       }
       const defaults = analysisMarkerDefaults(state.trial);
@@ -1250,10 +1253,12 @@
       const magnitude = Number.isInteger(response.magnitudeCN) ? response.magnitudeCN : null;
       const magnitudeText = magnitude == null ? "尚未畫出" : `${(magnitude / 100).toFixed(2)} N`;
       const velocityText = spec.velocityMps > 0 ? `物體正向右移動，初速度：<var>v</var> = ${spec.velocityMps.toFixed(2)} m/s` : `物體初速度：<var>v</var> = 0.00 m/s`;
+      const kineticPrompt = spec.frictionType === "kinetic" ? "請以本次實驗建立的模型，估計此材料的平均滑動摩擦力。" : "";
+      const forceReadoutLabel = spec.frictionType === "kinetic" ? "畫出的平均滑動摩擦力估值" : "畫出的摩擦力";
       const card = document.createElement("article");
       card.className = "prediction-card prediction-card-active";
       card.dataset.predictionIndex = activeIndex;
-      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">先由物體中央旁的藍色小圓點拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力。畫出箭嘴後，選擇它是靜摩擦力還是滑動摩擦力。</p><p class="prediction-scenario">已知向右拉力：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；${velocityText}</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">畫出的摩擦力：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
+      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">先由物體中央旁的藍色小圓點拖出摩擦力箭嘴；不畫箭嘴代表沒有摩擦力。畫出箭嘴後，選擇它是靜摩擦力還是滑動摩擦力。</p>${kineticPrompt ? `<p class="prediction-kinetic-prompt">${kineticPrompt}</p>` : ""}<p class="prediction-scenario">已知向右拉力：<var>F</var><sub>拉</sub> = ${spec.pullN.toFixed(1)} N；${velocityText}</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">${forceReadoutLabel}：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
       if (response.committed && !state.fromReview && activeIndex < scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<button type="button" data-action="advance-prediction" class="next-button">下一題 D${activeIndex + 2}</button>`);
       if (response.committed && !state.fromReview && activeIndex >= scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<p class="neutral-status">四題已保存；亦可直接前往提交前檢查。</p>`);
       host.append(card);
@@ -1348,8 +1353,9 @@
       const label = latestResult.passed === true ? "已通過" : latestResult.passed === false ? "未通過" : "未能安全判斷合格狀態";
       panel.classList.remove("is-hidden");
       const explanation = scenario ? `<details><summary>物理解釋與各部分分數</summary><p>提交後才顯示的模擬設定：質量 ${scenario.massKg.toFixed(1)} kg；最大靜摩擦力約 ${scenario.staticLimitMeanN.toFixed(2)} N；平均滑動摩擦力約 ${scenario.kineticFrictionMeanN.toFixed(2)} N。</p></details>` : "<p>此頁只顯示可信的 Moodle 成績摘要；原始活動答案未被信任。</p>";
+      const graphSummary = state?.trial ? `<section class="result-analysis-summary"><h3>Part C 圖像結果</h3><p>上方只讀 <var>F</var><sub>拉</sub>–<var>t</var> 圖顯示你的三個標記及正確範圍；圖下列出各標記的時間和拉力讀數。</p></section>` : "";
       const finishRetry = presentation === "submitted-committed" ? '<button type="button" data-action="retry-finish">重試完成提交</button>' : "";
-      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已完成的 Moodle 成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p><p class="result-neutral">以下列出每一部分邊度得分、邊度扣分；「未扣分」代表該小題已取得滿分。</p>${scoreBreakdownMarkup(latestResult, scenario)}<ul>${(latestResult.feedbackItems || []).map((item) => `<li>${item}</li>`).join("")}</ul>${explanation}${finishRetry}`;
+      panel.innerHTML = `<h2>${scenario ? "本次提交結果" : "已完成的 Moodle 成績摘要"}</h2><p class="result-score">${latestResult.score == null ? "—" : `${latestResult.score} / ${latestResult.maxScore}`}</p><p class="${latestResult.passed ? "result-good" : "result-neutral"}">${label}</p>${graphSummary}<p class="result-neutral">以下列出每一部分邊度得分、邊度扣分；「未扣分」代表該小題已取得滿分。</p>${scoreBreakdownMarkup(latestResult, scenario)}<ul>${(latestResult.feedbackItems || []).map((item) => `<li>${item}</li>`).join("")}</ul>${explanation}${finishRetry}`;
     }
     function render() {
       if (typeof document === "undefined") return;

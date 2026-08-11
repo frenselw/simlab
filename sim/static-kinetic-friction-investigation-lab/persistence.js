@@ -25,7 +25,7 @@
     return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
   }
   function emptyPredictions() { return [null, null, null, null]; }
-  function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null }; }
+  function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null, analysisDraft: null }; }
   function freshState(seed) {
     if (!integer(seed) || seed < 0 || seed > 0xffffffff) throw new Error("invalid seed");
     return {
@@ -73,7 +73,8 @@
     if (state.phase === "experiment") return state.trial ? "accepted" : "ready";
     if (state.phase === "analysis") {
       if (!state.trial) return "waiting-for-trial";
-      const completed = ANALYSIS_KEYS.filter((key) => state.analysis[key] != null).length;
+      const visibleAnalysis = state.working?.analysisDraft || state.analysis;
+      const completed = ANALYSIS_KEYS.filter((key) => visibleAnalysis[key] != null).length;
       if (!completed) return "selection-ready";
       if (hasAllAnalysisFields(state)) return "complete";
       return "selection-only";
@@ -98,6 +99,12 @@
     if (!options.allowUncommitted && force.committed !== true) return false;
     if (force.frictionType === "none" && (force.direction !== "none" || force.frictionMagnitudeCN !== 0)) return false;
     if (force.frictionType !== "none" && !["left", "right"].includes(force.direction)) return false;
+    return true;
+  }
+  function validateZeroForceAnswer(force, options = {}) {
+    if (force == null) return true;
+    if (!exactKeys(force, ["frictionType", "direction", "frictionMagnitudeCN", "committed"]) || !["none", "static", "kinetic"].includes(force.frictionType) || !["none", "left", "right"].includes(force.direction) || !integer(force.frictionMagnitudeCN) || force.frictionMagnitudeCN < 0 || force.frictionMagnitudeCN > 1200 || ![true, false].includes(force.committed)) return false;
+    if (!options.allowUncommitted && force.committed !== true) return false;
     return true;
   }
   function validateAppliedForce(force, options = {}) {
@@ -143,11 +150,11 @@
   function validateState(state, options = {}) {
     const stateKeys = ["schemaVersion", "generatorVersion", "physicsVersion", "measurementVersion", "rubricVersion", "seed", "phase", "variant", "fromReview", "balance", "trial", "analysis", "predictions", ...(state?.working ? ["working"] : [])];
     if (!exactKeys(state, stateKeys) || state.schemaVersion !== SCHEMA_VERSION || state.generatorVersion !== GENERATOR_VERSION || state.physicsVersion !== PHYSICS_VERSION || state.measurementVersion !== MEASUREMENT_VERSION || state.rubricVersion !== RUBRIC_VERSION || !integer(state.seed) || state.seed < 0 || state.seed > 0xffffffff || !PHASES.includes(state.phase) || typeof state.fromReview !== "boolean" || !exactKeys(state.balance, ["breakaway", "staticCase", "zeroForce"]) || !Array.isArray(state.predictions) || state.predictions.length !== PREDICTION_COUNT || !exactKeys(state.analysis, ANALYSIS_KEYS) || (state.phase !== "review" && !state.working)) throw new Error("invalid state shape");
-    if (state.working && !exactKeys(state.working, ["activeBalanceStep", "activeAnalysisTask", "activePredictionIndex", "reviewEditTarget", "editDraft"])) throw new Error("invalid working shape");
+    if (state.working && !exactKeys(state.working, ["activeBalanceStep", "activeAnalysisTask", "activePredictionIndex", "reviewEditTarget", "editDraft", "analysisDraft"])) throw new Error("invalid working shape");
     if (state.trial != null && (!exactKeys(state.trial, ["sampleDtMs", "regularSampleCount", "forceVelocityBase64", "breakaway"]) || state.trial.breakaway != null && !exactKeys(state.trial.breakaway, ["timeMs", "measuredPullCN", "measuredVelocityMMps", "preBreakPeakGridIndex"]))) throw new Error("invalid trial shape");
     if (!state.fromReview && state.phase === "review" && state.working && JSON.stringify(state.working) !== JSON.stringify(emptyWorking())) throw new Error("complete review cannot contain working state");
     if (state.fromReview && state.phase === "review") throw new Error("review-edit must target an editable section");
-    if (!validateLearnerForce(state.balance.zeroForce) || !validateStaticCase(state.balance.staticCase) || !validateBreakaway(state.balance.breakaway)) throw new Error("invalid balance answers");
+    if (!validateZeroForceAnswer(state.balance.zeroForce) || !validateStaticCase(state.balance.staticCase) || !validateBreakaway(state.balance.breakaway)) throw new Error("invalid balance answers");
     if (state.balance.zeroForce?.committed !== true && state.balance.staticCase !== null) throw new Error("static task cannot precede zero-force answer");
     if ((state.balance.staticCase?.learnerAppliedForce?.committed !== true || state.balance.staticCase?.learnerForce?.committed !== true) && state.balance.breakaway.bestPullCN !== null) throw new Error("breakaway trial cannot precede static-force answer");
     if (state.balance.breakaway.bestPullCN === null && state.balance.breakaway.learnerMaxCN !== null) throw new Error("maximum-friction answer needs a trial");
@@ -161,6 +168,9 @@
     if (!state.trial && ANALYSIS_KEYS.some((key) => state.analysis[key] != null)) throw new Error("analysis answers require accepted trial");
     const sampleCount = decodedTrial?.merged?.length || 0;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.analysis[key], sampleCount || 1))) throw new Error("invalid analysis task");
+    if (state.working?.analysisDraft != null) {
+      if (!state.trial || !exactKeys(state.working.analysisDraft, ANALYSIS_KEYS) || ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.working.analysisDraft[key], sampleCount || 1) || state.working.analysisDraft[key]?.committed === true)) throw new Error("invalid working analysis draft");
+    }
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
     state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
@@ -180,7 +190,7 @@
       const expectedKind = { balance: "balance", analysis: "analysis-task", predict: "prediction" }[target.section];
       if (expectedKind && state.working.editDraft.kind !== expectedKind) throw new Error("review edit draft kind does not match target");
       if (target.section === "balance" && state.working.editDraft.kind !== "balance") throw new Error("invalid balance review-edit draft");
-      if (target.section === "balance" && target.semanticKey === "zero-force" && !validateLearnerForce(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid zero-force review-edit draft");
+      if (target.section === "balance" && target.semanticKey === "zero-force" && !validateZeroForceAnswer(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid zero-force review-edit draft");
       if (target.section === "balance" && target.semanticKey === "static-case" && !validateStaticCase(state.working.editDraft.value, { allowUncommitted: true })) throw new Error("invalid static-force review-edit draft");
       if (target.section === "balance" && target.semanticKey === "breakaway" && (!integer(state.working.editDraft.value) || state.working.editDraft.value < 0 || state.working.editDraft.value > 1200)) throw new Error("invalid maximum-friction review-edit draft");
       if (target.section === "analysis" && (state.working.editDraft.kind !== "analysis-task" || !validateAnalysisTask(target.semanticKey, state.working.editDraft.value, sampleCount || 1))) throw new Error("invalid analysis review-edit draft");
@@ -190,7 +200,7 @@
     return true;
   }
   function setZeroForceAnswer(state, learnerForce) {
-    if (!validateLearnerForce(learnerForce) || !learnerForce?.committed) throw new Error("explicit committed zero-force answer required");
+    if (!validateZeroForceAnswer(learnerForce) || !learnerForce?.committed) throw new Error("explicit committed zero-force answer required");
     const editingReview = Boolean(state.fromReview);
     if (!editingReview && state.phase !== "balance") throw new Error("zero-force answer outside balance phase");
     if (editingReview && (state.working?.reviewEditTarget?.section !== "balance" || state.working.reviewEditTarget.semanticKey !== "zero-force")) throw new Error("zero-force answer is not the review-edit target");
@@ -236,7 +246,7 @@
     if (state.fromReview || state.phase !== "experiment") throw new Error("trial outside experiment phase");
     const decoded = Measurement.unpackTrace(trial);
     if (!Measurement.assessTrial(decoded).valid) throw new Error("trial quality incomplete");
-    const next = clone(state); next.trial = clone(trial); next.phase = "experiment"; next.fromReview = false; next.analysis = emptyAnalysis(); next.working = next.working || emptyWorking(); return update(next, {});
+    const next = clone(state); next.trial = clone(trial); next.phase = "experiment"; next.fromReview = false; next.analysis = emptyAnalysis(); next.working = next.working || emptyWorking(); next.working.analysisDraft = null; return update(next, {});
   }
   function setAnalysisTask(state, key, value) {
     if (!ANALYSIS_KEYS.includes(key) || !value) throw new Error("invalid analysis task");
@@ -275,8 +285,8 @@
     const sampleCount = Measurement.unpackTrace(state.trial).merged.length;
     if (ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, values[key], sampleCount))) throw new Error("invalid analysis marker draft value");
     const next = clone(state);
-    next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
-    const nextActive = ANALYSIS_KEYS.findIndex((key) => !analysisTaskComplete(key, next.analysis[key]));
+    next.working.analysisDraft = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, values[key] == null ? null : { index: values[key].index, committed: false }]));
+    const nextActive = ANALYSIS_KEYS.findIndex((key) => !analysisTaskHasSelection(key, next.working.analysisDraft[key]));
     next.working.activeAnalysisTask = nextActive < 0 ? ANALYSIS_KEYS.length - 1 : nextActive;
     return update(next, {});
   }
@@ -287,6 +297,7 @@
     const next = clone(state);
     const changed = ANALYSIS_KEYS.some((key) => state.analysis[key]?.committed !== true || state.analysis[key]?.index !== values[key].index);
     next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
+    next.working.analysisDraft = null;
     const invalidatesPredictions = changed && next.predictions.some(Boolean);
     if (invalidatesPredictions) {
       next.predictions = emptyPredictions();
@@ -412,17 +423,21 @@
     validateState(state, { skipVariant: state.phase === "review" });
     const breakaway = state.balance.breakaway;
     const answer = { w: WIRE_VERSION, v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { z: encodeForce(state.balance.zeroForce), s: state.balance.staticCase ? [encodeCode(DIR_CODE, state.balance.staticCase.appliedDirection), state.balance.staticCase.appliedMagnitudeCN, encodeAppliedForce(state.balance.staticCase.learnerAppliedForce), encodeForce(state.balance.staticCase.learnerForce)] : null, r: [breakaway.attempts, breakaway.bestPullCN, encodeCode(DIR_CODE, breakaway.bestDirection), breakaway.learnerMaxCN, breakaway.committed ? 1 : 0] }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null) };
-    if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null };
+    if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null, m: state.working?.analysisDraft || null };
     return answer;
   }
   function migrateLegacyAnswer(answer, kind) {
-    if (!answer || !["s1", "s2", "s3", "s5"].includes(answer.w)) return answer;
+    if (!answer) return answer;
+    if (answer.w === WIRE_VERSION && kind === "draft" && answer.k && !Object.hasOwn(answer.k, "m")) answer = { ...clone(answer), k: { ...clone(answer.k), m: null } };
+    const measurementVersion = Array.isArray(answer.v) ? answer.v[3] : null;
+    if (answer.w === "s5" || (answer.w === WIRE_VERSION && measurementVersion !== MEASUREMENT_VERSION)) {
+      if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated across measurement contracts");
+      const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
+      return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null } };
+    }
+    if (!["s1", "s2", "s3"].includes(answer.w)) return answer;
     if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated to the redesigned Part C contract");
-    if (answer.w !== "s5") return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { s: null, m: null, k: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null } };
-    const hasTrial = Boolean(answer.t);
-    const preservedPhase = hasTrial && ["analysis", "predict"].includes(answer.p) ? "analysis" : answer.p === "experiment" ? "experiment" : "balance";
-    const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
-    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: preservedPhase, q: "ready", R: false, b: preservedBalance, t: answer.t || null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: answer.k?.b ?? null, a: 0, p: answer.k?.p ?? 0, e: null, d: null } };
+    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { s: null, m: null, k: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null, m: null } };
   }
   function validateWireAnswer(answer, kind) {
     const answerKeys = ["w", "v", "s", "p", "q", "R", "b", "t", "a", "P", ...(kind === "draft" ? ["k"] : [])];
@@ -431,7 +446,7 @@
     if (!answer.a || typeof answer.a !== "object" || Object.keys(answer.a).sort().join(",") !== Object.values(ANALYSIS_WIRE_KEYS).sort().join(",")) throw new Error("invalid answer analysis wire");
     if (!Array.isArray(answer.P) || answer.P.length !== PREDICTION_COUNT) throw new Error("invalid answer prediction wire");
     if (answer.t !== null && (!exactKeys(answer.t, ["d", "n", "x", "b"]) || !integer(answer.t.d) || !integer(answer.t.n) || typeof answer.t.x !== "string" || (answer.t.b !== null && (!Array.isArray(answer.t.b) || answer.t.b.length !== 4)))) throw new Error("invalid answer trial wire");
-    if (kind === "draft" && (!answer.k || typeof answer.k !== "object" || Object.keys(answer.k).sort().join(",") !== ["a", "b", "d", "e", "p"].join(","))) throw new Error("draft answer missing working wire");
+    if (kind === "draft" && (!answer.k || typeof answer.k !== "object" || Object.keys(answer.k).sort().join(",") !== ["a", "b", "d", "e", "m", "p"].join(","))) throw new Error("draft answer missing working wire");
     if (kind === "review" && Object.hasOwn(answer, "k")) throw new Error("review answer contains working wire");
     if (kind === "review" && (answer.p !== "review" || !["partial", "complete"].includes(answer.q) || answer.R !== false)) throw new Error("review answer has a noncanonical header");
     if (answer.b.z !== null && (!Number.isInteger(answer.b.z[2]) || ![0, 1].includes(answer.b.z[answer.b.z.length - 1]))) throw new Error("invalid zero-force wire");
@@ -449,7 +464,7 @@
     ANALYSIS_KEYS.forEach((key) => { analysis[key] = decodeAnalysisTask(key, answer.a?.[ANALYSIS_WIRE_KEYS[key]] || null); });
     const staticWire = answer.b?.s;
     const breakawayWire = answer.b?.r || [0, null, null, null, 0];
-    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null } };
+    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null, analysisDraft: answer.k?.m || null } };
   }
   function encodeDraft(state) { validateState(state); return compactAnswer(state, true); }
   function encodeReview(state) { const review = normalizeReview(state); validateState({ ...review, working: emptyWorking(), variant: "complete" }, { skipVariant: true }); return compactAnswer({ ...review, working: emptyWorking() }, false); }

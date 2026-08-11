@@ -26,6 +26,14 @@ assert.equal(partialBalance.detail.find((item) => item.key === "static-case").po
 const wrongZeroForce = JSON.parse(JSON.stringify(perfect));
 wrongZeroForce.balance.zeroForce = { frictionType: "static", direction: "right", frictionMagnitudeCN: 100, committed: true };
 assert.equal(S.balanceScore(wrongZeroForce, scenario).detail.find((item) => item.key === "zero-force").points, 0, "A1 must explicitly identify zero friction");
+for (const [zeroForce, expected] of [
+  [{ frictionType: "none", direction: "right", frictionMagnitudeCN: 0, committed: true }, 3],
+  [{ frictionType: "none", direction: "none", frictionMagnitudeCN: 100, committed: true }, 2],
+  [{ frictionType: "static", direction: "none", frictionMagnitudeCN: 0, committed: true }, 3]
+]) {
+  const componentAnswer = JSON.parse(JSON.stringify(perfect)); componentAnswer.balance.zeroForce = zeroForce;
+  assert.equal(S.balanceScore(componentAnswer, scenario).detail.find((item) => item.key === "zero-force").points, expected, "A1 type, direction and magnitude are scored independently");
+}
 
 const justInsideMaximum = JSON.parse(JSON.stringify(perfect));
 justInsideMaximum.balance.breakaway.learnerMaxCN = Math.round((scenario.staticLimitMeanN + S.maximumStaticBalanceToleranceN(scenario.staticLimitMeanN) - .01) * 100);

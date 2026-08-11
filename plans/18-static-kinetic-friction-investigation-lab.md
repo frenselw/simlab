@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`43`（2026-08-11；按 PR #12 重審統一 B／C 圖表、超時及 dependency invalidation contract。30 秒是記錄上限：B 保留 0–30 s recording frame，C 則以同一 trace 的實際記錄終點作橫軸上限。30 秒到達時，有效 trial 自動保存；只有不合格／空白 trial 才顯示超時並要求重試。未保存或 running B 可一按直接重新開始；若已有 accepted trial，必須先以中性確認說明會清除 B trace、C markers 及依賴最新模型的 D predictions，確認前保留舊 authority。C marker 只有 `committed:true` 才可計分；canonical C 有語意改變時原子式清除 D，same-value save 保留 D。A1 的摩擦力類型、方向、大小必須各自明確選擇，不得因選「沒有摩擦力」自動補答其餘欄位。A2 作答前提示只描述任務，不透露等大反向答案。Part D 拖動只更新本地 draft，於 pointerup／鍵盤步進／保存時才持久化，避免 LMS commit flood。A3 先以 0.1 N 量化拉力再進入 physics。修正 Part B 首幀 timing gap、空記錄停止、abort 後完整 render 及有效 timeout 提示一致性；measurement contract 提升至 v5，runtime build marker 提升至 42。）
+> Plan revision：`44`（2026-08-11；按 PR #12 最新重審完成 authority／migration contract。Part B 的第一個 delivered frame 只建立 recording clock，50 ms watchdog 只比較其後兩個 recording frames，避免確認重做時的 render delay 誤停新記錄。Part C 將已保存 `state.analysis` 與 `working.analysisDraft` 完全分離：pointerup 可 checkpoint 未保存位置，但 scoring／review 只讀 canonical C；同值保存保留 D，改值保存才清除 D。A1 persistence 只驗證三個欄位的合法 shape，完整但物理錯誤的組合仍可保存並由 1／1／2 分項 rubric 評分。D3／D4 明示平均滑動摩擦力估值。提交後舞台顯示只讀 C 圖、學生 marker、正確範圍及時間／拉力讀數。Measurement v5 migration 對舊 s5 或 s6/v4 editable draft 保留獨立 A／D、清除 B trace／C marker並回到 B；舊 review fail closed。Runtime build marker 提升至 43。）
 
 本計劃必須遵從：
 
@@ -387,7 +387,7 @@ Part A 完全不使用測力計、讀數、歸零或 tare。舞台只顯示水�
 - 方向：`none`；
 - 大小：`0 N`。
 
-兩個選單初始都顯示 disabled 的「請選擇」，大小讀數亦顯示「請選擇」；系統不預選「沒有摩擦力」，學生必須明確揀選類型、方向及大小。若新開題或 draft 的 canonical `zeroForce` 仍為 `null`，啟動時會清除瀏覽器可能復原的表單值，確保畫面仍從「請選擇」開始；已有明確保存答案的 draft／review 則照常復原。學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分。
+兩個選單初始都顯示 disabled 的「請選擇」，大小讀數亦顯示「請選擇」；系統不預選「沒有摩擦力」，學生必須明確揀選類型、方向及大小。若新開題或 draft 的 canonical `zeroForce` 仍為 `null`，啟動時會清除瀏覽器可能復原的表單值，確保畫面仍從「請選擇」開始；已有明確保存答案的 draft／review 則照常復原。學生必須按「保存 A1」作明確確認；未選答案不能靠預設值得分。Persistence 只驗證三欄均為合法 enum／有限範圍數字及明確 committed，不在保存前強制三欄物理一致；例如 `none/right/0` 仍是可保存答案。A1 評分為 4 分：類型 1 分、方向 1 分、大小 2 分，正確性只由 rubric 獨立判斷。
 
 A1 保存按鈕在正常 `balance` phase 不會因已保存而鎖定。若學生改動並重新保存，只更新 A1 authority，不清除 A2、A3、實驗 trace、圖像分析及預測；相同答案重存視為 no-op。
 
@@ -525,7 +525,9 @@ C 只要求三個位置，不要求輸入力值、選擇摩擦力類型、選區
 }
 ```
 
-`index` 指向同一張 merged canonical trace；尚未拖動的 marker 以 `index:null, committed:false` 保存，拖動後才產生合法 sample index；按一次保存後三項一併轉為 `committed:true`。review edit 可指定其中一個 marker，取消修改必須完整恢復原 authority。C 的 schema 變更使 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`；舊 s5 draft 只保留 A／B／D，C authority 安全清空並回到 C 的標示起點，舊 review 不作不安全自動遷移。
+`index` 指向同一張 merged canonical trace。`state.analysis` 永遠是最後一次明確保存的 canonical authority；首次作答或再次拖動的未保存位置只寫入 `working.analysisDraft`，每個 record 可為 `null` 或 `{ index, committed:false }`，不得覆寫 canonical C、不得參與 scoring／review。Pointerup／keyboard step 可把 working draft checkpoint 到 LMS，reload／離開後返回 C 可繼續；按一次保存才把三項一併寫成 `state.analysis.*.committed:true` 並清空 working draft。保存時必須與保存前 canonical C 比較：同值 no-op 保留 D，改值才原子式清除 D。Review edit 仍使用獨立 `working.editDraft` 指定其中一個 marker，取消修改完整恢復原 authority。
+
+C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft working wire 新增 `k.m` 保存三個未提交 marker；同 measurement version、尚未含 `k.m` 的既有 s6 draft 解碼時補 `null`。Measurement contract migration 則採 fail-safe policy：所有舊 s5 draft，以及 s6 但 `measurementVersion<5` 的 editable draft，只保留與量測 trace 無關的 A／D authority，清除 B trace 及 C marker並回到 `experiment/ready`；任何舊 finished review 都 fail closed，不把舊 trace 重新標示成 v5 後重評。
 
 ---
 
@@ -1064,7 +1066,7 @@ function animationFrame(nowMs) {
 
 Pointer、keyboard 及 coalesced input 必須用 `event.timeStamp` 經固定 page-time→simulation-time offset 轉成 simulation-clock timestamp 並進入 queue；每個 physics tick 使用該 tick 時刻以前的最後 target（zero-order hold）。同 timestamp 依 browser event order，舊 queue entries 在所有較早 ticks 消費後才移除。不可把最新 target 追溯套用到積壓 ticks。
 
-超過 `50 ms` 的背景／stall 時間明確丟棄，不作 catch-up；若正在記錄，該次 trial 以中性技術原因作廢並返回 recording 前 checkpoint。相同 seed、相同 timestamped input path 和相同 versions 必須在 60／90／120 Hz、coalesced events 及含短 stall 的 render schedules 下產生同一 canonical trace。
+第一個 delivered recording frame 只建立 clock baseline，不累積 physics time，也不參與 stall 判定；確認重做、authority transition及完整 render所需時間不得被算入 trial。由第二個 delivered frame 起，超過 `50 ms` 的相鄰 frame gap 明確丟棄，不作 catch-up；若正在記錄，該次 trial 以中性技術原因作廢並返回 recording 前 checkpoint。相同 seed、相同 timestamped input path 和相同 versions 必須在 60／90／120 Hz、coalesced events 及含短 stall 的 render schedules 下產生同一 canonical trace。
 
 ---
 
@@ -1875,6 +1877,8 @@ function trimmedMean(values, trimFraction = 0.10) {
 - 物理解釋。
 - 逐 Part 及逐小題的得分帳：顯示 `得分／滿分`，滿分項目標示「未扣分」，其餘標示「扣 X 分」；未完成的 A／B／C／D 小題明確列為 0 分及扣分原因。
 
+結果 presentation 的舞台必須切換到真正可見的只讀 Part C 圖：同時顯示學生三個 marker guide／dot、正確 static-rise／breakaway tolerance／post-breakaway ranges，以及圖下三個 marker 的 `time, F拉` 讀數。所有 `.analysis-marker` drag targets 必須隱藏及鎖定；editable presentation 不得出現正確 range overlay。
+
 ### 常見診斷
 
 #### 無外力但畫了摩擦力
@@ -2158,7 +2162,7 @@ Scroll topology：
 | `experiment` | `accepted` | B | canonical packed 100 ms regular trace（最長 30 s）＋breakaway sidecar；B 保留 0–30 s frame，C 橫軸只到實際記錄終點；C 可空或已有分析 | 不把 transient recorder 寫入 snapshot | A／B／C／D；C 需有效 trace；重做先確認會清除 B/C/D |
 | `experiment` | `review-edit` | B | 舊 accepted trial／C／D 在確認前完整保留；確認後原子式清除並轉為新的 running B，`fromReview=false` | 未確認前不得改寫舊 authority | 確認／取消；確認後新的 30 秒記錄、A／B／C／D |
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
-| `analysis` | `selection-ready`／`selection-only`／`complete` | C 三個 marker | accepted trial；舞台顯示同一張以實際記錄終點為上限的 F–T 圖；三個 marker 可 partial 或 complete；一次保存把三項設為 `committed:true` | 不保存無 trial 的 C authority；`committed:false` marker 不可計分；不再保存第二張 learner-facing velocity graph、區段或額外數值 | A／B／C／D；三個 marker 可隨時拖動修改；語意改變會清除 D |
+| `analysis` | `selection-ready`／`selection-only`／`complete` | C 三個 marker | accepted trial；舞台顯示同一張以實際記錄終點為上限的 F–T 圖；`state.analysis` 只含最後已保存 canonical markers；`working.analysisDraft` 可 partial，save 才原子式取代 canonical | 不保存無 trial 的 C authority；working draft 不可計分／覆寫 canonical；不再保存第二張 learner-facing velocity graph、區段或額外數值 | A／B／C／D；拖動及離開保留 working draft；同值 save 保留 D，改值 save 清除 D |
 | `analysis` | `review-edit` | C marker target | review authority 保留；可保存指定 marker replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
 | `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 只顯示 `working.activePredictionIndex` 指向的一題；正常流程按 D1→D4 順序保存，前一題保存後才可進入下一題；未作答 slots 保持 `null` | 不要求 C complete；partial prediction 仍可保存為 draft，但未保存 D 題不會被補成預設答案 | A／B／C／D；可從 D 直接進 review，D 題可跳過 |
 | `predict` | `review-edit` | D1–D4 target | 原本 prediction authority 保留；`working.editDraft` 可存在 | active pointer／DOM state | cancel／save replacement |
@@ -2299,6 +2303,11 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
     editDraft: null | {
       kind: "balance" | "analysis-task" | "prediction",
       value
+    },
+    analysisDraft: null | {
+      staticFriction: null | { index, committed: false },
+      maximumStaticFriction: null | { index, committed: false },
+      kineticFriction: null | { index, committed: false }
     }
   }
 }
@@ -2308,7 +2317,7 @@ Active recording 本身不是 saveable phase。頁面中斷時恢復到記錄前
 
 `learnerAppliedForce`／`learnerForce` 的 incomplete draft 只可存在於未提交的 DOM／local interaction state；saveable snapshot 只保存 committed vectors（沒有摩擦力時保存 committed `none` force）。nullable A／B／C authority、partial prediction 與 `working.editDraft` 只可出現在 matrix 明列的 partial/review-edit variants。Review normalization 固定 `phase:"review"`、`fromReview:false`，並按目前 authority 設 `variant:"partial"` 或 `"complete"`；允許 A／B／C／D answer fields 為 `null` 或未 committed。每個缺少的 rubric item 經 scoring 計 0 分，並移除整個 `working`。
 
-Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、最長 `0–30 s` 的 canonical grid；B 保留 0–30 s frame，C 的 learner-facing viewport 顯示實際記錄範圍。packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的拉力在進入 physics 前先以 0.1 N 語意步進量化，`bestPullCN` 必須來自至少一個合法試拉；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records，分別代表 static、maximum-static 及 kinetic marker；拖動 draft 可為 `committed:false` 且不得計分，保存後三項一併為 `true`。
+Part A／B 使用 `s6` wire version。`balance` 的短鍵為 `b.z`（A1）、`b.s`（A2 的指定方向／大小、applied vector 及 friction vector）及 `b.r`（A3 attempts、best pull、方向、估計值、committed）；`b.s` 使用 fixed-order `[specifiedDirectionCode, specifiedMagnitudeCN, appliedForce, frictionForce]`。B 的 trial 使用 `100 ms`、最長 `0–30 s` 的 canonical grid；B 保留 0–30 s frame，C 的 learner-facing viewport 顯示實際記錄範圍。packed velocity 只作 hidden physics／scoring data，不能當作 learner-facing graph。所有大小以 centinewton 保存，不保存任何 raw pointer path 或 drag timing。A3 的拉力在進入 physics 前先以 0.1 N 語意步進量化，`bestPullCN` 必須來自至少一個合法試拉；`learnerMaxCN` 只可在 A3 trial 後提交。C 的 canonical `analysis` wire 只保存 `s`／`m`／`k` 三個 `[index, committed]` records；未保存的三-marker working draft 只保存於 draft-only `k.m`，永不進 review snapshot或 scoring。
 
 舊 `s1`／`s2`／`s3` editable draft 只以其 seed 安全重開為 `zero-ready`，不把舊測力計／tare／observation 或舊 A2 force shape 冒充成新 Part A 答案；舊 finished review 因 Part A semantic contract 不相容而 fail closed，顯示 technical load error，不重算成新答案。
 
@@ -2985,7 +2994,7 @@ effective height below 376 CSS px ultra-compact
 
 1. **Part A 顯示學生自己受力圖的 `ΣFx`，但不提供正誤；**
 2. **Part B 使用舞台物體中央 direct-drag＋寬鬆 pacing guide；初次拉動採 spring／connector 產生 breakaway drop，滑動中再次改力採 direct Newton force-control，仍呈現可調拉力、連續運動及放手後減速；**
-3. **重新做實驗會清除全部 graph analysis 及舊 trace，但保留獨立的 Part D 預測；沒有已保存 trace 時同樣可以重新開始。**
+3. **重新做實驗會清除舊 trace、全部 graph analysis及依賴該量測模型的 Part D 預測；沒有已保存 trace 時同樣可以重新開始。**
 
 ---
 
