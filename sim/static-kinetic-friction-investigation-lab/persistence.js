@@ -10,7 +10,7 @@
   const WIRE_VERSION = "s6";
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 7;
-  const MEASUREMENT_VERSION = 4;
+  const MEASUREMENT_VERSION = 5;
   const RUBRIC_VERSION = 3;
   const ACTIVITY = "static-kinetic-friction-investigation-lab";
   const PHASES = Object.freeze(["balance", "experiment", "analysis", "predict", "review"]);
@@ -24,13 +24,14 @@
   function emptyAnalysis() {
     return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
   }
+  function emptyPredictions() { return [null, null, null, null]; }
   function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null }; }
   function freshState(seed) {
     if (!integer(seed) || seed < 0 || seed > 0xffffffff) throw new Error("invalid seed");
     return {
       schemaVersion: SCHEMA_VERSION, generatorVersion: GENERATOR_VERSION, physicsVersion: PHYSICS_VERSION, measurementVersion: MEASUREMENT_VERSION, rubricVersion: RUBRIC_VERSION,
       seed: seed >>> 0, phase: "balance", variant: "zero-ready", fromReview: false,
-      balance: { zeroForce: null, staticCase: null, breakaway: emptyBreakaway() }, trial: null, analysis: emptyAnalysis(), predictions: [null, null, null, null], working: emptyWorking()
+      balance: { zeroForce: null, staticCase: null, breakaway: emptyBreakaway() }, trial: null, analysis: emptyAnalysis(), predictions: emptyPredictions(), working: emptyWorking()
     };
   }
   function emptyBreakaway() { return { attempts: 0, bestPullCN: null, bestDirection: null, learnerMaxCN: null, committed: false }; }
@@ -262,6 +263,7 @@
       return update(next, {});
     }
     next.analysis[key] = replacement;
+    if (replacement.committed && changed && next.predictions.some(Boolean)) next.predictions = emptyPredictions();
     next.phase = editingReview ? "predict" : "analysis";
     next.fromReview = editingReview ? false : state.fromReview;
     next.working = editingReview ? emptyWorking() : clone(state.working);
@@ -283,8 +285,14 @@
     const sampleCount = Measurement.unpackTrace(state.trial).merged.length;
     if (ANALYSIS_KEYS.some((key) => !analysisTaskComplete(key, values[key]) || !validateAnalysisTask(key, values[key], sampleCount))) throw new Error("all analysis markers must be complete");
     const next = clone(state);
+    const changed = ANALYSIS_KEYS.some((key) => state.analysis[key]?.committed !== true || state.analysis[key]?.index !== values[key].index);
     next.analysis = Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, clone(values[key])]));
-    next.working.activeAnalysisTask = ANALYSIS_KEYS.length - 1;
+    const invalidatesPredictions = changed && next.predictions.some(Boolean);
+    if (invalidatesPredictions) {
+      next.predictions = emptyPredictions();
+      next.phase = "predict";
+      next.working = emptyWorking();
+    } else next.working.activeAnalysisTask = ANALYSIS_KEYS.length - 1;
     return update(next, {});
   }
   function selectAnalysisTask(state, key) {
@@ -364,7 +372,7 @@
   function redoExperiment(state) {
     if (state.fromReview && state.working?.reviewEditTarget?.section !== "experiment") throw new Error("redo is not the review-edit target");
     if (!state.fromReview && state.phase !== "experiment") throw new Error("redo outside experiment phase");
-    const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.fromReview = false; next.working = emptyWorking(); return update(next, {});
+    const next = clone(state); next.phase = "experiment"; next.trial = null; next.analysis = emptyAnalysis(); next.predictions = emptyPredictions(); next.fromReview = false; next.working = emptyWorking(); return update(next, {});
   }
   function normalizeReview(state) {
     const next = clone(state); next.phase = "review"; next.variant = hasRequiredAuthority(next) ? "complete" : "partial"; next.fromReview = false; delete next.working; return next;

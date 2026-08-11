@@ -13,6 +13,9 @@ for (let i = 0; i < 120; i += 1) state = M.step(state, physical, scenario, 1 / 2
 assert.equal(JSON.stringify(physical), physicalCheckpoint, "measurement filtering never mutates or feeds back into physics state");
 const before = M.liveReading(state);
 assert.equal(before.forceCN, 0, "the calibrated startup reading is already zero without a learner tare step");
+const emptyRecorder = M.createRecorder(scenario);
+assert.deepEqual(M.stopRecorder(emptyRecorder), { accepted: false, reason: "no-samples" }, "stopping before the first sample fails safely without throwing");
+assert.equal(emptyRecorder.running, false);
 const eventMeasurementBase = M.createMeasurementState(scenario);
 const eventMeasurementBefore = { ...eventMeasurementBase, forceFilteredN: 5.8, velocityFilteredMps: .02, forceNoise: .2, velocityNoise: -.1 };
 const eventMeasurementAfter = { ...eventMeasurementBase, forceFilteredN: 6.2, velocityFilteredMps: .04, forceNoise: .4, velocityNoise: .1 };

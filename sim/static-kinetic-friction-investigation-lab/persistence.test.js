@@ -145,6 +145,13 @@ for (const [key, save] of [
 const analysisEdit = roundTrip(P.transitions.enterReviewEdit(state, "analysis", "kineticFriction"), "analysis review edit");
 const analysisDraft = P.transitions.setAnalysisDraft(analysisEdit, "kineticFriction", { index: candidates.slow[0].endIndex, committed: false });
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(analysisDraft, "analysis partial review draft")), state, "analysis review draft cancellation restores authority");
+const sameAnalysis = P.transitions.setAnalysisTask(analysisEdit, "kineticFriction", { ...state.analysis.kineticFriction, committed: true });
+assert.deepEqual(sameAnalysis, state, "same-value Part C review edit preserves all Part D answers");
+const currentKineticIndex = state.analysis.kineticFriction.index;
+const changedKineticIndex = currentKineticIndex < M.unpackTrace(state.trial).merged.length - 1 ? currentKineticIndex + 1 : currentKineticIndex - 1;
+const changedAnalysis = P.transitions.setAnalysisTask(analysisEdit, "kineticFriction", { index: changedKineticIndex, committed: true });
+assert.equal(changedAnalysis.phase, "predict", "a changed Part C authority returns to prediction");
+assert.deepEqual(changedAnalysis.predictions, [null, null, null, null], "a changed Part C authority invalidates all dependent Part D answers");
 const predictionEdit = roundTrip(P.transitions.enterReviewEdit(state, "predict", 1), "prediction review edit");
 const predictionDraft = P.transitions.setPrediction(predictionEdit, 1, { ...state.predictions[1], magnitudeCN: null, committed: false });
 assert.deepEqual(P.transitions.cancelReviewEdit(roundTrip(predictionDraft, "prediction partial review draft")), state, "prediction review draft cancellation restores authority");

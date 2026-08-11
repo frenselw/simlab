@@ -112,18 +112,19 @@
     const candidates = Measurement.findCandidateWindows(decoded);
     const detail = [];
     let score = 0;
-    const staticIndex = analysis.staticFriction?.index;
+    const staticIndex = analysis.staticFriction?.committed === true ? analysis.staticFriction.index : null;
     const staticCorrect = pointInWindows(staticIndex, candidates.static);
     const staticPoints = staticCorrect ? 13 : 0;
     score += staticPoints;
     detail.push({ key: "static-friction", points: staticPoints, max: 13, correct: staticCorrect, index: staticIndex });
     const eventTimeS = decoded.breakaway ? decoded.breakaway.timeMs / 1000 : NaN;
-    const markerTimeS = decoded.merged[analysis.maximumStaticFriction?.index]?.timeS;
+    const maximumIndex = analysis.maximumStaticFriction?.committed === true ? analysis.maximumStaticFriction.index : null;
+    const markerTimeS = decoded.merged[maximumIndex]?.timeS;
     const maximumCorrect = approx(markerTimeS, eventTimeS, BREAKAWAY_TIME_TOLERANCE_S);
     const maximumPoints = maximumCorrect ? 14 : 0;
     score += maximumPoints;
-    detail.push({ key: "maximum-static-friction", points: maximumPoints, max: 14, correct: maximumCorrect, index: analysis.maximumStaticFriction?.index });
-    const kineticIndex = analysis.kineticFriction?.index;
+    detail.push({ key: "maximum-static-friction", points: maximumPoints, max: 14, correct: maximumCorrect, index: maximumIndex });
+    const kineticIndex = analysis.kineticFriction?.committed === true ? analysis.kineticFriction.index : null;
     const kineticWindows = [...(candidates.slow || []), ...(candidates.fast || [])];
     // Part B now takes over the pull after breakaway and maintains the
     // near-uniform-speed force automatically. A late marker on that stable
@@ -180,7 +181,7 @@
     const oppositeDirection = appliedDirection === "left" ? "right" : "left";
     const appliedMagnitudeCN = scenario.balancePullCN || Math.round(scenario.staticLimitMeanN * 0.3 * 100);
     return {
-      schemaVersion: 6, generatorVersion: 1, physicsVersion: 7, measurementVersion: 4, rubricVersion: RUBRIC_VERSION, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
+      schemaVersion: 6, generatorVersion: 1, physicsVersion: 7, measurementVersion: 5, rubricVersion: RUBRIC_VERSION, seed: scenario.seed, phase: "review", variant: "complete", fromReview: false,
       balance: { zeroForce: { frictionType: "none", direction: "none", frictionMagnitudeCN: 0, committed: true }, staticCase: { appliedDirection, appliedMagnitudeCN, learnerAppliedForce: { direction: appliedDirection, magnitudeCN: appliedMagnitudeCN, committed: true }, learnerForce: { frictionType: "static", direction: oppositeDirection, frictionMagnitudeCN: appliedMagnitudeCN, committed: true } }, breakaway: { attempts: 1, bestPullCN: Math.ceil(scenario.staticLimitMeanN * 10) * 10, bestDirection: appliedDirection, learnerMaxCN: Math.round(scenario.staticLimitMeanN * 100), committed: true } }, trial,
       analysis: { staticFriction: { index: pointFromWindow(candidates.static, 0), committed: true }, maximumStaticFriction: { index: breakawayIndex, committed: true }, kineticFriction: { index: kineticWindow ? Math.round((kineticWindow.startIndex + kineticWindow.endIndex) / 2) : kineticFallback, committed: true } },
       predictions: scenario.predictions.map((spec) => ({ id: spec.id, scenarioId: spec.scenarioId, frictionType: spec.frictionType, direction: spec.direction, magnitudeCN: spec.magnitudeCN, motionOutcome: spec.motionOutcome, committed: true }))

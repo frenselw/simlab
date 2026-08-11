@@ -180,6 +180,10 @@
   function stopRecorder(recorder) {
     if (!recorder || recorder.stalled) return { accepted: false, reason: "timing-gap" };
     if (recorder.measurement?.overrange) return { accepted: false, reason: "sensor-overrange" };
+    if (!Array.isArray(recorder.measurement?.regularSamples) || recorder.measurement.regularSamples.length === 0) {
+      if (recorder) recorder.running = false;
+      return { accepted: false, reason: "no-samples" };
+    }
     const trial = packTrace({ regularSamples: recorder.measurement.regularSamples, breakaway: recorder.measurement.breakaway });
     recorder.running = false;
     recorder.trace = trial;

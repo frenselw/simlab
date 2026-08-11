@@ -131,7 +131,7 @@ function productionExperimentScript(frameDurationsMs, options = {}) {
     for (const duration of ${JSON.stringify(frameDurationsMs)}) { now+=duration; app.regression.advanceExperimentFrame(now); }
     if (${options.finalize === false ? "false" : "true"} && app.interactionEvidence().recorderRunning) app.regression.finalizeExperiment(${options.timedOut ? "true" : "false"});
     const state=app.getState(), evidence=app.interactionEvidence();
-    return { trial:state.trial, running:evidence.recorderRunning, timedOut:evidence.experiment?.timedOut, status:document.getElementById('experimentStatus').textContent, live:document.getElementById('liveRegion').textContent, stageDescription:document.getElementById('stageDescription').textContent };
+    return { trial:state.trial, running:evidence.recorderRunning, timedOut:evidence.experiment?.timedOut, status:document.getElementById('experimentStatus').textContent, feedback:document.getElementById('experimentFeedback').textContent, live:document.getElementById('liveRegion').textContent, stageDescription:document.getElementById('stageDescription').textContent };
   })()`;
 }
 async function productionExperimentRegression(cdp, url, label) {
@@ -152,11 +152,23 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.equal(JSON.stringify(traces[1]), JSON.stringify(traces[0]), `${label}: production 60/90 Hz schedules produce the same packed canonical trace`);
   assert.equal(JSON.stringify(traces[2]), JSON.stringify(traces[0]), `${label}: production 60/120 Hz and coalesced batching produce the same packed canonical trace`);
 
+  await tapSelector(cdp, "#requestRedoExperiment");
+  const pendingRedo = await evaluate(cdp, `(() => ({ dialogVisible:!document.getElementById('redoExperimentConfirm').classList.contains('is-hidden'), trial:window.__staticKineticFrictionApp.getState().trial }))()`);
+  assert.equal(pendingRedo.dialogVisible, true, `${label}: redoing an accepted B trial requires confirmation`);
+  assert.deepEqual(pendingRedo.trial, traces[2], `${label}: the accepted B authority remains intact before confirmation`);
+  await tapSelector(cdp, "[data-action='cancel-redo-experiment']");
+  assert.deepEqual(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().trial"), traces[2], `${label}: cancelling the redo preserves the accepted B authority`);
+  await tapSelector(cdp, "#requestRedoExperiment");
+  await tapSelector(cdp, "[data-action='confirm-redo-experiment']");
+  const confirmedRedo = await evaluate(cdp, `(() => ({ trial:window.__staticKineticFrictionApp.getState().trial, running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, dialogHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden') }))()`);
+  assert.deepEqual(confirmedRedo, { trial: null, running: true, dialogHidden: true }, `${label}: confirming the redo atomically clears the accepted trial and starts a new recording`);
+
   await navigate(cdp, url);
   const validTimeout = await evaluate(cdp, productionExperimentScript(frameSchedule(30000, [40]), { batchSize: 5, finalize: false }));
   assert.ok(validTimeout.trial, `${label}: a valid trial auto-saves at the 30 second boundary`);
   assert.equal(validTimeout.timedOut, true, `${label}: valid automatic stop records the timeout boundary`);
   assert.match(validTimeout.status, /自動停止並保存/, `${label}: valid automatic stop reports saved data`);
+  assert.doesNotMatch(validTimeout.feedback, /超時.*重新開始/, `${label}: valid automatic stop never contradicts its saved status`);
 
   await navigate(cdp, url);
   const invalidTimeout = await evaluate(cdp, `(() => {
@@ -172,10 +184,16 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.match(invalidTimeout.status, /30 秒記錄已結束.*重新開始/, `${label}: invalid automatic stop uses neutral retry guidance`);
 
   await navigate(cdp, url);
-  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); const result=app.regression.advanceExperimentFrame(60); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent}; })()`);
+  const emptyStop = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); const accepted=app.regression.finalizeExperiment(false); const canRestart=app.regression.startExperiment(10); return {accepted,canRestart,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent}; })()`);
+  assert.equal(emptyStop.accepted, false, `${label}: stopping before the first sample is rejected without throwing`);
+  assert.equal(emptyStop.canRestart, true, `${label}: an empty stop never wedges the next recording`);
+
+  await navigate(cdp, url);
+  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); const result=app.regression.advanceExperimentFrame(60); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent,startDisabled:document.getElementById('startRecording').disabled}; })()`);
   assert.equal(stalled.result.abortedOnStall, true, `${label}: a production frame gap over 50 ms aborts without catch-up`);
   assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
   assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);
+  assert.equal(stalled.startDisabled, false, `${label}: timing-gap abort fully refreshes the controls`);
   assert.match(stalled.status, /技術時間間隔/, `${label}: timing-gap abort is distinguished from normal timeout`);
 
   await navigate(cdp, url);
@@ -195,11 +213,14 @@ async function semanticSmoke(cdp, url, label) {
   await navigate(cdp, url);
   const delayedFeedback = await evaluate(cdp, `(() => ({coach:document.getElementById('stageCoachText').textContent,balance:document.getElementById('balanceStatus').textContent,description:document.getElementById('stageDescription').textContent,live:document.getElementById('liveRegion').textContent}))()`);
   assert.doesNotMatch(Object.values(delayedFeedback).join(" "), /摩擦力大小和方向都應為零|滑動摩擦力附近/, `${label}: rendered startup visible, live and ARIA copy does not reveal A1 or C3 answers`);
-  const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); type.value='none'; direction.value='none'; magnitude.value='0'; document.getElementById('zeroFrictionMagnitudeValue').textContent='0.0 N'; window.__staticKineticFrictionApp.routeAttempt({state:'new'}); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:document.getElementById('zeroFrictionMagnitudeValue').textContent}; })()`);
-  assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "請選擇" }, `${label}: A1 starts blank and requires an explicit selection`);
+  const blankA1 = await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'),direction=document.getElementById('zeroFrictionDirection'),magnitude=document.getElementById('zeroFrictionMagnitude'); type.value='none'; direction.value='none'; magnitude.value='0'; window.__staticKineticFrictionApp.routeAttempt({state:'new'}); return {type:type.value,direction:direction.value,typeLabel:type.selectedOptions[0]?.textContent,directionLabel:direction.selectedOptions[0]?.textContent,magnitude:magnitude.value}; })()`);
+  assert.deepEqual(blankA1, { type: "", direction: "", typeLabel: "請選擇", directionLabel: "請選擇", magnitude: "" }, `${label}: A1 starts blank and requires three explicit fields`);
   await tapSelector(cdp, "[data-action='save-zero-force']");
   const blankA1Validation = await evaluate(cdp, `(() => ({ localVisible:!document.getElementById('zeroValidationStatus').classList.contains('is-hidden'), globalVisible:!document.getElementById('validationStatus').classList.contains('is-hidden'), text:document.getElementById('zeroValidationStatus').textContent, focused:document.activeElement===document.getElementById('zeroValidationStatus') }))()`);
   assert.deepEqual(blankA1Validation, { localVisible: true, globalVisible: false, text: "請先選擇 A1 的摩擦力類型、方向及大小。", focused: true }, `${label}: blank A1 validation stays beside its save button`);
+  await evaluate(cdp, `(() => { const type=document.getElementById('zeroFrictionType'); type.value='none'; type.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
+  await tapSelector(cdp, "[data-action='save-zero-force']");
+  assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.zeroForce"), null, `${label}: choosing only 'no friction' cannot auto-fill A1 direction or magnitude`);
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
   const blankDPredict = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, buttonDisabled:document.querySelector('[data-action=to-review]').disabled }))()");
   assert.deepEqual(blankDPredict, { phase: "predict", buttonDisabled: false }, `${label}: Part D lower review button is enabled even when every D answer is blank`);
@@ -322,15 +343,15 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(await evaluate(cdp, "document.getElementById('balanceOrigin').classList.contains('is-hidden')"), false, `${label}: A3 remains editable after the estimate is saved`);
   await tapSelector(cdp, "#to-experiment");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().phase"), "experiment", `${label}: sequential Part A continues legally`);
-  const readyExperiment = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, trial:window.__staticKineticFrictionApp.getState().trial, startDisabled:document.getElementById('startRecording').disabled, redoDisabled:document.getElementById('requestRedoExperiment').disabled, originPresent:Boolean(document.getElementById('experimentOrigin')), originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'), sliderPresent:Boolean(document.getElementById('experimentForceSlider')), confirmPresent:Boolean(document.getElementById('redoExperimentConfirm')) }))()");
-  assert.deepEqual(readyExperiment, { phase: "experiment", trial: null, startDisabled: false, redoDisabled: false, originPresent: true, originHidden: true, sliderPresent: false, confirmPresent: false }, `${label}: B exposes direct stage dragging and no slider or confirmation panel before recording`);
+  const readyExperiment = await evaluate(cdp, "(() => ({ phase:window.__staticKineticFrictionApp.getState().phase, trial:window.__staticKineticFrictionApp.getState().trial, startDisabled:document.getElementById('startRecording').disabled, redoDisabled:document.getElementById('requestRedoExperiment').disabled, originPresent:Boolean(document.getElementById('experimentOrigin')), originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'), sliderPresent:Boolean(document.getElementById('experimentForceSlider')), confirmPresent:Boolean(document.getElementById('redoExperimentConfirm')), confirmHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden') }))()");
+  assert.deepEqual(readyExperiment, { phase: "experiment", trial: null, startDisabled: false, redoDisabled: false, originPresent: true, originHidden: true, sliderPresent: false, confirmPresent: true, confirmHidden: true }, `${label}: B exposes direct stage dragging and keeps the saved-trial confirmation hidden before recording`);
   await tapSelector(cdp, "#requestRedoExperiment");
-  const restartedBeforeDrag = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return { phase:window.__staticKineticFrictionApp.getState().phase, trial:window.__staticKineticFrictionApp.getState().trial, running:evidence.recorderRunning, time:evidence.experiment?.timeS, position:evidence.experiment?.positionM, originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'), confirmPresent:Boolean(document.getElementById('redoExperimentConfirm')) }; })()");
+  const restartedBeforeDrag = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return { phase:window.__staticKineticFrictionApp.getState().phase, trial:window.__staticKineticFrictionApp.getState().trial, running:evidence.recorderRunning, time:evidence.experiment?.timeS, position:evidence.experiment?.positionM, originHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'), confirmHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden') }; })()");
   assert.equal(restartedBeforeDrag.running, true, `${label}: pressing restart immediately starts a fresh 30-second recording`);
   assert.ok(restartedBeforeDrag.time < .35 && Math.abs(restartedBeforeDrag.position) < 1e-9, `${label}: immediate restart resets time and position ${JSON.stringify(restartedBeforeDrag)}`);
   assert.equal(restartedBeforeDrag.trial, null, `${label}: immediate restart clears the old B trial`);
   assert.equal(restartedBeforeDrag.originHidden, false, `${label}: immediate restart exposes the stage drag target`);
-  assert.equal(restartedBeforeDrag.confirmPresent, false, `${label}: immediate restart has no confirmation or keep prompt`);
+  assert.equal(restartedBeforeDrag.confirmHidden, true, `${label}: an unsaved restart does not display the saved-trial confirmation`);
   const bRegions = await evaluate(cdp, `(() => { const pick=(r)=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}); const apparatus=pick(document.getElementById('apparatusSvg').getBoundingClientRect()),graphRegion=pick(document.getElementById('experimentGraphStage').getBoundingClientRect()),graph=pick(document.getElementById('experimentGraphSvg').getBoundingClientRect()); return {apparatus,graphRegion,graph,graphCentered:Math.abs((graph.left+graph.width/2)-(graphRegion.left+graphRegion.width/2))<1 && Math.abs((graph.top+graph.height/2)-(graphRegion.top+graphRegion.height/2))<1}; })()`);
   assert.ok(bRegions.apparatus.height > 0 && bRegions.graphRegion.height > 0, `${label}: B has non-empty upper apparatus and lower graph regions`);
   assert.ok(bRegions.graphRegion.top >= bRegions.apparatus.bottom - 1, `${label}: B graph region sits below the upper apparatus region`);
@@ -403,10 +424,13 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(retainedInExperiment.hasTrial, true, `${label}: returning to Part B preserves the accepted trial`);
   assert.ok(retainedInExperiment.graphVisible && retainedInExperiment.pathD.startsWith("M") && retainedInExperiment.pathD.length > 20, `${label}: Part B redraws its saved force-time graph after returning from Part C ${JSON.stringify(retainedInExperiment)}`);
   await tapSelector(cdp, "#requestRedoExperiment");
-  const restartedDuringRecording = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {running:evidence.recorderRunning,time:evidence.experiment?.timeS,position:evidence.experiment?.positionM,trial:window.__staticKineticFrictionApp.getState().trial,confirmPresent:Boolean(document.getElementById('redoExperimentConfirm'))}; })()");
-  assert.ok(restartedDuringRecording.running && restartedDuringRecording.time < .35 && Math.abs(restartedDuringRecording.position) < 1e-9, `${label}: restart immediately clears and restarts an active recording ${JSON.stringify(restartedDuringRecording)}`);
-  assert.equal(restartedDuringRecording.trial, null, `${label}: restart removes the previous trial without a separate save step`);
-  assert.equal(restartedDuringRecording.confirmPresent, false, `${label}: active restart has no confirmation or keep prompt`);
+  const redoPrompt = await evaluate(cdp, "(() => ({dialogVisible:!document.getElementById('redoExperimentConfirm').classList.contains('is-hidden'),trial:Boolean(window.__staticKineticFrictionApp.getState().trial),running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning}))()");
+  assert.deepEqual(redoPrompt, { dialogVisible: true, trial: true, running: false }, `${label}: a saved B trial remains authoritative until redo is confirmed`);
+  await tapSelector(cdp, "[data-action='confirm-redo-experiment']");
+  const restartedDuringRecording = await evaluate(cdp, "(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(); return {running:evidence.recorderRunning,time:evidence.experiment?.timeS,position:evidence.experiment?.positionM,trial:window.__staticKineticFrictionApp.getState().trial,confirmHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden')}; })()");
+  assert.ok(restartedDuringRecording.running && restartedDuringRecording.time < .35 && Math.abs(restartedDuringRecording.position) < 1e-9, `${label}: confirmed redo clears and restarts the recording ${JSON.stringify(restartedDuringRecording)}`);
+  assert.equal(restartedDuringRecording.trial, null, `${label}: confirmed redo removes the previous trial`);
+  assert.equal(restartedDuringRecording.confirmHidden, true, `${label}: confirmed redo closes the prompt`);
   await delay(80);
   const interrupted = await evaluate(cdp, `(() => { window.dispatchEvent(new Event('pagehide')); const raw=window.SimScorm.getLocalLog().filter(item=>item.key==='cmi.suspend_data').at(-1)?.value;const snapshot=JSON.parse(raw);window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});const state=window.__staticKineticFrictionApp.getState();return {checkpointPhase:snapshot.answer.p,checkpointVariant:snapshot.answer.q,phase:state.phase,variant:state.variant,trial:state.trial,status:document.getElementById('experimentStatus').textContent,running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning,startDisabled:document.getElementById('startRecording').disabled}; })()`);
   assert.deepEqual(interrupted, { checkpointPhase: "experiment", checkpointVariant: "ready", phase: "experiment", variant: "ready", trial: null, status: "上次實驗記錄未完成，請重新開始這次記錄。", running: false, startDisabled: false }, `${label}: active recording restores the pre-record checkpoint with an interruption message and legal restart`);
@@ -486,7 +510,7 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(partialResult.presentation, "submitted-success", `${label}: incomplete submission can finish successfully`);
   assert.match(partialResult.text, /各部分得分及扣分/, `${label}: submitted result has the score ledger heading`);
   assert.match(partialResult.text, /Part A.*扣/, `${label}: submitted result identifies deductions in Part A`);
-  assert.match(partialResult.text, /未完成或未得分/, `${label}: submitted result explains zero-score incomplete items`);
+  assert.match(partialResult.text, /摩擦力類型.*方向.*大小.*未得分/, `${label}: submitted result names the missing A1 components`);
 
   await navigate(cdp, url);
   await evaluate(cdp, analysisFixtureScript(0));
@@ -507,13 +531,16 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(validation.visible, true, `${label}: invalid prediction shows a visible validation message`); assert.match(validation.text, /畫出摩擦力.*類型.*運動結果/, `${label}: validation message identifies the stage force and control choices`); assert.equal(validation.focused, true, `${label}: validation error has a deterministic screen-reader focus target`);
   await tapSelector(cdp, "#cancelReviewEdit");
   await tapSelector(cdp, "[data-action='edit-experiment']");
-  const reviewRedo = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),state=window.__staticKineticFrictionApp.getState(); return {phase:state.phase,fromReview:state.fromReview,running:evidence.recorderRunning,time:evidence.experiment?.timeS,trial:state.trial,confirmPresent:Boolean(document.getElementById('redoExperimentConfirm')),runHidden:document.getElementById('experimentRunActions').classList.contains('is-hidden')}; })()`);
+  const reviewRedoPrompt = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return {phase:state.phase,trial:Boolean(state.trial),dialogVisible:!document.getElementById('redoExperimentConfirm').classList.contains('is-hidden')}; })()`);
+  assert.deepEqual(reviewRedoPrompt, { phase: "review", trial: true, dialogVisible: true }, `${label}: review experiment editing preserves the saved authority until confirmation`);
+  await tapSelector(cdp, "[data-action='confirm-redo-experiment']");
+  const reviewRedo = await evaluate(cdp, `(() => { const evidence=window.__staticKineticFrictionApp.interactionEvidence(),state=window.__staticKineticFrictionApp.getState(); return {phase:state.phase,fromReview:state.fromReview,running:evidence.recorderRunning,time:evidence.experiment?.timeS,trial:state.trial,confirmHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden'),runHidden:document.getElementById('experimentRunActions').classList.contains('is-hidden')}; })()`);
   assert.equal(reviewRedo.phase, "experiment", `${label}: review experiment editing enters a fresh experiment phase`);
   assert.equal(reviewRedo.fromReview, false, `${label}: direct review restart exits review-edit mode`);
   assert.equal(reviewRedo.running, true, `${label}: review experiment editing starts a new direct recording`);
   assert.ok(reviewRedo.time < .35, `${label}: review experiment restart resets the recording clock ${JSON.stringify(reviewRedo)}`);
   assert.equal(reviewRedo.trial, null, `${label}: review experiment restart clears the old trial`);
-  assert.equal(reviewRedo.confirmPresent, false, `${label}: review experiment restart has no confirmation prompt`);
+  assert.equal(reviewRedo.confirmHidden, true, `${label}: confirmed review restart closes the confirmation prompt`);
   assert.equal(reviewRedo.runHidden, false, `${label}: the direct recording controls remain available after review restart`);
   await evaluate(cdp, `(() => { const S=window.StaticKineticFrictionScoring,P=window.StaticKineticFrictionPersistence;const perfect={...S.perfectAnswer(window.__frictionFixture.scenario,window.__frictionFixture.trial),working:P.emptyWorking()};const snapshot={version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(perfect)};window.__staticKineticFrictionApp.routeAttempt({state:'draft',snapshot});return true })()`);
   await evaluate(cdp, "window.SimScorm.submitWithCallbacks=(result,snapshot,handlers)=>{handlers.onFailure({activityState:'retry',retryable:true});return {activityState:'retry',retryable:true}};"); await tapSelector(cdp, "#submit");

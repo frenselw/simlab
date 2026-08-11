@@ -24,4 +24,7 @@ assert.match(main, /frameDurationMs > 50/);
 assert.doesNotMatch(main, /frameDurationMs > 250/);
 assert.match(main, /finalizeExperimentRecording\(\{ timedOut: true \}\)/);
 assert.match(main, /function stopRecording\(\) \{ return finalizeExperimentRecording/);
+const predictionDragDraft = main.slice(main.indexOf("function setPredictionForceDraft"), main.indexOf("function updatePredictionForceFromPointer"));
+assert.doesNotMatch(predictionDragDraft, /saveDraft\(/, "Part D pointermove updates only local state and never commits to the LMS");
+assert.match(main, /rawForceN[\s\S]*Math\.round\(rawForceN \* 10\) \/ 10/, "A3 force is quantized to 0.1 N before physics consumes it");
 console.log("Static/kinetic friction production wiring checks passed");

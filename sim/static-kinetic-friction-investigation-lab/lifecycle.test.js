@@ -63,6 +63,7 @@ assert.ok(envelopeRuntime.scorm.snapshotBytes(reviewSnapshot) <= 2800, "maximum 
 
 const reviewWithWorking = { ...Persistence.clone(lifecycleReview), working: Persistence.emptyWorking() };
 const experimentReady = Persistence.transitions.redoExperiment(Persistence.transitions.enterReviewEdit(reviewWithWorking, "experiment", null));
+assert.deepEqual(experimentReady.predictions, [null, null, null, null], "confirmed Part B redo clears dependent Part D predictions with B/C authority");
 const providerRuntime = fakeRuntime(); assert.equal(providerRuntime.scorm.loadAttempt(App.ACTIVITY).state, "new");
 providerRuntime.scorm.setDraftProvider(() => providerRuntime.scorm.makeSnapshot(App.ACTIVITY, "draft", Persistence.encodeDraft(experimentReady)));
 providerRuntime.listeners.pagehide({ persisted: false });

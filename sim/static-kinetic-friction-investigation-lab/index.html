@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>靜摩擦力與滑動摩擦力探究實驗室</title>
   <link rel="stylesheet" href="../shared/styles.css">
-  <link rel="stylesheet" href="styles.css?v=41">
+  <link rel="stylesheet" href="styles.css?v=42">
 </head>
 <body>
 <main id="app" class="friction-app" data-presentation="editable">
@@ -66,7 +66,7 @@
           <div class="answer-grid">
             <label>摩擦力類型<select id="zeroFrictionType" autocomplete="off"><option value="" selected disabled>請選擇</option><option value="none">沒有摩擦力</option><option value="static">靜摩擦力</option><option value="kinetic">滑動摩擦力</option></select></label>
             <label>方向<select id="zeroFrictionDirection" autocomplete="off"><option value="" selected disabled>請選擇</option><option value="none">沒有方向</option><option value="left">向左</option><option value="right">向右</option></select></label>
-            <label>大小 <output id="zeroFrictionMagnitudeValue">請選擇</output><input id="zeroFrictionMagnitude" type="range" min="0" max="12" step="0.1" value="0" aria-label="A1 摩擦力大小"></label>
+            <label>大小（N）<input id="zeroFrictionMagnitude" type="number" min="0" max="12" step="0.1" value="" placeholder="請輸入" inputmode="decimal" aria-label="A1 摩擦力大小"></label>
           </div>
           <div class="save-action-row">
             <button type="button" data-action="save-zero-force" class="primary-button" data-balance-normal>保存 A1 判斷</button>
@@ -156,17 +156,24 @@
       <section id="resultPanel" class="panel-section is-hidden" aria-live="polite"></section>
       <p id="liveRegion" class="sr-only" aria-live="polite"></p>
     </aside>
+    <div id="redoExperimentConfirm" class="confirmation-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="redoExperimentConfirmTitle">
+      <div class="confirmation-card">
+        <h2 id="redoExperimentConfirmTitle">重新記錄 Part B？</h2>
+        <p>重新記錄會清除目前的 B 實驗、C 圖像標記及 D 預測。</p>
+        <div class="button-row"><button type="button" data-action="confirm-redo-experiment" class="primary-button">重新記錄</button><button type="button" data-action="cancel-redo-experiment">取消</button></div>
+      </div>
+    </div>
   </div>
 </main>
 <script src="../config.js"></script>
 <script src="../shared/scorm.js"></script>
 <script src="../shared/activity-flow.js"></script>
-<script src="generator.js"></script>
-<script src="physics.js"></script>
-<script src="measurement.js"></script>
-<script src="graph.js"></script>
-<script src="scoring.js?v=41"></script>
-<script src="persistence.js"></script>
-<script src="main.js?v=41"></script>
+<script src="generator.js?v=42"></script>
+<script src="physics.js?v=42"></script>
+<script src="measurement.js?v=42"></script>
+<script src="graph.js?v=42"></script>
+<script src="scoring.js?v=42"></script>
+<script src="persistence.js?v=42"></script>
+<script src="main.js?v=42"></script>
 </body>
 </html>

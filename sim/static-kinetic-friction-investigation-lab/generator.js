@@ -7,7 +7,7 @@
 
   const GENERATOR_VERSION = 1;
   const PHYSICS_VERSION = 7;
-  const MEASUREMENT_VERSION = 4;
+  const MEASUREMENT_VERSION = 5;
   const RUBRIC_VERSION = 3;
   const GRAVITY_MPS2 = 9.81;
   const MASS_OPTIONS_KG = Object.freeze([1.5, 1.7, 1.9, 2.1]);

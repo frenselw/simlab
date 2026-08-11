@@ -41,6 +41,11 @@ assert.equal(partialAnalysis.detail.find((item) => item.key === "static-friction
 const wrongKineticMarker = JSON.parse(JSON.stringify(perfect));
 wrongKineticMarker.analysis.kineticFriction.index = 0;
 assert.equal(S.analysisScore(wrongKineticMarker, scenario).detail.find((item) => item.key === "kinetic-friction").points, 0, "a pre-breakaway marker is not kinetic friction");
+const uncommittedCorrectMarkers = JSON.parse(JSON.stringify(perfect));
+Object.values(uncommittedCorrectMarkers.analysis).forEach((marker) => { marker.committed = false; });
+const uncommittedAnalysis = S.analysisScore(uncommittedCorrectMarkers, scenario);
+assert.equal(uncommittedAnalysis.score, 0, "correct-looking Part C drafts receive no credit until explicitly saved");
+assert.ok(uncommittedAnalysis.detail.every((item) => item.points === 0));
 
 // Part B now automatically holds the post-breakaway pull near the kinetic
 // friction value. A stable speed between the historical slow/fast bands is
