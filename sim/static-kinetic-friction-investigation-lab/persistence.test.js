@@ -80,6 +80,20 @@ scenario.predictions.forEach((spec, index) => {
 state = P.transitions.setPhase(state, "review");
 assert.equal(P.hasCompleteAnswer(state), true);
 
+// Switching freely between D questions must keep an explicitly saved answer
+// canonical while a later edit remains a separate working draft.
+const savedD1 = P.clone(state.predictions[0]);
+let dirtyPrediction = P.transitions.setPhase(state, "predict");
+const changedD1 = { ...savedD1, frictionType: savedD1.frictionType === "kinetic" ? "static" : "kinetic", committed: false };
+dirtyPrediction = P.transitions.setPrediction(dirtyPrediction, 0, changedD1);
+assert.deepEqual(dirtyPrediction.predictions[0], savedD1, "editing a saved D answer does not replace its canonical answer");
+assert.deepEqual(dirtyPrediction.working.predictionDraft[0], changedD1, "editing a saved D answer creates a separate working draft");
+dirtyPrediction = P.transitions.selectPrediction(dirtyPrediction, 3);
+dirtyPrediction = roundTrip(dirtyPrediction, "D answer draft while switching questions");
+const dirtyPredictionReview = P.transitions.setPhase(dirtyPrediction, "review");
+assert.deepEqual(dirtyPredictionReview.predictions[0], savedD1, "entering review keeps the last explicitly saved D answer");
+assert.equal(dirtyPredictionReview.working, undefined, "uncommitted D drafts are discarded from review without changing canonical answers");
+
 // Part D is optional at submission: an A/B/C-complete state may enter review
 // with all four prediction slots still null, and scoring leaves Part D at 0.
 const sparseReview = P.transitions.setPhase(requiredOnly, "review");
@@ -243,7 +257,7 @@ const migratedS5 = P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "dra
 assert.equal(migratedS5.trial, null, "s5 traces are cleared even if their header was manually relabelled v5");
 assert.deepEqual(migratedS5.analysis, P.emptyAnalysis());
 assert.deepEqual(migratedS5.predictions, oldMeasurementState.predictions);
-const preWorkingDraftWire = P.clone(P.encodeDraft(oldMeasurementState)); delete preWorkingDraftWire.k.m;
+const preWorkingDraftWire = P.clone(P.encodeDraft(oldMeasurementState)); delete preWorkingDraftWire.k.m; delete preWorkingDraftWire.k.n;
 assert.deepEqual(P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "draft", answer: preWorkingDraftWire }, scenario, "draft"), oldMeasurementState, "current s6 drafts written before working C draft storage remain compatible");
 const oldV4Review = P.clone(review); oldV4Review.v[3] = 4;
 assert.throws(() => P.decodeSnapshot({ version: 1, activity: ACTIVITY, kind: "review", answer: oldV4Review }, scenario, "review"), /legacy review/, "finished reviews are never silently rescored under a new measurement contract");

@@ -445,6 +445,9 @@ th:first-child, td:first-child { text-align: left; }
 .prediction-progress-step small { font-size: .68rem; font-weight: 600; }
 .prediction-progress-step.is-current { border-color: var(--blue); background: #eef4ff; color: var(--blue); }
 .prediction-progress-step.is-complete { border-color: #86efac; background: #f0fdf4; color: var(--green); }
+.prediction-progress-step.is-dirty { border-color: #f59e0b; background: #fff7ed; color: #9a3412; }
+.prediction-progress-step.is-complete.is-current { border-color: var(--blue); background: #eef4ff; color: var(--blue); box-shadow: inset 0 0 0 2px var(--blue); }
+.prediction-progress-step.is-dirty.is-current { border-color: var(--blue); box-shadow: inset 0 0 0 2px var(--blue); }
 .prediction-progress-step:focus-visible { outline: 3px solid rgba(29, 78, 216, .35); outline-offset: 2px; }
 .prediction-card-active { border-color: #bfdbfe; box-shadow: 0 0 0 3px rgba(29, 78, 216, .06); }
 .prediction-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }

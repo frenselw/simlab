@@ -133,7 +133,6 @@
     let experimentInputClockReady = false;
     let experimentPendingInputs = [];
     let analysisDraft = null;
-    let predictionDraft = [];
     let dragging = null;
     let pendingRetryAvailable = false;
     let redoExperimentPending = false;
@@ -201,7 +200,6 @@
       presentation = "editable";
       latestResult = null;
       analysisDraft = null;
-      predictionDraft = [];
       saveDraft();
       focusReviewSurface();
       announce("已進入提交前檢查；未完成部分仍可直接提交。");
@@ -215,7 +213,6 @@
       cancelBalanceMotion();
       state = Persistence.transitions.setPhase(state, phase);
       analysisDraft = phase === "analysis" ? null : analysisDraft;
-      predictionDraft = phase === "predict" ? [] : predictionDraft;
       if (phase === "balance") {
         resetBalanceTrialView();
         resetIdleRig(scenario?.connector?.restLengthM);
@@ -280,10 +277,13 @@
       if (!state) return 0;
       return state.fromReview && state.working?.reviewEditTarget?.section === "predict" ? state.working.reviewEditTarget.semanticKey : state.working?.activePredictionIndex ?? 0;
     }
+    function predictionCardAt(index = currentPredictionIndex()) {
+      return q(`#predictionCards .prediction-card[data-prediction-index="${index}"]`);
+    }
     function currentPredictionResponse() {
       const index = currentPredictionIndex();
       if (state?.fromReview && state.working?.reviewEditTarget?.section === "predict" && state.working?.editDraft?.kind === "prediction") return state.working.editDraft.value;
-      return state?.predictions?.[index] || null;
+      return state?.working?.predictionDraft?.[index] || state?.predictions?.[index] || null;
     }
     function setTargetVisible(id, visible) {
       const target = q(id); if (!target) return;
@@ -1011,11 +1011,12 @@
       setText("experimentStatus", "記錄中：逐漸增加拉力。");
       renderApparatus();
       if (!options.manualClock) startLoop();
-      // The first delivered frame establishes the recording clock.  A slow
-      // confirmation render must not be mistaken for an in-recording stall;
-      // one startup interval after that baseline is also tolerated.
+      // The first delivered frame establishes the recording clock. A real
+      // confirmation-to-recording hand-off can span more than one delayed
+      // animation frame while the refreshed controls are laid out, so keep a
+      // short real-render startup window before arming the stall watchdog.
       previousFrameMs = null;
-      experimentStartupGraceFrames = 1;
+      experimentStartupGraceFrames = options.manualClock ? 1 : 4;
       return true;
     }
     function hideRedoExperimentConfirmation() {
@@ -1306,22 +1307,25 @@
       const host = q("predictionCards"); if (!host || !scenario) return;
       host.replaceChildren();
       const activeIndex = currentPredictionIndex();
-      const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : answer);
+      const answers = state.predictions.map((answer, index) => state.fromReview && state.working?.editDraft?.kind === "prediction" && state.working.reviewEditTarget?.semanticKey === index ? state.working.editDraft.value : state.working?.predictionDraft?.[index] || answer);
       const progress = document.createElement("div");
       progress.className = "prediction-progress";
       progress.setAttribute("aria-label", "Part D 題目進度");
       scenario.predictions.forEach((spec, index) => {
         const answer = answers[index];
+        const saved = state.predictions[index]?.committed === true;
+        const dirty = !state.fromReview && state.working?.predictionDraft?.[index] != null;
+        const status = dirty ? "有未保存修改" : state.fromReview ? (index === activeIndex ? "修改中" : saved ? "已保存" : "未完成") : index === activeIndex && saved ? "目前・已保存" : saved ? "已保存" : index === activeIndex ? "目前" : "未完成";
         const step = document.createElement(state.fromReview ? "span" : "button");
         if (!state.fromReview) {
           step.type = "button";
           step.dataset.action = "select-prediction";
           step.dataset.predictionIndex = index;
         }
-        step.className = `prediction-progress-step${index === activeIndex ? " is-current" : ""}${answer?.committed ? " is-complete" : ""}`;
+        step.className = `prediction-progress-step${index === activeIndex ? " is-current" : ""}${saved ? " is-complete" : ""}${dirty ? " is-dirty" : ""}`;
         step.setAttribute("aria-current", index === activeIndex ? "step" : "false");
-        step.setAttribute("aria-label", `${spec.id}：${answer?.committed ? "已保存" : index === activeIndex ? "目前作答" : "未完成"}`);
-        step.innerHTML = `${spec.id}<small>${answer?.committed ? "已保存" : index === activeIndex ? "目前" : "未完成"}</small>`;
+        step.setAttribute("aria-label", `${spec.id}：${status}`);
+        step.innerHTML = `${spec.id}<small>${status}</small>`;
         progress.append(step);
       });
       host.append(progress);
@@ -1463,7 +1467,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; experimentStartupGraceFrames = 0; dragging = null; breakawayAnnounced = false; predictionDraft = []; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; experimentStartupGraceFrames = 0; dragging = null; breakawayAnnounced = false; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1521,12 +1525,12 @@
       if (["confirm-redo-experiment", "cancel-redo-experiment"].includes(action)) { focusPhase(); return; }
       if (["navigate-phase", "to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
       if (action === "select-analysis-task") { focusNode(q(currentAnalysisKey() ? ANALYSIS_MARKER_META.find((marker) => marker.key === currentAnalysisKey())?.id : null)); return; }
-      if (action === "select-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("input,select")); return; }
+      if (action === "select-prediction") { focusNode(predictionCardAt()?.querySelector("select")); return; }
       if (action === "save-zero-force") { focusNode(q("draw-applied")); return; }
       if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
       if (action === "save-analysis") { focusNode(q("analysisTasks")); return; }
-      if (action === "advance-prediction") { focusNode(q(`[data-prediction-index="${currentPredictionIndex()}"]`)?.querySelector("select")); return; }
+      if (action === "advance-prediction") { focusNode(predictionCardAt()?.querySelector("select")); return; }
       if (action === "request-redo-experiment") focusNode(q("experimentOrigin") || q("startRecording"));
     }
     function validationMessage(action) {
@@ -1551,7 +1555,7 @@
           document.querySelectorAll(".validation-status").forEach((node) => { node.classList.add("is-hidden"); node.textContent = ""; });
           if (action === "navigate-phase") navigateToPhase(event.target.closest("[data-phase]")?.dataset.phase);
           else if (action === "select-analysis-task") { state = Persistence.transitions.selectAnalysisTask(state, event.target.closest("[data-analysis-key]")?.dataset.analysisKey); analysisDraft = null; saveDraft(); }
-          else if (action === "select-prediction") { state = Persistence.transitions.selectPrediction(state, Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex)); predictionDraft = []; saveDraft(); }
+          else if (action === "select-prediction") { state = Persistence.transitions.selectPrediction(state, Number(event.target.closest("[data-prediction-index]")?.dataset.predictionIndex)); saveDraft(); }
           else if (action === "save-zero-force") {
             const type = q("zeroFrictionType")?.value || null; const direction = q("zeroFrictionDirection")?.value || null; const magnitudeValue = q("zeroFrictionMagnitude")?.value ?? ""; const magnitudeCN = magnitudeValue === "" ? null : Math.round(Number(magnitudeValue) * 100);
             if (!type || !direction || !Number.isInteger(magnitudeCN)) throw new Error("explicit zero-force answer required");
@@ -1694,6 +1698,15 @@
       document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
         const target = event.target;
+        const predictionTab = target.closest?.("[data-action='select-prediction']");
+        if (predictionTab && ["Enter", " "].includes(event.key)) {
+          // Keep keyboard activation equivalent to a trusted click while
+          // preventing the browser's default button action from restoring
+          // focus to the progress tab after the active card is rendered.
+          event.preventDefault();
+          predictionTab.click();
+          return;
+        }
         if (target.classList?.contains("drag-target") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); adjustDragTarget(target.dataset.dragTarget, (event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : -1), event.shiftKey ? 5 : 1, event.timeStamp); if (state?.phase === "analysis") persistAnalysisDraft(); saveDraft(); render(); }
         if (target.classList?.contains("drag-target") && event.key === "Escape") cancelDrag();
       });
@@ -1806,7 +1819,7 @@
         const point = predictionComPoint();
         dragging = {
           kind: "prediction-friction", target: event.currentTarget, pointerId: event.pointerId,
-          originX: point.x, originY: point.y, card: q(`#predictionCards [data-prediction-index="${currentPredictionIndex()}"]`),
+          originX: point.x, originY: point.y, card: predictionCardAt(),
           checkpoint: clone(state), checkpointDraft: clone(analysisDraft)
         };
       } else {
@@ -1836,7 +1849,7 @@
         return;
       }
       if (target === "prediction-friction") {
-        const index = currentPredictionIndex(); const card = q(`#predictionCards [data-prediction-index="${index}"]`); if (!card) return;
+        const index = currentPredictionIndex(); const card = predictionCardAt(index); if (!card) return;
         const directionInput = card.querySelector("[data-prediction-field='direction']"); const magnitudeInput = card.querySelector("[data-prediction-field='magnitudeCN']");
         const currentSignedN = (directionInput?.value === "left" ? -1 : directionInput?.value === "right" ? 1 : 0) * Number(magnitudeInput?.value || 0) / 100;
         const next = currentSignedN + direction * magnitude * .1;

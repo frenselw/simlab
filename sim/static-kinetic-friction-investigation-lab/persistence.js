@@ -25,7 +25,7 @@
     return { staticFriction: null, maximumStaticFriction: null, kineticFriction: null };
   }
   function emptyPredictions() { return [null, null, null, null]; }
-  function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null, analysisDraft: null }; }
+  function emptyWorking() { return { activeBalanceStep: null, activeAnalysisTask: 0, activePredictionIndex: 0, reviewEditTarget: null, editDraft: null, analysisDraft: null, predictionDraft: emptyPredictions() }; }
   function reviewWorkingFrom(state) {
     if (!state?.working?.analysisDraft) return null;
     const working = emptyWorking();
@@ -97,7 +97,7 @@
     }
     if (state.phase === "predict") {
       if (state.fromReview) return "review-edit";
-      const current = state.predictions[state.working.activePredictionIndex];
+      const current = state.working?.predictionDraft?.[state.working.activePredictionIndex] || state.predictions[state.working.activePredictionIndex];
       if (!current) return "answer-ready";
       if (current.committed) return hasAllPredictions(state) ? "complete" : "answer-complete";
       return "answer-draft";
@@ -166,7 +166,7 @@
   function validateState(state, options = {}) {
     const stateKeys = ["schemaVersion", "generatorVersion", "physicsVersion", "measurementVersion", "rubricVersion", "seed", "phase", "variant", "fromReview", "balance", "trial", "analysis", "predictions", ...(state?.working ? ["working"] : [])];
     if (!exactKeys(state, stateKeys) || state.schemaVersion !== SCHEMA_VERSION || state.generatorVersion !== GENERATOR_VERSION || state.physicsVersion !== PHYSICS_VERSION || state.measurementVersion !== MEASUREMENT_VERSION || state.rubricVersion !== RUBRIC_VERSION || !integer(state.seed) || state.seed < 0 || state.seed > 0xffffffff || !PHASES.includes(state.phase) || typeof state.fromReview !== "boolean" || !exactKeys(state.balance, ["breakaway", "staticCase", "zeroForce"]) || !Array.isArray(state.predictions) || state.predictions.length !== PREDICTION_COUNT || !exactKeys(state.analysis, ANALYSIS_KEYS) || (state.phase !== "review" && !state.working)) throw new Error("invalid state shape");
-    if (state.working && !exactKeys(state.working, ["activeBalanceStep", "activeAnalysisTask", "activePredictionIndex", "reviewEditTarget", "editDraft", "analysisDraft"])) throw new Error("invalid working shape");
+    if (state.working && !exactKeys(state.working, ["activeBalanceStep", "activeAnalysisTask", "activePredictionIndex", "reviewEditTarget", "editDraft", "analysisDraft", "predictionDraft"])) throw new Error("invalid working shape");
     if (state.trial != null && (!exactKeys(state.trial, ["sampleDtMs", "regularSampleCount", "forceVelocityBase64", "breakaway"]) || state.trial.breakaway != null && !exactKeys(state.trial.breakaway, ["timeMs", "measuredPullCN", "measuredVelocityMMps", "preBreakPeakGridIndex"]))) throw new Error("invalid trial shape");
     if (!state.fromReview && state.phase === "review" && state.working && (state.working.activeBalanceStep !== null || state.working.activePredictionIndex !== 0 || state.working.reviewEditTarget !== null || state.working.editDraft !== null)) throw new Error("review may only retain an analysis working draft");
     if (state.fromReview && state.phase === "review") throw new Error("review-edit must target an editable section");
@@ -187,6 +187,7 @@
     if (state.working?.analysisDraft != null) {
       if (!state.trial || !exactKeys(state.working.analysisDraft, ANALYSIS_KEYS) || ANALYSIS_KEYS.some((key) => !validateAnalysisTask(key, state.working.analysisDraft[key], sampleCount || 1) || state.working.analysisDraft[key]?.committed === true)) throw new Error("invalid working analysis draft");
     }
+    if (state.working && (!Array.isArray(state.working.predictionDraft) || state.working.predictionDraft.length !== PREDICTION_COUNT || state.working.predictionDraft.some((prediction) => prediction != null && (!validatePrediction(prediction) || prediction.committed === true)))) throw new Error("invalid working prediction draft");
     if (state.working?.reviewEditTarget && !state.fromReview) throw new Error("review edit target without fromReview");
     const predictionIds = new Set(), scenarioIds = new Set();
     state.predictions.forEach((prediction) => { if (prediction && (!validatePrediction(prediction) || predictionIds.has(prediction.id) || scenarioIds.has(prediction.scenarioId))) throw new Error("invalid prediction"); if (prediction) { predictionIds.add(prediction.id); scenarioIds.add(prediction.scenarioId); } });
@@ -351,8 +352,6 @@
     const editingReview = Boolean(state.fromReview);
     if (!editingReview) {
       if (state.phase !== "predict") throw new Error("prediction outside predict phase");
-      const activeIndex = state.working?.activePredictionIndex ?? 0;
-      if (index !== activeIndex) throw new Error("prediction must follow sequence");
     } else {
       const target = state.working?.reviewEditTarget;
       if (target?.section !== "predict" || target.semanticKey !== index) throw new Error("prediction is not the review-edit target");
@@ -360,7 +359,19 @@
         const draft = clone(state); draft.working = { ...draft.working, editDraft: { kind: "prediction", value: clone(prediction) } }; return update(draft, {});
       }
     }
-    const next = clone(state); next.predictions[index] = clone(prediction); next.working.activePredictionIndex = index; next.phase = editingReview ? "review" : "predict"; next.fromReview = false; if (editingReview) restoreWorkingAfterReviewEdit(next, state); return update(next, {});
+    const next = clone(state);
+    if (!editingReview && !prediction.committed) {
+      next.working.predictionDraft[index] = clone(prediction);
+      next.working.activePredictionIndex = index;
+      return update(next, {});
+    }
+    next.predictions[index] = clone(prediction);
+    next.working.predictionDraft[index] = null;
+    next.working.activePredictionIndex = index;
+    next.phase = editingReview ? "review" : "predict";
+    next.fromReview = false;
+    if (editingReview) restoreWorkingAfterReviewEdit(next, state);
+    return update(next, {});
   }
   function selectPrediction(state, index) {
     if (!integer(index) || index < 0 || index >= PREDICTION_COUNT || state.fromReview || state.phase !== "predict") throw new Error("invalid prediction selection");
@@ -378,7 +389,8 @@
     if (state.fromReview) throw new Error("review-edit must use its dedicated save or cancel transition");
     const next = clone(state); next.phase = phase; next.fromReview = false; next.working = next.working || emptyWorking();
     if (phase === "predict") {
-      const nextUncommitted = next.predictions.findIndex((prediction) => !prediction?.committed);
+      const draftIndex = next.working.predictionDraft.findIndex((prediction) => prediction != null);
+      const nextUncommitted = draftIndex >= 0 ? draftIndex : next.predictions.findIndex((prediction) => !prediction?.committed);
       next.working.activePredictionIndex = nextUncommitted >= 0 ? nextUncommitted : PREDICTION_COUNT - 1;
     }
     if (phase === "review") {
@@ -452,6 +464,12 @@
     if (!value) return null;
     return { index: value[0], committed: value[1] === 1 };
   }
+  function encodePrediction(prediction) {
+    return prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null;
+  }
+  function decodePrediction(value) {
+    return value ? { id: value[0], scenarioId: value[1], frictionType: decodeCode(TYPE_FROM_CODE, value[2]), direction: decodeCode(DIR_FROM_CODE, value[3]), magnitudeCN: value[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, value[5]), committed: value[6] === 1 } : null;
+  }
   function compactTrial(trial) { return trial == null ? null : { d: trial.sampleDtMs, n: trial.regularSampleCount, x: trial.forceVelocityBase64, b: trial.breakaway ? [trial.breakaway.timeMs, trial.breakaway.measuredPullCN, trial.breakaway.measuredVelocityMMps, trial.breakaway.preBreakPeakGridIndex] : null }; }
   function expandTrial(trial) { return trial == null ? null : { sampleDtMs: trial.d, regularSampleCount: trial.n, forceVelocityBase64: trial.x, breakaway: trial.b ? { timeMs: trial.b[0], measuredPullCN: trial.b[1], measuredVelocityMMps: trial.b[2], preBreakPeakGridIndex: trial.b[3] } : null }; }
   const ANALYSIS_WIRE_KEYS = Object.freeze({ staticFriction: "s", maximumStaticFriction: "m", kineticFriction: "k" });
@@ -466,23 +484,23 @@
   function compactAnswer(state, includeWorking) {
     validateState(state, { skipVariant: state.phase === "review" });
     const breakaway = state.balance.breakaway;
-    const answer = { w: WIRE_VERSION, v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { z: encodeForce(state.balance.zeroForce), s: state.balance.staticCase ? [encodeCode(DIR_CODE, state.balance.staticCase.appliedDirection), state.balance.staticCase.appliedMagnitudeCN, encodeAppliedForce(state.balance.staticCase.learnerAppliedForce), encodeForce(state.balance.staticCase.learnerForce)] : null, r: [breakaway.attempts, breakaway.bestPullCN, encodeCode(DIR_CODE, breakaway.bestDirection), breakaway.learnerMaxCN, breakaway.committed ? 1 : 0] }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map((prediction) => prediction ? [prediction.id, prediction.scenarioId, encodeCode(TYPE_CODE, prediction.frictionType), encodeCode(DIR_CODE, prediction.direction), prediction.magnitudeCN ?? null, encodeCode(OUTCOME_CODE, prediction.motionOutcome), prediction.committed ? 1 : 0] : null) };
-    if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null, m: state.working?.analysisDraft || null };
+    const answer = { w: WIRE_VERSION, v: [state.schemaVersion, state.generatorVersion, state.physicsVersion, state.measurementVersion, state.rubricVersion], s: state.seed, p: state.phase, q: state.variant, R: Boolean(state.fromReview), b: { z: encodeForce(state.balance.zeroForce), s: state.balance.staticCase ? [encodeCode(DIR_CODE, state.balance.staticCase.appliedDirection), state.balance.staticCase.appliedMagnitudeCN, encodeAppliedForce(state.balance.staticCase.learnerAppliedForce), encodeForce(state.balance.staticCase.learnerForce)] : null, r: [breakaway.attempts, breakaway.bestPullCN, encodeCode(DIR_CODE, breakaway.bestDirection), breakaway.learnerMaxCN, breakaway.committed ? 1 : 0] }, t: compactTrial(state.trial), a: Object.fromEntries(ANALYSIS_KEYS.map((key) => [ANALYSIS_WIRE_KEYS[key], encodeAnalysisTask(key, state.analysis[key])])), P: state.predictions.map(encodePrediction) };
+    if (includeWorking) answer.k = { b: state.working?.activeBalanceStep ?? null, a: state.working?.activeAnalysisTask ?? 0, p: state.working?.activePredictionIndex ?? 0, e: state.working?.reviewEditTarget || null, d: state.working?.editDraft || null, m: state.working?.analysisDraft || null, n: (state.working?.predictionDraft || emptyPredictions()).map(encodePrediction) };
     return answer;
   }
   function migrateLegacyAnswer(answer, kind) {
     if (!answer) return answer;
-    if (answer.w === WIRE_VERSION && hasHeader(answer, CURRENT_HEADER) && kind === "draft" && answer.k && !Object.hasOwn(answer.k, "m")) answer = { ...clone(answer), k: { ...clone(answer.k), m: null } };
+    if (answer.w === WIRE_VERSION && hasHeader(answer, CURRENT_HEADER) && kind === "draft" && answer.k && (!Object.hasOwn(answer.k, "m") || !Object.hasOwn(answer.k, "n"))) answer = { ...clone(answer), k: { ...clone(answer.k), m: answer.k.m ?? null, n: Array.isArray(answer.k.n) ? answer.k.n : [null, null, null, null] } };
     const knownOldS6 = answer.w === WIRE_VERSION && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s6);
     const knownS5 = answer.w === "s5" && hasHeader(answer, LEGACY_MEASUREMENT_HEADERS.s5);
     if (knownOldS6 || knownS5) {
       if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated across measurement contracts");
       const preservedBalance = answer.b || { z: null, s: null, r: [0, null, null, null, 0] };
-      return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null } };
+      return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "experiment", q: "ready", R: false, b: preservedBalance, t: null, a: { s: null, m: null, k: null }, P: Array.isArray(answer.P) ? answer.P : [null, null, null, null], k: { b: null, a: 0, p: answer.k?.p ?? 0, e: null, d: null, m: null, n: [null, null, null, null] } };
     }
     if (!["s1", "s2", "s3"].includes(answer.w)) return answer;
     if (kind === "review" || answer.p === "review") throw new Error("legacy review cannot be safely migrated to the redesigned Part C contract");
-    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { s: null, m: null, k: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null, m: null } };
+    return { w: WIRE_VERSION, v: [SCHEMA_VERSION, GENERATOR_VERSION, PHYSICS_VERSION, MEASUREMENT_VERSION, RUBRIC_VERSION], s: answer.s, p: "balance", q: "zero-ready", R: false, b: { z: null, s: null, r: [0, null, null, null, 0] }, t: null, a: { s: null, m: null, k: null }, P: [null, null, null, null], k: { b: null, a: 0, p: 0, e: null, d: null, m: null, n: [null, null, null, null] } };
   }
   function validateWireAnswer(answer, kind) {
     const answerKeys = ["w", "v", "s", "p", "q", "R", "b", "t", "a", "P", ...(kind === "draft" ? ["k"] : [])];
@@ -491,13 +509,13 @@
     if (!answer.a || typeof answer.a !== "object" || Object.keys(answer.a).sort().join(",") !== Object.values(ANALYSIS_WIRE_KEYS).sort().join(",")) throw new Error("invalid answer analysis wire");
     if (!Array.isArray(answer.P) || answer.P.length !== PREDICTION_COUNT) throw new Error("invalid answer prediction wire");
     if (answer.t !== null && (!exactKeys(answer.t, ["d", "n", "x", "b"]) || !integer(answer.t.d) || !integer(answer.t.n) || typeof answer.t.x !== "string" || (answer.t.b !== null && (!Array.isArray(answer.t.b) || answer.t.b.length !== 4)))) throw new Error("invalid answer trial wire");
-    if (kind === "draft" && (!answer.k || typeof answer.k !== "object" || Object.keys(answer.k).sort().join(",") !== ["a", "b", "d", "e", "m", "p"].join(","))) throw new Error("draft answer missing working wire");
+    if (kind === "draft" && (!answer.k || typeof answer.k !== "object" || Object.keys(answer.k).sort().join(",") !== ["a", "b", "d", "e", "m", "n", "p"].join(",") || !Array.isArray(answer.k.n) || answer.k.n.length !== PREDICTION_COUNT)) throw new Error("draft answer missing working wire");
     if (kind === "review" && Object.hasOwn(answer, "k")) throw new Error("review answer contains working wire");
     if (kind === "review" && (answer.p !== "review" || !["partial", "complete"].includes(answer.q) || answer.R !== false)) throw new Error("review answer has a noncanonical header");
     if (answer.b.z !== null && (!Number.isInteger(answer.b.z[2]) || ![0, 1].includes(answer.b.z[answer.b.z.length - 1]))) throw new Error("invalid zero-force wire");
     if (answer.b.s !== null && (!Object.hasOwn(DIR_FROM_CODE, answer.b.s[0]) || !Number.isInteger(answer.b.s[1]) || answer.b.s[1] <= 0 || answer.b.s[1] > 1200 || !Array.isArray(answer.b.s[2]) || answer.b.s[2].length !== 3 || !Object.hasOwn(DIR_FROM_CODE, answer.b.s[2][0]) || !Number.isInteger(answer.b.s[2][1]) || answer.b.s[2][1] <= 0 || answer.b.s[2][1] > 1200 || ![0, 1].includes(answer.b.s[2][2]) || !Array.isArray(answer.b.s[3]) || (answer.b.s[3].length !== 4 && answer.b.s[3].length !== 5))) throw new Error("invalid static-force wire");
     if (!Number.isInteger(answer.b.r[0]) || answer.b.r[0] < 0 || answer.b.r[0] > 1000 || (answer.b.r[1] !== null && (!Number.isInteger(answer.b.r[1]) || answer.b.r[1] <= 0 || answer.b.r[1] > 1200)) || (answer.b.r[2] !== null && !Object.hasOwn(DIR_FROM_CODE, answer.b.r[2])) || (answer.b.r[3] !== null && (!Number.isInteger(answer.b.r[3]) || answer.b.r[3] < 0 || answer.b.r[3] > 1200)) || ![0, 1].includes(answer.b.r[4])) throw new Error("invalid breakaway wire");
-    for (const item of answer.P) if (item !== null && (!Array.isArray(item) || item.length !== 7 || ![0, 1].includes(item[6]))) throw new Error("invalid prediction wire");
+    for (const item of [...answer.P, ...(kind === "draft" ? answer.k.n : [])]) if (item !== null && (!Array.isArray(item) || item.length !== 7 || ![0, 1].includes(item[6]))) throw new Error("invalid prediction wire");
     const analysisLengths = { s: 2, m: 2, k: 2 };
     for (const [key, length] of Object.entries(analysisLengths)) if (answer.a[key] !== null && (!Array.isArray(answer.a[key]) || answer.a[key].length !== length)) throw new Error("invalid analysis wire");
     return true;
@@ -509,7 +527,7 @@
     ANALYSIS_KEYS.forEach((key) => { analysis[key] = decodeAnalysisTask(key, answer.a?.[ANALYSIS_WIRE_KEYS[key]] || null); });
     const staticWire = answer.b?.s;
     const breakawayWire = answer.b?.r || [0, null, null, null, 0];
-    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map((item) => item ? { id: item[0], scenarioId: item[1], frictionType: decodeCode(TYPE_FROM_CODE, item[2]), direction: decodeCode(DIR_FROM_CODE, item[3]), magnitudeCN: item[4] ?? null, motionOutcome: decodeCode(OUTCOME_FROM_CODE, item[5]), committed: item[6] === 1 } : null), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null, analysisDraft: answer.k?.m || null } };
+    return { schemaVersion: versions[0], generatorVersion: versions[1], physicsVersion: versions[2], measurementVersion: versions[3], rubricVersion: versions[4], seed: answer.s, phase: answer.p, variant: answer.q, fromReview: Boolean(answer.R), balance: { zeroForce: decodeForce(answer.b?.z || null), staticCase: staticWire ? { appliedDirection: decodeCode(DIR_FROM_CODE, staticWire[0]), appliedMagnitudeCN: staticWire[1], learnerAppliedForce: decodeAppliedForce(staticWire[2]), learnerForce: decodeForce(staticWire[3]) } : null, breakaway: { attempts: breakawayWire[0], bestPullCN: breakawayWire[1], bestDirection: decodeCode(DIR_FROM_CODE, breakawayWire[2]), learnerMaxCN: breakawayWire[3], committed: breakawayWire[4] === 1 } }, trial: expandTrial(answer.t), analysis, predictions: (answer.P || [null, null, null, null]).map(decodePrediction), working: { activeBalanceStep: answer.k?.b ?? null, activeAnalysisTask: answer.k?.a ?? 0, activePredictionIndex: answer.k?.p ?? 0, reviewEditTarget: answer.k?.e || null, editDraft: answer.k?.d || null, analysisDraft: answer.k?.m || null, predictionDraft: (answer.k?.n || [null, null, null, null]).map(decodePrediction) } };
   }
   function encodeDraft(state) { validateState(state); return compactAnswer(state, true); }
   function encodeReview(state) { const review = normalizeReview(state); const canonical = { ...review, working: emptyWorking() }; validateState({ ...canonical, variant: "complete" }, { skipVariant: true }); return compactAnswer(canonical, false); }
