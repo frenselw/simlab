@@ -122,8 +122,8 @@ select {
 .experiment-force-line { stroke: #b91c1c; stroke-width: 3.5; }
 .analysis-force-line { stroke: #b91c1c; stroke-width: 3.5; }
 .force-arrow-head { fill: currentColor; }
-.force-builder-label { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
-.experiment-force-label { font-size: 30px; font-weight: 800; stroke-width: 6px; }
+#apparatusSvg text.force-builder-label { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
+#apparatusSvg text.experiment-force-label { font-size: 30px; font-weight: 800; stroke-width: 6px; }
 .graph-grid { stroke: #dbe3ec; stroke-width: 1; }
 .graph-axis { stroke: #334155; stroke-width: 1.8; }
 .graph-axis-label { font-family: var(--math-font); font-size: 24px !important; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
@@ -383,7 +383,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .answer-card label, .prediction-card label, .task-card label { display: grid; gap: .25rem; margin: .45rem 0; font-size: .84rem; }
 .answer-card input[type="number"] { box-sizing: border-box; width: 100%; min-height: 44px; padding: .45rem .6rem; font-size: 1rem; }
 #breakawayAnswerCard label { gap: .4rem; font-size: .95rem; font-weight: 600; }
-.force-builder-readout { padding: .45rem .55rem; border-left: 3px solid var(--blue); background: #eef4ff; font-variant-numeric: tabular-nums; }
+.force-builder-readout { padding: .45rem .55rem; border-left: 3px solid var(--blue); background: #eef4ff; font-size: 1rem; font-variant-numeric: tabular-nums; }
 select { min-height: 40px; padding: .35rem; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
 input[type="range"] { width: 100%; accent-color: var(--blue); }
 .range-row { display: grid; gap: .35rem; margin: .7rem 0; font-size: .84rem; }
@@ -428,6 +428,7 @@ th:first-child, td:first-child { text-align: left; }
   margin: .55rem 0 .7rem;
 }
 .prediction-progress-step {
+  width: 100%;
   display: grid;
   gap: .08rem;
   min-width: 0;
@@ -439,18 +440,20 @@ th:first-child, td:first-child { text-align: left; }
   text-align: center;
   font-size: .78rem;
   font-weight: 800;
+  cursor: pointer;
 }
 .prediction-progress-step small { font-size: .68rem; font-weight: 600; }
 .prediction-progress-step.is-current { border-color: var(--blue); background: #eef4ff; color: var(--blue); }
 .prediction-progress-step.is-complete { border-color: #86efac; background: #f0fdf4; color: var(--green); }
+.prediction-progress-step:focus-visible { outline: 3px solid rgba(29, 78, 216, .35); outline-offset: 2px; }
 .prediction-card-active { border-color: #bfdbfe; box-shadow: 0 0 0 3px rgba(29, 78, 216, .06); }
 .prediction-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
 .prediction-card-heading .task-title { margin: 0; font-size: 1rem; }
 .prediction-step-label { flex: 0 0 auto; color: var(--blue); font-size: .78rem; font-weight: 800; }
 .prediction-prompt { margin: .45rem 0; padding: .5rem .6rem; border-left: 3px solid var(--blue); background: #eef4ff; line-height: 1.45; }
 .prediction-scenario { margin: .45rem 0; color: var(--muted); font-variant-numeric: tabular-nums; }
-.prediction-force-readout { margin: .55rem 0; padding: .55rem .6rem; border-left: 3px solid #1d4ed8; background: #f1f5ff; font-variant-numeric: tabular-nums; font-weight: 700; }
-.prediction-force-readout output { color: var(--blue); }
+.prediction-force-readout { margin: .55rem 0; padding: .55rem .6rem; border-left: 3px solid #1d4ed8; background: #f1f5ff; font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 700; }
+.prediction-force-readout output { color: var(--blue); font-size: 1.15em; }
 .prediction-card .save-action-row { margin-top: .8rem; }
 .prediction-skip-note { margin: .65rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
 .review-edit-heading { margin: .9rem 0 .35rem; font-size: .92rem; }
@@ -470,11 +473,14 @@ th:first-child, td:first-child { text-align: left; }
 .score-breakdown > h3 { margin: 0 0 .55rem; font-size: 1rem; }
 .score-breakdown-part + .score-breakdown-part { margin-top: .7rem; padding-top: .65rem; border-top: 1px solid var(--border); }
 .score-breakdown-heading { display: flex; justify-content: space-between; gap: .7rem; align-items: baseline; color: var(--ink); }
+.score-breakdown-heading strong { min-width: 0; overflow-wrap: anywhere; }
 .score-breakdown-heading span { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-weight: 800; }
 .score-breakdown-part ul { display: grid; gap: .25rem; margin: .35rem 0 0; padding: 0; list-style: none; }
-.score-breakdown-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .45rem; align-items: baseline; padding: .32rem .4rem; border-radius: .4rem; background: #fff; font-size: .82rem; }
+.score-breakdown-row { display: grid; grid-template-columns: minmax(8rem, 1.1fr) auto minmax(0, 2fr); gap: .45rem; align-items: baseline; min-width: 0; padding: .32rem .4rem; border-radius: .4rem; background: #fff; font-size: .82rem; }
+.score-breakdown-row > span, .score-breakdown-row > strong, .score-breakdown-row > em { min-width: 0; }
+.score-breakdown-row > span { overflow-wrap: anywhere; }
 .score-breakdown-row strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.score-breakdown-row em { font-style: normal; font-weight: 700; white-space: nowrap; }
+.score-breakdown-row em { font-style: normal; font-weight: 700; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .score-full { color: var(--green); }
 .score-partial { color: #a16207; }
 .score-zero { color: #b91c1c; }
@@ -535,6 +541,7 @@ th:first-child, td:first-child { text-align: left; }
   .stage-coach > span:last-child { font-size: .7rem; }
   #apparatusSvg { grid-row: 2; min-height: 0; }
   .stage.has-prediction #apparatusSvg { grid-row: 1; }
+  #apparatusSvg text.force-builder-label:not(.experiment-force-label) { font-size: 26px; }
   .experiment-graph-stage { grid-row: 3; padding: 0; }
   .stage-graph { position: relative; inset: auto; grid-row: 2; height: 100%; min-height: 0; }
   .answer-grid { grid-template-columns: 1fr; }

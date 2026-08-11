@@ -6,7 +6,7 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`51`（2026-08-11；跟進 PR #12 重審：修正 Part B 重做後首個時鐘 baseline 之後的 startup render gap，首個 startup interval 不會被誤判為 stall，其後超過 50 ms 的 gap 仍會中止記錄；修正 review 可在任何完成度進入、重做 B 清除 B/C/D 的流程 contract。Runtime build marker 提升至 50。）
+> Plan revision：`52`（2026-08-11；Part D D1–D4 題目進行中可由進度按鈕自由切換；放大手機舞台上的拉力／摩擦力讀數及控制欄數值；修正提交結果頁長扣分原因在窄屏的換行及欄位收縮。Runtime build marker 提升至 51。）
 
 本計劃必須遵從：
 
@@ -93,7 +93,7 @@
 4. 進入 Part B，從舞台最左位置直接按住物體中央向右逐漸增加拉力，在 30 秒內令物體開始滑動；開始滑動後由系統自動調節拉力，使物體保持接近勻速運動；
 5. 從同一次實驗即時產生的單一拉力—時間圖，直接拖動三個標記；
 6. 由三個標記位置分辨靜摩擦力、最大靜摩擦力及滑動摩擦力；
-7. 按 D1→D4 順序完成四個未直接測試情境的操作式預測；每題可從舞台直接畫摩擦力，並在控制欄選擇類型及運動結果；
+7. 完成四個未直接測試情境的操作式預測；可由 D1–D4 題目按鈕自由切換，每題可從舞台直接畫摩擦力，並在控制欄選擇類型及運動結果；
 8. 進入提交前檢查，一次提交後查看完整結果。
 9. 可在任何完成度進入提交前檢查及提交；未完成項目不阻塞提交，提交結果清楚列出各 Part／小題得分及扣分。
 
@@ -111,7 +111,7 @@
 - 選擇 Part A 的摩擦力方向及類型；
 - 在同一張同步圖像上拖動三個位置標記：靜摩擦力、最大靜摩擦力、滑動摩擦力；
 - 隨時重新拖動及保存三個標記，不需要輸入額外數值或選擇區間；
-- Part D 一次只顯示一個 D 題卡，依 D1→D4 順序保存；不畫摩擦力箭頭代表摩擦力為零，畫出後控制欄選擇「靜摩擦力」或「滑動摩擦力」，摩擦力大小由箭頭同步讀數，不設可直接輸入的大小框；
+- Part D 一次只顯示一個 D 題卡；D1–D4 進度按鈕可隨時切換，不要求依 D1→D4 順序作答。每題保存後保留自己的答案；不畫摩擦力箭頭代表摩擦力為零，畫出後控制欄選擇「靜摩擦力」或「滑動摩擦力」，摩擦力大小由箭頭同步讀數，不設可直接輸入的大小框；
 - Part D 可按「前往提交前檢查」跳過；未保存的 D 題維持 `null`，每題得 0 分；A／B／C／D 任一 Part 都可由任務列進入 review，不以完成度阻塞提交；
 - review 先顯示各 Part 的完成／未完成狀態；提交後顯示每一 Part 及每一可評小題的 `得分／滿分`、`滿分` 或 `扣 X 分`，未完成小題明確標示為 0 分；
 - review-edit；
@@ -535,12 +535,12 @@ C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft wor
 
 ## 9. Part D：未直接測試情境預測
 
-每個 attempt 由 seed 生成四個情境。畫面一次只顯示目前一題，依次完成 D1、D2、D3、D4；不顯示「正在編輯」或四張同時可操作的題卡。每題要：
+每個 attempt 由 seed 生成四個情境。畫面一次只顯示目前一題；D1–D4 題目進度按鈕在正常作答期間可隨時切換，不顯示「正在編輯」或四張同時可操作的題卡。每題要：
 
 1. 直接按住物體中央旁的細小藍色透明拖動點，向左／向右拖出摩擦力箭頭；不畫箭頭代表沒有摩擦力；
 2. 若畫出箭頭，在控制欄選擇靜摩擦力或滑動摩擦力；方向及大小以舞台箭頭為準，控制欄只顯示同步讀數，不提供另一個可輸入大小；
 3. 選擇運動結果：保持靜止、開始滑動、加速或減速；
-4. 按「保存 Dn 答案」後才進入下一題。已保存的題目在 review 可逐題返回修改；未保存題目不會被系統補上預設答案。
+4. 按「保存 Dn 答案」後保存該題；可按上方 D1–D4 題目按鈕切換其他題。已保存的題目在 review 可逐題返回修改；未保存題目不會被系統補上預設答案。
 
 Part D 的「前往提交前檢查」按鈕不受 A、B、C 或 D 完成度限制；未完成項目進入 review 後按未作答計分。進入 review 時只保留已保存的 prediction authority；其餘 slots 為 `null`，每個空白 slot 的 Part D 5 分全部為 0。
 
@@ -591,8 +591,8 @@ F_{\text{拉}}<f_k
 ### D 的展示及狀態流程
 
 - 舞台沿用 A／B 的物體、地面、重心出發的力箭嘴及藍／紅色配色；移除沒有物理意義的橙色方塊。
-- Stage coach 只顯示目前步驟，例如 `D1/4`、`D2/4`，直接說明「畫出摩擦力；不畫代表零」及保存後按下一題；不使用「正在編輯」。
-- 控制欄顯示一個 active prediction card，加上一行 D1–D4 進度狀態；不是四個同時可編輯的卡片。保存 D1 後才顯示「下一題 D2」，D4 保存後顯示前往 review。
+- Stage coach 只顯示目前步驟，例如 `D1/4`、`D2/4`，直接說明「畫出摩擦力；不畫代表零」及保存後可按下一題；不使用「正在編輯」。
+- 控制欄顯示一個 active prediction card，加上一行可直接切換的 D1–D4 進度按鈕；不是四個同時可編輯的卡片。保存後顯示「下一題」只作快捷操作，並不限制切換其他題目；D4 保存後顯示前往 review。
 - 從 review 修改已保存的 D 題時，仍只顯示該題的單一 active card；取消修改恢復原本的 authority。空白 D 題不顯示修改按鈕。
 
 提交後 feedback 可進一步說明（不是另一個計分小題）：
@@ -2166,7 +2166,7 @@ Scroll topology：
 | `analysis` | `waiting-for-trial` | C | 沒有 accepted trial；畫面只顯示中性等待提示 | C 的 analysis authority 必須全為 `null` | A／B／C／D；不可保存 C field |
 | `analysis` | `selection-ready`／`selection-only`／`complete` | C 三個 marker | accepted trial；舞台顯示同一張以實際記錄終點為上限的 F–T 圖；`state.analysis` 只含最後已保存 canonical markers；`working.analysisDraft` 可 partial，save 才原子式取代 canonical | 不保存無 trial 的 C authority；working draft 不可計分／覆寫 canonical；不再保存第二張 learner-facing velocity graph、區段或額外數值 | A／B／C／D；拖動及離開保留 working draft；同值 save 保留 D，改值 save 清除 D |
 | `analysis` | `review-edit` | C marker target | review authority 保留；可保存指定 marker replacement | active pointer／DOM state | cancel／save 回 review 或 analysis |
-| `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 只顯示 `working.activePredictionIndex` 指向的一題；正常流程按 D1→D4 順序保存，前一題保存後才可進入下一題；未作答 slots 保持 `null` | 不要求 C complete；partial prediction 仍可保存為 draft，但未保存 D 題不會被補成預設答案 | A／B／C／D；可從 D 直接進 review，D 題可跳過 |
+| `predict` | `answer-ready`／`answer-draft`／`answer-complete`／`complete` | D1–D4 | 只顯示 `working.activePredictionIndex` 指向的一題；正常流程可由 D1–D4 題目按鈕自由切換並分別保存；未作答 slots 保持 `null` | 不要求 C complete；partial prediction 仍可保存為 draft，但未保存 D 題不會被補成預設答案 | A／B／C／D；可從 D 直接進 review，D 題可跳過 |
 | `predict` | `review-edit` | D1–D4 target | 原本 prediction authority 保留；`working.editDraft` 可存在 | active pointer／DOM state | cancel／save replacement |
 | `review` | `partial`／`complete` | — | A、B、C、D canonical authority 可任意 partial／null；未 committed D 正規化為 `null`；`fromReview=false`；editable draft可暫存 `working.analysisDraft` 供返回 C 繼續 | review／scoring只讀 canonical C；final review snapshot移除全部 working；不把空白答案轉成預設答案 | submit（每個未完成 rubric item 得 0 分）／返回任務列修改或繼續未保存 C draft |
 | locked result | `submitted` | — | validated review snapshot＋recomputed trusted result | editable controls／draft provider | review only |
@@ -2181,10 +2181,10 @@ B -> C
 B 只在 30 秒內完成並保存有效 direct-drag trace 後，C 才可實際保存分析；沒有 trace 仍可進入等待畫面。
 
 C -> D
-  不要求 C complete；D 可先進入並從 D1 開始，之後返回 C；正常作答仍按 D1→D4 順序。
+  不要求 C complete；D 可先進入並由 D1–D4 題目按鈕自由切換，之後返回 C。
 
 C marker／D 子題 -> 另一個 marker／子題
-  三個 marker 同時可見；拖動任何 marker 都只改該 marker 的 draft。D 正常作答只由保存按鈕推進到下一個 active index；review-edit 才可指定已保存的 D 子題。
+  三個 marker 同時可見；拖動任何 marker 都只改該 marker 的 draft。D 正常作答可由題目按鈕切換 active index；保存按鈕後的下一題快捷操作不限制其他題目；review-edit 才可指定已保存的 D 子題。
 
 A／C／D 保存
   只更新該 Part 的 authority；不因返回修改而清除其他 Part。

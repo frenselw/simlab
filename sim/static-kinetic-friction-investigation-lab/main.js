@@ -1312,8 +1312,15 @@
       progress.setAttribute("aria-label", "Part D 題目進度");
       scenario.predictions.forEach((spec, index) => {
         const answer = answers[index];
-        const step = document.createElement("span");
+        const step = document.createElement(state.fromReview ? "span" : "button");
+        if (!state.fromReview) {
+          step.type = "button";
+          step.dataset.action = "select-prediction";
+          step.dataset.predictionIndex = index;
+        }
         step.className = `prediction-progress-step${index === activeIndex ? " is-current" : ""}${answer?.committed ? " is-complete" : ""}`;
+        step.setAttribute("aria-current", index === activeIndex ? "step" : "false");
+        step.setAttribute("aria-label", `${spec.id}：${answer?.committed ? "已保存" : index === activeIndex ? "目前作答" : "未完成"}`);
         step.innerHTML = `${spec.id}<small>${answer?.committed ? "已保存" : index === activeIndex ? "目前" : "未完成"}</small>`;
         progress.append(step);
       });
