@@ -1453,3 +1453,8 @@ Invalid matrix：
 - 保留 760×500 物理模型座標及 scoring／保存語意；手機窄舞台按目前作圖幾何建立 camera viewBox，縮小必要留白，讓兩支力在 portrait stage 仍有足夠可拖動及畫線的實際尺寸；desktop／較寬 tablet 保留完整模型視窗，避免力矢量過度放大或裁切。
 - 合力線身新增透明 `resultant-hit` 操作層；pointer／keyboard 拖動整條線會以同一位移量更新起點和終點，方向及長度保持不變，移動期間仍可按平行四邊形四角即時吸附；未吸附的位置以 `FREE + originPoint10` 保存，首尾相接題亦可保存自由起點及自由終點。
 - 新增合力平移的 model／persistence round-trip 覆蓋，並以手機尺寸實際瀏覽器流程檢查 responsive viewBox、合力線身 hit target 及端點位移。
+
+## 25. 力符號避讓箭線（2026-08-16）
+
+- `F_1`、`F_2`、`F_3` 及 `F_R` 標籤由固定中點偏移改為候選位置評分：候選會避開整段箭線／虛線／合力線、其他標籤及 camera 邊界，並保留小幅清晰間距。
+- 以線段與標籤矩形的交疊／距離檢查取代只比較標籤中心點，避免斜向或短箭線穿過符號框；手機及 desktop screenshot 均確認符號不壓住箭線且沒有過度遠離。

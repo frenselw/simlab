@@ -156,13 +156,6 @@
     for (let y = 0; y <= G.HEIGHT; y += 40) drawLine(parent, { x: 0, y }, { x: G.WIDTH, y }, "grid-line");
   }
 
-  function labelPosition(start, end) {
-    const length = Math.max(1, M.distance(start, end));
-    const nx = -(end.y - start.y) / length;
-    const ny = (end.x - start.x) / length;
-    return { x: (start.x + end.x) / 2 + nx * 20, y: (start.y + end.y) / 2 + ny * 20 };
-  }
-
   function pointSegmentDistance(point, start, end) {
     const vx = end.x - start.x;
     const vy = end.y - start.y;
@@ -171,7 +164,49 @@
     return Math.hypot(point.x - (start.x + ratio * vx), point.y - (start.y + ratio * vy));
   }
 
-  function forceLabelPosition(start, end, occupied = []) {
+  function orientation(first, second, third) {
+    return (second.x - first.x) * (third.y - first.y) - (second.y - first.y) * (third.x - first.x);
+  }
+
+  function segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd) {
+    const first = orientation(firstStart, firstEnd, secondStart);
+    const second = orientation(firstStart, firstEnd, secondEnd);
+    const third = orientation(secondStart, secondEnd, firstStart);
+    const fourth = orientation(secondStart, secondEnd, firstEnd);
+    const epsilon = 0.0001;
+    const onSegment = (start, end, point) => Math.abs(orientation(start, end, point)) <= epsilon &&
+      point.x >= Math.min(start.x, end.x) - epsilon && point.x <= Math.max(start.x, end.x) + epsilon &&
+      point.y >= Math.min(start.y, end.y) - epsilon && point.y <= Math.max(start.y, end.y) + epsilon;
+    return (first * second < 0 && third * fourth < 0) ||
+      (Math.abs(first) <= epsilon && onSegment(firstStart, firstEnd, secondStart)) ||
+      (Math.abs(second) <= epsilon && onSegment(firstStart, firstEnd, secondEnd)) ||
+      (Math.abs(third) <= epsilon && onSegment(secondStart, secondEnd, firstStart)) ||
+      (Math.abs(fourth) <= epsilon && onSegment(secondStart, secondEnd, firstEnd));
+  }
+
+  function segmentSegmentDistance(firstStart, firstEnd, secondStart, secondEnd) {
+    if (segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd)) return 0;
+    return Math.min(
+      pointSegmentDistance(firstStart, secondStart, secondEnd),
+      pointSegmentDistance(firstEnd, secondStart, secondEnd),
+      pointSegmentDistance(secondStart, firstStart, firstEnd),
+      pointSegmentDistance(secondEnd, firstStart, firstEnd)
+    );
+  }
+
+  function segmentRectDistance(start, end, rect) {
+    const corners = [
+      { x: rect.left, y: rect.top }, { x: rect.right, y: rect.top },
+      { x: rect.right, y: rect.bottom }, { x: rect.left, y: rect.bottom }
+    ];
+    const edges = corners.map((corner, index) => [corner, corners[(index + 1) % corners.length]]);
+    if (corners.some((corner) => pointSegmentDistance(corner, start, end) === 0) ||
+        (start.x >= rect.left && start.x <= rect.right && start.y >= rect.top && start.y <= rect.bottom) ||
+        (end.x >= rect.left && end.x <= rect.right && end.y >= rect.top && end.y <= rect.bottom)) return 0;
+    return Math.min(...edges.map(([edgeStart, edgeEnd]) => segmentSegmentDistance(start, end, edgeStart, edgeEnd)));
+  }
+
+  function forceLabelPosition(start, end, occupied = [], segments = []) {
     const length = Math.max(1, M.distance(start, end));
     const ux = (end.x - start.x) / length;
     const uy = (end.y - start.y) / length;
@@ -179,23 +214,32 @@
     const ny = ux;
     const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     const candidates = [
-      [nx * 14, ny * 14], [-nx * 14, -ny * 14],
-      [nx * 11 + ux * 14, ny * 11 + uy * 14], [-nx * 11 + ux * 14, -ny * 11 + uy * 14],
-      [nx * 11 - ux * 14, ny * 11 - uy * 14], [-nx * 11 - ux * 14, -ny * 11 - uy * 14]
-    ].map(([dx, dy]) => ({ x: midpoint.x + dx, y: midpoint.y + dy }));
+      [nx * 25, ny * 25], [-nx * 25, -ny * 25],
+      [nx * 23 + ux * 18, ny * 23 + uy * 18], [-nx * 23 + ux * 18, -ny * 23 - uy * 18],
+      [nx * 23 - ux * 18, ny * 23 - uy * 18], [-nx * 23 - ux * 18, -ny * 23 + uy * 18]
+    ].map(([dx, dy]) => ({ x: midpoint.x + dx, y: midpoint.y + dy, dx, dy }));
     const width = 42;
     const height = 34;
     function overlap(first, second) {
-      return Math.abs(first.x - second.x) < (width + second.width) / 2 && Math.abs(first.y - second.y) < (height + second.height) / 2;
+      const gap = 5;
+      return Math.abs(first.x - second.x) < (width + second.width) / 2 + gap && Math.abs(first.y - second.y) < (height + second.height) / 2 + gap;
     }
     function score(point) {
       let value = 0;
-      const edge = Math.min(point.x - stageCamera.x - 30, stageCamera.x + stageCamera.width - 30 - point.x,
-        point.y - stageCamera.y - 30, stageCamera.y + stageCamera.height - 30 - point.y);
+      const edge = Math.min(point.x - stageCamera.x - width / 2 - 8, stageCamera.x + stageCamera.width - width / 2 - 8 - point.x,
+        point.y - stageCamera.y - height / 2 - 8, stageCamera.y + stageCamera.height - height / 2 - 8 - point.y);
       if (edge < 0) value += 10000 + Math.abs(edge) * 100;
-      if (pointSegmentDistance(point, start, end) < 18) value += 500;
       const box = { ...point, width, height };
       for (const other of occupied) if (overlap(box, other)) value += 10000;
+      const lineClearance = 6;
+      for (const segment of segments) {
+        const expanded = { left: box.x - width / 2 - lineClearance, right: box.x + width / 2 + lineClearance,
+          top: box.y - height / 2 - lineClearance, bottom: box.y + height / 2 + lineClearance };
+        const distance = segmentRectDistance(segment.start, segment.end, expanded);
+        if (distance <= 0.01) value += 100000;
+        else value += Math.abs(distance - 10) * 2;
+      }
+      value += Math.hypot(point.dx, point.dy) * 0.05;
       return value;
     }
     return candidates.sort((first, second) => score(first) - score(second))[0] || midpoint;
@@ -211,10 +255,18 @@
       }
     }
     const geometry = M.forceGeometry(answer, question);
+    const labelSegments = geometry.map((item) => ({ start: item.tail, end: item.head }));
+    if (question.type === "parallelogram") {
+      for (const guide of answer.guides) {
+        if (!guide) continue;
+        labelSegments.push({ start: M.endpointForKey(answer, question, guide.originKey), end: M.lineEndPoint(guide, answer, question) });
+      }
+    }
+    if (answer.resultant) labelSegments.push({ start: M.lineStartPoint(answer.resultant, answer, question), end: M.lineEndPoint(answer.resultant, answer, question) });
     const occupiedLabels = [];
     geometry.forEach((item, index) => {
       drawArrow(parent, item.tail, item.head, { forceIndex: index });
-      const position = forceLabelPosition(item.tail, item.head, occupiedLabels);
+      const position = forceLabelPosition(item.tail, item.head, occupiedLabels, labelSegments);
       parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
       occupiedLabels.push({ ...position, width: 42, height: 34 });
     });
@@ -229,7 +281,7 @@
       const start = M.lineStartPoint(answer.resultant, answer, question);
       const end = M.lineEndPoint(answer.resultant, answer, question);
       drawArrow(parent, start, end, { className: `resultant-line${answer.resultant.end.mode === "free" ? " provisional" : ""}` });
-      const position = labelPosition(start, end);
+      const position = forceLabelPosition(start, end, occupiedLabels, labelSegments);
       parent.append(N.svgLabel(documentObject, N.vector("R"), { x: position.x, y: position.y, fill: "#b45309", "text-anchor": "middle" }));
     }
   }

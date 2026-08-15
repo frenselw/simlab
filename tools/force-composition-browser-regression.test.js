@@ -31,5 +31,7 @@ assert.match(main, /beginFreeResultantDrag/);
 assert.match(main, /resultant-hit/);
 assert.match(main, /computeStageCamera/);
 assert.match(main, /previewResultantTranslation/);
+assert.match(main, /segmentRectDistance/);
+assert.match(main, /forceLabelPosition\(item\.tail, item\.head, occupiedLabels, labelSegments\)/);
 
 console.log("force-composition browser regression wiring tests passed");
