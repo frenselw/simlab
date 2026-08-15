@@ -117,6 +117,11 @@ for (const order of [[0, 1], [1, 0]]) {
   assert.equal(M.canonicalResultant(answer, HQuestion), true);
   assert.deepEqual(M.corner(HQuestion), M.endpointForKey(answer, HQuestion, "CHAIN_END"));
 }
+const freshChain = M.freshAnswer(HQuestion);
+const freshChainGeometry = M.forceGeometry(freshChain, HQuestion);
+const reverseFirst = M.commitForceTranslation(freshChain, 0, freshChainGeometry[1].head, HQuestion, { pointerType: "mouse", threshold: 14 });
+assert.deepEqual(reverseFirst.placements, [{ mode: "snap", targetKey: "F2_HEAD" }, { mode: "snap", targetKey: "ORIGIN" }], "either force may be placed first by snapping its tail to the other force head");
+assert.deepEqual(M.chainInfo(reverseFirst, HQuestion).order, [1, 0], "reverse first placement establishes the stationary force as chain root");
 const translatedChain = M.commitResultantTranslation(chainAnswer(HQuestion, [0, 1]), { x: 40, y: -20 }, HQuestion, { pointerType: "mouse" });
 assert.equal(translatedChain.resultant.originKey, "FREE", "head-to-tail resultant can be translated as a whole");
 assert.equal(translatedChain.resultant.end.mode, "free");

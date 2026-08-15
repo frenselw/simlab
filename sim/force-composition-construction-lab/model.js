@@ -297,6 +297,16 @@
       next.placements[otherIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
       return next;
     }
+    if (question.type !== "parallelogram" && !Array.isArray(next.anchor10) && snap.key !== ORIGIN_KEY) {
+      const parentIndex = targetForceIndex(snap.key);
+      if (parentIndex >= 0 && parentIndex !== forceIndexValue) {
+        const parentTail = forceGeometry(next, question)[parentIndex].tail;
+        next.anchor10 = point10(parentTail);
+        next.placements[parentIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
+        next.placements[forceIndexValue] = { mode: "snap", targetKey: snap.key };
+        return next;
+      }
+    }
     next.placements[forceIndexValue] = { mode: "snap", targetKey: snap.key };
     return next;
   }
@@ -307,7 +317,15 @@
       const otherIndex = movingIndex === 0 ? 1 : 0;
       return [{ key: tailKey(otherIndex), point: forceGeometry(answer, question)[otherIndex].tail }];
     }
-    if (!Array.isArray(answer.anchor10)) return [];
+    if (!Array.isArray(answer.anchor10)) {
+      // Either force may be placed first. Before a chain root exists, allow
+      // the moving tail to snap to any other force's head; the matching root
+      // is established when that candidate is accepted.
+      return forceGeometry(answer, question)
+        .map((item, index) => ({ index, point: item.head }))
+        .filter(({ index }) => index !== movingIndex)
+        .map(({ index, point }) => ({ key: headKey(index), point }));
+    }
 
     const chain = chainInfo(answer, question);
     if (!chain.valid) return [];

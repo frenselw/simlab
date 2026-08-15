@@ -295,8 +295,8 @@ async function runPerfectMouse(cdp, baseUrl, launchPath, label) {
 
   await completeCurrentQuestion(cdp, 0, null, "mouse");
   await completeCurrentQuestion(cdp, 1, null, "mouse");
-  await completeCurrentQuestion(cdp, 2, [1, 0], "mouse");
-  await completeCurrentQuestion(cdp, 3, [0, 1], "mouse");
+  await completeCurrentQuestion(cdp, 2, [0, 1], "mouse");
+  await completeCurrentQuestion(cdp, 3, [1, 0], "mouse");
   await completeCurrentQuestion(cdp, 4, [2, 0, 1], "mouse");
   assert.deepEqual(await evaluate(cdp, "window.__forceCompositionApp.getCompletion()"), [true, true, true, true, true]);
   await click(cdp, "#goSummary");
