@@ -43,6 +43,10 @@ assert.deepEqual(nearOrigin.placements[0], { mode: "snap", targetKey: "ORIGIN" }
 const outsideOrigin = M.commitForceTranslation(initial, 0, { x: 401, y: 250 }, firstQuestion, { pointerType: "touch" });
 assert.equal(outsideOrigin.placements[0].mode, "snap", "the first force may establish an anchor at any valid position");
 assert.notDeepEqual(outsideOrigin.anchor10, [3800, 2500]);
+const liveTailSnap = M.previewSnappedForceTranslation(initial, 0, firstQuestion.initialTails[1], firstQuestion, { threshold: 14 });
+assert.deepEqual(liveTailSnap.placements, [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }], "live force preview snaps both forces before pointer release");
+const liveFarPreview = M.previewSnappedForceTranslation(initial, 0, { x: 200, y: 200 }, firstQuestion, { threshold: 14 });
+assert.equal(liveFarPreview.placements[0].mode, "free", "moving away from a snap target immediately returns to a free preview");
 assert.ok(M.selectSnapCandidate({ x: 14, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), "inclusive 14px pointer threshold snaps");
 assert.equal(M.selectSnapCandidate({ x: 14.01, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), null);
 assert.ok(M.selectSnapCandidate({ x: 6, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "keyboard", project: (point) => ({ x: point.x * 2, y: point.y * 2 }) }), "keyboard threshold is evaluated in projected CSS pixels");
@@ -67,6 +71,17 @@ const parallelGuide = M.commitGuide(P, "F1_HEAD", arbitraryGuideEnd, firstQuesti
 assert.deepEqual(parallelGuide.guides[0].end.mode, "snap");
 assert.equal(parallelGuide.guides[0].end.targetKey, "PARALLEL", "a guide snaps by direction without requiring the fourth vertex");
 assert.ok(Math.abs(M.distance(M.lineEndPoint(parallelGuide.guides[0], parallelGuide, firstQuestion), guideOrigin) - M.distance(arbitraryGuideEnd, guideOrigin)) < 1, "parallel snap preserves learner-chosen guide length");
+const liveParallelGuide = M.previewGuide(P, "F2_HEAD", { x: M.endpointForKey(P, firstQuestion, "F2_HEAD").x + firstQuestion.forces[0].dx * 0.35, y: M.endpointForKey(P, firstQuestion, "F2_HEAD").y + firstQuestion.forces[0].dy * 0.35 }, firstQuestion, { snap: true });
+assert.equal(liveParallelGuide.guides[1].end.targetKey, "PARALLEL", "guide direction visibly snaps before release");
+const wrongGuides = M.freshAnswer(firstQuestion);
+wrongGuides.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
+wrongGuides.guides = [
+  { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 3000] } },
+  { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
+];
+assert.equal(M.resultantAvailable(wrongGuides, firstQuestion), true, "two drawn guides unlock resultant mode even when their directions are wrong");
+const wrongResultant = M.previewResultant(wrongGuides, "F1_HEAD", { x: 650, y: 300 }, firstQuestion, { allowIncomplete: true, allowAnyOrigin: true });
+assert.equal(wrongResultant.resultant.originKey, "F1_HEAD", "resultant mode permits an intentionally wrong start endpoint");
 
 const HQuestion = scenario.questions[2];
 for (const order of [[0, 1], [1, 0]]) {

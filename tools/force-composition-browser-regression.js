@@ -244,6 +244,11 @@ async function navigateQuestion(cdp, index, embedded = false) {
   assert.equal(current, index);
 }
 
+async function enterResultantMode(cdp, embedded = false) {
+  await click(cdp, "#drawResultant", embedded);
+  assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').getAttribute('aria-pressed')", embedded), "true");
+}
+
 async function completeCurrentQuestion(cdp, index, order, input, embedded = false) {
   await navigateQuestion(cdp, index, embedded);
   const question = await inActivity(cdp, "window.__forceCompositionApp.getScenario().questions[window.__forceCompositionApp.getState().currentQuestion]", embedded);
@@ -253,6 +258,7 @@ async function completeCurrentQuestion(cdp, index, order, input, embedded = fals
     const corner = await targetModelPoint(cdp, "CORNER", embedded);
     await drawLine(cdp, "guide-start-F1_HEAD", corner, input, embedded);
     await drawLine(cdp, "guide-start-F2_HEAD", corner, input, embedded);
+    await enterResultantMode(cdp, embedded);
     await drawLine(cdp, "resultant-start-ORIGIN", corner, input, embedded);
   } else {
     const actualOrder = order || question.forces.map((_, forceIndex) => forceIndex);
@@ -443,6 +449,7 @@ async function runTouchMatrix(cdp, baseUrl, launchPath, label) {
   await ownedTouchDrag(cdp, '[data-semantic-key="guide-end-0"]', { x: snappedGuide.x - 36, y: snappedGuide.y + 28 }, `${label} snapped guide endpoint`);
   await ownedTouchDrag(cdp, '[data-semantic-key="guide-end-0"]', await modelPoint(cdp, corner, true), `${label} guide resnap`);
   await ownedTouchDrag(cdp, '[data-semantic-key="guide-start-F2_HEAD"]', await modelPoint(cdp, corner, true), `${label} second guide start`);
+  await enterResultantMode(cdp, true);
   const provisionalResult = { x: corner.x - 70, y: corner.y - 55 };
   await ownedTouchDrag(cdp, '[data-semantic-key="resultant-start-ORIGIN"]', await modelPoint(cdp, provisionalResult, true), `${label} resultant start`);
   await ownedTouchDrag(cdp, '[data-semantic-key="resultant-end"]', await modelPoint(cdp, corner, true), `${label} provisional resultant endpoint`);

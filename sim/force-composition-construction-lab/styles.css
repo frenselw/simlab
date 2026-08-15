@@ -58,6 +58,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .button-grid, .question-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
 .question-navigation { margin-top: .85rem; }
 .full-button { width: 100%; margin-top: .55rem; }
+.resultant-mode-button[data-active="true"] { border-color: #b45309; background: #fff7ed; color: #9a3412; }
 .primary-button { border-color: #1d4ed8; background: var(--color-accent); color: #fff; font-weight: 700; }
 .primary-button:hover, .primary-button:focus-visible { background: #1d4ed8; color: #fff; }
 .button-row { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }

@@ -41,7 +41,7 @@
         return count ? "再把另一個力的箭尾移到同一個共同起點。" : "先選擇任意位置作為共同起點，再放置第一個力。";
       }
       if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線；方向接近對邊平行時會自動吸附，線長不限。" : "自行選擇端點，畫出兩條與對邊平行的虛線輔助線；方向接近時會自動吸附，線長不限。";
-      return question.guided ? "由共同起點拖至平行四邊形對角頂點，畫出合力。" : "自行選擇正確起點，畫出平行四邊形的對角線合力。";
+      return "兩條輔助線已畫出；按「開始畫合力」鎖定前面作圖，再由任意端點畫出合力。";
     }
     const chain = M.chainInfo(answer, question);
     if (!chain.order.length) return "任選一個力，在任意位置開始作圖。";
@@ -77,6 +77,7 @@
   let trustedReview = false;
   let reviewResult = null;
   let correctOverlay = false;
+  let resultantMode = false;
   let unsaved = false;
   let pendingFreshState = null;
   let submitting = false;
@@ -91,7 +92,7 @@
     for (const id of [
       "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierLabel", "magnifierLine",
       "saveBanner", "saveBannerText", "retrySave", "technicalPanel", "technicalTitle", "technicalMessage", "technicalActions",
-      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "questionProgress",
+      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "drawResultant", "questionProgress",
       "undo", "resetQuestion", "previousQuestion", "nextQuestion", "goSummary", "summaryPanel", "summaryList", "summaryWarning",
       "submitAttempt", "returnToPractice", "submitStatus", "reviewPanel", "reviewTitle", "reviewScore", "reviewCompletion",
       "reviewQuestionNavigation", "toggleCorrect", "reviewFeedback", "reviewActions", "liveRegion", "submitDialog", "submitDialogMessage",
@@ -358,48 +359,55 @@
     const question = scenario.questions[state.currentQuestion];
     const answer = answerOverride || state.answers[state.currentQuestion];
     const geometry = M.forceGeometry(answer, question);
-    geometry.forEach((item, index) => {
-      const button = makeOverlayButton("force-hit", `force-${index}`, forceAccessibleLabel(index, item));
-      button.dataset.forceIndex = String(index);
-      button.dataset.dragKind = "force";
-      positionForceButton(button, item);
-      dom.dragLayer.append(button);
-    });
-    for (const handle of M.guideStartHandles(answer, question)) {
-      const button = makeOverlayButton("line-handle", `guide-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫虛線輔助線`);
-      button.dataset.dragKind = "guide-start";
-      button.dataset.lineKind = "guide";
-      button.dataset.originKey = handle.key;
-      positionHandle(button, handle.point);
-      dom.dragLayer.append(button);
-    }
-    if (question.type === "parallelogram") {
-      answer.guides.forEach((guide, index) => {
-        if (!guide) return;
-        const button = makeOverlayButton("line-handle", `guide-end-${index}`, `調整第 ${index + 1} 條虛線輔助線的終點`);
-        button.dataset.dragKind = "guide-end";
-        button.dataset.lineKind = "guide-end";
-        button.dataset.guideIndex = String(index);
-        button.dataset.originKey = guide.originKey;
-        positionHandle(button, M.lineEndPoint(guide, answer, question));
+    const lockComposition = question.type === "parallelogram" && resultantMode;
+    const showResultant = lockComposition || question.type !== "parallelogram";
+    if (!lockComposition) {
+      geometry.forEach((item, index) => {
+        const button = makeOverlayButton("force-hit", `force-${index}`, forceAccessibleLabel(index, item));
+        button.dataset.forceIndex = String(index);
+        button.dataset.dragKind = "force";
+        positionForceButton(button, item);
         dom.dragLayer.append(button);
       });
+      for (const handle of M.guideStartHandles(answer, question)) {
+        const button = makeOverlayButton("line-handle", `guide-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫虛線輔助線`);
+        button.dataset.dragKind = "guide-start";
+        button.dataset.lineKind = "guide";
+        button.dataset.originKey = handle.key;
+        positionHandle(button, handle.point);
+        dom.dragLayer.append(button);
+      }
+      if (question.type === "parallelogram") {
+        answer.guides.forEach((guide, index) => {
+          if (!guide) return;
+          const button = makeOverlayButton("line-handle", `guide-end-${index}`, `調整第 ${index + 1} 條虛線輔助線的終點`);
+          button.dataset.dragKind = "guide-end";
+          button.dataset.lineKind = "guide-end";
+          button.dataset.guideIndex = String(index);
+          button.dataset.originKey = guide.originKey;
+          positionHandle(button, M.lineEndPoint(guide, answer, question));
+          dom.dragLayer.append(button);
+        });
+      }
     }
-    for (const handle of M.resultantStartHandles(answer, question)) {
-      const button = makeOverlayButton("line-handle", `resultant-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫合力`);
-      button.dataset.dragKind = "resultant-start";
-      button.dataset.lineKind = "resultant";
-      button.dataset.originKey = handle.key;
-      positionHandle(button, handle.point);
-      dom.dragLayer.append(button);
-    }
-    if (answer.resultant) {
-      const button = makeOverlayButton("line-handle", "resultant-end", "調整合力終點");
-      button.dataset.dragKind = "resultant-end";
-      button.dataset.lineKind = "resultant-end";
-      button.dataset.originKey = answer.resultant.originKey;
-      positionHandle(button, M.lineEndPoint(answer.resultant, answer, question));
-      dom.dragLayer.append(button);
+    if (showResultant) {
+      if (!answer.resultant) {
+        for (const handle of M.resultantStartHandles(answer, question, { allowAnyOrigin: lockComposition })) {
+          const button = makeOverlayButton("line-handle", `resultant-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫合力`);
+          button.dataset.dragKind = "resultant-start";
+          button.dataset.lineKind = "resultant";
+          button.dataset.originKey = handle.key;
+          positionHandle(button, handle.point);
+          dom.dragLayer.append(button);
+        }
+      } else {
+        const button = makeOverlayButton("line-handle", "resultant-end", "調整合力終點");
+        button.dataset.dragKind = "resultant-end";
+        button.dataset.lineKind = "resultant-end";
+        button.dataset.originKey = answer.resultant.originKey;
+        positionHandle(button, M.lineEndPoint(answer.resultant, answer, question));
+        dom.dragLayer.append(button);
+      }
     }
     layoutLineHandles(answer, question);
   }
@@ -427,7 +435,7 @@
   function renderLineTools() {
     dom.lineTools.replaceChildren();
     const answer = state.answers[state.currentQuestion];
-    if (answer.type !== "parallelogram") return;
+    if (answer.type !== "parallelogram" || resultantMode) return;
     answer.guides.forEach((guide, index) => {
       if (!guide) return;
       const button = documentObject.createElement("button");
@@ -461,16 +469,26 @@
 
   function renderPractice() {
     const view = questionView(state, scenario, state.currentQuestion);
+    const answer = state.answers[state.currentQuestion];
+    const question = scenario.questions[state.currentQuestion];
     dom.questionType.textContent = `${view.id}・${view.type}`;
     dom.questionTitle.textContent = view.title;
     dom.questionPrompt.textContent = view.prompt;
-    dom.stepPrompt.textContent = view.step;
+    dom.stepPrompt.textContent = resultantMode
+      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點拖出合力，方向錯誤的作答也會保留。"
+      : view.step;
     renderFormula();
     renderLineTools();
+    const resultantAvailable = question.type === "parallelogram" && M.resultantAvailable(answer, question);
+    dom.drawResultant.classList.toggle("is-hidden", !resultantAvailable);
+    dom.drawResultant.disabled = !resultantAvailable;
+    dom.drawResultant.setAttribute("aria-pressed", String(resultantMode));
+    dom.drawResultant.dataset.active = String(resultantMode);
+    dom.drawResultant.textContent = resultantMode ? "返回修改力與輔助線" : "開始畫合力（鎖定前面作圖）";
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
-    dom.undo.disabled = !policy.undoEnabled;
-    dom.resetQuestion.disabled = !policy.resetEnabled || M.isBlank(state.answers[state.currentQuestion]);
+    dom.undo.disabled = resultantMode || !policy.undoEnabled;
+    dom.resetQuestion.disabled = resultantMode || !policy.resetEnabled || M.isBlank(state.answers[state.currentQuestion]);
     dom.previousQuestion.disabled = !policy.navigationEnabled;
     dom.nextQuestion.disabled = !policy.navigationEnabled;
     dom.goSummary.disabled = !policy.summaryEnabled;
@@ -623,6 +641,7 @@
       scenario = G.generateScenario({ seed: state.seed, generatorVersion: state.generatorVersion });
       pendingFreshState = null;
       presentation = "editable";
+      resultantMode = false;
       unsaved = false;
       registerDraftProvider();
       renderAll();
@@ -679,6 +698,7 @@
       if (!review.trusted) { showSafeFinishedFallback(attemptValue, "提交作圖與 Moodle 記錄不一致或完成狀態不明"); return; }
       state = { ...answer, phase: "review", currentQuestion: 0 };
       presentation = "review";
+      resultantMode = false;
       trustedReview = true;
       reviewResult = computed;
       renderAll();
@@ -701,6 +721,7 @@
           decoded.snapshot.score !== computed.score || Boolean(decoded.snapshot.passed) !== computed.passed) throw new Error("Pending result does not match authoritative geometry");
       state = { ...decoded.answer, phase: "review", currentQuestion: 0 };
       presentation = "frozen";
+      resultantMode = false;
       trustedReview = false;
       reviewResult = null;
       renderAll();
@@ -716,6 +737,7 @@
       state = P.decodeSnapshot(attemptValue.snapshot, "draft");
       scenario = G.generateScenario({ seed: state.seed, generatorVersion: state.generatorVersion });
       presentation = "editable";
+      resultantMode = false;
       unsaved = false;
       registerDraftProvider();
       renderAll();
@@ -762,6 +784,7 @@
     if (!state || !scenario || index < 0 || index > 4 || presentation === "technical") return;
     state.currentQuestion = index;
     state.phase = "practice";
+    resultantMode = false;
     correctOverlay = false;
     if (["editable", "retryable"].includes(presentation)) saveDraft();
     renderAll();
@@ -769,6 +792,7 @@
   }
 
   function goToSummary() {
+    resultantMode = false;
     state.phase = "summary";
     presentation = "editable";
     saveDraft();
@@ -779,6 +803,7 @@
   function undo() {
     const stack = undoStacks[state.currentQuestion];
     if (!stack.length) return;
+    resultantMode = false;
     state.answers[state.currentQuestion] = stack.pop();
     state = P.productionRoundTrip(state);
     saveDraft();
@@ -789,12 +814,22 @@
   function resetCurrent() {
     const answer = state.answers[state.currentQuestion];
     if (M.isBlank(answer)) return;
+    resultantMode = false;
     pushUndo(state.currentQuestion, answer);
     state.answers[state.currentQuestion] = M.freshAnswer(scenario.questions[state.currentQuestion]);
     state = P.productionRoundTrip(state);
     saveDraft();
     renderAll();
     announce("本題已重設；可使用復原上一步取回剛才的作答。");
+  }
+
+  function toggleResultantMode() {
+    const question = scenario.questions[state.currentQuestion];
+    const answer = state.answers[state.currentQuestion];
+    if (question.type !== "parallelogram" || !M.resultantAvailable(answer, question)) return;
+    resultantMode = !resultantMode;
+    renderAll();
+    announce(resultantMode ? "已進入合力作圖模式；力矢量及輔助線暫時鎖定。" : "已返回修改力矢量及輔助線模式。");
   }
 
   function normalizeSubmission(outcome) {
@@ -871,6 +906,7 @@
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
     const kind = target.dataset.dragKind;
+    if (resultantMode && !kind.startsWith("resultant")) return;
     const point = clientToModel(event.clientX, event.clientY);
     const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, preview: answer };
     if (kind === "force") {
@@ -907,10 +943,18 @@
     let candidate = point;
     if (drag.kind === "force") {
       candidate = { x: drag.startTail.x + point.x - drag.startPoint.x, y: drag.startTail.y + point.y - drag.startPoint.y };
-      preview = M.previewForceTranslation(drag.before, drag.forceIndex, candidate, question);
-      candidate = M.fromPoint10(preview.placements[drag.forceIndex].tail10);
-    } else if (drag.kind.startsWith("guide")) preview = M.previewGuide(drag.before, drag.originKey, point, question);
-    else preview = M.previewResultant(drag.before, drag.originKey, point, question);
+      preview = M.previewSnappedForceTranslation(drag.before, drag.forceIndex, candidate, question, { pointerType: drag.pointerType, project: modelToClient });
+    } else if (drag.kind.startsWith("guide")) {
+      preview = M.previewGuide(drag.before, drag.originKey, point, question, { snap: true });
+    } else {
+      preview = M.previewResultant(drag.before, drag.originKey, point, question, {
+        pointerType: drag.pointerType,
+        project: modelToClient,
+        snap: true,
+        allowIncomplete: resultantMode,
+        allowAnyOrigin: resultantMode
+      });
+    }
     drag.preview = preview;
     drag.candidate = candidate;
     updateNearSnap(preview, question, candidate, drag.pointerType, drag.kind, drag.originKey);
@@ -943,7 +987,11 @@
         ? guide.end.targetKey === "PARALLEL" ? "虛線輔助線已吸附到對邊的平行方向，線長可以不同。" : "虛線輔助線已連接到平行四邊形對角頂點。"
         : "虛線輔助線尚未吸附，可拖動終點再調整。";
     } else {
-      next = M.commitResultant(active.before, active.originKey, point, question, options);
+      next = M.commitResultant(active.before, active.originKey, point, question, {
+        ...options,
+        allowIncomplete: resultantMode,
+        allowAnyOrigin: resultantMode
+      });
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力尚未吸附，可拖動終點再調整。";
     }
     finalizeAnswer(next, message, active.target.dataset.semanticKey);
@@ -1004,7 +1052,7 @@
       const question = scenario.questions[state.currentQuestion];
       const options = { pointerType: "keyboard", project: modelToClient };
       const next = active.kind.startsWith("guide") ? M.commitGuide(active.before, active.originKey, active.endpoint, question, options)
-        : M.commitResultant(active.before, active.originKey, active.endpoint, question, options);
+        : M.commitResultant(active.before, active.originKey, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode });
       nearSnapPoint = null;
       finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "已確認線段位置。", active.target.dataset.semanticKey);
       event.preventDefault();
@@ -1015,8 +1063,8 @@
     const step = event.shiftKey ? 10 : 2;
     keyboardLine.endpoint = M.clampLinePoint({ x: keyboardLine.endpoint.x + vectors[event.key][0] * step, y: keyboardLine.endpoint.y + vectors[event.key][1] * step });
     const question = scenario.questions[state.currentQuestion];
-    const preview = keyboardLine.kind.startsWith("guide") ? M.previewGuide(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question)
-      : M.previewResultant(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question);
+    const preview = keyboardLine.kind.startsWith("guide") ? M.previewGuide(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true })
+      : M.previewResultant(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient });
     updateNearSnap(preview, question, keyboardLine.endpoint, "keyboard", keyboardLine.kind, keyboardLine.originKey);
     renderStage(preview);
     positionExistingOverlays(preview);
@@ -1034,6 +1082,7 @@
       return;
     }
     if (!target.classList.contains("force-hit")) return;
+    if (resultantMode) return;
     const vectors = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     if (!vectors[event.key]) return;
     const question = scenario.questions[state.currentQuestion];
@@ -1121,6 +1170,7 @@
       if (button) navigateQuestion(Number(button.dataset.editQuestion), true);
     });
     dom.undo.addEventListener("click", undo);
+    dom.drawResultant.addEventListener("click", toggleResultantMode);
     dom.resetQuestion.addEventListener("click", () => {
       if (typeof dom.resetDialog.showModal === "function") dom.resetDialog.showModal();
       else if (windowObject.confirm("重設本題？")) resetCurrent();

@@ -222,6 +222,12 @@
       : chainInfo(answer, question).complete;
   }
 
+  function resultantAvailable(answer, question) {
+    return question.type === "parallelogram"
+      ? commonOrigin(answer) && answer.guides.every((guide) => guide !== null)
+      : chainInfo(answer, question).complete;
+  }
+
   function canonicalResultant(answer, question) {
     return Boolean(prerequisitesForResultant(answer, question) && answer.resultant?.originKey === ORIGIN_KEY && answer.resultant.end.mode === "snap" &&
       answer.resultant.end.targetKey === (question.type === "parallelogram" ? "CORNER" : "CHAIN_END"));
@@ -231,7 +237,7 @@
     if (question.type === "parallelogram") {
       if (canonicalResultant(answer, question)) return "complete";
       if (!commonOrigin(answer)) return answer.placements.every((placement) => placement.mode === "initial") ? "fresh" : "placing";
-      if (prerequisitesForResultant(answer, question)) return "resultant";
+      if (resultantAvailable(answer, question)) return "resultant";
       return "guides";
     }
     if (canonicalResultant(answer, question)) return "complete";
@@ -266,6 +272,22 @@
     return next;
   }
 
+  function previewSnappedForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
+    const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question);
+    const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
+    const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
+    if (!snap) return next;
+    if (question.type === "parallelogram" && !Array.isArray(next.anchor10) && snap.key !== ORIGIN_KEY) {
+      const otherIndex = forceIndexValue === 0 ? 1 : 0;
+      next.anchor10 = point10(snap.point);
+      next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
+      next.placements[otherIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
+      return next;
+    }
+    next.placements[forceIndexValue] = { mode: "snap", targetKey: snap.key };
+    return next;
+  }
+
   function legalForceTargets(answer, question, movingIndex) {
     if (question.type === "parallelogram") {
       if (Array.isArray(answer.anchor10)) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
@@ -283,7 +305,8 @@
   }
 
   function commitForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
-    const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question);
+    const next = previewSnappedForceTranslation(answer, forceIndexValue, candidateTail, question, options);
+    if (next.placements[forceIndexValue].mode === "snap") return next;
     let candidate = fromPoint10(next.placements[forceIndexValue].tail10);
     if (!Array.isArray(next.anchor10)) {
       const targets = legalForceTargets(next, question, forceIndexValue);
@@ -342,7 +365,12 @@
     return question.guided ? ["F1_HEAD", "F2_HEAD"].includes(originKey) : [ORIGIN_KEY, "F1_HEAD", "F2_HEAD"].includes(originKey);
   }
 
-  function resultantOriginAllowed(question, originKey) {
+  function resultantOriginAllowed(question, originKey, options = {}) {
+    if (options.allowAnyOrigin && question.type === "parallelogram") {
+      const keys = [ORIGIN_KEY, "CORNER"];
+      for (let index = 0; index < question.forces.length; index += 1) keys.push(tailKey(index), headKey(index));
+      return keys.includes(originKey);
+    }
     if (question.guided) return originKey === ORIGIN_KEY;
     const count = question.forces.length;
     const keys = [ORIGIN_KEY];
@@ -351,7 +379,7 @@
     return keys.includes(originKey);
   }
 
-  function previewGuide(answer, originKey, candidateEnd, question) {
+  function previewGuide(answer, originKey, candidateEnd, question, options = {}) {
     if (question.type !== "parallelogram" || !commonOrigin(answer) || !guideOriginAllowed(question, originKey)) throw new Error("Guide is not available");
     const next = clone(answer);
     const line = { originKey, end: { mode: "free", point10: point10(clampLinePoint(candidateEnd)) } };
@@ -360,18 +388,16 @@
     if (slot < 0) throw new Error("Both guide slots are in use");
     next.guides[slot] = line;
     next.resultant = null;
-    return next;
-  }
-
-  function commitGuide(answer, originKey, candidateEnd, question, options = {}) {
-    const next = previewGuide(answer, originKey, candidateEnd, question);
-    const slot = next.guides.findIndex((guide) => guide?.originKey === originKey);
-    const candidate = fromPoint10(next.guides[slot].end.point10);
-    if (["F1_HEAD", "F2_HEAD"].includes(originKey)) {
+    if (options.snap && ["F1_HEAD", "F2_HEAD"].includes(originKey)) {
+      const candidate = fromPoint10(next.guides[slot].end.point10);
       const snapped = parallelSnapPoint(next, question, originKey, candidate);
       if (snapped) next.guides[slot].end = { mode: "snap", targetKey: "PARALLEL", point10: point10(snapped) };
     }
     return next;
+  }
+
+  function commitGuide(answer, originKey, candidateEnd, question, options = {}) {
+    return previewGuide(answer, originKey, candidateEnd, question, { ...options, snap: true });
   }
 
   function removeGuide(answer, index) {
@@ -381,22 +407,21 @@
     return next;
   }
 
-  function previewResultant(answer, originKey, candidateEnd, question) {
-    if (!prerequisitesForResultant(answer, question) || !resultantOriginAllowed(question, originKey)) throw new Error("Resultant is not available");
+  function previewResultant(answer, originKey, candidateEnd, question, options = {}) {
+    if ((!resultantAvailable(answer, question) && !options.allowIncomplete) || !resultantOriginAllowed(question, originKey, options)) throw new Error("Resultant is not available");
     const next = clone(answer);
     next.resultant = { originKey, end: { mode: "free", point10: point10(clampLinePoint(candidateEnd)) } };
-    return next;
-  }
-
-  function commitResultant(answer, originKey, candidateEnd, question, options = {}) {
-    const next = previewResultant(answer, originKey, candidateEnd, question);
-    if (originKey === ORIGIN_KEY) {
+    if (options.snap && originKey === ORIGIN_KEY) {
       const targetKey = question.type === "parallelogram" ? "CORNER" : "CHAIN_END";
       const candidate = fromPoint10(next.resultant.end.point10);
       const snap = selectSnapCandidate(candidate, [{ key: targetKey, point: corner(question, next) }], options);
       if (snap) next.resultant.end = { mode: "snap", targetKey };
     }
     return next;
+  }
+
+  function commitResultant(answer, originKey, candidateEnd, question, options = {}) {
+    return previewResultant(answer, originKey, candidateEnd, question, { ...options, snap: true });
   }
 
   function endpointHandles(answer, question) {
@@ -411,7 +436,7 @@
   }
 
   function guideStartHandles(answer, question) {
-    if (question.type !== "parallelogram" || !commonOrigin(answer) || prerequisitesForResultant(answer, question)) return [];
+    if (question.type !== "parallelogram" || !commonOrigin(answer) || resultantAvailable(answer, question)) return [];
     if (question.guided) {
       const existing = new Set(answer.guides.filter(Boolean).map((guide) => guide.originKey));
       return ["F1_HEAD", "F2_HEAD"].filter((key) => !existing.has(key)).map((key) => ({ key, point: endpointForKey(answer, question, key) }));
@@ -422,8 +447,9 @@
     return endpointHandles(answer, question).filter((handle) => allowed.has(handle.key));
   }
 
-  function resultantStartHandles(answer, question) {
-    if (!prerequisitesForResultant(answer, question) || canonicalResultant(answer, question)) return [];
+  function resultantStartHandles(answer, question, options = {}) {
+    if (!resultantAvailable(answer, question) || canonicalResultant(answer, question)) return [];
+    if (options.allowAnyOrigin && question.type === "parallelogram") return endpointHandles(answer, question);
     if (question.guided) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     return endpointHandles(answer, question);
   }
@@ -443,8 +469,8 @@
     clone, forceKey, forceIndex, headKey, tailKey, targetForceIndex, quantize, point10, fromPoint10,
     add, sumForces, distance, threshold, selectSnapCandidate, clampForceTail, clampAnchor, clampLinePoint,
     freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, anchorPoint, corner, endpointForKey,
-    correctGuides, prerequisitesForResultant, canonicalResultant, derivedVariant,
-    releaseForceAndDescendants, previewForceTranslation, legalForceTargets, commitForceTranslation,
+    correctGuides, prerequisitesForResultant, resultantAvailable, canonicalResultant, derivedVariant,
+    releaseForceAndDescendants, previewForceTranslation, previewSnappedForceTranslation, legalForceTargets, commitForceTranslation,
     lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide,
     previewResultant, commitResultant, endpointHandles, guideStartHandles, resultantStartHandles,
     isBlank, questionComplete

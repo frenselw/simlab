@@ -118,9 +118,9 @@
       if (guide.end.mode === "snap" && guide.end.targetKey === "PARALLEL" && !Model.guideEndIsParallel(answer, question, guide)) return "guide-not-parallel";
     }
     if (answer.resultant !== null) {
-      if (!Model.prerequisitesForResultant(answer, question)) return "resultant-before-guides";
+      if (!Model.resultantAvailable(answer, question)) return "resultant-before-guides";
       if (!onlyKeys(answer.resultant, ["originKey", "end"])) return "resultant-shape";
-      const allowed = questionIndex === 0 ? ["ORIGIN"] : ["ORIGIN", "F1_TAIL", "F1_HEAD", "F2_TAIL", "F2_HEAD", "CORNER"];
+      const allowed = ["ORIGIN", "F1_TAIL", "F1_HEAD", "F2_TAIL", "F2_HEAD", "CORNER"];
       if (!allowed.includes(answer.resultant.originKey)) return "resultant-origin";
       const issue = validateLineEnd(answer.resultant.end, "CORNER");
       if (issue) return issue;

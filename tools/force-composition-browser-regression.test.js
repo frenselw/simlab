@@ -21,6 +21,8 @@ assert.match(browser, /runBlankSubmission/);
 assert.match(browser, /runDraftReload/);
 assert.match(browser, /sourceTouch/);
 assert.match(browser, /packageTouch/);
+assert.match(browser, /enterResultantMode/);
+assert.match(browser, /#drawResultant/);
 assert.match(browser, /__embed-scroll-test\.html/);
 
 console.log("force-composition browser regression wiring tests passed");

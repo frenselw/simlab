@@ -71,6 +71,15 @@ for (const index of [0, 1]) {
 const arbitraryAnchorState = P.freshState(seed);
 arbitraryAnchorState.answers[0] = M.commitForceTranslation(arbitraryAnchorState.answers[0], 0, { x: 270, y: 130 }, scenario.questions[0], { pointerType: "mouse" });
 fixtures.push(arbitraryAnchorState);
+const intentionallyWrongResultant = P.freshState(seed);
+const intentionallyWrongAnswer = commonP(0);
+intentionallyWrongAnswer.guides = [
+  { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 3000] } },
+  { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
+];
+intentionallyWrongAnswer.resultant = { originKey: "F1_HEAD", end: { mode: "free", point10: [6500, 3000] } };
+intentionallyWrongResultant.answers[0] = intentionallyWrongAnswer;
+fixtures.push(intentionallyWrongResultant);
 for (const index of [2, 3]) {
   fixtures.push(stateWith(index, M.freshAnswer(scenario.questions[index])));
   fixtures.push(stateWith(index, chain(index, [0, 1], 1)));
