@@ -1,0 +1,39 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const App = require("./main.js");
+const G = require("./generator.js");
+const P = require("./persistence.js");
+
+const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const css = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
+assert.match(html, /<html lang="zh-Hant">/);
+assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
+assert.match(html, /id="dragLayer"[^>]*aria-label="作圖操作層"/);
+assert.match(html, /id="stageSvg"[^>]*role="img"[^>]*aria-describedby="stageDescription"/);
+assert.match(html, /id="forceSelector"[^>]*role="group"/);
+assert.match(html, /id="submitDialog"/);
+assert.match(html, /仍要提交/);
+assert.match(css, /\.force-hit[\s\S]*height:\s*44px/);
+assert.match(css, /\.line-handle[\s\S]*width:\s*44px[\s\S]*height:\s*44px/);
+assert.match(css, /touch-action:\s*pan-y/);
+assert.match(css, /touch-action:\s*none/);
+assert.match(css, /overscroll-behavior:\s*contain/);
+assert.match(css, /@media \(forced-colors: active\)/);
+assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+assert.match(css, /\.math-vector\s*\{[^}]*font-style:\s*italic[^}]*font-weight:\s*700/s);
+assert.match(css, /\.math-subscript-upright\s*\{[^}]*font-style:\s*normal/s);
+assert.doesNotMatch(html + css, /MathJax|KaTeX|cdnjs|unpkg|jsdelivr/i);
+
+const scenario = G.generateScenario({ seed: 31 });
+const state = P.freshState(31);
+for (let index = 0; index < 5; index += 1) {
+  const view = App.questionView(state, scenario, index);
+  assert.ok(view.title && view.prompt && view.step);
+  assert.doesNotMatch(`${view.title} ${view.prompt} ${view.step}`, /平衡四邊形|手尾連接|兩個質量/);
+}
+assert.equal(App.QUESTION_COPY.length, 5);
+
+console.log("force-composition accessibility tests passed");

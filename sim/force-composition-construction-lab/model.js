@@ -1,0 +1,392 @@
+(function (root, factory) {
+  const api = factory(typeof module === "object" && module.exports ? require("./generator.js") : root.ForceCompositionGenerator);
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.ForceCompositionModel = api;
+})(typeof window !== "undefined" ? window : globalThis, function (Generator) {
+  "use strict";
+
+  if (!Generator) throw new Error("ForceCompositionGenerator is required");
+
+  const SNAP_TOUCH_PX = 20;
+  const SNAP_POINTER_PX = 14;
+  const SNAP_KEYBOARD_PX = 12;
+  const MODEL_EPSILON = 0.01;
+  const POSITION_QUANTUM = 0.1;
+  const MODEL_VISUAL_INSET = 34;
+  const FREE_LINE_INSET = 24;
+  const ORIGIN_KEY = "ORIGIN";
+
+  function clone(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function forceKey(index) {
+    return `F${index + 1}`;
+  }
+
+  function forceIndex(key) {
+    const match = /^F([1-3])$/.exec(key || "");
+    return match ? Number(match[1]) - 1 : -1;
+  }
+
+  function headKey(index) {
+    return `${forceKey(index)}_HEAD`;
+  }
+
+  function tailKey(index) {
+    return `${forceKey(index)}_TAIL`;
+  }
+
+  function targetForceIndex(targetKey) {
+    const match = /^F([1-3])_HEAD$/.exec(targetKey || "");
+    return match ? Number(match[1]) - 1 : -1;
+  }
+
+  function quantize(value) {
+    return Math.round(value / POSITION_QUANTUM) * POSITION_QUANTUM;
+  }
+
+  function point10(point) {
+    return [Math.round(point.x * 10), Math.round(point.y * 10)];
+  }
+
+  function fromPoint10(value) {
+    return { x: value[0] / 10, y: value[1] / 10 };
+  }
+
+  function add(point, vector) {
+    return { x: point.x + vector.dx, y: point.y + vector.dy };
+  }
+
+  function sumForces(forces) {
+    return forces.reduce((total, force) => ({ dx: total.dx + force.dx, dy: total.dy + force.dy }), { dx: 0, dy: 0 });
+  }
+
+  function distance(first, second) {
+    return Math.hypot(first.x - second.x, first.y - second.y);
+  }
+
+  function threshold(pointerType) {
+    return pointerType === "touch" ? SNAP_TOUCH_PX : pointerType === "keyboard" ? SNAP_KEYBOARD_PX : SNAP_POINTER_PX;
+  }
+
+  function projectIdentity(point) {
+    return point;
+  }
+
+  function selectSnapCandidate(candidate, targets, options = {}) {
+    const project = options.project || projectIdentity;
+    const limit = options.threshold ?? threshold(options.pointerType);
+    const candidateScreen = project(candidate);
+    return targets
+      .map((target) => ({ ...target, distance: distance(candidateScreen, project(target.point)) }))
+      .filter((target) => target.distance <= limit)
+      .sort((first, second) => first.distance - second.distance || String(first.key).localeCompare(String(second.key)))[0] || null;
+  }
+
+  function clampForceTail(point, force) {
+    const minX = MODEL_VISUAL_INSET - Math.min(0, force.dx);
+    const maxX = Generator.WIDTH - MODEL_VISUAL_INSET - Math.max(0, force.dx);
+    const minY = MODEL_VISUAL_INSET - Math.min(0, force.dy);
+    const maxY = Generator.HEIGHT - MODEL_VISUAL_INSET - Math.max(0, force.dy);
+    return {
+      x: quantize(Math.max(minX, Math.min(maxX, point.x))),
+      y: quantize(Math.max(minY, Math.min(maxY, point.y)))
+    };
+  }
+
+  function clampLinePoint(point) {
+    return {
+      x: quantize(Math.max(FREE_LINE_INSET, Math.min(Generator.WIDTH - FREE_LINE_INSET, point.x))),
+      y: quantize(Math.max(FREE_LINE_INSET, Math.min(Generator.HEIGHT - FREE_LINE_INSET, point.y)))
+    };
+  }
+
+  function freshAnswer(question) {
+    if (question.type === "parallelogram") {
+      return { type: question.type, placements: [{ mode: "initial" }, { mode: "initial" }], guides: [null, null], resultant: null };
+    }
+    return { type: question.type, placements: question.forces.map(() => ({ mode: "initial" })), resultant: null };
+  }
+
+  function freshAnswers(scenario) {
+    return scenario.questions.map(freshAnswer);
+  }
+
+  function resolveTails(answer, question) {
+    const tails = new Array(question.forces.length);
+    const resolving = new Set();
+    function resolve(index) {
+      if (tails[index]) return tails[index];
+      if (resolving.has(index)) throw new Error("Cyclic force placement");
+      resolving.add(index);
+      const placement = answer.placements[index];
+      let tail;
+      if (placement.mode === "initial") tail = { ...question.initialTails[index] };
+      else if (placement.mode === "free") tail = fromPoint10(placement.tail10);
+      else if (placement.mode === "snap" && placement.targetKey === ORIGIN_KEY) tail = { ...Generator.ORIGIN };
+      else if (placement.mode === "snap") {
+        const parent = targetForceIndex(placement.targetKey);
+        if (parent < 0 || parent >= question.forces.length || parent === index) throw new Error("Invalid force placement relationship");
+        tail = add(resolve(parent), question.forces[parent]);
+      } else throw new Error("Invalid force placement mode");
+      resolving.delete(index);
+      tails[index] = tail;
+      return tail;
+    }
+    for (let index = 0; index < question.forces.length; index += 1) resolve(index);
+    return tails;
+  }
+
+  function forceGeometry(answer, question) {
+    const tails = resolveTails(answer, question);
+    return question.forces.map((force, index) => ({ key: force.key, force, tail: tails[index], head: add(tails[index], force) }));
+  }
+
+  function chainInfo(answer, question) {
+    if (question.type === "parallelogram") return { valid: false, order: [], complete: false, reason: "not-chain" };
+    const children = new Map();
+    const roots = [];
+    for (let index = 0; index < answer.placements.length; index += 1) {
+      const placement = answer.placements[index];
+      if (placement.mode !== "snap") continue;
+      if (placement.targetKey === ORIGIN_KEY) roots.push(index);
+      else {
+        const parent = targetForceIndex(placement.targetKey);
+        if (parent < 0 || parent === index || children.has(parent)) return { valid: false, order: [], complete: false, reason: "branch-or-self" };
+        children.set(parent, index);
+      }
+    }
+    if (roots.length > 1) return { valid: false, order: [], complete: false, reason: "multiple-roots" };
+    if (!roots.length) {
+      const snappedCount = answer.placements.filter((placement) => placement.mode === "snap").length;
+      return snappedCount ? { valid: false, order: [], complete: false, reason: "floating-or-cycle" }
+        : { valid: true, order: [], complete: false, freeHeadKey: ORIGIN_KEY };
+    }
+    const order = [];
+    const seen = new Set();
+    let current = roots[0];
+    while (current != null) {
+      if (seen.has(current)) return { valid: false, order: [], complete: false, reason: "cycle" };
+      seen.add(current);
+      order.push(current);
+      current = children.get(current);
+    }
+    const snappedCount = answer.placements.filter((placement) => placement.mode === "snap").length;
+    if (snappedCount !== order.length) return { valid: false, order, complete: false, reason: "floating-relationship" };
+    return {
+      valid: true,
+      order,
+      complete: order.length === question.forces.length,
+      freeHeadKey: order.length ? headKey(order[order.length - 1]) : ORIGIN_KEY
+    };
+  }
+
+  function commonOrigin(answer) {
+    return answer.type === "parallelogram" && answer.placements.every((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY);
+  }
+
+  function corner(question) {
+    return add(Generator.ORIGIN, sumForces(question.forces));
+  }
+
+  function endpointForKey(answer, question, key) {
+    if (key === ORIGIN_KEY) return { ...Generator.ORIGIN };
+    if (key === "CORNER" || key === "CHAIN_END") return corner(question);
+    const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
+    if (!match) throw new Error(`Unknown endpoint ${key}`);
+    const index = Number(match[1]) - 1;
+    const geometry = forceGeometry(answer, question)[index];
+    if (!geometry) throw new Error(`Unknown force endpoint ${key}`);
+    return match[2] === "TAIL" ? geometry.tail : geometry.head;
+  }
+
+  function correctGuides(answer) {
+    if (!commonOrigin(answer)) return [];
+    return answer.guides.filter((guide) => guide && ["F1_HEAD", "F2_HEAD"].includes(guide.originKey) && guide.end.mode === "snap" && guide.end.targetKey === "CORNER");
+  }
+
+  function prerequisitesForResultant(answer, question) {
+    return question.type === "parallelogram"
+      ? commonOrigin(answer) && new Set(correctGuides(answer).map((guide) => guide.originKey)).size === 2
+      : chainInfo(answer, question).complete;
+  }
+
+  function canonicalResultant(answer, question) {
+    return Boolean(prerequisitesForResultant(answer, question) && answer.resultant?.originKey === ORIGIN_KEY && answer.resultant.end.mode === "snap" &&
+      answer.resultant.end.targetKey === (question.type === "parallelogram" ? "CORNER" : "CHAIN_END"));
+  }
+
+  function derivedVariant(answer, question) {
+    if (question.type === "parallelogram") {
+      if (canonicalResultant(answer, question)) return "complete";
+      if (!commonOrigin(answer)) return answer.placements.every((placement) => placement.mode === "initial") ? "fresh" : "placing";
+      if (prerequisitesForResultant(answer, question)) return "resultant";
+      return "guides";
+    }
+    if (canonicalResultant(answer, question)) return "complete";
+    const chain = chainInfo(answer, question);
+    if (chain.complete) return "resultant";
+    return answer.placements.every((placement) => placement.mode === "initial") ? "fresh" : "placing";
+  }
+
+  function releaseForceAndDescendants(answer, question, movingIndex) {
+    const next = clone(answer);
+    const tails = resolveTails(answer, question);
+    const released = new Set([movingIndex]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      next.placements.forEach((placement, index) => {
+        const parent = placement.mode === "snap" ? targetForceIndex(placement.targetKey) : -1;
+        if (parent >= 0 && released.has(parent) && !released.has(index)) { released.add(index); changed = true; }
+      });
+    }
+    for (const index of released) next.placements[index] = { mode: "free", tail10: point10(tails[index]) };
+    if (question.type === "parallelogram") { next.guides = [null, null]; next.resultant = null; }
+    else next.resultant = null;
+    return next;
+  }
+
+  function previewForceTranslation(answer, forceIndexValue, candidateTail, question) {
+    const next = releaseForceAndDescendants(answer, question, forceIndexValue);
+    const clamped = clampForceTail(candidateTail, question.forces[forceIndexValue]);
+    next.placements[forceIndexValue] = { mode: "free", tail10: point10(clamped) };
+    return next;
+  }
+
+  function legalForceTargets(answer, question, movingIndex) {
+    if (question.type === "parallelogram") return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    const chain = chainInfo(answer, question);
+    if (!chain.valid) return [];
+    if (!chain.order.length) return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    if (chain.order.includes(movingIndex) || chain.complete) return [];
+    const lastIndex = chain.order[chain.order.length - 1];
+    return [{ key: headKey(lastIndex), point: endpointForKey(answer, question, headKey(lastIndex)) }];
+  }
+
+  function commitForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
+    const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question);
+    const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
+    const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
+    if (snap) next.placements[forceIndexValue] = { mode: "snap", targetKey: snap.key };
+    return next;
+  }
+
+  function lineEndPoint(line, answer, question) {
+    if (!line) return null;
+    return line.end.mode === "free" ? fromPoint10(line.end.point10) : endpointForKey(answer, question, line.end.targetKey);
+  }
+
+  function guideOriginAllowed(question, originKey) {
+    return question.guided ? ["F1_HEAD", "F2_HEAD"].includes(originKey) : [ORIGIN_KEY, "F1_HEAD", "F2_HEAD"].includes(originKey);
+  }
+
+  function resultantOriginAllowed(question, originKey) {
+    if (question.guided) return originKey === ORIGIN_KEY;
+    const count = question.forces.length;
+    const keys = [ORIGIN_KEY];
+    for (let index = 0; index < count; index += 1) keys.push(tailKey(index), headKey(index));
+    if (question.type === "parallelogram") keys.push("CORNER");
+    return keys.includes(originKey);
+  }
+
+  function previewGuide(answer, originKey, candidateEnd, question) {
+    if (question.type !== "parallelogram" || !commonOrigin(answer) || !guideOriginAllowed(question, originKey)) throw new Error("Guide is not available");
+    const next = clone(answer);
+    const line = { originKey, end: { mode: "free", point10: point10(clampLinePoint(candidateEnd)) } };
+    const sameOrigin = next.guides.findIndex((guide) => guide?.originKey === originKey);
+    const slot = sameOrigin >= 0 ? sameOrigin : next.guides.findIndex((guide) => guide === null);
+    if (slot < 0) throw new Error("Both guide slots are in use");
+    next.guides[slot] = line;
+    next.resultant = null;
+    return next;
+  }
+
+  function commitGuide(answer, originKey, candidateEnd, question, options = {}) {
+    const next = previewGuide(answer, originKey, candidateEnd, question);
+    const slot = next.guides.findIndex((guide) => guide?.originKey === originKey);
+    const candidate = fromPoint10(next.guides[slot].end.point10);
+    if (["F1_HEAD", "F2_HEAD"].includes(originKey)) {
+      const snap = selectSnapCandidate(candidate, [{ key: "CORNER", point: corner(question) }], options);
+      if (snap) next.guides[slot].end = { mode: "snap", targetKey: "CORNER" };
+    }
+    return next;
+  }
+
+  function removeGuide(answer, index) {
+    const next = clone(answer);
+    next.guides[index] = null;
+    next.resultant = null;
+    return next;
+  }
+
+  function previewResultant(answer, originKey, candidateEnd, question) {
+    if (!prerequisitesForResultant(answer, question) || !resultantOriginAllowed(question, originKey)) throw new Error("Resultant is not available");
+    const next = clone(answer);
+    next.resultant = { originKey, end: { mode: "free", point10: point10(clampLinePoint(candidateEnd)) } };
+    return next;
+  }
+
+  function commitResultant(answer, originKey, candidateEnd, question, options = {}) {
+    const next = previewResultant(answer, originKey, candidateEnd, question);
+    if (originKey === ORIGIN_KEY) {
+      const targetKey = question.type === "parallelogram" ? "CORNER" : "CHAIN_END";
+      const candidate = fromPoint10(next.resultant.end.point10);
+      const snap = selectSnapCandidate(candidate, [{ key: targetKey, point: corner(question) }], options);
+      if (snap) next.resultant.end = { mode: "snap", targetKey };
+    }
+    return next;
+  }
+
+  function endpointHandles(answer, question) {
+    const geometry = forceGeometry(answer, question);
+    const handles = [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    for (let index = 0; index < geometry.length; index += 1) {
+      handles.push({ key: tailKey(index), point: geometry[index].tail });
+      handles.push({ key: headKey(index), point: geometry[index].head });
+    }
+    if (question.type === "parallelogram") handles.push({ key: "CORNER", point: corner(question) });
+    return handles;
+  }
+
+  function guideStartHandles(answer, question) {
+    if (question.type !== "parallelogram" || !commonOrigin(answer) || prerequisitesForResultant(answer, question)) return [];
+    if (question.guided) {
+      const existing = new Set(answer.guides.filter(Boolean).map((guide) => guide.originKey));
+      return ["F1_HEAD", "F2_HEAD"].filter((key) => !existing.has(key)).map((key) => ({ key, point: endpointForKey(answer, question, key) }));
+    }
+    const allowed = answer.guides.every((guide) => guide !== null)
+      ? new Set(answer.guides.map((guide) => guide.originKey))
+      : new Set([ORIGIN_KEY, "F1_HEAD", "F2_HEAD"]);
+    return endpointHandles(answer, question).filter((handle) => allowed.has(handle.key));
+  }
+
+  function resultantStartHandles(answer, question) {
+    if (!prerequisitesForResultant(answer, question) || canonicalResultant(answer, question)) return [];
+    if (question.guided) return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    return endpointHandles(answer, question);
+  }
+
+  function isBlank(answer) {
+    return answer.placements.every((placement) => placement.mode === "initial") &&
+      (answer.type !== "parallelogram" || answer.guides.every((guide) => guide === null)) && answer.resultant === null;
+  }
+
+  function questionComplete(answer, question) {
+    return canonicalResultant(answer, question);
+  }
+
+  return Object.freeze({
+    SNAP_TOUCH_PX, SNAP_POINTER_PX, SNAP_KEYBOARD_PX, MODEL_EPSILON, POSITION_QUANTUM,
+    MODEL_VISUAL_INSET, FREE_LINE_INSET, ORIGIN_KEY,
+    clone, forceKey, forceIndex, headKey, tailKey, targetForceIndex, quantize, point10, fromPoint10,
+    add, sumForces, distance, threshold, selectSnapCandidate, clampForceTail, clampLinePoint,
+    freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, corner, endpointForKey,
+    correctGuides, prerequisitesForResultant, canonicalResultant, derivedVariant,
+    releaseForceAndDescendants, previewForceTranslation, legalForceTargets, commitForceTranslation,
+    lineEndPoint, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide,
+    previewResultant, commitResultant, endpointHandles, guideStartHandles, resultantStartHandles,
+    isBlank, questionComplete
+  });
+});

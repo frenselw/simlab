@@ -102,6 +102,14 @@ const simulationList = [
     description: "直接拖動物體，在 30 秒內同步記錄拉力—時間圖，從力平衡與牛頓第二定律探究靜摩擦力、最大靜摩擦力及滑動摩擦力。",
     tags: ["physics", "mechanics", "friction", "static-friction", "kinetic-friction", "direct-manipulation", "newtons-laws", "force-time-graph", "measurement", "scorm"],
     status: "active"
+  },
+  {
+    title: "力的合成作圖實驗室",
+    folder: "force-composition-construction-lab",
+    categories: ["Mechanics"],
+    description: "平移隨機力矢量，利用平行四邊形法則及首尾相接法作出兩力和三力的合力。",
+    tags: ["physics", "mechanics", "forces", "vectors", "vector-addition", "resultant-force", "parallelogram-law", "head-to-tail", "drawing", "scorm"],
+    status: "active"
   }
 ];
 

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>力的合成作圖實驗室</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script>
+  <script src="../shared/activity-flow.js" defer></script>
+  <script src="generator.js" defer></script>
+  <script src="notation.js" defer></script>
+  <script src="model.js" defer></script>
+  <script src="scoring.js" defer></script>
+  <script src="persistence.js" defer></script>
+  <script src="ui-runtime.js" defer></script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="force-app" aria-busy="true">
+  <header class="app-header">
+    <div>
+      <h1>力的合成作圖實驗室</h1>
+      <p>平移力矢量並完成虛線輔助線或首尾相接力鏈，再畫出合力。</p>
+    </div>
+    <div class="header-progress">
+      <strong id="questionCounter">第 1 / 5 題</strong>
+      <span id="attemptStatus">正在建立練習</span>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <section id="stage" class="stage" aria-labelledby="stageTitle">
+      <h2 id="stageTitle" class="sr-only">力矢量作圖舞台</h2>
+      <svg id="stageSvg" viewBox="0 0 760 500" preserveAspectRatio="xMidYMid meet" role="img" aria-describedby="stageDescription"></svg>
+      <div id="dragLayer" class="drag-layer" aria-label="作圖操作層"></div>
+      <aside id="magnifier" class="magnifier" aria-hidden="true">
+        <strong id="magnifierLabel"></strong>
+        <svg viewBox="0 0 120 76" aria-hidden="true"><line id="magnifierLine" x1="15" y1="38" x2="104" y2="38"></line><path d="M104 38 L91 30 L91 46 Z"></path></svg>
+      </aside>
+      <p id="stageDescription" class="sr-only">白色方格舞台顯示隨機力矢量、作圖起點、你畫出的輔助線、力鏈及合力。所有預設力只可平移，大小和方向固定。</p>
+    </section>
+
+    <aside id="controlPanel" class="control-panel" aria-label="活動控制面板">
+      <div id="saveBanner" class="status-banner is-hidden" data-kind="technical" role="status">
+        <p id="saveBannerText"></p>
+        <button id="retrySave" type="button">重試儲存</button>
+      </div>
+
+      <section id="technicalPanel" class="panel-section is-hidden" aria-live="polite">
+        <p class="section-label">活動狀態</p>
+        <h2 id="technicalTitle" tabindex="-1">練習暫時鎖定</h2>
+        <p id="technicalMessage" class="task-copy"></p>
+        <div id="technicalActions" class="button-row"></div>
+      </section>
+
+      <section id="practicePanel" class="panel-section">
+        <p id="questionType" class="section-label"></p>
+        <h2 id="questionTitle" tabindex="-1"></h2>
+        <p id="questionPrompt" class="task-copy"></p>
+        <div id="formula" class="formula" aria-label="本題矢量合成關係"></div>
+        <p id="stepPrompt" class="step-prompt" aria-live="polite"></p>
+        <p class="fixed-vector-note">力矢量的大小和方向固定；拖動時只會平移。</p>
+
+        <div id="forceSelector" class="force-selector" role="group" aria-label="選擇要操作的力矢量"></div>
+        <div id="lineTools" class="line-tools" aria-label="已畫線段操作"></div>
+
+        <section class="subsection" aria-labelledby="progressTitle">
+          <h3 id="progressTitle">自由選擇題目</h3>
+          <div id="questionProgress" class="question-progress"></div>
+        </section>
+
+        <section class="subsection" aria-labelledby="editTitle">
+          <h3 id="editTitle">修改本題</h3>
+          <div class="button-grid">
+            <button id="undo" type="button">復原上一步</button>
+            <button id="resetQuestion" type="button">重設本題</button>
+          </div>
+        </section>
+
+        <nav class="question-navigation" aria-label="題目導覽">
+          <button id="previousQuestion" type="button">上一題</button>
+          <button id="nextQuestion" type="button">下一題</button>
+        </nav>
+        <button id="goSummary" type="button" class="primary-button full-button">前往提交前檢查</button>
+      </section>
+
+      <section id="summaryPanel" class="panel-section is-hidden">
+        <p class="section-label">提交前檢查</p>
+        <h2 tabindex="-1">檢查五題完成狀態</h2>
+        <p class="task-copy">你可以返回任何一題修改，也可以在未完成任何題目的情況下提交。未完成項目會計零分。</p>
+        <div id="summaryList" class="summary-list"></div>
+        <p id="summaryWarning" class="summary-warning"></p>
+        <button id="submitAttempt" type="button" class="primary-button full-button">提交本次作答</button>
+        <button id="returnToPractice" type="button" class="full-button">返回目前題目</button>
+        <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
+      </section>
+
+      <section id="reviewPanel" class="panel-section is-hidden" aria-live="polite">
+        <p class="section-label">已鎖定作答</p>
+        <h2 id="reviewTitle" tabindex="-1"></h2>
+        <div class="result-summary">
+          <span>分數</span><strong id="reviewScore">--</strong>
+          <span>完成狀態</span><strong id="reviewCompletion">--</strong>
+        </div>
+        <div id="reviewQuestionNavigation" class="question-progress"></div>
+        <button id="toggleCorrect" type="button" aria-pressed="false">顯示正確作圖</button>
+        <div id="reviewFeedback" class="review-feedback"></div>
+        <div id="reviewActions" class="button-row"></div>
+      </section>
+
+      <p id="liveRegion" class="sr-only" aria-live="polite"></p>
+    </aside>
+  </div>
+</main>
+
+<dialog id="submitDialog">
+  <form method="dialog" class="dialog-content">
+    <h2>確認提交</h2>
+    <p id="submitDialogMessage"></p>
+    <div class="button-row">
+      <button value="cancel">返回修改</button>
+      <button id="confirmSubmit" value="confirm" class="primary-button">仍要提交</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="resetDialog">
+  <form method="dialog" class="dialog-content">
+    <h2>重設本題？</h2>
+    <p>本題目前的力位置、輔助線及合力會清除；之後仍可復原一次。</p>
+    <div class="button-row">
+      <button value="cancel">保留目前作答</button>
+      <button id="confirmReset" value="confirm">重設本題</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>
