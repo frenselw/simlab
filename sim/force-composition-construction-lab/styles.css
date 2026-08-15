@@ -51,9 +51,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 #stageSvg .math-svg { font-size: 23px; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 6px; stroke-linejoin: round; }
 #stageSvg .math-svg .math-subscript-upright { stroke-width: 4px; }
 
-.force-selector { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; margin: .6rem 0; }
-.force-selector button { min-width: 0; }
-.force-selector button[aria-pressed="true"] { border-color: var(--color-accent); background: #eff6ff; color: #1d4ed8; font-weight: 700; }
 .question-progress { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .34rem; }
 .question-progress button { min-width: 0; padding-inline: .25rem; font-size: .8rem; }
 .question-progress button[data-complete="true"] { border-color: var(--success); box-shadow: inset 0 -3px var(--success); }
@@ -91,17 +88,15 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .force-hit, .line-handle { position: absolute; pointer-events: auto; touch-action: none; user-select: none; }
 .force-hit { height: 44px; min-height: 44px; padding: 0; border: 2px solid transparent; border-radius: 22px; background: transparent; cursor: move; transform-origin: 0 50%; }
 .force-hit:hover, .force-hit.is-selected { border-color: transparent; background: transparent; box-shadow: none; }
-.force-hit:focus-visible { outline: 2px dotted currentColor; outline-offset: 2px; }
+.force-hit:focus-visible { outline: none; border-color: transparent; background: transparent; box-shadow: none; }
 .force-hit[data-force-index="0"] { color: var(--force-one); }
 .force-hit[data-force-index="1"] { color: var(--force-two); }
 .force-hit[data-force-index="2"] { color: var(--force-three); }
 .force-hit.is-selected { z-index: 3; }
-.line-handle { width: 44px; height: 44px; min-height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid var(--guide); border-radius: 50%; background: rgba(255,255,255,.88); color: var(--guide); font-size: 0; }
-.line-handle.is-offset { font-size: .66rem; font-weight: 800; letter-spacing: -.03em; box-shadow: 0 2px 8px rgba(24,49,73,.18); }
+.line-handle { width: 44px; height: 44px; min-height: 44px; padding: 0; transform: translate(-50%, -50%); border: 0; border-radius: 0; background: transparent; color: transparent; font-size: 0; }
 .line-handle { z-index: 4; }
-.line-handle::after { content: ""; width: 9px; height: 9px; display: block; margin: auto; border-radius: 50%; background: currentColor; }
 .line-handle[data-line-kind="resultant"], .line-handle[data-line-kind="resultant-end"] { border-color: var(--force-resultant); color: #b45309; }
-.line-handle:hover, .line-handle:focus-visible { box-shadow: 0 0 0 3px rgba(37,99,235,.22); }
+.line-handle:focus-visible { outline: 2px dotted var(--color-accent); outline-offset: 2px; }
 .line-tools { display: flex; flex-wrap: wrap; gap: .35rem; }
 .line-tools:empty { display: none; }
 .line-tools button { min-height: 36px; padding-block: .25rem; color: var(--color-danger); font-size: .78rem; }
@@ -123,7 +118,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .correct-overlay.force-line { stroke: #0f766e; stroke-width: 3; stroke-dasharray: 7 4; }
 .correct-overlay.resultant-line { stroke: #0f766e; }
 .junction { fill: #fff; stroke: #475569; stroke-width: 3; }
-.near-snap { fill: none; stroke: var(--color-accent); stroke-width: 3; stroke-dasharray: 4 4; }
 
 .magnifier { position: absolute; z-index: 9; width: 8.5rem; min-height: 6rem; display: none; padding: .35rem; border: 2px solid var(--color-accent); border-radius: 8px; background: rgba(255,255,255,.96); box-shadow: 0 8px 18px rgba(15,23,42,.2); pointer-events: none; }
 .magnifier.is-visible { display: grid; }
@@ -170,7 +164,7 @@ dialog::backdrop { background: rgba(15,23,42,.38); }
 }
 
 @media (forced-colors: active) {
-  .force-hit, .line-handle, .question-progress button[data-complete="true"], .force-selector button[aria-pressed="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
+  .force-hit, .line-handle, .question-progress button[data-complete="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
   .force-line, .guide-line, .resultant-line { forced-color-adjust: auto; stroke: CanvasText; }
   .primary-button { forced-color-adjust: auto; border-color: ButtonText; background: ButtonText; color: ButtonFace; }
 }

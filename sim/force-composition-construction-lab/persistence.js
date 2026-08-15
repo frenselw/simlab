@@ -81,7 +81,15 @@
           point.y < Model.FREE_LINE_INSET || point.y > Generator.HEIGHT - Model.FREE_LINE_INSET) return "free-line-bounds";
       return null;
     }
-    if (end.mode !== "snap" || end.targetKey !== targetKey || "point10" in end) return "line-snap-target";
+    if (end.mode !== "snap" || end.targetKey !== targetKey) return "line-snap-target";
+    if (targetKey === "PARALLEL") {
+      if (!validPoint10(end.point10)) return "parallel-line-shape";
+      const point = Model.fromPoint10(end.point10);
+      if (point.x < Model.FREE_LINE_INSET || point.x > Generator.WIDTH - Model.FREE_LINE_INSET ||
+          point.y < Model.FREE_LINE_INSET || point.y > Generator.HEIGHT - Model.FREE_LINE_INSET) return "parallel-line-bounds";
+      return null;
+    }
+    if ("point10" in end) return "line-snap-target";
     return null;
   }
 
@@ -104,9 +112,10 @@
       if (!allowedOrigins.includes(guide.originKey)) return "guide-origin";
       if (origins.has(guide.originKey)) return "duplicate-guide-origin";
       origins.add(guide.originKey);
-      const endIssue = validateLineEnd(guide.end, "CORNER");
+      const endIssue = validateLineEnd(guide.end, guide.end?.targetKey === "PARALLEL" ? "PARALLEL" : "CORNER");
       if (endIssue) return endIssue;
       if (guide.end.mode === "snap" && !["F1_HEAD", "F2_HEAD"].includes(guide.originKey)) return "snapped-guide-origin";
+      if (guide.end.mode === "snap" && guide.end.targetKey === "PARALLEL" && !Model.guideEndIsParallel(answer, question, guide)) return "guide-not-parallel";
     }
     if (answer.resultant !== null) {
       if (!Model.prerequisitesForResultant(answer, question)) return "resultant-before-guides";

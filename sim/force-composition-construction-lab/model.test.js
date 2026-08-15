@@ -60,6 +60,13 @@ P2.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKe
 P2 = M.commitGuide(P2, "ORIGIN", M.corner(P2Question), P2Question, { threshold: 1000 });
 assert.equal(P2.guides.filter(Boolean)[0].end.mode, "free", "wrong neutral guide origin remains provisional even on the corner");
 assert.throws(() => M.commitGuide({ ...M.freshAnswer(firstQuestion), placements: P2.placements }, "ORIGIN", M.corner(firstQuestion), firstQuestion), /not available|Guide/);
+const guideOrigin = M.endpointForKey(P, firstQuestion, "F1_HEAD");
+const guideDirection = firstQuestion.forces[1];
+const arbitraryGuideEnd = { x: guideOrigin.x + guideDirection.dx * 0.4, y: guideOrigin.y + guideDirection.dy * 0.4 };
+const parallelGuide = M.commitGuide(P, "F1_HEAD", arbitraryGuideEnd, firstQuestion);
+assert.deepEqual(parallelGuide.guides[0].end.mode, "snap");
+assert.equal(parallelGuide.guides[0].end.targetKey, "PARALLEL", "a guide snaps by direction without requiring the fourth vertex");
+assert.ok(Math.abs(M.distance(M.lineEndPoint(parallelGuide.guides[0], parallelGuide, firstQuestion), guideOrigin) - M.distance(arbitraryGuideEnd, guideOrigin)) < 1, "parallel snap preserves learner-chosen guide length");
 
 const HQuestion = scenario.questions[2];
 for (const order of [[0, 1], [1, 0]]) {

@@ -1424,7 +1424,11 @@ Invalid matrix：
 
 ## 21. User-requested visual and anchor revision（2026-08-15）
 
-- 預設力的 HTML drag hit target 保留觸控所需的尺寸，但取消長條大圈、持續外框及大型 `box-shadow`；只在鍵盤 `focus-visible` 時提供細點線焦點提示。
+- 預設力的 HTML drag hit target 保留觸控所需的尺寸，但取消長條大圈、持續外框、大型 `box-shadow` 及拖動後的整箭虛線圈；透明 hit target 不再製造干擾性高亮。
 - 移除舞台中央 `O` 點及其標籤。第一支力在任意合法可見位置放手後，production state 以 `anchor10` 保存該共同起點；wire-level `ORIGIN` 只代表「所選共同起點」的語意關係，不再代表固定坐標。
 - 平行四邊形第四頂點、首尾力鏈終點、合力 snap、review correct overlay及保存驗證均由該 `anchor10` 重建；舊有沒有`anchor10`的狀態仍以 legacy fallback 讀取，避免不必要地破壞既有 draft。
 - targeted evidence：model／persistence／scoring／lifecycle／accessibility tests通過；Playwright smoke 以非中央位置建立`anchor10=[3315,2263]`，drag target的`boxShadow`為`none`、border為透明。
+- 移除舞台上可見的 near-snap 圓圈、端點圓形操作器及控制面板 F1／F2 選擇按鈕；保留透明的 44px 觸控／鍵盤 hit target，避免干擾作圖視覺。
+- 平行四邊形題的兩力可只移動其中一力；當其箭尾接近另一支靜止力的箭尾時，兩力會共同吸附到該位置並建立 `anchor10`，不要求兩支力都先移動。
+- 輔助線由方向吸附：F1/F2 箭頭端點的線段只要接近對邊方向（10° 內）便保存為 `targetKey: "PARALLEL"`，保留學生實際拉出的線長，不再強制終點落在第四頂點。
+- 力矢量標籤以方向法線、舞台邊界及既有標籤碰撞作候選位置評分，按每支力的方向自動避開箭身及互相重疊；拖動焦點不再以大型虛線圈包住整支箭。

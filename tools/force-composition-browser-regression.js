@@ -173,7 +173,6 @@ async function currentTail(cdp, index, embedded = false) {
 }
 
 async function moveForcePointer(cdp, index, targetKey, input, embedded = false) {
-  await click(cdp, `[data-select-force="${index}"]`, embedded);
   const selector = `.force-hit[data-force-index="${index}"]`;
   const start = await elementPoint(cdp, selector, embedded);
   const before = await currentTail(cdp, index, embedded);
@@ -186,7 +185,6 @@ async function moveForcePointer(cdp, index, targetKey, input, embedded = false) 
 }
 
 async function moveForceKeyboard(cdp, index, targetKey, embedded = false) {
-  await click(cdp, `[data-select-force="${index}"]`, embedded);
   const selector = `.force-hit[data-force-index="${index}"]`;
   await focus(cdp, selector, embedded);
   for (let attempt = 0; attempt < 140; attempt += 1) {

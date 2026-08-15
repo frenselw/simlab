@@ -40,7 +40,7 @@
         const count = answer.placements.filter((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN").length;
         return count ? "再把另一個力的箭尾移到同一個共同起點。" : "先選擇任意位置作為共同起點，再放置第一個力。";
       }
-      if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線。" : "自行選擇端點，畫出兩條構成平行四邊形的虛線輔助線。";
+      if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線；方向接近對邊平行時會自動吸附，線長不限。" : "自行選擇端點，畫出兩條與對邊平行的虛線輔助線；方向接近時會自動吸附，線長不限。";
       return question.guided ? "由共同起點拖至平行四邊形對角頂點，畫出合力。" : "自行選擇正確起點，畫出平行四邊形的對角線合力。";
     }
     const chain = M.chainInfo(answer, question);
@@ -77,7 +77,6 @@
   let trustedReview = false;
   let reviewResult = null;
   let correctOverlay = false;
-  let selectedForce = 0;
   let unsaved = false;
   let pendingFreshState = null;
   let submitting = false;
@@ -92,7 +91,7 @@
     for (const id of [
       "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierLabel", "magnifierLine",
       "saveBanner", "saveBannerText", "retrySave", "technicalPanel", "technicalTitle", "technicalMessage", "technicalActions",
-      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "forceSelector", "lineTools", "questionProgress",
+      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "questionProgress",
       "undo", "resetQuestion", "previousQuestion", "nextQuestion", "goSummary", "summaryPanel", "summaryList", "summaryWarning",
       "submitAttempt", "returnToPractice", "submitStatus", "reviewPanel", "reviewTitle", "reviewScore", "reviewCompletion",
       "reviewQuestionNavigation", "toggleCorrect", "reviewFeedback", "reviewActions", "liveRegion", "submitDialog", "submitDialogMessage",
@@ -146,6 +145,43 @@
     return { x: (start.x + end.x) / 2 + nx * 20, y: (start.y + end.y) / 2 + ny * 20 };
   }
 
+  function pointSegmentDistance(point, start, end) {
+    const vx = end.x - start.x;
+    const vy = end.y - start.y;
+    const length2 = vx * vx + vy * vy;
+    const ratio = length2 ? Math.max(0, Math.min(1, ((point.x - start.x) * vx + (point.y - start.y) * vy) / length2)) : 0;
+    return Math.hypot(point.x - (start.x + ratio * vx), point.y - (start.y + ratio * vy));
+  }
+
+  function forceLabelPosition(start, end, occupied = []) {
+    const length = Math.max(1, M.distance(start, end));
+    const ux = (end.x - start.x) / length;
+    const uy = (end.y - start.y) / length;
+    const nx = -uy;
+    const ny = ux;
+    const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    const candidates = [
+      [nx * 25, ny * 25], [-nx * 25, -ny * 25],
+      [nx * 18 + ux * 22, ny * 18 + uy * 22], [-nx * 18 + ux * 22, -ny * 18 + uy * 22],
+      [nx * 18 - ux * 22, ny * 18 - uy * 22], [-nx * 18 - ux * 22, -ny * 18 - uy * 22]
+    ].map(([dx, dy]) => ({ x: midpoint.x + dx, y: midpoint.y + dy }));
+    const width = 42;
+    const height = 34;
+    function overlap(first, second) {
+      return Math.abs(first.x - second.x) < (width + second.width) / 2 && Math.abs(first.y - second.y) < (height + second.height) / 2;
+    }
+    function score(point) {
+      let value = 0;
+      const edge = Math.min(point.x - 30, G.WIDTH - 30 - point.x, point.y - 30, G.HEIGHT - 30 - point.y);
+      if (edge < 0) value += 10000 + Math.abs(edge) * 100;
+      if (pointSegmentDistance(point, start, end) < 18) value += 500;
+      const box = { ...point, width, height };
+      for (const other of occupied) if (overlap(box, other)) value += 10000;
+      return value;
+    }
+    return candidates.sort((first, second) => score(first) - score(second))[0] || midpoint;
+  }
+
   function drawQuestionGeometry(parent, answer, question) {
     if (question.type === "parallelogram") {
       for (const guide of answer.guides) {
@@ -156,10 +192,12 @@
       }
     }
     const geometry = M.forceGeometry(answer, question);
+    const occupiedLabels = [];
     geometry.forEach((item, index) => {
       drawArrow(parent, item.tail, item.head, { forceIndex: index });
-      const position = labelPosition(item.tail, item.head);
+      const position = forceLabelPosition(item.tail, item.head, occupiedLabels);
       parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index] }));
+      occupiedLabels.push({ ...position, width: 42, height: 34 });
     });
     if (question.type !== "parallelogram") {
       const chain = M.chainInfo(answer, question);
@@ -210,7 +248,6 @@
     const answer = answerOverride || state.answers[state.currentQuestion];
     drawQuestionGeometry(dom.stageSvg, answer, question);
     if (presentation === "review" && trustedReview && correctOverlay) drawCorrectGeometry(dom.stageSvg, answer, question);
-    if (nearSnapPoint) dom.stageSvg.append(createSvg("circle", { cx: nearSnapPoint.x, cy: nearSnapPoint.y, r: 17, class: "near-snap" }));
   }
 
   function modelToClient(point) {
@@ -325,7 +362,6 @@
       const button = makeOverlayButton("force-hit", `force-${index}`, forceAccessibleLabel(index, item));
       button.dataset.forceIndex = String(index);
       button.dataset.dragKind = "force";
-      button.classList.toggle("is-selected", index === selectedForce);
       positionForceButton(button, item);
       dom.dragLayer.append(button);
     });
@@ -388,20 +424,6 @@
     N.appendHtml(dom.formula, N.expression(scenario.questions[state.currentQuestion].forces.length));
   }
 
-  function renderForceSelector() {
-    dom.forceSelector.replaceChildren();
-    const count = scenario.questions[state.currentQuestion].forces.length;
-    for (let index = 0; index < count; index += 1) {
-      const button = documentObject.createElement("button");
-      button.type = "button";
-      button.dataset.selectForce = String(index);
-      button.setAttribute("aria-pressed", String(index === selectedForce));
-      button.setAttribute("aria-label", `選擇${N.accessibleForce(index + 1)}`);
-      N.appendHtml(button, N.vector(index + 1));
-      dom.forceSelector.append(button);
-    }
-  }
-
   function renderLineTools() {
     dom.lineTools.replaceChildren();
     const answer = state.answers[state.currentQuestion];
@@ -444,7 +466,6 @@
     dom.questionPrompt.textContent = view.prompt;
     dom.stepPrompt.textContent = view.step;
     renderFormula();
-    renderForceSelector();
     renderLineTools();
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
@@ -741,7 +762,6 @@
     if (!state || !scenario || index < 0 || index > 4 || presentation === "technical") return;
     state.currentQuestion = index;
     state.phase = "practice";
-    selectedForce = 0;
     correctOverlay = false;
     if (["editable", "retryable"].includes(presentation)) saveDraft();
     renderAll();
@@ -855,7 +875,6 @@
     const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, preview: answer };
     if (kind === "force") {
       const index = Number(target.dataset.forceIndex);
-      selectedForce = index;
       const tail = M.forceGeometry(answer, question)[index].tail;
       Object.assign(base, { forceIndex: index, startTail: tail, startPoint: point });
     } else if (kind === "guide-start" || kind === "guide-end") {
@@ -920,7 +939,9 @@
     } else if (active.kind.startsWith("guide")) {
       next = M.commitGuide(active.before, active.originKey, point, question, options);
       const guide = next.guides.find((item) => item?.originKey === active.originKey);
-      message = guide?.end.mode === "snap" ? "虛線輔助線已連接到平行四邊形對角頂點。" : "虛線輔助線尚未吸附，可拖動終點再調整。";
+      message = guide?.end.mode === "snap"
+        ? guide.end.targetKey === "PARALLEL" ? "虛線輔助線已吸附到對邊的平行方向，線長可以不同。" : "虛線輔助線已連接到平行四邊形對角頂點。"
+        : "虛線輔助線尚未吸附，可拖動終點再調整。";
     } else {
       next = M.commitResultant(active.before, active.originKey, point, question, options);
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力尚未吸附，可拖動終點再調整。";
@@ -1076,14 +1097,6 @@
     dom.dragLayer.addEventListener("click", (event) => {
       const target = event.target.closest(".line-handle");
       if (target && event.detail === 0 && !keyboardLine) beginKeyboardLine(target);
-    });
-    dom.forceSelector.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-select-force]");
-      if (!button) return;
-      selectedForce = Number(button.dataset.selectForce);
-      renderForceSelector();
-      renderOverlays();
-      announce(`${N.accessibleForce(selectedForce + 1)}已選取。`);
     });
     dom.lineTools.addEventListener("click", (event) => {
       const button = event.target.closest("[data-clear-guide]");
