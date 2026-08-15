@@ -213,36 +213,64 @@
     const nx = -uy;
     const ny = ux;
     const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
-    const candidates = [
-      [nx * 25, ny * 25], [-nx * 25, -ny * 25],
-      [nx * 23 + ux * 18, ny * 23 + uy * 18], [-nx * 23 + ux * 18, -ny * 23 - uy * 18],
-      [nx * 23 - ux * 18, ny * 23 - uy * 18], [-nx * 23 - ux * 18, -ny * 23 + uy * 18]
-    ].map(([dx, dy]) => ({ x: midpoint.x + dx, y: midpoint.y + dy, dx, dy }));
-    const width = 42;
-    const height = 34;
+    // The SVG text's x/y is a centered horizontal anchor plus a baseline, not
+    // the visual centre of the glyph. Keep the collision box close to the
+    // actual painted symbol so labels can sit near a vector without touching it.
+    const width = 30;
+    const height = 36;
+    const baselineOffset = -5;
+    const labelGap = 4;
+    const lineGap = 3;
+    const labelRect = (point) => ({
+      left: point.x - width / 2,
+      right: point.x + width / 2,
+      top: point.y + baselineOffset - height / 2,
+      bottom: point.y + baselineOffset + height / 2,
+      x: point.x,
+      y: point.y + baselineOffset,
+      width,
+      height
+    });
+    const normalExtent = Math.abs(nx) * width / 2 + Math.abs(ny) * height / 2;
+    // Try the closest normal offset first. If another line blocks that spot,
+    // move a little along the vector before increasing the normal distance.
+    const normalDistances = [normalExtent + lineGap + 1, normalExtent + 9, normalExtent + 17, normalExtent + 27];
+    const tangentOffsets = [0, -10, 10, -20, 20, -34, 34, -48, 48];
+    const candidates = [];
+    normalDistances.forEach((normalDistance) => {
+      [1, -1].forEach((side) => {
+        tangentOffsets.forEach((tangent) => {
+          const dx = nx * normalDistance * side + ux * tangent;
+          const dy = ny * normalDistance * side + uy * tangent;
+          candidates.push({ x: midpoint.x + dx, y: midpoint.y + dy, dx, dy });
+        });
+      });
+    });
     function overlap(first, second) {
-      const gap = 5;
-      return Math.abs(first.x - second.x) < (width + second.width) / 2 + gap && Math.abs(first.y - second.y) < (height + second.height) / 2 + gap;
+      return first.left < second.right + labelGap && first.right > second.left - labelGap &&
+        first.top < second.bottom + labelGap && first.bottom > second.top - labelGap;
     }
     function score(point) {
       let value = 0;
-      const edge = Math.min(point.x - stageCamera.x - width / 2 - 8, stageCamera.x + stageCamera.width - width / 2 - 8 - point.x,
-        point.y - stageCamera.y - height / 2 - 8, stageCamera.y + stageCamera.height - height / 2 - 8 - point.y);
-      if (edge < 0) value += 10000 + Math.abs(edge) * 100;
-      const box = { ...point, width, height };
-      for (const other of occupied) if (overlap(box, other)) value += 10000;
-      const lineClearance = 6;
+      const box = labelRect(point);
+      const edge = Math.min(box.left - stageCamera.x - 8, stageCamera.x + stageCamera.width - 8 - box.right,
+        box.top - stageCamera.y - 8, stageCamera.y + stageCamera.height - 8 - box.bottom);
+      if (edge < 0) value += 10000000 + Math.abs(edge) * 100000;
+      for (const other of occupied) if (overlap(box, other)) value += 100000000;
       for (const segment of segments) {
-        const expanded = { left: box.x - width / 2 - lineClearance, right: box.x + width / 2 + lineClearance,
-          top: box.y - height / 2 - lineClearance, bottom: box.y + height / 2 + lineClearance };
+        const expanded = { left: box.left - lineGap, right: box.right + lineGap,
+          top: box.top - lineGap, bottom: box.bottom + lineGap };
         const distance = segmentRectDistance(segment.start, segment.end, expanded);
-        if (distance <= 0.01) value += 100000;
-        else value += Math.abs(distance - 10) * 2;
+        if (distance <= 0.01) value += 1000000000;
       }
-      value += Math.hypot(point.dx, point.dy) * 0.05;
+      // Once a candidate is clear, prefer the one nearest the vector. The
+      // small tangent premium keeps a label close even when it must slide to
+      // avoid a neighbouring force or resultant.
+      value += Math.hypot(point.dx, point.dy) * 0.2 + Math.abs(point.dx * ux + point.dy * uy) * 0.04;
       return value;
     }
-    return candidates.sort((first, second) => score(first) - score(second))[0] || midpoint;
+    const position = candidates.sort((first, second) => score(first) - score(second))[0] || midpoint;
+    return { ...position, box: labelRect(position) };
   }
 
   function drawQuestionGeometry(parent, answer, question) {
@@ -268,7 +296,7 @@
       drawArrow(parent, item.tail, item.head, { forceIndex: index });
       const position = forceLabelPosition(item.tail, item.head, occupiedLabels, labelSegments);
       parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
-      occupiedLabels.push({ ...position, width: 42, height: 34 });
+      occupiedLabels.push(position.box);
     });
     if (question.type !== "parallelogram") {
       const chain = M.chainInfo(answer, question);
