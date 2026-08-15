@@ -68,6 +68,9 @@ for (const index of [0, 1]) {
   fixtures.push(stateWith(index, resultStage));
   fixtures.push(stateWith(index, complete(index)));
 }
+const arbitraryAnchorState = P.freshState(seed);
+arbitraryAnchorState.answers[0] = M.commitForceTranslation(arbitraryAnchorState.answers[0], 0, { x: 270, y: 130 }, scenario.questions[0], { pointerType: "mouse" });
+fixtures.push(arbitraryAnchorState);
 for (const index of [2, 3]) {
   fixtures.push(stateWith(index, M.freshAnswer(scenario.questions[index])));
   fixtures.push(stateWith(index, chain(index, [0, 1], 1)));

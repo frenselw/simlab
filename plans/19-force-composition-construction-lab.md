@@ -165,21 +165,21 @@ direction = atan2(dy, dx)
 
 UI 不提供箭頭端點 resize handle、旋轉 handle、大小 slider 或角度輸入。拖動命中區覆蓋整支力矢量；pointer delta 只更新 `tail.x/tail.y`。
 
-### 3.3 作圖起點只固定平移位置，不預先畫出答案
+### 3.3 共同起點由學生任意選擇，不預先畫出答案
 
-每題舞台中央顯示一個中性灰色小圓點，標示為「作圖起點」。它不顯示正確力方向、正確第四頂點、正確力鏈或合力輪廓。
+舞台不再顯示固定的 `O` 點或中央起點。學生第一次放置一支力時，放手位置會成為本題的共同起點；之後的另一支力、力鏈及合力只按這個學生所選的語意起點檢查。起點仍會受整支力矢量可見範圍限制，但不要求接近任何預設屏幕位置。
 
-- P1/P2：兩個力的箭尾都要吸附到作圖起點；
-- H1/H2：任一個力的箭尾可先吸附到作圖起點，另一力再接到它的箭頭；
-- T1：任一個力可成為力鏈第一項，其箭尾先吸附到作圖起點，其餘兩力依次接上。
+- P1/P2：兩個力的箭尾都要吸附到學生所選的共同起點；
+- H1/H2：任一個力可先在任意位置建立共同起點，另一力再接到它的箭頭；
+- T1：任一個力可成為力鏈第一項，在任意位置建立共同起點，其餘兩力依次接上。
 
-固定起點令隨機作圖必定留在安全可見範圍，亦使 review、鍵盤操作及端點吸附有一致幾何基準。
+固定的 `O` 已取消；生成器只用 safe-area 約束確保任意學生起點仍能容納整支力矢量，review、鍵盤操作及端點吸附改用保存的語意共同起點。
 
 ### 3.4 三力題方法範圍
 
 T1 只接受首尾相接法，不接受混合平行四邊形法。三個力可以按任何排列次序組成力鏈；六種排列全部是合法答案。Scorer 只檢查：
 
-1. 第一個力的箭尾在作圖起點；
+1. 第一個力的箭尾在學生所選共同起點；
 2. 三個預設力各使用一次；
 3. 有兩個有效首尾接點；
 4. 沒有分支、循環或一個箭頭接多個箭尾；
@@ -191,7 +191,7 @@ T1 只接受首尾相接法，不接受混合平行四邊形法。三個力可�
 
 ### 4.1 開啟活動
 
-活動直接開入 P1，不設 landing page。Header 只顯示標題、一句任務說明及 `第 1 / 5 題`。舞台顯示隨機預設力、作圖起點、方格背景及目前已畫幾何；操作面板顯示：
+活動直接開入 P1，不設 landing page。Header 只顯示標題、一句任務說明及 `第 1 / 5 題`。舞台顯示隨機預設力、方格背景及目前已畫幾何；操作面板顯示：
 
 - 題型及目前步驟；
 - 力矢量固定不變的短提示；
@@ -206,8 +206,8 @@ P1–T1 五個進度按鈕由fresh draft成功建立及UI解鎖一刻起全部�
 ### 4.2 P1/P2：平行四邊形法則
 
 1. 兩個隨機力 `F₁`、`F₂` 初始放在互不重疊的位置；
-2. 學生拖動整支力，把兩個箭尾分別移到作圖起點；
-3. 每個箭尾進入吸附距離並放手後，吸附到完全相同的共同起點；
+2. 學生先把其中一支力拖到任意合法位置，放手後建立共同起點；
+3. 另一支力箭尾進入該共同起點的吸附距離並放手後，吸附到完全相同的共同起點；
 4. 兩力都到位後，guide 起筆 handles 才出現；
 5. 學生由 `F₁` 箭頭拖出一條與 `F₂` 對應的虛線輔助線；
 6. 學生由 `F₂` 箭頭拖出一條與 `F₁` 對應的虛線輔助線；
@@ -220,28 +220,28 @@ P1–T1 五個進度按鈕由fresh draft成功建立及UI解鎖一刻起全部�
 
 P1 顯示逐步文字，例如「先把兩個箭尾移到共同起點」，並只顯示目前合法的 guide／resultant 起筆 handle。
 
-P2 只顯示「完成平行四邊形，再畫出合力」。當 guides 可畫時，`O`、`F₁` 箭頭及 `F₂` 箭頭都顯示外觀一致的中性 handle；學生要自行選擇起點。P2 最多保存兩條 guide records；錯誤起點仍可畫 provisional line，但不能吸附或得分。同一origin再次起筆會取代該origin舊線，production state不產生duplicate origin。已有兩條時，學生必須選取、清除或重畫其中一條，不會暗中新增第三條。兩條正確 guides 到位後，resultant 階段在所有目前幾何端點顯示相同中性 handles；只有由 `O` 起筆的 resultant 可以吸附。
+P2 只顯示「完成平行四邊形，再畫出合力」。當 guides 可畫時，所選共同起點、`F₁` 箭頭及 `F₂` 箭頭都顯示外觀一致的中性 handle；學生要自行選擇起點。P2 最多保存兩條 guide records；錯誤起點仍可畫 provisional line，但不能吸附或得分。同一origin再次起筆會取代該origin舊線，production state不產生duplicate origin。已有兩條時，學生必須選取、清除或重畫其中一條，不會暗中新增第三條。兩條正確 guides 到位後，resultant 階段在所有目前幾何端點顯示相同中性 handles；只有由所選共同起點起筆的 resultant 可以吸附。
 
 ### 4.3 H1/H2：兩力首尾相接法
 
 1. 兩個隨機力初始分開；
-2. 學生可先選 `F₁` 或 `F₂`，把其箭尾移到作圖起點；
+2. 學生可先選 `F₁` 或 `F₂`，在任意位置建立共同起點；
 3. 把另一個力的箭尾移近第一個力的箭頭並放手，形成首尾接點；
-4. 有效力鏈形成後，合力起筆 handle 在作圖起點出現；
+4. 有效力鏈形成後，合力起筆 handle 在所選共同起點出現；
 5. 學生拖至力鏈最後一個箭頭畫合力；
 6. 合力終點吸附後完成。
 
-H1 的完整提示是：「任選一個力，把它的箭尾移到作圖起點；再把另一個力的箭尾接到第一個力的箭頭。兩個次序都可以。」力鏈完成後只在 `O` 顯示 resultant 起筆 handle。
+H1 的完整提示是：「任選一個力，在任意位置開始作圖；再把另一個力的箭尾接到第一個力的箭頭。兩個次序都可以。」力鏈完成後只在所選共同起點顯示 resultant 起筆 handle。
 
-H2 不指定次序；力鏈完成後，在 `O` 及目前所有力的箭尾／箭頭顯示外觀一致的中性 handles。錯誤 origin 可以留下 provisional resultant，但不能吸附或得分。Editable view 不顯示第二個力應放在哪一邊的 ghost arrow。
+H2 不指定次序；力鏈完成後，在所選共同起點及目前所有力的箭尾／箭頭顯示外觀一致的中性 handles。錯誤 origin 可以留下 provisional resultant，但不能吸附或得分。Editable view 不顯示第二個力應放在哪一邊的 ghost arrow。
 
 ### 4.4 T1：三力首尾相接進階題
 
 1. 三個隨機力 `F₁`、`F₂`、`F₃` 初始分開；
-2. 任一力可先放到作圖起點；
+2. 任一力可先在任意位置建立共同起點；
 3. 其餘兩力逐一接到目前力鏈的自由箭頭；
-4. 吸附只接受由作圖起點向外延伸的單一路徑，不建立分支或循環；
-5. 三力鏈完成後，所有目前力鏈端點顯示外觀一致的中性 handles；學生要自行選擇由作圖起點畫至最後一個箭頭；
+4. 吸附只接受由所選共同起點向外延伸的單一路徑，不建立分支或循環；
+5. 三力鏈完成後，所有目前力鏈端點顯示外觀一致的中性 handles；學生要自行選擇由共同起點畫至最後一個箭頭；
 6. 六個排列次序全部接受，所得合力端點相同。
 
 第一版不提供「平行四邊形」工具給 T1，避免學生誤以為必須畫多組中間合力。題目文字清楚寫明「請用首尾相接法」。錯誤 resultant origin 只形成 provisional line，不能吸附或得分。
@@ -313,7 +313,7 @@ Fresh attempt 必須先生成 seed及完整 fresh state，建立 production draf
 ### 5.2 座標及矢量模型
 
 - SVG `viewBox`：`0 0 760 500`；
-- 作圖起點：`O=(380,250)`；
+- generator仍保留`(380,250)`作為safe-area／legacy fallback參考，但production舞台不顯示亦不要求學生靠近該點；
 - 可見安全區：`x=70..690`、`y=60..440`；
 - 所有箭頭、marker及label的 model geometry 須留在可見安全區；44 CSS px hit-target footprint 另在最小 viewport browser layout test 驗證，不以 SVG safe region 作虛假保證；
 - 方向以數學角度生成，再轉為 SVG `dy=-L*sin(theta)`；
@@ -572,7 +572,7 @@ Notation固定如下：
 | 第一、二、三個力矢量 | `\boldsymbol{F}_1`、`\boldsymbol{F}_2`、`\boldsymbol{F}_3` | `F`使用math serif粗斜體；數字下標較細、正體 | 力矢量 F 一／二／三 |
 | 合力矢量 | `\boldsymbol{F}_{\mathrm R}` | `F`粗斜體；`R`為較細正體下標 | 合力 F R |
 | 力的大小 | `F_1`、`F_2`、`F_3` | `F`一般斜體、不加粗；數字下標正體 | 力的大小 F 一／二／三 |
-| 作圖起點 | `O` | math serif一般斜體 | 作圖起點 O |
+| 共同起點 | 語意 key `ORIGIN`；坐標由`anchor10`保存 | 不在舞台預先顯示固定字母；handle以「起點」accessible label表示 | 學生所選共同起點 |
 | 二力合成 | `\boldsymbol{F}_{\mathrm R}=\boldsymbol{F}_1+\boldsymbol{F}_2` | vectors粗斜體；`=`、`+`正體並有一致間距 | 合力等於力矢量 F 一加力矢量 F 二 |
 | 三力合成 | `\boldsymbol{F}_{\mathrm R}=\boldsymbol{F}_1+\boldsymbol{F}_2+\boldsymbol{F}_3` | 同上 | 合力等於三個力矢量之和 |
 | 力的SI單位（如review需要） | `N` | 正體，數值與單位之間保留窄空格 | 牛頓 |
@@ -1406,7 +1406,7 @@ Invalid matrix：
 - 補齊snapped endpoint inventory、junction overlap selector及唯一same-origin host-forwarding topology；
 - manifest exact inventory、六種三力browser flow、distribution sanity及trusted-event assertions加入test plan。
 
-保留不改的核心決定：五題結構、三力第一版只用首尾相接法、六種三力排列全部接受、預設力大小／方向不可改、中央作圖起點、screen-space snap、final-state scoring、submitted lock及formative trust boundary。
+保留不改的核心決定：五題結構、三力第一版只用首尾相接法、六種三力排列全部接受、預設力大小／方向不可改、學生任意選共同起點、screen-space snap、final-state scoring、submitted lock及formative trust boundary。
 
 其後按產品要求再補充兩項硬性契約：原生HTML/CSS/SVG的LaTeX-like物理符號渲染（不引入MathJax），以及P1–T1全程無順序鎖、包括`0/5`完成仍可提交。
 
@@ -1421,3 +1421,10 @@ Invalid matrix：
 - 全專案 gates：`npm test`、`npm run check`、單一活動package及`npm run package:all`全部通過；ZIP root有`imsmanifest.xml`，共14 files，manifest與HTML runtime dependency exact parity，無tests或temporary files。
 - 視覺QA：`1280×800`及`390×600` source screenshots已檢視；desktop split-panel及mobile stage-top/control-bottom層級、文字、物理符號及可達控制沒有發現阻塞問題。
 - 未冒充的外部證據：§17真實Moodle學生帳戶、current/new-window真機、Moodle attempt policy及真人screen-reader操作仍未執行，維持unchecked。
+
+## 21. User-requested visual and anchor revision（2026-08-15）
+
+- 預設力的 HTML drag hit target 保留觸控所需的尺寸，但取消長條大圈、持續外框及大型 `box-shadow`；只在鍵盤 `focus-visible` 時提供細點線焦點提示。
+- 移除舞台中央 `O` 點及其標籤。第一支力在任意合法可見位置放手後，production state 以 `anchor10` 保存該共同起點；wire-level `ORIGIN` 只代表「所選共同起點」的語意關係，不再代表固定坐標。
+- 平行四邊形第四頂點、首尾力鏈終點、合力 snap、review correct overlay及保存驗證均由該 `anchor10` 重建；舊有沒有`anchor10`的狀態仍以 legacy fallback 讀取，避免不必要地破壞既有 draft。
+- targeted evidence：model／persistence／scoring／lifecycle／accessibility tests通過；Playwright smoke 以非中央位置建立`anchor10=[3315,2263]`，drag target的`boxShadow`為`none`、border為透明。

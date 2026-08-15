@@ -17,8 +17,8 @@
     const placements = answer.placements.map((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
     const guides = new Set(Model.correctGuides(answer).map((guide) => guide.originKey));
     const components = [
-      component("F1-origin", "力矢量 F 一的箭尾在共同起點", 2, placements[0]),
-      component("F2-origin", "力矢量 F 二的箭尾在共同起點", 2, placements[1]),
+      component("F1-origin", "力矢量 F 一的箭尾在所選共同起點", 2, placements[0]),
+      component("F2-origin", "力矢量 F 二的箭尾在所選共同起點", 2, placements[1]),
       component("F1-guide", "由力矢量 F 一箭頭畫出的虛線輔助線", 4, guides.has("F1_HEAD")),
       component("F2-guide", "由力矢量 F 二箭頭畫出的虛線輔助線", 4, guides.has("F2_HEAD")),
       component("resultant", "由作圖起點指向平行四邊形對角頂點的合力", 8, Model.canonicalResultant(answer, question))
@@ -29,7 +29,7 @@
   function scoreHeadToTail(answer, question) {
     const chain = Model.chainInfo(answer, question);
     const components = [
-      component("origin", "第一支力的箭尾在作圖起點", 4, chain.valid && chain.order.length >= 1),
+      component("origin", "第一支力的箭尾在所選共同起點", 4, chain.valid && chain.order.length >= 1),
       component("junction", "兩個力有效首尾相接", 4, chain.valid && chain.order.length >= 2),
       component("resultant", "合力由力鏈起點指向終點", 12, Model.canonicalResultant(answer, question))
     ];
@@ -39,7 +39,7 @@
   function scoreTriple(answer, question) {
     const chain = Model.chainInfo(answer, question);
     return [
-      component("origin", "第一支力的箭尾在作圖起點", 2, chain.valid && chain.order.length >= 1),
+      component("origin", "第一支力的箭尾在所選共同起點", 2, chain.valid && chain.order.length >= 1),
       component("junction-1", "第一個有效首尾接點", 4, chain.valid && chain.order.length >= 2),
       component("junction-2", "第二個有效接點並完成三力單一路徑", 4, chain.valid && chain.order.length >= 3),
       component("resultant", "合力由三力鏈起點指向終點", 10, Model.canonicalResultant(answer, question))

@@ -33,12 +33,16 @@ const moved = M.commitForceTranslation(initial, 0, { x: 270, y: 130 }, firstQues
 assert.equal(firstQuestion.forces[0].dx, beforeForce.dx);
 assert.equal(firstQuestion.forces[0].dy, beforeForce.dy);
 assert.equal(Math.hypot(firstQuestion.forces[0].dx, firstQuestion.forces[0].dy), Math.hypot(beforeForce.dx, beforeForce.dy), "translation cannot resize the vector");
-assert.equal(moved.placements[0].mode, "free");
+assert.equal(moved.placements[0].mode, "snap", "the first placed force establishes a freely chosen common anchor");
+assert.deepEqual(moved.anchor10, [2700, 1300]);
+const secondAtArbitraryAnchor = M.commitForceTranslation(moved, 1, { x: 270, y: 130 }, firstQuestion, { pointerType: "mouse" });
+assert.deepEqual(M.forceGeometry(secondAtArbitraryAnchor, firstQuestion).map((item) => item.tail), [{ x: 270, y: 130 }, { x: 270, y: 130 }], "the second force snaps to the selected anchor, not a fixed screen point");
 
 const nearOrigin = M.commitForceTranslation(initial, 0, { x: 399, y: 250 }, firstQuestion, { pointerType: "touch" });
 assert.deepEqual(nearOrigin.placements[0], { mode: "snap", targetKey: "ORIGIN" }, "19 CSS px touch distance snaps");
 const outsideOrigin = M.commitForceTranslation(initial, 0, { x: 401, y: 250 }, firstQuestion, { pointerType: "touch" });
-assert.equal(outsideOrigin.placements[0].mode, "free", "21 CSS px touch distance does not snap");
+assert.equal(outsideOrigin.placements[0].mode, "snap", "the first force may establish an anchor at any valid position");
+assert.notDeepEqual(outsideOrigin.anchor10, [3800, 2500]);
 assert.ok(M.selectSnapCandidate({ x: 14, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), "inclusive 14px pointer threshold snaps");
 assert.equal(M.selectSnapCandidate({ x: 14.01, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), null);
 assert.ok(M.selectSnapCandidate({ x: 6, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "keyboard", project: (point) => ({ x: point.x * 2, y: point.y * 2 }) }), "keyboard threshold is evaluated in projected CSS pixels");

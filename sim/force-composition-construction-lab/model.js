@@ -104,9 +104,9 @@
 
   function freshAnswer(question) {
     if (question.type === "parallelogram") {
-      return { type: question.type, placements: [{ mode: "initial" }, { mode: "initial" }], guides: [null, null], resultant: null };
+      return { type: question.type, anchor10: null, placements: [{ mode: "initial" }, { mode: "initial" }], guides: [null, null], resultant: null };
     }
-    return { type: question.type, placements: question.forces.map(() => ({ mode: "initial" })), resultant: null };
+    return { type: question.type, anchor10: null, placements: question.forces.map(() => ({ mode: "initial" })), resultant: null };
   }
 
   function freshAnswers(scenario) {
@@ -124,7 +124,7 @@
       let tail;
       if (placement.mode === "initial") tail = { ...question.initialTails[index] };
       else if (placement.mode === "free") tail = fromPoint10(placement.tail10);
-      else if (placement.mode === "snap" && placement.targetKey === ORIGIN_KEY) tail = { ...Generator.ORIGIN };
+      else if (placement.mode === "snap" && placement.targetKey === ORIGIN_KEY) tail = anchorPoint(answer);
       else if (placement.mode === "snap") {
         const parent = targetForceIndex(placement.targetKey);
         if (parent < 0 || parent >= question.forces.length || parent === index) throw new Error("Invalid force placement relationship");
@@ -186,13 +186,22 @@
     return answer.type === "parallelogram" && answer.placements.every((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY);
   }
 
-  function corner(question) {
-    return add(Generator.ORIGIN, sumForces(question.forces));
+  function anchorPoint(answer) {
+    return Array.isArray(answer?.anchor10) ? fromPoint10(answer.anchor10) : { ...Generator.ORIGIN };
+  }
+
+  function clampAnchor(point, question, forceIndexValue = null) {
+    const forces = forceIndexValue == null ? question.forces : [question.forces[forceIndexValue]];
+    return forces.reduce((candidate, force) => clampForceTail(candidate, force), { ...point });
+  }
+
+  function corner(question, answer = null) {
+    return add(anchorPoint(answer), sumForces(question.forces));
   }
 
   function endpointForKey(answer, question, key) {
-    if (key === ORIGIN_KEY) return { ...Generator.ORIGIN };
-    if (key === "CORNER" || key === "CHAIN_END") return corner(question);
+    if (key === ORIGIN_KEY) return anchorPoint(answer);
+    if (key === "CORNER" || key === "CHAIN_END") return corner(question, answer);
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) throw new Error(`Unknown endpoint ${key}`);
     const index = Number(match[1]) - 1;
@@ -243,6 +252,7 @@
       });
     }
     for (const index of released) next.placements[index] = { mode: "free", tail10: point10(tails[index]) };
+    if (!next.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY)) next.anchor10 = null;
     if (question.type === "parallelogram") { next.guides = [null, null]; next.resultant = null; }
     else next.resultant = null;
     return next;
@@ -256,10 +266,11 @@
   }
 
   function legalForceTargets(answer, question, movingIndex) {
-    if (question.type === "parallelogram") return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    if (!Array.isArray(answer.anchor10)) return [];
+    if (question.type === "parallelogram") return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     const chain = chainInfo(answer, question);
     if (!chain.valid) return [];
-    if (!chain.order.length) return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    if (!chain.order.length) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     if (chain.order.includes(movingIndex) || chain.complete) return [];
     const lastIndex = chain.order[chain.order.length - 1];
     return [{ key: headKey(lastIndex), point: endpointForKey(answer, question, headKey(lastIndex)) }];
@@ -267,7 +278,13 @@
 
   function commitForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
     const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question);
-    const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
+    let candidate = fromPoint10(next.placements[forceIndexValue].tail10);
+    if (!Array.isArray(next.anchor10)) {
+      candidate = clampAnchor(candidate, question, question.type === "parallelogram" ? null : forceIndexValue);
+      next.anchor10 = point10(candidate);
+      next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
+      return next;
+    }
     const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
     if (snap) next.placements[forceIndexValue] = { mode: "snap", targetKey: snap.key };
     return next;
@@ -308,7 +325,7 @@
     const slot = next.guides.findIndex((guide) => guide?.originKey === originKey);
     const candidate = fromPoint10(next.guides[slot].end.point10);
     if (["F1_HEAD", "F2_HEAD"].includes(originKey)) {
-      const snap = selectSnapCandidate(candidate, [{ key: "CORNER", point: corner(question) }], options);
+      const snap = selectSnapCandidate(candidate, [{ key: "CORNER", point: corner(question, next) }], options);
       if (snap) next.guides[slot].end = { mode: "snap", targetKey: "CORNER" };
     }
     return next;
@@ -333,7 +350,7 @@
     if (originKey === ORIGIN_KEY) {
       const targetKey = question.type === "parallelogram" ? "CORNER" : "CHAIN_END";
       const candidate = fromPoint10(next.resultant.end.point10);
-      const snap = selectSnapCandidate(candidate, [{ key: targetKey, point: corner(question) }], options);
+      const snap = selectSnapCandidate(candidate, [{ key: targetKey, point: corner(question, next) }], options);
       if (snap) next.resultant.end = { mode: "snap", targetKey };
     }
     return next;
@@ -341,7 +358,7 @@
 
   function endpointHandles(answer, question) {
     const geometry = forceGeometry(answer, question);
-    const handles = [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    const handles = [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     for (let index = 0; index < geometry.length; index += 1) {
       handles.push({ key: tailKey(index), point: geometry[index].tail });
       handles.push({ key: headKey(index), point: geometry[index].head });
@@ -364,7 +381,7 @@
 
   function resultantStartHandles(answer, question) {
     if (!prerequisitesForResultant(answer, question) || canonicalResultant(answer, question)) return [];
-    if (question.guided) return [{ key: ORIGIN_KEY, point: { ...Generator.ORIGIN } }];
+    if (question.guided) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     return endpointHandles(answer, question);
   }
 
@@ -381,8 +398,8 @@
     SNAP_TOUCH_PX, SNAP_POINTER_PX, SNAP_KEYBOARD_PX, MODEL_EPSILON, POSITION_QUANTUM,
     MODEL_VISUAL_INSET, FREE_LINE_INSET, ORIGIN_KEY,
     clone, forceKey, forceIndex, headKey, tailKey, targetForceIndex, quantize, point10, fromPoint10,
-    add, sumForces, distance, threshold, selectSnapCandidate, clampForceTail, clampLinePoint,
-    freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, corner, endpointForKey,
+    add, sumForces, distance, threshold, selectSnapCandidate, clampForceTail, clampAnchor, clampLinePoint,
+    freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, anchorPoint, corner, endpointForKey,
     correctGuides, prerequisitesForResultant, canonicalResultant, derivedVariant,
     releaseForceAndDescendants, previewForceTranslation, legalForceTargets, commitForceTranslation,
     lineEndPoint, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide,

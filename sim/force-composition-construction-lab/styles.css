@@ -90,11 +90,12 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .drag-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
 .force-hit, .line-handle { position: absolute; pointer-events: auto; touch-action: none; user-select: none; }
 .force-hit { height: 44px; min-height: 44px; padding: 0; border: 2px solid transparent; border-radius: 22px; background: transparent; cursor: move; transform-origin: 0 50%; }
-.force-hit:hover, .force-hit:focus-visible, .force-hit.is-selected { border-color: currentColor; background: rgba(255,255,255,.2); }
+.force-hit:hover, .force-hit.is-selected { border-color: transparent; background: transparent; box-shadow: none; }
+.force-hit:focus-visible { outline: 2px dotted currentColor; outline-offset: 2px; }
 .force-hit[data-force-index="0"] { color: var(--force-one); }
 .force-hit[data-force-index="1"] { color: var(--force-two); }
 .force-hit[data-force-index="2"] { color: var(--force-three); }
-.force-hit.is-selected { z-index: 3; box-shadow: 0 0 0 3px rgba(37,99,235,.18); }
+.force-hit.is-selected { z-index: 3; }
 .line-handle { width: 44px; height: 44px; min-height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid var(--guide); border-radius: 50%; background: rgba(255,255,255,.88); color: var(--guide); font-size: 0; }
 .line-handle.is-offset { font-size: .66rem; font-weight: 800; letter-spacing: -.03em; box-shadow: 0 2px 8px rgba(24,49,73,.18); }
 .line-handle { z-index: 4; }
@@ -106,8 +107,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .line-tools button { min-height: 36px; padding-block: .25rem; color: var(--color-danger); font-size: .78rem; }
 
 .grid-line { stroke: var(--grid-line); stroke-width: 1; }
-.origin-point { fill: #64748b; stroke: #fff; stroke-width: 3; }
-.origin-label { fill: #334155; }
 .force-line { fill: none; stroke-width: 5; stroke-linecap: round; }
 .force-line[data-force-index="0"] { stroke: var(--force-one); }
 .force-line[data-force-index="1"] { stroke: var(--force-two); }

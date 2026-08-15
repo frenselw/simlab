@@ -61,6 +61,17 @@
     return null;
   }
 
+  function validateAnchor(anchor10, answer, question) {
+    if (anchor10 == null) return null;
+    if (!validPoint10(anchor10)) return "anchor-shape";
+    const point = Model.fromPoint10(anchor10);
+    const forceIndex = answer.placements.findIndex((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
+    if (forceIndex < 0) return "anchor-without-root";
+    const clamped = Model.clampAnchor(point, question, question.type === "parallelogram" ? null : forceIndex);
+    if (Math.abs(point.x - clamped.x) > Model.MODEL_EPSILON || Math.abs(point.y - clamped.y) > Model.MODEL_EPSILON) return "anchor-bounds";
+    return null;
+  }
+
   function validateLineEnd(end, targetKey) {
     if (!onlyKeys(end, ["mode", "point10", "targetKey"])) return "line-end-fields";
     if (end.mode === "free") {
@@ -75,8 +86,10 @@
   }
 
   function validateParallelogram(answer, question, questionIndex) {
-    if (!onlyKeys(answer, ["type", "placements", "guides", "resultant"]) || !Array.isArray(answer.placements) || answer.placements.length !== 2 ||
+    if (!onlyKeys(answer, ["type", "anchor10", "placements", "guides", "resultant"]) || !Array.isArray(answer.placements) || answer.placements.length !== 2 ||
         !Array.isArray(answer.guides) || answer.guides.length !== 2) return "parallelogram-shape";
+    const anchorIssue = validateAnchor(answer.anchor10, answer, question);
+    if (anchorIssue) return anchorIssue;
     for (let index = 0; index < 2; index += 1) {
       const issue = validatePlacement(answer.placements[index], question.forces[index], question, index);
       if (issue) return issue;
@@ -108,7 +121,9 @@
   }
 
   function validateChain(answer, question, questionIndex) {
-    if (!onlyKeys(answer, ["type", "placements", "resultant"]) || !Array.isArray(answer.placements) || answer.placements.length !== question.forces.length) return "chain-shape";
+    if (!onlyKeys(answer, ["type", "anchor10", "placements", "resultant"]) || !Array.isArray(answer.placements) || answer.placements.length !== question.forces.length) return "chain-shape";
+    const anchorIssue = validateAnchor(answer.anchor10, answer, question);
+    if (anchorIssue) return anchorIssue;
     for (let index = 0; index < answer.placements.length; index += 1) {
       const issue = validatePlacement(answer.placements[index], question.forces[index], question, index);
       if (issue) return issue;

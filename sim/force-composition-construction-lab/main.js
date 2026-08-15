@@ -22,9 +22,9 @@
   const QUESTION_COPY = Object.freeze([
     Object.freeze({ type: "平行四邊形法則・基礎一", title: "用平行四邊形法則作出兩力合力", prompt: "先把兩個箭尾移到共同起點，再由兩個箭頭各畫一條虛線輔助線，最後畫出對角線合力。" }),
     Object.freeze({ type: "平行四邊形法則・基礎二", title: "自行選擇正確端點完成平行四邊形", prompt: "完成平行四邊形，再由正確起點畫出合力。中性端點不代表每一個選擇都正確。" }),
-    Object.freeze({ type: "首尾相接法・基礎一", title: "用首尾相接法作出兩力合力", prompt: "任選一個力，把它的箭尾移到作圖起點；再把另一個力的箭尾接到第一個力的箭頭。兩個次序都可以。" }),
-    Object.freeze({ type: "首尾相接法・基礎二", title: "自行安排兩個力的首尾次序", prompt: "把兩個力排成由作圖起點出發的單一力鏈，再由力鏈起點畫到終點。" }),
-    Object.freeze({ type: "三力合成・進階題", title: "用首尾相接法作出三力合力", prompt: "三個力各使用一次，按任意次序接成由作圖起點出發的單一力鏈，再畫出三力合力。" })
+    Object.freeze({ type: "首尾相接法・基礎一", title: "用首尾相接法作出兩力合力", prompt: "任選一個力，在任意位置開始作圖；再把另一個力的箭尾接到第一個力的箭頭。兩個次序都可以。" }),
+    Object.freeze({ type: "首尾相接法・基礎二", title: "自行安排兩個力的首尾次序", prompt: "在任意位置開始，將兩個力排成單一首尾力鏈，再由力鏈起點畫到終點。" }),
+    Object.freeze({ type: "三力合成・進階題", title: "用首尾相接法作出三力合力", prompt: "在任意位置開始，將三個力各使用一次，按任意次序接成單一力鏈，再畫出三力合力。" })
   ]);
 
   function dependencyIssue(values = dependencies) {
@@ -38,15 +38,15 @@
     if (question.type === "parallelogram") {
       if (variant === "fresh" || variant === "placing") {
         const count = answer.placements.filter((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN").length;
-        return count ? "再把另一個力的箭尾移到同一個作圖起點。" : "先把兩個力的箭尾移到共同作圖起點。";
+        return count ? "再把另一個力的箭尾移到同一個共同起點。" : "先選擇任意位置作為共同起點，再放置第一個力。";
       }
       if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線。" : "自行選擇端點，畫出兩條構成平行四邊形的虛線輔助線。";
-      return question.guided ? "由作圖起點拖至平行四邊形對角頂點，畫出合力。" : "自行選擇正確起點，畫出平行四邊形的對角線合力。";
+      return question.guided ? "由共同起點拖至平行四邊形對角頂點，畫出合力。" : "自行選擇正確起點，畫出平行四邊形的對角線合力。";
     }
     const chain = M.chainInfo(answer, question);
-    if (!chain.order.length) return "任選一個力，把它的箭尾移到作圖起點。";
+    if (!chain.order.length) return "任選一個力，在任意位置開始作圖。";
     if (!chain.complete) return `已接上 ${chain.order.length} 個力；把另一個力的箭尾接到目前力鏈的自由箭頭。`;
-    return question.guided ? "由作圖起點拖至力鏈終點，畫出合力。" : "自行選擇正確起點，畫至整條力鏈的終點。";
+    return question.guided ? "由共同起點拖至力鏈終點，畫出合力。" : "自行選擇正確起點，畫至整條力鏈的終點。";
   }
 
   function questionView(state, scenario, index) {
@@ -177,24 +177,26 @@
     }
   }
 
-  function drawCorrectGeometry(parent, question) {
+  function drawCorrectGeometry(parent, answer, question) {
     if (question.type === "parallelogram") {
-      const firstHead = M.add(G.ORIGIN, question.forces[0]);
-      const secondHead = M.add(G.ORIGIN, question.forces[1]);
-      const target = M.corner(question);
-      drawArrow(parent, G.ORIGIN, firstHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
-      drawArrow(parent, G.ORIGIN, secondHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
+      const start = M.anchorPoint(answer);
+      const firstHead = M.add(start, question.forces[0]);
+      const secondHead = M.add(start, question.forces[1]);
+      const target = M.corner(question, answer);
+      drawArrow(parent, start, firstHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
+      drawArrow(parent, start, secondHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
       drawLine(parent, firstHead, target, "guide-line correct-overlay");
       drawLine(parent, secondHead, target, "guide-line correct-overlay");
-      drawArrow(parent, G.ORIGIN, target, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
+      drawArrow(parent, start, target, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
     } else {
-      let current = { ...G.ORIGIN };
+      const start = M.anchorPoint(answer);
+      let current = start;
       for (const force of question.forces) {
         const next = M.add(current, force);
         drawArrow(parent, current, next, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
         current = next;
       }
-      drawArrow(parent, G.ORIGIN, current, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
+      drawArrow(parent, start, current, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
     }
   }
 
@@ -203,13 +205,11 @@
     const background = createSvg("g", { "aria-hidden": "true" });
     drawGrid(background);
     dom.stageSvg.append(background);
-    dom.stageSvg.append(createSvg("circle", { cx: G.ORIGIN.x, cy: G.ORIGIN.y, r: 8, class: "origin-point" }));
-    dom.stageSvg.append(N.svgLabel(documentObject, N.point("O"), { x: G.ORIGIN.x + 13, y: G.ORIGIN.y - 13, class: "math-svg origin-label", fill: "#334155" }));
     if (!state || !scenario || !state.answers) return;
     const question = scenario.questions[state.currentQuestion];
     const answer = answerOverride || state.answers[state.currentQuestion];
     drawQuestionGeometry(dom.stageSvg, answer, question);
-    if (presentation === "review" && trustedReview && correctOverlay) drawCorrectGeometry(dom.stageSvg, question);
+    if (presentation === "review" && trustedReview && correctOverlay) drawCorrectGeometry(dom.stageSvg, answer, question);
     if (nearSnapPoint) dom.stageSvg.append(createSvg("circle", { cx: nearSnapPoint.x, cy: nearSnapPoint.y, r: 17, class: "near-snap" }));
   }
 
@@ -269,7 +269,7 @@
   }
 
   function shortEndpointLabel(key) {
-    if (key === "ORIGIN") return "O";
+    if (key === "ORIGIN") return "起點";
     if (key === "CORNER") return "C";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return "•";
@@ -376,7 +376,7 @@
   }
 
   function endpointAccessible(key) {
-    if (key === "ORIGIN") return "作圖起點 O";
+    if (key === "ORIGIN") return "共同起點";
     if (key === "CORNER") return "平行四邊形對角頂點";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return key;
@@ -874,8 +874,8 @@
     nearSnapPoint = null;
     let targets = [];
     if (kind === "force") targets = M.legalForceTargets(preview, question, drag.forceIndex);
-    else if (kind.startsWith("guide") && ["F1_HEAD", "F2_HEAD"].includes(originKey)) targets = [{ key: "CORNER", point: M.corner(question) }];
-    else if (kind.startsWith("resultant") && originKey === "ORIGIN") targets = [{ key: question.type === "parallelogram" ? "CORNER" : "CHAIN_END", point: M.corner(question) }];
+    else if (kind.startsWith("guide") && ["F1_HEAD", "F2_HEAD"].includes(originKey)) targets = [{ key: "CORNER", point: M.corner(question, preview) }];
+    else if (kind.startsWith("resultant") && originKey === "ORIGIN") targets = [{ key: question.type === "parallelogram" ? "CORNER" : "CHAIN_END", point: M.corner(question, preview) }];
     const snap = M.selectSnapCandidate(candidate, targets, { pointerType, project: modelToClient });
     if (snap) nearSnapPoint = snap.point;
   }
