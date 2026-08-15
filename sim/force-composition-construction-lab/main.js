@@ -113,47 +113,47 @@
     return line;
   }
 
-  function drawArrowMarkers(parent) {
-    const defs = createSvg("defs");
-    const markers = [
-      ["force-one", "arrow-marker-force-one"],
-      ["force-two", "arrow-marker-force-two"],
-      ["force-three", "arrow-marker-force-three"],
-      ["resultant", "arrow-marker-resultant"],
-      ["correct", "arrow-marker-correct"]
-    ];
-    for (const [id, className] of markers) {
-      const marker = createSvg("marker", {
-        id: `arrow-${id}`,
-        viewBox: "0 0 10 10",
-        // The path tip is at x=10. Align that tip with the SVG line endpoint;
-        // refX=8 leaves the last two marker units hanging beyond snap targets.
-        refX: 10,
-        refY: 5,
-        markerWidth: 4.5,
-        markerHeight: 4.5,
-        orient: "auto",
-        "markerUnits": "strokeWidth"
-      });
-      marker.append(createSvg("path", { d: "M 0 0 L 10 5 L 0 10 z", class: className }));
-      defs.append(marker);
-    }
-    parent.append(defs);
+  function arrowPathData(start, end, options = {}) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 0.001) return `M ${start.x} ${start.y} Z`;
+    const ux = dx / length;
+    const uy = dy / length;
+    const nx = -uy;
+    const ny = ux;
+    const isResultant = options.className?.includes("resultant-line");
+    const isCorrect = options.className?.includes("correct-overlay");
+    const shaftWidth = isResultant ? 6 : isCorrect ? 3 : 5;
+    const nominalHeadLength = isResultant ? 26 : isCorrect ? 15 : 22;
+    const nominalHeadWidth = isResultant ? 25 : isCorrect ? 14 : 21;
+    const headLength = Math.min(nominalHeadLength, length * 0.45);
+    const headWidth = Math.min(nominalHeadWidth, length * 0.65);
+    const bodyWidth = Math.min(shaftWidth, length * 0.35);
+    const base = { x: end.x - ux * headLength, y: end.y - uy * headLength };
+    const bodyLeft = { x: base.x + nx * bodyWidth / 2, y: base.y + ny * bodyWidth / 2 };
+    const bodyRight = { x: base.x - nx * bodyWidth / 2, y: base.y - ny * bodyWidth / 2 };
+    const headLeft = { x: base.x + nx * headWidth / 2, y: base.y + ny * headWidth / 2 };
+    const headRight = { x: base.x - nx * headWidth / 2, y: base.y - ny * headWidth / 2 };
+    const tailLeft = { x: start.x + nx * bodyWidth / 2, y: start.y + ny * bodyWidth / 2 };
+    const tailRight = { x: start.x - nx * bodyWidth / 2, y: start.y - ny * bodyWidth / 2 };
+    return [tailLeft, bodyLeft, headLeft, end, headRight, bodyRight, tailRight]
+      .map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`)
+      .join(" ") + " Z";
   }
 
   function drawArrow(parent, start, end, options = {}) {
     const className = options.className || "force-line";
-    const forceMarker = ["one", "two", "three"][Number(options.forceIndex)];
-    const markerId = className.includes("correct-overlay") ? "correct" : options.forceIndex == null ? "resultant" : `force-${forceMarker}`;
-    const line = drawLine(parent, start, end, className, {
-      ...(options.forceIndex == null ? {} : { "data-force-index": options.forceIndex }),
-      "marker-end": `url(#arrow-${markerId})`
+    const path = createSvg("path", {
+      d: arrowPathData(start, end, { ...options, className }),
+      class: className,
+      ...(options.forceIndex == null ? {} : { "data-force-index": options.forceIndex })
     });
-    return { line, markerId };
+    parent.append(path);
+    return { path };
   }
 
   function drawGrid(parent) {
-    drawArrowMarkers(parent);
     for (let x = 0; x <= G.WIDTH; x += 40) drawLine(parent, { x, y: 0 }, { x, y: G.HEIGHT }, "grid-line");
     for (let y = 0; y <= G.HEIGHT; y += 40) drawLine(parent, { x: 0, y }, { x: G.WIDTH, y }, "grid-line");
   }
