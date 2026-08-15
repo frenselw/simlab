@@ -84,6 +84,7 @@
   let drag = null;
   let keyboardLine = null;
   let nearSnapPoint = null;
+  let stageCamera = { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
   const undoStacks = Array.from({ length: 5 }, () => []);
   const eventTelemetry = [];
   const touchTelemetry = [];
@@ -189,7 +190,8 @@
     }
     function score(point) {
       let value = 0;
-      const edge = Math.min(point.x - 30, G.WIDTH - 30 - point.x, point.y - 30, G.HEIGHT - 30 - point.y);
+      const edge = Math.min(point.x - stageCamera.x - 30, stageCamera.x + stageCamera.width - 30 - point.x,
+        point.y - stageCamera.y - 30, stageCamera.y + stageCamera.height - 30 - point.y);
       if (edge < 0) value += 10000 + Math.abs(edge) * 100;
       if (pointSegmentDistance(point, start, end) < 18) value += 500;
       const box = { ...point, width, height };
@@ -255,14 +257,78 @@
     }
   }
 
+  function cameraPoints(answer, question) {
+    const points = [];
+    const addPoint = (point) => { if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) points.push(point); };
+    addPoint(M.anchorPoint(answer));
+    addPoint(M.corner(question, answer));
+    for (const item of M.forceGeometry(answer, question)) { addPoint(item.tail); addPoint(item.head); }
+    if (question.type === "parallelogram") {
+      for (const guide of answer.guides) {
+        if (!guide) continue;
+        addPoint(M.endpointForKey(answer, question, guide.originKey));
+        addPoint(M.lineEndPoint(guide, answer, question));
+      }
+    }
+    if (answer.resultant) {
+      addPoint(M.lineStartPoint(answer.resultant, answer, question));
+      addPoint(M.lineEndPoint(answer.resultant, answer, question));
+    }
+    return points;
+  }
+
+  function fullStageCamera() {
+    return { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
+  }
+
+  function computeStageCamera(answer, question) {
+    const stageWidth = dom.stage?.clientWidth || 0;
+    const stageHeight = dom.stage?.clientHeight || 0;
+    if (!stageWidth || !stageHeight) return fullStageCamera();
+    const points = cameraPoints(answer, question);
+    if (!points.length) return fullStageCamera();
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const compact = stageWidth < 760;
+    if (!compact) return fullStageCamera();
+    const padding = 42;
+    const aspect = stageWidth / stageHeight;
+    let width = Math.max(300, maxX - minX + padding * 2);
+    let height = Math.max(220, maxY - minY + padding * 2);
+    if (width / height < aspect) width = height * aspect;
+    else height = width / aspect;
+    // A separated initial force layout may need the full stage; never crop a legal answer just to enlarge it.
+    if (width > G.WIDTH || height > G.HEIGHT) return fullStageCamera();
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const camera = {
+      width,
+      height,
+      x: Math.max(0, Math.min(G.WIDTH - width, centerX - width / 2)),
+      y: Math.max(0, Math.min(G.HEIGHT - height, centerY - height / 2))
+    };
+    // Clamping against the model edge can only reduce the visible margin. If it would clip a point, fall back to the full model.
+    if (points.some((point) => point.x < camera.x || point.x > camera.x + camera.width || point.y < camera.y || point.y > camera.y + camera.height)) return fullStageCamera();
+    return camera;
+  }
+
+  function setStageCamera(camera) {
+    stageCamera = { ...camera };
+    dom.stageSvg.setAttribute("viewBox", `${camera.x} ${camera.y} ${camera.width} ${camera.height}`);
+  }
+
   function renderStage(answerOverride = null) {
+    const question = state && scenario ? scenario.questions[state.currentQuestion] : null;
+    const answer = answerOverride || (state && scenario ? state.answers[state.currentQuestion] : null);
+    const camera = drag?.camera || keyboardLine?.camera || (answer && question ? computeStageCamera(answer, question) : fullStageCamera());
+    setStageCamera(camera);
     dom.stageSvg.replaceChildren();
     const background = createSvg("g", { "aria-hidden": "true" });
     drawGrid(background);
     dom.stageSvg.append(background);
     if (!state || !scenario || !state.answers) return;
-    const question = scenario.questions[state.currentQuestion];
-    const answer = answerOverride || state.answers[state.currentQuestion];
     drawQuestionGeometry(dom.stageSvg, answer, question);
     if (presentation === "review" && trustedReview && correctOverlay) drawCorrectGeometry(dom.stageSvg, answer, question);
   }
@@ -305,6 +371,18 @@
     button.style.top = `${start.y - 22}px`;
     button.style.width = `${Math.max(44, length + 24)}px`;
     button.style.transformOrigin = "12px 22px";
+    button.style.transform = `rotate(${angle}deg)`;
+  }
+
+  function positionResultantButton(button, startPoint, endPoint) {
+    const start = pointInLayer(startPoint);
+    const end = pointInLayer(endPoint);
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    const angle = Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
+    button.style.left = `${start.x - 24}px`;
+    button.style.top = `${start.y - 24}px`;
+    button.style.width = `${Math.max(48, length + 48)}px`;
+    button.style.transformOrigin = "24px 24px";
     button.style.transform = `rotate(${angle}deg)`;
   }
 
@@ -420,6 +498,13 @@
           dom.dragLayer.append(button);
         }
       } else {
+        const lineStart = M.lineStartPoint(answer.resultant, answer, question);
+        const lineEnd = M.lineEndPoint(answer.resultant, answer, question);
+        const lineHit = makeOverlayButton("resultant-hit", "resultant-translate", "平移整支合力；方向和長度保持不變");
+        lineHit.dataset.dragKind = "resultant-translate";
+        lineHit.dataset.lineKind = "resultant-translate";
+        positionResultantButton(lineHit, lineStart, lineEnd);
+        dom.dragLayer.append(lineHit);
         const start = makeOverlayButton("line-handle", "resultant-start-edit", "調整合力起點");
         start.dataset.dragKind = "resultant-start";
         start.dataset.lineKind = "resultant-start";
@@ -441,6 +526,11 @@
     const question = scenario.questions[state.currentQuestion];
     const geometry = M.forceGeometry(answer, question);
     dom.dragLayer.querySelectorAll(".force-hit").forEach((button) => positionForceButton(button, geometry[Number(button.dataset.forceIndex)]));
+    if (answer.resultant) {
+      const start = M.lineStartPoint(answer.resultant, answer, question);
+      const end = M.lineEndPoint(answer.resultant, answer, question);
+      dom.dragLayer.querySelectorAll(".resultant-hit").forEach((button) => positionResultantButton(button, start, end));
+    }
     layoutLineHandles(answer, question);
   }
 
@@ -501,7 +591,7 @@
     dom.questionTitle.textContent = view.title;
     dom.questionPrompt.textContent = view.prompt;
     dom.stepPrompt.textContent = resultantMode
-      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，方向錯誤的作答也會保留。"
+      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，之後可拖動線身整體平移或調整兩端，方向錯誤的作答也會保留。"
       : view.step;
     renderFormula();
     renderLineTools();
@@ -935,7 +1025,7 @@
     const kind = target.dataset.dragKind;
     if (resultantMode && !kind.startsWith("resultant")) return;
     const point = clientToModel(event.clientX, event.clientY);
-    const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, preview: answer };
+    const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, preview: answer, camera: { ...stageCamera } };
     if (kind === "force") {
       const index = Number(target.dataset.forceIndex);
       const tail = M.forceGeometry(answer, question)[index].tail;
@@ -944,6 +1034,12 @@
       Object.assign(base, { originKey: target.dataset.originKey });
     } else if (kind === "resultant-start" || kind === "resultant-end") {
       Object.assign(base, { originKey: target.dataset.originKey });
+    } else if (kind === "resultant-translate" && answer.resultant) {
+      Object.assign(base, {
+        startPoint: point,
+        startLineStart: M.lineStartPoint(answer.resultant, answer, question),
+        startLineEnd: M.lineEndPoint(answer.resultant, answer, question)
+      });
     } else return;
     drag = base;
     target.setPointerCapture(event.pointerId);
@@ -968,7 +1064,8 @@
       startPoint: point,
       originKey: "FREE",
       preview: answer,
-      candidate: point
+      candidate: point,
+      camera: { ...stageCamera }
     };
     dom.stage.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -982,6 +1079,13 @@
     else if (kind.startsWith("guide") && ["F1_HEAD", "F2_HEAD"].includes(originKey)) targets = [{ key: "CORNER", point: M.corner(question, preview) }];
     else if (kind === "resultant-end") targets = M.resultantSnapTargets(preview, question, originKey);
     else if (kind === "resultant-start" && question.type === "parallelogram") targets = M.parallelogramCornerTargets(preview, question);
+    else if (kind === "resultant-translate" && question.type === "parallelogram" && preview.resultant) {
+      const targetsForLine = M.parallelogramCornerTargets(preview, question);
+      const startSnap = M.selectSnapCandidate(M.lineStartPoint(preview.resultant, preview, question), targetsForLine, { pointerType, project: modelToClient });
+      const endSnap = M.selectSnapCandidate(M.lineEndPoint(preview.resultant, preview, question), targetsForLine, { pointerType, project: modelToClient });
+      nearSnapPoint = (startSnap || endSnap)?.point || null;
+      return;
+    }
     const snap = M.selectSnapCandidate(candidate, targets, { pointerType, project: modelToClient });
     if (snap) nearSnapPoint = snap.point;
   }
@@ -1004,6 +1108,14 @@
         snap: true,
         allowIncomplete: resultantMode,
         allowAnyOrigin: resultantMode
+      });
+    } else if (drag.kind === "resultant-translate" && drag.before.resultant) {
+      const delta = { x: point.x - drag.startPoint.x, y: point.y - drag.startPoint.y };
+      preview = M.previewResultantTranslation(drag.before, delta, question, {
+        pointerType: drag.pointerType,
+        project: modelToClient,
+        snap: true,
+        allowIncomplete: resultantMode
       });
     } else {
       preview = M.previewResultant(drag.before, drag.originKey, point, question, {
@@ -1053,6 +1165,13 @@
         allowAnyOrigin: resultantMode
       });
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力起點已更新，可繼續調整兩端。";
+    } else if (active.kind === "resultant-translate" && active.before.resultant) {
+      const delta = { x: point.x - active.startPoint.x, y: point.y - active.startPoint.y };
+      next = M.commitResultantTranslation(active.before, delta, question, {
+        ...options,
+        allowIncomplete: resultantMode
+      });
+      message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力已平移，可繼續調整兩端。";
     } else {
       next = M.commitResultant(active.before, active.originKey, point, question, {
         ...options,
@@ -1082,7 +1201,7 @@
     const vertical = event.clientY < rect.top + rect.height / 2 ? "bottom" : "top";
     dom.magnifier.dataset.corner = `${vertical}-${horizontal}`;
     dom.magnifier.classList.add("is-visible");
-    dom.magnifierLabel.textContent = drag?.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag?.kind?.startsWith("guide") ? "虛線輔助線終點" : drag?.kind === "resultant-start" ? "合力起點" : "合力終點";
+    dom.magnifierLabel.textContent = drag?.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag?.kind?.startsWith("guide") ? "虛線輔助線終點" : drag?.kind === "resultant-start" ? "合力起點" : drag?.kind === "resultant-translate" ? "平移整支合力" : "合力終點";
   }
 
   function hideMagnifier() {
@@ -1099,9 +1218,10 @@
     if (kind === "guide-end") endpoint = M.lineEndPoint(answer.guides[Number(target.dataset.guideIndex)], answer, question);
     else if (kind === "resultant-end") endpoint = M.lineEndPoint(answer.resultant, answer, question);
     else if (kind === "resultant-start" && answer.resultant) endpoint = M.lineStartPoint(answer.resultant, answer, question);
+    else if (kind === "resultant-translate" && answer.resultant) endpoint = M.lineStartPoint(answer.resultant, answer, question);
     else endpoint = M.endpointForKey(answer, question, originKey);
-    keyboardLine = { kind, originKey, target, before: P.clone(answer), endpoint };
-    announce(kind === "resultant-start" ? "已開始鍵盤調整合力起點。使用方向鍵移動，Enter 確認，Escape 取消。" : "已開始鍵盤畫線。使用方向鍵移動終點，Enter 確認，Escape 取消。");
+    keyboardLine = { kind, originKey, target, before: P.clone(answer), endpoint, startPoint: kind === "resultant-translate" ? { ...endpoint } : null, camera: { ...stageCamera } };
+    announce(kind === "resultant-start" ? "已開始鍵盤調整合力起點。使用方向鍵移動，Enter 確認，Escape 取消。" : kind === "resultant-translate" ? "已開始鍵盤平移整支合力。使用方向鍵移動，Enter 確認，Escape 取消。" : "已開始鍵盤畫線。使用方向鍵移動終點，Enter 確認，Escape 取消。");
   }
 
   function updateKeyboardLine(event) {
@@ -1122,9 +1242,10 @@
       const options = { pointerType: "keyboard", project: modelToClient };
       const next = active.kind.startsWith("guide") ? M.commitGuide(active.before, active.originKey, active.endpoint, question, options)
         : active.kind === "resultant-start" && active.before.resultant ? M.commitResultantStart(active.before, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode })
+          : active.kind === "resultant-translate" && active.before.resultant ? M.commitResultantTranslation(active.before, { x: active.endpoint.x - active.startPoint.x, y: active.endpoint.y - active.startPoint.y }, question, { ...options, allowIncomplete: resultantMode })
           : M.commitResultant(active.before, active.originKey, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode });
       nearSnapPoint = null;
-      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.kind === "resultant-start" && active.before.resultant ? "已確認合力起點位置。" : "已確認合力終點位置。", active.target.dataset.semanticKey);
+      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.kind === "resultant-start" && active.before.resultant ? "已確認合力起點位置。" : active.kind === "resultant-translate" ? "已確認合力平移位置。" : "已確認合力終點位置。", active.target.dataset.semanticKey);
       event.preventDefault();
       return true;
     }
@@ -1135,6 +1256,7 @@
     const question = scenario.questions[state.currentQuestion];
     const preview = keyboardLine.kind.startsWith("guide") ? M.previewGuide(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true })
       : keyboardLine.kind === "resultant-start" && keyboardLine.before.resultant ? M.previewResultantStart(keyboardLine.before, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient })
+        : keyboardLine.kind === "resultant-translate" && keyboardLine.before.resultant ? M.previewResultantTranslation(keyboardLine.before, { x: keyboardLine.endpoint.x - keyboardLine.startPoint.x, y: keyboardLine.endpoint.y - keyboardLine.startPoint.y }, question, { snap: true, allowIncomplete: resultantMode, pointerType: "keyboard", project: modelToClient })
         : M.previewResultant(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient });
     updateNearSnap(preview, question, keyboardLine.endpoint, "keyboard", keyboardLine.kind, keyboardLine.originKey);
     renderStage(preview);
@@ -1144,10 +1266,10 @@
   }
 
   function handleOverlayKey(event) {
-    const target = event.target.closest(".force-hit,.line-handle");
+    const target = event.target.closest(".force-hit,.line-handle,.resultant-hit");
     if (!target) return;
     if (keyboardLine && updateKeyboardLine(event)) return;
-    if (target.classList.contains("line-handle") && event.key === "Enter") {
+    if ((target.classList.contains("line-handle") || target.classList.contains("resultant-hit")) && event.key === "Enter") {
       beginKeyboardLine(target);
       event.preventDefault();
       return;
@@ -1214,7 +1336,7 @@
       cancelPointerDrag(event);
     });
     dom.dragLayer.addEventListener("pointerdown", (event) => {
-      const target = event.target.closest(".force-hit,.line-handle");
+      const target = event.target.closest(".force-hit,.line-handle,.resultant-hit");
       if (!target) return;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: target.dataset.semanticKey });
       beginPointerDrag(event, target);
@@ -1236,7 +1358,7 @@
     });
     dom.dragLayer.addEventListener("keydown", handleOverlayKey);
     dom.dragLayer.addEventListener("click", (event) => {
-      const target = event.target.closest(".line-handle");
+      const target = event.target.closest(".line-handle,.resultant-hit");
       if (target && event.detail === 0 && !keyboardLine) beginKeyboardLine(target);
     });
     dom.lineTools.addEventListener("click", (event) => {
@@ -1276,7 +1398,7 @@
     dom.submitDialog.addEventListener("close", () => { if (dom.submitDialog.returnValue === "confirm") submitNow(); });
     dom.retrySave.addEventListener("click", () => { if (saveDraft()) { renderAll(); announce("最新進度已儲存。"); } });
     dom.toggleCorrect.addEventListener("click", () => { correctOverlay = !correctOverlay; renderAll(); });
-    windowObject.addEventListener("resize", () => { if (!drag && !keyboardLine) renderOverlays(); });
+    windowObject.addEventListener("resize", () => { if (!drag && !keyboardLine) renderAll(); });
     bindHostForwarding();
   }
 

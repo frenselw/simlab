@@ -93,6 +93,9 @@ freeResultantStartAnswer.resultant = {
 };
 freeResultantStartState.answers[0] = freeResultantStartAnswer;
 fixtures.push(freeResultantStartState);
+const translatedResultantState = P.freshState(seed);
+translatedResultantState.answers[2] = M.commitResultantTranslation(complete(2, [0, 1]), { x: 40, y: -20 }, scenario.questions[2], { pointerType: "mouse" });
+fixtures.push(translatedResultantState);
 for (const index of [2, 3]) {
   fixtures.push(stateWith(index, M.freshAnswer(scenario.questions[index])));
   fixtures.push(stateWith(index, chain(index, [0, 1], 1)));

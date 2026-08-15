@@ -38,7 +38,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .section-label { margin: 0; color: #1d4ed8; font-size: .75rem; font-weight: 800; letter-spacing: .03em; }
 .task-copy { margin: .25rem 0 .65rem; color: var(--color-text-muted); font-size: .9rem; line-height: 1.5; }
 .subsection { margin-top: .75rem; padding-top: .7rem; border-top: 1px solid var(--color-border-light); }
-.step-prompt { min-height: 3.7rem; display: flex; align-items: center; margin: .55rem 0; padding: .55rem .65rem; border-left: 3px solid var(--color-accent); background: #eff6ff; line-height: 1.45; }
+.step-prompt { min-height: 4rem; display: flex; align-items: center; margin: .55rem 0; padding: .55rem .65rem; border-left: 3px solid var(--color-accent); background: #eff6ff; line-height: 1.45; }
 .fixed-vector-note { margin: .45rem 0; color: var(--color-text-muted); font-size: .82rem; }
 
 .math-expression, .math-svg, .formula { font-family: var(--math-font); }
@@ -86,8 +86,8 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .status-banner p { margin: 0 0 .4rem; line-height: 1.4; }
 .status-banner button { background: #fff; }
 
-.drag-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-.force-hit, .line-handle { position: absolute; pointer-events: auto; touch-action: none; user-select: none; }
+.drag-layer { position: absolute; inset: 0; z-index: 5; overflow: hidden; pointer-events: none; }
+.force-hit, .line-handle, .resultant-hit { position: absolute; pointer-events: auto; touch-action: none; user-select: none; }
 .force-hit { height: 44px; min-height: 44px; padding: 0; border: 2px solid transparent; border-radius: 22px; background: transparent; cursor: move; transform-origin: 0 50%; }
 .force-hit:hover, .force-hit.is-selected { border-color: transparent; background: transparent; box-shadow: none; }
 .force-hit:focus-visible { outline: none; border-color: transparent; background: transparent; box-shadow: none; }
@@ -95,6 +95,8 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .force-hit[data-force-index="1"] { color: var(--force-two); }
 .force-hit[data-force-index="2"] { color: var(--force-three); }
 .force-hit.is-selected { z-index: 3; }
+.resultant-hit { height: 48px; min-height: 48px; padding: 0; border: 2px solid transparent; border-radius: 24px; background: transparent; cursor: move; transform-origin: 24px 24px; z-index: 2; }
+.resultant-hit:hover, .resultant-hit:focus-visible, .resultant-hit.is-dragging { border-color: transparent; background: transparent; box-shadow: none; outline: none; }
 .line-handle { width: 44px; height: 44px; min-height: 44px; padding: 0; transform: translate(-50%, -50%); border: 0; border-radius: 0; background: transparent; color: transparent; font-size: 0; }
 .line-handle { z-index: 4; }
 .line-handle[data-line-kind="resultant"], .line-handle[data-line-kind="resultant-start"], .line-handle[data-line-kind="resultant-end"] { border-color: var(--force-resultant); color: #b45309; }
@@ -168,7 +170,7 @@ dialog::backdrop { background: rgba(15,23,42,.38); }
 }
 
 @media (forced-colors: active) {
-  .force-hit, .line-handle, .question-progress button[data-complete="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
+  .force-hit, .line-handle, .resultant-hit, .question-progress button[data-complete="true"] { forced-color-adjust: auto; border-color: CanvasText; color: CanvasText; background: Canvas; }
   .force-line, .guide-line, .resultant-line { forced-color-adjust: auto; stroke: CanvasText; }
   .primary-button { forced-color-adjust: auto; border-color: ButtonText; background: ButtonText; color: ButtonFace; }
 }

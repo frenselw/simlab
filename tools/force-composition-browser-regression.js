@@ -455,6 +455,13 @@ async function runTouchMatrix(cdp, baseUrl, launchPath, label) {
   await ownedTouchDrag(cdp, '[data-semantic-key="resultant-end"]', await modelPoint(cdp, corner, true), `${label} provisional resultant endpoint`);
   const snappedResult = await elementPoint(cdp, '[data-semantic-key="resultant-end"]', true);
   await ownedTouchDrag(cdp, '[data-semantic-key="resultant-end"]', { x: snappedResult.x - 34, y: snappedResult.y + 30 }, `${label} snapped resultant endpoint`);
+  const beforeTranslation = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[s.currentQuestion],a=s.answers[s.currentQuestion],M=window.ForceCompositionModel; const start=M.lineStartPoint(a.resultant,a,q),end=M.lineEndPoint(a.resultant,a,q); return {start,end,vector:{x:end.x-start.x,y:end.y-start.y}}; })()`, true);
+  const lineHit = await elementPoint(cdp, '.resultant-hit', true);
+  assert.ok(lineHit, `${label}: whole resultant line has a draggable hit target`);
+  await ownedTouchDrag(cdp, '.resultant-hit', { x: lineHit.x + 22, y: lineHit.y + 16 }, `${label} whole resultant translation`);
+  const afterTranslation = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[s.currentQuestion],a=s.answers[s.currentQuestion],M=window.ForceCompositionModel; const start=M.lineStartPoint(a.resultant,a,q),end=M.lineEndPoint(a.resultant,a,q); return {start,end,vector:{x:end.x-start.x,y:end.y-start.y}}; })()`, true);
+  assert.notDeepEqual(afterTranslation.start, beforeTranslation.start, `${label}: whole resultant translation moves its start`);
+  assert.ok(Math.abs(afterTranslation.vector.x - beforeTranslation.vector.x) < 0.2 && Math.abs(afterTranslation.vector.y - beforeTranslation.vector.y) < 0.2, `${label}: whole resultant translation preserves direction and length`);
 
   for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [820, 700]]) {
     await setViewport(cdp, width, height, width < 760);

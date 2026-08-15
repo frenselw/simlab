@@ -379,6 +379,7 @@
   }
 
   function resultantOriginAllowed(question, originKey, options = {}) {
+    if (originKey === "FREE") return true;
     if (options.allowAnyOrigin && question.type === "parallelogram") {
       const keys = [ORIGIN_KEY, "CORNER", "FREE"];
       for (let index = 0; index < question.forces.length; index += 1) keys.push(tailKey(index), headKey(index));
@@ -478,6 +479,47 @@
     return previewResultantStart(answer, candidateStart, question, { ...options, snap: true });
   }
 
+  function boundedTranslationDelta(start, end, delta) {
+    const points = [start, end];
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    return {
+      x: Math.max(FREE_LINE_INSET - minX, Math.min(Generator.WIDTH - FREE_LINE_INSET - maxX, delta.x)),
+      y: Math.max(FREE_LINE_INSET - minY, Math.min(Generator.HEIGHT - FREE_LINE_INSET - maxY, delta.y))
+    };
+  }
+
+  function previewResultantTranslation(answer, delta, question, options = {}) {
+    if (!answer.resultant || (!resultantAvailable(answer, question) && !options.allowIncomplete)) throw new Error("Resultant is not available");
+    const start = lineStartPoint(answer.resultant, answer, question);
+    const end = lineEndPoint(answer.resultant, answer, question);
+    const bounded = boundedTranslationDelta(start, end, delta);
+    const candidateStart = clampLinePoint({ x: start.x + bounded.x, y: start.y + bounded.y });
+    const candidateEnd = clampLinePoint({ x: end.x + bounded.x, y: end.y + bounded.y });
+    const next = clone(answer);
+    next.resultant = {
+      originKey: "FREE",
+      originPoint10: point10(candidateStart),
+      end: { mode: "free", point10: point10(candidateEnd) }
+    };
+    if (question.type === "parallelogram" && options.snap) {
+      const startSnap = selectSnapCandidate(candidateStart, parallelogramCornerTargets(next, question), options);
+      if (startSnap) {
+        next.resultant.originKey = startSnap.key;
+        delete next.resultant.originPoint10;
+      }
+      const endSnap = selectSnapCandidate(candidateEnd, parallelogramCornerTargets(next, question), options);
+      if (endSnap) next.resultant.end = { mode: "snap", targetKey: endSnap.key };
+    }
+    return next;
+  }
+
+  function commitResultantTranslation(answer, delta, question, options = {}) {
+    return previewResultantTranslation(answer, delta, question, { ...options, snap: true });
+  }
+
   function endpointHandles(answer, question) {
     const geometry = forceGeometry(answer, question);
     const handles = [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
@@ -527,6 +569,7 @@
     releaseForceAndDescendants, previewForceTranslation, previewSnappedForceTranslation, legalForceTargets, commitForceTranslation,
     lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide,
     parallelogramCornerTargets, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
+    boundedTranslationDelta, previewResultantTranslation, commitResultantTranslation,
     endpointHandles, guideStartHandles, resultantStartHandles,
     isBlank, questionComplete
   });

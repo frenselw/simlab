@@ -1447,3 +1447,9 @@ Invalid matrix：
 - 平行四邊形合力兩端的 snap targets 是四個角：共同起點、`F_1` 箭頭、`F_2` 箭頭及第四頂點。未貼近角時，起點以 `FREE + originPoint10` 保存，故錯誤答案不會被自動改正；端點自由位置亦保留。
 - persistence 驗證擴展至自由合力起點及四角端點，`canonicalResultant` 仍只把共同起點至第四頂點的正確對角線計為完成。
 - 平行四邊形合力模式的空白舞台 pointer drag 可建立 `FREE + originPoint10` 起點；進入該模式後暫停 host-forwarding，避免學生畫合力時被頁面捲動搶走手勢。
+
+## 24. 手機舞台縮放及合力整體平移（2026-08-16）
+
+- 保留 760×500 物理模型座標及 scoring／保存語意；手機窄舞台按目前作圖幾何建立 camera viewBox，縮小必要留白，讓兩支力在 portrait stage 仍有足夠可拖動及畫線的實際尺寸；desktop／較寬 tablet 保留完整模型視窗，避免力矢量過度放大或裁切。
+- 合力線身新增透明 `resultant-hit` 操作層；pointer／keyboard 拖動整條線會以同一位移量更新起點和終點，方向及長度保持不變，移動期間仍可按平行四邊形四角即時吸附；未吸附的位置以 `FREE + originPoint10` 保存，首尾相接題亦可保存自由起點及自由終點。
+- 新增合力平移的 model／persistence round-trip 覆蓋，並以手機尺寸實際瀏覽器流程檢查 responsive viewBox、合力線身 hit target 及端點位移。

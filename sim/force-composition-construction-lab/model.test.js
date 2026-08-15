@@ -103,6 +103,12 @@ const committedFreeInitial = M.commitResultant(wrongGuides, "FREE", { x: 520, y:
   allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }
 });
 assert.deepEqual(committedFreeInitial.resultant.originPoint10, [2100, 1900], "arbitrary resultant origin persists on release");
+const translatedParallelogram = M.commitResultantTranslation(committedFreeInitial, { x: 40, y: -20 }, firstQuestion, {
+  allowIncomplete: true, pointerType: "mouse"
+});
+assert.equal(translatedParallelogram.resultant.originKey, "FREE", "whole resultant translation preserves an editable free origin");
+assert.deepEqual(translatedParallelogram.resultant.originPoint10, [2500, 1700]);
+assert.deepEqual(M.lineEndPoint(translatedParallelogram.resultant, translatedParallelogram, firstQuestion), { x: 560, y: 280 }, "whole resultant translation preserves the vector");
 
 const HQuestion = scenario.questions[2];
 for (const order of [[0, 1], [1, 0]]) {
@@ -111,6 +117,11 @@ for (const order of [[0, 1], [1, 0]]) {
   assert.equal(M.canonicalResultant(answer, HQuestion), true);
   assert.deepEqual(M.corner(HQuestion), M.endpointForKey(answer, HQuestion, "CHAIN_END"));
 }
+const translatedChain = M.commitResultantTranslation(chainAnswer(HQuestion, [0, 1]), { x: 40, y: -20 }, HQuestion, { pointerType: "mouse" });
+assert.equal(translatedChain.resultant.originKey, "FREE", "head-to-tail resultant can be translated as a whole");
+assert.equal(translatedChain.resultant.end.mode, "free");
+const editedTranslatedChain = M.commitResultant(translatedChain, "FREE", { x: 520, y: 280 }, HQuestion, { pointerType: "mouse" });
+assert.deepEqual(editedTranslatedChain.resultant.end, { mode: "free", point10: [5200, 2800] }, "a translated resultant remains endpoint-editable");
 
 const TQuestion = scenario.questions[4];
 const resultantEndpoints = [];

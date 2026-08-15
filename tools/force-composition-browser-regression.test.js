@@ -28,5 +28,8 @@ assert.match(browser, /__embed-scroll-test\.html/);
 assert.match(main, /marker-end/);
 assert.match(main, /resultant-start-edit/);
 assert.match(main, /beginFreeResultantDrag/);
+assert.match(main, /resultant-hit/);
+assert.match(main, /computeStageCamera/);
+assert.match(main, /previewResultantTranslation/);
 
 console.log("force-composition browser regression wiring tests passed");
