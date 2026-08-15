@@ -41,7 +41,7 @@
         return count ? "再把另一個力的箭尾移到同一個共同起點。" : "先選擇任意位置作為共同起點，再放置第一個力。";
       }
       if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線；方向接近對邊平行時會自動吸附，線長不限。" : "自行選擇端點，畫出兩條與對邊平行的虛線輔助線；方向接近時會自動吸附，線長不限。";
-      return "兩條輔助線已畫出；按「開始畫合力」鎖定前面作圖，再由任意端點畫出合力。";
+      return "兩條輔助線已畫出；按「開始畫合力」鎖定前面作圖，再由任意端點或舞台空白位置畫出合力。";
     }
     const chain = M.chainInfo(answer, question);
     if (!chain.order.length) return "任選一個力，在任意位置開始作圖。";
@@ -112,29 +112,45 @@
     return line;
   }
 
-  function arrowPolygon(start, end, size = 15) {
-    const length = Math.max(.0001, M.distance(start, end));
-    const ux = (end.x - start.x) / length;
-    const uy = (end.y - start.y) / length;
-    const base = { x: end.x - ux * size, y: end.y - uy * size };
-    const px = -uy * size * .52;
-    const py = ux * size * .52;
-    return `${end.x},${end.y} ${base.x + px},${base.y + py} ${base.x - px},${base.y - py}`;
+  function drawArrowMarkers(parent) {
+    const defs = createSvg("defs");
+    const markers = [
+      ["force-one", "arrow-marker-force-one"],
+      ["force-two", "arrow-marker-force-two"],
+      ["force-three", "arrow-marker-force-three"],
+      ["resultant", "arrow-marker-resultant"],
+      ["correct", "arrow-marker-correct"]
+    ];
+    for (const [id, className] of markers) {
+      const marker = createSvg("marker", {
+        id: `arrow-${id}`,
+        viewBox: "0 0 10 10",
+        refX: 8,
+        refY: 5,
+        markerWidth: 4.5,
+        markerHeight: 4.5,
+        orient: "auto",
+        "markerUnits": "strokeWidth"
+      });
+      marker.append(createSvg("path", { d: "M 0 0 L 10 5 L 0 10 z", class: className }));
+      defs.append(marker);
+    }
+    parent.append(defs);
   }
 
   function drawArrow(parent, start, end, options = {}) {
     const className = options.className || "force-line";
-    const line = drawLine(parent, start, end, className, options.forceIndex == null ? {} : { "data-force-index": options.forceIndex });
-    const polygon = createSvg("polygon", {
-      points: arrowPolygon(start, end, options.size || 15),
-      class: options.arrowClass || "force-arrowhead",
-      ...(options.forceIndex == null ? {} : { "data-force-index": options.forceIndex })
+    const forceMarker = ["one", "two", "three"][Number(options.forceIndex)];
+    const markerId = className.includes("correct-overlay") ? "correct" : options.forceIndex == null ? "resultant" : `force-${forceMarker}`;
+    const line = drawLine(parent, start, end, className, {
+      ...(options.forceIndex == null ? {} : { "data-force-index": options.forceIndex }),
+      "marker-end": `url(#arrow-${markerId})`
     });
-    parent.append(polygon);
-    return { line, polygon };
+    return { line, markerId };
   }
 
   function drawGrid(parent) {
+    drawArrowMarkers(parent);
     for (let x = 0; x <= G.WIDTH; x += 40) drawLine(parent, { x, y: 0 }, { x, y: G.HEIGHT }, "grid-line");
     for (let y = 0; y <= G.HEIGHT; y += 40) drawLine(parent, { x: 0, y }, { x: G.WIDTH, y }, "grid-line");
   }
@@ -162,9 +178,9 @@
     const ny = ux;
     const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     const candidates = [
-      [nx * 25, ny * 25], [-nx * 25, -ny * 25],
-      [nx * 18 + ux * 22, ny * 18 + uy * 22], [-nx * 18 + ux * 22, -ny * 18 + uy * 22],
-      [nx * 18 - ux * 22, ny * 18 - uy * 22], [-nx * 18 - ux * 22, -ny * 18 - uy * 22]
+      [nx * 14, ny * 14], [-nx * 14, -ny * 14],
+      [nx * 11 + ux * 14, ny * 11 + uy * 14], [-nx * 11 + ux * 14, -ny * 11 + uy * 14],
+      [nx * 11 - ux * 14, ny * 11 - uy * 14], [-nx * 11 - ux * 14, -ny * 11 - uy * 14]
     ].map(([dx, dy]) => ({ x: midpoint.x + dx, y: midpoint.y + dy }));
     const width = 42;
     const height = 34;
@@ -197,7 +213,7 @@
     geometry.forEach((item, index) => {
       drawArrow(parent, item.tail, item.head, { forceIndex: index });
       const position = forceLabelPosition(item.tail, item.head, occupiedLabels);
-      parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index] }));
+      parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
       occupiedLabels.push({ ...position, width: 42, height: 34 });
     });
     if (question.type !== "parallelogram") {
@@ -208,11 +224,11 @@
       }
     }
     if (answer.resultant) {
-      const start = M.endpointForKey(answer, question, answer.resultant.originKey);
+      const start = M.lineStartPoint(answer.resultant, answer, question);
       const end = M.lineEndPoint(answer.resultant, answer, question);
-      drawArrow(parent, start, end, { className: `resultant-line${answer.resultant.end.mode === "free" ? " provisional" : ""}`, arrowClass: "resultant-arrowhead", size: 17 });
+      drawArrow(parent, start, end, { className: `resultant-line${answer.resultant.end.mode === "free" ? " provisional" : ""}` });
       const position = labelPosition(start, end);
-      parent.append(N.svgLabel(documentObject, N.vector("R"), { x: position.x, y: position.y, fill: "#b45309" }));
+      parent.append(N.svgLabel(documentObject, N.vector("R"), { x: position.x, y: position.y, fill: "#b45309", "text-anchor": "middle" }));
     }
   }
 
@@ -222,20 +238,20 @@
       const firstHead = M.add(start, question.forces[0]);
       const secondHead = M.add(start, question.forces[1]);
       const target = M.corner(question, answer);
-      drawArrow(parent, start, firstHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
-      drawArrow(parent, start, secondHead, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
+      drawArrow(parent, start, firstHead, { className: "force-line correct-overlay" });
+      drawArrow(parent, start, secondHead, { className: "force-line correct-overlay" });
       drawLine(parent, firstHead, target, "guide-line correct-overlay");
       drawLine(parent, secondHead, target, "guide-line correct-overlay");
-      drawArrow(parent, start, target, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
+      drawArrow(parent, start, target, { className: "resultant-line correct-overlay" });
     } else {
       const start = M.anchorPoint(answer);
       let current = start;
       for (const force of question.forces) {
         const next = M.add(current, force);
-        drawArrow(parent, current, next, { className: "force-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 12 });
+        drawArrow(parent, current, next, { className: "force-line correct-overlay" });
         current = next;
       }
-      drawArrow(parent, start, current, { className: "resultant-line correct-overlay", arrowClass: "resultant-arrowhead correct-overlay", size: 16 });
+      drawArrow(parent, start, current, { className: "resultant-line correct-overlay" });
     }
   }
 
@@ -309,6 +325,7 @@
   function shortEndpointLabel(key) {
     if (key === "ORIGIN") return "起點";
     if (key === "CORNER") return "C";
+    if (key === "FREE") return "自由";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return "•";
     const subscripts = { 1: "₁", 2: "₂", 3: "₃" };
@@ -317,7 +334,9 @@
 
   function lineHandlePoint(button, answer, question) {
     const kind = button.dataset.dragKind;
-    if (kind === "guide-start" || kind === "resultant-start") return M.endpointForKey(answer, question, button.dataset.originKey);
+    if (kind === "guide-start") return M.endpointForKey(answer, question, button.dataset.originKey);
+    if (kind === "resultant-start" && answer.resultant && button.dataset.semanticKey === "resultant-start-edit") return M.lineStartPoint(answer.resultant, answer, question);
+    if (kind === "resultant-start") return M.endpointForKey(answer, question, button.dataset.originKey);
     if (kind === "guide-end") return M.lineEndPoint(answer.guides[Number(button.dataset.guideIndex)], answer, question);
     if (kind === "resultant-end" && answer.resultant) return M.lineEndPoint(answer.resultant, answer, question);
     return null;
@@ -401,6 +420,12 @@
           dom.dragLayer.append(button);
         }
       } else {
+        const start = makeOverlayButton("line-handle", "resultant-start-edit", "調整合力起點");
+        start.dataset.dragKind = "resultant-start";
+        start.dataset.lineKind = "resultant-start";
+        start.dataset.originKey = answer.resultant.originKey;
+        positionHandle(start, M.lineStartPoint(answer.resultant, answer, question));
+        dom.dragLayer.append(start);
         const button = makeOverlayButton("line-handle", "resultant-end", "調整合力終點");
         button.dataset.dragKind = "resultant-end";
         button.dataset.lineKind = "resultant-end";
@@ -422,6 +447,7 @@
   function endpointAccessible(key) {
     if (key === "ORIGIN") return "共同起點";
     if (key === "CORNER") return "平行四邊形對角頂點";
+    if (key === "FREE") return "自由位置";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return key;
     return `${N.accessibleForce(Number(match[1]))}的${match[2] === "TAIL" ? "箭尾" : "箭頭"}`;
@@ -475,7 +501,7 @@
     dom.questionTitle.textContent = view.title;
     dom.questionPrompt.textContent = view.prompt;
     dom.stepPrompt.textContent = resultantMode
-      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點拖出合力，方向錯誤的作答也會保留。"
+      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，方向錯誤的作答也會保留。"
       : view.step;
     renderFormula();
     renderLineTools();
@@ -485,6 +511,7 @@
     dom.drawResultant.setAttribute("aria-pressed", String(resultantMode));
     dom.drawResultant.dataset.active = String(resultantMode);
     dom.drawResultant.textContent = resultantMode ? "返回修改力與輔助線" : "開始畫合力（鎖定前面作圖）";
+    dom.stage.classList.toggle("resultant-mode", resultantMode && question.type === "parallelogram");
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
     dom.undo.disabled = resultantMode || !policy.undoEnabled;
@@ -925,12 +952,36 @@
     renderMagnifier(event);
   }
 
+  function beginFreeResultantDrag(event) {
+    if (!resultantMode || !["editable", "retryable"].includes(presentation) || state.phase !== "practice" || event.button > 0) return;
+    const question = scenario.questions[state.currentQuestion];
+    if (question.type !== "parallelogram" || state.answers[state.currentQuestion].resultant) return;
+    const answer = state.answers[state.currentQuestion];
+    const point = clientToModel(event.clientX, event.clientY);
+    drag = {
+      pointerId: event.pointerId,
+      pointerType: event.pointerType || "mouse",
+      kind: "resultant-start",
+      target: dom.stage,
+      before: P.clone(answer),
+      point,
+      startPoint: point,
+      originKey: "FREE",
+      preview: answer,
+      candidate: point
+    };
+    dom.stage.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    renderMagnifier(event);
+  }
+
   function updateNearSnap(preview, question, candidate, pointerType, kind, originKey) {
     nearSnapPoint = null;
     let targets = [];
     if (kind === "force") targets = M.legalForceTargets(preview, question, drag.forceIndex);
     else if (kind.startsWith("guide") && ["F1_HEAD", "F2_HEAD"].includes(originKey)) targets = [{ key: "CORNER", point: M.corner(question, preview) }];
-    else if (kind.startsWith("resultant") && originKey === "ORIGIN") targets = [{ key: question.type === "parallelogram" ? "CORNER" : "CHAIN_END", point: M.corner(question, preview) }];
+    else if (kind === "resultant-end") targets = M.resultantSnapTargets(preview, question, originKey);
+    else if (kind === "resultant-start" && question.type === "parallelogram") targets = M.parallelogramCornerTargets(preview, question);
     const snap = M.selectSnapCandidate(candidate, targets, { pointerType, project: modelToClient });
     if (snap) nearSnapPoint = snap.point;
   }
@@ -946,13 +997,22 @@
       preview = M.previewSnappedForceTranslation(drag.before, drag.forceIndex, candidate, question, { pointerType: drag.pointerType, project: modelToClient });
     } else if (drag.kind.startsWith("guide")) {
       preview = M.previewGuide(drag.before, drag.originKey, point, question, { snap: true });
+    } else if (drag.kind === "resultant-start" && drag.before.resultant) {
+      preview = M.previewResultantStart(drag.before, point, question, {
+        pointerType: drag.pointerType,
+        project: modelToClient,
+        snap: true,
+        allowIncomplete: resultantMode,
+        allowAnyOrigin: resultantMode
+      });
     } else {
       preview = M.previewResultant(drag.before, drag.originKey, point, question, {
         pointerType: drag.pointerType,
         project: modelToClient,
         snap: true,
         allowIncomplete: resultantMode,
-        allowAnyOrigin: resultantMode
+        allowAnyOrigin: resultantMode,
+        originPoint: drag.startPoint
       });
     }
     drag.preview = preview;
@@ -986,13 +1046,21 @@
       message = guide?.end.mode === "snap"
         ? guide.end.targetKey === "PARALLEL" ? "虛線輔助線已吸附到對邊的平行方向，線長可以不同。" : "虛線輔助線已連接到平行四邊形對角頂點。"
         : "虛線輔助線尚未吸附，可拖動終點再調整。";
-    } else {
-      next = M.commitResultant(active.before, active.originKey, point, question, {
+    } else if (active.kind === "resultant-start" && active.before.resultant) {
+      next = M.commitResultantStart(active.before, point, question, {
         ...options,
         allowIncomplete: resultantMode,
         allowAnyOrigin: resultantMode
       });
-      message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力尚未吸附，可拖動終點再調整。";
+      message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力起點已更新，可繼續調整兩端。";
+    } else {
+      next = M.commitResultant(active.before, active.originKey, point, question, {
+        ...options,
+        allowIncomplete: resultantMode,
+        allowAnyOrigin: resultantMode,
+        originPoint: active.startPoint
+      });
+      message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.before.resultant ? "合力終點已更新，可繼續調整兩端。" : "合力已畫出，可繼續拖動起點或終點調整。";
     }
     finalizeAnswer(next, message, active.target.dataset.semanticKey);
   }
@@ -1014,7 +1082,7 @@
     const vertical = event.clientY < rect.top + rect.height / 2 ? "bottom" : "top";
     dom.magnifier.dataset.corner = `${vertical}-${horizontal}`;
     dom.magnifier.classList.add("is-visible");
-    dom.magnifierLabel.textContent = drag?.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag?.kind?.startsWith("guide") ? "虛線輔助線終點" : "合力終點";
+    dom.magnifierLabel.textContent = drag?.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag?.kind?.startsWith("guide") ? "虛線輔助線終點" : drag?.kind === "resultant-start" ? "合力起點" : "合力終點";
   }
 
   function hideMagnifier() {
@@ -1030,9 +1098,10 @@
     let endpoint;
     if (kind === "guide-end") endpoint = M.lineEndPoint(answer.guides[Number(target.dataset.guideIndex)], answer, question);
     else if (kind === "resultant-end") endpoint = M.lineEndPoint(answer.resultant, answer, question);
+    else if (kind === "resultant-start" && answer.resultant) endpoint = M.lineStartPoint(answer.resultant, answer, question);
     else endpoint = M.endpointForKey(answer, question, originKey);
     keyboardLine = { kind, originKey, target, before: P.clone(answer), endpoint };
-    announce("已開始鍵盤畫線。使用方向鍵移動終點，Enter 確認，Escape 取消。");
+    announce(kind === "resultant-start" ? "已開始鍵盤調整合力起點。使用方向鍵移動，Enter 確認，Escape 取消。" : "已開始鍵盤畫線。使用方向鍵移動終點，Enter 確認，Escape 取消。");
   }
 
   function updateKeyboardLine(event) {
@@ -1052,9 +1121,10 @@
       const question = scenario.questions[state.currentQuestion];
       const options = { pointerType: "keyboard", project: modelToClient };
       const next = active.kind.startsWith("guide") ? M.commitGuide(active.before, active.originKey, active.endpoint, question, options)
-        : M.commitResultant(active.before, active.originKey, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode });
+        : active.kind === "resultant-start" && active.before.resultant ? M.commitResultantStart(active.before, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode })
+          : M.commitResultant(active.before, active.originKey, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode });
       nearSnapPoint = null;
-      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "已確認線段位置。", active.target.dataset.semanticKey);
+      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.kind === "resultant-start" && active.before.resultant ? "已確認合力起點位置。" : "已確認合力終點位置。", active.target.dataset.semanticKey);
       event.preventDefault();
       return true;
     }
@@ -1064,7 +1134,8 @@
     keyboardLine.endpoint = M.clampLinePoint({ x: keyboardLine.endpoint.x + vectors[event.key][0] * step, y: keyboardLine.endpoint.y + vectors[event.key][1] * step });
     const question = scenario.questions[state.currentQuestion];
     const preview = keyboardLine.kind.startsWith("guide") ? M.previewGuide(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true })
-      : M.previewResultant(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient });
+      : keyboardLine.kind === "resultant-start" && keyboardLine.before.resultant ? M.previewResultantStart(keyboardLine.before, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient })
+        : M.previewResultant(keyboardLine.before, keyboardLine.originKey, keyboardLine.endpoint, question, { snap: true, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode, pointerType: "keyboard", project: modelToClient });
     updateNearSnap(preview, question, keyboardLine.endpoint, "keyboard", keyboardLine.kind, keyboardLine.originKey);
     renderStage(preview);
     positionExistingOverlays(preview);
@@ -1110,6 +1181,7 @@
       lastY = nextY;
       touchTelemetry.push({ type: "touchmove", isTrusted: event.isTrusted, deltaY });
       try {
+        if (resultantMode) { lastY = null; return; }
         if (windowObject.parent !== windowObject && windowObject.parent.location.origin === windowObject.location.origin) {
           const root = windowObject.parent.document.scrollingElement;
           if (root && root.scrollHeight > root.clientHeight) windowObject.parent.scrollBy(0, deltaY);
@@ -1121,6 +1193,26 @@
   }
 
   function bindEvents() {
+    dom.stage.addEventListener("pointerdown", (event) => {
+      if (event.target !== dom.stage) return;
+      eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
+      beginFreeResultantDrag(event);
+    });
+    dom.stage.addEventListener("pointermove", (event) => {
+      if (!drag || drag.target !== dom.stage) return;
+      eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
+      updatePointerDrag(event);
+    });
+    dom.stage.addEventListener("pointerup", (event) => {
+      if (!drag || drag.target !== dom.stage) return;
+      eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
+      finishPointerDrag(event);
+    });
+    dom.stage.addEventListener("pointercancel", (event) => {
+      if (!drag || drag.target !== dom.stage) return;
+      eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
+      cancelPointerDrag(event);
+    });
     dom.dragLayer.addEventListener("pointerdown", (event) => {
       const target = event.target.closest(".force-hit,.line-handle");
       if (!target) return;

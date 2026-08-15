@@ -82,6 +82,27 @@ wrongGuides.guides = [
 assert.equal(M.resultantAvailable(wrongGuides, firstQuestion), true, "two drawn guides unlock resultant mode even when their directions are wrong");
 const wrongResultant = M.previewResultant(wrongGuides, "F1_HEAD", { x: 650, y: 300 }, firstQuestion, { allowIncomplete: true, allowAnyOrigin: true });
 assert.equal(wrongResultant.resultant.originKey, "F1_HEAD", "resultant mode permits an intentionally wrong start endpoint");
+const snappedToOtherCorner = M.previewResultant(wrongResultant, "F1_HEAD", M.endpointForKey(wrongResultant, firstQuestion, "F2_HEAD"), firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, snap: true, threshold: 1000
+});
+assert.deepEqual(snappedToOtherCorner.resultant.end, { mode: "snap", targetKey: "F2_HEAD" }, "resultant end may snap to any parallelogram corner");
+const movedResultantStart = M.commitResultantStart(snappedToOtherCorner, M.corner(firstQuestion, snappedToOtherCorner), firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, pointerType: "mouse", threshold: 14
+});
+assert.equal(movedResultantStart.resultant.originKey, "CORNER", "resultant start may be dragged to the opposite corner");
+const freeResultantStart = M.commitResultantStart(movedResultantStart, { x: 200, y: 200 }, firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, pointerType: "mouse"
+});
+assert.equal(freeResultantStart.resultant.originKey, "FREE", "resultant start remains editable between corner snaps");
+assert.deepEqual(freeResultantStart.resultant.originPoint10, [2000, 2000]);
+const freeInitialResultant = M.previewResultant(wrongGuides, "FREE", { x: 520, y: 300 }, firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }
+});
+assert.deepEqual(freeInitialResultant.resultant.originPoint10, [2100, 1900], "resultant can begin at an arbitrary stage position");
+const committedFreeInitial = M.commitResultant(wrongGuides, "FREE", { x: 520, y: 300 }, firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }
+});
+assert.deepEqual(committedFreeInitial.resultant.originPoint10, [2100, 1900], "arbitrary resultant origin persists on release");
 
 const HQuestion = scenario.questions[2];
 for (const order of [[0, 1], [1, 0]]) {

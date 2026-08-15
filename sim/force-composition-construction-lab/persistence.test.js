@@ -80,6 +80,19 @@ intentionallyWrongAnswer.guides = [
 intentionallyWrongAnswer.resultant = { originKey: "F1_HEAD", end: { mode: "free", point10: [6500, 3000] } };
 intentionallyWrongResultant.answers[0] = intentionallyWrongAnswer;
 fixtures.push(intentionallyWrongResultant);
+const freeResultantStartState = P.freshState(seed);
+const freeResultantStartAnswer = commonP(0);
+freeResultantStartAnswer.guides = [
+  { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 3000] } },
+  { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
+];
+freeResultantStartAnswer.resultant = {
+  originKey: "FREE",
+  originPoint10: [2200, 1900],
+  end: { mode: "snap", targetKey: "F2_HEAD" }
+};
+freeResultantStartState.answers[0] = freeResultantStartAnswer;
+fixtures.push(freeResultantStartState);
 for (const index of [2, 3]) {
   fixtures.push(stateWith(index, M.freshAnswer(scenario.questions[index])));
   fixtures.push(stateWith(index, chain(index, [0, 1], 1)));
@@ -196,6 +209,14 @@ invalid((value) => {
   value.answers[2] = chain(2, [0, 1], 1);
   value.answers[2].resultant = { originKey: "ORIGIN", end: { mode: "free", point10: [3000, 3000] } };
 }, /before-chain/);
+invalid((value) => {
+  value.answers[0] = commonP(0);
+  value.answers[0].guides = [
+    { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 3000] } },
+    { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
+  ];
+  value.answers[0].resultant = { originKey: "FREE", end: { mode: "free", point10: [3000, 3000] } };
+}, /resultant-origin-point/);
 
 const contaminatedReview = P.encodeReview(completeSummary);
 contaminatedReview.phase = "summary";

@@ -73,6 +73,7 @@
   }
 
   function validateLineEnd(end, targetKey) {
+    const allowedTargets = Array.isArray(targetKey) ? targetKey : [targetKey];
     if (!onlyKeys(end, ["mode", "point10", "targetKey"])) return "line-end-fields";
     if (end.mode === "free") {
       if (!validPoint10(end.point10) || "targetKey" in end) return "free-line-shape";
@@ -81,8 +82,8 @@
           point.y < Model.FREE_LINE_INSET || point.y > Generator.HEIGHT - Model.FREE_LINE_INSET) return "free-line-bounds";
       return null;
     }
-    if (end.mode !== "snap" || end.targetKey !== targetKey) return "line-snap-target";
-    if (targetKey === "PARALLEL") {
+    if (end.mode !== "snap" || !allowedTargets.includes(end.targetKey)) return "line-snap-target";
+    if (end.targetKey === "PARALLEL") {
       if (!validPoint10(end.point10)) return "parallel-line-shape";
       const point = Model.fromPoint10(end.point10);
       if (point.x < Model.FREE_LINE_INSET || point.x > Generator.WIDTH - Model.FREE_LINE_INSET ||
@@ -119,12 +120,17 @@
     }
     if (answer.resultant !== null) {
       if (!Model.resultantAvailable(answer, question)) return "resultant-before-guides";
-      if (!onlyKeys(answer.resultant, ["originKey", "end"])) return "resultant-shape";
-      const allowed = ["ORIGIN", "F1_TAIL", "F1_HEAD", "F2_TAIL", "F2_HEAD", "CORNER"];
+      if (!onlyKeys(answer.resultant, ["originKey", "originPoint10", "end"])) return "resultant-shape";
+      const allowed = ["ORIGIN", "F1_TAIL", "F1_HEAD", "F2_TAIL", "F2_HEAD", "CORNER", "FREE"];
       if (!allowed.includes(answer.resultant.originKey)) return "resultant-origin";
-      const issue = validateLineEnd(answer.resultant.end, "CORNER");
+      if (answer.resultant.originKey === "FREE") {
+        if (!Model.validPoint10(answer.resultant.originPoint10)) return "resultant-origin-point";
+        const point = Model.fromPoint10(answer.resultant.originPoint10);
+        const clamped = Model.clampLinePoint(point);
+        if (Math.abs(point.x - clamped.x) > Model.MODEL_EPSILON || Math.abs(point.y - clamped.y) > Model.MODEL_EPSILON) return "resultant-origin-bounds";
+      } else if ("originPoint10" in answer.resultant) return "resultant-origin-point";
+      const issue = validateLineEnd(answer.resultant.end, ["ORIGIN", "F1_HEAD", "F2_HEAD", "CORNER"]);
       if (issue) return issue;
-      if (answer.resultant.end.mode === "snap" && answer.resultant.originKey !== "ORIGIN") return "snapped-resultant-origin";
     }
     return null;
   }
@@ -143,7 +149,7 @@
     if (!chain.valid) return chain.reason || "chain-invalid";
     if (answer.resultant !== null) {
       if (!chain.complete) return "resultant-before-chain";
-      if (!onlyKeys(answer.resultant, ["originKey", "end"])) return "resultant-shape";
+      if (!onlyKeys(answer.resultant, ["originKey", "originPoint10", "end"])) return "resultant-shape";
       const endpointKeys = ["ORIGIN"];
       for (let index = 0; index < question.forces.length; index += 1) endpointKeys.push(Model.tailKey(index), Model.headKey(index));
       const allowed = questionIndex === 2 ? ["ORIGIN"] : endpointKeys;
@@ -151,6 +157,7 @@
       const issue = validateLineEnd(answer.resultant.end, "CHAIN_END");
       if (issue) return issue;
       if (answer.resultant.end.mode === "snap" && answer.resultant.originKey !== "ORIGIN") return "snapped-resultant-origin";
+      if ("originPoint10" in answer.resultant) return "resultant-origin-point";
     }
     return null;
   }
