@@ -126,7 +126,9 @@
       const marker = createSvg("marker", {
         id: `arrow-${id}`,
         viewBox: "0 0 10 10",
-        refX: 8,
+        // The path tip is at x=10. Align that tip with the SVG line endpoint;
+        // refX=8 leaves the last two marker units hanging beyond snap targets.
+        refX: 10,
         refY: 5,
         markerWidth: 4.5,
         markerHeight: 4.5,
