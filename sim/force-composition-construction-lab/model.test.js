@@ -127,6 +127,11 @@ assert.equal(translatedChain.resultant.originKey, "FREE", "head-to-tail resultan
 assert.equal(translatedChain.resultant.end.mode, "free");
 const editedTranslatedChain = M.commitResultant(translatedChain, "FREE", { x: 520, y: 280 }, HQuestion, { pointerType: "mouse" });
 assert.deepEqual(editedTranslatedChain.resultant.end, { mode: "free", point10: [5200, 2800] }, "a translated resultant remains endpoint-editable");
+const arbitraryChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1]), "F1_HEAD", M.endpointForKey(chainAnswer(HQuestion, [0, 1]), HQuestion, "F2_HEAD"), HQuestion, {
+  allowAnyOrigin: true, pointerType: "mouse", threshold: 14
+});
+assert.equal(arbitraryChainResultant.resultant.originKey, "F1_HEAD", "head-to-tail resultant may start at any force endpoint");
+assert.deepEqual(arbitraryChainResultant.resultant.end, { mode: "snap", targetKey: "F2_HEAD" }, "head-to-tail resultant endpoint may snap to any force endpoint");
 
 const TQuestion = scenario.questions[4];
 const resultantEndpoints = [];

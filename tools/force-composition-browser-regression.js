@@ -252,21 +252,23 @@ async function enterResultantMode(cdp, embedded = false) {
 async function completeCurrentQuestion(cdp, index, order, input, embedded = false) {
   await navigateQuestion(cdp, index, embedded);
   const question = await inActivity(cdp, "window.__forceCompositionApp.getScenario().questions[window.__forceCompositionApp.getState().currentQuestion]", embedded);
+  assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').disabled", embedded), true, `${input}: resultant button starts disabled before prerequisites`);
   if (question.type === "parallelogram") {
     await moveForce(cdp, 0, "ORIGIN", input, embedded);
     await moveForce(cdp, 1, "ORIGIN", input, embedded);
     const corner = await targetModelPoint(cdp, "CORNER", embedded);
     await drawLine(cdp, "guide-start-F1_HEAD", corner, input, embedded);
     await drawLine(cdp, "guide-start-F2_HEAD", corner, input, embedded);
-    await enterResultantMode(cdp, embedded);
-    await drawLine(cdp, "resultant-start-ORIGIN", corner, input, embedded);
   } else {
     const actualOrder = order || question.forces.map((_, forceIndex) => forceIndex);
     await moveForce(cdp, actualOrder[0], "ORIGIN", input, embedded);
     for (let position = 1; position < actualOrder.length; position += 1) await moveForce(cdp, actualOrder[position], `F${actualOrder[position - 1] + 1}_HEAD`, input, embedded);
-    const end = await targetModelPoint(cdp, "CHAIN_END", embedded);
-    await drawLine(cdp, "resultant-start-ORIGIN", end, input, embedded);
   }
+  assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').disabled", embedded), false, `${input}: resultant button unlocks after prerequisites`);
+  await enterResultantMode(cdp, embedded);
+  assert.ok(await elementPoint(cdp, '[data-semantic-key="resultant-start-ORIGIN"]', embedded), `${input}: resultant mode exposes a consistent origin handle`);
+  const resultantEnd = await targetModelPoint(cdp, question.type === "parallelogram" ? "CORNER" : "CHAIN_END", embedded);
+  await drawLine(cdp, "resultant-start-ORIGIN", resultantEnd, input, embedded);
   const complete = await inActivity(cdp, `window.__forceCompositionApp.getCompletion()[${index}]`, embedded);
   if (!complete) {
     const diagnostic = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${index}],a=s.answers[${index}];return {answer:a,score:window.ForceCompositionScoring.questionDetail(a,q,${index})}; })()`, embedded);

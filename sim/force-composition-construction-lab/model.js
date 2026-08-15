@@ -398,9 +398,11 @@
 
   function resultantOriginAllowed(question, originKey, options = {}) {
     if (originKey === "FREE") return true;
-    if (options.allowAnyOrigin && question.type === "parallelogram") {
-      const keys = [ORIGIN_KEY, "CORNER", "FREE"];
+    if (options.allowAnyOrigin) {
+      const keys = [ORIGIN_KEY, "FREE"];
       for (let index = 0; index < question.forces.length; index += 1) keys.push(tailKey(index), headKey(index));
+      if (question.type === "parallelogram") keys.push("CORNER");
+      else keys.push("CHAIN_END");
       return keys.includes(originKey);
     }
     if (question.guided) return originKey === ORIGIN_KEY;
@@ -423,7 +425,7 @@
 
   function resultantSnapTargets(answer, question, originKey = ORIGIN_KEY) {
     if (question.type === "parallelogram") return parallelogramCornerTargets(answer, question);
-    return originKey === ORIGIN_KEY ? [{ key: "CHAIN_END", point: corner(question, answer) }] : [];
+    return endpointHandles(answer, question);
   }
 
   function previewGuide(answer, originKey, candidateEnd, question, options = {}) {
@@ -522,13 +524,14 @@
       originPoint10: point10(candidateStart),
       end: { mode: "free", point10: point10(candidateEnd) }
     };
-    if (question.type === "parallelogram" && options.snap) {
-      const startSnap = selectSnapCandidate(candidateStart, parallelogramCornerTargets(next, question), options);
+    if (options.snap) {
+      const targets = question.type === "parallelogram" ? parallelogramCornerTargets(next, question) : endpointHandles(next, question);
+      const startSnap = selectSnapCandidate(candidateStart, targets, options);
       if (startSnap) {
         next.resultant.originKey = startSnap.key;
         delete next.resultant.originPoint10;
       }
-      const endSnap = selectSnapCandidate(candidateEnd, parallelogramCornerTargets(next, question), options);
+      const endSnap = selectSnapCandidate(candidateEnd, targets, options);
       if (endSnap) next.resultant.end = { mode: "snap", targetKey: endSnap.key };
     }
     return next;
@@ -545,7 +548,7 @@
       handles.push({ key: tailKey(index), point: geometry[index].tail });
       handles.push({ key: headKey(index), point: geometry[index].head });
     }
-    if (question.type === "parallelogram") handles.push({ key: "CORNER", point: corner(question, answer) });
+    handles.push({ key: question.type === "parallelogram" ? "CORNER" : "CHAIN_END", point: corner(question, answer) });
     return handles;
   }
 
@@ -563,7 +566,7 @@
 
   function resultantStartHandles(answer, question, options = {}) {
     if (!resultantAvailable(answer, question) || canonicalResultant(answer, question)) return [];
-    if (options.allowAnyOrigin && question.type === "parallelogram") return endpointHandles(answer, question);
+    if (options.allowAnyOrigin) return endpointHandles(answer, question);
     if (question.guided) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     return endpointHandles(answer, question);
   }

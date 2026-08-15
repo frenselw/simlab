@@ -300,13 +300,6 @@
       parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
       occupiedLabels.push(position.box);
     });
-    if (question.type !== "parallelogram") {
-      const chain = M.chainInfo(answer, question);
-      for (let index = 1; index < chain.order.length; index += 1) {
-        const point = M.endpointForKey(answer, question, M.tailKey(chain.order[index]));
-        parent.append(createSvg("circle", { cx: point.x, cy: point.y, r: 6, class: "junction" }));
-      }
-    }
     if (answer.resultant) {
       const start = M.lineStartPoint(answer.resultant, answer, question);
       const end = M.lineEndPoint(answer.resultant, answer, question);
@@ -538,8 +531,8 @@
     const question = scenario.questions[state.currentQuestion];
     const answer = answerOverride || state.answers[state.currentQuestion];
     const geometry = M.forceGeometry(answer, question);
-    const lockComposition = question.type === "parallelogram" && resultantMode;
-    const showResultant = lockComposition || question.type !== "parallelogram";
+    const lockComposition = resultantMode;
+    const showResultant = resultantMode;
     if (!lockComposition) {
       geometry.forEach((item, index) => {
         const button = makeOverlayButton("force-hit", `force-${index}`, forceAccessibleLabel(index, item));
@@ -571,7 +564,7 @@
     }
     if (showResultant) {
       if (!answer.resultant) {
-        for (const handle of M.resultantStartHandles(answer, question, { allowAnyOrigin: lockComposition })) {
+        for (const handle of M.resultantStartHandles(answer, question, { allowAnyOrigin: resultantMode })) {
           const button = makeOverlayButton("line-handle", `resultant-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫合力`);
           button.dataset.dragKind = "resultant-start";
           button.dataset.lineKind = "resultant";
@@ -677,13 +670,13 @@
       : view.step;
     renderFormula();
     renderLineTools();
-    const resultantAvailable = question.type === "parallelogram" && M.resultantAvailable(answer, question);
-    dom.drawResultant.classList.toggle("is-hidden", !resultantAvailable);
+    const resultantAvailable = M.resultantAvailable(answer, question);
+    dom.drawResultant.classList.remove("is-hidden");
     dom.drawResultant.disabled = !resultantAvailable;
     dom.drawResultant.setAttribute("aria-pressed", String(resultantMode));
     dom.drawResultant.dataset.active = String(resultantMode);
-    dom.drawResultant.textContent = resultantMode ? "返回修改力與輔助線" : "開始畫合力（鎖定前面作圖）";
-    dom.stage.classList.toggle("resultant-mode", resultantMode && question.type === "parallelogram");
+    dom.drawResultant.textContent = resultantMode ? "返回修改力與作圖" : resultantAvailable ? "開始畫合力（鎖定前面作圖）" : "完成前置作圖後開始畫合力";
+    dom.stage.classList.toggle("resultant-mode", resultantMode);
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
     dom.undo.disabled = resultantMode || !policy.undoEnabled;
@@ -967,15 +960,17 @@
     if (undoStacks[index].length > 20) undoStacks[index].shift();
   }
 
-  function finalizeAnswer(nextAnswer, message, focusKey) {
+  function finalizeAnswer(nextAnswer, message, focusKey, options = {}) {
     const index = state.currentQuestion;
     const previous = state.answers[index];
     if (JSON.stringify(previous) === JSON.stringify(nextAnswer)) { renderAll({ focusKey }); return; }
+    const panelScrollTop = options.preservePanelScroll ? dom.controlPanel.scrollTop : null;
     pushUndo(index, previous);
     state.answers[index] = nextAnswer;
     state = P.productionRoundTrip(state);
     saveDraft();
     renderAll({ focusKey });
+    if (panelScrollTop !== null) dom.controlPanel.scrollTop = panelScrollTop;
     if (message) announce(message);
   }
 
@@ -1025,7 +1020,7 @@
   function toggleResultantMode() {
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
-    if (question.type !== "parallelogram" || !M.resultantAvailable(answer, question)) return;
+    if (!M.resultantAvailable(answer, question)) return;
     resultantMode = !resultantMode;
     renderAll();
     announce(resultantMode ? "已進入合力作圖模式；力矢量及輔助線暫時鎖定。" : "已返回修改力矢量及輔助線模式。");
@@ -1133,7 +1128,7 @@
   function beginFreeResultantDrag(event) {
     if (!resultantMode || !["editable", "retryable"].includes(presentation) || state.phase !== "practice" || event.button > 0) return;
     const question = scenario.questions[state.currentQuestion];
-    if (question.type !== "parallelogram" || state.answers[state.currentQuestion].resultant) return;
+    if (state.answers[state.currentQuestion].resultant) return;
     const answer = state.answers[state.currentQuestion];
     const point = clientToModel(event.clientX, event.clientY);
     drag = {
@@ -1160,9 +1155,9 @@
     if (kind === "force") targets = M.legalForceTargets(preview, question, drag.forceIndex);
     else if (kind.startsWith("guide") && ["F1_HEAD", "F2_HEAD"].includes(originKey)) targets = [{ key: "CORNER", point: M.corner(question, preview) }];
     else if (kind === "resultant-end") targets = M.resultantSnapTargets(preview, question, originKey);
-    else if (kind === "resultant-start" && question.type === "parallelogram") targets = M.parallelogramCornerTargets(preview, question);
-    else if (kind === "resultant-translate" && question.type === "parallelogram" && preview.resultant) {
-      const targetsForLine = M.parallelogramCornerTargets(preview, question);
+    else if (kind === "resultant-start") targets = M.resultantStartHandles(preview, question, { allowAnyOrigin: resultantMode });
+    else if (kind === "resultant-translate" && preview.resultant) {
+      const targetsForLine = question.type === "parallelogram" ? M.parallelogramCornerTargets(preview, question) : M.endpointHandles(preview, question);
       const startSnap = M.selectSnapCandidate(M.lineStartPoint(preview.resultant, preview, question), targetsForLine, { pointerType, project: modelToClient });
       const endSnap = M.selectSnapCandidate(M.lineEndPoint(preview.resultant, preview, question), targetsForLine, { pointerType, project: modelToClient });
       nearSnapPoint = (startSnap || endSnap)?.point || null;
@@ -1263,7 +1258,7 @@
       });
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.before.resultant ? "合力終點已更新，可繼續調整兩端。" : "合力已畫出，可繼續拖動起點或終點調整。";
     }
-    finalizeAnswer(next, message, active.target.dataset.semanticKey);
+    finalizeAnswer(next, message, active.target.dataset.semanticKey, { preservePanelScroll: true });
   }
 
   function cancelPointerDrag(event) {

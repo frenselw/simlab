@@ -1475,3 +1475,11 @@ Invalid matrix：
 - 首個被移動的力若接近另一支尚未放置力的箭頭，兩力會即時以「另一支力為鏈根、正在移動的力接到其箭頭」保存；不再只支援先移動某一固定力的方向。
 - H1、H2 及 T1 的首次吸附因此支援任意力先行，後續力仍只會吸附到目前力鏈最後一個箭頭；滑鼠、觸控及鍵盤共用相同端點關係及 snap 閾值。
 - 新增 reverse-first model coverage，並把 H1/H2 production mouse flow 改為相反次序；完整 source/package browser regression 仍通過。
+
+## 29. 首尾連接法與合力模式統一（2026-08-16）
+
+- 首尾連接法及三力題不再顯示連接位置的裝飾圓點；端點關係只以箭頭／透明 hit target 表達，視覺風格與平行四邊形題一致。
+- 五題共用同一個「開始畫合力（鎖定前面作圖）」按鈕契約：前置力／輔助線未完成時按鈕仍顯示但 disabled；解鎖後進入合力模式，力矢量及輔助線不可再移動，按鈕可返回修改模式。
+- H1、H2、T1 合力模式接受舞台空白或任一力的箭尾／箭頭作為起點，終點亦可自由繪畫；兩端可在 pointer／keyboard 拖動時即時吸附到任一力端點或鏈尾，並保留錯誤方向／錯誤端點供學生修改。
+- persistence 接受上述首尾題自由／吸附端點，但 `canonicalResultant` 及 scoring 仍只把由共同起點至正確鏈尾的合力計為完成；錯誤作答不會被 UI 自動修正。
+- pointer 完成作圖後保留 control panel 原有 scrollTop，避免新增「清除輔助線」或合力控制項造成手機拖動期間面板跳動；source 與 extracted SCORM trusted-touch matrix 均通過。

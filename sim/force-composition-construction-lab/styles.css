@@ -116,7 +116,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(37, 99,
 .correct-overlay { opacity: .55; }
 .correct-overlay.guide-line { stroke: #0f766e; }
 .correct-overlay.force-line, .correct-overlay.resultant-line { fill: #0f766e; }
-.junction { fill: #fff; stroke: #475569; stroke-width: 3; }
 
 .magnifier { position: absolute; z-index: 9; width: 8.5rem; min-height: 6rem; display: none; padding: .35rem; border: 2px solid var(--color-accent); border-radius: 8px; background: rgba(255,255,255,.96); box-shadow: 0 8px 18px rgba(15,23,42,.2); pointer-events: none; }
 .magnifier.is-visible { display: grid; }

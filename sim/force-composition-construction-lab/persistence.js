@@ -152,11 +152,11 @@
       if (!onlyKeys(answer.resultant, ["originKey", "originPoint10", "end"])) return "resultant-shape";
       const endpointKeys = ["ORIGIN"];
       for (let index = 0; index < question.forces.length; index += 1) endpointKeys.push(Model.tailKey(index), Model.headKey(index));
-      const allowed = questionIndex === 2 ? ["ORIGIN", "FREE"] : [...endpointKeys, "FREE"];
+      endpointKeys.push("CHAIN_END");
+      const allowed = [...endpointKeys, "FREE"];
       if (!allowed.includes(answer.resultant.originKey)) return "resultant-origin";
-      const issue = validateLineEnd(answer.resultant.end, "CHAIN_END");
+      const issue = validateLineEnd(answer.resultant.end, endpointKeys);
       if (issue) return issue;
-      if (answer.resultant.end.mode === "snap" && answer.resultant.originKey !== "ORIGIN") return "snapped-resultant-origin";
       if (answer.resultant.originKey === "FREE") {
         if (!Model.validPoint10(answer.resultant.originPoint10)) return "resultant-origin-point";
         const point = Model.fromPoint10(answer.resultant.originPoint10);
