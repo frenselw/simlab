@@ -18,6 +18,10 @@
 
   const { Generator: G, Notation: N, Model: M, Scoring: S, Persistence: P, UiRuntime: UI } = dependencies;
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const TOUCH_PREVIEW_VIEWBOX_WIDTH = 220;
+  const TOUCH_PREVIEW_VIEWBOX_HEIGHT = 150;
+  const TOUCH_PREVIEW_ASPECT = TOUCH_PREVIEW_VIEWBOX_WIDTH / TOUCH_PREVIEW_VIEWBOX_HEIGHT;
+  const TOUCH_PREVIEW_MARGIN = 12;
 
   const QUESTION_COPY = Object.freeze([
     Object.freeze({ type: "平行四邊形法則・基礎一", title: "用平行四邊形法則作出兩力合力", prompt: "先把兩個箭尾移到共同起點，再由兩個箭頭各畫一條虛線輔助線，最後畫出對角線合力。" }),
@@ -85,13 +89,14 @@
   let keyboardLine = null;
   let nearSnapPoint = null;
   let stageCamera = { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
+  let stageCameraContext = null;
   const undoStacks = Array.from({ length: 5 }, () => []);
   const eventTelemetry = [];
   const touchTelemetry = [];
 
   function cacheDom() {
     for (const id of [
-      "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierLabel", "magnifierLine",
+      "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierSvg", "magnifierFocus", "magnifierLabel",
       "saveBanner", "saveBannerText", "retrySave", "technicalPanel", "technicalTitle", "technicalMessage", "technicalActions",
       "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "drawResultant", "deleteResultant", "questionProgress",
       "undo", "resetQuestion", "previousQuestion", "nextQuestion", "goSummary", "summaryPanel", "summaryList", "summaryWarning",
@@ -364,6 +369,10 @@
     return { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
   }
 
+  function stageCameraKey() {
+    return state && scenario ? `${state.seed}:${state.currentQuestion}` : null;
+  }
+
   function computeStageCamera(answer, question) {
     const stageWidth = dom.stage?.clientWidth || 0;
     const stageHeight = dom.stage?.clientHeight || 0;
@@ -397,6 +406,23 @@
     return camera;
   }
 
+  function lockedStageCamera(answer, question) {
+    const stageWidth = dom.stage?.clientWidth || 0;
+    const stageHeight = dom.stage?.clientHeight || 0;
+    const key = stageCameraKey();
+    if (!key || !stageWidth || !stageHeight) return fullStageCamera();
+    if (!stageCameraContext || stageCameraContext.key !== key ||
+        stageCameraContext.stageWidth !== stageWidth || stageCameraContext.stageHeight !== stageHeight) {
+      stageCameraContext = {
+        key,
+        stageWidth,
+        stageHeight,
+        camera: computeStageCamera(answer, question)
+      };
+    }
+    return { ...stageCameraContext.camera };
+  }
+
   function setStageCamera(camera) {
     stageCamera = { ...camera };
     dom.stageSvg.setAttribute("viewBox", `${camera.x} ${camera.y} ${camera.width} ${camera.height}`);
@@ -405,7 +431,7 @@
   function renderStage(answerOverride = null) {
     const question = state && scenario ? scenario.questions[state.currentQuestion] : null;
     const answer = answerOverride || (state && scenario ? state.answers[state.currentQuestion] : null);
-    const camera = drag?.camera || keyboardLine?.camera || (answer && question ? computeStageCamera(answer, question) : fullStageCamera());
+    const camera = drag?.camera || keyboardLine?.camera || (answer && question ? lockedStageCamera(answer, question) : fullStageCamera());
     setStageCamera(camera);
     dom.stageSvg.replaceChildren();
     const background = createSvg("g", { "aria-hidden": "true" });
@@ -416,18 +442,88 @@
     if (presentation === "review" && trustedReview && correctOverlay) drawCorrectGeometry(dom.stageSvg, answer, question);
   }
 
+  function clampValue(value, minimum, maximum) {
+    if (maximum < minimum) return minimum;
+    return Math.min(maximum, Math.max(minimum, value));
+  }
+
+  function clampToCamera(point, camera = stageCamera) {
+    return {
+      x: clampValue(point.x, camera.x, camera.x + camera.width),
+      y: clampValue(point.y, camera.y, camera.y + camera.height)
+    };
+  }
+
+  function clonePreviewChild(child) {
+    const clone = child.cloneNode(true);
+    clone.removeAttribute?.("id");
+    clone.removeAttribute?.("tabindex");
+    clone.querySelectorAll?.("[id], [tabindex]").forEach((element) => {
+      element.removeAttribute("id");
+      element.removeAttribute("tabindex");
+    });
+    return clone;
+  }
+
+  function renderMagnifier(event) {
+    if (!event || !drag || !["touch", "pen"].includes(event.pointerType) || !dom.magnifierSvg) return;
+    const camera = drag.camera || stageCamera;
+    const focus = drag.focusPoint || drag.point || clientToModel(event.clientX, event.clientY);
+    const availableWidth = Math.max(1, camera.width - TOUCH_PREVIEW_MARGIN);
+    const availableHeight = Math.max(1, camera.height - TOUCH_PREVIEW_MARGIN);
+    let viewWidth = Math.min(TOUCH_PREVIEW_VIEWBOX_WIDTH, availableWidth);
+    let viewHeight = viewWidth / TOUCH_PREVIEW_ASPECT;
+    if (viewHeight > availableHeight) {
+      viewHeight = Math.min(TOUCH_PREVIEW_VIEWBOX_HEIGHT, availableHeight);
+      viewWidth = Math.min(TOUCH_PREVIEW_VIEWBOX_WIDTH, viewHeight * TOUCH_PREVIEW_ASPECT);
+    }
+    const minX = camera.x;
+    const minY = camera.y;
+    const maxX = camera.x + camera.width - viewWidth;
+    const maxY = camera.y + camera.height - viewHeight;
+    const viewX = clampValue(focus.x - viewWidth / 2, minX, maxX);
+    const viewY = clampValue(focus.y - viewHeight / 2, minY, maxY);
+    dom.magnifierSvg.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+    dom.magnifierSvg.replaceChildren(...Array.from(dom.stageSvg.children).map(clonePreviewChild));
+    const focusX = clampValue((focus.x - viewX) / viewWidth * 100, 0, 100);
+    const focusY = clampValue((focus.y - viewY) / viewHeight * 100, 0, 100);
+    dom.magnifier.style.setProperty("--preview-focus-x", `${focusX}%`);
+    dom.magnifier.style.setProperty("--preview-focus-y", `${focusY}%`);
+    const rect = dom.stage.getBoundingClientRect();
+    const horizontal = event.clientX < rect.left + rect.width / 2 ? "right" : "left";
+    const vertical = event.clientY < rect.top + rect.height / 2 ? "bottom" : "top";
+    dom.magnifier.dataset.corner = `${vertical}-${horizontal}`;
+    dom.magnifierLabel.textContent = drag.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag.kind?.startsWith("guide") ? "虛線輔助線終點" : drag.kind === "resultant-start" ? "合力起點" : drag.kind === "resultant-translate" ? "平移整支合力" : "合力終點";
+    dom.magnifier.classList.add("is-visible");
+  }
+
+  function hideMagnifier() {
+    dom.magnifier?.classList.remove("is-visible");
+    dom.magnifierSvg?.replaceChildren();
+  }
+
   function modelToClient(point) {
-    const svgPoint = dom.stageSvg.createSVGPoint();
-    svgPoint.x = point.x;
-    svgPoint.y = point.y;
-    return svgPoint.matrixTransform(dom.stageSvg.getScreenCTM());
+    const rect = dom.stageSvg.getBoundingClientRect();
+    const viewBox = dom.stageSvg.viewBox.baseVal;
+    const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height);
+    const offsetX = (rect.width - viewBox.width * scale) / 2;
+    const offsetY = (rect.height - viewBox.height * scale) / 2;
+    return {
+      x: rect.left + offsetX + (point.x - viewBox.x) * scale,
+      y: rect.top + offsetY + (point.y - viewBox.y) * scale
+    };
   }
 
   function clientToModel(clientX, clientY) {
-    const svgPoint = dom.stageSvg.createSVGPoint();
-    svgPoint.x = clientX;
-    svgPoint.y = clientY;
-    return svgPoint.matrixTransform(dom.stageSvg.getScreenCTM().inverse());
+    const rect = dom.stageSvg.getBoundingClientRect();
+    const viewBox = dom.stageSvg.viewBox.baseVal;
+    const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height);
+    const offsetX = (rect.width - viewBox.width * scale) / 2;
+    const offsetY = (rect.height - viewBox.height * scale) / 2;
+    return {
+      x: viewBox.x + (clientX - rect.left - offsetX) / scale,
+      y: viewBox.y + (clientY - rect.top - offsetY) / scale
+    };
   }
 
   function pointInLayer(point) {
@@ -615,6 +711,15 @@
       dom.dragLayer.querySelectorAll(".resultant-hit").forEach((button) => positionResultantButton(button, start, end));
     }
     layoutLineHandles(answer, question);
+  }
+
+  function resultantHandleAtPointer(event) {
+    if (!event?.clientX || !event?.clientY) return null;
+    return [...dom.dragLayer.querySelectorAll('.line-handle[data-line-kind="resultant"], .line-handle[data-line-kind="resultant-start"], .line-handle[data-line-kind="resultant-end"]')]
+      .find((button) => {
+        const rect = button.getBoundingClientRect();
+        return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      }) || null;
   }
 
   function endpointAccessible(key) {
@@ -1120,7 +1225,7 @@
     const kind = target.dataset.dragKind;
     if (resultantMode && !kind.startsWith("resultant")) return;
     const point = clientToModel(event.clientX, event.clientY);
-    const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, preview: answer, camera: { ...stageCamera } };
+    const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, focusPoint: point, preview: answer, camera: { ...stageCamera } };
     if (kind === "force") {
       const index = Number(target.dataset.forceIndex);
       const tail = M.forceGeometry(answer, question)[index].tail;
@@ -1160,6 +1265,7 @@
       originKey: "FREE",
       preview: answer,
       candidate: point,
+      focusPoint: point,
       camera: { ...stageCamera }
     };
     dom.stage.setPointerCapture(event.pointerId);
@@ -1188,7 +1294,8 @@
   function updatePointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
     const question = scenario.questions[state.currentQuestion];
-    const point = clientToModel(event.clientX, event.clientY);
+    const point = clampToCamera(clientToModel(event.clientX, event.clientY), drag.camera);
+    drag.focusPoint = point;
     let preview;
     let candidate = point;
     if (drag.kind === "force") {
@@ -1238,7 +1345,7 @@
     nearSnapPoint = null;
     hideMagnifier();
     const question = scenario.questions[state.currentQuestion];
-    const point = clientToModel(event.clientX, event.clientY);
+    const point = clampToCamera(clientToModel(event.clientX, event.clientY), active.camera);
     const options = { pointerType: active.pointerType, project: modelToClient };
     let next;
     let message;
@@ -1288,20 +1395,6 @@
     renderStage();
     renderOverlays();
     announce("已取消拖動，作圖回復到操作前狀態。");
-  }
-
-  function renderMagnifier(event) {
-    if (event.pointerType !== "touch") return;
-    const rect = dom.stage.getBoundingClientRect();
-    const horizontal = event.clientX < rect.left + rect.width / 2 ? "right" : "left";
-    const vertical = event.clientY < rect.top + rect.height / 2 ? "bottom" : "top";
-    dom.magnifier.dataset.corner = `${vertical}-${horizontal}`;
-    dom.magnifier.classList.add("is-visible");
-    dom.magnifierLabel.textContent = drag?.kind === "force" ? N.accessibleForce(drag.forceIndex + 1) : drag?.kind?.startsWith("guide") ? "虛線輔助線終點" : drag?.kind === "resultant-start" ? "合力起點" : drag?.kind === "resultant-translate" ? "平移整支合力" : "合力終點";
-  }
-
-  function hideMagnifier() {
-    dom.magnifier.classList.remove("is-visible");
   }
 
   function beginKeyboardLine(target) {
@@ -1432,8 +1525,9 @@
       cancelPointerDrag(event);
     });
     dom.dragLayer.addEventListener("pointerdown", (event) => {
-      const target = event.target.closest(".force-hit,.line-handle,.resultant-hit");
-      if (!target) return;
+      const hit = event.target.closest(".force-hit,.line-handle,.resultant-hit");
+      if (!hit) return;
+      const target = hit.classList.contains("resultant-hit") ? resultantHandleAtPointer(event) || hit : hit;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: target.dataset.semanticKey });
       beginPointerDrag(event, target);
     });

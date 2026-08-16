@@ -1513,3 +1513,10 @@ Invalid matrix：
 - 力符號的碰撞框按實際 SVG 字形保留寬度；`F_R` 的下標向右延伸，使用較寬的 footprint，避免碰撞檢查低估後與 `F_2` 重疊。
 - 當合力中點附近被其他箭線／虛線或標籤佔用，候選位置會先沿合力本身方向作多個近距離滑移，再增加法線間距；因此標籤會留在合力附近的清晰位置，不會因一次碰撞跳到紫色 `F_2` 一側的遠處。
 - 不出界、避開所有作圖線及其他力名仍是硬性條件；新增 source／SCORM browser regression 逐題檢查所有舞台力符號的實際 DOM bounding boxes 不互相重疊。
+
+## 35. 手機固定舞台 camera 及真實觸控預覽（2026-08-16）
+
+- 手機窄舞台的 camera 只在每題開始／viewport 尺寸改變時按初始作圖幾何計算一次；同一題內拖動力、輔助線或合力不會因答案更新而重新縮放。若手指暫時離開固定 camera，作圖座標會限制在可見 camera 邊界，避免舞台或操作層跳入頁首；orientation／viewport 改變才重新計算。
+- 觸控／手寫筆拖動時顯示真正的舞台預覽窗：複製當刻 `stageSvg` 的完整可見場景，在手指相反一側顯示以焦點為中心的 crop，並用輕量十字標記目前指尖位置；預覽會跟隨手指更新，放手或取消後隱藏並清除複製內容，不再使用獨立的箭線假預覽。
+- 改用明確的 SVG `getBoundingClientRect`／`viewBox`／letterbox 轉換，令窄螢幕及巢狀 SCORM iframe 內的舞台、透明操作層、端點 hit target 與預覽使用同一套座標；合力端點 hit target 會優先於整條線身 hit target，保持雙端可編輯。
+- 新增 accessibility／wiring assertions 及 trusted-touch regression：development source 與 extracted SCORM package 均檢查預覽場景 clone 數量、crop／焦點跟隨、touch 期間 camera 固定，以及放手後預覽清除。

@@ -537,7 +537,11 @@
     }
     if (options.snap) {
       const candidate = fromPoint10(next.resultant.end.point10);
-      const snap = selectSnapCandidate(candidate, resultantSnapTargets(next, question, originKey), options);
+      const targets = resultantSnapTargets(next, question, originKey);
+      const canonical = question.type !== "parallelogram" && originKey === ORIGIN_KEY
+        ? targets.find((target) => target.key === "CHAIN_END")
+        : null;
+      const snap = (canonical && selectSnapCandidate(candidate, [canonical], options)) || selectSnapCandidate(candidate, targets, options);
       if (snap) next.resultant.end = snap.key === GUIDE_INTERSECTION_KEY
         ? { mode: "snap", targetKey: snap.key, point10: point10(snap.point) }
         : { mode: "snap", targetKey: snap.key };

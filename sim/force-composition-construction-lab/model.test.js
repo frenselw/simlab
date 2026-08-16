@@ -191,6 +191,10 @@ const arbitraryChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1])
 });
 assert.equal(arbitraryChainResultant.resultant.originKey, "F1_HEAD", "head-to-tail resultant may start at any force endpoint");
 assert.deepEqual(arbitraryChainResultant.resultant.end, { mode: "snap", targetKey: "F2_HEAD" }, "head-to-tail resultant endpoint may snap to any force endpoint");
+const canonicalChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1]), "ORIGIN", M.endpointForKey(chainAnswer(HQuestion, [0, 1]), HQuestion, "F2_HEAD"), HQuestion, {
+  pointerType: "mouse", threshold: 14
+});
+assert.deepEqual(canonicalChainResultant.resultant.end, { mode: "snap", targetKey: "CHAIN_END" }, "a resultant from the chain root prefers the semantic chain-end snap");
 for (const [question, order] of [[HQuestion, [0, 1]], [TQuestion, [2, 0, 1]]]) {
   const chain = chainAnswer(question, order, false);
   const nearCorrectChainResultant = M.previewResultant(chain, "FREE", { x: 520, y: 300 }, question, {

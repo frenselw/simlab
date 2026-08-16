@@ -109,8 +109,9 @@ async function elementPoint(cdp, selector, embedded = false) {
 
 async function modelPoint(cdp, point, embedded = false) {
   const payload = JSON.stringify(point);
-  if (!embedded) return evaluate(cdp, `(() => { const svg=document.getElementById('stageSvg'),p=svg.createSVGPoint(),v=${payload};p.x=v.x;p.y=v.y;const q=p.matrixTransform(svg.getScreenCTM());return {x:q.x,y:q.y}; })()`);
-  return evaluate(cdp, `(() => { const f=document.getElementById('activity'),fr=f.getBoundingClientRect(),d=f.contentDocument,svg=d.getElementById('stageSvg'),p=svg.createSVGPoint(),v=${payload};p.x=v.x;p.y=v.y;const q=p.matrixTransform(svg.getScreenCTM());return {x:fr.left+q.x,y:fr.top+q.y}; })()`);
+  const expression = `(() => { const svg=document.getElementById('stageSvg'),r=svg.getBoundingClientRect(),v=${payload},b=svg.viewBox.baseVal,s=Math.min(r.width/b.width,r.height/b.height),ox=(r.width-b.width*s)/2,oy=(r.height-b.height*s)/2; return {x:r.left+ox+(v.x-b.x)*s,y:r.top+oy+(v.y-b.y)*s}; })()`;
+  if (!embedded) return evaluate(cdp, expression);
+  return evaluate(cdp, `(() => { const f=document.getElementById('activity'),fr=f.getBoundingClientRect(),d=f.contentDocument,svg=d.getElementById('stageSvg'),r=svg.getBoundingClientRect(),v=${payload},b=svg.viewBox.baseVal,s=Math.min(r.width/b.width,r.height/b.height),ox=(r.width-b.width*s)/2,oy=(r.height-b.height*s)/2; return {x:fr.left+r.left+ox+(v.x-b.x)*s,y:fr.top+r.top+oy+(v.y-b.y)*s}; })()`);
 }
 
 async function touch(cdp, start, end) {
@@ -123,6 +124,21 @@ async function touch(cdp, start, end) {
   }
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await delay(90);
+}
+
+async function touchPreviewProbe(cdp, start, move) {
+  const id = 17001;
+  const point = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(start)] });
+  await delay(45);
+  const down = await inActivity(cdp, "(() => { const source=document.getElementById('stageSvg'),lens=document.getElementById('magnifierSvg'),box=document.getElementById('magnifier'); return {camera:source.getAttribute('viewBox'),visible:box.classList.contains('is-visible'),sourceChildren:source.children.length,previewChildren:lens.children.length,viewBox:lens.getAttribute('viewBox'),focusX:box.style.getPropertyValue('--preview-focus-x'),focusY:box.style.getPropertyValue('--preview-focus-y')}; })()", true);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(move)] });
+  await delay(60);
+  const moved = await inActivity(cdp, "(() => { const source=document.getElementById('stageSvg'),lens=document.getElementById('magnifierSvg'),box=document.getElementById('magnifier'); return {camera:source.getAttribute('viewBox'),visible:box.classList.contains('is-visible'),sourceChildren:source.children.length,previewChildren:lens.children.length,viewBox:lens.getAttribute('viewBox'),focusX:box.style.getPropertyValue('--preview-focus-x'),focusY:box.style.getPropertyValue('--preview-focus-y')}; })()", true);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(90);
+  const ended = await inActivity(cdp, "(() => { const source=document.getElementById('stageSvg'),lens=document.getElementById('magnifierSvg'),box=document.getElementById('magnifier'); return {camera:source.getAttribute('viewBox'),visible:box.classList.contains('is-visible'),previewChildren:lens.children.length}; })()", true);
+  return { down, moved, ended };
 }
 
 async function mouseDrag(cdp, start, end) {
@@ -503,6 +519,22 @@ async function runTouchMatrix(cdp, baseUrl, launchPath, label) {
   const beforeTop = await iframeMetrics(cdp);
   await touch(cdp, { x: panelPoint.x, y: panelPoint.y - 55 }, { x: panelPoint.x, y: panelPoint.y + 25 });
   assertFixed(beforeTop, await iframeMetrics(cdp), `${label} panel top`, true);
+
+  const cameraBeforePreview = await inActivity(cdp, "document.getElementById('stageSvg').getAttribute('viewBox')", true);
+  const previewStart = await elementPoint(cdp, '.force-hit[data-force-index="0"]', true);
+  const preview = await touchPreviewProbe(cdp, previewStart, { x: previewStart.x + 62, y: previewStart.y + 28 });
+  assert.equal(preview.down.visible, true, `${label}: touch drag immediately shows the stage preview window`);
+  assert.equal(preview.down.sourceChildren, preview.down.previewChildren, `${label}: preview clones the complete rendered stage`);
+  assert.ok(preview.down.viewBox && preview.down.focusX && preview.down.focusY, `${label}: preview exposes a focused crop and touch marker`);
+  assert.equal(preview.moved.visible, true, `${label}: preview stays visible while the finger moves`);
+  assert.notEqual(preview.moved.viewBox, preview.down.viewBox, `${label}: preview crop follows the finger`);
+  assert.notEqual(`${preview.moved.focusX},${preview.moved.focusY}`, `${preview.down.focusX},${preview.down.focusY}`, `${label}: preview focus follows the finger`);
+  assert.equal(preview.down.camera, cameraBeforePreview, `${label}: camera stays fixed during touch drag`);
+  assert.equal(preview.moved.camera, cameraBeforePreview, `${label}: camera does not zoom while touch drag updates`);
+  assert.equal(preview.ended.visible, false, `${label}: preview hides after touch release`);
+  assert.equal(preview.ended.previewChildren, 0, `${label}: preview clears its cloned stage after release`);
+  assert.equal(preview.ended.camera, cameraBeforePreview, `${label}: camera remains fixed after touch release`);
+  await click(cdp, "#resetQuestion", true); await click(cdp, "#confirmReset", true);
 
   for (const index of [0, 1]) {
     const start = await elementPoint(cdp, `.force-hit[data-force-index="${index}"]`, true);
