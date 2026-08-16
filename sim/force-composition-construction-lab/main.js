@@ -80,6 +80,7 @@
   let presentation = "technical";
   let trustedReview = false;
   let reviewResult = null;
+  let pendingVerifiedResult = null;
   let correctOverlay = false;
   let resultantMode = false;
   let unsaved = false;
@@ -336,9 +337,12 @@
     } else {
       const start = M.anchorPoint(answer);
       let current = start;
-      for (const force of question.forces) {
+      const chain = M.chainInfo(answer, question);
+      const order = chain.valid && chain.complete ? chain.order : question.forces.map((_, index) => index);
+      for (const index of order) {
+        const force = question.forces[index];
         const next = M.add(current, force);
-        drawArrow(parent, current, next, { className: "force-line correct-overlay" });
+        drawArrow(parent, current, next, { className: "force-line correct-overlay", forceIndex: index });
         current = next;
       }
       drawArrow(parent, start, current, { className: "resultant-line correct-overlay" });
@@ -583,6 +587,8 @@
     if (key === "ORIGIN") return "起點";
     if (key === "CORNER") return "C";
     if (key === "FREE") return "自由";
+    if (key === "CHAIN_END") return "力鏈終點";
+    if (key === M.GUIDE_INTERSECTION_KEY) return "虛線交點";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return "•";
     const subscripts = { 1: "₁", 2: "₂", 3: "₃" };
@@ -613,7 +619,10 @@
       const radius = count === 2 ? 25 : Math.max(32, count * 10);
       items.forEach(({ button, point }, index) => {
         button.classList.toggle("is-offset", count > 1);
-        button.textContent = count > 1 ? shortEndpointLabel(button.dataset.originKey) : "";
+        const label = button.dataset.dragKind === "resultant-end" ? "合力終點" :
+          button.dataset.dragKind === "resultant-start" && button.dataset.semanticKey === "resultant-start-edit" ? "合力起點" :
+            button.dataset.dragKind === "guide-end" ? "虛線終點" : shortEndpointLabel(button.dataset.originKey);
+        button.textContent = count > 1 ? label : "";
         if (count === 1) {
           positionHandle(button, point);
           return;
@@ -726,6 +735,8 @@
     if (key === "ORIGIN") return "共同起點";
     if (key === "CORNER") return "平行四邊形對角頂點";
     if (key === "FREE") return "自由位置";
+    if (key === "CHAIN_END") return "力鏈終點";
+    if (key === M.GUIDE_INTERSECTION_KEY) return "兩條虛線的交點";
     const match = /^F([1-3])_(TAIL|HEAD)$/.exec(key || "");
     if (!match) return key;
     return `${N.accessibleForce(Number(match[1]))}的${match[2] === "TAIL" ? "箭尾" : "箭頭"}`;
@@ -793,6 +804,7 @@
     dom.deleteResultant.classList.toggle("is-hidden", !answer.resultant);
     dom.deleteResultant.disabled = !answer.resultant;
     dom.stage.classList.toggle("resultant-mode", resultantMode);
+    dom.stage.classList.toggle("resultant-draw-ready", resultantMode && !answer.resultant);
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
     dom.undo.disabled = resultantMode || !policy.undoEnabled;
@@ -879,9 +891,15 @@
     if (unsaved) dom.saveBannerText.textContent = "未能儲存最新進度。你可繼續修改，但重新載入前的未儲存內容可能遺失；成功重試前不能最終提交或清除資料。";
   }
 
-  function focusSemantic(key) {
-    if (!key) return;
-    windowObject.requestAnimationFrame(() => dom.dragLayer.querySelector(`[data-semantic-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true }));
+  function focusSemantic(key, fallbackKeys = []) {
+    const keys = [key, ...fallbackKeys].filter(Boolean);
+    if (!keys.length) return;
+    windowObject.requestAnimationFrame(() => {
+      for (const candidate of keys) {
+        const node = dom.dragLayer.querySelector(`[data-semantic-key="${CSS.escape(candidate)}"]`);
+        if (node) { node.focus({ preventScroll: true }); break; }
+      }
+    });
   }
 
   function renderAll(options = {}) {
@@ -906,7 +924,7 @@
     }
     renderSaveBanner();
     dom.app.setAttribute("aria-busy", "false");
-    focusSemantic(previousKey);
+    focusSemantic(previousKey, options.focusFallbackKeys || []);
   }
 
   function announce(message) {
@@ -951,6 +969,7 @@
       presentation = "editable";
       resultantMode = false;
       unsaved = false;
+      pendingVerifiedResult = null;
       registerDraftProvider();
       renderAll();
       announce("隨機練習已建立，五題均可自由選擇。");
@@ -1008,6 +1027,7 @@
       presentation = "review";
       resultantMode = false;
       trustedReview = true;
+      pendingVerifiedResult = null;
       reviewResult = computed;
       renderAll();
     } catch (error) {
@@ -1031,6 +1051,7 @@
       presentation = "frozen";
       resultantMode = false;
       trustedReview = false;
+      pendingVerifiedResult = computed;
       reviewResult = null;
       renderAll();
     } catch (error) {
@@ -1158,11 +1179,19 @@
     submitting = false;
     SimActivityFlow.submission(outcome, {
       success: () => {
+        const computed = outcome.result || pendingVerifiedResult || (state && scenario ? S.score(state, scenario) : null);
+        const expectedStatus = computed?.passed ? "passed" : "failed";
+        if (!computed || (Number.isFinite(outcome.score) && outcome.score !== computed.score) ||
+            (outcome.status && outcome.status !== expectedStatus)) {
+          showTechnical("提交結果需要技術檢查", "提交已完成，但系統未能安全核對成績資料；本頁不會顯示未核對的分數。");
+          return;
+        }
         presentation = "review";
         trustedReview = true;
         correctOverlay = false;
         state.phase = "review";
-        reviewResult = outcome.result || reviewResult;
+        reviewResult = computed;
+        pendingVerifiedResult = null;
         renderAll();
         dom.reviewTitle.focus({ preventScroll: true });
       },
@@ -1178,6 +1207,7 @@
         trustedReview = false;
         state.phase = "review";
         reviewResult = null;
+        pendingVerifiedResult = null;
         renderAll();
       },
       retry: (failure) => {
@@ -1349,6 +1379,8 @@
     const options = { pointerType: active.pointerType, project: modelToClient };
     let next;
     let message;
+    let focusKey = active.target.dataset.semanticKey;
+    let focusFallbackKeys = [];
     if (active.kind === "force") {
       const candidate = active.candidate || { x: active.startTail.x + point.x - active.startPoint.x, y: active.startTail.y + point.y - active.startPoint.y };
       next = M.commitForceTranslation(active.before, active.forceIndex, candidate, question, options);
@@ -1358,6 +1390,8 @@
     } else if (active.kind.startsWith("guide")) {
       next = M.commitGuide(active.before, active.originKey, point, question, options);
       const guide = next.guides.find((item) => item?.originKey === active.originKey);
+      const guideIndex = next.guides.findIndex((item) => item?.originKey === active.originKey);
+      if (active.kind === "guide-start" && guideIndex >= 0) focusKey = `guide-end-${guideIndex}`;
       message = guide?.end.mode === "snap"
         ? guide.end.targetKey === "PARALLEL" ? "虛線輔助線已吸附到對邊的平行方向，線長可以不同。" : "虛線輔助線已連接到平行四邊形對角頂點。"
         : "虛線輔助線尚未吸附，可拖動終點再調整。";
@@ -1367,6 +1401,11 @@
         allowIncomplete: resultantMode,
         allowAnyOrigin: resultantMode
       });
+      if (active.before.resultant) focusKey = "resultant-start-edit";
+      else {
+        focusKey = "resultant-end";
+        focusFallbackKeys = ["resultant-start-edit"];
+      }
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力起點已更新，可繼續調整兩端。";
     } else if (active.kind === "resultant-translate" && active.before.resultant) {
       const delta = { x: point.x - active.startPoint.x, y: point.y - active.startPoint.y };
@@ -1384,7 +1423,7 @@
       });
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.before.resultant ? "合力終點已更新，可繼續調整兩端。" : "合力已畫出，可繼續拖動起點或終點調整。";
     }
-    finalizeAnswer(next, message, active.target.dataset.semanticKey, { preservePanelScroll: true });
+    finalizeAnswer(next, message, focusKey, { preservePanelScroll: true, focusFallbackKeys });
   }
 
   function cancelPointerDrag(event) {
@@ -1434,7 +1473,16 @@
           : active.kind === "resultant-translate" && active.before.resultant ? M.commitResultantTranslation(active.before, { x: active.endpoint.x - active.startPoint.x, y: active.endpoint.y - active.startPoint.y }, question, { ...options, allowIncomplete: resultantMode })
           : M.commitResultant(active.before, active.originKey, active.endpoint, question, { ...options, allowIncomplete: resultantMode, allowAnyOrigin: resultantMode });
       nearSnapPoint = null;
-      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.kind === "resultant-start" && active.before.resultant ? "已確認合力起點位置。" : active.kind === "resultant-translate" ? "已確認合力平移位置。" : "已確認合力終點位置。", active.target.dataset.semanticKey);
+      let focusKey = active.target.dataset.semanticKey;
+      const focusFallbackKeys = [];
+      if (active.kind === "guide-start") {
+        const guideIndex = next.guides.findIndex((item) => item?.originKey === active.originKey);
+        if (guideIndex >= 0) focusKey = `guide-end-${guideIndex}`;
+      } else if (active.kind === "resultant-start" && !active.before.resultant) {
+        focusKey = "resultant-end";
+        focusFallbackKeys.push("resultant-start-edit");
+      }
+      finalizeAnswer(next, M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.kind === "resultant-start" && active.before.resultant ? "已確認合力起點位置。" : active.kind === "resultant-translate" ? "已確認合力平移位置。" : "已確認合力終點位置。", focusKey, { focusFallbackKeys });
       event.preventDefault();
       return true;
     }
@@ -1470,18 +1518,22 @@
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
     const index = Number(target.dataset.forceIndex);
-    const tail = M.forceGeometry(answer, question)[index].tail;
+    const existingPlacement = answer.placements[index];
+    const released = existingPlacement.mode === "snap" ? M.releaseForceAndDescendants(answer, question, index) : answer;
+    const tail = M.forceGeometry(released, question)[index].tail;
     const step = event.shiftKey ? 10 : 2;
     const candidate = { x: tail.x + vectors[event.key][0] * step, y: tail.y + vectors[event.key][1] * step };
-    const next = M.commitForceTranslation(answer, index, candidate, question, { pointerType: "keyboard", project: modelToClient });
+    const excludeKeys = existingPlacement.mode === "snap" ? [existingPlacement.targetKey] : [];
+    const next = M.commitForceTranslation(released, index, candidate, question, { pointerType: "keyboard", project: modelToClient, excludeKeys, keepFree: existingPlacement.mode === "snap" });
     finalizeAnswer(next, `${N.accessibleForce(index + 1)}已用鍵盤平移。`, target.dataset.semanticKey);
     event.preventDefault();
   }
 
   function bindHostForwarding() {
     let lastY = null;
+    const isStageSurfaceTarget = (target) => target === dom.stage || Boolean(target?.nodeType === 1 && dom.stage.contains(target) && !target.closest(".force-hit,.line-handle,.resultant-hit"));
     dom.stage.addEventListener("touchstart", (event) => {
-      if (event.target !== dom.stage || event.touches.length !== 1) { lastY = null; return; }
+      if (!isStageSurfaceTarget(event.target) || event.touches.length !== 1) { lastY = null; return; }
       lastY = event.touches[0].clientY;
       touchTelemetry.push({ type: "touchstart", isTrusted: event.isTrusted });
     }, { passive: true });
@@ -1492,7 +1544,8 @@
       lastY = nextY;
       touchTelemetry.push({ type: "touchmove", isTrusted: event.isTrusted, deltaY });
       try {
-        if (resultantMode) { lastY = null; return; }
+        const answer = state?.answers?.[state.currentQuestion];
+        if (resultantMode && !answer?.resultant) { lastY = null; return; }
         if (windowObject.parent !== windowObject && windowObject.parent.location.origin === windowObject.location.origin) {
           const root = windowObject.parent.document.scrollingElement;
           if (root && root.scrollHeight > root.clientHeight) windowObject.parent.scrollBy(0, deltaY);

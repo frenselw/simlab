@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { XMLParser } = require("fast-xml-parser");
+const G = require("../sim/force-composition-construction-lab/generator.js");
 const {
   CdpClient, buildAndExtractPackage, cleanupResources, createServer, delay, devToolsPort,
   evaluate, fetchJson, findBrowser, listenServer, validateOwnedProfile, withTimeout
@@ -15,7 +16,7 @@ const {
 const root = path.resolve(__dirname, "..");
 const slug = "force-composition-construction-lab";
 const tempRoot = fs.realpathSync(os.tmpdir());
-const virtualKeyCodes = { Enter: 13, Escape: 27, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+const virtualKeyCodes = { Tab: 9, Enter: 13, Escape: 27, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
 
 function sourceParity() {
   const html = fs.readFileSync(path.join(root, "sim", slug, "index.html"), "utf8");
@@ -32,6 +33,7 @@ function sourceParity() {
 
 async function installPreload(cdp) {
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    window.__forceCompositionDocumentToken = String(performance.timeOrigin) + ':' + String(Date.now()) + ':' + String(Math.random());
     const params = new URLSearchParams(location.search);
     const seed = Number(params.get('__seed'));
     if (Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff) {
@@ -43,11 +45,12 @@ async function installPreload(cdp) {
       try { values = JSON.parse(fixture); } catch (_) {}
       let lastError = '0';
       window.__forceLmsValues = values;
+      window.__forceFailCommit = params.get('__failCommit') === '1';
       window.API = {
         LMSInitialize: () => 'true',
         LMSGetValue: (key) => { if (params.get('__failRead') === key) { lastError = '101'; return ''; } lastError = '0'; return values[key] || ''; },
         LMSSetValue: (key, value) => { if (params.get('__failWrite') === key) { lastError = '351'; return 'false'; } values[key] = String(value); lastError = '0'; return 'true'; },
-        LMSCommit: () => params.get('__failCommit') === '1' ? (lastError = '391', 'false') : (lastError = '0', 'true'),
+        LMSCommit: () => window.__forceFailCommit ? (lastError = '391', 'false') : (lastError = '0', 'true'),
         LMSFinish: () => params.get('__failFinish') === '1' ? (lastError = '101', 'false') : (lastError = '0', 'true'),
         LMSGetLastError: () => lastError,
         LMSGetErrorString: () => lastError === '0' ? 'No error' : 'Fixture error',
@@ -68,11 +71,12 @@ async function setViewport(cdp, width, height, touch = false, scale = 1) {
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: touch, maxTouchPoints: touch ? 2 : 1 });
 }
 
-async function waitReady(cdp, embedded = false) {
+async function waitReady(cdp, embedded = false, previousDocumentToken = null) {
+  const previousToken = JSON.stringify(previousDocumentToken);
   for (let attempt = 0; attempt < 160; attempt += 1) {
     const ready = await evaluate(cdp, embedded
-      ? "Boolean(document.getElementById('activity')?.contentWindow?.__forceCompositionApp?.getState?.())"
-      : "Boolean(window.__forceCompositionApp?.getState?.())");
+      ? `(() => { const frame=document.getElementById('activity'),w=frame?.contentWindow,d=frame?.contentDocument; const ready=d?.readyState === 'complete' && w?.__forceCompositionApp?.getState?.(); return Boolean(ready && (${previousToken} === null || w.__forceCompositionDocumentToken !== ${previousToken})); })()`
+      : `(() => { const d=document; const ready=d.readyState === 'complete' && window.__forceCompositionApp?.getState?.(); return Boolean(ready && (${previousToken} === null || window.__forceCompositionDocumentToken !== ${previousToken})); })()`);
     if (ready) return;
     await delay(40);
   }
@@ -105,6 +109,27 @@ async function elementPoint(cdp, selector, embedded = false) {
   const selectorJson = JSON.stringify(selector);
   if (!embedded) return evaluate(cdp, `(() => { const r=document.querySelector(${selectorJson})?.getBoundingClientRect(); if(!r) return null; return {x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height}; })()`);
   return evaluate(cdp, `(() => { const f=document.getElementById('activity'),fr=f.getBoundingClientRect(),r=f.contentDocument.querySelector(${selectorJson})?.getBoundingClientRect(); if(!r) return null; return {x:fr.left+r.left+r.width/2,y:fr.top+r.top+r.height/2,w:r.width,h:r.height}; })()`);
+}
+
+async function blankStagePoint(cdp, embedded = false) {
+  const local = await inActivity(cdp, `(() => {
+    const stage = document.getElementById('stage');
+    const r = stage.getBoundingClientRect();
+    const candidates = [
+      { x: r.right - 34, y: r.top + Math.min(125, r.height - 32) },
+      { x: r.left + 34, y: r.top + Math.min(125, r.height - 32) },
+      { x: r.right - 24, y: r.top + 24 },
+      { x: r.left + 24, y: r.top + 24 },
+      { x: r.left + r.width / 2, y: r.bottom - 24 }
+    ];
+    for (const point of candidates) {
+      const node = document.elementFromPoint(point.x, point.y);
+      if (node === stage) return point;
+    }
+    return candidates[0];
+  })()`, embedded);
+  if (!embedded) return local;
+  return evaluate(cdp, `(() => { const f=document.getElementById('activity'),fr=f.getBoundingClientRect(); return {x:fr.left+${local.x},y:fr.top+${local.y}}; })()`);
 }
 
 async function modelPoint(cdp, point, embedded = false) {
@@ -341,11 +366,24 @@ async function runPerfectMouse(cdp, baseUrl, launchPath, label) {
   assert.ok(initial.documentRange <= 2, `${label}: activity document has no third scroll range`);
   assert.match(initial.panelOverflow, /auto|scroll/, `${label}: panel is the configured independent scroll owner when content overflows`);
 
+  await press(cdp, "Tab", { delay: 10 });
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  const forceFocus = await evaluate(cdp, `(() => { const node=document.querySelector('.force-hit[data-force-index="0"]'); const style=getComputedStyle(node); return { active:document.activeElement===node, visible:node.matches(':focus-visible'), outlineStyle:style.outlineStyle }; })()`);
+  assert.equal(forceFocus.active, true, `${label}: force hit receives keyboard focus`);
+  assert.equal(forceFocus.visible, true, `${label}: force hit exposes focus-visible state`);
+  assert.notEqual(forceFocus.outlineStyle, "none", `${label}: force hit focus indicator is visible`);
+
   await completeCurrentQuestion(cdp, 0, null, "mouse");
   await completeCurrentQuestion(cdp, 1, null, "mouse");
   await completeCurrentQuestion(cdp, 2, [0, 1], "mouse");
   await completeCurrentQuestion(cdp, 3, [1, 0], "mouse");
   await completeCurrentQuestion(cdp, 4, [2, 0, 1], "mouse");
+  await press(cdp, "Tab", { delay: 10 });
+  await focus(cdp, '.resultant-hit');
+  const resultantFocus = await evaluate(cdp, `(() => { const node=document.querySelector('.resultant-hit'); const style=getComputedStyle(node); return { active:document.activeElement===node, visible:node.matches(':focus-visible'), outlineStyle:style.outlineStyle }; })()`);
+  assert.equal(resultantFocus.active, true, `${label}: resultant hit receives keyboard focus`);
+  assert.equal(resultantFocus.visible, true, `${label}: resultant hit exposes focus-visible state`);
+  assert.notEqual(resultantFocus.outlineStyle, "none", `${label}: resultant focus indicator is visible`);
   assert.deepEqual(await evaluate(cdp, "window.__forceCompositionApp.getCompletion()"), [true, true, true, true, true]);
   await click(cdp, "#goSummary");
   await click(cdp, "#submitAttempt");
@@ -357,6 +395,9 @@ async function runPerfectMouse(cdp, baseUrl, launchPath, label) {
   assert.equal(await evaluate(cdp, "document.getElementById('toggleCorrect').hidden"), false);
   await click(cdp, "#toggleCorrect");
   assert.ok(await evaluate(cdp, "document.querySelectorAll('#stageSvg .correct-overlay').length") > 0, `${label}: correct overlay appears only in submitted review`);
+  await click(cdp, '#reviewQuestionNavigation [data-question-index="4"]');
+  await click(cdp, "#toggleCorrect");
+  assert.deepEqual(await evaluate(cdp, "[...document.querySelectorAll('#stageSvg .correct-overlay.force-line')].map((node)=>Number(node.dataset.forceIndex))"), [2, 0, 1], `${label}: submitted T1 review overlay follows the learner's accepted chain order`);
   const log = await evaluate(cdp, "window.SimScorm.getLocalLog()");
   assert.ok(log.some((item) => item.key === "cmi.core.score.raw" && item.value === "100"));
   assert.ok(log.some((item) => item.key === "cmi.core.lesson_status" && item.value === "passed"));
@@ -384,13 +425,41 @@ async function runDraftReload(cdp, baseUrl, launchPath, label) {
   await navigateEmbedded(cdp, baseUrl, activity);
   await moveForce(cdp, 0, "ORIGIN", "mouse", true);
   const before = await inActivity(cdp, "window.__forceCompositionApp.getState()", true);
+  const previousDocumentToken = await evaluate(cdp, "document.getElementById('activity')?.contentWindow?.__forceCompositionDocumentToken");
   await evaluate(cdp, "document.getElementById('activity').contentWindow.location.reload()");
-  await waitReady(cdp, true);
+  await waitReady(cdp, true, previousDocumentToken);
+  const nextDocumentToken = await evaluate(cdp, "document.getElementById('activity')?.contentWindow?.__forceCompositionDocumentToken");
+  assert.notEqual(nextDocumentToken, previousDocumentToken, `${label}: iframe reload installed a new document token before app readiness`);
   const after = await inActivity(cdp, "window.__forceCompositionApp.getState()", true);
   assert.equal(after.seed, before.seed, `${label}: draft reload keeps seed`);
   assert.deepEqual(after.answers[0].placements[0], { mode: "snap", targetKey: "ORIGIN" }, `${label}: draft reload restores semantic snap`);
   assert.deepEqual(await inActivity(cdp, "[...document.querySelectorAll('#questionProgress button')].map((button)=>button.disabled)", true), [false, false, false, false, false]);
   return `${label}: same-attempt iframe reload restored seed and answer`;
+}
+
+async function runPendingRetry(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 900, 700, false);
+  const fixture = JSON.stringify({ "cmi.core.lesson_status": "not attempted" });
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(57, { __fixture: fixture, pendingRetry: label })}`);
+  await click(cdp, "#goSummary");
+  await evaluate(cdp, "window.__forceFailCommit = true");
+  await click(cdp, "#submitAttempt");
+  await click(cdp, "#confirmSubmit");
+  assert.equal(await evaluate(cdp, "window.__forceCompositionApp.getPresentation()"), "frozen", `${label}: failed final commit enters frozen state`);
+  assert.equal(await evaluate(cdp, "document.getElementById('reviewScore').textContent"), "--", `${label}: frozen state does not expose an unverified score`);
+  assert.equal(await evaluate(cdp, "document.querySelectorAll('#reviewFeedback .feedback-question').length"), 0, `${label}: frozen state does not expose unverified component feedback`);
+  const pendingFixture = await evaluate(cdp, "JSON.stringify(window.__forceLmsValues)");
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(57, { __fixture: pendingFixture, __failCommit: "1", pendingRestore: label })}`);
+  assert.equal(await evaluate(cdp, "window.__forceCompositionApp.getPresentation()"), "frozen", `${label}: pending-final startup restores as frozen`);
+  await evaluate(cdp, "window.__forceFailCommit = false");
+  const retry = await elementPoint(cdp, "#reviewActions button");
+  assert.ok(retry, `${label}: frozen review exposes retry action`);
+  await click(cdp, "#reviewActions button");
+  assert.equal(await evaluate(cdp, "window.__forceCompositionApp.getPresentation()"), "review", `${label}: retry success enters trusted review`);
+  assert.equal(await evaluate(cdp, "document.getElementById('reviewScore').textContent"), "0 / 100", `${label}: retry success restores score immediately`);
+  assert.equal(await evaluate(cdp, "document.querySelectorAll('#reviewFeedback .feedback-question').length"), 5, `${label}: retry success restores all question feedback`);
+  assert.ok(await evaluate(cdp, "document.querySelectorAll('#reviewFeedback li').length") >= 5, `${label}: retry success restores component details`);
+  return `${label}: failed final commit and startup pending-final retry recover trusted score and feedback`;
 }
 
 async function runTripleOrders(cdp, baseUrl, launchPath, label) {
@@ -407,6 +476,61 @@ async function runTripleOrders(cdp, baseUrl, launchPath, label) {
     assert.deepEqual(chain, entry.order, `${label}: ${entry.input} preserves requested T1 order`);
   }
   return `${label}: all six T1 orders passed across mouse, touch and keyboard`;
+}
+
+async function runKeyboardForceRelease(cdp, baseUrl, launchPath, label) {
+  const cases = [
+    { question: 0, force: 0, order: null },
+    { question: 2, force: 0, order: [0, 1] },
+    { question: 2, force: 1, order: [0, 1] },
+    { question: 4, force: 0, order: [0, 1, 2] },
+    { question: 4, force: 1, order: [0, 1, 2] },
+    { question: 4, force: 2, order: [0, 1, 2] }
+  ];
+  for (const shift of [false, true]) {
+    for (const entry of cases) {
+      await setViewport(cdp, 1180, 760, false);
+      await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { keyboardRelease: `${label}-${entry.question}-${entry.force}-${shift}` })}`);
+      await navigateQuestion(cdp, entry.question);
+      if (entry.order) {
+        for (let position = 0; position < entry.order.length; position += 1) {
+          const forceIndex = entry.order[position];
+          await moveForce(cdp, forceIndex, position === 0 ? "ORIGIN" : `F${entry.order[position - 1] + 1}_HEAD`, "mouse");
+        }
+      } else {
+        await moveForce(cdp, entry.force, "ORIGIN", "mouse");
+      }
+      const before = await currentTail(cdp, entry.force);
+      const placementBefore = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${entry.question}].placements[${entry.force}]`);
+      await focus(cdp, `.force-hit[data-force-index="${entry.force}"]`);
+      await press(cdp, "ArrowRight", { shift, delay: 45 });
+      const after = await currentTail(cdp, entry.force);
+      const placementAfter = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${entry.question}].placements[${entry.force}]`);
+      assert.equal(placementBefore.mode, "snap", `${label}: keyboard release fixture starts snapped`);
+      assert.notDeepEqual(placementAfter, placementBefore, `${label}: keyboard ${shift ? "shift-" : ""}arrow releases the old relationship`);
+      assert.ok(Math.hypot(after.x - before.x, after.y - before.y) > 0.1, `${label}: keyboard ${shift ? "shift-" : ""}arrow moves the released force`);
+    }
+  }
+  return `${label}: keyboard arrows release snapped root, middle and final forces for regular and Shift steps`;
+}
+
+async function runTripleArbitraryAnchors(cdp, baseUrl, launchPath, label) {
+  for (const [caseIndex, order] of G.permutations([0, 1, 2]).entries()) {
+    await setViewport(cdp, 1180, 760, false);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { arbitraryAnchor: `${label}-${caseIndex}` })}`);
+    await navigateQuestion(cdp, 4);
+    const anchor = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[4]; const b=window.ForceCompositionModel.chainAnchorBounds(q,${order[0]}); return {x:b.minX,y:b.minY}; })()`);
+    const root = await elementPoint(cdp, `.force-hit[data-force-index="${order[0]}"]`);
+    const before = await currentTail(cdp, order[0]);
+    const beforeClient = await modelPoint(cdp, before);
+    const anchorClient = await modelPoint(cdp, anchor);
+    await mouseDrag(cdp, root, { x: root.x + anchorClient.x - beforeClient.x, y: root.y + anchorClient.y - beforeClient.y });
+    assert.equal(await inActivity(cdp, `window.__forceCompositionApp.getState().answers[4].placements[${order[0]}].targetKey`), "ORIGIN", `${label}: edge anchor establishes the requested root`);
+    for (let position = 1; position < order.length; position += 1) await moveForce(cdp, order[position], `F${order[position - 1] + 1}_HEAD`, "mouse");
+    assert.deepEqual(await inActivity(cdp, "window.ForceCompositionModel.chainInfo(window.__forceCompositionApp.getState().answers[4],window.__forceCompositionApp.getScenario().questions[4]).order"), order, `${label}: edge anchor supports advertised order ${order.join(",")}`);
+    assert.equal(await inActivity(cdp, "window.ForceCompositionModel.chainInfo(window.__forceCompositionApp.getState().answers[4],window.__forceCompositionApp.getScenario().questions[4]).complete"), true, `${label}: edge anchor completes order ${order.join(",")}`);
+  }
+  return `${label}: all six T1 orders remain completable from the computed feasible anchor edge`;
 }
 
 async function runTripleMobileScale(cdp, baseUrl, launchPath, label) {
@@ -619,6 +743,20 @@ async function runTouchMatrix(cdp, baseUrl, launchPath, label) {
   assert.notDeepEqual(afterTranslation.start, beforeTranslation.start, `${label}: whole resultant translation moves its start`);
   assert.ok(Math.abs(afterTranslation.vector.x - beforeTranslation.vector.x) < 0.2 && Math.abs(afterTranslation.vector.y - beforeTranslation.vector.y) < 0.2, `${label}: whole resultant translation preserves direction and length`);
 
+  await evaluate(cdp, "window.scrollTo(0, 0)");
+  const blankAfterResultant = await blankStagePoint(cdp, true);
+  const beforeResultantBlank = await iframeMetrics(cdp);
+  const resultantBeforeBlank = await inActivity(cdp, "JSON.stringify(window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].resultant)", true);
+  const resultantBlankLogStart = await inActivity(cdp, "window.__forceCompositionApp.getTouchTelemetry().length", true);
+  await touch(cdp, blankAfterResultant, { x: blankAfterResultant.x, y: blankAfterResultant.y - 95 });
+  const afterResultantBlank = await iframeMetrics(cdp);
+  assert.ok(afterResultantBlank.host > beforeResultantBlank.host, `${label}: blank stage still forwards to host after resultant exists`);
+  assert.equal(afterResultantBlank.activity, beforeResultantBlank.activity, `${label}: resultant blank swipe does not scroll activity document`);
+  assert.equal(afterResultantBlank.panel, beforeResultantBlank.panel, `${label}: resultant blank swipe does not scroll control panel`);
+  assert.equal(await inActivity(cdp, "JSON.stringify(window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].resultant)", true), resultantBeforeBlank, `${label}: blank stage swipe preserves the existing resultant`);
+  const resultantBlankEvents = (await inActivity(cdp, "window.__forceCompositionApp.getTouchTelemetry()", true)).slice(resultantBlankLogStart);
+  assert.ok(resultantBlankEvents.some((event) => event.type === "touchmove" && event.isTrusted), `${label}: existing-resultant blank swipe uses trusted host forwarding`);
+
   for (const [width, height] of [[320, 500], [390, 500], [390, 600], [700, 390], [820, 700]]) {
     await setViewport(cdp, width, height, width < 760);
     await delay(90);
@@ -696,8 +834,14 @@ async function main() {
     const packageBlank = await runBlankSubmission(cdp, packageBase, extracted.activityPath, "package");
     const sourceDraft = await runDraftReload(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDraft = await runDraftReload(cdp, packageBase, extracted.activityPath, "package");
+    const sourcePendingRetry = await runPendingRetry(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packagePendingRetry = await runPendingRetry(cdp, packageBase, extracted.activityPath, "package");
     const sourceOrders = await runTripleOrders(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageOrders = await runTripleOrders(cdp, packageBase, extracted.activityPath, "package");
+    const sourceKeyboardRelease = await runKeyboardForceRelease(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageKeyboardRelease = await runKeyboardForceRelease(cdp, packageBase, extracted.activityPath, "package");
+    const sourceArbitraryAnchors = await runTripleArbitraryAnchors(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageArbitraryAnchors = await runTripleArbitraryAnchors(cdp, packageBase, extracted.activityPath, "package");
     const sourceTripleScale = await runTripleMobileScale(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTripleScale = await runTripleMobileScale(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -712,7 +856,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

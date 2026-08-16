@@ -51,6 +51,7 @@ assert.ok(M.selectSnapCandidate({ x: 14, y: 0 }, [{ key: "A", point: { x: 0, y: 
 assert.equal(M.selectSnapCandidate({ x: 14.01, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), null);
 assert.ok(M.selectSnapCandidate({ x: 6, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "keyboard", project: (point) => ({ x: point.x * 2, y: point.y * 2 }) }), "keyboard threshold is evaluated in projected CSS pixels");
 assert.equal(M.selectSnapCandidate({ x: 10, y: 0 }, [{ key: "B", point: { x: 0, y: 0 } }, { key: "A", point: { x: 0, y: 0 } }], { threshold: 20 }).key, "A", "equal-distance ties use stable key order");
+assert.equal(M.selectSnapCandidate({ x: 10, y: 0 }, [{ key: "F1_TAIL", point: { x: 0, y: 0 } }, { key: "ORIGIN", point: { x: 0, y: 0 } }], { threshold: 20, preferredKeys: ["ORIGIN"] }).key, "ORIGIN", "semantic priorities win equal endpoint ties");
 
 const P = correctParallelogram();
 assert.equal(M.derivedVariant(P, firstQuestion), "complete");
@@ -186,6 +187,43 @@ assert.equal(translatedChain.resultant.originKey, "FREE", "head-to-tail resultan
 assert.equal(translatedChain.resultant.end.mode, "free");
 const editedTranslatedChain = M.commitResultant(translatedChain, "FREE", { x: 520, y: 280 }, HQuestion, { pointerType: "mouse" });
 assert.deepEqual(editedTranslatedChain.resultant.end, { mode: "free", point10: [5200, 2800] }, "a translated resultant remains endpoint-editable");
+const oneEndNearOrigin = chainAnswer(HQuestion, [0, 1], false);
+oneEndNearOrigin.resultant = {
+  originKey: "FREE",
+  originPoint10: [M.point10({ x: M.anchorPoint(oneEndNearOrigin).x - 8, y: M.anchorPoint(oneEndNearOrigin).y })[0], M.point10({ x: M.anchorPoint(oneEndNearOrigin).x - 8, y: M.anchorPoint(oneEndNearOrigin).y })[1]],
+  end: { mode: "free", point10: [M.point10({ x: M.anchorPoint(oneEndNearOrigin).x + 42, y: M.anchorPoint(oneEndNearOrigin).y + 18 })[0], M.point10({ x: M.anchorPoint(oneEndNearOrigin).x + 42, y: M.anchorPoint(oneEndNearOrigin).y + 18 })[1]] }
+};
+const beforeOneEndVector = {
+  start: M.lineStartPoint(oneEndNearOrigin.resultant, oneEndNearOrigin, HQuestion),
+  end: M.lineEndPoint(oneEndNearOrigin.resultant, oneEndNearOrigin, HQuestion)
+};
+const snappedOneEnd = M.commitResultantTranslation(oneEndNearOrigin, { x: 0, y: 0 }, HQuestion, { pointerType: "mouse" });
+const afterOneEndVector = {
+  start: M.lineStartPoint(snappedOneEnd.resultant, snappedOneEnd, HQuestion),
+  end: M.lineEndPoint(snappedOneEnd.resultant, snappedOneEnd, HQuestion)
+};
+assert.equal(snappedOneEnd.resultant.originKey, "ORIGIN", "translation snaps a near start without changing its semantic priority");
+assert.ok(Math.abs((afterOneEndVector.end.x - afterOneEndVector.start.x) - (beforeOneEndVector.end.x - beforeOneEndVector.start.x)) <= M.POSITION_QUANTUM);
+assert.ok(Math.abs((afterOneEndVector.end.y - afterOneEndVector.start.y) - (beforeOneEndVector.end.y - beforeOneEndVector.start.y)) <= M.POSITION_QUANTUM);
+const oneEndNearChainEnd = chainAnswer(HQuestion, [0, 1], false);
+const chainEnd = M.endpointForKey(oneEndNearChainEnd, HQuestion, "CHAIN_END");
+oneEndNearChainEnd.resultant = {
+  originKey: "FREE",
+  originPoint10: [1000, 1000],
+  end: { mode: "free", point10: M.point10({ x: chainEnd.x - 8, y: chainEnd.y }) }
+};
+const beforeEndVector = {
+  start: M.lineStartPoint(oneEndNearChainEnd.resultant, oneEndNearChainEnd, HQuestion),
+  end: M.lineEndPoint(oneEndNearChainEnd.resultant, oneEndNearChainEnd, HQuestion)
+};
+const snappedEndOnly = M.commitResultantTranslation(oneEndNearChainEnd, { x: 0, y: 0 }, HQuestion, { pointerType: "mouse" });
+assert.equal(snappedEndOnly.resultant.end.targetKey, "CHAIN_END", "translation snaps a near end without changing the line vector");
+const afterEndVector = {
+  start: M.lineStartPoint(snappedEndOnly.resultant, snappedEndOnly, HQuestion),
+  end: M.lineEndPoint(snappedEndOnly.resultant, snappedEndOnly, HQuestion)
+};
+assert.ok(Math.abs((afterEndVector.end.x - afterEndVector.start.x) - (beforeEndVector.end.x - beforeEndVector.start.x)) <= M.POSITION_QUANTUM);
+assert.ok(Math.abs((afterEndVector.end.y - afterEndVector.start.y) - (beforeEndVector.end.y - beforeEndVector.start.y)) <= M.POSITION_QUANTUM);
 const arbitraryChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1]), "F1_HEAD", M.endpointForKey(chainAnswer(HQuestion, [0, 1]), HQuestion, "F2_HEAD"), HQuestion, {
   allowAnyOrigin: true, pointerType: "mouse", threshold: 14
 });
@@ -259,6 +297,16 @@ for (const order of G.permutations([0, 1, 2])) {
   assert.deepEqual(chain.order, order);
   assert.equal(M.canonicalResultant(answer, TQuestion), true);
   resultantEndpoints.push(M.endpointForKey(answer, TQuestion, "CHAIN_END"));
+}
+for (let rootIndex = 0; rootIndex < TQuestion.forces.length; rootIndex += 1) {
+  const bounds = M.chainAnchorBounds(TQuestion, rootIndex);
+  for (const order of G.permutations([0, 1, 2]).filter((candidate) => candidate[0] === rootIndex)) {
+    const bounded = chainAnswer(TQuestion, order, true);
+    bounded.anchor10 = M.point10({ x: bounds.minX, y: bounds.minY });
+    const geometry = M.forceGeometry(bounded, TQuestion);
+    assert.ok(geometry.every((item) => M.anchorWithinBounds(item.tail, TQuestion, rootIndex) || item.tail.x >= M.MODEL_VISUAL_INSET - M.MODEL_EPSILON), `root ${rootIndex} remains valid at the computed feasible boundary`);
+    assert.ok(geometry.every((item) => item.tail.x >= M.MODEL_VISUAL_INSET - M.MODEL_EPSILON && item.head.x <= G.WIDTH - M.MODEL_VISUAL_INSET + M.MODEL_EPSILON && item.tail.y >= M.MODEL_VISUAL_INSET - M.MODEL_EPSILON && item.head.y <= G.HEIGHT - M.MODEL_VISUAL_INSET + M.MODEL_EPSILON), `root ${rootIndex} order ${order.join(",")} stays inside visual bounds`);
+  }
 }
 assert.ok(resultantEndpoints.every((point) => M.distance(point, resultantEndpoints[0]) <= M.MODEL_EPSILON), "all six orders have the same resultant endpoint");
 

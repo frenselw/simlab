@@ -228,6 +228,14 @@ invalid((value) => {
   value.answers[4].placements[1] = { mode: "snap", targetKey: "F1_HEAD" };
 }, /floating-or-cycle|chain/);
 invalid((value) => {
+  value.answers[3] = chain(3, [1, 0]);
+  value.answers[3].anchor10 = [-10, 0];
+}, /anchor-bounds-3/);
+invalid((value) => {
+  value.answers[3] = chain(3, [1, 0]);
+  value.answers[3].anchor10 = [0, 0];
+}, /resolved-force-bounds-3/);
+invalid((value) => {
   value.answers[4].placements[0] = { mode: "snap", targetKey: "ORIGIN" };
   value.answers[4].placements[1] = { mode: "snap", targetKey: "F1_HEAD" };
   value.answers[4].placements[2] = { mode: "snap", targetKey: "F1_HEAD" };

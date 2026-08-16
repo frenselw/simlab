@@ -84,10 +84,20 @@
     const project = options.project || projectIdentity;
     const limit = options.threshold ?? threshold(options.pointerType);
     const candidateScreen = project(candidate);
+    const excluded = new Set(options.excludeKeys || []);
+    const preferred = new Map((options.preferredKeys || []).map((key, index) => [key, index]));
     return targets
+      .filter((target) => !excluded.has(target.key))
       .map((target) => ({ ...target, distance: distance(candidateScreen, project(target.point)) }))
       .filter((target) => target.distance <= limit)
-      .sort((first, second) => first.distance - second.distance || String(first.key).localeCompare(String(second.key)))[0] || null;
+      .sort((first, second) => {
+        const distanceDifference = first.distance - second.distance;
+        if (!preferred.size) return distanceDifference || String(first.key).localeCompare(String(second.key));
+        if (Math.abs(distanceDifference) > MODEL_EPSILON) return distanceDifference;
+        return (preferred.has(first.key) ? preferred.get(first.key) : Number.MAX_SAFE_INTEGER) -
+          (preferred.has(second.key) ? preferred.get(second.key) : Number.MAX_SAFE_INTEGER) ||
+          String(first.key).localeCompare(String(second.key));
+      })[0] || null;
   }
 
   function clampForceTail(point, force) {
@@ -197,8 +207,53 @@
   }
 
   function clampAnchor(point, question, forceIndexValue = null) {
+    if (question.type !== "parallelogram") {
+      const bounds = chainAnchorBounds(question, forceIndexValue);
+      return { x: quantize(Math.max(bounds.minX, Math.min(bounds.maxX, point.x))), y: quantize(Math.max(bounds.minY, Math.min(bounds.maxY, point.y))) };
+    }
     const forces = forceIndexValue == null ? question.forces : [question.forces[forceIndexValue]];
     return forces.reduce((candidate, force) => clampForceTail(candidate, force), { ...point });
+  }
+
+  function chainAnchorBounds(question, rootIndex = null) {
+    if (question.type === "parallelogram") return null;
+    const indices = question.forces.map((_, index) => index);
+    const orders = Generator.permutations(indices).filter((order) => rootIndex == null || order[0] === rootIndex);
+    let minX = MODEL_VISUAL_INSET;
+    let maxX = Generator.WIDTH - MODEL_VISUAL_INSET;
+    let minY = MODEL_VISUAL_INSET;
+    let maxY = Generator.HEIGHT - MODEL_VISUAL_INSET;
+    for (const order of orders) {
+      let offset = { x: 0, y: 0 };
+      const points = [offset];
+      for (const index of order) {
+        const head = { x: offset.x + question.forces[index].dx, y: offset.y + question.forces[index].dy };
+        points.push(head);
+        offset = head;
+      }
+      for (const candidate of points) {
+        minX = Math.max(minX, MODEL_VISUAL_INSET - candidate.x);
+        maxX = Math.min(maxX, Generator.WIDTH - MODEL_VISUAL_INSET - candidate.x);
+        minY = Math.max(minY, MODEL_VISUAL_INSET - candidate.y);
+        maxY = Math.min(maxY, Generator.HEIGHT - MODEL_VISUAL_INSET - candidate.y);
+      }
+    }
+    return {
+      minX: Math.ceil(minX / POSITION_QUANTUM) * POSITION_QUANTUM,
+      maxX: Math.floor(maxX / POSITION_QUANTUM) * POSITION_QUANTUM,
+      minY: Math.ceil(minY / POSITION_QUANTUM) * POSITION_QUANTUM,
+      maxY: Math.floor(maxY / POSITION_QUANTUM) * POSITION_QUANTUM
+    };
+  }
+
+  function anchorWithinBounds(point, question, rootIndex = null) {
+    if (question.type === "parallelogram") {
+      const clamped = clampAnchor(point, question, rootIndex);
+      return Math.abs(point.x - clamped.x) <= MODEL_EPSILON && Math.abs(point.y - clamped.y) <= MODEL_EPSILON;
+    }
+    const bounds = chainAnchorBounds(question, rootIndex);
+    return point.x >= bounds.minX - MODEL_EPSILON && point.x <= bounds.maxX + MODEL_EPSILON &&
+      point.y >= bounds.minY - MODEL_EPSILON && point.y <= bounds.maxY + MODEL_EPSILON;
   }
 
   function corner(question, answer = null) {
@@ -341,9 +396,14 @@
       const targets = [];
       geometry.forEach((item, index) => {
         if (index === movingIndex) return;
+        // Existing endpoint relationships remain available even when the
+        // resulting chain reaches close to a visual inset. The target force
+        // is stationary during this gesture; clamping is reserved for a
+        // free root anchor so endpoint snapping stays bidirectional.
         targets.push({ key: headKey(index), point: item.head, attach: "TAIL" });
         const force = question.forces[movingIndex];
-        targets.push({ key: tailKey(index), point: { x: item.tail.x - force.dx, y: item.tail.y - force.dy }, attach: "HEAD" });
+        const movingRoot = { x: item.tail.x - force.dx, y: item.tail.y - force.dy };
+        targets.push({ key: tailKey(index), point: movingRoot, attach: "HEAD" });
       });
       return targets;
     }
@@ -361,11 +421,13 @@
     const rootIndex = chain.order[0];
     const force = question.forces[movingIndex];
     const rootTail = endpointForKey(answer, question, tailKey(rootIndex));
-    targets.push({ key: tailKey(rootIndex), point: { x: rootTail.x - force.dx, y: rootTail.y - force.dy }, attach: "HEAD" });
+    const prependTail = { x: rootTail.x - force.dx, y: rootTail.y - force.dy };
+    targets.push({ key: tailKey(rootIndex), point: prependTail, attach: "HEAD" });
     return targets;
   }
 
   function commitForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
+    if (options.keepFree) return previewForceTranslation(answer, forceIndexValue, candidateTail, question);
     const next = previewSnappedForceTranslation(answer, forceIndexValue, candidateTail, question, options);
     if (next.placements[forceIndexValue].mode === "snap") return next;
     let candidate = fromPoint10(next.placements[forceIndexValue].tail10);
@@ -566,11 +628,14 @@
     const targets = question.type === "parallelogram"
       ? parallelogramCornerTargets(next, question)
       : endpointHandles(next, question).filter((handle) => resultantOriginAllowed(question, handle.key, options));
-    const snap = options.snap ? selectSnapCandidate(candidate, targets, options) : null;
+    const snap = options.snap ? selectSnapCandidate(candidate, targets, {
+      ...options,
+      preferredKeys: [ORIGIN_KEY, question.type === "parallelogram" ? "CORNER" : "CHAIN_END", ...(options.preferredKeys || [])]
+    }) : null;
     if (snap) {
       next.resultant.originKey = snap.key;
       delete next.resultant.originPoint10;
-    } else if (question.type === "parallelogram" && options.allowAnyOrigin) {
+    } else if (options.allowAnyOrigin) {
       next.resultant.originKey = "FREE";
       next.resultant.originPoint10 = point10(candidate);
     }
@@ -608,13 +673,49 @@
     };
     if (options.snap) {
       const targets = question.type === "parallelogram" ? parallelogramCornerTargets(next, question) : endpointHandles(next, question);
-      const startSnap = selectSnapCandidate(candidateStart, targets, options);
-      if (startSnap) {
-        next.resultant.originKey = startSnap.key;
-        delete next.resultant.originPoint10;
+      const startSnap = selectSnapCandidate(candidateStart, targets, {
+        ...options,
+        preferredKeys: [ORIGIN_KEY, question.type === "parallelogram" ? "CORNER" : "CHAIN_END", ...(options.preferredKeys || [])]
+      });
+      const endSnap = selectSnapCandidate(candidateEnd, targets, {
+        ...options,
+        preferredKeys: [question.type === "parallelogram" ? "CORNER" : "CHAIN_END", ORIGIN_KEY, ...(options.preferredKeys || [])]
+      });
+      const snapCandidates = [];
+      if (startSnap) snapCandidates.push({ side: "start", snap: startSnap, correction: { x: startSnap.point.x - candidateStart.x, y: startSnap.point.y - candidateStart.y } });
+      if (endSnap) snapCandidates.push({ side: "end", snap: endSnap, correction: { x: endSnap.point.x - candidateEnd.x, y: endSnap.point.y - candidateEnd.y } });
+      snapCandidates.sort((first, second) => first.snap.distance - second.snap.distance || (first.side === "start" ? -1 : 1));
+      const chosen = snapCandidates[0];
+      if (chosen) {
+        const shiftedStart = { x: candidateStart.x + chosen.correction.x, y: candidateStart.y + chosen.correction.y };
+        const shiftedEnd = { x: candidateEnd.x + chosen.correction.x, y: candidateEnd.y + chosen.correction.y };
+        next.resultant = {
+          originKey: "FREE",
+          originPoint10: point10(shiftedStart),
+          end: { mode: "free", point10: point10(shiftedEnd) }
+        };
+        if (chosen.side === "start" && distance(shiftedStart, chosen.snap.point) <= POSITION_QUANTUM + MODEL_EPSILON) {
+          next.resultant.originKey = chosen.snap.key;
+          delete next.resultant.originPoint10;
+        }
+        if (chosen.side === "end" && distance(shiftedEnd, chosen.snap.point) <= POSITION_QUANTUM + MODEL_EPSILON) {
+          next.resultant.end = chosen.snap.key === GUIDE_INTERSECTION_KEY
+            ? { mode: "snap", targetKey: chosen.snap.key, point10: point10(chosen.snap.point) }
+            : { mode: "snap", targetKey: chosen.snap.key };
+        }
+        const companion = chosen.side === "start" ? endSnap : startSnap;
+        const companionPoint = chosen.side === "start" ? shiftedEnd : shiftedStart;
+        if (companion && distance(companionPoint, companion.snap.point) <= POSITION_QUANTUM + MODEL_EPSILON) {
+          if (chosen.side === "start") {
+            next.resultant.end = companion.snap.key === GUIDE_INTERSECTION_KEY
+              ? { mode: "snap", targetKey: companion.snap.key, point10: point10(companion.snap.point) }
+              : { mode: "snap", targetKey: companion.snap.key };
+          } else {
+            next.resultant.originKey = companion.snap.key;
+            delete next.resultant.originPoint10;
+          }
+        }
       }
-      const endSnap = selectSnapCandidate(candidateEnd, targets, options);
-      if (endSnap) next.resultant.end = { mode: "snap", targetKey: endSnap.key };
     }
     return next;
   }
@@ -673,7 +774,7 @@
     lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide, removeResultant,
     parallelogramCornerTargets, guideIntersectionPoint, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
     boundedTranslationDelta, previewResultantTranslation, commitResultantTranslation,
-    endpointHandles, guideStartHandles, resultantStartHandles,
+    endpointHandles, guideStartHandles, resultantStartHandles, chainAnchorBounds, anchorWithinBounds,
     isBlank, questionComplete
   });
 });

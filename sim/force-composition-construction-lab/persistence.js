@@ -68,8 +68,21 @@
     const point = Model.fromPoint10(anchor10);
     const forceIndex = answer.placements.findIndex((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
     if (forceIndex < 0) return "anchor-without-root";
+    if (question.type !== "parallelogram") {
+      // A snapped head-to-tail relationship may intentionally place the
+      // stationary root nearer the canvas edge than the free-root visual
+      // inset. Keep the decoder strict about the actual canvas boundary;
+      // interactive free-root placement still uses chainAnchorBounds().
+      const tolerance = Model.POSITION_QUANTUM + Model.MODEL_EPSILON;
+      if (point.x < -tolerance || point.x > Generator.WIDTH + tolerance || point.y < -tolerance || point.y > Generator.HEIGHT + tolerance) return "anchor-bounds";
+      return null;
+    }
     const clamped = Model.clampAnchor(point, question, question.type === "parallelogram" ? null : forceIndex);
-    if (Math.abs(point.x - clamped.x) > Model.MODEL_EPSILON || Math.abs(point.y - clamped.y) > Model.MODEL_EPSILON) return "anchor-bounds";
+    // Drag coordinates are quantized to 0.1 model units after a CSS-pixel
+    // gesture. Accept one quantization step at the visual inset while still
+    // rejecting materially out-of-bounds anchors.
+    const tolerance = Model.POSITION_QUANTUM + Model.MODEL_EPSILON;
+    if (Math.abs(point.x - clamped.x) > tolerance || Math.abs(point.y - clamped.y) > tolerance) return "anchor-bounds";
     return null;
   }
 
@@ -188,6 +201,17 @@
       if (!answer || answer.type !== TYPES[index] || question.type !== TYPES[index]) return { ok: false, reason: `question-type-${index}` };
       const reason = question.type === "parallelogram" ? validateParallelogram(answer, question, index) : validateChain(answer, question, index);
       if (reason) return { ok: false, reason: `${reason}-${index}` };
+      let geometry;
+      try { geometry = Model.forceGeometry(answer, question); }
+      catch { return { ok: false, reason: `resolved-force-geometry-${index}` }; }
+      for (const item of geometry) {
+        const tolerance = Model.POSITION_QUANTUM + Model.MODEL_EPSILON;
+        const points = [item.tail, item.head];
+        if (points.some((point) => point.x < -tolerance || point.x > Generator.WIDTH + tolerance ||
+            point.y < -tolerance || point.y > Generator.HEIGHT + tolerance)) {
+          return { ok: false, reason: `resolved-force-bounds-${index}` };
+        }
+      }
     }
     return { ok: true };
   }
