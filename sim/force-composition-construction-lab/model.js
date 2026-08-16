@@ -485,6 +485,12 @@
     return next;
   }
 
+  function removeResultant(answer) {
+    const next = clone(answer);
+    next.resultant = null;
+    return next;
+  }
+
   function previewResultant(answer, originKey, candidateEnd, question, options = {}) {
     if ((!resultantAvailable(answer, question) && !options.allowIncomplete) || !resultantOriginAllowed(question, originKey, options)) throw new Error("Resultant is not available");
     const next = clone(answer);
@@ -493,6 +499,14 @@
       const originPoint10 = answer.resultant?.originPoint10 || (options.originPoint ? point10(clampLinePoint(options.originPoint)) : null);
       if (!validPoint10(originPoint10)) throw new Error("Free resultant origin is missing");
       next.resultant.originPoint10 = originPoint10.slice();
+      if (options.snap && options.originPoint) {
+        const originCandidate = fromPoint10(next.resultant.originPoint10);
+        const originSnap = selectSnapCandidate(originCandidate, [{ key: ORIGIN_KEY, point: anchorPoint(next) }], options);
+        if (originSnap) {
+          next.resultant.originKey = originSnap.key;
+          delete next.resultant.originPoint10;
+        }
+      }
     }
     if (options.snap) {
       const candidate = fromPoint10(next.resultant.end.point10);
@@ -617,7 +631,7 @@
     freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, anchorPoint, corner, endpointForKey,
     correctGuides, prerequisitesForResultant, resultantAvailable, canonicalResultant, derivedVariant,
     releaseForceAndDescendants, previewForceTranslation, previewSnappedForceTranslation, legalForceTargets, commitForceTranslation,
-    lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide,
+    lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide, removeResultant,
     parallelogramCornerTargets, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
     boundedTranslationDelta, previewResultantTranslation, commitResultantTranslation,
     endpointHandles, guideStartHandles, resultantStartHandles,

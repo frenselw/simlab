@@ -93,7 +93,7 @@
     for (const id of [
       "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierLabel", "magnifierLine",
       "saveBanner", "saveBannerText", "retrySave", "technicalPanel", "technicalTitle", "technicalMessage", "technicalActions",
-      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "drawResultant", "questionProgress",
+      "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "drawResultant", "deleteResultant", "questionProgress",
       "undo", "resetQuestion", "previousQuestion", "nextQuestion", "goSummary", "summaryPanel", "summaryList", "summaryWarning",
       "submitAttempt", "returnToPractice", "submitStatus", "reviewPanel", "reviewTitle", "reviewScore", "reviewCompletion",
       "reviewQuestionNavigation", "toggleCorrect", "reviewFeedback", "reviewActions", "liveRegion", "submitDialog", "submitDialogMessage",
@@ -676,6 +676,9 @@
     dom.drawResultant.setAttribute("aria-pressed", String(resultantMode));
     dom.drawResultant.dataset.active = String(resultantMode);
     dom.drawResultant.textContent = resultantMode ? "返回修改力與作圖" : resultantAvailable ? "開始畫合力（鎖定前面作圖）" : "完成前置作圖後開始畫合力";
+    dom.deleteResultant.hidden = !answer.resultant;
+    dom.deleteResultant.classList.toggle("is-hidden", !answer.resultant);
+    dom.deleteResultant.disabled = !answer.resultant;
     dom.stage.classList.toggle("resultant-mode", resultantMode);
     renderProgress();
     const policy = UI.controlPolicy({ presentation, phase: state.phase, undoAvailable: undoStacks[state.currentQuestion].length > 0, unsaved });
@@ -1024,6 +1027,13 @@
     resultantMode = !resultantMode;
     renderAll();
     announce(resultantMode ? "已進入合力作圖模式；力矢量及輔助線暫時鎖定。" : "已返回修改力矢量及輔助線模式。");
+  }
+
+  function deleteCurrentResultant() {
+    const answer = state.answers[state.currentQuestion];
+    if (!answer?.resultant) return;
+    const next = M.removeResultant(answer);
+    finalizeAnswer(next, "合力已刪除，可以重新畫。", null, { preservePanelScroll: true });
   }
 
   function normalizeSubmission(outcome) {
@@ -1463,6 +1473,7 @@
     });
     dom.undo.addEventListener("click", undo);
     dom.drawResultant.addEventListener("click", toggleResultantMode);
+    dom.deleteResultant.addEventListener("click", deleteCurrentResultant);
     dom.resetQuestion.addEventListener("click", () => {
       if (typeof dom.resetDialog.showModal === "function") dom.resetDialog.showModal();
       else if (windowObject.confirm("重設本題？")) resetCurrent();

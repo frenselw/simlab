@@ -1495,3 +1495,9 @@ Invalid matrix：
 
 - 頭→尾 snap 以固定對方端點反推出被拖力的 canonical tail，再建立 root／child relationship；不再以 pointer 的近似位置作 anchor，避免重建鏈時移動未被拖動的力。
 - near-miss 仍保留 snap threshold，但放手後只有被拖動力跳到精確端點，stationary force 的 tail／head 保持不變；H1／H2 source 與 extracted SCORM regression 均加入 stationary-position assertion。
+
+## 32. 合力刪除及初始起點吸附（2026-08-16）
+
+- 合力畫出後，Control Panel 顯示「刪除合力，重新畫」；刪除只清除 `answer.resultant`，保留已完成的力／輔助線／力鏈，並留在合力模式讓學生可立即重畫。按鈕在沒有合力時隱藏，並納入 undo、draft round-trip、source／SCORM browser flow。
+- 由舞台空白位置首次拖出合力時，pointerdown 的起點會以 screen-space snap 閾值比較目前題目的共同起點（即學生選定的 `anchor10`／`ORIGIN` 語意）；P 題及 H/T 題均支援。接近時即時預覽及放手後保存為 `originKey: "ORIGIN"`，未接近則保留 `FREE + originPoint10`，不會把錯誤起點自動改正。
+- 端點吸附及既有任意錯誤作答能力不變；新增 model coverage（P、H、T 近起點及遠距離對照）及 production browser coverage（畫出／刪除／重畫，development source 與 extracted SCORM）。

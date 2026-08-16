@@ -281,6 +281,12 @@ async function completeCurrentQuestion(cdp, index, order, input, embedded = fals
   assert.ok(await elementPoint(cdp, '[data-semantic-key="resultant-start-ORIGIN"]', embedded), `${input}: resultant mode exposes a consistent origin handle`);
   const resultantEnd = await targetModelPoint(cdp, question.type === "parallelogram" ? "CORNER" : "CHAIN_END", embedded);
   await drawLine(cdp, "resultant-start-ORIGIN", resultantEnd, input, embedded);
+  assert.equal(await inActivity(cdp, "document.getElementById('deleteResultant').hidden", embedded), false, `${input}: delete resultant control appears after drawing`);
+  await click(cdp, "#deleteResultant", embedded);
+  assert.equal(await inActivity(cdp, "window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].resultant", embedded), null, `${input}: delete resultant clears the current line`);
+  assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').getAttribute('aria-pressed')", embedded), "true", `${input}: delete keeps resultant mode ready for redraw`);
+  assert.equal(await inActivity(cdp, "document.getElementById('deleteResultant').hidden", embedded), true, `${input}: delete control hides until a new line is drawn`);
+  await drawLine(cdp, "resultant-start-ORIGIN", resultantEnd, input, embedded);
   const complete = await inActivity(cdp, `window.__forceCompositionApp.getCompletion()[${index}]`, embedded);
   if (!complete) {
     const diagnostic = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${index}],a=s.answers[${index}];return {answer:a,score:window.ForceCompositionScoring.questionDetail(a,q,${index})}; })()`, embedded);

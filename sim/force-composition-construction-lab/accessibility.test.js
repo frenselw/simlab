@@ -16,6 +16,7 @@ assert.match(html, /id="stageSvg"[^>]*role="img"[^>]*aria-describedby="stageDesc
 assert.doesNotMatch(html, /id="forceSelector"/);
 assert.match(html, /class="drag-layer"/);
 assert.match(html, /id="drawResultant"[^>]*aria-pressed="false"/);
+assert.match(html, /id="deleteResultant"/);
 assert.match(html, /id="submitDialog"/);
 assert.match(html, /仍要提交/);
 assert.match(css, /\.force-hit[\s\S]*height:\s*44px/);

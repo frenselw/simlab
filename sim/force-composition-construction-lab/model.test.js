@@ -96,9 +96,14 @@ const freeResultantStart = M.commitResultantStart(movedResultantStart, { x: 200,
 assert.equal(freeResultantStart.resultant.originKey, "FREE", "resultant start remains editable between corner snaps");
 assert.deepEqual(freeResultantStart.resultant.originPoint10, [2000, 2000]);
 const freeInitialResultant = M.previewResultant(wrongGuides, "FREE", { x: 520, y: 300 }, firstQuestion, {
-  allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }
+  allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }, snap: true, pointerType: "mouse"
 });
 assert.deepEqual(freeInitialResultant.resultant.originPoint10, [2100, 1900], "resultant can begin at an arbitrary stage position");
+const nearCorrectPResultant = M.previewResultant(wrongGuides, "FREE", { x: 520, y: 300 }, firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: M.anchorPoint(wrongGuides).x + 8, y: M.anchorPoint(wrongGuides).y - 6 }, snap: true, pointerType: "mouse"
+});
+assert.equal(nearCorrectPResultant.resultant.originKey, "ORIGIN", "a near-correct parallelogram resultant start snaps to the selected common origin");
+assert.equal(Object.hasOwn(nearCorrectPResultant.resultant, "originPoint10"), false, "a snapped resultant start no longer stores a free origin");
 const committedFreeInitial = M.commitResultant(wrongGuides, "FREE", { x: 520, y: 300 }, firstQuestion, {
   allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: 210, y: 190 }
 });
@@ -111,6 +116,7 @@ assert.deepEqual(translatedParallelogram.resultant.originPoint10, [2500, 1700]);
 assert.deepEqual(M.lineEndPoint(translatedParallelogram.resultant, translatedParallelogram, firstQuestion), { x: 560, y: 280 }, "whole resultant translation preserves the vector");
 
 const HQuestion = scenario.questions[2];
+const TQuestion = scenario.questions[4];
 for (const order of [[0, 1], [1, 0]]) {
   const answer = chainAnswer(HQuestion, order);
   assert.deepEqual(M.chainInfo(answer, HQuestion).order, order);
@@ -166,8 +172,17 @@ const arbitraryChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1])
 });
 assert.equal(arbitraryChainResultant.resultant.originKey, "F1_HEAD", "head-to-tail resultant may start at any force endpoint");
 assert.deepEqual(arbitraryChainResultant.resultant.end, { mode: "snap", targetKey: "F2_HEAD" }, "head-to-tail resultant endpoint may snap to any force endpoint");
+for (const [question, order] of [[HQuestion, [0, 1]], [TQuestion, [2, 0, 1]]]) {
+  const chain = chainAnswer(question, order, false);
+  const nearCorrectChainResultant = M.previewResultant(chain, "FREE", { x: 520, y: 300 }, question, {
+    allowIncomplete: true, allowAnyOrigin: true, originPoint: { x: M.anchorPoint(chain).x - 7, y: M.anchorPoint(chain).y + 9 }, snap: true, pointerType: "mouse"
+  });
+  assert.equal(nearCorrectChainResultant.resultant.originKey, "ORIGIN", `${question.type} resultant start snaps to the chain root`);
+  assert.equal(Object.hasOwn(nearCorrectChainResultant.resultant, "originPoint10"), false, `${question.type} snapped start removes the free origin`);
+}
+assert.equal(M.removeResultant(P).resultant, null, "deleting a resultant clears only the resultant");
+assert.deepEqual(M.removeResultant(P).guides, P.guides, "deleting a resultant preserves completed construction work");
 
-const TQuestion = scenario.questions[4];
 const resultantEndpoints = [];
 for (const order of G.permutations([0, 1, 2])) {
   const answer = chainAnswer(TQuestion, order);

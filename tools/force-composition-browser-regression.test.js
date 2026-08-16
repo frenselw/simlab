@@ -25,6 +25,7 @@ assert.match(browser, /sourceTouch/);
 assert.match(browser, /packageTouch/);
 assert.match(browser, /enterResultantMode/);
 assert.match(browser, /#drawResultant/);
+assert.match(browser, /#deleteResultant/);
 assert.match(browser, /__embed-scroll-test\.html/);
 assert.match(main, /arrowPathData/);
 assert.doesNotMatch(main, /marker-end/);
@@ -33,6 +34,7 @@ assert.match(main, /beginFreeResultantDrag/);
 assert.match(main, /resultant-hit/);
 assert.match(main, /computeStageCamera/);
 assert.match(main, /previewResultantTranslation/);
+assert.match(main, /deleteCurrentResultant/);
 assert.match(main, /segmentRectDistance/);
 assert.match(main, /forceLabelPosition\(item\.tail, item\.head, occupiedLabels, labelSegments\)/);
 
