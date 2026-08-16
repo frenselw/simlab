@@ -2,6 +2,8 @@
 
 > 本文件是 `force-composition-construction-lab` 第一版的實作藍圖。第一版只處理力的合成，不包括力的分解；未完成本文件列出的 phase/state、persistence、scoring、touch 及 package 契約前，不開始製作 UI。
 
+> **維護註記（2026-08-16）**：本文件保留初稿及逐次修訂紀錄；目前可執行行為以文末「目前實作契約」及其後的修訂紀錄為準。若早期章節與該契約衝突，後者取代早期提案，避免把已被產品要求修正的交互行為當成現行規格。
+
 ## 1. Scope
 
 - **Slug**：`force-composition-construction-lab`
@@ -42,9 +44,9 @@
 
 - 拖動整支預設力矢量的圖示作平移；
 - 力矢量不可旋轉、不可拉長、不可縮短；
-- 把力矢量的箭尾吸附到作圖起點或另一個力的箭頭；
+- 力矢量的語意端點在拖動期間即時吸附：尾接頭會延伸目前力鏈，頭接尾會在合法位置前置力鏈；不建立分支或循環；
 - 從系統提供的語意端點 handle 拖出虛線輔助線；基礎第一題只顯示合法起點，第二題由學生選擇；
-- 從力鏈起點拖出合力；
+- 從舞台空白或可用端點拖出合力；合力起點及終點均可修改、刪除、平移及即時吸附；
 - 返回、下一題、題目進度切換、復原上一步、重設本題；
 - 進入提交前檢查，然後作一次最終提交。
 
@@ -115,7 +117,7 @@ sim/manifests/
     "drawing",
     "scorm"
   ],
-  status: "planned"
+  status: "active"
 }
 ```
 
@@ -211,40 +213,40 @@ P1–T1 五個進度按鈕由fresh draft成功建立及UI解鎖一刻起全部�
 4. 兩力都到位後，guide 起筆 handles 才出現；
 5. 學生由 `F₁` 箭頭拖出一條與 `F₂` 對應的虛線輔助線；
 6. 學生由 `F₂` 箭頭拖出一條與 `F₁` 對應的虛線輔助線；
-7. 每條線的起點由 handle 固定；學生只決定終點。終點接近第四頂點時才吸附；
-8. 兩條正確輔助線都吸附後，合力起筆 handles 才出現；
-9. 學生由共同起點拖至平行四邊形對角頂點，畫出合力；
-10. 合力終點吸附後，本題標示「完成」，但仍可返回修改。
+7. 每條線的起點由 handle 固定；拖動期間只要方向接近對邊（目前為 10° 內）便即時吸附到平行方向，線長可以任意；方向錯誤的 provisional 線仍會保留；
+8. 兩條輔助線都有記錄後，合力模式便可進入，不要求學生先畫對，讓錯誤合力方向可以被保存及檢視；
+9. 合力模式鎖定力矢量及輔助線；學生可由舞台空白或任一可用端點開始，在任意位置畫合力；
+10. 合力起點及終點在拖動期間均可吸附到合法幾何端點；只有正確語意關係才標示「完成」，但仍可返回修改或刪除合力。
 
-沒有吸附的輔助線／合力保留為 provisional geometry，學生可再次拖動其終點。它們不會被稱為正確，亦不取得該項分數。
+沒有吸附或方向錯誤的輔助線／合力保留為 provisional geometry，學生可再次拖動其起點及終點。它們不會被稱為正確，亦不取得該項分數；錯誤輔助線若有可見線段交點，該交點仍可作為合力的錯誤吸附位置。
 
 P1 顯示逐步文字，例如「先把兩個箭尾移到共同起點」，並只顯示目前合法的 guide／resultant 起筆 handle。
 
-P2 只顯示「完成平行四邊形，再畫出合力」。當 guides 可畫時，所選共同起點、`F₁` 箭頭及 `F₂` 箭頭都顯示外觀一致的中性 handle；學生要自行選擇起點。P2 最多保存兩條 guide records；錯誤起點仍可畫 provisional line，但不能吸附或得分。同一origin再次起筆會取代該origin舊線，production state不產生duplicate origin。已有兩條時，學生必須選取、清除或重畫其中一條，不會暗中新增第三條。兩條正確 guides 到位後，resultant 階段在所有目前幾何端點顯示相同中性 handles；只有由所選共同起點起筆的 resultant 可以吸附。
+P2 只顯示「完成平行四邊形，再畫出合力」。當 guides 可畫時，所選共同起點、`F₁` 箭頭及 `F₂` 箭頭都顯示外觀一致的中性 handle；學生要自行選擇起點。P2 最多保存兩條 guide records；錯誤起點、方向及長度仍可畫 provisional line，方向接近對邊時仍按方向吸附。同一 origin 再次起筆會取代該 origin 舊線，production state 不產生 duplicate origin。兩條 guide records 到位後，resultant 階段在所有目前幾何端點及舞台空白位置都可開始作圖；任何錯誤起點／終點仍可保存，但只有正確 `ORIGIN` 至 `CORNER` 關係計為完成。
 
 ### 4.3 H1/H2：兩力首尾相接法
 
 1. 兩個隨機力初始分開；
 2. 學生可先選 `F₁` 或 `F₂`，在任意位置建立共同起點；
-3. 把另一個力的箭尾移近第一個力的箭頭並放手，形成首尾接點；
-4. 有效力鏈形成後，合力起筆 handle 在所選共同起點出現；
-5. 學生拖至力鏈最後一個箭頭畫合力；
-6. 合力終點吸附後完成。
+3. 把另一個力的箭尾移近第一個力的箭頭，或把另一個力的箭頭移近第一個力的箭尾；拖動期間即時吸附，形成單一路徑接點；
+4. 有效力鏈形成後，按「開始畫合力」進入合力模式；力矢量暫時鎖定；
+5. 學生可由共同起點、任一力端點或舞台空白位置開始畫合力，再拖至任意終點；
+6. 起點及終點均可修改、平移及吸附；只有由共同起點指向力鏈終點的關係計為完成。
 
-H1 的完整提示是：「任選一個力，在任意位置開始作圖；再把另一個力的箭尾接到第一個力的箭頭。兩個次序都可以。」力鏈完成後只在所選共同起點顯示 resultant 起筆 handle。
+H1 的完整提示是：「任選一個力，在任意位置開始作圖；再把另一個力首尾接到目前力鏈。兩個次序及兩種接近方向都可以。」力鏈完成後可由共同起點、任一端點或舞台空白位置開始畫合力；錯誤方向及位置保留供學生修改。
 
-H2 不指定次序；力鏈完成後，在所選共同起點及目前所有力的箭尾／箭頭顯示外觀一致的中性 handles。錯誤 origin 可以留下 provisional resultant，但不能吸附或得分。Editable view 不顯示第二個力應放在哪一邊的 ghost arrow。
+H2 不指定次序；力鏈完成後，所有力端點及舞台空白位置都可作合力起點。錯誤 origin、方向及終點可以留下 provisional resultant；不會被 UI 自動改正，只有 canonical 關係計分。Editable view 不顯示第二個力應放在哪一邊的 ghost arrow。
 
 ### 4.4 T1：三力首尾相接進階題
 
 1. 三個隨機力 `F₁`、`F₂`、`F₃` 初始分開；
 2. 任一力可先在任意位置建立共同起點；
-3. 其餘兩力逐一接到目前力鏈的自由箭頭；
-4. 吸附只接受由所選共同起點向外延伸的單一路徑，不建立分支或循環；
-5. 三力鏈完成後，所有目前力鏈端點顯示外觀一致的中性 handles；學生要自行選擇由共同起點畫至最後一個箭頭；
-6. 六個排列次序全部接受，所得合力端點相同。
+3. 其餘兩力逐一接到目前力鏈的自由箭頭；亦可將未連接力的箭頭接到目前力鏈根部箭尾，以前置該力；
+4. 吸附只接受會形成單一路徑的合法端點，不建立分支或循環；
+5. 三力鏈完成後，按「開始畫合力」鎖定前面作圖；學生可由任何力端點或舞台空白位置畫至任意終點；
+6. 六個排列次序及合法前置／後置操作全部接受，所得正確合力端點相同。
 
-第一版不提供「平行四邊形」工具給 T1，避免學生誤以為必須畫多組中間合力。題目文字清楚寫明「請用首尾相接法」。錯誤 resultant origin 只形成 provisional line，不能吸附或得分。
+第一版不提供「平行四邊形」工具給 T1，避免學生誤以為必須畫多組中間合力。題目文字清楚寫明「請用首尾相接法」。錯誤 resultant origin、方向或終點只形成 provisional line；可繼續修改及吸附，但不能取得 canonical 分數。
 
 ### 4.5 修改、復原及 downstream invalidation
 
@@ -287,20 +289,21 @@ Fresh attempt 使用 `crypto.getRandomValues()` 產生 unsigned 32-bit seed；�
 ```js
 {
   schemaVersion: 1,
-  generatorVersion: 1,
+  generatorVersion: 2,
   seed: 0x00000000 // uint32
 }
 ```
 
-`generator.js` 使用固定 deterministic PRNG，並以 immutable registry dispatch：
+`generator.js` 使用固定 deterministic PRNG，並以 immutable registry dispatch。現行 fresh attempt 使用 v2；v1 仍只作舊 draft／review restore：
 
 ```js
 const GENERATORS = Object.freeze({
-  1: generateV1
+  1: generateV1,
+  2: generateV2
 });
 ```
 
-相同 `(generatorVersion, seed)` 必須產生完全相同的五題、矢量分量、初始位置及作圖安全區。已發布的 `generateV1` 不得原地改寫；任何會改變 PRNG consumption、rejection order、placement、fallback 或 output 的 change 必須新增 generator version。不得在 render 或 pointer handler 直接使用 `Math.random()`。
+相同 `(generatorVersion, seed)` 必須產生完全相同的五題、矢量分量、初始位置及作圖安全區。已發布的 `generateV1` 及 `generateV2` 不得原地改寫；任何會改變 PRNG consumption、rejection order、placement、fallback 或 output 的 change 必須新增 generator version。不得在 render 或 pointer handler 直接使用 `Math.random()`。
 
 Fresh attempt 必須先生成 seed及完整 fresh state，建立 production draft envelope，並由 `SimScorm.saveDraft()` 成功 commit，才可 render/unlock editable UI。首次保存失敗時顯示 technical save lock及「重試建立練習」；不得先讓學生作答，亦不得在 reload 時偷偷換 seed。
 
@@ -428,7 +431,7 @@ distanceCssPx(
 
 Whole-force drag 保留 pointerdown grab offset；先由 pointer delta 算出 candidate model tail，再量度 candidate tail，不使用 raw pointer client position。Line drag 同樣先更新 candidate authoritative endpoint，再量度該 endpoint。Pointer 只產生位移，永遠不是 snap/scoring endpoint。
 
-不另作角度或線長容差。當預設力 `dx/dy` 不變，或新畫線 origin relationship 已驗證，而且目標終點相同時，方向與長度已被唯一決定。
+力矢量及合力不另作角度或線長容差：預設力 `dx/dy` 固定，合力由學生拖出的兩端決定。只有平行四邊形虛線輔助線使用獨立的方向容差（目前 10° 內），並保留學生實際線長；guide 的方向 snap 不會改變力矢量或合力的幾何。
 
 ### 6.3 Snap thresholds
 
@@ -472,17 +475,15 @@ Pointer及keyboard每次 candidate update都走同一 clamp；pointerup 前再 c
 
 ### 6.5 Snap target rules
 
-- 只在 pointerup／keyboard commit 時正式吸附；pointermove 只顯示接近 target 的中性高亮；
+- pointermove／keyboard movement 期間即時套用 preview snap；放手或按 Enter 才提交當刻語意狀態，離開閾值時立即回到自由預覽；不使用大型圓圈或 F1/F2 選擇按鈕作提示；
 - 如果同時有多個合法 target，選 screen distance 最近者；距離完全相同則使用穩定 key order；
-- P 題力箭尾只可吸附到 `O`；
-- P1 guide origin固定在指定力箭頭；P2 origin可由中性 handles選擇，但只有 `F1_HEAD/F2_HEAD`各一次是合法 relationship；origin合法且終點接近 `C`才吸附；
-- P1 resultant origin固定在 `O`；P2可選其他endpoint作provisional origin，但只有`ORIGIN`可吸附到`C`；
-- H/T 第一個力箭尾只可吸附到 `O`；
-- H/T 後續力箭尾只可吸附到目前單一路徑的自由箭頭；
-- H1 resultant origin固定在 `O`；H2/T1可選其他現有endpoint作provisional origin，但只有`ORIGIN`可吸附到力鏈自由箭頭；
+- P 題力箭尾只可吸附到學生選定的共同起點；P1/P2 guide 起點按題型提供 semantic handles，終點按對邊方向吸附，線長不限；
+- P 題兩條 guide record 都存在後便可進入合力模式，不要求 guides 正確；合力起點可為舞台空白或可用端點，終點可為任意自由位置、四個幾何角或可見錯誤 guide 交點；只有 canonical `ORIGIN → CORNER` 計為完成；
+- H/T 第一支力可在任意位置建立共同起點；後續力的尾接頭會接到目前單一路徑自由箭頭；未連接力的頭接尾只可接到未連接力的尾，或已有鏈時接到鏈根尾以合法前置；
+- H/T 合力起點可為舞台空白或任一現有端點，終點可為任意自由位置或現有端點；只有 canonical `ORIGIN → CHAIN_END` 計為完成；
 - 不接受箭頭接箭頭、箭尾接箭尾（P 共同起點除外）、分支或循環；
 - 放手在閾值外不自動修正，保留學生位置或 provisional endpoint；
-- 不顯示 invisible full-answer hit region；只在 endpoint 已足夠接近時吸附。
+- 不顯示 invisible full-answer hit region；只在被拖動 semantic endpoint 已足夠接近時吸附。
 
 ### 6.6 Canonical snapped geometry and wire authority
 
@@ -496,17 +497,28 @@ Force placement：
 { mode: "snap", targetKey: "ORIGIN" | "F1_HEAD" | "F2_HEAD" | "F3_HEAD" }
 ```
 
-Guide/resultant：
+Guide：
 
 ```js
 {
-  originKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "F3_TAIL" | "F3_HEAD" | "CORNER",
+  originKey: "ORIGIN" | "F1_HEAD" | "F2_HEAD",
   end: { mode: "free", point10: [integerX10, integerY10] }
-     | { mode: "snap", targetKey: "CORNER" | "CHAIN_END" }
+     | { mode: "snap", targetKey: "PARALLEL" | "CORNER", point10?: [integerX10, integerY10] }
 }
 ```
 
-起點及snapped終點由keys及目前canonical force geometry派生，不重複保存座標。Decoder驗證key白名單、reference存在、force-tail anchor graph唯一、無branch/cycle及prerequisite。Free geometry即使視覺上剛好與target重合，`mode:"free"`仍不會被誤判已吸附；只有production snap transition可以建立`mode:"snap"`。
+Resultant：
+
+```js
+{
+  originKey: "FREE" | "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "F3_TAIL" | "F3_HEAD" | "CORNER" | "CHAIN_END",
+  originPoint10?: [integerX10, integerY10],
+  end: { mode: "free", point10: [integerX10, integerY10] }
+     | { mode: "snap", targetKey: questionSpecificEndpoint | "GUIDE_INTERSECTION", point10?: [integerX10, integerY10] }
+}
+```
+
+Guide 的 `PARALLEL` 及 resultant 的 `GUIDE_INTERSECTION` 會同時保存量化 endpoint，以重建學生實際畫出的線長／可見交點；其他 snapped 起點及終點由 keys 及目前 canonical force geometry 派生，不重複保存座標。Decoder 驗證 key 白名單、reference 存在、force-tail anchor graph 唯一、無 branch/cycle 及 prerequisite。Free geometry 即使視覺上剛好與 target 重合，`mode:"free"` 仍不會被誤判已吸附；只有 production snap transition 可以建立 `mode:"snap"`。
 
 ---
 
@@ -517,13 +529,13 @@ Guide/resultant：
 - 淺灰 app 背景、白色舞台、清楚 panel 邊界；
 - system UI 字體；
 - SVG 方格約 40 CSS px；
-- 普通力矢量 `5 px`、round line cap、大型箭頭；
+- 普通力矢量以約 `5 px` 箭身及整體 SVG path 箭頭繪製，箭頭尖端直接落在模型端點；
 - 合力使用 `--force-resultant: #f59e0b`；
 - 輔助線使用 slate gray、`stroke-dasharray: 5 5`、`3 px`；
-- 作圖起點及未完成 endpoint 使用中性灰，不使用答案顏色；
+- 作圖起點及未完成 endpoint 主要使用透明 hit target／最小提示，不以大型圓點或答案顏色誤導；
 - `F₁`、`F₂`、`F₃` 使用有色但不對應特定力種類的本地 semantic tokens；
 - labels 使用 SVG `<tspan baseline-shift="sub">` 顯示數字下標，不使用 `F_1`；
-- 選取中力矢量加外框／光暈，其他力矢量不降至不可讀；
+- 選取中力矢量只提升操作層 z-index，不加外框、光暈或大型高亮圈；
 - touch drag 時在離手指最遠的舞台角落顯示固定局部放大鏡，標明目前操作 `F₁/F₂/F₃`；
 - 不使用裝飾性插畫、玻璃效果、動畫背景或與作圖無關的顏色；
 - `prefers-reduced-motion` 關閉非必要 transition；snap 只用短促 `120–160 ms` 靜態位置過渡或直接定位。
@@ -640,7 +652,7 @@ Requirements：
 
 所有 drag targets 在 pointerdown 前已有 `touch-action:none`。SVG `line/path/circle/g` 只作 visual，不是唯一 gesture boundary。
 
-首尾junction必然會令前一力箭頭與後一力箭尾 overlays重疊。Panel固定提供「選擇 F₁／F₂／F₃」segmented controls；選取後把該力overlay提升到active z-layer並明確高亮，然後才拖動。非重疊shaft仍可直接tap選取。只靠固定z-order不算可達；touch、mouse及keyboard都要可以選到每一支力。
+首尾 junction 可能令前一力箭頭與後一力箭尾 overlays 重疊；目前不提供額外的 F₁／F₂／F₃ 控制按鈕，也不以大型高亮圈提示。每支力保留穩定、44 CSS px 的整支力 overlay 及 keyboard focus；非重疊 shaft 可直接 tap，重疊位置由現有 overlay／z-layer 及鍵盤 target 維持可操作，不能把裝飾性圓圈當作吸附提示。
 
 ### 8.2 Touch gesture ownership matrix
 
@@ -868,12 +880,12 @@ Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit �
 
 ### 12.1 Authoritative answer shape
 
-V1直接使用以下readable production wire；不得在實作時另創test-only或未記錄的短key schema。若日後要壓縮，必須bump schema version並固定migration/golden fixtures。
+目前 schema v1 直接使用以下 readable production wire；不得在實作時另創 test-only 或未記錄的短 key schema。現行 fresh attempt 使用 generator v2，但仍可 restore generator v1；若日後要壓縮 wire，必須 bump schema version 並固定 migration／golden fixtures。
 
 ```js
 {
   schemaVersion: 1,
-  generatorVersion: 1,
+  generatorVersion: 2,
   seed,                 // uint32
   phase: "practice" | "summary", // draft only
   currentQuestion: 0,   // draft only, 0..4
@@ -890,14 +902,15 @@ V1直接使用以下readable production wire；不得在實作時另創test-only
         null | {
           originKey: "ORIGIN" | "F1_HEAD" | "F2_HEAD",
           end: { mode: "free", point10: [integerX10, integerY10] }
-             | { mode: "snap", targetKey: "CORNER" }
+             | { mode: "snap", targetKey: "PARALLEL" | "CORNER", point10?: [integerX10, integerY10] }
         },
         // second guide slot has the same union; max length is exactly 2
       ],
       resultant: null | {
-        originKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "CORNER",
+        originKey: "FREE" | "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "CORNER",
+        originPoint10?: [integerX10, integerY10],
         end: { mode: "free", point10: [integerX10, integerY10] }
-           | { mode: "snap", targetKey: "CORNER" }
+           | { mode: "snap", targetKey: "ORIGIN" | "F1_HEAD" | "F2_HEAD" | "CORNER" | "GUIDE_INTERSECTION", point10?: [integerX10, integerY10] }
       }
     },
     // P2 same shape
@@ -910,9 +923,10 @@ V1直接使用以下readable production wire；不得在實作時另創test-only
         // second force same union; self-reference is never valid
       ],
       resultant: null | {
-        originKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD",
+        originKey: "FREE" | "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "CHAIN_END",
+        originPoint10?: [integerX10, integerY10],
         end: { mode: "free", point10: [integerX10, integerY10] }
-           | { mode: "snap", targetKey: "CHAIN_END" }
+           | { mode: "snap", targetKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "CHAIN_END" }
       }
     },
     // H2 same shape
@@ -925,9 +939,10 @@ V1直接使用以下readable production wire；不得在實作時另創test-only
         // F2/F3 same union; self-reference is never valid
       ],
       resultant: null | {
-        originKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "F3_TAIL" | "F3_HEAD",
+        originKey: "FREE" | "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "F3_TAIL" | "F3_HEAD" | "CHAIN_END",
+        originPoint10?: [integerX10, integerY10],
         end: { mode: "free", point10: [integerX10, integerY10] }
-           | { mode: "snap", targetKey: "CHAIN_END" }
+           | { mode: "snap", targetKey: "ORIGIN" | "F1_TAIL" | "F1_HEAD" | "F2_TAIL" | "F2_HEAD" | "F3_TAIL" | "F3_HEAD" | "CHAIN_END" }
       }
     }
   ]
@@ -1488,7 +1503,7 @@ Invalid matrix：
 
 - H1／H2 的 force drag 不再只比較「移動力箭尾 → 另一力箭頭」；亦比較「移動力箭頭 → 另一力箭尾」的候選位置。
 - 四種組合均即時吸附：F1 尾→F2 頭、F2 尾→F1 頭、F1 頭→F2 尾、F2 頭→F1 尾。後兩種會把移動力建立為鏈根，再把另一力接到移動力箭頭，保存的仍是既有 canonical `ORIGIN`／`F*_HEAD` relationship，不增加不兼容的 wire shape。
-- H1／H2 已建立鏈後重新拖動時，頭→尾吸附會正確重設兩力根次序；T1 維持只接受不會產生 branch 的尾→頭接續。
+- H1／H2 已建立鏈後重新拖動時，頭→尾吸附會正確重設兩力根次序；T1 同樣支援不會產生 branch 的頭→尾前置接續（只提供鏈根箭尾），以及尾→頭後置接續。
 - 新增 model 四向 endpoint cases、已建立鏈 re-root case，以及 source／extracted SCORM browser mouse flow；兩個活動題目均確認四種方向一致。
 
 ## 31. 吸附只修正被拖力（2026-08-16）
@@ -1539,3 +1554,16 @@ Invalid matrix：
 - 未有鏈根時，頭→尾只會把兩支尚未連接的力組成一條二力路徑；已有鏈時只提供目前鏈根箭尾作為可前置端點，重設根次序後保留原有後代，避免在中間節點形成 branch。
 - snap 仍以被拖動力反推出精確箭尾，對方力及既有鏈的幾何位置保持不變；H1/H2 原有雙向行為不變。
 - 新增 T1 六種首次頭→尾端點 model cases、已有鏈前置 case，以及 source／extracted SCORM browser coverage。
+
+## 39. 目前實作契約（2026-08-16）
+
+以下是目前交付版本的單一行為摘要；它取代早期章節中仍寫成「放手後才吸附」、「必須先畫對才可畫合力」或「T1 只接受尾接頭」的描述：
+
+- **範圍及題目**：只做力的合成，不做力的分解；固定五題（P1/P2、H1/H2、T1），每個 attempt 按 seed 隨機生成；大小及方向固定，學生只可平移；T1 只用首尾相接法，六種排列均為正確路徑。
+- **導覽及提交**：五題由活動開始即全部可跳轉；可跳過任何題／part，`0/5` 仍可提交；提交後鎖定 review；現行 catalogue status 為 `active`。
+- **平行四邊形題**：兩條 guide record 出現後便可進入合力模式，不論 guide 方向是否正確；guide 方向接近對邊時即時吸附，線長不限；錯誤 guide 的可見線段交點可作錯誤 resultant snap；只有正確 `ORIGIN → CORNER` 計為完成。
+- **首尾連接題**：力的尾接頭及頭接尾都在拖動期間即時吸附。尾接頭延伸目前鏈尾；頭接尾在未連接力之間建立根／子關係，或只在已有鏈的根部前置；禁止 branch/cycle，對方及既有鏈幾何保持不變。T1 同樣適用。
+- **合力模式**：按鈕解鎖後鎖定前面力鏈／guide；合力可由舞台空白或任一可用端點開始，起點及終點均可修改、整體平移、刪除及重畫；錯誤方向、起點、終點保留作 formative feedback，不會被 UI 自動改正。首尾題 canonical 關係為 `ORIGIN → CHAIN_END`。
+- **即時交互及視覺**：pointer／touch／keyboard 移動期間即時 preview snap，放手只提交當刻狀態；不顯示大型圓圈、持續高亮或 F1/F2 控制按鈕；箭頭以單一 path 對齊模型端點；力名及合力名按方向、邊界及碰撞自動避讓。
+- **手機及保存**：窄螢幕按每題初始幾何建立固定 camera，同一題拖動期間不縮放；觸控顯示跟隨手指的完整 stage preview window；draft／review／SCORM 保存 authoritative relationship，錯誤狀態亦可重載及繼續修改。
+- **尚未包括／未冒充的證據**：力的分解、後端高風險評分、真實 Moodle 帳戶政策、實體手機及真人 screen-reader 測試仍不在第一版本地交付範圍；本地 source／extracted SCORM、模型、保存、生命周期、touch 及 package regression 已通過。
