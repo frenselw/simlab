@@ -195,6 +195,17 @@ const canonicalChainResultant = M.commitResultant(chainAnswer(HQuestion, [0, 1])
   pointerType: "mouse", threshold: 14
 });
 assert.deepEqual(canonicalChainResultant.resultant.end, { mode: "snap", targetKey: "CHAIN_END" }, "a resultant from the chain root prefers the semantic chain-end snap");
+for (const order of [[0, 1], [1, 0]]) {
+  const chain = chainAnswer(HQuestion, order, false);
+  const origin = M.anchorPoint(chain);
+  const end = M.endpointForKey(chain, HQuestion, "CHAIN_END");
+  const freeStart = M.commitResultant(chain, "FREE", end, HQuestion, {
+    allowIncomplete: true, allowAnyOrigin: true, originPoint: origin, pointerType: "mouse", threshold: 14
+  });
+  assert.equal(freeStart.resultant.originKey, "ORIGIN", `free H1/H2 resultant start snaps to ORIGIN for order ${order.join(",")}`);
+  assert.deepEqual(freeStart.resultant.end, { mode: "snap", targetKey: "CHAIN_END" }, `free H1/H2 resultant end uses semantic CHAIN_END for order ${order.join(",")}`);
+  assert.equal(M.canonicalResultant(freeStart, HQuestion), true, `free H1/H2 resultant is complete for order ${order.join(",")}`);
+}
 for (const [question, order] of [[HQuestion, [0, 1]], [TQuestion, [2, 0, 1]]]) {
   const chain = chainAnswer(question, order, false);
   const nearCorrectChainResultant = M.previewResultant(chain, "FREE", { x: 520, y: 300 }, question, {

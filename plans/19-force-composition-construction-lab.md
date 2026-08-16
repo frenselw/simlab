@@ -1526,3 +1526,9 @@ Invalid matrix：
 - 第五題三支力原本分散於舞台三個遠距位置，手機 camera 為容納初始幾何而縮得過遠；generator v2 將三個初始中心移到較緊湊、仍通過非重疊及安全區 validator 的工作區，保留相同力的大小、方向及三力合成規則。
 - v1 generator 及其 golden fixtures 保持不變；v2 成為新 attempt 的預設版本，persistence 仍接受並重建 v1 snapshot，避免舊 draft／review 因新排版失效。
 - 新增 v2 full／forced-fallback golden specs、v1 restore coverage，以及 source／SCORM mobile browser assertion，確認 T1 三個 force target 可達且 camera width 保持可讀比例。
+
+## 37. 首尾法合力吸附的語意端點穩定性（2026-08-16）
+
+- 首尾連接題由舞台空白位置開始畫合力時，若同一次 preview 將起點吸附到共同起點，終點會以該已解析的 `ORIGIN` 語意優先吸附 `CHAIN_END`；不再因 `F1_HEAD`／`F2_HEAD` 與鏈尾物理位置重合時的浮點距離微差而偶發保存錯誤 endpoint key。
+- 任意錯誤起點／錯誤方向仍會保留；只有已吸附至合法共同起點的合力才套用 canonical chain-end 優先規則，不改變學生可修改及錯誤作答能力。
+- 新增 H1/H2 兩種力鏈次序的 free-start、exact-end model assertions；source／extracted SCORM 完整 browser regression 均通過。

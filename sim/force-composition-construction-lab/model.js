@@ -537,8 +537,14 @@
     }
     if (options.snap) {
       const candidate = fromPoint10(next.resultant.end.point10);
-      const targets = resultantSnapTargets(next, question, originKey);
-      const canonical = question.type !== "parallelogram" && originKey === ORIGIN_KEY
+      // A free resultant origin can snap to ORIGIN during this same preview.
+      // Use the resolved semantic origin when choosing a duplicate chain-end
+      // target; otherwise floating-point tie differences can save F1_HEAD or
+      // F2_HEAD one drag and CHAIN_END on the next, leaving an apparently
+      // correct H1/H2 drawing marked incomplete.
+      const resolvedOriginKey = next.resultant.originKey;
+      const targets = resultantSnapTargets(next, question, resolvedOriginKey);
+      const canonical = question.type !== "parallelogram" && resolvedOriginKey === ORIGIN_KEY
         ? targets.find((target) => target.key === "CHAIN_END")
         : null;
       const snap = (canonical && selectSnapCandidate(candidate, [canonical], options)) || selectSnapCandidate(candidate, targets, options);
