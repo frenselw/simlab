@@ -208,7 +208,7 @@
     return Math.min(...edges.map(([edgeStart, edgeEnd]) => segmentSegmentDistance(start, end, edgeStart, edgeEnd)));
   }
 
-  function forceLabelPosition(start, end, occupied = [], segments = []) {
+  function forceLabelPosition(start, end, occupied = [], segments = [], token = null) {
     const length = Math.max(1, M.distance(start, end));
     const ux = (end.x - start.x) / length;
     const uy = (end.y - start.y) / length;
@@ -218,7 +218,10 @@
     // The SVG text's x/y is a centered horizontal anchor plus a baseline, not
     // the visual centre of the glyph. Keep the collision box close to the
     // actual painted symbol so labels can sit near a vector without touching it.
-    const width = 30;
+    // A subscript extends to the right of the centred `F` glyph. Reserve the
+    // actual visual footprint (especially for F_R) so the next label cannot
+    // be placed over it just because the collision box was too narrow.
+    const width = token?.subscript === "R" ? 44 : 38;
     const height = 36;
     const baselineOffset = -5;
     const labelGap = 4;
@@ -237,7 +240,10 @@
     // Try the closest normal offset first. If another line blocks that spot,
     // move a little along the vector before increasing the normal distance.
     const normalDistances = [normalExtent + lineGap + 1, normalExtent + 9, normalExtent + 17, normalExtent + 27];
-    const tangentOffsets = [0, -10, 10, -20, 20, -34, 34, -48, 48];
+    // Search farther along the same vector before increasing the normal gap;
+    // this keeps a label close to its own arrow instead of jumping to the
+    // other side when a neighbouring arrow blocks the midpoint.
+    const tangentOffsets = [0, -10, 10, -20, 20, -34, 34, -48, 48, -66, 66, -86, 86, -108, 108];
     const candidates = [];
     normalDistances.forEach((normalDistance) => {
       [1, -1].forEach((side) => {
@@ -296,16 +302,18 @@
     const occupiedLabels = [];
     geometry.forEach((item, index) => {
       drawArrow(parent, item.tail, item.head, { forceIndex: index });
-      const position = forceLabelPosition(item.tail, item.head, occupiedLabels, labelSegments);
-      parent.append(N.svgLabel(documentObject, N.vector(index + 1), { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
+      const token = N.vector(index + 1);
+      const position = forceLabelPosition(item.tail, item.head, occupiedLabels, labelSegments, token);
+      parent.append(N.svgLabel(documentObject, token, { x: position.x, y: position.y, fill: ["#1d4ed8", "#7e22ce", "#be185d"][index], "text-anchor": "middle" }));
       occupiedLabels.push(position.box);
     });
     if (answer.resultant) {
       const start = M.lineStartPoint(answer.resultant, answer, question);
       const end = M.lineEndPoint(answer.resultant, answer, question);
       drawArrow(parent, start, end, { className: `resultant-line${answer.resultant.end.mode === "free" ? " provisional" : ""}` });
-      const position = forceLabelPosition(start, end, occupiedLabels, labelSegments);
-      parent.append(N.svgLabel(documentObject, N.vector("R"), { x: position.x, y: position.y, fill: "#b45309", "text-anchor": "middle" }));
+      const token = N.vector("R");
+      const position = forceLabelPosition(start, end, occupiedLabels, labelSegments, token);
+      parent.append(N.svgLabel(documentObject, token, { x: position.x, y: position.y, fill: "#b45309", "text-anchor": "middle" }));
     }
   }
 

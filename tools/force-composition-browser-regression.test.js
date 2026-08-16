@@ -20,6 +20,7 @@ assert.match(browser, /runTouchMatrix/);
 assert.match(browser, /runTripleOrders/);
 assert.match(browser, /runHeadTailEndpointSnaps/);
 assert.match(browser, /runWrongGuideResultantSnap/);
+assert.match(browser, /assertStageLabelsClear/);
 assert.match(browser, /runBlankSubmission/);
 assert.match(browser, /runDraftReload/);
 assert.match(browser, /sourceTouch/);
@@ -38,6 +39,6 @@ assert.match(main, /previewResultantTranslation/);
 assert.match(main, /deleteCurrentResultant/);
 assert.match(browser, /GUIDE_INTERSECTION/);
 assert.match(main, /segmentRectDistance/);
-assert.match(main, /forceLabelPosition\(item\.tail, item\.head, occupiedLabels, labelSegments\)/);
+assert.match(main, /forceLabelPosition\(item\.tail, item\.head, occupiedLabels, labelSegments/);
 
 console.log("force-composition browser regression wiring tests passed");

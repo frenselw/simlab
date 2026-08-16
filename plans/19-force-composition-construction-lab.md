@@ -1507,3 +1507,9 @@ Invalid matrix：
 - 平行四邊形兩條虛線即使方向／長度畫錯，只要兩條可見線段有實際交點，模型會計算該 segment intersection，並把它加入合力終點的 snap targets；正確輔助線仍優先吸附語意上的 `CORNER`，不改變 canonical scoring。
 - `GUIDE_INTERSECTION` 以量化 `point10` 保存，畫面端點、draft／review persistence、重載及錯誤狀態驗證均會重新確認交點仍屬於目前兩條虛線；平行、重疊或交點在可見線段以外則不提供該 snap，避免吸附到不可見的延長線。
 - 新增 wrong-guide model／persistence coverage，以及 development source 與 extracted SCORM 的 browser flow，確認錯誤虛線交點附近拖動合力會即時及放手後吸附。
+
+## 34. 合力符號避免跳到鄰近力線（2026-08-16）
+
+- 力符號的碰撞框按實際 SVG 字形保留寬度；`F_R` 的下標向右延伸，使用較寬的 footprint，避免碰撞檢查低估後與 `F_2` 重疊。
+- 當合力中點附近被其他箭線／虛線或標籤佔用，候選位置會先沿合力本身方向作多個近距離滑移，再增加法線間距；因此標籤會留在合力附近的清晰位置，不會因一次碰撞跳到紫色 `F_2` 一側的遠處。
+- 不出界、避開所有作圖線及其他力名仍是硬性條件；新增 source／SCORM browser regression 逐題檢查所有舞台力符號的實際 DOM bounding boxes 不互相重疊。

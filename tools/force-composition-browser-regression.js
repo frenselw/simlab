@@ -261,6 +261,17 @@ async function enterResultantMode(cdp, embedded = false) {
   assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').getAttribute('aria-pressed')", embedded), "true");
 }
 
+async function assertStageLabelsClear(cdp, label, embedded = false) {
+  const boxes = await inActivity(cdp, "[...document.querySelectorAll('#stageSvg .math-svg')].map((node) => { const rect=node.getBoundingClientRect(); return { left:rect.left, right:rect.right, top:rect.top, bottom:rect.bottom }; })", embedded);
+  for (let first = 0; first < boxes.length; first += 1) {
+    for (let second = first + 1; second < boxes.length; second += 1) {
+      const a = boxes[first], b = boxes[second];
+      const overlaps = a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+      assert.equal(overlaps, false, `${label}: force labels do not overlap (${JSON.stringify({ a, b })})`);
+    }
+  }
+}
+
 async function completeCurrentQuestion(cdp, index, order, input, embedded = false) {
   await navigateQuestion(cdp, index, embedded);
   const question = await inActivity(cdp, "window.__forceCompositionApp.getScenario().questions[window.__forceCompositionApp.getState().currentQuestion]", embedded);
@@ -287,6 +298,7 @@ async function completeCurrentQuestion(cdp, index, order, input, embedded = fals
   assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').getAttribute('aria-pressed')", embedded), "true", `${input}: delete keeps resultant mode ready for redraw`);
   assert.equal(await inActivity(cdp, "document.getElementById('deleteResultant').hidden", embedded), true, `${input}: delete control hides until a new line is drawn`);
   await drawLine(cdp, "resultant-start-ORIGIN", resultantEnd, input, embedded);
+  await assertStageLabelsClear(cdp, `${input}: question ${index + 1}`, embedded);
   const complete = await inActivity(cdp, `window.__forceCompositionApp.getCompletion()[${index}]`, embedded);
   if (!complete) {
     const diagnostic = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${index}],a=s.answers[${index}];return {answer:a,score:window.ForceCompositionScoring.questionDetail(a,q,${index})}; })()`, embedded);
