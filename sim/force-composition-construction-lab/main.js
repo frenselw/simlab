@@ -1228,7 +1228,8 @@
       const candidate = active.candidate || { x: active.startTail.x + point.x - active.startPoint.x, y: active.startTail.y + point.y - active.startPoint.y };
       next = M.commitForceTranslation(active.before, active.forceIndex, candidate, question, options);
       const placement = next.placements[active.forceIndex];
-      message = placement.mode === "snap" ? `${N.accessibleForce(active.forceIndex + 1)}已吸附到${endpointAccessible(placement.targetKey)}。` : `${N.accessibleForce(active.forceIndex + 1)}已平移，大小和方向保持不變。`;
+      const chainComplete = question.type !== "parallelogram" && M.chainInfo(next, question).complete;
+      message = chainComplete ? `${question.forces.length === 3 ? "三個" : "兩個"}力已首尾連接。` : placement.mode === "snap" ? `${N.accessibleForce(active.forceIndex + 1)}已吸附到${endpointAccessible(placement.targetKey)}。` : `${N.accessibleForce(active.forceIndex + 1)}已平移，大小和方向保持不變。`;
     } else if (active.kind.startsWith("guide")) {
       next = M.commitGuide(active.before, active.originKey, point, question, options);
       const guide = next.guides.find((item) => item?.originKey === active.originKey);

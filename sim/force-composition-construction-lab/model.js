@@ -290,6 +290,16 @@
     const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
     const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
     if (!snap) return next;
+    if (question.type !== "parallelogram" && snap.attach === "HEAD") {
+      const targetMatch = /^F([1-3])_TAIL$/.exec(snap.key || "");
+      const targetIndex = targetMatch ? Number(targetMatch[1]) - 1 : -1;
+      if (targetIndex >= 0 && targetIndex !== forceIndexValue && question.forces.length === 2) {
+        next.anchor10 = point10(candidate);
+        next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
+        next.placements[targetIndex] = { mode: "snap", targetKey: headKey(forceIndexValue) };
+        return next;
+      }
+    }
     if (question.type === "parallelogram" && !Array.isArray(next.anchor10) && snap.key !== ORIGIN_KEY) {
       const otherIndex = forceIndexValue === 0 ? 1 : 0;
       next.anchor10 = point10(snap.point);
@@ -319,12 +329,21 @@
     }
     if (!Array.isArray(answer.anchor10)) {
       // Either force may be placed first. Before a chain root exists, allow
-      // the moving tail to snap to any other force's head; the matching root
-      // is established when that candidate is accepted.
-      return forceGeometry(answer, question)
-        .map((item, index) => ({ index, point: item.head }))
-        .filter(({ index }) => index !== movingIndex)
-        .map(({ index, point }) => ({ key: headKey(index), point }));
+      // either endpoint to meet another force. A moving tail meeting a head
+      // makes the other force the root; a moving head meeting a tail makes
+      // the moving force the root. The latter is intentionally limited to
+      // the two-force H1/H2 exercises so T1 never creates a branch.
+      const geometry = forceGeometry(answer, question);
+      const targets = [];
+      geometry.forEach((item, index) => {
+        if (index === movingIndex) return;
+        targets.push({ key: headKey(index), point: item.head, attach: "TAIL" });
+        if (question.forces.length === 2) {
+          const force = question.forces[movingIndex];
+          targets.push({ key: tailKey(index), point: { x: item.tail.x - force.dx, y: item.tail.y - force.dy }, attach: "HEAD" });
+        }
+      });
+      return targets;
     }
 
     const chain = chainInfo(answer, question);
@@ -332,7 +351,14 @@
     if (!chain.order.length) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
     if (chain.order.includes(movingIndex) || chain.complete) return [];
     const lastIndex = chain.order[chain.order.length - 1];
-    return [{ key: headKey(lastIndex), point: endpointForKey(answer, question, headKey(lastIndex)) }];
+    const targets = [{ key: headKey(lastIndex), point: endpointForKey(answer, question, headKey(lastIndex)), attach: "TAIL" }];
+    if (question.forces.length === 2) {
+      const otherIndex = movingIndex === 0 ? 1 : 0;
+      const force = question.forces[movingIndex];
+      const otherTail = endpointForKey(answer, question, tailKey(otherIndex));
+      targets.push({ key: tailKey(otherIndex), point: { x: otherTail.x - force.dx, y: otherTail.y - force.dy }, attach: "HEAD" });
+    }
+    return targets;
   }
 
   function commitForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {

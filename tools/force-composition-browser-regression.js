@@ -206,6 +206,18 @@ async function moveForce(cdp, index, targetKey, input, embedded = false) {
   return input === "keyboard" ? moveForceKeyboard(cdp, index, targetKey, embedded) : moveForcePointer(cdp, index, targetKey, input, embedded);
 }
 
+async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = false) {
+  const selector = `.force-hit[data-force-index="${index}"]`;
+  const start = await elementPoint(cdp, selector, embedded);
+  const before = await currentTail(cdp, index, embedded);
+  const target = await targetModelPoint(cdp, targetKey, embedded);
+  const force = await inActivity(cdp, `window.__forceCompositionApp.getScenario().questions[window.__forceCompositionApp.getState().currentQuestion].forces[${index}]`, embedded);
+  const desiredTail = endpoint === "HEAD" ? { x: target.x - force.dx, y: target.y - force.dy } : target;
+  const beforeClient = await modelPoint(cdp, before, embedded);
+  const desiredClient = await modelPoint(cdp, desiredTail, embedded);
+  await drag(cdp, start, { x: start.x + desiredClient.x - beforeClient.x, y: start.y + desiredClient.y - beforeClient.y }, "mouse");
+}
+
 async function drawLinePointer(cdp, semanticKey, target, input, embedded = false) {
   const start = await elementPoint(cdp, `[data-semantic-key="${semanticKey}"]`, embedded);
   if (!start) throw new Error(`Missing line handle ${semanticKey}`);
@@ -361,6 +373,27 @@ async function runTripleOrders(cdp, baseUrl, launchPath, label) {
     assert.deepEqual(chain, entry.order, `${label}: ${entry.input} preserves requested T1 order`);
   }
   return `${label}: all six T1 orders passed across mouse, touch and keyboard`;
+}
+
+async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
+  const cases = [
+    { moving: 0, endpoint: "TAIL", target: "F2_HEAD", order: [1, 0] },
+    { moving: 0, endpoint: "HEAD", target: "F2_TAIL", order: [0, 1] },
+    { moving: 1, endpoint: "TAIL", target: "F1_HEAD", order: [0, 1] },
+    { moving: 1, endpoint: "HEAD", target: "F1_TAIL", order: [1, 0] }
+  ];
+  for (const questionIndex of [2, 3]) {
+    for (const [caseIndex, testCase] of cases.entries()) {
+      await setViewport(cdp, 1180, 760, false);
+      await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { endpointSnap: `${label}-${questionIndex}-${caseIndex}` })}`);
+      await navigateQuestion(cdp, questionIndex);
+      await moveForceEndpoint(cdp, testCase.moving, testCase.endpoint, testCase.target);
+      const result = await evaluate(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${questionIndex}],a=s.answers[${questionIndex}],M=window.ForceCompositionModel; return {complete:M.chainInfo(a,q).complete,order:M.chainInfo(a,q).order}; })()`);
+      assert.equal(result.complete, true, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap completes the chain`);
+      assert.deepEqual(result.order, testCase.order, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap uses the expected order`);
+    }
+  }
+  return `${label}: H1/H2 tail-to-head and head-to-tail endpoint snaps passed in both directions`;
 }
 
 async function iframeMetrics(cdp) {
@@ -544,6 +577,8 @@ async function main() {
     const packageDraft = await runDraftReload(cdp, packageBase, extracted.activityPath, "package");
     const sourceOrders = await runTripleOrders(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageOrders = await runTripleOrders(cdp, packageBase, extracted.activityPath, "package");
+    const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageEndpointSnaps = await runHeadTailEndpointSnaps(cdp, packageBase, extracted.activityPath, "package");
     const sourceTouch = await runTouchMatrix(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTouch = await runTouchMatrix(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(consoleErrors, [], `browser console/runtime errors before negative lifecycle fixtures: ${consoleErrors.join("\n")}`);
@@ -552,7 +587,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

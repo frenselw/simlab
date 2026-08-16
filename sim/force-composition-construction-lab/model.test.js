@@ -122,6 +122,31 @@ const freshChainGeometry = M.forceGeometry(freshChain, HQuestion);
 const reverseFirst = M.commitForceTranslation(freshChain, 0, freshChainGeometry[1].head, HQuestion, { pointerType: "mouse", threshold: 14 });
 assert.deepEqual(reverseFirst.placements, [{ mode: "snap", targetKey: "F2_HEAD" }, { mode: "snap", targetKey: "ORIGIN" }], "either force may be placed first by snapping its tail to the other force head");
 assert.deepEqual(M.chainInfo(reverseFirst, HQuestion).order, [1, 0], "reverse first placement establishes the stationary force as chain root");
+const endpointSnapCases = [
+  { moving: 0, endpoint: "TAIL", target: "F2_HEAD", order: [1, 0] },
+  { moving: 0, endpoint: "HEAD", target: "F2_TAIL", order: [0, 1] },
+  { moving: 1, endpoint: "TAIL", target: "F1_HEAD", order: [0, 1] },
+  { moving: 1, endpoint: "HEAD", target: "F1_TAIL", order: [1, 0] }
+];
+for (const testCase of endpointSnapCases) {
+  const answer = M.freshAnswer(HQuestion);
+  const geometry = M.forceGeometry(answer, HQuestion);
+  const targetIndex = testCase.moving === 0 ? 1 : 0;
+  const target = geometry[targetIndex][testCase.target.endsWith("HEAD") ? "head" : "tail"];
+  const force = HQuestion.forces[testCase.moving];
+  const candidateTail = testCase.endpoint === "TAIL" ? target : { x: target.x - force.dx, y: target.y - force.dy };
+  const snapped = M.commitForceTranslation(answer, testCase.moving, candidateTail, HQuestion, { pointerType: "mouse", threshold: 14 });
+  assert.equal(snapped.placements[testCase.moving].mode, "snap", `moving F${testCase.moving + 1} ${testCase.endpoint.toLowerCase()} snaps`);
+  assert.deepEqual(M.chainInfo(snapped, HQuestion).order, testCase.order, `moving F${testCase.moving + 1} ${testCase.endpoint.toLowerCase()} creates the expected chain order`);
+  assert.equal(M.chainInfo(snapped, HQuestion).complete, true, `moving F${testCase.moving + 1} ${testCase.endpoint.toLowerCase()} completes H1`);
+}
+const establishedChain = chainAnswer(HQuestion, [0, 1]);
+const establishedGeometry = M.forceGeometry(establishedChain, HQuestion);
+const reRooted = M.commitForceTranslation(establishedChain, 1, {
+  x: establishedGeometry[0].tail.x - HQuestion.forces[1].dx,
+  y: establishedGeometry[0].tail.y - HQuestion.forces[1].dy
+}, HQuestion, { pointerType: "mouse", threshold: 14 });
+assert.deepEqual(M.chainInfo(reRooted, HQuestion).order, [1, 0], "moving a placed force head onto the root tail re-roots the two-force chain");
 const translatedChain = M.commitResultantTranslation(chainAnswer(HQuestion, [0, 1]), { x: 40, y: -20 }, HQuestion, { pointerType: "mouse" });
 assert.equal(translatedChain.resultant.originKey, "FREE", "head-to-tail resultant can be translated as a whole");
 assert.equal(translatedChain.resultant.end.mode, "free");

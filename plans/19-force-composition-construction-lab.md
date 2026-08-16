@@ -1483,3 +1483,10 @@ Invalid matrix：
 - H1、H2、T1 合力模式接受舞台空白或任一力的箭尾／箭頭作為起點，終點亦可自由繪畫；兩端可在 pointer／keyboard 拖動時即時吸附到任一力端點或鏈尾，並保留錯誤方向／錯誤端點供學生修改。
 - persistence 接受上述首尾題自由／吸附端點，但 `canonicalResultant` 及 scoring 仍只把由共同起點至正確鏈尾的合力計為完成；錯誤作答不會被 UI 自動修正。
 - pointer 完成作圖後保留 control panel 原有 scrollTop，避免新增「清除輔助線」或合力控制項造成手機拖動期間面板跳動；source 與 extracted SCORM trusted-touch matrix 均通過。
+
+## 30. H1／H2 首尾端點吸附雙向完整（2026-08-16）
+
+- H1／H2 的 force drag 不再只比較「移動力箭尾 → 另一力箭頭」；亦比較「移動力箭頭 → 另一力箭尾」的候選位置。
+- 四種組合均即時吸附：F1 尾→F2 頭、F2 尾→F1 頭、F1 頭→F2 尾、F2 頭→F1 尾。後兩種會把移動力建立為鏈根，再把另一力接到移動力箭頭，保存的仍是既有 canonical `ORIGIN`／`F*_HEAD` relationship，不增加不兼容的 wire shape。
+- H1／H2 已建立鏈後重新拖動時，頭→尾吸附會正確重設兩力根次序；T1 維持只接受不會產生 branch 的尾→頭接續。
+- 新增 model 四向 endpoint cases、已建立鏈 re-root case，以及 source／extracted SCORM browser mouse flow；兩個活動題目均確認四種方向一致。

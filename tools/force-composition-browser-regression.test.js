@@ -18,6 +18,7 @@ assert.match(browser, /isTrusted/);
 assert.match(browser, /pointerType === "touch"/);
 assert.match(browser, /runTouchMatrix/);
 assert.match(browser, /runTripleOrders/);
+assert.match(browser, /runHeadTailEndpointSnaps/);
 assert.match(browser, /runBlankSubmission/);
 assert.match(browser, /runDraftReload/);
 assert.match(browser, /sourceTouch/);
