@@ -294,7 +294,7 @@
     if (question.type !== "parallelogram" && snap.attach === "HEAD") {
       const targetMatch = /^F([1-3])_TAIL$/.exec(snap.key || "");
       const targetIndex = targetMatch ? Number(targetMatch[1]) - 1 : -1;
-      if (targetIndex >= 0 && targetIndex !== forceIndexValue && question.forces.length === 2) {
+      if (targetIndex >= 0 && targetIndex !== forceIndexValue) {
         // Snap the moving force to the stationary endpoint-derived tail. Do
         // not anchor at the raw near-miss pointer position, otherwise the
         // stationary force would visibly jump when the relationship is rebuilt.
@@ -335,17 +335,15 @@
       // Either force may be placed first. Before a chain root exists, allow
       // either endpoint to meet another force. A moving tail meeting a head
       // makes the other force the root; a moving head meeting a tail makes
-      // the moving force the root. The latter is intentionally limited to
-      // the two-force H1/H2 exercises so T1 never creates a branch.
+      // the moving force the root. With three forces this is still safe while
+      // the other force is unconnected, because it creates a two-force path.
       const geometry = forceGeometry(answer, question);
       const targets = [];
       geometry.forEach((item, index) => {
         if (index === movingIndex) return;
         targets.push({ key: headKey(index), point: item.head, attach: "TAIL" });
-        if (question.forces.length === 2) {
-          const force = question.forces[movingIndex];
-          targets.push({ key: tailKey(index), point: { x: item.tail.x - force.dx, y: item.tail.y - force.dy }, attach: "HEAD" });
-        }
+        const force = question.forces[movingIndex];
+        targets.push({ key: tailKey(index), point: { x: item.tail.x - force.dx, y: item.tail.y - force.dy }, attach: "HEAD" });
       });
       return targets;
     }
@@ -356,12 +354,14 @@
     if (chain.order.includes(movingIndex) || chain.complete) return [];
     const lastIndex = chain.order[chain.order.length - 1];
     const targets = [{ key: headKey(lastIndex), point: endpointForKey(answer, question, headKey(lastIndex)), attach: "TAIL" }];
-    if (question.forces.length === 2) {
-      const otherIndex = movingIndex === 0 ? 1 : 0;
-      const force = question.forces[movingIndex];
-      const otherTail = endpointForKey(answer, question, tailKey(otherIndex));
-      targets.push({ key: tailKey(otherIndex), point: { x: otherTail.x - force.dx, y: otherTail.y - force.dy }, attach: "HEAD" });
-    }
+    // Prepending the moving force is valid only at the current chain root;
+    // any interior tail would create a branch. Re-rooting at this target
+    // keeps the existing descendants attached and leaves the stationary
+    // chain geometry unchanged.
+    const rootIndex = chain.order[0];
+    const force = question.forces[movingIndex];
+    const rootTail = endpointForKey(answer, question, tailKey(rootIndex));
+    targets.push({ key: tailKey(rootIndex), point: { x: rootTail.x - force.dx, y: rootTail.y - force.dy }, attach: "HEAD" });
     return targets;
   }
 

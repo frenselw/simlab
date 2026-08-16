@@ -206,6 +206,39 @@ for (const order of [[0, 1], [1, 0]]) {
   assert.deepEqual(freeStart.resultant.end, { mode: "snap", targetKey: "CHAIN_END" }, `free H1/H2 resultant end uses semantic CHAIN_END for order ${order.join(",")}`);
   assert.equal(M.canonicalResultant(freeStart, HQuestion), true, `free H1/H2 resultant is complete for order ${order.join(",")}`);
 }
+const tripleEndpointSnapCases = [];
+for (let moving = 0; moving < TQuestion.forces.length; moving += 1) {
+  for (let target = 0; target < TQuestion.forces.length; target += 1) {
+    if (moving !== target) tripleEndpointSnapCases.push({ moving, target });
+  }
+}
+for (const { moving, target } of tripleEndpointSnapCases) {
+  const answer = M.freshAnswer(TQuestion);
+  const beforeGeometry = M.forceGeometry(answer, TQuestion);
+  const force = TQuestion.forces[moving];
+  const targetTail = beforeGeometry[target].tail;
+  const candidateTail = { x: targetTail.x - force.dx, y: targetTail.y - force.dy };
+  const preview = M.previewSnappedForceTranslation(answer, moving, candidateTail, TQuestion, { pointerType: "mouse", threshold: 14 });
+  assert.equal(preview.placements[moving].targetKey, "ORIGIN", `T1 moving F${moving + 1} head snaps to F${target + 1} tail during preview`);
+  assert.equal(preview.placements[target].targetKey, M.headKey(moving), `T1 F${target + 1} becomes the moving force's child during preview`);
+  assert.deepEqual(M.chainInfo(preview, TQuestion).order, [moving, target], `T1 head-to-tail preview creates a single path ${moving}->${target}`);
+  const committed = M.commitForceTranslation(answer, moving, candidateTail, TQuestion, { pointerType: "mouse", threshold: 14 });
+  assert.deepEqual(M.chainInfo(committed, TQuestion).order, [moving, target], `T1 head-to-tail release keeps path ${moving}->${target}`);
+  const afterGeometry = M.forceGeometry(committed, TQuestion);
+  assert.ok(M.distance(afterGeometry[target].tail, targetTail) <= 0.1, `T1 head-to-tail snap keeps stationary F${target + 1} fixed`);
+}
+const establishedTriple = chainAnswer(TQuestion, [0, 1], false);
+const establishedTripleGeometry = M.forceGeometry(establishedTriple, TQuestion);
+const prependForce = TQuestion.forces[2];
+const prependTail = establishedTripleGeometry[0].tail;
+const prependedTriple = M.commitForceTranslation(establishedTriple, 2, {
+  x: prependTail.x - prependForce.dx,
+  y: prependTail.y - prependForce.dy
+}, TQuestion, { pointerType: "mouse", threshold: 14 });
+assert.deepEqual(M.chainInfo(prependedTriple, TQuestion).order, [2, 0, 1], "T1 head-to-tail snap can prepend a force at the current chain root without a branch");
+const prependedGeometry = M.forceGeometry(prependedTriple, TQuestion);
+assert.ok(M.distance(prependedGeometry[0].tail, establishedTripleGeometry[0].tail) <= 0.1, "T1 prepend keeps the existing chain root tail fixed");
+assert.ok(M.distance(prependedGeometry[1].tail, establishedTripleGeometry[1].tail) <= 0.1, "T1 prepend keeps the existing chain descendant fixed");
 for (const [question, order] of [[HQuestion, [0, 1]], [TQuestion, [2, 0, 1]]]) {
   const chain = chainAnswer(question, order, false);
   const nearCorrectChainResultant = M.previewResultant(chain, "FREE", { x: 520, y: 300 }, question, {

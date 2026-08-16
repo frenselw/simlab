@@ -446,7 +446,40 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
       assert.ok(Math.hypot(stationaryAfter.x - stationaryBefore.x, stationaryAfter.y - stationaryBefore.y) <= 0.2, `${label}: H${questionIndex - 1} stationary force stays fixed during ${testCase.endpoint.toLowerCase()} snap`);
     }
   }
-  return `${label}: H1/H2 tail-to-head and head-to-tail endpoint snaps passed in both directions`;
+  const tripleCases = [];
+  for (let moving = 0; moving < 3; moving += 1) {
+    for (let target = 0; target < 3; target += 1) {
+      if (moving !== target) tripleCases.push({ moving, target });
+    }
+  }
+  for (const [caseIndex, testCase] of tripleCases.entries()) {
+    await setViewport(cdp, 1180, 760, false);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleEndpointSnap: `${label}-${caseIndex}` })}`);
+    await navigateQuestion(cdp, 4);
+    const stationaryBefore = await currentTail(cdp, testCase.target);
+    await moveForceEndpoint(cdp, testCase.moving, "HEAD", `F${testCase.target + 1}_TAIL`, false, { x: 8, y: 0 });
+    const result = await evaluate(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[4],a=s.answers[4],M=window.ForceCompositionModel; return {placements:a.placements,order:M.chainInfo(a,q).order}; })()`);
+    assert.deepEqual(result.placements[testCase.moving], { mode: "snap", targetKey: "ORIGIN" }, `${label}: T1 F${testCase.moving + 1} head snaps to the selected tail`);
+    assert.deepEqual(result.placements[testCase.target], { mode: "snap", targetKey: `F${testCase.moving + 1}_HEAD` }, `${label}: T1 selected force becomes the dragged force's child`);
+    assert.deepEqual(result.order, [testCase.moving, testCase.target], `${label}: T1 head-to-tail snap keeps a single chain path`);
+    const stationaryAfter = await currentTail(cdp, testCase.target);
+    assert.ok(Math.hypot(stationaryAfter.x - stationaryBefore.x, stationaryAfter.y - stationaryBefore.y) <= 0.2, `${label}: T1 stationary force stays fixed during head-to-tail snap`);
+  }
+  for (const [caseIndex, testCase] of tripleCases.entries()) {
+    await setViewport(cdp, 1180, 760, false);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleRootSnap: `${label}-${caseIndex}` })}`);
+    await navigateQuestion(cdp, 4);
+    await moveForce(cdp, testCase.target, "ORIGIN", "mouse");
+    const stationaryBefore = await currentTail(cdp, testCase.target);
+    await moveForceEndpoint(cdp, testCase.moving, "HEAD", `F${testCase.target + 1}_TAIL`, false, { x: 8, y: 0 });
+    const result = await evaluate(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[4],a=s.answers[4],M=window.ForceCompositionModel; return {placements:a.placements,order:M.chainInfo(a,q).order}; })()`);
+    assert.deepEqual(result.placements[testCase.moving], { mode: "snap", targetKey: "ORIGIN" }, `${label}: T1 head-to-root-tail re-roots the dragged force`);
+    assert.deepEqual(result.placements[testCase.target], { mode: "snap", targetKey: `F${testCase.moving + 1}_HEAD` }, `${label}: T1 original root becomes the dragged force's child`);
+    assert.deepEqual(result.order, [testCase.moving, testCase.target], `${label}: T1 head-to-root-tail snap keeps a single chain path`);
+    const stationaryAfter = await currentTail(cdp, testCase.target);
+    assert.ok(Math.hypot(stationaryAfter.x - stationaryBefore.x, stationaryAfter.y - stationaryBefore.y) <= 0.2, `${label}: T1 root force stays fixed during re-root snap`);
+  }
+  return `${label}: H1/H2 and T1 tail-to-head/head-to-tail endpoint snaps passed in both directions`;
 }
 
 async function runWrongGuideResultantSnap(cdp, baseUrl, launchPath, label) {

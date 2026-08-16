@@ -1532,3 +1532,10 @@ Invalid matrix：
 - 首尾連接題由舞台空白位置開始畫合力時，若同一次 preview 將起點吸附到共同起點，終點會以該已解析的 `ORIGIN` 語意優先吸附 `CHAIN_END`；不再因 `F1_HEAD`／`F2_HEAD` 與鏈尾物理位置重合時的浮點距離微差而偶發保存錯誤 endpoint key。
 - 任意錯誤起點／錯誤方向仍會保留；只有已吸附至合法共同起點的合力才套用 canonical chain-end 優先規則，不改變學生可修改及錯誤作答能力。
 - 新增 H1/H2 兩種力鏈次序的 free-start、exact-end model assertions；source／extracted SCORM 完整 browser regression 均通過。
+
+## 38. T1 三力首尾端點吸附雙向修正（2026-08-16）
+
+- T1 不再只接受「移動力箭尾 → 目前力鏈箭頭」；首次組鏈及已有鏈時，亦支援「移動力箭頭 → 另一力箭尾」的即時 snap。
+- 未有鏈根時，頭→尾只會把兩支尚未連接的力組成一條二力路徑；已有鏈時只提供目前鏈根箭尾作為可前置端點，重設根次序後保留原有後代，避免在中間節點形成 branch。
+- snap 仍以被拖動力反推出精確箭尾，對方力及既有鏈的幾何位置保持不變；H1/H2 原有雙向行為不變。
+- 新增 T1 六種首次頭→尾端點 model cases、已有鏈前置 case，以及 source／extracted SCORM browser coverage。
