@@ -201,17 +201,7 @@
       if (!answer || answer.type !== TYPES[index] || question.type !== TYPES[index]) return { ok: false, reason: `question-type-${index}` };
       const reason = question.type === "parallelogram" ? validateParallelogram(answer, question, index) : validateChain(answer, question, index);
       if (reason) return { ok: false, reason: `${reason}-${index}` };
-      let geometry;
-      try { geometry = Model.forceGeometry(answer, question); }
-      catch { return { ok: false, reason: `resolved-force-geometry-${index}` }; }
-      for (const item of geometry) {
-        const tolerance = Model.POSITION_QUANTUM + Model.MODEL_EPSILON;
-        const points = [item.tail, item.head];
-        if (points.some((point) => point.x < -tolerance || point.x > Generator.WIDTH + tolerance ||
-            point.y < -tolerance || point.y > Generator.HEIGHT + tolerance)) {
-          return { ok: false, reason: `resolved-force-bounds-${index}` };
-        }
-      }
+      if (!Model.resolvedForceGeometryWithinBounds(answer, question)) return { ok: false, reason: `resolved-force-bounds-${index}` };
     }
     return { ok: true };
   }

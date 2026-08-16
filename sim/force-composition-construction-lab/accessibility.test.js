@@ -32,6 +32,7 @@ assert.match(css, /@media \(forced-colors: active\)/);
 assert.match(css, /\.force-hit:focus-visible\s*\{[^}]*outline:\s*3px/s);
 assert.match(css, /\.resultant-hit:focus-visible\s*\{[^}]*outline:\s*3px/s);
 assert.match(css, /\.line-handle\.is-offset\s*\{[^}]*font-size:/s);
+assert.match(css, /\.line-handle\.is-offset\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
 assert.match(css, /\.stage\.resultant-draw-ready\s*\{[^}]*touch-action:\s*none/s);
 assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 assert.match(css, /\.math-vector\s*\{[^}]*font-style:\s*italic[^}]*font-weight:\s*700/s);

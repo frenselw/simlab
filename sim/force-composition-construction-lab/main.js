@@ -92,6 +92,7 @@
   let stageCamera = { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
   let stageCameraContext = null;
   const undoStacks = Array.from({ length: 5 }, () => []);
+  const keyboardForceReleaseLocks = new Map();
   const eventTelemetry = [];
   const touchTelemetry = [];
 
@@ -623,6 +624,8 @@
           button.dataset.dragKind === "resultant-start" && button.dataset.semanticKey === "resultant-start-edit" ? "合力起點" :
             button.dataset.dragKind === "guide-end" ? "虛線終點" : shortEndpointLabel(button.dataset.originKey);
         button.textContent = count > 1 ? label : "";
+        if (count > 1) button.dataset.chipLabel = label;
+        else delete button.dataset.chipLabel;
         if (count === 1) {
           positionHandle(button, point);
           return;
@@ -1097,23 +1100,50 @@
     if (undoStacks[index].length > 20) undoStacks[index].shift();
   }
 
+  function keyboardForceLockKey(index) {
+    return `${state?.currentQuestion ?? -1}:${index}`;
+  }
+
+  function clearKeyboardForceRelease(index = null) {
+    if (index == null) keyboardForceReleaseLocks.clear();
+    else keyboardForceReleaseLocks.delete(keyboardForceLockKey(index));
+  }
+
+  function placementTargetPoint(answer, question, index) {
+    const targetKey = answer.placements[index]?.targetKey;
+    if (!targetKey) return null;
+    try { return M.endpointForKey(answer, question, targetKey); }
+    catch { return null; }
+  }
+
   function finalizeAnswer(nextAnswer, message, focusKey, options = {}) {
     const index = state.currentQuestion;
     const previous = state.answers[index];
     if (JSON.stringify(previous) === JSON.stringify(nextAnswer)) { renderAll({ focusKey }); return; }
     const panelScrollTop = options.preservePanelScroll ? dom.controlPanel.scrollTop : null;
+    const proposedState = { ...state, answers: state.answers.map((answer, answerIndex) => answerIndex === index ? nextAnswer : answer) };
+    let validatedState;
+    try {
+      validatedState = P.productionRoundTrip(proposedState);
+    } catch (error) {
+      console.error(error);
+      renderAll({ focusKey });
+      announce("呢次作圖未能通過狀態檢查，已保留上一個有效作答。");
+      return false;
+    }
     pushUndo(index, previous);
-    state.answers[index] = nextAnswer;
-    state = P.productionRoundTrip(state);
+    state = validatedState;
     saveDraft();
     renderAll({ focusKey });
     if (panelScrollTop !== null) dom.controlPanel.scrollTop = panelScrollTop;
     if (message) announce(message);
+    return true;
   }
 
   function navigateQuestion(index, fromSummary = false) {
     if (!state || !scenario || index < 0 || index > 4 || presentation === "technical") return;
     state.currentQuestion = index;
+    clearKeyboardForceRelease();
     state.phase = "practice";
     resultantMode = false;
     correctOverlay = false;
@@ -1123,6 +1153,7 @@
   }
 
   function goToSummary() {
+    clearKeyboardForceRelease();
     resultantMode = false;
     state.phase = "summary";
     presentation = "editable";
@@ -1134,6 +1165,7 @@
   function undo() {
     const stack = undoStacks[state.currentQuestion];
     if (!stack.length) return;
+    clearKeyboardForceRelease(state.currentQuestion);
     resultantMode = false;
     state.answers[state.currentQuestion] = stack.pop();
     state = P.productionRoundTrip(state);
@@ -1145,6 +1177,7 @@
   function resetCurrent() {
     const answer = state.answers[state.currentQuestion];
     if (M.isBlank(answer)) return;
+    clearKeyboardForceRelease(state.currentQuestion);
     resultantMode = false;
     pushUndo(state.currentQuestion, answer);
     state.answers[state.currentQuestion] = M.freshAnswer(scenario.questions[state.currentQuestion]);
@@ -1254,6 +1287,7 @@
     const answer = state.answers[state.currentQuestion];
     const kind = target.dataset.dragKind;
     if (resultantMode && !kind.startsWith("resultant")) return;
+    if (kind === "force") clearKeyboardForceRelease(Number(target.dataset.forceIndex));
     const point = clientToModel(event.clientX, event.clientY);
     const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, focusPoint: point, preview: answer, camera: { ...stageCamera } };
     if (kind === "force") {
@@ -1401,11 +1435,7 @@
         allowIncomplete: resultantMode,
         allowAnyOrigin: resultantMode
       });
-      if (active.before.resultant) focusKey = "resultant-start-edit";
-      else {
-        focusKey = "resultant-end";
-        focusFallbackKeys = ["resultant-start-edit"];
-      }
+      focusKey = "resultant-start-edit";
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : "合力起點已更新，可繼續調整兩端。";
     } else if (active.kind === "resultant-translate" && active.before.resultant) {
       const delta = { x: point.x - active.startPoint.x, y: point.y - active.startPoint.y };
@@ -1421,6 +1451,10 @@
         allowAnyOrigin: resultantMode,
         originPoint: active.startPoint
       });
+      if (active.kind === "resultant-start" && !active.before.resultant) {
+        focusKey = "resultant-end";
+        focusFallbackKeys = ["resultant-start-edit"];
+      }
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.before.resultant ? "合力終點已更新，可繼續調整兩端。" : "合力已畫出，可繼續拖動起點或終點調整。";
     }
     finalizeAnswer(next, message, focusKey, { preservePanelScroll: true, focusFallbackKeys });
@@ -1519,12 +1553,42 @@
     const answer = state.answers[state.currentQuestion];
     const index = Number(target.dataset.forceIndex);
     const existingPlacement = answer.placements[index];
+    const lockKey = keyboardForceLockKey(index);
+    let releaseLock = keyboardForceReleaseLocks.get(lockKey) || null;
     const released = existingPlacement.mode === "snap" ? M.releaseForceAndDescendants(answer, question, index) : answer;
+    if (existingPlacement.mode === "snap") {
+      if (!releaseLock || releaseLock.targetKey !== existingPlacement.targetKey) {
+        releaseLock = {
+          targetKey: existingPlacement.targetKey,
+          targetPoint: placementTargetPoint(answer, question, index),
+          armed: false
+        };
+        keyboardForceReleaseLocks.set(lockKey, releaseLock);
+      }
+    }
     const tail = M.forceGeometry(released, question)[index].tail;
     const step = event.shiftKey ? 10 : 2;
     const candidate = { x: tail.x + vectors[event.key][0] * step, y: tail.y + vectors[event.key][1] * step };
-    const excludeKeys = existingPlacement.mode === "snap" ? [existingPlacement.targetKey] : [];
-    const next = M.commitForceTranslation(released, index, candidate, question, { pointerType: "keyboard", project: modelToClient, excludeKeys, keepFree: existingPlacement.mode === "snap" });
+    const releaseDistance = releaseLock?.targetPoint ? M.distance(modelToClient(candidate), modelToClient(releaseLock.targetPoint)) : Infinity;
+    if (releaseLock && !releaseLock.armed && releaseDistance > M.SNAP_KEYBOARD_PX) {
+      releaseLock = { ...releaseLock, armed: true };
+      keyboardForceReleaseLocks.set(lockKey, releaseLock);
+    }
+    const reSnap = Boolean(releaseLock?.armed && releaseLock.targetPoint && releaseDistance <= M.SNAP_KEYBOARD_PX);
+    let keyboardAnswer = released;
+    if (reSnap && releaseLock.targetKey === M.ORIGIN_KEY && !Array.isArray(keyboardAnswer.anchor10)) {
+      keyboardAnswer = M.clone(released);
+      keyboardAnswer.anchor10 = M.point10(releaseLock.targetPoint);
+    }
+    const excludeKeys = releaseLock && !reSnap && releaseLock.targetKey ? [releaseLock.targetKey] : [];
+    const next = M.commitForceTranslation(keyboardAnswer, index, candidate, question, {
+      pointerType: "keyboard", project: modelToClient, excludeKeys,
+      keepFree: Boolean(releaseLock && !reSnap),
+      preserveAnchor: reSnap
+    });
+    if (releaseLock?.armed && reSnap && next.placements[index].mode === "snap" && next.placements[index].targetKey === releaseLock.targetKey) {
+      keyboardForceReleaseLocks.delete(lockKey);
+    }
     finalizeAnswer(next, `${N.accessibleForce(index + 1)}已用鍵盤平移。`, target.dataset.semanticKey);
     event.preventDefault();
   }

@@ -330,9 +330,15 @@ async function completeCurrentQuestion(cdp, index, order, input, embedded = fals
   }
   assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').disabled", embedded), false, `${input}: resultant button unlocks after prerequisites`);
   await enterResultantMode(cdp, embedded);
+  const offsetTargets = await inActivity(cdp, "[...document.querySelectorAll('.line-handle.is-offset')].map((node)=>{const r=node.getBoundingClientRect();return {w:r.width,h:r.height};})", embedded);
+  assert.ok(offsetTargets.every((rect) => rect.w >= 44 && rect.h >= 44), `${input}: overlapping line handles retain a 44px hit target`);
   assert.ok(await elementPoint(cdp, '[data-semantic-key="resultant-start-ORIGIN"]', embedded), `${input}: resultant mode exposes a consistent origin handle`);
   const resultantEnd = await targetModelPoint(cdp, question.type === "parallelogram" ? "CORNER" : "CHAIN_END", embedded);
   await drawLine(cdp, "resultant-start-ORIGIN", resultantEnd, input, embedded);
+  if (input === "mouse" || input === "touch") {
+    const resultantFocus = await inActivity(cdp, "document.activeElement?.dataset?.semanticKey || null", embedded);
+    assert.ok(["resultant-end", "resultant-start-edit"].includes(resultantFocus), `${input}: first pointer resultant creation transfers focus to a live resultant handle`);
+  }
   assert.equal(await inActivity(cdp, "document.getElementById('deleteResultant').hidden", embedded), false, `${input}: delete resultant control appears after drawing`);
   await click(cdp, "#deleteResultant", embedded);
   assert.equal(await inActivity(cdp, "window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].resultant", embedded), null, `${input}: delete resultant clears the current line`);
@@ -509,9 +515,18 @@ async function runKeyboardForceRelease(cdp, baseUrl, launchPath, label) {
       assert.equal(placementBefore.mode, "snap", `${label}: keyboard release fixture starts snapped`);
       assert.notDeepEqual(placementAfter, placementBefore, `${label}: keyboard ${shift ? "shift-" : ""}arrow releases the old relationship`);
       assert.ok(Math.hypot(after.x - before.x, after.y - before.y) > 0.1, `${label}: keyboard ${shift ? "shift-" : ""}arrow moves the released force`);
+      const releaseSteps = shift ? 2 : 7;
+      for (let step = 0; step < releaseSteps; step += 1) {
+        await press(cdp, "ArrowRight", { shift, delay: 35 });
+        const intermediate = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${entry.question}].placements[${entry.force}]`);
+        assert.notEqual(intermediate.targetKey, placementBefore.targetKey, `${label}: repeated keyboard ${shift ? "Shift+" : ""}ArrowRight does not snap back to the released target`);
+      }
+      await moveForceKeyboard(cdp, entry.force, placementBefore.targetKey);
+      const restored = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${entry.question}].placements[${entry.force}]`);
+      assert.deepEqual(restored, placementBefore, `${label}: after moving away, reverse keyboard motion can re-snap the original relationship`);
     }
   }
-  return `${label}: keyboard arrows release snapped root, middle and final forces for regular and Shift steps`;
+  return `${label}: keyboard arrows release snapped root, middle and final forces, resist snap-back, and re-snap after reversal for regular and Shift steps`;
 }
 
 async function runTripleArbitraryAnchors(cdp, baseUrl, launchPath, label) {
@@ -531,6 +546,31 @@ async function runTripleArbitraryAnchors(cdp, baseUrl, launchPath, label) {
     assert.equal(await inActivity(cdp, "window.ForceCompositionModel.chainInfo(window.__forceCompositionApp.getState().answers[4],window.__forceCompositionApp.getScenario().questions[4]).complete"), true, `${label}: edge anchor completes order ${order.join(",")}`);
   }
   return `${label}: all six T1 orders remain completable from the computed feasible anchor edge`;
+}
+
+async function runParallelogramBoundary(cdp, baseUrl, launchPath, label) {
+  for (const questionIndex of [0, 1]) {
+    await setViewport(cdp, 1180, 760, false);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(0, { parallelogramBoundary: `${label}-${questionIndex}` })}`);
+    await navigateQuestion(cdp, questionIndex);
+    const anchor = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${questionIndex}],b=window.ForceCompositionModel.parallelogramAnchorBounds(q); return {x:b.maxX,y:b.maxY}; })()`);
+    const root = await elementPoint(cdp, '.force-hit[data-force-index="0"]');
+    const before = await currentTail(cdp, 0);
+    const beforeClient = await modelPoint(cdp, before);
+    const anchorClient = await modelPoint(cdp, anchor);
+    await mouseDrag(cdp, root, { x: root.x + anchorClient.x - beforeClient.x, y: root.y + anchorClient.y - beforeClient.y });
+    const edgeState = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${questionIndex}]`);
+    assert.equal(edgeState.placements[0].targetKey, "ORIGIN", `${label}: P${questionIndex + 1} accepts the computed feasible edge anchor`);
+    assert.ok(await inActivity(cdp, `window.ForceCompositionModel.resolvedForceGeometryWithinBounds(window.__forceCompositionApp.getState().answers[${questionIndex}],window.__forceCompositionApp.getScenario().questions[${questionIndex}])`), `${label}: P${questionIndex + 1} edge anchor resolves inside the canvas`);
+    await moveForce(cdp, 1, "ORIGIN", "mouse");
+    const corner = await targetModelPoint(cdp, "CORNER");
+    await drawLine(cdp, "guide-start-F1_HEAD", corner, "mouse");
+    await drawLine(cdp, "guide-start-F2_HEAD", corner, "mouse");
+    await enterResultantMode(cdp);
+    await drawLine(cdp, "resultant-start-ORIGIN", corner, "mouse");
+    assert.equal(await inActivity(cdp, `window.__forceCompositionApp.getCompletion()[${questionIndex}]`), true, `${label}: P${questionIndex + 1} remains completable from the advertised edge anchor`);
+  }
+  return `${label}: P1/P2 remain completable from the full parallelogram feasible boundary`;
 }
 
 async function runTripleMobileScale(cdp, baseUrl, launchPath, label) {
@@ -842,6 +882,8 @@ async function main() {
     const packageKeyboardRelease = await runKeyboardForceRelease(cdp, packageBase, extracted.activityPath, "package");
     const sourceArbitraryAnchors = await runTripleArbitraryAnchors(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageArbitraryAnchors = await runTripleArbitraryAnchors(cdp, packageBase, extracted.activityPath, "package");
+    const sourceParallelogramBoundary = await runParallelogramBoundary(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageParallelogramBoundary = await runParallelogramBoundary(cdp, packageBase, extracted.activityPath, "package");
     const sourceTripleScale = await runTripleMobileScale(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTripleScale = await runTripleMobileScale(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -856,7 +898,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

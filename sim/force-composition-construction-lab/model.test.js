@@ -6,6 +6,20 @@ const M = require("./model.js");
 
 const scenario = G.generateScenario({ seed: 7 });
 
+const boundaryParallelogram = {
+  type: "parallelogram",
+  forces: [G.vector(95, 0, "F1"), G.vector(95, 50, "F2")],
+  initialTails: [{ x: 120, y: 120 }, { x: 120, y: 360 }]
+};
+const boundaryBounds = M.parallelogramAnchorBounds(boundaryParallelogram);
+assert.equal(M.anchorWithinBounds({ x: 631, y: 250 }, boundaryParallelogram), false, "P anchor bounds include the fourth vertex, not only the two force heads");
+const boundaryAnswer = M.freshAnswer(boundaryParallelogram);
+boundaryAnswer.anchor10 = M.point10(M.clampAnchor({ x: 631, y: 250 }, boundaryParallelogram));
+boundaryAnswer.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
+assert.ok(M.resolvedForceGeometryWithinBounds(boundaryAnswer, boundaryParallelogram), "clamped P anchor keeps all four construction vertices inside the canvas");
+assert.ok(M.corner(boundaryParallelogram, boundaryAnswer).x <= G.WIDTH - M.MODEL_VISUAL_INSET + M.MODEL_EPSILON);
+assert.ok(boundaryBounds.maxX < 631);
+
 function correctParallelogram(index = 0) {
   const question = scenario.questions[index];
   let answer = M.freshAnswer(question);
@@ -43,6 +57,19 @@ assert.deepEqual(nearOrigin.placements[0], { mode: "snap", targetKey: "ORIGIN" }
 const outsideOrigin = M.commitForceTranslation(initial, 0, { x: 401, y: 250 }, firstQuestion, { pointerType: "touch" });
 assert.equal(outsideOrigin.placements[0].mode, "snap", "the first force may establish an anchor at any valid position");
 assert.notDeepEqual(outsideOrigin.anchor10, [3800, 2500]);
+
+const touchBoundaryQuestion = {
+  type: "head-to-tail-2",
+  forces: [G.vector(95, 45, "F1"), G.vector(100, 90, "F2")],
+  initialTails: [{ x: 111.412428, y: 163.587572 }, { x: 280, y: 300 }]
+};
+const touchBoundaryAnswer = M.freshAnswer(touchBoundaryQuestion);
+const touchBoundaryCandidate = { x: 178.6, y: 134 };
+const touchBoundarySnap = M.commitForceTranslation(touchBoundaryAnswer, 1, touchBoundaryCandidate, touchBoundaryQuestion, {
+  pointerType: "touch", project: (point) => ({ x: point.x * 0.42, y: point.y * 0.42 })
+});
+assert.notDeepEqual(touchBoundarySnap.placements[1], { mode: "snap", targetKey: "F1_HEAD" }, "touch near-miss does not save an out-of-bounds head-to-tail relationship");
+assert.ok(M.resolvedForceGeometryWithinBounds(touchBoundarySnap, touchBoundaryQuestion), "touch near-miss falls back to a persistence-safe geometry");
 const liveTailSnap = M.previewSnappedForceTranslation(initial, 0, firstQuestion.initialTails[1], firstQuestion, { threshold: 14 });
 assert.deepEqual(liveTailSnap.placements, [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }], "live force preview snaps both forces before pointer release");
 const liveFarPreview = M.previewSnappedForceTranslation(initial, 0, { x: 200, y: 200 }, firstQuestion, { threshold: 14 });
@@ -134,6 +161,27 @@ const translatedParallelogram = M.commitResultantTranslation(committedFreeInitia
 assert.equal(translatedParallelogram.resultant.originKey, "FREE", "whole resultant translation preserves an editable free origin");
 assert.deepEqual(translatedParallelogram.resultant.originPoint10, [2500, 1700]);
 assert.deepEqual(M.lineEndPoint(translatedParallelogram.resultant, translatedParallelogram, firstQuestion), { x: 560, y: 280 }, "whole resultant translation preserves the vector");
+
+const boundaryTranslationQuestion = {
+  type: "parallelogram",
+  forces: [G.vector(95, 0, "F1"), G.vector(95, 50, "F2")],
+  initialTails: [{ x: 120, y: 120 }, { x: 120, y: 360 }]
+};
+const boundaryTranslation = M.freshAnswer(boundaryTranslationQuestion);
+boundaryTranslation.anchor10 = M.point10({ x: 34, y: 250 });
+boundaryTranslation.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
+boundaryTranslation.guides = [
+  { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 2500] } },
+  { originKey: "F2_HEAD", end: { mode: "free", point10: [3000, 3000] } }
+];
+boundaryTranslation.resultant = {
+  originKey: "FREE", originPoint10: [340, 2500],
+  end: { mode: "free", point10: [6510, 2500] }
+};
+const boundaryTranslated = M.commitResultantTranslation(boundaryTranslation, { x: 85, y: 0 }, boundaryTranslationQuestion, { pointerType: "mouse" });
+assert.equal(boundaryTranslated.resultant.originKey, "FREE", "an inexact boundary correction remains a free resultant");
+assert.equal(boundaryTranslated.resultant.end.mode, "free", "an inexact boundary correction does not save a clipped endpoint snap");
+assert.ok(M.lineEndPoint(boundaryTranslated.resultant, boundaryTranslated, boundaryTranslationQuestion).x <= G.WIDTH - M.FREE_LINE_INSET + M.MODEL_EPSILON);
 
 const HQuestion = scenario.questions[2];
 const TQuestion = scenario.questions[4];
