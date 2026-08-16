@@ -63,6 +63,16 @@ let P2 = M.freshAnswer(P2Question);
 P2.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
 P2 = M.commitGuide(P2, "ORIGIN", M.corner(P2Question), P2Question, { threshold: 1000 });
 assert.equal(P2.guides.filter(Boolean)[0].end.mode, "free", "wrong neutral guide origin remains provisional even on the corner");
+const p2FirstStart = M.endpointForKey(P2, P2Question, "ORIGIN");
+const p2SecondStart = M.endpointForKey(P2, P2Question, "F1_HEAD");
+const p2Midpoint = { x: (p2FirstStart.x + p2SecondStart.x) / 2, y: (p2FirstStart.y + p2SecondStart.y) / 2 };
+const p2Half = { x: (p2SecondStart.x - p2FirstStart.x) / 2, y: (p2SecondStart.y - p2FirstStart.y) / 2 };
+const P2Crossing = M.clone(P2);
+P2Crossing.guides = [
+  { originKey: "ORIGIN", end: { mode: "free", point10: M.point10(M.clampLinePoint({ x: p2Midpoint.x + p2Half.x * 0.8, y: p2Midpoint.y + p2Half.y * 0.8 })) } },
+  { originKey: "F1_HEAD", end: { mode: "free", point10: M.point10(M.clampLinePoint({ x: p2Midpoint.x - p2Half.x * 0.8, y: p2Midpoint.y - p2Half.y * 0.8 })) } }
+];
+assert.ok(M.guideIntersectionPoint(P2Crossing, P2Question), "P2 arbitrary guide origins also expose their visible intersection");
 assert.throws(() => M.commitGuide({ ...M.freshAnswer(firstQuestion), placements: P2.placements }, "ORIGIN", M.corner(firstQuestion), firstQuestion), /not available|Guide/);
 const guideOrigin = M.endpointForKey(P, firstQuestion, "F1_HEAD");
 const guideDirection = firstQuestion.forces[1];
@@ -80,6 +90,15 @@ wrongGuides.guides = [
   { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
 ];
 assert.equal(M.resultantAvailable(wrongGuides, firstQuestion), true, "two drawn guides unlock resultant mode even when their directions are wrong");
+const wrongGuideIntersection = M.guideIntersectionPoint(wrongGuides, firstQuestion);
+assert.ok(wrongGuideIntersection, "two crossing wrong guides expose their visible segment intersection");
+const wrongGuideResultant = M.commitResultant(wrongGuides, "ORIGIN", { x: wrongGuideIntersection.x + 7, y: wrongGuideIntersection.y - 6 }, firstQuestion, {
+  allowIncomplete: true, allowAnyOrigin: true, pointerType: "mouse"
+});
+assert.deepEqual(wrongGuideResultant.resultant.end, {
+  mode: "snap", targetKey: M.GUIDE_INTERSECTION_KEY, point10: M.point10(wrongGuideIntersection)
+}, "a resultant endpoint near a wrong-guide crossing snaps to that crossing");
+assert.ok(M.distance(M.lineEndPoint(wrongGuideResultant.resultant, wrongGuideResultant, firstQuestion), wrongGuideIntersection) <= M.POSITION_QUANTUM, "the snapped wrong-guide crossing is the visible endpoint");
 const wrongResultant = M.previewResultant(wrongGuides, "F1_HEAD", { x: 650, y: 300 }, firstQuestion, { allowIncomplete: true, allowAnyOrigin: true });
 assert.equal(wrongResultant.resultant.originKey, "F1_HEAD", "resultant mode permits an intentionally wrong start endpoint");
 const snappedToOtherCorner = M.previewResultant(wrongResultant, "F1_HEAD", M.endpointForKey(wrongResultant, firstQuestion, "F2_HEAD"), firstQuestion, {

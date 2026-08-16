@@ -90,6 +90,13 @@
           point.y < Model.FREE_LINE_INSET || point.y > Generator.HEIGHT - Model.FREE_LINE_INSET) return "parallel-line-bounds";
       return null;
     }
+    if (end.targetKey === Model.GUIDE_INTERSECTION_KEY) {
+      if (!validPoint10(end.point10)) return "guide-intersection-line-shape";
+      const point = Model.fromPoint10(end.point10);
+      if (point.x < Model.FREE_LINE_INSET || point.x > Generator.WIDTH - Model.FREE_LINE_INSET ||
+          point.y < Model.FREE_LINE_INSET || point.y > Generator.HEIGHT - Model.FREE_LINE_INSET) return "guide-intersection-line-bounds";
+      return null;
+    }
     if ("point10" in end) return "line-snap-target";
     return null;
   }
@@ -129,8 +136,13 @@
         const clamped = Model.clampLinePoint(point);
         if (Math.abs(point.x - clamped.x) > Model.MODEL_EPSILON || Math.abs(point.y - clamped.y) > Model.MODEL_EPSILON) return "resultant-origin-bounds";
       } else if ("originPoint10" in answer.resultant) return "resultant-origin-point";
-      const issue = validateLineEnd(answer.resultant.end, ["ORIGIN", "F1_HEAD", "F2_HEAD", "CORNER"]);
+      const issue = validateLineEnd(answer.resultant.end, ["ORIGIN", "F1_HEAD", "F2_HEAD", "CORNER", Model.GUIDE_INTERSECTION_KEY]);
       if (issue) return issue;
+      if (answer.resultant.end.targetKey === Model.GUIDE_INTERSECTION_KEY) {
+        const intersection = Model.guideIntersectionPoint(answer, question);
+        const point = Model.fromPoint10(answer.resultant.end.point10);
+        if (!intersection || Model.distance(point, intersection) > Model.POSITION_QUANTUM + Model.MODEL_EPSILON) return "resultant-guide-intersection";
+      }
     }
     return null;
   }

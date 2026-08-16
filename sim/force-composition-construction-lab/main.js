@@ -666,7 +666,7 @@
     dom.questionTitle.textContent = view.title;
     dom.questionPrompt.textContent = view.prompt;
     dom.stepPrompt.textContent = resultantMode
-      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，之後可拖動線身整體平移或調整兩端，方向錯誤的作答也會保留。"
+      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，兩條虛線的相交點也可作為吸附終點；之後可拖動線身整體平移或調整兩端，方向錯誤的作答也會保留。"
       : view.step;
     renderFormula();
     renderLineTools();

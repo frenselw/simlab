@@ -1501,3 +1501,9 @@ Invalid matrix：
 - 合力畫出後，Control Panel 顯示「刪除合力，重新畫」；刪除只清除 `answer.resultant`，保留已完成的力／輔助線／力鏈，並留在合力模式讓學生可立即重畫。按鈕在沒有合力時隱藏，並納入 undo、draft round-trip、source／SCORM browser flow。
 - 由舞台空白位置首次拖出合力時，pointerdown 的起點會以 screen-space snap 閾值比較目前題目的共同起點（即學生選定的 `anchor10`／`ORIGIN` 語意）；P 題及 H/T 題均支援。接近時即時預覽及放手後保存為 `originKey: "ORIGIN"`，未接近則保留 `FREE + originPoint10`，不會把錯誤起點自動改正。
 - 端點吸附及既有任意錯誤作答能力不變；新增 model coverage（P、H、T 近起點及遠距離對照）及 production browser coverage（畫出／刪除／重畫，development source 與 extracted SCORM）。
+
+## 33. 錯誤虛線交點合力吸附（2026-08-16）
+
+- 平行四邊形兩條虛線即使方向／長度畫錯，只要兩條可見線段有實際交點，模型會計算該 segment intersection，並把它加入合力終點的 snap targets；正確輔助線仍優先吸附語意上的 `CORNER`，不改變 canonical scoring。
+- `GUIDE_INTERSECTION` 以量化 `point10` 保存，畫面端點、draft／review persistence、重載及錯誤狀態驗證均會重新確認交點仍屬於目前兩條虛線；平行、重疊或交點在可見線段以外則不提供該 snap，避免吸附到不可見的延長線。
+- 新增 wrong-guide model／persistence coverage，以及 development source 與 extracted SCORM 的 browser flow，確認錯誤虛線交點附近拖動合力會即時及放手後吸附。

@@ -93,6 +93,23 @@ freeResultantStartAnswer.resultant = {
 };
 freeResultantStartState.answers[0] = freeResultantStartAnswer;
 fixtures.push(freeResultantStartState);
+const wrongGuideIntersectionState = P.freshState(seed);
+const wrongGuideIntersectionAnswer = commonP(0);
+const firstWrongHead = M.endpointForKey(wrongGuideIntersectionAnswer, scenario.questions[0], "F1_HEAD");
+const secondWrongHead = M.endpointForKey(wrongGuideIntersectionAnswer, scenario.questions[0], "F2_HEAD");
+const wrongGuideMidpoint = { x: (firstWrongHead.x + secondWrongHead.x) / 2, y: (firstWrongHead.y + secondWrongHead.y) / 2 };
+const wrongGuideHalf = { x: (secondWrongHead.x - firstWrongHead.x) / 2, y: (secondWrongHead.y - firstWrongHead.y) / 2 };
+wrongGuideIntersectionAnswer.guides = [
+  { originKey: "F1_HEAD", end: { mode: "free", point10: M.point10(M.clampLinePoint({ x: wrongGuideMidpoint.x + wrongGuideHalf.x * 0.8, y: wrongGuideMidpoint.y + wrongGuideHalf.y * 0.8 })) } },
+  { originKey: "F2_HEAD", end: { mode: "free", point10: M.point10(M.clampLinePoint({ x: wrongGuideMidpoint.x - wrongGuideHalf.x * 0.8, y: wrongGuideMidpoint.y - wrongGuideHalf.y * 0.8 })) } }
+];
+const wrongGuideIntersection = M.guideIntersectionPoint(wrongGuideIntersectionAnswer, scenario.questions[0]);
+wrongGuideIntersectionAnswer.resultant = M.commitResultant(wrongGuideIntersectionAnswer, "ORIGIN", {
+  x: wrongGuideIntersection.x + 7, y: wrongGuideIntersection.y - 6
+}, scenario.questions[0], { allowIncomplete: true, allowAnyOrigin: true, pointerType: "mouse" }).resultant;
+assert.equal(wrongGuideIntersectionAnswer.resultant.end.targetKey, M.GUIDE_INTERSECTION_KEY);
+wrongGuideIntersectionState.answers[0] = wrongGuideIntersectionAnswer;
+fixtures.push(wrongGuideIntersectionState);
 const translatedResultantState = P.freshState(seed);
 translatedResultantState.answers[2] = M.commitResultantTranslation(complete(2, [0, 1]), { x: 40, y: -20 }, scenario.questions[2], { pointerType: "mouse" });
 fixtures.push(translatedResultantState);
@@ -225,6 +242,15 @@ invalid((value) => {
   ];
   value.answers[0].resultant = { originKey: "FREE", end: { mode: "free", point10: [3000, 3000] } };
 }, /resultant-origin-point/);
+invalid((value) => {
+  const answer = commonP(0);
+  answer.guides = [
+    { originKey: "F1_HEAD", end: { mode: "free", point10: [3000, 3000] } },
+    { originKey: "F2_HEAD", end: { mode: "free", point10: [5200, 1600] } }
+  ];
+  answer.resultant = { originKey: "ORIGIN", end: { mode: "snap", targetKey: M.GUIDE_INTERSECTION_KEY, point10: [3000, 3000] } };
+  value.answers[0] = answer;
+}, /resultant-guide-intersection/);
 
 const contaminatedReview = P.encodeReview(completeSummary);
 contaminatedReview.phase = "summary";

@@ -406,6 +406,25 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
   return `${label}: H1/H2 tail-to-head and head-to-tail endpoint snaps passed in both directions`;
 }
 
+async function runWrongGuideResultantSnap(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 1180, 760, false);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(7, { wrongGuideIntersection: label })}`);
+  await navigateQuestion(cdp, 0);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await moveForce(cdp, 1, "ORIGIN", "mouse");
+  await drawLine(cdp, "guide-start-F1_HEAD", { x: 300, y: 300 }, "mouse");
+  await drawLine(cdp, "guide-start-F2_HEAD", { x: 520, y: 160 }, "mouse");
+  const intersection = await inActivity(cdp, "(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[0]; return window.ForceCompositionModel.guideIntersectionPoint(s.answers[0],q); })()");
+  assert.ok(intersection, `${label}: wrong guides have a visible intersection`);
+  await enterResultantMode(cdp);
+  await drawLine(cdp, "resultant-start-ORIGIN", { x: intersection.x + 7, y: intersection.y - 6 }, "mouse");
+  const resultant = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[0].resultant");
+  assert.deepEqual(resultant.end, {
+    mode: "snap", targetKey: "GUIDE_INTERSECTION", point10: [Math.round(intersection.x * 10), Math.round(intersection.y * 10)]
+  }, `${label}: resultant endpoint snaps to the crossing of wrong guides`);
+  return `${label}: wrong-guide intersection resultant snap passed`;
+}
+
 async function iframeMetrics(cdp) {
   return evaluate(cdp, `(() => {
     const f=document.getElementById('activity'),w=f.contentWindow,d=f.contentDocument,p=d.getElementById('controlPanel'),r=f.getBoundingClientRect();
@@ -589,6 +608,8 @@ async function main() {
     const packageOrders = await runTripleOrders(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageEndpointSnaps = await runHeadTailEndpointSnaps(cdp, packageBase, extracted.activityPath, "package");
+    const sourceWrongGuideSnap = await runWrongGuideResultantSnap(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageWrongGuideSnap = await runWrongGuideResultantSnap(cdp, packageBase, extracted.activityPath, "package");
     const sourceTouch = await runTouchMatrix(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTouch = await runTouchMatrix(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(consoleErrors, [], `browser console/runtime errors before negative lifecycle fixtures: ${consoleErrors.join("\n")}`);
@@ -597,7 +618,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;

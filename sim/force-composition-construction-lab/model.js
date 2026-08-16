@@ -15,6 +15,7 @@
   const MODEL_VISUAL_INSET = 34;
   const FREE_LINE_INSET = 24;
   const ORIGIN_KEY = "ORIGIN";
+  const GUIDE_INTERSECTION_KEY = "GUIDE_INTERSECTION";
   const PARALLEL_SNAP_ANGLE_DEG = 10;
 
   function clone(value) {
@@ -391,7 +392,7 @@
 
   function lineEndPoint(line, answer, question) {
     if (!line) return null;
-    if (line.end.mode === "free" || line.end.targetKey === "PARALLEL") return fromPoint10(line.end.point10);
+    if (line.end.mode === "free" || line.end.targetKey === "PARALLEL" || line.end.targetKey === GUIDE_INTERSECTION_KEY) return fromPoint10(line.end.point10);
     return endpointForKey(answer, question, line.end.targetKey);
   }
 
@@ -452,8 +453,34 @@
     ];
   }
 
+  function guideIntersectionPoint(answer, question) {
+    if (question.type !== "parallelogram") return null;
+    const guides = answer.guides.filter(Boolean);
+    if (guides.length !== 2) return null;
+    const firstStart = endpointForKey(answer, question, guides[0].originKey);
+    const firstEnd = lineEndPoint(guides[0], answer, question);
+    const secondStart = endpointForKey(answer, question, guides[1].originKey);
+    const secondEnd = lineEndPoint(guides[1], answer, question);
+    const firstVector = { x: firstEnd.x - firstStart.x, y: firstEnd.y - firstStart.y };
+    const secondVector = { x: secondEnd.x - secondStart.x, y: secondEnd.y - secondStart.y };
+    const denominator = firstVector.x * secondVector.y - firstVector.y * secondVector.x;
+    if (Math.abs(denominator) <= MODEL_EPSILON) return null;
+    const offset = { x: secondStart.x - firstStart.x, y: secondStart.y - firstStart.y };
+    const firstRatio = (offset.x * secondVector.y - offset.y * secondVector.x) / denominator;
+    const secondRatio = (offset.x * firstVector.y - offset.y * firstVector.x) / denominator;
+    if (firstRatio < -MODEL_EPSILON || firstRatio > 1 + MODEL_EPSILON || secondRatio < -MODEL_EPSILON || secondRatio > 1 + MODEL_EPSILON) return null;
+    return clampLinePoint({ x: firstStart.x + firstRatio * firstVector.x, y: firstStart.y + firstRatio * firstVector.y });
+  }
+
   function resultantSnapTargets(answer, question, originKey = ORIGIN_KEY) {
-    if (question.type === "parallelogram") return parallelogramCornerTargets(answer, question);
+    if (question.type === "parallelogram") {
+      const targets = parallelogramCornerTargets(answer, question);
+      const intersection = guideIntersectionPoint(answer, question);
+      if (intersection && !targets.some((target) => distance(target.point, intersection) <= POSITION_QUANTUM + MODEL_EPSILON)) {
+        targets.push({ key: GUIDE_INTERSECTION_KEY, point: intersection });
+      }
+      return targets;
+    }
     return endpointHandles(answer, question);
   }
 
@@ -511,7 +538,9 @@
     if (options.snap) {
       const candidate = fromPoint10(next.resultant.end.point10);
       const snap = selectSnapCandidate(candidate, resultantSnapTargets(next, question, originKey), options);
-      if (snap) next.resultant.end = { mode: "snap", targetKey: snap.key };
+      if (snap) next.resultant.end = snap.key === GUIDE_INTERSECTION_KEY
+        ? { mode: "snap", targetKey: snap.key, point10: point10(snap.point) }
+        : { mode: "snap", targetKey: snap.key };
     }
     return next;
   }
@@ -625,14 +654,14 @@
 
   return Object.freeze({
     SNAP_TOUCH_PX, SNAP_POINTER_PX, SNAP_KEYBOARD_PX, PARALLEL_SNAP_ANGLE_DEG, MODEL_EPSILON, POSITION_QUANTUM,
-    MODEL_VISUAL_INSET, FREE_LINE_INSET, ORIGIN_KEY,
+    MODEL_VISUAL_INSET, FREE_LINE_INSET, ORIGIN_KEY, GUIDE_INTERSECTION_KEY,
     clone, forceKey, forceIndex, headKey, tailKey, targetForceIndex, quantize, point10, fromPoint10, validPoint10,
     add, sumForces, distance, threshold, selectSnapCandidate, clampForceTail, clampAnchor, clampLinePoint,
     freshAnswer, freshAnswers, resolveTails, forceGeometry, chainInfo, commonOrigin, anchorPoint, corner, endpointForKey,
     correctGuides, prerequisitesForResultant, resultantAvailable, canonicalResultant, derivedVariant,
     releaseForceAndDescendants, previewForceTranslation, previewSnappedForceTranslation, legalForceTargets, commitForceTranslation,
     lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide, removeResultant,
-    parallelogramCornerTargets, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
+    parallelogramCornerTargets, guideIntersectionPoint, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
     boundedTranslationDelta, previewResultantTranslation, commitResultantTranslation,
     endpointHandles, guideStartHandles, resultantStartHandles,
     isBlank, questionComplete

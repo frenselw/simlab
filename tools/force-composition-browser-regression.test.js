@@ -19,6 +19,7 @@ assert.match(browser, /pointerType === "touch"/);
 assert.match(browser, /runTouchMatrix/);
 assert.match(browser, /runTripleOrders/);
 assert.match(browser, /runHeadTailEndpointSnaps/);
+assert.match(browser, /runWrongGuideResultantSnap/);
 assert.match(browser, /runBlankSubmission/);
 assert.match(browser, /runDraftReload/);
 assert.match(browser, /sourceTouch/);
@@ -35,6 +36,7 @@ assert.match(main, /resultant-hit/);
 assert.match(main, /computeStageCamera/);
 assert.match(main, /previewResultantTranslation/);
 assert.match(main, /deleteCurrentResultant/);
+assert.match(browser, /GUIDE_INTERSECTION/);
 assert.match(main, /segmentRectDistance/);
 assert.match(main, /forceLabelPosition\(item\.tail, item\.head, occupiedLabels, labelSegments\)/);
 
