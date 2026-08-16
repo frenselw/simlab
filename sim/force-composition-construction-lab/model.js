@@ -294,7 +294,10 @@
       const targetMatch = /^F([1-3])_TAIL$/.exec(snap.key || "");
       const targetIndex = targetMatch ? Number(targetMatch[1]) - 1 : -1;
       if (targetIndex >= 0 && targetIndex !== forceIndexValue && question.forces.length === 2) {
-        next.anchor10 = point10(candidate);
+        // Snap the moving force to the stationary endpoint-derived tail. Do
+        // not anchor at the raw near-miss pointer position, otherwise the
+        // stationary force would visibly jump when the relationship is rebuilt.
+        next.anchor10 = point10(snap.point);
         next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
         next.placements[targetIndex] = { mode: "snap", targetKey: headKey(forceIndexValue) };
         return next;

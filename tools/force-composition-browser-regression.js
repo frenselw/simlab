@@ -206,13 +206,13 @@ async function moveForce(cdp, index, targetKey, input, embedded = false) {
   return input === "keyboard" ? moveForceKeyboard(cdp, index, targetKey, embedded) : moveForcePointer(cdp, index, targetKey, input, embedded);
 }
 
-async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = false) {
+async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = false, offset = { x: 0, y: 0 }) {
   const selector = `.force-hit[data-force-index="${index}"]`;
   const start = await elementPoint(cdp, selector, embedded);
   const before = await currentTail(cdp, index, embedded);
   const target = await targetModelPoint(cdp, targetKey, embedded);
   const force = await inActivity(cdp, `window.__forceCompositionApp.getScenario().questions[window.__forceCompositionApp.getState().currentQuestion].forces[${index}]`, embedded);
-  const desiredTail = endpoint === "HEAD" ? { x: target.x - force.dx, y: target.y - force.dy } : target;
+  const desiredTail = endpoint === "HEAD" ? { x: target.x - force.dx + offset.x, y: target.y - force.dy + offset.y } : { x: target.x + offset.x, y: target.y + offset.y };
   const beforeClient = await modelPoint(cdp, before, embedded);
   const desiredClient = await modelPoint(cdp, desiredTail, embedded);
   await drag(cdp, start, { x: start.x + desiredClient.x - beforeClient.x, y: start.y + desiredClient.y - beforeClient.y }, "mouse");
@@ -387,10 +387,14 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
       await setViewport(cdp, 1180, 760, false);
       await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { endpointSnap: `${label}-${questionIndex}-${caseIndex}` })}`);
       await navigateQuestion(cdp, questionIndex);
-      await moveForceEndpoint(cdp, testCase.moving, testCase.endpoint, testCase.target);
+      const stationaryIndex = testCase.moving === 0 ? 1 : 0;
+      const stationaryBefore = await currentTail(cdp, stationaryIndex);
+      await moveForceEndpoint(cdp, testCase.moving, testCase.endpoint, testCase.target, false, testCase.endpoint === "HEAD" ? { x: 8, y: 0 } : undefined);
       const result = await evaluate(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${questionIndex}],a=s.answers[${questionIndex}],M=window.ForceCompositionModel; return {complete:M.chainInfo(a,q).complete,order:M.chainInfo(a,q).order}; })()`);
       assert.equal(result.complete, true, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap completes the chain`);
       assert.deepEqual(result.order, testCase.order, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap uses the expected order`);
+      const stationaryAfter = await currentTail(cdp, stationaryIndex);
+      assert.ok(Math.hypot(stationaryAfter.x - stationaryBefore.x, stationaryAfter.y - stationaryBefore.y) <= 0.2, `${label}: H${questionIndex - 1} stationary force stays fixed during ${testCase.endpoint.toLowerCase()} snap`);
     }
   }
   return `${label}: H1/H2 tail-to-head and head-to-tail endpoint snaps passed in both directions`;

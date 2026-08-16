@@ -1490,3 +1490,8 @@ Invalid matrix：
 - 四種組合均即時吸附：F1 尾→F2 頭、F2 尾→F1 頭、F1 頭→F2 尾、F2 頭→F1 尾。後兩種會把移動力建立為鏈根，再把另一力接到移動力箭頭，保存的仍是既有 canonical `ORIGIN`／`F*_HEAD` relationship，不增加不兼容的 wire shape。
 - H1／H2 已建立鏈後重新拖動時，頭→尾吸附會正確重設兩力根次序；T1 維持只接受不會產生 branch 的尾→頭接續。
 - 新增 model 四向 endpoint cases、已建立鏈 re-root case，以及 source／extracted SCORM browser mouse flow；兩個活動題目均確認四種方向一致。
+
+## 31. 吸附只修正被拖力（2026-08-16）
+
+- 頭→尾 snap 以固定對方端點反推出被拖力的 canonical tail，再建立 root／child relationship；不再以 pointer 的近似位置作 anchor，避免重建鏈時移動未被拖動的力。
+- near-miss 仍保留 snap threshold，但放手後只有被拖動力跳到精確端點，stationary force 的 tail／head 保持不變；H1／H2 source 與 extracted SCORM regression 均加入 stationary-position assertion。

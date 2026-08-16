@@ -140,6 +140,15 @@ for (const testCase of endpointSnapCases) {
   assert.deepEqual(M.chainInfo(snapped, HQuestion).order, testCase.order, `moving F${testCase.moving + 1} ${testCase.endpoint.toLowerCase()} creates the expected chain order`);
   assert.equal(M.chainInfo(snapped, HQuestion).complete, true, `moving F${testCase.moving + 1} ${testCase.endpoint.toLowerCase()} completes H1`);
 }
+const stationary = M.freshAnswer(HQuestion);
+const stationaryGeometry = M.forceGeometry(stationary, HQuestion);
+const stationaryTail = stationaryGeometry[0].tail;
+const exactHeadTail = { x: stationaryTail.x - HQuestion.forces[1].dx, y: stationaryTail.y - HQuestion.forces[1].dy };
+const nearMissHeadTail = { x: exactHeadTail.x + 8, y: exactHeadTail.y };
+const snappedNearMiss = M.commitForceTranslation(stationary, 1, nearMissHeadTail, HQuestion, { pointerType: "mouse", threshold: 14 });
+const snappedNearMissGeometry = M.forceGeometry(snappedNearMiss, HQuestion);
+assert.ok(M.distance(snappedNearMissGeometry[0].tail, stationaryTail) <= 0.1, "head-to-tail snap keeps the stationary force endpoint fixed");
+assert.ok(M.distance(snappedNearMissGeometry[1].head, stationaryTail) <= 0.1, "head-to-tail snap moves the dragged force onto the stationary endpoint");
 const establishedChain = chainAnswer(HQuestion, [0, 1]);
 const establishedGeometry = M.forceGeometry(establishedChain, HQuestion);
 const reRooted = M.commitForceTranslation(establishedChain, 1, {
