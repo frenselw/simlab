@@ -19,6 +19,7 @@ assert.match(browser, /pointerType === "touch"/);
 assert.match(browser, /runTouchMatrix/);
 assert.match(browser, /touchPreviewProbe/);
 assert.match(browser, /runTripleOrders/);
+assert.match(browser, /runTripleMobileScale/);
 assert.match(browser, /runHeadTailEndpointSnaps/);
 assert.match(browser, /runWrongGuideResultantSnap/);
 assert.match(browser, /assertStageLabelsClear/);

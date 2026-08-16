@@ -199,7 +199,9 @@ function invalid(mutator, reasonPattern = /./) {
 }
 
 invalid((value) => { value.schemaVersion = 2; }, /version/);
-invalid((value) => { value.generatorVersion = 2; }, /version/);
+invalid((value) => { value.generatorVersion = 99; }, /version/);
+const legacyState = P.freshState(seed, 1);
+assert.equal(P.validate(P.encodeDraft(legacyState)).ok, true, "v1 drafts remain restorable after the latest generator is released");
 invalid((value) => { value.seed = -1; }, /version/);
 invalid((value) => { value.phase = "review"; }, /phase/);
 invalid((value) => { value.currentQuestion = 5; }, /phase/);

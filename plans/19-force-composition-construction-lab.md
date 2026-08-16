@@ -1520,3 +1520,9 @@ Invalid matrix：
 - 觸控／手寫筆拖動時顯示真正的舞台預覽窗：複製當刻 `stageSvg` 的完整可見場景，在手指相反一側顯示以焦點為中心的 crop，並用輕量十字標記目前指尖位置；預覽會跟隨手指更新，放手或取消後隱藏並清除複製內容，不再使用獨立的箭線假預覽。
 - 改用明確的 SVG `getBoundingClientRect`／`viewBox`／letterbox 轉換，令窄螢幕及巢狀 SCORM iframe 內的舞台、透明操作層、端點 hit target 與預覽使用同一套座標；合力端點 hit target 會優先於整條線身 hit target，保持雙端可編輯。
 - 新增 accessibility／wiring assertions 及 trusted-touch regression：development source 與 extracted SCORM package 均檢查預覽場景 clone 數量、crop／焦點跟隨、touch 期間 camera 固定，以及放手後預覽清除。
+
+## 36. 第五題三力初始工作區縮窄（2026-08-16）
+
+- 第五題三支力原本分散於舞台三個遠距位置，手機 camera 為容納初始幾何而縮得過遠；generator v2 將三個初始中心移到較緊湊、仍通過非重疊及安全區 validator 的工作區，保留相同力的大小、方向及三力合成規則。
+- v1 generator 及其 golden fixtures 保持不變；v2 成為新 attempt 的預設版本，persistence 仍接受並重建 v1 snapshot，避免舊 draft／review 因新排版失效。
+- 新增 v2 full／forced-fallback golden specs、v1 restore coverage，以及 source／SCORM mobile browser assertion，確認 T1 三個 force target 可達且 camera width 保持可讀比例。

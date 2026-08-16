@@ -5,7 +5,8 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const GENERATOR_VERSION = 1;
+  const GENERATOR_VERSION = 2;
+  const LEGACY_GENERATOR_VERSION = 1;
   const WIDTH = 760;
   const HEIGHT = 500;
   const ORIGIN = Object.freeze({ x: 380, y: 250 });
@@ -17,10 +18,21 @@
   const TRIPLE_CENTERS = Object.freeze([
     Object.freeze({ x: 135, y: 125 }), Object.freeze({ x: 135, y: 375 }), Object.freeze({ x: 625, y: 125 })
   ]);
+  // Version 2 keeps the same force magnitudes and directions but places the
+  // three initially separate vectors in a tighter, still non-overlapping
+  // working area.  The mobile camera can therefore start at a useful scale
+  // instead of fitting an unnecessarily wide triangle of starting points.
+  const TRIPLE_CENTERS_V2 = Object.freeze([
+    Object.freeze({ x: 220, y: 150 }), Object.freeze({ x: 220, y: 350 }), Object.freeze({ x: 540, y: 150 })
+  ]);
   const BASIC_TYPES = Object.freeze(["parallelogram", "parallelogram", "head-to-tail-2", "head-to-tail-2"]);
   const QUESTION_IDS = Object.freeze(["P1", "P2", "H1", "H2", "T1"]);
   const MAX_ATTEMPTS = 256;
   const EPSILON = 0.01;
+  const GENERATOR_PROFILES = Object.freeze({
+    1: Object.freeze({ tripleCenters: TRIPLE_CENTERS }),
+    2: Object.freeze({ tripleCenters: TRIPLE_CENTERS_V2 })
+  });
 
   function deepFreeze(value) {
     if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
@@ -143,9 +155,9 @@
     return true;
   }
 
-  function tripleCandidate(random) {
+  function tripleCandidate(random, profile = GENERATOR_PROFILES[LEGACY_GENERATOR_VERSION]) {
     const forces = [0, 1, 2].map((index) => vector(pick(TRIPLE_LENGTHS, random), pick(DIRECTIONS, random), `F${index + 1}`));
-    return { type: "head-to-tail-3", forces, initialTails: forces.map((force, index) => initialTail(TRIPLE_CENTERS[index], force)) };
+    return { type: "head-to-tail-3", forces, initialTails: forces.map((force, index) => initialTail(profile.tripleCenters[index], force)) };
   }
 
   function permutations(values) {
@@ -196,12 +208,12 @@
     return entries.map(([length, direction], index) => vector(length, (direction + rotation) % 360, `F${index + 1}`));
   }
 
-  function fallbackQuestion(type, seed, index) {
+  function fallbackQuestion(type, seed, index, profile = GENERATOR_PROFILES[LEGACY_GENERATOR_VERSION]) {
     if (type === "head-to-tail-3") {
       const start = (seed % 72) * 5;
       for (let step = 0; step < 72; step += 1) {
         const forces = rotateFallback(FALLBACK_TRIPLE, (start + step * 5) % 360);
-        const question = { type, forces, initialTails: forces.map((force, forceIndex) => initialTail(TRIPLE_CENTERS[forceIndex], force)) };
+        const question = { type, forces, initialTails: forces.map((force, forceIndex) => initialTail(profile.tripleCenters[forceIndex], force)) };
         if (validateTriple(question)) return question;
       }
     } else {
@@ -216,17 +228,17 @@
     throw new Error("Versioned fallback template did not satisfy generator constraints");
   }
 
-  function generateQuestion(type, random, seed, index, forceFallback) {
+  function generateQuestion(type, random, seed, index, forceFallback, profile = GENERATOR_PROFILES[LEGACY_GENERATOR_VERSION]) {
     if (!forceFallback) {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-        const candidate = type === "head-to-tail-3" ? tripleCandidate(random) : basicCandidate(type, random);
+        const candidate = type === "head-to-tail-3" ? tripleCandidate(random, profile) : basicCandidate(type, random);
         if ((type === "head-to-tail-3" ? validateTriple(candidate) : validateBasic(candidate))) return { question: candidate, attempts: attempt, fallback: false };
       }
     }
-    return { question: fallbackQuestion(type, seed, index), attempts: MAX_ATTEMPTS, fallback: true };
+    return { question: fallbackQuestion(type, seed, index, profile), attempts: MAX_ATTEMPTS, fallback: true };
   }
 
-  function generateV1(options) {
+  function generateVersion(options, generatorVersion, profile) {
     const seed = options?.seed;
     if (!validateSeed(seed)) throw new Error("seed must be a uint32");
     const random = mulberry32(seed);
@@ -236,22 +248,22 @@
     for (let index = 0; index < BASIC_TYPES.length; index += 1) {
       let generated;
       for (let duplicateAttempt = 0; duplicateAttempt < MAX_ATTEMPTS; duplicateAttempt += 1) {
-        generated = generateQuestion(BASIC_TYPES[index], random, seed, index, options?.forceFallback === true);
+        generated = generateQuestion(BASIC_TYPES[index], random, seed, index, options?.forceFallback === true, profile);
         const currentSignature = signature(generated.question);
         if (!signatures.has(currentSignature)) { signatures.add(currentSignature); break; }
         generated = null;
       }
-      if (!generated) generated = { question: fallbackQuestion(BASIC_TYPES[index], seed ^ (index * 0x9e3779b9), index), attempts: MAX_ATTEMPTS, fallback: true };
+      if (!generated) generated = { question: fallbackQuestion(BASIC_TYPES[index], seed ^ (index * 0x9e3779b9), index, profile), attempts: MAX_ATTEMPTS, fallback: true };
       signatures.add(signature(generated.question));
       questions.push({ ...generated.question, id: QUESTION_IDS[index], guided: index === 0 || index === 2 });
       diagnostics.push({ attempts: generated.attempts, fallback: generated.fallback });
     }
-    const triple = generateQuestion("head-to-tail-3", random, seed, 4, options?.forceFallback === true);
+    const triple = generateQuestion("head-to-tail-3", random, seed, 4, options?.forceFallback === true, profile);
     questions.push({ ...triple.question, id: "T1", guided: false });
     diagnostics.push({ attempts: triple.attempts, fallback: triple.fallback });
     return deepFreeze({
       schemaVersion: 1,
-      generatorVersion: GENERATOR_VERSION,
+      generatorVersion,
       seed,
       width: WIDTH,
       height: HEIGHT,
@@ -263,7 +275,15 @@
     });
   }
 
-  const GENERATORS = Object.freeze({ 1: generateV1 });
+  function generateV1(options) {
+    return generateVersion(options, LEGACY_GENERATOR_VERSION, GENERATOR_PROFILES[LEGACY_GENERATOR_VERSION]);
+  }
+
+  function generateV2(options) {
+    return generateVersion(options, GENERATOR_VERSION, GENERATOR_PROFILES[GENERATOR_VERSION]);
+  }
+
+  const GENERATORS = Object.freeze({ 1: generateV1, 2: generateV2 });
 
   function generateScenario(options = {}) {
     const version = options.generatorVersion ?? GENERATOR_VERSION;
@@ -285,7 +305,7 @@
   newSeed.counter = 0;
 
   return Object.freeze({
-    GENERATOR_VERSION, GENERATORS, WIDTH, HEIGHT, ORIGIN, SAFE, MAX_ATTEMPTS, EPSILON,
+    GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, GENERATORS, WIDTH, HEIGHT, ORIGIN, SAFE, MAX_ATTEMPTS, EPSILON,
     BASIC_LENGTHS, TRIPLE_LENGTHS, DIRECTIONS, QUESTION_IDS,
     validateSeed, mulberry32, vector, magnitude, add, minimumAngle, endpoint, permutations,
     validateBasic, validateTriple, signature, generateScenario, newSeed

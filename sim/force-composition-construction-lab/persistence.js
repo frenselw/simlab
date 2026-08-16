@@ -12,7 +12,8 @@
 
   const ACTIVITY = "force-composition-construction-lab";
   const SCHEMA_VERSION = 1;
-  const GENERATOR_VERSION = 1;
+  const GENERATOR_VERSION = Generator.GENERATOR_VERSION;
+  const SUPPORTED_GENERATOR_VERSIONS = Object.freeze(Object.keys(Generator.GENERATORS).map(Number));
   const MAX_SNAPSHOT_BYTES = 4000;
   const TYPES = Object.freeze(["parallelogram", "parallelogram", "head-to-tail-2", "head-to-tail-2", "head-to-tail-3"]);
 
@@ -196,7 +197,7 @@
     const topKeys = kind === "draft" ? ["schemaVersion", "generatorVersion", "seed", "phase", "currentQuestion", "answers"]
       : ["schemaVersion", "generatorVersion", "seed", "answers"];
     if (!onlyKeys(value, topKeys) || Object.keys(value).length !== topKeys.length) return { ok: false, reason: "top-level-shape" };
-    if (value.schemaVersion !== SCHEMA_VERSION || value.generatorVersion !== GENERATOR_VERSION || !Generator.validateSeed(value.seed)) return { ok: false, reason: "version-or-seed" };
+    if (value.schemaVersion !== SCHEMA_VERSION || !SUPPORTED_GENERATOR_VERSIONS.includes(value.generatorVersion) || !Generator.validateSeed(value.seed)) return { ok: false, reason: "version-or-seed" };
     if (kind === "draft" && (!["practice", "summary"].includes(value.phase) || !Number.isInteger(value.currentQuestion) || value.currentQuestion < 0 || value.currentQuestion > 4)) return { ok: false, reason: "phase-current" };
     let scenario;
     try { scenario = Generator.generateScenario({ seed: value.seed, generatorVersion: value.generatorVersion }); }

@@ -18,12 +18,19 @@ function hash(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+const legacy = G.generateScenario({ seed: 7, generatorVersion: 1 });
+const legacyAgain = G.generateScenario({ seed: 7, generatorVersion: 1 });
+assert.deepEqual(legacy, legacyAgain, "legacy generator version remains deterministic");
+assert.equal(hash(compact(legacy)), "7b9655b80609e5ce386b8932b0ba75ae77602be09d2b17437f1e97a31970a5b0", "v1 golden full specification stays immutable");
 const first = G.generateScenario({ seed: 7 });
 const again = G.generateScenario({ seed: 7 });
 assert.deepEqual(first, again, "same generator version and seed reproduce every question field");
-assert.equal(hash(compact(first)), "7b9655b80609e5ce386b8932b0ba75ae77602be09d2b17437f1e97a31970a5b0", "v1 golden full specification stays immutable");
+assert.equal(first.generatorVersion, G.GENERATOR_VERSION, "latest generated attempts use the latest generator version");
+assert.equal(hash(compact(first)), "2f93501b573d7a933603a9d56cd31d40e7b1935f259dece72f31dcef07c1c49d", "v2 golden full specification stays immutable");
 const forcedFallback = G.generateScenario({ seed: 7, forceFallback: true });
-assert.equal(hash(compact(forcedFallback)), "40a2d57a6247f9ca1be4950f3a22ebaa5a4b360d25421e815803c8285866aa30", "v1 forced-fallback full specification stays immutable");
+assert.equal(hash(compact(forcedFallback)), "b72034e0273d6776f204a577e28e67a6699087914ebf7cd0dbda66d42dc2f0eb", "v2 forced-fallback full specification stays immutable");
+const legacyForcedFallback = G.generateScenario({ seed: 7, generatorVersion: 1, forceFallback: true });
+assert.equal(hash(compact(legacyForcedFallback)), "40a2d57a6247f9ca1be4950f3a22ebaa5a4b360d25421e815803c8285866aa30", "v1 forced-fallback full specification stays immutable");
 assert.ok(Object.isFrozen(G.GENERATORS) && Object.isFrozen(first.questions[0].forces[0]), "registry and generated scenario are immutable");
 
 function basicQuestion(angle) {

@@ -409,6 +409,21 @@ async function runTripleOrders(cdp, baseUrl, launchPath, label) {
   return `${label}: all six T1 orders passed across mouse, touch and keyboard`;
 }
 
+async function runTripleMobileScale(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 390, 600, true);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleScale: label })}`);
+  await navigateQuestion(cdp, 4);
+  const metrics = await evaluate(cdp, `(() => {
+    const svg=document.getElementById('stageSvg'),box=svg.viewBox.baseVal;
+    const forces=[...document.querySelectorAll('.force-hit[data-force-index]')].map((node)=>node.getBoundingClientRect());
+    return { cameraWidth:box.width, cameraHeight:box.height, minHitWidth:Math.min(...forces.map((rect)=>rect.width)), forceCount:forces.length };
+  })()`);
+  assert.equal(metrics.forceCount, 3, `${label}: T1 exposes all three force targets on mobile`);
+  assert.ok(metrics.cameraWidth < 600, `${label}: T1 mobile camera keeps a useful scale (${metrics.cameraWidth})`);
+  assert.ok(metrics.minHitWidth >= 44, `${label}: T1 force targets remain touchable (${metrics.minHitWidth})`);
+  return `${label}: T1 mobile camera keeps the three vectors readable`;
+}
+
 async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
   const cases = [
     { moving: 0, endpoint: "TAIL", target: "F2_HEAD", order: [1, 0] },
@@ -650,6 +665,8 @@ async function main() {
     const packageDraft = await runDraftReload(cdp, packageBase, extracted.activityPath, "package");
     const sourceOrders = await runTripleOrders(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageOrders = await runTripleOrders(cdp, packageBase, extracted.activityPath, "package");
+    const sourceTripleScale = await runTripleMobileScale(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageTripleScale = await runTripleMobileScale(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageEndpointSnaps = await runHeadTailEndpointSnaps(cdp, packageBase, extracted.activityPath, "package");
     const sourceWrongGuideSnap = await runWrongGuideResultantSnap(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -662,7 +679,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourceOrders}; ${packageOrders}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
