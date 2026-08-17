@@ -1496,9 +1496,9 @@
       preservePanelScroll: true,
       focusFallbackKeys,
       // Pointer/touch users should not be left with a keyboard-style focus
-      // capsule around the force that was just dragged.  Keyboard commits
+      // capsule around a target that was just dragged.  Keyboard commits
       // continue to transfer focus normally for accessibility.
-      suppressFocus: active.kind === "force"
+      suppressFocus: active.kind === "force" || active.kind.startsWith("guide")
     });
   }
 
