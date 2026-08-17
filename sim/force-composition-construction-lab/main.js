@@ -680,7 +680,13 @@
     }
     if (showResultant) {
       if (!answer.resultant) {
-        for (const handle of M.resultantStartHandles(answer, question, { allowAnyOrigin: resultantMode })) {
+        // A blank-stage pointer gesture is the free-form entry point for an
+        // arbitrary resultant origin.  Keep only the canonical origin handle
+        // for keyboard users; the overlapping tail chips (起點／F1尾／F2尾)
+        // are redundant and obscure the vectors in the visual stage.
+        const startHandles = M.resultantStartHandles(answer, question, { allowAnyOrigin: resultantMode })
+          .filter((handle) => handle.key === M.ORIGIN_KEY);
+        for (const handle of startHandles) {
           const button = makeOverlayButton("line-handle", `resultant-start-${handle.key}`, `由${endpointAccessible(handle.key)}開始畫合力`);
           button.dataset.dragKind = "resultant-start";
           button.dataset.lineKind = "resultant";
@@ -927,7 +933,7 @@
     }
     renderSaveBanner();
     dom.app.setAttribute("aria-busy", "false");
-    focusSemantic(previousKey, options.focusFallbackKeys || []);
+    if (!options.suppressFocus) focusSemantic(previousKey, options.focusFallbackKeys || []);
   }
 
   function announce(message) {
@@ -1135,7 +1141,10 @@
   function finalizeAnswer(nextAnswer, message, focusKey, options = {}) {
     const index = state.currentQuestion;
     const previous = state.answers[index];
-    if (JSON.stringify(previous) === JSON.stringify(nextAnswer)) { renderAll({ focusKey }); return; }
+    if (JSON.stringify(previous) === JSON.stringify(nextAnswer)) {
+      renderAll({ focusKey, suppressFocus: options.suppressFocus });
+      return;
+    }
     const panelScrollTop = options.preservePanelScroll ? dom.controlPanel.scrollTop : null;
     const proposedState = { ...state, answers: state.answers.map((answer, answerIndex) => answerIndex === index ? nextAnswer : answer) };
     let validatedState;
@@ -1143,14 +1152,14 @@
       validatedState = P.productionRoundTrip(proposedState);
     } catch (error) {
       console.error(error);
-      renderAll({ focusKey });
+      renderAll({ focusKey, suppressFocus: options.suppressFocus });
       announce("呢次作圖未能通過狀態檢查，已保留上一個有效作答。");
       return false;
     }
     pushUndo(index, previous);
     state = validatedState;
     saveDraft();
-    renderAll({ focusKey });
+    renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], suppressFocus: options.suppressFocus });
     if (panelScrollTop !== null) dom.controlPanel.scrollTop = panelScrollTop;
     if (message) announce(message);
     return true;
@@ -1483,7 +1492,14 @@
       }
       message = M.canonicalResultant(next, question) ? "合力已正確連接，本題完成。" : active.before.resultant ? "合力終點已更新，可繼續調整兩端。" : "合力已畫出，可繼續拖動起點或終點調整。";
     }
-    finalizeAnswer(next, message, focusKey, { preservePanelScroll: true, focusFallbackKeys });
+    finalizeAnswer(next, message, focusKey, {
+      preservePanelScroll: true,
+      focusFallbackKeys,
+      // Pointer/touch users should not be left with a keyboard-style focus
+      // capsule around the force that was just dragged.  Keyboard commits
+      // continue to transfer focus normally for accessibility.
+      suppressFocus: active.kind === "force"
+    });
   }
 
   function cancelPointerDrag(event) {

@@ -459,7 +459,14 @@
       if (Array.isArray(answer.anchor10)) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
       const otherIndex = movingIndex === 0 ? 1 : 0;
       const point = forceGeometry(answer, question)[otherIndex].tail;
-      return anchorWithinBounds(point, question) ? [{ key: tailKey(otherIndex), point }] : [];
+      // The stationary tail is the learner's snap target.  Do not reject it
+      // just because the complete four-corner construction would place its
+      // unseen opposite corner outside the root-feasible rectangle: at this
+      // stage the student is only aligning the two force tails, and the
+      // release path still validates that both visible vectors remain safely
+      // drawable.  Gating this target with the all-corners bound made the
+      // first snap direction depend on which force happened to be dragged.
+      return [{ key: tailKey(otherIndex), point }];
     }
     if (!Array.isArray(answer.anchor10)) {
       // Either force may be placed first. Before a chain root exists, allow
