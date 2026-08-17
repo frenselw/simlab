@@ -304,6 +304,24 @@ unsafeMobileH2.answers[3].placements = [
 assert.equal(P.validate(unsafeMobileH2, { kind: "draft" }).ok, false, "H2 mobile edge chain cannot be saved outside free resultant bounds");
 assert.match(P.validate(unsafeMobileH2, { kind: "draft" }).reason, /resolved-force-bounds-3/);
 
+// Quantization-boundary regression: seed 417 H2 can put F2's tail within the
+// pointer threshold of F1's head before point10() rounds the tail across its
+// free clamp boundary.  It must not persist that semantic endpoint snap, and
+// every resulting release must still round-trip through production storage.
+const seed417Scenario = G.generateScenario({ seed: 417 });
+const seed417Question = seed417Scenario.questions[3];
+const seed417Initial = M.freshAnswer(seed417Question);
+const seed417Geometry = M.forceGeometry(seed417Initial, seed417Question);
+const seed417Snap = M.commitForceTranslation(seed417Initial, 1, seed417Geometry[0].head, seed417Question, { pointerType: "mouse" });
+assert.notDeepEqual(seed417Snap.placements[1], { mode: "snap", targetKey: "F1_HEAD" }, "seed 417 H2 does not persist a quantization-unsafe F2-to-F1 endpoint snap");
+for (const movingIndex of [0, 1]) {
+  const released = M.releaseForceAndDescendants(seed417Snap, seed417Question, movingIndex);
+  const releasedState = P.freshState(417);
+  releasedState.currentQuestion = 3;
+  releasedState.answers[3] = released;
+  assert.doesNotThrow(() => P.productionRoundTrip(releasedState), `seed 417 H2 release F${movingIndex + 1} remains production-valid`);
+}
+
 // Property-style continuation coverage: every generated H1/H2/T1 order at
 // both feasible anchor corners must survive releasing each individual force
 // and then production round-tripping the resulting draft.  This closes the
@@ -326,6 +344,45 @@ for (let seedValue = 0; seedValue < 1000; seedValue += 1) {
           const released = M.releaseForceAndDescendants(answer, question, movingIndex);
           state.answers[questionIndex] = released;
           assert.doesNotThrow(() => P.productionRoundTrip(state), `seed ${seedValue} ${question.id} order ${order.join(",")} release F${movingIndex + 1} remains production-valid`);
+        }
+      }
+    }
+  }
+}
+
+// Scan every generated initial ordered endpoint pair across 10,000 seeds.
+// If the candidate establishes any semantic snap (including an implicit
+// root), releasing each connected force must remain production-round-trippable
+// after point10() canonicalisation.  This exercises the exact transition that
+// a subsequent upstream drag performs, rather than only checking canonical
+// boundary anchors.
+for (let seedValue = 0; seedValue < 10000; seedValue += 1) {
+  const generated = G.generateScenario({ seed: seedValue });
+  const state = P.freshState(seedValue);
+  for (const questionIndex of [2, 3, 4]) {
+    const question = generated.questions[questionIndex];
+    const initial = M.freshAnswer(question);
+    const geometry = M.forceGeometry(initial, question);
+    for (let movingIndex = 0; movingIndex < question.forces.length; movingIndex += 1) {
+      for (let targetIndex = 0; targetIndex < question.forces.length; targetIndex += 1) {
+        if (movingIndex === targetIndex) continue;
+        for (const endpoint of ["TAIL", "HEAD"]) {
+          const targetPoint = geometry[targetIndex][endpoint === "TAIL" ? "tail" : "head"];
+          const force = question.forces[movingIndex];
+          const candidateTail = endpoint === "TAIL"
+            ? targetPoint
+            : { x: targetPoint.x - force.dx, y: targetPoint.y - force.dy };
+          const answer = M.commitForceTranslation(initial, movingIndex, candidateTail, question, { pointerType: "mouse" });
+          const hasSemanticSnap = answer.placements.some((placement) => placement.mode === "snap");
+          if (!hasSemanticSnap) continue;
+          state.currentQuestion = questionIndex;
+          state.answers[questionIndex] = answer;
+          assert.doesNotThrow(() => P.productionRoundTrip(state), `seed ${seedValue} ${question.id} F${movingIndex + 1} ${endpoint} to F${targetIndex + 1} persists`);
+          for (let releaseIndex = 0; releaseIndex < question.forces.length; releaseIndex += 1) {
+            const released = M.releaseForceAndDescendants(answer, question, releaseIndex);
+            state.answers[questionIndex] = released;
+            assert.doesNotThrow(() => P.productionRoundTrip(state), `seed ${seedValue} ${question.id} endpoint pair release F${releaseIndex + 1} persists`);
+          }
         }
       }
     }

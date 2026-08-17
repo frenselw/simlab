@@ -1116,6 +1116,15 @@
     keyboardForceReleaseLocks.clear();
   }
 
+  function clearOtherKeyboardForceRelease(currentLockKey) {
+    // A keyboard move can change the endpoint stored by another force's
+    // hysteresis lock just as a pointer drag can.  Retain only the lock for
+    // the force being handled; every other targetPoint is now stale.
+    for (const key of keyboardForceReleaseLocks.keys()) {
+      if (key !== currentLockKey) keyboardForceReleaseLocks.delete(key);
+    }
+  }
+
   function placementTargetPoint(answer, question, index) {
     const targetKey = answer.placements[index]?.targetKey;
     if (!targetKey) return null;
@@ -1564,6 +1573,7 @@
     const index = Number(target.dataset.forceIndex);
     const existingPlacement = answer.placements[index];
     const lockKey = keyboardForceLockKey(index);
+    clearOtherKeyboardForceRelease(lockKey);
     let releaseLock = keyboardForceReleaseLocks.get(lockKey) || null;
     const released = existingPlacement.mode === "snap" ? M.releaseForceAndDescendants(answer, question, index) : answer;
     if (existingPlacement.mode === "snap") {

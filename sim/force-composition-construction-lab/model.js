@@ -290,23 +290,25 @@
       point.y >= bounds.minY - MODEL_EPSILON && point.y <= bounds.maxY + MODEL_EPSILON;
   }
 
-  function resolvedForceGeometryWithinBounds(answer, question, tolerance = POSITION_QUANTUM + MODEL_EPSILON) {
+  function resolvedForceGeometryWithinBounds(answer, question) {
     try {
-      // A semantic snap must be safe to release back into the same free
-      // geometry.  Checking only the SVG canvas lets a snapped relationship
-      // sit inside the viewport while its tail/head is outside the hard
-      // visual inset used by clampForceTail().  Such a state can be saved,
-      // but the next upstream drag would be rejected when the relationship is
-      // materialised as a free placement.  Keep this predicate identical to
-      // the free-force clamp so every persisted snap is release-safe.
+      // A semantic snap must be safe to release back into the same canonical
+      // free geometry.  releaseForceAndDescendants() stores point10(tail), so
+      // validate that exact quantized tail rather than accepting an
+      // unquantized double within a broad POSITION_QUANTUM tolerance.  The
+      // latter can round across a clamp boundary and create a state that is
+      // accepted here but rejected by the free-placement validator later.
       return forceGeometry(answer, question).every((item) => {
-        const clamped = clampForceTail(item.tail, item.force);
-        return Math.abs(item.tail.x - clamped.x) <= tolerance &&
-          Math.abs(item.tail.y - clamped.y) <= tolerance &&
-          item.head.x >= MODEL_VISUAL_INSET - tolerance &&
-          item.head.x <= Generator.WIDTH - MODEL_VISUAL_INSET + tolerance &&
-          item.head.y >= MODEL_VISUAL_INSET - tolerance &&
-          item.head.y <= Generator.HEIGHT - MODEL_VISUAL_INSET + tolerance;
+        const releasedTail = fromPoint10(point10(item.tail));
+        const clamped = clampForceTail(releasedTail, item.force);
+        const releasedHead = add(releasedTail, item.force);
+        const visualTolerance = POSITION_QUANTUM + MODEL_EPSILON;
+        return Math.abs(releasedTail.x - clamped.x) <= MODEL_EPSILON &&
+          Math.abs(releasedTail.y - clamped.y) <= MODEL_EPSILON &&
+          releasedHead.x >= MODEL_VISUAL_INSET - visualTolerance &&
+          releasedHead.x <= Generator.WIDTH - MODEL_VISUAL_INSET + visualTolerance &&
+          releasedHead.y >= MODEL_VISUAL_INSET - visualTolerance &&
+          releasedHead.y <= Generator.HEIGHT - MODEL_VISUAL_INSET + visualTolerance;
       });
     } catch {
       return false;
@@ -393,7 +395,15 @@
 
   function previewForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
     const next = releaseForceAndDescendants(answer, question, forceIndexValue);
-    const clamped = clampForceTail(candidateTail, question.forces[forceIndexValue]);
+    // The first/root force is provisional until pointerup creates ORIGIN.
+    // Clamp that preview with the same whole-construction feasible region
+    // that commitForceTranslation() uses for the new root.  Otherwise the
+    // pointer can show an individual-force corner and then jump a long way
+    // when release canonicalizes it to a valid chain anchor.
+    const hasRoot = next.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY);
+    const clamped = hasRoot
+      ? clampForceTail(candidateTail, question.forces[forceIndexValue])
+      : clampAnchor(candidateTail, question, forceIndexValue);
     next.placements[forceIndexValue] = { mode: "free", tail10: point10(clamped) };
     if (options.preserveAnchor && Array.isArray(answer.anchor10)) next.anchor10 = answer.anchor10.slice();
     return next;
@@ -403,8 +413,18 @@
     const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question, options);
     const freeNext = clone(next);
     if (!freeNext.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY)) freeNext.anchor10 = null;
-    const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
-    const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
+    // Keep endpoint detection based on the individual force projection.  A
+    // first force may be dragged near a stationary endpoint that lies outside
+    // the all-orders root region; the semantic endpoint snap can still be
+    // valid because the stationary force supplies the eventual root.  The
+    // visible free fallback remains the whole-construction clamp from
+    // previewForceTranslation(), so pointermove and pointerup agree whenever
+    // no release-safe endpoint is selected.
+    const snapCandidateAnswer = releaseForceAndDescendants(answer, question, forceIndexValue);
+    const snapCandidateTail = clampForceTail(candidateTail, question.forces[forceIndexValue]);
+    snapCandidateAnswer.placements[forceIndexValue] = { mode: "free", tail10: point10(snapCandidateTail) };
+    const candidate = fromPoint10(point10(snapCandidateTail));
+    const snap = selectSnapCandidate(candidate, legalForceTargets(snapCandidateAnswer, question, forceIndexValue), options);
     if (!snap) return next;
     if (question.type !== "parallelogram" && snap.attach === "HEAD") {
       const targetMatch = /^F([1-3])_TAIL$/.exec(snap.key || "");

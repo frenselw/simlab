@@ -182,6 +182,56 @@ async function drag(cdp, start, end, input) {
   return mouseDrag(cdp, start, end);
 }
 
+async function renderedForceTail(cdp, index, embedded = false) {
+  const selector = `#stageSvg path.force-line[data-force-index="${index}"]`;
+  return inActivity(cdp, `(() => {
+    const path = document.querySelector(${JSON.stringify(selector)});
+    const values = path?.getAttribute("d")?.match(/-?(?:\\d+\\.?\\d*|\\.\\d+)/g)?.map(Number) || [];
+    if (values.length < 4) return null;
+    return { x: (values[0] + values[values.length - 2]) / 2, y: (values[1] + values[values.length - 1]) / 2 };
+  })()`, embedded);
+}
+
+async function dragWithPreviewProbe(cdp, start, end, input, forceIndex, embedded = false) {
+  const point = ({ x, y }) => ({ x, y });
+  let preview = null;
+  if (input === "touch") {
+    const id = 17002;
+    const touchPoint = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(start)] });
+    for (let step = 1; step <= 10; step += 1) {
+      const next = { x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 };
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(next)] });
+      await delay(12);
+      if (step === 10) {
+        // Flush one duplicate terminal move before reading the SVG preview;
+        // CDP touch events can be coalesced one turn behind the pointerup
+        // that follows them.
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(next)] });
+        await delay(60);
+        preview = await renderedForceTail(cdp, forceIndex, embedded);
+      }
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(start) });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...point(start), button: "left", clickCount: 1 });
+    for (let step = 1; step <= 10; step += 1) {
+      const next = { x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 };
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(next), button: "left", buttons: 1 });
+      await delay(12);
+      if (step === 10) {
+        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(next), button: "left", buttons: 1 });
+        await delay(60);
+        preview = await renderedForceTail(cdp, forceIndex, embedded);
+      }
+    }
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point(end), button: "left", clickCount: 1 });
+  }
+  await delay(90);
+  return { preview, committed: await currentTail(cdp, forceIndex, embedded) };
+}
+
 async function click(cdp, selector, embedded = false) {
   await inActivity(cdp, `(() => { const node=document.querySelector(${JSON.stringify(selector)}); if(node?.closest('#controlPanel,dialog')) node.scrollIntoView({block:'center',inline:'center'}); })()`, embedded);
   await delay(30);
@@ -597,6 +647,35 @@ async function runParallelogramBoundary(cdp, baseUrl, launchPath, label) {
   return `${label}: P1/P2 remain completable from the full parallelogram feasible boundary`;
 }
 
+async function runPointerPreviewCommitParity(cdp, baseUrl, launchPath, label, input) {
+  await setViewport(cdp, input === "touch" ? 390 : 1180, input === "touch" ? 500 : 760, input === "touch");
+  const questionIndices = [0, 1, 2, 3, 4];
+  const cornerNames = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  for (const questionIndex of questionIndices) {
+    for (const [cornerIndex, cornerName] of cornerNames.entries()) {
+      await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { previewCommit: `${label}-${input}-${questionIndex}-${cornerName}` })}`);
+      await navigateQuestion(cdp, questionIndex);
+      const corners = await inActivity(cdp, `(() => {
+        const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[s.currentQuestion],M=window.ForceCompositionModel;
+        const points = [[-1e6,-1e6],[1e6,-1e6],[-1e6,1e6],[1e6,1e6]];
+        return points.map(([x,y]) => M.clampForceTail({x,y},q.forces[0]));
+      })()`);
+      const start = await elementPoint(cdp, '.force-hit[data-force-index="0"]');
+      const before = await currentTail(cdp, 0);
+      const beforeClient = await modelPoint(cdp, before);
+      const targetClient = await modelPoint(cdp, corners[cornerIndex]);
+      const result = await dragWithPreviewProbe(cdp, start, {
+        x: start.x + targetClient.x - beforeClient.x,
+        y: start.y + targetClient.y - beforeClient.y
+      }, input, 0);
+      assert.ok(result.preview && result.committed, `${label}: ${input} ${questionIndex + 1} ${cornerName} captures preview and committed F1 tails`);
+      const delta = Math.hypot(result.preview.x - result.committed.x, result.preview.y - result.committed.y);
+      assert.ok(delta <= 0.11, `${label}: ${input} question ${questionIndex + 1} ${cornerName} pointer preview and pointerup stay within one quantization step (${JSON.stringify({ preview: result.preview, committed: result.committed, delta, corner: corners[cornerIndex], before, start, targetClient })})`);
+    }
+  }
+  return `${label}: ${input} first-force preview/commit parity across P1/P2/H1/H2/T1 corners`;
+}
+
 async function reloadEmbeddedActivity(cdp) {
   const previousToken = await evaluate(cdp, "document.getElementById('activity')?.contentWindow?.__forceCompositionDocumentToken");
   await evaluate(cdp, "document.getElementById('activity').contentWindow.location.reload()");
@@ -707,6 +786,50 @@ async function runKeyboardLockResetUndo(cdp, baseUrl, launchPath, label) {
   const afterUndoArrow = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[0]");
   assert.equal(afterUndoArrow.mode, "free", `${label}: undo clears the stale armed lock before a fresh arrow (${JSON.stringify({ restoredState, afterUndoArrow })})`);
   return `${label}: reset and undo clear question-scoped keyboard release locks`;
+}
+
+async function runKeyboardCrossForceLock(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 1180, 760, false);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { keyboardCrossLock: label })}`);
+
+  // H1: arm F2's old F1_HEAD lock, then move the root F1 with keyboard.  The
+  // parent move changes the released F2 geometry; the next F2 arrow must be
+  // allowed to establish a fresh ORIGIN rather than using F2's stale target.
+  await navigateQuestion(cdp, 2);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await moveForce(cdp, 1, "F1_HEAD", "mouse");
+  await focus(cdp, '.force-hit[data-force-index="1"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowRight", { delay: 25 });
+  const beforeParentH1 = await currentTail(cdp, 0);
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowUp", { delay: 25 });
+  const afterParentH1 = await currentTail(cdp, 0);
+  assert.ok(Math.hypot(afterParentH1.x - beforeParentH1.x, afterParentH1.y - beforeParentH1.y) > 0.1, `${label}: H1 keyboard parent movement changes F1 geometry`);
+  await focus(cdp, '.force-hit[data-force-index="1"]');
+  await press(cdp, "ArrowRight", { delay: 35 });
+  const h1After = await inActivity(cdp, "(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[2],a=s.answers[2]; return { placement:a.placements[1],placements:a.placements,geometry:window.ForceCompositionModel.forceGeometry(a,q) }; })()");
+  assert.deepEqual(h1After.placement, { mode: "snap", targetKey: "ORIGIN" }, `${label}: H1 keyboard move of F1 clears F2's stale lock before a fresh F2 root arrow (${JSON.stringify({ h1After, beforeParentH1, afterParentH1 })})`);
+
+  // T1: repeat with a descendant lock and its direct parent.  Moving F2
+  // changes the old F2_HEAD target used by F3, so F3 must not remain trapped
+  // in the previous hysteresis state.
+  await navigateQuestion(cdp, 4);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await moveForce(cdp, 1, "F1_HEAD", "mouse");
+  await moveForce(cdp, 2, "F2_HEAD", "mouse");
+  await focus(cdp, '.force-hit[data-force-index="2"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowRight", { delay: 25 });
+  const beforeParentT1 = await currentTail(cdp, 1);
+  await focus(cdp, '.force-hit[data-force-index="1"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowLeft", { delay: 25 });
+  const afterParentT1 = await currentTail(cdp, 1);
+  assert.ok(Math.hypot(afterParentT1.x - beforeParentT1.x, afterParentT1.y - beforeParentT1.y) > 0.1, `${label}: T1 keyboard parent movement changes F2 geometry`);
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowUp", { delay: 25 });
+  await focus(cdp, '.force-hit[data-force-index="2"]');
+  await press(cdp, "ArrowRight", { delay: 35 });
+  assert.deepEqual(await inActivity(cdp, "window.__forceCompositionApp.getState().answers[4].placements[2]"), { mode: "snap", targetKey: "ORIGIN" }, `${label}: T1 keyboard move of F2 clears F3's stale lock before a fresh F3 root arrow`);
+  return `${label}: cross-force keyboard moves invalidate stale H1/T1 release locks`;
 }
 
 async function runTripleMobileScale(cdp, baseUrl, launchPath, label) {
@@ -1023,12 +1146,18 @@ async function main() {
     const packageArbitraryAnchors = await runTripleArbitraryAnchors(cdp, packageBase, extracted.activityPath, "package");
     const sourceParallelogramBoundary = await runParallelogramBoundary(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageParallelogramBoundary = await runParallelogramBoundary(cdp, packageBase, extracted.activityPath, "package");
+    const sourcePreviewMouse = await runPointerPreviewCommitParity(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "mouse");
+    const packagePreviewMouse = await runPointerPreviewCommitParity(cdp, packageBase, extracted.activityPath, "package", "mouse");
+    const sourcePreviewTouch = await runPointerPreviewCommitParity(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "touch");
+    const packagePreviewTouch = await runPointerPreviewCommitParity(cdp, packageBase, extracted.activityPath, "package", "touch");
     const sourceReleaseSafe = await runReleaseSafeContinuations(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageReleaseSafe = await runReleaseSafeContinuations(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboardAlternate = await runKeyboardAlternateTarget(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageKeyboardAlternate = await runKeyboardAlternateTarget(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboardLifecycle = await runKeyboardLockResetUndo(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageKeyboardLifecycle = await runKeyboardLockResetUndo(cdp, packageBase, extracted.activityPath, "package");
+    const sourceKeyboardCrossLock = await runKeyboardCrossForceLock(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageKeyboardCrossLock = await runKeyboardCrossForceLock(cdp, packageBase, extracted.activityPath, "package");
     const sourceTripleScale = await runTripleMobileScale(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTripleScale = await runTripleMobileScale(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -1043,7 +1172,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourceReleaseSafe}; ${packageReleaseSafe}; ${sourceKeyboardAlternate}; ${packageKeyboardAlternate}; ${sourceKeyboardLifecycle}; ${packageKeyboardLifecycle}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourcePreviewMouse}; ${packagePreviewMouse}; ${sourcePreviewTouch}; ${packagePreviewTouch}; ${sourceReleaseSafe}; ${packageReleaseSafe}; ${sourceKeyboardAlternate}; ${packageKeyboardAlternate}; ${sourceKeyboardLifecycle}; ${packageKeyboardLifecycle}; ${sourceKeyboardCrossLock}; ${packageKeyboardCrossLock}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
@@ -1057,6 +1186,6 @@ async function main() {
 
 if (require.main === module) main().catch((error) => { console.error(error.stack || error.message || error); process.exitCode = 1; });
 module.exports = {
-  sourceParity, query, runReleaseSafeContinuations, runKeyboardAlternateTarget, runKeyboardLockResetUndo,
-  runParallelogramBoundary, runKeyboardForceRelease, runHeadTailEndpointSnaps, setViewport, navigateDirect, navigateQuestion, focus, press, moveForce, click, inActivity
+  sourceParity, query, runReleaseSafeContinuations, runKeyboardAlternateTarget, runKeyboardLockResetUndo, runKeyboardCrossForceLock,
+  runParallelogramBoundary, runPointerPreviewCommitParity, runKeyboardForceRelease, runHeadTailEndpointSnaps, setViewport, navigateDirect, navigateQuestion, focus, press, moveForce, click, inActivity
 };
