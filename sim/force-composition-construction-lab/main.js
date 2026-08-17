@@ -1104,9 +1104,16 @@
     return `${state?.currentQuestion ?? -1}:${index}`;
   }
 
-  function clearKeyboardForceRelease(index = null) {
-    if (index == null) keyboardForceReleaseLocks.clear();
-    else keyboardForceReleaseLocks.delete(keyboardForceLockKey(index));
+  function clearKeyboardForceRelease() {
+    keyboardForceReleaseLocks.clear();
+  }
+
+  function clearKeyboardForceReleaseForQuestion() {
+    // Undo/reset replace authoritative geometry.  Clear every transient
+    // release lock rather than relying on a force-index lookup; this also
+    // invalidates locks from another question whose endpoint may have been
+    // carried through a review/navigation transition.
+    keyboardForceReleaseLocks.clear();
   }
 
   function placementTargetPoint(answer, question, index) {
@@ -1165,7 +1172,7 @@
   function undo() {
     const stack = undoStacks[state.currentQuestion];
     if (!stack.length) return;
-    clearKeyboardForceRelease(state.currentQuestion);
+    clearKeyboardForceReleaseForQuestion(state.currentQuestion);
     resultantMode = false;
     state.answers[state.currentQuestion] = stack.pop();
     state = P.productionRoundTrip(state);
@@ -1177,7 +1184,7 @@
   function resetCurrent() {
     const answer = state.answers[state.currentQuestion];
     if (M.isBlank(answer)) return;
-    clearKeyboardForceRelease(state.currentQuestion);
+    clearKeyboardForceReleaseForQuestion(state.currentQuestion);
     resultantMode = false;
     pushUndo(state.currentQuestion, answer);
     state.answers[state.currentQuestion] = M.freshAnswer(scenario.questions[state.currentQuestion]);
@@ -1287,7 +1294,10 @@
     const answer = state.answers[state.currentQuestion];
     const kind = target.dataset.dragKind;
     if (resultantMode && !kind.startsWith("resultant")) return;
-    if (kind === "force") clearKeyboardForceRelease(Number(target.dataset.forceIndex));
+    // Moving any force can change the endpoint used by another force's
+    // release lock.  Clear the whole question's transient keyboard locks so
+    // a later keyboard move never uses a stale target point.
+    if (kind === "force") clearKeyboardForceReleaseForQuestion(state.currentQuestion);
     const point = clientToModel(event.clientX, event.clientY);
     const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, focusPoint: point, preview: answer, camera: { ...stageCamera } };
     if (kind === "force") {
@@ -1583,7 +1593,20 @@
     const excludeKeys = releaseLock && !reSnap && releaseLock.targetKey ? [releaseLock.targetKey] : [];
     const next = M.commitForceTranslation(keyboardAnswer, index, candidate, question, {
       pointerType: "keyboard", project: modelToClient, excludeKeys,
-      keepFree: Boolean(releaseLock && !reSnap),
+      // Hysteresis suppresses only the old target.  Keeping the entire snap
+      // selector disabled made it impossible to keyboard-snap to another
+      // legal endpoint after moving away from the original relationship.
+      // Before the hysteresis distance is armed, keep the provisional free
+      // geometry completely free so an equivalent endpoint (for example the
+      // stationary tail) cannot reconstruct the old relationship through a
+      // different semantic key.  Once armed, only the old target is
+      // suppressed and alternative legal targets are allowed.
+      keepFree: Boolean(releaseLock && !reSnap && !releaseLock.armed),
+      // While a release lock is active, do not create a new implicit ORIGIN
+      // anchor: that would look like an immediate snap-back to the old root.
+      // Explicit alternative endpoint snaps still run through the selector.
+      suppressAutoAnchor: Boolean(releaseLock && !reSnap),
+      preferredKeys: reSnap && releaseLock?.targetKey ? [releaseLock.targetKey] : [],
       preserveAnchor: reSnap
     });
     if (releaseLock?.armed && reSnap && next.placements[index].mode === "snap" && next.placements[index].targetKey === releaseLock.targetKey) {

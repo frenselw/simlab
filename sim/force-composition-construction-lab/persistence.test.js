@@ -31,6 +31,13 @@ function chain(index, order, count = order.length) {
   return answer;
 }
 
+function chainForQuestion(question, order) {
+  const answer = M.freshAnswer(question);
+  answer.placements[order[0]] = { mode: "snap", targetKey: "ORIGIN" };
+  for (let position = 1; position < order.length; position += 1) answer.placements[order[position]] = { mode: "snap", targetKey: M.headKey(order[position - 1]) };
+  return answer;
+}
+
 function complete(index, order) {
   const question = scenario.questions[index];
   if (question.type === "parallelogram") {
@@ -274,5 +281,55 @@ const nested = JSON.parse(invalidPending.payload.reviewJson);
 nested.answer.answers[4].placements[0] = { mode: "free", tail10: [2000, 2000], targetKey: "ORIGIN" };
 invalidPending.payload.reviewJson = JSON.stringify(nested);
 assert.throws(() => P.decodePending(invalidPending), /Invalid force-composition review|canonical|free-placement/);
+
+// A semantic endpoint snap must also be safe to materialise as free geometry
+// later.  These two deterministic cases exercise the near-edge touch chain
+// that used to pass the canvas-only predicate while leaving a force outside
+// the hard visual inset.
+const unsafeTouchH1 = P.freshState(0);
+unsafeTouchH1.answers[2].anchor10 = [1651, 1730];
+unsafeTouchH1.answers[2].placements = [
+  { mode: "snap", targetKey: "ORIGIN" },
+  { mode: "snap", targetKey: "F1_HEAD" }
+];
+assert.equal(P.validate(unsafeTouchH1, { kind: "draft" }).ok, false, "H1 near-edge endpoint snap is rejected when it cannot become free-safe");
+assert.match(P.validate(unsafeTouchH1, { kind: "draft" }).reason, /resolved-force-bounds-2/);
+
+const unsafeMobileH2 = P.freshState(1);
+unsafeMobileH2.answers[3].anchor10 = [927, 3654];
+unsafeMobileH2.answers[3].placements = [
+  { mode: "snap", targetKey: "F2_HEAD" },
+  { mode: "snap", targetKey: "ORIGIN" }
+];
+assert.equal(P.validate(unsafeMobileH2, { kind: "draft" }).ok, false, "H2 mobile edge chain cannot be saved outside free resultant bounds");
+assert.match(P.validate(unsafeMobileH2, { kind: "draft" }).reason, /resolved-force-bounds-3/);
+
+// Property-style continuation coverage: every generated H1/H2/T1 order at
+// both feasible anchor corners must survive releasing each individual force
+// and then production round-tripping the resulting draft.  This closes the
+// persistence state set under the same upstream-drag transition used by the
+// pointer and keyboard handlers.
+for (let seedValue = 0; seedValue < 1000; seedValue += 1) {
+  const generated = G.generateScenario({ seed: seedValue });
+  for (const questionIndex of [2, 3, 4]) {
+    const question = generated.questions[questionIndex];
+    for (const order of G.permutations(question.forces.map((_, index) => index))) {
+      const bounds = M.chainAnchorBounds(question, order[0]);
+      for (const anchor of [{ x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.maxY }]) {
+        const answer = chainForQuestion(question, order);
+        answer.anchor10 = M.point10(anchor);
+        const state = P.freshState(seedValue);
+        state.currentQuestion = questionIndex;
+        state.answers[questionIndex] = answer;
+        assert.equal(P.validate(state, { kind: "draft" }).ok, true, `seed ${seedValue} ${question.id} order ${order.join(",")} boundary chain is persistable`);
+        for (const movingIndex of order) {
+          const released = M.releaseForceAndDescendants(answer, question, movingIndex);
+          state.answers[questionIndex] = released;
+          assert.doesNotThrow(() => P.productionRoundTrip(state), `seed ${seedValue} ${question.id} order ${order.join(",")} release F${movingIndex + 1} remains production-valid`);
+        }
+      }
+    }
+  }
+}
 
 console.log("force-composition persistence tests passed");

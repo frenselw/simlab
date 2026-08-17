@@ -292,9 +292,22 @@
 
   function resolvedForceGeometryWithinBounds(answer, question, tolerance = POSITION_QUANTUM + MODEL_EPSILON) {
     try {
-      return forceGeometry(answer, question).every((item) => [item.tail, item.head].every((point) =>
-        point.x >= -tolerance && point.x <= Generator.WIDTH + tolerance &&
-        point.y >= -tolerance && point.y <= Generator.HEIGHT + tolerance));
+      // A semantic snap must be safe to release back into the same free
+      // geometry.  Checking only the SVG canvas lets a snapped relationship
+      // sit inside the viewport while its tail/head is outside the hard
+      // visual inset used by clampForceTail().  Such a state can be saved,
+      // but the next upstream drag would be rejected when the relationship is
+      // materialised as a free placement.  Keep this predicate identical to
+      // the free-force clamp so every persisted snap is release-safe.
+      return forceGeometry(answer, question).every((item) => {
+        const clamped = clampForceTail(item.tail, item.force);
+        return Math.abs(item.tail.x - clamped.x) <= tolerance &&
+          Math.abs(item.tail.y - clamped.y) <= tolerance &&
+          item.head.x >= MODEL_VISUAL_INSET - tolerance &&
+          item.head.x <= Generator.WIDTH - MODEL_VISUAL_INSET + tolerance &&
+          item.head.y >= MODEL_VISUAL_INSET - tolerance &&
+          item.head.y <= Generator.HEIGHT - MODEL_VISUAL_INSET + tolerance;
+      });
     } catch {
       return false;
     }
@@ -492,6 +505,11 @@
         next.placements[otherIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
         return resolvedForceGeometryWithinBounds(next, question) ? next : freeNext;
       }
+      // A keyboard release lock may temporarily keep a snapped root free
+      // while it is being moved away from its old target.  Still let the
+      // normal target selector accept another legal endpoint; only suppress
+      // the implicit arbitrary-root anchor for the unarmed first few steps.
+      if (options.suppressAutoAnchor) return freeNext;
       candidate = clampAnchor(candidate, question, question.type === "parallelogram" ? null : forceIndexValue);
       next.anchor10 = point10(candidate);
       next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };

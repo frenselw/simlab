@@ -243,11 +243,35 @@ async function moveForceKeyboard(cdp, index, targetKey, embedded = false) {
   throw new Error(`keyboard could not snap F${index + 1} to ${targetKey}`);
 }
 
+async function moveForceKeyboardTail(cdp, index, targetTail, embedded = false) {
+  const selector = `.force-hit[data-force-index="${index}"]`;
+  await focus(cdp, selector, embedded);
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const current = await currentTail(cdp, index, embedded);
+    const placement = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].placements[${index}]`, embedded);
+    if (placement.mode === "snap") {
+      const geometry = await inActivity(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[s.currentQuestion]; return window.ForceCompositionModel.forceGeometry(s.answers[s.currentQuestion],q)[${index}].tail; })()`, embedded);
+      if (Math.hypot(geometry.x - targetTail.x, geometry.y - targetTail.y) <= 0.2) return placement;
+    }
+    const dx = targetTail.x - current.x;
+    const dy = targetTail.y - current.y;
+    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
+      await press(cdp, "ArrowRight", { delay: 35 });
+      continue;
+    }
+    const horizontal = Math.abs(dx) >= Math.abs(dy);
+    const delta = horizontal ? dx : dy;
+    const key = horizontal ? (delta > 0 ? "ArrowRight" : "ArrowLeft") : (delta > 0 ? "ArrowDown" : "ArrowUp");
+    await press(cdp, key, { shift: Math.abs(delta) > 18, delay: 35 });
+  }
+  return inActivity(cdp, `window.__forceCompositionApp.getState().answers[window.__forceCompositionApp.getState().currentQuestion].placements[${index}]`, embedded);
+}
+
 async function moveForce(cdp, index, targetKey, input, embedded = false) {
   return input === "keyboard" ? moveForceKeyboard(cdp, index, targetKey, embedded) : moveForcePointer(cdp, index, targetKey, input, embedded);
 }
 
-async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = false, offset = { x: 0, y: 0 }) {
+async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = false, offset = { x: 0, y: 0 }, input = "mouse") {
   const selector = `.force-hit[data-force-index="${index}"]`;
   const start = await elementPoint(cdp, selector, embedded);
   const before = await currentTail(cdp, index, embedded);
@@ -256,7 +280,7 @@ async function moveForceEndpoint(cdp, index, endpoint, targetKey, embedded = fal
   const desiredTail = endpoint === "HEAD" ? { x: target.x - force.dx + offset.x, y: target.y - force.dy + offset.y } : { x: target.x + offset.x, y: target.y + offset.y };
   const beforeClient = await modelPoint(cdp, before, embedded);
   const desiredClient = await modelPoint(cdp, desiredTail, embedded);
-  await drag(cdp, start, { x: start.x + desiredClient.x - beforeClient.x, y: start.y + desiredClient.y - beforeClient.y }, "mouse");
+  await drag(cdp, start, { x: start.x + desiredClient.x - beforeClient.x, y: start.y + desiredClient.y - beforeClient.y }, input);
 }
 
 async function drawLinePointer(cdp, semanticKey, target, input, embedded = false) {
@@ -512,8 +536,8 @@ async function runKeyboardForceRelease(cdp, baseUrl, launchPath, label) {
       await press(cdp, "ArrowRight", { shift, delay: 45 });
       const after = await currentTail(cdp, entry.force);
       const placementAfter = await inActivity(cdp, `window.__forceCompositionApp.getState().answers[${entry.question}].placements[${entry.force}]`);
-      assert.equal(placementBefore.mode, "snap", `${label}: keyboard release fixture starts snapped`);
-      assert.notDeepEqual(placementAfter, placementBefore, `${label}: keyboard ${shift ? "shift-" : ""}arrow releases the old relationship`);
+      assert.equal(placementBefore.mode, "snap", `${label}: keyboard release fixture starts snapped for ${JSON.stringify(entry)}`);
+      assert.notDeepEqual(placementAfter, placementBefore, `${label}: keyboard ${shift ? "shift-" : ""}arrow releases the old relationship for ${JSON.stringify(entry)} (${JSON.stringify({ placementBefore, placementAfter, before, after })})`);
       assert.ok(Math.hypot(after.x - before.x, after.y - before.y) > 0.1, `${label}: keyboard ${shift ? "shift-" : ""}arrow moves the released force`);
       const releaseSteps = shift ? 2 : 7;
       for (let step = 0; step < releaseSteps; step += 1) {
@@ -573,6 +597,118 @@ async function runParallelogramBoundary(cdp, baseUrl, launchPath, label) {
   return `${label}: P1/P2 remain completable from the full parallelogram feasible boundary`;
 }
 
+async function reloadEmbeddedActivity(cdp) {
+  const previousToken = await evaluate(cdp, "document.getElementById('activity')?.contentWindow?.__forceCompositionDocumentToken");
+  await evaluate(cdp, "document.getElementById('activity').contentWindow.location.reload()");
+  await waitReady(cdp, true, previousToken);
+}
+
+async function runReleaseSafeContinuations(cdp, baseUrl, launchPath, label) {
+  // Seed 0 H1: a compact touch projection can bring the clamped F2 tail
+  // within the touch threshold of the stationary F1 head.  It must remain a
+  // free placement because the resulting relationship is outside the hard
+  // visual inset; moving F1 afterwards must still be accepted.
+  await setViewport(cdp, 390, 500, true);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(0, { releaseSafeH1: label })}`);
+  await navigateQuestion(cdp, 2);
+  await moveForceEndpoint(cdp, 1, "TAIL", "F1_HEAD", false, undefined, "touch");
+  const nearMiss = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[1]");
+  assert.notDeepEqual(nearMiss, { mode: "snap", targetKey: "F1_HEAD" }, `${label}: seed 0 H1 touch near-miss stays free when release-unsafe`);
+  const firstForce = await elementPoint(cdp, '.force-hit[data-force-index="0"]');
+  await touch(cdp, firstForce, { x: firstForce.x + 22, y: firstForce.y + 18 });
+  assert.equal(await inActivity(cdp, "window.__forceCompositionApp.getPresentation()"), "editable", `${label}: seed 0 H1 upstream touch drag remains editable`);
+  assert.equal(await inActivity(cdp, "window.ForceCompositionPersistence.validate(window.__forceCompositionApp.getState(),{kind:'draft'}).ok"), true, `${label}: seed 0 H1 upstream release remains production-valid`);
+
+  // Seed 1 H2: save a mobile chain, resize to desktop, reload through the
+  // same LMS-backed iframe, and finish the chain/resultant there.  The saved
+  // chain must be release-safe and its semantic CHAIN_END must remain inside
+  // the desktop free-line bounds.
+  await setViewport(cdp, 390, 500, true);
+  await navigateEmbedded(cdp, baseUrl, `${baseUrl}${launchPath}?${query(1, { releaseSafeH2: label })}`);
+  await navigateQuestion(cdp, 3, true);
+  await moveForce(cdp, 1, "ORIGIN", "touch", true);
+  await moveForceEndpoint(cdp, 0, "TAIL", "F2_HEAD", true, undefined, "touch");
+  const mobileState = await inActivity(cdp, "window.__forceCompositionApp.getState()", true);
+  assert.equal(await inActivity(cdp, "window.ForceCompositionPersistence.validate(window.__forceCompositionApp.getState(),{kind:'draft'}).ok" , true), true, `${label}: seed 1 H2 mobile draft is production-valid`);
+  const mobileChain = await inActivity(cdp, "window.ForceCompositionModel.chainInfo(window.__forceCompositionApp.getState().answers[3],window.__forceCompositionApp.getScenario().questions[3])", true);
+  if (mobileChain.complete) {
+    const end = await targetModelPoint(cdp, "CHAIN_END", true);
+    assert.ok(end.y >= 34 - 0.11 && end.y <= 466 + 0.11, `${label}: mobile H2 CHAIN_END stays inside release-safe visual bounds`);
+  }
+  await setViewport(cdp, 1180, 760, false);
+  await reloadEmbeddedActivity(cdp);
+  assert.equal(await inActivity(cdp, "window.ForceCompositionPersistence.validate(window.__forceCompositionApp.getState(),{kind:'draft'}).ok", true), true, `${label}: seed 1 H2 reload on desktop restores a valid draft`);
+  const restored = await inActivity(cdp, "window.__forceCompositionApp.getState()", true);
+  assert.equal(restored.seed, mobileState.seed, `${label}: mobile-to-desktop reload preserves seed`);
+  if (mobileChain.complete) {
+    const end = await targetModelPoint(cdp, "CHAIN_END", true);
+    await enterResultantMode(cdp, true);
+    await drawLine(cdp, "resultant-start-ORIGIN", end, "mouse", true);
+    assert.equal(await inActivity(cdp, "window.__forceCompositionApp.getCompletion()[3]", true), true, `${label}: desktop continuation reaches the H2 resultant`);
+  }
+  return `${label}: release-safe seed 0 touch continuation and seed 1 mobile-to-desktop draft restore passed`;
+}
+
+async function runKeyboardAlternateTarget(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 1180, 760, false);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { keyboardAlternate: label })}`);
+  await navigateQuestion(cdp, 2);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await moveForce(cdp, 1, "F1_HEAD", "mouse");
+  const oldPlacement = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[1]");
+  const rootTail = await targetModelPoint(cdp, "F1_TAIL");
+  const force = await inActivity(cdp, "window.__forceCompositionApp.getScenario().questions[2].forces[1]");
+  const desiredTail = { x: rootTail.x - force.dx, y: rootTail.y - force.dy };
+  await focus(cdp, '.force-hit[data-force-index="1"]');
+  // Move far enough to arm the old-target hysteresis, then approach the
+  // legal prepend target F1_TAIL.  The old implementation kept every snap
+  // disabled during this phase and could never create the reversed chain.
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowRight", { delay: 35 });
+  await moveForceKeyboardTail(cdp, 1, desiredTail);
+  assert.deepEqual(await inActivity(cdp, "window.ForceCompositionModel.chainInfo(window.__forceCompositionApp.getState().answers[2],window.__forceCompositionApp.getScenario().questions[2]).order"), [1, 0], `${label}: keyboard alternate target re-roots H1`);
+  assert.deepEqual(oldPlacement, { mode: "snap", targetKey: "F1_HEAD" });
+  return `${label}: keyboard hysteresis resists old snap-back while allowing H1 prepend target`;
+}
+
+async function runKeyboardLockResetUndo(cdp, baseUrl, launchPath, label) {
+  await setViewport(cdp, 1180, 760, false);
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { keyboardLockLifecycle: label })}`);
+  await navigateQuestion(cdp, 2);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  await press(cdp, "ArrowRight", { delay: 35 });
+  assert.equal((await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[0]")).mode, "free", `${label}: keyboard release creates a provisional free force`);
+  await click(cdp, "#resetQuestion");
+  await click(cdp, "#confirmReset");
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  await press(cdp, "ArrowRight", { delay: 35 });
+  assert.equal((await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[0]")).mode, "snap", `${label}: reset clears the whole-question release lock before a fresh arrow`);
+
+  // Create an armed lock, undo back to the old snapped answer, then verify
+  // the first new arrow follows fresh hysteresis rather than the stale armed
+  // lock.  Repeated undo is intentional: each keyboard arrow is an atomic
+  // undo step in the activity contract.
+  await navigateQuestion(cdp, 2);
+  await moveForce(cdp, 0, "ORIGIN", "mouse");
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  for (let step = 0; step < 8; step += 1) await press(cdp, "ArrowRight", { delay: 25 });
+  let undoCount = 0;
+  for (let step = 0; step < 12; step += 1) {
+    await click(cdp, "#undo");
+    undoCount += 1;
+    const placement = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[0]");
+    if (undoCount > 0 && placement.mode === "snap" && placement.targetKey === "ORIGIN") break;
+  }
+  const restoredState = await inActivity(cdp, "window.__forceCompositionApp.getState()");
+  const restored = restoredState.answers[2].placements[0];
+  assert.deepEqual(restored, { mode: "snap", targetKey: "ORIGIN" }, `${label}: undo restores the snapped answer before the lock lifecycle check`);
+  await focus(cdp, '.force-hit[data-force-index="0"]');
+  await press(cdp, "ArrowRight", { delay: 35 });
+  const afterUndoArrow = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[2].placements[0]");
+  assert.equal(afterUndoArrow.mode, "free", `${label}: undo clears the stale armed lock before a fresh arrow (${JSON.stringify({ restoredState, afterUndoArrow })})`);
+  return `${label}: reset and undo clear question-scoped keyboard release locks`;
+}
+
 async function runTripleMobileScale(cdp, baseUrl, launchPath, label) {
   await setViewport(cdp, 390, 600, true);
   await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleScale: label })}`);
@@ -598,14 +734,18 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
   for (const questionIndex of [2, 3]) {
     for (const [caseIndex, testCase] of cases.entries()) {
       await setViewport(cdp, 1180, 760, false);
-      await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { endpointSnap: `${label}-${questionIndex}-${caseIndex}` })}`);
+      // Use a geometry-safe deterministic seed for the bidirectional endpoint
+      // matrix; the near-edge seed 0/1 release-safety cases are covered by
+      // runReleaseSafeContinuations above and are intentionally rejected as
+      // semantic snaps when their free representation would clip.
+      await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(16, { endpointSnap: `${label}-${questionIndex}-${caseIndex}` })}`);
       await navigateQuestion(cdp, questionIndex);
       const stationaryIndex = testCase.moving === 0 ? 1 : 0;
       const stationaryBefore = await currentTail(cdp, stationaryIndex);
       await moveForceEndpoint(cdp, testCase.moving, testCase.endpoint, testCase.target, false, testCase.endpoint === "HEAD" ? { x: 8, y: 0 } : undefined);
       const result = await evaluate(cdp, `(() => { const app=window.__forceCompositionApp,s=app.getState(),q=app.getScenario().questions[${questionIndex}],a=s.answers[${questionIndex}],M=window.ForceCompositionModel; return {complete:M.chainInfo(a,q).complete,order:M.chainInfo(a,q).order}; })()`);
-      assert.equal(result.complete, true, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap completes the chain`);
-      assert.deepEqual(result.order, testCase.order, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap uses the expected order`);
+      assert.equal(result.complete, true, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap completes the chain (case ${caseIndex}, ${JSON.stringify(result)})`);
+      assert.deepEqual(result.order, testCase.order, `${label}: H${questionIndex - 1} ${testCase.endpoint.toLowerCase()} endpoint snap uses the expected order (case ${caseIndex})`);
       const stationaryAfter = await currentTail(cdp, stationaryIndex);
       assert.ok(Math.hypot(stationaryAfter.x - stationaryBefore.x, stationaryAfter.y - stationaryBefore.y) <= 0.2, `${label}: H${questionIndex - 1} stationary force stays fixed during ${testCase.endpoint.toLowerCase()} snap`);
     }
@@ -618,7 +758,7 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
   }
   for (const [caseIndex, testCase] of tripleCases.entries()) {
     await setViewport(cdp, 1180, 760, false);
-    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleEndpointSnap: `${label}-${caseIndex}` })}`);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(16, { tripleEndpointSnap: `${label}-${caseIndex}` })}`);
     await navigateQuestion(cdp, 4);
     const stationaryBefore = await currentTail(cdp, testCase.target);
     await moveForceEndpoint(cdp, testCase.moving, "HEAD", `F${testCase.target + 1}_TAIL`, false, { x: 8, y: 0 });
@@ -631,7 +771,7 @@ async function runHeadTailEndpointSnaps(cdp, baseUrl, launchPath, label) {
   }
   for (const [caseIndex, testCase] of tripleCases.entries()) {
     await setViewport(cdp, 1180, 760, false);
-    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { tripleRootSnap: `${label}-${caseIndex}` })}`);
+    await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(16, { tripleRootSnap: `${label}-${caseIndex}` })}`);
     await navigateQuestion(cdp, 4);
     await moveForce(cdp, testCase.target, "ORIGIN", "mouse");
     const stationaryBefore = await currentTail(cdp, testCase.target);
@@ -867,7 +1007,6 @@ async function main() {
     });
     cdp.on("Runtime.consoleAPICalled", (event) => { if (["error", "assert"].includes(event.type)) consoleErrors.push(`${event.type}: ${event.args?.map((arg) => arg.value || arg.description || "").join(" ")}`); });
     await installPreload(cdp);
-
     const sourceDirect = await runPerfectMouse(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageDirect = await runPerfectMouse(cdp, packageBase, extracted.activityPath, "package");
     const sourceBlank = await runBlankSubmission(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -884,6 +1023,12 @@ async function main() {
     const packageArbitraryAnchors = await runTripleArbitraryAnchors(cdp, packageBase, extracted.activityPath, "package");
     const sourceParallelogramBoundary = await runParallelogramBoundary(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageParallelogramBoundary = await runParallelogramBoundary(cdp, packageBase, extracted.activityPath, "package");
+    const sourceReleaseSafe = await runReleaseSafeContinuations(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageReleaseSafe = await runReleaseSafeContinuations(cdp, packageBase, extracted.activityPath, "package");
+    const sourceKeyboardAlternate = await runKeyboardAlternateTarget(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageKeyboardAlternate = await runKeyboardAlternateTarget(cdp, packageBase, extracted.activityPath, "package");
+    const sourceKeyboardLifecycle = await runKeyboardLockResetUndo(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    const packageKeyboardLifecycle = await runKeyboardLockResetUndo(cdp, packageBase, extracted.activityPath, "package");
     const sourceTripleScale = await runTripleMobileScale(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageTripleScale = await runTripleMobileScale(cdp, packageBase, extracted.activityPath, "package");
     const sourceEndpointSnaps = await runHeadTailEndpointSnaps(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -898,7 +1043,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourceReleaseSafe}; ${packageReleaseSafe}; ${sourceKeyboardAlternate}; ${packageKeyboardAlternate}; ${sourceKeyboardLifecycle}; ${packageKeyboardLifecycle}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
@@ -911,4 +1056,7 @@ async function main() {
 }
 
 if (require.main === module) main().catch((error) => { console.error(error.stack || error.message || error); process.exitCode = 1; });
-module.exports = { sourceParity, query };
+module.exports = {
+  sourceParity, query, runReleaseSafeContinuations, runKeyboardAlternateTarget, runKeyboardLockResetUndo,
+  runParallelogramBoundary, runKeyboardForceRelease, runHeadTailEndpointSnaps, setViewport, navigateDirect, navigateQuestion, focus, press, moveForce, click, inActivity
+};
