@@ -27,6 +27,8 @@ assert.match(browser, /runKeyboardAlternateTarget/);
 assert.match(browser, /runKeyboardLockResetUndo/);
 assert.match(browser, /runKeyboardCrossForceLock/);
 assert.match(browser, /runPointerPreviewCommitParity/);
+assert.match(browser, /dragSnapThresholdProbe/);
+assert.match(browser, /runSnapThresholdContinuity/);
 assert.match(browser, /renderedForceTail/);
 assert.match(browser, /runTripleMobileScale/);
 assert.match(browser, /runHeadTailEndpointSnaps/);

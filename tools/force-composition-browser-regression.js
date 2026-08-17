@@ -232,6 +232,74 @@ async function dragWithPreviewProbe(cdp, start, end, input, forceIndex, embedded
   return { preview, committed: await currentTail(cdp, forceIndex, embedded) };
 }
 
+async function dragSnapThresholdProbe(cdp, start, outside, inside, input, forceIndex, embedded = false) {
+  const point = ({ x, y }) => ({ x, y });
+  let outsidePreview;
+  let insidePreview;
+  if (input === "touch") {
+    const id = 17003;
+    const touchPoint = ({ x, y }) => ({ x, y, id, radiusX: 1, radiusY: 1, force: 1 });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(start)] });
+    await delay(45);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(outside)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(outside)] });
+    await delay(60);
+    outsidePreview = await renderedForceTail(cdp, forceIndex, embedded);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(inside)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint(inside)] });
+    await delay(60);
+    insidePreview = await renderedForceTail(cdp, forceIndex, embedded);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(start) });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...point(start), button: "left", clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(outside), button: "left", buttons: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(outside), button: "left", buttons: 1 });
+    await delay(60);
+    outsidePreview = await renderedForceTail(cdp, forceIndex, embedded);
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(inside), button: "left", buttons: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point(inside), button: "left", buttons: 1 });
+    await delay(60);
+    insidePreview = await renderedForceTail(cdp, forceIndex, embedded);
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point(inside), button: "left", clickCount: 1 });
+  }
+  await delay(90);
+  return { outsidePreview, insidePreview, committed: await currentTail(cdp, forceIndex, embedded) };
+}
+
+async function runSnapThresholdContinuity(cdp, baseUrl, launchPath, label, input) {
+  const embedded = false;
+  await setViewport(cdp, input === "touch" ? 390 : 1180, input === "touch" ? 500 : 760, input === "touch");
+  await navigateDirect(cdp, `${baseUrl}${launchPath}?${query(91, { snapThreshold: `${label}-${input}` })}`);
+  await navigateQuestion(cdp, 3);
+  const target = await targetModelPoint(cdp, "F1_HEAD");
+  const targetClient = await modelPoint(cdp, target);
+  const oneModelUnit = await modelPoint(cdp, { x: target.x + 1, y: target.y });
+  const unitX = oneModelUnit.x - targetClient.x;
+  const unitY = oneModelUnit.y - targetClient.y;
+  const cssThreshold = input === "touch" ? 20 : 14;
+  const start = await elementPoint(cdp, '.force-hit[data-force-index="1"]');
+  const before = await currentTail(cdp, 1);
+  const beforeClient = await modelPoint(cdp, before);
+  const outsideCandidateClient = { x: targetClient.x - unitX * (cssThreshold + 1), y: targetClient.y - unitY * (cssThreshold + 1) };
+  const insideCandidateClient = { x: targetClient.x - unitX * (cssThreshold - 1), y: targetClient.y - unitY * (cssThreshold - 1) };
+  // The drag handler preserves the pointer-to-tail offset captured on
+  // pointerdown, so convert the desired tail positions into actual pointer
+  // destinations relative to the hit target's centre.
+  const outside = { x: start.x + outsideCandidateClient.x - beforeClient.x, y: start.y + outsideCandidateClient.y - beforeClient.y };
+  const inside = { x: start.x + insideCandidateClient.x - beforeClient.x, y: start.y + insideCandidateClient.y - beforeClient.y };
+  const result = await dragSnapThresholdProbe(cdp, start, outside, inside, input, 1, embedded);
+  assert.ok(result.outsidePreview && result.insidePreview && result.committed, `${label}: ${input} captures both threshold-side previews and commit`);
+  const jump = Math.hypot(result.insidePreview.x - result.outsidePreview.x, result.insidePreview.y - result.outsidePreview.y);
+  const committedDelta = Math.hypot(result.committed.x - result.insidePreview.x, result.committed.y - result.insidePreview.y);
+  const state = await inActivity(cdp, "window.__forceCompositionApp.getState().answers[3]");
+  assert.equal(state.placements[1].targetKey, "F1_HEAD", `${label}: ${input} threshold-inside frame keeps the semantic F2-tail to F1-head snap`);
+  assert.ok(jump <= cssThreshold + 2 + 0.2, `${label}: ${input} threshold crossing stays within pointer movement plus snap threshold (${JSON.stringify({ result, jump, cssThreshold, outside, inside })})`);
+  assert.ok(jump < 20, `${label}: ${input} threshold crossing avoids the hidden-candidate jump (${JSON.stringify({ result, jump })})`);
+  assert.ok(committedDelta <= 0.11, `${label}: ${input} pointerup preserves the threshold-inside preview (${JSON.stringify({ result, committedDelta })})`);
+  return `${label}: ${input} H2 seed-91 endpoint threshold preview remains continuous`;
+}
+
 async function click(cdp, selector, embedded = false) {
   await inActivity(cdp, `(() => { const node=document.querySelector(${JSON.stringify(selector)}); if(node?.closest('#controlPanel,dialog')) node.scrollIntoView({block:'center',inline:'center'}); })()`, embedded);
   await delay(30);
@@ -1150,6 +1218,10 @@ async function main() {
     const packagePreviewMouse = await runPointerPreviewCommitParity(cdp, packageBase, extracted.activityPath, "package", "mouse");
     const sourcePreviewTouch = await runPointerPreviewCommitParity(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "touch");
     const packagePreviewTouch = await runPointerPreviewCommitParity(cdp, packageBase, extracted.activityPath, "package", "touch");
+    const sourceSnapThresholdMouse = await runSnapThresholdContinuity(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "mouse");
+    const packageSnapThresholdMouse = await runSnapThresholdContinuity(cdp, packageBase, extracted.activityPath, "package", "mouse");
+    const sourceSnapThresholdTouch = await runSnapThresholdContinuity(cdp, sourceBase, `/sim/${slug}/index.html`, "source", "touch");
+    const packageSnapThresholdTouch = await runSnapThresholdContinuity(cdp, packageBase, extracted.activityPath, "package", "touch");
     const sourceReleaseSafe = await runReleaseSafeContinuations(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     const packageReleaseSafe = await runReleaseSafeContinuations(cdp, packageBase, extracted.activityPath, "package");
     const sourceKeyboardAlternate = await runKeyboardAlternateTarget(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -1172,7 +1244,7 @@ async function main() {
     const packageLifecycle = await runLifecycleFixtures(cdp, packageBase, extracted.activityPath, "package");
     assert.deepEqual(runtimeExceptions, [], `uncaught runtime exceptions: ${runtimeExceptions.join("\n")}`);
     const version = await cdp.send("Browser.getVersion");
-    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourcePreviewMouse}; ${packagePreviewMouse}; ${sourcePreviewTouch}; ${packagePreviewTouch}; ${sourceReleaseSafe}; ${packageReleaseSafe}; ${sourceKeyboardAlternate}; ${packageKeyboardAlternate}; ${sourceKeyboardLifecycle}; ${packageKeyboardLifecycle}; ${sourceKeyboardCrossLock}; ${packageKeyboardCrossLock}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
+    summary = `Force-composition browser regression passed on ${version.product}: ${sourceDirect}; ${packageDirect}; ${sourceBlank}; ${packageBlank}; ${sourceDraft}; ${packageDraft}; ${sourcePendingRetry}; ${packagePendingRetry}; ${sourceOrders}; ${packageOrders}; ${sourceKeyboardRelease}; ${packageKeyboardRelease}; ${sourceArbitraryAnchors}; ${packageArbitraryAnchors}; ${sourceParallelogramBoundary}; ${packageParallelogramBoundary}; ${sourcePreviewMouse}; ${packagePreviewMouse}; ${sourcePreviewTouch}; ${packagePreviewTouch}; ${sourceSnapThresholdMouse}; ${packageSnapThresholdMouse}; ${sourceSnapThresholdTouch}; ${packageSnapThresholdTouch}; ${sourceReleaseSafe}; ${packageReleaseSafe}; ${sourceKeyboardAlternate}; ${packageKeyboardAlternate}; ${sourceKeyboardLifecycle}; ${packageKeyboardLifecycle}; ${sourceKeyboardCrossLock}; ${packageKeyboardCrossLock}; ${sourceTripleScale}; ${packageTripleScale}; ${sourceEndpointSnaps}; ${packageEndpointSnaps}; ${sourceWrongGuideSnap}; ${packageWrongGuideSnap}; ${sourceTouch}; ${packageTouch}; ${sourceLifecycle}; ${packageLifecycle}`;
   } catch (error) {
     if (browserErrors.trim()) error.message += `\nChrome stderr:\n${browserErrors.trim()}`;
     failure = error;
@@ -1187,5 +1259,5 @@ async function main() {
 if (require.main === module) main().catch((error) => { console.error(error.stack || error.message || error); process.exitCode = 1; });
 module.exports = {
   sourceParity, query, runReleaseSafeContinuations, runKeyboardAlternateTarget, runKeyboardLockResetUndo, runKeyboardCrossForceLock,
-  runParallelogramBoundary, runPointerPreviewCommitParity, runKeyboardForceRelease, runHeadTailEndpointSnaps, setViewport, navigateDirect, navigateQuestion, focus, press, moveForce, click, inActivity
+  runParallelogramBoundary, runPointerPreviewCommitParity, runSnapThresholdContinuity, runKeyboardForceRelease, runHeadTailEndpointSnaps, setViewport, navigateDirect, navigateQuestion, focus, press, moveForce, click, inActivity
 };

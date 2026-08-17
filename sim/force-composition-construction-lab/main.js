@@ -1370,7 +1370,14 @@
       nearSnapPoint = (startSnap || endSnap)?.point || null;
       return;
     }
-    const snap = M.selectSnapCandidate(candidate, targets, { pointerType, project: modelToClient });
+    // Force previews may be clamped to the individual vector's visual bounds.
+    // Use the endpoint that is actually rendered for the near-snap state too;
+    // checking the raw pointer coordinate could advertise a snap that the
+    // visible arrow has not reached (especially near a root-feasible edge).
+    const snapCandidate = kind === "force" && drag?.forceIndex != null
+      ? M.forceGeometry(preview, question)[drag.forceIndex].tail
+      : candidate;
+    const snap = M.selectSnapCandidate(snapCandidate, targets, { pointerType, project: modelToClient });
     if (snap) nearSnapPoint = snap.point;
   }
 

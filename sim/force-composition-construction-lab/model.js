@@ -395,16 +395,24 @@
 
   function previewForceTranslation(answer, forceIndexValue, candidateTail, question, options = {}) {
     const next = releaseForceAndDescendants(answer, question, forceIndexValue);
-    // The first/root force is provisional until pointerup creates ORIGIN.
-    // Clamp that preview with the same whole-construction feasible region
-    // that commitForceTranslation() uses for the new root.  Otherwise the
-    // pointer can show an individual-force corner and then jump a long way
-    // when release canonicalizes it to a valid chain anchor.
+    // A live drag must always render the same candidate that the snap
+    // selector sees.  A first/root force is not yet a semantic ORIGIN, so do
+    // not replace its individual-force-safe position with a different hidden
+    // root clamp.  For pointer/touch, the root-feasible check is used only on
+    // release to decide whether that visible free candidate may establish
+    // ORIGIN.
     const hasRoot = next.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY);
-    const clamped = hasRoot
-      ? clampForceTail(candidateTail, question.forces[forceIndexValue])
-      : clampAnchor(candidateTail, question, forceIndexValue);
+    const individual = clampForceTail(candidateTail, question.forces[forceIndexValue]);
+    const rootIndex = question.type === "parallelogram" ? null : forceIndexValue;
+    // Keyboard movement is discrete rather than a continuous pointer drag.
+    // Keep its established root-navigation behaviour when a single arrow
+    // step would otherwise leave the feasible root region; pointer and touch
+    // previews never take this fallback, so they cannot jump on pointerup.
+    const clamped = !hasRoot && options.pointerType === "keyboard" && !anchorWithinBounds(individual, question, rootIndex)
+      ? clampAnchor(individual, question, rootIndex)
+      : individual;
     next.placements[forceIndexValue] = { mode: "free", tail10: point10(clamped) };
+    if (!hasRoot) next.anchor10 = null;
     if (options.preserveAnchor && Array.isArray(answer.anchor10)) next.anchor10 = answer.anchor10.slice();
     return next;
   }
@@ -413,18 +421,12 @@
     const next = previewForceTranslation(answer, forceIndexValue, candidateTail, question, options);
     const freeNext = clone(next);
     if (!freeNext.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY)) freeNext.anchor10 = null;
-    // Keep endpoint detection based on the individual force projection.  A
-    // first force may be dragged near a stationary endpoint that lies outside
-    // the all-orders root region; the semantic endpoint snap can still be
-    // valid because the stationary force supplies the eventual root.  The
-    // visible free fallback remains the whole-construction clamp from
-    // previewForceTranslation(), so pointermove and pointerup agree whenever
-    // no release-safe endpoint is selected.
-    const snapCandidateAnswer = releaseForceAndDescendants(answer, question, forceIndexValue);
-    const snapCandidateTail = clampForceTail(candidateTail, question.forces[forceIndexValue]);
-    snapCandidateAnswer.placements[forceIndexValue] = { mode: "free", tail10: point10(snapCandidateTail) };
-    const candidate = fromPoint10(point10(snapCandidateTail));
-    const snap = selectSnapCandidate(candidate, legalForceTargets(snapCandidateAnswer, question, forceIndexValue), options);
+    // Snap detection must use the exact rendered free candidate.  Keeping a
+    // second individual-force candidate here would let an invisible point
+    // cross the threshold while the SVG arrow is still far away, producing a
+    // discontinuous preview jump (and confusing the touch magnifier).
+    const candidate = fromPoint10(next.placements[forceIndexValue].tail10);
+    const snap = selectSnapCandidate(candidate, legalForceTargets(next, question, forceIndexValue), options);
     if (!snap) return next;
     if (question.type !== "parallelogram" && snap.attach === "HEAD") {
       const targetMatch = /^F([1-3])_TAIL$/.exec(snap.key || "");
@@ -530,7 +532,13 @@
       // normal target selector accept another legal endpoint; only suppress
       // the implicit arbitrary-root anchor for the unarmed first few steps.
       if (options.suppressAutoAnchor) return freeNext;
-      candidate = clampAnchor(candidate, question, question.type === "parallelogram" ? null : forceIndexValue);
+      // Only create a provisional root when the candidate already visible
+      // during the drag is inside the whole-construction feasible region.
+      // An individual-force-safe candidate outside that region remains a
+      // genuine free placement; silently projecting it to the root boundary
+      // would make pointerup disagree with the last preview frame.
+      const rootIndex = question.type === "parallelogram" ? null : forceIndexValue;
+      if (!anchorWithinBounds(candidate, question, rootIndex)) return freeNext;
       next.anchor10 = point10(candidate);
       next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
       return resolvedForceGeometryWithinBounds(next, question) ? next : freeNext;

@@ -223,6 +223,33 @@ const snappedNearMiss = M.commitForceTranslation(stationary, 1, nearMissHeadTail
 const snappedNearMissGeometry = M.forceGeometry(snappedNearMiss, HQuestion);
 assert.ok(M.distance(snappedNearMissGeometry[0].tail, stationaryTail) <= 0.1, "head-to-tail snap keeps the stationary force endpoint fixed");
 assert.ok(M.distance(snappedNearMissGeometry[1].head, stationaryTail) <= 0.1, "head-to-tail snap moves the dragged force onto the stationary endpoint");
+
+// A first/root force can be individually safe while its tail is outside the
+// all-orders root-feasible region.  The live preview must use that same
+// individual candidate for both rendering and snap detection: crossing the
+// semantic endpoint threshold may snap, but it must not jump from a hidden
+// root-clamped position many model units away.
+const continuityH2 = G.generateScenario({ seed: 91 }).questions[3];
+const continuityAnswer = M.freshAnswer(continuityH2);
+const continuityGeometry = M.forceGeometry(continuityAnswer, continuityH2);
+const continuityTarget = continuityGeometry[0].head;
+const continuityOutsideCandidate = { x: continuityTarget.x - (M.SNAP_POINTER_PX + 1), y: continuityTarget.y };
+const continuityInsideCandidate = { x: continuityTarget.x - (M.SNAP_POINTER_PX - 1), y: continuityTarget.y };
+const continuityOutside = M.previewSnappedForceTranslation(continuityAnswer, 1, continuityOutsideCandidate, continuityH2, { pointerType: "mouse", threshold: M.SNAP_POINTER_PX });
+const continuityInside = M.previewSnappedForceTranslation(continuityAnswer, 1, continuityInsideCandidate, continuityH2, { pointerType: "mouse", threshold: M.SNAP_POINTER_PX });
+const continuityOutsideTail = M.forceGeometry(continuityOutside, continuityH2)[1].tail;
+const continuityInsideTail = M.forceGeometry(continuityInside, continuityH2)[1].tail;
+assert.equal(continuityOutside.placements[1].mode, "free", "H2 threshold-outside preview remains the visible free candidate");
+assert.deepEqual(continuityInside.placements, [
+  { mode: "snap", targetKey: M.ORIGIN_KEY },
+  { mode: "snap", targetKey: "F1_HEAD" }
+], "H2 threshold-inside preview uses the visible candidate for endpoint snap");
+assert.ok(M.distance(continuityOutsideTail, continuityInsideTail) <= M.SNAP_POINTER_PX + 2 + M.POSITION_QUANTUM + M.MODEL_EPSILON,
+  "H2 threshold crossing stays within pointer movement plus snap threshold");
+assert.ok(M.distance(continuityOutsideTail, continuityInsideTail) < 20, "H2 threshold crossing does not jump from the hidden root-clamped candidate");
+const continuityCommitted = M.commitForceTranslation(continuityAnswer, 1, continuityInsideCandidate, continuityH2, { pointerType: "mouse", threshold: M.SNAP_POINTER_PX });
+assert.deepEqual(continuityCommitted.placements, continuityInside.placements, "H2 pointerup commits the same threshold-inside snap preview");
+
 const establishedChain = chainAnswer(HQuestion, [0, 1]);
 const establishedGeometry = M.forceGeometry(establishedChain, HQuestion);
 const reRooted = M.commitForceTranslation(establishedChain, 1, {
