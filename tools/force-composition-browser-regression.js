@@ -485,9 +485,21 @@ async function completeCurrentQuestion(cdp, index, order, input, embedded = fals
   assert.equal(await inActivity(cdp, "document.getElementById('drawResultant').disabled", embedded), true, `${input}: resultant button starts disabled before prerequisites`);
   if (question.type === "parallelogram") {
     await moveForce(cdp, 0, "ORIGIN", input, embedded);
+    if (input === "mouse" || input === "touch") {
+      const forceFocus = await inActivity(cdp, "(() => { const node=document.querySelector('.force-hit[data-force-index=\"0\"]'); return { active:document.activeElement===node, pointerFocus:node?.dataset.pointerFocus || null, outlineStyle:node ? getComputedStyle(node).outlineStyle : null }; })()", embedded);
+      assert.equal(forceFocus.active, true, `${input}: force semantic focus survives overlay rebuild`);
+      assert.equal(forceFocus.pointerFocus, "true", `${input}: pointer focus modality is recorded without dropping focus`);
+      assert.equal(forceFocus.outlineStyle, "none", `${input}: pointer focus modality hides only the visual ring`);
+    }
     await moveForce(cdp, 1, "ORIGIN", input, embedded);
     const corner = await targetModelPoint(cdp, "CORNER", embedded);
     await drawLine(cdp, "guide-start-F1_HEAD", corner, input, embedded);
+    if (input === "mouse" || input === "touch") {
+      const guideFocus = await inActivity(cdp, "(() => { const node=document.querySelector('[data-semantic-key=\"guide-end-0\"]'); return { active:document.activeElement===node, pointerFocus:node?.dataset.pointerFocus || null, outlineStyle:node ? getComputedStyle(node).outlineStyle : null }; })()", embedded);
+      assert.equal(guideFocus.active, true, `${input}: guide semantic focus survives overlay rebuild`);
+      assert.equal(guideFocus.pointerFocus, "true", `${input}: guide pointer focus modality is recorded`);
+      assert.equal(guideFocus.outlineStyle, "none", `${input}: guide pointer focus modality hides only the visual ring`);
+    }
     await drawLine(cdp, "guide-start-F2_HEAD", corner, input, embedded);
   } else {
     const actualOrder = order || question.forces.map((_, forceIndex) => forceIndex);

@@ -900,13 +900,18 @@
     if (unsaved) dom.saveBannerText.textContent = "未能儲存最新進度。你可繼續修改，但重新載入前的未儲存內容可能遺失；成功重試前不能最終提交或清除資料。";
   }
 
-  function focusSemantic(key, fallbackKeys = []) {
+  function focusSemantic(key, fallbackKeys = [], options = {}) {
     const keys = [key, ...fallbackKeys].filter(Boolean);
     if (!keys.length) return;
     windowObject.requestAnimationFrame(() => {
       for (const candidate of keys) {
         const node = dom.dragLayer.querySelector(`[data-semantic-key="${CSS.escape(candidate)}"]`);
-        if (node) { node.focus({ preventScroll: true }); break; }
+        if (node) {
+          if (options.focusModality === "pointer") node.dataset.pointerFocus = "true";
+          else delete node.dataset.pointerFocus;
+          node.focus({ preventScroll: true });
+          break;
+        }
       }
     });
   }
@@ -933,7 +938,7 @@
     }
     renderSaveBanner();
     dom.app.setAttribute("aria-busy", "false");
-    if (!options.suppressFocus) focusSemantic(previousKey, options.focusFallbackKeys || []);
+    focusSemantic(previousKey, options.focusFallbackKeys || [], { focusModality: options.focusModality });
   }
 
   function announce(message) {
@@ -1142,7 +1147,7 @@
     const index = state.currentQuestion;
     const previous = state.answers[index];
     if (JSON.stringify(previous) === JSON.stringify(nextAnswer)) {
-      renderAll({ focusKey, suppressFocus: options.suppressFocus });
+      renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], focusModality: options.focusModality });
       return;
     }
     const panelScrollTop = options.preservePanelScroll ? dom.controlPanel.scrollTop : null;
@@ -1152,14 +1157,14 @@
       validatedState = P.productionRoundTrip(proposedState);
     } catch (error) {
       console.error(error);
-      renderAll({ focusKey, suppressFocus: options.suppressFocus });
+      renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], focusModality: options.focusModality });
       announce("呢次作圖未能通過狀態檢查，已保留上一個有效作答。");
       return false;
     }
     pushUndo(index, previous);
     state = validatedState;
     saveDraft();
-    renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], suppressFocus: options.suppressFocus });
+    renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], focusModality: options.focusModality });
     if (panelScrollTop !== null) dom.controlPanel.scrollTop = panelScrollTop;
     if (message) announce(message);
     return true;
@@ -1495,10 +1500,10 @@
     finalizeAnswer(next, message, focusKey, {
       preservePanelScroll: true,
       focusFallbackKeys,
-      // Pointer/touch users should not be left with a keyboard-style focus
-      // capsule around a target that was just dragged.  Keyboard commits
-      // continue to transfer focus normally for accessibility.
-      suppressFocus: active.kind === "force" || active.kind.startsWith("guide")
+      // Keep the semantic target focused after rebuilding the overlay. The
+      // pointer modality only suppresses its visual ring; keyboard users can
+      // immediately continue with arrows or Enter without pressing Tab again.
+      focusModality: "pointer"
     });
   }
 
@@ -1581,6 +1586,7 @@
   function handleOverlayKey(event) {
     const target = event.target.closest(".force-hit,.line-handle,.resultant-hit");
     if (!target) return;
+    delete target.dataset.pointerFocus;
     if (keyboardLine && updateKeyboardLine(event)) return;
     if ((target.classList.contains("line-handle") || target.classList.contains("resultant-hit")) && event.key === "Enter") {
       beginKeyboardLine(target);

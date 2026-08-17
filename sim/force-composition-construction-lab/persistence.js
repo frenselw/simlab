@@ -77,12 +77,10 @@
       if (point.x < -tolerance || point.x > Generator.WIDTH + tolerance || point.y < -tolerance || point.y > Generator.HEIGHT + tolerance) return "anchor-bounds";
       return null;
     }
-    const clamped = Model.clampAnchor(point, question, question.type === "parallelogram" ? null : forceIndex);
-    // Drag coordinates are quantized to 0.1 model units after a CSS-pixel
-    // gesture. Accept one quantization step at the visual inset while still
-    // rejecting materially out-of-bounds anchors.
-    const tolerance = Model.POSITION_QUANTUM + Model.MODEL_EPSILON;
-    if (Math.abs(point.x - clamped.x) > tolerance || Math.abs(point.y - clamped.y) > tolerance) return "anchor-bounds";
+    // P anchors use the same canonical, quantized feasible-root predicate as
+    // interactive snap selection. This keeps persistence from rejecting a
+    // state that the model just presented as a successful snap.
+    if (!Model.parallelogramAnchorWithinBounds(point, question)) return "anchor-bounds";
     return null;
   }
 

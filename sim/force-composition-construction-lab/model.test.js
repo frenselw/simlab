@@ -75,22 +75,28 @@ assert.deepEqual(liveTailSnap.placements, [{ mode: "snap", targetKey: "ORIGIN" }
 const liveFarPreview = M.previewSnappedForceTranslation(initial, 0, { x: 200, y: 200 }, firstQuestion, { threshold: 14 });
 assert.equal(liveFarPreview.placements[0].mode, "free", "moving away from a snap target immediately returns to a free preview");
 
-// P1 must be bidirectional when either initial tail is a valid visible root.
-// Seed 0 deliberately places F1's tail outside the all-corners root region
-// while the two force vectors themselves still fit.  The old target filter
-// therefore allowed F1 -> F2 but rejected the reverse direction.
+// P1 endpoint targets must use the complete, canonical root-feasible region.
+// Seed 0 deliberately places F1's tail outside that region while the two
+// individual force vectors still fit.  The invalid direction must remain a
+// free placement instead of previewing a snap that persistence will reject.
 const bidirectionalP1 = G.generateScenario({ seed: 0 }).questions[0];
 const bidirectionalAnswer = M.freshAnswer(bidirectionalP1);
 const bidirectionalGeometry = M.forceGeometry(bidirectionalAnswer, bidirectionalP1);
 assert.equal(M.anchorWithinBounds(bidirectionalGeometry[0].tail, bidirectionalP1), false, "regression seed keeps the old over-restrictive root case");
+const validP1Preview = M.previewSnappedForceTranslation(bidirectionalAnswer, 0, bidirectionalGeometry[1].tail, bidirectionalP1, {
+  pointerType: "mouse", threshold: M.SNAP_POINTER_PX
+});
+assert.deepEqual(validP1Preview.placements, [
+  { mode: "snap", targetKey: M.ORIGIN_KEY },
+  { mode: "snap", targetKey: M.ORIGIN_KEY }
+], "P1 moving F1 onto the feasible F2 tail snaps both vectors to the common origin");
 const reverseP1Preview = M.previewSnappedForceTranslation(bidirectionalAnswer, 1, bidirectionalGeometry[0].tail, bidirectionalP1, {
   pointerType: "mouse", threshold: M.SNAP_POINTER_PX
 });
-assert.deepEqual(reverseP1Preview.placements, [
-  { mode: "snap", targetKey: M.ORIGIN_KEY },
-  { mode: "snap", targetKey: M.ORIGIN_KEY }
-], "P1 moving F2 onto F1 tail snaps both vectors to the common origin");
-assert.ok(M.resolvedForceGeometryWithinBounds(reverseP1Preview, bidirectionalP1), "bidirectional P1 snap remains release-safe");
+assert.deepEqual(reverseP1Preview.placements, [{ mode: "initial" }, { mode: "free", tail10: M.point10(bidirectionalGeometry[0].tail) }], "P1 rejects an out-of-bounds common-origin snap before release");
+assert.equal(reverseP1Preview.anchor10, null, "P1 invalid snap does not create an out-of-bounds anchor");
+assert.equal(M.canEstablishParallelogramOrigin(bidirectionalAnswer, bidirectionalP1, bidirectionalGeometry[0].tail), false, "P1 invalid root is rejected by the shared predicate");
+assert.ok(M.resolvedForceGeometryWithinBounds(reverseP1Preview, bidirectionalP1), "P1 invalid-snap fallback remains release-safe");
 assert.ok(M.selectSnapCandidate({ x: 14, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), "inclusive 14px pointer threshold snaps");
 assert.equal(M.selectSnapCandidate({ x: 14.01, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "mouse" }), null);
 assert.ok(M.selectSnapCandidate({ x: 6, y: 0 }, [{ key: "A", point: { x: 0, y: 0 } }], { pointerType: "keyboard", project: (point) => ({ x: point.x * 2, y: point.y * 2 }) }), "keyboard threshold is evaluated in projected CSS pixels");

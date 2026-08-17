@@ -290,6 +290,14 @@
       point.y >= bounds.minY - MODEL_EPSILON && point.y <= bounds.maxY + MODEL_EPSILON;
   }
 
+  function canonicalPoint(point) {
+    return fromPoint10(point10(point));
+  }
+
+  function parallelogramAnchorWithinBounds(point, question) {
+    return question.type === "parallelogram" && anchorWithinBounds(canonicalPoint(point), question);
+  }
+
   function resolvedForceGeometryWithinBounds(answer, question) {
     try {
       // A semantic snap must be safe to release back into the same canonical
@@ -313,6 +321,19 @@
     } catch {
       return false;
     }
+  }
+
+  function proposedParallelogramOrigin(answer, question, targetPoint) {
+    const next = clone(answer);
+    const anchor = canonicalPoint(targetPoint);
+    next.anchor10 = point10(anchor);
+    next.placements = question.forces.map(() => ({ mode: "snap", targetKey: ORIGIN_KEY }));
+    return next;
+  }
+
+  function canEstablishParallelogramOrigin(answer, question, targetPoint) {
+    if (!parallelogramAnchorWithinBounds(targetPoint, question)) return false;
+    return resolvedForceGeometryWithinBounds(proposedParallelogramOrigin(answer, question, targetPoint), question);
   }
 
   function corner(question, answer = null) {
@@ -434,11 +455,8 @@
       }
     }
     if (question.type === "parallelogram" && !Array.isArray(next.anchor10) && snap.key !== ORIGIN_KEY) {
-      const otherIndex = forceIndexValue === 0 ? 1 : 0;
-      next.anchor10 = point10(snap.point);
-      next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
-      next.placements[otherIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
-      return resolvedForceGeometryWithinBounds(next, question) ? next : freeNext;
+      if (!canEstablishParallelogramOrigin(next, question, snap.point)) return freeNext;
+      return proposedParallelogramOrigin(next, question, snap.point);
     }
     if (question.type !== "parallelogram" && !Array.isArray(next.anchor10) && snap.key !== ORIGIN_KEY) {
       const parentIndex = targetForceIndex(snap.key);
@@ -458,15 +476,14 @@
     if (question.type === "parallelogram") {
       if (Array.isArray(answer.anchor10)) return [{ key: ORIGIN_KEY, point: anchorPoint(answer) }];
       const otherIndex = movingIndex === 0 ? 1 : 0;
-      const point = forceGeometry(answer, question)[otherIndex].tail;
-      // The stationary tail is the learner's snap target.  Do not reject it
-      // just because the complete four-corner construction would place its
-      // unseen opposite corner outside the root-feasible rectangle: at this
-      // stage the student is only aligning the two force tails, and the
-      // release path still validates that both visible vectors remain safely
-      // drawable.  Gating this target with the all-corners bound made the
-      // first snap direction depend on which force happened to be dragged.
-      return [{ key: tailKey(otherIndex), point }];
+      const point = canonicalPoint(forceGeometry(answer, question)[otherIndex].tail);
+      // The same canonical root predicate is used by preview, commit and
+      // persistence.  An endpoint outside the complete parallelogram
+      // feasible region stays a free placement, so pointerup cannot show a
+      // successful snap and then bounce back on state validation.
+      return canEstablishParallelogramOrigin(answer, question, point)
+        ? [{ key: tailKey(otherIndex), point }]
+        : [];
     }
     if (!Array.isArray(answer.anchor10)) {
       // Either force may be placed first. Before a chain root exists, allow
@@ -519,12 +536,9 @@
       const targets = legalForceTargets(next, question, forceIndexValue);
       const snap = selectSnapCandidate(candidate, targets, options);
       if (question.type === "parallelogram" && snap) {
-        const otherIndex = forceIndexValue === 0 ? 1 : 0;
-        const anchor = fromPoint10(point10(snap.point));
-        next.anchor10 = point10(anchor);
-        next.placements[forceIndexValue] = { mode: "snap", targetKey: ORIGIN_KEY };
-        next.placements[otherIndex] = { mode: "snap", targetKey: ORIGIN_KEY };
-        return resolvedForceGeometryWithinBounds(next, question) ? next : freeNext;
+        if (canEstablishParallelogramOrigin(next, question, snap.point)) {
+          return proposedParallelogramOrigin(next, question, snap.point);
+        }
       }
       // A keyboard release lock may temporarily keep a snapped root free
       // while it is being moved away from its old target.  Still let the
@@ -885,7 +899,8 @@
     lineStartPoint, lineEndPoint, parallelSnapPoint, guideEndIsParallel, guideOriginAllowed, resultantOriginAllowed, previewGuide, commitGuide, removeGuide, removeResultant,
     parallelogramCornerTargets, guideIntersectionPoint, resultantSnapTargets, previewResultant, commitResultant, previewResultantStart, commitResultantStart,
     boundedTranslationDelta, translationCorrectionWithinBounds, previewResultantTranslation, commitResultantTranslation,
-    endpointHandles, guideStartHandles, resultantStartHandles, chainAnchorBounds, anchorWithinBounds, resolvedForceGeometryWithinBounds,
+    endpointHandles, guideStartHandles, resultantStartHandles, chainAnchorBounds, anchorWithinBounds, canonicalPoint,
+    parallelogramAnchorWithinBounds, canEstablishParallelogramOrigin, resolvedForceGeometryWithinBounds,
     isBlank, questionComplete
   });
 });

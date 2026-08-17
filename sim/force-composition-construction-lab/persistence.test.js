@@ -322,6 +322,30 @@ for (const movingIndex of [0, 1]) {
   assert.doesNotThrow(() => P.productionRoundTrip(releasedState), `seed 417 H2 release F${movingIndex + 1} remains production-valid`);
 }
 
+// P1 root snaps and persistence must agree on the complete four-corner
+// feasible region.  The old model accepted this visible-tail alignment even
+// though its fourth parallelogram corner was above the stage, causing a
+// pointerup rollback from validateAnchor().
+const p0Scenario = G.generateScenario({ seed: 0 });
+const p0Question = p0Scenario.questions[0];
+const p0Initial = M.freshAnswer(p0Question);
+const p0Geometry = M.forceGeometry(p0Initial, p0Question);
+const p0InvalidSnap = M.clone(p0Initial);
+p0InvalidSnap.anchor10 = M.point10(p0Geometry[0].tail);
+p0InvalidSnap.placements = [
+  { mode: "snap", targetKey: "ORIGIN" },
+  { mode: "snap", targetKey: "ORIGIN" }
+];
+const p0InvalidState = P.freshState(0);
+p0InvalidState.currentQuestion = 0;
+p0InvalidState.answers[0] = p0InvalidSnap;
+assert.match(P.validate(p0InvalidState, { kind: "draft" }).reason, /anchor-bounds-0/, "P1 rejects a fourth-corner-out-of-bounds common origin");
+const p0FreeFallback = M.commitForceTranslation(p0Initial, 1, p0Geometry[0].tail, p0Question, { pointerType: "mouse" });
+const p0FreeState = P.freshState(0);
+p0FreeState.currentQuestion = 0;
+p0FreeState.answers[0] = p0FreeFallback;
+assert.doesNotThrow(() => P.productionRoundTrip(p0FreeState), "P1 invalid snap falls back to a persistable free placement");
+
 // Property-style continuation coverage: every generated H1/H2/T1 order at
 // both feasible anchor corners must survive releasing each individual force
 // and then production round-tripping the resulting draft.  This closes the
