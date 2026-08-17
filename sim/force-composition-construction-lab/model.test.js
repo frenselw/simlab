@@ -250,6 +250,55 @@ assert.ok(M.distance(continuityOutsideTail, continuityInsideTail) < 20, "H2 thre
 const continuityCommitted = M.commitForceTranslation(continuityAnswer, 1, continuityInsideCandidate, continuityH2, { pointerType: "mouse", threshold: M.SNAP_POINTER_PX });
 assert.deepEqual(continuityCommitted.placements, continuityInside.placements, "H2 pointerup commits the same threshold-inside snap preview");
 
+// Keyboard movement has an explicit 2/10-unit contract.  In particular, a
+// fresh force outside the chain/parallelogram root region must remain free;
+// the ordinary Arrow key must never project it to a distant root boundary.
+const keyboardBoundaryScenario = G.generateScenario({ seed: 2990 });
+const keyboardBoundaryQuestion = keyboardBoundaryScenario.questions[1];
+const keyboardBoundaryAnswer = M.freshAnswer(keyboardBoundaryQuestion);
+const keyboardBoundaryBefore = M.forceGeometry(keyboardBoundaryAnswer, keyboardBoundaryQuestion)[0].tail;
+const keyboardBoundaryAfter = M.commitForceTranslation(keyboardBoundaryAnswer, 0, {
+  x: keyboardBoundaryBefore.x + 2, y: keyboardBoundaryBefore.y
+}, keyboardBoundaryQuestion, { pointerType: "keyboard" });
+const keyboardBoundaryTail = M.forceGeometry(keyboardBoundaryAfter, keyboardBoundaryQuestion)[0].tail;
+assert.ok(Math.abs(keyboardBoundaryTail.x - keyboardBoundaryBefore.x - 2) <= 0.11, "seed 2990 P2 F1 ArrowRight moves two horizontal units");
+assert.ok(Math.abs(keyboardBoundaryTail.y - keyboardBoundaryBefore.y) <= 0.11, "seed 2990 P2 F1 ArrowRight does not move vertically");
+assert.equal(keyboardBoundaryAfter.placements[0].mode, "free", "seed 2990 P2 F1 remains free outside the root region");
+assert.equal(keyboardBoundaryAfter.anchor10, null, "seed 2990 P2 F1 does not create a distant root on ArrowRight");
+
+const keyboardDirections = [
+  { x: 1, y: 0, name: "right" }, { x: -1, y: 0, name: "left" },
+  { x: 0, y: 1, name: "down" }, { x: 0, y: -1, name: "up" }
+];
+for (let seedValue = 0; seedValue < 10000; seedValue += 1) {
+  const generated = G.generateScenario({ seed: seedValue });
+  for (const question of generated.questions) {
+    for (let movingIndex = 0; movingIndex < question.forces.length; movingIndex += 1) {
+      for (const direction of keyboardDirections) {
+        for (const shift of [false, true]) {
+          const answer = M.freshAnswer(question);
+          const before = M.forceGeometry(answer, question)[movingIndex].tail;
+          const step = shift ? 10 : 2;
+          const candidate = { x: before.x + direction.x * step, y: before.y + direction.y * step };
+          const preview = M.previewSnappedForceTranslation(answer, movingIndex, candidate, question, { pointerType: "keyboard" });
+          const committed = M.commitForceTranslation(answer, movingIndex, candidate, question, { pointerType: "keyboard" });
+          const previewTail = M.forceGeometry(preview, question)[movingIndex].tail;
+          const committedTail = M.forceGeometry(committed, question)[movingIndex].tail;
+          assert.ok(M.distance(committedTail, previewTail) <= 0.11, `seed ${seedValue} ${question.id} F${movingIndex + 1} ${direction.name} ${shift ? "shift" : "ordinary"} preview/release geometry parity`);
+          const placement = committed.placements[movingIndex];
+          if (placement.mode !== "free") continue;
+          const after = M.forceGeometry(committed, question)[movingIndex].tail;
+          const axisDelta = direction.x ? after.x - before.x : after.y - before.y;
+          const orthogonalDelta = direction.x ? after.y - before.y : after.x - before.x;
+          assert.ok(Math.abs(axisDelta) <= step + 0.11, `seed ${seedValue} ${question.id} F${movingIndex + 1} ${direction.name} ${shift ? "shift" : "ordinary"} respects ${step}-unit axis step`);
+          assert.ok(Math.abs(orthogonalDelta) <= 0.11, `seed ${seedValue} ${question.id} F${movingIndex + 1} ${direction.name} ${shift ? "shift" : "ordinary"} keeps orthogonal axis fixed`);
+          assert.equal(committed.anchor10, null, `seed ${seedValue} ${question.id} free keyboard step does not create an implicit root`);
+        }
+      }
+    }
+  }
+}
+
 const establishedChain = chainAnswer(HQuestion, [0, 1]);
 const establishedGeometry = M.forceGeometry(establishedChain, HQuestion);
 const reRooted = M.commitForceTranslation(establishedChain, 1, {

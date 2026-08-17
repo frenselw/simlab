@@ -402,15 +402,7 @@
     // release to decide whether that visible free candidate may establish
     // ORIGIN.
     const hasRoot = next.placements.some((placement) => placement.mode === "snap" && placement.targetKey === ORIGIN_KEY);
-    const individual = clampForceTail(candidateTail, question.forces[forceIndexValue]);
-    const rootIndex = question.type === "parallelogram" ? null : forceIndexValue;
-    // Keyboard movement is discrete rather than a continuous pointer drag.
-    // Keep its established root-navigation behaviour when a single arrow
-    // step would otherwise leave the feasible root region; pointer and touch
-    // previews never take this fallback, so they cannot jump on pointerup.
-    const clamped = !hasRoot && options.pointerType === "keyboard" && !anchorWithinBounds(individual, question, rootIndex)
-      ? clampAnchor(individual, question, rootIndex)
-      : individual;
+    const clamped = clampForceTail(candidateTail, question.forces[forceIndexValue]);
     next.placements[forceIndexValue] = { mode: "free", tail10: point10(clamped) };
     if (!hasRoot) next.anchor10 = null;
     if (options.preserveAnchor && Array.isArray(answer.anchor10)) next.anchor10 = answer.anchor10.slice();

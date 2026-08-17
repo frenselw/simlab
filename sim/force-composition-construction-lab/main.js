@@ -1760,6 +1760,7 @@
     getScenario: () => scenario,
     getPresentation: () => presentation,
     getCompletion: () => state && scenario ? completionStates() : [],
+    getDragPreview: () => drag?.preview ? P.clone(drag.preview) : null,
     getEventTelemetry: () => eventTelemetry.slice(),
     getTouchTelemetry: () => touchTelemetry.slice()
   });
