@@ -185,6 +185,31 @@ assert.equal(translatedParallelogram.resultant.originKey, "FREE", "whole resulta
 assert.deepEqual(translatedParallelogram.resultant.originPoint10, [2500, 1700]);
 assert.deepEqual(M.lineEndPoint(translatedParallelogram.resultant, translatedParallelogram, firstQuestion), { x: 560, y: 280 }, "whole resultant translation preserves the vector");
 
+// When both resultant endpoints are still inside snap range, the two raw snap
+// objects must be handled with the same data shape.  A no-op whole-line drag
+// is enough to exercise the companion-end branch that previously dereferenced
+// `companion.snap.point` and threw a TypeError.
+assert.doesNotThrow(() => M.previewResultantTranslation(P, { x: 0, y: 0 }, firstQuestion, {
+  allowIncomplete: true, snap: true, pointerType: "mouse"
+}), "two-end resultant near-snap preview remains safe");
+const twoEndSnapped = M.commitResultantTranslation(P, { x: 0, y: 0 }, firstQuestion, {
+  allowIncomplete: true, pointerType: "mouse"
+});
+assert.equal(M.canonicalResultant(twoEndSnapped, firstQuestion), true, "two-end resultant snap preserves the canonical connection");
+
+// A guide must follow the other force's arrow direction, not merely its
+// undirected line.  The reverse 180° direction remains free/provisional and
+// therefore contributes no correct-guide score.
+const reverseGuideOrigin = M.endpointForKey(P, firstQuestion, "F1_HEAD");
+const reverseGuideDirection = firstQuestion.forces[1];
+const reverseGuide = M.commitGuide(P, "F1_HEAD", {
+  x: reverseGuideOrigin.x - reverseGuideDirection.dx * 0.35,
+  y: reverseGuideOrigin.y - reverseGuideDirection.dy * 0.35
+}, firstQuestion);
+assert.equal(reverseGuide.guides[0].end.mode, "free", "a reverse-direction guide stays provisional");
+assert.equal(M.guideEndIsParallel(reverseGuide, firstQuestion, reverseGuide.guides[0]), false, "a reverse-direction guide is not parallel for scoring");
+assert.equal(M.correctGuides(reverseGuide).length, 1, "the untouched guide remains independently correct");
+
 const boundaryTranslationQuestion = {
   type: "parallelogram",
   forces: [G.vector(95, 0, "F1"), G.vector(95, 50, "F2")],

@@ -583,10 +583,15 @@
     if (length < 8 || magnitude < MODEL_EPSILON) return null;
     const cross = Math.abs(delta.x * direction.dy - delta.y * direction.dx) / (length * magnitude);
     if (cross > Math.sin(PARALLEL_SNAP_ANGLE_DEG * Math.PI / 180)) return null;
-    const sign = delta.x * direction.dx + delta.y * direction.dy < 0 ? -1 : 1;
+    // A parallelogram guide must point from the force head toward the
+    // corresponding fourth vertex.  The cross-product test alone accepts
+    // both 0° and 180°; require a positive projection so a line drawn in the
+    // opposite direction remains provisional instead of scoring as correct.
+    const dot = delta.x * direction.dx + delta.y * direction.dy;
+    if (dot <= 0) return null;
     return clampLinePoint({
-      x: origin.x + sign * direction.dx / magnitude * length,
-      y: origin.y + sign * direction.dy / magnitude * length
+      x: origin.x + direction.dx / magnitude * length,
+      y: origin.y + direction.dy / magnitude * length
     });
   }
 
@@ -827,15 +832,18 @@
             ? { mode: "snap", targetKey: chosen.snap.key, point10: point10(chosen.snap.point) }
             : { mode: "snap", targetKey: chosen.snap.key };
         }
-        const companion = chosen.side === "start" ? endSnap : startSnap;
+        // Both endpoint candidates are raw snap objects. Keep this shape
+        // consistent when checking the other end so a two-end near-snap
+        // never tries to read a non-existent `companion.snap` wrapper.
+        const companionSnap = chosen.side === "start" ? endSnap : startSnap;
         const companionPoint = chosen.side === "start" ? shiftedEnd : shiftedStart;
-        if (companion && distance(companionPoint, companion.snap.point) <= POSITION_QUANTUM + MODEL_EPSILON) {
+        if (companionSnap && distance(companionPoint, companionSnap.point) <= POSITION_QUANTUM + MODEL_EPSILON) {
           if (chosen.side === "start") {
-            next.resultant.end = companion.snap.key === GUIDE_INTERSECTION_KEY
-              ? { mode: "snap", targetKey: companion.snap.key, point10: point10(companion.snap.point) }
-              : { mode: "snap", targetKey: companion.snap.key };
+            next.resultant.end = companionSnap.key === GUIDE_INTERSECTION_KEY
+              ? { mode: "snap", targetKey: companionSnap.key, point10: point10(companionSnap.point) }
+              : { mode: "snap", targetKey: companionSnap.key };
           } else {
-            next.resultant.originKey = companion.snap.key;
+            next.resultant.originKey = companionSnap.key;
             delete next.resultant.originPoint10;
           }
         }

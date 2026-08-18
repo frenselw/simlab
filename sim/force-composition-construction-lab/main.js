@@ -106,6 +106,11 @@
       "reviewQuestionNavigation", "toggleCorrect", "reviewFeedback", "reviewActions", "liveRegion", "submitDialog", "submitDialogMessage",
       "confirmSubmit", "resetDialog", "confirmReset"
     ]) dom[id] = documentObject.getElementById(id);
+    // Static controls participate in the same semantic-focus contract as
+    // controls rebuilt during render.  This gives dynamic actions a stable
+    // fallback when their preferred overlay is not currently visible.
+    dom.questionTitle.dataset.semanticKey = "question-title";
+    dom.drawResultant.dataset.semanticKey = "draw-resultant";
   }
 
   function createSvg(name, attributes = {}) {
@@ -765,6 +770,7 @@
       const button = documentObject.createElement("button");
       button.type = "button";
       button.dataset.clearGuide = String(index);
+      button.dataset.semanticKey = `guide-clear-${index}`;
       button.textContent = `清除第 ${index + 1} 條虛線輔助線`;
       dom.lineTools.append(button);
     });
@@ -780,6 +786,7 @@
     button.type = "button";
     button.textContent = scenario.questions[index].id;
     button.dataset.questionIndex = String(index);
+    button.dataset.semanticKey = review ? `review-question-${index}` : `question-progress-${index}`;
     button.dataset.complete = String(complete);
     button.setAttribute("aria-label", `第 ${index + 1} 題，${QUESTION_COPY[index].type}，${complete ? "完成" : "未完成"}`);
     if (index === state.currentQuestion) button.setAttribute("aria-current", "step");
@@ -839,8 +846,13 @@
       const button = documentObject.createElement("button");
       button.type = "button";
       button.dataset.editQuestion = String(index);
-      button.textContent = value ? "查看／修改" : "前往作答";
-      copy.setAttribute("aria-label", `${title.textContent}，${status.textContent}`);
+      const actionText = value ? "查看／修改" : "前往作答";
+      button.dataset.semanticKey = `summary-edit-${index}`;
+      button.textContent = actionText;
+      // The actionable button owns the accessible name.  Labelling the
+      // adjacent copy does not help screen-reader button navigation, which
+      // otherwise announces every row as the same generic action.
+      button.setAttribute("aria-label", `${scenario.questions[index].id}，${QUESTION_COPY[index].type}，${status.textContent}，${actionText}`);
       row.append(copy, button);
       dom.summaryList.append(row);
     });
@@ -905,7 +917,9 @@
     if (!keys.length) return;
     windowObject.requestAnimationFrame(() => {
       for (const candidate of keys) {
-        const node = dom.dragLayer.querySelector(`[data-semantic-key="${CSS.escape(candidate)}"]`);
+        const node = [...dom.app.querySelectorAll("[data-semantic-key]")]
+          .filter((item) => item.dataset.semanticKey === candidate)
+          .find((item) => !item.disabled && !item.hidden && !item.closest("[hidden], .is-hidden"));
         if (node) {
           if (options.focusModality === "pointer") node.dataset.pointerFocus = "true";
           else delete node.dataset.pointerFocus;
@@ -1230,7 +1244,10 @@
     const answer = state.answers[state.currentQuestion];
     if (!answer?.resultant) return;
     const next = M.removeResultant(answer);
-    finalizeAnswer(next, "合力已刪除，可以重新畫。", null, { preservePanelScroll: true });
+    finalizeAnswer(next, "合力已刪除，可以重新畫。", "resultant-start-ORIGIN", {
+      preservePanelScroll: true,
+      focusFallbackKeys: ["draw-resultant", "question-title"]
+    });
   }
 
   function normalizeSubmission(outcome) {
@@ -1734,8 +1751,13 @@
       const button = event.target.closest("[data-clear-guide]");
       if (!button) return;
       const index = Number(button.dataset.clearGuide);
-      const next = M.removeGuide(state.answers[state.currentQuestion], index);
-      finalizeAnswer(next, `第 ${index + 1} 條虛線輔助線已清除。`);
+      const answer = state.answers[state.currentQuestion];
+      const originKey = answer.guides[index]?.originKey;
+      const next = M.removeGuide(answer, index);
+      finalizeAnswer(next, `第 ${index + 1} 條虛線輔助線已清除。`, originKey ? `guide-start-${originKey}` : null, {
+        preservePanelScroll: true,
+        focusFallbackKeys: ["draw-resultant", "question-title"]
+      });
     });
     dom.questionProgress.addEventListener("click", (event) => {
       const button = event.target.closest("[data-question-index]");

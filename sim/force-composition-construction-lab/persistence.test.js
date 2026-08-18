@@ -346,6 +346,27 @@ p0FreeState.currentQuestion = 0;
 p0FreeState.answers[0] = p0FreeFallback;
 assert.doesNotThrow(() => P.productionRoundTrip(p0FreeState), "P1 invalid snap falls back to a persistable free placement");
 
+// Persistence must apply the same directed guide predicate as interactive
+// snapping.  A forged PARALLEL record that points 180° away from the other
+// force is rejected rather than receiving the guide score on reload.
+const reverseGuideState = P.freshState(seed);
+const reverseGuideQuestion = scenario.questions[0];
+const reverseGuideAnswer = commonP(0);
+const reverseOrigin = M.endpointForKey(reverseGuideAnswer, reverseGuideQuestion, "F1_HEAD");
+const reverseDirection = reverseGuideQuestion.forces[1];
+const reversePoint = M.clampLinePoint({
+  x: reverseOrigin.x - reverseDirection.dx * 0.35,
+  y: reverseOrigin.y - reverseDirection.dy * 0.35
+});
+reverseGuideAnswer.guides[0] = {
+  originKey: "F1_HEAD",
+  end: { mode: "snap", targetKey: "PARALLEL", point10: M.point10(reversePoint) }
+};
+reverseGuideState.answers[0] = reverseGuideAnswer;
+const reverseGuideValidation = P.validate(reverseGuideState, { kind: "draft" });
+assert.equal(reverseGuideValidation.ok, false, "persistence rejects a reverse-direction PARALLEL guide");
+assert.match(reverseGuideValidation.reason, /^guide-not-parallel-0$/);
+
 // Property-style continuation coverage: every generated H1/H2/T1 order at
 // both feasible anchor corners must survive releasing each individual force
 // and then production round-tripping the resulting draft.  This closes the
