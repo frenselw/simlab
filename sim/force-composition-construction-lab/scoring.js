@@ -15,7 +15,7 @@
 
   function scoreParallelogram(answer, question) {
     const placements = answer.placements.map((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
-    const guides = new Set(Model.correctGuides(answer).map((guide) => guide.originKey));
+    const guides = new Set(Model.correctGuides(answer, question).map((guide) => guide.originKey));
     const components = [
       component("F1-origin", "力矢量 F 一的箭尾在所選共同起點", 2, placements[0]),
       component("F2-origin", "力矢量 F 二的箭尾在所選共同起點", 2, placements[1]),

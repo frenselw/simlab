@@ -360,14 +360,15 @@
     return endpointForKey(answer, question, line.originKey);
   }
 
-  function correctGuides(answer) {
+  function correctGuides(answer, question) {
     if (!commonOrigin(answer)) return [];
-    return answer.guides.filter((guide) => guide && ["F1_HEAD", "F2_HEAD"].includes(guide.originKey) && guide.end.mode === "snap" && ["CORNER", "PARALLEL"].includes(guide.end.targetKey));
+    return answer.guides.filter((guide) => guide && ["F1_HEAD", "F2_HEAD"].includes(guide.originKey) && guide.end.mode === "snap" &&
+      (guide.end.targetKey === "CORNER" || (guide.end.targetKey === "PARALLEL" && question && guideEndIsParallel(answer, question, guide))));
   }
 
   function prerequisitesForResultant(answer, question) {
     return question.type === "parallelogram"
-      ? commonOrigin(answer) && new Set(correctGuides(answer).map((guide) => guide.originKey)).size === 2
+      ? commonOrigin(answer) && new Set(correctGuides(answer, question).map((guide) => guide.originKey)).size === 2
       : chainInfo(answer, question).complete;
   }
 
@@ -586,29 +587,69 @@
     return dot > 0;
   }
 
-  function parallelSnapPoint(answer, question, originKey, candidateEnd) {
+  function parallelContext(answer, question, originKey) {
     const match = /^F([1-3])_HEAD$/.exec(originKey || "");
     const index = match ? Number(match[1]) - 1 : -1;
     if (index < 0 || index >= question.forces.length) return null;
     const origin = endpointForKey(answer, question, originKey);
     const direction = question.forces[index === 0 ? 1 : 0];
-    if (!parallelRelation(origin, direction, candidateEnd)) return null;
-    const length = Math.hypot(candidateEnd.x - origin.x, candidateEnd.y - origin.y);
-    const canonical = clampLinePoint({
-      x: origin.x + direction.dx / Math.hypot(direction.dx, direction.dy) * length,
-      y: origin.y + direction.dy / Math.hypot(direction.dx, direction.dy) * length
-    });
-    // Persistence stores this quantized endpoint. Re-run the exact relation
-    // against that canonical point so preview and production validation can
-    // never disagree near the minimum guide length or a rounding boundary.
-    return parallelRelation(origin, direction, canonical) ? canonical : null;
+    const magnitude = Math.hypot(direction.dx, direction.dy);
+    if (magnitude < MODEL_EPSILON) return null;
+    return {
+      origin,
+      direction,
+      unit: { x: direction.dx / magnitude, y: direction.dy / magnitude }
+    };
+  }
+
+  function maxRayLengthInsideBounds(origin, unit) {
+    const min = FREE_LINE_INSET;
+    const maxX = Generator.WIDTH - FREE_LINE_INSET;
+    const maxY = Generator.HEIGHT - FREE_LINE_INSET;
+    let maximum = Infinity;
+    if (unit.x > MODEL_EPSILON) maximum = Math.min(maximum, (maxX - origin.x) / unit.x);
+    else if (unit.x < -MODEL_EPSILON) maximum = Math.min(maximum, (min - origin.x) / unit.x);
+    if (unit.y > MODEL_EPSILON) maximum = Math.min(maximum, (maxY - origin.y) / unit.y);
+    else if (unit.y < -MODEL_EPSILON) maximum = Math.min(maximum, (min - origin.y) / unit.y);
+    return Math.max(0, maximum);
+  }
+
+  function canonicalRayPoint(origin, unit, requestedLength) {
+    if (!Number.isFinite(requestedLength)) return null;
+    const length = Math.min(requestedLength, maxRayLengthInsideBounds(origin, unit));
+    if (length < 8) return null;
+    const ideal = {
+      x: origin.x + unit.x * length,
+      y: origin.y + unit.y * length
+    };
+    const canonical = clampLinePoint(ideal);
+    // Independent 0.1-unit rounding is allowed to move the endpoint only by
+    // its quantization error. Any larger displacement means a boundary clamp
+    // has bent the line and it must remain provisional.
+    if (distance(canonical, ideal) > POSITION_QUANTUM + MODEL_EPSILON) return null;
+    if (distance(origin, canonical) < 8) return null;
+    return canonical;
+  }
+
+  function canonicalParallelPoint(answer, question, originKey, candidateEnd) {
+    const context = parallelContext(answer, question, originKey);
+    if (!context) return null;
+    return canonicalRayPoint(context.origin, context.unit, distance(context.origin, candidateEnd));
+  }
+
+  function parallelSnapPoint(answer, question, originKey, candidateEnd) {
+    const context = parallelContext(answer, question, originKey);
+    if (!context || !parallelRelation(context.origin, context.direction, candidateEnd)) return null;
+    return canonicalRayPoint(context.origin, context.unit, distance(context.origin, candidateEnd));
   }
 
   function guideEndIsParallel(answer, question, guide) {
     if (!guide || !["F1_HEAD", "F2_HEAD"].includes(guide.originKey)) return false;
     if (guide.end?.mode === "snap" && guide.end.targetKey === "CORNER") return true;
     if (guide.end?.mode !== "snap" || guide.end.targetKey !== "PARALLEL") return false;
-    return Boolean(parallelSnapPoint(answer, question, guide.originKey, lineEndPoint(guide, answer, question)));
+    const saved = lineEndPoint(guide, answer, question);
+    const canonical = canonicalParallelPoint(answer, question, guide.originKey, saved);
+    return Boolean(canonical && distance(saved, canonical) <= POSITION_QUANTUM + MODEL_EPSILON);
   }
 
   function guideOriginAllowed(question, originKey) {

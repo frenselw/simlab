@@ -740,9 +740,11 @@
     layoutLineHandles(answer, question);
   }
 
-  function cancelActiveDrag({ announce: shouldAnnounce = false, rerender = true } = {}) {
+  function cancelActiveDrag({ announce: shouldAnnounce = false, rerender = true, restoreFocus = false } = {}) {
     if (!drag) return false;
     const active = drag;
+    const focusKey = active.target?.dataset?.semanticKey || null;
+    const sameQuestion = state?.currentQuestion === active.questionIndex;
     drag = null;
     nearSnapPoint = null;
     hideMagnifier();
@@ -755,8 +757,16 @@
     }
     active.target?.classList?.remove("is-dragging");
     if (rerender && state && scenario) {
-      renderStage();
-      renderOverlays();
+      if (restoreFocus) {
+        renderAll({
+          focusKey: sameQuestion ? focusKey : null,
+          focusFallbackKeys: sameQuestion ? ["draw-resultant", "question-title"] : ["question-title"],
+          focusModality: "pointer"
+        });
+      } else {
+        renderStage();
+        renderOverlays();
+      }
     }
     if (shouldAnnounce) announce("已取消尚未完成的拖動。");
     return true;
@@ -1535,7 +1545,7 @@
   function updatePointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!dragIsCurrent()) {
-      cancelActiveDrag({ announce: true });
+      cancelActiveDrag({ announce: true, restoreFocus: true });
       event.preventDefault();
       return;
     }
@@ -1587,7 +1597,7 @@
   function finishPointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!dragIsCurrent()) {
-      cancelActiveDrag({ announce: true });
+      cancelActiveDrag({ announce: true, restoreFocus: true });
       return;
     }
     const active = drag;
@@ -1655,7 +1665,7 @@
 
   function cancelPointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
-    cancelActiveDrag({ announce: true });
+    cancelActiveDrag({ announce: true, restoreFocus: true });
   }
 
   function beginKeyboardLine(target) {
@@ -1749,7 +1759,7 @@
     if (!target) return;
     delete target.dataset.pointerFocus;
     if (drag) {
-      if (event.key === "Escape") cancelActiveDrag({ announce: true });
+      if (event.key === "Escape") cancelActiveDrag({ announce: true, restoreFocus: true });
       event.preventDefault();
       return;
     }

@@ -373,6 +373,29 @@ const reverseGuideValidation = P.validate(reverseGuideState, { kind: "draft" });
 assert.equal(reverseGuideValidation.ok, false, "persistence rejects a reverse-direction PARALLEL guide");
 assert.match(reverseGuideValidation.reason, /^guide-not-parallel-0$/);
 
+// A near-boundary PARALLEL endpoint must be canonicalised along the true
+// direction ray before it is persisted.  Independent x/y clamping used to
+// bend this candidate while leaving it inside the loose 10-degree predicate;
+// production validation must reject that forged, skewed endpoint.
+const boundaryGuideScenario = G.generateScenario({ seed: 0 });
+const boundaryGuideQuestion = boundaryGuideScenario.questions[0];
+const boundaryGuideAnswer = M.freshAnswer(boundaryGuideQuestion);
+boundaryGuideAnswer.anchor10 = [340, 1927];
+boundaryGuideAnswer.placements = [
+  { mode: "snap", targetKey: "ORIGIN" },
+  { mode: "snap", targetKey: "ORIGIN" }
+];
+boundaryGuideAnswer.guides[0] = {
+  originKey: "F1_HEAD",
+  end: { mode: "snap", targetKey: "PARALLEL", point10: [1137, 240] }
+};
+const boundaryGuideState = P.freshState(0);
+boundaryGuideState.currentQuestion = 0;
+boundaryGuideState.answers[0] = boundaryGuideAnswer;
+const boundaryGuideValidation = P.validate(boundaryGuideState, { kind: "draft" });
+assert.equal(boundaryGuideValidation.ok, false, "persistence rejects a boundary PARALLEL endpoint bent by independent clamping");
+assert.match(boundaryGuideValidation.reason, /^guide-not-parallel-0$/);
+
 // An ORIGIN relationship without its learner-chosen anchor must fail closed;
 // otherwise Model.anchorPoint() would silently rebuild the answer at the
 // fixed centre and the scorer could award a complete result from incomplete

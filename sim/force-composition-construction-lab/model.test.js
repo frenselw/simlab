@@ -158,6 +158,10 @@ const nearMinimumGuideEnd = { x: 51.8, y: 87.2 };
 assert.equal(M.parallelSnapPoint(canonicalGuideAnswer, canonicalGuideQuestion, "F1_HEAD", nearMinimumGuideEnd), null, "parallel snap rejects a canonical endpoint rounded below the minimum length");
 const canonicalGuidePreview = M.previewGuide(canonicalGuideAnswer, "F1_HEAD", nearMinimumGuideEnd, canonicalGuideQuestion, { snap: true });
 assert.equal(canonicalGuidePreview.guides[0].end.mode, "free", "near-minimum preview stays persistence-safe");
+const malformedParallelGuide = M.clone(canonicalGuideAnswer);
+malformedParallelGuide.guides[0] = { originKey: "F1_HEAD", end: { mode: "snap", targetKey: "PARALLEL", point10: [518, 872] } };
+assert.equal(M.guideEndIsParallel(malformedParallelGuide, canonicalGuideQuestion, malformedParallelGuide.guides[0]), false, "a skewed saved PARALLEL endpoint is not canonical");
+assert.equal(M.correctGuides(malformedParallelGuide, canonicalGuideQuestion).length, 0, "scoring-facing correctGuides rejects a skewed saved PARALLEL endpoint");
 const wrongGuides = M.freshAnswer(firstQuestion);
 wrongGuides.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
 wrongGuides.guides = [

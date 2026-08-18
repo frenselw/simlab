@@ -1418,7 +1418,7 @@ Invalid matrix：
 - P1/H1保留guided handles，P2/H2/T1要求學生自行選擇中性endpoint handle；
 - snap比較candidate semantic tail/line endpoint，不比較raw pointer；
 - pointer／keyboard transaction 均有 question/revision/pre-state guard，semantic command 先取消 active ownership，並恢復 Escape 後的 keyboard focus；
-- `PARALLEL` guide snap 會對 clamp／0.1-unit quantization 後的 canonical endpoint 重跑長度、方向及 bounds predicate，preview 與 persistence 使用同一結果；
+- `PARALLEL` guide snap 會沿正確方向 ray 計算 free-line rectangle 內的最大長度，只縮短線段而不逐座標截斷；對 clamp／0.1-unit quantization 後的 canonical endpoint 重跑長度、方向及 bounds predicate，preview、persistence 及 scoring-facing `correctGuides` 使用同一結果；
 - H/T scoring拆出由`O`出發的continuous-prefix部分分；
 - generator改為immutable version registry、golden fixtures，fresh seed成功commit後才解鎖；
 - snapped state改存`mode/targetKey` relationship，free state只存integer tenths，消除浮點重載歧義；
