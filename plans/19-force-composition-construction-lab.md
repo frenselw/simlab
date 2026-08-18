@@ -892,6 +892,7 @@ Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit �
   answers: [
     {
       type: "parallelogram",
+      anchor10: null | [integerX10, integerY10], // required iff a placement uses ORIGIN
       placements: [
         { mode: "initial" }
           | { mode: "free", tail10: [integerX10, integerY10] }
@@ -916,6 +917,7 @@ Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit �
     // P2 same shape
     {
       type: "head-to-tail-2",
+      anchor10: null | [integerX10, integerY10], // required iff a placement uses ORIGIN
       placements: [
         { mode: "initial" }
           | { mode: "free", tail10: [integerX10, integerY10] }
@@ -932,6 +934,7 @@ Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit �
     // H2 same shape
     {
       type: "head-to-tail-3",
+      anchor10: null | [integerX10, integerY10], // required iff a placement uses ORIGIN
       placements: [
         { mode: "initial" }
           | { mode: "free", tail10: [integerX10, integerY10] }
@@ -951,7 +954,7 @@ Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit �
 
 Draft envelope必須有`phase/currentQuestion`；review answer必須完全省略兩fields。Question types and order固定`[P,P,H,H,T]`並與index相符。Force `dx/dy`、initial placements、correct endpoints、question signature、completion status、chain order及score全部由`(generatorVersion,seed)`加saved relationships/free geometry派生，不重複保存。
 
-Integer tenths必須是safe integers；decode時除以10恢復provisional model position。Snap placements不保存tail；snap line ends不保存point。Relationship key與數字座標互斥，mixed form一律拒絕。
+Integer tenths必須是safe integers；decode時除以10恢復provisional model position。`anchor10`是學生所選共同起點的authoritative坐標：任何 `mode:"snap", targetKey:"ORIGIN"` 都必須有非 null 的 `anchor10`，而沒有任何 `ORIGIN` root 時 `anchor10` 必須為 null。`anchorPoint()`的舞台中央 fallback 只可用於 fresh／preview，decoder 不得用它補回遺失的 saved geometry。Snap placements不保存tail；snap line ends不保存point。Relationship key與數字座標互斥，mixed form一律拒絕。
 
 Index-specific origin policy亦屬schema invariant：P1 guide origins只接受`F1_HEAD/F2_HEAD`且各一次、resultant只接受`ORIGIN`；P2接受上列extended provisional origins但只有正確origins可snap。H1 resultant只接受`ORIGIN`；H2/T1接受extended provisional origins但只有`ORIGIN`可snap。Decoder不得把P2/H2/T1的較寬union誤套到guided題。
 
@@ -1037,6 +1040,7 @@ Decoder 必須拒絕：
 - wrong question count/order/type；
 - free positions不是safe integer tenths，或decode後超出與UI clamp完全相同的hard geometry bounds；
 - relationship mode同時帶數字座標，或free mode同時帶target key；
+- 缺少 `anchor10` 欄位；`anchor10 === null` 但存在 `ORIGIN` root，或 `anchor10` 非 null 但不存在 `ORIGIN` root；
 - snap self-reference、dangling target、multiple children、branch或cycle；H/T完整chain不是恰好一個`ORIGIN` root，或P guide/resultant階段不是恰好兩力都以`ORIGIN`為共同起點；
 - invalid／duplicate guide origin keys；
 - P guides 在共同起點 arrangement 成立前存在；
@@ -1441,7 +1445,7 @@ Invalid matrix：
 
 - 預設力的 HTML drag hit target 保留觸控所需的尺寸，但取消長條大圈、持續外框、大型 `box-shadow` 及拖動後的整箭虛線圈；透明 hit target 不再製造干擾性高亮。
 - 移除舞台中央 `O` 點及其標籤。第一支力在任意合法可見位置放手後，production state 以 `anchor10` 保存該共同起點；wire-level `ORIGIN` 只代表「所選共同起點」的語意關係，不再代表固定坐標。
-- 平行四邊形第四頂點、首尾力鏈終點、合力 snap、review correct overlay及保存驗證均由該 `anchor10` 重建；舊有沒有`anchor10`的狀態仍以 legacy fallback 讀取，避免不必要地破壞既有 draft。
+- 平行四邊形第四頂點、首尾力鏈終點、合力 snap、review correct overlay及保存驗證均由該 `anchor10` 重建；任何已有 `ORIGIN` root 但遺失 `anchor10` 的 draft／review／pending-final 都由 decoder fail closed，不再以 legacy fallback 補回固定中央起點。
 - targeted evidence：model／persistence／scoring／lifecycle／accessibility tests通過；Playwright smoke 以非中央位置建立`anchor10=[3315,2263]`，drag target的`boxShadow`為`none`、border為透明。
 - 移除舞台上可見的 near-snap 圓圈、端點圓形操作器及控制面板 F1／F2 選擇按鈕；保留透明的 44px 觸控／鍵盤 hit target，避免干擾作圖視覺。
 - 平行四邊形題的兩力可只移動其中一力；當其箭尾接近另一支靜止力的箭尾時，兩力會共同吸附到該位置並建立 `anchor10`，不要求兩支力都先移動。

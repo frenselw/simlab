@@ -88,6 +88,10 @@
   let submitting = false;
   let drag = null;
   let keyboardLine = null;
+  // Monotonic revision for authoritative answer edits.  A keyboard line
+  // transaction records the revision it started from so a later semantic
+  // command can never commit against stale geometry.
+  let answerRevision = 0;
   let nearSnapPoint = null;
   let stageCamera = { x: 0, y: 0, width: G.WIDTH, height: G.HEIGHT };
   let stageCameraContext = null;
@@ -994,6 +998,7 @@
       state = pendingFreshState;
       scenario = G.generateScenario({ seed: state.seed, generatorVersion: state.generatorVersion });
       pendingFreshState = null;
+      answerRevision = 0;
       presentation = "editable";
       resultantMode = false;
       unsaved = false;
@@ -1008,6 +1013,7 @@
   }
 
   function showTechnical(title, message, actions = []) {
+    cancelKeyboardLine();
     presentation = "technical";
     dom.practicePanel.classList.add("is-hidden");
     dom.summaryPanel.classList.add("is-hidden");
@@ -1052,6 +1058,7 @@
       const review = SimActivityFlow.reviewResult(computed, { score: attemptValue.snapshot.score, passed: attemptValue.snapshot.passed }, attemptValue);
       if (!review.trusted) { showSafeFinishedFallback(attemptValue, "提交作圖與 Moodle 記錄不一致或完成狀態不明"); return; }
       state = { ...answer, phase: "review", currentQuestion: 0 };
+      answerRevision = 0;
       presentation = "review";
       resultantMode = false;
       trustedReview = true;
@@ -1076,6 +1083,7 @@
       if (computed.score !== decoded.payload.score || computed.maxScore !== decoded.payload.maxScore || computed.passed !== decoded.payload.passed ||
           decoded.snapshot.score !== computed.score || Boolean(decoded.snapshot.passed) !== computed.passed) throw new Error("Pending result does not match authoritative geometry");
       state = { ...decoded.answer, phase: "review", currentQuestion: 0 };
+      answerRevision = 0;
       presentation = "frozen";
       resultantMode = false;
       trustedReview = false;
@@ -1093,6 +1101,7 @@
     try {
       state = P.decodeSnapshot(attemptValue.snapshot, "draft");
       scenario = G.generateScenario({ seed: state.seed, generatorVersion: state.generatorVersion });
+      answerRevision = 0;
       presentation = "editable";
       resultantMode = false;
       unsaved = false;
@@ -1150,6 +1159,24 @@
     }
   }
 
+  function cancelKeyboardLine({ announce: shouldAnnounce = false, rerender = true } = {}) {
+    if (!keyboardLine) return false;
+    keyboardLine = null;
+    nearSnapPoint = null;
+    if (rerender && state && scenario) {
+      renderStage();
+      renderOverlays();
+    }
+    if (shouldAnnounce) announce("已取消尚未確認的鍵盤畫線。");
+    return true;
+  }
+
+  function keyboardLineIsCurrent(transaction = keyboardLine) {
+    if (!transaction || !state || transaction.questionIndex !== state.currentQuestion) return false;
+    if (transaction.beforeRevision !== answerRevision) return false;
+    return JSON.stringify(state.answers[state.currentQuestion]) === transaction.beforeJson;
+  }
+
   function placementTargetPoint(answer, question, index) {
     const targetKey = answer.placements[index]?.targetKey;
     if (!targetKey) return null;
@@ -1177,6 +1204,7 @@
     }
     pushUndo(index, previous);
     state = validatedState;
+    answerRevision += 1;
     saveDraft();
     renderAll({ focusKey, focusFallbackKeys: options.focusFallbackKeys || [], focusModality: options.focusModality });
     if (panelScrollTop !== null) dom.controlPanel.scrollTop = panelScrollTop;
@@ -1186,6 +1214,7 @@
 
   function navigateQuestion(index, fromSummary = false) {
     if (!state || !scenario || index < 0 || index > 4 || presentation === "technical") return;
+    cancelKeyboardLine({ announce: true });
     state.currentQuestion = index;
     clearKeyboardForceRelease();
     state.phase = "practice";
@@ -1197,6 +1226,7 @@
   }
 
   function goToSummary() {
+    cancelKeyboardLine({ announce: true });
     clearKeyboardForceRelease();
     resultantMode = false;
     state.phase = "summary";
@@ -1207,18 +1237,21 @@
   }
 
   function undo() {
+    cancelKeyboardLine({ announce: true });
     const stack = undoStacks[state.currentQuestion];
     if (!stack.length) return;
     clearKeyboardForceReleaseForQuestion(state.currentQuestion);
     resultantMode = false;
     state.answers[state.currentQuestion] = stack.pop();
     state = P.productionRoundTrip(state);
+    answerRevision += 1;
     saveDraft();
     renderAll();
     announce("已復原本題上一個完整操作。");
   }
 
   function resetCurrent() {
+    cancelKeyboardLine({ announce: true });
     const answer = state.answers[state.currentQuestion];
     if (M.isBlank(answer)) return;
     clearKeyboardForceReleaseForQuestion(state.currentQuestion);
@@ -1226,12 +1259,14 @@
     pushUndo(state.currentQuestion, answer);
     state.answers[state.currentQuestion] = M.freshAnswer(scenario.questions[state.currentQuestion]);
     state = P.productionRoundTrip(state);
+    answerRevision += 1;
     saveDraft();
     renderAll();
     announce("本題已重設；可使用復原上一步取回剛才的作答。");
   }
 
   function toggleResultantMode() {
+    cancelKeyboardLine({ announce: true });
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
     if (!M.resultantAvailable(answer, question)) return;
@@ -1241,6 +1276,7 @@
   }
 
   function deleteCurrentResultant() {
+    cancelKeyboardLine({ announce: true });
     const answer = state.answers[state.currentQuestion];
     if (!answer?.resultant) return;
     const next = M.removeResultant(answer);
@@ -1255,6 +1291,7 @@
   }
 
   function handleSubmissionOutcome(rawOutcome) {
+    cancelKeyboardLine({ announce: true });
     const outcome = normalizeSubmission(rawOutcome);
     submitting = false;
     SimActivityFlow.submission(outcome, {
@@ -1311,6 +1348,7 @@
   }
 
   function submitNow() {
+    cancelKeyboardLine({ announce: true });
     if (unsaved || submitting) return;
     submitting = true;
     dom.submitStatus.textContent = "正在提交同一份最終作答……";
@@ -1322,6 +1360,7 @@
   }
 
   function showSubmitConfirmation() {
+    cancelKeyboardLine({ announce: true });
     const missing = completionStates().filter((value) => !value).length;
     dom.submitDialogMessage.textContent = missing ? `仍有 ${missing} 題未完成，提交後不能修改，仍要提交嗎？` : "五題均已完成，提交後不能修改，確定提交嗎？";
     if (typeof dom.submitDialog.showModal === "function") dom.submitDialog.showModal();
@@ -1329,6 +1368,10 @@
   }
 
   function beginPointerDrag(event, target) {
+    if (keyboardLine) {
+      cancelKeyboardLine({ announce: true });
+      return;
+    }
     if (!["editable", "retryable"].includes(presentation) || state.phase !== "practice" || event.button > 0) return;
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
@@ -1363,6 +1406,10 @@
   }
 
   function beginFreeResultantDrag(event) {
+    if (keyboardLine) {
+      cancelKeyboardLine({ announce: true });
+      return;
+    }
     if (!resultantMode || !["editable", "retryable"].includes(presentation) || state.phase !== "practice" || event.button > 0) return;
     const question = scenario.questions[state.currentQuestion];
     if (state.answers[state.currentQuestion].resultant) return;
@@ -1546,18 +1593,38 @@
     else if (kind === "resultant-start" && answer.resultant) endpoint = M.lineStartPoint(answer.resultant, answer, question);
     else if (kind === "resultant-translate" && answer.resultant) endpoint = M.lineStartPoint(answer.resultant, answer, question);
     else endpoint = M.endpointForKey(answer, question, originKey);
-    keyboardLine = { kind, originKey, target, before: P.clone(answer), endpoint, startPoint: kind === "resultant-translate" ? { ...endpoint } : null, camera: { ...stageCamera } };
+    keyboardLine = {
+      kind,
+      originKey,
+      target,
+      questionIndex: state.currentQuestion,
+      beforeRevision: answerRevision,
+      beforeJson: JSON.stringify(answer),
+      before: P.clone(answer),
+      endpoint,
+      startPoint: kind === "resultant-translate" ? { ...endpoint } : null,
+      camera: { ...stageCamera }
+    };
     announce(kind === "resultant-start" ? "已開始鍵盤調整合力起點。使用方向鍵移動，Enter 確認，Escape 取消。" : kind === "resultant-translate" ? "已開始鍵盤平移整支合力。使用方向鍵移動，Enter 確認，Escape 取消。" : "已開始鍵盤畫線。使用方向鍵移動終點，Enter 確認，Escape 取消。");
   }
 
   function updateKeyboardLine(event) {
     if (!keyboardLine) return false;
+    if (!keyboardLineIsCurrent()) {
+      cancelKeyboardLine({ announce: true });
+      event.preventDefault();
+      return true;
+    }
+    // Keep the keyboard line as an exclusive transaction.  Tab cannot move
+    // ownership to another control while a provisional line is active;
+    // learners must confirm it with Enter or cancel it with Escape first.
+    if (event.key === "Tab") {
+      announce("鍵盤畫線尚未確認；請按 Enter 確認，或按 Escape 取消。");
+      event.preventDefault();
+      return true;
+    }
     if (event.key === "Escape") {
-      keyboardLine = null;
-      nearSnapPoint = null;
-      renderStage();
-      renderOverlays();
-      announce("已取消鍵盤畫線。");
+      cancelKeyboardLine({ announce: true });
       event.preventDefault();
       return true;
     }
@@ -1750,6 +1817,7 @@
     dom.lineTools.addEventListener("click", (event) => {
       const button = event.target.closest("[data-clear-guide]");
       if (!button) return;
+      cancelKeyboardLine({ announce: true });
       const index = Number(button.dataset.clearGuide);
       const answer = state.answers[state.currentQuestion];
       const originKey = answer.guides[index]?.originKey;
@@ -1766,6 +1834,7 @@
     dom.reviewQuestionNavigation.addEventListener("click", (event) => {
       const button = event.target.closest("[data-question-index]");
       if (!button || !state?.answers) return;
+      cancelKeyboardLine({ announce: true });
       state.currentQuestion = Number(button.dataset.questionIndex);
       correctOverlay = false;
       renderAll();
@@ -1778,6 +1847,7 @@
     dom.drawResultant.addEventListener("click", toggleResultantMode);
     dom.deleteResultant.addEventListener("click", deleteCurrentResultant);
     dom.resetQuestion.addEventListener("click", () => {
+      cancelKeyboardLine({ announce: true });
       if (typeof dom.resetDialog.showModal === "function") dom.resetDialog.showModal();
       else if (windowObject.confirm("重設本題？")) resetCurrent();
     });
@@ -1788,7 +1858,10 @@
     dom.returnToPractice.addEventListener("click", () => navigateQuestion(state.currentQuestion, true));
     dom.submitAttempt.addEventListener("click", showSubmitConfirmation);
     dom.submitDialog.addEventListener("close", () => { if (dom.submitDialog.returnValue === "confirm") submitNow(); });
-    dom.retrySave.addEventListener("click", () => { if (saveDraft()) { renderAll(); announce("最新進度已儲存。"); } });
+    dom.retrySave.addEventListener("click", () => {
+      cancelKeyboardLine({ announce: true });
+      if (saveDraft()) { renderAll(); announce("最新進度已儲存。"); }
+    });
     dom.toggleCorrect.addEventListener("click", () => { correctOverlay = !correctOverlay; renderAll(); });
     windowObject.addEventListener("resize", () => { if (!drag && !keyboardLine) renderAll(); });
     bindHostForwarding();

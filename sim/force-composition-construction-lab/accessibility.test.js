@@ -10,6 +10,7 @@ const P = require("./persistence.js");
 const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const css = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
 const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+const persistence = fs.readFileSync(path.join(__dirname, "persistence.js"), "utf8");
 assert.match(html, /<html lang="zh-Hant">/);
 assert.match(html, /id="liveRegion"[^>]*aria-live="polite"/);
 assert.match(html, /id="dragLayer"[^>]*aria-label="作圖操作層"/);
@@ -44,6 +45,13 @@ assert.match(main, /button\.dataset\.semanticKey = review \? `review-question-\$
 assert.match(main, /button\.setAttribute\("aria-label", `\$\{scenario\.questions\[index\]\.id\}/);
 assert.match(main, /dom\.app\.querySelectorAll\("\[data-semantic-key\]"\)/);
 assert.match(main, /focusFallbackKeys: \["draw-resultant", "question-title"\]/);
+assert.match(main, /function cancelKeyboardLine\(/);
+assert.match(main, /questionIndex: state\.currentQuestion/);
+assert.match(main, /beforeRevision: answerRevision/);
+assert.match(main, /function keyboardLineIsCurrent\(/);
+assert.match(main, /event\.key === "Tab"/);
+assert.match(persistence, /const roots = answer\.placements\.filter\(/);
+assert.match(persistence, /root-without-anchor/);
 
 const scenario = G.generateScenario({ seed: 31 });
 const state = P.freshState(31);

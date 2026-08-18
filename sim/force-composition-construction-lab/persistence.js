@@ -63,10 +63,16 @@
   }
 
   function validateAnchor(anchor10, answer, question) {
-    if (anchor10 == null) return null;
+    const roots = answer.placements.filter((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
+    // ORIGIN is a learner-chosen semantic relationship, so its authoritative
+    // coordinates must travel with the answer.  Never let anchorPoint()'s
+    // preview-only centre fallback reconstruct a persisted root.
+    if (!Object.prototype.hasOwnProperty.call(answer, "anchor10")) return "anchor-shape";
+    if (anchor10 === null) return roots.length === 0 ? null : "root-without-anchor";
+    if (anchor10 === undefined) return "anchor-shape";
     if (!validPoint10(anchor10)) return "anchor-shape";
     const point = Model.fromPoint10(anchor10);
-    const forceIndex = answer.placements.findIndex((placement) => placement.mode === "snap" && placement.targetKey === "ORIGIN");
+    const forceIndex = roots.length ? answer.placements.indexOf(roots[0]) : -1;
     if (forceIndex < 0) return "anchor-without-root";
     if (question.type !== "parallelogram") {
       // A snapped head-to-tail relationship may intentionally place the

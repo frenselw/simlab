@@ -19,6 +19,7 @@ function stateWith(index, answer, phase = "practice") {
 
 function commonP(index) {
   const answer = M.freshAnswer(scenario.questions[index]);
+  answer.anchor10 = M.point10(M.anchorPoint(answer));
   answer.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
   return answer;
 }
@@ -26,13 +27,17 @@ function commonP(index) {
 function chain(index, order, count = order.length) {
   const question = scenario.questions[index];
   const answer = M.freshAnswer(question);
-  if (count > 0) answer.placements[order[0]] = { mode: "snap", targetKey: "ORIGIN" };
+  if (count > 0) {
+    answer.anchor10 = M.point10(M.anchorPoint(answer));
+    answer.placements[order[0]] = { mode: "snap", targetKey: "ORIGIN" };
+  }
   for (let position = 1; position < count; position += 1) answer.placements[order[position]] = { mode: "snap", targetKey: M.headKey(order[position - 1]) };
   return answer;
 }
 
 function chainForQuestion(question, order) {
   const answer = M.freshAnswer(question);
+  answer.anchor10 = M.point10(M.anchorPoint(answer));
   answer.placements[order[0]] = { mode: "snap", targetKey: "ORIGIN" };
   for (let position = 1; position < order.length; position += 1) answer.placements[order[position]] = { mode: "snap", targetKey: M.headKey(order[position - 1]) };
   return answer;
@@ -243,6 +248,7 @@ invalid((value) => {
   value.answers[3].anchor10 = [0, 0];
 }, /resolved-force-bounds-3/);
 invalid((value) => {
+  value.answers[4].anchor10 = M.point10(M.anchorPoint(value.answers[4]));
   value.answers[4].placements[0] = { mode: "snap", targetKey: "ORIGIN" };
   value.answers[4].placements[1] = { mode: "snap", targetKey: "F1_HEAD" };
   value.answers[4].placements[2] = { mode: "snap", targetKey: "F1_HEAD" };
@@ -366,6 +372,30 @@ reverseGuideState.answers[0] = reverseGuideAnswer;
 const reverseGuideValidation = P.validate(reverseGuideState, { kind: "draft" });
 assert.equal(reverseGuideValidation.ok, false, "persistence rejects a reverse-direction PARALLEL guide");
 assert.match(reverseGuideValidation.reason, /^guide-not-parallel-0$/);
+
+// An ORIGIN relationship without its learner-chosen anchor must fail closed;
+// otherwise Model.anchorPoint() would silently rebuild the answer at the
+// fixed centre and the scorer could award a complete result from incomplete
+// authoritative geometry.
+for (const index of [0, 1, 2, 3, 4]) {
+  const orphanAnswer = complete(index, index >= 2 ? [0, 1, ...(index === 4 ? [2] : [])] : undefined);
+  orphanAnswer.anchor10 = null;
+  const orphanScoringState = P.freshState(seed);
+  orphanScoringState.answers[index] = orphanAnswer;
+  assert.equal(S.score(orphanScoringState, scenario).detail[index].score, 20, `orphan ${scenario.questions[index].id} demonstrates semantic score is not a persistence validation`);
+  const orphanState = stateWith(index, orphanAnswer);
+  const orphanValidation = P.validate(orphanState, { kind: "draft" });
+  assert.equal(orphanValidation.ok, false, `${scenario.questions[index].id} rejects an ORIGIN root without anchor10`);
+  assert.equal(orphanValidation.reason, `root-without-anchor-${index}`);
+  assert.throws(() => P.productionRoundTrip(orphanState), /root-without-anchor/);
+
+  const missingAnchorAnswer = M.clone(orphanAnswer);
+  delete missingAnchorAnswer.anchor10;
+  const missingAnchorState = stateWith(index, missingAnchorAnswer);
+  const missingAnchorValidation = P.validate(missingAnchorState, { kind: "draft" });
+  assert.equal(missingAnchorValidation.ok, false, `${scenario.questions[index].id} rejects an omitted anchor10 field`);
+  assert.equal(missingAnchorValidation.reason, `anchor-shape-${index}`);
+}
 
 // Property-style continuation coverage: every generated H1/H2/T1 order at
 // both feasible anchor corners must survive releasing each individual force
