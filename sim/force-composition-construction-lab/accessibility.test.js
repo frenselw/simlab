@@ -46,10 +46,13 @@ assert.match(main, /button\.setAttribute\("aria-label", `\$\{scenario\.questions
 assert.match(main, /dom\.app\.querySelectorAll\("\[data-semantic-key\]"\)/);
 assert.match(main, /focusFallbackKeys: \["draw-resultant", "question-title"\]/);
 assert.match(main, /function cancelKeyboardLine\(/);
+assert.match(main, /function cancelActiveDrag\(/);
+assert.match(main, /function dragIsCurrent\(/);
 assert.match(main, /questionIndex: state\.currentQuestion/);
 assert.match(main, /beforeRevision: answerRevision/);
 assert.match(main, /function keyboardLineIsCurrent\(/);
 assert.match(main, /event\.key === "Tab"/);
+assert.match(main, /restoreFocus: true/);
 assert.match(persistence, /const roots = answer\.placements\.filter\(/);
 assert.match(persistence, /root-without-anchor/);
 

@@ -861,7 +861,7 @@ summary -> pending final -> review
   through SimScorm.submitWithCallbacks and successful shared lifecycle outcome
 ```
 
-Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit 才執行 semantic transition及 draft checkpoint。Pointercancel rollback，不建立 continuation。
+Pointerdown／pointermove 不改 phase variant；pointerup 或 keyboard commit 才執行 semantic transition及 draft checkpoint。Pointercancel rollback，不建立 continuation。每個進行中的 pointer／keyboard 作圖都屬於獨佔 transaction，保存 `questionIndex`、開始時 `answerRevision` 及 pre-state fingerprint；navigation、summary、undo、reset、mode／delete／clear、submission、review／technical transition 會先取消 active drag／keyboard line，stale transaction 不得 commit。第二個 pointer 不能覆寫現有 drag；Escape 取消 keyboard line 後要恢復原 semantic handle focus。
 
 ### 11.6 Locked runtime variants（不是 editable snapshot phases）
 
@@ -1011,7 +1011,7 @@ Persisted authority：
 
 Transient，永不保存：
 
-- active pointerId、capture target、pointer start/delta；
+- active pointerId、capture target、pointer start/delta、transaction question/revision/fingerprint（全部 transient，不保存）；
 - pointerdown rollback copy；
 - undo history；
 - DOM／SVG element refs；
@@ -1417,6 +1417,8 @@ Invalid matrix：
 - 基礎題只排除近同向、近反向及完全 `90°`，接受 `85°/95°`；
 - P1/H1保留guided handles，P2/H2/T1要求學生自行選擇中性endpoint handle；
 - snap比較candidate semantic tail/line endpoint，不比較raw pointer；
+- pointer／keyboard transaction 均有 question/revision/pre-state guard，semantic command 先取消 active ownership，並恢復 Escape 後的 keyboard focus；
+- `PARALLEL` guide snap 會對 clamp／0.1-unit quantization 後的 canonical endpoint 重跑長度、方向及 bounds predicate，preview 與 persistence 使用同一結果；
 - H/T scoring拆出由`O`出發的continuous-prefix部分分；
 - generator改為immutable version registry、golden fixtures，fresh seed成功commit後才解鎖；
 - snapped state改存`mode/targetKey` relationship，free state只存integer tenths，消除浮點重載歧義；

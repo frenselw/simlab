@@ -740,6 +740,35 @@
     layoutLineHandles(answer, question);
   }
 
+  function cancelActiveDrag({ announce: shouldAnnounce = false, rerender = true } = {}) {
+    if (!drag) return false;
+    const active = drag;
+    drag = null;
+    nearSnapPoint = null;
+    hideMagnifier();
+    try {
+      if (active.target?.hasPointerCapture?.(active.pointerId) && typeof active.target.releasePointerCapture === "function") {
+        active.target.releasePointerCapture(active.pointerId);
+      }
+    } catch (_) {
+      // Pointer capture may already have been released by the browser.
+    }
+    active.target?.classList?.remove("is-dragging");
+    if (rerender && state && scenario) {
+      renderStage();
+      renderOverlays();
+    }
+    if (shouldAnnounce) announce("已取消尚未完成的拖動。");
+    return true;
+  }
+
+  function dragIsCurrent(transaction = drag) {
+    if (!transaction || !state || transaction.questionIndex !== state.currentQuestion) return false;
+    if (!["editable", "retryable"].includes(presentation) || state.phase !== "practice") return false;
+    if (transaction.beforeRevision !== answerRevision) return false;
+    return JSON.stringify(state.answers[state.currentQuestion]) === transaction.beforeJson;
+  }
+
   function resultantHandleAtPointer(event) {
     if (!event?.clientX || !event?.clientY) return null;
     return [...dom.dragLayer.querySelectorAll('.line-handle[data-line-kind="resultant"], .line-handle[data-line-kind="resultant-start"], .line-handle[data-line-kind="resultant-end"]')]
@@ -1013,6 +1042,7 @@
   }
 
   function showTechnical(title, message, actions = []) {
+    cancelActiveDrag();
     cancelKeyboardLine();
     presentation = "technical";
     dom.practicePanel.classList.add("is-hidden");
@@ -1159,13 +1189,23 @@
     }
   }
 
-  function cancelKeyboardLine({ announce: shouldAnnounce = false, rerender = true } = {}) {
+  function cancelKeyboardLine({ announce: shouldAnnounce = false, rerender = true, restoreFocus = false } = {}) {
     if (!keyboardLine) return false;
+    const active = keyboardLine;
+    const focusKey = active.target?.dataset?.semanticKey || null;
+    const sameQuestion = state?.currentQuestion === active.questionIndex;
     keyboardLine = null;
     nearSnapPoint = null;
     if (rerender && state && scenario) {
-      renderStage();
-      renderOverlays();
+      if (restoreFocus) {
+        renderAll({
+          focusKey: sameQuestion ? focusKey : null,
+          focusFallbackKeys: sameQuestion ? ["draw-resultant", "question-title"] : ["question-title"]
+        });
+      } else {
+        renderStage();
+        renderOverlays();
+      }
     }
     if (shouldAnnounce) announce("已取消尚未確認的鍵盤畫線。");
     return true;
@@ -1214,6 +1254,7 @@
 
   function navigateQuestion(index, fromSummary = false) {
     if (!state || !scenario || index < 0 || index > 4 || presentation === "technical") return;
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     state.currentQuestion = index;
     clearKeyboardForceRelease();
@@ -1226,6 +1267,7 @@
   }
 
   function goToSummary() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     clearKeyboardForceRelease();
     resultantMode = false;
@@ -1237,6 +1279,7 @@
   }
 
   function undo() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const stack = undoStacks[state.currentQuestion];
     if (!stack.length) return;
@@ -1251,6 +1294,7 @@
   }
 
   function resetCurrent() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const answer = state.answers[state.currentQuestion];
     if (M.isBlank(answer)) return;
@@ -1266,6 +1310,7 @@
   }
 
   function toggleResultantMode() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
@@ -1276,6 +1321,7 @@
   }
 
   function deleteCurrentResultant() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const answer = state.answers[state.currentQuestion];
     if (!answer?.resultant) return;
@@ -1291,6 +1337,7 @@
   }
 
   function handleSubmissionOutcome(rawOutcome) {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const outcome = normalizeSubmission(rawOutcome);
     submitting = false;
@@ -1348,6 +1395,7 @@
   }
 
   function submitNow() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     if (unsaved || submitting) return;
     submitting = true;
@@ -1360,6 +1408,7 @@
   }
 
   function showSubmitConfirmation() {
+    cancelActiveDrag({ announce: true });
     cancelKeyboardLine({ announce: true });
     const missing = completionStates().filter((value) => !value).length;
     dom.submitDialogMessage.textContent = missing ? `仍有 ${missing} 題未完成，提交後不能修改，仍要提交嗎？` : "五題均已完成，提交後不能修改，確定提交嗎？";
@@ -1368,6 +1417,10 @@
   }
 
   function beginPointerDrag(event, target) {
+    if (drag) {
+      event.preventDefault();
+      return;
+    }
     if (keyboardLine) {
       cancelKeyboardLine({ announce: true });
       return;
@@ -1382,7 +1435,20 @@
     // a later keyboard move never uses a stale target point.
     if (kind === "force") clearKeyboardForceReleaseForQuestion(state.currentQuestion);
     const point = clientToModel(event.clientX, event.clientY);
-    const base = { pointerId: event.pointerId, pointerType: event.pointerType || "mouse", kind, target, before: P.clone(answer), point, focusPoint: point, preview: answer, camera: { ...stageCamera } };
+    const base = {
+      pointerId: event.pointerId,
+      pointerType: event.pointerType || "mouse",
+      kind,
+      target,
+      questionIndex: state.currentQuestion,
+      beforeRevision: answerRevision,
+      beforeJson: JSON.stringify(answer),
+      before: P.clone(answer),
+      point,
+      focusPoint: point,
+      preview: answer,
+      camera: { ...stageCamera }
+    };
     if (kind === "force") {
       const index = Number(target.dataset.forceIndex);
       const tail = M.forceGeometry(answer, question)[index].tail;
@@ -1406,6 +1472,10 @@
   }
 
   function beginFreeResultantDrag(event) {
+    if (drag) {
+      event.preventDefault();
+      return;
+    }
     if (keyboardLine) {
       cancelKeyboardLine({ announce: true });
       return;
@@ -1420,6 +1490,9 @@
       pointerType: event.pointerType || "mouse",
       kind: "resultant-start",
       target: dom.stage,
+      questionIndex: state.currentQuestion,
+      beforeRevision: answerRevision,
+      beforeJson: JSON.stringify(answer),
       before: P.clone(answer),
       point,
       startPoint: point,
@@ -1461,6 +1534,11 @@
 
   function updatePointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!dragIsCurrent()) {
+      cancelActiveDrag({ announce: true });
+      event.preventDefault();
+      return;
+    }
     const question = scenario.questions[state.currentQuestion];
     const point = clampToCamera(clientToModel(event.clientX, event.clientY), drag.camera);
     drag.focusPoint = point;
@@ -1508,6 +1586,10 @@
 
   function finishPointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!dragIsCurrent()) {
+      cancelActiveDrag({ announce: true });
+      return;
+    }
     const active = drag;
     drag = null;
     nearSnapPoint = null;
@@ -1573,16 +1655,11 @@
 
   function cancelPointerDrag(event) {
     if (!drag || drag.pointerId !== event.pointerId) return;
-    drag = null;
-    nearSnapPoint = null;
-    hideMagnifier();
-    renderStage();
-    renderOverlays();
-    announce("已取消拖動，作圖回復到操作前狀態。");
+    cancelActiveDrag({ announce: true });
   }
 
   function beginKeyboardLine(target) {
-    if (keyboardLine || !["editable", "retryable"].includes(presentation)) return;
+    if (drag || keyboardLine || !["editable", "retryable"].includes(presentation)) return;
     const question = scenario.questions[state.currentQuestion];
     const answer = state.answers[state.currentQuestion];
     const kind = target.dataset.dragKind;
@@ -1611,7 +1688,7 @@
   function updateKeyboardLine(event) {
     if (!keyboardLine) return false;
     if (!keyboardLineIsCurrent()) {
-      cancelKeyboardLine({ announce: true });
+      cancelKeyboardLine({ announce: true, restoreFocus: true });
       event.preventDefault();
       return true;
     }
@@ -1624,7 +1701,7 @@
       return true;
     }
     if (event.key === "Escape") {
-      cancelKeyboardLine({ announce: true });
+      cancelKeyboardLine({ announce: true, restoreFocus: true });
       event.preventDefault();
       return true;
     }
@@ -1671,6 +1748,11 @@
     const target = event.target.closest(".force-hit,.line-handle,.resultant-hit");
     if (!target) return;
     delete target.dataset.pointerFocus;
+    if (drag) {
+      if (event.key === "Escape") cancelActiveDrag({ announce: true });
+      event.preventDefault();
+      return;
+    }
     if (keyboardLine && updateKeyboardLine(event)) return;
     if ((target.classList.contains("line-handle") || target.classList.contains("resultant-hit")) && event.key === "Enter") {
       beginKeyboardLine(target);
@@ -1817,6 +1899,7 @@
     dom.lineTools.addEventListener("click", (event) => {
       const button = event.target.closest("[data-clear-guide]");
       if (!button) return;
+      cancelActiveDrag({ announce: true });
       cancelKeyboardLine({ announce: true });
       const index = Number(button.dataset.clearGuide);
       const answer = state.answers[state.currentQuestion];
@@ -1834,6 +1917,7 @@
     dom.reviewQuestionNavigation.addEventListener("click", (event) => {
       const button = event.target.closest("[data-question-index]");
       if (!button || !state?.answers) return;
+      cancelActiveDrag({ announce: true });
       cancelKeyboardLine({ announce: true });
       state.currentQuestion = Number(button.dataset.questionIndex);
       correctOverlay = false;
@@ -1847,6 +1931,7 @@
     dom.drawResultant.addEventListener("click", toggleResultantMode);
     dom.deleteResultant.addEventListener("click", deleteCurrentResultant);
     dom.resetQuestion.addEventListener("click", () => {
+      cancelActiveDrag({ announce: true });
       cancelKeyboardLine({ announce: true });
       if (typeof dom.resetDialog.showModal === "function") dom.resetDialog.showModal();
       else if (windowObject.confirm("重設本題？")) resetCurrent();
@@ -1859,6 +1944,7 @@
     dom.submitAttempt.addEventListener("click", showSubmitConfirmation);
     dom.submitDialog.addEventListener("close", () => { if (dom.submitDialog.returnValue === "confirm") submitNow(); });
     dom.retrySave.addEventListener("click", () => {
+      cancelActiveDrag({ announce: true });
       cancelKeyboardLine({ announce: true });
       if (saveDraft()) { renderAll(); announce("最新進度已儲存。"); }
     });

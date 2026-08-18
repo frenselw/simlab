@@ -571,28 +571,37 @@
     return endpointForKey(answer, question, line.end.targetKey);
   }
 
+  function parallelRelation(origin, direction, endpoint) {
+    const delta = { x: endpoint.x - origin.x, y: endpoint.y - origin.y };
+    const length = Math.hypot(delta.x, delta.y);
+    const magnitude = Math.hypot(direction.dx, direction.dy);
+    if (length < 8 || magnitude < MODEL_EPSILON) return false;
+    const cross = Math.abs(delta.x * direction.dy - delta.y * direction.dx) / (length * magnitude);
+    if (cross > Math.sin(PARALLEL_SNAP_ANGLE_DEG * Math.PI / 180)) return false;
+    // A parallelogram guide must point from the force head toward the
+    // corresponding fourth vertex.  The cross-product test alone accepts
+    // both 0° and 180°; require a positive projection so a line drawn in the
+    // opposite direction remains provisional instead of scoring as correct.
+    const dot = delta.x * direction.dx + delta.y * direction.dy;
+    return dot > 0;
+  }
+
   function parallelSnapPoint(answer, question, originKey, candidateEnd) {
     const match = /^F([1-3])_HEAD$/.exec(originKey || "");
     const index = match ? Number(match[1]) - 1 : -1;
     if (index < 0 || index >= question.forces.length) return null;
     const origin = endpointForKey(answer, question, originKey);
     const direction = question.forces[index === 0 ? 1 : 0];
-    const delta = { x: candidateEnd.x - origin.x, y: candidateEnd.y - origin.y };
-    const length = Math.hypot(delta.x, delta.y);
-    const magnitude = Math.hypot(direction.dx, direction.dy);
-    if (length < 8 || magnitude < MODEL_EPSILON) return null;
-    const cross = Math.abs(delta.x * direction.dy - delta.y * direction.dx) / (length * magnitude);
-    if (cross > Math.sin(PARALLEL_SNAP_ANGLE_DEG * Math.PI / 180)) return null;
-    // A parallelogram guide must point from the force head toward the
-    // corresponding fourth vertex.  The cross-product test alone accepts
-    // both 0° and 180°; require a positive projection so a line drawn in the
-    // opposite direction remains provisional instead of scoring as correct.
-    const dot = delta.x * direction.dx + delta.y * direction.dy;
-    if (dot <= 0) return null;
-    return clampLinePoint({
-      x: origin.x + direction.dx / magnitude * length,
-      y: origin.y + direction.dy / magnitude * length
+    if (!parallelRelation(origin, direction, candidateEnd)) return null;
+    const length = Math.hypot(candidateEnd.x - origin.x, candidateEnd.y - origin.y);
+    const canonical = clampLinePoint({
+      x: origin.x + direction.dx / Math.hypot(direction.dx, direction.dy) * length,
+      y: origin.y + direction.dy / Math.hypot(direction.dx, direction.dy) * length
     });
+    // Persistence stores this quantized endpoint. Re-run the exact relation
+    // against that canonical point so preview and production validation can
+    // never disagree near the minimum guide length or a rounding boundary.
+    return parallelRelation(origin, direction, canonical) ? canonical : null;
   }
 
   function guideEndIsParallel(answer, question, guide) {

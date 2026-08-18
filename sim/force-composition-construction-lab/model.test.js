@@ -134,6 +134,30 @@ assert.equal(parallelGuide.guides[0].end.targetKey, "PARALLEL", "a guide snaps b
 assert.ok(Math.abs(M.distance(M.lineEndPoint(parallelGuide.guides[0], parallelGuide, firstQuestion), guideOrigin) - M.distance(arbitraryGuideEnd, guideOrigin)) < 1, "parallel snap preserves learner-chosen guide length");
 const liveParallelGuide = M.previewGuide(P, "F2_HEAD", { x: M.endpointForKey(P, firstQuestion, "F2_HEAD").x + firstQuestion.forces[0].dx * 0.35, y: M.endpointForKey(P, firstQuestion, "F2_HEAD").y + firstQuestion.forces[0].dy * 0.35 }, firstQuestion, { snap: true });
 assert.equal(liveParallelGuide.guides[1].end.targetKey, "PARALLEL", "guide direction visibly snaps before release");
+
+// The saved guide endpoint is quantized to 0.1 model units.  Near the
+// minimum-length threshold, rounding a projected endpoint can shorten it
+// below the 8-unit requirement; preview must therefore leave it provisional
+// instead of creating a PARALLEL relationship that persistence would reject.
+const canonicalGuideQuestion = {
+  type: "parallelogram",
+  forces: [
+    { key: "F1", dx: 1, dy: 0 },
+    { key: "F2", dx: 0.1278379220029071, dy: -0.9917950724307812 }
+  ],
+  initialTails: [{ x: 0, y: 0 }, { x: 0, y: 0 }]
+};
+const canonicalGuideAnswer = {
+  type: "parallelogram",
+  anchor10: [495, 951],
+  placements: [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }],
+  guides: [null, null],
+  resultant: null
+};
+const nearMinimumGuideEnd = { x: 51.8, y: 87.2 };
+assert.equal(M.parallelSnapPoint(canonicalGuideAnswer, canonicalGuideQuestion, "F1_HEAD", nearMinimumGuideEnd), null, "parallel snap rejects a canonical endpoint rounded below the minimum length");
+const canonicalGuidePreview = M.previewGuide(canonicalGuideAnswer, "F1_HEAD", nearMinimumGuideEnd, canonicalGuideQuestion, { snap: true });
+assert.equal(canonicalGuidePreview.guides[0].end.mode, "free", "near-minimum preview stays persistence-safe");
 const wrongGuides = M.freshAnswer(firstQuestion);
 wrongGuides.placements = [{ mode: "snap", targetKey: "ORIGIN" }, { mode: "snap", targetKey: "ORIGIN" }];
 wrongGuides.guides = [
