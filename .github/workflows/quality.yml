@@ -22,3 +22,4 @@ jobs:
       - run: npm run test:browser:mobile-touch
       - run: npm run test:browser:driving
       - run: npm run test:browser:hookes-law
+      - run: npm run test:browser:force-composition

@@ -11,6 +11,7 @@
     "test:browser:mobile-touch": "node tools/mobile-touch-browser-regression.js",
     "test:browser:hookes-law": "node tools/hookes-law-spring-browser-regression.js",
     "test:browser:static-kinetic-friction": "node tools/static-kinetic-friction-browser-regression.js",
+    "test:browser:force-composition": "node tools/force-composition-browser-regression.js",
     "package": "node tools/package-scorm.js",
     "package:all": "node tools/package-all.js"
   },
