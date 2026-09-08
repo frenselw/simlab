@@ -144,8 +144,11 @@ th { background: #f3f4f6; }
 
 @media (min-width: 820px) {
   .motion-app { height: 100vh; height: 100dvh; overflow: hidden; }
-  .motion-shell { min-height: 0; }
-  .motion-panel { width: min(24rem, 38vw); }
+  .motion-shell {
+    min-height: 0;
+    grid-template-columns: clamp(20.5rem, 38vw, 24rem) minmax(0, 1fr);
+  }
+  .motion-panel { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
