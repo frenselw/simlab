@@ -1,0 +1,205 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const M = require("./model.js");
+const Scoring = require("./scoring.js");
+const P = require("./persistence.js");
+
+const bounds = P.WORLD_BOUNDS;
+
+function completeQuestion(scenarioId) {
+  const scene = M.getScenario(scenarioId);
+  let directions = [];
+  for (const axis of scene.axes) {
+    const result = M.commitDirection(M.add(scene.origin, M.scale(axis.unit, 180)), directions, { scene });
+    assert.equal(result.accepted, true, `${scenarioId} direction is constructible`);
+    directions = result.directions;
+  }
+  let perpendiculars = [];
+  for (const direction of directions) {
+    const result = M.commitPerpendicular(M.projectionFoot(scene.forceHead, direction, scene), directions, perpendiculars, {
+      scene, bounds, minDistance: 4
+    });
+    assert.equal(result.accepted, true, `${scenarioId} perpendicular is constructible`);
+    perpendiculars = result.perpendiculars;
+  }
+  let components = [];
+  for (const intersection of M.visibleIntersections(perpendiculars, directions, scene)) {
+    const result = M.commitComponent(intersection.point, perpendiculars, directions, components, {
+      scene, bounds, minDistance: 4
+    });
+    assert.equal(result.accepted, true, `${scenarioId} component is constructible`);
+    components = result.components;
+  }
+  const theta = M.thetaCandidates(directions, scene)[0];
+  assert.ok(theta, `${scenarioId} exposes a theta candidate`);
+  let state = {
+    ...M.createQuestionState(scenarioId),
+    phase: "formulas",
+    directions,
+    perpendiculars,
+    components,
+    theta: theta.key
+  };
+  assert.equal(M.isCorrectDecomposition(state), true, `${scenarioId} complete construction is valid`);
+  const expectations = M.formulaExpectations(state);
+  state.formulas = Object.fromEntries(expectations.map(entry => [entry.key, entry.value]));
+  return state;
+}
+
+function fullActivity() {
+  const activity = P.freshDraft();
+  activity.phase = "summary";
+  activity.questions = P.SCENARIO_IDS.map(completeQuestion);
+  return activity;
+}
+
+function roundTrip(activity, label) {
+  const encoded = P.encodeDraft(activity);
+  assert.ok(P.bytes(encoded) <= P.MAX_SNAPSHOT_BYTES, `${label} stays under the snapshot budget`);
+  const decoded = P.decodeDraft(encoded);
+  assert.deepEqual(decoded, encoded, `${label} decodes to its canonical value`);
+  return decoded;
+}
+
+const fresh = P.freshDraft();
+assert.equal(P.validate(fresh).ok, true, "fresh activity is valid");
+assert.equal(P.legalNextAction(fresh), "draw-directions");
+for (let index = 0; index < P.SCENARIO_IDS.length; index += 1) {
+  const anyQuestion = P.freshDraft();
+  anyQuestion.currentQuestion = index;
+  roundTrip(anyQuestion, `fresh question ${index + 1}`);
+}
+
+const complete = fullActivity();
+const canonicalComplete = P.decodeDraft(P.encodeDraft(complete));
+assert.ok(canonicalComplete.questions[2].perpendiculars.some(line => line.end.x < 0 || line.end.y < 0), "gravity keeps negative geometry coordinates");
+assert.ok(canonicalComplete.questions[2].components.some(component => component.end.x < 0 || component.end.y < 0), "gravity keeps negative component coordinates");
+
+for (const [index, scenarioId] of P.SCENARIO_IDS.entries()) {
+  const question = canonicalComplete.questions[index];
+  const zeroPerpendicular = { ...question, phase: "perpendiculars", perpendiculars: [], components: [], theta: null, formulas: { F1: null, F2: null } };
+  const activity = P.freshDraft();
+  activity.currentQuestion = index;
+  activity.questions[index] = zeroPerpendicular;
+  roundTrip(activity, `${scenarioId} zero-perpendicular entry`);
+
+  const zeroComponent = { ...question, phase: "components", components: [], theta: null, formulas: { F1: null, F2: null } };
+  const zeroComponentActivity = P.freshDraft();
+  zeroComponentActivity.currentQuestion = index;
+  zeroComponentActivity.questions[index] = zeroComponent;
+  roundTrip(zeroComponentActivity, `${scenarioId} zero-component entry`);
+}
+
+let walkedBack = canonicalComplete.questions[0];
+for (const phase of ["angle", "components", "perpendiculars", "directions"]) {
+  walkedBack = M.backToPrevious(walkedBack);
+  assert.equal(walkedBack.phase, phase, `back navigation reaches ${phase}`);
+  const activity = P.freshDraft();
+  activity.questions[0] = walkedBack;
+  roundTrip(activity, `retained downstream data while at ${phase}`);
+  assert.equal(activity.questions[0].components.length, 2, `${phase} keeps component geometry`);
+  assert.ok(activity.questions[0].formulas.F1 && activity.questions[0].formulas.F2, `${phase} keeps attempted formulas`);
+}
+
+const wrongEdit = M.editGeometry(complete.questions[0], "component", 0, { x: 100, y: 70 }).editedState;
+assert.equal(wrongEdit.theta, null, "a wrong direct edit invalidates theta");
+const invalidAngle = { ...wrongEdit, phase: "angle" };
+const invalidAngleActivity = P.freshDraft();
+invalidAngleActivity.questions[0] = invalidAngle;
+roundTrip(invalidAngleActivity, "invalid angle continuation after direct edit");
+
+const invalidFormulas = { ...wrongEdit, phase: "formulas" };
+const invalidFormulaActivity = P.freshDraft();
+invalidFormulaActivity.questions[0] = invalidFormulas;
+const invalidFormulaRoundTrip = roundTrip(invalidFormulaActivity, "invalid formulas continuation");
+assert.equal(P.legalNextAction(invalidFormulaRoundTrip), "repair-geometry");
+
+// A direct component edit can be repaired while the learner is still on the
+// formula step. The correct geometry clears the old theta, but must not make
+// the reachable state invalid or discard the attempted expressions.
+const originalEndpoint = complete.questions[0].components[0].end;
+const damaged = M.editGeometry(complete.questions[0], "component", 0, { x: 100, y: 70 }).editedState;
+const repaired = M.editGeometry(damaged, "component", 0, originalEndpoint).editedState;
+assert.equal(repaired.phase, "formulas");
+assert.equal(repaired.theta, null);
+assert.equal(M.isCorrectDecomposition(repaired), true);
+const repairedActivity = P.freshDraft();
+repairedActivity.questions[0] = repaired;
+const repairedRoundTrip = roundTrip(repairedActivity, "repaired geometry awaiting re-angle");
+assert.equal(P.legalNextAction(repairedRoundTrip), "place-theta", "legal continuation points back to theta after repair");
+let reangle = M.backToPrevious(repaired);
+reangle = { ...reangle, theta: M.thetaCandidates(reangle.directions)[0].key };
+assert.equal(M.canAdvance(reangle), true, "the learner can place theta after repairing the geometry");
+reangle = M.advance(reangle);
+const reangleActivity = P.freshDraft();
+reangleActivity.questions[0] = reangle;
+roundTrip(reangleActivity, "repair then re-angle continuation");
+
+const reviewEdit = P.freshDraft();
+reviewEdit.phase = "practice";
+reviewEdit.fromReview = true;
+reviewEdit.currentQuestion = 1;
+reviewEdit.questions[1] = canonicalComplete.questions[1];
+roundTrip(reviewEdit, "review-edit continuation");
+
+const result = Scoring.score(canonicalComplete);
+assert.equal(result.score, 100, "complete activity scores 100");
+assert.equal(Scoring.questionDetail(canonicalComplete.questions[0], 0).groups.find(group => group.key === "theta").items.length, 1, "theta is one 20-point condition");
+assert.equal(Scoring.questionDetail(canonicalComplete.questions[0], 0).groups.find(group => group.key === "theta").items[0].points, 20);
+const reviewSnapshot = P.makeSnapshot("review", canonicalComplete, result);
+assert.ok(P.bytes(reviewSnapshot) <= P.MAX_SNAPSHOT_BYTES, "review snapshot stays under the SCORM budget");
+const pending = P.pendingEnvelope(reviewSnapshot, result);
+assert.ok(P.bytes(pending) <= P.MAX_SNAPSHOT_BYTES, "pending submission stays under the SCORM budget");
+assert.deepEqual(P.decodePending(pending).state, P.decodeReview(reviewSnapshot.answer), "pending recovery restores the same review state");
+
+// A perpendicular that passes through the foot remains correct if it extends
+// beyond the foot; a segment that stops short does not. Check both creation
+// orders across all scene geometries.
+for (const [index, scenarioId] of P.SCENARIO_IDS.entries()) {
+  const scene = M.getScenario(scenarioId);
+  for (const reverse of [false, true]) {
+    const base = P.clone(canonicalComplete.questions[index]);
+    base.perpendiculars = reverse ? base.perpendiculars.slice().reverse() : base.perpendiculars;
+    const line = base.perpendiculars[0];
+    const direction = base.directions.find(entry => entry.key === line.targetKey);
+    const vector = M.subtract(line.end, scene.forceHead);
+    const past = P.clone(base);
+    past.perpendiculars[0] = { ...line, end: M.add(scene.forceHead, M.scale(vector, 1.2)), targetKey: null };
+    const short = P.clone(base);
+    short.perpendiculars[0] = { ...line, end: M.add(scene.forceHead, M.scale(vector, .8)), targetKey: null };
+    const pastGroup = Scoring.questionDetail(past, index).groups.find(group => group.key === "perpendiculars");
+    const shortGroup = Scoring.questionDetail(short, index).groups.find(group => group.key === "perpendiculars");
+    const axisKey = M.directionAxisKey(direction, scene);
+    assert.equal(pastGroup.items.find(item => item.key === `perpendicular-${axisKey}`).correct, true, `${scenarioId} past-foot perpendicular scores in either order`);
+    assert.equal(shortGroup.items.find(item => item.key === `perpendicular-${axisKey}`).correct, false, `${scenarioId} short perpendicular remains incorrect`);
+  }
+}
+
+function expectInvalid(value, label) {
+  assert.equal(P.validate(value).ok, false, `${label} is rejected`);
+}
+
+const malformed = P.freshDraft();
+malformed.questions[0].phase = "directions";
+malformed.questions[0].perpendiculars = [{ key: "P1", end: { x: 20, y: 20 }, targetKey: "D1" }];
+expectInvalid(malformed, "downstream data before two directions");
+
+const danglingTheta = P.clone(canonicalComplete);
+danglingTheta.questions[0].theta = "not-a-candidate";
+expectInvalid(danglingTheta, "unknown theta key");
+
+const danglingTarget = P.clone(canonicalComplete);
+danglingTarget.questions[0].perpendiculars[0].targetKey = "D9";
+expectInvalid(danglingTarget, "dangling perpendicular target");
+
+const nonFinite = P.clone(canonicalComplete);
+nonFinite.questions[0].components[0].end.x = NaN;
+expectInvalid(nonFinite, "non-finite coordinate");
+
+const fabricatedFormulas = P.freshDraft();
+fabricatedFormulas.questions[0].phase = "formulas";
+fabricatedFormulas.questions[0].formulas = { F1: "cos", F2: "sin" };
+expectInvalid(fabricatedFormulas, "formula phase without geometry");
+
+console.log("force orthogonal decomposition persistence and scoring tests passed");

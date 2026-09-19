@@ -110,6 +110,14 @@ const simulationList = [
     description: "平移隨機力矢量，利用平行四邊形法則及首尾相接法作出兩力和三力的合力。",
     tags: ["physics", "mechanics", "forces", "vectors", "vector-addition", "resultant-force", "parallelogram-law", "head-to-tail", "drawing", "scorm"],
     status: "active"
+  },
+  {
+    title: "力的正交分解作圖練習",
+    folder: "force-orthogonal-decomposition",
+    categories: ["Mechanics"],
+    description: "在水平、斜面外力及斜面重力三個情境中畫出正交分力並以 sin θ／cos θ 表示大小。",
+    tags: ["physics", "mechanics", "forces", "vectors", "orthogonal-decomposition", "components", "scorm"],
+    status: "active"
   }
 ];
 

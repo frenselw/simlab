@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SimLab embedded host fixture</title>
+  <style>html,body{margin:0;min-height:1400px;background:#eee}iframe{display:block;width:390px;height:500px;border:0;margin-top:100px;background:#fff}</style>
+</head>
+<body>
+<script>
+  const query = new URLSearchParams(location.search);
+  const mode = query.get("mode") || "success";
+  const seed = query.get("seed") || "";
+  const data = {};
+  let buffer = {};
+  let commitCount = 0;
+  let finishCount = 0;
+  let pendingFailureUsed = false;
+  let finalFailureUsed = false;
+  let finishFailuresRemaining = mode === "committed" ? 2 : 0;
+  let lifecycleSeed = null;
+  try {
+    const rawLifecycleSeed = sessionStorage.getItem("simlab:lifecycle-seed");
+    if (rawLifecycleSeed) lifecycleSeed = JSON.parse(rawLifecycleSeed);
+    sessionStorage.removeItem("simlab:lifecycle-seed");
+  } catch (_) { lifecycleSeed = null; }
+  if (seed === "invalid-pending") {
+    const review = { version: 1, activity: "force-orthogonal-decomposition", kind: "review", answer: { schemaVersion: 1, questions: [] }, score: 100, passed: true };
+    const pending = { version: 1, activity: "force-orthogonal-decomposition", kind: "pending-final", payload: { reviewJson: JSON.stringify(review), score: 100, maxScore: 100, passed: true } };
+    data["cmi.core.lesson_status"] = "incomplete";
+    data["cmi.suspend_data"] = JSON.stringify(pending);
+    data["cmi.core.score.raw"] = "";
+  } else if (seed === "finished-missing") {
+    data["cmi.core.lesson_status"] = "passed";
+    data["cmi.suspend_data"] = "";
+    data["cmi.core.score.raw"] = "";
+  } else if (seed === "finished-mismatch" && lifecycleSeed?.suspendData) {
+    data["cmi.core.lesson_status"] = "passed";
+    data["cmi.suspend_data"] = lifecycleSeed.suspendData;
+    data["cmi.core.score.raw"] = String(lifecycleSeed.score ?? "0");
+  } else if (seed === "complete-draft" && lifecycleSeed?.suspendData) {
+    data["cmi.core.lesson_status"] = lifecycleSeed.status || "incomplete";
+    data["cmi.suspend_data"] = lifecycleSeed.suspendData;
+    data["cmi.core.score.raw"] = String(lifecycleSeed.score ?? "");
+  }
+  const snapshotKind = () => {
+    try { return JSON.parse(buffer["cmi.suspend_data"] || "null")?.kind || ""; } catch (_) { return ""; }
+  };
+  window.API = {
+    LMSInitialize() { return "true"; },
+    LMSGetValue(key) { return Object.prototype.hasOwnProperty.call(buffer, key) ? buffer[key] : data[key] || ""; },
+    LMSSetValue(key, value) { buffer[key] = String(value); return "true"; },
+    LMSCommit() {
+      commitCount += 1;
+      if (mode === "retryable" && snapshotKind() === "pending-final" && !pendingFailureUsed) {
+        pendingFailureUsed = true;
+        buffer = Object.assign({}, data);
+        return "false";
+      }
+      if (mode === "frozen" && snapshotKind() === "review" && !finalFailureUsed) {
+        finalFailureUsed = true;
+        buffer = Object.assign({}, data);
+        return "false";
+      }
+      Object.assign(data, buffer);
+      return "true";
+    },
+    LMSFinish() {
+      finishCount += 1;
+      if (finishFailuresRemaining > 0) {
+        finishFailuresRemaining -= 1;
+        return "false";
+      }
+      return "true";
+    },
+    LMSGetLastError() { return "0"; },
+    LMSGetErrorString() { return ""; }
+  };
+  const iframe = document.createElement("iframe");
+  const width = Math.max(280, Math.min(900, Number(query.get("w") || 390)));
+  const height = Math.max(420, Math.min(900, Number(query.get("h") || 500)));
+  iframe.style.width = width + "px";
+  iframe.style.height = height + "px";
+  iframe.src = query.get("src") || "/sim/force-orthogonal-decomposition/index.html";
+  document.body.appendChild(iframe);
+  window.__lmsMock = { data, buffer, mode, get commitCount() { return commitCount; }, get finishCount() { return finishCount; } };
+</script>
+</body>
+</html>
