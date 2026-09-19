@@ -9,8 +9,8 @@
 沿用目前已獲認可的活動，完整保留作圖 → θ → 公式，以及拖動修改、局部吸附、方向／箭頭控制點可達性、數學排版、舞台步驟導覽。不得另起一個簡化版本代替。
 
 1. **獨立面板滾動**：桌面左右分區、手機上下分區；bounded split-panel，舞台與面板均不隨對方內容增長。面板內捲動不移動畫面，面板頂底不把手勢傳給 host。html／body 無第三個捲動區。空白舞台的手勢屬 enclosing page／Moodle host，不能轉給面板；真正 draggable 的手勢只操作模擬。遵守 production guide 全部 touch matrix。
-2. **三個情境**：水平／垂直；斜面物體受外力 F，沿平行／垂直斜面分解；斜面重力 mg 沿下坡／向內法線分解。場景需清楚畫出有厚度或斜線紋的斜面及物體，力起點對齊物體。原力固定於該題，避免零分量與近退化角。使用小型題目設定與共同幾何，勿寫龐大通用繪圖引擎。
-3. **角與表達式**：前兩類自由定義 θ，保留可行的 O／P 銳角、等值角與互餘角語意；第三類先採題目給定斜面傾角 θ，要求標出同一角度，不能接受互餘角作同一 θ。mg 平行分量為 mg sin θ、向內法線分量為 mg cos θ。分力編號按學生建立次序；不假設 F₁ 恒為平行或水平。公式表達大小，箭嘴表達方向。
+2. **三個情境**：水平／垂直；斜面物體受外力 F，沿平行／垂直斜面分解；斜面重力 G 沿下坡／向內法線分解。場景需清楚畫出有厚度或斜線紋的斜面及物體，力起點對齊物體。原力固定於該題，避免零分量與近退化角。使用小型題目設定與共同幾何，勿寫龐大通用繪圖引擎。
+3. **角與表達式**：前兩類自由定義 θ，保留可行的 O／P 銳角、等值角與互餘角語意；第三類先採題目給定斜面傾角 θ，要求標出同一角度，不能接受互餘角作同一 θ。G 的平行分量為 Gₓ = G sin θ、向內法線分量為 Gᵧ = G cos θ。第三類固定以 Gₓ／Gᵧ 表示軸向，不容許因學生畫箭頭的先後而對調。公式表達大小，箭嘴表達方向。
 4. **完整練習**：先交付固定三題、每情境一題，可切換並保留各題草稿；不額外擴張隨機題庫、任意原力拖動或完整 undo。可反覆檢查／修改，檢查回饋不等於最終提交；換角／改图保留嘗試答案、清除過時判定。提供最後總覽及明確的最終提交按鈕。
 5. **保存及提交**：formative／low-risk browser scoring，非高風險評核。用 final-state scoring，三题等權，每題方向、垂線、分力、θ、公式五組各等權，組內兩項可給部分分數；無操作次數懲罰，無任意 pass/fail 門檻。未完成項於最終提交得 0，但必須清楚確認遺漏。提交前可從總覽返回修改，正式成功後鎖定 review。使用共享 SCORM startup、draft、submission、finish 路徑，涵蓋四種提交結果。standalone 同樣可保存／恢復本地草稿及重設，但不可冒稱已提交到 Moodle。shared runtime 若已有 standalone 支援則沿用，不另複製一套。
 6. **正式產物**：完整 production plan、state matrix、snapshot schema、scoring rubric、round-trip／非法狀態／restore continuation／lifecycle 測試，catalogue 與 manifest，SCORM 1.2 ZIP 及 extracted launch 驗證。包內只列實際 runtime dependencies。三題資料須符合 suspend_data 大小限制。
@@ -169,7 +169,7 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 
 1. `horizontal-vertical`：`F = OP`，方向軸為水平／垂直；θ 可由學生在 `O` 或 `P` 選四個銳角，互餘角用相應 `sin`／`cos`。
 2. `inclined-external-force`：物體在傾角 28° 的有厚度斜面上，受固定斜向外力 `F`；方向軸為平行／垂直斜面；θ 仍由學生自由選兩個銳角，不接受僅由按鈕文字推斷的角度。
-3. `inclined-gravity`：物體在同一類斜面上，固定原力為豎直向下 `mg`；題目已給斜面與水平的傾角 θ，學生須在分解圖標出同一個 θ，不接受互餘角冒充同一 θ；平行斜面分量是 `mg sin θ`，向內法線分量是 `mg cos θ`。
+3. `inclined-gravity`：物體在同一類斜面上，固定原力為豎直向下 `G`；題目已給斜面與水平的傾角 θ，學生須在分解圖標出同一個 θ，不接受互餘角冒充同一 θ。第三題固定命名為 `Gₓ`＝平行斜面分量、`Gᵧ`＝垂直斜面／向內法線分量；學生不可把兩者對調，對調時分力評分項目不成立。大小關係為 `Gₓ = G sin θ`、`Gᵧ = G cos θ`。
 
 每題的原力、斜面角及幾何在題目設定中固定，避免零分量及近退化角。分力名稱依實際建立次序為 `F₁`、`F₂`；公式只表達大小，箭嘴表達方向。
 
@@ -217,7 +217,7 @@ have `touch-action:none` before `pointerdown`; visual SVG is `pointer-events:non
 - 分力：兩支箭頭端點與兩個可見垂足交點一致，且方向線各一支；每支 10 分。
 - θ：這一組是一個 20 分條件（有合法 θ 語意鍵並標在本題可接受的角弧）；錯誤／缺少得 0 分。自由角接受合法 O／P 的等值或互餘候選；已知斜面題只接受分解三角形內、等於題目斜面傾角的指定 `theta-incline`。
 - 公式：兩個分力函數各 10 分；缺填及錯填只影響相應的 10 分項。
-- 未完成題於 final-state score 中按已完成的觀察給部分分，不另加操作次數懲罰；最低 0，最高 100。回饋列出每題五組的已得／待修項。
+- 未完成題於 final-state score 中按已完成的觀察給部分分，不另加操作次數懲罰；最低 0，最高 100。第三題的分力項目另外要求 `F1` 對應 `Gₓ`（平行斜面）、`F2` 對應 `Gᵧ`（垂直斜面／向內法線）；倒轉位置時相應分力項目得 0 分。練習及提交前檢查只顯示保存／待評核狀態，不顯示數字分數或錯誤分組；三題最終提交並鎖定後，review 才列出每題五組的已得／待修項。
 
 ## Tolerance
 
@@ -238,14 +238,15 @@ have `touch-action:none` before `pointerdown`; visual SVG is `pointer-events:non
 | `practice` | directions from back-navigation | 0 | 兩條方向及可驗證的已保留下游幾何；phase 只表示目前工具，不表示刪除了後步 | 不得有 dangling target 或不符合矩陣的跳步資料 | 編輯方向、下一步回到原工具、換題 |
 | `practice` | in-progress perpendiculars | 1 | 兩條方向已存在；垂線 1–2 條及 target keys | 若垂線少於 2 條，後續分力／θ／公式必須 pristine；由後步返回時可保留完整下游資料 | 畫第二條、編輯、返回方向 |
 | `practice` | perpendiculars from back-navigation | 1 | 方向、垂線及可驗證的已保留分力／θ／公式 | 關係鍵必須仍能由現有線段解析 | 編輯垂線、下一步、返回方向 |
-| `practice` | in-progress components | 2 | 方向及垂線已存在；分力 1–2 條，target 可為 null | 若分力少於 2 條，θ／公式必須 pristine；由後步返回時可保留既有 θ／公式 | 畫第二支、編輯、返回 |
+| `practice` | in-progress components | 2 | 方向及垂線已存在；分力 1–2 條，target 可為 null；已有的 F1/F2 均可直接編輯 | 若分力少於 2 條，θ／公式必須 pristine；由後步返回時可保留既有 θ／公式 | 畫下一支、編輯已有分力、返回 |
 | `practice` | components from back-navigation | 2 | 完整分力及可保留的 θ／公式；可直接修復上游 | 關係鍵及 θ 必須可解析，失效 θ 必須為 null | 編輯分力、下一步、返回 |
-| `practice` | angle geometry-valid | 3 | 兩支分力及完整可驗證幾何；θ 可空或已選 | 無 θ 時不得進公式；公式 null 或既有 answer | 放 θ、改圖、返回 |
-| `practice` | formulas geometry-valid | 4 | 完整幾何、合法 θ、`F1/F2` 可 null/sin/cos | 無 | 填／清／檢查公式、編輯分力、返回 |
+| `practice` | angle geometry-valid | 3 | 兩支分力及完整可驗證幾何；θ 可為已吸附 key，或以 `thetaPoint` 保存未吸附的放手座標 | 無 θ 時不得進公式；公式 null 或既有 answer | 放／移 θ、改圖、返回 |
+| `practice` | angle/formulas theta released | 3–4 | `theta:null` 且 `thetaPoint` 是有效世界座標；θ 仍可由該位置拖近角弧重新吸附 | 不得把未吸附 θ 當成合法公式角度 | 拖近角弧重新吸附、改圖、返回 |
+| `practice` | formulas geometry-valid | 4 | 完整幾何、合法 θ、`thetaPoint:null`、`F1/F2` 可 null/sin/cos | 無 | 填／清／檢查公式、編輯分力、返回 |
 | `practice` | formulas geometry-invalid continuation | 4 | 兩支分力仍存在但上游直接編輯使幾何失效；既有公式可保留 | 不得把失效幾何當作已完成；θ 清除 | 修復線／箭頭，或返回；不可得到成功公式 feedback |
 | `practice` | formulas repaired-geometry-awaiting-theta | 4 | 直接編輯先使幾何失效、再修復至正確；θ 已清除；原有公式嘗試仍保留 | 不得把未重標 θ 當作可用公式；不可丟棄合法下游答案 | 返回 angle、重新放 θ、再進公式；保存／重載／繼續 |
 | `practice` | from-summary review-edit | 0–4 | `fromReview:true`；目前題答案與原 summary 完整保留，可編輯任何已完成題 | 不可清除未選中的其他題；不把 summary 當成 final review | 修改、返回 summary、保存 draft |
-| `summary` | editable overview | n/a | 三題答案均存在且各自通過 decoder；currentQuestion 指向最後操作題 | 無新增幾何；不修改答案 | 返回任一題、提交；保存 draft |
+| `summary` | editable overview | n/a | 三題答案均存在且各自通過 decoder；currentQuestion 指向最後操作題 | 無新增幾何；不修改答案；不顯示分數／分組回饋 | 返回任一題、提交；保存 draft |
 | `review` | finished/review-only | n/a | review snapshot 三題 authoritative answers；shared result 驗證後顯示 | 不得建立新 draft；所有作圖、公式、提交按鈕鎖定 | 閱覽題目及可信 summary |
 | `pending-final` | frozen retry | n/a | shared runtime 保存 immutable review payload | 不得改答案或重算另一 payload | retry 同一 payload；只顯示未確認 technical state |
 
@@ -270,6 +271,7 @@ Transitions：`practice -> summary` when learner opens pre-submit overview；`pr
     perpendiculars: [{ key: "P1" | "P2", end:{x:number,y:number}, targetKey:string|null }],
     components: [{ key: "F1" | "F2", end:{x:number,y:number}, targetKey:string|null }],
     theta: string|null,
+    thetaPoint: {x:number,y:number}|null, // only when theta is unsnapped
     formulas: { F1: null | "sin" | "cos", F2: null | "sin" | "cos" }
   }]
 }

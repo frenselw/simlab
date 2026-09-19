@@ -175,6 +175,25 @@ body {
   cursor: grab;
   box-shadow: none;
   text-shadow: 0 0 4px #fff, 0 0 8px #fff;
+  isolation: isolate;
+}
+
+.theta-hit::before {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  z-index: -1;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, .12);
+  box-shadow: 0 2px 8px rgba(120, 53, 15, .18), 0 0 0 4px rgba(245, 158, 11, .07);
+  opacity: .86;
+  pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.theta-hit[data-theta-state="placed"]::before {
+  opacity: 0;
+  transform: scale(.78);
 }
 
 .theta-hit:hover, .theta-hit:active, .theta-hit:disabled {
@@ -243,6 +262,7 @@ body {
 .question-tab { min-height: 44px; padding: .45rem .55rem; text-align: left; font-size: .78rem; }
 .question-tab[aria-selected="true"] { border-color: var(--color-accent); background: #eff6ff; color: #1d4ed8; font-weight: 700; }
 .summary-item { display: grid; grid-template-columns: 1fr auto; gap: .35rem .55rem; padding: .65rem; border: 1px solid var(--color-border-light); border-radius: 7px; background: #fff; }
+.summary-item .summary-pending { align-self: center; color: var(--color-text-muted); font-size: .76rem; text-align: right; }
 .summary-item p { grid-column: 1 / -1; margin: 0; color: var(--color-text-muted); font-size: .78rem; line-height: 1.45; }
 .summary-item button { min-height: 40px; font-size: .76rem; }
 .summary-warning { padding: .55rem .65rem; background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.45; }
@@ -534,8 +554,9 @@ body {
 .formula-palette .math-inline, .formula-slot .math-inline, .formula-ghost .math-inline { font-size: 1em; }
 
 .theta-guide {
-  stroke-dasharray: 4 4;
-  opacity: .55;
+  /* Keep candidate endpoints visually connected to both rays. */
+  stroke-dasharray: none;
+  opacity: .5;
 }
 
 .theta-choices {

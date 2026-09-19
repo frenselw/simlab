@@ -109,6 +109,35 @@ const invalidAngleActivity = P.freshDraft();
 invalidAngleActivity.questions[0] = invalidAngle;
 roundTrip(invalidAngleActivity, "invalid angle continuation after direct edit");
 
+const imperfectDirections = [
+  { key: "D1", unit: { x: .6, y: .8 }, axis: null },
+  { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
+];
+const imperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical", allowImperfect: true })[0];
+const imperfectAngle = {
+  ...M.createQuestionState("horizontal-vertical"),
+  phase: "angle",
+  directions: imperfectDirections,
+  perpendiculars: [
+    { key: "P1", end: { x: 240, y: 80 }, targetKey: null },
+    { key: "P2", end: { x: 120, y: 40 }, targetKey: null }
+  ],
+  components: [
+    { key: "F1", end: { x: 100, y: 70 }, targetKey: null },
+    { key: "F2", end: { x: 90, y: -40 }, targetKey: null }
+  ],
+  theta: imperfectTheta.key
+};
+const imperfectAngleActivity = P.freshDraft();
+imperfectAngleActivity.questions[0] = imperfectAngle;
+const imperfectAngleRoundTrip = roundTrip(imperfectAngleActivity, "imperfect angle with saved theta");
+assert.equal(imperfectAngleRoundTrip.questions[0].theta, imperfectTheta.key, "an interaction-only theta key survives draft restore");
+const freeThetaAngle = { ...imperfectAngle, theta: null, thetaPoint: { x: 150, y: -40 } };
+const freeThetaActivity = P.freshDraft();
+freeThetaActivity.questions[0] = freeThetaAngle;
+const freeThetaRoundTrip = roundTrip(freeThetaActivity, "free theta position");
+assert.deepEqual(freeThetaRoundTrip.questions[0].thetaPoint, freeThetaAngle.thetaPoint, "an unsnapped theta keeps its release position");
+
 const invalidFormulas = { ...wrongEdit, phase: "formulas" };
 const invalidFormulaActivity = P.freshDraft();
 invalidFormulaActivity.questions[0] = invalidFormulas;
@@ -188,6 +217,10 @@ expectInvalid(malformed, "downstream data before two directions");
 const danglingTheta = P.clone(canonicalComplete);
 danglingTheta.questions[0].theta = "not-a-candidate";
 expectInvalid(danglingTheta, "unknown theta key");
+
+const thetaWithFreePoint = P.clone(canonicalComplete);
+thetaWithFreePoint.questions[0].thetaPoint = { x: 150, y: -40 };
+expectInvalid(thetaWithFreePoint, "a snapped theta cannot also have a free point");
 
 const danglingTarget = P.clone(canonicalComplete);
 danglingTarget.questions[0].perpendiculars[0].targetKey = "D9";

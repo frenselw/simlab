@@ -16,9 +16,8 @@
   const DIRECTION_SNAP_DEG = 10;
   const DIRECTION_DUPLICATE_DEG = 12;
   const MIN_DRAW_DISTANCE = 12;
-  const THETA_RADIUS = 76;
-  const THETA_LABEL_GAP = 26;
-  const THETA_ARC_CHORD = 54;
+  const THETA_RADIUS = 56;
+  const THETA_LABEL_GAP = 12;
   const THETA_MIN_RADIUS = 44;
   const THETA_MAX_RADIUS = 84;
 
@@ -27,7 +26,7 @@
   const ORIGIN = Object.freeze({ x: 0, y: 0 });
   const FORCE_HEAD = Object.freeze({ x: 240, y: 160 });
   // In the gravity-on-an-incline scene, place the object up the slope so the
-  // body and its mg vector stay central in the stage rather than collecting
+  // body and its G vector stay central in the stage rather than collecting
   // in the lower-left corner.
   const INCLINED_GRAVITY_ORIGIN = Object.freeze({ x: 106, y: 56 });
   const INCLINED_GRAVITY_FORCE_HEAD = Object.freeze({ x: 106, y: -64 });
@@ -63,15 +62,16 @@
     }),
     "inclined-gravity": Object.freeze({
       id: "inclined-gravity",
-      title: "斜面上的重力 mg",
+      title: "斜面上的重力 G",
       kind: "inclined-gravity",
       origin: INCLINED_GRAVITY_ORIGIN,
       forceHead: INCLINED_GRAVITY_FORCE_HEAD,
-      forceSymbol: "mg",
+      forceSymbol: "G",
+      componentSymbols: Object.freeze({ parallel: "Gₓ", normal: "Gᵧ" }),
       axes: Object.freeze([axisData("parallel", radians(28), "沿斜面"), axisData("normal", radians(118), "向內法線")]),
       plane: Object.freeze({ angle: radians(28), bodyOffset: 22 }),
       thetaMode: "given",
-      givenTheta: Object.freeze({ key: "theta-incline", description: "O 點：mg 與向內法線分量之間的等角 θ", label: "θ" })
+      givenTheta: Object.freeze({ key: "theta-incline", description: "O 點：G 與向內法線分量之間的等角 θ", label: "θ" })
     })
   });
 
@@ -168,13 +168,12 @@
   function thetaRadius(startAngle, endAngle, options = {}) {
     if (Number.isFinite(options.radius)) return options.radius;
     const scene = sceneFor(options);
-    // The two acute choices in the inclined-force triangle should read as
-    // equivalent alternatives.  A shared radius keeps one choice from
-    // becoming a visibly oversized arc simply because its angle is narrower.
-    if (scene?.id === "inclined-external-force") return 64;
-    const span = clamp(Math.abs(endAngle - startAngle), radians(8), Math.PI);
-    const chord = options.targetChord ?? THETA_ARC_CHORD;
-    return clamp(chord / (2 * Math.sin(span / 2)), THETA_MIN_RADIUS, THETA_MAX_RADIUS);
+    // Use one fixed radius for learner-drawn angle candidates. The arc ends
+    // are then always the same distance from the vertex and land directly on
+    // the two rays, instead of a narrow angle being pushed far away to keep a
+    // fixed chord length.
+    const radius = scene?.id === "inclined-external-force" ? 64 : THETA_RADIUS;
+    return clamp(radius, THETA_MIN_RADIUS, THETA_MAX_RADIUS);
   }
 
   function thetaCandidate(entry, options = {}) {
@@ -183,7 +182,9 @@
     const scene = sceneFor(options);
     // Keep the θ control next to the actual arc.  A large scene-specific gap
     // made the label look detached from the angle and could put it over F₂.
-    const labelGap = scene?.id === "inclined-external-force" ? 18 : THETA_LABEL_GAP;
+    const labelGap = Number.isFinite(options.labelGap)
+      ? options.labelGap
+      : scene?.id === "inclined-external-force" ? 18 : THETA_LABEL_GAP;
     const center = add(entry.vertex, scale(fromAngle(midAngle), radius));
     return {
       ...entry,
@@ -233,6 +234,11 @@
     if (candidate && sceneFor(scene).axes.some((axis) => axis.key === candidate)) return candidate;
     const unit = normalize(direction.unit);
     return unit ? axisMatchForUnit(unit, sceneFor(scene))?.key || null : null;
+  }
+
+  function componentSymbol(sceneOrOptions, axisKey, index = 0) {
+    const scene = sceneFor(sceneOrOptions);
+    return scene.componentSymbols?.[axisKey] || `F${index + 1}`;
   }
 
   function directionFromPointer(pointer, options = {}) {
@@ -496,7 +502,10 @@
       const matches = intersections.filter(target => distance(component.end, target.point) <= 1e-5);
       component.targetKey = (matches.find(target => target.key === component.targetKey) || matches[0])?.key || null;
     }
-    if (!isCorrectDecomposition(next)) next.theta = null;
+    if (!isCorrectDecomposition(next)) {
+      next.theta = null;
+      next.thetaPoint = null;
+    }
     return { ...preview, editedState: next };
   }
 
@@ -585,6 +594,80 @@
     ];
   }
 
+  function closestLineRay(lineAngle, targetAngle) {
+    const opposite = lineAngle + Math.PI;
+    return angleDifference(lineAngle, targetAngle) <= angleDifference(opposite, targetAngle) ? lineAngle : opposite;
+  }
+
+  function acuteSector(firstAngle, secondAngle) {
+    let end = secondAngle;
+    while (end - firstAngle > Math.PI) end -= PI2;
+    while (end - firstAngle < -Math.PI) end += PI2;
+    return end >= firstAngle
+      ? { startAngle: firstAngle, endAngle: end }
+      : { startAngle: end, endAngle: firstAngle };
+  }
+
+  // These candidates are for interaction only.  They let a learner place θ
+  // after drawing imperfect direction lines, while the scoring path continues
+  // to use thetaCandidates() and therefore cannot award the angle point for a
+  // free-form fallback key.
+  function imperfectThetaCandidates(directions, options = {}) {
+    const scene = sceneFor(options);
+    if (!Array.isArray(directions) || scene.thetaMode === "given") return [];
+    const forceAngle = Math.atan2(scene.forceHead.y - scene.origin.y, scene.forceHead.x - scene.origin.x);
+    const perpendiculars = Array.isArray(options.perpendiculars) ? options.perpendiculars.slice(0, 2) : [];
+    const candidates = [];
+    directions.slice(0, 2).forEach((direction, index) => {
+      const unit = normalize(direction?.unit);
+      if (!unit) return;
+      const lineAngle = Math.atan2(unit.y, unit.x);
+      const originRay = closestLineRay(lineAngle, forceAngle);
+      // At P the visible angle edge is the learner's perpendicular guide,
+      // not the direction line through O.  Fall back to the mathematical
+      // normal only when the caller has no saved perpendicular yet.
+      const perpendicularVector = perpendiculars[index]?.end ? subtract(perpendiculars[index].end, scene.forceHead) : null;
+      const perpendicularUnit = perpendicularVector ? normalize(perpendicularVector) : null;
+      const headLineAngle = perpendicularUnit ? Math.atan2(perpendicularUnit.y, perpendicularUnit.x) : lineAngle + HALF_PI;
+      const headRay = closestLineRay(headLineAngle, forceAngle + Math.PI);
+      const originSector = acuteSector(forceAngle, originRay);
+      const headSector = acuteSector(forceAngle + Math.PI, headRay);
+      [
+        {
+          key: `learner-theta-origin-${index}`,
+          vertex: scene.origin,
+          sector: originSector,
+          description: `O 點：原力與第 ${index + 1} 條方向線之間`
+        },
+        {
+          key: `learner-theta-head-${index}`,
+          vertex: scene.forceHead,
+          sector: headSector,
+          description: `P 點：原力與第 ${index + 1} 條垂線之間`
+        }
+      ].forEach(({ key, vertex, sector, description }) => {
+        if (sector.endAngle - sector.startAngle <= radians(4)) return;
+        candidates.push(thetaCandidate({
+          key,
+          vertex,
+          startAngle: sector.startAngle,
+          endAngle: sector.endAngle,
+          description,
+          label: "θ",
+          adjacentAxisKey: null,
+          learnerDefined: true
+        }, options));
+      });
+    });
+    return candidates;
+  }
+
+  function thetaCandidatesForInteraction(directions, options = {}) {
+    const canonical = thetaCandidates(directions, options);
+    if (canonical.length || !options.allowImperfect) return canonical;
+    return imperfectThetaCandidates(directions, options);
+  }
+
   function angleInSector(angle, startAngle, endAngle) {
     let value = normalizeAngle(angle);
     let start = normalizeAngle(startAngle);
@@ -596,16 +679,15 @@
 
   function thetaCandidateAt(pointer, directions, options = {}) {
     const threshold = options.threshold ?? THETA_SNAP_RADIUS;
-    const previousTargetKey = options.previousTargetKey || null;
-    const candidates = thetaCandidates(directions, options)
+    const candidates = (options.allowImperfect ? thetaCandidatesForInteraction(directions, options) : thetaCandidates(directions, options))
       .filter((candidate) => angleInSector(Math.atan2(pointer.y - candidate.vertex.y, pointer.x - candidate.vertex.x), candidate.startAngle, candidate.endAngle))
       .map((candidate) => ({ ...candidate, distance: distance(pointer, candidate.center) }))
       .sort((first, second) => first.distance - second.distance);
-    const stickyCandidate = previousTargetKey
-      ? candidates.find((candidate) => candidate.key === previousTargetKey && candidate.distance <= threshold * SNAP_STICKY_MULTIPLIER)
-      : null;
-    const closest = stickyCandidate || candidates[0];
-    if (!closest || (closest.distance > threshold && !stickyCandidate)) return null;
+    // θ should release as soon as the learner pulls it outside the normal
+    // snap radius. Unlike line and component endpoints, a theta label is
+    // deliberately free to remain wherever the learner lets go.
+    const closest = candidates[0];
+    if (!closest || closest.distance > threshold) return null;
     return closest;
   }
 
@@ -648,6 +730,7 @@
       perpendiculars: [],
       components: [],
       theta: null,
+      thetaPoint: null,
       formulas: { F1: null, F2: null }
     };
     if (scenarioId && scenarioId !== DEFAULT_SCENARIO_ID) state.scenarioId = scenarioId;
@@ -664,7 +747,10 @@
     if (index < 0) return next;
     if (index < 1) next.perpendiculars = [];
     if (index < 2) next.components = [];
-    if (index < 3) next.theta = null;
+    if (index < 3) {
+      next.theta = null;
+      next.thetaPoint = null;
+    }
     next.formulas = { F1: null, F2: null };
     return next;
   }
@@ -674,7 +760,10 @@
     if (state.phase === "directions") next.directions = [];
     if (state.phase === "perpendiculars") next.perpendiculars = [];
     if (state.phase === "components") next.components = [];
-    if (state.phase === "angle") next.theta = null;
+    if (state.phase === "angle") {
+      next.theta = null;
+      next.thetaPoint = null;
+    }
     return next;
   }
 
@@ -761,7 +850,12 @@
       const direction = target && state.directions.find(item => item.key === target.directionKey);
       const axisKey = directionAxisKey(direction, scene);
       if (scene.thetaMode === "given") {
-        const parallel = axisKey === "parallel";
+        // Gravity uses fixed learner-facing names rather than renaming a
+        // component according to the order in which it was drawn. F1/Gₓ is
+        // the parallel component and F2/Gᵧ is the normal component; a swapped
+        // construction therefore remains visibly and semantically wrong.
+        const gravity = scene.id === "inclined-gravity";
+        const parallel = gravity ? component.key === "F1" : axisKey === "parallel";
         return { key: component.key, axis: axisKey, relation: parallel ? "opposite" : "adjacent", value: parallel ? "sin" : "cos", atHead: false };
       }
       if (scene.id === DEFAULT_SCENARIO_ID && !state.scenarioId) {
@@ -805,6 +899,7 @@
     getScenario,
     createQuestionState,
     directionAxisKey,
+    componentSymbol,
     formulaExpectations,
     setFormula,
     checkFormulas,
@@ -841,6 +936,8 @@
     commitComponent,
     editGeometry,
     thetaCandidates,
+    imperfectThetaCandidates,
+    thetaCandidatesForInteraction,
     thetaCandidateAt,
     lineSegmentForDirection,
     componentTargetPoint,

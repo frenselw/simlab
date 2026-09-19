@@ -123,6 +123,7 @@ assert.equal(M.commitComponent({ x: 6, y: 0 }, exactPerpendiculars, axisDirectio
 const theta = M.thetaCandidates(axisDirections);
 assert.equal(theta.length, 4, "both O and P expose their two acute theta candidates");
 for (const candidate of theta) assert.equal(M.thetaCandidateAt(candidate.center, axisDirections).key, candidate.key, "every vertex resolves its own local angle");
+assert.ok(Math.abs(M.distance(theta[0].labelCenter, theta[0].center) - 12) < 1e-8, "theta label stays close to its arc");
 assert.equal(M.THETA_SNAP_RADIUS, 24, "theta uses its independent 24 CSS-px snap radius");
 assert.equal(M.thetaCandidateAt(theta[0].center, axisDirections).key, "theta-horizontal");
 assert.equal(M.thetaCandidateAt(theta[1].center, axisDirections).key, "theta-vertical");
@@ -132,10 +133,36 @@ assert.equal(M.thetaCandidateAt(thetaInside, axisDirections).key, "theta-horizon
 assert.equal(M.thetaCandidateAt(thetaOutside, axisDirections), null, "theta rejects points outside its dedicated radius");
 const thetaSticky = M.scale(M.fromAngle(theta[0].midAngle), theta[0].radius + 29);
 const thetaReleased = M.scale(M.fromAngle(theta[0].midAngle), theta[0].radius + 33);
-assert.equal(M.thetaCandidateAt(thetaSticky, axisDirections, { previousTargetKey: "theta-horizontal" }).key, "theta-horizontal", "theta keeps a preview candidate inside the sticky release band");
-assert.equal(M.thetaCandidateAt(thetaReleased, axisDirections, { previousTargetKey: "theta-horizontal" }), null, "theta releases after the sticky release band");
+assert.equal(M.thetaCandidateAt(thetaSticky, axisDirections, { previousTargetKey: "theta-horizontal" }), null, "theta releases as soon as it leaves the normal snap radius");
+assert.equal(M.thetaCandidateAt(thetaReleased, axisDirections, { previousTargetKey: "theta-horizontal" }), null, "theta stays free outside its snap radius");
 assert.equal(M.thetaCandidateAt({ x: 0, y: 0 }, axisDirections, { threshold: 12 }), null, "the origin is not an angle candidate merely because it is near both rays");
 assert.equal(M.thetaCandidates([insideHorizontal.direction, { key: "D2", unit: { x: .9, y: .4 }, axis: null }]).length, 0, "theta candidates require both snapped axes");
+const imperfectDirections = [
+  { key: "D1", unit: { x: .6, y: .8 }, axis: null },
+  { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
+];
+assert.equal(M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical" }).length, 0, "imperfect theta candidates stay opt-in");
+const imperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical", allowImperfect: true });
+assert.equal(imperfectTheta.length, 4, "two imperfect direction lines still expose O/P theta choices for interaction");
+assert.ok(imperfectTheta.every(candidate => candidate.learnerDefined && candidate.key.startsWith("learner-theta-")), "fallback theta choices are marked as learner-defined interaction candidates");
+assert.equal(M.thetaCandidateAt(imperfectTheta[0].labelCenter, imperfectDirections, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  threshold: M.THETA_SNAP_RADIUS
+}).key, imperfectTheta[0].key, "a learner can snap theta onto an imperfect angle");
+assert.equal(new Set(imperfectTheta.map(candidate => candidate.radius)).size, 1, "imperfect theta arcs use one consistent radius");
+const imperfectPerpendiculars = [
+  { key: "P1", end: { x: 180, y: 100 }, targetKey: null },
+  { key: "P2", end: { x: 300, y: 40 }, targetKey: null }
+];
+const guidedImperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  perpendiculars: imperfectPerpendiculars
+});
+const guidedHead = guidedImperfectTheta.find(candidate => candidate.key === "learner-theta-head-0");
+const expectedGuideAngle = Math.atan2(imperfectPerpendiculars[0].end.y - M.FORCE_HEAD.y, imperfectPerpendiculars[0].end.x - M.FORCE_HEAD.x);
+assert.ok(Math.min(M.angleDifference(guidedHead.startAngle, expectedGuideAngle), M.angleDifference(guidedHead.endAngle, expectedGuideAngle)) < 1e-8, "P theta follows the actual perpendicular guide");
 
 const completeState = {
   phase: "angle",
@@ -189,6 +216,16 @@ assert.equal(editedArrow.editedState.components.length, 2, "editing replaces rat
 assert.deepEqual(editedArrow.editedState.components[1], editable.components[1], "editing F1 preserves F2");
 assert.equal(editedArrow.editedState.components[0].key, "F1");
 assert.equal(editedArrow.editedState.theta, null, "an invalidated angle is cleared");
+const oneComponent = {
+  ...M.clone(completeState),
+  phase: "components",
+  components: [M.clone(completeState.components[0])],
+  theta: null,
+  thetaPoint: null
+};
+const editedFirstComponent = M.editGeometry(oneComponent, "component", 0, { x: 150, y: 60 });
+assert.equal(editedFirstComponent.valid, true, "F1 can be edited before F2 exists");
+assert.equal(editedFirstComponent.editedState.components.length, 1, "editing the first component does not create F2");
 const repairedArrow = M.editGeometry(editedArrow.editedState, "component", 0, horizontalFoot);
 assert.equal(M.isCorrectDecomposition(repairedArrow.editedState), true, "an existing wrong arrow can be snapped back into place");
 const editedGuide = M.editGeometry(editable, "perpendicular", 0, { x: 240, y: -40 });
@@ -271,12 +308,16 @@ for (const scenarioId of ["inclined-external-force", "inclined-gravity"]) {
   const expectations = M.formulaExpectations(reversed);
   assert.equal(expectations.some(entry => entry.value === "sin") && expectations.some(entry => entry.value === "cos"), true, `${scenarioId} gives complementary expressions in either creation order`);
   if (scenarioId === "inclined-gravity") {
+    assert.equal(scene.forceSymbol, "G");
+    assert.equal(M.componentSymbol(scene, "parallel"), "Gₓ");
+    assert.equal(M.componentSymbol(scene, "normal"), "Gᵧ");
     const candidate = M.thetaCandidates(second.directions, scene)[0];
     assert.equal(candidate.key, "theta-incline");
+    assert.ok(Math.abs(M.distance(candidate.labelCenter, candidate.center) - 12) < 1e-8, "gravity theta label stays close to its arc");
     assert.ok(Math.abs(candidate.decompositionAngle - scene.plane.angle) < 1e-8, "given theta equals the internal gravity-normal acute angle");
-    assert.ok(Math.abs(candidate.startAngle - Math.atan2(scene.forceHead.y - scene.origin.y, scene.forceHead.x - scene.origin.x)) < 1e-8, "given theta starts on downward mg");
+    assert.ok(Math.abs(candidate.startAngle - Math.atan2(scene.forceHead.y - scene.origin.y, scene.forceHead.x - scene.origin.x)) < 1e-8, "given theta starts on downward G");
     assert.notEqual(Math.round(candidate.startAngle * 180 / Math.PI), 0, "given theta is not the already-given slope-versus-horizontal sector");
-    assert.deepEqual(expectations.map(entry => entry.value).sort(), ["cos", "sin"], "gravity keeps mg parallel = mg sin theta and normal = mg cos theta");
+    assert.deepEqual(expectations.map(entry => entry.value).sort(), ["cos", "sin"], "gravity keeps G parallel = G sin theta and normal = G cos theta");
   }
 }
 console.log("force orthogonal decomposition model tests passed");

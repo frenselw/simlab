@@ -47,10 +47,18 @@
         const direction = answer.directions.find(entry => entry.key === candidate.directionKey);
         return M.directionAxisKey(direction, scene) === axis.key;
       });
+      const expectedKey = scene.id === "inclined-gravity"
+        ? `F${scene.axes.indexOf(axis) + 1}`
+        : null;
       const component = answer.components.find(entry => entry.targetKey === target?.key &&
+        (!expectedKey || entry.key === expectedKey) &&
         M.distance(entry.end, target.point) <= 1e-5);
+      const swapped = scene.id === "inclined-gravity" && answer.components.some(entry =>
+        entry.targetKey === target?.key && entry.key !== expectedKey && M.distance(entry.end, target.point) <= 1e-5);
       return item(`component-${axis.key}`, `${axis.label}分力箭頭`, 10, Boolean(component),
-        component ? "箭頭端點與可見交點重合" : "分力箭頭尚未與可見交點重合");
+        component ? "箭頭端點與可見交點重合" : swapped
+          ? "第三題要求 Gₓ 平行斜面、Gᵧ 垂直斜面；兩者位置不可對調"
+          : "分力箭頭尚未與可見交點重合");
     });
   }
 
@@ -67,7 +75,11 @@
       const key = expected.key || `F${index + 1}`;
       const actual = answer.formulas?.[key];
       const correct = Boolean(expectations) && actual === expected.value;
-      return item(`formula-${key}`, `${key === "F1" ? "F₁" : "F₂"} 的分力表達式`, 10, correct,
+      const axis = scene.id === "inclined-gravity"
+        ? (key === "F1" ? "parallel" : "normal")
+        : expected.axis;
+      const label = M.componentSymbol(scene, axis, index);
+      return item(`formula-${key}`, `${label} 的分力表達式`, 10, correct,
         correct ? `${actual} θ` : actual ? `目前為 ${actual} θ，應檢查分解三角形` : "尚未填寫");
     });
   }

@@ -42,8 +42,8 @@
       <svg id="diagram" class="force-diagram" viewBox="0 0 560 360" preserveAspectRatio="xMidYMid meet" role="img" aria-describedby="stageDescription"></svg>
       <div id="stageHits" class="stage-hits" aria-label="作圖起筆及編輯區">
         <button id="originHit" class="stage-hit origin-hit" type="button" hidden aria-hidden="true" aria-label="由共同起點 O 開始作圖" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
-        <button id="pointHit" class="stage-hit point-hit" type="button" hidden aria-hidden="true" aria-label="由原力箭頭 P 開始畫垂線" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
-        <button id="thetaHit" class="theta-hit" type="button" hidden aria-hidden="true" aria-label="拖動 θ 到角弧候選位置" aria-keyshortcuts="Enter ArrowLeft ArrowRight Escape">θ</button>
+        <button id="pointHit" class="stage-hit point-hit" type="button" hidden aria-hidden="true" aria-label="由原力箭嘴頭開始畫垂線" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
+        <button id="thetaHit" class="theta-hit" data-theta-state="unplaced" type="button" hidden aria-hidden="true" aria-label="拖動 θ 到角弧候選位置" aria-keyshortcuts="Enter ArrowLeft ArrowRight Escape">θ</button>
         <button id="directionEdit0" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="0" type="button" hidden aria-label="調整第一條方向虛線"></button>
         <button id="directionEdit1" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="1" type="button" hidden aria-label="調整第二條方向虛線"></button>
         <button id="perpendicularEdit0" class="stage-hit edit-hit" data-edit-kind="perpendicular" data-edit-index="0" type="button" hidden aria-label="調整第一條垂線終點"></button>
@@ -96,13 +96,13 @@
             <button id="formulaCos" type="button" data-formula-token="cos" aria-pressed="false" aria-label="選擇 cos θ">cos <var>θ</var></button>
           </div>
           <div class="formula-row" data-formula-row="F1">
-            <span class="formula-equation"><var>F</var><sub>1</sub> = <var>F</var> ×</span>
+            <span class="formula-equation"><span data-formula-label="F1">F₁</span> = <span data-formula-force-label>F</span> ×</span>
             <button id="formulaSlotF1" class="formula-slot" data-formula-slot="F1" type="button" aria-label="F1 的函數空格">？</button>
             <button type="button" class="formula-clear" data-formula-clear="F1" aria-label="清空 F1 公式">清空</button>
             <p class="formula-item-feedback" data-formula-feedback="F1"></p>
           </div>
           <div class="formula-row" data-formula-row="F2">
-            <span class="formula-equation"><var>F</var><sub>2</sub> = <var>F</var> ×</span>
+            <span class="formula-equation"><span data-formula-label="F2">F₂</span> = <span data-formula-force-label>F</span> ×</span>
             <button id="formulaSlotF2" class="formula-slot" data-formula-slot="F2" type="button" aria-label="F2 的函數空格">？</button>
             <button type="button" class="formula-clear" data-formula-clear="F2" aria-label="清空 F2 公式">清空</button>
             <p class="formula-item-feedback" data-formula-feedback="F2"></p>
@@ -145,7 +145,7 @@
       <section id="summaryPanel" class="panel-section is-hidden" aria-live="polite">
         <p class="section-title">提交前檢查</p>
         <h2 tabindex="-1">檢查三題完成狀態</h2>
-        <p class="task-copy">可以返回任何一題修改；未完成項目會在最後提交時按已完成的觀察給分。</p>
+        <p class="task-copy">可以返回任何一題修改；三題最終提交後才會顯示總分、各題得分及錯誤部分。</p>
         <div id="summaryList" class="summary-list"></div>
         <p id="summaryWarning" class="summary-warning"></p>
         <button id="submitAttempt" type="button" class="primary-button wide-button">最終提交並鎖定作答</button>

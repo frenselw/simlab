@@ -20,6 +20,9 @@
   function onlyKeys(value, keys) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key)) && Object.keys(value).length === keys.length);
   }
+  const QUESTION_KEYS = Object.freeze(["scenarioId", "phase", "directions", "perpendiculars", "components", "theta", "thetaPoint", "formulas"]);
+  const LEGACY_QUESTION_KEYS = Object.freeze(QUESTION_KEYS.filter(key => key !== "thetaPoint"));
+  function questionShape(value) { return onlyKeys(value, QUESTION_KEYS) || onlyKeys(value, LEGACY_QUESTION_KEYS); }
   function finite(value) { return typeof value === "number" && Number.isFinite(value); }
   function validPoint(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value) && onlyKeys(value, ["x", "y"]) && finite(value.x) && finite(value.y) &&
@@ -41,6 +44,7 @@
       perpendiculars: value.perpendiculars.map(entry => ({ key: entry.key, end: point(entry.end), targetKey: entry.targetKey ?? null })),
       components: value.components.map(entry => ({ key: entry.key, end: point(entry.end), targetKey: entry.targetKey ?? null })),
       theta: value.theta ?? null,
+      thetaPoint: value.thetaPoint == null ? null : point(value.thetaPoint),
       formulas: { F1: value.formulas?.F1 ?? null, F2: value.formulas?.F2 ?? null }
     };
   }
@@ -77,13 +81,20 @@
 
   function validateQuestion(value, index) {
     const sceneId = SCENARIO_IDS[index];
-    if (!onlyKeys(value, ["scenarioId", "phase", "directions", "perpendiculars", "components", "theta", "formulas"]) || value.scenarioId !== sceneId || !PHASES.includes(value.phase)) return { ok: false, reason: `question-shape-${index}` };
+    if (!questionShape(value) || value.scenarioId !== sceneId || !PHASES.includes(value.phase)) return { ok: false, reason: `question-shape-${index}` };
     const scene = M.getScenario(sceneId);
     if (!Array.isArray(value.directions) || value.directions.length > 2 || !value.directions.every((entry, itemIndex) => directionValid(entry, scene, itemIndex))) return { ok: false, reason: `directions-${index}` };
     if (!Array.isArray(value.perpendiculars) || value.perpendiculars.length > 2 || !value.perpendiculars.every((entry, itemIndex) => perpendicularValid(entry, value, scene, itemIndex))) return { ok: false, reason: `perpendiculars-${index}` };
     if (!Array.isArray(value.components) || value.components.length > 2 || !value.components.every((entry, itemIndex) => componentValid(entry, value, scene, itemIndex))) return { ok: false, reason: `components-${index}` };
     if (!onlyKeys(value.formulas, ["F1", "F2"]) || ![null, "sin", "cos"].includes(value.formulas.F1) || ![null, "sin", "cos"].includes(value.formulas.F2)) return { ok: false, reason: `formulas-${index}` };
-    if (value.theta !== null && !M.thetaCandidates(value.directions, scene).some(candidate => candidate.key === value.theta)) return { ok: false, reason: `theta-${index}` };
+    // A learner may save an interaction-only theta key while repairing an
+    // imperfect construction.  It remains a wrong answer for scoring, but it
+    // is still a legitimate in-progress draft that must survive reload.
+    const thetaCandidates = M.thetaCandidatesForInteraction(value.directions, { scene, allowImperfect: true });
+    if (value.theta !== null && !thetaCandidates.some(candidate => candidate.key === value.theta)) return { ok: false, reason: `theta-${index}` };
+    const thetaPoint = value.thetaPoint ?? null;
+    if (thetaPoint !== null && !validPoint(thetaPoint)) return { ok: false, reason: `theta-point-${index}` };
+    if (value.theta !== null && thetaPoint !== null) return { ok: false, reason: `theta-state-${index}` };
 
     const count = (name) => value[name].length;
     // Back navigation is a supported semantic continuation: the current phase

@@ -15,12 +15,16 @@
     "inclined-gravity": Object.freeze({ origin: Object.freeze({ x: 170, y: 225 }), viewBox: DEFAULT_VIEWBOX })
   });
   const WORLD_BOUNDS = Object.freeze({ left: -120, right: 440, bottom: -80, top: 280 });
-  const THETA_SEAT = Object.freeze({ x: 360, y: -42 });
+  // Fixed SVG-space seat: all three scenarios show the unplaced θ in the
+  // same lower-right location even though their world origins differ.
+  const THETA_SEAT_SVG = Object.freeze({ x: 480, y: 320 });
   const POINTER_STEP = 16;
   const DEFAULT_DIRECTION_DISTANCE = 100;
   const DEFAULT_PERPENDICULAR_DISTANCE = 140;
   const DEFAULT_COMPONENT_DISTANCE = 100;
   const GIVEN_SLOPE_MARKER_DISTANCE = -180;
+  const THETA_SCREEN_RADIUS = 48;
+  const THETA_SCREEN_LABEL_GAP = 18;
 
   const dom = {
     app: documentObject.getElementById("app"),
@@ -112,6 +116,20 @@
   const pointerTelemetry = [];
 
   function activeScene() { return M.getScenario(state.scenarioId) || M.getScenario(); }
+  function thetaInteractionOptions(source = state) {
+    const scene = M.getScenario(source?.scenarioId) || activeScene();
+    const scale = Math.max(diagramTransform().scale, .01);
+    return {
+      scene,
+      allowImperfect: true,
+      perpendiculars: source?.perpendiculars || [],
+      radius: THETA_SCREEN_RADIUS / scale,
+      labelGap: THETA_SCREEN_LABEL_GAP / scale
+    };
+  }
+  function thetaCandidatesForInteraction(source = state) {
+    return M.thetaCandidatesForInteraction(source?.directions || [], thetaInteractionOptions(source));
+  }
   function sceneFrame(scene = activeScene()) { return SCENE_FRAMES[scene.id] || SCENE_FRAMES.default; }
   function sceneViewBox(scene = activeScene()) { return sceneFrame(scene).viewBox; }
   function sceneWorldBounds(scene = activeScene()) {
@@ -130,10 +148,10 @@
 
   const PHASE_COPY = Object.freeze({
     directions: "由 O 拖出兩條方向虛線。畫好後可拖動線上的小方點調整方向；接近水平或垂直時會吸附。",
-    perpendiculars: "由 P 拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
-    components: "由 O 拖出兩支分力。畫歪了可直接拖動 F₁、F₂ 的箭頭調整方向及長度，接近交點時會吸附。",
+    perpendiculars: "由原力箭嘴頭拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
+    components: "由 O 拖出兩支分力。畫歪了可直接拖動分力箭頭調整方向及長度，接近交點時會吸附。",
     angle: "",
-    formulas: "按圖中 θ 的位置，用 sin θ 或 cos θ 表示兩個分力的大小。F 是原力大小，不需要計算數值。"
+    formulas: "按圖中 θ 的位置，用 sin θ 或 cos θ 表示兩個分力的大小。原力大小會按題目顯示，不需要計算數值。"
   });
 
   function createSvg(name, attributes = {}) {
@@ -145,7 +163,7 @@
   // Format the small vocabulary used in learner copy, without interpreting HTML.
   function setMathText(node, text) {
     const fragment = documentObject.createDocumentFragment();
-    const pattern = /(?:sin|cos)\s*θ|mg|(?<![A-Za-z])F[₁₂12]?(?![A-Za-z0-9])|θ|(?<![A-Za-z])[OP](?![A-Za-z])/gu;
+    const pattern = /(?:sin|cos)\s*θ|(?<![A-Za-z])(?:[FG](?:_?[12xy]|[₁₂ₓᵧ])?)(?![A-Za-z0-9])|θ|(?<![A-Za-z])[OP](?![A-Za-z])/gu;
     let end = 0;
     for (const match of text.matchAll(pattern)) {
       fragment.append(documentObject.createTextNode(text.slice(end, match.index)));
@@ -156,13 +174,18 @@
       if (token.startsWith("sin") || token.startsWith("cos")) {
         math.append(documentObject.createTextNode(`${token.slice(0, 3)} `));
         variable.textContent = "θ";
-      } else variable.textContent = token === "mg" ? token : token[0];
-      math.append(variable);
-      if (/^F[₁₂12]$/.test(token)) {
-        const sub = documentObject.createElement("sub");
-        sub.textContent = token[1] === "₁" ? "1" : token[1] === "₂" ? "2" : token[1];
-        math.append(sub);
+      } else {
+        const symbol = /^([FG])(?:_?([12xy])|([₁₂ₓᵧ]))?$/.exec(token);
+        variable.textContent = symbol?.[1] || token;
+        const subscript = symbol?.[2] || symbol?.[3];
+        math.append(variable);
+        if (subscript) {
+          const sub = documentObject.createElement("sub");
+          sub.textContent = ({ "1": "1", "2": "2", x: "x", y: "y", "₁": "1", "₂": "2", "ₓ": "x", "ᵧ": "y" })[subscript] || subscript;
+          math.append(sub);
+        }
       }
+      if (!math.contains(variable)) math.append(variable);
       fragment.append(math);
       end = match.index + token.length;
     }
@@ -235,6 +258,12 @@
     if (label) button.setAttribute("aria-label", label);
   }
 
+  function updateThetaHitPresentation() {
+    const thetaDrag = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
+    const snapped = thetaDrag ? Boolean(thetaDrag.preview) : Boolean(state.theta);
+    dom.thetaHit.dataset.thetaState = snapped ? "placed" : thetaDrag ? "dragging" : "unplaced";
+  }
+
   function drawGrid(parent, viewBox = sceneViewBox()) {
     const layer = createSvg("g", { "aria-hidden": "true" });
     for (let x = viewBox.x; x <= viewBox.x + viewBox.width; x += 40) layer.appendChild(createSvg("line", { x1: x, y1: viewBox.y, x2: x, y2: viewBox.y + viewBox.height, class: "force-grid-line" }));
@@ -261,15 +290,36 @@
   function drawScreenText(parent, point, text, className, attributes = {}) {
     const svgPoint = worldToSvg(point);
     const node = createSvg("text", { x: svgPoint.x, y: svgPoint.y, class: className, ...attributes });
-    const force = /^F([12])$/.exec(text);
+    const force = /^([FG])(?:_?([12xy])|([₁₂ₓᵧ]))$/.exec(text);
     if (force) {
-      node.appendChild(documentObject.createTextNode("F"));
+      node.appendChild(documentObject.createTextNode(force[1]));
       const subscript = createSvg("tspan", { "baseline-shift": "sub", "font-size": "70%", "class": "math-subscript" });
-      subscript.textContent = force[1];
+      const value = force[2] || force[3];
+      subscript.textContent = ({ "1": "1", "2": "2", x: "x", y: "y", "₁": "1", "₂": "2", "ₓ": "x", "ᵧ": "y" })[value] || value;
       node.appendChild(subscript);
-      node.setAttribute("aria-label", `F 下標 ${force[1]}`);
+      node.setAttribute("aria-label", `${force[1]} 下標 ${subscript.textContent}`);
     } else node.textContent = text;
     parent.appendChild(node);
+  }
+
+  function componentAxisKey(component, source = state, scene = activeScene()) {
+    if (!component) return null;
+    const target = M.visibleIntersections(source.perpendiculars, source.directions, scene)
+      .find(item => item.key === component.targetKey);
+    const direction = target && source.directions.find(item => item.key === target.directionKey);
+    return direction ? M.directionAxisKey(direction, scene) : null;
+  }
+
+  function componentDisplayLabel(component, index, source = state, scene = activeScene()) {
+    // The gravity question has a fixed semantic naming convention: F1 is
+    // always Gₓ (parallel to the incline) and F2 is always Gᵧ (normal to the
+    // incline).  Keeping this independent of the line's actual axis makes a
+    // swapped construction visible to the learner and lets scoring penalise
+    // the swap instead of silently renaming it.
+    if (scene.id === "inclined-gravity") {
+      return M.componentSymbol(scene, index === 0 ? "parallel" : "normal", index);
+    }
+    return M.componentSymbol(scene, componentAxisKey(component, source, scene), index);
   }
 
   function drawNode(parent, point, className = "force-node", radius = 5) {
@@ -321,7 +371,7 @@
     // Anchor the known-angle marker on the actual slope.  Its compact arc and
     // short rays keep the label readable without creating a detached diagram.
     // Place the known slope angle on the open left portion of the incline,
-    // like a textbook diagram.  Keeping it away from O, mg and P leaves the
+    // like a textbook diagram.  Keeping it away from O and P leaves the
     // construction itself unobstructed while remaining inside narrow stages.
     const vertex = M.add(planePoint, M.scale(parallel, GIVEN_SLOPE_MARKER_DISTANCE));
     const radius = 28;
@@ -339,7 +389,7 @@
       endAngle: scene.plane.angle,
       radius,
       center: M.add(visualVertex, M.scale(M.fromAngle(scene.plane.angle / 2), radius)),
-      labelCenter: M.add(visualVertex, M.scale(M.fromAngle(scene.plane.angle / 2), radius + 13)),
+      labelCenter: M.add(visualVertex, M.scale(M.fromAngle(scene.plane.angle / 2), radius + 12)),
       referenceEnd,
       slopeEnd
     };
@@ -434,13 +484,13 @@
       });
     });
 
-    if (scene.phase === "angle" && M.isCorrectDecomposition(scene) && !scene.theta) {
-      M.thetaCandidates(scene.directions, activeScene()).forEach(candidate => {
+    if ((scene.phase === "angle" || scene.phase === "formulas") && !scene.theta) {
+      thetaCandidatesForInteraction(scene).forEach(candidate => {
         drawThetaArc(worldLayer, candidate, "theta-arc theta-guide");
       });
     }
     if (scene.theta && drag?.kind !== "theta" && keyboardDrag?.kind !== "theta") {
-      const candidate = M.thetaCandidates(scene.directions, activeScene()).find((item) => item.key === scene.theta);
+      const candidate = thetaCandidatesForInteraction(scene).find((item) => item.key === scene.theta);
       if (candidate) {
         drawThetaArc(worldLayer, candidate);
       }
@@ -479,18 +529,23 @@
     drawNode(worldLayer, sceneForceHead(), "force-node", 5);
     dom.diagram.appendChild(worldLayer);
     drawScreenText(labelLayer, { x: sceneOrigin().x - 24, y: sceneOrigin().y - 12 }, "O", "scene-label", { "data-label": "origin" });
-    drawScreenText(labelLayer, { x: sceneForceHead().x + 12, y: sceneForceHead().y + 8 }, "P", "scene-label", { "data-label": "force-head" });
     const forceVector = M.subtract(sceneForceHead(), sceneOrigin());
     const forceUnit = M.normalize(forceVector) || { x: 1, y: 0 };
+    const isGravityScene = activeScene().id === "inclined-gravity";
     const forceLabelFraction = activeScene().id === "inclined-external-force" ? .64 : .5;
     const forceLabelOffset = activeScene().id === "inclined-external-force"
       ? { x: -forceUnit.y * 18, y: forceUnit.x * 18 }
-      : { x: 8, y: 12 };
+      : isGravityScene ? { x: 16, y: 18 } : { x: 8, y: 12 };
+    const forceLabelAnchor = isGravityScene
+      ? M.add(sceneForceHead(), { x: 26, y: -20 })
+      : M.add(M.add(sceneOrigin(), M.scale(forceVector, forceLabelFraction)), forceLabelOffset);
+    const forceLabelDirection = isGravityScene ? { x: 26, y: -20 } : forceLabelOffset;
     const thetaLabelPoint = (() => {
       const thetaPreview = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
       if (thetaPreview?.point) return thetaPreview.point;
       if (thetaPreview?.preview?.labelCenter) return thetaPreview.preview.labelCenter;
-      if (scene.theta) return M.thetaCandidates(scene.directions, activeScene()).find(item => item.key === scene.theta)?.labelCenter || null;
+      if (scene.theta) return thetaCandidatesForInteraction(scene).find(item => item.key === scene.theta)?.labelCenter || null;
+      if (scene.thetaPoint) return scene.thetaPoint;
       if (activeScene().thetaMode === "given") return givenSlopeCandidate(activeScene())?.labelCenter || null;
       return null;
     })();
@@ -514,8 +569,8 @@
       return placed;
     };
     const forceLabelPoint = placeLabel(
-      M.add(M.add(sceneOrigin(), M.scale(forceVector, forceLabelFraction)), forceLabelOffset),
-      forceLabelOffset,
+      forceLabelAnchor,
+      forceLabelDirection,
       activeScene().id === "inclined-external-force" ? 32 : 28
     );
     drawScreenText(labelLayer, forceLabelPoint, activeScene().forceSymbol, "scene-label force-label", { "data-label": "original-force" });
@@ -524,16 +579,25 @@
       const componentAngle = Math.atan2(component.end.y, component.end.x);
       const parallelAngle = Math.atan2(activeScene().axes[0].unit.y, activeScene().axes[0].unit.x);
       const isParallelComponent = isInclinedExternal && M.lineAngleDifference(componentAngle, parallelAngle) < M.radians(10);
-      const fraction = isParallelComponent ? .72 : .52;
-      const midpoint = M.scale(component.end, fraction);
-      const unit = M.normalize(component.end) || { x: 1, y: 0 };
-      const offsetMagnitude = isParallelComponent ? 24 : 14;
+      const componentVector = M.subtract(component.end, sceneOrigin());
+      const axisKey = componentAxisKey(component, scene, activeScene());
+      const gravityParallel = isGravityScene && axisKey === "parallel";
+      const fraction = isParallelComponent || gravityParallel ? .68 : .52;
+      const midpoint = M.add(sceneOrigin(), M.scale(componentVector, fraction));
+      const unit = M.normalize(componentVector) || { x: 1, y: 0 };
+      const offsetMagnitude = isParallelComponent ? 24 : gravityParallel ? 20 : 14;
       const offset = { x: -unit.y * offsetMagnitude, y: unit.x * offsetMagnitude };
-      const labelPoint = placeLabel(M.add(midpoint, offset), offset, 28);
-      drawScreenText(labelLayer, labelPoint, `F${index + 1}`, `scene-label component-label component-label-${index}`, { "data-component-label": index, "data-component-index": index, "text-anchor": unit.y > .5 ? "end" : "middle" });
+      const label = componentDisplayLabel(component, index, scene, activeScene());
+      const gravityNormal = activeScene().id === "inclined-gravity" && axisKey === "normal";
+      const gravityParallelOffset = { x: unit.y * 22, y: -unit.x * 22 };
+      const labelPoint = gravityNormal
+        ? placeLabel(M.add(midpoint, { x: 24, y: 0 }), { x: 1, y: 0 }, 28)
+        : placeLabel(M.add(midpoint, gravityParallel ? gravityParallelOffset : offset), gravityParallel ? gravityParallelOffset : offset, 28);
+      drawScreenText(labelLayer, labelPoint, label, `scene-label component-label component-label-${index}`, { "data-component-label": index, "data-component-index": index, "data-component-axis": axisKey || "", "text-anchor": gravityNormal ? "start" : unit.y > .5 ? "end" : "middle" });
     });
     dom.diagram.appendChild(labelLayer);
     const thetaDrag = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
+    updateThetaHitPresentation();
     if (thetaDrag) setHitPosition(dom.thetaHit, thetaDrag.point || thetaDrag.preview?.labelCenter || thetaDrag.preview?.center);
     if (editing?.preview?.editedState) setHitPosition(editing.target, editPoint(editing.kind, editing.editIndex, scene));
     if (editing) dom.thetaHit.style.visibility = scene.theta ? "" : "hidden";
@@ -561,6 +625,14 @@
     };
   }
 
+  function boundThetaPoint(point) {
+    const bounds = editingBounds();
+    return {
+      x: M.clamp(point.x, bounds.left, bounds.right),
+      y: M.clamp(point.y, bounds.bottom, bounds.top)
+    };
+  }
+
   function updateHitTargets() {
     const phase = state.phase;
     const originActive = (phase === "directions" && state.directions.length < 2) || (phase === "components" && state.components.length < 2);
@@ -574,40 +646,57 @@
     setHitPosition(dom.pointHit, sceneForceHead());
     dom.pointHit.dataset.dragKind = "perpendicular";
 
-    const correct = M.isCorrectDecomposition(state);
-    const thetaActive = correct && (phase === "angle" || phase === "formulas" || Boolean(state.theta));
-    setHitVisibility(dom.thetaHit, thetaActive, state.theta ? "拖動 θ 更換角度位置" : "拖動 θ 到 O 或 P 附近的銳角");
+    const thetaCandidatesAvailable = thetaCandidatesForInteraction().length > 0;
+    const thetaActive = phase === "angle" || phase === "formulas" || Boolean(state.theta);
+    const thetaLabel = state.theta
+      ? "拖動 θ 更換角度位置"
+      : thetaCandidatesAvailable ? "拖動 θ 到 O 或 P 附近的銳角" : "目前沒有可吸附的角弧；可返回調整方向線";
+    setHitVisibility(dom.thetaHit, thetaActive, thetaLabel);
     dom.thetaHit.disabled = phase !== "angle" && phase !== "formulas";
-    const placedCandidate = state.theta ? M.thetaCandidates(state.directions, activeScene()).find((item) => item.key === state.theta) : null;
-    const givenCandidate = !placedCandidate ? givenSlopeCandidate(activeScene()) : null;
-    setHitPosition(dom.thetaHit, placedCandidate?.labelCenter || givenCandidate?.labelCenter || placedCandidate?.center || THETA_SEAT);
+    setHitPosition(dom.thetaHit, thetaVisualPoint());
     dom.thetaHit.dataset.dragKind = "theta";
+    updateThetaHitPresentation();
     dom.thetaHit.style.visibility = "";
     dom.editHits.forEach(button => {
       const kind = button.dataset.editKind;
       const index = Number(button.dataset.editIndex);
       const items = state[{ direction: "directions", perpendicular: "perpendiculars", component: "components" }[kind]];
       const active = kind === "component"
-        ? ((phase === "components" && items.length >= 2) || phase === "angle" || phase === "formulas")
+        ? ((phase === "components" && items.length >= 1) || phase === "angle" || phase === "formulas")
         : phase === { direction: "directions", perpendicular: "perpendiculars" }[kind];
       setHitVisibility(button, active && Boolean(items[index]));
       button.dataset.dragKind = kind;
-      if (items[index]) setHitPosition(button, editPoint(kind, index));
+      if (items[index]) {
+        setHitPosition(button, editPoint(kind, index));
+        if (kind === "component") button.setAttribute("aria-label", `調整 ${componentDisplayLabel(items[index], index)} 箭頭`);
+      }
     });
+  }
+
+  function thetaVisualPoint() {
+    if (!state.theta) return state.thetaPoint || thetaSeatWorld();
+    const placedCandidate = thetaCandidatesForInteraction().find((item) => item.key === state.theta);
+    return placedCandidate?.labelCenter || placedCandidate?.center || thetaSeatWorld();
+  }
+
+  function thetaSeatWorld(scene = activeScene()) {
+    const frame = sceneFrame(scene);
+    return { x: THETA_SEAT_SVG.x - frame.origin.x, y: frame.origin.y - THETA_SEAT_SVG.y };
   }
 
   function phasePrompt() {
     if (state.phase !== "angle") return PHASE_COPY[state.phase];
-    if (!M.isCorrectDecomposition(state)) return "目前圖形未形成可標示的分解銳角。可直接拖動分力箭頭修正，或用舞台左箭頭返回調整虛線。";
+    if (!thetaCandidatesForInteraction().length) return "目前方向線不足以標示 θ；可返回補畫方向線。";
+    if (!M.isCorrectDecomposition(state)) return "圖形仍可修改；你可以先標示 θ，評分會按目前作答判斷。";
     return activeScene().thetaMode === "given"
-      ? "題目已給定斜面傾角 θ；請在分解三角形中找出 mg 與向內法線之間的等角，將 θ 標在該銳角。"
+      ? "題目已給定斜面傾角 θ；請在分解三角形中找出 G 與向內法線分量之間的等角，將 θ 標在該銳角。"
       : "把 θ 拖到分解三角形的任一合法銳角內，放手後留下字母和角弧；亦可再拖到另一個角。";
   }
 
   function questionPrompt(scene) {
     if (scene.id === "horizontal-vertical") return "畫出水平／垂直兩條方向虛線，再作垂線、分力、θ，最後判斷兩個分力使用 sin θ 還是 cos θ。";
     if (scene.id === "inclined-external-force") return "物體受斜向外力 F。沿平行及垂直斜面的方向作圖，θ 可由你選擇的銳角定義。";
-    return "物體在斜面上受重力 mg。沿斜面向下及向內法線分解；斜面傾角 θ 已給定，請在分解三角形中辨認 mg 與向內法線之間的等角。";
+    return "物體在斜面上受重力 G。請把 G 分解成平行斜面的分量 Gₓ，以及垂直斜面、向內法線方向的分量 Gᵧ；Gₓ、Gᵧ 不可對調。斜面傾角 θ 已給定，請在分解三角形中辨認 G 與向內法線之間的等角。";
   }
 
   function sceneKindLabel(scene) {
@@ -625,11 +714,16 @@
       button.dataset.questionIndex = String(index);
       button.setAttribute("role", "tab");
       button.setAttribute("aria-selected", String(index === activity.currentQuestion));
-      const detail = Scoring.questionDetail(activity.questions[index], index);
       const title = documentObject.createElement("span");
       setMathText(title, `${index + 1}. ${scene.title}`);
-      const score = documentObject.createTextNode(`（${detail.score}/100）`);
-      button.replaceChildren(title, score);
+      button.replaceChildren(title);
+      if (review) {
+        const detail = Scoring.questionDetail(activity.questions[index], index);
+        button.appendChild(documentObject.createTextNode(`（${detail.score}/100）`));
+        button.setAttribute("aria-label", `${index + 1}. ${scene.title}，${detail.score} 分`);
+      } else {
+        button.setAttribute("aria-label", `${index + 1}. ${scene.title}，提交後顯示評核`);
+      }
       button.disabled = runtimeState !== "editable" && !review;
       target.appendChild(button);
     });
@@ -639,7 +733,7 @@
     const container = documentObject.getElementById("thetaChoiceButtons");
     if (!container) return;
     container.replaceChildren();
-    M.thetaCandidates(state.directions, activeScene()).forEach(candidate => {
+    thetaCandidatesForInteraction().forEach(candidate => {
       const button = documentObject.createElement("button");
       button.type = "button";
       button.dataset.thetaChoice = candidate.key;
@@ -676,25 +770,25 @@
   function renderSummary() {
     dom.summaryList.replaceChildren();
     activity.questions.forEach((question, index) => {
-      const detail = Scoring.questionDetail(question, index);
+      const scene = M.getScenario(question.scenarioId) || M.getScenario();
       const row = documentObject.createElement("div");
       row.className = "summary-item";
       const heading = documentObject.createElement("strong");
-      setMathText(heading, `${index + 1}. ${detail.title}`);
-      const score = documentObject.createElement("span");
-      score.textContent = `${detail.score} / 100`;
+      setMathText(heading, `${index + 1}. ${scene.title}`);
+      const status = documentObject.createElement("span");
+      status.className = "summary-pending";
+      status.textContent = "已保存，待最終提交評核";
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.dataset.editQuestion = String(index);
       edit.textContent = "返回修改";
-      row.append(heading, score, edit);
+      row.append(heading, status, edit);
       const feedback = documentObject.createElement("p");
-      setMathText(feedback, detail.feedback);
+      feedback.textContent = "提交三題後才會顯示此題各部分得分及需要修正的地方。";
       row.appendChild(feedback);
       dom.summaryList.appendChild(row);
     });
-    const result = Scoring.score({ ...snapshotActivity(), phase: "summary" });
-    dom.summaryWarning.textContent = result.detail.every(detail => detail.complete) ? "三題五組均已完成；仍可返回檢查。" : "有題目尚未完全作答；提交後仍會按已完成的觀察給予形成性分數。";
+    dom.summaryWarning.textContent = "三題提交後才會顯示總分、各題得分及錯誤部分；提交前可返回任何一題修改。";
     dom.submitAttempt.disabled = runtimeState !== "editable";
   }
 
@@ -793,7 +887,7 @@
     dom.stageBackButton.disabled = dom.backButton.disabled;
     dom.stageNextButton.disabled = dom.nextButton.disabled;
     dom.stageStepLabel.textContent = `${phaseIndex + 1} / ${M.PHASES.length}`;
-    dom.thetaChoices.hidden = state.phase !== "angle" || !M.isCorrectDecomposition(state);
+    dom.thetaChoices.hidden = state.phase !== "angle" || !thetaCandidatesForInteraction().length;
     dom.thetaChoices.querySelectorAll("[data-theta-choice]").forEach(button => {
       button.disabled = Boolean(drag || keyboardDrag);
       button.setAttribute("aria-pressed", String(state.theta === button.dataset.thetaChoice));
@@ -805,7 +899,7 @@
   function renderAll() {
     if (runtimeState === "review") { renderReview(); return; }
     if (runtimeState !== "editable") { renderTechnical(); return; }
-    const geometry = JSON.stringify([state.directions, state.perpendiculars, state.components, state.theta]);
+    const geometry = JSON.stringify([state.directions, state.perpendiculars, state.components, state.theta, state.thetaPoint]);
     const formulas = JSON.stringify(state.formulas);
     if (geometry !== lastGeometry || formulas !== lastFormulas) {
       formulaResult = null;
@@ -828,8 +922,23 @@
 
   function renderFormulas() {
     dom.formulaWorkbench.hidden = state.phase !== "formulas";
-    const available = Boolean(M.formulaExpectations(state));
-    const angle = M.thetaCandidates(state.directions, activeScene()).find(item => item.key === state.theta);
+    const expectations = M.formulaExpectations(state) || [];
+    const available = expectations.length > 0;
+    const formulaLabel = (key) => {
+      const index = key === "F1" ? 0 : 1;
+      const expected = expectations.find(item => item.key === key);
+      const axis = activeScene().id === "inclined-gravity"
+        ? (key === "F1" ? "parallel" : "normal")
+        : expected?.axis;
+      return M.componentSymbol(activeScene(), axis, index);
+    };
+    dom.formulaWorkbench.querySelectorAll("[data-formula-label]").forEach(node => {
+      setMathText(node, formulaLabel(node.dataset.formulaLabel));
+    });
+    dom.formulaWorkbench.querySelectorAll("[data-formula-force-label]").forEach(node => {
+      setMathText(node, activeScene().forceSymbol);
+    });
+    const angle = thetaCandidatesForInteraction().find(item => item.key === state.theta);
     setMathText(documentObject.getElementById("formulaAngleDescription"), angle ? `目前 θ：${angle.description}。` : "");
     const busy = Boolean(drag || keyboardDrag || formulaDrag);
     dom.formulaTokens.forEach(button => {
@@ -840,24 +949,26 @@
     dom.formulaSlots.forEach(button => {
       const key = button.dataset.formulaSlot;
       const token = state.formulas?.[key];
+      const label = formulaLabel(key);
       setMathText(button, token ? `${token} θ` : "？");
-      button.setAttribute("aria-label", `${key} 的函數：${token ? token + " θ" : "未填"}。先選卡片，再點此處放置。`);
+      button.setAttribute("aria-label", `${label} 的函數：${token ? token + " θ" : "未填"}。先選卡片，再點此處放置。`);
       button.disabled = !available || Boolean(drag || keyboardDrag);
       const item = formulaResult?.items.find(result => result.key === key);
       button.dataset.result = item?.status || "";
       const feedback = dom.formulaWorkbench.querySelector(`[data-formula-feedback="${key}"]`);
-      const label = key === "F1" ? "F₁" : "F₂";
       const axisLabel = item?.axisLabel || (item?.axis === "normal" ? "法線" : item?.axis === "parallel" ? "斜面平行" : item?.axis === "horizontal" ? "水平" : item?.axis === "vertical" ? "垂直" : "該軸");
       setMathText(feedback, !item ? "" : item.status === "missing" ? `${label} 尚未填寫，請放入一張卡片。`
         : `${item.status === "correct" ? "✓ 正確" : "請再試"}：${label} 是${axisLabel}分量，${item.atHead ? "與分解三角形中" : "對應"} θ 的${item.relation === "adjacent" ? "鄰邊" : "對邊"}${item.atHead ? "等長" : ""}，所以用 ${item.value} θ。`);
     });
     dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => {
+      const label = formulaLabel(button.dataset.formulaClear);
+      button.setAttribute("aria-label", `清空 ${label} 公式`);
       button.disabled = !available || busy || !state.formulas?.[button.dataset.formulaClear];
     });
     dom.checkFormulasButton.disabled = !available || busy;
     setMathText(dom.formulaFeedback, !available ? "請先修正作圖並放好 θ，再配對公式。可拖動箭頭修正，或返回上一步調整。"
       : formulaResult ? formulaResult.status === "correct" ? "兩個表達式都正確！你已完成作圖、標角及分力表達。可改放 θ，再試另一組表達式。"
-        : formulaResult.status === "incomplete" ? "還有空格未填；填好後可再檢查。" : "有表達式需要修改。斜邊是原力 F；鄰邊用 cos θ，對邊用 sin θ。"
+        : formulaResult.status === "incomplete" ? "還有空格未填；填好後可再檢查。" : `有表達式需要修改。斜邊是原力 ${activeScene().forceSymbol}；鄰邊用 cos θ，對邊用 sin θ。`
       : selectedFormula ? `已選 ${selectedFormula} θ，請點選要填入的空格；Escape 可取消。` : formulaNotice);
   }
 
@@ -935,7 +1046,7 @@
     });
     if (kind === "theta") return M.thetaCandidateAt(point, state.directions, {
       ...options,
-      scene: activeScene(),
+      ...thetaInteractionOptions(),
       threshold: M.THETA_SNAP_RADIUS / Math.max(transform.scale, .01)
     });
     return null;
@@ -947,9 +1058,8 @@
     if (!kind || target.hidden || event.button > 0 || drag || keyboardDrag || formulaDrag) return;
     event.preventDefault();
     const pointer = clientToWorld(event.clientX, event.clientY);
-    const placed = state.theta ? M.thetaCandidates(state.directions, activeScene()).find(item => item.key === state.theta) : null;
     const editIndex = target.dataset.editIndex == null ? null : Number(target.dataset.editIndex);
-    const point = editIndex != null ? editPoint(kind, editIndex) : kind === "theta" ? placed?.labelCenter || placed?.center || THETA_SEAT : pointer;
+    const point = editIndex != null ? editPoint(kind, editIndex) : kind === "theta" ? thetaVisualPoint() : pointer;
     drag = {
       kind,
       editIndex,
@@ -971,7 +1081,8 @@
   function updatePointerDrag(event) {
     if (!drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
-    const point = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
+    const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
+    const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
     drag.maxDistance = Math.max(drag.maxDistance, M.distance(drag.startPoint, point));
     const previousTargetKey = drag.preview?.targetKey || drag.preview?.key || null;
     drag.point = point;
@@ -982,7 +1093,8 @@
   function finishPointerDrag(event) {
     if (!drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
-    const point = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
+    const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
+    const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
     drag.maxDistance = Math.max(drag.maxDistance, M.distance(drag.startPoint, point));
     const previousTargetKey = drag.preview?.targetKey || drag.preview?.key || null;
     drag.point = point;
@@ -1063,9 +1175,11 @@
       }
     } else if (draft.kind === "theta") {
       const candidate = draft.preview;
-      if (!candidate) setMessage("θ 沒有放在任何一個銳角候選內，請再拖一次。", "warning");
-      else {
-        syncCurrentQuestion({ ...state, theta: candidate.key });
+      if (!candidate) {
+        syncCurrentQuestion({ ...state, theta: null, thetaPoint: boundThetaPoint(draft.point || thetaVisualPoint()) });
+        setMessage("θ 已保留在你放手的位置；靠近角弧時會自動吸附。", "");
+      } else {
+        syncCurrentQuestion({ ...state, theta: candidate.key, thetaPoint: null });
         setMessage(`θ 已放在 ${candidate.description}。可繼續拖動更換位置。`, "success");
       }
     }
@@ -1076,8 +1190,7 @@
   function initialKeyboardPoint(kind) {
     if (kind === "direction" || kind === "component") return sceneOrigin();
     if (kind === "perpendicular") return sceneForceHead();
-    const candidates = M.thetaCandidates(state.directions, activeScene());
-    return candidates[0]?.labelCenter || candidates[0]?.center || THETA_SEAT;
+    return thetaVisualPoint();
   }
 
   function startKeyboardDrag(button) {
@@ -1088,8 +1201,9 @@
     const point = editIndex != null ? editPoint(kind, editIndex) : initialKeyboardPoint(kind);
     keyboardDrag = { kind, editIndex, target: button, pointerType: "keyboard", point, startPoint: point, moved: false, thetaIndex: 0, preview: beginPreview(kind, point, "keyboard", null, editIndex) };
     if (kind === "theta" && state.theta) {
-      keyboardDrag.thetaIndex = Math.max(0, M.thetaCandidates(state.directions, activeScene()).findIndex((candidate) => candidate.key === state.theta));
-      keyboardDrag.point = M.thetaCandidates(state.directions, activeScene())[keyboardDrag.thetaIndex]?.labelCenter || M.thetaCandidates(state.directions, activeScene())[keyboardDrag.thetaIndex]?.center || point;
+      const candidates = thetaCandidatesForInteraction();
+      keyboardDrag.thetaIndex = Math.max(0, candidates.findIndex((candidate) => candidate.key === state.theta));
+      keyboardDrag.point = candidates[keyboardDrag.thetaIndex]?.labelCenter || candidates[keyboardDrag.thetaIndex]?.center || point;
       keyboardDrag.preview = beginPreview(kind, keyboardDrag.point, "keyboard");
     }
     setMessage("鍵盤作圖中：用方向鍵移動，Enter 確認，Escape 取消。", "success");
@@ -1100,7 +1214,7 @@
   function updateKeyboardDrag(key) {
     if (!keyboardDrag) return false;
     if (keyboardDrag.kind === "theta" && (key === "ArrowLeft" || key === "ArrowRight")) {
-      const candidates = M.thetaCandidates(state.directions, activeScene());
+      const candidates = thetaCandidatesForInteraction();
       if (!candidates.length) return true;
       keyboardDrag.thetaIndex = (keyboardDrag.thetaIndex + (key === "ArrowRight" ? 1 : -1) + candidates.length) % candidates.length;
       keyboardDrag.point = candidates[keyboardDrag.thetaIndex].center;
@@ -1115,6 +1229,7 @@
       if (keyboardDrag.kind === "perpendicular" || keyboardDrag.kind === "component") {
         keyboardDrag.point = M.boundedEndpoint(keyboardDrag.kind === "perpendicular" ? sceneForceHead() : sceneOrigin(), keyboardDrag.point, editingBounds());
       }
+      if (keyboardDrag.kind === "theta") keyboardDrag.point = boundThetaPoint(keyboardDrag.point);
       keyboardDrag.moved = true;
     }
     keyboardDrag.preview = beginPreview(keyboardDrag.kind, keyboardDrag.point, "keyboard", keyboardDrag.preview?.targetKey || keyboardDrag.preview?.key || null, keyboardDrag.editIndex);
@@ -1237,7 +1352,7 @@
     if (drag || keyboardDrag || formulaDrag || !M.canAdvance(state)) return;
     syncCurrentQuestion(M.advance(state));
     setMessage(state.phase === "angle" && !M.isCorrectDecomposition(state)
-      ? "作圖已完成，但目前圖形未形成可標示的分解銳角。可返回調整。"
+      ? "作圖仍可修改；你可以先標示 θ，評分會按目前作答判斷。"
       : `已進入第 ${M.PHASES.indexOf(state.phase) + 1} 步。`, "");
     persistDraft();
     renderAll();
@@ -1534,8 +1649,8 @@
   });
   dom.thetaChoices.addEventListener("click", event => {
     const button = event.target.closest("[data-theta-choice]");
-    if (!button || drag || keyboardDrag || state.phase !== "angle" || !M.isCorrectDecomposition(state)) return;
-    const candidate = M.thetaCandidates(state.directions, activeScene()).find(item => item.key === button.dataset.thetaChoice);
+    if (!button || drag || keyboardDrag || state.phase !== "angle") return;
+    const candidate = thetaCandidatesForInteraction().find(item => item.key === button.dataset.thetaChoice);
     if (candidate) commitDraft({ kind: "theta", pointerType: "keyboard", preview: candidate });
   });
   dom.questionProgress.addEventListener("click", routeQuestionClick);

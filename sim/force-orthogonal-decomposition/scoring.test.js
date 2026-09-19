@@ -41,14 +41,28 @@ const partialResult = S.score(partial);
 assert.ok(partialResult.score >= 0 && partialResult.score < 100, "partial work receives bounded formative credit");
 assert.equal(partialResult.detail[1].score, 0);
 
+const imperfectDirections = [
+  { key: "D1", unit: { x: .6, y: .8 }, axis: null },
+  { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
+];
+const imperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical", allowImperfect: true })[0];
+const wrongAngle = { ...M.createQuestionState("horizontal-vertical"), phase: "angle", directions: imperfectDirections, theta: imperfectTheta.key };
+assert.equal(S.thetaGroup(wrongAngle, M.getScenario("horizontal-vertical"))[0].correct, false, "an interaction-only theta choice remains incorrect until the formal geometry is valid");
+
 const gravity = activity.questions[2];
 const gravityExpectations = M.formulaExpectations(gravity);
 assert.deepEqual(gravityExpectations.map(entry => [entry.axis, entry.value]).sort(), [["normal", "cos"], ["parallel", "sin"]]);
+assert.deepEqual(S.formulaGroup(gravity, M.getScenario("inclined-gravity")).map(entry => entry.label).sort(), ["Gₓ 的分力表達式", "Gᵧ 的分力表達式"].sort());
 const reversedGravity = P.clone(gravity);
 reversedGravity.components.reverse();
 reversedGravity.components = reversedGravity.components.map((entry, index) => ({ ...entry, key: `F${index + 1}` }));
 const reversedExpectations = M.formulaExpectations(reversedGravity);
 assert.deepEqual(reversedExpectations.map(entry => entry.value).sort(), ["cos", "sin"], "formula meaning survives F1/F2 creation order");
+assert.deepEqual(reversedExpectations.map(entry => [entry.key, entry.value]), [["F1", "sin"], ["F2", "cos"]], "gravity formula slots keep Gₓ/Gᵧ semantics");
+const reversedGravityDetail = S.questionDetail(reversedGravity, 2);
+const reversedComponentItems = reversedGravityDetail.groups.find(group => group.key === "components").items;
+assert.equal(reversedComponentItems.every(item => item.correct), false, "gravity rejects swapped Gₓ/Gᵧ placement");
+assert.match(reversedComponentItems.map(item => item.detail).join("；"), /Gₓ 平行斜面、Gᵧ 垂直斜面/);
 
 const clipped = S.score({ ...activity, questions: activity.questions.map(question => ({ ...question, formulas: { F1: "tan", F2: "tan" } })) });
 assert.ok(clipped.score >= 0 && clipped.score <= 100, "score is always clipped to 0–100");
