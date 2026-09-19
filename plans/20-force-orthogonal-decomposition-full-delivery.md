@@ -216,8 +216,8 @@ have `touch-action:none` before `pointerdown`; visual SVG is `pointer-events:non
 - 垂線：兩條均垂直於不同方向線，且線段抵達或穿過相應垂足；每條 10 分。
 - 分力：兩支箭頭端點與兩個可見垂足交點一致，且方向線各一支；每支 10 分。
 - θ：這一組是一個 20 分條件（有合法 θ 語意鍵並標在本題可接受的角弧）；錯誤／缺少得 0 分。自由角接受合法 O／P 的等值或互餘候選；已知斜面題只接受分解三角形內、等於題目斜面傾角的指定 `theta-incline`。
-- 公式：兩個分力函數各 10 分；缺填及錯填只影響相應的 10 分項。
-- 未完成題於 final-state score 中按已完成的觀察給部分分，不另加操作次數懲罰；最低 0，最高 100。第三題的分力項目另外要求 `F1` 對應 `Gₓ`（平行斜面）、`F2` 對應 `Gᵧ`（垂直斜面／向內法線）；倒轉位置時相應分力項目得 0 分。練習及提交前檢查只顯示保存／待評核狀態，不顯示數字分數或錯誤分組；三題最終提交並鎖定後，review 才列出每題五組的已得／待修項。
+- 公式：兩個分力函數各 10 分；缺填及錯填只影響相應的 10 分項。公式卡只收集學生答案，練習期間沒有公式檢查按鈕或即時對錯提示。
+- 未完成題於 final-state score 中按已完成的觀察給部分分，不另加操作次數懲罰；最低 0，最高 100。第三題的分力項目另外要求 `F1` 對應 `Gₓ`（平行斜面）、`F2` 對應 `Gᵧ`（垂直斜面／向內法線）；倒轉位置時相應分力項目得 0 分。練習及提交前檢查只顯示保存／待評核狀態，不顯示數字分數、公式對錯或錯誤分組；三題最終提交並鎖定後，review 才列出每題五組的已得／待修項。
 
 ## Tolerance
 
@@ -242,7 +242,7 @@ have `touch-action:none` before `pointerdown`; visual SVG is `pointer-events:non
 | `practice` | components from back-navigation | 2 | 完整分力及可保留的 θ／公式；可直接修復上游 | 關係鍵及 θ 必須可解析，失效 θ 必須為 null | 編輯分力、下一步、返回 |
 | `practice` | angle geometry-valid | 3 | 兩支分力及完整可驗證幾何；θ 可為已吸附 key，或以 `thetaPoint` 保存未吸附的放手座標 | 無 θ 時不得進公式；公式 null 或既有 answer | 放／移 θ、改圖、返回 |
 | `practice` | angle/formulas theta released | 3–4 | `theta:null` 且 `thetaPoint` 是有效世界座標；θ 仍可由該位置拖近角弧重新吸附 | 不得把未吸附 θ 當成合法公式角度 | 拖近角弧重新吸附、改圖、返回 |
-| `practice` | formulas geometry-valid | 4 | 完整幾何、合法 θ、`thetaPoint:null`、`F1/F2` 可 null/sin/cos | 無 | 填／清／檢查公式、編輯分力、返回 |
+| `practice` | formulas geometry-valid | 4 | 完整幾何、合法 θ、`thetaPoint:null`、`F1/F2` 可 null/sin/cos | 練習期間不顯示公式對錯 | 填／清公式、編輯分力、返回；三題最終提交後由 review 評核 |
 | `practice` | formulas geometry-invalid continuation | 4 | 兩支分力仍存在但上游直接編輯使幾何失效；既有公式可保留 | 不得把失效幾何當作已完成；θ 清除 | 修復線／箭頭，或返回；不可得到成功公式 feedback |
 | `practice` | formulas repaired-geometry-awaiting-theta | 4 | 直接編輯先使幾何失效、再修復至正確；θ 已清除；原有公式嘗試仍保留 | 不得把未重標 θ 當作可用公式；不可丟棄合法下游答案 | 返回 angle、重新放 θ、再進公式；保存／重載／繼續 |
 | `practice` | from-summary review-edit | 0–4 | `fromReview:true`；目前題答案與原 summary 完整保留，可編輯任何已完成題 | 不可清除未選中的其他題；不把 summary 當成 final review | 修改、返回 summary、保存 draft |

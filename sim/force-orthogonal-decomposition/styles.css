@@ -591,12 +591,7 @@ body {
 .formula-row[data-formula-row="F1"] .formula-equation { color: var(--force-component-one); }
 .formula-row[data-formula-row="F2"] .formula-equation { color: var(--force-component-two); }
 .formula-slot { flex: 1 1 5rem; min-height: 48px; border: 2px dashed var(--color-border); }
-.formula-slot[data-result="correct"] { border-color: #15803d; }
-.formula-slot[data-result="incorrect"], .formula-slot[data-result="missing"] { border-color: #b45309; }
 .formula-clear { min-height: 44px; padding: .4rem; font-size: .75rem; }
-.formula-item-feedback { flex-basis: 100%; margin: 0; font-size: .82rem; line-height: 1.5; }
-.formula-item-feedback:empty { display: none; }
-#formulaFeedback { margin: .5rem 0; font-size: .86rem; line-height: 1.5; }
 .formula-ghost { position: fixed; z-index: 100; pointer-events: none; padding: .5rem .8rem; border: 2px solid var(--color-accent); border-radius: 6px; background: #fff; box-shadow: 0 2px 8px #0002; transform: translate(-50%, -120%); }
 .formula-equation sub { font-size: .7em; }
 .theta-choices p { margin: 0; line-height: 1.5; }

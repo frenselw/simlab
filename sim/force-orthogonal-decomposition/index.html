@@ -90,7 +90,7 @@
 
         <section id="formulaWorkbench" class="formula-workbench" aria-label="用三角函數表示分力大小" hidden>
           <p id="formulaAngleDescription" class="formula-help"></p>
-          <p class="formula-help">拖放卡片到空格；亦可先點卡片，再點空格。卡片可重複使用。</p>
+          <p class="formula-help">拖放卡片到空格；亦可先點卡片，再點空格。卡片可重複使用；公式對錯會在三題最終提交後一併顯示。</p>
           <div class="formula-palette" role="group" aria-label="選擇三角函數">
             <button id="formulaSin" type="button" data-formula-token="sin" aria-pressed="false" aria-label="選擇 sin θ">sin <var>θ</var></button>
             <button id="formulaCos" type="button" data-formula-token="cos" aria-pressed="false" aria-label="選擇 cos θ">cos <var>θ</var></button>
@@ -99,16 +99,12 @@
             <span class="formula-equation"><span data-formula-label="F1">F₁</span> = <span data-formula-force-label>F</span> ×</span>
             <button id="formulaSlotF1" class="formula-slot" data-formula-slot="F1" type="button" aria-label="F1 的函數空格">？</button>
             <button type="button" class="formula-clear" data-formula-clear="F1" aria-label="清空 F1 公式">清空</button>
-            <p class="formula-item-feedback" data-formula-feedback="F1"></p>
           </div>
           <div class="formula-row" data-formula-row="F2">
             <span class="formula-equation"><span data-formula-label="F2">F₂</span> = <span data-formula-force-label>F</span> ×</span>
             <button id="formulaSlotF2" class="formula-slot" data-formula-slot="F2" type="button" aria-label="F2 的函數空格">？</button>
             <button type="button" class="formula-clear" data-formula-clear="F2" aria-label="清空 F2 公式">清空</button>
-            <p class="formula-item-feedback" data-formula-feedback="F2"></p>
           </div>
-          <button id="checkFormulasButton" class="primary-button" type="button">檢查本題公式</button>
-          <p id="formulaFeedback" role="status" aria-live="polite"></p>
         </section>
 
         <div id="thetaChoices" class="theta-choices" role="group" aria-label="選擇 θ 表示的角" hidden>

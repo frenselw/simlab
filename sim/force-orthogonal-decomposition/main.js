@@ -38,8 +38,6 @@
     formulaTokens: Array.from(documentObject.querySelectorAll("[data-formula-token]")),
     formulaSlots: Array.from(documentObject.querySelectorAll("[data-formula-slot]")),
     formulaGhost: documentObject.getElementById("formulaGhost"),
-    formulaFeedback: documentObject.getElementById("formulaFeedback"),
-    checkFormulasButton: documentObject.getElementById("checkFormulasButton"),
     editHits: Array.from(documentObject.querySelectorAll("[data-edit-kind]")),
     stageBackButton: documentObject.getElementById("stageBackButton"),
     stageNextButton: documentObject.getElementById("stageNextButton"),
@@ -105,10 +103,6 @@
   let keyboardDrag = null;
   let formulaDrag = null;
   let selectedFormula = null;
-  let formulaResult = null;
-  let formulaNotice = "";
-  let lastGeometry = "";
-  let lastFormulas = "";
   let suppressFormulaClick = false;
   let hostTouchScroll = null;
   let message = "由 O 拖出第 1 條方向虛線。";
@@ -642,7 +636,7 @@
     dom.originHit.dataset.dragKind = phase === "components" ? "component" : "direction";
 
     const pointActive = phase === "perpendiculars" && state.perpendiculars.length < 2;
-    setHitVisibility(dom.pointHit, pointActive, "由原力箭頭 P 開始畫垂線");
+    setHitVisibility(dom.pointHit, pointActive, "由原力箭嘴頭開始畫垂線");
     setHitPosition(dom.pointHit, sceneForceHead());
     dom.pointHit.dataset.dragKind = "perpendicular";
 
@@ -899,15 +893,6 @@
   function renderAll() {
     if (runtimeState === "review") { renderReview(); return; }
     if (runtimeState !== "editable") { renderTechnical(); return; }
-    const geometry = JSON.stringify([state.directions, state.perpendiculars, state.components, state.theta, state.thetaPoint]);
-    const formulas = JSON.stringify(state.formulas);
-    if (geometry !== lastGeometry || formulas !== lastFormulas) {
-      formulaResult = null;
-      formulaNotice = geometry !== lastGeometry && Object.values(state.formulas || {}).some(Boolean)
-        ? "θ 或作圖已更改，已填公式保留，請重新檢查。" : "";
-    }
-    lastGeometry = geometry;
-    lastFormulas = formulas;
     if (state.phase !== "formulas" || !M.formulaExpectations(state)) selectedFormula = null;
     dom.practicePanel.classList.toggle("is-hidden", activity.phase !== "practice");
     dom.summaryPanel.classList.toggle("is-hidden", activity.phase !== "summary");
@@ -953,23 +938,12 @@
       setMathText(button, token ? `${token} θ` : "？");
       button.setAttribute("aria-label", `${label} 的函數：${token ? token + " θ" : "未填"}。先選卡片，再點此處放置。`);
       button.disabled = !available || Boolean(drag || keyboardDrag);
-      const item = formulaResult?.items.find(result => result.key === key);
-      button.dataset.result = item?.status || "";
-      const feedback = dom.formulaWorkbench.querySelector(`[data-formula-feedback="${key}"]`);
-      const axisLabel = item?.axisLabel || (item?.axis === "normal" ? "法線" : item?.axis === "parallel" ? "斜面平行" : item?.axis === "horizontal" ? "水平" : item?.axis === "vertical" ? "垂直" : "該軸");
-      setMathText(feedback, !item ? "" : item.status === "missing" ? `${label} 尚未填寫，請放入一張卡片。`
-        : `${item.status === "correct" ? "✓ 正確" : "請再試"}：${label} 是${axisLabel}分量，${item.atHead ? "與分解三角形中" : "對應"} θ 的${item.relation === "adjacent" ? "鄰邊" : "對邊"}${item.atHead ? "等長" : ""}，所以用 ${item.value} θ。`);
     });
     dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => {
       const label = formulaLabel(button.dataset.formulaClear);
       button.setAttribute("aria-label", `清空 ${label} 公式`);
       button.disabled = !available || busy || !state.formulas?.[button.dataset.formulaClear];
     });
-    dom.checkFormulasButton.disabled = !available || busy;
-    setMathText(dom.formulaFeedback, !available ? "請先修正作圖並放好 θ，再配對公式。可拖動箭頭修正，或返回上一步調整。"
-      : formulaResult ? formulaResult.status === "correct" ? "兩個表達式都正確！你已完成作圖、標角及分力表達。可改放 θ，再試另一組表達式。"
-        : formulaResult.status === "incomplete" ? "還有空格未填；填好後可再檢查。" : `有表達式需要修改。斜邊是原力 ${activeScene().forceSymbol}；鄰邊用 cos θ，對邊用 sin θ。`
-      : selectedFormula ? `已選 ${selectedFormula} θ，請點選要填入的空格；Escape 可取消。` : formulaNotice);
   }
 
   function placeFormula(key, token) {
@@ -1382,7 +1356,6 @@
     drag = null;
     keyboardDrag = null;
     formulaDrag = null;
-    formulaResult = null;
     selectedFormula = null;
     message = `目前是第 ${index + 1} 題：${M.getScenario(state.scenarioId).title}。`;
     messageKind = "";
@@ -1631,15 +1604,9 @@
   });
   dom.formulaSlots.forEach(button => button.addEventListener("click", () => {
     if (selectedFormula && !formulaDrag) placeFormula(button.dataset.formulaSlot, selectedFormula);
-    else if (!formulaDrag) { formulaNotice = "請先選 sin θ 或 cos θ 卡片，再點這個空格。"; renderFormulas(); }
+    else if (!formulaDrag) setMessage("請先選 sin θ 或 cos θ 卡片，再點這個空格。", "");
   }));
   dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => button.addEventListener("click", () => placeFormula(button.dataset.formulaClear, null)));
-  dom.checkFormulasButton.addEventListener("click", () => {
-    formulaResult = M.checkFormulas(state);
-    selectedFormula = null;
-    persistDraft();
-    renderFormulas();
-  });
   documentObject.addEventListener("keydown", event => {
     if (event.key !== "Escape" || (!formulaDrag && !selectedFormula)) return;
     event.preventDefault();

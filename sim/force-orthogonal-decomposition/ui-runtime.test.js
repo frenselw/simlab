@@ -24,5 +24,7 @@ assert.match(html, /id="questionProgress"/);
 assert.match(html, /id="reviewQuestionNavigation"/);
 assert.match(html, /id="submitAttempt"[^>]*type="button"/);
 assert.match(html, /id="returnToPractice"[^>]*type="button"/);
+assert.doesNotMatch(html, /checkFormulasButton|檢查本題公式|formulaFeedback|data-formula-feedback/);
+assert.doesNotMatch(main, /checkFormulasButton|formulaResult|M\.checkFormulas\(state\)/);
 
 console.log("force orthogonal decomposition UI runtime tests passed");
