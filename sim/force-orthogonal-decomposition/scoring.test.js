@@ -64,6 +64,39 @@ const reversedComponentItems = reversedGravityDetail.groups.find(group => group.
 assert.equal(reversedComponentItems.every(item => item.correct), false, "gravity rejects swapped Gₓ/Gᵧ placement");
 assert.match(reversedComponentItems.map(item => item.detail).join("；"), /Gₓ 平行斜面、Gᵧ 垂直斜面/);
 
+// Two perpendicular guides can expose more than one intersection on the
+// same direction axis.  Scoring must follow each component's targetKey rather
+// than whichever intersection happened to be created first.
+const orderScene = M.getScenario("horizontal-vertical");
+const orderDirections = [
+  { key: "D1", unit: { x: 1, y: 0 }, axis: "horizontal", axisKey: "horizontal" },
+  { key: "D2", unit: { x: 0, y: 1 }, axis: "vertical", axisKey: "vertical" }
+];
+const orderPerpendiculars = [
+  { key: "P1", end: { x: -80, y: -30 }, targetKey: null },
+  { key: "P2", end: { x: 240, y: 0 }, targetKey: "D1" }
+];
+const orderIntersections = M.visibleIntersections(orderPerpendiculars, orderDirections, orderScene);
+const orderHorizontal = orderIntersections.find(item => item.key === "P2:D1");
+const orderVertical = orderIntersections.find(item => item.key === "P1:D2");
+assert.ok(orderHorizontal && orderVertical, "the drawing-order regression exposes both component targets");
+const orderQuestion = {
+  ...M.createQuestionState(orderScene.id),
+  phase: "components",
+  directions: orderDirections,
+  perpendiculars: orderPerpendiculars,
+  components: [
+    { key: "F1", end: orderHorizontal.point, targetKey: orderHorizontal.key },
+    { key: "F2", end: orderVertical.point, targetKey: orderVertical.key }
+  ]
+};
+const orderDetail = S.questionDetail(orderQuestion, 0);
+const orderItems = orderDetail.groups.find(group => group.key === "components").items;
+assert.equal(orderItems.every(item => item.correct), true, "components score against their own target intersections");
+const reorderedQuestion = { ...orderQuestion, perpendiculars: orderPerpendiculars.slice().reverse() };
+const reorderedItems = S.questionDetail(reorderedQuestion, 0).groups.find(group => group.key === "components").items;
+assert.deepEqual(reorderedItems.map(item => item.earned), orderItems.map(item => item.earned), "component score is invariant to perpendicular creation order");
+
 const clipped = S.score({ ...activity, questions: activity.questions.map(question => ({ ...question, formulas: { F1: "tan", F2: "tan" } })) });
 assert.ok(clipped.score >= 0 && clipped.score <= 100, "score is always clipped to 0–100");
 

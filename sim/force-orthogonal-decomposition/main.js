@@ -557,12 +557,18 @@
       ? M.add(sceneForceHead(), { x: 26, y: -20 })
       : M.add(M.add(sceneOrigin(), M.scale(forceVector, forceLabelFraction)), forceLabelOffset);
     const forceLabelDirection = isGravityScene ? { x: 26, y: -20 } : forceLabelOffset;
-    const thetaLabelPoint = (() => {
+    const studentThetaLabelPoint = (() => {
       const thetaPreview = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
       if (thetaPreview?.point) return thetaPreview.point;
       if (thetaPreview?.preview?.labelCenter) return thetaPreview.preview.labelCenter;
       if (scene.theta) return thetaCandidatesForInteraction(scene).find(item => item.key === scene.theta)?.labelCenter || null;
       if (scene.thetaPoint) return scene.thetaPoint;
+      return null;
+    })();
+    // The fixed incline angle is a label-avoidance obstacle, but it is not a
+    // student answer. Keep it separate so review cannot invent a student θ
+    // when the learner left the third question unmarked.
+    const thetaLabelPoint = studentThetaLabelPoint || (() => {
       if (activeScene().thetaMode === "given") return givenSlopeCandidate(activeScene())?.labelCenter || null;
       return null;
     })();
@@ -616,8 +622,8 @@
     // keyboard affordances. Once the attempt is locked, that target is
     // hidden; keep the learner's saved label in the SVG so the review still
     // shows the complete submitted construction, including a free θPoint.
-    if (runtimeState === "review" && thetaLabelPoint) {
-      drawScreenText(labelLayer, thetaLabelPoint, "θ", "scene-label student-theta-label", {
+    if (runtimeState === "review" && studentThetaLabelPoint) {
+      drawScreenText(labelLayer, studentThetaLabelPoint, "θ", "scene-label student-theta-label", {
         "data-label": "student-theta",
         "text-anchor": "middle",
         "aria-hidden": "true"
@@ -635,14 +641,15 @@
     const editScene = M.getScenario(source.scenarioId) || activeScene();
     const point = kind === "direction" ? M.add(editScene.origin, M.scale(source.directions[index].unit, 120))
       : source[kind === "component" ? "components" : "perpendiculars"][index].end;
-    return M.boundedEndpoint(kind === "perpendicular" ? sceneForceHead() : sceneOrigin(), point, editingBounds());
+    const anchor = kind === "perpendicular" ? sceneForceHead() : sceneOrigin();
+    return M.boundedEndpoint(anchor, point, editingBounds(anchor));
   }
 
-  function editingBounds() {
+  function editingBounds(anchor = null) {
     // Keep the whole 52px target visible, including after a viewport resize.
     const inset = (EDIT_HIT_RADIUS + 2) / Math.max(diagramTransform().scale, .01);
     const bounds = sceneWorldBounds();
-    return {
+    const result = {
       left: bounds.left + inset,
       right: bounds.right - inset,
       bottom: bounds.bottom + inset,
@@ -651,6 +658,16 @@
       // on narrow stages (especially the upper inclined-force foot).
       top: bounds.top - inset
     };
+    // The force head can sit just beyond the inset top edge at a narrow
+    // viewport. Include the active anchor so dragging an existing segment
+    // never starts outside the clipping rectangle.
+    if (anchor) {
+      result.left = Math.min(result.left, anchor.x);
+      result.right = Math.max(result.right, anchor.x);
+      result.bottom = Math.min(result.bottom, anchor.y);
+      result.top = Math.max(result.top, anchor.y);
+    }
+    return result;
   }
 
   function boundThetaPoint(point) {
@@ -1131,11 +1148,12 @@
 
   function beginPreview(kind, point, pointerType, previousTargetKey = null, editIndex = null) {
     const transform = diagramTransform();
+    const anchor = kind === "perpendicular" ? sceneForceHead() : kind === "component" || kind === "direction" ? sceneOrigin() : null;
     const options = {
       pointerType,
       threshold: worldThreshold(pointerType),
       minDistance: M.MIN_DRAW_DISTANCE / Math.max(transform.scale, .01),
-      bounds: editingBounds(),
+      bounds: editingBounds(anchor),
       previousTargetKey
     };
     if (editIndex != null) return M.editGeometry(state, kind, editIndex, point, { ...options, scene: activeScene() });
@@ -1260,7 +1278,7 @@
     } else if (draft.kind === "perpendicular") {
       const result = M.commitPerpendicular(draft.point, state.directions, state.perpendiculars, {
         scene: activeScene(),
-        bounds: editingBounds(),
+        bounds: editingBounds(sceneForceHead()),
         pointerType: draft.pointerType,
         threshold: worldThreshold(draft.pointerType),
         minDistance: M.MIN_DRAW_DISTANCE / Math.max(diagramTransform().scale, .01),
@@ -1274,7 +1292,7 @@
     } else if (draft.kind === "component") {
       const result = M.commitComponent(draft.point, state.perpendiculars, state.directions, state.components, {
         scene: activeScene(),
-        bounds: editingBounds(),
+        bounds: editingBounds(sceneOrigin()),
         pointerType: draft.pointerType,
         threshold: worldThreshold(draft.pointerType),
         minDistance: M.MIN_DRAW_DISTANCE / Math.max(diagramTransform().scale, .01),
@@ -1340,7 +1358,8 @@
       if (!delta) return false;
       keyboardDrag.point = M.add(keyboardDrag.point, delta);
       if (keyboardDrag.kind === "perpendicular" || keyboardDrag.kind === "component") {
-        keyboardDrag.point = M.boundedEndpoint(keyboardDrag.kind === "perpendicular" ? sceneForceHead() : sceneOrigin(), keyboardDrag.point, editingBounds());
+        const anchor = keyboardDrag.kind === "perpendicular" ? sceneForceHead() : sceneOrigin();
+        keyboardDrag.point = M.boundedEndpoint(anchor, keyboardDrag.point, editingBounds(anchor));
       }
       if (keyboardDrag.kind === "theta") keyboardDrag.point = boundThetaPoint(keyboardDrag.point);
       keyboardDrag.moved = true;
@@ -1419,9 +1438,12 @@
   function captureStageTouch(event) {
     if (runtimeState !== "editable" || event.touches?.length !== 1) return;
     const touch = event.touches[0];
-    const eventTarget = event.target?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    // Only drawing hit targets own the touch gesture.  Navigation buttons use
+    // the browser's normal touch-to-click path; intercepting their touchstart
+    // suppresses the click in Chromium touch contexts.
+    const eventTarget = event.target?.closest?.(".stage-hit, .theta-hit");
     const pointTarget = documentObject.elementFromPoint(touch.clientX, touch.clientY);
-    const owner = eventTarget || pointTarget?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    const owner = eventTarget || pointTarget?.closest?.(".stage-hit, .theta-hit");
     if (!owner || !dom.stage?.contains(owner)) {
       pointerPanelScrollTop = null;
       return;

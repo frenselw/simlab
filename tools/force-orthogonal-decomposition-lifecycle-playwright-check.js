@@ -46,6 +46,14 @@ const freeThetaDraftJson = await page.evaluate(draftJson => {
   draft.answer.questions[0].thetaPoint = { x: 120, y: -40 };
   return JSON.stringify(draft);
 }, completeDraftJson);
+const noThetaDraftJson = await page.evaluate(draftJson => {
+  const draft = JSON.parse(draftJson);
+  // The third question keeps its fixed incline θ, but has no student theta
+  // key and no free thetaPoint. Review must not invent a second label.
+  draft.answer.questions[2].theta = null;
+  draft.answer.questions[2].thetaPoint = null;
+  return JSON.stringify(draft);
+}, completeDraftJson);
 const frameForHost = async label => {
   let frame = null;
   for (let attempt = 0; attempt < 30 && !frame; attempt += 1) {
@@ -166,6 +174,19 @@ assert((await submitPopulated(frame, "free theta review")) === "review", "free t
 await assertReviewLock(frame, "free theta review");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "free theta review: free thetaPoint label remains visible");
 assert(await frame.locator("#thetaHit").isHidden(), "free theta review: interactive theta hit target is hidden");
+
+// A submitted third question without any learner theta must keep only the
+// fixed incline marker. It must not render a fabricated student-theta label.
+frame = await openHost("success", "complete-draft", { suspendData: noThetaDraftJson, status: "incomplete", score: "" }, "missing third-question theta review");
+// Bypass the browser-native confirmation in this intentionally incomplete
+// fixture. The assertion below is about the persisted/reviewed geometry, not
+// about the confirmation dialog itself.
+await frame.evaluate(() => { window.confirm = () => true; });
+assert((await submitPopulated(frame, "missing third-question theta review")) === "review", "missing third-question theta review: production submit did not finish");
+await assertReviewLock(frame, "missing third-question theta review");
+await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 0, "missing third-question theta review: no student theta is fabricated");
+assert(await frame.locator('[data-label="given-slope-theta"]').count() === 1, "missing third-question theta review: fixed incline theta remains visible");
 
 // localStorage is intentionally denied in this LMS-frame scenario. The SCORM
 // API still commits the draft, so the UI must report an LMS save rather than a

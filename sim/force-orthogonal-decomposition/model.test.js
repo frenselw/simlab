@@ -86,6 +86,40 @@ assert.equal(stickyCommittedPerpendicular.accepted, true, "perpendicular commit 
 assert.equal(stickyCommittedPerpendicular.item.targetKey, "D1");
 assert.deepEqual(stickyCommittedPerpendicular.item.end, horizontalFoot);
 
+// On a narrow stage P can sit just beyond the inset top boundary.  A 95°
+// direction and an inward drag used to direction-snap, get clipped back to P,
+// and make an existing perpendicular zero length.  Preview and edit must keep
+// the real dragged endpoint (or reject it), never return P as a valid result.
+const narrowScene = M.getScenario("inclined-external-force");
+const narrowDirection = [{ key: "D1", unit: M.fromAngle(M.radians(95)), axisKey: null }];
+const narrowBounds = { left: -180, right: 440, bottom: -260, top: 178.33 };
+const narrowPointer = { x: 250, y: 177 };
+const narrowPreview = M.perpendicularPreview(narrowPointer, narrowDirection, {
+  scene: narrowScene,
+  bounds: narrowBounds,
+  minDistance: 20,
+  threshold: 20,
+  pointerType: "touch"
+});
+assert.equal(narrowPreview.valid, true, "narrow perpendicular edit keeps a usable preview");
+assert.ok(M.distance(narrowScene.forceHead, narrowPreview.point) >= 20, "narrow perpendicular preview never collapses to P");
+const narrowState = {
+  ...M.createQuestionState(narrowScene.id),
+  phase: "perpendiculars",
+  directions: narrowDirection,
+  perpendiculars: [{ key: "P1", end: { x: 220, y: 70 }, targetKey: null }],
+  components: []
+};
+const narrowEdit = M.editGeometry(narrowState, "perpendicular", 0, narrowPointer, {
+  scene: narrowScene,
+  bounds: narrowBounds,
+  minDistance: 20,
+  threshold: 20,
+  pointerType: "touch"
+});
+assert.equal(narrowEdit.valid, true, "narrow perpendicular edit is accepted as a nonzero segment");
+assert.ok(M.distance(narrowScene.forceHead, narrowEdit.editedState.perpendiculars[0].end) >= 20, "narrow perpendicular edit stores a savable endpoint");
+
 const exactPerpendiculars = [
   { key: "P1", end: horizontalFoot, targetKey: "D1" },
   { key: "P2", end: verticalFoot, targetKey: "D2" }

@@ -319,12 +319,22 @@
 
   function boundedEndpoint(start, end, bounds) {
     if (!bounds) return clonePoint(end);
+    // An editing anchor can sit just outside the inset rectangle on a narrow
+    // stage (for example, P at the top edge).  Treat that anchor as part of
+    // the clipping rectangle instead of allowing a direction snap to clip
+    // straight back to the anchor and create a zero-length segment.
+    const safeBounds = {
+      left: Math.min(bounds.left, start.x),
+      right: Math.max(bounds.right, start.x),
+      bottom: Math.min(bounds.bottom, start.y),
+      top: Math.max(bounds.top, start.y)
+    };
     const delta = subtract(end, start);
     let fraction = 1;
-    if (delta.x > 0) fraction = Math.min(fraction, (bounds.right - start.x) / delta.x);
-    if (delta.x < 0) fraction = Math.min(fraction, (bounds.left - start.x) / delta.x);
-    if (delta.y > 0) fraction = Math.min(fraction, (bounds.top - start.y) / delta.y);
-    if (delta.y < 0) fraction = Math.min(fraction, (bounds.bottom - start.y) / delta.y);
+    if (delta.x > 0) fraction = Math.min(fraction, (safeBounds.right - start.x) / delta.x);
+    if (delta.x < 0) fraction = Math.min(fraction, (safeBounds.left - start.x) / delta.x);
+    if (delta.y > 0) fraction = Math.min(fraction, (safeBounds.top - start.y) / delta.y);
+    if (delta.y < 0) fraction = Math.min(fraction, (safeBounds.bottom - start.y) / delta.y);
     return add(start, scale(delta, Math.max(0, fraction)));
   }
 
@@ -368,6 +378,11 @@
       // P itself, so snapping would turn a valid short gesture into a
       // zero-length saved line.  Such a target is not a usable perpendicular.
       .filter((candidate) => distance(start, candidate.foot) >= minimum)
+      // A direction snap can itself be clipped to the editing anchor when the
+      // anchor is outside the inset stage boundary.  Do not keep that
+      // candidate: the free gesture is still usable, whereas the clipped
+      // snap would be a zero-length segment.
+      .filter((candidate) => distance(start, candidate.snappedPoint) >= minimum)
       .sort((first, second) => first.angularError - second.angularError || first.footDistance - second.footDistance);
 
     if (!candidates.length) {
@@ -385,6 +400,18 @@
     const footVisible = distance(boundedEndpoint(start, chosen.foot, options.bounds), chosen.foot) <= EPSILON;
     const snappedToFoot = canUseTarget && footVisible && distance(start, chosen.foot) >= minimum && (chosen.footDistance <= threshold || sticky);
     const finalPoint = snappedToFoot ? chosen.foot : chosen.snappedPoint;
+    if (distance(start, finalPoint) < minimum) {
+      return {
+        valid: false,
+        point: clonePoint(finalPoint),
+        targetKey: null,
+        directionSnapped: true,
+        candidateDirectionKey: chosen.direction.key,
+        foot: clonePoint(chosen.foot),
+        angularError: chosen.angularError,
+        reason: "too-short"
+      };
+    }
     return {
       valid: true,
       point: clonePoint(finalPoint),
@@ -500,6 +527,10 @@
       : kind === "perpendicular" ? perpendicularPreview(pointer, state.directions, editOptions)
         : previewComponent(pointer, state.perpendiculars, state.directions, editOptions);
     if (!preview.valid) return preview;
+    const minimum = options.minDistance ?? MIN_DRAW_DISTANCE;
+    if (kind === "perpendicular" && distance(scene.forceHead, preview.point) < minimum) {
+      return { ...preview, valid: false, targetKey: null, reason: "too-short" };
+    }
     if (kind === "direction" && isDuplicateDirection(preview.direction, others)) return { valid: false, reason: "duplicate" };
     const next = clone(state);
     next[collection][index] = kind === "direction"

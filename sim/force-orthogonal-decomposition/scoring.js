@@ -42,19 +42,30 @@
 
   function componentGroup(answer, scene) {
     const visible = M.visibleIntersections(answer.perpendiculars, answer.directions, scene);
+    const byKey = new Map(visible.map(candidate => [candidate.key, candidate]));
+    const targetFor = (component) => {
+      const target = byKey.get(component?.targetKey);
+      if (!target) return null;
+      const direction = answer.directions.find(entry => entry.key === target.directionKey);
+      return M.directionAxisKey(direction, scene) ? { target, axisKey: M.directionAxisKey(direction, scene) } : null;
+    };
     return scene.axes.map(axis => {
-      const target = visible.find(candidate => {
-        const direction = answer.directions.find(entry => entry.key === candidate.directionKey);
-        return M.directionAxisKey(direction, scene) === axis.key;
-      });
       const expectedKey = scene.id === "inclined-gravity"
         ? `F${scene.axes.indexOf(axis) + 1}`
         : null;
-      const component = answer.components.find(entry => entry.targetKey === target?.key &&
-        (!expectedKey || entry.key === expectedKey) &&
-        M.distance(entry.end, target.point) <= 1e-5);
-      const swapped = scene.id === "inclined-gravity" && answer.components.some(entry =>
-        entry.targetKey === target?.key && entry.key !== expectedKey && M.distance(entry.end, target.point) <= 1e-5);
+      // Resolve the intersection from each component's own targetKey. There
+      // may be several visible intersections on one axis, and their array
+      // order depends on the learner's drawing order.
+      const component = answer.components.find(entry => {
+        const resolved = targetFor(entry);
+        return resolved?.axisKey === axis.key &&
+          (!expectedKey || entry.key === expectedKey) &&
+          M.distance(entry.end, resolved.target.point) <= 1e-5;
+      });
+      const swapped = scene.id === "inclined-gravity" && answer.components.some(entry => {
+        const resolved = targetFor(entry);
+        return resolved?.axisKey === axis.key && entry.key !== expectedKey && M.distance(entry.end, resolved.target.point) <= 1e-5;
+      });
       return item(`component-${axis.key}`, `${axis.label}分力箭頭`, 10, Boolean(component),
         component ? "箭頭端點與可見交點重合" : swapped
           ? "第三題要求 Gₓ 平行斜面、Gᵧ 垂直斜面；兩者位置不可對調"
