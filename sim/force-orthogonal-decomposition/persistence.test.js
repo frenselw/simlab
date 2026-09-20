@@ -102,6 +102,39 @@ for (const phase of ["angle", "components", "perpendiculars", "directions"]) {
   assert.ok(activity.questions[0].formulas.F1 && activity.questions[0].formulas.F2, `${phase} keeps attempted formulas`);
 }
 
+// A horizontal/vertical mistake is still a valid learner attempt in an
+// inclined question. Its explicit null axis must stay null during draft and
+// review serialisation; it must not be reclassified against question 1's axes.
+function wrongSlopedDirectionQuestion(scenarioId) {
+  return {
+    ...M.createQuestionState(scenarioId),
+    phase: "directions",
+    directions: [
+      { key: "D1", unit: { x: 1, y: 0 }, axisKey: null },
+      { key: "D2", unit: { x: 0, y: 1 }, axisKey: null }
+    ]
+  };
+}
+
+for (const [index, scenarioId] of P.SCENARIO_IDS.entries()) {
+  if (index === 0) continue;
+  const wrong = wrongSlopedDirectionQuestion(scenarioId);
+  assert.equal(P.validateQuestion(wrong, index).ok, true, `${scenarioId} accepts an unsnapped horizontal/vertical mistake`);
+  const wrongActivity = P.freshDraft();
+  wrongActivity.currentQuestion = index;
+  wrongActivity.questions[index] = wrong;
+  const restored = roundTrip(wrongActivity, `${scenarioId} unsnapped direction draft`);
+  assert.deepEqual(restored.questions[index].directions.map(direction => direction.axisKey), [null, null], `${scenarioId} preserves null direction axes`);
+}
+
+const mixedSlopedMistakes = P.clone(complete);
+mixedSlopedMistakes.phase = "summary";
+mixedSlopedMistakes.questions[1] = wrongSlopedDirectionQuestion(P.SCENARIO_IDS[1]);
+mixedSlopedMistakes.questions[2] = wrongSlopedDirectionQuestion(P.SCENARIO_IDS[2]);
+const mixedMistakeResult = Scoring.score(mixedSlopedMistakes);
+assert.ok(mixedMistakeResult.score < 100, "sloped mistakes are scored instead of blocking final evaluation");
+assert.doesNotThrow(() => P.makeSnapshot("review", mixedSlopedMistakes, mixedMistakeResult), "sloped mistakes can be submitted for scoring");
+
 const wrongEdit = M.editGeometry(complete.questions[0], "component", 0, { x: 100, y: 70 }).editedState;
 assert.equal(wrongEdit.theta, null, "a wrong direct edit invalidates theta");
 const invalidAngle = { ...wrongEdit, phase: "angle" };
@@ -109,19 +142,29 @@ const invalidAngleActivity = P.freshDraft();
 invalidAngleActivity.questions[0] = invalidAngle;
 roundTrip(invalidAngleActivity, "invalid angle continuation after direct edit");
 
+const forceScene = M.getScenario("horizontal-vertical");
+const forceUnit = M.normalize(M.subtract(forceScene.forceHead, forceScene.origin));
+const forcePerpendicular = { x: -forceUnit.y, y: forceUnit.x };
 const imperfectDirections = [
-  { key: "D1", unit: { x: .6, y: .8 }, axis: null },
-  { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
+  { key: "D1", unit: forcePerpendicular, axisKey: null },
+  { key: "D2", unit: { x: .8, y: -.6 }, axisKey: null }
 ];
-const imperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical", allowImperfect: true })[0];
+const imperfectPerpendiculars = [
+  { key: "P1", end: { x: 320, y: 160 }, targetKey: null },
+  { key: "P2", end: { x: 120, y: 40 }, targetKey: null }
+];
+const imperfectCandidates = M.thetaCandidatesForInteraction(imperfectDirections, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  perpendiculars: imperfectPerpendiculars
+});
+const imperfectTheta = imperfectCandidates.find(candidate => candidate.key === "learner-theta-head-0");
+assert.ok(imperfectTheta, "the guided imperfect P angle remains an interaction candidate");
 const imperfectAngle = {
   ...M.createQuestionState("horizontal-vertical"),
   phase: "angle",
   directions: imperfectDirections,
-  perpendiculars: [
-    { key: "P1", end: { x: 240, y: 80 }, targetKey: null },
-    { key: "P2", end: { x: 120, y: 40 }, targetKey: null }
-  ],
+  perpendiculars: imperfectPerpendiculars,
   components: [
     { key: "F1", end: { x: 100, y: 70 }, targetKey: null },
     { key: "F2", end: { x: 90, y: -40 }, targetKey: null }
@@ -132,6 +175,7 @@ const imperfectAngleActivity = P.freshDraft();
 imperfectAngleActivity.questions[0] = imperfectAngle;
 const imperfectAngleRoundTrip = roundTrip(imperfectAngleActivity, "imperfect angle with saved theta");
 assert.equal(imperfectAngleRoundTrip.questions[0].theta, imperfectTheta.key, "an interaction-only theta key survives draft restore");
+assert.equal(P.validateQuestion(imperfectAngleRoundTrip.questions[0], 0).ok, true, "the same perpendicular guides validate the saved theta");
 const freeThetaAngle = { ...imperfectAngle, theta: null, thetaPoint: { x: 150, y: -40 } };
 const freeThetaActivity = P.freshDraft();
 freeThetaActivity.questions[0] = freeThetaAngle;

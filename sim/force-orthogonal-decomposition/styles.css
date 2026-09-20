@@ -17,6 +17,7 @@
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  overflow: clip;
 }
 
 html,

@@ -97,7 +97,6 @@ async page => {
     return { x: iframe.x + x, y: iframe.y + y };
   };
   const frameTouchTarget = async (frame, selector, end, label, diagram = true) => {
-    const beforeMetrics = await embeddedTargetMetrics(frame);
     await frame.evaluate(() => window.__forceOrthogonalApp.clearTouchTelemetry());
     const before = 0;
     const startBox = await frame.locator(selector).evaluate(node => node.getBoundingClientRect().toJSON());
@@ -105,6 +104,8 @@ async page => {
     assert(startBox && iframe, label + ": target " + selector + " has a box");
     const start = { x: iframe.x + startBox.x + startBox.width / 2, y: iframe.y + startBox.y + startBox.height / 2 };
     const target = diagram ? await frameDiagramPoint(frame, end) : end;
+    await wait(100);
+    const beforeMetrics = await embeddedTargetMetrics(frame);
     await touchDrag(start, target);
     await assertTrustedPointerTransaction(frame, before, label);
     await assertEmbeddedTargetMetricsStable(frame, beforeMetrics, label);
@@ -206,8 +207,8 @@ async page => {
       }
     }
     assert((await appState()).formulas.F1 && (await appState()).formulas.F2, `${plan.id}: formula inputs placed`);
-    await click(page.locator("#checkFormulasButton"));
-    assert(await page.locator('.formula-slot[data-result="correct"]').count() === 2, `${plan.id}: formulas are correct`);
+    assert(await page.locator("#checkFormulasButton").count() === 0, `${plan.id}: per-question formula check must not be exposed`);
+    assert(await page.locator(".formula-slot[data-result]").count() === 0, `${plan.id}: formula correctness must remain hidden before final submission`);
   };
   const exerciseDirectEditing = async () => {
     for (let index = 0; index < 4; index += 1) await click(page.locator("#backButton"));
@@ -231,7 +232,16 @@ async page => {
       const before = await semanticState();
       const start = await center(page.locator(selector));
       await mouseDrag(start, await diagramPoint(nudge(point, selector)));
-      assert(JSON.stringify(await semanticState()) !== JSON.stringify(before), label + ": edit completed");
+      const changed = await semanticState();
+      assert(JSON.stringify(changed) !== JSON.stringify(before), label + ": edit completed");
+      const persisted = await page.evaluate(() => {
+        const raw = localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint");
+        if (!raw) return null;
+        const bundle = JSON.parse(raw);
+        const snapshot = bundle?.["cmi.suspend_data"] ? JSON.parse(bundle["cmi.suspend_data"]) : null;
+        return snapshot?.answer?.questions?.[0] || null;
+      });
+      assert(persisted && JSON.stringify({ phase: persisted.phase, directions: persisted.directions, perpendiculars: persisted.perpendiculars, components: persisted.components, theta: persisted.theta, formulas: persisted.formulas }) === JSON.stringify(changed), label + ": completed edit was persisted immediately");
       const restoreStart = await center(page.locator(selector));
       await mouseDrag(restoreStart, await diagramPoint(point));
     };
@@ -261,11 +271,19 @@ async page => {
       const shell = document.querySelector(".force-shell");
       const stage = document.querySelector("#stage");
       const panel = document.querySelector("#forcePanel");
-      return { app: app.getBoundingClientRect().toJSON(), shell: shell.getBoundingClientRect().toJSON(), stage: stage.getBoundingClientRect().toJSON(), panel: panel.getBoundingClientRect().toJSON(), panelScrollHeight: panel.scrollHeight, panelClientHeight: panel.clientHeight, docScrollHeight: document.documentElement.scrollHeight, innerHeight };
+      return { app: app.getBoundingClientRect().toJSON(), shell: shell.getBoundingClientRect().toJSON(), stage: stage.getBoundingClientRect().toJSON(), panel: panel.getBoundingClientRect().toJSON(), layout: window.__forceOrthogonalApp.getLayoutMetrics(), panelScrollHeight: panel.scrollHeight, panelClientHeight: panel.clientHeight, docScrollHeight: document.documentElement.scrollHeight, innerHeight };
     });
     assert(metrics.app.height <= height + 1, `${label}: app is bounded to the viewport`);
     assert(metrics.docScrollHeight <= height + 1, `${label}: activity document is not a third scroll owner ${JSON.stringify(metrics)}`);
     assert(metrics.panelScrollHeight > metrics.panelClientHeight, `${label}: controls panel has an independent scroll range`);
+    const expected = {
+      left: metrics.layout.viewBox.x - metrics.layout.origin.x,
+      right: metrics.layout.viewBox.x + metrics.layout.viewBox.width - metrics.layout.origin.x,
+      bottom: metrics.layout.origin.y - metrics.layout.viewBox.y - metrics.layout.viewBox.height,
+      top: metrics.layout.origin.y - metrics.layout.viewBox.y
+    };
+    for (const key of ["left", "right", "bottom", "top"]) assert(Math.abs(metrics.layout.worldBounds[key] - expected[key]) < 1e-8, `${label}: scene world bounds follow the scene viewBox on ${key} edge ${JSON.stringify(metrics.layout)}`);
+    assert(metrics.layout.editingBounds.left > metrics.layout.worldBounds.left && metrics.layout.editingBounds.right < metrics.layout.worldBounds.right && metrics.layout.editingBounds.bottom > metrics.layout.worldBounds.bottom && metrics.layout.editingBounds.top < metrics.layout.worldBounds.top, `${label}: editing bounds keep hit targets inside the visible scene ${JSON.stringify(metrics.layout)}`);
     const before = await page.locator("#stage").boundingBox();
     await page.mouse.move(metrics.panel.x + metrics.panel.width / 2, metrics.panel.y + metrics.panel.height / 2);
     await page.mouse.wheel(0, 700);
@@ -287,6 +305,38 @@ async page => {
     await openFresh(path, label);
     await layoutContract(`${label} 390x600`, 390, 600);
     await layoutContract(`${label} 320x500`, 320, 500);
+    await click(page.locator("#goSummary"));
+    assert(await page.locator("#summaryWarning").textContent().then(text => text.includes("仍有未作答項目")), `${label}: empty summary identifies incomplete work`);
+    assert(!(await page.locator("#summaryList").textContent()).includes("/100"), `${label}: pre-submit summary does not reveal scores`);
+    await page.evaluate(() => {
+      window.__incompleteConfirmMessage = "";
+      window.confirm = message => { window.__incompleteConfirmMessage = String(message); return false; };
+    });
+    await click(page.locator("#submitAttempt"));
+    const incompleteConfirmMessage = await page.evaluate(() => window.__incompleteConfirmMessage);
+    assert(incompleteConfirmMessage.includes("仍有未作答項目") && await appRuntime() === "editable" && await page.locator("#summaryPanel").isVisible(), `${label}: incomplete final submission requires an explicit confirmation`);
+    await click(page.locator('#summaryList [data-edit-question="0"]'));
+    for (const index of [0, 1, 2]) {
+      await click(page.locator(`[data-question-index="${index}"]`));
+      const layout = await page.evaluate(() => window.__forceOrthogonalApp.getLayoutMetrics());
+      const expected = {
+        left: layout.viewBox.x - layout.origin.x,
+        right: layout.viewBox.x + layout.viewBox.width - layout.origin.x,
+        bottom: layout.origin.y - layout.viewBox.y - layout.viewBox.height,
+        top: layout.origin.y - layout.viewBox.y
+      };
+      assert(["left", "right", "bottom", "top"].every(key => Math.abs(layout.worldBounds[key] - expected[key]) < 1e-8), `${label}: scene ${layout.sceneId} four-edge bounds are viewBox-derived`);
+      assert(layout.editingBounds.left > layout.worldBounds.left && layout.editingBounds.right < layout.worldBounds.right && layout.editingBounds.bottom > layout.worldBounds.bottom && layout.editingBounds.top < layout.worldBounds.top, `${label}: scene ${layout.sceneId} controls remain reachable at 320px`);
+    }
+    await page.setViewportSize({ width: 1100, height: 760 });
+    await wait(80);
+    for (const index of [0, 1, 2]) {
+      await click(page.locator(`[data-question-index="${index}"]`));
+      const layout = await page.evaluate(() => window.__forceOrthogonalApp.getLayoutMetrics());
+      assert(layout.editingBounds.left > layout.worldBounds.left && layout.editingBounds.right < layout.worldBounds.right && layout.editingBounds.bottom > layout.worldBounds.bottom && layout.editingBounds.top < layout.worldBounds.top, `${label}: scene ${layout.sceneId} controls remain reachable after zoom/resize`);
+    }
+    await page.setViewportSize({ width: 320, height: 500 });
+    await wait(80);
     await click(page.locator('[data-question-index="2"]'));
     await constructQuestion("touch", false);
     assert((await appState()).scenarioId === "inclined-gravity" && (await appState()).phase === "formulas", `${label}: gravity construction did not complete at 320x500`);
@@ -386,7 +436,6 @@ async page => {
     await wait(60);
   };
   const frameTouchLocator = async (frame, sourceSelector, targetSelector, label) => {
-    const beforeMetrics = await embeddedTargetMetrics(frame);
     await frame.evaluate(() => window.__forceOrthogonalApp.clearTouchTelemetry());
     const sourceStatus = await frame.locator(sourceSelector).evaluate(node => ({ disabled: node.disabled, hidden: node.hidden, rect: node.getBoundingClientRect().toJSON(), phase: window.__forceOrthogonalApp.getState().phase }));
     assert(!sourceStatus.disabled && !sourceStatus.hidden, label + ": source is enabled and visible " + JSON.stringify(sourceStatus));
@@ -394,6 +443,7 @@ async page => {
     const target = await frame.locator(targetSelector).evaluate(node => node.getBoundingClientRect().toJSON());
     const iframe = await page.locator("iframe").boundingBox();
     assert(source && target && iframe, label + ": formula target boxes exist");
+    const beforeMetrics = await embeddedTargetMetrics(frame);
     await touchDrag(
       { x: iframe.x + source.x + source.width / 2, y: iframe.y + source.y + source.height / 2 },
       { x: iframe.x + target.x + target.width / 2, y: iframe.y + target.y + target.height / 2 }

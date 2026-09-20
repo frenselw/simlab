@@ -33,14 +33,21 @@
   // direction before restore would move its projection foot enough to change
   // the semantic answer.
   function point(value) { return { x: value.x, y: value.y }; }
-  function canonicalDirection(value) {
-    return { key: value.key, unit: point(value.unit), axisKey: value.axisKey ?? M.directionAxisKey(value) };
+  function canonicalDirection(value, scene) {
+    // `null` is meaningful: it records a learner-drawn line that was not
+    // absorbed by any of this question's axes.  Only infer the axis when the
+    // source object does not carry an axis key at all.  In particular, do not
+    // classify an inclined-question mistake with the first question's
+    // horizontal/vertical axes while serialising it.
+    const axisKey = value.axisKey === undefined ? M.directionAxisKey(value, scene) : value.axisKey;
+    return { key: value.key, unit: point(value.unit), axisKey };
   }
   function canonicalQuestion(value) {
+    const scene = M.getScenario(value.scenarioId);
     return {
       scenarioId: value.scenarioId,
       phase: value.phase,
-      directions: value.directions.map(entry => canonicalDirection(entry)),
+      directions: value.directions.map(entry => canonicalDirection(entry, scene)),
       perpendiculars: value.perpendiculars.map(entry => ({ key: entry.key, end: point(entry.end), targetKey: entry.targetKey ?? null })),
       components: value.components.map(entry => ({ key: entry.key, end: point(entry.end), targetKey: entry.targetKey ?? null })),
       theta: value.theta ?? null,
@@ -90,7 +97,11 @@
     // A learner may save an interaction-only theta key while repairing an
     // imperfect construction.  It remains a wrong answer for scoring, but it
     // is still a legitimate in-progress draft that must survive reload.
-    const thetaCandidates = M.thetaCandidatesForInteraction(value.directions, { scene, allowImperfect: true });
+    const thetaCandidates = M.thetaCandidatesForInteraction(value.directions, {
+      scene,
+      allowImperfect: true,
+      perpendiculars: value.perpendiculars
+    });
     if (value.theta !== null && !thetaCandidates.some(candidate => candidate.key === value.theta)) return { ok: false, reason: `theta-${index}` };
     const thetaPoint = value.thetaPoint ?? null;
     if (thetaPoint !== null && !validPoint(thetaPoint)) return { ok: false, reason: `theta-point-${index}` };

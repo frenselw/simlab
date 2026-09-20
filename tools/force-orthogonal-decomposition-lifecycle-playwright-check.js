@@ -93,6 +93,33 @@ const assertReviewLock = async (frame, label) => {
   assert(await frame.locator("#reviewPanel").isVisible(), `${label}: review panel is not visible`);
   assert(!(await frame.locator("#practicePanel").isVisible()), `${label}: practice panel remained editable`);
   assert(!(await frame.locator("#summaryPanel").isVisible()), `${label}: summary panel remained active`);
+  await assertStageLocked(frame, label);
+};
+const assertStageLocked = async (frame, label) => {
+  const before = await appState(frame);
+  const lock = await frame.evaluate(() => {
+    const selectors = ["#originHit", "#pointHit", "#thetaHit", "#directionEdit0", "#directionEdit1", "#perpendicularEdit0", "#perpendicularEdit1", "#componentEdit0", "#componentEdit1"];
+    const controls = selectors.map(selector => {
+      const node = document.querySelector(selector);
+      return { selector, hidden: Boolean(node?.hidden), disabled: Boolean(node?.disabled) };
+    });
+    const navigation = ["#stageBackButton", "#stageNextButton", "#backButton", "#redrawButton", "#nextButton", "#resetButton", "#goSummary"]
+      .map(selector => ({ selector, disabled: Boolean(document.querySelector(selector)?.disabled) }));
+    const targets = selectors.map(selector => document.querySelector(selector)).filter(Boolean);
+    targets.forEach(target => {
+      target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 77, pointerType: "mouse", button: 0, clientX: 120, clientY: 120 }));
+      target.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerId: 77, pointerType: "mouse", clientX: 260, clientY: 220 }));
+      target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 77, pointerType: "mouse", button: 0, clientX: 260, clientY: 220 }));
+    });
+    document.querySelector("#stageNextButton")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    return { controls, navigation, runtimeState: document.querySelector("#stage")?.dataset.runtimeState };
+  });
+  await wait(80);
+  const after = await appState(frame);
+  assert(lock.runtimeState === "review" || lock.runtimeState === "frozen" || lock.runtimeState === "quarantined", `${label}: stage runtime lock marker is missing`);
+  assert(lock.controls.every(item => item.hidden && item.disabled), `${label}: a stage drag target remained active: ${JSON.stringify(lock.controls)}`);
+  assert(lock.navigation.every(item => item.disabled), `${label}: a stage navigation control remained active: ${JSON.stringify(lock.navigation)}`);
+  assert(JSON.stringify(after) === JSON.stringify(before), `${label}: stage interaction changed the locked answer`);
 };
 
 // Success and review-lock persistence.
@@ -137,6 +164,7 @@ assert((await parentState()).finishCount === 3, "committed: LMSFinish did not su
 frame = await openHost("frozen", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "frozen final commit");
 assert((await submitPopulated(frame, "frozen")) === "frozen", "frozen: final commit failure did not render frozen state");
 assert((await frame.locator("#technicalTitle").textContent()).includes("提交狀態未確認"), "frozen: technical title is missing");
+await assertStageLocked(frame, "frozen");
 assert(await frame.locator("#technicalActions button").count() === 1, "frozen: retry action is missing");
 assert((await parentState()).data["cmi.suspend_data"].includes("pending-final"), "frozen: durable pending envelope was not preserved");
 await reloadActivityFrame();
@@ -176,11 +204,13 @@ assert((await frame.locator("#submitStatus").textContent()).includes("提交前�
 // startup. Reload and unload do not expose a retry or commit it.
 frame = await openHost("success", "invalid-pending", null, "invalid nested pending");
 await waitForRuntime(frame, "quarantined", "invalid nested pending");
+await assertStageLocked(frame, "invalid nested pending");
 assert(await frame.locator("#technicalActions button").count() === 0, "invalid nested pending: retry action was exposed");
 const invalidBefore = await parentState();
 await reloadActivityFrame();
 frame = await frameForHost("invalid nested pending reload");
 await waitForRuntime(frame, "quarantined", "invalid nested pending reload");
+await assertStageLocked(frame, "invalid nested pending reload");
 assert(await frame.locator("#technicalActions button").count() === 0, "invalid nested pending reload: retry action was exposed");
 assert((await parentState()).commitCount === invalidBefore.commitCount, "invalid nested pending: unload/reload committed quarantined data");
 

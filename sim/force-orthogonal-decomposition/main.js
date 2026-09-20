@@ -14,7 +14,7 @@
     "inclined-external-force": Object.freeze({ origin: Object.freeze({ x: 170, y: 225 }), viewBox: DEFAULT_VIEWBOX }),
     "inclined-gravity": Object.freeze({ origin: Object.freeze({ x: 170, y: 225 }), viewBox: DEFAULT_VIEWBOX })
   });
-  const WORLD_BOUNDS = Object.freeze({ left: -120, right: 440, bottom: -80, top: 280 });
+  const EDIT_HIT_RADIUS = 26;
   // Fixed SVG-space seat: all three scenarios show the unplaced θ in the
   // same lower-right location even though their world origins differ.
   const THETA_SEAT_SVG = Object.freeze({ x: 480, y: 320 });
@@ -59,6 +59,7 @@
     questionScenarioBadge: documentObject.getElementById("questionScenarioBadge"),
     questionProgress: documentObject.getElementById("questionProgress"),
     goSummary: documentObject.getElementById("goSummary"),
+    forcePanel: documentObject.getElementById("forcePanel"),
     practicePanel: documentObject.getElementById("practicePanel"),
     summaryPanel: documentObject.getElementById("summaryPanel"),
     summaryList: documentObject.getElementById("summaryList"),
@@ -99,12 +100,14 @@
   let activityLoadError = "";
   let standaloneStorageState = "disabled";
   let draftSaveState = "unknown";
+  let draftSaveError = "";
   let drag = null;
   let keyboardDrag = null;
   let formulaDrag = null;
   let selectedFormula = null;
   let suppressFormulaClick = false;
   let hostTouchScroll = null;
+  let pointerPanelScrollTop = null;
   let message = "由 O 拖出第 1 條方向虛線。";
   let messageKind = "";
   const pointerTelemetry = [];
@@ -127,13 +130,22 @@
   function sceneFrame(scene = activeScene()) { return SCENE_FRAMES[scene.id] || SCENE_FRAMES.default; }
   function sceneViewBox(scene = activeScene()) { return sceneFrame(scene).viewBox; }
   function sceneWorldBounds(scene = activeScene()) {
-    return scene.id === "inclined-gravity" ? { ...WORLD_BOUNDS, bottom: -130 } : WORLD_BOUNDS;
+    const frame = sceneFrame(scene);
+    const viewBox = frame.viewBox;
+    return {
+      left: viewBox.x - frame.origin.x,
+      right: viewBox.x + viewBox.width - frame.origin.x,
+      bottom: frame.origin.y - viewBox.y - viewBox.height,
+      top: frame.origin.y - viewBox.y
+    };
   }
   function sceneOrigin() { return activeScene().origin; }
   function sceneForceHead() { return activeScene().forceHead; }
   function syncCurrentQuestion(next = state) {
+    if (runtimeState !== "editable") return false;
     state = next;
     activity.questions[activity.currentQuestion] = M.clone(next);
+    return true;
   }
   function snapshotActivity() {
     return { ...activity, questions: activity.questions.map(question => M.clone(question)) };
@@ -141,12 +153,22 @@
   function currentQuestionIndex() { return activity.currentQuestion; }
 
   const PHASE_COPY = Object.freeze({
-    directions: "由 O 拖出兩條方向虛線。畫好後可拖動線上的小方點調整方向；接近水平或垂直時會吸附。",
     perpendiculars: "由原力箭嘴頭拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
     components: "由 O 拖出兩支分力。畫歪了可直接拖動分力箭頭調整方向及長度，接近交點時會吸附。",
     angle: "",
     formulas: "按圖中 θ 的位置，用 sin θ 或 cos θ 表示兩個分力的大小。原力大小會按題目顯示，不需要計算數值。"
   });
+
+  function directionAxisLabel(scene, axisKey) {
+    if (!axisKey) return "";
+    if (scene.id === "inclined-gravity") return axisKey === "parallel" ? "平行斜面" : axisKey === "normal" ? "垂直斜面" : "";
+    return scene.axes.find(axis => axis.key === axisKey)?.label || "";
+  }
+
+  function directionPhaseCopy(scene = activeScene()) {
+    const labels = scene.axes.map(axis => directionAxisLabel(scene, axis.key));
+    return `由 O 拖出兩條方向虛線（${labels[0]}及${labels[1]}）。畫好後可拖動線上的小方點調整方向；接近${labels[0]}或${labels[1]}時會吸附。`;
+  }
 
   function createSvg(name, attributes = {}) {
     const node = documentObject.createElementNS(SVG_NS, name);
@@ -509,7 +531,7 @@
     if (keyboardDrag?.preview && keyboardDrag.editIndex == null) {
       const preview = keyboardDrag.preview;
       if (keyboardDrag.kind === "direction" && preview.valid) {
-        const segment = M.lineSegmentForDirection(preview.direction, WORLD_BOUNDS, activeScene());
+        const segment = M.lineSegmentForDirection(preview.direction, sceneWorldBounds(activeScene()), activeScene());
         if (segment) drawWorldLine(worldLayer, segment[0], segment[1], "force-direction-line force-preview", { "data-preview": "keyboard-direction" });
       }
       if (keyboardDrag.kind === "perpendicular" && preview.valid) drawWorldLine(worldLayer, sceneForceHead(), preview.point, "force-perpendicular-line force-preview", { "data-preview": "keyboard-perpendicular", "data-target-key": preview.targetKey || "" });
@@ -606,7 +628,7 @@
 
   function editingBounds() {
     // Keep the whole 52px target visible, including after a viewport resize.
-    const inset = 28 / diagramTransform().scale;
+    const inset = (EDIT_HIT_RADIUS + 2) / Math.max(diagramTransform().scale, .01);
     const bounds = sceneWorldBounds();
     return {
       left: bounds.left + inset,
@@ -679,6 +701,7 @@
   }
 
   function phasePrompt() {
+    if (state.phase === "directions") return directionPhaseCopy();
     if (state.phase !== "angle") return PHASE_COPY[state.phase];
     if (!thetaCandidatesForInteraction().length) return "目前方向線不足以標示 θ；可返回補畫方向線。";
     if (!M.isCorrectDecomposition(state)) return "圖形仍可修改；你可以先標示 θ，評分會按目前作答判斷。";
@@ -737,6 +760,37 @@
     });
   }
 
+  function missingQuestionItems(question) {
+    const missing = [];
+    const missingCount = (label, count) => {
+      if (count < 2) missing.push(`${label}尚欠${2 - count}條`);
+    };
+    missingCount("方向線", question.directions.length);
+    missingCount("垂線", question.perpendiculars.length);
+    missingCount("分力", question.components.length);
+    if (question.theta === null && question.thetaPoint === null) missing.push("θ");
+    if (!question.formulas?.F1) missing.push("第 1 個分力公式");
+    if (!question.formulas?.F2) missing.push("第 2 個分力公式");
+    return missing;
+  }
+
+  function summarySaveStatus() {
+    if (draftSaveState === "failed") return "最近一次保存失敗，請重試儲存";
+    if (draftSaveState === "saved") return "已保存，待最終提交評核";
+    if (draftSaveState === "memory-only") return "目前只保留本頁，待最終提交評核";
+    return "待保存，提交後評核";
+  }
+
+  function renderSaveBanner() {
+    const visible = runtimeState === "editable" && draftSaveState === "failed";
+    dom.saveBanner.classList.toggle("is-hidden", !visible);
+    dom.saveBanner.dataset.kind = visible ? "technical" : "";
+    dom.saveBannerText.textContent = visible
+      ? (draftSaveError || "草稿未能保存；目前作答只保留在本頁，請重試儲存。")
+      : "";
+    dom.retrySave.disabled = !visible;
+  }
+
   function draftStatusCopy() {
     if (standaloneStorageState !== "available") {
       return draftSaveState === "failed"
@@ -763,27 +817,66 @@
 
   function renderSummary() {
     dom.summaryList.replaceChildren();
+    const incomplete = [];
     activity.questions.forEach((question, index) => {
       const scene = M.getScenario(question.scenarioId) || M.getScenario();
+      const missing = missingQuestionItems(question);
+      if (missing.length) incomplete.push(`第${index + 1}題（${missing.join("、")}）`);
       const row = documentObject.createElement("div");
       row.className = "summary-item";
       const heading = documentObject.createElement("strong");
       setMathText(heading, `${index + 1}. ${scene.title}`);
       const status = documentObject.createElement("span");
       status.className = "summary-pending";
-      status.textContent = "已保存，待最終提交評核";
+      status.textContent = `${missing.length ? `未完成：${missing.join("、")}；` : "作答項目已填妥；"}${summarySaveStatus()}`;
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.dataset.editQuestion = String(index);
       edit.textContent = "返回修改";
       row.append(heading, status, edit);
       const feedback = documentObject.createElement("p");
-      feedback.textContent = "提交三題後才會顯示此題各部分得分及需要修正的地方。";
+      feedback.textContent = missing.length
+        ? `目前只顯示作答完整度；${missing.join("、")}仍未完成。答案對錯會在三題最終提交後才顯示。`
+        : "作答項目已填妥；答案對錯會在三題最終提交後才顯示。";
       row.appendChild(feedback);
       dom.summaryList.appendChild(row);
     });
-    dom.summaryWarning.textContent = "三題提交後才會顯示總分、各題得分及錯誤部分；提交前可返回任何一題修改。";
+    const incompleteCopy = incomplete.length ? `仍有未作答項目：${incomplete.join("；")}。最終提交時會先確認是否照常提交。` : "三題作答項目已填妥。";
+    const saveCopy = draftSaveState === "failed" ? "最近一次保存失敗，請先重試儲存。" : "";
+    dom.summaryWarning.textContent = `${incompleteCopy} ${saveCopy}三題提交後才會顯示總分、各題得分及錯誤部分；提交前可返回任何一題修改。`;
     dom.submitAttempt.disabled = runtimeState !== "editable";
+  }
+
+  function lockStageControls() {
+    dom.stage.dataset.runtimeState = runtimeState;
+    [dom.originHit, dom.pointHit, dom.thetaHit, ...dom.editHits].forEach(button => {
+      if (!button) return;
+      setHitVisibility(button, false);
+      button.disabled = true;
+    });
+    [dom.stageBackButton, dom.stageNextButton, dom.backButton, dom.redrawButton, dom.nextButton, dom.resetButton, dom.goSummary].forEach(button => {
+      if (button) button.disabled = true;
+    });
+    dom.thetaChoices.hidden = true;
+    dom.thetaChoices.querySelectorAll("button").forEach(button => { button.disabled = true; });
+    dom.formulaTokens.forEach(button => { button.disabled = true; });
+    dom.formulaSlots.forEach(button => { button.disabled = true; });
+    dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => { button.disabled = true; });
+  }
+
+  function restorePanelScroll(scrollTop) {
+    if (!Number.isFinite(scrollTop) || !dom.forcePanel) return;
+    const restore = () => { dom.forcePanel.scrollTop = scrollTop; };
+    restore();
+    // Text and button dimensions can settle on the next layout frame after a
+    // state render. Restore once more so a stage drag never changes the
+    // independently scrolling controls panel as a side effect.
+    windowObject.requestAnimationFrame?.(() => {
+      restore();
+      windowObject.requestAnimationFrame?.(restore);
+    });
+    windowObject.setTimeout?.(restore, 0);
+    windowObject.setTimeout?.(restore, 50);
   }
 
   function renderTechnical() {
@@ -803,6 +896,7 @@
       dom.technicalActions.appendChild(retry);
     }
     dom.app.setAttribute("aria-busy", "false");
+    lockStageControls();
   }
 
   function renderReview() {
@@ -819,7 +913,7 @@
     dom.reviewTitle.textContent = reviewResult?.trusted === false ? "已提交作答（摘要可信，細節未能驗證）" : "已提交作答結果";
     dom.reviewTrustNote.textContent = reviewResult?.trusted === false ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : localReview ? "這是已鎖定的本機 review；如要開始新的本機練習，請先清除本機紀錄。" : "這是已鎖定的 review；不能返回建立新草稿。";
     if (reviewSnapshot?.answer?.questions) {
-      const saved = { ...Persistence.freshDraft(), phase: "summary", questions: reviewSnapshot.answer.questions };
+      const saved = { ...Persistence.freshDraft(), phase: "summary", questions: reviewSnapshot.answer.questions.map(question => M.clone(question)) };
       saved.currentQuestion = Math.min(selectedQuestion, SCENARIO_IDS.length - 1);
       activity = saved;
       state = activity.questions[activity.currentQuestion];
@@ -857,6 +951,7 @@
       dom.reviewActions.appendChild(reset);
     }
     dom.app.setAttribute("aria-busy", "false");
+    lockStageControls();
   }
 
   function renderControls() {
@@ -890,9 +985,19 @@
     renderFormulas();
   }
 
-  function renderAll() {
-    if (runtimeState === "review") { renderReview(); return; }
-    if (runtimeState !== "editable") { renderTechnical(); return; }
+  function renderAll(preservedPanelScrollTop = null) {
+    const panelScrollTop = Number.isFinite(preservedPanelScrollTop) ? preservedPanelScrollTop : dom.forcePanel?.scrollTop;
+    renderSaveBanner();
+    if (runtimeState === "review") {
+      renderReview();
+      restorePanelScroll(panelScrollTop);
+      return;
+    }
+    if (runtimeState !== "editable") {
+      renderTechnical();
+      restorePanelScroll(panelScrollTop);
+      return;
+    }
     if (state.phase !== "formulas" || !M.formulaExpectations(state)) selectedFormula = null;
     dom.practicePanel.classList.toggle("is-hidden", activity.phase !== "practice");
     dom.summaryPanel.classList.toggle("is-hidden", activity.phase !== "summary");
@@ -902,6 +1007,7 @@
     if (activity.phase === "summary") renderSummary();
     drawScene();
     updateHitTargets();
+    restorePanelScroll(panelScrollTop);
     dom.app.setAttribute("aria-busy", "false");
   }
 
@@ -947,6 +1053,7 @@
   }
 
   function placeFormula(key, token) {
+    if (runtimeState !== "editable") return;
     syncCurrentQuestion(M.setFormula(state, key, token));
     persistDraft();
     selectedFormula = null;
@@ -1027,6 +1134,7 @@
   }
 
   function startPointerDrag(event) {
+    if (runtimeState !== "editable") return;
     const target = event.currentTarget;
     const kind = target.dataset.dragKind;
     if (!kind || target.hidden || event.button > 0 || drag || keyboardDrag || formulaDrag) return;
@@ -1045,15 +1153,17 @@
       offset: M.subtract(pointer, point),
       maxDistance: 0,
       minimumMovement: M.MIN_DRAW_DISTANCE / Math.max(diagramTransform().scale, .01),
+      panelScrollTop: Number.isFinite(pointerPanelScrollTop) ? pointerPanelScrollTop : dom.forcePanel?.scrollTop,
       preview: beginPreview(kind, point, event.pointerType || "mouse", null, editIndex)
     };
     try { target.setPointerCapture(event.pointerId); } catch (_) {}
     renderControls();
+    restorePanelScroll(drag.panelScrollTop);
     drawScene();
   }
 
   function updatePointerDrag(event) {
-    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (runtimeState !== "editable" || !drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
     const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
     const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
@@ -1065,7 +1175,7 @@
   }
 
   function finishPointerDrag(event) {
-    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (runtimeState !== "editable" || !drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
     const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
     const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
@@ -1085,27 +1195,28 @@
     drag = null;
     try { active.target.releasePointerCapture(active.pointerId); } catch (_) {}
     setMessage(reason);
-    renderAll();
+    renderAll(active.panelScrollTop);
   }
 
   function commitDraft(draft) {
-    if (!draft) return;
+    if (runtimeState !== "editable" || !draft) return;
     if (draft.pointerType !== "keyboard" && draft.maxDistance < draft.minimumMovement) {
       setMessage("拖動距離太短，沒有建立作圖。", "warning");
-      renderAll();
+      renderAll(draft.panelScrollTop);
       return;
     }
     if (draft.pointerType === "keyboard" && draft.kind !== "theta" && !draft.moved) {
       setMessage("請先用方向鍵移動，再按 Enter 確認作圖。", "warning");
-      renderAll();
+      renderAll(draft.panelScrollTop);
       return;
     }
     if (draft.editIndex != null) {
       if (draft.preview?.editedState) {
         syncCurrentQuestion(draft.preview.editedState);
         setMessage("已調整這條線；其他作圖保持原位。", "success");
+        if (!persistDraft()) setMessage("已套用調整，但最新修改未能保存；請按「重試儲存」。", "warning");
       } else setMessage(draft.preview?.reason === "duplicate" ? "兩條方向線不能重疊，這次調整未套用。" : "線段太短，這次調整未套用。", "warning");
-      renderAll();
+      renderAll(draft.panelScrollTop);
       return;
     }
     if (draft.kind === "direction") {
@@ -1117,7 +1228,9 @@
         setMessage(result.reason === "duplicate" ? "這條方向線與已有方向線重複，請畫另一個方向。" : "拖動距離太短，沒有建立方向線。", "warning");
       } else {
         syncCurrentQuestion({ ...state, directions: result.directions });
-        setMessage(`已保留第 ${state.directions.length} 條方向虛線${result.direction.axis ? `（${result.direction.axis === "horizontal" ? "水平" : "垂直"}吸附）` : ""}。`, "success");
+        const axisKey = result.direction.axisKey ?? result.direction.axis;
+        const axisLabel = directionAxisLabel(activeScene(), axisKey);
+        setMessage(`已保留第 ${state.directions.length} 條方向虛線${axisLabel ? `（${axisLabel}吸附）` : ""}。`, "success");
       }
     } else if (draft.kind === "perpendicular") {
       const result = M.commitPerpendicular(draft.point, state.directions, state.perpendiculars, {
@@ -1158,7 +1271,7 @@
       }
     }
     persistDraft();
-    renderAll();
+    renderAll(draft.panelScrollTop);
   }
 
   function initialKeyboardPoint(kind) {
@@ -1168,12 +1281,12 @@
   }
 
   function startKeyboardDrag(button) {
-    if (keyboardDrag || drag || formulaDrag || !button || button.hidden) return;
+    if (runtimeState !== "editable" || keyboardDrag || drag || formulaDrag || !button || button.hidden) return;
     const kind = button.dataset.dragKind;
     if (!kind) return;
     const editIndex = button.dataset.editIndex == null ? null : Number(button.dataset.editIndex);
     const point = editIndex != null ? editPoint(kind, editIndex) : initialKeyboardPoint(kind);
-    keyboardDrag = { kind, editIndex, target: button, pointerType: "keyboard", point, startPoint: point, moved: false, thetaIndex: 0, preview: beginPreview(kind, point, "keyboard", null, editIndex) };
+    keyboardDrag = { kind, editIndex, target: button, pointerType: "keyboard", point, startPoint: point, moved: false, thetaIndex: 0, panelScrollTop: dom.forcePanel?.scrollTop, preview: beginPreview(kind, point, "keyboard", null, editIndex) };
     if (kind === "theta" && state.theta) {
       const candidates = thetaCandidatesForInteraction();
       keyboardDrag.thetaIndex = Math.max(0, candidates.findIndex((candidate) => candidate.key === state.theta));
@@ -1182,11 +1295,12 @@
     }
     setMessage("鍵盤作圖中：用方向鍵移動，Enter 確認，Escape 取消。", "success");
     renderControls();
+    restorePanelScroll(keyboardDrag.panelScrollTop);
     drawScene();
   }
 
   function updateKeyboardDrag(key) {
-    if (!keyboardDrag) return false;
+    if (runtimeState !== "editable" || !keyboardDrag) return false;
     if (keyboardDrag.kind === "theta" && (key === "ArrowLeft" || key === "ArrowRight")) {
       const candidates = thetaCandidatesForInteraction();
       if (!candidates.length) return true;
@@ -1220,12 +1334,14 @@
 
   function cancelKeyboardDrag() {
     if (!keyboardDrag) return;
+    const active = keyboardDrag;
     keyboardDrag = null;
     setMessage("鍵盤作圖已取消。", "");
-    renderAll();
+    renderAll(active.panelScrollTop);
   }
 
   function onHitKeyDown(event) {
+    if (runtimeState !== "editable") return;
     const button = event.currentTarget;
     if (event.key === "Enter") {
       event.preventDefault();
@@ -1242,6 +1358,25 @@
   }
 
   function recordPointer(event) {
+    const stageTarget = event.target?.closest?.(".stage-hit, .theta-hit");
+    if (runtimeState === "editable" && stageTarget && Number.isFinite(pointerPanelScrollTop)) {
+      // A touch can move an independently scrolling panel just before the
+      // corresponding pointer event is delivered. Keep the panel at the
+      // position that was visible when this stage drag began.
+      dom.forcePanel.scrollTop = pointerPanelScrollTop;
+    }
+    if (runtimeState === "editable" && stageTarget && (event.type === "pointerdown" || event.type === "pointermove")) {
+      // Prevent the browser from handing a stage drag to the scroll owner.
+      // This capture-phase guard runs before the target handler and covers
+      // touch hardware that begins native panning before pointer capture.
+      event.preventDefault();
+    }
+    if (event.type === "pointerdown" && runtimeState === "editable" && stageTarget && !Number.isFinite(pointerPanelScrollTop)) {
+      // Capture before the target handler and before the browser can apply
+      // any native touch scrolling. The completed drag must restore this
+      // exact panel position.
+      pointerPanelScrollTop = dom.forcePanel?.scrollTop;
+    }
     pointerTelemetry.push({
       sequence: (pointerTelemetry[pointerTelemetry.length - 1]?.sequence || 0) + 1,
       type: event.type,
@@ -1249,9 +1384,30 @@
       isTrusted: Boolean(event.isTrusted),
       clientX: event.clientX,
       clientY: event.clientY,
+      panelScrollTop: dom.forcePanel?.scrollTop,
       target: event.target?.id || event.target?.className?.baseVal || event.target?.tagName || ""
     });
     if (pointerTelemetry.length > 300) pointerTelemetry.shift();
+    if (event.type === "pointerup" || event.type === "pointercancel") pointerPanelScrollTop = null;
+  }
+
+  function captureStageTouch(event) {
+    if (runtimeState !== "editable" || event.touches?.length !== 1) return;
+    const touch = event.touches[0];
+    const eventTarget = event.target?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    const pointTarget = documentObject.elementFromPoint(touch.clientX, touch.clientY);
+    const owner = eventTarget || pointTarget?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    if (!owner || !dom.stage?.contains(owner)) {
+      pointerPanelScrollTop = null;
+      return;
+    }
+    pointerPanelScrollTop = dom.forcePanel?.scrollTop;
+    event.preventDefault();
+  }
+
+  function captureTouchPointer(event) {
+    if (runtimeState !== "editable" || event.pointerType !== "touch" || Number.isFinite(pointerPanelScrollTop)) return;
+    pointerPanelScrollTop = dom.forcePanel?.scrollTop;
   }
 
   // A bounded SCO document cannot own the host page's scroll range. For a
@@ -1298,7 +1454,7 @@
   }
 
   function handleBack() {
-    if (drag || keyboardDrag || formulaDrag) return;
+    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
     const previous = state.phase;
     syncCurrentQuestion(M.backToPrevious(state));
     if (previous !== state.phase) setMessage("已返回上一步，全部作圖保留；可直接拖動箭頭或虛線上的操作點調整。", "");
@@ -1307,7 +1463,7 @@
   }
 
   function handleRedraw() {
-    if (drag || keyboardDrag || formulaDrag) return;
+    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
     syncCurrentQuestion(M.resetCurrentPhase(state));
     setMessage("目前步驟已清空，可以重新作圖。", "");
     persistDraft();
@@ -1315,7 +1471,7 @@
   }
 
   function handleReset() {
-    if (drag || keyboardDrag || formulaDrag) return;
+    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
     syncCurrentQuestion(M.createQuestionState(state.scenarioId));
     setMessage("本圖已重設，請由 O 畫第一條方向虛線。", "");
     persistDraft();
@@ -1323,7 +1479,7 @@
   }
 
   function handleNext() {
-    if (drag || keyboardDrag || formulaDrag || !M.canAdvance(state)) return;
+    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag || !M.canAdvance(state)) return;
     syncCurrentQuestion(M.advance(state));
     setMessage(state.phase === "angle" && !M.isCorrectDecomposition(state)
       ? "作圖仍可修改；你可以先標示 θ，評分會按目前作答判斷。"
@@ -1338,9 +1494,10 @@
       const saved = SimScorm.saveDraft(Persistence.makeSnapshot("draft", snapshotActivity()));
       standaloneStorageState = SimScorm.getStandaloneStorageStatus?.() || standaloneStorageState;
       draftSaveState = saved ? (standaloneStorageState === "available" ? "saved" : "memory-only") : "failed";
+      draftSaveError = saved ? "" : "草稿未能保存；目前作答只保留在本頁，請按「重試儲存」。";
       return saved;
     } catch (error) {
-      activityLoadError = `草稿未能保存：${error.message}`;
+      draftSaveError = `草稿未能保存：${error.message}`;
       draftSaveState = "failed";
       standaloneStorageState = SimScorm.getStandaloneStorageStatus?.() || standaloneStorageState;
       return false;
@@ -1449,6 +1606,16 @@
 
   function submitAttempt() {
     if (runtimeState !== "editable" || activity.phase !== "summary") return;
+    const incomplete = activity.questions
+      .map((question, index) => ({ index, missing: missingQuestionItems(question) }))
+      .filter(entry => entry.missing.length);
+    if (incomplete.length && typeof windowObject.confirm === "function") {
+      const detail = incomplete.map(entry => `第${entry.index + 1}題：${entry.missing.join("、")}`).join("\n");
+      if (!windowObject.confirm(`仍有未作答項目：\n${detail}\n\n是否照常提交？`)) {
+        dom.submitStatus.textContent = "已取消提交；可返回修改未完成項目。";
+        return;
+      }
+    }
     const finalState = snapshotActivity();
     const result = Scoring.score(finalState);
     try {
@@ -1584,7 +1751,7 @@
   dom.editHits.forEach(attachHit);
   dom.formulaTokens.forEach(button => {
     button.addEventListener("pointerdown", event => {
-      if (event.button > 0 || drag || keyboardDrag || formulaDrag || state.phase !== "formulas" || !M.formulaExpectations(state)) return;
+      if (runtimeState !== "editable" || event.button > 0 || drag || keyboardDrag || formulaDrag || state.phase !== "formulas" || !M.formulaExpectations(state)) return;
       event.preventDefault();
       suppressFormulaClick = false;
       formulaDrag = { id: event.pointerId, button, token: button.dataset.formulaToken, x: event.clientX, y: event.clientY, moved: false };
@@ -1597,16 +1764,20 @@
     button.addEventListener("pointercancel", event => endFormulaDrag(event, true));
     button.addEventListener("lostpointercapture", event => endFormulaDrag(event, true));
     button.addEventListener("click", event => {
+      if (runtimeState !== "editable") return;
       if (event.detail > 0 && suppressFormulaClick) { suppressFormulaClick = false; return; }
       selectedFormula = button.dataset.formulaToken;
       renderFormulas();
     });
   });
   dom.formulaSlots.forEach(button => button.addEventListener("click", () => {
+    if (runtimeState !== "editable") return;
     if (selectedFormula && !formulaDrag) placeFormula(button.dataset.formulaSlot, selectedFormula);
     else if (!formulaDrag) setMessage("請先選 sin θ 或 cos θ 卡片，再點這個空格。", "");
   }));
-  dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => button.addEventListener("click", () => placeFormula(button.dataset.formulaClear, null)));
+  dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => button.addEventListener("click", () => {
+    if (runtimeState === "editable") placeFormula(button.dataset.formulaClear, null);
+  }));
   documentObject.addEventListener("keydown", event => {
     if (event.key !== "Escape" || (!formulaDrag && !selectedFormula)) return;
     event.preventDefault();
@@ -1616,7 +1787,7 @@
   });
   dom.thetaChoices.addEventListener("click", event => {
     const button = event.target.closest("[data-theta-choice]");
-    if (!button || drag || keyboardDrag || state.phase !== "angle") return;
+    if (runtimeState !== "editable" || !button || drag || keyboardDrag || state.phase !== "angle") return;
     const candidate = thetaCandidatesForInteraction().find(item => item.key === button.dataset.thetaChoice);
     if (candidate) commitDraft({ kind: "theta", pointerType: "keyboard", preview: candidate });
   });
@@ -1641,6 +1812,8 @@
   documentObject.addEventListener("pointermove", recordPointer, true);
   documentObject.addEventListener("pointerup", recordPointer, true);
   documentObject.addEventListener("pointercancel", recordPointer, true);
+  documentObject.addEventListener("pointerover", captureTouchPointer, true);
+  documentObject.addEventListener("touchstart", captureStageTouch, { capture: true, passive: false });
   windowObject.addEventListener("resize", () => { if (!drag && !keyboardDrag && !formulaDrag) renderAll(); });
 
   documentObject.querySelectorAll(".force-header p:not(.prototype-note), .phase-steps b, .theta-choices p, .theta-choices button, .keyboard-section p:last-child, [data-formula-token]").forEach(node => setMathText(node, node.textContent));
@@ -1654,6 +1827,14 @@
     getPhase: () => state.phase,
     getActivityState: () => snapshotActivity(),
     getRuntimeState: () => runtimeState,
+    getLayoutMetrics: () => ({
+      sceneId: activeScene().id,
+      origin: M.clone(sceneFrame().origin),
+      viewBox: M.clone(sceneViewBox()),
+      worldBounds: M.clone(sceneWorldBounds()),
+      editingBounds: M.clone(editingBounds()),
+      diagramScale: diagramTransform().scale
+    }),
     isCorrectDecomposition: () => M.isCorrectDecomposition(state),
     reset: handleReset
   });
