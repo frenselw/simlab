@@ -62,6 +62,14 @@ async page => {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await wait(100);
   };
+  const touchTap = async locator => {
+    touchId += 1;
+    const point = await center(locator);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(point)] });
+    await wait(80);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await wait(120);
+  };
   const mouseDrag = async (start, end) => {
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -301,7 +309,18 @@ async page => {
     await waitForApp();
     assert(await appRuntime() === "editable", `${label}: editable startup`);
   };
+  const touchStageNavigation = async (path, label) => {
+    await openFresh(path, `${label} touch navigation`);
+    const plan = await scenePlan();
+    for (const direction of plan.directions) await dragTarget("#originHit", direction, "touch");
+    assert((await appState()).directions.length === 2, `${label}: touch navigation setup created two directions`);
+    await touchTap(page.locator("#stageNextButton"));
+    assert((await appState()).phase === "perpendiculars", `${label}: real touch tap activates stage next button`);
+    await touchTap(page.locator("#stageBackButton"));
+    assert((await appState()).phase === "directions", `${label}: real touch tap activates stage back button`);
+  };
   const runDirect = async (path, label, firstMode) => {
+    await touchStageNavigation(path, label);
     await openFresh(path, label);
     await layoutContract(`${label} 390x600`, 390, 600);
     await layoutContract(`${label} 320x500`, 320, 500);

@@ -46,6 +46,35 @@ const freeThetaDraftJson = await page.evaluate(draftJson => {
   draft.answer.questions[0].thetaPoint = { x: 120, y: -40 };
   return JSON.stringify(draft);
 }, completeDraftJson);
+const freeGravityThetaDraftJson = await page.evaluate(draftJson => {
+  const draft = JSON.parse(draftJson);
+  draft.answer.questions[2].theta = null;
+  draft.answer.questions[2].thetaPoint = { x: 120, y: 20 };
+  return JSON.stringify(draft);
+}, completeDraftJson);
+const missingGravityThetaDraftJson = await page.evaluate(draftJson => {
+  const draft = JSON.parse(draftJson);
+  draft.answer.questions[2].theta = null;
+  draft.answer.questions[2].thetaPoint = null;
+  return JSON.stringify(draft);
+}, completeDraftJson);
+const narrowPerpendicularDraftJson = await page.evaluate(() => {
+  const M = window.ForceOrthogonalDecompositionModel;
+  const P = window.ForceOrthogonalDecompositionPersistence;
+  const draft = P.freshDraft();
+  const scene = M.getScenario("inclined-external-force");
+  draft.currentQuestion = 1;
+  draft.questions[1] = {
+    ...M.createQuestionState(scene.id),
+    phase: "perpendiculars",
+    directions: [
+      { key: "D1", unit: { x: Math.cos(M.radians(95)), y: Math.sin(M.radians(95)) }, axisKey: null },
+      { key: "D2", unit: { x: Math.cos(M.radians(28)), y: Math.sin(M.radians(28)) }, axisKey: null }
+    ],
+    perpendiculars: [{ key: "P1", end: { x: 270, y: 140 }, targetKey: null }]
+  };
+  return JSON.stringify(P.makeSnapshot("draft", draft));
+});
 const frameForHost = async label => {
   let frame = null;
   for (let attempt = 0; attempt < 30 && !frame; attempt += 1) {
@@ -72,8 +101,37 @@ const waitForRuntime = async (frame, expected, label) => {
   try { await frame.waitForFunction(value => window.__forceOrthogonalApp?.getRuntimeState() === value, expected, { timeout: 10000 }); }
   catch (error) { throw new Error(`${label}: expected runtime ${expected}, actual ${await runtime(frame)}, state=${JSON.stringify(await appState(frame))}: ${error.message}`); }
 };
+const frameDiagramPoint = async (frame, point) => {
+  const diagram = await frame.locator("#diagram").evaluate(node => {
+    const viewBox = node.viewBox.baseVal;
+    const scenarioId = window.__forceOrthogonalApp.getState().scenarioId;
+    const origin = scenarioId === "horizontal-vertical" ? { x: 120, y: 280 } : { x: 170, y: 225 };
+    return { box: node.getBoundingClientRect().toJSON(), viewBox: { x: viewBox.x, y: viewBox.y, width: viewBox.width, height: viewBox.height }, origin };
+  });
+  const iframe = await page.locator("iframe").boundingBox();
+  assert(diagram && iframe, "narrow edit diagram has a box");
+  const scale = Math.min(diagram.box.width / diagram.viewBox.width, diagram.box.height / diagram.viewBox.height);
+  return {
+    x: iframe.x + diagram.box.x + (diagram.box.width - diagram.viewBox.width * scale) / 2 + (diagram.origin.x + point.x - diagram.viewBox.x) * scale,
+    y: iframe.y + diagram.box.y + (diagram.box.height - diagram.viewBox.height * scale) / 2 + (diagram.origin.y - point.y - diagram.viewBox.y) * scale
+  };
+};
+const mouseDragFrameTarget = async (frame, selector, point, label) => {
+  const target = await frame.locator(selector).evaluate(node => node.getBoundingClientRect().toJSON());
+  const iframe = await page.locator("iframe").boundingBox();
+  assert(target && iframe && target.width > 0 && target.height > 0, `${label}: target has a box`);
+  const start = { x: iframe.x + target.x + target.width / 2, y: iframe.y + target.y + target.height / 2 };
+  const end = await frameDiagramPoint(frame, point);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  for (let index = 1; index <= 12; index += 1) {
+    await page.mouse.move(start.x + (end.x - start.x) * index / 12, start.y + (end.y - start.y) * index / 12);
+  }
+  await page.mouse.up();
+  await wait(120);
+};
 
-async function openHost(mode = "success", seed = "", lifecycleSeed = null, label = `${mode}/${seed || "none"}`, storageDenied = false) {
+async function openHost(mode = "success", seed = "", lifecycleSeed = null, label = `${mode}/${seed || "none"}`, storageDenied = false, viewportWidth = 390, viewportHeight = 500) {
   // The fixture consumes one deterministic seed from the parent session
   // storage before it creates the parent LMS mock. This avoids relying on
   // init-script ordering across repeated scenario navigations.
@@ -82,7 +140,7 @@ async function openHost(mode = "success", seed = "", lifecycleSeed = null, label
     else sessionStorage.removeItem("simlab:lifecycle-seed");
   }, JSON.stringify(lifecycleSeed));
   const src = `${activityPath}?lifecycle=${Date.now()}-${Math.random()}${storageDenied ? "&storage=denied" : ""}`;
-  const query = `src=${encodeURIComponent(src)}&mode=${encodeURIComponent(mode)}&w=390&h=500${seed ? `&seed=${encodeURIComponent(seed)}` : ""}`;
+  const query = `src=${encodeURIComponent(src)}&mode=${encodeURIComponent(mode)}&w=${viewportWidth}&h=${viewportHeight}${seed ? `&seed=${encodeURIComponent(seed)}` : ""}`;
   await page.goto(`${origin}${hostPath}?${query}`);
   return frameForHost(label);
 }
@@ -97,6 +155,7 @@ const submitPopulated = async (frame, label) => {
   });
   assert(await frame.locator("#submitAttempt").count() === 1, `${label}: submit button is missing`);
   assert(await frame.locator("#submitAttempt").isEnabled(), `${label}: submit button is disabled`);
+  await frame.evaluate(() => { window.confirm = () => true; });
   await frame.locator("#submitAttempt").click();
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const state = await runtime(frame);
@@ -153,6 +212,7 @@ await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
 assert((await frame.locator("#sceneTitle").textContent()).includes("斜面上的重力"), "success: switching review question updates the stage title");
 assert((await frame.locator("#sceneKind").textContent()).includes("斜面傾角 θ 已給定"), "success: switching review question updates the stage context");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "success: switched review question retains its theta label");
+assert(await frame.locator('#diagram [data-label="given-slope-theta"]').count() === 1, "success: the third-question given theta remains a separate scene annotation");
 const successData = await parentState();
 assert(successData.data["cmi.core.lesson_status"] === "passed", "success: LMS status was not passed");
 await reloadActivityFrame();
@@ -166,6 +226,48 @@ assert((await submitPopulated(frame, "free theta review")) === "review", "free t
 await assertReviewLock(frame, "free theta review");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "free theta review: free thetaPoint label remains visible");
 assert(await frame.locator("#thetaHit").isHidden(), "free theta review: interactive theta hit target is hidden");
+
+// Review the third question with a free θ, then with no learner θ at all. The
+// fixed incline annotation must remain visible, but an unplaced learner θ
+// must not be invented by the review renderer.
+frame = await openHost("success", "complete-draft", { suspendData: freeGravityThetaDraftJson, status: "incomplete", score: "" }, "free gravity theta review");
+assert((await submitPopulated(frame, "free gravity theta review")) === "review", "free gravity theta review: production submit did not finish");
+await assertReviewLock(frame, "free gravity theta review");
+await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "free gravity theta review: free student theta remains visible");
+assert(await frame.locator('#diagram [data-label="given-slope-theta"]').count() === 1, "free gravity theta review: given slope theta remains visible");
+
+frame = await openHost("success", "complete-draft", { suspendData: missingGravityThetaDraftJson, status: "incomplete", score: "" }, "missing gravity theta review");
+assert((await submitPopulated(frame, "missing gravity theta review")) === "review", "missing gravity theta review: production submit did not finish");
+await assertReviewLock(frame, "missing gravity theta review");
+await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 0, "missing gravity theta review: no student theta is rendered when θ was never placed");
+assert(await frame.locator('#diagram [data-label="given-slope-theta"]').count() === 1, "missing gravity theta review: given slope theta remains visible without student theta");
+
+// At the narrow 320px stage, edit an existing perpendicular through the
+// clipped-normal case from the audit. The saved free endpoint must survive
+// the LMS checkpoint, iframe reload, and final review submission.
+frame = await openHost("success", "complete-draft", { suspendData: narrowPerpendicularDraftJson, status: "incomplete", score: "" }, "narrow perpendicular edit", false, 320, 500);
+const narrowBefore = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+assert(narrowBefore.currentQuestion === 1 && narrowBefore.questions[1].phase === "perpendiculars", "narrow perpendicular edit: seeded second question is on the perpendicular step");
+await mouseDragFrameTarget(frame, "#perpendicularEdit0", { x: 250, y: 177 }, "narrow perpendicular edit");
+const narrowAfter = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+const narrowEnd = narrowAfter.questions[1].perpendiculars[0].end;
+assert(Math.hypot(narrowEnd.x - 150, narrowEnd.y - 180) >= 12, "narrow perpendicular edit: endpoint is not collapsed onto P");
+assert(Math.abs(narrowEnd.x - 250) < 1 && Math.abs(narrowEnd.y - 177) < 1, "narrow perpendicular edit: learner endpoint is retained");
+const narrowSaved = JSON.parse((await parentState()).data["cmi.suspend_data"]);
+assert(Math.abs(narrowSaved.answer.questions[1].perpendiculars[0].end.x - narrowEnd.x) < 1e-8 && Math.abs(narrowSaved.answer.questions[1].perpendiculars[0].end.y - narrowEnd.y) < 1e-8, "narrow perpendicular edit: LMS checkpoint contains the edit immediately");
+await reloadActivityFrame();
+frame = await frameForHost("narrow perpendicular edit reload");
+const narrowReloaded = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+assert(Math.abs(narrowReloaded.questions[1].perpendiculars[0].end.x - narrowEnd.x) < 1e-8 && Math.abs(narrowReloaded.questions[1].perpendiculars[0].end.y - narrowEnd.y) < 1e-8, "narrow perpendicular edit: reload restores the edited endpoint");
+await click(frame, "#goSummary");
+await frame.evaluate(() => { window.confirm = () => true; });
+await click(frame, "#submitAttempt");
+await waitForRuntime(frame, "review", "narrow perpendicular edit submit");
+await click(frame, '#reviewQuestionNavigation [data-question-index="1"]');
+const narrowReviewed = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+assert(Math.abs(narrowReviewed.questions[1].perpendiculars[0].end.x - narrowEnd.x) < 1e-8 && Math.abs(narrowReviewed.questions[1].perpendiculars[0].end.y - narrowEnd.y) < 1e-8, "narrow perpendicular edit: final review keeps the edited endpoint");
 
 // localStorage is intentionally denied in this LMS-frame scenario. The SCORM
 // API still commits the draft, so the UI must report an LMS save rather than a

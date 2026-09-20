@@ -77,6 +77,9 @@ assert.match(main, /dom\.thetaChoices\.hidden = state\.phase !== "angle" \|\| !t
 assert.match(main, /function thetaSeatWorld\(scene = activeScene\(\)\)/);
 assert.match(main, /function renderSceneHeader\(scene, \{ review = false \} = \{\}\)/);
 assert.match(main, /data-label\": \"student-theta\"/);
+assert.match(main, /const studentThetaLabelPoint = \(\(\) =>/);
+assert.match(main, /runtimeState === "review" && studentThetaLabelPoint/);
+assert.match(main, /const eventTarget = event\.target\?\.closest\?\.\("\.stage-hit, \.theta-hit"\)/);
 assert.match(main, /function isStandaloneMode\(\)/);
 assert.match(main, /isStandaloneMode\(\) && standaloneStorageState !== \"available\"/);
 assert.doesNotMatch(persistence, /formula-stale-geometry/);
@@ -98,6 +101,7 @@ assert.match(model, /function imperfectThetaCandidates\(directions, options = \{
 assert.match(model, /function thetaCandidatesForInteraction\(directions, options = \{\}\)/);
 assert.match(model, /const closest = candidates\[0\]/);
 assert.match(model, /distance\(start, candidate\.foot\) >= minimum/);
+assert.match(model, /distance\(start, candidate\.snappedPoint\) >= minimum/);
 assert.match(model, /distance\(scene\.origin, candidate\.point\) >= minimum/);
 assert.match(model, /visible angle edge is the learner's perpendicular guide/);
 assert.match(model, /G 與向內法線分量/);
@@ -106,6 +110,8 @@ assert.match(model, /componentSymbols: Object\.freeze/);
 assert.doesNotMatch(main + model, /forceMagnitudeLabel|force-magnitude|mg/);
 assert.match(main, /data-component-axis/);
 assert.match(scoring, /item\("theta", "θ 的角度語意", GROUP_POINTS/);
+assert.match(scoring, /const targetFor = component => visible\.find/);
+assert.match(scoring, /targetMatchesAxis/);
 assert.match(scoring, /兩者位置不可對調/);
 assert.match(persistence, /function decodePending/);
 assert.match(persistence, /phase-dependency/);

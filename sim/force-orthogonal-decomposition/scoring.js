@@ -42,19 +42,19 @@
 
   function componentGroup(answer, scene) {
     const visible = M.visibleIntersections(answer.perpendiculars, answer.directions, scene);
+    const targetFor = component => visible.find(candidate => candidate.key === component.targetKey);
+    const targetMatchesAxis = (component, axis) => {
+      const target = targetFor(component);
+      const direction = target && answer.directions.find(entry => entry.key === target.directionKey);
+      return Boolean(target && direction && M.directionAxisKey(direction, scene) === axis.key && M.distance(component.end, target.point) <= 1e-5);
+    };
     return scene.axes.map(axis => {
-      const target = visible.find(candidate => {
-        const direction = answer.directions.find(entry => entry.key === candidate.directionKey);
-        return M.directionAxisKey(direction, scene) === axis.key;
-      });
       const expectedKey = scene.id === "inclined-gravity"
         ? `F${scene.axes.indexOf(axis) + 1}`
         : null;
-      const component = answer.components.find(entry => entry.targetKey === target?.key &&
-        (!expectedKey || entry.key === expectedKey) &&
-        M.distance(entry.end, target.point) <= 1e-5);
+      const component = answer.components.find(entry => targetMatchesAxis(entry, axis) && (!expectedKey || entry.key === expectedKey));
       const swapped = scene.id === "inclined-gravity" && answer.components.some(entry =>
-        entry.targetKey === target?.key && entry.key !== expectedKey && M.distance(entry.end, target.point) <= 1e-5);
+        targetMatchesAxis(entry, axis) && entry.key !== expectedKey);
       return item(`component-${axis.key}`, `${axis.label}分力箭頭`, 10, Boolean(component),
         component ? "箭頭端點與可見交點重合" : swapped
           ? "第三題要求 Gₓ 平行斜面、Gᵧ 垂直斜面；兩者位置不可對調"

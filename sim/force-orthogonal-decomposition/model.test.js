@@ -56,6 +56,35 @@ assert.equal(M.commitPerpendicular(degenerateFootPointer, [{ key: "D1", unit: fo
   pointerType: "touch"
 }).accepted, true, "the non-snapped perpendicular remains committable");
 
+// On a narrow inclined-force stage the force head can be just outside the
+// inner edit bounds.  Clipping a snapped normal that points farther out must
+// not collapse an existing perpendicular back onto P during an edit.
+const narrowScene = M.getScenario("inclined-external-force");
+const narrowInset = 28 / .6;
+const narrowBounds = {
+  left: -180 + narrowInset,
+  right: 440 - narrowInset,
+  bottom: -135 + narrowInset,
+  top: 225 - narrowInset
+};
+const narrowDirection = { key: "D1", unit: { x: Math.cos(M.radians(95)), y: Math.sin(M.radians(95)) }, axisKey: null };
+const narrowState = {
+  ...M.createQuestionState(narrowScene.id),
+  phase: "perpendiculars",
+  directions: [narrowDirection, { key: "D2", unit: { x: Math.cos(M.radians(28)), y: Math.sin(M.radians(28)) }, axisKey: null }],
+  perpendiculars: [{ key: "P1", end: { x: 270, y: 140 }, targetKey: null }]
+};
+const narrowEdit = M.editGeometry(narrowState, "perpendicular", 0, { x: 250, y: 177 }, {
+  scene: narrowScene,
+  bounds: narrowBounds,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  threshold: 20
+});
+assert.equal(narrowEdit.valid, true, "a narrow-stage perpendicular edit keeps a legal free endpoint");
+assert.equal(narrowEdit.targetKey, null, "a clipped degenerate snap is released instead of retained");
+assert.ok(M.distance(narrowScene.forceHead, narrowEdit.editedState.perpendiculars[0].end) >= M.MIN_DRAW_DISTANCE, "a narrow-stage perpendicular edit remains long enough to save");
+assert.deepEqual(narrowEdit.editedState.perpendiculars[0].end, { x: 250, y: 177 }, "narrow-stage edit keeps the learner endpoint after invalid clipping");
+
 const insideFoot = M.perpendicularPreview({ x: 240, y: 19.9 }, axisDirections, { threshold: 20, pointerType: "touch" });
 assert.equal(insideFoot.targetKey, "D1", "19.9 CSS-px-equivalent foot distance snaps");
 assert.deepEqual(insideFoot.point, horizontalFoot, "foot snapping uses the exact projection endpoint");

@@ -557,12 +557,17 @@
       ? M.add(sceneForceHead(), { x: 26, y: -20 })
       : M.add(M.add(sceneOrigin(), M.scale(forceVector, forceLabelFraction)), forceLabelOffset);
     const forceLabelDirection = isGravityScene ? { x: 26, y: -20 } : forceLabelOffset;
-    const thetaLabelPoint = (() => {
+    const studentThetaLabelPoint = (() => {
       const thetaPreview = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
       if (thetaPreview?.point) return thetaPreview.point;
       if (thetaPreview?.preview?.labelCenter) return thetaPreview.preview.labelCenter;
       if (scene.theta) return thetaCandidatesForInteraction(scene).find(item => item.key === scene.theta)?.labelCenter || null;
       if (scene.thetaPoint) return scene.thetaPoint;
+      return null;
+    })();
+    // The given incline angle is a scene annotation, not a learner answer.
+    // Keep it as a label-avoidance obstacle without treating it as a saved θ.
+    const thetaLabelPoint = studentThetaLabelPoint || (() => {
       if (activeScene().thetaMode === "given") return givenSlopeCandidate(activeScene())?.labelCenter || null;
       return null;
     })();
@@ -616,8 +621,8 @@
     // keyboard affordances. Once the attempt is locked, that target is
     // hidden; keep the learner's saved label in the SVG so the review still
     // shows the complete submitted construction, including a free θPoint.
-    if (runtimeState === "review" && thetaLabelPoint) {
-      drawScreenText(labelLayer, thetaLabelPoint, "θ", "scene-label student-theta-label", {
+    if (runtimeState === "review" && studentThetaLabelPoint) {
+      drawScreenText(labelLayer, studentThetaLabelPoint, "θ", "scene-label student-theta-label", {
         "data-label": "student-theta",
         "text-anchor": "middle",
         "aria-hidden": "true"
@@ -1419,9 +1424,9 @@
   function captureStageTouch(event) {
     if (runtimeState !== "editable" || event.touches?.length !== 1) return;
     const touch = event.touches[0];
-    const eventTarget = event.target?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    const eventTarget = event.target?.closest?.(".stage-hit, .theta-hit");
     const pointTarget = documentObject.elementFromPoint(touch.clientX, touch.clientY);
-    const owner = eventTarget || pointTarget?.closest?.(".stage-hit, .theta-hit, .stage-navigation");
+    const owner = eventTarget || pointTarget?.closest?.(".stage-hit, .theta-hit");
     if (!owner || !dom.stage?.contains(owner)) {
       pointerPanelScrollTop = null;
       return;

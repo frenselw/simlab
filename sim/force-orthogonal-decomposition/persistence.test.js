@@ -183,6 +183,43 @@ repairedDirectionActivity.questions[0] = repairedDirectionGeometry;
 const repairedDirectionRoundTrip = roundTrip(repairedDirectionActivity, "direction repair after stale theta");
 assert.equal(repairedDirectionRoundTrip.questions[0].theta, null, "repaired direction remains savable without stale θ");
 
+// The narrow inclined-force edit path must use the same post-clipping length
+// rule as a newly drawn perpendicular.  Its saved free endpoint must survive
+// a production draft round trip instead of becoming a zero-length line.
+const narrowScene = M.getScenario("inclined-external-force");
+const narrowInset = 28 / .6;
+const narrowBounds = {
+  left: -180 + narrowInset,
+  right: 440 - narrowInset,
+  bottom: -135 + narrowInset,
+  top: 225 - narrowInset
+};
+const narrowState = {
+  ...M.createQuestionState(narrowScene.id),
+  phase: "perpendiculars",
+  directions: [
+    { key: "D1", unit: { x: Math.cos(M.radians(95)), y: Math.sin(M.radians(95)) }, axisKey: null },
+    { key: "D2", unit: { x: Math.cos(M.radians(28)), y: Math.sin(M.radians(28)) }, axisKey: null }
+  ],
+  perpendiculars: [{ key: "P1", end: { x: 270, y: 140 }, targetKey: null }]
+};
+const narrowEdit = M.editGeometry(narrowState, "perpendicular", 0, { x: 250, y: 177 }, {
+  scene: narrowScene,
+  bounds: narrowBounds,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  threshold: 20
+});
+assert.equal(narrowEdit.valid, true, "narrow edit keeps a valid free perpendicular endpoint");
+const narrowActivity = P.freshDraft();
+narrowActivity.currentQuestion = 1;
+narrowActivity.questions[1] = narrowEdit.editedState;
+const narrowRoundTrip = roundTrip(narrowActivity, "narrow perpendicular edit");
+assert.deepEqual(narrowRoundTrip.questions[1].perpendiculars[0].end, { x: 250, y: 177 }, "narrow perpendicular edit survives save and reload");
+const narrowReview = P.clone(narrowActivity);
+narrowReview.phase = "summary";
+const narrowResult = Scoring.score(narrowReview);
+assert.doesNotThrow(() => P.makeSnapshot("review", narrowReview, narrowResult), "narrow perpendicular edit can reach final submission");
+
 const forceScene = M.getScenario("horizontal-vertical");
 const forceUnit = M.normalize(M.subtract(forceScene.forceHead, forceScene.origin));
 const forcePerpendicular = { x: -forceUnit.y, y: forceUnit.x };

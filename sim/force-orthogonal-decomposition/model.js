@@ -368,6 +368,11 @@
       // P itself, so snapping would turn a valid short gesture into a
       // zero-length saved line.  Such a target is not a usable perpendicular.
       .filter((candidate) => distance(start, candidate.foot) >= minimum)
+      // The force head can sit just outside the inner editing bounds on a
+      // narrow stage.  If the snapped normal points farther outside, clipping
+      // it can collapse the endpoint back onto P; do not expose that clipped
+      // zero-length result as a valid edit target.
+      .filter((candidate) => distance(start, candidate.snappedPoint) >= minimum)
       .sort((first, second) => first.angularError - second.angularError || first.footDistance - second.footDistance);
 
     if (!candidates.length) {
@@ -385,6 +390,19 @@
     const footVisible = distance(boundedEndpoint(start, chosen.foot, options.bounds), chosen.foot) <= EPSILON;
     const snappedToFoot = canUseTarget && footVisible && distance(start, chosen.foot) >= minimum && (chosen.footDistance <= threshold || sticky);
     const finalPoint = snappedToFoot ? chosen.foot : chosen.snappedPoint;
+    if (distance(start, finalPoint) < minimum) {
+      const fallbackValid = distance(start, pointer) >= minimum;
+      return {
+        valid: fallbackValid,
+        point: clonePoint(pointer),
+        targetKey: null,
+        directionSnapped: false,
+        candidateDirectionKey: chosen.direction.key,
+        foot: clonePoint(chosen.foot),
+        angularError: chosen.angularError,
+        reason: fallbackValid ? "free" : "too-short"
+      };
+    }
     return {
       valid: true,
       point: clonePoint(finalPoint),
@@ -500,6 +518,9 @@
       : kind === "perpendicular" ? perpendicularPreview(pointer, state.directions, editOptions)
         : previewComponent(pointer, state.perpendiculars, state.directions, editOptions);
     if (!preview.valid) return preview;
+    const start = kind === "perpendicular" ? scene.forceHead : kind === "component" ? scene.origin : null;
+    const minimum = options.minDistance ?? MIN_DRAW_DISTANCE;
+    if (start && distance(start, preview.point) < minimum) return { ...preview, valid: false, reason: "too-short" };
     if (kind === "direction" && isDuplicateDirection(preview.direction, others)) return { valid: false, reason: "duplicate" };
     const next = clone(state);
     next[collection][index] = kind === "direction"

@@ -41,6 +41,50 @@ const partialResult = S.score(partial);
 assert.ok(partialResult.score >= 0 && partialResult.score < 100, "partial work receives bounded formative credit");
 assert.equal(partialResult.detail[1].score, 0);
 
+// A wrong first perpendicular can still expose an intersection on the same
+// axis as a later correct perpendicular.  Scoring must resolve each component
+// through its own targetKey, so changing only perpendicular creation order
+// cannot change the mark for the same drawn geometry.
+const duplicateIntersectionDirections = [
+  { key: "D1", unit: { x: 1, y: 0 }, axis: "horizontal", axisKey: "horizontal" },
+  { key: "D2", unit: { x: 0, y: 1 }, axis: "vertical", axisKey: "vertical" }
+];
+const wrongPerpendicularEnd = { x: -80, y: -30 };
+const correctPerpendicularEnd = { x: 240, y: 0 };
+const orderOne = {
+  ...M.createQuestionState("horizontal-vertical"),
+  phase: "formulas",
+  directions: duplicateIntersectionDirections,
+  perpendiculars: [
+    { key: "P1", end: wrongPerpendicularEnd, targetKey: null },
+    { key: "P2", end: correctPerpendicularEnd, targetKey: "D1" }
+  ],
+  components: [
+    { key: "F1", end: { x: 240, y: 0 }, targetKey: "P2:D1" },
+    { key: "F2", end: { x: 0, y: 17.5 }, targetKey: "P1:D2" }
+  ]
+};
+const orderTwo = {
+  ...M.createQuestionState("horizontal-vertical"),
+  phase: "formulas",
+  directions: duplicateIntersectionDirections,
+  perpendiculars: [
+    { key: "P1", end: correctPerpendicularEnd, targetKey: "D1" },
+    { key: "P2", end: wrongPerpendicularEnd, targetKey: null }
+  ],
+  components: [
+    { key: "F1", end: { x: 240, y: 0 }, targetKey: "P1:D1" },
+    { key: "F2", end: { x: 0, y: 17.5 }, targetKey: "P2:D2" }
+  ]
+};
+const orderOneDetail = S.questionDetail(orderOne, 0);
+const orderTwoDetail = S.questionDetail(orderTwo, 0);
+const orderOneComponents = orderOneDetail.groups.find(group => group.key === "components");
+const orderTwoComponents = orderTwoDetail.groups.find(group => group.key === "components");
+assert.equal(orderOneComponents.earned, 20, "component scoring follows the later correct intersection target");
+assert.equal(orderTwoComponents.earned, 20, "component scoring follows the earlier correct intersection target");
+assert.equal(orderOneDetail.score, orderTwoDetail.score, "same geometry receives the same score regardless of perpendicular order");
+
 const imperfectDirections = [
   { key: "D1", unit: { x: .6, y: .8 }, axis: null },
   { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
