@@ -142,6 +142,47 @@ const invalidAngleActivity = P.freshDraft();
 invalidAngleActivity.questions[0] = invalidAngle;
 roundTrip(invalidAngleActivity, "invalid angle continuation after direct edit");
 
+// The formula phase remains editable: after a component is dragged away, the
+// learner can put θ back before repairing the geometry. This is a wrong answer
+// for scoring, but it is an interface-reachable draft and must round-trip and
+// reach final review instead of failing formula-stale-geometry validation.
+const formulaGeometryEdit = M.editGeometry(complete.questions[0], "component", 0, { x: 100, y: 70 }).editedState;
+const formulaThetaCandidate = M.thetaCandidatesForInteraction(formulaGeometryEdit.directions, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  perpendiculars: formulaGeometryEdit.perpendiculars
+})[0];
+assert.ok(formulaThetaCandidate, "formula-step geometry edit still exposes a θ candidate");
+const formulaGeometryEditWithTheta = { ...formulaGeometryEdit, theta: formulaThetaCandidate.key, thetaPoint: null };
+const formulaGeometryActivity = P.freshDraft();
+formulaGeometryActivity.questions[0] = formulaGeometryEditWithTheta;
+const formulaGeometryEncoded = P.encodeDraft(formulaGeometryActivity);
+assert.equal(P.validateQuestion(formulaGeometryEncoded.questions[0], 0).ok, true, "formula-step wrong geometry with a newly placed θ remains savable");
+const formulaGeometryRoundTrip = roundTrip(formulaGeometryActivity, "formula-step edit then re-place theta");
+assert.equal(formulaGeometryRoundTrip.questions[0].theta, formulaThetaCandidate.key, "re-placed θ survives the formula-step round trip");
+const formulaGeometrySubmission = P.clone(complete);
+formulaGeometrySubmission.phase = "summary";
+formulaGeometrySubmission.questions[0] = formulaGeometryEditWithTheta;
+const formulaGeometryResult = Scoring.score(formulaGeometrySubmission);
+assert.doesNotThrow(() => P.makeSnapshot("review", formulaGeometrySubmission, formulaGeometryResult), "formula-step wrong geometry can reach final review and scoring");
+
+// Correcting a direction changes the canonical candidate keys. An older
+// learner-defined key must be cleared rather than leaving an unvalidatable
+// stale θ attached to an otherwise repaired construction.
+const directionGeometryEdit = M.editGeometry(complete.questions[0], "direction", 0, { x: 100, y: 40 }).editedState;
+const oldDirectionTheta = M.thetaCandidatesForInteraction(directionGeometryEdit.directions, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  perpendiculars: directionGeometryEdit.perpendiculars
+})[0];
+assert.ok(oldDirectionTheta, "direction edit exposes the old interaction θ before repair");
+const repairedDirectionGeometry = M.editGeometry({ ...directionGeometryEdit, theta: oldDirectionTheta.key }, "direction", 0, { x: 120, y: 0 }).editedState;
+assert.equal(repairedDirectionGeometry.theta, null, "repairing a direction clears a stale θ candidate");
+const repairedDirectionActivity = P.freshDraft();
+repairedDirectionActivity.questions[0] = repairedDirectionGeometry;
+const repairedDirectionRoundTrip = roundTrip(repairedDirectionActivity, "direction repair after stale theta");
+assert.equal(repairedDirectionRoundTrip.questions[0].theta, null, "repaired direction remains savable without stale θ");
+
 const forceScene = M.getScenario("horizontal-vertical");
 const forceUnit = M.normalize(M.subtract(forceScene.forceHead, forceScene.origin));
 const forcePerpendicular = { x: -forceUnit.y, y: forceUnit.x };

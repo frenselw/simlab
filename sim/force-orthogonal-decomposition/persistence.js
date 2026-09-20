@@ -117,11 +117,10 @@
     if (value.phase === "components" && (count("directions") !== 2 || count("perpendiculars") !== 2 || (count("components") < 2 && (value.theta !== null || value.formulas.F1 || value.formulas.F2)))) return { ok: false, reason: `phase-dependency-${index}` };
     if (value.phase === "angle" && (count("directions") !== 2 || count("perpendiculars") !== 2 || count("components") !== 2)) return { ok: false, reason: `phase-dependency-${index}` };
     if (value.phase === "formulas" && (count("directions") !== 2 || count("perpendiculars") !== 2 || count("components") !== 2)) return { ok: false, reason: `phase-dependency-${index}` };
-    // A direct edit can repair the geometry while the learner is still in the
-    // formula phase, after the previous theta was correctly cleared. This is
-    // a reachable continuation: keep the attempted expressions and let the
-    // learner back up to place theta again.
-    if (value.phase === "formulas" && value.theta !== null && !M.isCorrectDecomposition(value)) return { ok: false, reason: `formula-stale-geometry-${index}` };
+    // The UI deliberately keeps the formula phase open while a learner edits
+    // geometry and places θ again. An interaction-only θ on that imperfect
+    // construction is a wrong answer for scoring, but it is still a valid
+    // learner attempt and must not be rejected as corrupt persistence data.
     return { ok: true, scene };
   }
 

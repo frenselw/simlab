@@ -113,6 +113,7 @@
   const pointerTelemetry = [];
 
   function activeScene() { return M.getScenario(state.scenarioId) || M.getScenario(); }
+  function isStandaloneMode() { return Boolean(SimScorm?.isStandalone?.()); }
   function thetaInteractionOptions(source = state) {
     const scene = M.getScenario(source?.scenarioId) || activeScene();
     const scale = Math.max(diagramTransform().scale, .01);
@@ -611,6 +612,17 @@
         : placeLabel(M.add(midpoint, gravityParallel ? gravityParallelOffset : offset), gravityParallel ? gravityParallelOffset : offset, 28);
       drawScreenText(labelLayer, labelPoint, label, `scene-label component-label component-label-${index}`, { "data-component-label": index, "data-component-index": index, "data-component-axis": axisKey || "", "text-anchor": gravityNormal ? "start" : unit.y > .5 ? "end" : "middle" });
     });
+    // The editable θ is an HTML hit target so it can carry the drag and
+    // keyboard affordances. Once the attempt is locked, that target is
+    // hidden; keep the learner's saved label in the SVG so the review still
+    // shows the complete submitted construction, including a free θPoint.
+    if (runtimeState === "review" && thetaLabelPoint) {
+      drawScreenText(labelLayer, thetaLabelPoint, "θ", "scene-label student-theta-label", {
+        "data-label": "student-theta",
+        "text-anchor": "middle",
+        "aria-hidden": "true"
+      });
+    }
     dom.diagram.appendChild(labelLayer);
     const thetaDrag = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
     updateThetaHitPresentation();
@@ -720,6 +732,24 @@
     return scene.id === "inclined-gravity" ? "斜面傾角 θ 已給定" : scene.plane ? "有厚度斜面／固定原力" : "固定原力 F";
   }
 
+  function renderSceneHeader(scene, { review = false } = {}) {
+    setMathText(dom.sceneTitle, scene.title);
+    setMathText(dom.sceneKind, sceneKindLabel(scene));
+    setMathText(dom.questionTitle, scene.title);
+    dom.questionType.textContent = review
+      ? `第 ${activity.currentQuestion + 1} 題／已提交作答`
+      : `第 ${activity.currentQuestion + 1} 題／目前情境`;
+    setMathText(dom.questionScenarioBadge, `${scene.forceSymbol}：${sceneKindLabel(scene)}`);
+    setMathText(dom.questionPrompt, questionPrompt(scene));
+    if (review) {
+      dom.questionCounter.textContent = "已提交／3 題";
+      dom.attemptStatus.textContent = "review-only，作答已鎖定";
+      dom.stageStepLabel.textContent = "唯讀";
+      setMathText(dom.stepPrompt, "已提交作答；舞台只供查看，不能再修改圖形。");
+      dom.phaseSteps.querySelectorAll("[data-phase]").forEach(item => { item.dataset.state = "review"; });
+    }
+  }
+
   function renderQuestionProgress(target = dom.questionProgress, review = false) {
     if (!target) return;
     target.replaceChildren();
@@ -776,8 +806,8 @@
 
   function summarySaveStatus() {
     if (draftSaveState === "failed") return "最近一次保存失敗，請重試儲存";
-    if (draftSaveState === "saved") return "已保存，待最終提交評核";
-    if (draftSaveState === "memory-only") return "目前只保留本頁，待最終提交評核";
+    if (draftSaveState === "memory-only" && isStandaloneMode()) return "目前只保留本頁，待最終提交評核";
+    if (draftSaveState === "saved" || draftSaveState === "memory-only") return "已保存，待最終提交評核";
     return "待保存，提交後評核";
   }
 
@@ -792,7 +822,7 @@
   }
 
   function draftStatusCopy() {
-    if (standaloneStorageState !== "available") {
+    if (isStandaloneMode() && standaloneStorageState !== "available") {
       return draftSaveState === "failed"
         ? "本機儲存失敗；目前只保留本頁資料，請勿重載。"
         : standaloneStorageState === "read-only" ? "本機儲存唯讀；新草稿只保留本頁，重載會回到上次成功保存。" : "本機儲存不可用；只保留本頁草稿，重載可能遺失。";
@@ -803,14 +833,9 @@
 
   function renderPracticeHeader() {
     const scene = activeScene();
+    renderSceneHeader(scene);
     dom.questionCounter.textContent = `第 ${activity.currentQuestion + 1} / ${SCENARIO_IDS.length} 題`;
     dom.attemptStatus.textContent = draftStatusCopy();
-    setMathText(dom.sceneTitle, scene.title);
-    setMathText(dom.sceneKind, sceneKindLabel(scene));
-    setMathText(dom.questionTitle, scene.title);
-    dom.questionType.textContent = `第 ${activity.currentQuestion + 1} 題／目前情境`;
-    setMathText(dom.questionScenarioBadge, `${scene.forceSymbol}：${sceneKindLabel(scene)}`);
-    setMathText(dom.questionPrompt, questionPrompt(scene));
     renderQuestionProgress();
     renderThetaChoices();
   }
@@ -905,8 +930,6 @@
     dom.summaryPanel.classList.add("is-hidden");
     dom.technicalPanel.classList.add("is-hidden");
     dom.reviewPanel.classList.remove("is-hidden");
-    dom.questionCounter.textContent = "已提交／3 題";
-    dom.attemptStatus.textContent = "review-only，作答已鎖定";
     dom.reviewScore.textContent = reviewResult?.result?.score == null ? "--" : `${reviewResult.result.score} / 100`;
     const localReview = Boolean(SimScorm?.isStandalone?.());
     dom.reviewCompletion.textContent = reviewResult?.trusted === false ? "只顯示已記錄摘要" : localReview ? "已完成（本機形成性回饋）" : "已提交（形成性回饋）";
@@ -917,6 +940,7 @@
       saved.currentQuestion = Math.min(selectedQuestion, SCENARIO_IDS.length - 1);
       activity = saved;
       state = activity.questions[activity.currentQuestion];
+      renderSceneHeader(activeScene(), { review: true });
       renderQuestionProgress(dom.reviewQuestionNavigation, true);
       dom.reviewFeedback.replaceChildren();
       (reviewResult?.result?.feedbackItems || []).forEach(text => {
@@ -926,6 +950,7 @@
       });
       drawScene();
     } else {
+      renderSceneHeader(activeScene(), { review: true });
       dom.reviewQuestionNavigation.replaceChildren();
       dom.reviewFeedback.textContent = "目前只有 Moodle 摘要可供查閱。";
     }
@@ -1493,7 +1518,10 @@
     try {
       const saved = SimScorm.saveDraft(Persistence.makeSnapshot("draft", snapshotActivity()));
       standaloneStorageState = SimScorm.getStandaloneStorageStatus?.() || standaloneStorageState;
-      draftSaveState = saved ? (standaloneStorageState === "available" ? "saved" : "memory-only") : "failed";
+      // In an LMS frame, the LMS commit is the authoritative durable write even
+      // when the browser denies localStorage. Only standalone mode can fall
+      // back to the local-storage/memory-only distinction.
+      draftSaveState = saved ? (isStandaloneMode() && standaloneStorageState !== "available" ? "memory-only" : "saved") : "failed";
       draftSaveError = saved ? "" : "草稿未能保存；目前作答只保留在本頁，請按「重試儲存」。";
       return saved;
     } catch (error) {
@@ -1740,7 +1768,7 @@
     }
     runtimeState = "editable";
     standaloneStorageState = standaloneStorage;
-    draftSaveState = standaloneStorage === "available" ? "saved" : "memory-only";
+    draftSaveState = isStandaloneMode() && standaloneStorage !== "available" ? "memory-only" : "saved";
     SimScorm.setDraftProvider(() => Persistence.makeSnapshot("draft", snapshotActivity()));
     renderAll();
   }

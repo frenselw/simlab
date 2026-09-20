@@ -340,7 +340,8 @@
     pointer = boundedEndpoint(start, pointer, options.bounds);
     const vector = subtract(pointer, start);
     const magnitude = length(vector);
-    if (magnitude < (options.minDistance ?? 4)) {
+    const minimum = options.minDistance ?? MIN_DRAW_DISTANCE;
+    if (magnitude < minimum) {
       return { valid: false, point: clonePoint(pointer), targetKey: null, directionSnapped: false, reason: "too-short" };
     }
 
@@ -363,6 +364,10 @@
         footDistance: distance(snappedPoint, foot)
       };
     }).filter((candidate) => candidate.angularError <= angleLimit)
+      // A direction line can pass through P.  Its perpendicular foot is then
+      // P itself, so snapping would turn a valid short gesture into a
+      // zero-length saved line.  Such a target is not a usable perpendicular.
+      .filter((candidate) => distance(start, candidate.foot) >= minimum)
       .sort((first, second) => first.angularError - second.angularError || first.footDistance - second.footDistance);
 
     if (!candidates.length) {
@@ -378,10 +383,11 @@
     const canUseTarget = !excluded.has(chosen.direction.key);
     const sticky = previousTargetKey === chosen.direction.key && chosen.footDistance <= threshold * SNAP_STICKY_MULTIPLIER;
     const footVisible = distance(boundedEndpoint(start, chosen.foot, options.bounds), chosen.foot) <= EPSILON;
-    const snappedToFoot = canUseTarget && footVisible && (chosen.footDistance <= threshold || sticky);
+    const snappedToFoot = canUseTarget && footVisible && distance(start, chosen.foot) >= minimum && (chosen.footDistance <= threshold || sticky);
+    const finalPoint = snappedToFoot ? chosen.foot : chosen.snappedPoint;
     return {
       valid: true,
-      point: clonePoint(snappedToFoot ? chosen.foot : chosen.snappedPoint),
+      point: clonePoint(finalPoint),
       targetKey: snappedToFoot ? chosen.direction.key : null,
       directionSnapped: true,
       candidateDirectionKey: chosen.direction.key,
@@ -396,7 +402,10 @@
       ...options,
       excludedTargetKeys: existing.map((item) => item.targetKey).filter(Boolean)
     });
-    if (!preview.valid) return { accepted: false, reason: preview.reason, perpendiculars: clone(existing), preview };
+    const minimum = options.minDistance ?? MIN_DRAW_DISTANCE;
+    if (!preview.valid || distance(sceneFor(options).forceHead, preview.point) < minimum) {
+      return { accepted: false, reason: "too-short", perpendiculars: clone(existing), preview };
+    }
     const item = {
       key: `P${existing.length + 1}`,
       end: clonePoint(preview.point),
@@ -445,6 +454,9 @@
     const previousTargetKey = options.previousTargetKey || null;
     const candidates = visibleIntersections(perpendiculars, directions, scene)
       .filter(candidate => distance(boundedEndpoint(scene.origin, candidate.point, options.bounds), candidate.point) <= EPSILON)
+      // Do not let an intersection at O collapse a valid gesture into a
+      // zero-length component when the learner releases inside the snap area.
+      .filter(candidate => distance(scene.origin, candidate.point) >= minimum)
       .filter((candidate) => !excluded.has(candidate.key))
       .map((candidate) => ({ ...candidate, distance: distance(pointer, candidate.point) }))
       .sort((first, second) => first.distance - second.distance);
@@ -454,7 +466,7 @@
     const closest = stickyCandidate || candidates[0];
     if (!closest) return { valid: true, point: clonePoint(pointer), targetKey: null, reason: "free", candidates: [] };
     const sticky = previousTargetKey === closest.key && closest.distance <= threshold * SNAP_STICKY_MULTIPLIER;
-    if (closest.distance <= threshold || sticky) {
+    if (distance(scene.origin, closest.point) >= minimum && (closest.distance <= threshold || sticky)) {
       return { valid: true, point: clonePoint(closest.point), targetKey: closest.key, reason: "intersection-snap", candidates };
     }
     return { valid: true, point: clonePoint(pointer), targetKey: null, reason: "free", candidates };
@@ -465,7 +477,10 @@
       ...options,
       excludedTargetKeys: existing.map((item) => item.targetKey).filter(Boolean)
     });
-    if (!preview.valid) return { accepted: false, reason: preview.reason, components: clone(existing), preview };
+    const minimum = options.minDistance ?? MIN_DRAW_DISTANCE;
+    if (!preview.valid || distance(sceneFor(options).origin, preview.point) < minimum) {
+      return { accepted: false, reason: "too-short", components: clone(existing), preview };
+    }
     const item = {
       key: `F${existing.length + 1}`,
       end: clonePoint(preview.point),
@@ -502,7 +517,15 @@
       const matches = intersections.filter(target => distance(component.end, target.point) <= 1e-5);
       component.targetKey = (matches.find(target => target.key === component.targetKey) || matches[0])?.key || null;
     }
-    if (!isCorrectDecomposition(next)) {
+    const thetaCandidates = thetaCandidatesForInteraction(next.directions, {
+      scene,
+      allowImperfect: true,
+      perpendiculars: next.perpendiculars
+    });
+    if (next.theta !== null && !thetaCandidates.some(candidate => candidate.key === next.theta)) {
+      next.theta = null;
+      next.thetaPoint = null;
+    } else if (!isCorrectDecomposition(next)) {
       next.theta = null;
       next.thetaPoint = null;
     }

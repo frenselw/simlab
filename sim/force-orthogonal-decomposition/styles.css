@@ -473,6 +473,11 @@ body {
   fill: var(--force-original);
 }
 
+.scene-label.student-theta-label {
+  fill: var(--theta-color);
+  font-size: 22px;
+}
+
 .component-label[data-component-index="0"] {
   fill: var(--force-component-one);
 }

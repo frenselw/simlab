@@ -7,6 +7,17 @@ assert(origin.startsWith("http://127.0.0.1:"), `unexpected origin: ${origin}`);
 const activityPath = "/sim/force-orthogonal-decomposition/index.html";
 const hostPath = "/tools/force-orthogonal-decomposition-embedded-host.html";
 await page.waitForFunction(() => Boolean(window.ForceOrthogonalDecompositionModel && window.ForceOrthogonalDecompositionPersistence && window.ForceOrthogonalDecompositionScoring));
+await page.addInitScript(() => {
+  const query = new URL(location.href).searchParams;
+  if (location.pathname.endsWith("/sim/force-orthogonal-decomposition/index.html") && query.get("storage") === "denied") {
+    try {
+      Object.defineProperty(window, "localStorage", {
+        configurable: false,
+        get() { throw new DOMException("localStorage denied for test", "SecurityError"); }
+      });
+    } catch (_) { /* the browser may expose a non-configurable storage property */ }
+  }
+});
 const completeDraftJson = await page.evaluate(() => {
   const M = window.ForceOrthogonalDecompositionModel;
   const P = window.ForceOrthogonalDecompositionPersistence;
@@ -29,6 +40,12 @@ const completeDraftJson = await page.evaluate(() => {
   });
   return JSON.stringify(P.makeSnapshot("draft", draft));
 });
+const freeThetaDraftJson = await page.evaluate(draftJson => {
+  const draft = JSON.parse(draftJson);
+  draft.answer.questions[0].theta = null;
+  draft.answer.questions[0].thetaPoint = { x: 120, y: -40 };
+  return JSON.stringify(draft);
+}, completeDraftJson);
 const frameForHost = async label => {
   let frame = null;
   for (let attempt = 0; attempt < 30 && !frame; attempt += 1) {
@@ -56,7 +73,7 @@ const waitForRuntime = async (frame, expected, label) => {
   catch (error) { throw new Error(`${label}: expected runtime ${expected}, actual ${await runtime(frame)}, state=${JSON.stringify(await appState(frame))}: ${error.message}`); }
 };
 
-async function openHost(mode = "success", seed = "", lifecycleSeed = null, label = `${mode}/${seed || "none"}`) {
+async function openHost(mode = "success", seed = "", lifecycleSeed = null, label = `${mode}/${seed || "none"}`, storageDenied = false) {
   // The fixture consumes one deterministic seed from the parent session
   // storage before it creates the parent LMS mock. This avoids relying on
   // init-script ordering across repeated scenario navigations.
@@ -64,7 +81,7 @@ async function openHost(mode = "success", seed = "", lifecycleSeed = null, label
     if (seedJson) sessionStorage.setItem("simlab:lifecycle-seed", seedJson);
     else sessionStorage.removeItem("simlab:lifecycle-seed");
   }, JSON.stringify(lifecycleSeed));
-  const src = `${activityPath}?lifecycle=${Date.now()}-${Math.random()}`;
+  const src = `${activityPath}?lifecycle=${Date.now()}-${Math.random()}${storageDenied ? "&storage=denied" : ""}`;
   const query = `src=${encodeURIComponent(src)}&mode=${encodeURIComponent(mode)}&w=390&h=500${seed ? `&seed=${encodeURIComponent(seed)}` : ""}`;
   await page.goto(`${origin}${hostPath}?${query}`);
   return frameForHost(label);
@@ -127,11 +144,38 @@ let frame = await openHost("success", "complete-draft", { suspendData: completeD
 assert((await submitPopulated(frame, "success")) === "review", "success: production submit did not finish");
 await assertReviewLock(frame, "success");
 assert((await frame.locator("#reviewCompletion").textContent()).includes("已提交"), "success: rendered completion status is missing");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "success: submitted theta label remains visible in review");
+assert(await frame.locator("#thetaHit").isHidden(), "success: interactive theta hit target is hidden in review");
+assert((await frame.locator("#sceneTitle").textContent()).includes("水平／垂直分解"), "success: review stage title matches the first submitted question");
+assert((await frame.locator("#sceneKind").textContent()).includes("固定原力"), "success: review stage context matches the first submitted question");
+assert((await frame.locator("#stageStepLabel").textContent()).trim() === "唯讀", "success: review stage step is labelled read-only");
+await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
+assert((await frame.locator("#sceneTitle").textContent()).includes("斜面上的重力"), "success: switching review question updates the stage title");
+assert((await frame.locator("#sceneKind").textContent()).includes("斜面傾角 θ 已給定"), "success: switching review question updates the stage context");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "success: switched review question retains its theta label");
 const successData = await parentState();
 assert(successData.data["cmi.core.lesson_status"] === "passed", "success: LMS status was not passed");
 await reloadActivityFrame();
 frame = await frameForHost("success reload");
 await assertReviewLock(frame, "success reload");
+
+// A free, unsnapped thetaPoint is also learner data. Review must render its
+// label even though there is no matching arc candidate or interactive button.
+frame = await openHost("success", "complete-draft", { suspendData: freeThetaDraftJson, status: "incomplete", score: "" }, "free theta review");
+assert((await submitPopulated(frame, "free theta review")) === "review", "free theta review: production submit did not finish");
+await assertReviewLock(frame, "free theta review");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "free theta review: free thetaPoint label remains visible");
+assert(await frame.locator("#thetaHit").isHidden(), "free theta review: interactive theta hit target is hidden");
+
+// localStorage is intentionally denied in this LMS-frame scenario. The SCORM
+// API still commits the draft, so the UI must report an LMS save rather than a
+// standalone memory-only attempt.
+frame = await openHost("success", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "SCORM save with denied localStorage", true);
+const deniedStorageStatus = await frame.locator("#attemptStatus").textContent();
+assert(!deniedStorageStatus.includes("只保留本頁") && !deniedStorageStatus.includes("本機儲存不可用"), "SCORM save with denied localStorage: status does not falsely claim memory-only persistence");
+await click(frame, '#summaryList [data-edit-question="0"]');
+assert((await frame.locator("#attemptStatus").textContent()).includes("草稿已保存"), "SCORM save with denied localStorage: successful LMS draft save is reported");
+assert((await parentState()).data["cmi.suspend_data"].includes('"kind":"draft"'), "SCORM save with denied localStorage: LMS draft checkpoint was committed");
 
 // Repeated LMSFinish failures remain a committed, review-locked result. The
 // finish-only retry survives review-question navigation and eventually

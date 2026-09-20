@@ -37,6 +37,25 @@ const shortPerpendicular = M.perpendicularPreview(shortPerpendicularPoint, axisD
 assert.equal(shortPerpendicular.targetKey, null, "a short perpendicular keeps its actual endpoint instead of being completed");
 assert.deepEqual(shortPerpendicular.point, shortPerpendicularPoint);
 
+// If a learner's direction line passes through P, the mathematical foot is
+// P itself. A gesture longer than the drag minimum must not snap back to P and
+// create a zero-length perpendicular that persistence would later reject.
+const forceUnit = M.normalize(M.FORCE_HEAD);
+const forceNormal = { x: -forceUnit.y, y: forceUnit.x };
+const degenerateFootPointer = M.add(M.FORCE_HEAD, M.scale(forceNormal, 13));
+const degeneratePerpendicular = M.perpendicularPreview(degenerateFootPointer, [{ key: "D1", unit: forceUnit }], {
+  threshold: 20,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  pointerType: "touch"
+});
+assert.equal(degeneratePerpendicular.targetKey, null, "a perpendicular target at P is excluded from snapping");
+assert.ok(M.distance(M.FORCE_HEAD, degeneratePerpendicular.point) >= M.MIN_DRAW_DISTANCE, "the fallback perpendicular keeps a savable endpoint");
+assert.equal(M.commitPerpendicular(degenerateFootPointer, [{ key: "D1", unit: forceUnit }], [], {
+  threshold: 20,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  pointerType: "touch"
+}).accepted, true, "the non-snapped perpendicular remains committable");
+
 const insideFoot = M.perpendicularPreview({ x: 240, y: 19.9 }, axisDirections, { threshold: 20, pointerType: "touch" });
 assert.equal(insideFoot.targetKey, "D1", "19.9 CSS-px-equivalent foot distance snaps");
 assert.deepEqual(insideFoot.point, horizontalFoot, "foot snapping uses the exact projection endpoint");
@@ -89,6 +108,27 @@ assert.equal(componentOutside.targetKey, null, "component endpoint respects the 
 assert.deepEqual(componentOutside.point, { x: 240, y: 20.1 });
 const secondComponent = M.commitComponent(verticalFoot, exactPerpendiculars, axisDirections, [{ key: "F1", end: horizontalFoot, targetKey: "P1:D1" }], { threshold: 20 });
 assert.equal(secondComponent.item.targetKey, "P2:D2");
+
+// Likewise, an intersection at O is not a usable component target. The
+// learner's >minimum gesture is retained as a free endpoint instead of being
+// collapsed to the common origin.
+const originIntersectionPerpendiculars = [
+  { key: "P1", end: { x: 0, y: 0 }, targetKey: null },
+  { key: "P2", end: { x: 0, y: 160 }, targetKey: null }
+];
+const degenerateComponentPointer = { x: 13, y: 0 };
+const degenerateComponent = M.previewComponent(degenerateComponentPointer, originIntersectionPerpendiculars, axisDirections, {
+  threshold: 20,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  pointerType: "touch"
+});
+assert.equal(degenerateComponent.targetKey, null, "a component target at O is excluded from snapping");
+assert.deepEqual(degenerateComponent.point, degenerateComponentPointer, "the fallback component keeps its free endpoint");
+assert.equal(M.commitComponent(degenerateComponentPointer, originIntersectionPerpendiculars, axisDirections, [], {
+  threshold: 20,
+  minDistance: M.MIN_DRAW_DISTANCE,
+  pointerType: "touch"
+}).accepted, true, "the non-snapped component remains committable");
 
 const adjacentTargetPerpendiculars = [
   { key: "P1", end: { x: 240, y: 0 }, targetKey: "D1" },
@@ -237,6 +277,17 @@ assert.equal(editedDirection.editedState.directions.length, 2);
 assert.deepEqual(editedDirection.editedState.perpendiculars.map(line => line.end), editable.perpendiculars.map(line => line.end), "rotating an axis does not erase guides");
 assert.deepEqual(editedDirection.editedState.components.map(line => line.end), editable.components.map(line => line.end), "rotating an axis does not erase arrows");
 assert.equal(editedDirection.editedState.components[0].targetKey, null, "stale intersection links are removed");
+const damagedDirection = M.editGeometry({ ...M.clone(completeState), phase: "formulas", theta: null, thetaPoint: null }, "direction", 0, { x: 100, y: 40 }).editedState;
+const damagedTheta = M.thetaCandidatesForInteraction(damagedDirection.directions, {
+  scene: "horizontal-vertical",
+  allowImperfect: true,
+  perpendiculars: damagedDirection.perpendiculars
+})[0];
+assert.ok(damagedTheta, "an imperfect direction edit still has an interaction theta");
+const damagedWithTheta = { ...damagedDirection, theta: damagedTheta.key };
+const repairedDirection = M.editGeometry(damagedWithTheta, "direction", 0, { x: 120, y: 0 });
+assert.equal(repairedDirection.editedState.theta, null, "repairing a direction clears a theta key that is no longer a candidate");
+assert.equal(M.isCorrectDecomposition(repairedDirection.editedState), true, "repairing the direction restores the correct construction");
 assert.equal(M.editGeometry(editable, "direction", 0, { x: 0, y: 100 }).valid, false, "cannot rotate one axis onto the other");
 assert.equal(M.editGeometry(editable, "component", 0, { x: 0, y: 0 }).valid, false, "too-short edit is rejected");
 assert.deepEqual(editable.components, completeState.components, "preview edits do not mutate committed state");
