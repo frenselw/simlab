@@ -17,6 +17,7 @@ const manifest = fs.readFileSync(path.join(root, "sim", "manifests", "force-orth
 const plan = fs.readFileSync(path.join(root, "plans", "20-force-orthogonal-decomposition-full-delivery.md"), "utf8");
 const config = fs.readFileSync(path.join(root, "sim", "config.js"), "utf8");
 const lifecycleBrowser = fs.readFileSync(path.join(root, "tools", "force-orthogonal-decomposition-lifecycle-playwright-check.js"), "utf8");
+const browserCheck = fs.readFileSync(path.join(root, "tools", "force-orthogonal-decomposition-playwright-check.js"), "utf8");
 const browserHarness = fs.readFileSync(path.join(root, "tools", "force-orthogonal-decomposition-browser-regression.sh"), "utf8");
 const embeddedHost = fs.readFileSync(path.join(root, "tools", "force-orthogonal-decomposition-embedded-host.html"), "utf8");
 const staticServer = fs.readFileSync(path.join(root, "tools", "force-orthogonal-decomposition-static-server.js"), "utf8");
@@ -61,6 +62,13 @@ assert.match(main, /button\.addEventListener\("pointercancel"/);
 assert.match(main, /target\.setPointerCapture\(event\.pointerId\)/);
 assert.match(main, /previousTargetKey: draft\.preview\?\.targetKey \|\| null/);
 assert.match(main, /getTouchTelemetry/);
+const captureTouchStart = main.indexOf("function captureStageTouch");
+const captureTouchEnd = main.indexOf("function captureTouchPointer", captureTouchStart);
+assert.ok(captureTouchStart >= 0 && captureTouchEnd > captureTouchStart, "stage touch capture helper is present");
+assert.doesNotMatch(main.slice(captureTouchStart, captureTouchEnd), /stage-navigation/, "stage navigation is not treated as a draggable touch owner");
+const stageOwnerStart = main.indexOf("function stageTouchOwner");
+const stageOwnerEnd = main.indexOf("function startStageHostTouch", stageOwnerStart);
+assert.match(main.slice(stageOwnerStart, stageOwnerEnd), /stage-navigation/, "stage navigation remains excluded from host scrolling");
 assert.match(main, /given-theta-arc/);
 assert.match(main, /given-theta-reference/);
 assert.match(main, /function thetaVisualPoint\(\)/);
@@ -123,6 +131,9 @@ assert.match(scorm, /standaloneDurabilityFailure/);
 for (const label of ["success", "committed", "frozen", "retryable", "nonretryable", "invalid-pending", "finished-missing", "finished-mismatch", "review-only"]) {
   assert.match(lifecycleBrowser, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} production lifecycle evidence exists`);
 }
+assert.match(browserCheck, /Input\.dispatchTouchEvent/);
+assert.match(browserCheck, /stageBackButton/);
+assert.match(browserCheck, /stageNextButton/);
 assert.match(browserHarness, /force-orthogonal-decomposition-lifecycle-playwright-check\.js/);
 assert.match(browserHarness, /SIMLAB_SERVER_PORT=/);
 assert.match(browserHarness, /__simlab_health/);

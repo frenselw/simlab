@@ -76,6 +76,44 @@ const canonicalComplete = P.decodeDraft(P.encodeDraft(complete));
 assert.ok(canonicalComplete.questions[2].perpendiculars.some(line => line.end.x < 0 || line.end.y < 0), "gravity keeps negative geometry coordinates");
 assert.ok(canonicalComplete.questions[2].components.some(component => component.end.x < 0 || component.end.y < 0), "gravity keeps negative component coordinates");
 
+// A narrow-stage edit whose anchor P is just outside the inset top boundary
+// must remain savable through draft reload and final review. This is the
+// concrete path that previously accepted a zero-length perpendicular in the
+// UI and only failed when persistence validated it.
+const narrowScene = M.getScenario("inclined-external-force");
+const narrowDirections = [
+  { key: "D1", unit: M.fromAngle(M.radians(95)), axisKey: null },
+  { key: "D2", unit: M.fromAngle(M.radians(20)), axisKey: null }
+];
+const narrowState = {
+  ...M.createQuestionState(narrowScene.id),
+  phase: "perpendiculars",
+  directions: narrowDirections,
+  perpendiculars: [{ key: "P1", end: { x: 220, y: 70 }, targetKey: null }],
+  components: [],
+  theta: null,
+  thetaPoint: null,
+  formulas: { F1: null, F2: null }
+};
+const narrowEdit = M.editGeometry(narrowState, "perpendicular", 0, { x: 250, y: 177 }, {
+  scene: narrowScene,
+  bounds: { left: -180, right: 440, bottom: -260, top: 178.33 },
+  minDistance: 20,
+  threshold: 20,
+  pointerType: "touch"
+});
+assert.equal(narrowEdit.valid, true, "narrow-stage perpendicular edit is accepted");
+assert.ok(M.distance(narrowScene.forceHead, narrowEdit.editedState.perpendiculars[0].end) >= 20, "narrow-stage edit has a savable length");
+const narrowActivity = fullActivity();
+narrowActivity.questions[1] = narrowEdit.editedState;
+narrowActivity.currentQuestion = 1;
+assert.equal(P.validateQuestion(narrowActivity.questions[1], 1).ok, true, "narrow-stage edited question passes persistence validation");
+const narrowRestored = roundTrip(narrowActivity, "narrow-stage perpendicular edit reload");
+assert.deepEqual(narrowRestored.questions[1].perpendiculars, narrowEdit.editedState.perpendiculars, "narrow-stage edited perpendicular survives reload");
+const narrowResult = Scoring.score(narrowActivity);
+const narrowReview = P.makeSnapshot("review", narrowActivity, narrowResult);
+assert.deepEqual(P.decodeSnapshot(narrowReview, "review").questions[1].perpendiculars, narrowEdit.editedState.perpendiculars, "narrow-stage edited perpendicular reaches final review");
+
 for (const [index, scenarioId] of P.SCENARIO_IDS.entries()) {
   const question = canonicalComplete.questions[index];
   const zeroPerpendicular = { ...question, phase: "perpendiculars", perpendiculars: [], components: [], theta: null, formulas: { F1: null, F2: null } };
@@ -182,43 +220,6 @@ const repairedDirectionActivity = P.freshDraft();
 repairedDirectionActivity.questions[0] = repairedDirectionGeometry;
 const repairedDirectionRoundTrip = roundTrip(repairedDirectionActivity, "direction repair after stale theta");
 assert.equal(repairedDirectionRoundTrip.questions[0].theta, null, "repaired direction remains savable without stale θ");
-
-// The narrow inclined-force edit path must use the same post-clipping length
-// rule as a newly drawn perpendicular.  Its saved free endpoint must survive
-// a production draft round trip instead of becoming a zero-length line.
-const narrowScene = M.getScenario("inclined-external-force");
-const narrowInset = 28 / .6;
-const narrowBounds = {
-  left: -180 + narrowInset,
-  right: 440 - narrowInset,
-  bottom: -135 + narrowInset,
-  top: 225 - narrowInset
-};
-const narrowState = {
-  ...M.createQuestionState(narrowScene.id),
-  phase: "perpendiculars",
-  directions: [
-    { key: "D1", unit: { x: Math.cos(M.radians(95)), y: Math.sin(M.radians(95)) }, axisKey: null },
-    { key: "D2", unit: { x: Math.cos(M.radians(28)), y: Math.sin(M.radians(28)) }, axisKey: null }
-  ],
-  perpendiculars: [{ key: "P1", end: { x: 270, y: 140 }, targetKey: null }]
-};
-const narrowEdit = M.editGeometry(narrowState, "perpendicular", 0, { x: 250, y: 177 }, {
-  scene: narrowScene,
-  bounds: narrowBounds,
-  minDistance: M.MIN_DRAW_DISTANCE,
-  threshold: 20
-});
-assert.equal(narrowEdit.valid, true, "narrow edit keeps a valid free perpendicular endpoint");
-const narrowActivity = P.freshDraft();
-narrowActivity.currentQuestion = 1;
-narrowActivity.questions[1] = narrowEdit.editedState;
-const narrowRoundTrip = roundTrip(narrowActivity, "narrow perpendicular edit");
-assert.deepEqual(narrowRoundTrip.questions[1].perpendiculars[0].end, { x: 250, y: 177 }, "narrow perpendicular edit survives save and reload");
-const narrowReview = P.clone(narrowActivity);
-narrowReview.phase = "summary";
-const narrowResult = Scoring.score(narrowReview);
-assert.doesNotThrow(() => P.makeSnapshot("review", narrowReview, narrowResult), "narrow perpendicular edit can reach final submission");
 
 const forceScene = M.getScenario("horizontal-vertical");
 const forceUnit = M.normalize(M.subtract(forceScene.forceHead, forceScene.origin));
@@ -347,6 +348,10 @@ expectInvalid(thetaWithFreePoint, "a snapped theta cannot also have a free point
 const danglingTarget = P.clone(canonicalComplete);
 danglingTarget.questions[0].perpendiculars[0].targetKey = "D9";
 expectInvalid(danglingTarget, "dangling perpendicular target");
+
+const zeroExistingPerpendicular = P.clone(canonicalComplete);
+zeroExistingPerpendicular.questions[1].perpendiculars[0].end = M.clone(M.getScenario("inclined-external-force").forceHead);
+expectInvalid(zeroExistingPerpendicular, "zero-length edited perpendicular");
 
 const nonFinite = P.clone(canonicalComplete);
 nonFinite.questions[0].components[0].end.x = NaN;

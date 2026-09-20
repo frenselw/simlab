@@ -152,6 +152,7 @@ async page => {
   });
   const constructQuestion = async (mode, keyboardFormula = false) => {
     const plan = await scenePlan();
+    const advanceStage = async () => mode === "touch" ? touchTap(page.locator("#stageNextButton")) : click(page.locator("#nextButton"));
     const assertGravityHit = async (selector, label) => {
       if (plan.id !== "inclined-gravity") return;
       const metrics = await page.evaluate(targetSelector => {
@@ -184,21 +185,21 @@ async page => {
     await assertGravityHit("#originHit", "directions origin");
     for (const direction of plan.directions) await dragTarget("#originHit", direction, mode);
     assert((await appState()).directions.length === 2, `${plan.id}: two directions created with ${mode}`);
-    await click(page.locator("#nextButton"));
+    await advanceStage();
     await assertGravityHit("#pointHit", "perpendicular origin");
     for (const foot of plan.feet) await dragTarget("#pointHit", foot, mode);
     assert((await appState()).perpendiculars.length === 2, `${plan.id}: two perpendiculars created with ${mode}`);
-    await click(page.locator("#nextButton"));
+    await advanceStage();
     await assertGravityHit("#originHit", "component origin");
     for (const foot of plan.feet) await dragTarget("#originHit", foot, mode);
     assert((await appState()).components.length === 2, `${plan.id}: two components created with ${mode} ${JSON.stringify({ state: await appState(), lastDrag })}`);
-    await click(page.locator("#nextButton"));
+    await advanceStage();
     assert((await appState()).phase === "angle", `${plan.id}: angle phase reached`);
     await assertGravityHit("#thetaHit", "given theta");
     const thetaChoice = page.locator("[data-theta-choice]").first();
     assert(await thetaChoice.count() === 1, `${plan.id}: theta choice rendered`);
     await click(thetaChoice);
-    await click(page.locator("#nextButton"));
+    await advanceStage();
     assert((await appState()).phase === "formulas", `${plan.id}: formula phase reached`);
     const expectations = await page.evaluate(() => window.ForceOrthogonalDecompositionModel.formulaExpectations(window.__forceOrthogonalApp.getState()));
     for (const [index, expectation] of expectations.entries()) {
@@ -219,6 +220,12 @@ async page => {
     assert(await page.locator(".formula-slot[data-result]").count() === 0, `${plan.id}: formula correctness must remain hidden before final submission`);
   };
   const exerciseDirectEditing = async () => {
+    // Exercise both stage navigation controls with trusted touch taps. The
+    // capture-phase stage-drag guard must leave ordinary button clicks intact.
+    await touchTap(page.locator("#stageBackButton"));
+    assert((await appState()).phase === "angle", "touch stage back button changes phase");
+    await touchTap(page.locator("#stageNextButton"));
+    assert((await appState()).phase === "formulas", "touch stage next button changes phase");
     for (let index = 0; index < 4; index += 1) await click(page.locator("#backButton"));
     const original = await page.evaluate(() => {
       const state = window.__forceOrthogonalApp.getState();

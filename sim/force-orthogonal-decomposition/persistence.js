@@ -66,7 +66,11 @@
 
   function perpendicularValid(value, answer, scene, index) {
     if (!onlyKeys(value, ["key", "end", "targetKey"]) || value.key !== `P${index + 1}` || !validPoint(value.end)) return false;
-    if (M.distance(scene.forceHead, value.end) < M.MIN_DRAW_DISTANCE / 2) return false;
+    // Validate the post-snap endpoint itself. A preview/edit path must never
+    // be able to persist P as the endpoint, even if a malformed draft bypasses
+    // the UI and reaches restore or final submission.
+    const segmentLength = M.distance(scene.forceHead, value.end);
+    if (!(segmentLength >= M.MIN_DRAW_DISTANCE / 2) || segmentLength <= M.EPSILON) return false;
     if (value.targetKey !== null && !answer.directions.some(direction => direction.key === value.targetKey)) return false;
     if (value.targetKey !== null) {
       const direction = answer.directions.find(entry => entry.key === value.targetKey);

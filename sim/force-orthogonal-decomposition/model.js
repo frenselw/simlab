@@ -319,12 +319,22 @@
 
   function boundedEndpoint(start, end, bounds) {
     if (!bounds) return clonePoint(end);
+    // An editing anchor can sit just outside the inset rectangle on a narrow
+    // stage (for example, P at the top edge).  Treat that anchor as part of
+    // the clipping rectangle instead of allowing a direction snap to clip
+    // straight back to the anchor and create a zero-length segment.
+    const safeBounds = {
+      left: Math.min(bounds.left, start.x),
+      right: Math.max(bounds.right, start.x),
+      bottom: Math.min(bounds.bottom, start.y),
+      top: Math.max(bounds.top, start.y)
+    };
     const delta = subtract(end, start);
     let fraction = 1;
-    if (delta.x > 0) fraction = Math.min(fraction, (bounds.right - start.x) / delta.x);
-    if (delta.x < 0) fraction = Math.min(fraction, (bounds.left - start.x) / delta.x);
-    if (delta.y > 0) fraction = Math.min(fraction, (bounds.top - start.y) / delta.y);
-    if (delta.y < 0) fraction = Math.min(fraction, (bounds.bottom - start.y) / delta.y);
+    if (delta.x > 0) fraction = Math.min(fraction, (safeBounds.right - start.x) / delta.x);
+    if (delta.x < 0) fraction = Math.min(fraction, (safeBounds.left - start.x) / delta.x);
+    if (delta.y > 0) fraction = Math.min(fraction, (safeBounds.top - start.y) / delta.y);
+    if (delta.y < 0) fraction = Math.min(fraction, (safeBounds.bottom - start.y) / delta.y);
     return add(start, scale(delta, Math.max(0, fraction)));
   }
 
