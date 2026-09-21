@@ -34,6 +34,10 @@
     data["cmi.core.lesson_status"] = "passed";
     data["cmi.suspend_data"] = "";
     data["cmi.core.score.raw"] = "";
+  } else if (seed === "finished-valid-review" && lifecycleSeed?.suspendData) {
+    data["cmi.core.lesson_status"] = "passed";
+    data["cmi.suspend_data"] = lifecycleSeed.suspendData;
+    data["cmi.core.score.raw"] = String(lifecycleSeed.score ?? "");
   } else if (seed === "finished-mismatch" && lifecycleSeed?.suspendData) {
     data["cmi.core.lesson_status"] = lifecycleSeed.status || "passed";
     data["cmi.suspend_data"] = lifecycleSeed.suspendData;

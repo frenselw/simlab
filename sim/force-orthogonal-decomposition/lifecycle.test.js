@@ -28,6 +28,11 @@ const review = P.makeSnapshot("review", draft, computed);
 const trusted = Flow.reviewResult(computed, { score: computed.score, passed: computed.passed }, { score: String(computed.score), status: "passed" });
 assert.equal(trusted.trusted, true);
 assert.equal(trusted.result.score, computed.score);
+for (const rawScore of ["", "invalid"]) {
+  const unavailable = Flow.reviewResult(computed, { score: computed.score, passed: computed.passed }, { score: rawScore, status: "passed" });
+  assert.equal(unavailable.trusted, false, "valid review data cannot authorize a missing or invalid LMS score");
+  assert.equal(unavailable.result.score, null, "missing/invalid LMS score is rendered as unknown");
+}
 const mismatch = Flow.reviewResult(computed, { score: computed.score + 1, passed: computed.passed }, { score: String(computed.score + 1), status: "passed" });
 assert.equal(mismatch.trusted, false);
 assert.equal(mismatch.result.score, computed.score + 1);

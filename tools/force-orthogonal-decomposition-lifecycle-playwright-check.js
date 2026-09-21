@@ -40,6 +40,14 @@ const completeDraftJson = await page.evaluate(() => {
   });
   return JSON.stringify(P.makeSnapshot("draft", draft));
 });
+const wrongFormulaDraftJson = await page.evaluate(draftJson => {
+  const M = window.ForceOrthogonalDecompositionModel;
+  const draft = JSON.parse(draftJson);
+  const question = draft.answer.questions[0];
+  const expectation = M.formulaExpectations(question)[0];
+  question.formulas[expectation.key] = expectation.value === "sin" ? "cos" : "sin";
+  return JSON.stringify(draft);
+}, completeDraftJson);
 const freeThetaDraftJson = await page.evaluate(draftJson => {
   const draft = JSON.parse(draftJson);
   draft.answer.questions[0].theta = null;
@@ -209,11 +217,37 @@ const assertStageLocked = async (frame, label) => {
   assert(lock.navigation.every(item => item.disabled), `${label}: a stage navigation control remained active: ${JSON.stringify(lock.navigation)}`);
   assert(JSON.stringify(after) === JSON.stringify(before), `${label}: stage interaction changed the locked answer`);
 };
+const reviewFormulaRows = async (frame, label) => {
+  assert(await frame.locator("#reviewFormulaSummary").isVisible(), `${label}: trusted review did not show the formula summary`);
+  const rows = await frame.locator("#reviewFormulaRows .review-formula-row").evaluateAll(nodes => nodes.map(node => ({
+    key: node.dataset.formulaReviewKey,
+    result: node.dataset.result,
+    text: node.textContent.trim()
+  })));
+  assert(rows.length === 2, `${label}: review did not render both submitted formulas ${JSON.stringify(rows)}`);
+  assert(rows.every(row => row.text.includes("θ")), `${label}: review formula is not shown in full ${JSON.stringify(rows)}`);
+  return rows;
+};
 
 // Success and review-lock persistence.
 let frame = await openHost("success", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "success");
+assert(await frame.locator("#summaryPanel").isVisible(), "summary theta: seeded overview is visible");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary theta: attached theta label is visible in the overview");
+assert(await frame.locator("#thetaHit").isHidden(), "summary theta: attached theta hit target is hidden in the overview");
+await reloadActivityFrame();
+frame = await frameForHost("summary theta reload");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary theta: attached label survives overview reload");
+await click(frame, '#summaryList [data-edit-question="0"]');
+assert(await frame.locator("#practicePanel").isVisible(), "summary theta: returning to edit reopens practice controls");
+assert(await frame.locator("#thetaHit").isVisible(), "summary theta: attached theta remains an interactive edit target after returning");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 0, "summary theta: editable mode does not duplicate the SVG label");
+await click(frame, "#goSummary");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary theta: returning to overview redraws one attached label");
 assert((await submitPopulated(frame, "success")) === "review", "success: production submit did not finish");
 await assertReviewLock(frame, "success");
+const successFormulaRows = await reviewFormulaRows(frame, "success formula review");
+assert(successFormulaRows.every(row => row.result === "correct"), `success formula review: correct formulas were not marked correct ${JSON.stringify(successFormulaRows)}`);
+assert(await frame.locator("#practicePanel").isHidden(), "success formula review: practice formula workbench stayed hidden");
 assert((await frame.locator("#reviewCompletion").textContent()).includes("已提交"), "success: rendered completion status is missing");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "success: submitted theta label remains visible in review");
 assert(await frame.locator("#thetaHit").isHidden(), "success: interactive theta hit target is hidden in review");
@@ -261,6 +295,15 @@ await assertReviewLock(frame, "summary stage lock review");
 // A free, unsnapped thetaPoint is also learner data. Review must render its
 // label even though there is no matching arc candidate or interactive button.
 frame = await openHost("success", "complete-draft", { suspendData: freeThetaDraftJson, status: "incomplete", score: "" }, "free theta review");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary free theta: free thetaPoint label is visible in the overview");
+await reloadActivityFrame();
+frame = await frameForHost("summary free theta reload");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary free theta: free thetaPoint label survives overview reload");
+await click(frame, '#summaryList [data-edit-question="0"]');
+assert(await frame.locator("#thetaHit").isVisible(), "summary free theta: free thetaPoint remains editable after returning");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 0, "summary free theta: editable mode does not duplicate the free label");
+await click(frame, "#goSummary");
+assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary free theta: returning to overview redraws one free label");
 assert((await submitPopulated(frame, "free theta review")) === "review", "free theta review: production submit did not finish");
 await assertReviewLock(frame, "free theta review");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "free theta review: free thetaPoint label remains visible");
@@ -282,6 +325,35 @@ await assertReviewLock(frame, "missing gravity theta review");
 await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 0, "missing gravity theta review: no student theta is rendered when θ was never placed");
 assert(await frame.locator('#diagram [data-label="given-slope-theta"]').count() === 1, "missing gravity theta review: given slope theta remains visible without student theta");
+
+// A valid review snapshot is still only a safe summary when the finished LMS
+// attempt exposes no usable score. The computed snapshot score must not fill
+// in the missing LMS field, and review formula details remain hidden.
+const finishedReviewSeed = { suspendData: successData.data["cmi.suspend_data"], status: "passed", score: "" };
+frame = await openHost("success", "finished-valid-review", finishedReviewSeed, "finished valid review missing score");
+await waitForRuntime(frame, "review", "finished valid review missing score");
+assert((await frame.locator("#reviewCompletion").textContent()).includes("只顯示已記錄摘要"), "finished valid review missing score: safe summary label is missing");
+assert((await frame.locator("#reviewScore").textContent()).trim() === "--", "finished valid review missing score: computed snapshot score replaced missing LMS score");
+assert((await frame.locator("#reviewTrustNote").textContent()).includes("沒有提供可用"), "finished valid review missing score: missing-score explanation is missing");
+assert(await frame.locator("#reviewFormulaSummary").isHidden(), "finished valid review missing score: untrusted formula details were exposed");
+await assertReviewLock(frame, "finished valid review missing score");
+
+frame = await openHost("success", "finished-valid-review", { ...finishedReviewSeed, score: "not-a-number" }, "finished valid review invalid score");
+await waitForRuntime(frame, "review", "finished valid review invalid score");
+assert((await frame.locator("#reviewCompletion").textContent()).includes("只顯示已記錄摘要"), "finished valid review invalid score: safe summary label is missing");
+assert((await frame.locator("#reviewScore").textContent()).trim() === "--", "finished valid review invalid score: invalid LMS score was not rendered as unknown");
+assert(await frame.locator("#reviewFormulaSummary").isHidden(), "finished valid review invalid score: untrusted formula details were exposed");
+await assertReviewLock(frame, "finished valid review invalid score");
+
+// Trusted review detail uses the submitted snapshot and the per-formula
+// scoring items, so a one-right/one-wrong question identifies the exact slot.
+frame = await openHost("success", "complete-draft", { suspendData: wrongFormulaDraftJson, status: "incomplete", score: "" }, "wrong formula review");
+assert((await submitPopulated(frame, "wrong formula review")) === "review", "wrong formula review: production submit did not finish");
+await assertReviewLock(frame, "wrong formula review");
+await click(frame, '#reviewQuestionNavigation [data-question-index="0"]');
+const wrongFormulaRows = await reviewFormulaRows(frame, "wrong formula review");
+assert(wrongFormulaRows.map(row => row.result).sort().join(",") === "correct,incorrect", `wrong formula review: per-slot status is missing ${JSON.stringify(wrongFormulaRows)}`);
+assert(wrongFormulaRows.some(row => row.text.includes("錯誤")), `wrong formula review: wrong formula status is not visible ${JSON.stringify(wrongFormulaRows)}`);
 
 // At the narrow 320px stage, edit an existing perpendicular through the
 // clipped-normal case from the audit. The saved free endpoint must survive

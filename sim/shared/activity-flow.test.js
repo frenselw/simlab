@@ -22,6 +22,12 @@ assert.deepEqual(Flow.recordedResult({ score: "bad", status: "passed" }), { scor
 assert.deepEqual([true, false, null].map(Flow.completionLabel), ["已通過", "未通過", "未能安全判斷合格狀態"]);
 const computed = { score: 80, maxScore: 100, passed: true, detail: [1] };
 assert.deepEqual(Flow.reviewResult(computed, { score: 80, passed: true }, { score: "80", status: "passed" }), { trusted: true, result: computed });
+for (const rawScore of ["", "not-a-number"]) {
+  const missingOrInvalid = Flow.reviewResult(computed, { score: 80, passed: true }, { score: rawScore, status: "passed" });
+  assert.equal(missingOrInvalid.trusted, false, `a finished review with LMS score ${JSON.stringify(rawScore)} is not trusted`);
+  assert.equal(missingOrInvalid.result.score, null, "an unavailable LMS score stays unavailable instead of using the computed score");
+  assert.equal(missingOrInvalid.result.passed, true, "an independently recorded pass status remains visible in the safe summary");
+}
 assert.deepEqual(Flow.reviewResult(computed, { score: 40, passed: false }, { score: "40", status: "failed" }).result, { score: 40, maxScore: 100, passed: false, completed: true, detail: [], feedbackItems: [] });
 assert.equal(Flow.reviewResult(null, null, { score: "", status: "completed" }).result.passed, null);
 for (const [computedPassed, status, expectedPassed] of [[true, "failed", false], [false, "passed", true]]) {

@@ -103,7 +103,7 @@ assert.match(main, /function thetaSeatWorld\(scene = activeScene\(\)\)/);
 assert.match(main, /function renderSceneHeader\(scene, \{ review = false \} = \{\}\)/);
 assert.match(main, /data-label\": \"student-theta\"/);
 assert.match(main, /const studentThetaLabelPoint = \(\(\) =>/);
-assert.match(main, /runtimeState === "review" && studentThetaLabelPoint/);
+assert.match(main, /const readOnlyStage = runtimeState === "review" \|\| activity\.phase !== "practice"/);
 assert.match(main, /const eventTarget = event\.target\?\.closest\?\.\("\.stage-hit, \.theta-hit"\)/);
 assert.match(main, /function isStandaloneMode\(\)/);
 assert.match(main, /isStandaloneMode\(\) && standaloneStorageState !== \"available\"/);
@@ -145,7 +145,7 @@ assert.match(scorm, /localStorage/);
 assert.match(scorm, /standaloneHasDurableCheckpoint/);
 assert.match(scorm, /standaloneDurabilityFailure/);
 
-for (const label of ["success", "committed", "frozen", "retryable", "nonretryable", "invalid-pending", "finished-missing", "finished-mismatch", "review-only"]) {
+for (const label of ["success", "committed", "frozen", "retryable", "nonretryable", "invalid-pending", "finished-missing", "finished-valid-review", "finished-mismatch", "wrong formula review", "review-only"]) {
   assert.match(lifecycleBrowser, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} production lifecycle evidence exists`);
 }
 assert.match(browserCheck, /Input\.dispatchTouchEvent/);

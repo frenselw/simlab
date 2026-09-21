@@ -72,6 +72,8 @@
     reviewScore: documentObject.getElementById("reviewScore"),
     reviewCompletion: documentObject.getElementById("reviewCompletion"),
     reviewQuestionNavigation: documentObject.getElementById("reviewQuestionNavigation"),
+    reviewFormulaSummary: documentObject.getElementById("reviewFormulaSummary"),
+    reviewFormulaRows: documentObject.getElementById("reviewFormulaRows"),
     reviewFeedback: documentObject.getElementById("reviewFeedback"),
     reviewTrustNote: documentObject.getElementById("reviewTrustNote"),
     reviewActions: documentObject.getElementById("reviewActions"),
@@ -637,10 +639,11 @@
       drawScreenText(labelLayer, labelPoint, label, `scene-label component-label component-label-${index}`, { "data-component-label": index, "data-component-index": index, "data-component-axis": axisKey || "", "text-anchor": gravityNormal ? "start" : unit.y > .5 ? "end" : "middle" });
     });
     // The editable θ is an HTML hit target so it can carry the drag and
-    // keyboard affordances. Once the attempt is locked, that target is
-    // hidden; keep the learner's saved label in the SVG so the review still
-    // shows the complete submitted construction, including a free θPoint.
-    if (runtimeState === "review" && studentThetaLabelPoint) {
+    // keyboard affordances. In the summary and after submission the stage is
+    // read-only, so keep the learner's saved label in the SVG instead. This
+    // also covers a free thetaPoint that has no matching arc candidate.
+    const readOnlyStage = runtimeState === "review" || activity.phase !== "practice";
+    if (readOnlyStage && studentThetaLabelPoint) {
       drawScreenText(labelLayer, studentThetaLabelPoint, "θ", "scene-label student-theta-label", {
         "data-label": "student-theta",
         "text-anchor": "middle",
@@ -702,6 +705,7 @@
         if (!button) return;
         setHitVisibility(button, false);
         button.dataset.dragKind = "";
+        button.disabled = true;
       });
       return;
     }
@@ -1007,17 +1011,24 @@
     dom.reviewPanel.classList.remove("is-hidden");
     dom.reviewScore.textContent = reviewResult?.result?.score == null ? "--" : `${reviewResult.result.score} / 100`;
     const localReview = Boolean(SimScorm?.isStandalone?.());
-    dom.reviewCompletion.textContent = reviewResult?.trusted === false ? "只顯示已記錄摘要" : localReview ? "已完成（本機形成性回饋）" : "已提交（形成性回饋）";
-    dom.reviewTitle.textContent = reviewResult?.trusted === false ? "已提交作答（摘要可信，細節未能驗證）" : "已提交作答結果";
-    dom.reviewTrustNote.textContent = reviewResult?.trusted === false ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : localReview ? "這是已鎖定的本機 review；如要開始新的本機練習，請先清除本機紀錄。" : "這是已鎖定的 review；不能返回建立新草稿。";
+    const untrusted = reviewResult?.trusted === false;
+    const missingRecordedScore = untrusted && reviewResult?.result?.score == null;
+    dom.reviewCompletion.textContent = untrusted ? "只顯示已記錄摘要" : localReview ? "已完成（本機形成性回饋）" : "已提交（形成性回饋）";
+    dom.reviewTitle.textContent = missingRecordedScore
+      ? "已提交作答（LMS 分數未提供）"
+      : untrusted ? "已提交作答（摘要可信，細節未能驗證）" : "已提交作答結果";
+    dom.reviewTrustNote.textContent = missingRecordedScore
+      ? "LMS 沒有提供可用的已記錄分數；為安全起見保持唯讀，顯示 --，不能以保存快照推算分數。"
+      : untrusted ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : localReview ? "這是已鎖定的本機 review；如要開始新的本機練習，請先清除本機紀錄。" : "這是已鎖定的 review；不能返回建立新草稿。";
     dom.reviewQuestionNavigation.hidden = !trusted;
     dom.reviewFeedback.hidden = !trusted;
-    if (!trusted) {
+    if (untrusted) {
       activity = { ...Persistence.freshDraft(), phase: "summary", currentQuestion: 0 };
       state = activity.questions[0];
       renderSceneHeader(activeScene(), { review: true });
       dom.reviewQuestionNavigation.replaceChildren();
       dom.reviewFeedback.replaceChildren();
+      renderReviewFormulaSummary(null, null);
       drawScene();
     } else if (reviewSnapshot?.answer?.questions) {
       const saved = { ...Persistence.freshDraft(), phase: "summary", questions: reviewSnapshot.answer.questions.map(question => M.clone(question)) };
@@ -1026,6 +1037,7 @@
       state = activity.questions[activity.currentQuestion];
       renderSceneHeader(activeScene(), { review: true });
       renderQuestionProgress(dom.reviewQuestionNavigation, true);
+      renderReviewFormulaSummary(untrusted ? null : reviewResult?.result?.detail?.[selectedQuestion], state);
       dom.reviewFeedback.replaceChildren();
       (reviewResult?.result?.feedbackItems || []).forEach(text => {
         const p = documentObject.createElement("p");
@@ -1036,6 +1048,7 @@
     } else {
       renderSceneHeader(activeScene(), { review: true });
       dom.reviewQuestionNavigation.replaceChildren();
+      renderReviewFormulaSummary(null, null);
       dom.reviewFeedback.textContent = "目前只有 Moodle 摘要可供查閱。";
     }
     dom.reviewActions.replaceChildren();
@@ -1063,9 +1076,46 @@
     lockStageControls();
   }
 
+  function renderReviewFormulaSummary(questionDetail, question) {
+    if (!dom.reviewFormulaSummary || !dom.reviewFormulaRows) return;
+    const trustedQuestion = Boolean(questionDetail && question && reviewResult?.trusted === true);
+    dom.reviewFormulaSummary.hidden = !trustedQuestion;
+    dom.reviewFormulaRows.replaceChildren();
+    if (!trustedQuestion) return;
+    const scene = M.getScenario(question.scenarioId) || activeScene();
+    const formulaGroup = questionDetail.groups?.find(group => group.key === "formulas");
+    const items = formulaGroup?.items || [];
+    ["F1", "F2"].forEach((key, index) => {
+      const item = items.find(entry => entry.key === `formula-${key}`);
+      const actual = question.formulas?.[key] || null;
+      const result = !actual ? "missing" : item?.correct ? "correct" : "incorrect";
+      const row = documentObject.createElement("div");
+      row.className = "review-formula-row";
+      row.dataset.formulaReviewKey = key;
+      row.dataset.result = result;
+      const expression = documentObject.createElement("span");
+      expression.className = "review-formula-expression";
+      const label = item?.label?.replace(/ 的分力表達式$/, "") || `${scene.forceSymbol}${index + 1}`;
+      setMathText(expression, `${label} = ${scene.forceSymbol} × ${actual ? `${actual} θ` : "未作答"}`);
+      const status = documentObject.createElement("span");
+      status.className = "review-formula-status";
+      status.textContent = result === "correct" ? "正確" : result === "incorrect" ? "錯誤" : "未作答";
+      status.setAttribute("aria-label", `${label}：${status.textContent}`);
+      row.append(expression, status);
+      if (item?.detail) {
+        const detail = documentObject.createElement("p");
+        detail.className = "review-formula-detail";
+        setMathText(detail, item.detail);
+        row.appendChild(detail);
+      }
+      dom.reviewFormulaRows.appendChild(row);
+    });
+  }
+
   function renderControls() {
     renderPracticeHeader();
     const phaseIndex = M.PHASES.indexOf(state.phase);
+    const practiceEditable = isPracticeEditable();
     Array.from(dom.phaseSteps.querySelectorAll("[data-phase]")).forEach((item) => {
       const index = M.PHASES.indexOf(item.dataset.phase);
       item.dataset.state = index === phaseIndex ? "current" : index < phaseIndex ? "done" : "";
@@ -1076,12 +1126,12 @@
     dom.directionCount.textContent = `方向虛線 ${state.directions.length} / 2`;
     dom.perpendicularCount.textContent = `垂線 ${state.perpendiculars.length} / 2`;
     dom.componentCount.textContent = `分力 ${state.components.length} / 2`;
-    dom.backButton.disabled = !isPracticeEditable() || phaseIndex <= 0 || Boolean(drag || keyboardDrag || formulaDrag);
-    dom.redrawButton.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
-    dom.resetButton.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.backButton.disabled = !practiceEditable || phaseIndex <= 0 || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.redrawButton.disabled = !practiceEditable || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.resetButton.disabled = !practiceEditable || Boolean(drag || keyboardDrag || formulaDrag);
     const formulaDone = state.phase === "formulas" && formulaStepComplete();
     const canAdvance = M.canAdvance(state) || formulaDone;
-    dom.nextButton.disabled = !isPracticeEditable() || !canAdvance || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.nextButton.disabled = !practiceEditable || !canAdvance || Boolean(drag || keyboardDrag || formulaDrag);
     setMathText(dom.nextButton, state.phase === "components" ? "進入 θ 標示" : state.phase === "angle" ? "表示分力大小" : state.phase === "formulas" ? (formulaDone ? formulaNextLabel() : "完成分力表達式") : "進入下一步");
     dom.redrawButton.textContent = state.phase === "formulas" ? "清空兩個公式" : "重畫目前步驟";
     dom.stageBackButton.disabled = dom.backButton.disabled;
@@ -1092,10 +1142,10 @@
     dom.stageStepLabel.textContent = `${phaseIndex + 1} / ${M.PHASES.length}`;
     dom.thetaChoices.hidden = state.phase !== "angle" || !thetaCandidatesForInteraction().length;
     dom.thetaChoices.querySelectorAll("[data-theta-choice]").forEach(button => {
-      button.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag);
+      button.disabled = !practiceEditable || Boolean(drag || keyboardDrag);
       button.setAttribute("aria-pressed", String(state.theta === button.dataset.thetaChoice));
     });
-    dom.goSummary.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.goSummary.disabled = !practiceEditable || Boolean(drag || keyboardDrag || formulaDrag);
     renderFormulas();
   }
 
@@ -1692,7 +1742,15 @@
   function enterReview(snapshot, outcome = {}) {
     reviewSnapshot = snapshot;
     const computed = buildComputedReview(snapshot);
-    const attempt = { score: String(outcome.score ?? snapshot.score ?? computed.score), status: outcome.status || (snapshot.passed ? "passed" : "failed") };
+    const hasOutcomeScore = Object.prototype.hasOwnProperty.call(outcome, "score");
+    const hasOutcomeStatus = Object.prototype.hasOwnProperty.call(outcome, "status");
+    const attempt = {
+      // A finished LMS attempt must be judged against the value LMS exposed,
+      // even when that value is blank/invalid. Only locally generated or
+      // callback outcomes may use the validated snapshot as their source.
+      score: hasOutcomeScore ? outcome.score : snapshot.score ?? computed.score,
+      status: hasOutcomeStatus ? outcome.status : (snapshot.passed ? "passed" : "failed")
+    };
     reviewResult = SimActivityFlow?.reviewResult ? SimActivityFlow.reviewResult(computed, { score: snapshot.score, passed: snapshot.passed }, attempt) : { trusted: true, result: computed };
     const trusted = reviewResult.trusted !== false;
     clearInteractionTransient();
@@ -1838,7 +1896,11 @@
 
   function loadFinishedReview(attempt) {
     const recorded = SimActivityFlow?.recordedResult?.(attempt) || {
-      score: String(attempt?.score ?? "").trim() === "" ? null : Number(attempt.score),
+      score: (() => {
+        const raw = String(attempt?.score ?? "").trim();
+        const value = raw === "" ? null : Number(raw);
+        return Number.isFinite(value) ? value : null;
+      })(),
       passed: attempt?.status === "passed" ? true : attempt?.status === "failed" ? false : null
     };
     if (!attempt.snapshot || attempt.snapshot.kind !== "review") {

@@ -269,6 +269,19 @@ body {
 .summary-warning { padding: .55rem .65rem; background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.45; }
 .review-feedback { display: grid; gap: .45rem; margin: .75rem 0; }
 .review-feedback p { margin: 0; padding: .55rem .65rem; border-left: 3px solid var(--color-accent); background: #fff; font-size: .8rem; line-height: 1.45; }
+.review-formula-summary { margin: .75rem 0; padding: .7rem; border: 1px solid var(--color-border-light); border-radius: 7px; background: #fff; }
+.review-formula-summary h3 { margin: 0 0 .55rem; font-size: .9rem; }
+.review-formula-list { display: grid; gap: .45rem; }
+.review-formula-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .3rem .55rem; align-items: center; padding: .5rem .55rem; border: 1px solid var(--color-border-light); border-radius: 6px; }
+.review-formula-expression { min-width: 0; font-family: var(--math-font); font-size: .92rem; }
+.review-formula-status { font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.review-formula-row[data-result="correct"] { border-color: #86efac; background: #f0fdf4; }
+.review-formula-row[data-result="correct"] .review-formula-status { color: #166534; }
+.review-formula-row[data-result="incorrect"] { border-color: #fca5a5; background: #fff1f2; }
+.review-formula-row[data-result="incorrect"] .review-formula-status { color: #b91c1c; }
+.review-formula-row[data-result="missing"] { border-color: #fcd34d; background: #fffbeb; }
+.review-formula-row[data-result="missing"] .review-formula-status { color: #92400e; }
+.review-formula-detail { grid-column: 1 / -1; margin: 0; color: var(--color-text-muted); font-size: .76rem; line-height: 1.4; }
 .result-summary { display: grid; grid-template-columns: auto 1fr; gap: .45rem .7rem; padding: .7rem; border: 1px solid var(--color-border-light); border-radius: 7px; background: #fff; }
 .result-summary strong { font-size: 1.15rem; }
 .status-banner { display: flex; gap: .55rem; align-items: center; padding: .6rem; border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
