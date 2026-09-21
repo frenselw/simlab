@@ -216,6 +216,21 @@ async page => {
       }
     }
     assert((await appState()).formulas.F1 && (await appState()).formulas.F2, `${plan.id}: formula inputs placed`);
+    const formulaActivity = await page.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+    const formulaNextLabel = await page.locator("#nextButton").textContent();
+    const formulaPrompt = await page.locator("#stepPrompt").textContent();
+    if (formulaActivity.currentQuestion < 2) {
+      assert(formulaNextLabel.trim() === "下一題", `${plan.id}: completed formula step exposes 下一題`);
+      assert(formulaPrompt.includes("第 5 步") && formulaPrompt.includes("下一題"), `${plan.id}: completed formula step prompt is explicit`);
+      await click(page.locator("#nextButton"));
+      const nextQuestion = await page.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+      assert(nextQuestion.currentQuestion === formulaActivity.currentQuestion + 1 && nextQuestion.questions[nextQuestion.currentQuestion].phase === "directions", `${plan.id}: 下一題 opens the next question`);
+      await click(page.locator(`[data-question-index="${formulaActivity.currentQuestion}"]`));
+      const returnedQuestion = await page.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+      assert(returnedQuestion.currentQuestion === formulaActivity.currentQuestion, `${plan.id}: returning to the completed formula question remains available`);
+    } else {
+      assert(formulaNextLabel.trim() === "完成本題，前往檢查", `${plan.id}: final completed formula step exposes the summary action`);
+    }
     assert(await page.locator("#checkFormulasButton").count() === 0, `${plan.id}: per-question formula check must not be exposed`);
     assert(await page.locator(".formula-slot[data-result]").count() === 0, `${plan.id}: formula correctness must remain hidden before final submission`);
   };
@@ -413,6 +428,58 @@ async page => {
     await click(page.locator("button").filter({ hasText: "清除本機紀錄並重新開始" }));
     await page.waitForFunction(() => window.__forceOrthogonalApp?.getRuntimeState() === "editable");
     assert(await page.locator("#practicePanel").isVisible(), `${label}: local completed attempt has an explicit reset route`);
+
+    // A malformed standalone checkpoint must expose the same explicit recovery
+    // route as the LMS draft path instead of trapping the learner in reload.
+    const invalidStandaloneSnapshot = await page.evaluate(() => {
+      const P = window.ForceOrthogonalDecompositionPersistence;
+      const snapshot = P.makeSnapshot("draft", P.freshDraft());
+      const question = snapshot.answer.questions[2];
+      const scene = window.ForceOrthogonalDecompositionModel.getScenario("inclined-gravity");
+      question.phase = "perpendiculars";
+      question.directions = scene.axes.map((axis, index) => ({ key: `D${index + 1}`, unit: { ...axis.unit }, axisKey: axis.key }));
+      question.perpendiculars = [{ key: "P1", end: { ...scene.forceHead }, targetKey: null }];
+      return JSON.stringify(snapshot);
+    });
+    const recoveryPage = await page.context().newPage();
+    await recoveryPage.addInitScript(snapshotJson => {
+      const seedKey = "simlab:force-orthogonal-decomposition:invalid-seed";
+      if (sessionStorage.getItem(seedKey) === "1") return;
+      sessionStorage.setItem(seedKey, "1");
+      localStorage.setItem("simlab:force-orthogonal-decomposition:checkpoint", JSON.stringify({
+        "cmi.suspend_data": snapshotJson,
+        "cmi.core.lesson_status": "incomplete",
+        "cmi.core.score.raw": ""
+      }));
+    }, invalidStandaloneSnapshot);
+    await recoveryPage.goto(`${origin}/sim/force-orthogonal-decomposition/index.html?playwright=${encodeURIComponent(label)}-invalid-standalone`);
+    const waitForStandaloneRuntime = async expected => {
+      try { await recoveryPage.waitForFunction(runtime => window.__forceOrthogonalApp?.getRuntimeState() === runtime, expected, { timeout: 5000 }); }
+      catch (error) {
+        const debug = await recoveryPage.evaluate(() => ({
+          runtime: window.__forceOrthogonalApp?.getRuntimeState?.(),
+          standalone: window.SimScorm?.isStandalone?.(),
+          storage: window.SimScorm?.getStandaloneStorageStatus?.(),
+          message: document.querySelector("#technicalMessage")?.textContent,
+          actionText: document.querySelector('[data-action="reset-invalid-draft"]')?.textContent,
+          bundle: localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint")
+        }));
+        throw new Error(`${label}: standalone recovery expected ${expected}: ${JSON.stringify(debug)}: ${error.message}`);
+      }
+    };
+    await waitForStandaloneRuntime("load-error");
+    assert((await recoveryPage.locator("#technicalMessage").textContent()).includes("perpendiculars-2"), `${label}: standalone decoder reason is shown`);
+    assert(await recoveryPage.locator('[data-action="reset-invalid-draft"]').count() === 1, `${label}: standalone recovery action is shown`);
+    await recoveryPage.evaluate(() => { window.confirm = () => true; });
+    await recoveryPage.locator('[data-action="reset-invalid-draft"]').click();
+    await waitForStandaloneRuntime("editable");
+    const standaloneRecovered = await recoveryPage.evaluate(() => ({
+      state: window.__forceOrthogonalApp.getActivityState(),
+      bundle: JSON.parse(localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint") || "null")
+    }));
+    assert(standaloneRecovered.state.phase === "practice" && standaloneRecovered.state.currentQuestion === 0 && standaloneRecovered.state.questions[2].perpendiculars.length === 0, `${label}: standalone recovery starts a fresh editable attempt`);
+    assert(!standaloneRecovered.bundle?.["cmi.suspend_data"], `${label}: standalone recovery does not retain the invalid draft checkpoint`);
+    await recoveryPage.close();
   };
 
   if (scope === "all" || scope === "direct") {

@@ -386,16 +386,11 @@ body {
   flex: 1 1 10rem;
 }
 
-.control-note,
-.keyboard-section p:last-child {
+.control-note {
   margin: .65rem 0 0;
   color: var(--color-text-muted);
   font-size: .78rem;
   line-height: 1.45;
-}
-
-.keyboard-section p:last-child {
-  margin: 0;
 }
 
 .force-grid-line {

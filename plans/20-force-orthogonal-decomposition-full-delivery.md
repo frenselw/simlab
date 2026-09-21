@@ -300,7 +300,10 @@ uniqueness/references；generated DOM ids are rebuilt deterministically as
 `D1/D2`、`P1/P2`、`F1/F2`。
 
 Invalid snapshot policy：editable corrupt/inconsistent draft produces a technical
-load lock (no silent meaningful reset)；finished invalid review remains locked and
+load lock (no silent meaningful reset)；the technical lock also provides an
+explicit, confirmed recovery action that clears the standalone checkpoint or
+overwrites the LMS draft with a fresh validated draft, and only reloads after
+that durable operation succeeds。finished invalid review remains locked and
 shows only trustworthy Moodle score/status fallback；pending-final is owned by
 shared runtime，activity first validates the nested review and immutable result
 metadata against the payload, and calls `SimScorm.quarantinePending()` immediately

@@ -98,6 +98,7 @@
   let reviewSnapshot = null;
   let finishRetryAvailable = false;
   let activityLoadError = "";
+  let invalidDraftRecovery = false;
   let standaloneStorageState = "disabled";
   let draftSaveState = "unknown";
   let draftSaveError = "";
@@ -169,6 +170,21 @@
   function directionPhaseCopy(scene = activeScene()) {
     const labels = scene.axes.map(axis => directionAxisLabel(scene, axis.key));
     return `由 O 拖出兩條方向虛線（${labels[0]}及${labels[1]}）。畫好後可拖動線上的小方點調整方向；接近${labels[0]}或${labels[1]}時會吸附。`;
+  }
+
+  function formulaStepComplete(question = state) {
+    const expectations = M.formulaExpectations(question) || [];
+    return expectations.length > 0 && expectations.every(({ key }) => ["sin", "cos"].includes(question.formulas?.[key]));
+  }
+
+  function formulaCompletionCopy() {
+    return activity.currentQuestion < SCENARIO_IDS.length - 1
+      ? "第 5 步「分力表達式」已完成，請按「下一題」。"
+      : "第 5 步「分力表達式」已完成，請前往提交前檢查。";
+  }
+
+  function formulaNextLabel() {
+    return activity.currentQuestion < SCENARIO_IDS.length - 1 ? "下一題" : "完成本題，前往檢查";
   }
 
   function createSvg(name, attributes = {}) {
@@ -731,6 +747,7 @@
 
   function phasePrompt() {
     if (state.phase === "directions") return directionPhaseCopy();
+    if (state.phase === "formulas" && formulaStepComplete()) return formulaCompletionCopy();
     if (state.phase !== "angle") return PHASE_COPY[state.phase];
     if (!thetaCandidatesForInteraction().length) return "目前方向線不足以標示 θ；可返回補畫方向線。";
     if (!M.isCorrectDecomposition(state)) return "圖形仍可修改；你可以先標示 θ，評分會按目前作答判斷。";
@@ -936,6 +953,15 @@
       retry.textContent = runtimeState === "frozen" ? "重試同一提交" : "重新載入活動";
       retry.addEventListener("click", () => runtimeState === "frozen" ? retryFrozen() : windowObject.location.reload());
       dom.technicalActions.appendChild(retry);
+      if (invalidDraftRecovery) {
+        const reset = documentObject.createElement("button");
+        reset.type = "button";
+        reset.className = "danger-button";
+        reset.dataset.action = "reset-invalid-draft";
+        reset.textContent = isStandaloneMode() ? "清除損壞本機草稿並重新開始" : "覆寫損壞草稿並重新開始";
+        reset.addEventListener("click", resetInvalidDraft);
+        dom.technicalActions.appendChild(reset);
+      }
     }
     dom.app.setAttribute("aria-busy", "false");
     lockStageControls();
@@ -1012,11 +1038,16 @@
     dom.backButton.disabled = phaseIndex <= 0 || Boolean(drag || keyboardDrag || formulaDrag);
     dom.redrawButton.disabled = Boolean(drag || keyboardDrag || formulaDrag);
     dom.resetButton.disabled = Boolean(drag || keyboardDrag || formulaDrag);
-    dom.nextButton.disabled = !M.canAdvance(state) || Boolean(drag || keyboardDrag || formulaDrag);
-    setMathText(dom.nextButton, state.phase === "components" ? "進入 θ 標示" : state.phase === "angle" ? "表示分力大小" : state.phase === "formulas" ? "已到最後一步" : "進入下一步");
+    const formulaDone = state.phase === "formulas" && formulaStepComplete();
+    const canAdvance = M.canAdvance(state) || formulaDone;
+    dom.nextButton.disabled = !canAdvance || Boolean(drag || keyboardDrag || formulaDrag);
+    setMathText(dom.nextButton, state.phase === "components" ? "進入 θ 標示" : state.phase === "angle" ? "表示分力大小" : state.phase === "formulas" ? (formulaDone ? formulaNextLabel() : "完成分力表達式") : "進入下一步");
     dom.redrawButton.textContent = state.phase === "formulas" ? "清空兩個公式" : "重畫目前步驟";
     dom.stageBackButton.disabled = dom.backButton.disabled;
     dom.stageNextButton.disabled = dom.nextButton.disabled;
+    const stageNextLabel = state.phase === "formulas" ? (formulaDone ? formulaNextLabel() : "完成分力表達式") : "下一步";
+    dom.stageNextButton.setAttribute("aria-label", stageNextLabel);
+    dom.stageNextButton.title = stageNextLabel;
     dom.stageStepLabel.textContent = `${phaseIndex + 1} / ${M.PHASES.length}`;
     dom.thetaChoices.hidden = state.phase !== "angle" || !thetaCandidatesForInteraction().length;
     dom.thetaChoices.querySelectorAll("[data-theta-choice]").forEach(button => {
@@ -1099,6 +1130,8 @@
     syncCurrentQuestion(M.setFormula(state, key, token));
     persistDraft();
     selectedFormula = null;
+    const complete = formulaStepComplete();
+    setMessage(complete ? formulaCompletionCopy() : "", complete ? "success" : "");
     renderAll();
   }
 
@@ -1336,7 +1369,7 @@
       keyboardDrag.point = candidates[keyboardDrag.thetaIndex]?.labelCenter || candidates[keyboardDrag.thetaIndex]?.center || point;
       keyboardDrag.preview = beginPreview(kind, keyboardDrag.point, "keyboard");
     }
-    setMessage("鍵盤作圖中：用方向鍵移動，Enter 確認，Escape 取消。", "success");
+    setMessage("正在調整控制點。", "success");
     renderControls();
     restorePanelScroll(keyboardDrag.panelScrollTop);
     drawScene();
@@ -1380,7 +1413,7 @@
     if (!keyboardDrag) return;
     const active = keyboardDrag;
     keyboardDrag = null;
-    setMessage("鍵盤作圖已取消。", "");
+    setMessage("已取消調整。", "");
     renderAll(active.panelScrollTop);
   }
 
@@ -1526,7 +1559,19 @@
   }
 
   function handleNext() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag || !M.canAdvance(state)) return;
+    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (state.phase === "formulas") {
+      if (!formulaStepComplete()) return;
+      if (activity.currentQuestion >= SCENARIO_IDS.length - 1) {
+        setMessage(formulaCompletionCopy(), "success");
+        openSummary();
+      } else {
+        const nextIndex = activity.currentQuestion + 1;
+        switchQuestion(nextIndex, false, `第 5 步「分力表達式」已完成，現在進入第 ${nextIndex + 1} 題。`);
+      }
+      return;
+    }
+    if (!M.canAdvance(state)) return;
     syncCurrentQuestion(M.advance(state));
     setMessage(state.phase === "angle" && !M.isCorrectDecomposition(state)
       ? "作圖仍可修改；你可以先標示 θ，評分會按目前作答判斷。"
@@ -1554,7 +1599,7 @@
     }
   }
 
-  function switchQuestion(index, fromSummary = false) {
+  function switchQuestion(index, fromSummary = false, transitionMessage = "") {
     if (runtimeState !== "editable" || !Number.isInteger(index) || index < 0 || index >= SCENARIO_IDS.length) return;
     activity.currentQuestion = index;
     activity.phase = "practice";
@@ -1564,7 +1609,7 @@
     keyboardDrag = null;
     formulaDrag = null;
     selectedFormula = null;
-    message = `目前是第 ${index + 1} 題：${M.getScenario(state.scenarioId).title}。`;
+    message = transitionMessage || `目前是第 ${index + 1} 題：${M.getScenario(state.scenarioId).title}。`;
     messageKind = "";
     persistDraft();
     renderAll();
@@ -1706,6 +1751,38 @@
     routeSubmission(outcome);
   }
 
+  function resetInvalidDraft() {
+    if (runtimeState !== "load-error" || !invalidDraftRecovery) return;
+    const standalone = isStandaloneMode();
+    const warning = standalone
+      ? "目前保存的本機草稿無法驗證。清除後這次未提交作答不能恢復，確定重新開始嗎？"
+      : "目前保存的 LMS 草稿無法驗證。覆寫後這次未提交作答不能恢復，確定重新開始嗎？";
+    if (typeof windowObject.confirm === "function" && !windowObject.confirm(warning)) return;
+
+    let cleared = false;
+    try {
+      if (standalone) {
+        cleared = SimScorm?.clearStandaloneAttempt?.(ACTIVITY) === true;
+      } else {
+        const fresh = Persistence.makeSnapshot("draft", Persistence.freshDraft());
+        cleared = SimScorm?.saveDraft?.(fresh) === true;
+      }
+    } catch (error) {
+      activityLoadError = `無法重設損壞草稿：${error.message}`;
+    }
+    if (!cleared && !activityLoadError) {
+      activityLoadError = standalone
+        ? "本機草稿無法清除；資料仍保留，請檢查瀏覽器儲存權限後再試。"
+        : "LMS 草稿無法覆寫；資料仍保留，請檢查 LMS 連線及保存權限後再試。";
+    }
+    if (!cleared) {
+      renderTechnical();
+      return;
+    }
+    invalidDraftRecovery = false;
+    windowObject.location.reload();
+  }
+
   function loadFinishedReview(attempt) {
     const recorded = SimActivityFlow?.recordedResult?.(attempt) || {
       score: String(attempt?.score ?? "").trim() === "" ? null : Number(attempt.score),
@@ -1783,6 +1860,7 @@
       activity = attempt.state === "draft" ? Persistence.decodeSnapshot(attempt.snapshot, "draft") : Persistence.freshDraft();
       state = activity.questions[activity.currentQuestion];
     } catch (error) {
+      invalidDraftRecovery = attempt.state === "draft";
       runtimeState = "load-error";
       activityLoadError = `草稿無法驗證：${error.message}`;
       renderAll();
@@ -1866,7 +1944,7 @@
   documentObject.addEventListener("touchstart", captureStageTouch, { capture: true, passive: false });
   windowObject.addEventListener("resize", () => { if (!drag && !keyboardDrag && !formulaDrag) renderAll(); });
 
-  documentObject.querySelectorAll(".force-header p:not(.prototype-note), .phase-steps b, .theta-choices p, .theta-choices button, .keyboard-section p:last-child, [data-formula-token]").forEach(node => setMathText(node, node.textContent));
+  documentObject.querySelectorAll(".force-header p:not(.prototype-note), .phase-steps b, .theta-choices p, .theta-choices button, [data-formula-token]").forEach(node => setMathText(node, node.textContent));
   startup();
 
   return Object.freeze({

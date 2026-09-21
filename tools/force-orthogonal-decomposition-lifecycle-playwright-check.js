@@ -75,6 +75,17 @@ const narrowPerpendicularDraftJson = await page.evaluate(() => {
   };
   return JSON.stringify(P.makeSnapshot("draft", draft));
 });
+const invalidEditableDraftJson = await page.evaluate(draftJson => {
+  const snapshot = JSON.parse(draftJson);
+  const scene = window.ForceOrthogonalDecompositionModel.getScenario("inclined-gravity");
+  // This is the persisted shape produced by the old narrow-stage bug: the
+  // second gravity perpendicular was saved at P itself.  Keep the envelope
+  // parseable so the activity decoder, rather than the shared runtime, owns
+  // the recovery decision.
+  snapshot.answer.questions[2].perpendiculars[1].end = { ...scene.forceHead };
+  snapshot.answer.questions[2].perpendiculars[1].targetKey = null;
+  return JSON.stringify(snapshot);
+}, completeDraftJson);
 const frameForHost = async label => {
   let frame = null;
   for (let attempt = 0; attempt < 30 && !frame; attempt += 1) {
@@ -269,6 +280,20 @@ await click(frame, '#reviewQuestionNavigation [data-question-index="1"]');
 const narrowReviewed = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
 assert(Math.abs(narrowReviewed.questions[1].perpendiculars[0].end.x - narrowEnd.x) < 1e-8 && Math.abs(narrowReviewed.questions[1].perpendiculars[0].end.y - narrowEnd.y) < 1e-8, "narrow perpendicular edit: final review keeps the edited endpoint");
 
+// An old editable draft can contain the zero-length P2 that the current model
+// no longer creates.  Keep strict decoder validation, but expose an explicit
+// recovery action so a reload does not loop forever on the same bad checkpoint.
+frame = await openHost("success", "complete-draft", { suspendData: invalidEditableDraftJson, status: "incomplete", score: "" }, "invalid editable draft recovery");
+await waitForRuntime(frame, "load-error", "invalid editable draft recovery");
+assert((await frame.locator("#technicalMessage").textContent()).includes("perpendiculars-2"), "invalid editable draft recovery: decoder reason is shown");
+assert(await frame.locator('[data-action="reset-invalid-draft"]').count() === 1, "invalid editable draft recovery: explicit reset action is shown");
+await frame.evaluate(() => { window.confirm = () => true; });
+await click(frame, '[data-action="reset-invalid-draft"]');
+await waitForRuntime(frame, "editable", "invalid editable draft recovery reload");
+const recoveredDraft = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+assert(recoveredDraft.phase === "practice" && recoveredDraft.currentQuestion === 0 && recoveredDraft.questions[2].perpendiculars.length === 0, "invalid editable draft recovery: a fresh editable attempt starts after explicit reset");
+assert(JSON.parse((await parentState()).data["cmi.suspend_data"]).kind === "draft", "invalid editable draft recovery: LMS now stores a fresh draft checkpoint");
+
 // localStorage is intentionally denied in this LMS-frame scenario. The SCORM
 // API still commits the draft, so the UI must report an LMS save rather than a
 // standalone memory-only attempt.
@@ -377,5 +402,5 @@ assert((await frame.locator("#reviewCompletion").textContent()).includes("只顯
 assert((await frame.locator("#reviewTrustNote").textContent()).includes("摘要"), "finished mismatch: trust warning is missing");
 await assertReviewLock(frame, "finished mismatch");
 
-console.log("force orthogonal production lifecycle browser checks passed: success, committed, frozen/reload, retryable precommit, nonretryable preflight, invalid pending quarantine, finished fallback, and review lock");
+console.log("force orthogonal production lifecycle browser checks passed: success, committed, frozen/reload, retryable precommit, nonretryable preflight, invalid editable draft recovery, invalid pending quarantine, finished fallback, and review lock");
 }
