@@ -26,5 +26,7 @@ assert.match(css, /\.formula-palette button[\s\S]*touch-action:\s*none/);
 assert.match(css, /\.stage-hit:focus-visible,[\s\S]*outline:\s*3px/);
 assert.match(css, /@media \(forced-colors: active\)/);
 assert.match(css, /@media \(max-width: 520px\)/);
+assert.match(css, /\.summary-item\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+assert.match(css, /\.summary-item \.summary-pending\s*\{[^}]*overflow-wrap:\s*anywhere/);
 
 console.log("force orthogonal decomposition accessibility tests passed");

@@ -40,6 +40,18 @@ const completeDraftJson = await page.evaluate(() => {
   });
   return JSON.stringify(P.makeSnapshot("draft", draft));
 });
+const incompleteDraftJson = await page.evaluate(draftJson => {
+  const snapshot = JSON.parse(draftJson);
+  const question = snapshot.answer.questions[1];
+  question.phase = "directions";
+  question.directions = [];
+  question.perpendiculars = [];
+  question.components = [];
+  question.theta = null;
+  question.thetaPoint = null;
+  question.formulas = { F1: null, F2: null };
+  return JSON.stringify(snapshot);
+}, completeDraftJson);
 const wrongFormulaDraftJson = await page.evaluate(draftJson => {
   const M = window.ForceOrthogonalDecompositionModel;
   const draft = JSON.parse(draftJson);
@@ -230,7 +242,46 @@ const reviewFormulaRows = async (frame, label) => {
 };
 
 // Success and review-lock persistence.
-let frame = await openHost("success", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "success");
+let frame = await openHost("success", "complete-draft", { suspendData: incompleteDraftJson, status: "incomplete", score: "" }, "summary mobile layout");
+assert(await frame.locator("#summaryPanel").isVisible(), "summary theta: seeded overview is visible");
+const incompleteSummaryLayout = await frame.locator("#summaryList .summary-item").nth(1).evaluate(row => {
+  const heading = row.querySelector("strong")?.getBoundingClientRect();
+  const status = row.querySelector(".summary-pending")?.getBoundingClientRect();
+  const edit = row.querySelector("button")?.getBoundingClientRect();
+  return {
+    columns: getComputedStyle(row).gridTemplateColumns,
+    rowWidth: row.getBoundingClientRect().width,
+    headingWidth: heading?.width || 0,
+    statusWidth: status?.width || 0,
+    editWidth: edit?.width || 0,
+    editHeight: edit?.height || 0,
+    horizontalOverflow: row.scrollWidth > row.clientWidth
+  };
+});
+assert(incompleteSummaryLayout.columns.split(" ").length === 1, `summary mobile layout: incomplete card did not collapse to one column ${JSON.stringify(incompleteSummaryLayout)}`);
+assert(incompleteSummaryLayout.headingWidth > 100, `summary mobile layout: question title was squeezed ${JSON.stringify(incompleteSummaryLayout)}`);
+assert(incompleteSummaryLayout.editWidth > 60 && incompleteSummaryLayout.editHeight < 70, `summary mobile layout: return button became a vertical strip ${JSON.stringify(incompleteSummaryLayout)}`);
+assert(!incompleteSummaryLayout.horizontalOverflow, `summary mobile layout: incomplete card overflows horizontally ${JSON.stringify(incompleteSummaryLayout)}`);
+
+frame = await openHost("success", "complete-draft", { suspendData: incompleteDraftJson, status: "incomplete", score: "" }, "summary desktop layout", false, 1200, 700);
+assert(await frame.locator("#summaryPanel").isVisible(), "summary desktop layout: overview is visible");
+const desktopSummaryLayout = await frame.locator("#summaryList .summary-item").nth(1).evaluate(row => {
+  const heading = row.querySelector("strong")?.getBoundingClientRect();
+  const edit = row.querySelector("button")?.getBoundingClientRect();
+  return {
+    columns: getComputedStyle(row).gridTemplateColumns,
+    headingWidth: heading?.width || 0,
+    editWidth: edit?.width || 0,
+    editHeight: edit?.height || 0,
+    horizontalOverflow: row.scrollWidth > row.clientWidth
+  };
+});
+assert(desktopSummaryLayout.columns.split(" ").length === 1, `summary desktop layout: incomplete card retained a squeezed multi-column grid ${JSON.stringify(desktopSummaryLayout)}`);
+assert(desktopSummaryLayout.headingWidth > 100, `summary desktop layout: question title was squeezed ${JSON.stringify(desktopSummaryLayout)}`);
+assert(desktopSummaryLayout.editWidth > 60 && desktopSummaryLayout.editHeight < 70, `summary desktop layout: return button became a vertical strip ${JSON.stringify(desktopSummaryLayout)}`);
+assert(!desktopSummaryLayout.horizontalOverflow, `summary desktop layout: incomplete card overflows horizontally ${JSON.stringify(desktopSummaryLayout)}`);
+
+frame = await openHost("success", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "success");
 assert(await frame.locator("#summaryPanel").isVisible(), "summary theta: seeded overview is visible");
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "summary theta: attached theta label is visible in the overview");
 assert(await frame.locator("#thetaHit").isHidden(), "summary theta: attached theta hit target is hidden in the overview");
