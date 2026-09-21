@@ -115,6 +115,7 @@
 
   function activeScene() { return M.getScenario(state.scenarioId) || M.getScenario(); }
   function isStandaloneMode() { return Boolean(SimScorm?.isStandalone?.()); }
+  function isPracticeEditable() { return runtimeState === "editable" && activity.phase === "practice"; }
   function thetaInteractionOptions(source = state) {
     const scene = M.getScenario(source?.scenarioId) || activeScene();
     const scale = Math.max(diagramTransform().scale, .01);
@@ -464,7 +465,8 @@
   }
 
   function drawScene() {
-    const editing = drag?.editIndex != null ? drag : keyboardDrag?.editIndex != null ? keyboardDrag : null;
+    const interactive = isPracticeEditable();
+    const editing = interactive && (drag?.editIndex != null ? drag : keyboardDrag?.editIndex != null ? keyboardDrag : null);
     const scene = editing?.preview?.editedState || state;
     const frame = sceneFrame(activeScene());
     const viewBox = frame.viewBox;
@@ -522,14 +524,14 @@
         drawThetaArc(worldLayer, candidate, "theta-arc theta-guide");
       });
     }
-    if (scene.theta && drag?.kind !== "theta" && keyboardDrag?.kind !== "theta") {
+    if (scene.theta && (!interactive || (drag?.kind !== "theta" && keyboardDrag?.kind !== "theta"))) {
       const candidate = thetaCandidatesForInteraction(scene).find((item) => item.key === scene.theta);
       if (candidate) {
         drawThetaArc(worldLayer, candidate);
       }
     }
 
-    if (drag?.preview && drag.editIndex == null) {
+    if (interactive && drag?.preview && drag.editIndex == null) {
       if (drag.kind === "direction" && drag.preview.valid) {
         const segment = M.lineSegmentForDirection(drag.preview.direction, sceneWorldBounds(), activeScene());
         if (segment) drawWorldLine(worldLayer, segment[0], segment[1], "force-direction-line force-preview", { "data-preview": "direction" });
@@ -545,7 +547,7 @@
       }
     }
 
-    if (keyboardDrag?.preview && keyboardDrag.editIndex == null) {
+    if (interactive && keyboardDrag?.preview && keyboardDrag.editIndex == null) {
       const preview = keyboardDrag.preview;
       if (keyboardDrag.kind === "direction" && preview.valid) {
         const segment = M.lineSegmentForDirection(preview.direction, sceneWorldBounds(activeScene()), activeScene());
@@ -574,7 +576,7 @@
       : M.add(M.add(sceneOrigin(), M.scale(forceVector, forceLabelFraction)), forceLabelOffset);
     const forceLabelDirection = isGravityScene ? { x: 26, y: -20 } : forceLabelOffset;
     const studentThetaLabelPoint = (() => {
-      const thetaPreview = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
+      const thetaPreview = interactive ? (drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null) : null;
       if (thetaPreview?.point) return thetaPreview.point;
       if (thetaPreview?.preview?.labelCenter) return thetaPreview.preview.labelCenter;
       if (scene.theta) return thetaCandidatesForInteraction(scene).find(item => item.key === scene.theta)?.labelCenter || null;
@@ -646,7 +648,7 @@
       });
     }
     dom.diagram.appendChild(labelLayer);
-    const thetaDrag = drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null;
+    const thetaDrag = interactive ? (drag?.kind === "theta" ? drag : keyboardDrag?.kind === "theta" ? keyboardDrag : null) : null;
     updateThetaHitPresentation();
     if (thetaDrag) setHitPosition(dom.thetaHit, thetaDrag.point || thetaDrag.preview?.labelCenter || thetaDrag.preview?.center);
     if (editing?.preview?.editedState) setHitPosition(editing.target, editPoint(editing.kind, editing.editIndex, scene));
@@ -695,6 +697,14 @@
   }
 
   function updateHitTargets() {
+    if (!isPracticeEditable()) {
+      [dom.originHit, dom.pointHit, dom.thetaHit, ...dom.editHits].forEach(button => {
+        if (!button) return;
+        setHitVisibility(button, false);
+        button.dataset.dragKind = "";
+      });
+      return;
+    }
     const phase = state.phase;
     const originActive = (phase === "directions" && state.directions.length < 2) || (phase === "components" && state.components.length < 2);
     const originLabel = phase === "components" ? "由共同起點 O 開始畫分力箭嘴" : "由共同起點 O 開始畫方向虛線";
@@ -787,6 +797,7 @@
   function renderQuestionProgress(target = dom.questionProgress, review = false) {
     if (!target) return;
     target.replaceChildren();
+    if (review && reviewResult?.trusted === false) return;
     SCENARIO_IDS.forEach((id, index) => {
       const scene = M.getScenario(id);
       const button = documentObject.createElement("button");
@@ -903,7 +914,7 @@
     const incompleteCopy = incomplete.length ? `仍有未作答項目：${incomplete.join("；")}。最終提交時會先確認是否照常提交。` : "三題作答項目已填妥。";
     const saveCopy = draftSaveState === "failed" ? "最近一次保存失敗，請先重試儲存。" : "";
     dom.summaryWarning.textContent = `${incompleteCopy} ${saveCopy}三題提交後才會顯示總分、各題得分及錯誤部分；提交前可返回任何一題修改。`;
-    dom.submitAttempt.disabled = runtimeState !== "editable";
+    dom.submitAttempt.disabled = runtimeState !== "editable" || Boolean(drag || keyboardDrag || formulaDrag);
   }
 
   function lockStageControls() {
@@ -913,7 +924,7 @@
       setHitVisibility(button, false);
       button.disabled = true;
     });
-    [dom.stageBackButton, dom.stageNextButton, dom.backButton, dom.redrawButton, dom.nextButton, dom.resetButton, dom.goSummary].forEach(button => {
+    [dom.stageBackButton, dom.stageNextButton, dom.backButton, dom.redrawButton, dom.nextButton, dom.resetButton, dom.goSummary, dom.submitAttempt, dom.returnToPractice].forEach(button => {
       if (button) button.disabled = true;
     });
     dom.thetaChoices.hidden = true;
@@ -936,6 +947,26 @@
     });
     windowObject.setTimeout?.(restore, 0);
     windowObject.setTimeout?.(restore, 50);
+  }
+
+  function clearInteractionTransient() {
+    const activePointer = drag;
+    const activeFormula = formulaDrag;
+    drag = null;
+    keyboardDrag = null;
+    formulaDrag = null;
+    selectedFormula = null;
+    suppressFormulaClick = false;
+    hostTouchScroll = null;
+    pointerPanelScrollTop = null;
+    try { activePointer?.target?.releasePointerCapture(activePointer.pointerId); } catch (_) {}
+    try { activeFormula?.button?.releasePointerCapture(activeFormula.id); } catch (_) {}
+    if (dom.formulaGhost) {
+      dom.formulaGhost.hidden = true;
+      dom.formulaGhost.style.left = "";
+      dom.formulaGhost.style.top = "";
+    }
+    dom.formulaSlots.forEach(button => { button.dataset.drop = "false"; });
   }
 
   function renderTechnical() {
@@ -969,6 +1000,7 @@
 
   function renderReview() {
     const selectedQuestion = activity.currentQuestion || 0;
+    const trusted = reviewResult?.trusted !== false;
     dom.practicePanel.classList.add("is-hidden");
     dom.summaryPanel.classList.add("is-hidden");
     dom.technicalPanel.classList.add("is-hidden");
@@ -978,7 +1010,16 @@
     dom.reviewCompletion.textContent = reviewResult?.trusted === false ? "只顯示已記錄摘要" : localReview ? "已完成（本機形成性回饋）" : "已提交（形成性回饋）";
     dom.reviewTitle.textContent = reviewResult?.trusted === false ? "已提交作答（摘要可信，細節未能驗證）" : "已提交作答結果";
     dom.reviewTrustNote.textContent = reviewResult?.trusted === false ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : localReview ? "這是已鎖定的本機 review；如要開始新的本機練習，請先清除本機紀錄。" : "這是已鎖定的 review；不能返回建立新草稿。";
-    if (reviewSnapshot?.answer?.questions) {
+    dom.reviewQuestionNavigation.hidden = !trusted;
+    dom.reviewFeedback.hidden = !trusted;
+    if (!trusted) {
+      activity = { ...Persistence.freshDraft(), phase: "summary", currentQuestion: 0 };
+      state = activity.questions[0];
+      renderSceneHeader(activeScene(), { review: true });
+      dom.reviewQuestionNavigation.replaceChildren();
+      dom.reviewFeedback.replaceChildren();
+      drawScene();
+    } else if (reviewSnapshot?.answer?.questions) {
       const saved = { ...Persistence.freshDraft(), phase: "summary", questions: reviewSnapshot.answer.questions.map(question => M.clone(question)) };
       saved.currentQuestion = Math.min(selectedQuestion, SCENARIO_IDS.length - 1);
       activity = saved;
@@ -1035,12 +1076,12 @@
     dom.directionCount.textContent = `方向虛線 ${state.directions.length} / 2`;
     dom.perpendicularCount.textContent = `垂線 ${state.perpendiculars.length} / 2`;
     dom.componentCount.textContent = `分力 ${state.components.length} / 2`;
-    dom.backButton.disabled = phaseIndex <= 0 || Boolean(drag || keyboardDrag || formulaDrag);
-    dom.redrawButton.disabled = Boolean(drag || keyboardDrag || formulaDrag);
-    dom.resetButton.disabled = Boolean(drag || keyboardDrag || formulaDrag);
+    dom.backButton.disabled = !isPracticeEditable() || phaseIndex <= 0 || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.redrawButton.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.resetButton.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
     const formulaDone = state.phase === "formulas" && formulaStepComplete();
     const canAdvance = M.canAdvance(state) || formulaDone;
-    dom.nextButton.disabled = !canAdvance || Boolean(drag || keyboardDrag || formulaDrag);
+    dom.nextButton.disabled = !isPracticeEditable() || !canAdvance || Boolean(drag || keyboardDrag || formulaDrag);
     setMathText(dom.nextButton, state.phase === "components" ? "進入 θ 標示" : state.phase === "angle" ? "表示分力大小" : state.phase === "formulas" ? (formulaDone ? formulaNextLabel() : "完成分力表達式") : "進入下一步");
     dom.redrawButton.textContent = state.phase === "formulas" ? "清空兩個公式" : "重畫目前步驟";
     dom.stageBackButton.disabled = dom.backButton.disabled;
@@ -1051,15 +1092,16 @@
     dom.stageStepLabel.textContent = `${phaseIndex + 1} / ${M.PHASES.length}`;
     dom.thetaChoices.hidden = state.phase !== "angle" || !thetaCandidatesForInteraction().length;
     dom.thetaChoices.querySelectorAll("[data-theta-choice]").forEach(button => {
-      button.disabled = Boolean(drag || keyboardDrag);
+      button.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag);
       button.setAttribute("aria-pressed", String(state.theta === button.dataset.thetaChoice));
     });
-    dom.goSummary.disabled = Boolean(drag || keyboardDrag || formulaDrag) || runtimeState !== "editable";
+    dom.goSummary.disabled = !isPracticeEditable() || Boolean(drag || keyboardDrag || formulaDrag);
     renderFormulas();
   }
 
   function renderAll(preservedPanelScrollTop = null) {
     const panelScrollTop = Number.isFinite(preservedPanelScrollTop) ? preservedPanelScrollTop : dom.forcePanel?.scrollTop;
+    if (!isPracticeEditable()) clearInteractionTransient();
     renderSaveBanner();
     if (runtimeState === "review") {
       renderReview();
@@ -1105,9 +1147,10 @@
     const angle = thetaCandidatesForInteraction().find(item => item.key === state.theta);
     setMathText(documentObject.getElementById("formulaAngleDescription"), angle ? `目前 θ：${angle.description}。` : "");
     const busy = Boolean(drag || keyboardDrag || formulaDrag);
+    const editable = isPracticeEditable();
     dom.formulaTokens.forEach(button => {
       // A captured source stays enabled and mounted throughout the drag.
-      button.disabled = !available || Boolean(drag || keyboardDrag);
+      button.disabled = !available || !editable || Boolean(drag || keyboardDrag);
       button.setAttribute("aria-pressed", String(selectedFormula === button.dataset.formulaToken));
     });
     dom.formulaSlots.forEach(button => {
@@ -1116,17 +1159,17 @@
       const label = formulaLabel(key);
       setMathText(button, token ? `${token} θ` : "？");
       button.setAttribute("aria-label", `${label} 的函數：${token ? token + " θ" : "未填"}。先選卡片，再點此處放置。`);
-      button.disabled = !available || Boolean(drag || keyboardDrag);
+      button.disabled = !available || !editable || Boolean(drag || keyboardDrag);
     });
     dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => {
       const label = formulaLabel(button.dataset.formulaClear);
       button.setAttribute("aria-label", `清空 ${label} 公式`);
-      button.disabled = !available || busy || !state.formulas?.[button.dataset.formulaClear];
+      button.disabled = !available || !editable || busy || !state.formulas?.[button.dataset.formulaClear];
     });
   }
 
   function placeFormula(key, token) {
-    if (runtimeState !== "editable") return;
+    if (!isPracticeEditable()) return;
     syncCurrentQuestion(M.setFormula(state, key, token));
     persistDraft();
     selectedFormula = null;
@@ -1210,7 +1253,7 @@
   }
 
   function startPointerDrag(event) {
-    if (runtimeState !== "editable") return;
+    if (!isPracticeEditable()) return;
     const target = event.currentTarget;
     const kind = target.dataset.dragKind;
     if (!kind || target.hidden || event.button > 0 || drag || keyboardDrag || formulaDrag) return;
@@ -1239,7 +1282,7 @@
   }
 
   function updatePointerDrag(event) {
-    if (runtimeState !== "editable" || !drag || event.pointerId !== drag.pointerId) return;
+    if (!isPracticeEditable() || !drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
     const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
     const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
@@ -1251,7 +1294,7 @@
   }
 
   function finishPointerDrag(event) {
-    if (runtimeState !== "editable" || !drag || event.pointerId !== drag.pointerId) return;
+    if (!isPracticeEditable() || !drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
     const rawPoint = M.subtract(clientToWorld(event.clientX, event.clientY), drag.offset);
     const point = drag.kind === "theta" ? boundThetaPoint(rawPoint) : rawPoint;
@@ -1275,7 +1318,7 @@
   }
 
   function commitDraft(draft) {
-    if (runtimeState !== "editable" || !draft) return;
+    if (!isPracticeEditable() || !draft) return;
     if (draft.pointerType !== "keyboard" && draft.maxDistance < draft.minimumMovement) {
       setMessage("拖動距離太短，沒有建立作圖。", "warning");
       renderAll(draft.panelScrollTop);
@@ -1357,7 +1400,7 @@
   }
 
   function startKeyboardDrag(button) {
-    if (runtimeState !== "editable" || keyboardDrag || drag || formulaDrag || !button || button.hidden) return;
+    if (!isPracticeEditable() || keyboardDrag || drag || formulaDrag || !button || button.hidden) return;
     const kind = button.dataset.dragKind;
     if (!kind) return;
     const editIndex = button.dataset.editIndex == null ? null : Number(button.dataset.editIndex);
@@ -1376,7 +1419,7 @@
   }
 
   function updateKeyboardDrag(key) {
-    if (runtimeState !== "editable" || !keyboardDrag) return false;
+    if (!isPracticeEditable() || !keyboardDrag) return false;
     if (keyboardDrag.kind === "theta" && (key === "ArrowLeft" || key === "ArrowRight")) {
       const candidates = thetaCandidatesForInteraction();
       if (!candidates.length) return true;
@@ -1418,7 +1461,7 @@
   }
 
   function onHitKeyDown(event) {
-    if (runtimeState !== "editable") return;
+    if (!isPracticeEditable()) return;
     const button = event.currentTarget;
     if (event.key === "Enter") {
       event.preventDefault();
@@ -1436,19 +1479,19 @@
 
   function recordPointer(event) {
     const stageTarget = event.target?.closest?.(".stage-hit, .theta-hit");
-    if (runtimeState === "editable" && stageTarget && Number.isFinite(pointerPanelScrollTop)) {
+    if (isPracticeEditable() && stageTarget && Number.isFinite(pointerPanelScrollTop)) {
       // A touch can move an independently scrolling panel just before the
       // corresponding pointer event is delivered. Keep the panel at the
       // position that was visible when this stage drag began.
       dom.forcePanel.scrollTop = pointerPanelScrollTop;
     }
-    if (runtimeState === "editable" && stageTarget && (event.type === "pointerdown" || event.type === "pointermove")) {
+    if (isPracticeEditable() && stageTarget && (event.type === "pointerdown" || event.type === "pointermove")) {
       // Prevent the browser from handing a stage drag to the scroll owner.
       // This capture-phase guard runs before the target handler and covers
       // touch hardware that begins native panning before pointer capture.
       event.preventDefault();
     }
-    if (event.type === "pointerdown" && runtimeState === "editable" && stageTarget && !Number.isFinite(pointerPanelScrollTop)) {
+    if (event.type === "pointerdown" && isPracticeEditable() && stageTarget && !Number.isFinite(pointerPanelScrollTop)) {
       // Capture before the target handler and before the browser can apply
       // any native touch scrolling. The completed drag must restore this
       // exact panel position.
@@ -1469,7 +1512,7 @@
   }
 
   function captureStageTouch(event) {
-    if (runtimeState !== "editable" || event.touches?.length !== 1) return;
+    if (!isPracticeEditable() || event.touches?.length !== 1) return;
     const touch = event.touches[0];
     // Only drawing hit targets own the touch gesture.  Navigation buttons use
     // the browser's normal touch-to-click path; intercepting their touchstart
@@ -1486,7 +1529,7 @@
   }
 
   function captureTouchPointer(event) {
-    if (runtimeState !== "editable" || event.pointerType !== "touch" || Number.isFinite(pointerPanelScrollTop)) return;
+    if (!isPracticeEditable() || event.pointerType !== "touch" || Number.isFinite(pointerPanelScrollTop)) return;
     pointerPanelScrollTop = dom.forcePanel?.scrollTop;
   }
 
@@ -1534,7 +1577,7 @@
   }
 
   function handleBack() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (!isPracticeEditable() || drag || keyboardDrag || formulaDrag) return;
     const previous = state.phase;
     syncCurrentQuestion(M.backToPrevious(state));
     if (previous !== state.phase) setMessage("已返回上一步，全部作圖保留；可直接拖動箭頭或虛線上的操作點調整。", "");
@@ -1543,7 +1586,7 @@
   }
 
   function handleRedraw() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (!isPracticeEditable() || drag || keyboardDrag || formulaDrag) return;
     syncCurrentQuestion(M.resetCurrentPhase(state));
     setMessage("目前步驟已清空，可以重新作圖。", "");
     persistDraft();
@@ -1551,7 +1594,7 @@
   }
 
   function handleReset() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (!isPracticeEditable() || drag || keyboardDrag || formulaDrag) return;
     syncCurrentQuestion(M.createQuestionState(state.scenarioId));
     setMessage("本圖已重設，請由 O 畫第一條方向虛線。", "");
     persistDraft();
@@ -1559,7 +1602,7 @@
   }
 
   function handleNext() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (!isPracticeEditable() || drag || keyboardDrag || formulaDrag) return;
     if (state.phase === "formulas") {
       if (!formulaStepComplete()) return;
       if (activity.currentQuestion >= SCENARIO_IDS.length - 1) {
@@ -1616,7 +1659,7 @@
   }
 
   function openSummary() {
-    if (runtimeState !== "editable" || drag || keyboardDrag || formulaDrag) return;
+    if (!isPracticeEditable() || drag || keyboardDrag || formulaDrag) return;
     activity.phase = "summary";
     activity.fromReview = false;
     persistDraft();
@@ -1629,7 +1672,7 @@
     if (!button) return;
     const index = Number(button.dataset.questionIndex);
     if (runtimeState === "editable") switchQuestion(index, activity.phase === "summary");
-    else if (runtimeState === "review" && reviewSnapshot?.answer?.questions) {
+    else if (runtimeState === "review" && reviewResult?.trusted !== false && reviewSnapshot?.answer?.questions) {
       activity.currentQuestion = index;
       state = activity.questions[index];
       renderReview();
@@ -1651,8 +1694,12 @@
     const computed = buildComputedReview(snapshot);
     const attempt = { score: String(outcome.score ?? snapshot.score ?? computed.score), status: outcome.status || (snapshot.passed ? "passed" : "failed") };
     reviewResult = SimActivityFlow?.reviewResult ? SimActivityFlow.reviewResult(computed, { score: snapshot.score, passed: snapshot.passed }, attempt) : { trusted: true, result: computed };
+    const trusted = reviewResult.trusted !== false;
+    clearInteractionTransient();
+    if (!trusted) reviewSnapshot = null;
     runtimeState = "review";
-    activity = { ...Persistence.freshDraft(), phase: "summary", currentQuestion: 0, questions: snapshot.answer.questions.map(question => M.clone(question)) };
+    activity = { ...Persistence.freshDraft(), phase: "summary", currentQuestion: 0 };
+    if (trusted) activity.questions = snapshot.answer.questions.map(question => M.clone(question));
     state = activity.questions[0];
     renderAll();
   }
@@ -1701,6 +1748,10 @@
 
   function submitAttempt() {
     if (runtimeState !== "editable" || activity.phase !== "summary") return;
+    if (drag || keyboardDrag || formulaDrag) {
+      dom.submitStatus.textContent = "目前仍有未完成的作圖或公式操作，請先完成或取消後再提交。";
+      return;
+    }
     const incomplete = activity.questions
       .map((question, index) => ({ index, missing: missingQuestionItems(question) }))
       .filter(entry => entry.missing.length);
@@ -1720,7 +1771,9 @@
       return;
     }
     if (!SimScorm?.submitWithCallbacks || !SimActivityFlow) {
-      enterReview(reviewSnapshot, { score: result.score, status: "passed" });
+      runtimeState = "load-error";
+      activityLoadError = "必要共用模組未能載入；已停用提交，未寫入 LMS。";
+      renderAll();
       return;
     }
     dom.submitAttempt.disabled = true;
@@ -1809,7 +1862,8 @@
 
   function startup() {
     if (!SimScorm || !SimActivityFlow) {
-      runtimeState = "editable";
+      runtimeState = "load-error";
+      activityLoadError = "活動必要共用模組未能載入；已停用作答及提交。請重新載入活動。";
       renderAll();
       return;
     }
@@ -1879,7 +1933,7 @@
   dom.editHits.forEach(attachHit);
   dom.formulaTokens.forEach(button => {
     button.addEventListener("pointerdown", event => {
-      if (runtimeState !== "editable" || event.button > 0 || drag || keyboardDrag || formulaDrag || state.phase !== "formulas" || !M.formulaExpectations(state)) return;
+      if (!isPracticeEditable() || event.button > 0 || drag || keyboardDrag || formulaDrag || state.phase !== "formulas" || !M.formulaExpectations(state)) return;
       event.preventDefault();
       suppressFormulaClick = false;
       formulaDrag = { id: event.pointerId, button, token: button.dataset.formulaToken, x: event.clientX, y: event.clientY, moved: false };
@@ -1892,19 +1946,19 @@
     button.addEventListener("pointercancel", event => endFormulaDrag(event, true));
     button.addEventListener("lostpointercapture", event => endFormulaDrag(event, true));
     button.addEventListener("click", event => {
-      if (runtimeState !== "editable") return;
+      if (!isPracticeEditable()) return;
       if (event.detail > 0 && suppressFormulaClick) { suppressFormulaClick = false; return; }
       selectedFormula = button.dataset.formulaToken;
       renderFormulas();
     });
   });
   dom.formulaSlots.forEach(button => button.addEventListener("click", () => {
-    if (runtimeState !== "editable") return;
+    if (!isPracticeEditable()) return;
     if (selectedFormula && !formulaDrag) placeFormula(button.dataset.formulaSlot, selectedFormula);
     else if (!formulaDrag) setMessage("請先選 sin θ 或 cos θ 卡片，再點這個空格。", "");
   }));
   dom.formulaWorkbench.querySelectorAll("[data-formula-clear]").forEach(button => button.addEventListener("click", () => {
-    if (runtimeState === "editable") placeFormula(button.dataset.formulaClear, null);
+    if (isPracticeEditable()) placeFormula(button.dataset.formulaClear, null);
   }));
   documentObject.addEventListener("keydown", event => {
     if (event.key !== "Escape" || (!formulaDrag && !selectedFormula)) return;
@@ -1915,7 +1969,7 @@
   });
   dom.thetaChoices.addEventListener("click", event => {
     const button = event.target.closest("[data-theta-choice]");
-    if (runtimeState !== "editable" || !button || drag || keyboardDrag || state.phase !== "angle") return;
+    if (!isPracticeEditable() || !button || drag || keyboardDrag || state.phase !== "angle") return;
     const candidate = thetaCandidatesForInteraction().find(item => item.key === button.dataset.thetaChoice);
     if (candidate) commitDraft({ kind: "theta", pointerType: "keyboard", preview: candidate });
   });

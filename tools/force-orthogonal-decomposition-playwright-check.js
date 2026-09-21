@@ -331,6 +331,32 @@ async page => {
     await waitForApp();
     assert(await appRuntime() === "editable", `${label}: editable startup`);
   };
+  const verifyMissingRuntime = async () => {
+    for (const missing of ["scorm", "activity-flow"]) {
+      const label = `missing ${missing} runtime`;
+      await page.goto(`${origin}/sim/force-orthogonal-decomposition/index.html?missing-runtime=${missing}&playwright=${encodeURIComponent(label)}`);
+      await waitForApp(label);
+      const safety = await page.evaluate(() => {
+        const selectors = ["#originHit", "#pointHit", "#thetaHit", "#directionEdit0", "#perpendicularEdit0", "#componentEdit0"];
+        return {
+          runtime: window.__forceOrthogonalApp.getRuntimeState(),
+          standalone: Boolean(window.SimScorm?.isStandalone?.()),
+          practiceVisible: !document.querySelector("#practicePanel")?.classList.contains("is-hidden"),
+          summaryVisible: !document.querySelector("#summaryPanel")?.classList.contains("is-hidden"),
+          technicalVisible: !document.querySelector("#technicalPanel")?.classList.contains("is-hidden"),
+          stageTargets: selectors.map(selector => {
+            const node = document.querySelector(selector);
+            return { selector, hidden: Boolean(node?.hidden), disabled: Boolean(node?.disabled) };
+          }),
+          navigation: ["#goSummary", "#submitAttempt"].map(selector => ({ selector, disabled: Boolean(document.querySelector(selector)?.disabled) }))
+        };
+      });
+      assert(safety.runtime === "load-error", `${label}: missing dependency did not lock the runtime ${JSON.stringify(safety)}`);
+      assert(!safety.standalone && !safety.practiceVisible && !safety.summaryVisible && safety.technicalVisible, `${label}: missing dependency exposed an editable or standalone route ${JSON.stringify(safety)}`);
+      assert(safety.stageTargets.every(item => item.hidden && item.disabled), `${label}: stage target remained active ${JSON.stringify(safety.stageTargets)}`);
+      assert(safety.navigation.every(item => item.disabled), `${label}: answer/submit control remained active ${JSON.stringify(safety.navigation)}`);
+    }
+  };
   const touchStageNavigation = async (path, label) => {
     await openFresh(path, `${label} touch navigation`);
     const plan = await scenePlan();
@@ -483,6 +509,9 @@ async page => {
   };
 
   if (scope === "all" || scope === "direct") {
+    progress("missing runtime start");
+    await verifyMissingRuntime();
+    progress("missing runtime done");
     progress("direct source start");
     await runDirect("/sim/force-orthogonal-decomposition/index.html", "source", "mouse");
     progress("direct source done");

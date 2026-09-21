@@ -180,6 +180,7 @@ const assertReviewLock = async (frame, label) => {
   assert(await frame.locator("#reviewPanel").isVisible(), `${label}: review panel is not visible`);
   assert(!(await frame.locator("#practicePanel").isVisible()), `${label}: practice panel remained editable`);
   assert(!(await frame.locator("#summaryPanel").isVisible()), `${label}: summary panel remained active`);
+  assert(await frame.evaluate(() => window.__forceOrthogonalApp.getDragPreview() === null), `${label}: an interaction preview survived the review lock`);
   await assertStageLocked(frame, label);
 };
 const assertStageLocked = async (frame, label) => {
@@ -229,6 +230,33 @@ assert(successData.data["cmi.core.lesson_status"] === "passed", "success: LMS st
 await reloadActivityFrame();
 frame = await frameForHost("success reload");
 await assertReviewLock(frame, "success reload");
+
+// The summary is a review checkpoint, not another editable stage. A stale
+// keyboard event must not create an unsubmitted preview that can leak into
+// the final locked rendering.
+frame = await openHost("success", "complete-draft", { suspendData: completeDraftJson, status: "incomplete", score: "" }, "summary stage lock");
+const summaryBefore = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
+const summaryProbe = await frame.evaluate(() => {
+  const selectors = ["#originHit", "#pointHit", "#thetaHit", "#directionEdit0", "#perpendicularEdit0", "#componentEdit0"];
+  const target = document.querySelector("#componentEdit0");
+  target?.focus();
+  target?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  target?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+  return {
+    state: window.__forceOrthogonalApp.getActivityState(),
+    preview: window.__forceOrthogonalApp.getDragPreview(),
+    controls: selectors.map(selector => {
+      const node = document.querySelector(selector);
+      return { selector, hidden: Boolean(node?.hidden), disabled: Boolean(node?.disabled) };
+    })
+  };
+});
+assert(summaryProbe.state.phase === "summary", "summary stage lock: seeded activity left the summary");
+assert(summaryProbe.preview === null, "summary stage lock: keyboard editing started from the summary");
+assert(summaryProbe.controls.every(item => item.hidden && item.disabled), `summary stage lock: a stage target remained active: ${JSON.stringify(summaryProbe.controls)}`);
+assert(JSON.stringify(summaryProbe.state) === JSON.stringify(summaryBefore), "summary stage lock: keyboard events changed the saved answer");
+assert((await submitPopulated(frame, "summary stage lock")) === "review", "summary stage lock: final submit did not finish");
+await assertReviewLock(frame, "summary stage lock review");
 
 // A free, unsnapped thetaPoint is also learner data. Review must render its
 // label even though there is no matching arc candidate or interactive button.
@@ -394,12 +422,14 @@ assert((await frame.locator("#reviewScore").textContent()).trim() === "--", "fin
 await assertReviewLock(frame, "finished missing score");
 
 const mismatchedReview = JSON.parse(successData.data["cmi.suspend_data"]);
-mismatchedReview.score = mismatchedReview.score === 100 ? 99 : mismatchedReview.score + 1;
-mismatchedReview.passed = !mismatchedReview.passed;
-frame = await openHost("success", "finished-mismatch", { suspendData: JSON.stringify(mismatchedReview), score: successData.data["cmi.core.score.raw"] }, "finished mismatch");
+frame = await openHost("success", "finished-mismatch", { suspendData: JSON.stringify(mismatchedReview), status: "passed", score: "40" }, "finished mismatch");
 await waitForRuntime(frame, "review", "finished mismatch");
 assert((await frame.locator("#reviewCompletion").textContent()).includes("只顯示已記錄摘要"), "finished mismatch: safe summary label is missing");
+assert((await frame.locator("#reviewScore").textContent()).trim() === "40 / 100", "finished mismatch: recorded LMS score was not rendered");
 assert((await frame.locator("#reviewTrustNote").textContent()).includes("摘要"), "finished mismatch: trust warning is missing");
+assert(await frame.locator("#reviewQuestionNavigation").isHidden(), "finished mismatch: question navigation remained visible for untrusted data");
+assert(await frame.locator("#reviewQuestionNavigation [data-question-index]").count() === 0, "finished mismatch: per-question navigation was rendered for untrusted data");
+assert((await frame.locator("#reviewFeedback").textContent()).trim() === "", "finished mismatch: computed per-question feedback was rendered for untrusted data");
 await assertReviewLock(frame, "finished mismatch");
 
 console.log("force orthogonal production lifecycle browser checks passed: success, committed, frozen/reload, retryable precommit, nonretryable preflight, invalid editable draft recovery, invalid pending quarantine, finished fallback, and review lock");

@@ -36,8 +36,18 @@ const server = http.createServer((request, response) => {
     if (statError || !stat.isFile()) { response.writeHead(404).end("Not found"); return; }
     fs.readFile(target, (readError, content) => {
       if (readError) { response.writeHead(500).end("Read failed"); return; }
+      let body = content;
+      if (packagePath === null && pathname === "/sim/force-orthogonal-decomposition/index.html") {
+        const missingRuntime = requestUrl.searchParams.get("missing-runtime");
+        const missingScript = missingRuntime === "scorm"
+          ? '<script src="../shared/scorm.js" defer></script>'
+          : missingRuntime === "activity-flow"
+            ? '<script src="../shared/activity-flow.js" defer></script>'
+            : null;
+        if (missingScript) body = content.toString("utf8").replace(missingScript, "");
+      }
       response.writeHead(200, { "content-type": types[path.extname(target).toLowerCase()] || "application/octet-stream", "cache-control": "no-store" });
-      response.end(content);
+      response.end(body);
     });
   });
 });

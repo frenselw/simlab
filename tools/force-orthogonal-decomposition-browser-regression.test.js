@@ -51,6 +51,14 @@ assert.match(main, /SimScorm\.loadAttempt\(ACTIVITY\)/);
 assert.match(main, /SimActivityFlow\.startup\(attempt\)/);
 assert.match(main, /SimScorm\.enableStandalonePersistence/);
 assert.match(main, /SimScorm\.submitWithCallbacks\(result, reviewSnapshot/);
+assert.match(main, /function isPracticeEditable\(\)/);
+assert.match(main, /if \(!SimScorm \|\| !SimActivityFlow\) \{[\s\S]*runtimeState = "load-error"/);
+assert.match(main, /活動必要共用模組未能載入；已停用作答及提交/);
+assert.match(main, /必要共用模組未能載入；已停用提交，未寫入 LMS/);
+assert.match(main, /function clearInteractionTransient\(\)/);
+assert.match(main, /const interactive = isPracticeEditable\(\)/);
+assert.match(main, /reviewQuestionNavigation\.hidden = !trusted/);
+assert.match(main, /reviewResult\?\.trusted !== false && reviewSnapshot\?\.answer\?\.questions/);
 for (const state of ["success", "committed", "frozen", "retry"]) assert.match(main, new RegExp(`(?:${state})`), `${state} submission path exists`);
 assert.match(main, /Persistence\.decodePending/);
 assert.match(main, /reset\.dataset\.action = "reset-invalid-draft"/);
@@ -143,14 +151,17 @@ for (const label of ["success", "committed", "frozen", "retryable", "nonretryabl
 assert.match(browserCheck, /Input\.dispatchTouchEvent/);
 assert.match(browserCheck, /stageBackButton/);
 assert.match(browserCheck, /stageNextButton/);
+assert.match(browserCheck, /missing-runtime/);
 assert.match(browserHarness, /force-orthogonal-decomposition-lifecycle-playwright-check\.js/);
 assert.match(browserHarness, /SIMLAB_SERVER_PORT=/);
 assert.match(browserHarness, /__simlab_health/);
 assert.match(embeddedHost, /invalid-pending/);
 assert.match(embeddedHost, /finished-missing/);
+assert.match(embeddedHost, /lifecycleSeed\.status/);
 assert.match(embeddedHost, /finishFailuresRemaining/);
 assert.match(staticServer, /__simlab_health/);
 assert.match(staticServer, /process\.env\.SIMLAB_PORT \|\| 0/);
+assert.match(staticServer, /missing-runtime/);
 
 for (const file of ["config.js", "force-orthogonal-decomposition/index.html", "force-orthogonal-decomposition/styles.css", "force-orthogonal-decomposition/model.js", "force-orthogonal-decomposition/scoring.js", "force-orthogonal-decomposition/persistence.js", "force-orthogonal-decomposition/main.js", "shared/styles.css", "shared/scorm.js", "shared/activity-flow.js"]) {
   const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
