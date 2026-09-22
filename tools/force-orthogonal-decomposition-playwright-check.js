@@ -2,7 +2,7 @@ async page => {
   const assert = (value, message) => { if (!value) throw new Error(message); };
   const wait = milliseconds => page.waitForTimeout(milliseconds);
   const origin = page.url().match(/^https?:\/\/[^/]+/)?.[0] || "";
-  const scope = globalThis.process?.env?.FOD_SCOPE || "all";
+  const scope = await page.evaluate(() => new URL(location.href).searchParams.get("scope")) || globalThis.process?.env?.FOD_SCOPE || "all";
   assert(origin.startsWith("http://127.0.0.1:"), `unexpected origin: ${origin}`);
   await page.addInitScript(() => {
     if (new URL(location.href).searchParams.get("playwright-reset") === "1") {
@@ -941,19 +941,43 @@ async page => {
       await page.goto(origin + "/tools/force-orthogonal-decomposition-embedded-host.html?src=" + encodeURIComponent(activityPath) + "&w=" + width + "&h=" + height);
       const frame = page.frames().find(item => item !== page.mainFrame() && item.url().includes("force-orthogonal-decomposition/index.html"));
       await frame.waitForFunction(() => Boolean(window.__forceOrthogonalApp?.getState()));
+      await wait(100);
       const dimensions = await frame.evaluate(() => ({ height: innerHeight, panel: document.querySelector("#forcePanel").getBoundingClientRect().toJSON(), scrollHeight: document.documentElement.scrollHeight }));
       assert(dimensions.height === height && dimensions.panel.height >= 95 && dimensions.panel.bottom <= height + 1 && dimensions.scrollHeight <= height + 1, `short embedded ${activityPath}: usable panel ${JSON.stringify(dimensions)}`);
       await frame.locator("#goSummary").scrollIntoViewIfNeeded();
+      await wait(100);
       await touchTap(frame.locator("#goSummary"));
-      assert(await frame.locator("#summaryPanel").isVisible(), "short embedded: trusted touch reaches pre-submit overview");
+      assert(await frame.locator("#summaryPanel").isVisible(), `short embedded ${activityPath} ${width}x${height}: trusted touch reaches pre-submit overview`);
       await frame.locator("#submitAttempt").scrollIntoViewIfNeeded();
       const reachable = await frame.locator("#submitAttempt").evaluate(node => { const r = node.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && !node.disabled; });
       assert(reachable, "short embedded: final submission button is reachable in the actual iframe viewport");
       await frame.locator("#returnToPractice").scrollIntoViewIfNeeded();
+      await wait(100);
       await touchTap(frame.locator("#returnToPractice"));
       assert(await frame.locator("#practicePanel").isVisible(), "short embedded: return action is reachable");
+      // On the shortest canvas, the first gravity arrow's enlarged edit hit
+      // overlaps O. Both editing F1 and creating F2 must remain selectable.
+      if (width === 390) {
+        await frameClick(frame, '[data-question-index="2"]');
+        const plan = await frameScenePlan(frame);
+        for (const point of plan.directions) await frameTouchTarget(frame, "#originHit", point, "short gravity direction");
+        await frameClick(frame, "#nextButton");
+        for (const point of plan.feet) await frameTouchTarget(frame, "#pointHit", point, "short gravity perpendicular");
+        await frameClick(frame, "#nextButton");
+        await frameTouchTarget(frame, "#originHit", plan.feet[0], "short gravity first component");
+        const before = await frameSemanticState(frame);
+        await frameTouchTarget(frame, "#componentEdit0", { x: plan.feet[0].x - 140, y: plan.feet[0].y }, "short gravity edit first component");
+        assert(JSON.stringify((await frameSemanticState(frame)).components[0]) !== JSON.stringify(before.components[0]), "short gravity: first component can still be edited");
+        await frameTouchTarget(frame, "#componentEdit0", plan.feet[0], "short gravity repair first component");
+        await frameTouchTarget(frame, "#originHit", plan.feet[1], "short gravity second component");
+        assert((await frameSemanticState(frame)).components.length === 2 && await frame.evaluate(() => window.__forceOrthogonalApp.isCorrectDecomposition()), "short gravity: overlapping handles permit both correctly placed components");
+      }
     }
   };
+  if (scope === "short") {
+    await shortEmbeddedLayout("/sim/force-orthogonal-decomposition/index.html");
+    await shortEmbeddedLayout("/packaged/force-orthogonal-decomposition/index.html");
+  }
   if (scope === "all" || scope === "embedded" || scope === "embedded-source") {
     await embed("/sim/force-orthogonal-decomposition/index.html", 390, 500);
     await embed("/sim/force-orthogonal-decomposition/index.html", 320, 500);

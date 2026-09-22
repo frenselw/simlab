@@ -177,12 +177,13 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 
 - Control-panel classification：`bounded split-panel`。
 - 原因：三題、五步作圖、公式答案、回饋及提交控制需要反覆操作；舞台在操作控制時必須固定可見。
-- Phone stage track：舞台最多 `44vh`，並預留最少 `6rem` 操作區；短視窗（≤420px）壓縮標題並按剩餘空間分配舞台／面板，≥600px 的短橫屏改為左右分區。控制區 `overflow-y:auto`、`overscroll-behavior:contain`。
+- Phone stage track：作圖高度基準 `44vh` 加 `4rem` 工具列，並預留最少 `6rem` 操作區；≤520px 壓縮標題，≤420px 按剩餘空間分配舞台／面板，≥600px 的短橫屏改為左右分區。控制區 `overflow-y:auto`、`overscroll-behavior:contain`。
 - Desktop/tablet：舞台固定在左側、操作面板在右側且獨立捲動；窄屏改為舞台上方、面板下方，兩者不因對方內容自然撐高。
 - Non-interactive stage swipe owner：enclosing page／Moodle host；`touch-action: pan-y`。
 - Independently scrolling control-panel swipe owner：control panel only；面板頂／底 boundary 也不把手勢傳給 host。
 - Activity-document scroll invariant：bounded activity 的 `html`、`body`、fixed app shell 及 stage chain 沒有可用的垂直 scroll range，不成為第三個 scroll owner。
 - 舞台 caption／步驟按鈕使用獨立工具列；SVG、穩定 hit targets、局部預覽共用其下方的 canvas 座標及裁切區，不與工具列爭用觸控位置。
+- 小舞台上擴大控制區重疊時，以落手位置最近的可用 anchor 決定新增／編輯目標；capture 仍留在原本穩定 HTML hit target，鍵盤焦點則保持明確的原目標。
 - Extreme height/zoom：縮放 stage SVG 及文字、讓 controls 保留最小可用高度；不新增 stage 垂直 scroller；主要按鈕在 panel 內可達。
 
 ## Touch gesture ownership contract

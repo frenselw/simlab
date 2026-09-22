@@ -743,7 +743,10 @@
 
   function editingBounds(anchor = null) {
     // Keep the whole 52px target visible, including after a viewport resize.
-    const inset = (EDIT_HIT_RADIUS + 2) / Math.max(diagramTransform().scale, .01);
+    const transform = diagramTransform();
+    const canvas = dom.stageCanvas.getBoundingClientRect();
+    const padding = Math.min(transform.rect.left - canvas.left, transform.rect.top - canvas.top);
+    const inset = Math.max(1, EDIT_HIT_RADIUS + 2 - padding) / Math.max(transform.scale, .01);
     const bounds = sceneWorldBounds();
     const result = {
       left: bounds.left + inset,
@@ -831,7 +834,7 @@
 
   function thetaSeatWorld(scene = activeScene()) {
     const frame = sceneFrame(scene);
-    return { x: THETA_SEAT_SVG.x - frame.origin.x, y: frame.origin.y - THETA_SEAT_SVG.y };
+    return boundThetaPoint({ x: THETA_SEAT_SVG.x - frame.origin.x, y: frame.origin.y - THETA_SEAT_SVG.y });
   }
 
   function phasePrompt() {
@@ -1365,14 +1368,30 @@
     return null;
   }
 
+  function nearestHitTarget(event) {
+    let nearest = event.currentTarget;
+    let distance = Infinity;
+    for (const button of [event.currentTarget, dom.originHit, dom.pointHit, dom.thetaHit, ...dom.editHits]) {
+      if (button.hidden || button.disabled || !button.dataset.dragKind) continue;
+      const rect = button.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) continue;
+      const candidateDistance = Math.hypot(event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2);
+      if (candidateDistance < distance) { nearest = button; distance = candidateDistance; }
+    }
+    return nearest;
+  }
+
   function startPointerDrag(event) {
     if (!isPracticeEditable()) return;
     const target = event.currentTarget;
-    const kind = target.dataset.dragKind;
+    // Enlarged touch regions can overlap on a compact canvas. Resolve intent
+    // by the closest anchor, but keep capture on the original, stable element.
+    const hit = nearestHitTarget(event);
+    const kind = hit.dataset.dragKind;
     if (!kind || target.hidden || event.button > 0 || drag || keyboardDrag || formulaDrag) return;
     event.preventDefault();
     const pointer = clientToWorld(event.clientX, event.clientY);
-    const editIndex = target.dataset.editIndex == null ? null : Number(target.dataset.editIndex);
+    const editIndex = hit.dataset.editIndex == null ? null : Number(hit.dataset.editIndex);
     const point = editIndex != null ? editPoint(kind, editIndex) : kind === "theta" ? thetaVisualPoint() : pointer;
     drag = {
       kind,

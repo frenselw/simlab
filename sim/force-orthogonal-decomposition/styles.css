@@ -66,7 +66,7 @@ body {
 
 .force-shell {
   /* Reserve a usable controls row even when the available iframe is short. */
-  grid-template-rows: minmax(0, min(44vh, calc(100% - 6rem))) minmax(0, 1fr);
+  grid-template-rows: minmax(0, min(calc(44vh + 4rem), calc(100% - 6rem))) minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   overflow: hidden;
@@ -750,12 +750,15 @@ body {
 
 }
 
-@media (max-height: 420px) and (max-width: 819px) {
+@media (max-height: 520px) and (max-width: 819px) {
   .force-header { flex-wrap: nowrap; align-items: center; padding: .35rem .5rem; gap: .5rem; }
   .force-header h1 { font-size: .9rem; line-height: 1.3; }
   .force-header #activitySubtitle, .force-header .prototype-badge { display: none; }
   .attempt-header { width: auto; flex: 0 0 auto; display: grid; grid-template-columns: 1fr; gap: 0; font-size: .7rem; }
   .attempt-header span { font-size: .65rem; }
+}
+
+@media (max-height: 420px) and (max-width: 819px) {
   .force-shell {
     grid-template-rows: minmax(0, 1fr) minmax(6rem, .55fr);
   }
