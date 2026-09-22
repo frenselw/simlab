@@ -209,6 +209,18 @@ Invalid snapshot policy:
 
 ## Shared SCORM lifecycle
 
+Standalone policy (outside Moodle):
+
+- Storage: default memory-only fallback, or opt-in local persistence through
+  `SimScorm.enableStandalonePersistence(ACTIVITY)` before `loadAttempt()`:
+- Learner-facing behavior when local storage is unavailable/read-only or fails:
+- Phases allowing a learner-confirmed local reset, if any:
+- Reset uses `SimScorm.clearStandaloneAttempt(ACTIVITY)`; require success before
+  reload, handle failure, and never use this action to reset a Moodle attempt.
+- If opting in, test draft/review reload, storage read/write failure, pending
+  retry, and the allowed reset path. See the production guide's optional
+  standalone persistence contract.
+
 Startup UI:
 
 | Outcome | Editable? | Learner-facing behavior |

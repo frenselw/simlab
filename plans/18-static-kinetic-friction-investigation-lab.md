@@ -192,9 +192,11 @@ tools/static-kinetic-friction-browser-regression.js
     "measurement",
     "scorm"
   ],
-  status: "planned"
+  status: "active"
 }
 ```
+
+目錄狀態同步（2026-09-22）：以上 metadata 對應現行 `sim/config.js` 的 `active` 登記。文內 `planned` → `active` 規則描述首次開發的啟用條件；未勾選的驗收項目仍按原有證據保留，不因目錄啟用而視為完成，尤其不代表已通過真實 Moodle／實機手機驗收。
 
 `folder`、活動資料夾、manifest identifier、snapshot activity identifier 必須完全相同。
 
@@ -1605,6 +1607,7 @@ const FRICTION_PAIRS = [
 5. breakaway 峰值可在圖上清楚辨認
 6. 所有預測情境值可顯示至 0.1 N 而不產生邊界歧義
 7. breakaway 後穩定拉力平台的平均值可重現
+```
 
 Part A 額外生成：
 

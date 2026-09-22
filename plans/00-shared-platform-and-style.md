@@ -40,7 +40,9 @@ Do not add a build system until more than one simulation clearly benefits from i
 
 ## Visual tokens
 
-When `sim/shared/styles.css` is created, start with these CSS variables:
+`sim/shared/styles.css` defines the shared visual tokens. The baseline values
+below describe the design; use that stylesheet as the source of truth for the
+complete current set:
 
 ```css
 :root {
@@ -187,7 +189,8 @@ Keep the common layer small:
 
 - `sim/shared/styles.css`: colors, spacing, typography, layout, controls;
 - `sim/shared/scorm.js`: SCORM 1.2 API lookup, local fallback, persistence,
-  score submit, and page lifecycle;
+  score submit, and page lifecycle; standalone reload persistence is an explicit
+  opt-in through `enableStandalonePersistence()` (see the production guide);
 - `sim/shared/activity-flow.js`: shared startup, submission, and recorded-result
   trust outcomes;
 - `sim/shared/ui.js`: only repeated UI helpers, if duplication appears;
