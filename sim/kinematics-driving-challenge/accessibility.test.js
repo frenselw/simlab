@@ -102,6 +102,8 @@ assert.match(html, /class="math-expression"><var>x<\/var><span class="math-opera
 assert.match(main, /function physicsHtml\(value\)/);
 assert.match(main, /elements\.instruction\.innerHTML = physicsHtml\(level\.instruction\)/);
 assert.match(css, /\.math-expression var \{[^}]*font-style: italic/);
+assert.match(css, /\.stage-task-card > span \{[^}]*display: block/);
+assert.match(css, /\.stage-task-card \.math-expression \{[^}]*display: inline-flex[^}]*white-space: nowrap/);
 assert.match(main, /function drawFarLandmark\(/);
 assert.match(main, /function drawRoadsideLandmark\(/);
 assert.match(main, /function fillRoadStrip\(/);

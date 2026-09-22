@@ -29,8 +29,11 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
   position: absolute; border: 1px solid rgba(255,255,255,.9); border-radius: .6rem;
   pointer-events: none; background: rgba(249,250,251,.94); box-shadow: 0 3px 12px rgba(15,23,42,.14);
 }
-.stage-task-card { top: .65rem; left: .65rem; max-width: 48%; padding: .45rem .6rem; }
-.stage-task-card span { display: block; color: #475569; font-size: .72rem; font-weight: 800; }
+.stage-task-card {
+  top: .65rem; left: .65rem; width: max-content; max-width: 48%; padding: .45rem .6rem;
+}
+.stage-task-card > span { display: block; color: #475569; font-size: .72rem; font-weight: 800; }
+.stage-task-card .math-expression { display: inline-flex; white-space: nowrap; }
 .stage-task-card strong { display: block; margin-top: .12rem; line-height: 1.25; }
 .stage-status { left: .65rem; bottom: .65rem; max-width: min(62%, 28rem); margin: 0; padding: .4rem .6rem; font-size: .82rem; font-weight: 700; }
 .graph-card { top: .65rem; right: .65rem; width: clamp(11.25rem, 32%, 14rem); aspect-ratio: 1.35; background: rgba(255,255,255,.91); }
