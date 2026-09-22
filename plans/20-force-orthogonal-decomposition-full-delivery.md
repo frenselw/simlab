@@ -177,7 +177,7 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 
 - Control-panel classification：`bounded split-panel`。
 - 原因：三題、五步作圖、公式答案、回饋及提交控制需要反覆操作；舞台在操作控制時必須固定可見。
-- Phone stage track：`minmax(13rem, 44vh)`，在支援時使用 `44dvh` 上限；控制區是剩餘高度，`overflow-y:auto`，`overscroll-behavior:contain`。
+- Phone stage track：舞台最多 `44vh`，並預留最少 `6rem` 操作區；短視窗（≤420px）壓縮標題並按剩餘空間分配舞台／面板，≥600px 的短橫屏改為左右分區。控制區 `overflow-y:auto`、`overscroll-behavior:contain`。
 - Desktop/tablet：舞台固定在左側、操作面板在右側且獨立捲動；窄屏改為舞台上方、面板下方，兩者不因對方內容自然撐高。
 - Non-interactive stage swipe owner：enclosing page／Moodle host；`touch-action: pan-y`。
 - Independently scrolling control-panel swipe owner：control panel only；面板頂／底 boundary 也不把手勢傳給 host。

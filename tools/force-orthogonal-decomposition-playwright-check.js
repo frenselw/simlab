@@ -403,6 +403,7 @@ async page => {
     });
     assert(metrics.app.height <= height + 1, `${label}: app is bounded to the viewport`);
     assert(metrics.docScrollHeight <= height + 1, `${label}: activity document is not a third scroll owner ${JSON.stringify(metrics)}`);
+    assert(metrics.panel.height >= 95 && metrics.panel.bottom <= height + 1, `${label}: at least 96px of controls remains inside the viewport ${JSON.stringify(metrics)}`);
     assert(metrics.panelScrollHeight > metrics.panelClientHeight, `${label}: controls panel has an independent scroll range`);
     const expected = {
       left: metrics.layout.viewBox.x - metrics.layout.origin.x,
@@ -485,6 +486,10 @@ async page => {
     await openFresh(path, label);
     await layoutContract(`${label} 390x600`, 390, 600);
     await layoutContract(`${label} 320x500`, 320, 500);
+    await layoutContract(`${label} short iframe 390x320`, 390, 320);
+    await layoutContract(`${label} short iframe 520x320`, 520, 320);
+    await layoutContract(`${label} landscape 667x375`, 667, 375);
+    await layoutContract(`${label} 320x500 restored height`, 320, 500);
     await click(page.locator("#goSummary"));
     assert(await page.locator("#summaryWarning").textContent().then(text => text.includes("仍有未作答項目")), `${label}: empty summary identifies incomplete work`);
     assert(!(await page.locator("#summaryList").textContent()).includes("/100"), `${label}: pre-submit summary does not reveal scores`);
@@ -926,13 +931,34 @@ async page => {
     const touchStyles = await frame.evaluate(() => ({ stage: getComputedStyle(document.querySelector("#stage")).touchAction, origin: getComputedStyle(document.querySelector("#originHit")).touchAction, formula: getComputedStyle(document.querySelector("#formulaSin")).touchAction, panel: getComputedStyle(document.querySelector("#forcePanel")).overscrollBehaviorY }));
     assert(touchStyles.stage === "pan-y" && touchStyles.origin === "none" && touchStyles.formula === "none" && touchStyles.panel === "contain", "embedded touch ownership styles are explicit");
   };
+  const shortEmbeddedLayout = async activityPath => {
+    for (const [width, height] of [[390, 320], [520, 320], [667, 375]]) {
+      await page.setViewportSize({ width: Math.max(width, 390), height: 700 });
+      await page.goto(origin + "/tools/force-orthogonal-decomposition-embedded-host.html?src=" + encodeURIComponent(activityPath) + "&w=" + width + "&h=" + height);
+      const frame = page.frames().find(item => item !== page.mainFrame() && item.url().includes("force-orthogonal-decomposition/index.html"));
+      await frame.waitForFunction(() => Boolean(window.__forceOrthogonalApp?.getState()));
+      const dimensions = await frame.evaluate(() => ({ height: innerHeight, panel: document.querySelector("#forcePanel").getBoundingClientRect().toJSON(), scrollHeight: document.documentElement.scrollHeight }));
+      assert(dimensions.height === height && dimensions.panel.height >= 95 && dimensions.panel.bottom <= height + 1 && dimensions.scrollHeight <= height + 1, `short embedded ${activityPath}: usable panel ${JSON.stringify(dimensions)}`);
+      await frame.locator("#goSummary").scrollIntoViewIfNeeded();
+      await touchTap(frame.locator("#goSummary"));
+      assert(await frame.locator("#summaryPanel").isVisible(), "short embedded: trusted touch reaches pre-submit overview");
+      await frame.locator("#submitAttempt").scrollIntoViewIfNeeded();
+      const reachable = await frame.locator("#submitAttempt").evaluate(node => { const r = node.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && !node.disabled; });
+      assert(reachable, "short embedded: final submission button is reachable in the actual iframe viewport");
+      await frame.locator("#returnToPractice").scrollIntoViewIfNeeded();
+      await touchTap(frame.locator("#returnToPractice"));
+      assert(await frame.locator("#practicePanel").isVisible(), "short embedded: return action is reachable");
+    }
+  };
   if (scope === "all" || scope === "embedded" || scope === "embedded-source") {
     await embed("/sim/force-orthogonal-decomposition/index.html", 390, 500);
     await embed("/sim/force-orthogonal-decomposition/index.html", 320, 500);
+    await shortEmbeddedLayout("/sim/force-orthogonal-decomposition/index.html");
   }
   if (scope === "all" || scope === "embedded" || scope === "embedded-packaged") {
     await embed("/packaged/force-orthogonal-decomposition/index.html", 390, 500);
     await embed("/packaged/force-orthogonal-decomposition/index.html", 320, 500);
+    await shortEmbeddedLayout("/packaged/force-orthogonal-decomposition/index.html");
   }
 
   if (errors.length) throw new Error(`browser console errors: ${errors.join(" | ")}`);

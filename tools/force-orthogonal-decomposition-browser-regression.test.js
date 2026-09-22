@@ -39,7 +39,7 @@ assert.doesNotMatch(html + styles, /MathJax|KaTeX|cdnjs|unpkg|jsdelivr/i);
 
 assert.match(styles, /\.force-decomposition-app\s*\{[\s\S]*position:\s*fixed;[\s\S]*height:\s*100vh;[\s\S]*height:\s*100dvh;[\s\S]*overflow:\s*hidden/s);
 assert.match(styles, /html,[\s\S]*body\s*\{[\s\S]*height:\s*100%;[\s\S]*overflow:\s*hidden/s);
-assert.match(styles, /\.force-shell\s*\{[\s\S]*grid-template-rows:\s*minmax\(13rem,\s*44vh\)\s+minmax\(0,\s*1fr\)/s);
+assert.match(styles, /\.force-shell\s*\{[\s\S]*grid-template-rows:\s*minmax\(0,\s*min\(44vh,\s*calc\(100% - 6rem\)\)\)\s+minmax\(0,\s*1fr\)/s);
 assert.match(styles, /\.force-panel\s*\{[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;[\s\S]*overscroll-behavior:\s*contain/s);
 assert.match(styles, /\.force-stage\s*\{[\s\S]*touch-action:\s*pan-y/s);
 assert.match(styles, /\.stage-hit,[\s\S]*\.theta-hit\s*\{[\s\S]*touch-action:\s*none/s);

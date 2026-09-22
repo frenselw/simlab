@@ -302,6 +302,9 @@
       point = M.add(sceneOrigin(), M.scale(unit, M.dot(M.subtract(drag.point, sceneOrigin()), unit)));
     }
     const focus = worldToSvg(point);
+    const canvas = dom.stageCanvas.getBoundingClientRect();
+    // Keep the entire lens inside a short canvas, including its caption.
+    dom.touchPreview.style.width = `${Math.max(0, Math.min(canvas.width * .44, 192, (canvas.height - 40) * 1.5))}px`;
     dom.touchPreview.hidden = false;
     const kindLabel = { direction: "方向線", perpendicular: "垂線", component: "分力", theta: "θ" }[drag.kind];
     dom.touchPreviewLabel.textContent = `局部放大 ×2・${kindLabel}`;
