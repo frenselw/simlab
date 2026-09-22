@@ -25,10 +25,15 @@
           <h1>勻速與勻變速：駕駛控制挑戰</h1>
           <p>按住油門或煞車控制車輛；從無數字運動圖像判斷速度變化是否有規律。</p>
         </div>
-        <ol id="progress" class="progress" aria-label="活動進度">
-          <li data-step="practice">練習</li><li data-step="level1">1</li><li data-step="level2">2</li>
-          <li data-step="level3">3</li><li data-step="checkpoint">圖像</li><li data-step="level4">4</li>
-          <li data-step="level5">5</li><li data-step="review">檢查</li>
+        <ol id="progress" class="progress" aria-label="活動進度及關卡快速切換">
+          <li data-step="practice">練習</li>
+          <li data-step="level1"><button type="button" data-pick-level="level1" aria-label="第 1 關：平路保持勻速" title="快速切換至第 1 關">1</button></li>
+          <li data-step="level2"><button type="button" data-pick-level="level2" aria-label="第 2 關：平路保持勻加速" title="快速切換至第 2 關">2</button></li>
+          <li data-step="level3"><button type="button" data-pick-level="level3" aria-label="第 3 關：平路保持勻減速" title="快速切換至第 3 關">3</button></li>
+          <li data-step="checkpoint"><button type="button" data-pick-checkpoint aria-label="圖像證據：查看或修改圖像證據題" title="查看圖像證據">圖像證據</button></li>
+          <li data-step="level4"><button type="button" data-pick-level="level4" aria-label="第 4 關：斜坡保持勻速" title="快速切換至第 4 關">4</button></li>
+          <li data-step="level5"><button type="button" data-pick-level="level5" aria-label="第 5 關：混合道路" title="快速切換至第 5 關">5</button></li>
+          <li data-step="review"><button type="button" data-pick-review aria-label="檢查：查看進度及提交" title="查看進度及提交">檢查</button></li>
         </ol>
       </header>
 
@@ -50,18 +55,6 @@
           <section id="activitySection" class="panel-section">
             <p id="panelKicker" class="panel-kicker">操作練習</p>
             <h2 id="panelTitle" class="section-title" tabindex="-1">先感受油門、煞車與圖線</h2>
-            <nav class="level-picker-card" aria-label="自由選擇正式關卡">
-              <p class="level-picker-label">選擇關卡</p>
-              <div id="levelPicker" class="level-picker">
-                <button type="button" data-pick-level="level1"><strong>1</strong><span>平路勻速</span></button>
-                <button type="button" data-pick-level="level2"><strong>2</strong><span>平路勻加速</span></button>
-                <button type="button" data-pick-level="level3"><strong>3</strong><span>平路勻減速</span></button>
-                <button type="button" data-pick-level="level4"><strong>4</strong><span>斜坡勻速</span></button>
-                <button type="button" data-pick-level="level5"><strong>5</strong><span>混合道路</span></button>
-              </div>
-              <button id="reviewProgressButton" type="button" class="full-button">查看進度／提交</button>
-              <p class="level-picker-hint">五關可自由選擇；轉關會捨棄未記錄的今次試車。</p>
-            </nav>
             <p id="instruction">直接按住踏板的輕、中或盡位置，放手回到空檔，再比較兩幅圖。</p>
 
             <div id="drivingDeck" class="driving-deck">
@@ -167,6 +160,14 @@
             <div id="feedbackList" class="feedback-list"></div>
             <button id="resultRetryButton" type="button" class="is-hidden full-button">重試連線</button>
           </section>
+          <nav id="levelNavigation" class="level-navigation is-hidden" aria-label="關卡操作">
+            <div class="level-navigation-actions">
+              <button id="previousLevelButton" type="button">上一關</button>
+              <button id="reviewProgressButton" type="button">查看進度／提交</button>
+              <button id="nextLevelButton" type="button" class="primary-button">記錄並進入下一關</button>
+            </div>
+            <p id="levelNavigationHint" class="level-navigation-hint"></p>
+          </nav>
           <div id="liveRegion" class="sr-only" aria-live="polite"></div>
         </aside>
       </div>

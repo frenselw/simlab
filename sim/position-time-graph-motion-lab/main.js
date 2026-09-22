@@ -7,11 +7,11 @@
   const P = window.PositionTimePersistence;
   const R = window.PositionTimeUiRuntime;
   const ROAD = { left: 70, right: 750, y: 108 };
-  const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440, comparisonHeight: 490 };
+  const GRAPH = { left: 80, right: 760, top: 60, bottom: 390, compactHeight: 440 };
   const ROAD_MAGNIFIER = { width: 280, height: 120 };
   const GRAPH_MAGNIFIER = { width: 280, height: 180 };
   const MISSION_NAMES = ["根據目標圖設定運動", "根據運動畫出 x–t 圖", "量度兩車速度並比較", "建立特殊運動狀態", "兩車相遇挑戰"];
-  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "roadTouchPreviewHost", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
+  const dom = Object.fromEntries(["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "roadTouchPreviewHost", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playbackSection", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataSection", "dataGrid", "liveStatus", "navigationSection", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"].map((id) => [id, document.getElementById(id)]));
 
   let state = P.createExplore();
   const ui = { time: 0, playing: false, frame: 0, lastFrame: 0, explorationProbes: [], drag: null, locked: false, result: null, resultTrusted: false, technical: null, technicalAction: null, finishRetry: false, unsaved: false, safeSummary: false, reviewStep: 0 };
@@ -242,6 +242,10 @@
 
   function renderControls() {
     const step = state.phase === "submitted-review" ? ui.reviewStep : state.phase === "mission" ? state.currentStep : null;
+    const finalReview = state.phase === "final-review";
+    dom.playbackSection.hidden = finalReview;
+    dom.dataSection.hidden = finalReview;
+    dom.navigationSection.hidden = finalReview;
     dom.setupSection.hidden = ui.technical || ui.safeSummary || state.phase === "final-review" || step === 1 || step === 2;
     dom.answerSection.hidden = true;
     dom.probeSection.hidden = true;
@@ -300,7 +304,7 @@
     return `<label class="quantity-control" for="${name}Input"><span>${label} <span class="math"><var>${symbol}</var></span></span><span class="number-with-unit"><input id="${name}Input" data-number-answer="${name}" data-focus-key="number:${name}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value == null ? "" : value}" ${ui.locked ? "disabled" : ""}><span class="unit">${unit}</span></span></label>`;
   }
   function fasterControl(value) {
-    return `<fieldset><legend>速度大小較大</legend><div class="choice-grid">${[["A", "A 車"], ["B", "B 車"], ["same", "一樣快"]].map(([key, label]) => `<button type="button" data-faster="${key}" data-focus-key="faster:${key}" aria-pressed="${value === key}" ${ui.locked ? "disabled" : ""}>${label}</button>`).join("")}</div><p class="sr-note">亦可拖動圖內「速度大小較大」標記到 A、B 或一樣快區域。</p></fieldset>`;
+    return `<fieldset><legend>速度大小較大</legend><div class="choice-grid">${[["A", "A 車"], ["B", "B 車"], ["same", "一樣快"]].map(([key, label]) => `<button type="button" data-faster="${key}" data-focus-key="faster:${key}" aria-pressed="${value === key}" ${ui.locked ? "disabled" : ""}>${label}</button>`).join("")}</div><p class="sr-note">請在此選擇 A 車、B 車或一樣快。</p></fieldset>`;
   }
   function assessmentProbeButtonText(label, count) {
     if (count >= 2) return `${label} 車探針已齊`;
@@ -487,12 +491,15 @@
     else if (state.phase === "explore") cars.push({ label: "A", motion: state.exploration, draggable: true });
     else if (context.step === 0 || context.step === 3) cars.push({ label: "A", motion: answerMotion(context.step, context.answer), draggable: true });
     else if (context.step === 1) cars.push({ label: "A", motion: context.scenario, draggable: false, showPositionGuide: true });
-    else if (context.step === 2) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: context.scenario.B, draggable: false });
+    else if (context.step === 2) cars.push({ label: "A", motion: context.scenario.A, draggable: false, velocitySymbolOnly: true }, { label: "B", motion: context.scenario.B, draggable: false, velocitySymbolOnly: true });
     else if (context.step === 4) cars.push({ label: "A", motion: context.scenario.A, draggable: false }, { label: "B", motion: answerMotion(context.step, context.answer), draggable: true });
     const requiredPositionGuide = context.step === 3 ? targetPositionGuideSvg(context.scenario) : "";
-    dom.roadDesc.textContent = (cars.some((car) => car.draggable && settingsEditable())
-      ? "位置由負二十米至正二十米。可拖動車輛設定初始位置，並拖動速度箭嘴調整方向和大小。"
-      : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。") + (requiredPositionGuide ? " 紫色垂直虛線標示指定時刻要到達的位置。" : "");
+    const roadDescription = context.step === 2
+      ? "位置由負二十米至正二十米。A、B 車的箭頭分別以 v_A、v_B 標示；速度數值需由 x–t 圖量度。"
+      : cars.some((car) => car.draggable && settingsEditable())
+        ? "位置由負二十米至正二十米。可拖動車輛設定初始位置，並拖動速度箭嘴調整方向和大小。"
+        : "位置由負二十米至正二十米。圖中的車輛運動只供觀察。";
+    dom.roadDesc.textContent = roadDescription + (requiredPositionGuide ? " 紫色垂直虛線標示指定時刻要到達的位置。" : "");
     html += requiredPositionGuide + cars.map((car, index) => carSvg(car, index, cars.length)).join("");
     dom.roadLayer.innerHTML = html;
     dom.roadSvg.classList.toggle("is-locked", !settingsEditable());
@@ -503,6 +510,25 @@
     const labelX = x + (anchor === "end" ? -9 : 9);
     return `<g class="target-position-guide"><line class="position-guide" x1="${x}" y1="22" x2="${x}" y2="${ROAD.y}"></line><text class="position-guide-label" x="${labelX}" y="22" text-anchor="${anchor}"><tspan class="svg-math-symbol">t</tspan> = ${scenario.atTime.toFixed(1)} <tspan class="svg-unit">s</tspan>：<tspan class="svg-math-symbol">x</tspan> = ${signed(scenario.atPosition)} <tspan class="svg-unit">m</tspan></text></g>`;
   }
+  function velocityArrowPath(startX, endX, y) {
+    const direction = Math.sign(endX - startX);
+    const length = Math.abs(endX - startX);
+    if (!direction || length < 0.001) return `M ${startX} ${y} Z`;
+    const shaftWidth = Math.min(5, length * 0.35);
+    const headLength = Math.min(22, length * 0.45);
+    const headWidth = Math.min(21, length * 0.65);
+    const baseX = endX - direction * headLength;
+    const points = [
+      [startX, y - shaftWidth / 2],
+      [baseX, y - shaftWidth / 2],
+      [baseX, y - headWidth / 2],
+      [endX, y],
+      [baseX, y + headWidth / 2],
+      [baseX, y + shaftWidth / 2],
+      [startX, y + shaftWidth / 2]
+    ];
+    return `${points.map(([x, pointY], index) => `${index ? "L" : "M"} ${x} ${pointY}`).join(" ")} Z`;
+  }
   function carSvg(car, index, carCount) {
     const position = S.positionAt(car.motion, ui.time);
     const x = roadX(clamp(position, -20, 20));
@@ -511,17 +537,25 @@
     const canDrag = car.draggable && settingsEditable();
     const arrowLength = car.motion.v * 48;
     const endpoint = x + arrowLength;
-    const arrowY = carCount > 1 ? (index === 0 ? 66 : 24) : 54;
+    const arrowY = carCount > 1
+      ? (car.velocitySymbolOnly ? carTop - 10 : (index === 0 ? 66 : 24))
+      : 54;
     const direction = Math.sign(arrowLength);
-    const arrowHeadBase = endpoint - direction * 14;
-    const magnitudeLabelX = endpoint + (direction < 0 ? -14 : 14);
+    const zeroLabelOnLeft = direction === 0 && x > ROAD.right - 150;
+    const magnitudeLabelX = direction === 0
+      ? x + (zeroLabelOnLeft ? -38 : 38)
+      : endpoint + (direction < 0 ? -14 : 14);
     const magnitudeLabelY = carCount > 1 ? (index === 0 ? 72 : 22) : 60;
-    const magnitudeAnchor = direction < 0 ? "end" : "start";
+    const magnitudeAnchor = direction < 0 || zeroLabelOnLeft ? "end" : "start";
     const magnitudeText = car.motion.incomplete ? "|v|=? m/s" : `|v|=${Math.abs(car.motion.v).toFixed(1)} m/s`;
-    const magnitudeLabel = `<text class="velocity-magnitude-label${direction === 0 ? " velocity-zero-label" : ""} svg-label" x="${magnitudeLabelX}" y="${magnitudeLabelY}" text-anchor="${magnitudeAnchor}">${magnitudeText}</text>`;
+    const velocityLabelClass = car.velocitySymbolOnly ? "velocity-symbol-label" : "velocity-magnitude-label";
+    const velocityLabelContent = car.velocitySymbolOnly
+      ? `<tspan class="svg-math-symbol">v</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">${car.label}</tspan>`
+      : magnitudeText;
+    const velocityLabel = `<text class="${velocityLabelClass}${direction === 0 ? " velocity-zero-label" : ""} svg-label" x="${magnitudeLabelX}" y="${magnitudeLabelY}" text-anchor="${magnitudeAnchor}">${velocityLabelContent}</text>`;
     const velocityVisual = direction === 0
-      ? `<circle class="velocity-zero-marker" cx="${x}" cy="${arrowY}" r="6"></circle>${magnitudeLabel}`
-      : `<line class="velocity-line" x1="${x}" y1="${arrowY}" x2="${endpoint}" y2="${arrowY}"></line><path class="velocity-arrowhead" d="M ${endpoint} ${arrowY} L ${arrowHeadBase} ${arrowY - 9} L ${arrowHeadBase} ${arrowY + 9} Z"></path>${magnitudeLabel}`;
+      ? `<circle class="velocity-zero-marker" cx="${x}" cy="${arrowY}" r="6"></circle>${velocityLabel}`
+      : `<path class="velocity-arrowhead velocity-line" d="${velocityArrowPath(x, endpoint, arrowY)}"></path>${velocityLabel}`;
     const hitRadius = R.hitRadius(800, roadRenderedWidth(), 26, 52);
     const velocityHit = canDrag ? `<circle class="road-drag-hit velocity-hit" data-drag="velocity:${car.label}" data-focus-x="${endpoint}" data-focus-y="${arrowY}" tabindex="0" role="slider" aria-label="調整 ${car.label} 車速度；目前 ${signed(car.motion.v)} 米每秒" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="${car.motion.v}" cx="${endpoint}" cy="${arrowY}" r="${hitRadius}"></circle>` : "";
     const arrow = car.motion.incomplete && !canDrag ? "" : velocityVisual;
@@ -544,7 +578,7 @@
   function drawGraph() {
     dom.graphSvg.classList.toggle("is-narrow", dom.graphSvg.clientWidth > 0 && dom.graphSvg.clientWidth <= 420);
     const context = displayContext();
-    dom.graphSvg.setAttribute("viewBox", `0 0 800 ${context.step === 2 ? GRAPH.comparisonHeight : GRAPH.compactHeight}`);
+    dom.graphSvg.setAttribute("viewBox", `0 0 800 ${GRAPH.compactHeight}`);
     let html = graphBase();
     const visibleReadings = [];
     if (ui.safeSummary) { /* axes only */ }
@@ -567,7 +601,7 @@
       visibleReadings.push(["車的位置讀數", S.positionAt(context.scenario, ui.time)]);
     } else if (context.step === 2) {
       html += svgLine(context.scenario.A, "line-a", 6) + svgLine(context.scenario.B, "line-b", 6);
-      html += probeSvg("A", context.answer.A.probes, context.scenario.A) + probeSvg("B", context.answer.B.probes, context.scenario.B) + fasterSvg(context.answer.faster);
+      html += probeSvg("A", context.answer.A.probes, context.scenario.A) + probeSvg("B", context.answer.B.probes, context.scenario.B);
       visibleReadings.push(["A 圖線", S.positionAt(context.scenario.A, ui.time)], ["B 圖線", S.positionAt(context.scenario.B, ui.time)]);
     } else if (context.step === 3) {
       const own = answerMotion(3, context.answer);
@@ -725,15 +759,6 @@
       return `<g><line class="time-cursor" x1="${graphX(time)}" y1="${graphY(position)}" x2="${graphX(time)}" y2="${GRAPH.bottom}"></line><circle class="probe-handle" cx="${graphX(time)}" cy="${graphY(position)}" r="10"></circle>${hit}<text class="svg-label" x="${graphX(time) + 12}" y="${graphY(position) - 12}">${line === "E" ? "" : line}${label}</text></g>`;
     }).join("");
   }
-  function fasterSvg(value) {
-    const zones = [["A", 300, "A"], ["B", 430, "B"], ["same", 560, "一樣快"]];
-    const selected = zones.find(([key]) => key === value);
-    const tokenX = selected ? selected[1] : 170;
-    const token = `<rect class="faster-token" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect><text class="svg-label" x="${tokenX}" y="451" text-anchor="middle" pointer-events="none">速度大小較大</text>`;
-    const hit = ui.locked ? "" : `<rect class="drag-hit pointer-only" data-drag="faster" aria-hidden="true" focusable="false" x="${tokenX - 70}" y="432" width="140" height="28" rx="14"></rect>`;
-    return zones.map(([key, x, label]) => `<rect class="faster-zone ${value === key ? "is-selected" : ""}" x="${x - 52}" y="462" width="104" height="26" rx="7"></rect><text class="svg-label" x="${x}" y="481" text-anchor="middle">${label}</text>`).join("") + token + hit;
-  }
-
   function renderData() {
     const context = displayContext();
     const values = [["時間", math("t", "s", ui.time)]];
@@ -776,11 +801,7 @@
       });
       return;
     }
-    if (state.phase === "final-review") {
-      dom.navigationControls.innerHTML = `<button type="button" id="submitAttempt" class="primary-button">最後提交</button>`;
-      document.getElementById("submitAttempt").addEventListener("click", () => dom.submitDialog.showModal());
-      return;
-    }
+    if (state.phase === "final-review") return;
     if (state.phase === "submitted-review") {
       dom.navigationControls.innerHTML = `<button type="button" data-review-move="-1" ${ui.reviewStep === 0 ? "disabled" : ""}>上一題</button><button type="button" data-review-move="1" ${ui.reviewStep === 4 ? "disabled" : ""}>下一題</button>`;
       document.querySelectorAll("[data-review-move]").forEach((button) => button.addEventListener("click", () => { ui.reviewStep += Number(button.dataset.reviewMove); resetTime(); render(); }));
@@ -804,8 +825,9 @@
         const status = S.completeness(key, state.assessment.ans[key]);
         const label = status === "complete" ? "已完整" : status === "partial" ? "部分作答" : "未作答";
         return `<div class="review-item"><h3>${step + 1}. ${missionNameHtml(step)}</h3><p>${label}</p><button type="button" data-edit-step="${step}">修改第 ${step + 1} 題</button></div>`;
-      }).join("")}</div>`;
+      }).join("")}</div><div class="button-row final-review-actions"><button type="button" id="submitAttempt" class="primary-button">最後提交</button></div>`;
       document.querySelectorAll("[data-edit-step]").forEach((button) => button.addEventListener("click", () => { resetTime(); transitionSafely((next) => P.editMission(next, Number(button.dataset.editStep))); }));
+      document.getElementById("submitAttempt").addEventListener("click", () => dom.submitDialog.showModal());
       return;
     }
     if (!ui.result) return;
@@ -963,10 +985,6 @@
       const index = Number(rawIndex);
       changed = time !== probeList(line)[index];
       if (changed) probeList(line)[index] = time;
-    } else if (type === "faster") {
-      const value = point.x < 365 ? "A" : point.x < 495 ? "B" : "same";
-      changed = value !== currentAnswer().faster;
-      if (changed) currentAnswer().faster = value;
     } else return false;
     if (!changed && !(persist && dragMeta?.moved)) return false;
     if (changed) ui.unsaved = true;
@@ -1094,11 +1112,6 @@
       const max = line === "E" ? ui.time : 6;
       const index = Number(rawIndex);
       probeList(line)[index] = R.adjustByArrow(probeList(line)[index], event.key, 0.5, 0, max, event.shiftKey);
-    } else if (type === "faster") {
-      const values = ["A", "B", "same"];
-      const index = Math.max(0, values.indexOf(currentAnswer().faster));
-      const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
-      currentAnswer().faster = values[clamp(index + direction, 0, 2)];
     } else return;
     event.preventDefault();
     const focusKey = `drag:${target.dataset.drag}`;

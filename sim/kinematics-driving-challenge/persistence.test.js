@@ -134,6 +134,13 @@ roundTrip(complete, (restored) => assert(Scoring.scoreActivity(restored.selected
 const reviewEncoded = Persistence.makeReview(complete);
 const review = Persistence.decodeReview(reviewEncoded);
 assert(review && review.phase === "submitted");
+const partialReviewState = base({
+  phase: "review", variant: "incomplete", currentItem: "review",
+  selectedRuns: selectedThrough(4), graphCheckpoint: checkpoint(selectedThrough(4), true)
+});
+const partialReview = Persistence.decodeReview(Persistence.makeReview(partialReviewState));
+assert(partialReview && !partialReview.selectedRuns.level5, "a review with a missing level can be submitted");
+assert(Persistence.validateState(partialReview, true), "submitted partial review keeps safe locked invariants");
 const malformedReview = { ...review, currentItem: "level1" };
 assert.equal(Persistence.validateState(malformedReview, true), false, "review-only state keeps submitted invariants");
 assert.deepEqual(

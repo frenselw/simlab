@@ -103,9 +103,11 @@
   categories: ["Mechanics"],
   description: "按住油門與煞車，在平路和斜坡製造勻速、勻加速及勻減速，並用無數字運動圖像判斷表現。",
   tags: ["physics", "mechanics", "kinematics", "uniform-motion", "constant-acceleration", "driving", "scorm"],
-  status: "planned"
+  status: "active"
 }
 ```
+
+目錄狀態同步（2026-09-22）：以上 metadata 對應現行 `sim/config.js` 的 `active` 登記。文內 `planned` → `active` 規則描述首次開發的啟用條件；未勾選的驗收項目仍按原有證據保留，不因目錄啟用而視為完成，尤其不代表已通過真實 Moodle／實機手機驗收。
 
 - `folder`、活動目錄、manifest identifier、snapshot activity identifier 必須完全一致。
 - 未完成全部 package-ready checks 前保持 `planned`。
@@ -205,19 +207,24 @@
 啟動／恢復
 → 操作練習（不計分）
 → 自由選擇第 1–5 關
-→ 已有第 2 或第 3 關記錄後可做圖像證據 checkpoint
+→ 第 3 關完成後進入圖像證據 checkpoint（已有答案時直接進第 4 關）
+→ 已有第 2 或第 3 關記錄後也可從進度檢查開啟圖像證據 checkpoint
 → 提交前檢查
 → 最後確認
 → SCORM 提交
 → 鎖定回放與檢討
 ```
 
-活動開啟後直接顯示可操作的練習場景，不設裝飾 landing page。控制面板標題下方立即顯示第 1–5 關選擇器；五關由開始起全部可用，學生不需完成較早關卡、練習指定時間或累積按鍵次數才可跳關。這亦是教師快速測試個別關卡的正式入口。
+活動開啟後直接顯示可操作的練習場景，不設裝飾 landing page。頂部活動進度列的第 1–5 關按鈕是正式的快速切換入口；五關由開始起全部可用，學生不需完成較早關卡、練習指定時間或累積按鍵次數才可跳關。控制面板不重複放置橫向關卡選擇器，避免學生漏看關卡；面板底部提供順序操作及進度入口。
 
 - 選擇另一關時，解除目前踏板並捨棄尚未記錄的 candidate run；已記錄 run 保留；
-- 關卡選擇器清楚標示目前關卡及已記錄關卡；
+- 頂部第 1–5 關按鈕清楚標示目前關卡及已記錄關卡；
+- 頂部的 `圖像證據` 及 `檢查` 也是可直接進入的區段入口；圖像證據在尚未有第 2／3 關有效記錄時保持不可用並提示原因；
+- 控制面板底部顯示 `上一關`、`查看進度／提交` 及 `記錄並進入下一關`／`進入下一關`；最後一關改為進入提交前檢查；
+- 第 3 關按下一關時，若尚未完成 checkpoint，先進入圖像證據；確認答案後才進入第 4 關；已有 checkpoint 答案則直接進入第 4 關；
+- 控制面板底部的下一關按鈕是隨時可用的順序導航，不要求先完成或記錄當前關卡；轉關時捨棄未記錄試車，但保留已記錄表現；
 - `查看進度／提交` 在練習及任何正式關卡都可用；
-- 最終提交仍要求五關各有一個已記錄 run，並完成圖像 checkpoint。
+- 最終提交可在任何安全可驗證的 incomplete review 進行；未記錄關卡及未完成／未答的圖像 checkpoint 各按 0 分計算，已記錄部分照常評分。
 
 每個正式關卡使用同一循環：
 
@@ -358,7 +365,7 @@
 2. 試比較 `x–t` 與 `v–t` 圖。
 3. 比較哪些固定力度形成直線，哪些形成愈來愈斜或愈來愈平的曲線。
 
-第 1–5 關選擇器及 `查看進度／提交` 始終可用；例如學生可在首次開啟時直接進入第 2 關。
+頂部第 1–5 關快速切換按鈕及控制面板底部的 `查看進度／提交` 始終可用；例如學生可在首次開啟時直接進入第 2 關。
 
 ### 10.2 第 1 關：平路保持勻速（15 分）
 
@@ -435,6 +442,12 @@
 
 - 已記錄第 2 或第 3 關其中一個 run，並含足夠 scored samples；該 run 可以低分或方向錯誤，不要求先答對；
 - 學生在 checkpoint 內查看同一段記錄的 `x–t` 及 `v–t` 圖。
+
+順序流程：
+
+- 第 3 關按 `進入下一關` 時，若尚未有 checkpoint 答案，會先開啟本畫面；
+- 正常流程確認答案後進入第 4 關；由提交前檢查重新編輯 checkpoint 時，確認答案後返回提交前檢查；
+- 若 checkpoint 已回答，之後由第 3 關進入下一關會略過本畫面，避免重複作答。
 
 畫面：
 
@@ -673,6 +686,8 @@ SCORABLE_MIN_SPEED_M_S = 3
 ```
 
 駕駛操作共 90 分；圖像問題 10 分。只答對圖像問題不能接近合格。
+
+未記錄的關卡不阻止提交：其關卡分數為 0；未完成或未回答的圖像 checkpoint 亦為 0。若已記錄部分仍達到合格線，提交結果可以通過；否則按實際總分未通過。
 
 ### 13.2 權威 run
 
@@ -966,6 +981,8 @@ x–t 圖可顯示速度正在改變，但 v–t 圖更直接顯示變化率是�
 - 低高度時先縮小遠景及預覽卡，不建立舞台內垂直 scroller。
 - 駕駛中，兩個大型踏板組成 panel 內的 compact sticky control deck；
 - sticky deck 不遮住 panel 的最後內容，加入等高 bottom padding；
+- 頂部進度列的第 1–5 關按鈕是唯一的快速關卡選擇器，不在 control panel 內重複列出關卡按鈕；
+- control panel 最底部固定保留順序導覽區：`上一關`、`查看進度／提交` 及 `記錄並進入下一關` 類型的按鈕；下一關按鈕在沒有可記錄表現時停用；
 - 分析及 review 畫面解除不需要的 sticky 狀態，確保所有按鈕可到達。
 
 ### 16.3 桌面／平板
@@ -1223,9 +1240,9 @@ LEVEL_5_MAX_TICKS = 1200       # 60 s
 | `level` | `review-retry-briefing` | 0–4 | `returnToReview = true`；existing selected run retained | candidate replacement run | start replacement or return to review |
 | `level` | `review-retry-paused` | 0–4 | retained selected run；valid candidate replacement prefix；`returnToReview = true` | active pedal | resume, discard replacement, or return to review |
 | `level` | `review-retry-analysis` | 0–4 | retained selected run；legal-terminal candidate replacement；`returnToReview = true` | active pedal | accept replacement, retry, or keep previous and return |
-| `review` | `incomplete` | review | any valid subset of selected runs／checkpoint work | result metadata | open missing or completed item |
+| `review` | `incomplete` | review | any valid subset of selected runs／checkpoint work | result metadata | open missing or completed item, or submit current record with missing parts scored 0 |
 | `review` | `complete` | review | five selected runs；checkpoint answer | result metadata | edit or final submit |
-| `submitted` | `locked` | review | valid review snapshot sufficient to replay, rescore and redraw | editable controls | inspect locked replay and feedback |
+| `submitted` | `locked` | review | valid partial or complete review snapshot sufficient to replay, rescore and redraw | editable controls | inspect locked replay and feedback |
 
 Transitions:
 
@@ -1233,6 +1250,9 @@ Transitions:
 practice/ready -> practice/paused on persisted active practice
 practice/* -> level/briefing[any] on level-picker selection
 
+level/* -> level/briefing[next] on bottom next-level navigation; discard only the current unaccepted candidate,
+  preserve selected runs, and route level 3 through graph-check when required;
+  level 5 goes to review even when the activity is incomplete
 level/briefing -> level/paused when a candidate run is persisted
 level/briefing|paused -> level/analysis when the run reaches its legal end
 level/analysis -> level/accepted when learner records this run
@@ -1241,9 +1261,11 @@ practice/*|level/* -> level/briefing[any] on level-picker selection;
   discard only the current unaccepted candidate, preserve every selected run
 practice/*|level/* -> review/complete|incomplete on explicit progress navigation
 
-review/incomplete -> graph-check/exploring when level 2 or level 3 has an accepted source run
+level/accepted[level3] -> graph-check/exploring when no checkpoint answer exists and level 2 or level 3 has an accepted source run
 graph-check/exploring -> graph-check/answered after both graphs are viewed and answer confirmed
-graph-check/answered -> review/complete|incomplete
+graph-check/answered -> level/briefing[level4] on normal sequential flow
+graph-check/answered -> review/complete|incomplete on review edit
+review/incomplete -> graph-check/exploring when level 2 or level 3 has an accepted source run
 review/* -> graph-check/review-edit-exploring|review-edit-answered when learner edits checkpoint
 graph-check/review-edit-exploring -> graph-check/review-edit-answered after both graphs are viewed and answer confirmed
 graph-check/review-edit-answered -> review/complete|incomplete on explicit return,
@@ -1288,7 +1310,7 @@ Production 可使用短 key，但語意必須包括：
   currentItem,
   returnToReview,
   graphMode,
-  selectedRuns: {
+  selectedRuns: { // 只包含已記錄的合法 run，可為任意子集
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
     level3: { revision, tickCount, packedControls },
@@ -1320,7 +1342,7 @@ Absent／partial fields follow the phase matrix；不以空 object 代替語意�
   locked: 1,
   physicsVersion: 6,
   levelSetVersion: 8,
-  selectedRuns: {
+  selectedRuns: { // 只包含已記錄的合法 run，可為任意子集
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
     level3: { revision, tickCount, packedControls },
@@ -1599,7 +1621,7 @@ Invalid cases：
 - 替換 source run 清除 checkpoint 並令 review incomplete；
 - 替換 non-source run 保留 checkpoint；
 - graph-check review-edit exploring／answered 各自 round-trip 並合法返回 review；
-- complete review missing a level；
+- submitted review with malformed selected run or impossible checkpoint state；
 - `NaN`／Infinity or unsafe decoded model state；
 - unsupported physics／level version；
 - invalid finished review remains locked；
@@ -1637,6 +1659,11 @@ Invalid cases：
 - preview raw line equals replay samples；
 - analysis scrub changes only read-only view；
 - accepting and replacing runs use explicit actions。
+- 頂部第 1–5 關快速切換在開啟、駕駛、分析及 review-edit 情境均不在 control panel 產生重複關卡按鈕；
+- 頂部 `圖像證據` 及 `檢查` 按鈕可在可用狀態直接切換到相應區段；
+- control panel 底部的上一關、進度／提交及記錄並進入下一關按鈕依 phase 正確啟用、停用及轉換；第 5 關進入提交前檢查；
+- 第 3 關完成後按「進入下一關」先到圖像證據 checkpoint，確認後到第 4 關；已有 checkpoint 答案時可直接到第 4 關；
+- control panel 的下一關按鈕在正式關卡 briefing、駕駛、分析及已記錄狀態均可按；
 - 第 5 關每段逐一以其餘固定控制替換時均失分，完整活動不得四捨五入
   回 100 分；
 
@@ -1759,6 +1786,12 @@ Invalid cases：
 - 每關後有無數字回放、質性回饋及改善選擇。
 - 不同固定力度可產生水平直線、斜直線或曲線；學生要由 `v–t` 圖判斷。
 - 車停止後不倒後，第一版沒有負速度。
+- 頂部第 1–5 關按鈕可直接快速切換，control panel 不再以橫向滾動提供關卡選擇。
+- 頂部的「圖像證據」及「檢查」按鈕可直接進入相應區段。
+- control panel 底部可依序返回上一關、查看進度，並在表現可記錄時記錄後進入下一關。
+- 「進入下一關」不再要求完成活動才可按，未記錄的當前試車會在轉關時安全捨棄。
+- 第 3 關的下一關流程會先顯示圖像證據 checkpoint；確認後才進入第 4 關，避免學生跳過 10 分的圖像題。
+- incomplete review 仍可提交；缺少的關卡及圖像 checkpoint 在結果頁列明並按 0 分計算。
 
 ### 26.3 視覺
 

@@ -132,9 +132,11 @@
     "constant-acceleration",
     "scorm"
   ],
-  status: "planned"
+  status: "active"
 }
 ```
+
+目錄狀態同步（2026-09-22）：以上 metadata 對應現行 `sim/config.js` 的 `active` 登記。文內 `planned` → `active` 規則描述首次開發的啟用條件；未勾選的驗收項目仍按原有證據保留，不因目錄啟用而視為完成，尤其不代表已通過真實 Moodle／實機手機驗收。
 
 - `folder` 必須與 activity directory 及 manifest slug 完全相同。
 - package-ready 並獲批准後才把 `status` 改為 `active`。

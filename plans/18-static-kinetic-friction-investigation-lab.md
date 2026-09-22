@@ -192,9 +192,11 @@ tools/static-kinetic-friction-browser-regression.js
     "measurement",
     "scorm"
   ],
-  status: "planned"
+  status: "active"
 }
 ```
+
+目錄狀態同步（2026-09-22）：以上 metadata 對應現行 `sim/config.js` 的 `active` 登記。文內 `planned` → `active` 規則描述首次開發的啟用條件；未勾選的驗收項目仍按原有證據保留，不因目錄啟用而視為完成，尤其不代表已通過真實 Moodle／實機手機驗收。
 
 `folder`、活動資料夾、manifest identifier、snapshot activity identifier 必須完全相同。
 
@@ -425,6 +427,8 @@ Part A 內所有水平力箭頭的 line 都使用同一個物體幾何中心 `co
 ### 6.3 A3：逐步增加拉力，找出最大靜摩擦力
 
 完成 A2 後，物體中央的拉力繪圖 target 會直接開放。學生由物體中央按住並拖動拉力箭嘴；箭嘴由物體重心出發，箭嘴端點和拉力大小／方向即時跟隨手指／滑鼠，不設「向左試拉」、「向右試拉」或「重新試拉」按鈕。拖動期間的水平拉力取為重心至箭嘴端點的有向距離；放手代表拉力即時回到 `0 N`，物體不會被重置或突然停下，而會按當時速度及滑動摩擦力自然減速。學生可以在物體仍運動時重新按住物體，向相反方向施力；物體會按合力連續出現由靜止開始加速、勻速、減速及倒轉方向的運動：
+
+A3 拖動期間保留舞台提示文字，首次記錄臨界拉力後，待放手／取消拖動才更新提示，避免手機版提示高度改變令 SVG 縮放及箭嘴偏離手指。力與運動讀數照常即時更新。source／extracted SCORM 的 trusted-touch 回歸須檢查首次滑動前後 SVG 邊界不變、箭嘴跟隨觸點，以及放手後顯示新的提示。
 
 ```js
 breakawayThresholdCN = Math.ceil(staticLimitMeanN * 10) * 10;
@@ -1603,6 +1607,7 @@ const FRICTION_PAIRS = [
 5. breakaway 峰值可在圖上清楚辨認
 6. 所有預測情境值可顯示至 0.1 N 而不產生邊界歧義
 7. breakaway 後穩定拉力平台的平均值可重現
+```
 
 Part A 額外生成：
 

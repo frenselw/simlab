@@ -133,6 +133,16 @@ assert.equal(perfect.score, 100, "production replay and scoring produce the atta
 assert.equal(perfect.maxScore, 100);
 assert.equal(perfect.passed, true);
 
+const partialRuns = { ...perfectRuns };
+delete partialRuns.level5;
+const partial = Scoring.scoreActivity(partialRuns, {
+  viewedXt: false, viewedVt: false, answerId: null
+});
+assert.equal(partial.levelResults[4].missing, true, "a missing level remains visible in the submitted result");
+assert.equal(partial.levelResults[4].points, 0, "a missing level contributes zero points");
+assert.equal(partial.levelResults[4].maxPoints, 20);
+assert.equal(partial.checkpointPoints, 0, "an unanswered checkpoint contributes zero points");
+
 const exactPassRuns = {
   ...perfectRuns,
   level1: { codes: terminalCodes(Levels.levelById("level1"), () => 5) },

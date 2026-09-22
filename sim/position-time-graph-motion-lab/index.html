@@ -72,7 +72,7 @@
             <div id="presetControls" class="preset-grid"></div>
           </section>
 
-          <section class="panel-section">
+          <section id="playbackSection" class="panel-section">
             <h2 class="section-title">播放及讀圖</h2>
             <div class="button-grid playback-grid">
               <button id="playButton" type="button">播放</button>
@@ -98,8 +98,10 @@
           </section>
 
           <section class="panel-section">
-            <h2 class="section-title">即時數據</h2>
-            <div id="dataGrid" class="data-grid math-data" aria-live="off"></div>
+            <div id="dataSection">
+              <h2 class="section-title">即時數據</h2>
+              <div id="dataGrid" class="data-grid math-data" aria-live="off"></div>
+            </div>
             <div id="liveStatus" class="status-text muted" aria-live="polite">準備完成。</div>
           </section>
 

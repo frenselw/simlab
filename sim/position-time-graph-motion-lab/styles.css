@@ -186,12 +186,13 @@
 .is-locked .drag-hit { pointer-events: none; }
 
 .velocity-line {
-  stroke-width: 5;
-  stroke-linecap: round;
+  fill: currentColor;
+  stroke: none;
+  shape-rendering: geometricPrecision;
 }
 
-.car-a .velocity-line { stroke: var(--car-a); }
-.car-b .velocity-line { stroke: var(--car-b); }
+.car-a .velocity-line { color: var(--car-a); }
+.car-b .velocity-line { color: var(--car-b); }
 .position-guide {
   stroke-width: 2;
   stroke-dasharray: 6 5;
@@ -238,7 +239,8 @@
 }
 .car-a .velocity-zero-marker { stroke: var(--car-a); }
 .car-b .velocity-zero-marker { stroke: var(--car-b); }
-.velocity-magnitude-label {
+.velocity-magnitude-label,
+.velocity-symbol-label {
   font-size: 13px;
   font-weight: 700;
   paint-order: stroke;
@@ -333,8 +335,7 @@
   filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.85));
 }
 
-[data-drag]:focus-visible,
-.faster-token:focus-visible {
+[data-drag]:focus-visible {
   outline: none;
   filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.95));
 }
@@ -351,10 +352,6 @@
 .student-line { stroke: var(--student-line); }
 .current-dot { fill: #ffffff; stroke-width: 4; }
 .time-cursor { stroke: #dc2626; stroke-width: 2; stroke-dasharray: 5 5; }
-
-.faster-zone { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; }
-.faster-zone.is-selected { fill: #dcfce7; stroke: #15803d; stroke-width: 3; }
-.faster-token { fill: #ffffff; stroke: #334155; stroke-width: 2; cursor: grab; }
 
 .lab-panel {
   min-height: 0;
@@ -529,6 +526,14 @@
   margin-top: 0.8rem;
 }
 
+.choice-grid button[aria-pressed="true"] {
+  border-color: #15803d;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px rgba(21, 128, 61, 0.16);
+}
+
 .playback-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -615,6 +620,10 @@
 .feedback-list {
   display: grid;
   gap: 0.65rem;
+}
+
+.final-review-actions {
+  margin-top: 1rem;
 }
 
 .review-item h3,
@@ -714,7 +723,8 @@ dialog h2 { margin-top: 0; }
   .lab-svg .tick-label { font-size: 28px; }
   .lab-svg .axis-label { font-size: 32px; stroke-width: 8px; }
   .lab-svg .svg-label { font-size: 21px; }
-  .lab-svg .velocity-magnitude-label { font-size: 18px; }
+  .lab-svg .velocity-magnitude-label,
+  .lab-svg .velocity-symbol-label { font-size: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

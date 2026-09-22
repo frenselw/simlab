@@ -1523,12 +1523,14 @@ async function freeLevelSelection(cdp, baseUrl, activityPath, label) {
   await waitFor(cdp, "document.getElementById('panelTitle')?.textContent.includes('操作練習')", `${label} free level picker`);
   const before = await evaluate(cdp, `(() => {
     const buttons=Array.from(document.querySelectorAll('[data-pick-level]'));
+    const panelButtons=Array.from(document.getElementById('controlPanel').querySelectorAll('[data-pick-level]'));
     const target=document.querySelector('[data-pick-level="level2"]'),r=target.getBoundingClientRect();
     window.__levelPickEvents=[];
     target.addEventListener('click',e=>window.__levelPickEvents.push({trusted:e.isTrusted}));
-    return {count:buttons.length,allEnabled:buttons.every(button=>!button.disabled),x:r.left+r.width/2,y:r.top+r.height/2};
+    return {count:buttons.length,panelCount:panelButtons.length,allEnabled:buttons.every(button=>!button.disabled),x:r.left+r.width/2,y:r.top+r.height/2};
   })()`);
   assert.equal(before.count, 5, `${label}: all five levels are present at startup`);
+  assert.equal(before.panelCount, 0, `${label}: level quick-switch buttons are not duplicated in the control panel`);
   assert.equal(before.allEnabled, true, `${label}: all five levels are enabled at startup`);
   await touch(cdp, before.x, before.y, before.x, before.y, 40, 41);
   await waitFor(cdp, "document.getElementById('panelKicker')?.textContent.includes('第 2 關')", `${label} direct level 2 navigation`);

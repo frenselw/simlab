@@ -128,8 +128,19 @@
       zone.summary && zone.summary.duration + 1e-9 >= MIN_EVIDENCE_S
     ));
   }
+  function missingLevelResult(level) {
+    const zones = Levels.scoredZones(level).map((zone) => zoneResult(zone, 0, 0, "missing"));
+    return {
+      levelId: level.id, terminal: "missing", zones,
+      points: 0, maxPoints: zones.reduce((sum, zone) => sum + zone.maxPoints, 0),
+      run: null, missing: true
+    };
+  }
   function scoreActivity(selectedRuns, checkpoint) {
-    const levelResults = Levels.LEVELS.map((level) => scoreRun(level, selectedRuns?.[level.id]?.codes || []));
+    const levelResults = Levels.LEVELS.map((level) => {
+      const selected = selectedRuns?.[level.id];
+      return selected ? scoreRun(level, selected.codes) : missingLevelResult(level);
+    });
     if (levelResults.some((result) => !result)) return null;
     const raw = levelResults.reduce((sum, result) => sum + result.points, 0) + checkpointPoints(checkpoint);
     const score = Math.max(0, Math.min(100, Math.round(raw)));
@@ -154,6 +165,7 @@
     if (kind === "speeding-up") return "圖線持續向上，表示車仍在加速，未能保持勻速。";
     if (kind === "slowing-down") return "圖線持續向下，表示車仍在減速，未能保持勻速。";
     if (kind === "incomplete") return "方向正確，但未完成整個計分路段。";
+    if (kind === "missing") return "本關尚未記錄，該關按 0 分計算。";
     return "速度變化方向大致正確，但 v–t 圖的斜率仍有明顯變化。";
   }
 

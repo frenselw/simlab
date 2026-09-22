@@ -55,9 +55,11 @@
   categories: ["Mechanics"],
   description: "透過承托、懸掛畫鉛垂線和旋轉立體，從實驗證據找出一維、二維及三維物體的重心。",
   tags: ["physics", "mechanics", "centre-of-mass", "balance", "suspension", "scorm"],
-  status: "planned"
+  status: "active"
 }
 ```
+
+目錄狀態同步（2026-09-22）：以上 metadata 對應現行 `sim/config.js` 的 `active` 登記。文內 `planned` → `active` 規則描述首次開發的啟用條件；未勾選的驗收項目仍按原有證據保留，不因目錄啟用而視為完成，尤其不代表已通過真實 Moodle／實機手機驗收。
 
 - [ ] `folder` 與活動資料夾、manifest slug 完全一致且不重複。
 - [ ] learner-facing 文案使用繁體中文。

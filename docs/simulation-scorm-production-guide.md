@@ -419,8 +419,57 @@ Tolerance:
   attempts there.
 - On loading an already finished attempt, read Moodle state and show the saved
   review state instead of reopening the task for editing.
-- Keep a local fallback for Live Server. Without Moodle, log SCORM values so the
-  same submission path can still be checked.
+- Keep a local fallback for Live Server. Without Moodle, the default fallback
+  logs SCORM values in memory; reload persistence requires the explicit opt-in
+  below. Both use the same submission path.
+
+### Optional standalone persistence
+
+Activities that need draft/review restoration outside Moodle opt in once during
+startup, before `loadAttempt()`:
+
+```js
+const storage = SimScorm.enableStandalonePersistence(ACTIVITY);
+const attempt = SimScorm.loadAttempt(ACTIVITY);
+const startupState = SimActivityFlow.startup(attempt);
+```
+
+`storage` reports `available`, `read-only`, or `unavailable` at initialization;
+it is not proof that a later save succeeded. A detected LMS remains the authority
+for Moodle attempts. The standalone store is used only by the no-LMS fallback.
+Use the same activity identifier for startup, snapshots, and local reset.
+
+- Continue to save through the shared snapshot/draft/submission APIs; do not
+  write individual SCORM fields or localStorage keys inside the activity.
+- The shared runtime stages local values and commits one checkpoint bundle at
+  `simlab:<activity>:checkpoint`. It can read legacy per-field keys, but new
+  commits use the bundle so answer, score, and status stay together. localStorage
+  belongs to the browser origin; changing the development host or port changes
+  the store available to the page.
+- If storage is unavailable from the outset and no durable attempt exists, the
+  fallback may be memory-only. Explain that reload recovery is unavailable;
+  do not label this as a durable local save or a Moodle submission.
+- Read failures/corrupt checkpoints must follow the startup error gate rather
+  than silently opening a blank attempt. Read-only storage may restore existing
+  evidence but cannot promise new durable saves. A failed durable transaction
+  must not be downgraded to memory-only success: preserve the pending/locked
+  state and follow the shared submission outcome.
+- To reset a standalone attempt through a learner-confirmed action, call
+  `SimScorm.clearStandaloneAttempt(ACTIVITY)` and require a `true` result before
+  reloading into a fresh activity. A `false` result is a clear failure; keep a
+  technical message instead of claiming the old attempt was removed. Reload
+  reinitializes the shared runtime's submission/finish state. The helper removes
+  the local checkpoint and legacy keys; it does not clear a Moodle attempt.
+- Only offer this reset in a standalone context and in the phases allowed by the
+  activity plan. A completed Moodle attempt remains review-only; a new LMS
+  attempt must come from Moodle. Invalid-draft recovery likewise needs an
+  explicit plan-defined clear/overwrite path.
+
+The production opt-in is used by `sim/force-orthogonal-decomposition/main.js`.
+Shared storage failure/restore coverage lives in `sim/shared/scorm.test.js`;
+activities must still test their own startup, draft restoration, pending retry,
+finished review, and reset behavior. Define the standalone storage policy and
+reset phases in the activity plan rather than assuming every simulation opts in.
 
 ## Mandatory shared lifecycle flow
 

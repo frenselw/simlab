@@ -7,7 +7,7 @@ const context = { phase: "mission", step: 2, locked: false, technical: false, pl
 assert.equal(Ui.dragAllowed("car:A", context), false, "fixed mission 3 car rejects pointer and keyboard drag");
 assert.equal(Ui.dragAllowed("velocity:B", context), false, "fixed mission 3 velocity rejects pointer and keyboard drag");
 assert.equal(Ui.dragAllowed("probe:A:0", context), true, "mission 3 probe remains interactive");
-assert.equal(Ui.dragAllowed("faster", context), true, "mission 3 comparison token remains interactive");
+assert.equal(Ui.dragAllowed("faster", context), false, "mission 3 comparison answer is control-panel-only");
 assert.equal(Ui.dragAllowed("car:B", { ...context, step: 4 }), true, "only learner B car is interactive in mission 5");
 assert.equal(Ui.dragAllowed("car:A", { ...context, step: 4 }), false, "fixed A car is never interactive in mission 5");
 assert.equal(Ui.dragAllowed("graph:xStart", { ...context, step: 1 }), true, "mission 2 graph point is interactive");
