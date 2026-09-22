@@ -45,7 +45,7 @@
       <svg id="diagram" class="force-diagram" viewBox="0 0 560 360" preserveAspectRatio="xMidYMid meet" role="img" aria-describedby="stageDescription"></svg>
       <div id="stageHits" class="stage-hits" aria-label="作圖起筆及編輯區">
         <button id="originHit" class="stage-hit origin-hit" type="button" hidden aria-hidden="true" aria-label="由共同起點 O 開始作圖" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
-        <button id="pointHit" class="stage-hit point-hit" type="button" hidden aria-hidden="true" aria-label="由原力箭嘴頭開始畫垂線" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
+        <button id="pointHit" class="stage-hit point-hit" type="button" hidden aria-hidden="true" aria-label="由原力箭嘴頂點 P 開始畫垂線" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
         <button id="thetaHit" class="theta-hit" data-theta-state="unplaced" type="button" hidden aria-hidden="true" aria-label="拖動 θ 到角弧候選位置" aria-keyshortcuts="Enter ArrowLeft ArrowRight Escape">θ</button>
         <button id="directionEdit0" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="0" type="button" hidden aria-label="調整第一條方向虛線"></button>
         <button id="directionEdit1" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="1" type="button" hidden aria-label="調整第二條方向虛線"></button>
@@ -135,7 +135,7 @@
             <button id="nextButton" class="primary-button wide-button" type="button">進入下一步</button>
             <button id="resetButton" class="danger-button wide-button" type="button">重設本題</button>
           </div>
-          <p class="control-note">畫好的箭頭或虛線可直接拖動調整。上一步／下一步保留作圖；只有「重畫」會清除目前步驟及其後的內容。</p>
+          <p class="control-note">畫好的箭頭或虛線可直接拖動調整。上一步／下一步保留作答；「重畫」會清除目前步驟及其後的內容，「清空」只清除指定公式，「重設本題」會清除本題全部作答。</p>
         </section>
 
         <button id="goSummary" type="button" class="primary-button wide-button summary-open-button">前往提交前檢查</button>

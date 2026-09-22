@@ -162,7 +162,7 @@
   function currentQuestionIndex() { return activity.currentQuestion; }
 
   const PHASE_COPY = Object.freeze({
-    perpendiculars: "由原力箭嘴頭拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
+    perpendiculars: "由原力箭嘴頂點 P 拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
     components: "由 O 拖出兩支分力。畫歪了可直接拖動分力箭頭調整方向及長度，接近交點時會吸附。",
     angle: "",
     formulas: "按圖中 θ 的位置，用 sin θ 或 cos θ 表示兩個分力的大小。原力大小會按題目顯示，不需要計算數值。"
@@ -639,6 +639,7 @@
     drawNode(worldLayer, sceneForceHead(), "force-node", 5);
     dom.diagram.appendChild(worldLayer);
     drawScreenText(labelLayer, { x: sceneOrigin().x - 24, y: sceneOrigin().y - 12 }, "O", "scene-label", { "data-label": "origin" });
+    drawScreenText(labelLayer, M.add(sceneForceHead(), { x: 14, y: 12 }), "P", "scene-label", { "data-label": "force-head" });
     const forceVector = M.subtract(sceneForceHead(), sceneOrigin());
     const forceUnit = M.normalize(forceVector) || { x: 1, y: 0 };
     const isGravityScene = activeScene().id === "inclined-gravity";
@@ -791,7 +792,7 @@
     dom.originHit.dataset.dragKind = phase === "components" ? "component" : "direction";
 
     const pointActive = phase === "perpendiculars" && state.perpendiculars.length < 2;
-    setHitVisibility(dom.pointHit, pointActive, "由原力箭嘴頭開始畫垂線");
+    setHitVisibility(dom.pointHit, pointActive, "由原力箭嘴頂點 P 開始畫垂線");
     setHitPosition(dom.pointHit, sceneForceHead());
     dom.pointHit.dataset.dragKind = "perpendicular";
 
@@ -851,7 +852,7 @@
   }
 
   function sceneKindLabel(scene) {
-    return scene.id === "inclined-gravity" ? "斜面傾角 θ 已給定" : scene.plane ? "有厚度斜面／固定原力" : "固定原力 F";
+    return scene.id === "inclined-gravity" ? "斜面傾角 θ 已給定" : scene.plane ? "平行／垂直斜面分解" : "原力 F 固定";
   }
 
   function renderSceneHeader(scene, { review = false } = {}) {
@@ -861,11 +862,11 @@
     dom.questionType.textContent = review
       ? `第 ${activity.currentQuestion + 1} 題／已提交作答`
       : `第 ${activity.currentQuestion + 1} 題／目前情境`;
-    setMathText(dom.questionScenarioBadge, `${scene.forceSymbol}：${sceneKindLabel(scene)}`);
+    setMathText(dom.questionScenarioBadge, sceneKindLabel(scene));
     setMathText(dom.questionPrompt, questionPrompt(scene));
     if (review) {
       dom.questionCounter.textContent = "已提交／3 題";
-      dom.attemptStatus.textContent = "review-only，作答已鎖定";
+      dom.attemptStatus.textContent = "只供查閱，作答已鎖定";
       dom.stageStepLabel.textContent = "唯讀";
       setMathText(dom.stepPrompt, "已提交作答；舞台只供查看，不能再修改圖形。");
       dom.phaseSteps.querySelectorAll("[data-phase]").forEach(item => { item.dataset.state = "review"; });

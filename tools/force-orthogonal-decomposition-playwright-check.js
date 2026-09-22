@@ -466,6 +466,7 @@ async page => {
       assert((await appState()).directions.length === 2, `${label}: touch navigation setup created two directions`);
       await touchTap(page.locator("#stageNextButton"));
       assert((await appState()).phase === "perpendiculars", `${label}: real touch tap activates stage next button`);
+      assert(await page.locator('#diagram [data-label="force-head"]').textContent() === "P", `${label}: the point named by the instructions is labelled on every scene`);
       const unobstructed = await page.evaluate(() => {
         const nav = document.querySelector(".stage-navigation").getBoundingClientRect();
         const caption = document.querySelector(".stage-caption").getBoundingClientRect();

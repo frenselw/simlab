@@ -110,7 +110,7 @@
       complete: raw === 100,
       groups,
       components: groups.flatMap(group => group.items),
-      feedback: groups.filter(group => !group.correct).map(group => `${group.label} ${group.earned}/${group.points}`).join("；") || "五組均完成"
+      feedback: groups.filter(group => !group.correct).map(group => `${group.label} ${group.earned}/${group.points}`).join("；") || "五部分均正確"
     };
   }
 

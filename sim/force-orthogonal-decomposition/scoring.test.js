@@ -32,6 +32,7 @@ for (const question of activity.questions) {
   assert.deepEqual(detail.groups.map(group => group.points), [20, 20, 20, 20, 20]);
   assert.equal(detail.groups.find(group => group.key === "theta").items.length, 1);
   assert.equal(detail.groups.every(group => group.correct), true);
+  assert.equal(detail.feedback, "五部分均正確", "full marks describe correctness rather than mere completion");
 }
 
 const partial = P.clone(activity);

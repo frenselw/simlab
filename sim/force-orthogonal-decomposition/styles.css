@@ -314,7 +314,7 @@ body {
 .stage-caption span:last-child { color: var(--color-text-muted); }
 .attempt-header { display: grid; gap: .2rem; justify-items: end; text-align: right; }
 .attempt-header span { color: var(--color-text-muted); font-size: .78rem; }
-.practice-heading { display: flex; justify-content: space-between; gap: .8rem; align-items: start; }
+.practice-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .8rem; align-items: start; }
 .practice-heading h2 { margin: 0; font-size: 1.08rem; }
 .scenario-badge { padding: .25rem .45rem; border: 1px solid #bfdbfe; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: .72rem; white-space: nowrap; }
 .task-copy { line-height: 1.55; }
