@@ -188,7 +188,7 @@ class FakeDocument {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 
-const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "roadTouchPreviewHost", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataGrid", "liveStatus", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
+const ids = ["modeDescription", "phaseBadge", "roadSvg", "roadDesc", "roadLayer", "roadTouchPreviewHost", "graphSvg", "graphLayer", "graphTouchPreviewHost", "graphSummary", "labUpperScroll", "labPanel", "taskSection", "taskKicker", "taskTitle", "answerState", "taskInstruction", "setupSection", "motionControls", "presetControls", "playbackSection", "playButton", "stepButton", "replayButton", "timeSlider", "timeOutput", "answerSection", "answerControls", "probeSection", "probeControls", "dataSection", "dataGrid", "liveStatus", "navigationSection", "navigationControls", "resultSection", "resultPanel", "startDialog", "confirmStart", "submitDialog", "confirmSubmit"];
 const document = new FakeDocument(ids);
 let submitCalls = 0;
 let finishCalls = 0;
@@ -227,6 +227,8 @@ const stylesSource = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8")
 assert.doesNotMatch(source, /__SIMLAB_POSITION_TIME_TEST_SEED__/, "production main has no fixed-seed test hook");
 assert.match(indexSource, /id="roadSvg"[^>]+viewBox="0 0 800 145"/, "road SVG crops unused space below its final tick label");
 assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time reset button says exactly what it does instead of implying immediate replay");
+assert.match(indexSource, /<section id="playbackSection" class="panel-section">[\s\S]*播放及讀圖/, "playback controls have a dedicated section for final-review visibility");
+assert.match(indexSource, /<div id="dataSection">[\s\S]*即時數據[\s\S]*id="dataGrid"/, "live data has a dedicated wrapper for final-review visibility");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
 assert.match(indexSource, /id="labUpperScroll"[\s\S]*<header class="sim-header compact-header">[\s\S]*<section class="sim-stage lab-stage"/, "mobile upper scroller owns the header and complete stage as one region");
 assert.match(indexSource, /<div id="roadTouchPreviewHost" class="diagram-magnifier-host road-magnifier-host" aria-hidden="true" hidden><\/div>/, "road touch magnifier uses an overlay outside the source road SVG");
@@ -258,6 +260,7 @@ assert.match(stylesSource, /@media \(max-width: 420px\)[\s\S]*\.phase-badge\s*\{
 assert.doesNotMatch(source, /window\.scrollTo/, "mission changes manage the owned scroll regions instead of the embedding window");
 assert.doesNotMatch(stylesSource, /\.math-data\s*\{\s*grid-template-columns:\s*1fr;\s*\}/, "mobile live data keeps the compact two-column grid");
 assert.match(stylesSource, /\.probe-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)/s, "probe actions share one compact row");
+assert.match(stylesSource, /\.choice-grid button\[aria-pressed="true"\]\s*\{[^}]*background:\s*#dcfce7/s, "selected mission 3 comparison choice is visibly highlighted in the control panel");
 assert.match(stylesSource, /\.task-section\[data-mode="mission"\]\s*\{[^}]*border-left:\s*5px solid var\(--color-accent\)/s, "assessment task card has a strong accent edge");
 assert.match(source, /function currentSet\(\)\s*\{[^}]*P\.scenariosForDisplay\(state\.assessment\)/, "production display path uses the admitted scenario cache");
 vm.runInNewContext(source, {
@@ -362,8 +365,15 @@ for (const initialVelocity of [0, 0.5, -0.5]) {
   const hit = velocityHitState();
     assert.equal(hit.carContainsVelocityCenter, true, `v=${initialVelocity} velocity and car hit targets overlap`);
     assert.equal(hit.top, "velocity:A", `v=${initialVelocity} velocity target is topmost in production SVG paint order`);
-    const velocityVisual = initialVelocity === 0 ? 'class="velocity-zero-marker"' : 'class="velocity-arrowhead"';
-    assert.ok(hit.layer.innerHTML.includes(velocityVisual), `v=${initialVelocity} velocity visual remains present with semantic hit arbitration`);
+    const velocityVisual = initialVelocity === 0
+      ? hit.layer.querySelector(".velocity-zero-marker")
+      : hit.layer.querySelector(".velocity-arrowhead");
+    assert.ok(velocityVisual, `v=${initialVelocity} velocity visual remains present with semantic hit arbitration`);
+    if (initialVelocity !== 0) {
+      assert.equal(velocityVisual.tagName, "PATH", `v=${initialVelocity} velocity uses one continuous arrow path`);
+      assert.equal(hit.layer.querySelectorAll(".velocity-line").length, 1, `v=${initialVelocity} has no separate shaft element`);
+      assert.match(velocityVisual.getAttribute("d"), /M .* L .* L .* L .* L .* L .* L .* Z/, `v=${initialVelocity} arrow path includes a continuous shaft and head`);
+    }
     assert.ok(hit.layer.innerHTML.includes('class="velocity-magnitude-label'), `v=${initialVelocity} renders a visible velocity-magnitude label`);
     assert.ok(hit.layer.innerHTML.includes(`>|v|=${Math.abs(initialVelocity).toFixed(1)} m/s</text>`), `v=${initialVelocity} label shows the unsigned speed with units`);
     document.getElementById("roadSvg").dispatch("pointerdown", { target: hit.velocity, pointerId: 7, clientX: hit.x, clientY: hit.y });
@@ -395,7 +405,7 @@ assert.equal(document.activeElement?.dataset.drag, "velocity:A", "consecutive ke
 setVelocity(1);
 document.getElementById("timeSlider").value = "0.5";
 document.getElementById("timeSlider").dispatch("input");
-assert.ok(document.getElementById("roadLayer").innerHTML.includes('class="velocity-arrowhead"'), "velocity arrow remains visible after motion starts");
+assert.equal(document.getElementById("roadLayer").querySelector(".velocity-arrowhead")?.tagName, "PATH", "velocity arrow remains visible as one continuous path after motion starts");
 assert.equal(document.querySelectorAll("[data-drag]").some((element) => element.dataset.drag === "velocity:A"), false, "moving velocity arrow is read-only");
 document.getElementById("timeSlider").value = "0";
 document.getElementById("timeSlider").dispatch("input");
@@ -561,7 +571,26 @@ one('[data-set-quantity="xEnd"]').click();
 assert.equal(savedDrafts.at(-1).answer.a.ans.m2.xEnd, 0, "mission 2 saves an explicitly confirmed zero endpoint");
 
 one("#nextMission").click();
-assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 490", "mission 3 restores the height needed by its graph comparison control");
+assert.equal(document.getElementById("graphSvg").getAttribute("viewBox"), "0 0 800 440", "mission 3 keeps the compact graph height when comparison choices live in the control panel");
+const missionThreeRoad = document.getElementById("roadLayer").innerHTML;
+assert.equal(missionThreeRoad.includes('class="velocity-magnitude-label'), false, "mission 3 road hides numeric speed labels");
+assert.equal(missionThreeRoad.includes("|v|="), false, "mission 3 road does not expose numerical speed values");
+assert.equal((missionThreeRoad.match(/class="velocity-symbol-label/g) || []).length, 2, "mission 3 road labels both arrows with velocity symbols");
+assert.ok(missionThreeRoad.includes('<tspan class="svg-math-symbol">v</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">A</tspan>'), "mission 3 road labels car A with v_A");
+assert.ok(missionThreeRoad.includes('<tspan class="svg-math-symbol">v</tspan><tspan class="svg-numeric-subscript" baseline-shift="sub">B</tspan>'), "mission 3 road labels car B with v_B");
+const missionThreeArrows = document.getElementById("roadLayer").querySelectorAll(".velocity-arrowhead");
+const arrowCenterY = (arrow) => Number(arrow.getAttribute("d").match(/^M [^ ]+ [^ ]+ L [^ ]+ [^ ]+ L [^ ]+ [^ ]+ L [^ ]+ ([^ ]+)/)[1]);
+assert.equal(arrowCenterY(missionThreeArrows[0]), 66, "mission 3 A arrow keeps its reference vertical position");
+assert.equal(arrowCenterY(missionThreeArrows[1]), 19, "mission 3 B arrow sits the same distance above its car as A");
+assert.equal(arrowCenterY(missionThreeArrows[0]) - arrowCenterY(missionThreeArrows[1]), 47, "mission 3 A and B arrow offsets follow their matching car lanes");
+assert.ok(document.getElementById("roadDesc").textContent.includes("速度數值需由 x–t 圖量度"), "mission 3 road description directs learners to measure speed from the graph");
+assert.equal(document.getElementById("graphLayer").querySelectorAll(".faster-zone").length, 0, "mission 3 graph has no comparison target zones");
+assert.equal(document.getElementById("graphLayer").querySelectorAll(".faster-token").length, 0, "mission 3 graph has no comparison token");
+assert.equal(document.getElementById("graphLayer").querySelectorAll('[data-drag="faster"]').length, 0, "mission 3 graph has no comparison drag target");
+assert.equal(document.querySelectorAll("[data-faster]").length, 3, "mission 3 exposes three comparison choices in the control panel");
+one("[data-faster]", (element) => element.dataset.faster === "B").click();
+assert.equal(one("[data-faster]", (element) => element.dataset.faster === "B").getAttribute("aria-pressed"), "true", "selected mission 3 comparison choice is marked pressed");
+assert.equal(one("[data-faster]", (element) => element.dataset.faster === "A").getAttribute("aria-pressed"), "false", "unselected mission 3 comparison choice is not marked pressed");
 assert.ok(document.getElementById("probeControls").innerHTML.includes("加入 P、Q 兩個探針"), "mission 3 introduces the two neutral probes");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 A 車第一個探針</button>"), "mission 3 initially tells students to add the first A probe");
 assert.ok(document.getElementById("probeControls").innerHTML.includes(">加入 B 車第一個探針</button>"), "mission 3 initially tells students to add the first B probe");
@@ -746,6 +775,12 @@ assert.equal(generatedTrustedReview.querySelectorAll("[data-drag]").length, 0, "
 
 const generatedDraftCase = runProductionLifecycle({ attempt: { state: "draft", snapshot: { answer: generatedFinalDraft } } });
 assert.ok(generatedDraftCase.document.getElementById("submitAttempt"), "generated final-review draft restores its legal submit continuation");
+assert.equal(generatedDraftCase.document.getElementById("playbackSection").hidden, true, "final-review hides the playback and graph-reading controls");
+assert.equal(generatedDraftCase.document.getElementById("dataSection").hidden, true, "final-review hides the live data panel");
+assert.equal(generatedDraftCase.document.getElementById("navigationSection").hidden, true, "final-review leaves no separate navigation section above the results");
+const finalReviewMarkup = generatedDraftCase.document.getElementById("resultPanel").innerHTML;
+assert.ok(finalReviewMarkup.indexOf('class="review-list"') < finalReviewMarkup.indexOf('id="submitAttempt"'), "final-review places the final-submit button below all five completion results");
+assert.equal(generatedDraftCase.document.getElementById("navigationControls").innerHTML.includes("submitAttempt"), false, "final-review does not duplicate the final-submit button in navigation");
 assert.equal(typeof generatedDraftCase.draftProvider, "function", "generated restored draft registers the production draft provider");
 for (const id of ["playButton", "stepButton", "replayButton", "timeSlider"]) {
   assert.equal(generatedDraftCase.document.getElementById(id).disabled, true, `generated final-review disables ${id}`);
@@ -753,6 +788,9 @@ for (const id of ["playButton", "stepButton", "replayButton", "timeSlider"]) {
 generatedDraftCase.document.getElementById("stepButton").click();
 assert.equal(generatedDraftCase.document.getElementById("timeSlider").value, "0", "disabled final-review playback cannot advance time even through a synthetic click");
 generatedDraftCase.document.querySelector("[data-edit-step]").click();
+assert.equal(generatedDraftCase.document.getElementById("playbackSection").hidden, false, "editing from final-review restores the playback controls");
+assert.equal(generatedDraftCase.document.getElementById("dataSection").hidden, false, "editing from final-review restores the live data panel");
+assert.equal(generatedDraftCase.document.getElementById("navigationSection").hidden, false, "editing from final-review restores mission navigation");
 for (const id of ["playButton", "replayButton", "timeSlider"]) {
   assert.equal(generatedDraftCase.document.getElementById(id).disabled, false, `editing from final-review re-enables ${id}`);
 }

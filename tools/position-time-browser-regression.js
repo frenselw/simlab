@@ -1171,6 +1171,29 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   await dragRoadControl("car:B", 33, "mission 5 B car");
   await dragRoadControl("velocity:B", 34, "mission 5 B velocity");
 
+  await evaluate(cdp, `document.getElementById('nextMission').click()`);
+  await delay(80);
+  const finalReviewLayout = await evaluate(cdp, `(() => {
+    const resultPanel = document.getElementById('resultPanel');
+    const markup = resultPanel.innerHTML;
+    return {
+      kicker: document.getElementById('taskKicker').textContent,
+      playbackHidden: document.getElementById('playbackSection').hidden,
+      dataHidden: document.getElementById('dataSection').hidden,
+      navigationHidden: document.getElementById('navigationSection').hidden,
+      submitInResult: Boolean(resultPanel.querySelector('#submitAttempt')),
+      submitInNavigation: Boolean(document.getElementById('navigationControls').querySelector('#submitAttempt')),
+      submitAfterResults: markup.indexOf('class="review-list"') < markup.indexOf('id="submitAttempt"')
+    };
+  })()`);
+  assert.match(finalReviewLayout.kicker, /五題完成狀態/, `${width}x${height}: final review shows the five-question completion page`);
+  assert.equal(finalReviewLayout.playbackHidden, true, `${width}x${height}: final review hides playback and graph-reading controls`);
+  assert.equal(finalReviewLayout.dataHidden, true, `${width}x${height}: final review hides live data`);
+  assert.equal(finalReviewLayout.navigationHidden, true, `${width}x${height}: final review hides the separate navigation section`);
+  assert.equal(finalReviewLayout.submitInResult, true, `${width}x${height}: final submit button is inside the result panel`);
+  assert.equal(finalReviewLayout.submitInNavigation, false, `${width}x${height}: final submit button is not duplicated above the results`);
+  assert.equal(finalReviewLayout.submitAfterResults, true, `${width}x${height}: final submit button follows the five completion results`);
+
   const bottoms = await evaluate(cdp, `(() => {
     const upper = document.getElementById('labUpperScroll');
     const panel = document.getElementById('labPanel');
