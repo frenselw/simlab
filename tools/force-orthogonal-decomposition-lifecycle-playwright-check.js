@@ -323,7 +323,7 @@ assert((await frame.locator("#reviewCompletion").textContent()).includes("已提
 assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "success: submitted theta label remains visible in review");
 assert(await frame.locator("#thetaHit").isHidden(), "success: interactive theta hit target is hidden in review");
 assert((await frame.locator("#sceneTitle").textContent()).includes("水平／垂直分解"), "success: review stage title matches the first submitted question");
-assert((await frame.locator("#sceneKind").textContent()).includes("固定原力"), "success: review stage context matches the first submitted question");
+assert((await frame.locator("#sceneKind").textContent()).includes("原力 F 固定"), "success: review stage context matches the first submitted question");
 assert((await frame.locator("#stageStepLabel").textContent()).trim() === "唯讀", "success: review stage step is labelled read-only");
 await click(frame, '#reviewQuestionNavigation [data-question-index="2"]');
 assert((await frame.locator("#sceneTitle").textContent()).includes("斜面上的重力"), "success: switching review question updates the stage title");
@@ -458,21 +458,33 @@ const legacySubmission = await frame.evaluate(draftJson => {
   return { reviewJson: JSON.stringify(review), pendingJson: JSON.stringify(P.pendingEnvelope(review, result)), score: result.score };
 }, partialFormulaDraftJson);
 assert(legacySubmission.score === 90, "legacy reproduction retains the old 90-point result");
+const assertLegacyReviewTabs = async (reviewFrame, label) => {
+  for (const [index, score] of [70, 100, 100].entries()) {
+    const tab = reviewFrame.locator(`#reviewQuestionNavigation [data-question-index="${index}"]`);
+    assert((await tab.textContent()).includes(`（${score}/100）`), `${label}: question ${index + 1} tab preserves its original score`);
+    assert((await tab.getAttribute("aria-label")).endsWith(`，${score} 分`), `${label}: question ${index + 1} accessible label preserves its original score`);
+    await click(reviewFrame, `#reviewQuestionNavigation [data-question-index="${index}"]`);
+    assert((await tab.textContent()).includes(`（${score}/100）`), `${label}: switching questions does not regrade the tab`);
+  }
+};
 frame = await openHost("success", "finished-valid-review", { suspendData: legacySubmission.reviewJson, status: "passed", score: "90" }, "legacy finished review");
 await waitForRuntime(frame, "review", "legacy finished review");
 assert((await frame.locator("#reviewScore").textContent()).includes("90 / 100"), "legacy review is not regraded");
 assert(await frame.locator("#reviewFormulaSummary").isVisible(), "legacy review retains trusted submitted answer details");
 assert((await frame.locator("#reviewTrustNote").textContent()).includes("舊版規則"), "legacy grading is explained");
 await assertReviewLock(frame, "legacy finished review");
+await assertLegacyReviewTabs(frame, "legacy finished review");
 frame = await openHost("success", "complete-draft", { suspendData: legacySubmission.pendingJson, status: "incomplete", score: "" }, "legacy pending retry");
 await waitForRuntime(frame, "frozen", "legacy pending retry");
 await click(frame, "#technicalActions button");
 await waitForRuntime(frame, "review", "legacy pending retry completed");
+await assertLegacyReviewTabs(frame, "legacy pending retry completed");
 const retriedLegacy = await parentState();
 assert(retriedLegacy.data["cmi.core.score.raw"] === "90" && retriedLegacy.data["cmi.suspend_data"] === legacySubmission.reviewJson, "legacy pending retry writes exactly its immutable original result and review bytes");
 await reloadActivityFrame();
 frame = await frameForHost("legacy pending retry reload");
 assert(await frame.locator("#reviewFormulaSummary").isVisible(), "legacy retried submission still restores trusted details");
+await assertLegacyReviewTabs(frame, "legacy pending retry reload");
 
 // At the narrow 320px stage, edit an existing perpendicular through the
 // clipped-normal case from the audit. The saved free endpoint must survive

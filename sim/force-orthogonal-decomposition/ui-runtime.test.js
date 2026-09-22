@@ -26,6 +26,7 @@ assert.match(main, /活動必要共用模組未能載入；已停用作答及提
 assert.match(main, /必要共用模組未能載入；已停用提交，未寫入 LMS/);
 assert.match(main, /function clearInteractionTransient\(\)/);
 assert.match(main, /reviewQuestionNavigation\.hidden = !trusted/);
+assert.match(main, /const detail = reviewResult\.result\.detail\[index\]/, "review tabs share the verified versioned result instead of regrading answers");
 assert.match(main, /reviewResult\?\.trusted !== false && reviewSnapshot\?\.answer\?\.questions/);
 assert.match(main, /runtimeState !== "editable"/);
 assert.match(main, /dom\.submitAttempt\.disabled = runtimeState !== "editable"/);

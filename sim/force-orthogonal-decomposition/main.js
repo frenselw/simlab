@@ -906,7 +906,7 @@
       setMathText(title, `${index + 1}. ${scene.title}`);
       button.replaceChildren(title);
       if (review) {
-        const detail = Scoring.questionDetail(activity.questions[index], index);
+        const detail = reviewResult.result.detail[index];
         button.appendChild(documentObject.createTextNode(`（${detail.score}/100）`));
         button.setAttribute("aria-label", `${index + 1}. ${scene.title}，${detail.score} 分`);
       } else {
