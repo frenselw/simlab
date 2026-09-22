@@ -487,16 +487,27 @@ assert(await frame.locator("#reviewFormulaSummary").isVisible(), "legacy retried
 await assertLegacyReviewTabs(frame, "legacy pending retry reload");
 
 // At the narrow 320px stage, edit an existing perpendicular through the
-// clipped-normal case from the audit. The saved free endpoint must survive
-// the LMS checkpoint, iframe reload, and final review submission.
+// previously clipped-normal case from the audit. The taller drawing canvas
+// now accommodates that normal, so first verify it snaps without collapsing
+// onto P. Then move outside its snap range and preserve the free endpoint
+// through the LMS checkpoint, iframe reload, and final review submission.
 frame = await openHost("success", "complete-draft", { suspendData: narrowPerpendicularDraftJson, status: "incomplete", score: "" }, "narrow perpendicular edit", false, 320, 500);
 const narrowBefore = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
 assert(narrowBefore.currentQuestion === 1 && narrowBefore.questions[1].phase === "perpendiculars", "narrow perpendicular edit: seeded second question is on the perpendicular step");
 await mouseDragFrameTarget(frame, "#perpendicularEdit0", { x: 250, y: 177 }, "narrow perpendicular edit");
+const narrowSnapped = await frame.evaluate(() => {
+  const M = window.ForceOrthogonalDecompositionModel;
+  const question = window.__forceOrthogonalApp.getState();
+  const end = question.perpendiculars[0].end;
+  const vector = M.subtract(end, M.getScenario(question.scenarioId).forceHead);
+  return { length: M.length(vector), normalDot: M.dot(vector, question.directions[0].unit) };
+});
+assert(narrowSnapped.length >= 12 && Math.abs(narrowSnapped.normalDot) < 1e-6, "narrow perpendicular edit: an in-bounds normal snaps without collapsing onto P");
+await mouseDragFrameTarget(frame, "#perpendicularEdit0", { x: 250, y: 140 }, "narrow free perpendicular edit");
 const narrowAfter = await frame.evaluate(() => window.__forceOrthogonalApp.getActivityState());
 const narrowEnd = narrowAfter.questions[1].perpendiculars[0].end;
 assert(Math.hypot(narrowEnd.x - 150, narrowEnd.y - 180) >= 12, "narrow perpendicular edit: endpoint is not collapsed onto P");
-assert(Math.abs(narrowEnd.x - 250) < 1 && Math.abs(narrowEnd.y - 177) < 1, "narrow perpendicular edit: learner endpoint is retained");
+assert(Math.abs(narrowEnd.x - 250) < 1 && Math.abs(narrowEnd.y - 140) < 1, "narrow perpendicular edit: learner free endpoint is retained");
 const narrowSaved = JSON.parse((await parentState()).data["cmi.suspend_data"]);
 assert(Math.abs(narrowSaved.answer.questions[1].perpendiculars[0].end.x - narrowEnd.x) < 1e-8 && Math.abs(narrowSaved.answer.questions[1].perpendiculars[0].end.y - narrowEnd.y) < 1e-8, "narrow perpendicular edit: LMS checkpoint contains the edit immediately");
 await reloadActivityFrame();
