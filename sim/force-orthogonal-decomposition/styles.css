@@ -326,6 +326,8 @@ body {
 .review-formula-row[data-result="incorrect"] .review-formula-status { color: #b91c1c; }
 .review-formula-row[data-result="missing"] { border-color: #fcd34d; background: #fffbeb; }
 .review-formula-row[data-result="missing"] .review-formula-status { color: #92400e; }
+.review-formula-row[data-result="unavailable"] { background: #f8fafc; }
+.review-formula-row[data-result="unavailable"] .review-formula-status { color: #475569; }
 .review-formula-detail { grid-column: 1 / -1; margin: 0; color: var(--color-text-muted); font-size: .76rem; line-height: 1.4; }
 .result-summary { display: grid; grid-template-columns: auto 1fr; gap: .45rem .7rem; padding: .7rem; border: 1px solid var(--color-border-light); border-radius: 7px; background: #fff; }
 .result-summary strong { font-size: 1.15rem; }

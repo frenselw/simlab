@@ -1146,7 +1146,7 @@
     ["F1", "F2"].forEach((key, index) => {
       const item = items.find(entry => entry.key === `formula-${key}`);
       const actual = question.formulas?.[key] || null;
-      const result = !actual ? "missing" : item?.correct ? "correct" : "incorrect";
+      const result = !actual ? "missing" : item?.assessable === false ? "unavailable" : item?.correct ? "correct" : "incorrect";
       const row = documentObject.createElement("div");
       row.className = "review-formula-row";
       row.dataset.formulaReviewKey = key;
@@ -1157,7 +1157,7 @@
       setMathText(expression, `${label} = ${scene.forceSymbol} × ${actual ? `${actual} θ` : "未作答"}`);
       const status = documentObject.createElement("span");
       status.className = "review-formula-status";
-      status.textContent = result === "correct" ? "正確" : result === "incorrect" ? "錯誤" : "未作答";
+      status.textContent = result === "correct" ? "正確" : result === "incorrect" ? "錯誤" : result === "unavailable" ? "未能判斷" : "未作答";
       status.setAttribute("aria-label", `${label}：${status.textContent}`);
       row.append(expression, status);
       if (item?.detail) {

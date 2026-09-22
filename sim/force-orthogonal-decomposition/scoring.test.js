@@ -144,4 +144,30 @@ assert.deepEqual(reorderedItems.map(item => item.earned), orderItems.map(item =>
 const clipped = S.score({ ...activity, questions: activity.questions.map(question => ({ ...question, formulas: { F1: "tan", F2: "tan" } })) });
 assert.ok(clipped.score >= 0 && clipped.score <= 100, "score is always clipped to 0–100");
 
+// A legal edit continuation preserves old formula answers. Re-marking theta
+// must not let one crooked arrow invalidate the other component's formula.
+for (const id of P.SCENARIO_IDS) {
+  const original = complete(id);
+  const scene = M.getScenario(id);
+  for (const changedIndex of [0, 1]) {
+    const edited = M.editGeometry(original, "component", changedIndex, { x: 185, y: 45 }, { scene }).editedState;
+    edited.phase = "angle";
+    edited.theta = original.theta;
+    assert.equal(M.formulaExpectations(edited), null, "partial scoring does not unlock the practice formula gate");
+    const restored = P.decodeSnapshot(P.makeSnapshot("draft", { ...P.freshDraft(), questions: P.SCENARIO_IDS.map(sceneId => sceneId === id ? edited : complete(sceneId)) }), "draft").questions.find(q => q.scenarioId === id);
+    const items = S.formulaGroup(restored, scene);
+    assert.equal(items[1 - changedIndex].earned, 10, `${id}: unaffected formula retains its own 10 points`);
+    if (id !== "inclined-gravity") {
+      assert.equal(items[changedIndex].assessable, false, "an unidentifiable component is not called a wrong trig choice");
+      assert.match(items[changedIndex].detail, /未能判斷公式/);
+    }
+    restored.formulas[`F${2 - changedIndex}`] = null;
+    assert.equal(S.formulaGroup(restored, scene)[1 - changedIndex].earned, 0, "missing unaffected formula gets no credit");
+    restored.formulas[`F${2 - changedIndex}`] = original.formulas[`F${2 - changedIndex}`] === "sin" ? "cos" : "sin";
+    assert.equal(S.formulaGroup(restored, scene)[1 - changedIndex].correct, false, "an actual wrong trig choice still loses its own points");
+    restored.theta = null;
+    assert.ok(S.formulaGroup(restored, scene).every(entry => !entry.assessable && entry.earned === 0), "no angle means no identifiable formula meaning");
+  }
+}
+
 console.log("force orthogonal decomposition scoring tests passed");

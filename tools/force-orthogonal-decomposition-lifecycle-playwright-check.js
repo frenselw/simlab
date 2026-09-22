@@ -409,6 +409,27 @@ const wrongFormulaRows = await reviewFormulaRows(frame, "wrong formula review");
 assert(wrongFormulaRows.map(row => row.result).sort().join(",") === "correct,incorrect", `wrong formula review: per-slot status is missing ${JSON.stringify(wrongFormulaRows)}`);
 assert(wrongFormulaRows.some(row => row.text.includes("錯誤")), `wrong formula review: wrong formula status is not visible ${JSON.stringify(wrongFormulaRows)}`);
 
+// Re-marking theta after a single bad component must not mark the other,
+// still-correct formula wrong. The submitted snapshot must retain that result.
+const partialFormulaDraftJson = await frame.evaluate(draftJson => {
+  const snapshot = JSON.parse(draftJson);
+  const M = window.ForceOrthogonalDecompositionModel;
+  const q = snapshot.answer.questions[0];
+  snapshot.answer.questions[0] = { ...M.editGeometry(q, "component", 0, { x: 185, y: 45 }, { scene: M.getScenario(q.scenarioId) }).editedState, phase: "angle", theta: q.theta };
+  return JSON.stringify(snapshot);
+}, completeDraftJson);
+frame = await openHost("success", "complete-draft", { suspendData: partialFormulaDraftJson, status: "incomplete", score: "" }, "independent formula review");
+await frame.evaluate(() => { window.confirm = () => true; });
+assert((await submitPopulated(frame, "independent formula review")) === "review", "independent formula review: submission finishes");
+await click(frame, '#reviewQuestionNavigation [data-question-index="0"]');
+const independentRows = await reviewFormulaRows(frame, "independent formula review");
+assert(independentRows.map(row => row.result).sort().join(",") === "correct,unavailable", `independent formula review: unaffected formula lost credit ${JSON.stringify(independentRows)}`);
+assert(independentRows.some(row => row.text.includes("未能判斷")), "independent formula review: unavailable geometry is explained");
+await reloadActivityFrame();
+frame = await frameForHost("independent formula review reload");
+await click(frame, '#reviewQuestionNavigation [data-question-index="0"]');
+assert((await reviewFormulaRows(frame, "independent formula review reload")).map(row => row.result).sort().join(",") === "correct,unavailable", "independent formula review: reload preserves per-formula result");
+
 // At the narrow 320px stage, edit an existing perpendicular through the
 // clipped-normal case from the audit. The saved free endpoint must survive
 // the LMS checkpoint, iframe reload, and final review submission.

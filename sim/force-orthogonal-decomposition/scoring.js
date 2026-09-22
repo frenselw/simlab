@@ -70,17 +70,19 @@
   }
 
   function formulaGroup(answer, scene) {
-    const expectations = M.formulaExpectations(answer);
-    return (expectations || [{ key: "F1", value: null }, { key: "F2", value: null }]).slice(0, 2).map((expected, index) => {
-      const key = expected.key || `F${index + 1}`;
+    const expectations = M.formulaExpectations(answer, { partial: true }) || [];
+    return ["F1", "F2"].map((key, index) => {
+      const expected = expectations.find(entry => entry.key === key);
       const actual = answer.formulas?.[key];
-      const correct = Boolean(expectations) && actual === expected.value;
+      const assessable = Boolean(expected?.value);
+      const correct = assessable && actual === expected.value;
       const axis = scene.id === "inclined-gravity"
         ? (key === "F1" ? "parallel" : "normal")
-        : expected.axis;
+        : expected?.axis;
       const label = M.componentSymbol(scene, axis, index);
-      return item(`formula-${key}`, `${label} 的分力表達式`, 10, correct,
-        correct ? `${actual} θ` : actual ? `目前為 ${actual} θ，應檢查分解三角形` : "尚未填寫");
+      return { ...item(`formula-${key}`, `${label} 的分力表達式`, 10, correct,
+        !actual ? "尚未填寫" : !assessable ? "分力方向或 θ 尚未確定，未能判斷公式（本項 0 分）"
+          : correct ? `${actual} θ` : `目前為 ${actual} θ，應為 ${expected.value} θ`), assessable };
     });
   }
 

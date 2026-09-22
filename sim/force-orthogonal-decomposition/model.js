@@ -893,8 +893,11 @@
     return `M ${point(shaftLeft)} L ${point(baseLeft)} L ${point(headLeft)} L ${point(end)} L ${point(headRight)} L ${point(baseRight)} L ${point(shaftRight)} Z`;
   }
 
-  function formulaExpectations(state) {
-    if (!isCorrectDecomposition(state)) return null;
+  function formulaExpectations(state, { partial = false } = {}) {
+    // Practice still requires a complete construction. Final scoring assesses
+    // each formula independently: an unrelated bad guide/arrow must not erase
+    // a component's identifiable axis and trigonometric meaning.
+    if (!partial && !isCorrectDecomposition(state)) return null;
     const scene = sceneFor(state);
     const angle = thetaCandidates(state.directions, scene).find(item => item.key === state.theta);
     if (!angle) return null;
@@ -902,7 +905,12 @@
     return state.components.map(component => {
       const target = visibleIntersections(state.perpendiculars, state.directions, scene).find(item => item.key === component.targetKey);
       const direction = target && state.directions.find(item => item.key === target.directionKey);
-      const axisKey = directionAxisKey(direction, scene);
+      const vector = subtract(component.end, scene.origin);
+      const componentAxis = partial && scene.axes.find(axis =>
+        length(vector) > EPSILON && Math.abs(cross(vector, axis.unit)) / length(vector) <= EPSILON &&
+        dot(vector, axis.unit) * dot(subtract(scene.forceHead, scene.origin), axis.unit) > EPSILON);
+      const axisKey = partial ? componentAxis?.key : directionAxisKey(direction, scene);
+      if (!axisKey && scene.id !== "inclined-gravity") return { key: component.key, value: null };
       if (scene.thetaMode === "given") {
         // Gravity uses fixed learner-facing names rather than renaming a
         // component according to the order in which it was drawn. F1/Gₓ is
