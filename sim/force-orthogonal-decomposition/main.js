@@ -2051,6 +2051,10 @@
     runtimeState = "editable";
     standaloneStorageState = standaloneStorage;
     draftSaveState = isStandaloneMode() && standaloneStorage !== "available" ? "memory-only" : "saved";
+    if (attempt.state === "draft") {
+      message = `已恢復第 ${activity.currentQuestion + 1} 題草稿；請按目前步驟繼續作答。`;
+      messageKind = "";
+    }
     SimScorm.setDraftProvider(() => Persistence.makeSnapshot("draft", snapshotActivity()));
     renderAll();
   }

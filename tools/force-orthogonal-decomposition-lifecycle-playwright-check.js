@@ -244,6 +244,22 @@ const reviewFormulaRows = async (frame, label) => {
   return rows;
 };
 
+// Every saved construction step restores phase-appropriate instructions and
+// still has a legal continuation, including a return from the overview.
+for (const [index, phase] of ["directions", "perpendiculars", "components", "angle", "formulas"].entries()) {
+  const saved = JSON.parse(completeDraftJson);
+  saved.answer.phase = "practice";
+  saved.answer.fromReview = true;
+  saved.answer.currentQuestion = index % 3;
+  saved.answer.questions[index % 3].phase = phase;
+  const restoredFrame = await openHost("success", "complete-draft", { suspendData: JSON.stringify(saved), status: "incomplete", score: "" }, `restore ${phase}`);
+  assert((await appState(restoredFrame)).phase === phase, `restore ${phase}: active step is preserved`);
+  const message = await restoredFrame.locator("#interactionStatus").textContent();
+  assert(message.includes(`已恢復第 ${index % 3 + 1} 題草稿`) && !message.includes("第 1 條方向虛線"), `restore ${phase}: stale first-step hint ${message}`);
+  await click(restoredFrame, phase === "directions" ? "#nextButton" : "#backButton");
+  assert((await appState(restoredFrame)).phase !== phase, `restore ${phase}: a legal continuation succeeds`);
+}
+
 // Success and review-lock persistence.
 let frame = await openHost("success", "complete-draft", { suspendData: incompleteDraftJson, status: "incomplete", score: "" }, "summary mobile layout");
 assert(await frame.locator("#summaryPanel").isVisible(), "summary theta: seeded overview is visible");
