@@ -1,0 +1,147 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const M = require("./model.js");
+const S = require("./scoring.js");
+const P = require("./persistence.js");
+
+function complete(id) {
+  const scene = M.getScenario(id);
+  let directions = [];
+  for (const axis of scene.axes) directions = M.commitDirection(M.add(scene.origin, M.scale(axis.unit, 180)), directions, { scene }).directions;
+  let perpendiculars = [];
+  for (const direction of directions) perpendiculars = M.commitPerpendicular(M.projectionFoot(scene.forceHead, direction, scene), directions, perpendiculars, { scene, bounds: P.WORLD_BOUNDS, minDistance: 4 }).perpendiculars;
+  let components = [];
+  for (const target of M.visibleIntersections(perpendiculars, directions, scene)) components = M.commitComponent(target.point, perpendiculars, directions, components, { scene, bounds: P.WORLD_BOUNDS, minDistance: 4 }).components;
+  const theta = M.thetaCandidates(directions, scene)[0].key;
+  let question = { ...M.createQuestionState(id), phase: "formulas", directions, perpendiculars, components, theta };
+  question.formulas = Object.fromEntries(M.formulaExpectations(question).map(entry => [entry.key, entry.value]));
+  return question;
+}
+
+const activity = P.freshDraft();
+activity.phase = "summary";
+activity.questions = P.SCENARIO_IDS.map(complete);
+const result = S.score(activity);
+assert.equal(result.score, 100);
+assert.equal(result.maxScore, 100);
+assert.equal(result.passed, true, "formative receipt is explicit, not a mastery threshold");
+for (const question of activity.questions) {
+  const detail = S.questionDetail(question, 0);
+  assert.equal(detail.groups.length, 5);
+  assert.deepEqual(detail.groups.map(group => group.points), [20, 20, 20, 20, 20]);
+  assert.equal(detail.groups.find(group => group.key === "theta").items.length, 1);
+  assert.equal(detail.groups.every(group => group.correct), true);
+}
+
+const partial = P.clone(activity);
+partial.questions[1] = M.createQuestionState("inclined-external-force");
+partial.questions[1].phase = "directions";
+const partialResult = S.score(partial);
+assert.ok(partialResult.score >= 0 && partialResult.score < 100, "partial work receives bounded formative credit");
+assert.equal(partialResult.detail[1].score, 0);
+
+// A wrong first perpendicular can still expose an intersection on the same
+// axis as a later correct perpendicular.  Scoring must resolve each component
+// through its own targetKey, so changing only perpendicular creation order
+// cannot change the mark for the same drawn geometry.
+const duplicateIntersectionDirections = [
+  { key: "D1", unit: { x: 1, y: 0 }, axis: "horizontal", axisKey: "horizontal" },
+  { key: "D2", unit: { x: 0, y: 1 }, axis: "vertical", axisKey: "vertical" }
+];
+const wrongPerpendicularEnd = { x: -80, y: -30 };
+const correctPerpendicularEnd = { x: 240, y: 0 };
+const orderOne = {
+  ...M.createQuestionState("horizontal-vertical"),
+  phase: "formulas",
+  directions: duplicateIntersectionDirections,
+  perpendiculars: [
+    { key: "P1", end: wrongPerpendicularEnd, targetKey: null },
+    { key: "P2", end: correctPerpendicularEnd, targetKey: "D1" }
+  ],
+  components: [
+    { key: "F1", end: { x: 240, y: 0 }, targetKey: "P2:D1" },
+    { key: "F2", end: { x: 0, y: 17.5 }, targetKey: "P1:D2" }
+  ]
+};
+const orderTwo = {
+  ...M.createQuestionState("horizontal-vertical"),
+  phase: "formulas",
+  directions: duplicateIntersectionDirections,
+  perpendiculars: [
+    { key: "P1", end: correctPerpendicularEnd, targetKey: "D1" },
+    { key: "P2", end: wrongPerpendicularEnd, targetKey: null }
+  ],
+  components: [
+    { key: "F1", end: { x: 240, y: 0 }, targetKey: "P1:D1" },
+    { key: "F2", end: { x: 0, y: 17.5 }, targetKey: "P2:D2" }
+  ]
+};
+const orderOneDetail = S.questionDetail(orderOne, 0);
+const orderTwoDetail = S.questionDetail(orderTwo, 0);
+const orderOneComponents = orderOneDetail.groups.find(group => group.key === "components");
+const orderTwoComponents = orderTwoDetail.groups.find(group => group.key === "components");
+assert.equal(orderOneComponents.earned, 20, "component scoring follows the later correct intersection target");
+assert.equal(orderTwoComponents.earned, 20, "component scoring follows the earlier correct intersection target");
+assert.equal(orderOneDetail.score, orderTwoDetail.score, "same geometry receives the same score regardless of perpendicular order");
+
+const imperfectDirections = [
+  { key: "D1", unit: { x: .6, y: .8 }, axis: null },
+  { key: "D2", unit: { x: .8, y: -.6 }, axis: null }
+];
+const imperfectTheta = M.thetaCandidatesForInteraction(imperfectDirections, { scene: "horizontal-vertical", allowImperfect: true })[0];
+const wrongAngle = { ...M.createQuestionState("horizontal-vertical"), phase: "angle", directions: imperfectDirections, theta: imperfectTheta.key };
+assert.equal(S.thetaGroup(wrongAngle, M.getScenario("horizontal-vertical"))[0].correct, false, "an interaction-only theta choice remains incorrect until the formal geometry is valid");
+
+const gravity = activity.questions[2];
+const gravityExpectations = M.formulaExpectations(gravity);
+assert.deepEqual(gravityExpectations.map(entry => [entry.axis, entry.value]).sort(), [["normal", "cos"], ["parallel", "sin"]]);
+assert.deepEqual(S.formulaGroup(gravity, M.getScenario("inclined-gravity")).map(entry => entry.label).sort(), ["Gₓ 的分力表達式", "Gᵧ 的分力表達式"].sort());
+const reversedGravity = P.clone(gravity);
+reversedGravity.components.reverse();
+reversedGravity.components = reversedGravity.components.map((entry, index) => ({ ...entry, key: `F${index + 1}` }));
+const reversedExpectations = M.formulaExpectations(reversedGravity);
+assert.deepEqual(reversedExpectations.map(entry => entry.value).sort(), ["cos", "sin"], "formula meaning survives F1/F2 creation order");
+assert.deepEqual(reversedExpectations.map(entry => [entry.key, entry.value]), [["F1", "sin"], ["F2", "cos"]], "gravity formula slots keep Gₓ/Gᵧ semantics");
+const reversedGravityDetail = S.questionDetail(reversedGravity, 2);
+const reversedComponentItems = reversedGravityDetail.groups.find(group => group.key === "components").items;
+assert.equal(reversedComponentItems.every(item => item.correct), false, "gravity rejects swapped Gₓ/Gᵧ placement");
+assert.match(reversedComponentItems.map(item => item.detail).join("；"), /Gₓ 平行斜面、Gᵧ 垂直斜面/);
+
+// Two perpendicular guides can expose more than one intersection on the
+// same direction axis.  Scoring must follow each component's targetKey rather
+// than whichever intersection happened to be created first.
+const orderScene = M.getScenario("horizontal-vertical");
+const orderDirections = [
+  { key: "D1", unit: { x: 1, y: 0 }, axis: "horizontal", axisKey: "horizontal" },
+  { key: "D2", unit: { x: 0, y: 1 }, axis: "vertical", axisKey: "vertical" }
+];
+const orderPerpendiculars = [
+  { key: "P1", end: { x: -80, y: -30 }, targetKey: null },
+  { key: "P2", end: { x: 240, y: 0 }, targetKey: "D1" }
+];
+const orderIntersections = M.visibleIntersections(orderPerpendiculars, orderDirections, orderScene);
+const orderHorizontal = orderIntersections.find(item => item.key === "P2:D1");
+const orderVertical = orderIntersections.find(item => item.key === "P1:D2");
+assert.ok(orderHorizontal && orderVertical, "the drawing-order regression exposes both component targets");
+const orderQuestion = {
+  ...M.createQuestionState(orderScene.id),
+  phase: "components",
+  directions: orderDirections,
+  perpendiculars: orderPerpendiculars,
+  components: [
+    { key: "F1", end: orderHorizontal.point, targetKey: orderHorizontal.key },
+    { key: "F2", end: orderVertical.point, targetKey: orderVertical.key }
+  ]
+};
+const orderDetail = S.questionDetail(orderQuestion, 0);
+const orderItems = orderDetail.groups.find(group => group.key === "components").items;
+assert.equal(orderItems.every(item => item.correct), true, "components score against their own target intersections");
+const reorderedQuestion = { ...orderQuestion, perpendiculars: orderPerpendiculars.slice().reverse() };
+const reorderedItems = S.questionDetail(reorderedQuestion, 0).groups.find(group => group.key === "components").items;
+assert.deepEqual(reorderedItems.map(item => item.earned), orderItems.map(item => item.earned), "component score is invariant to perpendicular creation order");
+
+const clipped = S.score({ ...activity, questions: activity.questions.map(question => ({ ...question, formulas: { F1: "tan", F2: "tan" } })) });
+assert.ok(clipped.score >= 0 && clipped.score <= 100, "score is always clipped to 0–100");
+
+console.log("force orthogonal decomposition scoring tests passed");

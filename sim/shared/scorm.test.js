@@ -5,13 +5,27 @@ const vm = require("vm");
 const source = fs.readFileSync(__dirname + "/scorm.js", "utf8");
 const result = { score: 72, maxScore: 100, passed: true };
 
-function launch(lms, location = "standalone") {
+function launch(lms, location = "standalone", storage = null) {
   const listeners = {};
-  const window = { API: lms?.api(), opener: null, location: { reloads: 0, reload() { this.reloads += 1; } }, setTimeout, clearTimeout, addEventListener: (name, fn) => { listeners[name] = fn; } };
+  const window = { API: lms?.api(), opener: null, localStorage: storage || undefined, location: { reloads: 0, reload() { this.reloads += 1; } }, setTimeout, clearTimeout, addEventListener: (name, fn) => { listeners[name] = fn; } };
   window.parent = location === "embedded" ? {} : window;
   window.top = location === "embedded" ? {} : window;
   vm.runInNewContext(source, { window, console, JSON, TextEncoder });
   return { scorm: window.SimScorm, listeners, window };
+}
+
+function storage(initial = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    failReads: false,
+    failWrites: false,
+    failOnWrite: null,
+    writeCount: 0,
+    getItem(key) { if (this.failReads) throw new Error("read denied"); return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null; },
+    setItem(key, value) { this.writeCount += 1; if (this.failWrites || (this.failOnWrite !== null && this.writeCount >= this.failOnWrite)) throw new Error("quota exceeded"); data[key] = String(value); },
+    removeItem(key) { if (this.failWrites) throw new Error("quota exceeded"); delete data[key]; }
+  };
 }
 
 function fakeLms(durable = {}) {
@@ -119,6 +133,20 @@ for (const key of ["cmi.suspend_data", "cmi.core.score.min", "cmi.core.score.max
   assert.equal(second.scorm.loadAttempt("activity").state, "pending-final");
   assert.equal(second.scorm.retryPending().ok, true);
   assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "review");
+}
+
+// A visible frozen result must not be silently retried by unload after the
+// LMS becomes available; only the learner's explicit retry owns that commit.
+{
+  const lms = fakeLms();
+  lms.failOnCommitCall = 2;
+  const run = launch(lms);
+  assert.equal(run.scorm.submitResult(result, review(run.scorm)).frozen, true);
+  lms.failOnCommitCall = 0;
+  const finishesBeforeUnload = lms.calls.finish;
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.finish, finishesBeforeUnload, "unload does not implicitly retry a visible frozen submission");
+  assert.equal(JSON.parse(lms.durable["cmi.suspend_data"]).kind, "pending-final");
 }
 
 // An activity can quarantine a structurally valid pending payload that fails
@@ -353,4 +381,138 @@ for (const kind of ["draft", "pending-final"]) {
 
 assert.equal(launch(null).scorm.submitResult(result, review(launch(null).scorm)).ok, true);
 assert.equal(launch(null, "embedded").scorm.loadAttempt("activity").state, "read-error");
+
+// Standalone launches use the same validated cmi snapshot lifecycle as an LMS,
+// with localStorage as the durable browser fallback. A second launch is the
+// reload boundary; it must recover the draft rather than the old memory log.
+{
+  const durableStorage = storage();
+  const first = launch(null, "standalone", durableStorage);
+  assert.equal(first.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(first.scorm.loadAttempt("activity").state, "new");
+  first.scorm.setDraftProvider(() => first.scorm.makeSnapshot("activity", "draft", { step: 6, geometry: { x: -12, y: -30 } }));
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity", "draft", { step: 6, geometry: { x: -12, y: -30 } })), true);
+  const second = launch(null, "standalone", durableStorage);
+  assert.equal(second.scorm.enableStandalonePersistence("activity"), "available");
+  const restored = second.scorm.loadAttempt("activity");
+  assert.equal(restored.state, "draft");
+  assert.equal(restored.snapshot.answer.step, 6);
+  assert.equal(restored.snapshot.answer.geometry.x, -12);
+  assert.equal(second.scorm.clearStandaloneAttempt("activity"), true);
+  assert.equal(launch(null, "standalone", durableStorage).scorm.enableStandalonePersistence("activity"), "available");
+}
+
+// Storage denial is explicit. The current page can keep its memory log, but a
+// new page cannot claim that the draft survived a reload.
+{
+  const denied = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("denied"); }, removeItem() { throw new Error("denied"); } };
+  const first = launch(null, "standalone", denied);
+  assert.equal(first.scorm.enableStandalonePersistence("activity"), "unavailable");
+  assert.equal(first.scorm.loadAttempt("activity").state, "new");
+  const snapshot = first.scorm.makeSnapshot("activity", "draft", { step: 7 });
+  assert.equal(first.scorm.saveDraft(snapshot), true, "memory-only fallback remains usable for this page");
+  assert.equal(launch(null, "standalone", denied).scorm.enableStandalonePersistence("activity"), "unavailable");
+  assert.equal(launch(null, "standalone", denied).scorm.loadAttempt("activity").state, "new");
+}
+
+// A probe can succeed and a later read can fail. That failure is a startup
+// read-error, never an empty/new attempt that silently discards the draft.
+{
+  const durableStorage = storage();
+  const first = launch(null, "standalone", durableStorage);
+  assert.equal(first.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity", "draft", { step: 8 })), true);
+  durableStorage.failReads = true;
+  const second = launch(null, "standalone", durableStorage);
+  assert.equal(second.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(second.scorm.loadAttempt("activity").state, "read-error");
+}
+
+// A quota/write failure leaves the prior atomic checkpoint intact. The current
+// launch becomes unavailable for durable writes and later launches can read
+// that checkpoint in read-only mode, but never claim the failed new draft was
+// durably saved.
+{
+  const durableStorage = storage();
+  const first = launch(null, "standalone", durableStorage);
+  assert.equal(first.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity", "draft", { step: 9 })), true);
+  durableStorage.failWrites = true;
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity", "draft", { step: 10 })), false);
+  assert.equal(first.scorm.getStandaloneStorageStatus(), "unavailable");
+  const second = launch(null, "standalone", durableStorage);
+  assert.equal(second.scorm.enableStandalonePersistence("activity"), "read-only");
+  const restored = second.scorm.loadAttempt("activity");
+  assert.equal(restored.state, "draft");
+  assert.equal(restored.snapshot.answer.step, 9);
+}
+
+// A later nth bundle write can fail during the final transaction. The last
+// successful checkpoint remains a retryable pending-final envelope, so a new
+// launch can recover and finish the same immutable submission after storage is
+// available again; it never observes a mixed review/status/score bundle.
+{
+  const durableStorage = storage();
+  const first = launch(null, "standalone", durableStorage);
+  assert.equal(first.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(first.scorm.loadAttempt("activity").state, "new");
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity", "draft", { step: 12 })), true);
+  durableStorage.failOnWrite = durableStorage.writeCount + 2;
+  const outcome = first.scorm.submitResult(result, review(first.scorm));
+  assert.equal(outcome.frozen, true, "nth transaction write failure freezes the submission");
+  const checkpoint = JSON.parse(durableStorage.data["simlab:activity:checkpoint"]);
+  assert.equal(JSON.parse(checkpoint["cmi.suspend_data"]).kind, "pending-final");
+  assert.equal(checkpoint["cmi.core.lesson_status"], "incomplete");
+  assert.equal(checkpoint["cmi.core.score.raw"] || "", "", "failed final transaction does not publish a score");
+  const samePageRetry = first.scorm.retryPending(false);
+  assert.equal(samePageRetry.ok, false, "same-page retry cannot claim success after storage loss");
+  assert.equal(samePageRetry.frozen, true, "same-page retry stays frozen after storage loss");
+  first.listeners.pagehide({ persisted: false });
+  assert.equal(JSON.parse(JSON.parse(durableStorage.data["simlab:activity:checkpoint"])["cmi.suspend_data"] || "null").kind, "pending-final",
+    "pagehide cannot finish a pending transaction after storage loss");
+  const second = launch(null, "standalone", durableStorage);
+  assert.equal(second.scorm.enableStandalonePersistence("activity"), "read-only");
+  assert.equal(second.scorm.loadAttempt("activity").state, "pending-final");
+  const readOnlyRetry = second.scorm.retryPending(false);
+  assert.equal(readOnlyRetry.ok, false, "read-only pending cannot downgrade to memory-only success");
+  assert.equal(readOnlyRetry.frozen, true, "read-only pending remains frozen");
+  durableStorage.failOnWrite = null;
+  const third = launch(null, "standalone", durableStorage);
+  assert.equal(third.scorm.enableStandalonePersistence("activity"), "available");
+  assert.equal(third.scorm.loadAttempt("activity").state, "pending-final");
+  assert.equal(third.scorm.retryPending(false).ok, true);
+  const finalCheckpoint = JSON.parse(durableStorage.data["simlab:activity:checkpoint"]);
+  assert.equal(JSON.parse(finalCheckpoint["cmi.suspend_data"]).kind, "review");
+  assert.equal(finalCheckpoint["cmi.core.lesson_status"], "passed");
+}
+
+// An outer pending envelope that the shared runtime cannot structurally trust
+// is itself quarantined: there is no retryable pending payload and pagehide
+// cannot automatically submit it.
+{
+  const lms = fakeLms({
+    "cmi.core.lesson_status": "incomplete",
+    "cmi.suspend_data": JSON.stringify({ version: 1, activity: "activity", kind: "pending-final", payload: { reviewJson: "not-json", score: 72, maxScore: 100, passed: true } })
+  });
+  const run = launch(lms);
+  const attempt = run.scorm.loadAttempt("activity");
+  assert.equal(attempt.state, "pending-invalid");
+  assert.equal(run.scorm.quarantinePending(), true);
+  assert.equal(run.scorm.retryPending().reason, "no-pending");
+  run.listeners.pagehide({ persisted: false });
+  assert.equal(lms.calls.commit, 0);
+}
+
+// Activity opt-in storage is namespaced: another activity's checkpoint is
+// preserved and cannot be read as this activity's draft.
+{
+  const durableStorage = storage();
+  const first = launch(null, "standalone", durableStorage);
+  first.scorm.enableStandalonePersistence("activity-a");
+  assert.equal(first.scorm.saveDraft(first.scorm.makeSnapshot("activity-a", "draft", { step: 11 })), true);
+  const second = launch(null, "standalone", durableStorage);
+  second.scorm.enableStandalonePersistence("activity-b");
+  assert.equal(second.scorm.loadAttempt("activity-b").state, "new");
+  assert.ok(Object.keys(durableStorage.data).some(key => key.includes("activity-a")));
+}
 console.log("SCORM durable-session checks passed");

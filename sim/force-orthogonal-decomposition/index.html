@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>力的正交分解作圖練習</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script>
+  <script src="../shared/activity-flow.js" defer></script>
+  <script src="model.js" defer></script>
+  <script src="scoring.js" defer></script>
+  <script src="persistence.js" defer></script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="sim-app force-decomposition-app" aria-busy="true">
+  <header class="sim-header force-header">
+    <div>
+      <h1>力的正交分解作圖練習 <span class="prototype-badge">三個情境</span></h1>
+      <p id="activitySubtitle">依序作圖、標示 θ，再用 sin θ／cos θ 表示分力大小。</p>
+    </div>
+    <div class="attempt-header">
+      <strong id="questionCounter">第 1 / 3 題</strong>
+      <span id="attemptStatus">正在建立練習</span>
+    </div>
+  </header>
+
+  <div class="sim-shell force-shell">
+    <section id="stage" class="sim-stage force-stage" aria-labelledby="stageTitle">
+      <h2 id="stageTitle" class="sr-only">力的正交分解作圖舞台</h2>
+      <div class="stage-caption" aria-live="polite">
+        <span id="sceneTitle">水平／垂直分解</span>
+        <span id="sceneKind">固定原力</span>
+      </div>
+      <nav class="stage-navigation" aria-label="舞台步驟切換">
+        <button id="stageBackButton" type="button" aria-label="上一步" title="上一步，保留作圖">←</button>
+        <span id="stageStepLabel" aria-live="polite">1 / 5</span>
+        <button id="stageNextButton" type="button" aria-label="下一步" title="下一步">→</button>
+      </nav>
+      <svg id="diagram" class="force-diagram" viewBox="0 0 560 360" preserveAspectRatio="xMidYMid meet" role="img" aria-describedby="stageDescription"></svg>
+      <div id="stageHits" class="stage-hits" aria-label="作圖起筆及編輯區">
+        <button id="originHit" class="stage-hit origin-hit" type="button" hidden aria-hidden="true" aria-label="由共同起點 O 開始作圖" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
+        <button id="pointHit" class="stage-hit point-hit" type="button" hidden aria-hidden="true" aria-label="由原力箭嘴頭開始畫垂線" aria-keyshortcuts="Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"></button>
+        <button id="thetaHit" class="theta-hit" data-theta-state="unplaced" type="button" hidden aria-hidden="true" aria-label="拖動 θ 到角弧候選位置" aria-keyshortcuts="Enter ArrowLeft ArrowRight Escape">θ</button>
+        <button id="directionEdit0" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="0" type="button" hidden aria-label="調整第一條方向虛線"></button>
+        <button id="directionEdit1" class="stage-hit edit-hit" data-edit-kind="direction" data-edit-index="1" type="button" hidden aria-label="調整第二條方向虛線"></button>
+        <button id="perpendicularEdit0" class="stage-hit edit-hit" data-edit-kind="perpendicular" data-edit-index="0" type="button" hidden aria-label="調整第一條垂線終點"></button>
+        <button id="perpendicularEdit1" class="stage-hit edit-hit" data-edit-kind="perpendicular" data-edit-index="1" type="button" hidden aria-label="調整第二條垂線終點"></button>
+        <button id="componentEdit0" class="stage-hit edit-hit arrow-edit-hit" data-edit-kind="component" data-edit-index="0" type="button" hidden aria-label="調整 F1 箭頭"></button>
+        <button id="componentEdit1" class="stage-hit edit-hit arrow-edit-hit" data-edit-kind="component" data-edit-index="1" type="button" hidden aria-label="調整 F2 箭頭"></button>
+      </div>
+      <p id="stageDescription" class="sr-only">舞台顯示目前題目的固定原力、物體和分解方向。非互動舞台滑動由外層頁面擁有；透明 HTML 控制點才會啟動作圖。</p>
+    </section>
+
+    <aside id="forcePanel" class="sim-panel force-panel" aria-label="作圖操作面板">
+      <div id="saveBanner" class="status-banner is-hidden" data-kind="technical" role="status">
+        <p id="saveBannerText"></p>
+        <button id="retrySave" type="button">重試儲存</button>
+      </div>
+
+      <section id="technicalPanel" class="panel-section is-hidden" aria-live="polite">
+        <p class="section-title">活動狀態</p>
+        <h2 id="technicalTitle" tabindex="-1">練習暫時鎖定</h2>
+        <p id="technicalMessage" class="control-note"></p>
+        <div id="technicalActions" class="button-row"></div>
+      </section>
+
+      <section id="practicePanel" class="panel-section practice-section">
+        <div class="practice-heading">
+          <div>
+            <p id="questionType" class="section-title">目前情境</p>
+            <h2 id="questionTitle">水平／垂直分解</h2>
+          </div>
+          <span id="questionScenarioBadge" class="scenario-badge">固定原力 F</span>
+        </div>
+        <p id="questionPrompt" class="task-copy"></p>
+        <div id="questionProgress" class="question-progress" role="tablist" aria-label="三題練習導覽"></div>
+
+        <ol id="phaseSteps" class="phase-steps" aria-label="作圖進度">
+          <li data-phase="directions"><span>1</span><b>方向虛線</b></li>
+          <li data-phase="perpendiculars"><span>2</span><b>垂線</b></li>
+          <li data-phase="components"><span>3</span><b>分力箭嘴</b></li>
+          <li data-phase="angle"><span>4</span><b>θ 與角弧</b></li>
+          <li data-phase="formulas"><span>5</span><b>分力表達式</b></li>
+        </ol>
+        <p id="stepPrompt" class="step-prompt" aria-live="polite"></p>
+        <p id="interactionStatus" class="interaction-status" role="status" aria-live="polite"></p>
+
+        <section id="formulaWorkbench" class="formula-workbench" aria-label="用三角函數表示分力大小" hidden>
+          <p id="formulaAngleDescription" class="formula-help"></p>
+          <p class="formula-help">拖放卡片到空格；亦可先點卡片，再點空格。卡片可重複使用；公式對錯會在三題最終提交後一併顯示。</p>
+          <div class="formula-palette" role="group" aria-label="選擇三角函數">
+            <button id="formulaSin" type="button" data-formula-token="sin" aria-pressed="false" aria-label="選擇 sin θ">sin <var>θ</var></button>
+            <button id="formulaCos" type="button" data-formula-token="cos" aria-pressed="false" aria-label="選擇 cos θ">cos <var>θ</var></button>
+          </div>
+          <div class="formula-row" data-formula-row="F1">
+            <span class="formula-equation"><span data-formula-label="F1">F₁</span> = <span data-formula-force-label>F</span> ×</span>
+            <button id="formulaSlotF1" class="formula-slot" data-formula-slot="F1" type="button" aria-label="F1 的函數空格">？</button>
+            <button type="button" class="formula-clear" data-formula-clear="F1" aria-label="清空 F1 公式">清空</button>
+          </div>
+          <div class="formula-row" data-formula-row="F2">
+            <span class="formula-equation"><span data-formula-label="F2">F₂</span> = <span data-formula-force-label>F</span> ×</span>
+            <button id="formulaSlotF2" class="formula-slot" data-formula-slot="F2" type="button" aria-label="F2 的函數空格">？</button>
+            <button type="button" class="formula-clear" data-formula-clear="F2" aria-label="清空 F2 公式">清空</button>
+          </div>
+        </section>
+
+        <div id="thetaChoices" class="theta-choices" role="group" aria-label="選擇 θ 表示的角" hidden>
+          <p>可用按鈕選角，或把舞台上的 θ 拖到角弧。</p>
+          <div id="thetaChoiceButtons" class="theta-choice-buttons"></div>
+        </div>
+
+        <div class="count-readout" aria-live="polite">
+          <span id="directionCount">方向虛線 0 / 2</span>
+          <span id="perpendicularCount">垂線 0 / 2</span>
+          <span id="componentCount">分力 0 / 2</span>
+        </div>
+
+        <section class="panel-section action-section" aria-label="修改及步驟控制">
+          <div class="button-grid">
+            <button id="backButton" type="button">返回上一步</button>
+            <button id="redrawButton" type="button">重畫目前步驟</button>
+          </div>
+          <div class="button-row">
+            <button id="nextButton" class="primary-button wide-button" type="button">進入下一步</button>
+            <button id="resetButton" class="danger-button wide-button" type="button">重設本題</button>
+          </div>
+          <p class="control-note">畫好的箭頭或虛線可直接拖動調整。上一步／下一步保留作圖；只有「重畫」會清除目前步驟及其後的內容。</p>
+        </section>
+
+        <button id="goSummary" type="button" class="primary-button wide-button summary-open-button">前往提交前檢查</button>
+      </section>
+
+      <section id="summaryPanel" class="panel-section is-hidden" aria-live="polite">
+        <p class="section-title">提交前檢查</p>
+        <h2 tabindex="-1">檢查三題完成狀態</h2>
+        <p class="task-copy">可以返回任何一題修改；三題最終提交後才會顯示總分、各題得分及錯誤部分。</p>
+        <div id="summaryList" class="summary-list"></div>
+        <p id="summaryWarning" class="summary-warning"></p>
+        <button id="submitAttempt" type="button" class="primary-button wide-button">最終提交並鎖定作答</button>
+        <button id="returnToPractice" type="button" class="wide-button">返回目前題目</button>
+        <p id="submitStatus" class="neutral-status" aria-live="polite"></p>
+      </section>
+
+      <section id="reviewPanel" class="panel-section is-hidden" aria-live="polite">
+        <p class="section-title">已鎖定作答</p>
+        <h2 id="reviewTitle" tabindex="-1">作答結果</h2>
+        <div class="result-summary">
+          <span>分數</span><strong id="reviewScore">--</strong>
+          <span>完成狀態</span><strong id="reviewCompletion">--</strong>
+        </div>
+        <div id="reviewQuestionNavigation" class="question-progress" role="tablist" aria-label="已提交題目閱覽"></div>
+        <section id="reviewFormulaSummary" class="review-formula-summary" hidden aria-label="本題已提交公式">
+          <h3>本題已提交公式</h3>
+          <div id="reviewFormulaRows" class="review-formula-list"></div>
+        </section>
+        <div id="reviewFeedback" class="review-feedback"></div>
+        <p id="reviewTrustNote" class="control-note"></p>
+        <div id="reviewActions" class="button-row"></div>
+      </section>
+
+      <p id="liveRegion" class="sr-only" aria-live="polite"></p>
+    </aside>
+  </div>
+</main>
+<div id="formulaGhost" class="formula-ghost" aria-hidden="true" hidden></div>
+</body>
+</html>

@@ -350,16 +350,20 @@ async function semanticSmoke(cdp, url, label) {
   let blockBefore = await evaluate(cdp, "document.querySelector('.apparatus-block')?.getAttribute('x')");
   for (let n = 20; n < threshold; n += 20) { drag = await forceEndpoint(n / 100, staticSetup.direction); await touch(cdp, drag.start, drag.end); }
   drag = await forceEndpoint(threshold / 100 + .2, staticSetup.direction);
+  const apparatusBounds = () => evaluate(cdp, "(() => { const r=document.getElementById('apparatusSvg').getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; })()");
+  const beforeBreakawayBounds = await apparatusBounds();
   await touchStartMove(cdp, drag.start, drag.end);
   await delay(120);
   const motion = await evaluate(cdp, `(() => { const line=document.querySelector('.pull-arrow'),svg=document.getElementById('apparatusSvg'); let end=null; if(line){const point=svg.createSVGPoint();point.x=Number(line.getAttribute('x2'));point.y=Number(line.getAttribute('y2'));const screen=point.matrixTransform(svg.getScreenCTM());end={x:screen.x,y:screen.y};} return {pull:document.getElementById('breakawayPullValue').textContent,status:document.getElementById('breakawayMotionStatus').textContent,friction:document.querySelectorAll('.learner-friction-arrow').length,arrow:document.querySelectorAll('.pull-arrow').length,block:document.querySelector('.apparatus-block')?.getAttribute('x'),motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion,arrowEnd:end}; })()`);
   const breakaway = await evaluate(cdp, "window.__staticKineticFrictionApp.getState().balance.breakaway");
   assert.ok(breakaway.bestPullCN >= threshold && breakaway.attempts >= 1, `${label}: A3 records a breakaway trial after gradual force increase`);
+  assert.deepEqual(await apparatusBounds(), beforeBreakawayBounds, `${label}: recording the first breakaway must not resize the apparatus during a trusted drag`);
   assert.equal(motion.friction, 0, `${label}: A3 does not display static friction`);
   const initialSign = staticSetup.direction === "left" ? -1 : 1;
   assert.ok(motion.arrow >= 1 && motion.block !== blockBefore && motion.motion?.velocityMps * initialSign > 0 && motion.arrowEnd && Math.abs(motion.arrowEnd.x - drag.end.x) < 8, `${label}: A3 pull arrow follows the trusted pointer while the block moves ${JSON.stringify({ ...motion, expectedX: drag.end.x, deltaX: motion.arrowEnd ? motion.arrowEnd.x - drag.end.x : null, direction: staticSetup.direction, initialSign })}`);
   await touchEnd(cdp);
   await delay(120);
+  assert.match(await evaluate(cdp, "document.getElementById('stageCoachTitle').textContent"), /已找到開始滑動的臨界拉力/, `${label}: A3 updates its guidance after the drag is released`);
   const released = await evaluate(cdp, `(() => ({pull:document.getElementById('breakawayPullValue').textContent,arrow:document.querySelectorAll('.pull-arrow').length,status:document.getElementById('breakawayMotionStatus').textContent,block:document.querySelector('.apparatus-block')?.getAttribute('x'),motion:window.__staticKineticFrictionApp.interactionEvidence().balanceMotion}))()`);
   assert.deepEqual(released.pull, "0.0 N", `${label}: pointerup releases the A3 pull`);
   assert.equal(released.arrow, 0, `${label}: A3 hides the released pull arrow`);
