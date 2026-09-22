@@ -15,7 +15,7 @@
     </header>
     <section class="controls-panel" id="controlsPanel" aria-label="操作面板">
       <div id="draftSaveWarning" class="status is-hidden"><p id="draftSaveMessage" role="status">最新作答未能儲存。請勿關閉此頁，並重試儲存草稿。</p><button id="draftSaveRetry">重試儲存草稿</button></div>
-      <section id="practiceView" class="activity-section"><h2>操作練習</h2><p>試用拖動、數值欄和清除。這條示範圖不計分，也不保存正式答案。</p><div id="practiceRows" class="point-rows"></div><p id="practiceStatus" class="status" aria-live="polite"></p><button id="practiceClear">清除示範圖</button><button id="startChallenge" class="primary">開始正式挑戰</button></section>
+      <section id="practiceView" class="activity-section"><h2>操作練習</h2><p>試用拖動、數值欄和清除。這條示範圖不計分，也不保存正式答案。</p><details class="pass-criteria"><summary>通過條件（須全部達成）</summary><ul class="pass-requirements"></ul></details><div id="practiceRows" class="point-rows"></div><p id="practiceStatus" class="status" aria-live="polite"></p><button id="practiceClear">清除示範圖</button><button id="startChallenge" class="primary">開始正式挑戰</button></section>
       <section id="taskView" class="activity-section is-hidden" aria-labelledby="missionTitle">
         <p id="missionKicker" class="kicker"></p><h2 id="missionTitle"></h2><p id="missionPrompt"></p>
         <button id="formulaToggle" class="text-button" aria-expanded="false" aria-controls="formulaCard">顯示公式提示</button>
@@ -27,8 +27,8 @@
         <p id="editorStatus" class="status" aria-live="polite"></p>
         <button id="nextButton" class="primary">下一幅圖</button>
       </section>
-      <section id="reviewView" class="activity-section is-hidden"><h2>提交前檢視</h2><p>只顯示完成度，不顯示正確性或預計得分。未設定的控制點會得 0 分。</p><p id="reviewStatus" class="status" aria-live="polite"></p><div id="reviewList" class="review-list"></div><button id="submitButton" class="primary">確認提交全部答案</button></section>
-      <section id="resultView" class="activity-section is-hidden"><h2 id="resultTitle">提交結果</h2><div id="resultScore" class="score-panel"></div><div id="resultTabs" class="graph-buttons"></div><p id="resultFeedback" class="status"></p><div id="cursorReadout" class="cursor-readout"></div><button id="retryButton" class="primary is-hidden">重試提交</button></section>
+      <section id="reviewView" class="activity-section is-hidden"><h2>提交前檢視</h2><p>只顯示完成度，不顯示正確性或預計得分。未設定的控制點會得 0 分。</p><details open class="pass-criteria"><summary>通過條件（須全部達成）</summary><ul class="pass-requirements"></ul></details><p id="reviewStatus" class="status" aria-live="polite"></p><div id="reviewList" class="review-list"></div><button id="submitButton" class="primary">確認提交全部答案</button></section>
+      <section id="resultView" class="activity-section is-hidden"><h2 id="resultTitle">提交結果</h2><div id="resultScore" class="score-panel"></div><div id="resultGates" class="pass-feedback"></div><div id="resultTabs" class="graph-buttons"></div><p id="resultFeedback" class="status"></p><div id="cursorReadout" class="cursor-readout"></div><button id="retryButton" class="primary is-hidden">重試提交</button></section>
       <section id="technicalView" class="activity-section is-hidden"><h2 id="technicalTitle">技術問題</h2><p id="technicalMessage"></p><button id="technicalRetryButton" class="primary is-hidden">重試提交</button></section>
     </section>
     <section class="stage-region" id="stageRegion" aria-label="坐標圖舞台"><div id="graphMount" class="graph-mount"></div></section>

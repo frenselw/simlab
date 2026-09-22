@@ -13,4 +13,10 @@ assert.equal(U.pendingReturnDecision({ ok: true, review: { ...expected, score: 6
 assert.deepEqual(U.attemptSummary({ score: 0, status: "failed" }), { score: "0", status: "failed" }, "finished fallback must display a recorded zero");
 assert.deepEqual(U.attemptSummary({ score: "", status: "" }), { score: "--", status: "--" }); assert.match(U.retryableRetryMessage, /重試/);
 assert.equal(U.usesCompactLayout({ width: 320, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 420 }), true); assert.equal(U.usesCompactLayout({ width: 1024, height: 500 }), false); assert.equal(U.usesCompactLayout({ width: 390, height: 250 }), true);
+const Q = require("./question-definitions.js");
+for (const pid of Object.keys(Q.PAPERS)) for (let task=0;task<12;task++) {
+  const definition=Q.taskDefinition(pid,task), labels=U.axisLabels(definition);
+  assert.equal(labels[0],definition.axis.min); assert.equal(labels.at(-1),definition.axis.max); assert.ok(labels.includes(0));
+  for(let index=1;index<labels.length;index++) assert.ok((labels[index]-labels[index-1])/(definition.axis.max-definition.axis.min)*390>=40, `${pid}/${task}: labels leave room for cross-browser 24px phone SVG tick bounds`);
+}
 console.log("Quantitative graph lifecycle UI tests passed");

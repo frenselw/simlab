@@ -40,3 +40,11 @@ button, input { font: inherit; } button { min-height: 44px; border: 1px solid #9
 .drag-value-label, .drag-preview { position: absolute; z-index: 6; pointer-events: none; color: #172554; background: rgba(255,255,255,.96); border: 2px solid #7c3aed; border-radius: .4rem; box-shadow: 0 2px 8px rgba(15,23,42,.18); font-size: .85rem; font-weight: 400; }.drag-value-label { padding: .2rem .35rem; transform: translateY(-50%); }.drag-preview { display: grid; gap: .22rem; width: clamp(9rem, 43%, 11.5rem); box-sizing: border-box; padding: .35rem; }.drag-preview.is-top-left { top: .45rem; left: .45rem; }.drag-preview.is-top-right { top: .45rem; right: .45rem; }.drag-preview.is-bottom-left { bottom: .45rem; left: .45rem; }.drag-preview.is-bottom-right { right: .45rem; bottom: .45rem; }.drag-preview-title, .drag-preview-coordinate { font-weight: 400; }.drag-magnifier-svg { display: block; width: 100%; aspect-ratio: 3 / 2; border: 1px solid #7c3aed; border-radius: .28rem; background: #fff; }.magnifier-background { fill: #fff; }.magnifier-crosshair { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }.magnifier-point { fill: #ede9fe; stroke: #7c3aed; stroke-width: 3; vector-effect: non-scaling-stroke; }
 .magnifier-orientation-axis { fill: none; stroke: #7c3aed; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; shape-rendering: geometricPrecision; vector-effect: non-scaling-stroke; }.magnifier-orientation-arrow { fill: #7c3aed; stroke: none; shape-rendering: geometricPrecision; }
 .graph-board [hidden] { display: none !important; }
+.graph-app.is-summary { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.graph-app.is-summary .controls-panel { grid-column: 1; grid-row: 2; border-right: 0; }
+.graph-app.is-summary .stage-region { display: none; }
+.pass-criteria { margin: .6rem 0; }
+.pass-criteria summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; }
+.pass-criteria summary:focus-visible { outline: 3px solid #7c3aed; outline-offset: 2px; }
+.pass-criteria ul, .pass-feedback ul { padding-left: 1.3rem; line-height: 1.5; }
+.pass-criteria li, .pass-feedback li { margin: .25rem 0; }

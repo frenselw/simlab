@@ -13,5 +13,14 @@
   function attemptSummary(attempt) { const rawScore = attempt?.score; const score = rawScore == null || String(rawScore).trim() === "" ? "--" : String(rawScore); const rawStatus = attempt?.status; return { score, status: typeof rawStatus === "string" && rawStatus.trim() ? rawStatus : "--" }; }
   function usesCompactLayout(viewport) { const width = Number(viewport?.width) || 0; const height = Number(viewport?.height) || 0; return width > 0 && width < 820 && height > 0 && height <= 420; }
   const retryableRetryMessage = "提交未完成；你可以檢查答案後重試。";
-  return { startupMode, validResultMetadata, reviewOutcome, technicalResult, pendingReturnDecision, attemptSummary, usesCompactLayout, retryableRetryMessage, submission: Flow.submission, controlsLocked: (mode) => ["pending", "technical", "submitted", "committed"].includes(mode) };
+  function axisLabels(definition) {
+    const { min, max } = definition.axis;
+    const interval = definition.graphType === "x" ? max > 30 ? 10 : 5 : definition.graphType === "v" ? max > 10 ? 5 : 2 : 1;
+    const labels = [min];
+    for (let value = Math.ceil(min / interval) * interval; value < max; value += interval) {
+      if (value - min >= interval && max - value >= interval) labels.push(value);
+    }
+    return [...new Set([...labels, 0, max])].sort((a, b) => a - b);
+  }
+  return { startupMode, validResultMetadata, reviewOutcome, technicalResult, pendingReturnDecision, attemptSummary, usesCompactLayout, retryableRetryMessage, axisLabels, submission: Flow.submission, controlsLocked: (mode) => ["pending", "technical", "submitted", "committed"].includes(mode) };
 });

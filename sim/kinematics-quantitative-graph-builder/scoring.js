@@ -10,6 +10,23 @@
   const PASS_SCORE = 70;
   const GRAPH_MAX = Object.freeze({ x: 40, v: 32, a: 28 });
   const GRAPH_FLOOR = Object.freeze({ x: 20, v: 16, a: 14 });
+  const MISSION_FLOOR = 10;
+  const PASS_CRITERIA = Object.freeze([
+    { key: "raw", text: `總分至少 ${PASS_SCORE}/100。` },
+    ...["x", "v", "a"].map(type => ({ key: type, text: `${type}–t 四圖合計至少 ${GRAPH_FLOOR[type]}/${GRAPH_MAX[type]}。` })),
+    { key: "missions", text: `每個任務至少 ${MISSION_FLOOR}/25。` },
+    { key: "positiveComplete", text: "任務 2 或任務 3，至少一個任務的三圖全部控制點正確。" },
+    { key: "decelerationComplete", text: "任務 4 的三圖全部控制點正確。" }
+  ].map(Object.freeze));
+  function gateFeedback(result) {
+    return PASS_CRITERIA.filter(item => !result.gates[item.key]).map(item => {
+      const key = item.key;
+      if (key === "raw") return `${item.text}目前為 ${result.score}/100。`;
+      if (Object.hasOwn(GRAPH_MAX, key)) return `${item.text}目前為 ${result.families[key]}/${GRAPH_MAX[key]}。`;
+      if (key === "missions") return `${item.text}未達門檻：${result.missions.flatMap((score, index) => score < MISSION_FLOOR ? [`任務 ${index + 1}（${score}/25）`] : []).join("、")}。`;
+      return item.text;
+    });
+  }
   const COMPONENTS = Object.freeze({ x2: [5, 5], x3: [3, 3, 4], v: [4, 4], a: [3.5, 3.5] });
   const nearly = (a, b) => Math.abs(a - b) < 1e-9;
   function graphComponents(definition) { if (definition.graphType === "x") return definition.times.length === 2 ? COMPONENTS.x2 : COMPONENTS.x3; return COMPONENTS[definition.graphType]; }
@@ -56,9 +73,9 @@
     const rawScore = Math.max(0, Math.min(MAX_SCORE, details.reduce((total, detail) => total + detail.score, 0)));
     const positiveComplete = [1, 2].some((mission) => [0, 1, 2].every((offset) => details[mission * 3 + offset].score === details[mission * 3 + offset].maxScore));
     const decelerationComplete = [0, 1, 2].every((offset) => details[9 + offset].score === details[9 + offset].maxScore);
-    const gates = { raw: rawScore >= PASS_SCORE, x: families.x >= GRAPH_FLOOR.x, v: families.v >= GRAPH_FLOOR.v, a: families.a >= GRAPH_FLOOR.a, missions: missions.every((score) => score >= 10), positiveComplete, decelerationComplete };
+    const gates = { raw: rawScore >= PASS_SCORE, x: families.x >= GRAPH_FLOOR.x, v: families.v >= GRAPH_FLOOR.v, a: families.a >= GRAPH_FLOOR.a, missions: missions.every((score) => score >= MISSION_FLOOR), positiveComplete, decelerationComplete };
     const passed = Object.values(gates).every(Boolean);
     return { score: rawScore, maxScore: MAX_SCORE, passed, completed: true, details, families, missions, gates, diagnostics: [0, 1, 2, 3].map((mission) => crossDiagnostic(paperId, safeAnswers, mission)), evidenceIncompleteTaskIds: details.filter((detail) => !detail.complete).map((detail) => detail.id), feedback: passed ? "你已精確建立所有必要的定量圖像證據。" : "檢查每幅圖的固定時間控制點，並完成四個情境。" };
   }
-  return { MAX_SCORE, PASS_SCORE, GRAPH_MAX, GRAPH_FLOOR, COMPONENTS, graphComponents, scoreGraph, feedbackFor, crossDiagnostic, scoreActivity };
+  return { MAX_SCORE, PASS_SCORE, GRAPH_MAX, GRAPH_FLOOR, MISSION_FLOOR, PASS_CRITERIA, gateFeedback, COMPONENTS, graphComponents, scoreGraph, feedbackFor, crossDiagnostic, scoreActivity };
 });

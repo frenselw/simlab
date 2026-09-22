@@ -850,6 +850,9 @@ t / s
 
 - absolute ceiling：`20 m/s`；
 - snap：`1 m/s`；
+- major labels：maximum `10 m/s` 時每 `2 m/s`，較大範圍每 `5 m/s`；保留
+  minimum、zero、maximum，並留足跨瀏覽器字型 bounding box 的間距。
+  Minor grid 與 drag／keyboard snap 仍為 `1 m/s`，並不降低作答精度。
 - 零軸清楚但不暗示正確答案；
 - axis 在作答前固定。
 
@@ -953,6 +956,11 @@ t / s
 ## 12. Scoring
 
 ### 12.1 Compact contract
+
+The practice page and pre-submit review publish all existing passing gates.
+The trusted result view lists each failed gate, including current total/family
+scores and which missions are below their floor. A 97-point result that misses
+the Mission 4 representative gate must explain that gate; do not change scoring.
 
 ```text
 Total: 100
@@ -1237,13 +1245,21 @@ a = (v(T)-v(0))/T = ...
   - reflow 為單欄；
   - 無水平溢出；
   - graph、point rows、primary action 可達。
-- technical／safe-summary 畫面無 active graph 時可收起 stage，讓 controls 使用完整高度。
+- 提交前檢視及 technical／safe-summary 畫面沒有 active graph，必須收起空舞台，
+  讓 controls 使用 header 以下完整寬高；仍只由 controls panel 捲動。
+  practice／task／review／result／technical 之間切換時回到 panel 頂部；返回編輯或
+  結果圖時恢復原有手機／桌面舞台比例，不更改作答或觸控歸屬。
 
 ---
 
 ## 16. Touch gesture ownership contract
 
 ### 16.1 Draggable target inventory
+
+Submitted point markers are static SVG only: do not retain invisible point-hit
+buttons with `touch-action:none`. A swipe starting on a submitted marker follows
+the non-interactive stage/host row, never the panel row; only the time cursor
+remains a draggable target on the result stage.
 
 | Target type | Selector／hit-target strategy | Pointer-capture target | Drag 中可替換？ |
 |---|---|---|---:|
