@@ -20,6 +20,8 @@ assert.doesNotMatch(html + css, /MathJax|KaTeX|cdnjs|unpkg|jsdelivr/i);
 assert.match(css, /\.math-inline\s*\{[\s\S]*font-family:\s*var\(--math-font\)/);
 assert.match(css, /\.math-inline var,[\s\S]*font-style:\s*italic/);
 assert.match(css, /\.theta-hit::before\s*\{[\s\S]*box-shadow:/);
+assert.match(css, /\.theta-hit\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;/, "the smaller theta glyph keeps its touch target");
+assert.match(css, /font-size:\s*calc\(var\(--scene-label-font-size\) \* var\(--diagram-scale, 1\)\)/);
 assert.match(css, /\.force-stage\s*\{[\s\S]*touch-action:\s*pan-y/);
 assert.match(css, /\.stage-hit,[\s\S]*\.theta-hit\s*\{[\s\S]*touch-action:\s*none/);
 assert.match(css, /\.formula-palette button[\s\S]*touch-action:\s*none/);

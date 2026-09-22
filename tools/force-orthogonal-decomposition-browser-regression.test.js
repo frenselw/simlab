@@ -114,7 +114,7 @@ assert.match(main, /forceLabelAnchor = isGravityScene/);
 assert.match(main, /Gₓ、Gᵧ 不可對調/);
 assert.match(main, /提交後顯示評核/);
 assert.match(main, /三題提交後才會顯示總分/);
-assert.match(main, /data-label": "force-head"/);
+assert.doesNotMatch(main, /data-label": "force-head"/, "the force arrowhead has no extra P label");
 assert.doesNotMatch(main, /LMSGetValue|LMSSetValue|LMSCommit|LMSFinish/);
 assert.match(styles, /\.given-theta-arc/);
 assert.match(styles, /\.given-theta-reference/);

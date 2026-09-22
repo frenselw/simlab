@@ -176,7 +176,7 @@
   function currentQuestionIndex() { return activity.currentQuestion; }
 
   const PHASE_COPY = Object.freeze({
-    perpendiculars: "由原力箭嘴頂點 P 拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
+    perpendiculars: "由原力箭嘴頂點拖出兩條垂線。畫好後可直接拖動終點調整，接近垂足時會吸附。",
     components: "由 O 拖出兩支分力。畫歪了可直接拖動分力箭頭調整方向及長度，接近交點時會吸附。",
     angle: "",
     formulas: "按圖中 θ 的位置，用 sin θ 或 cos θ 表示兩個分力的大小。原力大小會按題目顯示，不需要計算數值。"
@@ -561,6 +561,7 @@
     const viewBox = frame.viewBox;
     dom.diagram.replaceChildren();
     dom.diagram.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+    dom.stageCanvas.style.setProperty("--diagram-scale", String(diagramTransform().scale));
     drawGrid(dom.diagram, viewBox);
     const worldLayer = createSvg("g", { transform: `translate(${frame.origin.x} ${frame.origin.y}) scale(1 -1)` });
     const labelLayer = createSvg("g", { "aria-hidden": "true" });
@@ -653,7 +654,6 @@
     drawNode(worldLayer, sceneForceHead(), "force-node", 5);
     dom.diagram.appendChild(worldLayer);
     drawScreenText(labelLayer, { x: sceneOrigin().x - 24, y: sceneOrigin().y - 12 }, "O", "scene-label", { "data-label": "origin" });
-    drawScreenText(labelLayer, M.add(sceneForceHead(), { x: 14, y: 12 }), "P", "scene-label", { "data-label": "force-head" });
     const forceVector = M.subtract(sceneForceHead(), sceneOrigin());
     const forceUnit = M.normalize(forceVector) || { x: 1, y: 0 };
     const isGravityScene = activeScene().id === "inclined-gravity";
@@ -809,7 +809,7 @@
     dom.originHit.dataset.dragKind = phase === "components" ? "component" : "direction";
 
     const pointActive = phase === "perpendiculars" && state.perpendiculars.length < 2;
-    setHitVisibility(dom.pointHit, pointActive, "由原力箭嘴頂點 P 開始畫垂線");
+    setHitVisibility(dom.pointHit, pointActive, "由原力箭嘴頂點開始畫垂線");
     setHitPosition(dom.pointHit, sceneForceHead());
     dom.pointHit.dataset.dragKind = "perpendicular";
 
@@ -817,7 +817,7 @@
     const thetaActive = phase === "angle" || phase === "formulas" || Boolean(state.theta);
     const thetaLabel = state.theta
       ? "拖動 θ 更換角度位置"
-      : thetaCandidatesAvailable ? "拖動 θ 到 O 或 P 附近的銳角" : "目前沒有可吸附的角弧；可返回調整方向線";
+      : thetaCandidatesAvailable ? "拖動 θ 到 O 或原力箭嘴頂點附近的銳角" : "目前沒有可吸附的角弧；可返回調整方向線";
     setHitVisibility(dom.thetaHit, thetaActive, thetaLabel);
     dom.thetaHit.disabled = phase !== "angle" && phase !== "formulas";
     setHitPosition(dom.thetaHit, thetaVisualPoint());

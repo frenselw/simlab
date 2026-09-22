@@ -20,6 +20,27 @@ async page => {
 
   const appState = () => page.evaluate(() => window.__forceOrthogonalApp.getState());
   const appRuntime = () => page.evaluate(() => window.__forceOrthogonalApp.getRuntimeState());
+  const assertThetaTypography = async (context, label) => {
+    const sizes = await context.evaluate(() => {
+      const screenSize = node => {
+        const matrix = node?.getScreenCTM();
+        return matrix ? parseFloat(getComputedStyle(node).fontSize) * Math.hypot(matrix.a, matrix.b) : null;
+      };
+      const hit = document.querySelector("#thetaHit");
+      const active = !hit.hidden && getComputedStyle(hit).visibility !== "hidden";
+      const box = hit.getBoundingClientRect();
+      return {
+        force: screenSize(document.querySelector('#diagram [data-label="original-force"]')),
+        theta: active ? parseFloat(getComputedStyle(hit).fontSize) : screenSize(document.querySelector('#diagram [data-label="student-theta"]')),
+        active, width: box.width, height: box.height,
+        extraP: [...document.querySelectorAll("#diagram text")].some(node => node.textContent === "P")
+      };
+    });
+    assert(sizes.force > 0 && sizes.theta > 0 && Math.abs(sizes.theta - sizes.force) < .1,
+      `${label}: theta and force symbols have equal screen font sizes ${JSON.stringify(sizes)}`);
+    assert(!sizes.active || (sizes.width === 56 && sizes.height === 56), `${label}: theta retains its full 56px hit target`);
+    assert(!sizes.extraP, `${label}: no P label is drawn at the force arrowhead`);
+  };
   const telemetry = context => context.evaluate(() => window.__forceOrthogonalApp.getTouchTelemetry());
   const assertTrustedPointerTransaction = async (context, before, label) => {
     const events = (await telemetry(context)).slice(before);
@@ -165,6 +186,8 @@ async page => {
         liveGeometry: original && original.outerHTML === copy?.outerHTML,
         hasForbiddenNodes: Boolean(svg.querySelector("[id], [tabindex], button, a")),
         thetaGlyph: svg.querySelector('[data-label="student-theta"]')?.textContent,
+        thetaFont: parseFloat(getComputedStyle(svg.querySelector('[data-label="student-theta"]') || svg).fontSize),
+        forceFont: parseFloat(getComputedStyle(svg.querySelector('[data-label="original-force"]')).fontSize),
         kind, valid: Boolean(drag?.preview?.valid || kind === "theta"),
         focusPoint, expectedEndpoint: kind === "theta" ? drag.point : drag?.preview?.point,
         corner: panel.dataset.corner
@@ -176,7 +199,10 @@ async page => {
     assert(Math.abs(preview.zoom - 2) < .01 && preview.focusVisible, details + " active point is visible at 2x scale");
     assert(preview.originalForce && !preview.hasForbiddenNodes, details + " scene is copied without duplicate IDs or interactive controls");
     if (preview.valid && preview.kind !== "theta") assert(preview.liveGeometry, details + " preview matches the live geometry including snapping");
-    if (preview.kind === "theta") assert(preview.thetaGlyph === "θ", details + " editable HTML theta also has a magnified glyph");
+    if (preview.kind === "theta") {
+      assert(preview.thetaGlyph === "θ" && preview.thetaFont === preview.forceFont, details + " magnified theta retains the force symbol's font size");
+      await assertThetaTypography(context, label + " while dragging");
+    }
     if (preview.expectedEndpoint) assert(Math.hypot(preview.focusPoint.x - preview.expectedEndpoint.x, preview.focusPoint.y - preview.expectedEndpoint.y) < .01,
       details + " focus follows the snapped endpoint or theta location");
     return preview;
@@ -299,9 +325,11 @@ async page => {
     await advanceStage();
     assert((await appState()).phase === "angle", `${plan.id}: angle phase reached`);
     await assertGravityHit("#thetaHit", "given theta");
+    await assertThetaTypography(page, plan.id + " unplaced theta");
     const thetaChoice = page.locator("[data-theta-choice]").first();
     assert(await thetaChoice.count() === 1, `${plan.id}: theta choice rendered`);
     await click(thetaChoice);
+    await assertThetaTypography(page, plan.id + " placed theta");
     await advanceStage();
     assert((await appState()).phase === "formulas", `${plan.id}: formula phase reached`);
     const expectations = await page.evaluate(() => window.ForceOrthogonalDecompositionModel.formulaExpectations(window.__forceOrthogonalApp.getState()));
@@ -471,7 +499,8 @@ async page => {
       assert((await appState()).directions.length === 2, `${label}: touch navigation setup created two directions`);
       await touchTap(page.locator("#stageNextButton"));
       assert((await appState()).phase === "perpendiculars", `${label}: real touch tap activates stage next button`);
-      assert(await page.locator('#diagram [data-label="force-head"]').textContent() === "P", `${label}: the point named by the instructions is labelled on every scene`);
+      assert(await page.locator('#diagram [data-label="force-head"]').count() === 0, `${label}: no extra P label is drawn at the force arrowhead`);
+      assert((await page.locator("#pointHit").getAttribute("aria-label")).includes("原力箭嘴頂點開始畫垂線"), `${label}: the unlabeled arrowhead retains a descriptive interaction name`);
       const unobstructed = await page.evaluate(() => {
         const nav = document.querySelector(".stage-navigation").getBoundingClientRect();
         const caption = document.querySelector(".stage-caption").getBoundingClientRect();
@@ -541,6 +570,14 @@ async page => {
     await constructQuestion("touch", false);
     await click(page.locator('[data-question-index="2"]'));
     await constructQuestion("mouse", false);
+    for (const [width, height] of [[390, 844], [320, 500], [390, 320], [667, 375], [1100, 760]]) {
+      await page.setViewportSize({ width, height });
+      await wait(80);
+      for (const index of [0, 1, 2]) {
+        await click(page.locator(`[data-question-index="${index}"]`));
+        await assertThetaTypography(page, `${label} question ${index + 1} ${width}x${height}`);
+      }
+    }
     const savedQuestions = JSON.stringify(await page.evaluate(() => window.__forceOrthogonalApp.getActivityState().questions.map(question => ({
       scenarioId: question.scenarioId,
       phase: question.phase,
@@ -564,10 +601,12 @@ async page => {
     assert(restoredQuestions === savedQuestions, label + ": reload restores all three authoritative questions " + JSON.stringify({ saved: savedQuestions, restored: restoredQuestions }));
     await click(page.locator("#goSummary"));
     assert(await page.locator("#summaryPanel").isVisible(), `${label}: summary is visible`);
+    await assertThetaTypography(page, label + " summary");
     await click(page.locator("#submitAttempt"));
     try { await page.waitForFunction(() => window.__forceOrthogonalApp.getRuntimeState() === "review"); }
     catch (error) { throw new Error(`${label}: review wait failed state=${JSON.stringify(await appState())} runtime=${await appRuntime()}: ${error.message}`); }
     assert((await page.locator("#reviewCompletion").textContent()).includes("形成性"), `${label}: final review is explicit formative feedback`);
+    await assertThetaTypography(page, label + " review");
     await page.reload();
     await waitForApp();
     assert(await appRuntime() === "review", `${label}: finished reload stays review-only`);
@@ -979,12 +1018,15 @@ async page => {
           return target.top >= canvas.top - 1 && target.bottom <= canvas.bottom + 1 && target.left >= canvas.left - 1 && target.right <= canvas.right + 1;
         });
         assert(await thetaVisible(), "short gravity: selected theta and its entire target stay inside the canvas");
+        await assertThetaTypography(frame, "short gravity selected theta");
         const saved = await frameSemanticState(frame);
         await frame.evaluate(() => location.reload());
         await frame.waitForFunction(() => window.__forceOrthogonalApp?.getState()?.theta === "theta-incline");
         assert(await thetaVisible(), "short gravity: restored selected theta stays visible");
+        await assertThetaTypography(frame, "short gravity restored theta");
         await frameClick(frame, "#goSummary");
         assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "short gravity: summary draws theta exactly once");
+        await assertThetaTypography(frame, "short gravity summary theta");
         await frameClick(frame, "#returnToPractice");
         assert(await thetaVisible() && JSON.stringify(await frameSemanticState(frame)) === JSON.stringify(saved), "short gravity: return to editing preserves the visible theta and answer");
       }

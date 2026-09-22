@@ -604,8 +604,8 @@
       const entries = [
         { key: "theta-parallel", vertex: scene.origin, startAngle: firstAngle, endAngle: unwrappedForce, description: `O 點：原力與${first.label}之間`, adjacentAxisKey: first.key },
         { key: "theta-normal", vertex: scene.origin, startAngle: unwrappedForce, endAngle: secondAngle, description: `O 點：原力與${second.label}之間`, adjacentAxisKey: second.key },
-        { key: "theta-head-parallel", vertex: scene.forceHead, startAngle: firstAngle + Math.PI, endAngle: unwrappedForce + Math.PI, description: `P 點：原力與${first.label}之間`, adjacentAxisKey: first.key },
-        { key: "theta-head-normal", vertex: scene.forceHead, startAngle: unwrappedForce + Math.PI, endAngle: secondAngle + Math.PI, description: `P 點：原力與${second.label}之間`, adjacentAxisKey: second.key }
+        { key: "theta-head-parallel", vertex: scene.forceHead, startAngle: firstAngle + Math.PI, endAngle: unwrappedForce + Math.PI, description: `原力箭嘴頂點：原力與${first.label}之間`, adjacentAxisKey: first.key },
+        { key: "theta-head-normal", vertex: scene.forceHead, startAngle: unwrappedForce + Math.PI, endAngle: secondAngle + Math.PI, description: `原力箭嘴頂點：原力與${second.label}之間`, adjacentAxisKey: second.key }
       ];
       return entries.map((entry) => thetaCandidate({ ...entry, label: "θ" }, options));
     }
@@ -635,7 +635,7 @@
       thetaCandidate({
         key: "theta-head-horizontal",
         vertex: FORCE_HEAD,
-        description: "P 點：原力與水平虛線之間",
+        description: "原力箭嘴頂點：原力與水平虛線之間",
         label: "θ",
         startAngle: Math.PI,
         endAngle: Math.PI + forceAngle,
@@ -644,7 +644,7 @@
       thetaCandidate({
         key: "theta-head-vertical",
         vertex: FORCE_HEAD,
-        description: "P 點：原力與垂直虛線之間",
+        description: "原力箭嘴頂點：原力與垂直虛線之間",
         label: "θ",
         startAngle: Math.PI + forceAngle,
         endAngle: Math.PI * 1.5,
@@ -702,7 +702,7 @@
           key: `learner-theta-head-${index}`,
           vertex: scene.forceHead,
           sector: headSector,
-          description: `P 點：原力與第 ${index + 1} 條垂線之間`
+          description: `原力箭嘴頂點：原力與第 ${index + 1} 條垂線之間`
         }
       ].forEach(({ key, vertex, sector, description }) => {
         if (sector.endAngle - sector.startAngle <= radians(4)) return;

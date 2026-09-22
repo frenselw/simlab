@@ -167,6 +167,8 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 
 使用一個小型幾何模型：原點 `O`、固定原力箭頭端點 `P`、兩條通過 `O` 的無箭嘴方向線、從 `P` 出發的垂線段，以及從 `O` 指向兩個可見交點的分力。情境只提供不同的 scene data，不建立任意座標編輯器。
 
+`P` 僅作模型／文件內部端點代稱，舞台不顯示 P 字；學生介面、角度選項及無障礙提示統一稱「原力箭嘴頂點」。
+
 1. `horizontal-vertical`：`F = OP`，方向軸為水平／垂直；θ 可由學生在 `O` 或 `P` 選四個銳角，互餘角用相應 `sin`／`cos`。
 2. `inclined-external-force`：物體在傾角 28° 的有厚度斜面上，受固定斜向外力 `F`；方向軸為平行／垂直斜面；θ 仍由學生自由選兩個銳角，不接受僅由按鈕文字推斷的角度。
 3. `inclined-gravity`：物體在同一類斜面上，固定原力為豎直向下 `G`；題目已給斜面與水平的傾角 θ，學生須在分解圖標出同一個 θ，不接受互餘角冒充同一 θ。第三題固定命名為 `Gₓ`＝平行斜面分量、`Gᵧ`＝垂直斜面／向內法線分量；學生不可把兩者對調，對調時分力評分項目不成立。大小關係為 `Gₓ = G sin θ`、`Gᵧ = G cos θ`。
@@ -185,6 +187,7 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 - 舞台 caption／步驟按鈕使用獨立工具列；SVG、穩定 hit targets、局部預覽共用其下方的 canvas 座標及裁切區，不與工具列爭用觸控位置。
 - 小舞台上擴大控制區重疊時，以落手位置最近的可用 anchor 決定新增／編輯目標；capture 仍留在原本穩定 HTML hit target，鍵盤焦點則保持明確的原目標。
 - 短 canvas 的 θ 候選角弧、吸附中心及標籤採同一個自適應半徑；56px 標籤控制區留在 canvas 內。此為 derived UI，不改 θ 語意鍵、保存座標或評分；總覽／review 亦用相同繪製位置。
+- θ 字樣與 F／G 共用 20 SVG-unit 字體基準，HTML θ 依 diagram scale 換算；縮小字樣不縮小 56px 觸控範圍。練習、總覽／review 及 2× touch preview 保持同一符號比例。
 - Extreme height/zoom：縮放 stage SVG 及文字、讓 controls 保留最小可用高度；不新增 stage 垂直 scroller；主要按鈕在 panel 內可達。
 
 ## Touch gesture ownership contract
@@ -370,6 +373,12 @@ Submission creates a validated review snapshot and final-state result, then call
 | M4 | 已完成（本機證據） | `npm.cmd run check`、`npm.cmd run package:all`、11-file `force-orthogonal-decomposition-scorm.zip`、extracted launch、source + packaged responsive/trusted-touch/lifecycle checks 通過；完整 repo `npm.cmd test` 仍在既有 `position-time-browser-regression.js:307` Chrome DevTools WebSocket blocker 中停止，非本活動失敗 |
 
 ## Final verification record
+
+### 2026-09-22 θ 字體比例及箭嘴標籤調整
+
+- 按使用者回饋，θ 與 F／G／分力共用同一 SVG 字體基準；練習 HTML θ 隨舞台縮放，保留原本 56px hit target、capture 及吸附幾何。總覽／review／2× preview 使用同一字體基準。移除各題箭嘴頂點 P 字，相關學生文字及 ARIA 改稱「原力箭嘴頂點」，內部鍵及保存格式不變。
+- 活動七組 Node／contract tests、`npm run check`、`npm run package:all`、完整 `tools/force-orthogonal-decomposition-browser-regression.sh` exit 0。新增 source／extracted 的 320×500、390×844、390×320、667×375、1100×760 三題字體比例、56px 控制範圍、preview 及 summary／review 斷言；既有 trusted-touch 與 lifecycle 全部通過（`output/force-orthogonal-symbols-browser.log`）。
+- 目視核對手機及短視窗截圖；兩個 read-only sub-agents 分別複審顯示／互動與文字／保存兼容，均無新增 actionable findings。本輪未重跑全 repo `npm test`，也沒有新增實機手機／真實 Moodle 驗收證據。
 
 ### 2026-09-22 審核問題修正與獨立複審
 

@@ -203,6 +203,14 @@ const assertReviewLock = async (frame, label) => {
   assert(!(await frame.locator("#summaryPanel").isVisible()), `${label}: summary panel remained active`);
   assert(await frame.evaluate(() => window.__forceOrthogonalApp.getDragPreview() === null), `${label}: an interaction preview survived the review lock`);
   assert(await frame.locator("#touchPreview").isHidden(), `${label}: touch magnifier survived the review lock`);
+  const symbols = await frame.evaluate(() => {
+    const theta = document.querySelector('#diagram [data-label="student-theta"]');
+    const force = document.querySelector('#diagram [data-label="original-force"]');
+    return { theta: theta && getComputedStyle(theta).fontSize, force: force && getComputedStyle(force).fontSize,
+      hasP: [...document.querySelectorAll("#diagram text")].some(node => node.textContent === "P") };
+  });
+  assert(!symbols.theta || symbols.theta === symbols.force, `${label}: submitted snapped/free theta shares the force symbol font size`);
+  assert(!symbols.hasP, `${label}: submitted drawings do not restore a P label`);
   assert(!/清除|重新開始/.test(await frame.locator("#reviewActions").innerText()), `${label}: review offers a clear/restart action`);
   await assertStageLocked(frame, label);
 };

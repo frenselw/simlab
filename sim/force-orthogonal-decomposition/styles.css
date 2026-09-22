@@ -5,6 +5,7 @@
   --construction-guide: #64748b;
   --construction-perpendicular: #0f766e;
   --theta-color: #b45309;
+  --scene-label-font-size: 20px;
   --math-font: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times New Roman", serif;
 }
 
@@ -237,7 +238,8 @@ body {
   background: transparent;
   color: var(--theta-color);
   font-family: var(--math-font);
-  font-size: 1.7rem;
+  /* Match the SVG symbols without shrinking the stable 56px touch target. */
+  font-size: calc(var(--scene-label-font-size) * var(--diagram-scale, 1));
   font-style: italic;
   font-weight: 400;
   line-height: 1;
@@ -532,7 +534,7 @@ body {
 .scene-label {
   fill: var(--color-text);
   font-family: var(--math-font);
-  font-size: 20px;
+  font-size: var(--scene-label-font-size);
   font-style: italic;
   font-weight: 400;
   stroke-width: 5px;
@@ -544,7 +546,6 @@ body {
 
 .scene-label.student-theta-label {
   fill: var(--theta-color);
-  font-size: 22px;
 }
 
 .component-label[data-component-index="0"] {

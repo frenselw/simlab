@@ -190,6 +190,7 @@ assert.equal(M.previewComponent({ x: 6, y: 0 }, exactPerpendiculars, axisDirecti
 assert.equal(M.commitComponent({ x: 6, y: 0 }, exactPerpendiculars, axisDirections, [], { minDistance: M.MIN_DRAW_DISTANCE }).accepted, false, "component commit cannot consume a slot for a too-short gesture");
 
 const theta = M.thetaCandidates(axisDirections);
+assert.ok(theta.filter(candidate => candidate.key.startsWith("theta-head-")).every(candidate => candidate.description.startsWith("原力箭嘴頂點：")), "head angle choices describe the arrowhead without a P label");
 assert.equal(theta.length, 4, "both O and P expose their two acute theta candidates");
 for (const candidate of theta) assert.equal(M.thetaCandidateAt(candidate.center, axisDirections).key, candidate.key, "every vertex resolves its own local angle");
 assert.ok(Math.abs(M.distance(theta[0].labelCenter, theta[0].center) - 12) < 1e-8, "theta label stays close to its arc");
