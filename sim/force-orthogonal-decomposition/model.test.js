@@ -395,6 +395,12 @@ for (const scenarioId of ["inclined-external-force", "inclined-gravity"]) {
     assert.equal(candidate.key, "theta-incline");
     assert.ok(Math.abs(M.distance(candidate.labelCenter, candidate.center) - 12) < 1e-8, "gravity theta label stays close to its arc");
     assert.ok(Math.abs(candidate.decompositionAngle - scene.plane.angle) < 1e-8, "given theta equals the internal gravity-normal acute angle");
+    const compactOptions = { scene, radius: 32, labelGap: 8, labelBounds: { left: 90, right: 130, bottom: 35, top: 65 } };
+    const compact = M.thetaCandidates(second.directions, compactOptions)[0];
+    assert.equal(compact.key, candidate.key, "compact rendering preserves the selected angle's semantic key");
+    assert.equal(compact.decompositionAngle, candidate.decompositionAngle, "layout never changes the physics angle");
+    assert.ok(compact.labelCenter.x >= 90 && compact.labelCenter.x <= 130 && compact.labelCenter.y >= 35 && compact.labelCenter.y <= 65, "compact theta label respects display bounds");
+    assert.deepEqual(M.thetaCandidateAt(compact.center, second.directions, compactOptions)?.labelCenter, compact.labelCenter, "snapping and rendering use the same compact candidate");
     assert.ok(Math.abs(candidate.startAngle - Math.atan2(scene.forceHead.y - scene.origin.y, scene.forceHead.x - scene.origin.x)) < 1e-8, "given theta starts on downward G");
     assert.notEqual(Math.round(candidate.startAngle * 180 / Math.PI), 0, "given theta is not the already-given slope-versus-horizontal sector");
     assert.deepEqual(expectations.map(entry => entry.value).sort(), ["cos", "sin"], "gravity keeps G parallel = G sin theta and normal = G cos theta");

@@ -971,6 +971,22 @@ async page => {
         await frameTouchTarget(frame, "#componentEdit0", plan.feet[0], "short gravity repair first component");
         await frameTouchTarget(frame, "#originHit", plan.feet[1], "short gravity second component");
         assert((await frameSemanticState(frame)).components.length === 2 && await frame.evaluate(() => window.__forceOrthogonalApp.isCorrectDecomposition()), "short gravity: overlapping handles permit both correctly placed components");
+        await frameClick(frame, "#nextButton");
+        await frameClick(frame, '[data-theta-choice="theta-incline"]');
+        const thetaVisible = () => frame.evaluate(() => {
+          const canvas = document.querySelector("#stageCanvas").getBoundingClientRect();
+          const target = document.querySelector("#thetaHit").getBoundingClientRect();
+          return target.top >= canvas.top - 1 && target.bottom <= canvas.bottom + 1 && target.left >= canvas.left - 1 && target.right <= canvas.right + 1;
+        });
+        assert(await thetaVisible(), "short gravity: selected theta and its entire target stay inside the canvas");
+        const saved = await frameSemanticState(frame);
+        await frame.evaluate(() => location.reload());
+        await frame.waitForFunction(() => window.__forceOrthogonalApp?.getState()?.theta === "theta-incline");
+        assert(await thetaVisible(), "short gravity: restored selected theta stays visible");
+        await frameClick(frame, "#goSummary");
+        assert(await frame.locator('#diagram [data-label="student-theta"]').count() === 1, "short gravity: summary draws theta exactly once");
+        await frameClick(frame, "#returnToPractice");
+        assert(await thetaVisible() && JSON.stringify(await frameSemanticState(frame)) === JSON.stringify(saved), "short gravity: return to editing preserves the visible theta and answer");
       }
     }
   };

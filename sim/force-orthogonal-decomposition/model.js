@@ -186,12 +186,17 @@
       ? options.labelGap
       : scene?.id === "inclined-external-force" ? 18 : THETA_LABEL_GAP;
     const center = add(entry.vertex, scale(fromAngle(midAngle), radius));
+    const labelCenter = add(entry.vertex, scale(fromAngle(midAngle), radius + labelGap));
+    if (options.labelBounds) {
+      labelCenter.x = clamp(labelCenter.x, options.labelBounds.left, options.labelBounds.right);
+      labelCenter.y = clamp(labelCenter.y, options.labelBounds.bottom, options.labelBounds.top);
+    }
     return {
       ...entry,
       label: entry.label || "θ",
       midAngle,
       center,
-      labelCenter: add(entry.vertex, scale(fromAngle(midAngle), radius + labelGap)),
+      labelCenter,
       radius
     };
   }

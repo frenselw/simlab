@@ -184,6 +184,7 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 - Activity-document scroll invariant：bounded activity 的 `html`、`body`、fixed app shell 及 stage chain 沒有可用的垂直 scroll range，不成為第三個 scroll owner。
 - 舞台 caption／步驟按鈕使用獨立工具列；SVG、穩定 hit targets、局部預覽共用其下方的 canvas 座標及裁切區，不與工具列爭用觸控位置。
 - 小舞台上擴大控制區重疊時，以落手位置最近的可用 anchor 決定新增／編輯目標；capture 仍留在原本穩定 HTML hit target，鍵盤焦點則保持明確的原目標。
+- 短 canvas 的 θ 候選角弧、吸附中心及標籤採同一個自適應半徑；56px 標籤控制區留在 canvas 內。此為 derived UI，不改 θ 語意鍵、保存座標或評分；總覽／review 亦用相同繪製位置。
 - Extreme height/zoom：縮放 stage SVG 及文字、讓 controls 保留最小可用高度；不新增 stage 垂直 scroller；主要按鈕在 panel 內可達。
 
 ## Touch gesture ownership contract

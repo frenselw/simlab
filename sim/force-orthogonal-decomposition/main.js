@@ -125,13 +125,27 @@
   function thetaInteractionOptions(source = state) {
     const scene = M.getScenario(source?.scenarioId) || activeScene();
     const scale = Math.max(diagramTransform().scale, .01);
-    return {
+    const options = {
       scene,
       allowImperfect: true,
       perpendiculars: source?.perpendiculars || [],
       radius: THETA_SCREEN_RADIUS / scale,
       labelGap: THETA_SCREEN_LABEL_GAP / scale
     };
+    const canvas = dom.stageCanvas.getBoundingClientRect();
+    let fit = 1;
+    for (const candidate of M.thetaCandidatesForInteraction(source?.directions || [], options)) {
+      const vertex = worldToStagePixel(candidate.vertex);
+      const label = worldToStagePixel(candidate.labelCenter);
+      for (const [axis, size] of [["x", canvas.width], ["y", canvas.height]]) {
+        const delta = label[axis] - vertex[axis];
+        if (Math.abs(delta) < .01) continue;
+        const edge = delta > 0 ? size - 28 : 28;
+        fit = Math.min(fit, (edge - vertex[axis]) / delta);
+      }
+    }
+    const factor = Math.max(1 / 6, fit);
+    return { ...options, radius: options.radius * factor, labelGap: options.labelGap * factor, labelBounds: editingBounds() };
   }
   function thetaCandidatesForInteraction(source = state) {
     return M.thetaCandidatesForInteraction(source?.directions || [], thetaInteractionOptions(source));
