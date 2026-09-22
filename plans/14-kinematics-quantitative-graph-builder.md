@@ -107,7 +107,7 @@ x(t)、v(t)、a(t)
 6. 學生三點放錯時，系統仍忠實畫出由錯誤三點決定的二次曲線。
 7. 不預填水平線、零線、起點或其他具有物理意義的答案。
 8. 不要求學生逐秒設定大量重複點。
-9. 不因重試、拖動次數、使用數值輸入或使用微調按鈕扣分。
+9. 不因重試、拖動次數、使用數值輸入或使用鍵盤方向鍵扣分。
 10. 同一題三幅圖之間的數值矛盾提供診斷回饋，但不重複扣分。
 
 ---
@@ -129,7 +129,7 @@ x(t)、v(t)、a(t)
   - 計算指定時間的物理量；
   - 在數字坐標圖拖動控制點；
   - 使用刻度吸附；
-  - 使用 `−／＋` 或數值欄精確設定；
+  - 使用數值欄精確設定；
   - 切換 `x–t`、`v–t`、`a–t`；
   - 提交後以同步時間游標檢討三圖。
 - 技術：原生 HTML、CSS、JavaScript、SVG、HTML hit targets、Pointer Events。
@@ -260,7 +260,6 @@ number–unit quantity wrappers.
 4. 計算每個固定時間控制點應有的縱坐標。
 5. 以以下任一等價方式設定每點：
    - 在圖上垂直拖動；
-   - 使用 `−／＋` 微調；
    - 在對應數值欄輸入合法整數。
 6. 觀察程式根據自己的控制點即時生成直線或二次曲線。
 7. 可清除單一點、修改、切換圖或稍後再做。
@@ -276,7 +275,7 @@ number–unit quantity wrappers.
 
 - 兩個控制點的時間固定；
 - 控制點初始為「未設定」；
-- 學生試用拖動、吸附、數值欄、微調及清除；
+- 學生試用拖動、吸附、數值欄、鍵盤方向鍵及清除；
 - 系統展示「兩點設定後才生成圖線」；
 - 練習不保存到正式 answers；
 - 不要求完成特定數值；
@@ -708,13 +707,13 @@ a step = 1 m/s²
 
 ```text
 P₀，t = 0 s
-x₀： [  8  ] m    −  +  清除
+x₀： [       8       ] m   清除
 
 P₁，t = 2 s
-x₁： [ 12  ] m    −  +  清除
+x₁： [      12       ] m   清除
 
 P₂，t = 4 s
-x₂： [ 20  ] m    −  +  清除
+x₂： [      20       ] m   清除
 ```
 
 要求：
@@ -724,18 +723,19 @@ x₂： [ 20  ] m    −  +  清除
 - 合法輸入與拖動雙向同步；
 - 非整數、空字串、超出範圍或 non-finite 不 commit；
 - 清空已設定 input 經 blur／Enter 後將該點設回 `null`；
-- `−／＋` 是等價精準操作；
+- 移除 panel 的 `−／＋` 按鈕；圖上拖動、數值欄及 point target 的鍵盤方向鍵提供等價操作；
 - selected row 與 graph point 同步 highlight；
-- 每個 row 先以 `Pₙ，t = … s` 顯示 concise identity／time context；下一行的同一 control line
+- 每個 row 先以 `Pₙ，t = … s` 顯示 concise identity／time context；下一行的 `.point-field`
   依 point row index 顯示語意 numeric subscript 的 `xₙ／vₙ／aₙ：`、number input、獨立 upright
-  unit、`−`、`+`、`清除`，不再使用
+  unit；`.point-actions` 只保留「清除」。正常寬度與 field 同列，空間不足時整組換行，不壓縮 input。不再使用
   `位置 x（m）`、`速度 v（m/s）`、`加速度 a（m/s²）`或 `x / m` 類組合標題；
 - 每個 number input 的 accessible name 明示 `Pₙ`、固定時間、quantity name／symbol、讀作「下標 n」
   的 index及unit，不能只靠相鄰 visual label區分 point rows；
-- 在 `320–390 CSS px` phone，symbol label、input、unit、`−`、`+`、`清除` 必須保持同一行，
-  control line 及 panel 不得 horizontal overflow；unit 不換行，input 可縮，三個 action target
-  各至少 `44 × 44 CSS px`；
-- 不計分 practice rows 使用相同的 `Pₙ，t=… s` context 及 `xₙ：input m − + 清除` control-line
+- 在 phone 及窄 desktop sidebar，input 至少 `6rem`，內容區須完整容納「未設定」、兩位數及負號；
+  保留 `type=number`／step／range／keyboard semantics，但隱藏原生 spinner（精準操作由數值欄／鍵盤提供）。
+  label、input、unit 及清除正常同列，清除至少 `44 × 44 CSS px`；極窄 zoom viewport
+  可 wrap 整個欄位／按鈕，不縮成只有一個字寬。control line、row 及 panel 不得 horizontal overflow；
+- 不計分 practice rows 使用相同的 context、數值欄及清除按鈕
   contract，並保留 practice-specific input／button ARIA names及 selected-row synchronization；
 - point context、control label、unit、drag coordinate label及magnifier copy使用normal font weight；數學變量保持語意
   italic但不額外加粗；
@@ -744,7 +744,7 @@ x₂： [ 20  ] m    −  +  清除
 ### 9.8 清除及復原
 
 - 提供「復原上一步」、「取消復原」、「清除這一點」、「清除這幅圖」；
-- 每次 pointerup、合法數值 commit、stepper click 或清除是一個 undo operation；
+- 每次 pointerup、合法數值 commit、point-keyboard commit 或清除是一個 undo operation；
 - 每幅圖 session-only undo／redo 最多 24 步；
 - 切換圖再返回仍保留該圖 history；
 - review-edit 返回仍保留同一 browser session history；
@@ -1017,7 +1017,7 @@ Mission 2–4：
 
 - 拖動次數；
 - 先做哪幅圖；
-- 使用 drag、stepper 或 number input；
+- 使用 drag、point-keyboard 或 number input；
 - 是否開啟公式卡；
 - 重試次數；
 - undo／redo；
@@ -1169,18 +1169,19 @@ a = (v(T)-v(0))/T = ...
 ## 15. Responsive layout contract
 
 - Control-panel classification：`bounded split-panel`。
-- 原因：學生需要在 stage 觀察圖線，同時反覆使用 point rows、數值 input、stepper、公式卡及
+- 原因：學生需要在 stage 觀察圖線，同時反覆使用 point rows、數值 input、point-keyboard、公式卡及
   navigation；stage 必須在操作 control panel 時保持可見。
 - `html`／`body`：`height:100%`、`overflow:hidden`，在 bounded iframe 內不可有 usable
   vertical scroll range。
 - `.graph-app`：`height:100vh`，再以 `100dvh` enhancement；`min-height:0`。
+- 活動標題及 phase copy 放在 app 第一列的 full-width `.sim-header.page-header`，不在
+  `.controls-panel` 內；panel 捲動不會帶走標題。手機用 compact title，極矮畫面省略 phase copy。
 - phone／窄 tablet：
-  - 上列 stage；
-  - 下列 independently scrolling controls；
-  - normal-height stage track 初始：
+  - header 下方先 stage，最後 independently scrolling controls；
+  - normal-height stage track：
 
     ```css
-    minmax(13rem, min(48vh, 48dvh))
+    clamp(13rem, calc(67.57vw + .15rem), 48dvh)
     ```
 
   - 實作 spike 可在 `42–52dvh` 內調整，但須記錄最終值及證據。
@@ -1195,7 +1196,7 @@ a = (v(T)-v(0))/T = ...
 
   - graph、dock、labels按 stage可用寬高等比例縮放或減少非必要 minor labels；
   - 不建立 stage scroller；
-  - point row number input／stepper保持完整等價操作，因此極矮畫面不要求以縮小圖板作精細拖動；
+  - point row number input／point-keyboard保持完整等價操作，因此極矮畫面不要求以縮小圖板作精細拖動；
   - controls panel必須仍有正高度、可捲到 primary action及active input；
   - app以 `visualViewport`／`ResizeObserver` 只觸發 layout recompute，不改答案、不保存 transient size；
   - `320×500 at 200% layout zoom`、約 `160×250 CSS px` effective viewport及實際 software-keyboard
@@ -1206,6 +1207,7 @@ a = (v(T)-v(0))/T = ...
   - `overscroll-behavior:contain`；
   - 是 activity 內唯一 vertical scroll owner。
 - desktop `>=820px`：
+  - header 橫跨兩欄；
   - controls 在左，`clamp(18rem,24vw,25rem)`；
   - stage 在右並填滿剩餘空間；
   - controls 仍可獨立捲動；
@@ -1213,7 +1215,8 @@ a = (v(T)-v(0))/T = ...
 - controls DOM 先於 stage，配合桌面左→右閱讀順序；
 - 窄屏以 CSS 視覺把 stage 置上，不改 semantic DOM order；
 - graph board 不橫向捲動；
-- stage 以可用寬高維持約 `4/3` aspect ratio；
+- stage 以扣除 header 後的可用寬高維持 `740/500` aspect ratio；`ResizeObserver` 觀察 stage，
+  只更新 graph mount 的 fit-width，不改答案、pointer targets 或持久化資料；
 - `320×500` 仍可設定所有控制點；
 - software keyboard 出現時：
   - controls 的 active input 可捲到可見；
@@ -1361,7 +1364,7 @@ active graph 提供：
 - focus ring 清楚；
 - point IDs、時間及單位可見；
 - input 有完整 label；
-- drag 有 number-input及 stepper 等價替代；
+- drag 有 number-input及 point-keyboard 等價替代；
 - `aria-live="polite"` 只在 commit 後簡短報讀，不在每個 pointermove 發聲；
 - pointermove 的視覺 coordinate label 可即時更新但節流；
 - reduced motion 移除非必要動畫；
@@ -1669,7 +1672,7 @@ Save：
 
 - pointerup after actual snap-cell change；
 - number input commit；
-- stepper click；
+- point-keyboard commit；
 - clear point／clear graph；
 - undo／redo；
 - graph／mission navigation；
@@ -1860,7 +1863,7 @@ validate review snapshot
 - pointerup commit；
 - pointercancel／blur／lost capture rollback；
 - number input validation；
-- stepper；
+- point-keyboard；
 - clear point／graph；
 - undo／redo；
 - per-task history；
@@ -1967,8 +1970,9 @@ Development source and built／extracted package：
 - point rows and primary actions reachable；
 - controls only panel scroll；
 - body/app no third scroll owner；
-- desktop controls left／stage right；
-- phone stage top／controls bottom；
+- full-width header 在 panel 外及 stage／panel 上方，panel 捲動後仍可見；
+- desktop controls left／stage right（包括 `820px` 最窄 sidebar）；
+- phone header、stage、controls 由上而下排列；
 - stage remains visible during panel gesture；
 - all unset docks visible；
 - correct line appears only when all required points set；
@@ -1982,13 +1986,15 @@ Development source and built／extracted package：
   crosshair and complete coordinate；its outer rect stays fixed while its clamped local viewBox changes with
   vertical drag, and it hides on every end／rollback path；
 - adjacent drag label、magnifier copy、point context、control symbol及unit have computed normal font
-  weight；visible rows use `Pₙ，t=… s` context plus one-line `xₙ／vₙ／aₙ: input unit − + 清除`
-  controls；input ARIA explicitly announces the matching point index, time, quantity and unit；
-- at `320px` and `390px`, each point control line keeps symbol、input、upright no-wrap unit and all three
-  actions on one row without panel／row horizontal overflow, while each action remains at least `44×44px`；
+  weight；visible rows use `Pₙ，t=… s` context plus `xₙ／vₙ／aₙ: input unit` and a clear-only action；
+  input ARIA explicitly announces the matching point index, time, quantity and unit；
+- at `320px`、`390px` and desktop `820px`／`1024px`／`1440px`, each point field keeps symbol、input and
+  upright no-wrap unit together, with a clear-only action alongside and no panel／row horizontal overflow；
+  input is at least `6rem` and its content width fits the placeholder and signed values without a spinner；
+  the clear action remains at least `44×44px`；
   check both unscored practice rows, every `x／v／a` row in a two-point task, and exact per-graph cardinality
   in an accelerated task (`x₀／x₁／x₂`, but only `v₀／v₁` and `a₀／a₁`)；for every rendered row, run the same
-  semantic-subscript、indexed ARIA/time/unit、positive-input-width、ordered/aligned one-line geometry、
+  semantic-subscript、indexed ARIA/time/unit、readable input width、ordered field/action geometry、
   `44×44px` action and line／row／panel overflow assertions；
 - prompts、summaries、feedback、ARIA、drag labels and magnifier copy use `m/s` and `m/s²` consistently；
 - each main graph and magnifier has direct ID-free filled triangular upward value and rightward time
@@ -2138,7 +2144,7 @@ DOM `dispatchEvent`、source inspection、computed CSS及 programmatic `scrollTo
 3. stable HTML hit targets；
 4. unset dock；
 5. snap／grab offset／activation threshold；
-6. number input／stepper equivalent；
+6. number input／point-keyboard equivalent；
 7. bounded split-panel；
 8. trusted touch matrix in Moodle-like iframe；
 9. 未通過 touch及320×500不得開始完整 UI。
@@ -2219,7 +2225,7 @@ DOM `dispatchEvent`、source inspection、computed CSS及 programmatic `scrollTo
 - [x] 無預填答案。
 - [x] 兩點直線及三點二次曲線精確。
 - [x] 不使用 regression或pixel scoring。
-- [x] Snap、stepper及number input一致。
+- [x] Snap、point-keyboard及number input一致。
 - [x] Every draggable target type在inventory及trusted-touch tests內（CDP多點 continuation 限制待實機確認）。
 - [x] Bounded split-panel scroll topology符合matrix。
 - [x] `320×500`、landscape、keyboard-like viewport、zoom可用；實體軟體鍵盤待 Moodle-ready。

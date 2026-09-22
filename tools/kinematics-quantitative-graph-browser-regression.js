@@ -25,20 +25,8 @@ async function assertDragPreview(cdp, label) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
     await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(80);
     for (const graph of [0, 1, 2]) {
-      const pointControl = await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelectorAll('#graphButtons button')[${graph}].click(); const row=d.querySelector('#pointRows .point-row'),line=row.querySelector('.point-control-line'),children=[...line.children],rect=node=>{const value=node.getBoundingClientRect();return {left:value.left,right:value.right,top:value.top,bottom:value.bottom,width:value.width,height:value.height,cx:value.left+value.width/2,cy:value.top+value.height/2};},buttons=[...line.querySelectorAll('button')],input=line.querySelector('input'),label=line.querySelector('label'),unit=line.querySelector('.point-unit'),context=row.querySelector('.point-context'),panel=d.getElementById('controlsPanel'),lineRect=rect(line); return {context:context.textContent,contextWeight:getComputedStyle(context).fontWeight,label:label.textContent,labelHtml:label.innerHTML,labelWeight:getComputedStyle(label).fontWeight,unit:unit.textContent,unitWeight:getComputedStyle(unit).fontWeight,inputAria:input.getAttribute('aria-label'),line:lineRect,children:children.map(rect),actions:buttons.map(button=>({text:button.textContent,aria:button.getAttribute('aria-label'),rect:rect(button)})),input:rect(input),lineOverflow:line.scrollWidth-line.clientWidth,rowOverflow:row.scrollWidth-row.clientWidth,panelOverflow:panel.scrollWidth-panel.clientWidth}; })()`);
-      assert.match(pointControl.context, /^P0，t = [-0-9.]+ s$/, `${label}: ${width}px ${["x","v","a"][graph]} row shows concise point/time context`);
-      assert.doesNotMatch(pointControl.context, /位置|速度|加速度|（|m\/s/, `${label}: ${width}px ${["x","v","a"][graph]} context avoids the ambiguous quantity-unit heading`);
-      assert.equal(pointControl.label, `${["x","v","a"][graph]}0：`, `${label}: ${width}px ${["x","v","a"][graph]} first control line labels the indexed quantity`);
-      assert.match(pointControl.labelHtml, new RegExp(`<var>${["x","v","a"][graph]}<\\/var><sub class="numeric-subscript">0<\\/sub>：`), `${label}: ${width}px ${["x","v","a"][graph]} control label uses a semantic numeric subscript`);
-      assert.equal(pointControl.unit, ["m","m/s","m/s²"][graph], `${label}: ${width}px ${["x","v","a"][graph]} unit follows the number input`);
-      assert.match(pointControl.inputAria, new RegExp(`P0，t=[-0-9.]+ s，${["位置 x","速度 v","加速度 a"][graph]} 下標 0，單位 ${["m","m/s","m/s²"][graph].replace("/", "\\/")}$`), `${label}: ${width}px ${["x","v","a"][graph]} input announces indexed quantity, time and unit`);
-      assert.deepEqual(pointControl.actions.map(action=>action.text), ["−","+","清除"], `${label}: ${width}px ${["x","v","a"][graph]} control line preserves all equivalent actions`);
-      assert.ok(pointControl.actions.every(action=>action.rect.width>=44&&action.rect.height>=44&&action.aria), `${label}: ${width}px ${["x","v","a"][graph]} actions keep 44px targets and accessible names ${JSON.stringify(pointControl.actions)}`);
-      assert.ok(pointControl.input.height>=44&&pointControl.input.width>0, `${label}: ${width}px ${["x","v","a"][graph]} number input remains usable`);
-      assert.ok(pointControl.children.every((child,index,array)=>index===0||child.left>=array[index-1].right-1), `${label}: ${width}px ${["x","v","a"][graph]} label/input/unit/actions remain ordered on one row`);
-      assert.ok(pointControl.children.every(child=>Math.abs(child.cy-pointControl.line.cy)<=1), `${label}: ${width}px ${["x","v","a"][graph]} label/input/unit/actions share one rendered row`);
-      assert.ok(pointControl.lineOverflow<=1&&pointControl.rowOverflow<=1&&pointControl.panelOverflow<=1, `${label}: ${width}px ${["x","v","a"][graph]} control line and panel have no horizontal overflow`);
-      assert.ok([pointControl.contextWeight,pointControl.labelWeight,pointControl.unitWeight].every(weight=>weight==="400"), `${label}: ${width}px ${["x","v","a"][graph]} context, symbol and unit are not over-bold`);
+      await evaluate(cdp, `document.getElementById('activity').contentWindow.document.querySelectorAll('#graphButtons button')[${graph}].click()`);
+      assertPointRowMatrix(await inspectPointRows(cdp, "#pointRows"), { label, width, context: "drag preview", type: ["x", "v", "a"][graph], expectedCount: 2 });
     }
     await evaluate(cdp, `document.getElementById('activity').contentWindow.document.querySelectorAll('#graphButtons button')[0].click()`);
     const before = await inspect();
@@ -152,7 +140,44 @@ async function assertDragPreview(cdp, label) {
   await evaluate(cdp, `document.getElementById('activity').style.height='600px'`); await delay(60);
 }
 async function inspectPointRows(cdp, selector) {
-  return evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document,panel=d.getElementById('controlsPanel'),rect=node=>{const value=node.getBoundingClientRect();return {left:value.left,right:value.right,width:value.width,height:value.height,cy:value.top+value.height/2};}; return [...d.querySelectorAll('${selector} .point-row')].map(row=>{const line=row.querySelector('.point-control-line'),lineRect=line.getBoundingClientRect(),input=line.querySelector('input'),label=line.querySelector('label'),unit=line.querySelector('.point-unit'),context=row.querySelector('.point-context'),children=[...line.children],buttons=[...line.querySelectorAll('button')];return {index:Number(row.dataset.index),context:context.textContent,contextWeight:getComputedStyle(context).fontWeight,label:label.textContent,labelHtml:label.innerHTML,labelWeight:getComputedStyle(label).fontWeight,unit:unit.textContent,unitWeight:getComputedStyle(unit).fontWeight,inputAria:input.getAttribute('aria-label'),input:rect(input),children:children.map(rect),actions:buttons.map(button=>({text:button.textContent,aria:button.getAttribute('aria-label'),rect:rect(button)})),lineCy:lineRect.top+lineRect.height/2,lineOverflow:line.scrollWidth-line.clientWidth,rowOverflow:row.scrollWidth-row.clientWidth,panelOverflow:panel.scrollWidth-panel.clientWidth};}); })()`);
+  return evaluate(cdp, `(() => {
+    const d=document.getElementById('activity').contentWindow.document,panel=d.getElementById('controlsPanel');
+    const rect=node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,cy:r.top+r.height/2};};
+    return [...d.querySelectorAll('${selector} .point-row')].map(row=>{
+      const line=row.querySelector('.point-control-line'),field=line.querySelector('.point-field'),actions=line.querySelector('.point-actions');
+      const input=line.querySelector('input'),label=line.querySelector('label'),unit=line.querySelector('.point-unit'),context=row.querySelector('.point-context');
+      const style=getComputedStyle(input),canvas=d.createElement('canvas').getContext('2d'); canvas.font=style.font;
+      return {index:Number(row.dataset.index),context:context.textContent,contextWeight:getComputedStyle(context).fontWeight,
+        label:label.textContent,labelHtml:label.innerHTML,labelWeight:getComputedStyle(label).fontWeight,
+        unit:unit.textContent,unitWeight:getComputedStyle(unit).fontWeight,inputAria:input.getAttribute('aria-label'),
+        input:rect(input),field:rect(field),actionsRect:rect(actions),children:[...field.children].map(rect),
+        contentWidth:input.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),
+        requiredTextWidth:Math.max(...[input.placeholder,'24','-12'].map(text=>canvas.measureText(text).width)),
+        appearance:style.appearance,actions:[...actions.children].map(button=>({text:button.textContent,aria:button.getAttribute('aria-label'),rect:rect(button)})),
+        lineOverflow:line.scrollWidth-line.clientWidth,rowOverflow:row.scrollWidth-row.clientWidth,panelOverflow:panel.scrollWidth-panel.clientWidth};
+    });
+  })()`);
+}
+async function assertAppLayout(cdp, label, width) {
+  const layout=await evaluate(cdp, `(() => {
+    const w=document.getElementById('activity').contentWindow,d=w.document,panel=d.getElementById('controlsPanel'),header=d.querySelector('.page-header');
+    const rect=node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+    return {header:rect(header),stage:rect(d.getElementById('stageRegion')),panel:rect(panel),mount:rect(d.getElementById('graphMount')),
+      nested:panel.contains(header),headings:d.querySelectorAll('h1').length,width:w.innerWidth,
+      overflow:d.documentElement.scrollWidth-d.documentElement.clientWidth,
+      documentRange:d.documentElement.scrollHeight-d.documentElement.clientHeight,bodyRange:d.body.scrollHeight-d.body.clientHeight};
+  })()`);
+  assert.equal(layout.nested,false,`${label}: ${width}px header is outside the scrolling panel`);
+  assert.equal(layout.headings,1,`${label}: ${width}px has one activity title`);
+  assert.ok(layout.header.left===0 && Math.abs(layout.header.right-layout.width)<=1,`${label}: ${width}px header spans the full app`);
+  assert.ok(layout.header.top===0 && layout.header.bottom<=Math.min(layout.stage.top,layout.panel.top)+1,`${label}: ${width}px title sits above stage and controls`);
+  if(width>=820) assert.ok(layout.panel.right<=layout.stage.left+1 && Math.abs(layout.panel.top-layout.stage.top)<=1,`${label}: desktop controls left and stage right`);
+  else assert.ok(layout.stage.bottom<=layout.panel.top+1,`${label}: phone stage precedes controls below header`);
+  assert.ok(layout.panel.height>=44 && layout.stage.height>0,`${label}: ${width}px controls and graph retain usable height ${JSON.stringify(layout)}`);
+  assert.ok(Math.abs(layout.mount.width/layout.mount.height-740/500)<.01 && layout.mount.top>=layout.stage.top && layout.mount.bottom<=layout.stage.bottom+1,`${label}: graph fits the space below header without distorting hit-overlay geometry`);
+  assert.ok(layout.overflow<=1 && layout.documentRange<=1 && layout.bodyRange<=1,`${label}: only the controls panel owns activity scrolling: ${JSON.stringify(layout)}`);
+  const fixed=await evaluate(cdp, `(() => {const d=document.getElementById('activity').contentWindow.document,p=d.getElementById('controlsPanel'),old=p.scrollTop;p.scrollTop=p.scrollHeight;const y=d.querySelector('.page-header').getBoundingClientRect().top;p.scrollTop=old;return y;})()`);
+  assert.equal(fixed,layout.header.top,`${label}: panel scrolling keeps the title fixed`);
 }
 function assertPointRowMatrix(rows, { label, width, context, type, expectedCount, practice = false }) {
   const quantityNames = { x: "位置", v: "速度", a: "加速度" }, units = { x: "m", v: "m/s", a: "m/s²" };
@@ -165,39 +190,76 @@ function assertPointRowMatrix(rows, { label, width, context, type, expectedCount
     assert.match(row.labelHtml, new RegExp(`<var>${type}<\\/var><sub class="numeric-subscript">${row.index}<\\/sub>：`), `${rowLabel} uses semantic numeric-subscript HTML`);
     assert.equal(row.unit, units[type], `${rowLabel} keeps the correct unit`);
     assert.match(row.inputAria, new RegExp(`${practice ? "練習控制點" : "控制點"} P${row.index}，t=[-0-9.]+ s，${quantityNames[type]} ${type} 下標 ${row.index}，單位 ${units[type].replace("/", "\\/")}$`), `${rowLabel} input announces point index, time, quantity and unit`);
-    assert.deepEqual(row.actions.map(action=>action.text), ["−","+","清除"], `${rowLabel} preserves all equivalent actions`);
+    assert.deepEqual(row.actions.map(action=>action.text), ["清除"], `${rowLabel} retains clear without redundant minus/plus controls`);
     assert.ok(row.actions.every(action=>action.rect.width>=44&&action.rect.height>=44&&action.aria), `${rowLabel} actions keep 44px targets and accessible names ${JSON.stringify(row.actions)}`);
-    assert.ok(row.input.width>0&&row.input.height>=44, `${rowLabel} input has positive width and usable height`);
-    assert.ok(row.children.every((child,index,array)=>index===0||child.left>=array[index-1].right-1), `${rowLabel} controls remain ordered on one row`);
-    assert.ok(row.children.every(child=>Math.abs(child.cy-row.lineCy)<=1), `${rowLabel} controls share one rendered row`);
+    assert.ok(row.input.width>=96&&row.input.height>=44&&row.contentWidth>=row.requiredTextWidth+4, `${rowLabel} input fits placeholder, two-digit and signed values: ${JSON.stringify(row.input)}`);
+    assert.equal(row.appearance,"textfield", `${rowLabel} native number spinner cannot overlap text`);
+    assert.ok(row.children.every((child,index,array)=>index===0||child.left>=array[index-1].right-1), `${rowLabel} quantity, input and unit remain ordered`);
+    assert.ok(row.children.every(child=>Math.abs(child.cy-row.field.cy)<=1), `${rowLabel} quantity, input and unit share one field row`);
+    const clearAlongside = row.actionsRect.left>=row.field.right && Math.abs(row.actionsRect.cy-row.field.cy)<=1;
+    assert.ok(clearAlongside || row.actionsRect.top>=row.field.bottom, `${rowLabel} clear fits alongside or wraps below without squeezing the number field`);
     assert.ok(row.lineOverflow<=1&&row.rowOverflow<=1&&row.panelOverflow<=1, `${rowLabel} has no line, row or panel horizontal overflow`);
     assert.ok([row.contextWeight,row.labelWeight,row.unitWeight].every(weight=>weight==="400"), `${rowLabel} context, symbol and unit are not over-bold`);
   }
 }
 async function assertPracticePointControls(cdp, label) {
-  for (const [width, height] of [[390, 600], [320, 500]]) {
+  for (const [width, height] of [[390, 600], [320, 500], [820, 600], [1024, 700], [1440, 800]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
     await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(70);
+    await assertAppLayout(cdp, label, width);
     assertPointRowMatrix(await inspectPointRows(cdp, "#practiceRows"), { label, width, context: "practice", type: "x", expectedCount: 2, practice: true });
   }
+  for (const [width, height] of [[390, 250], [160, 250]]) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+    await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(70);
+    await assertAppLayout(cdp, `${label} keyboard/zoom`, width);
+    for (const row of await inspectPointRows(cdp, "#practiceRows")) {
+      assert.ok(row.input.width>=96 && row.input.height>=44 && row.lineOverflow<=1 && row.panelOverflow<=1, `${label}: ${width}px compact controls wrap without shrinking the input`);
+      assert.ok(row.actions.every(action=>action.rect.width>=44&&action.rect.height>=44), `${label}: compact wrapping preserves action targets`);
+    }
+    const reachable=await evaluate(cdp, `(() => {const d=document.getElementById('activity').contentWindow.document,b=d.getElementById('startChallenge'); b.scrollIntoView({block:'end'}); const r=b.getBoundingClientRect(),p=d.getElementById('controlsPanel').getBoundingClientRect(); return r.top>=p.top-1&&r.bottom<=p.bottom+1;})()`);
+    assert.equal(reachable,true,`${label}: ${width}px compact primary action remains reachable below the header`);
+  }
+  await resetMobileTouchViewport(cdp);
+  await evaluate(cdp, "document.getElementById('activity').style.height='600px'");
 }
 async function assertIndexedPointRows(cdp, label) {
   await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('startChallenge').click()`);
-  for (const [width, height] of [[390, 600], [320, 500]]) {
+  await assertNumericControls(cdp, label);
+  for (const [width, height] of [[390, 600], [320, 500], [820, 600], [1024, 700], [1440, 800]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
     await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(70);
     for (const [graph, type] of ["x","v","a"].entries()) {
       await evaluate(cdp, `document.getElementById('activity').contentWindow.document.querySelectorAll('#graphButtons button')[${graph}].click()`);
+      await assertAppLayout(cdp, label, width);
       assertPointRowMatrix(await inspectPointRows(cdp, "#pointRows"), { label, width, context: "two-point task", type, expectedCount: 2 });
     }
   }
   await evaluate(cdp, `(() => { const w=document.getElementById('activity').contentWindow,d=w.document,solve=()=>{const task=w.__kinematicsQuantitativeDebug.activeGraph(),target=w.KinematicsQuantitativeQuestions.taskDefinition(w.__kinematicsQuantitativeDebug.state().pid,task).targets; target.forEach((value,index)=>{const input=d.querySelectorAll('#pointRows input')[index]; input.value=value; input.dispatchEvent(new Event('change',{bubbles:true}));});}; for(const graph of [0,1,2]){d.querySelectorAll('#graphButtons button')[graph].click();solve();} d.getElementById('nextButton').click(); })()`);
-  for (const [width, height] of [[390, 600], [320, 500]]) {
+  for (const [width, height] of [[390, 600], [320, 500], [820, 600], [1024, 700], [1440, 800]]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
     await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(70);
     for (const [graph, type] of ["x","v","a"].entries()) {
       await evaluate(cdp, `document.getElementById('activity').contentWindow.document.querySelectorAll('#graphButtons button')[${graph}].click()`);
       assertPointRowMatrix(await inspectPointRows(cdp, "#pointRows"), { label, width, context: "accelerated task", type, expectedCount: type === "x" ? 3 : 2 });
+    }
+  }
+}
+async function assertNumericControls(cdp, label) {
+  // Exercise real number-input and clear actions, not a DOM-dispatched change.
+  for (const [width, height] of [[320, 500], [820, 600]]) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 820 });
+    await evaluate(cdp, `document.getElementById('activity').style.height='${height}px'`); await delay(70);
+    for (const [graph, value] of [[0, 12], [1, -3], [2, -2]]) {
+      await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelectorAll('#graphButtons button')[${graph}].click(); const input=d.querySelector('#pointRows input'); input.scrollIntoView({block:'center'}); input.focus(); })()`);
+      await cdp.send("Input.insertText", { text: String(value) });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      const answer = () => evaluate(cdp, `document.getElementById('activity').contentWindow.__kinematicsQuantitativeDebug.state().ans[${graph}]?.[0] ?? null`);
+      assert.equal(await answer(), value, `${label}: ${width}px trusted numeric input commits signed ${value}`);
+      const point=await evaluate(cdp, `(() => { const f=document.getElementById('activity'),d=f.contentWindow.document,b=d.querySelector('#pointRows .point-actions button'); b.scrollIntoView({block:'center'}); const r=f.getBoundingClientRect(),p=b.getBoundingClientRect(); return {x:r.left+p.left+p.width/2,y:r.top+p.top+p.height/2}; })()`);
+      await click(cdp, point);
+      assert.equal(await answer(), null, `${label}: ${width}px clear removes the entered value`);
     }
   }
 }
