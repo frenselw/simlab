@@ -30,6 +30,9 @@
     app: documentObject.getElementById("app"),
     stage: documentObject.getElementById("stage"),
     diagram: documentObject.getElementById("diagram"),
+    touchPreview: documentObject.getElementById("touchPreview"),
+    touchPreviewSvg: documentObject.getElementById("touchPreviewSvg"),
+    touchPreviewLabel: documentObject.getElementById("touchPreviewLabel"),
     originHit: documentObject.getElementById("originHit"),
     pointHit: documentObject.getElementById("pointHit"),
     thetaHit: documentObject.getElementById("thetaHit"),
@@ -279,6 +282,72 @@
   function worldThreshold(pointerType) {
     const transform = diagramTransform();
     return M.thresholdFor(pointerType) / Math.max(transform.scale, 0.01);
+  }
+
+  function hideTouchPreview() {
+    dom.touchPreview.hidden = true;
+    dom.touchPreviewSvg.replaceChildren();
+  }
+
+  function renderTouchPreview(thetaLabelPoint) {
+    if (!isPracticeEditable() || !drag || !["touch", "pen"].includes(drag.pointerType)) {
+      hideTouchPreview();
+      return;
+    }
+    // Follow the geometry after snapping, not the finger's unsnapped position.
+    let point = drag.preview?.point || drag.point;
+    if (drag.kind === "direction" && drag.preview?.direction) {
+      const unit = drag.preview.direction.unit;
+      point = M.add(sceneOrigin(), M.scale(unit, M.dot(M.subtract(drag.point, sceneOrigin()), unit)));
+    }
+    const focus = worldToSvg(point);
+    dom.touchPreview.hidden = false;
+    const kindLabel = { direction: "方向線", perpendicular: "垂線", component: "分力", theta: "θ" }[drag.kind];
+    dom.touchPreviewLabel.textContent = `局部放大 ×2・${kindLabel}`;
+    const transform = diagramTransform();
+    const lens = dom.touchPreviewSvg.getBoundingClientRect();
+    const width = lens.width / (transform.scale * 2);
+    const height = lens.height / (transform.scale * 2);
+    const view = transform.viewBox;
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const left = clamp(focus.x - width / 2, view.x, view.x + view.width - width);
+    const top = clamp(focus.y - height / 2, view.y, view.y + view.height - height);
+    dom.touchPreviewSvg.setAttribute("viewBox", `${left} ${top} ${width} ${height}`);
+    const scene = Array.from(dom.diagram.children, child => {
+      const clone = child.cloneNode(true);
+      [clone, ...clone.querySelectorAll("[id], [tabindex]")].forEach(node => {
+        node.removeAttribute("id");
+        node.removeAttribute("tabindex");
+      });
+      return clone;
+    });
+    dom.touchPreviewSvg.replaceChildren(...scene);
+    // Editable θ lives in an HTML hit target, so include its glyph separately.
+    if (thetaLabelPoint) drawScreenText(dom.touchPreviewSvg, thetaLabelPoint, "θ", "scene-label student-theta-label", {
+      "data-label": "student-theta", "text-anchor": "middle"
+    });
+    dom.touchPreviewSvg.appendChild(createSvg("circle", {
+      cx: focus.x, cy: focus.y, r: 9 / (transform.scale * 2), class: "touch-preview-focus"
+    }));
+
+    // Stay in one corner until the finger approaches it; never follow the hand.
+    const stage = dom.stage.getBoundingClientRect();
+    const box = dom.touchPreview.getBoundingClientRect();
+    const inset = 8;
+    const corners = ["top-right", "top-left", "bottom-right", "bottom-left"].map(name => ({
+      name,
+      x: name.endsWith("right") ? stage.right - box.width - inset : stage.left + inset,
+      y: name.startsWith("bottom") ? stage.bottom - box.height - inset : stage.top + inset
+    }));
+    let corner = corners.find(item => item.name === drag.previewCorner) || corners[0];
+    const fingerMargin = 24;
+    if (drag.clientX > corner.x - fingerMargin && drag.clientX < corner.x + box.width + fingerMargin &&
+        drag.clientY > corner.y - fingerMargin && drag.clientY < corner.y + box.height + fingerMargin) {
+      const distance = item => Math.hypot(drag.clientX - item.x - box.width / 2, drag.clientY - item.y - box.height / 2);
+      corner = corners.reduce((best, item) => distance(item) > distance(best) ? item : best);
+    }
+    drag.previewCorner = corner.name;
+    dom.touchPreview.dataset.corner = corner.name;
   }
 
   function setHitPosition(button, point) {
@@ -656,6 +725,7 @@
     if (thetaDrag) setHitPosition(dom.thetaHit, thetaDrag.point || thetaDrag.preview?.labelCenter || thetaDrag.preview?.center);
     if (editing?.preview?.editedState) setHitPosition(editing.target, editPoint(editing.kind, editing.editIndex, scene));
     if (editing) dom.thetaHit.style.visibility = scene.theta ? "" : "hidden";
+    renderTouchPreview(studentThetaLabelPoint);
   }
 
   function editPoint(kind, index, source = state) {
@@ -963,6 +1033,7 @@
     suppressFormulaClick = false;
     hostTouchScroll = null;
     pointerPanelScrollTop = null;
+    hideTouchPreview();
     try { activePointer?.target?.releasePointerCapture(activePointer.pointerId); } catch (_) {}
     try { activeFormula?.button?.releasePointerCapture(activeFormula.id); } catch (_) {}
     if (dom.formulaGhost) {
@@ -1019,7 +1090,7 @@
       : untrusted ? "已提交作答（摘要可信，細節未能驗證）" : "已提交作答結果";
     dom.reviewTrustNote.textContent = missingRecordedScore
       ? "LMS 沒有提供可用的已記錄分數；為安全起見保持唯讀，顯示 --，不能以保存快照推算分數。"
-      : untrusted ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : localReview ? "這是已鎖定的本機 review；如要開始新的本機練習，請先清除本機紀錄。" : "這是已鎖定的 review；不能返回建立新草稿。";
+      : untrusted ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : "本次作答已完成並鎖定；可切換題目查閱答案，不能返回修改或清除紀錄重新作答。";
     dom.reviewQuestionNavigation.hidden = !trusted;
     dom.reviewFeedback.hidden = !trusted;
     if (untrusted) {
@@ -1058,19 +1129,6 @@
       retry.textContent = "重試完成 LMS 工作階段";
       retry.addEventListener("click", retryFinishOnly);
       dom.reviewActions.appendChild(retry);
-    }
-    if (localReview && SimScorm?.clearStandaloneAttempt) {
-      const reset = documentObject.createElement("button");
-      reset.type = "button";
-      reset.className = "wide-button";
-      reset.textContent = "清除本機紀錄並重新開始";
-      reset.addEventListener("click", () => {
-        if (windowObject.confirm?.("清除本機紀錄後，這次本機練習將不能恢復。要重新開始嗎？")) {
-          SimScorm.clearStandaloneAttempt(ACTIVITY);
-          windowObject.location.reload();
-        }
-      });
-      dom.reviewActions.appendChild(reset);
     }
     dom.app.setAttribute("aria-busy", "false");
     lockStageControls();
@@ -1317,6 +1375,8 @@
       target,
       pointerId: event.pointerId,
       pointerType: event.pointerType || "mouse",
+      clientX: event.clientX,
+      clientY: event.clientY,
       point,
       startPoint: point,
       offset: M.subtract(pointer, point),
@@ -1339,6 +1399,8 @@
     drag.maxDistance = Math.max(drag.maxDistance, M.distance(drag.startPoint, point));
     const previousTargetKey = drag.preview?.targetKey || drag.preview?.key || null;
     drag.point = point;
+    drag.clientX = event.clientX;
+    drag.clientY = event.clientY;
     drag.preview = beginPreview(drag.kind, point, drag.pointerType, previousTargetKey, drag.editIndex);
     drawScene();
   }

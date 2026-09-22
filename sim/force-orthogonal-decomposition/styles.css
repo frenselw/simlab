@@ -79,6 +79,51 @@ body {
   touch-action: pan-y;
 }
 
+.touch-preview {
+  position: absolute;
+  z-index: 9;
+  width: min(44%, 12rem);
+  overflow: hidden;
+  border: 2px solid #64748b;
+  border-radius: .65rem;
+  background: #fff;
+  box-shadow: 0 3px 12px #0f172a30;
+  pointer-events: none;
+  user-select: none;
+}
+
+.touch-preview[hidden] { display: none; }
+.touch-preview[data-corner="top-right"] { top: .5rem; right: .5rem; }
+.touch-preview[data-corner="top-left"] { top: .5rem; left: .5rem; }
+.touch-preview[data-corner="bottom-right"] { bottom: .5rem; right: .5rem; }
+.touch-preview[data-corner="bottom-left"] { bottom: .5rem; left: .5rem; }
+
+.touch-preview-label {
+  display: block;
+  padding: .2rem .35rem;
+  border-bottom: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: .65rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.touch-preview-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+}
+
+.touch-preview-focus {
+  fill: none;
+  stroke: #0f172a;
+  stroke-width: 1.5px;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
 .force-diagram {
   position: absolute;
   inset: 0;

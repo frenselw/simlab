@@ -52,12 +52,13 @@ async page => {
     return { x: box.x + (box.width - frame.viewBox.width * scale) / 2 + (frame.origin.x + point.x - frame.viewBox.x) * scale, y: box.y + (box.height - frame.viewBox.height * scale) / 2 + (frame.origin.y - point.y - frame.viewBox.y) * scale };
   };
   const touchPoint = point => ({ ...point, id: touchId, radiusX: 1, radiusY: 1, force: 1 });
-  const touchDrag = async (start, end) => {
+  const touchDrag = async (start, end, duringDrag = null) => {
     touchId += 1;
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(start)] });
     for (let index = 1; index <= 12; index += 1) {
       await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint({ x: start.x + (end.x - start.x) * index / 12, y: start.y + (end.y - start.y) * index / 12 })] });
       await wait(10);
+      if (duringDrag && (index === 6 || index === 12)) await duringDrag(index);
     }
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await wait(100);
@@ -74,6 +75,7 @@ async page => {
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     for (let index = 1; index <= 12; index += 1) await page.mouse.move(start.x + (end.x - start.x) * index / 12, start.y + (end.y - start.y) * index / 12);
+    assert(await page.locator("#touchPreview").isHidden(), "mouse dragging does not open the touch preview");
     await page.mouse.up();
     await wait(100);
   };
@@ -114,9 +116,105 @@ async page => {
     const target = diagram ? await frameDiagramPoint(frame, end) : end;
     await wait(100);
     const beforeMetrics = await embeddedTargetMetrics(frame);
-    await touchDrag(start, target);
+    const savedAnswer = await frame.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState()));
+    await touchDrag(start, target, async step => {
+      await assertTouchPreview(frame, label);
+      assert(await frame.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState())) === savedAnswer,
+        label + ": preview does not change the saved answer before release");
+      await assertEmbeddedTargetMetricsStable(frame, beforeMetrics, label + " during drag");
+      if (step === 12 && label.endsWith("component 0")) {
+        const variant = frame.url().includes("/packaged/") ? "packaged" : "source";
+        await page.screenshot({ path: `output/playwright/force-orthogonal-preview-${variant}-${Math.round(iframe.width)}.png` });
+      }
+    });
     await assertTrustedPointerTransaction(frame, before, label);
     await assertEmbeddedTargetMetricsStable(frame, beforeMetrics, label);
+    assert(await frame.locator("#touchPreview").isHidden(), label + ": preview closes on release");
+    assert(await frame.locator("#touchPreviewSvg > *").count() === 0, label + ": transient preview is discarded");
+  };
+  const assertTouchPreview = async (context, label) => {
+    const preview = await context.evaluate(() => {
+      const panel = document.querySelector("#touchPreview");
+      const svg = document.querySelector("#touchPreviewSvg");
+      const diagram = document.querySelector("#diagram");
+      const box = panel.getBoundingClientRect();
+      const stage = document.querySelector("#stage").getBoundingClientRect();
+      const drag = window.__forceOrthogonalApp.getDragPreview();
+      const layout = window.__forceOrthogonalApp.getLayoutMetrics();
+      const focus = svg.querySelector(".touch-preview-focus");
+      const focusPoint = focus ? { x: focus.cx.baseVal.value - layout.origin.x, y: layout.origin.y - focus.cy.baseVal.value } : null;
+      const kind = drag?.kind;
+      const selector = kind === "theta" ? ".theta-arc" : drag?.editIndex != null
+        ? `[data-${kind}-index="${drag.editIndex}"]` : `[data-preview="${kind}"]`;
+      const original = diagram.querySelector(selector);
+      const copy = svg.querySelector(selector);
+      const view = svg.viewBox.baseVal;
+      return {
+        hidden: panel.hidden, pointerEvents: getComputedStyle(panel).pointerEvents,
+        zoom: svg.getBoundingClientRect().width / view.width / layout.diagramScale,
+        insideStage: box.left >= stage.left && box.top >= stage.top && box.right <= stage.right && box.bottom <= stage.bottom,
+        coversFinger: drag && drag.clientX >= box.left && drag.clientX <= box.right && drag.clientY >= box.top && drag.clientY <= box.bottom,
+        focusVisible: focus && focus.cx.baseVal.value >= view.x && focus.cx.baseVal.value <= view.x + view.width &&
+          focus.cy.baseVal.value >= view.y && focus.cy.baseVal.value <= view.y + view.height,
+        originalForce: svg.querySelector('[data-kind="original"]')?.getAttribute("d") === diagram.querySelector('[data-kind="original"]')?.getAttribute("d"),
+        liveGeometry: original && original.outerHTML === copy?.outerHTML,
+        hasForbiddenNodes: Boolean(svg.querySelector("[id], [tabindex], button, a")),
+        thetaGlyph: svg.querySelector('[data-label="student-theta"]')?.textContent,
+        kind, valid: Boolean(drag?.preview?.valid || kind === "theta"),
+        focusPoint, expectedEndpoint: kind === "theta" ? drag.point : drag?.preview?.point,
+        corner: panel.dataset.corner
+      };
+    });
+    const details = label + ": " + JSON.stringify(preview);
+    assert(!preview.hidden && preview.pointerEvents === "none", details + " inert preview is visible during touch");
+    assert(preview.insideStage && !preview.coversFinger, details + " fixed-corner preview stays in stage and away from the finger");
+    assert(Math.abs(preview.zoom - 2) < .01 && preview.focusVisible, details + " active point is visible at 2x scale");
+    assert(preview.originalForce && !preview.hasForbiddenNodes, details + " scene is copied without duplicate IDs or interactive controls");
+    if (preview.valid && preview.kind !== "theta") assert(preview.liveGeometry, details + " preview matches the live geometry including snapping");
+    if (preview.kind === "theta") assert(preview.thetaGlyph === "θ", details + " editable HTML theta also has a magnified glyph");
+    if (preview.expectedEndpoint) assert(Math.hypot(preview.focusPoint.x - preview.expectedEndpoint.x, preview.focusPoint.y - preview.expectedEndpoint.y) < .01,
+      details + " focus follows the snapped endpoint or theta location");
+    return preview;
+  };
+  const exercisePreviewCancellation = async (frame, label) => {
+    for (const cancellation of ["touchCancel", "lostCapture"]) {
+      // Let the preceding question-button click finish its panel scroll before
+      // measuring the gesture (the drag itself must not move any scroll owner).
+      await wait(100);
+      await frame.evaluate(() => window.__forceOrthogonalApp.clearTouchTelemetry());
+      const original = await frame.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState()));
+      const beforeMetrics = await embeddedTargetMetrics(frame);
+      const iframe = await page.locator("iframe").boundingBox();
+      const hit = await frame.locator("#originHit").evaluate(node => node.getBoundingClientRect().toJSON());
+      const start = { x: iframe.x + hit.x + hit.width / 2, y: iframe.y + hit.y + hit.height / 2 };
+      touchId += 1;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(start)] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint({ x: start.x + 55, y: start.y - 45 })] });
+      const first = await assertTouchPreview(frame, label + " initial preview");
+      const lens = await frame.locator("#touchPreview").evaluate(node => node.getBoundingClientRect().toJSON());
+      // Deliberately approach the preview's current corner with a trusted touch.
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchPoint({ x: iframe.x + lens.x + lens.width / 2, y: iframe.y + lens.y + lens.height / 2 })] });
+      const moved = await assertTouchPreview(frame, label + " edge avoidance");
+      assert(moved.corner !== first.corner, label + ": preview changes corner only when approached");
+      if (cancellation === "touchCancel") {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      } else {
+        await frame.evaluate(() => {
+          const drag = window.__forceOrthogonalApp.getDragPreview();
+          document.querySelector("#originHit").releasePointerCapture(drag.pointerId);
+        });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      }
+      assert(await frame.locator("#touchPreview").isHidden(), label + ": " + cancellation + " hides preview");
+      assert(await frame.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState())) === original,
+        label + ": " + cancellation + " does not save transient geometry");
+      await assertEmbeddedTargetMetricsStable(frame, beforeMetrics, label + " " + cancellation);
+    }
+    await frame.locator("#originHit").focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowRight");
+    assert(await frame.locator("#touchPreview").isHidden(), label + ": keyboard preview does not open magnifier");
+    await page.keyboard.press("Escape");
   };
   const embeddedTargetMetrics = async frame => ({
     host: await page.evaluate(() => {
@@ -450,10 +548,36 @@ async page => {
     await waitForApp();
     assert(await appRuntime() === "review", `${label}: finished reload stays review-only`);
     assert(await page.locator("#reviewPanel").isVisible(), `${label}: review panel survives reload`);
+    const assertCompletedLocked = async suffix => {
+      assert(await appRuntime() === "review", `${label}: ${suffix} stays in review`);
+      assert(await page.locator("#reviewActions button").count() === 0, `${label}: ${suffix} has no clear/restart action`);
+      assert(!/清除本機紀錄|重新開始/.test(await page.locator("#reviewPanel").innerText()), `${label}: ${suffix} does not offer a reset route`);
+      assert(await page.locator("#practicePanel").isHidden(), `${label}: ${suffix} keeps practice controls hidden`);
+      assert(await page.locator("#touchPreview").isHidden(), `${label}: ${suffix} does not retain a touch preview`);
+      const before = await page.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState()));
+      await page.evaluate(() => window.__forceOrthogonalApp.reset());
+      assert(await page.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState())) === before,
+        `${label}: ${suffix} reset handler cannot alter a completed answer`);
+    };
+    await assertCompletedLocked("complete review");
+
+    // A low score must not provide a shortcut to delete the completed attempt.
+    await openFresh(path, label + " incomplete submission");
+    await click(page.locator("#goSummary"));
     await page.evaluate(() => { window.confirm = () => true; });
-    await click(page.locator("button").filter({ hasText: "清除本機紀錄並重新開始" }));
-    await page.waitForFunction(() => window.__forceOrthogonalApp?.getRuntimeState() === "editable");
-    assert(await page.locator("#practicePanel").isVisible(), `${label}: local completed attempt has an explicit reset route`);
+    await click(page.locator("#submitAttempt"));
+    await page.waitForFunction(() => window.__forceOrthogonalApp.getRuntimeState() === "review");
+    assert((await page.locator("#reviewScore").textContent()).trim() === "0 / 100", `${label}: incomplete attempt receives a real non-perfect score`);
+    await assertCompletedLocked("zero-score review");
+    const completedCheckpoint = await page.evaluate(() => localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint"));
+    await click(page.locator('#reviewQuestionNavigation [data-question-index="1"]'));
+    await assertCompletedLocked("zero-score question switch");
+    await page.reload();
+    await waitForApp();
+    await assertCompletedLocked("zero-score reload");
+    assert((await page.locator("#reviewScore").textContent()).trim() === "0 / 100", `${label}: reload retains the score`);
+    assert(await page.evaluate(() => localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint")) === completedCheckpoint,
+      `${label}: question switching and reload preserve the exact completed checkpoint`);
 
     // A malformed standalone checkpoint must expose the same explicit recovery
     // route as the LMS draft path instead of trapping the learner in reload.
@@ -568,13 +692,15 @@ async page => {
     const beforeMetrics = await embeddedTargetMetrics(frame);
     await touchDrag(
       { x: iframe.x + source.x + source.width / 2, y: iframe.y + source.y + source.height / 2 },
-      { x: iframe.x + target.x + target.width / 2, y: iframe.y + target.y + target.height / 2 }
+      { x: iframe.x + target.x + target.width / 2, y: iframe.y + target.y + target.height / 2 },
+      async () => assert(await frame.locator("#touchPreview").isHidden(), label + ": formula drag uses its existing token preview only")
     );
     await assertTrustedPointerTransaction(frame, 0, label + " boxes=" + JSON.stringify({ source, target }));
     await assertEmbeddedTargetMetricsStable(frame, beforeMetrics, label);
   };
   const exerciseEmbeddedTargets = async (frame, child, label) => {
     await frameClick(frame, '[data-question-index="1"]');
+    await exercisePreviewCancellation(frame, label);
     const plan = await frameScenePlan(frame);
     for (let index = 0; index < plan.directions.length; index += 1) await frameTouchTarget(frame, "#originHit", plan.directions[index], label + " direction " + index);
     assert((await frameSemanticState(frame)).directions.length === 2, label + ": directions created");

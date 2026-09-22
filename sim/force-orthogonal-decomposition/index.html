@@ -51,6 +51,10 @@
         <button id="componentEdit0" class="stage-hit edit-hit arrow-edit-hit" data-edit-kind="component" data-edit-index="0" type="button" hidden aria-label="調整 F1 箭頭"></button>
         <button id="componentEdit1" class="stage-hit edit-hit arrow-edit-hit" data-edit-kind="component" data-edit-index="1" type="button" hidden aria-label="調整 F2 箭頭"></button>
       </div>
+      <aside id="touchPreview" class="touch-preview" data-corner="top-right" hidden aria-hidden="true">
+        <span id="touchPreviewLabel" class="touch-preview-label">局部放大 ×2</span>
+        <svg id="touchPreviewSvg" class="touch-preview-svg" viewBox="0 0 180 120" focusable="false" aria-hidden="true"></svg>
+      </aside>
       <p id="stageDescription" class="sr-only">舞台顯示目前題目的固定原力、物體和分解方向。非互動舞台滑動由外層頁面擁有；透明 HTML 控制點才會啟動作圖。</p>
     </section>
 

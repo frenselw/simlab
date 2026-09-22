@@ -326,7 +326,14 @@ occur after semantic changes and on page lifecycle through
 `SimScorm.setDraftProvider()`；LMS mode 不改變，standalone 只是 shared runtime 的
 durable adapter。
 
-Submission creates a validated review snapshot and final-state result, then calls `SimScorm.submitWithCallbacks(result, reviewSnapshot, callbacks)`。Handlers route `success`、`committed`、`frozen`、`retry` through `SimActivityFlow.submission()`；technical pending／retry UI never says submitted、passed or failed until the shared result is confirmed. Standalone local mode may retain an in-memory/local shared-runtime draft log but only describes it as local draft, never as Moodle submission。完成的本機 review 提供明確的「清除本機紀錄並重新開始」路徑；這不是 Moodle submission，且只有清除成功後才重新建立空白 local attempt。
+Submission creates a validated review snapshot and final-state result, then calls `SimScorm.submitWithCallbacks(result, reviewSnapshot, callbacks)`。Handlers route `success`、`committed`、`frozen`、`retry` through `SimActivityFlow.submission()`；technical pending／retry UI never says submitted、passed or failed until the shared result is confirmed. Standalone local mode may retain an in-memory/local shared-runtime draft log but only describes it as local draft, never as Moodle submission。完成的本機及 LMS review 均不可清除紀錄或重新作答；低分亦維持唯讀，重載後保留原答案與成績。只保留未提交損壞草稿的明確修復路徑，以及已 commit 但 finish 失敗時重試完成工作階段的按鈕。這是活動操作限制，不宣稱能阻止使用者在瀏覽器外部清除 localStorage。
+
+### Touch preview（2026-09-22）
+
+- 參考「力的合成」的局部放大視窗；練習中 touch／pen 拖曳方向線、垂線、分力及 θ（包括既有端點編輯）時，以目前 SVG 幾何顯示 2× 預覽，焦點追蹤吸附後位置。
+- 預設右上角固定顯示；手指靠近視窗才移到較遠角落，避免預覽也被遮住。預覽不接受 pointer events、不加入鍵盤焦點、不回饋評分對錯；既有手勢 ownership matrix 完全不變。
+- 放開、取消、失去 capture、切換到總覽／review／technical lock 時收起；mouse／keyboard／公式卡片拖曳不顯示。預覽、位置和 focus ring 均屬 transient derived UI，不加入 draft／review schema。
+- source 及 extracted SCORM 在 320／390px scrollable Moodle-like iframe 以 trusted touch 驗證新建與編輯、放大幾何、吸附焦點、邊緣避讓、取消清理及每一個 gesture owner；同時覆蓋非滿分提交後無 reset、重載答案及分數不變。
 
 ## Test plan and evidence targets
 
@@ -336,7 +343,7 @@ Submission creates a validated review snapshot and final-state result, then call
 - `lifecycle.test.js`：production render glue for startup review/editable/frozen/load-error and submission success/committed/frozen/retryable/non-retryable retry plus trusted/untrusted finished result。
 - `ui-runtime.test.js` / `accessibility.test.js`：manifest scripts, no MathJax, math typography, locked review, keyboard labels, three question metadata。
 - `tools/force-orthogonal-decomposition-browser-regression.test.js`：static contracts updated for bounded panel, manifest/runtime dependencies, stable target inventory and touch matrix。
-- `tools/force-orthogonal-decomposition-playwright-check.js`：trusted mouse/keyboard and all three scenario paths；320×500、390×500/600、landscape、toolbar/zoom、panel top/bottom；embedded host metrics for blank stage/panel/each target；invalid pending quarantine、finished reload、local reset route；source launch and extracted package launch。
+- `tools/force-orthogonal-decomposition-playwright-check.js`：trusted mouse/keyboard and all three scenario paths；320×500、390×500/600、landscape、toolbar/zoom、panel top/bottom；embedded host metrics for blank stage/panel/each target and touch preview；invalid pending quarantine、finished reload、non-perfect review without reset、invalid unfinished draft recovery；source launch and extracted package launch。
 - Package checks：`npm.cmd run check`、activity tests、`npm.cmd run package:all`、ZIP root/exact manifest entries、extracted launch；full repo `npm.cmd test` result recorded separately if the existing position-time Chrome/CDP blocker reproduces。
 - No claim of Moodle or physical-device acceptance without external evidence; final handoff lists that validation as remaining。
 
@@ -357,6 +364,10 @@ Submission creates a validated review snapshot and final-state result, then call
 
 ## Final verification record
 
+- 2026-09-22：移除完成作答後的本機 reset，保留損壞未提交草稿修復；新增 touch／pen 局部放大。活動六組測試、shared activity-flow／SCORM、browser contract、`npm run check` 及 `npm run package:all` 通過，ZIP／extracted 的 10 個 runtime 檔案與 source 逐 byte 相同。
+- 2026-09-22：完整 `npm test` 最終 exit 0；包括 static／kinetic friction、centre-of-mass 的 source／extracted browser regression。之前紀錄的其他活動 blocker 在本輪未重現。
+- 2026-09-22：Playwright 完整 source／extracted responsive／trusted-touch runner 通過，包括 320×500、390×500 scrollable host 的方向線、垂線、分力、θ 新建／編輯，拖曳中 preview 幾何與 2× 比例、吸附焦點、角落避讓、不可互動、不提前保存、release／cancel／lost-capture 清理；既有 host／panel／stage gesture ownership matrix 仍通過。非滿分（0／100）review 無清除重做、切題及 reload 後 checkpoint 完全不變。初跑的 cancel 量測遇到前一個切題 click 尚在完成 panel scroll；與既有 drag helper 同樣等候 scroll 穩定後取 baseline，完整重跑通過，未放寬任何 scroll invariant。
+- 2026-09-22：production lifecycle runner 通過 success、committed finish retry、frozen／reload、retryable／nonretryable、invalid draft recovery、quarantine 及可信／不可信 review；新增檢查 review 無清除重做入口，review／frozen／quarantine 不留下觸控放大窗。已目視檢查 `output/playwright/force-orthogonal-preview-source-390.png` 及 `force-orthogonal-preview-packaged-320.png`；此為桌面瀏覽器模擬 trusted touch，未聲稱已在實機手機或真實 Moodle 驗收。
 - 2026-09-18：`node sim/force-orthogonal-decomposition/model.test.js`、`scoring.test.js`、`persistence.test.js`、`lifecycle.test.js`、`ui-runtime.test.js`、`accessibility.test.js`、`node sim/shared/scorm.test.js` 及 `node tools/force-orthogonal-decomposition-browser-regression.test.js` 全部通過。
 - 2026-09-18：`npm.cmd run check` 通過；`npm.cmd run package:all` 通過，force package 為 11 files。
 - 2026-09-18：`tools/force-orthogonal-decomposition-browser-regression.sh` 通過。這一輪使用 owned ephemeral static server，驗證 source／extracted direct（390×600、320×500、landscape desktop、三題 reload、review lock、local reset）、source／packaged embedded host（390×500、320×500；blank-stage host owner、panel range／top-bottom、direction／perpendicular／component／docked θ／P-angle θ／formula token target gestures；trusted pointerdown/move/up、無 pointercancel、host／iframe／activity／visualViewport／stage／panel metrics 不變），以及 gravity 320×500 full construction、fixed slope θ surface marker、body-plane contact。

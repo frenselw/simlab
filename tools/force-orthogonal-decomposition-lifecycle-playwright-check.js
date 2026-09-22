@@ -201,6 +201,8 @@ const assertReviewLock = async (frame, label) => {
   assert(!(await frame.locator("#practicePanel").isVisible()), `${label}: practice panel remained editable`);
   assert(!(await frame.locator("#summaryPanel").isVisible()), `${label}: summary panel remained active`);
   assert(await frame.evaluate(() => window.__forceOrthogonalApp.getDragPreview() === null), `${label}: an interaction preview survived the review lock`);
+  assert(await frame.locator("#touchPreview").isHidden(), `${label}: touch magnifier survived the review lock`);
+  assert(!/清除|重新開始/.test(await frame.locator("#reviewActions").innerText()), `${label}: review offers a clear/restart action`);
   await assertStageLocked(frame, label);
 };
 const assertStageLocked = async (frame, label) => {
@@ -227,6 +229,7 @@ const assertStageLocked = async (frame, label) => {
   assert(lock.runtimeState === "review" || lock.runtimeState === "frozen" || lock.runtimeState === "quarantined", `${label}: stage runtime lock marker is missing`);
   assert(lock.controls.every(item => item.hidden && item.disabled), `${label}: a stage drag target remained active: ${JSON.stringify(lock.controls)}`);
   assert(lock.navigation.every(item => item.disabled), `${label}: a stage navigation control remained active: ${JSON.stringify(lock.navigation)}`);
+  assert(await frame.locator("#touchPreview").isHidden(), `${label}: locked stage opened a touch preview`);
   assert(JSON.stringify(after) === JSON.stringify(before), `${label}: stage interaction changed the locked answer`);
 };
 const reviewFormulaRows = async (frame, label) => {
