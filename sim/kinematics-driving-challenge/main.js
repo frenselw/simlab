@@ -442,7 +442,7 @@
     saveAndRender("已保留本關原有記錄。");
     focusHeading(elements.panelTitle);
   }
-  function scoreForReview() { return Persistence.allComplete(state) ? Scoring.scoreActivity(state.selectedRuns, state.graphCheckpoint) : null; }
+  function scoreForReview() { return Scoring.scoreActivity(state.selectedRuns, state.graphCheckpoint); }
   function sameResult(left, right) {
     return Boolean(left && right &&
       Number.isFinite(left.score) && Number.isFinite(right.score) &&
@@ -494,7 +494,7 @@
     }
   }
   function submitAll() {
-    if (locked || state.phase !== "review" || state.variant !== "complete") return;
+    if (locked || state.phase !== "review") return;
     let computed, reviewAnswer, snapshot;
     try {
       computed = scoreForReview();
@@ -513,7 +513,8 @@
       retry: (failure) => {
         locked = !failure.retryable;
         retryMode = failure.retryable ? "submit" : "none";
-        state.phase = "review"; state.variant = "complete";
+        state.phase = "review";
+        state.variant = Persistence.allComplete(state) ? "complete" : "incomplete";
         render();
         const message = failure.retryable ? "未能確認提交，記錄仍可重試。" : "提交前檢查失敗；目前操作已鎖定。";
         elements.submissionNotice.textContent = message;
@@ -592,7 +593,7 @@
     const zones = Levels.scoredZones(level);
     if (!zones.some((zone) => zone.id === resultReviewZoneId)) resultReviewZoneId = zones[0]?.id || null;
     elements.resultRunPicker.innerHTML = Levels.LEVELS.map((item) =>
-      `<button type="button" data-result-level="${item.id}" aria-pressed="${item.id === resultReviewLevelId}" title="${escapeHtml(item.title)}">第 ${item.number} 關</button>`
+      `<button type="button" data-result-level="${item.id}" aria-pressed="${item.id === resultReviewLevelId}"${state.selectedRuns?.[item.id] ? "" : " disabled"} title="${escapeHtml(item.title)}">第 ${item.number} 關</button>`
     ).join("");
     elements.resultZoneTabs.innerHTML = zones.map((zone, index) =>
       `<button type="button" data-result-zone="${zone.id}" aria-pressed="${zone.id === resultReviewZoneId}">路段 ${index + 1}：${escapeHtml(Visuals.targetLabel(zone.target))}</button>`
@@ -678,11 +679,14 @@
     if (trustedReview && submittedResult?.levelResults) {
       submittedResult.levelResults.forEach((levelResult, index) => {
         const level = Levels.LEVELS[index];
-        rows.push(`<article class="feedback-item ${levelResult.points >= levelResult.maxPoints * .7 ? "is-good" : ""}"><h3>${escapeHtml(level.title)}：${formatPoint(levelResult.points)} / ${levelResult.maxPoints}</h3>${levelResult.zones.map((zone) => `<p>${physicsHtml(Scoring.feedbackText(zone))}</p>`).join("")}</article>`);
+        const feedback = levelResult.missing
+          ? "<p>本關尚未記錄，該關按 0 分計算。</p>"
+          : levelResult.zones.map((zone) => `<p>${physicsHtml(Scoring.feedbackText(zone))}</p>`).join("");
+        rows.push(`<article class="feedback-item ${levelResult.points >= levelResult.maxPoints * .7 ? "is-good" : ""}"><h3>${escapeHtml(level.title)}：${formatPoint(levelResult.points)} / ${levelResult.maxPoints}</h3>${feedback}</article>`);
       });
       const answerId = state.graphCheckpoint.answerId;
       const chosenAnswer = CHECKPOINT_ANSWER_LABELS[answerId] || "未能辨認";
-      const answerOutcome = answerId === Scoring.CHECKPOINT_ANSWER ? "正確" : "未選中正確答案";
+      const answerOutcome = !answerId ? "未完成，按 0 分計算" : answerId === Scoring.CHECKPOINT_ANSWER ? "正確" : "未選中正確答案";
       rows.push(`<article class="feedback-item"><h3>圖像證據：${submittedResult.checkpointPoints} / 10</h3><p>${physicsHtml(`你的答案：${chosenAnswer}（${answerOutcome}）。`)}</p><p>${physicsHtml("正確解釋：勻速的 v–t 圖是水平直線；勻加速及勻減速分別是向上及向下直線。x–t 圖可以顯示速度正在改變，但 v–t 圖更直接顯示變化率是否固定。")}</p></article>`);
     }
     elements.feedbackList.innerHTML = rows.join("");
@@ -810,9 +814,10 @@
         state.selectedRuns.level2 || state.selectedRuns.level3 ? "已記錄的試車未有足夠圖像證據" : "請先記錄第 2 或第 3 關";
       return `<article class="review-item"><h3>圖像證據 checkpoint</h3><p>${checkpointCopy}</p><button type="button" data-edit-checkpoint${canOpen ? "" : " disabled"}>查看或修改</button></article>`;
     })();
-    elements.submitButton.disabled = locked || !complete;
+    elements.submitButton.disabled = locked;
     elements.submissionNotice.classList.toggle("is-hidden", complete);
-    elements.submissionNotice.textContent = complete ? "" : "請先完成五關及圖像 checkpoint。";
+    elements.submissionNotice.textContent = complete ? "" : "未完成的關卡及圖像證據會按 0 分計算；仍可提交目前記錄。";
+    elements.submitButton.textContent = complete ? "提交全部記錄" : "提交目前記錄";
   }
   function renderProgress(force) {
     const current = force || (state.phase === "graph-check" ? "checkpoint" : state.phase === "level" ? state.currentItem : state.phase);

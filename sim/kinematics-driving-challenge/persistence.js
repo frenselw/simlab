@@ -163,7 +163,7 @@
     }
     if (reviewOnly) {
       return state.phase === "submitted" && state.variant === "locked" && state.currentItem === "review" &&
-        !state.returnToReview && candidate === null && allComplete(state);
+        !state.returnToReview && candidate === null;
     }
     if (state.phase === "practice") {
       if (state.currentItem !== "practice" || state.returnToReview || (state.variant === "ready" ? candidate !== null : candidate?.ownerId !== "practice")) return false;
@@ -196,7 +196,7 @@
       if (state.currentItem !== "review" || state.returnToReview || candidate) return false;
       if (state.variant === "complete" ? !allComplete(state) : allComplete(state)) return false;
     } else if (state.phase === "submitted") {
-      if (state.currentItem !== "review" || state.returnToReview || candidate || !allComplete(state)) return false;
+      if (state.currentItem !== "review" || state.returnToReview || candidate) return false;
     }
     return true;
   }
@@ -221,7 +221,7 @@
     const state = clone(source);
     state.phase = "submitted"; state.variant = "locked"; state.currentItem = "review";
     state.returnToReview = false; state.candidateRun = null;
-    if (!validateState(state, true)) throw new Error("Incomplete review");
+    if (!validateState(state, true)) throw new Error("Invalid review");
     return encode(state);
   }
   function decodeReview(answer) {

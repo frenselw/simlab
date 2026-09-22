@@ -224,7 +224,7 @@
 - 第 3 關按下一關時，若尚未完成 checkpoint，先進入圖像證據；確認答案後才進入第 4 關；已有 checkpoint 答案則直接進入第 4 關；
 - 控制面板底部的下一關按鈕是隨時可用的順序導航，不要求先完成或記錄當前關卡；轉關時捨棄未記錄試車，但保留已記錄表現；
 - `查看進度／提交` 在練習及任何正式關卡都可用；
-- 最終提交仍要求五關各有一個已記錄 run，並完成圖像 checkpoint。
+- 最終提交可在任何安全可驗證的 incomplete review 進行；未記錄關卡及未完成／未答的圖像 checkpoint 各按 0 分計算，已記錄部分照常評分。
 
 每個正式關卡使用同一循環：
 
@@ -686,6 +686,8 @@ SCORABLE_MIN_SPEED_M_S = 3
 ```
 
 駕駛操作共 90 分；圖像問題 10 分。只答對圖像問題不能接近合格。
+
+未記錄的關卡不阻止提交：其關卡分數為 0；未完成或未回答的圖像 checkpoint 亦為 0。若已記錄部分仍達到合格線，提交結果可以通過；否則按實際總分未通過。
 
 ### 13.2 權威 run
 
@@ -1238,9 +1240,9 @@ LEVEL_5_MAX_TICKS = 1200       # 60 s
 | `level` | `review-retry-briefing` | 0–4 | `returnToReview = true`；existing selected run retained | candidate replacement run | start replacement or return to review |
 | `level` | `review-retry-paused` | 0–4 | retained selected run；valid candidate replacement prefix；`returnToReview = true` | active pedal | resume, discard replacement, or return to review |
 | `level` | `review-retry-analysis` | 0–4 | retained selected run；legal-terminal candidate replacement；`returnToReview = true` | active pedal | accept replacement, retry, or keep previous and return |
-| `review` | `incomplete` | review | any valid subset of selected runs／checkpoint work | result metadata | open missing or completed item |
+| `review` | `incomplete` | review | any valid subset of selected runs／checkpoint work | result metadata | open missing or completed item, or submit current record with missing parts scored 0 |
 | `review` | `complete` | review | five selected runs；checkpoint answer | result metadata | edit or final submit |
-| `submitted` | `locked` | review | valid review snapshot sufficient to replay, rescore and redraw | editable controls | inspect locked replay and feedback |
+| `submitted` | `locked` | review | valid partial or complete review snapshot sufficient to replay, rescore and redraw | editable controls | inspect locked replay and feedback |
 
 Transitions:
 
@@ -1308,7 +1310,7 @@ Production 可使用短 key，但語意必須包括：
   currentItem,
   returnToReview,
   graphMode,
-  selectedRuns: {
+  selectedRuns: { // 只包含已記錄的合法 run，可為任意子集
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
     level3: { revision, tickCount, packedControls },
@@ -1340,7 +1342,7 @@ Absent／partial fields follow the phase matrix；不以空 object 代替語意�
   locked: 1,
   physicsVersion: 6,
   levelSetVersion: 8,
-  selectedRuns: {
+  selectedRuns: { // 只包含已記錄的合法 run，可為任意子集
     level1: { revision, tickCount, packedControls },
     level2: { revision, tickCount, packedControls },
     level3: { revision, tickCount, packedControls },
@@ -1619,7 +1621,7 @@ Invalid cases：
 - 替換 source run 清除 checkpoint 並令 review incomplete；
 - 替換 non-source run 保留 checkpoint；
 - graph-check review-edit exploring／answered 各自 round-trip 並合法返回 review；
-- complete review missing a level；
+- submitted review with malformed selected run or impossible checkpoint state；
 - `NaN`／Infinity or unsafe decoded model state；
 - unsupported physics／level version；
 - invalid finished review remains locked；
@@ -1789,6 +1791,7 @@ Invalid cases：
 - control panel 底部可依序返回上一關、查看進度，並在表現可記錄時記錄後進入下一關。
 - 「進入下一關」不再要求完成活動才可按，未記錄的當前試車會在轉關時安全捨棄。
 - 第 3 關的下一關流程會先顯示圖像證據 checkpoint；確認後才進入第 4 關，避免學生跳過 10 分的圖像題。
+- incomplete review 仍可提交；缺少的關卡及圖像 checkpoint 在結果頁列明並按 0 分計算。
 
 ### 26.3 視覺
 

@@ -53,6 +53,10 @@ assert.match(main, /if \(locked \|\| state\.phase !== "level"\) return;[\s\S]*?e
 assert.match(main, /elements\.nextLevelButton\.disabled = false/);
 assert.match(main, /event\.target\.closest\("\[data-pick-checkpoint\]"\)\) enterCheckpoint\(true\)/);
 assert.match(main, /event\.target\.closest\("\[data-pick-review\]"\)/);
+assert.match(main, /function scoreForReview\(\) \{ return Scoring\.scoreActivity\(state\.selectedRuns, state\.graphCheckpoint\); \}/);
+assert.match(main, /if \(locked \|\| state\.phase !== "review"\) return;/);
+assert.match(main, /elements\.submitButton\.disabled = locked/);
+assert.match(main, /未完成的關卡及圖像證據會按 0 分計算；仍可提交目前記錄/);
 assert.match(html, /id="analysisZoneTabs"/);
 assert.match(html, /id="checkpointScrubRange"[^>]*type="range"[^>]*aria-label="圖像證據回放時間游標"/);
 assert.equal((html.match(/id="checkpointScrubRange"/g) || []).length, 1);
