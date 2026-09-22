@@ -371,6 +371,18 @@ Submission creates a validated review snapshot and final-state result, then call
 
 ## Final verification record
 
+### 2026-09-22 審核問題修正與獨立複審
+
+- 本輪先修正五類審核問題並逐批 commit：公式逐項評核，避免一支錯箭頭連帶扣去另一條正確公式；舞台工具列與作圖／觸控目標分區；短 iframe 保留可捲動操作區；各步驟草稿重載提示；補上 P 頂點標籤並修訂學生用語。
+- 兩個 read-only sub-agents 分別審核評分／保存／lifecycle 及版面／觸控／文字。依據審核追加修正並再次 commit：舊 review／pending 保留 v1 成績及 immutable payload、新提交明確標示 v2；短視窗 θ 角弧／標籤自適應；review 切題文字及 aria-label 統一使用已核對的 versioned result。最後獨立複審均回報無新增 actionable findings；這不是對所有情境無 bug 的保證。
+- 活動七組 Node／browser-contract tests、`npm run check`、`npm run package:all` 通過。manifest 列出的 10 個 runtime 檔案在 source／ZIP／extracted 逐 byte 相同，ZIP 共 11 個檔案（包括 `imsmanifest.xml`）。
+- source／packaged production lifecycle 分別通過（`output/force-orthogonal-repairs-source-lifecycle-r5.log`、`output/force-orthogonal-repairs-packaged-lifecycle.log`）：五步 draft restore 及 legal continuation、公式逐項回饋、舊版 90 分／新版 93 分、舊版各題 70／100／100 的 tab／aria／切題、pending 原 payload retry／reload、無效／缺失 LMS 分數的唯讀摘要、summary θ、損壞草稿復原及 quarantine。新版 canvas 容納原窄屏案例的垂線吸附，測試另行拖到吸附範圍外，兩種端點均不塌縮且自由端點保存／重載／review 一致。
+- source／extracted responsive 與 trusted-touch suite 通過，新增 390×320、520×320、667×375 iframe；短 gravity 作圖包含重疊 target 選擇、分力編輯／修復及 θ 放置→重載→總覽→返回。host／panel／stage gesture ownership 不變。目視確認 `output/playwright/force-orthogonal-final-summary-1440.png`、`force-orthogonal-final-mobile-390.png`、`force-orthogonal-final-theta-390.png` 及手機 touch preview；沒有實機手機或真實 Moodle 驗收證據。
+- 最終完整 `tools/force-orthogonal-decomposition-browser-regression.sh` exit 0（`output/force-orthogonal-repairs-browser-final.log`），連續執行 source／extracted responsive／trusted-touch／short iframe 及 source production lifecycle，沒有 `### Error`。packaged lifecycle 另行完整通過，未將前面修正測試 fixture 前的失敗 run 當成通過。
+- 全 repo 最後一次 `npm test` **未通過**：停於無關的 `tools/static-kinetic-friction-browser-regression.js:165` 重做後 recorder-running assertion（`output/force-orthogonal-repairs-final-tests.log`）。單獨重跑越過該檢查，但在同檔 `:360` 的 A3 trusted-pointer 拉力箭頭位置 assertion 失敗（`output/force-orthogonal-repairs-unrelated-friction-rerun.log`）；未修改該活動，不能宣稱 final full-repo green。本活動七組測試及共用 SCORM／activity-flow 已另行在最終版本通過。先前較早的完整 `npm test` exit 0 紀錄不取代這次最終失敗紀錄。
+
+### 先前驗證紀錄
+
 - 2026-09-22：移除完成作答後的本機 reset，保留損壞未提交草稿修復；新增 touch／pen 局部放大。活動六組測試、shared activity-flow／SCORM、browser contract、`npm run check` 及 `npm run package:all` 通過，ZIP／extracted 的 10 個 runtime 檔案與 source 逐 byte 相同。
 - 2026-09-22：完整 `npm test` 最終 exit 0；包括 static／kinetic friction、centre-of-mass 的 source／extracted browser regression。之前紀錄的其他活動 blocker 在本輪未重現。
 - 2026-09-22：Playwright 完整 source／extracted responsive／trusted-touch runner 通過，包括 320×500、390×500 scrollable host 的方向線、垂線、分力、θ 新建／編輯，拖曳中 preview 幾何與 2× 比例、吸附焦點、角落避讓、不可互動、不提前保存、release／cancel／lost-capture 清理；既有 host／panel／stage gesture ownership matrix 仍通過。非滿分（0／100）review 無清除重做、切題及 reload 後 checkpoint 完全不變。初跑的 cancel 量測遇到前一個切題 click 尚在完成 panel scroll；與既有 drag helper 同樣等候 scroll 穩定後取 baseline，完整重跑通過，未放寬任何 scroll invariant。
