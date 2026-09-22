@@ -293,8 +293,10 @@
     }
     saveAndRender("試車完成；請查看圖線及質性分析。");
   }
-  function acceptRun() {
-    if (locked || state.phase !== "level" || !state.variant.endsWith("analysis") || !analysisRun) return;
+  function recordCurrentRun() {
+    if (locked || state.phase !== "level" || !state.variant.endsWith("analysis")) return null;
+    analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
+    if (!analysisRun || !Model.isTerminalRun(currentLevel(), candidateCodes())) return null;
     const id = state.currentItem;
     const previous = state.selectedRuns[id];
     state.selectedRuns[id] = { revision: (previous?.revision || 0) + 1, codes: candidateCodes().slice() };
@@ -308,9 +310,58 @@
     const returning = state.returnToReview;
     state.returnToReview = false;
     analysisRun = null;
-    if (returning) return enterReview();
     state.variant = "accepted";
-    saveAndRender(`已記錄第 ${Levels.levelById(id).number} 關；可以自由選擇其他關卡。`);
+    return { id, returning };
+  }
+  function acceptRun() {
+    const recorded = recordCurrentRun();
+    if (!recorded) return;
+    if (recorded.returning) return enterReview();
+    saveAndRender(`已記錄第 ${Levels.levelById(recorded.id).number} 關；可以自由選擇其他關卡。`);
+  }
+  function canRecordCurrentRun() {
+    return Boolean(
+      state?.phase === "level" &&
+      state.variant?.endsWith("analysis") &&
+      analysisRun &&
+      Model.isTerminalRun(currentLevel(), candidateCodes())
+    );
+  }
+  function canAdvanceCurrentLevel() {
+    if (canRecordCurrentRun()) return true;
+    if (!state || state.phase !== "level" || state.candidateRun) return false;
+    return ["briefing", "accepted", "review-retry-briefing"].includes(state.variant) &&
+      Boolean(state.selectedRuns[state.currentItem]);
+  }
+  function advanceToNextLevel() {
+    if (locked || state.phase !== "level" || !canAdvanceCurrentLevel()) return;
+    const level = currentLevel();
+    let reviewRetry = Boolean(state.returnToReview);
+    if (canRecordCurrentRun()) {
+      const recorded = recordCurrentRun();
+      if (!recorded) return;
+      reviewRetry = recorded.returning;
+    }
+    const nextId = level.number < Levels.LEVELS.length ? `level${level.number + 1}` : null;
+    if (!nextId) {
+      state.returnToReview = false;
+      enterReview();
+      return;
+    }
+    enterLevel(nextId, reviewRetry);
+  }
+  function selectLevelFromProgress(levelId) {
+    if (locked || !Levels.levelById(levelId)) return;
+    if (state.phase === "level" && state.currentItem === levelId && !state.returnToReview) return;
+    const selected = Boolean(state.selectedRuns?.[levelId]);
+    const reviewRetry = (state.phase === "review" || state.phase === "graph-check" && state.returnToReview) && selected;
+    enterLevel(levelId, reviewRetry);
+  }
+  function goToPreviousLevel() {
+    if (locked || state.phase !== "level") return;
+    const level = currentLevel();
+    if (level.number <= 1) return;
+    enterLevel(`level${level.number - 1}`, Boolean(state.returnToReview));
   }
   function abandonUncommittedSubmissionRetry() {
     if (retryMode !== "submit") return;
@@ -567,6 +618,7 @@
     elements.activitySection.classList.add("is-hidden");
     elements.checkpointSection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
+    elements.levelNavigation.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
     elements.resultTitle.textContent = "技術狀態";
     elements.scorePanel.textContent = "--　未能安全判斷提交或合格狀態";
@@ -606,6 +658,7 @@
     elements.activitySection.classList.add("is-hidden");
     elements.checkpointSection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
+    elements.levelNavigation.classList.add("is-hidden");
     elements.resultSection.classList.remove("is-hidden");
     elements.resultTitle.textContent = trustedReview ? "已提交：只讀檢討" : "已完成：安全摘要";
     elements.stageKicker.textContent = "提交結果";
@@ -644,6 +697,7 @@
     if (state.phase === "practice" || state.phase === "level") renderDrivingPanel();
     else if (state.phase === "graph-check") renderCheckpoint();
     else if (state.phase === "review") renderReview();
+    renderLevelNavigation();
     renderProgress();
     draw();
   }
@@ -663,7 +717,6 @@
     elements.startButton.disabled = locked || running || analysis;
     elements.pauseButton.disabled = locked || !running;
     elements.resetButton.disabled = locked || analysis && false;
-    renderLevelPicker();
     elements.drivingDeck.classList.toggle("is-hidden", analysis);
     elements.analysisSection.classList.toggle("is-hidden", !analysis);
     if (analysis) renderAnalysis();
@@ -676,16 +729,29 @@
     else elements.stageStatus.textContent = "試車已暫停；踏板已回到空檔。";
     renderControlState();
   }
-  function renderLevelPicker() {
-    elements.levelPicker.querySelectorAll("[data-pick-level]").forEach((button) => {
-      const id = button.dataset.pickLevel;
-      const current = state.phase === "level" && state.currentItem === id;
-      button.classList.toggle("is-current", current);
-      button.classList.toggle("is-complete", Boolean(state.selectedRuns[id]));
-      button.setAttribute("aria-current", current ? "step" : "false");
-      button.disabled = locked;
-    });
-    elements.reviewProgressButton.disabled = locked;
+  function renderLevelNavigation() {
+    const visible = !technicalState && !locked && ["practice", "level"].includes(state?.phase);
+    elements.levelNavigation.classList.toggle("is-hidden", !visible);
+    if (!visible) return;
+    const inLevel = state.phase === "level";
+    elements.previousLevelButton.classList.toggle("is-hidden", !inLevel);
+    elements.nextLevelButton.classList.toggle("is-hidden", !inLevel);
+    elements.reviewProgressButton.disabled = false;
+    if (!inLevel) {
+      elements.levelNavigationHint.textContent = "可從頂部編號直接切換第 1–5 關；切換會捨棄未記錄的試車。";
+      return;
+    }
+    const level = currentLevel();
+    const canRecord = canRecordCurrentRun();
+    const canAdvance = canAdvanceCurrentLevel();
+    elements.previousLevelButton.disabled = level.number <= 1;
+    elements.nextLevelButton.disabled = !canAdvance;
+    elements.nextLevelButton.textContent = level.number === Levels.LEVELS.length
+      ? canRecord ? "記錄並進入檢查" : "進入檢查"
+      : canRecord ? "記錄並進入下一關" : "進入下一關";
+    elements.levelNavigationHint.textContent = canAdvance
+      ? "也可以按頂部編號快速切換關卡；切換會捨棄未記錄的試車。"
+      : "完成並記錄本關後，才可由這裡進入下一關；未記錄的試車可安全重來。";
   }
   function renderAnalysis() {
     analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
@@ -746,10 +812,20 @@
       const currentStep = index === currentIndex;
       const done = item.dataset.step.startsWith("level") ? Boolean(state?.selectedRuns?.[item.dataset.step]) :
         item.dataset.step === "checkpoint" ? Boolean(state?.graphCheckpoint?.answerId) : index < currentIndex;
+      const levelButton = item.querySelector("[data-pick-level]");
       item.classList.toggle("is-current", currentStep);
       item.classList.toggle("is-done", done);
       item.setAttribute("aria-current", currentStep ? "step" : "false");
       item.setAttribute("aria-label", `${item.textContent.trim()}${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`);
+      if (levelButton) {
+        const level = Levels.levelById(levelButton.dataset.pickLevel);
+        levelButton.disabled = locked || technicalState;
+        levelButton.setAttribute("aria-current", currentStep ? "step" : "false");
+        levelButton.setAttribute(
+          "aria-label",
+          `${levelButton.textContent.trim()}${level ? `：${level.title}` : ""}${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`
+        );
+      }
     });
   }
   function displayRun() {
@@ -1207,12 +1283,13 @@
   elements.startButton.addEventListener("click", startRun);
   elements.pauseButton.addEventListener("click", pauseRun);
   elements.resetButton.addEventListener("click", resetRun);
-  elements.levelPicker.addEventListener("click", (event) => {
-    if (locked) return;
+  elements.progress.addEventListener("click", (event) => {
     const levelId = event.target.closest("[data-pick-level]")?.dataset.pickLevel;
-    if (levelId && Levels.levelById(levelId)) enterLevel(levelId);
+    if (levelId) selectLevelFromProgress(levelId);
   });
   elements.reviewProgressButton.addEventListener("click", () => { if (!locked) enterReview(); });
+  elements.previousLevelButton.addEventListener("click", goToPreviousLevel);
+  elements.nextLevelButton.addEventListener("click", advanceToNextLevel);
   elements.acceptButton.addEventListener("click", acceptRun);
   elements.retryRunButton.addEventListener("click", resetRun);
   elements.keepPreviousButton.addEventListener("click", keepPrevious);
