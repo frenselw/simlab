@@ -61,7 +61,7 @@ async function assertDragPreview(cdp, label) {
     assert.ok(hidden(ended.preview) && hidden(ended.label) && ended.answer && ended.answer[0] != null, `${label}: ${width}px pointerup commits once and newly rendered drag UI is computed hidden`);
     await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelectorAll('#graphButtons button')[1].click(); const input=d.querySelector('#pointRows input'); input.value='0'; input.dispatchEvent(new Event('change',{bubbles:true})); })()`);
     const set = await inspect();
-    assert.ok(set.hit.w >= 48 && set.hit.h >= 48 && set.marker.radius === 7, `${label}: ${width}px configured unselected marker uses r=7 without shrinking its hit target`);
+    assert.ok(set.hit.w >= 48 && set.hit.h >= 48 && set.marker.radius === 8, `${label}: ${width}px numeric input selects its marker without shrinking its hit target`);
     await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelectorAll('#graphButtons button')[1].click(); const input=d.querySelector('#pointRows input'); input.value='0'; input.dispatchEvent(new Event('change',{bubbles:true})); d.getElementById('clearGraphButton').click(); d.querySelectorAll('#graphButtons button')[0].click(); d.getElementById('clearGraphButton').click(); })()`);
     await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document,input=d.querySelector('#pointRows input'); input.value='0'; input.dispatchEvent(new Event('change',{bubbles:true})); })()`);
     const rightBaseline = await evaluate(cdp, `(() => { const w=document.getElementById('activity').contentWindow; return {answer:w.__kinematicsQuantitativeDebug.editorAnswer(),undo:w.__kinematicsQuantitativeDebug.editorUndoLength()}; })()`);
@@ -224,6 +224,11 @@ async function assertPracticePointControls(cdp, label) {
   await evaluate(cdp, "document.getElementById('activity').style.height='600px'");
 }
 async function assertIndexedPointRows(cdp, label) {
+  await evaluate(cdp, `(() => { const input=document.getElementById('activity').contentWindow.document.getElementById('practice-point-0'); input.scrollIntoView({block:'center'}); input.focus(); input.select(); })()`);
+  await cdp.send("Input.insertText", { text: "99" });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+  assert.match(await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('practiceStatus').textContent`), /未更改控制點/, `${label}: practice retains its own visible invalid-input explanation`);
   await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('startChallenge').click()`);
   await assertNumericControls(cdp, label);
   for (const [width, height] of [[390, 600], [320, 500], [820, 600], [1024, 700], [1440, 800]]) {
@@ -257,10 +262,35 @@ async function assertNumericControls(cdp, label) {
       await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
       const answer = () => evaluate(cdp, `document.getElementById('activity').contentWindow.__kinematicsQuantitativeDebug.state().ans[${graph}]?.[0] ?? null`);
       assert.equal(await answer(), value, `${label}: ${width}px trusted numeric input commits signed ${value}`);
+      const read = () => evaluate(cdp, `(() => { const w=document.getElementById('activity').contentWindow,d=w.document; return {answer:w.__kinematicsQuantitativeDebug.editorAnswer(),undo:w.__kinematicsQuantitativeDebug.editorUndoLength(),status:d.getElementById('editorStatus').textContent,focus:d.activeElement.id,invalid:d.getElementById('point-0').getAttribute('aria-invalid')}; })()`);
+      const committed = await read();
+      assert.doesNotMatch(committed.status, /請輸入/, `${label}: valid Enter must not announce an input error`);
+      assert.equal(committed.focus, "point-0", `${label}: Enter preserves the input and focus`);
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      assert.deepEqual(await read(), committed, `${label}: Enter on an unchanged value is a valid no-op`);
+      await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('point-0').select()`);
+      await cdp.send("Input.insertText", { text: "-" });
+      assert.equal(await evaluate(cdp, `document.getElementById('activity').contentWindow.document.getElementById('point-0').validity.badInput`), true, `${label}: trusted minus reproduces native badInput`);
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+      const invalid = await read();
+      assert.deepEqual(invalid.answer, committed.answer, `${label}: unfinished input must not clear the saved point`);
+      assert.equal(invalid.undo, committed.undo, `${label}: invalid input must not add undo history`);
+      assert.match(invalid.status, /未更改控制點/, `${label}: invalid input retains a visible explanation`);
+      assert.equal(invalid.invalid, "true", `${label}: invalid input is identified accessibly`);
       const point=await evaluate(cdp, `(() => { const f=document.getElementById('activity'),d=f.contentWindow.document,b=d.querySelector('#pointRows .point-actions button'); b.scrollIntoView({block:'center'}); const r=f.getBoundingClientRect(),p=b.getBoundingClientRect(); return {x:r.left+p.left+p.width/2,y:r.top+p.top+p.height/2}; })()`);
       await click(cdp, point);
       assert.equal(await answer(), null, `${label}: ${width}px clear removes the entered value`);
     }
+    await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelector('#graphButtons button').click(); d.getElementById('point-0').focus(); })()`);
+    await cdp.send("Input.insertText", { text: "14" });
+    const tab = await evaluate(cdp, `(() => { const f=document.getElementById('activity'),b=f.contentWindow.document.querySelectorAll('#graphButtons button')[1]; b.scrollIntoView({block:'center'}); const r=f.getBoundingClientRect(),p=b.getBoundingClientRect(); return {x:r.left+p.left+p.width/2,y:r.top+p.top+p.height/2}; })()`);
+    await click(cdp, tab);
+    const switched = await evaluate(cdp, `document.getElementById('activity').contentWindow.__kinematicsQuantitativeDebug.state()`);
+    assert.equal(switched.ti, 1, `${label}: change commits in-place so the first graph-tab click works`);
+    assert.equal(switched.ans[0][0], 14, `${label}: tab switch retains the newly typed answer`);
+    await evaluate(cdp, `(() => { const d=document.getElementById('activity').contentWindow.document; d.querySelector('#graphButtons button').click(); d.getElementById('clearGraphButton').click(); })()`);
   }
 }
 async function assertCancelledDragHidden(cdp, label) {

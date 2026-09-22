@@ -741,6 +741,16 @@ x₂： [      20       ] m   清除
   italic但不額外加粗；
 - software keyboard 開啟時主要操作仍可達。
 
+#### 數值欄提交與錯誤提示
+
+- 練習及正式作答使用相同的整數／範圍驗證；瀏覽器 `validity.badInput` 的未完成負號／指數
+  不得當作清空，非法輸入保留原有權威答案及 undo history，並顯示持續可見的就地提示。
+- 真正清空才將指定控制點設為 `null`；有效同值輸入是 no-op，不報錯、不另建 undo／save。
+- Enter、Tab／blur 均可提交；Enter 後的 change 不得重複保存。提交只就地更新圖線、控制點、
+  ARIA 及 history buttons，不替換 number input、切圖按鈕或即將接收點擊的控制，避免遺失焦點／吞 click。
+- 修正輸入後清除舊錯誤；切換圖／情境時清除前一圖的 transient status。練習錯誤在 panel
+  的 `practiceStatus` 顯示，不使用會被 render 覆蓋或 compact layout 隱藏的 header phase copy。
+
 ### 9.8 清除及復原
 
 - 提供「復原上一步」、「取消復原」、「清除這一點」、「清除這幅圖」；

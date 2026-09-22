@@ -11,6 +11,14 @@
   const isIntegerOrNull = (value) => value === null || Number.isSafeInteger(value);
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
   function snap(value, axis) { return clamp(Math.round(value / axis.step) * axis.step, axis.min, axis.max); }
+  function parseInput(raw, axis, badInput = false) {
+    if (badInput) return { valid: false };
+    const text = String(raw).trim();
+    if (text === "") return { valid: true, value: null };
+    const value = Number(text);
+    return /^-?\d+$/.test(text) && Number.isSafeInteger(value) && value >= axis.min && value <= axis.max
+      ? { valid: true, value } : { valid: false };
+  }
   function validAnswer(answer, definition) { return Array.isArray(answer) && answer.length === definition.times.length && answer.every((value) => isIntegerOrNull(value) && (value === null || (value >= definition.axis.min && value <= definition.axis.max))); }
   function canonicalAnswer(answer, definition) { if (!validAnswer(answer, definition) || answer.every((value) => value === null)) return null; return answer.slice(); }
   function isComplete(answer, definition) { return validAnswer(answer, definition) && answer.every((value) => value !== null); }
@@ -31,5 +39,5 @@
     undoOnce() { if (!this.undo.length) return false; this.redo.push(this.snapshot()); this.answer = this.undo.pop(); return true; }
     redoOnce() { if (!this.redo.length) return false; this.undo.push(this.snapshot()); this.answer = this.redo.pop(); return true; }
   }
-  return { INPUT_STEPS, ACTIVATION_THRESHOLD_CSS_PX, MAX_UNDO, clamp, snap, isIntegerOrNull, validAnswer, canonicalAnswer, isComplete, lineThrough, quadraticThrough, graphFunction, impliedParameters, plotTransform, sampledPath, Editor };
+  return { INPUT_STEPS, ACTIVATION_THRESHOLD_CSS_PX, MAX_UNDO, clamp, snap, parseInput, isIntegerOrNull, validAnswer, canonicalAnswer, isComplete, lineThrough, quadraticThrough, graphFunction, impliedParameters, plotTransform, sampledPath, Editor };
 });

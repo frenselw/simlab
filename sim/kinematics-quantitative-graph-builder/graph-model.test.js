@@ -1,5 +1,9 @@
 "use strict";
 const assert = require("node:assert/strict"); const Q = require("./question-definitions.js"); const M = require("./graph-model.js");
+const inputAxis = { min: -3, max: 20, step: 1 };
+for (const [raw, value] of [["", null], ["  ", null], ["-3", -3], ["0", 0], ["12", 12], ["20", 20]]) assert.deepEqual(M.parseInput(raw, inputAxis), {valid:true,value});
+for (const raw of ["-", "1e", "1.5", "21", "-4", "Infinity", "NaN", "abc"]) assert.equal(M.parseInput(raw, inputAxis).valid, false);
+assert.equal(M.parseInput("", inputAxis, true).valid, false, "native badInput is not a deliberate clear");
 const x = Q.taskDefinition("A", 6); assert.deepEqual(M.canonicalAnswer([2, 8, 18], x), [2, 8, 18]); assert.equal(M.canonicalAnswer([2, 8.5, 18], x), null);
 const quadratic = M.quadraticThrough(x.times, [2, 8, 18]); assert.equal(quadratic.valueAt(2), 8); assert.deepEqual(M.impliedParameters(x, [2, 8, 18]), { x0: 2, v0: 2, a: 1 });
 assert.equal(M.graphFunction(x, [2, null, 18]), null); assert.equal(M.sampledPath(x, [2, 8, 18]).length, 121);
