@@ -4,6 +4,11 @@ async page => {
   const origin = page.url().match(/^https?:\/\/[^/]+/)?.[0] || "";
   const scope = globalThis.process?.env?.FOD_SCOPE || "all";
   assert(origin.startsWith("http://127.0.0.1:"), `unexpected origin: ${origin}`);
+  await page.addInitScript(() => {
+    if (new URL(location.href).searchParams.get("playwright-reset") === "1") {
+      localStorage.removeItem("simlab:force-orthogonal-decomposition:checkpoint");
+    }
+  });
   const errors = [];
   const progress = label => console.log("[force-orthogonal] " + label);
   page.on("console", message => { if (message.type() === "error" && !message.text().includes("Failed to load resource")) errors.push(message.text()); });
@@ -423,11 +428,11 @@ async page => {
     await page.locator("#forcePanel").evaluate(node => { node.scrollTop = 0; });
   };
   const openFresh = async (path, label) => {
-    await page.goto(`${origin}${path}?playwright=${encodeURIComponent(label)}-${Date.now()}`);
+    // Clear only after the outgoing page's draft/pagehide save. Clearing before
+    // navigation races that save and can silently reuse the preceding fixture.
+    await page.goto(`${origin}${path}?playwright=${encodeURIComponent(label)}-${Date.now()}&playwright-reset=1`);
     await waitForApp();
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-    await waitForApp();
+    await page.evaluate(() => { const url = new URL(location.href); url.searchParams.delete("playwright-reset"); history.replaceState(null, "", url); });
     assert(await appRuntime() === "editable", `${label}: editable startup`);
   };
   const verifyMissingRuntime = async () => {
@@ -526,9 +531,7 @@ async page => {
     await click(page.locator('[data-question-index="2"]'));
     await constructQuestion("touch", false);
     assert((await appState()).scenarioId === "inclined-gravity" && (await appState()).phase === "formulas", `${label}: gravity construction did not complete at 320x500`);
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-    await waitForApp();
+    await openFresh(path, `${label} after narrow gravity`);
     assert(await appRuntime() === "editable", `${label}: narrow gravity verification reset to editable startup`);
     await page.setViewportSize({ width: 1100, height: 760 });
     await wait(80);
