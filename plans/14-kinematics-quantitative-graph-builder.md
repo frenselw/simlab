@@ -1755,6 +1755,14 @@ Production encoder must test maximum partial arrays and maximum review envelope 
 
 ### 20.7 Invalid snapshot policy
 
+- Only an attempt classified as `new` may create an initial practice state.
+  A draft envelope with missing, null, or otherwise falsy `answer` still requires
+  `P.decode()` validation; a rejected draft must not register a replacement provider.
+- Draft-save failure keeps the current editable answers in memory, displays a
+  persistent unsaved warning and an explicit retry button, and never announces
+  that the controls have been saved. Successful retry saves the latest state and
+  removes the warning. This temporary transport status is not part of the snapshot
+  schema and must not appear as an editable retry in finished/pending/technical states.
 - Invalid editable draft：
   - fail closed；
   - lock unsafe actions；
