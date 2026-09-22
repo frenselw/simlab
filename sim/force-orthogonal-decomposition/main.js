@@ -29,6 +29,7 @@
   const dom = {
     app: documentObject.getElementById("app"),
     stage: documentObject.getElementById("stage"),
+    stageCanvas: documentObject.getElementById("stageCanvas"),
     diagram: documentObject.getElementById("diagram"),
     touchPreview: documentObject.getElementById("touchPreview"),
     touchPreviewSvg: documentObject.getElementById("touchPreviewSvg"),
@@ -272,7 +273,7 @@
   function worldToStagePixel(point) {
     const transform = diagramTransform();
     const svgPoint = worldToSvg(point);
-    const stageRect = dom.stage.getBoundingClientRect();
+    const stageRect = dom.stageCanvas.getBoundingClientRect();
     return {
       x: transform.rect.left - stageRect.left + transform.offsetX + svgPoint.x * transform.scale,
       y: transform.rect.top - stageRect.top + transform.offsetY + svgPoint.y * transform.scale
@@ -331,7 +332,7 @@
     }));
 
     // Stay in one corner until the finger approaches it; never follow the hand.
-    const stage = dom.stage.getBoundingClientRect();
+    const stage = dom.stageCanvas.getBoundingClientRect();
     const box = dom.touchPreview.getBoundingClientRect();
     const inset = 8;
     const corners = ["top-right", "top-left", "bottom-right", "bottom-left"].map(name => ({

@@ -457,13 +457,28 @@ async page => {
   };
   const touchStageNavigation = async (path, label) => {
     await openFresh(path, `${label} touch navigation`);
-    const plan = await scenePlan();
-    for (const direction of plan.directions) await dragTarget("#originHit", direction, "touch");
-    assert((await appState()).directions.length === 2, `${label}: touch navigation setup created two directions`);
-    await touchTap(page.locator("#stageNextButton"));
-    assert((await appState()).phase === "perpendiculars", `${label}: real touch tap activates stage next button`);
-    await touchTap(page.locator("#stageBackButton"));
-    assert((await appState()).phase === "directions", `${label}: real touch tap activates stage back button`);
+    await page.setViewportSize({ width: 320, height: 500 });
+    for (const index of [0, 1, 2]) {
+      await click(page.locator(`[data-question-index="${index}"]`));
+      const plan = await scenePlan();
+      for (const direction of plan.directions) await dragTarget("#originHit", direction, "touch");
+      assert((await appState()).directions.length === 2, `${label}: touch navigation setup created two directions`);
+      await touchTap(page.locator("#stageNextButton"));
+      assert((await appState()).phase === "perpendiculars", `${label}: real touch tap activates stage next button`);
+      const unobstructed = await page.evaluate(() => {
+        const nav = document.querySelector(".stage-navigation").getBoundingClientRect();
+        const caption = document.querySelector(".stage-caption").getBoundingClientRect();
+        const canvas = document.querySelector("#stageCanvas").getBoundingClientRect();
+        const target = document.querySelector("#pointHit").getBoundingClientRect();
+        const button = document.querySelector("#stageBackButton");
+        const rect = button.getBoundingClientRect();
+        return caption.right <= nav.left && nav.bottom <= canvas.top && target.top >= canvas.top - 1 &&
+          document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === button;
+      });
+      assert(unobstructed, `${label}: question ${index + 1} caption, point hit and back button occupy separate regions`);
+      await touchTap(page.locator("#stageBackButton"));
+      assert((await appState()).phase === "directions", `${label}: real touch tap activates stage back button`);
+    }
   };
   const runDirect = async (path, label, firstMode) => {
     await touchStageNavigation(path, label);

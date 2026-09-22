@@ -3,7 +3,7 @@ set -euo pipefail
 export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PWCLI="/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh"
+PWCLI="${PWCLI:-/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh}"
 SESSION="🔬 Orthogonal $$"
 LIFECYCLE_SESSION="🔬 Orthogonal lifecycle $$"
 PACKAGE_ROOT="$ROOT/output/force-orthogonal-decomposition-scorm-extracted"

@@ -182,6 +182,7 @@ compact status 仍 active，游標 `cf4f2c82-716f-4fcc-acc6-7bb74ca0bfcc:2` 無�
 - Non-interactive stage swipe owner：enclosing page／Moodle host；`touch-action: pan-y`。
 - Independently scrolling control-panel swipe owner：control panel only；面板頂／底 boundary 也不把手勢傳給 host。
 - Activity-document scroll invariant：bounded activity 的 `html`、`body`、fixed app shell 及 stage chain 沒有可用的垂直 scroll range，不成為第三個 scroll owner。
+- 舞台 caption／步驟按鈕使用獨立工具列；SVG、穩定 hit targets、局部預覽共用其下方的 canvas 座標及裁切區，不與工具列爭用觸控位置。
 - Extreme height/zoom：縮放 stage SVG 及文字、讓 controls 保留最小可用高度；不新增 stage 垂直 scroller；主要按鈕在 panel 內可達。
 
 ## Touch gesture ownership contract
