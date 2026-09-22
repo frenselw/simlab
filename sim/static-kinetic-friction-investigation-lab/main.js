@@ -380,6 +380,10 @@
         coach?.classList.add("is-hidden");
         return;
       }
+      // The mobile coach shares the stage's height with the SVG. Replacing
+      // its text at first breakaway would rescale the arrow under a held
+      // pointer. Refresh the guidance when pointerup/cancel renders again.
+      if (dragging?.kind === "balance-draw" && dragging.mode === "breakaway") return;
       coach.classList.remove("is-hidden");
       let step = "";
       let title = "";
