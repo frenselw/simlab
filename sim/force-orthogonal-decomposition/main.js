@@ -1099,6 +1099,9 @@
     dom.reviewTrustNote.textContent = missingRecordedScore
       ? "LMS 沒有提供可用的已記錄分數；為安全起見保持唯讀，顯示 --，不能以保存快照推算分數。"
       : untrusted ? "已記錄摘要與活動答案不一致；為安全起見，只顯示已記錄的分數／狀態，不恢復可編輯作答。" : "本次作答已完成並鎖定；可切換題目查閱答案，不能返回修改或清除紀錄重新作答。";
+    if (trusted && (reviewSnapshot?.answer?.scoringVersion ?? 1) === 1) {
+      dom.reviewTrustNote.textContent += " 此作答按原提交時的舊版規則核對，保留原成績。";
+    }
     dom.reviewQuestionNavigation.hidden = !trusted;
     dom.reviewFeedback.hidden = !trusted;
     if (untrusted) {
@@ -1821,8 +1824,9 @@
   }
 
   function buildComputedReview(snapshot) {
-    const draftLike = { ...Persistence.freshDraft(), phase: "summary", questions: snapshot.answer.questions };
-    return Scoring.score(draftLike);
+    const answer = Persistence.decodeSnapshot(snapshot, "review");
+    const draftLike = { ...Persistence.freshDraft(), phase: "summary", questions: answer.questions };
+    return Scoring.score(draftLike, { scoringVersion: answer.scoringVersion });
   }
 
   function enterReview(snapshot, outcome = {}) {
@@ -2035,7 +2039,7 @@
     if (mode === "frozen") {
       try {
         const pending = Persistence.decodePending(attempt.snapshot);
-        const computed = Scoring.score({ ...Persistence.freshDraft(), phase: "summary", questions: pending.state.questions });
+        const computed = buildComputedReview(pending.snapshot);
         if (pending.payload.maxScore !== Scoring.MAX_SCORE || pending.payload.score !== pending.snapshot.score || pending.payload.passed !== pending.snapshot.passed || pending.payload.score !== computed.score || pending.payload.passed !== computed.passed) {
           throw new Error("pending result metadata mismatch");
         }

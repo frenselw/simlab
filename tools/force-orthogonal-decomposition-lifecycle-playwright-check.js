@@ -4,12 +4,13 @@ const wait = milliseconds => page.waitForTimeout(milliseconds);
 const origin = page.url().match(/^https?:\/\/[^/]+/)?.[0] || "";
 assert(origin.startsWith("http://127.0.0.1:"), `unexpected origin: ${origin}`);
 
-const activityPath = "/sim/force-orthogonal-decomposition/index.html";
+const activityPath = await page.evaluate(() => location.pathname.startsWith("/packaged/")
+  ? "/packaged/force-orthogonal-decomposition/index.html" : "/sim/force-orthogonal-decomposition/index.html");
 const hostPath = "/tools/force-orthogonal-decomposition-embedded-host.html";
 await page.waitForFunction(() => Boolean(window.ForceOrthogonalDecompositionModel && window.ForceOrthogonalDecompositionPersistence && window.ForceOrthogonalDecompositionScoring));
 await page.addInitScript(() => {
   const query = new URL(location.href).searchParams;
-  if (location.pathname.endsWith("/sim/force-orthogonal-decomposition/index.html") && query.get("storage") === "denied") {
+  if (location.pathname.endsWith("/force-orthogonal-decomposition/index.html") && query.get("storage") === "denied") {
     try {
       Object.defineProperty(window, "localStorage", {
         configurable: false,
@@ -445,6 +446,33 @@ await reloadActivityFrame();
 frame = await frameForHost("independent formula review reload");
 await click(frame, '#reviewQuestionNavigation [data-question-index="0"]');
 assert((await reviewFormulaRows(frame, "independent formula review reload")).map(row => row.result).sort().join(",") === "correct,unavailable", "independent formula review: reload preserves per-formula result");
+assert((await parentState()).data["cmi.core.score.raw"] === "93", "new rubric retains independent formula credit");
+assert(JSON.parse((await parentState()).data["cmi.suspend_data"]).answer.scoringVersion === 2, "new submissions record their grading version");
+
+const legacySubmission = await frame.evaluate(draftJson => {
+  const P = window.ForceOrthogonalDecompositionPersistence, S = window.ForceOrthogonalDecompositionScoring;
+  const draft = P.decodeSnapshot(JSON.parse(draftJson), "draft");
+  const result = S.score(draft, { scoringVersion: 1 });
+  const review = P.makeSnapshot("review", draft, result);
+  delete review.answer.scoringVersion;
+  return { reviewJson: JSON.stringify(review), pendingJson: JSON.stringify(P.pendingEnvelope(review, result)), score: result.score };
+}, partialFormulaDraftJson);
+assert(legacySubmission.score === 90, "legacy reproduction retains the old 90-point result");
+frame = await openHost("success", "finished-valid-review", { suspendData: legacySubmission.reviewJson, status: "passed", score: "90" }, "legacy finished review");
+await waitForRuntime(frame, "review", "legacy finished review");
+assert((await frame.locator("#reviewScore").textContent()).includes("90 / 100"), "legacy review is not regraded");
+assert(await frame.locator("#reviewFormulaSummary").isVisible(), "legacy review retains trusted submitted answer details");
+assert((await frame.locator("#reviewTrustNote").textContent()).includes("舊版規則"), "legacy grading is explained");
+await assertReviewLock(frame, "legacy finished review");
+frame = await openHost("success", "complete-draft", { suspendData: legacySubmission.pendingJson, status: "incomplete", score: "" }, "legacy pending retry");
+await waitForRuntime(frame, "frozen", "legacy pending retry");
+await click(frame, "#technicalActions button");
+await waitForRuntime(frame, "review", "legacy pending retry completed");
+const retriedLegacy = await parentState();
+assert(retriedLegacy.data["cmi.core.score.raw"] === "90" && retriedLegacy.data["cmi.suspend_data"] === legacySubmission.reviewJson, "legacy pending retry writes exactly its immutable original result and review bytes");
+await reloadActivityFrame();
+frame = await frameForHost("legacy pending retry reload");
+assert(await frame.locator("#reviewFormulaSummary").isVisible(), "legacy retried submission still restores trusted details");
 
 // At the narrow 320px stage, edit an existing perpendicular through the
 // clipped-normal case from the audit. The saved free endpoint must survive

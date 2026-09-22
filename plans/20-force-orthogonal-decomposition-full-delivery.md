@@ -250,6 +250,7 @@ have `touch-action:none` before `pointerdown`; visual SVG is `pointer-events:non
 | `practice` | from-summary review-edit | 0–4 | `fromReview:true`；目前題答案與原 summary 完整保留，可編輯任何已完成題 | 不可清除未選中的其他題；不把 summary 當成 final review | 修改、返回 summary、保存 draft |
 | `summary` | editable overview | n/a | 三題答案均存在且各自通過 decoder；currentQuestion 指向最後操作題 | 無新增幾何；不修改答案；不顯示分數／分組回饋 | 返回任一題、提交；保存 draft |
 | `review` | finished/review-only | n/a | review snapshot 三題 authoritative answers；shared result 驗證後顯示 | 不得建立新 draft；所有作圖、公式、提交按鈕鎖定 | 閱覽題目及可信 summary |
+| `review` / `pending-final` | legacy scoring v1 | n/a | 舊快照未帶 scoringVersion 視為 v1；用原整圖公式規則核對原提交分數 | 不得用 v2 重新評分、改寫成績或重建 pending payload | 保留舊版成績查閱／重試同一原提交 |
 | `pending-final` | frozen retry | n/a | shared runtime 保存 immutable review payload | 不得改答案或重算另一 payload | retry 同一 payload；只顯示未確認 technical state |
 
 Transitions：`practice -> summary` when learner opens pre-submit overview；`practice` phases may move backward without clearing downstream semantic data；`summary -> practice` when editing a selected question and sets `fromReview:true`；`summary -> review` only after shared `success/committed`；`summary -> frozen` on pending-final／frozen；`review` never returns to editable practice。
@@ -284,6 +285,7 @@ Transitions：`practice -> summary` when learner opens pre-submit overview；`pr
 ```js
 {
   schemaVersion: 1,
+  scoringVersion: 2, // 新 review；舊快照缺此欄位視為 1
   questions: [/* the same three authoritative question objects */]
 }
 ```
@@ -292,6 +294,8 @@ The activity answer is sufficient to redraw scenes, rescore, and continue an
 editable draft. Saved score/pass metadata is comparison data only; finished
 restore always validates -> decodes -> recomputes score -> calls
 `SimActivityFlow.reviewResult(computed, saved, MoodleAttempt)`.
+
+Review decoder 接受 scoringVersion 1／2，舊版無標記明確正規化為 1；未知版本拒絕。v1 保留原整幅幾何 gate 的分數（未能逐項判斷時以舊版規則提示，不聲稱函數錯誤），v2 使用逐條公式評分。新 draft 最終提交一律採目前 v2。pending 驗證按巢狀 review 版本重算，重試時原 reviewJson／score 不得改寫；finished 的 LMS 分數核對規則不放寬。補上兩版 review／pending round-trip、未知版本拒絕、舊 pending 重試與 finished 查閱測試。
 
 Authoritative：scenario id, direction units/axis roles, endpoint geometry,
 target relationship keys, θ semantic key, formula answers, activity phase/current

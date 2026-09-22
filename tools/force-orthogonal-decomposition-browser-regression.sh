@@ -94,7 +94,7 @@ fi
 
 set +e
 lifecycle_session_started="true"
-lifecycle_open_output=$("$PWCLI" --session "$LIFECYCLE_SESSION" open "http://127.0.0.1:${PORT}/sim/force-orthogonal-decomposition/index.html?playwright=lifecycle-bootstrap" 2>&1)
+lifecycle_open_output=$("$PWCLI" --session "$LIFECYCLE_SESSION" open "http://127.0.0.1:${PORT}${FOD_LIFECYCLE_PATH:-/sim/force-orthogonal-decomposition/index.html}?playwright=lifecycle-bootstrap" 2>&1)
 lifecycle_open_status=$?
 set -e
 printf '%s\n' "$lifecycle_open_output"

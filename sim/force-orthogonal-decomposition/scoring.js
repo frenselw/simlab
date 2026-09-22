@@ -8,6 +8,7 @@
   if (!M) throw new Error("Force orthogonal decomposition model is required");
   const MAX_SCORE = 100;
   const GROUP_POINTS = 20;
+  const SCORING_VERSION = 2;
   const SCENARIO_IDS = Object.freeze(Object.keys(M.SCENARIOS));
 
   function item(key, label, points, correct, detail = "") {
@@ -69,8 +70,8 @@
       answer.theta ? (semantic ? candidate.description : "θ 不是本題可接受的角度") : "尚未放置 θ")];
   }
 
-  function formulaGroup(answer, scene) {
-    const expectations = M.formulaExpectations(answer, { partial: true }) || [];
+  function formulaGroup(answer, scene, { scoringVersion = SCORING_VERSION } = {}) {
+    const expectations = M.formulaExpectations(answer, { partial: scoringVersion >= 2 }) || [];
     return ["F1", "F2"].map((key, index) => {
       const expected = expectations.find(entry => entry.key === key);
       const actual = answer.formulas?.[key];
@@ -81,19 +82,21 @@
         : expected?.axis;
       const label = M.componentSymbol(scene, axis, index);
       return { ...item(`formula-${key}`, `${label} 的分力表達式`, 10, correct,
-        !actual ? "尚未填寫" : !assessable ? "分力方向或 θ 尚未確定，未能判斷公式（本項 0 分）"
+        !actual ? "尚未填寫" : !assessable ? scoringVersion === 1
+          ? "按原提交的舊版規則，作圖未完整，本項未獲分；保留原成績。"
+          : "分力方向或 θ 尚未確定，未能判斷公式（本項 0 分）"
           : correct ? `${actual} θ` : `目前為 ${actual} θ，應為 ${expected.value} θ`), assessable };
     });
   }
 
-  function questionDetail(answer, index) {
+  function questionDetail(answer, index, options = {}) {
     const scene = sceneFor(answer);
     const groups = [
       { key: "directions", label: "方向線", items: directionGroup(answer, scene) },
       { key: "perpendiculars", label: "垂線", items: perpendicularGroup(answer, scene) },
       { key: "components", label: "分力", items: componentGroup(answer, scene) },
       { key: "theta", label: "θ 標示", items: thetaGroup(answer, scene) },
-      { key: "formulas", label: "公式", items: formulaGroup(answer, scene) }
+      { key: "formulas", label: "公式", items: formulaGroup(answer, scene, options) }
     ];
     groups.forEach(group => {
       group.points = GROUP_POINTS;
@@ -114,16 +117,18 @@
     };
   }
 
-  function score(activityState) {
+  function score(activityState, { scoringVersion = SCORING_VERSION } = {}) {
+    if (![1, SCORING_VERSION].includes(scoringVersion)) throw new Error("Unsupported scoring version");
     if (!activityState || !Array.isArray(activityState.questions) || activityState.questions.length !== SCENARIO_IDS.length) {
       throw new Error("A complete three-question force decomposition state is required");
     }
-    const detail = activityState.questions.map(questionDetail);
+    const detail = activityState.questions.map((question, index) => questionDetail(question, index, { scoringVersion }));
     const raw = detail.reduce((sum, entry) => sum + entry.score, 0);
     const total = Math.max(0, Math.min(MAX_SCORE, Math.round(raw * MAX_SCORE / (detail.length * 100))));
     const completed = activityState.phase === "summary" || activityState.phase === "practice";
     const feedbackItems = detail.map((entry, index) => `第 ${index + 1} 題（${entry.title}）：${entry.feedback}。`);
     return {
+      scoringVersion,
       score: total,
       maxScore: MAX_SCORE,
       // Formative activity has no arbitrary achievement threshold. `passed` is
@@ -137,5 +142,5 @@
     };
   }
 
-  return Object.freeze({ MAX_SCORE, GROUP_POINTS, SCENARIO_IDS, item, directionGroup, perpendicularGroup, componentGroup, thetaGroup, formulaGroup, questionDetail, score });
+  return Object.freeze({ MAX_SCORE, GROUP_POINTS, SCORING_VERSION, SCENARIO_IDS, item, directionGroup, perpendicularGroup, componentGroup, thetaGroup, formulaGroup, questionDetail, score });
 });

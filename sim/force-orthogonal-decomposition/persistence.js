@@ -10,6 +10,7 @@
   if (!M) throw new Error("Force orthogonal decomposition model is required");
   const ACTIVITY = "force-orthogonal-decomposition";
   const SCHEMA_VERSION = 1;
+  const SCORING_VERSION = 2;
   const MAX_SNAPSHOT_BYTES = 4000;
   const SCENARIO_IDS = Object.freeze(["horizontal-vertical", "inclined-external-force", "inclined-gravity"]);
   const WORLD_BOUNDS = Object.freeze({ left: -180, right: 440, bottom: -260, top: 280 });
@@ -130,8 +131,11 @@
 
   function validate(value, options = {}) {
     const kind = options.kind || "draft";
-    const allowed = kind === "draft" ? ["schemaVersion", "phase", "currentQuestion", "fromReview", "questions"] : ["schemaVersion", "questions"];
+    const versionedReview = kind === "review" && Object.prototype.hasOwnProperty.call(value || {}, "scoringVersion");
+    const allowed = kind === "draft" ? ["schemaVersion", "phase", "currentQuestion", "fromReview", "questions"]
+      : versionedReview ? ["schemaVersion", "scoringVersion", "questions"] : ["schemaVersion", "questions"];
     if (!onlyKeys(value, allowed) || value.schemaVersion !== SCHEMA_VERSION || !Array.isArray(value.questions) || value.questions.length !== SCENARIO_IDS.length) return { ok: false, reason: "top-level-shape" };
+    if (versionedReview && ![1, SCORING_VERSION].includes(value.scoringVersion)) return { ok: false, reason: "scoring-version" };
     if (kind === "draft" && (!["practice", "summary"].includes(value.phase) || !Number.isInteger(value.currentQuestion) || value.currentQuestion < 0 || value.currentQuestion >= SCENARIO_IDS.length || typeof value.fromReview !== "boolean")) return { ok: false, reason: "phase-current" };
     if (kind === "review" && Object.prototype.hasOwnProperty.call(value, "phase")) return { ok: false, reason: "review-phase" };
     for (let index = 0; index < value.questions.length; index += 1) {
@@ -168,15 +172,17 @@
     };
   }
   function canonicalReview(state) {
-    return { schemaVersion: SCHEMA_VERSION, questions: state.questions.map(canonicalQuestion) };
+    // Missing markers are legacy submissions, never implicitly regraded.
+    return { schemaVersion: SCHEMA_VERSION, scoringVersion: Object.prototype.hasOwnProperty.call(state, "scoringVersion") ? state.scoringVersion : 1, questions: state.questions.map(canonicalQuestion) };
   }
   function encodeDraft(state) { const value = canonicalDraft(state); assertValid(value, { kind: "draft" }); return value; }
-  function encodeReview(state) { const value = canonicalReview(state); assertValid(value, { kind: "review" }); return value; }
+  function encodeReview(state) { const value = canonicalReview({ scoringVersion: SCORING_VERSION, ...state }); assertValid(value, { kind: "review" }); return value; }
   function decodeDraft(value) { assertValid(value, { kind: "draft" }); return canonicalDraft(value); }
   function decodeReview(value) { assertValid(value, { kind: "review" }); return canonicalReview(value); }
 
   function makeSnapshot(kind, state, result) {
-    const answer = kind === "draft" ? encodeDraft(state) : encodeReview(state);
+    const scoringVersion = result && Object.prototype.hasOwnProperty.call(result, "scoringVersion") ? result.scoringVersion : SCORING_VERSION;
+    const answer = kind === "draft" ? encodeDraft(state) : encodeReview({ ...state, scoringVersion });
     const snapshot = { version: 1, activity: ACTIVITY, kind, answer };
     if (kind === "review") {
       if (!result || !finite(result.score) || typeof result.passed !== "boolean") throw new Error("Review result is required");

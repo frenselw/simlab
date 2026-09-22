@@ -296,6 +296,33 @@ reviewEdit.questions[1] = canonicalComplete.questions[1];
 roundTrip(reviewEdit, "review-edit continuation");
 
 const result = Scoring.score(canonicalComplete);
+const legacyPartial = P.clone(canonicalComplete);
+const originalTheta = legacyPartial.questions[0].theta;
+legacyPartial.questions[0] = { ...M.editGeometry(legacyPartial.questions[0], "component", 0, { x: 185, y: 45 }, { scene: M.getScenario("horizontal-vertical") }).editedState, phase: "angle", theta: originalTheta };
+const oldGrade = Scoring.score(legacyPartial, { scoringVersion: 1 });
+const newGrade = Scoring.score(legacyPartial);
+assert.equal(oldGrade.score, 90, "legacy grading preserves the original immutable submitted score");
+assert.equal(newGrade.score, 93, "new grading gives the independent correct formula credit");
+const legacyReview = P.makeSnapshot("review", legacyPartial, oldGrade);
+delete legacyReview.answer.scoringVersion;
+const legacyBytes = JSON.stringify(legacyReview);
+const legacyRestored = P.decodeSnapshot(legacyReview, "review");
+assert.equal(legacyRestored.scoringVersion, 1, "unmarked reviews explicitly restore the legacy rubric");
+assert.equal(Scoring.score({ ...P.freshDraft(), questions: legacyRestored.questions }, { scoringVersion: legacyRestored.scoringVersion }).score, 90);
+const legacyPending = P.pendingEnvelope(legacyReview, oldGrade);
+const legacyPendingRestored = P.decodePending(legacyPending);
+assert.equal(legacyPendingRestored.state.scoringVersion, 1);
+assert.equal(legacyPendingRestored.payload.reviewJson, legacyBytes, "pending retry retains the original unmarked review bytes");
+assert.equal(JSON.stringify(legacyReview), legacyBytes, "decoding never mutates the immutable legacy snapshot");
+assert.deepEqual(P.decodeReview(P.encodeReview(legacyRestored)), legacyRestored, "explicit legacy review round-trips");
+const versionedReview = P.makeSnapshot("review", legacyPartial, newGrade);
+assert.equal(versionedReview.answer.scoringVersion, 2);
+assert.equal(P.decodePending(P.pendingEnvelope(versionedReview, newGrade)).state.scoringVersion, 2);
+for (const scoringVersion of [null, "2", 0, 3]) {
+  assert.throws(() => P.decodeReview({ ...versionedReview.answer, scoringVersion }), /scoring-version/);
+  assert.throws(() => P.encodeReview({ ...versionedReview.answer, scoringVersion }), /scoring-version/);
+  assert.throws(() => Scoring.score(legacyPartial, { scoringVersion }), /Unsupported scoring version/);
+}
 assert.equal(result.score, 100, "complete activity scores 100");
 assert.equal(Scoring.questionDetail(canonicalComplete.questions[0], 0).groups.find(group => group.key === "theta").items.length, 1, "theta is one 20-point condition");
 assert.equal(Scoring.questionDetail(canonicalComplete.questions[0], 0).groups.find(group => group.key === "theta").items[0].points, 20);
