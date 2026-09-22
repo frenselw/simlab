@@ -327,20 +327,22 @@
       Model.isTerminalRun(currentLevel(), candidateCodes())
     );
   }
-  function canAdvanceCurrentLevel() {
-    if (canRecordCurrentRun()) return true;
-    if (!state || state.phase !== "level" || state.candidateRun) return false;
-    return ["briefing", "accepted", "review-retry-briefing"].includes(state.variant) &&
-      Boolean(state.selectedRuns[state.currentItem]);
-  }
   function advanceToNextLevel() {
-    if (locked || state.phase !== "level" || !canAdvanceCurrentLevel()) return;
+    if (locked || state.phase !== "level") return;
     const level = currentLevel();
     let reviewRetry = Boolean(state.returnToReview);
     if (canRecordCurrentRun()) {
       const recorded = recordCurrentRun();
       if (!recorded) return;
       reviewRetry = recorded.returning;
+    }
+    const shouldOpenCheckpoint = !reviewRetry &&
+      level.id === "level3" &&
+      !state.graphCheckpoint.answerId &&
+      ["level2", "level3"].some((id) => checkpointEligible(id));
+    if (shouldOpenCheckpoint) {
+      enterCheckpoint(false);
+      return;
     }
     const nextId = level.number < Levels.LEVELS.length ? `level${level.number + 1}` : null;
     if (!nextId) {
@@ -380,14 +382,15 @@
     focusHeading(elements.panelTitle);
   }
   function enterCheckpoint(fromReview) {
-    abandonUncommittedSubmissionRetry();
-    neutralize();
+    if (locked || technicalState) return;
     const source = [state.graphCheckpoint.sourceLevelId, "level2", "level3"]
       .find((id) => checkpointEligible(id));
     if (!source) {
       announce("請先記錄第 2 或第 3 關，才可比較圖像。");
       return;
     }
+    abandonUncommittedSubmissionRetry();
+    neutralize();
     state.graphCheckpoint.sourceLevelId = source;
     state.graphCheckpoint.sourceRunRevision = state.selectedRuns[source].revision;
     if (state.graphCheckpoint.answerId && !fromReview) {
@@ -415,10 +418,12 @@
     }
     const answer = answerInputs.find((input) => input.checked)?.value;
     if (!answer) { elements.checkpointError.textContent = "請選擇一項答案。"; return; }
+    const returning = state.returnToReview;
     state.graphCheckpoint.answerId = answer;
-    state.variant = state.returnToReview ? "review-edit-answered" : "answered";
+    state.variant = returning ? "review-edit-answered" : "answered";
     elements.checkpointError.textContent = "";
-    enterReview();
+    if (returning) return enterReview();
+    enterLevel("level4");
   }
   function enterReview() {
     neutralize();
@@ -743,15 +748,19 @@
     }
     const level = currentLevel();
     const canRecord = canRecordCurrentRun();
-    const canAdvance = canAdvanceCurrentLevel();
+    const needsCheckpoint = !state.returnToReview &&
+      level.id === "level3" &&
+      !state.graphCheckpoint.answerId &&
+      ["level2", "level3"].some((id) => checkpointEligible(id));
     elements.previousLevelButton.disabled = level.number <= 1;
-    elements.nextLevelButton.disabled = !canAdvance;
+    elements.nextLevelButton.disabled = false;
     elements.nextLevelButton.textContent = level.number === Levels.LEVELS.length
       ? canRecord ? "記錄並進入檢查" : "進入檢查"
+      : needsCheckpoint ? canRecord ? "記錄並查看圖像證據" : "查看圖像證據"
       : canRecord ? "記錄並進入下一關" : "進入下一關";
-    elements.levelNavigationHint.textContent = canAdvance
-      ? "也可以按頂部編號快速切換關卡；切換會捨棄未記錄的試車。"
-      : "完成並記錄本關後，才可由這裡進入下一關；未記錄的試車可安全重來。";
+    elements.levelNavigationHint.textContent = canRecord
+      ? "可先記錄今次表現，亦可隨時前往下一關；未記錄的試車會安全捨棄。"
+      : "可隨時前往下一關；未記錄的試車會安全捨棄，已記錄表現會保留。";
   }
   function renderAnalysis() {
     analysisRun ||= Scoring.scoreRun(currentLevel(), candidateCodes());
@@ -781,7 +790,9 @@
     elements.checkpointScrubRange.disabled = locked;
     elements.checkpointViewStatus.innerHTML = physicsHtml(`x–t：${checkpoint.viewedXt ? "已查看" : "未查看"}　v–t：${checkpoint.viewedVt ? "已查看" : "未查看"}`);
     answerInputs.forEach((input) => { input.checked = input.value === checkpoint.answerId; input.disabled = elements.checkpointAnswers.disabled; });
-    elements.confirmCheckpointButton.textContent = "確認並返回關卡檢查";
+    elements.confirmCheckpointButton.textContent = state.returnToReview
+      ? "確認並返回關卡檢查"
+      : "確認並進入第 4 關";
     elements.confirmCheckpointButton.disabled = locked;
     elements.stageStatus.textContent = "拖動同一個回放游標，可同步比較車輛、x–t 圖與 v–t 圖。";
   }
@@ -825,6 +836,22 @@
           "aria-label",
           `${levelButton.textContent.trim()}${level ? `：${level.title}` : ""}${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`
         );
+      }
+      const checkpointButton = item.querySelector("[data-pick-checkpoint]");
+      if (checkpointButton) {
+        const available = ["level2", "level3"].some((id) => checkpointEligible(id));
+        checkpointButton.disabled = locked || technicalState || !available;
+        checkpointButton.setAttribute("aria-current", currentStep ? "step" : "false");
+        checkpointButton.setAttribute(
+          "aria-label",
+          `圖像證據：${available ? "查看或修改圖像證據題" : "記錄第 2 或第 3 關後可用"}${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`
+        );
+      }
+      const reviewButton = item.querySelector("[data-pick-review]");
+      if (reviewButton) {
+        reviewButton.disabled = locked || technicalState;
+        reviewButton.setAttribute("aria-current", currentStep ? "step" : "false");
+        reviewButton.setAttribute("aria-label", `檢查：查看進度及提交${currentStep ? "，目前步驟" : done ? "，已完成" : ""}`);
       }
     });
   }
@@ -1286,6 +1313,8 @@
   elements.progress.addEventListener("click", (event) => {
     const levelId = event.target.closest("[data-pick-level]")?.dataset.pickLevel;
     if (levelId) selectLevelFromProgress(levelId);
+    if (event.target.closest("[data-pick-checkpoint]")) enterCheckpoint(true);
+    if (event.target.closest("[data-pick-review]")) { if (!locked) enterReview(); }
   });
   elements.reviewProgressButton.addEventListener("click", () => { if (!locked) enterReview(); });
   elements.previousLevelButton.addEventListener("click", goToPreviousLevel);

@@ -207,7 +207,8 @@
 啟動／恢復
 → 操作練習（不計分）
 → 自由選擇第 1–5 關
-→ 已有第 2 或第 3 關記錄後可做圖像證據 checkpoint
+→ 第 3 關完成後進入圖像證據 checkpoint（已有答案時直接進第 4 關）
+→ 已有第 2 或第 3 關記錄後也可從進度檢查開啟圖像證據 checkpoint
 → 提交前檢查
 → 最後確認
 → SCORM 提交
@@ -218,7 +219,10 @@
 
 - 選擇另一關時，解除目前踏板並捨棄尚未記錄的 candidate run；已記錄 run 保留；
 - 頂部第 1–5 關按鈕清楚標示目前關卡及已記錄關卡；
+- 頂部的 `圖像證據` 及 `檢查` 也是可直接進入的區段入口；圖像證據在尚未有第 2／3 關有效記錄時保持不可用並提示原因；
 - 控制面板底部顯示 `上一關`、`查看進度／提交` 及 `記錄並進入下一關`／`進入下一關`；最後一關改為進入提交前檢查；
+- 第 3 關按下一關時，若尚未完成 checkpoint，先進入圖像證據；確認答案後才進入第 4 關；已有 checkpoint 答案則直接進入第 4 關；
+- 控制面板底部的下一關按鈕是隨時可用的順序導航，不要求先完成或記錄當前關卡；轉關時捨棄未記錄試車，但保留已記錄表現；
 - `查看進度／提交` 在練習及任何正式關卡都可用；
 - 最終提交仍要求五關各有一個已記錄 run，並完成圖像 checkpoint。
 
@@ -438,6 +442,12 @@
 
 - 已記錄第 2 或第 3 關其中一個 run，並含足夠 scored samples；該 run 可以低分或方向錯誤，不要求先答對；
 - 學生在 checkpoint 內查看同一段記錄的 `x–t` 及 `v–t` 圖。
+
+順序流程：
+
+- 第 3 關按 `進入下一關` 時，若尚未有 checkpoint 答案，會先開啟本畫面；
+- 正常流程確認答案後進入第 4 關；由提交前檢查重新編輯 checkpoint 時，確認答案後返回提交前檢查；
+- 若 checkpoint 已回答，之後由第 3 關進入下一關會略過本畫面，避免重複作答。
 
 畫面：
 
@@ -1238,6 +1248,9 @@ Transitions:
 practice/ready -> practice/paused on persisted active practice
 practice/* -> level/briefing[any] on level-picker selection
 
+level/* -> level/briefing[next] on bottom next-level navigation; discard only the current unaccepted candidate,
+  preserve selected runs, and route level 3 through graph-check when required;
+  level 5 goes to review even when the activity is incomplete
 level/briefing -> level/paused when a candidate run is persisted
 level/briefing|paused -> level/analysis when the run reaches its legal end
 level/analysis -> level/accepted when learner records this run
@@ -1246,9 +1259,11 @@ practice/*|level/* -> level/briefing[any] on level-picker selection;
   discard only the current unaccepted candidate, preserve every selected run
 practice/*|level/* -> review/complete|incomplete on explicit progress navigation
 
-review/incomplete -> graph-check/exploring when level 2 or level 3 has an accepted source run
+level/accepted[level3] -> graph-check/exploring when no checkpoint answer exists and level 2 or level 3 has an accepted source run
 graph-check/exploring -> graph-check/answered after both graphs are viewed and answer confirmed
-graph-check/answered -> review/complete|incomplete
+graph-check/answered -> level/briefing[level4] on normal sequential flow
+graph-check/answered -> review/complete|incomplete on review edit
+review/incomplete -> graph-check/exploring when level 2 or level 3 has an accepted source run
 review/* -> graph-check/review-edit-exploring|review-edit-answered when learner edits checkpoint
 graph-check/review-edit-exploring -> graph-check/review-edit-answered after both graphs are viewed and answer confirmed
 graph-check/review-edit-answered -> review/complete|incomplete on explicit return,
@@ -1643,7 +1658,10 @@ Invalid cases：
 - analysis scrub changes only read-only view；
 - accepting and replacing runs use explicit actions。
 - 頂部第 1–5 關快速切換在開啟、駕駛、分析及 review-edit 情境均不在 control panel 產生重複關卡按鈕；
+- 頂部 `圖像證據` 及 `檢查` 按鈕可在可用狀態直接切換到相應區段；
 - control panel 底部的上一關、進度／提交及記錄並進入下一關按鈕依 phase 正確啟用、停用及轉換；第 5 關進入提交前檢查；
+- 第 3 關完成後按「進入下一關」先到圖像證據 checkpoint，確認後到第 4 關；已有 checkpoint 答案時可直接到第 4 關；
+- control panel 的下一關按鈕在正式關卡 briefing、駕駛、分析及已記錄狀態均可按；
 - 第 5 關每段逐一以其餘固定控制替換時均失分，完整活動不得四捨五入
   回 100 分；
 
@@ -1767,7 +1785,10 @@ Invalid cases：
 - 不同固定力度可產生水平直線、斜直線或曲線；學生要由 `v–t` 圖判斷。
 - 車停止後不倒後，第一版沒有負速度。
 - 頂部第 1–5 關按鈕可直接快速切換，control panel 不再以橫向滾動提供關卡選擇。
+- 頂部的「圖像證據」及「檢查」按鈕可直接進入相應區段。
 - control panel 底部可依序返回上一關、查看進度，並在表現可記錄時記錄後進入下一關。
+- 「進入下一關」不再要求完成活動才可按，未記錄的當前試車會在轉關時安全捨棄。
+- 第 3 關的下一關流程會先顯示圖像證據 checkpoint；確認後才進入第 4 關，避免學生跳過 10 分的圖像題。
 
 ### 26.3 視覺
 
