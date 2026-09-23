@@ -263,9 +263,9 @@ number–unit quantity wrappers.
    - 在對應數值欄輸入合法整數。
 6. 觀察程式根據自己的控制點即時生成直線或二次曲線。
 7. 可清除單一點、修改、切換圖或稍後再做。
-8. 四個情境、十二幅圖均曾開啟後進入提交前檢視。
-9. 檢視頁只顯示未設定／部分／完整，不顯示對錯。
-10. 學生可返回任一圖修改。
+8. 可在頂欄切換任務，或隨時開啟提交前檢查。
+9. 檢視頁標示尚未查看／未設定／部分／完整，不顯示對錯。
+10. 學生可返回任一任務修改，也可直接提交目前答案。
 11. 學生最後一次過提交全部控制點。
 12. 提交後比較自己的圖線與正確圖線，並以同一時間游標檢查 `x(t)`、`v(t)`、`a(t)`。
 
@@ -550,13 +550,15 @@ Paper A：
 - 一次只顯示一幅足夠大的 active graph；
 - 三個普通按鈕以 `aria-pressed` 表示 active graph；
 - 學生可自由切換同一情境三幅圖；
+- 頂欄提供練習、四個任務及「檢查」快速導覽；開始挑戰後，四個任務皆可直接跳轉；
+- 任務導覽按鈕開啟該任務的 `x–t` 圖，並保留其他答案及查看進度；
+- 「檢查」可在任何計分圖階段開啟，不要求先看完十二幅圖；
 - 切換前 commit 目前控制點值；
 - 首次進入情境顯示 `x–t`；
-- 「下一幅」前往同情境下一幅未 visited 圖；
-- 三幅均 visited 後才前往下一情境；
+- 「下一幅」從目前圖起按 canonical 順序尋找下一幅未 visited 圖，跨任務循環；
 - `visited` 不等於 `complete`；
 - 空白或 partial 圖可以稍後完成；
-- 十二幅均 visited 後進入 review；
+- review 明確列出未設定、部分及完整答案；學生可提交尚未查看或未完成的答案；
 - review 可返回任何一幅圖修改。
 
 ### 8.2 公式提示卡
@@ -1504,11 +1506,10 @@ review
 | Phase | Variant／invariant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
 | `practice` | new／restored | none | `qv=1`；`visitedMask=0`；12 answers null；尚未選 paper | `pid`、`taskIndex`、`variant` | 練習；開始挑戰 |
-| `task` | first-pass mission 1 | `0..2` | 合法 paper；目前 mission `x–t` 及 active graph visited；visited answers 可 null／partial／complete | future mission visited bits／answers | 同 mission切換；下一幅；下一 mission |
-| `task` | first-pass mission 2–4 | `3..11` | 合法 paper；所有 prior missions 全 visited；目前 mission `x–t` 及 active graph visited | future mission visited bits／answers | 同上；最後進 review |
-| `task` | review-edit | `0..11` | 合法 paper；`visitedMask=0xFFF`；answers 可 null／partial／complete | 無 future restriction | 同 mission切換；返回 review |
-| `review` | incomplete | none | 合法 paper；全 visited；至少一圖 null／partial | `taskIndex`、`variant` | 編輯；警告後提交 |
-| `review` | ready | none | 合法 paper；全 visited；12 圖均 complete | `taskIndex`、`variant` | 編輯或提交 |
+| `task` | first-pass | `0..11` | 合法 paper；`visitedMask` 非零；每個已進入任務均已查看其 `x–t`；active graph visited；answers 可 null／partial／complete，且未查看圖沒有答案 | `variant`、未查看圖的答案 | 同任務切換；跳到任務 1–4；檢查；下一幅 |
+| `task` | review-edit | `0..11` | 合法 paper；保留進入 review 前的 `visitedMask`，並標記目前任務的 `x–t` 及 active graph；答案可 null／partial／complete，且未查看圖沒有答案 | `variant`、未查看圖的答案 | 同任務切換；跳到任務 1–4；返回檢查 |
+| `review` | incomplete | none | 合法 paper；`visitedMask` 非零；未查看圖的答案為 null；至少一圖 null／partial | `taskIndex`、`variant` | 編輯任務；警告後提交 |
+| `review` | ready | none | 合法 paper；`visitedMask` 非零；未查看圖的答案為 null；12 圖均 complete | `taskIndex`、`variant` | 編輯任務或提交 |
 
 ### 19.1 Transitions
 
@@ -1519,17 +1520,24 @@ practice
 
 task(first-pass, graph)
   -> task(first-pass, another graph in same mission)
-  -> task(first-pass, next mission x–t)
-     when all three current mission graphs have been visited
+  -> task(first-pass, selected mission x–t)
+     when learner uses top navigation; mark only the selected x–t graph visited
   -> review
-     when all 12 graphs have been visited
+     when learner uses top navigation, regardless of visited count
+  -> task(first-pass, next unvisited graph in cyclic canonical order)
+     when learner selects "next graph"
+  -> review
+     when all 12 graphs have been visited and learner selects "next graph"
 
 review
-  -> task(review-edit, selected graph)
+  -> task(review-edit, selected mission x–t)
+     when learner uses a review card or top navigation; preserve visited mask and answers
   -> shared submission after explicit confirmation
 
 task(review-edit)
   -> task(review-edit, another graph in same mission)
+  -> task(review-edit, selected mission x–t)
+     when learner uses top navigation
   -> review
 
 success／committed
@@ -1550,12 +1558,12 @@ non-retryable retry
 - canonical task order是四個 mission，每個 `x–t, v–t, a–t`；
 - active editor只修改 `answers[taskIndex]`；
 - `visited` 不代表 point complete；
+- `visitedMask` 可表示任意已查看任務子集，但不能為零；每個有任何圖被查看的任務必須包含其 `x–t`；
 - answer 可為 null 或合法 partial point array；
 - 全部 entries均為null的point array不是canonical，encoder必須折疊成answer `null`；
-- first-pass future mission answers 必須 null；
-- first-pass 未 visited graph 不可有 answer；
-- review-edit 可保留所有 future answers；
-- review 可含 partial／null，因 learner 可明確提交未完成答案；
+- 未 visited graph 不可有 answer；任務跳轉可令後面的任務先於前面的任務進入 visited mask；
+- review-edit 保留其原有 visited mask及答案，並將目前任務的 `x–t` 和 active graph 標記為 visited；
+- review 可保留部分 visited mask及 partial／null答案，因 learner 可明確提交未完成答案；
 - selected point、formula-card open、active input、pointer state不是 semantic continuation；
 - restore 後沒有 selected point仍可合法選取並繼續。
 
@@ -1737,7 +1745,7 @@ Active drag during pagehide：
 - unvisited graph has null answer；
 - practice has no paper；
 - task／review has paper；
-- review has full visited mask；
+- editable review draft has a nonzero, valid partial or full visited mask; finished review contains authoritative answers and no editable visit mask；
 - review `locked=1`；
 - canonical re-encode stable；
 - derived coefficients finite when enough points exist；
@@ -1947,9 +1955,9 @@ For every state-matrix row and invariant variant：
 - practice with no paper；
 - first-pass every mission and active graph；
 - active answer null／partial／complete；
-- prior mission requirements；
-- future mission restrictions；
-- review-edit with all future answers retained；
+- arbitrary mission jumps and their visited-mask persistence；
+- review opened before every graph has been visited；
+- review-edit keeps the viewed mask and answers across task navigation；
 - review incomplete／ready；
 - answers length；
 - point array lengths；
@@ -1958,8 +1966,8 @@ For every state-matrix row and invariant variant：
 - noninteger、negative where axis disallows、out-of-range、`NaN`、`Infinity`；
 - invalid paper/version；
 - invalid phase/mode/task；
-- visited-mask missing prior／current bits；
-- future bit／answer；
+- visited-mask missing active／mission-start bits；
+- answer on an unvisited graph；
 - unvisited graph answer；
 - review task fields forbidden；
 - structurally valid wrong physics accepted；

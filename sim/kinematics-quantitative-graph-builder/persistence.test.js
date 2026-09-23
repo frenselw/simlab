@@ -25,7 +25,7 @@ for (const mutation of [
 ]) assert.equal(P.decode(mutation(encoded)), null, "invalid state matrix rejects mutation");
 const taskFive = firstPassAt(5); for (const mutation of [
   (value) => ({ ...value, vm: value.vm & ~(1 << 0) }), (value) => ({ ...value, vm: value.vm & ~(1 << value.ti) }),
-  (value) => ({ ...value, vm: value.vm | (1 << 6) }), (value) => { const next = { ...value, ans: value.ans.slice() }; next.ans[6] = Q.taskDefinition("A", 6).targets; return next; },
+  (value) => ({ ...value, vm: value.vm | (1 << 7) }), (value) => { const next = { ...value, ans: value.ans.slice() }; next.ans[6] = Q.taskDefinition("A", 6).targets; return next; },
   (value) => { const next = { ...value, ans: value.ans.slice() }; next.ans[0] = [-1, null]; return next; }, (value) => { const next = { ...value, ans: value.ans.slice() }; next.ans[value.ti] = [NaN, null]; return next; }, (value) => { const next = { ...value, ans: value.ans.slice() }; next.ans[value.ti] = [Infinity, null]; return next; }
 ]) assert.equal(P.decode(mutation(taskFive)), null, "task invariant mutation is rejected");
 assert.equal(P.decode({ ...encoded, ti: 0 }), null, "review forbids taskIndex field"); assert.equal(P.decode({ ...encoded, mode: "first" }), null, "review forbids mode field");

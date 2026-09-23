@@ -10,9 +10,19 @@ button, input { font: inherit; } button { min-height: 44px; border: 1px solid #9
 .stage-region { grid-row: 2; position: relative; display: grid; min-width: 0; min-height: 0; place-items: center; overflow: hidden; padding: .35rem; border-bottom: 1px solid #cbd5e1; background: #eaf0f7; touch-action: pan-y; }
 /* Fit the actual stage content box, including the space used by the shared header. */
 .graph-mount { width: min(100%, var(--graph-fit-width, 100%)); height: auto; aspect-ratio: 740 / 500; }
-.page-header { grid-column: 1 / -1; grid-row: 1; min-width: 0; padding: .6rem .8rem; }
+.page-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 1rem; row-gap: .15rem; grid-column: 1 / -1; grid-row: 1; min-width: 0; padding: .6rem .8rem; }
 .page-header h1 { font-size: clamp(1rem, .9rem + 1vw, 1.5rem); line-height: 1.35; }
 .page-header p { margin: .25rem 0 0; font-size: .85rem; line-height: 1.4; }
+.page-header h1, .page-header p { grid-column: 1; }
+.page-header h1 { grid-row: 1; margin: 0; }
+.page-header p { grid-row: 2; }
+.progress { display: flex; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: flex-end; gap: .3rem; width: auto; margin: 0; padding: 0; list-style: none; }
+.progress li { flex: 0 0 auto; min-width: 0; border-radius: 999px; background: #e5e7eb; color: #475569; font-size: .78rem; font-weight: 800; text-align: center; }
+.progress li button { display: grid; place-items: center; width: auto; min-width: 44px; min-height: 44px; padding: .25rem .65rem; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; }
+.progress li button:disabled { cursor: not-allowed; }
+.progress li.is-current { background: var(--color-accent); color: #fff; }
+.progress li.is-done:not(.is-current) { background: #dcfce7; color: #166534; }
+.progress li.is-available:not(.is-current):not(.is-done) { background: #e0f2fe; color: #075985; }
 .graph-board { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; border: 2px solid #64748b; border-radius: .65rem; background: #fff; isolation: isolate; }
 .graph-svg { display: block; width: 100%; height: 100%; pointer-events: none; } .grid { stroke: #e2e8f0; stroke-width: 1; } .guide { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 5; } .axis { stroke: #334155; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; shape-rendering: geometricPrecision; } .axis-arrow { fill: #334155; stroke: none; shape-rendering: geometricPrecision; } .axis-label { fill: #334155; font: 700 16px system-ui, sans-serif; } .tick { fill: #475569; font: 12px system-ui, sans-serif; }
 .student-path { fill: none; stroke: #2563eb; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; } .correct-path { fill: none; stroke: #b45309; stroke-width: 3; stroke-dasharray: 9 7; }
@@ -27,6 +37,7 @@ button, input { font: inherit; } button { min-height: 44px; border: 1px solid #9
 .graph-app.is-compact .page-header { padding: .3rem .6rem; }
 .graph-app.is-compact .page-header h1 { font-size: 1rem; }
 .graph-app.is-compact .page-header p { display: none; }
+@media (max-width: 819px) { .page-header { grid-template-columns: minmax(0, 1fr); align-items: start; column-gap: 0; }.page-header h1, .page-header p, .progress { grid-column: 1; }.page-header h1 { grid-row: 1; }.page-header p { grid-row: 2; }.progress { grid-row: 3; justify-content: flex-start; margin-top: .3rem; gap: .2rem; }.progress li button { padding-right: .5rem; padding-left: .5rem; } }
 @media (max-height: 420px) { .page-header { padding: .3rem .6rem; }.page-header h1 { font-size: 1rem; }.page-header p { display: none; } }
 @media (min-width: 820px) { .graph-app { grid-template-columns: clamp(18rem, 24vw, 25rem) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }.page-header { padding: .8rem 1rem; }.controls-panel { grid-column: 1; grid-row: 2; padding: .8rem; border-right: 1px solid #cbd5e1; }.stage-region { grid-column: 2; grid-row: 2; border-bottom: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
