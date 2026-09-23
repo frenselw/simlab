@@ -62,6 +62,10 @@
     return { start, end: start + Tasks.GRAPH_TYPES.length };
   }
 
+  function scenarioStartIndex(scenarioId) {
+    return Tasks.taskIndexById(`${scenarioId}-${Tasks.DISPLAY_GRAPH_TYPES[0]}`);
+  }
+
   function validateDraftState(state) {
     if (!state || state.v !== VERSION || state.taskSetVersion !== Tasks.TASK_SET_VERSION ||
         !["practice", "task", "review"].includes(state.phase) ||
@@ -75,22 +79,15 @@
       if (!exactKeys(state, ["v", "taskSetVersion", "phase", "taskIndex", "variant", "visitedMask", "answers"]) ||
           !Number.isInteger(state.taskIndex) || state.taskIndex < 0 || state.taskIndex >= Tasks.TASKS.length ||
           !["first-pass", "review-edit"].includes(state.variant)) return false;
-      if (state.variant === "first-pass") {
-        const { start, end } = scenarioBounds(state.taskIndex);
-        const priorMask = start ? (1 << start) - 1 : 0;
-        const allowedMask = (1 << end) - 1;
-        const recommendedStart = start + Tasks.GRAPH_TYPES.indexOf("xt");
-        if ((state.visitedMask & priorMask) !== priorMask ||
-            !(state.visitedMask & (1 << state.taskIndex)) ||
-            !(state.visitedMask & (1 << recommendedStart)) ||
-            (state.visitedMask & ~allowedMask) !== 0 ||
-            !state.answers.slice(end).every((answer) => answer == null)) return false;
-        return state.answers.every((answer, index) => answer == null || Boolean(state.visitedMask & (1 << index)));
-      }
-      return state.visitedMask === FULL_VISITED_MASK;
+      const { start } = scenarioBounds(state.taskIndex);
+      const recommendedStart = start + Tasks.GRAPH_TYPES.indexOf("xt");
+      return Boolean(state.visitedMask & (1 << state.taskIndex)) &&
+        Boolean(state.visitedMask & (1 << recommendedStart)) &&
+        state.answers.every((answer, index) => answer == null || Boolean(state.visitedMask & (1 << index)));
     }
     return exactKeys(state, ["v", "taskSetVersion", "phase", "visitedMask", "answers"]) &&
-      state.visitedMask === FULL_VISITED_MASK;
+      state.visitedMask !== 0 &&
+      state.answers.every((answer, index) => answer == null || Boolean(state.visitedMask & (1 << index)));
   }
 
   function normalizeState(source) {
@@ -162,37 +159,27 @@
 
   function nextTask(state) {
     if (!validateDraftState(state) || state.phase !== "task") return null;
-    if (state.variant === "review-edit") return {
-      v: VERSION,
-      taskSetVersion: Tasks.TASK_SET_VERSION,
-      phase: "review",
-      visitedMask: FULL_VISITED_MASK,
-      answers: state.answers.slice()
-    };
-    const currentTask = Tasks.TASKS[state.taskIndex];
-    const scenarioTasks = Tasks.displayTasksForScenario(currentTask.scenarioId);
-    const nextUnvisited = scenarioTasks.find((task) => {
-      const index = Tasks.taskIndexById(task.id);
-      return !(state.visitedMask & (1 << index));
-    });
-    if (nextUnvisited) return switchTask(state, Tasks.taskIndexById(nextUnvisited.id));
-    const scenarioIndex = Tasks.SCENARIOS.findIndex((scenario) => scenario.id === currentTask.scenarioId);
-    if (scenarioIndex === Tasks.SCENARIOS.length - 1) {
-      return {
-        v: VERSION,
-        taskSetVersion: Tasks.TASK_SET_VERSION,
-        phase: "review",
-        visitedMask: FULL_VISITED_MASK,
-        answers: state.answers.slice()
+    if (state.variant === "review-edit") return openReview(state);
+    if (state.visitedMask === FULL_VISITED_MASK) return openReview(state);
+    const currentScenario = Tasks.TASKS[state.taskIndex].scenarioId;
+    const finalScenarioId = Tasks.SCENARIOS[Tasks.SCENARIOS.length - 1].id;
+    const currentScenarioComplete = Tasks.displayTasksForScenario(currentScenario).every((task) =>
+      Boolean(state.visitedMask & (1 << Tasks.taskIndexById(task.id))));
+    if (currentScenario === finalScenarioId && currentScenarioComplete) return openReview(state);
+    const orderedTasks = Tasks.SCENARIOS.flatMap((scenario) => Tasks.displayTasksForScenario(scenario.id));
+    const currentPosition = orderedTasks.findIndex((task) => task.id === Tasks.TASKS[state.taskIndex].id);
+    for (let offset = 1; offset <= orderedTasks.length; offset += 1) {
+      const task = orderedTasks[(currentPosition + offset) % orderedTasks.length];
+      const taskIndex = Tasks.taskIndexById(task.id);
+      if (state.visitedMask & (1 << taskIndex)) continue;
+      const next = {
+        ...state,
+        taskIndex,
+        visitedMask: state.visitedMask | (1 << taskIndex)
       };
+      return validateDraftState(next) ? next : null;
     }
-    const nextScenario = Tasks.SCENARIOS[scenarioIndex + 1];
-    const taskIndex = Tasks.taskIndexById(`${nextScenario.id}-${Tasks.DISPLAY_GRAPH_TYPES[0]}`);
-    return {
-      ...state,
-      taskIndex,
-      visitedMask: state.visitedMask | (1 << taskIndex)
-    };
+    return null;
   }
 
   function switchTask(state, taskIndex) {
@@ -201,6 +188,26 @@
         Tasks.TASKS[taskIndex].scenarioId !== Tasks.TASKS[state.taskIndex].scenarioId) return null;
     const next = { ...state, taskIndex, visitedMask: state.visitedMask | (1 << taskIndex) };
     return validateDraftState(next) ? next : null;
+  }
+
+  function switchScenario(state, scenarioId) {
+    if (!validateDraftState(state) || state.phase !== "task" ||
+        typeof scenarioId !== "string" || !Tasks.scenarioById(scenarioId)) return null;
+    const taskIndex = scenarioStartIndex(scenarioId);
+    if (taskIndex < 0) return null;
+    const next = { ...state, taskIndex, visitedMask: state.visitedMask | (1 << taskIndex) };
+    return validateDraftState(next) ? next : null;
+  }
+
+  function openReview(state) {
+    if (!validateDraftState(state) || state.phase !== "task") return null;
+    return {
+      v: VERSION,
+      taskSetVersion: Tasks.TASK_SET_VERSION,
+      phase: "review",
+      visitedMask: state.visitedMask,
+      answers: state.answers.slice()
+    };
   }
 
   function previousTask(state) {
@@ -214,11 +221,14 @@
   function openReviewEdit(state, taskIndex) {
     if (!validateDraftState(state) || state.phase !== "review" ||
         !Number.isInteger(taskIndex) || taskIndex < 0 || taskIndex >= Tasks.TASKS.length) return null;
+    const { start } = scenarioBounds(taskIndex);
+    const recommendedStart = start + Tasks.GRAPH_TYPES.indexOf("xt");
     return {
       ...state,
       phase: "task",
       taskIndex,
-      variant: "review-edit"
+      variant: "review-edit",
+      visitedMask: state.visitedMask | (1 << taskIndex) | (1 << recommendedStart)
     };
   }
 
@@ -289,6 +299,8 @@
     setAnswer,
     nextTask,
     switchTask,
+    switchScenario,
+    openReview,
     previousTask,
     openReviewEdit,
     reviewVariant,

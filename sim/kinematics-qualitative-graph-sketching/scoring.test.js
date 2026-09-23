@@ -196,6 +196,66 @@ function xtTrace(valueAt) {
   return trace;
 }
 
+function compositeXtTrace(phaseA, phaseC) {
+  return xtTrace((t) => {
+    const phase = Math.min(3, Math.floor(t * 4));
+    const u = phase === 3 ? (t - 0.75) * 4 : (t - phase / 4) * 4;
+    if (phase === 0) return 0.08 + phaseA(u);
+    if (phase === 1) return 0.24 + 0.32 * u;
+    if (phase === 2) return 0.56 + phaseC(u);
+    return 0.72;
+  });
+}
+
+for (const [power, minimumScore] of [[1.2, 9.5], [1.5, 12]]) {
+  const approachableCompositeXt = compositeXtTrace(
+    (u) => 0.16 * Math.pow(u, power),
+    (u) => 0.16 * (2 * u - Math.pow(u, power))
+  );
+  const approachableCompositeResult = Scoring.scoreTask(compositeXtTask, approachableCompositeXt);
+  assert.equal(approachableCompositeResult.evidenceComplete, true,
+    `power ${power}: a readable composite x–t trace remains complete evidence`);
+  assert.ok(approachableCompositeResult.score >= minimumScore,
+    `power ${power}: a readable composite x–t trace receives substantial credit`);
+  assert.ok(!approachableCompositeResult.feedback.some((message) => /斜率應大致接得上/.test(message)),
+    "approximate x–t phase joins do not request exact boundary slopes");
+  const approachableAnswers = idealAnswers.slice();
+  approachableAnswers[Tasks.taskIndexById("composite-xt")] = Model.encodeTrace(approachableCompositeXt);
+  assert.equal(Scoring.scoreActivity(approachableAnswers).passed, true,
+    `power ${power}: a readable composite x–t trace can satisfy activity mastery`);
+}
+
+const twoSegmentCompositeXt = compositeXtTrace(
+  (u) => u < 0.5 ? 0.08 * u : 0.04 + 0.24 * (u - 0.5),
+  (u) => u < 0.5 ? 0.24 * u : 0.12 + 0.08 * (u - 0.5)
+);
+const twoSegmentResult = Scoring.scoreTask(compositeXtTask, twoSegmentCompositeXt);
+assert.ok(twoSegmentResult.score >= 12, "the advertised two-slope x–t approximation receives high credit");
+const twoSegmentAnswers = idealAnswers.slice();
+twoSegmentAnswers[Tasks.taskIndexById("composite-xt")] = Model.encodeTrace(twoSegmentCompositeXt);
+assert.equal(Scoring.scoreActivity(twoSegmentAnswers).passed, true,
+  "a two-slope approximation of A and C satisfies composite mastery");
+
+const jumpedCompositeXt = compositeXtTrace(
+  (u) => 0.16 * Math.pow(u, 1.2),
+  (u) => 0.16 * (2 * u - Math.pow(u, 1.2))
+);
+for (let index = 48; index < jumpedCompositeXt.length; index += 1) {
+  jumpedCompositeXt[index] = Model.quantizeY(jumpedCompositeXt[index] / Model.MAX_VALUE + 0.22);
+}
+const jumpedCompositeResult = Scoring.scoreTask(compositeXtTask, jumpedCompositeXt);
+assert.ok(jumpedCompositeResult.components.find((component) => component.key === "邊界 2 位置連續").score < 0.2,
+  "a visible position jump still loses boundary continuity credit");
+assert.ok(jumpedCompositeResult.feedback.some((message) => /位置不應突然跳變/.test(message)),
+  "position-jump feedback remains actionable");
+
+const straightCompositeXt = compositeXtTrace((u) => 0.16 * u, (u) => 0.16 * u);
+const straightCompositeAnswers = idealAnswers.slice();
+straightCompositeAnswers[Tasks.taskIndexById("composite-xt")] = Model.encodeTrace(straightCompositeXt);
+const straightCompositeActivity = Scoring.scoreActivity(straightCompositeAnswers);
+assert.ok(straightCompositeActivity.masteryFailures.some((failure) => failure.code === "composite-xt-curves"),
+  "a straight composite x–t trace still fails composite curve mastery");
+
 const acceleratingReversal = xtTrace((t) => 0.18 - 0.25 * t + 0.75 * t * t);
 const deceleratingReversal = xtTrace((t) =>
   t < 0.72 ? 0.12 + 0.70 * t - 0.35 * t * t : 0.443 - 0.32 * (t - 0.72));

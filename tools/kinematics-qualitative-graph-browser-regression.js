@@ -345,6 +345,32 @@ async function directSmoke(cdp, baseUrl, launchPath, label) {
   await clickSelector(cdp, "#nextButton");
   assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
     Tasks.taskIndexById("accelerating-xt"), `${label}: visiting all three graphs advances with blanks left for review`);
+  const progressState = await evaluate(cdp, `(() => Object.fromEntries(
+    Array.from(document.querySelectorAll('#progress [data-progress]')).map(item => [
+      item.dataset.progress,
+      {disabled:item.querySelector('button').disabled, current:item.classList.contains('is-current'), done:item.classList.contains('is-done')}
+    ])
+  ))()`);
+  assert.equal(progressState.uniform.disabled, false, `${label}: completed scenario remains quick-navigable`);
+  assert.equal(progressState.accelerating.disabled, false, `${label}: current scenario is quick-navigable`);
+  assert.equal(progressState.decelerating.disabled, false, `${label}: future scenario is freely quick-navigable`);
+  assert.equal(progressState.composite.disabled, false, `${label}: every scenario is freely quick-navigable`);
+  assert.equal(progressState.review.disabled, false, `${label}: review can be opened before every graph is visited`);
+  assert.equal(progressState.uniform.done, true, `${label}: fully visited scenarios are shown as done`);
+  assert.equal(progressState.accelerating.done, false, `${label}: a partially visited scenario is not shown as done`);
+  await clickSelector(cdp, '#progress [data-progress="uniform"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
+    Tasks.taskIndexById("uniform-xt"), `${label}: progress button jumps back to an unlocked scenario`);
+  await clickSelector(cdp, '#progress [data-progress="accelerating"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
+    Tasks.taskIndexById("accelerating-xt"), `${label}: progress button returns to the active scenario`);
+  await clickSelector(cdp, '#progress [data-progress="decelerating"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
+    Tasks.taskIndexById("decelerating-xt"), `${label}: progress button can enter a future scenario directly`);
+  await clickSelector(cdp, '#progress [data-progress="composite"]');
+  assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().taskIndex`),
+    Tasks.taskIndexById("composite-xt"), `${label}: progress button can enter the composite scenario directly`);
+  await clickSelector(cdp, '#progress [data-progress="accelerating"]');
   for (let index = 0; index < 9; index += 1) await clickSelector(cdp, "#nextButton");
   assert.equal(await evaluate(cdp, `window.__kinematicsGraphDebug.getState().phase`), "review",
     `${label}: visiting all display-ordered graphs reaches review`);
@@ -710,6 +736,71 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   const incompleteReviewDraft = {
     version: 1, activity, kind: "draft", answer: incompleteState
   };
+
+  const partialTask = Persistence.switchScenario(
+    Persistence.startTasks(Persistence.initialState()), "composite"
+  );
+  const compositeVt = Persistence.switchTask(partialTask, Tasks.taskIndexById("composite-vt"));
+  const compositeAt = Persistence.switchTask(compositeVt, Tasks.taskIndexById("composite-at"));
+  const partialDraft = { version: 1, activity, kind: "draft", answer: partialTask };
+  const finalScenarioDraft = { version: 1, activity, kind: "draft", answer: compositeAt };
+
+  await setPreload(cdp, lmsValues(partialDraft));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=partial-check-anytime`);
+  const earlyCheck = await evaluate(cdp, `(() => ({
+    phase:window.__kinematicsGraphDebug.getState().phase,
+    index:window.__kinematicsGraphDebug.getState().taskIndex,
+    checkDisabled:document.querySelector('#progress [data-progress="review"] button').disabled,
+    untouchedScenarioDone:document.querySelector('#progress [data-progress="accelerating"]').classList.contains('is-done'),
+    activeScenarioDone:document.querySelector('#progress [data-progress="composite"]').classList.contains('is-done')
+  }))()`);
+  assert.equal(earlyCheck.phase, "task");
+  assert.equal(earlyCheck.index, Tasks.taskIndexById("composite-xt"));
+  assert.equal(earlyCheck.checkDisabled, false,
+    `${label}: the check button is available before all scenarios are visited`);
+  assert.equal(earlyCheck.untouchedScenarioDone, false,
+    `${label}: untouched earlier scenarios are not displayed as done after a direct jump`);
+  assert.equal(earlyCheck.activeScenarioDone, false,
+    `${label}: opening only x-t does not mark the full scenario done`);
+  await clickSelector(cdp, '#progress [data-progress="review"]');
+  const earlyReview = await evaluate(cdp, `(() => ({
+    phase:window.__kinematicsGraphDebug.getState().phase,
+    visitedMask:window.__kinematicsGraphDebug.getState().visitedMask,
+    score:window.__kinematicsGraphDebug.score().score,
+    warning:document.getElementById("reviewWarning").textContent
+  }))()`);
+  assert.equal(earlyReview.phase, "review", `${label}: check opens review from a partial attempt`);
+  assert.equal(earlyReview.visitedMask, partialTask.visitedMask,
+    `${label}: early review does not mark untouched graphs visited`);
+  assert.equal(earlyReview.score, 0, `${label}: blank answers may proceed with zero points`);
+  assert.match(earlyReview.warning, /可能得零分/,
+    `${label}: early review explains the zero-score consequence`);
+  const zeroSubmitDialog = respondToNextDialog(cdp, true);
+  await clickSelector(cdp, "#submitButton");
+  assert.match(await zeroSubmitDialog, /仍有空白、覆蓋不足或不可判讀圖線/);
+  const zeroSubmitted = await evaluate(cdp, `(() => ({
+    mode:window.__kinematicsGraphDebug.getMode(),
+    score:document.querySelector("#scorePanel strong")?.textContent,
+    recordedScore:window.__fakeLms.values["cmi.core.score.raw"]
+  }))()`);
+  assert.equal(zeroSubmitted.mode, "submitted", `${label}: incomplete attempt can be submitted`);
+  assert.match(zeroSubmitted.score, /^0\s*\/\s*100$/,
+    `${label}: the confirmed blank submission is scored as zero`);
+  assert.equal(zeroSubmitted.recordedScore, "0", `${label}: LMS receives the zero score`);
+
+  await setPreload(cdp, lmsValues(finalScenarioDraft));
+  await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=last-scenario-next`);
+  assert.equal(await evaluate(cdp, `document.getElementById("nextButton").textContent`), "前往檢查",
+    `${label}: the final scenario labels its completed next action as review`);
+  await clickSelector(cdp, "#nextButton");
+  const finalScenarioReview = await evaluate(cdp, `(() => ({
+    phase:window.__kinematicsGraphDebug.getState().phase,
+    visitedMask:window.__kinematicsGraphDebug.getState().visitedMask
+  }))()`);
+  assert.equal(finalScenarioReview.phase, "review",
+    `${label}: finishing the final scenario opens review instead of wrapping to level one`);
+  assert.equal(finalScenarioReview.visitedMask, compositeAt.visitedMask,
+    `${label}: automatic review keeps untouched earlier levels unanswered`);
 
   await setPreload(cdp, lmsValues(reviewDraft));
   await navigate(cdp, `${baseUrl}${launchPath}?lifecycle=review-display-order`);

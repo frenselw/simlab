@@ -16,6 +16,11 @@
   const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]")).map((element) => [element.id, element]));
   const SVG_NS = "http://www.w3.org/2000/svg";
   const PLOT = Object.freeze({ left: 76, top: 44, width: 600, height: 432, bottom: 476 });
+  const COMPOSITE_REQUIREMENTS = Object.freeze({
+    xt: "由左端起點開始：A 先較平後較斜；B 直線上升；C 先較斜後較平；D 水平。A、C 用兩段不同斜度的線近似即可，不用畫光滑拋物線；四段位置要接上。",
+    vt: "由左邊開始：A 從零向上斜；B 在零軸上方水平；C 向下斜至零；D 沿零軸。畫到最右端，四段接上。",
+    at: "由左邊開始：A 在零軸上方水平；B 沿零軸；C 在零軸下方水平；D 沿零軸。畫到最右端；轉段可換高度，不用畫垂直線。"
+  });
   let state = null;
   let mode = "activity";
   let locked = false;
@@ -493,15 +498,58 @@
     }
   }
 
+  function commitActiveTaskBeforeNavigation() {
+    if (state?.phase !== "task") return true;
+    taskView.cancelActive(false);
+    commitTaskTrace(taskView.trace());
+    return !locked && mode === "activity";
+  }
+
+  function progressScenarioLabel(scenarioId) {
+    const scenario = Tasks.scenarioById(scenarioId);
+    return scenario ? `第 ${scenario.number} 關` : scenarioId;
+  }
+
+  function progressDone(key) {
+    if (key === "practice") return Boolean(state && state.phase !== "practice");
+    if (!state || !Tasks.scenarioById(key)) return false;
+    return Tasks.displayTasksForScenario(key).every((task) =>
+      Boolean(state.visitedMask & (1 << Tasks.taskIndexById(task.id))));
+  }
+
+  function progressAvailable(key) {
+    if (!state || locked || mode !== "activity") return false;
+    if (key === "practice") return state.phase === "practice";
+    if (key === "review") return state.phase === "review" || state.phase === "task";
+    if (!Tasks.scenarioById(key)) return false;
+    return state.phase === "task" || state.phase === "review";
+  }
+
   function renderProgress() {
     const current = state?.phase === "practice" ? "practice" :
       state?.phase === "review" ? "review" :
         state?.phase === "task" ? Tasks.TASKS[state.taskIndex].scenarioId : "review";
     document.querySelectorAll("[data-progress]").forEach((item) => {
       const key = item.dataset.progress;
+      const button = item.querySelector("button");
       item.classList.toggle("is-current", key === current);
-      const order = ["practice", "uniform", "accelerating", "decelerating", "composite", "review"];
-      item.classList.toggle("is-done", order.indexOf(key) < order.indexOf(current));
+      item.classList.toggle("is-done", progressDone(key));
+      const available = progressAvailable(key);
+      item.classList.toggle("is-available", available);
+      if (button) {
+        button.disabled = !available;
+        button.setAttribute("aria-disabled", String(!available));
+        if (key === current) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+        const label = key === "practice" ? "畫板操作練習" :
+          key === "review" ? "提交前檢查" : progressScenarioLabel(key);
+        const status = key === current ? "，進行中" :
+          key === "practice" && progressDone(key) ? "，已完成" :
+            key === "review" && available ? "，可檢查及提交" :
+              key !== "review" && progressDone(key) ? "，三幅圖均已看過" :
+                available ? "，可快速切換" : "，尚未解鎖";
+        button.setAttribute("aria-label", `${label}${status}`);
+      }
     });
   }
 
@@ -571,9 +619,7 @@
       .findIndex((item) => item.id === task.id) + 1;
     elements.taskCounter.textContent = `第 ${task.scenarioNumber} 關 · 第 ${displayPosition} / 3 幅`;
     elements.graphRequirement.textContent = task.scenarioId === "composite"
-      ? task.graphType === "xt"
-        ? "由左端的起點標記開始，畫到最右端，完整表達 A、B、C、D 四個階段。"
-        : "由圖板左邊界開始，畫到最右端，完整表達 A、B、C、D 四個階段。"
+      ? COMPOSITE_REQUIREMENTS[task.graphType]
       : task.graphType === "xt"
         ? "由左端的起點標記開始，畫到最右端，表達完整作圖時間。"
         : "由圖板左邊界開始，畫到最右端，表達完整作圖時間。";
@@ -608,7 +654,7 @@
     const result = reviewResultNow();
     const incompleteCount = result.evidenceIncompleteTaskIds.length;
     elements.reviewWarning.textContent = incompleteCount
-      ? `仍有 ${incompleteCount} 幅圖空白、覆蓋不足或不可判讀；如現在提交，這些圖的可評證據會不足。`
+      ? `仍有 ${incompleteCount} 幅圖空白、覆蓋不足或不可判讀；空白或無效圖可能得零分。你仍可返回修改，或直接提交。`
       : "十二幅圖均可判讀。你仍可返回任何一幅修改。";
     elements.reviewList.innerHTML = Tasks.SCENARIOS.map((scenario) => {
       const cards = Tasks.displayTasksForScenario(scenario.id).map((task) => {
@@ -640,6 +686,28 @@
     updateToolButtons();
     const next = Persistence.startTasks(state);
     if (!next) return showTechnical("未能開始挑戰；活動已鎖定。", false);
+    state = next;
+    if (saveDraft()) render();
+  });
+
+  elements.progress.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-progress]");
+    if (!item || !elements.progress.contains(item) || locked || mode !== "activity") return;
+    const key = item.dataset.progress;
+    if (!progressAvailable(key) || key === "practice") return;
+
+    let next = null;
+    if (key === "review") {
+      if (!commitActiveTaskBeforeNavigation()) return;
+      next = state.phase === "task" ? Persistence.openReview(state) : null;
+    } else if (state.phase === "review") {
+      const taskIndex = Tasks.taskIndexById(`${key}-${Tasks.DISPLAY_GRAPH_TYPES[0]}`);
+      next = Persistence.openReviewEdit(state, taskIndex);
+    } else if (state.phase === "task") {
+      if (!commitActiveTaskBeforeNavigation()) return;
+      next = Persistence.switchScenario(state, key);
+    }
+    if (!next || JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     if (saveDraft()) render();
   });

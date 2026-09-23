@@ -39,7 +39,7 @@
 13. 「可提交證據完整」統一使用 coverage、edge coverage、readability 及綜合題 phase completeness；
 14. 版面採固定 viewport bounded split：`>=820px` 為全闊工作區，左側 `18–24rem` controls、右側主作圖 stage 填滿餘下空間；較窄 tablet／phone 轉為上圖下 controls；活動不依賴 iframe 自動增高或未部署的 host bridge；
 15. 每個情境以 `x–t → v–t → a–t` 顯示，三個普通按鈕可自由切換並保留各自圖線；持久化 task ID／answer array 仍沿用既有 canonical `v–t、a–t、x–t` 順序；
-16. 「下一幅」以曾開啟 `visited` 為流程門檻，不以已畫圖 `answered` 為門檻；三幅均曾開啟後才前往下一情境，學生亦可隨時用三圖切換按鈕改變作圖次序；
+16. 「下一幅」以曾開啟 `visited` 為流程門檻，不以已畫圖 `answered` 為門檻；學生可自由切換 1–4 情境，下一幅會循環尋找下一個未開啟圖；第 4 關三幅都看過後直接進 review，避免繞回第 1 關；作圖期間隨時可進 review，空白答案經明確確認仍可提交並得相應分數（全空白為 0）；
 17. 坐標軸使用向上／向右箭頭，不顯示會暗示答案的 `+`／`−`；`v–t`／`a–t` 保留零軸 `0`；
 18. 清除改為單次操作、空白時停用並可用「復原上一步」取回；作圖期間不提供答案正確性檢查，只在已有圖線未覆蓋左右端或中間有明顯斷口時，於 stage 右上角以琥珀色低干擾標籤顯示「圖線未畫完」，而且不阻止提交；
 19. learner-facing 物理變數使用安全 DOM formatter 產生 `<var>`，不載入 MathJax，亦不把普通英文字母誤判為變數。
@@ -48,6 +48,8 @@
 22. first-pass canonical state 必須含當前情境建議起點 `x–t` visited bit；舊 v1 prefix draft 只在 decode 入口明確 migration，answer array 不改；
 23. controls DOM 先於 stage，令 desktop reading/focus order 與左→右視覺一致；窄屏仍以 CSS 把圖置上，但 screen reader 先讀題目及控制；
 24. 自動 browser test 的 page scale 只稱為 effective-width／pinch visual safety；真實 desktop browser 200% layout zoom 保留為外部 release gate。
+25. 關卡 4 的 composite `x–t` 改為較寬容的定性評分：A／C 段保留「位置不倒退」硬性防護，但曲率、起／末斜率採連續 partial credit；邊界斜率只要求大致接近，並在作圖要求明示不必精確畫出拋物線；直線仍不能通過曲率 mastery。
+26. 關卡 4 再降低入門難度：三幅圖各自列出 A–D 的簡短分段提示；`x–t` 明示 A／C 可用「前後斜度不同」的折線近似，不必畫光滑拋物線；較溫和但可辨認的斜率變化可通過 composite 曲率 mastery，邊界只需位置接上、不再評斜率連續；整段直線、倒退及漏畫階段仍不算掌握。
 
 ---
 
@@ -369,8 +371,9 @@ v–t 圖的斜率 = 加速度
 - 首次進入情境顯示 `x–t`，但學生可直接切換到同情境其餘兩圖；
 - 學生可直接切換另一幅圖或按「下一幅」，暫時留下空白答案；
 - `visited` 與 `answered` 分開：開啟過圖即算 visited；空白仍屬 unanswered；
-- 「下一幅」前往同情境下一幅未開啟圖；三幅均 visited 後才前往下一情境的 `x–t`，即使其中有空白；
-- 十二幅圖均曾開啟後才進入提交前檢視，空白由 review 明確列出；
+- 「下一幅」按顯示次序尋找下一幅未開啟圖；自由跳轉後仍會循環尋找未開啟項目；第 4 關三幅都 visited 後轉入 review，不會繞回前面關卡；
+- 頁首「練習、1、2、3、4、檢查」為快速導覽按鈕：作圖階段的 1–4 可自由跳轉並保留圖線；作圖一開始後「檢查」隨時可用；review 可按情境按鈕進入該情境的 review-edit，按「檢查」返回 review；進度的「已完成」只根據實際 visited 狀態，快速跳到後段不會把前段顯示成完成；
+- review 可包含未 visited 或空白圖，清楚列出不完整項目；確認後仍可提交，全空白分數為 0；
 - 檢視頁可返回任何圖修改；
 - 提交前顯示空白／不可判讀圖會取得零分的警告；
 - 學生仍可明確確認提交未完成答案。
@@ -487,6 +490,8 @@ v–t 圖的斜率 = 加速度
 A 勻加速 | B 勻速 | C 勻減速至停止 | D 靜止
 ```
 
+作圖要求在切換圖種時，直接提示 `v–t` 的「上斜／正值水平／下斜至零／零軸」、`a–t` 的「正值水平／零軸／負值水平／零軸」，以及 `x–t` 的「先緩後陡／直線上升／先陡後緩／水平」。`x–t` 的 A／C 可畫成兩段斜度不同的近似折線，評分看大致斜率趨勢，不要求拋物線或邊界斜率平滑。三幅圖都仍需覆蓋四個階段。
+
 #### Task `composite-vt`（11 分）
 
 - A：由零開始向上直線，2 分；
@@ -507,11 +512,11 @@ A 勻加速 | B 勻速 | C 勻減速至停止 | D 靜止
 #### Task `composite-xt`（13 分）
 
 - 起始位置，1 分；
-- A：由近乎水平開始，愈來愈斜，3 分；
+- A：由近乎水平開始並大致愈來愈斜，3 分；曲率及起始斜率按連續 partial credit，不因單一特徵稍弱而整段歸零；
 - B：接成斜率固定的向上直線，2 分；
-- C：仍然上升但愈來愈平，段末斜率為零，3 分；
+- C：仍然上升但大致愈來愈平，末段接近水平，3 分；曲率及末段斜率按連續 partial credit；
 - D：水平線，1 分；
-- 位置連續及 A/B、B/C、C/D 斜率大致連接，3 分。
+- A/B、B/C、C/D 位置連續，各 1 分；邊界斜率不評分。
 
 ---
 
@@ -626,7 +631,7 @@ active plot 前顯示可操作而不宣稱評分門檻的作圖要求：
 
 - 單段 `x–t`：由左端起點標記開始，畫到最右端；
 - 單段 `v–t`／`a–t`：由圖板左邊界開始，畫到最右端；
-- 綜合圖：由左至右完整表達 A、B、C、D 四段；
+- 綜合圖：由左至右完整表達 A、B、C、D 四段；composite `x–t` 先確保四段走勢清楚，不必精確畫出拋物線；
 - 不向學生宣稱「75% coverage 即正確」或暴露內部容差。
 
 ### 9.2 `x–t`
@@ -886,7 +891,7 @@ Slope continuity：
 - 每側至少四點；
 - `boundarySlopeJump = abs(slopeRight - slopeLeft)`。
 
-`a–t` 只評每段區域與水平，不評 y 或 slope continuity。綜合 `x–t` 的正式示範中，C 段由 B 段終值及斜率連續接入，逐步變平至 D 段水平；不可在 C／D 邊界留下位置跳變。
+`a–t` 只評每段區域與水平，不評 y 或 slope continuity。綜合 `x–t` 的正式示範中，C 段由 B 段終值及相近斜率接入，逐步變平至 D 段水平；不可在 C／D 邊界留下位置跳變。composite `x–t` 的邊界斜率採較寬容的「大致接近」評分，不要求精確相等。
 
 ### 10.9 Gross attempt gate
 
@@ -985,7 +990,7 @@ slopeDecreaseScore =
 + 0.15 * directionalQuadraticSupport
 ```
 
-曲率分必須再乘題目所需的單調性／方向分。二次項方向錯誤或 `slopeDelta` 未達實質變化時，BIC 改善不能自行產生曲率分。綜合題 phase 使用較短區間的 `slopeDelta 0.05 → 0.14` 起始門檻。
+曲率分必須再乘題目所需的單調性／方向分。二次項方向錯誤或 `slopeDelta` 未達實質變化時，BIC 改善不能自行產生曲率分。綜合題 phase 使用較短區間的 `slopeDelta 0.015 → 0.08` 門檻，並以各段 `curveEvidence >= 0.20` 作 composite `x–t` mastery 判準；這容許明顯但溫和的斜率轉變，不放寬其他關卡的 `x–t` mastery。composite `x–t` 的 A／C phase score 以曲率趨勢及起／末斜率的加權連續分計算，並保留 `noNegativeSlope` 硬性防護；因此較溫和但方向正確的手繪曲線可取得合理分數，而固定直線仍沒有曲率 evidence。
 
 若 straight 與 curve evidence 相差 `< 0.10`：
 
@@ -1035,8 +1040,6 @@ const TOLERANCE = {
   endFlatZero: 0.28,
   boundaryYJumpFull: 0.08,
   boundaryYJumpZero: 0.22,
-  boundarySlopeJumpFull: 0.20,
-  boundarySlopeJumpZero: 0.55,
   classificationAmbiguity: 0.10,
   rawGrossMaxLengthRatio: 20,
   rawGrossMaxOscillations: 24,
@@ -1048,8 +1051,9 @@ const TOLERANCE = {
   rawEvidenceMaxGapFraction: 0.25,
   evidenceMinReadability: 0.55,
   evidenceMinEdgeCoverage: 0.65,
-  phaseSlopeDeltaZero: 0.05,
-  phaseSlopeDeltaFull: 0.14
+  phaseSlopeDeltaZero: 0.015,
+  phaseSlopeDeltaFull: 0.08,
+  compositeXtCurveMastery: 0.20
 };
 ```
 
@@ -1350,20 +1354,22 @@ review
 | Phase | Variant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
 | `practice` | new／restored | none | `visitedMask=0`；12 answers null | `taskIndex`、`variant` | 開始關卡 1 `x–t`（canonical index 2） |
-| `task` | first-pass | `0..11` | 所有先前情境 bits visited；目前情境必含建議起點 `x–t` 及 active bit，其他可為任意 visited 組合；已 visited answer 可 null／trace | 未來情境 visited bits／answers；未 visited 圖不可有 answer | 同情境自由切換／下一未 visited 圖／下一情境／進 review |
-| `task` | review-edit | `0..11` | `visitedMask=0xFFF`；answers 可 null／trace | 無 future restriction | 同情境切換／返回 review |
-| `review` | incomplete | none | 全 visited；至少一圖 null、gross invalid 或 evidence incomplete | task fields | 編輯；警告後提交 |
-| `review` | ready | none | 全 visited；12 圖均非 gross invalid | task fields | 編輯或提交 |
+| `task` | first-pass | `0..11` | `visitedMask` 可為任意已開啟圖組合；目前情境必含建議起點 `x–t` 及 active bit；已 visited answer 可 null／trace | 未 visited 圖不可有 answer | 同情境自由切換／任一情境快速導覽／下一未 visited 圖／隨時進 review |
+| `task` | review-edit | `0..11` | 可保留部分 `visitedMask`；目前情境必含建議起點 `x–t` 及 active bit；未 visited 圖不可有 answer | 無其他限制 | 任一情境快速導覽／同情境切換／返回 review |
+| `review` | incomplete | none | `visitedMask` 至少有一 bit；未 visited 圖答案必為 null；至少一圖空白、gross invalid 或 evidence incomplete | task fields | 編輯；警告後可提交（全空白可得 0） |
+| `review` | ready | none | 全 visited；12 圖均 evidence complete | task fields | 編輯或提交 |
 
 Transitions：
 
 ```text
 practice -> task(first-pass, uniform-xt / canonical index 2)
 task(first-pass, current scenario graph) -> task(first-pass, same scenario graph)
-task(first-pass, all current scenario graphs visited) -> task(first-pass, next scenario xt)
-task(first-pass, all 12 graphs visited) -> review
+task(first-pass, any scenario graph) -> task(first-pass, target scenario xt)
+task(first-pass, next unvisited graph exists) -> task(first-pass, next unvisited graph)
+task(first-pass, final scenario fully visited) -> review
+task(first-pass, check requested at any time) -> review
 review -> task(review-edit, i)
-task(review-edit, i) -> task(review-edit, same scenario graph)
+task(review-edit, i) -> task(review-edit, any scenario graph)
 task(review-edit, i) -> review
 review -> shared submission after explicit confirmation
 success/committed -> locked review
@@ -1377,10 +1383,11 @@ Invariants：
 - active editor 只修改 `answers[taskIndex]`；同情境其他 canonical answers 在切換時保留；
 - working drag 是 transient；
 - visited 不等於 answered；visited 圖可保留 null；
-- first-pass future scenarios answers 必須 null；
+- first-pass／review-edit／review 的未 visited graphs answers 必須 null；
 - 同一情境 graph switching 只改 active index、visited bit 及保存當前 trace，不重排 answer array；
+- 快速導覽只改 active task index 並加入目標情境的 `x–t` visited bit；first-pass 與 review-edit 均可進入任一情境；
 - review-edit 可保留所有 future answers；
-- review 可包含 null，因為明確警告後容許 incomplete submission。
+- review 保留實際 `visitedMask`，未 visited 答案必須為 null；可包含 null，因為明確警告後容許 incomplete submission。
 
 ---
 
@@ -1482,9 +1489,10 @@ project absolute ceiling               < 4000 bytes
 
 - supported schema／task version；
 - legal phase／variant／task index；
-- first-pass 所有先前情境 visited、當前情境 `x–t` 及 active bit visited、未來情境未 visited；
-- first-pass 未來情境 answers null；任何非 null answer 必須已有 visited bit；
-- review-edit／review visited mask 全滿；
+- first-pass `visitedMask` 可為任意已開啟圖組合，當前情境 `x–t` 及 active bit 必須 visited；
+- first-pass 未 visited 圖 answers 必須為 null；任何非 null answer 必須已有 visited bit；
+- task variants 必須含 active bit 及當前情境 `x–t` bit；未 visited 答案必須 null；
+- review draft 至少有一個 visited bit，並保留原 mask；未 visited 答案必須 null；finished review restore 可使用 full mask；
 - answers length 12；
 - 每個 trace canonical 且 decode 為 96 bytes；
 - no unknown enum／non-finite field；
@@ -1727,16 +1735,19 @@ validate review
 - invalid phase／variant／task／scenario visited mask；
 - canonical first-pass 缺同情境 `x–t` visited bit 必須無效；
 - exact v1 prefix legacy decode migration 只加 `x–t` bit，answers／taskIndex 不變；
-- first-pass 未來情境 answer、未 visited 圖有 answer；
+- first-pass 未 visited graph answer；
 - 顯示次序 `x–t → v–t → a–t` 與 canonical answer index 相容；
-- 同情境切換保存 trace；三圖只 visited 未 answered 仍可進下一情境；
+- 同情境及跨情境切換保存 trace；只 visited 未 answered 的圖仍可按下一幅繼續；
+- first-pass 快速導覽可建立任一目標情境的 `x–t` visited bit，但不會建立未開啟圖的 answer；review-edit 快速導覽保留所有 answers；
+- 第 4 關 direct jump 後依次開啟三圖，再按「下一幅」必須前往 review 而非回到第 1 關；
+- 作圖階段隨時可按「檢查」；partial review 不偽造 visited，仍可確認提交，全空白時 LMS score 為 0；review-edit 下一步返回 review；
 - answers length；
 - canonical trace；
 - maximum size；
 - invalid editable draft fail closed；
 - invalid finished review locked；
 - pending deeper reject calls quarantine。
-- first-pass 的每個 scenario、active graph、`visitedMask` invariant 組合，以及 active answer 為 null／production canonical trace 的變體，都要 round-trip 並執行合法 continuation；另測缺失 `taskIndex`／`variant`、negative／noninteger／out-of-range／`NaN`／`Infinity` taskIndex 或 visitedMask、缺 prior bit、future bit／answer、unvisited graph answer 及 review task field。
+- first-pass 的每個 scenario、active graph、任意 `visitedMask` 組合，以及 active answer 為 null／production canonical trace 的變體，都要 round-trip 並執行合法 continuation；另測缺失 `taskIndex`／`variant`、negative／noninteger／out-of-range／`NaN`／`Infinity` taskIndex 或 visitedMask、缺當前情境 `x–t` bit、缺 active bit、unvisited graph answer 及 review task field。
 
 ### 21.6 Lifecycle UI
 
@@ -1828,7 +1839,7 @@ Development source及built／extracted package：
 - 每幅圖需要直接作圖或鍵盤作圖；
 - 無具體數值要求；
 - 不同合理斜率及高度可得高分；
-- `x–t` 曲率按斜率趨勢而非精確拋物線；
+- `x–t` 曲率按斜率趨勢而非精確拋物線；關卡 4 的 A／C 可用折線近似，溫和而明確的變化仍算掌握；
 - 三個 graph family 都要達 mastery floor；
 - composite 表達同一四階段過程；
 - 跨圖矛盾有診斷；
