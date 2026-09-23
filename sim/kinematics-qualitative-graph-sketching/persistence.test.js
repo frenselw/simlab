@@ -30,6 +30,10 @@ let switched = Persistence.switchTask(first, Tasks.taskIndexById("uniform-vt"));
 assert(switched);
 assert.equal(switched.answers[Tasks.taskIndexById("uniform-xt")], encodedIdeal[Tasks.taskIndexById("uniform-xt")]);
 assert.equal(switched.taskIndex, Tasks.taskIndexById("uniform-vt"));
+const freeForward = Persistence.switchScenario(first, "accelerating");
+assert(freeForward);
+assert.equal(freeForward.taskIndex, Tasks.taskIndexById("accelerating-xt"),
+  "first-pass quick navigation can enter any scenario");
 switched = Persistence.setAnswer(switched, switched.taskIndex, encodedIdeal[switched.taskIndex]);
 switched = Persistence.switchTask(switched, Tasks.taskIndexById("uniform-at"));
 assert(switched);
@@ -37,7 +41,39 @@ switched = Persistence.setAnswer(switched, switched.taskIndex, encodedIdeal[swit
 const secondScenario = Persistence.nextTask(switched);
 assert.equal(secondScenario.taskIndex, Tasks.taskIndexById("accelerating-xt"),
   "after all three graphs, next advances to the next scenario x-t");
+const quickBack = Persistence.switchScenario(secondScenario, "uniform");
+assert(quickBack);
+assert.equal(quickBack.taskIndex, Tasks.taskIndexById("uniform-xt"),
+  "quick navigation returns to the first graph of an unlocked scenario");
+const quickForward = Persistence.switchScenario(quickBack, "accelerating");
+assert(quickForward);
+assert.equal(quickForward.taskIndex, Tasks.taskIndexById("accelerating-xt"),
+  "quick navigation enters the current unlocked scenario");
+assert.equal(Persistence.switchScenario(secondScenario, "not-a-scenario"), null);
 roundTrip(switched, Persistence.nextTask);
+
+let compositeOnly = Persistence.switchScenario(Persistence.startTasks(practice), "composite");
+compositeOnly = Persistence.switchTask(compositeOnly, Tasks.taskIndexById("composite-vt"));
+compositeOnly = Persistence.switchTask(compositeOnly, Tasks.taskIndexById("composite-at"));
+const compositeCheck = Persistence.nextTask(compositeOnly);
+assert.equal(compositeCheck.phase, "review",
+  "finishing the last scenario opens review instead of wrapping to the first scenario");
+assert.equal(compositeCheck.visitedMask, compositeOnly.visitedMask,
+  "partial review preserves which graphs the learner actually opened");
+assert.equal(Persistence.reviewVariant(compositeCheck), "incomplete");
+assert.equal(Persistence.scoreState(compositeCheck).score, 0,
+  "all blank answers may be submitted and score zero");
+assert.equal(Persistence.decodeReview(Persistence.makeReview(compositeCheck)).answers.every((answer) => answer == null), true,
+  "an incomplete attempt can be serialized for submission");
+const partialReviewRoundTrip = roundTrip(compositeCheck,
+  (state) => Persistence.openReviewEdit(state, Tasks.taskIndexById("uniform-xt")));
+const partialReviewEdit = Persistence.openReviewEdit(partialReviewRoundTrip, Tasks.taskIndexById("uniform-xt"));
+assert(partialReviewEdit);
+assert.equal(Boolean(partialReviewEdit.visitedMask & (1 << Tasks.taskIndexById("uniform-xt"))), true,
+  "opening an untouched review card records that graph as visited");
+assert.equal(Persistence.nextTask(partialReviewEdit).phase, "review",
+  "review-edit returns to review even while other graphs remain unvisited");
+roundTrip(partialReviewEdit, Persistence.nextTask);
 
 let skipped = Persistence.startTasks(practice);
 skipped = Persistence.nextTask(skipped);
@@ -58,11 +94,14 @@ while (queuedFirstPass.length) {
   seenFirstPass.add(key);
   firstPassStates.push(candidate);
   queuedFirstPass.push(Persistence.nextTask(candidate));
+  for (const scenario of Tasks.SCENARIOS) {
+    queuedFirstPass.push(Persistence.switchScenario(candidate, scenario.id));
+  }
   for (const task of Tasks.displayTasksForScenario(Tasks.TASKS[candidate.taskIndex].scenarioId)) {
     queuedFirstPass.push(Persistence.switchTask(candidate, Tasks.taskIndexById(task.id)));
   }
 }
-assert.equal(firstPassStates.length, 32,
+assert.equal(firstPassStates.length, 3400,
   "every reachable first-pass scenario, active graph, and visited-mask invariant variant is covered");
 for (const firstPass of firstPassStates) {
   roundTrip(firstPass, Persistence.nextTask);
@@ -99,6 +138,21 @@ while (cursor.phase === "task") {
 assert.equal(cursor.phase, "review");
 assert.equal(Persistence.reviewVariant(cursor), "ready");
 const ready = roundTrip(cursor, (state) => Persistence.openReviewEdit(state, 5));
+
+const fullyVisitedTask = {
+  ...Persistence.reviewToState(Persistence.makeReview(ready)),
+  phase: "task",
+  taskIndex: Tasks.taskIndexById("uniform-xt"),
+  variant: "first-pass"
+};
+assert.equal(Persistence.openReview(fullyVisitedTask).phase, "review",
+  "quick navigation opens review from any fully visited active scenario");
+const earlyReview = Persistence.openReview(first);
+assert.equal(earlyReview.phase, "review",
+  "the check button opens review before every graph has been visited");
+assert.equal(earlyReview.visitedMask, first.visitedMask,
+  "opening early review does not mark untouched graphs as visited");
+assert.equal(Persistence.reviewVariant(earlyReview), "incomplete");
 
 let edit = Persistence.openReviewEdit(ready, 5);
 edit = Persistence.setAnswer(edit, 5, encodedIdeal[5]);
@@ -148,6 +202,7 @@ const badStates = [
   { ...first, taskIndex: 0, answers: [encodedIdeal[0], encodedIdeal[1], ...Array(10).fill(null)] },
   { ...edit, variant: "bad" },
   { ...ready, visitedMask: 0 },
+  { ...earlyReview, visitedMask: 0 },
   { ...ready, answers: ready.answers.slice(0, 11) },
   { ...ready, unknown: true }
 ];
@@ -170,11 +225,12 @@ badStates.push(
   },
   {
     ...laterFirstPass,
-    visitedMask: laterFirstPass.visitedMask | (1 << Tasks.taskIndexById("decelerating-xt"))
+    taskIndex: Tasks.taskIndexById("decelerating-vt"),
+    visitedMask: laterFirstPass.visitedMask | (1 << Tasks.taskIndexById("decelerating-vt"))
   },
   {
     ...laterFirstPass,
-    visitedMask: laterFirstPass.visitedMask & ~(1 << Tasks.taskIndexById("uniform-vt"))
+    visitedMask: laterFirstPass.visitedMask & ~(1 << Tasks.taskIndexById("accelerating-xt"))
   },
   ...[-1, 1.5, Tasks.TASKS.length, NaN, Infinity].map((taskIndex) => ({ ...first, taskIndex })),
   ...[-1, 1.5, Persistence.FULL_VISITED_MASK + 1, NaN, Infinity].map((visitedMask) => ({ ...first, visitedMask }))
@@ -190,10 +246,13 @@ assert.equal(Persistence.decodeReview({ ...review, score: 97 }), null);
 assert.equal(Persistence.openReviewEdit(first, 0), null);
 assert.equal(Persistence.nextTask(practice), null);
 assert.equal(Persistence.switchTask(first, Tasks.taskIndexById("accelerating-xt")), null,
-  "first pass cannot jump to a future scenario");
+  "three-graph buttons remain scoped to the active scenario");
 
 let reviewSwitch = Persistence.openReviewEdit(ready, Tasks.taskIndexById("accelerating-vt"));
 reviewSwitch = Persistence.switchTask(reviewSwitch, Tasks.taskIndexById("accelerating-xt"));
 assert.equal(reviewSwitch.taskIndex, Tasks.taskIndexById("accelerating-xt"), "review edit may switch within the scenario");
+reviewSwitch = Persistence.switchScenario(reviewSwitch, "composite");
+assert.equal(reviewSwitch.taskIndex, Tasks.taskIndexById("composite-xt"),
+  "review edit quick navigation may enter any scenario");
 
 console.log("Qualitative kinematics persistence tests passed");

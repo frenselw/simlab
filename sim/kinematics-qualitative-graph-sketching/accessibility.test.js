@@ -22,6 +22,8 @@ assert.ok((html.match(/class="minor-grid"/g) || []).length >= 8);
 assert.doesNotMatch(html, /role="tablist" aria-label="同一情境的三種運動圖"/);
 assert.match(html, /id="stageRegion"[^>]*class="stage-region"/);
 assert.match(html, /id="controlsPanel"[^>]*class="controls-panel"/);
+assert.match(html, /id="progress"[^>]*aria-label="關卡快速導覽"/);
+assert.equal((html.match(/data-progress="(?:practice|uniform|accelerating|decelerating|composite|review)"[^>]*><button type="button">/g) || []).length, 6);
 assert.match(html, /id="resultTabs"[^>]*aria-label="選擇已提交圖線"/);
 assert.doesNotMatch(html, /id="resultTabs"[^>]*role="tablist"/);
 assert.match(html, /id="reviewWarning"[^>]*role="status"/);
@@ -79,6 +81,8 @@ assert.doesNotMatch(main, /addEventListener\("pagehide"/);
 assert.match(main, /activeTool = "pen";/);
 assert.doesNotMatch(main, /window\.parent\.postMessage|window\.parent\.scrollBy|simlab-host-scroll/);
 assert.match(main, /aria-pressed/);
+assert.match(main, /Persistence\.switchScenario/);
+assert.match(main, /aria-current/);
 assert.match(main, /evidenceIncompleteTaskIds[\s\S]{0,180}window\.confirm/);
 const clearHandler = main.slice(
   main.indexOf('document.addEventListener("click"'),
@@ -87,7 +91,10 @@ const clearHandler = main.slice(
 assert.doesNotMatch(clearHandler, /window\.confirm/);
 assert.match(main, /function formatPhysicsNotation/);
 assert.doesNotMatch(main, /\(\?<!/);
-assert.match(main, /task\.scenarioId === "composite"[\s\S]{0,180}task\.graphType === "xt"/);
+assert.match(main, /COMPOSITE_REQUIREMENTS\[task\.graphType\]/);
+assert.match(main, /A 先較平後較斜[\s\S]{0,100}A、C 用兩段不同斜度的線近似即可/);
+assert.match(main, /A 從零向上斜[\s\S]{0,80}D 沿零軸/);
+assert.match(main, /A 在零軸上方水平[\s\S]{0,80}C 在零軸下方水平/);
 assert.match(main, /tabIndex = locked \? -1 : 0/);
 assert.match(main, /只讀/);
 assert.match(main, /原始圖線|setPhysicsText|formatPhysicsNotation/);

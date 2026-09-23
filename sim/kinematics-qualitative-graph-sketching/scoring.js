@@ -45,8 +45,6 @@
     endFlatZero: 0.28,
     boundaryYJumpFull: 0.08,
     boundaryYJumpZero: 0.22,
-    boundarySlopeJumpFull: 0.20,
-    boundarySlopeJumpZero: 0.55,
     classificationAmbiguity: 0.10,
     rawGrossMaxLengthRatio: 20,
     rawGrossMaxOscillations: 24,
@@ -58,8 +56,9 @@
     rawEvidenceMaxGapFraction: 0.25,
     evidenceMinReadability: 0.55,
     evidenceMinEdgeCoverage: 0.65,
-    phaseSlopeDeltaZero: 0.05,
-    phaseSlopeDeltaFull: 0.14
+    phaseSlopeDeltaZero: 0.015,
+    phaseSlopeDeltaFull: 0.08,
+    compositeXtCurveMastery: 0.20
   });
 
   const CATEGORY_MAX = Object.freeze({ xt: 36, vt: 32, at: 32 });
@@ -233,8 +232,12 @@
     return fullThenFade(metrics?.yJump, TOLERANCE.boundaryYJumpFull, TOLERANCE.boundaryYJumpZero);
   }
 
-  function boundarySlope(metrics) {
-    return fullThenFade(metrics?.slopeJump, TOLERANCE.boundarySlopeJumpFull, TOLERANCE.boundarySlopeJumpZero);
+  function compositeXtCurveQuality(metrics, direction) {
+    const curve = direction > 0 ? slopeIncrease(metrics) : slopeDecrease(metrics);
+    const endpoint = direction > 0 ? startFlat(metrics) : endFlat(metrics);
+    // Keep non-reversal as a hard guard, but let a slightly imperfect curve
+    // retain partial credit instead of losing the whole phase component.
+    return noNegativeSlope(metrics) * (0.65 * curve + 0.35 * endpoint);
   }
 
   function taskTrace(answer) {
@@ -330,13 +333,12 @@
       raw += add(components, "各段覆蓋及次序", 3, reads.reduce((sum, value) => sum + value, 0) / 4);
     } else if (task.rubric === "composite-xt") {
       raw += add(components, "起始位置", 1, pr(0, startAnchor(a)));
-      raw += add(components, "A 由靜止愈來愈斜", 3, pr(0, Math.min(startFlat(a), slopeIncrease(a), noNegativeSlope(a))));
+      raw += add(components, "A 由靜止愈來愈斜", 3, pr(0, compositeXtCurveQuality(a, 1)));
       raw += add(components, "B 固定正斜率", 2, pr(1, Math.min(monotonicUp(b), straightness(b), noNegativeSlope(b))));
-      raw += add(components, "C 愈來愈平至停止", 3, pr(2, Math.min(slopeDecrease(c), endFlat(c), noNegativeSlope(c))));
+      raw += add(components, "C 愈來愈平至停止", 3, pr(2, compositeXtCurveQuality(c, -1)));
       raw += add(components, "D 位置不變", 1, pr(3, horizontal(d)));
       metrics.boundaries.forEach((boundary, index) => {
-        raw += add(components, `邊界 ${index + 1} 位置連續`, 0.5, boundaryY(boundary));
-        raw += add(components, `邊界 ${index + 1} 斜率連續`, 0.5, boundarySlope(boundary));
+        raw += add(components, `邊界 ${index + 1} 位置連續`, 1, boundaryY(boundary));
       });
     }
     const overall = fadeUp(metrics.coverage, 0.60, TOLERANCE.minCompositeCoverage);
@@ -396,14 +398,12 @@
       if (regionScore(c.region.negative) < 0.55 || horizontal(c) < 0.55) messages.push("C 階段應是負值水平的 a–t 圖。");
       if (zeroAxisScore(d) < 0.55) messages.push("D 階段靜止，加速度應在零軸。");
     } else {
-      if (slopeIncrease(a) < 0.55 || startFlat(a) < 0.55) messages.push("A 階段的 x–t 圖應由近乎水平開始，之後愈來愈斜。");
+      if (slopeIncrease(a) < TOLERANCE.compositeXtCurveMastery || startFlat(a) < 0.55) messages.push("A 階段的 x–t 圖應由近乎水平開始，之後愈來愈斜。");
       if (straightness(b) < 0.55 || monotonicUp(b) < 0.65) messages.push("B 階段的 x–t 圖應接成固定正斜率的直線。");
-      if (slopeDecrease(c) < 0.55 || endFlat(c) < 0.55) messages.push("C 階段的 x–t 圖應繼續上升，但愈來愈平至停止。");
+      if (slopeDecrease(c) < TOLERANCE.compositeXtCurveMastery || endFlat(c) < 0.55) messages.push("C 階段的 x–t 圖應繼續上升，但愈來愈平至停止。");
       if (horizontal(d) < 0.55) messages.push("D 階段位置不變，x–t 圖應保持水平。");
       const badY = metrics.boundaries.some((boundary) => boundaryY(boundary) < 0.55);
-      const badSlope = metrics.boundaries.some((boundary) => boundarySlope(boundary) < 0.35);
       if (badY) messages.push("階段邊界的位置不應突然跳變。");
-      else if (badSlope) messages.push("x–t 圖在階段邊界的斜率應大致接得上。");
     }
     if (!messages.length && scored.score >= task.points * 0.8) messages.push("圖線已清楚表達這段運動的主要特徵。");
     return messages.slice(0, 2);
@@ -554,8 +554,8 @@
       {
         code: "composite-xt-curves", label: "綜合 x–t 圖需要同時表達 A 加速及 C 減速形狀",
         passed: validMastery("composite-xt", (metrics) =>
-          curveEvidence(metrics.phases?.[0], 1) >= 0.35 &&
-          curveEvidence(metrics.phases?.[2], -1) >= 0.35 &&
+          curveEvidence(metrics.phases?.[0], 1) >= TOLERANCE.compositeXtCurveMastery &&
+          curveEvidence(metrics.phases?.[2], -1) >= TOLERANCE.compositeXtCurveMastery &&
           [0, 1, 2].every((index) => noNegativeSlope(metrics.phases?.[index]) >= 0.55))
       }
     ];
