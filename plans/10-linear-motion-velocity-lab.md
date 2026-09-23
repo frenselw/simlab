@@ -253,23 +253,29 @@ enter an `e` exponent.
 
 ### Numeric scoring tolerance
 
-Once an entry passes the numeric safety check, use the symmetric
-inclusive comparison:
+Once an entry passes the numeric safety check, use a symmetric, inclusive
+comparison. Displacement and elapsed-time answers retain the half-third-place
+rounding tolerance. The two measured-stage average-velocity answers allow 2%
+relative error against the expected answer, or the existing half-third-place
+rounding tolerance when that is larger:
 
 ```text
-|answer - expected| <= halfThirdPlace(expected) + epsilonGuard(expected)
+|answer - expected| <= max(halfThirdPlace(expected), 0.02 × |expected|) + epsilonGuard(expected)
 epsilonGuard(x) = 8 × Number.EPSILON × max(1, |x|)
 ```
 
 `answer` and `expected` use the quantity's displayed unit. An expected exact
-zero accepts only parsed numeric zero. The expected value and tolerance still
-come from the three-significant-figure canonical displayed answer.
+zero accepts only parsed numeric zero. For every other numeric field, including
+the stopped-velocity answer, use the half-third-place tolerance. The expected
+value still comes from the three-significant-figure canonical displayed answer.
 
 Examples:
 
 - expected `6.42` has a half-unit boundary of `0.005`;
 - expected `42.0` has a half-unit boundary of `0.05`;
 - expected `0.500` has a half-unit boundary of `0.0005`.
+- an average-velocity answer expected to be `3.58` accepts values from `3.5084`
+  through `3.6516`, inclusive, before the epsilon guard;
 - for the expected `6.42`, a raw comparator probe of `6.424999` is just inside
   and `6.425001` is just outside before the epsilon guard; among valid
   three-significant-figure learner entries, `6.42` is accepted and `6.43` is
@@ -278,6 +284,7 @@ Examples:
 Easy-to-change constants:
 
 - `SIGNIFICANT_FIGURES = 3`
+- `AVERAGE_VELOCITY_RELATIVE_TOLERANCE = 0.02`
 - `RULER_MAJOR_STEP_M = 10`
 - `RULER_MINOR_STEP_M = 1`
 - `NUMERIC_EPSILON_FACTOR`
@@ -594,6 +601,12 @@ average velocities change and approach `v(t*)`. A symmetric interval inside a
 constant-acceleration segment would equal the midpoint instantaneous velocity
 for every interval and would hide the intended convergence.
 
+New attempts must make the curvature visible: at the midpoint of the longest
+two-second interval, the true position must differ from its endpoint secant by
+at least 6% of that interval's displacement. Reject weaker new candidates
+during generation. Keep existing saved definitions restorable so a change to
+the visual selection rule does not discard an in-progress attempt.
+
 The authoritative duration is the exact declared window (`2`, `1`, `0.5`, or
 `0.25`). Evaluate the model at exact `t* - window` and exact `t*`, canonicalize
 their difference as displayed `Δx`, then derive the displayed average from that
@@ -625,6 +638,9 @@ figures. Distractors use the longest-window value, shortest-window value, and a
 wrong-direction continuation. Generation must reject a set unless the displayed
 trend makes the correct option uniquely defensible and every option differs by
 at least four units in the correct answer's third significant place.
+The separate instantaneous-velocity concept question also shuffles its four
+choices from the attempt seed. Both question orders stay fixed while that
+attempt is edited or restored.
 
 After a trusted final submission, reveal:
 
@@ -707,6 +723,8 @@ convention.
 - Provide visible previous/next controls on every activity stage. The learner
   may move forward or backward at any time without first confirming the current
   answer, including moving directly to an incomplete review.
+- Make all four header progress controls direct navigation buttons. A learner
+  may open any stage or review immediately, including before starting stage one.
 - Preserve partial field strings and choices whenever the learner changes stage
   or reloads an editable draft. Returning to a stage restores that work.
 - Display the learner's recorded readings and answers, but not correctness.
@@ -715,8 +733,10 @@ convention.
   numeric answers and requires re-entry.
 - Changing the variable-motion measurement does not regenerate the variable
   profile or stage-three target.
-- Do not allow final submission while any required answer is missing or fails
-  numeric safety validation.
+- Allow final submission from incomplete review, even when no stage has been
+  attempted. State clearly that only confirmed stage answers earn points;
+  unconfirmed and skipped stages earn zero. Invalid numeric strings still block
+  confirmation of that stage and are never treated as confirmed answers.
 - Final submission scores only the final recorded state.
 - Review edits return directly to review after a successful atomic save. Focus
   moves to the new stage heading, review heading, or focused save-error alert.
@@ -801,7 +821,8 @@ Passing threshold: `60`.
 Scoring rules:
 
 - Each component earns full assigned points or zero.
-- Missing answers cannot be submitted.
+- An entirely blank attempt may be submitted and scores zero. Each unconfirmed
+  or skipped stage scores zero; confirmed stages retain their component scores.
 - Learners do not have to enter or pad three significant digits. Any bounded,
   format-valid numeric string described by the learner-input rules can be
   confirmed; numerically equivalent forms receive the same score.
@@ -825,8 +846,11 @@ Before final submission, do not reveal correctness.
 
 After submission, show stage-by-stage feedback containing:
 
-- the captured three-significant-figure readings;
-- the learner's answer and the expected three-significant-figure answer;
+- an explicit zero-point, unattempted message for each unconfirmed stage;
+
+- the captured three-significant-figure readings for confirmed measured stages;
+- the learner's answer and the expected three-significant-figure answer for
+  confirmed stages;
 - the worked calculation `位移大小 = 終點位置 − 起點位置`;
 - the worked calculation `平均速度大小 = 位移大小 ÷ 經過時間`;
 - a statement that uniform motion has constant instantaneous velocity;
@@ -887,7 +911,7 @@ remain immediately durable and are not buffered.
 | `variable` | `answered` | 1 | valid captured measurement and stage-two answers | result metadata | revise, navigate, or confirm and open instant |
 | `instant` | `exploring` | 2 | valid target; completed-window prefix `0..4`; any independent prior-stage work | confirmed instant answer | view/revisit windows, answer when enabled, or navigate away |
 | `instant` | `answered` | 2 | all four windows viewed; prediction; concept answer; stopped answer | final result metadata | atomically save and open review |
-| `review` | `incomplete` | 3 | valid attempt plus any combination of partial/confirmed stage work | final result metadata | return to any stage; final submit remains disabled |
+| `review` | `incomplete` | 3 | valid attempt plus any combination of partial/confirmed stage work, including a blank attempt | final result metadata | return to any stage or submit confirmed work, scoring skipped stages zero |
 | `review` | `complete` | 3 | all authoritative attempt data and answers complete | score/result metadata before submit | edit or final submit |
 | `uniform` | `review-edit-ready` | 0 | `returnToReview = true`; same definition; any independent other-stage work | current uniform measurement and answer | start observation or navigate elsewhere |
 | `uniform` | `review-edit-paused-measuring` | 0 | `returnToReview = true`; uniform `x1`, elapsed/model time | uniform `x2` and confirmed current-stage answer | resume, discard, or navigate elsewhere |
@@ -899,15 +923,18 @@ remain immediately durable and are not buffered.
 | `variable` | `review-edit-answered` | 1 | `returnToReview = true`; confirmed variable answer | result metadata | revise, remeasure, navigate, or return to review |
 | `instant` | `review-edit-exploring` | 2 | `returnToReview = true`; valid target and reveal prefix | confirmed instant answer | explore, answer, navigate, or return to incomplete review |
 | `instant` | `review-edit-answered` | 2 | all windows viewed; `returnToReview = true`; confirmed instant answer | result metadata | revise, navigate, or return to review |
-| `submitted` | `locked` | 3 | valid review snapshot sufficient to rescore and redraw | editable controls | inspect locked feedback only |
+| `submitted` | `locked` | 3 | valid review snapshot with nullable captured measurements and confirmed stage answers, sufficient to rescore and redraw | editable controls | inspect locked feedback only |
 
 Transitions:
 
 ```text
 any editable activity phase -> any other activity phase on explicit navigation,
   preserving measurements, confirmed answers, and partial draftAnswers
+any editable activity phase -> review/incomplete or review/complete through the
+  header check button, according to confirmed stage answers
 any incomplete activity state -> review/incomplete on explicit navigation to review
 review/incomplete -> any review-edit stage when the learner selects that stage
+review/incomplete -> submitted/locked after a successful or committed final payload
 uniform/ready -> uniform/paused-measuring when a running measurement is persisted
 uniform/ready|paused-measuring -> uniform/captured when a valid endpoint is captured
 uniform/captured -> uniform/answered when all stage-one answers are confirmed
@@ -1005,15 +1032,21 @@ semantics:
   v: 6,
   locked: 1,
   definition,
-  uniformMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
-  variableMeasurement: { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
+  uniformMeasurement: null | { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
+  variableMeasurement: null | { startModelTime, endModelTime, readingOrigin, x1, x2, dt },
   answers: {
-    uniform: { displacement, time, averageVelocity, relationship },
-    variable: { displacement, time, averageVelocity, relationship },
-    instant: { predictionChoice, concept, stoppedVelocity }
+    uniform: null | { displacement, time, averageVelocity, relationship },
+    variable: null | { displacement, time, averageVelocity, relationship },
+    instant: null | { predictionChoice, concept, stoppedVelocity }
   }
 }
 ```
+
+Only captured measurements are included in the finished review; discard an
+unfinished active measurement. A confirmed measured-stage answer requires its
+matching captured measurement. Omit partial draft field strings from the
+finished review. Rebuild the locked state with blank draft fields for skipped
+stages and the saved strings for confirmed stages.
 
 Store confirmed trimmed learner numeric strings as authoritative answers so
 locked review reproduces what was entered. Reparse them with the same bounded
@@ -1034,9 +1067,9 @@ validate definition and answers
 
 - concrete motion parameters and target definition;
 - model start/end times, locked `readingOrigin`, and captured canonical `x1`,
-  `x2`, and `dt` for both
-  measured stages; model times are required to validate the capture against the
-  saved motion definition and prove minimum-duration coverage;
+  `x2`, and `dt` for each measured stage with a completed capture; model times
+  validate each capture against the saved motion definition and prove
+  minimum-duration coverage;
 - confirmed learner answer strings and conceptual choice IDs, plus bounded
   partial `draftAnswers` strings/choice IDs required to restore unconfirmed form
   work after arbitrary stage navigation;
@@ -1101,7 +1134,9 @@ validate definition and answers
   review itself must not carry the flag.
 - `viewedWindowCount` is an integer from 0 to 4 and a prediction choice cannot
   exist before all four windows are viewed.
-- Submitted review contains every answer and no editable-only transient state.
+- Submitted review retains nullable confirmed stage answers and captured
+  measurements, with no editable-only transient state. Every confirmed measured
+  answer requires its corresponding captured measurement.
 - Representative maximum draft and review snapshots remain below 4000 UTF-8
   bytes.
 
@@ -1178,6 +1213,9 @@ Add every new test file to `tools/run-tests.js`.
   `1e-324`, over-limit values, and overlong strings; accepting true zero
   exponent forms such as `0e-999`;
 - half-third-significant-place tolerance just inside and just outside;
+- 2% relative tolerance for both measured-stage average-velocity answers,
+  including inclusive boundaries; other non-zero numeric answers retain the
+  half-third-place tolerance;
 - exact-zero scoring accepts parsed zero and rejects the smallest non-zero valid
   three-significant-figure entry;
 - scored expected values derived from displayed canonical captures rather than
@@ -1216,6 +1254,8 @@ Add every new test file to `tools/run-tests.js`.
   `v(t*)` strictly in the correct direction, and retain at least three distinct
   displayed values across a large deterministic seed sweep;
 - the full longest window and boundary margins lie inside one linear ramp;
+- newly generated targets show at least 6% midpoint separation between the
+  model curve and the longest-window secant;
 - generated instantaneous options are unique, sufficiently separated, saved in
   stable order, and have exactly one defensible correct ID;
 - stopped checkpoint derives exact zero.
@@ -1244,6 +1284,8 @@ Add every new test file to `tools/run-tests.js`.
 - changed measurement invalidates stale numeric answers;
 - remeasure/replay/pause metadata does not affect score;
 - score clamped to `0..100`.
+- both stage-three choice lists vary across generated attempts and retain their
+  order within one attempt after reload or review edit.
 
 ### Persistence tests
 

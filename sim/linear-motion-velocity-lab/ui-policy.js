@@ -8,6 +8,7 @@
   "use strict";
 
   const graphCache = new WeakMap();
+  const CONCEPT_CHOICES = ["limit", "journey-average", "zero-division", "largest-one-second"];
 
   function canRevealSolution({ locked, trustedReview, result }) {
     return locked === true && trustedReview === true && result != null;
@@ -76,9 +77,19 @@
     });
   }
 
+  function conceptOrder(seed) {
+    const order = CONCEPT_CHOICES.slice();
+    const random = Model.mulberry32((seed ^ 0x9e3779b9) >>> 0);
+    for (let index = order.length - 1; index > 0; index -= 1) {
+      const other = Math.floor(random() * (index + 1));
+      [order[index], order[other]] = [order[other], order[index]];
+    }
+    return order;
+  }
+
   function isLegacySnapshot(answer, currentVersion) {
     return Number.isInteger(answer?.v) && answer.v < currentVersion;
   }
 
-  return { canRevealSolution, reviewOutcome, stageReadingOrigin, displayedPosition, analysisRows, graphAnalysis, appendPredictionOptions, isLegacySnapshot };
+  return { canRevealSolution, reviewOutcome, stageReadingOrigin, displayedPosition, analysisRows, graphAnalysis, appendPredictionOptions, conceptOrder, isLegacySnapshot };
 });

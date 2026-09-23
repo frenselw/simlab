@@ -11,6 +11,7 @@
     variable: { displacement: 10, time: 5, averageVelocity: 10, relationship: 10 },
     instant: { predictionChoice: 20, concept: 10, stoppedVelocity: 5 }
   };
+  const AVERAGE_VELOCITY_RELATIVE_TOLERANCE = 0.02;
   const RELATIONSHIPS = ["yes", "no"];
   const CONCEPTS = ["limit", "journey-average", "zero-division", "largest-one-second"];
 
@@ -26,35 +27,48 @@
       RELATIONSHIPS.includes(answers.variable.relationship) && CONCEPTS.includes(answers.instant.concept) &&
       typeof answers.instant.predictionChoice === "string";
   }
-  function component(answerText, expected, weight) {
+  function submittedAnswers(definition, answers) {
+    if (!answers || Object.keys(answers).length !== 3 || !["uniform", "variable", "instant"].every((key) => key in answers)) return false;
+    for (const type of ["uniform", "variable"]) {
+      const answer = answers[type];
+      if (answer == null) continue;
+      if (Object.keys(answer).length !== 4 || !["displacement", "time", "averageVelocity"].every((key) => validNumericAnswer(answer[key])) || !RELATIONSHIPS.includes(answer.relationship)) return false;
+    }
+    const instant = answers.instant;
+    return instant == null || (Object.keys(instant).length === 3 &&
+      validNumericAnswer(instant.stoppedVelocity) && CONCEPTS.includes(instant.concept) &&
+      definition.instantOptions.some((option) => option.id === instant.predictionChoice));
+  }
+  function component(answerText, expected, weight, relativeTolerance = 0) {
     const parsed = Model.normalizeInput(answerText);
-    const correct = Boolean(parsed && Model.numericMatch(parsed.value, expected));
+    const correct = Boolean(parsed && Model.numericMatch(parsed.value, expected, relativeTolerance));
     return { correct, points: correct ? weight : 0, answer: parsed?.text || String(answerText ?? ""), expected: Model.formatInput3(expected) };
   }
   function scoreAttempt(definition, uniformMeasurement, variableMeasurement, answers) {
-    if (!Model.validateDefinition(definition) || !uniformMeasurement || !variableMeasurement || !completeAnswers(answers)) throw new Error("Incomplete or invalid answer state");
-    const uniformExpected = Model.expectedFromMeasurement(uniformMeasurement);
-    const variableExpected = Model.expectedFromMeasurement(variableMeasurement);
+    if (!Model.validateDefinition(definition) || !submittedAnswers(definition, answers) ||
+        (answers.uniform && uniformMeasurement?.x2 == null) || (answers.variable && variableMeasurement?.x2 == null)) throw new Error("Invalid answer state");
+    const uniformExpected = answers.uniform ? Model.expectedFromMeasurement(uniformMeasurement) : null;
+    const variableExpected = answers.variable ? Model.expectedFromMeasurement(variableMeasurement) : null;
     const detail = {
-      uniform: {
+      uniform: answers.uniform ? {
         displacement: component(answers.uniform.displacement, uniformExpected.displacement, WEIGHTS.uniform.displacement),
         time: component(answers.uniform.time, uniformExpected.time, WEIGHTS.uniform.time),
-        averageVelocity: component(answers.uniform.averageVelocity, uniformExpected.averageVelocity, WEIGHTS.uniform.averageVelocity),
+        averageVelocity: component(answers.uniform.averageVelocity, uniformExpected.averageVelocity, WEIGHTS.uniform.averageVelocity, AVERAGE_VELOCITY_RELATIVE_TOLERANCE),
         relationship: choice(answers.uniform.relationship, "yes", WEIGHTS.uniform.relationship)
-      },
-      variable: {
+      } : null,
+      variable: answers.variable ? {
         displacement: component(answers.variable.displacement, variableExpected.displacement, WEIGHTS.variable.displacement),
         time: component(answers.variable.time, variableExpected.time, WEIGHTS.variable.time),
-        averageVelocity: component(answers.variable.averageVelocity, variableExpected.averageVelocity, WEIGHTS.variable.averageVelocity),
+        averageVelocity: component(answers.variable.averageVelocity, variableExpected.averageVelocity, WEIGHTS.variable.averageVelocity, AVERAGE_VELOCITY_RELATIVE_TOLERANCE),
         relationship: choice(answers.variable.relationship, "no", WEIGHTS.variable.relationship)
-      },
-      instant: {
+      } : null,
+      instant: answers.instant ? {
         predictionChoice: choice(answers.instant.predictionChoice, correctOption(definition).id, WEIGHTS.instant.predictionChoice),
         concept: choice(answers.instant.concept, "limit", WEIGHTS.instant.concept),
         stoppedVelocity: component(answers.instant.stoppedVelocity, 0, WEIGHTS.instant.stoppedVelocity)
-      }
+      } : null
     };
-    const score = Math.max(0, Math.min(100, Object.values(detail).flatMap(Object.values).reduce((sum, item) => sum + item.points, 0)));
+    const score = Math.max(0, Math.min(100, Object.values(detail).filter(Boolean).flatMap(Object.values).reduce((sum, item) => sum + item.points, 0)));
     return {
       score,
       maxScore: 100,
@@ -71,12 +85,12 @@
   }
   function correctOption(definition) { return definition.instantOptions.find((option) => option.correct === 1); }
   function feedback(definition, uniformMeasurement, variableMeasurement, answers, detail) {
-    const uniform = Model.expectedFromMeasurement(uniformMeasurement);
-    const variable = Model.expectedFromMeasurement(variableMeasurement);
+    const uniform = detail.uniform ? Model.expectedFromMeasurement(uniformMeasurement) : null;
+    const variable = detail.variable ? Model.expectedFromMeasurement(variableMeasurement) : null;
     const windows = Model.analysisWindows(definition);
     const exact = correctOption(definition).value;
     return [
-      {
+      detail.uniform ? {
         title: "第 1 關：勻速運動",
         correct: Object.values(detail.uniform).every((item) => item.correct),
         text: [
@@ -87,8 +101,8 @@
           "理想勻速模型在每一時刻都有相同瞬時速度；末位差異可來自三位有效數字讀數。"
         ].join("\n"),
         formula: { kind: "average", x1: uniformMeasurement.x1, x2: uniformMeasurement.x2, displacement: uniform.displacement, time: uniform.time, averageVelocity: uniform.averageVelocity }
-      },
-      {
+      } : unansweredFeedback("第 1 關：勻速運動"),
+      detail.variable ? {
         title: "第 2 關：變速運動",
         correct: Object.values(detail.variable).every((item) => item.correct),
         text: [
@@ -99,8 +113,8 @@
           "變速時不會在每一時刻都等於整段平均值，但某一刻可以巧合相等。"
         ].join("\n"),
         formula: { kind: "average", x1: variableMeasurement.x1, x2: variableMeasurement.x2, displacement: variable.displacement, time: variable.time, averageVelocity: variable.averageVelocity }
-      },
-      {
+      } : unansweredFeedback("第 2 關：變速運動"),
+      detail.instant ? {
         title: "第 3 關：時間放大鏡",
         correct: Object.values(detail.instant).every((item) => item.correct),
         text: [
@@ -110,8 +124,11 @@
           "時間區間逐步縮短時，區間平均速度會趨近目標瞬時速度；車輛停定、位置保持不變時，瞬時速度是 0.00 m/s。"
         ].join("\n"),
         formula: { kind: "limit", windows: windows.map((row) => ({ duration: row.duration, averageVelocity: row.averageVelocity })), exact }
-      }
+      } : unansweredFeedback("第 3 關：時間放大鏡")
     ];
+  }
+  function unansweredFeedback(title) {
+    return { title, correct: false, text: "未確認答案，本關 0 分。", formula: null };
   }
   function numericFeedback(name, item, unit) {
     return `${item.correct ? "✓" : "✗"} ${name}：你的答案 ${quantity(Model.normalizeInput(item.answer)?.value, unit)}；正確答案 ${quantity(Model.normalizeInput(item.expected)?.value, unit)}；${item.points} 分。`;
@@ -121,5 +138,5 @@
     return `${item.correct ? "✓" : "✗"} ${name}：你的答案「${labels[item.answer] || item.answer}」；正確答案「${labels[item.expected] || item.expected}」；${item.points} 分。`;
   }
 
-  return { WEIGHTS, RELATIONSHIPS, CONCEPTS, validNumericAnswer, completeAnswers, correctOption, scoreAttempt };
+  return { WEIGHTS, AVERAGE_VELOCITY_RELATIVE_TOLERANCE, RELATIONSHIPS, CONCEPTS, validNumericAnswer, completeAnswers, correctOption, scoreAttempt };
 });

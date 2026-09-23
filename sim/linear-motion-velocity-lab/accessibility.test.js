@@ -84,7 +84,10 @@ assert(main.indexOf("drawMeasurementMarkers(currentMeasurement()") > main.indexO
 assert.match(main, /Persistence\.next\(state, state\.returnToReview \? "return-review" : "advance"\)/, "measurement confirmation transitions without an extra navigation click");
 assert.match(html, /id="previousStageButton"[\s\S]*id="nextStageButton"/, "every activity stage exposes explicit backward and forward navigation");
 assert.match(main, /function navigateTo\(phase,[\s\S]*Persistence\.navigate\(state, phase, returnToReview\)/, "stage navigation persists arbitrary valid phase changes");
-assert.match(main, /function renderReview\(\)[\s\S]*submitButton\.disabled = !complete/, "formal submission remains locked until all three answers are confirmed");
+assert.strictEqual((html.match(/<button type="button" data-progress="[0-3]" disabled>/g) || []).length, 4, "all four progress steps are initially disabled navigation buttons");
+assert.match(main, /progressItems\.forEach\(\(button, index\) => button\.addEventListener\("click", \(\) => navigateTo\(/, "all progress buttons navigate directly");
+assert.match(main, /function renderReview\(\)[\s\S]*submitButton\.disabled = false/, "incomplete review can still be submitted");
+assert.match(main, /aria-current", "step"/, "the active progress button exposes the current step");
 assert.match(main, /function syncMeasurementDraftFromForm[\s\S]*state\.draftAnswers\[state\.phase\] = draft/, "partial measurement answers are retained before navigation");
 assert.match(main, /function syncInstantDraftFromForm[\s\S]*state\.draftAnswers\.instant = draft/, "partial instant-speed answers are retained before navigation");
 assert.match(main, /focusContext\(state\.phase === "review" \? elements\.reviewTitle : elements\.stageTitle\)/, "automatic transitions focus their new context");

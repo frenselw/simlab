@@ -25,7 +25,10 @@
           <p><span id="cameraNote" class="camera-note">鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。</span> <span class="precision-note">讀數顯示至三位有效數字；作答只需輸入數值。</span></p>
         </div>
         <ol class="progress" aria-label="活動進度">
-          <li data-progress="0">1 勻速</li><li data-progress="1">2 變速</li><li data-progress="2">3 放大鏡</li><li data-progress="3">檢查</li>
+          <li><button type="button" data-progress="0" disabled>1 勻速</button></li>
+          <li><button type="button" data-progress="1" disabled>2 變速</button></li>
+          <li><button type="button" data-progress="2" disabled>3 放大鏡</button></li>
+          <li><button type="button" data-progress="3" disabled>檢查</button></li>
         </ol>
       </header>
 
@@ -96,10 +99,12 @@
               <form id="instantForm" class="answer-form is-hidden" novalidate>
                 <fieldset><legend>根據趨勢，目標時刻的瞬時速度最接近哪一項？</legend><div id="optionChoices" class="choice-list"></div></fieldset>
                 <fieldset><legend>瞬時速度的意思是：</legend>
-                  <label><input type="radio" name="concept" value="limit"> 某一時刻附近愈來愈短時間內，平均速度所趨近的值</label>
-                  <label><input type="radio" name="concept" value="journey-average"> 全程總位移除以總時間</label>
-                  <label><input type="radio" name="concept" value="zero-division"> 位移除以正好零秒</label>
-                  <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
+                  <div id="conceptChoices" class="choice-list">
+                    <label><input type="radio" name="concept" value="limit"> 某一時刻附近愈來愈短時間內，平均速度所趨近的值</label>
+                    <label><input type="radio" name="concept" value="journey-average"> 全程總位移除以總時間</label>
+                    <label><input type="radio" name="concept" value="zero-division"> 位移除以正好零秒</label>
+                    <label><input type="radio" name="concept" value="largest-one-second"> 一秒內觀察到的最大速度</label>
+                  </div>
                 </fieldset>
                 <fieldset class="stopped-question">
                   <legend>第 2 關的車有時會短暫停定。當車輛位置在一段時間內保持不變，該段時間的瞬時速度大小是多少？</legend>
@@ -123,7 +128,7 @@
             <p>以下只顯示你記錄的答案，不會預先透露正確與否。</p>
             <p id="submissionNotice" class="submission-notice is-hidden"></p>
             <div id="reviewList" class="review-list"></div>
-            <button id="submitButton" type="button" class="primary-button">提交全部答案</button>
+            <button id="submitButton" type="button" class="primary-button">提交目前答案</button>
             <button id="reviewRetryButton" type="button" class="is-hidden">重試提交目前答案</button>
           </section>
 

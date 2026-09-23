@@ -8,6 +8,7 @@
   const SIGNIFICANT_FIGURES = 3;
   const WINDOWS = [2, 1, 0.5, 0.25];
   const TARGET_BOUNDARY_MARGIN_S = 0.1;
+  const MIN_ANALYSIS_CURVE_FRACTION = 0.06;
   const NUMERIC_EPSILON_FACTOR = 8;
   const MAX_GENERATION_ATTEMPTS = 80;
   const MAX_MODEL_TIME = 1e9;
@@ -89,11 +90,12 @@
     if (!expected) return 0;
     return 0.5 * (10 ** (Math.floor(Math.log10(Math.abs(expected))) - SIGNIFICANT_FIGURES + 1));
   }
-  function numericMatch(answer, expected) {
-    if (!finite(answer) || !finite(expected)) return false;
+  function numericMatch(answer, expected, relativeTolerance = 0) {
+    if (!finite(answer) || !finite(expected) || !finite(relativeTolerance) || relativeTolerance < 0) return false;
     if (expected === 0) return answer === 0;
     const guard = NUMERIC_EPSILON_FACTOR * Number.EPSILON * Math.max(1, Math.abs(expected));
-    return Math.abs(answer - expected) <= halfThirdPlace(expected) + guard;
+    const tolerance = Math.max(halfThirdPlace(expected), Math.abs(expected) * relativeTolerance);
+    return Math.abs(answer - expected) <= tolerance + guard;
   }
   function mulberry32(seed) {
     let value = seed >>> 0;
@@ -229,6 +231,12 @@
       };
     });
   }
+  function hasVisibleAnalysisCurve(definition) {
+    const row = analysisWindowGeometry(definition)[0];
+    const displacement = row.endPosition - row.startPosition;
+    const midpoint = variablePosition(definition.variable, (row.startTime + row.endTime) / 2);
+    return displacement > 0 && Math.abs(midpoint - (row.startPosition + row.endPosition) / 2) >= MIN_ANALYSIS_CURVE_FRACTION * displacement;
+  }
   function buildOptions(definition, random) {
     const rows = analysisWindows(definition);
     const target = canonicalNumber(variableVelocity(definition.variable, targetSceneTime(definition)));
@@ -259,7 +267,7 @@
         stoppedCheckpoint: { segmentIndex: stopSegment.index }, windows: WINDOWS.slice(), instantOptions: []
       };
       definition.instantOptions = buildOptions(definition, random);
-      if (validateDefinition(definition)) return definition;
+      if (validateDefinition(definition) && hasVisibleAnalysisCurve(definition)) return definition;
     }
     throw new Error("未能產生有效的運動題目");
   }
@@ -316,7 +324,7 @@
   }
 
   return {
-    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_FRAME_DELTA, MODEL_TIME_TOLERANCE, MODEL_TIME_CONTINUATION_RESERVE, MAX_RENDER_POSITION, MIN_NORMAL, MAX_INPUT_LENGTH, MAX_LEARNER_INPUT_VALUE, STREAM_VERSION, CHUNK_DURATION, CHUNK_DISTANCE, SEGMENT_COUNT,
+    SIGNIFICANT_FIGURES, WINDOWS, TARGET_BOUNDARY_MARGIN_S, MIN_ANALYSIS_CURVE_FRACTION, NUMERIC_EPSILON_FACTOR, MAX_MODEL_TIME, MAX_FRAME_DELTA, MODEL_TIME_TOLERANCE, MODEL_TIME_CONTINUATION_RESERVE, MAX_RENDER_POSITION, MIN_NORMAL, MAX_INPUT_LENGTH, MAX_LEARNER_INPUT_VALUE, STREAM_VERSION, CHUNK_DURATION, CHUNK_DISTANCE, SEGMENT_COUNT,
     canonicalNumber, format3, formatInput3, normalizeInput, halfThirdPlace, numericMatch, mulberry32, randomSeed,
     safeModelTime, hasModelTimeHeadroom, minimumDurationReached, safeWorldPosition, rollingReadingOrigin, readingPosition,
     createAttempt, validateDefinition, uniformPosition, uniformVelocity, streamChunk, segmentAt, profileState, variablePosition, variableVelocity, qualitativeState, targetSceneTime, stoppedSceneTime, analysisWindowGeometry, analysisWindows,

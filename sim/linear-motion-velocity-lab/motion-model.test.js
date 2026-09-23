@@ -36,6 +36,10 @@ for (let seed = 0; seed < 100; seed += 1) {
     assert(Math.abs(Model.variablePosition(definition.variable, row.startTime) - row.startPosition) < 1e-10, `seed ${seed} secant start lies on curve`);
     assert(Math.abs(Model.variablePosition(definition.variable, row.endTime) - row.endPosition) < 1e-10, `seed ${seed} secant end lies on curve`);
   });
+  const longest = geometry[0];
+  const midpoint = Model.variablePosition(definition.variable, (longest.startTime + longest.endTime) / 2);
+  const curveFraction = Math.abs(midpoint - (longest.startPosition + longest.endPosition) / 2) / (longest.endPosition - longest.startPosition);
+  assert(curveFraction >= 0.06 - 1e-10, `seed ${seed} has visible curvature beside the longest secant`);
   assert(new Set(rows.map((row) => row.averageVelocity)).size >= 3);
   const exact = Model.variableVelocity(definition.variable, target);
   const acceleration = Model.profileState(definition.variable, target).acceleration;

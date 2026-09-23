@@ -69,6 +69,15 @@ assert(renderedInputs.every((input) => input.tagName === "input" && input.type =
 UiPolicy.appendPredictionOptions(container, definition.instantOptions, fakeDocument);
 assert.strictEqual(container.children.length, 4, "production option rendering is idempotent");
 
+const conceptOrders = new Set();
+for (let seed = 0; seed < 64; seed += 1) {
+  const order = UiPolicy.conceptOrder(seed);
+  assert.deepStrictEqual(order, UiPolicy.conceptOrder(seed), "one attempt keeps its concept option order");
+  assert.deepStrictEqual(order.slice().sort(), ["limit", "journey-average", "zero-division", "largest-one-second"].sort());
+  conceptOrders.add(order.join(","));
+}
+assert(conceptOrders.size >= 12, "concept answer positions vary across attempts");
+
 const hostile = JSON.parse(JSON.stringify(definition));
 hostile.instantOptions[0].id = 'x\"><img src=x onerror=alert(1)>';
 assert.strictEqual(Model.validateDefinition(hostile), false, "restored hostile option IDs are rejected before rendering");

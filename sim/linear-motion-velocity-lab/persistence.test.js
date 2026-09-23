@@ -104,7 +104,51 @@ assert(Persistence.validateReview(reviewAnswer));
 const v5Review = clone(reviewAnswer); v5Review.v = 5;
 assert.strictEqual(Persistence.decodeReview(v5Review), null, "v5 submitted review is rejected rather than trusted under v6 invariants");
 const restoredReview = Persistence.fromReview(Persistence.decodeReview(reviewAnswer));
+assert(Persistence.validateDraft(restoredReview), "complete finished review restores to a valid locked state");
 assert.strictEqual(Scoring.scoreAttempt(restoredReview.definition, restoredReview.uniformMeasurement, restoredReview.variableMeasurement, restoredReview.answers).score, 100);
+
+const submittedScore = (source) => {
+  const saved = Persistence.makeReview(source);
+  const decoded = Persistence.decodeReview(clone(saved));
+  const restored = Persistence.fromReview(decoded);
+  assert(decoded && restored && Persistence.validateDraft(restored), "partial finished review round-trips");
+  const before = Scoring.scoreAttempt(saved.definition, saved.uniformMeasurement, saved.variableMeasurement, saved.answers);
+  const after = Scoring.scoreAttempt(restored.definition, restored.uniformMeasurement, restored.variableMeasurement, restored.answers);
+  assert.strictEqual(after.score, before.score, "restored partial review rescored identically");
+  assert.strictEqual(after.passed, before.passed);
+  return { saved, restored, score: after.score };
+};
+const blankSubmission = submittedScore(incompleteReview);
+assert.strictEqual(blankSubmission.score, 0);
+assert.strictEqual(blankSubmission.restored.variant, "incomplete");
+assert.deepStrictEqual(blankSubmission.saved.answers, { uniform: null, variable: null, instant: null });
+assert.strictEqual(blankSubmission.saved.uniformMeasurement, null);
+assert.strictEqual(blankSubmission.saved.variableMeasurement, null);
+
+const capturedUnanswered = submittedScore(Persistence.navigate(statesByKey.get("uniform/captured"), "review"));
+assert.strictEqual(capturedUnanswered.score, 0);
+assert(capturedUnanswered.saved.uniformMeasurement, "an unanswered captured reading is retained");
+assert.strictEqual(capturedUnanswered.saved.answers.uniform, null);
+const activeUnanswered = submittedScore(Persistence.navigate(statesByKey.get("uniform/paused-measuring"), "review"));
+assert.strictEqual(activeUnanswered.saved.uniformMeasurement, null, "unfinished active readings are omitted from final review");
+assert.strictEqual(activeUnanswered.score, 0);
+
+const oneConfirmed = submittedScore(Persistence.navigate(statesByKey.get("uniform/answered"), "review"));
+assert.strictEqual(oneConfirmed.score, 30);
+assert(oneConfirmed.saved.uniformMeasurement && oneConfirmed.saved.answers.uniform);
+assert.strictEqual(oneConfirmed.saved.variableMeasurement, null);
+assert.deepStrictEqual(oneConfirmed.restored.draftAnswers.variable, { displacement: "", time: "", averageVelocity: "", relationship: "" });
+
+const instantOnly = Persistence.navigate(Persistence.initialState(definition), "instant");
+instantOnly.viewedWindowCount = 4;
+instantOnly.answers.instant = { predictionChoice: Scoring.correctOption(definition).id, concept: "limit", stoppedVelocity: "0" };
+instantOnly.draftAnswers.instant = clone(instantOnly.answers.instant);
+instantOnly.variant = "answered";
+assert(Persistence.validateDraft(instantOnly));
+const instantSubmission = submittedScore(Persistence.navigate(instantOnly, "review"));
+assert.strictEqual(instantSubmission.score, 35);
+assert.strictEqual(instantSubmission.restored.viewedWindowCount, 4);
+
 assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "draft", answer: Persistence.encode(completeReview) })) < 4000, "draft envelope stays compact");
 assert(Buffer.byteLength(JSON.stringify({ version: 1, activity: "linear-motion-velocity-lab", kind: "review", answer: reviewAnswer, score: 100, passed: true })) < 4000, "review envelope stays compact");
 
@@ -136,6 +180,7 @@ invalid((value) => { value.answers.uniform.time = "5 m"; });
 invalid((value) => { value.answers.variable.averageVelocity = "-1"; });
 invalid((value) => { value.answers.variable.averageVelocity = "1e308"; });
 invalid((value) => { value.answers.instant.stoppedVelocity = "1e-324"; });
+invalid((value) => { value.answers.extra = null; });
 invalid((value) => { value.draftAnswers.uniform.time = "different"; });
 invalid((value) => { value.draftAnswers.variable.relationship = "maybe"; });
 invalid((value) => { value.draftAnswers.instant.concept = "unknown"; });
@@ -166,6 +211,14 @@ const badReviewVersion = clone(reviewAnswer); badReviewVersion.v = 4;
 assert.strictEqual(Persistence.decodeReview(badReviewVersion), null);
 const badReviewShape = clone(reviewAnswer); badReviewShape.uniformMeasurement.currentOrEndModelTime = badReviewShape.uniformMeasurement.endModelTime;
 assert.strictEqual(Persistence.decodeReview(badReviewShape), null);
+const answerWithoutMeasurement = clone(oneConfirmed.saved); answerWithoutMeasurement.uniformMeasurement = null;
+assert.strictEqual(Persistence.decodeReview(answerWithoutMeasurement), null);
+const malformedPartialAnswer = clone(blankSubmission.saved); malformedPartialAnswer.answers.instant = { predictionChoice: "missing", concept: "limit", stoppedVelocity: "0" };
+assert.strictEqual(Persistence.decodeReview(malformedPartialAnswer), null);
+const activeFinalMeasurement = clone(blankSubmission.saved); activeFinalMeasurement.uniformMeasurement = clone(statesByKey.get("uniform/paused-measuring").uniformMeasurement);
+assert.strictEqual(Persistence.decodeReview(activeFinalMeasurement), null);
+const extraFinalAnswer = clone(blankSubmission.saved); extraFinalAnswer.answers.extra = null;
+assert.strictEqual(Persistence.decodeReview(extraFinalAnswer), null);
 
 assert.deepStrictEqual(Persistence.startupView("editable"), { editable: true, locked: false, mode: "activity" });
 assert.strictEqual(Persistence.startupView("review").mode, "review");

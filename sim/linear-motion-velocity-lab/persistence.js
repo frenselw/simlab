@@ -50,6 +50,7 @@
   }
   function decode(value) { return validateDraft(value) ? clone(value) : null; }
   function makeReview(source) {
+    if (!validateDraft(source)) throw new Error("Invalid draft state");
     const review = {
       v: VERSION, locked: 1, definition: clone(source.definition),
       uniformMeasurement: reviewMeasurement(source.uniformMeasurement),
@@ -61,7 +62,7 @@
   }
   function decodeReview(value) { return validateReview(value) ? clone(value) : null; }
   function reviewMeasurement(measurement) {
-    if (!measurement) return null;
+    if (measurement?.x2 == null) return null;
     return {
       startModelTime: measurement.startModelTime,
       endModelTime: measurement.endModelTime ?? measurement.currentOrEndModelTime,
@@ -71,13 +72,18 @@
   function fromReview(review) {
     const valid = decodeReview(review);
     if (!valid) return null;
-    return {
-      v: VERSION, definition: valid.definition, phase: "review", variant: "complete", stage: 3,
+    const draftAnswers = EMPTY_DRAFT_ANSWERS();
+    for (const type of ["uniform", "variable", "instant"]) {
+      if (valid.answers[type]) draftAnswers[type] = clone(valid.answers[type]);
+    }
+    const restored = {
+      v: VERSION, definition: valid.definition, phase: "review", variant: Object.values(valid.answers).every(Boolean) ? "complete" : "incomplete", stage: 3,
       returnToReview: false, scene: { simulationTime: 0, paused: 1, observationStarted: 0 },
-      uniformMeasurement: { ...valid.uniformMeasurement, currentOrEndModelTime: valid.uniformMeasurement.endModelTime },
-      variableMeasurement: { ...valid.variableMeasurement, currentOrEndModelTime: valid.variableMeasurement.endModelTime },
-      answers: valid.answers, draftAnswers: clone(valid.answers), viewedWindowCount: 4
+      uniformMeasurement: valid.uniformMeasurement ? { ...valid.uniformMeasurement, currentOrEndModelTime: valid.uniformMeasurement.endModelTime } : null,
+      variableMeasurement: valid.variableMeasurement ? { ...valid.variableMeasurement, currentOrEndModelTime: valid.variableMeasurement.endModelTime } : null,
+      answers: valid.answers, draftAnswers, viewedWindowCount: valid.answers.instant ? 4 : 0
     };
+    return validateDraft(restored) ? restored : null;
   }
 
   function validateDraft(state) {
@@ -110,8 +116,12 @@
   }
   function validateReview(review) {
     if (!review || review.v !== VERSION || review.locked !== 1 || !Model.validateDefinition(review.definition) || !validAnswersShape(review.answers)) return false;
-    if (measurementKind(review.definition, "uniform", review.uniformMeasurement, null, "review") !== "captured" || measurementKind(review.definition, "variable", review.variableMeasurement, null, "review") !== "captured") return false;
-    return stageAnswer(review.answers.uniform, "uniform") === "complete" && stageAnswer(review.answers.variable, "variable") === "complete" && instantAnswer(review.answers.instant, review.definition) === "complete";
+    for (const type of ["uniform", "variable"]) {
+      const measurement = measurementKind(review.definition, type, review[`${type}Measurement`], null, "review");
+      const answer = stageAnswer(review.answers[type], type);
+      if (!["empty", "captured"].includes(measurement) || !["empty", "complete"].includes(answer) || (answer === "complete" && measurement !== "captured")) return false;
+    }
+    return ["empty", "complete"].includes(instantAnswer(review.answers.instant, review.definition));
   }
   function validScene(scene, definition, phase) {
     if (!scene || !Model.safeModelTime(scene.simulationTime) || scene.paused !== 1 || ![0, 1].includes(scene.observationStarted)) return false;
@@ -122,7 +132,7 @@
       : Model.variablePosition(definition.variable, scene.simulationTime);
     return Model.safeWorldPosition(position);
   }
-  function validAnswersShape(answers) { return Boolean(answers && ["uniform", "variable", "instant"].every((key) => key in answers)); }
+  function validAnswersShape(answers) { return Boolean(answers && Object.keys(answers).length === 3 && ["uniform", "variable", "instant"].every((key) => key in answers)); }
   function validDraftAnswers(drafts, definition) {
     if (!drafts || Object.keys(drafts).length !== 3) return false;
     for (const type of ["uniform", "variable"]) {

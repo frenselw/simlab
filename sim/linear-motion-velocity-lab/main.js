@@ -119,11 +119,19 @@
       running = false;
       timerRunning = false;
       const wasLocked = locked; locked = false; render(); locked = wasLocked;
-      document.querySelectorAll("#activitySection button, #activitySection input").forEach((control) => { control.disabled = true; });
-      const target = state.phase === "instant" ? elements.instantError : elements.answerError;
-      target.textContent = "未能保存答案及轉關；答案仍顯示於本關，操作已鎖定。請勿關閉頁面。";
-      announce(target.textContent);
-      focusContext(target);
+      document.querySelectorAll("#activitySection button, #activitySection input, #reviewSection button").forEach((control) => { control.disabled = true; });
+      progressItems.forEach((button) => { button.disabled = true; });
+      const errorMessage = "未能保存答案及轉關；目前操作已鎖定。請勿關閉頁面。";
+      if (state.phase === "review") {
+        elements.submissionNotice.textContent = errorMessage;
+        elements.submissionNotice.classList.remove("is-hidden");
+        focusContext(elements.reviewTitle);
+      } else {
+        const target = state.phase === "instant" ? elements.instantError : elements.answerError;
+        target.textContent = errorMessage;
+        focusContext(target);
+      }
+      announce(errorMessage);
       console.warn(error);
       return false;
     }
@@ -264,7 +272,7 @@
       state.variant = state.returnToReview ? "review-edit-exploring" : "exploring";
     }
   }
-  function navigateTo(phase, returnToReview = false) {
+  function navigateTo(phase, returnToReview = state?.returnToReview || state?.phase === "review") {
     if (locked || !state || state.phase === phase) return;
     updateActiveMeasurement();
     if (["uniform", "variable"].includes(state.phase)) syncMeasurementDraftFromForm();
@@ -367,7 +375,10 @@
   }
 
   function submitAll() {
-    if (locked || state.phase !== "review" || state.variant !== "complete" || !window.confirm("確認提交全部答案？提交後本次嘗試只可重看。")) return;
+    if (locked || state.phase !== "review") return;
+    const missing = Object.values(state.answers).filter((answer) => !answer).length;
+    const warning = missing ? `目前有 ${missing} 關未確認答案，這些關卡各計 0 分。` : "";
+    if (!window.confirm(`確認提交目前答案？${warning}提交後本次嘗試只可重看。`)) return;
     elements.submissionNotice.classList.add("is-hidden");
     elements.reviewRetryButton.classList.add("is-hidden");
     submitPayload(buildSubmissionPayload());
@@ -473,6 +484,7 @@
     showResult(outcome.trusted ? "已提交答案（只供重看）。" : "答案內容與 Moodle 記錄不一致，只顯示 Moodle 已記錄結果。", outcome.trusted);
   }
   function showTechnical(message, retryable) {
+    progressItems.forEach((button) => { button.disabled = true; });
     setGraphLayout(true);
     elements.activitySection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
@@ -486,6 +498,7 @@
     elements.resultTitle.focus({ preventScroll: true });
   }
   function showResult(message, detailed, retryable = false) {
+    progressItems.forEach((button) => { button.disabled = true; });
     setGraphLayout(true);
     elements.activitySection.classList.add("is-hidden");
     elements.reviewSection.classList.add("is-hidden");
@@ -508,7 +521,13 @@
     setGraphLayout(state.phase === "instant" || state.phase === "review" || locked);
     const stageIndex = state.stage;
     const completed = [state.answers.uniform, state.answers.variable, state.answers.instant, state.variant === "complete"];
-    progressItems.forEach((item, index) => { item.classList.toggle("is-current", index === stageIndex); item.classList.toggle("is-done", Boolean(completed[index])); });
+    progressItems.forEach((button, index) => {
+      button.classList.toggle("is-current", index === stageIndex);
+      button.classList.toggle("is-done", Boolean(completed[index]));
+      button.disabled = locked;
+      if (index === stageIndex) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
     elements.activitySection.classList.toggle("is-hidden", state.phase === "review" || locked);
     elements.reviewSection.classList.toggle("is-hidden", state.phase !== "review" || locked);
     if (!locked) elements.resultSection.classList.add("is-hidden");
@@ -612,6 +631,11 @@
     elements.shorterWindowButton.innerHTML = selected < 0 ? `顯示時間間隔 ${quantityHtml(Model.WINDOWS[0], "s")}` : selected < Model.WINDOWS.length - 1 ? `縮短時間間隔至 ${quantityHtml(Model.WINDOWS[selected + 1], "s")}` : "已是最短時間間隔";
     elements.windowSelectionMessage.innerHTML = selected < 0 ? "先顯示最長的時間區間。" : `圖中目前顯示的時間間隔是 ${quantityHtml(Model.WINDOWS[selected], "s")}；藍底列是目前區間。`;
     elements.instantForm.classList.toggle("is-hidden", state.viewedWindowCount < 4);
+    if (elements.conceptChoices.dataset.seed !== String(state.definition.seed)) {
+      const labels = new Map(conceptInputs.map((input) => [input.value, input.parentElement]));
+      elements.conceptChoices.append(...UiPolicy.conceptOrder(state.definition.seed).map((value) => labels.get(value)));
+      elements.conceptChoices.dataset.seed = String(state.definition.seed);
+    }
     UiPolicy.appendPredictionOptions(elements.optionChoices, state.definition.instantOptions, document);
     if (state.viewedWindowCount === 4) loadInstantForm();
     const showSolution = UiPolicy.canRevealSolution({ locked, trustedReview, result });
@@ -622,17 +646,21 @@
   }
   function renderReview() {
     elements.reviewList.innerHTML = [
-      state.answers.uniform ? reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform) : incompleteReviewItem(0, "勻速運動", state.uniformMeasurement ? "量度已記錄，答案仍未確認。" : "尚未完成量度及答案。"),
-      state.answers.variable ? reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable) : incompleteReviewItem(1, "變速運動", state.variableMeasurement ? "量度已記錄，答案仍未確認。" : "尚未完成量度及答案。"),
+      state.answers.uniform ? reviewItem(0, "勻速運動", state.uniformMeasurement, state.answers.uniform) : incompleteReviewItem(0, "勻速運動", measurementReviewMessage(state.uniformMeasurement)),
+      state.answers.variable ? reviewItem(1, "變速運動", state.variableMeasurement, state.answers.variable) : incompleteReviewItem(1, "變速運動", measurementReviewMessage(state.variableMeasurement)),
       state.answers.instant
         ? `<article class="review-item"><h3>時間放大鏡</h3><p>目標時刻的瞬時速度估計：${quantityHtml(state.definition.instantOptions.find((option) => option.id === state.answers.instant.predictionChoice).value, "m/s")}</p><p>概念答案：${escapeHtml(conceptLabel(state.answers.instant.concept))}</p><p>車輛停定、位置保持不變時：${escapeHtml(state.answers.instant.stoppedVelocity)} <span class="unit">m/s</span></p><button type="button" data-edit="2">修改第 3 關</button></article>`
         : incompleteReviewItem(2, "時間放大鏡", state.viewedWindowCount === 4 ? "觀察已完成，答案仍未確認。" : `已查看 ${state.viewedWindowCount} / 4 個時間區間，答案尚未完成。`)
     ].join("");
     elements.reviewList.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => editStage(Number(button.dataset.edit))));
-    const complete = state.variant === "complete";
-    elements.submitButton.disabled = !complete;
-    elements.submissionNotice.classList.toggle("is-hidden", complete);
-    elements.submissionNotice.textContent = complete ? "" : "你可以自由返回任何一關；完成並確認三關答案後，先可以正式提交。";
+    const missing = Object.values(state.answers).filter((answer) => !answer).length;
+    elements.submitButton.disabled = false;
+    elements.submitButton.textContent = missing ? "提交目前答案" : "提交全部答案";
+    elements.submissionNotice.classList.toggle("is-hidden", missing === 0);
+    elements.submissionNotice.textContent = missing ? `尚有 ${missing} 關未確認答案；你仍可提交，未確認的關卡各計 0 分。` : "";
+  }
+  function measurementReviewMessage(measurement) {
+    return measurement?.x2 != null ? "量度已記錄，答案仍未確認。" : measurement ? "量度尚未完成，答案仍未確認。" : "尚未完成量度及答案。";
   }
   function incompleteReviewItem(index, title, message) {
     return `<article class="review-item is-incomplete"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p><button type="button" data-edit="${index}">返回第 ${index + 1} 關</button></article>`;
@@ -979,6 +1007,7 @@
   elements.instantForm.addEventListener("submit", submitInstant);
   elements.previousStageButton.addEventListener("click", previousStage);
   elements.nextStageButton.addEventListener("click", nextStage);
+  progressItems.forEach((button, index) => button.addEventListener("click", () => navigateTo(["uniform", "variable", "instant", "review"][index])));
   [elements.displacementInput, elements.timeInput, elements.averageInput].forEach((input) => input.addEventListener("input", syncMeasurementDraftFromForm));
   relationshipInputs.forEach((input) => input.addEventListener("change", syncMeasurementDraftFromForm));
   elements.optionChoices.addEventListener("change", syncInstantDraftFromForm);

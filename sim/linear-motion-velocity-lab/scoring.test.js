@@ -17,6 +17,17 @@ const correct = {
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, correct).score, 100);
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, correct).passed, true);
 
+const blank = { uniform: null, variable: null, instant: null };
+const blankResult = Scoring.scoreAttempt(definition, null, null, blank);
+assert.strictEqual(blankResult.score, 0, "a completely blank attempt may be submitted");
+assert.strictEqual(blankResult.passed, false);
+assert.deepStrictEqual(blankResult.feedbackItems.map((item) => item.formula), [null, null, null]);
+assert(blankResult.feedbackItems.every((item) => item.text.includes("未確認答案，本關 0 分")));
+assert.strictEqual(Scoring.scoreAttempt(definition, uniform, null, { ...blank, uniform: correct.uniform }).score, 30, "a confirmed stage scores independently");
+assert.strictEqual(Scoring.scoreAttempt(definition, null, null, { ...blank, instant: correct.instant }).score, 35, "stage three can be the only confirmed stage");
+assert.throws(() => Scoring.scoreAttempt(definition, null, null, { ...blank, uniform: correct.uniform }), "confirmed measurements need their capture");
+assert.throws(() => Scoring.scoreAttempt(definition, null, null, { ...blank, instant: { ...correct.instant, predictionChoice: "missing" } }), "invalid choice IDs cannot enter a submitted attempt");
+
 const wrongOption = definition.instantOptions.find((option) => !option.correct).id;
 const wrong = {
   uniform: { displacement: "0.00", time: "0.00", averageVelocity: "0.00", relationship: "no" },
@@ -65,6 +76,21 @@ const flexible = JSON.parse(JSON.stringify(correct));
 flexible.instant.stoppedVelocity = "0";
 flexible.uniform.time = String(expectedU.time);
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, flexible).score, 100, "numeric answers need not contain three significant digits");
+for (const [stage, expected] of [["uniform", expectedU], ["variable", expectedV]]) {
+  for (const factor of [0.98, 1.02]) {
+    const within = JSON.parse(JSON.stringify(correct));
+    within[stage].averageVelocity = String(expected.averageVelocity * factor);
+    assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, within).detail[stage].averageVelocity.correct, true, `${stage} accepts the 2% boundary`);
+  }
+  for (const factor of [0.979, 1.021]) {
+    const outside = JSON.parse(JSON.stringify(correct));
+    outside[stage].averageVelocity = String(expected.averageVelocity * factor);
+    assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, outside).detail[stage].averageVelocity.correct, false, `${stage} rejects values outside 2%`);
+  }
+}
+const displacementStillStrict = JSON.parse(JSON.stringify(correct));
+displacementStillStrict.uniform.displacement = String(expectedU.displacement * 1.01);
+assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, displacementStillStrict).detail.uniform.displacement.correct, false);
 const zeroWrong = JSON.parse(JSON.stringify(correct));
 zeroWrong.uniform.displacement = "0.00";
 assert.strictEqual(Scoring.scoreAttempt(definition, uniform, variable, zeroWrong).detail.uniform.displacement.correct, false);
