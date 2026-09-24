@@ -23,6 +23,9 @@ assert.doesNotMatch(html, /role="tablist" aria-label="同一情境的三種運�
 assert.match(html, /id="stageRegion"[^>]*class="stage-region"/);
 assert.match(html, /id="controlsPanel"[^>]*class="controls-panel"/);
 assert.match(html, /id="progress"[^>]*aria-label="關卡快速導覽"/);
+assert.match(html, /<header class="sim-header graph-page-header">/);
+assert.ok(html.indexOf('<header') < html.indexOf('id="controlsPanel"'),
+  "the full-width header precedes the scrolling controls panel");
 assert.equal((html.match(/data-progress="(?:practice|uniform|accelerating|decelerating|composite|review)"[^>]*><button type="button">/g) || []).length, 6);
 assert.match(html, /id="resultTabs"[^>]*aria-label="選擇已提交圖線"/);
 assert.doesNotMatch(html, /id="resultTabs"[^>]*role="tablist"/);
@@ -48,14 +51,14 @@ assert.match(css, /\.stage-region\s*\{[^}]*min-height:\s*0/);
 assert.match(css, /\.controls-panel\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/);
 assert.match(css, /@media \(min-width:\s*820px\)/);
 assert.match(css, /\.graph-app\s*\{[^}]*width:\s*100%/);
-assert.match(css, /\.progress\s*\{[^}]*grid-template-columns:\s*repeat\(6/);
+assert.match(css, /\.progress\s*\{[^}]*display:\s*flex/);
 assert.match(css, /\.graph-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
 assert.match(css, /\.graph-completeness-hint\s*\{[^}]*position:\s*absolute/);
 assert.match(css, /\.graph-completeness-hint\s*\{[^}]*box-shadow:[^}]*color:\s*#92400e/);
-assert.match(css, /grid-template-rows:\s*minmax\(13rem,\s*min\(50dvh,\s*calc\(\(100vw - 1\.425rem\) \* \.75 \+ \.825rem\)\)\)/);
+assert.match(css, /grid-template-rows:\s*auto minmax\(13rem,\s*min\(50dvh,\s*calc\(\(100vw - 1\.425rem\) \* \.75 \+ \.825rem\)\)\)/);
 assert.match(css, /@media \(min-width:\s*601px\) and \(max-width:\s*819px\) and \(orientation:\s*portrait\)/);
 assert.match(css, /@media \(orientation:\s*landscape\) and \(max-height:\s*520px\) and \(max-width:\s*819px\)/);
-assert.match(css, /@media \(min-width:\s*820px\)[\s\S]*\.graph-app\.no-stage\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/);
+assert.match(css, /@media \(min-width:\s*820px\)[\s\S]*\.graph-app\.no-stage\s*\{[^}]*grid-template-rows:\s*auto 0 minmax\(0,\s*1fr\)/);
 assert.doesNotMatch(html, /id="previousButton"/);
 assert.doesNotMatch(html, /class="magnifier"/);
 assert.doesNotMatch(css, /\.graph-tabs[^}]*overflow-x:\s*auto/);

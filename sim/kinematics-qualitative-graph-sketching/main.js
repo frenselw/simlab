@@ -560,6 +560,13 @@
     elements.controlsPanel.scrollTop = 0;
   }
 
+  function fitGraphToStage() {
+    const style = getComputedStyle(elements.stageRegion);
+    const availableHeight = Math.max(0, elements.stageRegion.clientHeight -
+      parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
+    elements.stageRegion.style.setProperty("--graph-fit-width", `${availableHeight * 4 / 3}px`);
+  }
+
   function setStage(mount) {
     [elements.practiceMount, elements.taskMount, elements.resultGraphMount].forEach((candidate) => {
       candidate.classList.toggle("is-hidden", candidate !== mount);
@@ -568,6 +575,7 @@
     elements.stageRegion.classList.toggle("is-hidden", hidden);
     if (mount !== elements.taskMount) elements.stageCompletenessHint.classList.add("is-hidden");
     document.querySelector(".graph-app").classList.toggle("no-stage", hidden);
+    fitGraphToStage();
   }
 
   function renderPractice() {
@@ -1050,6 +1058,10 @@
 
   formatPhysicsNotation(elements.controlsPanel);
   updateToolButtons();
+  window.addEventListener("resize", fitGraphToStage);
+  window.visualViewport?.addEventListener("resize", fitGraphToStage);
+  if (window.ResizeObserver) new ResizeObserver(fitGraphToStage).observe(elements.stageRegion);
+  fitGraphToStage();
   window.__kinematicsGraphDebug = {
     getState: () => state ? JSON.parse(JSON.stringify(state)) : null,
     getMode: () => mode,

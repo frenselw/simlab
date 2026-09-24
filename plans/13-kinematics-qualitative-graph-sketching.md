@@ -1181,10 +1181,12 @@ a–t：32
 - Control-panel classification：`bounded mobile split-panel`
 - `html`／`body`：`height:100%`、`overflow:hidden`，不可成為第三個縱向 scroll owner。
 - `.graph-app`：同時提供 `height:100vh` 及 `height:100dvh` fallback，並以 grid 填滿固定高度 iframe。
-- `>=820px` tablet／desktop：全闊兩欄工作區；左側 `.controls-panel` 寬度以 `clamp(16rem, 22vw, 24rem)` 限定，右側 `.stage-region` 填滿其餘空間並保持較大主視覺；stage padding 最多 `.75rem`，圖板不另設 desktop 最大闊度。
-- `<820px` phone／窄 tablet：兩列；上列 `.stage-region` 顯示 active graph，下列 `.controls-panel` 顯示題目、工具、回饋及 navigation。phone stage track 取視窗高度上限與 4:3 圖板所需高度的較小值，避免圖板上下預留空白；直向窄 tablet 可提高至 `58dvh`，令圖板接近全闊。
+- 標題、活動說明及關卡導覽屬於橫跨全闊、獨立於 `.controls-panel` 的頂欄；面板捲動時頂欄仍可見。
+- `>=820px` tablet／desktop：頂欄在第一列，下方為全闊兩欄工作區；左側 `.controls-panel` 寬度以 `clamp(16rem, 22vw, 24rem)` 限定，右側 `.stage-region` 填滿其餘空間並保持較大主視覺；stage padding 最多 `.75rem`，圖板不另設 desktop 最大闊度。
+- `<820px` phone／窄 tablet：頂欄、`.stage-region`、`.controls-panel` 由上至下排列；stage 顯示 active graph，panel 顯示題目、工具、回饋及 navigation。phone stage track 取視窗高度上限與 4:3 圖板所需高度的較小值，避免圖板上下預留空白；直向窄 tablet 可提高至 `58dvh`，令圖板接近全闊。
 - `.controls-panel`：`min-height:0`、`overflow-y:auto`、`overscroll-behavior:contain`；desktop 在左、窄屏在下，均是唯一 activity 內縱向 scroll owner。
-- review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得全部高度。
+- 圖板闊度按 stage 實際可用高度重新計算，頂欄換行時保持 4:3 且不裁切。
+- review、technical 及 untrusted fallback 沒有可安全顯示的 active graph 時，stage row 收起，controls panel 取得頂欄以下全部高度。
 - iframe 不需要由 host 依內容自動增高；source 及 packaged 測試使用固定 `500px` iframe。
 - desktop graph width 必須大於 controls width；tablet／phone stage bottom 必須不低於 controls top，保持上圖下控。
 - 有效較窄 CSS viewport 觸發上圖下控 reflow，主要按鈕及圖板仍可操作。

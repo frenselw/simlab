@@ -399,13 +399,14 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     const frame=document.getElementById("activity"), doc=frame.contentDocument;
     const panel=doc.getElementById("controlsPanel");
     panel.scrollTop=0;
-    const target=doc.querySelector(".graph-page-header p");
+    const target=doc.querySelector("#practiceSection .section-kicker");
     const f=frame.getBoundingClientRect(), r=target.getBoundingClientRect();
     const stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const header=doc.querySelector(".graph-page-header").getBoundingClientRect();
     const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {x:f.left+r.left+r.width*.5,y:f.top+r.top+r.height*.5,
       host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,
-      panelRange:panel.scrollHeight-panel.clientHeight,frameTop:f.top,stageTop:stage.top,stageHeight:stage.height,
+      panelRange:panel.scrollHeight-panel.clientHeight,frameTop:f.top,headerTop:header.top,stageTop:stage.top,stageHeight:stage.height,
       hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
       vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
       answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
@@ -418,15 +419,16 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
   const panelAfter = await evaluate(cdp, `(() => {
     const frame=document.getElementById("activity"), doc=frame.contentDocument;
     const panel=doc.getElementById("controlsPanel"), stage=doc.getElementById("stageRegion").getBoundingClientRect();
+    const header=doc.querySelector(".graph-page-header").getBoundingClientRect();
     const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {host:scrollY,inner:frame.contentWindow.scrollY,panel:panel.scrollTop,
-      frameTop:frame.getBoundingClientRect().top,stageTop:stage.top,stageHeight:stage.height,
+      frameTop:frame.getBoundingClientRect().top,headerTop:header.top,stageTop:stage.top,stageHeight:stage.height,
       hostVvOffset:hostVv?.offsetTop||0,hostVvPage:hostVv?.pageTop||0,
       vvOffset:vv?.offsetTop||0,vvPage:vv?.pageTop||0,
       answer:JSON.stringify(frame.contentWindow.__kinematicsGraphDebug.getState())};
   })()`);
   assert.ok(panelAfter.panel > panelSwipe.panel, `${label}: ordinary controls text scrolls only the controls panel`);
-  for (const key of ["host", "inner", "frameTop", "stageTop", "stageHeight", "hostVvOffset", "hostVvPage", "vvOffset", "vvPage", "answer"]) {
+  for (const key of ["host", "inner", "frameTop", "headerTop", "stageTop", "stageHeight", "hostVvOffset", "hostVvPage", "vvOffset", "vvPage", "answer"]) {
     assert.equal(panelAfter[key], panelSwipe[key], `${label}: controls swipe keeps ${key} fixed`);
   }
 
@@ -471,7 +473,7 @@ async function embeddedMatrix(cdp, baseUrl, launchPath, label) {
     const frame=document.getElementById("activity"), doc=frame.contentDocument;
     const panel=doc.getElementById("controlsPanel");
     panel.scrollTop=0;
-    const target=doc.querySelector(".graph-page-header p"), r=target.getBoundingClientRect(), f=frame.getBoundingClientRect();
+    const target=doc.querySelector("#practiceSection .section-kicker"), r=target.getBoundingClientRect(), f=frame.getBoundingClientRect();
     const stage=doc.getElementById("stageRegion").getBoundingClientRect();
     const vv=frame.contentWindow.visualViewport, hostVv=visualViewport;
     return {x:f.left+r.left+r.width*.5,y:f.top+r.top+r.height*.5,
@@ -630,13 +632,16 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
       const stage=document.getElementById("stageRegion").getBoundingClientRect();
       const controls=document.getElementById("controlsPanel").getBoundingClientRect();
       const app=document.querySelector(".graph-app").getBoundingClientRect();
+      const header=document.querySelector(".graph-page-header").getBoundingClientRect();
+      const appPadding=parseFloat(getComputedStyle(document.querySelector(".graph-app")).paddingLeft);
       const progress=Array.from(document.querySelectorAll(".progress li")).map(item=>item.getBoundingClientRect());
       return {
         overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         buttonVisible:r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth,
         boardVisible:board.width>220&&board.height>160,
-        board:{width:board.width,height:board.height},
-        app:{left:app.left,right:app.right,width:app.width},
+        board:{left:board.left,top:board.top,right:board.right,bottom:board.bottom,width:board.width,height:board.height},
+        app:{left:app.left,right:app.right,width:app.width,padding:appPadding},
+        header:{left:header.left,right:header.right,bottom:header.bottom},
         progressRows:new Set(progress.map(item=>Math.round(item.top))).size,
         stage:{left:stage.left,top:stage.top,right:stage.right,bottom:stage.bottom,width:stage.width,height:stage.height},
         controls:{left:controls.left,top:controls.top,right:controls.right,bottom:controls.bottom,width:controls.width,height:controls.height}
@@ -646,6 +651,14 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
     assert.equal(metrics.buttonVisible, true, `${label} ${width}x${height}: primary navigation remains reachable`);
     assert.equal(metrics.boardVisible, true, `${label} ${width}x${height}: graph remains readable`);
     assert.equal(metrics.progressRows, 1, `${label} ${width}x${height}: progress remains on one row`);
+    assert.ok(metrics.header.left <= metrics.app.left + metrics.app.padding + 1 &&
+      metrics.header.right >= metrics.app.right - metrics.app.padding - 1,
+    `${label} ${width}x${height}: header spans the work area`);
+    assert.ok(metrics.header.bottom <= metrics.stage.top + 1 && metrics.header.bottom <= metrics.controls.top + 1,
+      `${label} ${width}x${height}: header stays above the stage and controls`);
+    assert.ok(metrics.board.top >= metrics.stage.top - 1 && metrics.board.bottom <= metrics.stage.bottom + 1 &&
+      metrics.board.left >= metrics.stage.left - 1 && metrics.board.right <= metrics.stage.right + 1,
+    `${label} ${width}x${height}: graph fits inside the stage below the header`);
     if (width >= 820) {
       assert.ok(metrics.app.left <= 1 && metrics.app.right >= width - 1,
         `${label} ${width}x${height}: desktop work area fills the viewport width`);
@@ -670,8 +683,8 @@ async function responsiveMatrix(cdp, baseUrl, launchPath, label) {
         `${label} ${width}x${height}: portrait tablet stage avoids vertical padding`);
     }
     if (width === 874 && height === 402) {
-      assert.ok(metrics.board.width >= 480,
-        `${label} ${width}x${height}: wide short desktop graph uses the stage`);
+      assert.ok(metrics.board.width >= 420,
+        `${label} ${width}x${height}: wide short desktop graph uses the stage below the header`);
     }
     if (width === 1024 && height === 768) {
       assert.ok(metrics.board.width >= 720,
@@ -809,13 +822,17 @@ async function lifecycleMatrix(cdp, baseUrl, launchPath, label) {
   `${label}: review list uses x-t, v-t, a-t display order with canonical indices`);
   const reviewLayout = await evaluate(cdp, `(() => {
     const app=document.querySelector(".graph-app").getBoundingClientRect();
+    const header=document.querySelector(".graph-page-header").getBoundingClientRect();
     const controls=document.getElementById("controlsPanel").getBoundingClientRect();
     const review=document.getElementById("reviewSection").getBoundingClientRect();
-    return {appHeight:app.height,controlsHeight:controls.height,reviewHeight:review.height,controlsTop:controls.top};
+    return {appBottom:app.bottom,headerBottom:header.bottom,controlsBottom:controls.bottom,
+      controlsHeight:controls.height,reviewHeight:review.height,controlsTop:controls.top};
   })()`);
-  assert.ok(reviewLayout.controlsHeight >= reviewLayout.appHeight - 2,
-    `${label}: desktop no-stage review controls retain the full app height`);
-  assert.ok(reviewLayout.reviewHeight > 300 && reviewLayout.controlsTop <= 1,
+  assert.ok(reviewLayout.controlsTop >= reviewLayout.headerBottom - 1 &&
+    reviewLayout.controlsBottom >= reviewLayout.appBottom - 2 &&
+    reviewLayout.controlsHeight >= reviewLayout.appBottom - reviewLayout.headerBottom - 2,
+    `${label}: desktop no-stage review controls fill the space below the header`);
+  assert.ok(reviewLayout.reviewHeight > 300,
     `${label}: desktop review content is not collapsed into a zero-height grid row`);
 
   const contradictionState = structuredClone(fixture.state);

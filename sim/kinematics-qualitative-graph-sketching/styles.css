@@ -9,41 +9,41 @@ html, body { height: 100%; min-width: 0; overflow: hidden; }
 body { margin: 0; }
 .graph-app {
   box-sizing: border-box; display: grid;
-  grid-template-rows: minmax(13rem, min(50vh, calc((100vw - 1.425rem) * .75 + .825rem))) minmax(0, 1fr);
-  grid-template-rows: minmax(13rem, min(50dvh, calc((100vw - 1.425rem) * .75 + .825rem))) minmax(0, 1fr);
-  width: 100%; height: 100vh; height: 100dvh; margin: 0; padding: .45rem;
+  grid-template-rows: auto minmax(13rem, min(50vh, calc((100vw - 1.425rem) * .75 + .825rem))) minmax(0, 1fr);
+  grid-template-rows: auto minmax(13rem, min(50dvh, calc((100vw - 1.425rem) * .75 + .825rem))) minmax(0, 1fr);
+  width: 100%; height: 100vh; height: 100dvh; min-height: 0; margin: 0; padding: .45rem;
   overflow: hidden;
 }
-.graph-app.no-stage { grid-template-rows: 0 minmax(0, 1fr); }
+.graph-app.no-stage { grid-template-rows: auto 0 minmax(0, 1fr); }
 .stage-region {
-  position: relative; display: grid; grid-row: 1; min-height: 0; place-items: center;
+  position: relative; display: grid; grid-row: 2; min-height: 0; place-items: center;
   overflow: hidden; padding: .35rem;
   border: 1px solid var(--color-border); border-radius: .75rem; background: #eef2f7;
   touch-action: pan-y;
 }
 .stage-region.is-hidden { padding: 0; border: 0; }
 .controls-panel {
-  grid-row: 2; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  grid-row: 3; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
   touch-action: pan-y; scrollbar-gutter: stable; padding: 0 .15rem .8rem;
 }
-.graph-page-header { display: block; }
-.graph-page-header { touch-action: pan-y; }
-.graph-page-header h1 { margin: 0; font-size: 1.4rem; line-height: 1.2; }
-.graph-page-header p { margin: .3rem 0 0; line-height: 1.45; }
-.graph-page-header var { font-family: "Cambria Math", "Times New Roman", serif; }
-.graph-page-header .activity-kicker {
-  margin: 0 0 .2rem; color: var(--color-accent); font-size: .78rem; font-weight: 850; letter-spacing: .06em;
+.graph-page-header {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto;
+  grid-column: 1 / -1; grid-row: 1; align-items: center; column-gap: 1rem; row-gap: .15rem;
+  min-width: 0; padding: .6rem .8rem; touch-action: pan-y;
 }
+.graph-page-header h1 { grid-column: 1; grid-row: 1; margin: 0; font-size: clamp(1rem, .9rem + 1vw, 1.5rem); line-height: 1.35; }
+.graph-page-header p { grid-column: 1; grid-row: 2; margin: .25rem 0 0; font-size: .85rem; line-height: 1.4; }
+.graph-page-header var { font-family: "Cambria Math", "Times New Roman", serif; }
 .progress {
-  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .3rem;
-  width: 100%; margin: .7rem 0 0; padding: 0; list-style: none;
+  display: flex; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: flex-end;
+  gap: .3rem; width: auto; margin: 0; padding: 0; list-style: none;
 }
 .progress li {
-  min-width: 0; border-radius: .45rem; background: #e5e7eb;
+  flex: 0 0 auto; min-width: 0; border-radius: 999px; background: #e5e7eb;
   color: #475569; font-size: .78rem; font-weight: 800; text-align: center;
 }
 .progress li button {
-  display: grid; place-items: center; width: 100%; min-height: 44px; padding: .34rem .15rem;
+  display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: .25rem .45rem;
   border: 0; border-radius: inherit; background: transparent; color: inherit;
   font: inherit; cursor: pointer;
 }
@@ -83,8 +83,7 @@ body { margin: 0; }
 .task-status-row span { color: var(--color-text-muted); font-size: .86rem; }
 
 .graph-mount {
-  width: min(100%, calc((50vh - .7rem) * 1.333));
-  width: min(100%, calc((50dvh - .7rem) * 1.333));
+  width: min(100%, var(--graph-fit-width, 100%));
   margin: 0 auto;
 }
 .graph-board {
@@ -181,57 +180,70 @@ body { margin: 0; }
 
 @media (max-width: 600px) {
   .graph-app { padding: .3rem; }
-  .graph-page-header p { margin-top: .2rem; font-size: .82rem; line-height: 1.35; }
-  .progress { margin-top: .45rem; }
+  .phase-layer text { font-size: 28px; }
   .activity-section { margin-top: .45rem; padding: .65rem; }
   .review-task-grid { grid-template-columns: 1fr; }
   .student-path { stroke-width: 8; }
   .tool-row button { padding-inline: .3rem; }
 }
 
+@media (max-width: 819px) {
+  .graph-page-header { grid-template-columns: minmax(0, 1fr); align-items: start; column-gap: 0; }
+  .graph-page-header h1, .graph-page-header p, .progress { grid-column: 1; }
+  .progress { grid-row: 3; justify-content: flex-start; margin-top: .3rem; }
+}
+
 @media (min-width: 601px) and (max-width: 819px) and (orientation: portrait) {
   .graph-app {
-    grid-template-rows: minmax(13rem, min(58vh, calc((100vw - 1.725rem) * .75 + .825rem))) minmax(0, 1fr);
-    grid-template-rows: minmax(13rem, min(58dvh, calc((100vw - 1.725rem) * .75 + .825rem))) minmax(0, 1fr);
-  }
-  .graph-mount {
-    width: min(100%, calc((58vh - .7rem) * 1.333));
-    width: min(100%, calc((58dvh - .7rem) * 1.333));
+    grid-template-rows: auto minmax(13rem, min(58vh, calc((100vw - 1.725rem) * .75 + .825rem))) minmax(0, 1fr);
+    grid-template-rows: auto minmax(13rem, min(58dvh, calc((100vw - 1.725rem) * .75 + .825rem))) minmax(0, 1fr);
   }
 }
 
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 819px) {
-  .graph-app { width: min(100%, 64rem); grid-template-rows: minmax(10rem, 58%) minmax(0, 1fr); }
-  .activity-section { width: min(100%, 60rem); }
-  .graph-mount {
-    width: min(72vw, 38rem, calc((58vh - .7rem) * 1.333));
-    width: min(72vw, 38rem, calc((58dvh - .7rem) * 1.333));
+  .graph-app {
+    width: min(100%, 64rem);
+    grid-template-rows: auto minmax(8rem, 42vh) minmax(0, 1fr);
+    grid-template-rows: auto minmax(8rem, 42dvh) minmax(0, 1fr);
   }
+  .activity-section { width: min(100%, 60rem); }
 }
 
 @media (min-width: 820px) {
   .graph-app {
     grid-template-columns: clamp(16rem, 22vw, 24rem) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr); gap: 0; padding: 0;
+    grid-template-rows: auto minmax(0, 1fr); gap: 0; padding: 0;
   }
+  .graph-page-header { padding: .8rem 1rem; }
   .controls-panel {
-    grid-column: 1; grid-row: 1; padding: .8rem 1rem 1rem;
+    grid-column: 1; grid-row: 2; padding: .8rem 1rem 1rem;
     border-right: 1px solid var(--color-border); background: var(--color-panel);
   }
   .stage-region {
-    grid-column: 2; grid-row: 1; padding: clamp(.35rem, 1vw, .75rem);
+    grid-column: 2; grid-row: 2; padding: clamp(.35rem, 1vw, .75rem);
     border: 0; border-radius: 0;
-  }
-  .graph-mount {
-    width: min(100%, calc((100vh - 1.5rem) * 1.333));
-    width: min(100%, calc((100dvh - 1.5rem) * 1.333));
   }
   .activity-section { width: 100%; margin-top: .7rem; padding: .75rem; }
   .graph-app.no-stage {
-    grid-template-columns: minmax(18rem, 42rem); grid-template-rows: minmax(0, 1fr);
-    justify-content: center;
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 0 minmax(0, 1fr);
   }
-  .graph-app.no-stage .controls-panel { grid-column: 1; }
+  .graph-app.no-stage .controls-panel {
+    grid-column: 1; grid-row: 3; width: min(100%, 42rem); margin-inline: auto; border-right: 0;
+  }
+}
+
+@media (max-height: 420px) {
+  .graph-page-header { padding: .3rem .6rem; }
+  .graph-page-header h1 { font-size: 1rem; }
+  .graph-page-header p { display: none; }
+}
+
+@media (max-width: 819px) and (max-height: 420px) {
+  .graph-app { grid-template-rows: auto clamp(5.5rem, 34dvh, 9rem) minmax(0, 1fr); }
+}
+
+@media (min-width: 601px) and (max-width: 819px) and (orientation: landscape) and (max-height: 420px) {
+  .graph-app { grid-template-rows: auto minmax(11.5rem, 44dvh) minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
