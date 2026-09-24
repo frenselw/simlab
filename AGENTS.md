@@ -1,123 +1,69 @@
 # SimLab Project Notes
 
-## Project Purpose
+Build mobile-first educational simulations as static web apps, packaged one
+activity at a time as SCORM 1.2 for Moodle. Keep shared code generic; each activity
+owns its subject model, authoritative answers, and scoring rubric.
 
-Build mobile-first educational simulations that run as plain web apps during
-development and can be packaged as SCORM 1.2 activities for Moodle.
+## Read first
 
-SimLab should stay useful beyond physics. Keep shared runtime code generic, and
-let each simulation own its subject model and scoring rubric.
+1. [Shared product and style rules](plans/00-shared-platform-and-style.md)
+2. [Implementation and verification contracts](docs/simulation-scorm-production-guide.md)
+3. [New activity plan template](plans/NEW-SIMULATION-PLAN-TEMPLATE.md)
+4. The activity-specific plan in `plans/`
 
-## Read First
+Keep each rule in its owning document and link to it. Activity plans record
+subject-specific decisions within these contracts; existing user instructions
+govern any exceptions. Mark old implementation gaps and historical evidence clearly.
 
-1. `plans/00-shared-platform-and-style.md`
-2. `docs/simulation-scorm-production-guide.md`
-3. `plans/NEW-SIMULATION-PLAN-TEMPLATE.md`
-4. The simulation-specific plan in `plans/`
+## Working rules
 
-## Working Rules
-
-- Prefer static HTML, CSS, and JavaScript until the project clearly needs more.
-- In this repository, the canonical activity entry files are `index.html`,
-  `styles.css`, and `main.js`, plus `scoring.js`/`persistence.js` when needed.
-- Use Traditional Chinese learner-facing copy unless the simulation plan or user
-  explicitly requests another language.
+- Prefer plain HTML/CSS/JavaScript and native SVG/Canvas. Keep activities runnable
+  in Live Server; add dependencies only for a concrete need and package them locally.
+- Use Traditional Chinese learner-facing copy unless requested otherwise.
 - Reuse `sim/shared/styles.css`, `sim/shared/scorm.js`, and
-  `sim/shared/activity-flow.js`.
-- Keep each simulation independently runnable in Live Server.
-- Keep SCORM as a thin wrapper: the simulation owns the score; Moodle receives it.
-- Use `SimScorm.loadAttempt()` and `SimActivityFlow.startup()` for startup. Do not
-  read raw LMS fields independently inside an activity.
-- Use `SimScorm.submitWithCallbacks()` and handle all four outcomes: `success`,
-  `committed`, `frozen`, and `retry`.
-- Score the submitted final state unless a plan explicitly requires process scoring.
-- Classify the assessment risk before implementation. Browser-scored SCORM is
-  suitable only for formative or low-risk use; high-risk scoring needs trusted
-  server-side validation, and secrets must never be placed in learner JavaScript.
-- Store authoritative answers sufficient to validate, rescore, and redraw a
-  submitted attempt in `cmi.suspend_data` when learners should revisit it.
-- Before coding persistence, write the activity phase/state matrix and snapshot
-  schema in its plan. This applies to every persisted activity. Cover every
-  phase plus its invariant variants, including review-edit continuations.
-- Every activity with draft/review persistence needs production
-  encode/decode/restore round-trip tests for each phase/variant, invalid-state
-  matrix tests, and a restored-state test that executes one legal continuation.
-- Technical load or pending-submit errors must lock unsafe actions without being
-  described as a confirmed submission, score, pass, or fail.
-- After final submission, finish the SCORM attempt and lock that submitted
-  attempt for review.
-- Use SCORM 1.2 for Moodle unless there is a confirmed reason to do otherwise.
-- Do not add dependencies until native browser SVG/Canvas features fall short.
-- When an activity has a substantial control panel that learners use while the
-  stage must remain visible, use the bounded mobile split-panel contract from
-  the production guide: stage on top, independently scrolling controls in the
-  remaining height, `100vh`/`100dvh` fallback, and `min-height: 0` on shrinking
-  grid/flex children. The bounded activity `html`/`body` must not become a third
-  vertical scroll owner. Activities without such a panel may use natural page
-  flow.
-- Every mobile activity with a stage and controls must define a touch gesture
-  ownership matrix in its plan, whether or not the stage contains draggable
-  objects. For bounded split-panel activities, the following three start-region
-  rules are project-wide defaults and must not be reassigned by an activity:
-  1. A vertical touch starting on non-interactive stage content scrolls the
-     enclosing page/Moodle host when that host has range. It must not scroll a
-     sibling control panel or the activity iframe document.
-  2. A vertical touch starting in an independently scrolling control panel
-     scrolls only that panel. The enclosing page/Moodle host, activity document,
-     iframe position, and stage stay fixed, including at panel boundaries.
-     "Stage remains visible while controls are used" refers to this panel
-     gesture; it does not reassign a gesture that starts on the stage.
-  3. A touch starting on a draggable target belongs only to the simulation for
-     that active drag. The target moves while every page, activity-document,
-     panel, host/activity visual-viewport, iframe, and host scroll position stays
-     fixed.
-  Use `touch-action: pan-y` on non-interactive stage surfaces. Never forward a
-  stage gesture to a sibling control panel. If native iframe behavior cannot
-  reach the enclosing host, change the scroll topology or forward only to that
-  same host owner and verify it; do not choose a different owner. Activities
-  with direct manipulation must additionally inventory every draggable target,
-  use stable pre-`pointerdown` drag hit targets, and deliver `pointermove` plus
-  `pointerup` without `pointercancel`. Verify every matrix row with
-  browser-level trusted touch gestures in a scrollable Moodle-like iframe for
-  both development source and packaged SCORM; direct-page tests,
-  DOM-dispatched events, source checks, and computed-style checks alone are not
-  sufficient. A short natural-flow controls region is not an independently
-  scrolling control panel: its matrix names the enclosing page/host as the
-  normal scroll owner instead of adding the panel-only row.
-- Add every new test file to `tools/run-tests.js`, every runtime dependency
-  referenced by HTML or loaded code to the activity manifest, and every active
-  simulation to `sim/config.js` with
-  title, folder, categories, description, tags, and status.
+  `sim/shared/activity-flow.js`; canonical entry files are `index.html`,
+  `styles.css`, `main.js`, with `scoring.js`/`persistence.js` as needed.
+- Apply the baseline's three-region layout, dependency-based navigation,
+  notation, arrows, snapping, and touch-preview decisions. Mobile layout and
+  trusted-touch verification are required, including usable side scroll strips
+  for free drawing; follow the production guide's gesture ownership contract.
+- Allow every editable stage to reach check-and-submit with blank or partial
+  answers. Preserve earned partial credit, score untouched attempts zero, and
+  require explicit final submission. Recorded attempts are review-only; neither
+  Moodle nor standalone may offer a clear-results/restart control. Pending
+  submissions remain frozen for retry.
+- Before coding, complete the plan's assessment risk, rubric, dependencies,
+  phase/variant matrix, authoritative snapshot schema, and test decisions.
+  Browser scoring is for formative/low-risk use; high-risk grading needs trusted
+  server validation. Never ship secrets in learner JavaScript.
+- Keep SCORM as the reporting layer. Use `SimScorm.loadAttempt()` with
+  `SimActivityFlow.startup()` and `SimScorm.submitWithCallbacks()` with all four
+  outcomes (`success`, `committed`, `frozen`, `retry`). Do not read/write raw LMS
+  fields or implement activity-local commit/finish/page-lifecycle handling.
+- Preserve the production guide's persistence, trust, error, and retry contracts.
+  Every saveable phase/variant needs a production encode/decode/restore round-trip
+  and one executed legal continuation; validate invalid states separately from
+  legal unanswered work. Technical failures must not claim confirmed results.
+- Add new tests to `tools/run-tests.js`, all runtime dependencies to the activity
+  manifest, and deployable activities to `sim/config.js` with `title`, `folder`,
+  `categories`, `description`, `tags`, and `status`.
+- Use the production guide's separate package-ready and Moodle-ready gates.
+  Report actual evidence; local browser checks do not establish real Moodle or
+  real-phone readiness.
 
 ## Layout
 
 ```text
-plans/
-docs/
-sim/
-  config.js
-  manifests/
-  shared/
-  <activity-slug>/
-tools/
-output/
+plans/          activity decisions and shared product baseline
+docs/           production contracts
+sim/config.js   catalogue
+sim/manifests/  one SCORM manifest per activity
+sim/shared/     shared styles and runtime
+sim/<slug>/     independently runnable activity
+tools/          validation and packaging
+output/         generated packages, screenshots, temporary checks
 ```
 
-`output/` is for generated packages, screenshots, and temporary checks.
-
-For SCORM export, package one activity at a time so the package root contains
-`imsmanifest.xml` and the activity can still load shared files by relative path.
-
-## Local browser checks on Windows
-
-Use Git Bash, not the default `bash` on PATH:
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" -lc '"/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh" --help'
-& "C:\Program Files\Git\bin\bash.exe" "output/playwright/<check>.sh"
-```
-
-Inside the ignored check script, set
-`PWCLI=/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh`.
-Treat any `### Error` in Playwright CLI output as a failed check even when the
-process exits with code 0.
+Package roots contain `imsmanifest.xml`; shared files remain accessible by relative
+path. Browser tooling, including Windows-specific setup, is documented once in
+the production guide.

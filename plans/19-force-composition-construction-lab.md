@@ -1,8 +1,10 @@
 # 力的合成作圖實驗室
 
+> 2026-09-24 目標規格同步：依[手機互動基準](./00-shared-platform-and-style.md#mobile-interaction)補合力自由作圖模式的左右 host-scroll 帶；runtime 尚待同步，以下既有驗收不代表此模式的新手勢矩陣已通過。
+
 > 本文件是 `force-composition-construction-lab` 第一版的實作藍圖。第一版只處理力的合成，不包括力的分解；未完成本文件列出的 phase/state、persistence、scoring、touch 及 package 契約前，不開始製作 UI。
 
-> **維護註記（2026-08-16）**：本文件保留初稿及逐次修訂紀錄；目前可執行行為以文末「目前實作契約」及其後的修訂紀錄為準。若早期章節與該契約衝突，後者取代早期提案，避免把已被產品要求修正的交互行為當成現行規格。
+> **維護註記（2026-08-16）**：本文件保留初稿及逐次修訂紀錄；已交付行為見文末「已交付實作摘要」及其後修訂紀錄，2026-09-24 待實作項以上述目標規格為準。勿把初稿或舊驗收當成新要求已完成。
 
 ## 1. Scope
 
@@ -659,6 +661,9 @@ Requirements：
 | Touch starts on | Expected owner | Expected scroll delta | Required pointer/state result |
 |---|---|---|---|
 | 已知非互動舞台空白區 | enclosing page／Moodle host | host 非零且 iframe 同方向移動；activity document、activity viewport、panel 為 0 | 不開始拖動，不改變題目幾何、phase、current question 或 snapshot |
+| 合力自由作圖區左側捲動帶 | enclosing page／Moodle host | host 非零且 iframe 同方向移動；activity document、viewport、panel 為 0 | 320px viewport 目標可用闊度至少 32 CSS px；不畫線；作圖 hit layer 不覆蓋 |
+| 合力自由作圖區右側捲動帶 | enclosing page／Moodle host | 與左側相同，獨立驗證 | 同樣至少 32 CSS px；不畫線；作圖 hit layer 不覆蓋 |
+| 合力模式中央自由作圖區 | simulation | 所有 host/document/panel/viewport/iframe delta 為 0 | 可從空白起筆；穩定 target 上 pointermove＋pointerup，沒有 pointercancel |
 | 獨立滾動 control panel | panel only | panel 有 range 時非零；host、iframe、activity document、host/activity viewport 為 0 | 舞台固定；到 panel top/bottom 仍不 chain 到 host；不改變答案 |
 | 任一預設力矢量 overlay，包括重疊junction經selector選取後 | simulation | 所有 host/document/panel/viewport/iframe delta 為 0 | 力矢量整體平移；至少一個 `pointermove`、最後 `pointerup`，沒有 `pointercancel` |
 | 任一 guide 起筆、provisional或snapped endpoint handle | simulation | 全部 scroll delta 為 0 | guide 改變；`pointermove` + `pointerup`；沒有 `pointercancel` |
@@ -667,7 +672,7 @@ Requirements：
 
 ### 8.3 Technical touch decisions
 
-- root stage blank region：`touch-action:pan-y`；
+- root stage 非互動區及左右捲動帶：`touch-action:pan-y`；合力模式只有中央作圖區可預先設 `touch-action:none`，不得封鎖整幅舞台；
 - panel：native vertical scroll + `overscroll-behavior:contain`；
 - drag target：pre-pointerdown `touch-action:none`；
 - pointer capture target 在 drag 全程 mounted；
@@ -1327,6 +1332,7 @@ Invalid matrix：
 - [ ] Moodle-like host 有 range並離 boundary；記錄 host scroll、host visual viewport、iframe rect、activity document scroll、activity visual viewport、panel scroll及learner state；
 - [ ] implementation前iframe spike選定並記錄唯一production host-scroll topology；
 - [ ] blank stage trusted swipe兩方向只移動 host/iframe；
+- [ ] 合力模式左右捲動帶各自 trusted swipe 只移動 host/iframe；中央空白起筆只畫合力、不移動任何 scroll owner；source 及 extracted SCORM 均覆蓋；
 - [ ] panel trusted swipe只移動 panel，並在 top/bottom boundary 不 chain；
 - [ ] trusted events assert `isTrusted===true`、`pointerType==="touch"`並記錄engine/device；
 - [ ] 每個`F₁/F₂/F₃` overlay，包括junction重疊經selector選取後，各自trusted drag；geometry改變、所有scroll delta=0、pointermove+pointerup、no pointercancel；
@@ -1467,7 +1473,7 @@ Invalid matrix：
 - 合力畫出後仍可留在合力模式，新增透明的合力起點及終點 hit target；兩端都可在 pointer／keyboard 拖動期間即時預覽並吸附。
 - 平行四邊形合力兩端的 snap targets 是四個角：共同起點、`F_1` 箭頭、`F_2` 箭頭及第四頂點。未貼近角時，起點以 `FREE + originPoint10` 保存，故錯誤答案不會被自動改正；端點自由位置亦保留。
 - persistence 驗證擴展至自由合力起點及四角端點，`canonicalResultant` 仍只把共同起點至第四頂點的正確對角線計為完成。
-- 平行四邊形合力模式的空白舞台 pointer drag 可建立 `FREE + originPoint10` 起點；進入該模式後暫停 host-forwarding，避免學生畫合力時被頁面捲動搶走手勢。
+- 當時實作在平行四邊形合力模式的空白舞台建立 `FREE + originPoint10` 起點，並暫停 host-forwarding；整幅舞台封鎖已被 2026-09-24 的中央作圖／左右 host-scroll 帶目標取代，runtime 尚待同步。
 
 ## 24. 手機舞台縮放及合力整體平移（2026-08-16）
 
@@ -1561,7 +1567,7 @@ Invalid matrix：
 - snap 仍以被拖動力反推出精確箭尾，對方力及既有鏈的幾何位置保持不變；H1/H2 原有雙向行為不變。
 - 新增 T1 六種首次頭→尾端點 model cases、已有鏈前置 case，以及 source／extracted SCORM browser coverage。
 
-## 39. 目前實作契約（2026-08-16）
+## 39. 已交付實作摘要（2026-08-16；不含 2026-09-24 待實作項）
 
 以下是目前交付版本的單一行為摘要；它取代早期章節中仍寫成「放手後才吸附」、「必須先畫對才可畫合力」或「T1 只接受尾接頭」的描述：
 

@@ -1,5 +1,7 @@
 # 力的正交分解完整版：現行規格與交付紀錄
 
+> 2026-09-24 文件澄清：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)，reset 只限未提交草稿；完成後重開要求已由 2026-09-22 的只讀規格取代。本輪未更改 runtime 或重做歷史驗收。
+
 ## 文件狀態（2026-09-22）
 
 - 本文件是現行活動的規格入口；[MVP 計劃](20-force-orthogonal-decomposition-mvp.md)保留早期範圍，[roadmap](20-force-orthogonal-decomposition-roadmap.md)記錄階段演進。
@@ -16,7 +18,7 @@
 2. **三個情境**：水平／垂直；斜面物體受外力 F，沿平行／垂直斜面分解；斜面重力 G 沿下坡／向內法線分解。場景需清楚畫出有厚度或斜線紋的斜面及物體，力起點對齊物體。原力固定於該題，避免零分量與近退化角。使用小型題目設定與共同幾何，勿寫龐大通用繪圖引擎。
 3. **角與表達式**：前兩類自由定義 θ，保留可行的 O／P 銳角、等值角與互餘角語意；第三類先採題目給定斜面傾角 θ，要求標出同一角度，不能接受互餘角作同一 θ。G 的平行分量為 Gₓ = G sin θ、向內法線分量為 Gᵧ = G cos θ。第三類固定以 Gₓ／Gᵧ 表示軸向，不容許因學生畫箭頭的先後而對調。公式表達大小，箭嘴表達方向。
 4. **完整練習**：固定三題、每情境一題，可切換並保留各題草稿；不擴張隨機題庫、任意原力拖動或完整 undo。提交前可反覆修改及查看作答完整狀態，但不顯示公式正誤、錯誤分組或數字分數。換角／改圖保留嘗試答案，幾何依賴按下方生產計劃處理。提供最後總覽及明確的最終提交按鈕，提交並鎖定後才顯示評核回饋。
-5. **保存及提交**：formative browser scoring，非高風險評核。用 final-state scoring，三題等權，每題方向、垂線、分力、θ、公式五組各等權；方向、垂線、分力、公式各含兩項，θ 為單項，詳見 Scoring。無操作次數懲罰，無任意 pass/fail 門檻。未完成項於最終提交得 0，但必須清楚確認遺漏。提交前可從總覽返回修改，正式成功後鎖定 review。使用共享 SCORM startup、draft、submission、finish 路徑，涵蓋四種提交結果。standalone 使用共用 `enableStandalonePersistence()` 保存／恢復本地草稿，透過 `clearStandaloneAttempt()` 重設；不可冒稱已提交到 Moodle，也不另複製一套本地保存實作。
+5. **保存及提交**：formative browser scoring，非高風險評核。用 final-state scoring，三題等權，每題方向、垂線、分力、θ、公式五組各等權；方向、垂線、分力、公式各含兩項，θ 為單項，詳見 Scoring。無操作次數懲罰，無任意 pass/fail 門檻。未完成項於最終提交得 0，但必須清楚確認遺漏。提交前可從總覽返回修改，正式成功後鎖定 review。使用共享 SCORM startup、draft、submission、finish 路徑，涵蓋四種提交結果。standalone 使用共用 `enableStandalonePersistence()` 保存／恢復本地草稿；`clearStandaloneAttempt()` 只用於未提交草稿的明確重設／修復，已提交或 pending 結果不得清除；不可冒稱已提交到 Moodle，也不另複製一套本地保存實作。
 6. **正式產物**：完整 production plan、state matrix、snapshot schema、scoring rubric、round-trip／非法狀態／restore continuation／lifecycle 測試，catalogue 與 manifest，SCORM 1.2 ZIP 及 extracted launch 驗證。包內只列實際 runtime dependencies。三題資料須符合 suspend_data 大小限制。
 
 真實 Moodle 的帳戶／環境若未提供，先完成本機、LMS mock 及 packaged 檢查；不得聲稱已做真實 Moodle 或實機手機驗收，也不可自行發布到未知課程。
@@ -276,6 +278,8 @@ Submission creates a validated review snapshot and final-state result, then call
 - 全 repo 最後一次 `npm test` **未通過**：停於無關的 `tools/static-kinetic-friction-browser-regression.js:165` 重做後 recorder-running assertion（`output/force-orthogonal-repairs-final-tests.log`）。單獨重跑越過該檢查，但在同檔 `:360` 的 A3 trusted-pointer 拉力箭頭位置 assertion 失敗（`output/force-orthogonal-repairs-unrelated-friction-rerun.log`）；未修改該活動，不能宣稱 final full-repo green。本活動七組測試及共用 SCORM／activity-flow 已另行在最終版本通過。先前較早的完整 `npm test` exit 0 紀錄不取代這次最終失敗紀錄。
 
 ### 先前驗證紀錄
+
+以下 `local reset` 是當時驗收項；完成後清除的舊要求已由 2026-09-22 只讀規格取代，不得據此重新加入按鈕。
 
 - 2026-09-22：移除完成作答後的本機 reset，保留損壞未提交草稿修復；新增 touch／pen 局部放大。活動六組測試、shared activity-flow／SCORM、browser contract、`npm run check` 及 `npm run package:all` 通過，ZIP／extracted 的 10 個 runtime 檔案與 source 逐 byte 相同。
 - 2026-09-22：完整 `npm test` 最終 exit 0；包括 static／kinetic friction、centre-of-mass 的 source／extracted browser regression。之前紀錄的其他活動 blocker 在本輪未重現。

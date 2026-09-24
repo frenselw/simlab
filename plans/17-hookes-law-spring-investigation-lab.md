@@ -1,5 +1,7 @@
 # 胡克定律：彈簧探究與預測實驗室
 
+> 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)移除檢查／提交的完整度門檻。runtime／schema／scorer 尚待同步；既有驗收不代表空白／部分流程已通過。
+
 > 來源：[GitHub Issue #7](https://github.com/frenselw/simlab/issues/7)
 > 文件地位：本 plan 是產品、教學、物理模型、互動、評分、持久化、SCORM、測試及驗收的 implementation blueprint。
 
@@ -811,7 +813,7 @@ review 只標示：
 
 量度表及模型圖只投影學生自己的資料：每條彈簧顯示三個已記錄的 \(F\)-\(x\) 數值、伸長量零位、模型直線及模型 \(k\)。不 render 真實／理想數據、正確答案、誤差、評分或其他 scenario authority；這些只可在提交後的模擬結果中出現。
 
-學生可返回指定 section 修改。只有全部 required evidence 完整時才可最終提交。
+每個可編輯 phase 均可直接進入本頁，提交空白、部分或完整答案；未作答項目計零分，有效證據按原 rubric 計分。返回修改時只對下一項實驗操作檢查前置資料，不以整份答案完整度阻止檢查或提交。
 
 最終按鈕文案應清楚：
 
@@ -1305,6 +1307,8 @@ function clientToSvg(svg, clientX, clientY) {
 
 ## Phase/state matrix
 
+以下實驗前置條件只限制下一項操作；每個可編輯 row 均可直接進入 review，保留已保存的合法資料。檢查頁及結果須能重畫缺項，不能為答案未完成而報技術錯誤。固定 answer keys／slots 仍必須齊全，只有 schema 明訂的 null／空集合才代表未作答；缺 key、錯誤型別及非法依賴仍拒絕。
+
 | Phase | Variant | Required state | Must be absent／pristine | Allowed next |
 |---|---|---|---|---|
 | `investigate` | active spring 未 calibration | valid seed；working zero marker | 該 spring measurements／model；all predictions／design | confirm calibration／switch spring |
@@ -1317,8 +1321,8 @@ function clientToSvg(svg, clientX, clientY) {
 | `predict` | 3 complete | both models＋3 predictions | design may be absent | go design |
 | `design` | empty | all predictions | design absent | choose spring／modules |
 | `design` | complete | all predictions＋valid design | — | go review／edit |
-| `review` | complete | all required authority | no working drag | submit／return specific section |
-| `investigate/model/predict/design` | `fromReview=true` | review-complete answer may temporarily retain downstream data until an actual upstream replacement | current transient drag only | return review without change，或 replacement 後按 invalidation 清除 |
+| `review` | empty／partial／complete（由答案重建） | valid seed/version；已作答資料符合各自依賴，未作答為 null／空集合 | no working drag | explicit submit／return to an operable section |
+| `investigate/model/predict/design` | `fromReview=true` | legal empty／partial／complete answer；current operation prerequisites；existing downstream data may remain until an actual upstream replacement | current transient drag only | return review without completeness gate，或 replacement 後按 invalidation 清除 |
 | `design/predict/model/investigate` | non-destructive backward navigation | current phase prerequisites＋已記錄的下游答案；`fromReview=true` | 不得清除 predictions／design；不得顯示答案揭示 | return to the phase just left／continue |
 | locked result | submitted/review | validated review answer＋computed result | editable controls | review only |
 
@@ -1334,17 +1338,17 @@ model -> predict
 predict -> design
   when all three prediction values exist
 
-design -> review
-  when spring and valid module count exist
+any editable phase -> review
+  on explicit check action; preserve legal blank/partial answers and saved evidence
 
 review -> submit
-  when canonical completeness passes
+  on explicit submission after structural validation; completeness is not a gate
 
 review -> <section>
   when learner chooses edit; set fromReview=true
 
 <section from review> -> review
-  when no invalidating change and answer remains complete
+  after saving a legal empty/partial/complete state and applying any invalidation
 
 design -> predict -> model -> investigate
   when learner requests a non-destructive backward navigation; preserve downstream answers and set fromReview=true
@@ -1423,7 +1427,7 @@ any editable phase -> earlier normalized phase
 ### Draft 與 review authority
 
 - Draft snapshot 使用上述完整 authority shape；`phase`、`fromReview`、active keys 及 `working` 必須符合 phase/state matrix，讓 restore 後可執行同一合法 continuation。
-- Review snapshot 使用同一組完整 authoritative answers（seed、versions、兩項 calibration、六項 measurements、兩項 models、三項 predictions 及 design），固定為完整的 `phase: "review"`；移除 `working` 與未確認 drag draft，並把只服務 editable continuation 的 active UI state 正規化。
+- Review snapshot 保留同一組 authoritative answer slots（seed、versions、兩項 calibration、六項 measurements、兩項 models、三項 predictions 及 design）；未作答值可為 null，`phase: "review"` 不代表答案完整。移除未確認 drag draft，並正規化只服務 editable continuation 的 active UI state；decoder、scorer、重畫及 review-edit 同步接受合法留白。
 - Review authority 必須足以 validate、rescore、重畫所有 submitted marker／line／design；score、pass 及 Moodle metadata 不屬 authority。
 
 ### 17.2 不保存的 derived fields
@@ -1478,7 +1482,7 @@ expect(SimScorm.snapshotBytes(maxReviewSnapshot)).toBeLessThanOrEqual(4000);
 - model 在六項 measurement 未完成時存在，除非合法 `fromReview` state 且 authority 仍完整；
 - prediction 在兩個 models 不完整時存在；
 - design 在 predictions 不完整時存在；
-- review 不完整；
+- review 含缺少前置證據的已作答資料；合法空白／部分答案不得因此拒絕；
 - negative extension；
 - cursor above zero；
 - marker／cursor／handle 超出物理 bounds；
@@ -1855,7 +1859,7 @@ scorer 不讀：
 - [ ] missing prerequisites；
 - [ ] stale future data；
 - [ ] invalid relationship keys；
-- [ ] incomplete review；
+- [ ] review 中存在缺少前置證據的非空下游答案；合法 empty／partial review 屬 round-trip 正例；
 - [ ] current／legacy mix；
 - [ ] finished invalid remains locked；
 - [ ] pending invalid quarantine；
@@ -1977,7 +1981,7 @@ Browser acceptance 亦必須覆蓋：
 - [ ] no pre-submit correctness leakage；
 - [ ] student can revise before final without trial feedback；
 - [ ] student can inspect earlier slopes from Phase 3 and return without losing Phase 3 answers；
-- [ ] review is complete but neutral；
+- [ ] 每個 editable phase 可進入中性 review；全空白／部分提交、還原及回去繼續操作通過；
 - [ ] submission locks attempt；
 - [ ] result reconstructs every submitted marker／line／design；
 - [ ] score 0..100 and mastery gates correct；

@@ -1,5 +1,7 @@
 # SimLab Plane Mirror Pencil Ray Diagram MVP Plan
 
+> 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)補空白／部分提交；runtime 尚未同步，既有驗收不代表新規格已通過。
+
 ## Purpose
 
 Build the first SimLab optics simulation: `plane-mirror-pencil-ray-diagram`.
@@ -59,7 +61,8 @@ image-type choices:
 The student chooses `虛像`, then drags and resizes a vertical image pencil to
 the correct position behind the mirror. The image tool is available before all
 four bundles are complete so students can compare the image position with their
-ray construction while they work. Submitting an incomplete diagram is allowed;
+ray construction while they work. From every editable phase, learners can open
+the final check and explicitly submit, including a completely blank diagram;
 missing ray bundles or image details simply score zero for those components.
 
 ## Interaction
@@ -274,6 +277,12 @@ sim/shared/
 
 ## SCORM behavior
 
+The final check lists saved geometry and missing items without a minimum drawing
+requirement. Draft and review schemas must preserve legal empty/partial answers;
+use explicit nullable values/empty collections without omitting required keys.
+Missing components score zero. Construction prerequisites apply only to the next
+tool, never to opening the check or submitting.
+
 When the student submits:
 
 - calculate final score;
@@ -303,6 +312,8 @@ to the browser console.
 - Snap helps but does not force an already-wrong line to score as correct unless
   it lands within the defined snap zone.
 - Submit produces a score from 0 to 100.
+- From each editable phase, blank/partial answers can reach the check, submit,
+  restore as locked review, and retain the same score; no completed-attempt reset.
 - Scoring self-check covers perfect answer, wrong image type, wrong mirror side,
   wrong reflected angle, missing extension, and wrong image size.
 - Local fallback works without Moodle.

@@ -1,5 +1,7 @@
 # 自由落體：頻閃量度實驗室
 
+> 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)，未拍攝或未逐項量度亦可直接檢查及提交；runtime／schema 尚待同步，既有驗收不代表此要求已通過。
+
 ## 0. 文件狀態
 
 - 文件角色：新 SimLab 活動的產品、教學、物理、量度操作、過程評分、持久化、
@@ -9,8 +11,8 @@
   SCORM package）。
 - Base ref：`main`；正式 review／implementation gate 使用
   `origin/main` 與 working tree 比較。
-- 目前狀態：production activity；本次獲批 contract revision 升級 editable state 至
-  snapshot `v4`／`rubricVersion:4`，`modelVersion:1` 保持不變。
+- 目前 runtime：production activity，snapshot `v4`／`rubricVersion:4`、`modelVersion:1`。
+  2026-09-24 目標另補任意進度檢查及提交；新 schema version 在實作時指定，既有 immutable review 按原版還原。
 - 語言：學生介面使用繁體中文；本文以繁體中文及必要英文識別字撰寫。
 - 規格優先次序：本文件不得覆蓋
   `plans/00-shared-platform-and-style.md`、
@@ -557,7 +559,7 @@ scoring 的合法負側對準。所有常數集中定義並有正／負側邊界
 
 ### 7.3 分析
 
-八項 measurement 均 recorded／skipped 後可進入分析。學生只填寫：
+正常量度流程在八項 measurement recorded／skipped 後進入分析；直接進入檢查及提交不受此條件限制。學生只填寫：
 
 1. \(\Delta t=1/f\)；
 2. 累積時間比 \(t_1:t_2:t_3:t_4\)；
@@ -586,8 +588,7 @@ Review 顯示：
 - 「返回量度」、「返回分析」、「提交結果」。
 
 返回量度或分析時保留其他答案及 `returnToReview`，修正後回到 review。
-八個 measurements resolved 後 review 一律為 `ready`，即使所有 analysis fields 都是
-null。若尚有 blank，第一次 Submit 只開 inline accessible warning：「N項未答，提交後
+由 setup／量度／分析的任何可編輯階段均可進入 `review/ready`，包括未拍攝、未量度及 analysis 全 null；不要求逐項按跳過。未完成操作回復上一個保存點，檢查不補造量度證據。若尚有 blank，第一次 Submit 只開 inline accessible warning：「N項未答，提交後
 鎖定」，並明示未答得零分；warning 使用有 accessible name／description 的 inline
 `alertdialog`（或等價 live modal pattern），提供「返回填寫」及「仍然提交」。第一次 action 不可呼叫 SCORM、建立 payload
 或 lock；只有 explicit confirmation 才提交同一 canonical state。Nonblank 直接提交。
@@ -1119,24 +1120,26 @@ placement。Candidate placement 可以未達有效
 
 ## 15. Phase/state matrix
 
+2026-09-24 目標：保留正常量度順序，新增每個可編輯階段直接進入 review 的分支；review／review-edit 接受合法留白。此矩陣須與新 schema 一起實作，不能直接放寬舊 v4 decoder。
+
 | Phase | Variant／invariant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `setup` | `new` | setup | canonical v4；frequency null；只可在 genuinely new attempt assignment checkpoint 前短暫存在 | trajectory、answers、evidence、result、enabled capture | inject RNG once, assign and checkpoint |
-| `setup` | `assigned` | setup | legal persisted frequency；`frequencyAssigned=true` | trajectory、answers、evidence、result | learner-initiated capture |
+| `setup` | `new` | setup | canonical schema；frequency null；只可在 genuinely new attempt assignment checkpoint 前短暫存在 | trajectory、answers、evidence、result、enabled capture | inject RNG once, assign and checkpoint |
+| `setup` | `assigned` | setup | legal persisted frequency；`frequencyAssigned=true` | trajectory、answers、evidence、result | learner-initiated capture or ready review |
 | `measure-total` | `normal-unpositioned` | 0–3 | legal frequency；trajectory；earlier total items resolved | active placement；future total；all interval/analysis/result fields | move ruler, enter placement-ready, or skip |
 | `measure-total` | `normal-placement-ready` | 0–3 | matching bounded `activePlacement`（可有效或未有效）；earlier total items resolved | current reading/evidence；future total；interval/analysis/result | record, adjust placement, or skip |
-| `measure-total` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；complete existing answer set may remain | active placement；result metadata | move ruler, replace/skip item, or return |
+| `measure-total` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；legal partial existing answer set may remain；trajectory exists | active placement；result metadata | move ruler, replace/skip item, or return |
 | `measure-total` | `review-edit-placement-ready` | 0–3 | `returnToReview=true`；matching bounded `activePlacement` | result metadata | record replacement, adjust, skip, or return |
 | `measure-interval` | `normal-unpositioned` | 0–3 | all total resolved；earlier gaps resolved | active placement；future gaps；analysis/result | move ruler, enter placement-ready, or skip |
 | `measure-interval` | `normal-placement-ready` | 0–3 | matching bounded `activePlacement`（可有效或未有效）；all total and earlier gaps resolved | current reading/evidence；future gaps；analysis/result | record, adjust placement, or skip |
-| `measure-interval` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；complete prior data may remain | active placement；result metadata | move ruler, replace/skip item, or return |
+| `measure-interval` | `review-edit-unpositioned` | 0–3 | `returnToReview=true`；legal partial prior data may remain；trajectory exists | active placement；result metadata | move ruler, replace/skip item, or return |
 | `measure-interval` | `review-edit-placement-ready` | 0–3 | `returnToReview=true`；matching bounded `activePlacement` | result metadata | record replacement, adjust, skip, or return |
 | `analyze` | `normal` | analysis | all eight measurement items recorded/skipped；v4 analysis all-null、partial、wrong 或 correct 均 legal | result metadata | answer, go back to measure, enter ready review |
 | `analyze` | `review-edit` | analysis | `returnToReview=true`；existing all-null／partial answers valid | result metadata | revise or return to ready review |
-| `review` | `ready` | review | 八個 measurement status 均為 recorded 或 skipped；exact v4 analysis shape（每個 answer 可 null）；evidence subset valid | result metadata、active placement | edit；nonblank direct submit；blank confirmation then submit |
+| `review` | `ready` | review | assigned frequency；generated flag；八個 measurements 可未作答／recorded／skipped；exact analysis shape（每個 answer 可 null）；evidence subset valid | result metadata、active placement；未拍攝時不得有量度/evidence | edit an available task；nonblank direct submit；blank confirmation then submit |
 | `submitted` | `locked` | review | valid review answer sufficient to rescore/redraw | editable phase, active ruler, transient drag | inspect feedback only |
 
-`recorded` 量度可以沒有 valid evidence；`skipped` 必須沒有 reading/evidence。
+所有可編輯 row 均可直接前往 review；placement-ready 先丟棄未保存操作。未拍攝的 review 返回 setup，拍攝後才可操作尺具。`recorded` 量度可以沒有 valid evidence；未作答及 `skipped` 必須沒有 reading/evidence。
 這是讓「答案但沒有操作」成為可提交、可扣操作分的合法狀態。
 
 Transitions：
@@ -1154,11 +1157,12 @@ measure-total/normal-unpositioned[i] -> measure-total/normal-unpositioned[i+1]
 measure-total/normal-*[3] -> measure-interval/normal-unpositioned[0]
 measure-interval/normal-*[i] -> measure-interval/normal-unpositioned[i+1]
 measure-interval/normal-*[3] -> analyze/normal
-analyze/normal -> review/ready at explicit review navigation after all measurements resolve
-review/* -> measure-total/review-edit-unpositioned[i] on edit total item
-review/* -> measure-interval/review-edit-unpositioned[i] on edit gap item
+any editable assigned phase -> review/ready at explicit check navigation, with any completion level
+review/ready -> setup/assigned when returning to an uncaptured attempt
+review/* -> measure-total/review-edit-unpositioned[i] on edit total item, when generated
+review/* -> measure-interval/review-edit-unpositioned[i] on edit gap item, when generated
 review-edit-unpositioned -> review-edit-placement-ready on completed placement
-review/* -> analyze/review-edit on edit analysis
+review/* -> analyze/review-edit on edit analysis, when generated
 review-edit/* -> review/ready on explicit return
 review/ready -> inline blank warning with zero SCORM calls when any answer item is null
 review/ready -> submitted/locked only on nonblank direct submit or explicit still-submit confirmation
@@ -1173,18 +1177,19 @@ phase 名稱到 activity snapshot。
 Restore 任一 generated draft／review 直接取 `static`；不得把半完成 capture 變成
 新的 persisted phase 或 continuation。
 
-`skipped` 是 resolved-and-submittable zero-credit measurement status；只有 status 尚未
-選定才是 unresolved。Analysis null 是合法 unanswered，不會令 review 變成 incomplete。
+未作答和 `skipped` 都是可提交的零分量度狀態；不須把前者偽裝成已跳過。Analysis null 亦合法，不會阻止 review／提交。
 
 ## 16. Persistence contract
 
+本節的 draft／review shape 是 2026-09-24 待實作目標，`NEXT_SCHEMA_VERSION` 在實作時指定；不得以新接受範圍重解舊 v4。generated draft 與 review 保留八個固定量度 keys，未作答值為 `null`；已跳過為 `{ status: "skipped" }`，已記錄為 `{ status: "recorded", readingM }`。missing required key、錯誤型別及非法依賴仍拒絕。immutable 舊提交及 pending 保留原 schema、scorer 和 bytes。
+
 ### 16.1 Draft snapshot semantics
 
-Production 可使用 compact keys，但 decode 後語義必須等價：
+以下為已拍攝 draft 的 schema 示意（非可執行 JS）；setup 保留明確最小 keys（versions、phase／variant／currentStep、returnToReview、frequencyHz／frequencyAssigned），不帶量度及分析。Production 可使用 compact keys，但 decode 後語義必須等價：
 
-```js
+```text
 {
-  v: 4,
+  v: NEXT_SCHEMA_VERSION, // target revision; preserve immutable v4 attempts
   modelVersion: 1,
   rubricVersion: 4,
   phase,
@@ -1208,14 +1213,14 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
     zeroErrorPx
   },
   measurements: {
-    total1: { status, readingM },
-    total2: { status, readingM },
-    total3: { status, readingM },
-    total4: { status, readingM },
-    gap01: { status, readingM },
-    gap12: { status, readingM },
-    gap23: { status, readingM },
-    gap34: { status, readingM }
+    total1: null | { status: "skipped" } | { status: "recorded", readingM },
+    total2: null | { status: "skipped" } | { status: "recorded", readingM },
+    total3: null | { status: "skipped" } | { status: "recorded", readingM },
+    total4: null | { status: "skipped" } | { status: "recorded", readingM },
+    gap01: null | { status: "skipped" } | { status: "recorded", readingM },
+    gap12: null | { status: "skipped" } | { status: "recorded", readingM },
+    gap23: null | { status: "skipped" } | { status: "recorded", readingM },
+    gap34: null | { status: "skipped" } | { status: "recorded", readingM }
   },
   evidence: {
     setupCompleted,
@@ -1239,8 +1244,8 @@ Production 可使用 compact keys，但 decode 後語義必須等價：
 }
 ```
 
-V4 analysis 的六個 keys 全部 required。只有 `null` 表示 blank；missing、empty string、
-NaN、Infinity、ratio editable term `0`／negative 均 invalid。V4 必須拒絕 obsolete
+Analysis 沿用六個 required keys。只有 `null` 表示 blank；missing、empty string、
+NaN、Infinity、ratio editable term `0`／negative 均 invalid。必須拒絕 obsolete
 `totalDisplacementRatio`／`intervalDistanceRatio` 或任何 mixed legacy/current shape。`setup`
 phases 不得有 `generated=true` 或 measurement／analysis data。
 
@@ -1248,15 +1253,16 @@ phases 不得有 `generated=true` 或 measurement／analysis data。
 
 ```js
 {
-  v: 4,
+  v: NEXT_SCHEMA_VERSION, // 2026-09-24 target; assign/version during implementation
   locked: 1,
   modelVersion: 1,
   rubricVersion: 4,
   frequencyHz,
   frequencyAssigned: true,
-  measurements: { /* all eight resolved items */ },
+  generated,
+  measurements: { /* all eight required keys: null or explicit recorded/skipped item */ },
   evidence: { /* canonical process evidence subset */ },
-  analysis: { /* exact v4 shape；null answers legal */ }
+  analysis: { /* exact six-key shape；null answers legal */ }
 }
 ```
 
@@ -1275,7 +1281,7 @@ Restore：
 
 ```text
 validate versions and canonical schema
-→ recompute trajectory from frequency
+→ recompute trajectory from frequency only when generated; otherwise show the uncaptured state
 → validate measurement/evidence relationships
 → activity scorer
 → SimActivityFlow.reviewResult(computed, saved metadata, Moodle attempt)
@@ -1346,8 +1352,14 @@ validate versions and canonical schema
 - total reading 只在同名 compact finalized evidence valid 時連結 placement；
 - v4 analysis exact keys；兩組 ratio array 長度4、首項 numeric `1`、其餘只可 null 或
   positive finite；deltaT／三個 law answers 只可 null 或 legal value；
-- review ready／submitted 明確具有 exact v4 analysis 及八個 resolved measurements；
+- review ready／submitted 具有 exact analysis 及八個合法量度 slots；未作答 slot 合法，未拍攝時無量度/evidence；
+- 新 schema 的空白、部分及完整 review 均須 production round-trip、同分重算及只讀重畫；還原草稿後執行一次合法 continuation；
 - score、passed 及 legal continuation survive round-trip；
+
+新 editable 遷移須先按原版 exact decoder 驗證，再一次性轉為新 schema；空白／部分不能靠補漏 keys 或放寬舊 decoder 冒充合法。
+
+#### 已交付 v4 遷移紀錄（保留相容性參考，不是新 schema 的寫入目標）
+
 - editable v1/v2/v3 draft/review 先按各自 exact legacy schema 驗證，再一次性遷移至
   `v4/rubricVersion:4`；保留 frequency、measurements、finalized item evidence、deltaT、兩組 time
   ratios 及三個 laws，drop 兩組 obsolete distance ratios，legacy blank／missing answer
@@ -1368,7 +1380,7 @@ validate versions and canonical schema
   或 mixed legacy/current shape quarantine。V3 final／frozen 保持 rubric3 原 bytes／scorer；
 - editable next save canonical re-encode produces one stable v4 shape。
 
-Tuple dispatch 必須先 exact match 才進 decoder／scorer：current review 只接受
+已交付 v4 的 tuple dispatch 先 exact match 才進 decoder／scorer：其 review 只接受
 `(v=4, modelVersion=1, rubricVersion=4)`；legacy branch 只接受明確 supported
 `(v=1, modelVersion=1, rubricVersion=2)`（先正規化至 immutable rubric2 shape）或
 `(v=2, modelVersion=1, rubricVersion=2)`、`(v=3, modelVersion=1, rubricVersion=3)`。任何 cross-product unknown／mixed tuple 一律

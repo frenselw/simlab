@@ -1,7 +1,9 @@
 # Simulation and SCORM Production Guide
 
 Use this guide before building a new SimLab simulation. It records the practical
-SCORM/Moodle behaviors that are easy to miss.
+SCORM/Moodle behaviors that are easy to miss. The
+[shared design baseline](../plans/00-shared-platform-and-style.md) owns product and
+visual rules; this guide owns implementation and acceptance checks.
 
 ## End-to-end workflow
 
@@ -81,12 +83,14 @@ is legal:
 | `edit` | normal | ... | ... | ... |
 | `edit` | returning from review | ... | ... | return to review |
 | `review` | complete | ... | ... | submit or edit |
+| `review` | empty or partial | explicit unanswered/partial answers | no invented completion | submit or edit |
 
 The matrix must answer:
 
 - Which phase names can production code actually render?
 - Which current step/index values are legal in each phase?
-- Which previous answers must already exist?
+- Which dependencies are required for a particular operation? Missing work must
+  not block entry to review or submission.
 - Whether an active answer is absent, partial, or already present for a valid
   review-edit continuation;
 - Which future-step fields must be empty or zero for that specific variant;
@@ -138,8 +142,11 @@ Restore rules:
 - Corrupt or impossible states must be rejected, not silently converted into a
   different meaningful answer.
 - Rebuild IDs and other derived state deterministically.
-- Reject non-finite numbers, invalid enums, impossible dependency order, stale
-  future-step data, skipped required steps, and states with no continuation.
+- Reject non-finite numbers, invalid enums, impossible dependencies, stale data
+  that violates the phase matrix, and states with no continuation. Unvisited,
+  empty, and partial work are legal review states, not corrupt snapshots: encode
+  missing answers as `null` or an explicit unanswered value and preserve valid
+  independent answers. This does not relax schema or relationship validation.
 - Preserve full scoring precision. Round values only for display.
 - Keep the serialized snapshot below the SCORM 1.2 suspend-data limit.
 - A finished attempt with an invalid review snapshot, or with a stale
@@ -153,9 +160,9 @@ Restore rules:
   `SimScorm.quarantinePending()` before rendering the technical lock. This
   leaves the durable checkpoint untouched but prevents manual, BFCache, or
   pagehide retry from writing the rejected result.
-- An invalid editable draft may reset only when the activity plan defines how to
-  clear or overwrite the bad snapshot before starting a clean draft. Otherwise,
-  lock the activity and show a technical load error.
+- An invalid draft may reset only when evidence confirms it is unsubmitted and
+  the plan defines how to clear/overwrite it. Unknown, pending, or completed
+  attempts stay locked; an error alone is not permission to clear their data.
 
 The required invariant is:
 
@@ -174,9 +181,11 @@ phase or invariant; merely comparing serialized fields is insufficient.
 
 For each saveable phase and invariant variant, leave one production
 encode/decode/restore round-trip test and execute one legal continuation after
-restore. Add invalid-state cases for:
+restore. Cover these valid and invalid cases:
 
-- missing required previous answers;
+- missing true dependencies, distinguished from legal unanswered work;
+- empty/partial review, including entry from every editable phase, and review-edit
+  continuations without invented visited/completed flags;
 - active-answer and future-data combinations that violate that matrix row
   (review-edit variants may legitimately retain an active answer);
 - dependency inversion, invalid enums, `NaN`, `Infinity`, and negative values
@@ -192,203 +201,122 @@ test-only direction, point, answer, or phase schema.
 
 ## Interaction design
 
-- Design phone-first, then expand to tablet and desktop.
-- Make the first screen the actual task, not a landing page.
-- Classify the mobile control layout in the activity plan. If there is no
-  substantial control panel, natural page flow is valid. If learners repeatedly
-  use a control panel while the stage must stay visible, use the bounded
-  split-panel contract below.
-- For a bounded split-panel activity, size the app with `100vh` followed by
-  `100dvh`, keep the stage in the upper row, and allocate the remaining row to an
-  independently scrolling control panel. Set the app shell, stage, panel, and
-  any intervening grid/flex children to `min-height: 0` where they must shrink.
-- Give the panel `overflow-y: auto` and `overscroll-behavior: contain`; keep the
-  activity body/app shell from becoming a competing vertical scroll container.
-  In a bounded iframe, `html`, `body`, and the app shell must have no usable
-  vertical scroll range: the activity document must not become a hidden third
-  scroll owner.
-- Assign scrolling by where the touch begins. A swipe from non-interactive stage
-  content belongs to the enclosing page or Moodle host. A swipe from the control
-  panel belongs only to the panel, including at its top and bottom boundaries.
-  The panel must never move in response to a swipe that began on the stage.
-  "The stage remains visible while controls are used" describes panel gestures;
-  a gesture beginning on the stage intentionally moves the enclosing host and
-  iframe.
-- Record the stage track in the plan. Start from `minmax(13rem, 44vh)` plus a
-  `44dvh` enhancement when appropriate, then change it only for the stage's
-  readability needs. Do not let intrinsic stage content or an `auto` track take
-  height priority and squeeze the control panel into an unusable remainder.
-- At extreme heights or zoom, reflow or resize a dense stage instead of making
-  it an independent vertical scroll owner. Keep primary actions and keyboard
-  focus targets reachable.
-- Use touch-friendly controls and Pointer Events for dragging.
-- Define a touch gesture ownership matrix for every mobile activity that has a
-  stage and controls, even when nothing is draggable. If the activity has direct
-  manipulation, also inventory every draggable target type; do not validate one
-  representative target and assume the rest behave the same.
-- Avoid snap behavior unless it directly helps the task. A grid can be visual
-  only; it must not stop learners from drawing physically correct directions.
-- When a touch drag target can be hidden by the learner's finger, prefer a
-  temporary local preview or magnifier over moving the actual object away from
-  the finger. Keep the object on the normal relative-drag path so fine adjustment
-  still works.
-- Keep touch previews visually stable. Prefer fixing the preview to the diagram
-  corner farthest from the current finger position instead of making it track the
-  finger continuously.
-- For close draggable objects, highlight the selected object during drag and
-  make the preview show which object is currently being adjusted.
-- When a learner reaches a state where the next action is in the controls panel,
-  a subtle in-diagram hint can help. Use layout-neutral wording such as
-  "go to the operation panel"; do not assume the button is below, above, left, or
-  right of the diagram.
-- Hide in-diagram continuation hints as soon as the learner opens the relevant
-  control, answers, or moves to the next task state.
-- Do not place answers in the default state. Defaults may show available objects,
-  but learners must still make the meaningful choices.
-- Keep object labels off the diagram unless the label teaches something.
-- Make physical scenery distinguishable from other physics objects. For example,
-  draw a ground or support surface with thickness or hatch marks instead of only
-  a single line when future tasks may also contain ropes, strings, rays, or
-  vectors.
-- Use compact, readable diagram labels. For duplicate symbols, render numeric
-  subscripts, not underscores. In HTML, use `N<sub>2</sub>`; in SVG, use a
-  smaller `<tspan>` with `baseline-shift="sub"`.
-- For repeated selectable items such as multiple forces of the same type, avoid
-  adding more and more duplicate buttons. Use one row per item type with a clear
-  count and add/remove buttons, and state the maximum count in the plan.
-- In those rows, align the learner-facing name and physics symbol separately,
-  such as `支持力` in one column and `N` in another. Do not rely on mixed Chinese
-  and Latin text widths lining up naturally.
+Use the shared baseline for [layout](../plans/00-shared-platform-and-style.md#layout),
+[navigation](../plans/00-shared-platform-and-style.md#navigation),
+[submission/reset](../plans/00-shared-platform-and-style.md#submission-and-reset),
+[diagrams and notation](../plans/00-shared-platform-and-style.md#diagrams-and-notation),
+[snapping](../plans/00-shared-platform-and-style.md#snapping),
+[touch previews](../plans/00-shared-platform-and-style.md#touch-preview), and
+[mobile interaction](../plans/00-shared-platform-and-style.md#mobile-interaction).
+Record the activity's choices in its plan; implement these technical contracts:
+
+- Classify controls as short/natural flow or bounded split-panel. For a bounded
+  panel, use `100vh` then `100dvh`, an upper stage and a panel in the remaining
+  height; apply `min-height: 0` through the shrinking grid/flex chain. The panel
+  uses `overflow-y: auto` and `overscroll-behavior: contain`; `html`, `body`, and
+  the app shell have no competing vertical scroll range. A short controls region
+  may remain in natural flow.
+- Specify the stage track in the plan. `minmax(13rem, 44vh)` plus `44dvh` is a
+  starting point. At short heights or zoom, reflow/resize the stage; do not add a
+  stage scroller or let intrinsic content make primary controls unreachable.
+- Every editable phase, including optional practice, must offer entry to review
+  without requiring all tasks to be viewed, answered, or individually skipped.
+  Review accepts empty/partial
+  work, identifies unanswered items and their scoring effect, and requires an
+  explicit submit action; navigation must never submit automatically.
+- Reset is limited to editable work or the confirmed unsubmitted corrupt-draft
+  recovery above. `success`, `committed`, `frozen`, unknown finalization, and
+  finished review have no clear/restart action, including standalone attempts.
+- Use Pointer Events with stable capture targets. Convert pointer, diagram,
+  preview, and snap coordinates consistently through scaling/letterboxing;
+  evaluate screen-distance thresholds in CSS pixels, not device pixels or fixed
+  SVG units. Preview and release must use the same resolved geometry.
+- A touch preview renders actual current geometry and the snapped focus; it does
+  not intercept input, create duplicate IDs, or become authoritative state.
+  Clear it on release, cancel, lost capture, navigation/teardown, blur, and lock.
+  Keep the camera fixed during a drag; viewport changes require deliberate reflow.
 
 ### Selective touch gesture ownership
 
-A touch gesture has exactly one owner, selected from the region where it starts.
-For every bounded split-panel activity, these are project-wide defaults:
+A gesture has one owner determined by its start region. Every mobile activity
+with a stage and controls needs a matrix, even without draggable objects. For a
+bounded split-panel use all applicable rows below; natural-flow controls share
+the page/host owner and have no independent-panel row.
 
 | Touch starts on | Owner | Observable acceptance result |
 |---|---|---|
-| Non-interactive stage content | Enclosing page or Moodle host | The host scroll position changes and the activity iframe moves with it; activity document and control panel stay fixed; the gesture does not change learner state |
-| Independently scrolling control panel | Control panel | The panel scroll position changes when it has range; host, iframe, activity document, host and activity visual viewports, and stage stay fixed, including at panel boundaries; the gesture causes no learner-state change |
-| A draggable target | Simulation for the active drag | The target changes; every host-page, panel, activity-document, host/activity-viewport, and iframe position remains fixed; `pointermove` and `pointerup` occur and no `pointercancel` occurs |
+| Non-interactive stage content | Enclosing page/Moodle host | Host scrolls and iframe moves with it; activity document, activity visual viewport, panel and learner state stay unchanged |
+| Independently scrolling control panel | Control panel | Only panel scrolls when it has range; host, iframe, stage, activity document and both visual viewports stay fixed, including at panel boundaries; learner state unchanged |
+| Each draggable target type | Simulation | Intended target changes; all scroll/viewport/iframe positions stay fixed; `pointermove` and `pointerup`, no `pointercancel` |
+| Free drawing surface, when present | Simulation | Stroke changes with the same fixed-position and pointer requirements as dragging |
+| Left scroll strip beside drawing surface | Enclosing page/Moodle host | Same result as non-interactive stage; no stroke starts |
+| Right scroll strip beside drawing surface | Enclosing page/Moodle host | Same result as non-interactive stage; no stroke starts |
 
-For a short natural-flow controls region, do not invent an independent panel
-owner: the enclosing page/host remains the normal scroll owner outside actual
-interactive or draggable targets.
+Use `touch-action: pan-y` on non-interactive stage content and both scroll strips.
+Only actual drag targets and the drawing surface use `touch-action: none`, in
+place **before** `pointerdown`. In free drawing modes, inset the drawing surface
+within the stage and reserve usable strips on both sides; record each width and
+its reason in the plan and verify it at narrow phone sizes. Do not let a drawing overlay cover
+those strips. Individual draggable objects never justify disabling the full stage.
 
-The root stage surface must normally use `touch-action: pan-y` so blank stage
-content permits vertical host scrolling. Do not disable touch action on the
-entire stage to make individual objects draggable. Suppression belongs to the
-actual drag hit targets. The control panel must use
-`overscroll-behavior: contain` so reaching its top or bottom does not transfer
-the gesture to the host.
+Document the scroll topology for development, packaged SCORM, and Moodle. Native
+panning follows scrollable ancestors, not a sibling panel: never forward a stage
+gesture to controls. Remove activity-document scroll range in a bounded iframe.
+If native behavior cannot reach the enclosing host, change the topology or forward
+only to that host and verify the matrix; forwarding is not native scrolling. Only
+a direct standalone page with genuinely no enclosing scroll range may mark host
+movement N/A; the required scrollable Moodle-like iframe test may not.
 
-Document the scroll topology for every supported launch context. Native panning
-follows the gesture target's scrollable ancestor chain and cannot scroll a
-sibling panel. Never forward a stage gesture to the sibling control panel. In a
-bounded iframe, remove any activity-document scroll range that could consume a
-stage gesture. If the browser cannot naturally reach the enclosing host, change
-the topology or explicitly forward only to that same host owner and verify the
-observable contract above; programmatic forwarding is not native scrolling.
+Inventory every target type. SVG `circle`, `line`, `path`, or `g` alone is not a
+portable gesture boundary: normally use explicit-size positioned HTML targets.
+Canvas/SVG alternatives need equivalent browser/device evidence. Keep capture
+targets mounted throughout rendering and dragging; changing `touch-action` after
+pointerdown does not change that gesture's owner.
 
-Only a direct standalone page whose enclosing document genuinely has no scroll
-range may mark the blank-stage non-zero delta not applicable. This exception
-does not apply to the required scrollable Moodle-like iframe test.
+Verification must use real touchscreen or browser-level trusted touch input
+(`touchStart`/`touchMove`/`touchEnd`), confirm touch pointer type and trusted events,
+and record engine/device. DOM `dispatchEvent`, source/CSS/computed-style checks,
+and programmatic `scrollTop` changes do not count as acceptance gestures.
+Run every applicable row on **both development and built/extracted SCORM** launch
+pages in a scrollable Moodle-like iframe host with range away from its boundaries.
+Use up/down swipes, test the panel at both boundaries, every target type, the
+active drawing surface, and each side strip separately. Programmatic positioning
+is allowed only for setup.
 
-An inner SVG shape is not, by itself, a portable gesture boundary. Do not depend
-solely on `touch-action: none` on SVG `circle`, `line`, `path`, or `g` elements.
-A positioned HTML hit target with explicit width and height is the usual
-solution. Canvas and SVG activities may use an alternative, including stable
-overlays or selectively claimed touch input, when real-device/browser evidence
-proves the same matrix. Keep the pointer-capture target mounted throughout the
-drag; rendering the visual scene must not replace it. A normal drag that ends in
-`pointercancel` fails this contract.
-
-The drag target's effective `touch-action` must be present before `pointerdown`.
-Changing it in a pointer handler or after a gesture begins does not alter the
-browser's ownership decision for that gesture.
-
-Automated browser verification must use browser-level trusted touch input, such
-as a browser automation protocol producing `touchStart`/`touchMove`/`touchEnd`,
-rather than DOM `dispatchEvent`, source strings, CSS declarations, or computed
-styles. Confirm trusted events and touch pointer type, and record the browser
-engine/device. Run every applicable row on both the development page and the
-built or extracted SCORM launch page inside a scrollable Moodle-like host
-containing the activity iframe; bounded split-panels must run the complete
-three-region matrix. Give the host available range, place it away from the
-relevant boundary, and swipe in both directions.
-
-Before and after each gesture, record the enclosing host page scroll position,
-host visual-viewport offset/page position where measurable, iframe bounding
-rectangle, activity-document scroll position, activity visual-viewport offset
-where measurable, control-panel scroll position, and gesture-owned learner state
-such as phase, selection, answers, or persisted data. For a continuously running
-simulation, pause or fake the clock, or compare against expected time evolution,
-so ordinary model progress is not mistaken for a gesture side effect. Then
-assert:
-
-1. blank stage: a non-zero host delta and matching iframe movement; zero
-   activity-document, activity-visual-viewport, and panel delta; no
-   gesture-caused learner-state change;
-2. control panel: a non-zero panel delta when it has range; zero host, iframe,
-   activity-document, host-visual-viewport, and activity-visual-viewport delta;
-   unchanged stage and no gesture-caused learner-state change. Repeat at the
-   panel's top and bottom boundaries and require the host to stay fixed;
-3. every draggable target type: the intended target changes; every recorded
-   scroll delta is zero; at least one `pointermove` and a final `pointerup`
-   occur; no `pointercancel` occurs.
-
-Programmatic setup may position an owner away from a boundary, but assigning
-`scrollTop` is not an acceptance gesture. Use repeated trusted touch gestures to
-produce the measured results. These artifact checks are part of package
-readiness. Moodle readiness requires the same behavior on a real phone in the
-current-window player and, when offered, the new-window player.
+Record before/after host scroll and visual-viewport/page position, iframe bounds,
+activity-document scroll and visual viewport, panel scroll, and owned learner
+state (phase, selection, answers/persistence); record viewport measures wherever
+available. Assert the table's changed owner and every fixed non-owner, not just
+the intended movement. Pause/fake continuous model time or account for expected
+evolution so it cannot hide gesture side effects. Preview checks cover actual
+geometry, snapped focus, unobstructed placement, non-interception, and cleanup.
+These are package gates; repeat the matrix on a real phone in Moodle's
+current-window player and, when offered, new-window player for Moodle readiness.
 
 ## Scoring and feedback
 
-- Score the submitted final state unless the plan explicitly requires process
-  scoring.
-- Keep score within `0..100`; never let penalties make it negative.
-- Do not hide scoring choices inside code. Before implementation, explain the
-  exact scoring model to the user in plain language.
-- Do not hard-code a generic "correct" tolerance in the guide. Choose tolerance
-  values per simulation, state the unit, and explain what learner behavior that
-  tolerance accepts or rejects.
-- Make every score component explicit:
-  - what earns points;
-  - how many points it earns;
-  - what loses points;
-  - whether duplicate or extra objects can cancel points already earned;
-  - the passing threshold;
-  - the minimum and maximum possible score.
-- Make every tolerance explicit:
-  - the measured quantity, such as angle, position, length, time, or numeric
-    value;
-  - the accepted error range and unit, such as degrees, pixels, percent, or SI
-    units;
-  - whether the range is symmetric, one-sided, relative, or absolute;
-  - examples of answers just inside and just outside the tolerance.
-- If a learner can gain points by selecting every possible option, the rubric is
-  wrong. Extra objects, duplicate objects, or irrelevant actions must either
-  earn no credit or deduct enough credit to remove the advantage.
-- Feedback should tell the learner what is right, missing, extra, or wrong in
-  terms of the physics, not just show a number.
+Expose a final result with this shape; derive it from authoritative learner work:
 
-Use this compact format in each simulation plan:
-
-```text
-Scoring:
-- Total: 100
-- Passing threshold: ...
-- Components: ...
-- Penalties: ...
-- Lowest score: 0
-
-Tolerance:
-- Quantity checked: ...
-- Accepted range: ...
-- Borderline examples: ...
-- Easy-to-change constants: ...
+```js
+{ score: 0, maxScore: 100, passed: false, completed: true,
+  feedback: "short learner-facing feedback" }
 ```
+
+- Score the submitted final state unless the plan explicitly requires process
+  scoring. Keep `score` in `0..100` and `maxScore` at `100`; clamp the score to
+  zero after penalties.
+  Empty work scores zero. Partial work retains credit for each valid independent
+  component; missing items earn zero without erasing unrelated earned points.
+- Before implementation, explain the rubric in plain language and record it in
+  the plan: components/points, genuine dependencies, extras/duplicates/penalties,
+  total, passing threshold, and minimum/maximum. Selecting everything must not
+  create an advantage; irrelevant actions earn no credit.
+- Set tolerances per activity: measured quantity, accepted range and unit,
+  symmetric/one-sided and relative/absolute rules, just-inside/outside examples,
+  and easy-to-change constants. Do not copy a generic tolerance from this guide.
+- Feedback explains what is right, missing, extra, or wrong in the subject model.
+  `completed` describes the intended final result; only the shared submission
+  outcome confirms whether it was recorded.
 
 ## SCORM runtime rules
 
@@ -437,7 +365,7 @@ const startupState = SimActivityFlow.startup(attempt);
 `storage` reports `available`, `read-only`, or `unavailable` at initialization;
 it is not proof that a later save succeeded. A detected LMS remains the authority
 for Moodle attempts. The standalone store is used only by the no-LMS fallback.
-Use the same activity identifier for startup, snapshots, and local reset.
+Use the same activity identifier for startup, snapshots, and permitted draft reset.
 
 - Continue to save through the shared snapshot/draft/submission APIs; do not
   write individual SCORM fields or localStorage keys inside the activity.
@@ -454,16 +382,15 @@ Use the same activity identifier for startup, snapshots, and local reset.
   evidence but cannot promise new durable saves. A failed durable transaction
   must not be downgraded to memory-only success: preserve the pending/locked
   state and follow the shared submission outcome.
-- To reset a standalone attempt through a learner-confirmed action, call
-  `SimScorm.clearStandaloneAttempt(ACTIVITY)` and require a `true` result before
-  reloading into a fresh activity. A `false` result is a clear failure; keep a
-  technical message instead of claiming the old attempt was removed. Reload
-  reinitializes the shared runtime's submission/finish state. The helper removes
-  the local checkpoint and legacy keys; it does not clear a Moodle attempt.
-- Only offer this reset in a standalone context and in the phases allowed by the
-  activity plan. A completed Moodle attempt remains review-only; a new LMS
-  attempt must come from Moodle. Invalid-draft recovery likewise needs an
-  explicit plan-defined clear/overwrite path.
+- For an allowed, learner-confirmed standalone draft reset, call
+  `SimScorm.clearStandaloneAttempt(ACTIVITY)` and require `true` before reload.
+  On `false`, retain the technical error; do not claim removal. The helper removes
+  the local checkpoint and legacy keys, not Moodle data; reload reinitializes
+  shared submission/finish state.
+- Permit this only while editable or for a proven unsubmitted corrupt draft with
+  a plan-defined recovery path. Never expose it for completed standalone work,
+  `committed`, `frozen`, or uncertain finalization. A new Moodle attempt must come
+  from Moodle; a reset must not turn submitted evidence into a fresh attempt.
 
 The production opt-in is used by `sim/force-orthogonal-decomposition/main.js`.
 Shared storage failure/restore coverage lives in `sim/shared/scorm.test.js`;
@@ -473,14 +400,8 @@ reset phases in the activity plan rather than assuming every simulation opts in.
 
 ## Mandatory shared lifecycle flow
 
-Startup uses one gate:
-
-```js
-const attempt = SimScorm.loadAttempt(ACTIVITY);
-const startupState = SimActivityFlow.startup(attempt);
-```
-
-Handle all startup outcomes:
+Startup calls `SimScorm.loadAttempt(ACTIVITY)` then
+`SimActivityFlow.startup(attempt)`. Handle every outcome:
 
 - `review`: validate the snapshot, restore its authoritative answer, rescore, and
   lock the finished attempt;
@@ -602,7 +523,7 @@ Important Moodle behavior:
 
 ## SCORM package rules
 
-- Build one activity with `npm.cmd run package -- <activity-slug>`. The tool reads
+- Build one activity with `npm run package -- <activity-slug>`. The tool reads
   `sim/manifests/<activity-slug>.xml`; every `<file href>` is relative to `sim/`
   and becomes a ZIP-root-relative path.
 - The ZIP root must contain `imsmanifest.xml`.
@@ -635,112 +556,68 @@ runtime asset referenced by `index.html` or loaded code against the manifest.
 Then serve the built or extracted ZIP and run the browser smoke against that
 artifact, not only against `sim/` source files.
 
-## Playwright CLI on this Windows machine
+<a id="playwright-cli-on-this-windows-machine"></a>
 
-Use Git Bash explicitly; plain `bash` may invoke WSL without a configured distro.
+## Browser check tooling
 
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" -lc '"/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh" --help'
-& "C:\Program Files\Git\bin\bash.exe" "output/playwright/<activity-check>.sh"
-```
-
-Put longer flows in an ignored script under `output/playwright/` and set:
-
-```bash
-PWCLI="/c/Users/frens/.codex/skills/playwright/scripts/playwright_cli.sh"
-```
-
-Treat `### Error` anywhere in Playwright CLI output as a failed verification even
-when the process exits with code 0. Start and stop the local server and browser
-session in the script so checks do not leave background state behind.
+Use the available project browser runner or resolve the installed Playwright CLI
+wrapper from the current environment. Put temporary flows in ignored
+`output/playwright/` scripts; have each script start and stop its server/browser.
+On Windows, use Git Bash explicitly if plain `bash` invokes unconfigured WSL,
+and use `npm.cmd` if the shell cannot run `npm`. Do not copy another machine's
+user paths. Treat `### Error` in Playwright CLI output as failure even with exit 0.
 
 ## Verification checklists
 
 ### Package-ready checks
 
-- Run JavaScript syntax checks for changed files.
-- Run the scoring self-check or test file.
-- Run every production persistence round-trip and invalid-state matrix test.
-- Execute one legal continuation after restoring every phase/invariant fixture.
-- Run shared fake-LMS failure tests for any shared runtime change.
-- Open with Live Server or a local static server.
-- For every bounded split-panel activity, run its complete three-region touch
-  gesture ownership matrix with browser-level trusted touch gestures in a
-  scrollable Moodle-like iframe host. A blank-stage swipe must scroll the host
-  and move the iframe while leaving the activity document and panel fixed and
-  causing no learner-state change. A panel swipe must move only the panel,
-  including at its boundaries. If the activity has direct manipulation, every
-  draggable target must move with zero delta on every host-page,
-  activity-document, panel, host/activity-viewport, and iframe position,
-  deliver `pointermove` and `pointerup`, and deliver no `pointercancel`. A
-  natural-flow activity runs the applicable stage and draggable rows with the
-  host as its normal scroll owner; it has no independent-panel row. DOM
-  `dispatchEvent`, programmatic `scrollTop` changes, and source/computed-style
-  checks do not satisfy this requirement.
-- For every bounded split-panel activity, test at least `320x500`, `390x500`,
-  `390x600`, and a normal full-height phone viewport, plus phone landscape,
-  browser-toolbar changes, software-keyboard display, and 200% zoom. Verify that
-  the panel reaches its true bottom, primary actions remain reachable, and the
-  activity document has no vertical scroll range competing with the declared
-  host and panel owners.
-- Submit once outside Moodle and confirm local SCORM logging still works.
-- Exercise new, draft restore, pending-final failure, load-error, finished review,
-  invalid-snapshot, trust-mismatch, and unknown-status UI outcomes. Test actual
-  lifecycle/UI behavior rather than searching source files for handler names.
-- Run the repository quality gate:
-  - `npm.cmd run check`
-  - `npm.cmd test`
-  - `npm.cmd run package:all`
-  - `git diff --check <base>...HEAD` (normally `origin/main...HEAD`)
-- Inspect the built ZIP before upload: `imsmanifest.xml` must be at the root,
-  tests or temporary files must not be included, and local dependencies must
-  match the manifest.
-- Extract or serve the built ZIP and run its launch page through browser smoke.
-- Repeat the complete real-touch gesture ownership matrix against the built or
-  extracted ZIP launch page, not only the development source page.
+- Complete the plan: scope/risk, catalogue entry, scoring/tolerances, phase matrix,
+  schemas, lifecycle outcomes, navigation, mobile layout, all target types and
+  gesture rows, snap/preview decisions, and out-of-scope items.
+- Run scoring tests, [all persistence tests](#required-persistence-tests), and
+  [lifecycle/UI tests](#mandatory-shared-lifecycle-flow). Cover byte limits,
+  every phase/variant plus legal restored continuation, invalid states, migrations,
+  trust mismatches/unknown status, and shared fake-LMS failure tests for runtime
+  changes. Verify empty/partial review and submission from every editable phase,
+  restored partial work, and no reset after score or uncertain finalization.
+- Use Live Server or a local static server and pass the full
+  [trusted-touch matrix](#selective-touch-gesture-ownership) on source and extracted
+  packages, including both side strips in drawing mode and panel boundaries.
+- Test `320x500`, `390x500`, `390x600`, a normal full-height phone, landscape,
+  toolbar changes, software keyboard, and 200% zoom. Inspect actual scaled text
+  and diagram labels for readability; keep primary actions/panel bottom reachable,
+  side strips usable, and bounded activity documents free of competing scroll.
+- Submit outside Moodle and verify local logging; if standalone persistence is
+  enabled, test storage failure, draft restore, pending retry, finished review,
+  and permitted draft recovery through production UI.
+- Run changed-file syntax checks and the repository gates: `npm run check`,
+  `npm test`, `npm run package:all`, and `git diff --check <base>...HEAD`
+  (normally `origin/main...HEAD`). All new tests must be in `tools/run-tests.js`.
+- Check the [ZIP and manifest contract](#scorm-package-rules), including runtime
+  references omitted from both manifest and ZIP. Launch the built/extracted
+  artifact for browser smoke; source-only evidence is insufficient.
 
 ### Moodle-ready checks
 
-- Upload the ZIP to Moodle as a SCORM 1.2 activity.
-- Test with a student account, not only a teacher account.
-- On a real phone in Moodle's current-window player, reach the final control and
-  scroll back to the first control without an unusable bottom strip or nested
-  page/panel scroll trap. Repeat in a new window if that launch mode is offered.
-- On the same real-phone launch modes, verify every gesture ownership matrix row:
-  a blank-stage swipe scrolls the Moodle host and moves the iframe but not the
-  activity document or panel; a panel swipe moves only the panel, including at
-  its boundaries; and each draggable target moves without any
-  host-page/activity-document/panel/host-viewport/activity-viewport/iframe
-  movement and without `pointercancel`.
-- Check: preview is hidden, attempt status is visible, submit records score,
-  re-entering the same submitted attempt is review-only, and a new attempt is
-  required to change the score.
+- Complete package checks, upload the ZIP as SCORM 1.2, and test a real student
+  account with the intended attempt policy.
+- On a real phone in current-window and offered new-window players, repeat the
+  full gesture matrix, reach the last control and scroll back, and verify text,
+  drawing side strips, preview/snap behavior, keyboard, and viewport changes.
+- Confirm SCORM preview mode is disabled for formal assessment and attempt status
+  is visible. Verify draft resume, pending retry, empty/partial score/status,
+  submitted review-only re-entry with no reset, and a new Moodle attempt to change
+  the score. Confirm any required trusted server-side validation works.
+- Record Moodle/device evidence separately; local emulation cannot satisfy it.
 
 ## Package-ready definition of done
 
-- The simulation-specific plan contains scoring, tolerance, phase matrix,
-  snapshot schemas, lifecycle outcomes, the complete draggable-target inventory
-  and gesture ownership matrix, and out-of-scope decisions.
-- Every UI-reachable phase/invariant variant round-trips without changing score
-  or next action, and one legal continuation succeeds after restore.
-- Invalid states fail closed without becoming editable or contaminating later
-  scoring.
-- All shared startup/submission outcomes have honest learner-facing UI.
-- The new test files are executed by `npm test`.
-- The manifest lists every runtime dependency, the ZIP verifies, and browser
-  smoke launches the built/extracted artifact.
-- Real-touch gesture tests pass for the complete three-region matrix, including
-  the control panel at both boundaries and every draggable target, on both the
-  development page and built/extracted artifact. Natural-flow activities pass
-  every applicable row and document that no independent panel exists.
-- The assessment risk and any required trusted validation are recorded.
+All [Package-ready checks](#package-ready-checks) pass with recorded evidence.
+Invalid states fail closed, lifecycle wording is honest, and restored work keeps
+its score and legal continuation. Outstanding Moodle/device gates remain explicit.
 
 ## Moodle-ready definition of done
 
-- Package-ready is complete.
-- A real Moodle student account records score/status, resumes drafts, retries
-  pending submissions, reopens completed attempts as review-only, and starts a
-  new attempt according to the configured policy.
-- Browser-computed scoring is used only within the risk classification accepted
-  in the plan; any required server-side validation is working.
-- Moodle evidence is recorded separately. Local tests never satisfy this gate.
+Package readiness plus all [Moodle-ready checks](#moodle-ready-checks) pass in the
+real deployment. Browser scoring stays within the plan's accepted risk level;
+required trusted validation is operational. Local checks never establish this gate.

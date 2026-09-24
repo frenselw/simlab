@@ -1,5 +1,7 @@
 # Inertial Reference Frame Road Observer Plan
 
+> 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)容許任何進度檢查及提交；runtime 的全部作答門檻仍待移除，既有驗收不代表新規格已通過。
+
 ## Purpose
 
 Build a SCORM 1.2 activity named
@@ -155,11 +157,11 @@ For each round:
 10. Let the learner choose `記錄為本題答案` when satisfied.
 11. Store the choice without revealing correctness and move to the next round.
 
-After round 5:
+At any editable phase, including the opening guide and unanswered rounds:
 
-- show a compact review list with all five selected answers;
+- open a compact check with all five answers, including blank entries;
 - allow the learner to revisit any round and change the recorded answer;
-- keep all choices editable until `提交全部答案`;
+- keep all choices editable until `提交目前答案`;
 - require explicit confirmation before the final SCORM submission.
 
 This makes the submitted final state, rather than the number or order of tests,
@@ -177,8 +179,12 @@ Use these explicit states:
 | `paused` | resume, replay, choose another candidate | resume -> `playing`; new candidate -> `selected-unobserved` |
 | `observed` | replay, choose another candidate, record | record -> `recorded` |
 | `recorded` | continue; on revisit select/replay another candidate | continue -> next round; revisited selection -> `observed` if already tested, otherwise `selected-unobserved` |
-| `final-review` | revisit any round, submit when complete | submit -> `submitted-locked` |
+| `final-review` | revisit any round; submit blank, partial, or complete answers | explicit submit -> `submitted-locked` |
 | `submitted-locked` | review only | no editable transition |
+
+Every editable state in the table can also enter `final-review`; stop any active
+observation at its last saved checkpoint. Recording an observed answer may keep
+its evidence prerequisite; entering the check and submitting must not require it.
 
 Disable candidate switching while an observation is playing. A new candidate
 selection resets the visible trial to time zero. Track which candidates have
@@ -492,7 +498,7 @@ Controls:
 - `重播` after a completed or paused observation;
 - `慢動作` as an explicit playback aid, not a physics speed control;
 - `記錄為本題答案`;
-- round navigation and final `提交全部答案`.
+- round navigation and final `提交目前答案`.
 
 Selecting a reference object does not automatically record it as the answer.
 The learner must deliberately test and then record the choice. No candidate is
@@ -524,7 +530,8 @@ Before final submission:
 - do not reveal whether a recorded frame is correct;
 - let the learner reopen any round, rerun trials, and change the answer;
 - show unanswered rounds clearly in the final review;
-- do not permit final submission while any round is unanswered.
+- permit final submission even when every round is unanswered; missing answers
+  receive zero and valid recorded answers retain their rubric credit.
 
 After final submission, show round-by-round feedback. Each feedback item should
 state:
@@ -608,7 +615,7 @@ Before submission:
   before final submission deliberately restarts the five unsaved rounds and
   clears unsent answers.
 
-On `提交全部答案`:
+On explicit `提交目前答案` from the check:
 
 - calculate the final `0..100` score;
 - mark `passed` at 60 or above, otherwise `failed`;
@@ -667,7 +674,10 @@ The actual implementation may use shorter keys, but must preserve the same
 semantics: schema version, locked flag, each round's pattern ID, actual velocity
 classes, identity permutation, validated layout variant, five answers, score,
 and pass/fail. Derive prompts, accepted-answer sets, and feedback from these
-saved round definitions; do not duplicate long Chinese strings.
+saved round definitions; do not duplicate long Chinese strings. Each unanswered
+answer slot is `null`; draft/review validators must accept legal blank/partial
+states and restore them without requiring all observations or answers. All five
+slots and required scenario keys remain mandatory; missing keys are invalid.
 
 Keep serialized review data below 3000 UTF-8 bytes, leaving margin below common
 SCORM 1.2 `suspend_data` limits. Do not store screenshots, animation frames,
@@ -794,6 +804,8 @@ collision avoidance, and background recycling.
 - Learner can test every candidate without losing points.
 - Five final answers can be reviewed and changed before submission.
 - Final score is based only on the submitted five-answer state.
+- Blank/partial answers reach the check from every editable phase, submit on
+  explicit action, round-trip, and restore as locked review with the same score.
 - Foundation rounds total 25 points and the three core reverse-inference rounds
   total 75 points.
 - Equivalent physically valid reference frames receive equal credit.

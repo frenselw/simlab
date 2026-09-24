@@ -1,5 +1,7 @@
 # Displacement and Distance Map Journey Plan
 
+> 2026-09-24 目標規格同步：採[提交與重做](./00-shared-platform-and-style.md#submission-and-reset)及[手機互動](./00-shared-platform-and-style.md#mobile-interaction)基準。runtime 的自動提交及舞台轉送面板仍待同步；既有驗收不代表新規格已通過。
+
 ## Purpose
 
 Build a SCORM activity named `displacement-distance-map-journey`.
@@ -70,6 +72,11 @@ The learner must:
 5. repeat the same actions from the second place to the third place;
 6. draw the total displacement vector from the first place to the third place;
 7. answer the total route distance, total displacement magnitude, and direction.
+
+This is the normal dependent sequence. Every editable phase also offers
+`檢查目前答案`: preserve the current journey and answers, list missing items,
+then let the learner explicitly submit. Do not auto-submit after the last answer
+or require both journeys, arrows, or answer groups before checking/submitting.
 
 If the learner drags back and forth along the roads, the route distance keeps
 increasing. The correct route-distance answer is the distance actually travelled
@@ -169,35 +176,14 @@ Dragging rules:
   normal drag path while the preview shows a stable close-up in a diagram corner
   away from the pointer.
 
-Touch gesture ownership:
+Touch gesture ownership follows the shared mobile contract:
 
-- normal control-content scroll owner: the control panel under the bounded
-  split-panel layout;
-- scroll topology: the map stage and control panel are sibling grid rows, so a
-  native pan beginning on the map cannot scroll the control panel;
-- because the control panel can overflow and must remain usable while the map
-  stays visible, the activity explicitly forwards a vertical gesture beginning
-  on non-interactive map content to the sibling control panel. This is
-  programmatic forwarding, not native scrolling;
-- the stable map forwarding surface has effective
-  `touch-action: pan-x pinch-zoom` before `pointerdown` and uses Pointer Events.
-  It tracks all active touch pointers and considers only one active primary
-  pointer as a forwarding candidate. If another touch appears before the
-  candidate is claimed, abandon that candidate. If another touch appears after
-  forwarding begins, stop panel updates immediately, release pointer capture,
-  and allow browser pinch takeover; a resulting `pointercancel` is expected for
-  that multi-touch transition. Multi-touch gestures are never forwarded, so
-  browser pinch zoom remains available;
-- after movement reaches 8 CSS px, vertical intent means
-  `abs(totalDeltaY) > abs(totalDeltaX)`. Only then does the surface claim
-  forwarding, and ownership stays fixed until that pointer ends except for the
-  explicit multi-touch takeover above. A horizontal-dominant gesture remains
-  browser-owned and never scrolls the control panel;
-- for each forwarded move, set
-  `panel.scrollTop -= currentY - previousY`, clamped to
-  `0..panel.scrollHeight - panel.clientHeight`. At either boundary it remains
-  clamped and does not hand the same gesture to the document or host. Forwarding
-  must not start a simulation drag or change simulation state;
+- non-interactive map content, including inactive person footprints, uses
+  `touch-action: pan-y` and scrolls the enclosing page/Moodle host;
+- the independent control panel owns touches starting inside it, including at
+  its boundaries; never forward a stage gesture to that sibling panel;
+- if iframe scrolling needs forwarding, forward only to the same enclosing
+  host owner and verify it with trusted touch; retain browser pinch zoom;
 - stable, explicitly sized HTML hit targets align over the draggable SVG
   visuals and remain mounted while holding pointer capture; inner SVG graphics
   are not the sole touch-action boundary.
@@ -215,9 +201,10 @@ Gesture ownership matrix:
 
 | Touch starts on | Expected owner | Expected scroll delta | Required pointer result |
 |---|---|---:|---|
-| Known non-interactive map region | Explicit stage-to-control-panel forwarding after 8 CSS px and vertical-axis intent | Non-zero control-panel delta after proving available range in the tested direction; `0` on document/page, viewport, and host | Forwarding follows the signed finger mapping; `pointerup` and no unexpected `pointercancel`; no simulation drag or state change |
+| Known non-interactive map region | Enclosing page/Moodle host | Non-zero host delta and matching iframe movement when range exists; `0` on activity document, viewport, and panel | No simulation drag or learner-state change |
 | Person marker | Simulation | `0` on control panel, document/page, viewport, and host | Person changes position; `pointermove` and `pointerup`; no `pointercancel` |
-| Person footprint while the person is inactive (`draw-segment`, `draw-total`, or submitted/locked review) | Explicit stage-to-control-panel forwarding | Non-zero control-panel delta after proving available range; `0` on document/page, viewport, and host | No person drag identity or gesture suppression remains; journey and suspend state do not change |
+| Person footprint while the person is inactive (`draw-segment`, `draw-total`, or submitted/locked review) | Enclosing page/Moodle host | Non-zero host delta and matching iframe movement; `0` on activity document, viewport, and panel | No person drag identity remains; journey and suspend state do not change |
+| Independent control panel | Control panel only | Panel scrolls within range; host, iframe, activity document, and stage stay fixed, including at boundaries | No simulation drag |
 | Segment 1 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
 | Segment 2 displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
 | Total displacement arrow head | Simulation | `0` on control panel, document/page, viewport, and host | Arrow changes; `pointermove` and `pointerup`; no `pointercancel` |
@@ -356,8 +343,8 @@ Penalties and caps:
   add or remove score after snapping.
 - A route-distance answer is judged against the learner's actual accumulated
   distance, so wandering does not create an automatic penalty.
-- If the learner somehow submits without an answer group, that answer group earns
-  zero.
+- Missing groups and individual answers are legal submitted states and earn zero
+  for the missing components; retain credit for valid submitted evidence.
 
 ## Tolerance
 
@@ -387,7 +374,7 @@ Borderline examples:
 
 ## SCORM behavior
 
-On final submission:
+On the learner's explicit final submission from the check:
 
 - calculate the final score;
 - show score and feedback in the page;
@@ -397,6 +384,11 @@ On final submission:
 - lock the submitted attempt for review.
 
 Store compact review data in `cmi.suspend_data`:
+
+The schema and phase matrix must accept blank/partial journeys, nullable arrows
+and answer slots, and check-to-edit continuations. Required keys and slot counts
+remain exact; only declared null/empty values mean unanswered. Restore without inventing
+travel or treating unanswered items as corrupt data.
 
 - random seed;
 - selected route place IDs;
@@ -433,28 +425,17 @@ Feedback should identify the physics idea, not just the score:
   automatic road trace or route distance.
 - Touch/pen dragging shows a stable local preview or magnifier and highlights the
   currently dragged person or arrow.
-- A browser-level trusted vertical touch gesture starting on a known
-  non-interactive map region is explicitly forwarded to the control panel,
-  changes no journey state, and produces a non-zero control-panel delta after
-  the test proves available range in the swipe direction. Test both vertical
-  directions and assert the signed `scrollTop` mapping, `pointerup`, no
-  unexpected `pointercancel`, and zero document/page, viewport, and host deltas.
-- At the control panel's top and bottom boundaries, forwarding clamps without
-  mid-gesture handoff or movement of any other scroll surface. A
-  horizontal-dominant gesture does not move the panel. Non-primary,
-  multi-touch, and pinch gestures are not forwarded, and browser pinch zoom
-  remains available. Test both a gesture that begins with two touches and a
-  second touch added after forwarding has begun; in the latter case panel
-  movement stops immediately, capture is released, and any `pointercancel`
-  caused by browser pinch takeover is treated as expected.
+- Trusted vertical map swipes in both directions move only the enclosing host
+  and iframe when range exists; activity document, panel, and learner state stay
+  fixed. Panel gestures scroll only the panel, including at its boundaries.
 - Browser-level trusted touch drags are exercised separately for the person,
   segment 1 arrow, segment 2 arrow, and total arrow. Each target changes as
   intended; control panel, document/page, viewport, and host scroll deltas all
   remain zero; `pointermove` and `pointerup` occur; and `pointercancel` does not.
 - After the person becomes inactive in `draw-segment`, `draw-total`, and
   submitted/locked review, a trusted vertical touch starting on the visible
-  person footprint forwards to the control panel, produces a non-zero panel
-  delta when range exists, and changes neither journey nor suspend state.
+  person footprint scrolls the enclosing host when range exists, keeps the
+  panel fixed, and changes neither journey nor suspend state.
 - The complete gesture ownership matrix passes on both the development page and
   the launch page served from the built or extracted SCORM package. CSS/source
   inspection alone is not accepted.
@@ -471,6 +452,8 @@ Feedback should identify the physics idea, not just the score:
 - Student can complete the task without keyboard input.
 - Works on a phone-width viewport.
 - Submit produces a score from 0 to 100.
+- Blank/partial answers reach the check from every editable phase and submit only
+  on explicit action; round-trip, restored editing, and locked review are covered.
 - Scoring self-check covers:
   - perfect answer;
   - extra wandering route distance;

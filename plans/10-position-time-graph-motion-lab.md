@@ -1,10 +1,12 @@
 # 位置—時間圖運動實驗室計劃
 
+> 2026-09-24 目標規格同步：採[導航](./00-shared-platform-and-style.md#navigation)及[提交與重做](./00-shared-platform-and-style.md#submission-and-reset)基準；runtime 的依序訪題門檻仍待移除，schema／validator／驗收需同步。以下歷史驗收不代表新流程已通過。
+
 ## 0. 文件狀態與現行規格關係
 
 - 文件角色：第一代活動的基礎產品、教學、互動、評分及 SCORM 設計。
 - 實作狀態：核心活動已完成，並經多輪 mobile UI、互動、持久化、提交安全及 browser regression 修訂。
-- 現行題目版本：新 blank attempt 使用 generator version 2 及 persistence schema version 2。
+- 現行題目版本：runtime 的新 blank attempt 使用 generator version 2 及 persistence schema version 2；新導航／留白流程目標使用 Plan 11 所述 draft schema v3。
 - 後續規格：`plans/11-position-time-generated-question-randomization.md` 是本文件的第二代題目生成、
   數值 lattice、v2 persistence 及新 attempt 防重補充規格。
 - 相容範圍：本文件定義的 version 1 `alpha`／`beta`／`gamma` 固定題庫仍保留，只用於恢復及
@@ -27,7 +29,7 @@
 | §10.3 | v1 library validation 保留；v2 另用 generated mission／paper validators |
 | §12 | learner-facing phase 不變；v2 semantic state 以 generator metadata、seed 及 paper 取代 `lv + sid` |
 | §16 | 原檔案表是 v1 baseline；現行 runtime 另有 `generator.js` 及 `ui-runtime.js` |
-| §17 | 原 compact schema 是 v1 contract；現行 v2 schema 由 Plan 11 §18 定義 |
+| §17 | 原 compact schema 是 v1 contract；現行 v2 schema 與新流程 v3 目標由 Plan 11 §18 定義 |
 | §20–§22 | 原 gates 保持；另加入 generator property sweep、v1/v2 compatibility 及 packaged browser gates |
 
 ## 1. 目的與定位
@@ -138,11 +140,11 @@
 自由探索沒有完成門檻。學生第一次進入時直接看到可操作的模擬，不顯示 landing page、
 比較題、必做 checklist 或「探索進度」。
 
-正式評估採順序首次作答及提交前自由回看：
+五個任務互不依賴，依[導航基準](./00-shared-platform-and-style.md#navigation)自由切換：
 
-- 第一次進入任務時按 1 至 5 順序前進；
+- 可按 1 至 5 的建議次序前進，亦可直接切換；
 - 每個任務均可暫存未完成答案並選擇「稍後再做」；
-- 五個任務都曾進入後，顯示提交前檢視；
+- 每個可編輯階段均可直接進入提交前檢視；從探索進入時只建立題目及空白答案，不要求先訪問五題；
 - 檢視頁列出「已完整／未完整」，不顯示對錯；
 - 學生可返回任何任務修改，再返回檢視；
 - 最後提交前明確確認；
@@ -578,10 +580,9 @@ x₀A + vA t = x₀B + vB t
 | Phase | Variant／invariant | Current step | 必須存在的語意狀態 | 必須缺席／保持原始 | 合法下一步 |
 |---|---|---:|---|---|---|
 | `explore` | `free` | 無 | 合法探索 `x₀`、`v` | 情境庫選擇、任務答案、結果、探針 | 繼續探索或開始評估 |
-| `mission` | `normal` 首題 | `0` | library version、set ID；任務 0 已 visited；任務 0 可 empty／partial／complete | 任務 1–4 未 visited 且答案原始 | 下一題或稍後再做 |
-| `mission` | `normal` 中段 | `1..4` | library version、set ID；所有較早任務 visited；目前任務 visited；較早／目前答案可 empty／partial／complete | 所有未到任務未 visited 且答案原始 | 下一題；第 5 題後進檢視 |
-| `final-review` | `ready` | 無 | library version、set ID；五題全部 visited；每題答案可 empty／partial／complete | editingStep、結果 | 編輯任一題或提交 |
-| `mission` | `from-review` | `0..4` | library version、set ID；五題全部 visited；保留所有答案；editingStep 等於 current step | 結果 | 保存目前答案並返回檢視 |
+| `mission` | `normal` | `0..4` | library version、set ID；目前任務已 visited；各題可 empty／partial／complete | 結果；未訪問題答案原始 | 切換任務或直接檢視 |
+| `final-review` | `ready` | 無 | library version、set ID；各題 visited 可 true／false；每題答案可 empty／partial／complete | editingStep、結果 | 編輯任一題或提交 |
+| `mission` | `from-review` | `0..4` | library version、set ID；目前題已 visited；保留其他題答案；editingStep 等於 current step | 結果 | 保存目前答案並返回檢視 |
 | `submitted-review` | `complete` | 無 | review snapshot、情境庫選擇、權威學生答案、重算結果 | 所有答案編輯及重新提交動作 | 只讀檢討；可回到 `0 s` 及 scrub，不改權威答案 |
 
 ### 12.1 狀態轉移
@@ -589,10 +590,11 @@ x₀A + vA t = x₀B + vB t
 ```text
 explore/free
   -> mission/normal step 0       確認開始小功課
+  -> final-review/ready          前往檢視，建立同一套題目及空白答案
 
 mission/normal step N
-  -> mission/normal step N+1     N < 4，按下一題或稍後再做
-  -> final-review/ready          N = 4，按前往檢視
+  -> mission/normal step M       選擇任一題並保留各題答案
+  -> final-review/ready          任何 N，按前往檢視
 
 final-review/ready
   -> mission/from-review step N  選擇編輯第 N 題
@@ -865,10 +867,10 @@ Review answer payload 不重複保存 score／passed；直接使用 `SimScorm.ma
 - generated SVG IDs 不保存，若舊 payload 含有則忽略並重建；
 - 所有數值必須有限並落在 plan 定義的物理及操作範圍；
 - library version 及 set ID 必須存在，且對應不可變、通過驗證的五題情境；
-- visited 必須符合 phase matrix：normal 模式不可跳過較早任務，from-review 則五題均 visited；
+- visited 只記錄曾到訪題目，不要求連續或全 true，不作檢視／提交門檻；
 - explore phase 不可夾帶 assessment 或 result；
 - final-review 不可含 editingStep；from-review 必須含等於 currentStep 的 editingStep；
-- future answers 在 normal 模式必須原始；review-edit 可合法保留五題答案；
+- 未訪問題維持原始答案；已訪問題可按任意次序保留合法答案；
 - 不接受 production UI 無法渲染或無合法 continuation 的 phase／variant 組合。
 
 學生答案 validator 分兩層：
@@ -1005,11 +1007,10 @@ validate review
 
 1. `explore/free`：不同合法 `x₀`、`v`；恢復後 `t = 0` 且沒有探索探針；
 2. `mission/normal step 0`：empty、partial、complete active answer；
-3. `mission/normal step 1..4`：逐步覆蓋每個任務 shape，之前 visited 可為
-   empty／partial／complete，未來 pristine；
-4. `final-review/ready`：混合完整及部分答案；
+3. `mission/normal step 1..4`：各任務 empty／partial／complete，含非連續 visited；
+4. `final-review/ready`：全空白、混合完整及部分答案、尚未訪問其他題；
 5. `mission/from-review`：五個 editingStep 各一個，保留所有未編輯答案；
-6. `submitted-review/complete`：完整及部分答案所產生的最終 review。
+6. `submitted-review/complete`：空白、完整及部分答案所產生的最終 review。
 
 每個 assessment／review fixture 必須證明：
 
@@ -1035,9 +1036,8 @@ score(original) = score(restore(decode(encode(original))))
 
 - 未知 phase／variant；
 - phase 與 currentStep 不匹配；
-- normal step 跳過較早 visited；
-- normal future 任務夾帶答案；
-- from-review 未保留五題 visited；
+- 未 visited 題目夾帶非原始答案；
+- 目前可編輯題未標記 visited；
 - from-review editingStep 不等於 currentStep；
 - final-review 含 editingStep；
 - explore 夾帶 assessment 或 result；

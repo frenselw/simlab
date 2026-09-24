@@ -1464,8 +1464,8 @@ check and treat `### Error` output as failure even if the process exits zero.
   analysis table is the non-visual equivalent of the graph.
 - Local fallback works without Moodle.
 - Draft restore preserves the random attempt and a legal continuation.
-- Every review-edit variant restores retained downstream work and returns legally
-  to review after the current stage is completed.
+- Every review-edit variant restores retained downstream work and can return
+  to review with the current stage blank, partial, or complete.
 - Final submission handles `success`, `committed`, `frozen`, and `retry`.
 - Re-entry after submission is locked review-only.
 - Corrupt review data fails safely to a locked Moodle-summary view.

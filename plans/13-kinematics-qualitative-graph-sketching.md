@@ -4,6 +4,7 @@
 
 - 文件角色：新 SimLab 活動的產品、教學、互動、作圖模型、評分、持久化、SCORM 及測試規格。
 - 計劃狀態：production implementation 已完成；自動 unit、SCORM package 及 source／packaged trusted-touch browser regression 已通過。真實學生筆跡 calibration／holdout 與 Moodle 實機驗收仍屬獨立 release gate。
+- 2026-09-24 指導同步：補明 §8.5 遮擋決策及 §14 左右捲動帶要求；本次只改文件，兩側實際可用寬度與觸控證據仍待補驗，先前通過紀錄不涵蓋新增要求。
 - 計劃檔案：`plans/13-kinematics-qualitative-graph-sketching.md`
 - 建議 slug：`kinematics-qualitative-graph-sketching`
 - 學生可見標題：`勻速與勻變速：三圖手繪挑戰`
@@ -599,7 +600,7 @@ DRAW_BINS = 96
 
 ### 8.5 手指遮擋
 
-第一版不顯示空白或裝飾性的局部放大預覽。圖板保持足夠尺寸、筆跡在線條兩側仍可辨認；若學生實測證明手指遮擋影響作圖，日後才加入真正重畫附近坐標軸、現有 trace 及筆尖的 preview，不能只顯示空白框。
+Preview 決策：目前不需要；本活動判斷整段趨勢，沒有精細端點對齊，圖板及筆跡應在手指兩側保持可辨。依[共用預覽規則](00-shared-platform-and-style.md#touch-preview)在手機驗收遮擋；若影響必要作圖，交付前須加入重畫附近坐標軸、現有 trace 及筆尖的 preview，不得以空白框或「日後再加」代替。
 
 ### 8.6 空白及稍後完成
 
@@ -1196,7 +1197,7 @@ a–t：32
 
 - width：由 stage 可用闊度及高度共同限制；desktop 不設固定 `rem` 最大闊度；
 - aspect ratio 起始值 `4 / 3`；
-- 320 px viewport 的 plot 目標不少於約 `288 × 216` CSS px；
+- 320 px viewport 左右各預留至少 `32 CSS px` 可起手的捲動帶；圖板依剩餘寬度（全闊 stage 最多約 `256px`）及高度定尺寸，驗收圖中文字與筆跡可讀；
 - 工具按鈕最少 `44 × 44` CSS px；
 - 自動化以窄 effective width 加 2× pinch visual scale 檢查 visual safety；此項不冒充 desktop browser layout zoom。
 - 真實 desktop browser 200% layout zoom 仍是人工／外部 release gate：不得水平溢出，controls／graph reflow 合理，主要操作可達。
@@ -1218,6 +1219,8 @@ a–t：32
 | Touch starts on | Owner | Expected result |
 |---|---|---|
 | `.stage-region` 非互動 padding／背景 | Enclosing host/page | 向上及向下 swipe 捲動同一 host；activity document、controls panel 及 answer 不變；host 到頂／底時保持邊界 |
+| 畫圖區左側捲動帶 | Enclosing host/page | 畫筆／橡皮擦模式均能起手上下捲動 host；不產生筆跡或擦除；其餘要求同非互動 stage |
+| 畫圖區右側捲動帶 | Enclosing host/page | 與左側相同，必須獨立驗證 |
 | `.controls-panel` 內非互動文字／空白 | Controls panel | 只捲動 panel；stage、host、activity document、visual viewport 及 iframe 位置不變 |
 | 已在頂／底邊界的 `.controls-panel` | Controls panel | 保持在邊界；不得把 gesture 洩漏給 host 或 activity document |
 | `.graph-input-surface` | Simulation | trace 改變；所有 host／document／panel／viewport／iframe／stage scroll 或位置 delta 為 0；有 `pointermove`、`pointerup`；正常筆劃無 `pointercancel` |
@@ -1227,6 +1230,7 @@ a–t：32
 ### 14.3 Technical decision
 
 - `.graph-input-surface`：在 `pointerdown` 前已是 `touch-action: none`
+- 依[共用手機規則](00-shared-platform-and-style.md#mobile-interaction)，drawing surface 內縮，左右各保留至少 `32 CSS px` 可起手的 `pan-y` 捲動帶，實作時記錄 320px 手機上的實際可用寬度。坐標軸留白可計入，但不能只憑 padding 或 CSS 宣稱可用；source、package 及實機驗收均須左右各測。
 - `.stage-region` 非互動表面：`touch-action:pan-y`，不攔截或改寫 host-owned swipe；
 - `.controls-panel`：原生 `pan-y` 及獨立 scroll；活動不攔截或轉送其 touch events；
 - 只接受 primary active pointer；

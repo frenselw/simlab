@@ -1,5 +1,7 @@
 # 位置—時間圖運動實驗室：程序化隨機題目計劃
 
+> 2026-09-24 目標規格同步：五題互相獨立，可自由跳轉；探索或任務中可直接檢查並提交空白／部分答案。下文 v2 schema、測試數據及已完成驗收屬現行實作紀錄；新流程需要另起 draft schema v3、保留 v1／v2 解碼，並重新驗收。Generator version 2 與題目本身不變。以[共用導航與提交基準](./00-shared-platform-and-style.md#navigation)及本文件 §17–§18 的目標規則為準。
+
 ## 1. 文件狀態
 
 - Activity slug：`position-time-graph-motion-lab`
@@ -497,10 +499,10 @@ sim/position-time-graph-motion-lab/generator.js
 
 | Phase | Variant／invariant | Current step | Required semantic state | Must be absent／pristine | Allowed next action |
 |---|---|---:|---|---|---|
-| `explore` | `free` | 無 | exploration motion | generator／paper／assessment | 繼續探索；確認開始後生成並保存 paper |
-| `mission` | `normal` | `0..4` | generator metadata、authoritative paper、seen prefix、answers | future answers pristine | 修改本題；保存；下一題 |
-| `mission` | `from-review` | `0..4` | 同一 paper、五題已 seen、editing step、answers | 無第二份 paper | 修改本題；返回 final review |
-| `final-review` | `ready` | 無 | 同一 paper、五題 seen、answers | active editing step | 修改指定題；最後提交 |
+| `explore` | `free` | 無 | exploration motion | generator／paper／assessment | 繼續探索；開始評估，或先建立完整 paper 與空白答案再進入檢視 |
+| `mission` | `normal` | `0..4` | generator metadata、authoritative paper、任意 `seen` 布林陣列、目前題已 seen、各題合法空白／部分／完整答案 | 未訪問題答案保持原始 | 修改本題；自由切換題目；直接檢視 |
+| `mission` | `from-review` | `0..4` | 同一 paper、目前題已 seen、editing step 等於 current step、其餘題可未訪問 | 無第二份 paper | 修改本題；返回 final review |
+| `final-review` | `ready` | 無 | 同一 paper、`seen` 可全 false、各題可空白／部分／完整 | active editing step | 修改指定題；明確確認後提交 |
 | `submitted-review` | `complete` | 無 | 同一 paper、authoritative answers、recomputed result | 所有編輯及再生成動作 | 只讀檢討 |
 
 Technical outcomes：
@@ -512,9 +514,11 @@ Technical outcomes：
 - finished generated review invalid：保持鎖定，只顯示可信 Moodle summary；
 - pending-final：使用 frozen review payload，不生成新 paper。
 
-## 18. Persistence schema v2
+## 18. Persistence schema 與相容性
 
-### 18.1 Draft snapshot
+以下 v2 payload 是已交付格式的紀錄。新導航／留白流程使用 generated draft schema v3；保留 `g.v: 2` 的 generator 與原有五題參數。v3 沿用 v2 的 `p/r/c/e/x/g/a` 結構，只把最外層 `v` 改為 `3`，並按 §17 放寬 `seen` 與 phase invariant：非連續訪題合法，`final-review` 可全未訪問，未訪問題答案必須原始；空白／部分答案依 scorer 計零分，不視為損壞。已發布 v1／v2 snapshot 按舊版本嚴格解碼，不能用新規則重新解讀舊 payload。舊 v2 generated draft 可經明確遷移轉存 v3；若仍支援可編輯的 v1 fixed-set draft，須另定保留 fixed-set 題目的新版表示及遷移測試，不可錯當 generated paper。Review payload 不含 `seen`；generated attempt 新提交可沿用既有 v2 review 結構，但必須能重算空白／部分答案。
+
+### 18.1 已交付 v2 draft snapshot
 
 建議 production encoder 使用緊湊 keys，但 code 要有清楚 mapping及測試：
 
@@ -550,7 +554,7 @@ Explore draft 不包含 `g` 或 assessment：
 { v: 2, p: "explore", r: "free", c: null, e: null, x: {...}, g: null, a: null }
 ```
 
-### 18.2 Review snapshot
+### 18.2 已交付 v2 review snapshot
 
 ```js
 {
@@ -665,8 +669,7 @@ Scorer 必須：
 
 ### 22.1 Size
 
-- 最大合法 v2 draft shared snapshot：`< 4000 UTF-8 bytes`；
-- 最大合法 v2 review shared snapshot：`< 4000 UTF-8 bytes`；
+- 最大合法新 draft、review shared snapshot：`< 4000 UTF-8 bytes`；
 - 最大 review 經 pending-final checkpoint／escaping 後仍 `< 4000 bytes`；
 - tests 必須使用 production encoder、`SimScorm.makeSnapshot()` 及 shared pending path實測；
 - 不以手算 JSON 字符數代替。
@@ -731,14 +734,14 @@ Scorer 必須：
 
 ## 25. Persistence 與 lifecycle test plan
 
-### 25.1 v2 round-trip fixtures
+### 25.1 新流程 round-trip fixtures
 
 每個 state matrix row都要使用 production-generated paper：
 
 - [ ] explore／free；
-- [ ] mission／normal step 0..4；
-- [ ] mission／from-review step 0..4；
-- [ ] final-review／ready；
+- [ ] mission／normal step 0..4，包含非連續訪題與未訪問題保持原始；
+- [ ] mission／from-review step 0..4，包含其他題仍未訪問；
+- [ ] final-review／ready，包含從 explore 直接進入時五題 `seen=false`；
 - [ ] submitted-review／complete；
 - [ ] empty、partial、wrong、complete answers；
 - [ ] M3 0／1／2 probes、同時刻、反序、時差不足；
@@ -757,6 +760,8 @@ generate -> encode -> shared snapshot -> decode -> restore
 - [ ] reload不呼叫 generator；
 - [ ] blank new attempt呼叫 seed provider一次並建立新 paper；
 - [ ] seed save失敗不進入 mission；
+- [ ] explore 直接進入檢視後可交 0 分；任務中可留白／部分答案提早檢視並提交；
+- [ ] 自由跳題、從檢視編輯未訪問題、恢復後繼續均保留同一 paper；
 - [ ] completed attempt重新入保持鎖定；
 - [ ] pending-final只重試同一 review payload；
 - [ ] new Moodle attempt不承接舊 in-memory paper；
@@ -780,10 +785,9 @@ generate -> encode -> shared snapshot -> decode -> restore
 ### 25.4 Backward compatibility
 
 - [ ] 所有現有 v1 phase fixtures仍可 decode；
-- [ ] v1 score及合法 continuation不變；
-- [ ] v1 review仍可重畫；
-- [ ] v1不經 v2 generator；
-- [ ] 新 attempt只產生 v2。
+- [ ] 現有 v2 draft／review fixtures 仍按舊 invariant decode，不能放寬舊格式；
+- [ ] v1／v2 score、review 重畫及合法 continuation 保持；舊 draft 轉存新版本後再 round-trip；
+- [ ] v1不經 generated paper；新 attempt使用 generator v2、draft schema v3。
 
 ## 26. Interaction、browser 與 package tests
 
@@ -794,6 +798,7 @@ generate -> encode -> shared snapshot -> decode -> restore
 - [ ] 至少測兩個不同 fixed seeds，證明 learner-facing numbers改變；
 - [ ] reload同一 draft後 DOM題目數字不變；
 - [ ] 320 px及desktop五題控制可到達；
+- [ ] 五題可自由切換，空白／部分答案可由探索或任務直接進入檢視並提交；
 - [ ] generated極值 scenario不裁切車、圖線、label或drag target；
 - [ ] keyboard可設定所有 generated target lattice values；
 - [ ] review顯示該 attempt原題，不重新生成；
@@ -819,6 +824,8 @@ generate -> encode -> shared snapshot -> decode -> restore
 learner操作流程，不可以由 activity偷偷清除已完成資料。
 
 ## 28. 實作順序
+
+下列 Phase A–F 是已交付 v2 題目生成工作的紀錄；2026-09-24 的導航、schema v3 及留白提交流程，須依 §17、§18、§25–§26 另行實作及驗收。
 
 ### Phase A：generator 純函數
 
