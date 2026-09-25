@@ -4,7 +4,8 @@
   if (root) root.CentreMassGenerator = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
-  const VERSION = 2;
+  const VERSION = 3;
+  const V2_VERSION = 2;
   const LEGACY_VERSION = 1;
   const LABELS = Object.freeze(["A", "B", "C", "D", "E"]);
   const CANDIDATE_COLORS = Object.freeze({ A: "#2563eb", B: "#db2777", C: "#16a34a", D: "#ea580c", E: "#7c3aed" });
@@ -35,7 +36,7 @@
   function freezePoints(points) { return Object.freeze(points.map(([x, y]) => Object.freeze([q(x), q(y)]))); }
   function freezeHoles(holes) { return Object.freeze(holes.map((hole) => Object.freeze({ key: hole.key, x: q(hole.x), y: q(hole.y) }))); }
   function circlePoints(rx, ry, count, phase = 0) { return Array.from({ length: count }, (_, index) => { const angle = phase + index * Math.PI * 2 / count; return [rx * Math.cos(angle), ry * Math.sin(angle)]; }); }
-  const SHAPES = Object.freeze([
+  const SHAPES_V2 = Object.freeze([
     Object.freeze({ kind: "irregular", polygon: freezePoints(PLATE_V1), cutouts: Object.freeze([]), holes: freezeHoles(HOLES_V1), inertiaCm: .025 }),
     Object.freeze({ kind: "angular", polygon: freezePoints([
       [-.72, -.18], [-.48, -.5], [.22, -.5], [.7, -.1], [.52, .46], [-.2, .54], [-.68, .28]
@@ -48,6 +49,21 @@
       { key: "h3", x: .34, y: .34 }, { key: "h4", x: -.34, y: .34 }
     ]), inertiaCm: .04 })
   ]);
+  const HOLES_V3 = Object.freeze([
+    freezeHoles([
+      { key: "h1", x: -.25, y: -.35 }, { key: "h2", x: .2, y: -.4 },
+      { key: "h3", x: -.35, y: .15 }, { key: "h4", x: .3, y: .1 }
+    ]),
+    freezeHoles([
+      { key: "h1", x: -.25, y: -.35 }, { key: "h2", x: .2, y: -.4 },
+      { key: "h3", x: -.45, y: .2 }, { key: "h4", x: .35, y: .1 }
+    ]),
+    freezeHoles([
+      { key: "h1", x: .1, y: -.45 }, { key: "h2", x: -.35, y: -.4 },
+      { key: "h3", x: .45, y: .05 }, { key: "h4", x: -.35, y: .25 }
+    ])
+  ]);
+  const SHAPES_V3 = Object.freeze(SHAPES_V2.map((shape, index) => Object.freeze({ ...shape, holes: HOLES_V3[index] })));
   function plateArea(polygon, cutouts = []) { return polygonArea(polygon) - cutouts.reduce((sum, cutout) => sum + polygonArea(cutout), 0); }
   function validateSeed(seed) { return Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff; }
   function sharedPart1(n) {
@@ -78,14 +94,14 @@
   function generate(seed, version = VERSION) {
     if (!validateSeed(seed)) throw new Error("Unsupported generator input");
     if (version === LEGACY_VERSION) return generateLegacy(seed);
-    if (version !== VERSION) throw new Error("Unsupported generator input");
-    const n = hash(seed || 0x9e3779b9), part1 = sharedPart1(n), shape = SHAPES[(n >>> 5) % SHAPES.length];
+    if (version !== V2_VERSION && version !== VERSION) throw new Error("Unsupported generator input");
+    const n = hash(seed || 0x9e3779b9), part1 = sharedPart1(n), shapes = version === V2_VERSION ? SHAPES_V2 : SHAPES_V3, shape = shapes[(n >>> 5) % shapes.length];
     const area = q(plateArea(shape.polygon, shape.cutouts)), plateCom = shape.kind === "ring" ? { x: 0, y: 0 } : part1.side > 0 ? { x: 0.095, y: 0.035 } : { x: -0.095, y: 0.035 };
-    return Object.freeze({ generatorVersion: VERSION, seed,
+    return Object.freeze({ generatorVersion: version, seed,
       part1: Object.freeze({ length: 1, skin: part1.skin, masses: part1.masses, totalMass: part1.total, xCm: part1.xCm }),
       part2: Object.freeze({ kind: shape.kind, polygon: shape.polygon, cutouts: shape.cutouts, area, size: q(Math.sqrt(area)), centre: Object.freeze(plateCom), holes: shape.holes, mass: 1, inertiaCm: shape.inertiaCm }),
       part3: Object.freeze(sharedPart3(n))
     });
   }
-  return { VERSION, LEGACY_VERSION, SUPPORTED_VERSIONS: Object.freeze([LEGACY_VERSION, VERSION]), LABELS, CANDIDATE_COLORS, CANDIDATE_COLOR_NAMES, polygonArea, plateArea, generate };
+  return { VERSION, V2_VERSION, LEGACY_VERSION, SUPPORTED_VERSIONS: Object.freeze([LEGACY_VERSION, V2_VERSION, VERSION]), LABELS, CANDIDATE_COLORS, CANDIDATE_COLOR_NAMES, polygonArea, plateArea, generate };
 });

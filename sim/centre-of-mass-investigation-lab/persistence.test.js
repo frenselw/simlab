@@ -2,6 +2,13 @@
 const assert = require("node:assert/strict");
 const G = require("./generator.js"), P = require("./persistence.js"), S = require("./scoring.js");
 const seed = 11, problem = G.generate(seed), fixtures = [];
+let savedV2 = P.initial(0);
+savedV2.generatorVersion = G.V2_VERSION;
+savedV2 = P.switchPart(savedV2, 2);
+savedV2 = P.settleHole(savedV2, "h1");
+savedV2 = P.traceVertical(savedV2);
+assert.ok(savedV2 && P.validate(savedV2), "saved generator v2 line remains valid");
+assert.deepEqual(P.decode(P.encode(savedV2)), savedV2, "saved generator v2 draft round-trips without changing its holes");
 let state = P.initial(seed); fixtures.push(state);
 
 let tentative = P.switchPart(P.initial(seed), 3);

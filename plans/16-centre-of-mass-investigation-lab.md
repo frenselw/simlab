@@ -15,7 +15,7 @@
   - 在平板上平移、用旋轉手柄轉動、將指定小孔套上牆釘、等待阻尼擺停止；
   - 沿鉛垂線在平板本地座標中畫線，並在交會位置標註重心；
   - 旋轉半透明均勻立體，由多個三維候選點選出幾何中心；
-  - 只有第二部分 touch／pen 精細操作期間使用固定角落的即時真實場景 preview window；第一及第三部分不顯示 preview。
+  - 只有第二部分 touch／pen 從懸掛孔畫線期間使用固定角落的即時真實場景 preview window；其餘操作不顯示 preview。
 - Runtime files planned:
   - `sim/centre-of-mass-investigation-lab/index.html`
   - `sim/centre-of-mass-investigation-lab/styles.css`
@@ -80,7 +80,7 @@
   → 鎖定的結果檢視
 ```
 
-- 第一個畫面直接進入第一部分，不設裝飾性 landing page。頂部使用一直可見的「一維杆／二維平板／三維立體」tab；已完成與目前部分有文字及圖示雙重狀態。
+- 第一個畫面直接進入第一部分，不設裝飾性 landing page。活動標題與「一維／二維／三維」tab 同在全寬頂欄；tab 只顯示維度名稱，以藍色選中狀態標示所在部分，已記錄證據的未選中 tab 使用淡藍底色，無障礙名稱說明「待完成／已記錄」，不暗示答案正確。「檢查及提交」是 tablist 以外的獨立按鈕，窄屏仍顯示完整標籤。
 - 三個 tab 可按任意次序來回切換，不以完成前一部分作門檻。切換前取消未完成 gesture／動畫並回復上一個 semantic checkpoint，再保存新的 active tab。
 - 「檢查及提交」由 attempt 開始即啟用；檢查頁逐部分標示已完成與欠缺證據，學生可返回任意部分繼續，亦可按目前進度提交。不設每部分確認／下一步按鈕。
 - `檢查` 畫面顯示每部分已取得的實驗證據，不顯示隱藏重心或正確候選點。
@@ -171,7 +171,8 @@
 - 平板總重心由各 template 的質量模型重建；實心板重心位於物料安全區，環狀板則可刻意位於中央 `cutout`（即重心在物料以外的空間），但必須位於外輪廓內並保持所有物理量 finite。
 - 生成 3–5 個可見小孔，全部位於實際物料區（不可落入 `cutouts`）並有足夠邊界厚度。
 - 每個孔與真重心距離不少於 `0.18S`，否則懸掛方向不穩定。
-- 至少存在一對孔，使兩次懸掛後記錄在平板本地座標的鉛垂線夾角介乎 `45°–135°`。
+- 已發布的 v1／v2 孔位與題目重建結果保持不變。v3 為每種板形重新配置四孔；任意兩孔相對重心的理想鉛垂線銳角至少 `30°`，且孔心距至少 `0.45` plate-local unit，避免學生選到兩條幾乎重疊的線或在窄螢幕誤觸相鄰孔。
+- 每種 v3 板形仍至少有一對孔，使兩次懸掛後記錄在平板本地座標的鉛垂線夾角介乎 `45°–135°`。
 - 任何兩孔的可觸控 hit targets 在初始姿態不可完全重疊。
 - 實心非均勻模板的幾何形心與質量重心至少相差 `0.06S`；環狀模板以「幾何中心位於空心開口」作為觀察重點，不強行加入偏心 ballast，視覺外觀不可直接透露答案。
 
@@ -279,7 +280,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - mouse／touch／pen 拖動平板內非孔、非旋轉手柄的可見區域，整塊平板跟隨相對 grab offset 平移，不跳到 pointer 中心。
 - 平移時保持目前角度不變。
 - 鍵盤聚焦平板後，方向鍵平移，Shift＋方向鍵較大步距。
-- 牆釘固定在 stage 的中央 canonical 坐標 `p_nail=(350,230)`；平移及重掛的所有 snap 距離均以此同一點計算，避免牆釘隨 viewport 或平板移動。
+- 牆釘固定在 stage 的偏上 canonical 坐標 `p_nail=(350,140)`（高度約三分之一）；釘下保留更多空間讓平板懸掛及向下畫鉛垂線。初始平板仍置於圖台中央，方便辨認釘與各小孔。平移及重掛的所有 snap 距離均以同一釘點計算，避免牆釘隨 viewport 或平板移動。
 - 自由平移及旋轉以平板外輪廓與 canonical viewport 的裁切面積計算可見比例。桌面至少保留 `20%` 的外輪廓（最多 `80%` 出框）；窄／手機 stage 至少保留 `30%`（最多 `70%` 出框），並同時保留不少於 `64 × 64 CSS px` 的可操作可見區域。拖動若會跨過界線，沿原拖動向量以二分搜尋停在最後一個合法姿態，不突然把平板吸回中心。
 - 以上可見比例約束只限制自由人工平移／旋轉；掛釘後的物理擺動以中央釘為固定 pivot，平板在釘位附近保持可重建、可重掛的姿態。
 
@@ -339,20 +340,11 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 ### 7.6 第二部分 preview window
 
-所有 touch／pen 精細直接操作均有真實 preview；mouse／keyboard 不顯示：
-
-| Target | Preview focus | 必須包含 | 不可加入 |
-|---|---|---|---|
-| 平板平移／孔套釘 | active hole；沒有 active hole 時為 grab point | 真實板邊、孔、牆釘及現有線 | 隱藏重心、snap 路徑、答案方向 |
-| 旋轉手柄 | 手柄及鄰近板邊 | 真實手柄、板邊、孔／線（若 crop 內存在） | 角度答案、自動對準提示 |
-| 畫線筆尖 | 當前筆尖 | 平板紋理、懸掛孔、鉛垂線及學生線 | 自動正確線、額外十字線 |
-| 重心標註 | 標註點 | 平板及學生已畫線 | 真重心或 scorer tolerance circle |
-
-- preview host 位於完整 stage overlay，不可放在會裁切的平板 SVG 子容器。
-- 固定於 pointerdown 最遠角落，尺寸約 `min(52vw, 11.5rem)`，不改 stage layout。
-- SVG preview 直接 sanitized clone 當前可見 scene layer，並用跟隨實際 target 的 viewBox 裁切；移除 ID、drag hit、tabindex、role 及重複 ARIA。
-- preview 不應重複包含自己，並須保持 `pointer-events:none`、`aria-hidden:true`。
-- preview 只屬 transient UI，不保存、不計分、不逐 move 宣告給讀屏器。
+- 只在 touch／pen 從已懸掛的小孔向下畫線時顯示即時 preview；手指會遮住線及筆尖，preview 跟隨已吸附的可見終點。mouse／keyboard 不顯示。
+- 平板平移、拖孔套釘、旋轉及重心標註不顯示 preview；學生可從非小孔的板面拖動，保留釘位及平板的完整視野。
+- preview 取自目前的真實 SVG 場景，包含板邊、孔、鉛垂線與學生線；不得顯示隱藏重心、正確線或 scorer tolerance。
+- preview 固定在起筆點對面的 stage 角落，寬度為 `min(38vw, 9.5rem)`，在 320／390 px 手機寬度不得覆蓋懸掛孔周圍 44×44 CSS px 的操作區；不改 stage layout。
+- SVG preview 使用 sanitized clone 及跟隨實際可見筆尖的 viewBox；移除 ID、hit target、tabindex、role 及重複 ARIA。preview 保持 `pointer-events:none`、`aria-hidden:true`，不保存、不計分、不逐 move 宣告。
 
 ## 8. 第三部分：均勻對稱立體
 
@@ -369,6 +361,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
 - orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用五種高對比實心彩色圓點，pointer 選點半徑為 `26 CSS px`（直徑 `52 CSS px`），選中時保留原尺寸及原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
+- WebGL／Canvas 後備繪製屬內部技術路徑；圖台不顯示 renderer 名稱或「Canvas 相容模式」標籤，學生只見同一個可操作實驗畫面。
 
 ### 8.2 電腦及手機旋轉操作
 
@@ -388,7 +381,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 
 #### Keyboard／compact equivalent
 
-- Canvas 後提供按顏色辨認的可聚焦 radio list，與投影點雙向同步；radio 在第一次 observation gate 前 disabled，完成第一次 observation 後才可選擇。
+- Canvas 後提供按顏色辨認的可聚焦 radio list，與投影點雙向同步；每個 radio 保留原生語意但不顯示額外白色選擇圈，整個有色圓點加文字的選項均可點按，鍵盤焦點標在整個選項上。radio 在第一次 observation gate 前 disabled，完成第一次 observation 後才可選擇。
 - Canvas orbit region 可聚焦；方向鍵旋轉，Shift＋方向鍵使用較大角度。
 - 提供文字摘要：立體種類、目前大致觀察方向、候選點標籤；不可朗讀哪一點是中心。
 
@@ -420,12 +413,15 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 原因：三部分均有持續可見 stage 及重複使用的工具／證據／確認控制；學生操作 panel 時 stage 必須保持可見。
 - Phone app: `height:100vh` fallback 後使用 `height:100dvh`。
 - Phone stage track 初值：`minmax(13rem, 46vh)`，支援 `46dvh`；第二部分如可讀性測試不足，可按 phase 調至 `48dvh`，但不可由 intrinsic content 擠壓 panel。
+- `520px` 以下的窄屏使用 `minmax(12rem, 43dvh)`；高度 `520px` 以下使用 `minmax(10.5rem, 42dvh)`，並保留 `vh` fallback。頂欄的 tablist 可獨立橫向捲動，檢查按鈕固定可見；活動頁本身不橫向捲動。
 - 下方 controls panel 取得餘下高度，`overflow-y:auto; overscroll-behavior:contain; min-height:0`。
 - `html`、`body`、app shell 及中介 grid/flex children 在 bounded iframe 內不可有可用垂直 scroll range。
-- desktop／tablet：stage 左／上，controls 右／下；stage 仍為主要區域，不新增 desktop-only 必要操作。
+- desktop／tablet：於 `820px` 起採左側 controls（`clamp(19rem, 29vw, 23rem)`）、右側 stage；較窄畫面改為上方 stage、下方 controls。stage 仍為主要區域，不新增 desktop-only 必要操作。
 - 320×500、390×500、390×600、一般直向、橫向、200% zoom 及軟鍵盤情境下，提交、重試及技術處理等必要按鈕必須可在 panel 內到達；第一至三部分的操作由 stage targets 擁有。
 - 極短高度以縮小 stage 內 padding、reflow formula card 和壓縮非必要說明處理；stage 不成為獨立垂直 scroller。
 - preview overlay 不影響 grid track、scrollHeight 或 hit target geometry。
+
+2026-09-25 本機 Chromium 證據：source 與解壓 SCORM 均在可捲動的 Moodle-like iframe 通過頂欄及面板版面檢查；測試 host 寬度為 320、390、819、820、1280 px，按 iframe 實際可用寬度判斷斷點。320 px 下三個簡短 tab 與「檢查及提交」同時完整可見，第三個 tab 可直接切換。此證據不代替實機手機或真實 Moodle 驗收。
 
 ## 10. Touch gesture ownership contract
 
@@ -436,6 +432,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 一維承托點 | 明確 SVG rect／HTML overlay，最少 52×52 CSS px | 穩定 hit target | No |
 | 二維平板平移面 | 與 visual path 共用 plate-local→world transform 的 SVG compound hit path，使用 `fill-rule:evenodd` 表示外輪廓扣除 cutouts；不覆蓋孔／手柄 | stage interaction layer | No |
 | 二維小孔 | 每孔獨立 circle hit geometry | 該孔 hit target | No |
+| 二維可見線段／鉛錘 | 可見線條命中時由 simulation 接管；板內起點交由平板穩定 hit target 拖動，板外線條顯示從板面拖動／由懸掛孔起筆提示，不啟動 host scroll | 穩定平板 hit target／無 drag | No |
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
 | 二維畫線／取下層 | 使用相同 even-odd SVG compound material path；另在 active pivot 提供相當於 `96×96 CSS px`、會隨 responsive stage 重算的 SVG 橢圓起筆區，再以同一 even-odd material path 裁切。因此靠近 pivot 的 cutout 仍由 host 擁有，只有實際物料可起筆。compound draw path 只處理 pointer；pivot 橢圓是唯一 keyboard／ARIA 畫線入口。active pivot 附近向下拖屬畫線，其餘 material 位置拖動路由至 canonical 取下／整板或最近孔平移；cutout、牆面及 stage 空白不屬此 target | 同一 stable compound path／clipped pivot ellipse | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
@@ -453,6 +450,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 | independently scrolling control panel | panel only | panel 有 range 時非零；host、iframe、activity document、兩邊 visual viewport 為 0 | stage 固定；邊界亦不 chain 到 host |
 | 一維承托 target | simulation | 所有 host、document、panel、viewport、iframe position 為 0 | 承托架移動；有 pointermove＋pointerup；無 pointercancel；不顯示 preview |
 | 二維平板／孔／旋轉手柄／畫線／標註 | simulation | 同上全部為 0 | 正確 target 獨佔 gesture，沒有平移／旋轉模式串擾 |
+| 二維已畫線或鉛垂線的可見部分 | simulation | 同上全部為 0 | 板內線條可拖動平板；板外線條不移動平板並提示正確起點，不能觸發 host 捲動 |
 | 三維 orbit／candidate target | simulation | 同上全部為 0 | orbit 或 selection 只發生其一；無誤選及 pointercancel |
 
 ### 10.3 Technical decisions
@@ -461,6 +459,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - 每個 direct-manipulation hit target 在 `pointerdown` 前已有 `touch-action:none`；不可在 pointerdown 後才動態加入。
 - 不在整個 SVG／Canvas／stage 設 `touch-action:none`。
 - draw mode 只令 plate material region 內的 stable drawing hit layer 使用 `touch-action:none`；material 外 stage 空白保持 `pan-y`。trusted iframe matrix 必須在 draw mode 開啟時分別驗證板內畫線 gesture 及板外 host-owned swipe。
+- 二維可見學生線及鉛垂線加透明命中線段；在 non-passive touchstart 階段，對線段及 direct target 阻止瀏覽器原生捲動。板外線條不得觸發 host swipe，板內實際物料仍由平板拖動 target 接管。
 - pointerdown 只接受 primary active gesture；第二指不可接管或改 Part 2 preview focus。
 - capture target 保持 mounted，直至 pointerup／cancel／lost capture。
 - 每個 gesture 記錄 grab offset／angle offset；target 不跳到手指中心。
@@ -472,8 +471,8 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 
 ### 11.1 啟用範圍
 
-- 只有第二部分 touch／pen 的精細 drag target 顯示 preview；第一及第三部分 touch 操作不顯示 preview。
-- Part 2 tap-only target 可在 pointerdown 顯示 preview，若未成為 drag，pointerup 後立即消失；preview 本身不等於答案或操作證據。
+- 只有第二部分 touch／pen 從已懸掛小孔畫線時顯示 preview；平板平移、拖孔、旋轉、標註以及第一、第三部分的操作不顯示。
+- 畫線 pointerdown 即顯示 preview；即使未形成有效線段，pointerup 後亦立即消失。preview 本身不等於答案或操作證據。
 
 ### 11.2 視覺及資料規則
 
@@ -481,7 +480,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 - 顯示「原圖現有內容的真實局部放大」，不是 summary card、答案提示或另畫的 mini simulation。
 - SVG 使用 sanitized scene clone＋跟隨 authoritative target 的 viewBox；Canvas 使用相同 model state 的第二次 render。
 - crop 跟隨實際 snapped／displayed target，而非未經限制的 raw pointer。
-- 約 `min(52vw, 11.5rem)`，有高對比邊框但不遮擋主要操作區。
+- 寬度 `min(38vw, 9.5rem)`，有高對比邊框，且不得遮住懸掛孔的 44×44 CSS px 操作區。
 - clone 移除所有 ID、drag target、focus target、event-related data、role 及重複 ARIA。
 - `pointer-events:none`、`aria-hidden:true`、不接受焦點、不改 DOM scroll topology。
 - preview 不加入原圖不存在的十字線、數值、標題、正確位置、tolerance circle 或方向提示；若原場景本身已有鉛垂線，它可自然出現在 crop。
@@ -743,9 +742,9 @@ Never persisted：
 - [ ] 同一 version＋seed 在 Node／browser 重建完全相同題目。
 - [ ] part1 質量全正、重心範圍、偏離中點及左右分布覆蓋。
 - [ ] part1 torque sign、balance tolerance just-inside／just-outside、跌落方向。
-- [ ] part2 outer polygon／cutouts 不自交、環狀重心可在 cutout、孔位落在 material、孔數／孔距、可用 line-angle pair。
+- [ ] part2 outer polygon／cutouts 不自交、環狀重心可在 cutout、孔位落在 material；v3 任意兩孔的理想線銳角至少 `30°`、孔距至少 `0.45` plate-local unit，並有可用 line-angle pair。
 - [ ] `S = √(outer area − cutout areas)` 對每個 plate template 唯一重建；所有 `0.025S`、`0.45S`、`0.03S`、`0.07S` just-inside／just-outside boundaries 共用同一尺度。
-- [ ] generator v1 舊題目仍可用 seed 重建；v2 shape kind、cutouts、area、centre 及 inertia deterministic。
+- [ ] generator v1／v2 舊題目仍可用 seed 原樣重建；v3 shape kind、cutouts、area、centre、inertia 及新孔位 deterministic；已保存 v2 線段 round-trip 後保持原孔位。
 - [ ] part2 equilibrium 令 pivot→COM world vector 垂直向下。
 - [ ] damping 按 `ζ = 0.55` per-instance calibration，在 generator 的 `I_p`／`M`／`d` extrema 保持 underdamped、finite、約 1.5–3.0 s settle；測 fixed-step accumulator remainder、60／90／120／144／165 Hz、jitter sequence、frame-gap clamp、threshold dwell及 settled snap。
 - [ ] world↔plate-local transform round-trip。
@@ -788,14 +787,14 @@ Never persisted：
 - [ ] translation／rotation／hole／draw targets 不串擾。
 - [ ] pointerup、cancel、lost capture、blur、phase change 全部清 preview。
 - [ ] preview 固定最遠角、真實 scene content、sanitized、no recursive clone、no answer overlay。
-- [ ] Part 2 touch／pen 顯示 preview；Part 1／Part 3 及 mouse／keyboard 不顯示 preview。
+- [ ] Part 2 touch／pen 畫線顯示 preview；平板、孔、旋轉、標註、Part 1／Part 3 及 mouse／keyboard 不顯示 preview。
 - [ ] part2 舊線在重新移動／旋轉時保持 plate-local transform。
 - [ ] 畫線完成後平板保持原 settled 懸掛姿態，直到學生明確拖走；同孔重掛時舊線／mark 保持可見，重畫成功只替換同 key line，取下不改舊證據。
 - [ ] 向下 `9.5°` live／stored exact vertical 且保留 raw length；`10.5°` live／stored raw slant；向上、短、nonfinite、out-of-range 拒絕且無紅線向上跳。
 - [ ] 兩條 recordable lines 後紅色「重心」在中性 stage-side palette 出現，至少 48 px direct target；trusted drag 可吸附任意 pairwise intersection，未吸附時紅點留在 viewport 且不跟板旋轉，已吸附點與交點共用 plate-local transform，出框及移回全程不分離。
 - [ ] tablist trusted keyboard 驗證 Left／Right／Home／End、focus、`aria-selected` 及 roving `tabindex`；Part 2 未放置 mark 時 Enter／Space 形成與 pointer 相同 schema 的 pairwise-intersection mark。
 - [ ] swing hidden／blur 保留 angle／omega／settled dwell／pose／selected hole，visible／focus 無 catch-up 繼續且只 checkpoint 一次；reload／pointer interruption 回復 pre-swing checkpoint。
-- [ ] 二維牆釘固定於 canonical stage 中央 `(350,230)`；source／package trusted mouse、touch 拖動在桌面最多 80% 出框、手機最多 70% 出框，並保留可操作可見區域；越界拖動停在最後合法姿態。
+- [ ] 二維牆釘固定於 canonical stage 上方 `(350,140)`；source／package trusted mouse、touch 拖動在桌面最多 80% 出框、手機最多 70% 出框，並保留可操作可見區域；越界拖動停在最後合法姿態。
 - [ ] part3 click-vs-orbit threshold、第一次 observation 前候選鎖定、第一次 observation 後 DOM radio synchronization。
 - [ ] native formula markup 包含 `<var>`、sub/sup、upright units、role math、ARIA；無 MathJax／raw TeX。
 - [ ] reduced-motion 路徑仍產生正確 settled semantic event。
@@ -809,7 +808,7 @@ Never persisted：
 - [ ] scrollable Moodle-like iframe 具有上下 host range，記錄 host／iframe／activity document／panel／兩邊 visual viewport。
 - [ ] trusted stage blank swipe 只移動 host；panel swipe 只移動 panel，包括 boundary；每種 draggable target 只由 simulation 擁有。
 - [ ] 環形板已懸掛時，除 cutout 中央外，亦以最接近 active pivot 的 cutout 內側點透過 `elementFromPoint` 證明 `pointerdown` 前沒有 simulation owner；trusted touch swipe 只移動 host，平板 pose 及 canonical state byte-equivalent。隨後由同一 pivot 的實際物料起筆須完成 `pointerup`、記錄線段並保持 host 固定；compound draw path 不進 tab order，clipped pivot 是唯一 keyboard 畫線入口。
-- [ ] Part 2 每種 touch target 驗證 preview 與 active target 同步，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
+- [ ] Part 2 畫線驗證 preview 與可見終點同步、不遮懸掛孔；其餘 touch target 驗證 preview 隱藏，外層所有 scroll position 為 0 delta；Part 1／Part 3 驗證 preview 保持隱藏。
 - [ ] 平板擺動使用 fake clock／controlled RAF，browser check 不因 animation timing flaky。
 - [ ] source 及 packaged SCORM 驗證紫色旋轉拖動點及「拖動旋轉」文字在 phone、desktop 清晰、target 至少 44 px；settled 懸掛時 trusted drag 保持 active hole 在釘位，放手重新阻尼擺；畫線完成無 pageerror／無向上跳；marker 對任意線對吸附且整板出框時不離開交點。
 - [ ] source／package 的 Three labels 同時包含前／後候選並與 Canvas deterministic signed-depth 分類逐 key 一致；context loss／restore 不改 canonical state。
@@ -873,7 +872,7 @@ Never persisted：
 - [ ] 平板可用 mouse、單指手柄、keyboard／buttons 旋轉；雙指不是必需。
 - [ ] 阻尼擺最後令重心位於 pivot 正下方，且 reduced motion 仍保留因果。
 - [ ] 第三部分候選點固定在三維物體內，旋轉後 depth／hit test 正確。
-- [ ] Part 2 touch／pen 直接操作有真實、固定角落 preview；Part 1／Part 3 不顯示 preview，且 preview 不洩漏答案、不攔截 pointer、不寫 persistence。
+- [ ] Part 2 touch／pen 畫線有真實、固定角落 preview；其餘操作不顯示，且 preview 不遮懸掛孔、不洩漏答案、不攔截 pointer、不寫 persistence。
 - [ ] 所有物理量及公式使用一致 native LaTeX-like semantic typography，無 learner-facing raw TeX。
 - [ ] 正確答案欠操作證據不獲結果分；完全無有效操作的直接猜測總分為 0。
 - [ ] draft／review 可重建、可重算、可重畫；snapshot < 4000 bytes。

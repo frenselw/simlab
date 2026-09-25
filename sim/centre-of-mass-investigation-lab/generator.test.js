@@ -19,6 +19,12 @@ for (let seed = 0; seed < 200; seed += 1) {
   assert.ok(a.part2.holes.length >= 3 && a.part2.holes.length <= 5);
   assert.ok(a.part2.holes.every((hole) => inside(hole, a.part2.polygon) && !a.part2.cutouts.some((cutout) => inside(hole, cutout))), "holes lie on material rather than in a cutout");
   assert.ok(a.part2.holes.every((hole) => Math.hypot(hole.x-a.part2.centre.x,hole.y-a.part2.centre.y) >= .18*a.part2.size));
+  for (let i = 0; i < a.part2.holes.length; i += 1) for (let j = i + 1; j < a.part2.holes.length; j += 1) {
+    const h = a.part2.holes[i], k = a.part2.holes[j], c = a.part2.centre;
+    const angle = M.acuteLineAngle({ a: [h.x, h.y], b: [c.x, c.y] }, { a: [k.x, k.y], b: [c.x, c.y] });
+    assert.ok(angle >= 30, `${a.part2.kind}: every hole pair gives distinct plumb lines (seed ${seed}, ${h.key}/${k.key}: ${angle}°)`);
+    assert.ok(Math.hypot(h.x-k.x, h.y-k.y) >= .45, `${a.part2.kind}: holes stay apart on a narrow touch screen`);
+  }
   assert.ok(a.part2.holes.some((h,i)=>a.part2.holes.slice(i+1).some((k)=>{
     const l1={a:[h.x,h.y],b:[a.part2.centre.x,a.part2.centre.y]},l2={a:[k.x,k.y],b:[a.part2.centre.x,a.part2.centre.y]};const angle=M.acuteLineAngle(l1,l2);return angle>=45&&angle<=135;
   })));
@@ -30,6 +36,13 @@ for (let seed = 0; seed < 200; seed += 1) {
   }
 }
 assert.deepEqual([...seenSides].sort(),[-1,1]); assert.equal(seenCorrect.size,5); assert.equal(seenSolids.size,3); assert.equal(seenShapes.size,3);
+assert.equal(G.VERSION, 3);
+assert.deepEqual(G.SUPPORTED_VERSIONS, [1, 2, 3]);
+for (const [seed, expected] of [
+  [0, [[-.34,-.34],[.34,-.34],[.34,.34],[-.34,.34]]],
+  [1, [[-.46,-.18],[.22,-.3],[.42,.16],[-.2,.34]]],
+  [3, [[-.38,-.25],[.2,-.34],[.38,.19],[-.31,.28]]]
+]) assert.deepEqual(G.generate(seed, G.V2_VERSION).part2.holes.map(({x,y})=>[x,y]), expected, `v2 seed ${seed} keeps its published hole positions`);
 const legacy = G.generate(123, G.LEGACY_VERSION); assert.equal(legacy.generatorVersion, G.LEGACY_VERSION); assert.equal(legacy.part2.cutouts.length, 0); assert.deepEqual(legacy.part2.polygon, G.generate(123, G.LEGACY_VERSION).part2.polygon);
-assert.throws(()=>G.generate(1,3));
+assert.throws(()=>G.generate(1,4));
 console.log("Centre-of-mass generator checks passed");

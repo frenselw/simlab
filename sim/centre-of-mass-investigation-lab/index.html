@@ -13,25 +13,25 @@
 <body>
 <main id="app" class="lab-app">
   <header class="app-header">
-    <div><h1>重心探究實驗室</h1><p>透過承托、懸掛及對稱性找出重心</p></div>
-    <span id="phaseBadge" class="phase-badge">第 1 部分</span>
-    <progress id="progress" max="3" value="0" aria-label="已完成部分"></progress>
+    <div class="header-copy"><h1>重心探究實驗室</h1><p>透過承托、懸掛及對稱性找出重心</p></div>
+    <nav class="part-tabs" aria-label="實驗導覽">
+      <div class="part-tablist" role="tablist" aria-label="選擇實驗部分">
+        <button type="button" role="tab" data-part-tab="1">一維</button>
+        <button type="button" role="tab" data-part-tab="2">二維</button>
+        <button type="button" role="tab" data-part-tab="3">三維</button>
+      </div>
+      <button type="button" id="checkTab" class="check-tab">檢查及提交</button>
+    </nav>
+    <span id="phaseBadge" class="sr-only">第 1 部分</span>
+    <progress id="progress" max="3" value="0" hidden></progress>
   </header>
-  <nav class="part-tabs" aria-label="實驗導覽">
-    <div class="part-tablist" role="tablist" aria-label="選擇實驗部分">
-      <button type="button" role="tab" data-part-tab="1"><span>1</span>一維杆<i aria-hidden="true">✓</i></button>
-      <button type="button" role="tab" data-part-tab="2"><span>2</span>二維平板<i aria-hidden="true">✓</i></button>
-      <button type="button" role="tab" data-part-tab="3"><span>3</span>三維立體<i aria-hidden="true">✓</i></button>
-    </div>
-    <button type="button" id="checkTab" class="check-tab">檢查及提交</button>
-  </nav>
   <div class="workspace">
     <section id="stage" class="stage" aria-labelledby="stageTitle">
       <h2 id="stageTitle" class="sr-only">實驗圖台</h2>
       <svg id="svgStage" viewBox="0 0 700 460" role="img" aria-label="重心實驗互動圖台"></svg>
       <canvas id="solidCanvas" width="700" height="460" aria-label="可旋轉的均勻立體及候選點"></canvas>
       <canvas id="fallbackCanvas" width="700" height="460" aria-label="可旋轉立體的相容模式"></canvas>
-      <div id="directLayer" class="direct-layer"></div><div id="preview" class="preview is-hidden" aria-hidden="true"></div><div id="rendererBadge" class="renderer-badge is-hidden" aria-live="polite"></div>
+      <div id="directLayer" class="direct-layer"></div><div id="preview" class="preview is-hidden" aria-hidden="true"></div>
     </section>
     <aside id="controlPanel" class="control-panel" aria-label="實驗說明與進度">
       <section id="technical" class="panel-section is-hidden"><h2>活動暫時鎖定</h2><p id="technicalMessage"></p><button id="technicalRetry">重新載入</button></section>
