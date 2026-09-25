@@ -691,13 +691,18 @@ async function smoke(cdp, baseUrl, activityPath, label) {
   const cancelPoint = await evaluate(cdp, `(() => {
     window.__cancelEvents=[];
     const button=document.getElementById('throttleButton');
-    ['pointerdown','pointerup','pointercancel'].forEach(type=>button.addEventListener(type,event=>window.__cancelEvents.push({type,trusted:event.isTrusted,pointerType:event.pointerType})));
+    ['pointerdown','pointerup','pointercancel','lostpointercapture'].forEach(type=>button.addEventListener(type,event=>window.__cancelEvents.push({type,trusted:event.isTrusted,pointerType:event.pointerType,control:document.getElementById('controlState').textContent,pressed:button.getAttribute('aria-pressed'),disabled:button.disabled,live:document.getElementById('liveRegion').textContent})));
     document.getElementById('startButton').click();
     const rect=button.getBoundingClientRect();
     return {x:rect.left+rect.width*.45,y:rect.top+rect.height/2};
   })()`);
   await cancelTouch(cdp, cancelPoint.x, cancelPoint.y, 90, 31);
-  await waitFor(cdp, "document.getElementById('liveRegion')?.textContent.includes('操作中斷')", `${label} pointer cancellation copy`);
+  try {
+    await waitFor(cdp, "document.getElementById('liveRegion')?.textContent.includes('操作中斷')", `${label} pointer cancellation copy`);
+  } catch (error) {
+    const details = await evaluate(cdp, `(() => ({events:window.__cancelEvents,live:document.getElementById('liveRegion').textContent,control:document.getElementById('controlState').textContent,stage:document.getElementById('stageStatus').textContent,startDisabled:document.getElementById('startButton').disabled,pauseDisabled:document.getElementById('pauseButton').disabled,throttleDisabled:document.getElementById('throttleButton').disabled}))()`);
+    throw new Error(`${error.message}: ${JSON.stringify(details)}`);
+  }
   const cancelled = await evaluate(cdp, `(() => ({
     events:window.__cancelEvents,
     control:document.getElementById('controlState').textContent,
@@ -1559,11 +1564,15 @@ async function analysisScrub(cdp, baseUrl, activityPath, label) {
   const setup = await evaluate(cdp, `(() => {
     const graphExtent=()=>{const c=document.getElementById('graphCanvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let blue=-1,amber=-1;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>150&&r<90&&g>50&&g<160)blue=Math.max(blue,x);if(r>190&&g>90&&g<200&&b<100)amber=Math.max(amber,x);}return {blue,amber};};
     const p=document.getElementById('controlPanel'),r=document.getElementById('scrubRange');
-    p.scrollTop=r.offsetTop; r.value='20'; r.dispatchEvent(new Event('input',{bubbles:true}));
+    const initial=r.getBoundingClientRect(),panelRect=p.getBoundingClientRect();
+    p.scrollTop+=initial.top-panelRect.top-(panelRect.height-initial.height)/2;
+    r.value='20'; r.dispatchEvent(new Event('input',{bubbles:true}));
     window.__scrubEvents=[]; ['pointerdown','pointermove','pointerup','pointercancel'].forEach(type=>r.addEventListener(type,e=>window.__scrubEvents.push({type,trusted:e.isTrusted,pointerType:e.pointerType})));
     const b=r.getBoundingClientRect(),graph=document.getElementById('graphCanvas').getBoundingClientRect();
-    return {x:b.left+b.width*.2,endX:b.left+b.width*.78,y:b.top+b.height/2,panel:p.scrollTop,host:scrollY,value:r.value,extent:graphExtent(),rangeHeight:b.height,graph:{width:graph.width,height:graph.height}};
+    const x=b.left+b.width*.2,y=b.top+b.height/2;
+    return {x,endX:b.left+b.width*.78,y,panel:p.scrollTop,host:scrollY,value:r.value,extent:graphExtent(),rangeHeight:b.height,graph:{width:graph.width,height:graph.height},hit:document.elementFromPoint(x,y)?.id};
   })()`);
+  assert.equal(setup.hit, "scrubRange", `${label}: analysis scrub is visible and receives the touch`);
   assert(setup.rangeHeight >= 44, `${label}: analysis range has a 44px touch target`);
   assert(setup.graph.width - 49 >= 128 && setup.graph.height - 42 >= 88,
     `${label}: analysis graph's actual plot rect is at least 128×88 (${JSON.stringify(setup.graph)})`);
