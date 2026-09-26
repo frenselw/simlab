@@ -58,7 +58,7 @@ Apply [navigation](00-shared-platform-and-style.md#navigation) and [submission/r
 | Final check access | Route from **every editable phase** to final check, including entirely blank and partially answered attempts; no all-seen/all-complete gate |
 | Incomplete submission | Neutral unanswered summary; submit current answers, including a zero-score attempt |
 | Editable reset | Scope, confirmation, affected downstream answers, and retained data |
-| Scored / pending attempt | No action may erase answers/results or restart the attempt; retain only permitted technical retry/recovery |
+| Scored / pending attempt | No in-page clear-results/restart action; retain permitted technical retry/recovery. Standalone browser refresh follows the shared refresh/resume contract |
 
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
 |---|---|---|---|
@@ -151,8 +151,8 @@ Use `SimScorm.loadAttempt()` with `SimActivityFlow.startup()`, register `SimScor
 | Startup `editable`, `review`, `frozen`, `load-error` | Specify each outcome; technical locks must not claim a confirmed result |
 | Submit `success`, `committed`, `frozen`, `retry` | Specify each outcome; distinguish retryable/non-retryable `retry` and finish retry |
 | Review trust | Trusted result, mismatch, unknown status and invalid recorded summary |
-| Standalone storage | Memory-only or `enableStandalonePersistence(ACTIVITY)` before load; actual storage failure behavior |
-| Standalone recovery | Allowed unfinished-draft recovery and `clearStandaloneAttempt()` success/failure handling; no scored/pending reset |
+| Standalone refresh | Mandatory memory-only practice: refresh starts fresh after drafts/check/submission; ignore old checkpoints, and remain usable when browser storage is denied. Follow the [shared contract](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume) |
+| Moodle resume / recovery | Same-attempt draft/review/pending restoration; fresh only when Moodle supplies a new attempt; permitted unfinished-draft recovery and save-failure handling |
 
 ## Test plan
 
@@ -163,7 +163,7 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 - [ ] Production encode/decode/restore round-trip covers **every** matrix row with production-shaped fixtures, equal score and execution of one legal continuation.
 - [ ] Invalid matrix combinations, numbers, enums, dependencies and authoritative keys fail closed; derived IDs rebuild; version policy and 4000-byte ceiling are tested.
 - [ ] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
-- [ ] Standalone opt-in covers draft/review reload, storage read/write failures, pending retry and permitted draft recovery.
+- [ ] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
 - [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
 - [ ] Every applicable gesture row passes with trusted input in a scrollable Moodle-like iframe on **source and extracted SCORM**; record all guide-required scroll/viewport/iframe metrics, including no third scroll owner.
 - [ ] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.

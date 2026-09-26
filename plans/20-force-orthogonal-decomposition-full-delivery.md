@@ -1,14 +1,14 @@
 # 力的正交分解完整版：現行規格與交付紀錄
 
-> 2026-09-24 文件澄清：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)，reset 只限未提交草稿；完成後重開要求已由 2026-09-22 的只讀規格取代。本輪未更改 runtime 或重做歷史驗收。
+> 2026-09-27 修訂：依[共用 refresh／續做契約](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume)，獨立練習改為記憶體模式，refresh 後由第一題空白作答開始，包括提交後。Moodle 同一嘗試仍恢復草稿或只讀結果。下方舊本機跨 reload 保存／恢復驗收只屬歷史，不代表現行要求。
 
-## 文件狀態（2026-09-22）
+## 文件狀態（2026-09-27）
 
 - 本文件是現行活動的規格入口；[MVP 計劃](20-force-orthogonal-decomposition-mvp.md)保留早期範圍，[roadmap](20-force-orthogonal-decomposition-roadmap.md)記錄階段演進。
-- 完整活動及後續修正已於 2026-09-22 經 PR #14 合併至 `main`，目錄狀態為 `active`；三情境、草稿保存、SCORM 提交及鎖定閱覽均已實作。
+- 完整活動及當時修正已於 2026-09-22 經 PR #14 合併至 `main`，目錄狀態為 `active`；三情境、草稿保存、SCORM 提交及鎖定閱覽均已實作。本輪 refresh 修正在 `codex/fix-orthogonal-standalone-refresh` 分支處理。
 - 練習及提交前總覽只呈現作答／保存狀態；沒有公式檢查按鈕或即時正誤。最終提交鎖定後才顯示可信的分數及題目回饋。`committed` 保留已確認結果並只重試 finish；`frozen`／load-error 不冒稱提交成功或成績確定。
 - 文末的工作者、工作樹、heartbeat、巡查與測試紀錄均為 2026-09-18 的歷史，不是重新啟動任務或監控的指令。舊 ZIP 雜湊及測試結果只證明當時版本，不能當作後續修正的驗收結果。
-- `active` 不代表已完成真實 Moodle 或實機手機驗收；此兩項仍待部署環境驗證。當時完整 repo suite 的 CDP blocker 保留為歷史結果，本次文件同步沒有重新驗證其現況。
+- `active` 不代表已完成真實 Moodle 或實機手機驗收；此兩項仍待部署環境驗證。舊完整 repo suite 的 CDP blocker 保留為歷史結果，本輪實際測試另記，不沿用舊證據。
 
 ## 交付範圍與決策
 
@@ -18,7 +18,7 @@
 2. **三個情境**：水平／垂直；斜面物體受外力 F，沿平行／垂直斜面分解；斜面重力 G 沿下坡／向內法線分解。場景需清楚畫出有厚度或斜線紋的斜面及物體，力起點對齊物體。原力固定於該題，避免零分量與近退化角。使用小型題目設定與共同幾何，勿寫龐大通用繪圖引擎。
 3. **角與表達式**：前兩類自由定義 θ，保留可行的 O／P 銳角、等值角與互餘角語意；第三類先採題目給定斜面傾角 θ，要求標出同一角度，不能接受互餘角作同一 θ。G 的平行分量為 Gₓ = G sin θ、向內法線分量為 Gᵧ = G cos θ。第三類固定以 Gₓ／Gᵧ 表示軸向，不容許因學生畫箭頭的先後而對調。公式表達大小，箭嘴表達方向。
 4. **完整練習**：固定三題、每情境一題，可切換並保留各題草稿；不擴張隨機題庫、任意原力拖動或完整 undo。提交前可反覆修改及查看作答完整狀態，但不顯示公式正誤、錯誤分組或數字分數。換角／改圖保留嘗試答案，幾何依賴按下方生產計劃處理。提供最後總覽及明確的最終提交按鈕，提交並鎖定後才顯示評核回饋。
-5. **保存及提交**：formative browser scoring，非高風險評核。用 final-state scoring，三題等權，每題方向、垂線、分力、θ、公式五組各等權；方向、垂線、分力、公式各含兩項，θ 為單項，詳見 Scoring。無操作次數懲罰，無任意 pass/fail 門檻。未完成項於最終提交得 0，但必須清楚確認遺漏。提交前可從總覽返回修改，正式成功後鎖定 review。使用共享 SCORM startup、draft、submission、finish 路徑，涵蓋四種提交結果。standalone 使用共用 `enableStandalonePersistence()` 保存／恢復本地草稿；`clearStandaloneAttempt()` 只用於未提交草稿的明確重設／修復，已提交或 pending 結果不得清除；不可冒稱已提交到 Moodle，也不另複製一套本地保存實作。
+5. **保存及提交**：formative browser scoring，非高風險評核。用 final-state scoring，三題等權，每題方向、垂線、分力、θ、公式五組各等權；方向、垂線、分力、公式各含兩項，θ 為單項，詳見 Scoring。無操作次數懲罰，無任意 pass/fail 門檻。未完成項於最終提交得 0，但必須清楚確認遺漏。提交前可從總覽返回修改，正式成功後鎖定 review。使用共享 SCORM startup、draft、submission、finish 路徑，涵蓋四種提交結果。standalone 只保留本頁記憶體，refresh 開空白練習；同頁提交後保持只讀。Moodle 的草稿續做、pending 重試及已交檢討沿用共用流程，不可冒稱本機回饋已提交到 Moodle。
 6. **正式產物**：完整 production plan、state matrix、snapshot schema、scoring rubric、round-trip／非法狀態／restore continuation／lifecycle 測試，catalogue 與 manifest，SCORM 1.2 ZIP 及 extracted launch 驗證。包內只列實際 runtime dependencies。三題資料須符合 suspend_data 大小限制。
 
 真實 Moodle 的帳戶／環境若未提供，先完成本機、LMS mock 及 packaged 檢查；不得聲稱已做真實 Moodle 或實機手機驗收，也不可自行發布到未知課程。
@@ -198,51 +198,58 @@ uniqueness/references；generated DOM ids are rebuilt deterministically as
 
 Invalid snapshot policy：editable corrupt/inconsistent draft produces a technical
 load lock (no silent meaningful reset)；the technical lock also provides an
-explicit, confirmed recovery action that clears the standalone checkpoint or
-overwrites the LMS draft with a fresh validated draft, and only reloads after
+explicit, confirmed recovery action that overwrites the LMS draft with a fresh
+validated draft, and only reloads after
 that durable operation succeeds。finished invalid review remains locked and
 shows only trustworthy Moodle score/status fallback；pending-final is owned by
 shared runtime，activity first validates the nested review and immutable result
 metadata against the payload, and calls `SimScorm.quarantinePending()` immediately
 when that validation fails。Quarantined pending data keeps the durable checkpoint
-for diagnosis but exposes no retry／edit／automatic unload retry action。Standalone
-先由 activity 呼叫 `SimScorm.enableStandalonePersistence(ACTIVITY)`；shared runtime
-以同一個 validated checkpoint bundle 原子保存 `cmi.suspend_data`、score/status
-欄位到 browser `localStorage`，再走 `loadAttempt()`／`startup()`。probe 後的讀取失敗、寫入／quota 失敗
-均轉成明確的 unavailable／read-only 狀態；activity 可繼續本頁 memory-only，
-但不得宣稱 durable save 或把新舊欄位混寫，並會在 reload 顯示實際可恢復範圍。
-不在 activity 內直接讀 raw LMS fields。
+for diagnosis but exposes no retry／edit／automatic unload retry action。
+上述保存／恢復規則適用 Moodle。Standalone 使用 shared runtime 預設記憶體模式；
+不啟用本機持續保存、不讀寫或刪除舊 localStorage checkpoint，亦不因舊資料損壞或
+瀏覽器儲存權限而鎖住練習。固定三題不變，refresh 清空所有作圖／公式並回第一題。
+不在 activity 內直接讀 raw LMS fields 或加入 page lifecycle handler。
 
 ## Shared SCORM lifecycle
 
-Startup calls `SimScorm.enableStandalonePersistence(ACTIVITY)` then
-`SimScorm.loadAttempt(ACTIVITY)` and `SimActivityFlow.startup(attempt)`。`new/draft`
+Startup calls `SimScorm.loadAttempt(ACTIVITY)` and
+`SimActivityFlow.startup(attempt)`。`new/draft`
 restores editable state and registers a draft provider；`finished` restores review；
 `pending-final` is frozen；read/inconsistent errors lock technical UI. Draft saves
 occur after semantic changes and on page lifecycle through
-`SimScorm.setDraftProvider()`；LMS mode 不改變，standalone 只是 shared runtime 的
-durable adapter。
+`SimScorm.setDraftProvider()`；Moodle 使用 LMS 保存，standalone 使用記憶體。
 
-Submission creates a validated review snapshot and final-state result, then calls `SimScorm.submitWithCallbacks(result, reviewSnapshot, callbacks)`。Handlers route `success`、`committed`、`frozen`、`retry` through `SimActivityFlow.submission()`；technical pending／retry UI never says submitted、passed or failed until the shared result is confirmed. Standalone local mode may retain an in-memory/local shared-runtime draft log but only describes it as local draft, never as Moodle submission。完成的本機及 LMS review 均不可清除紀錄或重新作答；低分亦維持唯讀，重載後保留原答案與成績。只保留未提交損壞草稿的明確修復路徑，以及已 commit 但 finish 失敗時重試完成工作階段的按鈕。這是活動操作限制，不宣稱能阻止使用者在瀏覽器外部清除 localStorage。
+Submission creates a validated review snapshot and final-state result, then calls `SimScorm.submitWithCallbacks(result, reviewSnapshot, callbacks)`。Handlers route `success`、`committed`、`frozen`、`retry` through `SimActivityFlow.submission()`；technical pending／retry UI never says submitted、passed or failed until the shared result is confirmed. Standalone retains only an in-memory shared-runtime log, never a Moodle submission。完成的本機及 LMS review 在當前頁面均維持唯讀、沒有清成績或重開按鈕，包括低分；standalone refresh 另開空白練習。Moodle 同一嘗試重載保留原答案與成績，只有 Moodle 新嘗試才由零開始。保留未提交損壞 LMS 草稿的明確修復，以及已 commit 但 finish 失敗時重試完成工作階段的按鈕。
 
 ### Touch preview（2026-09-22）
 
 - 參考「力的合成」的局部放大視窗；練習中 touch／pen 拖曳方向線、垂線、分力及 θ（包括既有端點編輯）時，以目前 SVG 幾何顯示 2× 預覽，焦點追蹤吸附後位置。
 - 預設右上角固定顯示；手指靠近視窗才移到較遠角落，避免預覽也被遮住。預覽不接受 pointer events、不加入鍵盤焦點、不回饋評分對錯；既有手勢 ownership matrix 完全不變。
 - 放開、取消、失去 capture、切換到總覽／review／technical lock 時收起；mouse／keyboard／公式卡片拖曳不顯示。預覽、位置和 focus ring 均屬 transient derived UI，不加入 draft／review schema。
-- source 及 extracted SCORM 在 320／390px scrollable Moodle-like iframe 以 trusted touch 驗證新建與編輯、放大幾何、吸附焦點、邊緣避讓、取消清理及每一個 gesture owner；同時覆蓋非滿分提交後無 reset、重載答案及分數不變。
+- source 及 extracted SCORM 在 320／390px scrollable Moodle-like iframe 以 trusted touch 驗證新建與編輯、放大幾何、吸附焦點、邊緣避讓、取消清理及每一個 gesture owner；同時覆蓋非滿分提交後無 reset、Moodle 同一嘗試重載答案及分數不變。
 
 ## Test plan and evidence targets
 
 - `scoring.test.js`：all five groups, partial credit, all three scenarios, formula mapping, 0–100 floor/ceiling。
 - `persistence.test.js`：production-shaped round trip for every matrix row（包括零垂線／零分力、普通返回保留下游、錯圖 angle、formulas invalid continuation 及 summary review-edit），one legal continuation per row, max draft/review byte assertion, invalid enum／NaN／Infinity／越界／dangling keys／phase skips／old alias rejection, score equality；負座標及負方向分量是 gravity 的合法資料，不可一概拒絕。
-- `sim/shared/scorm.test.js` 的 activity-specific durable standalone case：實際 reload 恢復三題 authoritative snapshot；probe 成功後 read failure、write／quota failure、reload 後舊 checkpoint atomicity、storage unavailable／read-only 時只回報實際狀態，且不污染另一個 activity。
+- `tools/force-orthogonal-decomposition-playwright-check.js`：source／extracted standalone 在部分作答、總覽、完整及零分提交後實際 reload，回到第一題空白並可繼續作圖／提交；舊 draft／review／pending／corrupt／legacy keys 均忽略且保留原值，browser storage denied 亦正常。
+- `tools/force-orthogonal-decomposition-lifecycle-playwright-check.js`：Moodle 同一嘗試維持 draft／review／pending 恢復、損壞未提交草稿修復及 quarantine。Shared standalone adapter tests 只保留作舊 API 相容測試，不代表本活動使用持續保存。
 - `lifecycle.test.js`：production render glue for startup review/editable/frozen/load-error and submission success/committed/frozen/retryable/non-retryable retry plus trusted/untrusted finished result。
 - `ui-runtime.test.js` / `accessibility.test.js`：manifest scripts, no MathJax, math typography, locked review, keyboard labels, three question metadata。
 - `tools/force-orthogonal-decomposition-browser-regression.test.js`：static contracts updated for bounded panel, manifest/runtime dependencies, stable target inventory and touch matrix。
-- `tools/force-orthogonal-decomposition-playwright-check.js`：trusted mouse/keyboard and all three scenario paths；320×500、390×500/600、landscape、toolbar/zoom、panel top/bottom；embedded host metrics for blank stage/panel/each target and touch preview；invalid pending quarantine、finished reload、non-perfect review without reset、invalid unfinished draft recovery；source launch and extracted package launch。
+- `tools/force-orthogonal-decomposition-playwright-check.js`：trusted mouse/keyboard and all three scenario paths；320×500、390×500/600、landscape、toolbar/zoom、panel top/bottom；embedded host metrics for blank stage/panel/each target and touch preview；non-perfect review without an in-page reset；source launch and extracted package launch。Moodle 的 quarantine、finished reload 及 invalid unfinished draft recovery 由 lifecycle runner 覆蓋。
 - Package checks：`npm.cmd run check`、activity tests、`npm.cmd run package:all`、ZIP root/exact manifest entries、extracted launch；full repo `npm.cmd test` result recorded separately if the existing position-time Chrome/CDP blocker reproduces。
 - No claim of Moodle or physical-device acceptance without external evidence; final handoff lists that validation as remaining。
+
+## Standalone refresh verification（2026-09-27）
+
+- 依共用契約移除本活動的 standalone persistence opt-in；固定三題不變，refresh 清空作圖／公式及導覽位置。同頁已交結果仍只讀，不加入重開按鈕或 refresh 說明文字。舊本機 checkpoint 不讀取、不刪除，儲存權限被拒亦可正常作答。
+- Source／extracted SCORM 實際 reload 已覆蓋部分作答、提交前總覽、完整及零分提交，並驗證重新作圖及提交。另覆蓋舊 draft／review／pending／損壞 bundle／legacy keys／拒絕 browser storage。
+- Source／extracted fake LMS 已驗證同一嘗試的 draft／review／pending 重載、離開 SCO 後返回續做，以及 LMS 提供新嘗試時空白開始；原有 success／committed／frozen／retry、損壞草稿修復及 review lock 測試全部通過。真實 Moodle 是否在完成後自動建立新嘗試仍由活動設定決定。
+- 完整 `npm test` exit 0（`output/playwright/orthogonal-refresh-tests.log`）。最後再補上 `touchmove` 的 `event.cancelable` guard，避免向不可取消事件呼叫 `preventDefault()`；其後七組活動 Node／contract tests、`npm run check`、`npm run package:all`、shell syntax、`git diff --check` 再次通過。
+- 最終完整 source／extracted responsive、trusted-touch 及 source lifecycle runner exit 0（`output/playwright/orthogonal-refresh-browser.log`），extracted lifecycle runner exit 0（`output/playwright/orthogonal-refresh-packaged-lifecycle.log`）。本機 macOS Chrome 的 headless wheel 檢查未通過，故最終證據使用 `FOD_HEADED=1` 及本機 `PWCLI` 路徑；沒有放寬捲動／capture／手勢 ownership 斷言。測試改為等待實際捲動穩定及 frame navigation 完成，以免舊焦點捲動或 reload race 污染檢查。
+- ZIP 共 11 個檔案，包括根目錄 `imsmanifest.xml`；10 個 manifest runtime 檔案在 source／ZIP／extracted 逐 byte 相同。已目視檢查獨立練習空白畫面；本輪證據不包括真實 Moodle 或實機手機驗收。
 
 ## M0 evidence
 

@@ -4,11 +4,6 @@ async page => {
   const origin = page.url().match(/^https?:\/\/[^/]+/)?.[0] || "";
   const scope = await page.evaluate(() => new URL(location.href).searchParams.get("scope")) || globalThis.process?.env?.FOD_SCOPE || "all";
   assert(origin.startsWith("http://127.0.0.1:"), `unexpected origin: ${origin}`);
-  await page.addInitScript(() => {
-    if (new URL(location.href).searchParams.get("playwright-reset") === "1") {
-      localStorage.removeItem("simlab:force-orthogonal-decomposition:checkpoint");
-    }
-  });
   const errors = [];
   const progress = label => console.log("[force-orthogonal] " + label);
   page.on("console", message => { if (message.type() === "error" && !message.text().includes("Failed to load resource")) errors.push(message.text()); });
@@ -20,6 +15,23 @@ async page => {
 
   const appState = () => page.evaluate(() => window.__forceOrthogonalApp.getState());
   const appRuntime = () => page.evaluate(() => window.__forceOrthogonalApp.getRuntimeState());
+  const assertFreshStandalone = async (context, label) => {
+    await context.waitForFunction(() => window.__forceOrthogonalApp?.getRuntimeState() === "editable");
+    const fresh = await context.evaluate(() => {
+      const P = window.ForceOrthogonalDecompositionPersistence;
+      return {
+        actual: P.makeSnapshot("draft", window.__forceOrthogonalApp.getActivityState()).answer,
+        expected: P.makeSnapshot("draft", P.freshDraft()).answer,
+        standalone: window.SimScorm.isStandalone(),
+        storage: window.SimScorm.getStandaloneStorageStatus(),
+        status: document.querySelector("#attemptStatus").textContent
+      };
+    });
+    assert(fresh.standalone && fresh.storage === "disabled", `${label}: shared memory-only fallback is active`);
+    assert(JSON.stringify(fresh.actual) === JSON.stringify(fresh.expected), `${label}: all answers and navigation start fresh`);
+    assert(fresh.status === "作答中", `${label}: normal standalone startup does not claim durable storage or a storage failure`);
+    assert(await context.locator("#practicePanel").isVisible() && await context.locator("#saveBanner").isHidden(), `${label}: practice is available without a storage warning`);
+  };
   const assertThetaTypography = async (context, label) => {
     const sizes = await context.evaluate(() => {
       const screenSize = node => {
@@ -42,6 +54,23 @@ async page => {
     assert(!sizes.extraP, `${label}: no P label is drawn at the force arrowhead`);
   };
   const telemetry = context => context.evaluate(() => window.__forceOrthogonalApp.getTouchTelemetry());
+  const settlePanelScroll = context => context.evaluate(() => new Promise((resolve, reject) => {
+    const panel = document.querySelector("#forcePanel");
+    // Finish focus-driven scrolling from the preceding setup click before
+    // measuring a new drag; native drag ownership is tested below unchanged.
+    panel.scrollTop = panel.scrollTop;
+    let previous = panel.scrollTop, stableFrames = 0;
+    const start = performance.now();
+    const sample = () => {
+      const current = panel.scrollTop;
+      stableFrames = current === previous ? stableFrames + 1 : 0;
+      previous = current;
+      if (stableFrames >= 6) resolve();
+      else if (performance.now() - start > 3000) reject(new Error("Panel did not settle before gesture setup"));
+      else requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
   const assertTrustedPointerTransaction = async (context, before, label) => {
     const events = (await telemetry(context)).slice(before);
     assert(events.some(event => event.type === "pointerdown"), label + ": trusted pointerdown observed " + JSON.stringify(events));
@@ -211,7 +240,7 @@ async page => {
     for (const cancellation of ["touchCancel", "lostCapture"]) {
       // Let the preceding question-button click finish its panel scroll before
       // measuring the gesture (the drag itself must not move any scroll owner).
-      await wait(100);
+      await settlePanelScroll(frame);
       await frame.evaluate(() => window.__forceOrthogonalApp.clearTouchTelemetry());
       const original = await frame.evaluate(() => JSON.stringify(window.__forceOrthogonalApp.getActivityState()));
       const beforeMetrics = await embeddedTargetMetrics(frame);
@@ -396,13 +425,11 @@ async page => {
       const changed = await semanticState();
       assert(JSON.stringify(changed) !== JSON.stringify(before), label + ": edit completed");
       const persisted = await page.evaluate(() => {
-        const raw = localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint");
-        if (!raw) return null;
-        const bundle = JSON.parse(raw);
-        const snapshot = bundle?.["cmi.suspend_data"] ? JSON.parse(bundle["cmi.suspend_data"]) : null;
+        const raw = window.SimScorm.getLocalLog().filter(entry => entry.key === "cmi.suspend_data").at(-1)?.value;
+        const snapshot = raw ? JSON.parse(raw) : null;
         return snapshot?.answer?.questions?.[0] || null;
       });
-      assert(persisted && JSON.stringify({ phase: persisted.phase, directions: persisted.directions, perpendiculars: persisted.perpendiculars, components: persisted.components, theta: persisted.theta, formulas: persisted.formulas }) === JSON.stringify(changed), label + ": completed edit was persisted immediately");
+      assert(persisted && JSON.stringify({ phase: persisted.phase, directions: persisted.directions, perpendiculars: persisted.perpendiculars, components: persisted.components, theta: persisted.theta, formulas: persisted.formulas }) === JSON.stringify(changed), label + ": completed edit was saved to the current page immediately");
       const restoreStart = await center(page.locator(selector));
       await mouseDrag(restoreStart, await diagramPoint(point));
     };
@@ -449,19 +476,24 @@ async page => {
     const before = await page.locator("#stage").boundingBox();
     await page.mouse.move(metrics.panel.x + metrics.panel.width / 2, metrics.panel.y + metrics.panel.height / 2);
     await page.mouse.wheel(0, 700);
-    await wait(80);
+    try {
+      await page.waitForFunction(() => document.querySelector("#forcePanel").scrollTop > 0, undefined, { timeout: 3000 });
+    } catch (error) {
+      const actual = await page.evaluate(() => {
+        const panel = document.querySelector("#forcePanel"), rect = panel.getBoundingClientRect();
+        return { scrollTop: panel.scrollTop, scrollHeight: panel.scrollHeight, clientHeight: panel.clientHeight, rect: rect.toJSON(), focused: document.hasFocus(), hit: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.tagName };
+      });
+      throw new Error(`${label}: panel wheel did not scroll ${JSON.stringify(actual)}: ${error.message}`);
+    }
     const after = await page.locator("#stage").boundingBox();
     assert(Math.abs(before.y - after.y) < 1 && Math.abs(before.height - after.height) < 1, `${label}: stage stays fixed while panel scrolls`);
     assert(await page.locator("#forcePanel").evaluate(node => node.scrollTop > 0), `${label}: panel consumed the wheel gesture`);
     await page.locator("#forcePanel").evaluate(node => { node.scrollTop = 0; });
   };
   const openFresh = async (path, label) => {
-    // Clear only after the outgoing page's draft/pagehide save. Clearing before
-    // navigation races that save and can silently reuse the preceding fixture.
-    await page.goto(`${origin}${path}?playwright=${encodeURIComponent(label)}-${Date.now()}&playwright-reset=1`);
+    await page.goto(`${origin}${path}?playwright=${encodeURIComponent(label)}-${Date.now()}`);
     await waitForApp();
-    await page.evaluate(() => { const url = new URL(location.href); url.searchParams.delete("playwright-reset"); history.replaceState(null, "", url); });
-    assert(await appRuntime() === "editable", `${label}: editable startup`);
+    await assertFreshStandalone(page, `${label}: fresh standalone startup`);
   };
   const verifyMissingRuntime = async () => {
     for (const missing of ["scorm", "activity-flow"]) {
@@ -560,8 +592,8 @@ async page => {
     await click(page.locator('[data-question-index="2"]'));
     await constructQuestion("touch", false);
     assert((await appState()).scenarioId === "inclined-gravity" && (await appState()).phase === "formulas", `${label}: gravity construction did not complete at 320x500`);
-    await openFresh(path, `${label} after narrow gravity`);
-    assert(await appRuntime() === "editable", `${label}: narrow gravity verification reset to editable startup`);
+    await page.reload();
+    await assertFreshStandalone(page, `${label}: partial attempt reload`);
     await page.setViewportSize({ width: 1100, height: 760 });
     await wait(80);
     await constructQuestion(firstMode, true);
@@ -578,27 +610,6 @@ async page => {
         await assertThetaTypography(page, `${label} question ${index + 1} ${width}x${height}`);
       }
     }
-    const savedQuestions = JSON.stringify(await page.evaluate(() => window.__forceOrthogonalApp.getActivityState().questions.map(question => ({
-      scenarioId: question.scenarioId,
-      phase: question.phase,
-      directions: question.directions.map(item => ({ key: item.key, unit: item.unit, axisKey: item.axisKey || item.axis || null })),
-      perpendiculars: question.perpendiculars,
-      components: question.components,
-      theta: question.theta,
-      formulas: question.formulas
-    }))));
-    await page.reload();
-    await waitForApp();
-    const restoredQuestions = JSON.stringify(await page.evaluate(() => window.__forceOrthogonalApp.getActivityState().questions.map(question => ({
-      scenarioId: question.scenarioId,
-      phase: question.phase,
-      directions: question.directions.map(item => ({ key: item.key, unit: item.unit, axisKey: item.axisKey || item.axis || null })),
-      perpendiculars: question.perpendiculars,
-      components: question.components,
-      theta: question.theta,
-      formulas: question.formulas
-    }))));
-    assert(restoredQuestions === savedQuestions, label + ": reload restores all three authoritative questions " + JSON.stringify({ saved: savedQuestions, restored: restoredQuestions }));
     await click(page.locator("#goSummary"));
     assert(await page.locator("#summaryPanel").isVisible(), `${label}: summary is visible`);
     await assertThetaTypography(page, label + " summary");
@@ -607,10 +618,6 @@ async page => {
     catch (error) { throw new Error(`${label}: review wait failed state=${JSON.stringify(await appState())} runtime=${await appRuntime()}: ${error.message}`); }
     assert((await page.locator("#reviewCompletion").textContent()).includes("形成性"), `${label}: final review is explicit formative feedback`);
     await assertThetaTypography(page, label + " review");
-    await page.reload();
-    await waitForApp();
-    assert(await appRuntime() === "review", `${label}: finished reload stays review-only`);
-    assert(await page.locator("#reviewPanel").isVisible(), `${label}: review panel survives reload`);
     const assertCompletedLocked = async suffix => {
       assert(await appRuntime() === "review", `${label}: ${suffix} stays in review`);
       assert(await page.locator("#reviewActions button").count() === 0, `${label}: ${suffix} has no clear/restart action`);
@@ -623,6 +630,8 @@ async page => {
         `${label}: ${suffix} reset handler cannot alter a completed answer`);
     };
     await assertCompletedLocked("complete review");
+    await page.reload();
+    await assertFreshStandalone(page, `${label}: completed attempt reload`);
 
     // A low score must not provide a shortcut to delete the completed attempt.
     await openFresh(path, label + " incomplete submission");
@@ -632,67 +641,96 @@ async page => {
     await page.waitForFunction(() => window.__forceOrthogonalApp.getRuntimeState() === "review");
     assert((await page.locator("#reviewScore").textContent()).trim() === "0 / 100", `${label}: incomplete attempt receives a real non-perfect score`);
     await assertCompletedLocked("zero-score review");
-    const completedCheckpoint = await page.evaluate(() => localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint"));
     await click(page.locator('#reviewQuestionNavigation [data-question-index="1"]'));
     await assertCompletedLocked("zero-score question switch");
     await page.reload();
     await waitForApp();
-    await assertCompletedLocked("zero-score reload");
-    assert((await page.locator("#reviewScore").textContent()).trim() === "0 / 100", `${label}: reload retains the score`);
-    assert(await page.evaluate(() => localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint")) === completedCheckpoint,
-      `${label}: question switching and reload preserve the exact completed checkpoint`);
+    await assertFreshStandalone(page, `${label}: zero-score reload`);
 
-    // A malformed standalone checkpoint must expose the same explicit recovery
-    // route as the LMS draft path instead of trapping the learner in reload.
-    const invalidStandaloneSnapshot = await page.evaluate(() => {
+    // A real edit and pre-submit check also disappear on refresh. The fresh
+    // page must still accept drawing and a legal partial submission afterwards.
+    const plan = await scenePlan();
+    await dragTarget("#originHit", plan.directions[0], "mouse");
+    assert((await appState()).directions.length === 1, `${label}: partial reload setup contains an answer`);
+    await click(page.locator("#goSummary"));
+    assert(await page.locator("#summaryPanel").isVisible(), `${label}: partial final check is visible`);
+    await page.reload();
+    await assertFreshStandalone(page, `${label}: final check reload`);
+    await page.screenshot({ path: `output/playwright/force-orthogonal-standalone-${label}-fresh.png` });
+    await dragTarget("#originHit", plan.directions[0], "mouse");
+    assert((await appState()).directions.length === 1, `${label}: redraw after refresh succeeds`);
+    await click(page.locator("#goSummary"));
+    await page.evaluate(() => { window.confirm = () => true; });
+    await click(page.locator("#submitAttempt"));
+    await page.waitForFunction(() => window.__forceOrthogonalApp.getRuntimeState() === "review");
+    const partialScore = Number((await page.locator("#reviewScore").textContent()).split("/")[0].trim());
+    assert(partialScore > 0 && partialScore < 100, `${label}: redraw can earn partial credit and submit`);
+    await assertCompletedLocked("redrawn partial submission");
+
+    const legacyCases = await page.evaluate(() => {
       const P = window.ForceOrthogonalDecompositionPersistence;
-      const snapshot = P.makeSnapshot("draft", P.freshDraft());
-      const question = snapshot.answer.questions[2];
-      const scene = window.ForceOrthogonalDecompositionModel.getScenario("inclined-gravity");
-      question.phase = "perpendiculars";
-      question.directions = scene.axes.map((axis, index) => ({ key: `D${index + 1}`, unit: { ...axis.unit }, axisKey: axis.key }));
-      question.perpendiculars = [{ key: "P1", end: { ...scene.forceHead }, targetKey: null }];
-      return JSON.stringify(snapshot);
+      const S = window.ForceOrthogonalDecompositionScoring;
+      const draft = window.__forceOrthogonalApp.getActivityState();
+      const result = S.score(draft);
+      const review = P.makeSnapshot("review", draft, result);
+      const fields = (snapshot, status = "incomplete", score = "") => ({
+        "cmi.suspend_data": JSON.stringify(snapshot),
+        "cmi.core.lesson_status": status,
+        "cmi.core.score.raw": String(score)
+      });
+      const draftFields = fields(P.makeSnapshot("draft", draft));
+      const reviewFields = fields(review, result.passed ? "passed" : "failed", result.score);
+      const invalid = P.makeSnapshot("draft", P.freshDraft());
+      invalid.answer.questions = [];
+      return [
+        ["draft", JSON.stringify(draftFields), draftFields],
+        ["review", JSON.stringify(reviewFields), reviewFields],
+        ["pending", JSON.stringify(fields(P.pendingEnvelope(review, result))), {}],
+        ["invalid-draft", JSON.stringify(fields(invalid)), {}],
+        ["corrupt", "{broken checkpoint", {}],
+        ["legacy-fields", null, reviewFields],
+        ["storage-denied", JSON.stringify(reviewFields), reviewFields]
+      ];
     });
-    const recoveryPage = await page.context().newPage();
-    await recoveryPage.addInitScript(snapshotJson => {
-      const seedKey = "simlab:force-orthogonal-decomposition:invalid-seed";
-      if (sessionStorage.getItem(seedKey) === "1") return;
-      sessionStorage.setItem(seedKey, "1");
-      localStorage.setItem("simlab:force-orthogonal-decomposition:checkpoint", JSON.stringify({
-        "cmi.suspend_data": snapshotJson,
-        "cmi.core.lesson_status": "incomplete",
-        "cmi.core.score.raw": ""
-      }));
-    }, invalidStandaloneSnapshot);
-    await recoveryPage.goto(`${origin}/sim/force-orthogonal-decomposition/index.html?playwright=${encodeURIComponent(label)}-invalid-standalone`);
-    const waitForStandaloneRuntime = async expected => {
-      try { await recoveryPage.waitForFunction(runtime => window.__forceOrthogonalApp?.getRuntimeState() === runtime, expected, { timeout: 5000 }); }
-      catch (error) {
-        const debug = await recoveryPage.evaluate(() => ({
-          runtime: window.__forceOrthogonalApp?.getRuntimeState?.(),
-          standalone: window.SimScorm?.isStandalone?.(),
-          storage: window.SimScorm?.getStandaloneStorageStatus?.(),
-          message: document.querySelector("#technicalMessage")?.textContent,
-          actionText: document.querySelector('[data-action="reset-invalid-draft"]')?.textContent,
-          bundle: localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint")
-        }));
-        throw new Error(`${label}: standalone recovery expected ${expected}: ${JSON.stringify(debug)}: ${error.message}`);
-      }
-    };
-    await waitForStandaloneRuntime("load-error");
-    assert((await recoveryPage.locator("#technicalMessage").textContent()).includes("perpendiculars-2"), `${label}: standalone decoder reason is shown`);
-    assert(await recoveryPage.locator('[data-action="reset-invalid-draft"]').count() === 1, `${label}: standalone recovery action is shown`);
-    await recoveryPage.evaluate(() => { window.confirm = () => true; });
-    await recoveryPage.locator('[data-action="reset-invalid-draft"]').click();
-    await waitForStandaloneRuntime("editable");
-    const standaloneRecovered = await recoveryPage.evaluate(() => ({
-      state: window.__forceOrthogonalApp.getActivityState(),
-      bundle: JSON.parse(localStorage.getItem("simlab:force-orthogonal-decomposition:checkpoint") || "null")
-    }));
-    assert(standaloneRecovered.state.phase === "practice" && standaloneRecovered.state.currentQuestion === 0 && standaloneRecovered.state.questions[2].perpendiculars.length === 0, `${label}: standalone recovery starts a fresh editable attempt`);
-    assert(!standaloneRecovered.bundle?.["cmi.suspend_data"], `${label}: standalone recovery does not retain the invalid draft checkpoint`);
-    await recoveryPage.close();
+    for (const [kind, bundle, fields] of legacyCases) {
+      const legacyPage = await page.context().newPage();
+      try {
+        await legacyPage.addInitScript(({ kind, bundle, fields }) => {
+          const prefix = "simlab:force-orthogonal-decomposition:";
+          const marker = "standalone-fixture-seeded";
+          if (!sessionStorage.getItem(marker)) {
+            sessionStorage.setItem(marker, "1");
+            localStorage.removeItem(prefix + "checkpoint");
+            for (const field of ["cmi.suspend_data", "cmi.core.lesson_status", "cmi.core.score.raw"]) localStorage.removeItem(prefix + field);
+            if (bundle !== null) localStorage.setItem(prefix + "checkpoint", bundle);
+            for (const [key, value] of Object.entries(fields)) localStorage.setItem(prefix + key, value);
+          }
+          window.__storageAccesses = 0;
+          if (kind === "storage-denied") {
+            for (const storage of ["localStorage", "sessionStorage"]) Object.defineProperty(window, storage, {
+              get() { window.__storageAccesses += 1; throw new DOMException("Storage denied for test", "SecurityError"); }
+            });
+          }
+        }, { kind, bundle, fields });
+        await legacyPage.goto(`${origin}${path}?playwright=${label}-old-${kind}`);
+        await assertFreshStandalone(legacyPage, `${label}: old ${kind} ignored`);
+        await legacyPage.locator("#goSummary").click();
+        await legacyPage.evaluate(() => { window.confirm = () => true; });
+        await legacyPage.locator("#submitAttempt").click();
+        await legacyPage.waitForFunction(() => window.__forceOrthogonalApp.getRuntimeState() === "review");
+        if (kind === "storage-denied") assert(await legacyPage.evaluate(() => window.__storageAccesses === 0), `${label}: denied storage is never accessed during practice or submission`);
+        await legacyPage.reload();
+        await assertFreshStandalone(legacyPage, `${label}: old ${kind} reload`);
+        const untouched = await legacyPage.evaluate(({ kind, bundle, fields }) => {
+          if (kind === "storage-denied") return window.__storageAccesses === 0;
+          const prefix = "simlab:force-orthogonal-decomposition:";
+          return localStorage.getItem(prefix + "checkpoint") === bundle &&
+            Object.entries(fields).every(([key, value]) => localStorage.getItem(prefix + key) === value);
+        }, { kind, bundle, fields });
+        assert(untouched, `${label}: ${kind} storage is untouched by practice, submission and reload`);
+      } finally { await legacyPage.close(); }
+    }
+    progress(`${label}: standalone refresh after draft/check/submission, legacy checkpoints and denied storage passed`);
   };
 
   if (scope === "all" || scope === "direct") {
@@ -706,22 +744,8 @@ async page => {
     progress("direct extracted done");
   }
 
-  // Shared SCORM can structurally parse a pending envelope before the
-  // activity validates its nested authoritative answer. The production page
-  // must quarantine that case instead of enabling a retry.
-  if (scope === "all" || scope === "direct") {
-    const invalidPendingPage = await page.context().newPage();
-    await invalidPendingPage.addInitScript(() => {
-      const review = { version: 1, activity: "force-orthogonal-decomposition", kind: "review", answer: { schemaVersion: 1, questions: [] }, score: 100, passed: true };
-      const pending = { version: 1, activity: "force-orthogonal-decomposition", kind: "pending-final", payload: { reviewJson: JSON.stringify(review), score: 100, maxScore: 100, passed: true } };
-      localStorage.setItem("simlab:force-orthogonal-decomposition:checkpoint", JSON.stringify({ "cmi.suspend_data": JSON.stringify(pending), "cmi.core.lesson_status": "incomplete", "cmi.core.score.raw": "" }));
-    });
-    progress("invalid pending start");
-    await invalidPendingPage.goto(`${origin}/sim/force-orthogonal-decomposition/index.html?playwright=invalid-pending`);
-    await invalidPendingPage.waitForFunction(() => window.__forceOrthogonalApp?.getRuntimeState() === "quarantined");
-    assert(await invalidPendingPage.locator("#technicalActions button").count() === 0, "invalid pending startup has no retry action");
-    await invalidPendingPage.close();
-  }
+  // LMS invalid-pending quarantine is exercised through the production host
+  // by force-orthogonal-decomposition-lifecycle-playwright-check.js.
 
   const frameSemanticState = frame => frame.evaluate(() => {
     const state = window.__forceOrthogonalApp.getState();
@@ -1020,7 +1044,7 @@ async page => {
         assert(await thetaVisible(), "short gravity: selected theta and its entire target stay inside the canvas");
         await assertThetaTypography(frame, "short gravity selected theta");
         const saved = await frameSemanticState(frame);
-        await frame.evaluate(() => location.reload());
+        await frame.goto(frame.url());
         await frame.waitForFunction(() => window.__forceOrthogonalApp?.getState()?.theta === "theta-incline");
         assert(await thetaVisible(), "short gravity: restored selected theta stays visible");
         await assertThetaTypography(frame, "short gravity restored theta");

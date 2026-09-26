@@ -49,7 +49,7 @@ assert.match(styles, /\.force-diagram\s*\{[\s\S]*pointer-events:\s*none/s);
 
 assert.match(main, /SimScorm\.loadAttempt\(ACTIVITY\)/);
 assert.match(main, /SimActivityFlow\.startup\(attempt\)/);
-assert.match(main, /SimScorm\.enableStandalonePersistence/);
+assert.doesNotMatch(main, /enableStandalonePersistence|clearStandaloneAttempt|localStorage|sessionStorage/, "standalone attempts do not use cross-reload storage");
 assert.match(main, /SimScorm\.submitWithCallbacks\(result, reviewSnapshot/);
 assert.match(main, /function isPracticeEditable\(\)/);
 assert.match(main, /if \(!SimScorm \|\| !SimActivityFlow\) \{[\s\S]*runtimeState = "load-error"/);
@@ -62,7 +62,6 @@ assert.match(main, /reviewResult\?\.trusted !== false && reviewSnapshot\?\.answe
 for (const state of ["success", "committed", "frozen", "retry"]) assert.match(main, new RegExp(`(?:${state})`), `${state} submission path exists`);
 assert.match(main, /Persistence\.decodePending/);
 assert.match(main, /reset\.dataset\.action = "reset-invalid-draft"/);
-assert.match(main, /clearStandaloneAttempt\?\.\(ACTIVITY\)/);
 assert.match(main, /Persistence\.makeSnapshot\("draft", Persistence\.freshDraft\(\)\)/);
 assert.match(main, /草稿無法驗證：\$\{error\.message\}/);
 assert.match(main, /function formulaStepComplete\(question = state\)/);
@@ -106,7 +105,6 @@ assert.match(main, /const studentThetaLabelPoint = \(\(\) =>/);
 assert.match(main, /const readOnlyStage = runtimeState === "review" \|\| activity\.phase !== "practice"/);
 assert.match(main, /const eventTarget = event\.target\?\.closest\?\.\("\.stage-hit, \.theta-hit"\)/);
 assert.match(main, /function isStandaloneMode\(\)/);
-assert.match(main, /isStandaloneMode\(\) && standaloneStorageState !== \"available\"/);
 assert.doesNotMatch(persistence, /formula-stale-geometry/);
 assert.match(main, /sceneFrame/);
 assert.match(main, /bodyOffset \+ halfHeight/);

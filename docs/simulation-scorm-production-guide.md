@@ -108,6 +108,11 @@ transient pointer coordinates, DOM references, hover state, or open animations.
 
 ## Snapshot and restore contract
 
+These restore rules apply to saved Moodle attempts. Standalone practice uses
+the same snapshot validation and submission flow within the loaded page, then
+follows the [standalone refresh contract](#standalone-refresh-and-moodle-resume)
+when reloaded.
+
 Write the draft and review schemas in the activity plan. Both must contain the
 authoritative learner answers needed to validate and rescore; review data must
 also be sufficient to redraw the submitted answer. Separate:
@@ -226,7 +231,9 @@ Record the activity's choices in its plan; implement these technical contracts:
   explicit submit action; navigation must never submit automatically.
 - Reset is limited to editable work or the confirmed unsubmitted corrupt-draft
   recovery above. `success`, `committed`, `frozen`, unknown finalization, and
-  finished review have no clear/restart action, including standalone attempts.
+  finished review have no clear/restart control in the loaded page, including
+  standalone attempts. Browser refresh outside Moodle follows the separate
+  [standalone refresh contract](#standalone-refresh-and-moodle-resume).
 - Use Pointer Events with stable capture targets. Convert pointer, diagram,
   preview, and snap coordinates consistently through scaling/letterboxing;
   evaluate screen-distance thresholds in CSS pixels, not device pixels or fixed
@@ -347,56 +354,49 @@ Expose a final result with this shape; derive it from authoritative learner work
   attempts there.
 - On loading an already finished attempt, read Moodle state and show the saved
   review state instead of reopening the task for editing.
-- Keep a local fallback for Live Server. Without Moodle, the default fallback
-  logs SCORM values in memory; reload persistence requires the explicit opt-in
-  below. Both use the same submission path.
+- Keep a memory-only local fallback for Live Server. Standalone and Moodle use
+  the same submission path, with the distinct refresh/resume rules below.
 
-### Optional standalone persistence
+### Standalone refresh and Moodle resume
 
-Activities that need draft/review restoration outside Moodle opt in once during
-startup, before `loadAttempt()`:
+All activities must follow this contract, including existing simulations:
 
-```js
-const storage = SimScorm.enableStandalonePersistence(ACTIVITY);
-const attempt = SimScorm.loadAttempt(ACTIVITY);
-const startupState = SimActivityFlow.startup(attempt);
-```
+| Launch context | Refresh or re-entry behavior |
+|---|---|
+| Standalone development/practice, without an LMS | Browser refresh starts a fresh activity with empty learner answers and initial navigation, including after final submission. Fixed questions keep their configured content; randomized activities generate a new attempt normally. |
+| Same unfinished Moodle attempt | Restore the saved draft, current step and authoritative answers after refresh or leaving and returning. |
+| Same submitted Moodle attempt | Restore the saved answers and result as review-only; do not erase the result or reopen editing. |
+| Same pending/uncertain Moodle submission | Keep the saved submission frozen and retry the same validated payload under the shared lifecycle rules. |
+| New attempt supplied by Moodle | Start fresh. Moodle owns attempt limits, new-attempt creation and previous scores. |
 
-`storage` reports `available`, `read-only`, or `unavailable` at initialization;
-it is not proof that a later save succeeded. A detected LMS remains the authority
-for Moodle attempts. The standalone store is used only by the no-LMS fallback.
-Use the same activity identifier for startup, snapshots, and permitted draft reset.
+- Use the shared runtime's memory-only standalone fallback. Production activities
+  must not opt into `enableStandalonePersistence()` or restore standalone answers,
+  results or navigation from localStorage, sessionStorage, IndexedDB or another
+  cross-reload store. This is a shared requirement, not a per-activity option.
+- Existing local checkpoints from older versions must be ignored. Do not read,
+  migrate or delete them to implement refresh; inaccessible or corrupt browser
+  storage must not prevent a fresh standalone practice session.
+- Continue using `loadAttempt()`, `SimActivityFlow.startup()`, `saveDraft()`,
+  `setDraftProvider()` and `submitWithCallbacks()`. Let the shared runtime detect
+  the launch context. A missing/broken LMS in an embedded player must remain a
+  technical failure, not silently become a standalone session.
+- In the currently loaded page, final results remain review-only and pending
+  submissions remain frozen. Do not add a learner-facing clear-results/restart
+  control. The browser's standalone refresh starts a separate local session;
+  it must never clear Moodle data or write a new status over a recorded attempt.
+- Standalone UI must not claim that work survives reload or has been submitted
+  to Moodle. Memory-only operation is normal, not a browser-storage error; no
+  extra refresh notice is required.
+- Same-attempt restore and new-attempt creation are different operations. The
+  [Moodle settings](#moodle-attempt-expectations) control automatic new attempts
+  after completion. Verify whole-player refresh and exit/re-entry in the real
+  deployment; a local fake LMS only proves package behavior for the attempt it
+  supplies.
 
-- Continue to save through the shared snapshot/draft/submission APIs; do not
-  write individual SCORM fields or localStorage keys inside the activity.
-- The shared runtime stages local values and commits one checkpoint bundle at
-  `simlab:<activity>:checkpoint`. It can read legacy per-field keys, but new
-  commits use the bundle so answer, score, and status stay together. localStorage
-  belongs to the browser origin; changing the development host or port changes
-  the store available to the page.
-- If storage is unavailable from the outset and no durable attempt exists, the
-  fallback may be memory-only. Explain that reload recovery is unavailable;
-  do not label this as a durable local save or a Moodle submission.
-- Read failures/corrupt checkpoints must follow the startup error gate rather
-  than silently opening a blank attempt. Read-only storage may restore existing
-  evidence but cannot promise new durable saves. A failed durable transaction
-  must not be downgraded to memory-only success: preserve the pending/locked
-  state and follow the shared submission outcome.
-- For an allowed, learner-confirmed standalone draft reset, call
-  `SimScorm.clearStandaloneAttempt(ACTIVITY)` and require `true` before reload.
-  On `false`, retain the technical error; do not claim removal. The helper removes
-  the local checkpoint and legacy keys, not Moodle data; reload reinitializes
-  shared submission/finish state.
-- Permit this only while editable or for a proven unsubmitted corrupt draft with
-  a plan-defined recovery path. Never expose it for completed standalone work,
-  `committed`, `frozen`, or uncertain finalization. A new Moodle attempt must come
-  from Moodle; a reset must not turn submitted evidence into a fresh attempt.
-
-The production opt-in is used by `sim/force-orthogonal-decomposition/main.js`.
-Shared storage failure/restore coverage lives in `sim/shared/scorm.test.js`;
-activities must still test their own startup, draft restoration, pending retry,
-finished review, and reset behavior. Define the standalone storage policy and
-reset phases in the activity plan rather than assuming every simulation opts in.
+Historical note (2026-09-27): standalone persistence was previously optional and
+used by force orthogonal decomposition. The shared storage helpers and their
+compatibility tests remain, but production activities no longer use them. Older
+plans and test evidence do not override this refresh contract.
 
 ## Mandatory shared lifecycle flow
 
@@ -587,9 +587,12 @@ user paths. Treat `### Error` in Playwright CLI output as failure even with exit
   toolbar changes, software keyboard, and 200% zoom. Inspect actual scaled text
   and diagram labels for readability; keep primary actions/panel bottom reachable,
   side strips usable, and bounded activity documents free of competing scroll.
-- Submit outside Moodle and verify local logging; if standalone persistence is
-  enabled, test storage failure, draft restore, pending retry, finished review,
-  and permitted draft recovery through production UI.
+- Through production UI on source and extracted SCORM, verify standalone refresh
+  starts fresh after partial work, final check and submission; redraw and submit
+  successfully afterwards. Seed old draft/review/pending/corrupt local checkpoints
+  and deny browser storage: none may restore old work or lock standalone startup.
+  Separately verify same-attempt Moodle draft/review/pending restoration and a
+  fresh attempt from Moodle. Local tests do not establish real Moodle readiness.
 - Run changed-file syntax checks and the repository gates: `npm run check`,
   `npm test`, `npm run package:all`, and `git diff --check <base>...HEAD`
   (normally `origin/main...HEAD`). All new tests must be in `tools/run-tests.js`.
