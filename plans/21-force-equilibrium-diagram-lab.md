@@ -138,6 +138,7 @@ A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻�
 | Final check access | 每個 edit 狀態及任何已選力／未畫方向狀態均可直接進檢查；不設先看完五題的門檻 |
 | Incomplete submission | 只列「已選幾個力、已畫幾個方向、哪些題未作答」；不提前告知應有幾個力或對錯；全空白亦可明確提交 |
 | Editable reset | 「清除本題」保留本題 seed、場景及其他四題；已有記錄時確認，支援 undo；不提供本題重抽來避開難題 |
+| Clear all answers | 依使用者修訂，edit 及 check 提供「清除全部答案」。確認後一次清空五題答案，回到第1題 edit，保留 seed/version、題目和次序；取消 working drag／keyboard／preview、選取與各題 undo/redo。全空白時停用，取消確認不改答案；提交／pending／technical／mismatch 都不能使用 |
 | Scored / pending attempt | 本頁已記錄只讀、pending frozen 同一份答案重試；不提供清成績或 restart 控制。Moodle 重開維持相同記錄；獨立練習刷新開始新一輪，見下方明確例外 |
 
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
@@ -249,6 +250,7 @@ Preview 不擋操作、不改主舞台縮放；完成、取消、失去capture�
 | Transition / trigger | Preconditions | State changes / downstream effects |
 |---|---|---|
 | 新增力／改種類／刪除／清除本題 | editable | 一次atomic command，保存本題；不改場景或別題 |
+| 清除全部答案 | edit 或 check，有答案且確認 | 五個答案陣列變 []、phase=edit、current=0、returnToCheck=false；保留 seed/version；清理暫態，經 shared saveDraft 保存一次。保存失敗保留未保存提示及重試，不能直接提交 |
 | 起筆／改箭尖pointerup | editable且active pointer一致 | working幾何canonicalize後commit一次；render、save及scoring使用同一角度 |
 | cancel／viewport改變／lock | 有working operation | rollback到開始前，清preview及capture；不保存半完成角度 |
 | header選題 | editable | 取消working，保存已commit草稿，只更新current |
@@ -301,8 +303,9 @@ Finished restore：validate → regenerate scene → restore learner records →
 | Submit frozen | 「提交尚未確認，答案已保留供重試」；不宣稱confirmed score/pass/fail |
 | Submit retry | 沒有durable final state；依retryable保留編輯及重試或技術錯誤提示，不標submitted |
 | Review trust | match正常檢討；mismatch提示記錄不一致；unknown以未確定狀態呈現，不轉成不及格 |
-| Standalone storage | 僅保存於目前頁面記憶體；顯示重新整理可開始新一輪的提示。不讀寫舊版本 localStorage checkpoint，因此原先被已交記錄鎖住的頁面也能恢復練習；不刪除舊資料或操作 Moodle 記錄 |
+| Standalone storage | 僅保存於目前頁面記憶體；依使用者要求不在活動內顯示本機刷新提示。不讀寫舊版本 localStorage checkpoint，因此原先被已交記錄鎖住的頁面也能恢復練習；不刪除舊資料或操作 Moodle 記錄 |
 | Standalone reload | 草稿或提交後重新整理均開新一輪；同頁提交後仍只讀。localStorage 無法讀寫不阻止獨立練習。Moodle 的損壞未交草稿仍依既有驗證及保存流程恢復 |
+| Moodle attempt boundary | 同一 Moodle attempt 重新載入／重開會恢復草稿或已交只讀結果。只有 Moodle 提供新 attempt 時才建立新 seed 與空白作答；離開再進入不由本活動自行清成績。自動新 attempt 及允許次數由 Moodle 管理，需在實際站台驗收 refresh 與重新進入的差別 |
 
 只在新增／刪改力、完成drag、清除、換題、進出check等semantic change保存。背景animation及pointermove不寫snapshot；不讀寫raw LMS fields或自行寫localStorage欄位。
 
@@ -390,7 +393,7 @@ Finished restore：validate → regenerate scene → restore learner records →
 
 - 舞台達 520×400 CSS px 時使用 1.8 倍顯示尺度，力名 32.4px，箭桿約 6.1px；手機力名維持 18px、箭桿 3.4px。標籤避讓盒、物體外框、箭尖邊距和可調長度範圍一併配合；不改權威角度、長度記錄及評分。重心旁文字已移除。
 - 勻速場景改為物體下方淡色地面分格，144px 週期連續平移；移除原有直立遠景。物體、力箭及畫圖座標固定，背景不參與答案或評分。
-- Standalone 改用 shared SCORM 預設記憶體模式，刷新清空本頁作答並抽新一輪；面板有對應提示。舊 checkpoint 不讀寫、不刪除，不再導致永久只讀。Moodle 保留原有 draft/review/pending 恢復和四種提交結果。
+- Standalone 改用 shared SCORM 預設記憶體模式，刷新清空本頁作答並抽新一輪；當時加入的面板提示已於 2026-09-27 依使用者要求移除。舊 checkpoint 不讀寫、不刪除，不再導致永久只讀。Moodle 保留原有 draft/review/pending 恢復和四種提交結果。
 - 正式 lifecycle 測試已驗證草稿及提交後刷新、新一輪合法作答、舊 finished/pending/損壞 checkpoint 的隔離、localStorage 讀寫受限仍可練習，以及同頁已交只讀。生成器、評分、48 行快照 round-trip、幾何及 manifest 檢查均已通過。
 - 本次瀏覽器驗證已通過 390px 原手機字級、1024px／1280px 桌面字級與五類圖、三推力五箭圖、桌面拖畫／箭尖再編輯、實際重新整理及舊 checkpoint；source 與 extracted package 使用同一正式程式。兩種來源各有 390px／320px 的 22 行可信觸控檢查，合共 88 行；runtime exceptions 為零。
 
@@ -402,3 +405,15 @@ Finished restore：validate → regenerate scene → restore learner records →
 | 成品 parity | ZIP 中 14 個 runtime 檔案與目前 source 逐位元組一致；根目錄有 `imsmanifest.xml` |
 
 更新成品沿用 `output/force-equilibrium-diagram-lab-scorm.zip`。畫面及觸控證據在 `output/playwright/force-equilibrium/`；本機 Chrome 模擬與 fake LMS 不代表真實手機／Moodle 已通過，Moodle-ready 項目仍待實測。
+
+## 清除全部答案及續做流程修訂（2026-09-27）
+
+- 依使用者要求移除獨立練習刷新提示；Standalone 的記憶體模式及刷新開新一輪行為不變。
+- edit 面板與提交前 check 各有同一「清除全部答案」操作，一次只顯示所在階段的按鈕。確認範圍是五題已選力與箭圖，保留同一份題目／次序，回到第1題重新畫；清空各題歷史及暫態。全空白時停用；已交、pending、committed、資料不一致及技術鎖定均不提供清除。
+- 清除走正式 draft 保存，沒有建立新 LMS attempt、寫成績或呼叫 finish。保存失敗保留未保存提示及重試；成功保存後重新載入仍是清空後的草稿。
+- 對照 `force-composition-construction-lab/main.js`、`kinematics-qualitative-graph-sketching/main.js` 及 `fbd-horizontal-block/main.js`：均以 shared `loadAttempt()`／`startup()` 還原草稿與已交記錄，以 `submitWithCallbacks()` 提交。本活動沿用相同接法。shared runtime 在未完成離開時保存 draft，狀態為 incomplete、exit=suspend；提交確認後為 passed／failed、exit=logout。
+- 使用者描述其 Moodle 現況為「未完成離開後續做，完成後離開再進入為新嘗試」。本活動會接受 Moodle 提供的新 attempt 並建立空白新題；若 Moodle 仍提供舊 attempt，則恢復原草稿或只讀結果，不自行抹除已記錄成績。
+- Moodle 的允許次數及強制新嘗試是站台活動設定。可參考 [Moodle attempts management](https://docs.moodle.org/501/en/SCORM_settings#Attempts_management) 與 [官方新嘗試選項定義](https://github.com/moodle/moodle/blob/MOODLE_405_STABLE/mod/scorm/lang/en/scorm.php)：依完成／通過／不通過開新嘗試，與每次進入都開新嘗試是不同選項。重新載入整個播放器與只重新載入內容頁的實際結果須在使用者站台驗收，不以本地 fixture 宣稱已確認設定。
+- 驗證涵蓋三種 editable continuation 的清空／正式保存／decode／續畫提交、清空保存失敗及重試、不可清除的鎖定狀態、未完成 pagehide 後恢復、已交同 attempt 檢討及不同 attempt 從零開始。瀏覽器以手機可信觸控及桌面操作驗證確認／取消、兩個入口、保存後重開及已交鎖定，source 與 extracted package 都執行。
+- 本次 `npm run check`、`npm test` 全套及 `npm run package:all`（16 個套件）全部通過。活動仍有 15 個封裝檔案，14 個 runtime 檔案與 source 逐位元組一致；source／package 的清除流程及既有 88 行手勢檢查通過，runtime exceptions 為零。清除按鈕截圖為 `output/playwright/force-equilibrium/{source,package}-clear-all-{lms,standalone}-{390,1280}.png`。
+- 真實 Moodle 站台的新嘗試設定與整頁 refresh 行為、實體手機仍未實測；以上 LMS 續做／新嘗試證據來自正式 shared runtime 與 fake LMS，不更改 Moodle-ready 狀態。

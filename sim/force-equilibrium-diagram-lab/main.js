@@ -92,7 +92,6 @@
     dom.editPanel.hidden = !edit; dom.checkPanel.hidden = !check; dom.reviewPanel.hidden = !lockedReview; dom.technicalPanel.hidden = controller.mode !== "technical";
     dom.checkButton.hidden = !controller.editable; dom.checkButton.disabled = check;
     dom.notice.hidden = !controller.notice; dom.notice.textContent = controller.notice;
-    dom.storageNotice.hidden = !controller.storageNotice; dom.storageNotice.textContent = controller.storageNotice;
     dom.saveRetryButton.hidden = !controller.editable || !controller.unsaved;
     dom.recoverButton.hidden = !controller.canRecover;
     dom.attemptStatus.textContent = controller.editable ? "尚未提交 · 五題獨立作答" : controller.mode === "review" ? "已提交 · 只讀檢討" : controller.mode === "committed" ? "成績已記錄" : controller.mode === "frozen" ? "提交尚未確認" : "作答已鎖定";
@@ -135,6 +134,7 @@
     dom.undoButton.disabled = !edit || !controller.history.undo[controller.familyIndex].length;
     dom.redoButton.disabled = !edit || !controller.history.redo[controller.familyIndex].length;
     dom.clearButton.disabled = !edit || !a.length;
+    dom.clearAllButton.disabled = dom.clearAllCheckButton.disabled = !controller.editable || !controller.state?.answers.some(answer => answer.length);
     dom.nextButton.textContent = controller.position === 4 ? "前往檢查作答" : "下一題";
     dom.returnCheckButton.hidden = !edit || !controller.state.returnToCheck;
     dom.drawHint.hidden = !edit || Boolean(a.length);
@@ -278,6 +278,16 @@
   dom.undoButton.addEventListener("click", () => { cancelInteractions(); selected = -1; controller.undo(); });
   dom.redoButton.addEventListener("click", () => { cancelInteractions(); selected = -1; controller.undo(true); });
   dom.clearButton.addEventListener("click", () => { if (!confirm("清除本題所有力？其他題及場景會保留。")) return; cancelInteractions(); selected = -1; controller.command({ type: "clear" }); });
+  function clearAllAnswers() {
+    if (!controller.editable || !controller.state.answers.some(answer => answer.length)) return;
+    if (!confirm("清除全部五題答案，從第1題重新畫？題目及次序會保留，此操作不能復原。")) return;
+    cancelInteractions(); selected = -1; showReference = false;
+    if (controller.clearAllAnswers()) {
+      dom.controlPanel.scrollTop = 0; dom.questionTitle.focus({ preventScroll: true }); announce("已清除五題答案，可以重新畫圖。");
+    }
+  }
+  dom.clearAllButton.addEventListener("click", clearAllAnswers);
+  dom.clearAllCheckButton.addEventListener("click", clearAllAnswers);
   function enterCheck() { cancelInteractions(); selected = -1; controller.check(); dom.controlPanel.scrollTop = 0; dom.checkTitle.focus({ preventScroll: true }); }
   dom.checkButton.addEventListener("click", enterCheck); dom.returnCheckButton.addEventListener("click", enterCheck);
   dom.nextButton.addEventListener("click", () => { if (controller.position === 4) enterCheck(); else { cancelInteractions(); selected = -1; controller.navigate(controller.position + 1); dom.controlPanel.scrollTop = 0; } });

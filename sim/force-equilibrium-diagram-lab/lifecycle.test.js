@@ -44,11 +44,13 @@ for (const content of ["blank", "pending", "partial", "full"]) {
   e.c.check(); assert.equal(e.c.mode, "check"); const before = P.review(e.c.state), score = S.score(e.c.state);
   e.c.submit(); assert.equal(e.c.mode, "review"); assert.equal(e.c.result.score, score.score); assert.equal(e.c.trusted, true);
   const saved = JSON.stringify(e.c.state); assert.equal(e.c.setAnswer([]), false); assert.equal(JSON.stringify(e.c.state), saved);
+  assert.equal(e.c.clearAllAnswers(), false, "submitted answers cannot be cleared");
   e.c.navigate(3); assert.equal(e.c.reviewIndex, 3, "read-only legal continuation");
   const reopened = environment({ durable: e.durable }); assert.equal(reopened.c.mode, "review"); assert.deepEqual(P.review(reopened.c.state), before);
   const frozen = environment(); frozen.c.state = { ...M.clone(before), phase: "edit", current: 0, returnToCheck: false };
   frozen.c.check(); frozen.flags.writeFail = "cmi.core.score.raw"; frozen.c.submit();
   assert.equal(frozen.c.mode, "frozen");
+  assert.equal(frozen.c.clearAllAnswers(), false, "pending answers cannot be cleared");
   const continued = environment({ durable: frozen.durable });
   assert.equal(continued.c.mode, "frozen"); assert.deepEqual(P.review(continued.c.state), before);
   continued.c.retryFinal(); assert.equal(continued.c.mode, "review"); assert.equal(continued.c.result.score, score.score);
@@ -59,6 +61,7 @@ for (const [failure, expected] of [["commitFail", "frozen"], ["finishFail", "com
   const t = environment(); drawOne(t.c); t.c.check();
   t.flags[failure] = failure === "writeFail" ? "cmi.core.score.raw" : true;
   const answers = P.review(t.c.state); t.c.submit(); assert.equal(t.c.mode, expected); assert.equal(t.c.editable, false);
+  assert.equal(t.c.clearAllAnswers(), false);
   if (expected === "frozen") { assert.equal(t.c.result, null); assert.equal(t.c.trusted, false); }
   t.flags[failure] = false; t.c.retryFinal(); assert.equal(t.c.mode, "review"); assert.deepEqual(P.review(t.c.state), answers);
 }
@@ -72,8 +75,44 @@ assert.equal(quarantined.scorm.retryPending().reason, "no-pending"); quarantined
 for (const mutate of [d => { d["cmi.core.score.raw"] = "19"; }, d => { d["cmi.core.lesson_status"] = "completed"; }, d => { d["cmi.suspend_data"] = "broken"; }, d => { const s = JSON.parse(d["cmi.suspend_data"]); s.answer.answers.pop(); d["cmi.suspend_data"] = JSON.stringify(s); }]) {
   const d = finishedData(filled()); mutate(d); const t = environment({ durable: d });
   assert.equal(t.c.mode, "mismatch"); assert.equal(t.c.editable, false); assert.equal(t.c.canRecover, false); assert.equal(t.stats.writes, 0);
+  assert.equal(t.c.clearAllAnswers(), false);
 }
 const failure = environment({ flags: { readFail: "cmi.suspend_data" } }); assert.equal(failure.c.mode, "technical"); assert.equal(failure.stats.writes, 0);
+assert.equal(failure.c.clearAllAnswers(), false);
+// Whole-draft reset preserves the paper and saves one legal blank draft.
+for (const phase of ["edit", "check", "returnToCheck"]) {
+  const t = environment();
+  for (let position = 0; position < 5; position++) { t.c.navigate(position); drawOne(t.c); t.c.command({ type: "add", kind: 3 }); }
+  t.c.undo(); // Include a redo stack; all per-question history must be discarded.
+  if (phase !== "edit") t.c.check();
+  if (phase === "returnToCheck") t.c.navigate(2);
+  const paper = structuredClone(t.c.scenario), commits = t.stats.commits;
+  assert.equal(t.c.clearAllAnswers(), true);
+  assert.deepEqual(t.c.state, P.fresh(21)); assert.deepEqual(t.c.scenario, paper);
+  assert.equal(t.stats.commits, commits + 1); assert.equal(t.stats.finishes, 0);
+  assert.ok(t.c.history.undo.concat(t.c.history.redo).every(a => a.length === 0));
+  assert.equal(t.c.clearAllAnswers(), false, "empty reset is a no-op");
+  const reopened = environment({ durable: t.durable, seed: 999 });
+  assert.deepEqual(reopened.c.state, P.fresh(21), "reset survives Moodle reload without rerolling");
+  drawOne(reopened.c); reopened.c.check(); reopened.c.submit(); assert.equal(reopened.c.mode, "review");
+}
+const resetFailure = environment(); drawOne(resetFailure.c); const oldDraft = M.clone(resetFailure.durable);
+resetFailure.flags.commitFail = true; resetFailure.c.clearAllAnswers();
+assert.equal(resetFailure.c.unsaved, true); assert.deepEqual(resetFailure.durable, oldDraft);
+resetFailure.c.check(); resetFailure.c.submit(); assert.equal(resetFailure.c.mode, "check"); assert.equal(resetFailure.stats.finishes, 0);
+resetFailure.flags.commitFail = false; resetFailure.c.retrySave(); assert.equal(resetFailure.c.unsaved, false);
+const resetReload = environment({ durable: resetFailure.durable });
+assert.ok(resetReload.c.state.answers.every(a => a.length === 0)); resetReload.c.submit(); assert.equal(resetReload.c.result.score, 0);
+// The shared exit path suspends unfinished work. A new LMS attempt supplies
+// a separate empty data store; it never clears the completed attempt's evidence.
+const leaving = environment(); drawOne(leaving.c); leaving.c.navigate(3); const draft = M.clone(leaving.c.state);
+leaving.events.pagehide({ persisted: false }); assert.equal(leaving.durable["cmi.core.exit"], "suspend");
+const continuing = environment({ durable: leaving.durable, seed: 999 }); assert.deepEqual(continuing.c.state, draft);
+continuing.c.check(); continuing.c.submit(); continuing.events.pagehide({ persisted: false });
+assert.equal(continuing.durable["cmi.core.exit"], "logout"); const previousAttempt = M.clone(continuing.durable);
+assert.equal(environment({ durable: continuing.durable }).c.mode, "review", "same attempt re-entry keeps the recorded result");
+const nextAttempt = environment({ durable: {}, seed: 24 }); assert.deepEqual(nextAttempt.c.state, P.fresh(24));
+drawOne(nextAttempt.c); assert.deepEqual(continuing.durable, previousAttempt, "the old Moodle result stays intact");
 for (const retryable of [true, false]) {
   const t = environment(); t.c.check(); t.c.handleOutcome({ activityState: "retry", retryable }); assert.equal(t.c.mode, retryable ? "check" : "technical");
 }
@@ -106,4 +145,4 @@ for (const checkpoint of [JSON.stringify(finishedData(filled())), JSON.stringify
   assert.equal(fresh.stats.storageReads + fresh.stats.storageWrites + fresh.stats.storageRemoves, 0);
   assert.equal(storage.get(`simlab:${P.ACTIVITY}:checkpoint`), checkpoint, "old evidence is not deleted or overwritten");
 }
-console.log("equilibrium lifecycle: shared SCORM outcomes/trust/quarantine, immutable Moodle review and fresh standalone reload passed");
+console.log("equilibrium lifecycle: shared SCORM outcomes/trust/quarantine, draft clear-all, resume/new-attempt boundaries and standalone reload passed");

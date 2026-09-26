@@ -10,7 +10,7 @@
   class Controller {
     constructor(scorm, flow, onChange = () => {}, seedFactory = G.newSeed) {
       this.scorm = scorm; this.flow = flow; this.onChange = onChange; this.seedFactory = seedFactory;
-      this.state = null; this.scenario = null; this.mode = "technical"; this.notice = ""; this.storageNotice = "";
+      this.state = null; this.scenario = null; this.mode = "technical"; this.notice = "";
       this.result = null; this.trusted = false; this.unsaved = false; this.reviewIndex = 0;
       this.finalSnapshot = null; this.history = new M.History(); this.canRecover = false;
     }
@@ -33,7 +33,6 @@
         // Standalone practice starts fresh on reload; Moodle remains authoritative.
         // Keep the shared memory fallback, including its normal submission flow.
         const attempt = this.scorm.loadAttempt(P.ACTIVITY); this.attempt = attempt;
-        if (this.scorm.isStandalone?.()) this.storageNotice = "獨立練習：重新整理可開始新一輪，本頁作答不會保留。";
         const startup = this.flow.startup(attempt);
         if (startup === "editable") {
           try {
@@ -89,6 +88,12 @@
     command(action) {
       if (!this.editable || this.state.phase !== "edit") return false;
       return this.setAnswer(M.change(this.state.answers[this.familyIndex], action));
+    }
+    clearAllAnswers() {
+      if (!this.editable || !this.state.answers.some(answer => answer.length)) return false;
+      this.state = P.draft({ ...this.state, answers: [[], [], [], [], []], phase: "edit", current: 0, returnToCheck: false });
+      this.mode = "edit"; this.finalSnapshot = null; this.history = new M.History();
+      this.save(); this.emit(); return true;
     }
     undo(redo = false) {
       if (!this.editable || this.state.phase !== "edit") return;

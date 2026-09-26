@@ -62,6 +62,22 @@ async function click(cdp, selector, embedded = false) {
   await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", clickCount: 1 });
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x, y: p.y, button: "left", clickCount: 1 }); await delay(40);
 }
+async function confirmClick(cdp, selector, accept, touch = false) {
+  const dialog = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { remove(); reject(new Error("Missing clear-all confirmation")); }, 10000);
+    const remove = cdp.on("Page.javascriptDialogOpening", ({ message }) => {
+      clearTimeout(timer); remove();
+      cdp.send("Page.handleJavaScriptDialog", { accept }).then(() => resolve(message), reject);
+    });
+  });
+  const press = async () => {
+    if (!touch) return click(cdp, selector);
+    const p = await rect(cdp, selector, false, true);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(p)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  };
+  const [message] = await Promise.all([dialog, press()]); assert.match(message, /全部五題答案/); await delay(50);
+}
 const touchPoint = (p, id = 1) => ({ x: p.x, y: p.y, id, radiusX: 2, radiusY: 2, force: 1 });
 async function dragTouch(cdp, start, end, during = null, afterMove = null) {
   const dispatch = async (type, touchPoints) => {
@@ -219,7 +235,37 @@ async function touchMatrix(cdp, base, label, width=390, height=500) {
   }
   return rows;
 }
+async function clearAllFlows(cdp,base,label) {
+  for (const [width,height] of [[390,600],[1280,900]]) for (const standalone of [false,true]) {
+    await viewport(cdp,width,height); await navigate(cdp,base,{fixture:standalone?false:undefined});
+    assert.equal(await call(cdp,"return d.getElementById('clearAllButton').disabled;"),true);
+    for (let position=0;position<5;position++) {
+      await click(cdp,`#questionNav button:nth-child(${position+1})`);await click(cdp,`[data-add-kind="${position}"]`);
+      if(position===0) { await click(cdp,'[data-adjust="ccw"]');await click(cdp,'#confirmDirection'); }
+    }
+    const before=await call(cdp,"return w.__equilibriumApp.getState();");
+    await confirmClick(cdp,"#clearAllButton",false,width===390);
+    assert.deepEqual(await call(cdp,"return w.__equilibriumApp.getState();"),before,"cancelling reset keeps every answer");
+    if(width===1280) await click(cdp,"#checkButton");
+    const selector=width===1280?"#clearAllCheckButton":"#clearAllButton";
+    await screenshot(cdp,`${label}-clear-all-${standalone?'standalone':'lms'}-${width}`);
+    await confirmClick(cdp,selector,true,width===390);
+    const after=await call(cdp,"return w.__equilibriumApp.getState();");
+    assert.deepEqual(after,P.fresh(before.seed),"clear all retains the paper and returns to question one");
+    assert.equal(await call(cdp,"return w.__equilibriumApp.getMode();"),"edit");
+    assert.ok(await call(cdp,"return d.getElementById('undoButton').disabled&&d.getElementById('redoButton').disabled&&d.getElementById('magnifier').hidden;"));
+    if(!standalone) {
+      const fixture=await call(cdp,"return w.__lmsValues;");
+      assert.equal(fixture["cmi.core.lesson_status"],"incomplete");assert.equal(fixture["cmi.core.score.raw"],undefined);
+      await navigate(cdp,base,{fixture});assert.deepEqual(await call(cdp,"return w.__equilibriumApp.getState();"),after);
+    }
+    await click(cdp,'[data-add-kind="0"]');await click(cdp,"#checkButton");await click(cdp,"#submitButton");
+    assert.equal(await call(cdp,"return w.__equilibriumApp.getMode();"),"review");
+    assert.equal(await call(cdp,"return [d.getElementById('clearAllButton'),d.getElementById('clearAllCheckButton')].every(e=>e.disabled&&e.getClientRects().length===0);"),true);
+  }
+}
 async function flows(cdp,base,label) {
+  await clearAllFlows(cdp,base,label);
   const labelSizes = [];
   await viewport(cdp,390,600); await navigate(cdp,base);
   await click(cdp,"#checkButton");
@@ -293,8 +339,8 @@ async function flows(cdp,base,label) {
   await call(cdp,`w.localStorage.setItem(${JSON.stringify(checkpointKey)},${JSON.stringify(oldCheckpoint)});`);
   const freshLocal=async()=>{
     await cdp.send("Page.reload",{ignoreCache:true});await delay(120);await ready(cdp);
-    const local=await call(cdp,"return {mode:w.__equilibriumApp.getMode(),answers:w.__equilibriumApp.getState().answers,result:w.__equilibriumApp.getResult(),hint:d.getElementById('storageNotice').textContent};");
-    assert.equal(local.mode,"edit");assert.ok(local.answers.every(a=>a.length===0));assert.equal(local.result,null);assert.match(local.hint,/重新整理/);
+    const local=await call(cdp,"return {mode:w.__equilibriumApp.getMode(),answers:w.__equilibriumApp.getState().answers,result:w.__equilibriumApp.getResult(),hasRefreshHint:d.body.innerText.includes('獨立練習：重新整理')};");
+    assert.equal(local.mode,"edit");assert.ok(local.answers.every(a=>a.length===0));assert.equal(local.result,null);assert.equal(local.hasRefreshHint,false);
     assert.equal(await call(cdp,`return w.localStorage.getItem(${JSON.stringify(checkpointKey)});`),oldCheckpoint,"legacy evidence is ignored, not overwritten");
   };
   await freshLocal();
@@ -315,7 +361,7 @@ async function flows(cdp,base,label) {
   for(const [type,x,y,buttons] of [["mousePressed",tip.x,tip.y,1],["mouseMoved",tip.x-40,tip.y-40,1],["mouseReleased",tip.x-40,tip.y-40,0]])
     await cdp.send("Input.dispatchMouseEvent",{type,x,y,button:"left",buttons,clickCount:1});
   assert.notDeepEqual(await call(cdp,"return w.__equilibriumApp.getState().answers;"),beforeEdit,"desktop arrow editing still records the changed direction");
-  return {checks:"blank, partial, keyboard, Moodle draft/pending/review, fresh standalone reload with legacy checkpoint, desktop drawing, reference scenes and motion passed",labelSizes};
+  return {checks:"clear-all cancel/confirm/reload/lock in standalone and LMS, blank, partial, keyboard, Moodle draft/pending/review, fresh standalone reload with legacy checkpoint, desktop drawing, reference scenes and motion passed",labelSizes};
 }
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true}); sourceParity();
