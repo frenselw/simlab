@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="force-equilibrium-diagram-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-FORCE-EQUILIBRIUM-DIAGRAM-LAB">
+    <organization identifier="ORG-FORCE-EQUILIBRIUM-DIAGRAM-LAB">
+      <title>共點力平衡：受力圖挑戰</title>
+      <item identifier="ITEM-FORCE-EQUILIBRIUM-DIAGRAM-LAB" identifierref="RES-FORCE-EQUILIBRIUM-DIAGRAM-LAB"><title>共點力平衡：受力圖挑戰</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-FORCE-EQUILIBRIUM-DIAGRAM-LAB" type="webcontent" adlcp:scormtype="sco" href="force-equilibrium-diagram-lab/index.html">
+      <file href="config.js"/>
+      <file href="force-equilibrium-diagram-lab/index.html"/>
+      <file href="force-equilibrium-diagram-lab/styles.css"/>
+      <file href="force-equilibrium-diagram-lab/generator.js"/>
+      <file href="force-equilibrium-diagram-lab/notation.js"/>
+      <file href="force-equilibrium-diagram-lab/model.js"/>
+      <file href="force-equilibrium-diagram-lab/scoring.js"/>
+      <file href="force-equilibrium-diagram-lab/persistence.js"/>
+      <file href="force-equilibrium-diagram-lab/ui-runtime.js"/>
+      <file href="force-equilibrium-diagram-lab/scene.js"/>
+      <file href="force-equilibrium-diagram-lab/main.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>
