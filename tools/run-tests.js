@@ -6,6 +6,12 @@ const { spawnSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const tests = [
+  "sim/force-equilibrium-diagram-lab/generator.test.js",
+  "sim/force-equilibrium-diagram-lab/model.test.js",
+  "sim/force-equilibrium-diagram-lab/scoring.test.js",
+  "sim/force-equilibrium-diagram-lab/persistence.test.js",
+  "sim/force-equilibrium-diagram-lab/lifecycle.test.js",
+  "tools/force-equilibrium-browser-regression.js",
   "sim/fbd-horizontal-block/scoring.test.js",
   "sim/plane-mirror-pencil-ray-diagram/scoring.test.js",
   "sim/plane-mirror-pencil-ray-diagram/draft-save.test.js",

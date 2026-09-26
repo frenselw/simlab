@@ -5,7 +5,7 @@ SCORM 1.2 activities for Moodle.
 
 ## Current activities
 
-All 15 activities below are registered as active in `sim/config.js`.
+The activities below are registered in `sim/config.js`, which records their status.
 
 - `fbd-horizontal-block` - 水平面靜止物體受力圖
 - `plane-mirror-pencil-ray-diagram` - 平面鏡鉛筆成像光路圖
@@ -22,6 +22,7 @@ All 15 activities below are registered as active in `sim/config.js`.
 - `static-kinetic-friction-investigation-lab` - 靜摩擦力與滑動摩擦力探究實驗室
 - `force-composition-construction-lab` - 力的合成作圖實驗室
 - `force-orthogonal-decomposition` - 力的正交分解作圖練習
+- `force-equilibrium-diagram-lab` - 共點力平衡：受力圖挑戰
 
 ## Local development
 
@@ -87,6 +88,7 @@ npm run test:browser:mobile-touch
 npm run test:browser:hookes-law
 npm run test:browser:static-kinetic-friction
 npm run test:browser:force-composition
+npm run test:browser:force-equilibrium
 ```
 
 These checks require a local Google Chrome or Chromium executable. They detect the

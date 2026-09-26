@@ -159,9 +159,18 @@ async function productionExperimentRegression(cdp, url, label) {
   await tapSelector(cdp, "[data-action='cancel-redo-experiment']");
   assert.deepEqual(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().trial"), traces[2], `${label}: cancelling the redo preserves the accepted B authority`);
   await tapSelector(cdp, "#requestRedoExperiment");
+  // Observe the atomic restart in the trusted click task. Separate timing-gap
+  // tests cover the 50 ms animation watchdog on a stalled/busy machine.
+  await evaluate(cdp, `(() => {
+    window.__confirmedRedo = null;
+    document.addEventListener('click', function observeRedo(event) {
+      if (!event.target.closest("[data-action='confirm-redo-experiment']")) return;
+      document.removeEventListener('click', observeRedo);
+      window.__confirmedRedo = { trial:window.__staticKineticFrictionApp.getState().trial, running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, dialogHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden') };
+    });
+  })()`);
   await tapSelector(cdp, "[data-action='confirm-redo-experiment']");
-  await delay(120);
-  const confirmedRedo = await evaluate(cdp, `(() => ({ trial:window.__staticKineticFrictionApp.getState().trial, running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, dialogHidden:document.getElementById('redoExperimentConfirm').classList.contains('is-hidden') }))()`);
+  const confirmedRedo = await evaluate(cdp, "window.__confirmedRedo");
   assert.deepEqual(confirmedRedo, { trial: null, running: true, dialogHidden: true }, `${label}: confirming the redo atomically clears the accepted trial and starts a new recording`);
 
   await navigate(cdp, url);

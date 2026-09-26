@@ -118,6 +118,14 @@ const simulationList = [
     description: "在水平、斜面外力及斜面重力三個情境中畫出正交分力並以 sin θ／cos θ 表示大小。",
     tags: ["physics", "mechanics", "forces", "vectors", "orthogonal-decomposition", "components", "scorm"],
     status: "active"
+  },
+  {
+    title: "共點力平衡：受力圖挑戰",
+    folder: "force-equilibrium-diagram-lab",
+    categories: ["Mechanics"],
+    description: "在五種隨機平衡情境中，從物體重心畫出種類與方向正確的受力圖。",
+    tags: ["physics", "mechanics", "forces", "equilibrium", "free-body-diagram", "drawing", "scorm"],
+    status: "active"
   }
 ];
 

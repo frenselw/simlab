@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f4f6">
+  <title>共點力平衡：受力圖挑戰</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script>
+  <script src="../shared/activity-flow.js" defer></script>
+  <script src="generator.js" defer></script><script src="model.js" defer></script>
+  <script src="scoring.js" defer></script><script src="persistence.js" defer></script>
+  <script src="notation.js" defer></script><script src="ui-runtime.js" defer></script>
+  <script src="scene.js" defer></script><script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="equilibrium-app">
+  <header class="sim-header">
+    <div class="heading"><h1>共點力平衡：受力圖挑戰</h1><span id="attemptStatus">正在讀取作答…</span></div>
+    <nav class="question-nav" aria-label="關卡導覽"><div id="questionNav"></div><button id="checkButton" type="button" aria-label="檢查作答"><span class="check-long">檢查作答</span><span class="check-short">檢查</span></button></nav>
+  </header>
+  <section id="stage" class="stage" aria-label="物體受力作圖區">
+    <svg id="stageSvg" role="img" aria-label="平衡情境與受力圖"></svg>
+    <div class="stage-top"><span id="motionLabel" class="motion-label"></span></div>
+    <div id="dragLayer" class="drag-layer"></div>
+    <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
+    <p id="drawHint" class="draw-hint">選擇力的種類，再從重心畫出方向</p>
+    <p class="stage-caption">箭長不代表力的大小</p>
+    <aside id="magnifier" class="magnifier" aria-hidden="true" hidden>
+      <svg id="magnifierSvg" focusable="false" aria-hidden="true"></svg>
+      <svg id="overviewSvg" class="overview" focusable="false" aria-hidden="true"></svg>
+      <span class="preview-caption">局部預覽</span>
+    </aside>
+  </section>
+  <aside id="controlPanel" class="control-panel" aria-label="操作面板">
+    <p id="notice" class="notice" role="status" hidden></p><p id="storageNotice" class="notice" hidden></p>
+    <button id="saveRetryButton" type="button" hidden>重試保存</button>
+    <div id="motionControls" class="motion-controls" hidden><button id="pauseButton" type="button">暫停背景</button></div>
+    <section id="editPanel">
+      <p id="questionKicker" class="kicker"></p><h2 id="questionTitle" tabindex="-1"></h2><p id="questionPrompt"></p>
+      <details><summary>怎樣畫受力圖？</summary><p>先按力種類旁的＋，再由重心拖出箭頭。拖箭尖可修改；也可選取下方的力，用方向微調。只評種類與方向，箭長不計分。各力統一畫在重心，不研究力矩。</p></details>
+      <div id="forcePalette" class="force-palette" aria-label="選擇力的種類"></div>
+      <div id="forceList" class="force-list" role="group" aria-label="選取已加入的力"></div>
+      <fieldset id="selectedControls" hidden><legend id="selectedLabel">所選的力</legend>
+        <div class="selected-row"><label for="kindSelect">種類</label><select id="kindSelect"></select><button id="removeSelected" type="button">刪除</button></div>
+        <div class="adjust-grid"><button type="button" data-adjust="ccw">↶ 轉左 5°</button><button type="button" data-adjust="cw">↷ 轉右 5°</button><button type="button" data-adjust="shorter">縮短</button><button type="button" data-adjust="longer">伸長</button></div>
+        <button id="confirmDirection" type="button" hidden>確認這個方向</button>
+        <p id="selectionHint" class="small"></p>
+      </fieldset>
+      <div class="history-row"><button id="undoButton" type="button">復原</button><button id="redoButton" type="button">取消復原</button><button id="clearButton" type="button">清除本題</button></div>
+      <div class="footer-actions"><button id="nextButton" type="button" class="primary-button">下一題</button><button id="returnCheckButton" type="button" hidden>返回檢查</button></div>
+    </section>
+    <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2 tabindex="-1" id="checkTitle">檢查五題作答</h2><p>尚未畫出的方向不計方向分。你可以返回修改，或提交目前答案，包括空白作答。</p><div id="checkList" class="check-list"></div><p class="small">提交後，本次作答將保持只讀。</p><button id="submitButton" class="primary-button full" type="button">確認提交這五題</button></section>
+    <section id="reviewPanel" hidden><p class="kicker">本次作答</p><h2 id="reviewTitle" tabindex="-1"></h2><div id="scorePanel" class="score-panel"></div><button id="retryFinalButton" type="button" class="full" hidden>重試同一份提交</button><button id="referenceButton" type="button" class="full" hidden>顯示參考圖</button><div id="feedback" class="feedback"></div></section>
+    <section id="technicalPanel" hidden><h2>作答資料需要檢查</h2><p>請保留本頁及原有記錄，待連線或資料問題解決後重新開啟。</p><button id="recoverButton" type="button" hidden>清除未提交的損壞草稿</button></section>
+  </aside>
+  <div id="liveRegion" class="sr-only" aria-live="polite"></div>
+</main>
+</body>
+</html>

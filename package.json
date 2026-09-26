@@ -13,7 +13,8 @@
     "test:browser:static-kinetic-friction": "node tools/static-kinetic-friction-browser-regression.js",
     "test:browser:force-composition": "node tools/force-composition-browser-regression.js",
     "package": "node tools/package-scorm.js",
-    "package:all": "node tools/package-all.js"
+    "package:all": "node tools/package-all.js",
+    "test:browser:force-equilibrium": "node tools/force-equilibrium-browser-regression.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",
