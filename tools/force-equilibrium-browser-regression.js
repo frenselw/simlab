@@ -220,6 +220,7 @@ async function touchMatrix(cdp, base, label, width=390, height=500) {
   return rows;
 }
 async function flows(cdp,base,label) {
+  const labelSizes = [];
   await viewport(cdp,390,600); await navigate(cdp,base);
   await click(cdp,"#checkButton");
   assert.ok(await call(cdp,"return d.getElementById('controlPanel').clientHeight > 300;"),"check panel uses the space released by the stage");
@@ -250,37 +251,71 @@ async function flows(cdp,base,label) {
   state=P.fresh(21); state.answers=G.generate(21).questions.map(q=>q.expected.map(f=>[f.kind,Math.round(f.angle*10)%3600,620]));
   const result=S.score(state), snapshot={version:1,activity:slug,kind:"review",answer:P.review(state),score:result.score,passed:result.passed};
   fixture={"cmi.core.lesson_status":"passed","cmi.core.score.raw":"100","cmi.suspend_data":JSON.stringify(snapshot)};
-  for(const [width,height] of [[390,600],[1280,900]]) {
+  for(const [width,height] of [[390,600],[1024,768],[1280,900]]) {
     await viewport(cdp,width,height); await navigate(cdp,base,{fixture});
     for(let position=0;position<5;position++) {
       await click(cdp,`#questionNav button:nth-child(${position+1})`);
       const family=G.generate(21).questions[G.generate(21).order[position]].family;
       await screenshot(cdp,`${label}-${family}-${width}`);
       const labels=await call(cdp,`const stage=d.getElementById('stage').getBoundingClientRect();return Array.from(d.querySelectorAll('#stageSvg .force-label')).map(t=>{const r=t.getBoundingClientRect();return {inside:r.left>=stage.left&&r.right<=stage.right&&r.top>=stage.top&&r.bottom<=stage.bottom,size:parseFloat(getComputedStyle(t).fontSize)};});`);
-      assert.ok(labels.every(l=>l.inside&&l.size>=14));
+      assert.ok(labels.every(l=>l.inside&&(width===390?l.size===18:l.size>=32)), "force labels fit at the original phone size and enlarged desktop size");
+      assert.equal(await call(cdp,"return d.getElementById('stageSvg').textContent.includes('重心');"),false);
+      labelSizes.push({width,family,sizes:labels.map(l=>l.size)});
     }
   }
-  // The three-push variant has five simultaneous force labels on a narrow phone.
+  // The three-push variant has five simultaneous force labels on phone and desktop.
   let threePushSeed=0;
   while(G.generate(threePushSeed).questions[4].params.count!==3) threePushSeed++;
   state=P.fresh(threePushSeed);
   state.answers=G.generate(threePushSeed).questions.map(q=>q.expected.map(f=>[f.kind,Math.round(f.angle*10)%3600,620]));
   fixture={"cmi.core.lesson_status":"passed","cmi.core.score.raw":"100","cmi.suspend_data":JSON.stringify({...snapshot,answer:P.review(state)})};
-  await viewport(cdp,390,600);await navigate(cdp,base,{fixture});
-  await click(cdp,`#questionNav button:nth-child(${G.generate(threePushSeed).order.indexOf(4)+1})`);
-  assert.equal(await call(cdp,"return d.querySelectorAll('#stageSvg .force-label').length;"),5);
-  assert.ok(await call(cdp,"const edge=d.getElementById('motionLabel').getBoundingClientRect().bottom;return [...d.querySelectorAll('#stageSvg .rod-label')].every(e=>e.getBoundingClientRect().top>edge);"),"rod labels clear the motion caption");
-  await screenshot(cdp,`${label}-E-three-push-390`);
+  for(const [width,height] of [[390,600],[1024,768],[1280,900]]) {
+    await viewport(cdp,width,height);await navigate(cdp,base,{fixture});
+    await click(cdp,`#questionNav button:nth-child(${G.generate(threePushSeed).order.indexOf(4)+1})`);
+    assert.equal(await call(cdp,"return d.querySelectorAll('#stageSvg .force-label').length;"),5);
+    assert.ok(await call(cdp,"const edge=d.getElementById('motionLabel').getBoundingClientRect().bottom;return [...d.querySelectorAll('#stageSvg .rod-label')].every(e=>e.getBoundingClientRect().top>edge);"),"rod labels clear the motion caption");
+    await screenshot(cdp,`${label}-E-three-push-${width}`);
+  }
   // Moving background changes while the object's geometry and authoritative answer stay fixed.
   await viewport(cdp,390,600); await navigate(cdp,base);
   const generated=G.generate(21), movingPosition=generated.order.findIndex(i=>generated.questions[i].motion);
   await click(cdp,`#questionNav button:nth-child(${movingPosition+1})`);
   const readMotion=()=>call(cdp,"return {object:d.querySelector('#stageSvg .object').getAttribute('transform'),answer:JSON.stringify(w.__equilibriumApp.getState()),offset:d.querySelector('[data-background=ground]').getAttribute('transform')};");
   const b=await readMotion(); await delay(220); const a=await readMotion(); assert.equal(a.object,b.object);assert.equal(a.answer,b.answer);assert.notEqual(a.offset,b.offset);
+  assert.equal(await call(cdp,"return d.querySelector('[data-background=far]');"),null,"the old upright scenery is removed");
   await click(cdp,"#pauseButton");const pause=await readMotion();await delay(180);assert.deepEqual(await readMotion(),pause);
   await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});await navigate(cdp,base);assert.equal(await call(cdp,"return w.__equilibriumApp.getAnimation().paused;"),true);
   await cdp.send("Emulation.setEmulatedMedia",{features:[]});
-  return "blank, partial, keyboard, draft, pending/review reload, reference scenes and motion passed";
+  // Standalone refresh really navigates a fresh document, without an LMS fixture.
+  // Seed an old finished checkpoint to reproduce the previously trapped learner.
+  await navigate(cdp,base,{fixture:false});
+  const checkpointKey=`simlab:${slug}:checkpoint`, oldCheckpoint=JSON.stringify(fixture);
+  await call(cdp,`w.localStorage.setItem(${JSON.stringify(checkpointKey)},${JSON.stringify(oldCheckpoint)});`);
+  const freshLocal=async()=>{
+    await cdp.send("Page.reload",{ignoreCache:true});await delay(120);await ready(cdp);
+    const local=await call(cdp,"return {mode:w.__equilibriumApp.getMode(),answers:w.__equilibriumApp.getState().answers,result:w.__equilibriumApp.getResult(),hint:d.getElementById('storageNotice').textContent};");
+    assert.equal(local.mode,"edit");assert.ok(local.answers.every(a=>a.length===0));assert.equal(local.result,null);assert.match(local.hint,/重新整理/);
+    assert.equal(await call(cdp,`return w.localStorage.getItem(${JSON.stringify(checkpointKey)});`),oldCheckpoint,"legacy evidence is ignored, not overwritten");
+  };
+  await freshLocal();
+  await click(cdp,'[data-add-kind="0"]');await freshLocal();
+  await click(cdp,'[data-add-kind="1"]');await click(cdp,"#checkButton");await click(cdp,"#submitButton");
+  assert.equal(await call(cdp,"return w.__equilibriumApp.getMode();"),"review");
+  assert.equal(await call(cdp,"return d.querySelectorAll('.origin-hit:not([hidden]),.force-head-hit:not([hidden])').length;"),0);
+  await freshLocal();
+  // Larger desktop geometry must still use the same visible arrow tip as its hit target.
+  await viewport(cdp,1280,900);await click(cdp,'[data-add-kind="0"]');
+  const origin=await rect(cdp,'.origin-hit');
+  for(const [type,x,y,buttons] of [["mousePressed",origin.x,origin.y,1],["mouseMoved",origin.x+160,origin.y-90,1],["mouseReleased",origin.x+160,origin.y-90,0]])
+    await cdp.send("Input.dispatchMouseEvent",{type,x,y,button:"left",buttons,clickCount:1});
+  const tip=await rect(cdp,'.force-head-hit[data-index="0"]');
+  const displayed=await call(cdp,"const c=d.querySelector('.student-arrows circle'),s=d.getElementById('stage').getBoundingClientRect();return {x:Number(c.getAttribute('cx'))+s.left,y:Number(c.getAttribute('cy'))+s.top};");
+  assert.ok(Math.hypot(tip.x-displayed.x,tip.y-displayed.y)<.1,"desktop tip and target agree after drawing");
+  const beforeEdit=await call(cdp,"return w.__equilibriumApp.getState().answers;");
+  for(const [type,x,y,buttons] of [["mousePressed",tip.x,tip.y,1],["mouseMoved",tip.x-40,tip.y-40,1],["mouseReleased",tip.x-40,tip.y-40,0]])
+    await cdp.send("Input.dispatchMouseEvent",{type,x,y,button:"left",buttons,clickCount:1});
+  assert.notDeepEqual(await call(cdp,"return w.__equilibriumApp.getState().answers;"),beforeEdit,"desktop arrow editing still records the changed direction");
+  return {checks:"blank, partial, keyboard, Moodle draft/pending/review, fresh standalone reload with legacy checkpoint, desktop drawing, reference scenes and motion passed",labelSizes};
 }
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true}); sourceParity();

@@ -5,16 +5,16 @@ const { Controller } = require("./ui-runtime.js");
 const scormCode = fs.readFileSync(require.resolve("../shared/scorm.js"), "utf8");
 function environment(options = {}) {
   const durable = options.durable || {}, storage = options.storage || new Map(), flags = options.flags || {};
-  const values = { ...durable }, events = {}, stats = { commits: 0, writes: 0, finishes: 0 }; let error = "0";
+  const values = { ...durable }, events = {}, stats = { commits: 0, writes: 0, finishes: 0, storageReads: 0, storageWrites: 0, storageRemoves: 0 }; let error = "0";
   const window = {
     location: { reload() {} }, addEventListener(name, fn) { events[name] = fn; },
     localStorage: {
-      getItem(k) { if (flags.storageReadFail) throw new Error("read"); return storage.get(k) ?? null; },
+      getItem(k) { stats.storageReads++; if (flags.storageReadFail) throw new Error("read"); return storage.get(k) ?? null; },
       setItem(k, v) {
-        if (flags.storageWriteFail || (flags.storageFinalFail && k.endsWith(":checkpoint") && ["passed", "failed"].includes(JSON.parse(v)["cmi.core.lesson_status"]))) throw new Error("write");
+        stats.storageWrites++; if (flags.storageWriteFail) throw new Error("write");
         storage.set(k, v);
       },
-      removeItem(k) { if (flags.storageRemoveFail) throw new Error("remove"); storage.delete(k); }
+      removeItem(k) { stats.storageRemoves++; if (flags.storageRemoveFail) throw new Error("remove"); storage.delete(k); }
     }
   };
   window.parent = window; window.top = window;
@@ -27,7 +27,7 @@ function environment(options = {}) {
     LMSGetLastError: () => error, LMSGetErrorString: () => "test fixture", LMSGetDiagnostic: () => ""
   };
   vm.runInNewContext(scormCode, { window, console: { info() {}, warn() {}, error() {}, log() {} }, TextEncoder, setTimeout, clearTimeout });
-  const presentations = [], c = new Controller(window.SimScorm, Flow, current => presentations.push({ mode: current.mode, editable: current.editable, score: current.result?.score ?? null }), () => 21);
+  const presentations = [], c = new Controller(window.SimScorm, Flow, current => presentations.push({ mode: current.mode, editable: current.editable, score: current.result?.score ?? null }), () => options.seed ?? 21);
   c.start(); return { c, scorm: window.SimScorm, durable, storage, flags, stats, events, presentations };
 }
 function drawOne(c) { c.command({ type: "add", kind: 0 }); c.command({ type: "place", index: 0, angle: 270, length: 500 }); }
@@ -83,23 +83,27 @@ mismatch.c.finalSnapshot = mismatch.scorm.makeSnapshot(P.ACTIVITY, "review", P.r
 const other = M.clone(mismatch.c.finalSnapshot); other.answer.seed = 22;
 mismatch.c.handleOutcome({ activityState: "success", review: other, score: 0, status: "failed" }); assert.equal(mismatch.c.mode, "technical");
 const local = environment({ standalone: true }); drawOne(local.c);
-const localRestore = environment({ standalone: true, storage: local.storage }); assert.deepEqual(localRestore.c.state, local.c.state);
-localRestore.c.check(); localRestore.c.submit(); const localReview = environment({ standalone: true, storage: local.storage }); assert.equal(localReview.c.mode, "review");
-const localFail = environment({ standalone: true }); localFail.flags.storageWriteFail = true; drawOne(localFail.c); assert.equal(localFail.c.unsaved, true);
-assert.equal(environment({ standalone: true, flags: { storageReadFail: true } }).c.mode, "technical");
-const localPending = environment({ standalone: true }); drawOne(localPending.c); localPending.c.check();
-localPending.flags.storageFinalFail = true; localPending.c.submit(); assert.equal(localPending.c.mode, "frozen"); assert.equal(localPending.c.result, null);
-const localPendingReload = environment({ standalone: true, storage: localPending.storage }); assert.equal(localPendingReload.c.mode, "frozen");
-localPendingReload.c.retryFinal(); assert.equal(localPendingReload.c.mode, "review"); assert.equal(localPendingReload.c.recoverDraft(), false);
+const localReload = environment({ standalone: true, storage: local.storage, seed: 22 });
+assert.deepEqual(localReload.c.state, P.fresh(22), "standalone draft refresh starts a new round");
+local.c.check(); local.c.submit(); assert.equal(local.c.mode, "review");
+assert.equal(local.c.setAnswer([]), false, "the submitted page itself stays read-only");
+assert.equal(local.c.recoverDraft(), false);
+const newRound = environment({ standalone: true, storage: local.storage, seed: 23 });
+assert.deepEqual(newRound.c.state, P.fresh(23), "standalone submitted refresh starts a new round");
+newRound.c.command({ type: "add", kind: 1 }); assert.equal(newRound.c.state.answers[newRound.c.familyIndex].length, 1, "legal continuation after refresh");
+const noStorage = environment({ standalone: true, flags: { storageReadFail: true, storageWriteFail: true, storageRemoveFail: true } });
+drawOne(noStorage.c); assert.equal(noStorage.c.unsaved, false); noStorage.c.check(); noStorage.c.submit(); assert.equal(noStorage.c.mode, "review");
 const badDraft = { version: 1, activity: P.ACTIVITY, kind: "draft", answer: { ...P.fresh(21), current: null } };
 const invalidDraft = environment({ durable: { "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify(badDraft) } });
 assert.equal(invalidDraft.c.canRecover, true); assert.equal(invalidDraft.c.recoverDraft(), true); assert.equal(invalidDraft.c.mode, "edit");
-const localDraft = environment({ standalone: true });
-const checkpointKey = [...localDraft.storage.keys()].find(k => k.endsWith(":checkpoint"));
-const bundle = JSON.parse(localDraft.storage.get(checkpointKey)); bundle["cmi.suspend_data"] = JSON.stringify(badDraft);
-localDraft.storage.set(checkpointKey, JSON.stringify(bundle));
-const localRecovery = environment({ standalone: true, storage: localDraft.storage }); assert.equal(localRecovery.c.canRecover, true);
-localRecovery.flags.storageRemoveFail = true; assert.equal(localRecovery.c.recoverDraft(), false); assert.equal(localRecovery.c.mode, "technical");
-localRecovery.flags.storageRemoveFail = false; assert.equal(localRecovery.c.recoverDraft(), "reload");
-assert.equal(environment({ standalone: true, storage: localRecovery.storage }).c.mode, "edit");
-console.log("equilibrium lifecycle: actual shared SCORM startup/submission/retry/quarantine, trust, storage failures and immutable review passed");
+// Existing installations may still have checkpoints from the old opt-in policy.
+// Neither old finished work nor an unreadable checkpoint may trap local practice.
+for (const checkpoint of [JSON.stringify(finishedData(filled())), JSON.stringify(corruptPending), JSON.stringify({ "cmi.core.lesson_status": "incomplete", "cmi.suspend_data": JSON.stringify(badDraft) }), "corrupt checkpoint"]) {
+  const storage = new Map([[`simlab:${P.ACTIVITY}:checkpoint`, checkpoint]]);
+  const fresh = environment({ standalone: true, storage });
+  assert.equal(fresh.c.mode, "edit"); assert.deepEqual(fresh.c.state, P.fresh(21));
+  drawOne(fresh.c); fresh.c.check(); fresh.c.submit(); assert.equal(fresh.c.mode, "review");
+  assert.equal(fresh.stats.storageReads + fresh.stats.storageWrites + fresh.stats.storageRemoves, 0);
+  assert.equal(storage.get(`simlab:${P.ACTIVITY}:checkpoint`), checkpoint, "old evidence is not deleted or overwritten");
+}
+console.log("equilibrium lifecycle: shared SCORM outcomes/trust/quarantine, immutable Moodle review and fresh standalone reload passed");

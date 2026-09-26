@@ -30,9 +30,10 @@
     }
     start() {
       try {
-        const storage = this.scorm.enableStandalonePersistence(P.ACTIVITY);
+        // Standalone practice starts fresh on reload; Moodle remains authoritative.
+        // Keep the shared memory fallback, including its normal submission flow.
         const attempt = this.scorm.loadAttempt(P.ACTIVITY); this.attempt = attempt;
-        if (this.scorm.isStandalone?.() && storage !== "available") this.storageNotice = "本機儲存未完全可用；重新載入未必能恢復最新作答。";
+        if (this.scorm.isStandalone?.()) this.storageNotice = "獨立練習：重新整理可開始新一輪，本頁作答不會保留。";
         const startup = this.flow.startup(attempt);
         if (startup === "editable") {
           try {
@@ -142,10 +143,6 @@
     }
     recoverDraft() {
       if (!this.canRecover || this.attempt?.state !== "draft") return false;
-      if (this.scorm.isStandalone?.()) {
-        if (this.scorm.clearStandaloneAttempt(P.ACTIVITY)) return "reload";
-        this.technical("未能清除未提交的草稿，原資料保持鎖定。", true); return false;
-      }
       this.state = P.fresh(this.seedFactory()); this.scenario = G.generate(this.state.seed); this.mode = "edit"; this.canRecover = false;
       if (!this.save()) this.technical("未能保存恢復的草稿，請檢查連線。"); else this.emit();
       return this.editable;

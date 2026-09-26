@@ -33,14 +33,16 @@
     return angleDelta(angle, nearest) <= entry ? { angle: nearest, target: nearest } : { angle: normalize(angle), target: null };
   }
   function layout(width, height) {
-    return { width, height, center: { x: width / 2, y: height * .52 }, left: 58, right: width - 58, top: 54, bottom: height - 42 };
+    const displayScale = width >= 520 && height >= 400 ? 1.8 : 1;
+    return { width, height, displayScale, center: { x: width / 2, y: height * .52 },
+      left: 58 * displayScale, right: width - 58 * displayScale, top: 54 * displayScale, bottom: height - 42 * displayScale };
   }
   function radii(angle, l) {
     const x = Math.cos(angle * Math.PI / 180), y = -Math.sin(angle * Math.PI / 180);
     const rx = Math.abs(x) < 1e-8 ? Infinity : (x > 0 ? l.right - l.center.x : l.center.x - l.left) / Math.abs(x);
     const ry = Math.abs(y) < 1e-8 ? Infinity : (y > 0 ? l.bottom - l.center.y : l.center.y - l.top) / Math.abs(y);
     const max = Math.max(12, Math.min(rx, ry));
-    return { min: Math.min(44, max), max };
+    return { min: Math.min(l.displayScale > 1 ? 64 * l.displayScale : 44, max), max };
   }
   function endpoint(record, l) {
     if (record[1] === null) return { ...l.center };
@@ -55,7 +57,7 @@
     const length = bounds.max <= bounds.min ? 500 : clamp(Math.round(1 + (radius - bounds.min) / (bounds.max - bounds.min) * 999), 1, 1000);
     return { record: [kind, angle10, length], target: resolved.target };
   }
-  function backgroundOffset(elapsedSeconds, motion, period = 72) { return ((-motion * 26 * elapsedSeconds) % period + period) % period; }
+  function backgroundOffset(elapsedSeconds, motion, period = 144) { return ((-motion * 26 * elapsedSeconds) % period + period) % period; }
   class History {
     constructor() { this.undo = Array.from({ length: 5 }, () => []); this.redo = Array.from({ length: 5 }, () => []); }
     record(i, a) { this.undo[i].push(clone(a)); if (this.undo[i].length > 20) this.undo[i].shift(); this.redo[i] = []; }

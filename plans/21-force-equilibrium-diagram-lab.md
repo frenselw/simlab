@@ -8,7 +8,7 @@
 
 學生在五種平衡情境中自行選擇力的種類，再由物體重心畫出箭頭。評核力是否齊全、種類及方向是否正確；箭長、實際大小、作用點及力矩不計分。箭長可以調整，方便分開標籤，但不代表力的大小比例。
 
-每次作答五類各抽一題，並打亂出場次序。物體、重心、受力箭頭及作圖座標固定；勻速情境以地面紋理和遠景反向等速平移表達相對運動，配合「相對地面向右／向左勻速直線運動」文字。靜止情境沒有背景平移。
+每次作答五類各抽一題，並打亂出場次序。物體、重心、受力箭頭及作圖座標固定；勻速情境以地面紋理和低對比分格反向等速平移表達相對運動，配合「相對地面向右／向左勻速直線運動」文字。靜止情境沒有背景平移。
 
 | 題型代號（不是固定次序） | 場景與狀態 | 預期受力；此欄只供設計及提交後回饋 | 主要變化與思考 |
 |---|---|---|---|
@@ -93,7 +93,7 @@
 
 A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻速／靜止」「勻速／勻速」中抽取，確保每套都有靜止與勻速。E 勻速方向獨立抽左／右，不能由某一支推力方向推斷速度。
 
-新 attempt 只產生一次 uint32 seed；以版本化 deterministic generator 分別抽各題參數及五類排列。用獨立子序列處理題目幾何、次序和裝飾，避免增添背景細節改變原題答案。刷新、回題、草稿恢復、重試提交和已交 review 都使用同一 seed/version；不重新抽題。
+新 attempt 只產生一次 uint32 seed；以版本化 deterministic generator 分別抽各題參數及五類排列。用獨立子序列處理題目幾何、次序和裝飾，避免增添背景細節改變原題答案。Moodle 刷新、回題、草稿恢復、重試提交和已交 review 都使用同一 seed/version；不重新抽題。依 2026-09-26 使用者修訂，獨立練習重新整理視為新一輪，產生新 seed 及空白作答。
 
 實作直接從已窮舉驗證的有限安全參數表抽樣；C 題先篩出符合夾角差的非空集合，再抽一次，因此沒有拒絕重抽迴圈，也不需要 fallback。新版本另增 generator 版本；保留已發布版本以重現舊答案。隨機性以鏡像、幾何、受力數目及狀態為主，不以換色冒充不同題。
 
@@ -102,8 +102,8 @@ A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻�
 | 狀態／層 | 顯示規則 |
 |---|---|
 | 研究物體、重心、受力箭頭及 hit targets | 固定在作圖座標，不隨背景位置改變；每題作圖期間 camera 不自動縮放或追蹤箭頭 |
-| 靜止情境 | 地面紋理、遠景、物體均靜止 |
-| 勻速情境 | 地面紋理及低對比遠景按 −v 等速平移，物體固定；同一深度的標記間距與速度保持一致，循環接縫不可跳動 |
+| 靜止情境 | 地面紋理、物體均靜止 |
+| 勻速情境 | 物體下方的低對比地面分格及表面紋理按 −v 等速平移，物體固定；移除物體上方的直立遠景裝飾。分格間距與速度保持一致，循環接縫不可跳動 |
 | 拉繩／施力器 | B、E 勻速時由與物體一起移動的施力來源維持作用，不能畫成接到地面固定柱卻隨物體同行；C、D 的固定繩端只出現在靜止題 |
 | 文字及運動提示 | 「相對地面向左／右勻速直線運動」持續可見；如用速度箭頭，放在物體之外，標 v，外觀與力箭頭區分 |
 | 暫停背景／減少動態 | 提供「暫停背景」；尊重 prefers-reduced-motion。保留勻速文字，暫停只是觀察功能，不把題目改成靜止或改答案 |
@@ -118,6 +118,8 @@ A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻�
 |---|---|
 | Three regions | Header：標題、五題跳轉、檢查入口；stage：場景、物體及受力圖；panel：題意、力種類／數量、選中力及操作 |
 | Desktop / tablet | ≥820 CSS px（或 ≥600px 且高度 ≤520px 的橫向） 左舞台、右 panel；panel 約 18–22rem，舞台保留足夠空間畫五支箭頭 |
+| Desktop projection | 舞台寬 ≥520px 且高 ≥400px 時，物體、力名、箭頭粗幼／箭頭頭部及標籤避讓區放大 1.8 倍；力名字級由 18px 增至 32.4px。同步調整箭尖安全區與最短顯示箭長，端點和 hit target 一致；其餘舞台保留原手機尺寸 |
+| Center marker | 只保留重心圓點，不在圖內寫「重心」；操作說明與無障礙名稱仍可使用「重心」 |
 | Control-panel classification | bounded split-panel；學生反覆選力並看圖，舞台須保持可見 |
 | Phone stage and controls | Header → stage → 獨立捲動 panel；stage 為 minmax(13rem,44dvh)，vh fallback；高度 ≤450px 的窄屏改為 minmax(166px,43dvh)，橫向轉左右分區，不建第三個 scroller |
 | Phone text | 主要控制 16px，輔助文字約14px；力符號、情境標籤在 SVG 縮放後仍至少約14px，不能靠縮小至難讀字級容納 |
@@ -136,7 +138,7 @@ A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻�
 | Final check access | 每個 edit 狀態及任何已選力／未畫方向狀態均可直接進檢查；不設先看完五題的門檻 |
 | Incomplete submission | 只列「已選幾個力、已畫幾個方向、哪些題未作答」；不提前告知應有幾個力或對錯；全空白亦可明確提交 |
 | Editable reset | 「清除本題」保留本題 seed、場景及其他四題；已有記錄時確認，支援 undo；不提供本題重抽來避開難題 |
-| Scored / pending attempt | 已記錄只讀、pending frozen 同一份答案重試；不提供清成績或 restart |
+| Scored / pending attempt | 本頁已記錄只讀、pending frozen 同一份答案重試；不提供清成績或 restart 控制。Moodle 重開維持相同記錄；獨立練習刷新開始新一輪，見下方明確例外 |
 
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
 |---|---|---|---|
@@ -286,7 +288,7 @@ Finished restore：validate → regenerate scene → restore learner records →
 
 ## Shared SCORM lifecycle
 
-採[shared lifecycle](../docs/simulation-scorm-production-guide.md#mandatory-shared-lifecycle-flow)，不另做commit／finish／page lifecycle。Standalone首次startup前opt in `enableStandalonePersistence(ACTIVITY)`，以便同一瀏覽器重開仍有草稿及已提交檢討。
+採[shared lifecycle](../docs/simulation-scorm-production-guide.md#mandatory-shared-lifecycle-flow)，不另做commit／finish／page lifecycle。依 2026-09-26 使用者明確要求，Standalone 使用 shared runtime 預設的記憶體模式，不 opt in `enableStandalonePersistence(ACTIVITY)`：刷新可開始新一輪，包括提交後。這是本活動獨立練習的明確例外；Moodle 的草稿、已交檢討及 pending 恢復規則不變。
 
 | Outcome / policy | Activity handler, controls and learner-facing message |
 |---|---|
@@ -299,8 +301,8 @@ Finished restore：validate → regenerate scene → restore learner records →
 | Submit frozen | 「提交尚未確認，答案已保留供重試」；不宣稱confirmed score/pass/fail |
 | Submit retry | 沒有durable final state；依retryable保留編輯及重試或技術錯誤提示，不標submitted |
 | Review trust | match正常檢討；mismatch提示記錄不一致；unknown以未確定狀態呈現，不轉成不及格 |
-| Standalone storage | shared storage可用時恢復草稿／review；read-only/unavailable及中途寫入失敗依shared契約，不把durable失敗宣稱本地已保存 |
-| Standalone recovery | 僅確認未提交的允許恢復；`clearStandaloneAttempt()`須回true才reload；finished/pending永不提供清除 |
+| Standalone storage | 僅保存於目前頁面記憶體；顯示重新整理可開始新一輪的提示。不讀寫舊版本 localStorage checkpoint，因此原先被已交記錄鎖住的頁面也能恢復練習；不刪除舊資料或操作 Moodle 記錄 |
+| Standalone reload | 草稿或提交後重新整理均開新一輪；同頁提交後仍只讀。localStorage 無法讀寫不阻止獨立練習。Moodle 的損壞未交草稿仍依既有驗證及保存流程恢復 |
 
 只在新增／刪改力、完成drag、清除、換題、進出check等semantic change保存。背景animation及pointermove不寫snapshot；不讀寫raw LMS fields或自行寫localStorage欄位。
 
@@ -314,7 +316,7 @@ Finished restore：validate → regenerate scene → restore learner records →
 - [x] Model/UI：種類null方向不補答、固定重心、不按種類自動轉向；每個操作undo/redo；pointercancel安全回復；選中重疊力可編輯；量化後preview／release／save一致。
 - [x] Motion：背景位移與時間成正比、方向相反；相同elapsed time在30/60/120Hz結果相同；物體／箭尾／hit targets／camera不漂移；循環無跳格；pause/reduced-motion不改題設或答案。
 - [x] Persistence：每一phase/variant作production round-trip並執行合法下一步；五題混合空白／待畫／錯答；還原前後score及passed一致；非法state拒絕與合法錯答分開；完整snapshot≤4000bytes。
-- [x] Lifecycle：執行production startup與四submit outcomes、不可retry錯誤、trust mismatch／unknown、invalid finished、pending quarantine、standalone draft/review reload及storage failures。
+- [x] Lifecycle：執行production startup與四submit outcomes、不可retry錯誤、trust mismatch／unknown、invalid finished、pending quarantine。Standalone 的刷新與舊 checkpoint 隔離依本次修訂另驗證，見文末。
 - [x] Navigation：每個editable狀態可到check及提交空白／部分；回check編輯保留其他題；提交後及pending不能刪改／清除／重新抽題。
 - [x] Mobile：完整viewport/zoom矩陣、五力標籤碰撞、44px targets、兩側實測32px、preview真實幾何及不遮擋、相同角度在不同屏幕判分一致；鍵盤流程無死路。
 - [x] Trusted touch：在可捲host iframe逐行測上文matrix，包括所有種類／多個同類、multi-touch、panel邊界及鎖定後舊target；source與extracted package各自執行並記錄全部scroll／viewport／iframe metrics。
@@ -350,7 +352,9 @@ Finished restore：validate → regenerate scene → restore learner records →
 2026-09-26 第一輪（歷史）：只建立專用分支與計劃，沒有活動程式或 SCORM 包。使用者其後批准完整實作；目前狀態以以下實作證據為準。
 
 
-## 實作及驗證證據（2026-09-26）
+## 首次實作及驗證證據（2026-09-26，修訂前歷史）
+
+以下記錄對應初版提交 `fb97179`；Standalone 保存政策已由文末的使用者修訂取代。
 
 - 分支：`codex/force-equilibrium-diagram-lab`。原生 SVG、十個活動 runtime 檔案、五個模型／持久化／lifecycle 測試檔、一個瀏覽器回歸 runner；沒有新增學生活動的外部函式庫。
 - `generator.test.js`：2,000 組 seed 重現；窮舉離散物理參數組合，檢查向量和、接觸力／張力正值及摩擦條件。
@@ -379,3 +383,22 @@ Finished restore：validate → regenerate scene → restore learner records →
 | 最終 ZIP／source parity | manifest 宣告、所有 HTML runtime 參照與 ZIP 項目一致；不含 tests／工具／暫存截圖 |
 
 成品入口：`sim/force-equilibrium-diagram-lab/index.html`。套件：`output/force-equilibrium-diagram-lab-scorm.zip`。目錄 status 已設為 `active`。本輪完成 package-ready；真實 Moodle／實體手機的 Moodle-ready 項目仍未驗證。
+
+## 桌面展示及獨立練習修訂（2026-09-26）
+
+使用者要求桌面力名及箭頭更適合投影、手機保留現有大小、圖內只標重心圓點、替換直立遠景，以及獨立練習提交後可用重新整理再做。
+
+- 舞台達 520×400 CSS px 時使用 1.8 倍顯示尺度，力名 32.4px，箭桿約 6.1px；手機力名維持 18px、箭桿 3.4px。標籤避讓盒、物體外框、箭尖邊距和可調長度範圍一併配合；不改權威角度、長度記錄及評分。重心旁文字已移除。
+- 勻速場景改為物體下方淡色地面分格，144px 週期連續平移；移除原有直立遠景。物體、力箭及畫圖座標固定，背景不參與答案或評分。
+- Standalone 改用 shared SCORM 預設記憶體模式，刷新清空本頁作答並抽新一輪；面板有對應提示。舊 checkpoint 不讀寫、不刪除，不再導致永久只讀。Moodle 保留原有 draft/review/pending 恢復和四種提交結果。
+- 正式 lifecycle 測試已驗證草稿及提交後刷新、新一輪合法作答、舊 finished/pending/損壞 checkpoint 的隔離、localStorage 讀寫受限仍可練習，以及同頁已交只讀。生成器、評分、48 行快照 round-trip、幾何及 manifest 檢查均已通過。
+- 本次瀏覽器驗證已通過 390px 原手機字級、1024px／1280px 桌面字級與五類圖、三推力五箭圖、桌面拖畫／箭尖再編輯、實際重新整理及舊 checkpoint；source 與 extracted package 使用同一正式程式。兩種來源各有 390px／320px 的 22 行可信觸控檢查，合共 88 行；runtime exceptions 為零。
+
+| 本次修訂驗收 | 結果 |
+|---|---|
+| `npm run check` | 通過 JavaScript 及 SCORM manifest 檢查 |
+| `npm test` | 全套通過，包括本活動更新後的 lifecycle／幾何／source 及 package 瀏覽器測試，以及其餘既有活動與 shared runtime |
+| `npm run package:all` | 16 個套件全部通過；更新後的本活動 ZIP 有 15 個檔案 |
+| 成品 parity | ZIP 中 14 個 runtime 檔案與目前 source 逐位元組一致；根目錄有 `imsmanifest.xml` |
+
+更新成品沿用 `output/force-equilibrium-diagram-lab-scorm.zip`。畫面及觸控證據在 `output/playwright/force-equilibrium/`；本機 Chrome 模擬與 fake LMS 不代表真實手機／Moodle 已通過，Moodle-ready 項目仍待實測。

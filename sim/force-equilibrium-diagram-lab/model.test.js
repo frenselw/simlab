@@ -8,7 +8,7 @@ assert.equal(M.snap(5, [0, 90, 180, 270], "touch").angle, 0);
 assert.equal(M.snap(8, [0, 90], "touch", 0).angle, 0);
 assert.equal(M.snap(9.1, [0, 90], "touch", 0).target, null);
 assert.equal(M.snap(5, [0, 90], "mouse").target, null);
-for (const [w, h] of [[320, 208], [390, 220], [980, 620]]) {
+for (const [w, h] of [[320, 208], [390, 220], [520, 400], [980, 620]]) {
   const l = M.layout(w, h);
   for (let angle = 0; angle < 360; angle += .5) {
     for (const len of [1, 500, 1000]) {
@@ -32,5 +32,6 @@ for (const fps of [30, 60, 120]) {
 }
 assert.ok(M.backgroundOffset(.5, 1) > M.backgroundOffset(1, 1));
 assert.match(Scene.arrowPath({ x: 50, y: 50 }, { x: 90, y: 60 }), /L90\.00,60\.00/);
+assert.match(Scene.arrowPath({ x: 50, y: 50 }, { x: 90, y: 60 }, 1.8), /L90\.00,60\.00/, "enlarged arrows keep the exact interactive endpoint");
 assert.equal(N.html([[3, 400, 500], [3, 1300, 500]], 1), "<var>T</var><sub>2</sub>");
 console.log("equilibrium model: geometry, type-blind snap, history, notation and frame-rate invariance passed");

@@ -286,7 +286,7 @@
   dom.retryFinalButton.addEventListener("click", () => { cancelInteractions(); controller.retryFinal(); });
   dom.referenceButton.addEventListener("click", () => { showReference = !showReference; selected = -1; render(); });
   dom.pauseButton.addEventListener("click", () => { paused = !paused; lastFrame = null; render(); });
-  dom.recoverButton.addEventListener("click", () => { if (confirm("只清除這個已確認未提交的損壞草稿？此操作不能復原。") && controller.recoverDraft() === "reload") location.reload(); });
+  dom.recoverButton.addEventListener("click", () => { if (confirm("只清除這個已確認未提交的損壞草稿？此操作不能復原。")) controller.recoverDraft(); });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && (keyboard || drag)) { e.preventDefault(); cancelInteractions(); render(); }
     if (editable() && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); cancelInteractions(); selected = -1; controller.undo(e.shiftKey); }
