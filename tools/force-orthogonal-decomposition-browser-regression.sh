@@ -13,6 +13,8 @@ server_log=""
 session_started="false"
 lifecycle_session_started="false"
 PORT=""
+browser_args=()
+if [[ "${FOD_HEADED:-0}" == "1" ]]; then browser_args+=(--headed); fi
 
 cleanup() {
   set +e
@@ -72,7 +74,7 @@ fi
 if [[ "${FOD_LIFECYCLE_ONLY:-0}" != "1" ]]; then
   session_started="true"
   set +e
-  open_output=$("$PWCLI" --session "$SESSION" open "http://127.0.0.1:${PORT}/sim/force-orthogonal-decomposition/index.html?playwright=bootstrap" 2>&1)
+  open_output=$("$PWCLI" --session "$SESSION" open "http://127.0.0.1:${PORT}/sim/force-orthogonal-decomposition/index.html?playwright=bootstrap" ${browser_args[@]+"${browser_args[@]}"} 2>&1)
   open_status=$?
   set -e
   printf '%s\n' "$open_output"
@@ -94,7 +96,7 @@ fi
 
 set +e
 lifecycle_session_started="true"
-lifecycle_open_output=$("$PWCLI" --session "$LIFECYCLE_SESSION" open "http://127.0.0.1:${PORT}${FOD_LIFECYCLE_PATH:-/sim/force-orthogonal-decomposition/index.html}?playwright=lifecycle-bootstrap" 2>&1)
+lifecycle_open_output=$("$PWCLI" --session "$LIFECYCLE_SESSION" open "http://127.0.0.1:${PORT}${FOD_LIFECYCLE_PATH:-/sim/force-orthogonal-decomposition/index.html}?playwright=lifecycle-bootstrap" ${browser_args[@]+"${browser_args[@]}"} 2>&1)
 lifecycle_open_status=$?
 set -e
 printf '%s\n' "$lifecycle_open_output"

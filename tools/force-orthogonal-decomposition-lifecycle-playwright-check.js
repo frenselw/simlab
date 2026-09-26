@@ -654,5 +654,23 @@ assert(await frame.locator("#reviewQuestionNavigation [data-question-index]").co
 assert((await frame.locator("#reviewFeedback").textContent()).trim() === "", "finished mismatch: computed per-question feedback was rendered for untrusted data");
 await assertReviewLock(frame, "finished mismatch");
 
-console.log("force orthogonal production lifecycle browser checks passed: success, committed, frozen/reload, retryable precommit, nonretryable preflight, invalid editable draft recovery, invalid pending quarantine, finished fallback, and review lock");
+// Leaving and reopening the SCO retains the parent LMS attempt. Only a fresh
+// LMS data store starts a new attempt; standalone refresh does not change this.
+frame = await openHost("success", "complete-draft", { suspendData: incompleteDraftJson, status: "incomplete", score: "" }, "Moodle same attempt re-entry");
+const beforeExit = await frame.evaluate(() => JSON.stringify(window.ForceOrthogonalDecompositionPersistence.makeSnapshot("draft", window.__forceOrthogonalApp.getActivityState())));
+await frame.goto("about:blank");
+await reloadActivityFrame();
+frame = await frameForHost("Moodle same attempt re-entry");
+await waitForRuntime(frame, "editable", "Moodle same attempt re-entry");
+assert(await frame.evaluate(() => JSON.stringify(window.ForceOrthogonalDecompositionPersistence.makeSnapshot("draft", window.__forceOrthogonalApp.getActivityState()))) === beforeExit, "Moodle same attempt re-entry restores all partial answers and navigation");
+await submitPopulated(frame, "Moodle resumed partial attempt");
+await assertReviewLock(frame, "Moodle resumed partial attempt");
+frame = await openHost("success", "", null, "Moodle new attempt");
+await waitForRuntime(frame, "editable", "Moodle new attempt");
+assert(await frame.evaluate(() => {
+  const P = window.ForceOrthogonalDecompositionPersistence;
+  return !window.SimScorm.isStandalone() && JSON.stringify(P.makeSnapshot("draft", window.__forceOrthogonalApp.getActivityState())) === JSON.stringify(P.makeSnapshot("draft", P.freshDraft()));
+}), "Moodle new attempt starts fresh through the LMS runtime");
+
+console.log("force orthogonal production lifecycle browser checks passed: success, committed, frozen/reload, retryable precommit, nonretryable preflight, invalid editable draft recovery, invalid pending quarantine, finished fallback, review lock, same-attempt re-entry and new-attempt startup");
 }

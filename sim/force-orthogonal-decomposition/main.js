@@ -105,7 +105,6 @@
   let finishRetryAvailable = false;
   let activityLoadError = "";
   let invalidDraftRecovery = false;
-  let standaloneStorageState = "disabled";
   let draftSaveState = "unknown";
   let draftSaveError = "";
   let drag = null;
@@ -947,7 +946,7 @@
 
   function summarySaveStatus() {
     if (draftSaveState === "failed") return "最近一次保存失敗，請重試儲存";
-    if (draftSaveState === "memory-only" && isStandaloneMode()) return "目前只保留本頁，待最終提交評核";
+    if (draftSaveState === "memory-only" && isStandaloneMode()) return "待最終提交評核";
     if (draftSaveState === "saved" || draftSaveState === "memory-only") return "已保存，待最終提交評核";
     return "待保存，提交後評核";
   }
@@ -963,13 +962,9 @@
   }
 
   function draftStatusCopy() {
-    if (isStandaloneMode() && standaloneStorageState !== "available") {
-      return draftSaveState === "failed"
-        ? "本機儲存失敗；目前只保留本頁資料，請勿重載。"
-        : standaloneStorageState === "read-only" ? "本機儲存唯讀；新草稿只保留本頁，重載會回到上次成功保存。" : "本機儲存不可用；只保留本頁草稿，重載可能遺失。";
-    }
     if (draftSaveState === "failed") return "草稿儲存失敗；請修復儲存後再繼續。";
-    return activity.phase === "summary" ? "提交前檢查" : "草稿已保存";
+    if (activity.phase === "summary") return "提交前檢查";
+    return isStandaloneMode() ? "作答中" : "草稿已保存";
   }
 
   function renderPracticeHeader() {
@@ -1086,7 +1081,7 @@
         reset.type = "button";
         reset.className = "danger-button";
         reset.dataset.action = "reset-invalid-draft";
-        reset.textContent = isStandaloneMode() ? "清除損壞本機草稿並重新開始" : "覆寫損壞草稿並重新開始";
+        reset.textContent = "覆寫損壞草稿並重新開始";
         reset.addEventListener("click", resetInvalidDraft);
         dom.technicalActions.appendChild(reset);
       }
@@ -1709,7 +1704,7 @@
     hostTouchScroll.lastY = touch.clientY;
     if (delta && windowObject.parent && windowObject.parent !== windowObject) {
       try { windowObject.parent.scrollBy(0, delta); } catch (_) { /* cross-origin host may deny inspection, not ownership */ }
-      event.preventDefault();
+      if (event.cancelable) event.preventDefault();
     }
   }
 
@@ -1780,17 +1775,13 @@
     if (runtimeState !== "editable" || !SimScorm?.saveDraft) return true;
     try {
       const saved = SimScorm.saveDraft(Persistence.makeSnapshot("draft", snapshotActivity()));
-      standaloneStorageState = SimScorm.getStandaloneStorageStatus?.() || standaloneStorageState;
-      // In an LMS frame, the LMS commit is the authoritative durable write even
-      // when the browser denies localStorage. Only standalone mode can fall
-      // back to the local-storage/memory-only distinction.
-      draftSaveState = saved ? (isStandaloneMode() && standaloneStorageState !== "available" ? "memory-only" : "saved") : "failed";
+      // Standalone practice lasts for this page; LMS saves remain durable.
+      draftSaveState = saved ? (isStandaloneMode() ? "memory-only" : "saved") : "failed";
       draftSaveError = saved ? "" : "草稿未能保存；目前作答只保留在本頁，請按「重試儲存」。";
       return saved;
     } catch (error) {
       draftSaveError = `草稿未能保存：${error.message}`;
       draftSaveState = "failed";
-      standaloneStorageState = SimScorm.getStandaloneStorageStatus?.() || standaloneStorageState;
       return false;
     }
   }
@@ -1967,28 +1958,19 @@
   }
 
   function resetInvalidDraft() {
-    if (runtimeState !== "load-error" || !invalidDraftRecovery) return;
-    const standalone = isStandaloneMode();
-    const warning = standalone
-      ? "目前保存的本機草稿無法驗證。清除後這次未提交作答不能恢復，確定重新開始嗎？"
-      : "目前保存的 LMS 草稿無法驗證。覆寫後這次未提交作答不能恢復，確定重新開始嗎？";
+    if (runtimeState !== "load-error" || !invalidDraftRecovery || isStandaloneMode()) return;
+    const warning = "目前保存的 LMS 草稿無法驗證。覆寫後這次未提交作答不能恢復，確定重新開始嗎？";
     if (typeof windowObject.confirm === "function" && !windowObject.confirm(warning)) return;
 
     let cleared = false;
     try {
-      if (standalone) {
-        cleared = SimScorm?.clearStandaloneAttempt?.(ACTIVITY) === true;
-      } else {
-        const fresh = Persistence.makeSnapshot("draft", Persistence.freshDraft());
-        cleared = SimScorm?.saveDraft?.(fresh) === true;
-      }
+      const fresh = Persistence.makeSnapshot("draft", Persistence.freshDraft());
+      cleared = SimScorm?.saveDraft?.(fresh) === true;
     } catch (error) {
       activityLoadError = `無法重設損壞草稿：${error.message}`;
     }
     if (!cleared && !activityLoadError) {
-      activityLoadError = standalone
-        ? "本機草稿無法清除；資料仍保留，請檢查瀏覽器儲存權限後再試。"
-        : "LMS 草稿無法覆寫；資料仍保留，請檢查 LMS 連線及保存權限後再試。";
+      activityLoadError = "LMS 草稿無法覆寫；資料仍保留，請檢查 LMS 連線及保存權限後再試。";
     }
     if (!cleared) {
       renderTechnical();
@@ -2033,7 +2015,7 @@
       renderAll();
       return;
     }
-    const standaloneStorage = SimScorm.enableStandalonePersistence?.(ACTIVITY);
+    // The shared memory-only fallback starts fresh on standalone refresh.
     let attempt;
     try { attempt = SimScorm.loadAttempt(ACTIVITY); } catch (error) {
       runtimeState = "load-error";
@@ -2080,15 +2062,14 @@
       activity = attempt.state === "draft" ? Persistence.decodeSnapshot(attempt.snapshot, "draft") : Persistence.freshDraft();
       state = activity.questions[activity.currentQuestion];
     } catch (error) {
-      invalidDraftRecovery = attempt.state === "draft";
+      invalidDraftRecovery = attempt.state === "draft" && !isStandaloneMode();
       runtimeState = "load-error";
       activityLoadError = `草稿無法驗證：${error.message}`;
       renderAll();
       return;
     }
     runtimeState = "editable";
-    standaloneStorageState = standaloneStorage;
-    draftSaveState = isStandaloneMode() && standaloneStorage !== "available" ? "memory-only" : "saved";
+    draftSaveState = isStandaloneMode() ? "memory-only" : "saved";
     if (attempt.state === "draft") {
       message = `已恢復第 ${activity.currentQuestion + 1} 題草稿；請按目前步驟繼續作答。`;
       messageKind = "";

@@ -32,6 +32,9 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
   require explicit final submission. Recorded attempts are review-only; neither
   Moodle nor standalone may offer a clear-results/restart control. Pending
   submissions remain frozen for retry.
+- Apply the production guide's [standalone refresh / Moodle resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume):
+  standalone refresh starts fresh; Moodle retains the same attempt. No activity
+  may opt into persistent standalone answers/results.
 - Before coding, complete the plan's assessment risk, rubric, dependencies,
   phase/variant matrix, authoritative snapshot schema, and test decisions.
   Browser scoring is for formative/low-risk use; high-risk grading needs trusted

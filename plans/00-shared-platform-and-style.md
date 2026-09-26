@@ -88,6 +88,9 @@ the final check remains reachable under the next section's contract.
 - Once a result is recorded, keep that attempt review-only, including zero-score
   attempts. Do not offer a learner-facing clear-results/restart action in either
   Moodle or standalone mode. A new Moodle attempt is started through Moodle.
+- Standalone browser refresh starts a fresh practice session with empty answers,
+  including after submission. In Moodle, retain work within the same attempt.
+  Follow the production guide's [refresh/resume contract](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
 - A pending or uncertain submission also cannot be cleared or reopened; retain
   its payload for retry. Technical errors must not claim a confirmed score or
   submission. Recovery rules are defined in the production guide.

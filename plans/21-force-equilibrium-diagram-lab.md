@@ -139,7 +139,7 @@ A、C、D 固定為靜止；B、E 的狀態組合從「靜止／勻速」「勻�
 | Incomplete submission | 只列「已選幾個力、已畫幾個方向、哪些題未作答」；不提前告知應有幾個力或對錯；全空白亦可明確提交 |
 | Editable reset | 「清除本題」保留本題 seed、場景及其他四題；已有記錄時確認，支援 undo；不提供本題重抽來避開難題 |
 | Clear all answers | 依使用者修訂，edit 及 check 提供「清除全部答案」。確認後一次清空五題答案，回到第1題 edit，保留 seed/version、題目和次序；取消 working drag／keyboard／preview、選取與各題 undo/redo。全空白時停用，取消確認不改答案；提交／pending／technical／mismatch 都不能使用 |
-| Scored / pending attempt | 本頁已記錄只讀、pending frozen 同一份答案重試；不提供清成績或 restart 控制。Moodle 重開維持相同記錄；獨立練習刷新開始新一輪，見下方明確例外 |
+| Scored / pending attempt | 本頁已記錄只讀、pending frozen 同一份答案重試；不提供清成績或 restart 控制。Moodle 同一嘗試重開維持相同記錄；獨立練習刷新依共用契約開始新一輪 |
 
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
 |---|---|---|---|
@@ -290,7 +290,7 @@ Finished restore：validate → regenerate scene → restore learner records →
 
 ## Shared SCORM lifecycle
 
-採[shared lifecycle](../docs/simulation-scorm-production-guide.md#mandatory-shared-lifecycle-flow)，不另做commit／finish／page lifecycle。依 2026-09-26 使用者明確要求，Standalone 使用 shared runtime 預設的記憶體模式，不 opt in `enableStandalonePersistence(ACTIVITY)`：刷新可開始新一輪，包括提交後。這是本活動獨立練習的明確例外；Moodle 的草稿、已交檢討及 pending 恢復規則不變。
+採[shared lifecycle](../docs/simulation-scorm-production-guide.md#mandatory-shared-lifecycle-flow)，不另做commit／finish／page lifecycle。Standalone 使用 shared runtime 預設記憶體模式：刷新可開始新一輪，包括提交後。此行為於 2026-09-26 依使用者要求加入，2026-09-27 已成為所有活動的[共用 refresh／續做契約](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume)；Moodle 的草稿、已交檢討及 pending 恢復規則不變。
 
 | Outcome / policy | Activity handler, controls and learner-facing message |
 |---|---|
