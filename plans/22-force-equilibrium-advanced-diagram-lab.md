@@ -1,8 +1,8 @@
-# 共點力平衡：進階受力圖挑戰（計劃草案）
+# 共點力平衡：進階受力圖挑戰
 
-> 2026-09-27：使用者要求先設計五種進階題型，再審閱計劃；本輪先規劃，未開始實作。專用分支：`codex/force-equilibrium-advanced-diagram-lab`，由`main`的`724c3a3`建立。本輪只修改計劃文件，不改原活動或正式目錄。
+> 2026-09-27：使用者已同意本計劃並要求立即完整實作。專用分支：`codex/force-equilibrium-advanced-diagram-lab`，由`main`的`724c3a3`建立。以下作為實作契約；文末原規劃階段紀錄屬歷史。
 
-本草案由[新活動範本](NEW-SIMULATION-PLAN-TEMPLATE.md)建立，依[共用風格](00-shared-platform-and-style.md)及[製作指南](../docs/simulation-scorm-production-guide.md)。操作與美術完整沿用[基礎版](21-force-equilibrium-diagram-lab.md)；本文件集中記錄五種新題的物理條件、研究對象及必要差異。以下題幹、參數與驗收項目均為擬定，不能當作已實作或已測試的證據。
+本活動由[新活動範本](NEW-SIMULATION-PLAN-TEMPLATE.md)建立，依[共用風格](00-shared-platform-and-style.md)及[製作指南](../docs/simulation-scorm-production-guide.md)。操作與美術完整沿用[基礎版](21-force-equilibrium-diagram-lab.md)；本文件集中記錄五種新題的物理條件、研究對象及必要差異。以下為實作契約；驗收結果以文末實測證據為準。
 
 ## 教材分析及選題理由
 
@@ -24,7 +24,7 @@
 | D 水平推動斜面木塊 | 木塊接觸粗糙斜面，受到朝上坡一側的水平推力；相對斜面勻速上行或下行 | G鉛直向下；N垂直斜面向外；F保持水平；f沿斜面與相對滑動方向相反，共4力 | 水平推力不沿斜面；同一施力方向配合不同運動方向，摩擦方向不同。鏡像、坡角及上／下行隨機 |
 | E 三繩連接兩球 | 上方繩a連天花與球1，斜繩b連球1至右下球2，水平繩c連球2與右牆；繩均拉緊，兩球靜止；指定球1或球2 | 球1：G向下、a的拉力向左上、b的拉力向右下。球2：G向下、b的拉力向左上、c的拉力向右；各3力 | 繩拉力也可有向下分量；同一條b對兩球作用方向相反；不混入另一物體受力。鏡像、幾何及指定物體隨機 |
 
-### 題幹及提交後解說的草案
+### 題幹及提交後解說
 
 - **A題幹**：「小球靜止在兩個固定的光滑接觸面之間，並同時接觸兩面。請畫出小球受到的各個力。」解說按接觸來源逐一辨認兩個支持力，指出支持力垂直接觸面，不把兩個N合併成一支任意方向的力。
 - **B題幹**：「小球由一條拉緊的輕繩及一條已被拉長的輕彈簧連接固定端，保持靜止。請畫出小球受到的各個力。」解說分別追蹤繩端及彈簧端；拉伸彈簧沿自身軸線把小球拉向固定端，不能因物體靜止就忽略彈簧。
@@ -40,7 +40,7 @@
 |---|---|
 | Slug / learning objective | `force-equilibrium-advanced-diagram-lab`；辨認多接觸、多物體、彈簧及不同摩擦情境中的真正外力與方向 |
 | Learner task / main interactions | 五張獨立受力圖；沿用基礎版選種類、中心起筆、改箭尖、刪改、undo/redo、清除本題／全部、檢查及明確提交 |
-| Runtime files / libraries and justification | 擬用原生HTML/CSS/JS、SVG；`index.html`、`styles.css`、`main.js`及與基礎版同職責的model/generator/scene/notation/scoring/persistence/ui-runtime模組；沿用三個shared檔案，不增函式庫 |
+| Runtime files / libraries and justification | 使用原生HTML/CSS/JS、SVG；`index.html`、`styles.css`、`main.js`及與基礎版同職責的model/generator/scene/notation/scoring/persistence/ui-runtime模組；沿用三個shared檔案，不增函式庫 |
 | Assessment risk / trusted validation | `formative`；瀏覽器判分、100分、60分達標；高風險評核所需服務端驗證不在本版範圍 |
 | Out of scope | 求力大小、依箭長判平衡、分力圖、力矩／梯子／剛體轉動、彈簧振動、加速度、要求兩個物體各交一圖、老師題庫編輯器 |
 
@@ -55,11 +55,11 @@
   categories: ["Mechanics"],
   description: "在多接觸面、彈簧及多物體平衡情境中，辨認指定物體的外力並畫出正確方向。",
   tags: ["physics", "mechanics", "equilibrium", "free-body-diagram", "spring", "drawing", "scorm"],
-  status: "planned"
+  status: "active"
 }
 ```
 
-以上只為擬定metadata；本輪不改`sim/config.js`。實作完成且可部署後才標記`active`。
+以上metadata已加入`sim/config.js`，與基礎版各自獨立列出。
 
 ## Physics or subject model
 
@@ -69,7 +69,7 @@
 
 以下W表示重力大小，力以N、長度以m、彈簧常數k以N/m、摩擦因數及比值以無量綱表示；角度以度定義，內部計算用一致的弧度轉換。數值只供生成器確認存在正值的平衡解，不要求學生計算或按比例畫力。
 
-| 題型及狀態變量 | 擬定取值／幾何限制 | 平衡條件及檢查 |
+| 題型及狀態變量 | 實作取值／幾何限制 | 平衡條件及檢查 |
 |---|---|---|
 | A：坡角θ、mirror | θ∈{30°,40°,45°,50°,55°}；球和兩個面恰好接觸；豎板高度足夠 | N斜面=W/cosθ；N牆=Wtanθ，均>0；ΣF=0 |
 | B：繩對水平角γ、彈簧對水平角δ、mirror | γ∈{45°,55°,65°}；δ∈{−15°,0°,15°}；繩向左上、彈簧固定端在右側；L>L₀ | T=Wcosδ/sin(γ+δ)，Fₛ=Wcosγ/sin(γ+δ)，均>0；Fₛ=k(L−L₀)，k>0；斜向下彈簧也有有效平衡解 |
@@ -136,26 +136,26 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 ## Touch gesture ownership contract
 
-依[完整touch契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)，沿用基礎版穩定target及ownership。以下是待驗收設計，原活動已通過的紀錄不能代替新場景／新力類型的證據。
+依[完整touch契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)，沿用基礎版穩定target及ownership。本活動另行執行新場景／新力類型的驗收，原活動測試不代替本活動證據。
 
 | Target type | Selector / hit area and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
-| 指定物體中心起筆 | `#originHit`，≥44px | 穩定HTML target，none；drag不replace | 面板選力後用方向鍵／參考角作圖 |
+| 指定物體中心起筆 | `.origin-hit`，≥44px | 穩定HTML target，none；drag不replace | 面板選力後用方向鍵／參考角作圖 |
 | 六類力及同類多力的每個箭尖 | `.force-head-hit`，≥44px | 各自穩定target，none；重疊時由面板決定選中目標 | 面板選取、方向及長度微調 |
 | 指定物體以外的物體、繩及彈簧 | 非draggable場景 | 不鋪全舞台攔截層 | N/A，無需操作 |
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
-| 空白舞台、另一物體、繩、彈簧 | host | pan-y；不改任何作答 | 待測source＋package，兩向swipe |
-| panel及頂／底邊界 | panel | 只捲本身，host及stage固定 | 待測六列控制、middle/top/bottom |
+| 空白舞台、另一物體、繩、彈簧 | host | pan-y；不改任何作答 | source＋package，兩向swipe通過；SVG內容不攔截手勢 |
+| panel及頂／底邊界 | panel | 只捲本身，host及stage固定 | 六列控制、middle/top/bottom通過 |
 | 全舞台自由繪圖層 | N/A | 採中心handle，不建立全舞台drawing overlay | 檢查沒有誤加攔截層 |
-| 左側strip | host | ≥32px且不被箭尖target／preview侵佔 | 待測兩向swipe |
-| 右側strip | host | 同左，分開驗證 | 待測兩向swipe |
-| 中心及每類箭尖 | simulation | trusted move/up、無正常cancel；host、panel、document及viewport固定 | 待測G/N/f/T/F/Fₛ，另測第二個N/T及同向F＋Fₛ |
-| 鎖定後舊target位置 | host | 撤除drag ownership，不能改答案 | 待測review／frozen／committed |
+| 左側strip | host | ≥32px且不被箭尖target／preview侵佔 | 兩向swipe通過 |
+| 右側strip | host | 同左，分開驗證 | 兩向swipe通過 |
+| 中心及每類箭尖 | simulation | trusted move/up、無正常cancel；host、panel、document及viewport固定 | G/N/f/T/F/Fₛ、第二個N/T及同向F＋Fₛ均通過 |
+| 鎖定後舊target位置 | host | 撤除drag ownership，不能改答案 | review／frozen／committed均通過 |
 
 - host路徑、bounded-document enforcement及多指取消／rollback沿用基礎版；若同源iframe使用host forwarding，記錄並排除double scroll。不同源及實體Moodle仍需部署驗收。
-- 擬新增`tools/force-equilibrium-advanced-browser-regression.js`，在可捲host測source／extracted兩路，記錄全部scroll／viewport／iframe bounds、trusted pointer及答案前後差異；證據放`output/playwright/force-equilibrium-advanced/`。
+- 新增`tools/force-equilibrium-advanced-browser-regression.js`，在可捲host測source／extracted兩路，記錄全部scroll／viewport／iframe bounds、trusted pointer及答案前後差異；證據放`output/playwright/force-equilibrium-advanced/`。
 - D背景時間另行控制以隔離手勢效果；DOM-dispatch、programmatic scroll或沿用基礎版截圖均不當作新活動觸控驗收。
 
 ## Scoring and tolerance
@@ -214,7 +214,7 @@ Follow the production guide's [snapshot/restore contract](../docs/simulation-sco
 | Transient | drag/preview/capture/hover、選中力、undo/redo、背景相位／暫停、review選題；不存 |
 | Derived | 研究物體、場景幾何、題序、預期外力、內部平衡大小、標籤、DOM IDs、分數及解說 |
 | Version compatibility | 獨立activity id，拒絕基礎版快照混入；初版只接受已登記v1組合。以後須保留舊generator／rubric或明確拒絕，不悄悄重判 |
-| Size | 40-record最壞draft/review及shared pending envelope須實測均≤4000 UTF-8 bytes；數值在實作後記錄，不能引用基礎版byte數冒充新證據 |
+| Size | 40-record最壞樣本：draft 797、review 774、shared pending envelope 956 UTF-8 bytes，均≤4000；測試包括三個彈簧力及同類多力 |
 | Invalid finished review | 鎖定，僅呈現可信Moodle摘要，不另開練習 |
 | Invalid pending-final | decode／rescore不符即quarantine，保留資料但禁retry／clear／edit |
 | Invalid editable draft | 先技術鎖定；只有確定未提交時提供確認後覆寫新draft的recovery，成功保存才恢復；未知／已交／pending不可清 |
@@ -242,43 +242,66 @@ Use `SimScorm.loadAttempt()` with `SimActivityFlow.startup()`, register `SimScor
 
 Apply all relevant [verification checks](../docs/simulation-scorm-production-guide.md#verification-checklists), including the minimum phone/short-iframe viewport matrix.
 
-- [ ] Generator窮舉有限參數：每套五類各一、D提供勻速；ΣF殘差、N/T/Fₛ正值、靜摩擦上限、彈簧L與L₀關係、E兩球同時平衡；seed/version與鏡像一致。
-- [ ] 物理語意：A兩N、B斜下彈簧、C兩目標及同向F/Fₛ、D上／下行摩擦、E向下拉力；不替學生畫分力、合力或另一物體的力。
-- [ ] 六類force tuples的評分／decode／顯示全覆蓋；C4/5力及E換目標仍各20分；N/T交換新增次序不影響分數，F與Fₛ不可互代。
-- [ ] D背景沿坡等速反向移動而作圖物體／座標固定；pause、reduced-motion及不同frame rate不改作答／評分。
-- [ ] Scoring covers blank/partial answers, component independence, extras, penalties and tolerance boundaries.
-- [ ] Every editable phase can reach final check and submit blank/partial work; scored/pending states have no erase/restart route.
-- [ ] Production encode/decode/restore round-trip covers **every** matrix row with production-shaped fixtures, equal score and execution of one legal continuation.
-- [ ] Invalid matrix combinations, numbers, enums, dependencies and authoritative keys fail closed; derived IDs rebuild; version policy and 4000-byte ceiling are tested.
-- [ ] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
-- [ ] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
-- [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
-- [ ] Every applicable gesture row passes with trusted input in a scrollable Moodle-like iframe on **source and extracted SCORM**; record all guide-required scroll/viewport/iframe metrics, including no third scroll owner.
-- [ ] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.
+- [x] Generator窮舉有限參數：每套五類各一、D提供勻速；ΣF殘差、N/T/Fₛ正值、靜摩擦上限、彈簧L與L₀關係、E兩球同時平衡；seed/version與鏡像一致。
+- [x] 物理語意：A兩N、B斜下彈簧、C兩目標及同向F/Fₛ、D上／下行摩擦、E向下拉力；不替學生畫分力、合力或另一物體的力。
+- [x] 六類force tuples的評分／decode／顯示全覆蓋；C4/5力及E換目標仍各20分；N/T交換新增次序不影響分數，F與Fₛ不可互代。
+- [x] D背景沿坡等速反向移動而作圖物體／座標固定；pause、reduced-motion及不同frame rate不改作答／評分。
+- [x] Scoring covers blank/partial answers, component independence, extras, penalties and tolerance boundaries.
+- [x] Every editable phase can reach final check and submit blank/partial work; scored/pending states have no erase/restart route.
+- [x] Production encode/decode/restore round-trip covers **every** matrix row with production-shaped fixtures, equal score and execution of one legal continuation.
+- [x] Invalid matrix combinations, numbers, enums, dependencies and authoritative keys fail closed; derived IDs rebuild; version policy and 4000-byte ceiling are tested.
+- [x] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
+- [x] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
+- [x] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
+- [x] Every applicable gesture row passes with trusted input in a scrollable Moodle-like iframe on **source and extracted SCORM**; record all guide-required scroll/viewport/iframe metrics, including no third scroll owner.
+- [x] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.
 
 ## Package-ready checklist
 
-- [ ] Above decisions, state matrix and test evidence are complete; required keyboard alternatives work.
-- [ ] Phone, tablet and desktop layouts, short iframe, toolbar/keyboard changes and 200% zoom preserve readable content and reachable actions.
-- [ ] `npm run check`, `npm test` and `npm run package:all` pass; record commands, results and artifact paths.
-- [ ] `git diff --check` and the PR diff against its actual base pass.
-- [ ] ZIP has root `imsmanifest.xml`, every runtime asset is declared and no development-only files ship.
-- [ ] Built/extracted launch smoke and the full applicable trusted-touch matrix pass; use the documented Git Bash route on Windows.
-- [ ] Assessment risk and any trusted validation requirement are recorded.
+- [x] Above decisions, state matrix and test evidence are complete; required keyboard alternatives work.
+- [x] Phone, tablet and desktop layouts, short iframe, toolbar/keyboard changes and 200% zoom preserve readable content and reachable actions.
+- [x] `npm run check`, `npm test` and `npm run package:all` pass; record commands, results and artifact paths.
+- [x] `git diff --check` and the PR diff against its actual base pass.
+- [x] ZIP has root `imsmanifest.xml`, every runtime asset is declared and no development-only files ship.
+- [x] Built/extracted launch smoke and the full applicable trusted-touch matrix pass; use the documented Git Bash route on Windows.
+- [x] Assessment risk and any trusted validation requirement are recorded.
 
 ## Moodle-ready checklist
 
 - [ ] Package-ready gates pass; real Moodle student-account submission records score/status.
 - [ ] Draft resume, pending retry, immutable scored review and LMS new-attempt policy work.
 - [ ] Real-phone complete gesture matrix passes in current-window and offered new-window Moodle players.
-- [ ] Required server-side validation works for high-risk assessment.
+- N/A：本活動為formative低風險作圖練習，不提供高風險評核所需的server-side validation。
 - [ ] Moodle and physical-device evidence is recorded separately from local checks; list any unverified item explicitly.
 
-## 擬定實作次序與本輪交付
+## 原規劃階段紀錄（歷史）
 
 1. 審閱並調整這五類題意、物理條件及視覺研究物體標示；確認後再進入simulation實作。
 2. 在本專用分支建立獨立活動，以基礎版最新介面為起點，實作生成器／參考場景／第六種力及題目回饋，先完成模型與評分核對。
 3. 接入既有作圖、投影尺寸、手機preview、清除及shared SCORM流程；驗證多物體、同向箭頭及新增彈簧列沒有遮擋／操作退化。
 4. 完成source及extracted package的作圖／restore／trusted-touch檢查，更新catalogue、manifest及test runner，再交付新SCORM ZIP；main合併與發布留待實作完成後處理。
 
-本輪僅建立分支及本計劃草案；教材截圖作選題參考，定稿題意與場景圖留待設計審閱後製作。尚未建立runtime、改catalogue、產生新SCORM或完成實作驗收。
+規劃階段提交`b6bff48`只建立分支及本計劃。其後使用者批准完整實作；目前狀態以以下實作證據為準。
+
+
+## 完整實作及驗證紀錄（2026-09-27）
+
+- 專用分支`codex/force-equilibrium-advanced-diagram-lab`，基準`724c3a3`。新增獨立活動、manifest、目錄項目、六個Node測試檔及source／extracted SCORM browser runner；沿用原版三區排版及shared SCORM，沒有增加學生活動依賴。
+- 新增六類共用force palette中的「彈簧彈力」Fₛ。C、E每次只指定一個研究物體，只有該物體可起筆。C的F與Fₛ即使完全重疊，也能由面板選取，選中箭頭／hit target置頂；參考圖用不同示意箭長分辨同向來源，方向及評分不變。
+- A、B、C、E靜止；D沿斜面反向平移低對比地面紋理，物體、中心、答案固定。新增彈簧場景進入相同的真實局部preview與總覽，不預畫答案；E上方空間留給繩a，隱藏與繩重疊的重複起筆提示，面板仍提供完整操作說明。
+- `generator.test.js`：窮舉164種參數組合，檢查力和、正值、彈簧變形／胡克定律、靜／滑動摩擦、兩球各自平衡及鏡像；2,000組seed覆蓋全部164種題目及120種次序。
+- `scene.test.js`：164種題目×7種stage尺寸，共1,148組實際場景幾何檢查，涵蓋球與兩面接觸、彈簧／繩連接、兩木塊落地、施力器作用於B、兩球及固定端可見、最大箭長仍在可操作範圍；另驗證同向箭頭選取後顯示順序。
+- `model/scoring`：六類記錄、同類數量上限、type-blind snap、有效箭尖、歷史及notation；空白、null方向、部分分、多力、10°／10.1°、跨0°及箭長無關。C的4／5力同樣滿分20；F不能代替Fₛ；E球1的b拉力反向會失去該方向分；同類N／T作答次序不影響分數。
+- `persistence`：48種phase／內容／返回檢查round-trip和合法後續，另有100組seed的六類部分答案重建、分數相等及續做，覆蓋C／E目標與左右鏡像的8種組合；錯答與損壞資料分開檢查，拒絕基礎版activity id混入。
+- `lifecycle`：執行正式Controller及shared runtime，涵蓋空白／種類未畫／部分／滿分、draft/check/review/frozen、四種submission結果、保存／commit／finish失敗、retry、未知／不一致資料及pending quarantine；清除全部保留seed和目標，已交與pending不可清除；same-attempt恢復及空白LMS新attempt分開驗證。
+- 瀏覽器使用項目既有Chrome/CDP工具和browser-level trusted touch，手勢矩陣各用獨立分頁，避免跨矩陣的emulator手勢狀態互相影響。實際pointer、preview、host／iframe／document／panel與雙方visual viewport仍全部斷言，沒有以合成DOM事件代替觸控。
+
+- 新活動瀏覽器回歸已通過source與extracted package。Chrome 154.0.8037.57；每路9種視窗及200% visual viewport scale、52個場景／視窗組合，合共104個場景檢查。手機force標籤18px；桌面舞台達條件時32.4px。軟鍵盤N/A（無文字輸入）；硬體鍵盤Enter／方向鍵／確認及重新畫圖已測。
+- 可信觸控證據98列：source／package各有390×500及320×500的23列，加每路3列拉伸／壓縮彈簧preview、箭尖編輯及重疊選取檢查。包括兩側條帶及空白雙向host捲動、panel中段／兩端、六種類與重複N/T、cancel rollback、多指handoff、review/frozen/committed舊target範圍；記錄before/after答案、pointer和完整捲動幾何。執行例外為0。
+- source／package正式UI均驗證獨立頁partial/check/submitted重新整理為空白，以及之後重新畫／提交；四種舊checkpoint與拒絕localStorage均不鎖住啟動。另測Moodle fixture的draft/review/pending恢復、同payload retry、新attempt空白，沒有自行清舊成績。
+- `npm run check`通過。`npm run package:all`已通過全部17個SCORM包；新包15個檔案（根`imsmanifest.xml`與14個runtime檔），逐檔與目前source相同，不含測試／工具。新包41,707 bytes；SHA-256 `9516529d0668fd5c78b6608d5ba07fc2935c7ffae4e89a70f465a8f72993d877`。
+- 證據：`output/playwright/force-equilibrium-advanced/report.json`、`package-parity.json`、同目錄source/package場景與preview截圖；全項目命令紀錄為`output/advanced-equilibrium-full-test.log`及`output/advanced-equilibrium-package-all.log`。
+
+全項目`npm test`已完整通過，包括新活動、其餘既有活動及shared runtime；`npm run check`、`npm run package:all`（17包）及新增檔案／完整分支diff的whitespace檢查均通過。Package-ready已完成。真實Moodle帳戶、實體手機及不同源iframe仍未測試，本地證據不構成Moodle-ready。
+
+成品入口：`sim/force-equilibrium-advanced-diagram-lab/index.html`。本機預覽：`http://127.0.0.1:8765/force-equilibrium-advanced-diagram-lab/`。新SCORM包：`output/force-equilibrium-advanced-diagram-lab-scorm.zip`；全部17包位於`output/`。
