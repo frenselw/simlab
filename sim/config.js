@@ -126,6 +126,14 @@ const simulationList = [
     description: "在五種隨機平衡情境中，從物體重心畫出種類與方向正確的受力圖。",
     tags: ["physics", "mechanics", "forces", "equilibrium", "free-body-diagram", "drawing", "scorm"],
     status: "active"
+  },
+  {
+    title: "共點力平衡：進階受力圖挑戰",
+    folder: "force-equilibrium-advanced-diagram-lab",
+    categories: ["Mechanics"],
+    description: "在多接觸面、彈簧及多物體平衡情境中，辨認指定物體的外力並畫出正確方向。",
+    tags: ["physics", "mechanics", "equilibrium", "free-body-diagram", "spring", "drawing", "scorm"],
+    status: "active"
   }
 ];
 
