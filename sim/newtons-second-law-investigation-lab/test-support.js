@@ -37,7 +37,7 @@ function record(state, group, mi, fi) {
   return M.change(s, {type:"record", group});
 }
 function filled() {
-  let s = M.fresh();
+  let s = M.fresh(2, () => 0);
   s.groups[0].roles = ["force","mass","acceleration"];
   s.groups[1].roles = ["mass","force","acceleration"];
   for (let i=0;i<6;i++) { s = record(s,0,2,i); s = record(s,1,[0,1,2,3,4,6][i],2); }
@@ -56,5 +56,15 @@ function finishedData(state) {
   const e=environment({standalone:true}),result=S.score(state);
   return {"cmi.core.lesson_status":result.passed?"passed":"failed","cmi.core.score.raw":String(result.score),"cmi.suspend_data":JSON.stringify(e.scorm.makeSnapshot(P.ACTIVITY,"review",P.review(state),result))};
 }
-function legacy(state) { const s=M.clone(state);s.schemaVersion=1;s.rubricVersion=1;s.plots.forEach(p=>{delete p.meaning;});return s; }
-module.exports={environment,record,filled,durableDraft,finishedData,legacy};
+function legacy(state, version=1) {
+  const s=M.clone(state);s.schemaVersion=version;
+  if(version===1){s.rubricVersion=1;s.plots.forEach(p=>{delete p.meaning;});}
+  s.setups?.forEach(setup=>{setup.locks=[false,false];});return s;
+}
+function assertFresh(state, rubricVersion=2) {
+  P.draft(state);
+  const expected=M.fresh(rubricVersion,()=>0);
+  state.setups.forEach((setup,i)=>{assert.ok(M.INITIAL_MASSES.includes(setup.settings[0]),"new starting mass excludes 1 kg");expected.setups[i].settings[0]=setup.settings[0];});
+  assert.deepEqual(state,expected);assert.equal(S.score(state).score,0);
+}
+module.exports={environment,record,filled,durableDraft,finishedData,legacy,assertFresh};

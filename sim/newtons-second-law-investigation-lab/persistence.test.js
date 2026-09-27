@@ -37,7 +37,7 @@ for(const phase of ["conclude","check"]) for(const content of ["blank","partial"
   if(phase==="check" && returning)continue;
   let s=content==="full"?filled():M.fresh(); if(content==="partial") s.conclusions[1]="direct";
   s=P.navigate(s,phase);s.returnToCheck=returning;
-  roundtrip(s,c=>{c.navigate("collect",1);assert.equal(c.state.returnToCheck,phase==="check"||returning);assert.ok(c.command({type:"lock",index:1}));});
+  roundtrip(s,c=>{c.navigate("collect",1);assert.equal(c.state.returnToCheck,phase==="check"||returning);assert.ok(c.command({type:"setting",index:1,value:(c.state.setups[1].settings[1]+1)%6}));});
 }
 for(const state of [M.fresh(),record(M.fresh(),0,1,2),filled()]) {
   const e=environment({durable:finishedData(state)});assert.equal(e.c.mode,"review");assert.deepEqual(e.c.state,P.review(state));assert.equal(S.score(e.c.state).score,S.score(state).score);
@@ -51,7 +51,17 @@ for(const graph of [0,1,2])for(const returning of [false,true])for(const meaning
   s=P.navigate(s,"plot",graph);s.returnToCheck=returning;
   roundtrip(s,c=>{const value=meaning===null?M.INTERPRETATIONS[graph].answer:null;assert.ok(c.command({type:"meaning",value}));assert.equal(c.state.plots[graph].meaning,value);});
 }
-const invalid=[s=>s.groups.pop(),s=>s.groups[0].records.push([0,0,1]),s=>s.groups[0].roles[0]="velocity",s=>s.plots[0].points.push([1,1]),s=>s.plots[0].points[0]=[Infinity,0],s=>s.plots[0].points[0]=[-1,0],s=>s.plots[1].points[0]=[0,30001],s=>s.plots[0].points[0]=[0,0,0],s=>s.plots[0].model="cubic",s=>s.plots[0].model=null,s=>s.conclusions[0]="unknown",s=>s.phase="review",s=>s.graph=0,s=>s.group=null,s=>s.setups[0].candidate=M.measure(0,0),s=>s.schemaVersion=7,s=>s.schemaVersion=1,s=>s.rubricVersion=7,s=>delete s.plots[0].meaning,s=>s.plots[0].meaning="velocity",s=>s.setups[0].locks[0]=0,s=>s.extra=1];
+for(let i=0;i<6;i++)for(const group of [0,1])for(const phase of ["initial","candidate","recorded"]) {
+  let s=P.navigate(M.fresh(2,()=>(i+.5)/6),"collect",group);
+  if(phase!=="initial")s=M.change(s,{type:"measure"});
+  if(phase==="recorded")s=M.change(s,{type:"record"});
+  roundtrip(s,c=>{
+    assert.equal(c.state.setups[group].settings[0],M.INITIAL_MASSES[i]);
+    if(phase==="candidate")assert.ok(c.command({type:"record"}));
+    else {assert.ok(c.command({type:"setting",index:0,value:2}));assert.ok(c.command({type:"measure"}));assert.equal(c.state.setups[group].candidate[0],2);}
+  });
+}
+const invalid=[s=>s.groups.pop(),s=>s.groups[0].records.push([0,0,1]),s=>s.groups[0].roles[0]="velocity",s=>s.plots[0].points.push([1,1]),s=>s.plots[0].points[0]=[Infinity,0],s=>s.plots[0].points[0]=[-1,0],s=>s.plots[1].points[0]=[0,30001],s=>s.plots[0].points[0]=[0,0,0],s=>s.plots[0].model="cubic",s=>s.plots[0].model=null,s=>s.conclusions[0]="unknown",s=>s.phase="review",s=>s.graph=0,s=>s.group=null,s=>s.setups[0].candidate=M.measure(0,0),s=>s.schemaVersion=7,s=>s.schemaVersion=1,s=>s.schemaVersion=2,s=>s.rubricVersion=7,s=>delete s.plots[0].meaning,s=>s.plots[0].meaning="velocity",s=>s.setups[0].locks=[false,false],s=>s.extra=1];
 for(const mutate of invalid) {const s=filled();mutate(s);assert.throws(()=>P.draft(s));}
 let s=P.navigate(M.fresh(),"check");s.returnToCheck=true;assert.throws(()=>P.draft(s));
 const brokenEnvelope=environment({standalone:true}).scorm.makeSnapshot(P.ACTIVITY,"draft",M.fresh());brokenEnvelope.activity="another";assert.throws(()=>P.decode(brokenEnvelope,"draft"));

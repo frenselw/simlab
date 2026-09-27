@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   const M = NewtonModel, P = NewtonPersistence, G = NewtonGraph, F = NewtonFitting, E = NewtonExperiment, I = NewtonInterpretation;
-  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massLock", "massDown", "massUp", "massValue", "forceLock", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
+  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massDown", "massUp", "massValue", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
   const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula", "interpretationPanel", "interpretationWeight", "coefficientReadout", "meaningPrompt", "meaningChoices", "conversionReadout").map(id => [id, document.getElementById(id)]));
   const esc = G.escape, display = n => Number(n.toPrecision(5)).toString(), phaseTitles = { collect: "實驗", plot: "作圖", conclude: "歸納", check: "檢查" };
   const controller = new NewtonRuntime.Controller(SimScorm, SimActivityFlow, render);
@@ -61,22 +61,17 @@
   }
   function renderCollect(i) {
     const s = controller.state, g = s.groups[i], setup = s.setups?.[i], busy = moving(), locked = !editable();
-    d.collectTitle.textContent = i === 0 ? "A · 探究合外力" : "B · 探究總質量";
-    d.collectPrompt.textContent = `探究${i === 0 ? "合外力" : "總質量"}對加速度的影響。請自行決定改變、保持不變及量度的量。`;
+    d.collectTitle.textContent = i === 0 ? "A · 探究加速度與合外力的關係" : "B · 探究加速度與總質量的關係";
+    d.collectPrompt.textContent = "請自行決定改變、保持不變及量度的量，收集數據來探究這兩個量的關係。";
     for (let j = 0; j < 3; j++) { d[`role${j}`].value = g.roles[j] || ""; d[`role${j}`].disabled = locked || busy; d[`roleSymbol${j}`].innerHTML = symbols[g.roles[j]] || ""; }
     d.instrumentControls.hidden = locked;
     if (setup) {
       const [mi, fi] = setup.settings;
       d.massValue.textContent = `${M.mass(mi).toFixed(2)} kg`; d.forceValue.textContent = `${M.force(fi).toFixed(2)} N`;
       d.forceRange.value = fi; d.forceRange.setAttribute("aria-valuetext", `${M.force(fi).toFixed(2)} 牛頓`);
-      for (const [name, j] of [["mass", 0], ["force", 1]]) {
-        d[`${name}Lock`].setAttribute("aria-pressed", String(setup.locks[j])); d[`${name}Lock`].textContent = setup.locks[j] ? "解除防誤改" : "防誤改";
-        d[`${name}Lock`].setAttribute("aria-label", `${setup.locks[j] ? "解除" : "開啟"}${j ? "合外力" : "總質量"}的防誤改，目前${j ? d.forceValue.textContent : d.massValue.textContent}`);
-        d[`${name}Lock`].disabled = busy || locked;
-      }
-      d.massDown.disabled = locked || busy || setup.locks[0] || mi === 0; d.massUp.disabled = locked || busy || setup.locks[0] || mi === 6;
-      d.forceDown.disabled = locked || busy || setup.locks[1] || fi === 0; d.forceUp.disabled = locked || busy || setup.locks[1] || fi === 5;
-      d.forceRange.disabled = locked || busy || setup.locks[1];
+      d.massDown.disabled = locked || busy || mi === 0; d.massUp.disabled = locked || busy || mi === 6;
+      d.forceDown.disabled = locked || busy || fi === 0; d.forceUp.disabled = locked || busy || fi === 5;
+      d.forceRange.disabled = locked || busy;
       d.measureButton.disabled = locked || busy || g.records.length >= 6;
       d.measureButton.textContent = busy ? run.ready ? "小車行進中…" : "量測中…" : g.records.length >= 6 ? "本組已有 6 筆記錄" : setup.candidate ? "重新量測" : "啟動量測";
       const waiting = busy && !run.ready, reading = waiting ? null : setup.candidate || run?.reading;
@@ -107,7 +102,7 @@
     d.clearGraph.hidden = locked; d.clearGraph.disabled = !p.points.some(Boolean) && !p.model && !p.meaning;
     d.referenceButton.hidden = !controller.trusted; d.referenceButton.setAttribute("aria-pressed", String(showReference));
     d.referenceButton.textContent = showReference ? "隱藏參考點" : "顯示參考點";
-    d.interpretationPanel.hidden = s.schemaVersion !== 2;
+    d.interpretationPanel.hidden = s.schemaVersion < 2;
     if (!d.interpretationPanel.hidden) {
       const interpretation = I.analyze(s, i);
       d.interpretationWeight.textContent = s.rubricVersion === 2 ? "（5 分）" : "（不計分練習）";
@@ -157,7 +152,7 @@
       }
       rows.push(`<p>${mathText(v.index === 1 ? "反比例模型適合描述固定合外力時的 a–m 關係。下降曲線本身不足以證明反比，可再看 a–1/m 圖。" : "直線是簡潔的模型；還要檢查截距是否接近零，才能支持正比。二次項接近零時，二次式可簡化為直線。")}</p>`);
       rows.push(`<p>${mathText(v.index === 0 ? "固定總質量時，a–F合 的斜率 k = 1/m，所以總質量 m = 1/k。若把兩軸交換，F合–a 的斜率才是 m。" : v.index === 1 ? "固定合外力時，a = k/m 的係數 k = F合。曲線的斜率會隨 m 改變，不等於這個係數。" : "固定合外力時，a–1/m 的斜率 k = F合，可與實驗 B 的合外力記錄比較。")}</p>`);
-      if (controller.state.schemaVersion === 2) rows.push(`<p class="${r.meaningCorrect ? "ok" : "issue"}">${r.meaningCorrect ? "你選擇的係數意義正確。" : "請重新對照兩軸的物理量與係數的單位。"}</p>`);
+      if (controller.state.schemaVersion >= 2) rows.push(`<p class="${r.meaningCorrect ? "ok" : "issue"}">${r.meaningCorrect ? "你選擇的係數意義正確。" : "請重新對照兩軸的物理量與係數的單位。"}</p>`);
       if (r.points.some(p => !p.correct.every(Boolean))) rows.push('<p>擬合使用的是你的點位；曲線貼近這些點，不代表已忠實繪出原始數據。</p>');
       if (showReference) rows.push('<p>橙圈：原始記錄座標；藍點：我的作圖。參考點不改動你的答案。</p>');
     } else {
@@ -275,7 +270,6 @@
   for (let i = 0; i < 3; i++) d[`role${i}`].addEventListener("change", e => command({ type: "role", index: i, value: e.target.value || null }));
   function adjustSetting(index, delta) { if (moving()) return; const i = view().index; run = null; command({ type: "setting", group: i, index, value: controller.state.setups[i].settings[index] + delta }); }
   d.massDown.onclick = () => adjustSetting(0, -1); d.massUp.onclick = () => adjustSetting(0, 1); d.forceDown.onclick = () => adjustSetting(1, -1); d.forceUp.onclick = () => adjustSetting(1, 1);
-  d.massLock.onclick = () => command({ type: "lock", index: 0 }); d.forceLock.onclick = () => command({ type: "lock", index: 1 });
   d.forceRange.addEventListener("input", e => { if (!moving()) { run = null; command({ type: "setting", index: 1, value: +e.target.value }); } });
   function startRun(replay = false) {
     if (!editable() || view().phase !== "collect" || moving()) return;

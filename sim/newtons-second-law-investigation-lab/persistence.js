@@ -15,15 +15,15 @@
   function validate(a, kind) {
     if (!["draft", "review"].includes(kind)) throw new Error("Invalid kind");
     keys(a, kind === "draft" ? draftKeys : baseKeys);
-    if (a.modelVersion !== 1 || !((a.schemaVersion === 1 && a.rubricVersion === 1) || (a.schemaVersion === 2 && [1, 2].includes(a.rubricVersion)))) throw new Error("Unsupported version");
+    if (a.modelVersion !== 1 || !((a.schemaVersion === 1 && a.rubricVersion === 1) || ([2, 3].includes(a.schemaVersion) && [1, 2].includes(a.rubricVersion)))) throw new Error("Unsupported version");
     list(a.groups, 2); list(a.plots, 3); list(a.conclusions, 5);
     for (const g of a.groups) {
       keys(g, ["roles", "records"]); list(g.roles, 3);
       if (g.roles.some(r => r !== null && !M.ROLES.includes(r)) || !Array.isArray(g.records) || g.records.length > 6 || !g.records.every(M.validRecord)) throw new Error("Invalid experiment");
     }
     a.plots.forEach((p, i) => {
-      keys(p, ["points", "model", "fitAttempted"].concat(a.schemaVersion === 2 ? ["meaning"] : [])); list(p.points, a.groups[M.sourceGroup(i)].records.length);
-      if (a.schemaVersion === 2 && p.meaning !== null && !M.MEANINGS.some(([value]) => value === p.meaning)) throw new Error("Invalid interpretation");
+      keys(p, ["points", "model", "fitAttempted"].concat(a.schemaVersion >= 2 ? ["meaning"] : [])); list(p.points, a.groups[M.sourceGroup(i)].records.length);
+      if (a.schemaVersion >= 2 && p.meaning !== null && !M.MEANINGS.some(([value]) => value === p.meaning)) throw new Error("Invalid interpretation");
       if (p.model !== null && !M.METHODS.includes(p.model)) throw new Error("Invalid fit model");
       if (typeof p.fitAttempted !== "boolean" || (p.model === null && p.fitAttempted)) throw new Error("Invalid fit operation");
       for (const pt of p.points) if (pt !== null && (!Array.isArray(pt) || pt.length !== 2 || !M.integer(pt[0], 0, i === 0 ? 14000 : 22500) || !M.integer(pt[1], 0, 30000))) throw new Error("Invalid point");
@@ -37,8 +37,9 @@
       else throw new Error("Unknown phase");
       list(a.setups, 2);
       a.setups.forEach((setup, i) => {
-        keys(setup, ["settings", "locks", "candidate"]); list(setup.settings, 2); list(setup.locks, 2);
-        if (!M.integer(setup.settings[0], 0, 6) || !M.integer(setup.settings[1], 0, 5) || setup.locks.some(v => typeof v !== "boolean")) throw new Error("Invalid instrument setup");
+        keys(setup, ["settings", "candidate"].concat(a.schemaVersion < 3 ? ["locks"] : [])); list(setup.settings, 2);
+        if (a.schemaVersion < 3) { list(setup.locks, 2); if (setup.locks.some(v => typeof v !== "boolean")) throw new Error("Invalid legacy locks"); }
+        if (!M.integer(setup.settings[0], 0, 6) || !M.integer(setup.settings[1], 0, 5)) throw new Error("Invalid instrument setup");
         if (setup.candidate !== null && (!M.validRecord(setup.candidate) || a.groups[i].records.length >= 6 || setup.candidate[0] !== setup.settings[0] || setup.candidate[1] !== setup.settings[1])) throw new Error("Invalid unrecorded observation");
       });
     }
@@ -49,10 +50,15 @@
   const draft = state => validate(state, "draft");
   function upgradeDraft(state) {
     const result = draft(state);
-    if (result.schemaVersion === 1) { result.schemaVersion = 2; result.plots.forEach(p => { p.meaning = null; }); }
+    if (result.schemaVersion === 1) result.plots.forEach(p => { p.meaning = null; });
+    if (result.schemaVersion < 3) { result.schemaVersion = 3; result.setups.forEach(setup => { delete setup.locks; }); }
     return draft(result);
   }
-  const editableFromReview = state => upgradeDraft({ ...M.fresh(state.rubricVersion), ...review(state) });
+  function editableFromReview(state) {
+    const answer = review(state), restored = { ...M.fresh(answer.rubricVersion), ...answer, schemaVersion: 3 };
+    if (answer.schemaVersion === 1) restored.plots.forEach(p => { p.meaning = null; });
+    return draft(restored);
+  }
   function navigate(state, phase, index = null) {
     return draft({ ...state, phase, group: phase === "collect" ? index : null, graph: phase === "plot" ? index : null,
       returnToCheck: phase === "check" ? false : state.phase === "check" || state.returnToCheck });

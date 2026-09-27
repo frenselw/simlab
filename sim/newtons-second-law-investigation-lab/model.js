@@ -9,6 +9,7 @@
   const ROLES = ["mass", "force", "acceleration"];
   const METHODS = ["linear", "origin", "quadratic", "inverse"];
   const GRAPH_NAMES = ["a–F合", "a–m", "a–1/m"];
+  const INITIAL_MASSES = Object.freeze([0, 1, 3, 4, 5, 6]);
   const MEANINGS = [["mass", "總質量 m"], ["inverse-mass", "總質量的倒數 1/m"], ["force", "合外力 F合"], ["inverse-force", "合外力的倒數 1/F合"]];
   const INTERPRETATIONS = [
     { title: "正確控制變量時，這幅圖的直線斜率 k 對應哪個物理量？", answer: "inverse-mass" },
@@ -47,13 +48,13 @@
     const y = [.2, .25, .3, .4, .5, .6, .8, 1, 1.2, 1.5, 2, 2.5, 3].find(v => v + 1e-12 >= target) || 3;
     return { x: graph === 0 ? 1.4 : 2.25, y };
   }
-  const emptyPlot = (schemaVersion = 2) => ({ points: [], model: null, fitAttempted: false, ...(schemaVersion === 2 ? { meaning: null } : {}) });
-  function fresh(rubricVersion = 2) {
-    return { schemaVersion: 2, modelVersion: 1, rubricVersion,
+  const emptyPlot = (schemaVersion = 3) => ({ points: [], model: null, fitAttempted: false, ...(schemaVersion >= 2 ? { meaning: null } : {}) });
+  function fresh(rubricVersion = 2, random = Math.random) {
+    return { schemaVersion: 3, modelVersion: 1, rubricVersion,
       groups: Array.from({ length: 2 }, () => ({ roles: [null, null, null], records: [] })),
       plots: Array.from({ length: 3 }, () => emptyPlot()), conclusions: [null, null, null, null, null],
       phase: "collect", group: 0, graph: null, returnToCheck: false,
-      setups: Array.from({ length: 2 }, () => ({ settings: [2, 2], locks: [false, false], candidate: null })) };
+      setups: Array.from({ length: 2 }, () => ({ settings: [INITIAL_MASSES[Math.floor(random() * INITIAL_MASSES.length)], 2], candidate: null })) };
   }
   function related(group) { return group === 0 ? [0] : [1, 2]; }
   function change(original, action) {
@@ -62,8 +63,7 @@
     switch (action.type) {
       case "role": if (g && integer(action.index, 0, 2) && (action.value === null || ROLES.includes(action.value))) g.roles[action.index] = action.value; break;
       case "setting":
-        if (setup && integer(action.index, 0, 1) && integer(action.value, 0, action.index ? 5 : 6) && !setup.locks[action.index]) { setup.settings[action.index] = action.value; setup.candidate = null; } break;
-      case "lock": if (setup && integer(action.index, 0, 1)) setup.locks[action.index] = !setup.locks[action.index]; break;
+        if (setup && integer(action.index, 0, 1) && integer(action.value, 0, action.index ? 5 : 6)) { setup.settings[action.index] = action.value; setup.candidate = null; } break;
       case "measure": if (setup && g.records.length < 6) setup.candidate = measure(...setup.settings); break;
       case "discard": if (setup) setup.candidate = null; break;
       case "record":
@@ -74,7 +74,7 @@
         if (p && integer(action.index, 0, p.points.length - 1) && JSON.stringify(p.points[action.index]) !== JSON.stringify(action.point)) { p.points[action.index] = action.point === null ? null : clone(action.point); p.fitAttempted = false; } break;
       case "model": if (p && (action.value === null || METHODS.includes(action.value))) { p.model = action.value; p.fitAttempted = false; } break;
       case "fit": if (p?.model) p.fitAttempted = true; break;
-      case "meaning": if (s.schemaVersion === 2 && p && (action.value === null || MEANINGS.some(([value]) => value === action.value))) p.meaning = action.value; break;
+      case "meaning": if (s.schemaVersion >= 2 && p && (action.value === null || MEANINGS.some(([value]) => value === action.value))) p.meaning = action.value; break;
       case "conclusion": if (integer(action.index, 0, 4) && (action.value === null || QUESTIONS[action.index].options.some(o => o[0] === action.value))) s.conclusions[action.index] = action.value; break;
       case "clearGraph": if (p) s.plots[graph] = { ...emptyPlot(s.schemaVersion), points: p.points.map(() => null) }; break;
       case "clearGroup": if (g) { g.records = []; setup.candidate = null; for (const k of related(group)) s.plots[k] = emptyPlot(s.schemaVersion); } break;
@@ -83,5 +83,5 @@
     }
     return s;
   }
-  return Object.freeze({ clone, integer, ROLES, METHODS, GRAPH_NAMES, MEANINGS, INTERPRETATIONS, QUESTIONS, mass, force, motion, measure, validRecord, values, sourceGroup, expected, bounds, fresh, change, related });
+  return Object.freeze({ clone, integer, ROLES, METHODS, GRAPH_NAMES, INITIAL_MASSES, MEANINGS, INTERPRETATIONS, QUESTIONS, mass, force, motion, measure, validRecord, values, sourceGroup, expected, bounds, fresh, change, related });
 });

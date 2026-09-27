@@ -12,7 +12,7 @@
   <header class="sim-header">
     <div class="heading"><h1>牛頓第二定律</h1><span id="attemptStatus">公平測試與數據作圖</span></div>
     <nav class="workflow" aria-label="活動步驟"><button data-phase="collect">1 實驗</button><button data-phase="plot">2 作圖</button><button data-phase="conclude">3 歸納</button><button id="checkButton">檢查作答</button></nav>
-    <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0">A · 探究合外力</button><button data-group="1">B · 探究質量</button></nav>
+    <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0">A · 探究加速度與合外力的關係</button><button data-group="1">B · 探究加速度與總質量的關係</button></nav>
     <nav id="graphNav" class="context-nav" aria-label="作圖切換" hidden><button data-graph="0"><var>a</var>–<var>F</var><sub>合</sub></button><button data-graph="1"><var>a</var>–<var>m</var></button><button data-graph="2"><var>a</var>–1/<var>m</var></button></nav>
   </header>
   <section id="stage" class="stage" aria-label="實驗與作圖舞台">
@@ -34,12 +34,11 @@
         <div class="role-row"><label for="role2">量度</label><select id="role2" data-role="2"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol2" class="role-symbol" aria-hidden="true"></span></div>
       </div>
       <div id="instrumentControls">
-        <p class="small">「防誤改」可暫時固定某個設定；不使用亦可量測。</p>
-        <div class="setting-label"><span>總質量 <var>m</var></span><button id="massLock" class="lock" aria-pressed="false">防誤改</button></div>
+        <div class="setting-label"><span>總質量 <var>m</var></span></div>
         <div class="stepper"><button id="massDown" aria-label="減少一塊0.25公斤配重">−</button><output id="massValue"></output><button id="massUp" aria-label="增加一塊0.25公斤配重">＋</button></div>
         <p class="small">包括 0.50 kg 小車及車上配重。</p>
         <p class="small">恆力裝置沿水平方向推車；在本理想模型中，水平推力就是合外力。</p>
-        <div class="setting-label"><label for="forceRange">合外力 <var>F</var><sub>合</sub></label><button id="forceLock" class="lock" aria-pressed="false">防誤改</button></div>
+        <div class="setting-label"><label for="forceRange">合外力 <var>F</var><sub>合</sub></label></div>
         <div class="stepper"><button id="forceDown" aria-label="減少0.20牛頓">−</button><output id="forceValue"></output><button id="forceUp" aria-label="增加0.20牛頓">＋</button></div>
         <input id="forceRange" class="force-range" type="range" min="0" max="5" step="1" value="2" aria-label="設定水平合外力">
         <button id="measureButton" class="primary full">啟動量測</button>

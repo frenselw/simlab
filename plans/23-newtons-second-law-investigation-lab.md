@@ -12,7 +12,7 @@
 
 | 部分 | 學生要做的事 | 形成的學習證據 |
 |---|---|---|
-| 1. 設計與量測 | A 組探究合外力的影響；B 組探究質量的影響。每組自行選擇改變量、控制量及量度量，手動設定小車總質量與合外力，逐次啟動及記錄 | 兩組各建議 6 筆記錄；至少 5 個不同自變量水平，數值有足夠跨度 |
+| 1. 設計與量測 | A 組探究加速度與合外力的關係；B 組探究加速度與總質量的關係。每組自行選擇改變量、控制量及量度量，手動設定小車總質量與合外力，逐次啟動及記錄 | 兩組各建議 6 筆記錄；至少 5 個不同自變量水平，數值有足夠跨度 |
 | 2. 拖點作圖 | 用 A 組畫 a–F合，用 B 組畫 a–m，再用同一 B 組畫 a–1/m | 三幅各最多 6 點的學生作圖；每筆觀測與其圖點有固定對應 |
 | 3. 擬合與比較 | 自選模型並擬合，回答係數的物理意義，將自己的係數換算結果與記錄比較 | 根據學生實際點位計算的曲線、方程、偏差及物理量解讀，不代換為正確點 |
 | 4. 歸納與提交 | 判斷控制條件、正比／反比、圖線通過原點的意義，最後組合關係式 | 明確回答、檢查及提交；可交空白或部分作答 |
@@ -71,9 +71,9 @@
 
 ### 公平測試由學生負責
 
-- A 題幹為「探究合外力對加速度的影響」，B 為「探究總質量對加速度的影響」；不預選控制量或自動鎖好正確變量。
+- A 題幹與導航明確寫「探究加速度與合外力的關係」，B 寫「探究加速度與總質量的關係」；不預選控制量。
 - 每組各有「我要改變」「保持不變」「量度」三項，原生選單用中文量名，旁邊顯示所選量的數學符號 m、F合、a。錯誤或重複選擇是可保存的學生答案，不是壞資料。
-- 兩組各自保留質量／力設定，初始均為 m=1.00 kg、F合=0.60 N（settings=[2,2]），預設不鎖，角色全未答。學生可手動鎖住任一或兩個設定，亦可解鎖；鎖的選擇不直接給分，真正比較保留記錄是否控制一致。
+- 兩組各自保留質量／力設定。新作答各組初始質量獨立等機會抽取0.50、0.75、1.25、1.50、1.75或2.00 kg，初始合外力仍為0.60 N，角色全未答；學生可以自行調到1.00 kg。沒有鎖定／防誤改控制，公平測試依保留記錄是否控制一致評分。
 - 每次「啟動量測 → 看到讀數 → 加入本組資料」才增加一行。每組最多 6 行，不自動填下一行、不自動調下一級。
 - 每組建議 6 行、至少 5 個不同自變量水平，跨度達可用範圍的 60%；可有一個重複測試。重複同一條件不能充當多個不同水平。
 - 即使學生同時改了 m 和 F合，仍讓他記錄、作圖及擬合。提交前表格只呈現實際數值與操作狀態，不替他修正成公平測試。
@@ -154,7 +154,7 @@
 | Notation | F合、a 是一維正向的大小，m 為總質量；除最終歸納外不預示 F合=ma；1/m 單位 kg⁻¹；擬合係數不用 a 命名，以免混淆加速度 |
 | Arrow graphics | 裝置箭頭只表達正在施加的水平力，圖例和 F合 讀數一致；沿用單一填色箭頭、尖端精確；圖點用圓點，不畫成力矢量 |
 | Snap | 使用者要求的「靠近正確位置才吸附」：只對已在資料卡公開的座標做局部吸附，不查理論直線／F合/m 生成另一答案。touch/pen 入 10 CSS px、離 14px；mouse 入 6px、離 9px。一般可見網格交點亦用同一規則；若公開資料座標與網格都在範圍內，優先該資料座標。範圍外保留錯點，沒有遠距拉點 |
-| Touch preview | 資料卡放點、既有點修改及超框抓手必需；提供約 2× 真實圖表裁切，含網格、刻度／單位、目前點與吸附後座標；穩定角落避手指、不攔截輸入；完成／取消／切圖／鎖定即消失。粗調力滑桿與加減配重不需要 preview |
+| Touch preview | 資料卡放點、既有點修改及超框抓手必需；提供約 2× 真實圖表裁切，含網格、刻度／單位、目前點與吸附後座標；穩定角落避手指、不攔截輸入；完成／取消／切圖／提交後即消失。粗調力滑桿與加減配重不需要 preview |
 
 已知數據座標是讀圖任務的輸入，局部吸附只減少手指精度要求。若日後新增未知數據預測題，不可沿用「吸附至答案」的做法。
 
@@ -191,6 +191,14 @@
 - 角色設定的鎖定改名「防誤改／解除防誤改」，一句說明其可選用途；不使用仍可量測，不自動選控制量，亦不按防誤改按鈕評分。桌面／手機以滑鼠與手指提示為主，移除可見的鍵盤放點按鈕及鍵盤說明，保留資料卡／圖點的原生焦點及快捷鍵，輔助說明只供輔助技術讀取。
 - 歸納題、選項、圖表解讀及回饋使用相同 math serif／斜體變量／正體單位與描述下標，不增加外部排版依賴。新增純 `interpretation.js` 與單元測試，列入 manifest、HTML 及 test runner；執行本機 source／extracted ZIP 的完整互動、touch、舊新快照及 repository gates。
 
+### 2026-09-28 修訂：自由設定與隨機初始質量
+
+- 依使用者要求刪除質量／力的鎖定按鈕、說明、事件及阻擋邏輯。量測動畫中保持既有不可改條件的規則，確保單次觀測仍對應恆力及固定質量；量測之間可以直接調整兩者。評核風險、rubric及容差不變，不因錯誤控制量再重複扣忠實作圖的分數。
+- 新作答使用上述六個初始質量（排除1 kg），A/B獨立抽取；僅隨機化起始器材設定，不加入讀數噪聲。新Moodle attempt、獨立刷新、未提交時明確清全部及可恢復損壞草稿的重設會重新抽取；一般導航、繼續量測及同attempt恢復不抽取。隨機結果直接保存於既有settings，不需seed或額外隱藏參數。
+- schemaVersion升3、modelVersion維持1、rubricVersion維持原值（新作答2）。新draft的setup恰好為`{settings:[massIndex,forceIndex],candidate:null|tuple}`；schema1/2仍嚴格驗證原有locks欄位。有效舊draft驗證後轉為schema3並刪除locks；原settings、candidate、角色、記錄、點位、解讀、導航及分數完整保留，schema1補meaning=null。舊review/pending維持原版本與原答案，不能重抽或改分；未知版本／欄位混配仍拒絕。
+- 新variant矩陣涵蓋六個初始質量×兩組的空白／已量測待加入／已記錄狀態，經production encode/decode/restore後執行調整或記錄及提交；另測36種A/B初值組合、手動選1 kg、改控制量會失去控制一致分、schema1/2所有locks組合的續作、各舊review/pending重試。既有全部phase與partial/blank/frozen契約繼續適用。
+- A/B導航及面板標題使用完整關係名稱；窄畫面允許導航標題換行，維持44px可按尺寸及三區域布局。source/extracted SCORM需驗證320px手機與短iframe的可讀性、觸控調節、隨機新作答、保存續作與完整提交；全項目gates照製作指南執行。
+
 ## Touch gesture ownership contract
 
 依[完整觸控契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)實作；本機來源與解壓包的驗收證據見文末；實機 Moodle 另驗。
@@ -202,7 +210,7 @@
 | 已放點 | `.plot-point-hit`，≥44×44px | 依圖及行建立穩定 HTML target、none | 表格選點、方向鍵、Enter；Delete 移回待放 |
 | 超框點邊緣抓手 | `.offscale-point-hit`，≥44×44px | 只改顯示位置，不改儲存座標；穩定 target、none | 列表選取後重新放點／刪除 |
 
-配重、鎖定、記錄及擬合按鈕是普通點按，按鈕外 panel 保持正常捲動；不把整張資料表設成拖曳區。
+配重、記錄及擬合按鈕是普通點按，按鈕外 panel 保持正常捲動；不把整張資料表設成拖曳區。
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
@@ -250,7 +258,7 @@
 |---|---|---|---|---|
 | collect／新開或空表 | group 0/1 | 合法控制器設定、空記錄；角色可全 null | 兩組其餘資料按各自狀態保留 | 改角色、開始量測、切組、看圖或check |
 | collect／讀數就緒待加入 | group 0/1 | candidate為完整觀測；來源設定匹配該次量測；小車可以仍在行進 | 既有表格、圖點不變；動畫時鐘不保存 | 立即加入或check；行程完成後亦可捨棄／重測 |
-| collect／部分記錄 | group 0/1 | 1–5行；角色可對可錯、鎖可任意 | candidate可有／無；已有下游圖點合法 | 再測、刪行、作圖或check |
+| collect／部分記錄 | group 0/1 | 1–5行；角色可對可錯、設定可自行改變 | candidate可有／無；已有下游圖點合法 | 再測、刪行、作圖或check |
 | collect／六行 | group 0/1 | 6行，可能重複／控制不一 | 不自動刪舊行以加入第7行 | 刪指定行再測、作圖或check |
 | plot／無來源 | graph 0/1/2 | 對應空記錄、空點陣列 | 可已有模型選擇；不憑空造點 | 回量測、換圖、歸納或check |
 | plot／全部待放 | graph 0/1/2 | 點陣列與來源行等長，項全null | 原始資料保留 | 選資料放點、選模型或check |
@@ -268,11 +276,11 @@
 
 | Transition / trigger | Preconditions | State changes / downstream effects |
 |---|---|---|
-| 改角色／設定／鎖 | editable且不是正在量測 | 保存語意選擇；改設定會清目前candidate，舊記錄不改 |
+| 改角色／設定 | editable且不是正在量測 | 保存語意選擇；改設定會清目前candidate，舊記錄不改 |
 | 開始／取消量測 | editable、未滿6行 | 固定這次設定；切頁／離開取消未完動畫，保留已取得candidate或已記錄行，不新增行 |
 | 讀數就緒 | 首1s採樣及約1m行程均已完成 | 建立candidate並保存；小車繼續行進；重播不重新取樣 |
 | 加入記錄 | 讀數就緒且有candidate、少於6行 | candidate移入本組records；對應圖增加null、fitAttempted=false；不停止動畫，另一組不改 |
-| 小車離開畫面 | 到達本次行程結束時刻 | 結束動畫並解除行進期間的操作限制，保留學生原本的鎖定選擇；不建立candidate或重複記錄 |
+| 小車離開畫面 | 到達本次行程結束時刻 | 結束動畫並解除行進期間的操作限制；不建立candidate或重複記錄 |
 | 刪行 | 指定行存在；有對應作圖時確認影響 | 只刪該行及相關圖同索引點，後續索引同步；清相關fitAttempted，保留其他點與選法 |
 | pointerup／鍵盤確認 | 有working point | 一次atomic座標修改；相關fitAttempted=false；保存一次 |
 | cancel／lost capture／viewport change | 有working operation | 回復原點／null、清preview；不保存半途位置 |
@@ -282,7 +290,7 @@
 
 ## Persistence contract
 
-採[快照與恢復契約](../docs/simulation-scorm-production-guide.md#snapshot-and-restore-contract)；第一版不需seed，因器材和讀數無隨機項。日後噪聲版要升modelVersion，不重新解讀舊資料。
+採[快照與恢復契約](../docs/simulation-scorm-production-guide.md#snapshot-and-restore-contract)。以下表格保留首版schema1的歷史定義；現行schema3及相容政策見上文2026-09-28修訂。隨機初始質量以實際settings保存，讀數無隨機項，不需seed。日後噪聲版要升modelVersion，不重新解讀舊資料。
 
 | Snapshot | Exact schema / field types / allowed values |
 |---|---|
@@ -398,6 +406,8 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 
 ## 2026-09-27 follow-up evidence: graph interpretation and notation
 
+以下記錄 `7e2e806` 的狀態；當時的防誤改控制及schema2新作答已由2026-09-28修訂取代。
+
 - 三圖新增可保存／清除／提交的係數意義答案與真實擬合換算；新 attempt 的概念分分配改為圖像解讀15分、歸納10分，總分仍100。舊 draft 升 schema2 並保留 rubric1，舊 review／pending 以原版本重算／重試，部分分不改變。
 - 7 個純測試檔通過：含各圖正誤選項的實際係數／單位、錯點導出的錯誤質量、零／負斜率、錯誤模型、控制量不一致、獨立部分分、190 個 production round-trip 還原後合法續作及舊新版本提交流程。最長 draft/review/pending 為 1200/1037/1286 bytes。日誌：`output/newton-interpretation-unit.log`；目前完整版本亦由 `output/newton-interpretation-npm-test.log` 執行。
 - 完整 source／extracted ZIP browser regression 通過（Chrome 154.0.8037.57 / CDP trusted touch）：每幅圖的係數／單位與原始記錄比較、未答及錯答、模型變更後隱藏過時換算、從檢查返回後保存續作、僅答解讀亦可取消／確認清本圖、舊 draft/review/pending、提交後只讀，以及兩者各自從介面量測12筆、放18點並提交100分。
@@ -407,3 +417,14 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 - Repository gates：`npm run check`、完整 `npm test`、`npm run package:all` 及 `git diff --check` 通過；最後提示詞修改另按上列範圍重驗。日誌：`output/newton-interpretation-check.log`、`output/newton-interpretation-npm-test.log`、`output/newton-interpretation-package-all.log`。
 - 最終 `output/newtons-second-law-investigation-lab-scorm.zip` 共16個檔案、47,191 bytes；manifest及每個runtime檔均與source逐檔相符，無測試檔。SHA-256：`94687e5e2aa7836e7b5835184c459cd4d49fc0aee858d0305efa2bb721240f2f`。
 - 真實 Moodle 學生 attempt、跨來源 player 及實體手機仍未驗收；本機模擬 LMS 與 CDP 觸控證據不取代這些檢查。
+
+## 2026-09-28 follow-up evidence: free controls and randomized starting mass
+
+- 移除質量／力的防誤改介面與操作；A/B導航及面板均清楚指出加速度與合外力／總質量的關係。每組新起始質量等機會抽取六個非1 kg設定，學生仍可自行選1 kg。隨機值只在明確的新作答／重設時產生，Moodle同attempt恢復保留原值。
+- 7個純測試檔通過：36種A/B初始質量組合、42種物理設定、226個production snapshot還原後合法續作、48種舊schema/rubric/locks組合升級後續作及保存、舊review/pending原版本重試與原分數比對。最長draft/review/pending為1156/1037/1286 bytes。日誌：`output/newton-initial-settings-unit.log`及`output/newton-initial-settings-npm-test.log`。
+- `node tools/newtons-second-law-browser-regression.js --settings` 在source及實際extracted ZIP通過：逐個覆蓋六個初值、A/B換頁不重抽、手動調到1 kg、保存候選讀數後恢復不重抽、舊已鎖定draft可直接改值、同時改質量及力失去控制一致分、每邊12筆量測／18點／100分完整流程。六個初值以CDP測試頁注入可控制的亂數來源，產品沒有測試參數入口。
+- 兩者各36個phase×viewport與200%縮放檢查、320/390px對新質量控制的trusted touch均通過；桌面、320px手機及320×400短畫面的完整關係標題已視覺檢查。證據：`output/newton-initial-settings-browser.log`、`output/playwright/newtons-second-law/settings-report.json`、`package-free-settings-desktop.png`、`package-free-settings-touch-320.png`及`package-collect-320x400.png`。
+- 完整browser runner亦於source/extracted通過（Chrome154.0.8037.57）：320/390px各17類手勢及320×400短iframe的13類手勢，連同完整解讀、連續行車、舊新版草稿／review／pending／committed、standalone刷新及新attempt檢查；`output/playwright/newtons-second-law/report.json`沒有瀏覽器例外。
+- Repository gates：`npm run check`、完整`npm test`、`npm run package:all`及`git diff --check`均通過。日誌：`output/newton-initial-settings-check.log`、`output/newton-initial-settings-npm-test.log`及`output/newton-initial-settings-package-all.log`。
+- 最終`output/newtons-second-law-investigation-lab-scorm.zip`共16個檔案、47,102 bytes；manifest及runtime均逐檔與source一致，沒有測試檔。SHA-256：`2a706ab904914f8cf6ced349dbd055257f7cd75e83ba11fff0979886d6d8fbbd`。
+- 尚未執行真實Moodle學生attempt、跨來源player及實體手機驗收；本機瀏覽器及模擬LMS的結果不代替這些證據。

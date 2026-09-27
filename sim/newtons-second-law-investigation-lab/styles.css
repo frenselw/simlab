@@ -9,6 +9,7 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .workflow, .context-nav { display: flex; gap: .3rem; margin-top: .3rem; }
 .workflow button, .context-nav button { flex: 1; padding: .2rem .35rem; white-space: nowrap; }
 .context-nav button { min-height: 44px; font-size: .9rem; }
+#experimentNav button { min-width: 0; white-space: normal; line-height: 1.35; text-wrap: balance; }
 .workflow button[aria-current="step"], .context-nav button[aria-current="step"] { background: #eaf2fd; color: #1e4e91; border-color: #608ec8; font-weight: 700; }
 #checkButton { background: #f0f3f7; }
 .stage { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #fff; border-bottom: 1px solid var(--color-border); touch-action: pan-y; isolation: isolate; }
@@ -46,8 +47,6 @@ p { margin: .45rem 0; line-height: 1.55; } .small { font-size: .875rem; } .kicke
 .role-symbol { text-align: center; font-size: 1.2rem; white-space: nowrap; }
 select { width: 100%; min-width: 0; }
 .setting-label { display: flex; justify-content: space-between; align-items: center; margin-top: .5rem; }
-.lock { font-size: .875rem; min-height: 44px; padding-inline: .75rem; }
-.lock[aria-pressed="true"] { background: #e2e8f0; color: #334155; border-color: #94a3b8; }
 .stepper { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: .5rem; margin-top: .3rem; }
 .stepper button { font-size: 1.25rem; } .stepper output { text-align: center; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 .force-range { display: block; width: 100%; height: 44px; padding: 0; margin: .15rem 0; accent-color: #2563a5; touch-action: none; }

@@ -28,6 +28,8 @@ async function viewport(cdp, width, height, touch = true, scale = 1) {
 async function preload(cdp) {
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
     const params=new URLSearchParams(location.search);
+    window.__randomDraws=0;
+    if(params.has('__random')) {const draws=JSON.parse(params.get('__random'));Math.random=()=>draws[window.__randomDraws++ % draws.length];}
     window.__storageProbes=0;
     if(params.has('__denyStorage')) Object.defineProperty(window,'localStorage',{get(){window.__storageProbes++;throw new DOMException('Storage denied by test','SecurityError');}});
     if(params.has('__fixture')) {
@@ -47,6 +49,7 @@ async function navigate(cdp, base, options = {}) {
   const params = new URLSearchParams();
   if (options.fixture !== false) params.set("__fixture", JSON.stringify(options.fixture || { "cmi.core.lesson_status": "not attempted" }));
   if(options.denyStorage) params.set("__denyStorage","1");
+  if(options.random) params.set("__random",JSON.stringify(options.random));
   const src = `/${slug}/index.html?${params}`;
   const url = options.embedded ? `${base}/__embed-scroll-test.html?src=${encodeURIComponent(src)}${options.fluid ? "&fluid=1" : ""}` : `${base}${src}`;
   await cdp.send("Page.navigate", { url }); await delay(100); await ready(cdp, options.embedded);
@@ -113,7 +116,7 @@ async function screenshot(cdp, name) {
   fs.writeFileSync(path.join(artifactDir, `${name}.png`), Buffer.from(data, "base64"));
 }
 
-const {environment,filled,durableDraft,finishedData,legacy}=require("../sim/newtons-second-law-investigation-lab/test-support.js");
+const {environment,filled,durableDraft,finishedData,legacy,assertFresh}=require("../sim/newtons-second-law-investigation-lab/test-support.js");
 const state = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getState();",embedded);
 const mode = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getMode();",embedded);
 async function choose(cdp,selector,value,embedded=false) {
@@ -152,6 +155,48 @@ async function waitFor(cdp, code, timeout = 8500) {
   const until=Date.now()+timeout;
   while(Date.now()<until) {if(await call(cdp,code))return;await delay(50);}
   throw new Error(`Timed out waiting for ${code}`);
+}
+async function setMass(cdp,target) {
+  const s=await state(cdp),initial=s.setups[s.group].settings[0];
+  for(let i=0;i<Math.abs(target-initial);i++)await click(cdp,target>initial?"#massUp":"#massDown");
+  assert.equal((await state(cdp)).setups[s.group].settings[0],target);
+}
+async function settingsChecks(cdp,base,label) {
+  await viewport(cdp,1280,900,false);
+  const starts=[];
+  for(let i=0;i<6;i++) {
+    await navigate(cdp,base,{random:[(i+.5)/6,(5-i+.5)/6]});const s=await state(cdp);assertFresh(s);
+    const masses=s.setups.map(setup=>setup.settings[0]);assert.deepEqual(masses,[M.INITIAL_MASSES[i],M.INITIAL_MASSES[5-i]]);starts.push(masses);
+    assert.equal(await call(cdp,"return w.__randomDraws;"),2);
+    assert.ok(await call(cdp,"return !d.querySelector('#massLock,#forceLock,.lock') && !/防誤改|鎖定/.test(d.body.innerText);"));
+    for(const [group,title] of [[0,"A · 探究加速度與合外力的關係"],[1,"B · 探究加速度與總質量的關係"]]) {
+      await click(cdp,`[data-group="${group}"]`);assert.equal(await call(cdp,"return d.getElementById('collectTitle').textContent;"),title);
+      assert.equal(await call(cdp,`return d.querySelector('[data-group="${group}"]').textContent;`),title);
+    }
+    await click(cdp,'[data-group="0"]');assert.deepEqual((await state(cdp)).setups,s.setups);assert.equal(await call(cdp,"return w.__randomDraws;"),2);
+  }
+  await setMass(cdp,2);await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
+  await click(cdp,"#measureButton");const measured=await state(cdp),saved=await call(cdp,"return {...w.__lmsValues};");
+  await navigate(cdp,base,{fixture:saved,random:[0,.99]});assert.deepEqual(await state(cdp),measured);assert.equal(await call(cdp,"return w.__randomDraws;"),0);
+  await click(cdp,"#recordButton");await click(cdp,"#massUp");await click(cdp,"#forceUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");
+  assert.deepEqual((await state(cdp)).groups[0].records.map(r=>r.slice(0,2)),[[2,2],[3,3]],"both variables are freely adjustable between runs");
+  assert.equal(S.score(await state(cdp)).detail.experiments[0].control,0,"changing both variables loses control-consistency credit");
+  const old=legacy(M.fresh(2,()=>.2),2);old.setups.forEach(setup=>{setup.locks=[true,true];});old.setups[0].settings=[2,2];old.setups[0].candidate=M.measure(2,2);
+  await navigate(cdp,base,{fixture:durableDraft(old),random:[.99,.99]});assert.deepEqual(await state(cdp),P.upgradeDraft(old));assert.equal(await call(cdp,"return w.__randomDraws;"),0);
+  await click(cdp,"#recordButton");await click(cdp,"#massDown");await click(cdp,"#forceDown");assert.deepEqual((await state(cdp)).setups[0].settings,[1,1]);
+  await screenshot(cdp,`${label}-free-settings-desktop`);
+  const touch=[];
+  for(const width of [320,390]) {
+    await viewport(cdp,width,500,true);await navigate(cdp,base,{embedded:true,random:[.2,.8]});
+    await call(cdp,"w.__settingsTrusted=[];d.getElementById('massUp').addEventListener('click',e=>w.__settingsTrusted.push(e.isTrusted));",true);
+    const p=await rect(cdp,"#massUp",true,true),before=await metrics(cdp,true);
+    await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(p)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await delay(100);
+    const after=await metrics(cdp,true);fixed(before,after,"drawing",`${label} free mass ${width}`);
+    assert.equal((await state(cdp,true)).setups[0].settings[0],2);assert.deepEqual(await call(cdp,"return w.__settingsTrusted;",true),[true]);
+    await screenshot(cdp,`${label}-free-settings-touch-${width}`);touch.push({width,before,after});
+  }
+  await cdp.send("Emulation.setEmulatedMedia",{features:[]});
+  return {starts,resume:true,manualOneKilogram:true,legacyUnlock:true,touch};
 }
 const cartPosition=cdp=>call(cdp,"return Number(d.querySelector('#stageSvg .cart').dataset.position);");
 async function assertCartExited(cdp) {
@@ -222,7 +267,7 @@ async function interpretationChecks(cdp,base,label) {
   await click(cdp,'[data-phase="plot"]');assert.ok(await call(cdp,"return [...d.querySelectorAll('#meaningChoices input')].every(e=>e.disabled);"));
   // Old in-progress attempts gain the practice without losing already earned credit.
   const old=legacy(M.fresh());old.conclusions[0]="direct";
-  await navigate(cdp,base,{fixture:durableDraft(P.navigate(old,"plot",0))});assert.equal((await state(cdp)).schemaVersion,2);assert.equal((await state(cdp)).rubricVersion,1);
+  await navigate(cdp,base,{fixture:durableDraft(P.navigate(old,"plot",0))});assert.equal((await state(cdp)).schemaVersion,3);assert.equal((await state(cdp)).rubricVersion,1);
   assert.match(await call(cdp,"return d.getElementById('interpretationWeight').textContent;"),/不計分/);
   await click(cdp,'#meaningChoices input[value="inverse-mass"]');await click(cdp,"#checkButton");await click(cdp,"#submitButton");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),5);
   await navigate(cdp,base,{fixture:finishedData(old)});assert.equal(await mode(cdp),"review");assert.equal((await state(cdp)).schemaVersion,1);assert.equal(await call(cdp,"return d.getElementById('interpretationPanel').hidden;"),true);
@@ -249,7 +294,7 @@ async function flows(cdp,base,label) {
   assert.equal(await call(cdp,"return !d.getElementById('editableFooter').hidden;"),false);
   // Collect all twelve observations through actual controls, first with animation then reduced motion.
   await navigate(cdp,base);await choose(cdp,"#role0","force");await choose(cdp,"#role1","mass");await choose(cdp,"#role2","acceleration");
-  await click(cdp,"#massLock");await click(cdp,"#forceDown");await click(cdp,"#forceDown");
+  await setMass(cdp,2);await click(cdp,"#forceDown");await click(cdp,"#forceDown");
   await click(cdp,"#measureButton");assert.equal(await call(cdp,"return w.__newtonApp.getRunning();"),true);
   await delay(1100);assert.equal((await state(cdp)).setups[0].candidate,null,"reading waits for about one metre");
   await waitFor(cdp,"return Boolean(w.__newtonApp.getState().setups[0].candidate);");
@@ -264,7 +309,7 @@ async function flows(cdp,base,label) {
   assert.equal((await state(cdp)).groups[0].records.length,1);await screenshot(cdp,`${label}-cart-exited`);
   await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
   for(let i=1;i<6;i++){await click(cdp,"#forceUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");}
-  await click(cdp,'[data-group="1"]');await choose(cdp,"#role0","mass");await choose(cdp,"#role1","force");await choose(cdp,"#role2","acceleration");await click(cdp,"#forceLock");await click(cdp,"#massDown");await click(cdp,"#massDown");
+  await click(cdp,'[data-group="1"]');await choose(cdp,"#role0","mass");await choose(cdp,"#role1","force");await choose(cdp,"#role2","acceleration");await setMass(cdp,0);
   for(let i=0;i<6;i++){if(i>0) await click(cdp,"#massUp");if(i===5)await click(cdp,"#massUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");}
   assert.deepEqual((await state(cdp)).groups,filled().groups);
   await click(cdp,'[data-phase="plot"]');
@@ -301,14 +346,14 @@ async function flows(cdp,base,label) {
   for(const phase of ["collect","check","review"]) {
     await navigate(cdp,base,{fixture:false,denyStorage:true});await click(cdp,"#measureButton");await click(cdp,"#recordButton");
     if(phase!=="collect")await click(cdp,"#checkButton");if(phase==="review")await click(cdp,"#submitButton");
-    assert.equal(await call(cdp,"return w.__storageProbes;"),0);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assert.deepEqual(await state(cdp),M.fresh());
+    assert.equal(await call(cdp,"return w.__storageProbes;"),0);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assertFresh(await state(cdp));
   }
   for(const old of [draft,complete,pending,"corrupt"]) {
-    await navigate(cdp,base,{fixture:false});await call(cdp,`w.localStorage.setItem('simlab:${slug}:checkpoint',${JSON.stringify(JSON.stringify(old))});`);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assert.deepEqual(await state(cdp),M.fresh());await click(cdp,"#measureButton");assert.ok((await state(cdp)).setups[0].candidate);
+    await navigate(cdp,base,{fixture:false});await call(cdp,`w.localStorage.setItem('simlab:${slug}:checkpoint',${JSON.stringify(JSON.stringify(old))});`);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assertFresh(await state(cdp));await click(cdp,"#measureButton");assert.ok((await state(cdp)).setups[0].candidate);
   }
-  await navigate(cdp,base,{fixture:durableDraft(filled())});await confirmClick(cdp,"#clearAllButton",false);assert.equal((await state(cdp)).groups[0].records.length,6);await confirmClick(cdp,"#clearAllButton",true);assert.deepEqual(await state(cdp),M.fresh());
-  const cleared=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:cleared});assert.deepEqual(await state(cdp),M.fresh());
-  await navigate(cdp,base,{fixture:{"cmi.core.lesson_status":"not attempted"}});assert.deepEqual(await state(cdp),M.fresh());assert.equal(JSON.parse(complete["cmi.suspend_data"]).score,100);
+  await navigate(cdp,base,{fixture:durableDraft(filled())});await confirmClick(cdp,"#clearAllButton",false);assert.equal((await state(cdp)).groups[0].records.length,6);await confirmClick(cdp,"#clearAllButton",true);assertFresh(await state(cdp));
+  const clearedState=await state(cdp),cleared=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:cleared});assert.deepEqual(await state(cdp),clearedState);
+  await navigate(cdp,base,{fixture:{"cmi.core.lesson_status":"not attempted"}});assertFresh(await state(cdp));assert.equal(JSON.parse(complete["cmi.suspend_data"]).score,100);
   await cdp.send("Emulation.setEmulatedMedia",{features:[]});
   return {result:100,checks:"actual 12-record experiment and 18-point plotting; wrong fit, keyboard, check-edit, clear, SCORM draft/review/pending/committed, fresh standalone and new Moodle attempt"};
 }
@@ -402,7 +447,7 @@ async function specialTouch(cdp,base,label,width,kind) {
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
   const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
-  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},errors:[]};
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},settings:{},errors:[]};
   try {
     const browser=findBrowser();assert.ok(browser,"Chrome is required");
     const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
@@ -419,14 +464,15 @@ async function main() {
       if(process.argv.includes("--motion")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(!process.argv.includes("--touch"))report.viewports[label]=await visualMatrix(cdp,base,label);
       if(process.argv.includes("--smoke"))break;
+      if(process.argv.includes("--settings")) {report.settings[label]=await settingsChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
-      if(!process.argv.includes("--touch")) {report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
+      if(!process.argv.includes("--touch")) {report.settings[label]=await settingsChecks(cdp,base,label);report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
       for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
         // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
         for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
       if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
     }
-    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--settings")?"settings-report.json":process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
   } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
   try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
   if(failure)throw failure;console.log("newton source/package browser checks passed");
