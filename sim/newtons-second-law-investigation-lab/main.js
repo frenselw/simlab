@@ -2,16 +2,19 @@
   "use strict";
   const M = NewtonModel, P = NewtonPersistence, G = NewtonGraph, F = NewtonFitting, E = NewtonExperiment;
   const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massLock", "massDown", "massUp", "massValue", "forceLock", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "keyboardPlace", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
-  const d = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+  const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula").map(id => [id, document.getElementById(id)]));
   const esc = G.escape, display = n => Number(n.toPrecision(5)).toString(), phaseTitles = { collect: "實驗", plot: "作圖", conclude: "歸納", check: "檢查" };
   const controller = new NewtonRuntime.Controller(SimScorm, SimActivityFlow, render);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)"), handles = new Map();
   let selected = 0, geometry = null, drag = null, keyboard = null, run = null, showReference = false, lastGroup = 0, lastGraph = 0, lastPreviewCorner = null;
   const diagnostics = { downs: 0, moves: 0, ups: 0, cancels: 0, trustedTouch: 0, previews: 0, lastTarget: null };
   const editable = () => controller.editable && controller.mode !== "check";
+  const moving = () => Boolean(run && !run.finished);
   const view = () => controller.view;
   const localPoint = event => { const r = d.stage.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
   const graphName = i => i === 0 ? '<var>a</var>–<var>F</var><sub>合</sub>' : i === 1 ? '<var>a</var>–<var>m</var>' : '<var>a</var>–1/<var>m</var>';
+  const symbols = { mass: '<var>m</var>', force: '<var>F</var><sub>合</sub>', acceleration: '<var>a</var>' };
+  const formulas = { linear: '<var>y</var> = <var>kx</var> + <var>b</var>', origin: '<var>y</var> = <var>kx</var>', quadratic: '<var>y</var> = <var>px</var><sup>2</sup> + <var>qx</var> + <var>r</var>', inverse: '<var>y</var> = <var>k</var>/<var>x</var>' };
   d.conclusionFields.innerHTML = M.QUESTIONS.map((q, i) => `<fieldset><legend>${i + 1}. ${esc(q.title)}</legend>${q.options.slice((i + 1) % 4).concat(q.options.slice(0, (i + 1) % 4)).map(([value, label]) => `<label class="choice"><input type="radio" name="conclusion${i}" data-conclusion="${i}" value="${value}"><span>${esc(label)}</span></label>`).join("")}</fieldset>`).join("");
   function command(action) { return controller.command(action); }
   function cancelWork(count = false) {
@@ -55,10 +58,10 @@
     renderFeedback(); renderStage();
   }
   function renderCollect(i) {
-    const s = controller.state, g = s.groups[i], setup = s.setups?.[i], busy = Boolean(run), locked = !editable();
+    const s = controller.state, g = s.groups[i], setup = s.setups?.[i], busy = moving(), locked = !editable();
     d.collectTitle.textContent = i === 0 ? "A · 探究合外力" : "B · 探究總質量";
     d.collectPrompt.textContent = `探究${i === 0 ? "合外力" : "總質量"}對加速度的影響。請自行決定改變、保持不變及量度的量。`;
-    for (let j = 0; j < 3; j++) { d[`role${j}`].value = g.roles[j] || ""; d[`role${j}`].disabled = locked || busy; }
+    for (let j = 0; j < 3; j++) { d[`role${j}`].value = g.roles[j] || ""; d[`role${j}`].disabled = locked || busy; d[`roleSymbol${j}`].innerHTML = symbols[g.roles[j]] || ""; }
     d.instrumentControls.hidden = locked;
     if (setup) {
       const [mi, fi] = setup.settings;
@@ -72,11 +75,12 @@
       d.forceDown.disabled = locked || busy || setup.locks[1] || fi === 0; d.forceUp.disabled = locked || busy || setup.locks[1] || fi === 5;
       d.forceRange.disabled = locked || busy || setup.locks[1];
       d.measureButton.disabled = locked || busy || g.records.length >= 6;
-      d.measureButton.textContent = busy ? "量測中…" : g.records.length >= 6 ? "本組已有 6 筆記錄" : setup.candidate ? "重新量測" : "啟動量測";
-      d.measurementReadout.innerHTML = busy ? "正在記錄速度變化…" : setup.candidate ? `<var>a</var> = <strong>${(setup.candidate[2] / 1000).toFixed(3)}</strong> m/s²` : "加速度讀數將在量測完成後顯示。";
-      d.recordButton.disabled = locked || busy || !setup.candidate || g.records.length >= 6;
+      d.measureButton.textContent = busy ? run.ready ? "小車行進中…" : "量測中…" : g.records.length >= 6 ? "本組已有 6 筆記錄" : setup.candidate ? "重新量測" : "啟動量測";
+      const waiting = busy && !run.ready, reading = waiting ? null : setup.candidate || run?.reading;
+      d.measurementReadout.innerHTML = reading ? `<var>a</var> = <strong>${(reading[2] / 1000).toFixed(3)}</strong> m/s²<small>${setup.candidate ? "可記錄" : "已記錄"}${busy ? "；小車繼續行進。" : "。"}</small>` : waiting ? "正在量測，小車行進約 1 m 後便可記錄。" : "小車行進約 1 m 後便會顯示加速度讀數。";
+      d.recordButton.disabled = locked || waiting || !setup.candidate || g.records.length >= 6;
       d.replayButton.disabled = locked || busy || !setup.candidate;
-      d.sensorGraph.innerHTML = setup.candidate ? E.sensorSvg(setup.candidate) : "";
+      d.sensorGraph.innerHTML = reading ? E.sensorSvg(reading) : "";
     }
     d.recordCount.textContent = `${g.records.length} / 6 筆`;
     d.recordTable.innerHTML = g.records.length ? `<table><thead><tr><th>筆</th><th><var>m</var><small>kg</small></th><th><var>F</var><sub>合</sub><small>N</small></th><th><var>a</var><small>m/s²</small></th>${locked ? "" : '<th aria-label="操作"></th>'}</tr></thead><tbody>${g.records.map((r, n) => { const q = M.values(r); return `<tr><td>${n + 1}</td><td>${q.m.toFixed(2)}</td><td>${q.f.toFixed(2)}</td><td>${q.a.toFixed(3)}</td>${locked ? "" : `<td><button data-delete-record="${n}" aria-label="刪除第${n + 1}筆量測" ${busy ? "disabled" : ""}>×</button></td>`}</tr>`; }).join("")}</tbody></table>` : '<p class="small">尚未加入量測記錄。</p>';
@@ -91,10 +95,11 @@
     d.plotTable.innerHTML = rows.length ? `<table><thead><tr><th>選取</th>${i === 2 ? '<th><var>m</var><small>kg</small></th>' : ""}<th>${xt}</th><th><var>a</var><small>m/s²</small></th><th>點位</th></tr></thead><tbody>${rows.map((r, n) => { const v = M.values(r), xy = M.expected(i, r); return `<tr><td><button class="row-select" data-select-row="${n}" aria-pressed="${n === selected}">#${n + 1}</button></td>${i === 2 ? `<td>${v.m.toFixed(2)}</td>` : ""}<td>${xy[0].toFixed(i === 2 ? 3 : 2)}</td><td>${v.a.toFixed(3)}</td><td>${p.points[n] ? "已放" : "待放"}</td></tr>`; }).join("")}</tbody></table>` : '<p class="small">此組尚無記錄；可返回實驗頁收集數據。</p>';
     d.pointControls.hidden = locked || !rows.length; d.removePoint.disabled = !p.points[selected];
     d.fitModel.value = p.model || ""; d.fitModel.disabled = locked;
+    d.fitFormula.innerHTML = formulas[p.model] || "";
     d.fitButton.hidden = locked; d.fitButton.disabled = !p.model;
     if (p.fitAttempted) {
       const fit = F.fit(p.model, F.plotted(p));
-      d.fitResult.innerHTML = fit.ok ? `<p class="equation">${equation(fit)}</p><p>使用 ${fit.n} 個已放點<br>RMSE = ${display(fit.rmse)} m/s²${fit.model === "linear" ? `<br>截距 b = ${display(fit.coefficients[1])} m/s²` : ""}</p>` : `<p>${esc(fit.message)}</p><p>目前有 ${fit.n} 個已放點。</p>`;
+      d.fitResult.innerHTML = fit.ok ? `<p class="equation">${equation(fit)}</p><p>使用 ${fit.n} 個已放點<br>RMSE = ${display(fit.rmse)} m/s²${fit.model === "linear" ? `<br>截距 <var>b</var> = ${display(fit.coefficients[1])} m/s²` : ""}</p>` : `<p>${esc(fit.message)}</p><p>目前有 ${fit.n} 個已放點。</p>`;
     } else d.fitResult.innerHTML = `<p>${p.model ? "點位或方法改動後，請按「擬合我的點」。" : "選擇模型，再用自己的點進行擬合。"}</p>`;
     d.clearGraph.hidden = locked; d.clearGraph.disabled = !p.points.some(Boolean) && !p.model;
     d.referenceButton.hidden = !controller.trusted; d.referenceButton.setAttribute("aria-pressed", String(showReference));
@@ -102,10 +107,10 @@
   }
   function equation(fit) {
     const c = fit.coefficients.map(v => Math.abs(v) < 1e-12 ? 0 : v), signed = (v, suffix = "") => `${v < 0 ? " − " : " + "}${display(Math.abs(v))}${suffix}`;
-    if (fit.model === "linear") return `y = ${display(c[0])}x${signed(c[1])}`;
-    if (fit.model === "origin") return `y = ${display(c[0])}x`;
-    if (fit.model === "inverse") return `y = ${display(c[0])}/x`;
-    return `y = ${display(c[0])}x²${signed(c[1], "x")}${signed(c[2])}`;
+    if (fit.model === "linear") return `<var>y</var> = ${display(c[0])}<var>x</var>${signed(c[1])}`;
+    if (fit.model === "origin") return `<var>y</var> = ${display(c[0])}<var>x</var>`;
+    if (fit.model === "inverse") return `<var>y</var> = ${display(c[0])}/<var>x</var>`;
+    return `<var>y</var> = ${display(c[0])}<var>x</var><sup>2</sup>${signed(c[1], "<var>x</var>")}${signed(c[2])}`;
   }
   function renderCheck() {
     const s = controller.state;
@@ -147,9 +152,10 @@
     if (v.phase === "collect") {
       d.sourceHandle.hidden = true;
       const setup = s.setups?.[v.index], first = s.groups[v.index].records[0], settings = setup?.settings || first?.slice(0, 2) || [2, 2];
-      const t = run ? Math.min(1, (performance.now() - run.started) / 1000) : setup?.candidate || (!controller.editable && first) ? 1 : 0;
+      const completed = Boolean(run?.finished || (!run && (setup?.candidate || (!controller.editable && first))));
+      const t = run ? Math.min(run.timing.end, (performance.now() - run.started) / 1000) : completed ? E.timing(settings).end : 0;
       d.stageSvg.setAttribute("aria-label", "水平小車在可調恆力下由靜止加速，總質量包含配重");
-      d.stageSvg.innerHTML = E.svg(rect.width, rect.height, settings, t, !run && t === 1, v.index);
+      d.stageSvg.innerHTML = E.svg(rect.width, rect.height, settings, t, completed, v.index);
       for (const b of handles.values()) b.hidden = true; geometry = null; return;
     }
     geometry = G.geometry(rect.width, rect.height, M.bounds(s, v.index));
@@ -160,7 +166,7 @@
     d.sourceHandle.hidden = !(editable() && records[selected]);
     if (editable() && records[selected]) {
       const xy = M.expected(v.index, records[selected]); d.sourceHandle.hidden = false;
-      if (!drag) d.sourceHandle.innerHTML = `<strong>#${selected + 1} · ${plot.points[selected] ? "拖動重新放點" : "拖入圖框"}</strong><span>x = ${xy[0].toFixed(3)}　y = ${xy[1].toFixed(3)}</span>`;
+      if (!drag) d.sourceHandle.innerHTML = `<strong>#${selected + 1} · ${plot.points[selected] ? "拖動重新放點" : "拖入圖框"}</strong><span><var>x</var> = ${xy[0].toFixed(3)}　<var>y</var> = ${xy[1].toFixed(3)}</span>`;
       d.sourceHandle.setAttribute("aria-label", `第${selected + 1}筆資料，橫座標${xy[0]}，縱座標${xy[1]}，拖入圖框或按Enter開始鍵盤放點`);
     }
     for (const [key, b] of handles) if (!key.startsWith(`${v.index}:`)) b.hidden = true;
@@ -245,27 +251,30 @@
   for (const b of d.experimentNav.querySelectorAll("button")) b.addEventListener("click", () => navigate("collect", +b.dataset.group));
   for (const b of d.graphNav.querySelectorAll("button")) b.addEventListener("click", () => navigate("plot", +b.dataset.graph));
   for (let i = 0; i < 3; i++) d[`role${i}`].addEventListener("change", e => command({ type: "role", index: i, value: e.target.value || null }));
-  function adjustSetting(index, delta) { const i = view().index; command({ type: "setting", group: i, index, value: controller.state.setups[i].settings[index] + delta }); }
+  function adjustSetting(index, delta) { if (moving()) return; const i = view().index; run = null; command({ type: "setting", group: i, index, value: controller.state.setups[i].settings[index] + delta }); }
   d.massDown.onclick = () => adjustSetting(0, -1); d.massUp.onclick = () => adjustSetting(0, 1); d.forceDown.onclick = () => adjustSetting(1, -1); d.forceUp.onclick = () => adjustSetting(1, 1);
   d.massLock.onclick = () => command({ type: "lock", index: 0 }); d.forceLock.onclick = () => command({ type: "lock", index: 1 });
-  d.forceRange.addEventListener("input", e => command({ type: "setting", index: 1, value: +e.target.value }));
+  d.forceRange.addEventListener("input", e => { if (!moving()) { run = null; command({ type: "setting", index: 1, value: +e.target.value }); } });
   function startRun(replay = false) {
-    if (!editable() || view().phase !== "collect" || run) return;
+    if (!editable() || view().phase !== "collect" || moving()) return;
     const group = view().index;
     if (!replay && controller.state.groups[group].records.length >= 6) return;
+    run = null;
     if (!replay) command({ type: "discard", group });
     if (reduced.matches) { if (!replay) command({ type: "measure", group }); render(); return; }
-    run = { group, replay, started: performance.now() }; render();
+    const timing = E.timing(controller.state.setups[group].settings);
+    run = { group, replay, timing, ready: false, finished: false, reading: null, started: performance.now() }; render();
   }
   d.measureButton.onclick = () => startRun(); d.replayButton.onclick = () => startRun(true);
-  d.recordButton.onclick = () => { if (!run) command({ type: "record" }); };
-  d.recordTable.addEventListener("click", e => { const b = e.target.closest("[data-delete-record]"); if (!b || !editable() || run) return; const index = +b.dataset.deleteRecord, group = view().index;
+  d.recordButton.onclick = () => { if (!moving() || run.ready) command({ type: "record" }); };
+  d.recordTable.addEventListener("click", e => { const b = e.target.closest("[data-delete-record]"); if (!b || !editable() || moving()) return; const index = +b.dataset.deleteRecord, group = view().index;
     if (M.related(group).some(g => controller.state.plots[g].points[index]) && !confirm("刪除此筆量測會移除它在相關圖上的點，並需要重新擬合。其他資料會保留。")) return;
+    run = null;
     command({ type: "removeRecord", index });
   });
   d.goGraph.onclick = () => navigate("plot", view().index === 0 ? 0 : 1);
   d.returnExperiment.onclick = () => navigate("collect", M.sourceGroup(view().index));
-  d.clearGroup.onclick = () => { if (editable() && confirm("清除此組量測及相關圖點和擬合？另一組資料和歸納答案會保留。")) command({ type: "clearGroup" }); };
+  d.clearGroup.onclick = () => { if (editable() && confirm("清除此組量測及相關圖點和擬合？另一組資料和歸納答案會保留。")) { run = null; command({ type: "clearGroup" }); } };
   d.clearGraph.onclick = () => { if (editable() && confirm("清除此圖的點位和擬合？原始量測及其他圖會保留。")) { cancelWork(); command({ type: "clearGraph" }); } };
   d.clearAllButton.onclick = () => { if (controller.editable && confirm("清除全部實驗資料、圖點、擬合及歸納答案，重新作答？")) { cancelWork(); run = null; controller.clearAllAnswers(); d.controlPanel.scrollTop = 0; } };
   d.plotTable.addEventListener("click", e => { const b = e.target.closest("[data-select-row]"); if (b) { cancelWork(); selected = +b.dataset.selectRow; render(); } });
@@ -307,14 +316,23 @@
   window.addEventListener("resize", () => { cancelWork(true); renderStage(); });
   new ResizeObserver(() => { if (drag || keyboard) cancelWork(true); renderStage(); }).observe(d.stage);
   function frame(now) {
-    if (run) {
+    if (moving()) {
       if (!editable() || view().phase !== "collect" || view().index !== run.group) { run = null; render(); }
-      else if (now - run.started >= 1000) { const previous = run; run = null; if (!previous.replay) command({ type: "measure", group: previous.group }); else render(); }
-      else renderStage();
+      else {
+        const elapsed = (now - run.started) / 1000;
+        if (!run.ready && elapsed >= run.timing.ready) {
+          run.ready = true;
+          if (!run.replay) command({ type: "measure", group: run.group });
+          run.reading = controller.state.setups[run.group].candidate;
+          render();
+        }
+        if (elapsed >= run.timing.end) { run.finished = true; render(); }
+        else renderStage();
+      }
     }
     requestAnimationFrame(frame);
   }
   window.__newtonApp = Object.freeze({ getState: () => M.clone(controller.state), getMode: () => controller.mode, getGeometry: () => M.clone(geometry), getResult: () => M.clone(controller.result),
-    getPointerDiagnostics: () => ({ ...diagnostics }), getSnapshot: () => controller.editable ? controller.draftSnapshot() : M.clone(controller.finalSnapshot), getRunning: () => Boolean(run) });
+    getPointerDiagnostics: () => ({ ...diagnostics }), getSnapshot: () => controller.editable ? controller.draftSnapshot() : M.clone(controller.finalSnapshot), getRunning: moving });
   controller.start(); requestAnimationFrame(frame);
 })();

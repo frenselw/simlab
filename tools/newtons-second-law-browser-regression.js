@@ -148,6 +148,46 @@ async function visualMatrix(cdp,base,label) {
   await cdp.send("Emulation.setPageScaleFactor",{pageScaleFactor:2});assert.equal(await call(cdp,"return w.visualViewport.scale;"),2);await screenshot(cdp,`${label}-zoom-200`);await cdp.send("Emulation.setPageScaleFactor",{pageScaleFactor:1});
   return evidence;
 }
+async function waitFor(cdp, code, timeout = 8500) {
+  const until=Date.now()+timeout;
+  while(Date.now()<until) {if(await call(cdp,code))return;await delay(50);}
+  throw new Error(`Timed out waiting for ${code}`);
+}
+const cartPosition=cdp=>call(cdp,"return Number(d.querySelector('#stageSvg .cart').dataset.position);");
+async function assertCartExited(cdp) {
+  assert.ok(await call(cdp,"return d.querySelector('.cart-body').getBoundingClientRect().left>d.getElementById('stage').getBoundingClientRect().right;"),"entire cart exits the visible track");
+}
+async function motionChecks(cdp,base,label) {
+  await viewport(cdp,1280,900,false);
+  await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"no-preference"}]});
+  const fast=M.fresh();fast.setups[0].settings=[0,5];
+  await navigate(cdp,base,{fixture:durableDraft(fast)});
+  for(const [value,symbol] of [["mass","m"],["force","F合"],["acceleration","a"]]) {
+    await choose(cdp,"#role0",value);
+    assert.equal(await call(cdp,"return d.getElementById('roleSymbol0').textContent;"),symbol);
+    assert.equal(await call(cdp,"return w.getComputedStyle(d.querySelector('#roleSymbol0 var')).fontStyle;"),"italic");
+  }
+  assert.ok(await call(cdp,"return [...d.querySelectorAll('select option')].every(o=>!/[a-zA-Z]/.test(o.textContent));"),"native options use readable names, math sits outside them");
+  assert.deepEqual(await call(cdp,"return [...d.querySelectorAll('.motion-readout .variable')].map(e=>[e.textContent,w.getComputedStyle(e).fontStyle]);"),[["t","italic"],["v","italic"]]);
+  await click(cdp,"#measureButton");await waitFor(cdp,"return Boolean(w.__newtonApp.getState().setups[0].candidate);");
+  assert.equal((await state(cdp)).setups[0].candidate[2],2400);
+  assert.ok(await call(cdp,"return +d.querySelector('.cart').dataset.time>=1;"),"fastest run never reveals an uncollected sensor sample");
+  const saved=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:saved});
+  assert.deepEqual((await state(cdp)).setups[0].candidate,[0,5,2400]);assert.equal(await call(cdp,"return w.__newtonApp.getRunning();"),false);await assertCartExited(cdp);
+  await click(cdp,"#replayButton");await waitFor(cdp,"return !d.getElementById('recordButton').disabled;");await click(cdp,"#recordButton");
+  await waitFor(cdp,"return !w.__newtonApp.getRunning();");await assertCartExited(cdp);
+  assert.equal((await state(cdp)).groups[0].records.length,1);assert.equal((await state(cdp)).setups[0].candidate,null,"replay does not remeasure after recording");
+  const slow=M.fresh();slow.setups[0].settings=[6,0];await navigate(cdp,base,{fixture:durableDraft(slow)});
+  await click(cdp,"#measureButton");await delay(150);await click(cdp,'[data-group="1"]');await delay(4500);
+  assert.ok((await state(cdp)).setups.every(s=>s.candidate===null));assert.equal(await call(cdp,"return w.__newtonApp.getRunning();"),false,"cancelled run cannot later publish a reading");
+  await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
+  await navigate(cdp,base,{fixture:durableDraft(slow)});await click(cdp,"#measureButton");
+  assert.deepEqual((await state(cdp)).setups[0].candidate,[6,0,100]);await assertCartExited(cdp);
+  await click(cdp,'[data-phase="plot"]');
+  for(const model of M.METHODS) {await choose(cdp,"#fitModel",model);assert.ok(await call(cdp,"return [...d.querySelectorAll('#fitFormula var')].every(e=>w.getComputedStyle(e).fontStyle==='italic') && d.querySelectorAll('#fitFormula var').length>=2;"));}
+  await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"no-preference"}]});
+  return {fastestReading:2400,slowestReading:100,resume:true,replay:true,cancel:true,reducedMotion:true,notation:true};
+}
 async function flows(cdp,base,label) {
   await viewport(cdp,1280,900,false);await navigate(cdp,base);
   for(const phase of ["collect","plot","conclude"]) {await click(cdp,`[data-phase="${phase}"]`);await click(cdp,"#checkButton");assert.equal(await mode(cdp),"check");}
@@ -157,8 +197,17 @@ async function flows(cdp,base,label) {
   await navigate(cdp,base);await choose(cdp,"#role0","force");await choose(cdp,"#role1","mass");await choose(cdp,"#role2","acceleration");
   await click(cdp,"#massLock");await click(cdp,"#forceDown");await click(cdp,"#forceDown");
   await click(cdp,"#measureButton");assert.equal(await call(cdp,"return w.__newtonApp.getRunning();"),true);
-  await delay(1100);assert.equal((await state(cdp)).setups[0].candidate[2],200);assert.equal((await state(cdp)).groups[0].records.length,0);
-  await click(cdp,"#recordButton");
+  await delay(1100);assert.equal((await state(cdp)).setups[0].candidate,null,"reading waits for about one metre");
+  await waitFor(cdp,"return Boolean(w.__newtonApp.getState().setups[0].candidate);");
+  assert.equal((await state(cdp)).setups[0].candidate[2],200);assert.equal((await state(cdp)).groups[0].records.length,0);
+  assert.equal(await call(cdp,"return w.__newtonApp.getRunning() && !d.getElementById('recordButton').disabled;"),true,"recording is available while cart is still moving");
+  await screenshot(cdp,`${label}-reading-while-moving`);
+  await click(cdp,"#recordButton");const position=await cartPosition(cdp);await delay(180);
+  assert.ok(await cartPosition(cdp)>position,"recording must not stop or reset the cart");
+  assert.equal((await state(cdp)).groups[0].records.length,1);
+  await waitFor(cdp,"return !w.__newtonApp.getRunning();");
+  await assertCartExited(cdp);assert.equal((await state(cdp)).setups[0].candidate,null,"end of animation cannot create a second reading");
+  assert.equal((await state(cdp)).groups[0].records.length,1);await screenshot(cdp,`${label}-cart-exited`);
   await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
   for(let i=1;i<6;i++){await click(cdp,"#forceUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");}
   await click(cdp,'[data-group="1"]');await choose(cdp,"#role0","mass");await choose(cdp,"#role1","force");await choose(cdp,"#role2","acceleration");await click(cdp,"#forceLock");await click(cdp,"#massDown");await click(cdp,"#massDown");
@@ -297,7 +346,7 @@ async function specialTouch(cdp,base,label,width,kind) {
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
   const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
-  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},errors:[]};
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},errors:[]};
   try {
     const browser=findBrowser();assert.ok(browser,"Chrome is required");
     const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
@@ -310,16 +359,17 @@ async function main() {
     for(const [label,directory] of [["source",path.join(root,"sim")],["package",packageDirectory]]) {
       const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await freshPage();
       console.log(`newton browser: ${label} layout / flow`);
+      if(process.argv.includes("--motion")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(!process.argv.includes("--touch"))report.viewports[label]=await visualMatrix(cdp,base,label);
       if(process.argv.includes("--smoke"))break;
       if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
-      if(!process.argv.includes("--touch"))report.flows[label]=await flows(cdp,base,label);
+      if(!process.argv.includes("--touch")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
       for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
         // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
         for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
       if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
     }
-    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":"report.json"),JSON.stringify(report,null,2));
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":"report.json"),JSON.stringify(report,null,2));
   } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
   try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
   if(failure)throw failure;console.log("newton source/package browser checks passed");

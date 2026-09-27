@@ -19,9 +19,11 @@
   const mass = i => .5 + .25 * i;
   const force = i => (i + 1) / 5;
   function motion(mi, fi, t) {
-    if (!integer(mi, 0, 6) || !integer(fi, 0, 5) || !Number.isFinite(t) || t < 0 || t > 1) throw new Error("Invalid measurement settings");
+    if (!integer(mi, 0, 6) || !integer(fi, 0, 5) || !Number.isFinite(t) || t < 0) throw new Error("Invalid measurement settings");
     const acceleration = force(fi) / mass(mi);
-    return { time: t, position: .1 + acceleration * t * t / 2, velocity: acceleration * t, acceleration };
+    const position = .1 + acceleration * t * t / 2, velocity = acceleration * t;
+    if (!Number.isFinite(position) || !Number.isFinite(velocity)) throw new Error("Invalid motion time");
+    return { time: t, position, velocity, acceleration };
   }
   function measure(mi, fi) {
     const samples = Array.from({ length: 11 }, (_, i) => motion(mi, fi, i / 10));

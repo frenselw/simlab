@@ -15,7 +15,9 @@ for(const [w,h] of [[320,166],[320,230],[390,276],[768,400],[896,760]]) for(cons
   const off=G.handle(g,[.5,3]);assert.equal(off.offscale,3>g.range.y);assert.equal(off.y,g.top);
   const markup=`<svg>${G.svg(s,graph,g,0,null,true)}</svg>`;assert.equal(XMLValidator.validate(markup),true);assert.ok(markup.includes("fit-curve"));assert.ok(!/NaN|Infinity/.test(markup));
 }
-for(const [w,h] of [[320,166],[390,276],[896,760]])for(let mi=0;mi<7;mi++)for(let fi=0;fi<6;fi++)for(const time of [0,1]) {
-  const markup=`<svg>${E.svg(w,h,[mi,fi],time,time===1,0)}</svg>`;assert.equal(XMLValidator.validate(markup),true);assert.ok(!/NaN|Infinity/.test(markup));
+for(const [w,h] of [[320,166],[320,500],[390,276],[650,360],[896,760]])for(let mi=0;mi<7;mi++)for(let fi=0;fi<6;fi++)for(const time of [0,1,E.timing([mi,fi]).ready,E.timing([mi,fi]).end]) {
+  const completed=time===E.timing([mi,fi]).end,markup=`<svg>${E.svg(w,h,[mi,fi],time,completed,0)}</svg>`;
+  assert.equal(XMLValidator.validate(markup),true);assert.ok(!/NaN|Infinity/.test(markup));
+  if(completed)assert.ok(+markup.match(/class="cart-body" x="([^"]+)"/)[1]>w,"whole cart clears every viewport before the run ends");
 }
 console.log("newton graphs: scale conversion, snap hysteresis, offscale handles, all apparatus settings and valid SVG passed");

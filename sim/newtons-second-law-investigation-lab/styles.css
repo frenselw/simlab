@@ -14,7 +14,7 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .stage { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #fff; border-bottom: 1px solid var(--color-border); touch-action: pan-y; isolation: isolate; }
 #stageSvg { display: block; height: 100%; width: 100%; pointer-events: none; }
 #stageSvg text, #magnifierSvg text { fill: #334155; font-family: system-ui, sans-serif; }
-#stageSvg .variable, #magnifierSvg .variable, var { font-family: var(--math-font); font-style: italic; }
+#stageSvg .variable, #magnifierSvg .variable, #sensorGraph .variable, var { font-family: var(--math-font); font-style: italic; }
 sub { font-size: .7em; font-style: normal; }
 .muted, .small { color: #64748b; fill: #64748b; }
 .axis { fill: none; stroke: #64748b; stroke-width: 1.5; }
@@ -42,7 +42,8 @@ sub { font-size: .7em; font-style: normal; }
 h2 { margin: .15rem 0 .55rem; font-size: 1.18rem; } h3 { margin: .2rem 0; font-size: 1rem; }
 p { margin: .45rem 0; line-height: 1.55; } .small { font-size: .875rem; } .kicker { color: #64748b; font-size: .8rem; margin: 0; }
 .role-fields { border-block: 1px solid #e2e8f0; margin: .7rem 0; padding: .4rem 0; }
-.role-fields label { display: grid; grid-template-columns: 5.3rem minmax(0,1fr); align-items: center; gap: .3rem; margin: .25rem 0; }
+.role-row { display: grid; grid-template-columns: 4.5rem minmax(0,1fr) 2.25rem; align-items: center; gap: .3rem; margin: .25rem 0; }
+.role-symbol { text-align: center; font-size: 1.2rem; white-space: nowrap; }
 select { width: 100%; min-width: 0; }
 .setting-label { display: flex; justify-content: space-between; align-items: center; margin-top: .5rem; }
 .lock { font-size: .875rem; min-height: 44px; padding-inline: .75rem; }
@@ -55,6 +56,7 @@ select { width: 100%; min-width: 0; }
 .full { width: 100%; margin: .5rem 0; padding: .4rem .5rem; }
 .measurement-readout { padding: .6rem .8rem; border-left: 3px solid #7d9fca; background: #eef4fb; min-height: 48px; font-variant-numeric: tabular-nums; }
 .measurement-readout strong { font-size: 1.25rem; }
+.measurement-readout small { display: block; font-size: .875rem; margin-top: .2rem; }
 details { font-size: .875rem; color: #475569; } summary { min-height: 44px; cursor: pointer; padding: .5rem 0; }
 #sensorGraph svg { display: block; width: 100%; max-height: 140px; }
 .section-label { display: flex; justify-content: space-between; align-items: baseline; gap: .3rem; margin-top: 1rem; }
@@ -66,6 +68,7 @@ th small { display: block; font-size: .8rem; }
 td button { min-width: 44px; padding: .2rem .35rem; } .row-select { width: 100%; font-size: .875rem; }
 .row-select[aria-pressed="true"] { background: #eaf2fd; border-color: #608ec8; }
 .fit-result { margin: .5rem 0; border-left: 3px solid #94a3b8; padding: .2rem .65rem; min-height: 156px; }
+.fit-formula { min-height: 1.8rem; font-family: var(--math-font); font-size: 1.2rem; }
 .fit-result p { font-size: .9rem; } .fit-result .equation { font-family: var(--math-font); font-size: 1.25rem; color: #0f655f; overflow-wrap: anywhere; }
 fieldset { border: 0; border-bottom: 1px solid #dce3eb; padding: .8rem 0; margin: 0 0 .5rem; min-width: 0; }
 legend { padding: 0; font-weight: 600; line-height: 1.5; }

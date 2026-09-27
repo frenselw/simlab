@@ -29,9 +29,9 @@
       <p class="kicker">設計公平測試 · 收集數據</p><h2 id="collectTitle"></h2>
       <p id="collectPrompt"></p>
       <div id="roleFields" class="role-fields">
-        <label>我要改變<select id="role0" data-role="0"><option value="">請選擇</option><option value="mass">總質量 m</option><option value="force">合外力 F合</option><option value="acceleration">加速度 a</option></select></label>
-        <label>保持不變<select id="role1" data-role="1"><option value="">請選擇</option><option value="mass">總質量 m</option><option value="force">合外力 F合</option><option value="acceleration">加速度 a</option></select></label>
-        <label>量度<select id="role2" data-role="2"><option value="">請選擇</option><option value="mass">總質量 m</option><option value="force">合外力 F合</option><option value="acceleration">加速度 a</option></select></label>
+        <div class="role-row"><label for="role0">我要改變</label><select id="role0" data-role="0"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol0" class="role-symbol" aria-hidden="true"></span></div>
+        <div class="role-row"><label for="role1">保持不變</label><select id="role1" data-role="1"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol1" class="role-symbol" aria-hidden="true"></span></div>
+        <div class="role-row"><label for="role2">量度</label><select id="role2" data-role="2"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol2" class="role-symbol" aria-hidden="true"></span></div>
       </div>
       <div id="instrumentControls">
         <div class="setting-label"><span>總質量 <var>m</var></span><button id="massLock" class="lock" aria-pressed="false">鎖定</button></div>
@@ -44,7 +44,7 @@
         <button id="measureButton" class="primary full">啟動量測</button>
         <div id="measurementReadout" class="measurement-readout" aria-live="polite"></div>
         <div class="button-row"><button id="recordButton" class="primary">加入本組資料</button><button id="replayButton">重播</button></div>
-        <details id="sensorDetails"><summary>加速度讀數從哪裡來？</summary><p>感應器記錄 1 秒內的速度變化，以速度—時間圖的斜率求出加速度。讀數精度為 0.001 m/s²。</p><div id="sensorGraph"></div></details>
+        <details id="sensorDetails"><summary>加速度讀數從哪裡來？</summary><p>小車行進約 1 m，且起步後首 1 秒的採樣完成，便可記錄讀數；小車會繼續行進。感應器以首 1 秒的速度—時間圖斜率求出加速度，讀數精度為 0.001 m/s²。</p><div id="sensorGraph"></div></details>
       </div>
       <div class="section-label"><h3>本組數據</h3><span id="recordCount"></span></div>
       <p class="small">建議記錄 6 筆，至少 5 個不同水平，並涵蓋可調範圍的 60%。</p>
@@ -57,7 +57,7 @@
       <div id="plotTable"></div>
       <div id="pointControls"><div class="button-row"><button id="keyboardPlace">鍵盤放點</button><button id="removePoint">移回待放</button></div><p id="keyboardHelp" class="small" hidden>方向鍵微調，Shift 加快；Enter 確定，Escape 取消。</p></div>
       <div class="section-label"><h3>選擇擬合方法</h3></div>
-      <label class="sr-only" for="fitModel">擬合方法</label><select id="fitModel"><option value="">請選擇</option><option value="linear">直線　y = kx + b</option><option value="origin">過原點直線　y = kx</option><option value="quadratic">二次曲線　y = px² + qx + r</option><option value="inverse">反比例　y = k/x</option></select>
+      <label class="sr-only" for="fitModel">擬合方法</label><select id="fitModel" aria-describedby="fitFormula"><option value="">請選擇</option><option value="linear">直線</option><option value="origin">過原點直線</option><option value="quadratic">二次曲線</option><option value="inverse">反比例</option></select><p id="fitFormula" class="fit-formula"></p>
       <button id="fitButton" class="primary full">擬合我的點</button><div id="fitResult" class="fit-result" aria-live="polite"></div>
       <p class="small">擬合只使用已放置的點。RMSE 越小，曲線越貼近你放的點；仍須核對原始數據。未放點不會自動補入。</p>
       <div class="button-row"><button id="returnExperiment">返回本組實驗</button><button id="clearGraph">清本圖點位</button></div>

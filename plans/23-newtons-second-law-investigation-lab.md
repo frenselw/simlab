@@ -54,15 +54,16 @@
 - 研究系統為「小車＋車上配重」；m 始終指這個系統的**總質量**。基本小車為 0.50 kg，每塊配重 0.25 kg。
 - 本版忽略摩擦及空氣阻力；豎直方向的支持力與重力平衡，裝置提供的水平力就是水平合外力 F合。學生控制的是以 N 標示的力，不能把裝置功率檔位當作相同的力。
 - 每次量測期間持續施加固定大小、向右的力；質量及力只可在量測間調整，初速度一律為零。
-- a 讀數在完成量測後才出現。虛擬感應器取一段 v–t 資料的斜率，然後量化為 0.001 m/s²；不在量測前顯示 F合/m 代入計算。
+- 小車行進約 1 m 且首 1 s 採樣完成後便顯示 a 讀數，可立即加入本組資料；小車仍在同一恆力下繼續加速。最快的設定會在行進 1.2 m 時顯示，避免使用尚未發生的速度資料。虛擬感應器取首 1 s 的 v–t 斜率，量化為 0.001 m/s²；不在量測前顯示 F合/m 代入計算。
 - 原始位置及速度由物理模型生成。可展開一小幅唯讀 v–t 圖說明 a 的來源；這幅圖不列作第四項作圖練習，也不評分。
-- 1 秒量測結束時畫面標示「量測完成・定格」。定格不是小車物理上突然停止；重播亦不新增記錄。減少動態偏好可直接顯示完成定格，讀數及得分相同。
+- 軌道延伸至畫面右邊，小車行進至 x=2.80 m，整輛車離開畫面才結束動畫；量測期間不突然停車。動畫採真實時間，行程約 1.5–7.35 s；可記錄的時刻約 1–4.48 s。行進時不能改質量或力，已取得讀數可記錄一次或直接切到作圖；結束動畫不再產生讀數。重播不新增量測。減少動態偏好直接顯示行程完成及同一讀數。
+- 行程、已顯示讀數的動畫標記與完成姿態只屬暫態；首 1 s 的觀測 tuple、評分及 model/schema/rubric 版本維持不變。中途離開保留已取得的 candidate 或已記錄行，重新載入不重播未完動畫，也不新增重複記錄。
 
 | State variables | Update rules / formulas | Units | Calibration constants |
 |---|---|---|---|
 | 總質量 m | m = 0.50 + 0.25 i，i ∈ {0,…,6} | kg | 範圍 0.50–2.00 kg，包含基本車重 |
 | 水平合外力 F合 | F合 = 0.20(j+1)，j ∈ {0,…,5} | N | 範圍 0.20–1.20 N；首版採正向非零力 |
-| 真實 a、x、v | a = F合/m；v(t)=at；x(t)=x₀+at²/2 | m/s²、m、m/s | x₀=0.10 m，v₀=0，t∈[0,1] s；2 m 軌道，全參數下不撞端點 |
+| 真實 a、x、v | a = F合/m；v(t)=at；x(t)=x₀+at²/2 | m/s²、m、m/s | x₀=0.10 m，v₀=0；可記錄時刻 max(1, √(2×1/a)) s，離畫時刻 √(2×2.7/a) s；0–2 m 可見刻度，軌道延伸至畫外 |
 | 感應器 a讀 | 以 t=0,0.1,…,1.0 s 的理想 v 值作帶截距直線最小平方斜率，再四捨五入至 0.001 | m/s² | 機械模型與視覺 frame rate 分離；a讀∈[0.100,2.400] |
 | 質量倒數 u | u = round(1/m, 3 位小數)，顯示「1/m」 | kg⁻¹ | 作圖按表中已顯示的 u 值；理論比較另計未捨入值，計入讀數量化差異 |
 
@@ -71,7 +72,7 @@
 ### 公平測試由學生負責
 
 - A 題幹為「探究合外力對加速度的影響」，B 為「探究總質量對加速度的影響」；不預選控制量或自動鎖好正確變量。
-- 每組各有「我要改變」「保持不變」「量度」三項，選項為 m、F合、a。錯誤或重複選擇是可保存的學生答案，不是壞資料。
+- 每組各有「我要改變」「保持不變」「量度」三項，原生選單用中文量名，旁邊顯示所選量的數學符號 m、F合、a。錯誤或重複選擇是可保存的學生答案，不是壞資料。
 - 兩組各自保留質量／力設定，初始均為 m=1.00 kg、F合=0.60 N（settings=[2,2]），預設不鎖，角色全未答。學生可手動鎖住任一或兩個設定，亦可解鎖；鎖的選擇不直接給分，真正比較保留記錄是否控制一致。
 - 每次「啟動量測 → 看到讀數 → 加入本組資料」才增加一行。每組最多 6 行，不自動填下一行、不自動調下一級。
 - 每組建議 6 行、至少 5 個不同自變量水平，跨度達可用範圍的 60%；可有一個重複測試。重複同一條件不能充當多個不同水平。
@@ -138,6 +139,7 @@
 | a–1/m | 同一 B | 1/m / kg⁻¹ | a / (m/s²) | 同一資料經橫軸轉換，可得到接近過原點的直線 |
 
 - 軸及單位預先印好，不另考畫座標軸。F合 的「合」用真正下標，a、m 用一致數學字體；圖名一律先列縱軸。
+- 舞台 t、v、感應器圖及面板公式沿用同一 math serif 字體、斜體變量及正體數字／單位。原生 select 保留中文名稱與原生鍵盤／手機操作；變量符號在選單旁、擬合公式在選單下方以 HTML var/sub/sup 顯示，不在 option 內嵌 LaTeX。
 - B 表格顯示 m、a，打開倒數圖時增加可讀的 1/m 欄。這是已知資料的數值轉換，不自動替學生放點。
 - 在資料表選取一行後，stage 顯示可拖的資料卡，例如「B3｜m=1.00 kg｜a=0.600 m/s²」；拖動卡片手柄進入圖框即建立圖點。卡片在窄手機亦一直可見。
 - 圖內保留淡網格、較清楚的主格線和足夠刻度。拖動時顯示即時座標、對軸投影虛線及資料行標記；不顯示「答對」顏色。
@@ -235,7 +237,7 @@
 | Phase / variant | Current step | Required semantic state | Absent / retained data | Legal continuation / final-check route |
 |---|---|---|---|---|
 | collect／新開或空表 | group 0/1 | 合法控制器設定、空記錄；角色可全 null | 兩組其餘資料按各自狀態保留 | 改角色、開始量測、切組、看圖或check |
-| collect／量測完成待加入 | group 0/1 | candidate為完整觀測；來源設定匹配該次量測 | 既有表格、圖點不變 | 加入、捨棄／重測或check |
+| collect／讀數就緒待加入 | group 0/1 | candidate為完整觀測；來源設定匹配該次量測；小車可以仍在行進 | 既有表格、圖點不變；動畫時鐘不保存 | 立即加入或check；行程完成後亦可捨棄／重測 |
 | collect／部分記錄 | group 0/1 | 1–5行；角色可對可錯、鎖可任意 | candidate可有／無；已有下游圖點合法 | 再測、刪行、作圖或check |
 | collect／六行 | group 0/1 | 6行，可能重複／控制不一 | 不自動刪舊行以加入第7行 | 刪指定行再測、作圖或check |
 | plot／無來源 | graph 0/1/2 | 對應空記錄、空點陣列 | 可已有模型選擇；不憑空造點 | 回量測、換圖、歸納或check |
@@ -255,9 +257,10 @@
 | Transition / trigger | Preconditions | State changes / downstream effects |
 |---|---|---|
 | 改角色／設定／鎖 | editable且不是正在量測 | 保存語意選擇；改設定會清目前candidate，舊記錄不改 |
-| 開始／取消量測 | editable、未滿6行 | 固定這次設定；未完成時切頁／離開則取消，不新增行 |
-| 量測完成 | 完整取樣結束 | 建立candidate並保存；重播不重新取樣 |
-| 加入記錄 | 有candidate、少於6行 | candidate移入本組records；對應圖增加null、fitAttempted=false；另一組不改 |
+| 開始／取消量測 | editable、未滿6行 | 固定這次設定；切頁／離開取消未完動畫，保留已取得candidate或已記錄行，不新增行 |
+| 讀數就緒 | 首1s採樣及約1m行程均已完成 | 建立candidate並保存；小車繼續行進；重播不重新取樣 |
+| 加入記錄 | 讀數就緒且有candidate、少於6行 | candidate移入本組records；對應圖增加null、fitAttempted=false；不停止動畫，另一組不改 |
+| 小車離開畫面 | 到達本次行程結束時刻 | 結束動畫並解除行進期間的操作限制，保留學生原本的鎖定選擇；不建立candidate或重複記錄 |
 | 刪行 | 指定行存在；有對應作圖時確認影響 | 只刪該行及相關圖同索引點，後續索引同步；清相關fitAttempted，保留其他點與選法 |
 | pointerup／鍵盤確認 | 有working point | 一次atomic座標修改；相關fitAttempted=false；保存一次 |
 | cancel／lost capture／viewport change | 有working operation | 回復原點／null、清preview；不保存半途位置 |
@@ -312,7 +315,7 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 
 ## Test plan
 
-2026-09-27 已執行以下測試，詳見文末命令與產物。
+2026-09-27 首版已執行以下測試，詳見文末命令與產物；其後修改的驗證另記於 follow-up evidence。
 
 - [x] 42種m/F設定：N、kg及a單位一致，總質量包含車重，固定t窗口、無撞端；sensor斜率及0.001量化與解析解一致，frame rate／reduced motion不改結果。
 - [x] 公平測試：A/B正確設計、互換控制量、同時變兩量、只一筆、重複值、樣本跨度、子集同票規則；不按鎖按鈕或操作次數給分。
@@ -357,6 +360,8 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 
 ## 2026-09-27 implementation evidence
 
+以下記錄首版 `4aebd5d` 的驗證；1 秒後定格的舊動畫已由上文的「約 1 m 可記錄、繼續行至離畫」取代。
+
 - 純測試：`node --test sim/newtons-second-law-investigation-lab/*.test.js` 通過6個檔案。包括42組實驗設定、已知最小平方解及病態／錯點資料、部分分與界線、資料增刪、100個production snapshot還原後合法續作、shared SCORM成功／committed／frozen／retry、quarantine及standalone無storage。
 - 瀏覽器：`node tools/newtons-second-law-browser-regression.js` 在 **Chrome 154.0.8037.57 / CDP trusted touch** 通過。source及manifest實際打包後解壓的頁面逐檔一致；兩者皆由介面收集12筆數據、放18點、擬合及提交100分，亦驗證空白、錯點、數學失敗、鍵盤、clear取消／確認、續作、pending重試及standalone刷新。
 - 版面：source/package各36個phase×viewport檢查（9個尺寸×4個階段），另驗200% visual viewport zoom；尺寸為320×500、390×500、390×600、390×844、768×900、1024×768、1280×900、740×360及320×400。
@@ -367,3 +372,12 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 - 產物：`output/newtons-second-law-investigation-lab-scorm.zip`；本機測試記錄在`output/newton-unit-tests.log`、`output/newton-final-browser.log`、`output/playwright/newtons-second-law/report.json`，screenshots同目錄。這些是本機產物，依repo規則不提交Git。
 - 全項目命令：`npm run check`、`npm test`、`npm run package:all`通過；`git diff --cached --check`通過，並在commit後執行`git diff --check ab157da...HEAD`確認。全項目test之後的短畫面刻度改動另完成6個單元測試及上述source/package短畫面驗收。
 - 限制：以上是本機package-ready證據；**尚未使用真實Moodle學生attempt或實體手機**，不將同源測試iframe宣稱為跨來源Moodle或真實裝置驗收。
+
+## 2026-09-27 follow-up evidence: early reading and complete cart travel
+
+- 依使用者追加要求，約行進 1 m 後即可記錄；車繼續加速至完全離畫。首 1 s 感應器資料、觀測 tuple、schema/model/rubric version 1 及評分保持相容。t/v、感應器軸、選單旁符號、擬合公式與方程均採一致數學排版；原生選單只保留中文量名／方法名。
+- 6 個純測試檔通過，新增 42 組設定的讀數時刻／首秒採樣先後、約 1–1.2 m 的可記錄行程、離畫位置及持續加速檢查；5 組舞台尺寸均驗證整輛車離畫，含 320px 窄畫面。日誌：`output/newton-followup-unit.log`。
+- source 及實際 extracted ZIP 的完整瀏覽器測試通過（Chrome 154.0.8037.57 / CDP）：早期記錄不停止或重設小車，行程結束不產生重複讀數；首秒採樣未完成不提前顯示；讀數就緒時保存／還原後可重播及記錄，取消動畫無延遲讀數，reduced motion 的讀數一致。兩者各從介面記錄 12 筆、作 18 個點並完成 100 分流程，SCORM fixture 的 draft/review/pending/committed 及獨立刷新測試仍通過。
+- source/package 各 36 個 phase×viewport、200% zoom、390/320px 各 17 類觸控證據與 320×400 短 iframe 的 13 類手勢均通過；`report.json` 無瀏覽器例外。證據：`output/playwright/newtons-second-law/report.json`、`motion-report.json`、`source-reading-while-moving.png`、`package-reading-while-moving.png`、`package-cart-exited.png`。
+- 全專案 `npm run check`、`npm test`、`npm run package:all` 及工作區 `git diff --check` 均通過。完整日誌：`output/newton-followup-check.log`、`output/newton-followup-npm-test.log`、`output/newton-followup-package-all.log`。
+- 最終 `output/newtons-second-law-investigation-lab-scorm.zip` 共 15 個檔案、44,034 bytes；逐檔與目前 source 相符。SHA-256：`6b492d509228e8296fc8a7bc9d187a3dbc6b6a2cc6a1b9aa4dee1c58cd1ea260`。真實 Moodle／實體手機的驗收仍未執行。
