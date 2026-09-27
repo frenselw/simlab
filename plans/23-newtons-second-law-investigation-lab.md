@@ -1,0 +1,369 @@
+# 牛頓第二定律：公平測試與數據作圖實驗室
+
+狀態：**使用者已批准，已完成實作與 package-ready 驗收。** 2026-09-27 授權完成活動並 commit；所有改動在專用分支進行。
+
+- 分支：`codex/newtons-second-law-investigation-lab`
+- 規劃基準：`main`，`ab157da`。
+- 依 `NEW-SIMULATION-PLAN-TEMPLATE.md` 建立；遵循[共同風格](00-shared-platform-and-style.md)及[製作指南](../docs/simulation-scorm-production-guide.md)。以下參數及分數為已批准的實作規格。
+
+## 學生流程
+
+本活動的主線是「設計公平測試 → 親自改變條件並量測 → 整理兩組數據 → 拖點作三幅圖 → 比較擬合 → 歸納有條件的關係」。
+
+| 部分 | 學生要做的事 | 形成的學習證據 |
+|---|---|---|
+| 1. 設計與量測 | A 組探究合外力的影響；B 組探究質量的影響。每組自行選擇改變量、控制量及量度量，手動設定小車總質量與合外力，逐次啟動及記錄 | 兩組各建議 6 筆記錄；至少 5 個不同自變量水平，數值有足夠跨度 |
+| 2. 拖點作圖 | 用 A 組畫 a–F合，用 B 組畫 a–m，再用同一 B 組畫 a–1/m | 三幅各最多 6 點的學生作圖；每筆觀測與其圖點有固定對應 |
+| 3. 擬合與比較 | 自選直線、過原點直線、二次曲線或反比例模型，按「擬合」；可換模型比較 | 根據學生實際點位計算的曲線、方程及偏差，不代換為正確點 |
+| 4. 歸納與提交 | 判斷控制條件、正比／反比、圖線通過原點的意義，最後組合關係式 | 明確回答、檢查及提交；可交空白或部分作答 |
+
+**首版設計**：以理想化水平小車及「可調恆力裝置」作具體場景；採用無摩擦模型與有限讀數精度，暫不加入隨機測量誤差。量測由虛擬感應器完成，把時間留給公平測試、作圖和擬合。
+
+## Scope
+
+| Decision | Activity specification |
+|---|---|
+| Slug / learning objective | `newtons-second-law-investigation-lab`；以控制變量法探究 a、F合、m，分辨下降趨勢與反比例，理解以 1/m 線性化 |
+| Learner task / main interactions | 兩組實驗的變量選擇、質量配重／力設定、啟動與記錄；三圖拖點、改點、局部吸附與觸控放大；四種模型擬合；結論與提交 |
+| Runtime files / libraries and justification | 使用 HTML/CSS/JS、SVG、Pointer Events；檔案包括 `index.html`、`styles.css`、`main.js`、`model.js`、`experiment.js`、`graph.js`、`fitting.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`。沿用三個 shared 檔案，首版不增外部函式庫 |
+| Assessment risk / trusted validation | `formative`，100 分、60 分達標；評核最終保留的實驗資料和答案，不按拖動次數或操作速度給分；不作高風險評核 |
+| Out of scope | 滑輪實物安裝、摩擦補償、繩／滑輪慣性、碰撞或衝量、學生手工由 v–t 求 a、誤差棒／統計推論、自由匯入數據、教師題庫編輯、三維畫面 |
+
+本版是一個按物理模型運作的理想化實驗環境，讓學生重現及分析關係；不能把模擬資料宣稱為獨立驗證自然定律的真實實驗證據。
+
+## Catalogue metadata (`sim/config.js`)
+
+已加入目錄及獨立 manifest；以下為實際 metadata。
+
+```js
+{
+  title: "牛頓第二定律：公平測試與數據作圖",
+  folder: "newtons-second-law-investigation-lab",
+  categories: ["Mechanics"],
+  description: "自行設計兩組公平測試、量測小車加速度，拖點繪製三幅圖並比較擬合，探究合外力、總質量與加速度的關係。",
+  tags: ["physics", "mechanics", "newtons-second-law", "fair-test", "graph", "curve-fitting", "scorm"],
+  status: "active"
+}
+```
+
+## Physics or subject model
+
+### 裝置、研究系統與量測
+
+- 舞台顯示水平軌道、小車、配重、向右的恆力箭頭及虛擬感應器的速度讀數。裝置採概念化外觀，不複製特定品牌介面。
+- 研究系統為「小車＋車上配重」；m 始終指這個系統的**總質量**。基本小車為 0.50 kg，每塊配重 0.25 kg。
+- 本版忽略摩擦及空氣阻力；豎直方向的支持力與重力平衡，裝置提供的水平力就是水平合外力 F合。學生控制的是以 N 標示的力，不能把裝置功率檔位當作相同的力。
+- 每次量測期間持續施加固定大小、向右的力；質量及力只可在量測間調整，初速度一律為零。
+- a 讀數在完成量測後才出現。虛擬感應器取一段 v–t 資料的斜率，然後量化為 0.001 m/s²；不在量測前顯示 F合/m 代入計算。
+- 原始位置及速度由物理模型生成。可展開一小幅唯讀 v–t 圖說明 a 的來源；這幅圖不列作第四項作圖練習，也不評分。
+- 1 秒量測結束時畫面標示「量測完成・定格」。定格不是小車物理上突然停止；重播亦不新增記錄。減少動態偏好可直接顯示完成定格，讀數及得分相同。
+
+| State variables | Update rules / formulas | Units | Calibration constants |
+|---|---|---|---|
+| 總質量 m | m = 0.50 + 0.25 i，i ∈ {0,…,6} | kg | 範圍 0.50–2.00 kg，包含基本車重 |
+| 水平合外力 F合 | F合 = 0.20(j+1)，j ∈ {0,…,5} | N | 範圍 0.20–1.20 N；首版採正向非零力 |
+| 真實 a、x、v | a = F合/m；v(t)=at；x(t)=x₀+at²/2 | m/s²、m、m/s | x₀=0.10 m，v₀=0，t∈[0,1] s；2 m 軌道，全參數下不撞端點 |
+| 感應器 a讀 | 以 t=0,0.1,…,1.0 s 的理想 v 值作帶截距直線最小平方斜率，再四捨五入至 0.001 | m/s² | 機械模型與視覺 frame rate 分離；a讀∈[0.100,2.400] |
+| 質量倒數 u | u = round(1/m, 3 位小數)，顯示「1/m」 | kg⁻¹ | 作圖按表中已顯示的 u 值；理論比較另計未捨入值，計入讀數量化差異 |
+
+同一設定重做會得到同一讀數；本版不偽造隨機噪聲。若將來加入測量誤差，另定 seed、儀器模型、重複量測與容差，不能每次刷新擬合時重新抽樣。
+
+### 公平測試由學生負責
+
+- A 題幹為「探究合外力對加速度的影響」，B 為「探究總質量對加速度的影響」；不預選控制量或自動鎖好正確變量。
+- 每組各有「我要改變」「保持不變」「量度」三項，選項為 m、F合、a。錯誤或重複選擇是可保存的學生答案，不是壞資料。
+- 兩組各自保留質量／力設定，初始均為 m=1.00 kg、F合=0.60 N（settings=[2,2]），預設不鎖，角色全未答。學生可手動鎖住任一或兩個設定，亦可解鎖；鎖的選擇不直接給分，真正比較保留記錄是否控制一致。
+- 每次「啟動量測 → 看到讀數 → 加入本組資料」才增加一行。每組最多 6 行，不自動填下一行、不自動調下一級。
+- 每組建議 6 行、至少 5 個不同自變量水平，跨度達可用範圍的 60%；可有一個重複測試。重複同一條件不能充當多個不同水平。
+- 即使學生同時改了 m 和 F合，仍讓他記錄、作圖及擬合。提交前表格只呈現實際數值與操作狀態，不替他修正成公平測試。
+- 原始讀數列不可任意輸入改寫；可刪除一筆後重新量測。更改控制器設定本身不改舊記錄。
+
+### 示範資料（只供設計審查，不預填學生答案）
+
+| 組別 | 保持不變 | 學生可自行取的水平 | 對應 a讀 / m/s² |
+|---|---|---|---|
+| A | m=1.00 kg | F合=0.20、0.40、0.60、0.80、1.00、1.20 N | 0.200、0.400、0.600、0.800、1.000、1.200 |
+| B | F合=0.60 N | m=0.50、0.75、1.00、1.25、1.50、2.00 kg | 1.200、0.800、0.600、0.480、0.400、0.300 |
+
+### 為何選這個裝置表示法
+
+合外力與總質量必須對應同一研究系統。[OpenStax 的牛頓第二定律章節](https://openstax.org/books/college-physics-2e/pages/4-3-newtons-second-law-of-motion-concept-of-a-system)明確以系統的合外力、質量及加速度表述關係。
+
+[PASCO 的實驗目錄](https://www.pasco.com/resources/lab-experiments/collection/88)同時列出風扇小車及懸掛物經滑輪拉車的做法；這支持保留核心探究流程而不綁定某一器材。此處的恆力裝置是本模擬的理想化設計，不宣稱重現某產品的實際性能。
+
+若日後另做滑輪版本，對「車」的拉力是繩張力 T；對加速下降的懸掛物，理想情況 T=m懸(g−a)，不直接等於 m懸g。選擇整個車—懸掛物系統時，慣性質量亦包括懸掛物。這些器材及系統邊界問題適合另作進階內容。
+
+## Responsive layout contract
+
+沿用[三區排版](00-shared-platform-and-style.md#layout)及[手機操作契約](00-shared-platform-and-style.md#mobile-interaction)。
+
+| Decision | Activity specification and reason |
+|---|---|
+| Three regions | Header 放活動名、實驗 A/B 或三圖切換、檢查入口；stage 放小車或目前圖；panel 放變量設定、資料表、擬合及結論 |
+| Desktop / tablet | ≥900px 左右排列，panel 建議 20–24rem；桌面投影用圖點／軸標籤約 18–22px，主要數值約 22px；不能只把手機 SVG 拉大 |
+| Control-panel classification | `bounded split-panel`；記錄、選資料及擬合時需一直看見小車／圖表 |
+| Phone stage and controls | 建議 stage 約 46dvh，採短高 reflow 保留可用 panel；一次只看一幅圖，三圖不並排縮小；選中的資料卡固定在 stage 內，無需拖過長表格 |
+| Phone text | 控制及表格主要文字 16px，圖表必要刻度／座標至少 14px，target ≥44px；只為目前點顯示完整標籤以減少遮擋 |
+| Viewports | 320×500、390×500、390×600、390×844、橫向 740×360、桌面、短 iframe、toolbar 改變、200% zoom；無數字輸入框，軟鍵盤 N/A；有硬體鍵盤替代 |
+| Scroll topology | stage 空白／左右各≥32px區域歸 host，panel 只捲自身；activity document 無第三個垂直捲動層；圖框範圍縮排確保點的 hit target 不侵佔側邊區域 |
+
+## Navigation, submission and reset
+
+採[依賴式導航及明確提交](00-shared-platform-and-style.md#submission-and-reset)，不以做齊為檢查入口的條件。
+
+| Decision | Activity specification |
+|---|---|
+| Navigation | `mixed`：A/B 兩組互不依賴，可直接切換；每幅圖依其來源資料；三圖及結論可自由查看，空白狀態如實表示。建議順序呈現量測→作圖→歸納 |
+| Final check access | 每個 editable 畫面均可進入檢查，包括量測未開始、未放點、未擬合；量測／drag 未完成時取消該暫態，保留已記錄資料 |
+| Incomplete submission | 檢查表只列記錄／放點／擬合／回答數量，說明未答項不計分；明確「提交目前答案」，空白為 0 |
+| Editable reset | 可清本圖點位、清本組資料或清全部；有資料時確認範圍。清本圖不刪原始資料；清 B 資料影響 a–m 及 a–1/m 兩圖；清全部回初始設定及空白答案 |
+| Scored / pending attempt | 同頁只讀，沒有清結果／重開；凍結提交只可重試原資料；獨立刷新／Moodle 續作依共用契約 |
+
+| Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
+|---|---|---|---|
+| A/B 設計與量測 | 本組設定在合法範圍；角色選擇可以未答或錯誤 | 不阻止量測；兩組不互相改值 | 改設定、量測、切組、看圖或檢查 |
+| a–F合 | A 組已記錄行，才能產生對應資料卡 | 無行時顯示空圖／返回量測入口，不造假數據 | 放已有點、選模型、返回量測或檢查 |
+| a–m、a–1/m | 同一 B 組已記錄行；1/m 欄由 m 計算 | 不以另一幅圖放完／擬合成功為條件；兩幅各自保留學生點位 | 自由切圖、作圖、擬合或檢查 |
+| 修改資料 | 改滑桿不影響記錄；增加／刪除已記錄行會影響對應圖 | 新行增加待放點；刪除只移除該行所對應點，其餘點保留；相關圖擬合結果失效，模型選擇保留 | 重新作受影響的圖／擬合；另一組不改 |
+| 歸納 | 可以無資料或部分資料，答案獨立保存 | 改資料後保留文字選擇，提示需自行重看依據；不自動改答案 | 回看兩組／三圖、改答案或檢查 |
+
+## Diagrams, notation and assistance
+
+### 三幅圖及拖點
+
+| 圖 | 資料來源 | 橫軸 | 縱軸 | 課程上的預期觀察（非預畫答案） |
+|---|---|---|---|---|
+| a–F合 | A | F合 / N | a / (m/s²) | m 保持不變時，直線接近通過原點 |
+| a–m | B | m / kg | a / (m/s²) | F合 保持不變時，a 隨 m 增大而下降，曲線彎曲 |
+| a–1/m | 同一 B | 1/m / kg⁻¹ | a / (m/s²) | 同一資料經橫軸轉換，可得到接近過原點的直線 |
+
+- 軸及單位預先印好，不另考畫座標軸。F合 的「合」用真正下標，a、m 用一致數學字體；圖名一律先列縱軸。
+- B 表格顯示 m、a，打開倒數圖時增加可讀的 1/m 欄。這是已知資料的數值轉換，不自動替學生放點。
+- 在資料表選取一行後，stage 顯示可拖的資料卡，例如「B3｜m=1.00 kg｜a=0.600 m/s²」；拖動卡片手柄進入圖框即建立圖點。卡片在窄手機亦一直可見。
+- 圖內保留淡網格、較清楚的主格線和足夠刻度。拖動時顯示即時座標、對軸投影虛線及資料行標記；不顯示「答對」顏色。
+- 已放點可反覆拖動，也可在列表選點後鍵盤移動；重疊點以列表逐一選取並將選中 target 置頂。每個資料行在每幅圖只對應一個點，不能複製成額外證據。
+- 鍵盤新增點先把尚未確認的游標放在圖框中央，不能直接定位到本行正確座標；方向鍵每次移該軸小格的1/10，Shift+方向鍵移一小格，使用同一局部吸附規則；Enter才保存，Escape取消。
+- 首次放手在圖外取消；已放點拖出圖外則回復原位置。沒有「一鍵自動放好全部點」。
+- x 軸範圍：F合 圖 [0,1.4]，m 圖及 1/m 圖 [0,2.25]。y 上限依來源 a讀最大值的 1.1 倍，向上選 {0.2,0.25,0.3,0.4,0.5,0.6,0.8,1,1.2,1.5,2,2.5,3}；空表用 1。B 兩圖共用 y 範圍。
+- 點位以數據座標保存，改版面及尺度不改學生答案。刪資料導致 y 尺度縮小時，原有錯點若超框，顯示帶真實座標的邊緣抓手供再拖／刪除；計分及擬合仍用原始座標，不能暗中夾回正確範圍。
+
+| Decision | Activity specification and reason |
+|---|---|
+| Notation | F合、a 是一維正向的大小，m 為總質量；除最終歸納外不預示 F合=ma；1/m 單位 kg⁻¹；擬合係數不用 a 命名，以免混淆加速度 |
+| Arrow graphics | 裝置箭頭只表達正在施加的水平力，圖例和 F合 讀數一致；沿用單一填色箭頭、尖端精確；圖點用圓點，不畫成力矢量 |
+| Snap | 使用者要求的「靠近正確位置才吸附」：只對已在資料卡公開的座標做局部吸附，不查理論直線／F合/m 生成另一答案。touch/pen 入 10 CSS px、離 14px；mouse 入 6px、離 9px。一般可見網格交點亦用同一規則；若公開資料座標與網格都在範圍內，優先該資料座標。範圍外保留錯點，沒有遠距拉點 |
+| Touch preview | 資料卡放點、既有點修改及超框抓手必需；提供約 2× 真實圖表裁切，含網格、刻度／單位、目前點與吸附後座標；穩定角落避手指、不攔截輸入；完成／取消／切圖／鎖定即消失。粗調力滑桿與加減配重不需要 preview |
+
+已知數據座標是讀圖任務的輸入，局部吸附只減少手指精度要求。若日後新增未知數據預測題，不可沿用「吸附至答案」的做法。
+
+### 擬合與解讀
+
+| 選項 | 模型 | 最少數據／定義域 |
+|---|---|---|
+| 直線 | y=kx+b | 至少 2 個已放點，x 不全相同 |
+| 過原點直線 | y=kx | 至少 2 個已放點，至少 2 個不同 x，Σx²>0 |
+| 二次曲線 | y=px²+qx+r | 至少 3 個不同 x，設計矩陣滿秩 |
+| 反比例 | y=k/x | 至少 2 個不同 x，所有參與點 x>0 |
+
+1. 只用**學生當下已放置的點位**作最小平方擬合，所有已放點一同納入；未放點不偷偷用原始資料補入。顯示「本次使用 n 個已放點」。
+2. 重複 x 本身不刪除；秩不足或反比例遇到 x=0 時，說明數學原因，保留學生點和模型選擇；不能為了成功擬合暗中略過問題點。仍可檢查、提交。
+3. 顯示擬合曲線、方程、參與點數及 RMSE；直線另顯示截距 b。首版不以 R² 排名或自動選「最好」模型。
+4. 學生可輪流選模型比較。提交前這些擬合結果屬明確批准的探究工具；不額外展示正確曲線、正確點位、正確控制量或評分。
+5. 改點／增刪資料後，舊曲線隱藏並標示需重新擬合。方法選擇留下，只有按「擬合」才產生新結果。
+6. 不把「是直線」直接解釋成正比；還要看截距是否接近零。a–m 向下彎亦不足以單憑形狀宣稱反比，要結合 a–1/m 或 ma 近似固定的證據。
+7. 二次式能在 p≈0 時退化成直線，不能只因選了二次就宣稱物理錯誤；回饋會指出有無必要使用額外項，以及哪個模型更簡潔。精確穿過少量點亦不是證明某定律。
+8. 算法採縮放／中心化與 QR 最小平方求解；正比及反比例用其單參數解析最小平方式。秩判定相對最大 QR 對角量為 1e−10；有限點也須檢查係數／預測值有限，失敗不儲存 NaN。
+9. 顯示精度不降低內部擬合精度。反比例曲線只畫 x>0 的圖框內部分，遇到漸近線須裁切，不能連線穿過 x=0。
+
+最終解說可加一段不計分延伸：a–F合 斜率對應 1/m；a–1/m 斜率對應 F合，並核對相應 SI 單位。讀數捨入造成的小偏差須與學生錯放點分開描述。
+
+## Touch gesture ownership contract
+
+依[完整觸控契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)實作；本機來源與解壓包的驗收證據見文末；實機 Moodle 另驗。
+
+| Target type | Selector / hit area and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
+|---|---|---|---|
+| 力設定滑桿 | `.force-range`，高≥44px | native range 穩定節點；操控區在 pointerdown 前設 none | 方向鍵及 ±0.20 N 按鈕 |
+| 待放資料卡手柄 | `.data-point-source`，≥44×44px | stage 中穩定 HTML target、none；drag 中不重建 | 選行後「開始放點」，方向鍵微調、Enter 確定、Escape 取消 |
+| 已放點 | `.plot-point-hit`，≥44×44px | 依圖及行建立穩定 HTML target、none | 表格選點、方向鍵、Enter；Delete 移回待放 |
+| 超框點邊緣抓手 | `.offscale-point-hit`，≥44×44px | 只改顯示位置，不改儲存座標；穩定 target、none | 列表選取後重新放點／刪除 |
+
+配重、鎖定、記錄及擬合按鈕是普通點按，按鈕外 panel 保持正常捲動；不把整張資料表設成拖曳區。
+
+| Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
+|---|---|---|---|
+| 非互動小車場景／圖框空白／坐標軸 | Host | pan-y；點選開始放點模式也不建立全圖 touch-action:none 層 | source/package、320/390px，上下 trusted swipe 通過 |
+| Panel 中段及上下邊界 | Panel | 只捲自己；邊界不連鎖捲 host | source/package、320/390px 通過 |
+| 左 stage strip | Host | ≥32px，點 target／preview 不覆蓋 | source/package、320/390px，獨立上下 swipe 通過 |
+| 右 stage strip | Host | ≥32px，同左 | source/package、320/390px，獨立上下 swipe 通過 |
+| 力滑桿 | Simulation | 只有力設定改變，其他幾何及所有捲動位置固定 | source/package、320/390px 通過 |
+| 資料卡→圖 | Simulation | pointermove/up、預覽、吸附；拖出界取消；固定全部非 owner | source/package、320/390px，三幅圖各通過 |
+| 已放點／重疊點／超框抓手 | Simulation | 修改指定行；drag 時同一 target 維持 capture | source/package、320/390px 通過 |
+| 已提交／pending 舊 target 處 | Host | 不可改答案，移除 drag ownership | source/package、320/390px 通過 |
+| 自由繪線 surface | N/A | 本版只放資料點及計算曲線，不設全圖自由繪線層 | N/A |
+
+- 同源 Moodle-like iframe 優先沿用已驗證的 host forwarding；只轉送到 enclosing host，不轉送給 sibling panel；記錄這是 forwarding。跨來源 Moodle 另驗收，不先宣稱可行。
+- 驗收 source／extracted package 全矩陣，記錄 trusted pointer、前後座標、host、iframe bounds、activity document、panel、雙方 visual viewport。量測動畫使用可控制時鐘，避免與手勢副作用混淆。
+- 多指／cancel／lost capture／viewport 改變要取消未完成圖點修改，復原已保存座標並清 preview；pointermove 不保存草稿。
+
+## Scoring and tolerance
+
+以下為首版 rubric；顯示給老師與審查者，不在提交前逐點報正誤。
+
+| Decision | Activity specification |
+|---|---|
+| Rubric | 公平測試 30；三圖放點 30；模型選擇與擬合 15；五項歸納 25；總分 100，達標 60，最低 0 |
+| Granularity | 分開判斷原始實驗設計、忠實繪點、擬合方法及物理結論。資料控制錯誤不抹去正確讀取自己數據的作圖分；錯放點仍可取得正確方法／概念的獨立分 |
+| Unanswered / null | 角色及結論未答為 null；記錄空陣列；每行未放點為 null；模型未選為 null；未按擬合為 false。所有 default 設定及示範動畫不給分，完全未操作為 0 |
+| Extras / duplicates / penalties | 每組最多 6 行，一行一圖點；重複量測保留但不算新的自變量水平。不另扣負分，不評點拖得快慢、次數或整潔 |
+| Tolerances | 放點 x、y 分別以該圖數據座標軸跨度的 0.5% 作對稱誤差上限，且不小於 0.001；包含邊界。例如 F合 軸跨度1.4，x容差0.007 N。評分容差依來源表決定，與螢幕 px 吸附半徑分開 |
+
+### 分項可重算規則
+
+- **公平測試每組 15 分**：三個角色選擇各 1 分；實際控制一致性 6 分；取樣 6 分。設 n 為保留行數、h 為正確控制量取相同值的最大子集行數，n<2 時控制分為 0，否則為 `6(h−1)/(n−1)`。h 同票時先取自變量不同值最多，再取跨度最大，最後按控制值數字最小者，確保重算唯一。
+- **取樣**：在上述子集內，u 為自變量不同值數，d 為最大減最小，D 為可設定全範圍（F合 為1.0 N，m為1.5 kg）。分數 `6×min(u/5,1)×min(d/(0.6D),1)`；無資料為0。學生介面事先說明需有不同水平及足夠跨度，但不自動代選。
+- **每圖 10 分**：固定以 6 個記錄名額計；每個存在的已放點，x及y符合本行顯示讀數各得 `10/12` 分，缺行／未放座標得0。用 a讀 和已顯示的 1/m 作對照，不拿未捨入理論值扣分。
+- **每圖擬合 5 分**：模型選擇3分、本人按擬合且求解有效2分。a–F合／a–1/m 的直線或過原點直線得模型3分；a–m 的反比例得3分。前兩圖若選二次、實際二次項在已放 x 範圍內的最大貢獻≤y軸跨度1%，得模型2分並解釋可簡化；其餘不適合模型0分。求解有效的操作分不以點位是否正確為條件，不重複扣作圖錯誤。
+- **歸納每題5分**：①固定m時a與F合正比；②固定F合時a與m反比；③直線須接近過原點才支持正比；④僅見a–m下降不足以確認反比，a–1/m近過原點直線提供進一步證據；⑤在本活動SI單位及一維情境組合為F合=ma。全為明確選項，初始不預選；答對仍保留概念分，但回饋可指出其自身數據尚不足以支持。
+- 最終回饋依次指出控制條件、表格→點位、學生點位→擬合、擬合→結論的問題。參考點／參考曲線只在提交確認後以明確開關顯示，不覆寫「我的圖」。
+- 容差邊界測試須用全精度：例如0.007剛好接受、0.0071拒絕；視窗縮放、資料列順序與擬合顯示位數不能改分數。
+
+## Phase/state matrix
+
+`phase` 只有 `collect`、`plot`、`conclude`、`check`；review/frozen 等由 shared outcome 決定。量測中和拖點中是未提交的暫態，不持久化半次操作。
+
+| Phase / variant | Current step | Required semantic state | Absent / retained data | Legal continuation / final-check route |
+|---|---|---|---|---|
+| collect／新開或空表 | group 0/1 | 合法控制器設定、空記錄；角色可全 null | 兩組其餘資料按各自狀態保留 | 改角色、開始量測、切組、看圖或check |
+| collect／量測完成待加入 | group 0/1 | candidate為完整觀測；來源設定匹配該次量測 | 既有表格、圖點不變 | 加入、捨棄／重測或check |
+| collect／部分記錄 | group 0/1 | 1–5行；角色可對可錯、鎖可任意 | candidate可有／無；已有下游圖點合法 | 再測、刪行、作圖或check |
+| collect／六行 | group 0/1 | 6行，可能重複／控制不一 | 不自動刪舊行以加入第7行 | 刪指定行再測、作圖或check |
+| plot／無來源 | graph 0/1/2 | 對應空記錄、空點陣列 | 可已有模型選擇；不憑空造點 | 回量測、換圖、歸納或check |
+| plot／全部待放 | graph 0/1/2 | 點陣列與來源行等長，項全null | 原始資料保留 | 選資料放點、選模型或check |
+| plot／部分或全部已放 | graph 0/1/2 | null／合法座標混合；錯點及重疊合法 | 三圖獨立保存 | 拖點、清本圖、擬合或check |
+| plot／擬合有效 | graph 0/1/2 | 非null模型、fitAttempted=true，派生求解成功 | 曲線係數不存 | 換模型、改點、換圖或check |
+| plot／擬合失敗 | graph 0/1/2 | 非null模型、fitAttempted=true；不足點／秩不足／定義域問題 | 保留錯點，不把合法作答當損壞 | 改點／模型、回量測或check |
+| plot／改動後未重擬合 | graph 0/1/2 | 模型保留，fitAttempted=false | 舊曲線不顯示；目前點位是權威 | 重新擬合或check |
+| conclude／空白或部分或全答 | group/graph為null | 五個答案，每項為null或合法選項 | 資料、圖、擬合可空可部分 | 答題、回看／修改或check |
+| check／空白或部分或全答 | group/graph為null | 所有權威作答，無偽造完成標記 | 待加入candidate不當成已記錄數據 | 明確提交或返回任一可編輯頁 |
+| editable／從check返回 | 合法group或graph | returnToCheck=true，其餘對應上述任一合法variant | 全部獨立工作保持 | 編輯、切頁或返回check |
+| review／空白、部分、完成 | review選圖為transient | 已驗證review答案及可信結果 | 無candidate、控制器暫態、returnToCheck | 只讀切圖、看回饋及參考 |
+| frozen／上述三種提交 | shared state | 已驗證同一nested review及結果 | 不開改答、清除、重跑 | 重試同一提交；不合法則quarantine |
+
+測試按 group×graph×內容變式×returnToCheck 做對應組合；不要只測「全空」及「滿分」兩條路。
+
+| Transition / trigger | Preconditions | State changes / downstream effects |
+|---|---|---|
+| 改角色／設定／鎖 | editable且不是正在量測 | 保存語意選擇；改設定會清目前candidate，舊記錄不改 |
+| 開始／取消量測 | editable、未滿6行 | 固定這次設定；未完成時切頁／離開則取消，不新增行 |
+| 量測完成 | 完整取樣結束 | 建立candidate並保存；重播不重新取樣 |
+| 加入記錄 | 有candidate、少於6行 | candidate移入本組records；對應圖增加null、fitAttempted=false；另一組不改 |
+| 刪行 | 指定行存在；有對應作圖時確認影響 | 只刪該行及相關圖同索引點，後續索引同步；清相關fitAttempted，保留其他點與選法 |
+| pointerup／鍵盤確認 | 有working point | 一次atomic座標修改；相關fitAttempted=false；保存一次 |
+| cancel／lost capture／viewport change | 有working operation | 回復原點／null、清preview；不保存半途位置 |
+| 選模型／按擬合 | editable；方法合法 | 選模型置attempted=false；按擬合置true，派生結果可成功或數學失敗 |
+| 清本圖／本組／全部 | editable，有資料時確認 | 分別清對應點及fit、該組records/candidate及相關圖、或全體初始空白；不清已提交／pending |
+| check／submit | 任一合法editable／check | check只改導航；submit評分最終保留的內容，走shared四outcomes |
+
+## Persistence contract
+
+採[快照與恢復契約](../docs/simulation-scorm-production-guide.md#snapshot-and-restore-contract)；第一版不需seed，因器材和讀數無隨機項。日後噪聲版要升modelVersion，不重新解讀舊資料。
+
+| Snapshot | Exact schema / field types / allowed values |
+|---|---|
+| Common answers | `schemaVersion:1, modelVersion:1, rubricVersion:1, groups:[gA,gB], plots:[pAF,pAM,pAU], conclusions:[c0,…,c4]`；長度固定，不接受缺欄冒充未答 |
+| Group answer | `roles:[changed,controlled,measured]`，每項null或`mass/force/acceleration`；`records`為0–6個觀測tuple；角色重複是合法錯答 |
+| Observation tuple | `[massIndex,forceIndex,aMilli]`；index分別整數0–6、0–5；aMilli整數100–2400且等於該modelVersion的量測結果。學生不可直接改讀數，矛盾觀測為無效資料 |
+| Plot answer | `{points, model, fitAttempted}`；points與對應records等長，每項null或`[x10000,y10000]`；x界限圖0為0–14000，圖1/2為0–22500；y為0–30000。model為null或`linear/origin/quadratic/inverse`；fitAttempted為boolean，model為null時必須false |
+| Conclusions | 固定5項，各null或該題已登記的4個選項enum之一；映射由rubricVersion固定，不以UI選項位置代表語意 |
+| Draft-only | `phase, group, graph, returnToCheck, setups`；setups恰好2項`{settings:[massIndex,forceIndex], locks:[boolean,boolean], candidate:null或完整觀測tuple}`。candidate存在時須匹配該組目前settings；6行時不允許新的candidate |
+| Navigation | collect:group∈{0,1},graph=null；plot:group=null,graph∈{0,1,2}；conclude/check:兩者null；check的returnToCheck=false，其餘boolean |
+| Review | 只存Common answers；不包含Draft-only。結果與passed只放shared比較metadata，曲線／分數由權威答案重算 |
+| Unanswered encoding | 依上表null／[]／false；模型選擇、錯點、數學失敗及非公平測試是合法學生答案，不因錯誤而quarantine |
+
+五題結論的v1選項enum依次為：`direct/inverse/quadratic/independent`；`inverse/direct/inverse-square/independent`；`near-origin/any-line/positive-slope/negative-slope`；`linear-reciprocal/decrease-only/few-points/curved-only`；`f-ma/f-m-div-a/f-a-div-m/f-m-plus-a`。每列首項是評分鍵，學生介面不預選；文字依上文五項歸納完整呈現，尤其第四題的`linear-reciprocal`要明寫a–1/m近似通過原點的直線。
+
+| State category | Activity fields and treatment |
+|---|---|
+| Authoritative | 已記錄觀測、角色選擇、每行圖點、模型選擇及擬合操作、結論；draft另有設定、鎖、candidate及導航 |
+| Transient | 時間動畫、未完成量測樣本、drag/preview/capture、當前選中行、hover、展開說明及undo history；不存 |
+| Derived | DOM IDs、資料行顯示編號、1/m欄、座標軸上限、fit係數／RMSE／錯誤、score、完整回饋；每次重建 |
+| Version compatibility | 初版只接受v1；將來明示遷移或技術鎖定，不換模型重判舊attempt |
+| Size | 上限12行、18個點、3模型、5結論；代表上限配置的draft/review/shared pending實測為1122/959/1196 UTF-8 bytes，均≤4000；測試見persistence.test.js |
+| Invalid finished review | 保持只讀，僅顯示可信LMS摘要，不新開練習 |
+| Invalid pending-final | 深層decode或rescore失敗先quarantine；不retry、clear或重新編輯 |
+| Invalid editable draft | 技術鎖定；只有shared證明未提交時，可經確認覆寫新空draft；保存成功才恢復，未知或完成狀態不可清 |
+
+points的array索引是與本組records的語意對應；追加、刪行必須在同一操作維護兩者長度，B會同時維護兩圖。未知多餘行、錯長度、非有限數、越界索引、dangling對應須拒絕，不能默默裁掉。
+
+## Shared SCORM lifecycle
+
+使用`SimScorm.loadAttempt()`、`SimActivityFlow.startup()`、draft provider及`SimScorm.submitWithCallbacks()`；不寫活動自己的raw LMS欄位或pagehide/commit/finish流程。
+
+| Outcome / policy | Activity handler, controls and learner-facing message |
+|---|---|
+| Startup editable | 空白或完整還原，包括已量測待加入、錯點、擬合數學失敗及原來步驟；未完成動畫回到可重新量測 |
+| Startup review / frozen / load-error | review重建並重算比對；frozen驗證nested review才允許原payload retry；load-error技術鎖定，不假稱交卷成功 |
+| Submit success / committed | success只讀結果；committed保持答案凍結，清楚說明成績已記錄但結束程序未完成，只重試結束程序 |
+| Submit frozen / retry | frozen不顯示已確認分數、保留同payload重試；retry依shared的retryable返回check或技術鎖定 |
+| Review trust | 用`reviewResult()`比對重算／保存／LMS資料；mismatch/unknown不打開通用空白活動 |
+| Standalone refresh | 記憶體練習；partial/check/submitted刷新全部重新開始。忽略舊storage，storage被拒仍可操作，不加使用者已拒絕的刷新提示句 |
+| Moodle resume / recovery | 同一attempt保留設計、兩組數據、三圖、擬合及結果；只有Moodle供應新attempt才開空白。保存失敗提示重試，不冒稱已保存 |
+
+## Test plan
+
+2026-09-27 已執行以下測試，詳見文末命令與產物。
+
+- [x] 42種m/F設定：N、kg及a單位一致，總質量包含車重，固定t窗口、無撞端；sensor斜率及0.001量化與解析解一致，frame rate／reduced motion不改結果。
+- [x] 公平測試：A/B正確設計、互換控制量、同時變兩量、只一筆、重複值、樣本跨度、子集同票規則；不按鎖按鈕或操作次數給分。
+- [x] 三圖資料依賴、1/m單位與捨入、每行唯一點、錯點保留、增刪同步、不自動改其他圖、超框抓手。
+- [x] 最小平方已知解、錯點擬合、2點直線、3點二次、直線退化二次、重複x、秩不足、全y相同、反比例x=0、接近奇異、係數finite、曲線裁切。
+- [x] Scoring covers blank/partial answers, independent credit, all tolerances and fit-selection degeneracy；plot分用顯示讀數、fit用學生點、原始物理讀數及三者不混淆。
+- [x] 每個editable variant都可check/submit；全空0分；成功／committed／frozen沒有clear/restart。
+- [x] 每個matrix row及所需group/graph/returnToCheck組合，用production encode/decode/restore round-trip、相同分數並執行一個合法續作。
+- [x] 錯角色／錯點／不公平資料／求解失敗與真正損壞快照分開測；tuple、長度、enum、phase依賴、candidate及版本失敗封閉處理。
+- [x] 最大draft/review/pending實測≤4000 UTF-8 bytes；setup/candidate不進review，權威圖點精度不損失。
+- [x] 正式Controller與shared四outcomes、保存／commit／finish失敗、重試、pending quarantine、review trust、同attempt與LMS新attempt。
+- [x] Source及extracted獨立partial/check/submitted刷新清空並可重做；舊draft/review/pending/corrupt及拒絕storage不誤恢復；Moodle fixture另驗保留。
+- [x] 手機／桌面刻度、網格、點重疊、即時座標、snap entry/exit與2× preview、鍵盤、短高與200% zoom。
+- [x] 所有touch target與host/panel/左右strip矩陣以trusted input在source及extracted執行；不以DOM dispatch或桌面滑鼠代替。
+- [x] 新tests登記tools/run-tests.js，runtime依賴完整入manifest，metadata及slug一致。
+
+## Package-ready checklist
+
+- [x] 使用者批准計劃，學科模型、rubric、依賴、schema及觸控決策完整。
+- [x] 上述模型、評分、擬合、persistence、lifecycle及瀏覽器驗收通過並記錄證據。
+- [x] `npm run check`、`npm test`、`npm run package:all`、`git diff --check <base>...HEAD`通過。
+- [x] ZIP根有imsmanifest.xml、runtime全部包含、不含測試／工具，逐檔與source核對。
+- [x] built/extracted launch及全touch矩陣通過。
+
+## Moodle-ready checklist
+
+- [ ] 真實學生帳戶完成記錄、作圖、提交score/status。
+- [ ] 同attempt刷新／離開重入保留草稿及已提交review，pending重試及Moodle新attempt政策正確。
+- [ ] 實體手機current-window及可用new-window player完整手勢、scroll、preview及可達性驗收。
+- [ ] 真實Moodle、跨來源iframe及實機證據與本機證據分開記錄。
+- N/A：本版formative，不提供高風險評核的server-side validation。
+
+## 已完成的實作次序
+
+1. 先完成純物理、量測、資料模型與四種擬合的Node測試，確保公平／不公平及退化資料都能處理。
+2. 建兩組實驗頁及候選讀數→記錄流程，再接三幅圖、資料卡拖放、錯點保留與手機preview。
+3. 加入模型比較、結論、部分分、檢查及shared SCORM恢復／提交。
+4. 完成source與extracted的響應式、trusted-touch和lifecycle驗收，再產生SCORM包。
+
+**批准範圍**：理想恆力裝置、感應器提供a讀數、兩組各最多6筆、三幅圖、有限精度且無隨機誤差，以及30/30/15/25的評分比例，均已實作。結論選項的顯示次序固定分散；不按schema評分鍵的第一項順序排列。
+
+
+## 2026-09-27 implementation evidence
+
+- 純測試：`node --test sim/newtons-second-law-investigation-lab/*.test.js` 通過6個檔案。包括42組實驗設定、已知最小平方解及病態／錯點資料、部分分與界線、資料增刪、100個production snapshot還原後合法續作、shared SCORM成功／committed／frozen／retry、quarantine及standalone無storage。
+- 瀏覽器：`node tools/newtons-second-law-browser-regression.js` 在 **Chrome 154.0.8037.57 / CDP trusted touch** 通過。source及manifest實際打包後解壓的頁面逐檔一致；兩者皆由介面收集12筆數據、放18點、擬合及提交100分，亦驗證空白、錯點、數學失敗、鍵盤、clear取消／確認、續作、pending重試及standalone刷新。
+- 版面：source/package各36個phase×viewport檢查（9個尺寸×4個階段），另驗200% visual viewport zoom；尺寸為320×500、390×500、390×600、390×844、768×900、1024×768、1280×900、740×360及320×400。
+- 手勢：source/package各測320px及390px scrollable iframe，每組17類證據，涵蓋host空白、左右strip上下、panel中段／兩端、三圖資料卡及點位、重疊超框點、native力滑桿、multi-touch panel handoff、review／pending舊target歸host，以及圖外放手／blur／resize／lost capture回復。量度雙方viewport、host、iframe、panel及完整答案前後值；所有drag有trusted touch、move/up且正常完成不cancel。
+- 短畫面補測：`node tools/newtons-second-law-browser-regression.js --short`於縱軸刻度修正後通過；source/package各再跑36項版面與320×400 fluid iframe的13類trusted-touch證據，見`output/newton-short-browser.log`及`short-report.json`。相同短畫面矩陣亦已納入預設browser runner。
+- Preview：2× SVG裁切與目前點及網格一致，focus與已解析點重合、不遮手指、不攔截輸入、沒有重複ID；放手和中斷後清空。
+- 修正過的實測問題：隱藏label造成額外document捲動、資料卡短暫hidden令鍵盤失焦、手機密網格的hysteresis搶走讀數吸附、320×400畫面的縱軸刻度過密；目前均有回歸檢查。短畫面依可用高度減少主刻度，保持14px字體；點位未改變時保留原擬合。
+- 產物：`output/newtons-second-law-investigation-lab-scorm.zip`；本機測試記錄在`output/newton-unit-tests.log`、`output/newton-final-browser.log`、`output/playwright/newtons-second-law/report.json`，screenshots同目錄。這些是本機產物，依repo規則不提交Git。
+- 全項目命令：`npm run check`、`npm test`、`npm run package:all`通過；`git diff --cached --check`通過，並在commit後執行`git diff --check ab157da...HEAD`確認。全項目test之後的短畫面刻度改動另完成6個單元測試及上述source/package短畫面驗收。
+- 限制：以上是本機package-ready證據；**尚未使用真實Moodle學生attempt或實體手機**，不將同源測試iframe宣稱為跨來源Moodle或真實裝置驗收。

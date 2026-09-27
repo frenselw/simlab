@@ -1,0 +1,328 @@
+#!/usr/bin/env node
+"use strict";
+const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os");
+const { spawn } = require("node:child_process");
+const { XMLParser } = require("fast-xml-parser");
+const { CdpClient, buildAndExtractPackage, createServer, listenServer, devToolsPort, fetchJson, evaluate, delay, findBrowser, stopChrome, closeServer, validateOwnedDirectory } = require("./position-time-browser-regression.js");
+const M = require("../sim/newtons-second-law-investigation-lab/model.js"), G = require("../sim/newtons-second-law-investigation-lab/graph.js"), P = require("../sim/newtons-second-law-investigation-lab/persistence.js"), S = require("../sim/newtons-second-law-investigation-lab/scoring.js");
+const root = path.resolve(__dirname, ".."), slug = P.ACTIVITY, artifactDir = path.join(root, "output/playwright/newtons-second-law");
+function sourceParity() {
+  const html = fs.readFileSync(path.join(root, "sim", slug, "index.html"), "utf8");
+  const refs = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)].map(m => path.posix.normalize(`${slug}/${m[1]}`)).sort();
+  const parsed = new XMLParser({ ignoreAttributes: false }).parse(fs.readFileSync(path.join(root, "sim/manifests", `${slug}.xml`), "utf8"));
+  const declared = parsed.manifest.resources.resource.file.map(f => f["@_href"]).filter(f => f !== `${slug}/index.html`).sort();
+  assert.deepEqual(refs, declared, "all runtime dependencies declared exactly once"); return refs;
+}
+const call = (cdp, code, embedded = false) => evaluate(cdp, `((w,d)=>{${code}})(${embedded ? 'document.getElementById("activity").contentWindow,document.getElementById("activity").contentDocument' : "window,document"})`);
+async function ready(cdp, embedded = false) {
+  for (let i = 0; i < 150; i++) {
+    try { if (await call(cdp, "return d.readyState==='complete' && Boolean(w.__newtonApp);", embedded)) return; } catch (_) {}
+    await delay(40);
+  }
+  throw new Error("Activity did not initialize");
+}
+async function viewport(cdp, width, height, touch = true, scale = 1) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600, scale });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: touch, maxTouchPoints: 2 });
+}
+async function preload(cdp) {
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+    const params=new URLSearchParams(location.search);
+    window.__storageProbes=0;
+    if(params.has('__denyStorage')) Object.defineProperty(window,'localStorage',{get(){window.__storageProbes++;throw new DOMException('Storage denied by test','SecurityError');}});
+    if(params.has('__fixture')) {
+      const durable=JSON.parse(params.get('__fixture')),values={...durable};let error='0';
+      window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;
+      window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),
+        LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';} values[k]=String(v);error='0';return 'true';},
+        LMSCommit:()=>{Object.assign(durable,values);return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};
+    }
+  })();` });
+}
+async function navigate(cdp, base, options = {}) {
+  // Each fixture is a new browsing session. Clear the emulator's gesture
+  // sequence before replacing a document that may just have scrolled.
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  const params = new URLSearchParams();
+  if (options.fixture !== false) params.set("__fixture", JSON.stringify(options.fixture || { "cmi.core.lesson_status": "not attempted" }));
+  if(options.denyStorage) params.set("__denyStorage","1");
+  const src = `/${slug}/index.html?${params}`;
+  const url = options.embedded ? `${base}/__embed-scroll-test.html?src=${encodeURIComponent(src)}${options.fluid ? "&fluid=1" : ""}` : `${base}${src}`;
+  await cdp.send("Page.navigate", { url }); await delay(100); await ready(cdp, options.embedded);
+  if (options.embedded) { await evaluate(cdp, "scrollTo(0,300)"); await delay(70); }
+}
+async function rect(cdp, selector, embedded = false, scroll = false) {
+  const r = await call(cdp, `const e=d.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing ${selector}');${scroll ? "e.scrollIntoView({block:'nearest'});" : ""}const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height};`, embedded);
+  if (embedded) {
+    const f = await evaluate(cdp, "(()=>{const r=document.getElementById('activity').getBoundingClientRect();return {x:r.left,y:r.top};})()"); r.x += f.x; r.y += f.y;
+  }
+  return r;
+}
+async function click(cdp, selector, embedded = false) {
+  const p = await rect(cdp, selector, embedded, true);
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", clickCount: 1 });
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x, y: p.y, button: "left", clickCount: 1 }); await delay(40);
+}
+async function confirmClick(cdp, selector, accept, touch = false) {
+  const dialog = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { remove(); reject(new Error("Missing clear-all confirmation")); }, 10000);
+    const remove = cdp.on("Page.javascriptDialogOpening", ({ message }) => {
+      clearTimeout(timer); remove();
+      cdp.send("Page.handleJavaScriptDialog", { accept }).then(() => resolve(message), reject);
+    });
+  });
+  const press = async () => {
+    if (!touch) return click(cdp, selector);
+    const p = await rect(cdp, selector, false, true);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(p)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  };
+  const [message] = await Promise.all([dialog, press()]); assert.match(message, /清除/); await delay(50);
+}
+const touchPoint = (p, id = 1) => ({ x: p.x, y: p.y, id, radiusX: 2, radiusY: 2, force: 1 });
+async function dragTouch(cdp, start, end, during = null, afterMove = null) {
+  const dispatch = async (type, touchPoints) => {
+    try { await cdp.send("Input.dispatchTouchEvent", { type, touchPoints }); }
+    catch (error) { error.message += ` (${type}, ${JSON.stringify(touchPoints)})`; throw error; }
+  };
+  await dispatch("touchStart", [touchPoint(start)]);
+  for (let step = 1; step <= 12; step++) {
+    await dispatch("touchMove", [touchPoint({ x: start.x + (end.x - start.x) * step / 12, y: start.y + (end.y - start.y) * step / 12 })]); await delay(12);
+    if (afterMove) await afterMove();
+  }
+  if (during) await during();
+  await dispatch("touchEnd", []); await delay(180);
+}
+async function metrics(cdp, embedded = false) {
+  const local = await call(cdp, `const app=w.__newtonApp,p=d.getElementById('controlPanel'),s=d.getElementById('stage'),r=s.getBoundingClientRect(),v=w.visualViewport;return {docX:w.scrollX,docY:w.scrollY,docRange:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.scrollTop,panelRange:p.scrollHeight-p.clientHeight,stage:[r.left,r.top,r.width,r.height],view:[v.offsetLeft,v.offsetTop,v.pageLeft,v.pageTop,v.width,v.height],answer:JSON.stringify(app.getState()),pointer:app.getPointerDiagnostics(),mode:app.getMode()};`, embedded);
+  const host = await evaluate(cdp, `(()=>{const r=${embedded ? "document.getElementById('activity').getBoundingClientRect()" : "null"},v=visualViewport;return {x:scrollX,y:scrollY,view:[v.offsetLeft,v.offsetTop,v.pageLeft,v.pageTop,v.width,v.height],frame:r?[r.left,r.top,r.width,r.height]:null};})()`);
+  return { ...local, host };
+}
+function fixed(before, after, owner, label) {
+  assert.equal(after.docX, before.docX, `${label}: document x`); assert.equal(after.docY, before.docY, `${label}: document y`);
+  assert.ok(after.docRange <= 1, `${label}: no third scroll owner`);
+  assert.deepEqual(after.view, before.view, `${label}: activity visual viewport`);
+  assert.deepEqual(after.stage, before.stage, `${label}: local stage`);
+  if (owner !== "panel") assert.equal(after.panel, before.panel, `${label}: panel fixed ${JSON.stringify({before,after})}`);
+  if (owner !== "host") assert.deepEqual(after.host, before.host, `${label}: host and iframe fixed`);
+  if (owner !== "drawing") assert.equal(after.answer, before.answer, `${label}: answer fixed`);
+}
+async function screenshot(cdp, name) {
+  const { data } = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  fs.writeFileSync(path.join(artifactDir, `${name}.png`), Buffer.from(data, "base64"));
+}
+
+const {environment,filled,durableDraft,finishedData}=require("../sim/newtons-second-law-investigation-lab/test-support.js");
+const state = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getState();",embedded);
+const mode = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getMode();",embedded);
+async function choose(cdp,selector,value,embedded=false) {
+  await call(cdp,`const e=d.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));`,embedded);await delay(30);
+}
+async function mouseDrag(cdp,start,end) {
+  for(const [type,p,buttons] of [["mousePressed",start,1],["mouseMoved",end,1],["mouseReleased",end,0]]) await cdp.send("Input.dispatchMouseEvent",{type,x:p.x,y:p.y,button:"left",buttons,clickCount:1});
+  await delay(50);
+}
+async function graphPixel(cdp,point,embedded=false) {
+  const g=await call(cdp,"return w.__newtonApp.getGeometry();",embedded),r=await rect(cdp,"#stage",embedded);
+  const p=G.pixel(g,point);return {x:r.x-r.width/2+p.x,y:r.y-r.height/2+p.y};
+}
+async function plotRecord(cdp,index,point,embedded=false,touch=false,during=null) {
+  await click(cdp,`[data-select-row="${index}"]`,embedded);
+  const start=await rect(cdp,"#sourceHandle",embedded),end=await graphPixel(cdp,point,embedded);
+  if(touch) await dragTouch(cdp,start,end,during);else await mouseDrag(cdp,start,end);
+}
+async function visualMatrix(cdp,base,label) {
+  const evidence=[];
+  for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[768,900],[1024,768],[1280,900],[740,360],[320,400]]) {
+    await viewport(cdp,width,height);await navigate(cdp,base,{fixture:durableDraft(filled())});
+    for(const [phase,sel] of [["collect",'[data-phase="collect"]'],["plot",'[data-phase="plot"]'],["conclude",'[data-phase="conclude"]'],["check","#checkButton"]]) {
+      await click(cdp,sel);
+      const r=await call(cdp,`const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {phase:w.__newtonApp.getMode(),width:w.innerWidth,height:w.innerHeight,overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.clientHeight,stage:s.clientHeight,smallTargets:[...d.querySelectorAll('button')].filter(e=>e.getClientRects().length && e.getBoundingClientRect().height<43.9).map(e=>e.id||e.textContent)};`);
+      assert.equal(r.phase,phase);assert.ok(r.overflow<=1 && r.range<=1,`${label} ${width}x${height}: no competing scroll ${JSON.stringify(r)}`);assert.ok(r.panel>=70,`${width}x${height}: controls remain reachable`);assert.deepEqual(r.smallTargets,[]);
+      if(phase==="plot" || phase==="collect") {assert.ok(r.stage>=165,JSON.stringify(r));if([320,390,1280].includes(width)) await screenshot(cdp,`${label}-${phase}-${width}x${height}`);}
+      evidence.push(r);
+    }
+  }
+  await viewport(cdp,390,600);await navigate(cdp,base,{fixture:durableDraft(P.navigate(filled(),"plot",2))});
+  await cdp.send("Emulation.setPageScaleFactor",{pageScaleFactor:2});assert.equal(await call(cdp,"return w.visualViewport.scale;"),2);await screenshot(cdp,`${label}-zoom-200`);await cdp.send("Emulation.setPageScaleFactor",{pageScaleFactor:1});
+  return evidence;
+}
+async function flows(cdp,base,label) {
+  await viewport(cdp,1280,900,false);await navigate(cdp,base);
+  for(const phase of ["collect","plot","conclude"]) {await click(cdp,`[data-phase="${phase}"]`);await click(cdp,"#checkButton");assert.equal(await mode(cdp),"check");}
+  await click(cdp,"#submitButton");assert.equal(await mode(cdp),"review");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),0);
+  assert.equal(await call(cdp,"return !d.getElementById('editableFooter').hidden;"),false);
+  // Collect all twelve observations through actual controls, first with animation then reduced motion.
+  await navigate(cdp,base);await choose(cdp,"#role0","force");await choose(cdp,"#role1","mass");await choose(cdp,"#role2","acceleration");
+  await click(cdp,"#massLock");await click(cdp,"#forceDown");await click(cdp,"#forceDown");
+  await click(cdp,"#measureButton");assert.equal(await call(cdp,"return w.__newtonApp.getRunning();"),true);
+  await delay(1100);assert.equal((await state(cdp)).setups[0].candidate[2],200);assert.equal((await state(cdp)).groups[0].records.length,0);
+  await click(cdp,"#recordButton");
+  await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
+  for(let i=1;i<6;i++){await click(cdp,"#forceUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");}
+  await click(cdp,'[data-group="1"]');await choose(cdp,"#role0","mass");await choose(cdp,"#role1","force");await choose(cdp,"#role2","acceleration");await click(cdp,"#forceLock");await click(cdp,"#massDown");await click(cdp,"#massDown");
+  for(let i=0;i<6;i++){if(i>0) await click(cdp,"#massUp");if(i===5)await click(cdp,"#massUp");await click(cdp,"#measureButton");await click(cdp,"#recordButton");}
+  assert.deepEqual((await state(cdp)).groups,filled().groups);
+  await click(cdp,'[data-phase="plot"]');
+  for(let graph=0;graph<3;graph++) {
+    await click(cdp,`#graphNav [data-graph="${graph}"]`);
+    const rows=(await state(cdp)).groups[M.sourceGroup(graph)].records;
+    for(let i=0;i<6;i++)await plotRecord(cdp,i,M.expected(graph,rows[i]));
+    await choose(cdp,"#fitModel",graph===1?"inverse":"origin");await click(cdp,"#fitButton");
+    assert.equal(await call(cdp,"return Boolean(d.querySelector('.fit-curve'));"),true);
+    assert.match(await call(cdp,"return d.getElementById('fitResult').textContent;"),/RMSE/);
+  }
+  // Wrong points are used by the fit and remain recoverable; changing one invalidates the displayed fit.
+  await click(cdp,'#graphNav [data-graph="0"]');await plotRecord(cdp,0,[.2,1]);
+  assert.equal((await state(cdp)).plots[0].fitAttempted,false);await click(cdp,"#fitButton");
+  assert.ok(await call(cdp,"const p=w.__newtonApp.getState().plots[0];return w.NewtonFitting.fit(p.model,w.NewtonFitting.plotted(p)).rmse>.1;"));
+  await plotRecord(cdp,0,[.2,.2]);await click(cdp,"#fitButton");
+  await click(cdp,'[data-phase="conclude"]');for(let i=0;i<5;i++)await click(cdp,`input[data-conclusion="${i}"][value="${M.QUESTIONS[i].options[0][0]}"]`);
+  await click(cdp,"#checkButton");await click(cdp,'[data-check-phase="plot"][data-index="2"]');assert.equal((await state(cdp)).returnToCheck,true);
+  const draft=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:draft});assert.equal((await state(cdp)).returnToCheck,true);
+  await click(cdp,"#returnCheck");await click(cdp,"#submitButton");assert.equal(await mode(cdp),"review");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),100);
+  const complete=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:complete});assert.equal(await mode(cdp),"review");
+  await click(cdp,"#referenceButton");assert.equal(await call(cdp,"return d.querySelectorAll('#stageSvg .reference-point').length;"),6);await screenshot(cdp,`${label}-complete-review`);
+  // Freeze, reload pending, retry exactly the same reviewed answers.
+  await navigate(cdp,base,{fixture:draft});await click(cdp,"#checkButton");await call(cdp,"w.__failFinal=true;");await click(cdp,"#submitButton");assert.equal(await mode(cdp),"frozen");assert.equal(await call(cdp,"return w.__newtonApp.getResult();"),null);
+  const pending=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:pending});assert.equal(await mode(cdp),"frozen");await click(cdp,"#retryFinalButton");assert.equal(await mode(cdp),"review");
+  await navigate(cdp,base,{fixture:draft});await click(cdp,"#checkButton");await call(cdp,"w.__failFinish=true;");await click(cdp,"#submitButton");assert.equal(await mode(cdp),"committed");await call(cdp,"w.__failFinish=false;");await click(cdp,"#retryFinalButton");assert.equal(await mode(cdp),"review");
+  // Mathematical failure restores as an editable answer, then keyboard can change it.
+  const bad=filled();bad.plots[1].model="inverse";bad.plots[1].points[0]=[0,0];
+  await navigate(cdp,base,{fixture:durableDraft(P.navigate(bad,"plot",1))});assert.match(await call(cdp,"return d.getElementById('fitResult').textContent;"),/大於 0/);
+  await click(cdp,"#keyboardPlace");await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"ArrowRight",code:"ArrowRight",modifiers:8});await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter"});assert.equal((await state(cdp)).plots[1].fitAttempted,false);
+  // Every standalone refresh starts fresh, even with old local checkpoints or denied storage.
+  for(const phase of ["collect","check","review"]) {
+    await navigate(cdp,base,{fixture:false,denyStorage:true});await click(cdp,"#measureButton");await click(cdp,"#recordButton");
+    if(phase!=="collect")await click(cdp,"#checkButton");if(phase==="review")await click(cdp,"#submitButton");
+    assert.equal(await call(cdp,"return w.__storageProbes;"),0);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assert.deepEqual(await state(cdp),M.fresh());
+  }
+  for(const old of [draft,complete,pending,"corrupt"]) {
+    await navigate(cdp,base,{fixture:false});await call(cdp,`w.localStorage.setItem('simlab:${slug}:checkpoint',${JSON.stringify(JSON.stringify(old))});`);await cdp.send("Page.reload",{ignoreCache:true});await delay(100);await ready(cdp);assert.deepEqual(await state(cdp),M.fresh());await click(cdp,"#measureButton");assert.ok((await state(cdp)).setups[0].candidate);
+  }
+  await navigate(cdp,base,{fixture:durableDraft(filled())});await confirmClick(cdp,"#clearAllButton",false);assert.equal((await state(cdp)).groups[0].records.length,6);await confirmClick(cdp,"#clearAllButton",true);assert.deepEqual(await state(cdp),M.fresh());
+  const cleared=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:cleared});assert.deepEqual(await state(cdp),M.fresh());
+  await navigate(cdp,base,{fixture:{"cmi.core.lesson_status":"not attempted"}});assert.deepEqual(await state(cdp),M.fresh());assert.equal(JSON.parse(complete["cmi.suspend_data"]).score,100);
+  await cdp.send("Emulation.setEmulatedMedia",{features:[]});
+  return {result:100,checks:"actual 12-record experiment and 18-point plotting; wrong fit, keyboard, check-edit, clear, SCORM draft/review/pending/committed, fresh standalone and new Moodle attempt"};
+}
+async function touchMatrix(cdp,base,label,width=390,height=500) {
+  const embedded=true,rows=[];
+  let s=P.navigate(filled(),"plot",0);s.plots[0].points=s.plots[0].points.map(()=>null);s.plots[0].fitAttempted=false;
+  await viewport(cdp,width,height);await navigate(cdp,base,{embedded,fluid:height<500,fixture:durableDraft(s)});
+  for(const side of ["left","right","blank"])for(const direction of [-1,1]) {
+    await evaluate(cdp,"scrollTo(0,300)");await delay(80);const r=await rect(cdp,"#stage",true);
+    const g=await call(cdp,"return w.__newtonApp.getGeometry();",true);
+    const x=side==="left"?8:side==="right"?width-8:width/2,start={x,y:side==="blank"?r.y-r.height/2+(g.top+g.bottom)/2:r.y+(direction===1?32:-30)},end={x,y:start.y-direction*60};
+    const before=await metrics(cdp,true),trace=[];await dragTouch(cdp,start,end,null,async()=>trace.push(await evaluate(cdp,"scrollY")));const after=await metrics(cdp,true);
+    fixed(before,after,"host",`${label} ${side} ${direction}`);assert.ok((after.host.y-before.host.y)*direction>20);assert.ok(trace.every((y,i)=>!i||(y-trace[i-1])*direction>=0));rows.push({name:`${side}-${direction}`,before,after});
+  }
+  await evaluate(cdp,"scrollTo(0,300)");await delay(100);
+  for(const boundary of ["middle","top","bottom"]) {
+    await delay(550);await call(cdp,`const p=d.getElementById('controlPanel');p.scrollTop=${boundary==="middle"?"p.scrollHeight/3":boundary==="top"?"0":"p.scrollHeight"};`,true);await delay(70);
+    const r=await rect(cdp,"#controlPanel",true),direction=boundary==="top"?-1:1,start={x:width-9,y:r.y+direction*18},end={x:width-9,y:start.y-direction*60};
+    const before=await metrics(cdp,true);await dragTouch(cdp,start,end);const after=await metrics(cdp,true);fixed(before,after,"panel",`${label} panel ${boundary}`);
+    if(boundary==="middle")assert.ok(after.panel>before.panel);else assert.equal(after.panel,before.panel);rows.push({name:`panel-${boundary}`,before,after});
+  }
+  for(const graph of [0,1,2]) {
+    await click(cdp,`#graphNav [data-graph="${graph}"]`,true);await click(cdp,'[data-select-row="0"]',true);await delay(550);
+    const before=await metrics(cdp,true),camera=await call(cdp,"return d.getElementById('stageSvg').getAttribute('viewBox');",true),target=graph===0?[.2,.2]:graph===1?[.5,1.2]:[2,1.2];
+    await dragTouch(cdp,await rect(cdp,"#sourceHandle",true),await graphPixel(cdp,target,true),async()=>{
+      const preview=await call(cdp,`const m=d.getElementById('magnifier'),s=d.getElementById('stageSvg'),v=d.getElementById('magnifierSvg'),r=m.getBoundingClientRect(),vb=v.viewBox.baseVal;return {visible:!m.hidden,grid:v.querySelectorAll('.grid-major').length,point:v.querySelectorAll('.data-point').length,events:getComputedStyle(m).pointerEvents,camera:s.getAttribute('viewBox'),scale:(r.width-4)/vb.width,focus:[vb.x+vb.width/2,vb.y+vb.height/2],dot:[Number(v.querySelector('.data-point.selected')?.getAttribute('cx')),Number(v.querySelector('.data-point.selected')?.getAttribute('cy'))],overFinger:(()=>{const q=s.querySelector('.data-point.selected'),sr=s.getBoundingClientRect(),x=sr.left+Number(q.getAttribute('cx')),y=sr.top+Number(q.getAttribute('cy'));return x>r.left-18&&x<r.right+18&&y>r.top-18&&y<r.bottom+18;})(),duplicates:[...d.querySelectorAll('[id]')].map(e=>e.id).filter((id,i,a)=>a.indexOf(id)!==i)};`,true);
+      assert.equal(preview.visible,true);assert.ok(preview.grid>3 && preview.point>=1);assert.equal(preview.events,"none");assert.equal(preview.camera,camera);assert.deepEqual(preview.duplicates,[]);assert.ok(Math.abs(preview.scale-2)<.01);assert.ok(Math.hypot(preview.focus[0]-preview.dot[0],preview.focus[1]-preview.dot[1])<.01);assert.equal(preview.overFinger,false);
+      if(graph===1&&width===390)await screenshot(cdp,`${label}-touch-preview`);
+    });
+    const after=await metrics(cdp,true);fixed(before,after,"drawing",`${label} source-${graph}`);assert.ok(after.pointer.moves>before.pointer.moves && after.pointer.ups>before.pointer.ups && after.pointer.trustedTouch>before.pointer.trustedTouch);assert.equal(after.pointer.cancels,before.pointer.cancels);
+    assert.deepEqual((await state(cdp,true)).plots[graph].points[0],G.encoded(target));assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden && !d.getElementById('magnifierSvg').children.length;",true),true);
+    const head=await rect(cdp,`.plot-point-hit[data-graph="${graph}"][data-point="0"]`,true),b=await metrics(cdp,true);
+    await dragTouch(cdp,head,{x:head.x+(graph===2?-35:35),y:head.y+(graph===0?-24:24)});const a=await metrics(cdp,true);fixed(b,a,"drawing",`${label} placed-${graph}`);assert.notEqual(a.answer,b.answer);assert.equal(a.pointer.cancels,b.pointer.cancels);rows.push({name:`source-point-${graph}`,before,after:a});
+  }
+  // Cancellation, blur, resize and multi-touch discard only the working gesture.
+  let head=await rect(cdp,'.plot-point-hit[data-graph="2"][data-point="0"]',true),before=await metrics(cdp,true);
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(head)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint({x:head.x-20,y:head.y+20})]});await cdp.send("Input.dispatchTouchEvent",{type:"touchCancel",touchPoints:[]});await delay(60);
+  assert.equal((await metrics(cdp,true)).answer,before.answer);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(head)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint({x:head.x-20,y:head.y+20})]});
+  const panel=await rect(cdp,"#controlPanel",true),second={x:width-10,y:panel.y};
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(head),touchPoint(second,2)]});
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint(head),touchPoint({x:second.x,y:second.y-30},2)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await delay(80);
+  const multiAfter=await metrics(cdp,true);fixed(before,multiAfter,"panel",`${label} multi-touch handoff`);assert.ok(multiAfter.panel>before.panel);assert.equal(multiAfter.answer,before.answer);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);rows.push({name:"multi-touch-handoff",before,after:multiAfter});
+  return rows;
+}
+async function specialTouch(cdp,base,label,width,kind) {
+  await viewport(cdp,width,500);
+  if(kind==="locked") {
+    const pending=environment({durable:durableDraft(filled())});pending.c.check();pending.flags.writeFail="cmi.core.score.raw";pending.c.submit();
+    const checks=[];
+    for(const fixture of [finishedData(filled()),pending.durable]) {
+      await navigate(cdp,base,{embedded:true,fixture});
+      assert.equal(await call(cdp,"return [...d.querySelectorAll('#pointHandles button,#sourceHandle')].every(e=>e.hidden);",true),true);
+      for(const direction of [-1,1]) {
+        await evaluate(cdp,"scrollTo(0,300)");await delay(100);const start=await graphPixel(cdp,[.2,.2],true),before=await metrics(cdp,true);
+        await dragTouch(cdp,start,{x:start.x,y:start.y-direction*45});const after=await metrics(cdp,true);
+        fixed(before,after,"host",`${label} locked target`);assert.ok((after.host.y-before.host.y)*direction>15);checks.push({before,after});
+      }
+    }
+    return {name:"review-and-pending-targets-return-to-host",checks};
+  }
+  if(kind==="cancel") {
+    const checks=[];
+    for(const reason of ["outside","blur","resize","lost-capture"]) {
+      await viewport(cdp,width,500);await navigate(cdp,base,{embedded:true,fixture:durableDraft(P.navigate(filled(),"plot",2))});
+      const head=await rect(cdp,'.plot-point-hit[data-point="0"]',true),before=await state(cdp,true);
+      await call(cdp,"d.getElementById('stage').addEventListener('pointerdown',e=>{w.__activeTestPointer={id:e.pointerId,target:e.target};},{once:true});",true);
+      await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(head)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint({x:head.x-30,y:head.y+20})]});
+      assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),false);
+      if(reason==="outside")await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint({x:9,y:head.y})]});
+      if(reason==="blur")await call(cdp,"w.dispatchEvent(new w.Event('blur'));",true);
+      if(reason==="resize")await viewport(cdp,width+10,500);
+      if(reason==="lost-capture"){await call(cdp,"w.__activeTestPointer.target.releasePointerCapture(w.__activeTestPointer.id);",true);await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[touchPoint({x:head.x-29,y:head.y+20})]});}
+      await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await delay(120);
+      assert.deepEqual(await state(cdp,true),before);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden && !d.getElementById('magnifierSvg').children.length;",true),true);checks.push(reason);
+    }
+    return {name:"working-drag-rollback",checks};
+  }
+  if(kind==="offscale") {
+    const s=P.navigate(filled(),"plot",1);s.plots[1].points[0]=[7000,30000];s.plots[1].points[1]=[7000,30000];s.plots[1].fitAttempted=false;
+    await navigate(cdp,base,{embedded:true,fixture:durableDraft(s)});await click(cdp,'[data-select-row="1"]',true);await delay(250);
+    const head=await rect(cdp,'.offscale-point-hit[data-point="1"]',true),before=await metrics(cdp,true);
+    await dragTouch(cdp,head,await graphPixel(cdp,[.75,.8],true));const after=await metrics(cdp,true);
+    fixed(before,after,"drawing",`${label} offscale`);assert.deepEqual((await state(cdp,true)).plots[1].points[0],[7000,30000]);assert.deepEqual((await state(cdp,true)).plots[1].points[1],[7500,8000]);assert.ok(after.pointer.trustedTouch>before.pointer.trustedTouch);assert.equal(after.pointer.cancels,before.pointer.cancels);
+    return {name:"offscale-overlap",before,after};
+  }
+  await navigate(cdp,base,{embedded:true});await call(cdp,"w.__rangeEvents=[];for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])d.getElementById('forceRange').addEventListener(type,e=>w.__rangeEvents.push({type,trusted:e.isTrusted,pointer:e.pointerType}));",true);const r=await rect(cdp,"#forceRange",true,true);await delay(250);const before=await metrics(cdp,true);
+  await dragTouch(cdp,{x:r.x,y:r.y},{x:r.x+r.width/3,y:r.y});const after=await metrics(cdp,true);
+  fixed(before,after,"drawing",`${label} force-range`);assert.notEqual(after.answer,before.answer);const events=await call(cdp,"return w.__rangeEvents;",true);assert.ok(events.some(e=>e.type==="pointerup")&&events.some(e=>e.type==="pointermove"));assert.ok(events.every(e=>e.trusted&&e.pointer==="touch"&&e.type!=="pointercancel"));return {name:"force-range",before,after,events};
+}
+async function main() {
+  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
+  const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},errors:[]};
+  try {
+    const browser=findBrowser();assert.ok(browser,"Chrome is required");
+    const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
+    for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,"sim",name),"utf8"),fs.readFileSync(path.join(packageDirectory,name),"utf8"),`package parity: ${name}`);
+    profile=fs.mkdtempSync(path.join(tempRoot,"simlab-newton-chrome-"));
+    chrome=spawn(browser,["--headless=new","--remote-debugging-address=127.0.0.1","--remote-debugging-port=0",`--user-data-dir=${profile}`,"--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","about:blank"],{stdio:["ignore","ignore","pipe"]});
+    let stderr="";chrome.stderr.on("data",b=>stderr=(stderr+b).slice(-3000));const port=await devToolsPort(profile,chrome).catch(e=>{e.message+=stderr;throw e;});let targetId;
+    async function freshPage(){if(cdp){await cdp.send("Target.closeTarget",{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:"PUT"});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send("Page.enable");await cdp.send("Runtime.enable");await cdp.send("Page.bringToFront");await preload(cdp);cdp.on("Runtime.exceptionThrown",e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));}
+    await freshPage();report.browser=await cdp.send("Browser.getVersion");
+    for(const [label,directory] of [["source",path.join(root,"sim")],["package",packageDirectory]]) {
+      const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await freshPage();
+      console.log(`newton browser: ${label} layout / flow`);
+      if(!process.argv.includes("--touch"))report.viewports[label]=await visualMatrix(cdp,base,label);
+      if(process.argv.includes("--smoke"))break;
+      if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
+      if(!process.argv.includes("--touch"))report.flows[label]=await flows(cdp,base,label);
+      for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
+        // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
+        for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
+      if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
+    }
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":"report.json"),JSON.stringify(report,null,2));
+  } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
+  try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
+  if(failure)throw failure;console.log("newton source/package browser checks passed");
+}
+if(require.main===module)main().catch(e=>{console.error(e.stack||e);process.exitCode=1;});
+module.exports={sourceParity,main};

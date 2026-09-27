@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="newtons-second-law-investigation-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-NEWTONS-SECOND-LAW-INVESTIGATION-LAB">
+    <organization identifier="ORG-NEWTONS-SECOND-LAW-INVESTIGATION-LAB">
+      <title>牛頓第二定律：公平測試與數據作圖</title>
+      <item identifier="ITEM-NEWTONS-SECOND-LAW-INVESTIGATION-LAB" identifierref="RES-NEWTONS-SECOND-LAW-INVESTIGATION-LAB"><title>牛頓第二定律：公平測試與數據作圖</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-NEWTONS-SECOND-LAW-INVESTIGATION-LAB" type="webcontent" adlcp:scormtype="sco" href="newtons-second-law-investigation-lab/index.html">
+      <file href="config.js"/>
+      <file href="newtons-second-law-investigation-lab/index.html"/>
+      <file href="newtons-second-law-investigation-lab/styles.css"/>
+      <file href="newtons-second-law-investigation-lab/fitting.js"/>
+      <file href="newtons-second-law-investigation-lab/graph.js"/>
+      <file href="newtons-second-law-investigation-lab/model.js"/>
+      <file href="newtons-second-law-investigation-lab/scoring.js"/>
+      <file href="newtons-second-law-investigation-lab/persistence.js"/>
+      <file href="newtons-second-law-investigation-lab/ui-runtime.js"/>
+      <file href="newtons-second-law-investigation-lab/experiment.js"/>
+      <file href="newtons-second-law-investigation-lab/main.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+    </resource>
+  </resources>
+</manifest>
