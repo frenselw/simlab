@@ -1,8 +1,8 @@
 (function () {
   "use strict";
-  const M = NewtonModel, P = NewtonPersistence, G = NewtonGraph, F = NewtonFitting, E = NewtonExperiment;
-  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massLock", "massDown", "massUp", "massValue", "forceLock", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "keyboardPlace", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
-  const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula").map(id => [id, document.getElementById(id)]));
+  const M = NewtonModel, P = NewtonPersistence, G = NewtonGraph, F = NewtonFitting, E = NewtonExperiment, I = NewtonInterpretation;
+  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massLock", "massDown", "massUp", "massValue", "forceLock", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
+  const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula", "interpretationPanel", "interpretationWeight", "coefficientReadout", "meaningPrompt", "meaningChoices", "conversionReadout").map(id => [id, document.getElementById(id)]));
   const esc = G.escape, display = n => Number(n.toPrecision(5)).toString(), phaseTitles = { collect: "實驗", plot: "作圖", conclude: "歸納", check: "檢查" };
   const controller = new NewtonRuntime.Controller(SimScorm, SimActivityFlow, render);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)"), handles = new Map();
@@ -15,7 +15,9 @@
   const graphName = i => i === 0 ? '<var>a</var>–<var>F</var><sub>合</sub>' : i === 1 ? '<var>a</var>–<var>m</var>' : '<var>a</var>–1/<var>m</var>';
   const symbols = { mass: '<var>m</var>', force: '<var>F</var><sub>合</sub>', acceleration: '<var>a</var>' };
   const formulas = { linear: '<var>y</var> = <var>kx</var> + <var>b</var>', origin: '<var>y</var> = <var>kx</var>', quadratic: '<var>y</var> = <var>px</var><sup>2</sup> + <var>qx</var> + <var>r</var>', inverse: '<var>y</var> = <var>k</var>/<var>x</var>' };
-  d.conclusionFields.innerHTML = M.QUESTIONS.map((q, i) => `<fieldset><legend>${i + 1}. ${esc(q.title)}</legend>${q.options.slice((i + 1) % 4).concat(q.options.slice(0, (i + 1) % 4)).map(([value, label]) => `<label class="choice"><input type="radio" name="conclusion${i}" data-conclusion="${i}" value="${value}"><span>${esc(label)}</span></label>`).join("")}</fieldset>`).join("");
+  const mathText = value => value.split(/(F合|[A-Za-z]+)/).map(part => part === "F合" ? '<var>F</var><sub>合</sub>' : /^[amkbprqxy]+$/.test(part) ? `<var>${part}</var>` : esc(part)).join("");
+  d.conclusionFields.innerHTML = M.QUESTIONS.map((q, i) => `<fieldset><legend>${i + 1}. ${mathText(q.title)}</legend>${q.options.slice((i + 1) % 4).concat(q.options.slice(0, (i + 1) % 4)).map(([value, label]) => `<label class="choice"><input type="radio" name="conclusion${i}" data-conclusion="${i}" value="${value}"><span>${mathText(label)}</span></label>`).join("")}</fieldset>`).join("");
+  d.meaningChoices.innerHTML = M.MEANINGS.map(([value, label]) => `<label class="choice"><input type="radio" name="meaning" value="${value}"><span>${mathText(label)}</span></label>`).join("");
   function command(action) { return controller.command(action); }
   function cancelWork(count = false) {
     const previous = drag; drag = null; keyboard = null; lastPreviewCorner = null;
@@ -68,7 +70,8 @@
       d.massValue.textContent = `${M.mass(mi).toFixed(2)} kg`; d.forceValue.textContent = `${M.force(fi).toFixed(2)} N`;
       d.forceRange.value = fi; d.forceRange.setAttribute("aria-valuetext", `${M.force(fi).toFixed(2)} 牛頓`);
       for (const [name, j] of [["mass", 0], ["force", 1]]) {
-        d[`${name}Lock`].setAttribute("aria-pressed", String(setup.locks[j])); d[`${name}Lock`].textContent = setup.locks[j] ? "已鎖定" : "鎖定";
+        d[`${name}Lock`].setAttribute("aria-pressed", String(setup.locks[j])); d[`${name}Lock`].textContent = setup.locks[j] ? "解除防誤改" : "防誤改";
+        d[`${name}Lock`].setAttribute("aria-label", `${setup.locks[j] ? "解除" : "開啟"}${j ? "合外力" : "總質量"}的防誤改，目前${j ? d.forceValue.textContent : d.massValue.textContent}`);
         d[`${name}Lock`].disabled = busy || locked;
       }
       d.massDown.disabled = locked || busy || setup.locks[0] || mi === 0; d.massUp.disabled = locked || busy || setup.locks[0] || mi === 6;
@@ -99,22 +102,39 @@
     d.fitButton.hidden = locked; d.fitButton.disabled = !p.model;
     if (p.fitAttempted) {
       const fit = F.fit(p.model, F.plotted(p));
-      d.fitResult.innerHTML = fit.ok ? `<p class="equation">${equation(fit)}</p><p>使用 ${fit.n} 個已放點<br>RMSE = ${display(fit.rmse)} m/s²${fit.model === "linear" ? `<br>截距 <var>b</var> = ${display(fit.coefficients[1])} m/s²` : ""}</p>` : `<p>${esc(fit.message)}</p><p>目前有 ${fit.n} 個已放點。</p>`;
+      d.fitResult.innerHTML = fit.ok ? `<p class="equation">${equation(fit, i)}</p><p>使用 ${fit.n} 個已放點<br>RMSE = ${display(fit.rmse)} m/s²${fit.model === "linear" ? `<br>截距 <var>b</var> = ${display(fit.coefficients[1])} m/s²` : ""}</p>` : `<p>${esc(fit.message)}</p><p>目前有 ${fit.n} 個已放點。</p>`;
     } else d.fitResult.innerHTML = `<p>${p.model ? "點位或方法改動後，請按「擬合我的點」。" : "選擇模型，再用自己的點進行擬合。"}</p>`;
-    d.clearGraph.hidden = locked; d.clearGraph.disabled = !p.points.some(Boolean) && !p.model;
+    d.clearGraph.hidden = locked; d.clearGraph.disabled = !p.points.some(Boolean) && !p.model && !p.meaning;
     d.referenceButton.hidden = !controller.trusted; d.referenceButton.setAttribute("aria-pressed", String(showReference));
     d.referenceButton.textContent = showReference ? "隱藏參考點" : "顯示參考點";
+    d.interpretationPanel.hidden = s.schemaVersion !== 2;
+    if (!d.interpretationPanel.hidden) {
+      const interpretation = I.analyze(s, i);
+      d.interpretationWeight.textContent = s.rubricVersion === 2 ? "（5 分）" : "（不計分練習）";
+      d.meaningPrompt.innerHTML = mathText(M.INTERPRETATIONS[i].title);
+      for (const input of d.meaningChoices.querySelectorAll("input")) { input.checked = p.meaning === input.value; input.disabled = locked; }
+      d.coefficientReadout.innerHTML = interpretation.available ? `<p>你的${interpretation.kind}：<var>k</var> = <strong>${display(interpretation.coefficient)}</strong> ${interpretation.unit}</p>${i === 1 ? '<p class="small">這是反比例式的係數，並非曲線某一點的斜率。</p>' : ""}` : `<p>${mathText(interpretation.reason)}</p>`;
+      d.conversionReadout.hidden = !interpretation.available;
+      d.conversionReadout.innerHTML = conversion(interpretation);
+    }
   }
-  function equation(fit) {
+  function conversion(interpretation) {
+    const c = interpretation.conversion;
+    if (!c) return "<p>選擇係數的意義，再把換算結果與你的實驗記錄比較。</p>";
+    const calculation = c.value === null ? "此係數未能用來推算本實驗的正質量或正向力，請核對點位、模型及解讀。" : `依你的選擇，計算 ${c.inverse ? "1/" : ""}<var>k</var> = <strong>${display(c.value)}</strong> ${c.unit}`;
+    return `<p>${calculation}</p><p>對照記錄中的${c.quantity === "mass" ? '總質量 <var>m</var>' : '合外力 <var>F</var><sub>合</sub>'}：${c.references.map(v => v.toFixed(2)).join("、")} ${c.referenceUnit}</p><p class="small">換算與記錄的單位、數值能否對應？</p>`;
+  }
+  function equation(fit, graph) {
     const c = fit.coefficients.map(v => Math.abs(v) < 1e-12 ? 0 : v), signed = (v, suffix = "") => `${v < 0 ? " − " : " + "}${display(Math.abs(v))}${suffix}`;
-    if (fit.model === "linear") return `<var>y</var> = ${display(c[0])}<var>x</var>${signed(c[1])}`;
-    if (fit.model === "origin") return `<var>y</var> = ${display(c[0])}<var>x</var>`;
-    if (fit.model === "inverse") return `<var>y</var> = ${display(c[0])}/<var>x</var>`;
-    return `<var>y</var> = ${display(c[0])}<var>x</var><sup>2</sup>${signed(c[1], "<var>x</var>")}${signed(c[2])}`;
+    const x = graph === 0 ? '<var>F</var><sub>合</sub>' : graph === 1 ? '<var>m</var>' : '(1/<var>m</var>)';
+    if (fit.model === "linear") return `<var>a</var> = ${display(c[0])}${x}${signed(c[1])}`;
+    if (fit.model === "origin") return `<var>a</var> = ${display(c[0])}${x}`;
+    if (fit.model === "inverse") return `<var>a</var> = ${display(c[0])}/${x}`;
+    return `<var>a</var> = ${display(c[0])}(${x})<sup>2</sup>${signed(c[1], x)}${signed(c[2])}`;
   }
   function renderCheck() {
     const s = controller.state;
-    d.checkSummary.innerHTML = s.groups.map((g, i) => `<button data-check-phase="collect" data-index="${i}">實驗 ${i === 0 ? "A" : "B"}<span>變量選擇 ${g.roles.filter(Boolean).length}/3 · 已記錄 ${g.records.length}/6 筆${s.setups[i].candidate ? " · 有一筆讀數尚未加入" : ""}</span></button>`).join("") + s.plots.map((p, i) => `<button data-check-phase="plot" data-index="${i}">${graphName(i)} 圖<span>已放 ${p.points.filter(Boolean).length}/${p.points.length} 個資料點 · ${p.fitAttempted ? "已嘗試擬合" : "未擬合"}</span></button>`).join("") + `<button data-check-phase="conclude">歸納<span>已回答 ${s.conclusions.filter(Boolean).length}/5 項</span></button>`;
+    d.checkSummary.innerHTML = s.groups.map((g, i) => `<button data-check-phase="collect" data-index="${i}">實驗 ${i === 0 ? "A" : "B"}<span>變量選擇 ${g.roles.filter(Boolean).length}/3 · 已記錄 ${g.records.length}/6 筆${s.setups[i].candidate ? " · 有一筆讀數尚未加入" : ""}</span></button>`).join("") + s.plots.map((p, i) => `<button data-check-phase="plot" data-index="${i}">${graphName(i)} 圖<span>已放 ${p.points.filter(Boolean).length}/${p.points.length} 個資料點 · ${p.fitAttempted ? "已嘗試擬合" : "未擬合"} · 解讀${p.meaning ? "已答" : "未答"}</span></button>`).join("") + `<button data-check-phase="conclude">歸納<span>已回答 ${s.conclusions.filter(Boolean).length}/5 項</span></button>`;
     d.submitButton.disabled = controller.unsaved;
   }
   function renderFeedback() {
@@ -131,17 +151,19 @@
       else rows.push('<p class="ok">保留記錄的控制量一致。</p>');
       rows.push(`<p>一致條件中有 ${r.best.unique} 個不同水平；請同時留意數量及跨度。</p>`);
     } else if (v.phase === "plot") {
-      const r = result.graphs[v.index]; rows.push(`<h3>作圖 ${display(r.pointScore)} / 10 · 擬合 ${display(r.modelScore + r.fitScore)} / 5</h3>`);
+      const r = result.graphs[v.index]; rows.push(`<h3>作圖 ${display(r.pointScore)} / 10 · 擬合 ${display(r.modelScore + r.fitScore)} / 5${controller.state.rubricVersion === 2 ? ` · 解讀 ${r.meaningScore} / 5` : ""}</h3>`);
       for (let i = 0; i < r.points.length; i++) {
         const p = r.points[i]; rows.push(`<p class="${p.correct.every(Boolean) ? "ok" : "issue"}">#${i + 1}：${!p.actual ? "尚未放點。" : p.correct.every(Boolean) ? "兩個座標都符合記錄。" : `請核對${!p.correct[0] ? "橫座標" : ""}${!p.correct[0] && !p.correct[1] ? "及" : ""}${!p.correct[1] ? "縱座標" : ""}。`}</p>`);
       }
-      rows.push(`<p>${v.index === 1 ? "反比例模型適合描述固定合外力時的 a–m 關係。下降曲線本身不足以證明反比，可再看 a–1/m 圖。" : "直線是簡潔的模型；還要檢查截距是否接近零，才能支持正比。二次項接近零時，二次式可簡化為直線。"}</p>`);
+      rows.push(`<p>${mathText(v.index === 1 ? "反比例模型適合描述固定合外力時的 a–m 關係。下降曲線本身不足以證明反比，可再看 a–1/m 圖。" : "直線是簡潔的模型；還要檢查截距是否接近零，才能支持正比。二次項接近零時，二次式可簡化為直線。")}</p>`);
+      rows.push(`<p>${mathText(v.index === 0 ? "固定總質量時，a–F合 的斜率 k = 1/m，所以總質量 m = 1/k。若把兩軸交換，F合–a 的斜率才是 m。" : v.index === 1 ? "固定合外力時，a = k/m 的係數 k = F合。曲線的斜率會隨 m 改變，不等於這個係數。" : "固定合外力時，a–1/m 的斜率 k = F合，可與實驗 B 的合外力記錄比較。")}</p>`);
+      if (controller.state.schemaVersion === 2) rows.push(`<p class="${r.meaningCorrect ? "ok" : "issue"}">${r.meaningCorrect ? "你選擇的係數意義正確。" : "請重新對照兩軸的物理量與係數的單位。"}</p>`);
       if (r.points.some(p => !p.correct.every(Boolean))) rows.push('<p>擬合使用的是你的點位；曲線貼近這些點，不代表已忠實繪出原始數據。</p>');
       if (showReference) rows.push('<p>橙圈：原始記錄座標；藍點：我的作圖。參考點不改動你的答案。</p>');
     } else {
       rows.push('<h3>規律與條件</h3>');
-      M.QUESTIONS.forEach((q, i) => rows.push(`<p class="${result.conclusions[i] ? "ok" : "issue"}">${i + 1}. ${esc(q.options[0][1])}。${result.conclusions[i] ? "你的判斷正確。" : "請對照題目中的控制條件與圖像證據。"}</p>`));
-      rows.push('<p>在總質量不變時，加速度與合外力成正比；在合外力不變時，加速度與總質量成反比。在本活動的 SI 單位中：<var>F</var><sub>合</sub> = <var>ma</var>。</p><p class="small">延伸：a–F合 的斜率對應 1/m（kg⁻¹）；a–1/m 的斜率對應 F合（N）。有限讀數精度會帶來很小的擬合偏差。</p>');
+      M.QUESTIONS.forEach((q, i) => rows.push(`<p class="${result.conclusions[i] ? "ok" : "issue"}">${i + 1}. ${mathText(q.options[0][1])}。${result.conclusions[i] ? "你的判斷正確。" : "請對照題目中的控制條件與圖像證據。"}</p>`));
+      rows.push('<p>在總質量不變時，加速度與合外力成正比；在合外力不變時，加速度與總質量成反比。在本活動的 SI 單位中：<var>F</var><sub>合</sub> = <var>ma</var>。</p>');
     }
     d.feedback.innerHTML = rows.join("");
   }
@@ -167,7 +189,7 @@
     if (editable() && records[selected]) {
       const xy = M.expected(v.index, records[selected]); d.sourceHandle.hidden = false;
       if (!drag) d.sourceHandle.innerHTML = `<strong>#${selected + 1} · ${plot.points[selected] ? "拖動重新放點" : "拖入圖框"}</strong><span><var>x</var> = ${xy[0].toFixed(3)}　<var>y</var> = ${xy[1].toFixed(3)}</span>`;
-      d.sourceHandle.setAttribute("aria-label", `第${selected + 1}筆資料，橫座標${xy[0]}，縱座標${xy[1]}，拖入圖框或按Enter開始鍵盤放點`);
+      d.sourceHandle.setAttribute("aria-label", `第${selected + 1}筆資料，橫座標${xy[0]}，縱座標${xy[1]}，拖入圖框`);
     }
     for (const [key, b] of handles) if (!key.startsWith(`${v.index}:`)) b.hidden = true;
     plot.points.forEach((encoded, i) => {
@@ -274,14 +296,14 @@
   });
   d.goGraph.onclick = () => navigate("plot", view().index === 0 ? 0 : 1);
   d.returnExperiment.onclick = () => navigate("collect", M.sourceGroup(view().index));
-  d.clearGroup.onclick = () => { if (editable() && confirm("清除此組量測及相關圖點和擬合？另一組資料和歸納答案會保留。")) { run = null; command({ type: "clearGroup" }); } };
-  d.clearGraph.onclick = () => { if (editable() && confirm("清除此圖的點位和擬合？原始量測及其他圖會保留。")) { cancelWork(); command({ type: "clearGraph" }); } };
-  d.clearAllButton.onclick = () => { if (controller.editable && confirm("清除全部實驗資料、圖點、擬合及歸納答案，重新作答？")) { cancelWork(); run = null; controller.clearAllAnswers(); d.controlPanel.scrollTop = 0; } };
+  d.clearGroup.onclick = () => { if (editable() && confirm("清除此組量測及相關圖點、擬合和解讀？另一組資料和歸納答案會保留。")) { run = null; command({ type: "clearGroup" }); } };
+  d.clearGraph.onclick = () => { if (editable() && confirm("清除此圖的點位、擬合和解讀？原始量測及其他圖會保留。")) { cancelWork(); command({ type: "clearGraph" }); } };
+  d.clearAllButton.onclick = () => { if (controller.editable && confirm("清除全部實驗資料、圖點、擬合、解讀及歸納答案，重新作答？")) { cancelWork(); run = null; controller.clearAllAnswers(); d.controlPanel.scrollTop = 0; } };
   d.plotTable.addEventListener("click", e => { const b = e.target.closest("[data-select-row]"); if (b) { cancelWork(); selected = +b.dataset.selectRow; render(); } });
-  d.keyboardPlace.onclick = () => { if (editable() && selected >= 0) { pointKey({ key: "Enter", preventDefault() {} }, selected); d.sourceHandle.focus({ preventScroll: true }); } };
   d.removePoint.onclick = () => { cancelWork(); command({ type: "place", index: selected, point: null }); };
   d.fitModel.onchange = e => { cancelWork(); command({ type: "model", value: e.target.value || null }); };
   d.fitButton.onclick = () => { cancelWork(); command({ type: "fit" }); };
+  d.meaningChoices.addEventListener("change", e => { if (e.target.matches('input[name="meaning"]')) command({ type: "meaning", value: e.target.value }); });
   d.referenceButton.onclick = () => { if (controller.trusted) { showReference = !showReference; render(); } };
   d.conclusionFields.addEventListener("change", e => { if (e.target.matches("input[data-conclusion]")) command({ type: "conclusion", index: +e.target.dataset.conclusion, value: e.target.value }); });
   d.checkButton.onclick = d.returnCheck.onclick = () => navigate("check");

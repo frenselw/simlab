@@ -8,13 +8,13 @@
 
 ## 學生流程
 
-本活動的主線是「設計公平測試 → 親自改變條件並量測 → 整理兩組數據 → 拖點作三幅圖 → 比較擬合 → 歸納有條件的關係」。
+本活動的主線是「設計公平測試 → 親自改變條件並量測 → 整理兩組數據 → 拖點作三幅圖 → 比較擬合及解讀係數 → 歸納有條件的關係」。
 
 | 部分 | 學生要做的事 | 形成的學習證據 |
 |---|---|---|
 | 1. 設計與量測 | A 組探究合外力的影響；B 組探究質量的影響。每組自行選擇改變量、控制量及量度量，手動設定小車總質量與合外力，逐次啟動及記錄 | 兩組各建議 6 筆記錄；至少 5 個不同自變量水平，數值有足夠跨度 |
 | 2. 拖點作圖 | 用 A 組畫 a–F合，用 B 組畫 a–m，再用同一 B 組畫 a–1/m | 三幅各最多 6 點的學生作圖；每筆觀測與其圖點有固定對應 |
-| 3. 擬合與比較 | 自選直線、過原點直線、二次曲線或反比例模型，按「擬合」；可換模型比較 | 根據學生實際點位計算的曲線、方程及偏差，不代換為正確點 |
+| 3. 擬合與比較 | 自選模型並擬合，回答係數的物理意義，將自己的係數換算結果與記錄比較 | 根據學生實際點位計算的曲線、方程、偏差及物理量解讀，不代換為正確點 |
 | 4. 歸納與提交 | 判斷控制條件、正比／反比、圖線通過原點的意義，最後組合關係式 | 明確回答、檢查及提交；可交空白或部分作答 |
 
 **首版設計**：以理想化水平小車及「可調恆力裝置」作具體場景；採用無摩擦模型與有限讀數精度，暫不加入隨機測量誤差。量測由虛擬感應器完成，把時間留給公平測試、作圖和擬合。
@@ -25,7 +25,7 @@
 |---|---|
 | Slug / learning objective | `newtons-second-law-investigation-lab`；以控制變量法探究 a、F合、m，分辨下降趨勢與反比例，理解以 1/m 線性化 |
 | Learner task / main interactions | 兩組實驗的變量選擇、質量配重／力設定、啟動與記錄；三圖拖點、改點、局部吸附與觸控放大；四種模型擬合；結論與提交 |
-| Runtime files / libraries and justification | 使用 HTML/CSS/JS、SVG、Pointer Events；檔案包括 `index.html`、`styles.css`、`main.js`、`model.js`、`experiment.js`、`graph.js`、`fitting.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`。沿用三個 shared 檔案，首版不增外部函式庫 |
+| Runtime files / libraries and justification | 使用 HTML/CSS/JS、SVG、Pointer Events；檔案包括 `index.html`、`styles.css`、`main.js`、`model.js`、`experiment.js`、`graph.js`、`fitting.js`、`interpretation.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`。沿用三個 shared 檔案，不增外部函式庫 |
 | Assessment risk / trusted validation | `formative`，100 分、60 分達標；評核最終保留的實驗資料和答案，不按拖動次數或操作速度給分；不作高風險評核 |
 | Out of scope | 滑輪實物安裝、摩擦補償、繩／滑輪慣性、碰撞或衝量、學生手工由 v–t 求 a、誤差棒／統計推論、自由匯入數據、教師題庫編輯、三維畫面 |
 
@@ -117,7 +117,7 @@
 | Navigation | `mixed`：A/B 兩組互不依賴，可直接切換；每幅圖依其來源資料；三圖及結論可自由查看，空白狀態如實表示。建議順序呈現量測→作圖→歸納 |
 | Final check access | 每個 editable 畫面均可進入檢查，包括量測未開始、未放點、未擬合；量測／drag 未完成時取消該暫態，保留已記錄資料 |
 | Incomplete submission | 檢查表只列記錄／放點／擬合／回答數量，說明未答項不計分；明確「提交目前答案」，空白為 0 |
-| Editable reset | 可清本圖點位、清本組資料或清全部；有資料時確認範圍。清本圖不刪原始資料；清 B 資料影響 a–m 及 a–1/m 兩圖；清全部回初始設定及空白答案 |
+| Editable reset | 可清本圖作答、清本組資料或清全部；有資料時確認範圍。清本圖包含點位、擬合及解讀，不刪原始資料；僅答解讀亦可清本圖。清 B 資料影響 a–m 及 a–1/m 兩圖；清全部回初始設定及空白答案 |
 | Scored / pending attempt | 同頁只讀，沒有清結果／重開；凍結提交只可重試原資料；獨立刷新／Moodle 續作依共用契約 |
 
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
@@ -177,7 +177,19 @@
 8. 算法採縮放／中心化與 QR 最小平方求解；正比及反比例用其單參數解析最小平方式。秩判定相對最大 QR 對角量為 1e−10；有限點也須檢查係數／預測值有限，失敗不儲存 NaN。
 9. 顯示精度不降低內部擬合精度。反比例曲線只畫 x>0 的圖框內部分，遇到漸近線須裁切，不能連線穿過 x=0。
 
-最終解說可加一段不計分延伸：a–F合 斜率對應 1/m；a–1/m 斜率對應 F合，並核對相應 SI 單位。讀數捨入造成的小偏差須與學生錯放點分開描述。
+### 2026-09-27 修訂：把擬合接回物理量
+
+使用者要求每幅圖直接詢問係數的物理意義，不把解讀只放在最後歸納。本修訂採用以下契約；下文首版 rubric/schema 及已完成證據屬歷史版本。
+
+- 每幅圖在擬合結果下提供「解讀這幅圖」：a–F合 的直線斜率對應 1/m；a–m 的反比例係數對應 F合（不是這條曲線的斜率）；a–1/m 的直線斜率對應 F合。題幹明確以正確控制變量及相應模型為條件，四個選項為 m、1/m、F合、1/F合。
+- 顯示學生實際點位所得的係數、單位及截距，方程使用 a、F合、m 軸量。選擇意義後，按該選擇計算 k 或 1/k，**保留運算真正產生的單位**，再列出學生記錄中的相應質量或力作比較；不把錯選的單位改成正確單位，也不宣稱這個選擇已答對。此項明確批准的探究工具不替學生選答案、放點或改數據。
+- 未擬合、擬合失敗或模型不提供相應係數時，不捏造斜率或質量；零／負係數不拿來宣稱本實驗的正質量／正向力。僅有貼合曲線不足以證明物理關係：仍須核對控制量、圖點、單位及直線截距。a–m 的反比例參數 k 單位為 N，不能把曲線某點的切線斜率當成 k。
+- 每個 meaning 答案是獨立概念判斷。改點、換模型、增刪記錄會使擬合失效及隱藏換算，但保留 meaning 供重看；清本圖／清來源組則連同該圖 meaning 清空。任何空白／部分狀態仍可檢查及提交，未答為零。
+- 新 attempt 用 schemaVersion=2、modelVersion=1、rubricVersion=2。三個 plot 各新增 `meaning:null|mass|inverse-mass|force|inverse-force`；其他權威欄位不變。新 rubric：公平測試30、放點30、擬合15、三圖解讀15（每題5）、五項歸納10（每題2），仍共100分。概念分獨立於作圖／擬合分，不重複扣同一錯點。
+- 嚴格支援版本組合 (schema,rubric)=(1,1),(2,1),(2,2)，model 均為1。有效的 v1 草稿在 decode 後升至 schema2、新 meaning 全 null，**保留 rubric1 原計分**；新增解讀為不計分練習，保留已完成部分的原分數。v1 review／pending 不升級，仍按原 rubric 重算及重試；不更動已提交分數。新 schema 缺 meaning 或未知版本組合均拒絕，不能當成未答。舊 attempt 清全部仍保留原 rubric。
+- 所有新 meaning 狀態（未答、正確、錯誤、無有效擬合、改圖後待重擬合）在各 graph 及 review-edit 返回路徑均要 production encode/decode/restore 後執行合法續作；另測 v1 draft 升級後作答、v1 review 只讀及 nested pending 重試、版本混配拒絕、部分分及 4000-byte 上限。
+- 角色設定的鎖定改名「防誤改／解除防誤改」，一句說明其可選用途；不使用仍可量測，不自動選控制量，亦不按防誤改按鈕評分。桌面／手機以滑鼠與手指提示為主，移除可見的鍵盤放點按鈕及鍵盤說明，保留資料卡／圖點的原生焦點及快捷鍵，輔助說明只供輔助技術讀取。
+- 歸納題、選項、圖表解讀及回饋使用相同 math serif／斜體變量／正體單位與描述下標，不增加外部排版依賴。新增純 `interpretation.js` 與單元測試，列入 manifest、HTML 及 test runner；執行本機 source／extracted ZIP 的完整互動、touch、舊新快照及 repository gates。
 
 ## Touch gesture ownership contract
 
@@ -186,7 +198,7 @@
 | Target type | Selector / hit area and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
 | 力設定滑桿 | `.force-range`，高≥44px | native range 穩定節點；操控區在 pointerdown 前設 none | 方向鍵及 ±0.20 N 按鈕 |
-| 待放資料卡手柄 | `.data-point-source`，≥44×44px | stage 中穩定 HTML target、none；drag 中不重建 | 選行後「開始放點」，方向鍵微調、Enter 確定、Escape 取消 |
+| 待放資料卡手柄 | `.data-point-source`，≥44×44px | stage 中穩定 HTML target、none；drag 中不重建 | 聚焦資料卡後 Enter 開始，方向鍵微調、Enter 確定、Escape 取消；無可見鍵盤專用按鈕 |
 | 已放點 | `.plot-point-hit`，≥44×44px | 依圖及行建立穩定 HTML target、none | 表格選點、方向鍵、Enter；Delete 移回待放 |
 | 超框點邊緣抓手 | `.offscale-point-hit`，≥44×44px | 只改顯示位置，不改儲存座標；穩定 target、none | 列表選取後重新放點／刪除 |
 
@@ -375,9 +387,23 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 
 ## 2026-09-27 follow-up evidence: early reading and complete cart travel
 
+以下記錄 `25a6e80` 的驗證；其 schema/rubric 及 ZIP 已由下一節的圖像解讀修訂更新。
+
 - 依使用者追加要求，約行進 1 m 後即可記錄；車繼續加速至完全離畫。首 1 s 感應器資料、觀測 tuple、schema/model/rubric version 1 及評分保持相容。t/v、感應器軸、選單旁符號、擬合公式與方程均採一致數學排版；原生選單只保留中文量名／方法名。
 - 6 個純測試檔通過，新增 42 組設定的讀數時刻／首秒採樣先後、約 1–1.2 m 的可記錄行程、離畫位置及持續加速檢查；5 組舞台尺寸均驗證整輛車離畫，含 320px 窄畫面。日誌：`output/newton-followup-unit.log`。
 - source 及實際 extracted ZIP 的完整瀏覽器測試通過（Chrome 154.0.8037.57 / CDP）：早期記錄不停止或重設小車，行程結束不產生重複讀數；首秒採樣未完成不提前顯示；讀數就緒時保存／還原後可重播及記錄，取消動畫無延遲讀數，reduced motion 的讀數一致。兩者各從介面記錄 12 筆、作 18 個點並完成 100 分流程，SCORM fixture 的 draft/review/pending/committed 及獨立刷新測試仍通過。
 - source/package 各 36 個 phase×viewport、200% zoom、390/320px 各 17 類觸控證據與 320×400 短 iframe 的 13 類手勢均通過；`report.json` 無瀏覽器例外。證據：`output/playwright/newtons-second-law/report.json`、`motion-report.json`、`source-reading-while-moving.png`、`package-reading-while-moving.png`、`package-cart-exited.png`。
 - 全專案 `npm run check`、`npm test`、`npm run package:all` 及工作區 `git diff --check` 均通過。完整日誌：`output/newton-followup-check.log`、`output/newton-followup-npm-test.log`、`output/newton-followup-package-all.log`。
 - 最終 `output/newtons-second-law-investigation-lab-scorm.zip` 共 15 個檔案、44,034 bytes；逐檔與目前 source 相符。SHA-256：`6b492d509228e8296fc8a7bc9d187a3dbc6b6a2cc6a1b9aa4dee1c58cd1ea260`。真實 Moodle／實體手機的驗收仍未執行。
+
+## 2026-09-27 follow-up evidence: graph interpretation and notation
+
+- 三圖新增可保存／清除／提交的係數意義答案與真實擬合換算；新 attempt 的概念分分配改為圖像解讀15分、歸納10分，總分仍100。舊 draft 升 schema2 並保留 rubric1，舊 review／pending 以原版本重算／重試，部分分不改變。
+- 7 個純測試檔通過：含各圖正誤選項的實際係數／單位、錯點導出的錯誤質量、零／負斜率、錯誤模型、控制量不一致、獨立部分分、190 個 production round-trip 還原後合法續作及舊新版本提交流程。最長 draft/review/pending 為 1200/1037/1286 bytes。日誌：`output/newton-interpretation-unit.log`；目前完整版本亦由 `output/newton-interpretation-npm-test.log` 執行。
+- 完整 source／extracted ZIP browser regression 通過（Chrome 154.0.8037.57 / CDP trusted touch）：每幅圖的係數／單位與原始記錄比較、未答及錯答、模型變更後隱藏過時換算、從檢查返回後保存續作、僅答解讀亦可取消／確認清本圖、舊 draft/review/pending、提交後只讀，以及兩者各自從介面量測12筆、放18點並提交100分。
+- source/package 各36個 phase×viewport、200% zoom、320/390px 各17類手勢及320×400短iframe的13類手勢通過；新增320/390px的解讀選項使用 trusted touch，確認答案保存、其他捲動位置不變。`output/playwright/newtons-second-law/report.json` 無瀏覽器例外，包含 interpretation、motion、flows 及 gestures 證據。
+- 桌面三圖及歸納第4、5題的數學字體／下標已視覺檢查；手機解讀選項可操作。「防誤改」是可選控制；移除可見鍵盤按鈕／提示後仍通過鍵盤放點測試。畫面證據：`source-interpretation-0.png`、`source-interpretation-1.png`、`source-interpretation-2.png`、`source-conclusion-math.png` 及對應 package／touch 截圖，均在上述目錄。
+- 最後核對時修正二次模型提示：二次項近乎零時可以近似直線，不宣稱所有二次模型都沒有固定斜率。此文字及其中 k 的數學排版修改後，另跑7個純測試、`npm run check`、`node tools/newtons-second-law-browser-regression.js --interpretation`；source/extracted 的三圖解讀、320/390px觸控、舊作答兼容及完整作答流程均重驗通過。日誌：`output/newton-interpretation-browser.log`，報告：`output/playwright/newtons-second-law/interpretation-report.json`。
+- Repository gates：`npm run check`、完整 `npm test`、`npm run package:all` 及 `git diff --check` 通過；最後提示詞修改另按上列範圍重驗。日誌：`output/newton-interpretation-check.log`、`output/newton-interpretation-npm-test.log`、`output/newton-interpretation-package-all.log`。
+- 最終 `output/newtons-second-law-investigation-lab-scorm.zip` 共16個檔案、47,191 bytes；manifest及每個runtime檔均與source逐檔相符，無測試檔。SHA-256：`94687e5e2aa7836e7b5835184c459cd4d49fc0aee858d0305efa2bb721240f2f`。
+- 真實 Moodle 學生 attempt、跨來源 player 及實體手機仍未驗收；本機模擬 LMS 與 CDP 觸控證據不取代這些檢查。

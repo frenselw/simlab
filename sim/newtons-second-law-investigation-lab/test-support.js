@@ -44,6 +44,7 @@ function filled() {
   for (let graph=0;graph<3;graph++) {
     s.groups[M.sourceGroup(graph)].records.forEach((r,index)=> { s=M.change(s,{type:"place",graph,index,point:M.expected(graph,r).map(v=>Math.round(v*10000))}); });
     s=M.change(s,{type:"model",graph,value:graph===1?"inverse":"origin"}); s=M.change(s,{type:"fit",graph});
+    s=M.change(s,{type:"meaning",graph,value:M.INTERPRETATIONS[graph].answer});
   }
   s.conclusions=M.QUESTIONS.map(q=>q.options[0][0]); return s;
 }
@@ -55,4 +56,5 @@ function finishedData(state) {
   const e=environment({standalone:true}),result=S.score(state);
   return {"cmi.core.lesson_status":result.passed?"passed":"failed","cmi.core.score.raw":String(result.score),"cmi.suspend_data":JSON.stringify(e.scorm.makeSnapshot(P.ACTIVITY,"review",P.review(state),result))};
 }
-module.exports={environment,record,filled,durableDraft,finishedData};
+function legacy(state) { const s=M.clone(state);s.schemaVersion=1;s.rubricVersion=1;s.plots.forEach(p=>{delete p.meaning;});return s; }
+module.exports={environment,record,filled,durableDraft,finishedData,legacy};

@@ -27,7 +27,11 @@
         const attempt = this.scorm.loadAttempt(P.ACTIVITY); this.attempt = attempt;
         const startup = this.flow.startup(attempt);
         if (startup === "editable") {
-          try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : P.fresh(); this.mode = this.state.phase; if (attempt.state === "new") this.save(); }
+          try {
+            const restored = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : P.fresh();
+            this.state = P.upgradeDraft(restored); this.mode = this.state.phase;
+            if (attempt.state === "new" || restored.schemaVersion !== this.state.schemaVersion) this.save();
+          }
           catch (_) { this.technical("未能還原作答資料；原有資料保持不變。", attempt.state === "draft"); return; }
         } else if (startup === "review") this.restoreReview(attempt);
         else if (startup === "frozen") this.restorePending(attempt.snapshot);
@@ -69,7 +73,7 @@
     }
     clearAllAnswers() {
       if (!this.editable) return false;
-      this.state = P.fresh(); this.mode = "collect"; this.finalSnapshot = null; this.save(); this.emit(); return true;
+      this.state = P.fresh(this.state?.rubricVersion); this.mode = "collect"; this.finalSnapshot = null; this.save(); this.emit(); return true;
     }
     navigate(phase, index = null) {
       if (!this.state || !["collect", "plot", "conclude", "check"].includes(phase)) return;

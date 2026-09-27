@@ -43,12 +43,20 @@ for(const state of [M.fresh(),record(M.fresh(),0,1,2),filled()]) {
   const e=environment({durable:finishedData(state)});assert.equal(e.c.mode,"review");assert.deepEqual(e.c.state,P.review(state));assert.equal(S.score(e.c.state).score,S.score(state).score);
   e.c.navigate("plot",2);assert.deepEqual(e.c.view,{phase:"plot",index:2});assert.equal(e.c.command({type:"model",value:"linear"}),false);tested++;
 }
-const invalid=[s=>s.groups.pop(),s=>s.groups[0].records.push([0,0,1]),s=>s.groups[0].roles[0]="velocity",s=>s.plots[0].points.push([1,1]),s=>s.plots[0].points[0]=[Infinity,0],s=>s.plots[0].points[0]=[-1,0],s=>s.plots[1].points[0]=[0,30001],s=>s.plots[0].points[0]=[0,0,0],s=>s.plots[0].model="cubic",s=>s.plots[0].model=null,s=>s.conclusions[0]="unknown",s=>s.phase="review",s=>s.graph=0,s=>s.group=null,s=>s.setups[0].candidate=M.measure(0,0),s=>s.schemaVersion=2,s=>s.setups[0].locks[0]=0,s=>s.extra=1];
+for(const graph of [0,1,2])for(const returning of [false,true])for(const meaning of [null,"mass",M.INTERPRETATIONS[graph].answer])for(const variant of ["no-source","ready","unfit","failed","invalidated"]) {
+  let s=variant==="no-source"?M.fresh():filled();s=M.change(s,{type:"meaning",graph,value:meaning});
+  if(variant==="unfit")s.plots[graph].fitAttempted=false;
+  if(variant==="failed"){s.plots[graph].model="quadratic";s.plots[graph].points=s.plots[graph].points.map(()=>[1000,1000]);}
+  if(variant==="invalidated")s=M.change(s,{type:"place",graph,index:0,point:[1200,1234]});
+  s=P.navigate(s,"plot",graph);s.returnToCheck=returning;
+  roundtrip(s,c=>{const value=meaning===null?M.INTERPRETATIONS[graph].answer:null;assert.ok(c.command({type:"meaning",value}));assert.equal(c.state.plots[graph].meaning,value);});
+}
+const invalid=[s=>s.groups.pop(),s=>s.groups[0].records.push([0,0,1]),s=>s.groups[0].roles[0]="velocity",s=>s.plots[0].points.push([1,1]),s=>s.plots[0].points[0]=[Infinity,0],s=>s.plots[0].points[0]=[-1,0],s=>s.plots[1].points[0]=[0,30001],s=>s.plots[0].points[0]=[0,0,0],s=>s.plots[0].model="cubic",s=>s.plots[0].model=null,s=>s.conclusions[0]="unknown",s=>s.phase="review",s=>s.graph=0,s=>s.group=null,s=>s.setups[0].candidate=M.measure(0,0),s=>s.schemaVersion=7,s=>s.schemaVersion=1,s=>s.rubricVersion=7,s=>delete s.plots[0].meaning,s=>s.plots[0].meaning="velocity",s=>s.setups[0].locks[0]=0,s=>s.extra=1];
 for(const mutate of invalid) {const s=filled();mutate(s);assert.throws(()=>P.draft(s));}
 let s=P.navigate(M.fresh(),"check");s.returnToCheck=true;assert.throws(()=>P.draft(s));
 const brokenEnvelope=environment({standalone:true}).scorm.makeSnapshot(P.ACTIVITY,"draft",M.fresh());brokenEnvelope.activity="another";assert.throws(()=>P.decode(brokenEnvelope,"draft"));
 // True worst-case numeric lengths, enum lengths and escaped nested review envelope.
-const maximum=filled();maximum.groups.forEach(g=>g.roles=["acceleration","acceleration","acceleration"]);maximum.plots.forEach((p,i)=>{p.points=p.points.map(()=>[i===0?14000:22500,30000]);p.model="quadratic";});
+const maximum=filled();maximum.groups.forEach(g=>g.roles=["acceleration","acceleration","acceleration"]);maximum.plots.forEach((p,i)=>{p.points=p.points.map(()=>[i===0?14000:22500,30000]);p.model="quadratic";p.meaning="inverse-force";});
 maximum.conclusions=["independent","inverse-square","negative-slope","linear-reciprocal","f-m-plus-a"];
 const e=environment({durable:durableDraft(maximum)}),draft=e.c.draftSnapshot();e.c.check();e.flags.writeFail="cmi.core.score.raw";e.c.submit();
 const pending=JSON.parse(e.durable["cmi.suspend_data"]), review=JSON.parse(pending.payload.reviewJson),sizes=[draft,review,pending].map(P.bytes);

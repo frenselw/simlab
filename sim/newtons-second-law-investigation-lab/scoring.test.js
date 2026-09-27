@@ -22,5 +22,9 @@ const chosen=S.experiment({roles:emptyRoles,records},0);assert.equal(chosen.best
 for(const rs of [records,records.slice().reverse(),[records[2],records[0],records[3],records[1]]]) { const r=S.experiment({roles:emptyRoles,records:rs},0);assert.equal(r.best.key,2);close(r.score,chosen.score); }
 const tie=S.experiment({roles:emptyRoles,records:[M.measure(4,0),M.measure(4,5),M.measure(2,0),M.measure(2,5)]},0);assert.equal(tie.best.key,2);
 s=M.clone(full);s.groups[0].records[0]=M.measure(5,0);const r=S.score(s);assert.ok(r.detail.experiments[0].control<6);assert.equal(r.detail.graphs[1].pointScore,10);assert.equal(r.detail.graphs[2].pointScore,10);
-s=M.fresh();s.conclusions[0]="direct";assert.equal(S.score(s).score,5);
+s=M.fresh();s.conclusions[0]="direct";assert.equal(S.score(s).score,2);
+for(const graph of [0,1,2]) {
+  s=M.change(M.fresh(),{type:"meaning",graph,value:M.INTERPRETATIONS[graph].answer});assert.equal(S.score(s).score,5,"independent concept credit");
+  s=M.change(s,{type:"meaning",graph,value:"mass"});assert.equal(S.score(s).score,0);
+}
 console.log("newton scoring: blank/full, independent partial credit, tolerance boundaries, control subsets and model degeneracy passed");

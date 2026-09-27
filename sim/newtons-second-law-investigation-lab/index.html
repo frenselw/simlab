@@ -5,7 +5,7 @@
   <title>牛頓第二定律：公平測試與數據作圖</title><link rel="icon" href="data:,">
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script defer src="../config.js"></script><script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script>
-  <script defer src="model.js"></script><script defer src="fitting.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="graph.js"></script><script defer src="experiment.js"></script><script defer src="main.js"></script>
+  <script defer src="model.js"></script><script defer src="fitting.js"></script><script defer src="interpretation.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="graph.js"></script><script defer src="experiment.js"></script><script defer src="main.js"></script>
 </head>
 <body>
 <main class="newton-app" id="app">
@@ -18,7 +18,7 @@
   <section id="stage" class="stage" aria-label="實驗與作圖舞台">
     <svg id="stageSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="實驗場景"></svg>
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
-    <button id="sourceHandle" class="data-point-source" hidden aria-describedby="graphHelp"></button>
+    <button id="sourceHandle" class="data-point-source" hidden aria-describedby="graphHelp keyboardHelp"></button>
     <div id="pointHandles" class="drag-layer"></div>
     <aside id="magnifier" class="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg" xmlns="http://www.w3.org/2000/svg"></svg><span>2× 局部預覽</span></aside>
   </section>
@@ -34,11 +34,12 @@
         <div class="role-row"><label for="role2">量度</label><select id="role2" data-role="2"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol2" class="role-symbol" aria-hidden="true"></span></div>
       </div>
       <div id="instrumentControls">
-        <div class="setting-label"><span>總質量 <var>m</var></span><button id="massLock" class="lock" aria-pressed="false">鎖定</button></div>
+        <p class="small">「防誤改」可暫時固定某個設定；不使用亦可量測。</p>
+        <div class="setting-label"><span>總質量 <var>m</var></span><button id="massLock" class="lock" aria-pressed="false">防誤改</button></div>
         <div class="stepper"><button id="massDown" aria-label="減少一塊0.25公斤配重">−</button><output id="massValue"></output><button id="massUp" aria-label="增加一塊0.25公斤配重">＋</button></div>
         <p class="small">包括 0.50 kg 小車及車上配重。</p>
         <p class="small">恆力裝置沿水平方向推車；在本理想模型中，水平推力就是合外力。</p>
-        <div class="setting-label"><label for="forceRange">合外力 <var>F</var><sub>合</sub></label><button id="forceLock" class="lock" aria-pressed="false">鎖定</button></div>
+        <div class="setting-label"><label for="forceRange">合外力 <var>F</var><sub>合</sub></label><button id="forceLock" class="lock" aria-pressed="false">防誤改</button></div>
         <div class="stepper"><button id="forceDown" aria-label="減少0.20牛頓">−</button><output id="forceValue"></output><button id="forceUp" aria-label="增加0.20牛頓">＋</button></div>
         <input id="forceRange" class="force-range" type="range" min="0" max="5" step="1" value="2" aria-label="設定水平合外力">
         <button id="measureButton" class="primary full">啟動量測</button>
@@ -55,12 +56,19 @@
       <p class="kicker" id="graphKicker"></p><h2 id="plotTitle"></h2>
       <p id="graphHelp">選一筆數據，把圖上方的資料卡拖入圖框；靠近該筆座標時會吸附。已放點亦可再拖動。</p>
       <div id="plotTable"></div>
-      <div id="pointControls"><div class="button-row"><button id="keyboardPlace">鍵盤放點</button><button id="removePoint">移回待放</button></div><p id="keyboardHelp" class="small" hidden>方向鍵微調，Shift 加快；Enter 確定，Escape 取消。</p></div>
+      <div id="pointControls"><div class="button-row"><button id="removePoint">移回待放</button></div></div><p id="keyboardHelp" class="sr-only">資料卡可用 Enter 開始放點，方向鍵微調，Shift 加快；Enter 確定，Escape 取消。</p>
       <div class="section-label"><h3>選擇擬合方法</h3></div>
       <label class="sr-only" for="fitModel">擬合方法</label><select id="fitModel" aria-describedby="fitFormula"><option value="">請選擇</option><option value="linear">直線</option><option value="origin">過原點直線</option><option value="quadratic">二次曲線</option><option value="inverse">反比例</option></select><p id="fitFormula" class="fit-formula"></p>
       <button id="fitButton" class="primary full">擬合我的點</button><div id="fitResult" class="fit-result" aria-live="polite"></div>
       <p class="small">擬合只使用已放置的點。RMSE 越小，曲線越貼近你放的點；仍須核對原始數據。未放點不會自動補入。</p>
-      <div class="button-row"><button id="returnExperiment">返回本組實驗</button><button id="clearGraph">清本圖點位</button></div>
+      <section id="interpretationPanel" class="interpretation-panel">
+        <h3>解讀這幅圖 <small id="interpretationWeight"></small></h3>
+        <div id="coefficientReadout" class="coefficient-readout"></div>
+        <fieldset><legend id="meaningPrompt"></legend><div id="meaningChoices"></div></fieldset>
+        <div id="conversionReadout" class="conversion-readout" aria-live="polite"></div>
+        <p class="small">換算依據的是你目前的點位和所選意義；還須核對控制量、圖點、單位及截距。讀數取位可能造成小偏差。</p>
+      </section>
+      <div class="button-row"><button id="returnExperiment">返回本組實驗</button><button id="clearGraph">清本圖作答</button></div>
       <button id="referenceButton" class="full" hidden aria-pressed="false">顯示參考點</button>
     </section>
     <section id="concludePanel" hidden><p class="kicker">由圖像歸納規律</p><h2>整理你的結論</h2><p>可隨時返回實驗或作圖頁，核對自己的資料。</p><div id="conclusionFields"></div></section>

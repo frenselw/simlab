@@ -69,6 +69,11 @@ td button { min-width: 44px; padding: .2rem .35rem; } .row-select { width: 100%;
 .row-select[aria-pressed="true"] { background: #eaf2fd; border-color: #608ec8; }
 .fit-result { margin: .5rem 0; border-left: 3px solid #94a3b8; padding: .2rem .65rem; min-height: 156px; }
 .fit-formula { min-height: 1.8rem; font-family: var(--math-font); font-size: 1.2rem; }
+.interpretation-panel { margin: 1rem 0; padding-top: .8rem; border-top: 1px solid #cbd5e1; }
+.interpretation-panel h3 small { font-weight: 400; color: #64748b; font-size: .8rem; }
+.coefficient-readout, .conversion-readout { border-left: 3px solid #7d9fca; background: #eef4fb; padding: .35rem .65rem; margin: .55rem 0; overflow-wrap: anywhere; }
+.interpretation-panel fieldset { border: 0; margin: 0; padding: .5rem 0; }
+.interpretation-panel legend { font-weight: 500; }
 .fit-result p { font-size: .9rem; } .fit-result .equation { font-family: var(--math-font); font-size: 1.25rem; color: #0f655f; overflow-wrap: anywhere; }
 fieldset { border: 0; border-bottom: 1px solid #dce3eb; padding: .8rem 0; margin: 0 0 .5rem; min-width: 0; }
 legend { padding: 0; font-weight: 600; line-height: 1.5; }

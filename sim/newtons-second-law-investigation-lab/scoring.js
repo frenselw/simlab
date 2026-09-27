@@ -31,12 +31,13 @@
     const fit = plot.fitAttempted ? F.fit(plot.model, F.plotted(plot)) : null;
     let modelScore = index === 1 ? (plot.model === "inverse" ? 3 : 0) : (["linear", "origin"].includes(plot.model) ? 3 : 0);
     if (index !== 1 && plot.model === "quadratic" && fit?.ok && Math.abs(fit.coefficients[0]) * Math.max(fit.minX ** 2, fit.maxX ** 2) <= range.y * .01) modelScore = 2;
-    return { pointScore, modelScore, fitScore: fit?.ok ? 2 : 0, fit, points, tolerance };
+    const meaningCorrect = plot.meaning === M.INTERPRETATIONS[index].answer;
+    return { pointScore, modelScore, fitScore: fit?.ok ? 2 : 0, meaningCorrect, meaningScore: state.rubricVersion === 2 && meaningCorrect ? 5 : 0, fit, points, tolerance };
   }
   function score(state) {
     const experiments = state.groups.map(experiment), graphs = state.plots.map((_, i) => graphScore(state, i));
     const conclusions = state.conclusions.map((v, i) => v === M.QUESTIONS[i].options[0][0]);
-    const total = experiments.reduce((s, g) => s + g.score, 0) + graphs.reduce((s, g) => s + g.pointScore + g.modelScore + g.fitScore, 0) + conclusions.filter(Boolean).length * 5;
+    const total = experiments.reduce((s, g) => s + g.score, 0) + graphs.reduce((s, g) => s + g.pointScore + g.modelScore + g.fitScore + g.meaningScore, 0) + conclusions.filter(Boolean).length * (state.rubricVersion === 2 ? 2 : 5);
     const value = Math.max(0, Math.min(100, total));
     return { score: value, maxScore: 100, passed: value >= 60, completed: true, detail: { experiments, graphs, conclusions } };
   }

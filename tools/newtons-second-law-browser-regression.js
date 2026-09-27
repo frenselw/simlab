@@ -113,7 +113,7 @@ async function screenshot(cdp, name) {
   fs.writeFileSync(path.join(artifactDir, `${name}.png`), Buffer.from(data, "base64"));
 }
 
-const {environment,filled,durableDraft,finishedData}=require("../sim/newtons-second-law-investigation-lab/test-support.js");
+const {environment,filled,durableDraft,finishedData,legacy}=require("../sim/newtons-second-law-investigation-lab/test-support.js");
 const state = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getState();",embedded);
 const mode = (cdp,embedded=false)=>call(cdp,"return w.__newtonApp.getMode();",embedded);
 async function choose(cdp,selector,value,embedded=false) {
@@ -188,6 +188,60 @@ async function motionChecks(cdp,base,label) {
   await cdp.send("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"no-preference"}]});
   return {fastestReading:2400,slowestReading:100,resume:true,replay:true,cancel:true,reducedMotion:true,notation:true};
 }
+async function interpretationChecks(cdp,base,label) {
+  await viewport(cdp,1280,900,false);
+  await navigate(cdp,base);await click(cdp,'[data-phase="plot"]');
+  await click(cdp,'#meaningChoices input[value="inverse-mass"]');
+  await confirmClick(cdp,"#clearGraph",false);assert.equal((await state(cdp)).plots[0].meaning,"inverse-mass");
+  await confirmClick(cdp,"#clearGraph",true);assert.equal((await state(cdp)).plots[0].meaning,null);
+  const answer=filled();answer.plots.forEach(p=>{p.meaning=null;});
+  await navigate(cdp,base,{fixture:durableDraft(P.navigate(answer,"plot",0))});
+  for(const graph of [0,1,2]) {
+    await click(cdp,`#graphNav [data-graph="${graph}"]`);
+    assert.match(await call(cdp,"return d.getElementById('coefficientReadout').textContent;"),graph===0?/kg⁻¹/:/N/);
+    await click(cdp,'#meaningChoices input[value="mass"]');
+    assert.equal(await call(cdp,"const s=w.__newtonApp.getState();return w.NewtonInterpretation.analyze(s,s.graph).conversion.unit;"),graph===0?"kg⁻¹":"N","incorrect meaning cannot invent a mass unit");
+    await click(cdp,`#meaningChoices input[value="${M.INTERPRETATIONS[graph].answer}"]`);
+    const interpretation=await call(cdp,"const s=w.__newtonApp.getState();return w.NewtonInterpretation.analyze(s,s.graph);");
+    assert.ok(Math.abs(interpretation.conversion.value-(graph===0?1:.6))<.001);
+    assert.match(await call(cdp,"return d.getElementById('conversionReadout').textContent;"),graph===0?/1\/k = 1 kg/:/k = [\d.]+ N/);
+    await call(cdp,"d.getElementById('interpretationPanel').scrollIntoView({block:'end'});");await screenshot(cdp,`${label}-interpretation-${graph}`);
+  }
+  await click(cdp,"#checkButton");assert.match(await call(cdp,"return d.getElementById('checkSummary').textContent;"),/解讀已答/);
+  await click(cdp,'[data-check-phase="plot"][data-index="0"]');
+  const saved=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:saved});
+  assert.equal((await state(cdp)).returnToCheck,true);assert.equal((await state(cdp)).plots[0].meaning,"inverse-mass");
+  await choose(cdp,"#fitModel","quadratic");assert.equal(await call(cdp,"return d.getElementById('conversionReadout').hidden;"),true);assert.equal((await state(cdp)).plots[0].meaning,"inverse-mass");
+  await click(cdp,"#fitButton");assert.match(await call(cdp,"return d.getElementById('coefficientReadout').textContent;"),/若二次項近乎零/);
+  await choose(cdp,"#fitModel","origin");await click(cdp,"#fitButton");
+  await click(cdp,'[data-phase="conclude"]');
+  assert.ok(await call(cdp,"return d.querySelectorAll('#conclusionFields var').length>=12 && [...d.querySelectorAll('#conclusionFields var')].every(e=>w.getComputedStyle(e).fontStyle==='italic');"));
+  assert.ok(await call(cdp,"return d.querySelectorAll('#conclusionFields sub').length===4;"));
+  await call(cdp,"d.getElementById('conclusionFields').lastElementChild.scrollIntoView({block:'end'});");
+  await screenshot(cdp,`${label}-conclusion-math`);await click(cdp,"#returnCheck");await click(cdp,"#submitButton");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),100);
+  await click(cdp,'[data-phase="plot"]');assert.ok(await call(cdp,"return [...d.querySelectorAll('#meaningChoices input')].every(e=>e.disabled);"));
+  // Old in-progress attempts gain the practice without losing already earned credit.
+  const old=legacy(M.fresh());old.conclusions[0]="direct";
+  await navigate(cdp,base,{fixture:durableDraft(P.navigate(old,"plot",0))});assert.equal((await state(cdp)).schemaVersion,2);assert.equal((await state(cdp)).rubricVersion,1);
+  assert.match(await call(cdp,"return d.getElementById('interpretationWeight').textContent;"),/不計分/);
+  await click(cdp,'#meaningChoices input[value="inverse-mass"]');await click(cdp,"#checkButton");await click(cdp,"#submitButton");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),5);
+  await navigate(cdp,base,{fixture:finishedData(old)});assert.equal(await mode(cdp),"review");assert.equal((await state(cdp)).schemaVersion,1);assert.equal(await call(cdp,"return d.getElementById('interpretationPanel').hidden;"),true);
+  const pending=environment();pending.flags.writeFail="cmi.core.score.raw";pending.scorm.submitWithCallbacks(S.score(old),pending.scorm.makeSnapshot(slug,"review",P.review(old),S.score(old)),{onSuccess(){},onFailure(){}});
+  await navigate(cdp,base,{fixture:pending.durable});assert.equal(await mode(cdp),"frozen");await click(cdp,"#retryFinalButton");assert.equal(await mode(cdp),"review");assert.equal(await call(cdp,"return w.__newtonApp.getResult().score;"),5);
+  // The same interpretation radio remains a native, trusted touch target in the player.
+  const touch=[];
+  for(const width of [320,390]) {
+    await viewport(cdp,width,600,true);await navigate(cdp,base,{fixture:durableDraft(P.navigate(answer,"plot",0)),embedded:true});
+    await call(cdp,"w.__meaningTrusted=[];d.getElementById('meaningChoices').addEventListener('change',e=>w.__meaningTrusted.push(e.isTrusted));",true);
+    const p=await rect(cdp,'#meaningChoices input[value="inverse-mass"]',true,true),before=await metrics(cdp,true);
+    await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[touchPoint(p)]});await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await delay(100);
+    const after=await metrics(cdp,true);fixed(before,after,"drawing",`${label} interpretation ${width}`);
+    assert.equal((await state(cdp,true)).plots[0].meaning,"inverse-mass");assert.deepEqual(await call(cdp,"return w.__meaningTrusted;",true),[true]);
+    assert.ok(await call(cdp,"return !d.getElementById('keyboardPlace') && d.getElementById('keyboardHelp').classList.contains('sr-only');",true));
+    await screenshot(cdp,`${label}-interpretation-touch-${width}`);touch.push({width,before,after});
+  }
+  return {realCoefficient:true,units:true,math:true,legacyDraft:true,legacyReview:true,legacyPending:true,touch};
+}
 async function flows(cdp,base,label) {
   await viewport(cdp,1280,900,false);await navigate(cdp,base);
   for(const phase of ["collect","plot","conclude"]) {await click(cdp,`[data-phase="${phase}"]`);await click(cdp,"#checkButton");assert.equal(await mode(cdp),"check");}
@@ -221,6 +275,8 @@ async function flows(cdp,base,label) {
     await choose(cdp,"#fitModel",graph===1?"inverse":"origin");await click(cdp,"#fitButton");
     assert.equal(await call(cdp,"return Boolean(d.querySelector('.fit-curve'));"),true);
     assert.match(await call(cdp,"return d.getElementById('fitResult').textContent;"),/RMSE/);
+    await click(cdp,`#meaningChoices input[value="${M.INTERPRETATIONS[graph].answer}"]`);
+    assert.equal((await state(cdp)).plots[graph].meaning,M.INTERPRETATIONS[graph].answer);
   }
   // Wrong points are used by the fit and remain recoverable; changing one invalidates the displayed fit.
   await click(cdp,'#graphNav [data-graph="0"]');await plotRecord(cdp,0,[.2,1]);
@@ -240,7 +296,7 @@ async function flows(cdp,base,label) {
   // Mathematical failure restores as an editable answer, then keyboard can change it.
   const bad=filled();bad.plots[1].model="inverse";bad.plots[1].points[0]=[0,0];
   await navigate(cdp,base,{fixture:durableDraft(P.navigate(bad,"plot",1))});assert.match(await call(cdp,"return d.getElementById('fitResult').textContent;"),/大於 0/);
-  await click(cdp,"#keyboardPlace");await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"ArrowRight",code:"ArrowRight",modifiers:8});await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter"});assert.equal((await state(cdp)).plots[1].fitAttempted,false);
+  await call(cdp,"d.getElementById('sourceHandle').focus();");await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter"});await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"ArrowRight",code:"ArrowRight",modifiers:8});await cdp.send("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter"});assert.equal((await state(cdp)).plots[1].fitAttempted,false);
   // Every standalone refresh starts fresh, even with old local checkpoints or denied storage.
   for(const phase of ["collect","check","review"]) {
     await navigate(cdp,base,{fixture:false,denyStorage:true});await click(cdp,"#measureButton");await click(cdp,"#recordButton");
@@ -346,7 +402,7 @@ async function specialTouch(cdp,base,label,width,kind) {
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
   const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
-  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},errors:[]};
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},errors:[]};
   try {
     const browser=findBrowser();assert.ok(browser,"Chrome is required");
     const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
@@ -359,17 +415,18 @@ async function main() {
     for(const [label,directory] of [["source",path.join(root,"sim")],["package",packageDirectory]]) {
       const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await freshPage();
       console.log(`newton browser: ${label} layout / flow`);
+      if(process.argv.includes("--interpretation")) {report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--motion")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(!process.argv.includes("--touch"))report.viewports[label]=await visualMatrix(cdp,base,label);
       if(process.argv.includes("--smoke"))break;
       if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
-      if(!process.argv.includes("--touch")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
+      if(!process.argv.includes("--touch")) {report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
       for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
         // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
         for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
       if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
     }
-    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":"report.json"),JSON.stringify(report,null,2));
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
   } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
   try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
   if(failure)throw failure;console.log("newton source/package browser checks passed");

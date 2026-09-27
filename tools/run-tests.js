@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const tests = [
   "sim/newtons-second-law-investigation-lab/model.test.js",
   "sim/newtons-second-law-investigation-lab/fitting.test.js",
+  "sim/newtons-second-law-investigation-lab/interpretation.test.js",
   "sim/newtons-second-law-investigation-lab/scoring.test.js",
   "sim/newtons-second-law-investigation-lab/graph.test.js",
   "sim/newtons-second-law-investigation-lab/persistence.test.js",
