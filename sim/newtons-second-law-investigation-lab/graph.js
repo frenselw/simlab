@@ -65,10 +65,10 @@
       const actual = working && i === selected ? working : plot.points[i]?.map(v => v / 10000);
       if (!actual) continue;
       const p = handle(g, actual), active = i === selected;
-      if (active) parts.push(`<path d="M${g.left} ${p.y}H${p.x}V${g.bottom}" class="projection"/>`);
+      if (active && working) parts.push(`<path d="M${g.left} ${p.y}H${p.x}V${g.bottom}" class="projection"/>`);
       parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${active ? 6.5 : 5}" class="data-point ${active ? "selected" : ""}"/>`);
       if (p.offscale) parts.push(text(p.x, p.y + g.font + 11, "↥", 'text-anchor="middle"'));
-      if (active) {
+      if (active && working) {
         const label = `#${i + 1} (${fmt(actual[0])}, ${fmt(actual[1])})${p.offscale ? " 超出圖框" : ""}`;
         const rightSide = p.x > (g.left + g.right) / 2;
         const labelWidth = [...label].reduce((sum, ch) => sum + g.font * (/[^\x00-\x7F]/.test(ch) ? 1 : .6), 0);

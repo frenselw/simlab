@@ -104,7 +104,7 @@
 | Desktop / tablet | ≥900px 左右排列，panel 建議 20–24rem；桌面投影用圖點／軸標籤約 18–22px，主要數值約 22px；不能只把手機 SVG 拉大 |
 | Control-panel classification | `bounded split-panel`；記錄、選資料及擬合時需一直看見小車／圖表 |
 | Phone stage and controls | 建議 stage 約 46dvh，採短高 reflow 保留可用 panel；一次只看一幅圖，三圖不並排縮小；選中的資料卡固定在 stage 內，無需拖過長表格 |
-| Phone text | 控制及表格主要文字 16px，圖表必要刻度／座標至少 14px，target ≥44px；只為目前點顯示完整標籤以減少遮擋 |
+| Phone text | 控制及表格主要文字 16px，圖表必要刻度／座標至少 14px，target ≥44px；完整座標標籤只在拖動或尚未確認的鍵盤操作期間顯示，放手／確認／取消後隱藏 |
 | Viewports | 320×500、390×500、390×600、390×844、橫向 740×360、桌面、短 iframe、toolbar 改變、200% zoom；無數字輸入框，軟鍵盤 N/A；有硬體鍵盤替代 |
 | Scroll topology | stage 空白／左右各≥32px區域歸 host，panel 只捲自身；activity document 無第三個垂直捲動層；圖框範圍縮排確保點的 hit target 不侵佔側邊區域 |
 
@@ -154,7 +154,7 @@
 | Notation | F合、a 是一維正向的大小，m 為總質量；除最終歸納外不預示 F合=ma；1/m 單位 kg⁻¹；擬合係數不用 a 命名，以免混淆加速度 |
 | Arrow graphics | 裝置箭頭只表達正在施加的水平力，圖例和 F合 讀數一致；沿用單一填色箭頭、尖端精確；圖點用圓點，不畫成力矢量 |
 | Snap | 使用者要求的「靠近正確位置才吸附」：只對已在資料卡公開的座標做局部吸附，不查理論直線／F合/m 生成另一答案。touch/pen 入 10 CSS px、離 14px；mouse 入 6px、離 9px。一般可見網格交點亦用同一規則；若公開資料座標與網格都在範圍內，優先該資料座標。範圍外保留錯點，沒有遠距拉點 |
-| Touch preview | 資料卡放點、既有點修改及超框抓手必需；提供約 2× 真實圖表裁切，含網格、刻度／單位、目前點與吸附後座標；穩定角落避手指、不攔截輸入；完成／取消／切圖／提交後即消失。粗調力滑桿與加減配重不需要 preview |
+| Touch preview | 資料卡放點、既有點修改及超框抓手必需；提供2×真實圖表裁切的網格、目前點及準星，旁邊獨立顯示吸附後座標、物理量與單位，不放大裁切文字；穩定角落避手指、不攔截輸入；完成／取消／切圖／提交後即消失。粗調力滑桿與加減配重不需要 preview |
 
 已知數據座標是讀圖任務的輸入，局部吸附只減少手指精度要求。若日後新增未知數據預測題，不可沿用「吸附至答案」的做法。
 
@@ -204,6 +204,15 @@
 - GPT-6 Luna（Max）與 GPT-6 Sol（Max）各自審查整個活動的物理、介面、用字及邏輯；核實後針對最終放手座標、鍵盤細步吸附及切換焦點的未完成操作修正。複審再加入既有點按／拖動門檻，避免自然抖動觸發吸附或把超框點改回框內，並保留超框點的鍵盤小步編輯真值。物理模型、權威答案、schema、rubric、吸附半徑及觸控預覽契約不變。
 - 新增 production UI 回歸：最後 move 與 up 不同時按放手座標保存，沒有 move 的有效放手仍可放點，圖外放手取消，單純點按及門檻內有／無move抖動保留原點及擬合（含超框點），mouse/touch/pen跨門檻後可正常改點；桌面及320px短畫面從正確點／任意錯點作單步及Shift步進，超框點另核對單步、可見真實座標、Enter保存、Moodle草稿恢復、反向步進及Escape取消，Tab／focusout不保存上一點也不改錯點。
 - 上述測試在source及實際extracted ZIP執行並納入既有browser runner；修正後交兩位reviewer複審，驗證結果另記於文末。
+
+### 2026-09-28 使用者修訂：預覽座標與下一步
+
+- 手機及筆輸入的預覽窗使用獨立、固定位置的座標讀數，依目前圖的橫／縱物理量及單位顯示吸附後的實際工作座標；不能用資料卡的預期座標代替。讀數不在放大裁切區內，旁邊保留2×同一場景的網格、點及十字準星，移除裁切場景內的文字，避免半截標籤。預覽高度隨stage短高調整，角落須避開手指；結束、取消、切頁及失焦時清空讀數及預覽。
+- 主圖的座標文字及對軸投影線只在實際拖動／鍵盤工作座標存在時顯示；放手、Enter確認、Escape／失焦取消後立即消失。原始資料卡保留題目數據，已放點的選中狀態、超框標記及輔助技術座標仍保留；不改已存座標或評分。
+- 導航按鈕顯示未開始／作答中／已作答及總進度，當前頁維持獨立的選中框。完成標色只指填答狀態，不表示正確。組別的完成條件為3個角色已選及6筆記錄；圖表為至少1筆來源、全部來源點已放、已按擬合及已答可見的解讀題；歸納為5題已答。錯誤角色／錯點／失敗擬合／錯誤解讀仍按相同行為計完成度，不預先評分。
+- 面板底部提供可見進度及一個主要「下一步」：A量測→a–F合作圖→B量測→a–m→a–1/m→歸納→檢查；若B組已填齊，可由a–F合直接去a–m。未完成亦可往下，既有直接導航及空白／部分檢查提交保留。提交後及待確認狀態隱藏此編輯流程提示。
+- 評核風險、物理、rubric、schema、權威答案及phase矩陣不變；完成度與下一步全部由現有答案及目前phase推導，不持久化任何新旗標。刪點、換模型、增刪數據及清除後進度同步回退；production草稿還原後重建同一進度並可經下一步合法續作，舊schema無解讀題不憑空要求答案。
+- 測試決策：擴充現有graph純測試及browser runner，驗證拖動時有座標／放手和取消後無殘留；source及extracted的320／390px、短iframe、三種圖與觸控／pen預覽有清楚且不裁切的真實座標及單位（包括錯點及吸附點）。覆蓋全空／部分／已填齊的按鈕狀態、下一步完整鏈、clear與依賴變更回退、還原續作、review／pending不出現下一步，以及新介面下完整trusted-touch矩陣與原計分流程。
 
 ## Touch gesture ownership contract
 
@@ -453,3 +462,16 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 - 新互動回歸在source及package各有8項落點／焦點證據、24項mouse／pen／touch抖動案例及2項超框鍵盤案例。超框y=3在1280px單步至2.995、320px單步至2.99，保存並production restore後可反向回3；Escape及失焦取消不改已存答案。實際座標標籤在兩種尺寸均完整位於stage內，已檢視source／package截圖；細節見`interaction-report.json`及`*-offscale-keyboard-{320,1280}.png`。
 - 所有SCORM ZIP已於最後完整瀏覽器驗證後重新產生。最新Newton ZIP有16個檔案、47,436 bytes，逐檔binary核對當前source及根manifest一致；SHA-256：`37b4a67b830429991328b1fcb8cabcc0197f3a42cb03b83b0fe14b60e00bdb0b`。最終`main.js` SHA-256為`d9921bac57eaf235e3bcdcc9bdcf5181a16cd53cabec3b7103c4658e680c8ca9`。
 - 此結論限於本機程式／瀏覽器／模擬LMS覆核；CDP觸控與筆輸入不代替實體裝置。真實Moodle學生attempt、跨來源player及實體手機的Moodle-ready驗收仍未執行。
+
+## 2026-09-28 follow-up evidence: readable coordinates and next-step guidance
+
+- 依使用者的實際手機截圖修正預覽：固定讀數區用16／18px粗體顯示目前落點的兩個數值、物理量及單位，旁邊保留2×局部網格與準星；裁切場景內不再複製文字。短stage使用較矮的預覽，保留避開手指的角落；放手／取消後清空讀數、浮動座標及對軸投影，原始資料卡仍保留題目數據。
+- 導航新增未開始／作答中／已作答及總進度；目前頁以藍色框辨識。面板底部顯示放點／擬合／解讀進度與下一步按鈕，已作答時變色；進度標示不改答案或給分。完成度完全派生自原快照，沒有新增持久化欄位。作答中的標記使用不影響版面尺寸的內陰影，避免狀態變更令舞台跳位。
+- graph純測試及完整Newton source／extracted browser runner通過，Chrome 154.0.8037.57；最終`output/playwright/newtons-second-law/report.json`的`errors=[]`。每個版本各有36項版面場景、320／390px各17類手勢、320×400短iframe的13類手勢，並完成12筆資料、18個點、100分提交及既有SCORM／獨立刷新流程。
+- 新增`experience`測試在source及package各驗證12組預覽（320×400／390×600、三圖、touch／pen）：顯示真正工作座標而非資料卡答案、單位、文字邊界、2×比例、暫態不存檔及放手後清除。既有iframe touch矩陣另驗證吸附後讀數與落點一致、沒有被裁半截的SVG文字。Chrome會合併move事件，預覽與放手一致性測試在指標停留80ms後讀取已顯示座標。
+- 各版本另有兩種手機尺寸的完整「下一步」鏈及進度案例：空白亦能到檢查但不自動提交、錯誤解讀仍標已答、草稿還原後可續作、刪資料／換模型／清本圖／清全部同步回退，以及舊schema review和pending不顯示編輯下一步。原有鍵盤超框真值測試更新為確認／取消後隱藏視覺標籤，保留已存座標及可存取名稱。
+- 已檢視`source-coordinate-preview-320.png`、`source-coordinate-preview-390.png`與兩種尺寸的`source-progress-complete-*.png`，數值清晰、完成色與當前框可辨識，下一步可由面板捲到；package執行同一組幾何及文字驗證並保存對應截圖。
+- 最後視覺覆核發現合外力下標及倒數質量符號接近數值，將讀數的符號欄由30px加闊至40px。此純排版修正後，重新執行`--experience`：source／extracted package各36項版面檢查及上述12組預覽均通過，新增文字區間不重疊的`separated`斷言；已再檢視`source-coordinate-preview-320-graph0.png`及`package-coordinate-preview-390-graph2.png`。最終報告為`experience-report.json`，日誌為`output/newton-coordinate-spacing.log`。
+- Repository gates：`npm run check`、完整`npm test`、`npm run package:all`及工作區`git diff --check`通過。完整Newton矩陣在最後符號欄加闊前執行；該最後調整由上述source／package `--experience`重驗，之後再執行check及全部打包。日誌為`output/newton-coordinate-progress-check.log`、`output/newton-coordinate-progress-npm-test.log`及`output/newton-coordinate-progress-package-all.log`。
+- 最新Newton SCORM ZIP共16個檔案、49,122 bytes，根manifest及runtime均與目前source逐檔binary一致。SHA-256：`47c84412be356671c3827c974831a7d1f2771d553a225114008efcee5dc2e935`。所有活動的ZIP亦已重新產生並由打包驗證器通過。
+- 真實Moodle及實體手機仍未作本輪驗收；以上為本機Chrome/CDP、實際解壓套件及模擬LMS證據。

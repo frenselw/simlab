@@ -11,6 +11,12 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .context-nav button { min-height: 44px; font-size: .9rem; }
 #experimentNav button { min-width: 0; white-space: normal; line-height: 1.35; text-wrap: balance; }
 .workflow button[aria-current="step"], .context-nav button[aria-current="step"] { background: #eaf2fd; color: #1e4e91; border-color: #608ec8; font-weight: 700; }
+.nav-title, .nav-status { display: block; }
+.nav-status { font-size: 12px; line-height: 1.2; color: #64748b; font-weight: 400; margin-top: 1px; }
+.workflow button[data-progress="partial"], .context-nav button[data-progress="partial"] { box-shadow: inset 0 -3px 0 #ca8a04; }
+.workflow button[data-progress="complete"], .context-nav button[data-progress="complete"] { background: #eaf6f2; border-color: #83b8a8; color: #115e59; }
+[data-progress="complete"] .nav-status { color: #115e59; }
+.workflow button[aria-current="step"], .context-nav button[aria-current="step"] { outline: 2px solid #2563a5; outline-offset: -2px; }
 #checkButton { background: #f0f3f7; }
 .stage { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #fff; border-bottom: 1px solid var(--color-border); touch-action: pan-y; isolation: isolate; }
 #stageSvg { display: block; height: 100%; width: 100%; pointer-events: none; }
@@ -36,9 +42,17 @@ sub { font-size: .7em; font-style: normal; }
 .plot-point-hit, .offscale-point-hit { position: absolute; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%,-50%); touch-action: none; pointer-events: auto; user-select: none; -webkit-user-select: none; }
 .plot-point-hit:hover, .offscale-point-hit:hover { background: #2563eb12; }
 .plot-point-hit:focus-visible, .offscale-point-hit:focus-visible { outline-offset: -5px; }
-.magnifier { position: absolute; border: 2px solid #2563a5; border-radius: 7px; background: #fff; overflow: hidden; z-index: 20; pointer-events: none; box-shadow: 0 3px 16px #33415525; }
-#magnifierSvg { display: block; width: 100%; height: 100%; }
-.magnifier span { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #64748b; background: #ffffffd9; }
+.magnifier { position: absolute; display: grid; grid-template-columns: minmax(0,1fr) 82px; border: 2px solid #2563a5; border-radius: 7px; background: #fff; overflow: hidden; z-index: 20; pointer-events: none; box-shadow: 0 3px 16px #33415525; }
+#magnifierSvg { display: block; width: 100%; height: 100%; min-height: 0; border-left: 1px solid #b8cbe2; }
+.preview-readout { align-self: center; min-width: 0; padding: 3px 6px; color: #173c68; }
+.preview-title { font-size: 12px; line-height: 14px; color: #526276; margin-bottom: 2px; }
+.preview-coordinate { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: baseline; gap: 3px; line-height: 22px; white-space: nowrap; font-size: 14px; }
+.preview-coordinate strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.preview-coordinate small { font-size: 12px; color: #526276; }
+.magnifier.compact .preview-readout { padding-block: 2px; }
+.magnifier.compact .preview-title { font-size: 11px; line-height: 11px; margin-bottom: 1px; }
+.magnifier.compact .preview-coordinate { line-height: 18px; }
+.magnifier.compact strong { font-size: 16px; }
 .control-panel { position: relative; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; touch-action: pan-y; padding: .8rem; background: #f9fafb; scrollbar-gutter: stable; }
 h2 { margin: .15rem 0 .55rem; font-size: 1.18rem; } h3 { margin: .2rem 0; font-size: 1rem; }
 p { margin: .45rem 0; line-height: 1.55; } .small { font-size: .875rem; } .kicker { color: #64748b; font-size: .8rem; margin: 0; }
@@ -86,6 +100,10 @@ legend { padding: 0; font-weight: 600; line-height: 1.5; }
 .feedback { border-top: 1px solid #cbd5e1; margin-top: 1rem; padding-top: .65rem; } .feedback p { font-size: .95rem; }
 .feedback .ok { color: #166534; } .feedback .issue { color: #9a3412; }
 #editableFooter { border-top: 1px solid #e2e8f0; margin-top: 1rem; padding-top: .25rem; }
+.step-guide { border-top: 1px solid #cbd5e1; margin-top: 1rem; padding-top: .5rem; }
+#stepProgress { font-weight: 600; }
+.step-guide[data-progress="complete"] #stepProgress { color: #115e59; }
+.step-guide[data-progress="complete"] .primary { background: #176d60; border-color: #176d60; }
 .panel-end { height: 12px; } .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 .newton-app.no-scene { grid-template-rows: auto 0 minmax(0,1fr); }
 @media (min-width:900px), (min-width:600px) and (max-height:520px) {

@@ -11,16 +11,16 @@
 <main class="newton-app" id="app">
   <header class="sim-header">
     <div class="heading"><h1>牛頓第二定律</h1><span id="attemptStatus">公平測試與數據作圖</span></div>
-    <nav class="workflow" aria-label="活動步驟"><button data-phase="collect">1 實驗</button><button data-phase="plot">2 作圖</button><button data-phase="conclude">3 歸納</button><button id="checkButton">檢查作答</button></nav>
-    <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0">A · 探究加速度與合外力的關係</button><button data-group="1">B · 探究加速度與總質量的關係</button></nav>
-    <nav id="graphNav" class="context-nav" aria-label="作圖切換" hidden><button data-graph="0"><var>a</var>–<var>F</var><sub>合</sub></button><button data-graph="1"><var>a</var>–<var>m</var></button><button data-graph="2"><var>a</var>–1/<var>m</var></button></nav>
+    <nav class="workflow" aria-label="活動步驟"><button data-phase="collect"><span class="nav-title">1 實驗</span><small class="nav-status"></small></button><button data-phase="plot"><span class="nav-title">2 作圖</span><small class="nav-status"></small></button><button data-phase="conclude"><span class="nav-title">3 歸納</span><small class="nav-status"></small></button><button id="checkButton">檢查作答</button></nav>
+    <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0"><span class="nav-title">A · 探究加速度與合外力的關係</span><small class="nav-status"></small></button><button data-group="1"><span class="nav-title">B · 探究加速度與總質量的關係</span><small class="nav-status"></small></button></nav>
+    <nav id="graphNav" class="context-nav" aria-label="作圖切換" hidden><button data-graph="0"><span class="nav-title"><var>a</var>–<var>F</var><sub>合</sub></span><small class="nav-status"></small></button><button data-graph="1"><span class="nav-title"><var>a</var>–<var>m</var></span><small class="nav-status"></small></button><button data-graph="2"><span class="nav-title"><var>a</var>–1/<var>m</var></span><small class="nav-status"></small></button></nav>
   </header>
   <section id="stage" class="stage" aria-label="實驗與作圖舞台">
     <svg id="stageSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="實驗場景"></svg>
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
     <button id="sourceHandle" class="data-point-source" hidden aria-describedby="graphHelp keyboardHelp"></button>
     <div id="pointHandles" class="drag-layer"></div>
-    <aside id="magnifier" class="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg" xmlns="http://www.w3.org/2000/svg"></svg><span>2× 局部預覽</span></aside>
+    <aside id="magnifier" class="magnifier" hidden aria-hidden="true"><div class="preview-readout"><div class="preview-title">目前座標 · 2×</div><div id="previewCoordinates"></div></div><svg id="magnifierSvg" xmlns="http://www.w3.org/2000/svg"></svg></aside>
   </section>
   <aside id="controlPanel" class="control-panel" aria-label="操作面板">
     <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" hidden>重試保存</button>
@@ -49,7 +49,7 @@
       <div class="section-label"><h3>本組數據</h3><span id="recordCount"></span></div>
       <p class="small">建議記錄 6 筆，至少 5 個不同水平，並涵蓋可調範圍的 60%。</p>
       <div id="recordTable"></div>
-      <div class="button-row"><button id="goGraph" class="primary">用這組數據作圖</button><button id="clearGroup">清本組資料</button></div>
+      <button id="clearGroup" class="full">清本組資料</button>
     </section>
     <section id="plotPanel" hidden>
       <p class="kicker" id="graphKicker"></p><h2 id="plotTitle"></h2>
@@ -73,6 +73,7 @@
     <section id="concludePanel" hidden><p class="kicker">由圖像歸納規律</p><h2>整理你的結論</h2><p>可隨時返回實驗或作圖頁，核對自己的資料。</p><div id="conclusionFields"></div></section>
     <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查目前作答</h2><p>未完成的項目不計分；已完成部分會按項目保留分數。你可以返回修改，或提交目前答案。</p><div id="checkSummary" class="check-summary"></div><button id="submitButton" class="primary full">提交目前答案</button></section>
     <section id="feedback" class="feedback" hidden></section>
+    <section id="stepGuide" class="step-guide"><p id="stepProgress" role="status"></p><p class="small">進度只表示已作答。</p><button id="nextStep" class="primary full"></button></section>
     <footer id="editableFooter"><button id="returnCheck" class="full" hidden>返回檢查</button><button id="clearAllButton" class="full">清除全部作答</button></footer>
     <button id="recoverButton" class="full" hidden>清除未提交的損壞草稿</button>
     <div class="panel-end" aria-hidden="true"></div>

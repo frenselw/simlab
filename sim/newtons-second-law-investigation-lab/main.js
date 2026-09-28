@@ -1,8 +1,8 @@
 (function () {
   "use strict";
   const M = NewtonModel, P = NewtonPersistence, G = NewtonGraph, F = NewtonFitting, E = NewtonExperiment, I = NewtonInterpretation;
-  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massDown", "massUp", "massValue", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "goGraph", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
-  const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula", "interpretationPanel", "interpretationWeight", "coefficientReadout", "meaningPrompt", "meaningChoices", "conversionReadout").map(id => [id, document.getElementById(id)]));
+  const ids = ["app", "attemptStatus", "stage", "stageSvg", "controlPanel", "experimentNav", "graphNav", "notice", "saveRetryButton", "resultPanel", "reviewTitle", "scorePanel", "retryFinalButton", "collectPanel", "collectTitle", "collectPrompt", "role0", "role1", "role2", "instrumentControls", "massDown", "massUp", "massValue", "forceDown", "forceUp", "forceValue", "forceRange", "measureButton", "measurementReadout", "recordButton", "replayButton", "sensorGraph", "recordCount", "recordTable", "clearGroup", "plotPanel", "graphKicker", "plotTitle", "plotTable", "pointControls", "removePoint", "keyboardHelp", "fitModel", "fitButton", "fitResult", "returnExperiment", "clearGraph", "referenceButton", "concludePanel", "conclusionFields", "checkPanel", "checkSummary", "submitButton", "feedback", "editableFooter", "returnCheck", "clearAllButton", "checkButton", "recoverButton", "sourceHandle", "pointHandles", "magnifier", "magnifierSvg"];
+  const d = Object.fromEntries(ids.concat("roleSymbol0", "roleSymbol1", "roleSymbol2", "fitFormula", "interpretationPanel", "interpretationWeight", "coefficientReadout", "meaningPrompt", "meaningChoices", "conversionReadout", "previewCoordinates", "stepGuide", "stepProgress", "nextStep").map(id => [id, document.getElementById(id)]));
   const esc = G.escape, display = n => Number(n.toPrecision(5)).toString(), phaseTitles = { collect: "實驗", plot: "作圖", conclude: "歸納", check: "檢查" };
   const controller = new NewtonRuntime.Controller(SimScorm, SimActivityFlow, render);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)"), handles = new Map();
@@ -21,7 +21,7 @@
   function command(action) { return controller.command(action); }
   function cancelWork(count = false) {
     const previous = drag; drag = null; keyboard = null; lastPreviewCorner = null;
-    d.magnifier.hidden = true; d.magnifierSvg.replaceChildren(); d.keyboardHelp.hidden = true;
+    d.magnifier.hidden = true; d.magnifierSvg.replaceChildren(); d.previewCoordinates.replaceChildren(); d.keyboardHelp.hidden = true;
     if (previous) { if (count) diagnostics.cancels++; try { previous.target.releasePointerCapture(previous.id); } catch (_) {} }
   }
   function navigate(phase, index = null) {
@@ -57,7 +57,53 @@
       if (v.phase === "conclude") for (const r of d.conclusionFields.querySelectorAll("input")) { r.checked = s.conclusions[+r.dataset.conclusion] === r.value; r.disabled = locked; }
       if (v.phase === "check") renderCheck();
     }
-    renderFeedback(); renderStage();
+    renderProgress(); renderFeedback(); renderStage();
+  }
+  function progress() {
+    const s = controller.state, status = (started, complete) => complete ? "complete" : started ? "partial" : "empty";
+    const groups = s.groups.map((g, i) => {
+      const roles = g.roles.filter(Boolean).length, count = g.records.length;
+      return { roles, count, state: status(roles || count || s.setups?.[i]?.candidate, roles === 3 && count === 6) };
+    });
+    const plots = s.plots.map(p => {
+      const count = p.points.length, placed = p.points.filter(Boolean).length, needsMeaning = s.schemaVersion >= 2;
+      return { count, placed, state: status(placed || p.model || p.meaning, count > 0 && placed === count && p.fitAttempted && (!needsMeaning || p.meaning)) };
+    });
+    const answered = s.conclusions.filter(Boolean).length;
+    return { groups, plots, answered, conclusion: status(answered, answered === s.conclusions.length) };
+  }
+  function nextDestination(p) {
+    const v = view();
+    if (v.phase === "collect") return { phase: "plot", index: v.index === 0 ? 0 : 1, label: `繪製 ${graphName(v.index === 0 ? 0 : 1)} 圖` };
+    if (v.phase === "plot" && v.index === 0) return p.groups[1].state === "complete" ? { phase: "plot", index: 1, label: `繪製 ${graphName(1)} 圖` } : { phase: "collect", index: 1, label: "實驗 B，探究加速度與總質量的關係" };
+    if (v.phase === "plot" && v.index === 1) return { phase: "plot", index: 2, label: `繪製 ${graphName(2)} 圖` };
+    if (v.phase === "plot") return { phase: "conclude", index: null, label: "整理結論" };
+    return { phase: "check", index: null, label: "檢查作答" };
+  }
+  function renderProgress() {
+    const s = controller.state;
+    d.stepGuide.hidden = !editable() || !s;
+    if (!s) return;
+    const p = progress(), labels = { empty: "未開始", partial: "作答中", complete: "✓ 已作答" };
+    const mark = (button, state, text) => { button.dataset.progress = state; button.querySelector(".nav-status").textContent = text || labels[state]; };
+    for (const button of d.experimentNav.querySelectorAll("button")) mark(button, p.groups[+button.dataset.group].state);
+    for (const button of d.graphNav.querySelectorAll("button")) mark(button, p.plots[+button.dataset.graph].state);
+    for (const phase of ["collect", "plot"]) {
+      const items = phase === "collect" ? p.groups : p.plots, count = items.filter(i => i.state === "complete").length;
+      mark(document.querySelector(`.workflow [data-phase="${phase}"]`), count === items.length ? "complete" : items.some(i => i.state !== "empty") ? "partial" : "empty", `${count}/${items.length} 已答`);
+    }
+    mark(document.querySelector('.workflow [data-phase="conclude"]'), p.conclusion, `${p.answered}/5 題已答`);
+    if (d.stepGuide.hidden) return;
+    const v = view(); let state, summary;
+    if (v.phase === "collect") { const g = p.groups[v.index]; state = g.state; summary = `選量 ${g.roles}/3 項 · 記錄 ${g.count}/6 筆`; }
+    else if (v.phase === "plot") {
+      const g = p.plots[v.index], plot = s.plots[v.index]; state = g.state;
+      summary = `放點 ${g.placed}/${g.count} · 擬合${plot.fitAttempted ? "已嘗試" : "未做"}${s.schemaVersion >= 2 ? ` · 解讀${plot.meaning ? "已答" : "未答"}` : ""}`;
+      if (!g.count) summary = "尚無原始數據，可返回本組實驗收集。";
+    } else { state = p.conclusion; summary = `歸納已回答 ${p.answered}/5 題`; }
+    d.stepGuide.dataset.progress = state;
+    d.stepProgress.textContent = `${state === "complete" ? "本部分已作答。" : ""}${summary}`;
+    d.nextStep.innerHTML = `下一步：${nextDestination(p).label}`;
   }
   function renderCollect(i) {
     const s = controller.state, g = s.groups[i], setup = s.setups?.[i], busy = moving(), locked = !editable();
@@ -176,7 +222,7 @@
       for (const b of handles.values()) b.hidden = true; geometry = null; return;
     }
     geometry = G.geometry(rect.width, rect.height, M.bounds(s, v.index));
-    const working = drag?.point || keyboard?.point || null, plot = s.plots[v.index], records = s.groups[M.sourceGroup(v.index)].records;
+    const working = (drag?.active ? drag.point : null) || keyboard?.point || null, plot = s.plots[v.index], records = s.groups[M.sourceGroup(v.index)].records;
     d.stageSvg.setAttribute("aria-label", `${M.GRAPH_NAMES[v.index]} 圖，縱軸加速度，${records.length}筆原始記錄`);
     d.stageSvg.innerHTML = G.svg(s, v.index, geometry, selected, working, showReference && controller.trusted);
     // Keep the focused/captured source mounted and visible across working renders.
@@ -198,16 +244,21 @@
   }
   function preview(point) {
     if (!geometry || !drag || drag.type === "mouse") return;
-    const w = Math.min(176, Math.max(124, geometry.width * .4)), h = Math.min(114, Math.max(64, geometry.height * .28));
+    const w = Math.min(232, geometry.width - 68), h = Math.min(96, (geometry.height - 42) / 2);
     d.magnifier.style.width = `${w}px`; d.magnifier.style.height = `${h}px`;
+    d.magnifier.classList.toggle("compact", h < 74);
     const focus = G.pixel(geometry, point), candidates = [{ x: 34, y: 3 }, { x: geometry.width - 34 - w, y: 3 }, { x: 34, y: geometry.height - h - 3 }, { x: geometry.width - 34 - w, y: geometry.height - h - 3 }];
     const clear = q => !(drag.cursor.x > q.x - 18 && drag.cursor.x < q.x + w + 18 && drag.cursor.y > q.y - 18 && drag.cursor.y < q.y + h + 18);
     let corner = lastPreviewCorner;
-    if (!corner || !clear(corner)) corner = candidates.sort((a, b) => Math.hypot(b.x + w / 2 - drag.cursor.x, b.y + h / 2 - drag.cursor.y) - Math.hypot(a.x + w / 2 - drag.cursor.x, a.y + h / 2 - drag.cursor.y))[0];
+    if (!corner || !clear(corner)) corner = candidates.filter(clear).sort((a, b) => Math.hypot(b.x + w / 2 - drag.cursor.x, b.y + h / 2 - drag.cursor.y) - Math.hypot(a.x + w / 2 - drag.cursor.x, a.y + h / 2 - drag.cursor.y))[0] || candidates[0];
     lastPreviewCorner = corner; d.magnifier.style.left = `${corner.x}px`; d.magnifier.style.top = `${corner.y}px`; d.magnifier.hidden = false;
-    const iw = w - 4, ih = h - 4;
+    const graph = view().index, xSymbol = graph === 0 ? symbols.force : graph === 1 ? symbols.mass : `1/${symbols.mass}`, xUnit = graph === 0 ? "N" : graph === 1 ? "kg" : "kg⁻¹";
+    d.previewCoordinates.innerHTML = [[xSymbol, point[0], xUnit], [symbols.acceleration, point[1], "m/s²"]].map(([symbol, value, unit]) => `<div class="preview-coordinate"><span>${symbol} =</span><strong>${value.toFixed(3)}</strong><small>${unit}</small></div>`).join("");
+    const iw = d.magnifierSvg.clientWidth, ih = d.magnifierSvg.clientHeight;
     d.magnifierSvg.setAttribute("viewBox", `${focus.x - iw / 4} ${focus.y - ih / 4} ${iw / 2} ${ih / 2}`);
-    d.magnifierSvg.innerHTML = d.stageSvg.innerHTML.replaceAll("plot-clip", "preview-plot-clip") + `<path d="M${focus.x - 3} ${focus.y}h6M${focus.x} ${focus.y - 3}v6" stroke="#0f172a" stroke-width=".5"/>`;
+    const scene = d.stageSvg.cloneNode(true);
+    for (const label of scene.querySelectorAll("text")) label.remove();
+    d.magnifierSvg.innerHTML = scene.innerHTML.replaceAll("plot-clip", "preview-plot-clip") + `<path d="M${focus.x - 3} ${focus.y}h6M${focus.x} ${focus.y - 3}v6" stroke="#0f172a" stroke-width=".5"/>`;
     diagnostics.previews++;
   }
   function beginDrag(event, index, target) {
@@ -307,7 +358,7 @@
     run = null;
     command({ type: "removeRecord", index });
   });
-  d.goGraph.onclick = () => navigate("plot", view().index === 0 ? 0 : 1);
+  d.nextStep.onclick = () => { if (editable()) { const next = nextDestination(progress()); navigate(next.phase, next.index); } };
   d.returnExperiment.onclick = () => navigate("collect", M.sourceGroup(view().index));
   d.clearGroup.onclick = () => { if (editable() && confirm("清除此組量測及相關圖點、擬合和解讀？另一組資料和歸納答案會保留。")) { run = null; command({ type: "clearGroup" }); } };
   d.clearGraph.onclick = () => { if (editable() && confirm("清除此圖的點位、擬合和解讀？原始量測及其他圖會保留。")) { cancelWork(); command({ type: "clearGraph" }); } };

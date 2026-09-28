@@ -81,7 +81,7 @@ async function confirmClick(cdp, selector, accept, touch = false) {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint(p)] });
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   };
-  const [message] = await Promise.all([dialog, press()]); assert.match(message, /清除/); await delay(50);
+  const [message] = await Promise.all([dialog, press()]); assert.match(message, /清除|刪除/); await delay(50);
 }
 const touchPoint = (p, id = 1) => ({ x: p.x, y: p.y, id, radiusX: 2, radiusY: 2, force: 1 });
 async function dragTouch(cdp, start, end, during = null, afterMove = null) {
@@ -171,7 +171,7 @@ async function settingsChecks(cdp,base,label) {
     assert.ok(await call(cdp,"return !d.querySelector('#massLock,#forceLock,.lock') && !/防誤改|鎖定/.test(d.body.innerText);"));
     for(const [group,title] of [[0,"A · 探究加速度與合外力的關係"],[1,"B · 探究加速度與總質量的關係"]]) {
       await click(cdp,`[data-group="${group}"]`);assert.equal(await call(cdp,"return d.getElementById('collectTitle').textContent;"),title);
-      assert.equal(await call(cdp,`return d.querySelector('[data-group="${group}"]').textContent;`),title);
+      assert.equal(await call(cdp,`return d.querySelector('[data-group="${group}"] .nav-title').textContent;`),title);
     }
     await click(cdp,'[data-group="0"]');assert.deepEqual((await state(cdp)).setups,s.setups);assert.equal(await call(cdp,"return w.__randomDraws;"),2);
   }
@@ -402,7 +402,8 @@ async function interactionChecks(cdp,base,label) {
       await key("Enter");await key("ArrowDown");
       if(cancel==="Escape")await key("Escape");else await call(cdp,"d.getElementById('sourceHandle').focus();");
       assert.deepEqual(await state(cdp),restoredOffscale,"canceling an offscale edit preserves the committed coordinate");
-      const afterCancel=await pointLabel();assert.equal(afterCancel.text,"#1 (0.2, 3) 超出圖框");assert.ok(afterCancel.inside);
+      assert.equal(await call(cdp,"return d.querySelector('#stageSvg .point-label');"),null,"canceling hides the temporary coordinate label");
+      assert.match(await call(cdp,"return d.querySelector('.offscale-point-hit[data-point=\"0\"]').getAttribute('aria-label');"),/座標0.2，3/);
     }
     offscaleKeyboard.push({width,height,delta,visibleMax:offGeometry.range.y,saved:wanted,restored:restoredOffscale.plots[0].points[0],labelBeforeSave});
     for(const leave of ["Tab","focusout"]) {
@@ -422,6 +423,79 @@ async function interactionChecks(cdp,base,label) {
     }
   }
   return {label,evidence,jitter,offscaleKeyboard,stationaryClick:true,outsideCancel:true,offscaleClick:true,singleStep:true,shiftStep:true,escape:true};
+}
+async function previewReadout(cdp,embedded=false) {
+  return call(cdp,`const m=d.getElementById('magnifier'),v=d.getElementById('magnifierSvg'),c=d.getElementById('previewCoordinates'),r=c.getBoundingClientRect(),mr=m.getBoundingClientRect(),s=d.getElementById('stage').getBoundingClientRect(),vb=v.viewBox.baseVal,p=v.querySelector('.data-point.selected');
+    return {visible:!m.hidden,values:[...c.querySelectorAll('strong')].map(e=>e.textContent),units:[...c.querySelectorAll('small')].map(e=>e.textContent),symbols:[...c.querySelectorAll('.preview-coordinate>span')].map(e=>e.textContent),
+      readable:[...c.querySelectorAll('.preview-coordinate>*')].every(e=>{const range=d.createRange();range.selectNodeContents(e);const b=range.getBoundingClientRect();return b.left>=r.left-.5&&b.right<=r.right+.5&&b.top>=mr.top+2&&b.bottom<=mr.bottom-2;}),
+      separated:[...c.children].every(row=>{const boxes=[...row.children].map(e=>{const range=d.createRange();range.selectNodeContents(e);return range.getBoundingClientRect();});return boxes.slice(1).every((b,i)=>b.left>=boxes[i].right+1);}),
+      insideStage:mr.left>=s.left&&mr.right<=s.right&&mr.top>=s.top&&mr.bottom<=s.bottom,clippedLabels:v.querySelectorAll('text').length,scale:v.clientWidth/vb.width,
+      dot:p?[+p.getAttribute('cx'),+p.getAttribute('cy')]:null,focus:[vb.x+vb.width/2,vb.y+vb.height/2],grid:v.querySelectorAll('.grid-major').length};`,embedded);
+}
+async function experienceChecks(cdp,base,label) {
+  const previews=[],progress=[];
+  const states=()=>call(cdp,"return [...d.querySelectorAll('#experimentNav button,#graphNav button')].map(b=>b.dataset.progress);");
+  const clean=async()=>assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden && !d.getElementById('previewCoordinates').children.length && !d.querySelector('#stageSvg .point-label,#stageSvg .projection');"),true,"release removes temporary coordinates, projection and preview");
+  for(const [width,height] of [[320,400],[390,600]]) {
+    await viewport(cdp,width,height,true);
+    for(const graph of [0,1,2])for(const pointer of ["touch","pen"]) {
+      await navigate(cdp,base,{fixture:durableDraft(P.navigate(filled(),"plot",graph))});
+      await clean();const before=await state(cdp),start=await rect(cdp,"#sourceHandle"),end=await graphPixel(cdp,[graph===0?.9:1.75,.75]);let wanted;
+      const during=async()=>{
+        await delay(80); // Inspect a held pointer after Chromium dispatches coalesced moves.
+        const info=await previewReadout(cdp),g=await call(cdp,"return w.__newtonApp.getGeometry();"),point=G.data(g,{x:info.dot[0],y:info.dot[1]});wanted=G.encoded(point);
+        assert.equal(info.visible,true);assert.equal(info.readable,true,JSON.stringify(info));assert.equal(info.separated,true,JSON.stringify(info));assert.equal(info.insideStage,true);assert.equal(info.clippedLabels,0);assert.ok(info.grid>3);
+        assert.deepEqual(info.values,point.map(v=>v.toFixed(3)));assert.deepEqual(info.units,[graph===0?"N":graph===1?"kg":"kg⁻¹","m/s²"]);
+        assert.notDeepEqual(info.values,M.expected(graph,before.groups[M.sourceGroup(graph)].records[0]).map(v=>v.toFixed(3)),"preview shows the current wrong position, not the source answer");
+        assert.ok(Math.abs(info.scale-2)<.01);assert.ok(Math.hypot(info.dot[0]-info.focus[0],info.dot[1]-info.focus[1])<.01);
+        assert.deepEqual(await state(cdp),before,"the visible readout is transient, not a saved answer");
+        assert.equal(await call(cdp,"return Boolean(d.querySelector('#stageSvg .point-label'));"),true);
+        if(pointer==="touch")await screenshot(cdp,`${label}-coordinate-preview-${width}${graph===1?"":`-graph${graph}`}`);
+        previews.push({width,height,graph,pointer,...info});
+      };
+      if(pointer==="touch")await dragTouch(cdp,start,end,during);
+      else {
+        for(const [type,p] of [["mousePressed",start],["mouseMoved",end]])await cdp.send("Input.dispatchMouseEvent",{type,x:p.x,y:p.y,button:"left",buttons:1,clickCount:1,pointerType:"pen"});
+        await during();await cdp.send("Input.dispatchMouseEvent",{type:"mouseReleased",x:end.x,y:end.y,button:"left",buttons:0,clickCount:1,pointerType:"pen"});
+      }
+      assert.deepEqual((await state(cdp)).plots[graph].points[0],wanted,`${width}px graph ${graph} ${pointer}: release matches the settled preview`);await clean();
+    }
+    await navigate(cdp,base);assert.deepEqual(await states(),Array(5).fill("empty"));
+    for(const [phase,index] of [["plot",0],["collect",1],["plot",1],["plot",2],["conclude",null],["check",null]]) {
+      await click(cdp,"#nextStep");const s=await state(cdp);assert.equal(s.phase,phase);assert.equal(s.group??s.graph,index);
+      assert.equal(await call(cdp,"return w.__newtonApp.getResult();"),null,"next never submits automatically");
+    }
+    assert.equal(await call(cdp,"return d.getElementById('stepGuide').hidden;"),true);
+    const partial=P.navigate(filled(),"plot",0);partial.plots[0].points[5]=null;partial.plots[0].fitAttempted=false;partial.plots[0].meaning=null;
+    await navigate(cdp,base,{fixture:durableDraft(partial)});
+    assert.deepEqual(await states(),["complete","complete","partial","complete","complete"]);
+    await plotRecord(cdp,5,M.expected(0,partial.groups[0].records[5]));await clean();
+    await click(cdp,"#fitButton");await click(cdp,'input[name="meaning"][value="mass"]');
+    assert.deepEqual(await states(),Array(5).fill("complete"),"a wrong interpretation is still answered, not pre-graded");
+    assert.match(await call(cdp,"return d.getElementById('stepProgress').textContent;"),/本部分已作答/);
+    await call(cdp,"d.getElementById('nextStep').scrollIntoView({block:'end'});");
+    await screenshot(cdp,`${label}-progress-complete-${width}`);
+    const saved=await call(cdp,"return {...w.__lmsValues};"),before=await state(cdp);
+    await navigate(cdp,base,{fixture:saved});assert.deepEqual(await state(cdp),before);assert.deepEqual(await states(),Array(5).fill("complete"));
+    await click(cdp,"#nextStep");assert.equal((await state(cdp)).graph,1,"finished B data lets the next step continue to its first graph");
+    await click(cdp,"#nextStep");assert.equal((await state(cdp)).graph,2);await click(cdp,"#nextStep");assert.equal(await mode(cdp),"conclude");await click(cdp,"#nextStep");assert.equal(await mode(cdp),"check");
+    // A dependency change makes the affected graph statuses incomplete again.
+    await navigate(cdp,base,{fixture:durableDraft(P.navigate(filled(),"collect",1))});
+    await confirmClick(cdp,'[data-delete-record="0"]',true);
+    assert.deepEqual(await states(),["complete","partial","complete","partial","partial"]);
+    await confirmClick(cdp,"#clearGroup",true);assert.deepEqual(await states(),["complete","partial","complete","empty","empty"]);
+    await navigate(cdp,base,{fixture:durableDraft(P.navigate(filled(),"plot",0))});
+    await choose(cdp,"#fitModel","linear");assert.equal((await states())[2],"partial");
+    await confirmClick(cdp,"#clearGraph",true);assert.equal((await states())[2],"empty");
+    await confirmClick(cdp,"#clearAllButton",true);assert.deepEqual(await states(),Array(5).fill("empty"));
+    const pending=environment({durable:durableDraft(filled())});pending.c.check();pending.flags.writeFail="cmi.core.score.raw";pending.c.submit();
+    for(const fixture of [finishedData(filled()),finishedData(legacy(filled())),pending.durable]) {
+      await navigate(cdp,base,{fixture});assert.equal(await call(cdp,"return d.getElementById('stepGuide').hidden;"),true);
+      assert.deepEqual(await states(),Array(5).fill("complete"));
+    }
+    progress.push({width,height,blankNextChain:true,wrongAnswerMarkedAnswered:true,draftRestore:true,dependencyReset:true,lockedGuideHidden:true});
+  }
+  return {previews,progress};
 }
 async function flows(cdp,base,label) {
   await viewport(cdp,1280,900,false);await navigate(cdp,base);
@@ -515,12 +589,14 @@ async function touchMatrix(cdp,base,label,width=390,height=500) {
     await click(cdp,`#graphNav [data-graph="${graph}"]`,true);await click(cdp,'[data-select-row="0"]',true);await delay(550);
     const before=await metrics(cdp,true),camera=await call(cdp,"return d.getElementById('stageSvg').getAttribute('viewBox');",true),target=graph===0?[.2,.2]:graph===1?[.5,1.2]:[2,1.2];
     await dragTouch(cdp,await rect(cdp,"#sourceHandle",true),await graphPixel(cdp,target,true),async()=>{
-      const preview=await call(cdp,`const m=d.getElementById('magnifier'),s=d.getElementById('stageSvg'),v=d.getElementById('magnifierSvg'),r=m.getBoundingClientRect(),vb=v.viewBox.baseVal;return {visible:!m.hidden,grid:v.querySelectorAll('.grid-major').length,point:v.querySelectorAll('.data-point').length,events:getComputedStyle(m).pointerEvents,camera:s.getAttribute('viewBox'),scale:(r.width-4)/vb.width,focus:[vb.x+vb.width/2,vb.y+vb.height/2],dot:[Number(v.querySelector('.data-point.selected')?.getAttribute('cx')),Number(v.querySelector('.data-point.selected')?.getAttribute('cy'))],overFinger:(()=>{const q=s.querySelector('.data-point.selected'),sr=s.getBoundingClientRect(),x=sr.left+Number(q.getAttribute('cx')),y=sr.top+Number(q.getAttribute('cy'));return x>r.left-18&&x<r.right+18&&y>r.top-18&&y<r.bottom+18;})(),duplicates:[...d.querySelectorAll('[id]')].map(e=>e.id).filter((id,i,a)=>a.indexOf(id)!==i)};`,true);
+      await delay(80);
+      const readout=await previewReadout(cdp,true);assert.equal(readout.readable,true);assert.equal(readout.clippedLabels,0);assert.deepEqual(readout.values,target.map(v=>v.toFixed(3)));assert.deepEqual(readout.units,[graph===0?"N":graph===1?"kg":"kg⁻¹","m/s²"]);
+      const preview=await call(cdp,`const m=d.getElementById('magnifier'),s=d.getElementById('stageSvg'),v=d.getElementById('magnifierSvg'),r=m.getBoundingClientRect(),vb=v.viewBox.baseVal;return {visible:!m.hidden,grid:v.querySelectorAll('.grid-major').length,point:v.querySelectorAll('.data-point').length,events:getComputedStyle(m).pointerEvents,camera:s.getAttribute('viewBox'),scale:v.clientWidth/vb.width,focus:[vb.x+vb.width/2,vb.y+vb.height/2],dot:[Number(v.querySelector('.data-point.selected')?.getAttribute('cx')),Number(v.querySelector('.data-point.selected')?.getAttribute('cy'))],overFinger:(()=>{const q=s.querySelector('.data-point.selected'),sr=s.getBoundingClientRect(),x=sr.left+Number(q.getAttribute('cx')),y=sr.top+Number(q.getAttribute('cy'));return x>r.left-18&&x<r.right+18&&y>r.top-18&&y<r.bottom+18;})(),duplicates:[...d.querySelectorAll('[id]')].map(e=>e.id).filter((id,i,a)=>a.indexOf(id)!==i)};`,true);
       assert.equal(preview.visible,true);assert.ok(preview.grid>3 && preview.point>=1);assert.equal(preview.events,"none");assert.equal(preview.camera,camera);assert.deepEqual(preview.duplicates,[]);assert.ok(Math.abs(preview.scale-2)<.01);assert.ok(Math.hypot(preview.focus[0]-preview.dot[0],preview.focus[1]-preview.dot[1])<.01);assert.equal(preview.overFinger,false);
       if(graph===1&&width===390)await screenshot(cdp,`${label}-touch-preview`);
     });
     const after=await metrics(cdp,true);fixed(before,after,"drawing",`${label} source-${graph}`);assert.ok(after.pointer.moves>before.pointer.moves && after.pointer.ups>before.pointer.ups && after.pointer.trustedTouch>before.pointer.trustedTouch);assert.equal(after.pointer.cancels,before.pointer.cancels);
-    assert.deepEqual((await state(cdp,true)).plots[graph].points[0],G.encoded(target));assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden && !d.getElementById('magnifierSvg').children.length;",true),true);
+    assert.deepEqual((await state(cdp,true)).plots[graph].points[0],G.encoded(target));assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden && !d.getElementById('magnifierSvg').children.length && !d.getElementById('previewCoordinates').children.length && !d.querySelector('#stageSvg .point-label,#stageSvg .projection');",true),true);
     const head=await rect(cdp,`.plot-point-hit[data-graph="${graph}"][data-point="0"]`,true),b=await metrics(cdp,true);
     await dragTouch(cdp,head,{x:head.x+(graph===2?-35:35),y:head.y+(graph===0?-24:24)});const a=await metrics(cdp,true);fixed(b,a,"drawing",`${label} placed-${graph}`);assert.notEqual(a.answer,b.answer);assert.equal(a.pointer.cancels,b.pointer.cancels);rows.push({name:`source-point-${graph}`,before,after:a});
   }
@@ -583,7 +659,7 @@ async function specialTouch(cdp,base,label,width,kind) {
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
   const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
-  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},settings:{},interaction:{},errors:[]};
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},settings:{},interaction:{},experience:{},errors:[]};
   try {
     const browser=findBrowser();assert.ok(browser,"Chrome is required");
     const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
@@ -596,6 +672,7 @@ async function main() {
     for(const [label,directory] of [["source",path.join(root,"sim")],["package",packageDirectory]]) {
       const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await freshPage();
       console.log(`newton browser: ${label} layout / flow`);
+      if(process.argv.includes("--experience")) {report.viewports[label]=await visualMatrix(cdp,base,label);report.experience[label]=await experienceChecks(cdp,base,label);continue;}
       if(process.argv.includes("--interaction")) {report.interaction[label]=await interactionChecks(cdp,base,label);continue;}
       if(process.argv.includes("--interpretation")) {report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--motion")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
@@ -603,13 +680,13 @@ async function main() {
       if(process.argv.includes("--smoke"))break;
       if(process.argv.includes("--settings")) {report.settings[label]=await settingsChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
-      if(!process.argv.includes("--touch")) {report.interaction[label]=await interactionChecks(cdp,base,label);report.settings[label]=await settingsChecks(cdp,base,label);report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
+      if(!process.argv.includes("--touch")) {report.experience[label]=await experienceChecks(cdp,base,label);report.interaction[label]=await interactionChecks(cdp,base,label);report.settings[label]=await settingsChecks(cdp,base,label);report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
       for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
         // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
         for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
       if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
     }
-    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--interaction")?"interaction-report.json":process.argv.includes("--settings")?"settings-report.json":process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--experience")?"experience-report.json":process.argv.includes("--interaction")?"interaction-report.json":process.argv.includes("--settings")?"settings-report.json":process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
   } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
   try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
   if(failure)throw failure;console.log("newton source/package browser checks passed");

@@ -14,6 +14,9 @@ for(const [w,h] of [[320,166],[320,230],[390,276],[768,400],[896,760]]) for(cons
   assert.notDeepEqual(G.snap(g,{x:pixel.x+17,y:pixel.y},known,"touch",known).held,known);
   const off=G.handle(g,[.5,3]);assert.equal(off.offscale,3>g.range.y);assert.equal(off.y,g.top);
   const markup=`<svg>${G.svg(s,graph,g,0,null,true)}</svg>`;assert.equal(XMLValidator.validate(markup),true);assert.ok(markup.includes("fit-curve"));assert.ok(!/NaN|Infinity/.test(markup));
+  assert.ok(!markup.includes('class="point-label"') && !markup.includes('class="projection"'),"idle selected points do not cover other data with coordinates");
+  const working=G.svg(s,graph,g,0,[.7,.333]);
+  assert.ok(working.includes('class="point-label"') && working.includes('#1 (0.7, 0.333)') && working.includes('class="projection"'),"the current working coordinate remains visible during adjustment");
 }
 for(const [w,h] of [[320,166],[320,500],[390,276],[650,360],[896,760]])for(let mi=0;mi<7;mi++)for(let fi=0;fi<6;fi++)for(const time of [0,1,E.timing([mi,fi]).ready,E.timing([mi,fi]).end]) {
   const completed=time===E.timing([mi,fi]).end,markup=`<svg>${E.svg(w,h,[mi,fi],time,completed,0)}</svg>`;
