@@ -100,7 +100,8 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 - 絕不複製原活動將0–1000顯示長度按方向可用半徑重映射的做法。改變視窗大小要等比例重繪所有力，不能改force值或分數。
 - 可調大小範圍每題統一為0.01至3倍本題最大已知力（N），不按所選目標力訂上限。短箭頭可保留大hit area；箭尖必須仍在模型端點，不能為了最短可見箭長而改大小。
 - 手機優先保證已知箭頭及正確配對完整可見；有意畫得太長的錯誤箭頭不得被夾回「正確」長度。若超框，明示超框並提供邊界編輯抓手／大小微調，保存真值；非等比例縮短畫面上的箭頭不允許。實作時須以最短iframe專項驗證這個策略。
-- 這是指定瞬間的相互作用力圖。A可沿用原活動的低對比地面紋理反向等速平移，接觸面及起點不移；B–E採明確的瞬間狀態文字，D另有淡圓弧軌跡，不讓物體在作圖時移走。
+- 這是指定瞬間的相互作用力圖。A的低對比地面紋理反向等速平移；B的地面紋理反向加速，由6 px/s在4秒內升至46 px/s的顯示上限，並註明為限速運動示意。物體、接觸面、起點及所有力向量保持原位。C–E保留指定瞬間：彈簧剛釋放時速度為零、之後加速度會改變，不套用B的勻加速動畫；D另有淡圓弧軌跡。
+- 動畫按經過的可見播放時間計算，暫停、隱藏頁面及非作圖／檢討階段不累積時間；同題切換配對或重繪不跳回原位，切換題目則由慢速重新展示。動畫不保存到作答快照，也不改已知物理量。
 - 運動提示不隨學生錯誤作圖改變；已知物體受力圖在開始已完整顯示。背景可暫停及尊重reduced motion，但不把「暫停觀察」說成物理靜止。
 
 ## Responsive layout contract
@@ -145,7 +146,7 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 | Notation | 已知力N、f、T、Fₛ、G及大小採math serif、變量斜體、真下標與正體N單位；圖上可用短標籤，面板完整寫施力／受力者。原生選單只用中文，旁邊另排數學符號 |
 | Arrow graphics | 沿用單一連續實心箭頭，箭尖精確落在力向量端點；給定與學生共用比例尺；標籤避讓但不移動作用線 |
 | Snap | 起筆從公開標記選擇。方向吸附到水平／鉛直、可見斜面平行／垂直、繩／彈簧軸、地球中心連線，全部雙向；touch入6°出9°，mouse/pen入4°出6°。不得把反向當唯一可吸附方向 |
-| Length assistance | 公開力尺採0.1 N格，鄰近吸附的螢幕門檻mouse/pen3px、touch5px，最多移動0.05 N；全部力值同規則，不對已知原力大小設特殊磁吸、等長按鈕或正確長度區段 |
+| Length assistance | 依2026-09-28使用者回饋，拖動大小採公開刻度：低於10 N每格0.5 N，10 N或以上每格1 N，拖動最小0.5 N。預設取最近刻度，已吸附時在相鄰半格外再容許0.18格才跳值，減少手指抖動；10 N交界按上下各自格距處理。保留±0.1 N微調及既有0.01 N保存精度，舊答案恢復不量化。所有力值同規則，不對正確大小設特殊磁吸；計分仍採原±10%容差，與吸附分開 |
 | Touch preview | 起筆及箭尖精調必需：2×真實局部場景＋固定文字讀數「畫在：…、F=… N、θ=…°」；顯示目前吸附後的學生值，不顯示應有大小／方向或對錯 |
 
 preview採牛頓第二定律修正後的做法：讀數在獨立固定區域，不把大文字一起裁切放大。預覽與主圖用相同坐標轉換，角落穩定且避開手指，不截斷數字、單位或物體名；放手、取消、失焦、resize、換題及鎖定都消失。預覽中的動態讀數在放手後隱藏；主圖保留簡短力名與大小標籤，固定面板亦可讀取已保存數值。
@@ -173,7 +174,7 @@ preview採牛頓第二定律修正後的做法：讀數在獨立固定區域，�
 | 每種起點、箭尖及超框抓手 | simulation | trusted move/up，其他scroll、iframe bounds、visual viewport固定 | 已通過：五類／八格origin與head、wrong-owner同接觸點、overlap及offscale |
 | review／frozen／committed的舊target位置 | host | 移除編輯ownership | 已通過：三種mode舊箭尖位置兩向pan，完整state不變 |
 
-測試source及實際ZIP解壓兩路，在可捲動的Moodle-like iframe中記錄全部host、iframe、activity document、兩方visual viewport、panel及權威答案前後值。若需同源host forwarding，記錄路徑並防double scroll；真實跨來源Moodle另驗。A的背景紋理平移是獨立視覺狀態，不改變幾何或權威答案；手勢測試比較完整答案和所有scroll／viewport值，另驗證暫停背景不改題目。
+測試source及實際ZIP解壓兩路，在可捲動的Moodle-like iframe中記錄全部host、iframe、activity document、兩方visual viewport、panel及權威答案前後值。若需同源host forwarding，記錄路徑並防double scroll；真實跨來源Moodle另驗。A、B的背景紋理平移是獨立視覺狀態，不改變幾何或權威答案；手勢測試比較完整答案和所有scroll／viewport值，另驗證加速上限、鏡像方向、暫停／reduced motion、換題／重繪及作答不變。
 
 原受力圖程式可提供結構參考，但放手必須使用最終pointerup解析後位置；preview、放手及保存一致。須補回自然抖動、cancel／lostcapture、多指、resize及blur的rollback，不照搬舊pointerup僅保存最後move的細節。
 
@@ -338,3 +339,17 @@ record = [recipientBodyId | null, anchorId | null,
 - ZIP：`output/newtons-third-law-reaction-force-lab-scorm.zip`。`npm run package:all`已通過全部套件檔案核對；`npm run check`及目前staged diff whitespace檢查已通過。
 - 完整`npm test`已於2026-09-28通過（exit 0，紀錄`output/third-law-full-test.log`）；最新新活動focused browser亦exit 0（`output/third-law-final-browser.log`）。最終`npm run check`及`npm run package:all`均exit 0；staged與基準`9fea6f1`的diff whitespace gate一併核對。
 - 本機HTTP預覽已回應200；實際Moodle學生attempt、實體手機和跨來源player尚未驗證，Moodle-ready維持未完成。
+
+## 2026-09-28 手機操作回饋修正
+
+使用者已透過手機Remote預覽，要求較容易選取整數力值，以及加速情境的背景動態。
+本次採上述公開力值刻度與防抖規則，保留微調、共同比例尺及原有評分；新增B的限速加速背景。
+生成器、隨機次序、rubric及快照版本均保持相容，恢復舊答案不重新量化。
+
+- `model.test.js`：所有75種物理變化的正確力值由兩個方向接近刻度，均保留原±10%大小得分；另驗18 N防抖、10 N格距交界、鏡像背景方向、速度上限、位移連續及不同幀率。
+- `tools/newtons-third-law-browser-regression.js --assistance`：source及實際解壓ZIP，Chrome 154，320／390／1280px。18 N拖動與preview一致，抖動保持18 N；按鈕改成18.1 N並恢復後保留。
+- 背景實測由約8.17增至14.17 px/s，達46 px/s後封頂；箭頭幾何及作答不變。暫停時重繪不跳回原位、恢復播放、切題重播、reduced motion及檢查階段停止計時均通過。證據：`output/playwright/newtons-third-law/assistance-report.json`。
+- 完整活動source／ZIP runner再次通過：各9個viewport、8個實際滑鼠配對得100分，以及320／390px和320×400短iframe的trusted-touch矩陣。證據：`output/playwright/newtons-third-law/report.json`。
+- 本輪完整`npm test`與`npm run check`均exit 0；紀錄為`output/third-law-usability-full-test.log`及`output/third-law-usability-check.log`。
+- `npm run package:all` exit 0，所有ZIP已重新產生並核對；本活動15個檔案與source一致，根目錄有`imsmanifest.xml`。紀錄：`output/third-law-usability-packages.log`；修改後diff whitespace檢查通過。
+- 使用者的Remote預覽回饋不代替真實Moodle player的正式手機手勢／持久化驗收；該部署驗收仍待執行。

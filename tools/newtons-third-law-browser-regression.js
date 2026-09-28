@@ -152,7 +152,7 @@ async function flows(cdp,base,label){
  const blank=await state(cdp);for(const family of G.generate(21).order){const q=G.generate(21).questions[family];for(let slot=0;slot<q.targets.length;slot++){
   await click(cdp,`[data-question="${family}"]`);await click(cdp,`[data-target="${slot}"]`);const expected=q.expected[slot];
   await click(cdp,`[data-body="${expected[0]}"]`);await click(cdp,`[data-anchor="${expected[1]}"]`);await select(cdp,'#kindSelect',expected[2]);await draw(cdp,expected);
-  const current=(await state(cdp)).answers[family][slot];assert.equal(current[0],expected[0]);assert.equal(current[1],expected[1]);assert.ok(M.angleDelta(current[3]/10,expected[3]/10)<.11);assert.ok(Math.abs(current[4]-expected[4])<=5);
+  const current=(await state(cdp)).answers[family][slot];assert.equal(current[0],expected[0]);assert.equal(current[1],expected[1]);assert.ok(M.angleDelta(current[3]/10,expected[3]/10)<.11);assert.equal(current[4],Math.round(M.snapForce(expected[4]/100)*100));
  }}
  let result=S.score(await state(cdp));assert.equal(result.score,100,'actual mouse drawing earns all eight pairs');
  assert.equal(await call(cdp,"return [...d.querySelectorAll('#questionNav button')].every(e=>e.dataset.progress==='complete');"),true);
@@ -239,7 +239,7 @@ async function fineChecks(cdp,base,label){
  // The actual pointerup position wins even when no pointermove reached that point.
  const q=G.generate(s.seed).questions[2],l=await call(cdp,'return w.__reactionApp.getGeometry();'),origin=M.pixel(M.origin(s.answers[2][0],q),l),angle=s.answers[2][0][3]/10,force=s.answers[2][0][4]/100;
  const end=await stagePoint(cdp,M.endpoint([s.answers[2][0][0],s.answers[2][0][1],3,Math.round(angle*10),Math.round(force*.75*100)],q,l));
- await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:head.x,y:head.y,button:'left',clickCount:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:end.x,y:end.y,button:'left',clickCount:1});await delay(80);let current=await state(cdp);assert.ok(Math.abs(current.answers[2][0][4]-Math.round(force*.75*100))<=5);
+ await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:head.x,y:head.y,button:'left',clickCount:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:end.x,y:end.y,button:'left',clickCount:1});await delay(80);let current=await state(cdp);assert.equal(current.answers[2][0][4],Math.round(M.snapForce(force*.75)*100));
  // Changes to recipient clear dependent geometry, retain kind, and remain undoable.
  const before=current.answers[2][0];await click(cdp,'[data-body="0"]');assert.deepEqual((await state(cdp)).answers[2][0],[0,null,before[2],null,null]);await click(cdp,'#undoButton');assert.deepEqual((await state(cdp)).answers[2][0],before);await click(cdp,'#redoButton');assert.deepEqual((await state(cdp)).answers[2][0],[0,null,before[2],null,null]);
  // Changing only the anchor is a translation, never a new magnitude.
@@ -248,9 +248,50 @@ async function fineChecks(cdp,base,label){
  const a=filled();a.question=0;await snapshot(cdp,base,a);const t=await call(cdp,'return w.__reactionApp.getAnimation();');await delay(150);assert.ok((await call(cdp,'return w.__reactionApp.getAnimation();')).elapsed>t.elapsed);await click(cdp,'#pauseButton');const stopped=await call(cdp,'return w.__reactionApp.getAnimation();');await delay(150);assert.deepEqual(await call(cdp,'return w.__reactionApp.getAnimation();'),stopped);assert.deepEqual(await state(cdp),a);
  return {jitter:true,finalPointerup:true,dependenciesAndUndo:true,pause:true};
 }
+async function assistanceChecks(cdp,base,label){
+ let seed=0;while(!G.generate(seed).questions[1].expected.some(r=>r[4]===1800))seed++;
+ const report={forceGrid:[],animation:{}};
+ for(const width of [320,390,1280]){
+  await viewport(cdp,width,width===1280?900:600);const s=P.fresh(seed);s.question=1;const q=G.generate(seed).questions[1],expected=q.expected[0];s.answers[1][0]=[...expected.slice(0,3),null,null];
+  await snapshot(cdp,base,s,{embedded:width<600});const embedded=width<600,l=await call(cdp,'return w.__reactionApp.getGeometry();',embedded);
+  await draw(cdp,expected,embedded,width<600,async()=>{
+   await call(cdp,'return new Promise(resolve=>w.requestAnimationFrame(()=>w.requestAnimationFrame(resolve)));',embedded);
+   assert.equal(await call(cdp,"return Number(d.querySelector('[data-reaction=\"0\"]').dataset.force);",embedded),1800);
+   if(width<600){
+    // Jitter the actual finger around the acquired tick, then check both the
+    // main vector and the preview show the same snapped value before release.
+    for(const force of [18.2,17.8,18.1,18]){
+     const point=await stagePoint(cdp,M.endpoint([...expected.slice(0,4),force*100],q,l),embedded);
+     await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(point)]});
+     await call(cdp,'return new Promise(resolve=>w.requestAnimationFrame(()=>w.requestAnimationFrame(resolve)));',embedded);
+     assert.equal(await call(cdp,"return Number(d.querySelector('[data-reaction=\"0\"]').dataset.force);",embedded),1800);
+     assert.match(await call(cdp,"return d.getElementById('previewValues').textContent;",embedded),/F′ = 18 N/);
+    }
+   }
+  });
+  assert.equal((await state(cdp,embedded)).answers[1][0][4],1800);
+  await click(cdp,'[data-adjust="more"]',embedded);assert.equal((await state(cdp,embedded)).answers[1][0][4],1810,'fine adjustment bypasses the drag grid');
+  const saved=await call(cdp,'return w.__lmsValues;',embedded);await navigate(cdp,base,{fixture:saved,embedded});assert.equal((await state(cdp,embedded)).answers[1][0][4],1810,'restore preserves non-grid values');
+  report.forceGrid.push({width,drawn:18,restored:18.1});
+ }
+ await viewport(cdp,390,600);const s=filled(seed);s.question=1;await snapshot(cdp,base,s);
+ const geometry=await call(cdp,"return [...d.querySelectorAll('[data-given],[data-reaction]')].map(e=>e.getAttribute('d'));"),early=await call(cdp,'return w.__reactionApp.getAnimation();');
+ await delay(600);const faster=await call(cdp,'return w.__reactionApp.getAnimation();');assert.ok(faster.motion.speed>early.motion.speed);assert.equal(Math.sign(faster.motion.x),G.generate(seed).questions[1].params.mirror?1:-1);
+ await delay(4200);const capped=await call(cdp,'return w.__reactionApp.getAnimation();');assert.equal(capped.motion.speed,46);
+ assert.deepEqual(await state(cdp),s);assert.deepEqual(await call(cdp,"return [...d.querySelectorAll('[data-given],[data-reaction]')].map(e=>e.getAttribute('d'));"),geometry);
+ await click(cdp,'#pauseButton');const paused=await call(cdp,'return w.__reactionApp.getAnimation();'),transform=await call(cdp,"return d.getElementById('surface').getAttribute('patternTransform');");
+ await click(cdp,'[data-target="1"]');await delay(200);assert.deepEqual(await call(cdp,'return w.__reactionApp.getAnimation();'),paused);assert.equal(await call(cdp,"return d.getElementById('surface').getAttribute('patternTransform');"),transform,'repaint while paused keeps its visual position');
+ await screenshot(cdp,`${label}-capped-acceleration`);
+ await click(cdp,'#pauseButton');await delay(150);assert.ok((await call(cdp,'return w.__reactionApp.getAnimation();')).elapsed>paused.elapsed);
+ await click(cdp,'[data-question="2"]');assert.equal(await call(cdp,"return d.getElementById('pauseButton').hidden;"),true);await delay(200);await click(cdp,'[data-question="1"]');assert.ok((await call(cdp,'return w.__reactionApp.getAnimation();')).motion.speed<10,'return to the scene replays the slow start');
+ await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await delay(100);const reduced=await call(cdp,'return w.__reactionApp.getAnimation();');assert.equal(reduced.paused,true);await delay(200);assert.deepEqual(await call(cdp,'return w.__reactionApp.getAnimation();'),reduced);
+ await cdp.send('Emulation.setEmulatedMedia',{features:[]});await delay(100);
+ await click(cdp,'#checkButton');const checked=await call(cdp,'return w.__reactionApp.getAnimation();');await delay(200);assert.deepEqual(await call(cdp,'return w.__reactionApp.getAnimation();'),checked,'check stage does not accumulate animation time');
+ report.animation={early:early.motion.speed,faster:faster.motion.speed,cap:capped.motion.speed,geometryUnchanged:true,pauseAndRepaint:true,reducedMotion:true};return report;
+}
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},gestures:{},special:{},ownership:{},locked:{},fine:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},gestures:{},special:{},ownership:{},locked:{},fine:{},assistance:{},errors:[]};
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-thirdlaw-package-',packageNamePattern:/^simlab-thirdlaw-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'),`package parity ${name}`);
@@ -259,13 +300,14 @@ async function main(){
   await fresh();report.browser=await cdp.send('Browser.getVersion');
   for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){
    const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`third law: ${label} layout/flow`);
+   if(process.argv.includes('--assistance')){report.assistance[label]=await assistanceChecks(cdp,base,label);continue;}
    if(process.argv.includes('--edges')){for(const width of [390,320]){await fresh();report.special[`${label}-${width}`]=await specialChecks(cdp,base,`${label}-${width}`,width);await fresh();report.ownership[`${label}-${width}`]=await ownershipChecks(cdp,base,`${label}-${width}`,width);await fresh();report.locked[`${label}-${width}`]=await lockedChecks(cdp,base,`${label}-${width}`,width);}continue;}
-   if(!process.argv.includes('--touch')){report.viewports[label]=await visualMatrix(cdp,base,label);if(!process.argv.includes('--smoke')){report.flows[label]=await flows(cdp,base,label);report.fine[label]=await fineChecks(cdp,base,label);}}
+   if(!process.argv.includes('--touch')){report.viewports[label]=await visualMatrix(cdp,base,label);if(!process.argv.includes('--smoke')){report.flows[label]=await flows(cdp,base,label);report.fine[label]=await fineChecks(cdp,base,label);report.assistance[label]=await assistanceChecks(cdp,base,label);}}
    if(process.argv.includes('--smoke'))continue;
    for(const width of [390,320]){console.log(`third law: ${label} trusted touch ${width}`);await fresh();report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);await fresh();report.special[`${label}-${width}`]=await specialChecks(cdp,base,`${label}-${width}`,width);await fresh();report.ownership[`${label}-${width}`]=await ownershipChecks(cdp,base,`${label}-${width}`,width);await fresh();report.locked[`${label}-${width}`]=await lockedChecks(cdp,base,`${label}-${width}`,width);}
    await fresh();report.gestures[`${label}-short`]=await touchMatrix(cdp,base,`${label}-short`,320,400);
   }
-  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':process.argv.includes('--edges')?'edges-report.json':'report.json'),JSON.stringify(report,null,2));
+  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':process.argv.includes('--edges')?'edges-report.json':process.argv.includes('--assistance')?'assistance-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__reactionApp?.getMode(),state:w.__reactionApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,'failure').catch(()=>{});}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-thirdlaw-(?:chrome|package)-[A-Za-z0-9]+$/,'third law test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
  if(failure)throw failure;console.log('third law source/package browser checks passed');

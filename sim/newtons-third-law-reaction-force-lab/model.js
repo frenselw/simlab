@@ -46,13 +46,32 @@
     const near=refs.reduce((best,a)=>angleDelta(a,angle)<angleDelta(best,angle)?a:best,refs[0]);
     return angleDelta(near,angle)<=entry?{angle:near,target:near}:{angle:normalize(angle),target:null};
   }
-  function fromPoint(r,q,l,p,type,previous=null){
+  function snapForce(force,previous=null){
+    // A public grid, independent of the requested force or its correct value.
+    // Use each neighbour's spacing at 10 N, where the grid changes size.
+    if(previous!==null){
+      const below=previous<=10?.5:1,above=previous<10?.5:1;
+      if(force>=previous-.68*below&&force<=previous+.68*above)return previous;
+    }
+    const step=force<10?.5:1;
+    return Math.max(.5,Math.round(force/step+1e-9)*step);
+  }
+  function fromPoint(r,q,l,p,type,previous=null,previousForce=null){
     const o=origin(r,q);if(!o)return null;const start=pixel(o,l),dx=p.x-start.x,dy=start.y-p.y,radius=Math.hypot(dx,dy);if(radius<3)return null;
     const resolved=snap(Math.atan2(dy,dx)*180/Math.PI,references(q),type,previous);
-    let force=radius/(l.unit*l.forceScale);const tick=Math.round(force*10)/10,threshold=type==="touch"?5:3;
-    if(Math.abs(tick-force)<=.05+1e-9&&Math.abs(tick-force)*l.unit*l.forceScale<=threshold)force=tick;
-    return {record:[r[0],r[1],r[2],Math.round(resolved.angle*10)%3600,clamp(Math.round(force*100),1,q.maxForce100)],target:resolved.target};
+    const force=snapForce(radius/(l.unit*l.forceScale),previousForce);
+    return {record:[r[0],r[1],r[2],Math.round(resolved.angle*10)%3600,clamp(Math.round(force*100),1,q.maxForce100)],target:resolved.target,forceTarget:force};
+  }
+  function backgroundMotion(q,elapsed){
+    if(!q||![0,1].includes(q.family))return null;
+    const t=Math.max(0,elapsed);
+    if(q.family===0){const a=(q.params.mirror?180-q.params.theta:q.params.theta)*Math.PI/180;
+      return {x:Math.cos(a)*12*t,y:-Math.sin(a)*12*t,speed:12};
+    }
+    // Integrate a bounded visual velocity; do not change the physics snapshot.
+    const ramp=Math.min(t,4),distance=6*ramp+5*ramp*ramp+46*Math.max(0,t-4);
+    return {x:(q.params.mirror?1:-1)*distance,y:0,speed:6+10*ramp};
   }
   class History{constructor(){this.undo=Array.from({length:5},()=>[]);this.redo=Array.from({length:5},()=>[]);}record(i,a){this.undo[i].push(clone(a));if(this.undo[i].length>20)this.undo[i].shift();this.redo[i]=[];}apply(i,a,redo=false){const from=redo?this.redo[i]:this.undo[i],to=redo?this.undo[i]:this.redo[i];if(!from.length)return clone(a);to.push(clone(a));return from.pop();}}
-  return Object.freeze({clone,clamp,normalize,angleDelta,blank,emptyAnswers,validRecord,validAnswer,started,complete,change,layout,pixel,origin,endpoint,handle,references,snap,fromPoint,History});
+  return Object.freeze({clone,clamp,normalize,angleDelta,blank,emptyAnswers,validRecord,validAnswer,started,complete,change,layout,pixel,origin,endpoint,handle,references,snap,snapForce,fromPoint,backgroundMotion,History});
 });

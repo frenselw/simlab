@@ -56,7 +56,11 @@ direction, magnitude and force type. Known and learner-drawn forces share one
 linear scale; selecting the original body remains a legitimate, gradable mistake.
 
 Touch dragging includes a magnified scene with separate body, force and angle
-readouts. Question progress, next-step controls, undo and editable answer clearing
+readouts. Magnitudes snap to 0.5 N steps below 10 N and 1 N steps at or above it,
+with hysteresis to steady the value and 0.1 N buttons for fine adjustment.
+Moving ground illustrates uniform motion or acceleration up to a visual speed
+limit, while bodies and force arrows stay fixed for drawing. Question progress,
+next-step controls, undo and editable answer clearing
 support the drawing process. Explicit submission awards partial credit and opens
 read-only explanations and reference diagrams. The shared SCORM runtime handles
 draft resumption, frozen submission retries and completed attempts.

@@ -4,7 +4,7 @@
   const ids=["app","attemptStatus","questionNav","checkButton","stage","stageSvg","motionLabel","ownerLabel","dragLayer","magnifier","magnifierSvg","previewBody","previewValues","controlPanel","notice","saveRetryButton","questionIntro","questionKicker","questionTitle","questionPrompt","gravityNote","pauseButton","givenSummary","targetNav","editPanel","bodyChoices","anchorField","anchorChoices","drawHint","kindSelect","forceReadout","undoButton","redoButton","clearForceButton","clearQuestionButton","stepGuide","stepProgress","nextButton","returnCheckButton","clearAllButton","checkPanel","checkList","submitButton","reviewPanel","reviewTitle","scorePanel","retryFinalButton","referenceButton","feedback","technicalPanel","recoverButton","liveRegion"];
   const d=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
   const c=new ReactionRuntime.Controller(SimScorm,SimActivityFlow,render), reduced=matchMedia("(prefers-reduced-motion: reduce)");
-  let layout=null,drag=null,keyboard=null,showReference=false,paused=reduced.matches,elapsed=0,lastFrame=null;
+  let layout=null,drag=null,keyboard=null,showReference=false,paused=reduced.matches,elapsed=0,lastFrame=null,motionFamily=null;
   const targets=new Map(),diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0,previews:0,lastTarget:null};
   const editable=()=>c.mode==="edit",q=()=>c.scenario?.questions[c.familyIndex]||null,selected=()=>c.targetIndex,answers=()=>c.state?.answers[c.familyIndex],record=()=>answers()?.[selected()];
   const announce=message=>{d.liveRegion.textContent=message;};
@@ -16,6 +16,7 @@
   function enterCheck(){cancel();showReference=false;c.check();d.controlPanel.scrollTop=0;}
   function render(){
     if(!editable())cancel();const question=q(),safe=Boolean(question&&["edit","review","committed","frozen"].includes(c.mode));
+    if(question?.family!==motionFamily){motionFamily=question?.family;elapsed=0;lastFrame=null;}
     d.app.classList.toggle("no-scene",!safe);d.stage.setAttribute("aria-hidden",String(!safe));
     d.attemptStatus.textContent=c.editable?"反作用力作圖挑戰":c.mode==="review"?"已提交 · 只讀檢討":c.mode==="committed"?"成績已記錄":c.mode==="frozen"?"提交待確認":"作答狀態";
     d.notice.hidden=!c.notice;d.notice.textContent=c.notice;d.saveRetryButton.hidden=!c.editable||!c.unsaved;
@@ -29,7 +30,8 @@
       const r=record(),force=question.given.find(f=>f.id===question.targets[selected()]);
       d.questionKicker.textContent=`第${c.position+1}題 · ${question.targets.length}個反作用力配對`;d.questionTitle.textContent=question.title;d.questionPrompt.textContent=question.prompt;
       d.gravityNote.textContent=question.family===4?"同題所有力箭頭按相同大小比例繪製。":"本題毋須畫重力的反作用力。";
-      d.pauseButton.hidden=question.family!==0;d.pauseButton.textContent=paused?"播放背景":"暫停背景";
+      d.pauseButton.hidden=!M.backgroundMotion(question,0);d.pauseButton.textContent=paused?"播放背景":"暫停背景";
+      document.getElementById("motionNote").hidden=question.family!==1;
       d.givenSummary.innerHTML=`<strong>已知：${N.escape(question.bodies[0].name)}所受的力</strong><br>`+question.given.map(f=>`${N.html(f.symbol)} = ${N.value(f.force100/100)} N · ${N.escape(f.name)}`).join("<br>");
       d.targetNav.replaceChildren();question.targets.forEach((id,i)=>{const f=question.given.find(f=>f.id===id),b=document.createElement("button");b.dataset.target=i;b.dataset.progress=status([answers()[i]]);b.setAttribute("aria-current",selected()===i?"step":"false");b.innerHTML=`${N.html(f.symbol)} 的反作用力<small>${statusName[status([answers()[i]])]}</small>`;b.onclick=()=>navigate(question.family,i);d.targetNav.append(b);});
       if(editable()){
@@ -72,6 +74,7 @@
     const question=q();if(!question||d.stage.getAttribute("aria-hidden")==="true"){for(const b of targets.values())b.hidden=true;hidePreview();return;}
     const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height,question);const work=working();
     d.stageSvg.setAttribute("viewBox",`0 0 ${rect.width} ${rect.height}`);d.stageSvg.innerHTML=Scene.svg(question,layout,answers(),selected(),work,showReference&&c.trusted);
+    paintBackground();
     const r=work||record(), visible=new Set();
     if(editable()&&r[1]!==null){
       const creating=r[3]===null||drag?.creating||keyboard?.creating,originPoint=M.pixel(M.origin(r,question),layout),p=creating?originPoint:M.handle(M.endpoint(r,question,layout),layout),key=`${question.family}-${selected()}-${creating?"anchor":"head"}`;
@@ -97,14 +100,14 @@
   function pointerDown(event,element,creating){
     if(!editable()||drag||event.isPrimary===false||event.button>0||record()[1]===null)return;cancel();
     const p=point(event),before=M.clone(record()),end=creating?M.pixel(M.origin(before,q()),layout):M.endpoint(before,q(),layout);
-    drag={id:event.pointerId,type:event.pointerType,element,creating,before,working:M.clone(before),down:p,cursor:p,baseEnd:end,active:false,corner:null,snap:null};
+    drag={id:event.pointerId,type:event.pointerType,element,creating,before,working:M.clone(before),down:p,cursor:p,baseEnd:end,active:false,corner:null,snap:null,forceSnap:null};
     diagnostics.downs++;diagnostics.lastTarget=creating?"anchor":"head";if(event.isTrusted&&event.pointerType==="touch")diagnostics.trustedTouch++;element.setPointerCapture(event.pointerId);event.preventDefault();
   }
   function resolveDrag(event){
     if(!drag)return;const p=point(event);drag.cursor=p;const dx=p.x-drag.down.x,dy=p.y-drag.down.y;
     if(!drag.active&&Math.hypot(dx,dy)<(drag.type==="mouse"?3:6))return;drag.active=true;
-    const resolved=M.fromPoint(drag.before,q(),layout,{x:drag.baseEnd.x+dx,y:drag.baseEnd.y+dy},drag.type,drag.snap);
-    if(resolved){drag.working=resolved.record;drag.snap=resolved.target;}
+    const resolved=M.fromPoint(drag.before,q(),layout,{x:drag.baseEnd.x+dx,y:drag.baseEnd.y+dy},drag.type,drag.snap,drag.forceSnap);
+    if(resolved){drag.working=resolved.record;drag.snap=resolved.target;drag.forceSnap=resolved.forceTarget;}
   }
   function pointerMove(event){if(!drag||event.pointerId!==drag.id)return;event.preventDefault();diagnostics.moves++;resolveDrag(event);renderStage();}
   function pointerUp(event){
@@ -143,7 +146,12 @@
   for(const type of ["touchend","touchcancel"])document.addEventListener(type,event=>{for(const t of event.changedTouches)touchOwners.delete(t.identifier);},{passive:true});
   window.addEventListener("blur",()=>{cancel(true);renderStage();});window.addEventListener("resize",()=>{cancel(true);renderStage();});document.addEventListener("visibilitychange",()=>{if(document.hidden){cancel(true);lastFrame=null;renderStage();}});reduced.addEventListener("change",event=>{paused=event.matches;lastFrame=null;render();});
   new ResizeObserver(()=>{if(drag||keyboard)cancel(true);renderStage();}).observe(d.stage);
-  function frame(now){if(!document.hidden&&q()?.family===0&&!paused&&["edit","review"].includes(c.mode)){if(lastFrame!==null)elapsed+=(now-lastFrame)/1000;const a=(q().params.mirror?180-q().params.theta:q().params.theta)*Math.PI/180,offset=elapsed*12;d.stageSvg.querySelector("#surface")?.setAttribute("patternTransform",`translate(${Math.cos(a)*offset} ${-Math.sin(a)*offset})`);}lastFrame=document.hidden?null:now;requestAnimationFrame(frame);}
-  window.__reactionApp=Object.freeze({getState:()=>M.clone(c.state),getMode:()=>c.mode,getQuestion:()=>M.clone(q()),getGeometry:()=>M.clone(layout),getPointerDiagnostics:()=>({...diagnostics}),getResult:()=>M.clone(c.result),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot),getAnimation:()=>({elapsed,paused})});
+  function paintBackground(){const motion=M.backgroundMotion(q(),elapsed);if(motion)d.stageSvg.querySelector("#surface")?.setAttribute("patternTransform",`translate(${motion.x} ${motion.y})`);}
+  function frame(now){
+    const playing=!document.hidden&&M.backgroundMotion(q(),0)&&!paused&&["edit","review"].includes(c.mode);
+    if(playing){if(lastFrame!==null)elapsed+=(now-lastFrame)/1000;paintBackground();}
+    lastFrame=playing?now:null;requestAnimationFrame(frame);
+  }
+  window.__reactionApp=Object.freeze({getState:()=>M.clone(c.state),getMode:()=>c.mode,getQuestion:()=>M.clone(q()),getGeometry:()=>M.clone(layout),getPointerDiagnostics:()=>({...diagnostics}),getResult:()=>M.clone(c.result),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot),getAnimation:()=>({elapsed,paused,motion:M.backgroundMotion(q(),elapsed)})});
   c.start();requestAnimationFrame(frame);
 })();
