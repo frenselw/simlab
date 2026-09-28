@@ -63,6 +63,8 @@ shown value can be drawn exactly. Older Moodle attempts keep their original
 questions and scores, with 0.01 N adjustment for their original readings.
 Switching force pairs within a question preserves the panel's scroll position.
 Contact pushes use the symbol F and their paired reactions use F′.
+On horizontal surfaces, support arrows and their contact markers are displayed
+beside the unchanged weight arrow; the corresponding reaction stays collinear.
 Moving ground illustrates uniform motion or acceleration up to a visual speed
 limit, while bodies and force arrows stay fixed for drawing. Question progress,
 next-step controls, undo and editable answer clearing

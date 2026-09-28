@@ -32,7 +32,15 @@
     return {width,height,unit,forceScale,cx:width/2,cy:height/2-5,left:56,right:width-56,top:40,bottom:height-32};
   }
   const pixel=(p,l)=>({x:l.cx+p.x*l.unit,y:l.cy-p.y*l.unit});
-  const origin=(r,q)=>q.bodies.find(b=>b.id===r[0])?.anchors.find(a=>a.id===r[1])?.point||null;
+  function diagramPoint(p,q){
+    // Separate N from G on horizontal surfaces. Both sides of the contact use
+    // the same display offset, independent of the learner's selected force.
+    // Keep the authoritative geometry and saved body/anchor IDs unchanged.
+    if(!p||![1,2].includes(q.family))return p;
+    const normal=q.given.find(f=>f.id==="normal");
+    return normal&&Math.abs(p.x-normal.origin.x)<1e-9&&Math.abs(p.y-normal.origin.y)<1e-9?{x:p.x+(q.params.mirror?-.3:.3),y:p.y}:p;
+  }
+  const origin=(r,q)=>diagramPoint(q.bodies.find(b=>b.id===r[0])?.anchors.find(a=>a.id===r[1])?.point||null,q);
   function endpoint(r,q,l){const o=origin(r,q);if(!o)return null;const p=pixel(o,l);if(r[3]===null)return p;const a=r[3]*Math.PI/1800,length=r[4]/100*l.forceScale*l.unit;return {x:p.x+Math.cos(a)*length,y:p.y-Math.sin(a)*length};}
   function handle(p,l){const x=clamp(p.x,l.left,l.right),y=clamp(p.y,l.top,l.bottom);return {x,y,offscale:Math.abs(x-p.x)>.01||Math.abs(y-p.y)>.01};}
   function references(q){const angles=[0,90,180,270];
@@ -72,5 +80,5 @@
     return {x:(q.params.mirror?1:-1)*distance,y:0,speed:6+10*ramp};
   }
   class History{constructor(){this.undo=Array.from({length:5},()=>[]);this.redo=Array.from({length:5},()=>[]);}record(i,a){this.undo[i].push(clone(a));if(this.undo[i].length>20)this.undo[i].shift();this.redo[i]=[];}apply(i,a,redo=false){const from=redo?this.redo[i]:this.undo[i],to=redo?this.undo[i]:this.redo[i];if(!from.length)return clone(a);to.push(clone(a));return from.pop();}}
-  return Object.freeze({clone,clamp,normalize,angleDelta,blank,emptyAnswers,validRecord,validAnswer,started,complete,change,layout,pixel,origin,endpoint,handle,references,snap,snapForce,fromPoint,backgroundMotion,History});
+  return Object.freeze({clone,clamp,normalize,angleDelta,blank,emptyAnswers,validRecord,validAnswer,started,complete,change,layout,pixel,diagramPoint,origin,endpoint,handle,references,snap,snapForce,fromPoint,backgroundMotion,History});
 });

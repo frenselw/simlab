@@ -29,14 +29,14 @@
     }
     const selectedForce=q.given.find(f=>f.id===q.targets[selected]);
     parts.push(`<g clip-path="url(#scene-clip)">`);
-    for(const f of q.given){const start=pix(f.origin),a=f.angle10*Math.PI/1800,length=f.force100/100*l.forceScale*l.unit,end={x:start.x+Math.cos(a)*length,y:start.y-Math.sin(a)*length};parts.push(`<path data-given="${f.id}" data-force="${f.force100}" data-length="${length}" d="${arrowPath(start,end,l.width>=600?4:3,l.width>=600?15:11)}" class="given-arrow ${f.id===selectedForce?.id?"active":""}"/>`);}
+    for(const f of q.given){const start=pix(M.diagramPoint(f.origin,q)),a=f.angle10*Math.PI/1800,length=f.force100/100*l.forceScale*l.unit,end={x:start.x+Math.cos(a)*length,y:start.y-Math.sin(a)*length};parts.push(`<path data-given="${f.id}" data-force="${f.force100}" data-length="${length}" d="${arrowPath(start,end,l.width>=600?4:3,l.width>=600?15:11)}" class="given-arrow ${f.id===selectedForce?.id?"active":""}"/>`);}
     const visible=reference?q.expected:answers;
     visible.forEach((original,i)=>{const r=working&&i===selected?working:original;if(r[3]===null)return;const start=pix(M.origin(r,q)),end=M.endpoint(r,q,l);parts.push(`<path data-reaction="${i}" data-force="${r[4]}" d="${arrowPath(start,end,l.width>=600?5:3.6,l.width>=600?17:12)}" class="reaction-arrow ${i===selected?"active":""}"/>`);});parts.push("</g>");
-    for(const f of q.given){const start=pix(f.origin),a=f.angle10*Math.PI/1800,length=f.force100/100*l.forceScale*l.unit,end={x:start.x+Math.cos(a)*length,y:start.y-Math.sin(a)*length};label(end,f.name,f.symbol,f.kind,0,f.force100,"given-label");}
+    for(const f of q.given){const start=pix(M.diagramPoint(f.origin,q)),a=f.angle10*Math.PI/1800,length=f.force100/100*l.forceScale*l.unit,end={x:start.x+Math.cos(a)*length,y:start.y-Math.sin(a)*length};label(end,f.name,f.symbol,f.kind,0,f.force100,"given-label");}
     visible.forEach((original,i)=>{const r=working&&i===selected?working:original;if(r[3]===null)return;const end=M.endpoint(r,q,l),h=M.handle(end,l);label(h,`畫在${q.bodies[r[0]].name}的${r[2]===null?"未標種類的力":N.shortNames[r[2]]}`,N.reactionSymbol(r[2],q.given.find(f=>f.id===q.targets[i])),r[2],i+1,r[4],"reaction-label");if(h.offscale)parts.push(text({x:h.x,y:h.y-10},"超框","offscale-note",'text-anchor="middle"'));});
     // Only the learner's selected body supplies draggable public anchors.
     const current=working||visible[selected];
-    if(current?.[0]!==null&&current){for(const a of q.bodies[current[0]].anchors){const p=pix(a.point);parts.push(`<circle data-anchor-dot="${a.id}" cx="${p.x}" cy="${p.y}" r="${a.id===current[1]?4.5:3}" fill="${a.id===current[1]?"#a03a70":"#475569"}" stroke="white" stroke-width="1.5"/>`);}}
+    if(current?.[0]!==null&&current){for(const a of q.bodies[current[0]].anchors){const p=pix(M.diagramPoint(a.point,q));parts.push(`<circle data-anchor-dot="${a.id}" cx="${p.x}" cy="${p.y}" r="${a.id===current[1]?4.5:3}" fill="${a.id===current[1]?"#a03a70":"#475569"}" stroke="white" stroke-width="1.5"/>`);}}
     const max=Math.max(...q.given.map(f=>f.force100))/100,unit=[1,2,5,10,20].filter(x=>x<=max/2).pop()||1,len=unit*l.unit*l.forceScale,x=39,y=l.height-14;
     parts.push(`<path d="M${x} ${y-4}v8m0-4h${len}m0-4v8" stroke="#64748b" fill="none"/>`,text({x:x+len+6,y:y+5},`${unit} N`,"ruler-label"));
     if(working&&working[3]!==null){const p=M.handle(M.endpoint(working,q,l),l);parts.push(`<circle cx="${p.x}" cy="${p.y}" r="5" fill="none" stroke="#a03a70" stroke-width="1.5"/>`);}

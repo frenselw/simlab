@@ -118,7 +118,7 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 | Viewports | 320×400、320×500、390×500／600／844、740×360、768×900、1024×768、1280×900；toolbar變化、200% zoom；無數字鍵盤輸入，軟鍵盤N/A |
 | Scroll topology | 左右各≥32px可用host捲動帶；blank stage歸host，panel只捲自身；hit targets不蓋側帶；activity document無第三個scroll owner |
 
-已知箭頭與學生箭頭用不同的固定角色色及文字區分；顏色不按答案對錯變換。相交箭頭由面板選取，不修改物理方向來避讓。文字可移位加細引線，箭頭及作用點不能移。
+已知箭頭與學生箭頭用不同的固定角色色及文字區分；顏色不按答案對錯變換。相交箭頭由面板選取，不修改物理方向來避讓。文字可移位加細引線。依2026-09-28使用者要求，B、C水平接觸情境的支持力與重力錯開顯示：重力保持原位，支持力及該接觸處的全部公開標記沿水平接觸面向外移0.3個場景單位（鏡像同步）。由該標記畫出的任何學生箭頭、抓手、preview及參考答案共用同一顯示位置，因此支持力與正確反作用力仍共線；錯誤物體／力種類不會自動修正。這是圖示位置的例外，原始物理幾何、作答的物體／起點ID、方向、大小、版本及評分不改，其他情境不移位。
 
 ## Navigation, submission and reset
 
@@ -367,3 +367,13 @@ record = [recipientBodyId | null, anchorId | null,
 - 本輪完整`npm test`與`npm run check`均exit 0；紀錄：`output/third-law-numeric-full-test.log`及`output/third-law-numeric-check.log`。
 - `npm run package:all` exit 0，全部SCORM ZIP重新產生並驗證；本活動15個檔案（41,142 bytes）與source逐一相符，含根目錄`imsmanifest.xml`。紀錄：`output/third-law-numeric-packages.log`。
 - 本輪證據限本機瀏覽器及模擬LMS；真實Moodle player與實體手機的正式驗收仍待執行。
+
+## 2026-09-28 支持力與重力的顯示避讓
+
+依使用者要求，水平面木塊及小車的重力保持原位；支持力沿接觸面向外稍移，接觸雙方的公開標記、學生箭頭、抓手及preview共用此顯示座標。支持力與正確反作用力仍共線等長；偏移與學生選擇的物體、力種類及答案正誤無關。原始題目幾何、力值、快照及評分不變，v1／v2舊作答直接適用。
+
+- `scene.test.js`檢查144組版本／水平情境／鏡像／viewport組合的實際SVG箭頭：重力原位、支持力與反作用力共線等長、抓手標記對齊，以及原始題目不被修改；最短320×199場景的兩條作用線相距約9.64px。
+- `--smoke`已通過source及實際解壓ZIP的9種viewport、全五類情境、200% zoom與已作答畫面。已目視核對390px木塊／小車及1280px木塊截圖，兩支箭頭清楚分開。紀錄：`output/third-law-support-smoke.log`及`output/playwright/newtons-third-law/smoke-report.json`。
+- 完整活動source／ZIP browser runner通過；各8個實際滑鼠配對得100分，320／390px與320×400短iframe的trusted-touch矩陣通過，包含起筆、改箭尖、preview、取消、捲動、檢查與提交後鎖定。紀錄：`output/playwright/newtons-third-law/report.json`，browser errors為空；450組新舊版本還原及合法續作亦通過。
+- 本輪完整`npm test`、`npm run check`及`npm run package:all`均exit 0；紀錄：`output/third-law-support-full-test.log`、`output/third-law-support-check.log`及`output/third-law-support-packages.log`。全部ZIP已重新產生並驗證，本活動15個檔案（41,370 bytes）與source逐一相符。
+- 本機預覽回應HTTP 200；本輪未進行真實Moodle player／實體手機驗收，部署驗收仍待執行。
