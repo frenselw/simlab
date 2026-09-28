@@ -16,6 +16,7 @@
   function enterCheck(){cancel();showReference=false;c.check();d.controlPanel.scrollTop=0;}
   function render(){
     const panelScroll=d.controlPanel.scrollTop;
+    const focused=document.activeElement,focusKey=["question","target","body","anchor"].find(key=>focused?.hasAttribute(`data-${key}`)),focusSelector=focusKey?`[data-${focusKey}="${focused.dataset[focusKey]}"]`:null;
     if(!editable())cancel();const question=q(),safe=Boolean(question&&["edit","review","committed","frozen"].includes(c.mode));
     if(question?.family!==motionFamily){motionFamily=question?.family;elapsed=0;lastFrame=null;}
     d.app.classList.toggle("no-scene",!safe);d.stage.setAttribute("aria-hidden",String(!safe));
@@ -30,6 +31,7 @@
     if(safe){
       const r=record(),force=question.given.find(f=>f.id===question.targets[selected()]);
       d.questionKicker.textContent=`第${c.position+1}題 · ${question.targets.length}個反作用力配對`;d.questionTitle.textContent=question.title;d.questionPrompt.textContent=question.prompt;
+      document.getElementById("sceneDescription").textContent=N.sceneDescription(question);
       d.gravityNote.textContent=question.family===4?"同題所有力箭頭按相同大小比例繪製。":"本題毋須畫重力的反作用力。";
       d.pauseButton.hidden=!M.backgroundMotion(question,0);d.pauseButton.textContent=paused?"播放背景":"暫停背景";
       document.getElementById("motionNote").hidden=question.family!==1;
@@ -61,14 +63,16 @@
       d.scorePanel.innerHTML=c.result?`<strong>${c.result.score===null?"—":N.value(c.result.score)} / 100</strong><p>${N.escape(SimActivityFlow.completionLabel(c.result.passed))}</p>`:"<p>答案已凍結，成績尚未確認。</p>";
       d.retryFinalButton.hidden=!["frozen","committed"].includes(c.mode);d.retryFinalButton.textContent=c.mode==="committed"?"重試完成程序":"重試同一份提交";
       d.referenceButton.hidden=!c.trusted;d.referenceButton.textContent=showReference?"返回你的作圖":"顯示參考圖";d.feedback.innerHTML="";
-      if(c.trusted&&question){const detail=c.result.detail[question.family];d.feedback.innerHTML=`<p>本題 ${N.value(detail.score)} / 20 分</p>`+detail.detail.map((result,i)=>{const f=question.given.find(f=>f.id===question.targets[i]),expected=question.expected[i],body=question.bodies[expected[0]],anchor=body.anchors[expected[1]];return `<article><h3>${N.html(f.symbol)} 的反作用力</h3><p>${N.escape(question.bodies[0].name)}對${N.escape(body.name)}的${N.escape(N.shortNames[f.kind])}，畫在${N.escape(anchor.name)}；與原力等大反向。</p><p>${[["body","受力物體"],["placement","起點／作用線"],["direction","方向"],["magnitude","大小"],["kind","種類"]].map(([key,label])=>`<span class="${result[key]?"ok":"issue"}">${result[key]?"✓":"○"} ${label}</span>`).join(" · ")}</p></article>`;}).join("")+`<p class="small">作用力與反作用力分別作用在兩個物體上。${question.family===4?"地球受到小球的萬有引力，不是支持力；兩力相等不代表兩者加速度相等。":question.family===3?"小球直接拉的是繩；固定架所受的力屬於另一組相互作用。":"物體是否加速，不改變同一配對力等大反向的關係。"}</p>`;}
+      if(c.trusted&&question){const detail=c.result.detail[question.family];d.feedback.innerHTML=`<p>本題 ${N.value(detail.score)} / 20 分</p>`+detail.detail.map((result,i)=>{const f=question.given.find(f=>f.id===question.targets[i]),expected=question.expected[i],body=question.bodies[expected[0]],anchor=body.anchors[expected[1]];return `<article><h3>${N.html(f.symbol)} 的反作用力</h3><p>${N.escape(question.bodies[0].name)}對${N.escape(body.name)}的${N.escape(N.shortNames[f.kind])}，畫在${N.escape(anchor.name)}；與原力等大反向。</p><p>${[["body","受力物體"],["placement","起點／作用線"],["direction","方向"],["magnitude","大小"],["kind","種類"]].map(([key,label])=>`<span class="${result[key]?"ok":"issue"}">${result[key]?"✓":"○"} ${label}</span>`).join(" · ")}</p>${ReactionFeedback.explanations(question,i,answers()[i],result).map(message=>`<p class="explanation">${N.escape(message)}</p>`).join("")}</article>`;}).join("")+`<p class="small">作用力與反作用力分別作用在兩個物體上。${question.family===4?"地球受到小球的萬有引力，不是支持力；兩力相等不代表兩者加速度相等。":question.family===3?"小球直接拉的是繩；固定架所受的力屬於另一組相互作用。":"物體是否加速，不改變同一配對力等大反向的關係。"}</p>`;}
     }
     renderStage();
+    if(focusSelector){const replacement=document.querySelector(focusSelector);if(replacement&&!replacement.matches(":disabled")&&replacement.getClientRects().length)replacement.focus({preventScroll:true});}
     d.controlPanel.scrollTop=panelScroll;
   }
   function getTarget(key,kind){
     if(targets.has(key))return targets.get(key);
     const b=document.createElement("button");b.type="button";b.className=kind;b.dataset.hit=key;
+    b.setAttribute("aria-describedby","vectorKeyboardHelp");
     b.addEventListener("pointerdown",event=>pointerDown(event,b,kind==="anchor-hit"));b.addEventListener("pointermove",pointerMove);b.addEventListener("pointerup",pointerUp);
     for(const type of ["pointercancel","lostpointercapture"])b.addEventListener(type,event=>{if(drag?.id===event.pointerId){cancel(true);renderStage();}});
     b.addEventListener("keydown",event=>keyDown(event,b));b.addEventListener("focusout",()=>{if(keyboard?.element===b){cancel();renderStage();}});
@@ -84,14 +88,14 @@
       const creating=r[3]===null||drag?.creating||keyboard?.creating,originPoint=M.pixel(M.origin(r,question),layout),p=creating?originPoint:M.handle(M.endpoint(r,question,layout),layout),key=`${question.family}-${selected()}-${creating?"anchor":"head"}`;
       const b=getTarget(key,creating?"anchor-hit":"reaction-head-hit");visible.add(key);b.hidden=false;
       b.className=creating?"anchor-hit":p.offscale?"offscale-head-hit":"reaction-head-hit";b.style.left=`${p.x}px`;b.style.top=`${p.y}px`;b.style.zIndex="8";
-      b.setAttribute("aria-label",creating?`從${question.bodies[r[0]].name}的${question.bodies[r[0]].anchors[r[1]].name}畫出反作用力`:`${question.bodies[r[0]].name}上的反作用力，${N.value(r[4]/100)} N，${N.value(r[3]/10)}度${p.offscale?"，超出圖框":""}`);
+      b.setAttribute("aria-label",(creating?`從${question.bodies[r[0]].name}的${question.bodies[r[0]].anchors[r[1]].name}畫出反作用力`:`${question.bodies[r[0]].name}上的反作用力`)+(r[3]===null?"":`，${N.value(r[4]/100)}牛頓，${N.direction(r[3])}`)+(p.offscale?"，超出圖框":""));
     }
     for(const [key,b] of targets)if(!visible.has(key)&&b!==drag?.element)b.hidden=true;
     if(drag?.active)preview();
   }
   function hidePreview(){d.magnifier.hidden=true;d.magnifierSvg.replaceChildren();d.previewBody.textContent="";d.previewValues.textContent="";}
   function preview(){
-    if(!drag||drag.type==="mouse"||!drag.active||drag.working[3]===null)return;
+    if(!drag||drag.type==="mouse"||!drag.active||drag.working[3]===null){hidePreview();return;}
     const r=drag.working,width=Math.min(240,layout.width-68),height=Math.min(100,(layout.height-44)/2),cursor=drag.cursor;
     const options=[{x:34,y:3},{x:layout.width-34-width,y:3},{x:34,y:layout.height-height-3},{x:layout.width-34-width,y:layout.height-height-3}],clear=p=>!(cursor.x>p.x-18&&cursor.x<p.x+width+18&&cursor.y>p.y-18&&cursor.y<p.y+height+18);
     if(!drag.corner||!clear(drag.corner))drag.corner=options.filter(clear).sort((a,b)=>Math.hypot(b.x+width/2-cursor.x,b.y+height/2-cursor.y)-Math.hypot(a.x+width/2-cursor.x,a.y+height/2-cursor.y))[0]||options[0];
@@ -111,24 +115,26 @@
     if(!drag)return;const p=point(event);drag.cursor=p;const dx=p.x-drag.down.x,dy=p.y-drag.down.y;
     if(!drag.active&&Math.hypot(dx,dy)<(drag.type==="mouse"?3:6))return;drag.active=true;
     const resolved=M.fromPoint(drag.before,q(),layout,{x:drag.baseEnd.x+dx,y:drag.baseEnd.y+dy},drag.type,drag.snap,drag.forceSnap);
+    drag.resolved=Boolean(resolved);
     if(resolved){drag.working=resolved.record;drag.snap=resolved.target;drag.forceSnap=resolved.forceTarget;}
+    else{drag.working=[...drag.before.slice(0,3),null,null];drag.snap=null;drag.forceSnap=null;}
   }
   function pointerMove(event){if(!drag||event.pointerId!==drag.id)return;event.preventDefault();diagnostics.moves++;resolveDrag(event);renderStage();}
   function pointerUp(event){
     if(!drag||event.pointerId!==drag.id)return;const p=point(event);
     if(p.x<32||p.x>layout.width-32||p.y<0||p.y>layout.height){cancel(true);renderStage();return;}
-    resolveDrag(event);diagnostics.ups++;const active=drag,newAnswer=M.clone(answers());if(active.active)newAnswer[selected()]=active.working;
-    cancel();c.setAnswer(newAnswer);renderStage();if(active.active)announce("已記錄這支反作用力。");
+    resolveDrag(event);diagnostics.ups++;const active=drag,newAnswer=M.clone(answers()),commit=active.active&&active.resolved;if(commit)newAnswer[selected()]=active.working;
+    cancel(active.active&&!active.resolved);c.setAnswer(newAnswer);renderStage();if(commit)announce("已記錄這支反作用力。");else if(active.active)announce("箭頭已拉回起筆點，保留原有作答。");
   }
   function keyDown(event,element){
     if(!editable()||record()[1]===null)return;
     if(event.key==="Escape"){if(keyboard){event.preventDefault();cancel();renderStage();}return;}
     if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter"].includes(event.key))return;event.preventDefault();
     if(keyboard&&keyboard.element!==element)cancel();
-    if(event.key==="Enter"&&keyboard){const next=M.clone(answers());next[selected()]=keyboard.record;cancel();c.setAnswer(next);renderStage();return;}
+    if(event.key==="Enter"&&keyboard){const next=M.clone(answers());next[selected()]=keyboard.record;cancel();c.setAnswer(next);renderStage();d.dragLayer.querySelector("button:not([hidden])")?.focus({preventScroll:true});announce("已記錄這支反作用力。");return;}
     if(!keyboard){const r=M.clone(record());keyboard={element,creating:r[3]===null,record:r};if(r[3]===null){r[3]=0;r[4]=100;}}
     const r=keyboard.record;if(event.key==="ArrowLeft")r[3]=(r[3]+(event.shiftKey?50:10))%3600;if(event.key==="ArrowRight")r[3]=(r[3]+3600-(event.shiftKey?50:10))%3600;
-    if(event.key==="ArrowUp")r[4]=Math.min(q().maxForce100,r[4]+(event.shiftKey?50:10));if(event.key==="ArrowDown")r[4]=Math.max(1,r[4]-(event.shiftKey?50:10));renderStage();
+    if(event.key==="ArrowUp")r[4]=Math.min(q().maxForce100,r[4]+(event.shiftKey?50:10));if(event.key==="ArrowDown")r[4]=Math.max(1,r[4]-(event.shiftKey?50:10));renderStage();announce(`目前作圖：${N.value(r[4]/100)}牛頓，${N.direction(r[3])}。`);
   }
   d.kindSelect.innerHTML+=""+N.names.map((name,i)=>`<option value="${i}">${N.escape(name)}</option>`).join("");
   d.kindSelect.onchange=()=>{cancel();c.command({type:"kind",index:selected(),kind:d.kindSelect.value===""?null:Number(d.kindSelect.value)});};

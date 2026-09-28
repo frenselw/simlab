@@ -24,6 +24,7 @@
       <file href="newtons-third-law-reaction-force-lab/model.js"/>
       <file href="newtons-third-law-reaction-force-lab/notation.js"/>
       <file href="newtons-third-law-reaction-force-lab/scoring.js"/>
+      <file href="newtons-third-law-reaction-force-lab/feedback.js"/>
       <file href="newtons-third-law-reaction-force-lab/persistence.js"/>
       <file href="newtons-third-law-reaction-force-lab/ui-runtime.js"/>
       <file href="newtons-third-law-reaction-force-lab/scene.js"/>

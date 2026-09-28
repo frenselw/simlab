@@ -5,13 +5,13 @@
   <title>牛頓第三定律：反作用力作圖挑戰</title><link rel="icon" href="data:,">
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
-  <script src="generator.js" defer></script><script src="model.js" defer></script><script src="notation.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
+  <script src="generator.js" defer></script><script src="model.js" defer></script><script src="notation.js" defer></script><script src="scoring.js" defer></script><script src="feedback.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
 </head>
 <body>
 <main id="app" class="reaction-app">
   <header class="sim-header"><div class="heading"><h1>牛頓第三定律</h1><span id="attemptStatus">反作用力作圖挑戰</span></div><nav class="question-nav" aria-label="五題導覽"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
   <section id="stage" class="stage" aria-label="反作用力作圖區">
-    <svg id="stageSvg" role="img" aria-label="已知受力與反作用力"></svg><div class="stage-top"><span id="motionLabel"></span><span id="ownerLabel"></span></div>
+    <svg id="stageSvg" role="img" aria-label="已知受力與反作用力" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p><p id="vectorKeyboardHelp" class="sr-only">左、右方向鍵調整角度，上、下方向鍵調整大小；按住Shift可加大步進。Enter記錄，Escape取消此次調整。</p><div class="stage-top"><span id="motionLabel"></span><span id="ownerLabel"></span></div>
     <div id="dragLayer" class="drag-layer"></div><div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
     <span class="stage-legend"><span class="given-key">已知力</span> · <span class="reaction-key">你的反作用力</span></span>
     <aside id="magnifier" class="magnifier" aria-hidden="true" hidden><div class="preview-readout"><div class="preview-title">目前作圖 · 2×</div><div id="previewBody"></div><div id="previewValues"></div></div><svg id="magnifierSvg" aria-hidden="true"></svg></aside>

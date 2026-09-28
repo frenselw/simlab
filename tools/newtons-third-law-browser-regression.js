@@ -321,9 +321,47 @@ async function usabilityChecks(cdp,base,label){
  }
  return report;
 }
+async function reviewChecks(cdp,base,label){
+ const report={anchorCancellation:[],focus:[],accessibleScenes:[],feedback:false};
+ const enter=async()=>{await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',unmodifiedText:'\r',windowsVirtualKeyCode:13});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await delay(60);};
+ for(const width of [320,390,1280]){
+  const touch=width<600,embedded=touch;await viewport(cdp,width,touch?600:900);
+  for(const creating of [true,false])for(const finalMove of touch?[true]:[true,false]){
+   const s=creating?P.fresh(21):filled(21);s.question=1;s.target=0;const q=G.generate(21).questions[1],expected=q.expected[0];if(creating)s.answers[1][0]=[...expected.slice(0,3),null,null];
+   await snapshot(cdp,base,s,{embedded});const durable=await call(cdp,'return JSON.stringify(w.__lmsValues);',embedded),l=await call(cdp,'return w.__reactionApp.getGeometry();',embedded),origin=await stagePoint(cdp,M.pixel(M.origin(expected,q),l),embedded),away=await stagePoint(cdp,M.endpoint([...expected.slice(0,4),1200],q,l),embedded),start=await rect(cdp,creating?'.anchor-hit:not([hidden])':'.reaction-head-hit:not([hidden])',embedded);
+   if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(start)]});else await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...start,button:'left',clickCount:1});
+   const move=async(p)=>{if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(p)]});else await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,button:'left',buttons:1});await delay(30);};
+   await move(away);assert.ok(await call(cdp,'return Boolean(d.querySelector(\'[data-reaction="0"]\'));',embedded));
+   if(touch)assert.equal(await call(cdp,'return d.getElementById("magnifier").hidden;',embedded),false);
+   if(finalMove){await move(origin);assert.equal(await call(cdp,'return d.querySelector(\'[data-reaction="0"]\')===null;',embedded),true,'returning to anchor removes the tentative vector');assert.equal(await call(cdp,'return d.getElementById("magnifier").hidden;',embedded),true,'no stale preview at the anchor');}
+   if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});else await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...origin,button:'left',clickCount:1});await delay(60);
+   assert.deepEqual(await state(cdp,embedded),s,'release at anchor retains only the previously committed answer');assert.equal(await call(cdp,'return JSON.stringify(w.__lmsValues);',embedded),durable);assert.equal(await call(cdp,'return d.getElementById("undoButton").disabled;',embedded),true);
+   report.anchorCancellation.push({width,creating,finalMove,preserved:true});
+  }
+ }
+ await viewport(cdp,1280,900);const initial=P.fresh(21);initial.question=1;await snapshot(cdp,base,initial);
+ for(const selector of ['[data-body="2"]','[data-anchor="1"]','[data-target="1"]','[data-question="2"]']){
+  await call(cdp,`d.querySelector(${JSON.stringify(selector)}).focus();`);await enter();assert.equal(await call(cdp,`return d.activeElement===d.querySelector(${JSON.stringify(selector)});`),true,`focus survives ${selector}`);report.focus.push(selector);
+ }
+ await click(cdp,'[data-body="1"]');await click(cdp,'[data-anchor="1"]');const before=await state(cdp);await call(cdp,'d.querySelector(".anchor-hit:not([hidden])").focus();');
+ await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowUp',code:'ArrowUp'});await delay(30);assert.deepEqual(await state(cdp),before);assert.match(await call(cdp,'return d.activeElement.getAttribute("aria-label");'),/1\.1牛頓/);assert.match(await call(cdp,'return d.getElementById("liveRegion").textContent;'),/1\.1牛頓/);
+ await enter();assert.equal((await state(cdp)).answers[2][0][4],110);assert.equal(await call(cdp,'return d.activeElement.matches(".reaction-head-hit");'),true,'newly committed keyboard arrow retains its head focus');report.focus.push('keyboard-arrow-commit');
+ for(const family of [3,4]){
+  const s=P.fresh(6);s.question=family;await snapshot(cdp,base,s);const q=G.generate(6).questions[family];
+  const object=await cdp.send('Runtime.evaluate',{expression:'document.getElementById("stageSvg")'}),ax=await cdp.send('Accessibility.getPartialAXTree',{objectId:object.result.objectId,fetchRelatives:false});await cdp.send('Runtime.releaseObject',{objectId:object.result.objectId});
+  const description=ax.nodes.find(n=>n.role?.value==='image')?.description?.value;assert.ok(description,'diagram has a browser accessibility description');for(const f of q.given){assert.ok(description.includes(`${f.angle10/10}度`));assert.ok(description.includes(`${f.force100/100}牛頓`));}
+  assert.match(description,/水平向右.*逆時針/);if(family===3)assert.match(description,/右下方.*120度/);report.accessibleScenes.push({family,description});
+ }
+ const wrong=filled(6);wrong.question=1;const q=G.generate(6).questions[1];wrong.answers[1][1]=[0,0,4,900,q.expected[1][4]*2];wrong.answers[3][0][0]=2;wrong.answers[3][0][1]=0;wrong.answers[4][0][1]=1;
+ await snapshot(cdp,base,wrong);assert.equal(await call(cdp,'return d.querySelectorAll(".explanation").length;'),0);await click(cdp,'#checkButton');assert.equal(await call(cdp,'return d.querySelectorAll(".explanation").length;'),0);await click(cdp,'#submitButton');
+ assert.equal(await call(cdp,'return w.__reactionApp.getResult().score;'),S.score(wrong).score);let text=await call(cdp,'return d.getElementById("feedback").textContent;');for(const phrase of ['不同物體','方向相反','大小應相等','並非萬有引力'])assert.ok(text.includes(phrase),phrase);
+ for(const width of [1280,390]){await viewport(cdp,width,width===390?844:900);await call(cdp,'const p=d.getElementById("controlPanel"),a=d.querySelector("#feedback article:last-of-type");p.scrollTop+=a.getBoundingClientRect().top-p.getBoundingClientRect().top-12;');await delay(60);const sizes=await call(cdp,'const p=d.getElementById("controlPanel");return {scroll:p.scrollWidth,client:p.clientWidth};');assert.ok(sizes.scroll<=sizes.client+1,'explanations fit the panel width');await screenshot(cdp,`${label}-${width}-review-explanations`);}
+ await click(cdp,'[data-question="3"]');assert.match(await call(cdp,'return d.getElementById("feedback").textContent;'),/固定架受到的是繩的拉力/);await click(cdp,'[data-question="4"]');assert.match(await call(cdp,'return d.getElementById("feedback").textContent;'),/本題用地心表示/);report.feedback=true;
+ return report;
+}
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},gestures:{},special:{},ownership:{},locked:{},fine:{},assistance:{},usability:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},gestures:{},special:{},ownership:{},locked:{},fine:{},assistance:{},usability:{},review:{},errors:[]};
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-thirdlaw-package-',packageNamePattern:/^simlab-thirdlaw-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'),`package parity ${name}`);
@@ -334,13 +372,14 @@ async function main(){
    const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`third law: ${label} layout/flow`);
    if(process.argv.includes('--assistance')){report.assistance[label]=await assistanceChecks(cdp,base,label);continue;}
    if(process.argv.includes('--usability')){report.usability[label]=await usabilityChecks(cdp,base,label);continue;}
+   if(process.argv.includes('--review')){report.review[label]=await reviewChecks(cdp,base,label);continue;}
    if(process.argv.includes('--edges')){for(const width of [390,320]){await fresh();report.special[`${label}-${width}`]=await specialChecks(cdp,base,`${label}-${width}`,width);await fresh();report.ownership[`${label}-${width}`]=await ownershipChecks(cdp,base,`${label}-${width}`,width);await fresh();report.locked[`${label}-${width}`]=await lockedChecks(cdp,base,`${label}-${width}`,width);}continue;}
-   if(!process.argv.includes('--touch')){report.viewports[label]=await visualMatrix(cdp,base,label);if(!process.argv.includes('--smoke')){report.flows[label]=await flows(cdp,base,label);report.fine[label]=await fineChecks(cdp,base,label);report.assistance[label]=await assistanceChecks(cdp,base,label);report.usability[label]=await usabilityChecks(cdp,base,label);}}
+   if(!process.argv.includes('--touch')){report.viewports[label]=await visualMatrix(cdp,base,label);if(!process.argv.includes('--smoke')){report.flows[label]=await flows(cdp,base,label);report.fine[label]=await fineChecks(cdp,base,label);report.assistance[label]=await assistanceChecks(cdp,base,label);report.usability[label]=await usabilityChecks(cdp,base,label);report.review[label]=await reviewChecks(cdp,base,label);}}
    if(process.argv.includes('--smoke'))continue;
    for(const width of [390,320]){console.log(`third law: ${label} trusted touch ${width}`);await fresh();report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);await fresh();report.special[`${label}-${width}`]=await specialChecks(cdp,base,`${label}-${width}`,width);await fresh();report.ownership[`${label}-${width}`]=await ownershipChecks(cdp,base,`${label}-${width}`,width);await fresh();report.locked[`${label}-${width}`]=await lockedChecks(cdp,base,`${label}-${width}`,width);}
    await fresh();report.gestures[`${label}-short`]=await touchMatrix(cdp,base,`${label}-short`,320,400);
   }
-  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':process.argv.includes('--edges')?'edges-report.json':process.argv.includes('--assistance')?'assistance-report.json':process.argv.includes('--usability')?'usability-report.json':'report.json'),JSON.stringify(report,null,2));
+  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':process.argv.includes('--edges')?'edges-report.json':process.argv.includes('--assistance')?'assistance-report.json':process.argv.includes('--usability')?'usability-report.json':process.argv.includes('--review')?'review-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__reactionApp?.getMode(),state:w.__reactionApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,'failure').catch(()=>{});}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-thirdlaw-(?:chrome|package)-[A-Za-z0-9]+$/,'third law test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
  if(failure)throw failure;console.log('third law source/package browser checks passed');

@@ -37,7 +37,7 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 |---|---|
 | Slug / learning objective | `newtons-third-law-reaction-force-lab`；辨認兩個相互作用的物體，畫出等大、反向、同作用線及同類型的配對力，區分反作用力與平衡力 |
 | Learner task / main interactions | 五題、八個配對；已知受力圖唯讀，學生選受力物體、起點、力種類並拖動箭尖；可改物體／起點、刪除、復原、下一步、檢查及提交 |
-| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`generator.js`、`scene.js`、`notation.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`；沿用三個 shared 檔案，無新增依賴的需求 |
+| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`generator.js`、`scene.js`、`notation.js`、`scoring.js`、`feedback.js`、`persistence.js`、`ui-runtime.js`；沿用三個 shared 檔案，無新增依賴的需求 |
 | Assessment risk / trusted validation | `formative`；100分、60分達標，瀏覽器評分只供形成性練習；高風險伺服器驗證不在本版範圍 |
 | Out of scope | 由學生求出題目中各力大小、計算加速度／力矩、任意多物體碰撞引擎、連續追蹤運動中的作用點、繪製所有環境物體的完整受力圖、電磁及相對論力學 |
 
@@ -143,15 +143,17 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | 已知力N、f、T、Fₛ、G及大小採math serif、變量斜體、真下標與正體N單位；圖上可用短標籤，面板完整寫施力／受力者。原生選單只用中文，旁邊另排數學符號 |
-| Arrow graphics | 沿用單一連續實心箭頭，箭尖精確落在力向量端點；給定與學生共用比例尺；標籤避讓但不移動作用線 |
+| Notation | 已知力N、f、T、F、Fₛ、G及大小採math serif、變量斜體、真下標與正體N單位；圖上可用短標籤，面板完整寫施力／受力者。原生選單只用中文，旁邊另排數學符號 |
+| Arrow graphics | 沿用單一連續實心箭頭，箭尖精確落在力向量端點；給定與學生共用比例尺；一般只避讓標籤。水平支持力依上文[版面契約](#responsive-layout-contract)採已批准的接觸位置顯示偏移，配對的兩力仍共線 |
 | Snap | 起筆從公開標記選擇。方向吸附到水平／鉛直、可見斜面平行／垂直、繩／彈簧軸、地球中心連線，全部雙向；touch入6°出9°，mouse/pen入4°出6°。不得把反向當唯一可吸附方向 |
 | Length assistance | 拖動大小採公開刻度：低於10 N每格0.5 N，10 N或以上每格1 N，拖動最小0.5 N。預設取最近刻度，已吸附時在相鄰半格外再容許0.18格才跳值，減少手指抖動；10 N交界按上下各自格距處理。v2新題提供±0.1 N微調，v1舊題提供±0.01 N微調；既有0.01 N保存精度不變，舊答案恢復不量化。所有力值同規則，不對正確大小設特殊磁吸；計分仍採原±10%容差，與吸附分開 |
 | Touch preview | 起筆及箭尖精調必需：2×真實局部場景＋固定文字讀數「畫在：…、F=… N、θ=…°」；顯示目前吸附後的學生值，不顯示應有大小／方向或對錯 |
 
 preview採牛頓第二定律修正後的做法：讀數在獨立固定區域，不把大文字一起裁切放大。預覽與主圖用相同坐標轉換，角落穩定且避開手指，不截斷數字、單位或物體名；放手、取消、失焦、resize、換題及鎖定都消失。預覽中的動態讀數在放手後隱藏；主圖保留簡短力名與大小標籤，固定面板亦可讀取已保存數值。
 
-保留鍵盤替代及焦點可達性，但不在主要學生介面堆放keyboard提示。大小微調按鈕及種類／物體控制均可用滑鼠和手指完成。
+保留鍵盤替代及焦點可達性，但不在主要學生介面堆放keyboard提示。大小微調按鈕及種類／物體控制均可用滑鼠和手指完成。重建題目、配對、物體及起點按鈕時保留焦點且不捲動面板；鍵盤工作值由抓手的無障礙名稱及即時通知報讀。圖的文字描述說明相對位置、已知力的施受力者、大小、方向及從水平向右逆時針量度的角度，不在提交前透露反作用力答案。
+
+拖動回到起筆點的最小半徑內時，暫時箭頭及preview清除；放手取消此次修改，保留原先已保存的作答（原本空白則仍空白），不新增undo項目。以pointerup最終位置判斷，不能保留途中最後一次非零力值。
 
 ## Touch gesture ownership contract
 
@@ -249,7 +251,7 @@ record = [recipientBodyId | null, anchorId | null,
 | Transient | pointer、吸附hysteresis、未放手幾何、preview角落、動畫時間、焦點、DOM、undo/redo；不寫suspend_data |
 | Derived | 已知題目及正解、作用點世界座標、像素比例、hit targets、標籤位置、進度、分數；由權威值重建 |
 | Version compatibility | schema及rubric仍為1；新作答generatorVersion=2。v1的draft/check/review/pending按原生成器還原、重算及續作，不遷移數值，不改既有成績。未知生成器版本拒絕 |
-| Size | 全部8格最長值連shared draft/review/pending封套須實測≤4000 UTF-8 bytes；預期遠低於上限，但現階段沒有production實測值 |
+| Size | 全部8格最長值連shared draft/review/pending封套須實測≤4000 UTF-8 bytes；production實測最大391／422／615 bytes，見下方本機證據 |
 | Invalid finished review | 保持鎖定，只顯示可信Moodle摘要，不能降級成editable |
 | Invalid pending-final | deeper decode/rescore失敗須quarantinePending，再技術鎖；不重試被拒payload、不清除checkpoint |
 | Invalid editable draft | 只有shared已確認未提交時可由明確恢復操作清除；未知狀態不重設 |
@@ -289,7 +291,7 @@ record = [recipientBodyId | null, anchorId | null,
 - [x] preview固定讀數完整、正確顯示吸附後大小／角度及學生選的受力物體，2×真實場景；不遮手指、不攔截、不洩露答案；release/cancel/blur/resize/navigation/lock均清除。
 - [x] 自然抖動不誤改長度；pointerup與最後move不同採最終位置；圖外放手／多指／lost capture安全取消；鍵盤小步不被吸附吞掉，不沿用另一支箭頭工作值。
 - [x] 已作答進度與下一步在錯答案、clear、undo／redo、恢復後一致；不預判對錯，不阻止空白檢查／明確提交。
-- [x] 測試新增至`tools/run-tests.js`；擬增`tools/newtons-third-law-browser-regression.js`及npm focused command；runtime全列入manifest。
+- [x] 測試已加入`tools/run-tests.js`；`tools/newtons-third-law-browser-regression.js`及npm focused command已實作；runtime全列入manifest。
 
 ## Package-ready checklist
 
@@ -375,5 +377,17 @@ record = [recipientBodyId | null, anchorId | null,
 - `scene.test.js`檢查144組版本／水平情境／鏡像／viewport組合的實際SVG箭頭：重力原位、支持力與反作用力共線等長、抓手標記對齊，以及原始題目不被修改；最短320×199場景的兩條作用線相距約9.64px。
 - `--smoke`已通過source及實際解壓ZIP的9種viewport、全五類情境、200% zoom與已作答畫面。已目視核對390px木塊／小車及1280px木塊截圖，兩支箭頭清楚分開。紀錄：`output/third-law-support-smoke.log`及`output/playwright/newtons-third-law/smoke-report.json`。
 - 完整活動source／ZIP browser runner通過；各8個實際滑鼠配對得100分，320／390px與320×400短iframe的trusted-touch矩陣通過，包含起筆、改箭尖、preview、取消、捲動、檢查與提交後鎖定。紀錄：`output/playwright/newtons-third-law/report.json`，browser errors為空；450組新舊版本還原及合法續作亦通過。
+
 - 本輪完整`npm test`、`npm run check`及`npm run package:all`均exit 0；紀錄：`output/third-law-support-full-test.log`、`output/third-law-support-check.log`及`output/third-law-support-packages.log`。全部ZIP已重新產生並驗證，本活動15個檔案（41,370 bytes）與source逐一相符。
 - 本機預覽回應HTTP 200；本輪未進行真實Moodle player／實體手機驗收，部署驗收仍待執行。
+
+## 2026-09-28 雙 reviewer 審核跟進
+
+GPT-6 Luna Max 及 GPT-6 Sol Max 各自獨立審查整個分支；合併報告、覆核狀態及本輪驗收證據見[獨立分支審核報告](../docs/reviews/2026-09-28-newtons-third-law-review.md)。
+
+- 修正拖回起筆點仍保存途中力值；保留原答案及復原歷史，清除暫時預覽。
+- 更新題目／配對／物體／起點控制時保留焦點；為圖提供已知方向及位置的無障礙描述，為鍵盤作圖提供暫時讀數。
+- 新增 `feedback.js`，只在可信提交後根據錯誤受力者、位置、方向、大小及種類作解說；支持力／重力及繩／固定架的誤解有專門文字。評分與權威作答格式不變。
+- 新增純 `feedback.test.js` 和 browser `--review` 路徑，並納入完整 runner。Source 與實際解壓 ZIP 的起點取消、焦點、accessibility tree 及提交解說檢查已通過；實際讀屏軟件驗收尚未執行。
+- 兩位 reviewer 完成各自覆核，沒有尚未解決的已確認可執行程式問題。完整活動 browser 報告包含 source／ZIP 各9種viewport、8個滑鼠配對100分、320／390px及短iframe各18類觸控檢查，`errors=[]`。
+- 本輪完整 `npm test`、`npm run check`、`npm run package:all` 及 diff whitespace 檢查通過；紀錄為 `output/third-law-review-full-test.log`、`output/third-law-review-check.log`、`output/third-law-review-packages.log`。最新第三定律 ZIP 有16個檔案（43,952 bytes），逐檔核對與 source 一致。

@@ -62,6 +62,11 @@ New questions use these same increments for their given magnitudes, so every
 shown value can be drawn exactly. Older Moodle attempts keep their original
 questions and scores, with 0.01 N adjustment for their original readings.
 Switching force pairs within a question preserves the panel's scroll position.
+Dragging an arrow back to its starting point cancels that change and preserves
+the previous answer. Question, force-pair, body and anchor controls retain
+keyboard focus when updated. Accessible scene descriptions provide the known
+forces' directions and spatial arrangement; the drawing handle announces its
+current magnitude and angle.
 Contact pushes use the symbol F and their paired reactions use F′.
 On horizontal surfaces, support arrows and their contact markers are displayed
 beside the unchanged weight arrow; the corresponding reaction stays collinear.
@@ -69,12 +74,17 @@ Moving ground illustrates uniform motion or acceleration up to a visual speed
 limit, while bodies and force arrows stay fixed for drawing. Question progress,
 next-step controls, undo and editable answer clearing
 support the drawing process. Explicit submission awards partial credit and opens
-read-only explanations and reference diagrams. The shared SCORM runtime handles
+read-only explanations and reference diagrams. Incorrect answers receive
+specific explanations about the receiving body, contact point, direction,
+magnitude and interaction type. The shared SCORM runtime handles
 draft resumption, frozen submission retries and completed attempts.
 
 See the [activity plan](plans/24-newtons-third-law-reaction-force-lab.md) for the
 physics constraints, rubric, snapshot schema and local verification evidence.
-Real Moodle and physical-phone acceptance remain separate deployment checks.
+The [independent review report](docs/reviews/2026-09-28-newtons-third-law-review.md)
+records the full-branch audits, follow-up fixes and verification results.
+Real Moodle, physical-phone and assistive-technology acceptance remain separate
+deployment checks; browser touch and accessibility-tree checks are local evidence.
 
 ## Local development
 
