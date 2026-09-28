@@ -82,7 +82,12 @@ draft resumption, frozen submission retries and completed attempts.
 See the [activity plan](plans/24-newtons-third-law-reaction-force-lab.md) for the
 physics constraints, rubric, snapshot schema and local verification evidence.
 The [independent review report](docs/reviews/2026-09-28-newtons-third-law-review.md)
-records the full-branch audits, follow-up fixes and verification results.
+records the full-branch audits, follow-up fixes and verification results. On
+2026-09-28, GPT-6 Luna and GPT-6 Sol (both using Max reasoning) completed
+independent reviews and follow-up checks with no outstanding confirmed findings.
+Local validation passed `npm run check`, the full `npm test` suite, and
+`npm run package:all`, including browser checks of the source and extracted
+SCORM package. All SCORM packages were regenerated and verified.
 Real Moodle, physical-phone and assistive-technology acceptance remain separate
 deployment checks; browser touch and accessibility-tree checks are local evidence.
 
