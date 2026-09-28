@@ -170,8 +170,11 @@ browser executable path when using a non-standard installation; a missing
 browser is reported as a failed prerequisite rather than a skipped test.
 
 The [Quality workflow](.github/workflows/quality.yml) runs syntax/manifest checks,
-unit and regression tests, package verification, and selected browser checks on
-pushes and pull requests. Local checks do not replace validation in a real
+the full test suite and package verification alongside a separate job for the
+additional browser checks on pushes and pull requests. Each job uses its own
+checkout; the final `check` succeeds only when both jobs pass. This keeps all
+existing checks while avoiding one shared timeout for the growing test suite.
+Local checks do not replace validation in a real
 Moodle student attempt; see the production guide for both acceptance checklists.
 
 On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.

@@ -5,9 +5,9 @@ on:
   pull_request:
 
 jobs:
-  check:
+  suite:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,9 +17,34 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run package:all
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
       - run: npm run test:browser:position-time
       - run: npm run test:browser:linear-motion
       - run: npm run test:browser:mobile-touch
       - run: npm run test:browser:driving
       - run: npm run test:browser:hookes-law
       - run: npm run test:browser:force-composition
+
+  # Preserve the existing required check: both parallel jobs must succeed.
+  check:
+    if: ${{ always() }}
+    needs: [suite, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every quality job to pass
+        env:
+          SUITE_RESULT: ${{ needs.suite.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          test "$SUITE_RESULT" = "success"
+          test "$BROWSER_RESULT" = "success"
