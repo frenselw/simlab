@@ -1,0 +1,30 @@
+"use strict";
+const assert=require("node:assert/strict"), M=require("./model.js"), I=require("./interpretation.js");
+const {filled}=require("./test-support.js");
+const close=(a,b,t=1e-10)=>assert.ok(Math.abs(a-b)<=t,`${a} ~ ${b}`);
+const full=filled();
+for(const graph of [0,1,2]) {
+  const a=I.analyze(full,graph);assert.equal(a.available,true);
+  close(a.coefficient,graph===0?1:.6,graph===2?.001:1e-10);
+  close(a.conversion.value,graph===0?1:.6,graph===2?.001:1e-10);
+  assert.equal(a.conversion.quantity,graph===0?"mass":"force");
+  assert.equal(a.conversion.unit,graph===0?"kg":"N");
+  assert.deepEqual(a.conversion.references,[graph===0?1:.6]);
+  let s=M.change(full,{type:"meaning",graph,value:"mass"});
+  const wrong=I.analyze(s,graph);assert.equal(wrong.conversion.unit,graph===0?"kg⁻¹":"N","wrong meaning must not invent units");
+  s=M.change(full,{type:"meaning",graph,value:"inverse-force"});
+  assert.equal(I.analyze(s,graph).conversion.unit,graph===0?"kg":"N⁻¹");
+  s=M.change(full,{type:"place",graph,index:0,point:[1200,1234]});
+  assert.equal(s.plots[graph].meaning,full.plots[graph].meaning,"retain the concept answer for reconsideration");assert.equal(I.analyze(s,graph).available,false);
+  s=M.change(s,{type:"fit",graph});assert.ok(I.analyze(s,graph).available);
+  s=M.change(full,{type:"model",graph,value:graph===1?"linear":"inverse"});s=M.change(s,{type:"fit",graph});
+  assert.equal(I.analyze(s,graph).available,false,"do not give a wrong model a physical constant");
+  s=M.change(full,{type:"clearGraph",graph});assert.equal(s.plots[graph].meaning,null);
+}
+let s=filled();s.plots[0].points=s.plots[0].points.map((p,i)=>[p[0],2*(i+1)*2000]);
+close(I.analyze(s,0).coefficient,2);close(I.analyze(s,0).conversion.value,.5);
+s=filled();s.plots[0].points=s.plots[0].points.map(p=>[p[0],0]);assert.equal(I.analyze(s,0).conversion.value,null,"no infinite mass");
+s.plots[0].model="linear";s.plots[0].points=s.plots[0].points.map((p,i)=>[p[0],12000-i*2000]);assert.equal(I.analyze(s,0).conversion.value,null,"negative slope is not a positive inferred mass");
+s=filled();s.groups[0].records[0]=M.measure(0,0);assert.deepEqual(I.analyze(s,0).conversion.references,[.5,1],"do not silently choose a single control value for an unfair data set");
+assert.equal(I.analyze(M.fresh(),0).available,false);
+console.log("newton interpretation: physical coefficients, actual student fits, units, zero/negative slopes, wrong models and data dependencies passed");

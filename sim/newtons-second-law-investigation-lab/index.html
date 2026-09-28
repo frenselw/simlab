@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>牛頓第二定律：公平測試與數據作圖</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script defer src="../config.js"></script><script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script>
+  <script defer src="model.js"></script><script defer src="fitting.js"></script><script defer src="interpretation.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="graph.js"></script><script defer src="experiment.js"></script><script defer src="main.js"></script>
+</head>
+<body>
+<main class="newton-app" id="app">
+  <header class="sim-header">
+    <div class="heading"><h1>牛頓第二定律</h1><span id="attemptStatus">公平測試與數據作圖</span></div>
+    <nav class="workflow" aria-label="活動步驟"><button data-phase="collect"><span class="nav-title">1 實驗</span><small class="nav-status"></small></button><button data-phase="plot"><span class="nav-title">2 作圖</span><small class="nav-status"></small></button><button data-phase="conclude"><span class="nav-title">3 歸納</span><small class="nav-status"></small></button><button id="checkButton">檢查作答</button></nav>
+    <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0"><span class="nav-title">A · 探究加速度與合外力的關係</span><small class="nav-status"></small></button><button data-group="1"><span class="nav-title">B · 探究加速度與總質量的關係</span><small class="nav-status"></small></button></nav>
+    <nav id="graphNav" class="context-nav" aria-label="作圖切換" hidden><button data-graph="0"><span class="nav-title"><var>a</var>–<var>F</var><sub>合</sub></span><small class="nav-status"></small></button><button data-graph="1"><span class="nav-title"><var>a</var>–<var>m</var></span><small class="nav-status"></small></button><button data-graph="2"><span class="nav-title"><var>a</var>–1/<var>m</var></span><small class="nav-status"></small></button></nav>
+  </header>
+  <section id="stage" class="stage" aria-label="實驗與作圖舞台">
+    <svg id="stageSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="實驗場景"></svg>
+    <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
+    <button id="sourceHandle" class="data-point-source" hidden aria-describedby="graphHelp keyboardHelp"></button>
+    <div id="pointHandles" class="drag-layer"></div>
+    <aside id="magnifier" class="magnifier" hidden aria-hidden="true"><div class="preview-readout"><div class="preview-title">目前座標 · 2×</div><div id="previewCoordinates"></div></div><svg id="magnifierSvg" xmlns="http://www.w3.org/2000/svg"></svg></aside>
+  </section>
+  <aside id="controlPanel" class="control-panel" aria-label="操作面板">
+    <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" hidden>重試保存</button>
+    <section id="resultPanel" hidden><h2 id="reviewTitle">只讀檢討</h2><div id="scorePanel" class="score-panel"></div><button id="retryFinalButton" class="full" hidden>重試同一份提交</button></section>
+    <section id="collectPanel">
+      <p class="kicker">設計公平測試 · 收集數據</p><h2 id="collectTitle"></h2>
+      <p id="collectPrompt"></p>
+      <div id="roleFields" class="role-fields">
+        <div class="role-row"><label for="role0">我要改變</label><select id="role0" data-role="0"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol0" class="role-symbol" aria-hidden="true"></span></div>
+        <div class="role-row"><label for="role1">保持不變</label><select id="role1" data-role="1"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol1" class="role-symbol" aria-hidden="true"></span></div>
+        <div class="role-row"><label for="role2">量度</label><select id="role2" data-role="2"><option value="">請選擇</option><option value="mass">總質量</option><option value="force">合外力</option><option value="acceleration">加速度</option></select><span id="roleSymbol2" class="role-symbol" aria-hidden="true"></span></div>
+      </div>
+      <div id="instrumentControls">
+        <div class="setting-label"><span>總質量 <var>m</var></span></div>
+        <div class="stepper"><button id="massDown" aria-label="減少一塊0.25公斤配重">−</button><output id="massValue"></output><button id="massUp" aria-label="增加一塊0.25公斤配重">＋</button></div>
+        <p class="small">包括 0.50 kg 小車及車上配重。</p>
+        <p class="small">恆力裝置沿水平方向推車；在本理想模型中，水平推力就是合外力。</p>
+        <div class="setting-label"><label for="forceRange">合外力 <var>F</var><sub>合</sub></label></div>
+        <div class="stepper"><button id="forceDown" aria-label="減少0.20牛頓">−</button><output id="forceValue"></output><button id="forceUp" aria-label="增加0.20牛頓">＋</button></div>
+        <input id="forceRange" class="force-range" type="range" min="0" max="5" step="1" value="2" aria-label="設定水平合外力">
+        <button id="measureButton" class="primary full">啟動量測</button>
+        <div id="measurementReadout" class="measurement-readout" aria-live="polite"></div>
+        <div class="button-row"><button id="recordButton" class="primary">加入本組資料</button><button id="replayButton">重播</button></div>
+        <details id="sensorDetails"><summary>加速度讀數從哪裡來？</summary><p>小車行進約 1 m，且起步後首 1 秒的採樣完成，便可記錄讀數；小車會繼續行進。感應器以首 1 秒的速度—時間圖斜率求出加速度，讀數精度為 0.001 m/s²。</p><div id="sensorGraph"></div></details>
+      </div>
+      <div class="section-label"><h3>本組數據</h3><span id="recordCount"></span></div>
+      <p class="small">建議記錄 6 筆，至少 5 個不同水平，並涵蓋可調範圍的 60%。</p>
+      <div id="recordTable"></div>
+      <button id="clearGroup" class="full">清本組資料</button>
+    </section>
+    <section id="plotPanel" hidden>
+      <p class="kicker" id="graphKicker"></p><h2 id="plotTitle"></h2>
+      <p id="graphHelp">選一筆數據，把圖上方的資料卡拖入圖框；靠近該筆座標時會吸附。已放點亦可再拖動。</p>
+      <div id="plotTable"></div>
+      <div id="pointControls"><div class="button-row"><button id="removePoint">移回待放</button></div></div><p id="keyboardHelp" class="sr-only">資料卡可用 Enter 開始放點，方向鍵微調，Shift 加快；Enter 確定，Escape 取消。</p>
+      <div class="section-label"><h3>選擇擬合方法</h3></div>
+      <label class="sr-only" for="fitModel">擬合方法</label><select id="fitModel" aria-describedby="fitFormula"><option value="">請選擇</option><option value="linear">直線</option><option value="origin">過原點直線</option><option value="quadratic">二次曲線</option><option value="inverse">反比例</option></select><p id="fitFormula" class="fit-formula"></p>
+      <button id="fitButton" class="primary full">擬合我的點</button><div id="fitResult" class="fit-result" aria-live="polite"></div>
+      <p class="small">擬合只使用已放置的點。RMSE 越小，曲線越貼近你放的點；仍須核對原始數據。未放點不會自動補入。</p>
+      <section id="interpretationPanel" class="interpretation-panel">
+        <h3>解讀這幅圖 <small id="interpretationWeight"></small></h3>
+        <div id="coefficientReadout" class="coefficient-readout"></div>
+        <fieldset><legend id="meaningPrompt"></legend><div id="meaningChoices"></div></fieldset>
+        <div id="conversionReadout" class="conversion-readout" aria-live="polite"></div>
+        <p class="small">換算依據的是你目前的點位和所選意義；還須核對控制量、圖點、單位及截距。讀數取位可能造成小偏差。</p>
+      </section>
+      <div class="button-row"><button id="returnExperiment">返回本組實驗</button><button id="clearGraph">清本圖作答</button></div>
+      <button id="referenceButton" class="full" hidden aria-pressed="false">顯示參考點</button>
+    </section>
+    <section id="concludePanel" hidden><p class="kicker">由圖像歸納規律</p><h2>整理你的結論</h2><p>可隨時返回實驗或作圖頁，核對自己的資料。</p><div id="conclusionFields"></div></section>
+    <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查目前作答</h2><p>未完成的項目不計分；已完成部分會按項目保留分數。你可以返回修改，或提交目前答案。</p><div id="checkSummary" class="check-summary"></div><button id="submitButton" class="primary full">提交目前答案</button></section>
+    <section id="feedback" class="feedback" hidden></section>
+    <section id="stepGuide" class="step-guide"><p id="stepProgress" role="status"></p><p class="small">進度只表示已作答。</p><button id="nextStep" class="primary full"></button></section>
+    <footer id="editableFooter"><button id="returnCheck" class="full" hidden>返回檢查</button><button id="clearAllButton" class="full">清除全部作答</button></footer>
+    <button id="recoverButton" class="full" hidden>清除未提交的損壞草稿</button>
+    <div class="panel-end" aria-hidden="true"></div>
+  </aside>
+</main>
+</body>
+</html>

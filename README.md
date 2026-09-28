@@ -23,6 +23,27 @@ The activities below are registered in `sim/config.js`, which records their stat
 - `force-composition-construction-lab` - 力的合成作圖實驗室
 - `force-orthogonal-decomposition` - 力的正交分解作圖練習
 - `force-equilibrium-diagram-lab` - 共點力平衡：受力圖挑戰
+- `force-equilibrium-advanced-diagram-lab` - 共點力平衡：進階受力圖挑戰
+- `newtons-second-law-investigation-lab` - 牛頓第二定律：公平測試與數據作圖
+
+### Newton's second law investigation
+
+The [Newton activity](sim/newtons-second-law-investigation-lab/index.html) lets
+learners design two fair tests using an idealized cart: acceleration against net
+force, and acceleration against total mass. Learners choose their variables,
+adjust mass and force, and record up to six measurements per group. Starting
+masses are randomized for each new attempt; keeping the control variable
+constant is the learner's responsibility.
+
+Learners drag their measurements onto three graphs—acceleration against net
+force, mass, and reciprocal mass—then choose a fit and interpret its coefficients.
+Fits use the learner's actual plotted points. Touch previews show the current
+coordinates and units beside a magnified grid; coordinate overlays disappear
+on release. Progress labels and next-step buttons guide the activity without
+revealing correctness or requiring every answer before final submission.
+
+See the [activity plan](plans/23-newtons-second-law-investigation-lab.md) for the
+physics model, scoring rubric, persistence schema, and verification evidence.
 
 ## Local development
 
@@ -38,8 +59,11 @@ For example:
 sim/displacement-distance-map-journey/index.html
 ```
 
-Each activity runs independently without a front-end build step. Outside Moodle,
-the shared SCORM runtime provides a local fallback for development.
+Each activity runs independently without a front-end build step. Standalone
+practice keeps answers in memory; refreshing starts a fresh session. Moodle
+restores work within the same attempt, with completed attempts kept read-only
+until Moodle supplies a new attempt. See the shared
+[refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
 
 ## SCORM packaging
 
@@ -89,6 +113,8 @@ npm run test:browser:hookes-law
 npm run test:browser:static-kinetic-friction
 npm run test:browser:force-composition
 npm run test:browser:force-equilibrium
+npm run test:browser:force-equilibrium-advanced
+npm run test:browser:newtons-second-law
 ```
 
 These checks require a local Google Chrome or Chromium executable. They detect the

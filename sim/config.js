@@ -1,5 +1,13 @@
 const simulationList = [
   {
+    title: "牛頓第二定律：公平測試與數據作圖",
+    folder: "newtons-second-law-investigation-lab",
+    categories: ["Mechanics"],
+    description: "自行設計兩組公平測試、量測小車加速度，拖點繪製三幅圖並比較擬合，探究合外力、總質量與加速度的關係。",
+    tags: ["physics", "mechanics", "newtons-second-law", "fair-test", "graph", "curve-fitting", "scorm"],
+    status: "active"
+  },
+  {
     title: "水平面靜止物體受力圖",
     folder: "fbd-horizontal-block",
     categories: ["Mechanics"],
