@@ -25,6 +25,7 @@ The activities below are registered in `sim/config.js`, which records their stat
 - `force-equilibrium-diagram-lab` - 共點力平衡：受力圖挑戰
 - `force-equilibrium-advanced-diagram-lab` - 共點力平衡：進階受力圖挑戰
 - `newtons-second-law-investigation-lab` - 牛頓第二定律：公平測試與數據作圖
+- `newtons-third-law-reaction-force-lab` - 牛頓第三定律：反作用力作圖挑戰
 
 ### Newton's second law investigation
 
@@ -44,6 +45,25 @@ revealing correctness or requiring every answer before final submission.
 
 See the [activity plan](plans/23-newtons-second-law-investigation-lab.md) for the
 physics model, scoring rubric, persistence schema, and verification evidence.
+
+### Newton's third law reaction forces
+
+The [third-law activity](sim/newtons-third-law-reaction-force-lab/index.html)
+presents five randomized scenes: an incline, accelerating blocks, a stretched or
+compressed spring, a hanging or swinging ball, and Earth attracting a nearby
+ball. Learners draw eight reaction forces, choosing each receiving body, anchor,
+direction, magnitude and force type. Known and learner-drawn forces share one
+linear scale; selecting the original body remains a legitimate, gradable mistake.
+
+Touch dragging includes a magnified scene with separate body, force and angle
+readouts. Question progress, next-step controls, undo and editable answer clearing
+support the drawing process. Explicit submission awards partial credit and opens
+read-only explanations and reference diagrams. The shared SCORM runtime handles
+draft resumption, frozen submission retries and completed attempts.
+
+See the [activity plan](plans/24-newtons-third-law-reaction-force-lab.md) for the
+physics constraints, rubric, snapshot schema and local verification evidence.
+Real Moodle and physical-phone acceptance remain separate deployment checks.
 
 ## Local development
 
@@ -115,6 +135,7 @@ npm run test:browser:force-composition
 npm run test:browser:force-equilibrium
 npm run test:browser:force-equilibrium-advanced
 npm run test:browser:newtons-second-law
+npm run test:browser:newtons-third-law
 ```
 
 These checks require a local Google Chrome or Chromium executable. They detect the
