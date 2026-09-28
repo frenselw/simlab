@@ -136,6 +136,14 @@ const simulationList = [
     status: "active"
   },
   {
+    title: "牛頓第三定律：反作用力作圖挑戰",
+    folder: "newtons-third-law-reaction-force-lab",
+    categories: ["Mechanics"],
+    description: "從斜面、接觸推動、彈簧、繩與萬有引力五個情境，選出受力物體並畫出反作用力的作用點、方向、大小與種類。",
+    tags: ["physics", "mechanics", "newtons-third-law", "action-reaction", "forces", "drawing", "scorm"],
+    status: "active"
+  },
+  {
     title: "共點力平衡：進階受力圖挑戰",
     folder: "force-equilibrium-advanced-diagram-lab",
     categories: ["Mechanics"],

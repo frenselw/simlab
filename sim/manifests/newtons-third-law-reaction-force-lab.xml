@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="newtons-third-law-reaction-force-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-NEWTONS-THIRD-LAW-REACTION-FORCE-LAB">
+    <organization identifier="ORG-NEWTONS-THIRD-LAW-REACTION-FORCE-LAB">
+      <title>牛頓第三定律：反作用力作圖挑戰</title>
+      <item identifier="ITEM-NEWTONS-THIRD-LAW-REACTION-FORCE-LAB" identifierref="RES-NEWTONS-THIRD-LAW-REACTION-FORCE-LAB"><title>牛頓第三定律：反作用力作圖挑戰</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-NEWTONS-THIRD-LAW-REACTION-FORCE-LAB" type="webcontent" adlcp:scormtype="sco" href="newtons-third-law-reaction-force-lab/index.html">
+      <file href="config.js"/>
+      <file href="newtons-third-law-reaction-force-lab/index.html"/>
+      <file href="shared/styles.css"/>
+      <file href="newtons-third-law-reaction-force-lab/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+      <file href="newtons-third-law-reaction-force-lab/generator.js"/>
+      <file href="newtons-third-law-reaction-force-lab/model.js"/>
+      <file href="newtons-third-law-reaction-force-lab/notation.js"/>
+      <file href="newtons-third-law-reaction-force-lab/scoring.js"/>
+      <file href="newtons-third-law-reaction-force-lab/feedback.js"/>
+      <file href="newtons-third-law-reaction-force-lab/persistence.js"/>
+      <file href="newtons-third-law-reaction-force-lab/ui-runtime.js"/>
+      <file href="newtons-third-law-reaction-force-lab/scene.js"/>
+      <file href="newtons-third-law-reaction-force-lab/main.js"/>
+    </resource>
+  </resources>
+</manifest>

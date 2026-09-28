@@ -6,6 +6,14 @@ const { spawnSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const tests = [
+  "sim/newtons-third-law-reaction-force-lab/generator.test.js",
+  "sim/newtons-third-law-reaction-force-lab/model.test.js",
+  "sim/newtons-third-law-reaction-force-lab/scoring.test.js",
+  "sim/newtons-third-law-reaction-force-lab/scene.test.js",
+  "sim/newtons-third-law-reaction-force-lab/feedback.test.js",
+  "sim/newtons-third-law-reaction-force-lab/persistence.test.js",
+  "sim/newtons-third-law-reaction-force-lab/lifecycle.test.js",
+  "tools/newtons-third-law-browser-regression.js",
   "sim/newtons-second-law-investigation-lab/model.test.js",
   "sim/newtons-second-law-investigation-lab/fitting.test.js",
   "sim/newtons-second-law-investigation-lab/interpretation.test.js",

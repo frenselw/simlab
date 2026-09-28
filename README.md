@@ -25,6 +25,7 @@ The activities below are registered in `sim/config.js`, which records their stat
 - `force-equilibrium-diagram-lab` - 共點力平衡：受力圖挑戰
 - `force-equilibrium-advanced-diagram-lab` - 共點力平衡：進階受力圖挑戰
 - `newtons-second-law-investigation-lab` - 牛頓第二定律：公平測試與數據作圖
+- `newtons-third-law-reaction-force-lab` - 牛頓第三定律：反作用力作圖挑戰
 
 ### Newton's second law investigation
 
@@ -44,6 +45,51 @@ revealing correctness or requiring every answer before final submission.
 
 See the [activity plan](plans/23-newtons-second-law-investigation-lab.md) for the
 physics model, scoring rubric, persistence schema, and verification evidence.
+
+### Newton's third law reaction forces
+
+The [third-law activity](sim/newtons-third-law-reaction-force-lab/index.html)
+presents five randomized scenes: an incline, accelerating blocks, a stretched or
+compressed spring, a hanging or swinging ball, and Earth attracting a nearby
+ball. Learners draw eight reaction forces, choosing each receiving body, anchor,
+direction, magnitude and force type. Known and learner-drawn forces share one
+linear scale; selecting the original body remains a legitimate, gradable mistake.
+
+Touch dragging includes a magnified scene with separate body, force and angle
+readouts. Magnitudes snap to 0.5 N steps below 10 N and 1 N steps at or above it,
+with hysteresis to steady the value and 0.1 N buttons for fine adjustment.
+New questions use these same increments for their given magnitudes, so every
+shown value can be drawn exactly. Older Moodle attempts keep their original
+questions and scores, with 0.01 N adjustment for their original readings.
+Switching force pairs within a question preserves the panel's scroll position.
+Dragging an arrow back to its starting point cancels that change and preserves
+the previous answer. Question, force-pair, body and anchor controls retain
+keyboard focus when updated. Accessible scene descriptions provide the known
+forces' directions and spatial arrangement; the drawing handle announces its
+current magnitude and angle.
+Contact pushes use the symbol F and their paired reactions use F′.
+On horizontal surfaces, support arrows and their contact markers are displayed
+beside the unchanged weight arrow; the corresponding reaction stays collinear.
+Moving ground illustrates uniform motion or acceleration up to a visual speed
+limit, while bodies and force arrows stay fixed for drawing. Question progress,
+next-step controls, undo and editable answer clearing
+support the drawing process. Explicit submission awards partial credit and opens
+read-only explanations and reference diagrams. Incorrect answers receive
+specific explanations about the receiving body, contact point, direction,
+magnitude and interaction type. The shared SCORM runtime handles
+draft resumption, frozen submission retries and completed attempts.
+
+See the [activity plan](plans/24-newtons-third-law-reaction-force-lab.md) for the
+physics constraints, rubric, snapshot schema and local verification evidence.
+The [independent review report](docs/reviews/2026-09-28-newtons-third-law-review.md)
+records the full-branch audits, follow-up fixes and verification results. On
+2026-09-28, GPT-6 Luna and GPT-6 Sol (both using Max reasoning) completed
+independent reviews and follow-up checks with no outstanding confirmed findings.
+Local validation passed `npm run check`, the full `npm test` suite, and
+`npm run package:all`, including browser checks of the source and extracted
+SCORM package. All SCORM packages were regenerated and verified.
+Real Moodle, physical-phone and assistive-technology acceptance remain separate
+deployment checks; browser touch and accessibility-tree checks are local evidence.
 
 ## Local development
 
@@ -115,6 +161,7 @@ npm run test:browser:force-composition
 npm run test:browser:force-equilibrium
 npm run test:browser:force-equilibrium-advanced
 npm run test:browser:newtons-second-law
+npm run test:browser:newtons-third-law
 ```
 
 These checks require a local Google Chrome or Chromium executable. They detect the

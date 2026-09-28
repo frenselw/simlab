@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f3f4f6">
+  <title>牛頓第三定律：反作用力作圖挑戰</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
+  <script src="generator.js" defer></script><script src="model.js" defer></script><script src="notation.js" defer></script><script src="scoring.js" defer></script><script src="feedback.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="reaction-app">
+  <header class="sim-header"><div class="heading"><h1>牛頓第三定律</h1><span id="attemptStatus">反作用力作圖挑戰</span></div><nav class="question-nav" aria-label="五題導覽"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
+  <section id="stage" class="stage" aria-label="反作用力作圖區">
+    <svg id="stageSvg" role="img" aria-label="已知受力與反作用力" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p><p id="vectorKeyboardHelp" class="sr-only">左、右方向鍵調整角度，上、下方向鍵調整大小；按住Shift可加大步進。Enter記錄，Escape取消此次調整。</p><div class="stage-top"><span id="motionLabel"></span><span id="ownerLabel"></span></div>
+    <div id="dragLayer" class="drag-layer"></div><div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
+    <span class="stage-legend"><span class="given-key">已知力</span> · <span class="reaction-key">你的反作用力</span></span>
+    <aside id="magnifier" class="magnifier" aria-hidden="true" hidden><div class="preview-readout"><div class="preview-title">目前作圖 · 2×</div><div id="previewBody"></div><div id="previewValues"></div></div><svg id="magnifierSvg" aria-hidden="true"></svg></aside>
+  </section>
+  <aside id="controlPanel" class="control-panel" aria-label="操作面板">
+    <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" class="full" hidden>重試保存</button>
+    <section id="questionIntro"><p id="questionKicker" class="kicker"></p><h2 id="questionTitle"></h2><p id="questionPrompt"></p><p id="gravityNote" class="small"></p><button id="pauseButton" class="full" hidden>暫停背景</button>
+      <p id="motionNote" class="small" hidden>圖中保留此刻受力；背景加速至顯示上限，僅作運動示意。</p><p id="valueNote" class="small" hidden>已知力值按作圖刻度取近似值，請按圖中數值配對。</p><div id="givenSummary" class="given-summary"></div><nav id="targetNav" class="target-nav" aria-label="選擇要配對的已知力"></nav>
+    </section>
+    <section id="editPanel">
+      <details><summary>怎樣畫反作用力？</summary><p>先選受力物體及起筆點，再從圖上的圓點拖出箭頭。拖箭尖可改方向及大小，最後標明種類。接觸力由接觸標記起筆，引力由中心點起筆；同題所有箭頭共用比例尺。角度由水平向右起，逆時針為正。</p><p>拖動大小會吸附至刻度：低於10 N每格0.5 N，10 N或以上每格1 N；需要更細的數值，可用大小微調按鈕。</p></details>
+      <fieldset><legend>1 · 這支力作用在哪個物體？</legend><div id="bodyChoices" class="choice-grid"></div></fieldset>
+      <fieldset id="anchorField" disabled><legend>2 · 選起筆點，再到圖中畫箭頭</legend><div id="anchorChoices" class="anchor-choices"></div><p id="drawHint" class="small"></p></fieldset>
+      <fieldset><legend>3 · 標明力的種類</legend><label class="sr-only" for="kindSelect">反作用力的種類</label><select id="kindSelect"><option value="">尚未選擇</option></select></fieldset>
+      <div id="forceReadout" class="force-readout"></div><div class="adjust-grid"><button data-adjust="ccw">↶ 轉左 1°</button><button data-adjust="cw">↷ 轉右 1°</button><button data-adjust="less">− 0.1 N</button><button data-adjust="more">＋ 0.1 N</button></div>
+      <div class="history-row"><button id="undoButton">復原</button><button id="redoButton">取消復原</button><button id="clearForceButton">清除此力</button></div><button id="clearQuestionButton" class="full">清除本題</button>
+      <section id="stepGuide" class="step-guide"><p id="stepProgress" role="status"></p><p class="small">進度只表示已作答。</p><button id="nextButton" class="primary full">下一步</button><button id="returnCheckButton" class="full" hidden>返回檢查</button></section>
+      <button id="clearAllButton" class="full">清除全部答案</button>
+    </section>
+    <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查五題作答</h2><p>未答項不計分；已完成的部分會按項目保留分數。你可以返回修改，或提交目前答案，包括空白作答。</p><div id="checkList"></div><button id="submitButton" class="primary full">確認提交目前答案</button></section>
+    <section id="reviewPanel" hidden><h2 id="reviewTitle"></h2><div id="scorePanel"></div><button id="retryFinalButton" class="full" hidden>重試同一份提交</button><button id="referenceButton" class="full" hidden>顯示參考圖</button><div id="feedback"></div></section>
+    <section id="technicalPanel" hidden><h2>作答資料需要檢查</h2><p>目前保留原有記錄。請檢查連線或資料問題後再開啟活動。</p><button id="recoverButton" class="full" hidden>清除未提交的損壞草稿</button></section>
+    <div class="panel-end"></div>
+  </aside><div id="liveRegion" class="sr-only" aria-live="polite"></div>
+</main>
+</body></html>
