@@ -4,6 +4,8 @@
   if (root) root.ReactionGenerator = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
+  const VERSION=2, supportsVersion=v=>v===1||v===2;
+  function forceTick(value){const step=value<10?.5:1;return Math.max(.5,Math.round(value/step+1e-9)*step);}
   const normalize = a => (a % 360 + 360) % 360, rad = a => a * Math.PI / 180;
   const point = (x, y) => ({ x, y });
   const add = (p, v, k = 1) => point(p.x + v.x * k, p.y + v.y * k);
@@ -19,12 +21,13 @@
     if (family === 4) for (const angle of [45, 75, 105, 135]) for (const W of [8, 12, 16]) put({ angle, W });
     return rows;
   }
-  function build(family, params) {
+  function build(family, params, version=VERSION) {
+    if(!supportsVersion(version))throw new Error("Unsupported generator");
     const p = { ...params }, mirrored = p.mirror === true;
     const transform = v => point(mirrored ? -v.x : v.x, v.y);
     const angle = a => Math.round(normalize(mirrored ? 180 - a : a) * 10) % 3600;
     const body = (id, name, center, anchors) => ({ id, name, center: transform(center), anchors: anchors.map(([name, v], i) => ({ id: i, name, point: transform(v) })) });
-    const force = (id, name, symbol, kind, source, origin, a, value, reactionAnchor = null) => ({ id, name, symbol, kind, source, recipient: 0, origin: transform(origin), angle10: angle(a), force100: Math.round(value * 100), reactionAnchor });
+    const force = (id, name, symbol, kind, source, origin, a, value, reactionAnchor = null) => ({ id, name, symbol, kind, source, recipient: 0, origin: transform(origin), angle10: angle(a), force100: Math.round((version===1?value:forceTick(value)) * 100), reactionAnchor });
     let title, prompt, motion, bodies, given, geometry, facts;
     const leftRight = mirrored ? "左" : "右";
     if (family === 0) {
@@ -42,7 +45,7 @@
       prompt = `外部推動器推著 A，使 A、B 在光滑水平面上一起向${leftRight}加速。圖中已畫出 B 所受的三個力。請畫出接觸推力和地面支持力的反作用力。`;
       const c = point(.8,.2), a = point(-.4,.2), contact = point(.2,.2), ground = point(.8,-.3), ag = point(-.4,-.3);
       bodies = [body(0,"木塊 B",c,[["B 的中心",c],["B 與地面接觸處",ground],["B 與 A 接觸處",contact]]),body(1,"木塊 A",a,[["A 的中心",a],["A 與 B 接觸處",contact],["A 與地面接觸處",ag]]),body(2,"地面",point(-.7,-1.4),[["地面內部標記",point(-.7,-1.4)],["與 B 接觸處",ground],["與 A 接觸處",ag]])];
-      given = [force("push","A 對 B 的推力","P",0,1,contact,0,p.mass*p.acceleration,1),force("normal","地面支持力","N",0,2,ground,90,p.mass*10,1),force("weight","重力","G",4,-1,c,270,p.mass*10)];
+      given = [force("push","A 對 B 的推力","F",0,1,contact,0,p.mass*p.acceleration,1),force("normal","地面支持力","N",0,2,ground,90,p.mass*10,1),force("weight","重力","G",4,-1,c,270,p.mass*10)];
       geometry = { groundY:-.3, drive:[transform(point(-2,.2)),transform(point(-1,.2))] };
       facts = { massA:1, massB:p.mass, acceleration:p.acceleration, drive:(1+p.mass)*p.acceleration, contact:p.mass*p.acceleration };
     } else if (family === 2) {
@@ -74,13 +77,13 @@
     const expected = targets.map(id=>{ const f=given.find(g=>g.id===id); return [f.source,f.reactionAnchor,f.kind,(f.angle10+1800)%3600,f.force100]; });
     return { family, code:"ABCDE"[family], params:p, title, prompt, motion, bodies, given, targets, expected, geometry, facts, maxForce100:3*Math.max(...given.map(f=>f.force100)) };
   }
-  function generate(seed, version=1) {
-    if (!Number.isInteger(seed)||seed<0||seed>4294967295||version!==1) throw new Error("Unsupported seed or generator");
-    const questions=Array.from({length:5},(_,i)=>{ const rng=random((seed ^ Math.imul(i+1,0x9e3779b9))>>>0);return build(i,pick(rng,parameterSets(i))); });
+  function generate(seed, version=VERSION) {
+    if (!Number.isInteger(seed)||seed<0||seed>4294967295||!supportsVersion(version)) throw new Error("Unsupported seed or generator");
+    const questions=Array.from({length:5},(_,i)=>{ const rng=random((seed ^ Math.imul(i+1,0x9e3779b9))>>>0);return build(i,pick(rng,parameterSets(i)),version); });
     const order=[0,1,2,3,4], rng=random((seed ^ 0xa5b35705)>>>0);
     for(let i=4;i>0;i--){const j=Math.floor(rng()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
     return {seed,version,questions,order};
   }
   function newSeed() { if (typeof crypto!=="undefined"&&crypto.getRandomValues) return crypto.getRandomValues(new Uint32Array(1))[0];return Math.floor(Math.random()*4294967296); }
-  return Object.freeze({generate,build,parameterSets,newSeed,normalize,rad,direction});
+  return Object.freeze({VERSION,supportsVersion,forceTick,generate,build,parameterSets,newSeed,normalize,rad,direction});
 });

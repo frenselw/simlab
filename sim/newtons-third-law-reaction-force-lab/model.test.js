@@ -15,6 +15,7 @@ for(let family=0;family<5;family++)for(const params of G.parameterSets(family)){
   // Every correct magnitude remains reachable within the unchanged 10% rubric,
   // approaching slowly from either direction through the hysteresis band.
   for(const expected of q.expected)for(const direction of [-1,1]){
+   assert.equal(M.fromPoint(expected,q,l,M.endpoint(expected,q,l),"touch").record[4],expected[4],"every v2 given value can be drawn exactly at every viewport");
    const force=expected[4]/100;let previous=null;
    for(let offset=2;offset>=0;offset-=.01)previous=M.snapForce(force+direction*offset,previous);
    previous=M.snapForce(force,previous);

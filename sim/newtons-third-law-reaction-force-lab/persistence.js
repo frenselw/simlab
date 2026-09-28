@@ -2,10 +2,10 @@
   "use strict";
   const ACTIVITY="newtons-third-law-reaction-force-lab",MAX_BYTES=4000,keys=["schemaVersion","generatorVersion","rubricVersion","seed","phase","question","target","returnToCheck","answers"];
   const bytes=v=>new TextEncoder().encode(JSON.stringify(v)).length;
-  function fresh(seed){const scene=G.generate(seed);return {schemaVersion:1,generatorVersion:1,rubricVersion:1,seed,phase:"edit",question:scene.order[0],target:0,returnToCheck:false,answers:M.emptyAnswers()};}
+  function fresh(seed,generatorVersion=G.VERSION){const scene=G.generate(seed,generatorVersion);return {schemaVersion:1,generatorVersion,rubricVersion:1,seed,phase:"edit",question:scene.order[0],target:0,returnToCheck:false,answers:M.emptyAnswers()};}
   function validate(s,kind){
     if(!["draft","review"].includes(kind)||!s||Array.isArray(s)||Object.keys(s).length!==keys.length||!keys.every(k=>Object.hasOwn(s,k)))throw new Error("Invalid snapshot fields");
-    if(s.schemaVersion!==1||s.generatorVersion!==1||s.rubricVersion!==1)throw new Error("Unsupported snapshot version");
+    if(s.schemaVersion!==1||!G.supportsVersion(s.generatorVersion)||s.rubricVersion!==1)throw new Error("Unsupported snapshot version");
     const scene=G.generate(s.seed,s.generatorVersion);
     if(!Array.isArray(s.answers)||s.answers.length!==5||!s.answers.every((a,i)=>M.validAnswer(a,scene.questions[i])))throw new Error("Invalid reaction records");
     if(!Number.isInteger(s.question)||s.question<0||s.question>4||!Number.isInteger(s.target)||s.target<0||s.target>=scene.questions[s.question].targets.length)throw new Error("Invalid selection");

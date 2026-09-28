@@ -30,7 +30,7 @@ function environment(options = {}) {
   const presentations = [], c = new Controller(window.SimScorm, Flow, current => presentations.push({ mode: current.mode, editable: current.editable, score: current.result?.score ?? null }), () => options.seed ?? 21);
   c.start(); return { c, scorm: window.SimScorm, durable, storage, flags, stats, events, presentations };
 }
-function filled(seed=21) { const s=P.fresh(seed);s.answers=G.generate(seed).questions.map(q=>M.clone(q.expected));return s; }
+function filled(seed=21,version=G.VERSION) { const s=P.fresh(seed,version);s.answers=G.generate(seed,version).questions.map(q=>M.clone(q.expected));return s; }
 function envelope(kind,state) {const result=S.score(state);return {version:1,activity:P.ACTIVITY,kind,answer:kind==="review"?P.review(state):P.draft(state),...(kind==="review"?{score:result.score,passed:result.passed}:{})};}
 function durableDraft(s) {return {"cmi.core.lesson_status":"incomplete","cmi.suspend_data":JSON.stringify(envelope("draft",s))};}
 function finishedData(s) {const r=S.score(s);return {"cmi.core.lesson_status":r.passed?"passed":"failed","cmi.core.score.raw":String(r.score),"cmi.suspend_data":JSON.stringify(envelope("review",s))};}

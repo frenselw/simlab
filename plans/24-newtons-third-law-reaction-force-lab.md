@@ -74,12 +74,12 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 | 題型／變數 | 生成規則與必須成立的物理條件 | 可見資訊 |
 |---|---|---|
 | A | θ取20°、30°、40°；重量W取10、15、20 N。N=W cosθ，f=W sinθ，取μₖ=tanθ，確保勻速下滑。接觸合力的作用點取重心鉛直線與底面的交點，木塊截面高／底寬取0.6，並驗證交點位於底面內；N與f在此接觸合力點分解，避免畫成有未平衡力矩卻不轉動 | 坡角、運動狀態、三力大小與方向；學生不用求μₖ |
-| B | 示意g=10 m/s²，B質量2或3 kg，A質量1 kg；a=4或6 m/s²。B受P=m_B a、N=W=m_B g。外部驅動作用於A，大小足以令兩塊共同加速；水平接觸力通過兩塊中心高度 | 指定B、地面光滑、共同加速方向、三力；不能只畫A、B互推卻宣稱整系統自行加速 |
+| B | 示意g=10 m/s²，B質量2或3 kg，A質量1 kg；a=4或6 m/s²。B受F=m_B a、N=W=m_B g。外部驅動作用於A，大小足以令兩塊共同加速；水平接觸力通過兩塊中心高度 | 指定B、地面光滑、共同加速方向、三力；接觸推力標F，其正確種類的反作用力標F′ |
 | C | W取10或20 N；已知彈簧力Fₛ/W取0.5或0.75；選正k及相容變形量。N=W，釋放時a=±Fₛ/m；彈簧水平且經小車中心高度 | 明寫已拉長／已壓縮、當刻由靜止釋放、彈簧的固定端及三力 |
 | D | 靜止版θ=0、T=W。擺動版θ取−30°、0°、30°，v²/L取0.5g或g，T=m(g cosθ+v²/L)>0；沿切線速度與重力切向分量相容。θ從向下鉛直線量度 | 狀態、繩走向、T與W；只需用已知T畫配對，不要求學生推導向心加速度 |
 | E | 小球在地球上方不同方位，例如從向右方向起計45°、75°、105°、135°；已知引力取8、12、16 N。使用一致的m與近地g描述；圖中誇張大小不代入物理計算 | 小球與地心、中心連線、指向地心的已知引力；空氣阻力不計 |
 
-內部先以未捨入值驗證運動條件，顯示及作圖參考力再量化至0.01 N；如有捨入，數字是讀數精度，不宣稱捨入後的分量和恰為零。參考箭長、標示值、學生長度評分均用同一已顯示力值。配對力的標準方向直接為已顯示原力加180°。
+內部先以未捨入值驗證運動條件。生成器v2的新作答把已知力取到公開作圖刻度：低於10 N每格0.5 N，10 N或以上每格1 N，令所有已知大小均可精確畫出；例如27.99 N改成28 N。原始物理值與取整值分開，取整誤差不超過相鄰半格且小於5%；介面說明數值按作圖刻度取近似值。參考箭長、標示值、標準答案及大小評分均用同一取整值，不宣稱取整後的分量和恰為零。配對方向仍為原力加180°。v1只供恢復舊attempt，保留原0.01 N力值及原分數，並提供0.01 N微調按鈕，舊題也能畫出相同數值。
 
 新作答生成一次 uint32 seed及五題排列；每類的幾何、變形／運動狀態和力值由版本化有限參數表決定。Moodle同attempt、換題、清本題／全部、復原及pending重試不重抽；獨立刷新或Moodle提供新attempt才重新生成。題型與視覺裝飾使用分離子序列。
 
@@ -124,7 +124,7 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 
 | Decision | Activity specification |
 |---|---|
-| Navigation | 五題independent直接跳轉；每題指定力用小分頁。所有切換保留答案，取消未放手操作；下一步只是引導，沒有完成門檻 |
+| Navigation | 五題independent直接跳轉；每題指定力用小分頁。同一題切換配對、選物體／起點及重繪保留面板捲動位置；換題及進出檢查才回到題意頂部。所有切換保留答案，取消未放手操作；下一步只是引導，沒有完成門檻 |
 | Final check access | 每個editable狀態均可到檢查，包括未選物體、只選種類、只選起點及畫圖未標種類；拖動中的工作值不當作已完成答案 |
 | Incomplete submission | 列出每題已選物體／已畫／已標種類數，容許明確提交空白或部分答案；最後一題不自動交卷 |
 | Editable reset | 清本格、清本題、清全部；已有答案時說清範圍並確認。全部清除保留seed、題目及順序，不換題；undo/redo保留當頁有限操作歷史 |
@@ -146,7 +146,7 @@ D 的動態版本是**擺球在某一瞬間的受力**，不宣稱整段垂直�
 | Notation | 已知力N、f、T、Fₛ、G及大小採math serif、變量斜體、真下標與正體N單位；圖上可用短標籤，面板完整寫施力／受力者。原生選單只用中文，旁邊另排數學符號 |
 | Arrow graphics | 沿用單一連續實心箭頭，箭尖精確落在力向量端點；給定與學生共用比例尺；標籤避讓但不移動作用線 |
 | Snap | 起筆從公開標記選擇。方向吸附到水平／鉛直、可見斜面平行／垂直、繩／彈簧軸、地球中心連線，全部雙向；touch入6°出9°，mouse/pen入4°出6°。不得把反向當唯一可吸附方向 |
-| Length assistance | 依2026-09-28使用者回饋，拖動大小採公開刻度：低於10 N每格0.5 N，10 N或以上每格1 N，拖動最小0.5 N。預設取最近刻度，已吸附時在相鄰半格外再容許0.18格才跳值，減少手指抖動；10 N交界按上下各自格距處理。保留±0.1 N微調及既有0.01 N保存精度，舊答案恢復不量化。所有力值同規則，不對正確大小設特殊磁吸；計分仍採原±10%容差，與吸附分開 |
+| Length assistance | 拖動大小採公開刻度：低於10 N每格0.5 N，10 N或以上每格1 N，拖動最小0.5 N。預設取最近刻度，已吸附時在相鄰半格外再容許0.18格才跳值，減少手指抖動；10 N交界按上下各自格距處理。v2新題提供±0.1 N微調，v1舊題提供±0.01 N微調；既有0.01 N保存精度不變，舊答案恢復不量化。所有力值同規則，不對正確大小設特殊磁吸；計分仍採原±10%容差，與吸附分開 |
 | Touch preview | 起筆及箭尖精調必需：2×真實局部場景＋固定文字讀數「畫在：…、F=… N、θ=…°」；顯示目前吸附後的學生值，不顯示應有大小／方向或對錯 |
 
 preview採牛頓第二定律修正後的做法：讀數在獨立固定區域，不把大文字一起裁切放大。預覽與主圖用相同坐標轉換，角落穩定且避開手指，不截斷數字、單位或物體名；放手、取消、失焦、resize、換題及鎖定都消失。預覽中的動態讀數在放手後隱藏；主圖保留簡短力名與大小標籤，固定面板亦可讀取已保存數值。
@@ -226,7 +226,7 @@ preview採牛頓第二定律修正後的做法：讀數在獨立固定區域，�
 
 ```text
 {
-  schemaVersion: 1, generatorVersion: 1, rubricVersion: 1,
+  schemaVersion: 1, generatorVersion: 1 | 2, rubricVersion: 1,
   seed: uint32,
   phase: "edit" | "check" | "review",
   question: integer 0..4, target: integer 0..K(question)-1,
@@ -248,7 +248,7 @@ record = [recipientBodyId | null, anchorId | null,
 | Authoritative | 版本、seed、已選body／anchor／kind、angle／force、phase、question／target、returnToCheck；包括合法錯誤、未作答及超框真值 |
 | Transient | pointer、吸附hysteresis、未放手幾何、preview角落、動畫時間、焦點、DOM、undo/redo；不寫suspend_data |
 | Derived | 已知題目及正解、作用點世界座標、像素比例、hit targets、標籤位置、進度、分數；由權威值重建 |
-| Version compatibility | 首版只接受schema/generator/rubric=1；以後保留已發布生成器或做明示migration，不能同seed生成新答案 |
+| Version compatibility | schema及rubric仍為1；新作答generatorVersion=2。v1的draft/check/review/pending按原生成器還原、重算及續作，不遷移數值，不改既有成績。未知生成器版本拒絕 |
 | Size | 全部8格最長值連shared draft/review/pending封套須實測≤4000 UTF-8 bytes；預期遠低於上限，但現階段沒有production實測值 |
 | Invalid finished review | 保持鎖定，只顯示可信Moodle摘要，不能降級成editable |
 | Invalid pending-final | deeper decode/rescore失敗須quarantinePending，再技術鎖；不重試被拒payload、不清除checkpoint |
@@ -353,3 +353,17 @@ record = [recipientBodyId | null, anchorId | null,
 - 本輪完整`npm test`與`npm run check`均exit 0；紀錄為`output/third-law-usability-full-test.log`及`output/third-law-usability-check.log`。
 - `npm run package:all` exit 0，所有ZIP已重新產生並核對；本活動15個檔案與source一致，根目錄有`imsmanifest.xml`。紀錄：`output/third-law-usability-packages.log`；修改後diff whitespace檢查通過。
 - 使用者的Remote預覽回饋不代替真實Moodle player的正式手機手勢／持久化驗收；該部署驗收仍待執行。
+
+## 2026-09-28 精確力值、面板位置與推力符號修正
+
+依使用者提供的27.99 N擺球例子，新作答改用生成器v2：取整到可畫出的公開力值刻度，標示、箭長、參考答案及評分共用取整值。原始物理計算仍保留並驗證，學生看到的力值明示為取近似值。v1題目按舊生成器恢復，使用0.01 N微調可畫出原有小數，沒有遷移已作答或已提交結果。
+
+同題切換配對與一般編輯保留面板捲動；換題及檢查仍展示新內容的頂部。兩木塊接觸推力標F，對應接觸正向反作用力標F′；選錯種類時仍顯示學生所選種類的符號。
+
+- 純模型驗證75種v2題目、全部viewport／配對均可精確畫到給定大小；300個seed的v1數值、幾何、答案、次序及物理資料與先前發布版本的指紋一致。
+- Production persistence：v1與v2合共450組還原及合法續作，另以評分容差邊界驗證舊draft/check/pending/review不被換成v2題目或改分。
+- `--usability` browser檢查已通過source及實際解壓ZIP，320／390px trusted touch及1280px桌面。面板不跳頂，新題28 N可精確作圖，舊題27.99 N可微調、恢復及提交；推力顯示F。紀錄：`output/playwright/newtons-third-law/usability-report.json`。
+- 本輪完整活動browser runner亦通過：source／ZIP各9個viewport、8個滑鼠配對得100分、320／390px及320×400短iframe的trusted-touch矩陣；原有防抖、微調保存及背景限速動畫檢查一併通過。紀錄：`output/playwright/newtons-third-law/report.json`，browser errors為空。
+- 本輪完整`npm test`與`npm run check`均exit 0；紀錄：`output/third-law-numeric-full-test.log`及`output/third-law-numeric-check.log`。
+- `npm run package:all` exit 0，全部SCORM ZIP重新產生並驗證；本活動15個檔案（41,142 bytes）與source逐一相符，含根目錄`imsmanifest.xml`。紀錄：`output/third-law-numeric-packages.log`。
+- 本輪證據限本機瀏覽器及模擬LMS；真實Moodle player與實體手機的正式驗收仍待執行。

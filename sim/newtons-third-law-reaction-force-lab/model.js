@@ -1,4 +1,4 @@
-(function(root,factory){const api=factory();if(typeof module==="object"&&module.exports)module.exports=api;if(root)root.ReactionModel=api;})(typeof window!=="undefined"?window:globalThis,function(){
+(function(root,factory){const api=factory(typeof module==="object"&&module.exports?require("./generator.js"):root.ReactionGenerator);if(typeof module==="object"&&module.exports)module.exports=api;if(root)root.ReactionModel=api;})(typeof window!=="undefined"?window:globalThis,function(G){
   "use strict";
   const clone=x=>JSON.parse(JSON.stringify(x)), clamp=(x,a,b)=>Math.max(a,Math.min(b,x)), normalize=a=>(a%360+360)%360;
   const angleDelta=(a,b)=>Math.abs((normalize(a-b)+180)%360-180), blank=()=>[null,null,null,null,null];
@@ -53,8 +53,7 @@
       const below=previous<=10?.5:1,above=previous<10?.5:1;
       if(force>=previous-.68*below&&force<=previous+.68*above)return previous;
     }
-    const step=force<10?.5:1;
-    return Math.max(.5,Math.round(force/step+1e-9)*step);
+    return G.forceTick(force);
   }
   function fromPoint(r,q,l,p,type,previous=null,previousForce=null){
     const o=origin(r,q);if(!o)return null;const start=pixel(o,l),dx=p.x-start.x,dy=start.y-p.y,radius=Math.hypot(dx,dy);if(radius<3)return null;

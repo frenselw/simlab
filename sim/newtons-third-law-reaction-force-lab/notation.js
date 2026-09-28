@@ -4,5 +4,6 @@
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const value=n=>Number(n.toFixed(2)).toString(),html=s=>s==="Fs"?"<var>F</var><sub>s</sub>":`<var>${escape(s)}</var>`;
   function description(q,i){const f=q.given.find(f=>f.id===q.targets[i]);return `${f.source===-1?"地球":q.bodies[f.source].name}對${q.bodies[0].name}的${f.name.includes("對")?shortNames[f.kind]:f.name}`;}
-  return Object.freeze({names,shortNames,symbols,escape,value,html,description});
+  const reactionSymbol=(kind,given)=>kind===null?"F":kind===0&&given.symbol==="F"?"F":symbols[kind];
+  return Object.freeze({names,shortNames,symbols,escape,value,html,description,reactionSymbol});
 });

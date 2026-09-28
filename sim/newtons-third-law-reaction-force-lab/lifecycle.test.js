@@ -1,6 +1,17 @@
 "use strict";
 const assert=require("node:assert/strict"),P=require("./persistence.js"),M=require("./model.js"),S=require("./scoring.js");
 const {environment,filled,finishedData,durableDraft,drawOne}=require("./test-support.js");
+// A v1 boundary answer scores differently under v2: never migrate an in-progress,
+// pending or finished attempt to the rounded question set.
+const legacy=filled(6,1);legacy.question=3;legacy.answers[3][0][4]=3079;
+const legacyScore=S.score(legacy);assert.equal(legacyScore.detail[3].detail[0].magnitude,false);
+const newVersion={...M.clone(legacy),generatorVersion:2};assert.equal(S.score(newVersion).detail[3].detail[0].magnitude,true);
+for(const content of [legacy,P.check(legacy)]){
+ const e=environment({durable:durableDraft(content)});assert.equal(e.c.state.generatorVersion,1);assert.equal(e.c.scenario.questions[3].given[0].force100,2799);e.c.check();e.flags.writeFail="cmi.core.score.raw";e.c.submit();assert.equal(e.c.mode,"frozen");
+ const retry=environment({durable:e.durable});assert.equal(retry.c.mode,"frozen");retry.c.retryFinal();assert.equal(retry.c.mode,"review");assert.deepEqual(retry.c.state,P.review(content));assert.equal(retry.c.result.score,legacyScore.score);
+ const reopened=environment({durable:retry.durable});assert.equal(reopened.c.mode,"review");assert.equal(reopened.c.result.score,legacyScore.score);assert.equal(reopened.c.state.generatorVersion,1);
+}
+assert.equal(environment().c.state.generatorVersion,2);
 for(const content of ["blank","kind","partial","full"]){
   const e=environment();if(content==="kind")e.c.command({type:"kind",index:0,kind:1});if(content==="partial")drawOne(e.c);if(content==="full")e.c.state=filled();
   e.c.check();const before=P.review(e.c.state),score=S.score(e.c.state);e.c.submit();assert.equal(e.c.mode,"review");assert.equal(e.c.result.score,score.score);assert.equal(e.c.trusted,true);

@@ -58,6 +58,11 @@ linear scale; selecting the original body remains a legitimate, gradable mistake
 Touch dragging includes a magnified scene with separate body, force and angle
 readouts. Magnitudes snap to 0.5 N steps below 10 N and 1 N steps at or above it,
 with hysteresis to steady the value and 0.1 N buttons for fine adjustment.
+New questions use these same increments for their given magnitudes, so every
+shown value can be drawn exactly. Older Moodle attempts keep their original
+questions and scores, with 0.01 N adjustment for their original readings.
+Switching force pairs within a question preserves the panel's scroll position.
+Contact pushes use the symbol F and their paired reactions use F′.
 Moving ground illustrates uniform motion or acceleration up to a visual speed
 limit, while bodies and force arrows stay fixed for drawing. Question progress,
 next-step controls, undo and editable answer clearing

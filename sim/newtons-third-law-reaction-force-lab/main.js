@@ -12,9 +12,10 @@
   const point=event=>{const r=d.stage.getBoundingClientRect();return {x:event.clientX-r.left,y:event.clientY-r.top};};
   const working=()=>drag?.active?drag.working:keyboard?.record||null;
   function cancel(count=false){const previous=drag;drag=null;keyboard=null;hidePreview();if(previous){if(count)diagnostics.cancels++;try{previous.element.releasePointerCapture(previous.id);}catch(_){}}}
-  function navigate(question,target=0){cancel();showReference=false;c.navigate(question,target);d.controlPanel.scrollTop=0;}
+  function navigate(question,target=0){const newContent=question!==c.familyIndex||c.mode==="check";cancel();showReference=false;c.navigate(question,target);if(newContent)d.controlPanel.scrollTop=0;}
   function enterCheck(){cancel();showReference=false;c.check();d.controlPanel.scrollTop=0;}
   function render(){
+    const panelScroll=d.controlPanel.scrollTop;
     if(!editable())cancel();const question=q(),safe=Boolean(question&&["edit","review","committed","frozen"].includes(c.mode));
     if(question?.family!==motionFamily){motionFamily=question?.family;elapsed=0;lastFrame=null;}
     d.app.classList.toggle("no-scene",!safe);d.stage.setAttribute("aria-hidden",String(!safe));
@@ -32,6 +33,8 @@
       d.gravityNote.textContent=question.family===4?"同題所有力箭頭按相同大小比例繪製。":"本題毋須畫重力的反作用力。";
       d.pauseButton.hidden=!M.backgroundMotion(question,0);d.pauseButton.textContent=paused?"播放背景":"暫停背景";
       document.getElementById("motionNote").hidden=question.family!==1;
+      document.getElementById("valueNote").hidden=c.state.generatorVersion===1;
+      for(const b of d.editPanel.querySelectorAll('[data-adjust="less"],[data-adjust="more"]'))b.textContent=`${b.dataset.adjust==="less"?"−":"＋"} ${c.state.generatorVersion===1?"0.01":"0.1"} N`;
       d.givenSummary.innerHTML=`<strong>已知：${N.escape(question.bodies[0].name)}所受的力</strong><br>`+question.given.map(f=>`${N.html(f.symbol)} = ${N.value(f.force100/100)} N · ${N.escape(f.name)}`).join("<br>");
       d.targetNav.replaceChildren();question.targets.forEach((id,i)=>{const f=question.given.find(f=>f.id===id),b=document.createElement("button");b.dataset.target=i;b.dataset.progress=status([answers()[i]]);b.setAttribute("aria-current",selected()===i?"step":"false");b.innerHTML=`${N.html(f.symbol)} 的反作用力<small>${statusName[status([answers()[i]])]}</small>`;b.onclick=()=>navigate(question.family,i);d.targetNav.append(b);});
       if(editable()){
@@ -61,6 +64,7 @@
       if(c.trusted&&question){const detail=c.result.detail[question.family];d.feedback.innerHTML=`<p>本題 ${N.value(detail.score)} / 20 分</p>`+detail.detail.map((result,i)=>{const f=question.given.find(f=>f.id===question.targets[i]),expected=question.expected[i],body=question.bodies[expected[0]],anchor=body.anchors[expected[1]];return `<article><h3>${N.html(f.symbol)} 的反作用力</h3><p>${N.escape(question.bodies[0].name)}對${N.escape(body.name)}的${N.escape(N.shortNames[f.kind])}，畫在${N.escape(anchor.name)}；與原力等大反向。</p><p>${[["body","受力物體"],["placement","起點／作用線"],["direction","方向"],["magnitude","大小"],["kind","種類"]].map(([key,label])=>`<span class="${result[key]?"ok":"issue"}">${result[key]?"✓":"○"} ${label}</span>`).join(" · ")}</p></article>`;}).join("")+`<p class="small">作用力與反作用力分別作用在兩個物體上。${question.family===4?"地球受到小球的萬有引力，不是支持力；兩力相等不代表兩者加速度相等。":question.family===3?"小球直接拉的是繩；固定架所受的力屬於另一組相互作用。":"物體是否加速，不改變同一配對力等大反向的關係。"}</p>`;}
     }
     renderStage();
+    d.controlPanel.scrollTop=panelScroll;
   }
   function getTarget(key,kind){
     if(targets.has(key))return targets.get(key);
@@ -128,7 +132,7 @@
   }
   d.kindSelect.innerHTML+=""+N.names.map((name,i)=>`<option value="${i}">${N.escape(name)}</option>`).join("");
   d.kindSelect.onchange=()=>{cancel();c.command({type:"kind",index:selected(),kind:d.kindSelect.value===""?null:Number(d.kindSelect.value)});};
-  for(const b of d.editPanel.querySelectorAll("[data-adjust]"))b.onclick=()=>{if(!editable()||record()[3]===null)return;cancel();const r=record(),action=b.dataset.adjust;c.command({type:"place",index:selected(),angle:r[3]/10+(action==="ccw"?1:action==="cw"?-1:0),force:r[4]/100+(action==="more"?.1:action==="less"?-.1:0)});};
+  for(const b of d.editPanel.querySelectorAll("[data-adjust]"))b.onclick=()=>{if(!editable()||record()[3]===null)return;cancel();const r=record(),action=b.dataset.adjust,step=c.state.generatorVersion===1?.01:.1;c.command({type:"place",index:selected(),angle:r[3]/10+(action==="ccw"?1:action==="cw"?-1:0),force:r[4]/100+(action==="more"?step:action==="less"?-step:0)});};
   d.undoButton.onclick=()=>{cancel();c.undo();};d.redoButton.onclick=()=>{cancel();c.undo(true);};
   d.clearForceButton.onclick=()=>{if(editable()&&confirm("清除此反作用力的物體、起點、箭頭及種類？其他配對會保留。")){cancel();c.command({type:"remove",index:selected()});}};
   d.clearQuestionButton.onclick=()=>{if(editable()&&confirm("清除此題的全部反作用力答案？其他題會保留。")){cancel();c.command({type:"clear"});}};
