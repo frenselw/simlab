@@ -214,54 +214,73 @@
     if (!editable() || view().phase !== "plot" || !geometry || event.button > 0 || event.isPrimary === false) return;
     const plot = controller.state.plots[view().index]; if (!M.integer(index, 0, plot.points.length - 1)) return;
     event.preventDefault(); cancelWork(); selected = index;
-    drag = { id: event.pointerId, target, index, graph: view().index, type: event.pointerType, point: plot.points[index]?.map(v => v / 10000) || null, held: null, cursor: localPoint(event) };
+    const cursor = localPoint(event);
+    drag = { id: event.pointerId, target, index, graph: view().index, type: event.pointerType, point: plot.points[index]?.map(v => v / 10000) || null, held: null,
+      cursor, start: cursor, active: target === d.sourceHandle };
     target.setPointerCapture(event.pointerId); diagnostics.downs++; diagnostics.lastTarget = target === d.sourceHandle ? "source" : "point";
     if (event.isTrusted && event.pointerType === "touch") diagnostics.trustedTouch++;
     renderStage();
   }
-  function moveDrag(event) {
-    if (!drag || drag.id !== event.pointerId) return;
-    event.preventDefault(); diagnostics.moves++; drag.cursor = localPoint(event);
+  function resolveDrag(cursor) {
+    drag.cursor = cursor;
+    if (!drag.active && Math.hypot(cursor.x - drag.start.x, cursor.y - drag.start.y) < (drag.type === "mouse" ? 3 : 6)) return false;
+    drag.active = true;
     const known = M.expected(drag.graph, controller.state.groups[M.sourceGroup(drag.graph)].records[drag.index]);
     const snap = G.snap(geometry, drag.cursor, known, drag.type, drag.held); drag.point = snap.point; drag.held = snap.held;
-    renderStage(); preview(drag.point);
+    return true;
+  }
+  function moveDrag(event) {
+    if (!drag || drag.id !== event.pointerId) return;
+    event.preventDefault(); diagnostics.moves++;
+    if (resolveDrag(localPoint(event))) { renderStage(); preview(drag.point); }
   }
   function finishDrag(event) {
     if (!drag || drag.id !== event.pointerId) return;
-    event.preventDefault(); const current = drag, valid = G.inside(geometry, localPoint(event)), point = current.point;
+    event.preventDefault(); const current = drag, cursor = localPoint(event), valid = G.inside(geometry, cursor);
+    // A release may carry a newer position than the last move. An unmoved click
+    // keeps the existing answer, including points that are currently off scale.
+    if (valid && (cursor.x !== current.cursor.x || cursor.y !== current.cursor.y)) resolveDrag(cursor);
+    const point = current.point;
     diagnostics.ups++; cancelWork();
     if (valid && point) command({ type: "place", graph: current.graph, index: current.index, point: G.encoded(point) });
     render();
   }
   function pointKey(event, index) {
     if (!editable() || view().phase !== "plot" || !geometry) return;
+    if (event.key === "Tab") { cancelKeyboard(event); return; }
     if (!["Enter", "Escape", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Delete", "Backspace"].includes(event.key)) return;
     event.preventDefault();
+    if (keyboard && keyboard.target !== event.currentTarget) cancelWork();
     if (event.key === "Escape") { cancelWork(); render(); return; }
     if (event.key === "Delete" || event.key === "Backspace") { cancelWork(); command({ type: "place", index, point: null }); return; }
     if (!keyboard) {
       selected = index; const existing = controller.state.plots[view().index].points[index];
       const point = existing ? existing.map(v => v / 10000) : [geometry.range.x / 2, geometry.range.y / 2];
-      keyboard = { graph: view().index, index, point: point.slice(), raw: point.slice(), held: null }; d.keyboardHelp.hidden = false; renderStage();
+      // A retained off-scale answer still uses its true coordinate. Keep the
+      // persisted 0–3 range for this edit instead of jumping to the visible top.
+      keyboard = { graph: view().index, index, target: event.currentTarget, point: point.slice(), maxY: point[1] > geometry.range.y ? 3 : geometry.range.y }; d.keyboardHelp.hidden = false; renderStage();
       if (event.key === "Enter") return;
     }
     if (event.key === "Enter") { const k = keyboard; cancelWork(); command({ type: "place", graph: k.graph, index: k.index, point: G.encoded(k.point) }); render(); return; }
     const axis = ["ArrowLeft", "ArrowRight"].includes(event.key) ? 0 : 1, direction = ["ArrowRight", "ArrowUp"].includes(event.key) ? 1 : -1;
     const step = (axis ? geometry.minorY : geometry.minorX) / (event.shiftKey ? 1 : 10);
-    keyboard.raw[axis] = G.clamp(keyboard.raw[axis] + direction * step, 0, axis ? geometry.range.y : geometry.range.x);
-    const known = M.expected(keyboard.graph, controller.state.groups[M.sourceGroup(keyboard.graph)].records[keyboard.index]);
-    const snapped = G.snap(geometry, G.pixel(geometry, keyboard.raw), known, "mouse", keyboard.held);
-    keyboard.point = snapped.point; keyboard.held = snapped.held; renderStage();
+    keyboard.point[axis] = G.clamp(keyboard.point[axis] + direction * step, 0, axis ? keyboard.maxY : geometry.range.x);
+    renderStage();
+  }
+  function cancelKeyboard(event) {
+    if (keyboard?.target === event.currentTarget) { cancelWork(); renderStage(); }
   }
   function bindPoint(button) {
     button.addEventListener("pointerdown", e => beginDrag(e, +button.dataset.point, button)); button.addEventListener("pointermove", moveDrag); button.addEventListener("pointerup", finishDrag);
     for (const name of ["pointercancel", "lostpointercapture"]) button.addEventListener(name, () => { if (drag?.target === button) { cancelWork(true); render(); } });
     button.addEventListener("keydown", e => pointKey(e, +button.dataset.point));
+    button.addEventListener("focusout", cancelKeyboard);
   }
   d.sourceHandle.addEventListener("pointerdown", e => beginDrag(e, selected, d.sourceHandle));
   d.sourceHandle.addEventListener("pointermove", moveDrag); d.sourceHandle.addEventListener("pointerup", finishDrag);
   for (const name of ["pointercancel", "lostpointercapture"]) d.sourceHandle.addEventListener(name, () => { if (drag?.target === d.sourceHandle) { cancelWork(true); render(); } });
   d.sourceHandle.addEventListener("keydown", e => pointKey(e, selected));
+  d.sourceHandle.addEventListener("focusout", cancelKeyboard);
   for (const b of document.querySelectorAll(".workflow [data-phase]")) b.addEventListener("click", () => {
     const phase = b.dataset.phase, v = view(); navigate(phase, phase === "collect" ? v.phase === "plot" ? M.sourceGroup(v.index) : lastGroup : phase === "plot" ? v.phase === "collect" ? (v.index === 0 ? 0 : lastGraph || 1) : lastGraph : null);
   });

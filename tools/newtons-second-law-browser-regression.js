@@ -287,6 +287,142 @@ async function interpretationChecks(cdp,base,label) {
   }
   return {realCoefficient:true,units:true,math:true,legacyDraft:true,legacyReview:true,legacyPending:true,touch};
 }
+async function interactionChecks(cdp,base,label) {
+  const evidence=[],jitter=[],offscaleKeyboard=[];
+  const key=async (name,modifiers=0)=>{
+    for(const type of ["keyDown","keyUp"])await cdp.send("Input.dispatchKeyEvent",{type,key:name,code:name,modifiers});
+  };
+  const mouse=async(type,p,pointerType="mouse")=>cdp.send("Input.dispatchMouseEvent",{type,x:p.x,y:p.y,button:"left",buttons:type==="mouseReleased"?0:1,clickCount:1,pointerType});
+  for(const [width,height] of [[1280,900],[320,400]]) {
+    await viewport(cdp,width,height,width<600);
+    const answer=P.navigate(filled(),"plot",0),expected=answer.plots[0].points[0].slice();
+    for(const moved of [true,false]) {
+      const unplaced=M.clone(answer);unplaced.plots[0].points[0]=null;unplaced.plots[0].fitAttempted=false;
+      await navigate(cdp,base,{fixture:durableDraft(unplaced)});
+      await call(cdp,"w.__releaseEvents=[];for(const type of ['pointerdown','pointermove','pointerup'])d.getElementById('sourceHandle').addEventListener(type,e=>w.__releaseEvents.push({type:e.type,x:e.clientX,y:e.clientY,trusted:e.isTrusted}));");
+      await mouse("mousePressed",await rect(cdp,"#sourceHandle"));
+      if(moved)await mouse("mouseMoved",await graphPixel(cdp,[.8,.8]));
+      await mouse("mouseReleased",await graphPixel(cdp,[.2,.2]));
+      assert.deepEqual((await state(cdp)).plots[0].points[0],expected,"release position is authoritative even without a final move");
+      const events=await call(cdp,"return w.__releaseEvents;");assert.ok(events.every(e=>e.trusted));
+      assert.deepEqual(events.map(e=>e.type),moved?["pointerdown","pointermove","pointerup"]:["pointerdown","pointerup"]);
+      evidence.push({width,height,release:moved?"newer-than-move":"without-move",events});
+    }
+    const wrong=M.clone(answer);wrong.plots[0].points[0]=[2137,3179];
+    await navigate(cdp,base,{fixture:durableDraft(wrong)});
+    let hit=await rect(cdp,'.plot-point-hit[data-point="0"]');hit.x+=8;
+    await mouse("mousePressed",hit);await mouse("mouseReleased",hit);
+    assert.deepEqual(await state(cdp),wrong,"clicking an existing point must preserve its precise position and fit");
+    await mouse("mousePressed",await rect(cdp,'.plot-point-hit[data-point="0"]'));
+    await mouse("mouseMoved",await graphPixel(cdp,[.6,.8]));
+    const stage=await rect(cdp,"#stage");await mouse("mouseReleased",{x:stage.x-stage.width/2+8,y:stage.y});
+    assert.deepEqual(await state(cdp),wrong,"release outside cancels the edit even after a valid move");
+    const offscale=M.clone(answer);offscale.plots[0].points[0]=[2000,30000];
+    await navigate(cdp,base,{fixture:durableDraft(offscale)});
+    hit=await rect(cdp,'.offscale-point-hit[data-point="0"]');
+    await mouse("mousePressed",hit);await mouse("mouseReleased",hit);
+    assert.deepEqual(await state(cdp),offscale,"an unchanged offscale grabber must not clamp the saved point");
+    for(const initial of [wrong,offscale]) {
+      const selector=initial===wrong?'.plot-point-hit[data-point="0"]':'.offscale-point-hit[data-point="0"]';
+      for(const pointer of ["mouse","pen"]) {
+        const distance=pointer==="mouse"?2:5;
+        for(const moved of [false,true]) {
+          await navigate(cdp,base,{fixture:durableDraft(initial)});
+          await call(cdp,`w.__jitterEvents=[];const b=d.querySelector(${JSON.stringify(selector)});for(const type of ['pointerdown','pointermove','pointerup'])b.addEventListener(type,e=>w.__jitterEvents.push({type:e.type,pointer:e.pointerType,trusted:e.isTrusted}));`);
+          const start=await rect(cdp,selector),end={x:start.x+distance,y:start.y};
+          await mouse("mousePressed",start,pointer);if(moved)await mouse("mouseMoved",end,pointer);await mouse("mouseReleased",end,pointer);
+          assert.deepEqual(await state(cdp),initial,"sub-threshold jitter must preserve the original point and fit");
+          assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;"),true);
+          const events=await call(cdp,"return w.__jitterEvents;");assert.ok(events.length>=2&&events.every(e=>e.trusted&&e.pointer===pointer));
+          jitter.push({width,pointer,moved,offscale:initial===offscale,distance,events});
+        }
+        // Once a drag starts, returning near the press location is still an edit.
+        const start=await rect(cdp,selector),end={x:start.x+1,y:start.y};
+        await mouse("mousePressed",start,pointer);await mouse("mouseMoved",await graphPixel(cdp,[1,.8]),pointer);await mouse("mouseMoved",end,pointer);await mouse("mouseReleased",end,pointer);
+        const changed=await state(cdp);assert.notDeepEqual(changed.plots[0].points[0],initial.plots[0].points[0]);assert.equal(changed.plots[0].fitAttempted,false);
+        assert.deepEqual(changed.plots[0].points.slice(1),initial.plots[0].points.slice(1));
+      }
+      await cdp.send("Emulation.setTouchEmulationEnabled",{enabled:true,maxTouchPoints:2});
+      for(const distance of [1,5]) {
+        await navigate(cdp,base,{fixture:durableDraft(initial)});
+        const start=await rect(cdp,selector),before=await call(cdp,"return w.__newtonApp.getPointerDiagnostics();");
+        await dragTouch(cdp,start,{x:start.x+distance,y:start.y});
+        assert.deepEqual(await state(cdp),initial,"trusted finger jitter must not snap or clamp an existing point");
+        const after=await call(cdp,"return w.__newtonApp.getPointerDiagnostics();");assert.ok(after.trustedTouch>before.trustedTouch&&after.moves>before.moves&&after.ups>before.ups);assert.equal(after.cancels,before.cancels);
+        jitter.push({width,pointer:"touch",offscale:initial===offscale,distance,before,after});
+      }
+      const start=await rect(cdp,selector);await dragTouch(cdp,start,await graphPixel(cdp,[1,.8]));
+      const changed=await state(cdp),geometry=await call(cdp,"return w.__newtonApp.getGeometry();");
+      assert.notDeepEqual(changed.plots[0].points[0],initial.plots[0].points[0],"a finger drag past the threshold can still edit the point");
+      const actual=G.pixel(geometry,changed.plots[0].points[0].map(v=>v/10000)),end=G.pixel(geometry,[1,.8]);
+      assert.ok(Math.hypot(actual.x-end.x,actual.y-end.y)<=14.01,"the dragged result remains within the documented touch snap hold radius");
+      assert.equal(changed.plots[0].fitAttempted,false);assert.deepEqual(changed.plots[0].points.slice(1),initial.plots[0].points.slice(1));
+    }
+    // A single key must make the documented small step from either a reading or a wrong point.
+    for(const initial of [answer,wrong]) {
+      await navigate(cdp,base,{fixture:durableDraft(initial)});
+      await call(cdp,"w.__keyEvents=[];const b=d.querySelector('.plot-point-hit[data-point=\"0\"]');b.focus();b.addEventListener('keydown',e=>w.__keyEvents.push({key:e.key,trusted:e.isTrusted}));");
+      await key("Enter");await key("ArrowRight");
+      const wanted=initial.plots[0].points[0].map((v,i)=>i===0?v+50:v);
+      assert.deepEqual(await state(cdp),initial,"working keyboard coordinates remain uncommitted");
+      const preview=await call(cdp,"const p=d.querySelector('#stageSvg circle.selected');return {x:+p.getAttribute('cx'),y:+p.getAttribute('cy')};");
+      const geometry=await call(cdp,"return w.__newtonApp.getGeometry();"),position=G.pixel(geometry,wanted.map(v=>v/10000));
+      assert.ok(Math.hypot(preview.x-position.x,preview.y-position.y)<.01,"one key visibly resolves to one data step without snapping back");
+      await key("Enter");assert.deepEqual((await state(cdp)).plots[0].points[0],wanted);assert.equal((await state(cdp)).plots[0].fitAttempted,false);
+      assert.ok((await call(cdp,"return w.__keyEvents;")).every(e=>e.trusted));
+      await key("Enter");await key("ArrowRight",8);await key("Enter");
+      wanted[0]+=500;assert.deepEqual((await state(cdp)).plots[0].points[0],wanted,"Shift moves one whole minor interval");
+      const before=await state(cdp);await key("Enter");await key("ArrowUp");await key("Escape");
+      assert.deepEqual(await state(cdp),before,"Escape restores the committed answer");
+    }
+    // Shrinking an axis must not make one key silently clamp a retained answer.
+    await navigate(cdp,base,{fixture:durableDraft(offscale)});
+    await call(cdp,"d.querySelector('.offscale-point-hit[data-point=\"0\"]').focus();");
+    const offGeometry=await call(cdp,"return w.__newtonApp.getGeometry();");
+    const delta=Math.round(offGeometry.minorY/10*10000),wanted=[2000,30000-delta];
+    const pointLabel=()=>call(cdp,"const p=d.querySelector('#stageSvg .point-label'),r=p.getBoundingClientRect(),s=d.getElementById('stage').getBoundingClientRect();return {text:p.textContent,inside:r.left>=s.left&&r.right<=s.right&&r.top>=s.top&&r.bottom<=s.bottom};");
+    await key("Enter");await key("ArrowDown");
+    assert.deepEqual(await state(cdp),offscale,"offscale working coordinates remain uncommitted");
+    const labelBeforeSave=await pointLabel();
+    assert.equal(labelBeforeSave.text,`#1 (0.2, ${G.fmt(wanted[1]/10000)}) 超出圖框`);
+    assert.ok(labelBeforeSave.inside,"the actual offscale working coordinate is readable inside the stage");
+    await screenshot(cdp,`${label}-offscale-keyboard-${width}`);
+    await key("Enter");const savedOffscale=await state(cdp);
+    assert.deepEqual(savedOffscale.plots[0].points[0],wanted,"one key adjusts the true offscale coordinate by one small step");
+    assert.ok(wanted[1]/10000>offGeometry.range.y);assert.equal(savedOffscale.plots[0].fitAttempted,false);
+    assert.deepEqual(savedOffscale.plots[0].points.slice(1),offscale.plots[0].points.slice(1));
+    const durable=await call(cdp,"return {...w.__lmsValues};");await navigate(cdp,base,{fixture:durable});
+    assert.deepEqual(await state(cdp),savedOffscale,"the true offscale coordinate survives a production save and restore");
+    await call(cdp,"d.querySelector('.offscale-point-hit[data-point=\"0\"]').focus();");
+    await key("Enter");await key("ArrowUp");await key("Enter");
+    const restoredOffscale=await state(cdp);
+    assert.deepEqual(restoredOffscale.plots[0].points[0],[2000,30000],"a new edit can move back up within the valid saved range");
+    for(const cancel of ["Escape","focusout"]) {
+      await call(cdp,"d.querySelector('.offscale-point-hit[data-point=\"0\"]').focus();");
+      await key("Enter");await key("ArrowDown");
+      if(cancel==="Escape")await key("Escape");else await call(cdp,"d.getElementById('sourceHandle').focus();");
+      assert.deepEqual(await state(cdp),restoredOffscale,"canceling an offscale edit preserves the committed coordinate");
+      const afterCancel=await pointLabel();assert.equal(afterCancel.text,"#1 (0.2, 3) 超出圖框");assert.ok(afterCancel.inside);
+    }
+    offscaleKeyboard.push({width,height,delta,visibleMax:offGeometry.range.y,saved:wanted,restored:restoredOffscale.plots[0].points[0],labelBeforeSave});
+    for(const leave of ["Tab","focusout"]) {
+      await navigate(cdp,base,{fixture:durableDraft(answer)});
+      await call(cdp,"d.getElementById('sourceHandle').focus();");await key("Enter");await key("ArrowRight");
+      if(leave==="Tab") {
+        await key("Tab");await key("Tab");
+        assert.equal(await call(cdp,"return d.activeElement.dataset.point;"),"1","native Tab reaches the next placed point");
+      }else await call(cdp,"d.querySelector('.plot-point-hit[data-point=\"1\"]').focus();");
+      assert.deepEqual(await state(cdp),answer,"leaving a keyboard operation must not save it");
+      const restored=await call(cdp,"const p=d.querySelector('#stageSvg circle.selected');return {x:+p.getAttribute('cx'),y:+p.getAttribute('cy')};"),geometry=await call(cdp,"return w.__newtonApp.getGeometry();");
+      const original=G.pixel(geometry,[.2,.2]);assert.ok(Math.hypot(restored.x-original.x,restored.y-original.y)<.01,"focus changes remove the abandoned working point");
+      await key("Enter");await key("ArrowRight");await key("Enter");
+      const changed=await state(cdp);assert.deepEqual(changed.plots[0].points[0],expected,"the previous source point is untouched");
+      assert.deepEqual(changed.plots[0].points[1],[4050,4000],"only the newly focused point is edited");
+      evidence.push({width,height,keyboardLeave:leave,first:changed.plots[0].points[0],second:changed.plots[0].points[1]});
+    }
+  }
+  return {label,evidence,jitter,offscaleKeyboard,stationaryClick:true,outsideCancel:true,offscaleClick:true,singleStep:true,shiftStep:true,escape:true};
+}
 async function flows(cdp,base,label) {
   await viewport(cdp,1280,900,false);await navigate(cdp,base);
   for(const phase of ["collect","plot","conclude"]) {await click(cdp,`[data-phase="${phase}"]`);await click(cdp,"#checkButton");assert.equal(await mode(cdp),"check");}
@@ -447,7 +583,7 @@ async function specialTouch(cdp,base,label,width,kind) {
 async function main() {
   fs.mkdirSync(artifactDir,{recursive:true});sourceParity();
   const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,failure;
-  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},settings:{},errors:[]};
+  const report={activity:slug,engine:"Chrome/CDP trusted touch",viewports:{},gestures:{},flows:{},motion:{},interpretation:{},settings:{},interaction:{},errors:[]};
   try {
     const browser=findBrowser();assert.ok(browser,"Chrome is required");
     const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:"simlab-newton-package-",packageNamePattern:/^simlab-newton-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
@@ -460,19 +596,20 @@ async function main() {
     for(const [label,directory] of [["source",path.join(root,"sim")],["package",packageDirectory]]) {
       const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await freshPage();
       console.log(`newton browser: ${label} layout / flow`);
+      if(process.argv.includes("--interaction")) {report.interaction[label]=await interactionChecks(cdp,base,label);continue;}
       if(process.argv.includes("--interpretation")) {report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--motion")) {report.motion[label]=await motionChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(!process.argv.includes("--touch"))report.viewports[label]=await visualMatrix(cdp,base,label);
       if(process.argv.includes("--smoke"))break;
       if(process.argv.includes("--settings")) {report.settings[label]=await settingsChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);continue;}
       if(process.argv.includes("--short")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);continue;}
-      if(!process.argv.includes("--touch")) {report.settings[label]=await settingsChecks(cdp,base,label);report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
+      if(!process.argv.includes("--touch")) {report.interaction[label]=await interactionChecks(cdp,base,label);report.settings[label]=await settingsChecks(cdp,base,label);report.motion[label]=await motionChecks(cdp,base,label);report.interpretation[label]=await interpretationChecks(cdp,base,label);report.flows[label]=await flows(cdp,base,label);}
       for(const width of [390,320]) {await freshPage();console.log(`newton browser: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touchMatrix(cdp,base,`${label}-${width}`,width);
         // Isolate later scenarios from Chromium's multi-touch gesture sequence and stale frame hit testing.
         for(const kind of ["offscale","range","locked","cancel"]) {await freshPage();report.gestures[`${label}-${width}`].push(await specialTouch(cdp,base,`${label}-${width}`,width,kind));}}
       if(!process.argv.includes("--touch")) {await freshPage();report.gestures[`${label}-320-short`]=await touchMatrix(cdp,base,`${label}-320-short`,320,400);}
     }
-    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--settings")?"settings-report.json":process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
+    assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes("--interaction")?"interaction-report.json":process.argv.includes("--settings")?"settings-report.json":process.argv.includes("--short")?"short-report.json":process.argv.includes("--motion")?"motion-report.json":process.argv.includes("--interpretation")?"interpretation-report.json":"report.json"),JSON.stringify(report,null,2));
   } catch(e) {failure=e;if(cdp)report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__newtonApp?.getMode(),state:w.__newtonApp?.getState()};})()").catch(()=>null);fs.writeFileSync(path.join(artifactDir,"failure.json"),JSON.stringify({message:e.stack,report},null,2));if(cdp)await screenshot(cdp,"failure").catch(()=>{});}
   try {if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-newton-(?:chrome|package)-[A-Za-z0-9]+$/,"Newton test artifact");fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
   if(failure)throw failure;console.log("newton source/package browser checks passed");
