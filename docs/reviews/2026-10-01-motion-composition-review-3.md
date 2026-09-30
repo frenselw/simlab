@@ -124,3 +124,31 @@
 再次執行並通過：`node sim/motion-composition-stroboscopic-lab/{model,scoring,persistence,lifecycle,scene}.test.js`（五個獨立命令）、`MOTION_ARTIFACT_SUFFIX=recheck-3 node tools/motion-composition-browser-regression.js --smoke`、ZIP source bytes檢查及`git diff --check origin/main...HEAD`。另外執行 `node output/playwright/motion-composition-stroboscopic-lab/recheck-3/extra.js`；actual blur／visibility rollback通過，短viewport preview的失敗是報告中的R3-3，不聲稱這項通過。
 
 本機未解事項為R3-3及R3-4。真實Moodle學生attempt、實體手機current-window／new-window host topology／soft keyboard／toolbar及真實browser UI zoom等原deployment gates仍未驗，不能用本機CDP替代；它們與上述已確認本機缺陷分開列示。
+
+## 2026-10-01 第三輪完整再審：850eae6
+
+獨立再審完整 branch 相對 `origin/main`，HEAD=`850eae68c1b5232346699cf41ce0dbd36d51bcf5`。未讀其他兩人的第三輪報告，未修改產品、測試或其他報告。**R3-1至R3-4全部關閉；F06／F07修正通過，沒有新增可重現缺陷。本機 package-ready 審核通過；真實 Moodle／實體手機部署驗收仍未執行。**
+
+### 原 finding 及 F06／F07 closure
+
+| Finding | 本次獨立證據及結論 |
+|---|---|
+| R3-1：非字串 enum／invalid pending | strict string guards及三類 enum invalid pending quarantine仍在；重跑model、persistence、lifecycle及source／ZIP malformedEnums browser路徑，拒絕非字串，沒有retry／pagehide寫回損壞authority。關閉。 |
+| R3-2：320×225提交不可達 | source／ZIP各在standalone及fluid iframe實際進check、捲panel、提交及開reference；完整控制可視、無document橫向overflow，兩欄panel有138.59px可用高度。關閉。 |
+| R3-3／F06：短畫面preview遮指及裁切 | `main.js:106–121`先render讀數、量實際overlay／lens，stage無安全corner時選app shell另一欄；`index.html`中的preview已是pointer-inert absolute sibling。獨立short trusted-touch每路68次拖放（64個case×time×tray／active＋4個公開錯grid）及8個cancel通過；before／during authority與所有nonowners固定，預覽完整在shell可視範圍、離finger≥16px、實際兩軸3×、post-snap focus／讀數／release一致、所有exit清除。本次逐筆解析證據再核查，正常stage仍用stage corner。關閉。 |
+| R3-4／F07：近原點字重疊 | `scene.js:26–30`移除軸旁重複selected X／Y文字，保留selected粗圈及真下標圖例／time controls；`:45–47`另避開P標籤與y軸名並限制plot內。獨立檢看390×600情境D及短iframe預覽；所有diagram文字bbox gate通過（source／ZIP各66個正常scene，含C／D每時刻及reference，另有短scene）。沒有X₁／y或P₁／y重疊。關閉。 |
+
+### 全範圍結論
+
+- **物理、有限證據與精簡繁體文字**：重新核對完整model／scene／feedback及四題16點、等時位移與差值。A、D直線；B、C拋物線；D兩方向同時由靜止勻加速，固定比例才能直線。Δt=0.2s、g≈10m/s²、同尺度投影、y向上正號正確；有限頻閃只「符合」模型、平均速度不等同瞬時速度，1:3:5:7限制仍正確。學生界面沒有新增冗長說明，繁體、真下標及sup保持，提交前不展示正解。
+- **UI、手機、觸控及keyboard**：完整HTML／CSS／main／scene重新核查，共用三區、header流程、≥44px控制、14px圖字及bounded panel符合規則。獨立source／ZIP十種普通viewport和320×225 standalone／iframe操作通過。最新完整正常矩陣四組各43rows的tray／active、背景、雙strip、panel中段／兩端、只讀／frozen／committed、multi-touch直到全部end、取消／lostcapture／resize／圖外放手均核查通過；新增短矩陣source／ZIP各36rows通過。HTML stable capture、公開grid吸附／hysteresis、keyboard coarse／fine／Enter／Escape與pointer release保存相同authority。實際blur／visibility的第二輪可信瀏覽器證據仍適用：相關cleanup未改，不把dispatch事件當真實lifecycle。
+- **評分、空白／部分及依賴**：重新讀scoring與controller，重跑空白0、位置64、分類36、全對100、每axis獨立部分分、±50mm及重疊slot。四題獨立；只有放點依賴observed，分類先答、任意edit及空白皆可check／明確submit。check返回／returnToCheck、清除scope、最後next只進check、submitted review-only及pending frozen保持；stop label及readonly hints修正沒有回歸。
+- **production保存與合法續作**：重跑512個production encode/decode/restore及執行合法continuation，覆蓋所有phase／variant／case／time，draft／review／pending fixtures為791／818／1061 bytes。版本、phase、整數mm、null、strict enum、observation依賴及deep-invalid states fail closed；未答與錯答仍是合法資料。preview、animation、pointer及只讀切題沒有進authority。
+- **SCORM lifecycle／trust／quarantine／retry及standalone refresh**：完整controller及shared呼叫核查，四startup、四submission outcome、committed finish retry、immutable pending、retryable true／false、review rescore／trust、corrupt finished fallback／無寫入通過。只用shared loadAttempt／startup／submitWithCallbacks，沒有raw LMS欄位或新增活動自有commit／finish／page lifecycle。技術失敗不報confirmed score，無成績重設入口。source／ZIP partial／check／submitted refresh回fresh、deny-storage probes=0；fake-LMS同attempt draft／review／pending及fresh fixture通過。shared／其他活動檔案相對base未改。
+- **Catalogue、manifest、ZIP及測試**：active metadata、slug／title／launch及runtime refs一致，13個ZIP entry逐byte與final source／active config／manifest匹配；root有imsmanifest，沒有CDN、測試或screenshots。五個有意義pure suites及focused runner仍列入repo測試。最新父agent完整`report.json`為errors=[]、normal四組各43rows及short兩組各36rows；獨立smoke亦errors=[]。既有driver診斷屬歷史，沒有當目前產品失敗。
+
+### 本次實際驗證及未驗部署 gate
+
+本次獨立執行五個命令 `node sim/motion-composition-stroboscopic-lab/{model,scoring,persistence,lifecycle,scene}.test.js`（各別執行）及 `MOTION_ARTIFACT_SUFFIX=final-recheck-3 node tools/motion-composition-browser-regression.js --smoke`，全部exit0。獨立結果在 `output/playwright/motion-composition-stroboscopic-lab/final-recheck-3/smoke-report.json`；新增short trusted touch全矩陣確有執行，並非只讀父agent報告。另執行ZIP逐byte比對、逐筆preview／nonowner／release證據核查及`git diff --check origin/main...HEAD`，通過。沒有重跑全repo／完整normal矩陣；初版全repo `npm test` exit0的範圍保留，final受影響活動的五套pure及source／ZIP browser已重跑。
+
+**本機未解finding：無。** 真實Moodle學生attempt的score／status、刷新及退出再入、pending retry與新attempt，以及實體手機current-window／new-window host topology／soft keyboard／toolbar仍是未驗deployment gates。320×225是640×450在200%時的CSS viewport等效檢查，不能聲稱已操作真實browser UI zoom，也不推定真實Moodle或cross-origin host已驗收。

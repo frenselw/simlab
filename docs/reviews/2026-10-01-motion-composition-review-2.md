@@ -102,3 +102,45 @@ R2-1/R2-2 是本機可處理項目，不能在未處理前宣稱所有本機 pac
 - 讀取並保留目前完整 `report.json` 的 43-row×4 組證據；其普通手機 preview 已符合 R2-2，而短 reflow 的 touch matrix 仍要補。
 
 尚未解決：R2-3。實體手機與真實 Moodle 的學生 score/status、same-attempt resume/pending/review、新 attempt policy，以及 current-window/提供時的 new-window 全手勢矩陣仍未有部署證據，繼續與本機問題分開列示。本版形成性定位與服務端高風險評分 N/A 不變。
+
+## 2026-10-01 第三輪完整獨立複審（850eae6）
+
+審核 `origin/main...850eae68c1b5232346699cf41ce0dbd36d51bcf5` 的完整活動、計劃、catalogue、manifest、package 及測試；完成前沒有讀取其他人的第三輪報告。本輪僅追加自己的報告與獨立驗證 artifacts，沒有修改產品／正式測試。結論：R2-1、R2-2、R2-3 均已關閉，沒有新可重現 runtime 缺陷；尚有一項 P3 計劃文件一致性修正 R2-4。
+
+### R2-4 [P3，文檔] 計劃仍混有舊的圖上標籤及 radio 描述
+
+- 位置：`plans/25-motion-composition-stroboscopic-lab.md:133`、`:185`。
+- `:133` 仍稱圖域≥145px會在選中球影旁標 Xᵢ／Yᵢ，與同計劃 `:164` 及 production `scene.js:26`–`:30` 的最新粗圈＋真下標圖例決定不符。`main.js:78`–`:79` 實際在 stage 頂列圖例標時刻。
+- `:185` 稱分類控件為 radio 並描述 radio 方向鍵，但 production `index.html:29`、`:34` 的三個分類控件均為 native select；比較／微調開關則為 checkbox。
+- 影響／建議：這是設計與驗收文件的可重現描述矛盾，沒有造成操作故障。將兩句更新為現行粗圈、圖例／時刻選擇，以及 button／select／checkbox 的原生鍵盤操作；保留短畫面收起頂列的說明。毋須改 runtime。
+
+### 原問題 closure 與完整範圍
+
+| 範圍 | 本輪獨立核對結果 |
+|---|---|
+| R2-1／只讀提示 | `main.js:80` 先判 frozen/reference/只讀，再判 editable 未觀察。Source／ZIP 的空白、分類先答、未觀察題目 review/reference 回歸通過，沒有不可執行的頻閃提示。 |
+| R2-2／證據完整性 | Runner `:72`–`:90` 的 previewEvidence 與 `:171`–`:194` 的 shortTouch 分開保留 tray／active 的 before/during/after，核對真正場景、resolved focus、讀數、3×、避指與 release。完整普通矩陣四組各43 rows 的紀錄亦已讀取，不再覆寫 tray 指標。 |
+| R2-3／短畫面 preview | `main.js:106`–`:121` 先 render 再量 actual overlay／lens，preview 為 shell 內 pointer-inert sibling。320×225 的 t₁ preview rect 為 `(194,85.203125)` 至 `(318,223)`，完整位於320×225 shell，離開原本160px stage及手指；actual lens122×70、viewBox40⅔×23⅓，精確3×。本輪獨立 trusted touch 在 source／ZIP、standalone／fluid iframe 各四題四時刻的兩種抓手通過；128次正常拖放、8次公開錯格拖放、16次touchCancel皆通過。另以獨立 Python 重算全部136個正常／錯格預覽的 shell bounds、focus、精確3×、16px避指與 owner/non-owner 指標，全相符。普通 preview仍留在stage。 |
+| 物理／教學／繁體文字 | 重讀完整 model/scoring/scene/plan：0.20s共同時刻、等比例坐標、全部16點正確；A/D為`y=-x`但速度分布不同，B為`y=-(5/16)x²`，C為`x=(5/16)y²`的`y≤0`分支。由靜止加速的間距0.20/0.60/1.00/1.40m與0.40m增加量正確；有限資料只說符合模型，沒有當作連續加速度的證明。B的g近似／無阻力、C的水平加速及D直線條件都說明清楚。繁體操作及回饋精簡，未答仍為null，提交前不洩露正解。 |
+| 圖／符號／UI標準 | 三區有界布局、shared樣式／runtime、native HTML/SVG、44px抓手、16px主控件、14px必要圖字保持。Xᵢ／Yᵢ圖例與粗圈替代密集軸旁重複字，Pᵢ近y軸名時下移且留plot內。獨立source／ZIP十個普通viewport、C/D所有選中時刻及reference、短畫面的文字bbox回歸通過；查看新的手機、參考圖及短畫面preview截圖，沒有新的標籤相撞。上述R2-4只涉及plan舊句。 |
+| 手機／手勢／鍵盤 | 本輪完整短trusted-touch覆蓋四題四時刻、tray／active、正確／錯誤位置、iframe及取消；doc/panel/stage/activity visual viewport/host/selection皆固定，放手只改指定slot，取消恢復原答案並清preview。另讀最新完整普通390/320 source／ZIP各43rows的stage／左右24pxstrip／panel中段與兩端、review/frozen/committed及多指／各種打斷證據。公開grid無正解磁吸；兩條scroll strip可用，沒有第三個scroller。Keyboard／Shift微調／Enter保存／Escape取消、200%等價reflow的check-submit-reference及播放resize重播皆由本輪smoke再通過。90a09cc時以另一真實Chrome分頁觸發的trusted blur/visibility取消證據仍有效，850eae6未改該處理，沒有將DOM dispatch當作本輪新增驗證。 |
+| 評分／blank-partial／phase依賴 | 全空0、全對100、分類36／坐標64、兩分量各2分、分類各3分、±50mm所有邊界及重複末點16分再通過。任意editable可check及明確submit，包括未訪問／未觀察／只答分類／錯答／部分答案；只observed限制放點。導航保持四題，returnToCheck保留原作答；取消未保存工作點後才check／submit。 |
+| Production persistence／合法續作 | 重讀exact schema、strict enums、kind/phase、索引、mm tuple範圍及observed依賴。再執行512組production encode/decode/controller restore＋legal continuation；每種合法blank/partial/complete、return/check/review/pending等價通過，非法枚舉／依賴／tuple另測fail closed，合法錯答不被拒絕。draft/review/pending最長791/818/1061 UTF-8 bytes，低於4000。暫態pointer／keyboard／animation不寫入權威快照。 |
+| SCORM／trust／refresh | Controller維持shared loadAttempt/startup與submitWithCallbacks；success/committed/frozen/retry、finish retry、draft-save retry、非retryable lock、canonical final answer與rescore比對、unknown/mismatch只讀summary、invalid draft與deep invalid pending quarantine均重讀並再測通過。非法zero-score pending亦不寫回；pending固定同payload，review/committed無重做／清結果。沒有活動自寫raw LMS欄位或commit/finish/page-lifecycle。Standalone memory-only刷新全新、拒絕storage仍可用；fake-LMS same-attempt resume保留答案；未確認技術結果不假稱成功。 |
+| Catalogue／manifest／ZIP／tests | Catalogue active、slug/title/description/launch相符；root manifest、13 entries無缺／多檔，逐byte相等目前source及config，無外部runtime dependency／development檔。全部五pure suites及browser runner有登記，測試涵蓋獨立分量、邊界、null與錯答、restore續作、trust/failure locks、實際preview/ownership及label collision，有意義而非僅重述實作。Shared／其他活動未變。 |
+
+### 本輪實際驗證及限制
+
+- 五個 `node sim/motion-composition-stroboscopic-lab/{model,scoring,persistence,lifecycle,scene}.test.js`：分別執行，全部退出0，含512組round-trips/continuations。
+- `MOTION_ARTIFACT_SUFFIX=final-recheck-2 node tools/motion-composition-browser-regression.js --smoke`：退出0，Chrome155.0.8059.12，source／實際ZIP各10普通viewport、全部10項flow、2項短reflow提交／參考flow、36 rows短trusted-touch；`errors=[]`。本輪smoke沒有另跑普通43-row×4矩陣，該最新完整矩陣已逐項讀取與核對。
+- `node tools/check.js`、`git diff --check origin/main...HEAD`：退出0。另執行manifest／13個ZIP entries與現行source逐byte獨立比對：rootManifest=true、missing/extra=[]、byteParity=true、catalogue=active。
+- 新獨立圖像及報告：`output/playwright/motion-composition-stroboscopic-lab/final-recheck-2/smoke-report.json`；同目錄保留所讀850eae6完整report副本。獨立Python再算本輪與完整report各136個短preview：全部geometry／3×／避指／owner相符。
+- 初版1c18152的whole-repo `npm test` 已由root執行退出0，log為`output/motion-composition-repo-tests.log`，本次讀其末尾shared SCORM/activity-flow通過證據。850eae6受影響的本活動五pure suites及完整短／普通layout-flow回歸已重新實跑；shared／其他活動未改，按任務要求沒有重跑whole-repo suite，也沒有將初版全庫結果說成最終全庫重跑。
+
+本機runtime findings全數關閉；剩餘R2-4是plan文字一致性。真實Moodle學生score/status、同attempt刷新／離開再入及新attempt政策、pending/review真實續作，以及實體手機current-window／提供時new-window的完整手勢矩陣仍未有部署證據，屬另列Moodle-ready gate，不能由Chrome/CDP或fake LMS通過推論已完成。形成性用途維持，trusted-server高風險判分為N/A。
+
+## 2026-10-01 R2-4 文檔修正確認
+
+已直接重讀計劃 `:133`、`:185` 並核對 production：選定分運動以粗圈、真下標Xᵢ／Yᵢ圖例及面板時刻識別，所有圖域均無軸旁重複字；極短viewport收起頂列的說明與 `scene.js:26`–`:30`、`main.js:78`–`:79`、`styles.css:53` 一致。控件表已改為button／select／checkbox及原生選單鍵盤操作，44px button／select及checkbox label熱區亦與 `index.html:28`–`:34` 和既有CSS／驗證相符。
+
+R2-4 **關閉**，本 reviewer 全部可重現 findings 均已解決。`git diff --name-only 850eae6 -- sim/motion-composition-stroboscopic-lab tools/motion-composition-browser-regression.js sim/config.js sim/manifests/motion-composition-stroboscopic-lab.xml` 為空；本次只有文檔核對，沒有重跑runtime或whole-repo測試，850eae6完整複審及ZIP證據仍適用。真實Moodle／實體手機部署gate仍按上一節另列。

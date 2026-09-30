@@ -145,3 +145,43 @@
 - 已閱讀 root 的目前完整 `report.json` 四組各 43 rows（172 rows）、對應 source／ZIP screenshots 及 `output/motion-composition-repo-tests.log` 成功尾段；全 repo exit 0 由 root 的實際執行提供。本輪沒有重新跑整套 repo，也沒有以已歸檔失敗 driver diagnostics 當成目前產品失敗。
 
 未解事項只有本輪兩個可重現 findings 與前述外部部署 gate。320×225 CSS viewport／reflow 的實測不等於實機 browser UI 200% text zoom／OS accessibility 已通過；真實 Moodle 與實體手機的 current/new-window player、host 拓撲、attempt policy、retry／finish／review 實測仍需在交付中列明。其餘已審領域未發現新的可重現缺陷。
+
+## 第三輪完整獨立審核：850eae6
+
+日期：2026-10-01；整條 branch 相對 `origin/main`，runtime／正式測試保持 `850eae6`。重新核對全部領域，未閱讀其他兩位的第三輪報告，未修改產品或正式測試。獨立瀏覽器證據：`output/playwright/motion-composition-stroboscopic-lab/final-recheck-1/`。
+
+**結論：本輪未發現新的可重現本地缺陷，R1-01–R1-04 全部關閉。** 本審核者的 package-ready 檢查通過；三位結果仍由第四位彙整作最終 closure。真實 Moodle／實體手機未驗證，不能宣稱 Moodle-ready。
+
+### Findings closure
+
+| Finding | 最終核對 |
+|---|---|
+| R1-01 多指取消 owner | 維持關閉。ownership 實作未退回舊版；重新核對並以獨立 Node assertions 驗證最終普通矩陣的 32 次多指取消：host／iframe／document／panel／選擇／答案保持，全部 touch 結束後同頁 host pan 可恢復。 |
+| R1-02 兩抓手紀錄 | 維持關閉。最終四組各 43 rows，tray／active 均保存 before／during／after、preview 與 release；沒有覆寫或以舊失敗 driver 紀錄取代最終證據。 |
+| R1-03 短畫面 preview 遮指／裁切 | **關閉。** `index.html:40` 的 preview 已移為 shell sibling，`main.js:108–121` 先 render 真下標讀數，再量實際 overlay／lens，按 stage／shell 空間避指及以 lens 實際尺寸算 3×。本審核者獨立執行 source／ZIP、standalone／scrollable iframe 的 320×225 全部短操作；原 B t₂ 的 stage 仍 160×138.594，但 overlay 為 (194,85.203,124,137.797)、right=318／bottom=223，在 320×225 shell 完整可視，與 pointer 分離。全部 136 次正常／錯格拖放均避開 16 px 範圍、倍率橫豎皆 3、主圖／preview／release 一致、pointer-inert；16 次取消保留答案並清除 preview。 |
+| R1-04 X₁／y 軸名碰撞 | **關閉。** 圖內重複 Xᵢ／Yᵢ 文字移除，真下標圖例、粗圈及時刻保留。`scene.js:45–47` 亦避開 Pᵢ／y 軸名。獨立普通十種布局、390×600 的 C／D 各時刻、submitted reference 與所有短圖文字 bbox 無重疊；已目視 source D／ZIP C reference／兩路短 preview，字名清楚。 |
+
+### 全範圍最終結論
+
+| 領域 | 本輪核對及結果 |
+|---|---|
+| 物理／教學 | 四正交分運動、16 基準點、Δt=0.20 s、相同 O／比例尺、負 y 方向、g=10 m/s² 與忽略空阻、兩直線／兩拋物線均正確。相鄰等時間距仍為 0.80×4 或 0.20／0.60／1.00／1.40 m，增加量 0.40 m；有限頻閃只說符合模型，沒有誤作瞬時加速度證明。播放、頻閃、配對時刻、學生連線及提交後 reference 達到學習目標。 |
+| 繁體文案／圖字 | learner copy 精簡、繁體、區分同一物體的兩投影，分類／軌跡問題清楚。變數／真正下標／次方／單位保持一致；圖例與時刻仍能識別粗圈。參考答案與逐點分量回饋只在確認後顯示。 |
+| UI／手機標準 | shared 三區、配色、字體／按鈕、44 px target／navigation、24 px 左右 strip 及 bounded panel 符合基準。source／ZIP 十種常規布局無競爭 document scroll 或水平 overflow，控件可到達；320×225 standalone／iframe 實際檢查、提交及 reference 通過。新 preview 不影響布局，正常仍在 stage，短布局移到 shell 另一欄。 |
+| 手勢／鍵盤／snap | 兩種穩定 HTML capture targets、4 px 起拖、抓取偏移、public grid 吸附／hysteresis、pointerup 解析、cancel／lost capture／resize／圖外 rollback 正確。完整普通矩陣的 128 次正常拖放、32 次多指、16 次中斷、24 次 host、24 次 panel、12 次鎖定 pan 已核對所有 owner／非 owner；短矩陣由本審核者獨立重跑。方向鍵／Shift／Enter／Escape及面板微調通過，暫態不當已保存答案。 |
+| Blank／partial／rubric | 所有合法空白／部分 work 可直接檢查與明確提交；觀察只限制放點，分類獨立。64 分位置＋36 分分類、四題各 25、60 達標、x／y／類型獨立、±50 mm inclusive、untouched 0 與重複末點仍正確；49／50／51 mm 邊界及獨立部分分 assertions 通過。 |
+| Phase／production persistence | edit／check／returnToCheck／review 各 variant、四題四時刻保存、還原與合法續作重新通過 **512** 次；不持久化 pointer／DOM／動畫，不重新吸附已保存值。strict enum／整數／範圍／observed 依賴／版本拒絕仍有效，合法錯答不當損壞。draft／review／pending 樣本 791／818／1061 bytes，低於 4000。 |
+| SCORM／trust／failure locks | shared loadAttempt／startup／submitWithCallbacks／submission 保持四 outcomes；success／committed／frozen／retry（含兩類 retryable）、review mismatch／unknown、read failure、深層 pending quarantine、零分非法 enum及 equal-score altered answer 皆測試通過。技術狀態不宣稱成績確認，pending／committed 不可重做；無 activity-local LMS／commit／finish／page lifecycle。形成性 browser trust 限制及無 secrets 維持。 |
+| Refresh／resume | production source／ZIP flows 的 standalone edit／check／review 刷新回初始空白、舊 storage／拒絕 storage 不阻礙新練習、fake-LMS draft／review／pending 同 attempt 繼續均通過；navigation 不自動提交，已記錄結果沒有 clear／restart。 |
+| Catalogue／manifest／ZIP | active entry 的六欄、slug／folder／launch 一致；無額外 runtime dependencies。SCORM 1.2 profile、根 manifest、13 ZIP entries、10 HTML runtime refs 逐項核對，**全部 ZIP bytes 與最終 source 相同**；測試／output 未入包。 |
+| 測試與改動範圍 | 五純 suites 與 browser runner 已登記，固定數據／評分界線／production continuations／fake-LMS lifecycle／實際可信觸控／DOM bbox 都有 meaningful assertions。shared／其他活動自初版無改；沿用初版 whole-repo `npm test` 的 exit 0 證據，最終重跑全部本活動受影響檢查；沒有另啟整 repo 或完整普通矩陣。 |
+
+### 本輪實際驗證與未解 gate
+
+- 獨立逐項執行五個活動 `model.test.js`、`scoring.test.js`、`persistence.test.js`、`lifecycle.test.js`、`scene.test.js`：全部退出 0；512 production round-trips／continuations 及上述 bytes 通過。
+- `MOTION_ARTIFACT_SUFFIX=final-recheck-1 node tools/motion-composition-browser-regression.js --smoke`：退出 0，Chrome `155.0.8059.12`；source／ZIP 各十種布局、滿分／空白／部分／resume／pending retry／readonly hints／malformed enums／resize stop-replay／standalone refresh／keyboard／間距工具通過。短 trusted touch source／ZIP 各 36 rows，合共 128 正常拖放＋8 公開錯誤格點＋16 touchCancel；`smoke-report.json` errors=[]。
+- `npm run check`、`git diff --check origin/main...HEAD`：退出 0。獨立 Node 檢查 manifest／HTML runtime refs／ZIP entries 與全部 source bytes：13 entries、10 refs、allByteIdentical=true。最終 `package:all` 由 root 執行，本輪未再覆寫其產物。
+- 另以獨立 Node assertions 全量讀取 root 最終 `report.json` 與自己的 `smoke-report.json`：正常／短拖放的權威答案只改當前 slot，during 不保存、所有非 owner 固定、trusted touch／move／up 增加且無意外 cancel、真實場景／focus／倍率／全框可視／16 px 避指通過；所有普通多指／中斷／host／panel／鎖定 rows 亦重新核對。摘要存於 `final-recheck-1/report-validation.json`。
+- 已目視自己產生的 normal D、package C reference、standalone D／iframe B short preview 圖；核對原兩個 UI findings closure。前輪真正 tab blur／visibility 的 source／ZIP 獨立證據仍適用：本輪 stop／blur／visibility handlers 未改，未以合成事件冒充重新實測。
+
+本輪沒有未處理的可重現本地 finding。真實 Moodle 學生 attempt 分數／status、whole-player refresh／再進入／new-attempt policy、pending retry／finish／review，以及實體手機 current/new-window player／host 拓撲／原生選單／實際 zoom 仍未驗證；保留前文部署 gate，320×225 CSS reflow 與 Chrome emulation 不代替它們。

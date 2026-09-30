@@ -1,6 +1,6 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 已完成實作、兩輪三位完整獨立審核及第四位彙整；第二輪修正的回歸與最終複審進行中。**
+狀態：**2026-10-01 已完成實作、三輪三位完整獨立審核及第四位最終彙整；全部本機問題已關閉，package-ready通過。真實Moodle／實體手機另待部署驗收。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
@@ -130,7 +130,7 @@ A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位�
 | Viewports | 320×500、390×500、390×600、390×844、手機橫向、短Moodle iframe、工具列變化、軟鍵盤及200% zoom；圖域橫豎比例始終一致 |
 | Scroll topology | Standalone及iframe使用100vh→100dvh有界shell；html/body/shell無額外可用垂直捲動。panel自己捲；空白stage及兩側留白捲enclosing page／Moodle host；沒有第三個scroll owner |
 
-坐標圖一次只顯示一個可拖抓手。其餘學生球仍可見，但從面板選時刻後才成為可拖對象；避免t₁附近的44px熱區互相遮蓋。圖域≥145px時只在選定球影旁標Xᵢ／Yᵢ；較小圖域改用頂列的Xᵢ／Yᵢ圖例及面板時刻選擇，避免早期影標籤擠在一起。極短CSS viewport收起頂列，面板時刻仍保留。
+坐標圖一次只顯示一個可拖抓手。其餘學生球仍可見，但從面板選時刻後才成為可拖對象；避免t₁附近的44px熱區互相遮蓋。選定分運動球影以粗圈識別，配合頂列真下標Xᵢ／Yᵢ圖例及面板時刻選擇；各圖域均不在密集軸旁加重複文字。極短CSS viewport收起頂列，面板時刻仍保留。
 
 ## Navigation, submission and reset
 
@@ -182,7 +182,7 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 |---|---|---|---|
 | 待放球抓手 | `.point-tray-handle`，44×44px，位於圖域外 | 穩定HTML target，none；拖動全程保持同node | 面板「開始放置」，方向鍵移動，Enter保存／Escape取消 |
 | 已選時刻的既有球抓手 | `.active-point-handle`，44×44px，球心對齊 | 穩定HTML target，none；只此時刻具抓手，其他球不攔截手勢 | 選時刻後同上；Shift+方向鍵微調 |
-| 播放、頻閃、時間、方向、刪除／重置、分類、檢查／提交 | panel內原生button／radio，每項≥44px | pan-y，不建立拖動capture；單選label熱區足夠 | Tab、Enter／Space及原生radio方向鍵 |
+| 播放、頻閃、時間、方向、刪除／重置、分類、檢查／提交 | 原生button／select／checkbox；button／select≥44px，checkbox配44px高label熱區 | 使用原生操作及panel的pan-y，不建立拖動capture | Tab、Enter／Space及原生選單的方向鍵操作 |
 | 頻閃球影／未選學生球／連線／軸／預覽 | 唯讀SVG或pointer-inert overlay | 不攔截pan；preview用pointer-events:none | 面板時間選擇及文字場景描述可達 |
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
@@ -347,7 +347,7 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 - [x] Serve實際ZIP解壓頁完成launch／空白／部分／滿分提交smoke與完整touch矩陣；源碼頁成功不能替代。
 - [x] 形成性風險已記錄；未完成的真實Moodle及裝置gate保留未勾選。
 
-- [ ] 第二輪修正候選完成三位全範圍獨立再審及第四位最終closure，無未處理本機問題。
+- [x] 第二輪修正候選完成三位全範圍獨立再審及第四位最終closure，無未處理本機問題。
 
 ## Moodle-ready checklist
 
@@ -413,3 +413,11 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 - 完整browser regression退出碼0，source／ZIP普通390／320寬四組各43rows仍通過；新增320×225 CSS viewport在非iframe及可捲動fluid iframe逐四題四時刻的tray／active拖放。兩路各36個short rows，合共128次正常short拖放、8次公開錯誤格點拖放及16次touchCancel；所有before／during／after owner、非owner、preview／release、真實scene／focus／3×、全框可視／16px避指及cleanup斷言通過，errors=[]。
 - 短viewport全部136個正常／錯格preview完整位於shell、避開手指；lens橫豎實際倍率皆3。錯誤公開格點[2400,0]及[1600,0]照常保存，沒有正解磁吸。普通preview全部仍在stage內。照片與數據位於output/playwright/motion-composition-stroboscopic-lab/；舊失敗證據留作歷史，不作目前verdict。
 - 最終npm run check、npm run package:all及working／base diff check退出碼0；根manifest及全部13個ZIP entries逐byte與最終source一致。此候選將交三位完整再審及第四位最終closure。真實Moodle／實體手機部署gate尚未執行。
+
+## 2026-10-01 第三輪完整審核及文件同步
+
+- 三位各自審核`850eae6`相對`origin/main`的完整branch，均覆蓋物理、精簡繁體文字、UI／手機、全部owner、評分／部分提交、phase／state、保存續作、SCORM／trust、standalone刷新、目錄／manifest／ZIP及測試。沒有分拆領域，也沒有新runtime finding。
+- 三人獨立五套純tests及source／ZIP smoke（含完整短viewport可信touch）通過，核對Root普通完整矩陣與13檔ZIP source byte parity。各report保留首兩輪歷史及實際命令；第四位另行彙整，F01–F07、V01及N01均關閉。
+- F08僅為文檔舊句：本文件布局段落已統一粗圈＋真下標圖例＋時刻識別；手勢表已統一實際button／select／checkbox與原生鍵盤操作。修正沒有改runtime、model／rubric／schema或套件，無需重跑已通過的程式測試；最終文件closure按第四位直接核對記錄。
+- 本機證據及最終審核見[完整彙整報告](../docs/reviews/2026-10-01-motion-composition-final-review.md)。初版whole-repo`npm test`退出碼0，最終本活動全部受影響回歸、check／package-all／diff及ZIP一致性通過；沒有宣稱最終再次執行整repo。真實Moodle及實體手機gates保持未勾選。
+- 原發現者及第四位已直接核對F08文件修正並關閉；第四位最終verdict為package-ready通過，所有本機findings清零。最終完成紀錄為docs-only，runtime／tests及13檔套件維持已審核的`850eae6`。
