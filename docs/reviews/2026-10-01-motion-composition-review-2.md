@@ -60,3 +60,45 @@
 本次獨立圖像／smoke：`output/playwright/motion-composition-stroboscopic-lab/review-2/`。既有完整 trusted-touch：`output/playwright/motion-composition-stroboscopic-lab/report.json`（本次所讀初版另保存於 `review-2/initial-full-touch-report.json`）；完整執行有通過的 scroll/state 斷言，但需依 R2-2 補足保留的 metrics 與預覽核對。
 
 R2-1/R2-2 是本機可處理項目，不能在未處理前宣稱所有本機 package gates 完成。真實 Moodle 學生帳戶的 score/status、同 attempt 刷新／離開再入、Moodle 新 attempt policy，以及實體手機 current-window／提供時的 new-window 完整矩陣，均尚未有證據；這些是部署驗收限制，不是本次已重現的產品 bug。此活動定位形成性練習，可信伺服端高風險評分為 N/A。
+
+## 2026-10-01 修正版完整複審（90a09cc）
+
+再次以 `origin/main...90a09cc116a611bd963d6d19ce8edab93a106707` 審核整條 branch 的活動、計劃、目錄、manifest、測試及 browser runner。保留上面的首輪報告；以下是新一輪獨立結論，沒有修改產品或測試。再次覆蓋全部領域，並非只驗原 R2-1/R2-2。
+
+結論：R2-1/R2-2 均已修正；strict enums、零分非法 pending 的 quarantine、正常尺寸多指 ownership、停止播放標籤及數學排版亦已核對。再發現一項 P2 手機缺陷 R2-3，尚未可關閉本機驗收。其餘本次全範圍核對未發現新的可重現問題。
+
+### R2-3 [P2] 短高度兩欄時，觸控預覽覆蓋手指並超出 stage
+
+- 位置：`sim/motion-composition-stroboscopic-lab/main.js:108`–`:110`；觸發布局在 `styles.css:49`–`:56`，stage 裁切設定在 `styles.css:16`。
+- 重現：Chrome/CDP，CSS viewport 320×225（本版聲明支援的短 viewport／200% 等價 reflow），新 standalone 按「顯示頻閃圖」，用可信 touch input 將情境 1 的 tray 拖到 `P₁=(0.800,-0.800) m`，最後 move 後停留 200 ms 再讀目前預覽。
+- 實際：stage 寬 160、高 138.59375 px，預覽實際大小為 124×137.796875 px；程式仍用固定 `height=132` 篩選位置，而且沒有任何可避指候選時 fallback 到第一個位置。預覽 rect 是 `(28,88.40625)` 到 `(152,226.203125)`；手指在 `(69.88125,135.58438)`，即預覽內。底部也超出 stage／viewport 的 225 px，被 `overflow:hidden` 裁切。
+- 證據：`output/playwright/motion-composition-stroboscopic-lab/recheck-2/targeted-report.json` 的 `320x225 trusted-touch preview`，`containsFinger=true`、`inside=false`；同目錄 `short-touch-preview.png`。最終保存位置正確，因此這是觸控精準作圖的預覽／呈現問題，不是物理或評分錯誤。
+- 影響：短畫面依賴預覽看清密集方格與球心，現有 overlay 幾乎填滿半欄 stage，反而受手指遮擋。檢查／提交按鈕可達的修正，不能替代此布局的拖放可用性驗收。
+- 建議：在窄短 stage 提供確實能避指的預覽位置／呈現，例如暫時浮到同一 shell 內的另一側，保持 pointer-inert、3× 真實場景、工作點一致及退出清理；位置計算應採實際 overlay 尺寸。將 320×225 的兩種抓手與預覽加入 source／ZIP trusted-touch 回歸；沿用 `previewEvidence` 的 geometry、避指、release、owner/non-owner 斷言，避免只驗 short-layout 提交。這一修正不用改物理模型、答案、容差或手機主要字體。
+
+### 全範圍再次核對
+
+| 範圍 | 修正版核對結果 |
+|---|---|
+| 物理／等時頻閃 | 重新閱讀全部 model、scene、scoring 與 plan；四題公式、16 點、0.20 s、0.80 m／0.20/0.60/1.00/1.40 m、0.40 m 增加量、A/D 直線而速率分布不同、B/C 拋物線分支皆正確。模型唯一修改是呈現 top=34，不改比例與世界坐標。 |
+| 文字／圖／符號 | 學生文字維持繁體及精簡；空白／分類先答提交、reference、未觀察題目的只讀提示已正確。參考模式補上分運動球影而不改 observed／submitted answer。selected Xᵢ/Yᵢ 及圖例、回饋／預覽真下標、italic 變量與平方單位均核對；普通手機圖像沒有新遮字問題。 |
+| UI／手機／操作 | 普通十個尺寸 source/ZIP 獨立 smoke 通過。320×225 standalone／fluid iframe 的實際 check→submit→reference 通過，16 px 提交文字、44 px 以上按鈕、panel 可捲動，無第三個 document scroller／水平溢出。此尺寸的 **touch preview** 有 R2-3；不能因 submit flow 通過就推論所有操作通過。 |
+| 手勢／preview | 讀取修正版四組 full report，各 43 rows，16 row 分別保留 tray/active 的 before/during/after 與 preview，含 cursor 已處理、真實球心／viewBox 3×、讀數、避指、release 同點、cleanup；R2-2 關閉。8 個多指案例、4 種取消、host/兩側 strip/panel 中段與兩端/只讀 pan 的 metrics 齊備。短尺寸的新增獨立 trusted-touch 才重現 R2-3。 |
+| 真實 blur／visibility | 額外以 `Page.bringToFront` 切到另一個 Chrome 分頁，非 DOM dispatch。觀察到 `blur` 與 `visibilitychange` 均 `isTrusted=true`、hidden=true：工作點取消、preview 隱藏、最近保存答案不變。播放時實際隱藏分頁後，標籤恢復「播放分運動」。診斷首次向 background CDP target 送 touchEnd 曾 timeout；改為恢復前景後結束序列，完整診斷通過，此為 driver 操作限制而非產品失敗。 |
+| 鍵盤／吸附 | 重讀處理流程並經獨立 smoke 驗方向鍵、Enter、Escape、Shift 微調、先分類後放點；44 px 穩定 HTML target 與公開 grid 策略保留。只計明確放手／確認的 final work；無答案磁吸，取消保持原點。 |
+| 評分／check／依賴 | 再跑全部 scoring/model tests：0/100、36/64、坐標分量部分分、±50 mm 所有邊界、重複末點與未觀察零分通過。任何 editable phase 可直接 check/submit；四題、類型、軌跡獨立，observed 只限制放點；return-to-check 原答案保留。 |
+| persistence／無效狀態 | 再跑 512 production round-trips 及合法續作，score/passed 等價、版本／phase／tuple／索引／範圍／依賴 fail closed；791/818/1061 bytes。新增非字串 motions/trajectory（含 arrays/objects/boolean/number）在 draft/review 拒絕；score-zero 非法 pending quarantine 及 pagehide 不寫入通過。合法錯答、null、未訪問仍保留。 |
+| SCORM／trust／鎖定 | 重讀 Controller 與 shared API 接合：四 startup/submission outcomes、retryable/非 retryable、commit 後 finish retry、canonical final answer 比對、mismatch/unknown summary、invalid draft lock、pending quarantine 皆符合。純 lifecycle tests 再通過，browser fake-LMS pending/review resume 與 invalid draft render 通過。Standalone memory-only refresh 和 storage-denied 操作通過；只讀／pending 沒有清除重做。 |
+| catalogue／package／測試 | 目錄已 active，slug／題名／描述一致；manifest root、13 entries、全部 runtime assets 與最新 source **逐 byte 相等**，extra/missing 均空，無 CDN／測試檔。新 tests 均在 run-tests；shared／其他活動沒有變更。主 agent 全 repo 初版 npm test 的 log 收尾為 shared SCORM/activity-flow passed；按任務要求沒有再次重複全 repo suite。修正版本活動全部純測試與獨立 smoke 已實跑。 |
+
+### 本輪實際命令與證據
+
+- 五個 `node sim/motion-composition-stroboscopic-lab/{model,scoring,persistence,lifecycle,scene}.test.js`：各退出碼 0。
+- `MOTION_ARTIFACT_SUFFIX=recheck-2 node tools/motion-composition-browser-regression.js --smoke`：退出碼 0；source/ZIP 各十種普通布局、全面 flow 及 320×225 standalone/iframe check-submit-reference，`errors=[]`。
+- `node tools/check.js`：退出碼 0。
+- `git diff --check origin/main...HEAD`：退出碼 0（append 本記錄前執行）。
+- 最新 ZIP/source 獨立比對：entryCount=13、rootManifest=true、extra=[]、missing=[]、byteParity=true、catalogue status=active。
+- 額外 Chrome/CDP 短尺寸／真實 tab blur/visibility：`recheck-2/targeted-report.json`、`short-touch-preview.png`；其中 R2-3 是可重現失敗，blur/visibility 和只讀提示檢查通過。
+- 讀取並保留目前完整 `report.json` 的 43-row×4 組證據；其普通手機 preview 已符合 R2-2，而短 reflow 的 touch matrix 仍要補。
+
+尚未解決：R2-3。實體手機與真實 Moodle 的學生 score/status、same-attempt resume/pending/review、新 attempt policy，以及 current-window/提供時的 new-window 全手勢矩陣仍未有部署證據，繼續與本機問題分開列示。本版形成性定位與服務端高風險評分 N/A 不變。

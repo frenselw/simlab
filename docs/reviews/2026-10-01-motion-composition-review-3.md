@@ -74,3 +74,53 @@
 ## 尚未驗的 deployment gates
 
 真實 Moodle 學生 attempt 的 score/status、刷新／退出再入、pending retry、新 attempt，及實體手機 current-window／new-window player 的完整 owner matrix、軟鍵盤和工具列變化未執行。iframe same-origin host forwarding 的本機證據有效，但不推定真實 Moodle／cross-origin topology 可用。這些限制應保留未勾選，與上面兩項已確認缺陷分開處理。
+
+## 2026-10-01 修正版完整複審：90a09cc
+
+本次再審完整 branch，相對 `origin/main`，候選 HEAD=`90a09cc116a611bd963d6d19ce8edab93a106707`。保留以上首輪歷史報告；下列結論針對修正版。沒有讀其他人的首輪或複審報告，沒有修改活動、測試或其他人的報告。
+
+結論：**首輪 R3-1、R3-2 已關閉；新增P2（R3-3）短 200% CSS viewport 的觸控預覽遮擋，以及P3（R3-4）近原點的selected標籤重疊，需修正後才能關閉本機審核。** 其餘物理、文字、評分、狀態、保存、SCORM 及包裝未發現新缺陷。
+
+### R3-3 · P2：短布局仍把觸控預覽放在手指下面
+
+- 位置：`sim/motion-composition-stroboscopic-lab/main.js:106–111`（固定124px寬、預估132px高、corner候選及fallback），與 `styles.css:48–55` 的短布局。
+- 已修正的 320×225 CSS viewport 變成左右兩欄，stage 實際只有160×138.59375px。既有點從P₁拖至 `(1.600,-1.600) m` 時，trusted touch 的 cursor 在stage `(80,59.296875)`；預覽實際 bounds=`(28,2,124,137.796875)`，finger 在預覽內，也違反現有 `previewEvidence` 用16px margin驗的避指條件。預覽底端139.796875亦略超過stage高138.59375，會被stage的overflow裁切。
+- corner候選仍沒有足夠空間避開這個finger；`options.find(clear)`失敗後回退`options[0]`，沒有提供短stage的替代預覽布局。實際高度亦因新增真下標超過程式假定的132px。
+- 重現：source及重建／解壓SCORM均用Chrome/CDP `width=320,height=225,mobile=false`，可信touchStart／touchMove在active HTML handle上操作；不是DOM dispatch的模擬pointer，也不是僅推測CSS。兩路的 `fingerOverPreview=true` 與 bounds相同。證據在 `output/playwright/motion-composition-stroboscopic-lab/recheck-3/extra-report.json` 的 `short zoom viewport touch preview`，及 `source-zoom-preview.png`／`package-zoom-preview.png`。
+- 短viewport的檢查／提交確已可操作，因此這不重開R3-2。問題只在同一所需viewport的精確觸控建構：可達最後控制，不足以證明拖放preview亦可用。
+- 建議：短stage提供可避指的較小lens並把讀數留在panel，或把preview放在stage外的穩定可視位置；用實際overlay尺寸選位置。維持真實場景／post-snap focus及pointer-inert，並補320×225 source/ZIP的tray與active拖放，assert實際bounds、避指、讀數、release一致及cleanup。不要只隱藏預覽或縮小主要控制。
+
+### R3-4 · P3：近原點的X₁標籤與y軸名重疊
+
+- 位置：`sim/motion-composition-stroboscopic-lab/scene.js:19,30`。
+- 在獨立smoke的390×600 screenshot，情境C／D的selected t₁水平位移只有0.20m。plot約164px，所以X₁的中心僅在origin右8.2px；y軸名在origin右8px。X₁ baseline為origin.y−9，與y軸名的top+9只差約1.6px，文字直接疊在一起。
+- 證據：`output/playwright/motion-composition-stroboscopic-lab/recheck-3/source-390-case-3.png`（以及相同layout的package圖）。本次檢圖已發現此重疊，未讀其他審核報告。
+- 這不改變物理或評分，但違反必要diagram labels應清楚且不互相覆蓋的共用規則。建議對近原點實施標籤碰撞避讓，或在這種密度使用現有Xᵢ／Yᵢ圖例，不只按整個plot.size判斷是否加字；修正後覆核C／D的t₁及normal手機圖。
+
+### 首輪修正及其餘修正核對
+
+| 範圍 | 本次核對及結果 |
+|---|---|
+| R3-1 strict enums | `model.js:21,23` 先檢查 `typeof === 'string'`；production draft／review拒絕[]、合法字串單元素陣列、object、boolean、number。score-zero malformed pending對水平、垂直、trajectory均進technical；retry及pagehide無新增寫入且durable原文不變。原缺陷關閉。 |
+| R3-2 短reflow | 本次獨立smoke在source及ZIP、standalone及fluid iframe的320×225實際點檢查、捲至提交、點提交及參考；button完整可視、≥44px、16px字，panel有可用高度、無橫向／document scroll。原提交不可達缺陷關閉。 |
+| 多指owner | `blockedTouchSequence`在第二指時取消未保存工作點，阻止host forwarding及重新啟動point，直到全部touchEnd／Cancel才清除。四組完整報告各8個tray／active×background／left／right／target案例都保留原答案及各scroll／viewport；同頁後續host pan正常。 |
+| 只讀提示／stop label | 未觀察的blank／classification review顯示「你的作圖」，reference顯示參考軌跡；frozen顯示凍結，不再要求不能按的觀察操作。`stop()`同步playback label，actual resize後可重新播放；獨立smoke包括這些actual DOM路徑。 |
+| 完整target／preview證據 | 四組source／ZIP×390／320各43rows。16個題時row各保留tray及active的before／during／after，合共128次正常抓手拖放；工作點、preview／主圖球心、viewBox、約3×比例、讀數、避指、release與cleanup分別斷言，未再覆寫tray資料。正常500px高矩陣通過，R3-3列出額外短viewport例外。 |
+| 標記與數學排版 | selected Xᵢ／Yᵢ及圖例對應同時刻；較小圖域使用legend配面板時刻，避免全部影像加字。feedback／preview改用var、真下標及sup，參考模式即使observed=false亦顯示兩列投影，但不改權威答案或observed。圖域上緣移8px，映射仍等比例。 |
+
+### 完整範圍複審結果
+
+- **物理及文字**：重新核對全部四題 model constants、16點、連續直線／拋物線方程、等時位移及相鄰增加量。模型未改；C不稱自由落體、D固定由靜止條件、B的g近似及忽略阻力、有限資料只支持模型的用字仍正確。比較工具保持同一尺度，不把總位移當單段距離；沒有新長篇操作說明或洩露pre-submit正解。繁體 learner copy及不用raw LaTeX保持。
+- **UI及手機**：重新讀完整main、scene、CSS及HTML，檢視正常手機、D近原點、320px preview、桌面review及短reflow screenshots。十種正常布局無overflow，shared三區／header導航／44px controls／14px圖字／bounded panel符合規則。手勢完整報告包含兩側strip、背景、panel中段及兩端、只讀／frozen／committed舊target、取消／lostcapture／resize／圖外放手。沒有以CSS或programmatic scroll替代可信gesture。短layout新增R3-3，真實裝置仍未驗。
+- **實際blur／visibility**：本次獨立source及ZIP用新瀏覽器分頁 `Page.bringToFront` 切走活動，捕捉到瀏覽器發出的 `blur(isTrusted=true)` 與 `visibilitychange(isTrusted=true,hidden=true)`。正在拖動的工作點及preview清除，已保存state完全不變，play label是「播放分運動」；切回、結束原touch後，同頁新touch可正常操作及取消。沒有dispatch偽造lifecycle事件。證據為 `recheck-3/extra-report.json`。這補充清理驗證，不代表真實手機系統切換的deployment evidence。
+- **評分及任意進度提交**：重新讀scoring、controller及persistence，重跑0/100、64/36、分量獨立部分分、50mm界內外、重疊slot及觀察不計分。分類依賴與位置依賴未改，任意edit／分類先答／blank可進check；check返回、returnToCheck續作、清除scope、提交後review-only與pending凍結仍成立。
+- **保存及續作**：production版本／phase／slot／null語義未變；512個round-trip及合法續作再次通過。字串型別漏洞已補；沒有把學科錯答當schema錯誤。draft/review/pending bytes仍791/818/1061，沒有把pointer、DOM、preview或animation存入authority。
+- **SCORM及信任**：重新讀controller全四startup／四submit outcome、retry兩類、review rescore/trust、committed finish retry、深層pending quarantine。shared檔案未改；沒有raw LMS或activity lifecycle新增。finished損壞review仍只顯示Moodle可信摘要、無reset；pending不報confirmed score。standalone memory-only及源碼／ZIP partial/check/submitted refresh／deny-storage probes通過；fake-LMS同attempt draft/review/pending及fresh fixture保持。瀏覽器評分風險仍明示formative，無secret。
+- **目錄及包裝**：active metadata完整，description更精確為水平與垂直；slug／manifest／SCO launch一致。再次比對index全部runtime refs與manifest及實際ZIP，13檔逐byte一致（包含active config），沒有test、CDN或screenshots。新純tests及focused runner仍在repo test runner；shared／其他活動沒有修改。
+- **測試與歷史證據**：本次重新執行五個純tests、獨立source／ZIP smoke與manifest/source byte parity，全部exit0；完整最新report為43rows／組、errors=[]，歷史driver failure已歸檔，未當現存產品失敗。已查父agent整套npm test log尾段的shared SCORM及production-flow通過紀錄；整套repo exit0由父agent執行及記錄，本次沒有另跑一套。R3-3是額外有意義的viewport×manipulation組合，現有zoom submit測試沒有覆蓋。
+
+### 本次實際命令及未解事項
+
+再次執行並通過：`node sim/motion-composition-stroboscopic-lab/{model,scoring,persistence,lifecycle,scene}.test.js`（五個獨立命令）、`MOTION_ARTIFACT_SUFFIX=recheck-3 node tools/motion-composition-browser-regression.js --smoke`、ZIP source bytes檢查及`git diff --check origin/main...HEAD`。另外執行 `node output/playwright/motion-composition-stroboscopic-lab/recheck-3/extra.js`；actual blur／visibility rollback通過，短viewport preview的失敗是報告中的R3-3，不聲稱這項通過。
+
+本機未解事項為R3-3及R3-4。真實Moodle學生attempt、實體手機current-window／new-window host topology／soft keyboard／toolbar及真實browser UI zoom等原deployment gates仍未驗，不能用本機CDP替代；它們與上述已確認本機缺陷分開列示。

@@ -27,7 +27,6 @@
       for (const axis of [0,1]) {
         const projected = point(axis===0?[p[0],0]:[0,p[1]],l);
         out += circle(projected,i===selected?5:3,COLORS[axis],i===selected?'stroke-width="2.2"':'');
-        if(i===selected && l.size>=145) out += `<text x="${axis?origin.x-8:projected.x}" y="${axis?projected.y+4:origin.y-9}" text-anchor="${axis?'end':'middle'}" ${font} font-size="14" fill="${COLORS[axis]}">${axis?'Y':'X'}<tspan baseline-shift="sub" font-size="11">${i+1}</tspan></text>`;
       }
     }
     if (options.animation != null) { const p = M.position(index,options.animation); out += circle(point([p[0],0],l),5,COLORS[0],'fill="#2563eb"')+circle(point([0,p[1]],l),5,COLORS[1],'fill="#b45309"'); }
@@ -40,7 +39,14 @@
     } else {
       const all=[[0,0],...answer];for(let i=1;i<all.length;i++)if(all[i]&&all[i-1]){const a=point(all[i-1],l),b=point(all[i],l);out+=`<path d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="${ANSWER}" opacity=".4" stroke-width="1.5"/>`;}
     }
-    answer.forEach((p,i)=>{if(p){const q=point(p,l);out+=circle(q,i===selected?5:3.5,options.reference?'#166534':ANSWER);if(i===selected){const flip=q.x+25>l.left+l.size,below=q.y-20<l.top;out+=`<text x="${q.x+(flip?-7:7)}" y="${q.y+(below?18:-7)}" text-anchor="${flip?'end':'start'}" ${font} font-size="14" fill="${ANSWER}">P<tspan baseline-shift="sub" font-size="11">${i+1}</tspan></text>`;}}});
+    answer.forEach((p,i)=>{if(p){
+      const q=point(p,l);out+=circle(q,i===selected?5:3.5,options.reference?'#166534':ANSWER);
+      if(i===selected){
+        const flip=q.x+25>l.left+l.size,nearAxisName=Math.abs(q.x-origin.x)<36&&q.y<l.top+36,below=q.y-20<l.top||nearAxisName;
+        const labelY=below?Math.min(Math.max(q.y+18,nearAxisName?l.top+32:0),l.top+l.size-8):q.y-7;
+        out+=`<text x="${q.x+(flip?-7:7)}" y="${labelY}" text-anchor="${flip?'end':'start'}" ${font} font-size="14" fill="${ANSWER}">P<tspan baseline-shift="sub" font-size="11">${i+1}</tspan></text>`;
+      }
+    }});
     out += '</g>';
     if (options.tray) out += circle(l.tray,7,ANSWER,`fill="${ANSWER}"`);
     return out;

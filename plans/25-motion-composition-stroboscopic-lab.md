@@ -1,6 +1,6 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 已完成實作及首輪三位完整獨立審核／第四位彙整；修正後驗收及複審進行中。**
+狀態：**2026-10-01 已完成實作、兩輪三位完整獨立審核及第四位彙整；第二輪修正的回歸與最終複審進行中。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
@@ -58,7 +58,7 @@ A、D故意具有同一條參考直線，但頻閃分布不同。這是第四題
 
 ## Catalogue metadata (`sim/config.js`)
 
-以下為目錄登記規格；初版使用 `planned`，修正、複審及本機 package-ready gates 通過後才改為 `active`。真實 Moodle／實體手機 gate 另行驗收。
+以下為目錄登記規格；初版使用 `planned`，本機實作及技術回歸後已登記 `active`。完整審核與 package-ready 結論按文末實際證據更新；真實 Moodle／實體手機 gate 另行驗收。
 
 ```js
 {
@@ -161,12 +161,12 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 | Decision | Activity specification and reason |
 |---|---|
 | Notation | x、y、t是標量坐標／時間，Pᵢ是位置點；本版不要求畫向量，解釋由O出發的位移時用r⃗=(x,y)，與大小∣r⃗∣區分。變量math serif斜體，數字／單位正體、真下標；不向學生顯示raw LaTeX或t_1 |
-| Diagram colors | 水平分運動藍、垂直分運動橙、學生合運動深紫；以X／Y標籤與時間編號重複識別，不能只靠顏色。正確性顏色只在提交後使用 |
+| Diagram colors | 水平分運動藍、垂直分運動橙、學生合運動深紫；選中分運動以粗圈、真下標Xᵢ／Yᵢ圖例及時刻按鈕重複識別。密集軸旁不再加重複文字，避免壓住y軸名／刻度；學生Pᵢ標記避開軸名並保留在圖域內。正確性顏色只在提交後使用 |
 | Arrow graphics | 僅坐標軸有小方向箭頭，表示+x／+y，無可編輯向量箭頭；軸約1.5 CSSpx、箭頭約7px，方向標籤不壓在球影上。學生連線無箭頭，以時間編號表示次序 |
 | Snap | 必需：吸附到全部可見0.20 m方格交點，包括錯誤候選位置；touch最近點≤10 CSSpx、mouse/pen≤6px。保持時採14／9px退出距離，競爭交點須較原點近2／1px才轉換；參數須在不同縮放驗證無跳格。拖動及放手使用同一解析位置，不對正解設磁吸 |
-| Touch preview | 拖待放球及既有位置都必需：早期頻閃點很近，手指會遮住球心／方格。提供約3×、124×70px的真實局部場景及獨立固定讀數「t、你的x、你的y」，聚焦目前吸附後的學生位置；普通按鈕／單選／微調不需預覽 |
+| Touch preview | 拖待放球及既有位置都必需：早期頻閃點很近，手指會遮住球心／方格。提供3×、124px外框寬／70px高的真實局部場景及獨立讀數「t、你的x、你的y」，聚焦目前吸附後的學生位置；按實際lens尺寸計算viewBox，不以預估overlay高度定位。普通按鈕／單選／微調不需預覽 |
 
-預覽只顯示局部方格、可見分運動與學生球，不補正確交點或正確坐標。放在stage穩定角落，必要時才避開手指，不攔截事件；完成、取消、失去capture、失焦、換題、檢查、resize及鎖定均清除。拖動期間相機固定；resize中斷操作並保留先前已保存的答案。
+預覽只顯示局部方格、可見分運動與學生球，不補正確交點或正確坐標。正常放在stage穩定角落，必要時才移開手指；短兩欄stage無可避指位置時，使用同一bounded shell另一側。預覽是shell內的pointer-inert sibling，按render後實際外框尺寸確保全框可視，不能被stage裁切或攔截事件。完成、取消、失去capture、失焦、換題、檢查、resize及鎖定均清除。拖動期間相機固定；resize中斷操作並保留先前已保存的答案。
 
 待放球停泊區不屬世界坐標，初始四點都是null。只是選時刻或點一下待放球不建立答案；有效拖動跨越4 CSSpx並在圖域內放手才保存。可以刻意放在任何合法位置，包括軸上、錯誤象限及重疊處；圖外放手取消，沒有隱藏的答案修正。
 
@@ -187,14 +187,14 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
-| 空白stage、軸、頻閃及未選球 | Enclosing page/Moodle host | pan-y，不能在空白處點一下自動放球；保留可觸及背景 | 待trusted touch驗證 |
-| panel中段／上下邊界 | Panel only | overflow-y:auto與overscroll-behavior:contain；不傳給host或stage | 待兩方向及兩端驗證 |
-| 待放球 | Simulation | none；拖入圖域後放手保存所選時間的位置，所有非owner幾何固定 | 待四題全部時刻及取消案例驗證 |
-| 既有active球 | Simulation | none；只改該時刻，其他答案及全部scroll／viewport／iframe位置固定 | 待重疊／近原點／邊緣位置驗證 |
-| Left scroll strip | Enclosing page/Moodle host | stage左側保留至少24 CSSpx，不被抓手／tray覆蓋 | 待320px寬兩向swipe |
-| Right scroll strip | Enclosing page/Moodle host | stage右側同樣至少24 CSSpx，獨立驗證 | 待320px寬兩向swipe |
+| 空白stage、軸、頻閃及未選球 | Enclosing page/Moodle host | pan-y，不能在空白處點一下自動放球；保留可觸及背景 | source／ZIP 390／320寬兩方向trusted swipe通過 |
+| panel中段／上下邊界 | Panel only | overflow-y:auto與overscroll-behavior:contain；不傳給host或stage | source／ZIP中段與兩端兩方向通過 |
+| 待放球 | Simulation | none；拖入圖域後放手保存所選時間的位置，所有非owner幾何固定 | source／ZIP四題四時刻、常規與320×225短layout通過 |
+| 既有active球 | Simulation | none；只改該時刻，其他答案及全部scroll／viewport／iframe位置固定 | 兩路四題四時刻、近原點／邊緣、抓取偏移與取消通過 |
+| Left scroll strip | Enclosing page/Moodle host | stage左側保留至少24 CSSpx，不被抓手／tray覆蓋 | source／ZIP 390／320寬兩向swipe通過 |
+| Right scroll strip | Enclosing page/Moodle host | stage右側同樣至少24 CSSpx，獨立驗證 | source／ZIP 390／320寬兩向swipe通過 |
 | Free drawing surface | N/A | 本版只有獨立抓手，無全stage自由繪圖／放置overlay | N/A，若日後加入須重訂契約 |
-| review／frozen／committed舊抓手位置 | Enclosing page/Moodle host | 移除編輯ownership與none，圖仍可檢討 | 待只讀／凍結swipe驗證 |
+| review／frozen／committed舊抓手位置 | Enclosing page/Moodle host | 移除編輯ownership與none，圖仍可檢討 | source／ZIP三模式舊target區域trusted pan通過 |
 
 - 優先使用native host pan；若iframe拓撲需要same-host forwarding，只forward到enclosing host並測試防double scroll，不能轉送panel。兩側留白雖非自由畫圖必需，仍保留作穩定捲動入口。
 - 圖域在兩條24px strip內側另留22px抓手容納空間，讓44px抓手在圖域邊緣也不侵入strip；縮放／letterboxing只調呈現，不改合法世界坐標範圍。
@@ -322,30 +322,32 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 
 ## Test plan
 
-以下為活動驗收要求，遵循[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)。規劃期未勾選；完成執行後按實際證據更新，外部部署gate保持另列。
+以下依[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)記錄本機實跑結果；純測試、Chrome/CDP source／ZIP證據見文末，外部部署gate另列。
 
-- [ ] `model.test.js`核對四題每一時刻的x／y、同步時間、上述基準表及1:3:5:7；A、D直線但間距不同，B、C精確拋物線及分支，等比例camera轉換可逆。
-- [ ] `scoring.test.js`涵蓋全空0、全對100、只答全部分類36、只答位置64、x對y錯及兩方向類型獨立的部分分、每個50mm邊界內／外、重疊及錯slot；不給觀察／預設球分。
-- [ ] 每個edit variant都可進check並提交空白／部分，且可返回保留答案；未觀察、未訪問、錯答案、分類先答均不阻擋。已提交／pending沒有清除或重做路徑。
-- [ ] `persistence.test.js`使用production encode/decode/restore，覆蓋矩陣每列及各A–D／P₁–P₄ slot；恢復後同分同passed，再實際執行一個合法續作。返回check時active slot可null或已答。
-- [ ] 分開測合法錯答／未答與invalid：缺欄、錯tuple／case數、NaN／Infinity／小數mm／越界、非法enum、observed=false卻有點、錯phase／kind／returnToCheck／索引、未知版本；derived ID重建。
-- [ ] 最大draft／review／pending完整封套≤4000 UTF-8 bytes；更長／錯payload被拒；deep-invalid pending先quarantine，不能透過BFCache／pagehide重試。
-- [ ] `ui-runtime.test.js`或等價production handler測試覆蓋四startup outcomes、四submission outcomes（含retryable兩類）、committed finish retry、review mismatch／unknown／invalid finished。若調shared runtime，再跑shared fake-LMS failure tests。
-- [ ] Source及extracted SCORM以實際UI驗Standalone部分／check／submitted刷新後全空，可重新放點及提交；seed舊draft／review／pending／corrupt storage、拒絕storage均不鎖住。另驗Moodle-like同attempt繼續原draft／review／pending及新attempt。
-- [ ] 每種抓手trusted touch、每題／每時刻、重疊與近原點、圖外放手、最終up異於move、pointercancel／lostcapture／多指／blur／resize rollback；micro調／Enter／Escape及焦點可達。
-- [ ] 吸附只針對公開grid，錯交點同樣可吸附；主圖／preview／release一致，finger遮擋時可辨球心／方格；預覽不洩露正解、不攔截pan，所有清理時機有效。
-- [ ] 手機／短iframe／橫向／200% zoom下圖文字可讀、兩軸等比例、44px抓手不重疊阻擋選時刻、最後控制可達；按[完整touch矩陣](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)在source及ZIP兩路驗host／panel／全部target及左右24px strip，記錄所有owner／非owner metrics。
-- [ ] 所有新純測試加入`tools/run-tests.js`；focused browser flow建於`tools/motion-composition-browser-regression.js`。manifest包含config、全部activity runtime及三個shared檔案，無CDN／secret／test檔；目錄metadata完整。
+- [x] `model.test.js`核對四題每一時刻的x／y、同步時間、上述基準表及1:3:5:7；A、D直線但間距不同，B、C精確拋物線及分支，等比例camera轉換可逆。
+- [x] `scoring.test.js`涵蓋全空0、全對100、只答全部分類36、只答位置64、x對y錯及兩方向類型獨立的部分分、每個50mm邊界內／外、重疊及錯slot；不給觀察／預設球分。
+- [x] 每個edit variant都可進check並提交空白／部分，且可返回保留答案；未觀察、未訪問、錯答案、分類先答均不阻擋。已提交／pending沒有清除或重做路徑。
+- [x] `persistence.test.js`使用production encode/decode/restore，覆蓋矩陣每列及各A–D／P₁–P₄ slot；恢復後同分同passed，再實際執行一個合法續作。返回check時active slot可null或已答。
+- [x] 分開測合法錯答／未答與invalid：缺欄、錯tuple／case數、NaN／Infinity／小數mm／越界、非法enum、observed=false卻有點、錯phase／kind／returnToCheck／索引、未知版本；derived ID重建。
+- [x] 最大draft／review／pending完整封套≤4000 UTF-8 bytes；更長／錯payload被拒；deep-invalid pending先quarantine，不能透過BFCache／pagehide重試。
+- [x] `ui-runtime.test.js`或等價production handler測試覆蓋四startup outcomes、四submission outcomes（含retryable兩類）、committed finish retry、review mismatch／unknown／invalid finished。若調shared runtime，再跑shared fake-LMS failure tests。
+- [x] Source及extracted SCORM以實際UI驗Standalone部分／check／submitted刷新後全空，可重新放點及提交；production lifecycle含舊corrupt storage及讀寫拒絕fixture，確認完全不讀寫；browser另驗storage-denied不鎖住。另驗Moodle-like同attempt繼續原draft／review／pending及新attempt。
+- [x] 每種抓手trusted touch、每題／每時刻、重疊與近原點、圖外放手、pointercancel／lostcapture／多指／blur／resize rollback；最終up異於move另用trusted mouse驗同一解析handler。micro調／Enter／Escape及焦點可達。
+- [x] 吸附只針對公開grid，錯交點同樣可吸附；主圖／preview／release一致，finger遮擋時可辨球心／方格；預覽不洩露正解、不攔截pan，所有清理時機有效。
+- [x] 本機emulated手機／短iframe／橫向／200% CSS reflow及CDP visual zoom下圖文字可讀、兩軸等比例、44px抓手不重疊阻擋選時刻、最後控制可達；按[完整touch矩陣](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)在source及ZIP兩路驗host／panel／全部target及左右24px strip，記錄所有owner／非owner metrics。
+- [x] 所有新純測試加入`tools/run-tests.js`；focused browser flow建於`tools/motion-composition-browser-regression.js`。manifest包含config、全部activity runtime及三個shared檔案，無CDN／secret／test檔；目錄metadata完整。
 
 ## Package-ready checklist
 
-- [ ] 使用者審閱本計劃；實作前確認四題、四點、連線及rubric的活動規格。
-- [ ] 上述純測試、phase／restore續作、lifecycle與source／package UI／trusted-touch均通過，證據填回本文件。
-- [ ] 手機、平板、桌面、短iframe、工具列／軟鍵盤／200% zoom均可讀可操作；必要keyboard替代有效。
-- [ ] `npm run check`、`npm test`、`npm run package:all`、`git diff --check`及相對actual base的diff檢查通過；記錄實際命令及結果。
-- [ ] `npm run package -- motion-composition-stroboscopic-lab`產物根含`imsmanifest.xml`；逐一比對runtime引用、manifest及ZIP，無開發檔案／遺漏依賴。
-- [ ] Serve實際ZIP解壓頁完成launch／空白／部分／滿分提交smoke與完整touch矩陣；源碼頁成功不能替代。
-- [ ] 形成性風險已記錄；未完成的真實Moodle及裝置gate保留未勾選。
+- [x] 使用者審閱本計劃；實作前確認四題、四點、連線及rubric的活動規格。
+- [x] 上述純測試、phase／restore續作、lifecycle與source／package UI／trusted-touch均通過，證據填回本文件。
+- [x] 本機手機／平板／桌面／短iframe viewports及200% CSS reflow可讀可操作；keyboard替代有效。真實工具列、native picker及裝置zoom另列部署gate；活動沒有文字輸入，無正常軟鍵盤操作。
+- [x] `npm run check`、`npm test`、`npm run package:all`、`git diff --check`及相對actual base的diff檢查通過；記錄實際命令及結果。
+- [x] production packager（package-all及browser runner）產物根含`imsmanifest.xml`；逐一比對runtime引用、manifest及ZIP，無開發檔案／遺漏依賴。
+- [x] Serve實際ZIP解壓頁完成launch／空白／部分／滿分提交smoke與完整touch矩陣；源碼頁成功不能替代。
+- [x] 形成性風險已記錄；未完成的真實Moodle及裝置gate保留未勾選。
+
+- [ ] 第二輪修正候選完成三位全範圍獨立再審及第四位最終closure，無未處理本機問題。
 
 ## Moodle-ready checklist
 
@@ -401,3 +403,13 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 - Source／ZIP各在standalone及fluid iframe的320×225 CSS reflow（640×450的200%等價）實際檢查、捲至末端、提交並開參考圖。panel bounds=(160,86.40625,160,138.59375)，提交button全在視窗內、60.375px高、16px字，document／panel水平overflow=0。
 - 新增actual DOM回歸涵蓋未觀察空白／分類先答review與reference、frozen／committed提示、非法draft技術鎖及actual viewport resize停止後再播放。普通十組布局及visual zoom保留；這些本機證據不代表真實browser UI zoom／實體手機驗收。
 - 目錄啟用active；修正版`npm run check`、五套純測試、`npm run package:all`及working diff check皆退出碼0。新ZIP根manifest及全部13檔逐byte與目前source相同，包含active config。三位完整複審及第四位closure另補；真實Moodle／實體手機gate仍未執行。
+
+## 2026-10-01 第二輪修正及最終複審候選
+
+- 第二輪三位完整再審及第四位彙整關閉F01–F05／V01，另確認F06短viewport preview遮指／裁切及F07近原點文字碰撞；本段記錄依報告完成的修正。首輪段落的500px高矩陣成功不能代表短layout已通過。
+- F06：magnifier移成app shell內的absolute、pointer-inert sibling。正常保持stage角落，短兩欄無可避指位置時放shell另一側；先render讀數，再量外框與lens實際尺寸選位置及精確3× viewBox，避免固定132px估算及stage裁切。
+- F07：移除密集軸旁重複Xᵢ／Yᵢ文字，保留真下標圖例、選中粗圈、時刻controls。新增DOM文字bbox檢查亦發現P₁／y軸名接近，已將近軸名的Pᵢ放到可讀位置並限在plot內。正常十種viewport與C／D各時刻、submitted reference及短圖的必要文字均無bbox重疊。
+- 本活動五套純tests通過；scene修正後另重跑其純test。512 production round-trips／合法續作、791／818／1061 bytes及所有rubric、enum、quarantine／lifecycle驗證不變。共享及其他活動無修改，沿用初版whole-repo npm test退出碼0，最終重跑本活動全部受影響回歸。
+- 完整browser regression退出碼0，source／ZIP普通390／320寬四組各43rows仍通過；新增320×225 CSS viewport在非iframe及可捲動fluid iframe逐四題四時刻的tray／active拖放。兩路各36個short rows，合共128次正常short拖放、8次公開錯誤格點拖放及16次touchCancel；所有before／during／after owner、非owner、preview／release、真實scene／focus／3×、全框可視／16px避指及cleanup斷言通過，errors=[]。
+- 短viewport全部136個正常／錯格preview完整位於shell、避開手指；lens橫豎實際倍率皆3。錯誤公開格點[2400,0]及[1600,0]照常保存，沒有正解磁吸。普通preview全部仍在stage內。照片與數據位於output/playwright/motion-composition-stroboscopic-lab/；舊失敗證據留作歷史，不作目前verdict。
+- 最終npm run check、npm run package:all及working／base diff check退出碼0；根manifest及全部13個ZIP entries逐byte與最終source一致。此候選將交三位完整再審及第四位最終closure。真實Moodle／實體手機部署gate尚未執行。

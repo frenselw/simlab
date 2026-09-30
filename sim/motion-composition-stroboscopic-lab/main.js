@@ -105,14 +105,20 @@
   }
   function preview(){
     if(!drag||drag.type!=='touch'||!drag.working){hidePreview();return;}
-    const focus=M.pixel(drag.working,layout),width=124,height=132,clear=p=>!(drag.cursor.x>p.x-16&&drag.cursor.x<p.x+width+16&&drag.cursor.y>p.y-16&&drag.cursor.y<p.y+height+16);
-    const options=[{x:28,y:2},{x:layout.width-28-width,y:2},{x:2,y:2},{x:layout.width-2-width,y:2},{x:2,y:layout.height-height-2},{x:layout.width-2-width,y:layout.height-height-2}].filter(p=>p.x>=0&&p.y>=0&&p.x+width<=layout.width&&p.y+height<=layout.height);
-    if(!drag.corner||!clear(drag.corner))drag.corner=options.find(clear)||options[0]||{x:2,y:2};
-    Object.assign(d.magnifier.style,{left:`${drag.corner.x}px`,top:`${drag.corner.y}px`});d.magnifier.hidden=false;
     const fragment=Scene.svg(c.state,c.caseIndex,c.timeIndex,layout,{working:drag.working,prefix:'preview'});
     d.magnifierSvg.innerHTML=fragment;for(const node of d.magnifierSvg.querySelectorAll('text'))node.remove();
-    d.magnifierSvg.setAttribute('viewBox',`${focus.x-width/6} ${focus.y-70/6} ${width/3} ${70/3}`);
-    d.previewValues.innerHTML=`${timeHTML(c.timeIndex)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;diagnostics.previews++;
+    d.previewValues.innerHTML=`${timeHTML(c.timeIndex)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;d.magnifier.hidden=false;
+    const box=d.magnifier.getBoundingClientRect(),app=d.app.getBoundingClientRect(),stage=d.stage.getBoundingClientRect(),width=box.width,height=box.height,offset={x:stage.left-app.left,y:stage.top-app.top},cursor={x:drag.cursor.x+offset.x,y:drag.cursor.y+offset.y};
+    const inside=p=>p.x>=0&&p.y>=0&&p.x+width<=app.width&&p.y+height<=app.height,clear=p=>!(cursor.x>p.x-16&&cursor.x<p.x+width+16&&cursor.y>p.y-16&&cursor.y<p.y+height+16);
+    const corners=[{x:28,y:2},{x:layout.width-28-width,y:2},{x:2,y:2},{x:layout.width-2-width,y:2},{x:2,y:layout.height-height-2},{x:layout.width-2-width,y:layout.height-height-2}].filter(p=>p.x>=0&&p.y>=0&&p.x+width<=layout.width&&p.y+height<=layout.height).map(p=>({x:p.x+offset.x,y:p.y+offset.y}));
+    // A short split stage has no room for both the finger and the lens.
+    // Its shell sibling can use the other column without intercepting input.
+    const shellY=Math.max(2,Math.min(offset.y+2,app.height-height-2));
+    const options=corners.concat([{x:app.width-width-2,y:shellY},{x:2,y:shellY},{x:app.width-width-2,y:2},{x:2,y:2}]).filter(inside);
+    if(!drag.corner||!inside(drag.corner)||!clear(drag.corner))drag.corner=options.find(clear)||options[0]||{x:2,y:2};
+    Object.assign(d.magnifier.style,{left:`${drag.corner.x}px`,top:`${drag.corner.y}px`});
+    const focus=M.pixel(drag.working,layout),lens=d.magnifierSvg.getBoundingClientRect();
+    d.magnifierSvg.setAttribute('viewBox',`${focus.x-lens.width/6} ${focus.y-lens.height/6} ${lens.width/3} ${lens.height/3}`);diagnostics.previews++;
   }
   function begin(element=null){if(!editable()||!current().observed)return;cancel();stop();keyboard={point:M.clone(saved()||[0,0]),element};render();}
   function adjust(direction,fine=false){if(!keyboard)return;const step=fine?10:200,p=keyboard.point;p[0]=Math.max(-400,Math.min(3600,p[0]+(direction==='right'?step:direction==='left'?-step:0)));p[1]=Math.max(-3600,Math.min(400,p[1]+(direction==='up'?step:direction==='down'?-step:0)));renderStage();}

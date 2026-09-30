@@ -1,10 +1,21 @@
 # 運動合成：完整獨立審核彙整及最終驗收報告
 
-日期：2026-10-01。分支：`codex/motion-composition-stroboscopic-plan`。首輪審核版本：`1c1815283c41420b09dfb6ce8e27bd8059073391`，相對 `origin/main` 的完整實作變更。
+日期：2026-10-01。分支：`codex/motion-composition-stroboscopic-plan`。首輪審核版本：`1c1815283c41420b09dfb6ce8e27bd8059073391`；第二輪完整複審候選：`90a09cc116a611bd963d6d19ce8edab93a106707`。每輪均審核相對 `origin/main` 的完整 branch。
 
-**目前結論：首輪彙整完成，仍有 5 個已確認產品問題及 1 個本機驗證缺口開啟；尚未通過 package-ready。** 未發現 P0／P1 問題。物理模型、主要評分與保存／SCORM 流程通過三位審核者的完整核對。修正及受影響回歸完成後更新本報告的 closure；初版通過的測試不能替代修正版證據。真實 Moodle／實體手機驗收仍未執行，另列為外部部署 gate。
+**目前結論：三位第二輪完整複審及第四位彙整完成；首輪 F01–F05、V01 已關閉，仍有 F06（P2）及 F07（P3）兩項可重現 UI 問題開啟，尚未通過 package-ready。** 未發現 P0／P1 或新物理／評分／保存／SCORM 問題。首輪全 repo `npm test` 已通過；`90a09cc` 已通過本活動全部受影響回歸，沒有重新執行修正版全 repo `npm test`。真實 Moodle／實體手機仍未驗證。
 
 ## 仍開啟的事項
+
+| ID | 優先序／性質 | 目前狀態 | 合併來源與問題 | 必須達成的修正結果 |
+|---|---|---|---|---|
+| F06 | P2，產品缺陷 | Open，90a09cc | R1-03＋R2-3＋R3-3：320×225 兩欄 stage 太窄，preview 被手指遮擋，實際高度亦被裁切。 | 按實際 overlay 尺寸在可視空間定位；球心及讀數避指、完全可見，保留真實3×場景、同一工作點、pointer-inert及cleanup；補短viewport兩種target的可信touch回歸。 |
+| F07 | P3，產品缺陷 | Open，90a09cc | R1-04＋R3-4：390×600，情境C／D首時刻新增X₁與y軸名稱重疊。 | 近原點標籤避讓或使用既有selected時刻圖例，不遮軸名／刻度；保留真下標及配對識別，補正常手機及reference圖像／bbox核對。 |
+
+第二輪詳細證據與修正／回歸條件見本文末的「第二輪完整複審彙整」。這兩項是本機可處理的呈現問題；保存與評分仍正確，不能以正常尺寸或提交可達性的通過代替修正。
+
+## 首輪歷史事項（1c18152）
+
+首輪 verdict 為「5個已確認產品問題及1個本機驗證缺口開啟；未通過package-ready」。以下保留當時 finding、位置、修正條件及證據，不表示它們在目前版本仍開啟；目前 closure 另列。
 
 | ID | 優先序／性質 | 首輪狀態 | 問題及來源 | 必須達成的修正結果 |
 |---|---|---|---|---|
@@ -101,21 +112,23 @@ touch sequence 的 simulation owner／blocked 狀態不能因取消 drag 消失�
 
 審核 3 提出 selected 分運動球沒有 `Xᵢ／Yᵢ` 時刻標籤，結果參考串用普通 `t1`，部分公式用普通文字。這些沒有造成物理／評分錯誤，屬輕微規格對齊；建議在本次修正一併完成：selected影旁加簡短真下標，不擠滿全部早期影；HTML結果／preview依共用math serif、italic變量、正體單位及真下標。重查窄手機不遮邊／控件，必要時以 plan 明確記錄可讀性的命名選擇。
 
-## 最終 closure 與 release gate（待 Root 修正後更新）
+## 目前 closure 與 release gate（90a09cc）
 
 | 事項 | 修正版本／證據 | 再審結論 |
 |---|---|---|
-| F01 | 待補 | Open |
-| F02 | 待補 | Open |
-| F03 | 待補 | Open |
-| F04 | 待補 | Open |
-| F05 | 待補 | Open |
-| V01 | 待補 | Open |
-| N01 | 待補；非主要阻擋項 | 待決定／對齊 |
-| Repo／package gates | Root初版 whole-repo `npm test`仍在進行；最終check／package-all／diff及修正版回歸待補 | 尚未確認最終版本 |
-| Catalogue／plan evidence | 通過後更新active及實際證據；修正初步紀錄對tray metrics／zoom的過廣敘述 | 待補 |
+| F01 | 90a09cc strict-string enum；兩motion及trajectory的非字串draft／review拒絕，score-zero非法pending quarantine／retry／pagehide無寫入。三位五純tests及production流程再次通過。 | Closed |
+| F02 | 90a09cc短viewport兩欄；三位source／ZIP、standalone／fluid iframe實際320×225 check→submit→reference通過，16px字／≥44px提交控件、panel可達、無額外document scroll。preview另列F06。 | Closed |
+| F03 | 90a09cc保留blocked touch sequence；完整四組各8個tray／active×四入口案例及同頁後續pan通過。審核1獨立重跑原重現，source／ZIP host全程300、iframe top全程0、答案不變。 | Closed |
+| F04 | 90a09cc mode-first hint；空白／先分類review及reference、frozen／committed的actual DOM回歸兩路通過，審核2獨立確認未觀察reference顯示「參考軌跡」。 | Closed |
+| F05 | 90a09cc `stop()`同步playback label；actual resize後再播放及三位真正Chrome tab activation引發的trusted blur／visibility文字／cleanup證據通過。 | Closed |
+| V01 | 90a09cc四組source／ZIP×390／320各43 rows，16題時row分存tray／active before／during／after與preview；cursor處理、scene／viewBox／約3×／讀數／避指／release／cleanup均有斷言。原常規矩陣缺口關閉；新增短viewport例外F06仍開啟。 | Closed（原範圍） |
+| N01 | 90a09cc圖例、selected標記、time／preview／feedback改用真下標與math變量。內容對齊已實作；新增圖內標記碰撞以F07追蹤。 | 已實作；F07仍Open |
+| F06 | 三人各自可信touch在320×225重現；source／ZIP兩路證據齊備，詳本輪彙整。 | Open |
+| F07 | 審核3獨立PNG及審核1source／ZIP DOM bbox＋PNG確認。 | Open |
+| Repo／package gates | 初版1c18152 whole-repo `npm test` exit0，log已核對；90a09cc全部活動純tests／完整browser、check、package-all／diff及13entry ZIP byte parity通過。共享與其他活動未改；沒有聲稱修正版全repo重跑。 | 候選技術gates通過；F06／F07修正後需受影響回歸及最終重包 |
+| Catalogue／plan evidence | 90a09cc active metadata完整；plan已修正初版tray metrics／visual zoom過廣敘述，保留歷史及本輪證據。短preview新問題及最終closure仍需另記。 | metadata／歷史更正完成；最終驗收待補 |
 
-再驗順序：先修 F01與local schema／lifecycle tests，再修UI／gesture並补browser assertions及reports；重跑活動五套tests、source／ZIP完整matrix及受影響flows，記錄actual版本。三位原完整審核者再核對修正版及 closure；第四位以其結論更新本表及最終verdict。`npm run check`、`npm test`、`npm run package:all`、`git diff --check origin/main...HEAD`須有實際成功記錄；Root可依改動影響選擇合理回歸，不重複無關完整測試以充數。最後ZIP bytes須與最終source一致。
+下一輪先修F06／F07，補上短viewport操作及label collision斷言，重跑全部受影響source／ZIP回歸及必要純tests，再做check、package-all、branch diff check及最終ZIP byte parity。三位原審核者再次完整獨立審核修正版，第四位收齊三份本輪正式報告才更新最終verdict。初版全repo成功與後續受影響回歸須保持分開；不將未執行的最終全repo重跑寫成已通過。
 
 ## 外部部署 gates（不是上述產品缺陷）
 
@@ -125,3 +138,37 @@ touch sequence 的 simulation owner／blocked 狀態不能因取消 drag 消失�
 - CSS reflow等價／CDP visual zoom是本機證據；不宣稱已完成真實browser UI zoom／OS accessibility或實體裝置驗收。
 
 修正及本機gates全部通過可判定package-ready；Moodle-ready須另有上述真實部署證據。本報告不把外部缺證據虛構成程式bug，也不將本機成功擴張成真實Moodle／手機就緒。
+
+## 第二輪完整複審彙整（90a09cc）
+
+三位本輪正式完整複審均已交付後才完成此彙整；不是只複查首輪findings。各自重新審核完整branch及物理、文字、UI／手機、手勢／鍵盤、評分、state／persistence、SCORM／trust／locks、catalogue／manifest／ZIP及測試。三份完整報告均保留在前述來源文件的追加段落，獨立artifact分別為`recheck-1/`、`recheck-2/`、`recheck-3/`。
+
+### 本輪新增F06：短viewport的preview遮指及裁切（P2）
+
+R1-03、R2-3、R3-3為同一問題，合併為F06。位置為`main.js:108–110`及`styles.css:48–56`。320×225 CSS viewport下stage是160×138.59375px；preview實際124×137.796875px，程式仍按132px高定位。候選位置無一能避指時，fallback仍取第一個corner，底部約超出stage1.203px。
+
+三位均用Chrome/CDP可信touch獨立重現。審核1的source／ZIP在情境B t₂將tray拖至正確位置`[1600,−800]`時，放大球心離cursor約14.998px；再移到公開合法錯誤格點`[2400,0]`時，cursor `(90.119,39.059)`與preview球心`(90,38)`只差**1.066px**，實際受手指遮擋。審核2在tray `P₁=[800,−800]`記錄`containsFinger=true`、`inside=false`；審核3以active handle拖至`[1600,−1600]`在source／ZIP亦重現。工作點／release保存仍正確，所以F02提交可達性維持Closed，F06另追蹤精確作圖的可讀性。
+
+證據：`recheck-1/targeted-report.json`、`source/package-compact-drag.png`、`source/package-compact-candidate.png`；`recheck-2/targeted-report.json`、`short-touch-preview.png`；`recheck-3/extra-report.json`、`source/package-zoom-preview.png`，均在`output/playwright/motion-composition-stroboscopic-lab/`下。
+
+修正條件：以實際overlay尺寸在可視shell內安排穩定、避指的位置；preview可以在stage外，但必須pointer-inert、完全可見、與主圖同一post-snap工作點及真實3×局部場景。不能只隱藏必需preview、壓小主要文字／控件、改物理或grading容差。正常stage／strip／panel的gesture owner仍須保留。
+
+回歸條件：source／實際ZIP在320×225、standalone／scrollable fluid iframe均用可信touch操作tray及active，覆蓋四情境各時刻，加入近原點及公開錯誤格點。保存實際preview bounds、cursor／球心／讀數／viewBox／倍率、所有owner／非owner、權威答案及release／cancel cleanup；球心及讀數完整可視並避開pointer的finger margin。重查正常390／320高500的完整矩陣，防止新overlay位置截取正常pan或改抓取偏移／release幾何；實際捲到panel底提交及返回仍可用。
+
+### 本輪新增F07：近原點X₁與y軸名重疊（P3）
+
+R1-04、R3-4合併為F07。位置為`scene.js:19,30`。390×600手機的情境C／D t₁水平位移只有0.20m，新增X₁固定在投影上方，與固定y軸名稱重疊。審核3獨立檢圖找到；審核1在source／ZIP的D確認X₁ bbox `(130.484,124.829,14.688,19.5)`與y軸名bbox `(136.942,126.423,9.207,14.276)`相交，PNG亦可見。審核2沒有另立此finding，不會推翻兩份直接重現證據。
+
+證據：`recheck-1/targeted-report.json`及`source/package-label-collision.png`；`recheck-3/source-390-case-3.png`及相應package圖。
+
+修正條件：以實際間距／bounds避讓軸名與刻度，或在密集區沿用既有Xᵢ／Yᵢ圖例及面板selected時刻，不必在軸旁重複標記。保留真正下標、非顏色識別及同時刻配對；不能擠到stage邊、控件或球心上。
+
+回歸條件：source／ZIP核對四情境首時刻，至少320／390手機及390×600的C／D，同時查student／reference模式。保存DOM bbox不相交及實際PNG，並檢視其餘時刻／桌面，避免以移除單一字串或只測大stage代替圖像驗收。model／scoring不需改動。
+
+### 本輪完整範圍及測試證據
+
+- 三份正式複審的全範圍結論均未發現F06／F07以外的新缺陷；物理、文字、評分、state／persistence、SCORM／trust／locks及包裝依各自追加報告核對。三位獨立五套純tests、source／ZIP smoke及13entry byte parity皆通過；512 production round-trips／合法續作、791／818／1061 bytes不變。
+- 最新`report.json`為Chrome155.0.8059.12、trusted touch、`errors=[]`，四組source／package×390／320各43rows；分存tray／active完整指標、128次正常拖放及全部多指／取消／host／panel／只讀rows。320×225提交／reference及真正Chrome tab activation的trusted blur／visibility文字／cleanup另有獨立證據。常規matrix及提交可達性不能代表F06短viewportpreview通過。
+- Root初版whole-repo `npm test` exit0，`output/motion-composition-repo-tests.log`成功收尾已被三人及彙整者核對；90a09cc全部活動純tests、完整source／ZIP browser、check、package-all及branch diff／13entry byte parity通過。shared及其他活動未改。**證據範圍是初版全repo通過加修正版全部受影響回歸，沒有聲稱修正版全repo重跑。**
+
+本輪verdict：首輪問題已修正；F06／F07仍開啟，須Root修正、執行受影響回歸，再交三位完整獨立審核及第四位彙整。真實Moodle／實體手機的外部gates維持未驗證。

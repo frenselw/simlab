@@ -1,7 +1,7 @@
 :root { --motion-x: #2563eb; --motion-y: #b45309; --motion-answer: #6d28d9; }
 html, body { height: 100%; min-height: 0; overflow: hidden; }
 [hidden] { display: none !important; }
-.composition-app { height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42vh) minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42dvh) minmax(0, 1fr); overflow: hidden; }
+.composition-app { position: relative; height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42vh) minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42dvh) minmax(0, 1fr); overflow: hidden; }
 .sim-header { padding: .5rem .75rem; min-width: 0; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .heading h1 { font-size: 1.25rem; line-height: 1.4; margin: 0; }
