@@ -11,7 +11,7 @@
 <main id="app" class="composition-app">
   <header class="sim-header"><div class="heading"><h1>運動合成：頻閃軌跡</h1><span id="attemptStatus">練習</span></div><nav class="question-nav" aria-label="四個情境"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
   <section id="stage" class="stage" aria-label="合運動位置作圖區">
-    <div class="stage-top"><span id="stageTime"></span><span class="legend"><span class="x-key">X 水平</span> · <span class="y-key">Y 垂直</span></span></div>
+    <div class="stage-top"><span id="stageTime"></span><span id="componentLegend" class="legend"><span class="x-key">X 水平</span> · <span class="y-key">Y 垂直</span></span></div>
     <svg id="stageSvg" role="img" aria-label="分運動頻閃與你的合運動位置" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p>
     <button id="trayHandle" class="point-tray-handle point-handle" aria-label="拖放此時刻的合運動球" aria-describedby="pointKeyboardHelp" hidden></button>
     <button id="activeHandle" class="active-point-handle point-handle" aria-label="修改此時刻的合運動位置" aria-describedby="pointKeyboardHelp" hidden></button>

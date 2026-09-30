@@ -13,6 +13,14 @@ for(const base of variants)for(let index=0;index<4;index++)for(let time=1;time<=
 }
 const invalid=[s=>delete s.cases,s=>s.cases.pop(),s=>s.activeTime=0,s=>s.activeCase=4,s=>s.modelVersion=2,s=>s.phase='lost',s=>{s.phase='check';s.returnToCheck=true;},s=>s.cases[0].motions[0]='all',s=>s.cases[0].points[0]=[NaN,0],s=>s.cases[0].points[0]=[0,Infinity],s=>s.cases[0].points[0]=[0.1,0],s=>s.cases[0].points[0]=[3601,0],s=>s.cases[0].points[0]=[0,0,0],s=>s.cases[0].points[0]=[0,0],s=>s.cases[0].trajectory='all'];
 for(const change of invalid){const s=P.fresh();change(s);assert.throws(()=>P.validate(s,'draft'));}
+for(const field of ['horizontal','vertical','trajectory'])for(const value of [[],[field==='trajectory'?'line':'uniform'],{},true,1]){
+  const snapshot=envelope('draft',P.fresh());
+  if(field==='trajectory')snapshot.answer.cases[0].trajectory=value;
+  else snapshot.answer.cases[0].motions[field==='horizontal'?0:1]=value;
+  assert.throws(()=>P.decode(JSON.parse(JSON.stringify(snapshot)),'draft'),`${field} rejects a non-string enum`);
+  const review=envelope('review',P.fresh());review.answer=M.clone(snapshot.answer);review.answer.phase='review';
+  assert.throws(()=>P.decode(JSON.parse(JSON.stringify(review)),'review'));
+}
 assert.throws(()=>P.decode(envelope('review',filled()),'draft'));assert.throws(()=>P.command(P.fresh(),{type:'place',point:[0,0]}));
 const max=filled();max.cases.forEach(c=>{c.points=Array.from({length:4},()=>[-400,-3600]);c.motions=['nonuniform','nonuniform'];c.trajectory='parabola';});
 const draft=envelope('draft',P.check(max)),review=envelope('review',max),r=S.score(max),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(review),score:r.score,maxScore:100,passed:r.passed}};

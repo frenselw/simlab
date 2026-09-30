@@ -3,6 +3,7 @@
   const M=MotionCompositionModel, P=MotionCompositionPersistence, Scene=MotionCompositionScene;
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   let layout, drag=null, keyboard=null, reference=false, compareAxis=0, animation=null, animationStart=null, playing=false;
+  let blockedTouchSequence=false;
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0,previews:0};
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const c=new MotionCompositionRuntime.Controller(SimScorm,SimActivityFlow,render);
@@ -10,7 +11,8 @@
   const working=()=>drag?.working||keyboard?.point||null;
   const announce=text=>{d.liveRegion.textContent=text;};
   const timeHTML=i=>`<var>t</var><sub>${i}</sub>`;
-  function stop(){playing=false;animation=null;animationStart=null;}
+  function playbackLabel(){d.playButton.textContent=playing?'停止播放':reference&&c.trusted?'播放參考合運動':'播放分運動';}
+  function stop(){playing=false;animation=null;animationStart=null;playbackLabel();}
   function hidePreview(){d.magnifier.hidden=true;d.magnifierSvg.replaceChildren();d.previewValues.textContent='';}
   function cancel(interrupted=false){
     const old=drag;drag=null;keyboard=null;hidePreview();
@@ -31,7 +33,7 @@
       for(let i=0;i<4;i++){const p=M.progress(c.state.cases[i]),b=document.createElement('button');b.type='button';b.dataset.case=String(i);b.dataset.progress=p.complete?'complete':p.started?'partial':'empty';b.innerHTML=`${i+1}<small>${p.count}/7</small>`;b.setAttribute('aria-label',`情境${i+1}，已答${p.count}/7項`);if(i===c.caseIndex)b.setAttribute('aria-current','step');b.disabled=['technical','mismatch'].includes(c.mode);b.onclick=()=>{navigate(i);d.controlPanel.scrollTop=0;};d.questionNav.append(b);}
       d.questionKicker.textContent=`情境 ${c.caseIndex+1} · 等時頻閃`;
       d.observeButton.hidden=!editable();d.observeButton.textContent=current().observed?'頻閃圖已顯示':'顯示頻閃圖';d.observeButton.disabled=current().observed;
-      d.playButton.textContent=playing?'停止播放':reference&&c.trusted?'播放參考合運動':'播放分運動';d.playButton.disabled=['frozen','committed'].includes(c.mode);
+      playbackLabel();d.playButton.disabled=['frozen','committed'].includes(c.mode);
       d.timeNav.replaceChildren();for(let i=1;i<=4;i++){const b=document.createElement('button');b.type='button';b.dataset.time=String(i);b.innerHTML=timeHTML(i);b.setAttribute('aria-label',`時刻${i}，${(i*M.DT).toFixed(2)}秒，${current().points[i-1]?'已放置':'未放置'}`);if(i===c.timeIndex)b.setAttribute('aria-current','step');b.onclick=()=>navigate(c.caseIndex,i);d.timeNav.append(b);}
       d.horizontalMotion.value=current().motions[0]??'';d.verticalMotion.value=current().motions[1]??'';d.trajectorySelect.value=current().trajectory??'';
       d.placeHint.textContent=current().observed?'每小格0.20 m；按同一時刻的兩個球影拖放。':'先顯示頻閃圖，再放置位置。';
@@ -63,7 +65,8 @@
   function renderFeedback(){
     const detail=c.result.detail[c.caseIndex],expected=M.expected(c.caseIndex),definition=M.CASES[c.caseIndex];
     const status=(correct,label)=>`<span class="${correct?'ok':'issue'}">${correct?'✓':'○'} ${label}</span>`;
-    d.feedback.innerHTML=`<article><h3>情境 ${c.caseIndex+1}：${detail.score}/25 分</h3><p>${definition.explanation}</p><p>${detail.motions.map((ok,i)=>`${status(ok,i?'垂直':'水平')}：${M.MOTIONS[definition.motions[i]]}`).join('<br>')}</p><p>${status(detail.trajectory,'合運動軌跡')}：${M.TRAJECTORIES[definition.trajectory]}</p></article><article><h3>各時刻的位置</h3><table class="feedback-table"><thead><tr><th>時刻</th><th>你的 (x, y) / m</th><th>分量</th></tr></thead><tbody>${current().points.map((p,i)=>`<tr><td>${timeHTML(i+1)}</td><td>${p?`${M.format(p[0])}, ${M.format(p[1])}`:'未放置'}</td><td>${status(detail.points[i].x,'x')} ${status(detail.points[i].y,'y')}</td></tr>`).join('')}</tbody></table><p class="small">參考位置：${expected.map((p,i)=>`t${i+1} (${M.format(p[0])}, ${M.format(p[1])})`).join('；')} m。每個分量容差為±0.050 m。</p></article><p class="small">同一時刻的水平位置與垂直位置配成一個點。球影越來越疏只表示各段平均速率增加；間距等量增加才與勻加速模型相符。</p>`;
+    const explanation=definition.explanation.replace(/\b([gxy])\b/g,'<var>$1</var>').replace('m/s²','m/s<sup>2</sup>');
+    d.feedback.innerHTML=`<article><h3>情境 ${c.caseIndex+1}：${detail.score}/25 分</h3><p>${explanation}</p><p>${detail.motions.map((ok,i)=>`${status(ok,i?'垂直':'水平')}：${M.MOTIONS[definition.motions[i]]}`).join('<br>')}</p><p>${status(detail.trajectory,'合運動軌跡')}：${M.TRAJECTORIES[definition.trajectory]}</p></article><article><h3>各時刻的位置</h3><table class="feedback-table"><thead><tr><th>時刻</th><th>你的 (<var>x</var>, <var>y</var>) / m</th><th>分量</th></tr></thead><tbody>${current().points.map((p,i)=>`<tr><td>${timeHTML(i+1)}</td><td>${p?`${M.format(p[0])}, ${M.format(p[1])}`:'未放置'}</td><td>${status(detail.points[i].x,'<var>x</var>')} ${status(detail.points[i].y,'<var>y</var>')}</td></tr>`).join('')}</tbody></table><p class="small">參考位置：${expected.map((p,i)=>`${timeHTML(i+1)} (${M.format(p[0])}, ${M.format(p[1])})`).join('；')} m。每個分量容差為±0.050 m。</p></article><p class="small">同一時刻的水平位置與垂直位置配成一個點。球影越來越疏只表示各段平均速率增加；間距等量增加才與勻加速模型相符。</p>`;
   }
   function renderStage(){
     const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height);
@@ -72,7 +75,9 @@
     const tray=editable()&&current().observed&&!saved(),value=working()||saved(),showRef=reference&&c.trusted;
     d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,c.timeIndex,layout,{working:working(),reference:showRef,tray,animation});
     d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(c.timeIndex)} = ${(c.timeIndex*M.DT).toFixed(2)} s`;
-    d.stageHint.textContent=!current().observed?'在操作面板顯示頻閃圖':tray?'拖球放置':showRef?'參考軌跡':c.mode==='frozen'?'作答已凍結':'你的連線';d.stageHint.classList.toggle('with-tray',tray);
+    const componentIndex=(current().observed||showRef)&&animation===null?`<sub>${c.timeIndex}</sub>`:'';
+    d.componentLegend.innerHTML=`<span class="x-key">X${componentIndex} 水平</span> · <span class="y-key">Y${componentIndex} 垂直</span>`;
+    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':!current().observed?'在操作面板顯示頻閃圖':tray?'拖球放置':'你的連線';d.stageHint.classList.toggle('with-tray',tray);
     const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
     place(d.trayHandle,layout.tray,tray);place(d.activeHandle,M.pixel(value||[0,0],layout),editable()&&current().observed&&saved()!==null);
     d.trayHandle.setAttribute('aria-label',`放置t${c.timeIndex}的合運動球`);d.activeHandle.setAttribute('aria-label',`修改t${c.timeIndex}，${value?`x=${M.format(value[0])}米，y=${M.format(value[1])}米`:''}`);
@@ -83,7 +88,7 @@
   }
   function local(event){const r=d.stage.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
   function down(event,element,creating){
-    if(!editable()||!current().observed||drag||event.isPrimary===false||event.button>0)return;cancel();stop();const p=local(event);
+    if(!editable()||!current().observed||drag||event.isPrimary===false||event.button>0||(event.pointerType==='touch'&&blockedTouchSequence))return;cancel();stop();const p=local(event);
     drag={id:event.pointerId,type:event.pointerType,element,creating,down:p,cursor:p,base:creating?null:M.pixel(saved(),layout),working:null,active:false,snap:null,resolved:false,corner:null};
     diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;element.setPointerCapture(event.pointerId);event.preventDefault();
   }
@@ -101,12 +106,13 @@
   function preview(){
     if(!drag||drag.type!=='touch'||!drag.working){hidePreview();return;}
     const focus=M.pixel(drag.working,layout),width=124,height=132,clear=p=>!(drag.cursor.x>p.x-16&&drag.cursor.x<p.x+width+16&&drag.cursor.y>p.y-16&&drag.cursor.y<p.y+height+16);
-    const options=[{x:28,y:2},{x:layout.width-28-width,y:2}];if(!drag.corner||!clear(drag.corner))drag.corner=options.find(clear)||options[0];
+    const options=[{x:28,y:2},{x:layout.width-28-width,y:2},{x:2,y:2},{x:layout.width-2-width,y:2},{x:2,y:layout.height-height-2},{x:layout.width-2-width,y:layout.height-height-2}].filter(p=>p.x>=0&&p.y>=0&&p.x+width<=layout.width&&p.y+height<=layout.height);
+    if(!drag.corner||!clear(drag.corner))drag.corner=options.find(clear)||options[0]||{x:2,y:2};
     Object.assign(d.magnifier.style,{left:`${drag.corner.x}px`,top:`${drag.corner.y}px`});d.magnifier.hidden=false;
     const fragment=Scene.svg(c.state,c.caseIndex,c.timeIndex,layout,{working:drag.working,prefix:'preview'});
     d.magnifierSvg.innerHTML=fragment;for(const node of d.magnifierSvg.querySelectorAll('text'))node.remove();
     d.magnifierSvg.setAttribute('viewBox',`${focus.x-width/6} ${focus.y-70/6} ${width/3} ${70/3}`);
-    d.previewValues.innerHTML=`t${c.timeIndex} · 3×<br>x ${M.format(drag.working[0])} m<br>y ${M.format(drag.working[1])} m`;diagnostics.previews++;
+    d.previewValues.innerHTML=`${timeHTML(c.timeIndex)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;diagnostics.previews++;
   }
   function begin(element=null){if(!editable()||!current().observed)return;cancel();stop();keyboard={point:M.clone(saved()||[0,0]),element};render();}
   function adjust(direction,fine=false){if(!keyboard)return;const step=fine?10:200,p=keyboard.point;p[0]=Math.max(-400,Math.min(3600,p[0]+(direction==='right'?step:direction==='left'?-step:0)));p[1]=Math.max(-3600,Math.min(400,p[1]+(direction==='up'?step:direction==='down'?-step:0)));renderStage();}
@@ -130,14 +136,14 @@
   for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.onclick=()=>{compareAxis=Number(b.dataset.compareAxis);renderComparison();};d.showIncreases.onchange=renderComparison;
   d.playButton.onclick=()=>{cancel();if(playing)stop();else if(reduced.matches){animation=c.timeIndex*M.DT;playing=false;}else{playing=true;animationStart=null;animation=0;}render();};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(drag||keyboard)){cancel(true);render();}});
-  document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){cancel(true);renderStage();}},true);
+  document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){blockedTouchSequence=true;cancel(true);renderStage();}},true);
   const touches=new Map();
-  document.addEventListener('touchstart',e=>{for(const t of e.changedTouches){const host=d.stage.contains(t.target)&&!t.target.closest?.('.point-handle');touches.set(t.identifier,{host,y:t.screenY});}},{passive:true});
-  document.addEventListener('touchmove',e=>{let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;try{if(window.parent!==window&&window.parent.document){window.parent.scrollBy(0,dy/(window.parent.visualViewport?.scale||1));handled=true;}}catch(_){/* Cross-origin deployment is verified separately. */}}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
-  for(const type of ['touchend','touchcancel'])document.addEventListener(type,e=>{for(const t of e.changedTouches)touches.delete(t.identifier);},{passive:true});
+  document.addEventListener('touchstart',e=>{for(const t of e.changedTouches){const point=Boolean(t.target.closest?.('.point-handle')),host=d.stage.contains(t.target)&&!point;touches.set(t.identifier,{host,point,y:t.screenY});}if(touches.size>1&&[...touches.values()].some(t=>t.point)){blockedTouchSequence=true;cancel(true);renderStage();}},{passive:true});
+  document.addEventListener('touchmove',e=>{if(blockedTouchSequence){if(e.cancelable)e.preventDefault();return;}let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;try{if(window.parent!==window&&window.parent.document){window.parent.scrollBy(0,dy/(window.parent.visualViewport?.scale||1));handled=true;}}catch(_){/* Cross-origin deployment is verified separately. */}}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
+  for(const type of ['touchend','touchcancel'])document.addEventListener(type,e=>{for(const t of e.changedTouches)touches.delete(t.identifier);if(!touches.size)blockedTouchSequence=false;},{passive:true});
   for(const type of ['blur','resize'])window.addEventListener(type,()=>{cancel(true);stop();renderStage();});document.addEventListener('visibilitychange',()=>{if(document.hidden){cancel(true);stop();renderStage();}});reduced.addEventListener('change',()=>{cancel(true);stop();render();});
   new ResizeObserver(()=>{if(drag||keyboard)cancel(true);renderStage();}).observe(d.stage);
-  function frame(now){if(playing){if(animationStart===null)animationStart=now;animation=Math.min(.8,(now-animationStart)/4000);if(animation>=.8){playing=false;animationStart=null;}renderStage();if(!playing)d.playButton.textContent=reference&&c.trusted?'播放參考合運動':'播放分運動';}requestAnimationFrame(frame);}
-  window.__motionComposition=Object.freeze({getState:()=>M.clone(c.state),getSelection:()=>({case:c.caseIndex,time:c.timeIndex,reference,compareAxis}),getMode:()=>c.mode,getResult:()=>M.clone(c.result),getGeometry:()=>M.clone(layout),getPointerDiagnostics:()=>({...diagnostics}),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot)});
+  function frame(now){if(playing){if(animationStart===null)animationStart=now;animation=Math.min(.8,(now-animationStart)/4000);if(animation>=.8){playing=false;animationStart=null;}renderStage();if(!playing)playbackLabel();}requestAnimationFrame(frame);}
+  window.__motionComposition=Object.freeze({getState:()=>M.clone(c.state),getSelection:()=>({case:c.caseIndex,time:c.timeIndex,reference,compareAxis}),getMode:()=>c.mode,getResult:()=>M.clone(c.result),getGeometry:()=>M.clone(layout),getPointerDiagnostics:()=>({...diagnostics}),getInteraction:()=>({point:M.clone(working()),cursor:M.clone(drag?.cursor),pointerId:drag?.id??null,active:Boolean(drag?.active),blockedTouchSequence}),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot)});
   c.start();requestAnimationFrame(frame);
 })();

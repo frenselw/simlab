@@ -14,6 +14,16 @@ const failure=environment();failure.c.check();failure.c.handleOutcome({activityS
 const checkpoint=environment();checkpoint.c.check();checkpoint.flags.writeFail='cmi.suspend_data';checkpoint.c.submit();assert.equal(checkpoint.c.mode,'frozen');checkpoint.flags.writeFail=null;checkpoint.c.retryFinal();assert.equal(checkpoint.c.mode,'review');
 const nonretry=environment();nonretry.c.check();nonretry.c.handleOutcome({activityState:'retry',retryable:false});assert.equal(nonretry.c.mode,'technical');
 const frozen=environment({durable:durableDraft(filled()),flags:{writeFail:'cmi.core.score.raw'}});frozen.c.check();frozen.c.submit();const bad=M.clone(frozen.durable),pending=JSON.parse(bad['cmi.suspend_data']);const inner=JSON.parse(pending.payload.reviewJson);inner.answer.cases[0].motions[0]='nonuniform';pending.payload.reviewJson=JSON.stringify(inner);bad['cmi.suspend_data']=JSON.stringify(pending);const quarantined=environment({durable:bad});assert.equal(quarantined.c.mode,'technical');const writes=quarantined.stats.writes;quarantined.events.pagehide({persisted:true});assert.equal(quarantined.stats.writes,writes);
+// Score-zero metadata also cannot make a malformed authoritative enum safe.
+const blankPending=environment({durable:durableDraft(P.fresh()),flags:{writeFail:'cmi.core.score.raw'}});blankPending.c.check();blankPending.c.submit();
+for(const field of ['horizontal','vertical','trajectory']){
+  const durable=M.clone(blankPending.durable),outer=JSON.parse(durable['cmi.suspend_data']),review=JSON.parse(outer.payload.reviewJson);
+  if(field==='trajectory')review.answer.cases[0].trajectory=['line'];else review.answer.cases[0].motions[field==='horizontal'?0:1]=['uniform'];
+  outer.payload.reviewJson=JSON.stringify(review);durable['cmi.suspend_data']=JSON.stringify(outer);
+  const restored=environment({durable});assert.equal(restored.c.mode,'technical');assert.equal(restored.c.trusted,false);
+  const before=M.clone(restored.durable),count=restored.stats.writes;restored.c.retryFinal();restored.events.pagehide({persisted:true});
+  assert.equal(restored.stats.writes,count);assert.deepEqual(restored.durable,before);
+}
 const altered=environment();altered.c.check();altered.c.submit();const different=M.clone(altered.c.finalSnapshot);different.answer.activeTime=2;altered.c.handleOutcome({activityState:'success',review:different});assert.equal(altered.c.mode,'technical','equal score does not excuse changed authoritative answers');
 const storage=new Map([['simlab:old','broken']]);for(const flags of [{},{storageReadFail:true,storageWriteFail:true}]){const e=environment({standalone:true,storage,flags});e.c.command({type:'motion',axis:0,value:'uniform'});e.c.check();e.c.submit();assert.equal(e.c.mode,'review');const reload=environment({standalone:true,storage,flags});assert.deepEqual(reload.c.state,P.fresh());assert.equal(e.stats.storageReads+e.stats.storageWrites+reload.stats.storageReads+reload.stats.storageWrites,0);}
 console.log('motion composition lifecycle: all startup/submission outcomes, trust, immutable pending/review, quarantine and standalone refresh passed');

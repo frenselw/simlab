@@ -23,8 +23,12 @@
       out += `<text x="${xp.x}" y="${l.top+l.size+17}" text-anchor="middle" font-family="sans-serif">${v/1000}</text><text x="${l.left-5}" y="${yp.y+4}" text-anchor="end" font-family="sans-serif">−${v/1000}</text>`;
     }
     out += `</g>${circle(origin,3,'#4b5563')}`;
-    if (c.observed) for (const [i,p] of M.expected(index).entries()) {
-      for (const axis of [0,1]) { const projected = point(axis===0?[p[0],0]:[0,p[1]],l); out += circle(projected,i===selected?5:3,COLORS[axis],i===selected?'stroke-width="2.2"':''); }
+    if (c.observed || options.reference) for (const [i,p] of M.expected(index).entries()) {
+      for (const axis of [0,1]) {
+        const projected = point(axis===0?[p[0],0]:[0,p[1]],l);
+        out += circle(projected,i===selected?5:3,COLORS[axis],i===selected?'stroke-width="2.2"':'');
+        if(i===selected && l.size>=145) out += `<text x="${axis?origin.x-8:projected.x}" y="${axis?projected.y+4:origin.y-9}" text-anchor="${axis?'end':'middle'}" ${font} font-size="14" fill="${COLORS[axis]}">${axis?'Y':'X'}<tspan baseline-shift="sub" font-size="11">${i+1}</tspan></text>`;
+      }
     }
     if (options.animation != null) { const p = M.position(index,options.animation); out += circle(point([p[0],0],l),5,COLORS[0],'fill="#2563eb"')+circle(point([0,p[1]],l),5,COLORS[1],'fill="#b45309"'); }
     const answer = options.reference ? M.expected(index) : c.points.map((p,i)=>i===selected&&options.working?options.working:p);

@@ -18,9 +18,9 @@
   const validPoint = p => p === null || (Array.isArray(p) && p.length === 2 && p.every(Number.isInteger) && p[0] >= -400 && p[0] <= 3600 && p[1] >= -3600 && p[1] <= 400);
   function validCase(c) {
     return Boolean(c && !Array.isArray(c) && Object.keys(c).length === 4 && typeof c.observed === "boolean" &&
-      Array.isArray(c.motions) && c.motions.length === 2 && c.motions.every(v => v === null || Object.hasOwn(MOTIONS, v)) &&
+      Array.isArray(c.motions) && c.motions.length === 2 && c.motions.every(v => v === null || (typeof v === "string" && Object.hasOwn(MOTIONS, v))) &&
       Array.isArray(c.points) && c.points.length === 4 && c.points.every(validPoint) && (c.observed || c.points.every(p => p === null)) &&
-      (c.trajectory === null || Object.hasOwn(TRAJECTORIES, c.trajectory)));
+      (c.trajectory === null || (typeof c.trajectory === "string" && Object.hasOwn(TRAJECTORIES, c.trajectory))));
   }
   function position(index, time) {
     const c = CASES[index];
@@ -38,7 +38,7 @@
   }
   function layout(width, height) {
     const size = Math.max(40, Math.min(width - 92, height - 88));
-    return { width, height, size, left: (width - size) / 2, top: 26, tray: { x: width / 2, y: height - 25 } };
+    return { width, height, size, left: (width - size) / 2, top: 34, tray: { x: width / 2, y: height - 25 } };
   }
   const pixel = (p, l) => ({ x: l.left + (p[0] + 400) * l.size / 4000, y: l.top + (400 - p[1]) * l.size / 4000 });
   const world = (p, l) => [(p.x - l.left) * 4000 / l.size - 400, 400 - (p.y - l.top) * 4000 / l.size];

@@ -69,7 +69,26 @@ async function click(cdp, selector, embedded = false) {
 }
 const state=(cdp,embedded=false)=>call(cdp,'return w.__motionComposition.getState();',embedded);
 const mode=(cdp,embedded=false)=>call(cdp,'return w.__motionComposition.getMode();',embedded);
-const touchPoint=p=>({x:p.x,y:p.y,id:1,radiusX:2,radiusY:2,force:1});
+const touchPoint=(p,id=1)=>({x:p.x,y:p.y,id,radiusX:2,radiusY:2,force:1});
+async function settled(cdp,condition,embedded=false,label='UI condition'){
+ for(let i=0;i<80;i++){if(await call(cdp,condition,embedded))return;await delay(25);}
+ const actual=await call(cdp,"return {interaction:w.__motionComposition.getInteraction(),pointer:w.__motionComposition.getPointerDiagnostics(),previewHidden:d.getElementById('magnifier').hidden,inputProbe:w.__inputProbe,hitProbe:w.__hitProbe};",embedded);
+ throw new Error(`${label} did not settle: ${JSON.stringify(actual)}`);
+}
+async function previewEvidence(cdp,end,embedded){
+ const cursor=await call(cdp,`const r=d.getElementById('stage').getBoundingClientRect(),f=${embedded?'w.frameElement.getBoundingClientRect()':'{x:0,y:0}'};return {x:${end.x}-f.x-r.x,y:${end.y}-f.y-r.y};`,embedded);
+ await settled(cdp,`const i=w.__motionComposition.getInteraction();return i.active&&i.point&&i.cursor&&Math.hypot(i.cursor.x-${cursor.x},i.cursor.y-${cursor.y})<1.1;`,embedded,'final touch move');
+ const evidence=await call(cdp,`const a=w.__motionComposition,i=a.getInteraction(),l=a.getGeometry(),m=d.getElementById('magnifier'),r=m.getBoundingClientRect(),s=d.getElementById('stage').getBoundingClientRect(),svg=d.getElementById('magnifierSvg');return {hidden:m.hidden,text:d.getElementById('previewValues').textContent,readout:d.getElementById('positionReadout').textContent,point:i.point,cursor:i.cursor,geometry:l,bounds:[r.left-s.left,r.top-s.top,r.width,r.height],inside:r.left>=s.left&&r.right<=s.right&&r.top>=s.top&&r.bottom<=s.bottom,intercept:w.getComputedStyle(m).pointerEvents,viewBox:svg.getAttribute('viewBox').split(' ').map(Number),svgSize:[svg.clientWidth,svg.clientHeight],mainPoints:[...d.querySelectorAll('#stageSvg circle[stroke="#6d28d9"][r="5"]')].map(e=>[Number(e.getAttribute('cx')),Number(e.getAttribute('cy'))]),previewPoints:[...svg.querySelectorAll('circle[stroke="#6d28d9"][r="5"]')].map(e=>[Number(e.getAttribute('cx')),Number(e.getAttribute('cy'))]),clipIds:[...svg.querySelectorAll('[id]')].map(e=>e.id)};`,embedded);
+ assert.equal(evidence.hidden,false);assert.ok(evidence.inside);assert.equal(evidence.intercept,'none');
+ const focus=M.pixel(evidence.point,evidence.geometry),[x,y,width,height]=evidence.viewBox;
+ assert.ok(Math.abs(x+width/2-focus.x)<1e-8&&Math.abs(y+height/2-focus.y)<1e-8,'preview uses the resolved focus');
+ assert.ok(Math.abs(evidence.svgSize[0]/width-3)<.07&&Math.abs(evidence.svgSize[1]/height-3)<.01,'actual preview magnification');
+ assert.ok(evidence.mainPoints.some(p=>Math.hypot(p[0]-focus.x,p[1]-focus.y)<1e-8));assert.ok(evidence.previewPoints.some(p=>Math.hypot(p[0]-focus.x,p[1]-focus.y)<1e-8));
+ assert.ok(evidence.clipIds.every(id=>id.startsWith('preview-')));
+ for(const [axis,value] of [['x',evidence.point[0]],['y',evidence.point[1]]]){assert.ok(evidence.text.includes(`${axis} ${M.format(value)} m`));assert.ok(evidence.readout.includes(`${axis} = ${M.format(value)} m`));}
+ const [left,top,w,h]=evidence.bounds;assert.ok(!(evidence.cursor.x>left-16&&evidence.cursor.x<left+w+16&&evidence.cursor.y>top-16&&evidence.cursor.y<top+h+16),'preview avoids the finger');
+ return evidence;
+}
 async function dragTouch(cdp,start,end,during=null){
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(start)]});
  for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint({x:start.x+(end.x-start.x)*i/10,y:start.y+(end.y-start.y)*i/10})]});await delay(14);}
@@ -102,25 +121,77 @@ async function flows(cdp,base,label){
  await viewport(cdp,1280,900);await navigate(cdp,base,{fixture:false});
  for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);await click(cdp,'#observeButton');for(let slot=0;slot<4;slot++){await click(cdp,`[data-time="${slot+1}"]`);await drawMouse(cdp,index,slot,false,true);assert.deepEqual((await state(cdp)).cases[index].points[slot],M.expected(index)[slot]);}await select(cdp,'horizontalMotion',M.CASES[index].motions[0]);await select(cdp,'verticalMotion',M.CASES[index].motions[1]);await select(cdp,'trajectorySelect',M.CASES[index].trajectory);}
  assert.equal(S.score(await state(cdp)).score,100);await click(cdp,'#checkButton');assert.equal(await mode(cdp),'check');await click(cdp,'#checkList button');assert.equal((await state(cdp)).returnToCheck,true);await click(cdp,'#returnCheckButton');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'review');assert.equal((await call(cdp,'return w.__motionComposition.getResult();')).score,100);await click(cdp,'#referenceButton');await screenshot(cdp,`${label}-review`);
- for(const s of [P.fresh(),(()=>{const s=P.fresh();s.cases[0].motions[0]='uniform';return s;})()]){await navigate(cdp,base,{fixture:durableDraft(s)});await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal((await call(cdp,'return w.__motionComposition.getResult();')).score,S.score(s).score);}
+ for(const s of [P.fresh(),(()=>{const s=P.fresh();s.cases[0].motions[0]='uniform';return s;})()]){
+  await navigate(cdp,base,{fixture:durableDraft(s)});await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal((await call(cdp,'return w.__motionComposition.getResult();')).score,S.score(s).score);
+  assert.equal(await call(cdp,"return d.getElementById('stageHint').textContent;"),'你的作圖');const answer=JSON.stringify(await state(cdp));
+  await click(cdp,'#referenceButton');assert.equal(await call(cdp,"return d.getElementById('stageHint').textContent;"),'參考軌跡');assert.equal(JSON.stringify(await state(cdp)),answer);
+  assert.equal(await call(cdp,"return d.querySelectorAll('#stageSvg circle[stroke=\"#2563eb\"],#stageSvg circle[stroke=\"#b45309\"]').length;"),8);
+  await click(cdp,'#referenceButton');await click(cdp,'[data-case="1"]');assert.equal(await call(cdp,"return d.getElementById('stageHint').textContent;"),'你的作圖');
+ }
+ for(const lock of ['frozen','committed']){
+  await navigate(cdp,base,{fixture:durableDraft(P.fresh())});await click(cdp,'#checkButton');await call(cdp,lock==='frozen'?'w.__failFinal=true;':'w.__failFinish=true;');await click(cdp,'#submitButton');assert.equal(await mode(cdp),lock);
+  assert.equal(await call(cdp,"return d.getElementById('stageHint').textContent;"),lock==='frozen'?'作答已凍結':'你的作圖');
+ }
+ const malformed=durableDraft(P.fresh()),snapshot=JSON.parse(malformed['cmi.suspend_data']);snapshot.answer.cases[0].motions[0]=['uniform'];snapshot.answer.cases[0].trajectory=['line'];malformed['cmi.suspend_data']=JSON.stringify(snapshot);
+ await navigate(cdp,base,{fixture:malformed});assert.equal(await mode(cdp),'technical');assert.deepEqual(await call(cdp,'return w.__lmsValues;'),malformed);
  await navigate(cdp,base,{fixture:finishedData(filled())});assert.equal(await mode(cdp),'review');const locked=JSON.stringify(await state(cdp));await click(cdp,'[data-case="2"]');assert.equal(JSON.stringify(await state(cdp)),locked);
  await navigate(cdp,base,{fixture:durableDraft(filled())});await click(cdp,'#checkButton');await call(cdp,'w.__failFinal=true;');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'frozen');assert.equal(await call(cdp,'return w.__motionComposition.getResult();'),null);const pending=await call(cdp,'return w.__lmsValues;');await navigate(cdp,base,{fixture:pending});assert.equal(await mode(cdp),'frozen');await click(cdp,'#retryFinalButton');assert.equal(await mode(cdp),'review');
  for(const phase of ['edit','check','review']){await navigate(cdp,base,{fixture:false,denyStorage:true});await click(cdp,'#observeButton');await drawMouse(cdp,0,0);if(phase!=='edit')await click(cdp,'#checkButton');if(phase==='review')await click(cdp,'#submitButton');await cdp.send('Page.reload');await ready(cdp);assert.deepEqual(await state(cdp),P.fresh());assert.equal(await call(cdp,'return w.__storageProbes;'),0);}
  await navigate(cdp,base,{fixture:false});await select(cdp,'horizontalMotion','uniform');assert.equal(S.score(await state(cdp)).score,3);await click(cdp,'#observeButton');await call(cdp,"d.getElementById('trayHandle').focus();");for(let i=0;i<4;i++)await key(cdp,'ArrowRight');for(let i=0;i<4;i++)await key(cdp,'ArrowDown');assert.equal((await state(cdp)).cases[0].points[0],null);await key(cdp,'Enter');assert.deepEqual((await state(cdp)).cases[0].points[0],[800,-800]);await key(cdp,'ArrowRight',8);await key(cdp,'Escape');assert.deepEqual((await state(cdp)).cases[0].points[0],[800,-800]);
  await click(cdp,'[data-case="1"]');await click(cdp,'#observeButton');await call(cdp,"d.getElementById('spacingDetails').open=true;");await click(cdp,'[data-compare-axis="1"]');await click(cdp,'#showIncreases');const comparison=await call(cdp,"return d.getElementById('spacingBars').textContent;");assert.match(comparison,/0.20 m/);assert.match(comparison,/1.40 m/);assert.equal((comparison.match(/0.40 m/g)||[]).length,3);await screenshot(cdp,`${label}-comparison`);
- return {mouseScore:100,blankAndPartial:true,reviewResume:true,pendingRetry:true,standaloneRefresh:true,keyboard:true,comparison:true};
+ const beforeResize=JSON.stringify(await state(cdp));await click(cdp,'#playButton');await settled(cdp,"return d.getElementById('playButton').textContent==='停止播放';");await viewport(cdp,1280,899);await settled(cdp,"return d.getElementById('playButton').textContent==='播放分運動';");assert.equal(await call(cdp,"return d.getElementById('stageTime').textContent;"),'t1 = 0.20 s');assert.equal(JSON.stringify(await state(cdp)),beforeResize);
+ await click(cdp,'#playButton');await settled(cdp,"return d.getElementById('playButton').textContent==='停止播放';");await click(cdp,'#playButton');
+ return {mouseScore:100,blankAndPartial:true,reviewResume:true,pendingRetry:true,standaloneRefresh:true,keyboard:true,comparison:true,readOnlyHints:true,malformedEnums:true,playbackResizeAndReplay:true};
 }
-async function touch(cdp,base,label,width){
+async function zoomReflow(cdp,base,label){
+ const report=[];
+ for(const embedded of [false,true]){
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:320,height:225,deviceScaleFactor:2,mobile:false});
+  await navigate(cdp,base,{fixture:durableDraft(filled()),embedded,fluid:embedded});
+  const geometry=await call(cdp,"const p=d.getElementById('controlPanel'),s=d.getElementById('stage'),r=p.getBoundingClientRect();return {viewport:[w.innerWidth,w.innerHeight],panel:[r.x,r.y,r.width,r.height],panelOverflow:p.scrollWidth-p.clientWidth,docRange:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,docOverflow:d.documentElement.scrollWidth-w.innerWidth,stage:s.getBoundingClientRect().toJSON(),geometry:w.__motionComposition.getGeometry()};",embedded);
+  assert.equal(geometry.docRange,0);assert.equal(geometry.docOverflow,0);assert.ok(geometry.panelOverflow<=1);assert.ok(geometry.panel[1]>=0&&geometry.panel[1]+geometry.panel[3]<=225.1&&geometry.panel[3]>=65);
+  await click(cdp,'#checkButton',embedded);await rect(cdp,'#submitButton',embedded,true);
+  const bounds=await call(cdp,"const r=d.getElementById('submitButton').getBoundingClientRect(),p=d.getElementById('controlPanel').getBoundingClientRect();return {button:r.toJSON(),panel:p.toJSON(),viewport:[w.innerWidth,w.innerHeight],font:w.getComputedStyle(d.getElementById('submitButton')).fontSize};",embedded);
+  assert.ok(bounds.button.top>=bounds.panel.top&&bounds.button.bottom<=bounds.panel.bottom&&bounds.button.bottom<=225);assert.ok(bounds.button.height>=44);assert.ok(Number.parseFloat(bounds.font)>=16);
+  await screenshot(cdp,`${label}-zoom-reflow-${embedded?'iframe':'standalone'}-check`);await click(cdp,'#submitButton',embedded);assert.equal(await mode(cdp,embedded),'review');await click(cdp,'#referenceButton',embedded);assert.equal((await call(cdp,'return w.__motionComposition.getSelection();',embedded)).reference,true);
+  await screenshot(cdp,`${label}-zoom-reflow-${embedded?'iframe':'standalone'}-review`);report.push({embedded,geometry,submitBounds:bounds,submitted:true,reference:true});
+ }
+ return report;
+}
+async function touch(cdp,base,label,width,fresh){
  await viewport(cdp,width,500);const report=[];
  for(let index=0;index<4;index++)for(let slot=0;slot<4;slot++){
-  const s=P.fresh();s.activeCase=index;s.activeTime=slot+1;s.cases[index].observed=true;await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});await delay(100);let before=await metrics(cdp,true),preview;
-  const start=await rect(cdp,'#trayHandle',true),end=await target(cdp,index,slot,true);await dragTouch(cdp,start,end,async()=>{preview=await call(cdp,"const m=d.getElementById('magnifier'),r=m.getBoundingClientRect(),s=d.getElementById('stage').getBoundingClientRect();return {hidden:m.hidden,text:d.getElementById('previewValues').textContent,inside:r.left>=s.left&&r.right<=s.right&&r.top>=s.top&&r.bottom<=s.bottom,intercept:w.getComputedStyle(m).pointerEvents};",true);assert.equal(preview.hidden,false);assert.ok(preview.inside);assert.equal(preview.intercept,'none');if(slot===0)await screenshot(cdp,`${label}-${width}-preview-${index}`);});
-  let after=await metrics(cdp,true);fixed(before,after,'drag',`${label} tray ${width}/${index}/${slot}`);assert.ok(after.pointer.trustedTouch>before.pointer.trustedTouch);assert.equal(after.pointer.cancels,before.pointer.cancels);assert.deepEqual((await state(cdp,true)).cases[index].points[slot],M.expected(index)[slot]);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);
-  const head=await rect(cdp,'#activeHandle',true);before=await metrics(cdp,true);await dragTouch(cdp,head,{x:head.x+5,y:head.y+5});after=await metrics(cdp,true);fixed(before,after,'drag',`${label} active ${width}/${index}/${slot}`);assert.equal(after.pointer.cancels,before.pointer.cancels);
-  report.push({index,slot,before,after,preview});
+  const s=P.fresh();s.activeCase=index;s.activeTime=slot+1;s.cases[index].observed=true;await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});await delay(100);
+  const tray={before:await metrics(cdp,true)},start=await rect(cdp,'#trayHandle',true),end=await target(cdp,index,slot,true);
+  await dragTouch(cdp,start,end,async()=>{tray.preview=await previewEvidence(cdp,end,true);tray.during=await metrics(cdp,true);fixed(tray.before,tray.during,'preview',`${label} tray preview ${width}/${index}/${slot}`);if(slot===0)await screenshot(cdp,`${label}-${width}-preview-${index}`);});
+  tray.after=await metrics(cdp,true);fixed(tray.before,tray.after,'drag',`${label} tray ${width}/${index}/${slot}`);assert.ok(tray.after.pointer.trustedTouch>tray.before.pointer.trustedTouch);assert.equal(tray.after.pointer.cancels,tray.before.pointer.cancels);
+  assert.deepEqual((await state(cdp,true)).cases[index].points[slot],M.expected(index)[slot]);assert.deepEqual((await state(cdp,true)).cases[index].points[slot],tray.preview.point);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);
+  const active={before:await metrics(cdp,true)},head=await rect(cdp,'#activeHandle',true),destination={x:head.x+5,y:head.y+5};
+  await dragTouch(cdp,head,destination,async()=>{active.preview=await previewEvidence(cdp,destination,true);active.during=await metrics(cdp,true);fixed(active.before,active.during,'preview',`${label} active preview ${width}/${index}/${slot}`);});
+  active.after=await metrics(cdp,true);fixed(active.before,active.after,'drag',`${label} active ${width}/${index}/${slot}`);assert.equal(active.after.pointer.cancels,active.before.pointer.cancels);assert.ok(active.after.pointer.trustedTouch>active.before.pointer.trustedTouch);
+  assert.deepEqual((await state(cdp,true)).cases[index].points[slot],active.preview.point);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);
+  for(const gesture of [tray,active]){const expected=JSON.parse(gesture.before.answer),actual=JSON.parse(gesture.after.answer);expected.cases[index].points[slot]=actual.cases[index].points[slot];assert.deepEqual(actual,expected);assert.ok(gesture.after.pointer.moves>gesture.before.pointer.moves&&gesture.after.pointer.ups>gesture.before.pointer.ups);}
+  report.push({index,slot,tray,active});
+ }
+ // A cancelled simulation gesture keeps its owner until every finger lifts.
+ for(const kind of ['tray','active'])for(const entrance of ['background','left','right','target']){
+  cdp=await fresh();await viewport(cdp,width,500);
+  const initial=filled();if(kind==='tray')initial.cases[0].points[0]=null;
+  await navigate(cdp,base,{fixture:durableDraft(initial),embedded:true});
+  const before=await metrics(cdp,true),selector=kind==='tray'?'#trayHandle':'#activeHandle',start=await rect(cdp,selector,true),end=await target(cdp,0,1,true);
+  await call(cdp,`w.__inputProbe=[];d.addEventListener('pointerdown',e=>w.__inputProbe.push({type:e.pointerType,primary:e.isPrimary,button:e.button,target:e.target.id}),true);const r=d.querySelector('${selector}').getBoundingClientRect();w.__hitProbe={kind:'${kind}',entrance:'${entrance}',hit:d.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.id,local:[r.x+r.width/2,r.y+r.height/2],global:[${start.x},${start.y}],viewport:[w.visualViewport.width,w.visualViewport.height,w.visualViewport.scale],hostScale:w.parent.visualViewport.scale};`,true);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(start)]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(end)]});await previewEvidence(cdp,end,true);const during=await metrics(cdp,true);fixed(before,during,'preview',`${label} multi-touch working ${kind}/${entrance}`);
+  const r=await rect(cdp,entrance==='target'?selector:entrance==='background'?'#stage':`.scroll-strip.${entrance}`,true),secondary=entrance==='background'?{x:r.x+60,y:r.y-20}:entrance==='target'?{x:r.x,y:r.y}:{x:r.x,y:r.y-30};
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(end),touchPoint(secondary,2)]});
+  await settled(cdp,"const i=w.__motionComposition.getInteraction();return !i.point&&i.blockedTouchSequence&&d.getElementById('magnifier').hidden;",true,'multi-touch cancellation');
+  for(let step=1;step<=5;step++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(end),touchPoint({x:secondary.x,y:secondary.y-step*7},2)]});await delay(40);}
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(350);
+  const after=await metrics(cdp,true);fixed(before,after,'cancel',`${label} multi-touch ${width}/${kind}/${entrance}`);assert.ok(after.pointer.cancels>before.pointer.cancels);assert.equal(await call(cdp,'return w.__motionComposition.getInteraction().blockedTouchSequence;',true),false);
+  const panBefore=await metrics(cdp,true),strip=await rect(cdp,'.scroll-strip.right',true),panStart={x:strip.x,y:strip.y-20};await dragTouch(cdp,panStart,{x:panStart.x,y:panStart.y-35});const panAfter=await metrics(cdp,true);fixed(panBefore,panAfter,'host',`${label} post-cancel host pan ${kind}/${entrance}`);assert.ok(Math.abs(panAfter.host.y-panBefore.host.y)>5);
+  report.push({interruption:'multi-touch',kind,entrance,before,during,after,recoveryPan:{before:panBefore,after:panAfter}});
  }
  // Each scroll entrance is exercised independently in both directions.
- const s=filled();await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});
+ cdp=await fresh();await viewport(cdp,width,500);const s=filled();await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});
  for(const [entrance,selector] of [['left','.scroll-strip.left'],['right','.scroll-strip.right'],['background','#stage']])for(const direction of [-1,1]){
   await evaluate(cdp,'scrollTo(0,300)');await delay(100);const r=await rect(cdp,selector,true),start=entrance==='background'?{x:r.x+60,y:r.y-20}:{x:r.x,y:r.y-20};const before=await metrics(cdp,true);await dragTouch(cdp,start,{x:start.x,y:start.y+direction*45});const after=await metrics(cdp,true);fixed(before,after,'host',`${label} ${entrance}/${direction}`);assert.ok(Math.abs(after.host.y-before.host.y)>5);assert.equal(after.host.frame[1]-before.host.frame[1],before.host.y-after.host.y);report.push({entrance,direction,before,after});
  }
@@ -128,21 +199,34 @@ async function touch(cdp,base,label,width){
  for(const position of ['middle','top','bottom'])for(const direction of [-1,1]){
   await call(cdp,`const p=d.getElementById('controlPanel');p.scrollTop=${position==='top'?'0':position==='bottom'?'p.scrollHeight-p.clientHeight':'Math.min(120,p.scrollHeight-p.clientHeight-40)'};`,true);await delay(100);const r=await rect(cdp,'#controlPanel',true),start={x:r.x+40,y:r.y},before=await metrics(cdp,true);await dragTouch(cdp,start,{x:start.x,y:start.y+direction*45});const after=await metrics(cdp,true);fixed(before,after,'panel',`${label} panel ${position}/${direction}`);if(position==='middle')assert.notEqual(after.panel,before.panel);report.push({entrance:'panel',position,direction,before,after});
  }
- // Cancel, resizing, and a final pointer release outside the plot must keep the old answer.
- await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});const old=JSON.stringify(await state(cdp,true)),head=await rect(cdp,'#activeHandle',true);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(head)]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint({x:head.x+25,y:head.y+25})]});await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});assert.equal(JSON.stringify(await state(cdp,true)),old);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);
+ // Each interruption exercises the production rollback, then a legal continuation.
+ for(const interruption of ['cancel','lost-capture','resize','outside']){
+  cdp=await fresh();await viewport(cdp,width,500);
+  await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});const before=await metrics(cdp,true),head=await rect(cdp,'#activeHandle',true),end=await target(cdp,0,1,true);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(head)]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(end)]});const preview=await previewEvidence(cdp,end,true);let resized=null;
+  if(interruption==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+  else {
+   if(interruption==='lost-capture'){await call(cdp,"const e=d.getElementById('activeHandle'),id=w.__motionComposition.getInteraction().pointerId;if(!e.hasPointerCapture(id))throw new Error('Missing capture');e.releasePointerCapture(id);",true);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint({x:end.x+2,y:end.y+2})]});await settled(cdp,'return !w.__motionComposition.getInteraction().point;',true,'lost capture rollback');}
+   if(interruption==='resize'){await viewport(cdp,width===390?320:390,500);await settled(cdp,'return !w.__motionComposition.getInteraction().point;',true,'resize rollback');resized=await metrics(cdp,true);assert.equal(resized.answer,before.answer);}
+   if(interruption==='outside'){const l=await call(cdp,'return w.__motionComposition.getGeometry();',true),outside=await stagePoint(cdp,{x:l.left+l.size+10,y:l.top+l.size/2},true);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(outside)]});await settled(cdp,'return !w.__motionComposition.getInteraction().point;',true,'outside preview cleanup');}
+   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }
+  await delay(150);if(resized){await viewport(cdp,width,500);await delay(100);}
+  const after=await metrics(cdp,true);fixed(before,after,'cancel',`${label} ${interruption}/${width}`);assert.equal(await call(cdp,"return d.getElementById('magnifier').hidden;",true),true);report.push({interruption,before,after,preview,resized});
+ }
  for(const lock of ['review','frozen','committed']){await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});await click(cdp,'#checkButton',true);if(lock==='frozen')await call(cdp,'w.__failFinal=true;',true);if(lock==='committed')await call(cdp,'w.__failFinish=true;',true);await click(cdp,'#submitButton',true);assert.equal(await mode(cdp,true),lock);const before=await metrics(cdp,true),p=await target(cdp,0,0,true);await dragTouch(cdp,p,{x:p.x,y:p.y+40});const after=await metrics(cdp,true);fixed(before,after,'host',`${label} lock ${lock}`);assert.ok(Math.abs(after.host.y-before.host.y)>5);report.push({lock,before,after});}
  return report;
 }
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,targetId,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},gestures:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},flows:{},zoomReflow:{},gestures:{},errors:[]};
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-motion-package-',packageNamePattern:/^simlab-motion-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'));
   profile=fs.mkdtempSync(path.join(tempRoot,'simlab-motion-chrome-'));chrome=spawn(browser,['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','about:blank'],{stdio:['ignore','ignore','pipe']});let stderr='';chrome.stderr.on('data',b=>stderr=(stderr+b).slice(-3000));const port=await devToolsPort(profile,chrome).catch(e=>{e.message+=stderr;throw e;});
-  async function fresh(){if(cdp){await cdp.send('Target.closeTarget',{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');await preload(cdp);cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));}
+  async function fresh(){if(cdp){await cdp.send('Target.closeTarget',{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');await preload(cdp);cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));return cdp;}
   await fresh();report.browser=await cdp.send('Browser.getVersion');
-  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.flows[label]=await flows(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width);}}
+  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
   assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp){report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__motionComposition?.getMode(),state:w.__motionComposition?.getState()};})()").catch(()=>null);await screenshot(cdp,'failure').catch(()=>{});}fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-motion-(?:chrome|package)-[A-Za-z0-9]+$/,'motion test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
