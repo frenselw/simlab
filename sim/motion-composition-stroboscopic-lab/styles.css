@@ -1,0 +1,48 @@
+:root { --motion-x: #2563eb; --motion-y: #b45309; --motion-answer: #6d28d9; }
+html, body { height: 100%; min-height: 0; overflow: hidden; }
+[hidden] { display: none !important; }
+.composition-app { height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42vh) minmax(0, 1fr); grid-template-rows: auto minmax(11rem, 42dvh) minmax(0, 1fr); overflow: hidden; }
+.sim-header { padding: .5rem .75rem; min-width: 0; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.heading h1 { font-size: 1.25rem; line-height: 1.4; margin: 0; }
+#attemptStatus { font-size: .875rem; white-space: nowrap; color: var(--color-text-muted); }
+.question-nav, #questionNav { display: flex; gap: .25rem; }
+.question-nav { margin-top: .35rem; align-items: stretch; }
+#questionNav { flex: 1; }
+#questionNav button { flex: 1; min-width: 44px; padding: .1rem .25rem; line-height: 1.15; }
+#questionNav small { display: block; font-size: .75rem; color: var(--color-text-muted); }
+[aria-current="step"], .axis-tabs [aria-pressed="true"] { border-color: var(--color-accent); background: #eff6ff; box-shadow: inset 0 0 0 1px var(--color-accent); }
+#checkButton { padding: 0 .5rem; }
+.stage { min-width: 0; min-height: 0; position: relative; background: var(--color-canvas); overflow: hidden; border-bottom: 1px solid var(--color-border); touch-action: pan-y; }
+#stageSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.stage-top { position: absolute; inset: 3px 28px auto; display: flex; justify-content: space-between; gap: 4px; font-size: .875rem; line-height: 20px; pointer-events: none; z-index: 2; }
+.legend { white-space: nowrap; }
+.x-key { color: var(--motion-x); }.y-key { color: var(--motion-y); }
+.point-handle { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; touch-action: none; z-index: 5; cursor: grab; }
+.point-handle:hover { border: 0; }.point-handle:focus-visible { outline-offset: -4px; }
+.scroll-strip { position: absolute; top: 0; bottom: 0; width: 24px; z-index: 8; touch-action: pan-y; }.scroll-strip.left { left: 0; }.scroll-strip.right { right: 0; }
+.stage-hint { position: absolute; left: 28px; right: 28px; bottom: 7px; text-align: center; font-size: .875rem; pointer-events: none; }
+.stage-hint.with-tray { text-align: left; right: auto; max-width: calc(50% - 52px); bottom: 15px; }
+.control-panel { min-width: 0; min-height: 0; padding: .85rem 1rem; overflow-y: auto; overscroll-behavior: contain; background: var(--color-panel); touch-action: pan-y; }
+.control-panel h2 { margin: .25rem 0 .5rem; font-size: 1.15rem; }.control-panel p { line-height: 1.5; margin: .45rem 0; }
+.kicker { font-size: .875rem; color: var(--color-text-muted); }.intro { margin-bottom: .75rem !important; }.small { font-size: .875rem; color: var(--color-text-muted); }
+.action-row { display: flex; gap: .5rem; }.action-row button { flex: 1; padding: .4rem; }
+button.primary { background: var(--color-accent); color: white; border-color: var(--color-accent); }button.primary:disabled { background: var(--color-canvas-muted); border-color: var(--color-border); color: var(--color-text-muted); }
+.full { display: block; width: 100%; margin-top: .5rem; padding: .45rem; }
+fieldset { margin: 1rem 0; padding: .75rem 0 0; border: 0; border-top: 1px solid var(--color-border-light); min-width: 0; }legend { font-weight: 600; padding: 0; }
+.field-label { display: block; margin: .5rem 0 .25rem; }select { width: 100%; max-width: 100%; }
+details { margin: .8rem 0; }summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: .95rem; }summary::before { content: "▸"; margin-right: .4rem; }details[open] > summary::before { content: "▾"; }
+.axis-tabs, .time-nav { display: flex; gap: .35rem; }.axis-tabs button, .time-nav button { flex: 1; min-width: 44px; }
+.time-nav button { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times New Roman", serif; font-size: 1.05rem; }
+.position-readout { display: block; min-height: 1.6rem; font-size: .95rem; font-variant-numeric: tabular-nums; color: var(--motion-answer); }
+.adjust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }.increase-toggle { display: flex; align-items: center; gap: .35rem; min-height: 44px; font-size: .875rem; }.increase-toggle input { width: 18px; height: 18px; }
+.spacing-row { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr) 4.3rem; gap: .35rem; align-items: center; margin: .5rem 0; font-size: .875rem; }.bar-rail { height: 12px; background: #e5e7eb; }.gap-bar { height: 100%; background: var(--motion-x); }.gap-value { text-align: right; font-variant-numeric: tabular-nums; }.increase-value { grid-column: 2 / 4; font-size: .875rem; color: var(--color-text-muted); }
+.magnifier { position: absolute; width: 124px; z-index: 10; pointer-events: none; border: 1px solid #9ca3af; background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px #0002; }.magnifier svg { display: block; width: 100%; height: 70px; background: white; }#previewValues { padding: 3px 6px; font-size: 14px; line-height: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notice { padding: .65rem; border-left: 3px solid var(--color-danger); background: #fff7ed; font-size: .875rem; }
+.check-row button { width: 100%; text-align: left; padding: .6rem; margin: .5rem 0; }.check-row small { display: block; margin-top: .2rem; color: var(--color-text-muted); }
+#scorePanel strong { font-size: 1.5rem; }#feedback article { border-top: 1px solid var(--color-border); padding: .5rem 0; }#feedback h3 { font-size: 1rem; margin: .35rem 0; }.ok { color: #166534; }.issue { color: #9a3412; }.feedback-table { width: 100%; border-collapse: collapse; font-size: .875rem; }.feedback-table td, .feedback-table th { padding: .35rem .1rem; text-align: left; border-bottom: 1px solid var(--color-border-light); }.feedback-table th { font-weight: 500; }.panel-end { height: 12px; }
+.sr-only { position: absolute; top: 0; left: 0; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+var { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times New Roman", serif; }.number { font-variant-numeric: tabular-nums; }
+@media (min-width: 880px), (min-width: 700px) and (max-height: 480px) { .composition-app { grid-template-columns: minmax(0,1fr) clamp(16rem,28vw,20rem); grid-template-rows: auto minmax(0,1fr); }.sim-header { grid-column: 1 / -1; }#questionNav { flex: 0 1 360px; }.stage { border-right: 1px solid var(--color-border); border-bottom: 0; }.control-panel { padding: 1rem; } }
+@media (max-height: 480px) and (max-width: 699px) { .composition-app { grid-template-rows: auto minmax(9.5rem,42dvh) minmax(0,1fr); }.heading h1 { font-size: 1.1rem; }.sim-header { padding: .35rem .75rem; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

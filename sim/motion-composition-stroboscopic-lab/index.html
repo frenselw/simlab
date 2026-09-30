@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f3f4f6">
+  <title>運動合成：頻閃軌跡建構</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
+  <script src="model.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="composition-app">
+  <header class="sim-header"><div class="heading"><h1>運動合成：頻閃軌跡</h1><span id="attemptStatus">練習</span></div><nav class="question-nav" aria-label="四個情境"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
+  <section id="stage" class="stage" aria-label="合運動位置作圖區">
+    <div class="stage-top"><span id="stageTime"></span><span class="legend"><span class="x-key">X 水平</span> · <span class="y-key">Y 垂直</span></span></div>
+    <svg id="stageSvg" role="img" aria-label="分運動頻閃與你的合運動位置" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p>
+    <button id="trayHandle" class="point-tray-handle point-handle" aria-label="拖放此時刻的合運動球" aria-describedby="pointKeyboardHelp" hidden></button>
+    <button id="activeHandle" class="active-point-handle point-handle" aria-label="修改此時刻的合運動位置" aria-describedby="pointKeyboardHelp" hidden></button>
+    <p id="pointKeyboardHelp" class="sr-only">方向鍵移動0.20米，Shift加方向鍵微調0.01米；Enter放置，Escape取消。也可使用操作面板的方向按鈕。</p>
+    <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
+    <span id="stageHint" class="stage-hint"></span>
+    <aside id="magnifier" class="magnifier" aria-hidden="true" hidden><svg id="magnifierSvg" aria-hidden="true"></svg><div id="previewValues"></div></aside>
+  </section>
+  <aside id="controlPanel" class="control-panel" aria-label="操作面板">
+    <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" class="full" hidden>重試保存</button>
+    <section id="questionIntro"><p id="questionKicker" class="kicker"></p><h2>從分運動找出合運動</h2><p class="intro">兩個球影表示同一運動的水平、垂直分量。每隔 <span class="number">0.20 s</span> 留下一個影像。</p>
+      <div class="action-row"><button id="playButton">播放分運動</button><button id="observeButton" class="primary">顯示頻閃圖</button></div>
+    </section>
+    <section id="editPanel">
+      <details id="spacingDetails"><summary>比較相鄰間距</summary><div class="axis-tabs" aria-label="比較方向"><button data-compare-axis="0">水平</button><button data-compare-axis="1">垂直</button></div><p id="spacingHint" class="small"></p><div id="spacingBars"></div><label class="increase-toggle"><input id="showIncreases" type="checkbox"> 顯示比上一段多多少</label><p class="small">等時段距離相等符合勻速；間距等量增加符合勻加速模型。</p></details>
+      <fieldset><legend>1 · 判斷兩個分運動</legend><p class="small">哪種運動模型符合這組頻閃資料？</p><label for="horizontalMotion" class="field-label x-key">水平分運動</label><select id="horizontalMotion"><option value="">尚未選擇</option></select><label for="verticalMotion" class="field-label y-key">垂直分運動</label><select id="verticalMotion"><option value="">尚未選擇</option></select></fieldset>
+      <fieldset><legend>2 · 放置各時刻的合運動位置</legend><nav id="timeNav" class="time-nav" aria-label="選擇放置時刻"></nav><p id="placeHint" class="small"></p><output id="positionReadout" class="position-readout"></output>
+        <details id="adjustDetails"><summary>用按鈕微調位置</summary><button id="startPlaceButton" class="full">開始放置</button><label class="increase-toggle"><input id="fineStep" type="checkbox"> 微調（每步0.01 m）</label><div class="adjust-grid"><button data-adjust="up" aria-label="向上移動">↑ 上</button><button data-adjust="left" aria-label="向左移動">← 左</button><button data-adjust="right" aria-label="向右移動">右 →</button><button data-adjust="down" aria-label="向下移動">↓ 下</button></div><button id="commitPlaceButton" class="full">放置此位置</button><button id="cancelPlaceButton" class="full">取消此次調整</button></details>
+        <button id="removePointButton" class="full">刪除此時刻位置</button>
+      </fieldset>
+      <fieldset><legend>3 · 判斷合運動的軌跡</legend><label class="sr-only" for="trajectorySelect">合運動的軌跡</label><select id="trajectorySelect"><option value="">尚未選擇</option></select><p class="small">圖中淡線只連接你已放置的相鄰時刻。</p></fieldset>
+      <p id="stepProgress" class="small" role="status"></p><button id="nextButton" class="primary full">下一個時刻</button><button id="returnCheckButton" class="full" hidden>返回檢查</button><button id="clearCaseButton" class="full">重置本題作答</button>
+    </section>
+    <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查四題作答</h2><p>未答項得0分；有效部分保留分數。可以返回修改，或提交目前作答。</p><div id="checkList"></div><button id="backEditButton" class="full">返回編輯</button><button id="submitButton" class="primary full">確認提交目前作答</button></section>
+    <section id="reviewPanel" hidden><h2 id="reviewTitle"></h2><div id="scorePanel"></div><button id="retryFinalButton" class="full" hidden>重試同一份提交</button><button id="referenceButton" class="full" hidden>顯示參考作圖</button><div id="feedback"></div></section>
+    <section id="technicalPanel" hidden><h2>作答資料需要檢查</h2><p>原有記錄保持不變，請檢查連線或聯絡老師後再開啟活動。</p></section><div class="panel-end"></div>
+  </aside><div id="liveRegion" class="sr-only" aria-live="polite"></div>
+</main>
+</body></html>
