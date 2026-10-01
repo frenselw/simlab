@@ -49,8 +49,8 @@ A、D故意具有同一條參考直線，但頻閃分布不同。這是第四題
 | Decision | Activity specification |
 |---|---|
 | Slug / learning objective | `motion-composition-stroboscopic-lab`；以同一時刻的兩個分運動位置建構合運動位置，辨認直線／拋物線，區分軌跡與速率變化 |
-| Learner task / main interactions | 四題，各判斷兩個分運動類型、放置四個球及選一個軌跡類型；同步播放、顯示頻閃、按時刻選球、拖放／微調、刪除、重置本題、檢查、提交、提交後只讀比較 |
-| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`、`scene.js`；沿用三個 shared 檔案，無額外 runtime library 或建置系統需求 |
+| Learner task / main interactions | 四題，各判斷兩個分運動類型、放置四個球及選一個軌跡類型；同步播放、漸進拍攝頻閃、四球直接拖放、按時刻檢視／微調、刪除、重置本題、檢查、提交、提交後只讀比較 |
+| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`animation.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`、`scene.js`；animation 負責同步移動與等時曝光，沿用三個 shared 檔案，無額外 runtime library 或建置系統需求 |
 | Assessment risk / trusted validation | `formative`，100分、60分達標；瀏覽器評分供形成性練習，高風險考試及可信服務端驗證不在本版範圍 |
 | Out of scope | 學生設定任意速度／加速度、隨機題庫、斜拋與折返、阻力、碰撞、三維運動、非正交分解、速度／加速度向量作圖、自由手繪曲線、量尺及公式計算題、操作次數／速度評分 |
 
@@ -125,7 +125,7 @@ A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位�
 | Three regions | Header：標題、四題直接導航、目前題目／作答狀態；stage：共同坐標、分運動頻閃、學生位置、待放球；panel：播放／頻閃、相鄰間距比較、兩方向類型、時間選擇、位置微調、軌跡單選、刪除／重置、檢查 |
 | Desktop / tablet | 寬度≥880px時stage在左、panel在右；panel寬clamp(16rem,28vw,20rem)，讓正方形坐標圖有足夠空間 |
 | Control-panel classification | `bounded split-panel`；學生反覆選時刻及軌跡時須看見頻閃圖，panel獨立捲動，stage保持可見 |
-| Phone stage and controls | Header約88–104px；stage以minmax(11rem,42vh)及42dvh為起點，panel取餘下高度且min-height:0。一般圖域右側放四個44×44px球抓手；stage寬<260px或高<196px時改為圖下2×2停泊區，收起stage頂列及密集數字刻度。≤300px高的窄CSS viewport仍採stage／panel各半欄，panel保留16px主要字體及44px控件，不加stage捲軸 |
+| Phone stage and controls | Header約88–104px；stage以minmax(11rem,42vh)及42dvh為起點，panel取餘下高度且min-height:0。一般圖域右側放四個44×44px球抓手，首球中心距頂部至少54px以避開圖例；stage寬<260px或高<210px時改為圖下2×2停泊區，收起stage頂列及密集數字刻度。小圖域將軸名放在球影以外，球心與等比例映射不變。≤300px高的窄CSS viewport仍採stage／panel各半欄，panel保留16px主要字體及44px控件，不加stage捲軸 |
 | Phone text | 本文／按鈕16px、標題20–24px、次要文字14px；圖上必要時間／刻度標籤以實際CSS 14px為目標，減少標籤密度而不隨SVG縮成小字；單位放軸名，數字只標主刻度 |
 | Viewports | 320×500、390×500、390×600、390×844、手機橫向、短Moodle iframe、工具列變化、軟鍵盤及200% zoom；圖域橫豎比例始終一致 |
 | Scroll topology | Standalone及iframe使用100vh→100dvh有界shell；html/body/shell無額外可用垂直捲動。panel自己捲；空白stage及兩側留白捲enclosing page／Moodle host；沒有第三個scroll owner |
@@ -325,6 +325,8 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 以下依[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)記錄本機實跑結果；純測試、Chrome/CDP source／ZIP證據見文末，外部部署gate另列。
 
 修訂版追加決策：`animation.test.js`用可控時鐘驗0／1／2／3／4次等時曝光、減少動態逐格、延遲frame及取消後舊frame不能完成新題；browser兩路實際逐次驗曝光數／球心、未完成拍攝Moodle恢復後重新拍攝及合法放點。四球trusted-touch由activeTime=1直接抓任何slot，驗暫態時刻、合法放手僅更新所屬點與activeTime、取消不改權威資料。短viewport驗四球2×2完整熱區、同slot再拖及面板替代，不再要求已移除的圖內短抓手。新增animation.js須列入manifest並與實際ZIP逐byte比對；舊schema及512恢復矩陣仍適用。
+
+修訂版遮擋再驗決策：以實際DOM文字、球面含描邊、HTML抓手及其內容bounds檢查軸名、圖例、時鐘及文字可讀性；不以字串存在代替可視。普通13種viewport逐四情境／四時刻及submitted reference檢查，含compact門檻上下；320×225兩種拓撲在capture及reference播放的起點／首曝光另留實際bounds與截圖。保留完整source／實際ZIP的正常及短trusted-touch矩陣。
 
 - [x] `model.test.js`核對四題每一時刻的x／y、同步時間、上述基準表及1:3:5:7；A、D直線但間距不同，B、C精確拋物線及分支，等比例camera轉換可逆。
 - [x] `scoring.test.js`涵蓋全空0、全對100、只答全部分類36、只答位置64、x對y錯及兩方向類型獨立的部分分、每個50mm邊界內／外、重疊及錯slot；不給觀察／預設球分。

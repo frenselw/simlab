@@ -19,7 +19,9 @@
       if (value <= 3600) out += `<path d="M${l.left} ${y}h${l.size}" stroke="#e5e7eb" stroke-width=".7"/>`;
     }
     out += `<path d="M${l.left} ${origin.y}h${l.size}M${origin.x} ${l.top+l.size}V${l.top}" fill="none" stroke="#4b5563" stroke-width="1.4"/><path d="M${l.left+l.size-6} ${origin.y-3}l6 3-6 3M${origin.x-3} ${l.top+6}l3-6 3 6" fill="none" stroke="#4b5563" stroke-width="1.4"/>`;
-    out += `<g ${font} font-size="14" fill="#374151"><text x="${origin.x-(l.compact?20:17)}" y="${origin.y+(l.compact?13:-5)}">O</text><text x="${l.left+l.size+10}" y="${origin.y+4}" font-style="italic">x</text><text x="${origin.x+8}" y="${l.top+9}" font-style="italic">y</text>${l.compact?'':`<text x="${l.left+l.size+14}" y="${l.top+l.size+18}" font-family="sans-serif">m</text>`}`;
+    const originLabelX = l.compact ? l.left - 20 : origin.x - 22;
+    const yLabelX = l.compact ? l.left - 20 : l.size < 300 ? l.left - 26 : origin.x + 8;
+    out += `<g ${font} font-size="14" fill="#374151"><text data-axis-name="O" x="${originLabelX}" y="${origin.y+(l.compact?25:-5)}">O</text><text data-axis-name="x" x="${l.left+l.size+10}" y="${origin.y+4}" font-style="italic">x</text><text data-axis-name="y" x="${yLabelX}" y="${l.top+9}" font-style="italic">y</text>${l.compact?'':`<text x="${l.left+l.size+4}" y="${l.top+l.size+18}" font-family="sans-serif">m</text>`}`;
     for (let v = 800; v <= 3200; v += 800) {
       if (l.compact) continue;
       if (l.size < 145 && v !== 3200) continue;

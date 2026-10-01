@@ -115,6 +115,24 @@ async function target(cdp,index,slot,embedded=false){const l=await call(cdp,'ret
 async function drawMouse(cdp,index,slot,embedded=false,finalDifferent=false){const start=await rect(cdp,traySelector(slot),embedded),end=await target(cdp,index,slot,embedded);await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:start.x,y:start.y,button:'left',clickCount:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:end.x+(finalDifferent?20:0),y:end.y,button:'left',buttons:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:end.x,y:end.y,button:'left',clickCount:1});await delay(60);}
 async function select(cdp,id,value,embedded=false){await call(cdp,`const e=d.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new w.Event('change',{bubbles:true}));`,embedded);}
 async function key(cdp,key,modifiers=0){await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,modifiers});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,modifiers});}
+const overlaps=(a,b)=>Math.min(a.right,b.right)>Math.max(a.left,b.left)&&Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top);
+async function diagramReadability(cdp,embedded=false){
+ const e=await call(cdp,`const box=e=>e.getBoundingClientRect().toJSON(),ink=e=>{const r=d.createRange();r.selectNodeContents(e);return r.getBoundingClientRect().toJSON();};return {
+  stage:box(d.getElementById('stage')),
+  labels:[...d.querySelectorAll('#stageSvg text')].map(e=>({text:e.textContent,axis:e.dataset.axisName||null,bounds:box(e)})),
+  headers:['stageTime','componentLegend','stageHint'].map(id=>d.getElementById(id)).filter(e=>e.getClientRects().length&&e.textContent).map(e=>({text:e.textContent,bounds:ink(e)})),
+  balls:[...d.querySelectorAll('#stageSvg circle[data-stamp],#stageSvg circle[data-live-ball],#stageSvg circle[data-ball="origin"]')].map(e=>{const r=box(e),pad=Number(w.getComputedStyle(e).strokeWidth.replace('px',''))/2;return {ball:e.dataset.ball,slot:e.dataset.stamp||null,bounds:{left:r.left-pad,right:r.right+pad,top:r.top-pad,bottom:r.bottom+pad}};}),
+  trays:[...d.querySelectorAll('.point-tray-handle')].filter(e=>!e.hidden).map(e=>({slot:e.dataset.slot,bounds:box(e),parts:[...e.querySelectorAll('.tray-ball,.tray-time')].map(box)}))};`,embedded);
+ for(const label of e.labels){
+  const b=label.bounds,s=e.stage;assert.ok(b.left>=s.left&&b.right<=s.right&&b.top>=s.top&&b.bottom<=s.bottom,`diagram label clipped: ${JSON.stringify(label)}`);
+  if(label.axis)for(const ball of e.balls)assert.equal(overlaps(b,ball.bounds),false,`axis name covered by a sphere: ${JSON.stringify({label,ball})}`);
+ }
+ for(const tray of e.trays){
+  for(const b of [tray.bounds,...tray.parts])assert.ok(b.left>=e.stage.left&&b.right<=e.stage.right&&b.top>=e.stage.top&&b.bottom<=e.stage.bottom,`parking content clipped: ${JSON.stringify(tray)}`);
+  for(const label of [...e.labels,...e.headers])for(const b of [tray.bounds,...tray.parts])assert.equal(overlaps(label.bounds,b),false,`parking target covers diagram text: ${JSON.stringify({label,tray})}`);
+ }
+ return e;
+}
 async function diagramLabels(cdp,embedded=false){
  const e=await call(cdp,`const selected=w.__motionComposition.getSelection(),labels=[...d.querySelectorAll('#stageSvg text')].map(e=>({text:e.textContent,bounds:e.getBoundingClientRect().toJSON()}));return {selected,labels,stage:d.getElementById('stage').getBoundingClientRect().toJSON(),legend:d.getElementById('componentLegend').textContent,indices:[...d.querySelectorAll('#componentLegend sub')].map(e=>e.textContent),highlights:d.querySelectorAll('#stageSvg circle[r="5"][stroke="#2563eb"],#stageSvg circle[r="5"][stroke="#b45309"]').length};`,embedded);
  assert.deepEqual(e.indices,[String(e.selected.time),String(e.selected.time)]);assert.equal(e.highlights,2);
@@ -123,7 +141,7 @@ async function diagramLabels(cdp,embedded=false){
   const a=e.labels[i].bounds,b=e.labels[j].bounds,overlap=Math.min(a.right,b.right)>Math.max(a.left,b.left)&&Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top);
   assert.equal(overlap,false,`diagram labels overlap: ${JSON.stringify([e.labels[i],e.labels[j]])}`);
  }
- return e;
+ e.readability=await diagramReadability(cdp,embedded);return e;
 }
 async function trayTargets(cdp,embedded=false){
  const evidence=await call(cdp,`const l=w.__motionComposition.getGeometry(),s=d.getElementById('stage').getBoundingClientRect();return [...d.querySelectorAll('.point-tray-handle')].map(e=>{const r=e.getBoundingClientRect();return {slot:e.dataset.slot,hidden:e.hidden,bounds:[r.left-s.left,r.top-s.top,r.width,r.height],owner:d.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.point-tray-handle')?.id===e.id,action:w.getComputedStyle(e).touchAction,ball:w.getComputedStyle(e.querySelector('.tray-ball')).backgroundImage};});`,embedded);
@@ -131,7 +149,27 @@ async function trayTargets(cdp,embedded=false){
  assert.deepEqual(evidence.map(e=>e.slot),['1','2','3','4']);
  for(const e of evidence){const [x,y,width,height]=e.bounds;assert.equal(e.hidden,false);assert.equal(e.owner,true);assert.equal(e.action,'none');assert.ok(width>=44&&height>=44&&x>=24&&x+width<=l.width-24&&y>=0&&y+height<=l.height);assert.ok(e.ball.includes('radial-gradient'));}
  for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){const a=evidence[i].bounds,b=evidence[j].bounds;assert.ok(a[0]+a[2]<=b[0]||b[0]+b[2]<=a[0]||a[1]+a[3]<=b[1]||b[1]+b[3]<=a[1]);}
- return evidence;
+ await diagramReadability(cdp,embedded);return evidence;
+}
+async function playbackReadability(cdp,base,label){
+ const report=[];
+ for(const [width,height,embedded] of [[320,500,false],[390,500,false],[390,600,false],[320,225,false],[320,225,true]]){
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:height>300});
+  for(const kind of ['capture','reference']){
+   await navigate(cdp,base,{fixture:kind==='capture'?durableDraft(P.fresh()):finishedData(filled()),embedded,fluid:embedded});
+   if(kind==='reference')await click(cdp,'#referenceButton',embedded);
+   for(let index=0;index<4;index++){
+    await click(cdp,`[data-case="${index}"]`,embedded);await click(cdp,kind==='capture'?'#observeButton':'#playButton',embedded);
+    const beginning=await diagramReadability(cdp,embedded);
+    await settled(cdp,'return w.__motionComposition.getAnimation().stamps>=1;',embedded,'first moving exposure');
+    const firstExposure=await diagramReadability(cdp,embedded);
+    if(width===320&&height===225&&index===0)await screenshot(cdp,`${label}-short-${embedded?'iframe':'standalone'}-${kind}-readability`);
+    await click(cdp,'#playButton',embedded);
+    report.push({width,height,embedded,kind,index,beginning,firstExposure});
+   }
+  }
+ }
+ return report;
 }
 async function observation(cdp,base,label){
  const report=[];
@@ -146,6 +184,7 @@ async function observation(cdp,base,label){
    for(const ball of e.balls){const expected=M.expected(index)[ball.slot-1],projected=M.pixel(ball.axis?[0,expected[1]]:[expected[0],0],e.geometry);assert.deepEqual(ball.center,[projected.x,projected.y]);assert.match(ball.fill,/url\(#scene-[xy]-ball\)/);}
    if(count<4){assert.deepEqual(e.trays,[true,true,true,true]);assert.equal(e.live.length,2);const p=M.position(index,e.animation.time);for(const ball of e.live){const q=M.pixel(ball.axis==='x'?[p[0],0]:[0,p[1]],e.geometry);assert.deepEqual(ball.center,[q.x,q.y]);}if(reduced)assert.equal(e.animation.time,count*M.DT);}
    else e.targets=await trayTargets(cdp);
+   e.readability=await diagramReadability(cdp);
    if(!reduced&&index===1&&[0,2,4].includes(count))await screenshot(cdp,`${label}-capture-${count}`);exposures.push(e);
   }
   report.push({index,reduced,exposures});
@@ -157,12 +196,12 @@ async function observation(cdp,base,label){
  await navigate(cdp,base,{fixture:resume});assert.deepEqual(await state(cdp),before);assert.equal(await call(cdp,"return d.querySelectorAll('#stageSvg [data-stamp]').length;"),0);await capture(cdp);await drawMouse(cdp,0,2);assert.deepEqual((await state(cdp)).cases[0].points[2],M.expected(0)[2]);
  return {exposures:report,interruptedResumeAndLegalContinuation:true};
 }
-async function visual(cdp,base,label){const report=[];for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[768,900],[1024,768],[1280,900],[740,360],[320,400],[640,450]]){
+async function visual(cdp,base,label){const report=[];for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[768,900],[1024,768],[1280,900],[740,360],[320,400],[640,450],[320,499],[390,501],[390,467]]){
  await viewport(cdp,width,height);await navigate(cdp,base,{fixture:durableDraft(filled())});
  const m=await call(cdp,"const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.clientHeight,stage:s.clientHeight,font:[...d.querySelectorAll('#stageSvg text')].map(e=>Number(w.getComputedStyle(e).fontSize.replace('px','')))};");assert.ok(m.overflow<=1&&m.range<=1,`${label} ${width}x${height}: bounded ${JSON.stringify(m)}`);assert.ok(m.panel>=65);assert.ok(m.stage>=150);assert.ok(m.font.every(size=>size>=11));
- m.diagrams=[];for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);assert.equal((await state(cdp)).activeCase,index);m.diagrams.push(await diagramLabels(cdp));if((width===390&&height===600)||width===1280)await screenshot(cdp,`${label}-${width}-case-${index}`);if(width===390&&height===600&&index>=2){for(let slot=2;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);m.diagrams.push(await diagramLabels(cdp));}await click(cdp,'[data-time="1"]');}}
+ m.diagrams=[];for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);assert.equal((await state(cdp)).activeCase,index);m.diagrams.push(await diagramLabels(cdp));if((width===390&&height===600)||width===1280)await screenshot(cdp,`${label}-${width}-case-${index}`);if(height===500&&index===0)await screenshot(cdp,`${label}-${width}x${height}-parking`);for(let slot=2;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);m.diagrams.push(await diagramLabels(cdp));}await click(cdp,'[data-time="1"]');}
  assert.equal(await call(cdp,"return [...d.querySelectorAll('#questionNav button,#timeNav button')].every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44;});"),true);
- await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'review');assert.equal(await call(cdp,"return d.getElementById('clearCaseButton').getClientRects().length;"),0);await click(cdp,'#referenceButton');for(const index of [2,3]){await click(cdp,`[data-case="${index}"]`);m.diagrams.push(await diagramLabels(cdp));if(width===390&&height===600)await screenshot(cdp,`${label}-${width}-reference-${index}`);}report.push({width,height,...m});
+ await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'review');assert.equal(await call(cdp,"return d.getElementById('clearCaseButton').getClientRects().length;"),0);await click(cdp,'#referenceButton');for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);for(let slot=1;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);m.diagrams.push(await diagramLabels(cdp));}if(width===390&&height===600&&index>=2)await screenshot(cdp,`${label}-${width}-reference-${index}`);}report.push({width,height,...m});
  }
  await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});assert.equal(await call(cdp,'return w.visualViewport.scale;'),2);await screenshot(cdp,`${label}-zoom-200`);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});return report;
 }
@@ -299,14 +338,14 @@ async function touch(cdp,base,label,width,fresh){
 }
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,targetId,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},playbackReadability:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},errors:[]};
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-motion-package-',packageNamePattern:/^simlab-motion-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'));
   profile=fs.mkdtempSync(path.join(tempRoot,'simlab-motion-chrome-'));chrome=spawn(browser,['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','about:blank'],{stdio:['ignore','ignore','pipe']});let stderr='';chrome.stderr.on('data',b=>stderr=(stderr+b).slice(-3000));const port=await devToolsPort(profile,chrome).catch(e=>{e.message+=stderr;throw e;});
   async function fresh(){if(cdp){await cdp.send('Target.closeTarget',{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');await preload(cdp);cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));return cdp;}
   await fresh();report.browser=await cdp.send('Browser.getVersion');
-  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
+  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.playbackReadability[label]=await playbackReadability(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
   assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp){report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__motionComposition?.getMode(),state:w.__motionComposition?.getState()};})()").catch(()=>null);await screenshot(cdp,'failure').catch(()=>{});}fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-motion-(?:chrome|package)-[A-Za-z0-9]+$/,'motion test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
