@@ -56,7 +56,8 @@ async function navigate(cdp, base, options = {}) {
   if (options.embedded) { await evaluate(cdp, "scrollTo(0,300)"); await delay(70); }
 }
 async function rect(cdp, selector, embedded = false, scroll = false) {
-  const r = await call(cdp, `const e=d.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing ${selector}');${scroll ? "e.scrollIntoView({block:'nearest'});" : ""}const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height};`, embedded);
+  const r = await call(cdp, `const e=d.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing ${selector}');${scroll ? "e.scrollIntoView({block:'nearest'});" : ""}const r=e.getBoundingClientRect();return {visible:Boolean(e.getClientRects().length&&r.width>0&&r.height>0&&w.getComputedStyle(e).visibility!=='hidden'),x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height};`, embedded);
+  assert.equal(r.visible,true,`Hidden target ${selector}`);
   if (embedded) {
     const f = await evaluate(cdp, "(()=>{const r=document.getElementById('activity').getBoundingClientRect();return {x:r.left,y:r.top};})()"); r.x += f.x; r.y += f.y;
   }
@@ -199,9 +200,16 @@ async function observation(cdp,base,label){
 async function visual(cdp,base,label){const report=[];for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[768,900],[1024,768],[1280,900],[740,360],[320,400],[640,450],[320,499],[390,501],[390,467]]){
  await viewport(cdp,width,height);await navigate(cdp,base,{fixture:durableDraft(filled())});
  const m=await call(cdp,"const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.clientHeight,stage:s.clientHeight,font:[...d.querySelectorAll('#stageSvg text')].map(e=>Number(w.getComputedStyle(e).fontSize.replace('px','')))};");assert.ok(m.overflow<=1&&m.range<=1,`${label} ${width}x${height}: bounded ${JSON.stringify(m)}`);assert.ok(m.panel>=65);assert.ok(m.stage>=150);assert.ok(m.font.every(size=>size>=11));
- m.diagrams=[];for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);assert.equal((await state(cdp)).activeCase,index);m.diagrams.push(await diagramLabels(cdp));if((width===390&&height===600)||width===1280)await screenshot(cdp,`${label}-${width}-case-${index}`);if(height===500&&index===0)await screenshot(cdp,`${label}-${width}x${height}-parking`);for(let slot=2;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);m.diagrams.push(await diagramLabels(cdp));}await click(cdp,'[data-time="1"]');}
+ m.diagrams=[];for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);assert.equal((await state(cdp)).activeCase,index);for(let slot=1;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);const diagram=await diagramLabels(cdp);assert.equal(diagram.selected.case,index);assert.equal(diagram.selected.time,slot);m.diagrams.push(diagram);if(slot===1){if((width===390&&height===600)||width===1280)await screenshot(cdp,`${label}-${width}-case-${index}`);if(height===500&&index===0)await screenshot(cdp,`${label}-${width}x${height}-parking`);}}await click(cdp,'[data-time="1"]');}
  assert.equal(await call(cdp,"return [...d.querySelectorAll('#questionNav button,#timeNav button')].every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44;});"),true);
- await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'review');assert.equal(await call(cdp,"return d.getElementById('clearCaseButton').getClientRects().length;"),0);await click(cdp,'#referenceButton');for(let index=0;index<4;index++){await click(cdp,`[data-case="${index}"]`);for(let slot=1;slot<=4;slot++){await click(cdp,`[data-time="${slot}"]`);m.diagrams.push(await diagramLabels(cdp));}if(width===390&&height===600&&index>=2)await screenshot(cdp,`${label}-${width}-reference-${index}`);}report.push({width,height,...m});
+ await click(cdp,'#checkButton');await click(cdp,'#submitButton');assert.equal(await mode(cdp),'review');assert.equal(await call(cdp,"return d.getElementById('clearCaseButton').getClientRects().length;"),0);
+ await assert.rejects(()=>rect(cdp,'[data-time="2"]'),/Hidden target/,'review time buttons cannot be clicked');
+ for(let index=0;index<4;index++)for(let slot=1;slot<=4;slot++){
+  const answer=filled();answer.activeCase=index;answer.activeTime=slot;await navigate(cdp,base,{fixture:finishedData(answer)});assert.equal(await mode(cdp),'review');const before=JSON.stringify(await state(cdp));
+  await click(cdp,'#referenceButton');const diagram=await diagramLabels(cdp);assert.equal(diagram.selected.reference,true);assert.equal(diagram.selected.case,index);assert.equal(diagram.selected.time,slot);assert.equal(JSON.stringify(await state(cdp)),before,'reference view leaves submitted answers unchanged');m.diagrams.push(diagram);
+  if(width===390&&height===600&&index>=2&&slot===4)await screenshot(cdp,`${label}-${width}-reference-${index}`);
+ }
+ report.push({width,height,...m});
  }
  await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});assert.equal(await call(cdp,'return w.visualViewport.scale;'),2);await screenshot(cdp,`${label}-zoom-200`);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});return report;
 }

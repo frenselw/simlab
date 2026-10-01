@@ -328,6 +328,8 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 
 修訂版遮擋再驗決策：以實際DOM文字、球面含描邊、HTML抓手及其內容bounds檢查軸名、圖例、時鐘及文字可讀性；不以字串存在代替可視。普通13種viewport逐四情境／四時刻及submitted reference檢查，含compact門檻上下；320×225兩種拓撲在capture及reference播放的起點／首曝光另留實際bounds與截圖。保留完整source／實際ZIP的正常及短trusted-touch矩陣。
 
+只讀時刻驗證由合法finished fixture保存activeCase／activeTime、透過production restore逐一載入，再明確核對實際selection與答案不變；不點隱藏於editPanel內的timeNav。所有browser target定位拒絕隱藏或零範圍元素，另以review隱藏timeNav驗守衛，防止0×0誤點造成虛假的覆蓋。
+
 - [x] `model.test.js`核對四題每一時刻的x／y、同步時間、上述基準表及1:3:5:7；A、D直線但間距不同，B、C精確拋物線及分支，等比例camera轉換可逆。
 - [x] `scoring.test.js`涵蓋全空0、全對100、只答全部分類36、只答位置64、x對y錯及兩方向類型獨立的部分分、每個50mm邊界內／外、重疊及錯slot；不給觀察／預設球分。
 - [x] 每個edit variant都可進check並提交空白／部分，且可返回保留答案；未觀察、未訪問、錯答案、分類先答均不阻擋。已提交／pending沒有清除或重做路徑。
