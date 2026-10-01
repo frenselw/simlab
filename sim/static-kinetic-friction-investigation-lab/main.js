@@ -1630,86 +1630,9 @@
       });
       q("zeroFrictionMagnitude")?.addEventListener("input", renderApparatus);
       q("zeroFrictionType")?.addEventListener("change", renderBalance); q("zeroFrictionDirection")?.addEventListener("change", renderApparatus);
-      let stageTouchY = null;
-      q("stage")?.addEventListener("touchstart", (event) => { if (event.touches.length === 1 && !event.target.closest?.(".drag-target")) stageTouchY = event.touches[0].clientY; }, { passive: true });
-      q("stage")?.addEventListener("touchmove", (event) => { if (stageTouchY == null || event.touches.length !== 1 || event.target.closest?.(".drag-target")) return; const y = event.touches[0].clientY; const delta = stageTouchY - y; stageTouchY = y; hostSwipe(event, delta); }, { passive: true });
-      q("stage")?.addEventListener("touchend", () => { stageTouchY = null; }, { passive: true });
-      let panelTouchY = null;
-      let panelTouchStartY = null;
-      let panelTouchMoved = false;
-      let panelHostScrollY = null;
-      let panelHostOverflow = null;
-      let panelHostBodyOverflow = null;
-      let panelHostOverscroll = null;
-      let panelHostBodyOverscroll = null;
-      let panelHostTouchAction = null;
-      let panelHostBodyTouchAction = null;
-      let panelHostRestoreTimer = null;
-      q("controlPanel")?.addEventListener("touchstart", (event) => {
-        if (event.touches.length !== 1) return;
-        panelTouchY = event.touches[0].clientY;
-        panelTouchStartY = panelTouchY;
-        panelTouchMoved = false;
-        try {
-          panelHostScrollY = window.parent.scrollY;
-          const root = window.parent.document?.documentElement;
-          const body = window.parent.document?.body;
-          panelHostOverflow = root ? root.style.overflow : null;
-          panelHostBodyOverflow = body ? body.style.overflow : null;
-          panelHostOverscroll = root ? root.style.overscrollBehavior : null;
-          panelHostBodyOverscroll = body ? body.style.overscrollBehavior : null;
-          panelHostTouchAction = root ? root.style.touchAction : null;
-          panelHostBodyTouchAction = body ? body.style.touchAction : null;
-          if (root) root.style.overflow = "hidden";
-          if (body) body.style.overflow = "hidden";
-          if (root) root.style.overscrollBehavior = "none";
-          if (body) body.style.overscrollBehavior = "none";
-        } catch { panelHostScrollY = null; panelHostOverflow = null; panelHostBodyOverflow = null; panelHostOverscroll = null; panelHostBodyOverscroll = null; panelHostTouchAction = null; panelHostBodyTouchAction = null; }
-        notifyPanelHost("start");
-        if (panelHostScrollY != null) try { window.parent.scrollTo(0, panelHostScrollY); } catch {}
-      }, { passive: true });
-      q("controlPanel")?.addEventListener("touchmove", (event) => {
-        if (panelTouchY == null || event.touches.length !== 1) return;
-        const y = event.touches[0].clientY; panelTouchY = y;
-        if (!panelTouchMoved && Math.abs(y - panelTouchStartY) < 2) return;
-        panelTouchMoved = true;
-        // Let the browser's native overflow scroller own the panel gesture.
-        // In particular, do not write scrollTop or cancel touchmove here:
-        // those two operations disable the release velocity that provides
-        // normal touch momentum scrolling.
-        // An iframe's native pan chain may otherwise move the Moodle host
-        // when the panel is at an edge. Keep this gesture owned by the panel.
-        if (panelHostScrollY != null) try { window.parent.scrollTo(0, panelHostScrollY); } catch {}
-      }, { passive: true });
-      const finishPanelTouch = () => {
-        if (panelTouchY == null && panelHostScrollY == null) return;
-        if (panelHostRestoreTimer != null) clearTimeout(panelHostRestoreTimer);
-        const lockedY = panelHostScrollY;
-        if (lockedY != null) try { window.parent.scrollTo(0, lockedY); } catch {}
-        const restore = () => {
-          if (lockedY != null) try {
-            window.parent.scrollTo(0, lockedY);
-            const root = window.parent.document?.documentElement; const body = window.parent.document?.body;
-            if (root && panelHostOverflow != null) { root.style.overflow = panelHostOverflow; root.style.overscrollBehavior = panelHostOverscroll; root.style.touchAction = panelHostTouchAction; }
-            if (body && panelHostBodyOverflow != null) { body.style.overflow = panelHostBodyOverflow; body.style.overscrollBehavior = panelHostBodyOverscroll; body.style.touchAction = panelHostBodyTouchAction; }
-          } catch {}
-          if (lockedY != null) {
-            const forceHostPosition = () => { try { window.parent.scrollTo(0, lockedY); } catch {} };
-            if (typeof requestAnimationFrame === "function") requestAnimationFrame(forceHostPosition);
-            setTimeout(forceHostPosition, 100);
-            setTimeout(forceHostPosition, 300);
-          }
-          panelHostRestoreTimer = null; panelHostScrollY = null; panelHostOverflow = null; panelHostBodyOverflow = null; panelHostOverscroll = null; panelHostBodyOverscroll = null; panelHostTouchAction = null; panelHostBodyTouchAction = null;
-        };
-        panelTouchY = null; panelTouchStartY = null; panelTouchMoved = false;
-        notifyPanelHost("end");
-        // Keep the same-host scroll owner locked through the browser's final
-        // iframe pan-chain task; restore the host topology on the next quiet
-        // turn rather than racing touchend dispatch.
-        panelHostRestoreTimer = setTimeout(restore, 400);
-      };
-      q("controlPanel")?.addEventListener("touchend", finishPanelTouch, { passive: true });
-      q("controlPanel")?.addEventListener("touchcancel", finishPanelTouch, { passive: true });
+      // The panel's own overflow and overscroll containment own touch scrolling.
+      // Never lock or restore the enclosing player: delayed host unlocks race
+      // consecutive touches and can leave its original overflow permanently hidden.
       document.addEventListener("input", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
@@ -1963,17 +1886,6 @@
       document.querySelectorAll("[data-prediction-field='magnitudeCN']").forEach((input, index) => { if (dragging.predictionMagnitudes?.[index] != null) input.value = dragging.predictionMagnitudes[index]; });
       dragging = null; saveDraft(); render();
     }
-    function hostSwipe(event, delta) { if (event?.target?.closest?.(".drag-target")) return false; try { const host = window.parent; if (host && host !== window && host.scrollBy) { host.scrollBy(0, delta); return true; } } catch {} return false; }
-    function notifyPanelHost(phase) {
-      try {
-        if (window.parent === window) return;
-        // Moodle can host the SCO on a different origin.  Prefer the parent
-        // origin from the referrer (an explicit launch-origin allow-list),
-        // falling back to same-origin development pages.
-        const referrerOrigin = document.referrer ? new URL(document.referrer).origin : window.location.origin;
-        window.parent.postMessage({ source: "simlab", activity: ACTIVITY, type: "panel-gesture", phase }, referrerOrigin);
-      } catch {}
-    }
     function reorderForAccessibility() {
       if (typeof document === "undefined") return;
       const shell = document.querySelector(".friction-shell"); const stage = q("stage"); const panel = q("controlPanel");
@@ -2010,7 +1922,7 @@
       advanceExperimentFrame: (nowMs) => advanceExperimentFrame(nowMs, { renderFrame: false }),
       finalizeExperiment: (timedOut = false) => finalizeExperimentRecording({ timedOut: Boolean(timedOut) })
     });
-    const controllerApi = { activity: ACTIVITY, boot, getState: () => clone(state), getScenario: () => scenario, getPresentation: () => presentation, getResult: () => clone(latestResult), mayReveal: () => mayRevealCorrectness(presentation), interactionEvidence: () => ({ dragging: Boolean(dragging), recorderRunning: Boolean(recorder?.running), phase: state?.phase, experiment: directExperimentState ? { positionM: directExperimentState.block.positionM, velocityMps: directExperimentState.block.velocityMps, accelerationMps2: directExperimentState.block.accelerationMps2, appliedForceN: experimentAppliedForceN, measuredForceN: experimentVisibleForceN(), breakawayForceN: measurementState?.breakaway ? measurementState.breakaway.measuredPullCN / 100 : null, timeS: directExperimentState.timeS, timedOut: experimentTimedOut, contactMode: directExperimentState.contact?.mode, autoKineticHold: experimentAutoKineticHold } : null, balanceMotion: balanceDirectState ? { positionM: balanceDirectState.block.positionM, velocityMps: balanceDirectState.block.velocityMps, accelerationMps2: balanceDirectState.block.accelerationMps2, appliedForceN: balanceCurrentForceN(), offscreen: balanceOffscreen } : null }), render, routeAttempt: applyAttempt, routeStartup, routeSubmission, cancelDrag, hostSwipe, regression };
+    const controllerApi = { activity: ACTIVITY, boot, getState: () => clone(state), getScenario: () => scenario, getPresentation: () => presentation, getResult: () => clone(latestResult), mayReveal: () => mayRevealCorrectness(presentation), interactionEvidence: () => ({ dragging: Boolean(dragging), recorderRunning: Boolean(recorder?.running), phase: state?.phase, experiment: directExperimentState ? { positionM: directExperimentState.block.positionM, velocityMps: directExperimentState.block.velocityMps, accelerationMps2: directExperimentState.block.accelerationMps2, appliedForceN: experimentAppliedForceN, measuredForceN: experimentVisibleForceN(), breakawayForceN: measurementState?.breakaway ? measurementState.breakaway.measuredPullCN / 100 : null, timeS: directExperimentState.timeS, timedOut: experimentTimedOut, contactMode: directExperimentState.contact?.mode, autoKineticHold: experimentAutoKineticHold } : null, balanceMotion: balanceDirectState ? { positionM: balanceDirectState.block.positionM, velocityMps: balanceDirectState.block.velocityMps, accelerationMps2: balanceDirectState.block.accelerationMps2, appliedForceN: balanceCurrentForceN(), offscreen: balanceOffscreen } : null }), render, routeAttempt: applyAttempt, routeStartup, routeSubmission, cancelDrag, regression };
     return controllerApi;
   }
   function boot() { if (dependencyIssue()) return createTechnicalApp(new Error("missing activity dependency")); return createController().boot(); }

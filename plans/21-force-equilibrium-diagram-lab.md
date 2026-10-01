@@ -1,5 +1,10 @@
 # 共點力平衡：受力圖挑戰
 
+> **2026-10-01 手機滾動修復：** 已把正常空白及側帶交回 native，保留作圖取消及 panel-handoff。只有第二指取消既有 drawing gesture 後，才使用共用 helper 找真正 host owner；五題空白／部分作答、check、submitted、pending 及續作已驗證。
+> 短橫向補修：480×320 內嵌畫面改用左右欄，確保 panel 可見高度與末端控制可達；正常直向版面維持原配置。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R05。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-26 使用者已批准依草案完整實作。專用分支：`codex/force-equilibrium-diagram-lab`。以下為實作契約；文末歷史的「只建立計劃」記錄不代表目前工作階段。
 >
 > 本文件由 [新活動計劃範本](NEW-SIMULATION-PLAN-TEMPLATE.md) 建立，依循[共用產品與風格](00-shared-platform-and-style.md)及[製作與驗收契約](../docs/simulation-scorm-production-guide.md)。以下記錄已批准並實作的參數及分數配置；驗收證據只取自本活動的實際測試。
@@ -200,7 +205,7 @@ Preview 不擋操作、不改主舞台縮放；完成、取消、失去capture�
 | 第二指由另一drag target開始 | 原active pointer繼續 | 第二指不改力、不形成undo；原指可完成 | source/package：second-force，已通過 |
 | 第二指由blank stage／panel開始 | 該起始區域owner | 原drag先rollback，不能把第二指轉作受力操作；驗證host／panel行為 | source/package：second-host/second-panel，已通過 |
 
-只接受primary pointer。SVG圖形不是唯一手勢邊界；preview為pointer-events:none。拖動不攔截panel或把stage swipe送到panel。優先驗證native host scroll；若同源Moodle iframe需要轉送，只轉送起於非互動舞台的手勢到實際enclosing host，記錄為forwarding並測無double scroll。本版同源 host 轉送以 screenY 的差值計算，再按 host 的 visualViewport scale 換算，避免 iframe 自身位移造成來回跳動；測試逐步記錄 hostTrace 驗證方向不反轉。不同源部署須另證明可行拓撲，不能憑舊活動驗收推定。
+只接受primary pointer。SVG圖形不是唯一手勢邊界；preview為pointer-events:none。拖動不攔截panel或把stage swipe送到panel。優先驗證native host scroll；若同源Moodle iframe需要轉送，只轉送起於非互動舞台的手勢到實際enclosing host，記錄為forwarding並測無double scroll。2026-10-01 修復決策：現行 screenY 差值轉送到直接 parent 的分支在巢狀播放器已重現無法捲動，改以 native blank-stage path 驗證；保留真正作圖、取消及 panel-handoff 行為。任何必要 adapter 按[共用拓撲契約](../docs/simulation-scorm-production-guide.md#scroll-topology-and-implementation-choice)識別真正 owner 並驗證縮放。screenY 及單層 hostTrace 通過不代表實際 player ownership 正確。不同源部署須另證明可行拓撲，不能憑舊活動驗收推定。
 
 驗證使用真機或browser-level trusted touch，覆蓋source及extracted SCORM，記錄isTrusted、pointerType、engine/device、每個owner的scroll/viewport/iframe bounds與答案前後差異。背景時間暫停或固定以隔離手勢效果。實機Moodle的current-window及可用new-window另列驗收，不能以DOM事件或CSS斷言代替。
 

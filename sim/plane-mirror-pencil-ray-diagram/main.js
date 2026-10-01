@@ -362,6 +362,11 @@
     renderScene();
     renderRays();
     renderImage();
+    svg.classList.toggle("is-readonly", state.locked);
+    svg.querySelectorAll("[role=slider]").forEach(target => {
+      target.setAttribute("aria-disabled", String(state.locked));
+      target.setAttribute("tabindex", state.locked ? "-1" : "0");
+    });
   }
 
   function renderControls() {
@@ -695,16 +700,18 @@
   }
 
   function onPointerDown(event) {
-    if (state.locked) return;
+    if (state.locked || state.drag || event.button > 0 || event.isPrimary === false) return;
     const imageTarget = event.target.closest("[data-image-handle]");
     if (imageTarget && state.image) {
       const point = svgPoint(event);
       state.selected = null;
       state.drag = {
         kind: "image",
+        pointerId: event.pointerId,
         handle: imageTarget.dataset.imageHandle,
         point,
         image: { ...state.image },
+        rollback: JSON.parse(JSON.stringify({ bundles: state.bundles, image: state.image })),
         preview: shouldShowDragPreview(event)
       };
       if (svg.setPointerCapture) svg.setPointerCapture(event.pointerId);
@@ -725,9 +732,11 @@
     state.selected = { kind: target.dataset.kind, id };
     state.drag = {
       kind: target.dataset.kind,
+      pointerId: event.pointerId,
       id,
       point,
       end: { ...bundle[target.dataset.kind].end },
+      rollback: JSON.parse(JSON.stringify({ bundles: state.bundles, image: state.image })),
       preview: shouldShowDragPreview(event)
     };
     if (svg.setPointerCapture) svg.setPointerCapture(event.pointerId);
@@ -736,7 +745,7 @@
   }
 
   function onPointerMove(event) {
-    if (!state.drag) return;
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
     const point = svgPoint(event);
     if (state.drag.kind === "image") {
       dragImage(point);
@@ -748,6 +757,7 @@
   }
 
   function onPointerUp(event) {
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
     state.drag = null;
     hideDragPreview();
     render();
@@ -755,6 +765,17 @@
     if (svg.hasPointerCapture && svg.hasPointerCapture(event.pointerId)) {
       svg.releasePointerCapture(event.pointerId);
     }
+  }
+
+  function onPointerCancel(event) {
+    if (!state.drag || event.pointerId !== state.drag.pointerId) return;
+    const rollback = state.drag.rollback;
+    state.bundles = rollback.bundles;
+    state.image = rollback.image;
+    state.drag = null;
+    hideDragPreview();
+    render();
+    if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
   }
 
   function onKeyDown(event) {
@@ -934,11 +955,18 @@
     button.addEventListener("click", () => chooseImageType(button.dataset.imageChoice));
   });
   submitButton.addEventListener("click", submitDiagram);
+  document.addEventListener("pointerdown", event => {
+    if (event.pointerType === "touch" && event.isPrimary === false && state.drag) {
+      onPointerCancel({ pointerId: state.drag.pointerId });
+    }
+  }, true);
   svg.addEventListener("pointerdown", onPointerDown);
   svg.addEventListener("pointermove", onPointerMove);
   svg.addEventListener("pointerup", onPointerUp);
-  svg.addEventListener("pointercancel", onPointerUp);
+  svg.addEventListener("pointercancel", onPointerCancel);
+  svg.addEventListener("lostpointercapture", onPointerCancel);
   svg.addEventListener("keydown", onKeyDown);
+  for (const type of ["blur", "resize"]) window.addEventListener(type, () => { if (state.drag) onPointerCancel({ pointerId: state.drag.pointerId }); });
 
   const attempt = window.SimScorm.loadAttempt(ACTIVITY);
   const startupState = window.SimActivityFlow.startup(attempt);

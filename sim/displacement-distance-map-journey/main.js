@@ -54,9 +54,7 @@
   const GRID_Y = [10, 24, 38, 52, 68];
   const PLACE_LABELS = ["學校", "超市", "銀行", "公園", "圖書館"];
   const ACTIVITY = "displacement-distance-map-journey";
-  const FORWARD_INTENT_THRESHOLD_PX = 8;
   const activeTouchPointers = new Set();
-  let forwardGesture = null;
 
   const state = {
     scene: null,
@@ -1363,23 +1361,6 @@
         return;
       }
     }
-    if (state.drag) return;
-    if (
-      event.pointerType === "touch" &&
-      event.currentTarget === svg &&
-      event.isPrimary &&
-      activeTouchPointers.size === 1 &&
-      !event.target.closest("[data-arrow],[data-person-hit]")
-    ) {
-      forwardGesture = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        previousY: event.clientY,
-        owner: "candidate",
-        captureTarget: svg
-      };
-    }
   }
 
   function onPointerMove(event) {
@@ -1403,65 +1384,19 @@
       event.preventDefault();
       return;
     }
-    if (
-      event.pointerType !== "touch" ||
-      !forwardGesture ||
-      event.pointerId !== forwardGesture.pointerId ||
-      activeTouchPointers.size !== 1
-    ) return;
-    const totalX = event.clientX - forwardGesture.startX;
-    const totalY = event.clientY - forwardGesture.startY;
-    if (forwardGesture.owner === "candidate") {
-      if (Math.hypot(totalX, totalY) < FORWARD_INTENT_THRESHOLD_PX) return;
-      if (Math.abs(totalY) <= Math.abs(totalX)) {
-        forwardGesture.owner = "browser";
-        return;
-      }
-      forwardGesture.owner = "panel";
-      forwardGesture.captureTarget.setPointerCapture?.(event.pointerId);
-    }
-    if (forwardGesture.owner !== "panel") return;
-    const maxScroll = Math.max(0, controlPanel.scrollHeight - controlPanel.clientHeight);
-    controlPanel.scrollTop = clamp(
-      controlPanel.scrollTop - (event.clientY - forwardGesture.previousY),
-      0,
-      maxScroll
-    );
-    forwardGesture.previousY = event.clientY;
-    event.preventDefault();
-  }
-
-  function abandonForwarding() {
-    if (!forwardGesture) return;
-    const { captureTarget, pointerId } = forwardGesture;
-    forwardGesture = null;
-    if (captureTarget?.hasPointerCapture?.(pointerId)) {
-      captureTarget.releasePointerCapture(pointerId);
-    }
-  }
-
-  function finishForwarding(event) {
-    activeTouchPointers.delete(event.pointerId);
-    if (!forwardGesture || event.pointerId !== forwardGesture.pointerId) return;
-    const { captureTarget, pointerId } = forwardGesture;
-    forwardGesture = null;
-    if (captureTarget?.hasPointerCapture?.(pointerId)) {
-      captureTarget.releasePointerCapture(pointerId);
-    }
   }
 
   function trackTouchPointerDown(event) {
     if (event.pointerType !== "touch") return;
     activeTouchPointers.add(event.pointerId);
-    if (activeTouchPointers.size > 1) abandonForwarding();
+
   }
 
   function trackTouchPointerEnd(event) {
-    if (event.pointerType === "touch") finishForwarding(event);
+    if (event.pointerType === "touch") activeTouchPointers.delete(event.pointerId);
   }
 
   function onPointerUp(event) {
-    finishForwarding(event);
     if (!state.drag || event.pointerId !== state.drag.pointerId) return;
     const { captureTarget, pointerId } = state.drag;
     state.drag = null;
@@ -1474,7 +1409,6 @@
   }
 
   function onPointerCancel(event) {
-    finishForwarding(event);
     if (!state.drag || event.pointerId !== state.drag.pointerId) return;
     const { captureTarget, pointerId, rollback } = state.drag;
     state.drag = null;

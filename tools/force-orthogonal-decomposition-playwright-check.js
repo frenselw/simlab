@@ -473,6 +473,7 @@ async page => {
     };
     for (const key of ["left", "right", "bottom", "top"]) assert(Math.abs(metrics.layout.worldBounds[key] - expected[key]) < 1e-8, `${label}: scene world bounds follow the scene viewBox on ${key} edge ${JSON.stringify(metrics.layout)}`);
     assert(metrics.layout.editingBounds.left > metrics.layout.worldBounds.left && metrics.layout.editingBounds.right < metrics.layout.worldBounds.right && metrics.layout.editingBounds.bottom > metrics.layout.worldBounds.bottom && metrics.layout.editingBounds.top < metrics.layout.worldBounds.top, `${label}: editing bounds keep hit targets inside the visible scene ${JSON.stringify(metrics.layout)}`);
+    await settlePanelScroll(page);
     const before = await page.locator("#stage").boundingBox();
     await page.mouse.move(metrics.panel.x + metrics.panel.width / 2, metrics.panel.y + metrics.panel.height / 2);
     await page.mouse.wheel(0, 700);

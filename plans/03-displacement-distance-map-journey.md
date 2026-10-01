@@ -1,5 +1,9 @@
 # Displacement and Distance Map Journey Plan
 
+> **2026-10-01 手機滾動修復：** 已移除空白 map 轉送到 sibling panel 的 intent／capture 路徑，map 允許 native pan-x／pan-y／pinch；person／arrow 真正 target 繼續獨佔操作，面板改成 bounded contained scroll。source／package 舊有完整觸控操作回歸已通過。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R10。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-24 目標規格同步：採[提交與重做](./00-shared-platform-and-style.md#submission-and-reset)及[手機互動](./00-shared-platform-and-style.md#mobile-interaction)基準。runtime 的自動提交及舞台轉送面板仍待同步；既有驗收不代表新規格已通過。
 
 ## Purpose

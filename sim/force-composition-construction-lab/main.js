@@ -45,7 +45,7 @@
         return count ? "再把另一個力的箭尾移到同一個共同起點。" : "先選擇任意位置作為共同起點，再放置第一個力。";
       }
       if (variant === "guides") return question.guided ? "由目前顯示的箭頭端點拖出虛線輔助線；方向接近對邊平行時會自動吸附，線長不限。" : "自行選擇端點，畫出兩條與對邊平行的虛線輔助線；方向接近時會自動吸附，線長不限。";
-      return "兩條輔助線已畫出；按「開始畫合力」鎖定前面作圖，再由任意端點或舞台空白位置畫出合力。";
+      return "兩條輔助線已畫出；按「開始畫合力」鎖定前面作圖，再由任意端點或中央作圖區的空白位置畫出合力。";
     }
     const chain = M.chainInfo(answer, question);
     if (!chain.order.length) return "任選一個力，在任意位置開始作圖。";
@@ -102,7 +102,7 @@
 
   function cacheDom() {
     for (const id of [
-      "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "dragLayer", "controlPanel", "magnifier", "magnifierSvg", "magnifierFocus", "magnifierLabel",
+      "app", "questionCounter", "attemptStatus", "stage", "stageSvg", "drawingSurface", "dragLayer", "controlPanel", "magnifier", "magnifierSvg", "magnifierFocus", "magnifierLabel",
       "saveBanner", "saveBannerText", "retrySave", "technicalPanel", "technicalTitle", "technicalMessage", "technicalActions",
       "practicePanel", "questionType", "questionTitle", "questionPrompt", "formula", "stepPrompt", "lineTools", "drawResultant", "deleteResultant", "questionProgress",
       "undo", "resetQuestion", "previousQuestion", "nextQuestion", "goSummary", "summaryPanel", "summaryList", "summaryWarning",
@@ -388,8 +388,8 @@
   }
 
   function computeStageCamera(answer, question) {
-    const stageWidth = dom.stage?.clientWidth || 0;
-    const stageHeight = dom.stage?.clientHeight || 0;
+    const stageWidth = dom.stageSvg?.clientWidth || 0;
+    const stageHeight = dom.stageSvg?.clientHeight || 0;
     if (!stageWidth || !stageHeight) return fullStageCamera();
     const points = cameraPoints(answer, question);
     if (!points.length) return fullStageCamera();
@@ -397,7 +397,7 @@
     const maxX = Math.max(...points.map((point) => point.x));
     const minY = Math.min(...points.map((point) => point.y));
     const maxY = Math.max(...points.map((point) => point.y));
-    const compact = stageWidth < 760;
+    const compact = dom.stage.clientWidth < 760;
     if (!compact) return fullStageCamera();
     const padding = 42;
     const aspect = stageWidth / stageHeight;
@@ -421,8 +421,8 @@
   }
 
   function lockedStageCamera(answer, question) {
-    const stageWidth = dom.stage?.clientWidth || 0;
-    const stageHeight = dom.stage?.clientHeight || 0;
+    const stageWidth = dom.stageSvg?.clientWidth || 0;
+    const stageHeight = dom.stageSvg?.clientHeight || 0;
     const key = stageCameraKey();
     if (!key || !stageWidth || !stageHeight) return fullStageCamera();
     if (!stageCameraContext || stageCameraContext.key !== key ||
@@ -849,7 +849,7 @@
     dom.questionTitle.textContent = view.title;
     dom.questionPrompt.textContent = view.prompt;
     dom.stepPrompt.textContent = resultantMode
-      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或舞台空白位置拖出合力，兩條虛線的相交點也可作為吸附終點；之後可拖動線身整體平移或調整兩端，方向錯誤的作答也會保留。"
+      ? "合力作圖模式：力矢量及輔助線已鎖定；由任意端點或中央作圖區的空白位置拖出合力，兩條虛線的相交點也可作為吸附終點；之後可拖動線身整體平移或調整兩端，方向錯誤的作答也會保留。"
       : view.step;
     renderFormula();
     renderLineTools();
@@ -1499,7 +1499,7 @@
       pointerId: event.pointerId,
       pointerType: event.pointerType || "mouse",
       kind: "resultant-start",
-      target: dom.stage,
+      target: dom.drawingSurface,
       questionIndex: state.currentQuestion,
       beforeRevision: answerRevision,
       beforeJson: JSON.stringify(answer),
@@ -1512,7 +1512,7 @@
       focusPoint: point,
       camera: { ...stageCamera }
     };
-    dom.stage.setPointerCapture(event.pointerId);
+    dom.drawingSurface.setPointerCapture(event.pointerId);
     event.preventDefault();
     renderMagnifier(event);
   }
@@ -1831,51 +1831,30 @@
     event.preventDefault();
   }
 
-  function bindHostForwarding() {
-    let lastY = null;
-    const isStageSurfaceTarget = (target) => target === dom.stage || Boolean(target?.nodeType === 1 && dom.stage.contains(target) && !target.closest(".force-hit,.line-handle,.resultant-hit"));
-    dom.stage.addEventListener("touchstart", (event) => {
-      if (!isStageSurfaceTarget(event.target) || event.touches.length !== 1) { lastY = null; return; }
-      lastY = event.touches[0].clientY;
-      touchTelemetry.push({ type: "touchstart", isTrusted: event.isTrusted });
+  function bindTouchTelemetry() {
+    for (const type of ["touchstart", "touchmove"]) dom.stage.addEventListener(type, (event) => {
+      touchTelemetry.push({ type, isTrusted: event.isTrusted });
     }, { passive: true });
-    dom.stage.addEventListener("touchmove", (event) => {
-      if (lastY === null || event.touches.length !== 1) return;
-      const nextY = event.touches[0].clientY;
-      const deltaY = lastY - nextY;
-      lastY = nextY;
-      touchTelemetry.push({ type: "touchmove", isTrusted: event.isTrusted, deltaY });
-      try {
-        const answer = state?.answers?.[state.currentQuestion];
-        if (resultantMode && !answer?.resultant) { lastY = null; return; }
-        if (windowObject.parent !== windowObject && windowObject.parent.location.origin === windowObject.location.origin) {
-          const root = windowObject.parent.document.scrollingElement;
-          if (root && root.scrollHeight > root.clientHeight) windowObject.parent.scrollBy(0, deltaY);
-        }
-      } catch (_) { lastY = null; }
-    }, { passive: true });
-    dom.stage.addEventListener("touchend", () => { lastY = null; }, { passive: true });
-    dom.stage.addEventListener("touchcancel", () => { lastY = null; }, { passive: true });
   }
 
   function bindEvents() {
-    dom.stage.addEventListener("pointerdown", (event) => {
-      if (event.target !== dom.stage) return;
+    dom.drawingSurface.addEventListener("pointerdown", (event) => {
+      if (event.target !== dom.drawingSurface) return;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
       beginFreeResultantDrag(event);
     });
-    dom.stage.addEventListener("pointermove", (event) => {
-      if (!drag || drag.target !== dom.stage) return;
+    dom.drawingSurface.addEventListener("pointermove", (event) => {
+      if (!drag || drag.target !== dom.drawingSurface) return;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
       updatePointerDrag(event);
     });
-    dom.stage.addEventListener("pointerup", (event) => {
-      if (!drag || drag.target !== dom.stage) return;
+    dom.drawingSurface.addEventListener("pointerup", (event) => {
+      if (!drag || drag.target !== dom.drawingSurface) return;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
       finishPointerDrag(event);
     });
-    dom.stage.addEventListener("pointercancel", (event) => {
-      if (!drag || drag.target !== dom.stage) return;
+    dom.drawingSurface.addEventListener("pointercancel", (event) => {
+      if (!drag || drag.target !== dom.drawingSurface) return;
       eventTelemetry.push({ type: event.type, isTrusted: event.isTrusted, pointerType: event.pointerType, target: "resultant-stage-start" });
       cancelPointerDrag(event);
     });
@@ -1960,7 +1939,7 @@
     });
     dom.toggleCorrect.addEventListener("click", () => { correctOverlay = !correctOverlay; renderAll(); });
     windowObject.addEventListener("resize", () => { if (!drag && !keyboardLine) renderAll(); });
-    bindHostForwarding();
+    bindTouchTelemetry();
   }
 
   function publicState() {

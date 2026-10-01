@@ -1,0 +1,11 @@
+"use strict";
+const assert=require("node:assert/strict"),G=require("./hit-geometry.js");
+const corners=[{x:200,y:100},{x:500,y:100},{x:500,y:350},{x:200,y:350}];
+assert.deepEqual(G.hull([...corners,{x:350,y:230},...corners].reverse()),corners);
+const polygon=G.clip({kind:"polygon",points:corners},320,215);
+assert.match(polygon,/^polygon/);assert.doesNotMatch(polygon,/NaN|Infinity/);
+const ellipse=G.clip({kind:"ellipse",cx:350,cy:230,rx:120,ry:100},320,215);
+assert.match(ellipse,/^ellipse/);assert.match(ellipse,/at 50% 50/);
+assert.notEqual(G.clip({kind:"polygon",points:corners},320,215),G.clip({kind:"polygon",points:corners},640,430),"halo stays in CSS pixels after viewport changes");
+assert.equal(G.clip(null,320,215),"polygon(0 0,0 0,0 0)","missing renderer geometry must release background");
+console.log("Centre mass hit geometry uses projected convex silhouettes and a bounded CSS-pixel halo.");

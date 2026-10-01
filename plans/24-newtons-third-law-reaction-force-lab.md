@@ -1,5 +1,11 @@
 # 牛頓第三定律：反作用力作圖挑戰
 
+> **本輪短播放器補修：** 480px 闊／320px 高等短橫向畫面採 stage／panel 左右排列，避免舞台最小高度把 controls 擠出 viewport；保留字體與 touch target 尺寸，並核對最後控制可達。Summary/check 沒有舞台的頁面維持全高 panel。實際適用斷點及結果見[驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)。
+
+> **2026-10-01 手機滾動修復：** 已把空白／側帶交回 native，保留 anchor／reaction-head／offscale-head 及取消交接；五題空白／部分作答、check、submitted、pending、第二指交接及原有完整 edge browser regression 已驗證。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R08。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 狀態：**2026-09-28 已完成實作及本機 package-ready 驗收；真實 Moodle／實體手機驗收待進行。** 以下保留已批准的設計契約及實際證據；原規劃階段記錄標為歷史。
 
 - 專用分支：`codex/newtons-third-law-reaction-force-lab`。

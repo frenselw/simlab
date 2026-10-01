@@ -25,7 +25,10 @@ Follow this order when creating a simulation from scratch:
 
 The simulation-specific plan is the implementation blueprint. It may specialize
 the subject model and rubric, but it must not silently override the shared
-lifecycle, persistence, trust, or packaging contracts in this guide.
+gesture ownership, lifecycle, persistence, trust, or packaging contracts in this
+guide. Mark superseded implementation decisions and limited historical evidence
+where they appear; an old activity's local pass is not a reusable implementation
+recipe for a different player or mode.
 
 ## Before coding
 
@@ -246,33 +249,53 @@ Record the activity's choices in its plan; implement these technical contracts:
 ### Selective touch gesture ownership
 
 A gesture has one owner determined by its start region. Every mobile activity
-with a stage and controls needs a matrix, even without draggable objects. For a
-bounded split-panel use all applicable rows below; natural-flow controls share
-the page/host owner and have no independent-panel row.
+with a stage and controls needs a matrix for **each page and interaction mode**,
+even without draggable objects. Classify regions from the visible scene and the
+learner's task, then inspect hit geometry. A transparent overlay does not turn
+visually blank space into a legitimate manipulation surface merely because the
+code labels it interactive.
+
+For a bounded split-panel use all applicable rows below; natural-flow controls
+share the page/host owner and have no independent-panel row. Record the layout
+classification; a historical natural-flow activity needs a separate layout
+migration when the requested behavior is a fixed stage with independent controls.
 
 | Touch starts on | Owner | Observable acceptance result |
 |---|---|---|
 | Non-interactive stage content | Enclosing page/Moodle host | Host scrolls and iframe moves with it; activity document, activity visual viewport, panel and learner state stay unchanged |
+| Visually blank space outside declared drawing surfaces and local handle halos | Enclosing page/Moodle host | Same result as non-interactive stage; a large invisible target must not rotate, draw, select or save an observation |
 | Independently scrolling control panel | Control panel | Only panel scrolls when it has range; host, iframe, stage, activity document and both visual viewports stay fixed, including at panel boundaries; learner state unchanged |
 | Each draggable target type | Simulation | Intended target changes; all scroll/viewport/iframe positions stay fixed; `pointermove` and `pointerup`, no `pointercancel` |
 | Free drawing surface, when present | Simulation | Stroke changes with the same fixed-position and pointer requirements as dragging |
 | Left scroll strip beside drawing surface | Enclosing page/Moodle host | Same result as non-interactive stage; no stroke starts |
 | Right scroll strip beside drawing surface | Enclosing page/Moodle host | Same result as non-interactive stage; no stroke starts |
 
-Use `touch-action: pan-y` on non-interactive stage content and both scroll strips.
-Only actual drag targets and the drawing surface use `touch-action: none`, in
-place **before** `pointerdown`. In free drawing modes, inset the drawing surface
-within the stage and reserve usable strips on both sides; record each width and
-its reason in the plan and verify it at narrow phone sizes. Do not let a drawing overlay cover
-those strips. Individual draggable objects never justify disabling the full stage.
+#### Visible regions and hit geometry
 
-Document the scroll topology for development, packaged SCORM, and Moodle. Native
-panning follows scrollable ancestors, not a sibling panel: never forward a stage
-gesture to controls. Remove activity-document scroll range in a bounded iframe.
-If native behavior cannot reach the enclosing host, change the topology or forward
-only to that host and verify the matrix; forwarding is not native scrolling. Only
-a direct standalone page with genuinely no enclosing scroll range may mark host
-movement N/A; the required scrollable Moodle-like iframe test may not.
+- Use `touch-action: pan-y` on non-interactive stage content and both scroll
+  strips. Only actual drag targets and the bounded drawing/orbit surface use
+  `touch-action: none`, in place **before** `pointerdown`.
+- Keep touch handles at the baseline's minimum size. A local touch halo around a
+  visible handle is allowed; record its extent. Do not stretch that halo across
+  unrelated blank background, material cutouts or a whole Canvas/SVG.
+- For free drawing or a broad orbit surface, reserve usable strips on both sides:
+  **at least 32 CSS px each at a 320 CSS px activity width**. Record dimensions
+  and finger-access evidence at every narrow/zoomed size. Use a larger strip when
+  needed. A border or a few leftover pixels is not a scroll strip.
+- Drawing starts only inside the declared central surface. The same bounds must
+  drive hit testing, coordinate conversion and the visible drawing area; side
+  strips must remain reachable before, during and after drawing.
+- For direct object rotation, align the pre-pointerdown hit region with the
+  rendered object and a documented local margin. Update it for camera changes,
+  resize and renderer fallback. Preserve blank space beside the object; an
+  invisible rectangle covering most of the stage is insufficient.
+- Record the actual trusted `pointerdown` target as well as DOM point hit tests.
+  If a background touch is retargeted to a nearby clickable overlay, repair that
+  interaction element and recheck real touch input. Preserve its keyboard and
+  ARIA entry; a successful `elementFromPoint()` probe alone is insufficient.
+- Keep overlays, previews and disabled editing targets from intercepting those
+  host-owned regions. Explicit review interactions, such as a playback cursor,
+  retain their declared owner but cannot alter submitted answers.
 
 Inventory every target type. SVG `circle`, `line`, `path`, or `g` alone is not a
 portable gesture boundary: normally use explicit-size positioned HTML targets.
@@ -280,25 +303,155 @@ Canvas/SVG alternatives need equivalent browser/device evidence. Keep capture
 targets mounted throughout rendering and dragging; changing `touch-action` after
 pointerdown does not change that gesture's owner.
 
+#### Scroll topology and implementation choice
+
+Before implementing the stage, record the frame chain, origin/sandbox constraints
+and the **actual scroll owner** for development, extracted SCORM and the intended
+Moodle player. Name the window or overflowing element and its scroll range.
+`window.parent` and `window.top` are frame relationships, not proof of ownership;
+the page may scroll an element while both windows have zero scroll range.
+
+1. Start with native stage panning, a bounded activity document with no usable
+   scroll range, and a panel with its own contained native scrolling. Zero root
+   range is insufficient if overflow clips the controls: keep at least 96 CSS px
+   of panel inside the viewport, and prove its last control is reachable. Budget
+   header, stage and panel together; short landscape may need columns instead
+   of a fixed minimum-height stage row. Prove this
+   path using the host cases below. Native panning follows ancestors, not a
+   sibling control panel.
+   A panel gesture must not write enclosing html/body/player overflow,
+   overscroll or touch-action styles, lock a host, or repeatedly restore host
+   scroll positions. Keep containment on the panel itself. Delayed unlocks can
+   race the next touch and preserve a stale hidden state; a host-lock message
+   receiver in a test fixture must not conceal that defect.
+2. If native panning fails in the intended player, first investigate its frame
+   and overflow topology. A forwarding fallback requires an explicit, tested
+   adapter to the same actual host owner; record why it is necessary and how it
+   preserves ownership. It is programmatic scrolling, not native scrolling.
+3. Establish the adapter/owner before a gesture. Same-origin access or a callable
+   `scrollBy()` alone is insufficient. A permanently bounded intermediate frame
+   is not a valid destination. Cross-origin messaging requires a deployed,
+   verified host receiver with source/origin checks; sending an unhandled
+   message is not a fallback.
+4. A forwarded gesture has one movement mechanism. Do not manually scroll from a
+   passive listener while native panning also handles that gesture. Cancel the
+   browser default only for a declared simulation target or an already verified
+   forwarding path; a failed or unavailable destination must not swallow touch.
+5. Do not derive host-scroll deltas from successive iframe-local `clientY`
+   values while the iframe itself moves. Use a stable coordinate space and
+   document/test its conversion to the owner's CSS pixels, including zoom.
+   Changing to `screenY` alone does not identify the owner or prevent double
+   scrolling. `clientY` remains valid for local object geometry conversions.
+6. Clear transient forwarding/capture state on end, cancel, blur, navigation and
+   lock. Keep answer/scoring/persistence ownership in the activity. A stage swipe
+   must never be routed to a sibling panel.
+
+An existing drawing gesture that began on `touch-action:none` cannot become a
+native scroll gesture halfway through a secondary-pointer cancellation. The
+four force/Newton activities use `sim/shared/touch-scroll.js` only for that
+secondary touch: cancel/rollback first, discover the accessible enclosing
+window/overflow element, then convert stable screen travel to the owner's CSS
+pixels. Normal single-finger blanks remain native. The adapter declines
+inaccessible frames and hidden viewports; test its handoff separately from
+blank-stage panning and declare the asset in each consuming manifest.
+
+
+If neither native panning nor a verified same-owner adapter works, resolve the
+topology before declaring package readiness. Only a direct standalone page with
+genuinely no enclosing scroll range may mark host movement N/A; embedded test
+hosts with available range may not use that exception. At a real host boundary,
+zero movement is expected; run directional acceptance away from that boundary.
+
+#### Required host cases
+
+Each bounded activity must pass all applicable gesture rows on both source and
+extracted SCORM in these local host cases. Hosts contain no undeclared panel-lock
+or touch-forwarding helpers. If deployment needs an adapter, test and record both
+the neutral host and that deployed adapter separately.
+
+| Case | Frame/scroll arrangement | Required evidence |
+|---|---|---|
+| T0 standalone | Direct launch; document owner follows the declared layout | Bounded document has no competing scroll; genuine no-host-range N/A is recorded |
+| T1 direct iframe | Scrollable outer document → bounded activity iframe | Blank swipes reach the outer document in both directions |
+| T2 nested player | Scrollable outer document → non-scrolling wrapper iframe → bounded activity iframe | Wrapper remains fixed; actual outer owner scrolls; no swallowed gesture |
+| T3 element owner | Bounded outer document with an overflowing player element → bounded activity iframe, with any wrapper | The declared element scrolls; window scroll positions stay fixed |
+| T4 deployment | Actual Moodle current-window and offered new-window player, including its origin/sandbox/overflow rules | Record the real chain and owner; repeat on real phones for Moodle readiness |
+
+T1–T3 need enough owner range above and below the starting position. Include the
+two known-good activities, `position-time-graph-motion-lab` and
+`free-fall-stroboscopic-measurement-lab`, as controls in the same host. A control
+pass validates that fixture, not another activity. Cross-origin deployment must
+have its own verified native/adapter path; a same-origin pass does not cover it.
+
+#### Coverage and observable acceptance
+
 Verification must use real touchscreen or browser-level trusted touch input
 (`touchStart`/`touchMove`/`touchEnd`), confirm touch pointer type and trusted events,
 and record engine/device. DOM `dispatchEvent`, source/CSS/computed-style checks,
 and programmatic `scrollTop` changes do not count as acceptance gestures.
-Run every applicable row on **both development and built/extracted SCORM** launch
-pages in a scrollable Moodle-like iframe host with range away from its boundaries.
-Use up/down swipes, test the panel at both boundaries, every target type, the
-active drawing surface, and each side strip separately. Programmatic positioning
-is allowed only for setup.
 
-Record before/after host scroll and visual-viewport/page position, iframe bounds,
-activity-document scroll and visual viewport, panel scroll, and owned learner
-state (phase, selection, answers/persistence); record viewport measures wherever
-available. Assert the table's changed owner and every fixed non-owner, not just
-the intended movement. Pause/fake continuous model time or account for expected
-evolution so it cannot hide gesture side effects. Preview checks cover actual
-geometry, snapped focus, unobstructed placement, non-interception, and cleanup.
-These are package gates; repeat the matrix on a real phone in Moodle's
-current-window player and, when offered, new-window player for Moodle readiness.
+Build a phase/mode coverage table, separate from the persistence table. Include
+each page, question/scenario with different hit geometry, drawing before/after
+an answer, edit-after-check, submitted review, pending retry, and renderer
+fallback. Equivalent cases may share a row only with a recorded reason; an
+initial-page pass is never a whole-activity pass. Fixtures must be legal
+production states restored through production startup, followed by a legal UI
+continuation into the tested mode.
+
+For every applicable row:
+
+- Test up/down swipes, slow drags, quick flicks and longer swipes; test panel
+  middle/top/bottom, each side strip and each manipulation type separately.
+  Include cancel, lost capture, secondary touch, blur, navigation and lock.
+- Pick blank-space points from a screenshot/rendered scene. Record the hit target,
+  effective touch action and surrounding finger footprint. Do not filter a point
+  out just because it hits a transparent button or `touch-action:none`; that may
+  be the defect. Inspect each side strip's usable width and unobstructed extent.
+- Record before, every move, release and after-release samples: the actual
+  owner's scroll, every intermediate document, iframe chain bounds, activity
+  document, panel, host/activity visual viewports and owned learner state
+  (phase, selection, answers, observations and canonical snapshot). Programmatic
+  positioning is allowed only for setup.
+- Assert the intended owner and **every fixed non-owner**. A one-direction swipe
+  must have no opposite-direction steps beyond a documented rounding tolerance
+  (default 1 CSS px). A positive final delta does not excuse oscillation. Panel
+  gestures, including boundary gestures, must never move the host or stage.
+  Include touchstart and frame/scroll-event samples, plus containing-page style
+  mutation records; restoring the final Y or style is not a pass. Repeat panel
+  swipes with a 100ms gap (before any old unlock timer), cancel a touch and then
+  scroll again, and verify background scrolling and panel controls still work.
+  Start gestures over ordinary text and buttons as well as panel padding.
+- Blank/strip swipes must not start a stroke, rotate a model, change a candidate,
+  earn observation evidence or change canonical learner work. A cancelled empty
+  gesture is not a new semantic checkpoint. Account for documented continuous
+  model time separately so it cannot hide gesture side effects.
+- For simulation-owned gestures require `pointermove` and `pointerup`, stable
+  capture, intended geometry changes and no unexpected `pointercancel`. Native
+  blank/panel panning may produce `pointercancel`; that is browser ownership,
+  not a manipulation failure.
+- Compare real-phone quick-flick, release/momentum and reversal behavior with
+  the controls in the same player. No sticking, backward jumps or competing
+  scroll paths are acceptable. Protocol input without observed control inertia
+  cannot establish real-phone momentum behavior.
+
+Preview checks cover actual geometry, snapped focus, unobstructed placement,
+non-interception and cleanup. Toolbar, keyboard, orientation and zoom transitions
+need separate controlled cases with expected resize recorded; do not use an
+unexplained viewport change to dismiss a gesture failure.
+
+Automated acceptance runners must fail with a nonzero exit status on missing
+coverage, unavailable expected points, untrusted input or failed assertions.
+Diagnostic collectors may report failures and exit normally only when labelled
+as collection tools; their exit status is not an acceptance pass. Record commit,
+artifact/build, host case, phase/mode, engine/device, region geometry, samples and
+assertion results. Historical local passes cover only their recorded matrix.
+An actual user-reported failure remains open until tested in the reported
+context; a narrower local pass cannot close it.
+
+These are package gates for T0–T3. T4 and real-phone behavior remain separate
+Moodle-ready gates. The [2026-10-01 audit](mobile-scroll-audit-2026-10-01.md) and
+[repair plan](../plans/mobile-scroll-repair-plan.md) track known regressions;
+diagnostic listener-removal experiments are not production fixes.
 
 ## Scoring and feedback
 
@@ -567,6 +720,33 @@ On Windows, use Git Bash explicitly if plain `bash` invokes unconfigured WSL,
 and use `npm.cmd` if the shell cannot run `npm`. Do not copy another machine's
 user paths. Treat `### Error` in Playwright CLI output as failure even with exit 0.
 
+The maintained trusted-touch runner is `tools/mobile-scroll-browser-regression.js`:
+
+```sh
+npm run test:browser:mobile-scroll -- --host=T2 --mode=source
+npm run test:browser:mobile-scroll -- --host=T3 --mode=package
+npm run test:browser:mobile-scroll -- --host=T0 --mode=standalone
+npm run test:browser:mobile-scroll -- --host=T1 --mode=source --panel-sequence --slugs=static-kinetic-friction-investigation-lab
+npm run test:browser:mobile-scroll -- --host=T3 --phases=all --handoff --operations --slugs=force-equilibrium-diagram-lab,plane-mirror-pencil-ray-diagram
+```
+
+`--viewports=320x500,390x844`, `--iframe-height=500`, `--slugs=...` and
+`--profiles=...` select explicit coverage. `--phases=all` uses versioned activity
+adapters and production encode/decode/startup restore, followed by legal UI
+continuation. It requires a mocked LMS host for restored cases. A hidden stage
+may be N/A only when the adapter names that formal phase and the measured layout
+confirms the stage is absent; unavailable expected targets still fail.
+
+Panel gestures include passive frame/scroll-event traces and containing-page style mutation records. `--panel-sequence` adds text/button starts, touchcancel, a subsequent panel swipe, two swipes 100ms apart and a following background swipe. These assertions reject any host-style lock even if final scroll positions match.
+
+Hosts have no touch handlers or panel-lock bridge. T3 declares an overflowing
+outer element while both outer and intermediate windows stay bounded. The runner
+records trusted input, actual owners, frame/viewport movement, production work and
+SCORM checkpoints, move samples and release samples at 20/100/400/1000 ms. It exits
+nonzero on missing coverage, failed invariants or runtime errors. Its Chrome/CDP
+results establish only the recorded local cases, not real Moodle/phone readiness.
+Keep the existing subject interaction/scoring/lifecycle browser workflows as well.
+
 ## Verification checklists
 
 ### Package-ready checks
@@ -582,7 +762,9 @@ user paths. Treat `### Error` in Playwright CLI output as failure even with exit
   restored partial work, and no reset after score or uncertain finalization.
 - Use Live Server or a local static server and pass the full
   [trusted-touch matrix](#selective-touch-gesture-ownership) on source and extracted
-  packages, including both side strips in drawing mode and panel boundaries.
+  packages for each phase/mode, including visual blanks, drawing/orbit side strips,
+  panel boundaries and the [T0–T3 host cases](#required-host-cases). Inspect move
+  samples and learner-state invariants; source-string checks cannot replace this.
 - Test `320x500`, `390x500`, `390x600`, a normal full-height phone, landscape,
   toolbar changes, software keyboard, and 200% zoom. Inspect actual scaled text
   and diagram labels for readability; keep primary actions/panel bottom reachable,
@@ -606,7 +788,10 @@ user paths. Treat `### Error` in Playwright CLI output as failure even with exit
   account with the intended attempt policy.
 - On a real phone in current-window and offered new-window players, repeat the
   full gesture matrix, reach the last control and scroll back, and verify text,
-  drawing side strips, preview/snap behavior, keyboard, and viewport changes.
+  drawing/orbit side strips, preview/snap behavior, keyboard, quick-flick/release
+  behavior and viewport changes. Record the actual frame chain and window/element
+  scroll owner on iPhone/Safari and Android/Chrome for those supported platforms;
+  retain any separately reported browser case until verified.
 - Confirm SCORM preview mode is disabled for formal assessment and attempt status
   is visible. Verify draft resume, pending retry, empty/partial score/status,
   submitted review-only re-entry with no reset, and a new Moodle attempt to change

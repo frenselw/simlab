@@ -708,7 +708,14 @@ async function frameEvaluate(cdp, expression) {
 async function navigateEmbedded(cdp, base, launch) {
   await cdp.send("Page.navigate", { url: `${base}/__embed-scroll-test.html?fluid=1&src=${encodeURIComponent(launch)}` });
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (await frameEvaluate(cdp, "document.readyState === 'complete' && Boolean(window.__staticKineticFrictionApp)")) return;
+    const ready = await evaluate(cdp, `(() => {
+      const frame = document.getElementById("activity");
+      if (!frame?.contentWindow || !frame.contentDocument) return false;
+      return frame.contentDocument.readyState === "complete" &&
+        frame.contentWindow.location.pathname === new URL(${JSON.stringify(launch)}, location.href).pathname &&
+        Boolean(frame.contentWindow.__staticKineticFrictionApp);
+    })()`);
+    if (ready) return;
     await delay(50);
   }
   throw new Error(`embedded activity did not become ready: ${launch}`);
@@ -828,6 +835,46 @@ async function embeddedSmoke(cdp, base, launch, label, width, height) {
   }
   assert.ok(momentumDelta > 1 || reachedPanelEnd, `${label}: releasing a panel swipe keeps native momentum scrolling (${JSON.stringify({ range: panelRange, atRelease: panelAtRelease.panel, afterMomentum: panelAfterMomentum.panel, delta: momentumDelta, reachedPanelEnd, distance: momentumDistance })})`);
   assert.ok(Math.abs(panelAfterMomentum.host - panelAtRelease.host) <= 1, `${label}: panel momentum leaves enclosing host fixed`);
+  // Repeated touches before the old 400ms host-unlock timer used to save
+  // overflow:hidden as the original value and permanently lock the player.
+  // The fixture is deliberately neutral; observe it without locking/bridging.
+  await frameEvaluate(cdp, `(() => { document.getElementById('controlPanel').scrollTop=${panelRange * .15}; return true; })()`);
+  await delay(120);
+  const repeatedPoint = await frameEvaluate(cdp, `(() => {
+    const r=document.getElementById('controlPanel').getBoundingClientRect(),f=window.frameElement.getBoundingClientRect();
+    return {x:f.left+r.left+6,y:f.top+r.top+r.height*.65};
+  })()`);
+  const beforeRepeated = await metrics();
+  const canonicalBefore = await frameEvaluate(cdp, "JSON.stringify(window.__staticKineticFrictionApp.getState())");
+  await evaluate(cdp, `(() => {
+    const trace={samples:[],styles:[]},frame=document.getElementById('activity');
+    const sample=()=>trace.samples.push({host:scrollY,frameY:frame.getBoundingClientRect().top});
+    const observer=new MutationObserver(records=>{for(const r of records)trace.styles.push({node:r.target.tagName,oldStyle:r.oldValue,newStyle:r.target.getAttribute('style')});sample();});
+    for(const node of [document.documentElement,document.body])observer.observe(node,{attributes:true,attributeFilter:['style'],attributeOldValue:true});
+    addEventListener('scroll',sample,true);let raf;const tick=()=>{sample();raf=requestAnimationFrame(tick);};tick();
+    window.__frictionPanelProbe={stop:()=>{cancelAnimationFrame(raf);removeEventListener('scroll',sample,true);observer.disconnect();sample();return trace;}};
+    return true;
+  })()`);
+  await touch(cdp, repeatedPoint, {x:repeatedPoint.x,y:repeatedPoint.y-48});
+  await delay(100);
+  await touch(cdp, repeatedPoint, {x:repeatedPoint.x,y:repeatedPoint.y-48});
+  await delay(1000);
+  const afterRepeated = await metrics();
+  const trace = await evaluate(cdp, "window.__frictionPanelProbe.stop()");
+  assert.equal(trace.styles.length, 0, `${label}: consecutive panel touches do not alter containing html/body styles (${JSON.stringify(trace.styles)})`);
+  assert.ok(trace.samples.length > 2, `${label}: repeated panel gestures have frame/event trace evidence`);
+  assert.ok(trace.samples.every(sample=>Math.abs(sample.host-beforeRepeated.host)<=1.1&&Math.abs(sample.frameY-trace.samples[0].frameY)<=1.1), `${label}: panel stays fixed throughout repeated touches and delayed-release frames`);
+  assert.ok(afterRepeated.panel > beforeRepeated.panel, `${label}: consecutive touches keep panel scrolling usable`);
+  assert.equal(await frameEvaluate(cdp, "JSON.stringify(window.__staticKineticFrictionApp.getState())"), canonicalBefore, `${label}: panel touches do not activate controls or change answers`);
+  await evaluate(cdp, "scrollTo({top:120,behavior:'instant'})");
+  await delay(120);
+  const restoredBlank = await frameEvaluate(cdp, `(() => {const f=window.frameElement.getBoundingClientRect(),r=document.getElementById('stage').getBoundingClientRect();return {x:f.left+r.left+16,y:f.top+r.top+r.height*.5};})()`);
+  const beforeRestoredBlank = await metrics();
+  await touch(cdp, restoredBlank, {x:restoredBlank.x,y:restoredBlank.y-48});
+  await delay(150);
+  const afterRestoredBlank = await metrics();
+  assert.ok(afterRestoredBlank.host > beforeRestoredBlank.host + 3, `${label}: background still scrolls after consecutive panel touches`);
+  assert.equal(afterRestoredBlank.panel,beforeRestoredBlank.panel,`${label}: post-panel background does not move sibling panel`);
   const prepared = await frameEvaluate(cdp, `(() => {
     const state=window.__staticKineticFrictionApp.getState();
     return {zero:state.balance.zeroForce,experimentOriginHidden:document.getElementById('experimentOrigin').classList.contains('is-hidden'),originHidden:document.getElementById('balanceOrigin').classList.contains('is-hidden')};

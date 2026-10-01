@@ -1,5 +1,10 @@
 # 共點力平衡：進階受力圖挑戰
 
+> **2026-10-01 手機滾動修復：** 已按本活動 DOM 實作 native 空白／側帶策略，保留作圖取消及 panel-handoff；五個進階題的空白／部分作答、check、submitted、pending 與第二指交接，均已獨立測 source／package。
+> 短橫向補修：480×320 內嵌畫面改用左右欄，確保 panel 可見高度與末端控制可達；正常直向版面維持原配置。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R06。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-27：使用者已同意本計劃並要求立即完整實作。專用分支：`codex/force-equilibrium-advanced-diagram-lab`，由`main`的`724c3a3`建立。以下作為實作契約；文末原規劃階段紀錄屬歷史。
 
 本活動由[新活動範本](NEW-SIMULATION-PLAN-TEMPLATE.md)建立，依[共用風格](00-shared-platform-and-style.md)及[製作指南](../docs/simulation-scorm-production-guide.md)。操作與美術完整沿用[基礎版](21-force-equilibrium-diagram-lab.md)；本文件集中記錄五種新題的物理條件、研究對象及必要差異。以下為實作契約；驗收結果以文末實測證據為準。

@@ -6,6 +6,8 @@ const { spawnSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const tests = [
+  "tools/mobile-scroll-browser-regression.test.js",
+  "sim/centre-of-mass-investigation-lab/hit-geometry.test.js",
   "sim/newtons-third-law-reaction-force-lab/generator.test.js",
   "sim/newtons-third-law-reaction-force-lab/model.test.js",
   "sim/newtons-third-law-reaction-force-lab/scoring.test.js",
@@ -138,6 +140,7 @@ const tests = [
   "tools/force-orthogonal-decomposition-browser-regression.test.js",
   "tools/centre-of-mass-browser-regression.js",
   "tools/mobile-touch-scroll.test.js",
+  "sim/shared/touch-scroll.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js"
 ];

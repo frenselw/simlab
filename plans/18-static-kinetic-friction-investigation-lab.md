@@ -1,5 +1,9 @@
 # 靜摩擦力與滑動摩擦力探究實驗室
 
+> **2026-10-01 手機滾動修復：** 已移除舞台 hostSwipe／冗餘 forwarding 及失效的 controller export。使用者再回報控制面板跳位後，另移除會競爭的外頁 overflow 鎖定／延遲回捲／panel-gesture message；保留 panel 原生捲動及 containment。新增連續 100ms 間隔拖曳、文字／按鈕起點、cancel、host style／逐 frame trace 及下一次空白捲動驗收，結果見追修記錄。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R04。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-24 目標規格同步：依[導航基準](./00-shared-platform-and-style.md#navigation)區分獨立任務與 B→C 依賴；runtime 的全 Part 自由任務列仍待同步，歷史驗收不代表新導航已通過。
 
 > 文件地位：本 plan 是產品、教學、物理模型、數據量測、互動、評分、持久化、SCORM、測試及驗收的正式 implementation blueprint。
@@ -8,7 +12,9 @@
 >
 > 來源：[GitHub issue #11](https://github.com/frenselw/simlab/issues/11)。issue 內容已在兩份獨立審核後收斂為本文件；本 plan 的明確決定優先於較早的 issue wording。
 >
-> Plan revision：`55`（2026-08-12；修正 Part B 首幀後只容許一個 startup interval，並在 startup hand-off 重新對齊 input clock／queue；Part C 改值保存會同時清除 canonical 及 working Part D，保存前兼容舊 s6／v51 draft 將未提交 P slot 遷移到 `k.n`。Runtime build marker 提升至 53。）
+> Plan revision：`56`（2026-10-02；R04 控制面板追修與可信連續觸控驗收；runtime asset cache marker 提升至 `54`。物理、rubric、generator、measurement 及 snapshot schema versions 不變。）
+
+> 歷史 Plan revision：`55`（2026-08-12；修正 Part B 首幀後只容許一個 startup interval，並在 startup hand-off 重新對齊 input clock／queue；Part C 改值保存會同時清除 canonical 及 working Part D，保存前兼容舊 s6／v51 draft 將未提交 P slot 遷移到 `k.n`。Runtime build marker 提升至 53。）
 
 本計劃必須遵從：
 

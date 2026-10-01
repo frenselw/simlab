@@ -1,5 +1,10 @@
 # Inertial Reference Frame Road Observer Plan
 
+> **本輪短播放器補修：** 480px 闊／320px 高等短橫向畫面採 stage／panel 左右排列，避免舞台最小高度把 controls 擠出 viewport；保留字體與 touch target 尺寸，並核對最後控制可達。Summary/check 沒有舞台的頁面維持全高 panel。實際適用斷點及結果見[驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)。
+
+> **2026-10-01 手機滾動修復（R13）：** `.reference-panel` 已設 `position:relative`，將絕對定位的 sr-only 內容限制在面板座標內，消除活動 root 的隱藏捲動 range；學科模型及答案 schema 不變。320／390 source 與新 package 的面板、空白、邊界及原有 mobile-touch browser regression 已通過。
+> 詳細範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)；真實 Moodle／手機仍待 T4 驗證。
+
 > 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)容許任何進度檢查及提交；runtime 的全部作答門檻仍待移除，既有驗收不代表新規格已通過。
 
 ## Purpose
@@ -463,6 +468,7 @@ Scroll topology and gesture ownership:
   its vertical native pan belongs to the enclosing host page and moves the
   complete SCORM activity with that page; in the bounded standalone page, it is
   simply unclaimed when no ancestor has scroll range;
+- `.reference-panel` also establishes a positioned containing block for absolute sr-only content. Hidden accessibility text must not create an extra root-document scroll range (2026-10-01 repair).
 - `.reference-panel` remains the independent native control-scroll owner for
   touches that start inside it. Its `overscroll-behavior: contain` prevents
   control scrolling or a panel boundary gesture from moving the Moodle host;

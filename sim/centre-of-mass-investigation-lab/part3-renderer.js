@@ -69,7 +69,14 @@ function create(canvas, problem, onContext) {
     if (lost) return [];
     const rect = canvas.getBoundingClientRect(), cssWidth=Math.max(2,rect.width),cssHeight=Math.max(2,rect.height),width = Math.max(2, Math.round(cssWidth * Math.min(devicePixelRatio || 1, 2))), height = Math.max(2, Math.round(cssHeight * Math.min(devicePixelRatio || 1, 2)));
     if (canvas.width !== width || canvas.height !== height) renderer.setSize(cssWidth, cssHeight, false);
-    camera.aspect = cssWidth / cssHeight; camera.updateProjectionMatrix();
+    camera.aspect = cssWidth / cssHeight;
+    // Reserve visible background in short split layouts at every orientation.
+    const inset=parseFloat(getComputedStyle(canvas).getPropertyValue("--solid-scroll-inset"))||0;
+    const radius=problem.type==="sphere"?problem.axes[0]:Math.hypot(...problem.axes);
+    const availableRadius=Math.max(2,Math.min(cssWidth,cssHeight)-2*inset)/2;
+    const focal=cssHeight/(2*Math.tan(camera.fov*Math.PI/360));
+    camera.position.z=inset?Math.max(6.2,radius*Math.sqrt(1+(focal/availableRadius)**2)):6.2;
+    camera.updateProjectionMatrix();
     group.rotation.order = "YXZ"; group.rotation.y = view.yaw10 * Math.PI / 1800; group.rotation.x = view.pitch10 * Math.PI / 1800;
     scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
     const projected = [];
@@ -81,6 +88,18 @@ function create(canvas, problem, onContext) {
       const cameraPoint = world.clone().applyMatrix4(camera.matrixWorldInverse);
       const point = world.clone().project(camera);
       projected.push({ key:keyName, x:(point.x*.5+.5)*700, y:(.5-point.y*.5)*460, depth:cameraPoint.z-centrePoint.z });
+    }
+    if (problem.type === "sphere") {
+      const radius = problem.axes[0], distance = Math.abs(centrePoint.z);
+      const projectedRadius = camera.projectionMatrix.elements[5] * radius / Math.sqrt(distance*distance-radius*radius);
+      projected.outline = { kind:"ellipse", cx:350, cy:230, rx:projectedRadius/camera.aspect*350, ry:projectedRadius*230 };
+    } else {
+      const points = [], positions = geometry.getAttribute("position");
+      for(let i=0;i<positions.count;i++) {
+        const point = new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(group.matrixWorld).project(camera);
+        points.push({x:(point.x*.5+.5)*700,y:(.5-point.y*.5)*460});
+      }
+      projected.outline = { kind:"polygon", points:window.CentreMassHitGeometry.hull(points) };
     }
     renderer.render(scene, camera);
     canvas.dataset.renderer = "three"; canvas.dataset.frame = String((Number(canvas.dataset.frame)||0)+1);

@@ -363,3 +363,26 @@
 .feedback-summary {
   margin-top: 0.5rem;
 }
+
+/* Bounded player layout: only the panel scrolls inside the SCO. */
+html, body { height: 100%; min-height: 0; overflow: hidden; overflow: clip; }
+.sim-app { position: fixed; inset: 0; height: 100vh; min-height: 0; overflow: hidden; grid-template-rows: auto minmax(0, 1fr); }
+@supports (height: 100dvh) { .sim-app { height: 100dvh; } }
+.sim-header { padding: .5rem .75rem; }
+.sim-header h1 { font-size: 1.1rem; }
+.sim-header p { margin: .2rem 0 0; font-size: .8rem; line-height: 1.35; }
+.sim-shell { min-height: 0; overflow: hidden; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+.sim-stage { min-height: 0; aspect-ratio: auto; touch-action: pan-y; }
+.sim-panel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .7rem .75rem 1.5rem; }
+@media (min-width: 820px) {
+  .sim-shell { grid-template-rows: minmax(0, 1fr); }
+}
+@media (max-height: 540px) { .sim-header p { display: none; } }
+
+/* Submitted and frozen answers no longer own editing gestures. */
+.ray-diagram.is-readonly [data-image-handle],
+.ray-diagram.is-readonly [data-kind][data-id] {
+  pointer-events: none;
+  touch-action: pan-y;
+  cursor: default;
+}

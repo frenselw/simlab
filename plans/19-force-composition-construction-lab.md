@@ -1,5 +1,9 @@
 # 力的合成作圖實驗室
 
+> **2026-10-01 手機滾動修復：** 已移除與 native 競爭的 forwarding；自由合力作圖改由穩定中央 layer 擁有，左右各保留 32 CSS px 捲動帶。SVG／overlay 座標已對齊，五題完整作圖、邊緣吸附、preview、鍵盤、評分及 source／package 回歸已通過。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R03。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-24 目標規格同步：依[手機互動基準](./00-shared-platform-and-style.md#mobile-interaction)補合力自由作圖模式的左右 host-scroll 帶；runtime 尚待同步，以下既有驗收不代表此模式的新手勢矩陣已通過。
 
 > 本文件是 `force-composition-construction-lab` 第一版的實作藍圖。第一版只處理力的合成，不包括力的分解；未完成本文件列出的 phase/state、persistence、scoring、touch 及 package 契約前，不開始製作 UI。
@@ -673,25 +677,27 @@ Requirements：
 ### 8.3 Technical touch decisions
 
 - root stage 非互動區及左右捲動帶：`touch-action:pan-y`；合力模式只有中央作圖區可預先設 `touch-action:none`，不得封鎖整幅舞台；
+- `#drawingSurface` 是穩定中央作圖／capture layer；stage SVG 與 drag overlay 同時 inset 左右 32 CSS px，座標從實際 SVG rect 反算。Responsive camera 的 aspect 取中央 SVG，compact／desktop 分界仍取外 stage width，保留既有邊缘吸附行為；
 - panel：native vertical scroll + `overscroll-behavior:contain`；
 - drag target：pre-pointerdown `touch-action:none`；
 - pointer capture target 在 drag 全程 mounted；
 - pointercancel 視為取消，rollback 到 pointerdown 前 geometry，不當作成功；
 - development source、built/extracted SCORM 及 Moodle-like iframe 使用同一 scroll topology；
-- **Production topology decision**：bounded activity document本身零scroll range；非互動blank-stage trusted vertical touch由activity記錄連續`clientY` delta，先驗證`window.parent!==window`且parent可作same-origin access，再只向同一`window.parent`執行`scrollBy(0,deltaY)`；event target若在任何drag handle/interactive control內便不forward。Message不經sibling panel，亦不提供panel fallback；
-- direct standalone／new-window沒有parent scroll owner時不forward，blank-stage非零delta只可按規則標N/A；cross-origin parent在第一版不嘗試無驗證`postMessage` bridge，必須使用已驗證的Moodle same-origin launch或先修訂host topology；
-- implementation開始前先以最小Moodle-like same-origin iframe spike驗證上述唯一production topology、delta方向、無double-scroll及trusted events；若實際Moodle部署不是same-origin或observable contract失敗，必須停下並修訂本plan，不能在activity UI完成後臨場改為另一owner；
-- direct standalone page 真正沒有 enclosing scroll range 時，只有 blank-stage 非零 delta 可標 N/A；Moodle-like iframe test 不可用此例外；
+- **目前修復決策（2026-10-01）**：bounded activity document 保持零 scroll range；blank-stage 及側帶優先使用 native `pan-y`。移除舊 `clientY → window.parent.scrollBy()` 轉送；該方法已重現座標回饋及雙重移動，不能再作實作指示。若實際 Moodle 仍需 adapter，先識別真正 window／element owner，再依[共用拓撲與實作契約](../docs/simulation-scorm-production-guide.md#scroll-topology-and-implementation-choice)設計及驗證；
+- standalone／new-window 依實際 window／element owner 判定，不以有否 parent 推定。只有 direct standalone 真正沒有 enclosing scroll range 時，host 非零位移才可標 N/A；cross-origin 的 native／adapter 路徑須有部署驗證，未安裝 receiver 的 `postMessage` 不算 fallback；
+- 修復實作前先完成共用 T0–T3 host 及逐 phase/mode matrix 的基線重現；正式修復須在 source／extracted SCORM 驗證單一 movement owner、每步方向、側帶及 learner-state invariants。實際部署的 origin／sandbox／owner 另按 T4 驗證，不能從單層 same-origin spike 推定；
 - trusted touch acceptance 必須使用 browser protocol `touchStart/touchMove/touchEnd` 或真機，並assert `event.isTrusted===true`、`pointerType==="touch"`，記錄browser engine及device；不接受 DOM `dispatchEvent`、source/CSS inspection 或 programmatic `scrollTop` 當作 acceptance gesture。
 
 ### 8.4 Implementation-before-UI iframe spike evidence
+
+**歷史範圍標示（2026-10-01）：** 下列 spike 沒有覆蓋本次反向取樣、巢狀／element owner 及正式合力模式側帶失敗；其結果不能支持重用已撤銷的 clientY／直接 parent 方法。
 
 2026-08-15 在正式 activity UI 實作前，以 `output/force-composition-scroll-spike/` 的最小 same-origin Moodle-like iframe host 驗證 §8.3 唯一 production topology。Browser protocol `Input.dispatchTouchEvent` 產生的 gesture 均為 trusted touch；測試環境為 `Chrome/151.0.7922.138`、macOS headless、`390×500` viewport。
 
 - 非互動舞台空白區向上 swipe：parent host `scrollY` 非零、iframe 同方向移動；activity document、activity visual viewport、panel及learner geometry保持不變；forwarding由 trusted `touchmove` 驅動；
 - control panel swipe：只有 panel scroll 改變；host、iframe、activity document、host/activity visual viewport及learner geometry保持不變；panel top及bottom boundary均不chain到host；
 - pre-pointerdown stable HTML drag target：geometry改變；host、iframe、activity document、panel及visual viewport全為零delta；收到 trusted touch `pointermove`及`pointerup`，沒有`pointercancel`；
-- 因此正式activity沿用「bounded inner document零scroll range + blank-stage same-origin parent `scrollBy` forwarding + panel native contained scroll + target-local `touch-action:none`」；不加入cross-origin或sibling-panel fallback。
+- 當時正式 activity 採用「bounded inner document 零 scroll range + blank-stage same-origin parent `scrollBy` forwarding + panel native contained scroll + target-local `touch-action:none`」。這是舊實作記錄，R03 已移除該轉送；新版策略以上方 §8.3 及共用手勢契約為準。
 
 ---
 

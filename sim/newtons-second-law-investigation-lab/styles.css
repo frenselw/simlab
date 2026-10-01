@@ -117,3 +117,13 @@ legend { padding: 0; font-weight: 600; line-height: 1.5; }
 }
 @media (max-width:359px) { .workflow { gap:.2rem; } .workflow button { font-size:.875rem; } #attemptStatus { font-size:.75rem; } }
 @media (max-height:450px) and (max-width:599px) { .newton-app { grid-template-rows:auto 166px minmax(0,1fr); } .heading h1 { font-size:1.1rem; } #attemptStatus { display:none; } .newton-app.no-scene { grid-template-rows:auto 0 minmax(0,1fr); } }
+
+/* Short landscape players need a visible panel, not a fixed-height stage row. */
+@media (min-width:480px) and (max-width:599px) and (max-height:450px) {
+  .newton-app { grid-template-columns:minmax(0,1fr) minmax(210px,46%); grid-template-rows:auto minmax(0,1fr); }
+  .sim-header { grid-column:1/-1; }
+  .stage { grid-row:2; grid-column:1; border-bottom:0; }
+  .control-panel { grid-row:2; grid-column:2; border-left:1px solid var(--color-border); }
+  .newton-app.no-scene { grid-template-columns:1fr; grid-template-rows:auto 0 minmax(0,1fr); }
+  .newton-app.no-scene .control-panel { grid-column:1; grid-row:3; }
+}

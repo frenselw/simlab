@@ -1,5 +1,11 @@
 # 勻速與勻變速：駕駛控制挑戰計劃
 
+> **本輪短播放器補修：** 480px 闊／320px 高等短橫向畫面採 stage／panel 左右排列，避免舞台最小高度把 controls 擠出 viewport；保留字體與 touch target 尺寸，並核對最後控制可達。Summary/check 沒有舞台的頁面維持全高 panel。實際適用斷點及結果見[驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)。
+
+> **2026-10-01 手機滾動修復：** 已移除空白舞台的 clientY／直接 parent 轉送；踏板、時間游標及面板操作保留。五級回放、graph-check、check、鎖定頁及原有完整 browser regression 已執行。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R01。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 ## 0. 文件狀態
 
 - 文件角色：新 SimLab 活動的產品、教學、物理、互動、評分、持久化、SCORM 及測試規格。

@@ -302,33 +302,30 @@
     if (editable() && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); cancelInteractions(); selected = -1; controller.undo(e.shiftKey); }
   });
   // Blank-stage swipes belong to the enclosing host. The activity document is bounded.
-  const touchOwners = new Map(); let handoffPanel = false;
+  const touchOwners = new Map(); let handoffPanel = false, handoffHost = false;
   const ownTarget = target => target?.closest?.(".origin-hit, .force-head-hit");
   document.addEventListener("pointerdown", e => {
     if (e.pointerType !== "touch" || e.isPrimary !== false || !drag || ownTarget(e.target)) return;
-    handoffPanel = dom.controlPanel.contains(e.target); cancelInteractions(true); render();
+    handoffPanel = dom.controlPanel.contains(e.target); handoffHost = dom.stage.contains(e.target); cancelInteractions(true); render();
   }, true);
   document.addEventListener("touchstart", e => {
     for (const t of e.changedTouches) {
       let owner = "native";
       if (ownTarget(t.target)) owner = "draw";
-      else if (dom.stage.contains(t.target) && !t.target.closest?.("button")) owner = "host";
       else if (handoffPanel && dom.controlPanel.contains(t.target)) owner = "panel-handoff";
-      touchOwners.set(t.identifier, { owner, y: owner === "host" ? t.screenY : t.clientY });
+      else if (handoffHost && dom.stage.contains(t.target)) owner = "host-handoff";
+      touchOwners.set(t.identifier, { owner, y: owner === "host-handoff" ? t.screenY : t.clientY, scrollOwner: owner === "host-handoff" ? SimTouchScroll.findHost(window) : null });
     }
-    handoffPanel = false;
+    handoffPanel = handoffHost = false;
   }, { passive: true });
   document.addEventListener("touchmove", e => {
     let handled = false;
     for (const t of e.changedTouches) {
       const record = touchOwners.get(t.identifier); if (!record) continue;
-      // The iframe itself moves during host scrolling. Its local clientY is
-      // therefore not a stable measure of finger travel; use screenY for the host.
-      const y = record.owner === "host" ? t.screenY : t.clientY;
+      const y = record.owner === "host-handoff" ? t.screenY : t.clientY;
       const delta = record.y - y; record.y = y;
-      if (record.owner === "host") {
-        try { if (window.parent !== window && window.parent.document) { window.parent.scrollBy(0, delta / (window.parent.visualViewport?.scale || 1)); handled = true; } } catch (_) { /* Cross-origin hosts require their own verified bridge. */ }
-      } else if (record.owner === "panel-handoff") { dom.controlPanel.scrollTop += delta; handled = true; }
+      if (record.owner === "host-handoff") handled = SimTouchScroll.move(record.scrollOwner, delta) || handled;
+      else if (record.owner === "panel-handoff") { dom.controlPanel.scrollTop += delta; handled = true; }
     }
     if (handled && e.cancelable) e.preventDefault();
   }, { passive: false });

@@ -21,6 +21,7 @@
       <file href="centre-of-mass-investigation-lab/model.js"/>
       <file href="centre-of-mass-investigation-lab/scoring.js"/>
       <file href="centre-of-mass-investigation-lab/persistence.js"/>
+      <file href="centre-of-mass-investigation-lab/hit-geometry.js"/>
       <file href="centre-of-mass-investigation-lab/ui-policy.js"/>
       <file href="centre-of-mass-investigation-lab/main.js"/>
       <file href="centre-of-mass-investigation-lab/part3-renderer.js"/>

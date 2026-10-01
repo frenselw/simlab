@@ -29,8 +29,8 @@ const mapIndex = fs.readFileSync(
 );
 assert.match(
   mapStyles,
-  /\.journey-map\s*\{[^}]*touch-action:\s*pan-x pinch-zoom/s,
-  "map forwarding surface leaves horizontal pan and pinch zoom browser-owned"
+  /\.journey-map\s*\{[^}]*touch-action:\s*pan-x pan-y pinch-zoom/s,
+  "map background leaves vertical/horizontal pan and pinch zoom browser-owned"
 );
 assert.match(
   mapIndex,

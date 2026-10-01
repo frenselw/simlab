@@ -1,5 +1,10 @@
 # 重心探究實驗室（實作計劃）
 
+> **2026-10-01 手機滾動修復：** 三維 orbit hit area 已改為實際 renderer 投影的球體橢圓或方體凸包，外加 8 CSS px local halo；穩定 clipped、可聚焦旋轉元素 在 drag 中不卸載。球／正方體／長方體、初始／旋轉、Three／Canvas 的四側背景及一維／二維回歸已通過。鍵盤 focus 以輪廓內底色顯示。
+> 短橫向補修：480×320 內嵌畫面改用左右欄，確保 panel 可見高度與末端控制可達。Three 相機／Canvas scale 在所有觀察方向保留物體外 40 CSS px，再扣除 8px halo 後有至少 32px 背景；正常直向版面與原相機配置維持。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R09。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 ## 1. Scope
 
 - Slug: `centre-of-mass-investigation-lab`
@@ -26,6 +31,7 @@
   - `sim/centre-of-mass-investigation-lab/ui-policy.js`
   - `sim/centre-of-mass-investigation-lab/main.js`
   - `sim/centre-of-mass-investigation-lab/part3-renderer.js`
+  - `sim/centre-of-mass-investigation-lab/hit-geometry.js`
   - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/three.module.min.js`
   - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/three.core.min.js`（0.185.1 module build 的官方靜態依賴）
   - `sim/centre-of-mass-investigation-lab/vendor/three-0.185.1/LICENSE`
@@ -359,7 +365,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 - 球體使用藍色經緯參考線，並以一條橙色本地方向標記及短箭頭提供明顯的旋轉視覺參考；正方體／長方體顯示半透明面及可辨識邊。
 - 五個候選點固定在物體本地坐標，旋轉時一同投影；Three 及 Canvas renderer 直接繪製不含英文字母的彩色實心小圓點。每個候選點的透明語意 button 必須直接與其彩色圓點同心，並在每個 pointermove 同步投影；不可把 button 搬到另一位置，亦不使用引導虛線。為避免相鄰透明 button 重疊時由錯誤 button 攔截，pointer tap 由同一 orbit layer 按距離選取最近的實際投影點；button 仍保留 keyboard／ARIA 語意。`aria-label`、control-panel radio swatch 及文字只以顏色辨認候選點，內部 key 不顯示給學生。
 - resize 時由三維狀態重新投影，絕不把舊 Canvas pixel 當答案。
-- orbit HTML overlay 在 normal／hover／focus／active 都保持透明，不能被共用 `button:hover` 填白；候選點使用五種高對比實心彩色圓點，pointer 選點半徑為 `26 CSS px`（直徑 `52 CSS px`），選中時保留原尺寸及原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
+- orbit HTML overlay 在 normal／hover／active 保持透明；focus-visible 的局部底色只畫在 clip 內，不能被共用 `button:hover` 填白。旋轉元素使用可聚焦 `div[role=button]`，方向鍵及 pointer ownership 保持原模型；候選點使用五種高對比實心彩色圓點，pointer 選點半徑為 `26 CSS px`（直徑 `52 CSS px`），選中時保留原尺寸及原色並以白／深藍 halo 及狀態文字回饋。320、390 及 desktop 寬度每次 resize 後必須產生 nonblank frame。
 - renderer construction、render、resize 或 context event 任一例外均立即以同一 canonical state 畫 Canvas fallback；fallback 本身失敗時顯示技術狀態而非白畫面。
 - WebGL／Canvas 後備繪製屬內部技術路徑；圖台不顯示 renderer 名稱或「Canvas 相容模式」標籤，學生只見同一個可操作實驗畫面。
 
@@ -436,7 +442,7 @@ I_p\ddot{\phi}=-Mgd\sin\phi-c\dot\phi
 | 二維旋轉手柄 | 明確 52×52 CSS px hit overlay | 穩定 handle target | No |
 | 二維畫線／取下層 | 使用相同 even-odd SVG compound material path；另在 active pivot 提供相當於 `96×96 CSS px`、會隨 responsive stage 重算的 SVG 橢圓起筆區，再以同一 even-odd material path 裁切。因此靠近 pivot 的 cutout 仍由 host 擁有，只有實際物料可起筆。compound draw path 只處理 pointer；pivot 橢圓是唯一 keyboard／ARIA 畫線入口。active pivot 附近向下拖屬畫線，其餘 material 位置拖動路由至 canonical 取下／整板或最近孔平移；cutout、牆面及 stage 空白不屬此 target | 同一 stable compound path／clipped pivot ellipse | No |
 | 二維重心標註 | stage 側邊 palette／已保存點上的紅色「重心」及至少 44×44 CSS px 明確 overlay | 穩定 hit target | No |
-| 三維 orbit region | Canvas 上方明確且有尺寸的 HTML hit layer | orbit layer | No |
+| 三維 orbit region（R09 已實作） | 依實際 renderer 的物體投影球體橢圓／凸包與 8 CSS px halo 預先建立穩定 clipped HTML hit layer；物體旁背景不屬此 region | orbit layer | No |
 | 五個三維候選點 | orbit layer 內最近投影點的 `26 CSS px` 選點區；同心 candidate buttons 提供 keyboard／ARIA 語意 | orbit layer（pointer）／各 candidate button（keyboard） | No |
 
 active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要更新 SVG 時，只更新 visual attributes／separate visual layer；pointer capture target 保持 mounted。
@@ -456,6 +462,7 @@ active target 在 drag 中不得因全面 `innerHTML` 重畫而卸載。需要�
 ### 10.3 Technical decisions
 
 - stage root blank region: `touch-action:pan-y`。
+- Three 直接投影 mesh 幾何及 camera transform；Canvas fallback 使用其實際繪圖輪廓。`hit-geometry.js` 產生 ellipse／convex hull clip，不能以候選點包圍盒代替立體。Orbit 元素在拖曳中保持 mounted，只同步 clip／候選位置；鍵盤 focus 底色畫在 clip 內。短橫向的 camera distance／Canvas scale 只按可用尺寸調整 derived rendering，保留 32 CSS px 可見背景及 8px halo；世界模型與 view 量化不改。
 - 每個 direct-manipulation hit target 在 `pointerdown` 前已有 `touch-action:none`；不可在 pointerdown 後才動態加入。
 - 不在整個 SVG／Canvas／stage 設 `touch-action:none`。
 - draw mode 只令 plate material region 內的 stable drawing hit layer 使用 `touch-action:none`；material 外 stage 空白保持 `pan-y`。trusted iframe matrix 必須在 draw mode 開啟時分別驗證板內畫線 gesture 及板外 host-owned swipe。

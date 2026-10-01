@@ -376,22 +376,22 @@
   d.saveRetryButton.onclick = () => controller.retrySave(); d.retryFinalButton.onclick = () => controller.retryFinal();
   d.recoverButton.onclick = () => { if (confirm("已確認這是未提交的損壞草稿。清除並開始空白作答？")) controller.recoverDraft(); };
   document.addEventListener("keydown", e => { if (e.key === "Escape" && (drag || keyboard)) { e.preventDefault(); cancelWork(); render(); } });
-  const owners = new Map(); let handoff = false;
+  const owners = new Map(); let handoff = false, handoffHost = false;
   const ownTarget = target => target?.closest?.(".data-point-source, .plot-point-hit, .offscale-point-hit, .force-range");
-  document.addEventListener("pointerdown", e => { if (e.pointerType === "touch" && e.isPrimary === false && drag) { handoff = d.controlPanel.contains(e.target); cancelWork(true); render(); } }, true);
+  document.addEventListener("pointerdown", e => { if (e.pointerType === "touch" && e.isPrimary === false && drag) { handoff = d.controlPanel.contains(e.target); handoffHost = d.stage.contains(e.target); cancelWork(true); render(); } }, true);
   document.addEventListener("touchstart", e => {
     for (const t of e.changedTouches) {
-      const owner = ownTarget(t.target) ? "draw" : d.stage.contains(t.target) ? "host" : handoff && d.controlPanel.contains(t.target) ? "panel-handoff" : "native";
-      owners.set(t.identifier, { owner, y: owner === "host" ? t.screenY : t.clientY });
+      const owner = ownTarget(t.target) ? "draw" : handoff && d.controlPanel.contains(t.target) ? "panel-handoff" : handoffHost && d.stage.contains(t.target) ? "host-handoff" : "native";
+      owners.set(t.identifier, { owner, y: owner === "host-handoff" ? t.screenY : t.clientY, scrollOwner: owner === "host-handoff" ? SimTouchScroll.findHost(window) : null });
     }
-    handoff = false;
+    handoff = handoffHost = false;
   }, { passive: true });
   document.addEventListener("touchmove", e => {
     let handled = false;
     for (const t of e.changedTouches) {
       const r = owners.get(t.identifier); if (!r) continue;
-      const y = r.owner === "host" ? t.screenY : t.clientY, delta = r.y - y; r.y = y;
-      if (r.owner === "host") { try { if (window.parent !== window && window.parent.document) { window.parent.scrollBy(0, delta / (window.parent.visualViewport?.scale || 1)); handled = true; } } catch (_) { /* Cross-origin players need separate host acceptance. */ } }
+      const y = r.owner === "host-handoff" ? t.screenY : t.clientY, delta = r.y - y; r.y = y;
+      if (r.owner === "host-handoff") handled = SimTouchScroll.move(r.scrollOwner, delta) || handled;
       else if (r.owner === "panel-handoff") { d.controlPanel.scrollTop += delta; handled = true; }
     }
     if (handled && e.cancelable) e.preventDefault();

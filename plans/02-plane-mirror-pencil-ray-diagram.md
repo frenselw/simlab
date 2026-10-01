@@ -1,5 +1,9 @@
 # SimLab Plane Mirror Pencil Ray Diagram MVP Plan
 
+> **2026-10-01 手機滾動修復：** 已遷移到 bounded stage／獨立面板；只有 owned pointerup 才保存有效操作。cancel／lostcapture／第二指／blur／resize 會還原完整 ray bundles 與 image，鎖定後釋放 editing footprint；四類作圖／成像操作與 source／package 回歸已通過。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R12。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-24 目標規格同步：依[提交與重做基準](./00-shared-platform-and-style.md#submission-and-reset)補空白／部分提交；runtime 尚未同步，既有驗收不代表新規格已通過。
 
 ## Purpose
@@ -142,10 +146,21 @@ Recommended mode flow:
 
 Phone behavior:
 
-- diagram first, controls below;
+- bounded upper diagram region and independently scrolling lower control panel;
+- activity document has no extra scroll range; panel uses native vertical scroll
+  and overscroll containment; blank diagram uses native panning to the actual
+  enclosing host;
 - large touch targets;
 - no keyboard requirement;
 - use a local magnifier only if ray handles become hard to drag.
+
+Only an owned pointerup commits a changed ray or image. Pointercancel, lost
+capture, a second touch, blur or resize restores the complete pre-drag bundles
+and image, releases capture and removes the preview without saving an empty
+checkpoint. Ordinary blank swipes cannot enter that commit path. In submitted
+or frozen states, editing sliders become aria-disabled, leave the tab order
+and release pointer/touch ownership; their former footprints behave as blank
+stage. World/SVG coordinates, scoring and snapshot versions are unchanged.
 
 ## Physics model
 

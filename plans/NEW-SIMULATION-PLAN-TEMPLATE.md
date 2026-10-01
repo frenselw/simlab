@@ -46,7 +46,7 @@ Apply [layout](00-shared-platform-and-style.md#layout) and [mobile interaction](
 | Phone stage and controls | Stage track, remaining control space, and short-viewport reflow |
 | Phone text | Body/control/diagram sizes; readability after SVG or camera scaling |
 | Viewports | Small and normal portrait, landscape, short Moodle iframe, toolbar changes, keyboard and 200% zoom |
-| Scroll topology | Standalone and embedded owners; bounded activity document has no usable vertical scroll range |
+| Scroll topology | Frame chain, origin/sandbox and actual window/element owner in standalone, local hosts and Moodle; bounded activity document has no usable vertical scroll range |
 
 ## Navigation, submission and reset
 
@@ -79,23 +79,37 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 Use the production guide's [complete touch acceptance contract](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership). Fill actual regions, selectors and evidence; inventory **every** target type, including editing handles and drawing surfaces.
 
-| Target type | Selector / hit area and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
+| Target type / modes | Visible footprint, selector, hit area/halo and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
-| | | Remains mounted throughout drag | |
+| | Include transparent overlays and their relation to visible blank space | Remains mounted throughout drag | |
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
 | Non-interactive stage | Enclosing page/Moodle host | `pan-y`; identify reachable region | |
 | Independent control panel, if present | Panel only, including boundaries | Otherwise explain natural-flow host ownership | |
 | Drawing surface, if present | Simulation during drawing | Explicit drawing boundary and mode | |
-| Left scroll strip, when drawing occupies the stage | Enclosing page/Moodle host | Width and reason; remains reachable during drawing | |
-| Right scroll strip, when drawing occupies the stage | Enclosing page/Moodle host | Width and reason; remains reachable during drawing | |
+| Visually blank space beside/through objects, outside declared drawing and local halos | Enclosing page/Moodle host | Screenshot points; inspect transparent target overlap | |
+| Left scroll strip, when drawing/orbit occupies the stage | Enclosing page/Moodle host | Measured width and finger access under the guide; reachable in each mode | |
+| Right scroll strip, when drawing/orbit occupies the stage | Enclosing page/Moodle host | Measured width and finger access under the guide; reachable in each mode | |
 | `<each draggable target type>` | Simulation during drag | Target changes; all scroll/viewport/iframe positions stay fixed | |
 
-- Host scroll path (native or same-host forwarding), bounded-document enforcement, and any Canvas/SVG hit-target alternative:
-- Source/extracted-package test host, engine/device, trusted-input method, metrics and artifact paths:
-- Test both stage swipe directions, panel boundaries, every target and drawing-mode side strips; preserve `pointermove`/`pointerup` without `pointercancel` during active drags. Control continuous animation separately from gesture-caused changes.
-- DOM-dispatched events, programmatic scrolling and source/style checks do not establish touch acceptance. Standalone with no host range does not replace a scrollable Moodle-like iframe check.
+- Native host path, bounded-document enforcement and any Canvas/SVG hit alternative; evidence and explicit owner/coordinate conversion for any necessary adapter:
+- Source/extracted-package host, engine/device, trusted input, per-move/release samples, state invariants, artifacts and runner assertion/exit results:
+- Define T0–T4 under the guide's [required host cases](../docs/simulation-scorm-production-guide.md#required-host-cases). Do not infer an owner from `parent`/`top` or omit the nested/element-owner cases.
+
+| Host case | Frame chain and actual owner selector/window | Origin/sandbox / native path or verified adapter | Source/extracted evidence; deployment/device evidence separately |
+|---|---|---|---|
+| T0 standalone | | | |
+| T1 direct iframe | | | |
+| T2 nested player | | | |
+| T3 overflowing element | | | |
+| T4 real Moodle player(s) | | | |
+
+| Phase / page / scenario / mode | Legal production fixture and UI continuation | Blank points, drawing/orbit bounds, side strips and every target | Host cases / viewports / source-package evidence |
+|---|---|---|---|
+| Include unanswered/answered, active drawing, check return, submitted/pending and renderer fallback | No invented or persistence-only test state | Assess visible blanks even when hit testing finds an interactive overlay | Explain any equivalent-row grouping; leave unexecuted rows pending |
+
+Follow the guide's [coverage and acceptance](../docs/simulation-scorm-production-guide.md#coverage-and-observable-acceptance) for both swipe directions, panel boundaries, per-move monotonicity, quick flick/release, every target, interruptions and state invariants. Record continuous model time separately. Source/DOM/style checks and initial-page passes cannot replace the matrix.
 
 ## Scoring and tolerance
 
@@ -165,7 +179,7 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 - [ ] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
 - [ ] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
 - [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
-- [ ] Every applicable gesture row passes with trusted input in a scrollable Moodle-like iframe on **source and extracted SCORM**; record all guide-required scroll/viewport/iframe metrics, including no third scroll owner.
+- [ ] Every phase/mode's applicable gesture rows pass with trusted input on **source and extracted SCORM** in T0–T3; record every owner's metrics, move/release samples, visual blank/overlay geometry, panel boundaries and unchanged learner work. Missing or failed acceptance cases fail the runner.
 - [ ] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.
 
 ## Package-ready checklist
@@ -182,6 +196,6 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 
 - [ ] Package-ready gates pass; real Moodle student-account submission records score/status.
 - [ ] Draft resume, pending retry, immutable scored review and LMS new-attempt policy work.
-- [ ] Real-phone complete gesture matrix passes in current-window and offered new-window Moodle players.
+- [ ] T4 real-phone complete phase/mode gesture matrix passes in current-window and offered new-window Moodle players, including quick-flick/release behavior and actual window/element owner.
 - [ ] Required server-side validation works for high-risk assessment.
 - [ ] Moodle and physical-device evidence is recorded separately from local checks; list any unverified item explicitly.

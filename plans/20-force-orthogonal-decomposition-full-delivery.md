@@ -1,5 +1,9 @@
 # 力的正交分解完整版：現行規格與交付紀錄
 
+> **2026-10-01 手機滾動修復：** 已移除空白舞台 forwarding；三個情境的方向、垂線、分力、角度及公式階段已驗證。另通過 source／package 內嵌操作、短視窗及 SCORM lifecycle browser checks。
+> 實作位於 `codex/mobile-scroll-audit`；逐模式、host、尺寸及證據範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)，工作項目為[修復計劃](mobile-scroll-repair-plan.md) R02。共用規則由[製作指引](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)擁有。
+> 以下較早的測試記錄保留為歷史證據；本輪本機 Chrome／可信輸入結果不代表已通過真實 Moodle、iPhone 或 Android 驗收。
+
 > 2026-09-27 修訂：依[共用 refresh／續做契約](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume)，獨立練習改為記憶體模式，refresh 後由第一題空白作答開始，包括提交後。Moodle 同一嘗試仍恢復草稿或只讀結果。下方舊本機跨 reload 保存／恢復驗收只屬歷史，不代表現行要求。
 
 ## 文件狀態（2026-09-27）

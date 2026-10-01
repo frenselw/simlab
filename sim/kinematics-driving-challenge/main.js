@@ -1406,23 +1406,7 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) pauseForLifecycleInterruption();
   });
-  let stageTouchY = null;
-  elements.stage.addEventListener("touchstart", (event) => {
-    if (event.isTrusted && event.touches.length === 1) stageTouchY = event.touches[0].clientY;
-  }, { passive: true });
-  elements.stage.addEventListener("touchmove", (event) => {
-    if (stageTouchY == null || !event.isTrusted || event.touches.length !== 1) return;
-    try {
-      if (window.parent !== window && window.parent.document) {
-        const next = event.touches[0].clientY;
-        window.parent.scrollBy(0, stageTouchY - next);
-        stageTouchY = next;
-        event.preventDefault();
-      }
-    } catch { /* Cross-origin host must provide its own verified owner path. */ }
-  }, { passive: false });
-  elements.stage.addEventListener("touchend", () => { stageTouchY = null; }, { passive: true });
-  elements.stage.addEventListener("touchcancel", () => { stageTouchY = null; }, { passive: true });
+  // Blank-stage swipes use native scroll chaining to the actual enclosing owner.
   let panelTouchY = null;
   elements.controlPanel.addEventListener("touchstart", (event) => {
     panelTouchY = event.isTrusted && event.touches.length === 1 ? event.touches[0].clientY : null;

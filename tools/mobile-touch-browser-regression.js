@@ -333,7 +333,7 @@ async function mapPersonVisualPoint(cdp) {
   })()`);
 }
 
-async function testInactiveMapPersonForwarding(cdp, label) {
+async function testInactiveMapPersonScroll(cdp, label) {
   const inactive = await frameEval(cdp, `(() => ({
     targetHidden: document.getElementById("personTouchTarget").hidden,
     svgDragIdentities: document.querySelectorAll("#personLayer [data-person-hit]").length,
@@ -373,10 +373,10 @@ async function testInactiveMapPersonForwarding(cdp, label) {
   await resetEvents(cdp);
   await oneFinger(cdp, point, { x: 0, y: -90 });
   const after = await surfaces(cdp);
-  assert(after.panel > before.panel, `${label}: vertical swipe from inactive person footprint forwards to panel`);
-  assertSurfaceDelta(before, after, label, ["panel"]);
+  assert(after.host > before.host, `${label}: inactive person footprint scrolls the enclosing host`);
+  assertSurfaceDelta(before, after, label, ["host"]);
   const log = await events(cdp);
-  assertCompletedTouch(log, `${label} forwarding`);
+  assertTrustedNativeGesture(log, `${label} native background`);
   assert.equal(
     log.some((event) => event.type === "pointerdown" && event.target === "personTouchTarget"),
     false,
@@ -408,64 +408,19 @@ async function testInactiveMapPersonForwarding(cdp, label) {
   assert.equal(afterState.previewActive, false, `${label}: forwarding does not start a drag preview`);
 }
 
-async function testMapForwarding(cdp, label) {
-  const point = await mapBlankPoint(cdp);
-  await frameEval(cdp, `(() => {
-    const panel = document.querySelector(".sim-panel");
-    if (panel.scrollHeight <= panel.clientHeight) throw new Error("Control panel must overflow");
-    panel.scrollTop = 0;
-    return true;
-  })()`);
-  const stateBefore = await suspendRaw(cdp);
-  const assertStateUnchanged = async (variant) => {
-    assert.equal(await suspendRaw(cdp), stateBefore, `${label} ${variant}: journey state remains unchanged`);
-  };
-  const before = await surfaces(cdp);
-  await resetEvents(cdp);
-  await oneFinger(cdp, point, { x: 0, y: -90 });
-  const after = await surfaces(cdp);
-  assert(after.panel > before.panel, `${label}: blank-map upward swipe forwards to panel`);
-  assertSurfaceDelta(before, after, label, ["panel"]);
-  assertCompletedTouch(await events(cdp), `${label} vertical forwarding`);
-  await assertStateUnchanged("upward forwarding");
-
-  await frameEval(cdp, `(() => {
-    const panel = document.querySelector(".sim-panel");
-    panel.scrollTop = Math.min(panel.scrollHeight - panel.clientHeight - 10, 120);
-    if (panel.scrollTop <= 0) throw new Error("Panel needs interior range for downward forwarding");
-    return true;
-  })()`);
-  const downwardBefore = await surfaces(cdp);
-  await resetEvents(cdp);
-  await oneFinger(cdp, point, { x: 0, y: 65 });
-  const downwardAfter = await surfaces(cdp);
-  assert(downwardAfter.panel < downwardBefore.panel, `${label}: blank-map downward swipe decreases panel scroll`);
-  assertSurfaceDelta(downwardBefore, downwardAfter, `${label} downward`, ["panel"]);
-  assertCompletedTouch(await events(cdp), `${label} downward forwarding`);
-  await assertStateUnchanged("downward forwarding");
-
-  await frameEval(cdp, "(() => (document.querySelector('.sim-panel').scrollTop = 50, true))()");
-  const horizontalBefore = await surfaces(cdp);
-  await resetEvents(cdp);
-  await oneFinger(cdp, point, { x: 80, y: 3 });
-  const horizontalAfter = await surfaces(cdp);
-  assert.equal(horizontalAfter.panel, horizontalBefore.panel, `${label}: horizontal gesture is not forwarded`);
-  assertSurfaceDelta(horizontalBefore, horizontalAfter, `${label} horizontal`);
-  await assertStateUnchanged("horizontal");
-
-  for (const boundary of ["top", "bottom"]) {
-    await frameEval(cdp, `(() => {
-      const panel = document.querySelector(".sim-panel");
-      panel.scrollTop = ${boundary === "top" ? "0" : "panel.scrollHeight"};
-      return true;
-    })()`);
-    const edgeBefore = await surfaces(cdp);
-    await oneFinger(cdp, point, { x: 0, y: boundary === "top" ? 70 : -70 });
-    const edgeAfter = await surfaces(cdp);
-    assert.equal(edgeAfter.panel, edgeBefore.panel, `${label}: ${boundary} boundary stays clamped`);
-    assertSurfaceDelta(edgeBefore, edgeAfter, `${label} ${boundary}`);
-    await assertStateUnchanged(`${boundary} boundary`);
+async function testMapBackgroundScroll(cdp, label) {
+  const stateBefore=await suspendRaw(cdp);
+  for(const direction of [-1,1]) {
+    await evaluate(cdp,"scrollTo(0,300)");await delay(350);
+    const point=await mapBlankPoint(cdp),before=await surfaces(cdp);
+    await resetEvents(cdp);await oneFinger(cdp,point,{x:0,y:direction*70});
+    const after=await surfaces(cdp);
+    assert((after.host-before.host)*-direction>0,`${label}: map background scrolls host in the finger direction`);
+    assertSurfaceDelta(before,after,label,["host"]);
+    assertTrustedNativeGesture(await events(cdp),`${label} native background`);
+    assert.equal(await suspendRaw(cdp),stateBefore,`${label}: blank swipe preserves the saved journey`);
   }
+  await evaluate(cdp,"scrollTo(0,300)");await delay(350);
 }
 
 async function testMapMultitouch(cdp, label) {
@@ -504,10 +459,10 @@ async function testMapMultitouch(cdp, label) {
   await delay(50);
   const twoAfter = await surfaces(cdp);
   assert.equal(twoAfter.panel, twoBefore.panel, `${label}: two-touch start is not forwarded`);
-  assertSurfaceDelta(twoBefore, twoAfter, `${label} two-touch start`);
+  assertSurfaceDelta(twoBefore, twoAfter, `${label} browser pinch`, ["host", "viewport"]);
   const twoLog = await events(cdp);
   assert(twoLog.filter((event) => event.type === "pointerdown" && event.pointerType === "touch" && event.isTrusted).length >= 2, `${label}: two-touch start reaches the browser as trusted touch`);
-  assert(twoLog.some((event) => event.type === "pointercancel"), `${label}: browser takes over the two-touch gesture`);
+  assert.equal(await suspendRaw(cdp),stateBefore,`${label}: browser pinch does not edit the journey`);
 
   const lateOffsets = [
     { x: 0, y: 0 }, { x: 0, y: -12 }, { x: 0, y: -24 }, { x: 0, y: -35 },
@@ -517,6 +472,7 @@ async function testMapMultitouch(cdp, label) {
   const latePoint = await mapBlankFootprint(cdp, lateOffsets, `${label} late-second footprint`);
   await frameEval(cdp, "(() => (document.querySelector('.sim-panel').scrollTop = 0, true))()");
   await resetEvents(cdp);
+  const lateBefore = await surfaces(cdp);
   const lateFirst = pointerSequence++;
   const lateSecond = pointerSequence++;
   await cdp.send("Input.dispatchTouchEvent", {
@@ -531,7 +487,8 @@ async function testMapMultitouch(cdp, label) {
     await delay(35);
   }
   const claimed = await surfaces(cdp);
-  assert(claimed.panel > 0, `${label}: first pointer claims forwarding before late second touch`);
+  assert(claimed.host > lateBefore.host, `${label}: native host scroll begins before the late second touch`);
+  assert.equal(claimed.panel,lateBefore.panel,`${label}: native background never claims the sibling panel`);
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchStart",
     touchPoints: [
@@ -553,11 +510,9 @@ async function testMapMultitouch(cdp, label) {
   await delay(50);
   const takeover = await surfaces(cdp);
   assert.equal(takeover.panel, claimed.panel, `${label}: late second touch stops panel forwarding`);
-  assertSurfaceDelta(claimed, takeover, `${label} late multi-touch`);
+  assertSurfaceDelta(claimed, takeover, `${label} late browser gesture`, ["host", "viewport"]);
   const lateLog = await events(cdp);
-  assert(lateLog.filter((event) => event.type === "pointerdown" && event.pointerType === "touch" && event.isTrusted).length >= 2, `${label}: late second touch is trusted`);
-  assert(lateLog.some((event) => event.type === "pointermove"), `${label}: late multi-touch remains browser-observable after forwarding is released`);
-  assert(lateLog.some((event) => event.type === "pointerup"), `${label}: late multi-touch completes without the simulation retaining capture`);
+  assert(lateLog.some(event=>event.isTrusted&&event.pointerType==="touch"&&event.type==="pointercancel"),`${label}: browser owns the native gesture after its first pointer is cancelled`);
   assert.equal(await frameEval(cdp, "window.__touchLmsValues['cmi.suspend_data']"), stateBefore, `${label}: multi-touch does not save journey state`);
 }
 
@@ -962,7 +917,7 @@ function assertMapArrowSemanticSave(before, after, phase, label) {
 
 async function runMap(cdp, baseUrl, activityPath, label) {
   await loadActivity(cdp, baseUrl, activityPath, "#personTouchTarget");
-  await testMapForwarding(cdp, `${label} map`);
+  await testMapBackgroundScroll(cdp, `${label} map`);
   const personVector = await personDragVector(cdp);
   await oneFinger(cdp, personVector.start, { x: 0, y: 0 }, 1);
   await assertPersonCompletionRollback(cdp, `${label} map person cancel rollback`, "cancel");
@@ -987,7 +942,7 @@ async function runMap(cdp, baseUrl, activityPath, label) {
   };
   for (const phase of ["segment-one", "segment-two", "total"]) {
     await loadActivity(cdp, baseUrl, activityPath, "#arrowTouchTarget", mapPhaseSnapshot(baseSnapshot, phase));
-    await testInactiveMapPersonForwarding(
+    await testInactiveMapPersonScroll(
       cdp,
       `${label} map ${inactivePhaseLabels[phase]} inactive person`
     );
@@ -1018,8 +973,8 @@ async function runMap(cdp, baseUrl, activityPath, label) {
   assert.equal(reviewUi.message.includes("不一致"), false, `${label}: locked review is not an untrusted score mismatch fallback`);
   assert.equal(reviewUi.message.includes("未能載入"), false, `${label}: locked review restores the complete submitted map`);
   assert.equal(await frameEval(cdp, "document.getElementById('arrowTouchTarget').hidden"), true, `${label}: locked review disables draggable overlay`);
-  await testInactiveMapPersonForwarding(cdp, `${label} locked-review inactive person`);
-  await testMapForwarding(cdp, `${label} locked-review map`);
+  await testInactiveMapPersonScroll(cdp, `${label} locked-review inactive person`);
+  await testMapBackgroundScroll(cdp, `${label} locked-review map`);
 }
 
 function fbdSnapshot() {
@@ -1109,7 +1064,7 @@ function assertTrustedNativeGesture(log, label) {
 async function testFbdNativeScroll(cdp, label, kind) {
   await frameEval(cdp, `(() => {
     const scroller = document.scrollingElement;
-    if (scroller.scrollHeight <= scroller.clientHeight) throw new Error("FBD document must overflow for native-scroll regression");
+    if (scroller.scrollHeight > scroller.clientHeight+1) throw new Error("FBD activity must remain bounded");
     scroller.scrollTop = 0;
     return true;
   })()`);
@@ -1119,8 +1074,8 @@ async function testFbdNativeScroll(cdp, label, kind) {
   await resetEvents(cdp);
   await oneFinger(cdp, point, { x: 0, y: -90 });
   const after = await surfaces(cdp);
-  assert(after.page > before.page, `${label} ${kind}: vertical swipe scrolls the activity document`);
-  assertSurfaceDelta(before, after, `${label} ${kind}`, ["page", "viewport"]);
+  assert(after.host > before.host, `${label} ${kind}: vertical swipe scrolls the enclosing host`);
+  assertSurfaceDelta(before, after, `${label} ${kind}`, ["host"]);
   assertTrustedNativeGesture(await events(cdp), `${label} ${kind}`);
   assert.equal(await suspendRaw(cdp), stateBefore, `${label} ${kind}: no force state changes or saves`);
 }
@@ -1163,7 +1118,7 @@ async function testFbdSubmissionTransition(cdp, baseUrl, activityPath, label, ou
   assert.equal(locked.submitDisabled, true, `${label}: submit is locked`);
   assert.equal(locked.targetCount, 10, `${label}: existing stable targets remain measurable after lock`);
   assert.equal(locked.hiddenCount, locked.targetCount, `${label}: all existing force-head targets become non-owning immediately`);
-  assert(locked.scrollRange > 0, `${label}: post-submission document has scroll range`);
+  assert.equal(locked.scrollRange,0,`${label}: submitted activity remains bounded`);
   assert.equal(locked.calls.commits, 2, `${label}: ${outcome} exercises the expected two-commit submission path`);
   assert.equal(locked.calls.finishes, outcome === "frozen" ? 0 : 1, `${label}: ${outcome} exercises the expected finish path`);
   const expectedMessage = {
@@ -1178,8 +1133,8 @@ async function testFbdSubmissionTransition(cdp, baseUrl, activityPath, label, ou
   await resetEvents(cdp);
   await oneFinger(cdp, target, { x: 0, y: -90 });
   const scrollAfter = await surfaces(cdp);
-  assert(scrollAfter.page > scrollBefore.page, `${label}: former force-head footprint scrolls the document`);
-  assertSurfaceDelta(scrollBefore, scrollAfter, label, ["page", "viewport"]);
+  assert(scrollAfter.host > scrollBefore.host, `${label}: former force-head footprint scrolls the enclosing host`);
+  assertSurfaceDelta(scrollBefore, scrollAfter, label, ["host"]);
   assertTrustedNativeGesture(await events(cdp), label);
   assert.equal(await suspendRaw(cdp), postSubmissionSuspend, `${label}: swipe leaves post-submission suspend state unchanged`);
   assert.deepEqual(
@@ -1259,6 +1214,7 @@ async function runFbd(cdp, baseUrl, activityPath, label) {
   assert.equal(targets.length, 10, `${label}: all five FBD types and duplicates restore`);
   await testFbdNativeScroll(cdp, `${label} FBD`, "blank");
   await testFbdNativeScroll(cdp, `${label} FBD`, "shaft");
+  await evaluate(cdp,"scrollTo(0,300)");await delay(350);
   await frameEval(cdp, "(() => (document.scrollingElement.scrollTop = 0, true))()");
   const firstSelector = `.force-touch-target[data-id="${targets[0].id}"]`;
   await assertRollback(cdp, firstSelector, { x: 16, y: -12 }, `${label} FBD cancel rollback`, "cancel");
@@ -1270,7 +1226,7 @@ async function runFbd(cdp, baseUrl, activityPath, label) {
     const before = await mapTargetCentre(cdp, selector);
     const scrollBefore = await surfaces(cdp);
     await resetEvents(cdp);
-    await oneFinger(cdp, target, { x: 18, y: -14 });
+    await oneFinger(cdp, await mapTarget(cdp, selector), { x: 18, y: -14 });
     const after = await mapTargetCentre(cdp, selector);
     const itemLabel = `${label} FBD ${symbols[target.type]}${target.slot}`;
     assert(Math.hypot(after.x - before.x, after.y - before.y) > 2, `${itemLabel}: arrow head moves`);
@@ -1766,6 +1722,8 @@ async function runFbdMultitouchIsolated(port, baseUrl, item) {
 }
 
 async function runRoot(cdp, port, packageRoot, cases) {
+  const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7);
+  if(only)cases=cases.filter(item=>item.slug===only);
   const server = createServer(packageRoot);
   await withTimeout(listenServer(server), 3000, "mobile touch HTTP server listen");
   const baseUrl = `http://127.0.0.1:${server.address().port}`;

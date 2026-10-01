@@ -1,5 +1,10 @@
 # Linear Motion Velocity Lab Plan
 
+> **本輪短播放器補修：** 480px 闊／320px 高等短橫向畫面採 stage／panel 左右排列，避免舞台最小高度把 controls 擠出 viewport；保留字體與 touch target 尺寸，並核對最後控制可達。Summary/check 沒有舞台的頁面維持全高 panel。實際適用斷點及結果見[驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)。
+
+> **2026-10-01 手機滾動修復（R14）：** `.motion-panel` 已設 `position:relative`，將絕對定位的 sr-only 內容限制在面板座標內，消除活動 root 的隱藏捲動 range；學科模型及答案 schema 不變。320／390 source 與新 package 的面板、空白、邊界及原有 mobile-touch browser regression 已通過。
+> 詳細範圍見[修復驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)；真實 Moodle／手機仍待 T4 驗證。
+
 ## Purpose
 
 Build a formative SCORM 1.2 activity named `linear-motion-velocity-lab` that
@@ -376,6 +381,7 @@ Scroll topology and gesture ownership:
   stage swipe belongs to the enclosing host page and moves the complete SCORM
   activity; in the bounded standalone page it remains unclaimed when no
   ancestor has scroll range;
+- `.motion-panel` also establishes a positioned containing block for absolute sr-only content. Hidden accessibility text must not create an extra root-document scroll range (2026-10-01 repair).
 - `.motion-panel` is the independent native control-scroll owner for touches
   that start inside it. `overscroll-behavior: contain` keeps the Moodle page
   fixed while the learner scrolls controls or reaches a panel boundary;

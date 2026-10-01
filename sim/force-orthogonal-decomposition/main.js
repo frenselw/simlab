@@ -112,7 +112,6 @@
   let formulaDrag = null;
   let selectedFormula = null;
   let suppressFormulaClick = false;
-  let hostTouchScroll = null;
   let pointerPanelScrollTop = null;
   let message = "由 O 拖出第 1 條方向虛線。";
   let messageKind = "";
@@ -1048,7 +1047,6 @@
     formulaDrag = null;
     selectedFormula = null;
     suppressFormulaClick = false;
-    hostTouchScroll = null;
     pointerPanelScrollTop = null;
     hideTouchPreview();
     try { activePointer?.target?.releasePointerCapture(activePointer.pointerId); } catch (_) {}
@@ -1681,38 +1679,7 @@
     pointerPanelScrollTop = dom.forcePanel?.scrollTop;
   }
 
-  // A bounded SCO document cannot own the host page's scroll range. For a
-  // vertical gesture that starts on non-interactive stage content, forward
-  // only that same gesture to the enclosing host. Stable drag hit targets
-  // opt out before pointerdown, and the controls panel never reaches this
-  // stage listener.
-  function stageTouchOwner(target) {
-    return target?.closest?.(".stage-hit, .theta-hit, .stage-navigation") || null;
-  }
-
-  function startStageHostTouch(event) {
-    if (event.touches.length !== 1 || stageTouchOwner(event.target)) return;
-    const touch = event.touches[0];
-    hostTouchScroll = { identifier: touch.identifier, lastY: touch.clientY };
-  }
-
-  function moveStageHostTouch(event) {
-    if (!hostTouchScroll) return;
-    const touch = Array.from(event.touches).find(item => item.identifier === hostTouchScroll.identifier);
-    if (!touch) return;
-    const delta = hostTouchScroll.lastY - touch.clientY;
-    hostTouchScroll.lastY = touch.clientY;
-    if (delta && windowObject.parent && windowObject.parent !== windowObject) {
-      try { windowObject.parent.scrollBy(0, delta); } catch (_) { /* cross-origin host may deny inspection, not ownership */ }
-      if (event.cancelable) event.preventDefault();
-    }
-  }
-
-  function endStageHostTouch(event) {
-    if (!hostTouchScroll) return;
-    if (!event.touches.length || !Array.from(event.touches).some(item => item.identifier === hostTouchScroll.identifier)) hostTouchScroll = null;
-  }
-
+  // Native pan-y carries blank-stage swipes through bounded player frames.
   function attachHit(button) {
     button.addEventListener("pointerdown", startPointerDrag);
     button.addEventListener("pointermove", updatePointerDrag);
@@ -2137,10 +2104,6 @@
   dom.nextButton.addEventListener("click", handleNext);
   dom.stageBackButton.addEventListener("click", handleBack);
   dom.stageNextButton.addEventListener("click", handleNext);
-  dom.stage.addEventListener("touchstart", startStageHostTouch, { passive: true });
-  dom.stage.addEventListener("touchmove", moveStageHostTouch, { passive: false });
-  dom.stage.addEventListener("touchend", endStageHostTouch, { passive: true });
-  dom.stage.addEventListener("touchcancel", () => { hostTouchScroll = null; }, { passive: true });
   documentObject.addEventListener("pointerdown", recordPointer, true);
   documentObject.addEventListener("pointermove", recordPointer, true);
   documentObject.addEventListener("pointerup", recordPointer, true);
