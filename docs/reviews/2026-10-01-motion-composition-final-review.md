@@ -1,5 +1,7 @@
 # 運動合成：完整獨立審核彙整及最終驗收報告
 
+> 本報告保留850eae6版本的歷史驗收。使用者其後追加漸進頻閃、四球直接拖放及球體外觀修訂；本報告的通過結論不涵蓋該修訂，修訂版另行驗證及完整審核。
+
 日期：2026-10-01。分支：`codex/motion-composition-stroboscopic-plan`。首輪：`1c18152`；第二輪：`90a09cc`；第三輪最終runtime／正式測試：`850eae68c1b5232346699cf41ce0dbd36d51bcf5`。每輪均審核相對 `origin/main` 的完整 branch。
 
 **最終結論：package-ready通過。三位三輪完整獨立審核、第四位彙整及最終文檔核對完成；F01–F08、V01、N01全部關閉，沒有未處理的可重現本機問題。** 證據範圍為初版whole-repo `npm test` exit0，加最終850eae6全部受影響回歸；沒有聲稱最終全repo重跑。真實Moodle／實體手機仍未驗證，Moodle-ready未驗證。

@@ -37,8 +37,12 @@
     return { points, types, trajectory, count: points + types + Number(trajectory), complete: points === 4 && types === 2 && trajectory, started: c.observed || points > 0 || types > 0 || trajectory };
   }
   function layout(width, height) {
-    const size = Math.max(40, Math.min(width - 92, height - 88));
-    return { width, height, size, left: (width - size) / 2, top: 34, tray: { x: width / 2, y: height - 25 } };
+    const compact = width < 260 || height < 196;
+    const size = Math.max(40, Math.min(width - (compact ? 92 : 148), height - (compact ? 100 : 88)));
+    const left = compact ? (width - size) / 2 : 46 + (width - 148 - size) / 2, top = compact ? 8 : 34;
+    const trays = compact ? [0,1,2,3].map(i => ({ x: width / 2 + (i % 2 ? 22 : -22), y: height - (i < 2 ? 67 : 23) })) :
+      [0,1,2,3].map(i => ({ x: left + size + 44, y: height / 2 - 66 + i * 44 }));
+    return { width, height, size, left, top, compact, trays };
   }
   const pixel = (p, l) => ({ x: l.left + (p[0] + 400) * l.size / 4000, y: l.top + (400 - p[1]) * l.size / 4000 });
   const world = (p, l) => [(p.x - l.left) * 4000 / l.size - 400, 400 - (p.y - l.top) * 4000 / l.size];

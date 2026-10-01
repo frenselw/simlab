@@ -7,6 +7,7 @@ const { spawnSync } = require("child_process");
 const root = path.resolve(__dirname, "..");
 const tests = [
   "sim/motion-composition-stroboscopic-lab/model.test.js",
+  "sim/motion-composition-stroboscopic-lab/animation.test.js",
   "sim/motion-composition-stroboscopic-lab/scoring.test.js",
   "sim/motion-composition-stroboscopic-lab/persistence.test.js",
   "sim/motion-composition-stroboscopic-lab/lifecycle.test.js",

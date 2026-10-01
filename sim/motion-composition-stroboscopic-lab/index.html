@@ -5,7 +5,7 @@
   <title>運動合成：頻閃軌跡建構</title><link rel="icon" href="data:,">
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
-  <script src="model.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
+  <script src="model.js" defer></script><script src="animation.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
 </head>
 <body>
 <main id="app" class="composition-app">
@@ -13,7 +13,10 @@
   <section id="stage" class="stage" aria-label="合運動位置作圖區">
     <div class="stage-top"><span id="stageTime"></span><span id="componentLegend" class="legend"><span class="x-key">X 水平</span> · <span class="y-key">Y 垂直</span></span></div>
     <svg id="stageSvg" role="img" aria-label="分運動頻閃與你的合運動位置" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p>
-    <button id="trayHandle" class="point-tray-handle point-handle" aria-label="拖放此時刻的合運動球" aria-describedby="pointKeyboardHelp" hidden></button>
+    <button id="trayHandle1" data-slot="1" class="point-tray-handle point-handle" aria-label="拖放時刻1的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>1</sub><span class="placed-mark">✓</span></span></button>
+    <button id="trayHandle2" data-slot="2" class="point-tray-handle point-handle" aria-label="拖放時刻2的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>2</sub><span class="placed-mark">✓</span></span></button>
+    <button id="trayHandle3" data-slot="3" class="point-tray-handle point-handle" aria-label="拖放時刻3的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>3</sub><span class="placed-mark">✓</span></span></button>
+    <button id="trayHandle4" data-slot="4" class="point-tray-handle point-handle" aria-label="拖放時刻4的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>4</sub><span class="placed-mark">✓</span></span></button>
     <button id="activeHandle" class="active-point-handle point-handle" aria-label="修改此時刻的合運動位置" aria-describedby="pointKeyboardHelp" hidden></button>
     <p id="pointKeyboardHelp" class="sr-only">方向鍵移動0.20米，Shift加方向鍵微調0.01米；Enter放置，Escape取消。也可使用操作面板的方向按鈕。</p>
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
@@ -22,7 +25,7 @@
   <aside id="controlPanel" class="control-panel" aria-label="操作面板">
     <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" class="full" hidden>重試保存</button>
     <section id="questionIntro"><p id="questionKicker" class="kicker"></p><h2>從分運動找出合運動</h2><p class="intro">兩個球影表示同一運動的水平、垂直分量。每隔 <span class="number">0.20 s</span> 留下一個影像。</p>
-      <div class="action-row"><button id="playButton">播放分運動</button><button id="observeButton" class="primary">顯示頻閃圖</button></div>
+      <div class="action-row"><button id="playButton">播放分運動</button><button id="observeButton" class="primary">拍攝頻閃圖</button></div><p id="animationStatus" class="small" role="status">拍攝會隨球移動逐次留下球影。</p>
     </section>
     <section id="editPanel">
       <details id="spacingDetails"><summary>比較相鄰間距</summary><div class="axis-tabs" aria-label="比較方向"><button data-compare-axis="0">水平</button><button data-compare-axis="1">垂直</button></div><p id="spacingHint" class="small"></p><div id="spacingBars"></div><label class="increase-toggle"><input id="showIncreases" type="checkbox"> 顯示比上一段多多少</label><p class="small">等時段距離相等符合勻速；間距等量增加符合勻加速模型。</p></details>

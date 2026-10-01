@@ -21,6 +21,7 @@
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
       <file href="motion-composition-stroboscopic-lab/model.js"/>
+      <file href="motion-composition-stroboscopic-lab/animation.js"/>
       <file href="motion-composition-stroboscopic-lab/scoring.js"/>
       <file href="motion-composition-stroboscopic-lab/persistence.js"/>
       <file href="motion-composition-stroboscopic-lab/ui-runtime.js"/>

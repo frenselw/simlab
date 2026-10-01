@@ -2,23 +2,33 @@
   "use strict";
   const M=MotionCompositionModel, P=MotionCompositionPersistence, Scene=MotionCompositionScene;
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
-  let layout, drag=null, keyboard=null, reference=false, compareAxis=0, animation=null, animationStart=null, playing=false;
+  let layout, drag=null, keyboard=null, reference=false, compareAxis=0, captureCase=null;
+  let animationView={kind:'idle',time:null,stamps:0,active:false};
+  const trays=[1,2,3,4].map(i=>d[`trayHandle${i}`]);
   let blockedTouchSequence=false;
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0,previews:0};
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const c=new MotionCompositionRuntime.Controller(SimScorm,SimActivityFlow,render);
-  const editable=()=>c.mode==='edit', current=()=>c.state?.cases[c.caseIndex], saved=()=>current()?.points[c.timeIndex-1]??null;
+  const editable=()=>c.mode==='edit', current=()=>c.state?.cases[c.caseIndex], timeIndex=()=>drag?.time||keyboard?.time||c.timeIndex, saved=()=>current()?.points[timeIndex()-1]??null;
+  const motion=MotionCompositionAnimation.createController({
+    onUpdate(view){animationView=view;if(c.state){playbackLabel();renderStage();}},
+    onComplete(view){if(view.kind==='capture'&&editable()&&c.caseIndex===captureCase&&!current().observed){c.command({type:'observe'});announce('頻閃圖完成，可直接拖入四個時刻的球。');}playbackLabel();}
+  });
   const working=()=>drag?.working||keyboard?.point||null;
   const announce=text=>{d.liveRegion.textContent=text;};
   const timeHTML=i=>`<var>t</var><sub>${i}</sub>`;
-  function playbackLabel(){d.playButton.textContent=playing?'停止播放':reference&&c.trusted?'播放參考合運動':'播放分運動';}
-  function stop(){playing=false;animation=null;animationStart=null;playbackLabel();}
+  function playbackLabel(){
+    d.playButton.textContent=animationView.active?'停止播放':reference&&c.trusted?'播放參考合運動':current()?.observed?'重播分運動':'播放分運動';
+    d.observeButton.textContent=animationView.kind==='capture'&&animationView.active?'拍攝中…':current()?.observed?'頻閃圖已完成':'拍攝頻閃圖';
+    d.observeButton.disabled=Boolean(current()?.observed||animationView.kind==='capture'&&animationView.active);
+  }
+  function stop(){captureCase=null;motion.cancel();playbackLabel();}
   function hidePreview(){d.magnifier.hidden=true;d.magnifierSvg.replaceChildren();d.previewValues.textContent='';}
   function cancel(interrupted=false){
     const old=drag;drag=null;keyboard=null;hidePreview();
     if(old){if(interrupted)diagnostics.cancels++;try{if(old.element.hasPointerCapture(old.id))old.element.releasePointerCapture(old.id);}catch(_){/* Detached document. */}}
   }
-  function command(action){cancel();stop();c.command(action);}
+  function command(action){const time=timeIndex();cancel();stop();if(action.type==='remove'&&c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command(action);}
   function navigate(index,time=1){cancel();stop();c.navigate(index,time);}
   function enterCheck(){cancel();stop();c.check();d.controlPanel.scrollTop=0;}
   function render(){
@@ -32,17 +42,13 @@
     if(c.state){
       for(let i=0;i<4;i++){const p=M.progress(c.state.cases[i]),b=document.createElement('button');b.type='button';b.dataset.case=String(i);b.dataset.progress=p.complete?'complete':p.started?'partial':'empty';b.innerHTML=`${i+1}<small>${p.count}/7</small>`;b.setAttribute('aria-label',`情境${i+1}，已答${p.count}/7項`);if(i===c.caseIndex)b.setAttribute('aria-current','step');b.disabled=['technical','mismatch'].includes(c.mode);b.onclick=()=>{navigate(i);d.controlPanel.scrollTop=0;};d.questionNav.append(b);}
       d.questionKicker.textContent=`情境 ${c.caseIndex+1} · 等時頻閃`;
-      d.observeButton.hidden=!editable();d.observeButton.textContent=current().observed?'頻閃圖已顯示':'顯示頻閃圖';d.observeButton.disabled=current().observed;
+      d.observeButton.hidden=!editable();
       playbackLabel();d.playButton.disabled=['frozen','committed'].includes(c.mode);
-      d.timeNav.replaceChildren();for(let i=1;i<=4;i++){const b=document.createElement('button');b.type='button';b.dataset.time=String(i);b.innerHTML=timeHTML(i);b.setAttribute('aria-label',`時刻${i}，${(i*M.DT).toFixed(2)}秒，${current().points[i-1]?'已放置':'未放置'}`);if(i===c.timeIndex)b.setAttribute('aria-current','step');b.onclick=()=>navigate(c.caseIndex,i);d.timeNav.append(b);}
+      d.timeNav.replaceChildren();for(let i=1;i<=4;i++){const b=document.createElement('button');b.type='button';b.dataset.time=String(i);b.innerHTML=timeHTML(i);b.setAttribute('aria-label',`時刻${i}，${(i*M.DT).toFixed(2)}秒，${current().points[i-1]?'已放置':'未放置'}`);if(i===timeIndex())b.setAttribute('aria-current','step');b.onclick=()=>navigate(c.caseIndex,i);d.timeNav.append(b);}
       d.horizontalMotion.value=current().motions[0]??'';d.verticalMotion.value=current().motions[1]??'';d.trajectorySelect.value=current().trajectory??'';
-      d.placeHint.textContent=current().observed?'每小格0.20 m；按同一時刻的兩個球影拖放。':'先顯示頻閃圖，再放置位置。';
-      d.startPlaceButton.disabled=!current().observed;d.startPlaceButton.textContent=saved()?'開始調整':'開始放置';
-      for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.disabled=!keyboard;
-      d.commitPlaceButton.disabled=!keyboard;d.cancelPlaceButton.disabled=!keyboard;d.removePointButton.disabled=!saved();
+      d.placeHint.textContent=current().observed?'直接拖入圖旁的四個球；每小格0.20 m。已放球可再拖以修改。':'先拍攝頻閃圖，再拖入四個時刻的球。';
       const p=M.progress(current());d.stepProgress.textContent=`位置 ${p.points}/4 · 分運動 ${p.types}/2 · 軌跡${p.trajectory?'已選':'未選'}`;
       d.clearCaseButton.disabled=p.count===0;d.returnCheckButton.hidden=!c.state.returnToCheck;
-      d.nextButton.textContent=c.timeIndex<4?'下一個時刻':c.caseIndex<3?'下一個情境':'檢查作答';
       renderComparison();
     }
     if(c.mode==='check'){
@@ -57,7 +63,7 @@
     renderStage();if(focusKey)document.querySelector(focusKey)?.focus({preventScroll:true});d.controlPanel.scrollTop=scroll;
   }
   function renderComparison(){
-    d.spacingHint.textContent=current().observed?'各段均0.20 s，橫條使用相同比例。':'先顯示頻閃圖，才能比較間距。';d.showIncreases.disabled=!current().observed;
+    d.spacingHint.textContent=current().observed?'各段均0.20 s，橫條使用相同比例。':'先拍攝頻閃圖，才能比較間距。';d.showIncreases.disabled=!current().observed;
     for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.setAttribute('aria-pressed',String(Number(b.dataset.compareAxis)===compareAxis));
     d.spacingBars.replaceChildren();if(!current().observed)return;
     const gaps=M.gaps(c.caseIndex,compareAxis);gaps.forEach((gap,i)=>{const row=document.createElement('div');row.className='spacing-row';row.innerHTML=`<span>${i}→${i+1}</span><div class="bar-rail"><div class="gap-bar" style="width:${100*gap/1400}%;background:${compareAxis?'#b45309':'#2563eb'}"></div></div><span class="gap-value">${(gap/1000).toFixed(2)} m</span>${d.showIncreases.checked&&i>0?`<span class="increase-value">比上一段多 ${((gap-gaps[i-1])/1000).toFixed(2)} m</span>`:''}`;d.spacingBars.append(row);});
@@ -70,27 +76,37 @@
   }
   function renderStage(){
     const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height);
+    d.stage.classList.toggle('compact-parking',layout.compact);
     d.stageSvg.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
-    if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();d.trayHandle.hidden=d.activeHandle.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
-    const tray=editable()&&current().observed&&!saved(),value=working()||saved(),showRef=reference&&c.trusted;
-    d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,c.timeIndex,layout,{working:working(),reference:showRef,tray,animation});
-    d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(c.timeIndex)} = ${(c.timeIndex*M.DT).toFixed(2)} s`;
-    const componentIndex=(current().observed||showRef)&&animation===null?`<sub>${c.timeIndex}</sub>`:'';
+    if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();for(const e of trays)e.hidden=true;d.activeHandle.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
+    const tray=editable()&&current().observed,value=working()||saved(),showRef=reference&&c.trusted,time=timeIndex();
+    const animation=animationView.active?animationView.time:null,stamps=animationView.active&&animationView.kind!=='preview'?animationView.stamps:undefined;
+    d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,time,layout,{working:working(),reference:showRef,animation,stamps});
+    d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(time)} = ${(time*M.DT).toFixed(2)} s`;
+    const componentIndex=(current().observed||showRef)&&animation===null?`<sub>${time}</sub>`:'';
     d.componentLegend.innerHTML=`<span class="x-key">X${componentIndex} 水平</span> · <span class="y-key">Y${componentIndex} 垂直</span>`;
-    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':!current().observed?'在操作面板顯示頻閃圖':tray?'拖球放置':'你的連線';d.stageHint.classList.toggle('with-tray',tray);
+    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':animationView.active?'移動中逐次留下球影':!current().observed?'在操作面板拍攝頻閃圖':'拖球入圖 · 你的連線';d.stageHint.classList.toggle('with-tray',tray);
+    const status=animationView.active?`慢速4× · ${animationView.kind==='preview'?'分運動預覽':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'只讀檢討，可查看已記錄的作圖。':current().observed?'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
+    if(d.animationStatus.textContent!==status)d.animationStatus.textContent=status;
     const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
-    place(d.trayHandle,layout.tray,tray);place(d.activeHandle,M.pixel(value||[0,0],layout),editable()&&current().observed&&saved()!==null);
-    d.trayHandle.setAttribute('aria-label',`放置t${c.timeIndex}的合運動球`);d.activeHandle.setAttribute('aria-label',`修改t${c.timeIndex}，${value?`x=${M.format(value[0])}米，y=${M.format(value[1])}米`:''}`);
+    trays.forEach((element,i)=>{place(element,layout.trays[i],tray);element.classList.toggle('is-placed',Boolean(current().points[i]));element.setAttribute('aria-label',`拖放時刻${i+1}，${((i+1)*M.DT).toFixed(2)}秒的合運動球，${current().points[i]?'已放置，可再拖修改':'未放置'}`);if(i+1===time)element.setAttribute('aria-current','step');else element.removeAttribute('aria-current');});
+    place(d.activeHandle,M.pixel(value||[0,0],layout),!layout.compact&&editable()&&current().observed&&saved()!==null);
+    d.activeHandle.setAttribute('aria-label',`修改t${time}，${value?`x=${M.format(value[0])}米，y=${M.format(value[1])}米`:''}`);
+    for(const b of d.timeNav.children){if(Number(b.dataset.time)===time)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');}
+    d.startPlaceButton.disabled=!current().observed;d.startPlaceButton.textContent=saved()?'開始調整':'開始放置';
+    for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.disabled=!keyboard;
+    d.commitPlaceButton.disabled=!keyboard;d.cancelPlaceButton.disabled=!keyboard;d.removePointButton.disabled=!saved();
+    d.nextButton.textContent=time<4?'下一個時刻':c.caseIndex<3?'下一個情境':'檢查作答';
     d.positionReadout.innerHTML=value?`<var>x</var> = ${M.format(value[0])} m · <var>y</var> = ${M.format(value[1])} m${keyboard?'（待放置）':''}`:'尚未放置';
-    const known=current().observed?M.expected(c.caseIndex).map((p,i)=>`時刻${i+1}，水平位置${M.format(p[0])}米，垂直位置${M.format(p[1])}米。`).join(''):'共同原點O，水平向右，垂直向下。';
-    d.sceneDescription.textContent=`${known}兩個球影是分運動示意。橫豎刻度相同，向上為正y。`;
+    const visibleStamps=stamps??(current().observed||showRef?4:0),known=M.expected(c.caseIndex).slice(0,visibleStamps).map((p,i)=>`時刻${i+1}，水平位置${M.format(p[0])}米，垂直位置${M.format(p[1])}米。`).join('');
+    d.sceneDescription.textContent=`共同原點O，水平向右、垂直向下。${known}兩個球影是分運動示意。橫豎刻度相同，向上為正y。`;
     if(drag?.active)preview();else hidePreview();
   }
   function local(event){const r=d.stage.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
-  function down(event,element,creating){
+  function down(event,element,creating,time=c.timeIndex){
     if(!editable()||!current().observed||drag||event.isPrimary===false||event.button>0||(event.pointerType==='touch'&&blockedTouchSequence))return;cancel();stop();const p=local(event);
-    drag={id:event.pointerId,type:event.pointerType,element,creating,down:p,cursor:p,base:creating?null:M.pixel(saved(),layout),working:null,active:false,snap:null,resolved:false,corner:null};
-    diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;element.setPointerCapture(event.pointerId);event.preventDefault();
+    drag={id:event.pointerId,type:event.pointerType,element,creating,time,down:p,cursor:p,base:creating?null:M.pixel(current().points[time-1],layout),working:null,active:false,snap:null,resolved:false,corner:null};
+    diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;element.setPointerCapture(event.pointerId);event.preventDefault();renderStage();
   }
   function resolveDrag(event){
     const p=local(event);drag.cursor=p;const dx=p.x-drag.down.x,dy=p.y-drag.down.y;
@@ -100,14 +116,14 @@
   }
   function move(event){if(!drag||event.pointerId!==drag.id)return;event.preventDefault();diagnostics.moves++;resolveDrag(event);renderStage();}
   function up(event){
-    if(!drag||event.pointerId!==drag.id)return;resolveDrag(event);diagnostics.ups++;const value=drag.active&&drag.resolved?drag.working:null;cancel();
-    if(value){c.command({type:'place',point:value});announce(`已放置t${c.timeIndex}。`);}else renderStage();
+    if(!drag||event.pointerId!==drag.id)return;resolveDrag(event);diagnostics.ups++;const value=drag.active&&drag.resolved?drag.working:null,time=drag.time;cancel();
+    if(value){if(c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command({type:'place',point:value});announce(`已放置t${time}。`);}else renderStage();
   }
   function preview(){
     if(!drag||drag.type!=='touch'||!drag.working){hidePreview();return;}
-    const fragment=Scene.svg(c.state,c.caseIndex,c.timeIndex,layout,{working:drag.working,prefix:'preview'});
+    const fragment=Scene.svg(c.state,c.caseIndex,drag.time,layout,{working:drag.working,prefix:'preview'});
     d.magnifierSvg.innerHTML=fragment;for(const node of d.magnifierSvg.querySelectorAll('text'))node.remove();
-    d.previewValues.innerHTML=`${timeHTML(c.timeIndex)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;d.magnifier.hidden=false;
+    d.previewValues.innerHTML=`${timeHTML(drag.time)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;d.magnifier.hidden=false;
     const box=d.magnifier.getBoundingClientRect(),app=d.app.getBoundingClientRect(),stage=d.stage.getBoundingClientRect(),width=box.width,height=box.height,offset={x:stage.left-app.left,y:stage.top-app.top},cursor={x:drag.cursor.x+offset.x,y:drag.cursor.y+offset.y};
     const inside=p=>p.x>=0&&p.y>=0&&p.x+width<=app.width&&p.y+height<=app.height,clear=p=>!(cursor.x>p.x-16&&cursor.x<p.x+width+16&&cursor.y>p.y-16&&cursor.y<p.y+height+16);
     const corners=[{x:28,y:2},{x:layout.width-28-width,y:2},{x:2,y:2},{x:layout.width-2-width,y:2},{x:2,y:layout.height-height-2},{x:layout.width-2-width,y:layout.height-height-2}].filter(p=>p.x>=0&&p.y>=0&&p.x+width<=layout.width&&p.y+height<=layout.height).map(p=>({x:p.x+offset.x,y:p.y+offset.y}));
@@ -120,27 +136,28 @@
     const focus=M.pixel(drag.working,layout),lens=d.magnifierSvg.getBoundingClientRect();
     d.magnifierSvg.setAttribute('viewBox',`${focus.x-lens.width/6} ${focus.y-lens.height/6} ${lens.width/3} ${lens.height/3}`);diagnostics.previews++;
   }
-  function begin(element=null){if(!editable()||!current().observed)return;cancel();stop();keyboard={point:M.clone(saved()||[0,0]),element};render();}
+  function begin(element=null,time=timeIndex()){if(!editable()||!current().observed)return;cancel();stop();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);keyboard={point:M.clone(current().points[time-1]||[0,0]),element,time};render();}
   function adjust(direction,fine=false){if(!keyboard)return;const step=fine?10:200,p=keyboard.point;p[0]=Math.max(-400,Math.min(3600,p[0]+(direction==='right'?step:direction==='left'?-step:0)));p[1]=Math.max(-3600,Math.min(400,p[1]+(direction==='up'?step:direction==='down'?-step:0)));renderStage();}
-  function commit(){if(!keyboard)return;const p=[...keyboard.point],restoreFocus=keyboard.element;cancel();c.command({type:'place',point:p});if(restoreFocus)d.activeHandle.focus({preventScroll:true});announce('已放置此位置。');}
-  for(const [element,creating] of [[d.trayHandle,true],[d.activeHandle,false]]){
-    element.addEventListener('pointerdown',e=>down(e,element,creating));element.addEventListener('pointermove',move);element.addEventListener('pointerup',up);
+  function commit(){if(!keyboard)return;const p=[...keyboard.point],restoreFocus=keyboard.element,time=keyboard.time;cancel();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command({type:'place',point:p});if(restoreFocus)(d.activeHandle.hidden?trays[time-1]:d.activeHandle).focus({preventScroll:true});announce('已放置此位置。');}
+  for(const [element,creating] of [...trays.map(e=>[e,true]),[d.activeHandle,false]]){
+    const chosenTime=()=>creating?Number(element.dataset.slot):c.timeIndex;
+    element.addEventListener('pointerdown',e=>down(e,element,creating,chosenTime()));element.addEventListener('pointermove',move);element.addEventListener('pointerup',up);
     for(const type of ['pointercancel','lostpointercapture'])element.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel(true);renderStage();}});
-    element.addEventListener('keydown',e=>{if(!editable())return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape'){cancel();render();}else if(e.key==='Enter'&&keyboard)commit();else{if(!keyboard)begin(element);if(e.key.startsWith('Arrow'))adjust(e.key.slice(5).toLowerCase(),e.shiftKey);}}});
+    element.addEventListener('keydown',e=>{if(!editable())return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape'){cancel();render();}else if(e.key==='Enter'&&keyboard)commit();else{if(!keyboard)begin(element,chosenTime());if(e.key.startsWith('Arrow'))adjust(e.key.slice(5).toLowerCase(),e.shiftKey);}}});
     element.addEventListener('focusout',()=>{if(keyboard?.element===element){cancel();renderStage();}});
   }
   for(const id of ['horizontalMotion','verticalMotion'])d[id].innerHTML+=Object.entries(M.MOTIONS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
   d.trajectorySelect.innerHTML+=Object.entries(M.TRAJECTORIES).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
   d.horizontalMotion.onchange=()=>command({type:'motion',axis:0,value:d.horizontalMotion.value||null});d.verticalMotion.onchange=()=>command({type:'motion',axis:1,value:d.verticalMotion.value||null});d.trajectorySelect.onchange=()=>command({type:'trajectory',value:d.trajectorySelect.value||null});
-  d.observeButton.onclick=()=>command({type:'observe'});d.checkButton.onclick=d.returnCheckButton.onclick=enterCheck;
-  d.nextButton.onclick=()=>{if(c.timeIndex<4)navigate(c.caseIndex,c.timeIndex+1);else if(c.caseIndex<3)navigate(c.caseIndex+1);else enterCheck();};
+  d.observeButton.onclick=()=>{if(!editable()||current().observed||animationView.kind==='capture'&&animationView.active)return;cancel();captureCase=c.caseIndex;motion.start('capture',reduced.matches);};d.checkButton.onclick=d.returnCheckButton.onclick=enterCheck;
+  d.nextButton.onclick=()=>{const time=timeIndex();if(time<4)navigate(c.caseIndex,time+1);else if(c.caseIndex<3)navigate(c.caseIndex+1);else enterCheck();};
   d.removePointButton.onclick=()=>command({type:'remove'});d.clearCaseButton.onclick=()=>{if(editable()&&confirm('清除此題的四個位置、兩個分運動類型及軌跡選擇？頻閃圖與其他題會保留。'))command({type:'clear'});};
   d.backEditButton.onclick=()=>navigate(c.state.activeCase,c.state.activeTime);d.submitButton.onclick=()=>{cancel();stop();c.submit();d.controlPanel.scrollTop=0;};d.saveRetryButton.onclick=()=>c.retrySave();d.retryFinalButton.onclick=()=>{cancel();stop();c.retryFinal();};
   d.referenceButton.onclick=()=>{cancel();stop();reference=!reference;render();};
   d.startPlaceButton.onclick=()=>begin();d.commitPlaceButton.onclick=commit;d.cancelPlaceButton.onclick=()=>{cancel();render();};
   for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.onclick=()=>adjust(b.dataset.adjust,d.fineStep.checked);
   for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.onclick=()=>{compareAxis=Number(b.dataset.compareAxis);renderComparison();};d.showIncreases.onchange=renderComparison;
-  d.playButton.onclick=()=>{cancel();if(playing)stop();else if(reduced.matches){animation=c.timeIndex*M.DT;playing=false;}else{playing=true;animationStart=null;animation=0;}render();};
+  d.playButton.onclick=()=>{cancel();if(animationView.active)stop();else motion.start(current().observed?'replay':'preview',reduced.matches);render();};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(drag||keyboard)){cancel(true);render();}});
   document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){blockedTouchSequence=true;cancel(true);renderStage();}},true);
   const touches=new Map();
@@ -148,8 +165,7 @@
   document.addEventListener('touchmove',e=>{if(blockedTouchSequence){if(e.cancelable)e.preventDefault();return;}let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;try{if(window.parent!==window&&window.parent.document){window.parent.scrollBy(0,dy/(window.parent.visualViewport?.scale||1));handled=true;}}catch(_){/* Cross-origin deployment is verified separately. */}}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
   for(const type of ['touchend','touchcancel'])document.addEventListener(type,e=>{for(const t of e.changedTouches)touches.delete(t.identifier);if(!touches.size)blockedTouchSequence=false;},{passive:true});
   for(const type of ['blur','resize'])window.addEventListener(type,()=>{cancel(true);stop();renderStage();});document.addEventListener('visibilitychange',()=>{if(document.hidden){cancel(true);stop();renderStage();}});reduced.addEventListener('change',()=>{cancel(true);stop();render();});
-  new ResizeObserver(()=>{if(drag||keyboard)cancel(true);renderStage();}).observe(d.stage);
-  function frame(now){if(playing){if(animationStart===null)animationStart=now;animation=Math.min(.8,(now-animationStart)/4000);if(animation>=.8){playing=false;animationStart=null;}renderStage();if(!playing)playbackLabel();}requestAnimationFrame(frame);}
-  window.__motionComposition=Object.freeze({getState:()=>M.clone(c.state),getSelection:()=>({case:c.caseIndex,time:c.timeIndex,reference,compareAxis}),getMode:()=>c.mode,getResult:()=>M.clone(c.result),getGeometry:()=>M.clone(layout),getPointerDiagnostics:()=>({...diagnostics}),getInteraction:()=>({point:M.clone(working()),cursor:M.clone(drag?.cursor),pointerId:drag?.id??null,active:Boolean(drag?.active),blockedTouchSequence}),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot)});
-  c.start();requestAnimationFrame(frame);
+  new ResizeObserver(()=>{if(drag||keyboard)cancel(true);if(animationView.active)stop();renderStage();}).observe(d.stage);
+  window.__motionComposition=Object.freeze({getState:()=>M.clone(c.state),getSelection:()=>({case:c.caseIndex,time:timeIndex(),reference,compareAxis}),getMode:()=>c.mode,getResult:()=>M.clone(c.result),getGeometry:()=>M.clone(layout),getAnimation:()=>motion.snapshot(),getPointerDiagnostics:()=>({...diagnostics}),getInteraction:()=>({point:M.clone(working()),time:timeIndex(),cursor:M.clone(drag?.cursor),pointerId:drag?.id??null,active:Boolean(drag?.active),blockedTouchSequence}),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot)});
+  c.start();
 })();

@@ -20,9 +20,15 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .x-key { color: var(--motion-x); }.y-key { color: var(--motion-y); }
 .point-handle { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; touch-action: none; z-index: 5; cursor: grab; }
 .point-handle:hover { border: 0; }.point-handle:focus-visible { outline-offset: -4px; }
+.point-tray-handle { border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.tray-ball { display: block; width: 24px; height: 24px; flex-shrink: 0; border: 1px solid #4c1d95; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #fff 0%, #ddd6fe 12%, #8b5cf6 38%, #6d28d9 65%, #2e1065 100%); box-shadow: 0 2px 2px #2e10652b; }
+.tray-time { font-size: 14px; line-height: 16px; color: #4c1d95; }.tray-time sub { font-size: 11px; }.placed-mark { display: none; margin-left: 2px; font-family: sans-serif; font-size: 11px; }
+.point-tray-handle.is-placed .placed-mark { display: inline; }.point-tray-handle.is-placed .tray-ball { opacity: .6; }
+.point-tray-handle[aria-current="step"] { background: #f5f3ff; box-shadow: none; }
+.stage.compact-parking .stage-top, .stage.compact-parking .stage-hint { display: none; }
 .scroll-strip { position: absolute; top: 0; bottom: 0; width: 24px; z-index: 8; touch-action: pan-y; }.scroll-strip.left { left: 0; }.scroll-strip.right { right: 0; }
 .stage-hint { position: absolute; left: 28px; right: 28px; bottom: 7px; text-align: center; font-size: .875rem; pointer-events: none; }
-.stage-hint.with-tray { text-align: left; right: auto; max-width: calc(50% - 52px); bottom: 15px; }
+.stage-hint.with-tray { text-align: left; right: 76px; bottom: 7px; }
 .control-panel { min-width: 0; min-height: 0; padding: .85rem 1rem; overflow-y: auto; overscroll-behavior: contain; background: var(--color-panel); touch-action: pan-y; }
 .control-panel h2 { margin: .25rem 0 .5rem; font-size: 1.15rem; }.control-panel p { line-height: 1.5; margin: .45rem 0; }
 .kicker { font-size: .875rem; color: var(--color-text-muted); }.intro { margin-bottom: .75rem !important; }.small { font-size: .875rem; color: var(--color-text-muted); }
