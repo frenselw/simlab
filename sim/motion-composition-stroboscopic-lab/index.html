@@ -11,7 +11,7 @@
 <main id="app" class="composition-app">
   <header class="sim-header"><div class="heading"><h1>運動合成：頻閃軌跡</h1><span id="attemptStatus">練習</span></div><nav class="question-nav" aria-label="四個情境"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
   <section id="stage" class="stage" aria-label="合運動位置作圖區">
-    <div class="stage-top"><span id="stageTime"></span><span id="componentLegend" class="legend"><span class="x-key">X 水平</span> · <span class="y-key">Y 垂直</span></span></div>
+    <div class="stage-top"><span id="stageTime"></span><span id="componentLegend" class="legend"><span class="x-key">水平</span> · <span class="y-key">垂直</span></span></div>
     <svg id="stageSvg" role="img" aria-label="分運動頻閃與你的合運動位置" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p>
     <button id="trayHandle1" data-slot="1" class="point-tray-handle point-handle" aria-label="拖放時刻1的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>1</sub><span class="placed-mark">✓</span></span></button>
     <button id="trayHandle2" data-slot="2" class="point-tray-handle point-handle" aria-label="拖放時刻2的合運動球" aria-describedby="pointKeyboardHelp" hidden><span class="tray-ball" aria-hidden="true"></span><span class="tray-time" aria-hidden="true"><var>t</var><sub>2</sub><span class="placed-mark">✓</span></span></button>
@@ -37,8 +37,8 @@
         <details id="adjustDetails"><summary>用按鈕微調位置</summary><button id="startPlaceButton" class="full">開始放置</button><label class="increase-toggle"><input id="fineStep" type="checkbox"> 微調（每步0.01 m）</label><div class="adjust-grid"><button data-adjust="up" aria-label="向上移動">↑ 上</button><button data-adjust="left" aria-label="向左移動">← 左</button><button data-adjust="right" aria-label="向右移動">右 →</button><button data-adjust="down" aria-label="向下移動">↓ 下</button></div><button id="commitPlaceButton" class="full">放置此位置</button><button id="cancelPlaceButton" class="full">取消此次調整</button></details>
         <button id="removePointButton" class="full">刪除此時刻位置</button>
       </fieldset>
-      <fieldset><legend>3 · 判斷合運動的軌跡</legend><label class="sr-only" for="trajectorySelect">合運動的軌跡</label><select id="trajectorySelect"><option value="">尚未選擇</option></select><p class="small">圖中淡線只連接你已放置的相鄰時刻。</p></fieldset>
-      <p id="stepProgress" class="small" role="status"></p><button id="nextButton" class="primary full">下一個時刻</button><button id="returnCheckButton" class="full" hidden>返回檢查</button><button id="clearCaseButton" class="full">重置本題作答</button>
+      <fieldset><legend>3 · 判斷合運動的軌跡</legend><label class="sr-only" for="trajectorySelect">合運動的軌跡</label><select id="trajectorySelect"><option value="">尚未選擇</option></select><p class="small">觀察四個球的位置，判斷軌跡。</p></fieldset>
+      <p id="stepProgress" class="small" role="status"></p><button id="returnCheckButton" class="full" hidden>返回檢查</button><button id="clearCaseButton" class="full">重置本題作答</button>
     </section>
     <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查四題作答</h2><p>未答項得0分；有效部分保留分數。可以返回修改，或提交目前作答。</p><div id="checkList"></div><button id="backEditButton" class="full">返回編輯</button><button id="submitButton" class="primary full">確認提交目前作答</button></section>
     <section id="reviewPanel" hidden><h2 id="reviewTitle"></h2><div id="scorePanel"></div><button id="retryFinalButton" class="full" hidden>重試同一份提交</button><button id="referenceButton" class="full" hidden>顯示參考作圖</button><div id="feedback"></div></section>

@@ -1,12 +1,12 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 已修正拖t₄後需先在面板選t₃的操作限制，圖內所有已放球均可直接拖。本輪依使用者指示只做必要操作檢查，未開subagents或重跑完整矩陣。8a8095d的完整package-ready／三位審核及第四位彙整是上輪歷史；最新小修及驗證見文末。真實Moodle／實體手機另待部署驗收。**
+狀態：**2026-10-01 追加課堂展示修訂：移除下一時刻及學生點連線、放大桌面文字與球、支援重播頻閃，四點放好後播放顯示動態投影虛線，圖例改為方向名稱。圖內所有已放球仍可直接拖。本輪依使用者指示只做必要操作檢查，未開subagents或重跑完整矩陣。8a8095d的完整package-ready／三位審核及第四位彙整是上輪歷史；最新小修及驗證見文末。真實Moodle／實體手機另待部署驗收。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
 - 由[新活動計劃範本](NEW-SIMULATION-PLAN-TEMPLATE.md)複製及填寫，遵循[共用風格](00-shared-platform-and-style.md)與[製作指南](../docs/simulation-scorm-production-guide.md)。
 - [自由落體頻閃活動](15-free-fall-stroboscopic-measurement-lab.md)只作頻閃呈現參考；其歷史操作／提交限制不作本活動的例外。
-- 本次交付包括完整活動、SCORM包裝、本機驗證，以及三份完整獨立審核與第四位agent匯總；真實Moodle／實體手機證據另列。
+- 初版完整交付包括活動、SCORM包裝、本機驗證，以及三份完整獨立審核與第四位agent匯總；後續小修依使用者最新指示不開subagents，真實Moodle／實體手機證據另列。
 
 ## 建議的學生體驗
 
@@ -16,11 +16,11 @@
 2. 按「拍攝頻閃圖」，兩個分運動球同步移動，每隔0.20 s逐次留下球影；以4倍慢速呈現。起點為共同O，另有t₁–t₄四個時刻。
 3. 可按「比較間距」查看兩方向各段距離，判斷水平與垂直各屬勻速、勻加速、勻減速或非勻變速直線運動；此項與放點／軌跡判斷獨立，沒有正確才能繼續的限制。
 4. 拍攝完成後圖旁同時出現t₁–t₄四個球。直接拖任何一個入圖，系統強調對應球影；毋須先按時刻按鈕。時刻按鈕仍可用於檢視及微調。
-5. 任意次序擺放四個位置；可再拖所屬球以修改，或選時刻後刪除。系統依時間順序自動連接**學生自己的位置**，幫助觀察其作圖結果。
+5. 任意次序擺放四個位置；可再拖所屬球以修改，或選時刻後刪除。四球放好後重播，兩條由分運動球出發、垂直於各自坐標軸的虛線隨球移動，交點供學生核對位置。學生球之間不連線。
 6. 回答「合運動的軌跡是哪一類？」：直線、拋物線、圓弧或其他曲線；預設不選任何答案。
 7. 隨時按「檢查作答」，查看四題的已答／未答項目，再明確「提交作答」。提交後才顯示評分、正確位置、參考軌跡及物理解釋。
 
-連線與軌跡判斷都保留：連線呈現學生建構，選擇題記錄其概念判斷。提交前不把錯點拉回正解、不根據選擇題美化連線，也不顯示「答對」提示。
+位置建構與軌跡判斷各自記錄。四點完成後的播放虛線是使用者指定的核對工具；提交前不把錯點拉回正解，也不顯示「答對」提示。
 
 ## 四個情境與教學重點
 
@@ -107,12 +107,13 @@ B取g=10 m/s²，忽略空氣阻力；這是明確的教學近似。A、C、D是
 
 A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位移大小都是0.20、0.60、1.00、1.40 m，即1:3:5:7。四題都用相同視野，不能為個別坐標軸拉伸而把曲線或角度畫錯。
 
-### 播放、頻閃與連線
+### 播放、頻閃與核對
 
 - 初始不自動播放；「播放分運動」由t=0同步播到0.80 s，動畫放慢供觀察，時鐘仍標模型時間。停止後可重播，切題、檢查或拖放時停播；減少動態偏好時改用逐時刻呈現。
-- 「拍攝頻閃圖」由同一模型連續移動兩個分運動球，每經過0.20 s才留下相應球影；0.80 s拍攝以4倍慢速播放，共3.20 s。球影取固定曝光時刻，不取按掣或畫面更新瞬間的位置。減少動態效果時以相同節奏逐格曝光，不一次展示全部球影。拍攝完成後立即提供四個待放球；重播保留所有答案。
-- 選時刻只強調對應的Xᵢ、Yᵢ，不自動畫延長到正確交點的投影線、不放合運動示範球。兩列重疊的t₀以共同O表示，避免看成兩個不同起點。
-- 學生位置依t₀→t₁→…→t₄畫淡色折線；只連兩個相鄰且已存在的時間點，不跨過未答時刻、不作曲線擬合。這條線標「你的連線」，不宣稱就是光滑的真實軌跡。
+- 「拍攝頻閃圖」由同一模型連續移動兩個分運動球，每經過0.20 s才留下相應球影；0.80 s拍攝以4倍慢速播放，共3.20 s。球影取固定曝光時刻，不取按掣或畫面更新瞬間的位置。減少動態效果時以相同節奏逐格曝光，不一次展示全部球影。拍攝完成後立即提供四個待放球；按鈕改成「重播頻閃圖」，可反覆由t=0逐次曝光，保留observed及全部作答。
+- 選時刻強調對應的Xᵢ、Yᵢ，圖例只寫「水平／垂直」。兩列重疊的t₀以共同O表示，避免看成兩個不同起點。
+- 四點已放好且播放分運動或重播頻閃時才顯示兩條虛線：藍線從(x(t),0)垂直到(x(t),y(t))；橙線從(0,y(t))水平到同一交點。兩線由模型同一時間算出，沒有合運動示範球、答案自動修正或對錯標色；停止／完成播放後收起。部分作答時不顯示交點。
+- 學生位置只畫球，不連線、不作曲線擬合；依位置分布判斷軌跡。
 - 提交後可切換「你的作圖／參考作圖」：參考圖依上述連續模型畫精確直線或拋物線，並疊加等時頻閃位置；可重播參考合運動，始終只讀。
 - A與D回饋比較同一直線上均勻／逐漸增大的間距；B與C回饋說明彎曲方向跟加速分運動有關。水平與垂直的分運動類型另行獨立計分。
 
@@ -123,16 +124,16 @@ A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位�
 | Decision | Activity specification and reason |
 |---|---|
 | Three regions | Header：標題、四題直接導航、目前題目／作答狀態；stage：共同坐標、分運動頻閃、學生位置、待放球；panel：播放／頻閃、相鄰間距比較、兩方向類型、時間選擇、位置微調、軌跡單選、刪除／重置、檢查 |
-| Desktop / tablet | 寬度≥880px時stage在左、panel在右；panel寬clamp(16rem,28vw,20rem)，讓正方形坐標圖有足夠空間 |
+| Desktop / tablet | 寬度≥880px時stage在左、panel在右，panel寬clamp(20rem,30vw,24rem)。主要文字／控件20px、標題28px、次要文字18px；stage高≥320px時使用展示布局，圖上字22px、頂列24px，球半徑放大2.5倍，球架36px球面／64px抓手，圖內56px抓手。橫豎仍等比例；短iframe沿用原圖域密度 |
 | Control-panel classification | `bounded split-panel`；學生反覆選時刻及軌跡時須看見頻閃圖，panel獨立捲動，stage保持可見 |
 | Phone stage and controls | Header約88–104px；stage以minmax(11rem,42vh)及42dvh為起點，panel取餘下高度且min-height:0。一般圖域右側放四個44×44px球抓手，首球中心距頂部至少54px以避開圖例；stage寬<260px或高<210px時改為圖下2×2停泊區，收起stage頂列及密集數字刻度。小圖域將軸名放在球影以外，球心與等比例映射不變。≤300px高的窄CSS viewport仍採stage／panel各半欄，panel保留16px主要字體及44px控件，不加stage捲軸 |
 | Phone text | 本文／按鈕16px、標題20–24px、次要文字14px；圖上必要時間／刻度標籤以實際CSS 14px為目標，減少標籤密度而不隨SVG縮成小字；單位放軸名，數字只標主刻度 |
 | Viewports | 320×500、390×500、390×600、390×844、手機橫向、短Moodle iframe、工具列變化、軟鍵盤及200% zoom；圖域橫豎比例始終一致 |
 | Scroll topology | Standalone及iframe使用100vh→100dvh有界shell；html/body/shell無額外可用垂直捲動。panel自己捲；空白stage及兩側留白捲enclosing page／Moodle host；沒有第三個scroll owner |
 
-四個t₁–t₄球抓手同時可直接拖入圖域，毋須先按時刻按鈕。停泊抓手放置後保留並標示已放置，可直接再拖修改。圖內四個已放球各有44px透明拖拉入口，普通及compact圖域都不依賴目前選中時刻；熱區重疊時按最近球心選取，球心完全重合時取繪圖最上層的球，亦可由分開的球架指定時刻。圖內入口低於球架及兩側scroll strips，不攔截其操作。按住球只暫態選取該時刻，合法放手才保存activeTime及該點；取消回復原有選擇。選定分運動配合粗圈、Xᵢ／Yᵢ圖例及面板時刻識別。
+四個t₁–t₄球抓手同時可直接拖入圖域，毋須先按時刻按鈕，沒有「下一個時刻」按鈕。停泊抓手放置後保留並標示已放置，可直接再拖修改。圖內四個已放球各有44px透明拖拉入口（桌面展示56px），普通及compact圖域都不依賴目前選中時刻；熱區重疊時按最近球心選取，球心完全重合時取繪圖最上層的球，亦可由分開的球架指定時刻。圖內入口低於球架及兩側scroll strips，不攔截其操作。按住球只暫態選取該時刻，合法放手才保存activeTime及該點；取消回復原有選擇。選定分運動配合粗圈、方向色圖例及面板時刻識別。
 
-選中位置以較粗球圈及Pᵢ識別。普通圖域把Pᵢ放在附近可讀位置，避開全部球面、軸名、其他文字、球架及物理軌跡；所有球先畫，標籤後畫且不受plot裁切。compact圖域改在圖旁留白寫「所選 Pᵢ」，以所選時刻及球圈對應，避免密集球影遮住字形。右側不足50px時分成「所選」及Pᵢ兩行，向stage右邊內縮4px對齊，避免裁切或侵入球架。保持14px主字及真下標，不改球心、比例、學生答案或評分。
+選中位置以較粗球圈及Pᵢ識別。普通圖域把Pᵢ放在附近可讀位置，避開全部球面、軸名、其他文字、球架及參考軌跡；所有球先畫，標籤後畫且不受plot裁切。compact圖域改在圖旁留白寫「所選 Pᵢ」，以所選時刻及球圈對應，避免密集球影遮住字形。右側不足50px時分成「所選」及Pᵢ兩行，向stage右邊內縮4px對齊，避免裁切或侵入球架。手機14px／桌面展示22px主字及真下標，不改球心、比例、學生答案或評分。
 
 ## Navigation, submission and reset
 
@@ -151,7 +152,7 @@ A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位�
 | 四題的播放／觀察 | 固定模型與共同時間，無其他題依賴 | 未觀察是合法空白，不算錯誤狀態 | 顯示頻閃、選分類、切題、檢查 |
 | 放置任一時刻 | 本題observed=true；activeTime為1..4 | 未顯示頻閃只提示先顯示，不替學生生成答案；仍可檢查 | 任意放點次序、修改、刪除、分類、檢查 |
 | 軌跡單選 | 無放點或觀察先決條件 | 選了分類但沒放點仍是有效部分作答 | 放點或直接檢查／提交，分類分獨立保留 |
-| 修改／刪除一點 | 該時刻答案或明確的新放置操作 | 只重建相鄰學生連線，不清分類或其他時刻／題目 | 繼續編輯或檢查 |
+| 修改／刪除一點 | 該時刻答案或明確的新放置操作 | 只更新該球位置，不清分類或其他時刻／題目 | 繼續編輯或檢查 |
 | 由檢查返回編輯 | 保留全部答案、activeCase、activeTime；returnToCheck=true | 不補未答、不重播／重置、不製造visited門檻 | 修改後「返回檢查」，也可換題 |
 
 header的未開始／觀察中／部分作答／已作答由observed與非null答案派生；完整但錯誤的答案亦顯示已作答，不能以進度顏色洩露正確性。完成第四題不自動提交。
@@ -163,8 +164,8 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 | Decision | Activity specification and reason |
 |---|---|
 | Notation | x、y、t是標量坐標／時間，Pᵢ是位置點；本版不要求畫向量，解釋由O出發的位移時用r⃗=(x,y)，與大小∣r⃗∣區分。變量math serif斜體，數字／單位正體、真下標；不向學生顯示raw LaTeX或t_1 |
-| Diagram colors | 水平分運動藍、垂直分運動橙、學生合運動深紫；球使用本地SVG徑向漸層及高光呈現球體，球心仍精確對齊物理坐標。歷史球影半透明、移動球實色；選中分運動以粗圈、真下標Xᵢ／Yᵢ圖例識別。密集軸旁不再加重複文字；Pᵢ避開軸名。每個場景／預覽使用獨立gradient及clip ID。正確性顏色只在提交後使用 |
-| Arrow graphics | 僅坐標軸有小方向箭頭，表示+x／+y，無可編輯向量箭頭；軸約1.5 CSSpx、箭頭約7px，方向標籤不壓在球影上。學生連線無箭頭，以時間編號表示次序 |
+| Diagram colors | 水平分運動藍、垂直分運動橙、學生合運動深紫；球使用本地SVG徑向漸層及高光呈現球體，球心仍精確對齊物理坐標。歷史球影半透明、移動球實色；選中分運動以粗圈、面板時刻及「水平／垂直」圖例識別。密集軸旁不再加重複文字；Pᵢ避開軸名。每個場景／預覽使用獨立gradient及clip ID。正確性顏色只在提交後使用 |
+| Arrow graphics | 僅坐標軸有小方向箭頭，表示+x／+y，無可編輯向量箭頭；手機軸約1.5 CSSpx、箭頭約7px，桌面展示2px／9px。方向標籤不壓在球影上，核對虛線無箭頭 |
 | Snap | 必需：吸附到全部可見0.20 m方格交點，包括錯誤候選位置；touch最近點≤10 CSSpx、mouse/pen≤6px。保持時採14／9px退出距離，競爭交點須較原點近2／1px才轉換；參數須在不同縮放驗證無跳格。拖動及放手使用同一解析位置，不對正解設磁吸 |
 | Touch preview | 拖待放球及既有位置都必需：早期頻閃點很近，手指會遮住球心／方格。提供3×、124px外框寬／70px高的真實局部場景及獨立讀數「t、你的x、你的y」，聚焦目前吸附後的學生位置；按實際lens尺寸計算viewBox，不以預估overlay高度定位。普通按鈕／單選／微調不需預覽 |
 
@@ -182,10 +183,10 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 
 | Target type | Selector / hit area and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
-| 四個時刻球抓手 | `.point-tray-handle[data-slot]`，各44×44px，四個互不重疊，位於圖域外 | 四個穩定HTML target，none；可任意順序直接拖動，全程保持同node | Tab至所需球，方向鍵移動，Enter保存／Escape取消；亦可用面板 |
-| 已選時刻的既有球抓手 | `.active-point-handle`，44×44px，球心對齊；compact停泊布局不設此target | 穩定HTML target，none；只此時刻具抓手，其他球不攔截手勢 | 所屬停泊球或面板仍可修改；Shift+方向鍵微調 |
+| 四個時刻球抓手 | `.point-tray-handle[data-slot]`，手機44×44px、桌面展示64×64px，四個互不重疊，位於圖域外 | 四個穩定HTML target，none；可任意順序直接拖動，全程保持同node | Tab至所需球，方向鍵移動，Enter保存／Escape取消；亦可用面板 |
+| 四個既有球抓手 | `.active-point-handle[data-slot]`，手機44×44px、桌面展示56×56px，球心對齊；compact亦保留 | 四個穩定HTML target，none；每個已放球可直接抓，重疊入口按最近球心選取 | 所屬停泊球或面板仍可修改；Shift+方向鍵微調 |
 | 播放、頻閃、時間、方向、刪除／重置、分類、檢查／提交 | 原生button／select／checkbox；button／select≥44px，checkbox配44px高label熱區 | 使用原生操作及panel的pan-y，不建立拖動capture | Tab、Enter／Space及原生選單的方向鍵操作 |
-| 頻閃球影／未選學生球／連線／軸／預覽 | 唯讀SVG或pointer-inert overlay | 不攔截pan；preview用pointer-events:none | 面板時間選擇及文字場景描述可達 |
+| 頻閃球影／虛線／軸／預覽 | 唯讀SVG或pointer-inert overlay | 不攔截pan；preview用pointer-events:none | 面板時間選擇及文字場景描述可達 |
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
@@ -199,7 +200,7 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 | review／frozen／committed舊抓手位置 | Enclosing page/Moodle host | 移除編輯ownership與none，圖仍可檢討 | source／ZIP三模式舊target區域trusted pan通過 |
 
 - 優先使用native host pan；若iframe拓撲需要same-host forwarding，只forward到enclosing host並測試防double scroll，不能轉送panel。兩側留白雖非自由畫圖必需，仍保留作穩定捲動入口。
-- 圖域在兩條24px strip內側另留22px抓手容納空間，讓44px抓手在圖域邊緣也不侵入strip；縮放／letterboxing只調呈現，不改合法世界坐標範圍。
+- 圖域在兩條24px strip內側另留22px抓手容納空間（桌面展示至少28px），讓球心位於圖域邊緣時熱區也不侵入strip；縮放／letterboxing只調呈現，不改合法世界坐標範圍。
 - Source與實際ZIP解壓頁各放在可捲動Moodle-like iframe，使用browser-level trusted touch，記錄engine／device、pointerType及isTrusted；不以DOM dispatch或programmatic scroll當驗收。
 - 每列記錄前後host scroll／visual viewport、iframe bounds、activity document scroll／viewport、panel scroll、phase／selection／全部答案；確認只有該owner改變。stage與strip測上下兩向，panel測兩端，每種抓手保持move／up且無pointercancel。
 - 手勢驗證先停播；preview、吸附、pointerup一致性另驗。Source／package證據保存在`output/playwright/motion-composition-stroboscopic-lab/`；以文末記錄的修正版report為準。
@@ -252,8 +253,8 @@ header的未開始／觀察中／部分作答／已作答由observed與非null�
 | Transition / trigger | Preconditions | State changes / downstream effects |
 |---|---|---|
 | 切題／選時刻 | edit或只讀檢討 | 取消拖動／微調／播放，保留四題答案。edit更新並保存語義索引；只讀檢討只改暫態瀏覽索引，不改已提交／pending權威payload |
-| 拍攝頻閃完成 | edit，同題有效拍攝到t₄ | 本題observed=true；拍攝期間仍false且無位置可寫。中斷或離頁不杜撰完成；再次開啟可重新拍攝。已完成圖由模型重建，重播不清點；不直接加分 |
-| 合法放手／確認微調 | edit，本題observed=true，坐標在圖域 | 只寫activeTime的mm坐標，重建相鄰連線，保存draft |
+| 拍攝頻閃完成 | edit，同題有效拍攝到t₄ | 本題observed=true；首次拍攝期間仍false且無位置可寫，中斷不杜撰完成。重播既有頻閃時保留observed=true及全部答案；已完成圖由模型重建，不直接加分 |
+| 合法放手／確認微調 | edit，本題observed=true，坐標在圖域 | 只寫activeTime的mm坐標，重畫學生球，保存draft |
 | 選／清分類、刪點、重置本題 | edit | 只改指定答案，保留其他題；隨即保存draft |
 | 檢查／返回編輯 | 任意edit／check | edit→check設returnToCheck=false；check→edit設true，保留全部答案及索引 |
 | 明確提交 | check，包括空白／部分 | 取消暫態，從最終答案重算；review副本phase=review，returnToCheck=false，交shared流程 |
@@ -291,8 +292,8 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 | State category | Activity fields and treatment |
 |---|---|
 | Authoritative | 三個版本、phase、activeCase／activeTime、returnToCheck、每題observed／四個毫米坐標／兩個motions／trajectory；slot索引決定所屬題及時間，不接受隨意對換 |
-| Transient | Pointer、所抓時刻、抓取偏移、吸附hysteresis、未保存工作點、preview位置、拍攝／重播時間及已曝光數、focus、DOM；不persist。未完成拍攝恢復為未觀察並可重新拍攝，完成拍攝恢復完整圖；schema／model／rubric仍為1 |
-| Derived | 固定模型／正解、Xᵢ／Yᵢ、P₀、camera／像素位置、抓手ID、進度、折線、分數及達標狀態；按modelVersion與權威答案重建，不信snapshot夾帶的快取 |
+| Transient | Pointer、所抓時刻、抓取偏移、吸附hysteresis、未保存工作點、preview位置、拍攝／重播時間及已曝光數、focus、DOM；不persist。未完成首次拍攝恢復為未觀察並可重新拍攝，已完成或重播中恢復完整圖；schema／model／rubric仍為1 |
+| Derived | 固定模型／正解、Xᵢ／Yᵢ、P₀、camera／像素位置、抓手ID、進度、播放虛線、分數及達標狀態；按modelVersion與權威答案重建，不信snapshot夾帶的快取 |
 | Version compatibility | 首版只接受schemaVersion/modelVersion/rubricVersion=1；未知版本拒絕，不默默改答案。日後換模型／rubric須版本化並測試舊review處理 |
 | Size | 實作前後都測最長合法draft、review與shared pending-final完整封套，含reviewJson跳脫後大小；每個≤4000 UTF-8 bytes，不存影像、動畫／長日誌或完整feedback |
 | Invalid finished review | 保持只讀，只顯示可信Moodle摘要；不以空白新題覆蓋既有結果 |
@@ -324,7 +325,7 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 
 ## Test plan
 
-以下依[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)記錄本機實跑結果；純測試、Chrome/CDP source／ZIP證據見文末，外部部署gate另列。
+以下完整矩陣及勾選記錄屬8a完整驗收的歷史；後續小修只執行文末列出的受影響必要檢查，不冒稱重跑完整驗收。[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)及外部部署gate另列。
 
 修訂版追加決策：`animation.test.js`用可控時鐘驗0／1／2／3／4次等時曝光、減少動態逐格、延遲frame及取消後舊frame不能完成新題；browser兩路實際逐次驗曝光數／球心、未完成拍攝Moodle恢復後重新拍攝及合法放點。四球trusted-touch由activeTime=1直接抓任何slot，驗暫態時刻、合法放手僅更新所屬點與activeTime、取消不改權威資料。短viewport驗四球2×2完整熱區、同slot再拖及面板替代；最新小修另使圖內四個已放球可直接拖。新增animation.js須列入manifest並與實際ZIP逐byte比對；舊schema及512恢復矩陣仍適用。
 
@@ -349,7 +350,7 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 
 ## Package-ready checklist
 
-本節勾選項是8a完整驗收的歷史紀錄；本輪直接拖球小修依使用者指示，只記錄文末的必要操作檢查。
+本節勾選項是8a完整驗收的歷史紀錄；後續直接拖球及課堂展示小修依使用者指示，只記錄文末的必要操作檢查。
 
 - [x] 使用者審閱本計劃；實作前確認四題、四點、連線及rubric的活動規格。
 - [x] 上述純測試、phase／restore續作、lifecycle與source／package UI／trusted-touch均通過，證據填回本文件。
@@ -371,7 +372,7 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 
 高風險可信服務端評分：N/A，本版定位為形成性練習。
 
-## 審閱後的實作次序
+## 初版審閱後的實作次序（歷史）
 
 1. 先實作四題固定model與唯讀分運動／頻閃圖，確認共同時間、比例尺及學科用字。
 2. 完成A一題的拖放、時間選擇、grid吸附及手機preview及間距比較；先做短iframe trusted-touch，再套用其餘三題。
@@ -388,7 +389,7 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - 人工按設計schema建立最長欄位的合法樣本：draft 639、review 667、shared pending形狀887 UTF-8 bytes，低於4000上限。這是規劃試算，production serializer／decode／restore仍須另測。
 - 新文件以`git diff --no-index --check /dev/null plans/25-motion-composition-stroboscopic-lab.md`核對無空白格式錯誤；尚未實作，未執行活動browser、package或Moodle驗收。
 
-## 審核契約（2026-10-01）
+## 初版完整實作的審核契約（2026-10-01，歷史）
 
 完成本機實作後，三位sub-agents各自完整審核整條branch（包括physics、文字、UI／mobile、評分、保存、SCORM、測試與包裝），不分拆領域。第四位另外閱讀三份報告並匯總成最終報告；主agent修正、執行回歸，必要時再請原審核者檢查，直至無未處理的可重現問題。實體手機／真實Moodle未驗證的部署gate不得宣稱通過。
 
@@ -456,3 +457,13 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - 原因：圖內只有目前時刻有拖拉入口，因此拖t₄後需先在面板選t₃。現在四個已放球都有固定DOM入口，按住哪個球便暫態選取哪個時刻，合法放手只更新該點；相鄰熱區按最近球心判定，完全重合時取繪圖最上層球。球架及scroll strips保持較高層級。
 - 依使用者指示未調用subagents、未跑全套tests／完整browser矩陣。只做JavaScript語法／diff檢查及必要重現：source桌面1024×768 mouse、source手機390×500 trusted touch、實際ZIP短畫面320×225 trusted touch，各直接拖t₄→t₃→t₄，確認不按面板、只改所抓答案、四球入口可用及提交後全部隱藏。三組共9次拖放通過，errors=[]；[基本操作紀錄](../output/playwright/motion-composition-stroboscopic-lab/direct-ball-drag/report.json)。初次檢查揭示完全重合球的選取次序，已按繪圖上層修正後通過。
 - 只重建本活動SCORM；根manifest及14個entries與當前source逐byte一致。舊完整runner同步使用compact圖內抓手，但本輪沒有執行該完整runner。物理模型、評分、schema及shared runtime未修改；上輪完整審核不冒稱為本輪重新驗收，真實Moodle／實體手機仍未驗。
+
+## 2026-10-01 小修：課堂展示及播放核對
+
+- 依使用者六項要求移除「下一個時刻」及學生球之間的直線；四球仍可任意次序直接拖放。桌面主要文字20px、圖上22px、球半徑2.5倍，球架與圖內抓手一併放大，保留等比例坐標及手機44px入口。
+- 頻閃完成後「重播頻閃圖」可反覆由零逐次曝光；重播不清observed或位置／分類。四點全部非null時，播放分運動或頻閃才顯示兩條隨球移動、垂直於各自坐標軸的虛線，交於模型同時刻的位置；部分作答不顯示交點。使用者此項要求取代初版禁止提交前投影線的設計。
+- 右上Xᵢ／Yᵢ原本標示所選時刻的兩個分運動球影；現直接顯示「水平／垂直」，所選時刻由時鐘、粗圈及面板識別。x／y坐標軸仍用正常物理符號。
+- 只執行受影響scene test、JavaScript語法及diff檢查；scene test核對四個模型、四個時刻的兩條虛線起點、垂直方向、同時刻交點，以及部分／停止播放不顯示和學生點無連線。沒有subagents、全repo tests、完整browser矩陣或package-all。
+- [必要操作紀錄](../output/playwright/motion-composition-stroboscopic-lab/classroom-update/report.json)：source桌面1440×900連續兩次頻閃由0→1→4曝光、虛線隨時間移動及作答不變；部分位置的分運動播放無虛線。source手機390×500及實際ZIP桌面1280×900各完成重播，手機另外可信touch直接拖t₄→t₃，僅改所抓點。桌面1024×768及上述布局截圖目視核對，主要字／圖上字及球體放大有效，panel與document水平overflow=0，errors=[]。
+- 舊完整browser runner僅同步移除nextButton依賴、圖例方向名稱及以data-stamp驗選中球，不再以固定半徑驗高亮；本輪只核語法，未執行該完整runner。物理公式、rubric、權威schema及shared runtime未修改。
+- 只重建此活動[SCORM包](../output/motion-composition-stroboscopic-lab-scorm.zip)：37,566 bytes、根manifest及14個entries逐byte等於最終runtime source；SHA-256=`8e1fa48e83a2d6729edf634a017993c4db0f4a89b95f37ecbc2f3547abe6ba92`。[一致性紀錄](../output/playwright/motion-composition-stroboscopic-lab/classroom-update/package-parity.json)。本機必要檢查不取代真實Moodle／實體手機部署驗收。

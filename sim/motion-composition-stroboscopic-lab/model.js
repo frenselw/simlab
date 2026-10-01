@@ -36,13 +36,15 @@
     const points = c.points.filter(p => p !== null).length, types = c.motions.filter(v => v !== null).length, trajectory = c.trajectory !== null;
     return { points, types, trajectory, count: points + types + Number(trajectory), complete: points === 4 && types === 2 && trajectory, started: c.observed || points > 0 || types > 0 || trajectory };
   }
-  function layout(width, height) {
+  function layout(width, height, presentation = false) {
     const compact = width < 260 || height < 210;
-    const size = Math.max(40, Math.min(width - (compact ? 92 : 148), height - (compact ? 100 : 88)));
-    const left = compact ? (width - size) / 2 : 46 + (width - 148 - size) / 2, top = compact ? 8 : 34;
+    presentation = presentation && !compact;
+    const sideSpace = compact ? 92 : presentation ? 220 : 148, verticalSpace = compact ? 100 : presentation ? 148 : 88;
+    const size = Math.max(40, Math.min(width - sideSpace, height - verticalSpace));
+    const left = compact ? (width - size) / 2 : (presentation ? 64 : 46) + (width - sideSpace - size) / 2, top = compact ? 8 : presentation ? 76 : 34;
     const trays = compact ? [0,1,2,3].map(i => ({ x: width / 2 + (i % 2 ? 22 : -22), y: height - (i < 2 ? 67 : 23) })) :
-      [0,1,2,3].map(i => ({ x: left + size + 44, y: Math.max(54, height / 2 - 66) + i * 44 }));
-    return { width, height, size, left, top, compact, trays };
+      [0,1,2,3].map(i => ({ x: left + size + (presentation ? 70 : 44), y: Math.max(presentation ? 82 : 54, height / 2 - (presentation ? 96 : 66)) + i * (presentation ? 64 : 44) }));
+    return { width, height, size, left, top, compact, presentation, trays };
   }
   const pixel = (p, l) => ({ x: l.left + (p[0] + 400) * l.size / 4000, y: l.top + (400 - p[1]) * l.size / 4000 });
   const world = (p, l) => [(p.x - l.left) * 4000 / l.size - 400, 400 - (p.y - l.top) * 4000 / l.size];
