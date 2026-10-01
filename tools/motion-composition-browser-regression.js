@@ -174,15 +174,17 @@ async function playbackReadability(cdp,base,label){
 }
 async function shortReferenceReadability(cdp,base,label){
  const report=[];
- await cdp.send('Emulation.setDeviceMetricsOverride',{width:320,height:225,deviceScaleFactor:1,mobile:false});
+ for(const height of [225,250,275,300,301]){
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:320,height,deviceScaleFactor:1,mobile:false});
  for(const embedded of [false,true])for(let index=0;index<4;index++)for(let time=1;time<=4;time++){
   const answer=filled();answer.activeCase=index;answer.activeTime=time;await navigate(cdp,base,{fixture:finishedData(answer),embedded,fluid:embedded});const before=JSON.stringify(await state(cdp,embedded));await click(cdp,'#referenceButton',embedded);
   const diagram=await diagramLabels(cdp,embedded);assert.equal(diagram.selected.case,index);assert.equal(diagram.selected.time,time);assert.equal(diagram.selected.reference,true);assert.equal(JSON.stringify(await state(cdp,embedded)),before);
-  if(time===1&&(index===0||index===3))await screenshot(cdp,`${label}-short-${embedded?'iframe':'standalone'}-reference-${index}-t${time}`);
-  report.push({embedded,index,time,diagram});
+  if(time===1&&(index===0||index===3))await screenshot(cdp,`${label}-short-${height}-${embedded?'iframe':'standalone'}-reference-${index}-t${time}`);
+  report.push({height,embedded,index,time,diagram});
  }
  for(const embedded of [false,true])for(const points of [[[200,-200],[400,-400],[600,-600],[800,-800]],[[0,0],null,[3600,-3600],null],[[2400,0],[1600,0],[0,-2400],[0,-1600]]])for(let time=1;time<=4;time++){
-  const answer=filled();answer.activeTime=time;answer.cases[0].points=points;await navigate(cdp,base,{fixture:durableDraft(answer),embedded,fluid:embedded});const before=JSON.stringify(await state(cdp,embedded)),diagram=await diagramLabels(cdp,embedded);assert.equal(diagram.selected.time,time);assert.equal(JSON.stringify(await state(cdp,embedded)),before);report.push({embedded,denseOrPartialOrWrong:true,time,diagram});
+  const answer=filled();answer.activeTime=time;answer.cases[0].points=points;await navigate(cdp,base,{fixture:durableDraft(answer),embedded,fluid:embedded});const before=JSON.stringify(await state(cdp,embedded)),diagram=await diagramLabels(cdp,embedded);assert.equal(diagram.selected.time,time);assert.equal(JSON.stringify(await state(cdp,embedded)),before);report.push({height,embedded,denseOrPartialOrWrong:true,time,diagram});
+ }
  }
  return report;
 }
