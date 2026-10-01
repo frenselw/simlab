@@ -22,7 +22,8 @@ for(const field of ['horizontal','vertical','trajectory'])for(const value of [[]
   assert.throws(()=>P.decode(JSON.parse(JSON.stringify(review)),'review'));
 }
 assert.throws(()=>P.decode(envelope('review',filled()),'draft'));assert.throws(()=>P.command(P.fresh(),{type:'place',point:[0,0]}));
-const max=filled();max.cases.forEach(c=>{c.points=Array.from({length:4},()=>[-400,-3600]);c.motions=['nonuniform','nonuniform'];c.trajectory='parabola';});
+const longestMotion=Object.keys(M.MOTIONS).sort((a,b)=>b.length-a.length)[0],longestTrajectory=Object.keys(M.TRAJECTORIES).sort((a,b)=>b.length-a.length)[0];
+const max=filled();max.cases.forEach(c=>{c.points=Array.from({length:4},()=>[-400,-3600]);c.motions=[longestMotion,longestMotion];c.trajectory=longestTrajectory;});
 const draft=envelope('draft',P.check(max)),review=envelope('review',max),r=S.score(max),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(review),score:r.score,maxScore:100,passed:r.passed}};
 for(const v of [draft,review,pending])assert.ok(P.bytes(v)<=4000);assert.ok(!JSON.stringify(draft).includes('pointer'));
 const reset=P.command(partial,{type:'clear'});assert.equal(reset.cases[0].observed,true);assert.deepEqual(reset.cases[0].points,[null,null,null,null]);
