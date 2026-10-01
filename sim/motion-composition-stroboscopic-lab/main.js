@@ -57,7 +57,7 @@
       d.checkList.replaceChildren();for(let i=0;i<4;i++){const p=M.progress(c.state.cases[i]),row=document.createElement('div');row.className='check-row';const b=document.createElement('button');b.innerHTML=`情境 ${i+1}<small>位置 ${p.points}/4 · 分運動 ${p.types}/2 · 軌跡${p.trajectory?'已選':'未選'}</small>`;b.onclick=()=>{navigate(i);d.controlPanel.scrollTop=0;};row.append(b);d.checkList.append(row);}d.submitButton.disabled=c.unsaved;
     }
     if(!d.reviewPanel.hidden){
-      d.reviewTitle.textContent=c.mode==='frozen'?'提交尚未確認':c.mode==='committed'?'成績已記錄':c.mode==='mismatch'?'記錄未能核對':'只讀檢討';
+      d.reviewTitle.textContent=c.mode==='frozen'?'提交尚未確認':c.mode==='committed'?'成績已記錄':c.mode==='mismatch'?'記錄未能核對':'作答結果';
       d.scorePanel.innerHTML=c.result?`<strong>${c.result.score===null?'--':c.result.score} / 100</strong><p>${SimActivityFlow.completionLabel(c.result.passed)}</p>`:'<p>答案已凍結，成績尚未確認。</p>';
       d.retryFinalButton.hidden=!['frozen','committed'].includes(c.mode);d.retryFinalButton.textContent=c.mode==='committed'?'重試完成程序':'重試同一份提交';d.referenceButton.hidden=!c.trusted;d.referenceButton.textContent=reference?'返回你的作圖':'顯示參考作圖';
       d.feedback.innerHTML='';if(c.trusted&&current())renderFeedback();
@@ -71,10 +71,7 @@
     const gaps=M.gaps(c.caseIndex,compareAxis);gaps.forEach((gap,i)=>{const row=document.createElement('div');row.className='spacing-row';row.innerHTML=`<span>${i}→${i+1}</span><div class="bar-rail"><div class="gap-bar" style="width:${100*gap/1400}%;background:${compareAxis?'#b45309':'#2563eb'}"></div></div><span class="gap-value">${(gap/1000).toFixed(2)} m</span>${d.showIncreases.checked&&i>0?`<span class="increase-value">比上一段多 ${((gap-gaps[i-1])/1000).toFixed(2)} m</span>`:''}`;d.spacingBars.append(row);});
   }
   function renderFeedback(){
-    const detail=c.result.detail[c.caseIndex],expected=M.expected(c.caseIndex),definition=M.CASES[c.caseIndex];
-    const status=(correct,label)=>`<span class="${correct?'ok':'issue'}">${correct?'✓':'○'} ${label}</span>`;
-    const explanation=definition.explanation.replace(/\b([gxy])\b/g,'<var>$1</var>').replace('m/s²','m/s<sup>2</sup>');
-    d.feedback.innerHTML=`<article><h3>情境 ${c.caseIndex+1}：${detail.score}/25 分</h3><p>${explanation}</p><p>${detail.motions.map((ok,i)=>`${status(ok,i?'垂直':'水平')}：${M.MOTIONS[definition.motions[i]]}`).join('<br>')}</p><p>${status(detail.trajectory,'合運動軌跡')}：${M.TRAJECTORIES[definition.trajectory]}</p></article><article><h3>各時刻的位置</h3><table class="feedback-table"><thead><tr><th>時刻</th><th>你的 (<var>x</var>, <var>y</var>) / m</th><th>分量</th></tr></thead><tbody>${current().points.map((p,i)=>`<tr><td>${timeHTML(i+1)}</td><td>${p?`${M.format(p[0])}, ${M.format(p[1])}`:'未放置'}</td><td>${status(detail.points[i].x,'<var>x</var>')} ${status(detail.points[i].y,'<var>y</var>')}</td></tr>`).join('')}</tbody></table><p class="small">參考位置：${expected.map((p,i)=>`${timeHTML(i+1)} (${M.format(p[0])}, ${M.format(p[1])})`).join('；')} m。每個分量容差為±0.050 m。</p></article><p class="small">同一時刻的水平位置與垂直位置配成一個點。球影越來越疏只表示各段平均速率增加；間距等量增加才與勻加速模型相符。</p>`;
+    d.feedback.innerHTML=MotionCompositionFeedback.html(c.caseIndex,current(),c.result.detail[c.caseIndex]);
   }
   function renderStage(){
     const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height,matchMedia('(min-width: 880px)').matches&&rect.height>=320);
@@ -88,7 +85,7 @@
     d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,time,layout,{working:working(),reference:showRef,animation,stamps,guides});
     d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(time)} = ${(time*M.DT).toFixed(2)} s`;
     d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':guides?'虛線交點：同一時刻的合運動位置':animationView.active?animationView.kind==='capture'?'移動中逐次留下球影':'分運動連續播放':!current().observed?'在操作面板拍攝頻閃圖':'拖球入圖 · 你的作圖';d.stageHint.classList.toggle('with-tray',tray);
-    const status=animationView.active?`慢速4× · ${showRef?'參考合運動':animationView.kind==='preview'?'分運動（不留球影）':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'只讀檢討，可查看已記錄的作圖。':current().observed?current().points.every(p=>p!==null)?'四球已放置，重播可用虛線核對位置。':'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
+    const status=animationView.active?`慢速4× · ${showRef?'參考合運動':animationView.kind==='preview'?'分運動（不留球影）':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'可查看已記錄的作答及參考作圖。':current().observed?current().points.every(p=>p!==null)?'四球已放置，重播可用虛線核對位置。':'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
     if(d.animationStatus.textContent!==status)d.animationStatus.textContent=status;
     const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
     trays.forEach((element,i)=>{place(element,layout.trays[i],tray);element.classList.toggle('is-placed',Boolean(current().points[i]));element.setAttribute('aria-label',`拖放時刻${i+1}，${((i+1)*M.DT).toFixed(2)}秒的合運動球，${current().points[i]?'已放置，可再拖修改':'未放置'}`);if(i+1===time)element.setAttribute('aria-current','step');else element.removeAttribute('aria-current');});
@@ -172,8 +169,34 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(drag||keyboard)){cancel(true);render();}});
   document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){blockedTouchSequence=true;cancel(true);renderStage();}},true);
   const touches=new Map();
-  document.addEventListener('touchstart',e=>{for(const t of e.changedTouches){const point=Boolean(t.target.closest?.('.point-handle')),host=d.stage.contains(t.target)&&!point;touches.set(t.identifier,{host,point,y:t.screenY});}if(touches.size>1&&[...touches.values()].some(t=>t.point)){blockedTouchSequence=true;cancel(true);renderStage();}},{passive:true});
-  document.addEventListener('touchmove',e=>{if(blockedTouchSequence){if(e.cancelable)e.preventDefault();return;}let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;try{if(window.parent!==window&&window.parent.document){window.parent.scrollBy(0,dy/(window.parent.visualViewport?.scale||1));handled=true;}}catch(_){/* Cross-origin deployment is verified separately. */}}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
+  function hostScrollTargets(){
+    const targets=[];let child=window;
+    // Only ancestors of the embedding frame can own a stage pan.
+    // A fixed intermediate frame must not swallow a gesture for an outer host.
+    while(child.parent!==child){
+      try{
+        const owner=child.parent,doc=owner.document,root=doc.scrollingElement;
+        for(let node=child.frameElement?.parentElement;node;node=node.parentElement){
+          if(node===root)continue;
+          if(node.scrollHeight>node.clientHeight+1&&/^(auto|scroll|overlay)$/.test(owner.getComputedStyle(node).overflowY))targets.push({node,owner});
+        }
+        if(root&&root.scrollHeight>root.clientHeight+1&&!/^(hidden|clip)$/.test(owner.getComputedStyle(root).overflowY))targets.push({node:root,owner});
+        child=owner;
+      }catch(_){break;} // Cross-origin hosts retain native gesture handling.
+    }
+    return targets;
+  }
+  function scrollHost(targets,delta){
+    for(const {node,owner} of targets){
+      const before=node.scrollTop,next=Math.max(0,Math.min(node.scrollHeight-node.clientHeight,before+delta/(owner.visualViewport?.scale||1)));
+      if(Math.abs(next-before)<.01)continue;
+      node.scrollTo({top:next,behavior:'instant'});
+      if(Math.abs(node.scrollTop-before)>.01)return true;
+    }
+    return false;
+  }
+  document.addEventListener('touchstart',e=>{for(const t of e.changedTouches){const point=Boolean(t.target.closest?.('.point-handle')),host=d.stage.contains(t.target)&&!point;touches.set(t.identifier,{host,point,y:t.screenY,targets:host?hostScrollTargets():[]});}if(touches.size>1&&[...touches.values()].some(t=>t.point)){blockedTouchSequence=true;cancel(true);renderStage();}},{passive:true});
+  document.addEventListener('touchmove',e=>{if(blockedTouchSequence){if(e.cancelable)e.preventDefault();return;}let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;handled=scrollHost(r.targets,dy)||handled;}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
   for(const type of ['touchend','touchcancel'])document.addEventListener(type,e=>{for(const t of e.changedTouches)touches.delete(t.identifier);if(!touches.size)blockedTouchSequence=false;},{passive:true});
   for(const type of ['blur','resize'])window.addEventListener(type,()=>{cancel(true);stop();renderStage();});document.addEventListener('visibilitychange',()=>{if(document.hidden){cancel(true);stop();renderStage();}});reduced.addEventListener('change',()=>{cancel(true);stop();render();});
   new ResizeObserver(()=>{if(drag||keyboard)cancel(true);if(animationView.active)stop();renderStage();}).observe(d.stage);

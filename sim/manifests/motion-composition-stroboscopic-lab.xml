@@ -23,6 +23,7 @@
       <file href="motion-composition-stroboscopic-lab/model.js"/>
       <file href="motion-composition-stroboscopic-lab/animation.js"/>
       <file href="motion-composition-stroboscopic-lab/scoring.js"/>
+      <file href="motion-composition-stroboscopic-lab/feedback.js"/>
       <file href="motion-composition-stroboscopic-lab/persistence.js"/>
       <file href="motion-composition-stroboscopic-lab/ui-runtime.js"/>
       <file href="motion-composition-stroboscopic-lab/scene.js"/>

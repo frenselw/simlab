@@ -49,6 +49,18 @@ details { margin: .8rem 0; }summary { min-height: 44px; display: flex; align-ite
 .check-row button { width: 100%; text-align: left; padding: .6rem; margin: .5rem 0; }.check-row small { display: block; margin-top: .2rem; color: var(--color-text-muted); }
 #scorePanel strong { font-size: 1.5rem; }#feedback article { border-top: 1px solid var(--color-border); padding: .5rem 0; }#feedback h3 { font-size: 1rem; margin: .35rem 0; }.ok { color: #166534; }.issue { color: #9a3412; }.feedback-table { width: 100%; border-collapse: collapse; font-size: .875rem; }.feedback-table td, .feedback-table th { padding: .35rem .1rem; text-align: left; border-bottom: 1px solid var(--color-border-light); }.feedback-table th { font-weight: 500; }.panel-end { height: 12px; }
 .sr-only { position: absolute; top: 0; left: 0; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.unanswered { color: var(--color-text-muted); }
+.feedback-choices { list-style: none; margin: .6rem 0; padding: 0; }
+.feedback-choices li { margin: .6rem 0; }
+.feedback-choices li > * { display: block; line-height: 1.5; }
+.answer-reference, .reference-position { color: var(--color-text-muted); font-size: .875rem; }
+.feedback-table { table-layout: fixed; }
+.feedback-table th:first-child { width: 14%; }
+.feedback-table th:nth-child(2) { width: 48%; }
+.feedback-table td { vertical-align: top; overflow-wrap: anywhere; }
+.feedback-coordinates > span, .position-check > span, .reference-position, .reference-position > span { display: block; }
+.reference-position { margin-top: .3rem; }
+.position-check bdi { display: inline-block; white-space: nowrap; }
 var { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times New Roman", serif; }.number { font-variant-numeric: tabular-nums; }
 @media (min-width: 880px), (min-width: 700px) and (max-height: 480px) { .composition-app { grid-template-columns: minmax(0,1fr) clamp(16rem,28vw,20rem); grid-template-rows: auto minmax(0,1fr); }.sim-header { grid-column: 1 / -1; }#questionNav { flex: 0 1 360px; }.stage { border-right: 1px solid var(--color-border); border-bottom: 0; }.control-panel { padding: 1rem; } }
 @media (min-width: 880px) {

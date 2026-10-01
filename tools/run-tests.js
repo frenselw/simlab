@@ -9,6 +9,7 @@ const tests = [
   "sim/motion-composition-stroboscopic-lab/model.test.js",
   "sim/motion-composition-stroboscopic-lab/animation.test.js",
   "sim/motion-composition-stroboscopic-lab/scoring.test.js",
+  "sim/motion-composition-stroboscopic-lab/feedback.test.js",
   "sim/motion-composition-stroboscopic-lab/persistence.test.js",
   "sim/motion-composition-stroboscopic-lab/lifecycle.test.js",
   "sim/motion-composition-stroboscopic-lab/scene.test.js",

@@ -8,9 +8,9 @@
   const MOTIONS = Object.freeze({ uniform: "勻速直線運動", accelerating: "勻加速直線運動", decelerating: "勻減速直線運動", nonuniform: "非勻變速直線運動" });
   const TRAJECTORIES = Object.freeze({ line: "直線", parabola: "拋物線", circular: "圓弧", other: "其他曲線" });
   const CASES = Object.freeze([
-    { vx: 4, ax: 0, vy: -4, ay: 0, motions: ["uniform", "uniform"], trajectory: "line", explanation: "兩方向的等時位移都相等，合運動沿直線勻速前進。" },
+    { vx: 4, ax: 0, vy: -4, ay: 0, motions: ["uniform", "uniform"], trajectory: "line", explanation: "水平和垂直的球影各自等距，表示兩個分運動均為勻速。合運動沿右下方的直線勻速前進。" },
     { vx: 4, ax: 0, vy: 0, ay: -10, motions: ["uniform", "accelerating"], trajectory: "parabola", explanation: "水平勻速，垂直由靜止自由落體，合成平拋的拋物線；本題取 g = 10 m/s²，忽略空氣阻力。" },
-    { vx: 0, ax: 10, vy: -4, ay: 0, motions: ["accelerating", "uniform"], trajectory: "parabola", explanation: "水平勻加速，垂直勻速，合成向右彎的拋物線；水平加速不是自由落體。" },
+    { vx: 0, ax: 10, vy: -4, ay: 0, motions: ["accelerating", "uniform"], trajectory: "parabola", explanation: "水平由靜止向右勻加速，垂直向下勻速，合運動的軌跡是向右彎的拋物線。" },
     { vx: 0, ax: 10, vy: 0, ay: -10, motions: ["accelerating", "accelerating"], trajectory: "line", explanation: "兩方向由靜止勻加速，且加速度大小相同，所以位置始終滿足 y = −x。軌跡是直線，等時球影間距卻逐段增大。" }
   ].map(c => Object.freeze({ ...c, motions: Object.freeze(c.motions) })));
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));

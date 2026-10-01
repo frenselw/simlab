@@ -360,17 +360,106 @@ async function touch(cdp,base,label,width,fresh){
  for(const lock of ['review','frozen','committed']){await navigate(cdp,base,{fixture:durableDraft(s),embedded:true});await click(cdp,'#checkButton',true);if(lock==='frozen')await call(cdp,'w.__failFinal=true;',true);if(lock==='committed')await call(cdp,'w.__failFinish=true;',true);await click(cdp,'#submitButton',true);assert.equal(await mode(cdp,true),lock);const before=await metrics(cdp,true),p=await target(cdp,0,0,true);await dragTouch(cdp,p,{x:p.x,y:p.y+40});const after=await metrics(cdp,true);fixed(before,after,'host',`${label} lock ${lock}`);assert.ok(Math.abs(after.host.y-before.host.y)>5);report.push({lock,before,after});}
  return report;
 }
+function hostTopologyServer(directory){
+ const server=createServer(directory),serve=server.listeners('request')[0];server.removeAllListeners('request');
+ server.on('request',(request,response)=>{
+  const url=new URL(request.url,'http://127.0.0.1');
+  if(!['/__motion-host.html','/__motion-shell.html'].includes(url.pathname)){serve(request,response);return;}
+  const src=url.searchParams.get('src'),topology=url.searchParams.get('topology');
+  if(!src||!src.startsWith(`/${slug}/index.html?`)){response.writeHead(400).end('Invalid activity source');return;}
+  const inner=url.pathname==='/__motion-shell.html',nested=topology==='nested',container=topology==='container';
+  const frameSrc=nested&&!inner?`/__motion-shell.html?src=${encodeURIComponent(src)}`:src;
+  const html=`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>html,body{margin:0;${inner||container?'height:100%;overflow:hidden;':''}}#host{${container?'height:100dvh;overflow-y:auto;':''}}iframe{display:block;border:0;width:100%;height:600px}.spacer{height:300px}.after{height:1200px}</style>${inner?'':'<div id="host"><div class="spacer"></div>'}<iframe id="${nested&&!inner?'shell':'activity'}" title="Moodle-like activity"></iframe>${inner?'':'<div class="after"></div></div>'}<script>document.querySelector('iframe').src=${JSON.stringify(frameSrc)};<\/script>`;
+  response.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}).end(html);
+ });return server;
+}
+const hostCall=(cdp,code)=>evaluate(cdp,`(()=>{const shell=document.getElementById('shell')?.contentWindow||window,w=shell.document.getElementById('activity').contentWindow,d=w.document;${code}})()`);
+async function hostMetrics(cdp){
+ return hostCall(cdp,`const a=w.__motionComposition,p=d.getElementById('controlPanel'),s=d.getElementById('stage').getBoundingClientRect(),v=w.visualViewport,parents=[];let child=w;while(child.parent!==child){const owner=child.parent,f=child.frameElement.getBoundingClientRect(),h=owner.document.getElementById('host'),vv=owner.visualViewport;parents.push({doc:[owner.scrollX,owner.scrollY],range:owner.document.scrollingElement.scrollHeight-owner.innerHeight,container:h?[h.scrollTop,h.scrollHeight-h.clientHeight]:null,frame:[f.x,f.y,f.width,f.height],view:[vv.offsetLeft,vv.offsetTop,vv.pageLeft,vv.pageTop,vv.width,vv.height]});child=owner;}return {answer:a.getState(),selection:a.getSelection(),pointer:a.getPointerDiagnostics(),doc:[w.scrollX,w.scrollY],range:d.scrollingElement.scrollHeight-w.innerHeight,stage:[s.x,s.y,s.width,s.height],panel:p.scrollTop,panelRange:p.scrollHeight-p.clientHeight,view:[v.offsetLeft,v.offsetTop,v.pageLeft,v.pageTop,v.width,v.height],parents};`);
+}
+function hostOwnership(before,after,owner,label,time=before.selection.time){
+ assert.deepEqual(after.doc,before.doc,`${label}: activity document`);assert.ok(after.range<=1,`${label}: bounded activity`);assert.deepEqual(after.stage,before.stage,`${label}: local stage`);assert.deepEqual(after.view,before.view,`${label}: activity viewport`);
+ assert.deepEqual(after.selection,{...before.selection,time},`${label}: selection`);
+ if(owner!=='panel')assert.equal(after.panel,before.panel,`${label}: sibling panel`);
+ if(owner!=='host')assert.deepEqual(after.parents,before.parents,`${label}: enclosing host/frame/viewport`);
+ if(owner!=='drag')assert.deepEqual(after.answer,before.answer,`${label}: answers`);
+}
+async function hostPanPoint(cdp,region){
+ return hostCall(cdp,`const e=d.getElementById(${JSON.stringify(region==='panel'?'controlPanel':'stage')}),r=e.getBoundingClientRect();let x=${region==='left'?'12':region==='right'?'r.width-12':'r.width*.5'},y=r.height*.65;const hit=d.elementFromPoint(r.x+x,r.y+y);if(hit?.closest('.point-handle')){x=36;y=r.height*.65;}let point={x:r.x+x,y:r.y+y},child=w;while(child.parent!==child){const f=child.frameElement.getBoundingClientRect();point.x+=f.x;point.y+=f.y;child=child.parent;}return point;`);
+}
+async function hostTopologies(cdp,base,label,fresh){
+ const report=[];
+ for(const width of [390,320])for(const topology of ['document','container','nested']){
+  cdp=await fresh();await viewport(cdp,width,600);const fixture=durableDraft(filled());
+  const src=`/${slug}/index.html?__fixture=${encodeURIComponent(JSON.stringify(fixture))}`;
+  const navigateHost=async()=>{
+   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+   await cdp.send('Page.navigate',{url:`${base}/__motion-host.html?topology=${topology}&src=${encodeURIComponent(src)}`});
+   for(let n=0;n<150;n++){try{if(await hostCall(cdp,'return d.readyState===\'complete\'&&Boolean(w.__motionComposition);'))return;}catch(_){}await delay(30);}throw new Error('Host topology did not initialize');
+  };
+  const reset=async(panel='middle')=>{
+   await evaluate(cdp,topology==='container'?"document.getElementById('host').scrollTop=300":"scrollTo(0,300)");
+   await hostCall(cdp,`const p=d.getElementById('controlPanel');p.scrollTop=${panel==='top'?'0':panel==='bottom'?'p.scrollHeight':'(p.scrollHeight-p.clientHeight)/2'};`);await delay(100);
+  };
+  await navigateHost();const gestures=[];
+  for(const region of ['blank','left','right'])for(const direction of [-1,1]){
+   await reset();const before=await hostMetrics(cdp),start=await hostPanPoint(cdp,region);
+   await dragTouch(cdp,start,{x:start.x,y:start.y+direction*45});const after=await hostMetrics(cdp),name=`${label}/${width}/${topology}/${region}/${direction}`;
+   hostOwnership(before,after,'host',name);assert.equal(after.pointer.downs,before.pointer.downs,`${name}: blank regions never start a drag`);
+   const last=before.parents.length-1;
+   before.parents.forEach((p,i)=>{const q=after.parents[i];if(i!==last||topology==='container')assert.deepEqual(q.doc,p.doc,`${name}: non-owner host document`);if(p.container&&(i!==last||topology!=='container'))assert.equal(q.container[0],p.container[0],`${name}: non-owner host container`);});
+   const movement=topology==='container'?after.parents[last].container[0]-before.parents[last].container[0]:after.parents[last].doc[1]-before.parents[last].doc[1];
+   assert.ok(movement*direction<-5,`${name}: actual enclosing ${topology} scrolls in the requested direction`);gestures.push({region,direction,before,after});
+  }
+  for(const position of ['middle','top','bottom'])for(const direction of [-1,1]){
+   await reset(position);const before=await hostMetrics(cdp),start=await hostPanPoint(cdp,'panel');
+   await dragTouch(cdp,start,{x:start.x,y:start.y+direction*45});const after=await hostMetrics(cdp),name=`${label}/${width}/${topology}/panel/${position}/${direction}`;
+   hostOwnership(before,after,'panel',name);
+   if(position==='middle')assert.ok((after.panel-before.panel)*direction<-5,`${name}: native panel scroll`);
+   if(position==='top'&&direction>0||position==='bottom'&&direction<0)assert.ok(Math.abs(after.panel-before.panel)<=1,`${name}: panel boundary stays within one-pixel rounding; host remains fixed`);
+   gestures.push({region:'panel',position,direction,before,after});
+  }
+  for(const slot of [4,3]){
+   await reset();const before=await hostMetrics(cdp),start=await hostCall(cdp,`const e=${slot===4?"d.getElementById('trayHandle4')":"d.querySelector('.active-point-handle[data-slot=\"3\"]')"},r=e.getBoundingClientRect();let p={x:r.x+r.width/2,y:r.y+r.height/2},child=w;while(child.parent!==child){const f=child.frameElement.getBoundingClientRect();p.x+=f.x;p.y+=f.y;child=child.parent;}return p;`);
+   const expected=slot===4?[3000,-3200]:[2600,-2400],end=await hostCall(cdp,`const l=w.__motionComposition.getGeometry(),r=d.getElementById('stage').getBoundingClientRect(),t=w.MotionCompositionModel.pixel(${JSON.stringify(expected)},l);let p={x:r.x+t.x,y:r.y+t.y},child=w;while(child.parent!==child){const f=child.frameElement.getBoundingClientRect();p.x+=f.x;p.y+=f.y;child=child.parent;}return p;`);
+   await dragTouch(cdp,start,end);const after=await hostMetrics(cdp),name=`${label}/${width}/${topology}/direct-t${slot}`;
+   hostOwnership(before,after,'drag',name,slot);assert.deepEqual(after.answer.cases[0].points[slot-1],expected);assert.ok(after.pointer.trustedTouch>before.pointer.trustedTouch);
+   for(let i=0;i<4;i++)for(let j=0;j<4;j++)if(i!==0||j!==slot-1)assert.deepEqual(after.answer.cases[i].points[j],before.answer.cases[i].points[j]);gestures.push({region:'ball',slot,before,after});
+  }
+  report.push({width,topology,gestures});
+ }
+ return report;
+}
+async function feedbackReadability(cdp,base,label){
+ const report=[],partial=P.fresh();partial.cases[0]={observed:true,motions:['uniform','accelerating'],trajectory:'circular',points:[[800,-1000],null,[2400,-2400],[3200,-3200]]};
+ for(const [width,height] of [[1024,768],[390,600],[320,225]])for(const [kind,state] of [['blank',P.fresh()],['partial',partial],['correct',filled()]]){
+  await viewport(cdp,width,height);await navigate(cdp,base,{fixture:finishedData(state)});
+  const evidence=await call(cdp,`const p=d.getElementById('controlPanel'),table=d.querySelector('.feedback-table'),rows=[...table.querySelectorAll('tbody tr')].map(r=>({text:r.innerText,checks:[...r.querySelectorAll('.position-check span')].map(e=>e.textContent)}));return {mode:w.__motionComposition.getMode(),text:d.getElementById('feedback').innerText,score:w.__motionComposition.getResult().score,rows,choices:[...d.querySelectorAll('.feedback-choices li')].map(e=>e.innerText),panelOverflow:p.scrollWidth-p.clientWidth,tableOverflow:table.scrollWidth-table.clientWidth,documentOverflow:d.documentElement.scrollWidth-w.innerWidth,oldTableHeading:table.tHead.innerText};`);
+  assert.equal(evidence.mode,'review');assert.equal(evidence.panelOverflow,0);assert.equal(evidence.tableOverflow,0);assert.equal(evidence.documentOverflow,0);assert.ok(evidence.oldTableHeading.includes('位置檢查')&&!evidence.oldTableHeading.includes('分量'));
+  if(kind==='correct'){assert.equal(evidence.score,100);assert.ok(evidence.rows.every(r=>r.checks.join('|')==='水平：正確|垂直：正確'));assert.ok(!evidence.text.includes('參考位置'));}
+  if(kind==='blank'){assert.equal(evidence.score,0);assert.ok(evidence.rows.every(r=>r.checks.join('|')==='水平：未放置|垂直：未放置'));assert.ok(evidence.choices.every(text=>text.includes('未作答')&&text.includes('正確答案')));}
+  if(kind==='partial'){assert.deepEqual(evidence.rows[0].checks,['水平：正確','垂直：需修正']);assert.deepEqual(evidence.rows[1].checks,['水平：未放置','垂直：未放置']);assert.ok(evidence.choices[1].includes('勻加速直線運動（需要修正）')&&evidence.choices[1].includes('正確答案：勻速直線運動'));assert.ok(evidence.choices[2].includes('圓弧（需要修正）')&&evidence.choices[2].includes('正確答案：直線'));}
+  await call(cdp,"d.getElementById('controlPanel').scrollTop=d.querySelector('.feedback-table').offsetTop-20;");await delay(50);
+  if(kind==='partial')await screenshot(cdp,`${label}-feedback-${width}-${height}`);
+  report.push({width,height,kind,evidence});
+ }
+ return report;
+}
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,targetId,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},playbackReadability:{},shortReferenceReadability:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},playbackReadability:{},shortReferenceReadability:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},feedback:{},hostTopologies:{},errors:[]},focused=process.argv.includes('--feedback-scroll-only');
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-motion-package-',packageNamePattern:/^simlab-motion-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'));
   profile=fs.mkdtempSync(path.join(tempRoot,'simlab-motion-chrome-'));chrome=spawn(browser,['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','about:blank'],{stdio:['ignore','ignore','pipe']});let stderr='';chrome.stderr.on('data',b=>stderr=(stderr+b).slice(-3000));const port=await devToolsPort(profile,chrome).catch(e=>{e.message+=stderr;throw e;});
   async function fresh(){if(cdp){await cdp.send('Target.closeTarget',{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');await preload(cdp);cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));return cdp;}
   await fresh();report.browser=await cdp.send('Browser.getVersion');
-  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.playbackReadability[label]=await playbackReadability(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);report.shortReferenceReadability[label]=await shortReferenceReadability(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
-  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':'report.json'),JSON.stringify(report,null,2));
+  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){
+   const server=hostTopologyServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();
+   if(!focused){console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.playbackReadability[label]=await playbackReadability(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);report.shortReferenceReadability[label]=await shortReferenceReadability(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
+   await fresh();console.log(`motion composition: ${label} feedback`);report.feedback[label]=await feedbackReadability(cdp,base,label);console.log(`motion composition: ${label} enclosing host topologies`);report.hostTopologies[label]=await hostTopologies(cdp,base,label,fresh);
+  }
+  assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,focused?'feedback-scroll-report.json':process.argv.includes('--smoke')?'smoke-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp){report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__motionComposition?.getMode(),state:w.__motionComposition?.getState()};})()").catch(()=>null);await screenshot(cdp,'failure').catch(()=>{});}fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-motion-(?:chrome|package)-[A-Za-z0-9]+$/,'motion test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
  if(failure)throw failure;console.log('motion composition source/package browser checks passed');
