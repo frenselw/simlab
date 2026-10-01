@@ -2,7 +2,7 @@
 
 日期：2026-10-01；R04 控制面板追修完成於2026-10-02。狀態：**R01–R12 已實作；另完成 R13/R14 隱藏 document range 修復。本機可信輸入及學科回歸已執行，repo checks、19新packages及逐byte核對已完成；2026-10-02 R04追加追修、32個本機案例及追修後全repo gates亦通過；實際 Moodle／手機 T4 待驗。**
 
-本計劃在 `codex/mobile-scroll-audit` 執行，worktree 為 `/Users/hangwong/.codex/worktrees/mobile-scroll-audit/simlab`，起點為本機 `main` 的 `0bb873c8d7eb53ae2714fd100f453f8666ba2a94`。本輪所有修復都在此 worktree。核對時 main 已到 `6d50d4c149bed5d8d93d5d17833f5e6af7c4da85` 並加入 motion-composition 活動；本計劃覆蓋起點的19個活動，整合最新 main 後再跑 catalogue／package／registered tests。
+本計劃在 `codex/mobile-scroll-audit` 執行，worktree 為 `/Users/hangwong/.codex/worktrees/mobile-scroll-audit/simlab`，起點為本機 `main` 的 `0bb873c8d7eb53ae2714fd100f453f8666ba2a94`。本輪所有修復都在此 worktree。核對時 main 已到 `6d50d4c149bed5d8d93d5d17833f5e6af7c4da85` 並加入 motion-composition 活動；本計劃覆蓋起點的19個活動；其後與最新 main 的20活動整合、衝突處理及重跑證據另見[2026-10-02 合併記錄](../docs/mobile-scroll-main-merge-2026-10-02.md)。
 
 [審查報告](../docs/mobile-scroll-audit-2026-10-01.md)保存症狀、原碼位置及已執行的 source／SCORM 證據。[製作指引的手勢契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)是共用規則的唯一來源；本計劃記錄修復範圍、活動差異、執行順序及驗收案例。各活動原有學科模型、assessment risk、rubric、依賴、權威 snapshot schema 及版本政策繼續由其原活動計劃擁有。
 

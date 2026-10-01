@@ -2,9 +2,9 @@
 
 日期：2026-10-01。分支：`codex/mobile-scroll-audit`。Main 起點：`0bb873c8d7eb53ae2714fd100f453f8666ba2a94`。Worktree：`/Users/hangwong/.codex/worktrees/mobile-scroll-audit/simlab`。
 
-**首輪 R01–R12 已實作，另完成 R13/R14 的隱藏 document range 修復。全目錄本機可信輸入矩陣及逐活動回歸已執行；repo checks、19個新 ZIP／manifest 逐 byte 核對已完成。實際 Moodle／iPhone／Android 驗收仍待 T4。** R04控制面板的後續故障、追修及新增證據見下節。 本輪修復均在此 worktree 寫入，沒有在原 checkout 寫檔或切換分支。
+**首輪 R01–R12 已實作，另完成 R13/R14 的隱藏 document range 修復。全目錄本機可信輸入矩陣及逐活動回歸已執行；repo checks、19個新 ZIP／manifest 逐 byte 核對已完成。實際 Moodle／iPhone／Android 驗收仍待 T4。** R04控制面板的後續故障、追修及新增證據見下節。 上述首輪與 R04 追修均在此 worktree 寫入；其後與更新 main 的整合另見[2026-10-02 合併記錄](mobile-scroll-main-merge-2026-10-02.md)。
 
-核對時最新 main 已到 `6d50d4c149bed5d8d93d5d17833f5e6af7c4da85`，另新增 `motion-composition-stroboscopic-lab`；該並行新增活動不在本輪19活動驗收基準。整合到最新 main 後須重跑其 catalogue／package／registered tests。此記錄描述修復後程式；[原 main 審查](mobile-scroll-audit-2026-10-01.md)保留歷史故障證據，[執行計劃](../plans/mobile-scroll-repair-plan.md)與[製作指引](simulation-scorm-production-guide.md#selective-touch-gesture-ownership)記錄工作項目和共用契約。
+核對時最新 main 已到 `6d50d4c149bed5d8d93d5d17833f5e6af7c4da85`，另新增 `motion-composition-stroboscopic-lab`；該並行新增活動不在本輪19活動驗收基準。更新 main 的 catalogue／package／registered tests 與新增活動驗證另見上述合併記錄；以下保留19活動修復時的歷史範圍及來源 hash。此記錄描述修復後程式；[原 main 審查](mobile-scroll-audit-2026-10-01.md)保留歷史故障證據，[執行計劃](../plans/mobile-scroll-repair-plan.md)與[製作指引](simulation-scorm-production-guide.md#selective-touch-gesture-ownership)記錄工作項目和共用契約。
 
 ## R04 控制面板追修（2026-10-02）
 
@@ -31,9 +31,9 @@
 
 [彙整](../output/playwright/friction-panel-followup-summary.json)核對32 cases／436 entries、所有errors/issues為空、每個panel的frame/event samples及styleChanges=0，以及目前source bytes。Entries包括取消及複合連續touch案例，不能稱為436次獨立swipe。另有cache53／相同修復main.js的T2 source兩尺寸14 cases／196 entries，全通過；[該記錄](../output/playwright/friction-panel-phases-T2-source.json)的較舊asset-query digest單獨保留。
 
-已登記完整摩擦力source／package learner flow亦通過，包括桌面、320×500／390×600／600×390／768×800內嵌、真正拉力／分析／預測target、scoring、blank/partial、resume、pending／invalid states及新增連續panel案例；[log](../output/playwright/verification-logs/friction-panel-subject-workflow-final.log)。13個相關unit/helper tests及repo check已通過；[tests](../output/playwright/verification-logs/friction-panel-unit-checks.log)、[check](../output/playwright/verification-logs/friction-panel-check.log)。追修後完整 `npm test`、`npm run check`、`npm run package:all`及`git diff --check`均退出碼0；[完整tests log](../output/playwright/verification-logs/friction-panel-repo-test-final.log)、[完整check log](../output/playwright/verification-logs/friction-panel-repo-check-final.log)、[package-all log](../output/playwright/verification-logs/friction-panel-package-all-final.log)。重新建置19 ZIP／256 entries，181個唯一來源檔的manifest／runtime逐byte核對全部通過；[目前套件proof](../output/playwright/mobile-scroll-final-package-proof.json)，來源SHA256為 `63dd3a5dca3e7f7606b98d2e9451f50d722760fc2fcdb0dac167f39b1c9bff3f`。
+已登記完整摩擦力source／package learner flow亦通過，包括桌面、320×500／390×600／600×390／768×800內嵌、真正拉力／分析／預測target、scoring、blank/partial、resume、pending／invalid states及新增連續panel案例；[log](../output/playwright/verification-logs/friction-panel-subject-workflow-final.log)。13個相關unit/helper tests及repo check已通過；[tests](../output/playwright/verification-logs/friction-panel-unit-checks.log)、[check](../output/playwright/verification-logs/friction-panel-check.log)。追修後完整 `npm test`、`npm run check`、`npm run package:all`及`git diff --check`均退出碼0；[完整tests log](../output/playwright/verification-logs/friction-panel-repo-test-final.log)、[完整check log](../output/playwright/verification-logs/friction-panel-repo-check-final.log)、[package-all log](../output/playwright/verification-logs/friction-panel-package-all-final.log)。重新建置19 ZIP／256 entries，181個唯一來源檔的manifest／runtime逐byte核對全部通過；[R04追修時的19套件proof](../output/playwright/mobile-scroll-package-proof-before-main-merge.json)，來源SHA256為 `63dd3a5dca3e7f7606b98d2e9451f50d722760fc2fcdb0dac167f39b1c9bff3f`。
 
-[新版摩擦力SCORM ZIP](../output/static-kinetic-friction-investigation-lab-scorm.zip)包含14 entries，SHA256 `e363ff761fa084f0cf4b5a7f48a0727e1b90129dcc8c812b9516934c298ae314`。最末package-all的ZIP與已執行extracted-package測試為相同source bytes；stamp不同不代表不同runtime。追修前全19套件的proof與hash保存在[首輪proof](../output/playwright/mobile-scroll-package-proof-before-friction-panel-followup.json)，沒有覆寫歷史結果為新的pass。
+[R04追修時的摩擦力SCORM ZIP](../output/playwright/static-kinetic-friction-before-main-merge-scorm.zip)包含14 entries，SHA256 `e363ff761fa084f0cf4b5a7f48a0727e1b90129dcc8c812b9516934c298ae314`。最末package-all的ZIP與已執行extracted-package測試為相同source bytes；stamp不同不代表不同runtime。追修前全19套件的proof與hash保存在[首輪proof](../output/playwright/mobile-scroll-package-proof-before-friction-panel-followup.json)，沒有覆寫歷史結果為新的pass。
 
 這些是macOS Chrome 155／CDP可信觸控的本機證據；T4真實Moodle、iPhone及Android仍未執行。新ZIP須換上Moodle並重新開啟播放器作實機驗收，不能把首輪／本機pass當成部署後已修好。
 
