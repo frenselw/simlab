@@ -1,6 +1,6 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 按使用者追加要求修訂漸進頻閃、四球直接拖放及球體外觀；正在執行修訂版驗收。下文三輪舊審核及勾選項記錄850eae6的歷史證據，不能代替修訂版驗證。真實Moodle／實體手機另待部署驗收。**
+狀態：**2026-10-01 追加修訂已完成：漸進頻閃、四球直接拖放及球體外觀。本機package-ready通過；三位完整獨立再審及第四位證據彙整確認PF01–PF06全部關閉，零未處理本機問題。Runtime／tests固定於8a8095d；850eae6及其後舊輪次保留為歷史，最新證據見文末。真實Moodle／實體手機另待部署驗收。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
@@ -352,12 +352,12 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - [x] 使用者審閱本計劃；實作前確認四題、四點、連線及rubric的活動規格。
 - [x] 上述純測試、phase／restore續作、lifecycle與source／package UI／trusted-touch均通過，證據填回本文件。
 - [x] 本機手機／平板／桌面／短iframe viewports及200% CSS reflow可讀可操作；keyboard替代有效。真實工具列、native picker及裝置zoom另列部署gate；活動沒有文字輸入，無正常軟鍵盤操作。
-- [x] `npm run check`、`npm test`、`npm run package:all`、`git diff --check`及相對actual base的diff檢查通過；記錄實際命令及結果。
+- [x] 最新六套活動tests、`npm run check`、`npm run package:all`及working／actual base的diff檢查通過。Whole-repo `npm test`沿用初版已完成的歷史證據，未宣稱追加修訂後再次執行；實際命令及結果見文末。
 - [x] production packager（package-all及browser runner）產物根含`imsmanifest.xml`；逐一比對runtime引用、manifest及ZIP，無開發檔案／遺漏依賴。
 - [x] Serve實際ZIP解壓頁完成launch／空白／部分／滿分提交smoke與完整touch矩陣；源碼頁成功不能替代。
 - [x] 形成性風險已記錄；未完成的真實Moodle及裝置gate保留未勾選。
 
-- [x] 第二輪修正候選完成三位全範圍獨立再審及第四位最終closure，無未處理本機問題。
+- [x] 最新追加修訂候選完成三位全範圍獨立再審及第四位證據彙整，PF01–PF06全部Closed，無未處理本機問題；舊輪次另留歷史。
 
 ## Moodle-ready checklist
 
@@ -431,3 +431,20 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - F08僅為文檔舊句：本文件布局段落已統一粗圈＋真下標圖例＋時刻識別；手勢表已統一實際button／select／checkbox與原生鍵盤操作。修正沒有改runtime、model／rubric／schema或套件，無需重跑已通過的程式測試；最終文件closure按第四位直接核對記錄。
 - 本機證據及最終審核見[完整彙整報告](../docs/reviews/2026-10-01-motion-composition-final-review.md)。初版whole-repo`npm test`退出碼0，最終本活動全部受影響回歸、check／package-all／diff及ZIP一致性通過；沒有宣稱最終再次執行整repo。真實Moodle及實體手機gates保持未勾選。
 - 原發現者及第四位已直接核對F08文件修正並關閉；第四位最終verdict為package-ready通過，所有本機findings清零。最終完成紀錄為docs-only，runtime／tests及13檔套件維持已審核的`850eae6`。
+
+## 2026-10-01 追加修訂及完整驗收（8a8095d）
+
+本段是目前交付證據；前述850eae6與d24／951／c32／d89各輪紀錄保留為歷史，不能替代本次驗證。Runtime／tests固定於`8a8095d877ac76a5a7ed1402efbe24f845c817a9`，最後文件同步不改活動、模型、rubric、schema或套件內容。
+
+- 參考自由落體活動的漸進呈現：拍攝時兩個分運動球同步移動，每隔模型時間0.20 s留下球影；4倍慢速共3.20 s。曝光取固定模型時刻，不依賴frame數。減少動態偏好仍逐次曝光，不一次出現全部點；停止、換題或resize中斷不把未完成拍攝保存成已觀察。
+- 拍攝完成立即提供四個t₁–t₄球架入口，任意次序直接拖入圖，不需先按時刻。放置後仍可由所屬球架再拖；一般圖域亦可拖目前位置，compact使用球架及面板替代。合法放手只保存所屬點與activeTime；取消保留原答案與選擇。鍵盤、微調、3×預覽及公共grid吸附均保留。
+- 分運動、學生球、參考球與球架使用本地漸層、高光及陰影呈現球體；球心仍是精確物理位置，主圖與preview各有獨立SVG ID，沒有新增外部素材或依賴。
+- PF01軸名遮擋、PF02首球架與圖例重疊、PF03 Scope漏列animation、PF04只讀時刻驗證缺口、PF05球面遮P標籤及PF06窄compact標籤裁切均已修正並獨立關閉。小圖標籤避開球面與停泊區；右側留白不足時分成兩行，保持14px及真下標，不改球心或圖域比例。
+- Root與三位審核者各自重新執行六套活動Node tests，全部exit0。512個production encode／decode／restore及合法續作、draft／review／pending的791／818／1061 UTF-8 bytes、分量部分分、空白提交、嚴格型別及SCORM四結果契約維持通過。
+- Root完整命令`MOTION_ARTIFACT_SUFFIX=caption-final node tools/motion-composition-browser-regression.js`已完成exit0，Chrome155.0.8059.27；[原始report](../output/playwright/motion-composition-stroboscopic-lab/caption-final/report.json)的errors=[]。Source與實際重建／解壓ZIP各13個普通viewport、416個edit／合法restored-reference圖、40組播放起點／首曝光、280個短標籤狀態、5組normal／reduced等時曝光及兩種CSS reflow均通過；四情境各時刻的實際selection與只讀答案不變均有斷言。
+- 短標籤矩陣涵蓋320px寬、225／250／275／300／301px高的standalone／fluid iframe，含四題四時刻readonly及密集／部分／錯誤edit。Source／ZIP各36個短trusted-touch rows；常規source／ZIP×390／320四組各43 rows，包括兩入口、所有題時、多指取消後同頁恢復pan、圖外／lostcapture／resize及全部owner。280個preview records另核橫豎真實3×、主圖／preview／release同位置、避指、全框可見及不攔截事件。
+- 三位各自完成整條branch審核，沒有按領域分工；各自全新source／實際ZIP smoke通過。第一位另驗96個boundary native rows、16組trusted preview／release及8組301px空白／部分提交；第二位另驗12組250／300／301px可信續作。301px最初helper留下0.0625px捲動定位差異的exit1保留為歷史，未算pass；正常可信panel pan使完整44px提交掣可見，直接trusted tap成功且答案與非owner不變，沒有未處理runtime問題。
+- 最新`npm run check`及`npm run package:all`完成exit0；[package-all log](../output/motion-composition-caption-package-all.log)確認所有SCORM packages verified。Working及相對實際base的diff檢查通過。Whole-repo `npm test`僅有[初版歷史exit0](../output/motion-composition-repo-tests.log)，未重跑；本次重跑全部受影響tests及完整browser回歸，共享runtime與其他活動未修改。
+- 最終[SCORM ZIP](../output/motion-composition-stroboscopic-lab-scorm.zip)為36,713 bytes，根manifest與全部14個entries逐byte等於固定候選source，HTML的11個本地JS／CSS引用全在manifest。全部獨立build停止後固定SHA-256=`d2ad73396f1e46984dfa4321fbdafc4f7a256cf31b9e13a41bf04ca4e94d74c0`；[parity證據](../output/playwright/motion-composition-stroboscopic-lab/caption-final/package-parity.json)分開記錄package-all當輪與最後獨立重建的archive metadata hash，entry bytes一致。
+- [審核1](../docs/reviews/2026-10-01-motion-composition-progressive-review-1.md)、[審核2](../docs/reviews/2026-10-01-motion-composition-progressive-review-2.md)、[審核3](../docs/reviews/2026-10-01-motion-composition-progressive-review-3.md)均確認8a整條branch零新／未解決finding；[第四位彙整](../docs/reviews/2026-10-01-motion-composition-progressive-final-review.md)另直接核raw資料、原反例／新實圖與最終ZIP後確認PF01–PF06全部Closed，本機package-ready PASS。
+- 真實Moodle學生attempt、實體手機、原生picker／browser工具列／裝置zoom與正式player拓撲仍未驗；Moodle-ready checklist保持未勾選。本機Chrome／CDP與fake-LMS證據不取代外部部署gate。
