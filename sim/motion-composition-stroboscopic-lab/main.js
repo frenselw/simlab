@@ -1,0 +1,205 @@
+(function () {
+  "use strict";
+  const M=MotionCompositionModel, P=MotionCompositionPersistence, Scene=MotionCompositionScene;
+  const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
+  let layout, drag=null, keyboard=null, reference=false, compareAxis=0, captureCase=null;
+  let animationView={kind:'idle',time:null,stamps:0,active:false};
+  const trays=[1,2,3,4].map(i=>d[`trayHandle${i}`]);
+  const points=[d.activeHandle,d.pointHandle2,d.pointHandle3,d.pointHandle4];
+  let blockedTouchSequence=false;
+  const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0,previews:0};
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const c=new MotionCompositionRuntime.Controller(SimScorm,SimActivityFlow,render);
+  const editable=()=>c.mode==='edit', current=()=>c.state?.cases[c.caseIndex], timeIndex=()=>drag?.time||keyboard?.time||c.timeIndex, saved=()=>current()?.points[timeIndex()-1]??null;
+  const motion=MotionCompositionAnimation.createController({
+    onUpdate(view){animationView=view;if(c.state){playbackLabel();renderStage();}},
+    onComplete(view){if(view.kind==='capture'&&editable()&&c.caseIndex===captureCase&&!current().observed){c.command({type:'observe'});announce('頻閃圖完成，可直接拖入四個時刻的球。');}playbackLabel();}
+  });
+  const working=()=>drag?.working||keyboard?.point||null;
+  const announce=text=>{d.liveRegion.textContent=text;};
+  const timeHTML=i=>`<var>t</var><sub>${i}</sub>`;
+  function playbackLabel(){
+    d.playButton.textContent=animationView.active?'停止播放':reference&&c.trusted?'播放參考合運動':current()?.observed?'重播分運動':'播放分運動';
+    d.observeButton.textContent=animationView.kind==='capture'&&animationView.active?'拍攝中…':current()?.observed?'重播頻閃圖':'拍攝頻閃圖';
+    d.observeButton.disabled=Boolean(animationView.kind==='capture'&&animationView.active);
+  }
+  function stop(){captureCase=null;motion.cancel();playbackLabel();}
+  function hidePreview(){d.magnifier.hidden=true;d.magnifierSvg.replaceChildren();d.previewValues.textContent='';}
+  function cancel(interrupted=false){
+    const old=drag;drag=null;keyboard=null;hidePreview();
+    if(old){if(interrupted)diagnostics.cancels++;try{if(old.element.hasPointerCapture(old.id))old.element.releasePointerCapture(old.id);}catch(_){/* Detached document. */}}
+  }
+  function command(action){const time=timeIndex();cancel();stop();if(action.type==='remove'&&c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command(action);}
+  function navigate(index,time=1){cancel();stop();c.navigate(index,time);}
+  function enterCheck(){cancel();stop();c.check();d.controlPanel.scrollTop=0;}
+  function render(){
+    const scroll=d.controlPanel.scrollTop, focus=document.activeElement, focusKey=focus?.dataset.case!=null?`[data-case="${focus.dataset.case}"]`:focus?.dataset.time!=null?`[data-time="${focus.dataset.time}"]`:null;
+    d.attemptStatus.textContent=c.mode==='review'?(SimScorm.isStandalone()?'練習結果':'已提交'):c.mode==='check'?'檢查中':c.mode==='frozen'?'待確認':c.mode==='committed'?'已記錄':['technical','mismatch'].includes(c.mode)?'技術狀態':'作答中';
+    d.notice.hidden=!c.notice;d.notice.textContent=c.notice;d.saveRetryButton.hidden=!c.unsaved||!c.editable;
+    d.checkButton.hidden=!c.editable;d.editPanel.hidden=!editable();d.checkPanel.hidden=c.mode!=='check';
+    d.reviewPanel.hidden=!['review','committed','frozen','mismatch'].includes(c.mode);d.technicalPanel.hidden=c.mode!=='technical';
+    d.questionIntro.hidden=!c.state||c.mode==='check'||['technical','mismatch'].includes(c.mode);
+    d.questionNav.replaceChildren();
+    if(c.state){
+      for(let i=0;i<4;i++){const p=M.progress(c.state.cases[i]),b=document.createElement('button');b.type='button';b.dataset.case=String(i);b.dataset.progress=p.complete?'complete':p.started?'partial':'empty';b.innerHTML=`${i+1}<small>${p.count}/7</small>`;b.setAttribute('aria-label',`情境${i+1}，已答${p.count}/7項`);if(i===c.caseIndex)b.setAttribute('aria-current','step');b.disabled=['technical','mismatch'].includes(c.mode);b.onclick=()=>{navigate(i);d.controlPanel.scrollTop=0;};d.questionNav.append(b);}
+      d.questionKicker.textContent=`情境 ${c.caseIndex+1} · 等時頻閃`;
+      d.observeButton.hidden=!editable();
+      playbackLabel();d.playButton.disabled=['frozen','committed'].includes(c.mode);
+      d.timeNav.replaceChildren();for(let i=1;i<=4;i++){const b=document.createElement('button');b.type='button';b.dataset.time=String(i);b.innerHTML=timeHTML(i);b.setAttribute('aria-label',`時刻${i}，${(i*M.DT).toFixed(2)}秒，${current().points[i-1]?'已放置':'未放置'}`);if(i===timeIndex())b.setAttribute('aria-current','step');b.onclick=()=>navigate(c.caseIndex,i);d.timeNav.append(b);}
+      d.horizontalMotion.value=current().motions[0]??'';d.verticalMotion.value=current().motions[1]??'';d.trajectorySelect.value=current().trajectory??'';
+      d.placeHint.textContent=current().observed?'直接拖入圖旁的四個球；每小格0.20 m。已放球可再拖以修改。':'先拍攝頻閃圖，再拖入四個時刻的球。';
+      const p=M.progress(current());d.stepProgress.textContent=`位置 ${p.points}/4 · 分運動 ${p.types}/2 · 軌跡${p.trajectory?'已選':'未選'}`;
+      d.nextCaseButton.textContent=c.caseIndex<3?'下一題':'檢查作答';
+      d.clearCaseButton.disabled=p.count===0;d.returnCheckButton.hidden=!c.state.returnToCheck;
+      renderComparison();
+    }
+    if(c.mode==='check'){
+      d.checkList.replaceChildren();for(let i=0;i<4;i++){const p=M.progress(c.state.cases[i]),row=document.createElement('div');row.className='check-row';const b=document.createElement('button');b.innerHTML=`情境 ${i+1}<small>位置 ${p.points}/4 · 分運動 ${p.types}/2 · 軌跡${p.trajectory?'已選':'未選'}</small>`;b.onclick=()=>{navigate(i);d.controlPanel.scrollTop=0;};row.append(b);d.checkList.append(row);}d.submitButton.disabled=c.unsaved;
+    }
+    if(!d.reviewPanel.hidden){
+      d.reviewTitle.textContent=c.mode==='frozen'?'提交尚未確認':c.mode==='committed'?'成績已記錄':c.mode==='mismatch'?'記錄未能核對':'作答結果';
+      d.scorePanel.innerHTML=c.result?`<strong>${c.result.score===null?'--':c.result.score} / 100</strong><p>${SimActivityFlow.completionLabel(c.result.passed)}</p>`:'<p>答案已凍結，成績尚未確認。</p>';
+      d.retryFinalButton.hidden=!['frozen','committed'].includes(c.mode);d.retryFinalButton.textContent=c.mode==='committed'?'重試完成程序':'重試同一份提交';d.referenceButton.hidden=!c.trusted;d.referenceButton.textContent=reference?'返回你的作圖':'顯示參考作圖';
+      d.feedback.innerHTML='';if(c.trusted&&current())renderFeedback();
+    }
+    renderStage();if(focusKey)document.querySelector(focusKey)?.focus({preventScroll:true});d.controlPanel.scrollTop=scroll;
+  }
+  function renderComparison(){
+    d.spacingHint.textContent=current().observed?'各段均0.20 s，橫條使用相同比例。':'先拍攝頻閃圖，才能比較間距。';d.showIncreases.disabled=!current().observed;
+    for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.setAttribute('aria-pressed',String(Number(b.dataset.compareAxis)===compareAxis));
+    d.spacingBars.replaceChildren();if(!current().observed)return;
+    const gaps=M.gaps(c.caseIndex,compareAxis);gaps.forEach((gap,i)=>{const row=document.createElement('div');row.className='spacing-row';row.innerHTML=`<span>${i}→${i+1}</span><div class="bar-rail"><div class="gap-bar" style="width:${100*gap/1400}%;background:${compareAxis?'#b45309':'#2563eb'}"></div></div><span class="gap-value">${(gap/1000).toFixed(2)} m</span>${d.showIncreases.checked&&i>0?`<span class="increase-value">比上一段多 ${((gap-gaps[i-1])/1000).toFixed(2)} m</span>`:''}`;d.spacingBars.append(row);});
+  }
+  function renderFeedback(){
+    d.feedback.innerHTML=MotionCompositionFeedback.html(c.caseIndex,current(),c.result.detail[c.caseIndex]);
+  }
+  function renderStage(){
+    const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height,matchMedia('(min-width: 880px)').matches&&rect.height>=320);
+    d.stage.classList.toggle('compact-parking',layout.compact);
+    d.stage.classList.toggle('presentation',layout.presentation);
+    d.stageSvg.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
+    if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();for(const e of [...trays,...points])e.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
+    const tray=editable()&&current().observed,value=working()||saved(),showRef=reference&&c.trusted,time=timeIndex();
+    const animation=animationView.active?animationView.time:null,stamps=animationView.active?animationView.stamps:undefined;
+    const guides=animation!==null&&!showRef&&current().points.every(p=>p!==null);
+    d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,time,layout,{working:working(),reference:showRef,animation,stamps,guides});
+    d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(time)} = ${(time*M.DT).toFixed(2)} s`;
+    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':guides?'虛線交點：同一時刻的合運動位置':animationView.active?animationView.kind==='capture'?'移動中逐次留下球影':'分運動連續播放':!current().observed?'在操作面板拍攝頻閃圖':'拖球入圖 · 你的作圖';d.stageHint.classList.toggle('with-tray',tray);
+    const status=animationView.active?`慢速4× · ${showRef?'參考合運動':animationView.kind==='preview'?'分運動（不留球影）':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'可查看已記錄的作答及參考作圖。':current().observed?current().points.every(p=>p!==null)?'四球已放置，重播可用虛線核對位置。':'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
+    if(d.animationStatus.textContent!==status)d.animationStatus.textContent=status;
+    const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
+    trays.forEach((element,i)=>{place(element,layout.trays[i],tray);element.classList.toggle('is-placed',Boolean(current().points[i]));element.setAttribute('aria-label',`拖放時刻${i+1}，${((i+1)*M.DT).toFixed(2)}秒的合運動球，${current().points[i]?'已放置，可再拖修改':'未放置'}`);if(i+1===time)element.setAttribute('aria-current','step');else element.removeAttribute('aria-current');});
+    points.forEach((element,i)=>{
+      element.id=`pointHandle${i+1}`;
+      const point=i+1===time?value:current().points[i];
+      place(element,M.pixel(point||[0,0],layout),tray&&current().points[i]!==null);
+      element.setAttribute('aria-label',`修改t${i+1}，${point?`x=${M.format(point[0])}米，y=${M.format(point[1])}米`:''}`);
+    });
+    d.activeHandle=points[time-1];d.activeHandle.id='activeHandle';
+    for(const b of d.timeNav.children){if(Number(b.dataset.time)===time)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');}
+    d.startPlaceButton.disabled=!current().observed;d.startPlaceButton.textContent=saved()?'開始調整':'開始放置';
+    for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.disabled=!keyboard;
+    d.commitPlaceButton.disabled=!keyboard;d.cancelPlaceButton.disabled=!keyboard;d.removePointButton.disabled=!saved();
+    d.positionReadout.innerHTML=value?`<var>x</var> = ${M.format(value[0])} m · <var>y</var> = ${M.format(value[1])} m${keyboard?'（待放置）':''}`:'尚未放置';
+    const visibleStamps=stamps??(current().observed||showRef?4:0),known=M.expected(c.caseIndex).slice(0,visibleStamps).map((p,i)=>`時刻${i+1}，水平位置${M.format(p[0])}米，垂直位置${M.format(p[1])}米。`).join('');
+    d.sceneDescription.textContent=`共同原點O，水平向右、垂直向下。${known}兩個球影是分運動示意。橫豎刻度相同，向上為正y。${guides?'兩條垂直於各自坐標軸的虛線，交於目前合運動位置。':''}`;
+    if(drag?.active)preview();else hidePreview();
+  }
+  function local(event){const r=d.stage.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
+  function nearestPoint(event,fallback){
+    let time=fallback,distance=Infinity;
+    for(const element of points){if(element.hidden)continue;const r=element.getBoundingClientRect(),slot=Number(element.dataset.slot),delta=Math.hypot(event.clientX-r.left-r.width/2,event.clientY-r.top-r.height/2);if(delta<=distance){distance=delta;time=slot;}}
+    return time;
+  }
+  function down(event,element,creating,time=c.timeIndex){
+    if(!editable()||!current().observed||drag||event.isPrimary===false||event.button>0||(event.pointerType==='touch'&&blockedTouchSequence))return;cancel();stop();const p=local(event);
+    drag={id:event.pointerId,type:event.pointerType,element,creating,time,down:p,cursor:p,base:creating?null:M.pixel(current().points[time-1],layout),working:null,active:false,snap:null,resolved:false,corner:null};
+    diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;element.setPointerCapture(event.pointerId);event.preventDefault();renderStage();
+  }
+  function resolveDrag(event){
+    const p=local(event);drag.cursor=p;const dx=p.x-drag.down.x,dy=p.y-drag.down.y;
+    if(!drag.active&&Math.hypot(dx,dy)<4)return;drag.active=true;
+    const location=drag.creating?p:{x:drag.base.x+dx,y:drag.base.y+dy},resolved=M.resolve(location,layout,drag.type,drag.snap);
+    drag.resolved=Boolean(resolved);drag.working=resolved?.point||null;drag.snap=resolved?.snap||null;
+  }
+  function move(event){if(!drag||event.pointerId!==drag.id)return;event.preventDefault();diagnostics.moves++;resolveDrag(event);renderStage();}
+  function up(event){
+    if(!drag||event.pointerId!==drag.id)return;resolveDrag(event);diagnostics.ups++;const value=drag.active&&drag.resolved?drag.working:null,time=drag.time;cancel();
+    if(value){if(c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command({type:'place',point:value});announce(`已放置t${time}。`);}else renderStage();
+  }
+  function preview(){
+    if(!drag||drag.type!=='touch'||!drag.working){hidePreview();return;}
+    const fragment=Scene.svg(c.state,c.caseIndex,drag.time,layout,{working:drag.working,prefix:'preview'});
+    d.magnifierSvg.innerHTML=fragment;for(const node of d.magnifierSvg.querySelectorAll('text'))node.remove();
+    d.previewValues.innerHTML=`${timeHTML(drag.time)} · 3×<br><var>x</var> ${M.format(drag.working[0])} m<br><var>y</var> ${M.format(drag.working[1])} m`;d.magnifier.hidden=false;
+    const box=d.magnifier.getBoundingClientRect(),app=d.app.getBoundingClientRect(),stage=d.stage.getBoundingClientRect(),width=box.width,height=box.height,offset={x:stage.left-app.left,y:stage.top-app.top},cursor={x:drag.cursor.x+offset.x,y:drag.cursor.y+offset.y};
+    const inside=p=>p.x>=0&&p.y>=0&&p.x+width<=app.width&&p.y+height<=app.height,clear=p=>!(cursor.x>p.x-16&&cursor.x<p.x+width+16&&cursor.y>p.y-16&&cursor.y<p.y+height+16);
+    const corners=[{x:28,y:2},{x:layout.width-28-width,y:2},{x:2,y:2},{x:layout.width-2-width,y:2},{x:2,y:layout.height-height-2},{x:layout.width-2-width,y:layout.height-height-2}].filter(p=>p.x>=0&&p.y>=0&&p.x+width<=layout.width&&p.y+height<=layout.height).map(p=>({x:p.x+offset.x,y:p.y+offset.y}));
+    // A short split stage has no room for both the finger and the lens.
+    // Its shell sibling can use the other column without intercepting input.
+    const shellY=Math.max(2,Math.min(offset.y+2,app.height-height-2));
+    const options=corners.concat([{x:app.width-width-2,y:shellY},{x:2,y:shellY},{x:app.width-width-2,y:2},{x:2,y:2}]).filter(inside);
+    if(!drag.corner||!inside(drag.corner)||!clear(drag.corner))drag.corner=options.find(clear)||options[0]||{x:2,y:2};
+    Object.assign(d.magnifier.style,{left:`${drag.corner.x}px`,top:`${drag.corner.y}px`});
+    const focus=M.pixel(drag.working,layout),lens=d.magnifierSvg.getBoundingClientRect();
+    d.magnifierSvg.setAttribute('viewBox',`${focus.x-lens.width/6} ${focus.y-lens.height/6} ${lens.width/3} ${lens.height/3}`);diagnostics.previews++;
+  }
+  function begin(element=null,time=timeIndex()){if(!editable()||!current().observed)return;cancel();stop();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);keyboard={point:M.clone(current().points[time-1]||[0,0]),element,time};render();}
+  function adjust(direction,fine=false){if(!keyboard)return;const step=fine?10:200,p=keyboard.point;p[0]=Math.max(-400,Math.min(3600,p[0]+(direction==='right'?step:direction==='left'?-step:0)));p[1]=Math.max(-3600,Math.min(400,p[1]+(direction==='up'?step:direction==='down'?-step:0)));renderStage();}
+  function commit(){if(!keyboard)return;const p=[...keyboard.point],restoreFocus=keyboard.element,time=keyboard.time;cancel();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command({type:'place',point:p});if(restoreFocus)(d.activeHandle.hidden?trays[time-1]:d.activeHandle).focus({preventScroll:true});announce('已放置此位置。');}
+  for(const [element,creating] of [...trays.map(e=>[e,true]),...points.map(e=>[e,false])]){
+    const chosenTime=()=>Number(element.dataset.slot);
+    element.addEventListener('pointerdown',e=>down(e,element,creating,creating?chosenTime():nearestPoint(e,chosenTime())));element.addEventListener('pointermove',move);element.addEventListener('pointerup',up);
+    for(const type of ['pointercancel','lostpointercapture'])element.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel(true);renderStage();}});
+    element.addEventListener('keydown',e=>{if(!editable())return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape'){cancel();render();}else if(e.key==='Enter'&&keyboard)commit();else{if(!keyboard)begin(element,chosenTime());if(e.key.startsWith('Arrow'))adjust(e.key.slice(5).toLowerCase(),e.shiftKey);}}});
+    element.addEventListener('focusout',()=>{if(keyboard?.element===element){cancel();renderStage();}});
+  }
+  for(const id of ['horizontalMotion','verticalMotion'])d[id].innerHTML+=Object.entries(M.MOTIONS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
+  d.trajectorySelect.innerHTML+=Object.entries(M.TRAJECTORIES).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
+  d.horizontalMotion.onchange=()=>command({type:'motion',axis:0,value:d.horizontalMotion.value||null});d.verticalMotion.onchange=()=>command({type:'motion',axis:1,value:d.verticalMotion.value||null});d.trajectorySelect.onchange=()=>command({type:'trajectory',value:d.trajectorySelect.value||null});
+  d.observeButton.onclick=()=>{if(!editable()||animationView.kind==='capture'&&animationView.active)return;cancel();captureCase=c.caseIndex;motion.start('capture',reduced.matches);};d.checkButton.onclick=d.returnCheckButton.onclick=enterCheck;
+  d.nextCaseButton.onclick=()=>{if(!editable())return;if(c.caseIndex<3)navigate(c.caseIndex+1);else enterCheck();d.controlPanel.scrollTop=0;};
+  d.removePointButton.onclick=()=>command({type:'remove'});d.clearCaseButton.onclick=()=>{if(editable()&&confirm('清除此題的四個位置、兩個分運動類型及軌跡選擇？頻閃圖與其他題會保留。'))command({type:'clear'});};
+  d.backEditButton.onclick=()=>navigate(c.state.activeCase,c.state.activeTime);d.submitButton.onclick=()=>{cancel();stop();c.submit();d.controlPanel.scrollTop=0;};d.saveRetryButton.onclick=()=>c.retrySave();d.retryFinalButton.onclick=()=>{cancel();stop();c.retryFinal();};
+  d.referenceButton.onclick=()=>{cancel();stop();reference=!reference;render();};
+  d.startPlaceButton.onclick=()=>begin();d.commitPlaceButton.onclick=commit;d.cancelPlaceButton.onclick=()=>{cancel();render();};
+  for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.onclick=()=>adjust(b.dataset.adjust,d.fineStep.checked);
+  for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.onclick=()=>{compareAxis=Number(b.dataset.compareAxis);renderComparison();};d.showIncreases.onchange=renderComparison;
+  d.playButton.onclick=()=>{cancel();if(animationView.active)stop();else motion.start('preview',reduced.matches);render();};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(drag||keyboard)){cancel(true);render();}});
+  document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){blockedTouchSequence=true;cancel(true);renderStage();}},true);
+  const touches=new Map();
+  function hostScrollTargets(){
+    const targets=[];let child=window;
+    // Only ancestors of the embedding frame can own a stage pan.
+    // A fixed intermediate frame must not swallow a gesture for an outer host.
+    while(child.parent!==child){
+      try{
+        const owner=child.parent,doc=owner.document,root=doc.scrollingElement;
+        for(let node=child.frameElement?.parentElement;node;node=node.parentElement){
+          if(node===root)continue;
+          if(node.scrollHeight>node.clientHeight+1&&/^(auto|scroll|overlay)$/.test(owner.getComputedStyle(node).overflowY))targets.push({node,owner});
+        }
+        if(root&&root.scrollHeight>root.clientHeight+1&&!/^(hidden|clip)$/.test(owner.getComputedStyle(root).overflowY))targets.push({node:root,owner});
+        child=owner;
+      }catch(_){break;} // Cross-origin hosts retain native gesture handling.
+    }
+    return targets;
+  }
+  function scrollHost(targets,delta){
+    for(const {node,owner} of targets){
+      const before=node.scrollTop,next=Math.max(0,Math.min(node.scrollHeight-node.clientHeight,before+delta/(owner.visualViewport?.scale||1)));
+      if(Math.abs(next-before)<.01)continue;
+      node.scrollTo({top:next,behavior:'instant'});
+      if(Math.abs(node.scrollTop-before)>.01)return true;
+    }
+    return false;
+  }
+  document.addEventListener('touchstart',e=>{for(const t of e.changedTouches){const point=Boolean(t.target.closest?.('.point-handle')),host=d.stage.contains(t.target)&&!point;touches.set(t.identifier,{host,point,y:t.screenY,targets:host?hostScrollTargets():[]});}if(touches.size>1&&[...touches.values()].some(t=>t.point)){blockedTouchSequence=true;cancel(true);renderStage();}},{passive:true});
+  document.addEventListener('touchmove',e=>{if(blockedTouchSequence){if(e.cancelable)e.preventDefault();return;}let handled=false;for(const t of e.changedTouches){const r=touches.get(t.identifier);if(!r?.host)continue;const dy=r.y-t.screenY;r.y=t.screenY;handled=scrollHost(r.targets,dy)||handled;}if(handled&&e.cancelable)e.preventDefault();},{passive:false});
+  for(const type of ['touchend','touchcancel'])document.addEventListener(type,e=>{for(const t of e.changedTouches)touches.delete(t.identifier);if(!touches.size)blockedTouchSequence=false;},{passive:true});
+  for(const type of ['blur','resize'])window.addEventListener(type,()=>{cancel(true);stop();renderStage();});document.addEventListener('visibilitychange',()=>{if(document.hidden){cancel(true);stop();renderStage();}});reduced.addEventListener('change',()=>{cancel(true);stop();render();});
+  new ResizeObserver(()=>{if(drag||keyboard)cancel(true);if(animationView.active)stop();renderStage();}).observe(d.stage);
+  window.__motionComposition=Object.freeze({getState:()=>M.clone(c.state),getSelection:()=>({case:c.caseIndex,time:timeIndex(),reference,compareAxis}),getMode:()=>c.mode,getResult:()=>M.clone(c.result),getGeometry:()=>M.clone(layout),getAnimation:()=>motion.snapshot(),getPointerDiagnostics:()=>({...diagnostics}),getInteraction:()=>({point:M.clone(working()),time:timeIndex(),cursor:M.clone(drag?.cursor),pointerId:drag?.id??null,active:Boolean(drag?.active),blockedTouchSequence}),getSnapshot:()=>c.editable?c.draftSnapshot():M.clone(c.finalSnapshot)});
+  c.start();
+})();

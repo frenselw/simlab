@@ -18,7 +18,8 @@
     "test:browser:newtons-second-law": "node tools/newtons-second-law-browser-regression.js",
     "test:browser:force-equilibrium-advanced": "node tools/force-equilibrium-advanced-browser-regression.js",
     "test:browser:newtons-third-law": "node tools/newtons-third-law-browser-regression.js",
-    "test:browser:mobile-scroll": "node tools/mobile-scroll-browser-regression.js"
+    "test:browser:mobile-scroll": "node tools/mobile-scroll-browser-regression.js",
+    "test:browser:motion-composition": "node tools/motion-composition-browser-regression.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",

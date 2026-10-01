@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="motion-composition-stroboscopic-lab" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-MOTION-COMPOSITION-STROBOSCOPIC-LAB">
+    <organization identifier="ORG-MOTION-COMPOSITION-STROBOSCOPIC-LAB">
+      <title>運動合成：頻閃軌跡建構</title>
+      <item identifier="ITEM-MOTION-COMPOSITION-STROBOSCOPIC-LAB" identifierref="RES-MOTION-COMPOSITION-STROBOSCOPIC-LAB"><title>運動合成：頻閃軌跡建構</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-MOTION-COMPOSITION-STROBOSCOPIC-LAB" type="webcontent" adlcp:scormtype="sco" href="motion-composition-stroboscopic-lab/index.html">
+      <file href="config.js"/>
+      <file href="motion-composition-stroboscopic-lab/index.html"/>
+      <file href="shared/styles.css"/>
+      <file href="motion-composition-stroboscopic-lab/styles.css"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+      <file href="motion-composition-stroboscopic-lab/model.js"/>
+      <file href="motion-composition-stroboscopic-lab/animation.js"/>
+      <file href="motion-composition-stroboscopic-lab/scoring.js"/>
+      <file href="motion-composition-stroboscopic-lab/feedback.js"/>
+      <file href="motion-composition-stroboscopic-lab/persistence.js"/>
+      <file href="motion-composition-stroboscopic-lab/ui-runtime.js"/>
+      <file href="motion-composition-stroboscopic-lab/scene.js"/>
+      <file href="motion-composition-stroboscopic-lab/main.js"/>
+    </resource>
+  </resources>
+</manifest>

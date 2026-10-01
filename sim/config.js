@@ -1,5 +1,13 @@
 const simulationList = [
   {
+    title: "運動合成：頻閃軌跡建構",
+    folder: "motion-composition-stroboscopic-lab",
+    categories: ["Mechanics"],
+    description: "比較水平與垂直的等時頻閃，判斷分運動類型，拖放合運動位置並辨認軌跡。",
+    tags: ["physics", "mechanics", "kinematics", "motion-composition", "stroboscopic-motion", "projectile-motion", "drag-and-drop", "scorm"],
+    status: "active"
+  },
+  {
     title: "牛頓第二定律：公平測試與數據作圖",
     folder: "newtons-second-law-investigation-lab",
     categories: ["Mechanics"],
