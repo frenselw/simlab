@@ -78,7 +78,7 @@ async function observation() {
     const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
     const vv=w=>w.visualViewport?Object.fromEntries(['pageTop','pageLeft','offsetTop','offsetLeft','width','height','scale'].map(k=>[k,w.visualViewport[k]])):null;
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
-    const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp'];
+    const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();
     if(window.__kinematicsQuantitativeDebug?.state)state.quantitative=window.__kinematicsQuantitativeDebug.state();
