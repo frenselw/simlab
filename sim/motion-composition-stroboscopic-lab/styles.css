@@ -20,6 +20,7 @@ html, body { height: 100%; min-height: 0; overflow: hidden; }
 .x-key { color: var(--motion-x); }.y-key { color: var(--motion-y); }
 .point-handle { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; touch-action: none; z-index: 5; cursor: grab; }
 .point-handle:hover { border: 0; }.point-handle:focus-visible { outline-offset: -4px; }
+.active-point-handle { z-index: 4; }
 .point-tray-handle { border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
 .tray-ball { display: block; width: 24px; height: 24px; flex-shrink: 0; border: 1px solid #4c1d95; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #fff 0%, #ddd6fe 12%, #8b5cf6 38%, #6d28d9 65%, #2e1065 100%); box-shadow: 0 2px 2px #2e10652b; }
 .tray-time { font-size: 14px; line-height: 16px; color: #4c1d95; }.tray-time sub { font-size: 11px; }.placed-mark { display: none; margin-left: 2px; font-family: sans-serif; font-size: 11px; }

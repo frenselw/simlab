@@ -5,6 +5,7 @@
   let layout, drag=null, keyboard=null, reference=false, compareAxis=0, captureCase=null;
   let animationView={kind:'idle',time:null,stamps:0,active:false};
   const trays=[1,2,3,4].map(i=>d[`trayHandle${i}`]);
+  const points=[d.activeHandle,d.pointHandle2,d.pointHandle3,d.pointHandle4];
   let blockedTouchSequence=false;
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0,previews:0};
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
@@ -78,7 +79,7 @@
     const rect=d.stage.getBoundingClientRect();layout=M.layout(rect.width,rect.height);
     d.stage.classList.toggle('compact-parking',layout.compact);
     d.stageSvg.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
-    if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();for(const e of trays)e.hidden=true;d.activeHandle.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
+    if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();for(const e of [...trays,...points])e.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
     const tray=editable()&&current().observed,value=working()||saved(),showRef=reference&&c.trusted,time=timeIndex();
     const animation=animationView.active?animationView.time:null,stamps=animationView.active&&animationView.kind!=='preview'?animationView.stamps:undefined;
     d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,time,layout,{working:working(),reference:showRef,animation,stamps});
@@ -90,8 +91,13 @@
     if(d.animationStatus.textContent!==status)d.animationStatus.textContent=status;
     const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
     trays.forEach((element,i)=>{place(element,layout.trays[i],tray);element.classList.toggle('is-placed',Boolean(current().points[i]));element.setAttribute('aria-label',`拖放時刻${i+1}，${((i+1)*M.DT).toFixed(2)}秒的合運動球，${current().points[i]?'已放置，可再拖修改':'未放置'}`);if(i+1===time)element.setAttribute('aria-current','step');else element.removeAttribute('aria-current');});
-    place(d.activeHandle,M.pixel(value||[0,0],layout),!layout.compact&&editable()&&current().observed&&saved()!==null);
-    d.activeHandle.setAttribute('aria-label',`修改t${time}，${value?`x=${M.format(value[0])}米，y=${M.format(value[1])}米`:''}`);
+    points.forEach((element,i)=>{
+      element.id=`pointHandle${i+1}`;
+      const point=i+1===time?value:current().points[i];
+      place(element,M.pixel(point||[0,0],layout),tray&&current().points[i]!==null);
+      element.setAttribute('aria-label',`修改t${i+1}，${point?`x=${M.format(point[0])}米，y=${M.format(point[1])}米`:''}`);
+    });
+    d.activeHandle=points[time-1];d.activeHandle.id='activeHandle';
     for(const b of d.timeNav.children){if(Number(b.dataset.time)===time)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');}
     d.startPlaceButton.disabled=!current().observed;d.startPlaceButton.textContent=saved()?'開始調整':'開始放置';
     for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.disabled=!keyboard;
@@ -103,6 +109,11 @@
     if(drag?.active)preview();else hidePreview();
   }
   function local(event){const r=d.stage.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
+  function nearestPoint(event,fallback){
+    let time=fallback,distance=Infinity;
+    for(const element of points){if(element.hidden)continue;const r=element.getBoundingClientRect(),slot=Number(element.dataset.slot),delta=Math.hypot(event.clientX-r.left-r.width/2,event.clientY-r.top-r.height/2);if(delta<=distance){distance=delta;time=slot;}}
+    return time;
+  }
   function down(event,element,creating,time=c.timeIndex){
     if(!editable()||!current().observed||drag||event.isPrimary===false||event.button>0||(event.pointerType==='touch'&&blockedTouchSequence))return;cancel();stop();const p=local(event);
     drag={id:event.pointerId,type:event.pointerType,element,creating,time,down:p,cursor:p,base:creating?null:M.pixel(current().points[time-1],layout),working:null,active:false,snap:null,resolved:false,corner:null};
@@ -139,9 +150,9 @@
   function begin(element=null,time=timeIndex()){if(!editable()||!current().observed)return;cancel();stop();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);keyboard={point:M.clone(current().points[time-1]||[0,0]),element,time};render();}
   function adjust(direction,fine=false){if(!keyboard)return;const step=fine?10:200,p=keyboard.point;p[0]=Math.max(-400,Math.min(3600,p[0]+(direction==='right'?step:direction==='left'?-step:0)));p[1]=Math.max(-3600,Math.min(400,p[1]+(direction==='up'?step:direction==='down'?-step:0)));renderStage();}
   function commit(){if(!keyboard)return;const p=[...keyboard.point],restoreFocus=keyboard.element,time=keyboard.time;cancel();if(c.timeIndex!==time)c.navigate(c.caseIndex,time);c.command({type:'place',point:p});if(restoreFocus)(d.activeHandle.hidden?trays[time-1]:d.activeHandle).focus({preventScroll:true});announce('已放置此位置。');}
-  for(const [element,creating] of [...trays.map(e=>[e,true]),[d.activeHandle,false]]){
-    const chosenTime=()=>creating?Number(element.dataset.slot):c.timeIndex;
-    element.addEventListener('pointerdown',e=>down(e,element,creating,chosenTime()));element.addEventListener('pointermove',move);element.addEventListener('pointerup',up);
+  for(const [element,creating] of [...trays.map(e=>[e,true]),...points.map(e=>[e,false])]){
+    const chosenTime=()=>Number(element.dataset.slot);
+    element.addEventListener('pointerdown',e=>down(e,element,creating,creating?chosenTime():nearestPoint(e,chosenTime())));element.addEventListener('pointermove',move);element.addEventListener('pointerup',up);
     for(const type of ['pointercancel','lostpointercapture'])element.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel(true);renderStage();}});
     element.addEventListener('keydown',e=>{if(!editable())return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape'){cancel();render();}else if(e.key==='Enter'&&keyboard)commit();else{if(!keyboard)begin(element,chosenTime());if(e.key.startsWith('Arrow'))adjust(e.key.slice(5).toLowerCase(),e.shiftKey);}}});
     element.addEventListener('focusout',()=>{if(keyboard?.element===element){cancel();renderStage();}});

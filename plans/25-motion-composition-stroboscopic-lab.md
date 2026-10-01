@@ -1,6 +1,6 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 追加修訂已完成：漸進頻閃、四球直接拖放及球體外觀。本機package-ready通過；三位完整獨立再審及第四位證據彙整確認PF01–PF06全部關閉，零未處理本機問題。Runtime／tests固定於8a8095d；850eae6及其後舊輪次保留為歷史，最新證據見文末。真實Moodle／實體手機另待部署驗收。**
+狀態：**2026-10-01 已修正拖t₄後需先在面板選t₃的操作限制，圖內所有已放球均可直接拖。本輪依使用者指示只做必要操作檢查，未開subagents或重跑完整矩陣。8a8095d的完整package-ready／三位審核及第四位彙整是上輪歷史；最新小修及驗證見文末。真實Moodle／實體手機另待部署驗收。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
@@ -130,7 +130,7 @@ A兩方向每段位移都是0.80 m；B垂直、C水平、D兩方向的相鄰位�
 | Viewports | 320×500、390×500、390×600、390×844、手機橫向、短Moodle iframe、工具列變化、軟鍵盤及200% zoom；圖域橫豎比例始終一致 |
 | Scroll topology | Standalone及iframe使用100vh→100dvh有界shell；html/body/shell無額外可用垂直捲動。panel自己捲；空白stage及兩側留白捲enclosing page／Moodle host；沒有第三個scroll owner |
 
-四個t₁–t₄球抓手同時可直接拖入圖域，毋須先按時刻按鈕。停泊抓手是所屬時刻的操作入口，放置後保留並標示已放置，可直接再拖以修改該時刻。圖內一般只提供目前時刻的既有球抓手，避免密集球影的44px熱區互相遮蓋；極短stage只用四個停泊抓手及微調面板修改，避免圖內抓手侵入2×2停泊區。按住球只暫態選取該時刻，合法放手才保存activeTime及該點；取消回復原有選擇。選定分運動配合粗圈、Xᵢ／Yᵢ圖例及面板時刻識別。
+四個t₁–t₄球抓手同時可直接拖入圖域，毋須先按時刻按鈕。停泊抓手放置後保留並標示已放置，可直接再拖修改。圖內四個已放球各有44px透明拖拉入口，普通及compact圖域都不依賴目前選中時刻；熱區重疊時按最近球心選取，球心完全重合時取繪圖最上層的球，亦可由分開的球架指定時刻。圖內入口低於球架及兩側scroll strips，不攔截其操作。按住球只暫態選取該時刻，合法放手才保存activeTime及該點；取消回復原有選擇。選定分運動配合粗圈、Xᵢ／Yᵢ圖例及面板時刻識別。
 
 選中位置以較粗球圈及Pᵢ識別。普通圖域把Pᵢ放在附近可讀位置，避開全部球面、軸名、其他文字、球架及物理軌跡；所有球先畫，標籤後畫且不受plot裁切。compact圖域改在圖旁留白寫「所選 Pᵢ」，以所選時刻及球圈對應，避免密集球影遮住字形。右側不足50px時分成「所選」及Pᵢ兩行，向stage右邊內縮4px對齊，避免裁切或侵入球架。保持14px主字及真下標，不改球心、比例、學生答案或評分。
 
@@ -326,7 +326,7 @@ xMm, yMm = integer -400..3600（x）／-3600..400（y）
 
 以下依[完整驗證清單](../docs/simulation-scorm-production-guide.md#verification-checklists)記錄本機實跑結果；純測試、Chrome/CDP source／ZIP證據見文末，外部部署gate另列。
 
-修訂版追加決策：`animation.test.js`用可控時鐘驗0／1／2／3／4次等時曝光、減少動態逐格、延遲frame及取消後舊frame不能完成新題；browser兩路實際逐次驗曝光數／球心、未完成拍攝Moodle恢復後重新拍攝及合法放點。四球trusted-touch由activeTime=1直接抓任何slot，驗暫態時刻、合法放手僅更新所屬點與activeTime、取消不改權威資料。短viewport驗四球2×2完整熱區、同slot再拖及面板替代，不再要求已移除的圖內短抓手。新增animation.js須列入manifest並與實際ZIP逐byte比對；舊schema及512恢復矩陣仍適用。
+修訂版追加決策：`animation.test.js`用可控時鐘驗0／1／2／3／4次等時曝光、減少動態逐格、延遲frame及取消後舊frame不能完成新題；browser兩路實際逐次驗曝光數／球心、未完成拍攝Moodle恢復後重新拍攝及合法放點。四球trusted-touch由activeTime=1直接抓任何slot，驗暫態時刻、合法放手僅更新所屬點與activeTime、取消不改權威資料。短viewport驗四球2×2完整熱區、同slot再拖及面板替代；最新小修另使圖內四個已放球可直接拖。新增animation.js須列入manifest並與實際ZIP逐byte比對；舊schema及512恢復矩陣仍適用。
 
 修訂版遮擋再驗決策：以實際DOM文字、球面含描邊、HTML抓手及其內容bounds檢查軸名、圖例、時鐘及文字可讀性；不以字串存在代替可視。普通13種viewport逐四情境／四時刻及submitted reference檢查，含compact門檻上下；320×225兩種拓撲在capture及reference播放的起點／首曝光另留實際bounds與截圖。保留完整source／實際ZIP的正常及短trusted-touch矩陣。
 
@@ -348,6 +348,8 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - [x] 所有新純測試加入`tools/run-tests.js`；focused browser flow建於`tools/motion-composition-browser-regression.js`。manifest包含config、全部activity runtime及三個shared檔案，無CDN／secret／test檔；目錄metadata完整。
 
 ## Package-ready checklist
+
+本節勾選項是8a完整驗收的歷史紀錄；本輪直接拖球小修依使用者指示，只記錄文末的必要操作檢查。
 
 - [x] 使用者審閱本計劃；實作前確認四題、四點、連線及rubric的活動規格。
 - [x] 上述純測試、phase／restore續作、lifecycle與source／package UI／trusted-touch均通過，證據填回本文件。
@@ -434,7 +436,7 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 
 ## 2026-10-01 追加修訂及完整驗收（8a8095d）
 
-本段是目前交付證據；前述850eae6與d24／951／c32／d89各輪紀錄保留為歷史，不能替代本次驗證。Runtime／tests固定於`8a8095d877ac76a5a7ed1402efbe24f845c817a9`，最後文件同步不改活動、模型、rubric、schema或套件內容。
+本段是上輪8a完整驗收的歷史紀錄，所列ZIP bytes／SHA是當時產物；最新直接拖球小修及當前套件見下一節。該輪runtime／tests固定於`8a8095d877ac76a5a7ed1402efbe24f845c817a9`，文件同步不改該候選活動、模型、rubric或schema。
 
 - 參考自由落體活動的漸進呈現：拍攝時兩個分運動球同步移動，每隔模型時間0.20 s留下球影；4倍慢速共3.20 s。曝光取固定模型時刻，不依賴frame數。減少動態偏好仍逐次曝光，不一次出現全部點；停止、換題或resize中斷不把未完成拍攝保存成已觀察。
 - 拍攝完成立即提供四個t₁–t₄球架入口，任意次序直接拖入圖，不需先按時刻。放置後仍可由所屬球架再拖；一般圖域亦可拖目前位置，compact使用球架及面板替代。合法放手只保存所屬點與activeTime；取消保留原答案與選擇。鍵盤、微調、3×預覽及公共grid吸附均保留。
@@ -448,3 +450,9 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 - 最終[SCORM ZIP](../output/motion-composition-stroboscopic-lab-scorm.zip)為36,713 bytes，根manifest與全部14個entries逐byte等於固定候選source，HTML的11個本地JS／CSS引用全在manifest。全部獨立build停止後固定SHA-256=`d2ad73396f1e46984dfa4321fbdafc4f7a256cf31b9e13a41bf04ca4e94d74c0`；[parity證據](../output/playwright/motion-composition-stroboscopic-lab/caption-final/package-parity.json)分開記錄package-all當輪與最後獨立重建的archive metadata hash，entry bytes一致。
 - [審核1](../docs/reviews/2026-10-01-motion-composition-progressive-review-1.md)、[審核2](../docs/reviews/2026-10-01-motion-composition-progressive-review-2.md)、[審核3](../docs/reviews/2026-10-01-motion-composition-progressive-review-3.md)均確認8a整條branch零新／未解決finding；[第四位彙整](../docs/reviews/2026-10-01-motion-composition-progressive-final-review.md)另直接核raw資料、原反例／新實圖與最終ZIP後確認PF01–PF06全部Closed，本機package-ready PASS。
 - 真實Moodle學生attempt、實體手機、原生picker／browser工具列／裝置zoom與正式player拓撲仍未驗；Moodle-ready checklist保持未勾選。本機Chrome／CDP與fake-LMS證據不取代外部部署gate。
+
+## 2026-10-01 小修：直接拖動所有已放球
+
+- 原因：圖內只有目前時刻有拖拉入口，因此拖t₄後需先在面板選t₃。現在四個已放球都有固定DOM入口，按住哪個球便暫態選取哪個時刻，合法放手只更新該點；相鄰熱區按最近球心判定，完全重合時取繪圖最上層球。球架及scroll strips保持較高層級。
+- 依使用者指示未調用subagents、未跑全套tests／完整browser矩陣。只做JavaScript語法／diff檢查及必要重現：source桌面1024×768 mouse、source手機390×500 trusted touch、實際ZIP短畫面320×225 trusted touch，各直接拖t₄→t₃→t₄，確認不按面板、只改所抓答案、四球入口可用及提交後全部隱藏。三組共9次拖放通過，errors=[]；[基本操作紀錄](../output/playwright/motion-composition-stroboscopic-lab/direct-ball-drag/report.json)。初次檢查揭示完全重合球的選取次序，已按繪圖上層修正後通過。
+- 只重建本活動SCORM；根manifest及14個entries與當前source逐byte一致。舊完整runner同步使用compact圖內抓手，但本輪沒有執行該完整runner。物理模型、評分、schema及shared runtime未修改；上輪完整審核不冒稱為本輪重新驗收，真實Moodle／實體手機仍未驗。

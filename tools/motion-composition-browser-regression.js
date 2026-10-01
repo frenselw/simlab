@@ -280,7 +280,7 @@ async function shortTouch(cdp,base,label){
  for(const embedded of [false,true]){
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:320,height:225,deviceScaleFactor:2,mobile:false});
   async function gesture(kind,end,index,slot){
-   const layout=await call(cdp,'return w.__motionComposition.getGeometry();',embedded),row={kind,before:await metrics(cdp,embedded)},start=await rect(cdp,kind==='tray'?traySelector(slot):layout.compact?traySelector(slot):'#activeHandle',embedded);
+   const row={kind,before:await metrics(cdp,embedded)},start=await rect(cdp,kind==='tray'?traySelector(slot):'#activeHandle',embedded);
    await dragTouch(cdp,start,end,async()=>{row.preview=await previewEvidence(cdp,end,embedded);row.during=await metrics(cdp,embedded);fixed(row.before,row.during,'preview',`${label} short ${kind}/${index}/${slot}`,slot+1);assert.equal(row.preview.insideStage,false,'short stage uses an unobstructed shell corner');});
    row.after=await metrics(cdp,embedded);fixed(row.before,row.after,'drag',`${label} short release ${kind}/${index}/${slot}`,slot+1);
    const before=JSON.parse(row.before.answer),after=JSON.parse(row.after.answer);before.activeTime=slot+1;before.cases[index].points[slot]=row.preview.point;assert.deepEqual(after,before,'only the selected saved point changes');
@@ -290,7 +290,7 @@ async function shortTouch(cdp,base,label){
   for(let index=0;index<4;index++)for(let slot=0;slot<4;slot++){
    const s=P.fresh();s.activeCase=index;s.cases[index].observed=slot!==0;await navigate(cdp,base,{fixture:slot===0?false:durableDraft(s),embedded,fluid:embedded});if(slot===0){await click(cdp,`[data-case="${index}"]`,embedded);await capture(cdp,embedded);}await trayTargets(cdp,embedded);
    const tray=await gesture('tray',await target(cdp,index,slot,embedded),index,slot);assert.deepEqual(tray.preview.point,M.expected(index)[slot]);tray.diagram=await diagramLabels(cdp,embedded);
-   assert.equal(await call(cdp,"return d.getElementById('activeHandle').hidden;",embedded),true);const destination=await target(cdp,index,slot,embedded),active=await gesture('reposition',{x:destination.x+3,y:destination.y+3},index,slot);
+   assert.equal(await call(cdp,"return d.getElementById('activeHandle').hidden;",embedded),false);const destination=await target(cdp,index,slot,embedded),active=await gesture('reposition',{x:destination.x+3,y:destination.y+3},index,slot);
    if(slot===0){const before=await metrics(cdp,embedded);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchPoint(await rect(cdp,traySelector(slot),embedded))]});const end=await target(cdp,index,slot,embedded);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchPoint(end)]});await previewEvidence(cdp,end,embedded);await screenshot(cdp,`${label}-short-${embedded?'iframe':'standalone'}-preview-${index}`);await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await settled(cdp,"return d.getElementById('magnifier').hidden;",embedded,'short preview cancellation');const after=await metrics(cdp,embedded);fixed(before,after,'cancel',`${label} short cancellation ${index}`);active.cancellation={before,after};}
    report.push({embedded,index,slot,tray,active});
   }
