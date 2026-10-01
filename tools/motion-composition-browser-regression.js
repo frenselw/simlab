@@ -120,13 +120,13 @@ const overlaps=(a,b)=>Math.min(a.right,b.right)>Math.max(a.left,b.left)&&Math.mi
 async function diagramReadability(cdp,embedded=false){
  const e=await call(cdp,`const box=e=>e.getBoundingClientRect().toJSON(),ink=e=>{const r=d.createRange();r.selectNodeContents(e);return r.getBoundingClientRect().toJSON();};return {
   stage:box(d.getElementById('stage')),
-  labels:[...d.querySelectorAll('#stageSvg text')].map(e=>({text:e.textContent,axis:e.dataset.axisName||null,bounds:box(e)})),
+  labels:[...d.querySelectorAll('#stageSvg text')].map(e=>({text:e.textContent,axis:e.dataset.axisName||null,point:e.dataset.pointLabel||null,bounds:box(e)})),
   headers:['stageTime','componentLegend','stageHint'].map(id=>d.getElementById(id)).filter(e=>e.getClientRects().length&&e.textContent).map(e=>({text:e.textContent,bounds:ink(e)})),
-  balls:[...d.querySelectorAll('#stageSvg circle[data-stamp],#stageSvg circle[data-live-ball],#stageSvg circle[data-ball="origin"]')].map(e=>{const r=box(e),pad=Number(w.getComputedStyle(e).strokeWidth.replace('px',''))/2;return {ball:e.dataset.ball,slot:e.dataset.stamp||null,bounds:{left:r.left-pad,right:r.right+pad,top:r.top-pad,bottom:r.bottom+pad}};}),
+  balls:[...d.querySelectorAll('#stageSvg circle[data-ball]')].map(e=>{const r=box(e),pad=Number(w.getComputedStyle(e).strokeWidth.replace('px',''))/2;return {ball:e.dataset.ball,point:e.dataset.pointSlot||null,slot:e.dataset.stamp||null,bounds:{left:r.left-pad,right:r.right+pad,top:r.top-pad,bottom:r.bottom+pad}};}),
   trays:[...d.querySelectorAll('.point-tray-handle')].filter(e=>!e.hidden).map(e=>({slot:e.dataset.slot,bounds:box(e),parts:[...e.querySelectorAll('.tray-ball,.tray-time')].map(box)}))};`,embedded);
  for(const label of e.labels){
   const b=label.bounds,s=e.stage;assert.ok(b.left>=s.left&&b.right<=s.right&&b.top>=s.top&&b.bottom<=s.bottom,`diagram label clipped: ${JSON.stringify(label)}`);
-  if(label.axis)for(const ball of e.balls)assert.equal(overlaps(b,ball.bounds),false,`axis name covered by a sphere: ${JSON.stringify({label,ball})}`);
+  for(const ball of e.balls)if(label.point||label.axis&&!ball.point)assert.equal(overlaps(b,ball.bounds),false,`diagram label covered by a sphere: ${JSON.stringify({label,ball})}`);
  }
  for(const tray of e.trays){
   for(const b of [tray.bounds,...tray.parts])assert.ok(b.left>=e.stage.left&&b.right<=e.stage.right&&b.top>=e.stage.top&&b.bottom<=e.stage.bottom,`parking content clipped: ${JSON.stringify(tray)}`);
@@ -169,6 +169,20 @@ async function playbackReadability(cdp,base,label){
     report.push({width,height,embedded,kind,index,beginning,firstExposure});
    }
   }
+ }
+ return report;
+}
+async function shortReferenceReadability(cdp,base,label){
+ const report=[];
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:320,height:225,deviceScaleFactor:1,mobile:false});
+ for(const embedded of [false,true])for(let index=0;index<4;index++)for(let time=1;time<=4;time++){
+  const answer=filled();answer.activeCase=index;answer.activeTime=time;await navigate(cdp,base,{fixture:finishedData(answer),embedded,fluid:embedded});const before=JSON.stringify(await state(cdp,embedded));await click(cdp,'#referenceButton',embedded);
+  const diagram=await diagramLabels(cdp,embedded);assert.equal(diagram.selected.case,index);assert.equal(diagram.selected.time,time);assert.equal(diagram.selected.reference,true);assert.equal(JSON.stringify(await state(cdp,embedded)),before);
+  if(time===1&&(index===0||index===3))await screenshot(cdp,`${label}-short-${embedded?'iframe':'standalone'}-reference-${index}-t${time}`);
+  report.push({embedded,index,time,diagram});
+ }
+ for(const embedded of [false,true])for(const points of [[[200,-200],[400,-400],[600,-600],[800,-800]],[[0,0],null,[3600,-3600],null],[[2400,0],[1600,0],[0,-2400],[0,-1600]]])for(let time=1;time<=4;time++){
+  const answer=filled();answer.activeTime=time;answer.cases[0].points=points;await navigate(cdp,base,{fixture:durableDraft(answer),embedded,fluid:embedded});const before=JSON.stringify(await state(cdp,embedded)),diagram=await diagramLabels(cdp,embedded);assert.equal(diagram.selected.time,time);assert.equal(JSON.stringify(await state(cdp,embedded)),before);report.push({embedded,denseOrPartialOrWrong:true,time,diagram});
  }
  return report;
 }
@@ -346,14 +360,14 @@ async function touch(cdp,base,label,width,fresh){
 }
 async function main(){
  fs.mkdirSync(artifactDir,{recursive:true});sourceParity();const tempRoot=fs.realpathSync(os.tmpdir()),servers=[];let profile,packageDirectory,chrome,cdp,targetId,failure;
- const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},playbackReadability:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},errors:[]};
+ const report={activity:slug,engine:'Chrome/CDP trusted touch',viewports:{},observations:{},playbackReadability:{},shortReferenceReadability:{},flows:{},zoomReflow:{},shortGestures:{},gestures:{},errors:[]};
  try{
   const browser=findBrowser();assert.ok(browser,'Chrome required');const extracted=buildAndExtractPackage(tempRoot,{slug,packagePrefix:'simlab-motion-package-',packageNamePattern:/^simlab-motion-package-[A-Za-z0-9]+$/});packageDirectory=extracted.packageDirectory;
   for(const name of sourceParity().concat(`${slug}/index.html`))assert.equal(fs.readFileSync(path.join(root,'sim',name),'utf8'),fs.readFileSync(path.join(packageDirectory,name),'utf8'));
   profile=fs.mkdtempSync(path.join(tempRoot,'simlab-motion-chrome-'));chrome=spawn(browser,['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','about:blank'],{stdio:['ignore','ignore','pipe']});let stderr='';chrome.stderr.on('data',b=>stderr=(stderr+b).slice(-3000));const port=await devToolsPort(profile,chrome).catch(e=>{e.message+=stderr;throw e;});
   async function fresh(){if(cdp){await cdp.send('Target.closeTarget',{targetId});cdp.close();}const {body:t}=await fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});targetId=t.id;cdp=new CdpClient(t.webSocketDebuggerUrl,WebSocket,15000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');await preload(cdp);cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));return cdp;}
   await fresh();report.browser=await cdp.send('Browser.getVersion');
-  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.playbackReadability[label]=await playbackReadability(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
+  for(const [label,directory] of [['source',path.join(root,'sim')],['package',packageDirectory]]){const server=createServer(directory);servers.push(server);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;await fresh();console.log(`motion composition: ${label} layout/flows`);report.viewports[label]=await visual(cdp,base,label);report.observations[label]=await observation(cdp,base,label);report.playbackReadability[label]=await playbackReadability(cdp,base,label);report.flows[label]=await flows(cdp,base,label);report.zoomReflow[label]=await zoomReflow(cdp,base,label);report.shortReferenceReadability[label]=await shortReferenceReadability(cdp,base,label);console.log(`motion composition: ${label} short trusted touch`);report.shortGestures[label]=await shortTouch(cdp,base,label);if(!process.argv.includes('--smoke'))for(const width of [390,320]){await fresh();console.log(`motion composition: ${label} trusted touch ${width}`);report.gestures[`${label}-${width}`]=await touch(cdp,base,label,width,fresh);}}
   assert.deepEqual(report.errors,[]);fs.writeFileSync(path.join(artifactDir,process.argv.includes('--smoke')?'smoke-report.json':'report.json'),JSON.stringify(report,null,2));
  }catch(e){failure=e;if(cdp){report.failureUI=await evaluate(cdp,"(()=>{const w=document.getElementById('activity')?.contentWindow||window;return {text:w.document.body.innerText,mode:w.__motionComposition?.getMode(),state:w.__motionComposition?.getState()};})()").catch(()=>null);await screenshot(cdp,'failure').catch(()=>{});}fs.writeFileSync(path.join(artifactDir,'failure.json'),JSON.stringify({message:e.stack,report},null,2));}
  try{if(chrome)await stopChrome(chrome,cdp);cdp?.close();for(const server of servers)await closeServer(server);for(const dir of [profile,packageDirectory].filter(Boolean)){validateOwnedDirectory(dir,tempRoot,/^simlab-motion-(?:chrome|package)-[A-Za-z0-9]+$/,'motion test artifact');fs.rmSync(dir,{recursive:true,force:false});}}catch(e){failure ||=e;}
