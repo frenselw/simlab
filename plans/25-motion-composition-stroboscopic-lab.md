@@ -1,6 +1,6 @@
 # 運動合成：頻閃軌跡建構
 
-狀態：**2026-10-01 正在修正回饋文字及手機嵌入捲動：以完整方向名稱說明正確／需修正／未放置，空白stage轉交真正可捲動的host祖先。修正後安排兩份獨立完整branch審核及主agent跟進。分運動與頻閃重播、緊湊標題／面板、下一題、學生點不連線及四點後動態核對虛線沿用最新規格。先前小修及8a8095d的四位審核屬歷史證據；本次實際證據另列文末。真實Moodle／實體手機另待部署驗收。**
+狀態：**2026-10-01 回饋及手機嵌入捲動修正完成。Runtime候選4a62315、最後test-only修正cc85a61；兩位各自完整branch審核及獨立重驗均PASS，唯一P3容量樣本finding已Closed，零未解決問題，本機package-ready PASS。空白stage轉交真正可捲動的host祖先，panel只捲自身；分運動／頻閃區分、緊湊標題／面板、下一題、學生球不連線及四點後動態虛線保持。本次完整source／actual ZIP回歸及最終包證據見文末及匯總；真實Moodle／實體手機gate仍待部署驗收。先前小修及8a四位審核是歷史證據。**
 
 - 專用分支：`codex/motion-composition-stroboscopic-plan`。
 - 起點：`main`，`0bb873c`。
@@ -488,7 +488,9 @@ P標籤的native可讀性守衛涵蓋全部answer／reference／live／投影球
 
 ## 2026-10-01 回饋及手機host捲動：候選修正與審核
 
-- 回饋表改為「時刻／你的位置／位置檢查」，逐方向寫「正確／需修正／未放置」，選錯類型或軌跡時列「你的答案」及正解，未答另標示。只在有誤或缺漏的時刻補參考坐標；方向得分、50 mm容差及未放置0分寫明。桌面面板及標題大小維持16／20px，図內放大保持。物理公式、rubric及schema未改。
+- 回饋表改為「時刻／你的位置／位置檢查」，逐方向寫「正確／需修正／未放置」，選錯類型或軌跡時列「你的答案」及正解，未答另標示。只在有誤或缺漏的時刻補參考坐標；方向得分、50 mm容差及未放置0分寫明。桌面面板及標題大小維持16／20px，圖內放大保持。物理公式、rubric及schema未改。
 - 空白stage及scroll strips的touchmove不再無條件對直接parent呼叫scrollBy。由touchstart固定手勢歸屬與frame祖先，只在實際可捲動的host容器／document消耗位移時阻止原生事件。固定中間frame向外查找；Control Panel仍原生捲動且邊界contain，球拖放全程保持capture。
 - 七套活動Node tests及`node tools/check.js`已通過。[本次來源／實際ZIP可信觸控及回饋紀錄](../output/playwright/motion-composition-stroboscopic-lab/feedback-scroll-root/feedback-scroll-report.json)通過，errors=[]：兩路各9個回饋狀態（1024×768、390×600、320×225的空白／部分／全對），panel／table／document無水平溢出；兩路各84次trusted gestures，覆蓋390／320寬、document／外層容器／固定巢狀iframe、空白／兩側留白的雙向pan、panel中段／兩端雙向pan及直接t₄→t₃拖放。每次均核對完整答案、選擇及全部scroll／viewport／frame幾何；host pan不捲兄弟panel，panel及拖球不捲host。
-- 接下來兩位subagents各自審核從0bb873c起的整條branch，主agent匯總及修正；完整回歸、兩份審核與最終包一致性證據完成後補記。真實Moodle／實體手機驗收仍獨立，尚未宣稱Moodle-ready。
+- 兩位subagents各自審核從0bb873c起的整條branch；各自七套Node tests、check、source／actual ZIP browser smoke及追加獨立檢查通過，未發現runtime／物理／UI問題。審核1最後發現P3容量證據樣本用了較短enum：cc85a61已改用最長合法key並重跑persistence test，512續作通過，最長選項fixture為807／835／1079 bytes，均低4000；791／818／1061保留為歷史代表樣本。兩位各自直接核最後差異並獨立重跑後確認Closed，未解決問題0，本機package-ready PASS。詳見[本次匯總](../docs/reviews/2026-10-01-motion-composition-feedback-final-review.md)。
+- 主agent完整`MOTION_ARTIFACT_SUFFIX=feedback-full-root node tools/motion-composition-browser-regression.js`完成exit0，Chrome155.0.8059.27、[report](../output/playwright/motion-composition-stroboscopic-lab/feedback-full-root/report.json)的errors=[]；每路13個viewports／416普通圖、40播放、280短圖、36短可信拖放、9回饋及84三種host手勢；source／ZIP×390／320完整手勢四組各43 rows，包括全部slot、owner／非owner固定、多指及中斷回復、review／frozen／committed舊球位置pan。沒有重跑全repo tests或package-all，共享runtime／其他活動未改。
+- 全部獨立build停止後固定本活動SCORM：39,301 bytes、15 entries、12個本地JS／CSS引用全部在manifest；根manifest及全部檔案逐byte等於runtime候選4a62315，SHA-256=`c5c9fda7f547b790130e99a89dde4114bb8a0bbbd398d735220fe524ed47b6b8`，見[parity](../output/playwright/motion-composition-stroboscopic-lab/feedback-full-root/package-parity.json)。後續cc85a61只改test fixture，不改部署bytes。真實Moodle／實體手機驗收仍獨立，尚未宣稱Moodle-ready。
