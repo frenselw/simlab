@@ -49,6 +49,7 @@
       d.horizontalMotion.value=current().motions[0]??'';d.verticalMotion.value=current().motions[1]??'';d.trajectorySelect.value=current().trajectory??'';
       d.placeHint.textContent=current().observed?'直接拖入圖旁的四個球；每小格0.20 m。已放球可再拖以修改。':'先拍攝頻閃圖，再拖入四個時刻的球。';
       const p=M.progress(current());d.stepProgress.textContent=`位置 ${p.points}/4 · 分運動 ${p.types}/2 · 軌跡${p.trajectory?'已選':'未選'}`;
+      d.nextCaseButton.textContent=c.caseIndex<3?'下一題':'檢查作答';
       d.clearCaseButton.disabled=p.count===0;d.returnCheckButton.hidden=!c.state.returnToCheck;
       renderComparison();
     }
@@ -82,12 +83,12 @@
     d.stageSvg.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
     if(!c.state||['technical','mismatch'].includes(c.mode)){d.stageSvg.replaceChildren();for(const e of [...trays,...points])e.hidden=true;d.stageHint.textContent='作答資料需要檢查';d.stageTime.textContent='';return;}
     const tray=editable()&&current().observed,value=working()||saved(),showRef=reference&&c.trusted,time=timeIndex();
-    const animation=animationView.active?animationView.time:null,stamps=animationView.active&&animationView.kind!=='preview'?animationView.stamps:undefined;
+    const animation=animationView.active?animationView.time:null,stamps=animationView.active?animationView.stamps:undefined;
     const guides=animation!==null&&!showRef&&current().points.every(p=>p!==null);
     d.stageSvg.innerHTML=Scene.svg(c.state,c.caseIndex,time,layout,{working:working(),reference:showRef,animation,stamps,guides});
     d.stageTime.innerHTML=animation!==null?`<var>t</var> = ${animation.toFixed(2)} s`:`${timeHTML(time)} = ${(time*M.DT).toFixed(2)} s`;
-    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':guides?'虛線交點：同一時刻的合運動位置':animationView.active?'移動中逐次留下球影':!current().observed?'在操作面板拍攝頻閃圖':'拖球入圖 · 你的作圖';d.stageHint.classList.toggle('with-tray',tray);
-    const status=animationView.active?`慢速4× · ${animationView.kind==='preview'?'分運動預覽':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'只讀檢討，可查看已記錄的作圖。':current().observed?current().points.every(p=>p!==null)?'四球已放置，重播可用虛線核對位置。':'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
+    d.stageHint.textContent=c.mode==='frozen'?'作答已凍結':showRef?'參考軌跡':!editable()?'你的作圖':guides?'虛線交點：同一時刻的合運動位置':animationView.active?animationView.kind==='capture'?'移動中逐次留下球影':'分運動連續播放':!current().observed?'在操作面板拍攝頻閃圖':'拖球入圖 · 你的作圖';d.stageHint.classList.toggle('with-tray',tray);
+    const status=animationView.active?`慢速4× · ${showRef?'參考合運動':animationView.kind==='preview'?'分運動（不留球影）':`已記錄 ${animationView.stamps}/4 個時刻`}`:c.mode==='frozen'?'作答已凍結，等待確認。':!editable()?'只讀檢討，可查看已記錄的作圖。':current().observed?current().points.every(p=>p!==null)?'四球已放置，重播可用虛線核對位置。':'頻閃圖完成，可直接拖入四個時刻的球。':'拍攝會隨球移動逐次留下球影。';
     if(d.animationStatus.textContent!==status)d.animationStatus.textContent=status;
     const place=(element,p,visible)=>{element.hidden=!visible;if(visible){element.style.left=`${p.x}px`;element.style.top=`${p.y}px`;}};
     trays.forEach((element,i)=>{place(element,layout.trays[i],tray);element.classList.toggle('is-placed',Boolean(current().points[i]));element.setAttribute('aria-label',`拖放時刻${i+1}，${((i+1)*M.DT).toFixed(2)}秒的合運動球，${current().points[i]?'已放置，可再拖修改':'未放置'}`);if(i+1===time)element.setAttribute('aria-current','step');else element.removeAttribute('aria-current');});
@@ -160,13 +161,14 @@
   d.trajectorySelect.innerHTML+=Object.entries(M.TRAJECTORIES).map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
   d.horizontalMotion.onchange=()=>command({type:'motion',axis:0,value:d.horizontalMotion.value||null});d.verticalMotion.onchange=()=>command({type:'motion',axis:1,value:d.verticalMotion.value||null});d.trajectorySelect.onchange=()=>command({type:'trajectory',value:d.trajectorySelect.value||null});
   d.observeButton.onclick=()=>{if(!editable()||animationView.kind==='capture'&&animationView.active)return;cancel();captureCase=c.caseIndex;motion.start('capture',reduced.matches);};d.checkButton.onclick=d.returnCheckButton.onclick=enterCheck;
+  d.nextCaseButton.onclick=()=>{if(!editable())return;if(c.caseIndex<3)navigate(c.caseIndex+1);else enterCheck();d.controlPanel.scrollTop=0;};
   d.removePointButton.onclick=()=>command({type:'remove'});d.clearCaseButton.onclick=()=>{if(editable()&&confirm('清除此題的四個位置、兩個分運動類型及軌跡選擇？頻閃圖與其他題會保留。'))command({type:'clear'});};
   d.backEditButton.onclick=()=>navigate(c.state.activeCase,c.state.activeTime);d.submitButton.onclick=()=>{cancel();stop();c.submit();d.controlPanel.scrollTop=0;};d.saveRetryButton.onclick=()=>c.retrySave();d.retryFinalButton.onclick=()=>{cancel();stop();c.retryFinal();};
   d.referenceButton.onclick=()=>{cancel();stop();reference=!reference;render();};
   d.startPlaceButton.onclick=()=>begin();d.commitPlaceButton.onclick=commit;d.cancelPlaceButton.onclick=()=>{cancel();render();};
   for(const b of d.adjustDetails.querySelectorAll('[data-adjust]'))b.onclick=()=>adjust(b.dataset.adjust,d.fineStep.checked);
   for(const b of d.spacingDetails.querySelectorAll('[data-compare-axis]'))b.onclick=()=>{compareAxis=Number(b.dataset.compareAxis);renderComparison();};d.showIncreases.onchange=renderComparison;
-  d.playButton.onclick=()=>{cancel();if(animationView.active)stop();else motion.start(current().observed?'replay':'preview',reduced.matches);render();};
+  d.playButton.onclick=()=>{cancel();if(animationView.active)stop();else motion.start('preview',reduced.matches);render();};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(drag||keyboard)){cancel(true);render();}});
   document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.isPrimary===false&&drag){blockedTouchSequence=true;cancel(true);renderStage();}},true);
   const touches=new Map();

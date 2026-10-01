@@ -71,7 +71,7 @@ async function click(cdp, selector, embedded = false) {
 const traySelector=slot=>`#trayHandle${slot+1}`;
 async function capture(cdp,embedded=false){
  await click(cdp,'#observeButton',embedded);
- for(let i=0;i<180;i++){if((await state(cdp,embedded)).cases[(await call(cdp,'return w.__motionComposition.getSelection().case;',embedded))].observed)return;await delay(25);}
+ for(let i=0;i<180;i++){if(await call(cdp,"const a=w.__motionComposition,v=a.getAnimation();return v.kind==='capture'&&!v.active&&a.getState().cases[a.getSelection().case].observed;",embedded))return;await delay(25);}
  throw new Error('Progressive capture did not complete');
 }
 const state=(cdp,embedded=false)=>call(cdp,'return w.__motionComposition.getState();',embedded);
@@ -162,7 +162,7 @@ async function playbackReadability(cdp,base,label){
    for(let index=0;index<4;index++){
     await click(cdp,`[data-case="${index}"]`,embedded);await click(cdp,kind==='capture'?'#observeButton':'#playButton',embedded);
     const beginning=await diagramReadability(cdp,embedded);
-    await settled(cdp,'return w.__motionComposition.getAnimation().stamps>=1;',embedded,'first moving exposure');
+    await settled(cdp,kind==='capture'?'return w.__motionComposition.getAnimation().stamps>=1;':'return w.__motionComposition.getAnimation().time>=.2;',embedded,'first exposure or reference position');
     const firstExposure=await diagramReadability(cdp,embedded);
     if(width===320&&height===225&&index===0)await screenshot(cdp,`${label}-short-${embedded?'iframe':'standalone'}-${kind}-readability`);
     await click(cdp,'#playButton',embedded);

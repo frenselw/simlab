@@ -27,7 +27,7 @@
   </section>
   <aside id="controlPanel" class="control-panel" aria-label="操作面板">
     <p id="notice" class="notice" role="status" hidden></p><button id="saveRetryButton" class="full" hidden>重試保存</button>
-    <section id="questionIntro"><p id="questionKicker" class="kicker"></p><h2>從分運動找出合運動</h2><p class="intro">兩個球影表示同一運動的水平、垂直分量。每隔 <span class="number">0.20 s</span> 留下一個影像。</p>
+    <section id="questionIntro"><p id="questionKicker" class="kicker"></p><h2>從分運動找出合運動</h2><p class="intro">兩個球影表示同一運動的水平、垂直分量。拍攝時每隔 <span class="number">0.20 s</span> 留下一個影像。</p>
       <div class="action-row"><button id="playButton">播放分運動</button><button id="observeButton" class="primary">拍攝頻閃圖</button></div><p id="animationStatus" class="small" role="status">拍攝會隨球移動逐次留下球影。</p>
     </section>
     <section id="editPanel">
@@ -38,7 +38,7 @@
         <button id="removePointButton" class="full">刪除此時刻位置</button>
       </fieldset>
       <fieldset><legend>3 · 判斷合運動的軌跡</legend><label class="sr-only" for="trajectorySelect">合運動的軌跡</label><select id="trajectorySelect"><option value="">尚未選擇</option></select><p class="small">觀察四個球的位置，判斷軌跡。</p></fieldset>
-      <p id="stepProgress" class="small" role="status"></p><button id="returnCheckButton" class="full" hidden>返回檢查</button><button id="clearCaseButton" class="full">重置本題作答</button>
+      <p id="stepProgress" class="small" role="status"></p><button id="nextCaseButton" class="primary full">下一題</button><button id="returnCheckButton" class="full" hidden>返回檢查</button><button id="clearCaseButton" class="full">重置本題作答</button>
     </section>
     <section id="checkPanel" hidden><p class="kicker">提交前檢查</p><h2>檢查四題作答</h2><p>未答項得0分；有效部分保留分數。可以返回修改，或提交目前作答。</p><div id="checkList"></div><button id="backEditButton" class="full">返回編輯</button><button id="submitButton" class="primary full">確認提交目前作答</button></section>
     <section id="reviewPanel" hidden><h2 id="reviewTitle"></h2><div id="scorePanel"></div><button id="retryFinalButton" class="full" hidden>重試同一份提交</button><button id="referenceButton" class="full" hidden>顯示參考作圖</button><div id="feedback"></div></section>
