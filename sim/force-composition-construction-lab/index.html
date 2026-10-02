@@ -16,10 +16,11 @@
   <script src="persistence.js" defer></script>
   <script src="ui-runtime.js" defer></script>
   <script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main id="app" class="force-app" aria-busy="true">
-  <header class="app-header">
+<main id="app" class="force-app" aria-busy="true" data-sim-fullscreen-target>
+  <header class="app-header" data-sim-fullscreen>
     <div>
       <h1>力的合成作圖實驗室</h1>
       <p>平移力矢量並完成虛線輔助線或首尾相接力鏈，再畫出合力。</p>

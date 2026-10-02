@@ -29,6 +29,7 @@
       <file href="linear-motion-velocity-lab/scoring.js"/>
       <file href="linear-motion-velocity-lab/persistence.js"/>
       <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
     </resource>

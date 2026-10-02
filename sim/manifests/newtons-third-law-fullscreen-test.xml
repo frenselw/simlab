@@ -17,8 +17,8 @@
       <file href="config.js"/>
       <file href="newtons-third-law-fullscreen-test/index.html"/>
       <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
       <file href="newtons-third-law-fullscreen-test/styles.css"/>
-      <file href="newtons-third-law-fullscreen-test/fullscreen.js"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
       <file href="shared/touch-scroll.js"/>

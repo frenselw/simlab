@@ -212,3 +212,19 @@ select:disabled {
     border-bottom: 0;
   }
 }
+
+/* Shared fullscreen control; only explicitly opted-in activity headers. */
+[data-sim-fullscreen].sim-fullscreen-header { position:relative; min-height:52px; }
+[data-sim-fullscreen].sim-fullscreen-header:not(.sim-fullscreen-header-row) > :first-child { min-height:44px; padding-right:52px; }
+[data-sim-fullscreen].sim-fullscreen-header.sim-fullscreen-header-row { padding-right:56px !important; }
+[data-sim-fullscreen] > .sim-fullscreen-button { position:absolute; top:4px; right:4px; display:grid; place-items:center; width:44px; height:44px; min-height:44px; padding:0; margin:0; z-index:2; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--color-text); touch-action:pan-y; }
+[data-sim-fullscreen] > .sim-fullscreen-button:hover { background:#e8eef5; }
+[data-sim-fullscreen] > .sim-fullscreen-button[aria-pressed="true"] { color:#2563a5; }
+.sim-fullscreen-button svg { width:20px; height:20px; pointer-events:none; }
+.sim-fullscreen-button [hidden] { display:none !important; }
+[data-sim-fullscreen] > .sim-fullscreen-status { width:100%; flex-basis:100%; grid-column:1/-1; margin:.35rem 0 0; color:#92400e; font-size:.8rem; line-height:1.5; }
+[data-sim-fullscreen].sim-fullscreen-has-message { flex-wrap:wrap; }
+[data-sim-fullscreen] > p.sim-fullscreen-status:not([hidden]) { display:block; }
+.sim-fullscreen-status[hidden] { display:none !important; }
+[data-sim-fullscreen-target]:fullscreen { width:100%; height:100%; background:var(--color-app); }
+[data-sim-fullscreen-target]:-webkit-full-screen { width:100%; height:100%; background:var(--color-app); }

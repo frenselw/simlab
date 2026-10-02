@@ -41,6 +41,7 @@ Apply [layout](00-shared-platform-and-style.md#layout) and [mobile interaction](
 | Decision | Activity specification and reason |
 |---|---|
 | Three regions | Header contents and navigation placement; stage; control panel |
+| Fullscreen (mandatory) | Whole-activity main target and header markers; shared script/manifest dependency; upper-right button clearance at phone/desktop sizes. Follow the [fullscreen contract](../docs/simulation-scorm-production-guide.md#one-click-fullscreen) |
 | Desktop / tablet | Arrangement, panel width or width range, and stage/control space needed |
 | Control-panel classification | `none/short natural flow` or `bounded split-panel`; why the stage must or need not stay visible during control use |
 | Phone stage and controls | Stage track, remaining control space, and short-viewport reflow |
@@ -179,6 +180,7 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 - [ ] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
 - [ ] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
 - [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
+- [ ] Shared fullscreen button enters/exits with trusted click/tap on source and extracted SCORM, synchronizes external exits, remains reachable in review/pending, preserves answers/SCORM state, and visibly handles unsupported/denied requests; header text/navigation stay unobstructed.
 - [ ] Every phase/mode's applicable gesture rows pass with trusted input on **source and extracted SCORM** in T0–T3; record every owner's metrics, move/release samples, visual blank/overlay geometry, panel boundaries and unchanged learner work. Missing or failed acceptance cases fail the runner.
 - [ ] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.
 

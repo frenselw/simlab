@@ -1,5 +1,9 @@
 # 牛頓第三定律：全螢幕測試版
 
+> 歷史試驗紀錄：以下隔離範圍及ZIP digest記錄`ae133ba`版本。使用者其後確認
+> Firefox、Chrome及Android成功並批准全活動加入；現時改用shared controller，
+> 接入及最新驗證請看[共用rollout計劃](27-shared-fullscreen-rollout.md)。
+
 依 [新活動計劃範本](NEW-SIMULATION-PLAN-TEMPLATE.md)記錄本次複製活動的差異；
 沿用 [共用風格](00-shared-platform-and-style.md)及
 [製作指引](../docs/simulation-scorm-production-guide.md)。

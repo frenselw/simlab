@@ -56,6 +56,15 @@ function state(doc, active) {
   await appController.toggle(); assert.equal(appDoc.fullscreenElement, appDoc.app); state(appDoc, true);
   await appController.toggle(); state(appDoc, false);
 
+  const markedDoc = new Document(); native(markedDoc);
+  const markedTarget = { requestFullscreen: async function () {
+    assert.equal(this, markedTarget); markedDoc.change(this);
+  } };
+  markedDoc.querySelector = selector => selector === "[data-sim-fullscreen-target]" ? markedTarget : null;
+  const markedController = attach(markedDoc);
+  await markedController.toggle(); assert.equal(markedDoc.fullscreenElement, markedTarget);
+  await markedController.toggle(); state(markedDoc, false);
+
   let requests = 0, release;
   doc.documentElement.requestFullscreen = () => {
     requests++;

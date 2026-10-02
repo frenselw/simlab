@@ -15,10 +15,11 @@
   <script src="scoring.js" defer></script><script src="persistence.js" defer></script>
   <script src="notation.js" defer></script><script src="ui-runtime.js" defer></script>
   <script src="scene.js" defer></script><script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main id="app" class="equilibrium-app">
-  <header class="sim-header">
+<main id="app" class="equilibrium-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
     <div class="heading"><h1>共點力平衡：進階受力圖挑戰</h1><span id="attemptStatus">正在讀取作答…</span></div>
     <nav class="question-nav" aria-label="關卡導覽"><div id="questionNav"></div><button id="checkButton" type="button" aria-label="檢查作答"><span class="check-long">檢查作答</span><span class="check-short">檢查</span></button></nav>
   </header>

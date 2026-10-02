@@ -18,10 +18,11 @@
     <script src="persistence.js" defer></script>
     <script src="ui-policy.js" defer></script>
     <script src="main.js" defer></script>
-  </head>
+    <script src="../shared/fullscreen.js" defer></script>
+</head>
   <body>
-    <main class="sim-app graph-app">
-      <header class="sim-header graph-page-header">
+    <main class="sim-app graph-app" data-sim-fullscreen-target>
+      <header class="sim-header graph-page-header" data-sim-fullscreen>
         <h1>勻速與勻變速：三圖手繪挑戰</h1>
         <p>根據運動描述，畫出定性的 <var>x</var>–<var>t</var>、<var>v</var>–<var>t</var> 及 <var>a</var>–<var>t</var> 圖。</p>
         <ol id="progress" class="progress" aria-label="關卡快速導覽">

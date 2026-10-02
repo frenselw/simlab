@@ -6,10 +6,11 @@
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script defer src="../config.js"></script><script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/touch-scroll.js"></script>
   <script defer src="model.js"></script><script defer src="fitting.js"></script><script defer src="interpretation.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="graph.js"></script><script defer src="experiment.js"></script><script defer src="main.js"></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main class="newton-app" id="app">
-  <header class="sim-header">
+<main class="newton-app" id="app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
     <div class="heading"><h1>牛頓第二定律</h1><span id="attemptStatus">公平測試與數據作圖</span></div>
     <nav class="workflow" aria-label="活動步驟"><button data-phase="collect"><span class="nav-title">1 實驗</span><small class="nav-status"></small></button><button data-phase="plot"><span class="nav-title">2 作圖</span><small class="nav-status"></small></button><button data-phase="conclude"><span class="nav-title">3 歸納</span><small class="nav-status"></small></button><button id="checkButton">檢查作答</button></nav>
     <nav id="experimentNav" class="context-nav" aria-label="實驗組別"><button data-group="0"><span class="nav-title">A · 探究加速度與合外力的關係</span><small class="nav-status"></small></button><button data-group="1"><span class="nav-title">B · 探究加速度與總質量的關係</span><small class="nav-status"></small></button></nav>

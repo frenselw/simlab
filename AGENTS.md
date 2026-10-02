@@ -27,6 +27,9 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
   notation, arrows, snapping, and touch-preview decisions. Mobile layout and
   trusted-touch verification are required, including usable side scroll strips
   for free drawing; follow the production guide's gesture ownership contract.
+- Every activity must include the shared header fullscreen control. Follow the
+  production guide's [one-click fullscreen contract](docs/simulation-scorm-production-guide.md#one-click-fullscreen)
+  for target/header markers, script/manifest dependencies and verification.
 - Allow every editable stage to reach check-and-submit with blank or partial
   answers. Preserve earned partial credit, score untouched attempts zero, and
   require explicit final submission. Recorded attempts are review-only; neither

@@ -18,6 +18,7 @@
     "test:browser:newtons-second-law": "node tools/newtons-second-law-browser-regression.js",
     "test:browser:force-equilibrium-advanced": "node tools/force-equilibrium-advanced-browser-regression.js",
     "test:browser:newtons-third-law": "node tools/newtons-third-law-browser-regression.js",
+    "test:browser:fullscreen-rollout": "node tools/fullscreen-rollout-browser-regression.js",
     "test:browser:fullscreen": "node tools/scorm-fullscreen-browser-regression.js",
     "test:browser:mobile-scroll": "node tools/mobile-scroll-browser-regression.js",
     "test:browser:motion-composition": "node tools/motion-composition-browser-regression.js"

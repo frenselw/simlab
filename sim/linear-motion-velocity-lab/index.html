@@ -16,10 +16,11 @@
     <script src="scoring.js" defer></script>
     <script src="persistence.js" defer></script>
     <script src="main.js" defer></script>
-  </head>
+    <script src="../shared/fullscreen.js" defer></script>
+</head>
   <body>
-    <main class="sim-app motion-app">
-      <header class="sim-header motion-header">
+    <main class="sim-app motion-app" data-sim-fullscreen-target>
+      <header class="sim-header motion-header" data-sim-fullscreen>
         <div>
           <h1>直線運動：平均速度與瞬時速度</h1>
           <p><span id="cameraNote" class="camera-note">鏡頭正在跟隨車輛；車的實際位置由下方標尺讀取。</span> <span class="precision-note">讀數顯示至三位有效數字；作答只需輸入數值。</span></p>

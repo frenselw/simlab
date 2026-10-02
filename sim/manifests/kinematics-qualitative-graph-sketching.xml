@@ -31,6 +31,7 @@
       <file href="kinematics-qualitative-graph-sketching/persistence.js"/>
       <file href="kinematics-qualitative-graph-sketching/ui-policy.js"/>
       <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
     </resource>

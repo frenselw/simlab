@@ -13,10 +13,11 @@
   <script src="scoring.js" defer></script>
   <script src="persistence.js" defer></script>
   <script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main id="app" class="sim-app force-decomposition-app" aria-busy="true">
-  <header class="sim-header force-header">
+<main id="app" class="sim-app force-decomposition-app" aria-busy="true" data-sim-fullscreen-target>
+  <header class="sim-header force-header" data-sim-fullscreen>
     <div>
       <h1>力的正交分解作圖練習 <span class="prototype-badge">三個情境</span></h1>
       <p id="activitySubtitle">依序作圖、標示 θ，再用 sin θ／cos θ 表示分力大小。</p>

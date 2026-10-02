@@ -9,10 +9,11 @@
   <link rel="stylesheet" href="styles.css">
   <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
   <script src="generator.js" defer></script><script src="model.js" defer></script><script src="scoring.js" defer></script><script src="persistence.js" defer></script><script src="hit-geometry.js" defer></script><script src="ui-policy.js" defer></script><script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main id="app" class="lab-app">
-  <header class="app-header">
+<main id="app" class="lab-app" data-sim-fullscreen-target>
+  <header class="app-header" data-sim-fullscreen>
     <div class="header-copy"><h1>重心探究實驗室</h1><p>透過承托、懸掛及對稱性找出重心</p></div>
     <nav class="part-tabs" aria-label="實驗導覽">
       <div class="part-tablist" role="tablist" aria-label="選擇實驗部分">

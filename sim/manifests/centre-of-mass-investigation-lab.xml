@@ -29,6 +29,7 @@
       <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/three.core.min.js"/>
       <file href="centre-of-mass-investigation-lab/vendor/three-0.185.1/LICENSE"/>
       <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
     </resource>

@@ -73,6 +73,86 @@ not call `LMSGetValue`, `LMSSetValue`, `LMSCommit`, or `LMSFinish` directly.
 Keep scoring and persistence functions pure and Node-testable where practical;
 load them before `main.js` in `index.html` and list them in the manifest.
 
+## One-click fullscreen
+
+All existing and future simulations must implement the
+[shared fullscreen product rule](../plans/00-shared-platform-and-style.md#one-click-fullscreen).
+Reuse `sim/shared/fullscreen.js`; do not create an activity-local fullscreen
+controller or duplicate its SVG markup.
+
+### Required integration
+
+Mark the **outer activity main** that contains the header, stage, control panel
+and technical messages. Mark its header, whose first element is the title or
+title container. Keep navigation in that header and outside the scrolling panel:
+
+```html
+<main id="app" class="sim-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
+    <div><h1>活動標題</h1><p>活動說明</p></div>
+    <!-- Existing navigation/status may follow here. -->
+  </header>
+  <!-- Stage, controls and other existing activity content. -->
+</main>
+```
+
+`id="app"` is optional; the `data-sim-fullscreen-target` marker is required.
+Load the shared stylesheet and this script in `index.html`:
+
+```html
+<link rel="stylesheet" href="../shared/styles.css">
+<script src="../shared/fullscreen.js" defer></script>
+```
+
+List `<file href="shared/fullscreen.js"/>` and the shared stylesheet in the
+activity manifest. Package these files locally. The script automatically creates
+`#fullscreenButton` and `#fullscreenStatus` once in the marked header; do not call
+`attach()` again or create a second button.
+
+### Placement and behavior
+
+- The icon is 20px with a 44×44px target at the header's upper-right. The shared
+  styles reserve space in the first title block for stacked headers and in the
+  right padding for headers with horizontal flex/grid content. Resize recalculates
+  that classification; keep header text and navigation clear of the button.
+- Request fullscreen on the complete marked main, using the native browser API
+  directly in the trusted click/tap. The same button exits; browser-initiated
+  exits synchronize the label, icon and `aria-pressed` state. Keyboard activation
+  uses the native button and shared focus style.
+- API absence, a denied request or denied player policy displays a visible
+  Traditional Chinese status message. A resolved Promise alone is not proof of
+  fullscreen; the controller reads the actual fullscreen element.
+- Keep the button available in edit/check/review/pending/technical modes.
+  Assessment locking applies to learner inputs, not this display control.
+- Do not persist fullscreen, recreate the activity, open a raw SCO tab, clear
+  learner work, write SCORM fields, or add commit/finish/page-lifecycle handlers.
+  The existing responsive layout and resize/cancel contracts still apply.
+- Keep ordinary messages and nonmodal overlays inside the fullscreen target.
+  Existing native `showModal()` dialogs use the document top layer; verify that
+  they remain visible and usable over the fullscreen activity.
+- An embedding player must permit fullscreen through its complete iframe chain
+  (for example, `allow="fullscreen" allowfullscreen`); a child cannot bypass an
+  ancestor's denial or HTTP Permissions-Policy. Report the visible failure and
+  verify the actual Moodle player; do not alter parent DOM/scroll styles.
+
+### Verification
+
+Run `node sim/shared/fullscreen.test.js` and
+`npm run test:browser:fullscreen-rollout` for the shared integration. The browser
+runner checks every manifest activity on source and extracted ZIP, desktop and
+phone: trusted entry/exit, unobstructed headers, viewport coverage, accessible
+button state, usable controls/dialogs, same SCORM state and a denied iframe. It must fail
+on missing markers or missing/stale packaged assets.
+The matrix uses headless Chrome's native DOM fullscreen; pass `--headed` directly
+to the runner for desktop-window checks. Physical-device and Moodle acceptance
+remain separate checks.
+
+For each new activity, also verify the button with its partial work and submitted
+or pending states, external browser exits, and unsupported/denied requests.
+Record actual source/package and Moodle/device evidence separately. The original
+Newton test activity has user-reported Firefox, Chrome and Android success;
+that report does not establish every activity's physical-device acceptance.
+
 ## Model the state before the UI
 
 Every activity that persists draft or review data must define a phase/state
@@ -781,6 +861,9 @@ Keep the existing subject interaction/scoring/lifecycle browser workflows as wel
 - Check the [ZIP and manifest contract](#scorm-package-rules), including runtime
   references omitted from both manifest and ZIP. Launch the built/extracted
   artifact for browser smoke; source-only evidence is insufficient.
+- Verify the [fullscreen integration](#one-click-fullscreen) on source and built
+  packages, including phone header clearance, whole-activity entry/exit, retained
+  work and visible unsupported/policy failures.
 
 ### Moodle-ready checks
 

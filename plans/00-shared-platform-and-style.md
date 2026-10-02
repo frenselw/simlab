@@ -53,6 +53,24 @@ Use `linear-motion-velocity-lab` as a reference for the three-region structure
 and header navigation. Its exact dimensions and subject graphics are not presets.
 See the production guide for the bounded layout and scroll implementation.
 
+## One-click fullscreen
+
+Every existing and future activity must provide an enter/exit fullscreen button
+at the top-right of its header, outside the scrolling controls. Use the shared
+20px icon with a 44px touch target, a visible keyboard focus, and Traditional
+Chinese accessible labels. Reserve space for the title and status/navigation;
+the button must not cover text or drawing targets on a narrow phone.
+
+Fullscreen includes the complete activity: header, stage and controls. Keep the
+same SCO page, answers, phase, score and Moodle connection. It remains a display
+control in editable, submitted, pending and technical states. Unsupported or
+blocked requests show a visible message; the UI reflects the browser's actual
+state. Fullscreen is transient and is never saved in an attempt.
+
+Use `sim/shared/fullscreen.js` and the shared styles. The
+[production guide](../docs/simulation-scorm-production-guide.md#one-click-fullscreen)
+owns the HTML markers, script/manifest integration and verification steps.
+
 ## Navigation
 
 Decide navigation from **data and operation dependencies**, not topic order:

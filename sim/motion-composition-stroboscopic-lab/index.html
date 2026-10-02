@@ -6,10 +6,11 @@
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script src="../shared/scorm.js" defer></script><script src="../shared/activity-flow.js" defer></script>
   <script src="model.js" defer></script><script src="animation.js" defer></script><script src="scoring.js" defer></script><script src="feedback.js" defer></script><script src="persistence.js" defer></script><script src="ui-runtime.js" defer></script><script src="scene.js" defer></script><script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
-<main id="app" class="composition-app">
-  <header class="sim-header"><div class="heading"><h1>運動合成：頻閃軌跡</h1><span id="attemptStatus">練習</span></div><nav class="question-nav" aria-label="四個情境"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
+<main id="app" class="composition-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen><div class="heading"><h1>運動合成：頻閃軌跡</h1><span id="attemptStatus">練習</span></div><nav class="question-nav" aria-label="四個情境"><div id="questionNav"></div><button id="checkButton">檢查作答</button></nav></header>
   <section id="stage" class="stage" aria-label="合運動位置作圖區">
     <div class="stage-top"><span id="stageTime"></span><span id="componentLegend" class="legend"><span class="x-key">水平</span> · <span class="y-key">垂直</span></span></div>
     <svg id="stageSvg" role="img" aria-label="分運動頻閃與你的合運動位置" aria-describedby="sceneDescription"></svg><p id="sceneDescription" class="sr-only"></p>
