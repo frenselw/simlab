@@ -3,6 +3,20 @@
 Mobile-first educational simulations built as static web apps and packaged as
 SCORM 1.2 activities for Moodle.
 
+## Teacher circuit workbench
+
+The [電路工作台](sim/circuit-workbench/index.html) is a standalone DC teaching tool:
+two-tap or drag wiring, explicit junctions, adjustable source/load resistance,
+ideal/thermal lamps, A/V/four-terminal W meters, and real/schematic views.
+It also supports fixed-component wiring templates, JSON files, SVG export,
+undo/redo, potential overlays and electron/current direction.
+
+Run `npm run package:circuit` for the offline **standalone** ZIP, or
+`npm run test:browser:circuit` for source/package browser checks.
+See the [user/core guide](docs/circuit-workbench-core.md) and
+[implementation plan](plans/28-circuit-workbench.md). Dynamic components and
+SCORM assessment wrappers remain future stages.
+
 ## Current activities
 
 The activities below are registered in `sim/config.js`, which records their status.

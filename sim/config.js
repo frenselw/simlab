@@ -1,5 +1,13 @@
 const simulationList = [
   {
+    title: "電路工作台",
+    folder: "circuit-workbench",
+    categories: ["Electricity"],
+    description: "教師用直流電路工作台：自由搭建、內阻與變阻燈、A/V/W 儀表、電勢及固定元件接線。",
+    tags: ["physics", "electricity", "circuits", "teacher", "sandbox"],
+    status: "active"
+  },
+  {
     title: "牛頓第三定律：反作用力作圖挑戰（全螢幕測試版）",
     folder: "newtons-third-law-fullscreen-test",
     categories: ["Mechanics"],

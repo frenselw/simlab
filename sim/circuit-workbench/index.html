@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f9fb">
+  <title>電路工作台 · SimLab</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script src="../shared/fullscreen.js" defer></script>
+  <script src="component-registry.js" defer></script><script src="circuit-model.js" defer></script><script src="circuit-solver.js" defer></script><script src="circuit-routing.js" defer></script><script src="circuit-renderer.js" defer></script><script src="circuit-document.js" defer></script><script src="presets.js" defer></script><script src="main.js" defer></script>
+</head>
+<body>
+<main id="app" class="sim-app workbench" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
+    <div class="brand"><h1>電路工作台 <span class="badge">直流</span></h1><p>搭建・量測・探索</p></div>
+    <nav class="header-actions" aria-label="電路文件及操作">
+      <select id="preset" aria-label="課堂範例"><option value="series">兩燈串聯</option><option value="parallel">兩燈並聯</option><option value="mixed">串並混聯</option><option value="ohm">全電路歐姆定律</option><option value="meters">A／V／W 表接線</option><option value="bridge">橋式電路</option><option value="wiring">固定元件接線</option><option value="empty">空白畫布</option></select>
+      <button id="undo" title="復原（Ctrl/⌘ Z）" aria-label="復原">↶</button><button id="redo" title="重做（Ctrl/⌘ Shift Z）" aria-label="重做">↷</button>
+      <button id="save">儲存</button><button id="open">開啟</button><button id="help">說明</button>
+    </nav>
+  </header>
+  <div class="workspace">
+    <section id="stage" class="stage" aria-label="電路畫布">
+      <div class="stage-tools"><div class="segmented"><button id="realView" aria-pressed="true">實物</button><button id="schematicView" aria-pressed="false">電路圖</button></div><span id="circuitStatus">直流穩態</span><button id="probe" aria-pressed="false">探測</button><button id="pan" aria-pressed="false">平移</button><button id="panelToggle" aria-label="收起操作面板" aria-expanded="true">工具</button></div>
+      <div id="canvasArea" class="canvas-area">
+        <div class="scroll-strip left" aria-label="左側捲動帶"></div>
+        <div id="surface" class="surface">
+          <svg id="circuitSvg" xmlns="http://www.w3.org/2000/svg" aria-label="電路圖形"><g id="scene"></g><g id="flowLayer"></g><g id="ghostLayer"></g></svg>
+          <div id="hitLayer" class="hit-layer"></div>
+          <div id="emptyHint" class="empty-hint" hidden><strong>從一個元件開始</strong><span>在工具箱點選元件，再點兩個端子接線。</span></div>
+        </div>
+        <div class="scroll-strip right" aria-label="右側捲動帶"></div>
+        <div id="preview" class="preview" hidden aria-hidden="true"><span>吸附預覽</span><svg xmlns="http://www.w3.org/2000/svg"></svg></div>
+      </div>
+      <div class="stage-bottom"><span id="hint" role="status">點兩個端子即可接線；拖動元件可重新排列。</span><div class="camera-tools"><button data-camera="left" aria-label="向左查看">←</button><button data-camera="right" aria-label="向右查看">→</button><button data-camera="up" aria-label="向上查看">↑</button><button data-camera="down" aria-label="向下查看">↓</button><button data-camera="out" aria-label="縮小">−</button><output id="zoomReadout">100%</output><button data-camera="in" aria-label="放大">＋</button><button data-camera="fit">全圖</button></div></div>
+    </section>
+    <aside id="panel" class="panel" aria-label="操作面板">
+      <section class="panel-section"><h2>元件工具箱</h2><div id="palette" class="palette"></div></section>
+      <section class="panel-section inspector"><h2 id="selectionTitle">電路概覽</h2><div id="properties"></div><div id="objectActions" class="object-actions"></div></section>
+      <details class="panel-section" open><summary>顯示與教學</summary>
+        <label>方向示意<select id="flow"><option value="current">常規電流</option><option value="electron">導線中的電子</option><option value="off">關閉</option></select></label>
+        <label>儀表外觀<select id="meters"><option value="digital">數字式</option><option value="analog">指針式</option></select></label>
+        <label class="check"><input type="checkbox" id="potential">顯示電勢與升高方向</label><div id="potentialLegend" hidden class="legend"><i></i><span>低電勢 → 高電勢<br>各獨立電路分別以參考端為 0 V</span></div>
+        <label class="check"><input type="checkbox" id="values" checked>顯示畫布讀值與參數</label><label class="check"><input type="checkbox" id="projection">投影字體</label><label class="check"><input type="checkbox" id="pause">暫停方向動畫</label>
+        <label>操作模式<select id="mode"><option value="free">自由搭建</option><option value="wiring">固定元件，只接線</option></select></label>
+        <fieldset id="policyOptions" hidden><legend>固定模式開放項目</legend><label class="check"><input id="allowRotate" type="checkbox">旋轉元件</label><label class="check"><input id="allowParams" type="checkbox">修改所有參數</label><label class="check"><input id="allowSwitch" type="checkbox" checked>開合開關</label></fieldset>
+      </details>
+      <details class="panel-section"><summary>文件與整理</summary><div class="stack"><button id="saveTemplate">另存固定元件模板</button><button id="exportSvg">匯出 SVG 電路圖</button><button id="autoRoute">全部恢復自動布線</button><button id="clearWires">只移除導線</button><button id="clearAll">清空畫布</button></div></details>
+      <details class="panel-section"><summary>連線清單</summary><div id="wireList"></div></details>
+      <button id="panelHelp">操作說明與模型</button><p class="footnote">理想導線 · 直流穩態<br>熱效應燈為穩態教學近似</p>
+    </aside>
+  </div>
+  <input id="fileInput" type="file" accept=".json,application/json" hidden>
+  <dialog id="helpDialog"><div class="dialog-head"><h2>開始搭建電路</h2><button id="closeHelp" aria-label="關閉說明">×</button></div><ol><li>在工具箱點選元件，拖動本體調整位置。</li><li>點兩個端子即可接線，也可直接從端子拖到另一端子。</li><li>接線時點空白處指定轉折；點既有導線可接出分支。</li><li>選取元件後可旋轉、刪除、複製及調整參數。</li><li>線路交叉不代表接通；實心接點才代表分支。</li></ol><p>鍵盤：Tab 選端子，Enter 接線；方向鍵移動所選元件，R 旋轉，Delete 刪除，Escape 取消，Ctrl／⌘ Z 復原。</p><h3>儀表接法</h3><p>A 表串聯，V 表並聯。W 表的 I+／I− 串聯，V+／V− 跨接用電器；讀值為 (V+ − V−) × 電流線圈電流。反接會顯示負值。</p><h3>模型與參考點</h3><p>電源預設理想內阻 0 Ω，可自行調整。理想 V 表不耗電；輸入電阻欄填 0 代表無限大。熱效應燈以額定點校準的溫度／散熱模型計算，不模擬預熱或燒毀。</p><p>探測工具可量兩點電壓；按所選端子的「設為 0 V」改參考。互不相連的電路沒有確定的跨區電壓。方向動畫只示意漂移方向，不是真實電子速度。</p></dialog>
+</main>
+</body></html>

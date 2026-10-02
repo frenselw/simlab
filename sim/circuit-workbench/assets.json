@@ -1,0 +1,19 @@
+{
+  "kind": "standalone",
+  "entry": "circuit-workbench/index.html",
+  "files": [
+    "circuit-workbench/index.html",
+    "circuit-workbench/styles.css",
+    "circuit-workbench/main.js",
+    "circuit-workbench/component-registry.js",
+    "circuit-workbench/circuit-model.js",
+    "circuit-workbench/circuit-solver.js",
+    "circuit-workbench/circuit-routing.js",
+    "circuit-workbench/circuit-renderer.js",
+    "circuit-workbench/circuit-document.js",
+    "circuit-workbench/presets.js",
+    "circuit-workbench/assets.json",
+    "shared/styles.css",
+    "shared/fullscreen.js"
+  ]
+}
