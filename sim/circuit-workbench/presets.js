@@ -11,8 +11,9 @@
     function link(a, ap, b, bp, via = []) { return M.connect(d, a.id + ":" + ap, b.id + ":" + bp, via); }
     const battery = add("battery", 180, 320, "電源", { voltage: 6, resistance: name === "ohm" ? 2 : 0 }, 90);
     if (["series", "wiring"].includes(name)) {
-      const s = add("switch", 340, 180, "開關"), l1 = add("lamp", 560, 180, "燈泡 1"), l2 = add("lamp", 720, 320, "燈泡 2", {}, 90);
-      link(battery, "a", s, "a", [{ x: 180, y: 180 }]); link(s, "b", l1, "a"); link(l1, "b", l2, "a", [{ x: 720, y: 180 }]); link(l2, "b", battery, "b", [{ x: 720, y: 460 }, { x: 180, y: 460 }]);
+      battery.x=200;
+      const s = add("switch", 350, 180, "開關"), l1 = add("lamp", 530, 180, "燈泡 1"), l2 = add("lamp", 650, 320, "燈泡 2", {}, 90);
+      link(battery, "a", s, "a", [{ x: 200, y: 180 }]); link(s, "b", l1, "a"); link(l1, "b", l2, "a", [{ x: 650, y: 180 }]); link(l2, "b", battery, "b", [{ x: 650, y: 440 }, { x: 200, y: 440 }]);
     } else if (["parallel", "mixed"].includes(name)) {
       const s = add(name === "mixed" ? "resistor" : "switch", 340, 180, name === "mixed" ? "串聯電阻" : "開關"), l1 = add("lamp", 560, 240, "燈泡 1"), l2 = add("lamp", 560, 400, "燈泡 2");
       const a = { id: "j1", x: 440, y: 180 }, b = { id: "j2", x: 680, y: 460 }; d.junctions.push(a, b);
@@ -28,8 +29,8 @@
       link(battery, "a", r1, "a", [{ x: 180, y: 220 }]); link(battery, "a", r3, "a", [{ x: 240, y: 260 }, { x: 240, y: 440 }]); link(r1, "b", r2, "a"); link(r3, "b", r4, "a"); link(r2, "b", battery, "b", [{ x: 760, y: 220 }, { x: 760, y: 540 }, { x: 180, y: 540 }]); link(r4, "b", r2, "b", [{ x: 760, y: 440 }, { x: 760, y: 220 }]); link(a, "a", r1, "b"); link(a, "b", r3, "b");
     } else throw new Error("未知的範例");
     if (name === "series") {
-      const paths = [[{x:177,y:217},{x:217,y:181},{x:252,y:178}],[],[{x:670,y:181},{x:712,y:212}],[{x:722,y:436},{x:659,y:460},{x:250,y:456},{x:178,y:425}]];
-      d.wires.forEach((wire,i)=>{wire.shape="smooth";wire.via=paths[i];});
+      const paths = [[{x:200,y:219},{x:235,y:181},{x:280,y:178}],[],[{x:629,y:181},{x:650,y:217}],[{x:652,y:415},{x:620,y:440},{x:250,y:440},{x:200,y:415}]];
+      d.wires.forEach((wire,i)=>{wire.shape="smooth";wire.via=paths[i];wire.length=600;});
     }
     if (name === "wiring") { d.wires = []; d.policy.mode = "wiring"; }
     return M.validate(d);

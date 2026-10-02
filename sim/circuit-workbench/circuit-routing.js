@@ -1,9 +1,16 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./circuit-model.js") : root.CircuitModel);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry);
   if (node) module.exports = api; else root.CircuitRouting = api;
-})(globalThis, function (M) {
+})(globalThis, function (R) {
   "use strict";
+  // Geometry stays independent of document validation; both the editor and the
+  // validator measure exactly the polyline that the renderer displays.
+  const M = { limits: { stroke: 96, bends: 24 }, endpoints(doc) {
+    const ends = new Map(); doc.components.forEach(c => R.ports(c).forEach(p => ends.set(p.id,p)));
+    doc.junctions.forEach(j => ends.set(j.id+":p",{...j,dx:0,dy:0})); return ends;
+  } };
+  const length = points => points.slice(1).reduce((sum,p,i) => sum + Math.hypot(p.x-points[i].x,p.y-points[i].y),0);
   function compact(points) { return points.filter((p, i, a) => !i || p.x !== a[i - 1].x || p.y !== a[i - 1].y); }
   function orthogonal(points) { const out = [points[0]]; for (const p of points.slice(1)) { const last = out[out.length - 1]; if (p.x !== last.x && p.y !== last.y) out.push({ x: p.x, y: last.y }); out.push(p); } return compact(out); }
   const clean = (p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
@@ -58,6 +65,23 @@
     const center = distances[i + 1];
     return bounded(controls.map((p, n) => { const weight = n === 0 || n === controls.length - 1 ? 0 : Math.max(0, 1 - Math.abs(distances[n] - center) / radius) ** 2; return clean({x:p.x + dx * weight,y:p.y + dy * weight}); }));
   }
+  function fitLength(points, budget) {
+    const a=points[0], b=points.at(-1), chord=Math.hypot(b.x-a.x,b.y-a.y);
+    if (chord > budget + 1e-7) return null;
+    if (length(points) <= budget) return points.map(p=>({x:p.x,y:p.y}));
+    const distances=[0]; points.slice(1).forEach((p,i)=>distances.push(distances[i]+Math.hypot(p.x-points[i].x,p.y-points[i].y)));
+    const total=distances.at(-1)||1, straight=points.map((_,i)=>({x:a.x+(b.x-a.x)*distances[i]/total,y:a.y+(b.y-a.y)*distances[i]/total}));
+    const blend=f=>points.map((p,i)=>({x:straight[i].x+(p.x-straight[i].x)*f,y:straight[i].y+(p.y-straight[i].y)*f}));
+    let low=0, high=1; for(let n=0;n<32;n++){const mid=(low+high)/2;if(length(blend(mid))<=budget)low=mid;else high=mid;}
+    return blend(low);
+  }
+  function deform(points, a, b, budget) {
+    const first=points[0], last=points.at(-1), distances=[0];
+    points.slice(1).forEach((p,i)=>distances.push(distances[i]+Math.hypot(p.x-points[i].x,p.y-points[i].y)));
+    const total=distances.at(-1)||1;
+    const shifted=points.map((p,i)=>{const t=distances[i]/total;return {x:p.x+(a.x-first.x)*(1-t)+(b.x-last.x)*t,y:p.y+(a.y-first.y)*(1-t)+(b.y-last.y)*t};});
+    shifted[0]={x:a.x,y:a.y};shifted[shifted.length-1]={x:b.x,y:b.y};return fitLength(shifted,budget);
+  }
   function route(doc, wire) {
     const ends = M.endpoints(doc), a = ends.get(wire.from), b = ends.get(wire.to); if (!a || !b) return [];
     if (wire.shape && wire.shape !== "auto") { const points = compact([clean(a), ...wire.via, clean(b)]); return wire.shape === "smooth" ? smooth(points) : points; }
@@ -89,5 +113,5 @@
     let best = null; for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1))); const q = { x: a.x + t * dx, y: a.y + t * dy, segment: i }; q.distance = Math.hypot(p.x - q.x, p.y - q.y); if (!best || q.distance < best.distance) best = q; } return best;
   }
   function along(points, distance) { for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], length = Math.hypot(b.x - a.x, b.y - a.y); if (distance <= length && length) return { x: a.x + (b.x - a.x) * distance / length, y: a.y + (b.y - a.y) * distance / length, angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI }; distance -= length; } return points[points.length - 1]; }
-  return { route, path, nearest, along, orthogonal, simplify, finishStroke, smooth, resample, reshape };
+  return { route, path, nearest, along, orthogonal, simplify, finishStroke, smooth, resample, reshape, length, fitLength, deform };
 });

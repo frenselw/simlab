@@ -57,7 +57,7 @@
       if (schematic) return `<path data-leads="lamp" d="M-60 0H-28 M28 0H60" ${metal}/><circle r="28" fill="#fff" stroke="#334155" stroke-width="2.5"/><path d="M-19-19L19 19M19-19L-19 19" stroke="#334155" stroke-width="2.5"/>`;
       // The shell contact (left) and insulated bottom contact (right) are separate.
       // Both leads overlap their metal contact; neither ends at the glass envelope.
-      let out = `<ellipse cy="-28" rx="37" ry="41" fill="#ffc95c" opacity="${glow*.2}"/><rect x="-37" y="22" width="74" height="15" rx="6" fill="#e2e9ef" stroke="#9eafbc" stroke-width="1.5"/><path d="M-30 31H30" stroke="#c4d0d9" stroke-width="2"/>`;
+      let out = `<ellipse cy="-28" rx="37" ry="41" fill="#ffc95c" opacity="${glow*.2}"/>`;
       out += `<path d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glow>.04 ? "#ffe4a0" : "#f4f8f9"}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M-7-8V-26L-10-31L-6-35L-2-29L2-35L6-29L10-33L7-26V-8" fill="none" stroke="${glow>.1 ? "#da8225" : "#8c7966"}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
       out += '<path d="M-12-9H12V10Q12 13 8 13H-8Q-12 13-12 10Z" fill="#a8b5bf" stroke="#677c8c" stroke-width="1.5"/><path d="M-11-4H11 M-11 2H11 M-10 8H10" stroke="#6f8290" stroke-width="1.5"/><path d="M-6 14H6" stroke="#45586a" stroke-width="4"/><circle cy="18" r="3" fill="#b78b51"/>';
       out += `<path data-leads="lamp" d="M-60 0H-12 M60 0H40V18H0" ${metal}/>` + screw(-46) + screw(46);
@@ -71,9 +71,9 @@
     let out = '';
     doc.wires.forEach((w) => {
       const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
-      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 4 : 3) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
     });
-    doc.junctions.forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
+    doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach((c) => {
       const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? '<rect x="-46" y="-47" width="92" height="98" rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>' : ""}${body(c, r, doc.display)}</g>`;
@@ -95,6 +95,11 @@
         out += `<g transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
       }
     });
+    const ends=new Map();doc.components.forEach(c=>R.ports(c).forEach(p=>ends.set(p.id,p)));doc.junctions.forEach(j=>ends.set(j.id+":p",j));
+    doc.wires.forEach(w=>["from","to"].forEach((key,i)=>{
+      const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
+      if(free||selection===w.id){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
+    }));
     return out;
   }
   function flow(doc, result, routes, time, scale) {
