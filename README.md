@@ -26,6 +26,7 @@ The activities below are registered in `sim/config.js`, which records their stat
 - `force-equilibrium-advanced-diagram-lab` - 共點力平衡：進階受力圖挑戰
 - `newtons-second-law-investigation-lab` - 牛頓第二定律：公平測試與數據作圖
 - `newtons-third-law-reaction-force-lab` - 牛頓第三定律：反作用力作圖挑戰
+- `motion-composition-stroboscopic-lab` - 運動合成：頻閃軌跡建構
 
 ### Newton's second law investigation
 
@@ -162,12 +163,32 @@ npm run test:browser:force-equilibrium
 npm run test:browser:force-equilibrium-advanced
 npm run test:browser:newtons-second-law
 npm run test:browser:newtons-third-law
+npm run test:browser:motion-composition
 ```
 
 These checks require a local Google Chrome or Chromium executable. They detect the
 usual macOS, Linux, and Windows install locations. Set `CHROME_PATH` to the full
 browser executable path when using a non-standard installation; a missing
 browser is reported as a failed prerequisite rather than a skipped test.
+
+For mobile scrolling, use the shared trusted-touch runner on source files and
+extracted SCORM packages. These examples cover a nested player and a player with
+an overflowing host element, including the friction activity's repeated panel
+gestures:
+
+```text
+npm run test:browser:mobile-scroll -- --host=T2 --mode=source
+npm run test:browser:mobile-scroll -- --host=T3 --mode=package
+npm run test:browser:mobile-scroll -- --host=T3 --mode=package --phases=all --panel-sequence --slugs=static-kinetic-friction-investigation-lab
+```
+
+See the production guide's [gesture ownership contract](docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)
+for layout, scroll owners, phase coverage, and the T0–T4 host cases. The
+[repair plan](plans/mobile-scroll-repair-plan.md),
+[repair verification record](docs/mobile-scroll-repair-verification-2026-10-01.md),
+and [main integration record](docs/mobile-scroll-main-merge-2026-10-02.md) document
+the fixes and their executed coverage. Local browser passes establish evidence
+for the recorded cases; real-phone Moodle acceptance remains a separate gate.
 
 The [Quality workflow](.github/workflows/quality.yml) runs syntax/manifest checks,
 the full test suite and package verification alongside a separate job for the
