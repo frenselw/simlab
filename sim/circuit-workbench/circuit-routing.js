@@ -6,8 +6,61 @@
   "use strict";
   function compact(points) { return points.filter((p, i, a) => !i || p.x !== a[i - 1].x || p.y !== a[i - 1].y); }
   function orthogonal(points) { const out = [points[0]]; for (const p of points.slice(1)) { const last = out[out.length - 1]; if (p.x !== last.x && p.y !== last.y) out.push({ x: p.x, y: last.y }); out.push(p); } return compact(out); }
+  const clean = (p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
+  function simplify(points, tolerance = 2) {
+    const src = compact(points).map(clean); if (src.length < 3) return src;
+    const keep = new Set([0, src.length - 1]), stack = [[0, src.length - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop(); let far = tolerance, at = -1;
+      for (let i = a + 1; i < b; i++) { const q = nearest([src[a], src[b]], src[i]); if (q.distance > far) { far = q.distance; at = i; } }
+      if (at !== -1) { keep.add(at); stack.push([a, at], [at, b]); }
+    }
+    return src.filter((_, i) => keep.has(i));
+  }
+  function bounded(points, limit = M.limits.stroke + 2) {
+    if (points.length <= limit) return points;
+    let tolerance = 1, reduced = points;
+    while (reduced.length > limit) { reduced = simplify(points, tolerance); tolerance *= 1.6; }
+    return reduced;
+  }
+  function smooth(points) {
+    if (points.length < 3) return points.map(clean);
+    const out = [clean(points[0])];
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1], before = points[i - 1] || a, after = points[i + 2] || b;
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      const tangent = (dx, dy) => { const size = Math.hypot(dx, dy), factor = size ? Math.min(1 / 6, length / (3 * size)) : 0; return {x:dx * factor,y:dy * factor}; };
+      const ta = tangent(b.x - before.x, b.y - before.y), tb = tangent(after.x - a.x, after.y - a.y);
+      const c = {x:a.x + ta.x,y:a.y + ta.y}, d = {x:b.x - tb.x,y:b.y - tb.y};
+      const steps = Math.max(2, Math.min(40, Math.ceil(length / 5)));
+      for (let j = 1; j <= steps; j++) { const t = j / steps, u = 1 - t; out.push(clean({x:u**3*a.x + 3*u*u*t*c.x + 3*u*t*t*d.x + t**3*b.x,y:u**3*a.y + 3*u*u*t*c.y + 3*u*t*t*d.y + t**3*b.y})); }
+    }
+    return compact(out);
+  }
+  function finishStroke(points, shape = "smooth", tolerance = 2.5) {
+    const src = compact(points); if (src.length < 2) return { shape, via: [] };
+    if (shape === "auto") return { shape, via: bounded(simplify(src, 14), M.limits.bends + 2).slice(1, -1) };
+    const chord = Math.hypot(src.at(-1).x - src[0].x, src.at(-1).y - src[0].y);
+    const length = src.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - src[i].x, p.y - src[i].y), 0);
+    const straight = shape === "smooth" && length <= chord * 1.1 && src.every(p => nearest([src[0], src.at(-1)], p).distance <= Math.max(tolerance * 2, chord * .018));
+    return { shape, via: straight ? [] : bounded(simplify(src, shape === "smooth" ? tolerance : Math.min(.65, tolerance))).slice(1, -1) };
+  }
+  function resample(points, spacing = 40) {
+    const length = points.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0);
+    const count = Math.max(2, Math.min(M.limits.stroke + 1, Math.ceil(length / spacing))), out = [];
+    for (let i = 0; i <= count; i++) out.push(clean(along(points, length * i / count)));
+    return out;
+  }
+  function reshape(points, at, dx, dy, radius = 90) {
+    const nearestPoint = nearest(points, at), i = nearestPoint.segment;
+    const controls = [...points.slice(0, i + 1), clean(nearestPoint), ...points.slice(i + 1)];
+    const distances = [0]; controls.slice(1).forEach((p, n) => distances.push(distances[n] + Math.hypot(p.x - controls[n].x, p.y - controls[n].y)));
+    const center = distances[i + 1];
+    return bounded(controls.map((p, n) => { const weight = n === 0 || n === controls.length - 1 ? 0 : Math.max(0, 1 - Math.abs(distances[n] - center) / radius) ** 2; return clean({x:p.x + dx * weight,y:p.y + dy * weight}); }));
+  }
   function route(doc, wire) {
     const ends = M.endpoints(doc), a = ends.get(wire.from), b = ends.get(wire.to); if (!a || !b) return [];
+    if (wire.shape && wire.shape !== "auto") { const points = compact([clean(a), ...wire.via, clean(b)]); return wire.shape === "smooth" ? smooth(points) : points; }
     const start = { x: a.x + a.dx * 20, y: a.y + a.dy * 20 }, end = { x: b.x + b.dx * 20, y: b.y + b.dy * 20 };
     if (wire.via.length) return orthogonal([a, start, ...wire.via, end, b]);
     const bounds = { left: Math.min(start.x,end.x)-160, right: Math.max(start.x,end.x)+160, top: Math.min(start.y,end.y)-160, bottom: Math.max(start.y,end.y)+160 };
@@ -36,5 +89,5 @@
     let best = null; for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1))); const q = { x: a.x + t * dx, y: a.y + t * dy, segment: i }; q.distance = Math.hypot(p.x - q.x, p.y - q.y); if (!best || q.distance < best.distance) best = q; } return best;
   }
   function along(points, distance) { for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], length = Math.hypot(b.x - a.x, b.y - a.y); if (distance <= length && length) return { x: a.x + (b.x - a.x) * distance / length, y: a.y + (b.y - a.y) * distance / length, angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI }; distance -= length; } return points[points.length - 1]; }
-  return { route, path, nearest, along, orthogonal };
+  return { route, path, nearest, along, orthogonal, simplify, finishStroke, smooth, resample, reshape };
 });

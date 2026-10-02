@@ -3,7 +3,7 @@
   const M = window.CircuitModel, R = window.CircuitRegistry, S = window.CircuitSolver, D = window.CircuitDocument, G = window.CircuitRouting, V = window.CircuitRenderer, P = window.CircuitPresets;
   const $ = (id) => document.getElementById(id), surface = $("surface"), svg = $("circuitSvg"), hitLayer = $("hitLayer");
   const history = M.history(P.create("series")), camera = { x: 0, y: 0, scale: 1 }, listeners = new Set(), targets = new Map();
-  let analysis = S.solve(history.get()), routes = {}, geometryKey = "", selection = null, pending = null, drag = null, probeMode = false, probeFirst = null, probeResult = null, panMode = false, paused = matchMedia("(prefers-reduced-motion: reduce)").matches, previewDoc = null, lastMessage = "", animationTime = 0, lastTime = 0;
+  let analysis = S.solve(history.get()), routes = {}, geometryKey = "", selection = null, pending = null, drag = null, probeMode = false, probeFirst = null, probeResult = null, panMode = false, paused = matchMedia("(prefers-reduced-motion: reduce)").matches, previewDoc = null, lastMessage = "", wireStyle = "smooth", suppressClick = false, animationTime = 0, lastTime = 0;
   const current = () => previewDoc || history.get(), world = (x, y) => { const r = surface.getBoundingClientRect(); return { x: camera.x + (x - r.left) / camera.scale, y: camera.y + (y - r.top) / camera.scale }; };
   const screen = (p) => ({ x: (p.x - camera.x) * camera.scale, y: (p.y - camera.y) * camera.scale });
   const snapGrid = (v) => Math.round(v / 20) * 20;
@@ -17,8 +17,9 @@
     }
   }
   function cancel() {
-    const old = drag; const hadPreview = !!previewDoc; drag = null; previewDoc = null; pending = null; if (hadPreview) analysis = S.solve(history.get()); $("preview").hidden = true;
+    const old = drag, oldPending = pending; const hadPreview = !!previewDoc; drag = null; previewDoc = null; pending = null; if (hadPreview) analysis = S.solve(history.get()); $("preview").hidden = true;
     if (old?.kind === "pan") Object.assign(camera, old.base);
+    if (old && Object.hasOwn(old,"selectionBefore")) selection=old.selectionBefore; else if (oldPending) selection=oldPending.priorSelection;
     if (old && old.target.hasPointerCapture?.(old.pointerId)) old.target.releasePointerCapture(old.pointerId);
     render();
   }
@@ -38,16 +39,51 @@
   function resolveSnap(p) {
     let found = null, distance = 24 / camera.scale;
     for (const [id, port] of M.endpoints(current())) { if (id === pending?.from) continue; const d = Math.hypot(p.x - port.x, p.y - port.y); if (d < distance) { found = port; distance = d; } }
+    if (found || !pending || pending.redraw) return found;
+    distance = 12 / camera.scale;
+    const source = M.endpoints(current()).get(pending.from);
+    for (const wire of current().wires) {
+      const path = routes[wire.id], q = G.nearest(path, p);
+      if (q && q.distance < distance && Math.hypot(q.x-source.x,q.y-source.y) > 30 / camera.scale) { found = {...q, wire:wire.id}; distance = q.distance; }
+    }
     return found;
   }
-  function wireTo(to, split) {
-    if (!pending || pending.from === to) return;
-    const from = pending.from, via = pending.via.map((p) => ({ x: p.x, y: p.y }));
-    const succeeded = change((d) => { let endpoint = to; if (split) endpoint = M.splitWire(d, split.wire.id, split.point, split.route); M.connect(d, from, endpoint, via); });
-    if (!succeeded) return;
-    pending = null; notify("接線完成。選取元件可調整參數；點導線可編輯或接出分支。"); render();
+  function strokePoints(end = pending?.snap || pending?.point) {
+    const source = M.endpoints(current()).get(pending?.from);
+    return source ? [source, ...pending.points.slice(1), ...(end ? [end] : [])] : [];
   }
-  function startWire(from) { pending = { from, via: [], point: M.endpoints(current()).get(from), snap: null }; selection = { kind: "port", id: from }; notify("點另一個端子完成接線；點空白處加轉折，Escape 取消。"); render(); }
+  function wireTo(to, split) {
+    if (!pending || pending.from === to) return false;
+    const original = pending.redraw && history.get().wires.find(w => w.id === pending.redraw);
+    if (original && to !== original.to) { notify("重畫時請接回原來的終點；取消可保留原線。", true); return false; }
+    const from = pending.from, end = split?.point || M.endpoints(current()).get(to);
+    const noStroke = pending.points.length < 2 && !split;
+    const path = noStroke ? G.route(current(),{from,to,via:[],shape:"auto"}) : strokePoints(end);
+    const geometry = G.finishStroke(path, pending.shape, 2.5 / camera.scale);
+    let id;
+    const succeeded = change((d) => {
+      if (original) { const wire = d.wires.find(w => w.id === original.id); Object.assign(wire, geometry); id = wire.id; }
+      else { let endpoint = to; if (split) endpoint = M.splitWire(d, split.wire.id, split.point, split.route); id = M.connect(d, from, endpoint, geometry.via, geometry.shape).id; }
+    });
+    if (!succeeded) return false;
+    pending = null; selection = {kind:"wire", id}; notify("已接好。拖動線身可改形狀；下方可重畫、刪除或復原。"); render(); return true;
+  }
+  function finishWire() {
+    if (!pending?.snap) return false;
+    const q = pending.snap;
+    return q.wire ? wireTo(null, {wire:history.get().wires.find(w=>w.id===q.wire),point:q,route:routes[q.wire]}) : wireTo(q.id);
+  }
+  function startWire(from, redraw = null) {
+    const source = M.endpoints(current()).get(from);
+    pending = {from, points:[{x:source.x,y:source.y}], shape:wireStyle, point:source, snap:null, redraw, priorSelection:selection && M.clone(selection)}; selection = {kind:"port",id:from};
+    notify(redraw ? "從起點重畫，接回原終點；取消會保留原線。" : "按住端子沿途畫線，接到終點放手；也可點兩端。下方可取消。"); render();
+  }
+  function addStrokePoint(p) {
+    const last = pending.points.at(-1);
+    if (Math.hypot(p.x-last.x,p.y-last.y) >= 2 / camera.scale) pending.points.push({x:p.x,y:p.y});
+    if (pending.points.length > 1500) pending.points = G.simplify(pending.points, 1 / camera.scale);
+    pending.point = p; pending.snap = resolveSnap(p);
+  }
   function probePort(id) {
     selection = { kind: "port", id }; const value = analysis.potentials[id];
     if (probeFirst && probeFirst !== id) { probeResult = { from: probeFirst, to: id, voltage: analysis.voltage(probeFirst, id) }; probeFirst = null; notify(probeResult.voltage === null ? "兩點不屬同一個可確定電勢差的電路。" : `兩點電壓：${V.format(probeResult.voltage, "V")}（第一點 − 第二點）`); }
@@ -57,30 +93,39 @@
   function positionTarget(key, meta, p, width, height, touch = "none") {
     let target = targets.get(key);
     if (!target) { target = document.createElement("button"); target.type = "button"; target.className = "hit " + meta.kind; target.dataset.hit = key; hitLayer.append(target); targets.set(key, target); }
-    target.meta = meta; target.setAttribute("aria-label", meta.label); target.style.left = p.x + "px"; target.style.top = p.y + "px"; target.style.width = Math.max(meta.kind === "wire" ? 12 : 44, width) + "px"; target.style.height = Math.max(meta.kind === "wire" ? 12 : 44, height) + "px"; target.style.touchAction = touch;
+    target.meta = meta; target.setAttribute("aria-label", meta.label); target.style.left = p.x + "px"; target.style.top = p.y + "px"; target.style.width = Math.max(meta.kind === "wire" ? 12 : 44, width) + "px"; target.style.height = Math.max(meta.kind === "wire" ? 12 : 44, height) + "px"; target.style.touchAction = touch; target.style.transform = "translate(-50%,-50%)";
     target.classList.toggle("snap", pending?.snap?.id === meta.id); return target;
   }
   function renderHits(d) {
     const needed = new Set();
     const put = (key, ...args) => { needed.add(key); return positionTarget(key, ...args); };
     d.components.forEach((c) => {
-      const w = ["ammeter", "voltmeter", "wattmeter"].includes(c.type) ? 80 : 70, h = c.type === "wattmeter" ? 78 : 46;
+      const w = ["ammeter", "voltmeter", "wattmeter"].includes(c.type) ? 80 : 70, h = c.type === "lamp" ? 106 : c.type === "wattmeter" ? 78 : 46;
       put("body:" + c.id, { kind: "body", id: c.id, label: c.label + "，拖動本體或用方向鍵移動" }, screen(c), (c.angle % 180 ? h : w) * camera.scale, (c.angle % 180 ? w : h) * camera.scale, M.permission(d, c, "move") ? "none" : "pan-y");
       if (c.type === "rheostat") { const angle = c.angle * Math.PI / 180, x = -30 + c.params.position * 60, y = 38; put("slider:" + c.id, { kind: "slider", id: c.id, label: c.label + "滑塊，拖動調整電阻" }, screen({ x: c.x + x * Math.cos(angle) - y * Math.sin(angle), y: c.y + x * Math.sin(angle) + y * Math.cos(angle) }), 44, 44, M.permission(d, c, "params") ? "none" : "pan-y"); }
-      if (camera.scale >= .55) R.ports(c).forEach((p) => put("port:" + p.id, { kind: "port", id: p.id, label: c.label + " " + p.label + "端子，點選接線" }, screen(p), 44, 44));
+      if (camera.scale >= .55) R.ports(c).forEach((p) => put("port:" + p.id, { kind: "port", id: p.id, label: c.label + " " + p.label + "端子，按住畫導線，亦可點選接線" }, screen(p), 44, 44));
     });
     d.junctions.forEach((j) => put("junction:" + j.id, { kind: "junction", id: j.id, label: "接點，點選接線或拖動" }, screen(j), 44, 44));
     d.wires.forEach((w) => {
-      const points = routes[w.id]; points.slice(1).forEach((p, i) => { const a = points[i], mid = { x: (p.x + a.x) / 2, y: (p.y + a.y) / 2 }; put("wire:" + w.id + ":" + i, { kind: "wire", id: w.id, segment: i, label: "導線 " + w.id + "，選取編輯" }, screen(mid), Math.abs(p.x - a.x) * camera.scale || 14, Math.abs(p.y - a.y) * camera.scale || 14, "pan-y"); });
-      if (selection?.id === w.id) w.via.forEach((p, i) => put("bend:" + w.id + ":" + i, { kind: "bend", id: w.id, index: i, label: "導線轉折 " + (i + 1) + "，拖動調整" }, screen(p), 44, 44));
+      const points = w.shape === "auto" ? routes[w.id] : G.simplify(routes[w.id], 1.2 / camera.scale);
+      points.slice(1).forEach((p, i) => {
+        const a = points[i], mid = {x:(p.x+a.x)/2,y:(p.y+a.y)/2}, length = Math.hypot(p.x-a.x,p.y-a.y)*camera.scale;
+        const target = put("wire:"+w.id+":"+i, {kind:"wire",id:w.id,segment:i,point:mid,label:"導線 "+w.id+"，點選或拖動線身改形狀"}, screen(mid), length+8, 18, "none");
+        target.style.transform += ` rotate(${Math.atan2(p.y-a.y,p.x-a.x)*180/Math.PI}deg)`;
+      });
+      if (selection?.id === w.id && (selection.editing || selection.kind === "bend")) w.via.forEach((p, i) => put("bend:"+w.id+":"+i, {kind:"bend",id:w.id,index:i,label:"導線把手 "+(i+1)+"，拖動調整"}, screen(p), 44, 44));
     });
     for (const [key, target] of targets) if (!needed.has(key) && target !== drag?.target) { target.remove(); targets.delete(key); }
   }
   function renderGhost() {
     let out = "";
     if (pending) {
-      const from = M.endpoints(current()).get(pending.from), end = pending.snap || pending.point || from;
-      if (from) { const points = G.orthogonal([from, ...pending.via, end]); out += `<path d="${G.path(points)}" stroke="#2563eb" stroke-width="${2 / camera.scale}" stroke-dasharray="${6 / camera.scale} ${4 / camera.scale}" fill="none"/><circle cx="${end.x}" cy="${end.y}" r="${10 / camera.scale}" stroke="#2563eb" stroke-width="${2 / camera.scale}" fill="#dbeafe80"/>`; }
+      const raw = strokePoints(), end = pending.snap || pending.point;
+      if (raw.length) {
+        const geometry = G.finishStroke(raw, pending.shape, 2.5 / camera.scale), points = [raw[0],...geometry.via,raw.at(-1)];
+        const route = geometry.shape === "auto" ? G.orthogonal(points) : geometry.shape === "smooth" ? G.smooth(points) : points;
+        out += `<path d="${G.path(route)}" stroke="#397cab" stroke-width="${3/camera.scale}" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".85"/><circle cx="${end.x}" cy="${end.y}" r="${(pending.snap ? 11 : 6)/camera.scale}" stroke="#397cab" stroke-width="${2/camera.scale}" fill="${pending.snap ? "#bce5ce" : "#fff"}"/>`;
+      }
     }
     if (probeFirst) { const p = M.endpoints(current()).get(probeFirst); if (p) out += `<circle cx="${p.x}" cy="${p.y}" r="${12 / camera.scale}" fill="none" stroke="#d97706" stroke-width="${2 / camera.scale}"/>`; }
     $("ghostLayer").innerHTML = out;
@@ -96,7 +141,14 @@
     for (const id of ["realView", "schematicView"]) $(id).setAttribute("aria-pressed", String(d.display.view === (id === "realView" ? "real" : "schematic")));
     ["flow", "meters"].forEach((id) => { $(id).value = d.display[id]; }); ["potential", "values", "projection"].forEach((id) => { $(id).checked = d.display[id]; });
     $("pause").checked = paused; $("mode").value = d.policy.mode; $("policyOptions").hidden = d.policy.mode !== "wiring"; ["allowRotate", "allowParams", "allowSwitch"].forEach((id) => { $(id).checked = d.policy[id]; });
-    $("potentialLegend").hidden = !d.display.potential; $("pan").setAttribute("aria-pressed", String(panMode)); $("probe").setAttribute("aria-pressed", String(probeMode)); surface.classList.toggle("panning", panMode);
+    $("potentialLegend").hidden = !d.display.potential; $("pan").setAttribute("aria-pressed", String(panMode)); $("probe").setAttribute("aria-pressed", String(probeMode)); surface.classList.toggle("panning", panMode); surface.classList.toggle("wiring", !!pending && !panMode && !probeMode);
+    $("wireStyle").value = wireStyle;
+    const wire = selectedWire(), c = selectedComponent(), hasActions = !pending && !!(wire || c || selection?.kind === "junction");
+    $("wireActions").hidden = !pending; $("selectionActions").hidden = !hasActions; $("hint").parentElement.classList.toggle("has-actions", !!pending || hasActions);
+    $("wireActionLabel").textContent = pending?.redraw ? "重畫原線" : pending?.snap ? pending.snap.wire ? "接到導線 · 建立接點" : "終點已吸附 · 放手接好" : "畫到終點放手";
+    $("redrawWire").hidden = !wire; $("rotateSelected").hidden = !c; $("rotateSelected").disabled = !!c && !M.permission(history.get(),c,"rotate");
+    $("deleteSelected").textContent = wire ? "刪除導線" : c ? "刪除元件" : "刪除接點"; $("deleteSelected").disabled = !!c && !M.permission(history.get(),c,"remove");
+    $("selectionTip").textContent = wire ? "拖線身改形狀" : c ? c.label : "接點及其分支";
     $("circuitStatus").textContent = analysis.diagnostics.length ? "需檢查電路" : d.policy.mode === "wiring" ? "固定元件 · 接線" : "直流穩態"; $("circuitStatus").classList.toggle("warning", !!analysis.diagnostics.length);
     document.querySelectorAll("[data-add]").forEach((b) => { b.disabled = d.policy.mode !== "free"; });
     if (inspector) renderProperties();
@@ -139,10 +191,12 @@
       $("selectionTitle").textContent = "導線 " + wire.id;
       prop.innerHTML = `<p class="note">${V.esc(portName(wire.from))} → ${V.esc(portName(wire.to))}</p>` + readings([["由起點流向終點", analysis.wires[wire.id]?.current, "A"], ["相對電勢", analysis.wires[wire.id]?.potential, "V"]]);
       if (analysis.wires[wire.id]?.cyclic) prop.insertAdjacentHTML("beforeend", '<p class="note">理想導線環路中，此段電流不能唯一確定。</p>');
-      button("在這裏分支", () => { const path = routes[wire.id], point = selection.point || G.nearest(path, path[Math.floor(path.length / 2)]); let endpoint; change((doc) => { endpoint = M.splitWire(doc, wire.id, point, path); }); if (endpoint) startWire(endpoint); });
+      button("在這裏分支", () => { const path = routes[wire.id], point = G.nearest(path, selection.point || path[Math.floor(path.length / 2)]); let endpoint; change((doc) => { endpoint = M.splitWire(doc, wire.id, point, path); }); if (endpoint) startWire(endpoint); });
       button("刪除導線", () => { cancel(); change((doc) => M.remove(doc, wire.id)); }, false, true);
-      button("編輯轉折", () => change((doc) => { doc.wires.find((w) => w.id === wire.id).via = routes[wire.id].slice(1, -1).map((p) => ({ x: p.x, y: p.y })); }));
-      button("自動布線", () => change((doc) => { doc.wires.find((w) => w.id === wire.id).via = []; }));
+      button("編輯轉折", () => change((doc) => { const w = doc.wires.find(w=>w.id===wire.id); if (w.shape === "auto") w.via = G.simplify(routes[wire.id], 2).slice(1,-1); selection = {kind:"wire",id:w.id,editing:true}; }));
+      button("重畫導線", () => startWire(wire.from,wire.id));
+      button("修整線形", () => change((doc) => { const w=doc.wires.find(w=>w.id===wire.id); Object.assign(w,G.finishStroke(routes[w.id],"smooth",3/camera.scale)); selection={kind:"wire",id:w.id}; }));
+      button("自動布線", () => change((doc) => { const w=doc.wires.find((w) => w.id === wire.id); w.via = []; w.shape="auto"; }));
       if (selection.kind === "bend") button("移除此轉折", () => change((doc) => { doc.wires.find((w) => w.id === wire.id).via.splice(selection.index, 1); selection = { kind: "wire", id: wire.id }; }));
     } else if (selection?.kind === "port" || selection?.kind === "junction") {
       const endpoint = selection.kind === "junction" ? selection.id + ":p" : selection.id;
@@ -165,59 +219,70 @@
   surface.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || (event.pointerType === "touch" && !event.isPrimary)) return;
     if (drag && event.pointerId !== drag.pointerId) { cancel(); notify("多點觸控已取消本次操作。"); return; }
-    const target = event.target.closest(".hit"), meta = target?.meta;
-    if (panMode) { drag = { kind: "pan", pointerId: event.pointerId, target: surface, x: event.clientX, y: event.clientY, lastX: event.clientX, lastY: event.clientY, base: { ...camera }, pointerType: event.pointerType }; surface.setPointerCapture(event.pointerId); return; }
-    if (!meta || meta.kind === "wire") return;
-    if (meta.kind === "port" && probeMode) return;
-    const point = world(event.clientX, event.clientY), d = history.get();
-    if (meta.kind === "body" || meta.kind === "slider") { const c = d.components.find(c=>c.id===meta.id); if (!M.permission(d, c, meta.kind === "slider" ? "params" : "move")) return; }
-    selection = { ...meta };
-    const from = meta.kind === "junction" ? meta.id + ":p" : meta.id;
+    suppressClick = false;
+    let target = event.target.closest(".hit"), meta = target?.meta;
+    if (panMode) { drag = {kind:"pan",pointerId:event.pointerId,target:surface,x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,base:{...camera},pointerType:event.pointerType}; surface.setPointerCapture(event.pointerId); return; }
+    if (meta?.kind === "port" && probeMode) return;
+    const point = world(event.clientX,event.clientY), d = history.get(), selectionBefore=selection && M.clone(selection);
+    if (pending && (!meta || meta.kind === "wire" || meta.kind === "bend" || (meta.kind === "junction" && pending.from === meta.id+":p"))) {
+      target = surface; meta = {kind:"port",id:pending.from};
+    }
+    if (!meta) return;
+    if (meta.kind === "body" || meta.kind === "slider") { const c = d.components.find(c=>c.id===meta.id); if (!M.permission(d,c,meta.kind === "slider" ? "params" : "move")) return; }
     const previousPending = pending;
-    if (meta.kind === "port") { if (!pending) startWire(from); }
-    drag = { ...meta, pointerId: event.pointerId, pointerType: event.pointerType, target, down: point, x: event.clientX, y: event.clientY, lastX: event.clientX, lastY: event.clientY, baseDoc: M.clone(d), previousPending, moved: false };
+    if (meta.kind === "port" && !pending) startWire(meta.id);
+    selection = {...meta};
+    drag = {...meta,pointerId:event.pointerId,pointerType:event.pointerType,target,down:point,x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,baseDoc:M.clone(d),previousPending,selectionBefore,moved:false};
+    if (meta.kind === "wire") { drag.controls = G.resample(routes[meta.id],35/camera.scale); selection.point = G.nearest(routes[meta.id],point); }
     target.setPointerCapture(event.pointerId); render();
   });
   surface.addEventListener("pointermove", (event) => {
-    if (!drag) { if (pending) { const p = world(event.clientX, event.clientY); pending.snap = resolveSnap(p); pending.point = p; renderGhost(); for (const t of targets.values()) t.classList.toggle("snap", pending.snap?.id === t.meta.id); } return; }
+    if (!drag) {
+      if (pending) { const p=world(event.clientX,event.clientY); pending.snap=resolveSnap(p); pending.point=p; render(false); }
+      return;
+    }
     if (event.pointerId !== drag.pointerId) return;
-    drag.lastX = event.clientX; drag.lastY = event.clientY; const p = world(event.clientX, event.clientY); drag.moved ||= Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 6;
-    if (drag.kind === "pan") { camera.x = drag.base.x - (event.clientX - drag.x) / camera.scale; camera.y = drag.base.y - (event.clientY - drag.y) / camera.scale; render(false); return; }
+    drag.lastX=event.clientX; drag.lastY=event.clientY; const p=world(event.clientX,event.clientY); drag.moved ||= Math.hypot(event.clientX-drag.x,event.clientY-drag.y)>6;
+    if (drag.kind === "pan") { camera.x=drag.base.x-(event.clientX-drag.x)/camera.scale; camera.y=drag.base.y-(event.clientY-drag.y)/camera.scale; render(false); return; }
     if (!drag.moved) return;
-    if (drag.kind === "port") { pending.snap = resolveSnap(p); pending.point = p; drag.focus = pending.snap || p; render(false); }
-    else {
-      previewDoc = M.clone(drag.baseDoc); const dx = p.x - drag.down.x, dy = p.y - drag.down.y;
-      if (drag.kind === "body" || drag.kind === "junction") { const items = drag.kind === "body" ? previewDoc.components : previewDoc.junctions, item = items.find((x) => x.id === drag.id); item.x = snapGrid(item.x + dx); item.y = snapGrid(item.y + dy); drag.focus = { x: item.x, y: item.y }; }
-      else if (drag.kind === "slider") { const c = previewDoc.components.find((c) => c.id === drag.id), angle = c.angle * Math.PI / 180, local = (p.x - c.x) * Math.cos(angle) + (p.y - c.y) * Math.sin(angle); c.params.position = Math.max(0, Math.min(1, Math.round((local + 30) / 60 * 100) / 100)); analysis = S.solve(previewDoc); drag.focus = p; }
-      else if (drag.kind === "bend") { const item = previewDoc.wires.find((w) => w.id === drag.id).via[drag.index]; item.x = snapGrid(item.x + dx); item.y = snapGrid(item.y + dy); drag.focus = item; }
+    if (drag.kind === "port") {
+      for (const sample of event.getCoalescedEvents?.().length ? event.getCoalescedEvents() : [event]) addStrokePoint(world(sample.clientX,sample.clientY));
+      drag.focus=pending.snap || p; render(false);
+    } else {
+      previewDoc=M.clone(drag.baseDoc); const dx=p.x-drag.down.x, dy=p.y-drag.down.y;
+      if (drag.kind === "body" || drag.kind === "junction") { const items=drag.kind === "body" ? previewDoc.components : previewDoc.junctions, item=items.find(x=>x.id===drag.id); item.x=snapGrid(item.x+dx); item.y=snapGrid(item.y+dy); drag.focus={x:item.x,y:item.y}; }
+      else if (drag.kind === "slider") { const c=previewDoc.components.find(c=>c.id===drag.id), angle=c.angle*Math.PI/180, local=(p.x-c.x)*Math.cos(angle)+(p.y-c.y)*Math.sin(angle); c.params.position=Math.max(0,Math.min(1,Math.round((local+30)/60*100)/100)); analysis=S.solve(previewDoc); drag.focus=p; }
+      else if (drag.kind === "bend") { const wire=previewDoc.wires.find(w=>w.id===drag.id), item=wire.via[drag.index]; item.x=wire.shape === "auto" ? snapGrid(item.x+dx) : item.x+dx; item.y=wire.shape === "auto" ? snapGrid(item.y+dy) : item.y+dy; drag.focus=item; }
+      else if (drag.kind === "wire") { const wire=previewDoc.wires.find(w=>w.id===drag.id), points=G.reshape(drag.controls,drag.down,dx,dy,90/camera.scale); wire.shape="smooth"; wire.via=points.slice(1,-1); selection={kind:"wire",id:wire.id,point:p}; drag.focus=p; }
       render(false);
     }
   });
   surface.addEventListener("pointerup", (event) => {
-    if (!drag || event.pointerId !== drag.pointerId) return; const finished = drag, preview = previewDoc; drag = null; previewDoc = null; $("preview").hidden = true;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const finished=drag, preview=previewDoc; drag=null; previewDoc=null; $("preview").hidden=true; suppressClick=finished.moved;
     if (finished.target.hasPointerCapture(event.pointerId)) finished.target.releasePointerCapture(event.pointerId);
     if (finished.kind === "port") {
-      if (finished.moved && pending?.snap) wireTo(pending.snap.id);
-      else if (!finished.moved && finished.previousPending && finished.previousPending.from !== finished.id) wireTo(finished.id);
-      else if (finished.moved) { notify("尚未接上端子；可再點另一個端子，或按 Escape 取消。"); }
-    } else if (finished.kind === "junction" && !finished.moved) { const endpoint = finished.id + ":p"; if (probeMode) probePort(endpoint); else if (pending && pending.from !== endpoint) wireTo(endpoint); else startWire(endpoint); }
-    else if (finished.kind === "body" && !finished.moved && selectedComponent()?.type === "switch" && M.permission(history.get(), selectedComponent(), "switch")) { change((d) => { const c = d.components.find((c) => c.id === finished.id); c.params.closed = !c.params.closed; }); }
-    else if (preview && finished.moved) { change((d) => Object.assign(d, preview)); notify("位置已更新，原本接線保持連接。"); }
+      if (finished.moved) { addStrokePoint(world(event.clientX,event.clientY)); const hadSnap=!!pending.snap; if (!finishWire() && !hadSnap) notify(pending?.redraw ? "尚未接回原終點；可續畫，或取消保留原線。" : "尚未接上；可從空白處續畫，點終點接好，或按「取消接線」。"); }
+      else if (finished.previousPending && finished.previousPending.from !== finished.id) wireTo(finished.id);
+    } else if (finished.kind === "junction" && !finished.moved) { const endpoint=finished.id+":p"; if (probeMode) probePort(endpoint); else if (pending && pending.from!==endpoint) wireTo(endpoint); else startWire(endpoint); }
+    else if (finished.kind === "body" && !finished.moved && selectedComponent()?.type === "switch" && M.permission(history.get(),selectedComponent(),"switch")) change(d=>{const c=d.components.find(c=>c.id===finished.id);c.params.closed=!c.params.closed;});
+    else if (preview && finished.moved) { change(d=>Object.assign(d,preview)); notify(finished.kind === "wire" || finished.kind === "bend" ? "線形已更新，兩端的接線保持不變。" : "位置已更新，原本接線保持連接。"); }
     render();
   });
   surface.addEventListener("pointercancel", cancel); surface.addEventListener("lostpointercapture", (e) => { if (drag?.pointerId === e.pointerId) cancel(); }); window.addEventListener("blur", cancel);
   surface.addEventListener("click", (event) => {
+    if (suppressClick && event.detail) { suppressClick=false; return; }
     const target = event.target.closest(".hit"), meta = target?.meta;
     if (panMode) return;
     if (meta?.kind === "port" && probeMode) { probePort(meta.id); return; }
     if (meta && (meta.kind === "body" || meta.kind === "slider")) { const c=history.get().components.find(c=>c.id===meta.id); if(!M.permission(history.get(),c,meta.kind=== "slider" ? "params" : "move")){selection={...meta}; if(c.type === "switch" && M.permission(history.get(),c,"switch")) change(d=>{const c=d.components.find(c=>c.id===meta.id);c.params.closed=!c.params.closed;});else render();return;} }
-    if (meta?.kind === "wire") { const wire = history.get().wires.find((w) => w.id === meta.id), path = routes[wire.id], point = event.detail ? world(event.clientX, event.clientY) : path[meta.segment]; const nearest = G.nearest(path, point);
-      if (pending) wireTo(null, { wire, route: path, point: nearest }); else { selection = { kind: "wire", id: wire.id, point: nearest }; render(); }
+    if (meta?.kind === "wire") { const wire = history.get().wires.find((w) => w.id === meta.id), path = routes[wire.id], point = event.detail ? world(event.clientX, event.clientY) : path[meta.segment]; const nearest = G.nearest(path, event.detail ? point : meta.point || point);
+      if (pending) wireTo(null, { wire, route: path, point: nearest }); else { selection = { kind: "wire", id: wire.id, point: nearest, editing:selection?.id===wire.id && selection.editing }; render(); }
       return;
     }
     // Keyboard-generated clicks on ports have no pointerdown/up.
     if (meta && event.detail === 0) { if (["port", "junction"].includes(meta.kind)) { const endpoint = meta.kind === "junction" ? meta.id + ":p" : meta.id; if (probeMode) probePort(endpoint); else if (pending && pending.from !== endpoint) wireTo(endpoint); else startWire(endpoint); } else { selection = { ...meta }; if (meta.kind === "body" && selectedComponent()?.type === "switch" && M.permission(history.get(), selectedComponent(), "switch")) change((d) => { const c = d.components.find((c) => c.id === meta.id); c.params.closed = !c.params.closed; }); else render(); } return; }
-    if (!meta) { if (pending) { const p = world(event.clientX, event.clientY); pending.via.push({ x: snapGrid(p.x), y: snapGrid(p.y) }); if (pending.via.length > M.limits.bends) pending.via.pop(); pending.point = p; renderGhost(); notify("已加轉折，點端子或導線完成接線。"); } else { selection = null; render(); } }
+    if (!meta) { if (pending) { const p = world(event.clientX, event.clientY); addStrokePoint(p); renderGhost(); notify("已保留路徑；可續畫，點終點接好，或取消接線。"); render(false); } else { selection = null; render(); } }
   });
   window.addEventListener("keydown", (event) => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName);
@@ -231,6 +296,11 @@
     if (offsets[event.key] && selection && ["body", "junction", "bend", "slider"].includes(selection.kind)) { event.preventDefault(); const [dx, dy] = offsets[event.key]; change((d) => { let item; if (selection.kind === "body") { item = d.components.find((c) => c.id === selection.id); if (!M.permission(d, item, "move")) throw new Error("此元件已固定"); } else if (selection.kind === "slider") { const c = d.components.find((c) => c.id === selection.id); if (!M.permission(d, c, "params")) throw new Error("參數已固定"); c.params.position = Math.max(0, Math.min(1, c.params.position + (dx + dy) / 400)); return; } else if (selection.kind === "junction") item = d.junctions.find((j) => j.id === selection.id); else item = d.wires.find((w) => w.id === selection.id).via[selection.index]; item.x += dx; item.y += dy; }); }
   });
   function undo(redo = false) { cancel(); const changed = redo ? history.redo() : history.undo(); selection = null; analysis = S.solve(history.get()); render(); if (changed) emitChange(); notify(redo ? "已重做。" : "已復原。"); }
+  $("cancelWire").onclick = () => { cancel(); notify("已取消未完成接線，原電路保持不變。"); };
+  $("deleteSelected").onclick = () => { const id=selection?.id; if (!id || selection.kind === "port") return; cancel(); change(d=>M.remove(d,id)); notify("已刪除；按復原可還原。"); };
+  $("rotateSelected").onclick = () => { if (selectedComponent()) rotate(selection.id); };
+  $("redrawWire").onclick = () => { const wire=selectedWire(); if (wire) startWire(wire.from,wire.id); };
+  $("wireStyle").onchange = () => { wireStyle=$("wireStyle").value; if (pending) pending.shape=wireStyle; render(false); notify(wireStyle === "smooth" ? "自動修整：直筆變直線，彎筆變順滑曲線。" : wireStyle === "free" ? "保留筆跡：導線跟隨你畫的走向。" : "直角布線：點兩端或指定轉折。"); };
   $("undo").onclick = () => undo(); $("redo").onclick = () => undo(true);
   function loadDocument(doc) { const valid = typeof doc === "string" ? D.decode(doc) : M.validate(doc); cancel(); const previous = history.get(); history.replace(valid); analysis = S.solve(history.get()); selection = null; fit(); render(); if (history.get() !== previous) emitChange(); }
   $("preset").onchange = () => { loadDocument(P.create($("preset").value)); notify("已載入範例，可自由修改；按復原可返回原電路。"); };
@@ -239,13 +309,13 @@
   $("pause").onchange = () => { paused = $("pause").checked; };
   $("mode").onchange = () => { cancel(); change((d) => { d.policy.mode = $("mode").value; }); };
   ["allowRotate", "allowParams", "allowSwitch"].forEach((id) => { $(id).onchange = () => { cancel(); change((d) => { d.policy[id] = $(id).checked; }); }; });
-  $("probe").onclick = () => { cancel(); probeMode = !probeMode; probeFirst = null; probeResult = null; panMode = false; render(); notify(probeMode ? "點一個端子看電勢，再點另一個量兩點電壓。" : "點兩個端子即可接線。"); };
+  $("probe").onclick = () => { cancel(); probeMode = !probeMode; probeFirst = null; probeResult = null; panMode = false; render(); notify(probeMode ? "點一個端子看電勢，再點另一個量兩點電壓。" : "從端子按住畫線，到另一端子放手。"); };
   $("pan").onclick = () => { cancel(); panMode = !panMode; probeMode = false; render(); notify(panMode ? "拖動畫布中央平移；兩側捲動帶可捲動宿主頁面。" : "已回到元件與接線操作。"); };
   document.querySelectorAll("[data-camera]").forEach((b) => { b.onclick = () => { cancel(); const action = b.dataset.camera, cx = camera.x + surface.clientWidth / (2 * camera.scale), cy = camera.y + surface.clientHeight / (2 * camera.scale); if (action === "fit") { fit(true); if (camera.scale < .55) notify("全圖預覽：點元件後用「定位所選」放大，或按 ＋ 放大接線。"); } else if (["in", "out"].includes(action)) { camera.scale = Math.max(.65, Math.min(2.5, camera.scale * (action === "in" ? 1.2 : 1 / 1.2))); camera.x = cx - surface.clientWidth / (2 * camera.scale); camera.y = cy - surface.clientHeight / (2 * camera.scale); } else { const delta = 100 / camera.scale; if (action === "left") camera.x -= delta; if (action === "right") camera.x += delta; if (action === "up") camera.y -= delta; if (action === "down") camera.y += delta; } render(false); }; });
   $("panelToggle").onclick = () => { cancel(); const hidden = $("app").classList.toggle("panel-hidden"); $("panelToggle").setAttribute("aria-expanded", String(!hidden)); $("panelToggle").setAttribute("aria-label", hidden ? "展開操作面板" : "收起操作面板"); requestAnimationFrame(() => render(false)); };
   $("clearAll").onclick = () => { cancel(); selection = null; change((d) => { if (d.policy.mode !== "free") throw new Error("固定模式可用「只移除導線」重新接線。"); Object.assign(d, M.empty()); }); };
   $("clearWires").onclick = () => { cancel(); change((d) => { d.wires = []; d.junctions = []; if (d.display.reference && !M.endpoints(d).has(d.display.reference)) d.display.reference = null; }); };
-  $("autoRoute").onclick = () => { cancel(); change((d) => d.wires.forEach((w) => { w.via = []; })); };
+  $("autoRoute").onclick = () => { cancel(); change((d) => d.wires.forEach((w) => { w.via = []; w.shape="auto"; })); };
   function download(text, name, type) { const url = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   $("save").onclick = () => { try { download(D.encode(history.get()), "電路工作台.json", "application/json"); notify("已匯出電路檔，可用「開啟」繼續編輯。"); } catch (e) { notify(e.message, true); } };
   $("saveTemplate").onclick = () => { try { download(D.encode(D.template(history.get())), "固定元件接線模板.json", "application/json"); } catch (e) { notify(e.message, true); } };
@@ -255,8 +325,9 @@
   $("help").onclick = $("panelHelp").onclick = () => $("helpDialog").showModal(); $("closeHelp").onclick = () => $("helpDialog").close();
   for (const [type, thermal] of [["battery"], ["resistor"], ["rheostat"], ["switch"], ["lamp", false], ["lamp", true], ["ammeter"], ["voltmeter"], ["wattmeter"]]) {
     const b = document.createElement("button"); b.type = "button"; b.dataset.add = type + (thermal ? ":thermal" : "");
-    b.innerHTML = `<span class="icon">${R.get(type).icon}</span><span>${type === "lamp" ? thermal ? "變阻燈" : "恆阻燈" : R.get(type).name}</span>`;
-    b.onclick = () => { cancel(); const succeeded = change((d) => { const x = snapGrid(camera.x + surface.clientWidth / (2 * camera.scale)), y = snapGrid(camera.y + surface.clientHeight / (2 * camera.scale)); let offset = 0; while (d.components.some((c) => Math.hypot(c.x - x - offset, c.y - y - offset) < 100)) offset += 40; const c = M.add(d, type, x + offset, y + offset, type === "lamp" ? { model: thermal ? "thermal" : "ideal" } : {}); selection = { kind: "body", id: c.id }; }); if(succeeded) notify("元件已加入。點端子接線，或拖動本體調整位置。"); }; $("palette").append(b);
+    const sample={type,params:R.defaults(type)}; if (thermal) sample.params.model="thermal";
+    b.innerHTML = `<span class="icon"><svg viewBox="-64 -68 128 124" aria-hidden="true">${V.body(sample,null,{view:"real",meters:"digital",values:false})}</svg></span><span>${type === "lamp" ? thermal ? "變阻燈" : "恆阻燈" : R.get(type).name}</span>`;
+    b.onclick = () => { cancel(); const succeeded = change((d) => { const x = snapGrid(camera.x + surface.clientWidth / (2 * camera.scale)), y = snapGrid(camera.y + surface.clientHeight / (2 * camera.scale)); let offset = 0; while (d.components.some((c) => Math.hypot(c.x - x - offset, c.y - y - offset) < 100)) offset += 40; const c = M.add(d, type, x + offset, y + offset, type === "lamp" ? { model: thermal ? "thermal" : "ideal" } : {}); selection = { kind: "body", id: c.id }; }); if(succeeded) notify("元件已加入。從端子按住畫線，或拖動本體調整位置。"); }; $("palette").append(b);
   }
   let resized = false;
   new ResizeObserver(() => { if (drag || pending || previewDoc) cancel(); if (!resized) { fit(); resized = true; } render(false); }).observe(surface);
@@ -265,7 +336,7 @@
     exportDocument: () => D.encode(history.get()), loadDocument,
     applyPolicy(policy) { cancel(); change((d) => { d.policy = { ...d.policy, ...policy }; }); },
     onChange(fn) { if (typeof fn !== "function") throw new TypeError("onChange requires a callback"); listeners.add(fn); return () => listeners.delete(fn); },
-    getInteraction: () => ({ pending: pending ? { from: pending.from, via: M.clone(pending.via), snap: pending.snap?.id || null } : null, dragging: drag?.kind || null, selection: selection ? M.clone(selection) : null, camera: { ...camera }, lastMessage }), cancel
+    getInteraction: () => ({ pending: pending ? { from: pending.from, via: M.clone(pending.points.slice(1)), shape:pending.shape, redraw:pending.redraw, snap: pending.snap?.id || pending.snap?.wire || null } : null, dragging: drag?.kind || null, selection: selection ? M.clone(selection) : null, camera: { ...camera }, lastMessage }), cancel
   });
   render();
   function animate(time) { if (!paused && lastTime) animationTime += Math.min(.05, (time - lastTime) / 1000); lastTime = time; if (!document.hidden && !drag) $("flowLayer").innerHTML = V.flow(current(), analysis, routes, animationTime, camera.scale); requestAnimationFrame(animate); }

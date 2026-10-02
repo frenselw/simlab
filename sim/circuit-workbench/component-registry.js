@@ -4,16 +4,17 @@
   else root.CircuitRegistry = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  const two = [{ key: "a", x: -60, y: 0, label: "+" }, { key: "b", x: 60, y: 0, label: "−" }];
+  const two = [{ key: "a", x: -60, y: 0, label: "a" }, { key: "b", x: 60, y: 0, label: "b" }];
+  const polar = two.map(p => ({...p,label:p.key === "a" ? "+" : "−"}));
   const number = (label, unit, value, min, max, step) => ({ label, unit, value, min, max, step });
   const definitions = {
-    battery: { name: "直流電源", icon: "▰", ports: two, params: { voltage: number("電動勢", "V", 6, 0, 120, .5), resistance: number("內阻", "Ω", 0, 0, 10000, .1), polarity: { value: 1, choices: [1, -1] } } },
+    battery: { name: "直流電源", icon: "▰", ports: polar, params: { voltage: number("電動勢", "V", 6, 0, 120, .5), resistance: number("內阻", "Ω", 0, 0, 10000, .1), polarity: { value: 1, choices: [1, -1] } } },
     resistor: { name: "電阻", icon: "▭", ports: two, params: { resistance: number("電阻", "Ω", 12, .01, 1e6, 1) } },
     rheostat: { name: "可調電阻", icon: "↗", ports: two, params: { resistance: number("最大電阻", "Ω", 100, .01, 1e6, 1), position: number("滑塊位置", "%", .5, 0, 1, .01) } },
     lamp: { name: "白熾燈", icon: "☀", ports: two, params: { resistance: number("電阻／額定熱態電阻", "Ω", 12, .01, 1e6, 1), ratedVoltage: number("額定電壓", "V", 6, .1, 120, .5), model: { value: "ideal", choices: ["ideal", "thermal"] } } },
     switch: { name: "開關", icon: "⤴", ports: two, params: { closed: { value: true, choices: [true, false] } } },
-    ammeter: { name: "電流表", icon: "A", ports: two, params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), range: number("量程", "A", 3, .001, 1e6, .5) } },
-    voltmeter: { name: "電壓表", icon: "V", ports: two, params: { resistance: number("輸入電阻（0 表示理想無限大）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "V", 15, .001, 1e6, 1) } },
+    ammeter: { name: "電流表", icon: "A", ports: polar, params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), range: number("量程", "A", 3, .001, 1e6, .5) } },
+    voltmeter: { name: "電壓表", icon: "V", ports: polar, params: { resistance: number("輸入電阻（0 表示理想無限大）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "V", 15, .001, 1e6, 1) } },
     wattmeter: { name: "電功率表", icon: "W", ports: [{ key: "a", x: -60, y: -20, label: "I+" }, { key: "b", x: 60, y: -20, label: "I−" }, { key: "c", x: -60, y: 40, label: "V+" }, { key: "d", x: 60, y: 40, label: "V−" }], params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), inputResistance: number("電壓線圈電阻（0 表示理想）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "W", 20, .001, 1e6, 1) } }
   };
   function get(type) { if (typeof type !== "string" || !Object.hasOwn(definitions, type)) throw new Error("不支援的元件類型"); return definitions[type]; }

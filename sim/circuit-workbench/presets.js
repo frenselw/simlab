@@ -27,6 +27,10 @@
       const r1 = add("resistor", 380, 220, "R₁", { resistance: 10 }), r2 = add("resistor", 620, 220, "R₂", { resistance: 20 }), r3 = add("resistor", 380, 440, "R₃", { resistance: 10 }), r4 = add("resistor", 620, 440, "R₄", { resistance: 20 }), a = add("ammeter", 500, 320, "橋中電流", {}, 90);
       link(battery, "a", r1, "a", [{ x: 180, y: 220 }]); link(battery, "a", r3, "a", [{ x: 240, y: 260 }, { x: 240, y: 440 }]); link(r1, "b", r2, "a"); link(r3, "b", r4, "a"); link(r2, "b", battery, "b", [{ x: 760, y: 220 }, { x: 760, y: 540 }, { x: 180, y: 540 }]); link(r4, "b", r2, "b", [{ x: 760, y: 440 }, { x: 760, y: 220 }]); link(a, "a", r1, "b"); link(a, "b", r3, "b");
     } else throw new Error("未知的範例");
+    if (name === "series") {
+      const paths = [[{x:177,y:217},{x:217,y:181},{x:252,y:178}],[],[{x:670,y:181},{x:712,y:212}],[{x:722,y:436},{x:659,y:460},{x:250,y:456},{x:178,y:425}]];
+      d.wires.forEach((wire,i)=>{wire.shape="smooth";wire.via=paths[i];});
+    }
     if (name === "wiring") { d.wires = []; d.policy.mode = "wiring"; }
     return M.validate(d);
   }
