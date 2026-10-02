@@ -6,6 +6,16 @@ const { spawnSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const tests = [
+  "sim/newtons-third-law-fullscreen-test/generator.test.js",
+  "sim/newtons-third-law-fullscreen-test/model.test.js",
+  "sim/newtons-third-law-fullscreen-test/scoring.test.js",
+  "sim/newtons-third-law-fullscreen-test/scene.test.js",
+  "sim/newtons-third-law-fullscreen-test/feedback.test.js",
+  "sim/newtons-third-law-fullscreen-test/persistence.test.js",
+  "sim/newtons-third-law-fullscreen-test/lifecycle.test.js",
+  "sim/newtons-third-law-fullscreen-test/fullscreen.test.js",
+  "tools/scorm-fullscreen-browser-regression.js",
+  "tools/newtons-third-law-fullscreen-activity-regression.js",
   "tools/mobile-scroll-browser-regression.test.js",
   "sim/centre-of-mass-investigation-lab/hit-geometry.test.js",
   "sim/motion-composition-stroboscopic-lab/model.test.js",

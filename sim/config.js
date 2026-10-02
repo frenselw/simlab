@@ -1,5 +1,13 @@
 const simulationList = [
   {
+    title: "牛頓第三定律：反作用力作圖挑戰（全螢幕測試版）",
+    folder: "newtons-third-law-fullscreen-test",
+    categories: ["Mechanics"],
+    description: "獨立測試版：在牛頓第三定律作圖活動中測試 Moodle SCORM 全螢幕切換。",
+    tags: ["physics", "mechanics", "newtons-third-law", "fullscreen", "test", "scorm"],
+    status: "active"
+  },
+  {
     title: "運動合成：頻閃軌跡建構",
     folder: "motion-composition-stroboscopic-lab",
     categories: ["Mechanics"],

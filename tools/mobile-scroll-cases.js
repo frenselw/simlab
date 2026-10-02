@@ -33,6 +33,7 @@ function mirror(id,kinds,extra={}) {
   return {id,settleMs:400,prepare:prepare+kinds.slice(1).map(k=>`click('[data-action="add"][data-segment="${k}"]');`).join(''),...extra};
 }
 function activityProfiles(slug) {
+  if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
   if(slug.startsWith("force-equilibrium"))return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('[data-add-kind]:not(:disabled)');`,handoffTarget:".origin-hit:not([hidden])"})),...submit("#checkButton","#submitButton")];
   if(slug==="newtons-third-law-reaction-force-lab")return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('#bodyChoices button:not(:disabled)');click('#anchorChoices button:not(:disabled)');`,handoffTarget:'.anchor-hit:not([hidden])'})),...submit("#checkButton","#submitButton")];
@@ -76,7 +77,7 @@ function activityProfiles(slug) {
 }
 function profiles(slug) {
   return activityProfiles(slug).map(profile => {
-    const checkOnly=profile.id==='check'&&(slug.startsWith('force-equilibrium')||slug==='newtons-third-law-reaction-force-lab'||slug==='newtons-second-law-investigation-lab');
+    const checkOnly=profile.id==='check'&&(slug.startsWith('force-equilibrium')||slug==='newtons-third-law-reaction-force-lab'||slug==='newtons-third-law-fullscreen-test'||slug==='newtons-second-law-investigation-lab');
     const conclude=slug==='newtons-second-law-investigation-lab'&&profile.id==='conclude';
     return {...profile,...(checkOnly||conclude?{noStageReason:'此正式 phase 使用全高控制面板；production layout 隱藏舞台，G1/G4 舞台手勢不適用。'}:{})};
   });

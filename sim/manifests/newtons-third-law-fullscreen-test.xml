@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="newtons-third-law-fullscreen-test" version="1.0"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="ORG-NEWTONS-THIRD-LAW-FULLSCREEN-TEST">
+    <organization identifier="ORG-NEWTONS-THIRD-LAW-FULLSCREEN-TEST">
+      <title>牛頓第三定律：反作用力作圖挑戰（全螢幕測試版）</title>
+      <item identifier="ITEM-NEWTONS-THIRD-LAW-FULLSCREEN-TEST" identifierref="RES-NEWTONS-THIRD-LAW-FULLSCREEN-TEST"><title>牛頓第三定律：反作用力作圖挑戰（全螢幕測試版）</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="RES-NEWTONS-THIRD-LAW-FULLSCREEN-TEST" type="webcontent" adlcp:scormtype="sco" href="newtons-third-law-fullscreen-test/index.html">
+      <file href="config.js"/>
+      <file href="newtons-third-law-fullscreen-test/index.html"/>
+      <file href="shared/styles.css"/>
+      <file href="newtons-third-law-fullscreen-test/styles.css"/>
+      <file href="newtons-third-law-fullscreen-test/fullscreen.js"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+      <file href="shared/touch-scroll.js"/>
+      <file href="newtons-third-law-fullscreen-test/generator.js"/>
+      <file href="newtons-third-law-fullscreen-test/model.js"/>
+      <file href="newtons-third-law-fullscreen-test/notation.js"/>
+      <file href="newtons-third-law-fullscreen-test/scoring.js"/>
+      <file href="newtons-third-law-fullscreen-test/feedback.js"/>
+      <file href="newtons-third-law-fullscreen-test/persistence.js"/>
+      <file href="newtons-third-law-fullscreen-test/ui-runtime.js"/>
+      <file href="newtons-third-law-fullscreen-test/scene.js"/>
+      <file href="newtons-third-law-fullscreen-test/main.js"/>
+    </resource>
+  </resources>
+</manifest>
