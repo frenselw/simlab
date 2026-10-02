@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./circuit-model.js") : root.CircuitModel);
+  const api = factory(node ? require("./circuit-model.js") : root.CircuitModel, node ? require("./circuit-routing.js") : root.CircuitRouting);
   if (node) module.exports = api; else root.CircuitPresets = api;
-})(globalThis, function (M) {
+})(globalThis, function (M, G) {
   "use strict";
   const names = { series: "兩燈串聯", parallel: "兩燈並聯", mixed: "串並混聯", ohm: "全電路歐姆定律", meters: "A／V／W 表接線", bridge: "橋式電路", wiring: "固定元件接線", empty: "空白畫布" };
   function create(name) {
@@ -28,6 +28,10 @@
       const r1 = add("resistor", 380, 220, "R₁", { resistance: 10 }), r2 = add("resistor", 620, 220, "R₂", { resistance: 20 }), r3 = add("resistor", 380, 440, "R₃", { resistance: 10 }), r4 = add("resistor", 620, 440, "R₄", { resistance: 20 }), a = add("ammeter", 500, 320, "橋中電流", {}, 90);
       link(battery, "a", r1, "a", [{ x: 180, y: 220 }]); link(battery, "a", r3, "a", [{ x: 240, y: 260 }, { x: 240, y: 440 }]); link(r1, "b", r2, "a"); link(r3, "b", r4, "a"); link(r2, "b", battery, "b", [{ x: 760, y: 220 }, { x: 760, y: 540 }, { x: 180, y: 540 }]); link(r4, "b", r2, "b", [{ x: 760, y: 440 }, { x: 760, y: 220 }]); link(a, "a", r1, "b"); link(a, "b", r3, "b");
     } else throw new Error("未知的範例");
+    if(['ohm','meters','bridge'].includes(name)){
+      const ids=new Set(d.components.filter(c=>['ammeter','voltmeter'].includes(c.type)).map(c=>c.id));
+      d.wires.filter(w=>[w.from,w.to].some(p=>ids.has(p.split(':')[0]))).forEach(w=>{const points=G.route(d,{...w,via:[],shape:'auto'}),rounded=G.fair(points);w.shape='free';w.via=G.resample(rounded,10).slice(1,-1);w.length=Math.max(w.length,Math.ceil(G.length(rounded))+80);});
+    }
     if (name === "series") {
       const paths = [[{x:200,y:219},{x:235,y:181},{x:280,y:178}],[],[{x:629,y:181},{x:650,y:217}],[{x:652,y:415},{x:620,y:440},{x:250,y:440},{x:200,y:415}]];
       d.wires.forEach((wire,i)=>{wire.shape="smooth";wire.via=paths[i];wire.length=600;});

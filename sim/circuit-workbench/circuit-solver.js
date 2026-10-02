@@ -105,8 +105,17 @@
       const e = branches.get(c.id), v = voltage(c.id + ":a", c.id + ":b");
       const entry = e?.result ? { ...e.result } : { voltage: v, current: c.type === "switch" || c.type === "voltmeter" ? 0 : null, power: 0, resistance: null, temperature: null };
       const ownEdges = edges.filter(e=>e.c.id===c.id); entry.branches = ownEdges.map(e=>({from:e.pa,to:e.pb,...e.result})); if(ownEdges.length) entry.power=ownEdges.some(e=>e.result.power===null) ? null : ownEdges.reduce((s,e)=>s+e.result.power,0);
-      if (c.type === "voltmeter") { entry.reading = v; entry.unit = "V"; }
-      else if (c.type === "ammeter") { entry.reading = entry.current; entry.unit = "A"; }
+      if(R.dualMeter(c)){
+        const positives=['a','c'].filter(key=>M.degree(doc,c.id+':'+key)>0),common=M.degree(doc,c.id+':b')>0,active=positives.length===1?positives[0]:null;
+        const activeEdge=ownEdges.find(e=>e.pa===c.id+':'+active),ranges=R.meterRanges(c);
+        entry.activePort=active;entry.range=active==='c'?ranges.low:ranges.high;entry.division=entry.range/ranges.divisions;entry.unit=R.get(c.type).icon;
+        entry.voltage=active?voltage(c.id+':'+active,c.id+':b'):null;
+        entry.current=activeEdge?.result.current??(c.type==='voltmeter'?0:null);
+        entry.resistance=activeEdge?.result.resistance??(c.type==='voltmeter'&&c.params.resistance>0?c.params.resistance/(active==='c'?5:1):null);
+        entry.reading=active&&common?(c.type==='voltmeter'?entry.voltage:entry.current):null;
+        entry.meterStatus=positives.length>1?'dual-positive':!active?'unconnected':!common?'missing-common':entry.reading===null?'unknown':Math.abs(entry.reading)>entry.range+1e-10?'overrange':entry.reading<-1e-10?'reverse':'normal';
+        if(entry.meterStatus==='dual-positive')diagnostics.push({code:'meter-terminals',component:c.id,message:c.label+'：兩個正極孔同時接線，請只用一個量程孔及共用 − 孔。'});
+      }
       else if (c.type === "wattmeter") { const sensed = voltage(c.id + ":c", c.id + ":d"); entry.reading = sensed === null || entry.current === null ? null : sensed * entry.current; entry.sensedVoltage = sensed; entry.unit = "W"; }
       if (c.type === "battery") { entry.delivered = entry.power === null ? null : -entry.power; entry.internalPower = entry.current === null ? null : entry.current ** 2 * c.params.resistance; entry.sourcePower = entry.current === null ? null : -c.params.voltage * c.params.polarity * entry.current; }
       if (entry.voltage === null && !e) entry.power = null;

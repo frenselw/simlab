@@ -6,6 +6,7 @@
   "use strict";
   const two = [{ key: "a", x: -60, y: 0, label: "a" }, { key: "b", x: 60, y: 0, label: "b" }];
   const polar = two.map(p => ({...p,label:p.key === "a" ? "+" : "−"}));
+  const meterPorts = [{key:"a",x:64,y:66,dx:0,dy:1,label:"大量程 +"},{key:"b",x:-64,y:66,dx:0,dy:1,label:"−"},{key:"c",x:0,y:66,dx:0,dy:1,label:"小量程 +"}];
   const number = (label, unit, value, min, max, step) => ({ label, unit, value, min, max, step });
   const definitions = {
     battery: { name: "直流電源", icon: "▰", ports: polar, params: { voltage: number("電動勢", "V", 6, 0, 120, .5), resistance: number("內阻", "Ω", 0, 0, 10000, .1), polarity: { value: 1, choices: [1, -1] } } },
@@ -13,15 +14,21 @@
     rheostat: { name: "可調電阻", icon: "↗", ports: two, params: { resistance: number("最大電阻", "Ω", 100, .01, 1e6, 1), position: number("滑塊位置", "%", .5, 0, 1, .01) } },
     lamp: { name: "白熾燈", icon: "☀", ports: two, params: { resistance: number("電阻／額定熱態電阻", "Ω", 12, .01, 1e6, 1), ratedVoltage: number("額定電壓", "V", 6, .1, 120, .5), model: { value: "ideal", choices: ["ideal", "thermal"] } } },
     switch: { name: "開關", icon: "⤴", ports: two, params: { closed: { value: true, choices: [true, false] } } },
-    ammeter: { name: "電流表", icon: "A", ports: polar, params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), range: number("量程", "A", 3, .001, 1e6, .5) } },
-    voltmeter: { name: "電壓表", icon: "V", ports: polar, params: { resistance: number("輸入電阻（0 表示理想無限大）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "V", 15, .001, 1e6, 1) } },
+    ammeter: { name: "電流表", icon: "A", ports: meterPorts, params: { resistance: number("大量程內阻", "Ω", 0, 0, 10000, .1), range: number("大量程上限", "A", 3, .001, 1e6, .5) } },
+    voltmeter: { name: "電壓表", icon: "V", ports: meterPorts, params: { resistance: number("大量程輸入電阻（0 表示理想無限大）", "Ω", 0, 0, 1e12, 1000), range: number("大量程上限", "V", 15, .001, 1e6, 1) } },
     wattmeter: { name: "電功率表", icon: "W", ports: [{ key: "a", x: -60, y: -20, label: "I+" }, { key: "b", x: 60, y: -20, label: "I−" }, { key: "c", x: -60, y: 40, label: "V+" }, { key: "d", x: 60, y: 40, label: "V−" }], params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), inputResistance: number("電壓線圈電阻（0 表示理想）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "W", 20, .001, 1e6, 1) } }
   };
   function get(type) { if (typeof type !== "string" || !Object.hasOwn(definitions, type)) throw new Error("不支援的元件類型"); return definitions[type]; }
   function defaults(type) { return Object.fromEntries(Object.entries(get(type).params).map(([key, item]) => [key, item.value])); }
-  function ports(component) {
+  const dualMeter=c=>['ammeter','voltmeter'].includes(c.type);
+  function meterRanges(c){return {high:c.params.range,low:c.params.range/5,divisions:30};}
+  function ports(component, legacy=false) {
     const angle = component.angle * Math.PI / 180, cos = Math.round(Math.cos(angle)), sin = Math.round(Math.sin(angle));
-    return get(component.type).ports.map((p) => ({ ...p, label: component.type === "battery" && component.params.polarity < 0 ? p.key === "a" ? "−" : "+" : p.label, id: component.id + ":" + p.key, x: component.x + p.x * cos - p.y * sin, y: component.y + p.x * sin + p.y * cos, dx: Math.sign(p.x) * cos, dy: Math.sign(p.x) * sin }));
+    return (legacy&&dualMeter(component)?polar:get(component.type).ports).map((p) => {
+      const dx=p.dx??Math.sign(p.x),dy=p.dy??0,ranges=dualMeter(component)?meterRanges(component):null;
+      const label=component.type==="battery"&&component.params.polarity<0?p.key==="a"?"−":"+":!legacy&&ranges?p.key==="b"?"−":"+"+Number((p.key==="a"?ranges.high:ranges.low).toPrecision(4))+" "+get(component.type).icon:p.label;
+      return {...p,label,id:component.id+":"+p.key,x:component.x+p.x*cos-p.y*sin,y:component.y+p.x*sin+p.y*cos,dx:dx*cos-dy*sin,dy:dx*sin+dy*cos};
+    });
   }
   // Teaching approximation, calibrated to the specified rated operating point.
   // The cold/hot ratio and temperatures are explicit model constants, not a tungsten fit.
@@ -45,11 +52,11 @@
   definitions.battery.dc = c => [{from:"a",to:"b",kind:"branch",resistance:c.params.resistance,emf:c.params.voltage*c.params.polarity}];
   definitions.resistor.dc = definitions.rheostat.dc = c => [resistive(effectiveResistance(c))];
   definitions.switch.dc = c => c.params.closed ? [resistive(0)] : [];
-  definitions.ammeter.dc = c => [resistive(c.params.resistance)];
-  definitions.voltmeter.dc = c => c.params.resistance>0 ? [resistive(c.params.resistance)] : [];
+  definitions.ammeter.dc = c => [resistive(c.params.resistance),resistive(c.params.resistance*5,"c","b")];
+  definitions.voltmeter.dc = c => c.params.resistance>0 ? [resistive(c.params.resistance),resistive(c.params.resistance/5,"c","b")] : [];
   definitions.lamp.dc = c => c.params.model==="thermal" ? [{from:"a",to:"b",kind:"nonlinear",resistance:c.params.resistance,law:lampAt}] : [resistive(c.params.resistance)];
   definitions.wattmeter.dc = c => [resistive(c.params.resistance),...(c.params.inputResistance>0 ? [resistive(c.params.inputResistance,"c","d")] : [])];
   function dc(c) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, ports, lampAt, thermal, effectiveResistance, dc, register };
+  return { definitions, get, defaults, ports, legacyPorts:c=>ports(c,true), dualMeter, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
 });

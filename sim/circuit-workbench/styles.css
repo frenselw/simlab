@@ -22,3 +22,13 @@ html,body{height:100%;overflow:hidden}body{font-family:system-ui,-apple-system,"
 .canvas-notice{position:absolute;top:10px;left:10px;right:10px;width:fit-content;max-width:calc(100% - 20px);background:#ffffffee;border:1px solid #bed3e1;border-radius:7px;color:#325d7b;font-size:12px;line-height:1.5;padding:6px 9px;pointer-events:none;z-index:7}.canvas-notice.error{border-color:#dab682;color:#885719}.surface.panning .canvas-notice{top:42px}
 @media(max-width:899px){.context-actions button{padding:0 7px;font-size:13px}.context-actions:has(#focusSelected:not([hidden])) #selectionTip{display:none}}
 @media(max-height:450px) and (min-width:560px){.context-actions #focusSelected{padding:0 5px;font-size:11px}}
+
+/* Wire priority is declared before contact; native blank/strip scroll remains. */
+.hit.wire.selected{z-index:8}.hit.wireend.selected{z-index:10}
+.surface.wire-priority .hit.wire{z-index:7}
+.surface.wire-priority .hit.wireend{z-index:9}
+.surface.wire-priority .hit.body,.surface.wire-priority .hit.port,.surface.wire-priority .hit.slider,.surface.wire-priority .hit.junction{pointer-events:none}
+.surface.wire-priority .hit.wire.selected{z-index:8}
+.wire-tool .narrow-label{display:none}.meter-detail svg{display:block;width:min(100%,340px);height:auto;margin:12px auto}.meter-detail p{text-align:center;font-size:14px;line-height:1.7}
+#meterDialog{width:min(400px,calc(100vw - 24px));padding:12px}#meterDialog h2{font-size:1rem}
+@media(max-width:759px){.wire-tool .wide-label,.hand-tool span{display:none}.wire-tool .narrow-label{display:inline}.stage-tools{gap:4px}.stage-tools .hand-tool{width:44px;min-width:44px;padding:0}.stage-tools .wire-tool{padding:0 7px}}

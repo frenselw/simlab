@@ -8,7 +8,30 @@
   function format(v, unit = "") { if (v === null || v === undefined || !Number.isFinite(v)) return "—"; const a = Math.abs(v); let text = a >= 10000 || (a > 0 && a < .001) ? v.toExponential(2) : Number(v.toPrecision(4)).toString(); if (text === "-0") text = "0"; return text + (unit ? " " + unit : ""); }
   function colour(v, max = 6) { if (v === null) return "#64748b"; const t = Math.max(-1, Math.min(1, v / Math.max(max, .1))); return t < 0 ? `hsl(${210 + 10 * -t} 76% ${48 - 12 * -t}%)` : `hsl(${210 - 178 * t} ${35 + 45 * t}% ${48 - 8 * t}%)`; }
   function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" text-anchor="middle" ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
+  const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
+  const dialPoint=(fraction,radius=70)=>{const angle=(-150+120*fraction)*Math.PI/180;return{x:radius*Math.cos(angle),y:24+radius*Math.sin(angle)};};
+  function dualDial(c,result,values=true) {
+    const ranges=R.meterRanges(c),unit=R.get(c.type).icon,low=result?.activePort==='c',high=result?.activePort==='a',range=result?.range??ranges.high,v=result?.reading;
+    let out='<rect x="-69" y="-65" width="138" height="102" rx="7" fill="#fff" stroke="#b2c2cf"/>';
+    out+=text(-33,-73,format(ranges.low,unit),11,`fill="${low?'#245b94':'#64748b'}" font-weight="600"`)+text(33,-73,format(ranges.high,unit),11,`fill="${high?'#245b94':'#64748b'}" font-weight="600"`);
+    for(let i=0;i<=30;i++){const a=dialPoint(i/30),b=dialPoint(i/30,i%10===0?61:i%5===0?64:67);out+=`<path data-meter-tick="${i}" d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#475569" stroke-width="${i%10===0?1.5:1}"/>`;
+      if(i%10===0){for(const [kind,radius,value,active]of [['high',53,ranges.high*i/30,high],['low',36,ranges.low*i/30,low]]){const p=dialPoint(i/30,radius);out+=text(p.x,p.y+3,format(value),10,`data-scale="${kind}" data-value="${value}" fill="${active?'#245b94':'#64748b'}"`);}}
+    }
+    out+=text(0,10,unit,17,'font-weight="600"');
+    if(values&&Number.isFinite(v)){const fraction=Math.max(-.065,Math.min(1.065,v/range)),p=dialPoint(fraction,59);out+=`<path data-meter-needle="${esc(c.id||'preview')}" data-reading="${v}" data-range="${range}" data-fraction="${fraction}" data-angle="${-150+120*fraction}" d="M0 24L${p.x} ${p.y}" stroke="#c33b35" stroke-width="2" stroke-linecap="round"/>`;}
+    out+='<circle cx="0" cy="24" r="4" fill="#475569"/>';
+    return `<g data-meter-dial="${esc(c.id||'preview')}" data-divisions="30">${out}</g>`;
+  }
+  function dualMeter(c,result,display) {
+    const symbol=R.get(c.type).icon,ranges=R.meterRanges(c),range=result?.range??ranges.high;
+    let out=display.meters==='analog'?dualDial(c,result,display.values):'<rect x="-66" y="-67" width="132" height="77" rx="6" fill="#dce9df"/>'+text(0,-28,display.values?format(result?.reading,symbol):symbol,22,'font-family="monospace"')+text(0,-4,result?.activePort?'量程 '+format(range,symbol):'接入 − 與一個正極孔',12);
+    out+=text(0,display.meters==='analog'?41:36,statusText(result),10,'fill="#a74730"');
+    let shell='<rect x="-78" y="-86" width="156" height="164" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
+    shell+=`<g transform="rotate(${-(c.angle||0)})">${out}</g>`;
+    [-64,0,64].forEach(x=>{shell+=`<circle data-socket="${x}" cx="${x}" cy="66" r="10" fill="${x===-64?'#475569':'#bb6554'}"/><circle cx="${x}" cy="66" r="6" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
+  }
   function meter(c, result, display) {
+    if(R.dualMeter(c))return dualMeter(c,result,display);
     const symbol = R.get(c.type).icon, v = result?.reading, unit = symbol === "A" ? "A" : symbol === "V" ? "V" : "W";
     const shell = '<rect x="-43" y="-36" width="86" height="78" rx="12" fill="#eef4fa" stroke="#446482" stroke-width="2"/>';
     let out = "";
@@ -17,7 +40,7 @@
       out += '<path d="M-32 9 A32 32 0 0 1 32 9" fill="#fff" stroke="#94a3b8"/>';
       for (let n = 0; n <= 8; n++) { const a = Math.PI * (1 - n / 8); out += `<path d="M${Math.cos(a) * 28},${9 - Math.sin(a) * 28} L${Math.cos(a) * 32},${9 - Math.sin(a) * 32}" stroke="#64748b"/>`; }
       out += text(-28, 22, format(-c.params.range), 9) + text(0, -14, "0", 10) + text(28, 22, format(c.params.range), 9);
-      if (display.values && v !== null && v !== undefined) { const a = Math.PI * (.5 - Math.max(-1, Math.min(1, v / c.params.range)) * .45); out += `<path d="M0 9 L${Math.cos(a) * 27},${9 - Math.sin(a) * 27}" stroke="#dc2626" stroke-width="2"/><circle cx="0" cy="9" r="3" fill="#334155"/>`; }
+      if (display.values && v !== null && v !== undefined) { const a = Math.PI * (.5 - Math.max(-1, Math.min(1, v / c.params.range)) * .5); out += `<path d="M0 9 L${Math.cos(a) * 27},${9 - Math.sin(a) * 27}" stroke="#dc2626" stroke-width="2"/><circle cx="0" cy="9" r="3" fill="#334155"/>`; }
       out += text(0, 36, display.values ? format(v, unit) : symbol, 12);
     }
     if (display.values && v !== null && Math.abs(v) > c.params.range) out += text(0, -43, "超量程", 13, 'fill="#b91c1c"');
@@ -27,6 +50,10 @@
     const schematic = display.view === "schematic", p = c.params; if(typeof R.get(c.type).render === "function") return R.get(c.type).render(c,result,display);
     const leads = '<path d="M-60 0H-35 M35 0H60" stroke="#475569" stroke-width="3" fill="none"/>';
     if (["ammeter", "voltmeter", "wattmeter"].includes(c.type)) {
+      if(R.dualMeter(c)){
+        if(!schematic)return meter(c,result,display);
+        return '<path d="M-64 66V39H-20V27 M0 66V34 M64 66V39H20V27" fill="none" stroke="#475569" stroke-width="3" stroke-linejoin="round"/><circle r="34" fill="#fff" stroke="#334155" stroke-width="2"/>'+`<g transform="rotate(${-(c.angle||0)})">${text(0,6,R.get(c.type).icon,22)}</g>`;
+      }
       let lines = c.type === "wattmeter" ? `<path d="${schematic ? "M-60-20H-27 M27-20H60 M-60 40H-24V24 M24 24V40H60" : "M-60-20H-36 M36-20H60 M-60 40H-34 M34 40H60"}" stroke="#475569" stroke-width="3" fill="none" stroke-linejoin="round"/>` : leads;
       if (schematic) return lines + '<circle r="34" fill="#fff" stroke="#334155" stroke-width="2"/>' + `<g transform="rotate(${-(c.angle || 0)})">${text(0,6,R.get(c.type).icon,22)}</g>`;
       return lines + meter(c, result, display);
@@ -66,7 +93,7 @@
     }
     return leads;
   }
-  function scene(doc, result, scale = 1, routes = {}, selection = null) {
+  function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false) {
     const size = (doc.display.projection ? 18 : 14) / scale, max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
     let out = '';
     doc.wires.forEach((w) => {
@@ -76,10 +103,11 @@
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach((c) => {
       const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
-      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? '<rect x="-46" y="-47" width="92" height="98" rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>' : ""}${body(c, r, doc.display)}</g>`;
-      const labelY = c.y + (c.angle % 180 ? 87 : isMeter ? 85 : 66) + (doc.display.projection ? 8 : 0);
+      const box=R.dualMeter(c)?'x="-82" y="-91" width="164" height="174"':'x="-46" y="-47" width="92" height="98"';
+      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
+      const labelY = c.y + (R.dualMeter(c)?112:c.angle % 180 ? 87 : isMeter ? 85 : 66) + (doc.display.projection ? 8 : 0);
       out += text(c.x, labelY, c.label + (c.locked ? " · 固定" : ""), size);
-      if (doc.display.values && isMeter && doc.display.view === "schematic") out += text(c.x,labelY+20/scale,format(r?.reading,r?.unit),12/scale);
+      if (doc.display.values && isMeter && (doc.display.view === "schematic"||R.dualMeter(c)&&doc.display.meters==='analog')) out += text(c.x,labelY+20/scale,format(r?.reading,r?.unit),12/scale);
       if (doc.display.values && !isMeter && scale >= .55) {
         const resistance = c.type === "lamp" && c.params.model === "thermal" ? r?.resistance : r?.resistance ?? R.effectiveResistance(c);
         let value = c.type === "battery" ? `E ${format(c.params.voltage, "V")} · r ${format(c.params.resistance, "Ω")}` : c.type === "switch" ? (c.params.closed ? "閉合" : "斷開") : `${format(resistance, "Ω")} · ${format(r?.power, "W")}`;
@@ -90,15 +118,17 @@
         if (isMeter) out += text(p.x, p.y - 12 / scale, p.label, 11 / scale);
       });
       if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
-        const a = R.ports(c)[0], b = R.ports(c)[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
+        const ports=R.ports(c),a=ports.find(p=>p.key===(r.activePort||'a'))||ports[0], b=ports[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
         const mx = c.x, my = c.y - 58, direction = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
         out += `<g transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
       }
     });
+    // Selected cable stays visible even when it shorts a component beneath it.
+    const raised=doc.wires.find(w=>w.id===selection);if(raised){const d=Routing.path(routes[raised.id]||Routing.route(doc,raised));out+=`<path data-raised-wire="${raised.id}" d="${d}" fill="none" stroke="#fff" stroke-width="${9/scale}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#2563eb" stroke-width="${5/scale}" stroke-linecap="round" stroke-linejoin="round"/>`;}
     const ends=new Map();doc.components.forEach(c=>R.ports(c).forEach(p=>ends.set(p.id,p)));doc.junctions.forEach(j=>ends.set(j.id+":p",j));
     doc.wires.forEach(w=>["from","to"].forEach((key,i)=>{
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
-      if(free||selection===w.id){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
+      if(free||selection===w.id||wireMode){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
     }));
     return out;
   }
@@ -115,5 +145,5 @@
     });
     return out;
   }
-  return { scene, flow, body, text, format, esc, colour };
+  return { scene, flow, body, dualDial, dialPoint, statusText, text, format, esc, colour };
 });
