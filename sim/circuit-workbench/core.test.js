@@ -137,17 +137,56 @@ function turns(points) { return points.slice(1,-1).map((b,i)=>{const a=points[i]
 for(const at of [.04,.15,.5,.85,.96])for(const pull of [30,100,300,-100]){
  const d=M.empty();M.add(d,'lamp',200,220);const w=M.connect(d,'c1:a','c1:b',[],'free');w.length=240;
  const route=G.route(d,w),refs=[w.from,w.to],result=M.bendWire(d,w.id,G.along(route,120*at),0,pull),next=G.route(d,w);
- assert.deepEqual([w.from,w.to],refs);assert.deepEqual(next[0],route[0]);assert.deepEqual(next.at(-1),route.at(-1));assert(Math.max(...turns(next))<15,'center and endpoint transitions cannot have visible angular kinks');assert(G.length(next)<=240+.05);assert(Math.max(...next.map(p=>Math.abs(p.y-220)))>15,'fairing responds to the pull');assert.equal(result.limited,Math.abs(pull)>=100);D.decode(D.encode(d));
+ assert.deepEqual([w.from,w.to],refs);assert.deepEqual(next[0],route[0]);assert.deepEqual(next.at(-1),route.at(-1));assert(Math.max(...turns(next))<15,'center and endpoint transitions cannot have visible angular kinks');assert(G.length(next)<=240+.05);assert(Math.max(...next.map(p=>Math.abs(p.y-220)))>15,'fairing responds to the pull');
+ if(result.limited)assert(G.length(next)>239.9,'only the actual arc budget limits a pull');else assert(G.nearest(next,{x:140+120*at,y:220+pull}).distance<4,'a reachable pull follows the grip');
+ D.decode(D.encode(d));
 }
 const pulledLoop=M.empty();M.add(pulledLoop,'lamp',200,220);const curled=M.connect(pulledLoop,'c1:a','c1:b',[{x:105,y:270},{x:140,y:350},{x:260,y:350},{x:295,y:270}],'smooth');curled.length=600;let loopRoute=G.route(pulledLoop,curled);M.bendWire(pulledLoop,curled.id,G.along(loopRoute,G.length(loopRoute)/2),30,50);assert(Math.max(...turns(G.route(pulledLoop,curled)))<20,'curled cable remains smooth');M.validate(pulledLoop);
 for(const loop of [false,true])for(const at of [.04,.15,.5,.85,.96])for(const dx of [-300,-100,-10,0,10,100,300])for(const dy of [-100,-10,-1,0,1,10,100]){
  const d=M.empty();M.add(d,'lamp',200,220);const w=M.connect(d,'c1:a','c1:b',loop?[{x:105,y:270},{x:140,y:350},{x:260,y:350},{x:295,y:270}]:[],loop?'smooth':'free');w.length=loop?600:240;
- const before=G.route(d,w),ids=[w.from,w.to];M.bendWire(d,w.id,G.along(before,G.length(before)*at),dx,dy);const after=G.route(d,w);
+ const before=G.route(d,w),ids=[w.from,w.to],grip=G.along(before,G.length(before)*at),result=M.bendWire(d,w.id,grip,dx,dy);const after=G.route(d,w);
  assert.deepEqual([w.from,w.to],ids);assert.deepEqual(after[0],before[0]);assert.deepEqual(after.at(-1),before.at(-1));assert(Math.max(...turns(after))<18.01,'tangential and oblique pulls cannot fold into cusps');assert(G.length(after)<=w.length+.05);assert(w.via.length<=96);D.decode(D.encode(d));
- if(!loop&&dy===0)assert(after.every(p=>Math.abs(p.y-220)<.001),'axial sliding does not invent a loop in a straight cable');
- if(!loop&&Math.abs(dx)===100&&Math.abs(dy)===10)assert(Math.max(...after.map(p=>Math.abs(p.y-220)))>9,'compression limiting retains the sideways pull');
+ if(!loop&&dy===0)assert(Math.max(...after.map(p=>Math.abs(p.y-220)))<2,'an axial pickup rounds any return bend locally without inventing a sideways pull');
+ if(!result.limited)assert(G.nearest(after,{x:grip.x+dx,y:grip.y+dy}).distance<4,'reachable tangential and oblique grips follow the pointer');
+ if(!loop&&Math.abs(dx)===100&&Math.abs(dy)===10)assert(Math.max(...after.map(p=>Math.abs(p.y-220)))>(result.limited?1:9),'finite reach retains the sideways direction');
 }
 console.log('Cable fairing: 20 perpendicular and 490 tangential/oblique pulls, smooth curled wire, fixed endpoints, finite arc budget and file round trips passed.');
+// Regression: legality of sampled angles is not monotonic in displacement.
+// Test every frame from the same drag-start snapshot, as the UI does. Checking
+// only a finished pull missed >100-unit jumps between one-unit pointer moves.
+const insideCable=P.create('series'),insideWire=insideCable.wires[2];
+insideWire.shape='free';insideWire.via=G.resample(G.fair([
+ {x:590,y:180},{x:595,y:187},{x:550,y:235},{x:520,y:272},
+ {x:550,y:275},{x:610,y:252},{x:635,y:249},{x:650,y:260}
+]),4).slice(1,-1);
+M.validate(insideCable);
+const directions=[...Array.from({length:8},(_,i)=>({x:Math.cos(i*Math.PI/4),y:Math.sin(i*Math.PI/4)})),{x:-1,y:.7}];
+const steps=[...Array.from({length:181},(_,i)=>i),...Array.from({length:180},(_,i)=>179-i)];
+let frames=0,maxJump=0,maxLag=0,maxTurn=0;
+function frameChange(a,b){return Math.max(...Array.from({length:65},(_,i)=>{const u=G.along(a,G.length(a)*i/64),v=G.along(b,G.length(b)*i/64);return Math.hypot(v.x-u.x,v.y-u.y);}));}
+for(const base of [P.create('series'),insideCable])for(const direction of directions){
+ const w=base.wires[2],initial=G.route(base,w),grip=G.along(initial,G.length(initial)/2),electrical=S.solve(base).components;
+ let previous=initial,oldStep=0;
+ for(const step of steps){const d=M.clone(base),dx=step*direction.x,dy=step*direction.y,result=M.bendWire(d,w.id,grip,dx,dy,100),next=G.route(d,d.wires[2]);
+   const jump=frameChange(previous,next),lag=G.nearest(next,{x:grip.x+dx,y:grip.y+dy}).distance,turn=Math.max(0,...turns(next));
+   assert(jump<4*Math.max(1,Math.abs(step-oldStep)*Math.hypot(direction.x,direction.y)),`continuous cable frame: ${jump} at ${step} in ${JSON.stringify(direction)}`);
+   assert.deepEqual(next[0],initial[0]);assert.deepEqual(next.at(-1),initial.at(-1));assert.deepEqual([d.wires[2].from,d.wires[2].to],[w.from,w.to]);assert(G.length(next)<=w.length+.05);
+   if(step){assert(turn<18.01,'inward and outward cable trajectories remain smooth');if(!result.limited)assert(lag<6,`reachable grip cannot stick in one direction: ${lag}`);}
+   if(step&&step%60===0){assert.deepEqual(S.solve(d).components,electrical);assert.deepEqual(D.decode(D.encode(d)),d);}
+   frames++;maxJump=Math.max(maxJump,jump);if(!result.limited)maxLag=Math.max(maxLag,lag);if(step)maxTurn=Math.max(maxTurn,turn);previous=next;oldStep=step;
+ }
+ assert.deepEqual(previous,initial,'returning the pointer to its origin restores the starting line');
+}
+// Cross the true length boundary in small steps, then reverse. The boundary
+// must act as a continuous stop, never as an angle-dependent rebound.
+const taut=[{x:140,y:220},{x:260,y:220}],tautGrip={x:200,y:220};let previous=taut,limitedFrames=0;
+for(const step of [...Array.from({length:401},(_,i)=>i),...Array.from({length:400},(_,i)=>399-i)]){
+ const result=G.bend(taut,tautGrip,-.6*step,step,240),next=result.points;
+ assert(frameChange(previous,next)<5);assert(G.length(next)<=240+.05);assert(Math.max(0,...turns(next))<18.01);
+ if(result.limited){limitedFrames++;assert(G.length(next)>239.9);}previous=next;frames++;
+}
+assert(limitedFrames>0);assert.deepEqual(previous,taut);
+console.log(`Cable trajectories: ${frames} inward/outward/reverse frames, original + inward U, all eight directions, actual reach boundary; max frame ${maxJump.toFixed(2)}, grip lag ${maxLag.toFixed(2)}, turn ${maxTurn.toFixed(2)} degrees passed.`);
 function dualFixture(type,port='a',internal=0){const d=M.empty(),b=M.add(d,'battery',100,100,{voltage:type==='ammeter'?3:1.5}),load=M.add(d,'resistor',400,100,{resistance:10}),meter=M.add(d,type,260,300,{resistance:internal});
  if(type==='ammeter'){M.connect(d,b.id+':a',meter.id+':'+port,[],'free');M.connect(d,meter.id+':b',load.id+':a',[],'free');}else{M.connect(d,b.id+':a',load.id+':a',[],'free');M.connect(d,meter.id+':'+port,load.id+':a',[],'free');M.connect(d,meter.id+':b',load.id+':b',[],'free');}M.connect(d,load.id+':b',b.id+':b',[],'free');return {d,b,load,meter};}
 for(const type of ['ammeter','voltmeter'])for(const port of ['a','c']){

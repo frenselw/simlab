@@ -86,38 +86,73 @@
     for(let i=0;i<n-1;i++){const steps=Math.max(4,Math.min(256,Math.ceil(h[i])));for(let j=1;j<=steps;j++){const t=h[i]*j/steps,u=h[i]-t,q={};for(const key of ['x','y'])q[key]=second[i][key]*u**3/(6*h[i])+second[i+1][key]*t**3/(6*h[i])+(p[i][key]-second[i][key]*h[i]**2/6)*u/h[i]+(p[i+1][key]-second[i+1][key]*h[i]**2/6)*t/h[i];out.push(q);}}
     out[0]={x:p[0].x,y:p[0].y};out[out.length-1]={x:p.at(-1).x,y:p.at(-1).y};return out;
   }
+  // Fixed-parameter, open cubic B-spline. Moving the controls is a continuous
+  // deformation even when two controls pass each other; the endpoint positions
+  // remain exact and their directions can follow the cable naturally.
+  function softCurve(points) {
+    const n=points.length,degree=Math.min(3,n-1),end=n-degree;
+    const knots=Array.from({length:n+degree+1},(_,i)=>i<=degree?0:i>=n?end:i-degree);
+    function value(t) {
+      let k=degree;while(k<n-1&&t>=knots[k+1])k++;
+      const d=Array.from({length:degree+1},(_,j)=>({...points[k-degree+j]}));
+      for(let r=1;r<=degree;r++)for(let j=degree;j>=r;j--){const a=(t-knots[k-degree+j])/(knots[k+1+j-r]-knots[k-degree+j]||1);
+        d[j]={x:(1-a)*d[j-1].x+a*d[j].x,y:(1-a)*d[j-1].y+a*d[j].y};}
+      return d[degree];
+    }
+    const out=[];for(let i=0;i<end;i++)for(let j=0;j<48;j++)out.push(value(i+j/48));
+    out.push({...points.at(-1)});return out;
+  }
+  function roundCable(points) {
+    // A local return bend can have zero speed even in a C2 spline. Round it
+    // locally, rather than rejecting the user's entire displacement. A fixed
+    // number of unrounded arc samples avoids thresholds as the cable moves.
+    const total=length(points),p=Array.from({length:65},(_,i)=>along(points,total*i/64));
+    const unit=(a,b)=>{const h=Math.hypot(b.x-a.x,b.y-a.y)||1;return{x:(b.x-a.x)/h,y:(b.y-a.y)/h};};
+    const edges=p.slice(1).map((b,i)=>unit(p[i],b)),dist=p.slice(1).map((b,i)=>Math.hypot(b.x-p[i].x,b.y-p[i].y));
+    const tangents=p.map((_,i)=>{if(!i)return edges[0];if(i===p.length-1)return edges.at(-1);
+      const e=edges[i-1],f=edges[i],x=e.x+f.x,y=e.y+f.y,h=Math.hypot(x,y);
+      return h>1e-8?{x:x/h,y:y/h}:{x:-e.y,y:e.x};});
+    // Shared handles give a continuous tangent through every join, including
+    // a half-turn. Handle sizes are local, so one fold cannot lock other parts.
+    const handles=p.map((_,i)=>.32*Math.min(dist[Math.max(0,i-1)],dist[Math.min(i,dist.length-1)])),out=[p[0]];
+    const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+    const turn=(u,v)=>Math.abs(Math.atan2(u.x*v.y-u.y*v.x,u.x*v.x+u.y*v.y));
+    function flatten(a,c,d,b,depth=0) {
+      const u={x:c.x-a.x,y:c.y-a.y},v={x:d.x-c.x,y:d.y-c.y},w={x:b.x-d.x,y:b.y-d.y};
+      // Resolve direction changes before the final 98-point sample. Uniform
+      // parameter steps can miss a tight bend, leaving a sharp chord at a join.
+      if(depth>=16||turn(u,v)+turn(v,w)<.025){out.push(b);return;}
+      const ac=mid(a,c),cd=mid(c,d),db=mid(d,b),left=mid(ac,cd),right=mid(cd,db),center=mid(left,right);
+      flatten(a,ac,left,center,depth+1);flatten(center,right,db,b,depth+1);
+    }
+    for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1];
+      flatten(a,{x:a.x+tangents[i].x*handles[i],y:a.y+tangents[i].y*handles[i]},
+        {x:b.x-tangents[i+1].x*handles[i+1],y:b.y-tangents[i+1].y*handles[i+1]},b);}
+    out[0]={x:points[0].x,y:points[0].y};out[out.length-1]={x:points.at(-1).x,y:points.at(-1).y};return out;
+  }
   function bend(points,at,dx,dy,budget,radius=140) {
     if(points.length<2||length(points)<1e-7)return {points,limited:true};
-    const initial=fitLength(fair(resample(points,Math.max(16,length(points)/28))),budget);
-    const controls=resample(initial,Math.max(14,length(initial)/32)),unit=(a,b)=>{const d=Math.hypot(b.x-a.x,b.y-a.y)||1;return{x:(b.x-a.x)/d,y:(b.y-a.y)/d};};
-    const tangents=[unit(initial[0],initial[1]),unit(initial.at(-2),initial.at(-1))];
-    const grip=nearest(initial,at),direction=unit(initial[grip.segment],initial[grip.segment+1]);
-    const axial=dx*direction.x+dy*direction.y,parallel={x:axial*direction.x,y:axial*direction.y},normal={x:dx-parallel.x,y:dy-parallel.y};
-    // Sliding along a cable must not squash its knots through one another. A
-    // mathematically C2 spline can still have a geometric cusp at zero speed.
-    // Limit axial compression independently, retaining the sideways pull.
+    if(Math.hypot(dx,dy)<1e-7)return {points:points.map(p=>({x:p.x,y:p.y})),limited:false};
+    const initial=fitLength(points,budget);
+    const controls=resample(initial,Math.max(14,length(initial)/32));
     const support=Math.max(radius,Math.min(length(initial),100+Math.hypot(dx,dy)*1.8));
     const shifted=reshape(controls,at,1,0,support),weights=controls.map((p,i)=>shifted[i].x-p.x);
-    const candidate=f=>{
-      let slide=1;
-      for(let i=0;i<controls.length-1;i++){
-        const ex=controls[i+1].x-controls[i].x,ey=controls[i+1].y-controls[i].y,edge2=ex*ex+ey*ey,change=f*(weights[i+1]-weights[i]);
-        const sideways=change*(normal.x*ex+normal.y*ey),along=change*(parallel.x*ex+parallel.y*ey);
-        if(along<0)slide=Math.min(slide,Math.max(0,(edge2*.5+sideways)/-along));
-      }
-      const dense=fair(controls.map((p,i)=>({x:p.x+f*weights[i]*(normal.x+slide*parallel.x),y:p.y+f*weights[i]*(normal.y+slide*parallel.y)})),tangents);
-      return {dense,sampled:sampleCurve(dense)};
-    };
-    const withinLength=p=>length(p.dense)<=budget&&p.dense.every(v=>Math.abs(v.x)<=10000&&Math.abs(v.y)<=10000);
-    const regular=p=>p.sampled.slice(1,-1).every((b,i)=>{
-      const a=p.sampled[i],c=p.sampled[i+2],u=Math.atan2(b.y-a.y,b.x-a.x),v=Math.atan2(c.y-b.y,c.x-b.x);
-      return Math.abs(Math.atan2(Math.sin(v-u),Math.cos(v-u)))<=Math.PI/10;
-    });
-    const legal=p=>withinLength(p)&&regular(p);
-    let pulled=candidate(1),limited=!withinLength(pulled);
-    if(!legal(pulled)){let low=0,high=1;for(let n=0;n<26;n++){const mid=(low+high)/2;if(legal(candidate(mid)))low=mid;else high=mid;}pulled=candidate(low);}
-    // Measure and save the same sampled curve that is displayed/hit-tested.
-    return {points:fitLength(pulled.sampled,budget),limited};
+    const soft=softCurve(controls),distances=[0];soft.slice(1).forEach((p,n)=>distances.push(distances[n]+Math.hypot(p.x-soft[n].x,p.y-soft[n].y)));
+    // Apply the smooth displacement field to the original shape. Refairing the
+    // whole starting cable would make an existing tight U jump on first pickup.
+    const baseCurve=soft.map((_,n)=>along(initial,length(initial)*distances[n]/distances.at(-1)));
+    const weightCurve=softCurve(weights.map(x=>({x,y:0}))),held=nearest(baseCurve,at);
+    const i=held.segment,a=baseCurve[i],b=baseCurve[i+1],t=Math.hypot(held.x-a.x,held.y-a.y)/(Math.hypot(b.x-a.x,b.y-a.y)||1);
+    // Normalize at the held point, not at the largest control weight: smoothing
+    // must not make grips near an endpoint lag behind the finger.
+    const gain=weightCurve[i].x+(weightCurve[i+1].x-weightCurve[i].x)*t||1;
+    const candidate=f=>roundCable(baseCurve.map((p,n)=>({x:p.x+f*weightCurve[n].x/gain*dx,y:p.y+f*weightCurve[n].x/gain*dy})));
+    const reachable=p=>length(p)<=budget&&p.every(v=>Math.abs(v.x)<=10000&&Math.abs(v.y)<=10000);
+    let pulled=candidate(1),limited=!reachable(pulled);
+    // Only physical reach bounds the pull. Sampled angles are not a monotonic
+    // predicate: putting them in this search caused the inward-drag rebound.
+    if(limited){let low=0,high=1;for(let n=0;n<26;n++){const mid=(low+high)/2;if(reachable(candidate(mid)))low=mid;else high=mid;}pulled=candidate(low);}
+    return {points:fitLength(sampleCurve(pulled),budget),limited};
   }
   function sampleCurve(points){
     // Spend the finite sample budget on curved sections, rather than leaving
