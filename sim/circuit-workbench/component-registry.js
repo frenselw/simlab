@@ -22,6 +22,11 @@
   function defaults(type) { return Object.fromEntries(Object.entries(get(type).params).map(([key, item]) => [key, item.value])); }
   const dualMeter=c=>['ammeter','voltmeter'].includes(c.type);
   const meterBodyScale=c=>dualMeter(c)?.85:c.type==='wattmeter'?.9:1;
+  function meterHousingBounds(c) {
+    const s=meterBodyScale(c),a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a));
+    const corners=[-78*s,78*s].flatMap(x=>[-86*s,42*s].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
+    return{left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
+  }
   const meterScale=Object.freeze({divisions:30,negativeDivisions:10,minimumFraction:-1/3,zeroAngle:-120,sweep:90,stopMargin:.02});
   function meterRanges(c){return {high:c.params.range,low:c.params.range/5,divisions:meterScale.divisions,negativeDivisions:meterScale.negativeDivisions};}
   function ports(component, legacy=false) {
@@ -66,5 +71,5 @@
   definitions.wattmeter.dc = c => [resistive(c.params.resistance),...(c.params.inputResistance>0 ? [resistive(c.params.inputResistance,"c","d")] : [])];
   function dc(c) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, ports, bodyBounds, legacyPorts:c=>ports(c,true), dualMeter, meterBodyScale, meterScale, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
+  return { definitions, get, defaults, ports, bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, meterBodyScale, meterScale, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
 });

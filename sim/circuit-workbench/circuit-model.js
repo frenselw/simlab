@@ -144,9 +144,13 @@
     doc.wires = doc.wires.filter((x) => x !== w);
     connect(doc, w.from, j.id + ":p", bounded(left), shape); connect(doc, j.id + ":p", w.to, bounded(right), shape); return j.id + ":p";
   }
+  function straightenWire(doc,id) {
+    const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");
+    w.shape="free";w.via=[];
+  }
   function history(initial) {
     let value = validate(initial), past = [], future = [];
     return { get: () => value, change(fn) { const next = clone(value); const result = fn(next); const checked = validate(next); if (JSON.stringify(value) !== JSON.stringify(checked)) { past.push(value); if (past.length > 80) past.shift(); value = checked; future = []; } return result; }, replace(doc) { this.change((d) => { Object.keys(d).forEach((k) => delete d[k]); Object.assign(d, validate(doc)); }); }, undo() { if (!past.length) return false; future.push(value); value = past.pop(); return true; }, redo() { if (!future.length) return false; past.push(value); value = future.pop(); return true; }, canUndo: () => past.length > 0, canRedo: () => future.length > 0 };
   }
-  return { limits, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, reconcile };
+  return { limits, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, reconcile };
 });

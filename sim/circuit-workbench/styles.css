@@ -49,3 +49,17 @@ html,body{height:100%;overflow:hidden}body{font-family:system-ui,-apple-system,"
 .math-inline{display:inline-block;overflow:visible;pointer-events:none;color:inherit}
 .readings dd{font-family:inherit;font-size:1rem}
 .panel input[type=number]{font-family:"STIX Two Math","Cambria Math","Latin Modern Math","Times New Roman",serif}
+
+/* A tapped analog meter stays readable after lift; only this card accepts input. */
+.preview[data-mode="meter"]{width:min(180px,calc(100% - 92px));height:min(185px,calc(100% - 20px));pointer-events:auto;touch-action:manipulation}
+.preview[data-mode="meter"]>span{position:relative;display:flex;align-items:center;top:auto;left:auto;height:44px;padding:0 44px 0 8px}
+.preview[data-mode="meter"]>svg{display:block;height:calc(100% - 44px)}
+#straightenSelected{min-width:44px;min-height:44px}
+#closePreview{position:absolute;top:0;right:0;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;border:0;background:transparent;font-size:24px;color:#446482;touch-action:manipulation}
+.heat-flame{transform-box:fill-box;transform-origin:center bottom;animation:heat-flame 1.1s ease-in-out infinite alternate}
+.heat-sparks{animation:heat-sparks 1.3s ease-in-out infinite alternate}
+@keyframes heat-flame{to{transform:scale(.94,1.06)}}
+@keyframes heat-sparks{to{opacity:.45}}
+.effects-paused .heat-flame,.effects-paused .heat-sparks{animation:none}
+@media(prefers-reduced-motion:reduce){.heat-flame,.heat-sparks{animation:none}}
+@media(max-width:899px){#focusSelected,#deleteSelected{font-size:0;padding:0 8px;min-width:44px}#focusSelected::after{content:"放大";font-size:13px}#deleteSelected::after{content:"刪除";font-size:13px}.context-actions:has(#focusSelected:not([hidden])) #selectionTip{display:none}.context-actions button{flex-shrink:0}}

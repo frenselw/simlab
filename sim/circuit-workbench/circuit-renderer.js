@@ -10,6 +10,30 @@
   function colour(v, max = 6) { if (v === null) return "#64748b"; const t = Math.max(-1, Math.min(1, v / Math.max(max, .1))); return t < 0 ? `hsl(${210 + 10 * -t} 76% ${48 - 12 * -t}%)` : `hsl(${210 - 178 * t} ${35 + 45 * t}% ${48 - 8 * t}%)`; }
   function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" ${attrs.includes('text-anchor=')?'':'text-anchor="middle"'} ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
+  function lampLight(c,result) {
+    const ratedPower=c.params.ratedVoltage**2/c.params.resistance,known=Number.isFinite(result?.power),power=known?Math.max(0,result.power):null,ratio=known?power/ratedPower:0;
+    return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>1.5};
+  }
+  const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
+  // These thresholds indicate teaching hazards, not a fuse or a thermal failure model.
+  const hazardLimits=Object.freeze({current:5,meterRatio:1.5,lampRatio:1.5});
+  function visualState(doc,result) {
+    const wires={},components={},adj=new Map();
+    const edge=(a,b,kind,id)=>{for(const [from,to]of [[a,b],[b,a]]){if(!adj.has(from))adj.set(from,[]);adj.get(from).push({to,kind,id});}};
+    doc.wires.forEach(w=>edge(w.from,w.to,'wire',w.id));
+    doc.components.filter(c=>c.type!=='battery').forEach(c=>R.dc(c).filter(b=>b.resistance===0&&!b.emf).forEach(b=>edge(c.id+':'+b.from,c.id+':'+b.to,'component',c.id)));
+    for(const c of doc.components.filter(c=>c.type==='battery'&&c.params.voltage>0)){
+      const from=c.id+':a',to=c.id+':b',queue=[from],previous=new Map([[from,null]]);
+      for(let i=0;i<queue.length&&!previous.has(to);i++)for(const e of adj.get(queue[i])||[])if(!previous.has(e.to)){previous.set(e.to,{...e,from:queue[i]});queue.push(e.to);}
+      if(previous.has(to)){components[c.id]='short';for(let p=to;p!==from;){const e=previous.get(p);(e.kind==='wire'?wires:components)[e.id]='short';p=e.from;}}
+    }
+    doc.wires.forEach(w=>{const i=result.wires[w.id]?.current;if(Number.isFinite(i)&&Math.abs(i)>hazardLimits.current&&!wires[w.id])wires[w.id]='overload';});
+    doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?lampLight(c,r).overloaded:false;if(hot&&!components[c.id])components[c.id]='overload';});
+    return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
+  }
+  function heatEffect(x,y,scale,attrs='') {
+    return `<g class="heat-effect" ${attrs} transform="translate(${x} ${y}) scale(${1/scale})" pointer-events="none"><title>短路／過載發熱示意</title><circle cy="-8" r="23" fill="#ff9e3744"/><path class="heat-flame" d="M-13 0C-24-18-7-23-8-40C0-33 3-27 2-19C9-22 10-28 12-30C24-10 19 1 5 4C-3 7-9 4-13 0Z" fill="#ed6728" stroke="#c94a24" stroke-width="1.5"/><path d="M-5 1C-13-9-2-15-1-23C8-14 13-4 6 1C3 4-2 4-5 1Z" fill="#ffe681"/><path class="heat-sparks" d="M-22-25l-6-7 M22-16l7-4 M15-38l4-7" fill="none" stroke="#e78b20" stroke-width="2.5" stroke-linecap="round"/><path d="M-2-46q-8-7 1-13t-2-12" fill="none" stroke="#82919b" stroke-width="3" stroke-linecap="round" opacity=".45"/></g>`;
+  }
   const dialAngle=fraction=>R.meterScale.zeroAngle+R.meterScale.sweep*fraction;
   const dialPoint=(fraction,radius=70)=>{const angle=dialAngle(fraction)*Math.PI/180;return{x:radius*Math.cos(angle),y:24+radius*Math.sin(angle)};};
   function dualDial(c,result,values=true) {
@@ -28,12 +52,11 @@
   function dualMeter(c,result,display) {
     const symbol=R.get(c.type).icon,ranges=R.meterRanges(c),range=result?.range??ranges.high;
     const value=display.values?Q.quantity(result?.reading,symbol):Q.unit(symbol),valueWidth=Q.measure(value.tex,22).width,valueSize=Math.min(22,120*22/valueWidth);
-    let out=display.meters==='analog'?dualDial(c,result,display.values):'<rect x="-66" y="-67" width="132" height="77" rx="6" fill="#dce9df"/>'+Q.svg(0,-28,value,valueSize)+(result?.activePort?text(-26,-4,'量程',12)+quantity(15,-4,range,symbol,12):text(0,-4,'接入 − 與一個正極孔',12));
-    out+=text(0,display.meters==='analog'?41:36,statusText(result),10,'fill="#a74730"');
-    let shell='<rect x="-78" y="-86" width="156" height="164" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
+    let out=display.meters==='analog'?dualDial(c,result,display.values):'<rect x="-66" y="-67" width="132" height="77" rx="6" fill="#dce9df"/>'+Q.svg(0,-28,value,valueSize)+(result?.activePort?text(-26,-4,'量程',12)+quantity(15,-4,range,symbol,12):'');
+    let shell='<rect data-meter-case="true" x="-78" y="-86" width="156" height="128" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
     shell+=`<g data-meter-face="${esc(c.id||'preview')}">${out}</g>`;
     const scale=R.meterBodyScale(c);shell=`<g data-meter-housing="${esc(c.id||'preview')}" transform="scale(${scale})">${shell}</g>`;
-    R.get(c.type).ports.forEach(p=>{shell+=`<path data-socket-lead="${p.key}" d="M${p.x*scale} ${p.y*scale}L${p.x} ${p.y}" fill="none" stroke="#667b8e" stroke-width="4" stroke-linecap="round"/><circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="8" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
+    R.get(c.type).ports.forEach(p=>{shell+=`<path data-socket-lead="${p.key}" d="M${p.x*scale} 30V${p.y}H${p.x}" fill="none" stroke="#667b8e" stroke-width="4" stroke-linecap="round"/><circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="8" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
   }
   function meter(c, result, display) {
     if(R.dualMeter(c))return dualMeter(c,result,display);
@@ -85,16 +108,17 @@
       return out;
     }
     if (c.type === "lamp") {
-      const rated = p.ratedVoltage ** 2 / p.resistance, glow = Math.max(0, Math.min(1, (result?.power || 0) / rated));
-      if (schematic) return `<path data-leads="lamp" d="M-60 0H-28 M28 0H60" ${metal}/><circle r="28" fill="#fff" stroke="#334155" stroke-width="2.5"/><path d="M-19-19L19 19M19-19L-19 19" stroke="#334155" stroke-width="2.5"/>`;
+      const light=lampLight(c,result),glow=light.brightness,hot=Math.min(1,Math.max(0,light.ratio-1)),glass=blend([244,248,249],[255,224,104],glow),filament=blend([140,121,102],[255,249,217],glow);
+      const wrap=out=>`<g data-lamp="${esc(c.id||'sample')}" data-power-known="${light.known}" data-power="${light.power??''}" data-rated-power="${light.ratedPower}" data-brightness="${glow}">${out}</g>`;
+      if (schematic) return wrap(`<circle data-lamp-halo="outer" r="${28+12*glow}" fill="#ffca52" opacity="${glow*.3}"/><path data-leads="lamp" d="M-60 0H-28 M28 0H60" ${metal}/><circle data-lamp-glass="true" r="28" fill="${glass}" stroke="#334155" stroke-width="2.5"/><path d="M-19-19L19 19M19-19L-19 19" stroke="#334155" stroke-width="2.5"/>`);
       // The shell contact (left) and insulated bottom contact (right) are separate.
       // Both leads overlap their metal contact; neither ends at the glass envelope.
-      let out = `<ellipse cy="-28" rx="37" ry="41" fill="#ffc95c" opacity="${glow*.2}"/>`;
-      out += `<path d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glow>.04 ? "#ffe4a0" : "#f4f8f9"}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M-7-8V-26L-10-31L-6-35L-2-29L2-35L6-29L10-33L7-26V-8" fill="none" stroke="${glow>.1 ? "#da8225" : "#8c7966"}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      let out = `<ellipse data-lamp-halo="outer" cy="-29" rx="${30+20*glow}" ry="${36+19*glow}" fill="#ffbf39" opacity="${glow*(.22+.08*hot)}"/><ellipse data-lamp-halo="inner" cy="-29" rx="${23+10*glow}" ry="${29+11*glow}" fill="#ffe075" opacity="${glow*.58}"/>`;
+      out += `<path data-lamp-glass="true" d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glass}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path data-lamp-filament="true" d="M-7-8V-26L-10-31L-6-35L-2-29L2-35L6-29L10-33L7-26V-8" fill="none" stroke="${filament}" stroke-width="${2+glow}" stroke-linejoin="round" stroke-linecap="round"/>`;
       out += '<path d="M-12-9H12V10Q12 13 8 13H-8Q-12 13-12 10Z" fill="#a8b5bf" stroke="#677c8c" stroke-width="1.5"/><path d="M-11-4H11 M-11 2H11 M-10 8H10" stroke="#6f8290" stroke-width="1.5"/><path d="M-6 14H6" stroke="#45586a" stroke-width="4"/><circle cy="18" r="3" fill="#b78b51"/>';
       out += `<path data-leads="lamp" d="M-60 0H-12 M60 0H40V18H0" ${metal}/>` + screw(-46) + screw(46);
       if (p.model === "thermal") out += text(0,-64,"熱效應",10,'fill="#986429"');
-      return out;
+      return wrap(out);
     }
     return leads;
   }
@@ -110,17 +134,27 @@
       }
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
-      if(isMeter&&(!R.dualMeter(c)||scale>=.7))R.ports(c).forEach(p=>{const x=R.dualMeter(c)?p.x-p.dx*17:p.x,y=R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,width=(R.dualMeter(c)&&p.key!=='b'?Q.measure(portSpec(c,p).tex,11).width:L.measure(p.label,11))/scale;details.push({left:x-width/2-2/scale,right:x+width/2+2/scale,top:y-13/scale,bottom:y+4/scale});});
+      if(isMeter&&(!R.dualMeter(c)||scale>=.7))R.ports(c).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(doc.display.potential&&Math.abs(r?.voltage||0)>1e-8){const extent=Math.max(22/scale,20);details.push({left:c.x-extent,right:c.x+extent,top:c.y-58-25/scale,bottom:c.y-58+6/scale});}
     });
     const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);if(options)options.previous=new Map(placed.map(p=>[p.id,p.slot]));return placed;
   }
-  function portSpec(c,p){const ranges=R.meterRanges(c),q=Q.quantity(p.key==='a'?ranges.high:ranges.low,R.get(c.type).icon);return{text:'+'+q.text,tex:'+'+q.tex};}
+  function portSpec(c,p){if(p.key==='b')return{text:'−',tex:'-'};const ranges=R.meterRanges(c),q=Q.quantity(p.key==='a'?ranges.high:ranges.low,R.get(c.type).icon);return{text:'+'+q.text,tex:'+'+q.tex};}
+  function portLabel(c,p,scale=1,view='real') {
+    const dual=R.dualMeter(c),spec=dual?portSpec(c,p):{text:p.label},m=dual?Q.measure(spec.tex,11):{width:L.measure(p.label,11),ascent:11,descent:2};
+    let x=p.x,y=p.y-(dual?8+(4+m.descent)/scale:12/scale);
+    if(dual){const bounds=view==='real'?R.meterHousingBounds(c):{left:c.x-35,right:c.x+35,top:c.y-35,bottom:c.y+35};
+      if(p.dx<0)x=Math.min(x,bounds.left-(3+m.width/2)/scale);
+      if(p.dx>0)x=Math.max(x,bounds.right+(3+m.width/2)/scale);
+      if(p.dy>0)y=Math.max(y,bounds.bottom+(3+m.ascent)/scale);
+    }
+    return{x,y,spec,size:11/scale,box:{left:x-(m.width/2+2)/scale,right:x+(m.width/2+2)/scale,top:y-(m.ascent+2)/scale,bottom:y+(m.descent+2)/scale}};
+  }
   function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
     const max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
     const tiny=viewport&&scale<.4&&doc.components.length>0;
     if(labelOptions)labelOptions.selection=selection;
-    const placed=labels(doc,result,scale,routes,viewport,labelOptions);
+    const placed=labels(doc,result,scale,routes,viewport,labelOptions),hazards=visualState(doc,result);
     let out = '';
     placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
@@ -136,15 +170,19 @@
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
       const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
-      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      if(hazards.wires[w.id])out+=`<path data-wire-heat="${w.id}" d="${d}" fill="none" stroke="#f09b50" opacity=".5" stroke-width="${12/scale}" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
+      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
     });
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach(c=>{const isMeter=["ammeter","voltmeter","wattmeter"].includes(c.type);
       R.ports(c).forEach((p) => {
         const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
-        if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)){const x=R.dualMeter(c)?p.x-p.dx*17:p.x,y=R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,attrs=`data-port-label="${p.id}"`;out+=R.dualMeter(c)&&p.key!=='b'?Q.svg(x,y,portSpec(c,p),11/scale,attrs):text(x,y,p.label,11/scale,attrs);}
+        if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`+(R.dualMeter(c)?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}
       });
     });
+    let effects=0;
+    doc.components.forEach(c=>{if(hazards.components[c.id]&&effects++<8)out+=heatEffect(c.x+(c.type==='lamp'?24:0)/scale,c.y-(c.type==='lamp'?44:14)/scale,scale,`data-hazard-component="${c.id}" data-hazard="${hazards.components[c.id]}"`);});
+    doc.wires.forEach(w=>{if(hazards.wires[w.id]&&effects++<8){const points=routes[w.id]||Routing.route(doc,w),p=Routing.along(points,Routing.length(points)/2);out+=heatEffect(p.x,p.y-3/scale,scale,`data-hazard-wire="${w.id}" data-hazard="${hazards.wires[w.id]}"`);}});
     const ends=new Map();doc.components.forEach(c=>R.ports(c).forEach(p=>ends.set(p.id,p)));doc.junctions.forEach(j=>ends.set(j.id+":p",j));
     doc.wires.forEach(w=>["from","to"].forEach((key,i)=>{
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
@@ -173,5 +211,5 @@
     });
     return out;
   }
-  return { scene, labels, flow, body, dualDial, dialPoint, dialAngle, statusText, text, format, esc, colour };
+  return { scene, labels, flow, body, dualDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
 });
