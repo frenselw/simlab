@@ -7,7 +7,7 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function format(v, unit = "") { if (v === null || v === undefined || !Number.isFinite(v)) return "—"; const a = Math.abs(v); let text = a >= 10000 || (a > 0 && a < .001) ? v.toExponential(2) : Number(v.toPrecision(4)).toString(); if (text === "-0") text = "0"; return text + (unit ? " " + unit : ""); }
   function colour(v, max = 6) { if (v === null) return "#64748b"; const t = Math.max(-1, Math.min(1, v / Math.max(max, .1))); return t < 0 ? `hsl(${210 + 10 * -t} 76% ${48 - 12 * -t}%)` : `hsl(${210 - 178 * t} ${35 + 45 * t}% ${48 - 8 * t}%)`; }
-  function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" text-anchor="middle" ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
+  function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" ${attrs.includes('text-anchor=')?'':'text-anchor="middle"'} ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   const dialPoint=(fraction,radius=70)=>{const angle=(-150+120*fraction)*Math.PI/180;return{x:radius*Math.cos(angle),y:24+radius*Math.sin(angle)};};
   function dualDial(c,result,values=true) {
@@ -27,8 +27,8 @@
     let out=display.meters==='analog'?dualDial(c,result,display.values):'<rect x="-66" y="-67" width="132" height="77" rx="6" fill="#dce9df"/>'+text(0,-28,display.values?format(result?.reading,symbol):symbol,22,'font-family="monospace"')+text(0,-4,result?.activePort?'量程 '+format(range,symbol):'接入 − 與一個正極孔',12);
     out+=text(0,display.meters==='analog'?41:36,statusText(result),10,'fill="#a74730"');
     let shell='<rect x="-78" y="-86" width="156" height="164" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
-    shell+=`<g transform="rotate(${-(c.angle||0)})">${out}</g>`;
-    [-64,0,64].forEach(x=>{shell+=`<circle data-socket="${x}" cx="${x}" cy="66" r="10" fill="${x===-64?'#475569':'#bb6554'}"/><circle cx="${x}" cy="66" r="6" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
+    shell+=`<g data-meter-face="${esc(c.id||'preview')}">${out}</g>`;
+    R.get(c.type).ports.forEach(p=>{shell+=`<circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="10" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
   }
   function meter(c, result, display) {
     if(R.dualMeter(c))return dualMeter(c,result,display);
@@ -93,8 +93,9 @@
     }
     return leads;
   }
-  function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false) {
+  function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null) {
     const size = (doc.display.projection ? 18 : 14) / scale, max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
+    const tiny=viewport&&scale<.4&&doc.components.length>0;
     let out = '';
     doc.wires.forEach((w) => {
       const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
@@ -105,17 +106,27 @@
       const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
       const box=R.dualMeter(c)?'x="-82" y="-91" width="164" height="174"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
-      const labelY = c.y + (R.dualMeter(c)?112:c.angle % 180 ? 87 : isMeter ? 85 : 66) + (doc.display.projection ? 8 : 0);
-      out += text(c.x, labelY, c.label + (c.locked ? " · 固定" : ""), size);
-      if (doc.display.values && isMeter && (doc.display.view === "schematic"||R.dualMeter(c)&&doc.display.meters==='analog')) out += text(c.x,labelY+20/scale,format(r?.reading,r?.unit),12/scale);
+      if(!tiny){
+      const side=!isMeter&&c.angle%180,overview=side&&scale<.55,labelX=overview?c.x+(c.type==='battery'?20:-28)/scale:side?c.x+(c.type==='battery'?1:-1)*(38+12/scale):c.x,labelY=overview?c.y-30/scale:side?c.y-5/scale:c.y+(R.dualMeter(c)?112:isMeter?85:66)+(doc.display.projection?8:0),anchor=side&&!overview?`text-anchor="${c.type==='battery'?'start':'end'}"`:'';
+      out += text(labelX, labelY, c.label + (c.locked ? " · 固定" : ""), size,`${anchor} data-component-label="${c.id}"`);
+      if (doc.display.values && isMeter && (doc.display.view === "schematic"||R.dualMeter(c)&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))) out += text(c.x,labelY+20/scale,format(r?.reading,r?.unit),12/scale);
       if (doc.display.values && !isMeter && scale >= .55) {
         const resistance = c.type === "lamp" && c.params.model === "thermal" ? r?.resistance : r?.resistance ?? R.effectiveResistance(c);
         let value = c.type === "battery" ? `E ${format(c.params.voltage, "V")} · r ${format(c.params.resistance, "Ω")}` : c.type === "switch" ? (c.params.closed ? "閉合" : "斷開") : `${format(resistance, "Ω")} · ${format(r?.power, "W")}`;
-        out += text(c.x, labelY + 20 / scale, value, 12 / scale);
+        out += text(labelX, labelY + 20 / scale, value, 12 / scale,anchor);
       }
+      }
+      // Sockets sit inside the housing. Paint the actual cable tail over that
+      // housing, then paint the terminal, so there is no hidden 12-unit gap.
+      if(R.dualMeter(c))doc.wires.forEach(w=>['from','to'].forEach(key=>{if(!w[key].startsWith(c.id+':'))return;
+        let points=routes[w.id]||Routing.route(doc,w);if(key==='to')points=[...points].reverse();let distance=0;const lead=[points[0]];
+        for(let i=1;i<points.length;i++){const step=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y);if(distance+step>=24){lead.push(Routing.along(points,24));break;}lead.push(points[i]);distance+=step;}
+        const tint=selection===w.id?'#2563eb':doc.display.potential?colour(result.wires[w.id]?.potential,max):'#50677e';
+        out+=`<path data-terminal-lead="${w.id}:${key}" d="${Routing.path(lead)}" fill="none" stroke="${tint}" stroke-width="${4/scale}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }));
       R.ports(c).forEach((p) => {
-        const v = result.potentials[p.id]; out += `<circle cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
-        if (isMeter) out += text(p.x, p.y - 12 / scale, p.label, 11 / scale);
+        const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
+        if (isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)) out += text(R.dualMeter(c)?p.x-p.dx*17:p.x,R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,p.label,11/scale);
       });
       if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
         const ports=R.ports(c),a=ports.find(p=>p.key===(r.activePort||'a'))||ports[0], b=ports[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
@@ -130,6 +141,13 @@
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
       if(free||selection===w.id||wireMode){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
     }));
+    if(tiny){
+      const meters=doc.components.filter(c=>['ammeter','voltmeter','wattmeter'].includes(c.type)),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
+      const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
+      out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-8)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
+      shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W'}[c.type];out+=text(x+(i+.5)*width/shown.length,bottom-27/scale,symbol+'：'+format(r?.reading,r?.unit),14/scale,`data-overview-readout="${c.id}"`);});
+      out+=text(x+width/2,bottom,meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale)+`</g>`;
+    }
     return out;
   }
   function flow(doc, result, routes, time, scale) {
@@ -139,6 +157,7 @@
       const points = routes[w.id], length = points.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0), spacing = 65 / scale, electron = doc.display.flow === "electron", reverse = (current < 0) !== electron;
       for (let distance = (time * 30 / scale) % spacing; distance < length; distance += spacing) {
         const p = Routing.along(points, reverse ? length - distance : distance); if (!p) continue;
+        if(doc.components.some(c=>{if(!R.dualMeter(c))return false;const b=R.bodyBounds(c);return p.x>b.left&&p.x<b.right&&p.y>b.top&&p.y<b.bottom;}))continue;
         if (electron) out += `<circle cx="${p.x}" cy="${p.y}" r="${6 / scale}" fill="#2563eb"/><path d="M${p.x - 3 / scale} ${p.y}h${6 / scale}" stroke="#fff" stroke-width="${1.5 / scale}"/>`;
         else out += `<path transform="translate(${p.x} ${p.y}) rotate(${p.angle + (reverse ? 180 : 0)})" d="M${-6 / scale} ${-4 / scale}L${2 / scale} 0L${-6 / scale} ${4 / scale}" stroke="#2563eb" stroke-width="${2 / scale}" fill="none"/>`;
       }

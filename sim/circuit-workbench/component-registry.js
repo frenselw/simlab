@@ -30,6 +30,12 @@
       return {...p,label,id:component.id+":"+p.key,x:component.x+p.x*cos-p.y*sin,y:component.y+p.x*sin+p.y*cos,dx:dx*cos-dy*sin,dy:dx*sin+dy*cos};
     });
   }
+  function bodyBounds(c) {
+    const box=dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:{left:-52,right:52,top:-52,bottom:65};
+    const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
+    const corners=[box.left,box.right].flatMap(x=>[box.top,box.bottom].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
+    return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
+  }
   // Teaching approximation, calibrated to the specified rated operating point.
   // The cold/hot ratio and temperatures are explicit model constants, not a tungsten fit.
   const thermal = Object.freeze({ ambient: 293, rated: 2600, ratio: 10 });
@@ -58,5 +64,5 @@
   definitions.wattmeter.dc = c => [resistive(c.params.resistance),...(c.params.inputResistance>0 ? [resistive(c.params.inputResistance,"c","d")] : [])];
   function dc(c) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, ports, legacyPorts:c=>ports(c,true), dualMeter, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
+  return { definitions, get, defaults, ports, bodyBounds, legacyPorts:c=>ports(c,true), dualMeter, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
 });

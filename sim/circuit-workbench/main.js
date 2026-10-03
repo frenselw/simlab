@@ -82,10 +82,10 @@
   function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?`<circle cx="${snap.x}" cy="${snap.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`:"";
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
   }
-  function render(inspector=true){const d=current();svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surface.clientWidth/camera.scale} ${surface.clientHeight/camera.scale}`);
+  function render(inspector=true){const d=current(),surfaceRect=surface.getBoundingClientRect();svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
     surface.style.backgroundSize=`${Math.max(16,20*camera.scale)}px ${Math.max(16,20*camera.scale)}px`;surface.style.backgroundPosition=`${-camera.x*camera.scale}px ${-camera.y*camera.scale}px`;
     const key=JSON.stringify([d.components.map(c=>[c.id,c.type,c.x,c.y,c.angle]),d.junctions,d.wires]);if(key!==geometryKey){routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));geometryKey=key;}
-    $("scene").innerHTML=V.scene(d,analysis,camera.scale,routes,selection?.id,wireMode);$("flowLayer").innerHTML=V.flow(d,analysis,routes,animationTime,camera.scale);renderHits(d);renderGhost();
+    $("scene").innerHTML=V.scene(d,analysis,camera.scale,routes,selection?.id,wireMode,{x:camera.x,y:camera.y,width:surfaceRect.width/camera.scale,height:surfaceRect.height/camera.scale});$("flowLayer").innerHTML=V.flow(d,analysis,routes,animationTime,camera.scale);renderHits(d);renderGhost();
     $("emptyHint").hidden=!!(d.components.length||d.wires.length);$("zoomReadout").textContent=(camera.scale<.01?(camera.scale*100).toFixed(1):Math.round(camera.scale*100))+"%";
     $("undo").disabled=!history.canUndo();$("redo").disabled=!history.canRedo();["realView","schematicView"].forEach(id=>$(id).setAttribute("aria-pressed",String(d.display.view===(id==="realView"?"real":"schematic"))));
     ["flow","meters"].forEach(id=>$(id).value=d.display[id]);["potential","values","projection"].forEach(id=>$(id).checked=d.display[id]);$("pause").checked=paused;$("mode").value=d.policy.mode;$("policyOptions").hidden=d.policy.mode!=="wiring";["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).checked=d.policy[id]);

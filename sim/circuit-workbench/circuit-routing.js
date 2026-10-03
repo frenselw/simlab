@@ -180,16 +180,60 @@
     const shifted=points.map((p,i)=>{const t=distances[i]/total;return {x:p.x+(a.x-first.x)*(1-t)+(b.x-last.x)*t,y:p.y+(a.y-first.y)*(1-t)+(b.y-last.y)*t};});
     shifted[0]={x:a.x,y:a.y};shifted[shifted.length-1]={x:b.x,y:b.y};return fitLength(shifted,budget);
   }
-  function route(doc, wire) {
+  // Round each authored corner locally. Long straight runs remain straight;
+  // a global interpolating spline can overshoot and loop around nearby sockets.
+  function rounded(points,radius=20) {
+    const p=compact(points).filter((v,i,a)=>!i||i===a.length-1||Math.abs((v.x-a[i-1].x)*(a[i+1].y-v.y)-(v.y-a[i-1].y)*(a[i+1].x-v.x))>1e-7||(v.x-a[i-1].x)*(a[i+1].x-v.x)+(v.y-a[i-1].y)*(a[i+1].y-v.y)<0);
+    if(p.length<3)return p.map(v=>({x:v.x,y:v.y}));
+    const out=[{x:p[0].x,y:p[0].y}];
+    for(let i=1;i<p.length-1;i++){const a=p[i-1],b=p[i],c=p[i+1],before=Math.hypot(b.x-a.x,b.y-a.y),after=Math.hypot(c.x-b.x,c.y-b.y),cut=Math.min(radius,before*.45,after*.45);
+      const first={x:b.x+(a.x-b.x)*cut/before,y:b.y+(a.y-b.y)*cut/before},last={x:b.x+(c.x-b.x)*cut/after,y:b.y+(c.y-b.y)*cut/after};out.push(first);
+      for(let n=1;n<=9;n++){const t=n/9,u=1-t;out.push({x:u*u*first.x+2*u*t*b.x+t*t*last.x,y:u*u*first.y+2*u*t*b.y+t*t*last.y});}
+    }out.push({x:p.at(-1).x,y:p.at(-1).y});return compact(out);
+  }
+  function followEndpoints(doc,wire,points,a,b,budget,before) {
+    const owner=p=>doc.components.find(c=>c.id===p.id?.split(':')[0]&&R.dualMeter(c));
+    const rotates=c=>!before||before.components.find(v=>v.id===c.id)?.angle!==c.angle;
+    const ca=owner(a),cb=owner(b),changed=(p,q)=>p.x!==q.x||p.y!==q.y,fixA=ca&&rotates(ca)&&changed(a,points[0]),fixB=cb&&rotates(cb)&&changed(b,points.at(-1));
+    if(!fixA&&!fixB)return deform(points,a,b,budget);
+    if(ca&&cb&&ca.id===cb.id){const p=rounded(route(doc,{...wire,shape:'auto',via:[]},{rotatedMeters:true}),12);return p.length>=2&&length(p)<=budget?p:null;}
+    // A moving meter changes only its connector tail; keep the far cable as drawn.
+    let result=deform(points,fixA?points[0]:a,fixB?points.at(-1):b,budget);if(!result)return null;
+    function tail(src,port,c){const box=R.bodyBounds(c),region={left:c.x-200,right:c.x+200,top:c.y-200,bottom:c.y+200},inside=p=>p.x>=region.left-1e-7&&p.x<=region.right+1e-7&&p.y>=region.top-1e-7&&p.y<=region.bottom+1e-7;
+      let join=1;while(join<src.length-1&&inside(src[join]))join++;
+      // An existing bend may reenter the new housing; replace through its exit.
+      for(let i=join;i<src.length-1;i++)if(src[i].x>box.left&&src[i].x<box.right&&src[i].y>box.top&&src[i].y<box.bottom)join=i+1;
+      if(join===src.length-1&&inside(src[join])){const p=route(doc,{...wire,from:port.id,to:port.id===a.id?b.id:a.id,shape:'auto',via:[]},{rotatedMeters:true});return p.length?rounded(p,12):null;}
+      let target=src[join],rest=src.slice(join);
+      // A rotation-invariant boundary and a confined prefix keep successive
+      // turns from winding extra laps while preserving the far cable.
+      if(inside(src[join-1])){const p=src[join-1],v={x:target.x-p.x,y:target.y-p.y},tx=v.x?(v.x>0?region.right-p.x:region.left-p.x)/v.x:Infinity,ty=v.y?(v.y>0?region.bottom-p.y:region.top-p.y)/v.y:Infinity,t=Math.min(tx,ty);
+        target={x:Math.max(region.left,Math.min(region.right,p.x+v.x*t)),y:Math.max(region.top,Math.min(region.bottom,p.y+v.y*t))};
+      }else rest=src.slice(join+1);
+      // A frozen join may already lie over another object in a user-drawn cable.
+      // Keep that far portion; only the rotating housing is mandatory here.
+      const local={...doc,components:doc.components.filter(v=>{const box=R.bodyBounds(v);return v.id===c.id||!(target.x>box.left&&target.x<box.right&&target.y>box.top&&target.y<box.bottom);}),junctions:[...doc.junctions,{id:'_connector',x:target.x,y:target.y}]};
+      const prefix=route(local,{from:port.id,to:'_connector:p',via:[],shape:'auto'},{rotatedMeters:true,region});
+      if(!prefix.length)return null;
+      return compact([...rounded([...prefix,...rest.slice(0,1)],12),...rest.slice(1)]);
+    }
+    if(fixA){result=tail(result,a,ca);if(!result)return null;}if(fixB){result=tail([...result].reverse(),b,cb);if(!result)return null;result.reverse();}
+    result[0]={x:a.x,y:a.y};result[result.length-1]={x:b.x,y:b.y};
+    // Straightening an overlong repaired tail could put it back through the shell.
+    return length(result)<=budget+1e-7?result:null;
+  }
+  function route(doc, wire, options={}) {
     const ends = M.endpoints(doc), a = ends.get(wire.from), b = ends.get(wire.to); if (!a || !b) return [];
     if (wire.shape && wire.shape !== "auto") { const points = compact([clean(a), ...wire.via, clean(b)]); return wire.shape === "smooth" ? smooth(points) : points; }
-    const start = { x: a.x + a.dx * 20, y: a.y + a.dy * 20 }, end = { x: b.x + b.dx * 20, y: b.y + b.dy * 20 };
+    const lead=options.rotatedMeters?32:20;
+    const start = { x: a.x + a.dx * lead, y: a.y + a.dy * lead }, end = { x: b.x + b.dx * lead, y: b.y + b.dy * lead };
+    if(options.region&&[start,end].some(p=>p.x<options.region.left||p.x>options.region.right||p.y<options.region.top||p.y>options.region.bottom))return [];
     if (wire.via.length) return orthogonal([a, start, ...wire.via, end, b]);
     const bounds = { left: Math.min(start.x,end.x)-160, right: Math.max(start.x,end.x)+160, top: Math.min(start.y,end.y)-160, bottom: Math.max(start.y,end.y)+160 };
     const modernMeter=c=>doc.version>=4&&R.dualMeter(c);
-    const obstacles = doc.components.filter(c => modernMeter(c)?c.x+90>bounds.left&&c.x-90<bounds.right&&c.y+100>bounds.top&&c.y-100<bounds.bottom:c.x+60>bounds.left&&c.x-60<bounds.right&&c.y+80>bounds.top&&c.y-60<bounds.bottom).map((c) => modernMeter(c)?({left:c.x-78,right:c.x+78,top:c.y-86,bottom:c.y+78}):({ left: c.x - 52, right: c.x + 52, top: c.y - 52, bottom: c.y + 65 }));
-    const xs = [...new Set([start.x, end.x, ...obstacles.flatMap((o) => [o.left - 8, o.right + 8])])].sort((x, y) => x - y);
-    const ys = [...new Set([start.y, end.y, start.y - 40, end.y + 40, ...obstacles.flatMap((o) => [o.top - 8, o.bottom + 8])])].sort((x, y) => x - y);
+    const obstacles = options.rotatedMeters?doc.components.map(R.bodyBounds).filter(o=>o.right>bounds.left&&o.left<bounds.right&&o.bottom>bounds.top&&o.top<bounds.bottom):doc.components.filter(c => modernMeter(c)?c.x+90>bounds.left&&c.x-90<bounds.right&&c.y+100>bounds.top&&c.y-100<bounds.bottom:c.x+60>bounds.left&&c.x-60<bounds.right&&c.y+80>bounds.top&&c.y-60<bounds.bottom).map((c) => modernMeter(c)?({left:c.x-78,right:c.x+78,top:c.y-86,bottom:c.y+78}):({ left: c.x - 52, right: c.x + 52, top: c.y - 52, bottom: c.y + 65 }));
+    const xs = [...new Set([start.x, end.x, ...obstacles.flatMap((o) => [o.left - 8, o.right + 8]),...(options.region?[options.region.left,options.region.right]:[])])].filter(x=>!options.region||x>=options.region.left&&x<=options.region.right).sort((x, y) => x - y);
+    const ys = [...new Set([start.y, end.y, start.y - 40, end.y + 40, ...obstacles.flatMap((o) => [o.top - 8, o.bottom + 8]),...(options.region?[options.region.top,options.region.bottom]:[])])].filter(y=>!options.region||y>=options.region.top&&y<=options.region.bottom).sort((x, y) => x - y);
     const blocked = (p, q) => obstacles.some((o) => p.y === q.y ? p.y > o.top && p.y < o.bottom && Math.max(p.x, q.x) > o.left && Math.min(p.x, q.x) < o.right : p.x > o.left && p.x < o.right && Math.max(p.y, q.y) > o.top && Math.min(p.y, q.y) < o.bottom);
     const key = (x, y) => x + "," + y, first = key(xs.indexOf(start.x), ys.indexOf(start.y)), target = key(xs.indexOf(end.x), ys.indexOf(end.y));
     const queue = [];
@@ -200,17 +244,18 @@
     while (queue.length && steps++ < 20000) {
       const { k, cost } = pop(); if (cost > distance.get(k)) continue; if (k === target) { found = true; break; }
       const [xi, yi] = k.split(",").map(Number), p = { x: xs[xi], y: ys[yi] };
-      for (const [nx, ny] of [[xi - 1, yi], [xi + 1, yi], [xi, yi - 1], [xi, yi + 1]]) { if (nx < 0 || ny < 0 || nx >= xs.length || ny >= ys.length) continue; const q = { x: xs[nx], y: ys[ny] }; if (blocked(p, q)) continue; const nk = key(nx, ny), nc = cost + Math.abs(q.x - p.x) + Math.abs(q.y - p.y) + .01; if (nc < (distance.get(nk) ?? Infinity)) { distance.set(nk, nc); previous.set(nk, k); push({ k: nk, cost: nc, priority: nc + Math.abs(q.x-end.x)+Math.abs(q.y-end.y) }); } }
+      for (const [nx, ny] of [[xi - 1, yi], [xi + 1, yi], [xi, yi - 1], [xi, yi + 1]]) { if (nx < 0 || ny < 0 || nx >= xs.length || ny >= ys.length) continue; const q = { x: xs[nx], y: ys[ny] }; if (blocked(p, q)) continue; const nk = key(nx, ny); if(options.rotatedMeters&&(k===first&&(q.x-p.x)*a.dx+(q.y-p.y)*a.dy<-1e-7||nk===target&&(p.x-q.x)*b.dx+(p.y-q.y)*b.dy<-1e-7))continue; const nc = cost + Math.abs(q.x - p.x) + Math.abs(q.y - p.y) + .01; if (nc < (distance.get(nk) ?? Infinity)) { distance.set(nk, nc); previous.set(nk, k); push({ k: nk, cost: nc, priority: nc + Math.abs(q.x-end.x)+Math.abs(q.y-end.y) }); } }
     }
     let path = [];
     if (found) { let k = target; while (k) { const [x, y] = k.split(",").map(Number); path.unshift({ x: xs[x], y: ys[y] }); k = previous.get(k); } }
+    else if(options.rotatedMeters)return [];
     else path = orthogonal([start, { x: (start.x + end.x) / 2, y: start.y }, { x: (start.x + end.x) / 2, y: end.y }, end]);
-    const all = compact([a, ...path, b]); return all.filter((p, i, a) => !i || i === a.length - 1 || !((a[i - 1].x === p.x && p.x === a[i + 1].x) || (a[i - 1].y === p.y && p.y === a[i + 1].y)));
+    const all = compact([a, ...path, b]); return all.filter((p, i, a) => !i || i === a.length - 1 || !((a[i - 1].x === p.x && p.x === a[i + 1].x) || (a[i - 1].y === p.y && p.y === a[i + 1].y)) || options.rotatedMeters&&(p.x-a[i-1].x)*(a[i+1].x-p.x)+(p.y-a[i-1].y)*(a[i+1].y-p.y)<0);
   }
   function path(points) { return points.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" "); }
   function nearest(points, p) {
     let best = null; for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1))); const q = { x: a.x + t * dx, y: a.y + t * dy, segment: i }; q.distance = Math.hypot(p.x - q.x, p.y - q.y); if (!best || q.distance < best.distance) best = q; } return best;
   }
   function along(points, distance) { for (let i = 0; i < points.length - 1; i++) { const a = points[i], b = points[i + 1], length = Math.hypot(b.x - a.x, b.y - a.y); if (distance <= length && length) return { x: a.x + (b.x - a.x) * distance / length, y: a.y + (b.y - a.y) * distance / length, angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI }; distance -= length; } return points[points.length - 1]; }
-  return { route, path, nearest, along, orthogonal, simplify, finishStroke, smooth, resample, reshape, fair, bend, length, fitLength, deform };
+  return { route, path, nearest, along, orthogonal, simplify, finishStroke, smooth, resample, reshape, fair, bend, length, fitLength, deform, rounded, followEndpoints };
 });

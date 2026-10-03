@@ -116,7 +116,7 @@
     const ends=endpoints(doc);
     for(const w of doc.wires){const old=before.wires.find(x=>x.id===w.id);if(!old)continue;const oldEnds=endpoints(before),a=ends.get(w.from),b=ends.get(w.to);if(!a||!b)return false;
       if(a.x===oldEnds.get(old.from)?.x&&a.y===oldEnds.get(old.from)?.y&&b.x===oldEnds.get(old.to)?.x&&b.y===oldEnds.get(old.to)?.y)continue;
-      const fitted=G.deform(G.route(before,old),a,b,w.length);if(!fitted)return false;pose(doc,w,fitted);
+      const fitted=G.followEndpoints(doc,w,G.route(before,old),a,b,w.length,before);if(!fitted)return false;pose(doc,w,fitted);
     }return true;
   }
   function remove(doc, id) {

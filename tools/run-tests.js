@@ -7,6 +7,7 @@ const { spawnSync } = require("child_process");
 const root = path.resolve(__dirname, "..");
 const tests = [
   "sim/circuit-workbench/core.test.js",
+  "sim/circuit-workbench/layout.test.js",
   "tools/circuit-workbench-browser-regression.js",
   "sim/newtons-third-law-fullscreen-test/generator.test.js",
   "sim/newtons-third-law-fullscreen-test/model.test.js",
