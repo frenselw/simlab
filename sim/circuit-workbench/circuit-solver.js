@@ -108,12 +108,12 @@
       if(R.dualMeter(c)){
         const positives=['a','c'].filter(key=>M.degree(doc,c.id+':'+key)>0),common=M.degree(doc,c.id+':b')>0,active=positives.length===1?positives[0]:null;
         const activeEdge=ownEdges.find(e=>e.pa===c.id+':'+active),ranges=R.meterRanges(c);
-        entry.activePort=active;entry.range=active==='c'?ranges.low:ranges.high;entry.division=entry.range/ranges.divisions;entry.unit=R.get(c.type).icon;
+        entry.activePort=active;entry.range=active==='c'?ranges.low:ranges.high;entry.minimum=entry.range*R.meterScale.minimumFraction;entry.division=entry.range/ranges.divisions;entry.unit=R.get(c.type).icon;
         entry.voltage=active?voltage(c.id+':'+active,c.id+':b'):null;
         entry.current=activeEdge?.result.current??(c.type==='voltmeter'?0:null);
         entry.resistance=activeEdge?.result.resistance??(c.type==='voltmeter'&&c.params.resistance>0?c.params.resistance/(active==='c'?5:1):null);
         entry.reading=active&&common?(c.type==='voltmeter'?entry.voltage:entry.current):null;
-        entry.meterStatus=positives.length>1?'dual-positive':!active?'unconnected':!common?'missing-common':entry.reading===null?'unknown':Math.abs(entry.reading)>entry.range+1e-10?'overrange':entry.reading<-1e-10?'reverse':'normal';
+        entry.meterStatus=positives.length>1?'dual-positive':!active?'unconnected':!common?'missing-common':entry.reading===null?'unknown':entry.reading>entry.range+1e-10||entry.reading<entry.minimum-1e-10?'overrange':entry.reading<-1e-10?'reverse':'normal';
         if(entry.meterStatus==='dual-positive')diagnostics.push({code:'meter-terminals',component:c.id,message:c.label+'：兩個正極孔同時接線，請只用一個量程孔及共用 − 孔。'});
       }
       else if (c.type === "wattmeter") { const sensed = voltage(c.id + ":c", c.id + ":d"); entry.reading = sensed === null || entry.current === null ? null : sensed * entry.current; entry.sensedVoltage = sensed; entry.unit = "W"; }

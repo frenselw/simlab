@@ -16,8 +16,9 @@
 - 課堂範例已分開主回路和量測支路，保留直線並使用局部圓角。全電路歐姆定律的 V 表跨接電源兩端，設定 A 表內阻後仍量度路端電壓。A/V/W 範例的電壓感測線有一個白色隔開的交叉，沒有接點便不導通。範例按路線準備有限的較長導線；自行取出的新線仍用教師設定的上限。
 - 「探測」先點一個端子看電勢，再點另一端子量電勢差。在端子面板按「設為 0 V」改參考點。
 - A 表串聯；V 表並聯。三孔均接共用 − 和其中一個正孔：A 為 0.6／3 A，V 為 3／15 V。接哪個正孔便用哪個量程；外觀切換不改接線。先用大量程，確認後再換小量程。W 表的 I+/I− 串聯，V+/V− 跨接負載。
-- 指針 A/V 表共用 30 小格及兩行刻度：A 每格 0.02／0.1 A，V 每格 0.1／0.5 V。左端為零，右端為滿量程；指針按實際讀值／所選量程計算。選電錶後按「看刻度」可放大。較小量程提高讀數分辨率，沒有宣稱儀表校準誤差等級。
-- 反接與超量程有提示，指針只到機械行程限制，數字保留實際有號值。未接共用 −、浮接／無可靠解或同時接兩正孔時不畫正常讀值；兩正孔同接必須改接。
+- 指針 A/V 表的正側有 30 小格，零點左側另有 10 小格，零點在全弧的 1/4 處。兩行刻度為 A：−1 至 3 A／−0.2 至 0.6 A，V：−5 至 15 V／−1 至 3 V；A 每格 0.1／0.02 A，V 每格 0.5／0.1 V。指針按實際讀值與所接量程線性偏轉，反接時可讀負值；按「看刻度」放大。較小量程提高讀數分辨率，沒有宣稱儀表校準誤差等級。
+- 反接與超量程有提示；低於負滿刻度時同時提示「負向超量程 · 反接」。指針只到兩端刻度外各 2% 正量程的機械限制，數字保留實際有號值。未接共用 −、浮接／無可靠解或同時接兩正孔時不畫正常讀值；兩正孔同接必須改接。
+- 物理量、讀值、單位與刻度用本地 LaTeX 引擎渲染為 SVG 字形：變量斜體、數字及單位直立，科學記號有乘號及上標。畫布、詳情、探測和 SVG 匯出共用排版；中文與自訂名稱維持介面字體，數值輸入仍可直接編輯。下載包不需要 CDN 或遠端字體。
 - 教學模式選「固定元件，只接線」；可另外開放旋轉、所有參數或某個元件的參數。這是教師操作規則。
 - 「儲存」保存可再編輯的 JSON；「另存固定元件模板」只保留元件；SVG 匯出供講義／投影片使用。
 - 復原／重做涵蓋清空、匯入及套用範例。重新整理開始新的示範，不會自動恢復先前文件。
@@ -48,7 +49,8 @@ A/V 表高量程正孔是 a，共用負孔是 b，低量程正孔是 c。教師�
 - `circuit-model.js`：結構及庫存／長度驗證、懸空端點引用、拿線／彎線／拔線／共接命令、策略及原子復原歷史。
 - `circuit-solver.js`：MNA、非線性迭代、各獨立電路參考點、零空間識別、KCL 導線電流與診斷。
 - `circuit-routing.js`：獨立幾何模組：順滑曲線、局部圓角、路徑弧長、有界變形、旋轉接頭修復與舊檔直角避障 A*。不依賴文件模型，讓驗證與編輯測量相同長度；顯示、命中、方向動畫及 SVG 匯出共用實際路徑，不決定電氣導通。
-- `circuit-label-layout.js`：以 CSS 像素和實際字體尺寸放置資訊，使用局部碰撞索引、四邊候選位置及必要換行。位置、偏好和引導虛線都是瞬時顯示；不改導線、電氣結果、命中或文件。極密畫面可能沒有足夠空位，仍可放大或關閉部分資訊。
+- `circuit-math.js`：統一數字精度及受控 TeX，快取內嵌 SVG 字形及實際尺寸。瀏覽器使用本地 `mathjax-tex-svg.js`，Node 測試使用固定版本 `mathjax-full`；皆為 MathJax 3.2.2，SVG `fontCache: none`，沒有外部字形引用。隨附 `mathjax-license.txt`，來源為該 npm 套件的 `es5/tex-svg.js` 與 Apache-2.0 授權檔。引擎與字形策略見 [MathJax SVG 文件](https://docs.mathjax.org/en/v3.2/options/output/svg.html)。
+- `circuit-label-layout.js`：以 CSS 像素、實際介面字體及數學 SVG 尺寸放置資訊，使用局部碰撞索引、四邊候選位置及必要換行；長數值組合只在量與量之間分行。位置、偏好和引導虛線都是瞬時顯示；不改導線、電氣結果、命中或文件。極密畫面可能沒有足夠空位，仍可放大或關閉部分資訊。
 - `circuit-renderer.js`：實物／符號、數字／指針、讀值、電勢與方向。未完成操作不寫入電路文件。
 - `circuit-document.js`：版本化 JSON 與模板匯出；先驗證後替換。匯入內容不能包含可執行模型。
 - `main.js`：教師介面與可信輸入，所有命令在驗證後才提交。
@@ -79,7 +81,7 @@ A/V 旋轉修復使用 `CircuitRegistry.bodyBounds()` 的旋轉後錶殼及接�
 | `cancel()` | 取消本次未提交拖動，回復已提交狀態 |
 | `getInteraction()` | 讀取相機、選取、工具及暫態手勢；雙指時 `dragging` 為 `camera`，另有 `touchCount/touchBlocked/spacePan`。這些值不屬於權威文件 |
 
-計算 API 使用 `CircuitSolver.solve(validDocument)`。每個元件結果包含 `voltage/current/power/branches`；一般元件的 `voltage/current` 對應第一支路，A/V 則對應所接量程支路，`power` 一律是各支路的吸收功率總和。儀表另有 `reading/unit`；A/V 有 `activePort/range/division/meterStatus`，狀態為 `normal/reverse/overrange/unconnected/missing-common/dual-positive/unknown`。電源另有 `delivered/internalPower/sourcePower`。各支路包含端子、電壓、電流與吸收功率；儀表的自身耗電與量測讀值分開。null 表示無可靠或唯一結果；不能當成 0。
+計算 API 使用 `CircuitSolver.solve(validDocument)`。每個元件結果包含 `voltage/current/power/branches`；一般元件的 `voltage/current` 對應第一支路，A/V 則對應所接量程支路，`power` 一律是各支路的吸收功率總和。儀表另有 `reading/unit`；A/V 有 `activePort/range/minimum/division/meterStatus`，`minimum` 為該孔正量程的 −1/3，狀態為 `normal/reverse/overrange/unconnected/missing-common/dual-positive/unknown`。電源另有 `delivered/internalPower/sourcePower`。各支路包含端子、電壓、電流與吸收功率；儀表的自身耗電與量測讀值分開。null 表示無可靠或唯一結果；不能當成 0。
 
 ## 擴充元件
 
@@ -101,6 +103,7 @@ A/V 旋轉修復使用 `CircuitRegistry.bodyBounds()` 的旋轉後錶殼及接�
 node sim/circuit-workbench/core.test.js
 node sim/circuit-workbench/layout.test.js
 node sim/circuit-workbench/labels.test.js
+node sim/circuit-workbench/meters-and-math.test.js
 npm run test:browser:circuit
 npm run package:circuit
 ```
@@ -110,3 +113,5 @@ npm run package:circuit
 `node tools/circuit-workbench-browser-regression.js --layout-smoke` 單獨執行全闊畫布、九種版面、邊緣可信觸控、相機快捷操作、全螢幕及 T1–T3 捲頁擁有者。這些案例亦由既有完整瀏覽器測試呼叫；來源／ZIP 的證據記於 `canvas-layouts.json`。
 
 `--labels-smoke` 檢查實際 SVG 文字盒、導線採樣和元件盒的避讓，以及可信移動、拉線、旋轉、顯示開關和文件重載；與 `--layout-smoke` 合用時再執行範例接孔、相機及全闊／宿主矩陣，證據為 `canvas-and-labels.json`。
+
+`--meters-math-smoke` 執行 320／390／1280 px 的偏置零刻度、真實 SVG 針尖角度、負向讀值與兩側機械行程、可信高低孔改接／復原及反接電源，另檢查數字錶的 LaTeX 字形和完全阻擋 HTTP／HTTPS 的 `file://` 來源／ZIP 啟動。單獨證據為 `meters-math.json`；與 `--labels-smoke --layout-smoke` 合用時，包含數學標籤避讓與匯出、全部範例旋轉、全闊／相機／宿主回歸，記於 `meters-math-and-layout.json`。
