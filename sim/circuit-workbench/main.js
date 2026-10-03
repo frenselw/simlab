@@ -18,6 +18,7 @@
   function selectedComponent(){return history.get().components.find(c=>c.id===selection?.id);}
   function emitChange(){for(const fn of listeners)try{fn(M.clone(history.get()));}catch(e){console.error("CircuitWorkbench onChange callback failed",e);}}
   function rollbackDrag(){const old=drag;drag=null;previewDoc=null;analysis=S.solve(history.get());$("preview").hidden=true;
+    if(old?.kind==="wireend")$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
     // Active touches keep their original capture until lift or an explicit transfer.
@@ -60,7 +61,6 @@
   function focusPoint(p){autoFit=false;camera.scale=Math.max(1,camera.scale);camera.x=p.x-surface.clientWidth/(2*camera.scale);camera.y=p.y-surface.clientHeight/(2*camera.scale);render(false);}
   function resolveSnap(d,id,key,p){const w=d.wires.find(w=>w.id===id),other=key==="from"?"to":"from";let found=null,distance=24/camera.scale;
     for(const [endpoint,q]of M.endpoints(d)){if(endpoint===w[key]||(endpoint===w[other]&&!M.attached(d,w,other)))continue;
-      if(R.dualMeter(d.components.find(c=>c.id===endpoint.split(':')[0])||{type:''})&&camera.scale<.7)continue;
       const size=Math.hypot(q.x-p.x,q.y-p.y);if(size<distance){found={...q,id:endpoint};distance=size;}}
     return found;
   }
@@ -82,7 +82,9 @@
     });
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
-  function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?`<circle cx="${snap.x}" cy="${snap.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`:"";
+  function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?`<circle data-snap-target="${V.esc(snap.id)}" cx="${snap.x}" cy="${snap.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`:"";
+    if(drag?.kind==="wireend"){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
+      n.innerHTML=rich(snap?["將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
   }
   function render(inspector=true){const d=current(),surfaceRect=surface.getBoundingClientRect();svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
@@ -125,7 +127,7 @@
       const host = document.createElement("div"); host.className = "reading-host"; host.innerHTML = componentReadings(c.id); prop.append(host);
       if (c.type === "lamp" && c.params.model === "thermal") { const n = document.createElement("p"); n.className = "note"; n.textContent = "穩態教學近似：冷態電阻為額定熱態的 1/10；以額定電壓校準散熱。未模擬預熱或燒毀。"; prop.append(n); }
       if (c.type === "wattmeter") { const n = document.createElement("p"); n.className = "note"; n.textContent = "I+/I− 串聯；V+/V− 跨接負載。讀值 = 電壓線圈電壓 × 電流線圈電流。"; prop.append(n); }
-      if(R.dualMeter(c)){const r=analysis.components[c.id],n=document.createElement('p');n.className='note';n.innerHTML=rich([...(V.statusText(r)?[V.statusText(r)]:['目前量程 ',Q.quantity(r.range,r.unit)]),'。接共用 − 與其中一個正極孔；先用大量程，再換小量程。每小格 ',Q.quantity(r.division,r.unit),'；負刻度至 ',Q.quantity(r.minimum,r.unit),'。',camera.scale<.7?'先按「放大所選」分清三個孔。':'']);prop.append(n);button('放大錶盤',()=>inspectMeter(c));}
+      if(R.dualMeter(c)){const r=analysis.components[c.id],n=document.createElement('p');n.className='note';n.innerHTML=rich([...(V.statusText(r)?[V.statusText(r)]:['目前量程 ',Q.quantity(r.range,r.unit)]),'。接共用 − 與其中一個正極孔；先用大量程，再換小量程。每小格 ',Q.quantity(r.division,r.unit),'；負刻度至 ',Q.quantity(r.minimum,r.unit),'。',camera.scale<.7?'孔太近時可按「放大所選」分清三個孔。':'']);prop.append(n);button('放大錶盤',()=>inspectMeter(c));}
       button("旋轉 90°", () => rotate(c.id), !M.permission(d, c, "rotate"));
       button("刪除元件", () => { cancel(); change((doc) => M.remove(doc, c.id)); }, !M.permission(d, c, "remove"), true);
       button("複製元件", () => change((doc) => { const copy = M.add(doc, c.type, c.x + 140, c.y + 80, c.params); copy.angle = c.angle; copy.label = c.label + " 副本"; selection = { kind: "body", id: copy.id }; }), d.policy.mode !== "free");
@@ -157,6 +159,8 @@
   function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c))return;const r=analysis.components[c.id];$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-80 -88 160 135" aria-label="${V.esc(c.label)}雙量程刻度">${V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division,r.unit),'，負刻度至 ',Q.quantity(r.minimum,r.unit)])}</p>`;$('meterDialog').showModal();}
 
   function portName(id){const d=history.get(),[cid,key]=id.split(":"),c=d.components.find(c=>c.id===cid);if(c)return c.label+" "+R.ports(c).find(p=>p.key===key)?.label;return M.degree(d,id)>1?"共接點 "+cid:"懸空線端 "+cid;}
+  function connectionLabel(id){const [cid,key]=id.split(":"),c=current().components.find(c=>c.id===cid);if(!c||!R.dualMeter(c))return[portName(id)];
+    return key==="b"?[c.label+" · 共用 − 孔"]:[c.label+" · +",Q.quantity(key==="c"?c.params.range/5:c.params.range,c.type==="ammeter"?"A":"V")," 孔"];}
   function rotate(id){const c=history.get().components.find(c=>c.id===id);if(!c||!M.permission(history.get(),c,"rotate"))return;cancel();change(doc=>{const before=M.clone(doc);doc.components.find(c=>c.id===id).angle=(c.angle+90)%360;if(!M.reconcile(doc,before))throw new Error("導線太短，請先拔開或移近元件再旋轉");});}
   function unplug(id,key){cancel();change(doc=>{M.detach(doc,id,key);selection={kind:"wireend",id,end:key};});notify("已拔開這一端，導線留在畫布，可重新接線。");}
   function tidy(id){cancel();change(doc=>{doc.wires.filter(w=>!id||w.id===id).forEach(w=>{const points=G.route(doc,w),clean=G.smooth(G.simplify(points,12));const fitted=G.fitLength(G.resample(clean,10),w.length);w.shape="free";w.via=fitted.slice(1,-1).map(p=>({x:p.x,y:p.y}));});});}
@@ -207,7 +211,7 @@
     const dx=p.x-drag.down.x,dy=p.y-drag.down.y;previewDoc=M.clone(drag.baseDoc);drag.snap=null;drag.limited=false;
     if(drag.kind==="wireend"){
       const desired={x:drag.start.x+dx,y:drag.start.y+dy},result=M.moveWireEnd(previewDoc,drag.id,drag.end,desired);drag.limited=result.limited;
-      const candidate=resolveSnap(previewDoc,drag.id,drag.end,desired);if(candidate){const snapped=M.clone(previewDoc);if(M.attach(snapped,drag.id,drag.end,candidate.id)){previewDoc=snapped;drag.snap=candidate;}}
+      const candidate=resolveSnap(previewDoc,drag.id,drag.end,desired);if(candidate){const snapped=M.clone(previewDoc);if(M.attach(snapped,drag.id,drag.end,candidate.id)){previewDoc=snapped;drag.snap=candidate;drag.limited=false;}}
       drag.focus=M.endpoints(previewDoc).get(previewDoc.wires.find(w=>w.id===drag.id)[drag.end]);
     }else if(drag.kind==="body"||drag.kind==="junction"){
       const old=(drag.kind==="body"?drag.baseDoc.components:drag.baseDoc.junctions).find(x=>x.id===drag.id),result=moveObject(drag.baseDoc,drag.kind,drag.id,snapGrid(old.x+dx)-old.x,snapGrid(old.y+dy)-old.y);previewDoc=result.doc;drag.limited=result.limited;drag.focus=(drag.kind==="body"?previewDoc.components:previewDoc.junctions).find(x=>x.id===drag.id);
@@ -218,7 +222,7 @@
   surface.addEventListener("pointerup",e=>{
     if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc;drag=null;previewDoc=null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
-    if(preview&&done.moved){change(doc=>Object.assign(doc,preview));notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?"端點已接好；拖另一端繼續接線。":done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");}
+    if(preview&&done.moved){change(doc=>Object.assign(doc,preview));notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");}
     render();
   });
   surface.addEventListener("lostpointercapture",e=>{if(drag?.pointerId===e.pointerId||(cameraGesture?.ids.includes(e.pointerId)&&!surface.hasPointerCapture(e.pointerId)))cancel(true);});
