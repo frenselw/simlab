@@ -9,6 +9,7 @@
     "circuit-workbench/circuit-model.js",
     "circuit-workbench/circuit-solver.js",
     "circuit-workbench/circuit-routing.js",
+    "circuit-workbench/circuit-label-layout.js",
     "circuit-workbench/circuit-renderer.js",
     "circuit-workbench/circuit-document.js",
     "circuit-workbench/presets.js",

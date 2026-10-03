@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting, node ? require("./circuit-label-layout.js") : root.CircuitLabelLayout);
   if (node) module.exports = api; else root.CircuitRenderer = api;
-})(globalThis, function (R, Routing) {
+})(globalThis, function (R, Routing, L) {
   "use strict";
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function format(v, unit = "") { if (v === null || v === undefined || !Number.isFinite(v)) return "—"; const a = Math.abs(v); let text = a >= 10000 || (a > 0 && a < .001) ? v.toExponential(2) : Number(v.toPrecision(4)).toString(); if (text === "-0") text = "0"; return text + (unit ? " " + unit : ""); }
@@ -93,29 +93,39 @@
     }
     return leads;
   }
-  function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null) {
-    const size = (doc.display.projection ? 18 : 14) / scale, max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
+  function labels(doc,result,scale=1,routes={},viewport=null,options=null){
+    if(viewport&&scale<.4)return [];
+    const items=[],details=[...(options?.exclusions||[])],nameSize=doc.display.projection?18:14,valueSize=doc.display.projection?16:12;
+    doc.components.forEach(c=>{
+      const r=result.components[c.id],isMeter=['ammeter','voltmeter','wattmeter'].includes(c.type),lines=[];
+      if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':''),size:nameSize});
+      if(doc.display.values){
+        if(isMeter){if(doc.display.view==='schematic'||R.dualMeter(c)&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))lines.push({kind:'value',text:format(r?.reading,r?.unit),size:valueSize});}
+        else{const resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c),value=c.type==='battery'?`E ${format(c.params.voltage,'V')} · r ${format(c.params.resistance,'Ω')}`:c.type==='switch'?(c.params.closed?'閉合':'斷開'):`${format(resistance,'Ω')} · ${format(r?.power,'W')}`;lines.push({kind:'value',text:value,size:valueSize});}
+      }
+      if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
+      if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
+      if(isMeter&&(!R.dualMeter(c)||scale>=.7))R.ports(c).forEach(p=>{const x=R.dualMeter(c)?p.x-p.dx*17:p.x,y=R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,width=L.measure(p.label,11)/scale;details.push({left:x-width/2-2/scale,right:x+width/2+2/scale,top:y-13/scale,bottom:y+4/scale});});
+      if(doc.display.potential&&Math.abs(r?.voltage||0)>1e-8){const extent=Math.max(22/scale,20);details.push({left:c.x-extent,right:c.x+extent,top:c.y-58-25/scale,bottom:c.y-58+6/scale});}
+    });
+    const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);if(options)options.previous=new Map(placed.map(p=>[p.id,p.slot]));return placed;
+  }
+  function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
+    const max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
     const tiny=viewport&&scale<.4&&doc.components.length>0;
+    if(labelOptions)labelOptions.selection=selection;
+    const placed=labels(doc,result,scale,routes,viewport,labelOptions);
     let out = '';
     doc.wires.forEach((w) => {
       const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
       out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
     });
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
+    placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
       const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
       const box=R.dualMeter(c)?'x="-82" y="-91" width="164" height="174"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
-      if(!tiny){
-      const side=!isMeter&&c.angle%180,overview=side&&scale<.55,labelX=overview?c.x+(c.type==='battery'?20:-28)/scale:side?c.x+(c.type==='battery'?1:-1)*(38+12/scale):c.x,labelY=overview?c.y-30/scale:side?c.y-5/scale:c.y+(R.dualMeter(c)?112:isMeter?85:66)+(doc.display.projection?8:0),anchor=side&&!overview?`text-anchor="${c.type==='battery'?'start':'end'}"`:'';
-      out += text(labelX, labelY, c.label + (c.locked ? " · 固定" : ""), size,`${anchor} data-component-label="${c.id}"`);
-      if (doc.display.values && isMeter && (doc.display.view === "schematic"||R.dualMeter(c)&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))) out += text(c.x,labelY+20/scale,format(r?.reading,r?.unit),12/scale);
-      if (doc.display.values && !isMeter && scale >= .55) {
-        const resistance = c.type === "lamp" && c.params.model === "thermal" ? r?.resistance : r?.resistance ?? R.effectiveResistance(c);
-        let value = c.type === "battery" ? `E ${format(c.params.voltage, "V")} · r ${format(c.params.resistance, "Ω")}` : c.type === "switch" ? (c.params.closed ? "閉合" : "斷開") : `${format(resistance, "Ω")} · ${format(r?.power, "W")}`;
-        out += text(labelX, labelY + 20 / scale, value, 12 / scale,anchor);
-      }
-      }
       // Sockets sit inside the housing. Paint the actual cable tail over that
       // housing, then paint the terminal, so there is no hidden 12-unit gap.
       if(R.dualMeter(c))doc.wires.forEach(w=>['from','to'].forEach(key=>{if(!w[key].startsWith(c.id+':'))return;
@@ -126,7 +136,7 @@
       }));
       R.ports(c).forEach((p) => {
         const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
-        if (isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)) out += text(R.dualMeter(c)?p.x-p.dx*17:p.x,R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,p.label,11/scale);
+        if (isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)) out += text(R.dualMeter(c)?p.x-p.dx*17:p.x,R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,p.label,11/scale,`data-port-label="${p.id}"`);
       });
       if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
         const ports=R.ports(c),a=ports.find(p=>p.key===(r.activePort||'a'))||ports[0], b=ports[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
@@ -141,6 +151,7 @@
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
       if(free||selection===w.id||wireMode){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
     }));
+    placed.forEach(p=>{const b=p.box;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}"><rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".92"/>`;p.rows.forEach(row=>{out+=text(row.x,row.y,row.text,row.size/scale,`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`);});out+='</g>';});
     if(tiny){
       const meters=doc.components.filter(c=>['ammeter','voltmeter','wattmeter'].includes(c.type)),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
       const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
@@ -164,5 +175,5 @@
     });
     return out;
   }
-  return { scene, flow, body, dualDial, dialPoint, statusText, text, format, esc, colour };
+  return { scene, labels, flow, body, dualDial, dialPoint, statusText, text, format, esc, colour };
 });
