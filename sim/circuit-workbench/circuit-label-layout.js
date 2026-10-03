@@ -22,6 +22,7 @@
   }
   function bodyBounds(c,view='real'){
     const local={battery:view==='schematic'?[-63,-48,63,31]:[-63,-31,63,31],resistor:[-63,-22,63,22],rheostat:[-63,-32,63,48],switch:[-63,-32,63,26],lamp:view==='real'?[-63,-72,63,26]:[-63,-31,63,31],ammeter:view==='real'?[-80,-88,80,80]:[-68,-39,68,70],voltmeter:view==='real'?[-80,-88,80,80]:[-68,-39,68,70],wattmeter:[-63,-47,63,47]}[c.type];
+    if(R.dualMeter(c)&&view==='real'){const scale=R.meterBodyScale(c);local.splice(0,4,-76,-86*scale-2,76,78);}
     if(!local)return R.bodyBounds(c);
     const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle)),points=[local[0],local[2]].flatMap(x=>[local[1],local[3]].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
     return{left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))};

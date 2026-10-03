@@ -23,13 +23,13 @@ async function presetCases(h,mode,base){
         const physical=socket?screen(socket,{x:+socket.getAttribute('cx'),y:+socket.getAttribute('cy')}):center;
         let hitError=null;if(hit){const r=hit.getBoundingClientRect();hitError=Math.hypot(r.x+r.width/2-center.x,r.y+r.height/2-center.y);}
         for(const w of CircuitWorkbench.getDocument().wires){for(const key of ['from','to'])if(w[key]===p.id){
-          const path=document.querySelector('[data-wire="'+w.id+'"]'),end=screen(path,path.getPointAtLength(key==='from'?0:path.getTotalLength())),lead=document.querySelector('[data-terminal-lead="'+w.id+':'+key+'"]'),tip=screen(lead,lead.getPointAtLength(0));
-          out.push({id:p.id,wire:w.id,key,socket:Math.hypot(center.x-physical.x,center.y-physical.y),end:Math.hypot(center.x-end.x,center.y-end.y),lead:Math.hypot(center.x-tip.x,center.y-tip.y),hit:hitError});
+          const path=document.querySelector('[data-wire="'+w.id+'"]'),end=screen(path,path.getPointAtLength(key==='from'?0:path.getTotalLength()));
+          out.push({id:p.id,wire:w.id,key,socket:Math.hypot(center.x-physical.x,center.y-physical.y),end:Math.hypot(center.x-end.x,center.y-end.y),foreground:Boolean(group.compareDocumentPosition(path)&Node.DOCUMENT_POSITION_FOLLOWING),hit:hitError});
         }}
       }
     }return out;
   })()`);}
-  function aligned(samples,hitRequired=false){for(const x of samples){assert(x.socket<.02,'physical socket and model terminal align');assert(x.end<.02,'SVG wire ends at its socket');assert(x.lead<.02,'visible connector tail reaches the socket');if(hitRequired)assert(x.hit!==null,'zoomed socket has an independent hit target');if(x.hit!==null)assert(x.hit<.02,'touch target is centered on the real socket: '+JSON.stringify(x));}}
+  function aligned(samples,hitRequired=false){for(const x of samples){assert(x.socket<.02,'physical socket and model terminal align');assert(x.end<.02,'SVG wire ends at its socket');assert(x.foreground,'actual cable stays in front of the housing');if(hitRequired)assert(x.hit!==null,'zoomed socket has an independent hit target');if(x.hit!==null)assert(x.hit<.02,'touch target is centered on the real socket: '+JSON.stringify(x));}}
   console.log(`${mode}: classroom preset layouts and rotated meter sockets`);
   for(const width of [1280,320]){
     await launch(width);

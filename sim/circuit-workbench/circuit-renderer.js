@@ -32,7 +32,8 @@
     out+=text(0,display.meters==='analog'?41:36,statusText(result),10,'fill="#a74730"');
     let shell='<rect x="-78" y="-86" width="156" height="164" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
     shell+=`<g data-meter-face="${esc(c.id||'preview')}">${out}</g>`;
-    R.get(c.type).ports.forEach(p=>{shell+=`<circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="10" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
+    const scale=R.meterBodyScale(c);shell=`<g data-meter-housing="${esc(c.id||'preview')}" transform="scale(${scale})">${shell}</g>`;
+    R.get(c.type).ports.forEach(p=>{shell+=`<path data-socket-lead="${p.key}" d="M${p.x*scale} ${p.y*scale}L${p.x} ${p.y}" fill="none" stroke="#667b8e" stroke-width="4" stroke-linecap="round"/><circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="8" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
   }
   function meter(c, result, display) {
     if(R.dualMeter(c))return dualMeter(c,result,display);
@@ -48,7 +49,7 @@
       out += display.values?quantity(0,36,v,unit,12):Q.svg(0,36,Q.unit(symbol),12);
     }
     if (display.values && v !== null && Math.abs(v) > c.params.range) out += text(0, -43, "超量程", 13, 'fill="#b91c1c"');
-    return shell + `<g transform="rotate(${-(c.angle || 0)})">${out}</g>`;
+    return `<g data-meter-housing="${esc(c.id||'preview')}" transform="scale(${R.meterBodyScale(c)})">${shell}<g transform="rotate(${-(c.angle || 0)})">${out}</g></g>`;
   }
   function body(c, result, display) {
     const schematic = display.view === "schematic", p = c.params; if(typeof R.get(c.type).render === "function") return R.get(c.type).render(c,result,display);
@@ -58,7 +59,7 @@
         if(!schematic)return meter(c,result,display);
         return '<path d="M-64 66V39H-20V27 M0 66V34 M64 66V39H20V27" fill="none" stroke="#475569" stroke-width="3" stroke-linejoin="round"/><circle r="34" fill="#fff" stroke="#334155" stroke-width="2"/>'+`<g transform="rotate(${-(c.angle||0)})">${Q.svg(0,6,Q.unit(R.get(c.type).icon),22)}</g>`;
       }
-      let lines = c.type === "wattmeter" ? `<path d="${schematic ? "M-60-20H-27 M27-20H60 M-60 40H-24V24 M24 24V40H60" : "M-60-20H-36 M36-20H60 M-60 40H-34 M34 40H60"}" stroke="#475569" stroke-width="3" fill="none" stroke-linejoin="round"/>` : leads;
+      let lines = c.type === "wattmeter" ? `<path d="${schematic ? "M-60-20H-27 M27-20H60 M-60 40H-24V24 M24 24V40H60" : "M-60-20H-32 M32-20H60 M-60 40H-34V30 M34 30V40H60"}" stroke="#475569" stroke-width="3" fill="none" stroke-linejoin="round"/>` : leads;
       if (schematic) return lines + '<circle r="34" fill="#fff" stroke="#334155" stroke-width="2"/>' + `<g transform="rotate(${-(c.angle || 0)})">${Q.svg(0,6,Q.unit(R.get(c.type).icon),22)}</g>`;
       return lines + meter(c, result, display);
     }
@@ -121,36 +122,29 @@
     if(labelOptions)labelOptions.selection=selection;
     const placed=labels(doc,result,scale,routes,viewport,labelOptions);
     let out = '';
-    doc.wires.forEach((w) => {
-      const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
-      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
-    });
-    doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
       const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
-      const box=R.dualMeter(c)?'x="-82" y="-91" width="164" height="174"':'x="-46" y="-47" width="92" height="98"';
+      const size=R.meterBodyScale(c),box=R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
-      // Sockets sit inside the housing. Paint the actual cable tail over that
-      // housing, then paint the terminal, so there is no hidden 12-unit gap.
-      if(R.dualMeter(c))doc.wires.forEach(w=>['from','to'].forEach(key=>{if(!w[key].startsWith(c.id+':'))return;
-        let points=routes[w.id]||Routing.route(doc,w);if(key==='to')points=[...points].reverse();let distance=0;const lead=[points[0]];
-        for(let i=1;i<points.length;i++){const step=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y);if(distance+step>=24){lead.push(Routing.along(points,24));break;}lead.push(points[i]);distance+=step;}
-        const tint=selection===w.id?'#2563eb':doc.display.potential?colour(result.wires[w.id]?.potential,max):'#50677e';
-        out+=`<path data-terminal-lead="${w.id}:${key}" d="${Routing.path(lead)}" fill="none" stroke="${tint}" stroke-width="${4/scale}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      }));
-      R.ports(c).forEach((p) => {
-        const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
-        if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)){const x=R.dualMeter(c)?p.x-p.dx*17:p.x,y=R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,attrs=`data-port-label="${p.id}"`;out+=R.dualMeter(c)&&p.key!=='b'?Q.svg(x,y,portSpec(c,p),11/scale,attrs):text(x,y,p.label,11/scale,attrs);}
-      });
       if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
         const ports=R.ports(c),a=ports.find(p=>p.key===(r.activePort||'a'))||ports[0], b=ports[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
         const mx = c.x, my = c.y - 58, direction = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
         out += `<g transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
       }
     });
-    // Selected cable stays visible even when it shorts a component beneath it.
-    const raised=doc.wires.find(w=>w.id===selection);if(raised){const d=Routing.path(routes[raised.id]||Routing.route(doc,raised));out+=`<path data-raised-wire="${raised.id}" d="${d}" fill="none" stroke="#fff" stroke-width="${9/scale}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#2563eb" stroke-width="${5/scale}" stroke-linecap="round" stroke-linejoin="round"/>`;}
+    // Cables lie on top of components; terminals and labels stay legible above them.
+    doc.wires.forEach((w) => {
+      const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
+      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    });
+    doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
+    doc.components.forEach(c=>{const isMeter=["ammeter","voltmeter","wattmeter"].includes(c.type);
+      R.ports(c).forEach((p) => {
+        const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
+        if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)){const x=R.dualMeter(c)?p.x-p.dx*17:p.x,y=R.dualMeter(c)?p.y-p.dy*17:p.y-12/scale,attrs=`data-port-label="${p.id}"`;out+=R.dualMeter(c)&&p.key!=='b'?Q.svg(x,y,portSpec(c,p),11/scale,attrs):text(x,y,p.label,11/scale,attrs);}
+      });
+    });
     const ends=new Map();doc.components.forEach(c=>R.ports(c).forEach(p=>ends.set(p.id,p)));doc.junctions.forEach(j=>ends.set(j.id+":p",j));
     doc.wires.forEach(w=>["from","to"].forEach((key,i)=>{
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
@@ -173,7 +167,6 @@
       const points = routes[w.id], length = points.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0), spacing = 65 / scale, electron = doc.display.flow === "electron", reverse = (current < 0) !== electron;
       for (let distance = (time * 30 / scale) % spacing; distance < length; distance += spacing) {
         const p = Routing.along(points, reverse ? length - distance : distance); if (!p) continue;
-        if(doc.components.some(c=>{if(!R.dualMeter(c))return false;const b=R.bodyBounds(c);return p.x>b.left&&p.x<b.right&&p.y>b.top&&p.y<b.bottom;}))continue;
         if (electron) out += `<circle cx="${p.x}" cy="${p.y}" r="${6 / scale}" fill="#2563eb"/><path d="M${p.x - 3 / scale} ${p.y}h${6 / scale}" stroke="#fff" stroke-width="${1.5 / scale}"/>`;
         else out += `<path transform="translate(${p.x} ${p.y}) rotate(${p.angle + (reverse ? 180 : 0)})" d="M${-6 / scale} ${-4 / scale}L${2 / scale} 0L${-6 / scale} ${4 / scale}" stroke="#2563eb" stroke-width="${2 / scale}" fill="none"/>`;
       }

@@ -34,7 +34,7 @@ for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const 
    const src=key==='from'?p:[...p].reverse(),terminal=R.ports(c).find(p=>p.id===w[key]),next=G.along(src,6);near(next.x,terminal.x+terminal.dx*6,'socket lead x');near(next.y,terminal.y+terminal.dy*6,'socket lead y');
   }
   near(S.solve(f.d).components[c.id].reading,baseResult.components[c.id].reading,'socket rotation keeps signed reading/range');assert.deepEqual(D.decode(D.encode(f.d)),f.d);
-  for(const meters of ['digital','analog']){const svg=V.scene({...f.d,display:{...f.d.display,meters}},S.solve(f.d));assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);assert(svg.includes(`data-terminal-lead=`),'visible stems reach the actual sockets');}
+  for(const meters of ['digital','analog']){const svg=V.scene({...f.d,display:{...f.d.display,meters}},S.solve(f.d));assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);const lastBody=Math.max(...f.d.components.map(c=>svg.indexOf(`data-component="${c.id}"`)));for(const w of f.d.wires){assert(svg.indexOf(`data-wire="${w.id}"`)>lastBody,'entire cable stays above every housing');assert(svg.includes(`d="${G.path(G.route(f.d,w))}"`),'foreground cable follows the actual endpoint route');}}
   rotations++;
  }assert.equal(rotations,4);assert.deepEqual(f.d.wires.map(w=>[w.from,w.to,w.length]),original.wires.map(w=>[w.from,w.to,w.length]));
 }
