@@ -198,18 +198,29 @@
     }
     return out;
   }
-  function flow(doc, result, routes, time, scale) {
+  const flowSpacing=65,modulo=(v,n)=>(v%n+n)%n;
+  // Display speed is compressed for observation; it is not a drift velocity in m/s.
+  function flowSpeed(current){if(!Number.isFinite(current)||Math.abs(current)<1e-9)return 0;const magnitude=Math.abs(current);return 240/(1+4/magnitude);}
+  function advanceFlow(offsets,doc,result,dt){
+    const ids=new Set(doc.wires.map(w=>w.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
+    if(doc.display.flow==='off')return;
+    const elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
+    for(const w of doc.wires){const current=result.wires[w.id]?.current,speed=flowSpeed(current);if(speed)offsets.set(w.id,modulo((offsets.get(w.id)||0)+polarity*Math.sign(current)*speed*elapsed,flowSpacing));}
+  }
+  function flow(doc, result, routes, time, scale, offsets=null) {
     if (doc.display.flow === "off") return ""; let out = '';
     doc.wires.forEach((w) => {
-      const current = result.wires[w.id]?.current; if (current === null || Math.abs(current || 0) < 1e-9) return;
-      const points = routes[w.id], length = points.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0), spacing = 65 / scale, electron = doc.display.flow === "electron", reverse = (current < 0) !== electron;
-      for (let distance = (time * 30 / scale) % spacing; distance < length; distance += spacing) {
-        const p = Routing.along(points, reverse ? length - distance : distance); if (!p) continue;
+      const current = result.wires[w.id]?.current,speed=flowSpeed(current);if(!speed)return;
+      const points=routes[w.id]||Routing.route(doc,w),length=Routing.length(points),spacing=flowSpacing/scale,electron=doc.display.flow==="electron",reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
+      out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
+      for (let distance = phase / scale; distance < length; distance += spacing) {
+        const p = Routing.along(points, distance); if (!p) continue;
         if (electron) out += `<circle cx="${p.x}" cy="${p.y}" r="${6 / scale}" fill="#2563eb"/><path d="M${p.x - 3 / scale} ${p.y}h${6 / scale}" stroke="#fff" stroke-width="${1.5 / scale}"/>`;
         else out += `<path transform="translate(${p.x} ${p.y}) rotate(${p.angle + (reverse ? 180 : 0)})" d="M${-6 / scale} ${-4 / scale}L${2 / scale} 0L${-6 / scale} ${4 / scale}" stroke="#2563eb" stroke-width="${2 / scale}" fill="none"/>`;
       }
+      out+='</g>';
     });
     return out;
   }
-  return { scene, labels, flow, body, dualDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
+  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, body, dualDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
 });

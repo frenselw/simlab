@@ -62,6 +62,22 @@ async function cameraCases(h,mode,base){
   for(const ctrl of [false,true]){const before=await state(),r=await point("#surface"),cursor={x:r.x+70,y:r.y-35},anchor={x:before.interaction.camera.x+(cursor.x-r.x+r.width/2)/before.interaction.camera.scale,y:before.interaction.camera.y+(cursor.y-r.y+r.height/2)/before.interaction.camera.scale};
     await send("Input.dispatchMouseEvent",{type:"mouseWheel",...cursor,deltaX:0,deltaY:-120,modifiers:ctrl?2:0});await delay(140);const c=(await interaction()).camera;assert(c.scale>before.interaction.camera.scale);assert(Math.abs((anchor.x-c.x)*c.scale-(cursor.x-r.x+r.width/2))<.02);assert(Math.abs((anchor.y-c.y)*c.scale-(cursor.y-r.y+r.height/2))<.02);await unchanged(before);evidence.push({mode,desktopCamera:"wheel",ctrl,cursorAnchored:true,camera:c});
   }
+  // Space + trackpad scroll and the hand tool own both wheel axes; pinch wins.
+  for(const method of ["space-wheel","hand-wheel"]){
+    if((await interaction()).panMode)await click('#pan');await load(P.create('series'));
+    if(method==='hand-wheel')await click('#pan');else{await click('#pickWire');await inside("document.querySelector('[data-hit=\"body:c2\"]').focus()");await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});}
+    await watch();const before=await state(),p=await point('#surface'),steps=[];
+    for(const [dx,dy]of [[72,-48],[-30,0],[0,36]]){
+      const prior=(await interaction()).camera;await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:dx,deltaY:dy});await delay(100);const c=(await interaction()).camera;
+      assert.equal(c.scale,prior.scale,'trackpad pan keeps magnification');assert(Math.abs(c.x-prior.x-dx/c.scale)<1e-7);assert(Math.abs(c.y-prior.y-dy/c.scale)<1e-7);await unchanged(before);steps.push({dx,dy,camera:c});
+    }
+    const prior=(await interaction()).camera,anchor={x:prior.x+p.width/2/prior.scale,y:prior.y+p.height/2/prior.scale};
+    await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:15,deltaY:-80,modifiers:2});await delay(100);const pinched=(await interaction()).camera;
+    assert(pinched.scale>prior.scale,'Ctrl wheel pinch keeps zoom ownership in either pan mode');assert(Math.abs((anchor.x-pinched.x)*pinched.scale-p.width/2)<.02);assert(Math.abs((anchor.y-pinched.y)*pinched.scale-p.height/2)<.02);await unchanged(before);
+    if(method==='space-wheel'){await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});await delay(60);await unchanged(before);assert.equal((await interaction()).wireMode,true);assert.equal((await interaction()).spacePan,false);}
+    else{assert.equal((await interaction()).panMode,true);await click('#pan');}
+    await click('#quickWire');await click('#undo');assert.equal(await save(),before.saved);evidence.push({mode,desktopCamera:method,steps,pinchWins:true,noFocusedSwitchActivation:true,toolPreserved:true,continued:true});
+  }
   for(const method of ["middle","space-left"]){await load(P.create("series"));await click("#pickWire");await watch();const before=await state(),p=await point('[data-hit="body:c2"]'),button=method==="middle"?"middle":"left",buttons=method==="middle"?4:1;
     // Space must also work while a scene button has focus from a previous click.
     if(method==="space-left"){await inside("document.querySelector('[data-hit=\"body:c2\"]').focus()");await send("Input.dispatchKeyEvent",{type:"keyDown",key:" ",code:"Space",windowsVirtualKeyCode:32});}
