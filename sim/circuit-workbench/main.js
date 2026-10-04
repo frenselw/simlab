@@ -231,7 +231,7 @@
   function portName(id){const d=history.get(),[cid,key]=id.split(":"),c=d.components.find(c=>c.id===cid);if(c)return c.label+" "+R.ports(c).find(p=>p.key===key)?.label;return M.degree(d,id)>1?"共接點 "+cid:"懸空線端 "+cid;}
   function connectionLabel(id){const [cid,key]=id.split(":"),c=current().components.find(c=>c.id===cid);if(!c||!R.dualMeter(c))return[portName(id)];
     return key==="b"?[c.label+" · 共用 − 孔"]:[c.label+" · +",Q.quantity(key==="c"?c.params.range/5:c.params.range,c.type==="ammeter"?"A":"V")," 孔"];}
-  function rotate(id){const c=history.get().components.find(c=>c.id===id);if(!c||!M.permission(history.get(),c,"rotate"))return;cancel();change(doc=>{const before=M.clone(doc);doc.components.find(c=>c.id===id).angle=(c.angle+90)%360;if(!M.reconcile(doc,before))throw new Error("導線太短，請先拔開或移近元件再旋轉");});}
+  function rotate(id){const c=history.get().components.find(c=>c.id===id);if(!c||!M.permission(history.get(),c,"rotate"))return;cancel();if(change(doc=>M.rotateComponent(doc,id)))notify("元件已旋轉，所連導線已自動拉直。");}
   function flipMeter(id){cancel();if(change(doc=>M.flipMeter(doc,id)))notify('接孔已左右換位，接線保持連接。');}
   function unplug(id,key){cancel();change(doc=>{M.detach(doc,id,key);selection={kind:"wireend",id,end:key};});notify("已拔開這一端，導線留在畫布，可重新接線。");}
   function straighten(id){cancel();if(change(doc=>M.straightenWire(doc,id)))notify("導線已拉直，兩端接線保持不變；可再拿線身彎曲。");}

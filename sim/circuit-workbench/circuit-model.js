@@ -160,6 +160,19 @@
     const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");
     w.shape="free";w.via=[];
   }
+  function rotateComponent(doc,id) {
+    const c=doc.components.find(c=>c.id===id);
+    if(!c||!permission(doc,c,"rotate"))throw new Error("這個元件不能旋轉");
+    const next=clone(doc),rotated=next.components.find(c=>c.id===id);
+    rotated.angle=(rotated.angle+90)%360;
+    const ports=new Set(R.ports(rotated).map(p=>p.id)),ends=endpoints(next);
+    for(const w of next.wires)if(ports.has(w.from)||ports.has(w.to)){
+      straightenWire(next,w.id);
+      const a=ends.get(w.from),b=ends.get(w.to);
+      if(Math.hypot(a.x-b.x,a.y-b.y)>w.length+.05)throw new Error("導線太短，請先拔開或移近元件再旋轉");
+    }
+    Object.assign(doc,next);
+  }
   function setTerminals(doc,id,count){
     choice(count,[2,3,4]);const c=doc.components.find(c=>c.id===id&&c.type==='rheostat');
     if(!c||!permission(doc,c,'params'))throw new Error('這個變阻器不能修改接線孔');
@@ -180,5 +193,5 @@
     if(!reconcile(next,doc))throw new Error('導線太短，請先拔開或移近電錶再換接孔');
     Object.assign(doc,next);
   }
-  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, setTerminals, flipMeter, reconcile };
+  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile };
 });

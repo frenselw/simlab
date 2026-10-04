@@ -57,6 +57,8 @@ async function presetCases(h,mode,base){
         if(width===320)await touch(await point('#rotateSelected'),0,0);else await click('#rotateSelected');
         await delay(20);const after=await doc();assert.equal(after.components.find(v=>v.id===c.id).angle,angle,'trusted rotation completes');
         assert.deepEqual(after.wires.map(w=>[w.from,w.to,w.length]),ids,'rotation preserves terminal IDs and finite cable lengths');
+        const ports=new Set(R.ports(after.components.find(v=>v.id===c.id)).map(p=>p.id));
+        after.wires.filter(w=>ports.has(w.from)||ports.has(w.to)).forEach(w=>{assert.equal(w.shape,'free');assert.deepEqual(w.via,[],'each attached cable straightens after rotation');});
         assert.deepEqual(await inside('CircuitWorkbench.getAnalysis()'),readings,'rotation cannot alter circuit readings');
         const samples=await alignment();aligned(samples.filter(x=>x.id.startsWith(c.id+':')),true);
         const result=readings.components[c.id];assert.equal(result.activePort,port);
