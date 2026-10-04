@@ -76,7 +76,7 @@
     function failed(action) {
       message(action, action === "exit"
         ? "未能退出全螢幕，請再按一次，或使用瀏覽器的退出功能（電腦可按 Esc）。"
-        : "未能進入全螢幕，請再按一次；如仍失敗，請檢查播放器或瀏覽器的全螢幕權限。");
+        : "未能進入全螢幕，請再按一次；如仍失敗，請檢查瀏覽器或網頁的全螢幕權限。");
     }
     async function toggle() {
       if (busy) return;
@@ -92,7 +92,7 @@
       }
       const enabled = standard ? doc.fullscreenEnabled : doc.webkitFullscreenEnabled;
       if (!exiting && enabled === false) {
-        message("blocked", "目前頁面不允許全螢幕，請檢查 Moodle 播放器或瀏覽器的全螢幕權限。");
+        message("blocked", "目前頁面不允許全螢幕，請檢查瀏覽器或網頁的全螢幕權限。");
         return;
       }
       busy = true;

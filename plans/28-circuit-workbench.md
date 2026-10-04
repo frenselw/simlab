@@ -960,3 +960,9 @@ A–D 合起來才稱為「首個完整直流工作台」。A 只是互動原型
 - Chrome **155.0.8059.27** 的 `--display-mirror-smoke` 在來源／ZIP 各 **15** 筆，共 **30** 筆，報告時間 `2026-10-04T06:19:45.025Z`。390 px 可信觸控、1280 px 滑鼠，兩種儀表、互補高低孔與 0／90° 方位：四種 R／P 勾選、獨立內阻／變阻器與總開關、兩外觀、兩個換孔按鈕、復原重做、複製、真正檔案輸入重載及後續換孔／吸附均通過。SVG 線端和端子中心差為 **0**，實物孔最大差 **1.14e-13 CSS px**、金屬引線 **0.0000136 CSS px**；HTML 44 px 命中區最大中心差 **0.012883 CSS px**，在瀏覽器 1/64 px 佈局取整誤差內，實際拖接亦吻合孔角色和量程。另實測 320 px 的新增按鈕可達、44 px 高／寬及無橫向溢出；無執行期例外或非預期觸控取消。
 - `npm run check`、`git diff --check` 通過。獨立 ZIP **19 檔、768872 bytes**，逐 byte 與最終 runtime 一致，SHA-256 `b3f12915d53eb6c4a06501297634c45e2f9f05a1bdfe4c87476f3e608f7d8bf9`；記錄 `output/playwright/circuit-workbench/display-mirror.json`／`display-mirror-package.json`。已目視檢查手機選項面板、左右換孔及 320 px 動作列截圖；預覽沿用 `127.0.0.1:60132`。
 - 沒有執行 `npm test`、完整工作台／其他活動矩陣或重跑教材。手機證據是瀏覽器可信觸控模擬，未做本輪實體手機、Safari 或 Moodle 驗收。不新增外部 runtime 依賴，資產清單維持 19 檔。
+
+## 40. 全螢幕通用提示（2026-10-04）
+
+工作台亦公開作獨立模擬，使用者要求全螢幕錯誤提示不特指 Moodle／播放器。共用 `sim/shared/fullscreen.js` 的進入失敗與權限封鎖文字統一提及「瀏覽器或網頁的全螢幕權限」，適用獨立及嵌入網頁。只有兩段文案變更，權限偵測、狀態、重試、WebKit、文件／測量／歷史及依賴不變；assessment／rubric／新快照／新變體 N/A。只跑既有全螢幕單元及語法／diff 檢查，更新獨立 ZIP；不重跑電路、手機或其他活動矩陣。
+
+`node sim/shared/fullscreen.test.js`、`node --check sim/shared/fullscreen.js` 及 `git diff --check` 通過。獨立 ZIP 已重建，19 個 runtime 檔逐 byte 對來源一致；包內兩段提示亦確認沒有 Moodle／播放器字眼，記錄於 `output/playwright/circuit-workbench/fullscreen-copy-package.json`。本輪為文案修正，沒有宣稱新增真機或瀏覽器全螢幕權限驗收。
