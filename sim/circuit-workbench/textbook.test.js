@@ -18,7 +18,7 @@ assert(Math.abs(sample('meter-error-external','伏安法測得 R')-87.4*1000/(87
 assert(Math.abs(sample('meter-error-b-internal','伏安法測得 R')-210)<1e-9);
 assert(Math.abs(sample('meter-error-b-external','伏安法測得 R')-200*2000/2200)<1e-9);
 const native=T.inventory.filter(c=>c.construction==='native').length;
-assert.equal(T.limitations().every(p=>p.rejected),true,'current capability limits must stay explicit until coverage is upgraded');
+for(const p of T.limitations())assert.equal(p.rejected,!['three-terminal-rheostat','g-50uA'].includes(p.id),'capability probe reflects current runtime: '+p.id);
 // Calibrating the rated point does not establish agreement with the textbook curve.
 assert.equal(byId.get('lamp-curve-2.5').comparison.within,true);
 assert.equal(byId.get('lamp-curve-1').comparison.within,false);

@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting,node?require('./circuit-experiments.js'):root.CircuitExperiments);
   if (typeof module === "object" && module.exports) module.exports = api; else root.CircuitModel = api;
-})(globalThis, function (R, G) {
+})(globalThis, function (R, G, E) {
   "use strict";
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -14,7 +14,7 @@
   const point = (p) => { object(p, ["x", "y"]); numeric(p.x, -limits.coordinate, limits.coordinate); numeric(p.y, -limits.coordinate, limits.coordinate); };
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => (legacy?R.legacyPorts(c):R.ports(c)).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
   function validate(input) {
-    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[])]);
+    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", "measurements", ...(input?.version>=3?["cables"]:[])]);
     if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4].includes(input.version)) throw new Error("不支援的電路檔版本");
     const ids = new Set();
     const id = (value) => { if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,39}$/i.test(value) || ids.has(value)) throw new Error("元件或導線 ID 無效或重複"); ids.add(value); };
@@ -24,7 +24,10 @@
       if (typeof c.label !== "string" || c.label.length > 40) throw new Error("元件名稱過長或無效");
       numeric(c.x, -limits.coordinate, limits.coordinate); numeric(c.y, -limits.coordinate, limits.coordinate); choice(c.angle, [0, 90, 180, 270]); bool(c.locked); bool(c.editable);
       const specs = R.get(c.type).params; object(c.params, Object.keys(specs));
-      for (const [k, spec] of Object.entries(specs)) if (spec.choices) choice(c.params[k], spec.choices); else numeric(c.params[k], spec.min, spec.max);
+      for (const [k, spec] of Object.entries(specs)) {
+        if(!Object.hasOwn(c.params,k)&&((c.type==='rheostat'&&k==='terminals')||(c.type==='lamp'&&['coldRatio','linearLoss'].includes(k))))continue;
+        if(spec.choices)choice(c.params[k],spec.choices);else numeric(c.params[k],spec.min,spec.max);
+      }
     });
     input.junctions.forEach((j) => { object(j, ["id", "x", "y"]); id(j.id); numeric(j.x, -limits.coordinate, limits.coordinate); numeric(j.y, -limits.coordinate, limits.coordinate); });
     const ports = endpoints(input,input.version<4), pairs = new Set();
@@ -43,7 +46,9 @@
     ["potential", "values", "projection"].forEach((k) => bool(input.display[k]));
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
+    if(Object.hasOwn(input,'measurements'))E.validate(input.measurements,input.components);
     const valid = clone(input);
+    valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
     if (input.version === 1) valid.wires.forEach((w) => { w.shape = "auto"; });
     if(input.version<3){valid.cables={count:Math.max(10,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
@@ -129,6 +134,7 @@
     // Removing an object unplugs its cables; the physical cables stay on the table.
     doc.wires.forEach(w=>{if(w.id!==id)for(const key of ["from","to"])if(removedPorts.has(w[key]))w[key]=freeEnd(doc,ends.get(w[key]));});
     doc.components = doc.components.filter((x) => x.id !== id); doc.junctions = doc.junctions.filter((x) => x.id !== id);
+    if(doc.measurements)for(const key of ['voltage','current'])if(doc.measurements[key]===id)doc.measurements[key]=null;
     doc.wires = doc.wires.filter((w) => w.id !== id);
     doc.wires.forEach(w=>{if(paths.has(w.id))pose(doc,w,paths.get(w.id));});
     if (removedPorts.has(doc.display.reference)) doc.display.reference = null;
@@ -148,9 +154,18 @@
     const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");
     w.shape="free";w.via=[];
   }
+  function setTerminals(doc,id,count){
+    choice(count,[2,3,4]);const c=doc.components.find(c=>c.id===id&&c.type==='rheostat');
+    if(!c||!permission(doc,c,'params'))throw new Error('這個變阻器不能修改接線孔');
+    const before=clone(doc),oldPorts=R.ports(c);c.params.terminals=count;const keys=new Set(R.ports(c).map(p=>p.id));
+    c.params.terminals=before.components.find(c=>c.id===id).params.terminals??2;
+    for(const p of oldPorts)if(!keys.has(p.id)){doc.wires.filter(w=>w.from===p.id||w.to===p.id).forEach(w=>{for(const end of ['from','to'])if(w[end]===p.id)detach(doc,w.id,end,false);});if(doc.display.reference===p.id)doc.display.reference=null;}
+    c.params.terminals=count;cleanup(doc);
+    if(!reconcile(doc,before))throw new Error('導線太短，請先拔開或移近元件再切換接線孔');
+  }
   function history(initial) {
     let value = validate(initial), past = [], future = [];
     return { get: () => value, change(fn) { const next = clone(value); const result = fn(next); const checked = validate(next); if (JSON.stringify(value) !== JSON.stringify(checked)) { past.push(value); if (past.length > 80) past.shift(); value = checked; future = []; } return result; }, replace(doc) { this.change((d) => { Object.keys(d).forEach((k) => delete d[k]); Object.assign(d, validate(doc)); }); }, undo() { if (!past.length) return false; future.push(value); value = past.pop(); return true; }, redo() { if (!future.length) return false; past.push(value); value = future.pop(); return true; }, canUndo: () => past.length > 0, canRedo: () => future.length > 0 };
   }
-  return { limits, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, reconcile };
+  return { limits, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, setTerminals, reconcile };
 });

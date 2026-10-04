@@ -15,7 +15,7 @@
 })(globalThis,function(convert){
   'use strict';
   const cache=new Map(),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-  const units={'':'',A:'\\mathrm{A}',V:'\\mathrm{V}',W:'\\mathrm{W}','Ω':'\\Omega','%':'\\%'};
+  const units={'':'',A:'\\mathrm{A}','mA':'\\mathrm{mA}','μA':'\\mu\\mathrm{A}',V:'\\mathrm{V}',W:'\\mathrm{W}','Ω':'\\Omega','%':'\\%'};
   function number(v){if(!Number.isFinite(v))return '—';const a=Math.abs(v);return a>=10000||a>0&&a<.001?v.toExponential(2):String(Number(v.toPrecision(4)));}
   function numberTex(v){const n=number(v);if(n==='—')return '\\text{—}';const [mantissa,exponent]=n.split('e');return exponent===undefined?n:`${mantissa}\\times10^{${Number(exponent)}}`;}
   function unit(u){if(!Object.hasOwn(units,u))throw new Error('Unsupported physical unit');return {text:u,tex:units[u]};}

@@ -71,7 +71,9 @@ const unavailable = [
   {page:100,figure:'第十二章 A 組第 3 題',title:'LED 顏色、定電流及廣告牌',reason:'沒有 LED、顏色／伏安模型；不可用白熾燈代替。'},
   {page:101,figure:'第十二章 B 組第 3 題',title:'140×5000 個起電斑的電鰻',reason:'原樣 700000 個電源超過 80 元件；750 V 等效源超過單源 120 V。可串聯 7 個等效源只驗算電學等效值。'}
 ];
-const part = (key,type,from,to,params={},pose) => ({key,type,ports:{a:from,b:to},params,pose});
+// Retain the tested baseline's two-terminal/thermal defaults for historical fixtures.
+// Native multi-terminal experiments are verified separately by teaching.test.js.
+const part = (key,type,from,to,params={},pose) => ({key,type,ports:{a:from,b:to},params:{...(type==='rheostat'?{terminals:2}:type==='lamp'?{coldRatio:10,linearLoss:0}:{}),...params},pose});
 const resistor = (key,from,to,resistance,pose) => part(key,'resistor',from,to,{resistance},pose);
 const battery = (key,from,to,voltage,resistance=0,pose) => part(key,'battery',from,to,{voltage,resistance},pose);
 const switchPart = (key,from,to,closed=true,pose) => part(key,'switch',from,to,{closed},pose);
@@ -332,7 +334,7 @@ function cases() {
 }
 function limitations() {
   const base=M.empty();const probes=[
-    ['three-terminal-rheostat',()=>{const d=M.empty(),c=M.add(d,'rheostat',0,0);if(R.ports(c).length===3)return d;c.params.thirdTerminal=true;return M.validate(d);},'三接點變阻器',true],
+    ['three-terminal-rheostat',()=>{const d=M.empty();M.add(d,'rheostat',0,0,{terminals:3});return M.validate(d);},'三接點變阻器',false],
     ['multimeter',()=>M.add(base,'multimeter',0,0),'多用電表',true],
     ['ohmmeter',()=>M.add(base,'ohmmeter',0,0),'Ω 表',true],
     ['diode',()=>M.add(base,'diode',0,0),'二極管',true],
@@ -342,7 +344,7 @@ function limitations() {
     ['capacitor',()=>M.add(base,'capacitor',0,0),'暫態電容',true],
     ['source-220V',()=>{const d=M.empty();M.add(d,'battery',0,0,{voltage:220});return M.validate(d);},'220 V 單電源',true],
     ['lamp-rated-220V',()=>{const d=M.empty();M.add(d,'lamp',0,0,{ratedVoltage:220});return M.validate(d);},'220 V 額定燈',true],
-    ['g-50uA',()=>{const d=M.empty();M.add(d,'ammeter',0,0,{range:.00005});return M.validate(d);},'50 μA 大孔滿偏',true]
+    ['g-50uA',()=>{const d=M.empty();M.add(d,'galvanometer',0,0,{range:.00005});return M.validate(d);},'50 μA 原生 G 表滿偏',false]
   ];
   const result=probes.map(([id,run,title])=>{try{run();return{id,title,rejected:false,error:null};}catch(e){return{id,title,rejected:true,error:e.message};}});
   result.push({id:'native-dual-range-ratio',title:'原生 A/V 雙量程固定 5:1',rejected:true,error:'量程小孔固定為大孔／5；不能獨立設置教材的 10:1。',measuredRatio:R.meterRanges({params:{range:100}}).high/R.meterRanges({params:{range:100}}).low});

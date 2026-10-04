@@ -95,7 +95,7 @@
         if (e.kind === "branch") { coeff = Array(n).fill(0); coeff[e.index] = 1; }
         else { const voltage = d.reduce((s, value, i) => s + value * x[i], 0); at = e.kind === "nonlinear" ? e.law(voltage, e.c.params) : { current: voltage / e.resistance, conductance: 1 / e.resistance, resistance: e.resistance }; coeff = d.map((a) => a * at.conductance); constant = at.current - at.conductance * voltage; }
         const current = ident(coeff, constant);
-        e.result = { voltage: v, current, power: v === null || current === null ? null : v * current, resistance: v === null && e.kind === "nonlinear" ? null : at?.resistance ?? e.resistance, temperature: v === null ? null : at?.temperature ?? null };
+        e.result = { voltage: v, current, power: v===0?0:v === null || current === null ? null : v * current, resistance: v === null && e.kind === "nonlinear" ? null : at?.resistance ?? e.resistance, temperature: v === null ? null : at?.temperature ?? null };
         for (const [port, sign] of [[e.pa, 1], [e.pb, -1]]) { const injection = injections.get(port); injection.coeff = injection.coeff.map((c, i) => c + sign * coeff[i]); injection.constant += sign * constant; }
       });
     }
@@ -115,6 +115,12 @@
         entry.reading=active&&common?(c.type==='voltmeter'?entry.voltage:entry.current):null;
         entry.meterStatus=positives.length>1?'dual-positive':!active?'unconnected':!common?'missing-common':entry.reading===null?'unknown':entry.reading>entry.range+1e-10||entry.reading<entry.minimum-1e-10?'overrange':entry.reading<-1e-10?'reverse':'normal';
         if(entry.meterStatus==='dual-positive')diagnostics.push({code:'meter-terminals',component:c.id,message:c.label+'：兩個正極孔同時接線，請只用一個量程孔及共用 − 孔。'});
+      }
+      else if(c.type==='galvanometer'){
+        const connected=['a','b'].every(key=>M.degree(doc,c.id+':'+key)>0);
+        entry.range=c.params.range;entry.minimum=-entry.range;entry.division=entry.range/20;entry.unit='A';
+        entry.reading=connected?entry.current:null;
+        entry.meterStatus=!connected?'unconnected':entry.reading===null?'unknown':Math.abs(entry.reading)>entry.range+entry.range*1e-8?'overrange':entry.reading<0?'reverse':'normal';
       }
       else if (c.type === "wattmeter") { const sensed = voltage(c.id + ":c", c.id + ":d"); entry.reading = sensed === null || entry.current === null ? null : sensed * entry.current; entry.sensedVoltage = sensed; entry.unit = "W"; }
       if (c.type === "battery") { entry.delivered = entry.power === null ? null : -entry.power; entry.internalPower = entry.current === null ? null : entry.current ** 2 * c.params.resistance; entry.sourcePower = entry.current === null ? null : -c.params.voltage * c.params.polarity * entry.current; }

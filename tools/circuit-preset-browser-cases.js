@@ -1,6 +1,6 @@
 "use strict";
 const assert=require('node:assert/strict');
-const M=require('../sim/circuit-workbench/circuit-model'),P=require('../sim/circuit-workbench/presets');
+const M=require('../sim/circuit-workbench/circuit-model'),P=require('../sim/circuit-workbench/presets'),R=require('../sim/circuit-workbench/component-registry');
 
 async function presetCases(h,mode,base){
   const {inside,send,click,point,load,save,doc,touch,delay,screenshot,freshPage,ready,evidence}=h;
@@ -40,7 +40,7 @@ async function presetCases(h,mode,base){
       const samples=await alignment();aligned(samples);
       const layout=await inside(`(()=>{const r=document.getElementById('surface').getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth-innerWidth,scale:CircuitWorkbench.getInteraction().camera.scale,overview:document.querySelector('[data-overview-caption]')?.textContent||null,overviewReadings:[...document.querySelectorAll('[data-overview-readout]')].map(e=>({id:e.dataset.overviewReadout,text:e.dataset.math||e.textContent,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale})),labels:[...document.querySelectorAll('[data-component-label]')].map(e=>{const b=e.getBoundingClientRect();return {id:e.dataset.componentLabel,visible:b.right>r.left&&b.left<r.right&&b.bottom>r.top&&b.top<r.bottom,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale};})};})()`);
       assert.equal(layout.scroll,0);assert(layout.labels.every(x=>x.visible&&x.font>=13.9),'zoomed diagram retains readable component labels');
-      const prepared=P.create(name);if(layout.scale<.4&&prepared.components.length){assert(layout.overview?.includes('放大查看'),'small overview has an explicit zoom hint');assert.equal(layout.labels.length,0,'small overview keeps captions off the wiring');assert.equal(layout.overviewReadings.length,prepared.components.filter(c=>['ammeter','voltmeter','wattmeter'].includes(c.type)).length);assert(layout.overviewReadings.every(x=>x.font>=13.9));}else{assert.equal(new Set(layout.labels.map(p=>p.id)).size,prepared.components.length);assert.equal(layout.overview,null);}
+      const prepared=P.create(name);if(layout.scale<.4&&prepared.components.length){assert(layout.overview?.includes('放大查看'),'small overview has an explicit zoom hint');assert.equal(layout.labels.length,0,'small overview keeps captions off the wiring');assert.equal(layout.overviewReadings.length,prepared.components.filter(R.isMeter).length);assert(layout.overviewReadings.every(x=>x.font>=13.9));}else{assert.equal(new Set(layout.labels.map(p=>p.id)).size,prepared.components.length);assert.equal(layout.overview,null);}
       assert.deepEqual((await inside('CircuitWorkbench.getAnalysis()')).diagnostics,[]);
       await screenshot(`${mode}-preset-${name}-${view}-${width}.png`);
       evidence.push({mode,preset:name,width,view,meters:view==='real'?'digital':'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});

@@ -36,6 +36,20 @@
   }
   const dialAngle=fraction=>R.meterScale.zeroAngle+R.meterScale.sweep*fraction;
   const dialPoint=(fraction,radius=70)=>{const angle=dialAngle(fraction)*Math.PI/180;return{x:radius*Math.cos(angle),y:24+radius*Math.sin(angle)};};
+  function galvanometerDial(c,result,values=true){
+    const point=(fraction,r)=>{const a=(-90+60*fraction)*Math.PI/180;return{x:r*Math.cos(a),y:25+r*Math.sin(a)};};
+    let out='<rect x="-45" y="-41" width="90" height="83" rx="6" fill="#fff" stroke="#b2c2cf"/>';
+    for(let n=-20;n<=20;n++){
+      const a=point(n/20,51),b=point(n/20,n%5===0?44:48);out+=`<path data-meter-tick="${n}" data-fraction="${n/20}" d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#607487" stroke-width="${n===0?1.8:1}"/>`;
+      if(n%10===0){const p=point(n/20,35);out+=quantity(p.x,p.y+3,c.params.range*1e6*n/20,'',8);}
+    }
+    out+=Q.svg(0,-32,Q.unit('μA'),10);
+    if(values&&Number.isFinite(result?.reading)){
+      const f=Math.max(-1.03,Math.min(1.03,result.reading/c.params.range)),p=point(f,43);
+      out+=`<path data-meter-needle="${esc(c.id)}" data-reading="${result.reading}" data-range="${c.params.range}" data-fraction="${f}" data-angle="${-90+60*f}" d="M0 25L${p.x} ${p.y}" stroke="#c33b35" stroke-width="1.8" stroke-linecap="round"/>`;
+    }
+    return `<g data-meter-dial="${esc(c.id)}" data-zero-angle="-90" data-divisions="20" data-negative-divisions="20">${out}<circle cy="25" r="3" fill="#475569"/>${text(0,37,'G',12)}</g>`;
+  }
   function dualDial(c,result,values=true) {
     const ranges=R.meterRanges(c),unit=R.get(c.type).icon,low=result?.activePort==='c',high=result?.activePort==='a',range=result?.range??ranges.high,v=result?.reading;
     let out='<rect x="-69" y="-65" width="138" height="102" rx="7" fill="#fff" stroke="#b2c2cf"/>';
@@ -77,6 +91,11 @@
   function body(c, result, display) {
     const schematic = display.view === "schematic", p = c.params; if(typeof R.get(c.type).render === "function") return R.get(c.type).render(c,result,display);
     const leads = '<path d="M-60 0H-35 M35 0H60" stroke="#475569" stroke-width="3" fill="none"/>';
+    if(c.type==='galvanometer'){
+      if(schematic)return '<path data-leads="galvanometer" d="M-60 0H-28 M28 0H60" stroke="#475569" stroke-width="3" fill="none"/><circle r="28" fill="#fff" stroke="#334155" stroke-width="2.5"/>'+`<g transform="rotate(${-(c.angle||0)})">${text(0,7,'G',24)}</g>`;
+      const face=display.meters==='analog'?galvanometerDial(c,result,display.values):'<rect x="-43" y="-30" width="86" height="46" rx="5" fill="#dce9df"/>'+(display.values?quantity(0,-2,Number.isFinite(result?.reading)?result.reading*1e6:null,'μA',15):Q.svg(0,-2,Q.unit('μA'),15))+text(0,34,'G',17);
+      return '<path d="M-60 0H-51 M51 0H60" stroke="#667b8e" stroke-width="4" fill="none"/>'+'<rect data-meter-case="true" x="-51" y="-48" width="102" height="97" rx="10" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>'+`<g data-meter-face="${esc(c.id)}" transform="rotate(${-(c.angle||0)})">${face}</g>`;
+    }
     if (["ammeter", "voltmeter", "wattmeter"].includes(c.type)) {
       if(R.dualMeter(c)){
         if(!schematic)return meter(c,result,display);
@@ -91,6 +110,14 @@
     if (c.type === "battery") {
       if (schematic) return `<path data-leads="battery" d="M-60 0H-12 M12 0H60" ${metal}/><path d="M${-12*p.polarity}-26V26 M${12*p.polarity}-13V13" stroke="#334155" stroke-width="3"/>` + text(-25*p.polarity,-30,"+",14) + text(25*p.polarity,-30,"−",14);
       return `<path data-leads="battery" d="M-60 0H-37 M37 0H60" ${metal}/><g transform="scale(${p.polarity} 1)"><rect x="-39" y="-14" width="78" height="28" rx="6" fill="#a9b9c5" stroke="#607487" stroke-width="1.5"/><rect x="-33" y="-21" width="66" height="42" rx="7" fill="#486d83" stroke="#334e62" stroke-width="2"/><path d="M-24-20V20" stroke="#efbc68" stroke-width="14"/><path d="M-15-15H24" stroke="#7995a6" stroke-width="2" stroke-linecap="round"/></g>` + text(8,7,"DC",14,'fill="#fff" font-weight="600"') + text(-47*p.polarity,-15,"+",14) + text(47*p.polarity,-15,"−",14);
+    }
+    if(c.type==='rheostat'&&(p.terminals??2)>2){
+      const x=-30+p.position*60,extra=p.terminals===4?'M30-34H68':'';
+      if(schematic)return `<path data-leads="rheostat" d="M-68 20H-34 M34 20H68 M-68-34H${x}V6 ${extra}" ${metal}/><rect x="-34" y="7" width="68" height="26" fill="#fff" stroke="#334155" stroke-width="2.5"/><path d="M${x-5} 1L${x} 6L${x+5} 1" fill="none" stroke="#334155" stroke-width="2.5"/><path d="M-30-34H30" stroke="#92a9b9" stroke-width="5"/><rect data-rheostat-slider="true" x="${x-8}" y="-41" width="16" height="14" rx="3" fill="#397cab"/>`;
+      let out='<rect x="-47" y="-24" width="94" height="65" rx="8" fill="#efe6d0" stroke="#a2977d" stroke-width="2"/><path d="M-36 10H36" stroke="#fff6df" stroke-width="18"/>';
+      for(let n=-32;n<=32;n+=5)out+=`<path d="M${n} 3v30" stroke="#a57b5c" stroke-width="2"/>`;
+      out+=`<path data-leads="rheostat" d="M-68 20H-36 M36 20H68 M-68-34H30 ${extra}" ${metal}/><path d="M-30-34H30" stroke="#a7bac5" stroke-width="7" stroke-linecap="round"/><path d="M${x}-34V10" stroke="#397cab" stroke-width="4"/><rect data-rheostat-slider="true" x="${x-8}" y="-41" width="16" height="14" rx="4" fill="#397cab" stroke="#23577e" stroke-width="1.5"/>`;
+      return out+screw(-36,20)+screw(36,20);
     }
     if (c.type === "resistor" || c.type === "rheostat") {
       const variable = c.type === "rheostat", x = variable ? -30 + p.position * 60 : 0;
@@ -126,15 +153,15 @@
     if(viewport&&scale<.4)return [];
     const items=[],details=[...(options?.exclusions||[])],nameSize=doc.display.projection?18:14,valueSize=doc.display.projection?16:12;
     doc.components.forEach(c=>{
-      const r=result.components[c.id],isMeter=['ammeter','voltmeter','wattmeter'].includes(c.type),lines=[];
+      const r=result.components[c.id],isMeter=R.isMeter(c),lines=[];
       if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':''),size:nameSize});
       if(doc.display.values){
-        if(isMeter){if(doc.display.view==='schematic'||R.dualMeter(c)&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))lines.push({kind:'value',...Q.quantity(r?.reading,r?.unit),size:valueSize});}
+        if(isMeter){if(doc.display.view==='schematic'||(R.dualMeter(c)||c.type==='galvanometer')&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit),size:valueSize});}
         else{const resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c),value=c.type==='battery'?Q.join([Q.assignment('E',c.params.voltage,'V'),Q.assignment('r',c.params.resistance,'Ω')]):c.type==='switch'?{text:c.params.closed?'閉合':'斷開'}:Q.join([Q.quantity(resistance,'Ω'),Q.quantity(r?.power,'W')]);lines.push({kind:'value',...value,size:valueSize});}
       }
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
-      if(isMeter&&(!R.dualMeter(c)||scale>=.7))R.ports(c).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
+      if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=.7))R.ports(c).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(doc.display.potential&&Math.abs(r?.voltage||0)>1e-8){const extent=Math.max(22/scale,20);details.push({left:c.x-extent,right:c.x+extent,top:c.y-58-25/scale,bottom:c.y-58+6/scale});}
     });
     const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);if(options)options.previous=new Map(placed.map(p=>[p.id,p.slot]));return placed;
@@ -158,7 +185,7 @@
     let out = '';
     placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
-      const r = result.components[c.id], isMeter = ["ammeter", "voltmeter", "wattmeter"].includes(c.type);
+      const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
       if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
@@ -174,7 +201,7 @@
       out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
     });
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
-    doc.components.forEach(c=>{const isMeter=["ammeter","voltmeter","wattmeter"].includes(c.type);
+    doc.components.forEach(c=>{const isMeter=R.isMeter(c)||c.type==='rheostat';
       R.ports(c).forEach((p) => {
         const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
         if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=.7)){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`+(R.dualMeter(c)?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}
@@ -190,10 +217,10 @@
     }));
     placed.forEach(p=>{const b=p.box;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}"><rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".92"/>`;p.rows.forEach(row=>{const attrs=`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs);});out+='</g>';});
     if(tiny){
-      const meters=doc.components.filter(c=>['ammeter','voltmeter','wattmeter'].includes(c.type)),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
+      const meters=doc.components.filter(R.isMeter),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
       const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
       out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-8)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
-      shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W'}[c.type],q=Q.quantity(r?.reading,r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:Q.unit(symbol).tex+':\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
+      shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W',galvanometer:'G'}[c.type],q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
       out+=text(x+width/2,bottom,meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale)+`</g>`;
     }
     return out;
@@ -222,5 +249,5 @@
     });
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, body, dualDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
+  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
 });
