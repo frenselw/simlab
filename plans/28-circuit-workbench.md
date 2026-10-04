@@ -1071,3 +1071,23 @@ A–D 合起來才稱為「首個完整直流工作台」。A 只是互動原型
 - Chrome **155.0.8059.27** 的 `--foundation-smoke` 在來源／ZIP、1280 px 滑鼠及 390 px 可信模擬觸控通過 **16** 筆，時間 `2026-10-04T10:16:03.232Z`。記錄／圖像 DOM 和 runtime 資源不存在；設定開合／名稱、元件取用、實際端點吸附及復原／重做保持。真實檔案輸入載入含舊記錄的 JSON，提示只載入電路；改變阻器到 75% 後實際 A 表為 6/17 A，復原匯入、重做及再取導線均可行。無執行期例外、觸控取消或橫向溢出。已目視核對桌面及手機面板截圖。
 - `npm run check`、修改檔語法及 `git diff --check` 通過；獨立 ZIP **18** 檔、**768129 bytes** 與最終 runtime 逐 byte 一致，SHA-256 `34b75ca94a5e69ec95cc0ebb27040ef7ca4a2e0ac203bf3d46cf972aa8398a6b`。證據為 `foundation.json`／`foundation-package.json`。新測試登記既有 runner；沒有執行完整瀏覽器、教材、其他活動或真實手機／Safari／Moodle 矩陣。
 - [共用架構審視](../docs/circuit-workbench-architecture-review.md)已交付，清楚列出已能重用的核心與尚未具備的可配置介面／命令權限／只讀／卸載。建議的三層及活動配置本輪尚未實作，未將教師工作台的固定模式冒稱學生活動能力。
+## 48. 可配置活動編輯器與檢查接口（2026-10-04）
+
+本輪依使用者要求實作共用基礎。教師工作台保留完整操作；新學生活動以本地設定指定初始電路、工具箱白名單／數量、元件操作及可改參數、介面和檢查條件。移除記錄與圖像的決定維持不變。
+
+- **邊界**：model／solver／routing／renderer 繼續共用；抽出 `CircuitEditor.mount(host, config)`，回傳文件副本、分析、命令、訂閱、載入、只讀及卸載接口。設定不寫入學生電路文件。每個 instance 擁有 DOM、相機、事件與動畫。
+- **權限**：學生預設只能接線；元件按 ID／類型／預設規則開放搬動、旋轉、刪除、開關或指定參數。工具箱只掛載白名單按鈕，庫存包含預置元件。教師設定／文件／範例不掛載於學生介面。預覽、提交變更、鍵盤、程式命令及載入均檢查同一活動規則，文件不得解除限制。只讀可繼續導航及讀錶。
+- **檢查**：提供實際端點共接、串聯拓撲、參數與滑片效果的純函數。兩盞燈可以沒有電源，按拓撲檢查；需要閉合供電的活動明確要求有效電流。滑片效果在文件副本中取多個位置重算燈功率，排除未接、短路、固定阻值及接反方向；不按畫面形狀或零電流相等判斷。
+- **評量風險／rubric**：本輪頁面是四種可操作的開發示例，只有檢查訊息，沒有分數、成績或 SCORM 提交。共用檢查只回傳證據，活動作者決定題目、部分分、權重與最終提交。正式活動另依 production guide 制定自己的 rubric／信任等級；前端限制不是高風險評分的安全邊界。
+- **phase／variant**：教師工作台；兩燈串聯（只顯示兩燈）；限量工具箱自由搭建；固定元件接線；滑片向右令燈變暗（四孔、只可調位置）。各例包含 blank／partial／correct／incorrect 技術狀態及只讀檢視；pending／recorded／retry 由未來活動外層負責，本輪不假裝完成 LMS 驗收。
+- **authoritative snapshot**：沿用嚴格 v4 circuit document（元件、端點、線形與長度、參數、顯示）；配置獨立於作答。動畫、相機、選取與浮窗不進快照。示例不使用 local/session storage。合法部分作答可 encode／decode／restore 並繼續接線；非法元件、超庫存、固定參數／位置改動拒絕載入。正式 SCORM 外層仍須實作 ≤4000 bytes 編碼及 attempt lifecycle。
+- **依賴**：新增本地 editor UI、editor、profile、checks 和示例；使用現有 SVG、MathJax、fullscreen，無新第三方套件。新增 runtime 檔進 assets，新增測試進 tools/run-tests.js。
+- **必要測試**：純函數針對拓撲正反例、滑片 A–P／B–P／A–B／未接、參數／庫存／固定／只讀／載入限制；source 與 ZIP 的桌面及手機模擬針對教師保留操作、學生禁用介面不存在、可信拖線、固定／可調參數、恢復後接線、卸載與多 instance。只跑本輪受影響的精準檢查，不重跑整套教材／物理矩陣。實機手機與真 Moodle 尚未驗證。
+
+### 48.1 實作與精準驗證證據
+
+- 已完成 `CircuitEditor.mount/destroy`、獨立 UI 與 scoped CSS、profile 白名單／庫存／參數／固定與只讀限制，以及純拓撲／參數／滑片效果檢查。教師 `main.js` 只掛載完整配置，原 `CircuitWorkbench` 介面保留。示例頁提供兩燈、工具箱、固定元件、四孔滑片四種配置；學生活動所需以外的元件及教師設定不掛載。
+- `activity-core.test.js` **19 組**通過：未答／部分作答、接線／幾何分離、串聯／並聯／短接／分支／零電流、A–P／B–P／A–B／P₁–P₂／開路、方向、參數、庫存、固定、只讀、文件 lock／key order、encode/decode/restore 後合法接線。`document-import.test.js` **7 組**通過，`npm run check`、JS syntax 和 `git diff --check` 通過；沒有重跑全教材或全套物理矩陣。
+- `--activity-core-smoke` **46 筆**通過，瀏覽器 Chrome/155.0.8059.27：source 與實際解壓 ZIP、1280×800 及390×844；可信滑鼠／觸控端點吸附，固定元件的拖動／R／Delete 不能改作答，公開命令／載入不能解除限制，工具箱3種／數量上限，滑片只可調位置，三點實際功率檢查不改作答，只讀仍可移圖，雙指平移／縮放，全螢幕進出，學生簡化說明開關，多 instance ID／SVG引用／事件分離，卸載後舊 RAF 不再改 DOM。教師回歸包含元件及線、設定、舊檔實際 file input、真實讀值、復原／重做與恢復後續作。證據 `output/playwright/circuit-workbench/activity-core.json`；截圖 `source-activity-toolbox-390.png`、`source-activity-slider-390.png` 等。
+- 發布包 **27 runtime files、783864 bytes**，SHA-256 `d79767a2487f18bc51ee71c5876964a6a4b0de313dc2dd9ca52ebae7dda95c10`。source／ZIP 使用同一配置；新 CSS、JS、示例入口與依賴均列入 assets。作為獨立工作台／開發示例通過本輪 package checks；尚未執行實機手機或真 Moodle，也沒有把示例宣稱為已完成的 SCORM 評量活動。
+- 活動作者指南 `docs/circuit-activity-authoring.md` 和架構審視已改為實作狀態。未來活動依 production guide 自行擁有題目、rubric、≤4000 bytes SCORM 快照及提交／恢復，不將記錄圖像加回共用編輯器。

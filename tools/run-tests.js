@@ -20,6 +20,7 @@ const tests = [
   "sim/circuit-workbench/textbook.test.js",
   "sim/circuit-workbench/teaching.test.js",
   "sim/circuit-workbench/document-import.test.js",
+  "sim/circuit-workbench/activity-core.test.js",
   "tools/circuit-workbench-browser-regression.js",
   "sim/newtons-third-law-fullscreen-test/generator.test.js",
   "sim/newtons-third-law-fullscreen-test/model.test.js",

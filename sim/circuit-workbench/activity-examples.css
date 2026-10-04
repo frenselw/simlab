@@ -1,0 +1,11 @@
+html,body{height:100%;margin:0;overflow:hidden}
+.activity-shell{height:100dvh;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;background:#f7f9fb}
+.example-head{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#fff;border-bottom:1px solid #dbe3eb;flex-wrap:wrap}
+.example-head label{display:flex;align-items:center;gap:8px;font-size:.875rem}
+.example-head select{max-width:200px;min-width:0}
+.example-head .review-toggle{margin-left:auto}.review-toggle input{width:20px;height:20px;accent-color:#2563eb}
+.activity-task{margin:0;padding:8px 16px;color:#405d78;line-height:1.5;font-size:.9rem}
+#activityEditor{min-height:0;height:100%}
+.activity-feedback{margin:0;padding:8px 16px;border-top:1px solid #dbe3eb;background:#fff;font-size:.875rem;line-height:1.5}
+.activity-feedback[data-passed=true]{color:#267352}.activity-feedback[data-passed=false]{color:#995918}
+@media(max-width:599px){.example-head{gap:6px;padding:6px 8px}.example-head label{gap:4px;font-size:12px}.example-head select{max-width:145px}.example-head .review-toggle{margin-left:0}.activity-task,.activity-feedback{padding:6px 9px;font-size:12px}.example-head button{padding:0 8px;font-size:.875rem}}

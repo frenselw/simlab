@@ -2,6 +2,8 @@
 
 電路工作台是教師用的直流穩態工具。開啟 `sim/circuit-workbench/index.html` 即可使用，也可透過 Live Server。發布包由 `npm run package:circuit` 產生於 `output/circuit-workbench-standalone.zip`；解壓後保留 `circuit-workbench/` 與 `shared/` 的相對位置。
 
+教師入口現在透過 `CircuitEditor.mount` 使用共用編輯器。製作不同學生活動可配置元件白名單／庫存、固定位置、指定參數、介面及本題檢查；現有操作與原 `window.CircuitWorkbench` API 保留。四種操作示例在 `activity-examples.html`，實際配置和 API 見[活動製作指南](circuit-activity-authoring.md)。
+
 ## 課堂操作
 
 - 工具箱點選元件，拖動本體調整位置；按「取出導線」或畫布下方「＋導線」，取出一條直線。預設共 20 條，取完後按鈕停用，刪線會歸還庫存；已保存的自訂庫存保持。
@@ -56,7 +58,8 @@ A/V 表高量程正孔是 a，共用負孔是 b，低量程正孔是 c。教師�
 - `circuit-renderer.js`：實物／符號、數字／指針、讀值、電勢與方向。未完成操作不寫入電路文件。
 - `circuit-meter-motion.js`：A/V 指針的解析阻尼運動、機械限位與臨時狀態；只影響畫面，不參與求解、文件或量測資料。
 - `circuit-document.js`：版本化 JSON、舊元資料遷移與模板匯出；先驗證後替換。匯入內容不能包含可執行模型。
-- `main.js`：教師介面與可信輸入，所有命令在驗證後才提交。
+- `main.js`：教師配置與啟動；`circuit-editor.js`／`circuit-editor-ui.js`／`circuit-profile.js` 共用畫布、介面與活動限制，所有變更在驗證後才完成。
+- `circuit-checks.js`：共接、串聯、參數及滑片效果的純檢查；不擁有分數、提交或 SCORM。`activity-profiles.js` 提供四種配置示例。
 
 電路文件 v4 包含 `kind/version/components/junctions/wires/cables/policy/display`。`cables: {count, length}` 是有限庫存及新線長度，各線另有 `length` 最大路徑長度，`shape: auto|free|smooth`、`via` 及兩個端點 ID。端點為 `componentId:portKey` 或 `junctionId:p`；懸空線端是單線使用的接點，多線使用同一接點才相連。量程與接線狀態由拓撲推導，不另外儲存。新線與拖動後的線形保存實際採樣折線 `free`。彎線在原形上施加固定參數的平順位移場，於所拿位置正規化，完整保留拖動方向；端點固定，接頭切向可轉動。局部回彎以共享切向的三次曲線圓順，先依方向變化細分，再把有限採樣分配到彎曲處；平滑不會縮回整段拖動。只有實際弧長及文件座標界限參與可達範圍限制，不能用採樣轉角作二分判斷。顯示／命中／長度驗證共用該折線。`auto` 最多 24 個內部點，其他形狀最多 96 點。
 
@@ -162,4 +165,4 @@ A/V 錶面的接線教學／診斷文字已移除，下方空白殼身縮短；�
 
 ## 作為其他電路活動的基礎
 
-核心已可獨立載入及求解，介面仍是教師工作台，尚未支援一份配置快速裁剪成學生活動。元件白名單、控制可見性、命令權限、只讀／卸載和活動狀態的實際缺口及建議見[共用架構審視](circuit-workbench-architecture-review.md)。題目、評分、記錄圖像與 SCORM 屬各活動外層，不再擴大此工作台的共用核心。
+核心可獨立載入及求解，現在亦可用 `CircuitEditor.mount(host, config)` 快速裁剪成學生活動：指定元件／庫存、固定位置／方向、可改參數、介面和本題檢查。學生預設不掛載教師設定；鍵盤、手勢、命令及載入均受相同限制，支援只讀、卸載和多 instance。實際使用見[活動製作指南](circuit-activity-authoring.md)，架構邊界見[共用架構審視](circuit-workbench-architecture-review.md)。題目、評分、記錄圖像與 SCORM 屬各活動外層。
