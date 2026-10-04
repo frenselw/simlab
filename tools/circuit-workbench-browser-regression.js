@@ -12,6 +12,7 @@ const {meterSnappingCases}=require("./circuit-meter-snapping-browser-cases");
 const {cableHandlingCases}=require("./circuit-cable-handling-browser-cases");
 const {feedbackCases}=require("./circuit-feedback-browser-cases");
 const {flowCases}=require("./circuit-flow-browser-cases");
+const {componentFlowCases}=require("./circuit-component-flow-browser-cases");
 const {textbookCases,textbookReport}=require("./circuit-textbook-browser-cases");
 const {teachingCases}=require('./circuit-teaching-browser-cases');
 const {wireGripCases}=require('./circuit-wire-grip-browser-cases');
@@ -38,6 +39,7 @@ async function main() {
   const handlingOnly=process.argv.includes('--handling-smoke');
   const feedbackOnly=process.argv.includes('--feedback-smoke');
   const flowOnly=process.argv.includes('--flow-smoke');
+  const componentFlowOnly=process.argv.includes('--component-flow-smoke');
   const teachingOnly=process.argv.includes('--teaching-smoke');
   const continuationOnly=process.argv.includes('--continuation-smoke');
   const wireGripOnly=process.argv.includes('--wire-grip-smoke');
@@ -191,6 +193,7 @@ async function main() {
       if(teachingOnly){await teachingCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(continuationOnly){await refinements(mode,base);await bendTrajectories(mode,base);}
       if(textbookOnly){await textbookCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
+      if(componentFlowOnly){await componentFlowCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(flowOnly){await flowCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(feedbackOnly){await feedbackCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(handlingOnly){await cableHandlingCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
@@ -253,7 +256,7 @@ async function main() {
       const touched=await save();await touch(await point(await wireTarget('w1')),0,-20);assert.notEqual(await save(),touched);await click('#undo');assert.equal(await save(),touched);assert((await inside('__events')).some(e=>e.type==='pointerup'&&e.trusted&&e.pointer==='touch'));await screenshot(`${mode}-phone-cables.png`);
       await click('#pan');const panDoc=await save(),panCamera=await inside('CircuitWorkbench.getInteraction().camera');await touch(await point('#surface'),40,-40);assert.notDeepEqual(await inside('CircuitWorkbench.getInteraction().camera'),panCamera);assert.equal(await save(),panDoc);await click('#pan');await click('[data-camera=fit]');
       const fullDoc=await save();await touch(await point('#fullscreenButton'),0,0);await until('document.fullscreenElement?.id==="app"');assert.equal(await save(),fullDoc);await inside('document.exitFullscreen()');await until('!document.fullscreenElement && document.getElementById("fullscreenButton").getAttribute("aria-pressed")==="false"');evidence.push({mode,trustedPhysicalTouch:true,panning:true,phoneFullscreen:true});
-      await cameraCases(cameraHarness,mode,base);await presetCases(cameraHarness,mode,base);await labelCases(cameraHarness,mode,base);await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);await meterSnappingCases(cameraHarness,mode,base);await cableHandlingCases(cameraHarness,mode,base);await feedbackCases(cameraHarness,mode,base);await flowCases(cameraHarness,mode,base);await textbookCases(cameraHarness,mode,base);await refinements(mode,base);await bendTrajectories(mode,base);
+      await cameraCases(cameraHarness,mode,base);await presetCases(cameraHarness,mode,base);await labelCases(cameraHarness,mode,base);await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);await meterSnappingCases(cameraHarness,mode,base);await cableHandlingCases(cameraHarness,mode,base);await feedbackCases(cameraHarness,mode,base);await flowCases(cameraHarness,mode,base);await componentFlowCases(cameraHarness,mode,base);await textbookCases(cameraHarness,mode,base);await refinements(mode,base);await bendTrajectories(mode,base);
       }
       await freshPage();context='window';await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();
       console.log(`${mode}: interruption rollback matrix`);
@@ -312,6 +315,7 @@ async function main() {
       context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});if(process.argv.length===2||continuationOnly)await teachingCases(cameraHarness,mode,base,output);if(process.argv.length===2){await wireGripCases(cameraHarness,mode,base);await needleCases(cameraHarness,mode,base);await displayMirrorCases(cameraHarness,mode,base,output);await rotationCases(cameraHarness,mode,base);await settingsCases(cameraHarness,mode,base);}await closeServer(server);server=null;
     }
     const bendOnly=process.argv.includes('--bend-smoke');
+    if(componentFlowOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'component-flow.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused component flow passed on source + ZIP: ${evidence.length} observations; complete filaments, exact contacts, signed actual RAF movement, pause and trusted switch continuation. Evidence: ${output}/component-flow.json`);return;}
     if(settingsOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,process.argv.find(a=>a.startsWith('--settings-width='))?'settings-'+process.argv.find(a=>a.startsWith('--settings-width=')).split('=')[1]+'.json':'settings-and-fits.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused settings / fits passed on source + ZIP: ${evidence.length} observations; trusted configuration, compact bidirectional icons, actual axis labels/curves, legacy restore and recording continuation. Evidence: ${output}/settings-and-fits.json`);return;}
     if(rotationOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'rotation-straight.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused rotation passed on source + ZIP: ${evidence.length} observations; trusted rotation, actual straight SVG cables, fixed readings, undo/restore and atomic short-cable refusal. Evidence: ${output}/rotation-straight.json`);return;}
     if(displayMirrorOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'display-mirror.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused display/meter mirror passed on source + ZIP: ${evidence.length} observations; trusted independent controls, actual socket/lead/wire geometry, mirrored snapping, unchanged readings and file restore. Evidence: ${output}/display-mirror.json`);return;}

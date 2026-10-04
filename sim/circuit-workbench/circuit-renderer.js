@@ -7,6 +7,9 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function format(v,unit=''){return Number.isFinite(v)?Q.quantity(v,unit).text:'—';}
   const quantity=(x,y,v,u='',size=14,attrs='')=>Q.svg(x,y,Q.quantity(v,u),size,attrs);
+  const lampFilament=[[-7,-8],[-7,-26],[-10,-31],[-6,-35],[-2,-29],[2,-35],[6,-29],[10,-33],[7,-26],[7,-8]];
+  const resistorTrack=[[-32,0],[-27,-8],[-21,8],[-15,-8],[-9,8],[-3,-8],[3,8],[9,-8],[15,8],[21,-8],[27,8],[32,0]];
+  const localPath=points=>Routing.path(points.map(([x,y])=>({x,y})));
   function colour(v, max = 6) { if (v === null) return "#64748b"; const t = Math.max(-1, Math.min(1, v / Math.max(max, .1))); return t < 0 ? `hsl(${210 + 10 * -t} 76% ${48 - 12 * -t}%)` : `hsl(${210 - 178 * t} ${35 + 45 * t}% ${48 - 8 * t}%)`; }
   function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" ${attrs.includes('text-anchor=')?'':'text-anchor="middle"'} ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
@@ -123,7 +126,7 @@
       const variable = c.type === "rheostat", x = variable ? -30 + p.position * 60 : 0;
       if (schematic) return `<path data-leads="resistor" d="M-60 0H-34 M34 0H60" ${metal}/><rect x="-34" y="-13" width="68" height="26" fill="#fff" stroke="#334155" stroke-width="2.5"/>` + (variable ? '<path d="M-23 28L24-28 M12-25L24-28L21-16" stroke="#334155" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' + `<path d="M-30 38H30" stroke="#c2cfda" stroke-width="4"/><circle cx="${x}" cy="38" r="7" fill="#397cab"/>` : "");
       let out = '<rect x="-36" y="-17" width="72" height="34" rx="8" fill="#ece2ca" stroke="#9e9278" stroke-width="2"/><path d="M-27-11H27" stroke="#fff9e8" stroke-width="3" stroke-linecap="round"/>';
-      out += `<path data-leads="resistor" d="M-60 0H-32 ${variable ? "" : "M32 0H60"}" ${metal}/><path d="M-32 0L-27-8L-21 8L-15-8L-9 8L-3-8L3 8L9-8L15 8L21-8L27 8L32 0" fill="none" stroke="#9e6c4f" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+      out += `<path data-leads="resistor" d="M-60 0H-32 ${variable ? "" : "M32 0H60"}" ${metal}/><path d="${localPath(resistorTrack)}" fill="none" stroke="#9e6c4f" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
       if (variable) out += `<path d="M60 0H47V38H-30" ${metal}/><path d="M-30 38H30" stroke="#c0d4e2" stroke-width="7" stroke-linecap="round"/><path d="M${x} 38V-8 M${x-4}-2L${x}-8L${x+4}-2" fill="none" stroke="#397cab" stroke-width="3" stroke-linejoin="round"/><rect x="${x-8}" y="31" width="16" height="14" rx="4" fill="#397cab" stroke="#23577e" stroke-width="1.5"/><path d="M${x-3} 35V41 M${x+3} 35V41" stroke="#b9d9ec"/>`;
       return out;
     }
@@ -141,7 +144,7 @@
       // The shell contact (left) and insulated bottom contact (right) are separate.
       // Both leads overlap their metal contact; neither ends at the glass envelope.
       let out = `<ellipse data-lamp-halo="outer" cy="-29" rx="${30+20*glow}" ry="${36+19*glow}" fill="#ffbf39" opacity="${glow*(.22+.08*hot)}"/><ellipse data-lamp-halo="inner" cy="-29" rx="${23+10*glow}" ry="${29+11*glow}" fill="#ffe075" opacity="${glow*.58}"/>`;
-      out += `<path data-lamp-glass="true" d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glass}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path data-lamp-filament="true" d="M-7-8V-26L-10-31L-6-35L-2-29L2-35L6-29L10-33L7-26V-8" fill="none" stroke="${filament}" stroke-width="${2+glow}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      out += `<path data-lamp-glass="true" d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glass}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path data-lamp-filament="true" d="${localPath(lampFilament)}" fill="none" stroke="${filament}" stroke-width="${2+glow}" stroke-linejoin="round" stroke-linecap="round"/>`;
       out += '<path d="M-12-9H12V10Q12 13 8 13H-8Q-12 13-12 10Z" fill="#a8b5bf" stroke="#677c8c" stroke-width="1.5"/><path d="M-11-4H11 M-11 2H11 M-10 8H10" stroke="#6f8290" stroke-width="1.5"/><path d="M-6 14H6" stroke="#45586a" stroke-width="4"/><circle cy="18" r="3" fill="#b78b51"/>';
       out += `<path data-leads="lamp" d="M-60 0H-12 M60 0H40V18H0" ${metal}/>`;
       if (p.model === "thermal") out += text(0,-64,"熱效應",10,'fill="#986429"');
@@ -231,28 +234,88 @@
     return out;
   }
   const flowSpacing=65,modulo=(v,n)=>(v%n+n)%n;
+  // The electrical branches and the visible conductors have different topology:
+  // combine shared conductors before drawing, rather than overlay opposite flows.
+  function componentFlowPaths(doc,result){
+    const paths=[],schematic=doc.display.view==='schematic';
+    for(const c of doc.components){
+      const branches=result.components[c.id]?.branches||[],prefix=c.id+':',x=-30+60*(c.params.position??.5);
+      const current=(a,b)=>branches.find(e=>e.from===prefix+a&&e.to===prefix+b)?.current??null;
+      const sum=(...values)=>values.every(Number.isFinite)?values.reduce((s,v)=>s+v,0):null;
+      const i=current('a','b'),angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
+      const add=(key,from,to,value,local)=>{
+        const points=local.map(([px,py])=>({x:c.x+px*cos-py*sin,y:c.y+px*sin+py*cos}));
+        if(Routing.length(points)>1e-8)paths.push({id:'component:'+c.id+':'+key,component:c.id,key,from:prefix+from,to:prefix+to,current:value,points});
+      };
+      if(R.dualMeter(c)){
+        const high=i,low=current('c','b'),s=R.meterBodyScale(c),mirror=points=>points.map(([px,py])=>[c.mirrored?-px:px,py]);
+        add('high','a','coil',high,mirror(schematic?[[64,66],[64,39],[20,39],[20,27],[16,24],[0,24]]:[[64,66],[64*s,66],[64*s,34],[0,34]]));
+        add('low','c','coil',low,mirror(schematic?[[0,66],[0,34],[0,24]]:[[0,66],[0,34]]));
+        add('common','coil','b',sum(high,low),mirror(schematic?[[0,24],[-16,24],[-20,27],[-20,39],[-64,39],[-64,66]]:[[0,34],[-64*s,34],[-64*s,66],[-64,66]]));
+      }else if(c.type==='rheostat'&&(c.params.terminals??2)>2){
+        const right=current('b','c'),bar=c.params.terminals===4?current('b','d'):0;
+        add('resistance-a','a','contact',i,[[-68,20],[x,20]]);
+        add('resistance-c','contact','c',right,[[x,20],[68,20]]);
+        add('slider','contact','slider',sum(i,Number.isFinite(right)?-right:null),[[x,20],[x,-34]]);
+        add('bar-left','b','slider',sum(Number.isFinite(i)?-i:null,right,bar),[[-68,-34],[x,-34]]);
+        if(c.params.terminals===4)add('bar-right','slider','d',bar,[[x,-34],[68,-34]]);
+      }else if(c.type==='wattmeter'){
+        add('current-coil','a','b',i,schematic?[[-60,-20],[60,-20]]:[[-60,-20],[-32,-20],[-32,-28],[32,-28],[32,-20],[60,-20]]);
+        add('voltage-coil','c','d',current('c','d'),schematic?[[-60,40],[-24,40],[-24,24],[-18,20],[18,20],[24,24],[24,40],[60,40]]:[[-60,40],[-34,40],[-34,33],[34,33],[34,40],[60,40]]);
+      }else{
+        let points;
+        if(c.type==='lamp')points=schematic?[[-60,0],[-28,0],[-19,-19],[19,19],[28,0],[60,0]]:[[-60,0],[-12,0],...lampFilament,[0,18],[40,18],[40,0],[60,0]];
+        else if(c.type==='battery')points=schematic?[[-60,0],[60,0]]:[[-60,0],[-37,0],[-29,-10],[29,-10],[37,0],[60,0]];
+        else if(c.type==='resistor')points=schematic?[[-60,0],[60,0]]:[[-60,0],...resistorTrack,[60,0]];
+        else if(c.type==='rheostat'){
+          const track=resistorTrack.filter(p=>p[0]<x),segment=resistorTrack.findIndex(p=>p[0]>=x),a=resistorTrack[Math.max(0,segment-1)],b=resistorTrack[segment],y=a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);
+          points=schematic?[[-60,0],[60,0]]:[[-60,0],...track,[x,y],[x,38],[47,38],[47,0],[60,0]];
+        }else if(c.type==='switch')points=[[-60,0],[60,0]];
+        else if(c.type==='galvanometer')points=schematic?[[-60,0],[-28,0],[-16,20],[16,20],[28,0],[60,0]]:[[-60,0],[-51,0],[-47,45],[47,45],[51,0],[60,0]];
+        if(points)add('main','a','b',i,points);
+      }
+    }
+    return paths;
+  }
+  function componentFlowSpacing(points,scale){
+    // An integer subdivision preserves phase when the 65 px accumulator wraps.
+    const target=Math.min(flowSpacing,36*scale,Routing.length(points)*scale/2);
+    return flowSpacing/Math.max(1,Math.ceil(flowSpacing/target));
+  }
   // Display speed is compressed for observation; it is not a drift velocity in m/s.
   function flowSpeed(current){if(!Number.isFinite(current)||Math.abs(current)<1e-9)return 0;const magnitude=Math.abs(current);return 240/(1+4/magnitude);}
   function advanceFlow(offsets,doc,result,dt){
-    const ids=new Set(doc.wires.map(w=>w.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
+    const paths=[...doc.wires.map(w=>({id:w.id,current:result.wires[w.id]?.current})),...componentFlowPaths(doc,result)];
+    const ids=new Set(paths.map(p=>p.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
     if(doc.display.flow==='off')return;
     const elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
-    for(const w of doc.wires){const current=result.wires[w.id]?.current,speed=flowSpeed(current);if(speed)offsets.set(w.id,modulo((offsets.get(w.id)||0)+polarity*Math.sign(current)*speed*elapsed,flowSpacing));}
+    for(const p of paths){const speed=flowSpeed(p.current);if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
   }
-  function flow(doc, result, routes, time, scale, offsets=null) {
-    if (doc.display.flow === "off") return ""; let out = '';
-    doc.wires.forEach((w) => {
-      const current = result.wires[w.id]?.current,speed=flowSpeed(current);if(!speed)return;
-      const points=routes[w.id]||Routing.route(doc,w),length=Routing.length(points),spacing=flowSpacing/scale,electron=doc.display.flow==="electron",reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
-      out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
-      for (let distance = phase / scale; distance < length; distance += spacing) {
-        const p = Routing.along(points, distance); if (!p) continue;
-        if (electron) out += `<circle cx="${p.x}" cy="${p.y}" r="${6 / scale}" fill="#2563eb"/><path d="M${p.x - 3 / scale} ${p.y}h${6 / scale}" stroke="#fff" stroke-width="${1.5 / scale}"/>`;
-        else out += `<path transform="translate(${p.x} ${p.y}) rotate(${p.angle + (reverse ? 180 : 0)})" d="M${-6 / scale} ${-4 / scale}L${2 / scale} 0L${-6 / scale} ${4 / scale}" stroke="#2563eb" stroke-width="${2 / scale}" fill="none"/>`;
-      }
-      out+='</g>';
-    });
+  function flowParticles(points,phase,spacing,scale,electron,reverse,size){
+    let out='';const length=Routing.length(points);
+    for(let distance=modulo(phase,spacing)/scale;distance<length;distance+=spacing/scale){
+      const p=Routing.along(points,distance);if(!p)continue;const attrs=`data-flow-distance="${distance}"`;
+      if(electron)out+=`<circle ${attrs} cx="${p.x}" cy="${p.y}" r="${6*size}" fill="#2563eb"/><path d="M${p.x-3*size} ${p.y}h${6*size}" stroke="#fff" stroke-width="${1.5*size}"/>`;
+      else out+=`<path ${attrs} transform="translate(${p.x} ${p.y}) rotate(${p.angle+(reverse?180:0)})" d="M${-6*size} ${-4*size}L${2*size} 0L${-6*size} ${4*size}" stroke="#2563eb" stroke-width="${2*size}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
+  function flow(doc, result, routes, time, scale, offsets=null) {
+    if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron';
+    doc.wires.forEach((w) => {
+      const current = result.wires[w.id]?.current,speed=flowSpeed(current);if(!speed)return;
+      const points=routes[w.id]||Routing.route(doc,w),reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
+      out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
+      out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
+      out+='</g>';
+    });
+    for(const p of componentFlowPaths(doc,result)){
+      const speed=flowSpeed(p.current);if(!speed)continue;
+      const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,.55);
+      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${Routing.path(p.points)}" fill="none" stroke="#2563eb" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
+      out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size)+'</g>';
+    }
+    return out;
+  }
+  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
 });

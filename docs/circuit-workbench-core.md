@@ -132,6 +132,8 @@ npm run package:circuit
 
 `--feedback-smoke` 驗證 320／390 px 可信手機觸控及 1280 px 滑鼠：指針錶點選後持續閱讀、關閉／搬動／取消／第二指接管、固定錶只讀、實際負刻度針尖、三孔 LaTeX 標記在四向／雙外觀的 SVG 字形與外框／接孔避讓；兩種燈模型的功率與可見亮度、短路／有限大電流／修復、暫停與減少動態；最短導線的雙懸空／單端／雙端、實際 SVG 弧長、兩端身份和求解、44 px 控制、復原／重做及文件重載後續彎。來源及 ZIP 的證據為 `feedback.json`，完整瀏覽器 runner 亦會呼叫。`feedback.test.js` 補功率／反向電流同亮、旁路熄滅、零電源、無解與獨立電路、重合端和文件往返的單元案例。
 
+電流／電子動畫也通過元件內部，實物燈泡沿同一燈絲幾何走至底部接點，兩種外觀、旋轉及換孔均對準實際端子。動畫只使用權威支路電流；多孔變阻器及 A／V 的共用段按 KCL 合併，W 的兩個線圈分開，理想電壓表不畫假電流。內部小粒子及間距只為閱讀，速度沿用同一示意函數；位移不進文件／歷史。`component-flow.test.js` 及 `--component-flow-smoke` 聚焦燈絲、端子、分流、真實 SVG／RAF、暫停與來源／ZIP 的可信開關續操作，證據為 `component-flow.json`。設計見活動計劃第 45 節。
+
 `node sim/circuit-workbench/meter-motion.test.js` 聚焦零位、超越／衰減、連續反向與換量程、機械限位、幀率、暫停／減少動態及非持續狀態。`node tools/circuit-workbench-browser-regression.js --needle-smoke` 在來源／ZIP 的 390 px 可信觸控及 1280 px 滑鼠檢查真實 RAF 針尖、手機預覽／放大錶盤同步、接線後正讀值、反向、暫停及文件重載後續操作；證據為 `meter-motion.json`。穩態刻度測試先等待指針停定，再核對實際 SVG 角度。
 
 `node sim/circuit-workbench/display-and-mirror.test.js` 聚焦獨立數值組合、舊檔／嚴格新欄位、A/V 高低量程四角度換孔、有限線長失敗、權限與文件往返後續操作。`node tools/circuit-workbench-browser-regression.js --display-mirror-smoke` 在來源／ZIP 的 390 px 可信觸控和 1280 px 滑鼠操作勾選、換孔、複製、復原與新方向吸附，直接比對 SVG 引線／孔／線端及 HTML 命中區；另驗 320 px 新按鈕可用。以真實檔案輸入重載後執行合法續操作，證據為 `display-mirror.json`。
