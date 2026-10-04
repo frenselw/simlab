@@ -4,6 +4,8 @@
 
 教師入口現在透過 `CircuitEditor.mount` 使用共用編輯器。製作不同學生活動可配置元件白名單／庫存、固定位置、指定參數、介面及本題檢查；現有操作與原 `window.CircuitWorkbench` API 保留。四種操作示例在 `activity-examples.html`，實際配置和 API 見[活動製作指南](circuit-activity-authoring.md)。
 
+這個入口是獨立教師工具，沒有關卡、成績提交或數據記錄／圖像功能。正式學生活動在共用核心外加入自己的題目與評量。後續維護及尚未實作的交流擴展方向見[架構說明](circuit-workbench-architecture-review.md)；現行功能與逐輪驗證見[實作計劃](../plans/28-circuit-workbench.md)，整體審核以[報告記錄的版本](circuit-workbench-audit-2026-10-04.md)為準。
+
 ## 課堂操作
 
 - 工具箱點選元件，拖動本體調整位置；按「取出導線」或畫布下方「＋導線」，取出一條直線。預設共 20 條，取完後按鈕停用，刪線會歸還庫存；已保存的自訂庫存保持。

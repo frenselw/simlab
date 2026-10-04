@@ -1187,3 +1187,14 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - `flow.test.js` **28 組**與相鄰 `component-flow.test.js` **8 組**通過，包含 G 並聯分流／串聯分壓的 50 μA、較大支路較快、獨立 0.5 A 電路不壓低 G 的速度、真正 6e−12 A 的有限 V 表仍有動畫、零／未知／關閉不流動、連續有號位移、暫停、反接及 production 文件往返後續調參。沒有執行完整教材或大型幾何矩陣。
 - `--micro-flow-smoke` 在來源／實際 ZIP、1280×800 滑鼠及 390×844 可信模擬觸控完成 **36 筆**，包括兩個 G 示例、實物／符號與電流／電子，讀值及文件不被動畫改變；可信暫停、文件恢復、快捷調 3→3.5 V、復原及繼續流動。G 串聯示例為 **92 CSS px/s**，分流示例的表頭為 **40.3244096711 CSS px/s**，約 0.383 秒實際移動至少 **15.4563 CSS px**；原生 SVG 軌跡最大偏差 **0.0000610352** 世界座標 px。選單確認不再提供伏安示例，保留分壓及兩個 G 示例。證據 `output/playwright/circuit-workbench/micro-flow.json`，`2026-10-04T15:22:26.634Z`，Chrome **155.0.8059.27**；桌面及手機截圖已目視核對，無執行期例外。
 - `npm run check`、修改 JavaScript 語法及 diff 檢查通過；ZIP **28 runtime files、788630 bytes**，逐檔與來源一致。Runtime SHA-256 `29fb77268e603b68f296ec1506fdca962d59fe850651a66dd2abed258056dc70`；ZIP SHA-256 `c9c6554ce34e1a0a1d1a5c75f5f889f7aaadf7a40ea5c827fdcdd68c7411e2e2`。沿用既有 runner，新增精準 browser filter 亦納入完整 browser 入口；本輪未驗證實體手機、Safari 或 Moodle。
+
+## 53. 項目指導文件與 main 整合（2026-10-04）
+
+使用者要求更新項目指導文件，將開發分支合併至 main、切換至 main、推送 GitHub，再刪除本地及遠端開發分支。開始時工作目錄乾淨，開發版為 `6702312`，已 fetch 的 main 為 `40ec778` 且是開發分支祖先；不涉及其他工作樹。這次只整理文件及 Git 整合，無新增 runtime、評量、持久化或依賴。
+
+- README 改為現行有限實體線、四孔變阻器、G 表、雙向吸附、共用活動配置及發布方式，移除舊兩點接線說明。
+- 共用 baseline、production guide、AGENTS 及計劃模板明確區分非評量教師工具與正式 SCORM 活動；後者保留既有 rubric、快照、生命週期及部署驗收要求。
+- 核心／活動／架構指南記錄配置式複用、核心單處維護、包內依賴與重建責任。交流分析介面仍是後續建議，沒有宣稱已實作；歷史三位 reviewer 審核及其後第 52 節的改動證據分開。
+- 必要檢查為修改文件的本地連結／diff、`npm run check`、合併帶入的共用全螢幕文字相關單元、來源與既有發布包一致性。第 52 節 runtime 保持時沿用其精準 browser 證據，不重跑教材或完整瀏覽器矩陣。合併後核對 main 包含開發提交且內容一致，成功推送 main 後才刪除開發分支。
+
+文件檢查通過：9 份修改文件的 **108 個本地連結及錨點**有效，`git diff --check`、`npm run check` 及 `sim/shared/fullscreen.test.js` 通過。所有 runtime／tooling 與已測試的 `6702312` 一致；現有 ZIP 的 **28 個 runtime 檔案**逐 byte 對應來源，SHA-256 仍為 `c9c6554ce34e1a0a1d1a5c75f5f889f7aaadf7a40ea5c827fdcdd68c7411e2e2`，沒有重建未改的包或重跑第 52 節 browser。Git 整合以 main 包含全部開發歷史、合併內容一致及遠端推送成功為判準；分支刪除在成功推送後執行。不新增實機手機、Safari 或 Moodle 驗收聲稱。

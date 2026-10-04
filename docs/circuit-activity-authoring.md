@@ -128,8 +128,16 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 
 正式活動應在恢復／review 之前載入已驗證快照，再設只讀。通用 JSON 最多 256 KiB，不能直接塞進 SCORM 1.2 的 ≤4000 bytes suspend_data；各活動須另定題目版本、必要答案欄位及壓縮編碼，依 [production guide](simulation-scorm-production-guide.md) 驗證 blank／partial／pending／recorded 的 round-trip 和合法續作。活動配置來自可信本地程式，不跟學生檔案匯入；前端限制不是高風險評分的信任邊界。
 
+## 共用核心的維護與發布
+
+新活動引用 `../circuit-workbench/` 的原始核心，以配置裁剪工具及權限；不要把核心複製進活動資料夾。題目判斷使用已提交編輯的 document 與 solver analysis，不以粒子速度、指針暫態位置或畫面距離作為物理答案。每個電氣連通區的流動示意速度會自適應；不同電路或工作點之間不能以動畫快慢比較絕對電流。
+
+新增活動仍須自己的計劃、目錄登記、rubric、精簡持久化及 SCORM manifest。manifest 要列出實際使用的共用 CSS／scripts、MathJax、全螢幕等依賴；教師 `assets.json` 是獨立包的清單，不會替活動補齊依賴。核心更新後重建引用它的活動 ZIP；檢查來源和解壓成品，不能只改來源便沿用舊包。整體責任及未實作的交流擴展方向見[架構與維護說明](circuit-workbench-architecture-review.md)。
+
 ## 驗證範圍
 
-本輪精準測試為 `node sim/circuit-workbench/activity-core.test.js` 和 `node tools/circuit-workbench-browser-regression.js --activity-core-smoke`。後者包含 source／實際解壓 ZIP、1280／390 px、可信滑鼠與觸控接線、參數、固定限制、只讀、全螢幕、雙指導航、恢復續作、兩個 instance／卸載，以及原教師工作台的關鍵操作。證據在 `output/playwright/circuit-workbench/activity-core.json`；實機手機與真 Moodle 尚未驗證。DC 求解模型不因本輪重構而增加電容／電感等瞬態能力。
+活動重構的精準測試為 `node sim/circuit-workbench/activity-core.test.js` 和 `node tools/circuit-workbench-browser-regression.js --activity-core-smoke`。後者包含 source／實際解壓 ZIP、1280／390 px、可信滑鼠與觸控接線、參數、固定限制、只讀、全螢幕、雙指導航、恢復續作、兩個 instance／卸載，以及原教師工作台的關鍵操作。證據在 `output/playwright/circuit-workbench/activity-core.json`；實機手機與真 Moodle 尚未驗證。DC 求解模型不因重構而增加電容／電感等瞬態能力。
 
 快捷參數另有 `quick-controls.test.js` 和 browser runner 的 `--quick-controls-smoke`；針對參數權限、加減／輸入、單步復原、保存恢復後續調整、手機對齊及拖動穩定，也核對自動 ID 前綴的 label 關係和離開輸入欄時提交原元件。實際證據見[計劃第 50 節](../plans/28-circuit-workbench.md#50-對齊操作列與快捷參數2026-10-04)。
+
+微電流動畫使用 `flow.test.js`／`component-flow.test.js` 及 `--micro-flow-smoke`；元件本體接線使用 `component-snapping.test.js` 及 `--component-snap-smoke`。按改動選擇必要檢查及相鄰權限／恢復案例，無需每次重跑完整教材和其他活動。具體已執行結果見[工作台計劃](../plans/28-circuit-workbench.md)，區分歷史審核、後續改動和未驗證平台。

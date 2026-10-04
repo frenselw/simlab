@@ -2,13 +2,16 @@
 
 Fill in activity-specific decisions and evidence; do not copy shared rules here.
 Follow the [shared style](00-shared-platform-and-style.md) and [production guide](../docs/simulation-scorm-production-guide.md). Mark inapplicable items `N/A` with a reason; leave unverified checks unchecked.
+Choose the delivery scope under the guide's [scope and shared-core contract](../docs/simulation-scorm-production-guide.md#scope-and-shared-cores). A non-assessment teacher tool may mark scoring and attempt-lifecycle sections `N/A`; an assessed wrapper must complete them even when it reuses an existing core.
 
 ## Scope
 
 | Decision | Activity specification |
 |---|---|
 | Slug / learning objective | |
+| Delivery scope / package | Assessed SCORM activity or non-assessment standalone tool; manifest or runtime asset list and build command |
 | Learner task / main interactions | |
+| Shared subject core / activity outer layer | Existing core and mount/configuration entry; task, checks, rubric and persistence owned by this activity |
 | Runtime files / libraries and justification | Prefer native browser features |
 | Assessment risk / trusted validation | `formative`, `low-risk graded`, or `high-risk graded`; describe required server validation |
 | Out of scope | |
@@ -26,7 +29,7 @@ Follow the [shared style](00-shared-platform-and-style.md) and [production guide
 }
 ```
 
-Use a unique folder matching the activity directory and manifest slug; supply non-empty title, description, categories and tags without duplicate entries. Change status to `active` only when deployable; `archived` remains available for retired activities.
+Use a unique folder matching the activity directory and manifest slug; supply non-empty title, description, categories and tags without duplicate entries. For a standalone tool, use its asset-list entry instead of a SCORM manifest and replace the `scorm` tag with appropriate tool tags. Change status to `active` only when deployable; `archived` remains available for retired activities.
 
 ## Physics or subject model
 
