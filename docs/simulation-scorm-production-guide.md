@@ -5,9 +5,40 @@ SCORM/Moodle behaviors that are easy to miss. The
 [shared design baseline](../plans/00-shared-platform-and-style.md) owns product and
 visual rules; this guide owns implementation and acceptance checks.
 
+## Scope and shared cores
+
+SimLab includes assessed student activities and non-assessment teacher workbenches.
+Both use the shared visual rules, fullscreen control, local runtime dependencies
+and appropriate interaction verification. Scores, submission, suspend-data limits
+and attempt lifecycle apply to assessed activities. A teacher workbench records
+those decisions as `N/A` with a reason in its plan; it does not add artificial
+levels or submission controls. Standalone refresh still starts fresh. Explicit
+teacher JSON export/import is a document operation, not automatic answer persistence.
+
+Reuse an existing subject core through configuration. For circuits, use
+`CircuitEditor.mount(host, config)` and the
+[activity authoring guide](circuit-activity-authoring.md). The core owns wiring,
+snapping, drawing, navigation and DC analysis; the outer activity owns its task,
+allowed components/actions, authoritative answer schema, checks, feedback, rubric
+and SCORM integration. Keep activity permissions in trusted local configuration,
+separate from imported answers. Do not copy the editor into each activity.
+
+Every assessed wrapper still follows this guide's complete persistence, trust,
+submission and Moodle contracts. Configuration examples without scoring are
+technical demonstrations, not accepted SCORM activities. Add the actual shared
+core files to each wrapper's manifest; referencing a sibling directory during
+development does not package that dependency automatically.
+
+The teacher circuit workbench declares its runtime in
+`sim/circuit-workbench/assets.json`; `npm run package:circuit` builds and checks
+its standalone ZIP. It has no `imsmanifest.xml`. `npm run package:all` builds
+SCORM manifests only. A core fix is shared by source consumers immediately;
+previously built ZIPs must be rebuilt before delivery. Test source and extracted
+artifacts for runtime changes and report physical-device/Moodle evidence separately.
+
 ## End-to-end workflow
 
-Follow this order when creating a simulation from scratch:
+Follow this order when creating an assessed student activity from scratch:
 
 1. Read `AGENTS.md` and `plans/00-shared-platform-and-style.md` for the project
    rules and shared design baseline.
@@ -108,6 +139,7 @@ List `<file href="shared/fullscreen.js"/>` and the shared stylesheet in the
 activity manifest. Package these files locally. The script automatically creates
 `#fullscreenButton` and `#fullscreenStatus` once in the marked header; do not call
 `attach()` again or create a second button.
+Standalone workbenches include the same shared files in their runtime asset list.
 
 ### Placement and behavior
 
@@ -828,6 +860,14 @@ results establish only the recorded local cases, not real Moodle/phone readiness
 Keep the existing subject interaction/scoring/lifecycle browser workflows as well.
 
 ## Verification checklists
+
+These checklists define acceptance for a new or materially changed assessed
+activity. During later maintenance, use the smallest reproducer and affected
+unit/browser checks, including adjacent permissions, restore or packaging paths
+when relevant. Repeat broader acceptance when shared behavior, dependencies or
+supported modes change. A documentation-only change needs link and diff checks;
+do not report earlier runtime evidence as newly executed. This change-based
+verification does not waive outstanding deployment gates.
 
 ### Package-ready checks
 

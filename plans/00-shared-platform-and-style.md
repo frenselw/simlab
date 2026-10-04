@@ -1,7 +1,8 @@
 # Project Design Baseline
 
-SimLab activities are mobile-first educational tools: open directly into a task,
-use Traditional Chinese learner-facing copy, and share a calm, readable style.
+SimLab simulations are mobile-first educational tools: open directly into the task
+or teacher workspace, use Traditional Chinese learner-facing copy, and share a
+calm, readable style.
 Keep the platform generic; each activity owns its subject model and rubric.
 
 ## Document roles
@@ -18,9 +19,12 @@ Keep the platform generic; each activity owns its subject model and rubric.
 ## Platform and shared style
 
 - Prefer static HTML, CSS, and JavaScript, with native SVG/Canvas. Keep each
-  activity independently runnable in Live Server and packageable as SCORM 1.2.
+  simulation independently runnable in Live Server. Student activities are
+  packageable as SCORM 1.2; standalone teacher tools follow the production guide's
+  [scope and shared-core contract](../docs/simulation-scorm-production-guide.md#scope-and-shared-cores).
 - Reuse `sim/shared/styles.css`, `sim/shared/scorm.js`, and
-  `sim/shared/activity-flow.js`. Add shared helpers only for demonstrated reuse.
+  `sim/shared/activity-flow.js` as applicable to that scope. Reuse existing subject
+  cores for related activities; add shared helpers only for demonstrated reuse.
 - Use the semantic colors, borders, radii, and control tokens in the shared
   stylesheet as the source of truth. Keep white/light-grey surfaces, strong
   text contrast, blue primary actions, and restrained subject-specific colors.

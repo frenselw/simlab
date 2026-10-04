@@ -21,10 +21,16 @@
     "test:browser:fullscreen-rollout": "node tools/fullscreen-rollout-browser-regression.js",
     "test:browser:fullscreen": "node tools/scorm-fullscreen-browser-regression.js",
     "test:browser:mobile-scroll": "node tools/mobile-scroll-browser-regression.js",
-    "test:browser:motion-composition": "node tools/motion-composition-browser-regression.js"
+    "test:browser:motion-composition": "node tools/motion-composition-browser-regression.js",
+    "package:circuit": "node tools/package-circuit-workbench.js",
+    "test:browser:circuit": "node tools/circuit-workbench-browser-regression.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",
-    "fast-xml-parser": "^5.10.0"
+    "fast-xml-parser": "^5.10.0",
+    "mathjax-full": "3.2.2"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.9.12"
   }
 }

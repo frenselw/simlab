@@ -1,8 +1,9 @@
 # SimLab Project Notes
 
-Build mobile-first educational simulations as static web apps, packaged one
-activity at a time as SCORM 1.2 for Moodle. Keep shared code generic; each activity
-owns its subject model, authoritative answers, and scoring rubric.
+Build mobile-first educational simulations as static web apps: standalone
+teacher workbenches and student activities packaged individually as SCORM 1.2
+for Moodle. Keep shared code generic; each assessed activity owns its
+authoritative answers and scoring rubric.
 
 ## Read first
 
@@ -20,9 +21,15 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
 - Prefer plain HTML/CSS/JavaScript and native SVG/Canvas. Keep activities runnable
   in Live Server; add dependencies only for a concrete need and package them locally.
 - Use Traditional Chinese learner-facing copy unless requested otherwise.
-- Reuse `sim/shared/styles.css`, `sim/shared/scorm.js`, and
-  `sim/shared/activity-flow.js`; canonical entry files are `index.html`,
+- Reuse `sim/shared/styles.css`; assessed activities also use `sim/shared/scorm.js`
+  and `sim/shared/activity-flow.js`. Canonical entry files are `index.html`,
   `styles.css`, `main.js`, with `scoring.js`/`persistence.js` as needed.
+- Apply the production guide's [scope and shared-core contract](docs/simulation-scorm-production-guide.md#scope-and-shared-cores).
+  Non-assessment workbenches do not invent scores or an attempt lifecycle.
+  Circuit activities reuse `CircuitEditor.mount(host, config)`; read the
+  [authoring guide](docs/circuit-activity-authoring.md) and
+  [architecture notes](docs/circuit-workbench-architecture-review.md) before changing
+  the core. Keep task configuration, checks and SCORM in the activity outer layer.
 - Apply the baseline's three-region layout, dependency-based navigation,
   notation, arrows, snapping, and touch-preview decisions. Mobile layout and
   trusted-touch verification are required, including usable side scroll strips
@@ -70,6 +77,8 @@ tools/          validation and packaging
 output/         generated packages, screenshots, temporary checks
 ```
 
-Package roots contain `imsmanifest.xml`; shared files remain accessible by relative
-path. Browser tooling, including Windows-specific setup, is documented once in
-the production guide.
+SCORM package roots contain `imsmanifest.xml`; shared files remain accessible by
+relative path. The standalone circuit package uses
+`sim/circuit-workbench/assets.json` and `npm run package:circuit`.
+Browser tooling, including Windows-specific setup, is documented once in the
+production guide.

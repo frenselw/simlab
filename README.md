@@ -1,11 +1,51 @@
 # SimLab
 
-Mobile-first educational simulations built as static web apps and packaged as
-SCORM 1.2 activities for Moodle.
+Mobile-first educational simulations built as static web apps: standalone
+teacher workbenches and SCORM 1.2 student activities for Moodle.
+
+## Teacher circuit workbench
+
+The [電路工作台](sim/circuit-workbench/index.html) is a standalone DC steady-state
+teaching tool with a large canvas and compact controls. It provides:
+
+- A stock of 20 physical cables by default, with finite length, draggable ends,
+  smooth bending and shared junctions. Dragging either a cable or a component can
+  snap their contacts together; rotating a component straightens its attached cables.
+- Adjustable source voltage/internal resistance, resistors, ideal and thermal
+  lamps, switches, and a sliding rheostat with four terminals by default.
+- A/V meters with three sockets and two ranges, signed analog scales and damped
+  needles, a G galvanometer, and a four-terminal W meter.
+- Real/schematic views, potential overlays, and current/electron animation through
+  both cables and components. Motion adapts to each connected circuit so microamp
+  examples remain visible; animation speed is a teaching aid, not a drift velocity.
+- Optional names and quantities, quick parameter controls, undo/redo, JSON files,
+  fixed-component templates, SVG export, and mouse/touch canvas navigation.
+
+Open the [configuration examples](sim/circuit-workbench/activity-examples.html)
+to try student tasks using the same `CircuitEditor.mount(host, config)` core.
+Each activity can choose its components, stock, permissions, visible controls
+and answer checks. These examples have no scoring or submission; formal SCORM
+activities must supply their own rubric, snapshot and shared attempt lifecycle.
+The workbench has no levels or data-recording/graph-fitting module. AC and
+time-dependent components remain future work.
+
+Run `npm run package:circuit` to build `output/circuit-workbench-standalone.zip`.
+Extract it and open `circuit-workbench/index.html`, preserving the sibling
+`shared/` directory. This ZIP is a standalone tool, not a SCORM package.
+
+Start with the [user/core guide](docs/circuit-workbench-core.md),
+[activity authoring guide](docs/circuit-activity-authoring.md),
+[architecture and maintenance notes](docs/circuit-workbench-architecture-review.md),
+and [implementation plan](plans/28-circuit-workbench.md). The
+[three-reviewer audit](docs/circuit-workbench-audit-2026-10-04.md) records the
+version reviewed; later microcurrent changes have separate focused evidence in
+the plan. Local browser evidence does not establish real-phone or Moodle readiness.
 
 ## Current activities
 
-The activities below are registered in `sim/config.js`, which records their status.
+The workbench above and the student activities below are registered in
+`sim/config.js`, which records their status. The catalogue also contains an
+isolated fullscreen test version of the third-law activity.
 
 - `fbd-horizontal-block` - 水平面靜止物體受力圖
 - `plane-mirror-pencil-ray-diagram` - 平面鏡鉛筆成像光路圖
@@ -111,6 +151,8 @@ practice keeps answers in memory; refreshing starts a fresh session. Moodle
 restores work within the same attempt, with completed attempts kept read-only
 until Moodle supplies a new attempt. See the shared
 [refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
+The teacher workbench also starts fresh on refresh; reopening a circuit is an
+explicit JSON import.
 
 ## SCORM packaging
 
@@ -138,13 +180,17 @@ The ZIP files are written to `output/<activity-folder>-scorm.zip`, with
 `imsmanifest.xml` at the ZIP root and shared runtime files included. Rebuild the
 ZIP after source changes before uploading it to Moodle.
 
-Run the complete local quality checks and build every activity:
+Run the complete local quality checks and build every SCORM activity:
 
 ```text
 npm run check
 npm test
 npm run package:all
 ```
+
+The standalone circuit ZIP has its own asset list and builder;
+`package:all` builds SCORM manifests only. After a shared circuit-core change,
+rebuild the standalone ZIP and any SCORM packages that include that core.
 
 ## Browser checks
 
@@ -165,6 +211,19 @@ npm run test:browser:newtons-second-law
 npm run test:browser:newtons-third-law
 npm run test:browser:motion-composition
 ```
+
+The circuit runner also supports focused source/extracted-ZIP checks:
+
+```text
+npm run test:browser:circuit -- --activity-core-smoke
+npm run test:browser:circuit -- --micro-flow-smoke
+```
+
+Use the filter relevant to the change; `npm run test:browser:circuit` runs the
+full workbench browser suite. Choose adjacent unit checks from the
+[authoring guide](docs/circuit-activity-authoring.md#驗證範圍) and record the
+coverage actually executed. Documentation-only changes need link/diff checks;
+they do not require repeating every browser scenario.
 
 These checks require a local Google Chrome or Chromium executable. They detect the
 usual macOS, Linux, and Windows install locations. Set `CHROME_PATH` to the full
@@ -209,15 +268,20 @@ Before adding or changing a simulation, read:
 - [New simulation plan template](plans/NEW-SIMULATION-PLAN-TEMPLATE.md)
 - the simulation-specific plan in `plans/`
 
-Prefer plain HTML, CSS, and JavaScript. Reuse `sim/shared/styles.css`,
-`sim/shared/scorm.js`, and `sim/shared/activity-flow.js`; each simulation owns its
-own model, scoring rubric, and answer validation. The shared runtime handles
-startup, persistence, submission, and the SCORM attempt lifecycle.
+Prefer plain HTML, CSS, and JavaScript. Reuse `sim/shared/styles.css` and the
+shared fullscreen control. Assessed activities use `sim/shared/scorm.js` and
+`sim/shared/activity-flow.js` for startup, persistence, submission and the SCORM
+attempt lifecycle. Each activity owns its authoritative answers and rubric;
+circuit activities reuse the existing editor and physics core through configuration.
 
 When adding an activity, register its catalogue metadata in `sim/config.js`,
 list every runtime dependency in `sim/manifests/<activity-folder>.xml`, and add
 new tests to `tools/run-tests.js`. Define persisted phases and snapshot schemas
 in the activity plan before implementing draft or review restoration.
+For non-assessment workbenches, follow the production guide's
+[scope and shared-core contract](docs/simulation-scorm-production-guide.md#scope-and-shared-cores);
+the circuit workbench declares its standalone runtime in
+`sim/circuit-workbench/assets.json`.
 
 Browser-computed SCORM scores are intended for formative or low-risk assessment.
 High-risk assessment requires trusted server-side validation.
