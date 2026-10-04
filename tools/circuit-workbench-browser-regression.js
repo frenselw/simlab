@@ -16,6 +16,7 @@ const {componentFlowCases}=require("./circuit-component-flow-browser-cases");
 const {foundationCases}=require("./circuit-foundation-browser-cases");
 const {activityCases}=require("./circuit-activity-browser-cases");
 const {componentSnappingCases}=require("./circuit-component-snapping-browser-cases");
+const {quickControlsCases}=require("./circuit-quick-controls-browser-cases");
 const {textbookCases,textbookReport}=require("./circuit-textbook-browser-cases");
 const {teachingCases}=require('./circuit-teaching-browser-cases');
 const {wireGripCases}=require('./circuit-wire-grip-browser-cases');
@@ -46,6 +47,7 @@ async function main() {
   const foundationOnly=process.argv.includes('--foundation-smoke');
   const activityOnly=process.argv.includes('--activity-core-smoke');
   const componentSnapOnly=process.argv.includes('--component-snap-smoke');
+  const quickControlsOnly=process.argv.includes('--quick-controls-smoke');
   const teachingOnly=process.argv.includes('--teaching-smoke');
   const continuationOnly=process.argv.includes('--continuation-smoke');
   const wireGripOnly=process.argv.includes('--wire-grip-smoke');
@@ -201,6 +203,7 @@ async function main() {
       if(textbookOnly){await textbookCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(activityOnly){await activityCases(cameraHarness,mode,base);await foundationCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(componentSnapOnly){await componentSnappingCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
+      if(quickControlsOnly){await quickControlsCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(foundationOnly){await foundationCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(componentFlowOnly){await componentFlowCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(flowOnly){await flowCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
@@ -265,7 +268,7 @@ async function main() {
       const touched=await save();await touch(await point(await wireTarget('w1')),0,-20);assert.notEqual(await save(),touched);await click('#undo');assert.equal(await save(),touched);assert((await inside('__events')).some(e=>e.type==='pointerup'&&e.trusted&&e.pointer==='touch'));await screenshot(`${mode}-phone-cables.png`);
       await click('#pan');const panDoc=await save(),panCamera=await inside('CircuitWorkbench.getInteraction().camera');await touch(await point('#surface'),40,-40);assert.notDeepEqual(await inside('CircuitWorkbench.getInteraction().camera'),panCamera);assert.equal(await save(),panDoc);await click('#pan');await click('[data-camera=fit]');
       const fullDoc=await save();await touch(await point('#fullscreenButton'),0,0);await until('document.fullscreenElement?.id==="app"');assert.equal(await save(),fullDoc);await inside('document.exitFullscreen()');await until('!document.fullscreenElement && document.getElementById("fullscreenButton").getAttribute("aria-pressed")==="false"');evidence.push({mode,trustedPhysicalTouch:true,panning:true,phoneFullscreen:true});
-      await cameraCases(cameraHarness,mode,base);await presetCases(cameraHarness,mode,base);await labelCases(cameraHarness,mode,base);await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);await meterSnappingCases(cameraHarness,mode,base);await cableHandlingCases(cameraHarness,mode,base);await feedbackCases(cameraHarness,mode,base);await flowCases(cameraHarness,mode,base);await componentFlowCases(cameraHarness,mode,base);await componentSnappingCases(cameraHarness,mode,base);await activityCases(cameraHarness,mode,base);await foundationCases(cameraHarness,mode,base,output);await textbookCases(cameraHarness,mode,base);await refinements(mode,base);await bendTrajectories(mode,base);
+      await cameraCases(cameraHarness,mode,base);await presetCases(cameraHarness,mode,base);await labelCases(cameraHarness,mode,base);await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);await meterSnappingCases(cameraHarness,mode,base);await cableHandlingCases(cameraHarness,mode,base);await feedbackCases(cameraHarness,mode,base);await flowCases(cameraHarness,mode,base);await componentFlowCases(cameraHarness,mode,base);await quickControlsCases(cameraHarness,mode,base);await componentSnappingCases(cameraHarness,mode,base);await activityCases(cameraHarness,mode,base);await foundationCases(cameraHarness,mode,base,output);await textbookCases(cameraHarness,mode,base);await refinements(mode,base);await bendTrajectories(mode,base);
       }
       await freshPage();context='window';await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();
       console.log(`${mode}: interruption rollback matrix`);
@@ -324,6 +327,7 @@ async function main() {
       context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});if(process.argv.length===2||continuationOnly)await teachingCases(cameraHarness,mode,base,output);if(process.argv.length===2){await wireGripCases(cameraHarness,mode,base);await needleCases(cameraHarness,mode,base);await displayMirrorCases(cameraHarness,mode,base,output);await rotationCases(cameraHarness,mode,base);await settingsCases(cameraHarness,mode,base);}await closeServer(server);server=null;
     }
     const bendOnly=process.argv.includes('--bend-smoke');
+    if(quickControlsOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'quick-controls.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused quick controls passed on source + ZIP: ${evidence.length} observations; aligned columns, trusted parameters, bounds, history, restore, drag and activity guards.`);return;}
     if(componentSnapOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'component-snapping.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused component snapping passed on source + ZIP: ${evidence.length} observations; trusted body docking, preview/cancel, precise ports, undo, continuation and activity guards.`);return;}
     if(activityOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'activity-core.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused activity core passed on source + ZIP: ${evidence.length} observations; configurable student editors, topology/effect checks, lifecycle and teacher preservation.`);return;}
     if(foundationOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'foundation.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused foundation passed on source + ZIP: ${evidence.length} observations; recording absent, component/cable editing, legacy file import, actual meter reading and continuation.`);return;}

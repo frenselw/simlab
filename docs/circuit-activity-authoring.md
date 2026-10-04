@@ -75,7 +75,11 @@ components:{
 
 ### 介面裁剪
 
-`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`。學生預設只有 inspector 和外觀切換，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意及錶型仍由初始 document 的 `display` 決定；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意及錶型仍由初始 document 的 `display` 決定；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+
+選取元件後，快捷區只顯示該元件獲准修改的主參數：電源電動勢、電阻／燈泡電阻或變阻器滑片位置。它不依賴 inspector；`ui:{inspector:false, quickParameters:true}` 可讓學生只調整指定參數，無須打開面板。仍須用 `components.byId` 等規則開放實際參數，固定參數及只讀不顯示可改控制；`ui.quickParameters:false` 完全移除此區。百分比以 0–100 顯示，`position` 仍保存 0–1。
+
+自訂 registry 元件可在定義中指定 `primaryParameter:'參數名稱'`。該參數須是有合法 `min/max/step` 的數值，沿用其 `label/unit/factor`；沒有主參數的元件不出現快捷區。快捷加減與輸入都走原有 `setParam`、權限及單步復原，沒有第二份參數或作答快照。
 
 ## 檢查接口
 
@@ -125,3 +129,5 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 ## 驗證範圍
 
 本輪精準測試為 `node sim/circuit-workbench/activity-core.test.js` 和 `node tools/circuit-workbench-browser-regression.js --activity-core-smoke`。後者包含 source／實際解壓 ZIP、1280／390 px、可信滑鼠與觸控接線、參數、固定限制、只讀、全螢幕、雙指導航、恢復續作、兩個 instance／卸載，以及原教師工作台的關鍵操作。證據在 `output/playwright/circuit-workbench/activity-core.json`；實機手機與真 Moodle 尚未驗證。DC 求解模型不因本輪重構而增加電容／電感等瞬態能力。
+
+快捷參數另有 `quick-controls.test.js` 和 browser runner 的 `--quick-controls-smoke`；針對參數權限、加減／輸入、單步復原、保存恢復後續調整、手機對齊及拖動穩定，也核對自動 ID 前綴的 label 關係和離開輸入欄時提交原元件。實際證據見[計劃第 50 節](../plans/28-circuit-workbench.md#50-對齊操作列與快捷參數2026-10-04)。

@@ -13,7 +13,7 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
-  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status'];
+  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},
@@ -48,7 +48,7 @@
     }
     const ui = Object.fromEntries(uiKeys.map(k => [k,teacher]));
     // A student can have a small inspector without exposing teacher controls.
-    ui.inspector = true; ui.viewToggle = true;
+    ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true;
     keys(config.ui || {}, uiKeys, '介面');
     for (const [k,v] of Object.entries(config.ui || {})) { if (typeof v !== 'boolean') throw new Error('介面設定必須是布林值'); ui[k] = v; }
     if (!teacher && (ui.settings || ui.files || ui.presets)) throw new Error('教師設定、文件與範例只適用於教師工作台');

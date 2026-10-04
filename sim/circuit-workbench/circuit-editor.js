@@ -41,6 +41,7 @@
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map(),needleStates=new Map();
   let analysis=S.solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
+  let quickBinding=null,releasedMeta=null;
   const touches=new Map(),minScale=.001,maxScale=2.5;
   const owned=e=>host.contains(e.target)||touches.size||drag||cameraGesture;
   let cameraGesture=null,touchOrigin=null,touchBlocked=false,spacePan=false,spacePanUsed=false;
@@ -66,7 +67,7 @@
     if(old)suppressClick=true;
   }
   function releaseTouches(ids){for(const id of ids)if(surface.hasPointerCapture(id))surface.releasePointerCapture(id);}
-  function cancel(deferRender=false){if(destroyed)return;const old=cameraGesture;cameraGesture=null;rollbackDrag();labelOptions.previous=null;
+  function cancel(deferRender=false){if(destroyed)return;releasedMeta=null;const old=cameraGesture;cameraGesture=null;rollbackDrag();labelOptions.previous=null;
     if(old){Object.assign(camera,old.base);autoFit=old.autoFitBefore;selection=old.selectionBefore;releaseTouches(old.ids.filter(id=>!touches.has(id)));}
     if(touches.size){touchBlocked=true;suppressClick=true;}
     if(deferRender===true)later(()=>render());else render();
@@ -157,6 +158,7 @@
     $("cableCount").disabled=d.policy.mode!=="free";$("cableLength").disabled=d.policy.mode!=="free";const remaining=d.cables.count-d.wires.length;$("wireStock").textContent=remaining+" / "+d.cables.count;$("quickWire").innerHTML=`＋導線 <span>${remaining}/${d.cables.count}</span>`;["addWire","quickWire"].forEach(id=>$(id).disabled=remaining===0||!wireAllowed());$("cableCount").value=d.cables.count;const lengthSelect=$("cableLength");[...lengthSelect.options].filter(o=>o.dataset.custom&&Number(o.value)!==d.cables.length).forEach(o=>o.remove());if(![...lengthSelect.options].some(o=>Number(o.value)===d.cables.length)){const o=new Option("自訂 · "+d.cables.length,String(d.cables.length));o.dataset.custom="true";lengthSelect.add(o);}lengthSelect.value=d.cables.length;
     const hazards=V.visualState(d,analysis);$("circuitStatus").textContent=hazards.short?"短路 · 發熱":hazards.overload?"過載 · 發熱":analysis.diagnostics.length?"需檢查電路":d.policy.mode==="wiring"?"固定元件 · 接線":"直流穩態";$("circuitStatus").classList.toggle("warning",!!analysis.diagnostics.length||hazards.short||hazards.overload);host.querySelectorAll("[data-add]").forEach(b=>b.disabled=!profile.canAdd(b.entry,d,readOnly));
     if(inspector)renderProperties();
+    renderQuickParameters();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
     const pinned=meterPreview?d.components.find(c=>c.id===meterPreview.id):null,reading=readableMeter(d,held)?held:readableMeter(d,pinned)?pinned:null;
     if(reading)renderPreview(null,reading);else if(drag?.pointerType==="touch"&&drag.kind==="wireend")renderPreview(drag.focus||world(drag.lastX,drag.lastY));else $("preview").hidden=true;
@@ -241,6 +243,41 @@
   function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c)&&c.type!=='galvanometer')return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',factor=g?1e6:1,unit=g?'μA':r.unit;$('meterTitle').textContent=g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g?'-50 -45 100 90':'-80 -88 160 135'}" aria-label="${V.esc(c.label)}刻度">${g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();updateMeterNeedles();}
 
   function portName(id){const d=history.get(),[cid,key]=id.split(":"),c=d.components.find(c=>c.id===cid);if(c)return c.label+" "+R.ports(c).find(p=>p.key===key)?.label;return M.degree(d,id)>1?"共接點 "+cid:"懸空線端 "+cid;}
+  function quickParameter(binding=selection){
+    if(!profile.ui.quickParameters||!binding)return null;
+    const d=history.get(),c=d.components.find(c=>c.id===binding.id);if(!c)return null;
+    const p=R.primaryParameter(c);return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
+  }
+  function renderQuickParameters(){
+    const controls=[$('quickValue'),$('quickMinus'),$('quickPlus')];
+    // Selection is set on pointerdown. Keep the existing footer size until
+    // release so ResizeObserver cannot cancel a newly started component drag.
+    if(drag||cameraGesture||touches.size){controls.forEach(e=>e.disabled=true);return;}
+    const data=quickParameter();$('quickParameters').hidden=!data;
+    $('hint').parentElement.classList.toggle('has-quick',!!data);quickBinding=data?{id:data.c.id,key:data.p.key}:null;
+    controls.forEach(e=>e.disabled=!data);$('quickValue').removeAttribute('aria-invalid');
+    if(!data){$('quickValue').value='';$('quickValue').removeAttribute('data-param');return;}
+    const {c,p}=data,label=c.label+' · '+p.label;
+    $('quickName').textContent=c.label;$('quickName').title=label;$('quickParameters').setAttribute('aria-label',label);
+    $('quickLabel').innerHTML=rich([p.label,...(p.unit?[' ',Q.unit(p.unit)]:[])]);
+    $('quickValue').value=Number((p.value*p.factor).toPrecision(12));$('quickValue').min=p.min*p.factor;$('quickValue').max=p.max*p.factor;
+    $('quickValue').dataset.param=p.key;$('quickValue').title=label;
+    for(const [id,direction]of [['quickMinus',-1],['quickPlus',1]]){
+      $(id).disabled=direction<0?p.value<=p.min:p.value>=p.max;
+      $(id).title=(direction<0?'減少':'增加')+p.label;$(id).setAttribute('aria-label',$(id).title);
+    }
+  }
+  function setQuickParameter(value,binding=quickBinding){
+    const data=quickParameter(binding);if(!data)return false;const {c,p}=data;
+    if(!Number.isFinite(value)||value<p.min||value>p.max){renderQuickParameters();$('quickValue').setAttribute('aria-invalid','true');notify(['請輸入 ',Q.quantity(p.min*p.factor,p.unit),' 至 ',Q.quantity(p.max*p.factor,p.unit),'。'],true);return false;}
+    const changed=execute({type:'setParam',id:c.id,key:p.key,value});
+    if(changed||value===p.value){notify([c.label+' · '+p.label+'：',Q.quantity(value*p.factor,p.unit)]);$('canvasNotice').hidden=true;}
+    return changed;
+  }
+  $('quickValue').onchange=()=>{const data=quickParameter(quickBinding);if(data)setQuickParameter($('quickValue').valueAsNumber/data.p.factor);};
+  $('quickValue').oninput=()=>{if($('quickValue').hasAttribute('aria-invalid'))$('canvasNotice').hidden=true;$('quickValue').removeAttribute('aria-invalid');};
+  on($('quickValue'),'keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('quickValue').blur();}});
+  for(const [id,direction]of [['quickMinus',-1],['quickPlus',1]])$(id).onclick=()=>{const data=quickParameter(quickBinding);if(data)setQuickParameter(R.stepPrimaryParameter(data.c,direction));};
   function connectionLabel(id){const [cid,key]=id.split(":"),c=current().components.find(c=>c.id===cid);if(!c||!R.dualMeter(c))return[portName(id)];
     return key==="b"?[c.label+" · 共用 − 孔"]:[c.label+" · +",Q.quantity(key==="c"?c.params.range/5:c.params.range,c.type==="ammeter"?"A":"V")," 孔"];}
   function rotate(id,direction=1){const c=history.get().components.find(c=>c.id===id);if(!c||!allow(history.get(),c,"rotate"))return;cancel();if(change(doc=>M.rotateComponent(doc,id,direction)))notify("元件已旋轉，所連導線已自動拉直。");}
@@ -287,8 +324,10 @@
     if(!touches.size){const blocked=touchBlocked;touchBlocked=false;touchOrigin=null;if(blocked)render(false);}
   },true);
   on(surface,"pointerdown",e=>{
+    releasedMeta=null;
     if($("preview").contains(e.target))return;
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
+    if(document.activeElement===$('quickValue'))$('quickValue').blur();
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
     if(panMode||quick){if(quick){e.preventDefault();spacePanUsed||=spacePan;}drag={kind:"pan",quick,pointerId:e.pointerId,target:surface,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,base:{...camera},pointerType:e.pointerType,selectionBefore:selection&&M.clone(selection),autoFitBefore:autoFit,moved:false};$("canvasNotice").hidden=true;surface.setPointerCapture(e.pointerId);render(false);return;}
     const t=e.target.closest(".hit"),meta=t?.meta,d=history.get();if(!meta||meta.kind==="port")return;if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
@@ -321,6 +360,9 @@
   });
   on(surface,"pointerup",e=>{
     if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc;drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
+    // Footer reflow may move scene targets before the browser sends click.
+    // Keep the original tap target rather than reselecting whatever moved under it.
+    releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
     if(preview&&done.moved&&change(doc=>Object.assign(doc,preview)))notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?done.kind==="body"?["元件已接線：",...connectionLabel(done.snap.id),"。"]:["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");
     render();
@@ -339,7 +381,8 @@
   on(surface,"auxclick",e=>{if(e.button===1)e.preventDefault();});
   on(surface,"click",e=>{
     if($("preview").contains(e.target))return;
-    if(suppressClick&&e.detail)return;if(panMode)return;const meta=e.target.closest(".hit")?.meta;
+    const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
+    if(suppressClick&&e.detail)return;if(panMode)return;
     if(meta){if(probeMode&&["port","junction","wireend"].includes(meta.kind)){probePort(meta.kind==="junction"?meta.id+":p":meta.kind==="wireend"?history.get().wires.find(w=>w.id===meta.id)[meta.end]:meta.id);return;}
       selection={...meta};if(meta.kind==="body"&&selectedComponent()?.type==="switch"&&allow(history.get(),selectedComponent(),"switch"))change(doc=>{const c=doc.components.find(c=>c.id===meta.id);c.params.closed=!c.params.closed;});else render();
     }else{selection=null;render();}

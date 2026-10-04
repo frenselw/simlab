@@ -39,11 +39,6 @@
 .circuit-editor .preview svg{width:100%;height:100%;pointer-events:none}
 .circuit-editor .empty-hint{position:absolute;top:40%;left:12%;right:12%;text-align:center;color:#6b7e91;pointer-events:none}
 .circuit-editor .empty-hint strong,.circuit-editor .empty-hint span{display:block;margin:10px 0}
-.circuit-editor .stage-bottom{display:flex;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid #edf0f4;background:#fff;flex-wrap:wrap;font-size:.875rem}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{flex:1;min-width:180px;line-height:1.5}
-.circuit-editor .camera-tools{display:flex;gap:3px;align-items:center}
-.circuit-editor .camera-tools button{width:44px;padding:0}
-.circuit-editor .camera-tools output{font-size:12px;width:40px;text-align:center}
 .circuit-editor .panel{min-height:0;overflow:auto;background:#f7f9fb;border-left:1px solid #dbe3eb;padding:12px;overscroll-behavior:contain;touch-action:pan-y}
 .circuit-editor .panel h2{font-size:.875rem;color:#52677c;margin:0 0 10px}
 .circuit-editor .panel-section{border-color:#dfe7ee}
@@ -101,11 +96,6 @@
 .circuit-editor .stage-tools{padding:5px 7px;gap:5px}
 .circuit-editor .stage-tools button{font-size:.875rem;padding:0 9px}
 .circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{font-size:12px}
-.circuit-editor .stage-bottom{padding:4px 7px;gap:2px}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{font-size:12px;min-width:100%;max-height:36px;overflow:hidden}
-.circuit-editor .camera-tools{justify-content:center;width:100%}
-.circuit-editor .camera-tools button{width:36px;min-width:36px;height:44px}
-.circuit-editor .camera-tools output{width:34px}
 .circuit-editor.panel-hidden .workspace{grid-template-rows:minmax(0,1fr)}
 .circuit-editor .preview{width:140px;height:120px;right:38px}
 .circuit-editor .brand .badge{font-size:.6rem}
@@ -116,8 +106,6 @@
 .circuit-editor .header-actions [data-circuit-id="help"]{display:none}
 .circuit-editor .workspace{grid-template-columns:minmax(0,1fr) 230px;grid-template-rows:minmax(0,1fr)}
 .circuit-editor .palette{grid-template-columns:1fr 1fr}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{display:none}
-.circuit-editor .camera-tools{width:auto}
 .circuit-editor .stage-tools{flex-wrap:nowrap}
 .circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{display:none}
 .circuit-editor .stage-tools{padding:3px 7px}}
@@ -152,10 +140,6 @@
 .circuit-editor .hit.wire:hover{outline:0;background:#93b9d520!important}
 .circuit-editor .hit.bend{border:0;background:transparent!important}
 .circuit-editor .hit.bend::after{width:10px;height:10px;top:17px;left:17px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1.5px #397cab}
-.circuit-editor .context-actions{display:flex;align-items:center;gap:6px;flex:1;min-width:200px}
-.circuit-editor .context-actions span{font-size:12px;color:#58758a;flex:1}
-.circuit-editor .context-actions button{padding:0 12px;white-space:nowrap;background:#fff}
-.circuit-editor .stage-bottom.has-actions [data-circuit-id="hint"]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .circuit-editor #cancelWire{border-color:#82a6c2;color:#245e89;background:#f0f7fb}
 .circuit-editor [data-circuit-id="deleteSelected"]{border-color:#e1b8ac;background:#fff8f5;color:#a74730}
 .circuit-editor .connection-options label{margin:0}
@@ -168,38 +152,13 @@
 .circuit-editor .preview{top:auto;bottom:12px}
 .circuit-editor .surface.wiring .hit.wire{cursor:crosshair}
 @media(max-width:759px){
-.circuit-editor .context-actions{width:100%;min-width:0;min-height:44px;justify-content:flex-end}
-.circuit-editor .context-actions span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.circuit-editor .context-actions button{padding:0 10px;font-size:14px}
-.circuit-editor .stage-bottom.has-actions{gap:2px}
 .circuit-editor .palette svg,.circuit-editor .palette .icon{width:44px;height:34px}
 .circuit-editor .preview{bottom:8px}
 .circuit-editor .surface.wiring::after{font-size:11px}}
 @media(max-width:359px){
-.circuit-editor [data-circuit-id="selectionTip"]{display:none}}/* A fixed footer slot keeps drawing coordinates stable when actions appear. */
-.circuit-editor .stage-bottom{display:grid;grid-template-columns:minmax(180px,1fr) auto;grid-template-rows:44px;align-items:center}
-.circuit-editor .stage-bottom [data-circuit-id="hint"],.circuit-editor .stage-bottom .context-actions{grid-area:1/1;min-width:0}
-.circuit-editor .stage-bottom .camera-tools{grid-area:1/2}
-.circuit-editor .context-actions{height:44px}
-.circuit-editor .context-actions span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:899px){
-.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:4px 7px;gap:2px}
-.circuit-editor .stage-bottom .camera-tools{grid-area:2/1;width:100%;justify-content:center}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{display:flex;align-items:center;height:44px;max-height:44px;overflow:hidden}
-.circuit-editor .stage-bottom.has-actions [data-circuit-id="hint"]{height:1px}
-.circuit-editor .stage-bottom .context-actions{width:100%;min-height:44px}
-.circuit-editor .camera-tools button{width:36px;min-width:36px;height:44px}
-.circuit-editor .camera-tools output{width:34px}}
-@media(max-height:450px) and (min-width:560px){
-.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px;padding:3px 7px;gap:5px}
-.circuit-editor .stage-bottom .camera-tools{grid-area:1/2;width:auto}
-.circuit-editor .camera-tools [data-camera=left],.circuit-editor .camera-tools [data-camera=right],.circuit-editor .camera-tools [data-camera=up],.circuit-editor .camera-tools [data-camera=down]{display:none}
-.circuit-editor .stage-bottom .context-actions{width:auto}
-.circuit-editor .context-actions span{display:none}
-.circuit-editor .context-actions button{padding:0 7px;font-size:14px}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{font-size:11px;min-width:0;max-height:44px}
-.circuit-editor .camera-tools button{width:36px;min-width:36px}
-.circuit-editor .camera-tools output{width:30px}}/* Central canvas owns two-finger navigation before contact; sibling strips stay pan-y. */
+.circuit-editor [data-circuit-id="selectionTip"]{display:none}}
+
+/* Central canvas owns two-finger navigation before contact; sibling strips stay pan-y. */
 .circuit-editor .surface{touch-action:none}
 .circuit-editor .surface.quick-pan{cursor:grab}
 .circuit-editor .surface.quick-pan .hit-layer{pointer-events:none}
@@ -219,39 +178,19 @@
 .circuit-editor .cable-toolbox .take-wire b{display:block;font-size:12px;color:#607b91;font-weight:400}
 .circuit-editor .cable-toolbox details{margin-top:6px}
 .circuit-editor .cable-toolbox h2{margin-bottom:7px}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"]{width:auto;min-width:106px;padding:0 8px;font-size:14px;white-space:nowrap}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"] span{font-size:12px;color:#607b91}
-.circuit-editor .stage-bottom{grid-template-columns:minmax(120px,1fr) auto}
-.circuit-editor .stage-bottom .context-actions{min-width:0}
-.circuit-editor .context-actions button{padding:0 9px}
 .circuit-editor .stage-tools .hand-tool{padding:0 9px}
 @media(max-width:899px){
-.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr)}
-.circuit-editor .camera-tools [data-camera=left],.circuit-editor .camera-tools [data-camera=right],.circuit-editor .camera-tools [data-camera=up],.circuit-editor .camera-tools [data-camera=down]{display:none}
-.circuit-editor .camera-tools{gap:5px}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"]{margin-right:auto}
-.circuit-editor .camera-tools button{min-width:44px;width:44px}
-.circuit-editor .camera-tools output{width:32px}
 .circuit-editor .stage-tools .hand-tool{padding:0 7px;gap:4px}
 .circuit-editor .hand-tool svg{width:20px;height:20px}
 .circuit-editor .stage-tools .segmented{margin-right:auto}
-.circuit-editor .context-actions button{padding:0 9px}}
+}
 @media(max-height:450px) and (min-width:560px){
-.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr) auto}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"]{min-width:88px;font-size:12px;padding:0 5px}
-.circuit-editor .camera-tools button{min-width:36px;width:36px}
-.circuit-editor .camera-tools{gap:2px}
-.circuit-editor .stage-bottom .context-actions button{font-size:12px;padding:0 6px}
-.circuit-editor .stage-bottom .context-actions{gap:3px}
 .circuit-editor .hand-tool span{font-size:12px}}
 .circuit-editor .canvas-notice{position:absolute;top:10px;left:10px;right:10px;width:fit-content;max-width:calc(100% - 20px);background:#ffffffee;border:1px solid #bed3e1;border-radius:7px;color:#325d7b;font-size:12px;line-height:1.5;padding:6px 9px;pointer-events:none;z-index:7}
 .circuit-editor .canvas-notice.error{border-color:#dab682;color:#885719}
 .circuit-editor .surface.panning .canvas-notice,.circuit-editor .surface.quick-pan .canvas-notice,.circuit-editor .surface.camera-gesture .canvas-notice{top:42px}
-@media(max-width:899px){
-.circuit-editor .context-actions button{padding:0 7px;font-size:13px}
-.circuit-editor .context-actions:has([data-circuit-id="focusSelected"]:not([hidden])) [data-circuit-id="selectionTip"]{display:none}}
-@media(max-height:450px) and (min-width:560px){
-.circuit-editor .context-actions [data-circuit-id="focusSelected"]{padding:0 5px;font-size:11px}}/* Wire priority is declared before contact; native side-strip scroll remains. */
+
+/* Wire priority is declared before contact; native side-strip scroll remains. */
 .circuit-editor .hit.wire.selected{z-index:8}
 .circuit-editor .hit.wireend.selected{z-index:10}
 .circuit-editor .surface.wire-priority .hit.wire{z-index:7}
@@ -299,19 +238,12 @@
 .circuit-editor .stage-tools .icon-button,.circuit-editor .stage-tools .hand-tool{width:44px;min-width:44px;padding:0}
 .circuit-editor .hand-tool span{display:none}
 .circuit-editor .stage{container-type:inline-size;container-name:stage}
-.circuit-editor .context-actions{gap:4px}
-.circuit-editor .context-actions button.icon-button{padding:0;font-size:14px}
-.circuit-editor .context-actions .socket-action{position:relative}
 .circuit-editor .socket-action .ui-icon{width:18px;height:18px;margin-right:9px}
 .circuit-editor .socket-action small{position:absolute;right:4px;bottom:5px;font-size:11px;line-height:1;color:#526f88}
 .circuit-editor .object-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .circuit-editor .object-actions .icon-button{width:100%}
 .circuit-editor .object-actions .text-action{grid-column:1/-1}
 .circuit-editor .object-actions .danger{background:#fff8f5}
-.circuit-editor .camera-tools button{min-width:44px;min-height:44px;font-size:20px}
-.circuit-editor .camera-tools output{width:36px}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"]{min-width:100px}
-.circuit-editor .context-actions [data-circuit-id="deleteSelected"]::after,.circuit-editor .context-actions [data-circuit-id="focusSelected"]::after{content:none}
 .circuit-editor [data-circuit-id="settingsDialog"]{width:min(760px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);padding:0;overscroll-behavior:contain}
 .circuit-editor [data-circuit-id="settingsDialog"]>.dialog-head{position:sticky;top:0;background:#fff;padding:12px 16px;border-bottom:1px solid #e2e8f0;gap:12px;z-index:2}
 .circuit-editor [data-circuit-id="settingsDialog"]>.dialog-head>div{min-width:0}
@@ -332,17 +264,7 @@
 .circuit-editor .settings-section details{border-top:1px solid #e0e8ef;margin-top:6px}
 .circuit-editor .settings-section button{min-height:44px;font-size:.875rem}
 .circuit-editor .settings-section fieldset{margin:8px 0}
-@container stage (max-width:800px){
-.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:4px 7px;gap:2px}
-.circuit-editor .stage-bottom .camera-tools{grid-area:2/1;width:100%;justify-content:center;gap:5px}
-.circuit-editor .stage-bottom .context-actions{grid-area:1/1;width:100%;justify-content:flex-end}
-.circuit-editor .stage-bottom [data-circuit-id="hint"]{grid-area:1/1;min-width:0;font-size:12px}
-.circuit-editor .context-actions [data-circuit-id="selectionTip"]{display:none}
-.circuit-editor .camera-tools [data-camera=left],.circuit-editor .camera-tools [data-camera=right],.circuit-editor .camera-tools [data-camera=up],.circuit-editor .camera-tools [data-camera=down]{display:none}
-.circuit-editor .camera-tools [data-circuit-id="quickWire"]{margin-right:auto;min-width:100px;font-size:14px;padding:0 8px}
-.circuit-editor .camera-tools button{width:44px;min-width:44px}
-.circuit-editor .camera-tools output{width:36px}
-}
+
 @media(max-width:759px) and (min-height:451px){
 .circuit-editor .sim-header{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,44px);gap:4px;padding:7px 9px}
 .circuit-editor [data-sim-fullscreen].sim-fullscreen-header.sim-fullscreen-header-row{padding-right:9px!important}
@@ -372,7 +294,7 @@
 .circuit-editor .header-actions{gap:4px}
 .circuit-editor .header-actions .icon-button{padding:0}
 .circuit-editor .header-actions [data-circuit-id="help"]{display:none}
-.circuit-editor .context-actions button.icon-button{padding:0}}
+}
 .circuit-editor .settings-notice{font-size:.875rem;line-height:1.5;margin:6px 0 0;color:#a35d13}
 
 .circuit-editor.no-panel .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
@@ -381,3 +303,53 @@
 .circuit-editor[data-role="student"] .header-actions{display:flex;margin-left:auto}
 .circuit-editor[data-role="student"] .header-actions [data-circuit-id="help"]{display:inline-flex}
 .circuit-editor[data-role="student"] .stage-tools{flex-wrap:wrap}
+
+/* Footer columns share the same 44 px controls and 4 px rhythm as stage tools. */
+.circuit-editor .stage-tools{gap:4px}
+.circuit-editor .stage-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:44px;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid #edf0f4;background:#fff;font-size:.875rem}
+.circuit-editor .stage-bottom [data-circuit-id="hint"],.circuit-editor .quick-parameters{grid-area:1/1;min-width:0}
+.circuit-editor .stage-bottom [data-circuit-id="hint"]{line-height:1.5;max-height:44px;overflow:hidden}
+.circuit-editor .stage-bottom.has-actions [data-circuit-id="hint"]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.circuit-editor .context-actions{grid-area:1/2;display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0;height:44px}
+.circuit-editor .context-actions span{font-size:12px;color:#58758a;min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.circuit-editor .context-actions button{padding:0 9px;white-space:nowrap}
+.circuit-editor .context-actions .socket-action{position:relative}
+.circuit-editor .stage-bottom.has-quick [data-circuit-id="selectionTip"]{display:none}
+.circuit-editor .camera-tools{grid-area:1/3;display:flex;width:auto;min-width:0;gap:4px;align-items:center;justify-content:flex-end}
+.circuit-editor .camera-tools button{flex:0 0 44px;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;font-size:20px}
+.circuit-editor .camera-tools output{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;font-size:12px;text-align:center;white-space:nowrap}
+.circuit-editor .camera-tools [data-circuit-id="quickWire"]{flex:0 0 auto;width:auto;min-width:100px;margin-right:0;padding:0 8px;font-size:14px;white-space:nowrap}
+.circuit-editor .camera-tools [data-circuit-id="quickWire"] span{font-size:12px;color:#607b91}
+.circuit-editor .quick-parameters{display:flex;align-items:center;gap:6px;height:44px}
+.circuit-editor .quick-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#405d77}
+.circuit-editor .quick-stepper{display:flex;flex:0 0 auto;align-items:center;gap:4px}
+.circuit-editor .quick-stepper button{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:20px}
+.circuit-editor .quick-field{position:relative;display:block;width:64px;height:44px;margin:0}
+.circuit-editor .quick-field>span{position:absolute;left:3px;right:3px;top:3px;text-align:center;font-size:11px;line-height:14px;white-space:nowrap;overflow:hidden;pointer-events:none;color:#536f85}
+.circuit-editor .quick-field .math-inline{font-size:12px}
+.circuit-editor .quick-field input{display:block;width:100%;height:44px;min-height:44px;min-width:0;border:1px solid #bdccda;border-radius:8px;background:#fff;color:#213e56;font:16px/1.2 var(--font-ui,system-ui,sans-serif);text-align:center;padding:16px 2px 1px;appearance:textfield}
+.circuit-editor .quick-field input::-webkit-inner-spin-button,.circuit-editor .quick-field input::-webkit-outer-spin-button{appearance:none;margin:0}
+.circuit-editor .quick-field input[aria-invalid=true]{border-color:#b45309}
+@container stage (max-width:940px){
+.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px 44px;gap:4px;padding:4px 7px}
+.circuit-editor .stage-tools{padding-left:7px;padding-right:7px}
+.circuit-editor .stage-bottom .context-actions{grid-area:1/2}
+.circuit-editor .stage-bottom .camera-tools{grid-area:2/1/3/3;width:100%}
+.circuit-editor .camera-tools [data-camera=left],.circuit-editor .camera-tools [data-camera=right],.circuit-editor .camera-tools [data-camera=up],.circuit-editor .camera-tools [data-camera=down]{display:none}
+.circuit-editor .camera-tools [data-circuit-id="quickWire"]{margin-right:auto}
+.circuit-editor .context-actions [data-circuit-id="selectionTip"]{display:none}
+.circuit-editor .quick-name{display:none}
+}
+@container stage (max-width:379px){
+.circuit-editor .stage-bottom.has-quick{grid-template-rows:44px 44px 44px}
+.circuit-editor .stage-bottom.has-quick .quick-parameters{grid-area:1/1/2/3}
+.circuit-editor .stage-bottom.has-quick .quick-name{display:block}
+.circuit-editor .stage-bottom.has-quick .context-actions{grid-area:2/1/3/3}
+.circuit-editor .stage-bottom.has-quick .camera-tools{grid-area:3/1/4/3}
+}
+@media(max-height:450px){
+@container stage (min-width:800px) and (max-width:940px){
+.circuit-editor .stage-bottom{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:44px}
+.circuit-editor .stage-bottom .context-actions{grid-area:1/2}
+.circuit-editor .stage-bottom .camera-tools{grid-area:1/3;width:auto}
+}}
