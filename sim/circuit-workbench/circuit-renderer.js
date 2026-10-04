@@ -285,14 +285,33 @@
     const target=Math.min(flowSpacing,36*scale,Routing.length(points)*scale/2);
     return flowSpacing/Math.max(1,Math.ceil(flowSpacing/target));
   }
-  // Display speed is compressed for observation; it is not a drift velocity in m/s.
-  function flowSpeed(current){if(!Number.isFinite(current)||Math.abs(current)<1e-9)return 0;const magnitude=Math.abs(current);return 240/(1+4/magnitude);}
+  // Each electrically connected island gets its own current scale. A second,
+  // unrelated circuit must not hide a microamp circuit's moving charges.
+  function flowReferences(doc,result){
+    const references=new Map();
+    const record=(endpoint,current)=>{
+      if(!Number.isFinite(current)||current===0)return;
+      const island=result.islandOf?.[endpoint]??endpoint;
+      references.set(island,Math.max(references.get(island)||0,Math.abs(current)));
+    };
+    for(const w of doc.wires)record(w.from,result.wires[w.id]?.current);
+    for(const c of doc.components)for(const b of result.components[c.id]?.branches||[])record(b.from,b.current);
+    return references;
+  }
+  const referenceAt=(references,result,endpoint)=>references.get(result.islandOf?.[endpoint]??endpoint);
+  // Compressed relative speeds with a visible floor; never a physical drift
+  // velocity or an exact current ratio. Only genuine zero/unknown stays still.
+  function flowSpeed(current,reference=4){
+    if(!Number.isFinite(current)||current===0)return 0;
+    const scale=Number.isFinite(reference)&&reference>0?reference:4;
+    return 18+222/(1+2*Math.sqrt(scale/Math.abs(current)));
+  }
   function advanceFlow(offsets,doc,result,dt){
-    const paths=[...doc.wires.map(w=>({id:w.id,current:result.wires[w.id]?.current})),...componentFlowPaths(doc,result)];
+    const paths=[...doc.wires.map(w=>({id:w.id,from:w.from,current:result.wires[w.id]?.current})),...componentFlowPaths(doc,result)];
     const ids=new Set(paths.map(p=>p.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
     if(doc.display.flow==='off')return;
-    const elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
-    for(const p of paths){const speed=flowSpeed(p.current);if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
+    const references=flowReferences(doc,result),elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
+    for(const p of paths){const speed=flowSpeed(p.current,referenceAt(references,result,p.from));if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
   }
   function flowParticles(points,phase,spacing,scale,electron,reverse,size){
     let out='';const length=Routing.length(points);
@@ -304,21 +323,21 @@
     return out;
   }
   function flow(doc, result, routes, time, scale, offsets=null) {
-    if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron';
+    if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result);
     doc.wires.forEach((w) => {
-      const current = result.wires[w.id]?.current,speed=flowSpeed(current);if(!speed)return;
+      const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(current,reference);if(!speed)return;
       const points=routes[w.id]||Routing.route(doc,w),reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
-      out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
+      out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
       out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
       out+='</g>';
     });
     for(const p of componentFlowPaths(doc,result)){
-      const speed=flowSpeed(p.current);if(!speed)continue;
+      const reference=referenceAt(references,result,p.from),speed=flowSpeed(p.current,reference);if(!speed)continue;
       const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,.55);
-      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${Routing.path(p.points)}" fill="none" stroke="#2563eb" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
+      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${Routing.path(p.points)}" fill="none" stroke="#2563eb" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
       out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size)+'</g>';
     }
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
+  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
 });

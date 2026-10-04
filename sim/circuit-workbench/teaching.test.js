@@ -67,11 +67,11 @@ for(const ratio of [1,2.1,10,30])for(const linear of [0,.1,.99,1]){
   for(const voltage of [-12,-1,0,.5,3,12]){const at=R.lampAt(voltage,p),dv=1e-5;assert(at.conductance>0);near(at.conductance,(R.lampAt(voltage+dv,p).current-R.lampAt(voltage-dv,p).current)/(2*dv),'nonlinear lamp Jacobian',1e-5);}
   const d=circuit([device('E','battery',{a:'p',b:'n'},{voltage:3,resistance:1}),device('L','lamp',{a:'p',b:'n'},p)]);energy(d);restoredContinuation(d,doc=>doc.components[1].params.ratedVoltage=3);
 }
-const calibrated=P.create('lampCurve').components[2].params;
+const calibrated={...R.defaults('lamp'),model:'thermal',resistance:2.5/.43,ratedVoltage:2.5,coldRatio:2.1,linearLoss:.99};
 for(const [u,i]of [[.5,.17],[1,.28],[1.5,.35],[2,.40],[2.5,.43]])near(R.lampAt(u,calibrated).current,i,'textbook graph-read comparison',.02);cases++;
 
 for(const terminals of [5,'4']){const bad=P.create('ohm');bad.components[2].params.terminals=terminals;assert.throws(()=>D.decode(JSON.stringify(bad)));cases++;}
-for(const name of ['limiting','divider','lampCurve','gAmmeter','gVoltmeter']){
+for(const name of ['limiting','divider','gAmmeter','gVoltmeter']){
   const d=P.create(name);energy(d);assert(d.wires.every(w=>G.length(G.route(d,w))<=w.length+.05&&w.length<=1200));restoredContinuation(d,doc=>doc.components[1].params.resistance*=1.1);
 }
 console.log(`DC teaching: ${cases} native multi-post/G/lamp cases, independent loading and conversion formulas, signed actual needles, thermal Jacobians, legacy migrations, production round trips + legal continuation passed.`);

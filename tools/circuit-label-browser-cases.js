@@ -15,7 +15,7 @@ async function labelCases(h,mode,base){
   await h.send('Browser.setDownloadBehavior',{behavior:'deny'});
   for(const width of [320,390,1280]){
     await launch(width);
-    for(const name of ['series','parallel','mixed','ohm','meters','bridge','limiting','divider','lampCurve','gAmmeter','gVoltmeter'])for(const view of ['real','schematic']){
+    for(const name of ['series','parallel','mixed','ohm','meters','bridge','limiting','divider','gAmmeter','gVoltmeter'])for(const view of ['real','schematic']){
       const d=P.create(name);d.display.view=view;d.display.flow='off';await h.load(d);const before=await h.save(),result=await clear(`${width} ${name} ${view}`);assert.equal(await h.save(),before);if(name==='series')await h.screenshot(`${mode}-adaptive-${view}-${width}.png`);h.evidence.push({mode,adaptivePreset:true,width,name,view,clearance:result});
     }
     for(const view of ['real','schematic']){

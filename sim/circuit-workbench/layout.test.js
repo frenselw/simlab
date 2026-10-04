@@ -15,7 +15,7 @@ function outsideMeter(d,w,c){const p=G.route(d,w),total=G.length(p),box=R.bodyBo
  if(distance<=24&&w.from.startsWith(c.id+':')||total-distance<=24&&w.to.startsWith(c.id+':'))continue;
  assert(!(q.x>box.left+.1&&q.x<box.right-.1&&q.y>box.top+.1&&q.y<box.bottom-.1),`${c.type} ${c.angle} ${c.id} cable ${w.id} enters the rotated housing at ${distance}/${total}: ${JSON.stringify(q)}`);
 }}
-for(const name of ['series','parallel','mixed','ohm','meters','bridge','limiting','divider','lampCurve','gAmmeter','gVoltmeter']){const d=P.create(name),routes=d.wires.map(w=>G.route(d,w)),ends=M.endpoints(d);let crossings=0;
+for(const name of ['series','parallel','mixed','ohm','meters','bridge','limiting','divider','gAmmeter','gVoltmeter']){const d=P.create(name),routes=d.wires.map(w=>G.route(d,w)),ends=M.endpoints(d);let crossings=0;
  assert.deepEqual(D.decode(D.encode(d)),d,'every authored example survives production encoding');assert.deepEqual(S.solve(d).diagnostics,[],'every example has a reliable solution');
  for(let i=0;i<routes.length;i++){const p=routes[i],w=d.wires[i];assert(G.length(p)<=w.length+.05);for(const key of ['x','y']){near(p[0][key],ends.get(w.from)[key],'prepared from '+key);near(p.at(-1)[key],ends.get(w.to)[key],'prepared to '+key);}
   for(let a=1;a<p.length;a++)for(let b=a+2;b<p.length;b++)assert(!segmentCross(p[a-1],p[a],p[b-1],p[b]),`${name} ${w.id} has a self crossing`);

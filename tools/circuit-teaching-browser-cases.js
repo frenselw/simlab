@@ -50,7 +50,7 @@ async function teachingCases(h,mode,base,output){
     }
     near(await h.inside('CircuitWorkbench.getAnalysis().components.c2.reading'),.00001);const wired=await h.save();await h.load(wired);near(await h.inside('CircuitWorkbench.getAnalysis().components.c2.reading'),.00001);evidence('G-trusted-wiring',{twoSockets:true,finiteCables:true,restore:true});
 
-    await h.load(P.create('lampCurve'));const recorded=await h.save();
+    const thermal=P.create('divider');thermal.components[0].params.voltage=3;Object.assign(thermal.components[2].params,{model:'thermal',resistance:2.5/.43,ratedVoltage:2.5,coldRatio:2.1,linearLoss:.99});await h.load(thermal);const recorded=await h.save();
     // Lamp rated power input controls actual hot resistance, not only a caption.
     await hidePanel();await focus('c3');await panel();near(await h.inside('document.querySelector("[data-param=ratedPower]").valueAsNumber'),1.075);await number('[data-param=ratedPower]',2);near((await h.doc()).components[2].params.resistance,3.125);await tap('#undo');assert.equal(await h.save(),recorded);evidence('rated-lamp',{actualRatedPowerInput:true,undo:true});
     await tap('#settings');await tap('#clearAll');doc=await h.doc();assert.equal(doc.components.length,0);assert(!doc.measurements);await tap('#closeSettings');await tap('#undo');assert.equal(await h.save(),recorded);evidence('whole-clear',{emptyCircuit:true,undo:true});

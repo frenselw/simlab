@@ -28,7 +28,7 @@ for(const key of Object.keys(M.quantityDefaults)){
 }
 {
   const invalid=M.empty();invalid.display.quantities.extra=true;assert.throws(()=>M.validate(invalid));invalid.display.quantities=null;assert.throws(()=>M.validate(invalid));
-  for(const name of ['series','parallel','mixed','ohm','limiting','divider','lampCurve','gAmmeter','gVoltmeter','meters','bridge','wiring','empty'])assert.deepEqual(P.create(name).display.quantities,M.quantityDefaults);
+  for(const name of ['series','parallel','mixed','ohm','limiting','divider','gAmmeter','gVoltmeter','meters','bridge','wiring','empty'])assert.deepEqual(P.create(name).display.quantities,M.quantityDefaults);
   cases++;
 }
 for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const angle of [0,90,180,270]){

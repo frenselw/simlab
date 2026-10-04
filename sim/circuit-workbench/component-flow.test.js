@@ -98,11 +98,11 @@ function rheostatFixture(terminals,loadPort=null,divider=false){
 {
   const d=P.create('series'),result=S.solve(d),offsets=new Map(),saved=D.encode(d);d.display.flow='current';
   const p=V.componentFlowPaths(d,result).find(p=>p.component==='c3');
-  offsets.set(p.id,64.8);V.advanceFlow(offsets,d,result,.02);near(step(64.8,offsets.get(p.id)),V.flowSpeed(.25)*.02);
+  offsets.set(p.id,64.8);V.advanceFlow(offsets,d,result,.02);near(step(64.8,offsets.get(p.id)),V.flowSpeed(.25,V.flowReferences(d,result).get(result.islandOf[p.from]))*.02);
   const snapshot=new Map(offsets);V.advanceFlow(offsets,d,result,0);assert.deepEqual(offsets,snapshot);V.flow(d,result,{},999,.6,offsets);assert.deepEqual(offsets,snapshot);
   const reversed=M.clone(d);reversed.components[0].params.polarity=-1;V.advanceFlow(offsets,reversed,S.solve(reversed),0);assert.deepEqual(offsets,snapshot);
-  V.advanceFlow(offsets,reversed,S.solve(reversed),.02);near(step(snapshot.get(p.id),offsets.get(p.id)),-V.flowSpeed(.25)*.02);
-  d.display.flow='electron';const before=offsets.get(p.id);V.advanceFlow(offsets,d,result,.02);near(step(before,offsets.get(p.id)),-V.flowSpeed(.25)*.02);
+  V.advanceFlow(offsets,reversed,S.solve(reversed),.02);near(step(snapshot.get(p.id),offsets.get(p.id)),-V.flowSpeed(.25,V.flowReferences(d,result).get(result.islandOf[p.from]))*.02);
+  d.display.flow='electron';const before=offsets.get(p.id);V.advanceFlow(offsets,d,result,.02);near(step(before,offsets.get(p.id)),-V.flowSpeed(.25,V.flowReferences(d,result).get(result.islandOf[p.from]))*.02);
   const restored=D.decode(saved);assert.equal(D.encode(restored),saved);assert(!saved.includes('component:'));restored.components[1].params.closed=false;assert.equal(V.flow(restored,S.solve(restored),{},1,1),'');
   restored.components[1].params.closed=true;restored.components[0].params.voltage=12;near(S.solve(restored).components.c3.current,.5);assert(V.flow(restored,S.solve(restored),{},1,1).includes('data-flow-component="c3"'));
   offsets.set('component:deleted:main',5);V.advanceFlow(offsets,restored,S.solve(restored),0);assert(!offsets.has('component:deleted:main'));cases++;
