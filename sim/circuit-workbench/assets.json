@@ -11,7 +11,6 @@
     "circuit-workbench/component-registry.js",
     "circuit-workbench/circuit-meter-motion.js",
     "circuit-workbench/circuit-model.js",
-    "circuit-workbench/circuit-experiments.js",
     "circuit-workbench/circuit-solver.js",
     "circuit-workbench/circuit-routing.js",
     "circuit-workbench/circuit-label-layout.js",

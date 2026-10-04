@@ -32,7 +32,6 @@
         link(l,'b',a,'c',[{x:780,y:150},{x:780,y:560},{x:650,y:560}]);link(a,'b','j1','p',[{x:586,y:580}]);link('j1','p',battery,'b',[{x:160,y:580}]);
         if(name!=='limiting')link(r,'c','j1','p',[{x:480,y:170}]);
         link(v,name==='limiting'?'a':'c',l,'a',[{x:900,y:450},{x:1040,y:450},{x:1040,y:100},{x:560,y:100}]);link(v,'b','j1','p',[{x:836,y:620},{x:480,y:620}]);
-        d.measurements={voltage:v.id,current:a.id,axis:'IU',fit:false,rows:[]};
       }
       d.wires.forEach(w=>w.length=Math.max(600,Math.min(1200,Math.ceil(G.length(G.route(d,w)))+160)));
       return M.validate(d);

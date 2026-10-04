@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting,node?require('./circuit-experiments.js'):root.CircuitExperiments);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting);
   if (typeof module === "object" && module.exports) module.exports = api; else root.CircuitModel = api;
-})(globalThis, function (R, G, E) {
+})(globalThis, function (R, G) {
   "use strict";
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -15,7 +15,7 @@
   const point = (p) => { object(p, ["x", "y"]); numeric(p.x, -limits.coordinate, limits.coordinate); numeric(p.y, -limits.coordinate, limits.coordinate); };
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => (legacy?R.legacyPorts(c):R.ports(c)).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
   function validate(input) {
-    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", "measurements", ...(input?.version>=3?["cables"]:[])]);
+    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[])]);
     if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4].includes(input.version)) throw new Error("不支援的電路檔版本");
     const ids = new Set();
     const id = (value) => { if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,39}$/i.test(value) || ids.has(value)) throw new Error("元件或導線 ID 無效或重複"); ids.add(value); };
@@ -49,7 +49,6 @@
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
-    if(Object.hasOwn(input,'measurements'))E.validate(input.measurements,input.components);
     const valid = clone(input);
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
@@ -140,8 +139,6 @@
     // Removing an object unplugs its cables; the physical cables stay on the table.
     doc.wires.forEach(w=>{if(w.id!==id)for(const key of ["from","to"])if(removedPorts.has(w[key]))w[key]=freeEnd(doc,ends.get(w[key]));});
     doc.components = doc.components.filter((x) => x.id !== id); doc.junctions = doc.junctions.filter((x) => x.id !== id);
-    if(doc.measurements)for(const key of ['voltage','current'])if(doc.measurements[key]===id)doc.measurements[key]=null;
-    if(doc.measurements?.resistance?.split(':')[0]===id)doc.measurements.resistance=null;
     doc.wires = doc.wires.filter((w) => w.id !== id);
     doc.wires.forEach(w=>{if(paths.has(w.id))pose(doc,w,paths.get(w.id));});
     if (removedPorts.has(doc.display.reference)) doc.display.reference = null;
@@ -183,7 +180,6 @@
     for(const p of oldPorts)if(!keys.has(p.id)){doc.wires.filter(w=>w.from===p.id||w.to===p.id).forEach(w=>{for(const end of ['from','to'])if(w[end]===p.id)detach(doc,w.id,end,false);});if(doc.display.reference===p.id)doc.display.reference=null;}
     c.params.terminals=count;cleanup(doc);
     if(!reconcile(doc,before))throw new Error('導線太短，請先拔開或移近元件再切換接線孔');
-    if(doc.measurements?.resistance&&!E.resistanceSources(doc.components).some(s=>s.value===doc.measurements.resistance))doc.measurements.resistance=null;
   }
   function history(initial) {
     let value = validate(initial), past = [], future = [];

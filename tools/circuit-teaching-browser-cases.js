@@ -1,8 +1,8 @@
 'use strict';
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const M=require('../sim/circuit-workbench/circuit-model'),R=require('../sim/circuit-workbench/component-registry'),P=require('../sim/circuit-workbench/presets'),D=require('../sim/circuit-workbench/circuit-document');
+const assert=require('node:assert/strict');
+const M=require('../sim/circuit-workbench/circuit-model'),R=require('../sim/circuit-workbench/component-registry'),P=require('../sim/circuit-workbench/presets');
 async function teachingCases(h,mode,base,output){
-  console.log(`${mode}: G / four-post rheostat / experimental records`);
+  console.log(`${mode}: G / four-post rheostat / lamp controls`);
   const near=(a,b,tol=1e-8)=>assert(Math.abs(a-b)<tol,`${a} != ${b}`);
   for(const width of [320,390,1280]){
     console.log(`${mode}: teaching ${width} px`);
@@ -50,16 +50,10 @@ async function teachingCases(h,mode,base,output){
     }
     near(await h.inside('CircuitWorkbench.getAnalysis().components.c2.reading'),.00001);const wired=await h.save();await h.load(wired);near(await h.inside('CircuitWorkbench.getAnalysis().components.c2.reading'),.00001);evidence('G-trusted-wiring',{twoSockets:true,finiteCables:true,restore:true});
 
-    await h.load(P.create('lampCurve'));await panel();await tap('#measurementsPanel summary');
-    for(const position of [.1,.25,.4,.6,.8]){const d=await h.doc();d.components[1].params.position=position;await h.load(d);await tap('#recordAdd');}
-    doc=await h.doc();assert.equal(doc.measurements.rows.length,5);const plotted=await h.inside('document.querySelectorAll("#recordPlot [data-measurement-point]").length');assert.equal(plotted,5);
-    await choose('#recordAxis','UI');await tap('#recordFit');assert(await h.inside('Boolean(document.querySelector("#recordPlot [data-measurement-fit]"))'));await tap('#recordEnlarge');assert(await h.inside('document.getElementById("plotDialog").open'));assert.equal(await h.inside('document.querySelectorAll("#plotDetail [data-measurement-point]").length'),5);await h.screenshot(`${mode}-teaching-data-${width}.png`);await tap('#closePlot');
-    const recorded=await h.save(),file=path.join(output,`${mode}-teaching-records-${width}.json`);fs.writeFileSync(file,recorded);await h.load(M.empty());await h.inside('document.getElementById("fileInput").removeAttribute("hidden")');const node=await h.send('DOM.getDocument',{depth:0}),input=await h.send('DOM.querySelector',{nodeId:node.root.nodeId,selector:'#fileInput'});await h.send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[file]});await h.delay(150);assert.equal(await h.save(),recorded,'actual JSON file input restores rows and sources');
-    await tap('#recordAdd');assert.equal((await h.doc()).measurements.rows.length,6);await tap('#undo');assert.equal(await h.save(),recorded);await tap('[data-delete-record="1"]');assert.equal((await h.doc()).measurements.rows.length,4);await tap('#undo');assert.equal(await h.save(),recorded);await tap('#recordClear');assert.equal((await h.doc()).measurements.rows.length,0);await tap('#undo');assert.equal(await h.save(),recorded);
-    await h.inside('window.__downloads=[];const create=URL.createObjectURL;URL.createObjectURL=function(blob){blob.text().then(text=>__downloads.push({type:blob.type,text}));return create.call(this,blob)}');await tap('#recordExport');await h.delay(100);const csv=await h.inside('__downloads.at(-1)');assert(csv.type.startsWith('text/csv'));assert.equal(csv.text.split('\r\n').length,6);assert(csv.text.includes('U (V)'));evidence('measurements',{rows:5,plotted,fit:true,actualFileInput:true,restoredRecordContinuation:true,deleteClearUndo:true,csvDownload:true});
+    await h.load(P.create('lampCurve'));const recorded=await h.save();
     // Lamp rated power input controls actual hot resistance, not only a caption.
     await hidePanel();await focus('c3');await panel();near(await h.inside('document.querySelector("[data-param=ratedPower]").valueAsNumber'),1.075);await number('[data-param=ratedPower]',2);near((await h.doc()).components[2].params.resistance,3.125);await tap('#undo');assert.equal(await h.save(),recorded);evidence('rated-lamp',{actualRatedPowerInput:true,undo:true});
-    await tap('#settings');await tap('#clearAll');doc=await h.doc();assert.equal(doc.components.length,0);assert(!doc.measurements);await tap('#closeSettings');await tap('#undo');assert.equal(await h.save(),recorded);evidence('whole-clear',{noOrphanMeasurementSources:true,undo:true});
+    await tap('#settings');await tap('#clearAll');doc=await h.doc();assert.equal(doc.components.length,0);assert(!doc.measurements);await tap('#closeSettings');await tap('#undo');assert.equal(await h.save(),recorded);evidence('whole-clear',{emptyCircuit:true,undo:true});
     assert(await h.inside('document.documentElement.scrollWidth<=innerWidth'));const events=await h.inside('__teachingEvents');assert(events.some(e=>e.trusted&&e.type==='pointermove'&&e.pointer===(width<600?'touch':'mouse')));assert(events.some(e=>e.trusted&&e.type==='input'));evidence('input-and-layout',{trustedEvents:events.filter(e=>e.trusted).length,noHorizontalOverflow:true,selectMethod:'production change handler'});
   }
 }

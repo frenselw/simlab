@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),{XMLValidator}=require('fast-xml-parser');
-const M=require('./circuit-model'),R=require('./component-registry'),S=require('./circuit-solver'),D=require('./circuit-document'),V=require('./circuit-renderer'),G=require('./circuit-routing'),E=require('./circuit-experiments'),P=require('./presets'),T=require('../../tools/circuit-textbook-cases');
+const M=require('./circuit-model'),R=require('./component-registry'),S=require('./circuit-solver'),D=require('./circuit-document'),V=require('./circuit-renderer'),G=require('./circuit-routing'),P=require('./presets'),T=require('../../tools/circuit-textbook-cases');
 let cases=0;
 const near=(actual,expected,message,tolerance=1e-8)=>assert(Number.isFinite(actual)&&Math.abs(actual-expected)<=tolerance*Math.max(1,Math.abs(expected)),`${message}: ${actual} != ${expected}`);
 const circuit=parts=>T.circuit(parts).doc;
@@ -70,20 +70,8 @@ for(const ratio of [1,2.1,10,30])for(const linear of [0,.1,.99,1]){
 const calibrated=P.create('lampCurve').components[2].params;
 for(const [u,i]of [[.5,.17],[1,.28],[1.5,.35],[2,.40],[2.5,.43]])near(R.lampAt(u,calibrated).current,i,'textbook graph-read comparison',.02);cases++;
 
-// Real meter readings are recorded without correcting their burden or signed value.
-const dataDoc=P.create('ohm');dataDoc.components[3].params.resistance=1000;
-for(const position of [.1,.2,.4,.6,.8]){dataDoc.components[2].params.position=position;E.record(dataDoc,S.solve(dataDoc),'c4','c2');}
-dataDoc.measurements.axis='UI';dataDoc.measurements.fit=true;const fitted=E.fit(dataDoc.measurements.rows,'UI');near(fitted.intercept,6/(1+2/1000),'measured source intercept retains V loading');near(-fitted.slope,2/(1+2/1000),'measured slope retains V loading');
-assert.equal(XMLValidator.validate(E.plot(dataDoc.measurements)),true);assert.equal((E.plot(dataDoc.measurements).match(/data-measurement-point=/g)||[]).length,5);restoredContinuation(dataDoc,doc=>{doc.components[2].params.position=.9;E.record(doc,S.solve(doc),'c4','c2');});
-const template=D.template(dataDoc);assert.equal(template.measurements.rows.length,0);M.validate(template);assert.equal(dataDoc.measurements.rows.length,5,'template does not clear the source experiment');cases++;
-const dataHistory=M.history(dataDoc),recorded=D.encode(dataHistory.get());dataHistory.change(doc=>M.remove(doc,'c4'));assert.equal(dataHistory.get().measurements.voltage,null);assert.equal(dataHistory.get().measurements.rows.length,5);dataHistory.undo();assert.equal(D.encode(dataHistory.get()),recorded);cases++;
-const negative=M.clone(dataDoc);negative.components[0].params.polarity=-1;negative.components[3].params.range=30;const row=E.record(negative,S.solve(negative),'c4','c2');assert(row.u<0&&row.i<0);assert.equal(row.uStatus,'reverse');assert(E.csv(negative.measurements).includes(String(row.i)));cases++;
-const invalid=M.clone(dataDoc);M.remove(invalid,'c2');assert.throws(()=>E.record(invalid,S.solve(invalid),'c4','c2'));const unknown=M.clone(dataDoc),vWire=unknown.wires.find(w=>w.from==='c4:a');M.detach(unknown,vWire.id,'from');assert.throws(()=>E.record(unknown,S.solve(unknown),'c4','c2'));cases++;
-const full=M.clone(dataDoc);full.measurements.rows=Array.from({length:200},()=>({...full.measurements.rows[0]}));assert.throws(()=>E.record(full,S.solve(full),'c4','c2'));D.decode(D.encode(full));cases++;
-const injection=M.clone(dataDoc.measurements);injection.rows[0].uLabel='=HYPERLINK("evil")';assert(E.csv(injection).includes("'=HYPERLINK"));injection.rows[0].iLabel='line\n"quoted"';assert(E.csv(injection).includes('line\n""quoted""'));cases++;
-const over=M.clone(dataDoc.measurements);over.rows.push({...over.rows[0],u:100,i:100,uStatus:'overrange'});near(E.fit(over.rows,'UI').slope,fitted.slope,'overrange points are excluded from fitting');cases++;
-for(const fn of [d=>d.components[2].params.terminals=5,d=>d.components[2].params.terminals='4',d=>d.measurements.rows[0].i=null,d=>d.measurements.rows[0].extra=true,d=>d.measurements.current='c1',d=>d.measurements.axis='bad',d=>d.measurements.rows=Array(201).fill(d.measurements.rows[0])]){const bad=M.clone(dataDoc);fn(bad);assert.throws(()=>D.decode(JSON.stringify(bad)));cases++;}
+for(const terminals of [5,'4']){const bad=P.create('ohm');bad.components[2].params.terminals=terminals;assert.throws(()=>D.decode(JSON.stringify(bad)));cases++;}
 for(const name of ['limiting','divider','lampCurve','gAmmeter','gVoltmeter']){
   const d=P.create(name);energy(d);assert(d.wires.every(w=>G.length(G.route(d,w))<=w.length+.05&&w.length<=1200));restoredContinuation(d,doc=>doc.components[1].params.resistance*=1.1);
 }
-console.log(`DC teaching: ${cases} native multi-post/G/lamp/data cases, independent loading and conversion formulas, signed actual needles, thermal Jacobians, legacy migrations, production round trips + legal continuation, data/CSV/fit validation passed.`);
+console.log(`DC teaching: ${cases} native multi-post/G/lamp cases, independent loading and conversion formulas, signed actual needles, thermal Jacobians, legacy migrations, production round trips + legal continuation passed.`);

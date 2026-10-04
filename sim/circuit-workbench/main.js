@@ -1,7 +1,7 @@
 (async() => {
   "use strict";
   await window.CircuitMath.ready();
-  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,E=window.CircuitExperiments,N=window.CircuitMeterMotion;
+  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,N=window.CircuitMeterMotion;
   const $=id=>document.getElementById(id),surface=$("surface"),svg=$("circuitSvg"),hitLayer=$("hitLayer");
   const history=M.history(P.create("series")),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map(),needleStates=new Map();
@@ -121,7 +121,6 @@
     $("cableCount").disabled=d.policy.mode!=="free";$("cableLength").disabled=d.policy.mode!=="free";const remaining=d.cables.count-d.wires.length;$("wireStock").textContent=remaining+" / "+d.cables.count;$("quickWire").innerHTML=`＋導線 <span>${remaining}/${d.cables.count}</span>`;["addWire","quickWire"].forEach(id=>$(id).disabled=remaining===0);$("cableCount").value=d.cables.count;const lengthSelect=$("cableLength");[...lengthSelect.options].filter(o=>o.dataset.custom&&Number(o.value)!==d.cables.length).forEach(o=>o.remove());if(![...lengthSelect.options].some(o=>Number(o.value)===d.cables.length)){const o=new Option("自訂 · "+d.cables.length,String(d.cables.length));o.dataset.custom="true";lengthSelect.add(o);}lengthSelect.value=d.cables.length;
     const hazards=V.visualState(d,analysis);$("circuitStatus").textContent=hazards.short?"短路 · 發熱":hazards.overload?"過載 · 發熱":analysis.diagnostics.length?"需檢查電路":d.policy.mode==="wiring"?"固定元件 · 接線":"直流穩態";$("circuitStatus").classList.toggle("warning",!!analysis.diagnostics.length||hazards.short||hazards.overload);document.querySelectorAll("[data-add]").forEach(b=>b.disabled=d.policy.mode!=="free");
     if(inspector)renderProperties();
-    renderMeasurements();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
     const pinned=meterPreview?d.components.find(c=>c.id===meterPreview.id):null,reading=readableMeter(d,held)?held:readableMeter(d,pinned)?pinned:null;
     if(reading)renderPreview(null,reading);else if(drag?.pointerType==="touch"&&drag.kind==="wireend")renderPreview(drag.focus||world(drag.lastX,drag.lastY));else $("preview").hidden=true;
@@ -203,42 +202,6 @@
   }
   function componentReadings(id) { const c = current().components.find((c) => c.id === id), r = analysis.components[id]; if (!c || !r) return ""; const isRheo=c.type==='rheostat',g=c.type==='galvanometer';const items = [[isRheo?'A–P 電壓':"兩端電壓", r.voltage, "V"], [c.type === "battery" ? "向外供出電流" : R.dualMeter(c)?'所接正極 → − 電流':isRheo?'A → P 電流':g?"+ → − 電流":"a → b 電流", c.type === "battery" && r.current !== null ? -c.params.polarity * r.current : g&&Number.isFinite(r.current)?r.current*1e6:r.current, g?'μA':"A"], [c.type === "battery" ? "端口輸出功率" : "吸收功率", c.type === "battery" ? r.delivered : r.power, "W"]]; if (c.type === "battery") items.push(["內阻發熱", r.internalPower, "W"], ["電源總供能", r.sourcePower, "W"]); if (c.type === "lamp") items.push(["工作電阻", r.resistance, "Ω"]);if(isRheo){items.push(['A–P 電阻',R.effectiveResistance(c),'Ω']);if(c.params.terminals>2)items.push(['P–B 電阻',c.params.resistance*(1-c.params.position),'Ω'],['A–B 電壓',analysis.voltage(id+':a',id+':c'),'V']);} if (r.unit) items.push(["儀表讀值", g&&Number.isFinite(r.reading)?r.reading*1e6:r.reading, g?'μA':r.unit]);if(R.dualMeter(c)||g)items.push([g?'滿偏電流':'目前量程',g?r.range*1e6:r.range,g?'μA':r.unit],['每小格',g?r.division*1e6:r.division,g?'μA':r.unit]);return readings(items); }
   function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c)&&c.type!=='galvanometer')return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',factor=g?1e6:1,unit=g?'μA':r.unit;$('meterTitle').textContent=g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g?'-50 -45 100 90':'-80 -88 160 135'}" aria-label="${V.esc(c.label)}刻度">${g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();updateMeterNeedles();}
-
-  let measurementRenderKey='';
-  const currentQuantity=value=>Q.quantity(Number.isFinite(value)&&Math.abs(value)<.001?value*1e6:value,Number.isFinite(value)&&Math.abs(value)<.001?'μA':'A');
-  function renderMeasurements(){
-    const d=current(),data=E.state(d),resistanceSources=E.resistanceSources(d.components),key=JSON.stringify([data,d.components.filter(R.isMeter).map(c=>[c.id,c.type,c.label]),resistanceSources]);
-    if(key!==measurementRenderKey){
-      measurementRenderKey=key;
-      for(const [name,types]of [['voltage',['voltmeter']],['current',['ammeter','galvanometer']]]){
-        const select=$(name==='voltage'?'recordVoltage':'recordCurrent');select.replaceChildren(new Option('選擇電表',''));
-        d.components.filter(c=>types.includes(c.type)).forEach(c=>select.add(new Option(c.label+(c.type==='galvanometer'?' · G':''),c.id)));
-        select.value=data[name]||select.options[1]?.value||'';
-      }
-      $('recordResistance').replaceChildren(new Option('不記錄電阻',''));resistanceSources.forEach(s=>$('recordResistance').add(new Option(s.label,s.value)));$('recordResistance').value=data.resistance||'';
-      $('recordAxis').value=data.axis;$('recordFit').checked=data.fit;$('recordFitModel').value=data.fitModel||'linear';$('recordFitModel').disabled=!data.fit;
-      $('recordCount').textContent=data.rows.length+' / '+E.limit;
-      $('recordTable').innerHTML=data.rows.length?'<table><thead><tr><th>#</th>'+['U','I','R'].map(s=>'<th>'+Q.html({text:s,tex:s})+'</th>').join('')+'<th></th></tr></thead><tbody>'+data.rows.map((r,n)=>'<tr><td>'+(n+1)+'</td><td>'+Q.html(Q.quantity(r.u,'V'))+'</td><td>'+Q.html(currentQuantity(r.i))+(r.uStatus==='overrange'||r.iStatus==='overrange'?'<span class="record-warning" title="包含超量程讀數">超量程</span>':'')+'</td><td title="'+V.esc(r.rLabel||'未記錄電阻')+'">'+Q.html(Q.quantity(r.r??null,'Ω'))+'</td><td><button data-delete-record="'+n+'" aria-label="刪除第 '+(n+1)+' 筆">×</button></td></tr>').join('')+'</tbody></table>':'<p class="note">調整電路後按「記錄讀數」，逐次收集工作點。</p>';
-      $('recordClear').disabled=$('recordExport').disabled=$('recordEnlarge').disabled=!data.rows.length;
-      $('recordPlot').innerHTML=data.rows.length?E.plot(data):'';
-      const line=data.fit?E.fit(data.rows,data.axis,data.fitModel||'linear'):null;
-      const fitNote=line?.model==='inverse'?'反比例不使用橫座標為零的點。':line?.model==='linear'&&data.axis==='UI'?'量測同一電源路端特性時，E 為截距，r 為負斜率。':'';
-      $('recordFitResult').innerHTML=!data.fit?'':!line?'有效資料不足、欠缺圖像所需數值或橫座標重複；二次擬合需三個不同橫座標，其他需兩個。反比例不含零橫座標。':'<span class="fit-equation">'+rich([E.formula(line,data.axis)])+'</span><br>'+rich([line.used+' / '+data.rows.length+' 筆有效資料 · ',{text:'R² = '+Q.number(line.rSquared),tex:'R^2='+Q.numberTex(line.rSquared)}])+'<br>公式以 U（V）、I（A）、R（Ω）代入；超量程點不參與。'+V.esc(fitNote);
-      if($('plotDialog').open){$('plotDetail').innerHTML=E.plot(data,'detail');$('plotFitResult').innerHTML=$('recordFitResult').innerHTML;}
-
-    }
-    const u=analysis.components[$('recordVoltage').value],i=analysis.components[$('recordCurrent').value],reference=$('recordResistance').value,r=E.resistanceReading(d,analysis,reference),needR=E.needsResistance(data.axis),knownR=Number.isFinite(r?.value);
-    $('recordReading').innerHTML=rich([Q.quantity(u?.reading,'V'),' · ',currentQuantity(i?.reading),...(reference||needR?[' · ',Q.quantity(r?.value,'Ω')]:[])]);
-    const missing=needR?data.rows.filter(r=>!Number.isFinite(r.r)).length:0;
-    $('recordHint').textContent=(needR&&!reference?'先選擇電阻來源。':'')+(reference||needR?'電阻取自所選元件；I–R 實驗請保持負載兩端電壓不變，從 U 欄核對。':'')+(missing?' '+missing+' 筆未記錄 R，不會出現在此圖。':'');$('recordHint').hidden=!$('recordHint').textContent;
-    $('recordAdd').disabled=data.rows.length>=E.limit||![u?.reading,i?.reading].every(Number.isFinite)||(Boolean(reference)||needR)&&!knownR;
-  }
-  for(const [id,key]of [['recordVoltage','voltage'],['recordCurrent','current'],['recordResistance','resistance'],['recordAxis','axis'],['recordFit','fit'],['recordFitModel','fitModel']])$(id).onchange=()=>{const value=$(id).type==='checkbox'?$(id).checked:$(id).value;change(doc=>{doc.measurements||=E.empty();doc.measurements[key]=value===''?null:value;});};
-  $('recordAdd').onclick=()=>{const u=$('recordVoltage').value,i=$('recordCurrent').value,r=$('recordResistance').value||null;cancel();if(change(doc=>E.record(doc,S.solve(doc),u,i,r)))notify('已記錄 U、I'+(r?'、R':'')+' 的實際數值。');};
-  $('recordTable').onclick=e=>{const b=e.target.closest('[data-delete-record]');if(b)change(doc=>doc.measurements.rows.splice(Number(b.dataset.deleteRecord),1));};
-  $('recordClear').onclick=()=>change(doc=>doc.measurements.rows=[]);
-  $('recordExport').onclick=()=>download(E.csv(E.state(history.get())),'電路量測.csv','text/csv;charset=utf-8');
-  $('recordEnlarge').onclick=()=>{$('plotDetail').innerHTML=E.plot(E.state(history.get()),'detail');$('plotFitResult').innerHTML=$('recordFitResult').innerHTML;$('plotDialog').showModal();};$('closePlot').onclick=()=>$('plotDialog').close();
 
   function portName(id){const d=history.get(),[cid,key]=id.split(":"),c=d.components.find(c=>c.id===cid);if(c)return c.label+" "+R.ports(c).find(p=>p.key===key)?.label;return M.degree(d,id)>1?"共接點 "+cid:"懸空線端 "+cid;}
   function connectionLabel(id){const [cid,key]=id.split(":"),c=current().components.find(c=>c.id===cid);if(!c||!R.dualMeter(c))return[portName(id)];
@@ -360,7 +323,7 @@
   $('flipMeterSelected').onclick=()=>{if(selectedComponent())flipMeter(selection.id);};
   $("detachFrom").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"from");};$("detachTo").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"to");};
   $("deleteSelected").onclick=()=>{const id=selection?.id;if(!id||selection.kind==="port")return;cancel();change(doc=>M.remove(doc,id));notify("已刪除；刪線歸還庫存，復原可還原。");};$("rotateSelected").onclick=()=>{if(selectedComponent())rotate(selection.id);};$("rotateCounterSelected").onclick=()=>{if(selectedComponent())rotate(selection.id,-1);};$("undo").onclick=()=>undo();$("redo").onclick=()=>undo(true);
-  function loadDocument(doc){const valid=typeof doc==="string"?D.decode(doc):M.validate(doc);cancel();const before=history.get();history.replace(valid);flowOffsets.clear();needleStates.clear();analysis=S.solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();if(before!==history.get())emitChange();}
+  function loadDocument(doc){const imported=D.importDocument(doc),valid=imported.document;cancel();const before=history.get();history.replace(valid);flowOffsets.clear();needleStates.clear();analysis=S.solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
   $("preset").onchange=()=>{loadDocument(P.create($("preset").value));notify("已載入範例，可取線、改接及量測。");};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
   ["flow","meters","potential","names","values","projection"].forEach(id=>$(id).onchange=()=>change(doc=>doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value));$("pause").onchange=()=>{paused=$("pause").checked;render(false);};
   Object.keys(M.quantityDefaults).forEach(id=>$(id).onchange=()=>change(doc=>doc.display.quantities[id]=$(id).checked));
@@ -376,7 +339,7 @@
   $("save").onclick = () => { try { download(D.encode(history.get()), "電路工作台.json", "application/json"); notify("已匯出電路檔，可用「開啟」繼續編輯。"); } catch (e) { notify(e.message, true); } };
   $("saveTemplate").onclick = () => { try { download(D.encode(D.template(history.get())), "固定元件接線模板.json", "application/json"); } catch (e) { notify(e.message, true); } };
   $("open").onclick = () => $("fileInput").click();
-  $("fileInput").onchange = async () => { const file = $("fileInput").files[0]; $("fileInput").value = ""; if (!file) return; try { if (file.size > M.limits.bytes) throw new Error("電路檔超出 256 KiB 限制"); loadDocument(await file.text()); notify("已開啟電路檔；按復原可返回原電路。"); } catch (e) { notify(e.message, true); } };
+  $("fileInput").onchange = async () => { const file = $("fileInput").files[0]; $("fileInput").value = ""; if (!file) return; try { if (file.size > M.limits.bytes) throw new Error("電路檔超出 256 KiB 限制"); const retired=loadDocument(await file.text()); if(!retired)notify("已開啟電路檔；按復原可返回原電路。"); } catch (e) { notify(e.message, true); } };
   $("exportSvg").onclick = () => { const d = history.get(), labelBounds=V.labels(d,analysis,1,routes).flatMap(p=>[{x:p.box.left,y:p.box.top},{x:p.box.right,y:p.box.bottom}]), points = [...labelBounds, ...M.endpoints(d).values(), ...d.components.flatMap((c) => [{ x: c.x - 90, y: c.y - 100 }, { x: c.x + 90, y: c.y + 140 }]), ...Object.values(routes).flat()]; if (!points.length) return notify("先加入元件再匯出電路圖。"); const x = Math.min(...points.map((p) => p.x)) - 20, y = Math.min(...points.map((p) => p.y)) - 20, w = Math.max(...points.map((p) => p.x)) - x + 20, h = Math.max(...points.map((p) => p.y)) - y + 20; const content = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff"/>${V.scene(d, analysis, 1, routes)}${V.flow(d, analysis, routes, animationTime, 1, flowOffsets)}</svg>`; download(content, "電路圖.svg", "image/svg+xml"); };
 
   $('settings').onclick=()=>{cancel();$('settingsNotice').hidden=true;$('settingsDialog').showModal();$('settings').setAttribute('aria-expanded','true');};
