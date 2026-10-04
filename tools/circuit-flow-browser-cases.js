@@ -8,9 +8,9 @@ async function flowCases(h,mode,base){
   const settle=()=>inside('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   async function tap(selector){const p=await point(selector);if(width<600){await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:contactId++,radiusX:2,radiusY:2,force:1}]});await delay(30);await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});}await settle();}
   async function panel(){if(await inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap('#panelToggle');}
-  async function pause(value){await panel();if(await inside('document.getElementById("pause").checked')!==value)await tap('#pause');assert.equal(await inside('document.getElementById("pause").checked'),value);}
+  async function pause(value){await tap('#settings');if(await inside('document.getElementById("pause").checked')!==value)await tap('#pause');assert.equal(await inside('document.getElementById("pause").checked'),value);await tap('#closeSettings');}
   async function choose(flow){
-    await panel();
+    await tap('#settings');
     if(width>=600){
       // This macOS headless run did not change native selects via CDP keys. Use the
       // production display handler explicitly; do not call this a trusted gesture.
@@ -21,7 +21,7 @@ async function flowCases(h,mode,base){
       for(let n=0;n<Math.abs(target-before);n++)await key(target>before?'ArrowDown':'ArrowUp',target>before?'ArrowDown':'ArrowUp',target>before?40:38);
       await key('Tab','Tab',9);
     }
-    await settle();assert.equal((await doc()).display.flow,flow);
+    await settle();assert.equal((await doc()).display.flow,flow);await tap('#closeSettings');
   }
   async function voltage(value){
     await tap('[data-hit="body:c1"]');await panel();

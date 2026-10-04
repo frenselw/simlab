@@ -160,11 +160,12 @@
     const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");
     w.shape="free";w.via=[];
   }
-  function rotateComponent(doc,id) {
+  function rotateComponent(doc,id,direction=1) {
+    if(![1,-1].includes(direction))throw new Error("旋轉方向無效");
     const c=doc.components.find(c=>c.id===id);
     if(!c||!permission(doc,c,"rotate"))throw new Error("這個元件不能旋轉");
     const next=clone(doc),rotated=next.components.find(c=>c.id===id);
-    rotated.angle=(rotated.angle+90)%360;
+    rotated.angle=(rotated.angle+90*direction+360)%360;
     const ports=new Set(R.ports(rotated).map(p=>p.id)),ends=endpoints(next);
     for(const w of next.wires)if(ports.has(w.from)||ports.has(w.to)){
       straightenWire(next,w.id);

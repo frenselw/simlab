@@ -64,4 +64,34 @@ html,body{height:100%;overflow:hidden}body{font-family:system-ui,-apple-system,"
 @keyframes heat-sparks{to{opacity:.45}}
 .effects-paused .heat-flame,.effects-paused .heat-sparks{animation:none}
 @media(prefers-reduced-motion:reduce){.heat-flame,.heat-sparks{animation:none}}
-@media(max-width:899px){#focusSelected,#deleteSelected{font-size:0;padding:0 8px;min-width:44px}#focusSelected::after{content:"放大";font-size:13px}#deleteSelected::after{content:"刪除";font-size:13px}.context-actions:has(#focusSelected:not([hidden])) #selectionTip{display:none}.context-actions button{flex-shrink:0}}
+
+
+/* Compact actions and a single settings surface leave the panel for live work. */
+.icon-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.ui-icon{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;flex-shrink:0}
+button.icon-button{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
+#settings[aria-expanded=true]{background:#eaf2ff;border-color:#7ea6ec;color:#1e4e9f}
+.sim-header .brand{margin-right:auto}.header-actions{flex-wrap:nowrap}.header-actions select{max-width:210px}
+.stage-tools .icon-button,.stage-tools .hand-tool{width:44px;min-width:44px;padding:0}.hand-tool span{display:none}
+.stage{container-type:inline-size;container-name:stage}
+.context-actions{gap:4px}.context-actions button.icon-button{padding:0;font-size:14px}.context-actions .socket-action{position:relative}.socket-action .ui-icon{width:18px;height:18px;margin-right:9px}.socket-action small{position:absolute;right:4px;bottom:5px;font-size:11px;line-height:1;color:#526f88}
+.object-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.object-actions .icon-button{width:100%}.object-actions .text-action{grid-column:1/-1}.object-actions .danger{background:#fff8f5}
+.camera-tools button{min-width:44px;min-height:44px;font-size:20px}.camera-tools output{width:36px}.camera-tools #quickWire{min-width:100px}.context-actions #deleteSelected::after,.context-actions #focusSelected::after{content:none}
+.fit-controls{display:grid;gap:2px;margin:10px 0}.fit-controls select{width:100%;font-size:13px}.fit-equation{display:block;overflow-x:auto;max-width:100%;padding:4px 0;font-size:1rem}
+#settingsDialog{width:min(760px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);padding:0;overscroll-behavior:contain}
+#settingsDialog>.dialog-head{position:sticky;top:0;background:#fff;padding:12px 16px;border-bottom:1px solid #e2e8f0;gap:12px;z-index:2}#settingsDialog>.dialog-head>div{min-width:0}#settingsDialog>.dialog-head>button{flex:0 0 44px;min-width:44px;height:44px}#settingsDialog .dialog-head h2{font-size:1.15rem;margin:0}#settingsDialog .dialog-head .note{margin:3px 0 0;line-height:1.5}
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px}.settings-section{min-width:0;padding:14px;border:1px solid #e0e8ef;border-radius:10px;background:#f8fafc}.settings-section h3{margin:0 0 8px;color:#405d78;font-size:1rem}
+.settings-section label{display:block;font-size:.875rem;line-height:1.5;margin:8px 0}.settings-section label select,.settings-section label input:not([type=checkbox]){display:block;width:100%;margin-top:4px;min-height:44px}.settings-section input[type=number]{height:44px;border:1px solid #ccd8e3;border-radius:7px;padding:8px;background:#fff;font-size:1rem}
+.settings-section .check{display:flex;gap:8px;align-items:center;min-height:44px;margin:0}.settings-section .note{margin:6px 0 12px;line-height:1.6}.settings-section summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:.875rem;font-weight:600}.settings-section summary::before{content:"＋";margin-right:8px;color:#64748b}.settings-section details[open]>summary::before{content:"−"}.settings-section details{border-top:1px solid #e0e8ef;margin-top:6px}.settings-section button{min-height:44px;font-size:.875rem}.settings-section fieldset{margin:8px 0}
+@container stage (max-width:800px){
+ .stage-bottom{grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:4px 7px;gap:2px}.stage-bottom .camera-tools{grid-area:2/1;width:100%;justify-content:center;gap:5px}.stage-bottom .context-actions{grid-area:1/1;width:100%;justify-content:flex-end}.stage-bottom #hint{grid-area:1/1;min-width:0;font-size:12px}.context-actions #selectionTip{display:none}.camera-tools [data-camera=left],.camera-tools [data-camera=right],.camera-tools [data-camera=up],.camera-tools [data-camera=down]{display:none}.camera-tools #quickWire{margin-right:auto;min-width:100px;font-size:14px;padding:0 8px}.camera-tools button{width:44px;min-width:44px}.camera-tools output{width:36px}
+}
+@media(max-width:759px) and (min-height:451px){
+ .sim-header{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,44px);gap:4px;padding:7px 9px}[data-sim-fullscreen].sim-fullscreen-header.sim-fullscreen-header-row{padding-right:9px!important}.header-actions{display:contents}.sim-header .brand{grid-row:1;grid-column:1;margin:0;min-width:0}.brand h1{font-size:1.05rem}.header-actions #undo{grid-row:1;grid-column:2}.header-actions #redo{grid-row:1;grid-column:3}.header-actions #preset{grid-row:2;grid-column:1;width:100%;max-width:none;min-width:0}.header-actions #settings{grid-row:2;grid-column:2}.header-actions #save{grid-row:2;grid-column:3}.header-actions #open{grid-row:2;grid-column:4}.header-actions #help{display:none}
+ [data-sim-fullscreen].sim-fullscreen-header:not(.sim-fullscreen-header-row)>.brand{padding-right:0}
+ .stage-tools{gap:4px;padding:5px 7px;flex-wrap:nowrap}.stage-tools .segmented button{padding:0 7px}.stage-tools #circuitStatus{display:none}
+}
+@media(max-width:579px){.settings-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}#settingsDialog>.dialog-head{padding:10px 12px}.settings-section{padding:12px}}
+@media(max-height:450px) and (min-width:560px){.sim-header .brand{margin-right:0}.brand h1{font-size:1rem}.header-actions #preset{width:140px}.header-actions{gap:4px}.header-actions .icon-button{padding:0}.header-actions #help{display:none}.context-actions button.icon-button{padding:0}}
+
+.settings-notice{font-size:.875rem;line-height:1.5;margin:6px 0 0;color:#a35d13}

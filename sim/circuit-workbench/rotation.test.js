@@ -55,4 +55,16 @@ test("single undo restores angle and curves; restored files can continue",()=>{
   const d=meterMathFixture("voltmeter"),h=M.history(d),before=D.encode(h.get());h.change(next=>M.rotateComponent(next,"c3"));const after=D.encode(h.get());assert(h.undo());assert.equal(D.encode(h.get()),before);assert.equal(h.canUndo(),false);assert(h.redo());assert.equal(D.encode(h.get()),after);
   const restored=D.decode(after);M.rotateComponent(restored,"c3");assert.equal(restored.components[2].angle,180);const w=restored.wires.find(w=>w.from==="c3:a");const route=G.route(restored,w);M.bendWire(restored,w.id,G.along(route,G.length(route)/2),0,40);assert(w.via.length>0);M.validate(restored);
 });
-console.log(`Rotation: ${cases} focused cases passed; attached cables straighten, topology/readings/ranges stay fixed, finite rejection is atomic and undo/restore continue.`);
+test("counterclockwise shares atomic straightening, history and permissions",()=>{
+  for(const type of ["lamp","ammeter","rheostat"]){
+    const d=M.empty(),c=M.add(d,type,300,260),p=R.ports(c)[0];d.junctions.push({id:"j1",x:500,y:460});M.connect(d,p.id,"j1:p",[{x:400,y:400}],"free");
+    const h=M.history(d),before=D.encode(d),readings=S.solve(d).components;
+    for(const angle of [270,180,90,0]){h.change(next=>M.rotateComponent(next,c.id,-1));assert.equal(h.get().components[0].angle,angle);straight(h.get(),h.get().wires[0]);assert.deepEqual(S.solve(h.get()).components,readings);}
+    for(let n=0;n<4;n++)h.undo();assert.equal(D.encode(h.get()),before);h.redo();assert.equal(h.get().components[0].angle,270);
+    const restored=D.decode(D.encode(h.get()));M.rotateComponent(restored,c.id,-1);assert.equal(restored.components[0].angle,180);M.validate(restored);
+    restored.components[0].locked=true;const locked=D.encode(restored);assert.throws(()=>M.rotateComponent(restored,c.id,-1));assert.equal(D.encode(restored),locked);
+  }
+  const d=M.empty(),c=M.add(d,"battery",0,0);d.junctions.push({id:"j1",x:-220,y:0});const w=M.connect(d,c.id+":a","j1:p",[],"free");w.length=180;const before=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id,-1),/導線太短/);assert.equal(D.encode(d),before);
+  for(const direction of [0,2,null,"-1"])assert.throws(()=>M.rotateComponent(d,c.id,direction),/旋轉方向/);
+});
+console.log(`Rotation: ${cases} focused cases passed; both directions straighten attached cables, topology/readings/ranges stay fixed, finite rejection is atomic and undo/restore continue.`);

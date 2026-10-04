@@ -55,6 +55,7 @@ A/V 表高量程正孔是 a，共用負孔是 b，低量程正孔是 c。教師�
 - `circuit-label-layout.js`：以 CSS 像素、實際介面字體及數學 SVG 尺寸放置資訊，使用局部碰撞索引、四邊候選位置及必要換行；長數值組合只在量與量之間分行。位置、偏好和引導虛線都是瞬時顯示；不改導線、電氣結果、命中或文件。極密畫面可能沒有足夠空位，仍可放大或關閉部分資訊。
 - `circuit-renderer.js`：實物／符號、數字／指針、讀值、電勢與方向。未完成操作不寫入電路文件。
 - `circuit-meter-motion.js`：A/V 指針的解析阻尼運動、機械限位與臨時狀態；只影響畫面，不參與求解、文件或量測資料。
+- `circuit-experiments.js`：實際儀表讀數記錄、CSV、SI 單位最小平方擬合及量測圖。
 - `circuit-document.js`：版本化 JSON 與模板匯出；先驗證後替換。匯入內容不能包含可執行模型。
 - `main.js`：教師介面與可信輸入，所有命令在驗證後才提交。
 
@@ -68,7 +69,7 @@ v4 的 `display.names` 為可選布林，控制外部元件名稱；舊 v1–v4 
 
 A/V 元件可保存 `mirrored` 布林，缺省 false；其他元件不接受，舊 v1–v3 不接受 true。接孔先在元件局部座標左右反射，再按原角度旋轉；孔 ID、高低量程、極性及電學模型不變。實物引線／可見孔、標記、吸附及命中共用 `CircuitRegistry.localPorts/ports`，換位後有限導線會修復接頭路徑並保留遠端。幾何相機／路徑快取包含此方向。
 
-`CircuitModel.addWire(doc,x,y)` 是互動取線命令；`moveWireEnd/attach/detach/bendWire` 保持有限長度與端點拓撲。`connect()` 供教師網表／預設構造，可明示既有較長路線，仍消耗庫存並保存有限上限；互動介面不能以點端子呼叫它。元件搬動後以 `reconcile(doc,before)` 維持連接並檢查可達性，不能任意搬到短線達不到的位置。旋轉使用 `rotateComponent(doc,id)`，原子完成 90° 旋轉、所連導線拉直與有限長度檢查；無關導線及共接點位置保持。
+`CircuitModel.addWire(doc,x,y)` 是互動取線命令；`moveWireEnd/attach/detach/bendWire` 保持有限長度與端點拓撲。`connect()` 供教師網表／預設構造，可明示既有較長路線，仍消耗庫存並保存有限上限；互動介面不能以點端子呼叫它。元件搬動後以 `reconcile(doc,before)` 維持連接並檢查可達性，不能任意搬到短線達不到的位置。旋轉使用 `rotateComponent(doc,id,direction=1)`，原子完成順時針（1）／逆時針（−1）90° 旋轉、所連導線拉直與有限長度檢查；無關導線及共接點位置保持。
 
 `reconcile` 的 A/V 接孔換位修復使用 `CircuitRegistry.bodyBounds()` 的旋轉後錶殼及接孔朝外方向，在中心四周各 200 畫布單位的固定區域重新接回原線身；新接頭路徑不能跑出該區域再繞回來，避免連續旋轉累積繞圈。區域外線形及無關導線保留；整條線都在附近或兩端在同一錶上時，修整該條線。若原線重入新錶殼，須替換至離開錶殼的位置。沒有可達的路徑或超出有限弧長便拒絕整次操作，不能把過長路線壓直穿過錶殼。普通搬動仍沿用原變形；新幾何寫入既有 `free/via`，不改舊 `auto` 線的讀檔解讀或文件版本。使用者觸發旋轉則由 `rotateComponent` 將所連導線設為 `free`／空 `via` 的直線，不採接頭繞殼修復。
 
@@ -146,3 +147,16 @@ A/V 錶面的接線教學／診斷文字已移除，下方空白殼身縮短；�
 `flow.test.js` 26 組、既有核心及視覺回饋通過；來源／ZIP 的流動測試 60 筆（768 個真實 SVG 軌跡幀）及導航 132 筆通過，下載包 17 檔與來源逐 byte 一致。原生桌面選單的無頭測試界限及實體觸控板未驗證的範圍，連同 SHA／時間／截圖，記於[第 34.1 節](../plans/28-circuit-workbench.md#341-實作及驗證證據2026-10-04)。
 
 `node sim/circuit-workbench/rotation.test.js` 聚焦旋轉拉直、固定拓撲／有號讀值／量程、有限長度拒絕、單步復原及文件往返後續操作。`node tools/circuit-workbench-browser-regression.js --rotation-smoke` 只執行來源／ZIP 的 1280 px 滑鼠、390 px 模擬觸控旋轉，直接量測實際 SVG 直線及白色接孔，並檢查復原／重做、載入後續操作及短線整次拒絕；證據為 `rotation-straight.json`。
+
+
+## 集中設定、圖示操作與量測模型（2026-10-04）
+
+頂欄的齒輪開啟原生設定視窗，集中「顯示與教學」「畫布標籤」「教師設定」「文件與整理」。設定即時套用，教師模式及開放項目會先捕捉新值再取消編輯，避免重新渲染把選擇還原。側面板保留工具箱、所選項目、量測與連線清單；手機以視窗內部捲動存取全部設定，無效庫存等錯誤在視窗內顯示；關閉及 Escape 返回齒輪焦點，並以 `aria-expanded` 顯示實際開合狀態。視窗放在共享全螢幕目標內。
+
+旋轉、刪除、定位、拉直與接孔換位以 SVG 圖示顯示，保留 title／aria-label 與至少 44 CSS px 觸控目標。A/B 拔線另有短端點標記。R 順時針、Shift+R 逆時針；兩者均拉直直接所連導線並原子檢查線長。畫布底部依可用畫布寬度使用一或兩行，導線取用保留文字與庫存。ZIP builder 核對 SVG 圖示的本地片段引用必須有對應 ID；其餘 runtime 引用仍需資產清單宣告。
+
+可選 `measurements.fitModel` 為 `linear|proportional|inverse|quadratic`；舊 v4 缺欄位視為 linear，未知模型拒絕。既有 `fit` 決定是否顯示曲線；不改原始有號儀表資料及範圍。`CircuitExperiments.fit(rows,axis,model='linear')` 回傳模型、係數、有效／排除筆數和 R²；退化或資料不足回傳 null。`predict(result,x)` 計算原始 SI 縱量；二次使用中心化／縮放 QR，以穩定形式求值，低於浮點運算誤差範圍的正規化係數歸零，避免無意義的極小二次項。R² 按原始縱量殘差計算，受限模型可能為負；常數資料且有殘差時未定，顯示 —。`formula(result,axis)` 提供受控本地 LaTeX；公式以 U（V）、I（A）代入，即使圖軸縮成 mA／μA 也不改係數。
+
+反比例採 `y=a/x` 的最小平方，排除零橫座標和超量程，曲線在零點斷開；正比例為 `y=ax`，一次為 `y=ax+b`，二次為 `y=ax²+bx+c`。正比例／一次／反比例需兩個不同橫座標，二次需三個。不自動宣稱所選模型適合物理情況。縱軸符號置於左側縱軸端上方，不再在圖中央。
+
+`node sim/circuit-workbench/experiment-fit.test.js` 檢查獨立解析數值、R²、模型域、SVG 軸標、舊新文件嚴格往返及續記錄。`node tools/circuit-workbench-browser-regression.js --settings-smoke` 只跑來源／ZIP 的設定、圖示雙向旋轉與擬合 UI，涵蓋 1280／390／320 px 及 844×390 短橫向；不執行完整工作台矩陣。既有控制測試改由齒輪進入設定。證據為 `settings-and-fits.json`，本輪結果及限制見活動計劃第 44 節。
