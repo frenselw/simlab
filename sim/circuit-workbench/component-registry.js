@@ -32,10 +32,15 @@
   }
   const meterScale=Object.freeze({divisions:30,negativeDivisions:10,minimumFraction:-1/3,zeroAngle:-120,sweep:90,stopMargin:.02});
   function meterRanges(c){return {high:c.params.range,low:c.params.range/5,divisions:meterScale.divisions,negativeDivisions:meterScale.negativeDivisions};}
+  function localPorts(component,legacy=false){
+    const terminals=component.params.terminals??2;
+    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):legacy&&dualMeter(component)?polar:get(component.type).ports;
+    return !legacy&&dualMeter(component)&&component.mirrored?local.map(p=>({...p,x:-p.x,dx:-(p.dx??Math.sign(p.x))})):local;
+  }
   function ports(component, legacy=false) {
     const angle = component.angle * Math.PI / 180, cos = Math.round(Math.cos(angle)), sin = Math.round(Math.sin(angle));
     const terminals=component.params.terminals??2;
-    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):legacy&&dualMeter(component)?polar:get(component.type).ports;
+    const local=localPorts(component,legacy);
     return local.map((p) => {
       const dx=p.dx??Math.sign(p.x),dy=p.dy??0,ranges=dualMeter(component)?meterRanges(component):null;
       const label=component.type==='rheostat'&&terminals===2?(p.key==='a'?'A':'P'):component.type==="battery"&&component.params.polarity<0?p.key==="a"?"−":"+":!legacy&&ranges?p.key==="b"?"−":"+"+Number((p.key==="a"?ranges.high:ranges.low).toPrecision(4))+" "+get(component.type).icon:p.label;
@@ -79,5 +84,5 @@
   definitions.wattmeter.dc = c => [resistive(c.params.resistance),...(c.params.inputResistance>0 ? [resistive(c.params.inputResistance,"c","d")] : [])];
   function dc(c) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, ports, bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
+  return { definitions, get, defaults, localPorts, ports, bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
 });

@@ -6,7 +6,8 @@
   "use strict";
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
-  const empty = () => ({ kind: "simlab-circuit", version: 4, components: [], junctions: [], wires: [], cables: {count:20,length:600}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "digital", potential: false, names: true, values: true, reference: null, projection: false } });
+  const quantityDefaults=Object.freeze({loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true});
+  const empty = () => ({ kind: "simlab-circuit", version: 4, components: [], junctions: [], wires: [], cables: {count:20,length:600}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "digital", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } });
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
   const bool = (v) => { if (typeof v !== "boolean") throw new Error("設定必須是布林值"); };
@@ -20,10 +21,11 @@
     const id = (value) => { if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,39}$/i.test(value) || ids.has(value)) throw new Error("元件或導線 ID 無效或重複"); ids.add(value); };
     for (const key of ["components", "junctions", "wires"]) if (!Array.isArray(input[key]) || input[key].length > limits[key]) throw new Error("電路超出容量限制");
     input.components.forEach((c) => {
-      object(c, ["id", "type", "label", "x", "y", "angle", "locked", "editable", "params"]); id(c.id);
+      object(c, ["id", "type", "label", "x", "y", "angle", "locked", "editable", "params", "mirrored"]); id(c.id);
       if (typeof c.label !== "string" || c.label.length > 40) throw new Error("元件名稱過長或無效");
       numeric(c.x, -limits.coordinate, limits.coordinate); numeric(c.y, -limits.coordinate, limits.coordinate); choice(c.angle, [0, 90, 180, 270]); bool(c.locked); bool(c.editable);
       const specs = R.get(c.type).params; object(c.params, Object.keys(specs));
+      if(Object.hasOwn(c,'mirrored')){if(!R.dualMeter(c))throw new Error('只有 A／V 電錶可左右換接孔');bool(c.mirrored);if(input.version<4&&c.mirrored)throw new Error('舊版電錶不支援左右換接孔');}
       for (const [k, spec] of Object.entries(specs)) {
         if(!Object.hasOwn(c.params,k)&&((c.type==='rheostat'&&k==='terminals')||(c.type==='lamp'&&['coldRatio','linearLoss'].includes(k))))continue;
         if(spec.choices)choice(c.params[k],spec.choices);else numeric(c.params[k],spec.min,spec.max);
@@ -41,15 +43,18 @@
     });
     if(input.version>=3){object(input.cables,["count","length"]);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
     object(input.policy, ["mode", "allowRotate", "allowParams", "allowSwitch"]); choice(input.policy.mode, ["free", "wiring"]); ["allowRotate", "allowParams", "allowSwitch"].forEach((k) => bool(input.policy[k]));
-    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection"]);
+    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "quantities"]);
     choice(input.display.view, ["real", "schematic"]); choice(input.display.flow, ["off", "current", "electron"]); choice(input.display.meters, ["digital", "analog"]);
     ["potential", "values", "projection"].forEach((k) => bool(input.display[k]));
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);
+    if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     if(Object.hasOwn(input,'measurements'))E.validate(input.measurements,input.components);
     const valid = clone(input);
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
+    if(!Object.hasOwn(valid.display,'quantities'))valid.display.quantities=Object.fromEntries(Object.keys(quantityDefaults).map(k=>[k,true]));
+    valid.components.filter(R.dualMeter).forEach(c=>{if(!Object.hasOwn(c,'mirrored'))c.mirrored=false;});
     if (input.version === 1) valid.wires.forEach((w) => { w.shape = "auto"; });
     if(input.version<3){valid.cables={count:Math.max(20,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
     const oldRoutes=input.version<4?valid.wires.map(w=>G.route(valid,w)):[];valid.version=4;
@@ -60,7 +65,7 @@
     return valid;
   }
   function nextId(doc, prefix) { const ids = new Set([...doc.components, ...doc.junctions, ...doc.wires].map((x) => x.id)); let n = 1; while (ids.has(prefix + n)) n++; return prefix + n; }
-  function component(doc, type, x, y, params = {}) { R.get(type); return { id: nextId(doc, "c"), type, label: R.get(type).name, x, y, angle: 0, locked: false, editable: false, params: { ...R.defaults(type), ...params } }; }
+  function component(doc, type, x, y, params = {}) { R.get(type); return { id: nextId(doc, "c"), type, label: R.get(type).name, x, y, angle: 0, locked: false, editable: false, ...(R.dualMeter({type})?{mirrored:false}:{}), params: { ...R.defaults(type), ...params } }; }
   function permission(doc, c, operation) {
     if (operation === "switch") return doc.policy.allowSwitch;
     if (doc.policy.mode === "wiring") return operation === "rotate" ? doc.policy.allowRotate : operation === "params" ? doc.policy.allowParams || c.editable : false;
@@ -168,5 +173,12 @@
     let value = validate(initial), past = [], future = [];
     return { get: () => value, change(fn) { const next = clone(value); const result = fn(next); const checked = validate(next); if (JSON.stringify(value) !== JSON.stringify(checked)) { past.push(value); if (past.length > 80) past.shift(); value = checked; future = []; } return result; }, replace(doc) { this.change((d) => { Object.keys(d).forEach((k) => delete d[k]); Object.assign(d, validate(doc)); }); }, undo() { if (!past.length) return false; future.push(value); value = past.pop(); return true; }, redo() { if (!future.length) return false; past.push(value); value = future.pop(); return true; }, canUndo: () => past.length > 0, canRedo: () => future.length > 0 };
   }
-  return { limits, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, setTerminals, reconcile };
+  function flipMeter(doc,id){
+    const c=doc.components.find(c=>c.id===id);
+    if(!c||!R.dualMeter(c)||!permission(doc,c,'rotate'))throw new Error('這個電錶不能左右換接孔');
+    const next=clone(doc);next.components.find(c=>c.id===id).mirrored=!c.mirrored;
+    if(!reconcile(next,doc))throw new Error('導線太短，請先拔開或移近電錶再換接孔');
+    Object.assign(doc,next);
+  }
+  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, setTerminals, flipMeter, reconcile };
 });

@@ -71,7 +71,7 @@
     let shell='<rect data-meter-case="true" x="-78" y="-86" width="156" height="128" rx="12" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>';
     shell+=`<g data-meter-face="${esc(c.id||'preview')}">${out}</g>`;
     const scale=R.meterBodyScale(c);shell=`<g data-meter-housing="${esc(c.id||'preview')}" transform="scale(${scale})">${shell}</g>`;
-    R.get(c.type).ports.forEach(p=>{shell+=`<path data-socket-lead="${p.key}" d="M${p.x*scale} 30V${p.y}H${p.x}" fill="none" stroke="#667b8e" stroke-width="4" stroke-linecap="round"/><circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="8" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
+    R.localPorts(c).forEach(p=>{shell+=`<path data-socket-lead="${p.key}" d="M${p.x*scale} 30V${p.y}H${p.x}" fill="none" stroke="#667b8e" stroke-width="4" stroke-linecap="round"/><circle data-socket="${p.key}" cx="${p.x}" cy="${p.y}" r="8" fill="${p.key==='b'?'#475569':'#bb6554'}"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#edbf77" stroke="#916c3e"/>`;});return shell;
   }
   function meter(c, result, display) {
     if(R.dualMeter(c))return dualMeter(c,result,display);
@@ -158,7 +158,12 @@
       if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':''),size:nameSize});
       if(doc.display.values){
         if(isMeter){if(doc.display.view==='schematic'||(R.dualMeter(c)||c.type==='galvanometer')&&(doc.display.meters==='analog'||c.angle!==0||scale<.7))lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit),size:valueSize});}
-        else{const resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c),value=c.type==='battery'?Q.join([Q.assignment('E',c.params.voltage,'V'),Q.assignment('r',c.params.resistance,'Ω')]):c.type==='switch'?{text:c.params.closed?'閉合':'斷開'}:Q.join([Q.quantity(resistance,'Ω'),Q.quantity(r?.power,'W')]);lines.push({kind:'value',...value,size:valueSize});}
+        else{const show=doc.display.quantities||{},parts=[],resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c);
+          if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
+          else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
+          else{if((c.type==='rheostat'?show.rheostatResistance:show.loadResistance)!==false)parts.push(Q.quantity(resistance,'Ω'));if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}
+          if(parts.length)lines.push({kind:'value',...(c.type==='switch'?parts[0]:Q.join(parts)),size:valueSize});
+        }
       }
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}

@@ -193,7 +193,7 @@
   }
   function followEndpoints(doc,wire,points,a,b,budget,before) {
     const owner=p=>doc.components.find(c=>c.id===p.id?.split(':')[0]&&R.dualMeter(c));
-    const rotates=c=>!before||before.components.find(v=>v.id===c.id)?.angle!==c.angle;
+    const rotates=c=>{const old=before?.components.find(v=>v.id===c.id);return !old||old.angle!==c.angle||!!old.mirrored!==!!c.mirrored;};
     const ca=owner(a),cb=owner(b),changed=(p,q)=>p.x!==q.x||p.y!==q.y,fixA=ca&&rotates(ca)&&changed(a,points[0]),fixB=cb&&rotates(cb)&&changed(b,points.at(-1));
     if(!fixA&&!fixB)return deform(points,a,b,budget);
     if(ca&&cb&&ca.id===cb.id){const p=rounded(route(doc,{...wire,shape:'auto',via:[]},{rotatedMeters:true}),12);return p.length>=2&&length(p)<=budget?p:null;}
