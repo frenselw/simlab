@@ -207,7 +207,7 @@
   let measurementRenderKey='';
   const currentQuantity=value=>Q.quantity(Number.isFinite(value)&&Math.abs(value)<.001?value*1e6:value,Number.isFinite(value)&&Math.abs(value)<.001?'μA':'A');
   function renderMeasurements(){
-    const d=current(),data=E.state(d),key=JSON.stringify([data,d.components.filter(R.isMeter).map(c=>[c.id,c.type,c.label])]);
+    const d=current(),data=E.state(d),resistanceSources=E.resistanceSources(d.components),key=JSON.stringify([data,d.components.filter(R.isMeter).map(c=>[c.id,c.type,c.label]),resistanceSources]);
     if(key!==measurementRenderKey){
       measurementRenderKey=key;
       for(const [name,types]of [['voltage',['voltmeter']],['current',['ammeter','galvanometer']]]){
@@ -215,23 +215,26 @@
         d.components.filter(c=>types.includes(c.type)).forEach(c=>select.add(new Option(c.label+(c.type==='galvanometer'?' · G':''),c.id)));
         select.value=data[name]||select.options[1]?.value||'';
       }
+      $('recordResistance').replaceChildren(new Option('不記錄電阻',''));resistanceSources.forEach(s=>$('recordResistance').add(new Option(s.label,s.value)));$('recordResistance').value=data.resistance||'';
       $('recordAxis').value=data.axis;$('recordFit').checked=data.fit;$('recordFitModel').value=data.fitModel||'linear';$('recordFitModel').disabled=!data.fit;
       $('recordCount').textContent=data.rows.length+' / '+E.limit;
-      $('recordTable').innerHTML=data.rows.length?'<table><thead><tr><th>#</th><th>'+Q.html(Q.unit('V'))+'</th><th>電流</th><th></th></tr></thead><tbody>'+data.rows.map((r,n)=>'<tr><td>'+(n+1)+'</td><td>'+Q.html(Q.quantity(r.u,'V'))+'</td><td>'+Q.html(currentQuantity(r.i))+(r.uStatus==='overrange'||r.iStatus==='overrange'?'<span class="record-warning" title="包含超量程讀數">超量程</span>':'')+'</td><td><button data-delete-record="'+n+'" aria-label="刪除第 '+(n+1)+' 筆">×</button></td></tr>').join('')+'</tbody></table>':'<p class="note">調整電路後按「記錄讀數」，逐次收集工作點。</p>';
+      $('recordTable').innerHTML=data.rows.length?'<table><thead><tr><th>#</th>'+['U','I','R'].map(s=>'<th>'+Q.html({text:s,tex:s})+'</th>').join('')+'<th></th></tr></thead><tbody>'+data.rows.map((r,n)=>'<tr><td>'+(n+1)+'</td><td>'+Q.html(Q.quantity(r.u,'V'))+'</td><td>'+Q.html(currentQuantity(r.i))+(r.uStatus==='overrange'||r.iStatus==='overrange'?'<span class="record-warning" title="包含超量程讀數">超量程</span>':'')+'</td><td title="'+V.esc(r.rLabel||'未記錄電阻')+'">'+Q.html(Q.quantity(r.r??null,'Ω'))+'</td><td><button data-delete-record="'+n+'" aria-label="刪除第 '+(n+1)+' 筆">×</button></td></tr>').join('')+'</tbody></table>':'<p class="note">調整電路後按「記錄讀數」，逐次收集工作點。</p>';
       $('recordClear').disabled=$('recordExport').disabled=$('recordEnlarge').disabled=!data.rows.length;
       $('recordPlot').innerHTML=data.rows.length?E.plot(data):'';
       const line=data.fit?E.fit(data.rows,data.axis,data.fitModel||'linear'):null;
       const fitNote=line?.model==='inverse'?'反比例不使用橫座標為零的點。':line?.model==='linear'&&data.axis==='UI'?'量測同一電源路端特性時，E 為截距，r 為負斜率。':'';
-      $('recordFitResult').innerHTML=!data.fit?'':!line?'有效資料不足或橫座標重複；二次擬合需三個不同橫座標，其他需兩個。反比例不含零橫座標。':'<span class="fit-equation">'+rich([E.formula(line,data.axis)])+'</span><br>'+rich([line.used+' 筆有效資料 · ',{text:'R² = '+Q.number(line.rSquared),tex:'R^2='+Q.numberTex(line.rSquared)}])+'<br>公式以 U（V）、I（A）代入；超量程點不參與。'+V.esc(fitNote);
+      $('recordFitResult').innerHTML=!data.fit?'':!line?'有效資料不足、欠缺圖像所需數值或橫座標重複；二次擬合需三個不同橫座標，其他需兩個。反比例不含零橫座標。':'<span class="fit-equation">'+rich([E.formula(line,data.axis)])+'</span><br>'+rich([line.used+' / '+data.rows.length+' 筆有效資料 · ',{text:'R² = '+Q.number(line.rSquared),tex:'R^2='+Q.numberTex(line.rSquared)}])+'<br>公式以 U（V）、I（A）、R（Ω）代入；超量程點不參與。'+V.esc(fitNote);
       if($('plotDialog').open){$('plotDetail').innerHTML=E.plot(data,'detail');$('plotFitResult').innerHTML=$('recordFitResult').innerHTML;}
 
     }
-    const u=analysis.components[$('recordVoltage').value],i=analysis.components[$('recordCurrent').value];
-    $('recordReading').innerHTML=rich([Q.quantity(u?.reading,'V'),' · ',currentQuantity(i?.reading)]);
-    $('recordAdd').disabled=data.rows.length>=E.limit||![u?.reading,i?.reading].every(Number.isFinite);
+    const u=analysis.components[$('recordVoltage').value],i=analysis.components[$('recordCurrent').value],reference=$('recordResistance').value,r=E.resistanceReading(d,analysis,reference),needR=E.needsResistance(data.axis),knownR=Number.isFinite(r?.value);
+    $('recordReading').innerHTML=rich([Q.quantity(u?.reading,'V'),' · ',currentQuantity(i?.reading),...(reference||needR?[' · ',Q.quantity(r?.value,'Ω')]:[])]);
+    const missing=needR?data.rows.filter(r=>!Number.isFinite(r.r)).length:0;
+    $('recordHint').textContent=(needR&&!reference?'先選擇電阻來源。':'')+(reference||needR?'電阻取自所選元件；I–R 實驗請保持負載兩端電壓不變，從 U 欄核對。':'')+(missing?' '+missing+' 筆未記錄 R，不會出現在此圖。':'');$('recordHint').hidden=!$('recordHint').textContent;
+    $('recordAdd').disabled=data.rows.length>=E.limit||![u?.reading,i?.reading].every(Number.isFinite)||(Boolean(reference)||needR)&&!knownR;
   }
-  for(const [id,key]of [['recordVoltage','voltage'],['recordCurrent','current'],['recordAxis','axis'],['recordFit','fit'],['recordFitModel','fitModel']])$(id).onchange=()=>{const value=$(id).type==='checkbox'?$(id).checked:$(id).value;change(doc=>{doc.measurements||=E.empty();doc.measurements[key]=value===''?null:value;});};
-  $('recordAdd').onclick=()=>{const u=$('recordVoltage').value,i=$('recordCurrent').value;cancel();if(change(doc=>E.record(doc,S.solve(doc),u,i)))notify('已記錄實際電表讀數。');};
+  for(const [id,key]of [['recordVoltage','voltage'],['recordCurrent','current'],['recordResistance','resistance'],['recordAxis','axis'],['recordFit','fit'],['recordFitModel','fitModel']])$(id).onchange=()=>{const value=$(id).type==='checkbox'?$(id).checked:$(id).value;change(doc=>{doc.measurements||=E.empty();doc.measurements[key]=value===''?null:value;});};
+  $('recordAdd').onclick=()=>{const u=$('recordVoltage').value,i=$('recordCurrent').value,r=$('recordResistance').value||null;cancel();if(change(doc=>E.record(doc,S.solve(doc),u,i,r)))notify('已記錄 U、I'+(r?'、R':'')+' 的實際數值。');};
   $('recordTable').onclick=e=>{const b=e.target.closest('[data-delete-record]');if(b)change(doc=>doc.measurements.rows.splice(Number(b.dataset.deleteRecord),1));};
   $('recordClear').onclick=()=>change(doc=>doc.measurements.rows=[]);
   $('recordExport').onclick=()=>download(E.csv(E.state(history.get())),'電路量測.csv','text/csv;charset=utf-8');

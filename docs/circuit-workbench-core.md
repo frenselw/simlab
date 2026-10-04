@@ -134,6 +134,8 @@ npm run package:circuit
 
 電流／電子動畫也通過元件內部，實物燈泡沿同一燈絲幾何走至底部接點，兩種外觀、旋轉及換孔均對準實際端子。動畫只使用權威支路電流；多孔變阻器及 A／V 的共用段按 KCL 合併，W 的兩個線圈分開，理想電壓表不畫假電流。內部小粒子及間距只為閱讀，速度沿用同一示意函數；位移不進文件／歷史。`component-flow.test.js` 及 `--component-flow-smoke` 聚焦燈絲、端子、分流、真實 SVG／RAF、暫停與來源／ZIP 的可信開關續操作，證據為 `component-flow.json`。設計見活動計劃第 45 節。
 
+量測可明確選擇電阻元件或變阻器 A–P／B–P／A–B 段，每列保留獨立的 U/I/R 與來源名稱。R 直接取元件參數或熱燈權威工作電阻，不能用 U/I 回算驗證歐姆定律。六種兩量座標共用原始 SI 擬合；缺 R 的舊列不冒作零值，R 圖跳過它們，CSV 保留空欄。擬合顯示跨整個繪圖範圍，先算模型與矩形的交點再取樣，避免巨大縱值截斷改變斜率；反比例在零點分支。來源刪除／縮減接孔不刪歷史列。`resistance-records.test.js` 及 `--resistance-plot-smoke` 聚焦全域曲線、固定電壓與獨立 R、實際記錄／CSV／檔案重載續操作，證據為 `resistance-plots.json`。設計見活動計劃第 46 節。
+
 `node sim/circuit-workbench/meter-motion.test.js` 聚焦零位、超越／衰減、連續反向與換量程、機械限位、幀率、暫停／減少動態及非持續狀態。`node tools/circuit-workbench-browser-regression.js --needle-smoke` 在來源／ZIP 的 390 px 可信觸控及 1280 px 滑鼠檢查真實 RAF 針尖、手機預覽／放大錶盤同步、接線後正讀值、反向、暫停及文件重載後續操作；證據為 `meter-motion.json`。穩態刻度測試先等待指針停定，再核對實際 SVG 角度。
 
 `node sim/circuit-workbench/display-and-mirror.test.js` 聚焦獨立數值組合、舊檔／嚴格新欄位、A/V 高低量程四角度換孔、有限線長失敗、權限與文件往返後續操作。`node tools/circuit-workbench-browser-regression.js --display-mirror-smoke` 在來源／ZIP 的 390 px 可信觸控和 1280 px 滑鼠操作勾選、換孔、複製、復原與新方向吸附，直接比對 SVG 引線／孔／線端及 HTML 命中區；另驗 320 px 新按鈕可用。以真實檔案輸入重載後執行合法續操作，證據為 `display-mirror.json`。
@@ -157,7 +159,7 @@ A/V 錶面的接線教學／診斷文字已移除，下方空白殼身縮短；�
 
 旋轉、刪除、定位、拉直與接孔換位以 SVG 圖示顯示，保留 title／aria-label 與至少 44 CSS px 觸控目標。A/B 拔線另有短端點標記。R 順時針、Shift+R 逆時針；兩者均拉直直接所連導線並原子檢查線長。畫布底部依可用畫布寬度使用一或兩行，導線取用保留文字與庫存。ZIP builder 核對 SVG 圖示的本地片段引用必須有對應 ID；其餘 runtime 引用仍需資產清單宣告。
 
-可選 `measurements.fitModel` 為 `linear|proportional|inverse|quadratic`；舊 v4 缺欄位視為 linear，未知模型拒絕。既有 `fit` 決定是否顯示曲線；不改原始有號儀表資料及範圍。`CircuitExperiments.fit(rows,axis,model='linear')` 回傳模型、係數、有效／排除筆數和 R²；退化或資料不足回傳 null。`predict(result,x)` 計算原始 SI 縱量；二次使用中心化／縮放 QR，以穩定形式求值，低於浮點運算誤差範圍的正規化係數歸零，避免無意義的極小二次項。R² 按原始縱量殘差計算，受限模型可能為負；常數資料且有殘差時未定，顯示 —。`formula(result,axis)` 提供受控本地 LaTeX；公式以 U（V）、I（A）代入，即使圖軸縮成 mA／μA 也不改係數。
+可選 `measurements.fitModel` 為 `linear|proportional|inverse|quadratic`；舊 v4 缺欄位視為 linear，未知模型拒絕。既有 `fit` 決定是否顯示曲線；不改原始有號儀表資料及範圍。`CircuitExperiments.fit(rows,axis,model='linear')` 回傳模型、係數、有效／排除筆數和 R²；退化或資料不足回傳 null。`predict(result,x)` 計算原始 SI 縱量；二次使用中心化／縮放 QR，以穩定形式求值，低於浮點運算誤差範圍的正規化係數歸零，避免無意義的極小二次項。R² 按原始縱量殘差計算，受限模型可能為負；常數資料且有殘差時未定，顯示 —。`formula(result,axis)` 提供受控本地 LaTeX；公式以 U（V）、I（A）、R（Ω）代入，即使圖軸縮成 mA／μA 也不改係數。
 
 反比例採 `y=a/x` 的最小平方，排除零橫座標和超量程，曲線在零點斷開；正比例為 `y=ax`，一次為 `y=ax+b`，二次為 `y=ax²+bx+c`。正比例／一次／反比例需兩個不同橫座標，二次需三個。不自動宣稱所選模型適合物理情況。縱軸符號置於左側縱軸端上方，不再在圖中央。
 

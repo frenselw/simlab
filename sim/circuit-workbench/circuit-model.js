@@ -141,6 +141,7 @@
     doc.wires.forEach(w=>{if(w.id!==id)for(const key of ["from","to"])if(removedPorts.has(w[key]))w[key]=freeEnd(doc,ends.get(w[key]));});
     doc.components = doc.components.filter((x) => x.id !== id); doc.junctions = doc.junctions.filter((x) => x.id !== id);
     if(doc.measurements)for(const key of ['voltage','current'])if(doc.measurements[key]===id)doc.measurements[key]=null;
+    if(doc.measurements?.resistance?.split(':')[0]===id)doc.measurements.resistance=null;
     doc.wires = doc.wires.filter((w) => w.id !== id);
     doc.wires.forEach(w=>{if(paths.has(w.id))pose(doc,w,paths.get(w.id));});
     if (removedPorts.has(doc.display.reference)) doc.display.reference = null;
@@ -182,6 +183,7 @@
     for(const p of oldPorts)if(!keys.has(p.id)){doc.wires.filter(w=>w.from===p.id||w.to===p.id).forEach(w=>{for(const end of ['from','to'])if(w[end]===p.id)detach(doc,w.id,end,false);});if(doc.display.reference===p.id)doc.display.reference=null;}
     c.params.terminals=count;cleanup(doc);
     if(!reconcile(doc,before))throw new Error('導線太短，請先拔開或移近元件再切換接線孔');
+    if(doc.measurements?.resistance&&!E.resistanceSources(doc.components).some(s=>s.value===doc.measurements.resistance))doc.measurements.resistance=null;
   }
   function history(initial) {
     let value = validate(initial), past = [], future = [];
