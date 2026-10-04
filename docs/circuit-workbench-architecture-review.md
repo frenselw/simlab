@@ -9,7 +9,7 @@
 | 層 | 擁有的內容 | 檔案 |
 |---|---|---|
 | 共用引擎 | 元件、多端子、電路文件、拓撲、電學、有限導線、圖形、標籤與指針 | registry、model、solver、routing、document、renderer、math、meter-motion |
-| 可配置編輯器 | DOM、畫布、相機、命中、吸附、接線、預覽、命令、權限、只讀、訂閱、卸載 | `circuit-editor.js`、`circuit-editor-ui.js`、`circuit-editor.css`、`circuit-profile.js` |
+| 可配置編輯器 | DOM、畫布、相機、命中、吸附、接線、預覽、命令、權限、只讀、訂閱、卸載 | `circuit-editor.js`、`circuit-editor-ui.js`、`circuit-editor.css`、`circuit-profile.js`、`circuit-snapping.js` |
 | 活動／教師外層 | 本題元件、可做操作、檢查、回饋；正式活動另擁有分數、階段與 SCORM | 教師 `main.js`；學生示例 `activity-profiles.js`、`activity-examples.js`；純檢查 `circuit-checks.js` |
 
 原 `main.js` 現在只掛載教師配置並保留 `window.CircuitWorkbench`。`index.html` 是教師入口，學生示例使用獨立入口 `activity-examples.html`。
@@ -21,6 +21,7 @@
 | 只顯示兩盞燈，檢查串聯 | 初始文件只有兩燈，工具箱為空、面板關閉；按實際共接及支路拓撲判斷，不要求有電源，也不以零電流相等作證據。 |
 | 給定種類及數量，學生自己取出 | 工具箱白名單及每款庫存；預置元件計入庫存，非法種類、參數及超量的文件亦不能載入。 |
 | 固定元件，只准接線 | 學生預設固定全部元件；按 ID 或類型開放例外。接線、拔線、彎線沿用原操作。 |
+| 拿元件接線 | 開放 move 及接線後，自動使用共用的本體拖動吸附；兩端同接及共接點保持、有限線長、單步歷史與取消都不需活動重寫。 |
 | 只准改滑片位置 | `params:['position']`；阻值、孔數、位置、方向都可固定，未開放的輸入不顯示。 |
 | 檢查滑片向右令燈變暗 | 在副本取三個滑片位置，由求解器計算燈功率及單調變化，處理實際元件方向，排除未接、短接、固定阻值或反方向。 |
 | 學生不見教師／進階功能 | settings、文件、範例等介面不掛載，也不進 Tab 焦點順序；畫布數值由本題的 display 決定。 |

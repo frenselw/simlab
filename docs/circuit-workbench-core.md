@@ -57,6 +57,7 @@ A/V 表高量程正孔是 a，共用負孔是 b，低量程正孔是 c。教師�
 - `circuit-label-layout.js`：以 CSS 像素、實際介面字體及數學 SVG 尺寸放置資訊，使用局部碰撞索引、四邊候選位置及必要換行；長數值組合只在量與量之間分行。位置、偏好和引導虛線都是瞬時顯示；不改導線、電氣結果、命中或文件。極密畫面可能沒有足夠空位，仍可放大或關閉部分資訊。
 - `circuit-renderer.js`：實物／符號、數字／指針、讀值、電勢與方向。未完成操作不寫入電路文件。
 - `circuit-meter-motion.js`：A/V 指針的解析阻尼運動、機械限位與臨時狀態；只影響畫面，不參與求解、文件或量測資料。
+- `circuit-snapping.js`：純元件拖動吸附預覽，按實際接孔對準懸空線端／共接點，保留既有連接及有限線長。編輯器另負責活動權限、放手提交、取消及歷史；不改文件版本。
 - `circuit-document.js`：版本化 JSON、舊元資料遷移與模板匯出；先驗證後替換。匯入內容不能包含可執行模型。
 - `main.js`：教師配置與啟動；`circuit-editor.js`／`circuit-editor-ui.js`／`circuit-profile.js` 共用畫布、介面與活動限制，所有變更在驗證後才完成。
 - `circuit-checks.js`：共接、串聯、參數及滑片效果的純檢查；不擁有分數、提交或 SCORM。`activity-profiles.js` 提供四種配置示例。
@@ -166,3 +167,5 @@ A/V 錶面的接線教學／診斷文字已移除，下方空白殼身縮短；�
 ## 作為其他電路活動的基礎
 
 核心可獨立載入及求解，現在亦可用 `CircuitEditor.mount(host, config)` 快速裁剪成學生活動：指定元件／庫存、固定位置／方向、可改參數、介面和本題檢查。學生預設不掛載教師設定；鍵盤、手勢、命令及載入均受相同限制，支援只讀、卸載和多 instance。實際使用見[活動製作指南](circuit-activity-authoring.md)，架構邊界見[共用架構審視](circuit-workbench-architecture-review.md)。題目、評分、記錄圖像與 SCORM 屬各活動外層。
+
+元件本體拖動與導線拖動均能接線。搬動元件時，以 24 CSS px 尋找未接在元件上的線端，接孔對準優先於格點；旋轉及 A/V 換孔沿用 registry 幾何。高亮接孔及預覽不進已提交文件，放手才一次完成位置與接線；多線共接點不能拆散，原有線端不能被搶走，線長不足的候選不成立。手機搬動本體不增加放大浮窗。`component-snapping.test.js` 和 `--component-snap-smoke` 只檢查本輪端點／多孔／線長／拓撲／權限及來源、ZIP 的可信滑鼠與模擬觸控拖接、取消、復原與恢復續作，證據為 `output/playwright/circuit-workbench/component-snapping.json`。

@@ -36,7 +36,7 @@
     }
 
   try {
-  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,N=window.CircuitMeterMotion;
+  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,N=window.CircuitMeterMotion,J=window.CircuitSnapping;
   const surface=$("surface"),svg=$("circuitSvg"),hitLayer=$("hitLayer");
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map(),needleStates=new Map();
@@ -58,7 +58,7 @@
   function emitChange(){for(const fn of listeners)try{fn(M.clone(history.get()));}catch(e){console.error("CircuitWorkbench onChange callback failed",e);}}
   const readableMeter=(d,c)=>c&&d.display.meters==="analog"&&d.display.values&&R.isMeter(c);
   function rollbackDrag(){meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=S.solve(history.get());$("preview").hidden=true;
-    if(old?.kind==="wireend"||old?.wholeWire)$("canvasNotice").hidden=true;
+    if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
     // Active touches keep their original capture until lift or an explicit transfer.
@@ -116,7 +116,7 @@
   function probePort(id){selection={kind:"port",id};const value=analysis.potentials[id];if(probeFirst&&probeFirst!==id){probeResult={from:probeFirst,to:id,voltage:analysis.voltage(probeFirst,id)};probeFirst=null;notify(probeResult.voltage===null?"兩點不屬同一個可確定電勢差的電路。":["兩點電壓：",Q.quantity(probeResult.voltage,'V'),"（第一點 − 第二點）"]);}else{probeFirst=id;probeResult=null;notify(['相對電勢 ',Q.quantity(value,'V'),'；再點另一個端子測量。']);}render();}
   function target(key,meta,p,width=44,height=44,touch="none"){let t=targets.get(key);if(!t){t=document.createElement("button");t.type="button";t.className="hit "+meta.kind;t.dataset.hit=key;targets.set(key,t);hitLayer.append(t);}
     t.meta=meta;t.setAttribute("aria-label",meta.label);Object.assign(t.style,{left:p.x+"px",top:p.y+"px",width:Math.max(meta.kind==="wire"?12:44,width)+"px",height:Math.max(meta.kind==="wire"?12:44,height)+"px",touchAction:touch,transform:"translate(-50%,-50%)"});
-    t.classList.toggle("snap",!!drag?.snap&&(drag.snap.id===meta.id||drag.snap.id===meta.endpoint));t.tabIndex=meta.kind==="wire"&&meta.segment>0?-1:0;return t;
+    t.classList.toggle("snap",!!drag?.snap&&(drag.snap.connections||[drag.snap]).some(s=>s.id===meta.id||s.id===meta.endpoint));t.tabIndex=meta.kind==="wire"&&meta.segment>0?-1:0;return t;
   }
   function renderHits(d){const needed=new Set(),put=(key,...args)=>{needed.add(key);return target(key,...args);};
     d.components.forEach(c=>{const dual=R.dualMeter(c),size=d.display.view==='real'?R.meterBodyScale(c):1,w=(dual?(d.display.view==='real'?144:70):c.type==='galvanometer'?102:c.type==='rheostat'?100:c.type==='wattmeter'?80:70)*size,h=(dual?(d.display.view==='real'?130:70):c.type==="lamp"?106:c.type==='galvanometer'?97:c.type==='rheostat'?64:c.type==="wattmeter"?78:46)*size,angle=c.angle*Math.PI/180,center=dual&&d.display.view==='real'?{x:c.x+22*size*Math.sin(angle),y:c.y-22*size*Math.cos(angle)}:c;
@@ -131,9 +131,9 @@
     });
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
-  function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?`<circle data-snap-target="${V.esc(snap.id)}" cx="${snap.x}" cy="${snap.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`:"";
-    if(drag?.kind==="wireend"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
-      n.innerHTML=rich(snap?[drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
+  function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?(snap.connections||[snap]).map(s=>`<circle data-snap-target="${V.esc(s.id)}" cx="${s.x}" cy="${s.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`).join(""):"";
+    if(drag?.kind==="wireend"||drag?.kind==="body"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
+      n.innerHTML=rich(snap?[drag.kind==="body"?"元件將接線：":drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
   }
   function render(inspector=true){if(destroyed)return;const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
@@ -308,7 +308,11 @@
       const candidate=resolveSnap(previewDoc,drag.id,drag.end,desired);if(candidate){const snapped=M.clone(previewDoc);if(M.attach(snapped,drag.id,drag.end,candidate.id)){previewDoc=snapped;drag.snap=candidate;drag.limited=false;}}
       drag.focus=M.endpoints(previewDoc).get(previewDoc.wires.find(w=>w.id===drag.id)[drag.end]);
     }else if(drag.kind==="body"||drag.kind==="junction"){
-      const old=(drag.kind==="body"?drag.baseDoc.components:drag.baseDoc.junctions).find(x=>x.id===drag.id),result=moveObject(drag.baseDoc,drag.kind,drag.id,snapGrid(old.x+dx)-old.x,snapGrid(old.y+dy)-old.y);previewDoc=result.doc;drag.limited=result.limited;drag.focus=(drag.kind==="body"?previewDoc.components:previewDoc.junctions).find(x=>x.id===drag.id);
+      const old=(drag.kind==="body"?drag.baseDoc.components:drag.baseDoc.junctions).find(x=>x.id===drag.id),desired={x:old.x+dx,y:old.y+dy};
+      const snapped=drag.kind==="body"&&wireAllowed()?J.component(drag.baseDoc,drag.id,desired,24/camera.scale):null;
+      if(snapped){previewDoc=snapped.doc;drag.snap=snapped.snap;}
+      else{const result=moveObject(drag.baseDoc,drag.kind,drag.id,snapGrid(desired.x)-old.x,snapGrid(desired.y)-old.y);previewDoc=result.doc;drag.limited=result.limited;}
+      drag.focus=(drag.kind==="body"?previewDoc.components:previewDoc.junctions).find(x=>x.id===drag.id);
     }else if(drag.kind==="slider"){const c=previewDoc.components.find(c=>c.id===drag.id),angle=c.angle*Math.PI/180,local=(p.x-c.x)*Math.cos(angle)+(p.y-c.y)*Math.sin(angle);c.params.position=Math.max(0,Math.min(1,Math.round((local+30)/60*100)/100));drag.focus=p;
     }else if(drag.kind==="wire"){drag.limited=!!M.bendWire(previewDoc,drag.id,drag.down,dx,dy,Math.max(100,110/camera.scale))?.limited;drag.focus=p;
       if(drag.wholeWire){const snapped=snapWholeWire(previewDoc,drag.id);if(snapped){previewDoc=snapped.doc;drag.snap=snapped.snap;drag.limited=false;}}
@@ -318,7 +322,7 @@
   on(surface,"pointerup",e=>{
     if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc;drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
-    if(preview&&done.moved){change(doc=>Object.assign(doc,preview));notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");}
+    if(preview&&done.moved&&change(doc=>Object.assign(doc,preview)))notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?done.kind==="body"?["元件已接線：",...connectionLabel(done.snap.id),"。"]:["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");
     render();
   });
   on(surface,"lostpointercapture",e=>{if(drag?.pointerId===e.pointerId||(cameraGesture?.ids.includes(e.pointerId)&&!surface.hasPointerCapture(e.pointerId)))cancel(true);});
