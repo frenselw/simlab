@@ -1,16 +1,18 @@
 (async() => {
   "use strict";
   await window.CircuitMath.ready();
-  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,E=window.CircuitExperiments;
+  const M=window.CircuitModel,R=window.CircuitRegistry,S=window.CircuitSolver,D=window.CircuitDocument,G=window.CircuitRouting,V=window.CircuitRenderer,P=window.CircuitPresets,Q=window.CircuitMath,E=window.CircuitExperiments,N=window.CircuitMeterMotion;
   const $=id=>document.getElementById(id),surface=$("surface"),svg=$("circuitSvg"),hitLayer=$("hitLayer");
   const history=M.history(P.create("series")),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
-  const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map();
+  const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map(),needleStates=new Map();
   let analysis=S.solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
   const touches=new Map(),minScale=.001,maxScale=2.5;
   let cameraGesture=null,touchOrigin=null,touchBlocked=false,spacePan=false,spacePanUsed=false;
   let noticeTimer;
-  let paused=matchMedia("(prefers-reduced-motion: reduce)").matches,animationTime=0,lastTime=0;
+  const reducedMotion=matchMedia("(prefers-reduced-motion: reduce)");
+  let paused=reducedMotion.matches,animationTime=0,lastTime=0;
   document.addEventListener('visibilitychange',()=>{lastTime=0;});
+  reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)paused=true;lastTime=0;render(false);});
   const current=()=>previewDoc||history.get(),world=(x,y)=>{const r=surface.getBoundingClientRect();return{x:camera.x+(x-r.left)/camera.scale,y:camera.y+(y-r.top)/camera.scale};};
   const screen=p=>({x:(p.x-camera.x)*camera.scale,y:(p.y-camera.y)*camera.scale}),snapGrid=v=>Math.round(v/20)*20;
   const rich=parts=>(Array.isArray(parts)?parts:[parts]).map(p=>typeof p==='string'?V.esc(p):Q.html(p)).join('');
@@ -98,7 +100,7 @@
       n.innerHTML=rich(snap?[drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
   }
-  function render(inspector=true){const d=current(),surfaceRect=surface.getBoundingClientRect();svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
+  function render(inspector=true){const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
     labelOptions.exclusions=[...document.querySelectorAll('.scroll-strip')].map(e=>{const r=e.getBoundingClientRect();return{left:camera.x+(r.left-surfaceRect.left)/camera.scale,right:camera.x+(r.right-surfaceRect.left)/camera.scale,top:camera.y+(r.top-surfaceRect.top)/camera.scale,bottom:camera.y+(r.bottom-surfaceRect.top)/camera.scale};});
     surface.style.backgroundSize=`${Math.max(16,20*camera.scale)}px ${Math.max(16,20*camera.scale)}px`;surface.style.backgroundPosition=`${-camera.x*camera.scale}px ${-camera.y*camera.scale}px`;
     const key=JSON.stringify([d.components.map(c=>[c.id,c.type,c.x,c.y,c.angle]),d.junctions,d.wires]);if(key!==geometryKey){routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));geometryKey=key;}
@@ -119,6 +121,15 @@
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
     const pinned=meterPreview?d.components.find(c=>c.id===meterPreview.id):null,reading=readableMeter(d,held)?held:readableMeter(d,pinned)?pinned:null;
     if(reading)renderPreview(null,reading);else if(drag?.pointerType==="touch"&&drag.kind==="wireend")renderPreview(drag.focus||world(drag.lastX,drag.lastY));else $("preview").hidden=true;
+    updateMeterNeedles();
+  }
+  function updateMeterNeedles(){
+    for(const root of [$("scene"),$("preview"),$("meterDetail")])for(const needle of root.querySelectorAll('[data-meter-needle]')){
+      const state=needleStates.get(needle.dataset.meterNeedle);if(!state||state.target===null)continue;
+      const fraction=state.fraction,p=V.dialPoint(fraction,59);
+      needle.setAttribute('d',`M0 24L${p.x} ${p.y}`);needle.dataset.fraction=fraction;needle.dataset.angle=V.dialAngle(fraction);needle.dataset.targetFraction=state.target;
+      needle.dataset.moving=String(fraction!==state.target||state.velocity!==0);
+    }
   }
   function renderPreview(p,meter=null){const host=$("preview"),preview=host.querySelector("svg");host.hidden=false;host.dataset.mode=meter?"meter":"connection";host.setAttribute("aria-hidden",String(!meter));$("closePreview").hidden=!meter;host.querySelector("span").textContent=meter?"刻度預覽":"接線預覽";if(drag&&!drag.previewSide)drag.previewSide=drag.x-surface.getBoundingClientRect().left>surface.clientWidth/2?"left":"right";const side=drag?.previewSide||meterPreview?.side;host.style.left=side==="left"?"46px":"auto";host.style.right=side==="left"?"auto":"46px";
     if(meter){preview.setAttribute("role","img");preview.setAttribute("aria-label",meter.label+"指針刻度");const d=current(),r=analysis.components[meter.id];preview.setAttribute("viewBox",R.dualMeter(meter)?"-80 -88 160 135":meter.type==='galvanometer'?'-50 -45 100 90':"-70 -55 140 110");preview.innerHTML=R.dualMeter(meter)?V.dualDial(meter,r,d.display.values):meter.type==='galvanometer'?V.galvanometerDial(meter,r,d.display.values):V.body({...meter,angle:0},r,{...d.display,view:"real"});}
@@ -181,7 +192,7 @@
     const list=$("wireList");list.replaceChildren();d.wires.forEach(w=>{const row=document.createElement("div");row.className="wire-row";const b=document.createElement("button");b.textContent=w.id+" · "+portName(w.from)+" → "+portName(w.to);b.onclick=()=>{selection={kind:"wire",id:w.id};render();focusPoint(G.along(routes[w.id],G.length(routes[w.id])/2));};const del=document.createElement("button");del.className="delete";del.textContent="×";del.setAttribute("aria-label","刪除導線 "+w.id);del.onclick=()=>{cancel();change(doc=>M.remove(doc,w.id));};row.append(b,del);list.append(row);});
   }
   function componentReadings(id) { const c = current().components.find((c) => c.id === id), r = analysis.components[id]; if (!c || !r) return ""; const isRheo=c.type==='rheostat',g=c.type==='galvanometer';const items = [[isRheo?'A–P 電壓':"兩端電壓", r.voltage, "V"], [c.type === "battery" ? "向外供出電流" : R.dualMeter(c)?'所接正極 → − 電流':isRheo?'A → P 電流':g?"+ → − 電流":"a → b 電流", c.type === "battery" && r.current !== null ? -c.params.polarity * r.current : g&&Number.isFinite(r.current)?r.current*1e6:r.current, g?'μA':"A"], [c.type === "battery" ? "端口輸出功率" : "吸收功率", c.type === "battery" ? r.delivered : r.power, "W"]]; if (c.type === "battery") items.push(["內阻發熱", r.internalPower, "W"], ["電源總供能", r.sourcePower, "W"]); if (c.type === "lamp") items.push(["工作電阻", r.resistance, "Ω"]);if(isRheo){items.push(['A–P 電阻',R.effectiveResistance(c),'Ω']);if(c.params.terminals>2)items.push(['P–B 電阻',c.params.resistance*(1-c.params.position),'Ω'],['A–B 電壓',analysis.voltage(id+':a',id+':c'),'V']);} if (r.unit) items.push(["儀表讀值", g&&Number.isFinite(r.reading)?r.reading*1e6:r.reading, g?'μA':r.unit]);if(R.dualMeter(c)||g)items.push([g?'滿偏電流':'目前量程',g?r.range*1e6:r.range,g?'μA':r.unit],['每小格',g?r.division*1e6:r.division,g?'μA':r.unit]);return readings(items); }
-  function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c)&&c.type!=='galvanometer')return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',factor=g?1e6:1,unit=g?'μA':r.unit;$('meterTitle').textContent=g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g?'-50 -45 100 90':'-80 -88 160 135'}" aria-label="${V.esc(c.label)}刻度">${g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();}
+  function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c)&&c.type!=='galvanometer')return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',factor=g?1e6:1,unit=g?'μA':r.unit;$('meterTitle').textContent=g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g?'-50 -45 100 90':'-80 -88 160 135'}" aria-label="${V.esc(c.label)}刻度">${g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();updateMeterNeedles();}
 
   let measurementRenderKey='';
   const currentQuantity=value=>Q.quantity(Number.isFinite(value)&&Math.abs(value)<.001?value*1e6:value,Number.isFinite(value)&&Math.abs(value)<.001?'μA':'A');
@@ -330,7 +341,7 @@
   $('inspectMeter').onclick=()=>inspectMeter();$('closeMeter').onclick=()=>$('meterDialog').close();
   $("detachFrom").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"from");};$("detachTo").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"to");};
   $("deleteSelected").onclick=()=>{const id=selection?.id;if(!id||selection.kind==="port")return;cancel();change(doc=>M.remove(doc,id));notify("已刪除；刪線歸還庫存，復原可還原。");};$("rotateSelected").onclick=()=>{if(selectedComponent())rotate(selection.id);};$("undo").onclick=()=>undo();$("redo").onclick=()=>undo(true);
-  function loadDocument(doc){const valid=typeof doc==="string"?D.decode(doc):M.validate(doc);cancel();const before=history.get();history.replace(valid);flowOffsets.clear();analysis=S.solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();if(before!==history.get())emitChange();}
+  function loadDocument(doc){const valid=typeof doc==="string"?D.decode(doc):M.validate(doc);cancel();const before=history.get();history.replace(valid);flowOffsets.clear();needleStates.clear();analysis=S.solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();if(before!==history.get())emitChange();}
   $("preset").onchange=()=>{loadDocument(P.create($("preset").value));notify("已載入範例，可取線、改接及量測。");};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
   ["flow","meters","potential","names","values","projection"].forEach(id=>$(id).onchange=()=>change(doc=>doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value));$("pause").onchange=()=>{paused=$("pause").checked;render(false);};
   $("mode").onchange=()=>{cancel();change(doc=>doc.policy.mode=$("mode").value);};["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).onchange=()=>{cancel();change(doc=>doc.policy[id]=$(id).checked);});
@@ -365,6 +376,7 @@
     const elapsed=lastTime?Math.max(0,Math.min(.05,(time-lastTime)/1000)):0;lastTime=time;
     const active=!paused&&!document.hidden;if(active)animationTime+=elapsed;
     V.advanceFlow(flowOffsets,current(),analysis,active?elapsed:0);
+    if(N.advance(needleStates,active?elapsed:0))updateMeterNeedles();
     if(!document.hidden&&!drag&&!cameraGesture)$("flowLayer").innerHTML=V.flow(current(),analysis,routes,animationTime,camera.scale,flowOffsets);
     requestAnimationFrame(animate);
   }requestAnimationFrame(animate);

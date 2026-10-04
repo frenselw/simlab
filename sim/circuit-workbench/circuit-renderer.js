@@ -59,7 +59,8 @@
       if(i%10===0){for(const [kind,radius,value,active]of [['high',54,ranges.high*f,high],['low',37,ranges.low*f,low]]){const p=dialPoint(f,radius);out+=quantity(p.x,p.y+3,value,'',9,`data-scale="${kind}" data-value="${value}" fill="${active?'#245b94':'#64748b'}"`);}}
     }
     out+=Q.svg(0,10,Q.unit(unit),17);
-    if(values&&Number.isFinite(v)){const fraction=Math.max(R.meterScale.minimumFraction-R.meterScale.stopMargin,Math.min(1+R.meterScale.stopMargin,v/range)),p=dialPoint(fraction,59);out+=`<path data-meter-needle="${esc(c.id||'preview')}" data-reading="${v}" data-range="${range}" data-fraction="${fraction}" data-angle="${dialAngle(fraction)}" d="M0 24L${p.x} ${p.y}" stroke="#c33b35" stroke-width="2" stroke-linecap="round"/>`;}
+    const unconnected=['unconnected','missing-common'].includes(result?.meterStatus);
+    if(values&&(Number.isFinite(v)||unconnected)){const fraction=unconnected?0:Math.max(R.meterScale.minimumFraction-R.meterScale.stopMargin,Math.min(1+R.meterScale.stopMargin,v/range)),p=dialPoint(fraction,59);out+=`<path data-meter-needle="${esc(c.id||'preview')}" data-reading="${Number.isFinite(v)?v:''}" data-range="${range}" data-target-fraction="${fraction}" data-fraction="${fraction}" data-angle="${dialAngle(fraction)}" d="M0 24L${p.x} ${p.y}" stroke="#c33b35" stroke-width="2" stroke-linecap="round"/>`;}
     out+='<circle cx="0" cy="24" r="4" fill="#475569"/>';
     return `<g data-meter-dial="${esc(c.id||'preview')}" data-divisions="${ranges.divisions}" data-negative-divisions="${ranges.negativeDivisions}" data-zero-angle="${R.meterScale.zeroAngle}">${out}</g>`;
   }
