@@ -966,3 +966,18 @@ A–D 合起來才稱為「首個完整直流工作台」。A 只是互動原型
 工作台亦公開作獨立模擬，使用者要求全螢幕錯誤提示不特指 Moodle／播放器。共用 `sim/shared/fullscreen.js` 的進入失敗與權限封鎖文字統一提及「瀏覽器或網頁的全螢幕權限」，適用獨立及嵌入網頁。只有兩段文案變更，權限偵測、狀態、重試、WebKit、文件／測量／歷史及依賴不變；assessment／rubric／新快照／新變體 N/A。只跑既有全螢幕單元及語法／diff 檢查，更新獨立 ZIP；不重跑電路、手機或其他活動矩陣。
 
 `node sim/shared/fullscreen.test.js`、`node --check sim/shared/fullscreen.js` 及 `git diff --check` 通過。獨立 ZIP 已重建，19 個 runtime 檔逐 byte 對來源一致；包內兩段提示亦確認沒有 Moodle／播放器字眼，記錄於 `output/playwright/circuit-workbench/fullscreen-copy-package.json`。本輪為文案修正，沒有宣稱新增真機或瀏覽器全螢幕權限驗收。
+
+## 41. 全圖及工具按鈕的狀態提示（2026-10-04）
+
+使用者指出按「全圖」或「工具」後沒有清楚的高亮；並詢問實物外觀的橙色螺絲是否代表負極。本輪只改善狀態顯示與說明，仍為教師工作台；assessment／rubric／SCORM／新權威快照 N/A。
+
+- 「全圖」沿用既有自動適應模式：初始／載入／按全圖啟用，手動縮放、移圖或定位所選後停用。按鈕以 `aria-pressed` 反映實際模式，啟用時使用既有藍色高亮；拖動元件期間仍固定相機，放手後才適應。提示文字說明目前模式，不把一次點擊冒作永久啟用。
+- 「工具」以既有 `aria-expanded` 及實際面板展開狀態決定高亮；桌面初始展開、手機初始收起，點擊及版面變更維持同步。補上 `aria-controls`，不另設容易失同步的樣式狀態。
+- 橙色圓圈是實物接線螺絲，橫線是螺絲槽，非極性；白色圓圈是吸附接線位置。加入操作說明，元件幾何、導電拓撲與求解器不變。
+- 狀態只在當次 UI 中，JSON／歷史／測量及依賴不變。僅做桌面滑鼠與手機模擬觸控的高亮／取消高亮／恢復全圖／面板開合檢查，並核對文件不受影響；語法、diff、獨立 ZIP 資產核對。這是低風險介面修正，不新增單元測試或重跑全專案、教材及電學矩陣；完成後 commit／push 並提供預覽。
+
+### 41.1 聚焦檢查結果
+
+- 來源及 ZIP 的 1280 px 滑鼠／390 px 可信觸控共 **16** 筆檢查通過：初始模式、面板開合的真實顯示與藍色背景／邊框、手動縮放取消高亮、全圖恢復、移圖取消後恢復原相機及高亮。各操作的 production JSON、電學讀值及復原／重做可用狀態保持；無橫向溢出或執行期例外。首次跨頁連續觸控的 CDP 輸入曾逾時；改用既有 runner 的每個版面獨立分頁做法後完成，不以逾時的跑次冒稱通過。
+- 已目視檢查桌面與手機截圖，按鈕大小及畫布版面保持。記錄為 `output/playwright/circuit-workbench/view-state-check.json`；只做本輪聚焦檢查，沒有新增測試到專案 runner，也未執行 `npm test` 或真實手機／Safari／Moodle 驗收。
+- `node --check sim/circuit-workbench/main.js`、`git diff --check` 通過。獨立 ZIP **19 檔、769167 bytes** 逐 byte 與來源一致，SHA-256 `60c5cdd52ff8284cd8d84be152d1183bbdadc88ba6afe796b3e89b00e4a3a984`。
