@@ -981,3 +981,9 @@ A–D 合起來才稱為「首個完整直流工作台」。A 只是互動原型
 - 來源及 ZIP 的 1280 px 滑鼠／390 px 可信觸控共 **16** 筆檢查通過：初始模式、面板開合的真實顯示與藍色背景／邊框、手動縮放取消高亮、全圖恢復、移圖取消後恢復原相機及高亮。各操作的 production JSON、電學讀值及復原／重做可用狀態保持；無橫向溢出或執行期例外。首次跨頁連續觸控的 CDP 輸入曾逾時；改用既有 runner 的每個版面獨立分頁做法後完成，不以逾時的跑次冒稱通過。
 - 已目視檢查桌面與手機截圖，按鈕大小及畫布版面保持。記錄為 `output/playwright/circuit-workbench/view-state-check.json`；只做本輪聚焦檢查，沒有新增測試到專案 runner，也未執行 `npm test` 或真實手機／Safari／Moodle 驗收。
 - `node --check sim/circuit-workbench/main.js`、`git diff --check` 通過。獨立 ZIP **19 檔、769167 bytes** 逐 byte 與來源一致，SHA-256 `60c5cdd52ff8284cd8d84be152d1183bbdadc88ba6afe796b3e89b00e4a3a984`。
+
+## 42. 移除裝飾接線螺絲（2026-10-04）
+
+使用者要求移除容易被誤認為接口的橙色螺絲頭。移除燈泡、開關與多孔滑動變阻器共用的螺絲圖形，白色圓圈繼續作唯一的可接線標記；金屬引線保留並接到元件本體。第 41 節的螺絲說明屬歷史外觀，操作說明改為直接介紹白色接孔。此為純外觀修正，assessment／rubric／新快照／新變體 N/A；不改拓撲、吸附座標、求解器或依賴。只做語法／diff、實際 SVG 與畫面檢查及 ZIP 資產核對，不新增單元測試或重跑電學矩陣；完成後 commit／push 並提供預覽。
+
+語法及 diff 檢查通過；来源與 ZIP 的實際 SVG 均已無橙色螺絲頭，燈泡、斷開開關、電阻和 4／3／2 孔變阻器共 15 個白色接孔均與權威端子座標完全一致，6 組引線保留。已目視檢查 `source-without-screw-heads-1280.png`；紀錄為 `output/playwright/circuit-workbench/screw-removal-check.json`。ZIP **19 檔、769035 bytes** 逐 byte 與來源一致，SHA-256 `c65d7a7980d09f94ff2360fbdf288e8d668c293d744a82fc2e3475cceff51187`。沒有重跑電學、手機手勢或全專案矩陣，沒有新增真機驗收聲明。

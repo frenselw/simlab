@@ -107,7 +107,6 @@
       return lines + meter(c, result, display);
     }
     const metal = 'stroke="#667b8e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"';
-    const screw = (x, y = 0) => `<circle cx="${x}" cy="${y}" r="5" fill="#e9b86b" stroke="#9b793e" stroke-width="1.5"/><path d="M${x-2.5} ${y}h5" stroke="#846635" stroke-width="1.5"/>`;
     if (c.type === "battery") {
       if (schematic) return `<path data-leads="battery" d="M-60 0H-12 M12 0H60" ${metal}/><path d="M${-12*p.polarity}-26V26 M${12*p.polarity}-13V13" stroke="#334155" stroke-width="3"/>` + text(-25*p.polarity,-30,"+",14) + text(25*p.polarity,-30,"−",14);
       return `<path data-leads="battery" d="M-60 0H-37 M37 0H60" ${metal}/><g transform="scale(${p.polarity} 1)"><rect x="-39" y="-14" width="78" height="28" rx="6" fill="#a9b9c5" stroke="#607487" stroke-width="1.5"/><rect x="-33" y="-21" width="66" height="42" rx="7" fill="#486d83" stroke="#334e62" stroke-width="2"/><path d="M-24-20V20" stroke="#efbc68" stroke-width="14"/><path d="M-15-15H24" stroke="#7995a6" stroke-width="2" stroke-linecap="round"/></g>` + text(8,7,"DC",14,'fill="#fff" font-weight="600"') + text(-47*p.polarity,-15,"+",14) + text(47*p.polarity,-15,"−",14);
@@ -118,7 +117,7 @@
       let out='<rect x="-47" y="-24" width="94" height="65" rx="8" fill="#efe6d0" stroke="#a2977d" stroke-width="2"/><path d="M-36 10H36" stroke="#fff6df" stroke-width="18"/>';
       for(let n=-32;n<=32;n+=5)out+=`<path d="M${n} 3v30" stroke="#a57b5c" stroke-width="2"/>`;
       out+=`<path data-leads="rheostat" d="M-68 20H-36 M36 20H68 M-68-34H30 ${extra}" ${metal}/><path d="M-30-34H30" stroke="#a7bac5" stroke-width="7" stroke-linecap="round"/><path d="M${x}-34V10" stroke="#397cab" stroke-width="4"/><rect data-rheostat-slider="true" x="${x-8}" y="-41" width="16" height="14" rx="4" fill="#397cab" stroke="#23577e" stroke-width="1.5"/>`;
-      return out+screw(-36,20)+screw(36,20);
+      return out;
     }
     if (c.type === "resistor" || c.type === "rheostat") {
       const variable = c.type === "rheostat", x = variable ? -30 + p.position * 60 : 0;
@@ -131,7 +130,7 @@
     if (c.type === "switch") {
       let out = schematic ? "" : '<rect x="-39" y="-18" width="78" height="40" rx="8" fill="#dce9e2" stroke="#8baca0" stroke-width="1.5"/><path d="M-29 14H29" stroke="#bdd0c7" stroke-width="2"/>';
       out += `<path data-leads="switch" d="M-60 0H-25 M25 0H60" ${metal}/><path d="M-25 0L25 ${p.closed ? 0 : -27}" fill="none" stroke="${schematic ? "#334155" : "#9b7952"}" stroke-width="${schematic ? 3 : 5}" stroke-linecap="round"/>`;
-      if (!schematic) out += `<path d="M-10 ${p.closed ? 0 : -8.1}L13 ${p.closed ? 0 : -20.5}" stroke="#638b78" stroke-width="9" stroke-linecap="round"/>` + screw(-25) + screw(25);
+      if (!schematic) out += `<path d="M-10 ${p.closed ? 0 : -8.1}L13 ${p.closed ? 0 : -20.5}" stroke="#638b78" stroke-width="9" stroke-linecap="round"/>`;
       else out += '<circle cx="-25" r="3.5" fill="#fff" stroke="#334155" stroke-width="2"/><circle cx="25" r="3.5" fill="#fff" stroke="#334155" stroke-width="2"/>';
       return out;
     }
@@ -144,7 +143,7 @@
       let out = `<ellipse data-lamp-halo="outer" cy="-29" rx="${30+20*glow}" ry="${36+19*glow}" fill="#ffbf39" opacity="${glow*(.22+.08*hot)}"/><ellipse data-lamp-halo="inner" cy="-29" rx="${23+10*glow}" ry="${29+11*glow}" fill="#ffe075" opacity="${glow*.58}"/>`;
       out += `<path data-lamp-glass="true" d="M-11-9C-11-18-24-20-24-34C-24-63 24-63 24-34C24-20 11-18 11-9Z" fill="${glass}" stroke="#9bb2bf" stroke-width="2"/><path d="M-16-37C-16-45-9-48-5-48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path data-lamp-filament="true" d="M-7-8V-26L-10-31L-6-35L-2-29L2-35L6-29L10-33L7-26V-8" fill="none" stroke="${filament}" stroke-width="${2+glow}" stroke-linejoin="round" stroke-linecap="round"/>`;
       out += '<path d="M-12-9H12V10Q12 13 8 13H-8Q-12 13-12 10Z" fill="#a8b5bf" stroke="#677c8c" stroke-width="1.5"/><path d="M-11-4H11 M-11 2H11 M-10 8H10" stroke="#6f8290" stroke-width="1.5"/><path d="M-6 14H6" stroke="#45586a" stroke-width="4"/><circle cy="18" r="3" fill="#b78b51"/>';
-      out += `<path data-leads="lamp" d="M-60 0H-12 M60 0H40V18H0" ${metal}/>` + screw(-46) + screw(46);
+      out += `<path data-leads="lamp" d="M-60 0H-12 M60 0H40V18H0" ${metal}/>`;
       if (p.model === "thermal") out += text(0,-64,"熱效應",10,'fill="#986429"');
       return wrap(out);
     }
