@@ -6,7 +6,7 @@
   "use strict";
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
-  const empty = () => ({ kind: "simlab-circuit", version: 4, components: [], junctions: [], wires: [], cables: {count:10,length:600}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "digital", potential: false, names: true, values: true, reference: null, projection: false } });
+  const empty = () => ({ kind: "simlab-circuit", version: 4, components: [], junctions: [], wires: [], cables: {count:20,length:600}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "digital", potential: false, names: true, values: true, reference: null, projection: false } });
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
   const bool = (v) => { if (typeof v !== "boolean") throw new Error("設定必須是布林值"); };
@@ -51,7 +51,7 @@
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
     if (input.version === 1) valid.wires.forEach((w) => { w.shape = "auto"; });
-    if(input.version<3){valid.cables={count:Math.max(10,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
+    if(input.version<3){valid.cables={count:Math.max(20,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
     const oldRoutes=input.version<4?valid.wires.map(w=>G.route(valid,w)):[];valid.version=4;
     if(input.version<4){const next=endpoints(valid),hasMeters=valid.components.some(R.dualMeter);valid.wires.forEach((w,i)=>{const a=ports.get(w.from),b=ports.get(w.to),na=next.get(w.from),nb=next.get(w.to),travel=Math.hypot(na.x-a.x,na.y-a.y)+Math.hypot(nb.x-b.x,nb.y-b.y);
       if(travel){w.length=Math.min(2000000,w.length+travel+1);w.shape="free";w.via=G.resample(G.deform(oldRoutes[i],na,nb,w.length),10).slice(1,-1).map(p=>({x:p.x,y:p.y}));}
@@ -83,8 +83,7 @@
   function addWire(doc,x,y){
     if(doc.wires.length>=doc.cables.count)throw new Error("導線已用完；刪除一條可放回工具箱");
     const span=Math.min(180,doc.cables.length*.65),a={x:x-span/2,y},b={x:x+span/2,y};
-    const points=G.smooth([a,{x:x-span/4,y:y+span*.2},{x,y:y+span*.25},{x:x+span/4,y:y+span*.2},b]);
-    const w={id:nextId(doc,"w"),from:freeEnd(doc,a),to:freeEnd(doc,b),via:G.resample(points,10).slice(1,-1),shape:"free",length:doc.cables.length};doc.wires.push(w);return w;
+    const w={id:nextId(doc,"w"),from:freeEnd(doc,a),to:freeEnd(doc,b),via:[],shape:"free",length:doc.cables.length};doc.wires.push(w);return w;
   }
   function pose(doc,w,points){if(!points)return false;const fitted=G.fitLength(points,w.length);if(!fitted)return false;w.shape="free";w.via=(fitted.length>limits.stroke+2?G.resample(fitted,10):fitted).slice(1,-1).map(p=>({x:p.x,y:p.y}));return true;}
   function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
@@ -98,22 +97,24 @@
   }
   function moveWireEnd(doc,id,key,p){
     const w=doc.wires.find(w=>w.id===id),other=key==="from"?"to":"from",points=G.route(doc,w);detach(doc,id,key);
-    const ends=endpoints(doc),start=ends.get(w[key]);
-    if(!attached(doc,w,other)){pose(doc,w,points);return translateWire(doc,id,p.x-start.x,p.y-start.y);}
-    const anchor=ends.get(w[other]),distance=Math.hypot(p.x-anchor.x,p.y-anchor.y),factor=Math.min(1,w.length/(distance||1));
-    const target={x:anchor.x+(p.x-anchor.x)*factor,y:anchor.y+(p.y-anchor.y)*factor};
-    const a=key==="from"?target:anchor,b=key==="to"?target:anchor,fitted=G.deform(points,a,b,w.length);
-    const j=doc.junctions.find(j=>j.id+":p"===w[key]);Object.assign(j,target);pose(doc,w,fitted);return {limited:distance>w.length};
+    const ends=endpoints(doc),anchor=ends.get(w[other]),bounded={x:Math.max(-limits.coordinate,Math.min(limits.coordinate,p.x)),y:Math.max(-limits.coordinate,Math.min(limits.coordinate,p.y))};
+    const distance=Math.hypot(bounded.x-anchor.x,bounded.y-anchor.y),factor=Math.min(1,w.length/(distance||1));
+    const target={x:anchor.x+(bounded.x-anchor.x)*factor,y:anchor.y+(bounded.y-anchor.y)*factor};
+    const a=key==="from"?target:anchor,b=key==="to"?target:anchor;
+    // An endpoint grip always fixes the far end. Only an attached far end
+    // retains curvature; a wholly loose cable stays straight while resized.
+    const fitted=attached(doc,w,other)?G.deform(points,a,b,w.length):[a,b];
+    const j=doc.junctions.find(j=>j.id+":p"===w[key]);Object.assign(j,target);pose(doc,w,fitted);return {limited:distance>w.length||bounded.x!==p.x||bounded.y!==p.y};
   }
   function attach(doc,id,key,endpoint){
     const w=doc.wires.find(w=>w.id===id),target=endpoints(doc).get(endpoint);if(!w||!target||w[key]===endpoint)return false;
     const followReference=!attached(doc,w,key)&&doc.display.reference===w[key];
     const other=key==="from"?"to":"from",before=G.route(doc,w),otherFixed=attached(doc,w,other);
     if(endpoint===w[other]&&!otherFixed)return false;
-    const anchor=endpoints(doc).get(w[other]);if(otherFixed&&Math.hypot(target.x-anchor.x,target.y-anchor.y)>w.length)return false;
+    const anchor=endpoints(doc).get(w[other]);if(Math.hypot(target.x-anchor.x,target.y-anchor.y)>w.length)return false;
     detach(doc,id,key,false);
-    if(!otherFixed){const start=endpoints(doc).get(w[key]);pose(doc,w,before);translateWire(doc,id,target.x-start.x,target.y-start.y);}
-    else pose(doc,w,G.deform(before,key==="from"?target:anchor,key==="to"?target:anchor,w.length));
+    const a=key==="from"?target:anchor,b=key==="to"?target:anchor;
+    pose(doc,w,otherFixed?G.deform(before,a,b,w.length):[a,b]);
     w[key]=endpoint;if(followReference)doc.display.reference=endpoint;cleanup(doc);return true;
   }
   function bendWire(doc,id,at,dx,dy,radius=140){const w=doc.wires.find(w=>w.id===id);if(!attached(doc,w,"from")&&!attached(doc,w,"to"))return translateWire(doc,id,dx,dy);

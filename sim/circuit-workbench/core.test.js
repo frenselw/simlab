@@ -107,8 +107,8 @@ const legacy=P.create('parallel');legacy.version=1;delete legacy.cables;legacy.w
 console.log('Circuit drawing: curve/loop preservation, straightening option, bounded strokes, anchored reshaping, curved cuts, v1 migration and v4 continuation passed.');
 // Physical cable states use the same authoritative topology and solver.
 const cables=M.empty();cables.cables={count:4,length:240};M.add(cables,'battery',100,150);M.add(cables,'resistor',330,150);
-const first=M.addWire(cables,200,280),initialCable=G.route(cables,first),initialLength=G.length(initialCable);
-M.moveWireEnd(cables,first.id,'from',{x:initialCable[0].x+30,y:initialCable[0].y+30});const picked=G.route(cables,first);near(picked.at(-1).x-initialCable.at(-1).x,30,'two free ends translate together');near(picked.at(-1).y-initialCable.at(-1).y,30,'whole cable pickup y');near(G.length(picked),initialLength,'pickup cannot stretch cable');
+const first=M.addWire(cables,170,220),initialCable=G.route(cables,first);
+M.moveWireEnd(cables,first.id,'from',{x:initialCable[0].x+30,y:initialCable[0].y+30});const picked=G.route(cables,first);assert.deepEqual(picked.at(-1),initialCable.at(-1),'endpoint pickup fixes the other loose end');assert.equal(first.via.length,0,'loose endpoint pickup stays straight');assert(G.length(picked)<=first.length,'endpoint pickup keeps finite reach');
 assert.equal(S.solve(cables).wires[first.id].current,0,'unconnected cable current');assert(M.attach(cables,first.id,'from','c1:a'));
 const fixed=first.from,anchor=M.endpoints(cables).get(fixed);M.moveWireEnd(cables,first.id,'to',{x:250,y:200});assert.equal(first.from,fixed);assert.deepEqual(M.endpoints(cables).get(fixed),anchor,'one attached end stays anchored');
 const limited=M.moveWireEnd(cables,first.id,'to',{x:2000,y:200});assert(limited.limited);assert(G.length(G.route(cables,first))<=240+.05,'maximum is arc length');

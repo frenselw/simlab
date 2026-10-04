@@ -14,7 +14,7 @@
     }
     const battery = add("battery", 180, 320, "電源", { voltage: 6, resistance: name === "ohm" ? 2 : 0 }, 90);
     if(['limiting','divider','lampCurve','gAmmeter','gVoltmeter'].includes(name)){
-      battery.x=160;battery.y=350;d.cables.count=16;
+      battery.x=160;battery.y=350;
       if(name.startsWith('g')){
         d.display.meters='analog';
         const shunt=name==='gAmmeter';battery.params.voltage=shunt?6:3;

@@ -14,6 +14,7 @@ const {feedbackCases}=require("./circuit-feedback-browser-cases");
 const {flowCases}=require("./circuit-flow-browser-cases");
 const {textbookCases,textbookReport}=require("./circuit-textbook-browser-cases");
 const {teachingCases}=require('./circuit-teaching-browser-cases');
+const {wireGripCases}=require('./circuit-wire-grip-browser-cases');
 const root = path.resolve(__dirname, ".."), output = path.join(root, "output/playwright/circuit-workbench");
 function fixture() { const d = M.empty(); M.add(d, "battery", 180, 220); M.add(d, "resistor", 340, 220); return d; }
 function hostedServer(directory) {
@@ -35,6 +36,7 @@ async function main() {
   const flowOnly=process.argv.includes('--flow-smoke');
   const teachingOnly=process.argv.includes('--teaching-smoke');
   const continuationOnly=process.argv.includes('--continuation-smoke');
+  const wireGripOnly=process.argv.includes('--wire-grip-smoke');
   const textbookOnly=process.argv.includes('--textbook-smoke')||process.argv.includes('--textbook-ui-smoke');
   let server, chrome, cdp, profile, extracted; const temp = fs.realpathSync(os.tmpdir()), evidence = [], errors = []; fs.mkdirSync(output, { recursive: true });
   try {
@@ -173,6 +175,7 @@ async function main() {
       console.log(`${mode}: physical cable mouse flows`);server=hostedServer(directory);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
       await freshPage();context='window';await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();await delay(100);
       assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c1.current'),-.25);await screenshot(`${mode}-physical-cables.png`);
+      if(wireGripOnly){await wireGripCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(teachingOnly){await teachingCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(continuationOnly){await refinements(mode,base);await bendTrajectories(mode,base);}
       if(textbookOnly){await textbookCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
@@ -294,9 +297,10 @@ async function main() {
         await touch(await point('.scroll-strip.left'),0,0);await delay(100);await load(fixture());await reset();if(await inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await click('#panelToggle');await inside('document.getElementById("panel").scrollTop=100');const samples=[];await touch(await point('#panel'),0,-50,async()=>samples.push(await metrics()));assert(samples.at(-1).panel>samples[0].panel);await inside('document.getElementById("panel").scrollTop=1e6');await touch(await point('#panel'),0,-50,async()=>samples.push(await metrics()));await inside('document.getElementById("panel").scrollTop=0');await touch(await point('#panel'),0,50,async()=>samples.push(await metrics()));for(const s of samples){assert.equal(s.owner,200,'panel boundary containment');assert.equal(s.activity,0);assert.equal(s.wrapper,0);}evidence.push({mode,host,panel:true,samples});
       }
       context='window.document.getElementById("activity").contentWindow';await cdp.send('Page.navigate',{url:base+'/__circuit-host?case=T1&blocked=1'});await ready();await evaluate(cdp,'scrollTo(0,200)');const blocked=await save();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="blocked"');assert.equal(await save(),blocked);evidence.push({mode,fullscreenBlocked:true});
-      context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});if(process.argv.length===2||continuationOnly)await teachingCases(cameraHarness,mode,base,output);await closeServer(server);server=null;
+      context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});if(process.argv.length===2||continuationOnly)await teachingCases(cameraHarness,mode,base,output);if(process.argv.length===2)await wireGripCases(cameraHarness,mode,base);await closeServer(server);server=null;
     }
     const bendOnly=process.argv.includes('--bend-smoke');
+    if(wireGripOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'wire-grips.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused cable grips passed on source + ZIP: ${evidence.length} observations; straight cables, stationary far ends, original curves, snap, cancel and undo. Evidence: ${output}/wire-grips.json`);return;}
     if(continuationOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'continuation.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Circuit continuation groups passed on source + ZIP: ${evidence.length} observations; refinement, continuous bends, cancellation, host ownership and new teaching workflows. Evidence: ${output}/continuation.json`);return;}
     if(teachingOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'teaching.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`DC teaching source + ZIP passed: ${evidence.length} observations; native G, selectable terminals, trusted sliders/wiring, actual records/file/CSV and restored continuation. Evidence: ${output}/teaching.json`);return;}
     if(textbookOnly){
