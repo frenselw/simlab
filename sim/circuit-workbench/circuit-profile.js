@@ -85,6 +85,7 @@
     function canAdd(entry,doc,readOnly=false) { return !readOnly && doc.policy.mode === 'free' && count(doc,entry) < entry.limit; }
     function assertSnapshot(input) {
       const doc = M.validate(input);
+      if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       if (teacher) return doc;
       if (!same(doc.policy,initial.policy) || !same(doc.cables,initial.cables)) throw new Error('活動的操作規則與導線庫存不能更改');
       const fixedDisplay = M.clone(initial.display), restoredDisplay = M.clone(doc.display);
@@ -92,7 +93,7 @@
       if (ui.probe) { delete fixedDisplay.reference; delete restoredDisplay.reference; }
       if (!same(fixedDisplay,restoredDisplay)) throw new Error('活動顯示設定已固定');
       const originals = new Map(initial.components.map(c => [c.id,c]));
-      for (const c of initial.components) if (!doc.components.some(n => n.id === c.id) && !getRule(c).remove) throw new Error('不能移除指定元件：' + c.label);
+      for (const c of initial.components) if (!doc.components.some(n => n.id === c.id) && !allows(initial,c,'remove')) throw new Error('不能移除指定元件：' + c.label);
       for (const c of doc.components) {
         const old = originals.get(c.id), r = getRule(c);
         if (old) {
@@ -103,12 +104,12 @@
           for (const k of Object.keys(old.params)) if (!allows(initial,old,k==='closed'?'switch':'params',k) && !same(old.params[k],c.params[k])) throw new Error('參數已固定：' + paramLabel(c,k));
           if (c.locked !== old.locked || c.editable !== old.editable) throw new Error('元件權限不能更改');
         } else {
-          if (!entryFor(c) || c.locked || c.editable) throw new Error('活動未提供這種元件或參數');
+          if (doc.policy.mode !== 'free' || !entryFor(c) || c.locked || c.editable) throw new Error('活動未提供這種元件或參數');
+          if (!allows(doc,c,'label') && c.label !== R.get(c.type).name) throw new Error('元件名稱已固定');
         }
       }
       for (const entry of palette) if (count(doc,entry) > entry.limit) throw new Error('元件已超出庫存：' + entry.label);
       for (const w of doc.wires) if (w.length > Math.max(initial.cables.length,initial.wires.find(x => x.id === w.id)?.length || 0)) throw new Error('導線超出活動長度');
-      if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       return doc;
     }
     function assertTransition(before,after,readOnly=false) {
@@ -128,8 +129,8 @@
         for (const [op,changed] of [['move',previous.x!==c.x || previous.y!==c.y],['rotate',previous.angle!==c.angle || previous.mirrored!==c.mirrored],['label',previous.label!==c.label]]) if (changed && !allows(before,previous,op)) throw new Error('此操作未開放：' + {move:'搬動元件',rotate:'旋轉元件',label:'改名'}[op]);
         for (const k of Object.keys(c.params)) if (!same(previous.params[k],c.params[k]) && !allows(before,previous,k === 'closed' ? 'switch' : 'params',k)) throw new Error('參數未開放：' + paramLabel(c,k));
       }
+      if (!wires && (!same(before.wires,doc.wires) || !same(before.junctions,doc.junctions))) throw new Error('活動不允許改接線');
       if (!teacher) {
-        if (!wires && (!same(before.wires,doc.wires) || !same(before.junctions,doc.junctions))) throw new Error('活動不允許改接線');
         const displayBefore = M.clone(before.display), displayAfter = M.clone(doc.display);
         if (ui.viewToggle) { delete displayBefore.view; delete displayAfter.view; }
         if (ui.probe) { delete displayBefore.reference; delete displayAfter.reference; }

@@ -134,6 +134,10 @@
     if(points.length<2||length(points)<1e-7)return {points,limited:true};
     if(Math.hypot(dx,dy)<1e-7)return {points:points.map(p=>({x:p.x,y:p.y})),limited:false};
     const initial=fitLength(points,budget);
+    // Imported routes allow a small measurement tolerance, so their chord
+    // can be just beyond physical reach. Keep the anchored shape and report
+    // the limit instead of passing null into resampling.
+    if(!initial)return {points:points.map(p=>({x:p.x,y:p.y})),limited:true};
     const controls=resample(initial,Math.max(14,length(initial)/32));
     const support=Math.max(radius,Math.min(length(initial),100+Math.hypot(dx,dy)*1.8));
     const shifted=reshape(controls,at,1,0,support),weights=controls.map((p,i)=>shifted[i].x-p.x);

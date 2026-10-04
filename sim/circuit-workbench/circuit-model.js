@@ -168,7 +168,7 @@
     for(const w of next.wires)if(ports.has(w.from)||ports.has(w.to)){
       straightenWire(next,w.id);
       const a=ends.get(w.from),b=ends.get(w.to);
-      if(Math.hypot(a.x-b.x,a.y-b.y)>w.length+.05)throw new Error("導線太短，請先拔開或移近元件再旋轉");
+      if(!G.fitLength([a,b],w.length))throw new Error("導線太短，請先拔開或移近元件再旋轉");
     }
     Object.assign(doc,next);
   }

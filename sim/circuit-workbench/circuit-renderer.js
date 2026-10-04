@@ -196,10 +196,13 @@
       const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
-      if (doc.display.potential && r?.voltage !== null && Math.abs(r?.voltage || 0) > 1e-8) {
-        const ports=R.ports(c),a=ports.find(p=>p.key===(r.activePort||'a'))||ports[0], b=ports[1], from = r.voltage > 0 ? b : a, to = r.voltage > 0 ? a : b;
+      const branch=!R.dualMeter(c)&&r?.branches?.[0],voltage=branch?branch.voltage:r?.voltage;
+      if (doc.display.potential && Number.isFinite(voltage) && Math.abs(voltage) > 1e-8) {
+        const ports=R.ports(c),a=ports.find(p=>p.id===(branch?.from||c.id+':'+(r.activePort||'a'))),b=ports.find(p=>p.id===(branch?.to||c.id+':b'));
+        if(!a||!b)return;
+        const from = voltage > 0 ? b : a, to = voltage > 0 ? a : b;
         const mx = c.x, my = c.y - 58, direction = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
-        out += `<g transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
+        out += `<g data-potential-direction="${c.id}" data-potential-from="${from.id}" data-potential-to="${to.id}" transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
       }
     });
     // Cables lie on top of components; terminals and labels stay legible above them.

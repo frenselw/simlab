@@ -11,15 +11,18 @@
   }
   // Row-scaled RREF exposes the nullspace. Unidentifiable currents are never reported as zero.
   function linear(A, b) {
-    const n = b.length; if (!n) return { x: [], nullspace: [] };
+    const n = b.length; if (!n) return { x: [], nullspace: [], roundoff: [] };
     const rows = A.map((a, i) => { const scale = Math.max(...a.map(Math.abs), 1e-30); return [...a.map((v) => v / scale), b[i] / scale]; });
-    const pivots = []; let rank = 0;
+    // Track the RHS magnitudes involved in cancellation, in each unknown's
+    // own units. Tiny high-resistance currents have tiny error scales too.
+    const rhsScales=rows.map(row=>Math.abs(row[n])),pivots = []; let rank = 0;
     for (let col = 0; col < n; col++) {
       let p = rank; for (let i = rank; i < n; i++) if (Math.abs(rows[i][col]) > Math.abs(rows[p]?.[col] || 0)) p = i;
-      if (rank === n || Math.abs(rows[p][col]) < 1e-12) continue;
+      if (rank === n || Math.abs(rows[p][col]) < 1e-15) continue;
       [rows[p], rows[rank]] = [rows[rank], rows[p]];
-      const value = rows[rank][col]; for (let j = col; j <= n; j++) rows[rank][j] /= value;
-      for (let i = 0; i < n; i++) if (i !== rank) { const factor = rows[i][col]; for (let j = col; j <= n; j++) rows[i][j] -= factor * rows[rank][j]; }
+      [rhsScales[p],rhsScales[rank]]=[rhsScales[rank],rhsScales[p]];
+      const value = rows[rank][col]; rhsScales[rank]/=Math.abs(value);for (let j = col; j <= n; j++) rows[rank][j] /= value;
+      for (let i = 0; i < n; i++) if (i !== rank) { const factor = rows[i][col];rhsScales[i]+=Math.abs(factor)*rhsScales[rank];for (let j = col; j <= n; j++) rows[i][j] -= factor * rows[rank][j]; }
       pivots.push(col); rank++;
     }
     for (let i = rank; i < n; i++) if (Math.abs(rows[i][n]) > 1e-8) return { error: "inconsistent" };
@@ -27,7 +30,8 @@
     const nullspace = [];
     for (let col = 0; col < n; col++) if (!pivots.includes(col)) { const v = Array(n).fill(0); v[col] = 1; pivots.forEach((p, i) => { v[p] = -rows[i][col]; }); nullspace.push(v); }
     if (x.some((v) => !Number.isFinite(v))) return { error: "numerical" };
-    return { x, nullspace };
+    const roundoff=Array(n).fill(0);pivots.forEach((col,i)=>roundoff[col]=32*n*Number.EPSILON*rhsScales[i]);
+    return { x, nullspace, roundoff };
   }
   function solve(input) {
     const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.forEach((w) => uf.join(w.from, w.to));
@@ -48,7 +52,9 @@
       const source = g.edges.find((e) => e.c.type === "battery");
       g.reference = g.nets.includes(requested) ? requested : source ? source.c.params.polarity < 0 ? source.a : source.b : g.nets[0];
       const nodes = g.nets.filter((net) => net !== g.reference), nodeIndex = new Map(nodes.map((net, i) => [net, i]));
-      const voltageEdges = g.edges.filter((e) => e.kind === "branch"), n = nodes.length + voltageEdges.length;
+      // Keep each linear resistance as V − R I = 0. Stamping a tiny meter
+      // conductance into a low-resistance node loses finite coupling by cancellation.
+      const voltageEdges = g.edges.filter((e) => e.kind === "branch" || e.kind === "resistor"), n = nodes.length + voltageEdges.length;
       voltageEdges.forEach((e, i) => { e.index = nodes.length + i; });
       const diff = (a, b) => { const v = Array(n).fill(0); if (nodeIndex.has(a)) v[nodeIndex.get(a)]++; if (nodeIndex.has(b)) v[nodeIndex.get(b)]--; return v; };
       const dot = (a, x) => a.reduce((s, v, i) => s + v * x[i], 0);
@@ -56,7 +62,7 @@
         const A = Array.from({ length: n }, () => Array(n).fill(0)), b = Array(n).fill(0);
         g.edges.forEach((e) => {
           const d = diff(e.a, e.b);
-          if (e.kind === "branch") { for (let i = 0; i < nodes.length; i++) { A[i][e.index] += d[i]; A[e.index][i] += d[i]; } A[e.index][e.index] -= e.resistance; b[e.index] = e.emf; }
+          if (e.kind === "branch" || e.kind === "resistor") { for (let i = 0; i < nodes.length; i++) { A[i][e.index] += d[i]; A[e.index][i] += d[i]; } A[e.index][e.index] -= e.resistance; b[e.index] = e.emf; }
           else {
             const v = dot(d, x), at = e.kind === "nonlinear" ? e.law(v, e.c.params) : { current: v / e.resistance, conductance: 1 / e.resistance };
             const offset = at.current - at.conductance * v;
@@ -79,12 +85,16 @@
       }
       if (!error && (iteration === 100 || residual(x) > 1e-8)) error = "convergence";
       if (!error) { const { A, b } = assemble(x); result = linear(A, b); if (result.error) error = result.error; }
-      const ident = (coeff, constant = 0) => {
+      const estimate = (coeff, constant = 0) => {
         if (error) return null;
         if (result.nullspace.some((v) => Math.abs(dot(coeff, v)) > 1e-8 * Math.max(1, ...coeff.map(Math.abs)))) return null;
-        const value = dot(coeff, x) + constant; return Math.abs(value) < 1e-11 ? 0 : value;
+        const value=dot(coeff,x)+constant;
+        const noise=coeff.reduce((sum,c,i)=>sum+Math.abs(c)*result.roundoff[i],0)+4*Number.EPSILON*(Math.abs(constant)+coeff.reduce((sum,c,i)=>sum+Math.abs(c*x[i]),0));
+        return { value, noise };
       };
-      const solution = { ...g, x, error, n, diff, ident, residual: error ? null : residual(x), iterations: iteration + 1 };
+      const reading = (e) => e===null?null:Math.abs(e.value)<=e.noise?0:e.value;
+      const ident = (coeff, constant = 0) => reading(estimate(coeff, constant));
+      const solution = { ...g, x, error, n, diff, ident, estimate, reading, residual: error ? null : residual(x), iterations: iteration + 1 };
       solutions.set(g.key, solution);
       if (error) diagnostics.push({ code: error, island: g.key, message: error === "inconsistent" ? "理想電源短路或電源條件互相矛盾；此電路沒有有限解。" : "此電路未得到可靠解，請檢查接線或參數。" });
       else if (result.nullspace.length) diagnostics.push({ code: "indeterminate", island: g.key, message: "部分理想支路電流不能唯一確定；相關讀值顯示 —。可加入實際內阻。" });
@@ -92,7 +102,7 @@
       [...ports.keys()].filter((p) => g.nets.includes(netOf[p])).forEach((p) => { islandOf[p] = g.key; injections.set(p, { coeff: Array(n).fill(0), constant: 0, solution }); });
       g.edges.forEach((e) => {
         const d = diff(e.a, e.b), v = ident(d); let coeff, constant = 0, at;
-        if (e.kind === "branch") { coeff = Array(n).fill(0); coeff[e.index] = 1; }
+        if (e.kind === "branch" || e.kind === "resistor") { coeff = Array(n).fill(0); coeff[e.index] = 1; }
         else { const voltage = d.reduce((s, value, i) => s + value * x[i], 0); at = e.kind === "nonlinear" ? e.law(voltage, e.c.params) : { current: voltage / e.resistance, conductance: 1 / e.resistance, resistance: e.resistance }; coeff = d.map((a) => a * at.conductance); constant = at.current - at.conductance * voltage; }
         const current = ident(coeff, constant);
         e.result = { voltage: v, current, power: v===0?0:v === null || current === null ? null : v * current, resistance: v === null && e.kind === "nonlinear" ? null : at?.resistance ?? e.resistance, temperature: v === null ? null : at?.temperature ?? null };
@@ -110,7 +120,7 @@
         const activeEdge=ownEdges.find(e=>e.pa===c.id+':'+active),ranges=R.meterRanges(c);
         entry.activePort=active;entry.range=active==='c'?ranges.low:ranges.high;entry.minimum=entry.range*R.meterScale.minimumFraction;entry.division=entry.range/ranges.divisions;entry.unit=R.get(c.type).icon;
         entry.voltage=active?voltage(c.id+':'+active,c.id+':b'):null;
-        entry.current=activeEdge?.result.current??(c.type==='voltmeter'?0:null);
+        entry.current=activeEdge?activeEdge.result.current:(c.type==='voltmeter'?0:null);
         entry.resistance=activeEdge?.result.resistance??(c.type==='voltmeter'&&c.params.resistance>0?c.params.resistance/(active==='c'?5:1):null);
         entry.reading=active&&common?(c.type==='voltmeter'?entry.voltage:entry.current):null;
         entry.meterStatus=positives.length>1?'dual-positive':!active?'unconnected':!common?'missing-common':entry.reading===null?'unknown':entry.reading>entry.range+1e-10||entry.reading<entry.minimum-1e-10?'overrange':entry.reading<-1e-10?'reverse':'normal';
@@ -130,14 +140,25 @@
     // A wire is identifiable precisely when its KCL cut is identifiable.
     // Non-bridge ideal-wire cycle edges carry no arbitrary animated current.
     const adjacency = new Map([...ports.keys()].map((p) => [p, []]));
+    const netPorts = new Map(netKeys.map(net => [net, []]));
+    for (const p of ports.keys()) netPorts.get(netOf[p]).push(p);
     doc.wires.forEach((w) => { adjacency.get(w.from).push({ to: w.to, id: w.id }); adjacency.get(w.to).push({ to: w.from, id: w.id }); });
     doc.wires.forEach((w) => {
       const seen = new Set([w.from]), pending = [w.from];
       while (pending.length) { const p = pending.pop(); for (const e of adjacency.get(p)) if (e.id !== w.id && !seen.has(e.to)) { seen.add(e.to); pending.push(e.to); } }
       let current = null;
-      if (!seen.has(w.to)) { const s = injections.get(w.from).solution, coeff = Array(s.n).fill(0); let constant = 0;
-        for (const p of seen) { const q = injections.get(p); for (let i = 0; i < s.n; i++) coeff[i] -= q.coeff[i]; constant -= q.constant; }
-        current = s.ident(coeff, constant);
+      if (!seen.has(w.to)) {
+        const s = injections.get(w.from).solution, cuts = [-1, 1].map(sign => {
+          const coeff = Array(s.n).fill(0); let constant = 0;
+          for (const p of netPorts.get(netOf[w.from])) if (seen.has(p) === (sign === -1)) {
+            const q = injections.get(p); for (let i = 0; i < s.n; i++) coeff[i] += sign * q.coeff[i]; constant += sign * q.constant;
+          }
+          return s.estimate(coeff, constant);
+        }).filter(e => e !== null);
+        // Either side gives the same oriented current. Prefer the expression
+        // with less cancellation, so a large parallel load cannot hide a
+        // meter's real tiny current or make it depend on from/to storage.
+        current = s.reading(cuts.reduce((best, e) => best===null||e.noise<best.noise?e:best, null));
       }
       wires[w.id] = { current, potential: potential(w.from), cyclic: seen.has(w.to) };
     });
