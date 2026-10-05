@@ -77,6 +77,32 @@
 .circuit-editor .dialog-head{display:flex;align-items:center;justify-content:space-between}
 .circuit-editor .dialog-head h2{font-size:1.25rem}
 .circuit-editor .dialog-head button{width:44px;font-size:22px}
+.circuit-editor .help-dialog{width:calc(100vw - 24px);max-width:620px;padding:0}
+.circuit-editor .help-dialog>.dialog-head{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 16px;gap:12px;z-index:2}
+.circuit-editor .help-dialog .dialog-head h2{font-size:1.1rem;margin:0}
+.circuit-editor .help-dialog .dialog-head .note{margin:2px 0 0;line-height:1.4}
+.circuit-editor .help-dialog .dialog-head button{flex:0 0 44px;height:44px}
+.circuit-editor .help-body{padding:14px 16px 18px;font-size:14px}
+.circuit-editor .help-body section+section{margin-top:20px}
+.circuit-editor .help-body h3{font-size:1rem;margin:0 0 10px;color:#274761}
+.circuit-editor .help-body p,.circuit-editor .help-body li{line-height:1.55}
+.circuit-editor .help-steps{list-style:none;counter-reset:help-step;padding:0;margin:0;display:grid;gap:12px}
+.circuit-editor .help-steps li{position:relative;counter-increment:help-step;padding-left:36px}
+.circuit-editor .help-steps li::before{content:counter(help-step);position:absolute;left:0;top:0;width:25px;height:25px;display:grid;place-items:center;border-radius:50%;background:#eaf2ff;color:#245b94;font-weight:600}
+.circuit-editor .help-steps strong,.circuit-editor .help-steps span{display:block}
+.circuit-editor .help-steps span{color:#64748b;margin-top:2px}
+.circuit-editor .help-tip{margin:12px 0 0;padding:8px 10px;border-radius:7px;background:#f1f5f9;color:#52677c;font-size:13px}
+.circuit-editor .help-meters{margin:0;display:grid;gap:0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.circuit-editor .help-meters>div{display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;padding:10px}
+.circuit-editor .help-meters>div+div{border-top:1px solid #e2e8f0}
+.circuit-editor .help-meters dt{font-weight:600;color:#274761}
+.circuit-editor .help-meters dd{margin:0;line-height:1.55}
+.circuit-editor .help-short-list{margin:0;padding-left:19px;display:grid;gap:7px}
+.circuit-editor .help-more{margin-top:18px;border-top:1px solid #e2e8f0;padding-top:4px}
+.circuit-editor .help-more summary{min-height:44px;display:flex;align-items:center;font-weight:600;cursor:pointer;color:#52677c}
+.circuit-editor .help-more summary::before{content:'＋';margin-right:8px}
+.circuit-editor .help-more[open] summary::before{content:'−'}
+.circuit-editor .help-dialog kbd{font:inherit;font-size:12px;background:#f1f5f9;border:1px solid #dbe4ed;border-radius:4px;padding:1px 4px}
 .circuit-editor.panel-hidden .workspace{grid-template-columns:minmax(0,1fr)}
 .circuit-editor.panel-hidden .panel{display:none}
 .circuit-editor [hidden]{display:none!important}
@@ -238,12 +264,18 @@
 .circuit-editor .stage-tools .icon-button,.circuit-editor .stage-tools .hand-tool{width:44px;min-width:44px;padding:0}
 .circuit-editor .hand-tool span{display:none}
 .circuit-editor .stage{container-type:inline-size;container-name:stage}
-.circuit-editor .socket-action .ui-icon{width:18px;height:18px;margin-right:9px}
+.circuit-editor .socket-action{position:relative}
+.circuit-editor .socket-action .ui-icon{width:20px;height:20px;margin-right:8px}
 .circuit-editor .socket-action small{position:absolute;right:4px;bottom:5px;font-size:11px;line-height:1;color:#526f88}
 .circuit-editor .object-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .circuit-editor .object-actions .icon-button{width:100%}
 .circuit-editor .object-actions .text-action{grid-column:1/-1}
 .circuit-editor .object-actions .danger{background:#fff8f5}
+.circuit-editor .connection-controls{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:6px;align-items:center}
+.circuit-editor .panel .connection-controls select{min-width:0;width:100%;margin-top:0}
+.circuit-editor .panel .connection-caption{margin-bottom:0}
+.circuit-editor .connection-controls{margin-top:4px}
+.circuit-editor .connection-legend,.circuit-editor .potential-reference{margin:6px 0 12px;overflow-wrap:anywhere}
 .circuit-editor [data-circuit-id="settingsDialog"]{width:min(760px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);padding:0;overscroll-behavior:contain}
 .circuit-editor [data-circuit-id="settingsDialog"]>.dialog-head{position:sticky;top:0;background:#fff;padding:12px 16px;border-bottom:1px solid #e2e8f0;gap:12px;z-index:2}
 .circuit-editor [data-circuit-id="settingsDialog"]>.dialog-head>div{min-width:0}

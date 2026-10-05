@@ -10,9 +10,8 @@ async function presetCases(h,mode,base){
     await send('Emulation.setTouchEmulationEnabled',{enabled:width===320,maxTouchPoints:3});
     await send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();
   }
-  async function display(view,meters){
+  async function display(view){
     if((await doc()).display.view!==view)await click(view==='real'?'#realView':'#schematicView');
-    await inside(`(()=>{const e=document.getElementById('meters');e.value=${JSON.stringify(meters)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   }
   async function alignment(){return inside(`(()=>{
     const out=[],screen=(e,p)=>new DOMPoint(p.x,p.y).matrixTransform(e.getScreenCTM());
@@ -36,14 +35,14 @@ async function presetCases(h,mode,base){
     for(const name of Object.keys(P.names))for(const view of ['real','schematic']){
       // Exercise the production dropdown's change handler, rather than only loading a test fixture.
       await inside(`(()=>{const e=document.getElementById('preset');e.value=${JSON.stringify(name)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-      assert.deepEqual(await doc(),P.create(name));await display(view,view==='real'?'digital':'analog');
+      assert.deepEqual(await doc(),P.create(name));await display(view);
       const samples=await alignment();aligned(samples);
       const layout=await inside(`(()=>{const r=document.getElementById('surface').getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth-innerWidth,scale:CircuitWorkbench.getInteraction().camera.scale,overview:document.querySelector('[data-overview-caption]')?.textContent||null,overviewReadings:[...document.querySelectorAll('[data-overview-readout]')].map(e=>({id:e.dataset.overviewReadout,text:e.dataset.math||e.textContent,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale})),labels:[...document.querySelectorAll('[data-component-label]')].map(e=>{const b=e.getBoundingClientRect();return {id:e.dataset.componentLabel,visible:b.right>r.left&&b.left<r.right&&b.bottom>r.top&&b.top<r.bottom,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale};})};})()`);
       assert.equal(layout.scroll,0);assert(layout.labels.every(x=>x.visible&&x.font>=13.9),'zoomed diagram retains readable component labels');
       const prepared=P.create(name);if(layout.scale<.4&&prepared.components.length){assert(layout.overview?.includes('放大查看'),'small overview has an explicit zoom hint');assert.equal(layout.labels.length,0,'small overview keeps captions off the wiring');assert.equal(layout.overviewReadings.length,prepared.components.filter(R.isMeter).length);assert(layout.overviewReadings.every(x=>x.font>=13.9));}else{assert.equal(new Set(layout.labels.map(p=>p.id)).size,prepared.components.length);assert.equal(layout.overview,null);}
       assert.deepEqual((await inside('CircuitWorkbench.getAnalysis()')).diagnostics,[]);
       await screenshot(`${mode}-preset-${name}-${view}-${width}.png`);
-      evidence.push({mode,preset:name,width,view,meters:view==='real'?'digital':'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});
+      evidence.push({mode,preset:name,width,view,meters:'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});
     }
     for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic'])for(const meters of ['digital','analog']){
       const d=P.create('ohm'),c=d.components.find(c=>c.type===type);

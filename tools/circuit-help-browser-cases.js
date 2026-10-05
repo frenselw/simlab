@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict'),M=require('../sim/circuit-workbench/circuit-model');
+async function helpCases(h,mode,base){
+  let width,touchId=82000;
+  const control=id=>'[data-circuit-id="'+id+'"]';
+  async function tap(selector){const p=await h.point(selector);if(width<600){await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:touchId++,radiusX:2,radiusY:2,force:1}]});await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await h.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});}await h.delay(50);}
+  async function dialog(){return h.inside(`(()=>{const d=document.querySelector('${control('helpDialog')}'),r=d.getBoundingClientRect(),math=[...d.querySelectorAll('[data-help-tex]')];return{open:d.open,left:r.left,right:r.right,top:r.top,bottom:r.bottom,overflow:d.scrollWidth-d.clientWidth,chars:d.textContent.replace(/\\s+/g,'').length,steps:d.querySelectorAll('.help-steps li').length,math:math.map(e=>({expected:e.dataset.helpTex,actual:e.querySelector('svg')?.dataset.tex,paths:e.querySelectorAll('path').length})),more:d.querySelector('.help-more')?.open,titleValid:!!document.getElementById(d.getAttribute('aria-labelledby')),close:(()=>{const b=d.querySelector('[data-circuit-id="closeHelp"]'),x=b.getBoundingClientRect();return{width:x.width,height:x.height,top:x.top,bottom:x.bottom};})()};})()`);}
+  function valid(d){assert(d.open&&d.titleValid);assert(d.left>=0&&d.right<=width+.1);assert(d.top>=0&&d.bottom<=(width<600?844:900)+.1);assert(d.overflow<=1);assert(d.close.width>=44&&d.close.height>=44);assert(d.close.top>=d.top&&d.close.bottom<=d.bottom);assert.equal(d.steps,3);for(const q of d.math){assert.equal(q.actual,q.expected);assert(q.paths>0);}}
+  for(width of [320,390,1280]){
+    await h.freshPage();h.setContext('window');await h.send('Emulation.setDeviceMetricsOverride',{width,height:width<600?844:900,deviceScaleFactor:1,mobile:width<600});await h.send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});await h.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();
+    await h.inside("window.__helpEvents=[];document.addEventListener('click',e=>{const b=e.target.closest('button,summary');if(b)__helpEvents.push({trusted:e.isTrusted,target:b.dataset.circuitId||b.className});},true)");
+    const before=await h.save();if(width<600&&await h.inside("document.querySelector('[data-circuit-id=panelToggle]').getAttribute('aria-expanded')==='false'"))await tap(control('panelToggle'));await tap(control(width<600?'panelHelp':'help'));const initial=await dialog();valid(initial);assert.equal(initial.more,false);assert(initial.math.length>=15);assert(initial.chars<900,'help stays substantially shorter than the old manual');await h.screenshot(`${mode}-quick-help-${width}.png`);
+    await tap('.help-more summary');const expanded=await dialog();valid(expanded);assert(expanded.more);await tap(control('closeHelp'));assert.equal((await dialog()).open,false);assert.equal(await h.save(),before,'help is transient');
+    const d=M.empty(),c=M.add(d,'wattmeter',300,320);d.display.flow='off';
+    const terminals=[];
+    for(const view of ['real','schematic'])for(const angle of [0,90,180,270]){
+      c.angle=angle;d.display.view=view;await h.load(d);
+      const geometry=await h.inside(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};};return [...document.querySelectorAll('#scene [data-port-label]')].map(e=>({id:e.dataset.portLabel,tex:e.dataset.tex,math:e.dataset.math,tag:e.tagName,paths:e.querySelectorAll('path').length,text:e.querySelectorAll('text').length,box:rect(e),socket:rect(document.querySelector('[data-port="'+e.dataset.portLabel+'"]'))}));})()`);
+      assert.equal(geometry.length,4);for(const g of geometry){const key=g.id.split(':')[1],expected=(['a','b'].includes(key)?'I':'V')+'_{'+(['a','c'].includes(key)?'+':'-')+'}';assert.equal(g.tex,expected);assert.equal(g.tag,'g');assert(g.paths>0&&g.text===0);assert(g.box.left>=0&&g.box.right<=width+.1);assert(g.box.bottom<g.socket.top);}
+      terminals.push({view,angle,geometry});if(view==='real'&&angle===0)await h.screenshot(`${mode}-wattmeter-tex-${width}.png`);
+    }
+    const config={role:'student',title:'電路活動',initialDocument:d,ui:{help:true}};await h.inside(`(async()=>{CircuitWorkbench.destroy();window.CircuitWorkbench=await CircuitEditor.mount(document.getElementById('app'),${JSON.stringify(config)});})()`);await h.delay(80);await tap(control('help'));const student=await dialog();valid(student);assert(student.chars<150);await tap(control('closeHelp'));
+    const events=await h.inside('__helpEvents');assert(events.length&&events.every(e=>e.trusted));h.evidence.push({mode,width,help:true,initial,expanded,student,terminals,trustedHelpControls:true});console.log(`${mode}: ${width}px compact TeX help and wattmeter terminals passed`);
+  }
+}
+module.exports={helpCases};

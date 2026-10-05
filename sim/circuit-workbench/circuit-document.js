@@ -11,7 +11,7 @@
     let data;try{data=JSON.parse(text);}catch{throw new Error("電路檔不是有效的 JSON");}
     // Retired experiment metadata is discarded only at the import boundary.
     // The circuit itself and every other root field still pass strict validation.
-    const removedMeasurements=data?.kind==='simlab-circuit'&&[1,2,3,4].includes(data.version)&&Object.hasOwn(data,'measurements');
+    const removedMeasurements=data?.kind==='simlab-circuit'&&[1,2,3,4,5].includes(data.version)&&Object.hasOwn(data,'measurements');
     if(removedMeasurements)delete data.measurements;
     return {document:M.validate(data),removedMeasurements};
   }

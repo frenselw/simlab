@@ -36,7 +36,7 @@ test('a parameter change is one history item and a restored circuit can continue
   assert(Math.abs(S.solve(history.get()).components.c1.current+.375)<1e-8);
   assert(history.undo());assert.equal(D.encode(history.get()),before);assert(history.redo());
   const restored=D.decode(D.encode(history.get()));restored.components[0].params.voltage=R.stepPrimaryParameter(restored.components[0],-1);
-  assert.equal(restored.components[0].params.voltage,8.5);assert.equal(restored.version,4);
+  assert.equal(restored.components[0].params.voltage,8.5);assert.equal(restored.version,5);
   assert.deepEqual(restored.wires,d.wires);assert.deepEqual(restored.cables,d.cables);
   assert(!Object.hasOwn(restored,'quickParameters'));assert(!Object.hasOwn(restored.components[0],'primaryParameter'));
 });

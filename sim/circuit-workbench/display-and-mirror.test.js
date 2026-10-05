@@ -38,7 +38,7 @@ for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const 
   const next=R.ports(d.components[2]),a=angle*Math.PI/180;
   for(const p of next){const old=oldPorts.find(q=>q.id===p.id),x=R.get(type).ports.find(q=>q.key===p.key).x;near(p.x,old.x-2*x*Math.cos(a));near(p.y,old.y-2*x*Math.sin(a));assert.equal(p.label,old.label);}
   for(const w of d.wires){const path=G.route(d,w),ends=M.endpoints(d);assert.deepEqual(path[0],{x:ends.get(w.from).x,y:ends.get(w.from).y});assert.deepEqual(path.at(-1),{x:ends.get(w.to).x,y:ends.get(w.to).y});assert(G.length(path)<=w.length+.05);}
-  const body=V.body(d.components[2],S.solve(d).components.c3,d.display);assert(body.includes('data-socket="b" cx="64"'));assert(body.includes('data-socket="a" cx="-64"'));assert(!body.includes('scale(-1'));
+  const body=V.body(d.components[2],S.solve(d).components.c3,d.display);assert(body.includes('data-socket="b" cx="48"'));assert(body.includes('data-socket="a" cx="-48"'));assert(!body.includes('scale(-1'));
   assert.equal(V.dualDial(d.components[2],S.solve(d).components.c3),V.dualDial({...d.components[2],mirrored:false},S.solve(d).components.c3));
   const restored=D.decode(D.encode(d));assert.equal(restored.components[2].mirrored,true);assert.equal(D.template(restored).components[2].mirrored,true);M.flipMeter(restored,'c3');assert.equal(restored.components[2].mirrored,false);near(S.solve(M.validate(restored)).components.c3.reading,expected);cases++;
 }
@@ -49,7 +49,7 @@ for(const type of ['ammeter','voltmeter']){
   const locked=M.clone(d);locked.components[2].locked=true;assert.throws(()=>M.flipMeter(locked,'c3'));locked.components[2].locked=false;locked.policy.mode='wiring';assert.throws(()=>M.flipMeter(locked,'c3'));locked.policy.allowRotate=true;M.flipMeter(locked,'c3');assert.equal(locked.components[2].mirrored,true);cases++;
 }
 {
-  const d=M.empty(),c=M.add(d,'ammeter',300,200),w=M.addWire(d,364,326);assert(M.attach(d,w.id,'from',c.id+':a'));M.moveWireEnd(d,w.id,'to',{x:484,y:266});M.straightenWire(d,w.id);w.length=120;M.validate(d);const saved=D.encode(d);assert.throws(()=>M.flipMeter(d,c.id),/導線太短/);assert.equal(D.encode(d),saved,'failed mirror is atomic and preserves finite lengths');
+  const d=M.empty(),c=M.add(d,'ammeter',300,200),w=M.addWire(d,364,326);assert(M.attach(d,w.id,'from',c.id+':a'));const port=R.ports(c).find(p=>p.key==='a');M.moveWireEnd(d,w.id,'to',{x:port.x+120,y:port.y});M.straightenWire(d,w.id);w.length=120;M.validate(d);const saved=D.encode(d);assert.throws(()=>M.flipMeter(d,c.id),/導線太短/);assert.equal(D.encode(d),saved,'failed mirror is atomic and preserves finite lengths');
   const bad=M.empty();M.add(bad,'lamp',0,0).mirrored=false;assert.throws(()=>M.validate(bad));assert.throws(()=>M.flipMeter(bad,'c1'));cases++;
 }
 console.log(`Focused display + mirror: ${cases} cases passed; independent quantities, simple defaults, strict/legacy JSON, all A/V ranges/orientations, unchanged readings, finite cables, permissions, undo and restored continuation.`);

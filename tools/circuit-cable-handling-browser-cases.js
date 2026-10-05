@@ -147,12 +147,12 @@ async function cableHandlingCases(h,mode,base){
     if(type==='ammeter'&&style==='analog')await h.screenshot(`${mode}-foreground-meter-390.png`);
     evidence('foreground-and-size',{type,style,bounds,pixel,grabbable:true,preview:false});
   }
-  // Preview inventory: stationary analog readings only; body movement hides it immediately.
+  // Preview inventory: all stationary meters, including legacy digital files; body movement hides it immediately.
   for(const view of ['real','schematic'])for(const style of ['analog','digital']){
     const d=P.create('meters');d.display.flow='off';d.display.view=view;d.display.meters=style;await h.load(d);
     for(const type of ['ammeter','voltmeter','wattmeter']){
       const c=d.components.find(c=>c.type===type),p=await h.point(`[data-hit="body:${c.id}"]`),grip=await start(p,'body'),s=await sample();
-      assert.equal(s.preview,style==='analog');if(s.preview){assert.equal(s.previewMode,'meter');assert.equal(s.caption,'刻度預覽');if(R.dualMeter(c)){
+      assert.equal(s.preview,true);if(s.preview){assert.equal(s.previewMode,'meter');assert.equal(s.caption,'刻度預覽');if(R.dualMeter(c)){
         const r=await h.inside(`CircuitWorkbench.getAnalysis().components[${JSON.stringify(c.id)}]`);assert.equal(s.needle.reading,r.reading);assert.equal(s.needle.range,r.range);assert(Math.abs(s.needle.angle-(-120+90*r.reading/r.range))<1e-8);assert.equal(s.ticks,41);
         if(view==='real'){const scene=await h.inside(`(()=>{const e=document.querySelector('#scene [data-meter-needle="${c.id}"]');return{angle:+e.dataset.angle,range:+e.dataset.range,reading:+e.dataset.reading};})()`);assert.deepEqual(s.needle,scene);}
         if(type==='ammeter'&&view==='real')await h.screenshot(`${mode}-analog-read-preview-390.png`);

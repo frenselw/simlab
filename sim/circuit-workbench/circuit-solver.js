@@ -132,7 +132,7 @@
         entry.reading=connected?entry.current:null;
         entry.meterStatus=!connected?'unconnected':entry.reading===null?'unknown':Math.abs(entry.reading)>entry.range+entry.range*1e-8?'overrange':entry.reading<0?'reverse':'normal';
       }
-      else if (c.type === "wattmeter") { const sensed = voltage(c.id + ":c", c.id + ":d"); entry.reading = sensed === null || entry.current === null ? null : sensed * entry.current; entry.sensedVoltage = sensed; entry.unit = "W"; }
+      else if (c.type === "wattmeter") { const sensed = voltage(c.id + ":c", c.id + ":d"); entry.reading = sensed === null || entry.current === null ? null : sensed * entry.current; entry.sensedVoltage = sensed; entry.unit = "W";const connected=['a','b','c','d'].every(key=>M.degree(doc,c.id+':'+key)>0);entry.meterStatus=!connected?'unconnected':entry.reading===null?'unknown':Math.abs(entry.reading)>c.params.range?'overrange':entry.reading<0?'reverse':'normal'; }
       if (c.type === "battery") { entry.delivered = entry.power === null ? null : -entry.power; entry.internalPower = entry.current === null ? null : entry.current ** 2 * c.params.resistance; entry.sourcePower = entry.current === null ? null : -c.params.voltage * c.params.polarity * entry.current; }
       if (entry.voltage === null && !e) entry.power = null;
       components[c.id] = entry;

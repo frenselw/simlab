@@ -7,7 +7,7 @@
   // Geometry stays independent of document validation; both the editor and the
   // validator measure exactly the polyline that the renderer displays.
   const M = { limits: { stroke: 96, bends: 24 }, endpoints(doc) {
-    const ends = new Map(); doc.components.forEach(c => (doc.version<4?R.legacyPorts(c):R.ports(c)).forEach(p => ends.set(p.id,p)));
+    const ends = new Map(); doc.components.forEach(c => R.portsForVersion(c,doc.version).forEach(p => ends.set(p.id,p)));
     doc.junctions.forEach(j => ends.set(j.id+":p",{...j,dx:0,dy:0})); return ends;
   } };
   const length = points => points.slice(1).reduce((sum,p,i) => sum + Math.hypot(p.x-points[i].x,p.y-points[i].y),0);

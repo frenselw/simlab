@@ -1198,3 +1198,52 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 必要檢查為修改文件的本地連結／diff、`npm run check`、合併帶入的共用全螢幕文字相關單元、來源與既有發布包一致性。第 52 節 runtime 保持時沿用其精準 browser 證據，不重跑教材或完整瀏覽器矩陣。合併後核對 main 包含開發提交且內容一致，成功推送 main 後才刪除開發分支。
 
 文件檢查通過：9 份修改文件的 **108 個本地連結及錨點**有效，`git diff --check`、`npm run check` 及 `sim/shared/fullscreen.test.js` 通過。所有 runtime／tooling 與已測試的 `6702312` 一致；現有 ZIP 的 **28 個 runtime 檔案**逐 byte 對應來源，SHA-256 仍為 `c9c6554ce34e1a0a1d1a5c75f5f889f7aaadf7a40ea5c827fdcdd68c7411e2e2`，沒有重建未改的包或重跑第 52 節 browser。Git 整合以 main 包含全部開發歷史、合併內容一致及遠端推送成功為判準；分支刪除在成功推送後執行。不新增實機手機、Safari 或 Moodle 驗收聲稱。
+
+## 54. 統一指針儀表與錶殼內量程標示（2026-10-05）
+
+- 分支：`codex/circuit-workbench-optimization`；按使用者要求，全部實物儀表統一指針式，數字讀值放在元件標籤。移除外觀選單及 A／V 錶盤頂端重複量程，擴大、上移雙刻度面板；接孔只標示 `−`／量程數字，引線直通圓孔中心。使用者續改：在錶殼內下方預留標示列，數字靠近引線出口；一般視野字級 16 CSS px，實物圖從 40% 縮放起保留標示，手機不必先放大至 70%。
+- 範圍仍為非評量教師工作台與共用編輯器；assessment risk／rubric／SCORM phase N/A。現行 teacher／student、可編輯／只讀、實物／電路圖、隱藏讀值、轉向／換接孔變體沿用既有契約。
+- 權威快照仍為 v4，不改端點 ID、位置、量程、電學或接線。新文件預設 analog；舊 `display.meters=digital` 仍嚴格接受及保存作相容資料，但外觀統一指針式，無須改寫舊檔。依賴與資產清單不增加。
+- 驗證決定：沿用儀表數學、鏡像／旋轉、標籤、核心及活動權限測試；精準瀏覽器檢查 source／解壓 ZIP 的桌面與手機模擬，核對放大刻度的邊界／重疊、接口直線對齊、數值標籤、舊文件載入及合法接線續作。只在涉及指針幾何時補跑既有慣性同步測試。真手機／Safari／Moodle 不因本地驗證宣稱通過。
+- 執行證據：儀表數學／低縮放標示、指針動態、feedback、標籤、旋轉、活動權限、鏡像、核心與匯入測試通過；`npm run check`、`git diff --check` 通過。匯入測試原本以嚴格等號比較浮點讀值，未修改 HEAD 同樣得到 0.5000000000000001；只將測試改為 1e−12 容差，沒有改求解器。
+- 最終量程標示檢查：`--feedback-smoke --terminal-marks-only` 在來源／實際解壓 ZIP、320／390／1280 px、A／V、四個轉向、實物 40%／55%／70%／120% 及電路圖 70%／120% 完成，檢查文字在錶殼內、避開接孔與其他標示；證據 `output/playwright/circuit-workbench/meter-terminals.json`。390 px 未按放大前的標示可見、放大後三個標示均為 16 CSS px 且位於錶殼內，見 `meters-layout-phone.json` 及 `source-ammeter-analog-layout-390.png`。
+- 初版指針幾何另完成來源／ZIP 的 24 筆慣性同步及 30 筆換接孔／檔案恢復檢查；後續只改量程標示列及錶殼底部，最終版補驗上述低縮放／轉向矩陣及相鄰單元測試。完整 feedback 瀏覽器流程於套件 390 px 遇到發熱動畫暫停狀態斷言失敗，並非本輪儀表位置斷言；未宣稱完整 feedback 流程通過，改用精準標示流程保存本輪證據。
+- 已重建 `output/circuit-workbench-standalone.zip`，儀表 runtime 檔逐 byte 與來源一致；真手機／Safari／Moodle 仍未驗證。
+
+## 55. 內移接口及 G／W 零位指針（2026-10-05）
+
+- 使用者續改：A／V 左右接孔由 ±64 內移至 ±48，引線、圓孔及標示中心共用同一位置；保留三孔身分、量程及左右換孔。G／W 的真零讀值顯示零位指針，未接線及工具箱圖示亦顯示機械零位；未知電學結果不得捏造成數值 0，隱藏讀值仍不得透露實際偏轉。
+- 非評量 scope／risk／rubric 及 teacher／student／只讀變體沿用第 54 節；沒有新增依賴。權威文件升為 v5，以區分 v4 的舊孔距。v1–v4 先按原幾何嚴格驗證，再遷移端點與相連線形；維持端點 ID、電學、參考點、鏡像與無關導線，遷移線長預算按必要端點移動增加，保存／恢復後可正常續接。
+- 必要檢查：新孔距的標示／引線／接孔／命中／導線在兩種外觀、四個轉向及鏡像下對齊；舊 v4 的繃緊線、部分接線、反接與非法線長；G／W 的真零、未接、正負讀值、未知結果及隱藏讀值。執行來源／解壓 ZIP 的手機／桌面精準檢查，保留真手機與 Moodle 未驗證界限。
+- 執行證據：18 個 circuit 單元測試模組通過；另完成 teaching 112 cases、activity-core 19 groups、display-and-mirror 37 groups。新 v4 匯入回歸涵蓋 A／V × 四轉向 × 鏡像 × 左右孔共 32 個繃緊線案例，先拒絕舊幾何下的非法線長，再核對端點身分、必要預算增加、無關線形、encode→decode 與合法續接。內部流動路徑同步使用 registry 的新孔距，沒有保留硬編碼 ±64。
+- `--feedback-smoke --terminal-marks-only` 在來源／解壓 ZIP、320／390／1280 px 完成 **288 筆** A／V 標示檢查（四轉向、兩外觀、多縮放）及 **12 筆** G／W 指針檢查（未接、真零、正負讀值、隱藏）；標示中央對接口軸線的最大誤差 **0.2561 CSS px**。真零的 G／W 指針長度分別為 43／27 世界座標 px，未接線保留空白數值而非偽造 0。證據 `output/playwright/circuit-workbench/meter-terminals.json`，手機總覽 `source-meter-terminals-390.png` 已目視核對。
+- `--display-mirror-smoke` 在來源／解壓 ZIP 完成 **30 筆**：390 px 可信模擬觸控、1280 px 滑鼠、320 px 工具列；實物 socket／lead／wire／hit 與電路圖端點對齊，左右換孔、可信重新吸附、實際檔案載入及續作、undo／redo、讀值與量程保持。證據 `output/playwright/circuit-workbench/display-mirror.json`。本輪沒有重跑第 54 節已記錄失敗的完整 feedback 流程。
+- `npm run check`、`git diff --check` 通過。重建 ZIP **28 runtime files、788749 bytes**，逐 byte 與來源一致；runtime SHA-256（依 assets 次序納入路徑及內容）`f38099972a735d27cd7ff3c080d34d6c23de8c02c9387ccf71545a9636a2865b`，ZIP SHA-256 `25f7623d10dd32fb69719478cd9b90a2b2691e07269c4127e884f5ad34062ded`。未驗證真手機、Safari 或 Moodle。
+
+## 56. 拖線時電流動畫連續性（2026-10-05）
+
+- 使用者回報拿住導線端點接線時箭頭卡頓。檢查 production RAF：位移累計持續，但 `!drag` 阻止更新可見 flow layer，只在 pointermove 的整幅 render 中顯示新位置。必要修正是讓拖動期間的 flow 亦逐 frame 顯示目前 preview 電路及線路，不依賴手指移動事件。
+- 非評量教師工具；risk／rubric／SCORM phase N/A，teacher／student／只讀權限保持。沿用 v5 authoritative document，動畫仍為暫態，無新增依賴、資產或持久化欄位；暫停／背景凍結／關閉／零與未知電流規則保持。
+- 驗證決定：先以可信滑鼠／模擬觸控重現按住不移動的可見 phase 凍結，再在來源／解壓 ZIP、手機／桌面、實物／電路圖、電流／電子中核對拖前、按住、移動、吸附候選及放手；覆蓋燈與 A／V 接孔，暫停、取消、undo／redo、encode→decode 與合法續作。只跑 flow／component-flow 相鄰單元及精準 browser，不重跑無關幾何／評分矩陣。
+- 實際重現：修改前 source 390 px 可信 touch 按住線端，連續 16 RAF frame 的 phase 均為 15.3364、SVG transform 完全相同。修正只移除 RAF 中拖動時跳過 flow repaint 的條件；保留相機手勢的既有處理，使用現行 preview analysis／routes／累計位移，不改接線求解或手勢命中。
+- `--flow-drag-smoke` 在 source／解壓 ZIP、390 px 可信模擬觸控及 1280 px 可信滑鼠完成 **48 cases**（燈／A／V × 實物／電路圖 × 電流／電子）；記錄 **2304 個** held／移動後 preview／吸附候選 RAF frame，每相鄰幀 phase 及實際 SVG 箭頭或電子位置均前進。放手後端點身分與主電路 0.5 A 保持，undo／redo、production encode→load、恢復後拖動及 production cancel() 回退通過，明確暫停時按住仍凍結。證據 `output/playwright/circuit-workbench/flow-drag.json`；沒有執行無關完整 browser 矩陣。
+- 相鄰 `flow.test.js` **28 cases**、`component-flow.test.js` **8 groups**、`npm run check`、修改 JS 語法及 `git diff --check` 通過。ZIP **28 runtime files、788836 bytes** 全部與來源逐 byte 一致；runtime SHA-256（沿用第 55 節算法）`f5730aeedef16358a05b0395258783f53bae4cd5635f1dc807b020a65bba18f9`，ZIP SHA-256 `8366b803d112be150f7ca050bd4c2d621a52319cae6bd466d17381f30cc9dcce`。未驗證真手機、Safari 或 Moodle。
+
+## 57. 電勢參考說明與 A／B 接線圖示（2026-10-06）
+
+- 使用者要求寫清楚相對電勢的 0 V 參考，並把接好／拔開 A／B 改成一致、緊湊且較易辨認的圖示。以 solver 回報的該連通區參考端及有效自訂參考點產生說明，不能把所有電路都硬寫為電池負極；理想線兩端電壓亦獨立標示，避免與相對電勢混淆。
+- A／B 各自的接線選單旁放接合／分離接頭圖示、端點字母及可讀提示；工具列拔開圖示同步。按鈕保留 44 px 命中範圍、title、aria-label、data-action，接線與拔開的權限／原子失敗／undo 契約保持。
+- 教師非評量 scope；risk／rubric／SCORM phase N/A。teacher／student／只讀、未接／已接、獨立電路／自訂参考／反接與手機／桌面變體沿用既有 v5 文件，無新增依賴或持久化欄位。
+- 必要驗證為 source／解壓 ZIP 的手機及桌面實際圖示／標示／邊界與可信按鈕接好、拔開、undo／redo，檢查預設與自訂參考、反接、獨立連通區及恢復後合法續接；不重跑無關動畫或大型幾何矩陣。
+- 實作：所選導線同時顯示相對電勢、A − B 電壓及具名 0 V 參考；所選端子和探測提示亦採同一參考說明。A／B 各自選單與接好／拔開圖示排成一行，兩種圖示分別畫接合／分離接頭及相向／向外箭頭；工具列沿用同一拔開圖示。補上全部 socket-action 的相對定位，使 A／B 字母真正留在按鈕內。選單 caption 用獨立 label／for 關聯，不包住其他按鈕。
+- `--wire-inspector-smoke` 在來源／解壓 ZIP 的 **320、390、1280 px，共 6 個 viewport cases** 通過。每個核對兩端共四個 44 px 圖示、A／B badge 邊界、選單與按鈕齊頂、剩餘四個工具單行排列及頁面無水平溢出；可信觸控／滑鼠完成接好 A／B、拔開 A／B、undo／redo 與 production encode→load→拔開續作。選單值用 fixture DOM assignment，未聲稱原生選单選項為可信操作。預設電池負極 3 V、自訂中點 0 V、反接負極參考及獨立 9 V 電路各自的具名參考均核對正確；A − B 為 0 V。證據 `output/playwright/circuit-workbench/wire-inspector.json`，手機及桌面截圖已目視核對。
+- 相鄰 quick-controls **6 groups**、activity-core **19 groups**、`npm run check`、JS 語法與 `git diff --check` 通過。ZIP **28 runtime files、789440 bytes** 全部與來源逐 byte 一致；runtime SHA-256（沿用第 55 節算法）`f0bf32e5213248ec39a234bfd5e5f8e6771280cf7255e90b1634bafc144b7b6b`，ZIP SHA-256 `3391c65ab41dece27d44b385fd6e24289ceab34d979d83a588dce4efc0dff38a`。真手機、Safari 及 Moodle 未驗證。
+
+## 58. 功率表端子 TeX 與精簡操作說明（2026-10-06）
+
+- 使用者要求功率表四個物理量端子採 LaTeX，問號說明大幅精簡並改善排版。沿用本地 CircuitMath 自包含 SVG；功率表端子以斜體物理量及極性下標顯示，位置避讓使用實際 TeX glyph 尺寸。help 以三步接線、儀表接法、移圖／讀值為主要內容，較少用的快捷鍵／模型放在預設收合段落；受控物理符號及單位全部轉成本地 TeX。
+- 教師非評量 scope；risk／rubric／SCORM phase N/A。teacher／student 簡明說明、實物／電路圖、四轉向、手機／桌面與 help 收合變體；沿用 v5 authoritative document、權限及既有 runtime 依賴，沒有新增保存欄位或外部字體服務。
+- 驗證決定：相鄰 meter/math、label 及 activity unit；source／解壓 ZIP 的手機／桌面可信開關 help、收合展開、無裁切／水平溢出、四端子實際 TeX／端點／旋轉及兩外觀。檢查本地 glyph、符號無原始 TeX 外露、teacher／student 皆能操作；保存／恢復沿用相鄰 production 往返證據，不重跑無關接線／評分／动画矩陣。
+- 實作：W 表四端子使用 `I_{+}`／`I_{-}`／`V_{+}`／`V_{-}`，14 CSS px、本地自包含 TeX paths；背景與標籤避讓改用真實 glyph 邊界。功率表屬性說明亦採同一符號及功率公式。Help 從原有 **1641 個中文字減至 358 個**（包括收合內容，約減少 78%），三步列表、儀表表格、短操作列表及預設收合更多說明；固定可見關閉掣，學生說明亦採三步版。TeX 在本地 MathJax ready 後轉換，沒有外部排版依賴。
+- 相鄰 meter/math **96 fixtures** 及新 W 端子兩外觀 × 四轉向 × 兩縮放的 **16 fixtures**、label **72 responsive layouts**、activity-core **19 groups** 通過。`--help-smoke` 於 source／解壓 ZIP、320／390／1280 px 完成 **6 viewport cases**，包括 teacher／student 可信開關、更多內容展開、正確標題關聯、44 px 關閉掣、SVG glyph 與輸入 TeX 對應、無水平溢出、help 不改文件；手機依既有面板入口開啟，桌面使用問號掣。另核對 **48 個 W 端子佈局、192 個端子**的 actual path、下標、兩外觀、四轉向及與接孔不重疊。證據 `output/playwright/circuit-workbench/help-and-wattmeter.json`；`source-quick-help-390.png` 及 `source-wattmeter-tex-390.png` 已目視核對。
+- `npm run check`、修改 JS 語法及 `git diff --check` 通過。ZIP **28 runtime files、788360 bytes** 與來源逐 byte 一致；runtime SHA-256（沿用第 55 節算法）`41ffbf90270e0a703d6f8159bf4927609c16b30330ccf34dab2b683f722b0daa`，ZIP SHA-256 `991bf2953dbab459b6b694e440f6b37c483ad47285407a0ddf4e6a324aecb874`。本輪未驗證真手機、Safari 或 Moodle。

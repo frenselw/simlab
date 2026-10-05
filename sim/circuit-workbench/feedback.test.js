@@ -35,7 +35,7 @@ for(const resistance of [0,.2,2]){
 }
 for(const view of ['real','schematic'])for(const type of ['ammeter','voltmeter'])for(const angle of [0,90,180,270])for(const scale of [.7,1,1.2]){
   const c=M.add(M.empty(),type,300,240);c.angle=angle;const ports=R.ports(c),labels=ports.map(p=>V.portLabel(c,p,scale,view)),bounds=view==='real'?R.meterHousingBounds(c):{left:c.x-35,right:c.x+35,top:c.y-35,bottom:c.y+35};
-  for(let i=0;i<labels.length;i++){assert(!intersects(labels[i].box,bounds),'mark is outside meter frame');assert(labels[i].y<ports[i].y,'mark above terminal end');for(const p of ports)assert(!intersects(labels[i].box,{left:p.x-8,right:p.x+8,top:p.y-8,bottom:p.y+8}),'mark clears all sockets');for(let j=i+1;j<labels.length;j++)assert(!intersects(labels[i].box,labels[j].box),'three range marks separated');}
+  for(let i=0;i<labels.length;i++){if(view==='real'){const b=labels[i].box;assert(b.left>=bounds.left&&b.right<=bounds.right&&b.top>=bounds.top&&b.bottom<=bounds.bottom,'mark stays inside meter case');}else{assert(!intersects(labels[i].box,bounds),'schematic mark is outside symbol');assert(labels[i].y<ports[i].y,'schematic mark above terminal end');}for(const p of ports)assert(!intersects(labels[i].box,{left:p.x-8,right:p.x+8,top:p.y-8,bottom:p.y+8}),'mark clears all sockets');for(let j=i+1;j<labels.length;j++)assert(!intersects(labels[i].box,labels[j].box),'three range marks separated');}
   assert(!V.body(c,null,{view,meters:'digital',values:true}).includes('接入'));assert(!V.body(c,{meterStatus:'missing-common'}, {view,meters:'analog',values:true}).includes('請接'));cases++;
 }
 for(const ends of [0,1,2]){

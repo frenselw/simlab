@@ -105,4 +105,28 @@ async function microFlowCases(h,mode,base){
     await h.screenshot(`${mode}-micro-flow-${w}.png`);
   }
 }
-module.exports={flowCases,microFlowCases};
+async function flowDragCases(h,mode,base){
+  const {inside,send,point,load,save,doc,delay,evidence}=h;let width,id=58000;
+  async function input(type,p){if(width<600)await send('Input.dispatchTouchEvent',{type:{down:'touchStart',move:'touchMove',up:'touchEnd'}[type],touchPoints:type==='up'?[]:[{x:p.x,y:p.y,id,radiusX:2,radiusY:2,force:1}]});else await send('Input.dispatchMouseEvent',{type:{down:'mousePressed',move:'mouseMoved',up:'mouseReleased'}[type],x:p.x,y:p.y,button:'left',buttons:type==='up'?0:1,clickCount:type==='move'?0:1});}
+  async function tap(selector){id++;const p=await point(selector);await input('down',p);await input('up',p);await delay(30);}
+  async function sample(){return inside(`new Promise(resolve=>{const rows=[];function frame(t){const g=document.querySelector('#flowLayer [data-flow-wire="w1"]');rows.push({t,phase:+g.dataset.phase,transform:g.firstElementChild.getAttribute('transform'),x:g.firstElementChild.getAttribute('cx'),y:g.firstElementChild.getAttribute('cy'),drag:CircuitWorkbench.getInteraction().dragging});if(rows.length===16)resolve(rows);else requestAnimationFrame(frame);}requestAnimationFrame(frame);})`);}
+  function moving(rows,label){assert(rows.every(r=>r.drag==='wireend'),label+' stays captured');for(let n=1;n<rows.length;n++){assert(Math.abs(step(rows[n-1].phase,rows[n].phase))>.001,label+' visible phase progresses every RAF frame: '+JSON.stringify(rows));assert(rows[n].transform!==rows[n-1].transform||rows[n].x!==rows[n-1].x||rows[n].y!==rows[n-1].y,label+' actual SVG glyph moves');}}
+  for(width of [390,1280]){
+    await h.freshPage();h.setContext('window');await send('Emulation.setDeviceMetricsOverride',{width,height:width<600?844:800,deviceScaleFactor:1,mobile:width<600});await send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});await send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();await send('Page.bringToFront',{});
+    await inside("window.__dragFlowInputs=[];for(const type of ['pointerdown','pointermove','pointerup'])document.addEventListener(type,e=>__dragFlowInputs.push({type,trusted:e.isTrusted,pointer:e.pointerType}),true)");
+    if(width<600)await tap('#panelToggle');
+    for(const type of ['lamp','ammeter','voltmeter'])for(const view of ['real','schematic'])for(const flow of ['current','electron']){
+      const d=M.empty(),source=M.add(d,'battery',160,180),loadC=M.add(d,'resistor',420,180),target=M.add(d,type,430,410);M.connect(d,source.id+':a',loadC.id+':a',[{x:100,y:100},{x:360,y:100}],'free');M.connect(d,loadC.id+':b',source.id+':b',[{x:480,y:250},{x:220,y:250}],'free');const wire=M.addWire(d,220,410);M.attach(d,wire.id,'from',source.id+':a');Object.assign(d.display,{view,flow});await load(d);
+      const before=await save();id++;const start=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',start);assert.equal(await inside('CircuitWorkbench.getInteraction().dragging'),'wireend');const held=await sample();moving(held,'held endpoint');
+      const moved={x:start.x-25,y:start.y+15};await input('move',moved);const travelling=await sample();moving(travelling,'free preview');assert.equal(await save(),before,'preview does not persist');
+      const port=target.id+':'+(type==='lamp'?'a':'c'),socket=await h.scenePoint(M.endpoints(d).get(port));await input('move',socket);await delay(30);assert.equal(await inside('CircuitWorkbench.getInteraction().snap'),port,JSON.stringify({width,type,view,flow,start,socket,interaction:await inside('CircuitWorkbench.getInteraction()')}));const snapped=await sample();moving(snapped,'snap candidate');assert.equal(await save(),before);await input('up',socket);const after=await save();assert.notEqual(after,before);assert.equal((await doc()).wires.find(w=>w.id===wire.id).to,port);near((await inside('CircuitWorkbench.getAnalysis()')).wires.w1.current,.5);
+      await tap('#undo');assert.equal(await save(),before);await tap('#redo');assert.equal(await save(),after);await load(after);near((await inside('CircuitWorkbench.getAnalysis()')).wires.w1.current,.5);await tap('#pickWire');
+      // A restored connection can be picked up and safely cancelled.
+      id++;const end=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',end);await input('move',{x:end.x+20,y:end.y+15});moving(await sample(),'restored continuation');await inside('CircuitWorkbench.cancel()');await input('up',end);assert.equal(await save(),after);
+      await tap('#settings');await tap('#pause');assert.equal(await inside('document.getElementById("pause").checked'),true);await tap('#closeSettings');id++;const pausedStart=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',pausedStart);const frozen=await sample();assert(frozen.every(r=>r.phase===frozen[0].phase),'explicit pause still freezes drag animation');await input('up',pausedStart);await tap('#settings');await tap('#pause');await tap('#closeSettings');
+      evidence.push({mode,flow:'drag-continuity',width,type,view,style:flow,held,travelling,snapped,paused:true,undoRedo:true,restoredContinuation:true,cancelled:true});
+    }
+    const events=await inside('__dragFlowInputs');assert(events.length&&events.every(e=>e.trusted&&e.pointer===(width<600?'touch':'mouse')));console.log(`${mode}: ${width}px continuous held/moving/snapped endpoints passed`);
+  }
+}
+module.exports={flowCases,microFlowCases,flowDragCases};
