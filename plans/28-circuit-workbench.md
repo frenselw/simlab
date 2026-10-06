@@ -1247,3 +1247,12 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 實作：W 表四端子使用 `I_{+}`／`I_{-}`／`V_{+}`／`V_{-}`，14 CSS px、本地自包含 TeX paths；背景與標籤避讓改用真實 glyph 邊界。功率表屬性說明亦採同一符號及功率公式。Help 從原有 **1641 個中文字減至 358 個**（包括收合內容，約減少 78%），三步列表、儀表表格、短操作列表及預設收合更多說明；固定可見關閉掣，學生說明亦採三步版。TeX 在本地 MathJax ready 後轉換，沒有外部排版依賴。
 - 相鄰 meter/math **96 fixtures** 及新 W 端子兩外觀 × 四轉向 × 兩縮放的 **16 fixtures**、label **72 responsive layouts**、activity-core **19 groups** 通過。`--help-smoke` 於 source／解壓 ZIP、320／390／1280 px 完成 **6 viewport cases**，包括 teacher／student 可信開關、更多內容展開、正確標題關聯、44 px 關閉掣、SVG glyph 與輸入 TeX 對應、無水平溢出、help 不改文件；手機依既有面板入口開啟，桌面使用問號掣。另核對 **48 個 W 端子佈局、192 個端子**的 actual path、下標、兩外觀、四轉向及與接孔不重疊。證據 `output/playwright/circuit-workbench/help-and-wattmeter.json`；`source-quick-help-390.png` 及 `source-wattmeter-tex-390.png` 已目視核對。
 - `npm run check`、修改 JS 語法及 `git diff --check` 通過。ZIP **28 runtime files、788360 bytes** 與來源逐 byte 一致；runtime SHA-256（沿用第 55 節算法）`41ffbf90270e0a703d6f8159bf4927609c16b30330ccf34dab2b683f722b0daa`，ZIP SHA-256 `991bf2953dbab459b6b694e440f6b37c483ad47285407a0ddf4e6a324aecb874`。本輪未驗證真手機、Safari 或 Moodle。
+
+## 59. 桌面空白處雙擊拖畫布（2026-10-06）
+
+- 桌面滑鼠左鍵在畫布空白處雙擊，第二次按下保持並拖曳，暫時啟動手掌；放手回到原工具。元件、接孔、導線、浮窗和觸控不使用此捷徑。沿用共用 editor 的相機拖動、capture、取消與 click suppression，不改常駐工具。
+- 教師非評量 scope；risk／rubric／SCORM phase N/A。teacher／student／只讀、實物／電路圖、一般／拿導線／探測、正常放手／Escape／blur／失去 capture 變體使用同一相機暫態；authoritative v5 document、undo 和配置保持，無新增依賴或保存欄位。
+- 驗證決定：既有已登記 browser runner 的 camera cases 增加可信滑鼠雙擊按住、每步相機平移、放手還原工具、取消回退、單擊拖空白不移圖與物件雙擊不啟動手掌。執行來源／解壓教師 ZIP 的 --gesture-smoke，沿用其中手機雙指與桌面中鍵／Space 相鄰回歸；activity-core unit 核對配置／只讀，npm run check 與 diff/syntax checks。此為相機捷徑更新，不重跑無關評分或教材矩陣；真手機及 Moodle 未驗證。
+- 實作：共用 startPan 保留原有中鍵／Space／常駐手掌流程；以 pointerdown 保留 mouse capture ID，原生 mousedown.detail === 2 判定雙擊，空白命中才啟動 quick pan。放手移除快速手掌提示，工具配置與 circuit document 不變。teacher／student help 及無障礙操作文字已補充捷徑。
+- 桌面專項 --gesture-smoke --desktop-camera-only 在來源／解壓 ZIP 通過 58 observations，包括 16 雙擊拖曳、6 取消回退、8 物件排除。既有滾輪錨點測試修正為原生 WheelEvent 的整數座標，保留原有 0.02 px 容差。activity-core 19 groups、review-regressions 11 groups、npm run check、JS syntax 與 git diff --check 通過；28 runtime files 與來源逐 byte 一致。完整回歸見下行。
+- 完整 --gesture-smoke 在來源／解壓 ZIP 通過 162 observations，包含 88 個手機雙指 pan／pinch／mixed cases，以及桌面新捷徑、原有中鍵／Space／滾輪、取消／續作與電路／讀值／history 不變。證據 output/playwright/circuit-workbench/camera-gestures.json；快速手掌畫面已目視核對。教師套件 output/circuit-workbench-standalone.zip 已重建。手機為本機可信模擬觸控；真手機、Safari 及 Moodle 未驗證，未宣稱完整 package-ready 或 Moodle-ready。

@@ -30,6 +30,7 @@ async function cameraCases(h,mode,base){
   async function resume(before){const i=await interaction();if(i.panMode)await click("#pan");if(i.probeMode)await click("#probe");await touch(await point("#quickWire"),0,0);assert.notEqual(await save(),before.saved,"normal touch works after the last navigation contact");await click("#undo");assert.equal(await save(),before.saved,"camera navigation adds no undo step");}
 
   console.log(`${mode}: two-finger pan/pinch and desktop camera shortcuts`);
+  if(!process.argv.includes("--desktop-camera-only")){
   for(const width of [320,390])for(const view of ["real","schematic"]){await launch(width,view);
     const operations=width===320?["blank","body","wireend","wire"]:["anchored-end","free-wire","junction","slider","port","locked-body","hand","wire-mode","probe-mode","switch"];
     for(const operation of operations)for(const action of width===320?["pan","pinch","mixed"]:["mixed"]){
@@ -58,9 +59,41 @@ async function cameraCases(h,mode,base){
   const switchSelector=await prepare("switch","real"),switchBefore=await state(),tapPair=await pairFor(switchSelector);await touches("touchStart",tapPair);await touches("touchEnd",[]);await unchanged(switchBefore);assert.deepEqual((await interaction()).camera,switchBefore.interaction.camera);await touch(await point(switchSelector),0,0);assert.notEqual(await save(),switchBefore.saved,"ordinary single-finger switch tap still works");await click("#undo");assert.equal(await save(),switchBefore.saved);evidence.push({mode,twoFingerTapNoToggle:true,singleTapContinued:true});
   await load(M.empty());await click("#panelToggle");await delay(100);await watch();const panelBefore=await state(),panel=await point("#panel"),panelPair=[contact({x:panel.x-panel.width/2+6,y:panel.y}),contact({x:panel.x+panel.width/2-6,y:panel.y})];await touches("touchStart",panelPair);assert.equal((await interaction()).dragging,null);await touches("touchEnd",[]);await unchanged(panelBefore);assert.equal((await interaction()).lastMessage,panelBefore.interaction.lastMessage,"panel contacts do not announce a nonexistent canvas cancellation");assert.equal((await interaction()).touchCount,0);evidence.push({mode,panelTwoContactsStayOutsideCanvas:true,noFalseWarning:true});
 
+  }
+  await launch(1280,"real",false);
+  const mouse=async(p,type,count=1,dx=0,dy=0)=>{await send("Input.dispatchMouseEvent",{type,x:p.x+dx,y:p.y+dy,button:"left",buttons:type==="mouseReleased"?0:1,clickCount:count});await delay(20);};
+  async function blankClick(){const r=await point("#surface"),p={x:r.x-r.width/2+40,y:r.y-r.height/2+90};assert.equal(await inside(`Boolean(document.elementFromPoint(${p.x},${p.y}).closest('.hit'))`),false);await mouse(p,"mousePressed");await mouse(p,"mouseReleased");return p;}
+  for(const view of ["real","schematic"])for(const tool of ["normal","wire","probe","read-only"]){
+    for(const [flag,id]of [["wireMode","pickWire"],["probeMode","probe"]])if((await interaction())[flag])await click("#"+id);
+    const d=P.create("series");d.display.view=view;await load(d);
+    if(tool==="wire")await click("#pickWire");if(tool==="probe")await click("#probe");if(tool==="read-only")await inside("CircuitWorkbench.setReadOnly(true)");
+    const p=await blankClick();await watch();const before=await state();await mouse(p,"mousePressed",2);
+    assert.equal((await interaction()).dragging,"pan");assert.equal(await inside("document.getElementById('surface').classList.contains('quick-pan')"),true);const samples=[];
+    for(let n=1;n<=6;n++){await mouse(p,"mouseMoved",2,48*n/6,-30*n/6);const c=(await interaction()).camera;assert.equal(c.scale,before.interaction.camera.scale);assert(Math.abs(c.x-before.interaction.camera.x+48*n/6/c.scale)<1e-7);assert(Math.abs(c.y-before.interaction.camera.y-30*n/6/c.scale)<1e-7);samples.push(c);}
+    await screenshot(`${mode}-double-click-pan-${view}-${tool}.png`);await mouse(p,"mouseReleased",2,48,-30);
+    assert.equal((await interaction()).dragging,null);assert.equal(await inside("document.getElementById('surface').classList.contains('quick-pan')"),false);await unchanged(before);
+    for(const flag of ["panMode","wireMode","probeMode","readOnly"])assert.equal((await interaction())[flag],before.interaction[flag]);
+    const after=(await interaction()).camera;await mouse(p,"mousePressed");await mouse(p,"mouseMoved",1,20,15);await mouse(p,"mouseReleased",1,20,15);assert.deepEqual((await interaction()).camera,after,"single blank drag stays inert after temporary hand releases");await unchanged(before);
+    assert((await inside("__navEvents")).some(e=>e.trusted&&e.type==="pointermove"&&e.pointer==="mouse"));
+    if(tool==="read-only")await inside("CircuitWorkbench.setReadOnly(false)");
+    else{await click("#quickWire");await click("#undo");assert.equal(await save(),before.saved,"temporary pan adds no undo entry and editing resumes");}
+    evidence.push({mode,doubleClickPan:true,view,tool,samples,toolRestored:true,documentHistoryFixed:true,singleClickInert:true});
+  }
+  for(const abort of ["escape","blur-signal","lost-capture"]){
+    await load(P.create("series"));const p=await blankClick();await watch();const before=await state();await mouse(p,"mousePressed",2);await mouse(p,"mouseMoved",2,30,-20);assert.notDeepEqual((await interaction()).camera,before.interaction.camera);
+    if(abort==="escape")await key("Escape","Escape",27);
+    else if(abort==="blur-signal")await inside("window.dispatchEvent(new Event('blur'))");
+    else await inside("document.getElementById('surface').releasePointerCapture(__navEvents.find(e=>e.type==='pointerdown').id)");
+    await delay(40);await mouse(p,"mouseMoved",2,40,-25);await mouse(p,"mouseReleased",2,40,-25);assert.equal((await interaction()).dragging,null);assert.deepEqual((await interaction()).camera,before.interaction.camera);await unchanged(before);assert.equal(await inside("document.getElementById('surface').classList.contains('quick-pan')"),false);evidence.push({mode,doubleClickPanCancel:abort,rollback:true});
+  }
+  for(const operation of ["body","port","wireend","wire"]){
+    const target=await setupOperation(operation==="port"?"body":operation),selector=operation==="port"?'[data-hit="port:c2:a"]':target;
+    const p=await point(selector),camera=(await interaction()).camera;await mouse(p,"mousePressed",2);assert.notEqual((await interaction()).dragging,"pan","double clicking a scene target keeps its own interaction");await key("Escape","Escape",27);await mouse(p,"mouseReleased",2);assert.deepEqual((await interaction()).camera,camera);evidence.push({mode,doubleClickSceneTarget:selector,noPan:true});
+  }
   await launch(1280,"real",false);await load(P.create("series"));await watch();
-  for(const ctrl of [false,true]){const before=await state(),r=await point("#surface"),cursor={x:r.x+70,y:r.y-35},anchor={x:before.interaction.camera.x+(cursor.x-r.x+r.width/2)/before.interaction.camera.scale,y:before.interaction.camera.y+(cursor.y-r.y+r.height/2)/before.interaction.camera.scale};
-    await send("Input.dispatchMouseEvent",{type:"mouseWheel",...cursor,deltaX:0,deltaY:-120,modifiers:ctrl?2:0});await delay(140);const c=(await interaction()).camera;assert(c.scale>before.interaction.camera.scale);assert(Math.abs((anchor.x-c.x)*c.scale-(cursor.x-r.x+r.width/2))<.02);assert(Math.abs((anchor.y-c.y)*c.scale-(cursor.y-r.y+r.height/2))<.02);await unchanged(before);evidence.push({mode,desktopCamera:"wheel",ctrl,cursorAnchored:true,camera:c});
+  // WheelEvent client coordinates are integers even when CSS bounds are fractional.
+  for(const ctrl of [false,true]){const before=await state(),r=await point("#surface"),cursor={x:Math.floor(r.x+70),y:Math.floor(r.y-35)},anchor={x:before.interaction.camera.x+(cursor.x-r.x+r.width/2)/before.interaction.camera.scale,y:before.interaction.camera.y+(cursor.y-r.y+r.height/2)/before.interaction.camera.scale};
+    await send("Input.dispatchMouseEvent",{type:"mouseWheel",...cursor,deltaX:0,deltaY:-120,modifiers:ctrl?2:0});await delay(140);const c=(await interaction()).camera;assert(c.scale>before.interaction.camera.scale);assert(Math.abs((anchor.x-c.x)*c.scale-(cursor.x-r.x+r.width/2))<.02);assert(Math.abs((anchor.y-c.y)*c.scale-(cursor.y-r.y+r.height/2))<.02,JSON.stringify({cursor,r,before:before.interaction.camera,c,anchor}));await unchanged(before);evidence.push({mode,desktopCamera:"wheel",ctrl,cursorAnchored:true,camera:c});
   }
   // Space + trackpad scroll and the hand tool own both wheel axes; pinch wins.
   for(const method of ["space-wheel","hand-wheel"]){
@@ -71,9 +104,9 @@ async function cameraCases(h,mode,base){
       const prior=(await interaction()).camera;await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:dx,deltaY:dy});await delay(100);const c=(await interaction()).camera;
       assert.equal(c.scale,prior.scale,'trackpad pan keeps magnification');assert(Math.abs(c.x-prior.x-dx/c.scale)<1e-7);assert(Math.abs(c.y-prior.y-dy/c.scale)<1e-7);await unchanged(before);steps.push({dx,dy,camera:c});
     }
-    const prior=(await interaction()).camera,anchor={x:prior.x+p.width/2/prior.scale,y:prior.y+p.height/2/prior.scale};
+    const prior=(await interaction()).camera,offset={x:Math.floor(p.x)-p.x+p.width/2,y:Math.floor(p.y)-p.y+p.height/2},anchor={x:prior.x+offset.x/prior.scale,y:prior.y+offset.y/prior.scale};
     await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:15,deltaY:-80,modifiers:2});await delay(100);const pinched=(await interaction()).camera;
-    assert(pinched.scale>prior.scale,'Ctrl wheel pinch keeps zoom ownership in either pan mode');assert(Math.abs((anchor.x-pinched.x)*pinched.scale-p.width/2)<.02);assert(Math.abs((anchor.y-pinched.y)*pinched.scale-p.height/2)<.02);await unchanged(before);
+    assert(pinched.scale>prior.scale,'Ctrl wheel pinch keeps zoom ownership in either pan mode');assert(Math.abs((anchor.x-pinched.x)*pinched.scale-offset.x)<.02);assert(Math.abs((anchor.y-pinched.y)*pinched.scale-offset.y)<.02);await unchanged(before);
     if(method==='space-wheel'){await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});await delay(60);await unchanged(before);assert.equal((await interaction()).wireMode,true);assert.equal((await interaction()).spacePan,false);}
     else{assert.equal((await interaction()).panMode,true);await click('#pan');}
     await click('#quickWire');await click('#undo');assert.equal(await save(),before.saved);evidence.push({mode,desktopCamera:method,steps,pinchWins:true,noFocusedSwitchActivation:true,toolPreserved:true,continued:true});

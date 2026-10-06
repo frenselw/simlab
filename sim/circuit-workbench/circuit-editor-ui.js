@@ -16,7 +16,7 @@
       <div id="canvasArea" class="canvas-area">
         <div class="scroll-strip left" role="group" aria-label="左下角捲頁把手：上下滑動可捲動頁面" title="上下滑動可捲動頁面"><svg viewBox="0 0 16 40" aria-hidden="true"><path d="m4 9 4-4 4 4M5 18h6M5 22h6m-7 9 4 4 4-4"/></svg></div>
         <div id="surface" class="surface" role="group" aria-label="電路畫布操作區" aria-describedby="canvasInstructions">
-          <span id="canvasInstructions" class="sr-only">拖線端靠近元件接孔，或拖元件接孔靠近線端，放手接好。雙指拖動畫布，捏合縮放。滑鼠滾輪縮放，中鍵拖動，或按住空白鍵再拖動。觸控板按住空白鍵再雙指滑動可平移，捏合縮放。左右底角的捲頁把手可上下滑動，捲動外層頁面。</span>
+          <span id="canvasInstructions" class="sr-only">拖線端靠近元件接孔，或拖元件接孔靠近線端，放手接好。雙指拖動畫布，捏合縮放。滑鼠滾輪縮放，空白處雙擊並拖曳、中鍵拖動，或按住空白鍵再拖動。觸控板按住空白鍵再雙指滑動可平移，捏合縮放。左右底角的捲頁把手可上下滑動，捲動外層頁面。</span>
           <svg id="circuitSvg" xmlns="http://www.w3.org/2000/svg" aria-label="電路圖形"><g id="scene"></g><g id="flowLayer"></g><g id="ghostLayer"></g></svg>
           <div id="hitLayer" class="hit-layer"></div><div id="canvasNotice" class="canvas-notice" hidden aria-hidden="true"></div>
           <div id="emptyHint" class="empty-hint" hidden><strong>從一個元件開始</strong><span>從工具箱取出元件和導線，拖線端或元件接孔互相靠近接好。</span></div>
@@ -50,7 +50,7 @@
       </dl><p class="help-tip">電流表／電壓表接共用 <span data-help-tex="-" data-help-text="−"></span> 孔及一個量程孔，先用大量程。等指針停定再讀數；手機點電錶可放大刻度。</p></section>
       <section><h3>移圖與讀值</h3><ul class="help-short-list">
         <li><strong>手機：</strong>雙指拖畫布、捏合縮放。</li>
-        <li><strong>桌面：</strong>滾輪縮放；按住空白鍵拖畫布。</li>
+        <li><strong>桌面：</strong>滾輪縮放；空白處雙擊並拖曳，或按住空白鍵拖畫布。</li>
         <li><strong>調參：</strong>選元件後用底部 <span data-help-tex="-\\,/\\,+" data-help-text="−／＋"></span>；其他選項在設定。</li>
         <li><strong>電勢：</strong>讀值旁會寫明 <span data-help-tex="0\\,\\mathrm{V}" data-help-text="0 V"></span> 參考點；探測工具可量兩點電壓。</li>
       </ul></section>
@@ -108,7 +108,7 @@
     if (!profile.undo) remove('undo','redo');
     if (!ui.help) { remove('help','panelHelp','helpDialog'); content.content.querySelector('.footnote').remove(); }
     else if (student) {
-      refs.helpDialog.innerHTML='<div class="dialog-head"><h2 id="'+prefix+'helpTitle">電路操作</h2><button type="button" aria-label="關閉說明" title="關閉說明">×</button></div><div class="help-body"><ol class="help-steps"><li><strong>拖線端接孔</strong><span>拖近白色圓孔，見藍圈便放手接好。</span></li><li><strong>調整線形</strong><span>接好一端後，可拿線身彎曲。線身交叉不會接通。</span></li><li><strong>移動畫布</strong><span>雙指拖動、捏合縮放；桌面按住空白鍵拖動。</span></li></ol></div>';
+      refs.helpDialog.innerHTML='<div class="dialog-head"><h2 id="'+prefix+'helpTitle">電路操作</h2><button type="button" aria-label="關閉說明" title="關閉說明">×</button></div><div class="help-body"><ol class="help-steps"><li><strong>拖線端接孔</strong><span>拖近白色圓孔，見藍圈便放手接好。</span></li><li><strong>調整線形</strong><span>接好一端後，可拿線身彎曲。線身交叉不會接通。</span></li><li><strong>移動畫布</strong><span>雙指拖動、捏合縮放；桌面可在空白處雙擊並拖曳。</span></li></ol></div>';
       refs.closeHelp=refs.helpDialog.querySelector('button');refs.closeHelp.id=prefix+'closeHelp';refs.closeHelp.dataset.circuitId='closeHelp';
     }
     if (!ui.palette) refs.palette.closest('.panel-section').remove();

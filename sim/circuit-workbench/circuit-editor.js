@@ -43,7 +43,7 @@
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const labelOptions={previous:null,exclusions:[]},flowOffsets=new Map(),needleStates=new Map();
   let analysis=S.solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
-  let quickBinding=null,releasedMeta=null;
+  let quickBinding=null,releasedMeta=null,blankMouseDown=null;
   const touches=new Map(),minScale=.001,maxScale=2.5;
   const owned=e=>host.contains(e.target)||touches.size||drag||cameraGesture;
   let cameraGesture=null,touchOrigin=null,touchBlocked=false,spacePan=false,spacePanUsed=false;
@@ -156,7 +156,7 @@
     $("undo").disabled=readOnly||!profile.undo||!history.canUndo();$("redo").disabled=readOnly||!profile.undo||!history.canRedo();["realView","schematicView"].forEach(id=>$(id).setAttribute("aria-pressed",String(d.display.view===(id==="realView"?"real":"schematic"))));
     ["flow"].forEach(id=>$(id).value=d.display[id]);["potential","names","values","projection"].forEach(id=>$(id).checked=d.display[id]);$("pause").checked=paused;$("mode").value=d.policy.mode;$("policyOptions").hidden=d.policy.mode!=="wiring";["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).checked=d.policy[id]);
     Object.keys(M.quantityDefaults).forEach(id=>{$(id).checked=d.display.quantities[id];$(id).disabled=!d.display.values;});
-    $("potentialLegend").hidden=!d.display.potential;$("pan").setAttribute("aria-pressed",String(panMode));$("probe").setAttribute("aria-pressed",String(probeMode));$("pickWire").setAttribute("aria-pressed",String(wireMode));surface.classList.toggle('wire-priority',wireMode);surface.classList.toggle("panning",panMode);surface.classList.toggle("quick-pan",spacePan);surface.classList.toggle("camera-gesture",!!cameraGesture);surface.classList.toggle("grabbing",!!(drag||cameraGesture));surface.classList.toggle("effects-paused",paused);
+    $("potentialLegend").hidden=!d.display.potential;$("pan").setAttribute("aria-pressed",String(panMode));$("probe").setAttribute("aria-pressed",String(probeMode));$("pickWire").setAttribute("aria-pressed",String(wireMode));surface.classList.toggle('wire-priority',wireMode);surface.classList.toggle("panning",panMode);surface.classList.toggle("quick-pan",spacePan||!!drag?.quick);surface.classList.toggle("camera-gesture",!!cameraGesture);surface.classList.toggle("grabbing",!!(drag||cameraGesture));surface.classList.toggle("effects-paused",paused);
     const w=selectedWire(),c=selectedComponent(),actions=!!(w||c||selection?.kind==="junction");$("selectionActions").hidden=!actions;$("hint").parentElement.classList.toggle("has-actions",actions);
     $("focusSelected").hidden=!actions||camera.scale>=.8;$("detachFrom").hidden=!w||!wireAllowed();$("detachTo").hidden=!w||!wireAllowed();$("detachFrom").disabled=!!w&&!M.attached(history.get(),w,"from");$("detachTo").disabled=!!w&&!M.attached(history.get(),w,"to");["rotateSelected","rotateCounterSelected"].forEach(id=>{$(id).hidden=!c||!teacher&&!allow(d,c,"rotate");$(id).disabled=!!c&&!allow(d,c,"rotate");});
     $('inspectMeter').hidden=!c||!R.dualMeter(c)&&c.type!=='galvanometer';$('straightenSelected').hidden=!w||!wireAllowed();
@@ -349,19 +349,31 @@
     touches.delete(e.pointerId);if(cameraGesture?.ids.includes(e.pointerId)||drag?.pointerId===e.pointerId)cancel();
     if(!touches.size){const blocked=touchBlocked;touchBlocked=false;touchOrigin=null;if(blocked)render(false);}
   },true);
+  function startPan(e,quick){
+    if(quick){e.preventDefault();spacePanUsed||=spacePan;}
+    drag={kind:"pan",quick,pointerId:e.pointerId,target:surface,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,base:{...camera},pointerType:e.pointerType,selectionBefore:selection&&M.clone(selection),autoFitBefore:autoFit,moved:false};
+    $("canvasNotice").hidden=true;surface.setPointerCapture(e.pointerId);render(false);
+  }
   on(surface,"pointerdown",e=>{
-    releasedMeta=null;
+    releasedMeta=null;blankMouseDown=null;
     if($("preview").contains(e.target))return;
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
     if(document.activeElement===$('quickValue'))$('quickValue').blur();
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
-    if(panMode||quick){if(quick){e.preventDefault();spacePanUsed||=spacePan;}drag={kind:"pan",quick,pointerId:e.pointerId,target:surface,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,base:{...camera},pointerType:e.pointerType,selectionBefore:selection&&M.clone(selection),autoFitBefore:autoFit,moved:false};$("canvasNotice").hidden=true;surface.setPointerCapture(e.pointerId);render(false);return;}
-    const t=e.target.closest(".hit"),meta=t?.meta,d=history.get();if(!meta||meta.kind==="port")return;if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
+    if(panMode||quick){startPan(e,quick);return;}
+    const t=e.target.closest(".hit"),meta=t?.meta,d=history.get();
+    if(!t&&e.pointerType==="mouse")blankMouseDown=e;
+    if(!meta||meta.kind==="port")return;if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
     const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,moved:false,snap:null,limited:false};
     if(readOnly)drag.kind="meterread";
     if(meta.kind==="wire"){const w=d.wires.find(w=>w.id===meta.id);drag.wholeWire=!M.attached(d,w,"from")&&!M.attached(d,w,"to");}
     if(meta.kind==="wireend")drag.start=M.endpoints(d).get(d.wires.find(w=>w.id===meta.id)[meta.end]);t.setPointerCapture(e.pointerId);render();
+  });
+  on(surface,"mousedown",e=>{
+    // Native mousedown supplies the OS double-click count; pointerdown supplies capture ID.
+    if(e.button===0&&e.detail===2&&blankMouseDown){e.preventDefault();startPan(blankMouseDown,true);}
+    blankMouseDown=null;
   });
   on(surface,"pointermove",e=>{
     if(touchBlocked||!drag||e.pointerId!==drag.pointerId)return;drag.lastX=e.clientX;drag.lastY=e.clientY;const p=world(e.clientX,e.clientY);drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;
