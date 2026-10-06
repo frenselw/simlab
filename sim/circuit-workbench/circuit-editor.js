@@ -153,6 +153,11 @@
     for(const id of potentialDirections)if(!history.get().components.some(c=>c.id===id))potentialDirections.delete(id);
     $('showPotentialDirections').disabled=!d.components.length||potentialDirections.size===d.components.length;$('hidePotentialDirections').disabled=!potentialDirections.size;
     $('potential').disabled=readOnly;
+    const potentialRange=V.potentialRange(analysis),{low,high,max,known}=potentialRange,mid=(low+high)/2,equal=low===high;
+    $('potentialScale').style.background=known?'linear-gradient(to right,'+Array.from({length:21},(_,i)=>V.colour(low+(high-low)*i/20,max)+' '+i*5+'%').join(',')+')':V.colour(null,max);
+    $('potentialScale').setAttribute('aria-label',known?(equal?'等電勢：'+Q.quantity(mid,'V').text:'電勢由低至高：'+[low,mid,high].map(v=>Q.quantity(v,'V').text).join('、')):'電勢未能確定');
+    $('potentialLow').hidden=$('potentialHigh').hidden=equal||!known;$('potentialTicks').style.justifyContent=equal?'center':'space-between';
+    for(const [id,label,value]of [['potentialLow','低',low],['potentialMid',equal?'等電勢':'中',mid],['potentialHigh','高',high]])$(id).innerHTML=known?rich([label+' ',Q.quantity(value,'V')]):'未能確定';
     labelOptions.exclusions=[...host.querySelectorAll('.scroll-strip, .canvas-notice:not([hidden])')].map(e=>{const r=e.getBoundingClientRect();return{left:camera.x+(r.left-surfaceRect.left)/camera.scale,right:camera.x+(r.right-surfaceRect.left)/camera.scale,top:camera.y+(r.top-surfaceRect.top)/camera.scale,bottom:camera.y+(r.bottom-surfaceRect.top)/camera.scale};});
     surface.style.backgroundSize=`${Math.max(16,20*camera.scale)}px ${Math.max(16,20*camera.scale)}px`;surface.style.backgroundPosition=`${-camera.x*camera.scale}px ${-camera.y*camera.scale}px`;
     const key=JSON.stringify([d.components.map(c=>[c.id,c.type,c.x,c.y,c.angle,c.mirrored,R.ports(c).map(p=>[p.id,p.x,p.y,p.dx,p.dy])]),d.junctions,d.wires]);if(key!==geometryKey){routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));geometryKey=key;}

@@ -11,6 +11,7 @@
   const resistorTrack=[[-32,0],[-27,-8],[-21,8],[-15,-8],[-9,8],[-3,-8],[3,8],[9,-8],[15,8],[21,-8],[27,8],[32,0]];
   const localPath=points=>Routing.path(points.map(([x,y])=>({x,y})));
   function colour(v, max = 6) { if (v === null) return "#64748b"; const t = Math.max(-1, Math.min(1, v / Math.max(max, .1))); return t < 0 ? `hsl(${210 + 10 * -t} 76% ${48 - 12 * -t}%)` : `hsl(${210 - 178 * t} ${35 + 45 * t}% ${48 - 8 * t}%)`; }
+  function potentialRange(result){const values=Object.values(result.potentials).filter(Number.isFinite);return{low:Math.min(0,...values),high:Math.max(0,...values),max:Math.max(1,...values.map(Math.abs)),known:values.length>0};}
   function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" ${attrs.includes('text-anchor=')?'':'text-anchor="middle"'} ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   function lampLight(c,result) {
@@ -214,7 +215,7 @@
     return{x,y,spec,size:size/scale,box:{left:x-(m.width/2+2)/scale,right:x+(m.width/2+2)/scale,top:y-(m.ascent+2)/scale,bottom:y+(m.descent+2)/scale}};
   }
   function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
-    const max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
+    const {max} = potentialRange(result);
     if(labelOptions)labelOptions.selection=selection;
     const placed=labels(doc,result,scale,routes,viewport,labelOptions),hazards=visualState(doc,result);
     const tiny=viewport&&(scale<.4||labelOptions?.crowded)&&(doc.components.length>0||labelOptions?.wireCurrents?.size);
@@ -374,5 +375,5 @@
     }
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour };
+  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour, potentialRange };
 });

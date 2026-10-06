@@ -1316,3 +1316,12 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 已完成同區控制、逐元件開關及方向標籤；取消固定在元件上方的舊箭嘴，以实际低／高電勢端孔決定轉向，W 表改用電壓線圈。重用原標籤搜尋，窄畫布允許 40 px 文字欄換成兩行，保持 16 CSS px 及完整 accessible title；不標示中心在畫外的元件或只露出不足 12 CSS px 的線段。低於 40% 沿用概覽；同時開啟電勢方向後仍無法避讓時，以「標示較密 · 放大或逐個顯示」取代重疊標籤，放大或減少顯示內容後恢復，不改可見 ID 選擇。
 - 最終 **20 個 circuit unit test files** 通過；新增四轉向／極性、兩外觀、多端子、等電勢／未知／微小電壓、色彩獨立、碰撞與密度回退。`--wire-current-smoke` 來源／ZIP 的 1280×800、390×600、320×500、實物／電路圖共 **12 viewport/view 組、24 observations** 通過：兩種標示的可信全體／個別開關、旋轉後实际可見箭嘴低→高、色彩獨立、只讀／學生權限、匯出／載入重設、文件與分析不變。320 px 短畫布驗證放大所選、兩行文字及旋轉後密度提示，再以同區控制隱藏電流標示合法續看方向。
 - 相鄰來源／ZIP `--labels-smoke` **144 observations**、390 px `--settings-smoke` **6 observations**、`--wire-resistance-smoke` **6 viewport cases** 通過；`npm run check`／`git diff --check` 通過。證據 `output/playwright/circuit-workbench/wire-currents.json`、`adaptive-labels.json`、`settings-390.json`、`wire-resistance.json`；桌面與 320 px 標示截圖已目視核對。教師 ZIP 的 **28 runtime files** 逐 byte 與來源一致，指導文件及實際預覽已同步；真手機、Safari 與 Moodle 未驗證，未宣稱全站 package-ready 或 Moodle-ready。
+
+## 65. 電勢圖例一致與緊湊面板（2026-10-06）
+
+- 使用者希望知道綠／橙／藍的含義，並減少圖上標示區高度。沿用現有電勢色函數及全圖共同色階，以實際低／中／高電勢建立水平圖例、數字及獨立電路零伏參考說明；6 V 兩燈串聯為藍 0 V／綠 3 V／橙 6 V。負電勢、等電勢與未知亦須如實呈現，不另改求解或導線配色。
+- 全局控制改成兩行「名稱＋全顯示／全隱藏」，保留既有 ID、全體／個別選擇、44 px 觸控目標及明確 accessible label；面板移除兩段重複說明，完整個別開關說明沿用 help，箭嘴含義保留在行標題提示。無 inspector 或相應顯示權限時不提示不可用操作。
+- 教師非評量 scope，risk／rubric／assessment phase N/A；authoritative v6、保存／只讀／學生配置、依賴均不變。驗證決定：共用色阶取樣與 solver 實例的正／負／零／未知單元檢查；重用 `--wire-current-smoke` 在來源／ZIP 的桌面／390／320 px 驗證兩行幾何、區塊高度、44 px、圖例與畫布色值一致／更新、實際全局及個別操作、合法元件／導線 inspector 續作；JS／check／package／diff。真手機與 Moodle 另列。
+- 實作完成：刪除原先垂直藍／灰／橙圖例；水平色階直接取樣既有 `colour()`，`potentialRange()` 共用畫布範圍與圖例數值。正／負電勢依實際範圍顯示；等電勢只有一個數值，全部未知用灰色／未能確定。兩行控制保留原命令及 ID，短文字與完整 aria-label、54×44 px 按鈕，移除兩段面板說明；help／標題提示及個別 inspector 勾選仍可用。
+- `wire-current-labels.test.js` 的圖形／solver 色階正、負、零、未知實例與 activity-core **19 groups** 通過。最終 `--wire-current-smoke` 來源／ZIP 在 1280×800、390×600、320×500、兩外觀共 **24 observations** 通過：兩行名稱與按鈕對齊、44 px、無水平溢出、區塊約 **251.47 CSS px**；圖例實際 RGB 0／50／100% 與三個對應接孔 stroke 一致，0／3／6 V、改成 12 V 後 0／6／12 V、換零伏參考後 −6／−3／0 V 均正確。全部／個別開關、選元件及導線後合法續作、只讀／學生權限、SVG／載入原回歸亦通過。
+- 同一 626 px 寬實際預覽，電勢色彩開啟時區塊由 **394 px 降至 250.81 px（減少 36.3%）**。桌面及 320 px 截圖已目視核對；證據 `output/playwright/circuit-workbench/wire-currents.json` 及 `source-compact-display-real-1280.png`／`source-compact-display-real-320.png`。`npm run check`／`git diff --check` 通過，教師 ZIP **28 runtime files** 逐 byte 與來源一致，指導文件／預覽已同步。手機為本機模擬觸控；真手機與 Moodle 未驗證，未重跑未改的評量、手勢宿主或全站矩陣。
