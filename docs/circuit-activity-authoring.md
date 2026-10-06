@@ -60,6 +60,8 @@ ui:{palette:true, inspector:true}
 
 工具箱只建立這三種按鈕；上限包含已放在初始電路的同類元件。`key` 唯一，供命令新增指定款式；`params` 與 registry 預設合併。不同款式應以固定的模型參數區分，不要同時開放修改用來區分款式的參數。預置元件可以不在工具箱中，仍顯示並參與求解。
 
+`limit` 是同款元件在畫布上的數量上限，不是必須使用的數量；達上限後取用按鈕停用，允許刪除的元件刪除後可再取用。學生模式的新增、複製、命令及載入答案均檢查庫存。若題目要求「恰好兩盞燈」，數量條件由活動的 `check`／rubric 判斷。正式活動仍須允許空白／部分作答進入最終檢查與提交，不以用滿庫存作為門檻。
+
 編輯器新增及複製元件時保留初始元件 ID，刪除預置元件後不把該 ID 派給其他工具箱元件，避免套錯 `byId` 權限。未開放 `label` 的新增元件使用 registry 預設名稱，載入亦檢查；初始元件仍使用作者提供的名稱。工具箱的 `label` 是按鈕文字，不是新增元件名稱。
 
 ### 元件與參數權限
@@ -78,6 +80,8 @@ components:{
 ### 介面裁剪
 
 `ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+
+`ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。控制面板沒有 `panelHelp` 或模型 footnote，不要依賴這些舊 DOM 目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
 
 選取元件後，快捷區只顯示該元件獲准修改的主參數：電源電動勢、電阻／燈泡電阻或變阻器滑片位置。它不依賴 inspector；`ui:{inspector:false, quickParameters:true}` 可讓學生只調整指定參數，無須打開面板。仍須用 `components.byId` 等規則開放實際參數，固定參數及只讀不顯示可改控制；`ui.quickParameters:false` 完全移除此區。百分比以 0–100 顯示，`position` 仍保存 0–1。
 
@@ -143,3 +147,5 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 微電流動畫使用 `flow.test.js`／`component-flow.test.js` 及 `--micro-flow-smoke`；元件本體接線使用 `component-snapping.test.js` 及 `--component-snap-smoke`。按改動選擇必要檢查及相鄰權限／恢復案例，無需每次重跑完整教材和其他活動。具體已執行結果見[工作台計劃](../plans/28-circuit-workbench.md)，區分歷史審核、後續改動和未驗證平台。
 
 A／V 接孔於 2026-10-05 內移，文件改用 v5；v1–v4 匯入會先驗證舊幾何，再遷移相連線形。新活動使用 CircuitModel.empty()，不要把版本號硬編碼為 v4。
+
+說明入口／排版改動使用 `node tools/circuit-workbench-browser-regression.js --help-smoke`：來源／解壓 ZIP 共 14 個直向、短手機、橫向與桌面案例，核對頂欄 44 px 說明按鈕、無遮擋／水平溢出、面板底部清理及教師／學生可信開關說明。桌面相機捷徑可用 `--gesture-smoke --desktop-camera-only` 聚焦；`--gesture-smoke` 另包含手機雙指相鄰回歸。執行證據與範圍見計劃[第 59 節](../plans/28-circuit-workbench.md#59-桌面空白處雙擊拖畫布2026-10-06)及[第 60 節](../plans/28-circuit-workbench.md#60-移除面板底部重複說明2026-10-06)；歷史驗證不代表後續改動或真手機／Moodle 已通過。

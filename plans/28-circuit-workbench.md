@@ -1256,3 +1256,10 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 實作：共用 startPan 保留原有中鍵／Space／常駐手掌流程；以 pointerdown 保留 mouse capture ID，原生 mousedown.detail === 2 判定雙擊，空白命中才啟動 quick pan。放手移除快速手掌提示，工具配置與 circuit document 不變。teacher／student help 及無障礙操作文字已補充捷徑。
 - 桌面專項 --gesture-smoke --desktop-camera-only 在來源／解壓 ZIP 通過 58 observations，包括 16 雙擊拖曳、6 取消回退、8 物件排除。既有滾輪錨點測試修正為原生 WheelEvent 的整數座標，保留原有 0.02 px 容差。activity-core 19 groups、review-regressions 11 groups、npm run check、JS syntax 與 git diff --check 通過；28 runtime files 與來源逐 byte 一致。完整回歸見下行。
 - 完整 --gesture-smoke 在來源／解壓 ZIP 通過 162 observations，包含 88 個手機雙指 pan／pinch／mixed cases，以及桌面新捷徑、原有中鍵／Space／滾輪、取消／續作與電路／讀值／history 不變。證據 output/playwright/circuit-workbench/camera-gestures.json；快速手掌畫面已目視核對。教師套件 output/circuit-workbench-standalone.zip 已重建。手機為本機可信模擬觸控；真手機、Safari 及 Moodle 未驗證，未宣稱完整 package-ready 或 Moodle-ready。
+
+## 60. 移除面板底部重複說明（2026-10-06）
+
+- 移除 panelHelp 按鈕及理想導線／熱效應燈 footnote，保留上方 help dialog 入口。手機原本隱藏 header help，改為可見並保留 44 px；直向維持兩行 header，預設選單跨兩欄。教師／學生及 help:false 配置仍可正常掛載；相機、電路、權限及 authoritative v5 文件無變更，risk／rubric／SCORM phase N/A。
+- 驗證決定：沿用已登記 help browser cases，在來源／解壓 ZIP 的 320／390／1280 px 核對底部 DOM 已移除、上方可信 click／tap 可開關說明、手機 header 無重疊／水平溢出；補短手機／橫向 viewport。既有 canvas 測試改以剩餘連線清單核對面板底端，移除 panelHelp 引用；執行相鄰 activity-core、語法與 diff checks，不重跑未改的電路求解或手勢矩陣。
+- 實際 --help-smoke 於來源／解壓 ZIP 的 320×844、390×844、1280×900、320×500、390×500、844×390、640×360，共 14 viewport cases 通過：底部按鈕／footnote 不存在，上方 help 為 44 px、無遮擋／水平溢出，teacher／student 可信開關說明且文件不变；原有正常視窗功率表 TeX 幾何回歸保持通過。320×500 及桌面面板底部截圖已目視核對，直流 badge 保持整詞換行。證據 output/playwright/circuit-workbench/help-and-wattmeter.json；activity-core 19 groups、npm run check、語法與 git diff --check 通過，重建教師 ZIP 的 28 runtime files 與來源逐 byte 一致。未執行完整 canvas／手勢矩陣、真手機或 Moodle；本次未改手勢所有權或評量。
+- 後續依使用者要求補清楚桌面雙擊手勢：教師／學生操作說明與畫布無障礙文字均寫明「雙擊畫布空白處，第二下按住並拖曳，放開後恢復原工具」。本次只改文案，沿用同一 help-smoke 的來源／ZIP 排版及可信開關檢查。

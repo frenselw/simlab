@@ -474,7 +474,7 @@
   $('settings').onclick=()=>{cancel();$('settingsNotice').hidden=true;$('settingsDialog').showModal();$('settings').setAttribute('aria-expanded','true');};
   $('closeSettings').onclick=()=>$('settingsDialog').close();
   on($('settingsDialog'),'close',()=>{$('settings').setAttribute('aria-expanded','false');});
-  $("help").onclick=$("panelHelp").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
+  $("help").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
   if(profile.ui.palette)for (const entry of profile.palette) {
     const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
     const sample={type,params:entry.params};
