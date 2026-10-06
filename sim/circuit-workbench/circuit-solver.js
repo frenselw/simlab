@@ -34,14 +34,16 @@
     return { x, nullspace, roundoff };
   }
   function solve(input) {
-    const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.forEach((w) => uf.join(w.from, w.to));
+    const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.filter(w=>w.resistance===0).forEach((w) => uf.join(w.from, w.to));
     const netOf = Object.fromEntries([...ports.keys()].map((p) => [p, uf.find(p)])), netKeys = [...new Set(Object.values(netOf))], conductive = union(netKeys);
     const edges = [], branches = new Map();
-    function edge(c, a, b, kind, resistance, emf = 0, law = null) {
-      const e = { id: c.id + ":" + a, c, a: netOf[c.id + ":" + a], b: netOf[c.id + ":" + b], pa: c.id + ":" + a, pb: c.id + ":" + b, kind, resistance, emf, law };
+    function edge(c, a, b, kind, resistance, emf = 0, law = null, wire = false) {
+      const pa=wire?a:c.id+":"+a,pb=wire?b:c.id+":"+b;
+      const e = { id: wire?c.id:c.id + ":" + a, c, a: netOf[pa], b: netOf[pb], pa, pb, kind, resistance, emf, law };
       edges.push(e); conductive.join(e.a, e.b); if (!branches.has(c.id)) branches.set(c.id, e);
     }
     doc.components.forEach(c => R.dc(c).forEach(b => edge(c,b.from,b.to,b.kind,b.resistance,b.emf||0,b.law)));
+    doc.wires.filter(w=>w.resistance>0).forEach(w=>edge(w,w.from,w.to,'resistor',w.resistance,0,null,true));
     const groups = new Map();
     netKeys.forEach((net) => { const key = conductive.find(net); if (!groups.has(key)) groups.set(key, { key, nets: [], edges: [] }); groups.get(key).nets.push(net); });
     edges.forEach((e) => groups.get(conductive.find(e.a)).edges.push(e));
@@ -142,8 +144,9 @@
     const adjacency = new Map([...ports.keys()].map((p) => [p, []]));
     const netPorts = new Map(netKeys.map(net => [net, []]));
     for (const p of ports.keys()) netPorts.get(netOf[p]).push(p);
-    doc.wires.forEach((w) => { adjacency.get(w.from).push({ to: w.to, id: w.id }); adjacency.get(w.to).push({ to: w.from, id: w.id }); });
+    doc.wires.filter(w=>w.resistance===0).forEach((w) => { adjacency.get(w.from).push({ to: w.to, id: w.id }); adjacency.get(w.to).push({ to: w.from, id: w.id }); });
     doc.wires.forEach((w) => {
+      if(w.resistance>0){wires[w.id]={...branches.get(w.id).result,potential:potential(w.from),potentialTo:potential(w.to),cyclic:false};return;}
       const seen = new Set([w.from]), pending = [w.from];
       while (pending.length) { const p = pending.pop(); for (const e of adjacency.get(p)) if (e.id !== w.id && !seen.has(e.to)) { seen.add(e.to); pending.push(e.to); } }
       let current = null;
@@ -160,7 +163,8 @@
         // meter's real tiny current or make it depend on from/to storage.
         current = s.reading(cuts.reduce((best, e) => best===null||e.noise<best.noise?e:best, null));
       }
-      wires[w.id] = { current, potential: potential(w.from), cyclic: seen.has(w.to) };
+      const drop=voltage(w.from,w.to);
+      wires[w.id] = { current, potential: potential(w.from), potentialTo:potential(w.to), voltage:drop, resistance:0, power:drop===0?0:null, cyclic: seen.has(w.to) };
     });
     return { components, wires, potentials: Object.fromEntries([...ports.keys()].map((p) => [p, potential(p)])), islandOf, references: [...solutions.values()].map((s) => ({ island: s.key, endpoint: [...ports.keys()].find((p) => netOf[p] === s.reference), voltage: 0 })), diagnostics, residual: Math.max(0, ...[...solutions.values()].filter((s) => !s.error).map((s) => s.residual)), voltage };
   }

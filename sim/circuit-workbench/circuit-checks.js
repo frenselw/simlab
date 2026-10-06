@@ -7,7 +7,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (M, R, S) {
   'use strict';
   const result = (passed,message,evidence={}) => ({passed,message,evidence});
-  function topology(input) {
+  function topology(input,idealOnly=false) {
     const doc = M.validate(input), parent = new Map([...M.endpoints(doc).keys()].map(id => [id,id]));
     function net(id) {
       if (!parent.has(id)) throw new Error('不存在的端點：' + id);
@@ -15,14 +15,15 @@
       while (id !== root) { const next = parent.get(id); parent.set(id,root); id = next; }
       return root;
     }
-    doc.wires.forEach(w => parent.set(net(w.to),net(w.from)));
+    doc.wires.filter(w=>!idealOnly||w.resistance===0).forEach(w => parent.set(net(w.to),net(w.from)));
     const edges = [], incident = new Map();
+    function addEdge(e){edges.push(e);if(e.a!==e.b)for(const n of [e.a,e.b]){if(!incident.has(n))incident.set(n,[]);incident.get(n).push(e);}}
     for (const c of doc.components) R.dc(c).forEach((branch,i) => {
       const a=net(c.id+':'+branch.from), b=net(c.id+':'+branch.to);
       // A shorted branch cannot establish a series relationship.
-      const e={id:c.id+':'+i,component:c.id,type:c.type,a,b}; edges.push(e);
-      if (a !== b) for (const n of [a,b]) { if (!incident.has(n)) incident.set(n,[]); incident.get(n).push(e); }
+      addEdge({id:c.id+':'+i,component:c.id,type:c.type,a,b});
     });
+    if(idealOnly)doc.wires.filter(w=>w.resistance>0).forEach(w=>addEdge({id:w.id,component:w.id,type:'wire',a:net(w.from),b:net(w.to)}));
     return {doc,net,edges,incident};
   }
   function connected(doc,groups) {
@@ -32,7 +33,7 @@
   }
   function series(input,ids,{requirePowered=false,minimumCurrent=1e-8}={}) {
     if (!Array.isArray(ids) || ids.length < 2 || new Set(ids).size !== ids.length) throw new Error('串聯檢查需要至少兩個不同元件');
-    const t=topology(input), selected=ids.map(id => t.edges.filter(e => e.component===id));
+    const t=topology(input,true), selected=ids.map(id => t.edges.filter(e => e.component===id));
     if (selected.some(es => es.length!==1 || es[0].a===es[0].b)) return result(false,'有元件未形成有效支路，或被短路。');
     const first=selected[0][0], visited=new Set(), stack=[first];
     // Walk through degree-two nets only: a junction with another conductive

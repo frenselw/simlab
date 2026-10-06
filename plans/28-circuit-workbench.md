@@ -1263,3 +1263,21 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 驗證決定：沿用已登記 help browser cases，在來源／解壓 ZIP 的 320／390／1280 px 核對底部 DOM 已移除、上方可信 click／tap 可開關說明、手機 header 無重疊／水平溢出；補短手機／橫向 viewport。既有 canvas 測試改以剩餘連線清單核對面板底端，移除 panelHelp 引用；執行相鄰 activity-core、語法與 diff checks，不重跑未改的電路求解或手勢矩陣。
 - 實際 --help-smoke 於來源／解壓 ZIP 的 320×844、390×844、1280×900、320×500、390×500、844×390、640×360，共 14 viewport cases 通過：底部按鈕／footnote 不存在，上方 help 為 44 px、無遮擋／水平溢出，teacher／student 可信開關說明且文件不变；原有正常視窗功率表 TeX 幾何回歸保持通過。320×500 及桌面面板底部截圖已目視核對，直流 badge 保持整詞換行。證據 output/playwright/circuit-workbench/help-and-wattmeter.json；activity-core 19 groups、npm run check、語法與 git diff --check 通過，重建教師 ZIP 的 28 runtime files 與來源逐 byte 一致。未執行完整 canvas／手勢矩陣、真手機或 Moodle；本次未改手勢所有權或評量。
 - 後續依使用者要求補清楚桌面雙擊手勢：教師／學生操作說明與畫布無障礙文字均寫明「雙擊畫布空白處，第二下按住並拖曳，放開後恢復原工具」。本次只改文案，沿用同一 help-smoke 的來源／ZIP 排版及可信開關檢查。
+
+## 61. 單條導線電阻與新線預設（2026-10-06）
+
+| 決定 | 實作與驗證契約 |
+|---|---|
+| Scope / risk / rubric | 教師直流穩態工具，無新增分數、提交或 SCORM lifecycle；risk／rubric N/A。學生活動仍由外層評量並固定 author 配置。 |
+| 電阻模型 | 每條導線固定總電阻，0 Ω 為理想導線；允許 0–1e6 Ω 有限值，拒絕負值／NaN／無限與範圍外值。拖動、彎線、拉直、旋轉不改電阻；共接只接端點，不自動拆線。程式 splitWire 按切割前實際弧長比例分配原電阻，保持總和，與預設值無關。 |
+| UI / defaults | 教師齒輪／教師設定加入「新導線預設電阻」，只影響之後新取線；選線的 inspector 加「電阻（Ω）」輸入，0 表示理想，不加開關。同步兩端電勢、壓降、電流、吸收功率及說明。原有預設值皆為 0。 |
+| Solver / rendering | 只合併 0 Ω 導線端點，有阻導線加入既有 MNA resistor 支路；理想導線 KCL cut 僅沿理想線，納入有阻線端點的支路注入。零／未知與理想線環路電流歧義保持。零阻路徑才判短路；有阻導線電勢色依沿線弧長插值，端孔使用真實端電勢，電流動畫使用重算穩態值。 |
+| Activity permissions | 新可信 config.wireResistance:boolean，teacher 預設 true、student 預設 false；wires:false／只讀拒絕修改，固定模式遵守 allowParams。新線預設阻值固定於 initialDocument.cables.resistance；禁止匯入越權既有／新增導線阻值，允許時只改單線，不開放學生改全局預設。connected 表示經導線接通，不表示等電位；series 拓撲亦納入有阻導線支路，防止電阻線分支漏判。 |
+| Authoritative snapshot | document v6；wires[].resistance 為必填有限數值；cables.resistance 可省略並正規化為 0，供現有作者設定相容。v1–v5 保留既有接孔／幾何遷移，阻值均補 0，舊版不接受新 resistance 欄位。相機／指針／flow 暫態不保存；文件限制仍 256 KiB。正式 SCORM 外層另遵守 ≤4000 bytes。 |
+| Phase / variants | 教師 0／有阻、預設變更前後、已接／部分／懸空、實物／電路圖、電勢顯示、固定／只讀；学生固定／允許、既有／新線、保存／恢復後合法續改。每種均走 production encode→decode→load，維持電路、阻值及計算，無評量 phase 新增。 |
+| Checks | 新測試加入 tools/run-tests.js；6 V + 12 Ω + 6 Ω 導線電流 1/3 A、壓降 2 V；單線／多線串並聯、橋式、理想旁路、浮接／無解／未知、微小與大阻值、修改順序及方向反轉、0→正值→0、幾何不變電阻、split 總阻、無效與越權狀態原子拒絕、history／migration／還原續作。執行全部 circuit unit 與新來源／解壓 ZIP 的 320／390／1280 px 可信輸入／接線、預設與單線分離、讀值／顏色、undo／redo、保存恢復、學生權限及只讀；npm check、package 与 diff checks。真手機／Moodle 另列。 |
+
+- 實作完成：新線預設與逐線阻值分離；0 Ω 保留等電位合併，有阻導線走既有 MNA resistor 支路與兩端 KCL。選線顯示 A／B 相對電勢、壓降、電流、耗散功率及阻值輸入；無效值原子拒絕，readonly／wires:false／學生固定權限保持。新線 ID 保留初始線的身份，避免刪除後把特定阻值套到另一條新線。輸入後直接點另一條線會先在 document capture 提交舊欄位，再註冊新觸控／選取，避免值遺失及 cancel 阻擋新手勢；原快捷參數沿用此共用處理。
+- 模型 v6／新線與單線 resistance、正電阻支路、零阻短路判斷、按弧長的 SVG 電勢漸變及 preview 漸變 ID 命名空間均完成。wire-resistance.test.js **9 groups** 通過，涵蓋串／並聯、理想旁路、平衡／有阻不平衡橋、熱燈、能量守恆、阻值修改順序、0→正值→0、方向反轉、浮接／短路／數值範圍、geometry／split、history、v1–v5 遷移、無效／越權及恢復續改。全部 **19 個 circuit unit 檔** 通過；舊版 fixtures 依原 schema 移除新欄位，新存檔期望改為 v6，未放寬舊版信任邊界。
+- 最終 --wire-resistance-smoke 在來源／解壓 ZIP 的 **1280×800、390×600、320×500，共 6 viewport cases** 通過：可信滑鼠／觸控輸入、連續切換線時保存舊值、單線與新線預設分離、6 V／12 Ω／6 Ω 的 1/3 A／2 V／2/3 W、無效值不改文件、undo／redo、production encode→decode→load→續改、兩外觀、觸控拿線端預覽／cancel 回退與無重複 gradient ID、學生固定／開放、只讀及 wires:false。輸入可見邊界容許 1 CSS px 的原生整數捲動捨入。證據 output/playwright/circuit-workbench/wire-resistance.json，桌面及手機輸入截圖已目視核對。
+- 相鄰來源／ZIP 回歸通過：--settings-smoke **24 observations**、--wire-inspector-smoke **6 viewport cases**、--activity-core-smoke **46 observations**（含真實舊教師檔案匯入及恢復續作）、--quick-controls-smoke **50 observations**。npm run check 與 git diff --check 通過；最終教師 ZIP **28 runtime files** 與來源逐 byte 一致，三份指導文件連結有效。未新增 runtime 依賴、未執行全站 npm test／全活動包或完整新手勢宿主矩陣；真手機、Safari 及 Moodle 仍未驗證，不宣稱完整 package-ready 或 Moodle-ready。

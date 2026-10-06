@@ -64,6 +64,12 @@ ui:{palette:true, inspector:true}
 
 編輯器新增及複製元件時保留初始元件 ID，刪除預置元件後不把該 ID 派給其他工具箱元件，避免套錯 `byId` 權限。未開放 `label` 的新增元件使用 registry 預設名稱，載入亦檢查；初始元件仍使用作者提供的名稱。工具箱的 `label` 是按鈕文字，不是新增元件名稱。
 
+### 導線電阻
+
+`initialDocument.cables.resistance` 指定新線預設阻值，`initialDocument.wires[].resistance` 指定每條既有線的阻值；單位 Ω，預設 0。學生預設不能調整電阻；可信活動配置可用 `wireResistance:true` 開放逐線調整，不會開放教師設定或全局預設。`wires:false`、只讀及固定模式未開放 `allowParams` 時仍禁止修改。匯入答案會重新檢查阻值權限；固定既有線不能被換成另一阻值，新線必須採初始預設值。
+
+使用 `editor.execute({type:'setWireResistance', id:'w1', value:2})` 修改某條線，沿用單步復原、權限及無效值原子拒絕。阻值不隨幾何修改而變；`connected` 只表示經導線接通，不表示等電位，`series` 判斷會計入有阻導線分支。文件已升為 v6，v1–v5 遷移後所有線及預設阻值為 0。新正式活動需將單線阻值納入自己的權威答案／rubric／SCORM 快照，不能只存畫面或求解結果。
+
 ### 元件與參數權限
 
 規則依 `default` → `byType` → `byId` 覆蓋；後者最精確。六個欄位是 `move`、`rotate`、`remove`、`label`、`switch`、`params`。`params` 可用 `false`、`true` 或參數名稱陣列；`closed` 應由 `switch` 開放。未開放的參數輸入及元件操作不出現在學生面板。
@@ -146,6 +152,8 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 
 微電流動畫使用 `flow.test.js`／`component-flow.test.js` 及 `--micro-flow-smoke`；元件本體接線使用 `component-snapping.test.js` 及 `--component-snap-smoke`。按改動選擇必要檢查及相鄰權限／恢復案例，無需每次重跑完整教材和其他活動。具體已執行結果見[工作台計劃](../plans/28-circuit-workbench.md)，區分歷史審核、後續改動和未驗證平台。
 
-A／V 接孔於 2026-10-05 內移，文件改用 v5；v1–v4 匯入會先驗證舊幾何，再遷移相連線形。新活動使用 CircuitModel.empty()，不要把版本號硬編碼為 v4。
+A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電阻升為 v6。v1–v4 匯入會先驗證舊幾何，再遷移相連線形。新活動使用 CircuitModel.empty()，不要把版本號硬編碼為 v4／v5。
 
 說明入口／排版改動使用 `node tools/circuit-workbench-browser-regression.js --help-smoke`：來源／解壓 ZIP 共 14 個直向、短手機、橫向與桌面案例，核對頂欄 44 px 說明按鈕、無遮擋／水平溢出、面板底部清理及教師／學生可信開關說明。桌面相機捷徑可用 `--gesture-smoke --desktop-camera-only` 聚焦；`--gesture-smoke` 另包含手機雙指相鄰回歸。執行證據與範圍見計劃[第 59 節](../plans/28-circuit-workbench.md#59-桌面空白處雙擊拖畫布2026-10-06)及[第 60 節](../plans/28-circuit-workbench.md#60-移除面板底部重複說明2026-10-06)；歷史驗證不代表後續改動或真手機／Moodle 已通過。
+
+導線電阻使用 `wire-resistance.test.js` 與 `--wire-resistance-smoke`，核對單線／新線預設、求解壓降／功率、保存恢復與學生／只讀權限；執行範圍及物理界限見[計劃第 61 節](../plans/28-circuit-workbench.md#61-單條導線電阻與新線預設2026-10-06)。

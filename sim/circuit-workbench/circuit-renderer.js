@@ -23,7 +23,7 @@
   function visualState(doc,result) {
     const wires={},components={},adj=new Map();
     const edge=(a,b,kind,id)=>{for(const [from,to]of [[a,b],[b,a]]){if(!adj.has(from))adj.set(from,[]);adj.get(from).push({to,kind,id});}};
-    doc.wires.forEach(w=>edge(w.from,w.to,'wire',w.id));
+    doc.wires.filter(w=>w.resistance===0).forEach(w=>edge(w.from,w.to,'wire',w.id));
     doc.components.filter(c=>c.type!=='battery').forEach(c=>R.dc(c).filter(b=>b.resistance===0&&!b.emf).forEach(b=>edge(c.id+':'+b.from,c.id+':'+b.to,'component',c.id)));
     for(const c of doc.components.filter(c=>c.type==='battery'&&c.params.voltage>0)){
       const from=c.id+':a',to=c.id+':b',queue=[from],previous=new Map([[from,null]]);
@@ -216,8 +216,14 @@
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
       const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
+      const reading=result.wires[w.id],gradient=doc.display.potential&&w.resistance>0&&selection!==w.id&&Number.isFinite(reading?.potential)&&Number.isFinite(reading?.potentialTo);
       if(hazards.wires[w.id])out+=`<path data-wire-heat="${w.id}" d="${d}" fill="none" stroke="#f09b50" opacity=".5" stroke-width="${12/scale}" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
-      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : gradient?'transparent':colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      if(gradient){const total=Routing.length(points)||1,drop=reading.potentialTo-reading.potential;let at=0;
+        for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],distance=Math.hypot(b.x-a.x,b.y-a.y);if(!distance)continue;const id=esc((labelOptions?.idPrefix||'')+'wire-potential-'+w.id+'-'+i),from=reading.potential+drop*at/total,to=reading.potential+drop*(at+distance)/total;at+=distance;
+          out+=`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><stop offset="0" stop-color="${colour(from,max)}"/><stop offset="1" stop-color="${colour(to,max)}"/></linearGradient></defs><path data-wire-potential="${w.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="url(#${id})" stroke-width="${4/scale}" stroke-linecap="round" pointer-events="none"/>`;
+        }
+      }
     });
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach(c=>{const isMeter=R.isMeter(c)||c.type==='rheostat';

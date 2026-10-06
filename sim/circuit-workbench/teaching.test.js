@@ -37,7 +37,7 @@ assert.throws(()=>history.change(doc=>M.setTerminals(doc,rId,5)));const fixed=M.
 
 // Legacy files preserve the old AP circuit, physical endpoints and pure-radiation lamp law.
 for(const version of [1,2,3,4]){
-  const old=P.create('ohm');old.version=version;delete old.components[2].params.terminals;
+  const old=P.create('ohm');old.version=version;if(old.cables)delete old.cables.resistance;old.wires.forEach(w=>delete w.resistance);delete old.components[2].params.terminals;
   if(version<3){delete old.cables;old.wires.forEach(w=>delete w.length);}if(version===1)old.wires.forEach(w=>{delete w.shape;w.via=[];});
   const saved=D.decode(JSON.stringify(old));assert.equal(saved.components[2].params.terminals,2);near(S.solve(saved).components.c2.reading,.5,'legacy two-post semantics');restoredContinuation(saved,doc=>M.setTerminals(doc,'c3',4));
 }

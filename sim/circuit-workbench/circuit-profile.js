@@ -33,7 +33,7 @@
     return M.clone(value);
   }
   function compile(config = {}) {
-    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','undo','check','idPrefix'], '活動');
+    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','undo','check','idPrefix'], '活動');
     const role = config.role || 'student';
     if (!['teacher','student'].includes(role)) throw new Error('活動角色無效');
     const teacher = role === 'teacher', initial = M.validate(config.initialDocument || M.empty());
@@ -52,7 +52,8 @@
     keys(config.ui || {}, uiKeys, '介面');
     for (const [k,v] of Object.entries(config.ui || {})) { if (typeof v !== 'boolean') throw new Error('介面設定必須是布林值'); ui[k] = v; }
     if (!teacher && (ui.settings || ui.files || ui.presets)) throw new Error('教師設定、文件與範例只適用於教師工作台');
-    const wires = config.wires !== false, undo = config.undo !== false;
+    const wires = config.wires !== false, undo = config.undo !== false, wireResistance=config.wireResistance??teacher;
+    if(config.wireResistance!==undefined&&typeof config.wireResistance!=='boolean')throw new Error('導線電阻權限必須是布林值');
     if (config.wires !== undefined && typeof config.wires !== 'boolean' || config.undo !== undefined && typeof config.undo !== 'boolean') throw new Error('操作設定無效');
     const paletteConfig = config.palette || (teacher ? teacherPalette : []);
     if (!Array.isArray(paletteConfig)) throw new Error('工具箱設定無效');
@@ -83,11 +84,13 @@
     function entryFor(c) { return palette.find(p => matches(c,p)); }
     function count(doc,entry) { return doc.components.filter(c => entryFor(c)?.key === entry.key).length; }
     function canAdd(entry,doc,readOnly=false) { return !readOnly && doc.policy.mode === 'free' && count(doc,entry) < entry.limit; }
+    const canSetWireResistance=(doc,readOnly=false)=>wireResistance&&wires&&!readOnly&&(doc.policy.mode==='free'||doc.policy.allowParams);
     function assertSnapshot(input) {
       const doc = M.validate(input);
       if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       if (teacher) return doc;
       if (!same(doc.policy,initial.policy) || !same(doc.cables,initial.cables)) throw new Error('活動的操作規則與導線庫存不能更改');
+      if(!canSetWireResistance(doc))for(const w of doc.wires){const old=initial.wires.find(x=>x.id===w.id);if(w.resistance!==(old?.resistance??initial.cables.resistance))throw new Error('導線電阻已固定');}
       const fixedDisplay = M.clone(initial.display), restoredDisplay = M.clone(doc.display);
       if (ui.viewToggle) { delete fixedDisplay.view; delete restoredDisplay.view; }
       if (ui.probe) { delete fixedDisplay.reference; delete restoredDisplay.reference; }
@@ -116,6 +119,10 @@
       const doc = assertSnapshot(after);
       if (same(before,doc)) return doc;
       if (readOnly) throw new Error('目前為只讀，不能修改電路');
+      if(!canSetWireResistance(before)){
+        for(const w of doc.wires){const old=before.wires.find(x=>x.id===w.id);if(w.resistance!==(old?.resistance??before.cables.resistance))throw new Error('導線電阻已固定');}
+        if(doc.cables.resistance!==before.cables.resistance)throw new Error('新導線電阻已固定');
+      }
       const old = new Map(before.components.map(c => [c.id,c]));
       for (const c of before.components) if (!doc.components.some(n => n.id === c.id) && !allows(before,c,'remove')) throw new Error('不能刪除此元件');
       for (const c of doc.components) {
@@ -142,7 +149,7 @@
     assertSnapshot(initial);
     return Object.freeze({role,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
       title:config.title || (teacher ? '電路工作台' : '電路活動'),subtitle:config.subtitle || '',
-      allows,canAdd,count,assertSnapshot,assertTransition,check:config.check});
+      allows,canAdd,count,canSetWireResistance,assertSnapshot,assertTransition,check:config.check});
   }
   return {compile};
 });

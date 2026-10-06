@@ -57,7 +57,7 @@
         <li><kbd>R</kbd> 旋轉、<kbd>Esc</kbd> 取消、<kbd>Ctrl／⌘ Z</kbd> 復原。選導線後亦可用接好／拔開圖示。</li>
         <li>靈敏電流計：中心零，滿偏 <span data-help-tex="\\pm50\\,\\mu\\mathrm{A}" data-help-text="±50 μA"></span>；內阻 <span data-help-tex="100\\,\\Omega" data-help-text="100 Ω"></span>。</li>
         <li>變阻器：<span data-help-tex="A-P" data-help-text="A–P"></span> 限流；<span data-help-tex="A-B" data-help-text="A–B"></span> 供電、由 <span data-help-tex="P" data-help-text="P"></span> 取分壓。</li>
-        <li>預設理想導線、理想電源內阻 <span data-help-tex="r=0\\,\\Omega" data-help-text="r = 0 Ω"></span>。互不相連的電路，各有自己的零伏參考。</li>
+        <li>導線預設為理想；選線可設定固定總電阻，教師設定只影響新取線。拖動或彎線不改阻值。</li><li>預設理想電源內阻 <span data-help-tex="r=0\\,\\Omega" data-help-text="r = 0 Ω"></span>。互不相連的電路，各有自己的零伏參考。</li>
         <li>箭頭速度、燈光與發熱只作教學示意；未知讀值顯示「—」，不代表零。</li>
       </ul></details>
     </div>
@@ -73,7 +73,7 @@
 </section>
 <section class="settings-section"><h3>教師設定</h3>        <label>操作模式<select id="mode"><option value="free">自由搭建</option><option value="wiring">固定元件，只接線</option></select></label>
         <fieldset id="policyOptions" hidden><legend>固定模式開放項目</legend><label class="check"><input id="allowRotate" type="checkbox">旋轉元件</label><label class="check"><input id="allowParams" type="checkbox">修改所有參數</label><label class="check"><input id="allowSwitch" type="checkbox" checked>開合開關</label></fieldset>
-<label>導線總數<input id="cableCount" type="number" min="1" max="240" step="1"></label><label>新導線最大長度<select id="cableLength"><option value="240">短 · 240</option><option value="400">中 · 400</option><option value="600">標準 · 600</option><option value="900">長 · 900</option><option value="1200">特長 · 1200</option></select></label><p class="note">長度以畫布單位計；縮放不會改變。設定只影響之後取出的導線。</p></section>
+<label>導線總數<input id="cableCount" type="number" min="1" max="240" step="1"></label><label>新導線預設電阻（Ω）<input id="cableResistance" type="number" min="0" max="1000000" step="any" aria-describedby="cableResistanceNote"></label><p id="cableResistanceNote" class="note">0 Ω 為理想導線；只影響之後取出的線，已有導線可逐條調整。阻值不隨畫圖長度改變。</p><label>新導線最大長度<select id="cableLength"><option value="240">短 · 240</option><option value="400">中 · 400</option><option value="600">標準 · 600</option><option value="900">長 · 900</option><option value="1200">特長 · 1200</option></select></label><p class="note">長度以畫布單位計；縮放不會改變。設定只影響之後取出的導線。</p></section>
 <section class="settings-section"><h3>文件與整理</h3><div class="stack"><button id="saveTemplate">另存固定元件模板</button><button id="exportSvg">匯出 SVG 電路圖</button><button id="autoRoute">整理全部線形</button><button id="clearWires">只移除導線</button><button id="clearAll">清空畫布</button></div></section>
 </div></dialog>
 <dialog id="meterDialog"><div class="dialog-head"><h2 id="meterTitle">雙量程錶盤</h2><button id="closeMeter" aria-label="關閉錶盤">×</button></div><div id="meterDetail" class="meter-detail"></div></dialog>

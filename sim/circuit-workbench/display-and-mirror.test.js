@@ -19,7 +19,7 @@ for(const view of ['real','schematic'])for(const loadResistance of [false,true])
   const h=M.history(D.decode(old));h.change(doc=>doc.display.quantities.sourceResistance=false);h.undo();assert.equal(D.encode(h.get()),old);h.redo();assert.equal(rows(h.get(),'c1').includes('Ω'),false);cases++;
 }
 for(const version of [1,2,3,4]){
-  const d=labelsFixture();d.version=version;delete d.display.quantities;if(version<3)delete d.cables;
+  const d=labelsFixture();d.version=version;if(d.cables)delete d.cables.resistance;d.wires.forEach(w=>delete w.resistance);delete d.display.quantities;if(version<3)delete d.cables;
   const restored=D.decode(JSON.stringify(d));assert.deepEqual(restored.display.quantities,all);assert(rows(restored,'c3').includes('Ω'));assert(rows(restored,'c3').includes('W'));restored.display.quantities.loadResistance=false;M.validate(restored);assert(!rows(restored,'c3').includes('Ω'));cases++;
 }
 for(const key of Object.keys(M.quantityDefaults)){

@@ -4,10 +4,10 @@
   if (typeof module === "object" && module.exports) module.exports = api; else root.CircuitModel = api;
 })(globalThis, function (R, G) {
   "use strict";
-  const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000 });
+  const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000, resistance: 1e6 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const quantityDefaults=Object.freeze({loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true});
-  const empty = () => ({ kind: "simlab-circuit", version: 5, components: [], junctions: [], wires: [], cables: {count:20,length:600}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } });
+  const empty = () => ({ kind: "simlab-circuit", version: 6, components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } });
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
   const bool = (v) => { if (typeof v !== "boolean") throw new Error("設定必須是布林值"); };
@@ -16,7 +16,7 @@
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => R.portsForVersion(c,legacy?3:doc.version).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
   function validate(input) {
     object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[])]);
-    if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4, 5].includes(input.version)) throw new Error("不支援的電路檔版本");
+    if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4, 5, 6].includes(input.version)) throw new Error("不支援的電路檔版本");
     const ids = new Set();
     const id = (value) => { if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,39}$/i.test(value) || ids.has(value)) throw new Error("元件或導線 ID 無效或重複"); ids.add(value); };
     for (const key of ["components", "junctions", "wires"]) if (!Array.isArray(input[key]) || input[key].length > limits[key]) throw new Error("電路超出容量限制");
@@ -34,14 +34,15 @@
     input.junctions.forEach((j) => { object(j, ["id", "x", "y"]); id(j.id); numeric(j.x, -limits.coordinate, limits.coordinate); numeric(j.y, -limits.coordinate, limits.coordinate); });
     const ports = endpoints(input), pairs = new Set();
     input.wires.forEach((w) => {
-      object(w, input.version === 1 ? ["id", "from", "to", "via"] : ["id", "from", "to", "via", "shape", ...(input.version>=3?["length"]:[])]); id(w.id);
+      object(w, input.version === 1 ? ["id", "from", "to", "via"] : ["id", "from", "to", "via", "shape", ...(input.version>=3?["length"]:[]), ...(input.version>=6?["resistance"]:[])]); id(w.id);
+      if(input.version>=6)numeric(w.resistance,0,limits.resistance);
       if (!ports.has(w.from) || !ports.has(w.to) || (input.version<3 && w.from === w.to)) throw new Error("導線端點不存在或自接");
       const pair = [w.from, w.to].sort().join("|"); if (input.version<3 && pairs.has(pair)) throw new Error("有重複的導線"); pairs.add(pair);
       const shape = input.version === 1 ? "auto" : w.shape; choice(shape, ["auto", "free", "smooth"]);
       if (!Array.isArray(w.via) || w.via.length > (shape === "auto" ? limits.bends : limits.stroke)) throw new Error("導線路徑點過多"); w.via.forEach(point);
       if(input.version>=3){numeric(w.length,60,2000000);if(G.length(G.route(input,w))>w.length+.05)throw new Error("導線超過其限定長度；請先拔開或移近元件");}
     });
-    if(input.version>=3){object(input.cables,["count","length"]);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
+    if(input.version>=3){object(input.cables,["count","length",...(input.version>=6?["resistance"]:[])]);if(Object.hasOwn(input.cables,'resistance'))numeric(input.cables.resistance,0,limits.resistance);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
     object(input.policy, ["mode", "allowRotate", "allowParams", "allowSwitch"]); choice(input.policy.mode, ["free", "wiring"]); ["allowRotate", "allowParams", "allowSwitch"].forEach((k) => bool(input.policy[k]));
     object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "quantities"]);
     choice(input.display.view, ["real", "schematic"]); choice(input.display.flow, ["off", "current", "electron"]); choice(input.display.meters, ["digital", "analog"]);
@@ -56,7 +57,8 @@
     valid.components.filter(R.dualMeter).forEach(c=>{if(!Object.hasOwn(c,'mirrored'))c.mirrored=false;});
     if (input.version === 1) valid.wires.forEach((w) => { w.shape = "auto"; });
     if(input.version<3){valid.cables={count:Math.max(20,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
-    const oldRoutes=input.version<5?valid.wires.map(w=>G.route(valid,w)):[];valid.version=5;
+    valid.cables.resistance??=0;if(input.version<6)valid.wires.forEach(w=>w.resistance=0);
+    const oldRoutes=input.version<5?valid.wires.map(w=>G.route(valid,w)):[];valid.version=6;
     if(input.version<5){const next=endpoints(valid),hasMeters=valid.components.some(R.dualMeter);valid.wires.forEach((w,i)=>{const a=ports.get(w.from),b=ports.get(w.to),na=next.get(w.from),nb=next.get(w.to),travel=Math.hypot(na.x-a.x,na.y-a.y)+Math.hypot(nb.x-b.x,nb.y-b.y);
       if(travel){w.length=Math.min(2000000,w.length+travel+1);w.shape="free";w.via=G.resample(G.deform(oldRoutes[i],na,nb,w.length),10).slice(1,-1).map(p=>({x:p.x,y:p.y}));}
       else if(input.version<4&&hasMeters){w.shape="free";w.via=(oldRoutes[i].length<=limits.stroke+2?oldRoutes[i]:G.resample(oldRoutes[i],10)).slice(1,-1).map(p=>({x:p.x,y:p.y}));}
@@ -75,7 +77,7 @@
     if (!endpoints(doc).has(from) || !endpoints(doc).has(to) || from === to) throw new Error("請選擇兩個不同的有效端點");
     if (doc.wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) throw new Error("這兩個端點已接好");
     if(doc.wires.length>=doc.cables.count)throw new Error("導線已用完；刪除一條可放回工具箱");
-    const w = { id: nextId(doc, "w"), from, to, via: clone(via), shape };
+    const w = { id: nextId(doc, "w"), from, to, via: clone(via), shape, resistance:doc.cables.resistance??0 };
     // Connected constructors are for teacher presets/netlists. Interactive
     // cables always receive the exact toolbox budget in addWire().
     w.length=Math.max(doc.cables.length,Math.ceil(G.length(G.route(doc,w)))+160);doc.wires.push(w);return w;
@@ -87,8 +89,9 @@
   function addWire(doc,x,y){
     if(doc.wires.length>=doc.cables.count)throw new Error("導線已用完；刪除一條可放回工具箱");
     const span=Math.min(180,doc.cables.length*.65),a={x:x-span/2,y},b={x:x+span/2,y};
-    const w={id:nextId(doc,"w"),from:freeEnd(doc,a),to:freeEnd(doc,b),via:[],shape:"free",length:doc.cables.length};doc.wires.push(w);return w;
+    const w={id:nextId(doc,"w"),from:freeEnd(doc,a),to:freeEnd(doc,b),via:[],shape:"free",length:doc.cables.length,resistance:doc.cables.resistance??0};doc.wires.push(w);return w;
   }
+  function setWireResistance(doc,id,value){numeric(value,0,limits.resistance);const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");w.resistance=value;}
   function pose(doc,w,points){if(!points)return false;const fitted=G.fitLength(points,w.length);if(!fitted)return false;w.shape="free";w.via=(fitted.length>limits.stroke+2?G.resample(fitted,10):fitted).slice(1,-1).map(p=>({x:p.x,y:p.y}));return true;}
   function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
   function translateWire(doc,id,dx,dy){
@@ -152,7 +155,8 @@
     const shape = w.shape === "auto" ? "auto" : "free", limit = shape === "auto" ? limits.bends : limits.stroke;
     const bounded = (points) => points.length <= limit ? points.map(({x,y}) => ({x,y})) : Array.from({length:limit}, (_, n) => { const at = points[Math.round(n * (points.length - 1) / (limit - 1))]; return {x:at.x,y:at.y}; });
     doc.wires = doc.wires.filter((x) => x !== w);
-    connect(doc, w.from, j.id + ":p", bounded(left), shape); connect(doc, j.id + ":p", w.to, bounded(right), shape); return j.id + ":p";
+    const total=G.length(route),first=G.length([...route.slice(0,i+1),{x:p.x,y:p.y}]),resistance=w.resistance*Math.max(0,Math.min(1,total?first/total:.5));
+    const a=connect(doc,w.from,j.id+":p",bounded(left),shape),b=connect(doc,j.id+":p",w.to,bounded(right),shape);a.resistance=resistance;b.resistance=w.resistance-resistance;return j.id+":p";
   }
   function straightenWire(doc,id) {
     const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");
@@ -192,5 +196,5 @@
     if(!reconcile(next,doc))throw new Error('導線太短，請先拔開或移近電錶再換接孔');
     Object.assign(doc,next);
   }
-  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile };
+  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile };
 });
