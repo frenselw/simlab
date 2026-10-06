@@ -29,6 +29,7 @@
     <aside id="panel" class="panel" aria-label="操作面板">
       <section class="panel-section"><h2>元件工具箱</h2><div id="palette" class="palette"></div></section>
       <section class="panel-section cable-toolbox"><h2>導線工具箱</h2><button id="addWire" class="take-wire"><svg viewBox="0 0 80 32" aria-hidden="true"><path d="M8 16H72"/><circle cx="8" cy="16" r="4"/><circle cx="72" cy="16" r="4"/></svg><span>取出導線 <b id="wireStock">16 / 20</b></span></button><p class="note">拿線端或元件接孔互相靠近接線，拿線身移動或彎曲。</p></section>
+      <section id="wireCurrentControls" class="panel-section"><h2>導線電流</h2><div class="wire-current-controls"><button id="showWireCurrents" type="button">全部顯示</button><button id="hideWireCurrents" type="button">全部隱藏</button></div><p class="note">箭嘴表示常規電流方向；選導線可逐條開關。</p></section>
       <section class="panel-section inspector"><h2 id="selectionTitle">電路概覽</h2><div id="properties"></div><div id="objectActions" class="object-actions"></div></section>
       <details class="panel-section"><summary>連線清單</summary><div id="wireList"></div></details>
     </aside>
@@ -52,6 +53,7 @@
         <li><strong>桌面：</strong>滾輪縮放；雙擊畫布空白處，第二下按住並拖曳；放開後恢復原工具。也可按住空白鍵拖畫布。</li>
         <li><strong>調參：</strong>選元件後用底部 <span data-help-tex="-\\,/\\,+" data-help-text="−／＋"></span>；其他選項在設定。</li>
         <li><strong>電勢：</strong>讀值旁會寫明 <span data-help-tex="0\\,\\mathrm{V}" data-help-text="0 V"></span> 參考點；探測工具可量兩點電壓。</li>
+        <li><strong>導線電流：</strong>面板可全部顯示／隱藏，選導線後可逐條開關。靜態箭嘴表示常規電流方向，數字表示大小；「未能確定」不代表零。</li>
       </ul></section>
       <details class="help-more"><summary>更多操作與模型</summary><ul class="help-short-list">
         <li><kbd>R</kbd> 旋轉、<kbd>Esc</kbd> 取消、<kbd>Ctrl／⌘ Z</kbd> 復原。選導線後亦可用接好／拔開圖示。</li>
@@ -64,7 +66,7 @@
   </dialog>
 <dialog id="settingsDialog" aria-labelledby="settingsTitle"><div class="dialog-head"><div><h2 id="settingsTitle">工作台設定</h2><p class="note">即時套用；電路設定可復原及隨電路檔儲存。</p><p id="settingsNotice" class="settings-notice" role="status" aria-live="polite" hidden></p></div><button id="closeSettings" aria-label="關閉設定" title="關閉設定">×</button></div><div class="settings-grid">
 <section class="settings-section"><h3>顯示與教學</h3>        <label>方向示意<select id="flow"><option value="current">常規電流</option><option value="electron">導線中的電子</option><option value="off">關閉</option></select></label>
-        <p class="note">電流越大，示意移動越快。速度經壓縮方便觀察，非真實電子速度。</p>
+        <p class="note">同一電路電流變小時，箭頭／電子會變慢；微小電流保留可見速度。動畫不代表真實漂移速度。</p>
         <label class="check"><input type="checkbox" id="potential">顯示電勢與升高方向</label><div id="potentialLegend" hidden class="legend"><i></i><span>低電勢 → 高電勢<br>各獨立電路分別以參考端為 0 V</span></div>
         <label class="check"><input type="checkbox" id="projection">投影字體</label><label class="check"><input type="checkbox" id="pause">暫停動畫</label>
 </section>
@@ -102,6 +104,7 @@
     if (!ui.settings) remove('settings','settingsDialog');
     if (!ui.probe) remove('probe');
     if (!ui.quickParameters) remove('quickParameters');
+    if (!ui.wireCurrents) remove('wireCurrentControls');
     if (!ui.viewToggle) refs.realView.parentElement.remove();
     if (!ui.status) remove('circuitStatus');
     if (!profile.undo) remove('undo','redo');
@@ -115,7 +118,7 @@
     if (!ui.wireList) refs.wireList.closest('.panel-section').remove();
     if (student || !profile.wires) refs.addWire.closest('.panel-section').remove();
     if (!profile.wires) remove('quickWire','pickWire','detachFrom','detachTo','straightenSelected');
-    if (!ui.palette && !ui.inspector && !ui.wireList && (!ui.help || student)) {
+    if (!ui.palette && !ui.inspector && !ui.wireList && !ui.wireCurrents && (!ui.help || student)) {
       remove('panel','panelToggle'); host.classList.add('no-panel','panel-hidden');
     }
     const heading=content.content.querySelector('.brand h1');

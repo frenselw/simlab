@@ -85,7 +85,9 @@ components:{
 
 ### 介面裁剪
 
-`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+`ui.wireCurrents` 控制導線電流標示的開放，教師預設 true、學生 false。開放後，面板可全部顯示／隱藏；inspector 開放時亦可逐線勾選，不依賴 `ui.readings`、教師 settings 或文件 `display.values`。只讀仍能切換這個檢視。`editor.execute({type:'setWireCurrentDisplay',id:'w1',visible:true})` 控制單線；省略 id 控制全部現有線。不合法 id／非布林 visible、未開放 profile 會拒絕且不改文件。`getInteraction().wireCurrents` 回傳暫態可見線 ID；不寫入作答或 JSON，不觸發 onChange，不新增復原步驟；load／destroy 清空，刪線清理，新線不繼承同 ID 的舊選擇。活動要顯示指定示範線，可在 mount 或載入後明確執行命令；匯入答案不能開放功能。數值採即時 solver 結果，方向固定為常規電流；低於 40% 的概覽提示放大查看。匯出 SVG 包含當前標示，SCORM 的題目、評分與恢復仍由活動外層負責。
+
+`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
 
 `ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。控制面板沒有 `panelHelp` 或模型 footnote，不要依賴這些舊 DOM 目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
 
@@ -157,3 +159,5 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 說明入口／排版改動使用 `node tools/circuit-workbench-browser-regression.js --help-smoke`：來源／解壓 ZIP 共 14 個直向、短手機、橫向與桌面案例，核對頂欄 44 px 說明按鈕、無遮擋／水平溢出、面板底部清理及教師／學生可信開關說明。桌面相機捷徑可用 `--gesture-smoke --desktop-camera-only` 聚焦；`--gesture-smoke` 另包含手機雙指相鄰回歸。執行證據與範圍見計劃[第 59 節](../plans/28-circuit-workbench.md#59-桌面空白處雙擊拖畫布2026-10-06)及[第 60 節](../plans/28-circuit-workbench.md#60-移除面板底部重複說明2026-10-06)；歷史驗證不代表後續改動或真手機／Moodle 已通過。
 
 導線電阻使用 `wire-resistance.test.js` 與 `--wire-resistance-smoke`，核對單線／新線預設、求解壓降／功率、保存恢復與學生／只讀權限；執行範圍及物理界限見[計劃第 61 節](../plans/28-circuit-workbench.md#61-單條導線電阻與新線預設2026-10-06)。
+
+電流動畫的參考尺度與累積位移均為各 editor 的暫態，不寫入 v6 文件或作答。首次可解非零電流建立連通區尺度，調參時保持，新增／改接連通區或 loadDocument 時重設；preview 只使用尺度副本。微電流仍可見，但動畫快慢不是評分資料或精確電流比值。直接使用 renderer 時，可把同一 baseline Map 傳給 `flowReferences`／`advanceFlow`／`flow`，並在載入時清空；正式活動優先沿用 CircuitEditor.mount 的現有管理。精準檢查為 --flow-scale-smoke，參見[計劃第 62 節](../plans/28-circuit-workbench.md#62-同一電路調流時動畫速度改變2026-10-06)。

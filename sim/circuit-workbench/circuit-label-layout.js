@@ -14,12 +14,13 @@
   }
   const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
   const expand=(r,gap)=>({left:r.left-gap,right:r.right+gap,top:r.top-gap,bottom:r.bottom+gap});
-  function segmentHits(a,b,r){
+  function segmentSpan(a,b,r){
     let lo=0,hi=1;const dx=b.x-a.x,dy=b.y-a.y;
     for(const [p,q]of [[-dx,a.x-r.left],[dx,r.right-a.x],[-dy,a.y-r.top],[dy,r.bottom-a.y]]){
-      if(Math.abs(p)<1e-10){if(q<0)return false;continue;}const t=q/p;if(p<0)lo=Math.max(lo,t);else hi=Math.min(hi,t);if(lo>hi)return false;
-    }return true;
+      if(Math.abs(p)<1e-10){if(q<0)return null;continue;}const t=q/p;if(p<0)lo=Math.max(lo,t);else hi=Math.min(hi,t);if(lo>hi)return null;
+    }return [lo,hi];
   }
+  const segmentHits=(a,b,r)=>segmentSpan(a,b,r)!==null;
   function bodyBounds(c,view='real'){
     const local={battery:view==='schematic'?[-63,-48,63,31]:[-63,-31,63,31],resistor:[-63,-22,63,22],rheostat:(c.params.terminals??2)>2?[-75,-57,75,48]:[-63,-32,63,48],switch:[-63,-32,63,26],lamp:view==='real'?[-63,-92,63,32]:[-63,-42,63,42],ammeter:view==='real'?[-80,-88,80,80]:[-68,-39,68,70],voltmeter:view==='real'?[-80,-88,80,80]:[-68,-39,68,70],galvanometer:view==='real'?[-68,-55,68,55]:[-65,-34,65,34],wattmeter:[-63,-47,63,47]}[c.type];
     if(R.dualMeter(c)&&view==='real'){const scale=R.meterBodyScale(c);local.splice(0,4,-76,-86*scale-2,76,78);}
@@ -35,7 +36,7 @@
   function rowsFor(lines,maxWidth){return lines.flatMap(line=>{
     if(line.tex){const parts=line.parts&&Q.measure(line.tex,line.size).width>maxWidth?line.parts:[line];return parts.map(part=>({...line,...part,parts:undefined}));}
     return wrap(line.text,line.size,maxWidth).map(text=>({...line,text}));
-  }).map(row=>{const m=row.tex?Q.measure(row.tex,row.size):{width:measure(row.text,row.size),ascent:row.size,descent:0};return{...row,width:m.width,ascent:Math.max(row.size,m.ascent),step:Math.max(row.size,m.ascent)+m.descent+4};});}
+  }).map(row=>{let m;if(row.tex)m=Q.measure(row.tex,row.size);else{const width=measure(row.text,row.size);if(context)context.font=`${row.size}px system-ui,sans-serif`;const font=context?.measureText(row.text);m={width,ascent:font?.fontBoundingBoxAscent??row.size,descent:font?.fontBoundingBoxDescent??row.size*.25};}return{...row,width:m.width,ascent:Math.max(row.size,m.ascent),step:Math.max(row.size,m.ascent)+m.descent+4};});}
   function layout(doc,items,scale,routes={},viewport=null,extra=[],previous=null){
     const origin=viewport||{x:0,y:0},toScreen=p=>({x:(p.x-origin.x)*scale,y:(p.y-origin.y)*scale}),toRect=r=>({left:(r.left-origin.x)*scale,right:(r.right-origin.x)*scale,top:(r.top-origin.y)*scale,bottom:(r.bottom-origin.y)*scale});
     const frame=viewport?{left:4,top:4,right:viewport.width*scale-4,bottom:viewport.height*scale-4}:null,cells=new Map(),broad=[],cell=48;
@@ -54,9 +55,9 @@
     }
     const work=[];
     items.forEach((item,order)=>{
-      const body=bodies.get(item.id);if(frame&&!intersects(body,frame))return;
+      const anchor=item.anchor&&toScreen(item.anchor),body=anchor?{left:anchor.x,right:anchor.x,top:anchor.y,bottom:anchor.y}:bodies.get(item.id);if(frame&&!intersects(body,frame))return;
       const rows=rowsFor(item.lines,Math.min(item.maxWidth||180,frame?frame.right-frame.left-8:220));if(!rows.length)return;
-      const width=Math.max(...rows.map(line=>line.width))+6,height=rows.reduce((n,line)=>n+line.step,0)+4,cx=(body.left+body.right)/2,cy=(body.top+body.bottom)/2,candidates=[];
+      const width=Math.max(...rows.map(line=>line.width))+6+(item.paddingLeft||0),height=rows.reduce((n,line)=>n+line.step,0)+4,cx=(body.left+body.right)/2,cy=(body.top+body.bottom)/2,candidates=[];
       for(const gap of [6,16,30,48,72,104])for(const side of ['below','above','right','left'])for(const offset of [0,-.6,.6,-1,1]){
         let x=cx,y=cy;if(side==='below'||side==='above'){x+=offset*width;y=side==='below'?body.bottom+gap+height/2:body.top-gap-height/2;}else{x=side==='right'?body.right+gap+width/2:body.left-gap-width/2;y+=offset*height;}
         const box={left:x-width/2,right:x+width/2,top:y-height/2,bottom:y+height/2},slot=side+':'+gap+':'+offset,base=Math.hypot(x-cx,y-cy)+(['below','above','right','left'].indexOf(side))*2+Math.abs(offset)*4;
@@ -72,17 +73,17 @@
       let best=null;for(const candidate of entry.candidates){const penalty=collision(candidate.box),score=penalty+candidate.base;if(!best||score<best.score)best={...candidate,penalty,score};}
       if(best.penalty){const cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-entry.width/2,right:x+entry.width/2,top:y-entry.height/2,bottom:y+entry.height/2},penalty=collision(box),base=Math.hypot(dx,dy)+6,score=penalty+base;if(score<best.score)best={box,slot:'grid:'+dx+':'+dy,penalty,base,score};}}
       if(best.penalty)for(const limit of [120,96,72,54]){if(limit>=entry.width-6)continue;
-        const rows=rowsFor(entry.item.lines,limit),width=Math.max(...rows.map(row=>row.width))+6,height=rows.reduce((n,row)=>n+row.step,0)+4,cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;
+        const rows=rowsFor(entry.item.lines,limit),width=Math.max(...rows.map(row=>row.width))+6+(entry.item.paddingLeft||0),height=rows.reduce((n,row)=>n+row.step,0)+4,cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;
         for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-width/2,right:x+width/2,top:y-height/2,bottom:y+height/2},penalty=collision(box),base=Math.hypot(dx,dy)+12+(rows.length-entry.rows.length)*8,score=penalty+base;if(score<best.score)best={box,rows,slot:'compact:'+limit+':'+dx+':'+dy,penalty,base,score};}
         if(!best.penalty)break;
       }
       const preferred=entry.candidates.find(c=>c.slot===previous?.get(entry.item.id));if(preferred&&!best.penalty&&!collision(preferred.box)&&preferred.base<=best.base+28)best={...preferred,penalty:0,score:preferred.base};
       add({type:'label',id:entry.item.id,box:expand(best.box,3)});const box={left:origin.x+best.box.left/scale,right:origin.x+best.box.right/scale,top:origin.y+best.box.top/scale,bottom:origin.y+best.box.bottom/scale};let y=box.top+2/scale;
-      const rows=(best.rows||entry.rows).map(row=>{const baseline=y+row.ascent/scale;y+=row.step/scale;return{...row,x:(box.left+box.right)/2,y:baseline};});
+      const rows=(best.rows||entry.rows).map(row=>{const baseline=y+row.ascent/scale;y+=row.step/scale;return{...row,x:(box.left+box.right)/2+(entry.item.paddingLeft||0)/(2*scale),y:baseline};});
       const center={x:(best.box.left+best.box.right)/2,y:(best.box.top+best.box.bottom)/2},nearest=(r,p)=>({x:Math.max(r.left,Math.min(r.right,p.x)),y:Math.max(r.top,Math.min(r.bottom,p.y))}),from=nearest(entry.body,center),to=nearest(best.box,from),leader=Math.hypot(from.x-to.x,from.y-to.y)>22?{from:{x:origin.x+from.x/scale,y:origin.y+from.y/scale},to:{x:origin.x+to.x/scale,y:origin.y+to.y/scale}}:null;
       placed.push({id:entry.item.id,box,rows,slot:best.slot,crowded:best.penalty>0,leader});
     }
     return placed.sort((a,b)=>items.findIndex(i=>i.id===a.id)-items.findIndex(i=>i.id===b.id));
   }
-  return{layout,measure,wrap,bodyBounds,intersects,segmentHits};
+  return{layout,measure,wrap,bodyBounds,intersects,segmentHits,segmentSpan};
 });

@@ -62,4 +62,17 @@ for(const name of ['gVoltmeter','gAmmeter']){
   M.connect(d,source.id+':a',load.id+':a',[],'free');M.connect(d,load.id+':b',source.id+':b',[],'free');M.connect(d,v.id+':a',source.id+':a',[],'free');M.connect(d,v.id+':b',source.id+':b',[],'free');
   const s=S.solve(d);near(s.components[v.id].current,6e-12);const svg=V.flow(d,s,{},0,1);assert(svg.includes('data-flow-component="'+v.id+'"'));assert(V.flowSpeed(6e-12,.5)>=18);assert(V.flowSpeed(1e-300,1e300)>=18);cases++;
 }
+{
+  const d=M.empty(),b=M.add(d,'battery',160,180,{voltage:6}),r=M.add(d,'resistor',420,180,{resistance:12});M.connect(d,b.id+':a',r.id+':a',[],'free');M.connect(d,r.id+':b',b.id+':b',[],'free');
+  for(const style of ['current','electron']){d.display.flow=style;const baselines=new Map(),offsets=new Map(),initial=S.solve(d);V.flowReferences(d,initial,baselines);let previous=Infinity;
+    for(const resistance of [0,6,12]){d.wires[0].resistance=resistance;const a=S.solve(d),reference=V.flowReferences(d,a,baselines).get(a.islandOf[d.wires[0].from]);near(reference,.5);assert.equal(baselines.size,1,'ideal/resistive wire roots keep the same island baseline');const speed=V.flowSpeed(a.wires.w1.current,reference);assert(speed<previous);previous=speed;const before=offsets.get('w1')||0;V.advanceFlow(offsets,d,a,.02,baselines);near(signedStep(before,offsets.get('w1')),(style==='electron'?-1:1)*speed*.02);const snapshot=new Map(offsets),svg=V.flow(d,a,{},0,1,offsets,baselines);assert.deepEqual(offsets,snapshot);assert(svg.includes('data-reference-current="0.5"'));assert(svg.includes('data-speed="'+speed+'"'));
+    }
+    d.wires[0].resistance=0;const restored=S.solve(d);near(V.flowSpeed(restored.wires.w1.current,V.flowReferences(d,restored,baselines).get(restored.islandOf[d.wires[0].from])),92);
+    const snapshot=new Map(baselines),preview=M.clone(d);preview.junctions.push({id:'j1',x:300,y:300});preview.wires[0].to='j1:p';V.flowReferences(preview,S.solve(preview),new Map(baselines));assert.deepEqual(baselines,snapshot,'preview scale changes cannot pollute the committed baseline');
+    const before=D.encode(d),loaded=D.decode(before),fresh=new Map();loaded.wires[0].resistance=12;const a=S.solve(loaded);near(V.flowReferences(loaded,a,fresh).get(a.islandOf[loaded.wires[0].from]),.25);assert.equal(D.encode(d),before);assert(!before.includes('baseline'));
+  }cases++;
+}
+{
+  const d=P.create('gAmmeter'),baselines=new Map(),first=S.solve(d);V.flowReferences(d,first,baselines);const originalWireIds=new Set(d.wires.map(w=>w.id)),source=M.add(d,'battery',1250,180),load=M.add(d,'resistor',1450,180);M.connect(d,source.id+':a',load.id+':a',[],'free');M.connect(d,load.id+':b',source.id+':b',[],'free');const added=S.solve(d);near(V.flowReferences(d,added,baselines).get(added.islandOf['c3:a']),.001);assert.equal(baselines.size,2);d.components.find(c=>c.type==='battery').params.voltage=1.5;const changed=S.solve(d),ref=V.flowReferences(d,changed,baselines).get(changed.islandOf['c3:a']);near(ref,.001);assert(V.flowSpeed(changed.components.c3.reading,ref)<V.flowSpeed(first.components.c3.reading,ref));assert(V.flowSpeed(changed.components.c3.reading,ref)>=18);M.remove(d,source.id);M.remove(d,load.id);d.wires=d.wires.filter(w=>originalWireIds.has(w.id));M.cleanup(d);V.flowReferences(d,S.solve(d),baselines);assert.equal(baselines.size,1);cases++;
+}
 console.log(`Circuit flow: ${cases} current-linked speeds, signed continuous phases, zero/unknown/off, SVG and production restoration cases passed.`);

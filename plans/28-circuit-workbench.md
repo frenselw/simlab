@@ -1281,3 +1281,28 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 模型 v6／新線與單線 resistance、正電阻支路、零阻短路判斷、按弧長的 SVG 電勢漸變及 preview 漸變 ID 命名空間均完成。wire-resistance.test.js **9 groups** 通過，涵蓋串／並聯、理想旁路、平衡／有阻不平衡橋、熱燈、能量守恆、阻值修改順序、0→正值→0、方向反轉、浮接／短路／數值範圍、geometry／split、history、v1–v5 遷移、無效／越權及恢復續改。全部 **19 個 circuit unit 檔** 通過；舊版 fixtures 依原 schema 移除新欄位，新存檔期望改為 v6，未放寬舊版信任邊界。
 - 最終 --wire-resistance-smoke 在來源／解壓 ZIP 的 **1280×800、390×600、320×500，共 6 viewport cases** 通過：可信滑鼠／觸控輸入、連續切換線時保存舊值、單線與新線預設分離、6 V／12 Ω／6 Ω 的 1/3 A／2 V／2/3 W、無效值不改文件、undo／redo、production encode→decode→load→續改、兩外觀、觸控拿線端預覽／cancel 回退與無重複 gradient ID、學生固定／開放、只讀及 wires:false。輸入可見邊界容許 1 CSS px 的原生整數捲動捨入。證據 output/playwright/circuit-workbench/wire-resistance.json，桌面及手機輸入截圖已目視核對。
 - 相鄰來源／ZIP 回歸通過：--settings-smoke **24 observations**、--wire-inspector-smoke **6 viewport cases**、--activity-core-smoke **46 observations**（含真實舊教師檔案匯入及恢復續作）、--quick-controls-smoke **50 observations**。npm run check 與 git diff --check 通過；最終教師 ZIP **28 runtime files** 與來源逐 byte 一致，三份指導文件連結有效。未新增 runtime 依賴、未執行全站 npm test／全活動包或完整新手勢宿主矩陣；真手機、Safari 及 Moodle 仍未驗證，不宣稱完整 package-ready 或 Moodle-ready。
+
+## 62. 同一電路調流時動畫速度改變（2026-10-06）
+
+- 根因：flowReferences 每次取當前連通區最大電流，單一串聯電路的 |I|/Iref 固定為 1，調高線阻不會改變 92 CSS px/s。沿用現有壓縮函數與 18 px/s 可見下限，改為每個 editor 暫存首次可解非零電流的參考值；後續相同端點成員的連通區調電阻／電壓不重設尺度。連通區身份以排序後的端點成員建立，不能用會隨 0 Ω／有阻線轉換變動的 union root。移除舊連通區紀錄，明確 load／destroy 清除；同一 editor 中獨立電路各有自己的參考。
+- 動畫為暫態；document v6、求解模型、參數權限、rubric／SCORM 及保存 schema 無變更。教師非評量 scope，risk／rubric N/A。已有箭頭及電子累積位移保持連續，不因調參跳位；線內及元件內流動使用同一參考，方向由實際有號電流決定，零／未知不畫假運動。
+- 拖動／滑片 preview 使用正式參考的副本，新預覽不得改寫正式尺度；取消後仍使用原正式參考。暫停／背景／reduced-motion、相機縮放、flow 樣式、undo／redo 與 reload 行為沿用既有契約。
+- 驗證決定：flow.test.js 加同串聯 0→6→12 Ω、電源調整、0→非零、反向、undo／redo／保存恢復、獨立微電流區與 preview 不污染；核對 actual advanceFlow 位移及 SVG metadata 與元件同步。更新既有 flow browser 測試對固定參考的預期，新增來源／ZIP 390／1280 px、實物／電路圖、箭頭／電子的可信逐線調阻與實際 RAF 位移變慢，並執行微電流／拖線相鄰回歸、flow／component-flow／wire-resistance units、syntax／check／package／diff。只驗證本機模擬觸控；真手機／Moodle 另列。
+
+- 實作完成：共用 renderer 的 flowReferences／advanceFlow／flow 接受同一 baseline Map；各 editor 以 JSON 編碼的排序端點成員辨識連通區，首次非零參考固定，移除失效區及 load／destroy 清空。所有未提交 drag／preview 使用正式尺度副本；線內、元件內、RAF 及 SVG 匯出使用同一尺度和既有累積位移，未新增模型欄位或依賴。
+- flow.test.js **30 cases**、component-flow **8 groups**、wire-resistance **9 groups** 通過。新增 --flow-scale-smoke 在來源／解壓 ZIP、390／1280 px、兩外觀、箭頭／電子共 **16 cases** 通過：6 V／12 Ω 基本串聯的線阻 0→6→12 Ω，電流 0.5→0.333333→0.25 A，實際 SVG 速度 **92→82.3573→75.9873 CSS px/s**；逐 RAF 檢查有號位移、实际 glyph 軌跡與元件一致，參考保持 0.5 A，undo／redo 回復速度，reload 以當前電流重設且不改文件。證據 output/playwright/circuit-workbench/flow-scale.json。
+- 原有來源／ZIP 回歸通過：--flow-smoke **60 observations**（暫停／調流／反向／零／未知／reduced-motion／保存續作）、--micro-flow-smoke **36 observations**（G 分流／分壓、真實微電流 SVG 位移）、--flow-drag-smoke **48 cases**（按住／移動／吸附、取消、恢復及暫停）。npm run check、JS syntax、git diff --check 通過；最終 ZIP **28 runtime files** 逐 byte 與來源一致。說明、核心／活動指導文件已同步；未跑無關全站矩陣，未驗證真手機／Moodle，不宣稱全部 package-ready 或 Moodle-ready。
+
+## 63. 導線電流標示（2026-10-06）
+
+- 範圍：面板全部顯示／全部隱藏、所選導線獨立勾選；靜態箭嘴沿導線局部切線表示常規電流，數字顯示大小。串聯電流表保留；不新增非接觸電流表或保險絲。
+- 沿用 solver 每線帶符號電流；零顯示 0 A、不畫箭嘴，未知顯示未能確定、不畫箭嘴。A／mA／μA 依大小選單位。標示獨立於電子／電流動畫、暫停及元件數值開關。
+- 暫態 instance Set 記錄可見線 ID，不改 v6 文件、權威答案、rubric 或 SCORM；載入文件、卸載清空，刪線清理 ID，復原不恢復已清除的顯示選擇。匯出 SVG 包含當前標示。評分、階段及自動答案持久化 N/A：教師工作台沒有提交生命週期。
+- `ui.wireCurrents` 教師預設 true、學生 false；活動作者明確開放才能操作，匯入 document 不能開放。只讀仍可切換已開放的檢視，文件及求解值不變。
+- 重用標籤碰撞避讓，增加導線錨點與箭嘴保留寬度；CSS px 字體與箭嘴尺寸、無命中攔截；低於 40% 的概覽提示放大查看，手機仍可選線及捲面板。密集圖採現有有限搜尋／引線，逐線隱藏處理資訊過多。
+- 驗證：帶符號方向、微電流、零／理想環路未知、圖形碰撞與 SVG；source／解壓 ZIP 桌面及窄手機實際按鈕與觸控、個別切換、數值更新／電源反接、只讀／學生權限、多 instance／載入清理、物理文件及讀值不變；相鄰標籤及動畫回歸。真手機及 Moodle 另行驗收。
+
+- 已完成上述 UI／命令／暫態顯示及 SVG 匯出；重用標籤空間索引，導線以最長可見直段為錨點，沿用裁切交集和局部切線，避免平移後長線中點在畫外而失去標示。箭嘴有保留欄位，不與數字重疊，無命中攔截；accessible title 補 A→B／B→A。中文字行高改用原生 canvas font bounding ascent／descent，修正兩行文字相疊，無新增依賴。
+- 所有 **20 circuit unit test files** 通過；最終行高另重跑 labels／wire-current-labels。新增真實理想三角導線環路驗證未知，並覆蓋有號方向、微電流、零、局部裁切、穩定避讓、兩外觀及 current／electron／off。
+- `--wire-current-smoke` source／解壓 ZIP 在 1280×800、390×600、320×500 及實物／電路圖共 **12 viewport/view cases** 通過：可信按鈕／勾選、個別保留／全開關、反接與調參讀值、只讀顯示不修改 JSON、多 instance 隔離及 onChange 不觸發、實際未知環路、非法命令、刪線／重用 ID、新文件清理及 SVG 內含全部標示且邊界完整。證據 `output/playwright/circuit-workbench/wire-currents.json`，桌面／手機截圖已目視核對；手機小於 40% 時沿用概覽並明確提示放大，不將全部讀值擠在縮小電路上。
+- 相鄰 `--labels-smoke` source／ZIP **144 observations** 通過：既有全部範例、兩外觀、320／390／1280 px 實際字形／導線／元件／控制避讓、可信拖動／旋轉／復原、獨立顯示控制、匯出及恢復續作。更新舊測試場景明確開啟進階電阻／功率，並將設定點擊置中避開 sticky 標題；每次 SVG 匯出清除上一份記錄，拒絕沿用舊下載。`npm run check`／`git diff --check` 通過，教師 ZIP 已重建；真手機及 Moodle 未驗證。
