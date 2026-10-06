@@ -13,7 +13,7 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
-  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents'];
+  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},

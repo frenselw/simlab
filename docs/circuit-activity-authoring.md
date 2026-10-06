@@ -87,7 +87,9 @@ components:{
 
 `ui.wireCurrents` 控制導線電流標示的開放，教師預設 true、學生 false。開放後，面板可全部顯示／隱藏；inspector 開放時亦可逐線勾選，不依賴 `ui.readings`、教師 settings 或文件 `display.values`。只讀仍能切換這個檢視。`editor.execute({type:'setWireCurrentDisplay',id:'w1',visible:true})` 控制單線；省略 id 控制全部現有線。不合法 id／非布林 visible、未開放 profile 會拒絕且不改文件。`getInteraction().wireCurrents` 回傳暫態可見線 ID；不寫入作答或 JSON，不觸發 onChange，不新增復原步驟；load／destroy 清空，刪線清理，新線不繼承同 ID 的舊選擇。活動要顯示指定示範線，可在 mount 或載入後明確執行命令；匯入答案不能開放功能。數值採即時 solver 結果，方向固定為常規電流；低於 40% 的概覽提示放大查看。匯出 SVG 包含當前標示，SCORM 的題目、評分與恢復仍由活動外層負責。
 
-`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+`ui.potentialDirections` 以相同方式開放電勢方向：教師預設 true、學生 false。「圖上標示」同區提供兩種標示的全部開關，inspector 開放時可逐元件勾選。`editor.execute({type:'setPotentialDirectionDisplay',id:'c1',visible:true})` 控制單元件，省略 id 控制全部現有元件；驗證、只讀、onChange、載入／刪除清理與導線電流一致，`getInteraction().potentialDirections` 回傳暫態 ID。方向由低電勢端指向高電勢端；一般元件使用第一支路，變阻器 A–P、雙量程錶目前接入孔與 −、W 表 V+／V−。等電勢與未知不畫箭嘴。標示以 16 CSS px 文字避讓導線／元件；低於 40% 或同時開啟電勢方向後標籤無法避讓時，使用概覽提示放大／逐個顯示。SVG 包含當前標示；兩種標示新取元件／導線均預設隱藏，不保存至答案。
+
+`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
 
 `ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。控制面板沒有 `panelHelp` 或模型 footnote，不要依賴這些舊 DOM 目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
 

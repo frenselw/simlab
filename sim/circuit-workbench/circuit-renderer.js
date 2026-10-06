@@ -148,7 +148,15 @@
     }
     return leads;
   }
+  function potentialDirection(c,result){
+    const r=result.components[c.id],branch=!R.dualMeter(c)&&r?.branches?.[0],ports=R.ports(c);
+    const a=ports.find(p=>p.id===(c.type==='wattmeter'?c.id+':c':branch?.from||c.id+':'+(R.dualMeter(c)?r?.activePort:'a'))),b=ports.find(p=>p.id===(c.type==='wattmeter'?c.id+':d':branch?.to||c.id+':b'));
+    const voltage=a&&b?(typeof result.voltage==='function'?result.voltage(a.id,b.id):Number.isFinite(result.potentials[a.id])&&Number.isFinite(result.potentials[b.id])?result.potentials[a.id]-result.potentials[b.id]:null):null;
+    const from=voltage>0?b:a,to=voltage>0?a:b,known=Number.isFinite(voltage),directed=known&&voltage!==0;
+    return {kind:'potentialDirection',componentId:c.id,text:directed?'電勢升高':known?'等電勢':'未能確定',voltage,from:directed?from.id:null,to:directed?to.id:null,angle:directed?Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI:null};
+  }
   function labels(doc,result,scale=1,routes={},viewport=null,options=null){
+    if(options)options.crowded=false;
     if(viewport&&scale<.4)return [];
     const items=[],details=[...(options?.exclusions||[])],nameSize=doc.display.projection?18:14,valueSize=doc.display.projection?16:12;
     doc.components.forEach(c=>{
@@ -166,19 +174,21 @@
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
-      if(doc.display.potential&&Math.abs(r?.voltage||0)>1e-8){const extent=Math.max(22/scale,20);details.push({left:c.x-extent,right:c.x+extent,top:c.y-58-25/scale,bottom:c.y-58+6/scale});}
+      if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:doc.display.projection?18:16}]});}
     });
     for(const w of doc.wires){
       if(!options?.wireCurrents?.has(w.id))continue;
       const points=Routing.simplify(routes[w.id]||Routing.route(doc,w),.6/scale);let anchor=null,longest=0;
       // ponytail: anchor one straight segment; add multiple anchors if dense diagrams need them.
       for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],span=viewport?L.segmentSpan(a,b,{left:viewport.x,right:viewport.x+viewport.width,top:viewport.y,bottom:viewport.y+viewport.height}):[0,1];if(!span)continue;const length=Math.hypot(b.x-a.x,b.y-a.y)*(span[1]-span[0]),t=(span[0]+span[1])/2,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};if(length>longest){anchor=p;longest=length;}}
-      if(!anchor)continue;
+      if(!anchor||viewport&&longest*scale<12)continue;
       const current=result.wires[w.id]?.current,size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
       const quantity=Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
       items.push({id:w.id,anchor,paddingLeft:Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
-    const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);if(options)options.previous=new Map(placed.map(p=>[p.id,p.slot]));return placed;
+    const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);
+    if(viewport&&options?.potentialDirections?.size&&placed.some(p=>p.crowded)){options.crowded=true;return [];}
+    if(options)options.previous=new Map(placed.map(p=>[p.id,p.slot]));return placed;
   }
   function portSpec(c,p){if(p.key==='b')return{text:'−',tex:'-'};const ranges=R.meterRanges(c);return Q.quantity(p.key==='a'?ranges.high:ranges.low,'');}
   function portLabel(c,p,scale=1,view='real') {
@@ -205,23 +215,15 @@
   }
   function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
     const max = Math.max(1, ...Object.values(result.potentials).filter((v) => v !== null).map(Math.abs));
-    const tiny=viewport&&scale<.4&&(doc.components.length>0||labelOptions?.wireCurrents?.size);
     if(labelOptions)labelOptions.selection=selection;
     const placed=labels(doc,result,scale,routes,viewport,labelOptions),hazards=visualState(doc,result);
+    const tiny=viewport&&(scale<.4||labelOptions?.crowded)&&(doc.components.length>0||labelOptions?.wireCurrents?.size);
     let out = '';
     placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
       const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
       out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
-      const branch=!R.dualMeter(c)&&r?.branches?.[0],voltage=branch?branch.voltage:r?.voltage;
-      if (doc.display.potential && Number.isFinite(voltage) && Math.abs(voltage) > 1e-8) {
-        const ports=R.ports(c),a=ports.find(p=>p.id===(branch?.from||c.id+':'+(r.activePort||'a'))),b=ports.find(p=>p.id===(branch?.to||c.id+':b'));
-        if(!a||!b)return;
-        const from = voltage > 0 ? b : a, to = voltage > 0 ? a : b;
-        const mx = c.x, my = c.y - 58, direction = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
-        out += `<g data-potential-direction="${c.id}" data-potential-from="${from.id}" data-potential-to="${to.id}" transform="translate(${mx} ${my}) rotate(${direction})"><path d="M-20 0H20 M12-5L20 0L12 5" stroke="#b36b14" stroke-width="${1.8 / scale}" fill="none"/></g>` + text(mx, my - 10 / scale, "電勢升高", 11 / scale);
-      }
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
@@ -250,15 +252,16 @@
       const p=ends.get(w[key]),free=doc.junctions.some(j=>j.id+":p"===w[key])&&doc.wires.reduce((n,v)=>n+(v.from===w[key])+(v.to===w[key]),0)===1;
       if(free||selection===w.id||wireMode){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
     }));
-    placed.forEach(p=>{const b=p.box,wire=p.rows[0].kind==='wireCurrent',current=p.rows[0].current;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}" pointer-events="none" ${wire?`data-wire-current-label="${p.id}" data-current="${Number.isFinite(current)?current:''}"`:''}>${wire?'<title>'+esc('導線 '+p.id+'：'+(Number.isFinite(current)&&current!==0?(current<0?'B → A，':'A → B，'):'')+p.rows[0].text)+'</title>':''}<rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".95" ${wire?`stroke="#bfd1df" stroke-width="${1/scale}"`:''}/>`;
+    placed.forEach(p=>{const b=p.box,row=p.rows[0],wire=row.kind==='wireCurrent',potential=row.kind==='potentialDirection',current=row.current;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}" pointer-events="none" ${wire?`data-wire-current-label="${p.id}" data-current="${Number.isFinite(current)?current:''}"`:potential?`data-potential-label="${row.componentId}"`:''}>${wire?'<title>'+esc('導線 '+p.id+'：'+(Number.isFinite(current)&&current!==0?(current<0?'B → A，':'A → B，'):'')+row.text)+'</title>':potential?'<title>'+esc(doc.components.find(c=>c.id===row.componentId).label+'：'+p.rows.map(r=>r.text).join('')+(row.from?'（'+row.from+' → '+row.to+'）':''))+'</title>':''}<rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".95" ${wire||potential?`stroke="${potential?'#d6b889':'#bfd1df'}" stroke-width="${1/scale}"`:''}/>`;
       if(wire&&Number.isFinite(current)&&current!==0)out+=`<path data-wire-current-arrow="${p.id}" data-direction="${current<0?-1:1}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${p.rows[0].angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#245b94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-      p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs);});out+='</g>';});
+      if(potential&&row.angle!==null)out+=`<path data-potential-direction="${row.componentId}" data-potential-from="${row.from}" data-potential-to="${row.to}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${row.angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#a45d0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:potential?`data-potential-value="${row.componentId}" fill="#815019"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs);});out+='</g>';});
     if(tiny){
       const meters=doc.components.filter(R.isMeter),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
       const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
       out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-8)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
       shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W',galvanometer:'G'}[c.type],q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
-      out+=text(x+width/2,bottom,labelOptions?.wireCurrents?.size?'導線電流已開啟 · 放大查看':meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale,labelOptions?.wireCurrents?.size?'data-wire-current-overview="true"':'')+`</g>`;
+      out+=text(x+width/2,bottom,labelOptions?.crowded?'標示較密 · 放大或逐個顯示':labelOptions?.potentialDirections?.size?'電勢方向'+(labelOptions?.wireCurrents?.size?'／電流':'')+'已開啟 · 放大查看':labelOptions?.wireCurrents?.size?'導線電流已開啟 · 放大查看':meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale,(labelOptions?.wireCurrents?.size?'data-wire-current-overview="true" ':'')+(labelOptions?.potentialDirections?.size?'data-potential-overview="true"':''))+`</g>`;
     }
     return out;
   }

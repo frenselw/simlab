@@ -1306,3 +1306,13 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 所有 **20 circuit unit test files** 通過；最終行高另重跑 labels／wire-current-labels。新增真實理想三角導線環路驗證未知，並覆蓋有號方向、微電流、零、局部裁切、穩定避讓、兩外觀及 current／electron／off。
 - `--wire-current-smoke` source／解壓 ZIP 在 1280×800、390×600、320×500 及實物／電路圖共 **12 viewport/view cases** 通過：可信按鈕／勾選、個別保留／全開關、反接與調參讀值、只讀顯示不修改 JSON、多 instance 隔離及 onChange 不觸發、實際未知環路、非法命令、刪線／重用 ID、新文件清理及 SVG 內含全部標示且邊界完整。證據 `output/playwright/circuit-workbench/wire-currents.json`，桌面／手機截圖已目視核對；手機小於 40% 時沿用概覽並明確提示放大，不將全部讀值擠在縮小電路上。
 - 相鄰 `--labels-smoke` source／ZIP **144 observations** 通過：既有全部範例、兩外觀、320／390／1280 px 實際字形／導線／元件／控制避讓、可信拖動／旋轉／復原、獨立顯示控制、匯出及恢復續作。更新舊測試場景明確開啟進階電阻／功率，並將設定點擊置中避開 sticky 標題；每次 SVG 匯出清除上一份記錄，拒絕沿用舊下載。`npm run check`／`git diff --check` 通過，教師 ZIP 已重建；真手機及 Moodle 未驗證。
+
+## 64. 協調電勢方向與導線電流標示（2026-10-06）
+
+- 範圍：面板同一「圖上標示」區提供導線電流、電勢升高方向的全部顯示／全部隱藏；選導線／元件各有獨立勾選。電勢色彩移到同區，與方向分開；`display.potential` 只控制既有線／端孔色彩，仍可隨文件保存及復原。
+- 方向使用真實端電勢差與旋轉後接孔，低→高；零電壓顯示「等電勢」、未知顯示「未能確定」，均不畫方向。多端子變阻器沿用 A–P 支路，雙量程錶使用目前接入正極與 −，W 表使用 V+／V−。以 16 CSS px 文字、保留箭嘴欄位、白底及琥珀色邊框重用標籤避讓及引線，避免蓋導線或元件；低縮放沿用概覽。
+- 暫態 instance Set 保存已選元件 ID，載入／卸載清空、刪除清理，與導線電流相同；不改 v6 schema、求解、歷史或 SCORM。`ui.potentialDirections` 教師 true／學生 false，可信作者開放後只讀亦可查看；不開放參數或答案修改。新增 API `setPotentialDirectionDisplay` 對應現有逐線命令，SVG 包含當前兩種標示。
+- 教師非評量工具：risk／rubric／assessment phase N/A；權威文件仍 v6，無新依賴。驗證決定：單元核對四角度／極性／多端子與零未知、兩種標示碰撞避讓及匯出；source／解壓 ZIP 的桌面／320／390 px 可信全體／個別開關、旋轉、色彩独立、只讀／學生權限／load 清理及不改文件／讀值，相鄰 current／labels／settings 回歸。真手機與 Moodle 另列。
+- 已完成同區控制、逐元件開關及方向標籤；取消固定在元件上方的舊箭嘴，以实际低／高電勢端孔決定轉向，W 表改用電壓線圈。重用原標籤搜尋，窄畫布允許 40 px 文字欄換成兩行，保持 16 CSS px 及完整 accessible title；不標示中心在畫外的元件或只露出不足 12 CSS px 的線段。低於 40% 沿用概覽；同時開啟電勢方向後仍無法避讓時，以「標示較密 · 放大或逐個顯示」取代重疊標籤，放大或減少顯示內容後恢復，不改可見 ID 選擇。
+- 最終 **20 個 circuit unit test files** 通過；新增四轉向／極性、兩外觀、多端子、等電勢／未知／微小電壓、色彩獨立、碰撞與密度回退。`--wire-current-smoke` 來源／ZIP 的 1280×800、390×600、320×500、實物／電路圖共 **12 viewport/view 組、24 observations** 通過：兩種標示的可信全體／個別開關、旋轉後实际可見箭嘴低→高、色彩獨立、只讀／學生權限、匯出／載入重設、文件與分析不變。320 px 短畫布驗證放大所選、兩行文字及旋轉後密度提示，再以同區控制隱藏電流標示合法續看方向。
+- 相鄰來源／ZIP `--labels-smoke` **144 observations**、390 px `--settings-smoke` **6 observations**、`--wire-resistance-smoke` **6 viewport cases** 通過；`npm run check`／`git diff --check` 通過。證據 `output/playwright/circuit-workbench/wire-currents.json`、`adaptive-labels.json`、`settings-390.json`、`wire-resistance.json`；桌面與 320 px 標示截圖已目視核對。教師 ZIP 的 **28 runtime files** 逐 byte 與來源一致，指導文件及實際預覽已同步；真手機、Safari 與 Moodle 未驗證，未宣稱全站 package-ready 或 Moodle-ready。

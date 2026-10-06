@@ -135,7 +135,7 @@ test('potential-rise arrows use the same branch voltage and terminals',()=>{
   for(const terminals of [3,4])for(const angle of [0,90,180,270]){
     const d=M.empty(),r=M.add(d,'rheostat',200,200,{terminals,resistance:20}),a=M.add(d,'battery',0,0,{voltage:6}),b=M.add(d,'battery',0,400,{voltage:9});r.angle=angle;d.display.potential=true;
     join(d,a.id+':a',r.id+':a');join(d,a.id+':b',r.id+':c');join(d,b.id+':a',r.id+':b');join(d,b.id+':b',r.id+':c');
-    const o=S.solve(d),html=V.scene(d,o),match=html.match(/data-potential-direction="c1" data-potential-from="([^"]+)" data-potential-to="([^"]+)" transform="[^\"]*rotate\(([^)]+)\)/);
+    const o=S.solve(d),html=V.scene(d,o,1,{},null,false,null,{potentialDirections:new Set(['c1'])}),match=html.match(/data-potential-direction="c1" data-potential-from="([^"]+)" data-potential-to="([^"]+)" transform="[^\"]*rotate\(([^)]+)\)/);
     assert(match);assert.equal(match[1],'c1:a');assert.equal(match[2],'c1:b');assert(o.potentials[match[2]]>o.potentials[match[1]]);
     const ports=M.endpoints(d),from=ports.get(match[1]),to=ports.get(match[2]);near(Number(match[3]),Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI);
   }

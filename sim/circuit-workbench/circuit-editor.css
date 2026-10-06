@@ -383,3 +383,5 @@
 }}
 .circuit-editor .wire-current-controls { display:flex; gap:8px; }
 .circuit-editor .wire-current-controls button { flex:1; min-height:44px; }
+.circuit-editor .diagram-label-controls { margin-bottom:16px; }
+.circuit-editor .diagram-label-controls h3 { font-size:.875rem; margin:0 0 8px; }

@@ -53,9 +53,10 @@
       let penalty=0;if(frame){const outside=(box.right-box.left)*(box.bottom-box.top)-Math.max(0,Math.min(box.right,frame.right)-Math.max(box.left,frame.left))*Math.max(0,Math.min(box.bottom,frame.bottom)-Math.max(box.top,frame.top));if(outside>.01)penalty+=100000+outside*100;}
       const wires=new Set();for(const o of query(expand(box,7))){if(o.type==='wire'){if(segmentHits(o.a,o.b,expand(box,7)))wires.add(o.id);}else if(intersects(box,o.box))penalty+=o.type==='label'?50000:30000;}return penalty+wires.size*10000;
     }
-    const work=[];
+    const work=[],centers=new Map(doc.components.map(c=>[c.id,toScreen(c)]));
     items.forEach((item,order)=>{
-      const anchor=item.anchor&&toScreen(item.anchor),body=anchor?{left:anchor.x,right:anchor.x,top:anchor.y,bottom:anchor.y}:bodies.get(item.id);if(frame&&!intersects(body,frame))return;
+      const anchor=item.anchor&&toScreen(item.anchor),body=anchor?{left:anchor.x,right:anchor.x,top:anchor.y,bottom:anchor.y}:bodies.get(item.componentId||item.id);if(frame&&!intersects(body,frame))return;
+      const center=centers.get(item.componentId||item.id);if(frame&&center&&(center.x<frame.left||center.x>frame.right||center.y<frame.top||center.y>frame.bottom))return;
       const rows=rowsFor(item.lines,Math.min(item.maxWidth||180,frame?frame.right-frame.left-8:220));if(!rows.length)return;
       const width=Math.max(...rows.map(line=>line.width))+6+(item.paddingLeft||0),height=rows.reduce((n,line)=>n+line.step,0)+4,cx=(body.left+body.right)/2,cy=(body.top+body.bottom)/2,candidates=[];
       for(const gap of [6,16,30,48,72,104])for(const side of ['below','above','right','left'])for(const offset of [0,-.6,.6,-1,1]){
@@ -72,7 +73,7 @@
     for(const entry of work){
       let best=null;for(const candidate of entry.candidates){const penalty=collision(candidate.box),score=penalty+candidate.base;if(!best||score<best.score)best={...candidate,penalty,score};}
       if(best.penalty){const cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-entry.width/2,right:x+entry.width/2,top:y-entry.height/2,bottom:y+entry.height/2},penalty=collision(box),base=Math.hypot(dx,dy)+6,score=penalty+base;if(score<best.score)best={box,slot:'grid:'+dx+':'+dy,penalty,base,score};}}
-      if(best.penalty)for(const limit of [120,96,72,54]){if(limit>=entry.width-6)continue;
+      if(best.penalty)for(const limit of [120,96,72,54,40]){if(limit>=entry.width-6)continue;
         const rows=rowsFor(entry.item.lines,limit),width=Math.max(...rows.map(row=>row.width))+6+(entry.item.paddingLeft||0),height=rows.reduce((n,row)=>n+row.step,0)+4,cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;
         for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-width/2,right:x+width/2,top:y-height/2,bottom:y+height/2},penalty=collision(box),base=Math.hypot(dx,dy)+12+(rows.length-entry.rows.length)*8,score=penalty+base;if(score<best.score)best={box,rows,slot:'compact:'+limit+':'+dx+':'+dy,penalty,base,score};}
         if(!best.penalty)break;
