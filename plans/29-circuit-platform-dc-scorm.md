@@ -243,8 +243,8 @@ DC 整理的要求：
 
 1. UI、鍵盤、觸控、公開命令、複製、undo／redo、JSON 載入和 SCORM 恢復遵守同一套限制。無效變更原子拒絕，保留舊答案。
 2. 將新配置、未知欄位、非法參數及無法滿足的初始配置在掛載前檢出；保持現有 fail-closed 行為。
-3. 切題前先取消手勢、取得已提交文件、更新外層答案，再卸載舊 editor；載入新題的配置及答案後才恢復操作。
-4. 規則不同的題目使用 `destroy/mount` 切換，避免原地修改 profile 留下前題權限。外層保存各題答案，不能依賴每個 editor 永久留在 DOM。
+3. 切題前先取消手勢、取得已提交文件、更新外層答案，再卸載舊 editor；未作答仍保留 `null`，不能把離開題目時讀到的模板當成答案。載入新題的配置及答案後才恢復操作。
+4. 規則不同的題目使用 `destroy/mount` 切換，避免原地修改 profile 留下前題權限。外層保存各題答案，不能依賴每個 editor 永久留在 DOM。現有 `loadDocument()` 會發出 `onChange`；程序恢復期間先不訂閱或暫停答案回寫，載入完成後才接上綁定本題 key 的訂閱，切題時解除舊訂閱。模板／恢復事件不得標記學生作答或覆寫其他題。
 5. 已提交／pending 的活動在 mount／restore 完成後立即按生命週期鎖定；不顯示示例頁的「只讀預覽」解除開關。
 6. 新增嵌入外殼能力，讓活動外層擁有完整頂欄與全螢幕；見第 11 節。這是 DC／SCORM 的實際需要，不能當成已經完成。
 
@@ -305,7 +305,7 @@ DC 核心整理若沒有新增文件語義，就保持現有 v6，不為搬程�
 | `schemaVersion` | 精簡答案格式版本；只接受已支援的版本 |
 | `definitionVersion` | 指定題目／配置／rubric 版本；版本不能指向別題 |
 | `modelRevision` | 該活動所依賴的物理語義版本；與單純 UI 版本分開 |
-| `phase` | 活動可實際呈現的 `edit/check/review`；pending 與技術鎖定由 shared outcome 管理 |
+| `phase` | 活動可實際呈現的 `edit/check/review`；draft envelope 只接受 edit/check，review envelope（包括 pending 內嵌的 review）只接受 review；pending 與技術鎖定由 shared outcome 管理 |
 | `activeTask` | 合法題目 key；視圖切換不創造答案 |
 | `returnToCheck` | 只有從檢查頁返回編輯的變體可為 true；其餘依活動狀態矩陣驗證 |
 | `answers[taskKey]` | 每題 `null`，或本題電路答案、明確作答欄位與必要觀察；不保存派生分數作為事實來源 |
@@ -314,11 +314,13 @@ DC 核心整理若沒有新增文件語義，就保持現有 v6，不為搬程�
 每題的電路答案要明確涵蓋：
 
 - 需要保存的學生新增元件、其供應來源／款式、允許改動的參數，以及允許移除的初始元件狀態。
-- 端子連接、共接點、懸空端點、逐線電阻及為繼續操作所需的線長／線形／幾何。
+- 端子連接、共接點、懸空端點、逐線電阻及為繼續操作所需的線長／線形／幾何；初始導線的來源 key、刪除狀態與學生新取的導線須能區分。
 - 可搬元件的位置、方向、允許的儀表換孔方向，以及真正影響下次操作的其他狀態。
 - 若同一元件被量測答案引用，用穩定的答案語義 key 連接；DOM ID、臨時索引及 SVG ID 由 decoder 重建。
 
-固定模板、名稱及不可調參數能由版本化本地配置重建時便不重複保存。初始元件的語義 key 要映射回本題固定身分，保留 `byId` 權限；不得讓重建後的新元件冒用已刪除固定元件的身分。任何關係 key 都要驗證唯一性及引用完整性。
+固定模板、名稱及不可調參數能由版本化本地配置重建時便不重複保存。初始元件、導線及仍存在的初始共接點，其語義 key 要映射回本題原有 ID：元件保留 `byId` 權限，導線保留 profile 按初始 ID 判定的固定線阻與特許線長。新元件／新線不得冒用已刪除初始物件的身分，重建時須預留初始 ID，並驗證所有關係 key 的唯一性及引用完整性。
+
+`wires:false` 目前以完整陣列比較導線與共接點；這類題目由可信模板原樣重建固定拓撲，包括 ID、順序和幾何，不能在 codec 內自行重新編號或排序。開放接線的題目則保存合法刪除、懸空及改接狀態。驗收須包含初始異阻／長線恢復後續作、刪除初始線再取新線，以及固定拓撲的 round-trip；不能只用全空白模板測 codec。
 
 `null` 答案在檢視時可以顯示初始模板，但 scorer 仍知道它未作答；不能因 decoder 補出模板而變成已完成答案。
 
@@ -335,9 +337,10 @@ DC 核心整理若沒有新增文件語義，就保持現有 v6，不為搬程�
 
 ### 9.4 恢復順序
 
+先用 `SimActivityFlow.startup(attempt)` 分流，再在對應分支驗證答案。以下是有可驗證快照時的內容恢復流程；任何一步失敗，都按原本 attempt outcome 決定呈現方式，不能一律改成 load-error。
+
 ```text
-讀取 shared attempt outcome
-  → 檢查活動、schema、題目與模型版本
+檢查活動、schema、題目與模型版本
   → 驗證答案形狀、關係及該 phase 的不變條件
   → 從可信本地模板重建完整電路
   → CircuitModel.validate + 本題 profile.assertSnapshot
@@ -346,7 +349,11 @@ DC 核心整理若沒有新增文件語義，就保持現有 v6，不為搬程�
   → 按 outcome 允許編輯、只讀檢視或技術鎖定
 ```
 
-finished review 使用 `SimActivityFlow.reviewResult()` 比較重算結果、保存 metadata 與 Moodle 記錄；不是只讀保存的總分。pending 除分數外亦比較 canonical 權威答案；若深層驗證不通過，先 `SimScorm.quarantinePending()` 再呈現技術鎖定。非法 finished／pending 不重新開放作答。
+finished review 使用 `SimActivityFlow.reviewResult()` 比較重算結果、保存 metadata 與 Moodle 記錄；不是只讀保存的總分。若快照缺失、損壞、種類／版本不符，或重算後 trust mismatch，仍保留 finished／review 分支，只顯示可信 Moodle 摘要，不顯示未驗證的逐題分數或回饋，不重送、不開放編輯，也不降為一般 load-error。無法重算時可用 `reviewResult(null, null, attempt)` 取得記錄摘要；未知分數顯示 `--`，未知合格狀態使用 `completionLabel()`，不能猜成零分或不合格。
+
+pending 除分數外亦比較 canonical 權威答案；結構已被 runtime 接受但深層驗證不通過時，先 `SimScorm.quarantinePending()` 再呈現技術鎖定，阻止手動及生命週期重試寫回壞資料。shared runtime 已拒絕的 pending 亦只呈現技術狀態。其餘由 shared startup 判為 load-error 的情況，包括讀取／初始化失敗及 `inconsistent` 資料，均技術鎖定；這些狀態不宣稱成績已確認，不自行清除答案或變成新作答。
+
+若 shared startup 允許 editable，但活動自己的 draft decoder／恢復驗證失敗，預設同樣技術鎖定，不能用空白模板覆寫。只有確證 attempt 尚未提交，且個別活動計劃已定義安全清除／覆寫流程，才可依該流程恢復；未知、pending 或 finished attempt 不適用這項例外。
 
 standalone 重新整理開始新練習；同一次 Moodle attempt 恢復原答案。兩者遵循[既有 refresh/resume 契約](../docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume)，不另加活動自己的跨刷新答案儲存。
 
@@ -367,7 +374,10 @@ standalone 重新整理開始新練習；同一次 Moodle attempt 恢復原答�
 | submitted／committed | 已確認 commit 的同一結果 | 鎖定答案，可依 shared flow 重試 finish | 不重算成另一 payload、不開放編輯 |
 | pending／frozen | shared runtime 的同一最終 payload | 凍結；驗證後只重試同一提交 | 恢復後不顯示未確認的成績結論 |
 | submit／retry | 無 durable final；依 retryable 處理 | 可重試時保留編輯，否則技術狀態 | 不誤標為 submitted |
-| load-error／invalid finished 或 pending | 保留可信任的記錄及錯誤狀態 | 禁止不安全編輯；保留顯示控制 | 不清結果、不變成新作答、不自動重送壞資料 |
+| finished review／無有效 review 或 trust mismatch | 保留可信 Moodle 記錄摘要；不信任壞快照與逐題結果 | 維持 review 只讀，不重送、不清結果 | 缺失／損壞／舊 draft 或 pending／版本不符／信任不符仍顯示記錄摘要；未知值不猜測，無結果寫入 |
+| invalid pending／結構或深層驗證失敗 | 保留 runtime 的 checkpoint 及技術錯誤 | 技術鎖定；深層失敗先 quarantine，不提供壞 payload 重試 | 無已提交／合格或不合格結論；手動與生命週期均不重送壞資料 |
+| load-error／其餘 shared startup 拒絕的狀態 | 包括讀取／初始化失敗、inconsistent 資料 | 鎖定不安全操作，呈現技術錯誤 | 活動 ID 不符、損壞的未完成快照、未完成 attempt 帶 review 等均不清結果、不變成新作答、不寫入未確認狀態 |
+| editable draft／活動深層恢復失敗 | 保留原草稿與錯誤，不補造答案 | 預設技術鎖定；僅確證未提交且另有已定義的安全恢復流程才例外 | 不以空白模板覆寫；如活動提供恢復，另測其證據、清除／覆寫及後續合法操作 |
 
 每個 saveable 變體要走 production encode → decode → restore，確認分數相同並真正執行一次合法續作。非法狀態另測；空白／部分作答不能被歸類成資料損壞。
 
@@ -425,10 +435,10 @@ DC／SCORM 接入要解決的具體外殼差異：
 |---|---|---|
 | DC 求解 | 串並聯、開路、短路、浮接／不唯一、有限儀表、熱燈、線阻；既有數值與診斷不回退 | `core.test.js`、`wire-resistance.test.js`、`textbook.test.js` 等；新增數學分支才補相應案例 |
 | 元件與權限 | 白名單、款式、預置計數、上限、刪除歸還、複製、固定參數、byId 保留、非法配置原子拒絕 | `activity-core.test.js` 及受影響的命令／瀏覽器案例 |
-| 操作與隔離 | 所有編輯路徑遵守限制；預覽取消、切題、卸載、多 instance、只讀時無資料變更 | 現有 `--activity-core-smoke` 及受影響的手勢／介面案例 |
+| 操作與隔離 | 所有編輯路徑遵守限制；預覽取消、切題、卸載、多 instance、只讀時無資料變更；程序載入不標記作答、不覆寫錯題 | 現有 `--activity-core-smoke` 及受影響的手勢／介面案例 |
 | 題目檢查／scoring | 有效替代接法、錯誤旁路、額外線、空白零分、部分分、容差邊界、模板不自動得分 | 各活動的 production scorer 測試 |
-| 持久化 | 各 phase／variant round-trip、相同分數、合法續作、穩定身分、非法狀態、版本與三種 byte 上限 | 各活動 persistence 測試；新增者登記至 `tools/run-tests.js` |
-| SCORM 流程 | 全部 startup／submission outcome、重試、信任比較、壞 pending quarantine、submitted 不重開 | shared runtime 測試加活動實際 outcome／render 測試，不能只查程式字串 |
+| 持久化 | 各 phase／variant round-trip、相同分數、合法續作；初始元件／異阻長線／共接點身分、刪線再取線、固定拓撲、phase/kind 不符、版本與三種 byte 上限 | 各活動 persistence 測試；新增者登記至 `tools/run-tests.js` |
+| SCORM 流程 | 全部 startup／submission outcome、重試、信任比較；壞 finished 保留可信摘要、壞 pending quarantine、一般 load-error 的不同呈現／寫入行為；submitted 不重開 | shared runtime 測試加活動實際 outcome／render 測試，不能只查程式字串 |
 | 嵌入與手機 | 外層唯一全螢幕、題目／控制可達、捲動所有權、兩側區域及每種手勢 | source／解壓包、可信滑鼠／觸控、規定 viewport／host／phase 矩陣 |
 | 發布 | 依賴完整、root manifest、無開發檔案、實際解壓入口可運作、同源指紋一致 | 現有 check／package 工具及實際成品 smoke |
 
@@ -463,4 +473,6 @@ DC／SCORM 接入要解決的具體外殼差異：
 - 本次新增平台計劃，並從原 DC 工作台計劃與架構審視加入入口。
 - 本次不修改 runtime、SCORM manifest、目錄登記或部署 ZIP；D1–D5 尚未執行。
 - 已用 Node 執行第 6.3 節的原文配置範例：profile 接受；各款取滿後不可再新增；超量與未提供類型被拒絕；含懸空導線的文件可 encode／decode 並通過同一 profile 驗證。這只證明範例與目前 API 一致，不代表 SCORM 或瀏覽器流程已通過。
-- 本次只執行文件連結／格式／diff 與上述配置檢查；未執行全站 runtime、瀏覽器、真手機或 Moodle 驗收。
+- 2026-10-07 完成獨立 subagent 三輪審核：首輪修正壞 finished 快照的呈現與初始導線身分兩項 P2；第二輪修正 load-error 範圍一項 P2；第三輪確認沒有未解決的實質問題。同步補清固定拓撲重建、程序載入通知隔離、phase／kind 配對及壞草稿恢復條件。
+- 以 Node 復核初始異阻／長線 ID、固定拓撲陣列比較，以及 finished 摘要／未知成績／各 startup 錯誤分支；24 個本計劃連結與 anchor、2 個反向入口及 diff 檢查通過。這些是現有 API 及文件的一致性核對，不代表尚未實作的活動 codec 已通過驗收。
+- 本次只執行文件連結／格式／diff、上述配置與 API 核對；未執行全站 runtime、瀏覽器、真手機或 Moodle 驗收。
