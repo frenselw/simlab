@@ -16,6 +16,7 @@
     rheostat: { name: "滑動變阻器", icon: "↗", ports: rheostatPorts, primaryParameter:"position", params: { resistance: number("最大電阻", "Ω", 100, .01, 1e6, 1), position: number("滑片位置", "%", .5, 0, 1, .01), terminals:{label:"接線孔數",value:4,choices:[4,3,2]} } },
     lamp: { name: "白熾燈", icon: "☀", ports: two, primaryParameter:"resistance", params: { resistance: number("電阻／額定熱態電阻", "Ω", 12, .01, 1e6, 1), ratedVoltage: number("額定電壓", "V", 6, .1, 120, .5), model: { value: "ideal", choices: ["ideal", "thermal"] }, coldRatio:number("熱態／冷態電阻比", "", 10, 1, 30, .1), linearLoss:number("線性散熱比例", "%", .1, 0, 1, .01) } },
     switch: { name: "開關", icon: "⤴", ports: two, params: { closed: { value: true, choices: [true, false] } } },
+    relay: {name:"電磁繼電器",icon:"↕",ports:[{key:'a',x:-28,y:80,dx:0,dy:1,label:'線圈左端'},{key:'b',x:28,y:80,dx:0,dy:1,label:'線圈右端'},{key:'c',x:92,y:0,dx:1,dy:0,label:'共用觸點'},{key:'d',x:92,y:-48,dx:1,dy:0,label:'上觸點（常閉）'},{key:'e',x:92,y:48,dx:1,dy:0,label:'下觸點（常開）'}],primaryParameter:'pickupCurrent',params:{resistance:number('線圈電阻','Ω',120,.01,1e6,1),pickupCurrent:{...number('吸合電流','mA',.03,1e-6,1e3,.001),factor:1000},delay:number('動作延時（教學）','ms',120,20,2000,10)}},
     ammeter: { name: "電流表", icon: "A", ports: meterPorts, params: { resistance: number("大量程內阻", "Ω", 0, 0, 10000, .1), range: number("大量程上限", "A", 3, .001, 1e6, .5) } },
     voltmeter: { name: "電壓表", icon: "V", ports: meterPorts, params: { resistance: number("大量程輸入電阻（0 表示理想無限大）", "Ω", 0, 0, 1e12, 1000), range: number("大量程上限", "V", 15, .001, 1e6, 1) } },
     galvanometer: { name:"靈敏電流計", icon:"G", ports:polar, params:{resistance:number("表頭內阻", "Ω", 100, .01, 1e6, 1), range:{...number("滿偏電流", "μA", .00005, 1e-9, 1, .000005),factor:1e6}} },
@@ -60,7 +61,7 @@
     });
   }
   function bodyBounds(c) {
-    const box=dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65};
+    const box=dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='relay'?{left:-74,right:76,top:-40,bottom:68}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65};
     const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
     const corners=[box.left,box.right].flatMap(x=>[box.top,box.bottom].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
     return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
@@ -90,11 +91,12 @@
   definitions.resistor.dc = definitions.galvanometer.dc = c => [resistive(c.params.resistance)];
   definitions.rheostat.dc = c => [resistive(effectiveResistance(c)),...((c.params.terminals??2)>2?[resistive(c.params.resistance*(1-c.params.position),'b','c')]:[]),...(c.params.terminals===4?[resistive(0,'b','d')]:[])];
   definitions.switch.dc = c => c.params.closed ? [resistive(0)] : [];
+  definitions.relay.dc = (c,state) => {const contact=state?state.contact:'d';return [resistive(c.params.resistance),...(['d','e'].includes(contact)?[resistive(0,'c',contact)]:[])];};
   definitions.ammeter.dc = c => [resistive(c.params.resistance),resistive(c.params.resistance*5,"c","b")];
   definitions.voltmeter.dc = c => c.params.resistance>0 ? [resistive(c.params.resistance),resistive(c.params.resistance/5,"c","b")] : [];
   definitions.lamp.dc = c => c.params.model==="thermal" ? [{from:"a",to:"b",kind:"nonlinear",resistance:c.params.resistance,law:lampAt}] : [resistive(c.params.resistance)];
   definitions.wattmeter.dc = c => [resistive(c.params.resistance),...(c.params.inputResistance>0 ? [resistive(c.params.inputResistance,"c","d")] : [])];
-  function dc(c) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
+  function dc(c,state) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c,state); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
   return { definitions, get, defaults, primaryParameter, stepPrimaryParameter, localPorts, ports, portsForVersion:(c,version)=>ports(c,version<4?true:version===4?'v4':false), bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges, lampAt, thermal, effectiveResistance, dc, register };
 });

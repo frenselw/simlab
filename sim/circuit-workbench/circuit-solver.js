@@ -33,7 +33,7 @@
     const roundoff=Array(n).fill(0);pivots.forEach((col,i)=>roundoff[col]=32*n*Number.EPSILON*rhsScales[i]);
     return { x, nullspace, roundoff };
   }
-  function solve(input) {
+  function solve(input,relayStates=null) {
     const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.filter(w=>w.resistance===0).forEach((w) => uf.join(w.from, w.to));
     const netOf = Object.fromEntries([...ports.keys()].map((p) => [p, uf.find(p)])), netKeys = [...new Set(Object.values(netOf))], conductive = union(netKeys);
     const edges = [], branches = new Map();
@@ -42,7 +42,7 @@
       const e = { id: wire?c.id:c.id + ":" + a, c, a: netOf[pa], b: netOf[pb], pa, pb, kind, resistance, emf, law };
       edges.push(e); conductive.join(e.a, e.b); if (!branches.has(c.id)) branches.set(c.id, e);
     }
-    doc.components.forEach(c => R.dc(c).forEach(b => edge(c,b.from,b.to,b.kind,b.resistance,b.emf||0,b.law)));
+    doc.components.forEach(c => R.dc(c,relayStates?.get(c.id)).forEach(b => edge(c,b.from,b.to,b.kind,b.resistance,b.emf||0,b.law)));
     doc.wires.filter(w=>w.resistance>0).forEach(w=>edge(w,w.from,w.to,'resistor',w.resistance,0,null,true));
     const groups = new Map();
     netKeys.forEach((net) => { const key = conductive.find(net); if (!groups.has(key)) groups.set(key, { key, nets: [], edges: [] }); groups.get(key).nets.push(net); });
@@ -117,6 +117,7 @@
       const e = branches.get(c.id), v = voltage(c.id + ":a", c.id + ":b");
       const entry = e?.result ? { ...e.result } : { voltage: v, current: c.type === "switch" || c.type === "voltmeter" ? 0 : null, power: 0, resistance: null, temperature: null };
       const ownEdges = edges.filter(e=>e.c.id===c.id); entry.branches = ownEdges.map(e=>({from:e.pa,to:e.pb,...e.result})); if(ownEdges.length) entry.power=ownEdges.some(e=>e.result.power===null) ? null : ownEdges.reduce((s,e)=>s+e.result.power,0);
+      if(c.type==='relay'){const state=relayStates?.get(c.id);entry.contact=state?state.contact:'d';entry.position=state?.position??0;entry.target=state?.target??false;const contactEdge=ownEdges.find(e=>e.pa===c.id+':c');entry.contactCurrent=contactEdge?contactEdge.result.current:0;}
       if(R.dualMeter(c)){
         const positives=['a','c'].filter(key=>M.degree(doc,c.id+':'+key)>0),common=M.degree(doc,c.id+':b')>0,active=positives.length===1?positives[0]:null;
         const activeEdge=ownEdges.find(e=>e.pa===c.id+':'+active),ranges=R.meterRanges(c);

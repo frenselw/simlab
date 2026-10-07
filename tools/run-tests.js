@@ -25,6 +25,7 @@ const tests = [
   "sim/circuit-workbench/activity-core.test.js",
   "sim/circuit-workbench/component-snapping.test.js",
   "sim/circuit-workbench/quick-controls.test.js",
+  "sim/circuit-workbench/relay.test.js",
   "sim/circuit-workbench/review-regressions.test.js",
   "tools/circuit-workbench-browser-regression.js",
   "sim/newtons-third-law-fullscreen-test/generator.test.js",

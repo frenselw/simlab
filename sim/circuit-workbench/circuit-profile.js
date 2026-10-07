@@ -13,12 +13,11 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
-  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections'];
+  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},
-    {type:'lamp', key:'lamp:thermal', params:{model:'thermal'}, label:'變阻燈'},
-    {type:'ammeter'}, {type:'voltmeter'}, {type:'galvanometer'}, {type:'wattmeter'}
+    {type:'relay'}, {type:'ammeter'}, {type:'voltmeter'}, {type:'galvanometer'}, {type:'wattmeter'}
   ];
   function keys(value, allowed, name) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !allowed.includes(k))) throw new Error(name + '設定無效');

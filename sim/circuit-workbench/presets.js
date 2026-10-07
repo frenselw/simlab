@@ -4,7 +4,7 @@
   if (node) module.exports = api; else root.CircuitPresets = api;
 })(globalThis, function (M, G) {
   "use strict";
-  const names = { series: "兩燈串聯", parallel: "兩燈並聯", mixed: "串並混聯", ohm: "全電路歐姆定律",limiting:'滑動變阻器 · 限流',divider:'滑動變阻器 · 分壓',gAmmeter:'G 表 · 並聯分流',gVoltmeter:'G 表 · 串聯分壓', meters: "A／V／W 表接線", bridge: "橋式電路", wiring: "固定元件接線", empty: "空白畫布" };
+  const names = { series: "兩燈串聯", parallel: "兩燈並聯", mixed: "串並混聯", ohm: "全電路歐姆定律",limiting:'滑動變阻器 · 限流',divider:'滑動變阻器 · 分壓',gAmmeter:'G 表 · 並聯分流',gVoltmeter:'G 表 · 串聯分壓', meters: "A／V／W 表接線", bridge: "橋式電路", wiring: "固定元件接線", relay:"繼電器 · 兩燈切換",relayBell:"繼電器 · 電鈴式自斷",empty: "空白畫布" };
   function create(name) {
     const d = M.empty(); if (name === "empty") return d;
     function add(type, x, y, label, params = {}, angle = 0) { const c = M.add(d, type, x, y, params); c.label = label; c.angle = angle; return c; }
@@ -13,6 +13,25 @@
       const w=M.connect(d,from,to,points.slice(1,-1),'free');w.length=Math.max(600,Math.ceil(G.length(points))+400);return w;
     }
     const battery = add("battery", 180, 320, "電源", { voltage: 6, resistance: name === "ohm" ? 2 : 0 }, 90);
+    if(['relay','relayBell'].includes(name)){
+      battery.x=100;battery.y=380;battery.label='控制電源';
+      const sw=add('switch',240,170,'控制開關',{closed:false}),relay=add('relay',name==='relay'?440:380,300,'電磁繼電器');
+      link(battery,'a',sw,'a',[{x:100,y:170}]);
+      if(name==='relay'){
+        const load=add('battery',650,300,'負載電源',{voltage:6},0),upper=add('lamp',650,200,'上燈（未吸合）'),lower=add('lamp',650,420,'下燈（吸合）');
+        link(sw,'b',relay,'a',[{x:310,y:170},{x:310,y:440},{x:412,y:440}]);
+        link(relay,'b',battery,'b',[{x:468,y:510},{x:100,y:510}]);
+        link(load,'a',relay,'c');
+        link(relay,'d',upper,'a',[{x:560,y:252},{x:560,y:200}]);link(relay,'e',lower,'a',[{x:560,y:348},{x:560,y:420}]);
+        d.junctions.push({id:'j1',x:780,y:300});link(upper,'b','j1','p',[{x:780,y:200}]);link(lower,'b','j1','p',[{x:780,y:420}]);link('j1','p',load,'b');
+      }else{
+        const lamp=add('lamp',650,350,'自斷指示燈');
+        link(sw,'b',relay,'c',[{x:290,y:170},{x:530,y:170},{x:530,y:300}]);
+        link(relay,'d',relay,'a',[{x:500,y:252},{x:500,y:220},{x:260,y:220},{x:260,y:440},{x:352,y:440}]);link(relay,'b',battery,'b',[{x:408,y:510},{x:100,y:510}]);
+        link(relay,'e',lamp,'a',[{x:550,y:348},{x:550,y:350}]);link(lamp,'b',battery,'b',[{x:760,y:350},{x:760,y:550},{x:100,y:550}]);
+      }
+      return M.validate(d);
+    }
     if(['limiting','divider','gAmmeter','gVoltmeter'].includes(name)){
       battery.x=160;battery.y=350;
       if(name.startsWith('g')){

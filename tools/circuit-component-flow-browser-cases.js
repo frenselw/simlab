@@ -9,7 +9,7 @@ async function componentFlowCases(h,mode,base){
     else{await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',buttons:0,clickCount:1});}
     await delay(45);
   }
-  async function pause(value){await tap('#settings');if(await inside('document.getElementById("pause").checked')!==value)await tap('#pause');await tap('#closeSettings');}
+  async function pause(value){if(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")')!==value)await tap('#pause');}
   async function samples(count=14){return inside(`new Promise((resolve,reject)=>{
     const rows=[];function frame(t){try{
       const groups=[...document.querySelectorAll('#flowLayer [data-flow-component]')].map(g=>{

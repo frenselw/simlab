@@ -9,7 +9,7 @@ async function flowCases(h,mode,base){
   const settle=()=>inside('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   async function tap(selector){const p=await point(selector);if(width<600){await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:contactId++,radiusX:2,radiusY:2,force:1}]});await delay(30);await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});}await settle();}
   async function panel(){if(await inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap('#panelToggle');}
-  async function pause(value){await tap('#settings');if(await inside('document.getElementById("pause").checked')!==value)await tap('#pause');assert.equal(await inside('document.getElementById("pause").checked'),value);await tap('#closeSettings');}
+  async function pause(value){if(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")')!==value)await tap('#pause');assert.equal(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")'),value);}
   async function choose(flow){
     await tap('#settings');
     if(width>=600){
@@ -25,7 +25,10 @@ async function flowCases(h,mode,base){
     await settle();assert.equal((await doc()).display.flow,flow);await tap('#closeSettings');
   }
   async function voltage(value){
+    // In a short phone viewport, close the inspector before selecting the source.
+    if(width<600&&await inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="true"'))await tap('#panelToggle');
     await tap('[data-hit="body:c1"]');await panel();
+    assert.equal(await inside('CircuitWorkbench.getInteraction().selection?.id'),'c1');
     await inside('(()=>{const e=document.querySelector("#properties [data-param=voltage]");e.focus();e.select();})()');
     await send('Input.insertText',{text:String(value)});await key('Tab','Tab',9);await settle();
     assert.equal((await doc()).components[0].params.voltage,value);
@@ -61,7 +64,7 @@ async function flowCases(h,mode,base){
     const unknown=M.empty(),source=M.add(unknown,'battery',150,180);M.connect(unknown,source.id+':a',source.id+':b',[],'free');const good=M.add(unknown,'battery',450,180),loadC=M.add(unknown,'resistor',650,340,{resistance:12});M.connect(unknown,good.id+':a',loadC.id+':a',[],'free');M.connect(unknown,loadC.id+':b',good.id+':b',[],'free');await load(unknown);assert.equal(await inside('CircuitWorkbench.getAnalysis().wires.w1.current'),null);const isolated=await samples(8);assert(isolated.every(r=>r.groups.length===2&&!r.groups.some(g=>g.id==='w1')));evidence.push({mode,flow:'unknown-island',width:w,unknownSuppressed:true,independentFiniteCircuitMoves:true});
     const inputs=await inside('__flowInputs');assert(inputs.every(e=>e.trusted));assert(inputs.some(e=>e.type==='pointerup'&&e.pointer===(w<600?'touch':'mouse')));assert(inputs.some(e=>e.type==='change'&&e.target==='voltage'));evidence.push({mode,flow:'trusted-input',width:w,count:inputs.length});
     await load(unequalBranches());if(w===1280){await inside('document.getElementById("panel").scrollTop=0');await h.screenshot(`${mode}-current-linked-electrons.png`);}
-    await launch(w,true);assert(await inside('document.getElementById("pause").checked'));await load(unequalBranches());const reduced=await samples(12);assert(reduced.every(r=>r.groups.every(g=>g.phase===0)));await pause(false);assert((await samples(8)).slice(1).some(r=>r.groups.some(g=>g.phase!==0)));evidence.push({mode,flow:'reduced-motion',width:w,startsPaused:true,explicitResume:true});
+    await launch(w,true);assert(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")'));await load(unequalBranches());const reduced=await samples(12);assert(reduced.every(r=>r.groups.every(g=>g.phase===0)));await pause(false);assert((await samples(8)).slice(1).some(r=>r.groups.some(g=>g.phase!==0)));evidence.push({mode,flow:'reduced-motion',width:w,startsPaused:true,explicitResume:true});
   }
 }
 async function microFlowCases(h,mode,base){
@@ -72,7 +75,7 @@ async function microFlowCases(h,mode,base){
     else{await send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});}
     await delay(45);
   }
-  async function pause(value){await tap('#settings');if(await inside('document.getElementById("pause").checked')!==value)await tap('#pause');await tap('#closeSettings');}
+  async function pause(value){if(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")')!==value)await tap('#pause');}
   async function samples(count=24){return inside(`new Promise((resolve,reject)=>{
     const rows=[];function frame(t){try{
       const d=CircuitWorkbench.getDocument(),scale=CircuitWorkbench.getInteraction().camera.scale;
@@ -123,7 +126,7 @@ async function flowDragCases(h,mode,base){
       await tap('#undo');assert.equal(await save(),before);await tap('#redo');assert.equal(await save(),after);await load(after);near((await inside('CircuitWorkbench.getAnalysis()')).wires.w1.current,.5);await tap('#pickWire');
       // A restored connection can be picked up and safely cancelled.
       id++;const end=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',end);await input('move',{x:end.x+20,y:end.y+15});moving(await sample(),'restored continuation');await inside('CircuitWorkbench.cancel()');await input('up',end);assert.equal(await save(),after);
-      await tap('#settings');await tap('#pause');assert.equal(await inside('document.getElementById("pause").checked'),true);await tap('#closeSettings');id++;const pausedStart=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',pausedStart);const frozen=await sample();assert(frozen.every(r=>r.phase===frozen[0].phase),'explicit pause still freezes drag animation');await input('up',pausedStart);await tap('#settings');await tap('#pause');await tap('#closeSettings');
+      await tap('#pause');assert.equal(await inside('(document.getElementById("pause").getAttribute("aria-pressed")==="true")'),true);id++;const pausedStart=await point('[data-hit="wireend:'+wire.id+':to"]');await input('down',pausedStart);const frozen=await sample();assert(frozen.every(r=>r.phase===frozen[0].phase),'explicit pause still freezes drag animation');await input('up',pausedStart);await tap('#pause');
       evidence.push({mode,flow:'drag-continuity',width,type,view,style:flow,held,travelling,snapped,paused:true,undoRedo:true,restoredContinuation:true,cancelled:true});
     }
     const events=await inside('__dragFlowInputs');assert(events.length&&events.every(e=>e.trusted&&e.pointer===(width<600?'touch':'mouse')));console.log(`${mode}: ${width}px continuous held/moving/snapped endpoints passed`);

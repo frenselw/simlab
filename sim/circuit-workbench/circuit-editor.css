@@ -13,8 +13,8 @@
 .circuit-editor .stage{min-height:0;min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff;overflow:hidden;touch-action:pan-y}
 .circuit-editor .stage-tools{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #eef1f5;flex-wrap:wrap}
 .circuit-editor .stage-tools button{padding:0 12px}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{font-size:.875rem;color:#64748b;flex:1}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"].warning{color:#a36216}
+.circuit-editor .stage-tools:has(.playback-controls) .playback-controls{margin-right:auto}
+.circuit-editor .stage-tools:not(:has(.playback-controls)) .segmented{margin-right:auto}
 .circuit-editor .segmented{display:flex;gap:0}
 .circuit-editor .segmented button:first-child{border-radius:8px 0 0 8px}
 .circuit-editor .segmented button:last-child{border-radius:0 8px 8px 0}
@@ -118,7 +118,6 @@
 .circuit-editor .palette{grid-template-columns:repeat(3,minmax(0,1fr))}
 .circuit-editor .stage-tools{padding:5px 7px;gap:5px}
 .circuit-editor .stage-tools button{font-size:.875rem;padding:0 9px}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{font-size:12px}
 .circuit-editor.panel-hidden .workspace{grid-template-rows:minmax(0,1fr)}
 .circuit-editor .preview{width:140px;height:120px;right:38px}
 .circuit-editor .brand .badge{font-size:.6rem}
@@ -129,7 +128,6 @@
 .circuit-editor .workspace{grid-template-columns:minmax(0,1fr) 230px;grid-template-rows:minmax(0,1fr)}
 .circuit-editor .palette{grid-template-columns:1fr 1fr}
 .circuit-editor .stage-tools{flex-wrap:nowrap}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{display:none}
 .circuit-editor .stage-tools{padding:3px 7px}}
 @media(prefers-reduced-motion:reduce){
 .circuit-editor *{scroll-behavior:auto}}
@@ -144,7 +142,6 @@
 .circuit-editor .header-actions [data-circuit-id="preset"]{grid-row:2;grid-column:1;width:100%;max-width:none}
 .circuit-editor .header-actions [data-circuit-id="save"]{grid-row:2;grid-column:2;padding:0;font-size:12px}
 .circuit-editor .header-actions [data-circuit-id="open"]{grid-row:2;grid-column:3;padding:0;font-size:12px}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{display:none}
 .circuit-editor .stage-tools{justify-content:space-between}
 .circuit-editor .stage-tools .segmented{margin-right:auto}
 .circuit-editor .stage-tools button{padding:0 7px}
@@ -246,7 +243,9 @@
 .circuit-editor .heat-sparks{animation:heat-sparks 1.3s ease-in-out infinite alternate}
 @keyframes heat-flame{to{transform:scale(.94,1.06)}}
 @keyframes heat-sparks{to{opacity:.45}}
-.circuit-editor .effects-paused .heat-flame,.circuit-editor .effects-paused .heat-sparks{animation:none}
+.circuit-editor .effects-paused .heat-flame,.circuit-editor .effects-paused .heat-sparks{animation-play-state:paused}
+.circuit-editor .effects-slow .heat-flame{animation-duration:4.4s}
+.circuit-editor .effects-slow .heat-sparks{animation-duration:5.2s}
 @media(prefers-reduced-motion:reduce){
 .circuit-editor .heat-flame,.circuit-editor .heat-sparks{animation:none}}/* Compact actions and a single settings surface leave the panel for live work. */
 .circuit-editor .icon-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -308,7 +307,6 @@
 .circuit-editor [data-sim-fullscreen].sim-fullscreen-header:not(.sim-fullscreen-header-row)>.brand{padding-right:0}
 .circuit-editor .stage-tools{gap:4px;padding:5px 7px;flex-wrap:nowrap}
 .circuit-editor .stage-tools .segmented button{padding:0 7px}
-.circuit-editor .stage-tools [data-circuit-id="circuitStatus"]{display:none}
 }
 @media(max-width:579px){
 .circuit-editor .settings-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}
@@ -395,3 +393,16 @@
 .circuit-editor .potential-scale { height:12px; border-radius:3px; }
 .circuit-editor .potential-ticks { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-top:3px; font-size:.8rem; color:#52677c; }
 .circuit-editor .potential-zero-note { margin:4px 0 0; }
+
+.circuit-editor .playback-controls{display:flex;flex:0 0 auto;gap:0}
+.circuit-editor .playback-controls button:first-child{border-radius:8px 0 0 8px}
+.circuit-editor .playback-controls button:last-child{border-left:0;border-radius:0 8px 8px 0}
+@container stage (max-width:500px){
+.circuit-editor .stage-tools{flex-wrap:nowrap;gap:0;padding:5px 3px;justify-content:space-between}
+.circuit-editor .stage-tools .segmented,.circuit-editor .stage-tools .playback-controls{flex:0 0 auto;margin-right:0}
+.circuit-editor .stage-tools .segmented button{width:44px;min-width:44px;height:44px;padding:0;white-space:nowrap}
+}
+@container stage (max-width:357px){
+.circuit-editor .stage-tools{flex-wrap:wrap;gap:4px}
+.circuit-editor .stage-tools:has(.playback-controls) .segmented{flex:1 0 calc(100% - 92px)}
+}

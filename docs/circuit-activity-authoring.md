@@ -89,7 +89,11 @@ components:{
 
 `ui.potentialDirections` 以相同方式開放電勢方向：教師預設 true、學生 false。「圖上標示」同區提供兩種標示的全部開關，inspector 開放時可逐元件勾選。`editor.execute({type:'setPotentialDirectionDisplay',id:'c1',visible:true})` 控制單元件，省略 id 控制全部現有元件；驗證、只讀、onChange、載入／刪除清理與導線電流一致，`getInteraction().potentialDirections` 回傳暫態 ID。方向由低電勢端指向高電勢端；一般元件使用第一支路，變阻器 A–P、雙量程錶目前接入孔與 −、W 表 V+／V−。等電勢與未知不畫箭嘴。標示以 16 CSS px 文字避讓導線／元件；低於 40% 或同時開啟電勢方向後標籤無法避讓時，使用概覽提示放大／逐個顯示。SVG 包含當前標示；兩種標示新取元件／導線均預設隱藏，不保存至答案。
 
-`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`、`playback`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+
+`ui.playback` 控制畫布上方暫停／繼續與 ¼ 速按鈕，教師預設 true、學生 false，可獨立於 settings 開放。只讀仍可控制觀察速度；播放狀態為 instance 暫態，不保存至答案、不觸發 onChange 或 undo。暫停凍結時間推進，仍可編輯並重算直流讀值；慢動作同步機械、電流及指針，不改元件參數。動態評量須依下節另定取樣與恢復規則。
+
+`ui.status` 提供短路／過載或診斷的可存取提示，不佔工具列，也不顯示常態模型文字；設 false 可裁剪。畫布寬度至少 358 px 時，現有八個工具排成一行；極窄畫布換行，按鈕保持至少 44 px。
 
 `ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。控制面板沒有 `panelHelp` 或模型 footnote，不要依賴這些舊 DOM 目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
 
@@ -98,6 +102,14 @@ components:{
 底部直接提供獲准的旋轉、刪除、複製及定位，不重複於 inspector。複製使用同款工具箱庫存，達上限／只讀時不能新增；定位與讀錶仍可使用。關閉 inspector 不會關閉這些底部操作。定位用準星、縮放用放大鏡加減；快捷數字與單位用共用 TeX 排版，聚焦時保留原生 number 輸入。快捷參數、元件操作與畫布縮放採一致分組；窄畫布及長數值自動換行，按鈕維持至少 44 px。
 
 自訂 registry 元件可在定義中指定 `primaryParameter:'參數名稱'`。該參數須是有合法 `min/max/step` 的數值，沿用其 `label/unit/factor`；沒有主參數的元件不出現快捷區。快捷加減與輸入都走原有 `setParam`、權限及單步復原，沒有第二份參數或作答快照。
+
+### 電磁繼電器與動態取樣
+
+新增 `type:'relay'`，參數 `resistance`（Ω）、`pickupCurrent`（A，面板以 mA 顯示）及 `delay`（ms）；沿用元件白名單、庫存、固定／只讀及參數權限。五孔鍵 a/b 為線圈、c 共用、d 常閉、e 常開；畫布只畫接孔，不標字母。線圈與觸點隔離，途中兩邊斷開。詳見[繼電器操作與模型](circuit-workbench-core.md#電磁繼電器)。
+
+新活動入口需載入本地 `circuit-relay-motion.js` 並列入 manifest。`getAnalysis()`、`voltage()` 及 check callback 的第二參數使用 editor 當前接點狀態；直接 `CircuitSolver.solve(doc)` 或未指定動態狀態的拓撲檢查使用未吸合狀態。既有 series／connected 檢查不是動態繼電器評量；使用此元件的題目須寫明取樣時間、過程／最終狀態評分及 pending／recorded 行為。
+
+v6 document 保存參數與接線，不保存銜鐵位置或計時；load／destroy 清空動態狀態，load 從未吸合再演進。正式 SCORM 題目需要另外設計精簡權威動態快照、狀態 restore 與合法續作，不能把教師 JSON 當作完全相同瞬間的繼電器恢復。只讀可觀看電路繼續演進；若題目需要定格已提交瞬間，須在活動生命週期中明確處理，不將這個工作台當作已完成的評量活動。
 
 ## 檢查接口
 
