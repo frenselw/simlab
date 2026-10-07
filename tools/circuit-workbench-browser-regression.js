@@ -15,6 +15,7 @@ const {flowCases,microFlowCases,flowDragCases,flowScaleCases}=require("./circuit
 const {componentFlowCases}=require("./circuit-component-flow-browser-cases");
 const {foundationCases}=require("./circuit-foundation-browser-cases");
 const {activityCases}=require("./circuit-activity-browser-cases");
+const {platformCases}=require("./circuit-platform-browser-cases");
 const {componentSnappingCases}=require("./circuit-component-snapping-browser-cases");
 const {relayCases}=require('./circuit-relay-browser-cases');
 const {quickControlsCases}=require("./circuit-quick-controls-browser-cases");
@@ -59,6 +60,7 @@ async function main() {
   const componentFlowOnly=process.argv.includes('--component-flow-smoke');
   const foundationOnly=process.argv.includes('--foundation-smoke');
   const activityOnly=process.argv.includes('--activity-core-smoke');
+  const platformOnly=process.argv.includes('--platform-core-smoke');
   const componentSnapOnly=process.argv.includes('--component-snap-smoke');
   const relayOnly=process.argv.includes('--relay-smoke');
   const quickControlsOnly=process.argv.includes('--quick-controls-smoke');
@@ -91,9 +93,14 @@ async function main() {
     let context = "window";
     const inside = (expression) => evaluate(cdp, `(${context}).eval(${JSON.stringify(expression)})`);
     async function ready() { for (let i = 0; i < 100; i++) { try { if (await inside("Boolean(window.CircuitWorkbench)")) return; } catch {} await delay(50); } throw new Error("Workbench did not start: " + context); }
-    async function point(selector) { return inside(`(() => {const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest',inline:'nearest'});const r=e.getBoundingClientRect();let x=r.left+r.width/2,y=r.top+r.height/2,w=window;while(w!==w.top){const f=w.frameElement.getBoundingClientRect();x+=f.left;y+=f.top;w=w.parent;}return {x,y,width:r.width,height:r.height};})()`); }
-    async function click(selector) { const p = await point(selector); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...p, button: "left", clickCount: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...p, button: "left", clickCount: 1 }); await delay(30); }
+    async function point(selector, exposed=false) { return inside(`(() => {const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest',inline:'nearest'});const r=e.getBoundingClientRect();let x=r.left+r.width/2,y=r.top+r.height/2,w=window;if(${exposed}&&e.dataset.hit?.startsWith("body:")){const exposed=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.1,.1],[.9,.1],[.1,.9],[.9,.9]].map(([fx,fy])=>({x:r.left+r.width*fx,y:r.top+r.height*fy})).find(p=>document.elementFromPoint(p.x,p.y)===e);if(!exposed)throw new Error("No exposed body target "+e.dataset.hit);x=exposed.x;y=exposed.y;}while(w!==w.top){const f=w.frameElement.getBoundingClientRect();x+=f.left;y+=f.top;w=w.parent;}return {x,y,width:r.width,height:r.height};})()`); }
+    async function click(selector) { const p = await point(selector,true); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...p, button: "left", clickCount: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...p, button: "left", clickCount: 1 }); await delay(30); }
     async function tapBody(id) {
+      if(await inside("CircuitWorkbench.getInteraction().wireMode"))await click("#pickWire");
+      for(let n=0;await inside('CircuitWorkbench.getInteraction().camera.scale<.95');n++){
+        assert(n<8,'body selection reaches a readable zoom');const p=await point('[data-hit="body:'+id+'"]'),scale=await inside('CircuitWorkbench.getInteraction().camera.scale');
+        await cdp.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:0,deltaY:Math.log(scale)/.0015});await delay(80);
+      }
       const p=await inside(`(()=>{const e=document.querySelector('[data-hit="body:${id}"]'),r=e.getBoundingClientRect();for(const [fx,fy]of [[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.1,.1],[.9,.1],[.1,.9],[.9,.9]]){const x=r.left+r.width*fx,y=r.top+r.height*fy;if(document.elementFromPoint(x,y)===e)return{x,y};}return null;})()`);
       assert(p,'test circuit has an exposed housing for '+id);await touch(p,0,0);
       const selected=await inside('CircuitWorkbench.getInteraction().selection');assert.equal(selected?.kind,'body');assert.equal(selected?.id,id,'trusted tap selects the exposed housing');
@@ -111,7 +118,7 @@ async function main() {
     }
     async function key(key, code = key, windowsVirtualKeyCode) { for (const type of ["keyDown", "keyUp"]) await cdp.send("Input.dispatchKeyEvent", {type,key,code,...(windowsVirtualKeyCode ? {windowsVirtualKeyCode} : {}),...(type==='keyDown' && ['Enter',' '].includes(key) ? {text:key==='Enter'?'\r':' ',unmodifiedText:key==='Enter'?'\r':' '} : {})}); await delay(20); }
     async function until(expression) { for(let i=0;i<100;i++){if(await inside(expression))return;await delay(30);}throw new Error('Condition timed out: '+expression); }
-    async function dragMouse(selector, dx, dy) { const p = await point(selector); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", buttons: 1, clickCount: 1 }); for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x + dx * i / 6, y: p.y + dy * i / 6, button: "left", buttons: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x + dx, y: p.y + dy, button: "left", buttons: 0, clickCount: 1 }); }
+    async function dragMouse(selector, dx, dy) { const p = await point(selector,true); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", buttons: 1, clickCount: 1 }); for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x + dx * i / 6, y: p.y + dy * i / 6, button: "left", buttons: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x + dx, y: p.y + dy, button: "left", buttons: 0, clickCount: 1 }); }
     let nextTouchId = 100;
     async function touch(p, dx, dy, sample, cancel = false) { const id = nextTouchId++, points = (i) => [{ x: p.x + dx * i / 8, y: p.y + dy * i / 8, id, radiusX: 2, radiusY: 2, force: 1 }]; await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(0) }); await delay(25); if (sample) await sample(); for (let i = 1; i <= 8; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(i) }); await delay(22); if (sample) await sample(); } await cdp.send("Input.dispatchTouchEvent", { type: cancel ? "touchCancel" : "touchEnd", touchPoints: [] }); for (const t of [30, 120, 400]) { await delay(t); if (sample) await sample(); } }
     async function touchStroke(points, sample, cancel=false) {
@@ -223,6 +230,7 @@ async function main() {
       if(teachingOnly){await teachingCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(continuationOnly){await refinements(mode,base);await bendTrajectories(mode,base);}
       if(textbookOnly){await textbookCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
+      if(platformOnly){await platformCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(activityOnly){await activityCases(cameraHarness,mode,base);await foundationCases(cameraHarness,mode,base,output);await closeServer(server);server=null;continue;}
       if(componentSnapOnly){await componentSnappingCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(relayOnly){await relayCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
@@ -362,6 +370,7 @@ async function main() {
     if(relayOnly){assert.deepEqual(errors,[],'no relay runtime exceptions');fs.writeFileSync(path.join(output,'relay.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),evidence},null,2));console.log('Relay source + ZIP passed: '+evidence.length+' observations.');return;}
     if(quickControlsOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'quick-controls.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused quick controls passed on source + ZIP: ${evidence.length} observations; aligned columns, trusted parameters, bounds, history, restore, drag and activity guards.`);return;}
     if(componentSnapOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'component-snapping.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused component snapping passed on source + ZIP: ${evidence.length} observations; trusted body docking, preview/cancel, precise ports, undo, continuation and activity guards.`);return;}
+    if(platformOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'platform-core.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Embedded circuit source + ZIP passed: ${evidence.length} observations; stock, reachable controls, outer fullscreen, readonly/restore/remount and T1–T3 host ownership.`);return;}
     if(activityOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'activity-core.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused activity core passed on source + ZIP: ${evidence.length} observations; configurable student editors, topology/effect checks, lifecycle and teacher preservation.`);return;}
     if(foundationOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'foundation.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused foundation passed on source + ZIP: ${evidence.length} observations; recording absent, component/cable editing, legacy file import, actual meter reading and continuation.`);return;}
     if(microFlowOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,'micro-flow.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Focused microamp flow passed on source + ZIP: ${evidence.length} observations; G shunt/multiplier, actual signed RAF/SVG displacement, relative speed, removed preset and trusted pause/restore continuation. Evidence: ${output}/micro-flow.json`);return;}

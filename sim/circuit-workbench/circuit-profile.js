@@ -13,7 +13,7 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
-  const uiKeys = ['palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback'];
+  const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},
@@ -47,10 +47,11 @@
     }
     const ui = Object.fromEntries(uiKeys.map(k => [k,teacher]));
     // A student can have a small inspector without exposing teacher controls.
-    ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true;
+    ui.header = true; ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true;
     keys(config.ui || {}, uiKeys, '介面');
     for (const [k,v] of Object.entries(config.ui || {})) { if (typeof v !== 'boolean') throw new Error('介面設定必須是布林值'); ui[k] = v; }
     if (!teacher && (ui.settings || ui.files || ui.presets)) throw new Error('教師設定、文件與範例只適用於教師工作台');
+    if (!ui.header && ['presets','files','settings','help'].some(k=>ui[k])) throw new Error('不顯示頂欄時，須關閉範例、文件、設定及說明');
     const wires = config.wires !== false, undo = config.undo !== false, wireResistance=config.wireResistance??teacher;
     if(config.wireResistance!==undefined&&typeof config.wireResistance!=='boolean')throw new Error('導線電阻權限必須是布林值');
     if (config.wires !== undefined && typeof config.wires !== 'boolean' || config.undo !== undefined && typeof config.undo !== 'boolean') throw new Error('操作設定無效');
@@ -68,6 +69,12 @@
     });
     if (config.check !== undefined && typeof config.check !== 'function') throw new Error('check 必須是本地函數');
     const getRule = c => ({move:false,rotate:false,remove:false,label:false,switch:false,params:false,...defaults,...byType[c.type],...byId[c.id]});
+    const mutable = (r,k) => r.params === true || Array.isArray(r.params) && r.params.includes(k) || k === 'closed' && r.switch;
+    if (!teacher) for (let i=0;i<palette.length;i++) for (const b of palette.slice(i+1)) {
+      const a=palette[i]; if(a.type!==b.type)continue;
+      const candidates=[{rule:{...defaults,...byType[a.type]}},...initial.components.filter(c=>c.type===a.type).map(c=>({params:c.params,rule:getRule(c)}))];
+      if(candidates.some(c=>Object.keys(a.params).every(k=>mutable(c.rule,k)||same(a.params[k],b.params[k])&&(!c.params||same(c.params[k],a.params[k]))))) throw new Error('工具箱款式的庫存有歧義：'+a.key+' / '+b.key+'；請以不可調參數區分');
+    }
     function allows(doc,c,operation,param,readOnly=false) {
       if (readOnly || !c) return false;
       if (teacher) return M.permission(doc,c,operation === 'label' ? 'params' : operation);
@@ -78,7 +85,7 @@
     function matches(c,entry) {
       if (c.type !== entry.type) return false;
       const r = getRule(c);
-      return Object.keys(entry.params).every(k => r.params === true || Array.isArray(r.params) && r.params.includes(k) || k === 'closed' && r.switch || same(c.params[k],entry.params[k]));
+      return Object.keys(entry.params).every(k => mutable(r,k) || same(c.params[k],entry.params[k]));
     }
     function entryFor(c) { return palette.find(p => matches(c,p)); }
     function count(doc,entry) { return doc.components.filter(c => entryFor(c)?.key === entry.key).length; }

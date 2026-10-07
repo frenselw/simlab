@@ -1,5 +1,9 @@
 
 .circuit-editor{height:100%;min-height:0;grid-template-rows:auto minmax(0,1fr);background:#f7f9fb}
+.circuit-editor.embedded-editor{grid-template-rows:minmax(0,1fr)}
+.circuit-editor .embedded-actions{display:flex;gap:6px;flex-wrap:wrap}
+.circuit-editor .embedded-actions button{min-width:44px;padding:0 10px}
+.circuit-editor .embedded-actions [data-circuit-id="undo"],.circuit-editor .embedded-actions [data-circuit-id="redo"]{font-size:1.6rem}
 .circuit-editor .sim-header{display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;padding-right:4.2rem;background:#fff;min-height:72px}
 .circuit-editor .brand{flex-shrink:0}
 .circuit-editor .brand h1{font-size:1.3rem;letter-spacing:.02em}

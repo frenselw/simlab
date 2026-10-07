@@ -24,7 +24,7 @@
     const allow=(d,c,op,key)=>profile.allows(d,c,op,key,readOnly);
     const wireAllowed=()=>profile.wires&&!readOnly;
     const $=id=>refs[id];
-    const fullscreen=root.SimFullscreen?.attach({
+    const fullscreen=profile.ui.header ? root.SimFullscreen?.attach({
       getElementById:id=>refs[id]||host.querySelector('[id="'+id+'"]'),
       querySelector:selector=>host.matches(selector)?host:host.querySelector(selector),
       createElement:tag=>document.createElement(tag),documentElement:host,defaultView:window,
@@ -32,7 +32,7 @@
       get fullscreenElement(){return document.fullscreenElement;},get webkitFullscreenElement(){return document.webkitFullscreenElement;},
       get fullscreenEnabled(){return document.fullscreenEnabled;},get webkitFullscreenEnabled(){return document.webkitFullscreenEnabled;},
       exitFullscreen:document.exitFullscreen?.bind(document),webkitExitFullscreen:document.webkitExitFullscreen?.bind(document)
-    });
+    }) : null;
     for (const id of ['fullscreenButton','fullscreenStatus']) {
       const element=host.querySelector('[id="'+id+'"]'); if(element){refs[id]=element;element.dataset.circuitId=id;element.id=prefix+id;}
     }
@@ -43,7 +43,7 @@
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const wireCurrents=new Set(),potentialDirections=new Set(),labelOptions={previous:null,exclusions:[],idPrefix:prefix,wireCurrents,potentialDirections},flowOffsets=new Map(),flowScales=new Map(),needleStates=new Map(),relayStates=new Map();
   const flowContext=()=>(drag||previewDoc)?new Map(flowScales):flowScales;
-  const solve=doc=>{H.sync(relayStates,doc);return S.solve(doc,relayStates);};
+  const solve=doc=>{H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
   let analysis=solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
   let quickBinding=null,releasedMeta=null,blankMouseDown=null;
   const touches=new Map(),minScale=.001,maxScale=2.5;

@@ -169,5 +169,21 @@
     });
     return { components, wires, potentials: Object.fromEntries([...ports.keys()].map((p) => [p, potential(p)])), islandOf, references: [...solutions.values()].map((s) => ({ island: s.key, endpoint: [...ports.keys()].find((p) => netOf[p] === s.reference), voltage: 0 })), diagnostics, residual: Math.max(0, ...[...solutions.values()].filter((s) => !s.error).map((s) => s.residual)), voltage };
   }
-  return { solve, linear };
+  // Teaching warnings only; these thresholds do not model fuses or thermal failure.
+  const hazardLimits=Object.freeze({current:5,meterRatio:1.5,lampRatio:1.5});
+  function hazards(doc,result) {
+    const wires={},components={},adj=new Map();
+    const edge=(a,b,kind,id)=>{for(const [from,to]of [[a,b],[b,a]]){if(!adj.has(from))adj.set(from,[]);adj.get(from).push({to,kind,id});}};
+    doc.wires.filter(w=>w.resistance===0).forEach(w=>edge(w.from,w.to,'wire',w.id));
+    doc.components.filter(c=>c.type!=='battery').forEach(c=>R.dc(c,result.components[c.id]).filter(b=>b.resistance===0&&!b.emf).forEach(b=>edge(c.id+':'+b.from,c.id+':'+b.to,'component',c.id)));
+    for(const c of doc.components.filter(c=>c.type==='battery'&&c.params.voltage>0)){
+      const from=c.id+':a',to=c.id+':b',queue=[from],previous=new Map([[from,null]]);
+      for(let i=0;i<queue.length&&!previous.has(to);i++)for(const e of adj.get(queue[i])||[])if(!previous.has(e.to)){previous.set(e.to,{...e,from:queue[i]});queue.push(e.to);}
+      if(previous.has(to)){components[c.id]='short';for(let p=to;p!==from;){const e=previous.get(p);(e.kind==='wire'?wires:components)[e.id]='short';p=e.from;}}
+    }
+    doc.wires.forEach(w=>{const i=result.wires[w.id]?.current;if(Number.isFinite(i)&&Math.abs(i)>hazardLimits.current&&!wires[w.id])wires[w.id]='overload';});
+    doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?Number.isFinite(r?.power)&&Math.max(0,r.power)/(c.params.ratedVoltage**2/c.params.resistance)>hazardLimits.lampRatio:false;if(hot&&!components[c.id])components[c.id]='overload';});
+    return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
+  }
+  return { solve, linear, hazards, hazardLimits };
 });

@@ -83,7 +83,8 @@
 `;
   function build(host, profile, prefix) {
     host.classList.add('sim-app','workbench','circuit-editor');
-    host.setAttribute('data-sim-fullscreen-target','');
+    if (profile.ui.header) host.setAttribute('data-sim-fullscreen-target','');
+    else host.removeAttribute('data-sim-fullscreen-target');
     host.tabIndex = -1;
     const content = document.createElement('template'); content.innerHTML = template;
     const refs = {app:host};
@@ -99,6 +100,7 @@
     }
     const remove = (...ids) => ids.forEach(id=>refs[id].remove());
     const ui=profile.ui, student=profile.role==='student';
+    host.classList.toggle('embedded-editor',!ui.header);
     if (!ui.presets) remove('preset');
     if (!ui.files) remove('save','open','fileInput');
     if (!ui.settings) remove('settings','settingsDialog');
@@ -129,6 +131,12 @@
     heading.replaceChildren(document.createTextNode(profile.title+' '));
     const badge=document.createElement('span'); badge.className='badge'; badge.textContent='直流'; heading.append(badge);
     content.content.querySelector('.brand p').textContent=profile.subtitle;
+    if (!ui.header) {
+      const actions=document.createElement('div'); actions.className='embedded-actions'; actions.setAttribute('role','group'); actions.setAttribute('aria-label','復原與操作面板');
+      for (const id of ['undo','redo','panelToggle']) if(content.content.contains(refs[id]))actions.append(refs[id]);
+      if(actions.childElementCount)content.content.querySelector('.stage-tools').append(actions);
+      content.content.querySelector('.sim-header').remove();
+    }
     host.replaceChildren(content.content);
     return refs;
   }

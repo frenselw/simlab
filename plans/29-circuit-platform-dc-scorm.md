@@ -1,7 +1,7 @@
 # 電路共用架構與 DC／SCORM 實作計劃
 
-- 日期：2026-10-07。
-- 狀態：**架構規劃稿；本次只編寫計劃，不實作核心重構或 SCORM 活動。** 下列「待實作」及驗收項目均未因文件完成而通過。
+- 日期：2026-10-07；核心完成紀錄更新：2026-10-08。
+- 狀態：**D1／D2 共用核心已完成，電路回歸通過；正式活動仍待題目討論。** 全站 `npm test` 有未修改活動的既有失敗，詳見第 17.2 節；核心驗證不能代替正式 SCORM 活動驗收。
 - 本輪範圍：詳細規劃現有直流（DC）模擬如何成為共用電路核心，同時支援獨立工作台及多個功能各異的 SCORM 1.2 活動。
 - 家庭電路、交流、高壓輸電：只記錄共用邊界與待討論事項，具體元件、物理近似、教學任務及介面留待後續逐項討論。先前對話中的功能建議屬候選方案，並非本計劃已批准的開發清單。
 - 文件定位：本文件擁有電路平台的後續架構、DC 整理與 SCORM 接入路線；[原工作台計劃](28-circuit-workbench.md)保留工作台功能決策及歷史驗證；[架構審視](../docs/circuit-workbench-architecture-review.md)與[作者指南](../docs/circuit-activity-authoring.md)說明目前已實作的介面。
@@ -29,7 +29,7 @@ DC 階段不新增通用插件市場、動態下載模型、視覺化出題平�
 
 ## 2. 現有基礎與尚未完成的部分
 
-以下是本次閱讀原始碼得到的現況，不是本次重新執行的驗收證據。
+以下是核心實作前閱讀原始碼得到的現況；本輪核心改動及重新執行的驗收證據見第 17 節。
 
 | 項目 | 已有基礎 | 後續工作／限制 |
 |---|---|---|
@@ -389,8 +389,8 @@ DC／SCORM 接入要解決的具體外殼差異：
 
 - 工作台保持目前完整 editor 頂欄及內部全螢幕。
 - 正式活動以外層 `<main data-sim-fullscreen-target>` 包含題目、電路、控制、檢查／結果及技術訊息，外層 header 使用 shared fullscreen。
-- **待實作設計：新增 `ui.header`，預設 true 以維持現有入口；嵌入活動設 false。** false 時不建立內層 header，也不建立內層全螢幕 target／button／attach。外層負責唯一完整頂欄；原本位於 header 的功能須由該配置關閉或由外層明確提供，不留下不可達操作。
-- `ui.header` 尚未存在，不能直接加入上面的現有 API 範例。實作時同步更新 profile 白名單、UI build、editor 的 shared fullscreen 接合、作者文件與測試；宿主缺少所需外層標記時應在開發驗證中失敗。
+- **D2 已實作 `ui.header`，預設 true 以維持現有入口；嵌入活動設 false。** false 時不建立內層 header，也不建立內層全螢幕 target／button／attach。外層負責唯一完整頂欄；復原／重做移至 stage 工具列，面板開關保留，沒有入口的 presets／files／settings／help 須關閉，不留下不可達操作。
+- profile 白名單、UI build、editor 的 shared fullscreen 接合、作者文件與精準測試已同步。作者可在第 6.3 節配置的 ui 加 `header:false`，並由外層提供 shared 標記；宿主缺少所需外層標記時應在開發驗證中失敗。這項核心能力不能代替正式活動的完整版面及 SCORM 驗收。
 - 檢查、pending、review 和技術狀態仍可使用外層全螢幕；全螢幕不造成 remount、答案重設或 SCORM 重新初始化。
 - 元件、線端、彎線、滑片、儀表預覽及雙指導覽沿用共用手勢；外層驗證題目／面板捲動和兩側捲頁區，不改 Moodle 父頁 DOM 來湊出效果。
 - 有長控制面板的活動採 bounded split-panel；只有短按鈕的題型可按基線選自然流。每個活動記錄斷點、stage 尺寸、可讀標籤及實測捲頁區，不在核心固定一套課程高度。
@@ -470,9 +470,37 @@ DC／SCORM 接入要解決的具體外殼差異：
 
 ## 16. 本次文件交付紀錄
 
+本節記錄實作前的文件交付；後續實作以第 17 節為準。
+
 - 本次新增平台計劃，並從原 DC 工作台計劃與架構審視加入入口。
 - 本次不修改 runtime、SCORM manifest、目錄登記或部署 ZIP；D1–D5 尚未執行。
 - 已用 Node 執行第 6.3 節的原文配置範例：profile 接受；各款取滿後不可再新增；超量與未提供類型被拒絕；含懸空導線的文件可 encode／decode 並通過同一 profile 驗證。這只證明範例與目前 API 一致，不代表 SCORM 或瀏覽器流程已通過。
 - 2026-10-07 完成獨立 subagent 三輪審核：首輪修正壞 finished 快照的呈現與初始導線身分兩項 P2；第二輪修正 load-error 範圍一項 P2；第三輪確認沒有未解決的實質問題。同步補清固定拓撲重建、程序載入通知隔離、phase／kind 配對及壞草稿恢復條件。
 - 以 Node 復核初始異阻／長線 ID、固定拓撲陣列比較，以及 finished 摘要／未知成績／各 startup 錯誤分支；24 個本計劃連結與 anchor、2 個反向入口及 diff 檢查通過。這些是現有 API 及文件的一致性核對，不代表尚未實作的活動 codec 已通過驗收。
 - 本次只執行文件連結／格式／diff、上述配置與 API 核對；未執行全站 runtime、瀏覽器、真手機或 Moodle 驗收。
+
+## 17. DC 共用核心實作（2026-10-07 至 2026-10-08）
+
+### 17.1 本輪已授權範圍及實作決策
+
+使用者批准按計劃實作，並明確選擇「先完成核心，活動題目稍後討論」。本輪完成 D1／D2；D3／D4 的題目、rubric、精簡 codec、SCORM 生命週期和正式套件，以及依賴它們的 D5 多活動發布閉環，留待後續。教師工作台維持非評量用途，assessment／rubric／attempt schema 為 N/A。
+
+- 庫存：學生配置的同類款式必須以不可調參數區分；按新增元件的 default／byType 權限及各初始元件 byId 權限，拒絕可能同時符合多款的配置。保留教師既有自由工具箱。
+- 嵌入：新增 `ui.header`，預設 true。false 時移除 editor 頂欄、內部 fullscreen 標記及 controller；復原／重做與面板開關移至 stage 工具列。沒有其他入口的文件／範例／設定／說明功能須明確關閉，配置不符合便拒絕，避免藏起可用能力。外層按 shared contract 擁有完整全螢幕。
+- DC 診斷：把現有短路路徑及過載判斷移到 `CircuitSolver.hazards()`；renderer 的 `visualState()` 保留相容入口，只取用同一診斷。閾值、讀值及 v6 文件語義不改；不新增分析器框架。Checks 的拓撲與三點滑片取樣仍明確只適用於現有 DC／靜態檢查。
+- 動態隔離：editor 求解預覽時只同步已提交文件的 relay 狀態；預覽不得清除、建立或推進另一份已提交機械狀態。正式動態評量仍依第 5.3 節另定。
+- 驗證：原工作台及四種配置示例作為基準；增加款式歧義／原子拒絕、外層唯一 fullscreen、無頂欄時控制可達、只讀／卸載／多 instance 的精準案例。用 source 和實際解壓教師 ZIP 驗證，手機採可信協定觸控；核心內容不因本輪加入新的評量階段。
+
+### 17.2 基準及驗證紀錄
+
+- 修改前基準 commit：`f37bf02`。既有 `--activity-core-smoke` 在 source／解壓 ZIP、1280／390 px 通過 46 個 observations，包含四種配置及教師工作台保留；原始紀錄先保存在 `output/circuit-platform-baseline-browser.log`。
+- 修改前 `npm test` 的 circuit 單元群組已通過；其內含 browser runner 首次因 Windows 沙盒阻止 Chrome crash server 啟動而退出，不能把該次全套執行記為通過。後續完整驗證已在可啟動 Chrome 的環境重跑，結果如下。
+- 核心實作後 `platform-core.test.js` 通過 6 個精準群組；檢查款式重疊、default／type／ID 覆蓋、庫存刪除／恢復續作、無頂欄配置及純 DC 警示。新增單元／browser runner 已登記至 `tools/run-tests.js`。
+- 14 個課堂預設的分析與 hazards 逐一對照實作前 Git 快照，數值、警示及完整 SVG 圖形結果完全一致；`solve()` 方程函數內容亦一致。v6 文件及模型規格不升版。
+- 實作後 `--activity-core-smoke` 通過原有 46 個 observations；`--relay-smoke` 通過 38 個 observations，均含 source／解壓 ZIP。
+- 新增 `node tools/circuit-platform-browser-regression.js` 通過 60 個 observations：source／解壓 ZIP 的 1280×800、768×1024、390×844、320×500、844×390；可信點擊／接線、明確放大後的短畫面操作、庫存、復原／重做、恢復續作、只讀、多 instance／卸載、外層唯一 fullscreen／外部退出／unsupported，以及 T1／T2／T3 原生捲動及 denied fullscreen。證據：`output/playwright/circuit-workbench/platform-core.json` 與對應 PNG。測試外層採緊湊頂欄並保留可用畫布；正式活動仍須驗證自己的實際版面／phase 矩陣。
+- 原 `npm test` 中另有舊測試契約及定位問題。零讀值標籤、元件中心被導線命中層覆蓋、儀表接線另一端固定及低倍率導線本體取點的失敗，在原 runtime 的 Git 快照亦重現；另按未改動的儀表幾何及動畫行為修正舊假設。修正測試的標籤 selector，只在實際 click／drag 選元件時找可見命中點，按目前接孔位置取點，必要時用實際縮放露出導線本體，並等待預覽指針停定。幾何及相機測試保留原本座標語義，物理／動作 assertions 依既定的另一端固定、現有儀表尺寸及可見指針契約維持嚴格核對。320×500 的極短畫布明確驗證總覽提示，詳細方向標示另於 320×700 驗證。
+- 最終完整 circuit browser runner 在 source／實際解壓 ZIP 通過 4692 個 observations；新增 platform runner 通過 60 個 observations。紀錄分別為 `output/playwright/circuit-workbench/evidence.json` 及 `platform-core.json`。`npm run check`、`npm run package:all`、`npm run package:circuit`、changed-file syntax、文件連結及 diff 檢查通過。
+- **全站 `npm test` 結果為失敗（exit 1）**：電路單元及上述兩個完整電路 browser runner 通過，全站 fullscreen source／package 檢查亦通過；之後在未修改的 `tools/newtons-third-law-fullscreen-activity-regression.js:132`，因 `r.stage >= 195` 版面斷言失敗而停止，後續測試未執行。以修改前 `f37bf02` 快照執行該 runner 的 `--smoke`，亦於同一斷言失敗（`output/circuit-platform-baseline-third-law.log`）；本輪沒有修改牛頓活動來消除這項既有問題。完整執行紀錄：`output/circuit-platform-tests.log`。因此不宣稱全站測試全綠或整個系列 package-ready。
+- 教師 ZIP 的 29 個 runtime 檔案逐一與來源 byte 比較一致；指紋（檔名及內容依排序 SHA-256）為 `a20689817a42e804ea16a908cfb14e2e6870836c26a2caf8a2a644198bb9dae2`，紀錄在 `output/circuit-platform-core-verification.json`。
+- 真手機及真 Moodle 未在本輪執行；未建立正式 SCORM 活動或宣稱 D3–D5 已通過。

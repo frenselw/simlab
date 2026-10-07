@@ -25,8 +25,8 @@ async function reviewCases(h,mode,base,{zeroOnly=false,followupOnly=false,bounda
   }
   async function balancedZero(){
     await h.load(P.create('bridge'));assert.equal(await h.inside('CircuitWorkbench.getAnalysis().components.c6.reading'),0);
-    assert(await h.inside(`Boolean(document.querySelector('[data-component="c6"] [data-math="0 A"]'))`));
-    assert(!await h.inside(`document.querySelector('[data-component="c6"]').innerHTML.includes('e-17')`));evidence('balanced-meter-zero',{renderedZero:true});
+    assert(await h.inside(`Boolean(document.querySelector('[data-label-block="c6"] [data-component-value="c6"][data-math="0 A"]'))`));
+    assert(!await h.inside(`document.querySelector('[data-label-block="c6"]').innerHTML.includes('e-17')`));evidence('balanced-meter-zero',{renderedZero:true});
   }
   async function tinyWireDirection(){
     const d=M.empty(),source=M.add(d,'battery',0,0,{voltage:6}),load=M.add(d,'resistor',200,0,{resistance:.01}),meter=M.add(d,'voltmeter',400,0,{resistance:1e12});

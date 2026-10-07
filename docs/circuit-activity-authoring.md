@@ -58,7 +58,7 @@ components:{default:{move:true, rotate:true, remove:true, switch:true}},
 ui:{palette:true, inspector:true}
 ```
 
-工具箱只建立這三種按鈕；上限包含已放在初始電路的同類元件。`key` 唯一，供命令新增指定款式；`params` 與 registry 預設合併。不同款式應以固定的模型參數區分，不要同時開放修改用來區分款式的參數。預置元件可以不在工具箱中，仍顯示並參與求解。
+工具箱只建立這三種按鈕；上限包含已放在初始電路的同類元件。`key` 唯一，供命令新增指定款式；`params` 與 registry 預設合併。學生配置的不同款式必須以不可調參數區分；編譯時按 default／byType，以及初始元件的 byId 權限，拒絕可能同時符合多款的庫存歧義。只改 key／label，或以可調阻值／可開合狀態區分款式，都不能建立兩個獨立庫存。固定 model 可區分恆阻與熱燈，同時開放它們的 resistance。預置元件可以不在工具箱中，仍顯示並參與求解。
 
 `limit` 是同款元件在畫布上的數量上限，不是必須使用的數量；達上限後取用按鈕停用，允許刪除的元件刪除後可再取用。學生模式的新增、複製、命令及載入答案均檢查庫存。若題目要求「恰好兩盞燈」，數量條件由活動的 `check`／rubric 判斷。正式活動仍須允許空白／部分作答進入最終檢查與提交，不以用滿庫存作為門檻。
 
@@ -85,11 +85,15 @@ components:{
 
 ### 介面裁剪
 
+`ui.header` 預設 true，保留完整工作台頂欄。嵌入正式活動時設 false：editor 不掛頂欄、fullscreen button／controller 或 fullscreen target 標記，外層按 shared fullscreen contract 提供完整活動的唯一全螢幕入口。宿主不要自行加 fullscreen target 標記。復原／重做（若 `undo:true`）移至 stage 工具列，面板開關仍可使用；沒有頂欄入口的 `presets/files/settings/help` 須關閉，否則配置報錯。`probe`、外觀切換及其他 stage 控制可按原權限保留。
+
+例如 `ui:{header:false, palette:true, inspector:true}` 可嵌入指定工具箱；外層使用自己的 header、題目／導航及提交區。教師入口的預設不變；教師若採嵌入模式，須明確關閉上述四項頂欄功能。外層須給宿主可用高度，並驗證短 iframe／手機的末端控制可達，不能靠移除頂欄宣稱完成所有 SCORM 版面工作。
+
 `ui.wireCurrents` 控制導線電流標示的開放，教師預設 true、學生 false。開放後，面板可全部顯示／隱藏；inspector 開放時亦可逐線勾選，不依賴 `ui.readings`、教師 settings 或文件 `display.values`。只讀仍能切換這個檢視。`editor.execute({type:'setWireCurrentDisplay',id:'w1',visible:true})` 控制單線；省略 id 控制全部現有線。不合法 id／非布林 visible、未開放 profile 會拒絕且不改文件。`getInteraction().wireCurrents` 回傳暫態可見線 ID；不寫入作答或 JSON，不觸發 onChange，不新增復原步驟；load／destroy 清空，刪線清理，新線不繼承同 ID 的舊選擇。活動要顯示指定示範線，可在 mount 或載入後明確執行命令；匯入答案不能開放功能。數值採即時 solver 結果，方向固定為常規電流；低於 40% 的概覽提示放大查看。匯出 SVG 包含當前標示，SCORM 的題目、評分與恢復仍由活動外層負責。
 
 `ui.potentialDirections` 以相同方式開放電勢方向：教師預設 true、學生 false。「圖上標示」同區提供兩種標示的全部開關，inspector 開放時可逐元件勾選。`editor.execute({type:'setPotentialDirectionDisplay',id:'c1',visible:true})` 控制單元件，省略 id 控制全部現有元件；驗證、只讀、onChange、載入／刪除清理與導線電流一致，`getInteraction().potentialDirections` 回傳暫態 ID。方向由低電勢端指向高電勢端；一般元件使用第一支路，變阻器 A–P、雙量程錶目前接入孔與 −、W 表 V+／V−。等電勢與未知不畫箭嘴。標示以 16 CSS px 文字避讓導線／元件；低於 40% 或同時開啟電勢方向後標籤無法避讓時，使用概覽提示放大／逐個顯示。SVG 包含當前標示；兩種標示新取元件／導線均預設隱藏，不保存至答案。
 
-`ui` 支援 `palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`、`playback`。學生預設開啟 inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
+`ui` 支援 `header`、`palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`、`playback`。學生預設開啟 header、inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
 
 `ui.playback` 控制畫布上方暫停／繼續與 ¼ 速按鈕，教師預設 true、學生 false，可獨立於 settings 開放。只讀仍可控制觀察速度；播放狀態為 instance 暫態，不保存至答案、不觸發 onChange 或 undo。暫停凍結時間推進，仍可編輯並重算直流讀值；慢動作同步機械、電流及指針，不改元件參數。動態評量須依下節另定取樣與恢復規則。
 

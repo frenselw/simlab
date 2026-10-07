@@ -49,12 +49,20 @@ async function cableHandlingCases(h,mode,base){
     await h.delay(30);await settle();return sample();
   }
   async function bodyGrip(d,w){
-    const p=await h.scenePoint(G.along(G.route(d,w),G.length(G.route(d,w))/2));
-    if(await h.inside(`document.elementFromPoint(${p.x},${p.y})?.meta?.id===${JSON.stringify(w.id)}&&document.elementFromPoint(${p.x},${p.y})?.meta?.kind==='wire'`))return p;
-    return h.inside(`(()=>{for(const e of [...document.querySelectorAll('.hit.wire')].filter(e=>e.meta.id===${JSON.stringify(w.id)}).sort((a,b)=>b.clientWidth-a.clientWidth)){const r=e.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;if(document.elementFromPoint(x,y)===e)return{x,y};}throw new Error('No exposed cable body');})()`);
+    const midpoint=G.along(G.route(d,w),G.length(G.route(d,w))/2);
+    for(let attempt=0;attempt<4;attempt++){
+      const p=await h.scenePoint(midpoint);
+      if(await h.inside(`document.elementFromPoint(${p.x},${p.y})?.meta?.id===${JSON.stringify(w.id)}&&document.elementFromPoint(${p.x},${p.y})?.meta?.kind==='wire'`))return p;
+      const exposed=await h.inside(`(()=>{for(const e of [...document.querySelectorAll('.hit.wire')].filter(e=>e.meta.id===${JSON.stringify(w.id)}).sort((a,b)=>b.clientWidth-a.clientWidth)){const r=e.getBoundingClientRect();for(const fx of [.5,.25,.75,.1,.9])for(const fy of [.5,.25,.75,.1,.9]){const x=r.left+r.width*fx,y=r.top+r.height*fy;if(document.elementFromPoint(x,y)===e)return{x,y};}}return null;})()`);
+      if(exposed)return exposed;
+      // At overview zoom the endpoint halos can cover the complete loose cable.
+      // Use the real zoom control before requiring a visible body grip.
+      await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:0,deltaY:-Math.log(1.5)/.0015});await settle();
+    }
+    throw new Error('No exposed cable body after zoom');
   }
   async function destination(f,end,offset=12){
-    const camera=await h.inside('CircuitWorkbench.getInteraction().camera'),e=M.endpoints(f.d).get(f.wire[end]),grip=await bodyGrip(f.d,f.wire);
+    const e=M.endpoints(f.d).get(f.wire[end]),grip=await bodyGrip(f.d,f.wire),camera=await h.inside('CircuitWorkbench.getInteraction().camera');
     return{start:grip,to:{x:grip.x+(f.p.x-e.x)*camera.scale+f.p.dx*offset,y:grip.y+(f.p.y-e.y)*camera.scale+f.p.dy*offset},camera};
   }
   function translated(before,after,id){
@@ -80,6 +88,7 @@ async function cableHandlingCases(h,mode,base){
     return {held:compact(held),endpoint:wire[end],other:wire[other],length:wire.length,rigid:true,undoRedo:history};
   }
 
+  if(!process.argv.includes('--meter-preview-only')){
   const destinations=[['ammeter','a'],['ammeter','b'],['ammeter','c'],['voltmeter','a'],['voltmeter','b'],['voltmeter','c'],['wattmeter','a'],['wattmeter','d'],['resistor','b'],['junction','p']];
   for(const w of [320,390,1280]){
     console.log(`${mode}: whole cable pickup matrix ${w} px`);await launch(w);
@@ -97,7 +106,7 @@ async function cableHandlingCases(h,mode,base){
     // Two close holes compete by actual distance; whole-body snapping shares the 24px boundary.
     const nearest=looseFixture('ammeter','b','from',0,'real');await h.load(nearest.d);
     const oldScale=await h.inside('CircuitWorkbench.getInteraction().camera.scale'),wheel=await h.point('#surface');await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:wheel.x,y:wheel.y,deltaX:0,deltaY:Math.log(oldScale/.5)/.0015});await settle();
-    const camera=await h.inside('CircuitWorkbench.getInteraction().camera'),at=await bodyGrip(nearest.d,nearest.wire),old=M.endpoints(nearest.d).get(nearest.wire.from),nearGrip=await start(at,'wire'),nearHeld=await move(nearGrip,{x:at.x+(374-old.x)*camera.scale,y:at.y+(346-old.y)*camera.scale});
+    const at=await bodyGrip(nearest.d,nearest.wire),camera=await h.inside('CircuitWorkbench.getInteraction().camera'),old=M.endpoints(nearest.d).get(nearest.wire.from),ports=R.ports(nearest.c),common=ports.find(p=>p.key==='b'),low=ports.find(p=>p.key==='c'),closer={x:common.x*.25+low.x*.75,y:common.y*.25+low.y*.75},nearGrip=await start(at,'wire'),nearHeld=await move(nearGrip,{x:at.x+(closer.x-old.x)*camera.scale,y:at.y+(closer.y-old.y)*camera.scale});
     assert.equal(nearHeld.snap?.id,nearest.c.id+':c');assert(!nearHeld.preview);await finish(nearGrip);assert.equal((await h.doc()).wires.find(w=>w.id===nearest.wire.id).from,nearest.c.id+':c');evidence('nearest-hole',{held:compact(nearHeld)});
     for(const offset of [23.5,24.5]){const f=looseFixture('resistor','b','from',0,'real');await h.load(f.d);const dest=await destination(f,'from',offset),grip=await start(dest.start,'wire'),held=await move(grip,dest.to);assert.equal(held.snap?.id??null,offset<24?f.p.id:null);await finish(grip);const after=await h.doc();assert.equal(M.attached(after,after.wires.find(w=>w.id===f.wire.id),'from'),offset<24);evidence('snap-boundary',{offset,held:compact(held)});}
     // A target is provisional: leaving its radius removes it, re-entering restores it.
@@ -137,8 +146,8 @@ async function cableHandlingCases(h,mode,base){
   for(const type of ['ammeter','voltmeter','wattmeter'])for(const style of ['analog','digital']){
     const d=M.empty(),c=M.add(d,type,400,280);d.display.flow='off';d.display.meters=style;d.display.names=false;d.display.values=true;
     const wire=M.addWire(d,400,240);await h.load(d);const bounds=await h.inside(`(()=>{const c=document.querySelector('[data-component="${c.id}"]'),body=c.querySelector('[data-meter-housing]'),b=body.querySelector('rect').getBBox(),w=document.querySelector('[data-wire="${wire.id}"]');return {transform:body.getAttribute('transform'),bbox:{x:b.x,y:b.y,width:b.width,height:b.height},foreground:!!(c.compareDocumentPosition(w)&Node.DOCUMENT_POSITION_FOLLOWING),sockets:[...c.querySelectorAll('[data-socket]')].map(e=>{const p=new DOMPoint(+e.getAttribute('cx'),+e.getAttribute('cy')).matrixTransform(c.transform.baseVal.consolidate().matrix);return{id:e.dataset.socket,x:p.x,y:p.y};})};})()`);
-    // The unused lower part of the dual-meter housing was removed in the persistent-preview redesign.
-    assert.equal(bounds.transform,`scale(${R.meterBodyScale(c)})`);assert(bounds.foreground);assert.equal(bounds.bbox.width,R.dualMeter(c)?156:86);assert.equal(bounds.bbox.height,R.dualMeter(c)?128:78);
+    // The compact dual-meter housing retains the current 150-unit dial rectangle.
+    assert.equal(bounds.transform,`scale(${R.meterBodyScale(c)})`);assert(bounds.foreground);assert.equal(bounds.bbox.width,R.dualMeter(c)?156:86);assert.equal(bounds.bbox.height,R.dualMeter(c)?150:78);
     for(const socket of bounds.sockets){const p=R.ports(c).find(p=>p.key===socket.id);assert(Math.hypot(socket.x-p.x,socket.y-p.y)<1e-8);}
     const startAt=await bodyGrip(d,wire);await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:20,y:20,buttons:0});await settle();
     const shot=await h.send('Page.captureScreenshot',{format:'png'}),pixel=await h.inside(`new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=i.width;c.height=i.height;const ctx=c.getContext('2d');ctx.drawImage(i,0,0);resolve([...ctx.getImageData(${Math.round(startAt.x)},${Math.round(startAt.y)},1,1).data]);};i.onerror=reject;i.src=${JSON.stringify('data:image/png;base64,'+shot.data)};})`);
@@ -147,11 +156,15 @@ async function cableHandlingCases(h,mode,base){
     if(type==='ammeter'&&style==='analog')await h.screenshot(`${mode}-foreground-meter-390.png`);
     evidence('foreground-and-size',{type,style,bounds,pixel,grabbable:true,preview:false});
   }
+  }
+  if(process.argv.includes('--meter-preview-only'))await launch(390);
+  // Read after the existing spring/damping animation settles, not on its first frame.
+  async function settledNeedle(c){for(let n=0;n<250;n++){if(await h.inside(`(()=>{const r=CircuitWorkbench.getAnalysis().components['${c.id}'],e=document.querySelector('#preview [data-meter-needle]');return e&&Math.abs(+e.dataset.fraction-r.reading/r.range)<1e-9;})()`))return;await h.delay(20);}throw Error('Meter preview needle did not settle');}
   // Preview inventory: all stationary meters, including legacy digital files; body movement hides it immediately.
   for(const view of ['real','schematic'])for(const style of ['analog','digital']){
     const d=P.create('meters');d.display.flow='off';d.display.view=view;d.display.meters=style;await h.load(d);
     for(const type of ['ammeter','voltmeter','wattmeter']){
-      const c=d.components.find(c=>c.type===type),p=await h.point(`[data-hit="body:${c.id}"]`),grip=await start(p,'body'),s=await sample();
+      const c=d.components.find(c=>c.type===type),p=await h.point(`[data-hit="body:${c.id}"]`),grip=await start(p,'body');if(R.dualMeter(c))await settledNeedle(c);const s=await sample();
       assert.equal(s.preview,true);if(s.preview){assert.equal(s.previewMode,'meter');assert.equal(s.caption,'刻度預覽');if(R.dualMeter(c)){
         const r=await h.inside(`CircuitWorkbench.getAnalysis().components[${JSON.stringify(c.id)}]`);assert.equal(s.needle.reading,r.reading);assert.equal(s.needle.range,r.range);assert(Math.abs(s.needle.angle-(-120+90*r.reading/r.range))<1e-8);assert.equal(s.ticks,41);
         if(view==='real'){const scene=await h.inside(`(()=>{const e=document.querySelector('#scene [data-meter-needle="${c.id}"]');return{angle:+e.dataset.angle,range:+e.dataset.range,reading:+e.dataset.reading};})()`);assert.deepEqual(s.needle,scene);}

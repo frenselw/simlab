@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting, node ? require("./circuit-label-layout.js") : root.CircuitLabelLayout, node ? require("./circuit-math.js") : root.CircuitMath);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting, node ? require("./circuit-label-layout.js") : root.CircuitLabelLayout, node ? require("./circuit-math.js") : root.CircuitMath, node ? require("./circuit-solver.js") : root.CircuitSolver);
   if (node) module.exports = api; else root.CircuitRenderer = api;
-})(globalThis, function (R, Routing, L, Q) {
+})(globalThis, function (R, Routing, L, Q, S) {
   "use strict";
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function format(v,unit=''){return Number.isFinite(v)?Q.quantity(v,unit).text:'—';}
@@ -29,25 +29,10 @@
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   function lampLight(c,result) {
     const ratedPower=c.params.ratedVoltage**2/c.params.resistance,known=Number.isFinite(result?.power),power=known?Math.max(0,result.power):null,ratio=known?power/ratedPower:0;
-    return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>1.5};
+    return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
-  // These thresholds indicate teaching hazards, not a fuse or a thermal failure model.
-  const hazardLimits=Object.freeze({current:5,meterRatio:1.5,lampRatio:1.5});
-  function visualState(doc,result) {
-    const wires={},components={},adj=new Map();
-    const edge=(a,b,kind,id)=>{for(const [from,to]of [[a,b],[b,a]]){if(!adj.has(from))adj.set(from,[]);adj.get(from).push({to,kind,id});}};
-    doc.wires.filter(w=>w.resistance===0).forEach(w=>edge(w.from,w.to,'wire',w.id));
-    doc.components.filter(c=>c.type!=='battery').forEach(c=>R.dc(c,result.components[c.id]).filter(b=>b.resistance===0&&!b.emf).forEach(b=>edge(c.id+':'+b.from,c.id+':'+b.to,'component',c.id)));
-    for(const c of doc.components.filter(c=>c.type==='battery'&&c.params.voltage>0)){
-      const from=c.id+':a',to=c.id+':b',queue=[from],previous=new Map([[from,null]]);
-      for(let i=0;i<queue.length&&!previous.has(to);i++)for(const e of adj.get(queue[i])||[])if(!previous.has(e.to)){previous.set(e.to,{...e,from:queue[i]});queue.push(e.to);}
-      if(previous.has(to)){components[c.id]='short';for(let p=to;p!==from;){const e=previous.get(p);(e.kind==='wire'?wires:components)[e.id]='short';p=e.from;}}
-    }
-    doc.wires.forEach(w=>{const i=result.wires[w.id]?.current;if(Number.isFinite(i)&&Math.abs(i)>hazardLimits.current&&!wires[w.id])wires[w.id]='overload';});
-    doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?lampLight(c,r).overloaded:false;if(hot&&!components[c.id])components[c.id]='overload';});
-    return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
-  }
+  const hazardLimits=S.hazardLimits, visualState=S.hazards;
   function heatEffect(x,y,scale,attrs='') {
     return `<g class="heat-effect" ${attrs} transform="translate(${x} ${y}) scale(${1/scale})" pointer-events="none"><title>短路／過載發熱示意</title><circle cy="-8" r="23" fill="#ff9e3744"/><path class="heat-flame" d="M-13 0C-24-18-7-23-8-40C0-33 3-27 2-19C9-22 10-28 12-30C24-10 19 1 5 4C-3 7-9 4-13 0Z" fill="#ed6728" stroke="#c94a24" stroke-width="1.5"/><path d="M-5 1C-13-9-2-15-1-23C8-14 13-4 6 1C3 4-2 4-5 1Z" fill="#ffe681"/><path class="heat-sparks" d="M-22-25l-6-7 M22-16l7-4 M15-38l4-7" fill="none" stroke="#e78b20" stroke-width="2.5" stroke-linecap="round"/><path d="M-2-46q-8-7 1-13t-2-12" fill="none" stroke="#82919b" stroke-width="3" stroke-linecap="round" opacity=".45"/></g>`;
   }

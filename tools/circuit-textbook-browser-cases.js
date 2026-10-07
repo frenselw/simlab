@@ -32,7 +32,7 @@ async function textbookCases(h,mode,base){
     for(const id of ['water','orange-a-3000','g-voltage','micro-g-simple-0.001','emf-physical-5']){
       const one=all.find(c=>c.id===id),d=M.clone(one.doc);d.display.meters='analog';await load(d);
       const needles=await inside(`(()=>{const a=CircuitWorkbench.getAnalysis();return [...document.querySelectorAll('#scene [data-meter-needle]')].map(e=>{const r=a.components[e.dataset.meterNeedle],q=e.getAttribute('d').match(/L([^ ]+) ([^ ]+)/);return{id:e.dataset.meterNeedle,reading:r.reading,shown:+e.dataset.reading,range:r.range,shownRange:+e.dataset.range,fraction:+e.dataset.fraction,angle:+e.dataset.angle,x:+q[1],y:+q[2],ticks:e.closest('[data-meter-dial]').querySelectorAll('[data-meter-tick]').length};});})()`);
-      for(const n of needles){assert.equal(n.shown,n.reading);assert.equal(n.shownRange,n.range);assert.equal(n.ticks,41);assert(Math.abs(n.angle-(-120+90*n.fraction))<1e-8);assert(Math.hypot(n.x-59*Math.cos(n.angle*Math.PI/180),n.y-(24+59*Math.sin(n.angle*Math.PI/180)))<1e-7);}
+      for(const n of needles){assert.equal(n.shown,n.reading);assert.equal(n.shownRange,n.range);assert.equal(n.ticks,41);assert(Math.abs(n.angle-(-120+90*n.fraction))<1e-8);assert(Math.hypot(n.x-69*Math.cos(n.angle*Math.PI/180),n.y-(24+69*Math.sin(n.angle*Math.PI/180)))<1e-7);}
       await screenshot(`${mode}-textbook-dial-${id}-${w}.png`);evidence.push({mode,textbook:'dial',id,width:w,needles});
     }
   }
@@ -63,7 +63,7 @@ async function textbookCases(h,mode,base){
   const events=await inside('__textbookEvents');assert(events.filter(e=>e.type==='pointerup'&&e.pointer==='mouse'&&e.trusted).length>=17);assert(events.some(e=>e.type==='change'&&e.trusted&&e.target==='resistance'));
   evidence.push({mode,textbook:'manual-construction',width:1280,figure:'11.4-10 甲',componentToolbox:true,componentPlacement:true,parameterInput:true,cables:constructed.wires.length,endpoints:12,reading:expected,observed:analysis.components[ids.V].reading/analysis.components[ids.A].reading,openSwitch:true,undo:true,trustedEvents:events.filter(e=>e.trusted).length,cableLengthSetting:'production select handler'});
   // The actual numeric field rejects 220 V; preserve this capability failure.
-  await tap('[data-hit="body:'+ids.E+'"]');await number('[data-param="voltage"]',220);assert.equal((await doc()).components.find(c=>c.id===ids.E).params.voltage,6);assert((await inside('document.getElementById("hint").textContent')).includes('數值超出合法範圍'));
+  await tap('[data-hit="body:'+ids.E+'"]');await number('[data-param="voltage"]',220);assert.equal((await doc()).components.find(c=>c.id===ids.E).params.voltage,6);assert(await inside('document.getElementById("canvasNotice").classList.contains("error") && !document.getElementById("canvasNotice").hidden'),"invalid voltage shows visible error feedback");
   evidence.push({mode,textbook:'ui-limit',width:1280,requestedVoltage:220,preservedVoltage:6,trusted:true});
   await launch(390);const one=all.find(c=>c.id==='emf-physical-5'),d=M.clone(one.doc),poses=[[180,380,90],[320,180,0],[540,180,0],[540,390,0],[300,390,0]];
   d.components.forEach((c,i)=>{[c.x,c.y,c.angle]=poses[i];});d.wires.forEach(w=>{w.shape='auto';w.via=[];w.length=1200;});
