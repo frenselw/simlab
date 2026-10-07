@@ -170,7 +170,9 @@
     Object.keys(M.quantityDefaults).forEach(id=>{$(id).checked=d.display.quantities[id];$(id).disabled=!d.display.values;});
     $("potentialLegend").hidden=!d.display.potential;$("pan").setAttribute("aria-pressed",String(panMode));$("probe").setAttribute("aria-pressed",String(probeMode));$("pickWire").setAttribute("aria-pressed",String(wireMode));surface.classList.toggle('wire-priority',wireMode);surface.classList.toggle("panning",panMode);surface.classList.toggle("quick-pan",spacePan||!!drag?.quick);surface.classList.toggle("camera-gesture",!!cameraGesture);surface.classList.toggle("grabbing",!!(drag||cameraGesture));surface.classList.toggle("effects-paused",paused);
     const w=selectedWire(),c=selectedComponent(),actions=!!(w||c||selection?.kind==="junction");$("selectionActions").hidden=!actions;$("hint").parentElement.classList.toggle("has-actions",actions);
-    $("focusSelected").hidden=!actions||camera.scale>=.8;$("detachFrom").hidden=!w||!wireAllowed();$("detachTo").hidden=!w||!wireAllowed();$("detachFrom").disabled=!!w&&!M.attached(history.get(),w,"from");$("detachTo").disabled=!!w&&!M.attached(history.get(),w,"to");["rotateSelected","rotateCounterSelected"].forEach(id=>{$(id).hidden=!c||!teacher&&!allow(d,c,"rotate");$(id).disabled=!!c&&!allow(d,c,"rotate");});
+    $("focusSelected").hidden=!actions;
+    const canCopy=!!c&&profile.palette.some(e=>e.type===c.type&&profile.canAdd(e,d,readOnly));$("copySelected").hidden=!c||!teacher&&!canCopy;$("copySelected").disabled=!canCopy;
+    $("detachFrom").hidden=!w||!wireAllowed();$("detachTo").hidden=!w||!wireAllowed();$("detachFrom").disabled=!!w&&!M.attached(history.get(),w,"from");$("detachTo").disabled=!!w&&!M.attached(history.get(),w,"to");["rotateSelected","rotateCounterSelected"].forEach(id=>{$(id).hidden=!c||!teacher&&!allow(d,c,"rotate");$(id).disabled=!!c&&!allow(d,c,"rotate");});
     $('inspectMeter').hidden=!c||!R.dualMeter(c)&&c.type!=='galvanometer';$('straightenSelected').hidden=!w||!wireAllowed();
     $('flipMeterSelected').hidden=!c||!R.dualMeter(c)||!teacher&&!allow(d,c,'rotate');$('flipMeterSelected').disabled=!!c&&!allow(d,c,'rotate');
     const deleteLabel=w?"刪除導線":c?"刪除元件":"拆開接點";$("deleteSelected").title=deleteLabel;$("deleteSelected").setAttribute("aria-label",deleteLabel);$("deleteSelected").disabled=c?!allow(d,c,"remove"):!wireAllowed();$("deleteSelected").hidden=!teacher&&$("deleteSelected").disabled;
@@ -196,7 +198,7 @@
     if(meter){preview.setAttribute("role","img");preview.setAttribute("aria-label",meter.label+"指針刻度");const d=current(),r=analysis.components[meter.id];preview.setAttribute("viewBox",R.dualMeter(meter)?"-78 -85 156 119":meter.type==='galvanometer'?'-50 -45 100 90':"-70 -55 140 110");preview.innerHTML=R.dualMeter(meter)?V.dualDial(meter,r,d.display.values):meter.type==='galvanometer'?V.galvanometerDial(meter,r,d.display.values):V.body({...meter,angle:0},r,{...d.display,view:"real"});}
     else{preview.setAttribute("viewBox",`${p.x-70} ${p.y-55} 140 110`);preview.innerHTML=($("scene").innerHTML+$("ghostLayer").innerHTML).replace(/(id="|url\(#)([\w-]*wire-potential-[\w-]+)/g,'$1preview-$2');}
   }
-  const actionIcons={'旋轉 90°':'rotate-cw','逆時針旋轉 90°':'rotate-ccw','刪除元件':'trash','刪除導線':'trash','拆開共接點':'trash','複製元件':'copy','定位所選':'focus','放大錶盤':'meter','左右換接孔':'flip','反接電源極性':'flip','拉直導線':'straight','整理線形':'wire'};
+  const actionIcons={'反接電源極性':'flip','整理線形':'wire'};
   function button(label,fn,disabled=false,danger=false,parent=$("objectActions")){const b=document.createElement("button"),socket=/^(接好|拔開) [AB]$/.test(label),name=actionIcons[label]||(socket?label.startsWith('接好 ')?'attach':'detach':null);b.type="button";
     if(name){b.className='icon-button';b.innerHTML=`<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${prefix}icon-${name}"/></svg>`;if(socket){b.classList.add('socket-action');b.innerHTML+='<small>'+V.esc(label.slice(-1))+'</small>';}}
     else{b.className='text-action';b.textContent=label;}
@@ -249,14 +251,9 @@
       const host = document.createElement("div"); host.className = "reading-host"; host.innerHTML = componentReadings(c.id); if(profile.ui.readings)prop.append(host);
       if (teacher && c.type === "lamp" && c.params.model === "thermal") { const n = document.createElement("p"); n.className = "note";n.innerHTML=rich(['冷態電阻 ',Q.quantity(c.params.resistance/c.params.coldRatio,'Ω'),'。穩態散熱含線性及輻射兩部分；參數可用多個實測點校準。未模擬預熱或燒毀。']); prop.append(n); }
       if(teacher&&c.type==='rheostat'){const n=document.createElement('p');n.className='note';n.textContent=c.params.terminals===2?'A–P：滑片改變接入電阻。':'A、B 是電阻絲兩端，P₁／P₂ 接同一滑片。接 A–P 限流；接 A–B 供電並由 P 取出分壓。';prop.append(n);}
-      if(c.type==='galvanometer'){const n=document.createElement('p');n.className='note';n.innerHTML=rich(['中心零：±',Q.quantity(c.params.range*1e6,'μA'),'。並聯分流電阻可擴大電流量程，串聯電阻可改作電壓表。',V.statusText(analysis.components[c.id])]);prop.append(n);button('放大錶盤',()=>inspectMeter(c));}
+      if(c.type==='galvanometer'){const n=document.createElement('p');n.className='note';n.innerHTML=rich(['中心零：±',Q.quantity(c.params.range*1e6,'μA'),'。並聯分流電阻可擴大電流量程，串聯電阻可改作電壓表。',V.statusText(analysis.components[c.id])]);prop.append(n);}
       if (teacher && c.type === "wattmeter") { const n = document.createElement("p"); n.className = "note"; n.innerHTML = rich([{text:'I+、I−',tex:'I_{+},\\ I_{-}'},' 串聯；',{text:'V+、V−',tex:'V_{+},\\ V_{-}'},' 跨接用電器。',{text:'P = (V+ − V−) I',tex:'P=(V_{+}-V_{-})I'},'。']); prop.append(n); }
-      if(R.dualMeter(c)){const r=analysis.components[c.id],n=document.createElement('p');n.className='note';n.innerHTML=rich([...(V.statusText(r)?[V.statusText(r)]:['目前量程 ',Q.quantity(r.range,r.unit)]),'。接共用 − 與其中一個正極孔；先用大量程，再換小量程。每小格 ',Q.quantity(r.division,r.unit),'；負刻度至 ',Q.quantity(r.minimum,r.unit),'。',camera.scale<.7?'孔太近時可按「放大所選」分清三個孔。':'']);prop.append(n);button('放大錶盤',()=>inspectMeter(c));button('左右換接孔',()=>flipMeter(c.id),!allow(d,c,'rotate'));}
-      button("逆時針旋轉 90°", () => rotate(c.id,-1), !allow(d,c,"rotate"));
-      button("旋轉 90°", () => rotate(c.id), !allow(d, c, "rotate"));
-      button("刪除元件", () => { cancel(); change((doc) => M.remove(doc, c.id)); }, !allow(d, c, "remove"), true);
-      button("複製元件", () => change((doc) => { const copy = addComponent(doc, c.type, c.x + 140, c.y + 80, c.params); copy.angle = c.angle; if(R.dualMeter(c))copy.mirrored=c.mirrored;if(allow(doc,copy,'label'))copy.label = (c.label + " 副本").slice(0,40); selection = { kind: "body", id: copy.id }; }), !profile.palette.some(e=>e.type===c.type&&profile.canAdd(e,d,readOnly)));
-      button("定位所選", () => focusPoint(c));
+      if(R.dualMeter(c)){const r=analysis.components[c.id],n=document.createElement('p');n.className='note';n.innerHTML=rich([...(V.statusText(r)?[V.statusText(r)]:['目前量程 ',Q.quantity(r.range,r.unit)]),'。接共用 − 與其中一個正極孔；先用大量程，再換小量程。每小格 ',Q.quantity(r.division,r.unit),'；負刻度至 ',Q.quantity(r.minimum,r.unit),'。',camera.scale<.7?'孔太近時可按「定位所選」分清三個孔。':'']);prop.append(n);}
       d.wires.filter(w=>[w.from,w.to].some(id=>id.split(':')[0]===c.id)).forEach(w=>button('選導線 '+w.id,()=>{selection={kind:'wire',id:w.id};render();}));
       if (c.type === "battery") button("反接電源極性", () => change((doc) => { doc.components.find((x) => x.id === c.id).params.polarity *= -1; }), !allow(d, c, "params","polarity"));
       if (teacher && d.policy.mode === "free") checkbox("固定此元件", c.locked, (v) => change((doc) => { doc.components.find((x) => x.id === c.id).locked = v; }));
@@ -276,13 +273,10 @@
         button("拔開 "+(i?"B":"A"),()=>unplug(wire.id,key),!M.attached(d,wire,key),false,row);
       });
       if(wireAllowed())prop.insertAdjacentHTML('beforeend','<p class="note connection-legend">接合接頭：接好　分離接頭：拔開</p>');
-      button("刪除導線",()=>{cancel();change(doc=>M.remove(doc,wire.id));},!wireAllowed(),true);button("定位所選",()=>focusPoint(G.along(routes[wire.id],G.length(routes[wire.id])/2)));
-      button("拉直導線",()=>straighten(wire.id),!wireAllowed());
       button("整理線形",()=>tidy(wire.id),!wireAllowed());
     }else if(selection?.kind==="port"||selection?.kind==="junction"){
       const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readings([["相對電勢",analysis.potentials[endpoint],"V"]])+referenceNote(endpoint);if(probeResult)prop.innerHTML+=readings([["第一點 − 第二點",probeResult.voltage,"V"]]);}if(profile.ui.probe)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
       d.wires.filter(w=>w.from===endpoint||w.to===endpoint).forEach(w=>button("選導線 "+w.id,()=>{selection={kind:"wire",id:w.id};render();}));
-      if(selection.kind==="junction")button("拆開共接點",()=>{const id=selection.id;cancel();change(doc=>M.remove(doc,id));},!wireAllowed(),true);
     }else{$("selectionTitle").textContent="電路概覽";prop.innerHTML=`<p class="note">${d.components.length} 個元件 · ${d.wires.length} 條導線<br>取線 → 拿端點接好 → 拿線身彎曲。</p>`;if(profile.ui.readings&&probeResult)prop.innerHTML+=readings([["第一點 − 第二點",probeResult.voltage,"V"]]);}
     for(const diagnostic of analysis.diagnostics){const p=document.createElement("p");p.className="diagnostic";p.textContent=diagnostic.message;prop.append(p);}
     const list=$("wireList");list.replaceChildren();d.wires.forEach(w=>{const row=document.createElement("div");row.className="wire-row";const b=document.createElement("button");b.textContent=w.id+" · "+portName(w.from)+" → "+portName(w.to);b.onclick=()=>{selection={kind:"wire",id:w.id};render();focusPoint(G.along(routes[w.id],G.length(routes[w.id])/2));};const del=document.createElement("button");del.className="delete";del.textContent="×";del.setAttribute("aria-label","刪除導線 "+w.id);del.onclick=()=>{cancel();change(doc=>M.remove(doc,w.id));};row.append(b);if(wireAllowed())row.append(del);list.append(row);});
@@ -301,14 +295,18 @@
     // Selection is set on pointerdown. Keep the existing footer size until
     // release so ResizeObserver cannot cancel a newly started component drag.
     if(drag||cameraGesture||touches.size){controls.forEach(e=>e.disabled=true);return;}
+    const selected=selectedComponent();$('hint').parentElement.classList.toggle('has-meter',!!selected&&(R.dualMeter(selected)||selected.type==='galvanometer'));
     const data=quickParameter();$('quickParameters').hidden=!data;
     $('hint').parentElement.classList.toggle('has-quick',!!data);quickBinding=data?{id:data.c.id,key:data.p.key}:null;
     controls.forEach(e=>e.disabled=!data);$('quickValue').removeAttribute('aria-invalid');
     if(!data){$('quickValue').value='';$('quickValue').removeAttribute('data-param');return;}
     const {c,p}=data,label=c.label+' · '+p.label;
-    $('quickName').textContent=c.label;$('quickName').title=label;$('quickParameters').setAttribute('aria-label',label);
-    $('quickLabel').innerHTML=rich([p.label,...(p.unit?[' ',Q.unit(p.unit)]:[])]);
+    $('quickName').textContent=label;$('quickName').title=label;$('quickParameters').setAttribute('aria-label',label);
+    $('quickLabel').textContent=label+(p.unit?' · '+p.unit:'');$('quickUnit').innerHTML=p.unit?rich(Q.unit(p.unit)):'';
     $('quickValue').value=Number((p.value*p.factor).toPrecision(12));$('quickValue').min=p.min*p.factor;$('quickValue').max=p.max*p.factor;
+    const numeric=$('quickValue').value,quantity={text:numeric+(p.unit?' '+p.unit:''),tex:numeric.replace(/e([+-]?\d+)$/i,'\\times10^{$1}')+(p.unit?'\\,'+Q.unit(p.unit).tex:'')};
+    const readoutWidth=Math.max(64,Math.ceil(Q.measure(quantity.tex,16).width)+12);$('quickReadout').innerHTML=Q.html(quantity);$('quickValue').parentElement.style.width=readoutWidth+'px';
+    $('hint').parentElement.classList.toggle('has-wide-param',readoutWidth>64);
     $('quickValue').dataset.param=p.key;$('quickValue').title=label;
     for(const [id,direction]of [['quickMinus',-1],['quickPlus',1]]){
       $(id).disabled=direction<0?p.value<=p.min:p.value>=p.max;
@@ -470,6 +468,7 @@
   });
   on(window,"keyup",e=>{
     if(!spacePan&&!host.contains(e.target))return;if(e.code!=="Space"&&e.key!==" ")return;if(spacePanUsed)e.preventDefault();spacePan=false;spacePanUsed=false;surface.classList.remove("quick-pan");});
+  $("copySelected").onclick=()=>{const c=selectedComponent();if(!c||!profile.palette.some(e=>e.type===c.type&&profile.canAdd(e,history.get(),readOnly)))return;cancel();change(doc=>{const copy=addComponent(doc,c.type,c.x+140,c.y+80,c.params);copy.angle=c.angle;if(R.dualMeter(c))copy.mirrored=c.mirrored;if(allow(doc,copy,'label'))copy.label=(c.label+" 副本").slice(0,40);selection={kind:"body",id:copy.id};});};
   $("focusSelected").onclick=()=>{const w=selectedWire(),c=selectedComponent(),j=history.get().junctions.find(j=>j.id===selection?.id);if(w)focusPoint(G.along(routes[w.id],G.length(routes[w.id])/2));else if(c||j)focusPoint(c||j);};
   $('straightenSelected').onclick=()=>{if(selectedWire())straighten(selection.id);};$('closePreview').onclick=()=>{meterPreview=null;$('preview').hidden=true;};
   $('inspectMeter').onclick=()=>inspectMeter();$('closeMeter').onclick=()=>$('meterDialog').close();

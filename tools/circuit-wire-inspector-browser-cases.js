@@ -17,7 +17,7 @@ async function wireInspectorCases(h,mode,base){
       assert(row.select.width>55);assert.equal(row.buttons.length,2);
       for(const [j,b]of row.buttons.entries()){assert(b.box.width>=44&&b.box.height>=44);assert.equal(b.badge,i?'B':'A');assert.equal(b.aria,(j?'拔開 ':'接好 ')+b.badge);assert.equal(b.title,b.aria);assert(b.icon.endsWith(j?'icon-detach':'icon-attach'));assert(b.badgeBox.left>=b.box.left&&b.badgeBox.right<=b.box.right&&b.badgeBox.top>=b.box.top&&b.badgeBox.bottom<=b.box.bottom);assert(Math.abs(b.box.top-row.select.top)<.1);assert(b.box.right<=row.row.right+.1);}
     }
-    assert.equal(g.other.length,4);assert(g.other.every(b=>!b.textAction));return g;
+    assert.equal(g.other.length,1);assert(g.other.every(b=>!b.textAction));return g;
   }
   for(width of [320,390,1280]){
     await h.freshPage();h.setContext('window');await h.send('Emulation.setDeviceMetricsOverride',{width,height:width<600?844:900,deviceScaleFactor:1,mobile:width<600});await h.send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});await h.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();

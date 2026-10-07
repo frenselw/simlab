@@ -1325,3 +1325,24 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 實作完成：刪除原先垂直藍／灰／橙圖例；水平色階直接取樣既有 `colour()`，`potentialRange()` 共用畫布範圍與圖例數值。正／負電勢依實際範圍顯示；等電勢只有一個數值，全部未知用灰色／未能確定。兩行控制保留原命令及 ID，短文字與完整 aria-label、54×44 px 按鈕，移除兩段面板說明；help／標題提示及個別 inspector 勾選仍可用。
 - `wire-current-labels.test.js` 的圖形／solver 色階正、負、零、未知實例與 activity-core **19 groups** 通過。最終 `--wire-current-smoke` 來源／ZIP 在 1280×800、390×600、320×500、兩外觀共 **24 observations** 通過：兩行名稱與按鈕對齊、44 px、無水平溢出、區塊約 **251.47 CSS px**；圖例實際 RGB 0／50／100% 與三個對應接孔 stroke 一致，0／3／6 V、改成 12 V 後 0／6／12 V、換零伏參考後 −6／−3／0 V 均正確。全部／個別開關、選元件及導線後合法續作、只讀／學生權限、SVG／載入原回歸亦通過。
 - 同一 626 px 寬實際預覽，電勢色彩開啟時區塊由 **394 px 降至 250.81 px（減少 36.3%）**。桌面及 320 px 截圖已目視核對；證據 `output/playwright/circuit-workbench/wire-currents.json` 及 `source-compact-display-real-1280.png`／`source-compact-display-real-320.png`。`npm run check`／`git diff --check` 通過，教師 ZIP **28 runtime files** 逐 byte 與來源一致，指導文件／預覽已同步。手機為本機模擬觸控；真手機與 Moodle 未驗證，未重跑未改的評量、手勢宿主或全站矩陣。
+
+## 66. 分組底部工具列（2026-10-07）
+
+- 採用已確認的緊湊雙行方案：主參數 −／數值與單位／＋成組；元件旋轉、刪除、複製、定位直接顯示；取線與縮放／全圖另列。統一 44 px 控制、16 px 數字與相連外框。390 px 一般元件兩行，320 px 或較多儀表操作時三行；桌面按可用畫布寬度排列。縮放用放大鏡加減圖示，與調參區分。
+- 移除 inspector 重複的旋轉、刪除、複製、定位及錶盤／換孔操作；保留參數、讀值、固定設定、連線導航、接線對象、電源反接及整理線形。定位在任何縮放均可用。複製沿用原庫存、參數、方向、標籤及權限檢查；學生／只讀仍遵守可信 profile。
+- 教師非評量 scope，risk／rubric／assessment phase N/A；v6 document、求解、SCORM 與依賴無變更。驗證決定：既有 quick-controls browser cases 更新分組幾何，來源／ZIP 320、390、1280 及橫向短窗可信調參、旋轉／複製／定位／刪除、undo／restore、儀表及導線、學生庫存／只讀；相鄰 wire-inspector、display-mirror、activity-core、JS／check／package／diff。真手機／Moodle 另列。
+
+- 已完成分組工具列及面板去重；複製搬至底部並沿用庫存、參數、方向及 40 字標籤規則。定位在所有縮放可用；長於四字元的主參數增寬，窄畫布換行。一般燈泡 390 px 底部約 105 px、320 px 約 153 px，全部操作與數值欄至少 44 px；七個儀表操作在 320 px 亦可直接使用。拖動期間不更新參數區的排版旗標，避免 ResizeObserver 取消第一下拖動。
+- 最終 `--quick-controls-smoke` 來源／ZIP **68 observations** 通過（1280×800、390×844、320×700、844×390）：分組相接無重疊／水平溢出、16 px 數字、可信調參／長阻值 1e6 Ω、旋轉、複製、定位、刪除／undo、restore 續作、拖動穩定、儀表讀錶／換孔、學生 inspector 關閉仍可按庫存複製，達上限拒絕並於刪除後歸還庫存，只讀可定位但不能複製。來源／ZIP `--wire-inspector-smoke` **6 viewport cases** 與 `--display-mirror-smoke` **30 observations** 通過；前者首次並行啟動遇到 Chrome 暫存目錄 Windows 檔案鎖定，重跑完整通過。
+- quick-controls 單元 **6 groups**、activity-core **19 groups**、`npm run check`／`git diff --check` 通過。320／390 px 手機截圖已目視核對，既有預覽已更新；ZIP **28 runtime files** 逐 byte 與來源一致。核心與活動指導文件已同步。手機為 Chrome 觸控模擬，未驗證真手機／Safari／Moodle；未改求解、評分或保存，不重跑無關矩陣。
+
+### 第 66 節修正：定位圖示與快捷數學排版
+
+- 定位改用準星，畫布放大保留放大鏡＋，不共用同一圖示。快捷參數平時以現有 CircuitMath／MathJax 顯示完整數值與單位；聚焦時用原生 number 輸入，失焦後恢復 TeX，保持精確值與可信輸入／單步復原。長數值依字形寬度增寬，不縮小數字或截斷。
+- 不改求解、v6 schema、權限或依賴；沿用來源／ZIP quick-controls 的桌面、320／390 px、短橫向可信輸入、全操作、保存恢復及學生限制，增加實際 TeX／字形邊界、編輯切換、定位與縮放圖示差異檢查。真手機及 Moodle 另列。
+
+- 修正已完成：定位準星／放大鏡＋為不同 SVG symbol；完整快捷數值與單位共用 TeX 字形，原生欄位聚焦時顯示、失焦回復數學排版。以量測字形寬度決定增寬及窄畫布換行，完整保留既有快捷值精度，不套用一般讀值的四位有效數字。
+- 最終來源／ZIP `--quick-controls-smoke` **68 observations** 通過，新增準星／縮放圖示差異、16 px 實際 TeX 字形與欄位邊界、原生聚焦／單位切換、12.3456789 Ω 精確小數及 1e-7 V 科學記數；既有可信加減／輸入、全操作、restore／undo、拖動穩定、學生庫存與只讀保持。meters-and-math **96 fixtures**、quick-controls **6 groups**、`npm run check`／`git diff --check` 通過；ZIP **28 runtime files** 與來源逐 byte 一致。390 px 手機截圖已目視核對、既有預覽更新；真手機／Moodle 未測。
+
+- 第 66 節分隔線修正：縮放百分比欄只有上下框，後續放大按鈕依分組規則無左框，兩者之間漏線。補百分比欄右框，保持 44 px 欄寬；既有 quick-controls 檢查各縮放格交界恰有一條 1 px 邊框，沿用來源／ZIP 手機及桌面回歸。
+- 分隔線修正已驗證：來源／ZIP quick-controls **68 observations** 通過，各縮放格交界均恰有一條 1 px 分隔線，44 px 欄寬及既有操作保持；390 px 截圖目視核對，ZIP **28 runtime files** 與來源逐 byte 一致，`git diff --check` 通過。

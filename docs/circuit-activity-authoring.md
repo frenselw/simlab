@@ -95,6 +95,8 @@ components:{
 
 選取元件後，快捷區只顯示該元件獲准修改的主參數：電源電動勢、電阻／燈泡電阻或變阻器滑片位置。它不依賴 inspector；`ui:{inspector:false, quickParameters:true}` 可讓學生只調整指定參數，無須打開面板。仍須用 `components.byId` 等規則開放實際參數，固定參數及只讀不顯示可改控制；`ui.quickParameters:false` 完全移除此區。百分比以 0–100 顯示，`position` 仍保存 0–1。
 
+底部直接提供獲准的旋轉、刪除、複製及定位，不重複於 inspector。複製使用同款工具箱庫存，達上限／只讀時不能新增；定位與讀錶仍可使用。關閉 inspector 不會關閉這些底部操作。定位用準星、縮放用放大鏡加減；快捷數字與單位用共用 TeX 排版，聚焦時保留原生 number 輸入。快捷參數、元件操作與畫布縮放採一致分組；窄畫布及長數值自動換行，按鈕維持至少 44 px。
+
 自訂 registry 元件可在定義中指定 `primaryParameter:'參數名稱'`。該參數須是有合法 `min/max/step` 的數值，沿用其 `label/unit/factor`；沒有主參數的元件不出現快捷區。快捷加減與輸入都走原有 `setParam`、權限及單步復原，沒有第二份參數或作答快照。
 
 ## 檢查接口
