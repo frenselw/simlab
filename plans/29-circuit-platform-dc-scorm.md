@@ -504,3 +504,7 @@ DC／SCORM 接入要解決的具體外殼差異：
 - **全站 `npm test` 結果為失敗（exit 1）**：電路單元及上述兩個完整電路 browser runner 通過，全站 fullscreen source／package 檢查亦通過；之後在未修改的 `tools/newtons-third-law-fullscreen-activity-regression.js:132`，因 `r.stage >= 195` 版面斷言失敗而停止，後續測試未執行。以修改前 `f37bf02` 快照執行該 runner 的 `--smoke`，亦於同一斷言失敗（`output/circuit-platform-baseline-third-law.log`）；本輪沒有修改牛頓活動來消除這項既有問題。完整執行紀錄：`output/circuit-platform-tests.log`。因此不宣稱全站測試全綠或整個系列 package-ready。
 - 教師 ZIP 的 29 個 runtime 檔案逐一與來源 byte 比較一致；指紋（檔名及內容依排序 SHA-256）為 `a20689817a42e804ea16a908cfb14e2e6870836c26a2caf8a2a644198bb9dae2`，紀錄在 `output/circuit-platform-core-verification.json`。
 - 真手機及真 Moodle 未在本輪執行；未建立正式 SCORM 活動或宣稱 D3–D5 已通過。
+
+### 17.3 使用者要求的完整獨立審核
+
+2026-10-08 以 base `5851d91`／head `3d64620` 執行兩位完整獨立 reviewer，再由第三位整理結果。找到取消後首次 touch 被吞及固定 switch 款式錯拒兩項新增 P2，另有同根因的既有非法 snapshot 恢復缺口；已做共用修正及新的 source／ZIP 回歸，正待兩位 reviewer 複核。完整範圍、原始證據歸因及完成狀態見[獨立審核跟進](../docs/circuit-platform-dc-review.md)。

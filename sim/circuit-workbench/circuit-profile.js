@@ -69,11 +69,15 @@
     });
     if (config.check !== undefined && typeof config.check !== 'function') throw new Error('check 必須是本地函數');
     const getRule = c => ({move:false,rotate:false,remove:false,label:false,switch:false,params:false,...defaults,...byType[c.type],...byId[c.id]});
-    const mutable = (r,k) => r.params === true || Array.isArray(r.params) && r.params.includes(k) || k === 'closed' && r.switch;
+    const mutable = (r,k,c={locked:false,editable:false}) => {
+      const declared=r.params===true||Array.isArray(r.params)&&r.params.includes(k);
+      if(teacher)return declared||k==='closed'&&r.switch;
+      return (k==='closed'?!!r.switch:declared)&&M.permission(initial,c,k==='closed'?'switch':'params');
+    };
     if (!teacher) for (let i=0;i<palette.length;i++) for (const b of palette.slice(i+1)) {
       const a=palette[i]; if(a.type!==b.type)continue;
-      const candidates=[{rule:{...defaults,...byType[a.type]}},...initial.components.filter(c=>c.type===a.type).map(c=>({params:c.params,rule:getRule(c)}))];
-      if(candidates.some(c=>Object.keys(a.params).every(k=>mutable(c.rule,k)||same(a.params[k],b.params[k])&&(!c.params||same(c.params[k],a.params[k]))))) throw new Error('工具箱款式的庫存有歧義：'+a.key+' / '+b.key+'；請以不可調參數區分');
+      const candidates=[{rule:{...defaults,...byType[a.type]}},...initial.components.filter(c=>c.type===a.type).map(c=>({params:c.params,rule:getRule(c),component:c}))];
+      if(candidates.some(c=>Object.keys(a.params).every(k=>mutable(c.rule,k,c.component)||same(a.params[k],b.params[k])&&(!c.params||same(c.params[k],a.params[k]))))) throw new Error('工具箱款式的庫存有歧義：'+a.key+' / '+b.key+'；請以不可調參數區分');
     }
     function allows(doc,c,operation,param,readOnly=false) {
       if (readOnly || !c) return false;
@@ -85,7 +89,7 @@
     function matches(c,entry) {
       if (c.type !== entry.type) return false;
       const r = getRule(c);
-      return Object.keys(entry.params).every(k => mutable(r,k) || same(c.params[k],entry.params[k]));
+      return Object.keys(entry.params).every(k => mutable(r,k,c) || same(c.params[k],entry.params[k]));
     }
     function entryFor(c) { return palette.find(p => matches(c,p)); }
     function count(doc,entry) { return doc.components.filter(c => entryFor(c)?.key === entry.key).length; }

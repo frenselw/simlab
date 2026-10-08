@@ -100,5 +100,16 @@ async function platformCases(h,mode,base){
       }
     }
   }
+  await h.freshPage();h.setContext('window');await h.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await h.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();
+  for(const policyAllows of [true,false]){
+    const config={role:'student',ui:{header:false,palette:true,inspector:true},components:{default:{params:true,switch:!policyAllows}},palette:[{type:'switch',params:{closed:true},limit:1}]};
+    await h.inside(`(async()=>{CircuitWorkbench.destroy();const config=${JSON.stringify(config)},d=CircuitModel.empty();d.policy.allowSwitch=${policyAllows};config.initialDocument=d;window.CircuitWorkbench=await CircuitEditor.mount(document.getElementById('app'),config);window.__switchLoadChanges=0;CircuitWorkbench.onChange(()=>__switchLoadChanges++);})()`);
+    const before=await h.save(),result=await h.inside(`(()=>{const d=CircuitWorkbench.getDocument();CircuitModel.add(d,'switch',200,200,{closed:false});try{CircuitWorkbench.loadDocument(d);return{rejected:false};}catch(e){return{rejected:true,message:e.message};}})()`);assert(result.rejected);assert.equal(await h.save(),before);assert.equal(await h.inside('__switchLoadChanges'),0,'invalid restore is atomic and does not notify');
+    assert(await h.inside(`CircuitWorkbench.execute({type:'addComponent',key:'switch',x:200,y:200})`));const saved=await h.save();await h.load(saved);assert.equal(await h.save(),saved);assert.equal((await h.doc()).components[0].params.closed,true);assert.equal(await h.inside(`CircuitWorkbench.execute({type:'setParam',id:'c1',key:'closed',value:false})`),false);assert.equal(await h.save(),saved);
+    h.evidence.push({mode,switchRestore:true,policyAllows,invalidAtomic:true,legalRestore:true,fixedClosed:true});
+  }
+  await h.inside(`(async()=>{CircuitWorkbench.destroy();window.CircuitWorkbench=await CircuitEditor.mount(document.getElementById('app'),{ui:{palette:true,inspector:true},components:{default:{params:['closed'],switch:false}},palette:[{type:'switch',key:'open',params:{closed:false},limit:1},{type:'switch',key:'closed',params:{closed:true},limit:1}]});})()`);
+  for(const key of ['open','closed'])assert(await h.inside(`CircuitWorkbench.execute({type:'addComponent',key:'${key}',x:${key==='open'?200:400},y:200})`));const pair=await h.save();await h.load(pair);assert.deepEqual((await h.doc()).components.map(c=>c.params.closed),[false,true]);assert(await h.inside(`[...document.querySelectorAll('[data-add]')].every(b=>b.disabled)`));assert(await h.inside(`CircuitWorkbench.execute({type:'undo'})`));
+  h.evidence.push({mode,fixedSwitchVariants:true,separateStock:true,restoredContinuation:true});
 }
 module.exports={platformCases};

@@ -31,6 +31,28 @@ test('fixed models can distinguish variants even when another parameter is adjus
   assert.doesNotThrow(()=>P.compile({palette,components:{byType:{lamp:{params:['resistance']}}}}));
   assert.throws(()=>P.compile({palette,components:{byType:{lamp:{params:['model']}}}}),/庫存有歧義/);
 });
+test('fixed switch stock uses switch and document permissions, not generic params',()=>{
+  const palette=[{type:'switch',key:'open',params:{closed:false},limit:1},{type:'switch',key:'closed',params:{closed:true},limit:1}];
+  for(const params of [true,['closed']])for(const allowSwitch of [false,true]){
+    const initial=M.empty();initial.policy.allowSwitch=allowSwitch;
+    const p=P.compile({initialDocument:initial,palette,components:{default:{params,switch:false}}}),d=M.clone(p.initial);
+    for(const e of p.palette)M.add(d,'switch',200+200*d.components.length,200,e.params);
+    p.assertSnapshot(d);assert.deepEqual(p.palette.map(e=>p.count(d,e)),[1,1]);assert(p.palette.every(e=>!p.canAdd(e,d)));
+    const restored=p.assertSnapshot(D.decode(D.encode(d)));assert.deepEqual(p.palette.map(e=>p.count(restored,e)),[1,1]);
+    const one=P.compile({initialDocument:initial,palette:[palette[1]],components:{default:{params,switch:!allowSwitch}}}),bad=M.clone(one.initial);M.add(bad,'switch',200,200,{closed:false});assert.throws(()=>one.assertSnapshot(bad),/未提供/);
+    const changed=M.clone(d);changed.components[0].params.closed=true;assert.throws(()=>p.assertTransition(d,changed));
+  }
+  assert.throws(()=>P.compile({palette,components:{byType:{switch:{switch:true}}}}),/庫存有歧義/);
+  const initial=M.empty();M.add(initial,'switch',200,200,{closed:true});
+  assert.throws(()=>P.compile({initialDocument:initial,palette,components:{byId:{c1:{switch:true}}}}),/庫存有歧義/);
+  initial.policy.allowSwitch=false;const p=P.compile({initialDocument:initial,palette,components:{byId:{c1:{switch:true}}}});assert.equal(p.allows(p.initial,p.initial.components[0],'switch'),false);assert.deepEqual(p.palette.map(e=>p.count(p.initial,e)),[0,1]);
+});
+test('document locks remain effective in initial stock discriminators',()=>{
+  const initial=M.empty(),c=M.add(initial,'lamp',200,200,{resistance:12});c.locked=true;
+  const p=P.compile({initialDocument:initial,palette:variants,components:{byId:{c1:{params:['resistance']}}}});assert.deepEqual(p.palette.map(e=>p.count(p.initial,e)),[1,0]);
+  const bad=M.clone(p.initial);bad.components[0].params.resistance=24;assert.throws(()=>p.assertSnapshot(bad));
+  const teacher=P.compile({role:'teacher',palette:[{type:'switch'}],components:{default:{params:true}}}),d=M.clone(teacher.initial);M.add(d,'switch',200,200,{closed:false});assert.equal(teacher.count(d,teacher.palette[0]),1,'teacher stock matching remains compatible');
+});
 test('header is opt-in compatible and hidden header features fail closed',()=>{
   assert.equal(P.compile().ui.header,true);assert.equal(P.compile({role:'teacher'}).ui.header,true);
   const p=P.compile({ui:{header:false,probe:true}});assert.equal(p.ui.header,false);assert(p.ui.probe);

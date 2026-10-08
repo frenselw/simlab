@@ -66,7 +66,7 @@
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
-    if(old?.kind==='palette')old.target.suppressAddClick=true;
+    if(old?.kind==='palette')old.target.suppressedToolPointers.add(old.pointerId);
     // Active touches keep their original capture until lift or an explicit transfer.
     if(old?.target.hasPointerCapture?.(old.pointerId)&&!touches.has(old.pointerId))old.target.releasePointerCapture(old.pointerId);
     if(old)suppressClick=true;
@@ -366,7 +366,7 @@
   function tidy(id){cancel();change(doc=>{doc.wires.filter(w=>!id||w.id===id).forEach(w=>{const points=G.route(doc,w),clean=G.smooth(G.simplify(points,12));const fitted=G.fitLength(G.resample(clean,10),w.length);if(!fitted)throw new Error('導線已拉盡；移近端點後再整理線形。');w.shape="free";w.via=fitted.slice(1,-1).map(p=>({x:p.x,y:p.y}));});});}
   function takeWire(){if(!wireAllowed())return false;cancel();panMode=false;probeMode=false;const ok=change(doc=>{const x=camera.x+surface.clientWidth/(2*camera.scale),y=camera.y+surface.clientHeight/(2*camera.scale);let dy=0;while(doc.wires.some(w=>{const points=G.route(doc,w),mid=G.along(points,G.length(points)/2);return Math.hypot(mid.x-x,mid.y-y-dy)<45;}))dy+=45;const w=addWire(doc,x,y+dy);selection={kind:"wire",id:w.id};});if(ok)notify("直線導線已取出。拿端點時另一端固定；拿線身可搬整條，接好一端後可彎曲。");}
   $("quickWire").onclick=takeWire;
-  on($("addWire"),'click',e=>{if(e.detail&&$("addWire").suppressAddClick){$("addWire").suppressAddClick=false;return;}takeWire();});
+  on($("addWire"),'click',e=>{if(suppressedToolClick($("addWire"),e))return;takeWire();});
   $("cableCount").onchange=()=>change(doc=>{doc.cables.count=$("cableCount").valueAsNumber;});$("cableLength").onchange=()=>change(doc=>{doc.cables.length=Number($("cableLength").value);});
   $("cableResistance").onchange=()=>change(doc=>{doc.cables.resistance=$("cableResistance").valueAsNumber;});
   function moveObject(base,kind,id,dx,dy){const candidate=f=>{const d=M.clone(base),item=(kind==="body"?d.components:d.junctions).find(x=>x.id===id);item.x+=dx*f;item.y+=dy*f;if(!M.reconcile(d,base))return null;try{M.validate(d);return d;}catch{return null;}};let d=candidate(1);if(d)return {doc:d,limited:false};let low=0,high=1;for(let n=0;n<28;n++){const mid=(low+high)/2;if(candidate(mid))low=mid;else high=mid;}return {doc:candidate(low),limited:true};}
@@ -548,22 +548,28 @@
     const p=world(e.clientX,e.clientY),x=snapGrid(p.x),y=snapGrid(p.y);
     return Math.abs(x)<=M.limits.coordinate&&Math.abs(y)<=M.limits.coordinate?{x,y}:null;
   }
+  function suppressedToolClick(b,e){
+    const id=e.pointerId??b.lastToolPointerId;if(!e.detail||!b.suppressedToolPointers?.has(id))return false;
+    b.suppressedToolPointers.delete(id);return true;
+  }
   function bindToolDrag(b,entry=null){
     const canTake=()=>entry?profile.canAdd(entry,history.get(),readOnly):wireAllowed()&&history.get().wires.length<history.get().cables.count;
+    b.suppressedToolPointers=new Set();
     b.title=(entry?.label||'導線')+'：點選新增，或用滑鼠／觸控筆拖到畫布';
     // ponytail: pen hover owns this button; use a separate drag handle if concurrent finger scrolling is required.
     on(b,'pointerover',e=>{b.style.touchAction=e.pointerType==='pen'?'none':'';});
     on(b,'pointerleave',()=>{if(drag?.target!==b)b.style.touchAction='';});
     on(b,'pointerdown',e=>{
+      if(e.isPrimary&&e.button===0){b.lastToolPointerId=e.pointerId;b.suppressedToolPointers.delete(e.pointerId);}
       if(!['mouse','pen'].includes(e.pointerType)||e.button!==0||!e.isPrimary||touches.size||!canTake())return;
       if(document.activeElement===$('quickValue')||$('properties').contains(document.activeElement))document.activeElement.blur();
-      cancel();b.suppressAddClick=false;drag={kind:'palette',entry,pointerId:e.pointerId,pointerType:e.pointerType,target:b,x:e.clientX,y:e.clientY,moved:false,selectionBefore:selection&&M.clone(selection)};
+      cancel();drag={kind:'palette',entry,pointerId:e.pointerId,pointerType:e.pointerType,target:b,x:e.clientX,y:e.clientY,moved:false,selectionBefore:selection&&M.clone(selection)};
       b.setPointerCapture(e.pointerId);render(false);
     });
     on(b,'pointermove',e=>{
       if(drag?.kind!=='palette'||drag.target!==b||drag.pointerId!==e.pointerId)return;
       drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;if(!drag.moved)return;
-      b.suppressAddClick=true;const p=canTake()?toolDropPoint(e):null;
+      b.suppressedToolPointers.add(e.pointerId);const p=canTake()?toolDropPoint(e):null;
       if(entry)drag.component=p?M.component(history.get(),entry.type,p.x,p.y,entry.params):null;
       else{drag.wirePreview=null;if(p){const candidate=M.clone(history.get()),w=addWire(candidate,p.x,p.y);drag.wirePreview=G.route(candidate,w);}}
       renderGhost();
@@ -581,7 +587,7 @@
     const sample={type,params:entry.params};
     b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
     bindToolDrag(b,entry);
-    on(b,'click',e=>{if(e.detail&&b.suppressAddClick){b.suppressAddClick=false;return;}if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
+    on(b,'click',e=>{if(suppressedToolClick(b,e))return;if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
       const x=snapGrid(camera.x+surface.clientWidth/(2*camera.scale)),y=snapGrid(camera.y+surface.clientHeight/(2*camera.scale));let offset=0;
       while(d.components.some(c=>Math.hypot(c.x-x-offset,c.y-y-offset)<100))offset+=40;
       const c=addComponent(d,type,x+offset,y+offset,entry.params);selection={kind:'body',id:c.id};

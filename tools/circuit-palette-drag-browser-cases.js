@@ -16,6 +16,7 @@ async function paletteDragCases(h,mode,base){
     for(let n=1;n<=5;n++){await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x+(to.x-p.x)*n/5,y:p.y+(to.y-p.y)*n/5,button:'left',buttons:1,pointerType:pointer});await h.delay(15);}
   }
   async function end(to,pointer='mouse'){await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:to.x,y:to.y,button:'left',buttons:0,clickCount:1,pointerType:pointer});await h.delay(70);}
+  async function fingerTap(key){await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await h.touch(await h.point(button(key)),0,0);}
   const preview=()=>h.inside(`(()=>{const e=document.querySelector('[data-palette-preview]');return e?{key:e.dataset.palettePreview,transform:e.getAttribute('transform'),hit:getComputedStyle(e).pointerEvents}:null;})()`);
   const evidence=(kind,data={})=>h.evidence.push({mode,paletteDrag:kind,...data});
   await launch();
@@ -60,6 +61,24 @@ async function paletteDragCases(h,mode,base){
   }
   await fixture('real',1,{count:1});let wireTarget=await target();await begin('wire-tool',wireTarget);await end(wireTarget);const wireFull=await h.save();assert(await h.inside(`document.querySelector('[data-circuit-id=addWire]').disabled`));await begin('wire-tool',wireTarget);await end(wireTarget);assert.equal(await h.save(),wireFull);await h.inside(`CircuitWorkbench.execute({type:'remove',id:'w1'})`);await h.click(button('wire-tool'));assert.equal((await h.doc()).wires.length,1);await h.click('#undo');await h.inside(`document.querySelector('[data-circuit-id=addWire]').focus()`);await h.key('Enter','Enter',13);assert.equal((await h.doc()).wires.length,1);evidence('wire-stock-click-keyboard',{stock:true,deleteReturnsStock:true,click:true,keyboard:true});
   const fixed=M.empty();fixed.policy.mode='wiring';await h.load(fixed);await h.click('#pan');assert(await h.inside('CircuitWorkbench.getInteraction().panMode'));wireTarget=await target();await begin('wire-tool',wireTarget,'pen');await end(wireTarget,'pen');assert.equal((await h.doc()).wires.length,1);assert.equal(await h.inside('CircuitWorkbench.getInteraction().panMode'),false);evidence('wire-fixed-mode',{allowed:true,returnsToWiring:true});
+  for(const width of [1280,390,320]){
+    await launch(width);if(width<600)await h.touch(await h.point('#panelToggle'),0,0);
+    for(const key of ['battery','wire-tool'])for(const reason of ['escape','blur','capture','readonly','load']){
+      await fixture();const saved=await h.save(),to=await target();await begin(key,to,'pen');assert(await preview());
+      if(reason==='escape')await h.key('Escape','Escape',27);
+      if(reason==='blur')await h.inside(`window.dispatchEvent(new Event('blur'))`);
+      if(reason==='capture'){await h.inside(`document.querySelector(${JSON.stringify(button(key))}).releasePointerCapture(__paletteDown[0].id)`);await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:to.x+1,y:to.y,button:'left',buttons:1,pointerType:'pen'});}
+      if(reason==='readonly')await h.inside('CircuitWorkbench.setReadOnly(true)');
+      if(reason==='load')await h.load(saved);
+      await end(to,'pen');if(reason==='readonly')await h.inside('CircuitWorkbench.setReadOnly(false)');assert.equal(await h.save(),saved,'cancelled sequence does not create');
+      await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:10,y:100,pointerType:'pen'});await fingerTap(key);let d=await h.doc();assert.equal(key==='wire-tool'?d.wires.length:d.components.length,1,'first fresh finger tap creates exactly one');
+      await fingerTap(key);d=await h.doc();assert.equal(key==='wire-tool'?d.wires.length:d.components.length,2);evidence('pen-cancel-finger',{width,key,reason,firstTap:true,secondTap:true});
+    }
+  }
+  await launch();
+  for(const key of ['battery','wire-tool']){
+    await fixture();const to=await target();await begin(key,to,'pen');await h.key('Escape','Escape',27);const original=await h.point(button(key));await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:original.x,y:original.y,button:'left',buttons:1,pointerType:'pen'});await fingerTap(key);let d=await h.doc();assert.equal(key==='wire-tool'?d.wires.length:d.components.length,1);await end(original,'pen');d=await h.doc();assert.equal(key==='wire-tool'?d.wires.length:d.components.length,1,'old pen release is still suppressed after a new touch sequence');evidence('interleaved-sequences',{key,oldReleaseSuppressed:true,newTouchWorks:true});
+  }
   await fixture();await h.click(button('battery'));assert.equal((await h.doc()).components.length,1);await h.click('#undo');await h.inside(`document.querySelector('[data-add=lamp]').focus()`);await h.key('Enter','Enter',13);assert.equal((await h.doc()).components[0].type,'lamp');evidence('click-keyboard',{onePerClick:true,keyboard:true});
   const initial=M.empty();M.add(initial,'battery',180,220);
   const config={initialDocument:initial,palette:[{type:'battery',limit:1},{type:'rheostat',key:'fixed-rheo',params:{resistance:120},limit:1}],components:{default:{remove:true}},ui:{palette:true,inspector:true}};
