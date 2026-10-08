@@ -1437,3 +1437,12 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 驗證決定：擴充已登記的 palette browser cases，source／ZIP、mouse／pen、兩外觀／縮放、120／600 長度及新線電阻、預覽／釋放兩端一致、一次新增與 undo／redo／restore 續接、取消／庫存／只讀／固定接線模式／無接線權限；320／390 px 手指從此按鈕原生捲動及點選。重跑同一組元件拖放防止共用整理回退；真硬件與 Moodle 另列。
 - `--palette-drag-smoke` source／解壓 ZIP **84 observations** 通過，含原元件 **42** 及新增導線 **42**：兩種外觀、兩種 pointer、120／600 最大長度、0.7／1.3 縮放、新線電阻 2 Ω、預覽兩端與正式共接點一致、一次扣庫存／通知／復原、restore 後實際接到電阻兩端、八種取消及原權限；固定接線模式亦能拖取，取線後退出移圖模式。320／390×844 從取線按鈕手指捲動不改文件，點選只取一條。報告 `output/playwright/circuit-workbench/palette-drag.json`，線條預覽截圖已目視核對。
 - `wire-resistance.test.js` **9 groups**、`activity-core.test.js` **19 groups**、`npm run check`、語法／diff 通過；實際教師 ZIP 的 **29 runtime files** 與最終來源逐 byte 一致。未重跑全站 `npm test`；沿用第 72 節筆／手指接觸所有權限制，真筆／真手機／Moodle 未測。
+
+## 74. 未接線物件拖回面板／垃圾桶刪除（2026-10-08）
+
+- 沒有外部接線的元件，及兩端都未接上的導線，可拖回本 editor 可見控制面板，或拖到原有底部紅色垃圾桶放手刪除。僅元件本體、導線線身／線端參與；滑片、導航、共接點及新取物件預覽不參與。共接其他線或接孔不符合條件；原手動刪除按鈕的規則保留。
+- 重用 Pointer Events 捕獲、profile 權限、`M.attached`、`M.remove` 及 history。目標按可見 DOM 命中，限定自己的面板／垃圾桶；hover 只提供提示、面板邊框及桶蓋開合，放手從正式文件移除，不提交先前搬動／接線預覽。已接線或不可移除者在這兩處放手會還原；離開目標則繼續原拖動。一次刪除可一次復原，刪線歸還庫存並清理懸空接點。
+- 原垃圾桶改紅色及 SVG 桶蓋 transform transition，reduced-motion 採即時姿態；不增加底部按鈕／改工具列幾何。取消、失去捕獲、失焦、resize、第二指、載入、只讀及卸載清理提示與開合狀態。
+- 非評量共用核心操作，assessment／rubric／SCORM phase N/A；v6／求解及依賴不改。驗證決定：source／ZIP，mouse／pen／可信 touch、兩外觀、1280／390／320 px、元件／自由線身／線端及兩目標、桶蓋動畫／reduced-motion、庫存及 undo／redo／restore；已接元件、單端已接線、共接線、不可移除／只讀、取消／移出目標及多 instance。不以瀏覽器協定證據宣稱真硬件／Moodle 驗收；相鄰底部版面及取物拖放另驗。
+- `--discard-drag-smoke` source／解壓 ZIP **134 observations** 通過：兩外觀 × 元件本體／自由線身／線端 × 面板／垃圾桶，1280 px mouse／pen、390／320×844 可信 touch；hover 不改文件／onChange，桶蓋開合、刪線庫存歸還、一次提交／undo／redo／restore 續刪、已接元件／單端已接線／共接線／只讀／remove 禁止的拒絕、取消／移離／blur／失去捕獲／resize／載入／鎖定／卸載、第二指取消、reduced-motion 即時姿態及另一 instance 面板不刪除。blur 用注入 window 事件；其餘 API／捕獲／viewport／觸控操作按該案例執行，不宣稱全部是真硬件中斷。報告 `output/playwright/circuit-workbench/discard-drag.json`，`source-trash-open.png` 已目視核對。
+- 相鄰 `--quick-controls-smoke` **68 observations** 及 `--palette-drag-smoke` **84 observations** 在 source／ZIP 通過，底部按鈕幾何、手動刪除／權限、元件／導線取物拖放保持；`activity-core.test.js` **19 groups**、`npm run check`、最終修改檔語法／diff 通過。教師 ZIP **29 runtime files** 與來源逐 byte 一致。未重跑全站 `npm test`，真筆／真手機／Moodle 未測。

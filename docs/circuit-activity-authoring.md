@@ -87,6 +87,8 @@ components:{
 
 這樣四孔變阻器 `c4` 只能改滑片位置，不能改阻值、孔數、位置或方向。初始文件已有的 `locked`、`editable` 及 `policy` 仍適用；配置不能越過它們解除固定。一般活動可保持文件的 `policy.mode='free'`，由外層配置固定元件，避免舊的整體固定模式擋住指定參數。
 
+原本可搬動、可移除且未接線的元件，也可拖回本 editor 的面板或底部垃圾桶刪除；自由導線須兩端皆未接其他物件，且 `wires` 開放。hover 不改作答，放手只移除正式文件中的該物件，不提交搬動預覽；stock／onChange／undo 與既有 remove 命令一致。`remove:false`、只讀及已接線者不會被這條途徑刪除。垃圾桶沿用原控制，沒有新增配置或把活動生命周期放進核心。
+
 ### 介面裁剪
 
 `ui.header` 預設 true，保留完整工作台頂欄。嵌入正式活動時設 false：editor 不掛頂欄、fullscreen button／controller 或 fullscreen target 標記，外層按 shared fullscreen contract 提供完整活動的唯一全螢幕入口。宿主不要自行加 fullscreen target 標記。復原／重做（若 `undo:true`）移至 stage 工具列，面板開關仍可使用；沒有頂欄入口的 `presets/files/settings/help` 須關閉，否則配置報錯。`probe`、外觀切換及其他 stage 控制可按原權限保留。

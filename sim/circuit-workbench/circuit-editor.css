@@ -166,7 +166,13 @@
 .circuit-editor .hit.bend{border:0;background:transparent!important}
 .circuit-editor .hit.bend::after{width:10px;height:10px;top:17px;left:17px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1.5px #397cab}
 .circuit-editor #cancelWire{border-color:#82a6c2;color:#245e89;background:#f0f7fb}
-.circuit-editor [data-circuit-id="deleteSelected"]{border-color:#e1b8ac;background:#fff8f5;color:#a74730}
+.circuit-editor .context-actions [data-circuit-id="deleteSelected"]{border-color:#df9ca2;background:#fff1f1;color:#bd2c3b}
+.circuit-editor [data-circuit-id="deleteSelected"] svg{overflow:visible}
+.circuit-editor .trash-lid{transform-origin:5px 6px;transition:transform .16s ease}
+.circuit-editor .trash-open .trash-lid{transform:translateY(-2px) rotate(-32deg)}
+.circuit-editor .context-actions [data-circuit-id="deleteSelected"].trash-open{background:#ffd9dd;border-color:#bd2c3b}
+.circuit-editor .panel.discard-active{outline:2px solid #bd2c3b;outline-offset:-3px}
+@media(prefers-reduced-motion:reduce){.circuit-editor .trash-lid{transition:none}}
 .circuit-editor .connection-options label{margin:0}
 .circuit-editor .connection-options .note{margin:8px 0 0}
 .circuit-editor .palette svg{width:44px;height:38px}

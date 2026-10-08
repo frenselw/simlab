@@ -63,7 +63,7 @@
   function emitChange(){for(const fn of listeners)try{fn(M.clone(history.get()));}catch(e){console.error("CircuitWorkbench onChange callback failed",e);}}
   const readableMeter=(d,c)=>c&&d.display.values&&R.isMeter(c);
   function rollbackDrag(){meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
-    if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire)$("canvasNotice").hidden=true;
+    if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
     if(old?.kind==='palette')old.target.suppressAddClick=true;
@@ -144,13 +144,29 @@
     });
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
+  function canDiscard(grip,doc=grip?.baseDoc){
+    if(!grip||!doc||readOnly)return false;
+    if(grip.kind==='body'){const c=doc.components.find(c=>c.id===grip.id);return !!c&&allow(doc,c,'remove')&&!doc.wires.some(w=>[w.from,w.to].some(p=>p.split(':')[0]===c.id));}
+    if(['wire','wireend'].includes(grip.kind)){const w=doc.wires.find(w=>w.id===grip.id);return !!w&&wireAllowed()&&!M.attached(doc,w,'from')&&!M.attached(doc,w,'to');}
+    return false;
+  }
+  function discardZoneAt(grip,x,y){
+    if(!grip?.moved||!['body','wire','wireend'].includes(grip.kind))return null;
+    const at=document.elementFromPoint(x,y);if(!at)return null;
+    if($('deleteSelected').contains(at)&&$('deleteSelected').getBoundingClientRect().width>0)return 'trash';
+    if($('panel').contains(at)&&$('panel').getBoundingClientRect().width>0)return 'panel';
+    return null;
+  }
   function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?(snap.connections||[snap]).map(s=>`<circle data-snap-target="${V.esc(s.id)}" cx="${s.x}" cy="${s.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`).join(""):"";
+    $('deleteSelected').classList.toggle('trash-open',!!drag?.discard);$('panel').classList.toggle('discard-active',drag?.discard==='panel');
     host.classList.toggle('palette-dragging',drag?.kind==='palette'&&drag.moved);
     const d=current();$('emptyHint').hidden=!!(d.components.length||d.wires.length||drag?.kind==='palette'&&(drag.component||drag.wirePreview));
     if(drag?.kind==='palette'&&drag.component){const c=drag.component;$("ghostLayer").innerHTML+=`<g data-palette-preview="${V.esc(drag.entry.key)}" transform="translate(${c.x} ${c.y})" opacity=".65" pointer-events="none">${V.body(c,null,history.get().display)}</g>`;}
     if(drag?.kind==='palette'&&drag.wirePreview){const points=drag.wirePreview;$("ghostLayer").innerHTML+=`<g data-palette-preview="wire-tool" data-wire-tool-preview="true" opacity=".65" pointer-events="none"><path d="${G.path(points)}" fill="none" stroke="#50677e" stroke-width="${4/camera.scale}"/>${[points[0],points.at(-1)].map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${7/camera.scale}" fill="#fff" stroke="#526f88" stroke-width="${2/camera.scale}"/>`).join('')}</g>`;}
-    if(drag?.kind==="wireend"||drag?.kind==="body"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
+    if(drag?.discardZone){const n=$('canvasNotice'),message=drag.discard?'放手刪除；復原可還原。':'仍有接線或不可移除；放手會放回原位。';clearTimeout(noticeTimer);if(n.textContent!==message)n.textContent=message;n.hidden=false;n.classList.toggle('error',!drag.discard);drag.discardNoticed=true;}
+    else if(drag?.kind==="wireend"||drag?.kind==="body"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
       n.innerHTML=rich(snap?[drag.kind==="body"?"元件將接線：":drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
+    else if(drag?.discardNoticed){$('canvasNotice').hidden=true;drag.discardNoticed=false;}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
   }
   function render(inspector=true){if(destroyed)return;const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
@@ -419,6 +435,8 @@
     if(touchBlocked||!drag||e.pointerId!==drag.pointerId)return;drag.lastX=e.clientX;drag.lastY=e.clientY;const p=world(e.clientX,e.clientY);drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;
     if(drag.kind==="pan"){autoFit=false;camera.x=drag.base.x-(e.clientX-drag.x)/camera.scale;camera.y=drag.base.y-(e.clientY-drag.y)/camera.scale;render(false);return;}if(!drag.moved)return;
     if(drag.kind==="meterread"){render(false);return;}
+    drag.discardZone=discardZoneAt(drag,e.clientX,e.clientY);drag.discard=drag.discardZone&&canDiscard(drag)?drag.discardZone:null;
+    if(drag.discardZone){drag.snap=null;drag.limited=false;renderGhost();return;}
     const dx=p.x-drag.down.x,dy=p.y-drag.down.y;previewDoc=M.clone(drag.baseDoc);drag.snap=null;drag.limited=false;
     if(drag.kind==="wireend"){
       const desired={x:drag.start.x+dx,y:drag.start.y+dy},result=M.moveWireEnd(previewDoc,drag.id,drag.end,desired);drag.limited=result.limited;
@@ -437,11 +455,17 @@
     try{profile.assertTransition(history.get(),previewDoc,readOnly);}catch{previewDoc=null;return;}analysis=solve(previewDoc);if(drag.limited){$("canvasNotice").textContent="線已拉盡；移近元件，或用另一條線接長。";$("canvasNotice").hidden=false;}render(false);
   });
   on(surface,"pointerup",e=>{
-    if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc;drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
+    if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc,discardZone=discardZoneAt(done,e.clientX,e.clientY);drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
     // Footer reflow may move scene targets before the browser sends click.
     // Keep the original tap target rather than reselecting whatever moved under it.
     releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
+    if(discardZone){
+      $('canvasNotice').hidden=true;analysis=solve(history.get());
+      if(canDiscard(done,history.get())){if(change(doc=>{if(!canDiscard(done,doc))throw new Error('此物件不能拖放刪除');M.remove(doc,done.id);}))notify('已刪除；復原可還原，刪線歸還庫存。');}
+      else{render();notify('仍有接線或不可移除，已放回原位。',true);}
+      return;
+    }
     if(preview&&done.moved&&change(doc=>Object.assign(doc,preview)))notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?done.kind==="body"?["元件已接線：",...connectionLabel(done.snap.id),"。"]:["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");
     render();
   });
