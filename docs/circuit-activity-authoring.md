@@ -47,6 +47,8 @@ const editor = await CircuitEditor.mount(host, {
 
 ### 指定工具箱及庫存
 
+開放 `ui.palette` 後，同一工具箱支援點選／鍵盤新增及滑鼠／觸控筆拖到畫布放置，毋須額外配置。手指保留點選及原生面板捲動。拖放預覽不修改文件或庫存；釋放沿用 `addComponent` 命令的白名單、固定款式參數、數量上限與初始 ID 保留規則，取消不通知作答。
+
 ```js
 palette:[
   {type:'battery', limit:1},

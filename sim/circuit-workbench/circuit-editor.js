@@ -66,6 +66,7 @@
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
+    if(old?.kind==='palette')old.target.suppressAddClick=true;
     // Active touches keep their original capture until lift or an explicit transfer.
     if(old?.target.hasPointerCapture?.(old.pointerId)&&!touches.has(old.pointerId))old.target.releasePointerCapture(old.pointerId);
     if(old)suppressClick=true;
@@ -144,6 +145,9 @@
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
   function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?(snap.connections||[snap]).map(s=>`<circle data-snap-target="${V.esc(s.id)}" cx="${s.x}" cy="${s.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`).join(""):"";
+    host.classList.toggle('palette-dragging',drag?.kind==='palette'&&drag.moved);
+    const d=current();$('emptyHint').hidden=!!(d.components.length||d.wires.length||drag?.kind==='palette'&&drag.component);
+    if(drag?.kind==='palette'&&drag.component){const c=drag.component;$("ghostLayer").innerHTML+=`<g data-palette-preview="${V.esc(drag.entry.key)}" transform="translate(${c.x} ${c.y})" opacity=".65" pointer-events="none">${V.body(c,null,history.get().display)}</g>`;}
     if(drag?.kind==="wireend"||drag?.kind==="body"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
       n.innerHTML=rich(snap?[drag.kind==="body"?"元件將接線：":drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
@@ -163,7 +167,7 @@
     surface.style.backgroundSize=`${Math.max(16,20*camera.scale)}px ${Math.max(16,20*camera.scale)}px`;surface.style.backgroundPosition=`${-camera.x*camera.scale}px ${-camera.y*camera.scale}px`;
     const key=JSON.stringify([d.components.map(c=>[c.id,c.type,c.x,c.y,c.angle,c.mirrored,R.ports(c).map(p=>[p.id,p.x,p.y,p.dx,p.dy])]),d.junctions,d.wires]);if(key!==geometryKey){routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));geometryKey=key;}
     $("scene").innerHTML=V.scene(d,analysis,camera.scale,routes,selection?.id,wireMode,{x:camera.x,y:camera.y,width:surfaceRect.width/camera.scale,height:surfaceRect.height/camera.scale},labelOptions);$("flowLayer").innerHTML=V.flow(d,analysis,routes,animationTime,camera.scale,flowOffsets,flowContext());renderHits(d);renderGhost();
-    $("emptyHint").hidden=!!(d.components.length||d.wires.length);$("zoomReadout").textContent=(camera.scale<.01?(camera.scale*100).toFixed(1):Math.round(camera.scale*100))+"%";
+    $("zoomReadout").textContent=(camera.scale<.01?(camera.scale*100).toFixed(1):Math.round(camera.scale*100))+"%";
     $("fitView").setAttribute("aria-pressed",String(autoFit));
     $("fitView").title=autoFit?"自動全圖已啟用；移動元件後會自動適應":"顯示全圖並啟用自動適應";
     $("undo").disabled=readOnly||!profile.undo||!history.canUndo();$("redo").disabled=readOnly||!profile.undo||!history.canRedo();["realView","schematicView"].forEach(id=>$(id).setAttribute("aria-pressed",String(d.display.view===(id==="realView"?"real":"schematic"))));
@@ -512,15 +516,42 @@
   $('closeSettings').onclick=()=>$('settingsDialog').close();
   on($('settingsDialog'),'close',()=>{$('settings').setAttribute('aria-expanded','false');});
   $("help").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
+  function paletteDropPoint(e,entry){
+    const at=document.elementFromPoint(e.clientX,e.clientY);
+    if(!at||!surface.contains(at)||at.closest('.scroll-strip,.preview,.canvas-notice')||!profile.canAdd(entry,history.get(),readOnly))return null;
+    const p=world(e.clientX,e.clientY),x=snapGrid(p.x),y=snapGrid(p.y);
+    return Math.abs(x)<=M.limits.coordinate&&Math.abs(y)<=M.limits.coordinate?{x,y}:null;
+  }
   if(profile.ui.palette)for (const entry of profile.palette) {
     const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
     const sample={type,params:entry.params};
     b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
-    b.onclick=()=>{if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
+    b.title=entry.label+'：點選新增，或用滑鼠／觸控筆拖到畫布';
+    // ponytail: pen hover owns this button; use a separate drag handle if concurrent finger scrolling is required.
+    on(b,'pointerover',e=>{b.style.touchAction=e.pointerType==='pen'?'none':'';});
+    on(b,'pointerleave',()=>{if(drag?.target!==b)b.style.touchAction='';});
+    on(b,'pointerdown',e=>{
+      if(!['mouse','pen'].includes(e.pointerType)||e.button!==0||!e.isPrimary||touches.size||!profile.canAdd(entry,history.get(),readOnly))return;
+      if(document.activeElement===$('quickValue')||$('properties').contains(document.activeElement))document.activeElement.blur();
+      cancel();b.suppressAddClick=false;drag={kind:'palette',entry,pointerId:e.pointerId,pointerType:e.pointerType,target:b,x:e.clientX,y:e.clientY,moved:false,selectionBefore:selection&&M.clone(selection)};
+      b.setPointerCapture(e.pointerId);render(false);
+    });
+    on(b,'pointermove',e=>{
+      if(drag?.kind!=='palette'||drag.target!==b||drag.pointerId!==e.pointerId)return;
+      drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;if(!drag.moved)return;
+      b.suppressAddClick=true;const p=paletteDropPoint(e,entry);drag.component=p?M.component(history.get(),type,p.x,p.y,entry.params):null;renderGhost();
+    });
+    on(b,'pointerup',e=>{
+      if(drag?.kind!=='palette'||drag.target!==b||drag.pointerId!==e.pointerId)return;
+      if(!drag.moved){drag=null;if(b.hasPointerCapture(e.pointerId))b.releasePointerCapture(e.pointerId);render(false);return;}
+      const p=paletteDropPoint(e,entry);if(p){const fitted=autoFit;autoFit=false;if(execute({type:'addComponent',key:entry.key,...p}))notify('元件已放到畫布。');else{autoFit=fitted;render(false);}}else cancel();
+    });
+    on(b,'lostpointercapture',e=>{if(drag?.target===b&&drag.pointerId===e.pointerId)cancel(true);});
+    on(b,'click',e=>{if(e.detail&&b.suppressAddClick){b.suppressAddClick=false;return;}if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
       const x=snapGrid(camera.x+surface.clientWidth/(2*camera.scale)),y=snapGrid(camera.y+surface.clientHeight/(2*camera.scale));let offset=0;
       while(d.components.some(c=>Math.hypot(c.x-x-offset,c.y-y-offset)<100))offset+=40;
       const c=addComponent(d,type,x+offset,y+offset,entry.params);selection={kind:'body',id:c.id};
-    });if(succeeded)notify('元件已加入。再取出導線接線，或拖動本體調整位置。');};$('palette').append(b);
+    });if(succeeded)notify('元件已加入。再取出導線接線，或拖動本體調整位置。');});$('palette').append(b);
   }
 
   if(matchMedia("(max-width:759px) and (min-height:451px)").matches){$("app").classList.add("panel-hidden");$("panelToggle").setAttribute("aria-expanded","false");$("panelToggle").setAttribute("aria-label","展開操作面板");}

@@ -39,7 +39,7 @@
     <div class="dialog-head"><div><h2 id="helpTitle">電路工作台 · 快速上手</h2><p class="note">先接線，再量度與調整。</p></div><button id="closeHelp" aria-label="關閉說明" title="關閉說明">×</button></div>
     <div class="help-body">
       <section><h3>三步搭建</h3><ol class="help-steps">
-        <li><strong>取出元件與導線</strong><span>從工具箱選取，也可按畫布下方「＋導線」。</span></li>
+        <li><strong>取出元件與導線</strong><span>點選工具箱新增元件，或用滑鼠／觸控筆拖到畫布放置；手指仍可滑動工具箱。導線可按畫布下方「＋導線」。</span></li>
         <li><strong>拖到接孔，放手接好</strong><span>把線端拖近白色圓孔，出現藍圈便可放手。</span></li>
         <li><strong>移動與改形狀</strong><span>拖元件搬位；接好一端後拖線身彎曲。拉走已接線端可拔開。</span></li>
       </ol><p class="help-tip">線身交叉不會接通；線太短可移近元件或接另一條線。</p></section>

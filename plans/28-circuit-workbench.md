@@ -1420,3 +1420,12 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 修正畫布滑片已移動、面板百分比仍停於提交值的問題。保留拖動期間的 inspector DOM，以當前預覽文件更新綁定元件的滑片數字、range 及讀值；沒有預覽時同步正式值，避免取消或轉為導航後殘留預覽。正在輸入的數字欄保留原內容。放手才提交一次、單步復原與權限沿用原機制。
 - 非評量顯示同步，assessment／rubric／SCORM phase N/A；模型、方程、v6 文件及公開 API 不改。驗證決定：在既有 teaching browser cases 加入兩外觀、320／390 px 觸控與 1280 px 滑鼠，實際按住時逐次核對 70／90%、DOM 身分不變、文件／onChange 未提交、放手一次提交、一次 undo 還原及取消不提交；來源與解壓 ZIP 均執行。精準 baseline 已重現 `50 != 70`。
 - `--teaching-smoke --slider-preview-only` 在來源／實際解壓 ZIP 通過 **12 observations**（兩外觀 × 三種寬度 × source／ZIP），紀錄 `output/playwright/circuit-workbench/teaching.json`；這是本次滑片精準矩陣，不能當作全部 teaching browser cases 已重跑。相鄰 `teaching.test.js` **112 cases** 及 `quick-controls.test.js` **6 groups**、`npm run check`、JS syntax／diff 通過。教師 ZIP **29 runtime files** 與來源逐 byte 一致；一次 Chrome 啟動遇到 Windows 暫存檔 EBUSY，另開暫存目錄重跑通過。未重跑全站 `npm test`，真手機／Moodle 未測。
+
+## 72. 工具箱滑鼠／觸控筆拖放（2026-10-08）
+
+- 使用者批准先支援滑鼠及觸控筆拖出元件，保留點選／鍵盤新增；手指不開始此拖放，仍由面板原生捲動或點選新增處理。拖動超過 6 CSS px 後才算拖放；畫布有效位置顯示半透明實際元件，依同一相機轉換及格點計算預覽／放置。畫布外、覆蓋控制／捲動條、取消、失焦、失去捕獲、resize、載入、鎖定及卸載均不新增。觸控筆在 pointerover 時先設定按鈕的手勢所有權，手指 pointerover 還原 pan-y；不於 pointerdown 才更改 touch-action。
+- 共用 editor 擁有操作；釋放時沿用 `execute({type:'addComponent',...})` 的白名單、款式參數、庫存、初始 ID 保留及原子檢查，預覽不寫文件／不佔庫存／不通知作答。一次放置一筆歷史，避免接著的 click 重複新增。多 instance 只接受自己的畫布，不自動接線。
+- 非評量工作台／共用核心操作，assessment／rubric／SCORM phase N/A；不改物理或 v6 schema，不新增依賴／配置。驗證決定：source／解壓 ZIP，滑鼠／筆、兩外觀、不同縮放、半途與 drop 外、Escape／失焦／失去捕獲／resize／載入／只讀／卸載、點選及鍵盤、學生庫存與固定參數／ID、多 instance；手機可信觸控需驗證工具箱原生捲動及點選，文件不因滑動改動。新增 browser cases 登記既有完整 circuit runner；真筆／真手機與 Moodle 證據另列。
+- 已執行 `--palette-drag-smoke` source／解壓 ZIP **42 observations**：mouse／pen 的可信 down／move／up（無 cancel）、實物／電路圖、0.7／1.3 縮放、預覽不改文件／onChange、指定格點放置及相機保留、一次提交／undo／redo／restore 續調，八種取消路徑、點選／Enter、學生庫存及初始 ID／固定參數、另一 instance 畫布拒絕、320／390×844 原生手指捲動與點選。失焦測試注入 window blur，捕獲／載入／鎖定／卸載用 production API，並非全數以硬件中斷測試。報告 `output/playwright/circuit-workbench/palette-drag.json`；預覽截圖已目視核對。
+- 明確限制：pen hover 的 `touch-action:none` 必須在接觸前設定，因此筆仍懸停同一按鈕時開始的手指滑動，可能沿用筆的手勢所有權。手指自身操作及筆離開後的切換已驗證；不宣稱支援同一位置的並行筆／手指操作。觸控筆未支援 hover 的硬件、真筆／真手機及 Moodle 未在本輪實測，須另做硬件驗收。
+- 相鄰 `--activity-core-smoke` source／ZIP **46 observations**、`activity-core.test.js` **19 groups**、`platform-core.test.js` **6 groups** 通過，既有點選、只讀及活動示例保持。`npm run check`、最終修改檔語法與 diff 通過，教師 ZIP 重建後 **29 runtime files** 與來源逐 byte 一致。未重跑全站 `npm test`。
