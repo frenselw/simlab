@@ -6,7 +6,7 @@
 
 Live Server 可直接開交流入口。`npm run package:circuit-platform` 統一重建 DC 工作台、AC 工作台及兩個 DC SCORM 活動，核對共用來源與每包依賴。AC standalone ZIP 上載 Moodle **File resource**，主檔 `circuit-ac-workbench/index.html`；它沒有 `imsmanifest.xml`，不能當成已評分 SCO。
 
-預設涵蓋交流／三種波形有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、充電後 LC、阻尼及空白畫布。上方「更多」提供文件、設定、操作及說明；手機控制面板獨立捲動。波形可在 stage 打開，窄畫面切到波形。兩側捲頁區供 Moodle 外層捲動。
+預設涵蓋交流／三種波形有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、充電後 LC、阻尼及空白畫布。共通操作沿用 DC 的位置：文件、設定及復原在頂欄；接線、手掌工具及播放在畫布上方；旋轉、複製、刪除與縮放在畫布底部。時間與波形工具另在 Control Panel；手機控制面板獨立捲動。波形可在 stage 打開，窄畫面切到波形；波形區的「返回電路」在面板收起時仍可操作。兩側捲頁區供 Moodle 外層捲動。
 
 ## 建立配置
 
