@@ -80,7 +80,7 @@ v1–v5 先按各自原版本嚴格驗證，再遷移為 v6。舊線及新線預
 
 v4 的 `display.names` 為可選布林，控制外部元件名稱；舊 v1–v4 檔案缺省時補 true，新存檔明確保存。`display.values` 繼續控制讀值／參數及儀表讀數。兩者均嚴格驗證類型；自動標籤位置不寫入 JSON。
 
-新文件的 `display.quantities` 預設 `{loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true}`：畫布保留電源電壓、滑動變阻器電阻與儀表讀值，隱去固定電阻／燈電阻、用電器功率及電源內阻。控制面板「進階內容」可獨立勾選前三項，變阻器電阻亦可獨立關閉；數值總開關仍可一次全隱藏。選取元件後的編輯參數／實際讀值保持可查閱。兩外觀、標籤避讓及 SVG 匯出共用過濾。舊檔缺整組時補全 true，保留當時完整標籤；提供該組時，四字段都須是布林，缺項或未知項拒絕。選項明確保存於 JSON／模板及復原歷史。
+新文件的 `display.quantities` 預設 `{loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true}`：畫布保留電源電壓與儀表讀值，預設隱去所有用電器電阻、功率及電源內阻。控制面板「進階內容」可獨立勾選前三項；勾選「顯示用電器電阻」才顯示滑動變阻器的「最大電阻」及 `params.resistance`，不以滑片位置或是否接線決定，也不顯示 A–P 段有效阻值。`rheostatResistance` 只保留舊檔相容，不再控制畫布或提供獨立選項；數值總開關仍可一次全隱藏。選取元件後的編輯參數／實際讀值保持可查閱。兩外觀、標籤避讓及 SVG 匯出共用過濾。舊檔缺整組時補全 true；提供該組時，四字段都須是布林，缺項或未知項拒絕。選項明確保存於 JSON／模板及復原歷史。
 
 A/V 元件可保存 `mirrored` 布林，缺省 false；其他元件不接受，舊 v1–v3 不接受 true。接孔先在元件局部座標左右反射，再按原角度旋轉；孔 ID、高低量程、極性及電學模型不變。實物引線／可見孔、標記、吸附及命中共用 `CircuitRegistry.localPorts/ports`，換位後有限導線會修復接頭路徑並保留遠端。幾何相機／路徑快取包含此方向。
 

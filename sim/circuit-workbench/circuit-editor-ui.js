@@ -70,7 +70,7 @@
         <p class="note">同一電路電流變小時，箭頭／電子會變慢；微小電流保留可見速度。動畫不代表真實漂移速度。</p>
         <label class="check"><input type="checkbox" id="projection">投影字體</label>
 </section>
-<section class="settings-section"><h3>畫布標籤</h3>        <label class="check"><input type="checkbox" id="names" checked>顯示元件名稱</label><label class="check"><input type="checkbox" id="values" checked>顯示畫布讀值與參數</label><label class="check"><input type="checkbox" id="rheostatResistance" checked>顯示滑動變阻器電阻</label>
+<section class="settings-section"><h3>畫布標籤</h3>        <label class="check"><input type="checkbox" id="names" checked>顯示元件名稱</label><label class="check"><input type="checkbox" id="values" checked>顯示畫布讀值與參數</label>
         <details id="advancedValues"><summary>進階內容</summary><label class="check"><input id="loadResistance" type="checkbox">顯示用電器電阻</label><label class="check"><input id="loadPower" type="checkbox">顯示用電器功率</label><label class="check"><input id="sourceResistance" type="checkbox">顯示電源內阻</label></details>
 </section>
 <section class="settings-section"><h3>教師設定</h3>        <label>操作模式<select id="mode"><option value="free">自由搭建</option><option value="wiring">固定元件，只接線</option></select></label>

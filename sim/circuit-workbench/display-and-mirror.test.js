@@ -9,9 +9,17 @@ function labelsFixture(){const d=M.empty();for(const [i,type]of ['battery','resi
 for(const view of ['real','schematic'])for(const loadResistance of [false,true])for(const loadPower of [false,true]){
   const d=labelsFixture();d.display.view=view;Object.assign(d.display.quantities,{loadResistance,loadPower});const initial=S.solve(d).components;
   for(const id of ['c2','c3']){assert.equal(rows(d,id).includes('Ω'),loadResistance);assert.equal(rows(d,id).includes('W'),loadPower);}
-  assert(rows(d,'c1').includes('V'));assert(!rows(d,'c1').includes('Ω'));assert(rows(d,'c4').includes('Ω'));assert.equal(rows(d,'c4').includes('W'),loadPower);
+  assert(rows(d,'c1').includes('V'));assert(!rows(d,'c1').includes('Ω'));assert.equal(rows(d,'c4').includes('Ω'),loadResistance);assert.equal(rows(d,'c4').includes('最大電阻'),loadResistance);assert.equal(rows(d,'c4').includes('W'),loadPower);
   const restored=D.decode(D.encode(d));assert.deepEqual(restored.display.quantities,d.display.quantities);assert.deepEqual(S.solve(restored).components,initial);assert.deepEqual(D.template(restored).display.quantities,d.display.quantities);
   restored.display.quantities.loadPower=!loadPower;M.validate(restored);assert.equal(rows(restored,'c3').includes('W'),!loadPower);near(S.solve(restored).components.c3.power,initial.c3.power);cases++;
+}
+for(const view of ['real','schematic'])for(const terminals of [2,3,4])for(const connected of [false,true])for(const position of [0,.25,1])for(const legacyFlag of [false,true]){
+  const d=M.empty(),c=M.add(d,'rheostat',300,240,{resistance:120,terminals,position});d.display.view=view;d.display.quantities.rheostatResistance=legacyFlag;
+  if(connected){const e=M.add(d,'battery',600,240);M.connect(d,e.id+':a',c.id+':a');M.connect(d,c.id+':b',e.id+':b');}
+  const before=S.solve(d).components;assert.equal(rows(d,c.id),'');d.display.quantities.loadResistance=true;
+  assert.equal(rows(d,c.id),'最大電阻 120 Ω');assert.deepEqual(S.solve(d).components,before);
+  const restored=D.decode(D.encode(d));assert.equal(rows(restored,c.id),'最大電阻 120 Ω');restored.components[0].params.position=.75;assert.equal(rows(restored,c.id),'最大電阻 120 Ω');
+  restored.display.values=false;assert.equal(rows(restored,c.id),'');cases++;
 }
 {
   const d=labelsFixture();d.display.quantities.sourceResistance=true;d.display.quantities.rheostatResistance=false;assert(rows(d,'c1').includes('Ω'));assert.equal(rows(d,'c4'),'');

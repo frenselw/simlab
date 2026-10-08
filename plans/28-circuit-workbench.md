@@ -1408,3 +1408,9 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 ## 69. 課堂範例選單排序（2026-10-07）
 
 依使用者指示，兩個繼電器範例移到「串並混聯」之後、「全電路歐姆定律」之前，先兩燈切換、再電鈴式自斷。僅改選單項目次序，不改範例資料、value 或求解；沿用非評量 N/A 的既有邊界。已核對實際入口模板順序、JS syntax、diff，重建 ZIP **29 files** 與來源逐 byte 一致；此低影響排列未新增測試檔或重跑無關矩陣。
+
+## 70. 滑動變阻器最大電阻標示修正（2026-10-08）
+
+- 按使用者要求，滑動變阻器預設不顯示電阻；只有「顯示畫布讀值與參數」及「顯示用電器電阻」同時開啟，才標示「最大電阻」及最大值，不顯示 A–P 有效阻值。接線狀態及滑片位置不影響此標示，實物／電路圖／SVG 匯出使用同一標籤入口。移除獨立「顯示滑動變阻器電阻」選項；v6 的舊 `rheostatResistance` 布林仍可往返保存，但不影響顯示。
+- 本輪為非評量顯示修正，assessment／rubric／SCORM phase N/A；方程、元件參數、權限及文件版本不改。精準驗證含兩種外觀、2／3／4 孔、已接／未接、三個滑片位置、舊布林兩值、總開關及文件恢復；沿用既有已登記的 display 單元／browser runner，不新增測試框架。
+- `display-and-mirror.test.js` **109 cases**、`labels.test.js` **72 responsive layouts**、`meters-and-math.test.js` **96 fixtures** 通過；`--display-mirror-smoke` 在 source／解壓 ZIP 通過 **30 observations**，含 390 px 可信觸控／1280 px 滑鼠、勾選及取消最大電阻標示、總開關、移除舊選項、實際 JSON 檔載入與復原續作，並保留儀表換孔及 320 px 動作列回歸。`npm run check` 及 diff 檢查通過；教師 ZIP 已重建並核對 29 個 runtime 檔與來源逐 byte 一致。未重跑全站 `npm test`，真手機／Moodle 未測。

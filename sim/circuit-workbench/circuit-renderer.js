@@ -183,7 +183,7 @@
           if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
           else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
           else if(c.type==='relay')parts.push({text:r?.contact==='e'?'已吸合':r?.contact===null?'切換中':'未吸合'});
-          else{if((c.type==='rheostat'?show.rheostatResistance:show.loadResistance)!==false)parts.push(Q.quantity(resistance,'Ω'));if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}
+          else{if(c.type==='rheostat'?show.loadResistance===true:show.loadResistance!==false){if(c.type==='rheostat')lines.push({kind:'value',text:'最大電阻',size:valueSize});parts.push(Q.quantity(c.type==='rheostat'?c.params.resistance:resistance,'Ω'));}if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}
           if(parts.length)lines.push({kind:'value',...(['switch','relay'].includes(c.type)?parts[0]:Q.join(parts)),size:valueSize});
         }
       }
