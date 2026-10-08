@@ -414,6 +414,7 @@
 .circuit-editor .stage-tools{flex-wrap:nowrap;gap:0;padding:5px 3px;justify-content:space-between}
 .circuit-editor .stage-tools .segmented,.circuit-editor .stage-tools .playback-controls{flex:0 0 auto;margin-right:0}
 .circuit-editor .stage-tools .segmented button{width:44px;min-width:44px;height:44px;padding:0;white-space:nowrap}
+.circuit-editor .stage-tools .segmented [data-circuit-id="schematicView"]{white-space:normal;line-height:1.15}
 }
 @container stage (max-width:357px){
 .circuit-editor .stage-tools{flex-wrap:wrap;gap:4px}

@@ -1446,3 +1446,7 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 非評量共用核心操作，assessment／rubric／SCORM phase N/A；v6／求解及依賴不改。驗證決定：source／ZIP，mouse／pen／可信 touch、兩外觀、1280／390／320 px、元件／自由線身／線端及兩目標、桶蓋動畫／reduced-motion、庫存及 undo／redo／restore；已接元件、單端已接線、共接線、不可移除／只讀、取消／移出目標及多 instance。不以瀏覽器協定證據宣稱真硬件／Moodle 驗收；相鄰底部版面及取物拖放另驗。
 - `--discard-drag-smoke` source／解壓 ZIP **134 observations** 通過：兩外觀 × 元件本體／自由線身／線端 × 面板／垃圾桶，1280 px mouse／pen、390／320×844 可信 touch；hover 不改文件／onChange，桶蓋開合、刪線庫存歸還、一次提交／undo／redo／restore 續刪、已接元件／單端已接線／共接線／只讀／remove 禁止的拒絕、取消／移離／blur／失去捕獲／resize／載入／鎖定／卸載、第二指取消、reduced-motion 即時姿態及另一 instance 面板不刪除。blur 用注入 window 事件；其餘 API／捕獲／viewport／觸控操作按該案例執行，不宣稱全部是真硬件中斷。報告 `output/playwright/circuit-workbench/discard-drag.json`，`source-trash-open.png` 已目視核對。
 - 相鄰 `--quick-controls-smoke` **68 observations** 及 `--palette-drag-smoke` **84 observations** 在 source／ZIP 通過，底部按鈕幾何、手動刪除／權限、元件／導線取物拖放保持；`activity-core.test.js` **19 groups**、`npm run check`、最終修改檔語法／diff 通過。教師 ZIP **29 runtime files** 與來源逐 byte 一致。未重跑全站 `npm test`，真筆／真手機／Moodle 未測。
+
+## 75. 外觀按鈕名稱「電路符號」（2026-10-08）
+
+按使用者要求，切換按鈕「電路圖」改為「電路符號」；四字在原 44×44 px 按鈕內自然換行，保留八個工具的既有排列／觸控尺寸。僅改介面名稱及文字換行，`schematic` 文件值、API、圖形／求解不變；非評量 N/A 邊界沿用。`--settings-smoke` source／ZIP **30 observations** 通過（1280／390／360／320 px 及短橫向），核對切換、文字不溢出及八個工具版面；修改檔語法／diff 通過，ZIP 與來源 **29 runtime files** 一致。未重跑無關全站／Moodle 測試。
