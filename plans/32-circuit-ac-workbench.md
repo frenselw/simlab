@@ -1,0 +1,175 @@
+# 交流電路工作台
+
+2026-10-09：使用者批准 A0–A6 實作。沿用 `codex/circuit-platform-dc-scorm-plan`，基準 `f7912e2`。
+依 [共用產品規則](00-shared-platform-and-style.md)、[production guide](../docs/simulation-scorm-production-guide.md)、[活動作者指南](../docs/circuit-activity-authoring.md)及[架構說明](../docs/circuit-workbench-architecture-review.md)實作。本計劃由 [activity template](NEW-SIMULATION-PLAN-TEMPLATE.md)各決策節點填寫；共用契約不在此另訂例外。
+
+## Scope
+
+| 決策 | 規格 |
+|---|---|
+| Slug／目標 | `circuit-ac-workbench`；中學交流、有效值、電容／電感、自感／互感、變壓器及 LC 振盪 |
+| 交付 | 非評量教師工作台、可配置核心、兩個無評分嵌入示例、standalone ZIP；正式 AC SCORM 題目及 rubric 另議 |
+| 教材 | 人教版高中選擇性必修第二冊，印刷頁 40–43、49–62、71–75；本地 Textbooks 原 PDF 已讀 |
+| 操作 | 自由取物、接線、調參、播放／暫停／單步、瞬時與窗內量測、游標、能量及場示意 |
+| 共用核心 | `CircuitEditor.mount`；不複製 DC editor。共用接線、拖放、吸附、權限、有限導線、實物／符號及 renderer |
+| 依賴 | 原生 HTML/CSS/JS/SVG/Canvas；沿用本地 MathJax、styles、fullscreen，不引入新 runtime library |
+| Assessment risk | N/A：本次沒有學生評分；後續活動需自己的 assessment risk／rubric／codec／SCORM manifest |
+| 不包含 | 家庭、高壓輸電、整流／濾波、完整相量、三相、調諧、磁芯飽和／磁滯／鐵損、火花及燒毀 |
+
+## Catalogue metadata
+
+`title:'交流電路工作台'`、`folder:'circuit-ac-workbench'`、`categories:['物理','電學']`、`description:'搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。'`、`tags:['交流','電路','電容','電感','變壓器','工作台']`。只在 source／package gates 通過後設 `status:'active'`。
+
+## Architecture and public interfaces
+
+- `analysis:'dc'|'transient'` 是可信 mount 配置，預設 dc。所有讀值、check、probe、renderer、hazards 路徑使用選定後端；DC 方程及預設不重寫。
+- v1–v6 繼續遷移至 v6／匯出 v6。AC v7 帶 `analysis:'transient'`、`modelRevision:1`；初始 C 電壓及 L 電流是元件參數，目前時間／狀態另存。
+- DC 拒絕 AC 文件。AC 顯式將支援的 v6 文件轉為 v7；不支援元件完整拒絕，不能自動刪除。無全域分析模式。
+- `getAnalysis()` 不推進時間。增加播放／暫停／倍率／單步／reset、`captureSession()`／`restoreSession()`、獨立分析訂閱與活動 panel 插槽。
+- 時間求解器同時提供 instance session 與確定性離線 events/until 運算，兩者共用積分程式。
+- AC 配置覆蓋模型／款式／數量／參數／操作、播放及量測通道；UI、命令、鍵盤、匯入與 restore 共用驗證。
+- 保留近期 DC 改進：滑片數字即時更新、滑鼠／筆 palette／取線拖放、未接物件回 panel／垃圾桶、符號名稱。
+- renderer 使用後端 hazards；DC series／sliderEffect 保持 DC 範圍，純導線連接檢查可用於 AC。
+
+## Physics or subject model
+
+| 元件／状态 | 方程／規格 | 单位／預設 |
+|---|---|---|
+| AC source | 正弦、對稱方波、對稱三角波；輸入有效值換算各波形峰值；可調初相位及內阻 | 6 V rms、50 Hz、0°；f 0.1–1000 Hz |
+| Generator | θ 隨時間；Φ=BS cosθ 為單匝磁通量；e=NBSω sinθ；轉速同時影響振幅及頻率 | SI；原生 SVG，外界保持轉速 |
+| R／rheostat／wire | 沿用阻值及端子語義；幾何不是物理電阻 | Ω；不變更 DC schema |
+| Lamp | 恆阻燈，功率驅動亮度；不拿 DC 熱平衡當熱瞬態 | 額定參數沿用現有 |
+| Capacitor | i=C du/dt；q=Cu；E=½Cu²；狀態 u | 1000 μF，初始 u=0 |
+| Inductor | u=L di/dt+Ri；E=½Li²；狀態 i；R=0 支援理想 LC | 1 H，初始 i=0 |
+| Switch／SPDT | 離散事件，SPDT 不能同時接通兩邊 | boolean／兩個接點選擇 |
+| Ideal transformer | 電壓比等於匝數比，電流反比，功率守恆；兩側隔離；純交流用途 | n1:n2=200:100 |
+| Coupled transformer | M=k√(L1L2)，L2=L1(n2/n1)²；兩側同組方程；k<1；線阻與漏耦合 | L1=2 H、k=.999、R1=1 Ω、R2=.25 Ω |
+| LED | 正向壓降＋有限導通電阻，反向截止；反向並聯顯示方向 | 教學近似，沒有擊穿模型 |
+| AC A/V/W meters | 有效電流／有效電壓／平均有功功率，數字與指針讀同一統計 | 明示量測窗及資料不足 |
+| G meter | 有方向的瞬時電流，指針平滑只作呈現 | A，介面 μA |
+
+線性線圈不模擬飽和、磁滯及鐵損；不把效率直接乘電壓。互感斷電預設含可見放電支路。理想變壓器遇直流激勵明確停止並提示改模型。
+
+### Integrator and failure policy
+
+修正節點分析；平滑處梯形法，事件後短暫 backward Euler 再回梯形。自適應步長／step doubling，週期及自然變化尺度限步，波形跳變與操作事件為 breakpoint。拓撲編譯只在電氣變更時重建。初始條件明確，不把零初始瞬態當穩態。
+
+物理時間與 RAF 分開；單幀運算設 budget，忙時放慢時間而非跳步。未知／浮接／不唯一保留 null。矛盾理想源、帶電 C 理想短接、帶電流 L 無通路及数值失敗保留文件、凍結事件時間並診斷；不暗加電阻、清能量、裁剪電流。無損受迫共振可增長，不能用假耗散壓平。
+
+### Editing and time transitions
+
+| 操作 | 物理處理 |
+|---|---|
+| 暫停／只讀 AC | 物理時間凍結，仍可移圖／縮放／量測 |
+| 倍率 | 只改牆鐘對模擬時間比例，不改 f |
+| switch／R／振幅／f | 事件時保留 C voltage／L current；改 f 保留相位連續 |
+| C／L／N／k／初始值 | 新實驗，回 t=0 並提示 |
+| 新增／刪除／重接 | 新電路回初始條件；移動／旋轉／彎線不重設 |
+| preview | 主狀態停步；副本計算與即時數字；取消還原，release 才 onChange |
+| undo／redo | 編輯事件對應 document＋physics snapshot，還原後暫停；不逐時間步入 history |
+| 背景／恢復 | 不補追離開時間；恢復保存瞬間後暫停 |
+
+### Measurement and visual observations
+
+每個積分步計算 ∫u²dt、∫i²dt、∫uidt，產生 RMS 與平均功率，不能由 RAF 抽樣。峰值/√2 只適用正弦。顯示時間窗、收集中；更改條件清統計。相位差限穩定正弦及明確參考頻率，不適用時保留曲線與游標。
+
+最多四條波形：兩端 voltage、支路 current、C charge、C/L/coupled energy，共用時間軸、各自單位與軸比例；兩游標有鍵盤／數值替代。固定容量 ring buffer；繪圖抽樣不丟積分資料。場、電流及發電機角度同一物理時間；電子不穿過 C 介質。
+
+## Responsive layout contract
+
+| 決策 | 規格 |
+|---|---|
+| 三區 | Header：title/presets/fullscreen；stage：電路／波形；panel：工具、參數、量測、外層插槽 |
+| 桌面 | ≥960 px；stage 左、panel 340–380 px 右；波形開合時 stage 內約 1/3 高 |
+| Phone | 上 stage（約 44dvh）、下 bounded panel；電路／波形切換；短畫面精簡工具列 |
+| Bounded shell | 100dvh，min-height:0；html/body 沒有競爭 scroll；panel overflow-y:auto/overscroll contain |
+| Fullscreen | 整個活動唯一 target/header、shared script；外層有 header 時內層 ui.header=false |
+| 文字／按鈕 | Traditional Chinese、主控制 16px、圖形放大可讀、44px target；狀態亦有文字 |
+| Viewports | 1280×800、768×1024、390×844、320×500、844×390、500px iframe、200% zoom |
+
+## Navigation, submission and reset
+
+教師主題預設可獨立切換，明示載入新電路；reset simulation 保留搭建但回初始值。Standalone refresh fresh。check/submit/rubric/recorded lifecycle **N/A：非評量工作台**。活動插槽不提供分數；正式活動後續自己的計劃決定 blank／partial／check／review／pending。
+
+## Diagrams, notation and assistance
+
+SI 內部數值，u/i/q 為有正負瞬時量，U/I 为 RMS，Φ 與 NΦ 分開。正方向端子 a→b；耦合線圈同名端明示，跨隔離任意 reference 的電壓未知。使用共享數學字型與格式。
+
+接孔吸附沿用現有 24 CSS px、component snap 既有幾何；不是評分容差。手指 wire-end 精準接孔需放大預覽；粗元件搬動／按鈕／range 不需放大；波形游標以數值與 keyboard 避免遮蔽。不新增旋轉線圈自由 3D 手勢。
+
+## Touch gesture ownership contract
+
+| Target／mode | 規格／owner | Keyboard alternative |
+|---|---|---|
+| component／wire end／wire body／rheostat | 現有 stable hit capture、none；操作 owns gesture，viewport fixed | 現有選取／方向鍵／commands |
+| palette／take wire | 滑鼠／筆 drag；touch click／panel pan-y | button click |
+| SPDT | local button hit、44px；event only一次 | Enter／Space |
+| graph cursors | local 44px capture none，其餘 graph pan-y | range／number／arrows |
+| panel | panel only，兩端不串到 host | tab／原生 scroll |
+| left/right strips | 各≥32 CSS px，不被 graph 蓋住；native host pan-y | N/A |
+| blank stage outside manipulation | native enclosing owner | N/A |
+
+| Host | 实際 owner／strategy | Evidence |
+|---|---|---|
+| T0 | bounded workbench；無 host range 時 N/A，不偽造捲動 | 待執行 |
+| T1 | scrollable outer window → iframe | 待執行 |
+| T2 | outer window → fixed wrapper → iframe | 待執行 |
+| T3 | bounded windows，overflowing owner element → iframe | 待執行 |
+| T4 | 真 Moodle 及真手機 owner 實測 | 待外部環境，不能用本地替代 |
+
+running/paused/preview/diagnostic/readonly，real/symbol、graph開／關／mobile graph view 均要 legal fixture，操作後記錄時間狀態及 scroll owner。所有 targets、strip兩方向、panel邊界、快速滑動、取消及 resize 依 production guide。
+
+## Scoring and tolerance
+
+Rubric/pass/分數／提交 **N/A：教師工具及無評分技術示例**。物理解析誤差≤0.5%（近零絕對電壓1e-6 V／電流1e-9 A）；理想 LC 100周期能量漂移≤0.5%；與未來評分容差分開。
+
+## Phase/state matrix
+
+| State | 必須保留 | 合法續作 |
+|---|---|---|
+| blank／partial wiring | v7 doc，初始 states，未知讀值 | 取物／接線／保存／load |
+| running／paused RC/RL | t、source phase、C u／L i／數值歷史 | 改 R／switch／advance |
+| LC quarter／SPDT前後 | q/i polarity、energy、switch contact | 續算／切換，unsupported保留diagnostic |
+| mutual transient | both winding i、phase、coupled history | 有放電支路的 switch event |
+| preview | authoritative snapshot 不改 | cancel／release |
+| diagnostic | 合法 doc、事件時間、last continuous states、診斷 | 修正參數／接線／reset，不能假零讀值 |
+| embedded readonly | frozen doc＋time | 縮放／view／probe，不推進 |
+| restored | 同一 doc＋t＋physics，暫停，measure collection fresh | 同 production command 合法續作 |
+
+## Persistence contract
+
+教師 document 256KiB 限制，manual import/export，無 localStorage 答案。Session envelope `{kind:'simlab-circuit-session',version:1,modelRevision:1,document,physics}`；physics exact numeric keys 為 time、step、source phases（phase anchor）、C u/i、L i/u、coupled winding i/u。keys 與當前 doc 的元件完全一致；finite、range、數值相容、model revision、doc 及 profile 全驗證，原子 restore。preview／camera／DOM／particle／full ring buffer不保存；統計恢復後收集中。
+
+**未來 SCORM**：活動自己定definition/model epoch、精簡固定模板 codec、null answers、snapshot three byte gates與 rubric。動態時間評分用固定初始條件／事件／窗口重算。核心 session不是任意電路≤4000bytes承諾；兩技術示例量測 compact必要動態欄位以證明可做活動。Pending/review時間必須凍結；演示playback另用副本。
+
+## Shared SCORM lifecycle
+
+N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimScorm／SimActivityFlow 全 outcome；D3/D4 是架構驗證 prototype，介面完善另議，不因 AC 改其題目或 rubric。
+
+## Implementation stages
+
+| 階段 | 出口 |
+|---|---|
+| A0 基準／接口 | 保存DC presets document/analysis/hazards/SVG及23測試；v6維持，analysis guard |
+| A1 時間核心 | R/C/L、SPDT、adaptive integration、events、energy、snapshot、離線運算，解析驗證通過 |
+| A2 交流工作台 | editor、AC meters、waveform、time、panel slot、bounded layout |
+| A3 變壓器 | ideal＋coupled、isolation、load、DC通斷互感 |
+| A4 教材預設 | 五組／空白可編輯預設；generator/LED/field/energy聯動 |
+| A5 嵌入／恢復 | fixed transformer params＋fixed LC SPDT兩個無分數示例；權限／合法續作／多instance／只讀 |
+| A6 發布 | 中央assets、AC standalone ZIP、三DC包重建、source/package、文檔及catalogue |
+
+## Test plan and evidence
+
+- [ ] RC/RL解析及switch連續性；R/RLC正弦、相位、三種RMS與平均功率。
+- [ ] LC100周期能量；damped/critical/overdamped；離線與分段、不同幀率／倍率同t狀態一致。
+- [ ] ideal transformer ratios/power/load；coupled directions/DC steady/energy/isolation。
+- [ ] generator phase/N/B/S/f；LED polarity；unsupported impulses／contradictory sources／unknowns不假讀值。
+- [ ] 所有 state matrix row session round-trip後執行合法續作；壞 keys/numbers/revisions/profile 原子拒絕。
+- [ ] 原DC全部circuit單元、完整source/package teacher及兩DC活動相鄰回歸，與baseline同源比對。
+- [ ] AC source/package desktop/mobile/short iframe/200% zoom，T0–T3可信gesture／fullscreen／panel／strips。
+- [ ] check、runtime syntax、dependency manifest／assets完整、ZIP逐檔byte／hash。
+- [ ] 真Moodle／實機（外部gate；尚無環境，不宣稱Moodle-ready）。
+
+## Implementation record
+
+尚未完成的驗收留空。基準及臨時證據保存在 ignored `output/ac-baseline/`；後續在此記錄實際版本、結果與限制，不以計劃冒稱完成。
