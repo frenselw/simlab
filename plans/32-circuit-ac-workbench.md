@@ -194,7 +194,9 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 可信輸入找到共有的 Escape 後 detached range 在 release 再提交問題；共用 input/change handler 拒絕失效／已取消預覽，DC 和 AC 同改一次。已有兩側 production browser assertion。
 - Windows DevToolsActivePort 暫時 EBUSY 改為原 bounded startup loop retry；其它錯誤仍 throw，helper 單元驗證 EBUSY→success 與 EACCES→reject。
 - 固定模板 production codec 已用實際 shared makeSnapshot／pending 封套形狀量測：transformer sample draft/review/pending **335/361/546**；LC **294/320/508** bytes。另執行 transformer 2／LC 6 個實際 phase variants（包括充電、切換、quarter／half），最長 compact session 分別 **256／344** bytes，decode/restore後合法續作。這些是技術容量證據，沒有產生評分活動。
-- `npm run check`、diff check 通過；全站 `npm test` 結果待完整執行記錄，不能宣稱全站綠燈。
+- `npm run check`、34 個新文檔 local links、diff check 通過。`npm test` 已執行，新 AC／原 DC SCORM 等前段通過後進入重複的 teacher 大矩陣；該矩陣先前完整4986及最後70/66已獨立通過，本次主動停止這段重複 aggregation，沒有把取消記為通過或新產品失敗。
+- 直接接續總 runner 在 circuit 後、已知 blocker 前的8個 Node groups（牛頓測試版及shared fullscreen）通過；`scorm-fullscreen-browser-regression.js` 的source/package native／iframe／policy／SCORM，以及全站 `fullscreen-rollout-browser-regression.js` source/package 均通過。
+- 現版直接執行 `newtons-third-law-fullscreen-activity-regression.js --smoke`，仍在第132行 `assert.ok(r.stage>=195)` 失敗（exit1）。Newton兩入口、該runner及shared/styles與基準f7912e2無diff；原計劃29第17.2節已有更早修改前同一失敗證據。**總 suite 沒有完整跑完，不宣稱全站綠燈。** 記錄：`output/ac-baseline/npm-test-final.log`、`newton-final.log`、`shared-fullscreen-final.log`、`fullscreen-rollout-final.log`。
 
 ### A6 本地發布及外部 gate
 
@@ -202,3 +204,4 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - AC catalogue 已通過本地 package-ready 並設 active；README／production guide／作者指南已更新四包維護流程。
 - AC ZIP 用 File resource、主檔 `circuit-ac-workbench/index.html`，没有 assessment manifest。正式 AC rubric／SCORM activities 依使用者安排另議；D3/D4 prototype 教學版面完善亦不是本次新增範圍。
 - 真 Moodle／真手機 T4 未有環境，未標記 Moodle-ready。完整外部 fullscreen／native scroll、低風險正式活動的記分／續作／pending／review仍須各自驗收。
+- 此版按 A0/A1、A2–A5、A6 分階段提交並 push。最後 release verification 在 `output/ac-release-verification.json`：25個circuit Node、604個AC browser observations、四個套件、21共用及6個AC擴展檔案的SHA與source/ZIP逐檔byte核對；文檔提交不冒稱新的runtime執行。
