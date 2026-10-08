@@ -1,5 +1,5 @@
 const simulationList = [
-  {title:"交流電路工作台",folder:"circuit-ac-workbench",categories:["Electricity"],description:"搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。",tags:["physics","electricity","ac","capacitor","inductor","transformer","workbench"],status:"planned"},
+  {title:"交流電路工作台",folder:"circuit-ac-workbench",categories:["Electricity"],description:"搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。",tags:["physics","electricity","ac","capacitor","inductor","transformer","workbench"],status:"active"},
   {title: "兩燈串聯搭建", folder: "circuit-dc-series-build", categories: ["Electricity"], description: "指定工具箱接線活動，搭建串聯電路；保留部分分並以 SCORM 提交。", tags: ["physics", "electricity", "circuits", "series", "scorm"], status: "active"},
   {title: "滑動變阻器調參", folder: "circuit-dc-rheostat-adjust", categories: ["Electricity"], description: "固定電路，只調滑片，達到指定電流及電壓並判斷電阻變化。", tags: ["physics", "electricity", "rheostat", "scorm"], status: "active"},
   {

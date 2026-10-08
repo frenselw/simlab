@@ -26,8 +26,8 @@ to try student tasks using the same `CircuitEditor.mount(host, config)` core.
 Each activity can choose its components, stock, permissions, visible controls
 and answer checks. These examples have no scoring or submission; formal SCORM
 activities must supply their own rubric, snapshot and shared attempt lifecycle.
-The workbench has no levels or data-recording/graph-fitting module. AC and
-time-dependent components remain future work.
+The DC workbench has no levels or data-recording/graph-fitting module. The
+separate AC workbench below uses the same editor with a time-dependent backend.
 
 Run `npm run package:circuit` to build `output/circuit-workbench-standalone.zip`.
 Extract it and open `circuit-workbench/index.html`, preserving the sibling
@@ -40,6 +40,23 @@ and [implementation plan](plans/28-circuit-workbench.md). The
 [three-reviewer audit](docs/circuit-workbench-audit-2026-10-04.md) records the
 version reviewed; later microcurrent changes have separate focused evidence in
 the plan. Local browser evidence does not establish real-phone or Moodle readiness.
+
+## AC circuit workbench
+
+The [交流電路工作台](sim/circuit-ac-workbench/index.html) adds configurable AC
+sources, generator/flux observations, capacitors, inductors, SPDT switches,
+ideal and coupled transformers, LED direction demonstrations, RMS instruments,
+waveforms/cursors and LC energy exchange. It shares wiring, dragging, permission
+checks and drawing with the DC editor. [Two unscored embedding examples](sim/circuit-ac-workbench/activity-examples.html)
+demonstrate fixed profiles and dynamic checkpoint restoration.
+
+`npm run package:circuit-platform` rebuilds both workbenches and the two DC SCORM
+packages, with source/ZIP byte checks. Upload `circuit-ac-workbench-standalone.zip`
+as a Moodle File resource and select `circuit-ac-workbench/index.html` as its main
+file. Formal AC SCORM questions and scoring are a later activity-specific step.
+See the [AC implementation plan](plans/32-circuit-ac-workbench.md) and
+[authoring/physics guide](docs/circuit-ac-workbench.md) for interfaces, model
+limits and local versus real Moodle/device acceptance.
 
 ## Current activities
 

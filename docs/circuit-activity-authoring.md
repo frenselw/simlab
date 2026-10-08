@@ -176,7 +176,7 @@ D3／D4 已有兩個正式 consumer：[兩燈串聯計劃](../plans/30-circuit-d
 
 `wirePointLimit` 是可信 config 的可選容量（整數 1–96，預設 96）。活動需要較小線形時，編輯器在 preview／history commit 前把超限路徑取樣成折線；保持原頂點次序、兩端、接線關係、阻值，折線長度不增加。恢復則嚴格拒絕超限文件，不在 decoder 暗中改形狀。D3 設 8，Float64 base64 無損保存實際文件；教師維持 96。任何新活動採用此選項，均須證明自己的最壞 draft、review 和真實 pending-final 不超過 4000 UTF-8 bytes。
 
-`runtime-assets.json` 是 21 個核心依賴的唯一清單。`npm run package:circuit-platform` 將它與各入口自己的依賴合併，更新明列的教師 `assets.json` 及兩份 SCORM manifest，再用原本的 packager 重建三包。核心依賴新增／刪除只改中央清單；不要在三個 manifest 各抄一份。工具逐檔比對 ZIP 和來源，核對 HTML／CSS 引用依賴，並產生 `output/circuit-platform-build.json`。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的舊 ZIP 不會自動更新。
+`runtime-assets.json` 是 21 個核心依賴的唯一清單；`ac-runtime-assets.json` 明列六個可選交流依賴。`npm run package:circuit-platform` 將它們與各入口自己的依賴合併，更新 DC／AC 教師的 `assets.json` 及兩份 DC SCORM manifest，再用原本的 packager 重建四包。共用依賴新增／刪除只改中央清單，不在各入口的 manifest 抄程式。工具逐檔比對 ZIP 和來源、核對 HTML／CSS 引用，並產生 `output/circuit-platform-build.json` 的 core／AC 擴展及套件指紋。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的舊 ZIP 不會自動更新。
 
 驗證命令：`npm run test:circuit-activities`（活動 scoring、codec、實際共享 SCORM runtime、source／ZIP 瀏覽器），`npm run check`（JS／manifest），共用核心的既有測試仍在 `npm test`。本地 iframe／模擬 LMS 不能替代真 Moodle 或實體手機 gate。
 

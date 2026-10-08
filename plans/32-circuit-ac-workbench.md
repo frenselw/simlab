@@ -160,14 +160,14 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 ## Test plan and evidence
 
-- [ ] RC/RL解析及switch連續性；R/RLC正弦、相位、三種RMS與平均功率。
-- [ ] LC100周期能量；damped/critical/overdamped；離線與分段、不同幀率／倍率同t狀態一致。
-- [ ] ideal transformer ratios/power/load；coupled directions/DC steady/energy/isolation。
-- [ ] generator phase/N/B/S/f；LED polarity；unsupported impulses／contradictory sources／unknowns不假讀值。
-- [ ] 所有 state matrix row session round-trip後執行合法續作；壞 keys/numbers/revisions/profile 原子拒絕。
-- [ ] 原DC全部circuit單元、完整source/package teacher及兩DC活動相鄰回歸，與baseline同源比對。
-- [ ] AC source/package desktop/mobile/short iframe/200% zoom，T0–T3可信gesture／fullscreen／panel／strips。
-- [ ] check、runtime syntax、dependency manifest／assets完整、ZIP逐檔byte／hash。
+- [x] RC/RL解析及switch連續性；R/RLC正弦、相位、三種RMS與平均功率。
+- [x] LC100周期能量；damped/critical/overdamped；離線與分段、不同幀率／倍率同t狀態一致。
+- [x] ideal transformer ratios/power/load；coupled directions/DC steady/energy/isolation。
+- [x] generator phase/N/B/S/f；LED polarity；unsupported impulses／contradictory sources／unknowns不假讀值。
+- [x] 所有 state matrix row session round-trip後執行合法續作；壞 keys/numbers/revisions/profile 原子拒絕。
+- [x] 原DC全部circuit單元、完整source/package teacher及兩DC活動相鄰回歸，與baseline同源比對。
+- [x] AC source/package desktop/mobile/short iframe/200% zoom，T0–T3可信gesture／fullscreen／panel／strips。
+- [x] check、runtime syntax、dependency manifest／assets完整、ZIP逐檔byte／hash。
 - [ ] 真Moodle／實機（外部gate；尚無環境，不宣稱Moodle-ready）。
 
 ## Implementation record
@@ -189,7 +189,7 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 燈的呈現採 20 ms 平均功率；AC 警示採完整週期平均，避免額定正弦峰值誤報。DC 自感的短時亮度仍能呈現。電容耐壓繼續按瞬時電壓。
 - 恢復保留平行 C 等代數瞬間未唯一決定的導數歷史，以附加歷史約束重建讀值；加入平行 C／帶電流 L+LED 的 restore／續作測試，不把歷史清零。資料不足的游標不取未計算時間的假數值。
 - 32px 波形左右區避開游標 halo；640×400／DPR2 作 200% 等效版面檢查。Headless CDP 退出 native fullscreen 後重設宣告 viewport，再進行座標触控驗證，避免 compositor 使用退出前的縮放；這是測試 fixture 處理，不是 app scroll bridge。
-- 完整 AC source／實際解包 **592 observations** 通過：六 viewport、RMS、播放／暫停、實物／符號、游標、palette／C body 可信輸入、SPDT 正常與空斷診斷、range preview/Escape/release、restore／非法原子拒絕、readonly、兩配置、T1/T2/T3 canvas＋graph 原生 owner、running invariants、fullscreen 允許／拒絕／unsupported；runtime exception 為零。截圖已檢視。
+- 完整 AC source／實際解包 **604 observations** 通過：六 viewport、RMS、播放／暫停、實物／符號、游標、palette／C body 可信輸入、SPDT 正常與空斷診斷、range preview/Escape/release、restore／非法原子拒絕、readonly、兩配置、T1/T2/T3 canvas＋graph 原生 owner、running invariants、fullscreen 允許／拒絕／unsupported；runtime exception 為零。額外驗證同頁 DC＋AC 及兩個 AC 的獨立時間、文件、參數及 destroy；截圖已檢視。
 - 全部 **25 circuit Node 檔**及 helper tests 通過；14 DC preset document／analysis／hazards／完整 SVG hash 再次對照 A0 完全一致。DC 全套 teacher source/ZIP **4986**、focused quick controls **70**、embedded core **66**、原兩個 SCORM source/ZIP **842** observations 通過。完整套後的 AC opt-in／range guard 變更另以最後 targeted suite 複核；不把早期大套證據當作未來變更自動通過。
 - 可信輸入找到共有的 Escape 後 detached range 在 release 再提交問題；共用 input/change handler 拒絕失效／已取消預覽，DC 和 AC 同改一次。已有兩側 production browser assertion。
 - Windows DevToolsActivePort 暫時 EBUSY 改為原 bounded startup loop retry；其它錯誤仍 throw，helper 單元驗證 EBUSY→success 與 EACCES→reject。
@@ -199,5 +199,6 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 ### A6 本地發布及外部 gate
 
 - `npm run package:circuit-platform` 重建四包：DC teacher 29 檔、AC teacher 34 檔、兩 DC SCORM 各34檔。每包21共用檔及全體 runtime byte 與來源相同；AC 六個可選依賴另列，無核心副本。指紋在 `output/circuit-platform-build.json`。
+- AC catalogue 已通過本地 package-ready 並設 active；README／production guide／作者指南已更新四包維護流程。
 - AC ZIP 用 File resource、主檔 `circuit-ac-workbench/index.html`，没有 assessment manifest。正式 AC rubric／SCORM activities 依使用者安排另議；D3/D4 prototype 教學版面完善亦不是本次新增範圍。
 - 真 Moodle／真手機 T4 未有環境，未標記 Moodle-ready。完整外部 fullscreen／native scroll、低風險正式活動的記分／續作／pending／review仍須各自驗收。

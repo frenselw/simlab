@@ -18,10 +18,16 @@ teacher JSON export/import is a document operation, not automatic answer persist
 Reuse an existing subject core through configuration. For circuits, use
 `CircuitEditor.mount(host, config)` and the
 [activity authoring guide](circuit-activity-authoring.md). The core owns wiring,
-snapping, drawing, navigation and DC analysis; the outer activity owns its task,
+snapping, drawing, navigation and the selected DC/time analysis; the outer activity owns its task,
 allowed components/actions, authoritative answer schema, checks, feedback, rubric
 and SCORM integration. Keep activity permissions in trusted local configuration,
 separate from imported answers. Do not copy the editor into each activity.
+
+The [AC authoring guide](circuit-ac-workbench.md) defines the optional transient
+backend, v7/session state, measurement windows and observation controls. DC v6
+and its static checks retain their original scope. `npm run package:circuit-platform`
+rebuilds both standalone workbenches and the two DC assessed consumers; the AC
+tool uses its own asset list and has no assessment manifest.
 
 Every assessed wrapper still follows this guide's complete persistence, trust,
 submission and Moodle contracts. Configuration examples without scoring are
