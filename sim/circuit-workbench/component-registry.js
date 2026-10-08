@@ -36,7 +36,7 @@
   }
   function defaults(type) { return Object.fromEntries(Object.entries(get(type).params).map(([key, item]) => [key, item.value])); }
   const dualMeter=c=>['ammeter','voltmeter'].includes(c.type);
-  const isMeter=c=>dualMeter(c)||['galvanometer','wattmeter'].includes(c.type);
+  const isMeter=c=>dualMeter(c)||['galvanometer','wattmeter'].includes(c.type)||get(c.type).meter===true;
   const meterBodyScale=c=>dualMeter(c)?.85:c.type==='wattmeter'?.9:1;
   function meterHousingBounds(c) {
     const s=meterBodyScale(c),a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a));
@@ -61,7 +61,7 @@
     });
   }
   function bodyBounds(c) {
-    const box=dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='relay'?{left:-74,right:76,top:-40,bottom:68}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65};
+    const box=get(c.type).bounds|| (dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='relay'?{left:-74,right:76,top:-40,bottom:68}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65});
     const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
     const corners=[box.left,box.right].flatMap(x=>[box.top,box.bottom].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
     return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};

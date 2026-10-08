@@ -7,7 +7,7 @@
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000, resistance: 1e6 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const quantityDefaults=Object.freeze({loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true});
-  const empty = () => ({ kind: "simlab-circuit", version: 6, components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } });
+  const empty = (analysis='dc') => {if(!['dc','transient'].includes(analysis))throw new Error('不支援的分析種類');return { kind: "simlab-circuit", version: analysis==='dc'?6:7, ...(analysis==='transient'?{analysis,modelRevision:1}:{}), components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } };};
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
   const bool = (v) => { if (typeof v !== "boolean") throw new Error("設定必須是布林值"); };
@@ -15,8 +15,9 @@
   const point = (p) => { object(p, ["x", "y"]); numeric(p.x, -limits.coordinate, limits.coordinate); numeric(p.y, -limits.coordinate, limits.coordinate); };
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => R.portsForVersion(c,legacy?3:doc.version).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
   function validate(input) {
-    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[])]);
-    if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4, 5, 6].includes(input.version)) throw new Error("不支援的電路檔版本");
+    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[]),...(input?.version===7?['analysis','modelRevision']:[])]);
+    if (input.kind !== "simlab-circuit" || ![1, 2, 3, 4, 5, 6, 7].includes(input.version)) throw new Error("不支援的電路檔版本");
+    if(input.version===7&&(input.analysis!=='transient'||input.modelRevision!==1))throw new Error('不支援的時間模型版本');
     const ids = new Set();
     const id = (value) => { if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,39}$/i.test(value) || ids.has(value)) throw new Error("元件或導線 ID 無效或重複"); ids.add(value); };
     for (const key of ["components", "junctions", "wires"]) if (!Array.isArray(input[key]) || input[key].length > limits[key]) throw new Error("電路超出容量限制");
@@ -24,7 +25,8 @@
       object(c, ["id", "type", "label", "x", "y", "angle", "locked", "editable", "params", "mirrored"]); id(c.id);
       if (typeof c.label !== "string" || c.label.length > 40) throw new Error("元件名稱過長或無效");
       numeric(c.x, -limits.coordinate, limits.coordinate); numeric(c.y, -limits.coordinate, limits.coordinate); choice(c.angle, [0, 90, 180, 270]); bool(c.locked); bool(c.editable);
-      const specs = R.get(c.type).params; object(c.params, Object.keys(specs));
+      const definition=R.get(c.type);if(input.version<7&&definition.analysis==='transient')throw new Error('交流元件需要 v7 電路文件');
+      const specs = definition.params; object(c.params, Object.keys(specs));
       if(Object.hasOwn(c,'mirrored')){if(!R.dualMeter(c))throw new Error('只有 A／V 電錶可左右換接孔');bool(c.mirrored);if(input.version<4&&c.mirrored)throw new Error('舊版電錶不支援左右換接孔');}
       for (const [k, spec] of Object.entries(specs)) {
         if(!Object.hasOwn(c.params,k)&&((c.type==='rheostat'&&k==='terminals')||(c.type==='lamp'&&['coldRatio','linearLoss'].includes(k))))continue;
@@ -58,7 +60,7 @@
     if (input.version === 1) valid.wires.forEach((w) => { w.shape = "auto"; });
     if(input.version<3){valid.cables={count:Math.max(20,valid.wires.length),length:600};valid.wires.forEach(w=>{w.length=Math.max(600,Math.ceil(G.length(G.route(valid,w)))+100);});}
     valid.cables.resistance??=0;if(input.version<6)valid.wires.forEach(w=>w.resistance=0);
-    const oldRoutes=input.version<5?valid.wires.map(w=>G.route(valid,w)):[];valid.version=6;
+    const oldRoutes=input.version<5?valid.wires.map(w=>G.route(valid,w)):[];valid.version=input.version===7?7:6;
     if(input.version<5){const next=endpoints(valid),hasMeters=valid.components.some(R.dualMeter);valid.wires.forEach((w,i)=>{const a=ports.get(w.from),b=ports.get(w.to),na=next.get(w.from),nb=next.get(w.to),travel=Math.hypot(na.x-a.x,na.y-a.y)+Math.hypot(nb.x-b.x,nb.y-b.y);
       if(travel){w.length=Math.min(2000000,w.length+travel+1);w.shape="free";w.via=G.resample(G.deform(oldRoutes[i],na,nb,w.length),10).slice(1,-1).map(p=>({x:p.x,y:p.y}));}
       else if(input.version<4&&hasMeters){w.shape="free";w.via=(oldRoutes[i].length<=limits.stroke+2?oldRoutes[i]:G.resample(oldRoutes[i],10)).slice(1,-1).map(p=>({x:p.x,y:p.y}));}

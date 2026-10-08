@@ -13,7 +13,7 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
-  const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback'];
+  const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback','waveform','field','energy','phase'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},
@@ -32,13 +32,16 @@
     return M.clone(value);
   }
   function compile(config = {}) {
-    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix'], '活動');
+    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix','analysis','simulation','observationChannels','panelContent'], '活動');
+    const analysis=config.analysis??'dc';if(!['dc','transient'].includes(analysis))throw new Error('不支援的分析種類');
     const wirePointLimit=config.wirePointLimit??M.limits.stroke;
     if(!Number.isInteger(wirePointLimit)||wirePointLimit<1||wirePointLimit>M.limits.stroke)throw new Error('導線線形容量無效');
     const prepare=doc=>M.limitWirePoints(doc,wirePointLimit);
     const role = config.role || 'student';
     if (!['teacher','student'].includes(role)) throw new Error('活動角色無效');
-    const teacher = role === 'teacher', initial = M.validate(config.initialDocument || M.empty());
+    const teacher = role === 'teacher', initial = M.validate(config.initialDocument || M.empty(analysis));
+    const assertModel=doc=>{if((doc.version===7)!==(analysis==='transient'))throw new Error('電路文件與分析種類不符');if(analysis==='transient'){const AC=typeof module==='object'&&module.exports?require('./circuit-ac-components'):globalThis.CircuitAC;if(!AC)throw new Error('缺少交流元件依賴');AC.toAC(doc);}};
+    assertModel(initial);
     const components = config.components || {};
     keys(components, ['default','byType','byId'], '元件');
     const defaults = rule(components.default), byType = {}, byId = {};
@@ -51,8 +54,12 @@
     const ui = Object.fromEntries(uiKeys.map(k => [k,teacher]));
     // A student can have a small inspector without exposing teacher controls.
     ui.header = true; ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true;
+    for(const k of ['waveform','field','energy','phase'])ui[k]=analysis==='transient'&&teacher;
     keys(config.ui || {}, uiKeys, '介面');
     for (const [k,v] of Object.entries(config.ui || {})) { if (typeof v !== 'boolean') throw new Error('介面設定必須是布林值'); ui[k] = v; }
+    const simulation={play:ui.playback,step:ui.playback,rate:ui.playback,reset:teacher};keys(config.simulation||{},Object.keys(simulation),'時間控制');for(const [k,v]of Object.entries(config.simulation||{})){if(typeof v!=='boolean')throw new Error('時間權限必須為布林值');simulation[k]=v;}
+    if(config.panelContent!==undefined&&config.panelContent?.nodeType!==1)throw new Error('活動面板需要 DOM element');
+    const observationChannels=config.observationChannels??null;if(observationChannels!==null){if(!Array.isArray(observationChannels)||observationChannels.length>4)throw new Error('觀察通道設定無效');for(const c of observationChannels){keys(c,['id','quantity'],'觀察通道');if(!initial.components.some(x=>x.id===c.id)||!['voltage','current','charge','energy','flux'].includes(c.quantity))throw new Error('觀察通道設定無效');}if(new Set(observationChannels.map(c=>c.id+':'+c.quantity)).size!==observationChannels.length)throw new Error('觀察通道重複');}
     if (!teacher && (ui.settings || ui.files || ui.presets)) throw new Error('教師設定、文件與範例只適用於教師工作台');
     if (!ui.header && ['presets','files','settings','help'].some(k=>ui[k])) throw new Error('不顯示頂欄時，須關閉範例、文件、設定及說明');
     const wires = config.wires !== false, undo = config.undo !== false, wireResistance=config.wireResistance??teacher;
@@ -63,7 +70,7 @@
     const palette = paletteConfig.map((entry,i) => {
       keys(entry,['type','key','label','params','limit'],'工具箱元件');
       const definition = R.get(entry.type), params = {...R.defaults(entry.type),...entry.params};
-      const sample = M.empty(); M.add(sample,entry.type,0,0,params); M.validate(sample);
+      const sample = M.empty(analysis); M.add(sample,entry.type,0,0,params); M.validate(sample);assertModel(sample);
       const limit = entry.limit ?? M.limits.components;
       if (!Number.isInteger(limit) || limit < 1 || limit > M.limits.components) throw new Error('元件庫存設定無效');
       const key = entry.key || entry.type;
@@ -100,6 +107,7 @@
     const canSetWireResistance=(doc,readOnly=false)=>wireResistance&&wires&&!readOnly&&(doc.policy.mode==='free'||doc.policy.allowParams);
     function assertSnapshot(input) {
       const doc = M.validate(input);
+      assertModel(doc);
       if(doc.wires.some(w=>w.via.length>wirePointLimit))throw new Error('導線線形超出活動容量');
       if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       if (teacher) return doc;
@@ -161,7 +169,7 @@
     }
     // Validate the author configuration too; restrictions remain outside saved answers.
     assertSnapshot(initial);
-    return Object.freeze({role,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
+    return Object.freeze({role,analysis,simulation:Object.freeze(simulation),observationChannels:observationChannels===null?null:freeze(M.clone(observationChannels)),panelContent:config.panelContent,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
       title:config.title || (teacher ? '電路工作台' : '電路活動'),subtitle:config.subtitle || '',
       allows,canAdd,count,canSetWireResistance,prepare,wirePointLimit,assertSnapshot,assertTransition,check:config.check});
   }

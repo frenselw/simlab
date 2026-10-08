@@ -173,3 +173,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 ## Implementation record
 
 尚未完成的驗收留空。基準及臨時證據保存在 ignored `output/ac-baseline/`；後續在此記錄實際版本、結果與限制，不以計劃冒稱完成。
+
+### A0／A1 核心驗證（2026-10-09）
+
+- 變更前 23 個 circuit Node 測試通過；14 個 DC 預設的文件、分析、hazards 及完整 scene SVG hash 已保存。
+- v7／analysis guard、交流元件及純時間 solver 加入後，14 個預設逐項比對不變，全部舊 circuit Node 加新 transient test 通過。
+- production Session 驗證 RC/RL 指數、LC 四分之一週期／100週期能量、分段時間、阻尼／臨界／過阻尼、三種 RMS／平均功率、C/L相位、ideal/coupled transformer、隔離、通斷電互感方向、SPDT charging→LC、LED／generator、快照及不可靠解。
+- 修正方波 breakpoint 的浮點相位歸零及來源內阻功率符號；不放寬解析容差。
+- 此時僅核心及 Node gate；交流 UI、browser／package 及外部 gate 仍未完成。

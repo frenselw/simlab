@@ -17,6 +17,8 @@
     }
     doc.wires.filter(w=>!idealOnly||w.resistance===0).forEach(w => parent.set(net(w.to),net(w.from)));
     const edges = [], incident = new Map();
+    if(doc.version===7&&!idealOnly)return {doc,net,edges,incident};
+    if(doc.version===7)throw new Error('此串聯檢查只支援 DC 靜態模型');
     function addEdge(e){edges.push(e);if(e.a!==e.b)for(const n of [e.a,e.b]){if(!incident.has(n))incident.set(n,[]);incident.get(n).push(e);}}
     for (const c of doc.components) R.dc(c).forEach((branch,i) => {
       const a=net(c.id+':'+branch.from), b=net(c.id+':'+branch.to);
