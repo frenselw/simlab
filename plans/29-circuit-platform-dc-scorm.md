@@ -507,4 +507,4 @@ DC／SCORM 接入要解決的具體外殼差異：
 
 ### 17.3 使用者要求的完整獨立審核
 
-2026-10-08 以 base `5851d91`／head `3d64620` 執行兩位完整獨立 reviewer，再由第三位整理結果。找到取消後首次 touch 被吞及固定 switch 款式錯拒兩項新增 P2，另有同根因的既有非法 snapshot 恢復缺口；已做共用修正及新的 source／ZIP 回歸，正待兩位 reviewer 複核。完整範圍、原始證據歸因及完成狀態見[獨立審核跟進](../docs/circuit-platform-dc-review.md)。
+2026-10-08 以 base `5851d91`／head `3d64620` 執行兩位完整獨立 reviewer，再由第三位整理結果。找到取消後首次 touch 被吞及固定 switch 款式錯拒兩項新增 P2，另有同根因的既有非法 snapshot 恢復缺口；共用修正 runtime `88be7c2` 已完成兩位對整個分支的第二輪完整獨立複核，三項均已解決，兩位無新或未解決 finding，第三位最終核對亦確認結案。主審 palette148／platform66 source＋ZIP，以及各 reviewer 的實際獨立證據與最終29檔／runtime／ZIP身分，見[獨立審核跟進](../docs/circuit-platform-dc-review.md)。此後只更新完成紀錄，不把文件提交冒稱新 browser 執行；D3–D5／真硬件／Moodle 與另外三版邊界保持。
