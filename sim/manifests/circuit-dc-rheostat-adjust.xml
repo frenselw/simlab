@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="circuit-dc-rheostat-adjust" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+<metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+<organizations default="ORG-circuit-dc-rheostat-adjust"><organization identifier="ORG-circuit-dc-rheostat-adjust"><title>滑動變阻器調參</title><item identifier="ITEM-circuit-dc-rheostat-adjust" identifierref="RES-circuit-dc-rheostat-adjust"><title>滑動變阻器調參</title></item></organization></organizations>
+<resources><resource identifier="RES-circuit-dc-rheostat-adjust" type="webcontent" adlcp:scormtype="sco" href="circuit-dc-rheostat-adjust/index.html">
+      <file href="circuit-workbench/circuit-editor.css"/>
+      <file href="circuit-workbench/circuit-editor-ui.js"/>
+      <file href="circuit-workbench/circuit-editor.js"/>
+      <file href="circuit-workbench/circuit-profile.js"/>
+      <file href="circuit-workbench/circuit-checks.js"/>
+      <file href="circuit-workbench/circuit-math.js"/>
+      <file href="circuit-workbench/mathjax-tex-svg.js"/>
+      <file href="circuit-workbench/mathjax-license.txt"/>
+      <file href="circuit-workbench/component-registry.js"/>
+      <file href="circuit-workbench/circuit-meter-motion.js"/>
+      <file href="circuit-workbench/circuit-relay-motion.js"/>
+      <file href="circuit-workbench/circuit-model.js"/>
+      <file href="circuit-workbench/circuit-snapping.js"/>
+      <file href="circuit-workbench/circuit-solver.js"/>
+      <file href="circuit-workbench/circuit-routing.js"/>
+      <file href="circuit-workbench/circuit-label-layout.js"/>
+      <file href="circuit-workbench/circuit-renderer.js"/>
+      <file href="circuit-workbench/circuit-document.js"/>
+      <file href="circuit-workbench/presets.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+      <file href="circuit-workbench/circuit-activity-data.js"/>
+      <file href="circuit-workbench/circuit-activity-runtime.js"/>
+      <file href="circuit-workbench/circuit-activity-page.js"/>
+      <file href="circuit-workbench/circuit-activity.css"/>
+      <file href="circuit-dc-rheostat-adjust/index.html"/>
+      <file href="circuit-dc-rheostat-adjust/styles.css"/>
+      <file href="circuit-dc-rheostat-adjust/main.js"/>
+      <file href="circuit-dc-rheostat-adjust/spec.js"/>
+      <file href="circuit-dc-rheostat-adjust/scoring.js"/>
+      <file href="circuit-dc-rheostat-adjust/persistence.js"/>
+</resource></resources></manifest>

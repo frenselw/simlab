@@ -1,7 +1,7 @@
 # 電路共用架構與 DC／SCORM 實作計劃
 
-- 日期：2026-10-07；核心完成紀錄更新：2026-10-08。
-- 狀態：**D1／D2 共用核心已完成，電路回歸通過；正式活動仍待題目討論。** 全站 `npm test` 有未修改活動的既有失敗，詳見第 17.2 節；核心驗證不能代替正式 SCORM 活動驗收。
+- 日期：2026-10-07；D3–D5 實作紀錄更新：2026-10-08。
+- 狀態：**D1–D5 的本地實作及驗證已完成，兩個正式 DC 活動已通過 package-ready；三包同源重建通過。** 真 Moodle／實體手機驗收獨立待辦。歷史全站失敗見第 17.2 節，最新執行見第 18 節；不以歷史核心驗證替代本輪活動驗收。
 - 本輪範圍：詳細規劃現有直流（DC）模擬如何成為共用電路核心，同時支援獨立工作台及多個功能各異的 SCORM 1.2 活動。
 - 家庭電路、交流、高壓輸電：只記錄共用邊界與待討論事項，具體元件、物理近似、教學任務及介面留待後續逐項討論。先前對話中的功能建議屬候選方案，並非本計劃已批准的開發清單。
 - 文件定位：本文件擁有電路平台的後續架構、DC 整理與 SCORM 接入路線；[原工作台計劃](28-circuit-workbench.md)保留工作台功能決策及歷史驗證；[架構審視](../docs/circuit-workbench-architecture-review.md)與[作者指南](../docs/circuit-activity-authoring.md)說明目前已實作的介面。
@@ -508,3 +508,35 @@ DC／SCORM 接入要解決的具體外殼差異：
 ### 17.3 使用者要求的完整獨立審核
 
 2026-10-08 以 base `5851d91`／head `3d64620` 執行兩位完整獨立 reviewer，再由第三位整理結果。找到取消後首次 touch 被吞及固定 switch 款式錯拒兩項新增 P2，另有同根因的既有非法 snapshot 恢復缺口；共用修正 runtime `88be7c2` 已完成兩位對整個分支的第二輪完整獨立複核，三項均已解決，兩位無新或未解決 finding，第三位最終核對亦確認結案。主審 palette148／platform66 source＋ZIP，以及各 reviewer 的實際獨立證據與最終29檔／runtime／ZIP身分，見[獨立審核跟進](../docs/circuit-platform-dc-review.md)。此後只更新完成紀錄，不把文件提交冒稱新 browser 執行；D3–D5／真硬件／Moodle 與另外三版邊界保持。
+
+## 18. D3／D4／D5 實作（2026-10-08）
+
+使用者要求完成這三階段。題型選擇以先前提議的工具箱搭建及固定滑片調參落實；各自題目、rubric、容差及 schema 已在編碼前寫入[兩燈串聯計劃](30-circuit-dc-series-build.md)及[變阻器調參計劃](31-circuit-dc-rheostat-adjust.md)，後續補上精確模式／gesture 矩陣。家庭、AC、高壓輸電仍保留待討論，不新增對應物理模型。
+
+| 階段 | 已實作的交付 |
+|---|---|
+| D3 | `circuit-dc-series-build`：1 電源、1 開關、2 恆阻燈、4 導線，自由取物、搬動、旋轉與接線；獨立 scorer、無損座標／接線 codec、SCORM lifecycle、manifest、目錄登記。接線部分分保留；未亮燈的開路即使接線得 80 分，亦未完成任務。 |
+| D4 | `circuit-dc-rheostat-adjust`：5 固定元件、6 固定導線，只調滑片；兩題獨立 position/reason/view，量測及概念分獨立累計。相同 editor／solver／外層 lifecycle，不複製核心。換題、restore 或 view 不能把未答 null 改成已答。 |
+| D5 | 解決接線活動的 SCORM 容量需求：共用 `wirePointLimit` 在 preview／commit 內裁剪線形，保存無損、拓撲與 DC 物理不變；教師仍用原有 96 點。新增中央 runtime 清單與單一三包重建指令，逐檔核對原始碼及引用依賴。 |
+
+只有兩個真實 consumer 共同使用的 lifecycle／頁面才提取為 `circuit-activity-runtime.js`／`circuit-activity-page.js`；`circuit-activity-data.js` 提供 Float64 base64、封套與 bytes 驗證。評分、題目與語義 epoch 仍在各活動。revision 1 一併代表 schema／題目模型／rubric；任一語義變更須更新 epoch 並決定舊 attempt 兼容政策，不能默默重算不同題目。全流程沒有活動自訂 LMS commit／finish／pagehide，也不啟用 standalone 持久保存。
+
+### 18.1 本輪活動證據
+
+- `assessed-activities.test.js` 使用真正的 `shared/scorm.js` VM，驗證 blank／partial／full、每題及 edit/check round-trip 和合法續作、四個 submission outcome、save retry、pending restore／原 payload retry、損壞資料 quarantine、finished 信任摘要、standalone fresh。invalid draft 的 pagehide 亦不寫入原資料。
+- D3 以 4 元件、8 接點、4 條各 8 中間點的最長小數座標壓力案例保存：draft edit **1306**／check **1307**、review **1333**、真實 pending-final **1514 UTF-8 bytes**。沒有保存時量化、刪除未接線導線或捨棄部分答案；真實 pending checkpoint 已執行 reload／retry。另證明限點前後電流／功率一致、線長不增加及教師 96 點未改。
+- 最終 `circuit-assessed-browser-regression.js` 的 source／實際解包 ZIP **842 項**通過；兩活動、1280/768/390/320/844 px、blank submit、中立摘要、滿分、profile 拒絕操作、滑片未放手保持 preview、每題 edit/check 恢復再提交、pending 恢復／重試／recorded reload、T0–T3 左右捲頁把手各模式及正確 owner、巢狀全螢幕允許／拒絕／不支援、短 iframe 操作。無 runtime exception；手機截圖已檢視。
+- 全部 **23** 個 circuit Node 檔通過；`npm run check` 的 JS 及 SCORM manifest profile 通過。原工作台完整 source／ZIP **4986** 個 observations，以及嵌入核心 **66** 個 observations 通過。本輪全站 `npm test` 在共享 fullscreen runner 的 Chrome `DevToolsActivePort` 暫時鎖定（EBUSY）停下；單項重試 native／iframe／policy／SCORM fullscreen，以及全站 fullscreen rollout source／package（包括兩個新入口）均已通過。接續牛頓第三定律活動仍重現既有 `assert.ok(r.stage>=195)` 失敗，相關活動及 shared styles 均未修改；此前修改前重現證據見第 17.2 節。不宣稱全站綠燈。
+- 可重跑 `npm run test:circuit-activities`；本地診斷在 `output/playwright/circuit-assessed/evidence.json` 和截圖，重建證據在 `output/circuit-platform-build.json`。這些是 ignored 輸出，本節保存可追溯結論。
+
+### 18.2 同源維護閉環
+
+從 base `6813eed` 更新一次共用的 model／profile／editor，處理正式接線活動的線形容量；不是製造一個假 bug 作展示。solver、registry 及 v6 文件 schema 沒有變動。21 個核心 runtime 文件只有一份來源，由 `runtime-assets.json` 指定。
+
+`npm run package:circuit-platform` 自動合併各入口依賴、更新教師 assets 及兩份明列 manifest、用既有 packager 建 ZIP、驗證 HTML／CSS 依賴及所有檔案與來源 byte 相同。教師包 **29** 檔、兩個 SCORM 包各 **34** 檔（含根目錄 `imsmanifest.xml`），每包的 **21** 個核心檔與來源相同。模型 source SHA-256 從 `e5a5e1f8bf7d2bd37d6ca99c8c286c7d895f53c7f85faab15b375171c7e16e46` 更新為 `53534cb79b12781aa1d8c8007e7449095f175fad477fd0e9e757a61466d6979b`，三包均含後者；其餘完整檔案 hash 由 build report 保存。
+
+兩個新 ZIP 上載為 Moodle **SCORM 1.2 活動**；教師 `circuit-workbench-standalone.zip` 仍用 **File resource**，解壓後主檔 `circuit-workbench/index.html`，沒有發明分數／attempt lifecycle。部署中的舊包不會自動更新，需逐活動／資源上載新包。
+
+### 18.3 分離的外部驗收
+
+本輪交付 package-ready，尚未取得指定 Moodle 測試課程或實體手機，**不標記 Moodle-ready**。真 Moodle 的離開／重新開啟、斷線保存及提交 retry、完成只讀、實際 player fullscreen／捲頁和真手機觸控仍為 T4 驗收清單。這不是借用本地 iframe 或模擬 LMS 宣稱已通過；當測試環境提供後沿用同一份成品再驗收。

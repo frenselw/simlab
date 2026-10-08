@@ -32,7 +32,10 @@
     return M.clone(value);
   }
   function compile(config = {}) {
-    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','undo','check','idPrefix'], '活動');
+    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix'], '活動');
+    const wirePointLimit=config.wirePointLimit??M.limits.stroke;
+    if(!Number.isInteger(wirePointLimit)||wirePointLimit<1||wirePointLimit>M.limits.stroke)throw new Error('導線線形容量無效');
+    const prepare=doc=>M.limitWirePoints(doc,wirePointLimit);
     const role = config.role || 'student';
     if (!['teacher','student'].includes(role)) throw new Error('活動角色無效');
     const teacher = role === 'teacher', initial = M.validate(config.initialDocument || M.empty());
@@ -97,6 +100,7 @@
     const canSetWireResistance=(doc,readOnly=false)=>wireResistance&&wires&&!readOnly&&(doc.policy.mode==='free'||doc.policy.allowParams);
     function assertSnapshot(input) {
       const doc = M.validate(input);
+      if(doc.wires.some(w=>w.via.length>wirePointLimit))throw new Error('導線線形超出活動容量');
       if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       if (teacher) return doc;
       if (!same(doc.policy,initial.policy) || !same(doc.cables,initial.cables)) throw new Error('活動的操作規則與導線庫存不能更改');
@@ -159,7 +163,7 @@
     assertSnapshot(initial);
     return Object.freeze({role,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
       title:config.title || (teacher ? '電路工作台' : '電路活動'),subtitle:config.subtitle || '',
-      allows,canAdd,count,canSetWireResistance,assertSnapshot,assertTransition,check:config.check});
+      allows,canAdd,count,canSetWireResistance,prepare,wirePointLimit,assertSnapshot,assertTransition,check:config.check});
   }
   return {compile};
 });

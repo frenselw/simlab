@@ -34,7 +34,7 @@
 
 ## 後續維護與交流版本邊界
 
-2026-10-07 的後續路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。本輪先整理核心：已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。正式活動的題目、評分、保存及 SCORM 套件留待使用者後續討論；家庭、交流、高壓輸電仍未定案。規劃中的其他接口不能當作可用 API。
+2026-10-07 的後續路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。D1／D2 已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。2026-10-08 按使用者要求延續 D3–D5，新增[兩燈串聯](../plans/30-circuit-dc-series-build.md)及[滑片調參](../plans/31-circuit-dc-rheostat-adjust.md)兩個評量入口，各自擁有評分及保存，共用 `circuit-activity-runtime.js`／`circuit-activity-page.js` 接合 SCORM。`wirePointLimit` 讓活動以有限的實際線形保存，教師預設不變；`runtime-assets.json` 與 `package:circuit-platform` 實證一份核心供三包重建。真 Moodle／實機證據獨立於 package-ready，不能由本地瀏覽器推定。家庭、交流、高壓輸電仍未定案；未實作的其他接口不能當作可用 API。
 
 目前 DC 依賴與責任如下：
 

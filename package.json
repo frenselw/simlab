@@ -23,7 +23,9 @@
     "test:browser:mobile-scroll": "node tools/mobile-scroll-browser-regression.js",
     "test:browser:motion-composition": "node tools/motion-composition-browser-regression.js",
     "package:circuit": "node tools/package-circuit-workbench.js",
-    "test:browser:circuit": "node tools/circuit-workbench-browser-regression.js"
+    "test:browser:circuit": "node tools/circuit-workbench-browser-regression.js",
+    "package:circuit-platform": "node tools/package-circuit-platform.js",
+    "test:circuit-activities": "node sim/circuit-workbench/assessed-activities.test.js && node tools/circuit-assessed-browser-regression.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",

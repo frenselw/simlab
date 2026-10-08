@@ -1,0 +1,1 @@
+CircuitActivityPage.mount().catch(error=>{console.error(error);document.getElementById('phase').textContent='活動未能載入，請重新開啟。';document.getElementById('editor').hidden=true;document.getElementById('check').hidden=true;});

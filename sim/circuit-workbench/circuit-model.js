@@ -196,5 +196,14 @@
     if(!reconcile(next,doc))throw new Error('導線太短，請先拔開或移近電錶再換接孔');
     Object.assign(doc,next);
   }
-  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile };
+  function limitWirePoints(doc,limit) {
+    for(const w of doc.wires)if(w.via.length>limit){
+      const path=G.route(doc,w);
+      // Select existing vertices in order: each shortcut is no longer than
+      // the replaced polyline. Endpoints, connectivity and resistance stay exact.
+      w.via=Array.from({length:limit},(_,i)=>{const p=path[Math.round((i+1)*(path.length-1)/(limit+1))];return {x:p.x,y:p.y};});
+      w.shape='free';
+    }
+  }
+  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });

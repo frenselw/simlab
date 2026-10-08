@@ -1,5 +1,7 @@
 # 電路分支獨立審核與跟進（2026-10-08）
 
+本報告固定於 D1／D2 的歷史受審版本 `88be7c2`；下文「沒有新 finding」及「此後只更新紀錄」只描述該輪審核。後續 D3–D5 實作及其執行驗證另見[平台計劃](../plans/29-circuit-platform-dc-scorm.md)，不把本報告冒稱為新增活動已經兩位獨立 reviewer 審核的證據。
+
 範圍：`codex/circuit-platform-dc-scorm-plan`，base `5851d91`；首輪固定 head `3d64620`。兩位 reviewer 各自完整審核全部 28 個變更檔及直接消費者，首輪互不參照。第三位只在兩份報告完成後核對及整理，主審依整理結果修正，再交回原 reviewer 複核。**修正 runtime `88be7c2` 已完成兩位完整獨立複核及第三位最終整合：三項 finding 均已解決，沒有新或未解決 finding。** 此後只更新完成紀錄，沒有改動受審 runtime；不代表正式 SCORM／Moodle 驗收。
 
 ## 首輪結果與修正

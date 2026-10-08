@@ -93,7 +93,7 @@
     camera.x=anchor.x-(x-r.left)/camera.scale;camera.y=anchor.y-(y-r.top)/camera.scale;autoFit=false;
   }
   function change(fn,inspector=true){if(destroyed)throw new Error("編輯器已卸載");const beforeSelection=selection&&M.clone(selection);
-    try{const before=history.get();history.change(doc=>{fn(doc);profile.assertTransition(before,doc,readOnly);});previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
+    try{const before=history.get();history.change(doc=>{fn(doc);profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
       if(selection&&!M.endpoints(history.get()).has(selection.id)&&![...history.get().components,...history.get().junctions,...history.get().wires].some(x=>x.id===selection.id))selection=null;
       $("settingsNotice").hidden=true;if(autoFit)fit();render(inspector);if(before!==history.get())emitChange();return true;
     }catch(e){selection=beforeSelection;previewDoc=null;analysis=solve(history.get());render(inspector);notify(e.message,true);return false;}
@@ -452,7 +452,7 @@
     }else if(drag.kind==="wire"){drag.limited=!!M.bendWire(previewDoc,drag.id,drag.down,dx,dy,Math.max(100,110/camera.scale))?.limited;drag.focus=p;
       if(drag.wholeWire){const snapped=snapWholeWire(previewDoc,drag.id);if(snapped){previewDoc=snapped.doc;drag.snap=snapped.snap;drag.limited=false;}}
     }
-    try{profile.assertTransition(history.get(),previewDoc,readOnly);}catch{previewDoc=null;return;}analysis=solve(previewDoc);if(drag.limited){$("canvasNotice").textContent="線已拉盡；移近元件，或用另一條線接長。";$("canvasNotice").hidden=false;}render(false);
+    try{profile.prepare(previewDoc);profile.assertTransition(history.get(),previewDoc,readOnly);}catch{previewDoc=null;return;}analysis=solve(previewDoc);if(drag.limited){$("canvasNotice").textContent="線已拉盡；移近元件，或用另一條線接長。";$("canvasNotice").hidden=false;}render(false);
   });
   on(surface,"pointerup",e=>{
     if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc,discardZone=discardZoneAt(done,e.clientX,e.clientY);drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;

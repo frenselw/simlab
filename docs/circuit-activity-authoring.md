@@ -170,6 +170,14 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 
 ## 共用核心的維護與發布
 
+D3／D4 已有兩個正式 consumer：[兩燈串聯計劃](../plans/30-circuit-dc-series-build.md)及[變阻器調參計劃](../plans/31-circuit-dc-rheostat-adjust.md)。各自的 `spec.js`、`scoring.js`、`persistence.js` 決定題目與答案；`circuit-activity-runtime.js`／`circuit-activity-page.js` 只接合共用 editor 和 SCORM lifecycle，不包含 rubric。Standalone 不啟用持久保存；Moodle 未答、部分答案、check、凍結及完成狀態由共用 runtime 管理。
+
+`wirePointLimit` 是可信 config 的可選容量（整數 1–96，預設 96）。活動需要較小線形時，編輯器在 preview／history commit 前把超限路徑取樣成折線；保持原頂點次序、兩端、接線關係、阻值，折線長度不增加。恢復則嚴格拒絕超限文件，不在 decoder 暗中改形狀。D3 設 8，Float64 base64 無損保存實際文件；教師維持 96。任何新活動採用此選項，均須證明自己的最壞 draft、review 和真實 pending-final 不超過 4000 UTF-8 bytes。
+
+`runtime-assets.json` 是 21 個核心依賴的唯一清單。`npm run package:circuit-platform` 將它與各入口自己的依賴合併，更新明列的教師 `assets.json` 及兩份 SCORM manifest，再用原本的 packager 重建三包。核心依賴新增／刪除只改中央清單；不要在三個 manifest 各抄一份。工具逐檔比對 ZIP 和來源，核對 HTML／CSS 引用依賴，並產生 `output/circuit-platform-build.json`。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的舊 ZIP 不會自動更新。
+
+驗證命令：`npm run test:circuit-activities`（活動 scoring、codec、實際共享 SCORM runtime、source／ZIP 瀏覽器），`npm run check`（JS／manifest），共用核心的既有測試仍在 `npm test`。本地 iframe／模擬 LMS 不能替代真 Moodle 或實體手機 gate。
+
 新活動引用 `../circuit-workbench/` 的原始核心，以配置裁剪工具及權限；不要把核心複製進活動資料夾。題目判斷使用已提交編輯的 document 與 solver analysis，不以粒子速度、指針暫態位置或畫面距離作為物理答案。每個電氣連通區的流動示意速度會自適應；不同電路或工作點之間不能以動畫快慢比較絕對電流。
 
 新增活動仍須自己的計劃、目錄登記、rubric、精簡持久化及 SCORM manifest。manifest 要列出實際使用的共用 CSS／scripts、MathJax、全螢幕等依賴；教師 `assets.json` 是獨立包的清單，不會替活動補齊依賴。核心更新後重建引用它的活動 ZIP；檢查來源和解壓成品，不能只改來源便沿用舊包。整體責任及未實作的交流擴展方向見[架構與維護說明](circuit-workbench-architecture-review.md)。

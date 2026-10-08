@@ -2,18 +2,11 @@
   "kind": "standalone",
   "entry": "circuit-workbench/index.html",
   "files": [
-    "circuit-workbench/index.html",
-    "circuit-workbench/styles.css",
-    "circuit-workbench/main.js",
     "circuit-workbench/circuit-editor.css",
     "circuit-workbench/circuit-editor-ui.js",
     "circuit-workbench/circuit-editor.js",
     "circuit-workbench/circuit-profile.js",
     "circuit-workbench/circuit-checks.js",
-    "circuit-workbench/activity-profiles.js",
-    "circuit-workbench/activity-examples.html",
-    "circuit-workbench/activity-examples.css",
-    "circuit-workbench/activity-examples.js",
     "circuit-workbench/circuit-math.js",
     "circuit-workbench/mathjax-tex-svg.js",
     "circuit-workbench/mathjax-license.txt",
@@ -28,8 +21,15 @@
     "circuit-workbench/circuit-renderer.js",
     "circuit-workbench/circuit-document.js",
     "circuit-workbench/presets.js",
-    "circuit-workbench/assets.json",
     "shared/styles.css",
-    "shared/fullscreen.js"
+    "shared/fullscreen.js",
+    "circuit-workbench/index.html",
+    "circuit-workbench/styles.css",
+    "circuit-workbench/main.js",
+    "circuit-workbench/activity-profiles.js",
+    "circuit-workbench/activity-examples.html",
+    "circuit-workbench/activity-examples.css",
+    "circuit-workbench/activity-examples.js",
+    "circuit-workbench/assets.json"
   ]
 }
