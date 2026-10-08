@@ -14,6 +14,31 @@ async function teachingCases(h,mode,base,output){
     const focus=async id=>{await hidePanel();await tap(`[data-hit="body:${id}"]`);if(!await h.inside('document.getElementById("focusSelected").hidden'))await tap('#focusSelected');};
     const number=async(selector,value)=>{await tap(selector);await h.inside(`document.querySelector(${JSON.stringify(selector)}).select()`);await h.send('Input.insertText',{text:String(value)});await tap('#selectionTitle');};
     const evidence=(kind,data)=>h.evidence.push({mode,width,kind,...data});
+    async function sliderPreview(){
+      for(const view of ['real','schematic']){
+        const d=M.empty();M.add(d,'rheostat',300,240);d.display.view=view;await h.load(d);await panel();await tap('[data-camera=fit]');
+        await h.inside('window.__sliderUnsubscribe?.();window.__sliderChanges=0;window.__sliderUnsubscribe=CircuitWorkbench.onChange(()=>__sliderChanges++);');
+        const saved=await h.save();
+        async function held(cancel=false){
+          const p=await h.point('[data-hit="slider:c1"]'),scale=await h.inside('CircuitWorkbench.getInteraction().camera.scale'),mobile=width<600,id=42000+width;
+          const start={x:p.x,y:p.y};
+          await h.send(mobile?'Input.dispatchTouchEvent':'Input.dispatchMouseEvent',mobile?{type:'touchStart',touchPoints:[{...start,id,radiusX:2,radiusY:2,force:1}]}:{type:'mousePressed',...start,button:'left',buttons:1,clickCount:1});
+          await h.inside('window.__sliderInput=document.querySelector("#properties [data-param=position]");');
+          for(const dx of [12,24]){
+            const q={x:p.x+dx*scale,y:p.y};await h.send(mobile?'Input.dispatchTouchEvent':'Input.dispatchMouseEvent',mobile?{type:'touchMove',touchPoints:[{...q,id,radiusX:2,radiusY:2,force:1}]}:{type:'mouseMoved',...q,button:'left',buttons:1});await h.delay(25);
+            const shown=await h.inside(`(()=>{const input=document.querySelector('#properties [data-param=position]');return{number:input.valueAsNumber,range:input.parentElement.nextElementSibling.valueAsNumber,scene:(+document.querySelector('#scene [data-rheostat-slider]').getAttribute('x')+38)/60*100,same:input===__sliderInput};})()`);
+            near(shown.number,shown.scene);near(shown.range,shown.scene);near(shown.number,50+dx/60*100,1.01);assert(shown.same,'drag preserves inspector DOM');assert.equal(await h.save(),saved,'preview does not commit');
+          }
+          if(cancel){if(mobile)await h.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});else await h.key('Escape','Escape',27);}
+          if(!mobile||!cancel)await h.send(mobile?'Input.dispatchTouchEvent':'Input.dispatchMouseEvent',mobile?{type:'touchEnd',touchPoints:[]}:{type:'mouseReleased',x:p.x+24*scale,y:p.y,button:'left',buttons:0,clickCount:1});
+          await h.delay(60);
+        }
+        await held();near((await h.doc()).components[0].params.position,.9,.011);assert.equal(await h.inside('__sliderChanges'),1,'one change per drag');await tap('#undo');assert.equal(await h.save(),saved,'one undo restores whole drag');
+        await tap('[data-hit="slider:c1"]');const changes=await h.inside('__sliderChanges');await held(true);assert.equal(await h.save(),saved);assert.equal(await h.inside('__sliderChanges'),changes);near(await h.inside('document.querySelector("#properties [data-param=position]").valueAsNumber'),50);
+        evidence('slider-live-inspector',{view,trusted:true,whileHeld:[70,90],stableDom:true,oneCommit:true,oneUndo:true,cancelRestores:true,panelVisible:true});
+      }
+    }
+    if(process.argv.includes('--slider-preview-only')){await sliderPreview();continue;}
     await h.inside(`window.__teachingEvents=[];for(const name of ['pointerdown','pointermove','pointerup','input','change'])document.addEventListener(name,e=>__teachingEvents.push({type:e.type,trusted:e.isTrusted,pointer:e.pointerType||null,target:e.target.dataset.hit||e.target.id}),true);`);
     await h.load(M.empty());await panel();await tap('[data-add="galvanometer"]');let doc=await h.doc();assert.equal(doc.components[0].type,'galvanometer');assert.equal(doc.components[0].params.range,.00005);await tap('[data-add="rheostat"]');doc=await h.doc();assert.equal(doc.components[1].params.terminals,4);evidence('palette',{defaultFourPosts:true,nativeG:true});
 
@@ -26,6 +51,7 @@ async function teachingCases(h,mode,base,output){
     doc=await h.doc();near(doc.components[1].params.position,.9,.011);for(const p of R.ports(doc.components[1]))assert.deepEqual(p,ends.get(p.id),'slider never moves sockets');assert(await h.inside('document.getElementById("preview").hidden'));await tap('#undo');assert.equal(await h.save(),saved);
     if(width<600){start=await h.point('[data-hit="slider:c2"]');await h.touch(start,24*scale,0,null,true);assert.equal(await h.save(),saved,'touch cancellation restores slider');}
     evidence('slider',{trusted:true,position:.9,fixedSockets:true,noPreview:true,undo:true,cancel:width<600});
+    await sliderPreview();
     for(const view of ['real','schematic'])for(const angle of [0,90,180,270]){
       const f=P.create('divider'),c=f.components[1],before=M.clone(f);c.angle=angle;assert(M.reconcile(f,before));f.display.view=view;await h.load(f);
       const alignment=await h.inside(`(()=>{const d=CircuitWorkbench.getDocument(),errors=[];for(const c of d.components.filter(c=>['rheostat','galvanometer'].includes(c.type)))for(const p of CircuitRegistry.ports(c)){const node=document.querySelector('[data-port="'+p.id+'"]'),a=new DOMPoint(+node.getAttribute('cx'),+node.getAttribute('cy')).matrixTransform(node.getScreenCTM());for(const w of d.wires)for(const k of ['from','to'])if(w[k]===p.id){const line=document.querySelector('[data-wire="'+w.id+'"]'),b=line.getPointAtLength(k==='from'?0:line.getTotalLength()).matrixTransform(line.getScreenCTM());errors.push(Math.hypot(a.x-b.x,a.y-b.y));}}return errors;})()`);assert(alignment.every(e=>e<.04));evidence('rotated-rheostat',{view,angle,maximumError:Math.max(...alignment)});

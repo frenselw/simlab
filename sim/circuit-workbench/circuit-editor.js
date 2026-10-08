@@ -181,6 +181,14 @@
     $("cableCount").disabled=d.policy.mode!=="free";$("cableLength").disabled=d.policy.mode!=="free";$("cableResistance").disabled=d.policy.mode!=="free"||!profile.canSetWireResistance(d,readOnly);$("cableResistance").value=d.cables.resistance;const remaining=d.cables.count-d.wires.length;$("wireStock").textContent=remaining+" / "+d.cables.count;$("quickWire").innerHTML=`＋導線 <span>${remaining}/${d.cables.count}</span>`;["addWire","quickWire"].forEach(id=>$(id).disabled=remaining===0||!wireAllowed());$("cableCount").value=d.cables.count;const lengthSelect=$("cableLength");[...lengthSelect.options].filter(o=>o.dataset.custom&&Number(o.value)!==d.cables.length).forEach(o=>o.remove());if(![...lengthSelect.options].some(o=>Number(o.value)===d.cables.length)){const o=new Option("自訂 · "+d.cables.length,String(d.cables.length));o.dataset.custom="true";lengthSelect.add(o);}lengthSelect.value=d.cables.length;
     const hazards=V.visualState(d,analysis);$("circuitStatus").textContent=hazards.short?"短路 · 發熱":hazards.overload?"過載 · 發熱":analysis.diagnostics.length?"需檢查電路":"";host.querySelectorAll("[data-add]").forEach(b=>b.disabled=!profile.canAdd(b.entry,d,readOnly));
     if(inspector)renderProperties();
+    else {
+      const input=$('properties').querySelector('[data-param="position"]'),component=d.components.find(c=>c.id===input?.dataset.component);
+      if(component&&document.activeElement!==input){
+        input.value=Number((component.params.position*100).toPrecision(12));
+        const range=input.parentElement.nextElementSibling;if(range?.type==='range')range.value=input.value;
+        const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=componentReadings(component.id);
+      }
+    }
     renderQuickParameters();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
     const pinned=meterPreview?d.components.find(c=>c.id===meterPreview.id):null,reading=readableMeter(d,held)?held:readableMeter(d,pinned)?pinned:null;
@@ -229,7 +237,7 @@
         if (spec.choices) { const input = document.createElement("select");input.dataset.param=key; spec.choices.forEach((choice) => { const o = document.createElement("option"); o.value = String(choice); o.textContent = c.type==='lamp'&&key === "model" ? choice === "ideal" ? "恆阻燈（理想化）" : "變阻燈（熱效應）" : c.type==='rheostat'&&key==='terminals'?choice+' 孔'+(choice===4?'（教學器材）':choice===3?'（分壓）':'（限流）'):c.type==='switch'&&key==='closed'?choice ? "閉合" : "斷開":String(choice); input.append(o); }); input.selectedIndex = spec.choices.findIndex(choice=>choice===c.params[key]); input.disabled = !enabled; input.onchange = () => {const value=spec.choices[input.selectedIndex];const ok=change((doc) => {if(c.type==='rheostat'&&key==='terminals')M.setTerminals(doc,c.id,value);else doc.components.find((x) => x.id === c.id).params[key] = value; });if(ok&&c.type==='rheostat'&&key==='terminals')notify('已切換接線孔；隱去孔的導線拔開並留在畫布。');}; field(spec.label||(c.type==='lamp'&&key === "model" ? "燈泡模型" : c.type==='switch'&&key==='closed'?"開關狀態":key), input); }
         else {
           const factor = ['position','linearLoss'].includes(key) ? 100 : spec.factor||1;
-          const input = document.createElement("input"); input.type = "number"; input.value = c.params[key] * factor; input.min = spec.min * factor; input.max = spec.max * factor; input.step = "any"; input.disabled = !enabled; input.dataset.param = key; input.onchange = () => { const value = input.valueAsNumber / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; field(spec.unit?[spec.label+' · ',Q.unit(spec.unit)]:spec.label,input);
+          const input = document.createElement("input"); input.type = "number"; input.value = c.params[key] * factor; input.min = spec.min * factor; input.max = spec.max * factor; input.step = "any"; input.disabled = !enabled; input.dataset.param = key; input.dataset.component = c.id; input.onchange = () => { const value = input.valueAsNumber / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; field(spec.unit?[spec.label+' · ',Q.unit(spec.unit)]:spec.label,input);
           if (["voltage", "resistance", "position"].includes(key)) {
             const range = document.createElement("input"),preferredMax=key==='position'?1:key==='voltage'?24:c.type==='battery'?10:100;
             range.type = "range"; range.min = spec.min * factor;

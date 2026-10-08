@@ -1414,3 +1414,9 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 按使用者要求，滑動變阻器預設不顯示電阻；只有「顯示畫布讀值與參數」及「顯示用電器電阻」同時開啟，才標示「最大電阻」及最大值，不顯示 A–P 有效阻值。接線狀態及滑片位置不影響此標示，實物／電路圖／SVG 匯出使用同一標籤入口。移除獨立「顯示滑動變阻器電阻」選項；v6 的舊 `rheostatResistance` 布林仍可往返保存，但不影響顯示。
 - 本輪為非評量顯示修正，assessment／rubric／SCORM phase N/A；方程、元件參數、權限及文件版本不改。精準驗證含兩種外觀、2／3／4 孔、已接／未接、三個滑片位置、舊布林兩值、總開關及文件恢復；沿用既有已登記的 display 單元／browser runner，不新增測試框架。
 - `display-and-mirror.test.js` **109 cases**、`labels.test.js` **72 responsive layouts**、`meters-and-math.test.js` **96 fixtures** 通過；`--display-mirror-smoke` 在 source／解壓 ZIP 通過 **30 observations**，含 390 px 可信觸控／1280 px 滑鼠、勾選及取消最大電阻標示、總開關、移除舊選項、實際 JSON 檔載入與復原續作，並保留儀表換孔及 320 px 動作列回歸。`npm run check` 及 diff 檢查通過；教師 ZIP 已重建並核對 29 個 runtime 檔與來源逐 byte 一致。未重跑全站 `npm test`，真手機／Moodle 未測。
+
+## 71. 滑片拖動期間同步操作面板（2026-10-08）
+
+- 修正畫布滑片已移動、面板百分比仍停於提交值的問題。保留拖動期間的 inspector DOM，以當前預覽文件更新綁定元件的滑片數字、range 及讀值；沒有預覽時同步正式值，避免取消或轉為導航後殘留預覽。正在輸入的數字欄保留原內容。放手才提交一次、單步復原與權限沿用原機制。
+- 非評量顯示同步，assessment／rubric／SCORM phase N/A；模型、方程、v6 文件及公開 API 不改。驗證決定：在既有 teaching browser cases 加入兩外觀、320／390 px 觸控與 1280 px 滑鼠，實際按住時逐次核對 70／90%、DOM 身分不變、文件／onChange 未提交、放手一次提交、一次 undo 還原及取消不提交；來源與解壓 ZIP 均執行。精準 baseline 已重現 `50 != 70`。
+- `--teaching-smoke --slider-preview-only` 在來源／實際解壓 ZIP 通過 **12 observations**（兩外觀 × 三種寬度 × source／ZIP），紀錄 `output/playwright/circuit-workbench/teaching.json`；這是本次滑片精準矩陣，不能當作全部 teaching browser cases 已重跑。相鄰 `teaching.test.js` **112 cases** 及 `quick-controls.test.js` **6 groups**、`npm run check`、JS syntax／diff 通過。教師 ZIP **29 runtime files** 與來源逐 byte 一致；一次 Chrome 啟動遇到 Windows 暫存檔 EBUSY，另開暫存目錄重跑通過。未重跑全站 `npm test`，真手機／Moodle 未測。
