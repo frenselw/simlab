@@ -72,6 +72,8 @@ ui:{palette:true, inspector:true}
 
 使用 `editor.execute({type:'setWireResistance', id:'w1', value:2})` 修改某條線，沿用單步復原、權限及無效值原子拒絕。阻值不隨幾何修改而變；`connected` 只表示經導線接通，不表示等電位，`series` 判斷會計入有阻導線分支。文件已升為 v6，v1–v5 遷移後所有線及預設阻值為 0。新正式活動需將單線阻值納入自己的權威答案／rubric／SCORM 快照，不能只存畫面或求解結果。
 
+教師控制面板的「取出導線」可用滑鼠／觸控筆拖到畫布；採相同 `addWire` 命令、庫存、預設長度／電阻及取消規則，預覽不建立作答資料。學生示例沒有此面板按鈕，原有底部取線入口及 `wires:false`／只讀限制保持。
+
 ### 元件與參數權限
 
 規則依 `default` → `byType` → `byId` 覆蓋；後者最精確。六個欄位是 `move`、`rotate`、`remove`、`label`、`switch`、`params`。`params` 可用 `false`、`true` 或參數名稱陣列；`closed` 應由 `switch` 開放。未開放的參數輸入及元件操作不出現在學生面板。

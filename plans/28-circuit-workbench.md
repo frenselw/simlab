@@ -1429,3 +1429,11 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 - 已執行 `--palette-drag-smoke` source／解壓 ZIP **42 observations**：mouse／pen 的可信 down／move／up（無 cancel）、實物／電路圖、0.7／1.3 縮放、預覽不改文件／onChange、指定格點放置及相機保留、一次提交／undo／redo／restore 續調，八種取消路徑、點選／Enter、學生庫存及初始 ID／固定參數、另一 instance 畫布拒絕、320／390×844 原生手指捲動與點選。失焦測試注入 window blur，捕獲／載入／鎖定／卸載用 production API，並非全數以硬件中斷測試。報告 `output/playwright/circuit-workbench/palette-drag.json`；預覽截圖已目視核對。
 - 明確限制：pen hover 的 `touch-action:none` 必須在接觸前設定，因此筆仍懸停同一按鈕時開始的手指滑動，可能沿用筆的手勢所有權。手指自身操作及筆離開後的切換已驗證；不宣稱支援同一位置的並行筆／手指操作。觸控筆未支援 hover 的硬件、真筆／真手機及 Moodle 未在本輪實測，須另做硬件驗收。
 - 相鄰 `--activity-core-smoke` source／ZIP **46 observations**、`activity-core.test.js` **19 groups**、`platform-core.test.js` **6 groups** 通過，既有點選、只讀及活動示例保持。`npm run check`、最終修改檔語法與 diff 通過，教師 ZIP 重建後 **29 runtime files** 與來源逐 byte 一致。未重跑全站 `npm test`。
+
+## 73. 控制面板取出導線拖放（2026-10-08）
+
+- 按使用者要求，控制面板「取出導線」沿用元件工具箱的滑鼠／觸控筆拖放機制；點選及鍵盤取線保留，底部「＋導線」保持原點選用途。抽出已有拖放綁定供兩個實際用途共用；不新增框架或外部依賴。手指維持原生面板捲動，沿用第 72 節的 pen hover 邊界。
+- 預覽在文件副本呼叫既有 `addWire`／routing，採目前新線長度與電阻、同一格點及相機；釋放才用 `execute({type:'addWire',x,y})`，預覽不建立正式共接點、不佔庫存／通知作答。一次放置一筆復原；不自動接到附近接孔。畫布外及既有取消／只讀／卸載等路徑均不取線；庫存用完不可拖取，刪線後可再取。非評量核心操作，assessment／rubric／SCORM phase N/A；v6 文件／求解不改。
+- 驗證決定：擴充已登記的 palette browser cases，source／ZIP、mouse／pen、兩外觀／縮放、120／600 長度及新線電阻、預覽／釋放兩端一致、一次新增與 undo／redo／restore 續接、取消／庫存／只讀／固定接線模式／無接線權限；320／390 px 手指從此按鈕原生捲動及點選。重跑同一組元件拖放防止共用整理回退；真硬件與 Moodle 另列。
+- `--palette-drag-smoke` source／解壓 ZIP **84 observations** 通過，含原元件 **42** 及新增導線 **42**：兩種外觀、兩種 pointer、120／600 最大長度、0.7／1.3 縮放、新線電阻 2 Ω、預覽兩端與正式共接點一致、一次扣庫存／通知／復原、restore 後實際接到電阻兩端、八種取消及原權限；固定接線模式亦能拖取，取線後退出移圖模式。320／390×844 從取線按鈕手指捲動不改文件，點選只取一條。報告 `output/playwright/circuit-workbench/palette-drag.json`，線條預覽截圖已目視核對。
+- `wire-resistance.test.js` **9 groups**、`activity-core.test.js` **19 groups**、`npm run check`、語法／diff 通過；實際教師 ZIP 的 **29 runtime files** 與最終來源逐 byte 一致。未重跑全站 `npm test`；沿用第 72 節筆／手指接觸所有權限制，真筆／真手機／Moodle 未測。

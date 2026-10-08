@@ -146,8 +146,9 @@
   }
   function renderGhost(){const snap=drag?.snap;$("ghostLayer").innerHTML=snap?(snap.connections||[snap]).map(s=>`<circle data-snap-target="${V.esc(s.id)}" cx="${s.x}" cy="${s.y}" r="${14/camera.scale}" fill="#a7d4f344" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`).join(""):"";
     host.classList.toggle('palette-dragging',drag?.kind==='palette'&&drag.moved);
-    const d=current();$('emptyHint').hidden=!!(d.components.length||d.wires.length||drag?.kind==='palette'&&drag.component);
+    const d=current();$('emptyHint').hidden=!!(d.components.length||d.wires.length||drag?.kind==='palette'&&(drag.component||drag.wirePreview));
     if(drag?.kind==='palette'&&drag.component){const c=drag.component;$("ghostLayer").innerHTML+=`<g data-palette-preview="${V.esc(drag.entry.key)}" transform="translate(${c.x} ${c.y})" opacity=".65" pointer-events="none">${V.body(c,null,history.get().display)}</g>`;}
+    if(drag?.kind==='palette'&&drag.wirePreview){const points=drag.wirePreview;$("ghostLayer").innerHTML+=`<g data-palette-preview="wire-tool" data-wire-tool-preview="true" opacity=".65" pointer-events="none"><path d="${G.path(points)}" fill="none" stroke="#50677e" stroke-width="${4/camera.scale}"/>${[points[0],points.at(-1)].map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${7/camera.scale}" fill="#fff" stroke="#526f88" stroke-width="${2/camera.scale}"/>`).join('')}</g>`;}
     if(drag?.kind==="wireend"||drag?.kind==="body"||drag?.wholeWire){const n=$("canvasNotice");clearTimeout(noticeTimer);n.hidden=!snap&&!drag.limited;n.classList.toggle("error",drag.limited);
       n.innerHTML=rich(snap?[drag.kind==="body"?"元件將接線：":drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
@@ -348,7 +349,8 @@
   function straighten(id){cancel();if(change(doc=>M.straightenWire(doc,id)))notify("導線已拉直，兩端接線保持不變；可再拿線身彎曲。");}
   function tidy(id){cancel();change(doc=>{doc.wires.filter(w=>!id||w.id===id).forEach(w=>{const points=G.route(doc,w),clean=G.smooth(G.simplify(points,12));const fitted=G.fitLength(G.resample(clean,10),w.length);if(!fitted)throw new Error('導線已拉盡；移近端點後再整理線形。');w.shape="free";w.via=fitted.slice(1,-1).map(p=>({x:p.x,y:p.y}));});});}
   function takeWire(){if(!wireAllowed())return false;cancel();panMode=false;probeMode=false;const ok=change(doc=>{const x=camera.x+surface.clientWidth/(2*camera.scale),y=camera.y+surface.clientHeight/(2*camera.scale);let dy=0;while(doc.wires.some(w=>{const points=G.route(doc,w),mid=G.along(points,G.length(points)/2);return Math.hypot(mid.x-x,mid.y-y-dy)<45;}))dy+=45;const w=addWire(doc,x,y+dy);selection={kind:"wire",id:w.id};});if(ok)notify("直線導線已取出。拿端點時另一端固定；拿線身可搬整條，接好一端後可彎曲。");}
-  $("addWire").onclick=$("quickWire").onclick=takeWire;
+  $("quickWire").onclick=takeWire;
+  on($("addWire"),'click',e=>{if(e.detail&&$("addWire").suppressAddClick){$("addWire").suppressAddClick=false;return;}takeWire();});
   $("cableCount").onchange=()=>change(doc=>{doc.cables.count=$("cableCount").valueAsNumber;});$("cableLength").onchange=()=>change(doc=>{doc.cables.length=Number($("cableLength").value);});
   $("cableResistance").onchange=()=>change(doc=>{doc.cables.resistance=$("cableResistance").valueAsNumber;});
   function moveObject(base,kind,id,dx,dy){const candidate=f=>{const d=M.clone(base),item=(kind==="body"?d.components:d.junctions).find(x=>x.id===id);item.x+=dx*f;item.y+=dy*f;if(!M.reconcile(d,base))return null;try{M.validate(d);return d;}catch{return null;}};let d=candidate(1);if(d)return {doc:d,limited:false};let low=0,high=1;for(let n=0;n<28;n++){const mid=(low+high)/2;if(candidate(mid))low=mid;else high=mid;}return {doc:candidate(low),limited:true};}
@@ -516,22 +518,20 @@
   $('closeSettings').onclick=()=>$('settingsDialog').close();
   on($('settingsDialog'),'close',()=>{$('settings').setAttribute('aria-expanded','false');});
   $("help").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
-  function paletteDropPoint(e,entry){
+  function toolDropPoint(e){
     const at=document.elementFromPoint(e.clientX,e.clientY);
-    if(!at||!surface.contains(at)||at.closest('.scroll-strip,.preview,.canvas-notice')||!profile.canAdd(entry,history.get(),readOnly))return null;
+    if(!at||!surface.contains(at)||at.closest('.scroll-strip,.preview,.canvas-notice'))return null;
     const p=world(e.clientX,e.clientY),x=snapGrid(p.x),y=snapGrid(p.y);
     return Math.abs(x)<=M.limits.coordinate&&Math.abs(y)<=M.limits.coordinate?{x,y}:null;
   }
-  if(profile.ui.palette)for (const entry of profile.palette) {
-    const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
-    const sample={type,params:entry.params};
-    b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
-    b.title=entry.label+'：點選新增，或用滑鼠／觸控筆拖到畫布';
+  function bindToolDrag(b,entry=null){
+    const canTake=()=>entry?profile.canAdd(entry,history.get(),readOnly):wireAllowed()&&history.get().wires.length<history.get().cables.count;
+    b.title=(entry?.label||'導線')+'：點選新增，或用滑鼠／觸控筆拖到畫布';
     // ponytail: pen hover owns this button; use a separate drag handle if concurrent finger scrolling is required.
     on(b,'pointerover',e=>{b.style.touchAction=e.pointerType==='pen'?'none':'';});
     on(b,'pointerleave',()=>{if(drag?.target!==b)b.style.touchAction='';});
     on(b,'pointerdown',e=>{
-      if(!['mouse','pen'].includes(e.pointerType)||e.button!==0||!e.isPrimary||touches.size||!profile.canAdd(entry,history.get(),readOnly))return;
+      if(!['mouse','pen'].includes(e.pointerType)||e.button!==0||!e.isPrimary||touches.size||!canTake())return;
       if(document.activeElement===$('quickValue')||$('properties').contains(document.activeElement))document.activeElement.blur();
       cancel();b.suppressAddClick=false;drag={kind:'palette',entry,pointerId:e.pointerId,pointerType:e.pointerType,target:b,x:e.clientX,y:e.clientY,moved:false,selectionBefore:selection&&M.clone(selection)};
       b.setPointerCapture(e.pointerId);render(false);
@@ -539,14 +539,24 @@
     on(b,'pointermove',e=>{
       if(drag?.kind!=='palette'||drag.target!==b||drag.pointerId!==e.pointerId)return;
       drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;if(!drag.moved)return;
-      b.suppressAddClick=true;const p=paletteDropPoint(e,entry);drag.component=p?M.component(history.get(),type,p.x,p.y,entry.params):null;renderGhost();
+      b.suppressAddClick=true;const p=canTake()?toolDropPoint(e):null;
+      if(entry)drag.component=p?M.component(history.get(),entry.type,p.x,p.y,entry.params):null;
+      else{drag.wirePreview=null;if(p){const candidate=M.clone(history.get()),w=addWire(candidate,p.x,p.y);drag.wirePreview=G.route(candidate,w);}}
+      renderGhost();
     });
     on(b,'pointerup',e=>{
       if(drag?.kind!=='palette'||drag.target!==b||drag.pointerId!==e.pointerId)return;
       if(!drag.moved){drag=null;if(b.hasPointerCapture(e.pointerId))b.releasePointerCapture(e.pointerId);render(false);return;}
-      const p=paletteDropPoint(e,entry);if(p){const fitted=autoFit;autoFit=false;if(execute({type:'addComponent',key:entry.key,...p}))notify('元件已放到畫布。');else{autoFit=fitted;render(false);}}else cancel();
+      const p=canTake()?toolDropPoint(e):null;if(p){const fitted=autoFit;autoFit=false;if(!entry){panMode=false;probeMode=false;}if(execute(entry?{type:'addComponent',key:entry.key,...p}:{type:'addWire',...p}))notify(entry?'元件已放到畫布。':'導線已放到畫布。拖動端點接線。');else{autoFit=fitted;render(false);}}else cancel();
     });
     on(b,'lostpointercapture',e=>{if(drag?.target===b&&drag.pointerId===e.pointerId)cancel(true);});
+  }
+  if(host.contains($('addWire')))bindToolDrag($('addWire'));
+  if(profile.ui.palette)for (const entry of profile.palette) {
+    const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
+    const sample={type,params:entry.params};
+    b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
+    bindToolDrag(b,entry);
     on(b,'click',e=>{if(e.detail&&b.suppressAddClick){b.suppressAddClick=false;return;}if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
       const x=snapGrid(camera.x+surface.clientWidth/(2*camera.scale)),y=snapGrid(camera.y+surface.clientHeight/(2*camera.scale));let offset=0;
       while(d.components.some(c=>Math.hypot(c.x-x-offset,c.y-y-offset)<100))offset+=40;

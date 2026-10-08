@@ -48,7 +48,8 @@
 .circuit-editor .panel-section{border-color:#dfe7ee}
 .circuit-editor .palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .circuit-editor .palette button{text-align:left;padding:8px 6px;font-size:.875rem;background:#fff;display:flex;gap:6px;align-items:center;touch-action:pan-y}
-.circuit-editor .palette button:not(:disabled){cursor:grab;user-select:none}
+.circuit-editor .palette button:not(:disabled),.circuit-editor [data-circuit-id="addWire"]:not(:disabled){cursor:grab;user-select:none}
+.circuit-editor [data-circuit-id="addWire"]{touch-action:pan-y}
 .circuit-editor.palette-dragging,.circuit-editor.palette-dragging *{cursor:grabbing!important}
 .circuit-editor .palette svg{width:28px;height:28px;flex-shrink:0;pointer-events:none}
 .circuit-editor .palette .icon{display:inline-grid;place-items:center;width:25px;height:25px;font-weight:bold;color:#4e708d}
