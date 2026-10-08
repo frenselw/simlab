@@ -185,7 +185,7 @@ async function devToolsPort(profileDirectory, chrome) {
       const [port] = fs.readFileSync(activePortFile, "utf8").trim().split(/\r?\n/);
       if (Number(port) > 0) return Number(port);
     } catch (error) {
-      if (error.code !== "ENOENT") throw error;
+      if (!['ENOENT','EBUSY'].includes(error.code)) throw error;
     }
     await delay(50);
   }

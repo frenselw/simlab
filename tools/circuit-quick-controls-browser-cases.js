@@ -83,6 +83,15 @@ async function quickControlsCases(h,mode,base){
     await tap(control('panelToggle'));assert(await h.inside(`!document.getElementById('app').classList.contains('panel-hidden')`));assert.equal(await value(),14);
     const opened=await layout();assert.equal(await h.inside(`document.querySelector('[data-param=resistance]:not(#quickValue)').valueAsNumber`),14);
     await h.screenshot(`${mode}-quick-resistance-${width}.png`);evidence('resistance-and-restore',{unchangedWires:true,continued:true,panelOpen:true,layout:opened});
+    if(width===1280){
+      const committed=await h.save(),slider=await h.point(`${control('properties')} input[type=range]`),changed=await h.inside('__quickChanges');
+      await h.send('Input.dispatchMouseEvent',{type:'mousePressed',...slider,button:'left',buttons:1,clickCount:1});
+      await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:slider.x+40,y:slider.y,button:'left',buttons:1});
+      assert.equal(await h.save(),committed,'inspector range preview remains uncommitted');
+      await h.key('Escape','Escape',27);
+      await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:slider.x+40,y:slider.y,button:'left',buttons:0,clickCount:1});
+      await h.delay(60);assert.equal(await h.save(),committed,'late native change after Escape cannot commit a cancelled range');assert.equal(await h.inside('__quickChanges'),changed);evidence('inspector-escape-release-no-commit');
+    }
     await tap(control('panelToggle'));await h.load(P.create('series'));await h.delay(50);
     // Dragging the first selected component must not be cancelled by footer reflow.
     const d=await h.doc(),p=await body('c1');await h.inside('window.__bodyEvents=[];document.getElementById("surface").addEventListener("pointercancel",e=>__bodyEvents.push(e.type));');

@@ -1,5 +1,7 @@
 # 用共用電路編輯器製作活動
 
+交流時間後端及其配置、動態 snapshot、面板插槽與物理界限見[交流作者說明](circuit-ac-workbench.md)。以下 DC 例子及靜態 checks 保持其原範圍；正式 AC SCORM 題目及 rubric 尚未制定。
+
 `CircuitEditor.mount(host, config)` 是現已實作的入口。教師版的 `main.js` 也使用它；學生版不必複製畫布、接線、手勢、儀表或求解程式。可先開啟 `sim/circuit-workbench/activity-examples.html`，試用四種配置；實際可複用的設定在 `activity-profiles.js`。
 
 ## 最快開始

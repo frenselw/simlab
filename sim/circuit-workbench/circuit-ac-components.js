@@ -10,7 +10,7 @@
   const resistance=()=>number('線圈電阻','Ω',1,0,1e6,.1);
   const signed=(label,unit)=>number(label,unit,0,-1e6,1e6,.1);
   const types={
-    'ac-source':{name:'交流電源',icon:'~',ports,primaryParameter:'frequency',params:{voltage:number('電動勢有效值','V',6,0,120,.5),frequency:number('頻率','Hz',50,.1,1000,1),phase:number('初相位','°',0,-180,180,5),resistance:number('內阻','Ω',0,0,1e6,.1),waveform:choices('波形','sine',['sine','square','triangle'])}},
+    'ac-source':{name:'交流電源',icon:'~',ports,primaryParameter:'frequency',params:{voltage:number('電動勢有效值','V',6,0,1000,.5),frequency:number('頻率','Hz',50,.1,1000,1),phase:number('初相位','°',0,-180,180,5),resistance:number('內阻','Ω',0,0,1e6,.1),waveform:choices('波形','sine',['sine','square','triangle'])}},
     generator:{name:'交流發電機',icon:'G~',ports,primaryParameter:'frequency',params:{frequency:number('轉動頻率','Hz',2,.1,1000,.1),phase:number('初始角度','°',0,-180,180,5),turns:number('線圈匝數','',200,1,2000,10),field:number('磁感應強度','T',.2,0,2,.01),area:number('線圈面積','m²',.02,.0001,.1,.001),resistance:number('內阻','Ω',1,0,1e6,.1)}},
     capacitor:{name:'電容器',icon:'C',ports,primaryParameter:'capacitance',params:{capacitance:number('電容','μF',.001,1e-6,.01,.0001,1e6),initialVoltage:signed('初始電壓','V'),rating:number('耐壓值','V',25,.1,1e6,1)}},
     inductor:{name:'電感線圈',icon:'L',ports,primaryParameter:'inductance',params:{inductance:number('自感系數','H',1,.001,100,.1),resistance:resistance(),initialCurrent:signed('初始電流','A')}},
@@ -21,6 +21,7 @@
     'ac-voltmeter':{name:'交流電壓表',icon:'V',meter:true,ports,params:{range:number('量程','V',15,.001,1e6,1),resistance:number('輸入電阻（0 為理想）','Ω',0,0,1e12,1000)}},
     'ac-wattmeter':{name:'交流功率表',icon:'W',meter:true,ports:[{key:'a',x:-60,y:-20,label:'I+'},{key:'b',x:60,y:-20,label:'I−'},{key:'c',x:-60,y:40,label:'V+'},{key:'d',x:60,y:40,label:'V−'}],params:{range:number('量程','W',20,.001,1e6,1),resistance:number('電流線圈內阻','Ω',0,0,1e6,.1),inputResistance:number('電壓線圈內阻（0 為理想）','Ω',0,0,1e12,1000)}}
   };
+  types['ac-source'].params.waveform.labels={sine:'正弦波',square:'方波',triangle:'三角波'};types.transformer.params.model.labels={ideal:'理想交流',coupled:'線性線圈'};types.spdt.params.closed.labels={b:'充電側',c:'放電側'};types.led.params.colour.labels={red:'紅色',green:'綠色'};
   const baseTypes=['battery','resistor','rheostat','switch','lamp','galvanometer','ammeter','voltmeter','wattmeter'];
   const supported=c=>!!types[c.type]||baseTypes.includes(c.type)&&!(c.type==='lamp'&&c.params.model!=='ideal');
   const wrap=phase=>{const value=((phase%TAU)+TAU)%TAU;return value<1e-12||TAU-value<1e-12?0:Math.abs(value-Math.PI)<1e-12?Math.PI:value;};
@@ -33,15 +34,21 @@
   function toAC(input){const d=M.validate(input);if(d.version<7){d.version=7;d.analysis='transient';d.modelRevision=1;}const bad=d.components.filter(c=>!supported(c));if(bad.length)throw new Error('時間模型不支援：'+bad.map(c=>c.label).join('、'));return M.validate(d);}
   const text=(value,x=0,y=7,size=18)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" fill="#334155">${value}</text>`;
   const path=(d,stroke='#475569',width=3)=>`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const coil='M-34 0q0-16 10-16t10 16q0-16 10-16t10 16q0-16 10-16t10 16';
+  const coil='M-34 0q0-16 11.333333-16t11.333334 16q0-16 11.333333-16t11.333334 16q0-16 11.333333-16t11.333334 16';
   function render(c,r,d){
     const p=c.params,schematic=d.view==='schematic',lead=path('M-60 0H-34 M34 0H60');
-    if(c.type==='capacitor')return path('M-60 0H-9 M9 0H60')+path('M-9-26V26 M9-26V26',schematic?'#334155':'#7a9ba8',5)+(schematic?'':`<rect x="-4" y="-25" width="8" height="50" fill="#ddeefa"/>`)+text(r?.voltage>1e-8?'+':r?.voltage< -1e-8?'−':'',-23,-30,16)+text(r?.voltage>1e-8?'−':r?.voltage< -1e-8?'+':'',23,-30,16);
+    if(c.type==='capacitor')return path('M-60 0H-9 M9 0H60')+path('M-9-26V26 M9-26V26',schematic?'#334155':'#7a9ba8',5)+(schematic?'':`<rect x="-4" y="-25" width="8" height="50" fill="#ddeefa"/>`)+text(d.fields!==false&&d.values?(r?.voltage>1e-8?'+':r?.voltage< -1e-8?'−':''):'',-23,-30,16)+text(d.fields!==false&&d.values?(r?.voltage>1e-8?'−':r?.voltage< -1e-8?'+':''):'',23,-30,16);
     if(c.type==='inductor')return lead+path(coil,schematic?'#334155':'#a57545',schematic?3:5);
     if(c.type==='spdt')return path('M-60 0H-24 M28-24H60 M28 24H60')+path(`M-24 0L25 ${p.closed==='b'?-24:24}`,'#334155',4)+'<circle cx="28" cy="-24" r="4" fill="#b88b4f"/><circle cx="28" cy="24" r="4" fill="#b88b4f"/>';
-    if(c.type==='transformer')return path('M-76-26H-42V-20 M-76 26H-42V20 M76-26H42V-20 M76 26H42V20')+`<g transform="translate(-32 34) rotate(-90)">${path(coil,'#a57545',4)}</g><g transform="translate(32-34) rotate(90)">${path(coil,'#a57545',4)}</g>`+path('M-6-32V32 M6-32V32','#8296a3',4)+text('•',-43,-26,18)+text('•',43,-26,18)+text(p.model==='ideal'?'理想':'線性線圈',0,53,12);
-    if(c.type==='led')return lead+`<path d="M-22-17L16 0L-22 17Z" fill="${Number.isFinite(r?.current)&&r.current>1e-6?(p.colour==='red'?'#ef4444':'#22c55e'):'#fff'}" stroke="#475569" stroke-width="2"/>`+path('M16-20V20 M6-23L19-36 M12-35L19-36L18-29 M20-17L33-30 M26-29L33-30L32-23','#64748b',2);
-    if(R.get(c.type).meter){const unit=R.get(c.type).icon,value=Number.isFinite(r?.reading)?Number(r.reading.toPrecision(4)):'—';return (c.type==='ac-wattmeter'?path('M-60-20H-34 M34-20H60 M-60 40H-20V26 M20 26V40H60'):lead)+`<rect x="-35" y="-33" width="70" height="65" rx="9" fill="${schematic?'#fff':'#eef4fa'}" stroke="#446482" stroke-width="2"/>`+text(unit+'~',0,-10,17)+(d.values?text(value,0,14,13):'');}
+    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g transform="translate(-32 0) rotate(-90)">${path(coil,'#a57545',4)}</g><g transform="translate(32 0) rotate(90)">${path(coil,'#a57545',4)}</g>`+path('M-6-32V32 M6-32V32','#8296a3',4)+text('•',-43,-34,18)+text('•',43,-34,18)+text(p.model==='ideal'?'理想':'線性線圈',0,53,12);
+    if(c.type==='led')return path('M-60 0H-22 M16 0H60')+`<path d="M-22-17L16 0L-22 17Z" fill="${Number.isFinite(r?.current)&&r.current>1e-6?(p.colour==='red'?'#ef4444':'#22c55e'):'#fff'}" stroke="#475569" stroke-width="2"/>`+path('M16-20V20 M6-23L19-36 M12-35L19-36L18-29 M20-17L33-30 M26-29L33-30L32-23','#64748b',2);
+    if(R.get(c.type).meter){
+      const unit=R.get(c.type).icon,value=Number.isFinite(r?.reading)?Number(r.reading.toPrecision(4)):'—',signed=c.type==='ac-wattmeter',fraction=Number.isFinite(r?.reading)?Math.max(0,Math.min(1,signed?(r.reading/p.range+1)/2:r.reading/p.range)):null,angle=fraction===null?0:(-150+120*fraction)*Math.PI/180;
+      let face=path('M-23-1A26 26 0 0 1 23-1','#94a3b8',1)+text(unit+'~',0,-24,14)+text(signed?-p.range:0,-24,26,10)+text(p.range,24,26,10);
+      for(let n=0;n<=6;n++){const a=(-150+120*n/6)*Math.PI/180;face+=path(`M${Math.cos(a)*23} ${12+Math.sin(a)*23}L${Math.cos(a)*27} ${12+Math.sin(a)*27}`,'#64748b',1);}
+      if(d.values&&fraction!==null)face+=path(`M0 12L${Math.cos(angle)*24} ${12+Math.sin(angle)*24}`,'#dc2626',2);face+='<circle cy="12" r="2" fill="#334155"/>'+(d.values?text(value,0,46,12):'');
+      return (c.type==='ac-wattmeter'?path('M-60-20H-36 M36-20H60 M-60 40H-28 M28 40H60'):lead)+`<rect x="-37" y="-39" width="74" height="91" rx="9" fill="${schematic?'#fff':'#eef4fa'}" stroke="#446482" stroke-width="2"/><g transform="rotate(${-(c.angle||0)})">${face}</g>`;
+    }
     const theta=r?.phase??p.phase*Math.PI/180;
     let result=lead+'<circle r="32" fill="#eef4fa" stroke="#446482" stroke-width="2"/>'+path('M-23 0q11-22 23 0t23 0','#397cab',2);
     if(c.type==='generator')result+=`<g data-generator-angle="${theta}" transform="rotate(${theta*180/Math.PI})"><ellipse rx="24" ry="9" fill="none" stroke="#c28748" stroke-width="3"/></g>`;

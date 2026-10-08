@@ -1,0 +1,70 @@
+.circuit-editor.ac-editor .workspace{grid-template-columns:minmax(0,1fr) clamp(340px,29vw,380px);grid-template-rows:minmax(0,1fr)}
+.circuit-editor.ac-editor .sim-header{min-height:64px}
+.ac-editor .ac-more{position:relative;margin-left:auto}
+.ac-editor .ac-more>summary{display:grid;place-items:center;list-style:none;min-width:44px;min-height:44px;border:1px solid var(--color-border);border-radius:8px;background:#fff;font-size:.875rem;cursor:pointer;padding:0 10px}
+.ac-editor .ac-more>summary::-webkit-details-marker{display:none}
+.ac-editor .ac-more-menu{position:absolute;right:0;top:48px;z-index:30;width:210px;max-height:70dvh;overflow:auto;overscroll-behavior:contain;background:#fff;border:1px solid var(--color-border);border-radius:8px;padding:8px;box-shadow:0 4px 20px #20354d24;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ac-editor .ac-more-menu button{min-height:44px!important;min-width:44px!important;padding:4px!important;font-size:.875rem!important}
+.ac-editor .stage-tools{flex-wrap:nowrap;padding:5px 8px;gap:6px}
+.ac-editor .stage-tools>.segmented{margin-right:0!important}
+.ac-editor .stage-tools>.playback-controls{margin-right:0!important}
+.circuit-editor.ac-editor .stage-tools .segmented{flex:0 0 auto;margin-right:0}
+.circuit-editor.ac-editor .stage-tools>button{width:44px;min-width:44px;padding:0;white-space:nowrap}
+.ac-editor .ac-more>summary{width:44px;padding:0;white-space:nowrap}
+.ac-editor .stage-tools button{padding:0 9px;min-width:44px}
+.circuit-editor.ac-editor .stage{overflow:visible}
+.ac-editor .stage .ac-waveform{display:none}
+.ac-editor .stage.graph-open{grid-template-rows:auto minmax(100px,1fr) minmax(170px,.5fr) auto}
+.ac-editor .stage.graph-open>.ac-waveform{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0;min-width:0;border-top:1px solid var(--color-border)}
+.ac-editor .stage.graph-view{grid-template-rows:auto minmax(0,1fr)}
+.ac-editor .stage.graph-view>.canvas-area,.ac-editor .stage.graph-view>.stage-bottom{display:none}
+.ac-editor .ac-plot-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px;font-size:.875rem;min-height:44px}
+.ac-editor .ac-plot-heading button{min-height:44px;padding:4px 8px}
+.ac-editor .ac-plot-area{min-width:0;min-height:0;position:relative;overflow:hidden;touch-action:pan-y}
+.ac-editor .ac-plot-area canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.ac-editor .ac-cursor{position:absolute;top:0;bottom:0;width:44px;min-height:0;background:transparent!important;border:0;transform:translateX(-50%);border-radius:0;touch-action:none}
+.ac-editor .ac-cursor::after{content:'';position:absolute;top:0;bottom:0;left:21px;border-left:1px dashed #60758c;pointer-events:none}
+.ac-editor .ac-cursor:focus-visible{outline:2px solid #2563eb}
+.ac-editor .ac-cursor-readings{font-size:.875rem;padding:2px 12px;min-height:24px}
+.ac-editor .panel input[type=range]{height:44px}
+.ac-editor .ac-time{display:block;font-size:.875rem;margin:6px 0;font-variant-numeric:tabular-nums}
+.ac-editor .ac-time-actions{display:flex;flex-wrap:wrap;gap:6px}
+.ac-editor .ac-time-actions button,.ac-editor .ac-time-actions select{min-height:44px;font-size:.875rem;padding:0 10px}
+.ac-editor .ac-lesson{font-size:.875rem;margin-bottom:8px}
+.ac-editor .ac-channel-value{padding-left:7px;border-left:3px solid #245b9e;margin:10px 0;font-size:.875rem;line-height:1.7}
+.ac-editor .ac-channel-value strong,.ac-editor .ac-channel-value span{display:block;overflow-wrap:anywhere}
+.ac-editor .ac-energy-row{display:grid;grid-template-columns:1fr auto;gap:4px;font-size:.875rem;margin:8px 0}
+.ac-editor .ac-energy-row meter{grid-column:1/-1;width:100%;height:12px}
+.ac-editor .ac-energy p,.ac-editor .ac-field p{font-size:.875rem;line-height:1.6;margin:8px 0}
+.ac-editor .ac-field svg{width:100%;height:100px}
+.ac-editor .stage-bottom .hint{max-height:3em}
+.ac-editor.panel-hidden .workspace{grid-template-columns:minmax(0,1fr)}
+@media(max-width:959px){
+ .circuit-editor.ac-editor .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,48%) minmax(140px,1fr)}
+ .circuit-editor.ac-editor .panel{border-left:0;border-top:1px solid var(--color-border)}
+ .circuit-editor.ac-editor .sim-header{display:flex;flex-wrap:wrap;min-height:0;padding:5px 54px 5px 9px;gap:4px}
+ .circuit-editor.ac-editor .brand h1{font-size:1.1rem}
+ .circuit-editor.ac-editor .brand p{display:none}
+ .circuit-editor.ac-editor .header-actions{display:flex;flex:1;min-width:0}
+ .circuit-editor.ac-editor .header-actions select{width:100%;max-width:100%;min-width:0;font-size:.875rem}
+ .ac-editor .stage-bottom [data-circuit-id=hint],.ac-editor .stage-bottom .selection-tip{display:none}
+ .ac-editor .stage-bottom{padding:4px 6px;gap:4px}
+ .circuit-editor.ac-editor .stage-bottom,.circuit-editor.ac-editor .stage-bottom.has-quick,.circuit-editor.ac-editor .stage-bottom.has-quick:is(.has-meter,.has-wide-param){grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:44px 44px}
+ .circuit-editor.ac-editor .stage-bottom .quick-parameters,.circuit-editor.ac-editor .stage-bottom.has-quick .quick-parameters{grid-area:1/1;display:flex;gap:4px}
+ .circuit-editor.ac-editor .stage-bottom .quick-name{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+ .circuit-editor.ac-editor .stage-bottom .context-actions,.circuit-editor.ac-editor .stage-bottom.has-actions:not(.has-quick) .context-actions,.circuit-editor.ac-editor .stage-bottom.has-quick .context-actions{grid-area:1/2}
+ .circuit-editor.ac-editor .stage-bottom .camera-tools,.circuit-editor.ac-editor .stage-bottom.has-quick .camera-tools{grid-area:2/1/3/3}
+ .ac-editor .stage-bottom .camera-pan{display:none}
+ .ac-editor .stage.graph-open{grid-template-rows:auto minmax(100px,1fr) auto}
+ .ac-editor .stage.graph-open>.canvas-area{display:none}
+ .ac-editor .stage.graph-open>.ac-waveform{grid-row:2;min-height:0}
+ .ac-editor .stage.graph-open>.stage-bottom{display:none}
+ .ac-editor .ac-plot-heading{display:none}
+ .ac-editor .ac-more-menu{max-height:60dvh}
+ .ac-editor.panel-hidden .workspace{grid-template-rows:minmax(0,1fr)}
+}
+@media(max-height:450px) and (min-width:560px){
+ .circuit-editor.ac-editor .workspace{grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:minmax(0,1fr)}
+ .circuit-editor.ac-editor .sim-header{flex-wrap:nowrap}
+ .ac-editor .stage.graph-open{grid-template-rows:auto minmax(0,1fr);}
+}

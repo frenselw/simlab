@@ -5,6 +5,8 @@
     constructor(period){this.window=period;this.width=period/512;this.bins=[];this.previous=null;this.start=null;}
     sample(result){
       const values=Object.fromEntries(Object.entries(result.components).map(([id,r])=>[id,{u:r.sensedVoltage!==undefined?r.sensedVoltage:r.voltage,i:r.current}])),next={time:result.time,values};
+      for(const [id,r]of Object.entries(result.components))if(r.secondaryVoltage!==undefined)values[id+'~secondary']={u:r.secondaryVoltage,i:r.secondaryCurrent};
+      for(const [id,r]of Object.entries(result.wires))values['wire:'+id]={u:r.voltage,i:r.current};
       if(!this.previous||next.time<=this.previous.time){this.previous=next;if(this.start===null)this.start=next.time;return;}
       const old=this.previous,h=next.time-old.time;let begin=old.time;
       while(begin<next.time-1e-14){const at=Math.floor((begin+1e-12*this.width)/this.width),end=Math.min(next.time,(at+1)*this.width),duration=end-begin;if(duration<=0)break;

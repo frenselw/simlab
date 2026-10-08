@@ -124,12 +124,12 @@
     if (!ui.wireList) refs.wireList.closest('.panel-section').remove();
     if (student || !profile.wires) refs.addWire.closest('.panel-section').remove();
     if (!profile.wires) remove('quickWire','pickWire','detachFrom','detachTo','straightenSelected');
-    if (!ui.palette && !ui.inspector && !ui.wireList && !ui.wireCurrents && !ui.potentialDirections && !ui.settings && (!ui.help || student)) {
+    if (!profile.panelContent && !(profile.analysis==='transient'&&(ui.waveform||ui.energy||ui.playback)) && !ui.palette && !ui.inspector && !ui.wireList && !ui.wireCurrents && !ui.potentialDirections && !ui.settings && (!ui.help || student)) {
       remove('panel','panelToggle'); host.classList.add('no-panel','panel-hidden');
     }
     const heading=content.content.querySelector('.brand h1');
     heading.replaceChildren(document.createTextNode(profile.title+' '));
-    const badge=document.createElement('span'); badge.className='badge'; badge.textContent='直流'; heading.append(badge);
+    const badge=document.createElement('span'); badge.className='badge'; badge.textContent=profile.analysis==='transient'?'交流':'直流'; heading.append(badge);
     content.content.querySelector('.brand p').textContent=profile.subtitle;
     if (!ui.header) {
       const actions=document.createElement('div'); actions.className='embedded-actions'; actions.setAttribute('role','group'); actions.setAttribute('aria-label','復原與操作面板');
@@ -138,6 +138,7 @@
       content.content.querySelector('.sim-header').remove();
     }
     host.replaceChildren(content.content);
+    if(profile.panelContent)refs.panel.prepend(profile.panelContent);
     return refs;
   }
   root.CircuitEditorUI=Object.freeze({build});

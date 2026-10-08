@@ -28,11 +28,11 @@
   function text(x, y, content, size = 14, attrs = "") { return `<text x="${x}" y="${y}" ${attrs.includes('text-anchor=')?'':'text-anchor="middle"'} ${attrs.includes("font-family=") ? "" : 'font-family="system-ui,sans-serif"'} font-size="${size}" ${attrs.includes("fill=") ? "" : 'fill="#334155"'} ${attrs}>${esc(content)}</text>`; }
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   function lampLight(c,result) {
-    const ratedPower=c.params.ratedVoltage**2/c.params.resistance,known=Number.isFinite(result?.power),power=known?Math.max(0,result.power):null,ratio=known?power/ratedPower:0;
+    const ratedPower=c.params.ratedVoltage**2/c.params.resistance,measured=Object.hasOwn(result||{},'displayPower')?result.displayPower:result?.power,known=Number.isFinite(measured),power=known?Math.max(0,measured):null,ratio=known?power/ratedPower:0;
     return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
-  const hazardLimits=S.hazardLimits, visualState=S.hazards;
+  const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='transient'?result.hazards:S.hazards(doc,result);
   function heatEffect(x,y,scale,attrs='') {
     return `<g class="heat-effect" ${attrs} transform="translate(${x} ${y}) scale(${1/scale})" pointer-events="none"><title>短路／過載發熱示意</title><circle cy="-8" r="23" fill="#ff9e3744"/><path class="heat-flame" d="M-13 0C-24-18-7-23-8-40C0-33 3-27 2-19C9-22 10-28 12-30C24-10 19 1 5 4C-3 7-9 4-13 0Z" fill="#ed6728" stroke="#c94a24" stroke-width="1.5"/><path d="M-5 1C-13-9-2-15-1-23C8-14 13-4 6 1C3 4-2 4-5 1Z" fill="#ffe681"/><path class="heat-sparks" d="M-22-25l-6-7 M22-16l7-4 M15-38l4-7" fill="none" stroke="#e78b20" stroke-width="2.5" stroke-linecap="round"/><path d="M-2-46q-8-7 1-13t-2-12" fill="none" stroke="#82919b" stroke-width="3" stroke-linecap="round" opacity=".45"/></g>`;
   }
@@ -182,6 +182,7 @@
         else{const show=doc.display.quantities||{},parts=[],resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c);
           if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
           else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
+          else if(R.get(c.type).analysis==='transient'){const primary=R.primaryParameter(c);if(primary)parts.push(Q.quantity(primary.value*primary.factor,primary.unit));else if(c.type==='spdt')parts.push({text:c.params.closed==='b'?'接充電側':'接放電側'});}
           else if(c.type==='relay')parts.push({text:r?.contact==='e'?'已吸合':r?.contact===null?'切換中':'未吸合'});
           else{if(c.type==='rheostat'?show.loadResistance===true:show.loadResistance!==false){if(c.type==='rheostat')lines.push({kind:'value',text:'最大電阻',size:valueSize});parts.push(Q.quantity(c.type==='rheostat'?c.params.resistance:resistance,'Ω'));}if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}
           if(parts.length)lines.push({kind:'value',...(['switch','relay'].includes(c.type)?parts[0]:Q.join(parts)),size:valueSize});
@@ -239,7 +240,7 @@
     doc.components.forEach((c) => {
       const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=c.type==='relay'?'x="-78" y="-42" width="158" height="112"':R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
-      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, doc.display)}</g>`;
+      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true}:doc.display)}</g>`;
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {

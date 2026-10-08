@@ -48,9 +48,9 @@
   }
   function initial(c){const dynamic={};for(const e of c.dynamic){const p=e.c.params;dynamic[e.id]={i:e.C?0:e.c.type==='transformer'?(e.pa.endsWith(':a')?p.initialPrimaryCurrent:p.initialSecondaryCurrent):p.initialCurrent,v:e.C?p.initialVoltage:0};}return {time:0,step:c.maxStep/8,sources:Object.fromEntries(c.sources.map(e=>[e.c.id,AC.wrap(e.c.params.phase*Math.PI/180)])),dynamic,work:0,dissipated:0,event:true};}
   function phaseAt(c,state,e,h){return AC.wrap(state.sources[e.c.id]+AC.TAU*e.c.params.frequency*h);}
-  function solve(c,state,h=0,method='trap',left=false){
+  function solve(c,state,h=0,method='trap',left=false,history=false){
     if(c.invalidDC)return {error:'dc-transformer'};
-    const active=new Map(c.edges.filter(e=>e.kind==='led').map(e=>[e.id,false]));let answer;
+    const active=new Map(c.edges.filter(e=>e.kind==='led').map(e=>[e.id,true]));let answer;
     for(let iteration=0;iteration<24;iteration++){
       const A=Array.from({length:c.n},()=>Array(c.n).fill(0)),b=Array(c.n).fill(0);
       for(const e of c.edges){const d=c.diff(e.a,e.b),row=e.index;
@@ -68,10 +68,11 @@
           A[row][row]-=resistance;b[row]=value;
         }
       }
+      if(history){const extra=c.dynamic.length,total=c.n+extra;for(const row of A)row.push(...Array(extra).fill(0));for(const e of c.dynamic){const row=Array(total).fill(0);if(e.C){row[e.index]=1;b.push(state.dynamic[e.id].i);}else{const d=c.diff(e.a,e.b);for(let j=0;j<c.index.size;j++)row[j]=d[j];row[e.index]-=e.resistance;b.push(state.dynamic[e.id].v);}A.push(row);}}
       const s=S.linear(A,b);if(s.error)return s;
       const identify=d=>{if(s.nullspace.some(v=>Math.abs(d.reduce((a,x,i)=>a+x*v[i],0))>1e-10*Math.max(1,...d.map(Math.abs))))return null;const value=d.reduce((a,x,i)=>a+x*s.x[i],0),noise=d.reduce((a,x,i)=>a+Math.abs(x)*s.roundoff[i],0);return Math.abs(value)<=noise?0:value;};
       answer={...s,identify,A,b};let changed=false;
-      for(const e of c.edges.filter(e=>e.kind==='led')){const v=identify(c.diff(e.a,e.b)),i=s.x[e.index],next=active.get(e.id)?i>=-1e-12:v!==null&&v>e.c.params.forwardVoltage+1e-10;if(next!==active.get(e.id)){active.set(e.id,next);changed=true;}}
+      for(const e of c.edges.filter(e=>e.kind==='led')){const v=identify(c.diff(e.a,e.b)),i=s.x[e.index],next=active.get(e.id)?i>0:v!==null&&v>e.c.params.forwardVoltage+1e-10;if(next!==active.get(e.id)){active.set(e.id,next);changed=true;}}
       if(!changed)return answer;
     }
     return {error:'convergence'};
@@ -101,23 +102,29 @@
       components[component.id]=entry;
     }
     for(const wire of c.doc.wires){const edge=branches.get(wire.id)?.[0],cut=c.cuts.get(wire.id);wires[wire.id]={...(edge||{}),current:wire.resistance?edge.current:cut?ident(cut):null,voltage:voltage(wire.from,wire.to),potential:potentials[wire.from],potentialTo:potentials[wire.to],resistance:wire.resistance,power:wire.resistance?edge.power:solution.error?null:0,cyclic:!wire.resistance&&!cut};}
-    const hazardWires={},hazardComponents={};for(const w of c.doc.wires)if(Math.abs(wires[w.id].current)>S.hazardLimits.current)hazardWires[w.id]='overload';
-    for(const component of c.doc.components){const r=components[component.id];if(component.type==='capacitor'&&Number.isFinite(r.voltage)&&Math.abs(r.voltage)>component.params.rating){hazardComponents[component.id]='overload';diagnostics.push({code:'capacitor-rating',component:component.id,message:component.label+'瞬時電壓超過耐壓值；本模型只提示，未模擬擊穿。'});}else if(component.type==='lamp'&&r.power>1.5*component.params.ratedVoltage**2/component.params.resistance)hazardComponents[component.id]='overload';}
+    const hazardWires={},hazardComponents={};
+    for(const component of c.doc.components){const r=components[component.id];if(component.type==='capacitor'&&Number.isFinite(r.voltage)&&Math.abs(r.voltage)>component.params.rating){hazardComponents[component.id]='overload';diagnostics.push({code:'capacitor-rating',component:component.id,message:component.label+'瞬時電壓超過耐壓值；本模型只提示，未模擬擊穿。'});}}
     const residual=solution.error?null:Math.max(0,...solution.b.map((b,i)=>Math.abs(solution.A[i].reduce((sum,x,j)=>sum+x*solution.x[j],0)-b)/Math.max(1,Math.abs(b))));
     return {mode:'transient',time:state.time,period:c.period,components,wires,potentials,islandOf,references:c.references.map(net=>({island:c.islands.find(net),endpoint:[...c.ports.keys()].find(p=>c.netOf[p]===net),voltage:0})),diagnostics,residual,voltage,energy:energy(c,state),sourceWork:state.work,dissipatedEnergy:state.dissipated,hazards:{wires:hazardWires,components:hazardComponents,short:false,overload:!!Object.keys(hazardWires).length||!!Object.keys(hazardComponents).length}};
   }
-  function derive(c,state,solution){const next=clone(state);for(const e of c.dynamic){const coeff=Array(c.n).fill(0);coeff[e.index]=1;const i=solution.identify(coeff),v=solution.identify(c.diff(e.a,e.b));if((e.C?v:i)===null)throw new Error('continuity');next.dynamic[e.id]={i:i??0,v:e.C?v:v===null?0:v-e.resistance*i};}return next;}
+  function derive(c,state,solution){const next=clone(state);for(const e of c.dynamic){const coeff=Array(c.n).fill(0);coeff[e.index]=1;const i=solution.identify(coeff),v=solution.identify(c.diff(e.a,e.b));if((e.C?v:i)===null)throw new Error('continuity');next.dynamic[e.id]={i:i??state.dynamic[e.id].i,v:e.C?v:v===null?state.dynamic[e.id].v:v-e.resistance*i};}return next;}
   function one(c,state,h,method,left){const s=solve(c,state,h,method,left);if(s.error)return {error:s.error};let next;try{next=derive(c,state,s);}catch(_){return {error:'continuity'};}next.time+=h;for(const e of c.sources)next.sources[e.c.id]=phaseAt(c,state,e,h);next.event=false;return {state:next,result:read(c,next,s)};}
   function loss(c,result){return c.edges.reduce((sum,e)=>{const b=result.components[e.c.id]?.branches?.find(b=>b.from===e.pa&&b.to===e.pb)||result.wires[e.c.id];if(!Number.isFinite(b?.current))return sum;return sum+(e.kind==='led'?Math.max(0,b.power):e.resistance*b.current*b.current);},0);}
   function supply(c,result){return c.edges.filter(e=>e.kind==='source').reduce((sum,e)=>sum+(result.components[e.c.id].sourcePower??0),0);}
   function accumulate(c,old,next,h){next.state.work=old.sourceWork+h*(supply(c,old)+supply(c,next.result))/2;next.state.dissipated=old.dissipatedEnergy+h*(loss(c,old)+loss(c,next.result))/2;next.result.sourceWork=next.state.work;next.result.dissipatedEnergy=next.state.dissipated;}
   function breakpoint(c,state){let duration=Infinity;for(const e of c.sources){const p=e.c.params;if(e.c.type!=='ac-source'||p.waveform==='sine')continue;const shift=p.waveform==='triangle'?Math.PI/2:0,angle=state.sources[e.c.id],at=AC.wrap(angle-shift)%Math.PI,remaining=Math.PI-at;duration=Math.min(duration,(remaining<1e-9?Math.PI:remaining)/(AC.TAU*p.frequency));}return duration;}
   class Session {
-    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.Tracker(this.compiled.period);this.fault=null;this.project();this.tracker.sample(this.result);}
+    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.Tracker(this.compiled.period);this.visualTracker=new O.Tracker(.02);this.fault=null;this.project();this.tracker.sample(this.result);this.visualTracker.sample(this.result);}
     project(){const s=solve(this.compiled,this.state);this.fault=s.error||null;if(!s.error){try{this.state=derive(this.compiled,this.state,s);}catch(_){/* Initial open branches can have unknown derivatives, not unknown stored values. */}}this.result=read(this.compiled,this.state,s);return this.result;}
-    read(){this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.tracker.measure(c.id)]));for(const c of this.doc.components.filter(c=>c.type.startsWith('ac-')&&R.isMeter(c))){const r=this.result.components[c.id],q=this.result.measurements[c.id];r.reading=q.status==='ready'?c.type==='ac-ammeter'?q.currentRms:c.type==='ac-voltmeter'?q.voltageRms:q.averagePower:null;r.meterStatus=q.status==='ready'?Math.abs(r.reading)>r.range?'overrange':'normal':q.status;}return this.result;}
+    read(){this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.tracker.measure(c.id)]));
+      for(const c of this.doc.components){const r=this.result.components[c.id],q=this.result.measurements[c.id];if(c.type.startsWith('ac-')&&R.isMeter(c)){r.reading=q.status==='ready'?c.type==='ac-ammeter'?q.currentRms:c.type==='ac-voltmeter'?q.voltageRms:q.averagePower:null;r.meterStatus=q.status==='ready'?Math.abs(r.reading)>r.range?'overrange':'normal':q.status;}
+        if(c.type==='lamp'){const visual=this.visualTracker.measure(c.id),warning=this.compiled.sources.length?q:visual;r.displayPower=visual.status==='ready'?Math.max(0,visual.averagePower):null;if(warning.status==='ready'&&warning.averagePower>S.hazardLimits.lampRatio*c.params.ratedVoltage**2/c.params.resistance)this.result.hazards.components[c.id]='overload';else delete this.result.hazards.components[c.id];}
+      }
+      for(const w of this.doc.wires){const q=(this.compiled.sources.length?this.tracker:this.visualTracker).measure('wire:'+w.id);if(q.status==='ready'&&q.currentRms>S.hazardLimits.current)this.result.hazards.wires[w.id]='overload';else delete this.result.hazards.wires[w.id];}
+      this.result.hazards.overload=!!Object.keys(this.result.hazards.wires).length||!!Object.keys(this.result.hazards.components).length;return this.result;
+    }
     subscribe(fn){if(typeof fn!=='function')throw new TypeError('分析訂閱需要函數');this.listeners.add(fn);return()=>this.listeners.delete(fn);}
-    emit(result){this.tracker.sample(result);for(const fn of this.listeners)fn(result);}
+    emit(result){this.tracker.sample(result);this.visualTracker.sample(result);for(const fn of this.listeners)fn(result);}
     advance(duration,{budget=Infinity}={}){
       finite(duration,0,1e9);const start=this.state.time,target=start+duration,clock=performance.now();let steps=0;
       while(this.state.time<target-EPS&&!this.fault){if(performance.now()-clock>budget)break;const c=this.compiled,breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,target-this.state.time,breakAt),atEvent=Math.abs(h-breakAt)<EPS,method=this.state.event?'be':'trap';
@@ -132,20 +139,20 @@
       if(this.fault){this.result=read(this.compiled,this.state,{error:this.fault});this.emit(this.result);}
       return {advanced:this.state.time-start,complete:Math.abs(this.state.time-target)<EPS,steps,result:this.read()};
     }
-    update(input){const next=compile(input),before=this.doc,old=signature(before),changed=old!==signature(next.doc),resetKeys=['capacitance','inductance','primaryTurns','secondaryTurns','coupling','model','phase','initialVoltage','initialCurrent','initialPrimaryCurrent','initialSecondaryCurrent'];
+    update(input){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc),resetKeys=['capacitance','inductance','primaryTurns','secondaryTurns','coupling','model','phase','initialVoltage','initialCurrent','initialPrimaryCurrent','initialSecondaryCurrent'];
       const reset=structural(before)!==structural(next.doc)||before.components.some(c=>{const n=next.doc.components.find(n=>n.id===c.id);return n&&resetKeys.some(k=>c.params[k]!==n.params[k]);});
-      this.compiled=next;this.doc=next.doc;if(reset)this.state=initial(next);else if(changed){this.state.event=true;this.state.step=Math.min(this.state.step,next.maxStep/8);}if(changed)this.tracker=new O.Tracker(next.period);this.project();if(changed)this.emit(this.result);return reset?'restarted':changed?'event':'geometry';
+      this.compiled=next;this.doc=next.doc;if(reset)this.state=initial(next);else if(changed){this.state.event=true;this.state.step=Math.min(this.state.step,next.maxStep/8);}if(changed){this.tracker=new O.Tracker(next.period);this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return reset?'restarted':changed?'event':'geometry';
     }
-    preview(doc){const s=new Session(this.doc);s.state=clone(this.state);s.project();s.update(doc);return s.read();}
-    reset(){this.state=initial(this.compiled);this.tracker=new O.Tracker(this.compiled.period);this.project();this.emit(this.result);return this.result;}
+    preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}
+    reset(){this.state=initial(this.compiled);this.tracker=new O.Tracker(this.compiled.period);this.visualTracker=new O.Tracker(.02);this.project();this.emit(this.result);return this.result;}
     capture(){return {kind:'simlab-circuit-session',version:1,modelRevision:1,document:clone(this.doc),physics:clone(this.state)};}
     static restore(snapshot){keys(snapshot,['kind','version','modelRevision','document','physics']);if(snapshot.kind!=='simlab-circuit-session'||snapshot.version!==1||snapshot.modelRevision!==1||snapshot.document?.version!==7)throw new Error('動態快照版本無效');const s=new Session(snapshot.document),p=snapshot.physics;
-      keys(p,['time','step','sources','dynamic','work','dissipated','event']);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work);finite(p.dissipated,0);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
-      s.state=clone(p);s.project();if(!s.fault&&!p.event)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of ['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
-      s.state=clone(p);s.result=read(s.compiled,s.state,solve(s.compiled,s.state));s.tracker=new O.Tracker(s.compiled.period);s.tracker.sample(s.result);return s;
+      keys(p,['time','step','sources','dynamic','work','dissipated','event']);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.dissipated,0,Number.MAX_VALUE);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
+      s.state=clone(p);s.project();if(!s.fault)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of ['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
+      s.state=clone(p);const solution=solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,solution);s.tracker=new O.Tracker(s.compiled.period);s.visualTracker=new O.Tracker(.02);s.tracker.sample(s.result);s.visualTracker.sample(s.result);return s;
     }
     destroy(){this.listeners.clear();}
   }
-  function run(document,{initialState=null,events=[],until}={}){finite(until,0,1e9);let s=initialState?Session.restore(initialState):new Session(document);if(initialState&&signature(s.doc)!==signature(AC.toAC(document)))throw new Error('離線初始狀態電路不符');let last=s.state.time;for(const event of events){keys(event,['time','command']);finite(event.time,last,until);s.advance(event.time-s.state.time);if(s.fault)break;const d=clone(s.doc),command=event.command,c=d.components.find(c=>c.id===command.id);if(!c)throw new Error('事件元件不存在');if(command.type==='setParam'){keys(command,['type','id','key','value']);if(!Object.hasOwn(c.params,command.key))throw new Error('事件參數不存在');c.params[command.key]=command.value;}else if(command.type==='toggleSwitch'){keys(command,['type','id']);if(c.type==='switch')c.params.closed=!c.params.closed;else if(c.type==='spdt')c.params.closed=c.params.closed==='b'?'c':'b';else throw new Error('事件需要開關');}else throw new Error('不支援的運算事件');s.update(d);last=event.time;}s.advance(until-s.state.time);return s;}
+  function run(document,{initialState=null,events=[],until}={}){finite(until,0,1e9);let s=initialState?Session.restore(initialState):new Session(document);if(initialState&&signature(s.doc)!==signature(AC.toAC(document)))throw new Error('離線初始狀態電路不符');let last=s.state.time;for(const event of events){keys(event,['time','command']);finite(event.time,last,until);s.advance(event.time-s.state.time);if(s.fault)break;const d=clone(s.doc),command=event.command,c=d.components.find(c=>c.id===command.id);if(!c)throw new Error('事件元件不存在');if(command.type==='setParam'){keys(command,['type','id','key','value']);if(!Object.hasOwn(c.params,command.key))throw new Error('事件參數不存在');c.params[command.key]=command.value;}else if(command.type==='toggleSwitch'){keys(command,['type','id']);if(c.type==='switch')c.params.closed=!c.params.closed;else if(c.type==='spdt')c.params.closed=c.params.closed==='b'?'c':'b';else throw new Error('事件需要開關');}else throw new Error('不支援的運算事件');if(s.update(d)==='restarted')throw new Error('離線事件表不能重設初始條件；請另開一次運算');last=event.time;}s.advance(until-s.state.time);return s;}
   return {Session,run,compile,signature,modelRevision:1};
 });

@@ -25,6 +25,7 @@
     "package:circuit": "node tools/package-circuit-workbench.js",
     "test:browser:circuit": "node tools/circuit-workbench-browser-regression.js",
     "package:circuit-platform": "node tools/package-circuit-platform.js",
+    "test:circuit-ac": "node sim/circuit-workbench/transient.test.js && node sim/circuit-workbench/ac-platform.test.js && node tools/circuit-ac-browser-regression.js",
     "test:circuit-activities": "node sim/circuit-workbench/assessed-activities.test.js && node tools/circuit-assessed-browser-regression.js"
   },
   "devDependencies": {

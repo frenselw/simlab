@@ -1,0 +1,8 @@
+[
+  "circuit-workbench/circuit-ac-components.js",
+  "circuit-workbench/circuit-observation.js",
+  "circuit-workbench/circuit-transient.js",
+  "circuit-workbench/circuit-ac-presets.js",
+  "circuit-workbench/circuit-ac-ui.js",
+  "circuit-workbench/circuit-ac-ui.css"
+]

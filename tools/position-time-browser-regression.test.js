@@ -3,8 +3,10 @@
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const path = require("node:path");
+const fs = require('node:fs'), os = require('node:os');
 const {
   CdpClient,
+  devToolsPort,
   childHasExited,
   cleanupResources,
   resolvePackageFile,
@@ -17,6 +19,15 @@ const {
 } = require("./position-time-browser-regression.js");
 
 (async function () {
+const portFixture=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-devtools-test-'));
+const portFile=path.join(portFixture,'DevToolsActivePort'),originalRead=fs.readFileSync;
+try {
+  fs.writeFileSync(portFile,'12345\n/browser-fixture');let reads=0;
+  fs.readFileSync=function(file,...args){if(file===portFile&&reads++===0){const error=new Error('temporary lock');error.code='EBUSY';throw error;}return originalRead.call(fs,file,...args);};
+  assert.equal(await devToolsPort(portFixture,{exitCode:null}),12345);assert.equal(reads,2,'transient Windows lock retries the same port file');
+  fs.readFileSync=function(file,...args){if(file===portFile){const error=new Error('permission');error.code='EACCES';throw error;}return originalRead.call(fs,file,...args);};
+  await assert.rejects(devToolsPort(portFixture,{exitCode:null}),error=>error.code==='EACCES');
+} finally {fs.readFileSync=originalRead;const safe=validateOwnedDirectory(portFixture,os.tmpdir(),/^simlab-devtools-test-[A-Za-z0-9]+$/,'startup test fixture');fs.rmSync(safe,{recursive:true,force:false});}
 const fakePackageRoot = path.resolve(path.sep, "extracted-package");
 const launchPath = path.join(fakePackageRoot, "position-time-graph-motion-lab", "index.html");
 const actual = resolvePackageFile("/position-time-graph-motion-lab/index.html", {
