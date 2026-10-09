@@ -27,12 +27,12 @@
       const sw=add('switch',330,180,'通斷開關',{closed:false}),r=add('resistor',510,180,'限流電阻',{resistance:5}),l=add('inductor',690,290,'儲能線圈',{resistance:1}),lamp=add('lamp',690,440,'放電燈');
       link(source,'a',sw,'a',[{x:180,y:180}]);link(sw,'b',r,'a');link(r,'b',l,'a',[{x:600,y:180},{x:600,y:290}]);link(r,'b',lamp,'a',[{x:610,y:180},{x:610,y:440}]);link(l,'b',lamp,'b',[{x:790,y:290},{x:790,y:440}]);link(lamp,'b',source,'b',[{x:790,y:510},{x:180,y:510}]);return M.validate(d);
     }
-    if(name==='inductive'){
+    if(['inductive','rl'].includes(name)){
       source.y=290;
-      const sw=add('spdt',330,180,'供電／放電切換',{},180),load=add('lamp',650,290,'負載／放電燈',{resistance:12},90),device=add('inductor',510,180,'電感線圈',{inductance:.1});
+      const sw=add('spdt',330,180,'供電／放電切換',{closed:name==='rl'?'c':'b'},180),load=add('lamp',650,290,'負載／放電燈',{resistance:12},90),device=add('inductor',510,180,'電感線圈',{inductance:name==='rl'?1:.1});
       link(source,'a',sw,'b',[{x:180,y:204}]);link(sw,'a',device,'a');link(device,'b',load,'a',[{x:650,y:180}]);link(load,'b',source,'b',[{x:650,y:400},{x:180,y:400}]);link(sw,'c',source,'b',[{x:270,y:110},{x:100,y:110},{x:100,y:400},{x:180,y:400}]);return M.validate(d);
     }
-    const reactive=['capacitive','rc','rl'].includes(name),sw=add('switch',330,180,'開關',{closed:!dc}),load=add(name==='rc'?'resistor':'lamp',reactive?650:name==='led'?510:480,reactive?290:180,name==='rc'?'充電電阻':'負載燈',name==='rc'?{resistance:1000}:{resistance:12},reactive?90:0);source.y=reactive?290:name==='led'?330:260;link(source,'a',sw,'a',[{x:180,y:180}]);
+    const reactive=['capacitive','rc'].includes(name),sw=add('switch',330,180,'開關',{closed:!dc}),load=add(name==='rc'?'resistor':'lamp',reactive?650:name==='led'?510:480,reactive?290:180,name==='rc'?'充電電阻':'負載燈',name==='rc'?{resistance:1000}:{resistance:12},reactive?90:0);source.y=reactive?290:name==='led'?330:260;link(source,'a',sw,'a',[{x:180,y:180}]);
     if(reactive){const type=['capacitive','rc'].includes(name)?'capacitor':'inductor',device=add(type,510,180,type==='capacitor'?'電容器':'電感線圈',name==='capacitive'?{capacitance:.00022}:{});link(sw,'b',device,'a');link(device,'b',load,'a',[{x:650,y:180}]);}
     else link(sw,'b',load,'a');
     if(name==='led'){const red=add('led',650,270,'紅色 LED'),green=add('led',650,410,'綠色 LED',{colour:'green'},180);source.params.frequency=2;load.type='resistor';load.params=RDefaults('resistor');load.params.resistance=100;load.label='限流電阻';link(load,'b',red,'a',[{x:570,y:270}]);link(red,'a',green,'b',[{x:570,y:270},{x:570,y:410}]);link(red,'b',green,'a',[{x:730,y:270},{x:730,y:410}]);link(green,'a',source,'b',[{x:730,y:480},{x:180,y:480}]);}

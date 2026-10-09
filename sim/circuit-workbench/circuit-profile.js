@@ -80,7 +80,7 @@
     });
     if (config.check !== undefined && typeof config.check !== 'function') throw new Error('check 必須是本地函數');
     const getRule = c => ({move:false,rotate:false,remove:false,label:false,switch:false,params:false,...defaults,...byType[c.type],...byId[c.id],ranges:{...defaults.ranges,...byType[c.type]?.ranges,...byId[c.id]?.ranges}});
-    function parameterSpec(c,key){const base=R.get(c.type).params[key];if(!getRule(c).ranges[key])return base;const range={...defaults.ranges?.[key],...byType[c.type]?.ranges?.[key],...byId[c.id]?.ranges?.[key]};if(!base||base.choices||range.min<base.min||range.max>base.max)throw new Error('參數範圍超出模型：'+key);const spec={...base,...range};delete spec.controlMax;delete spec.controlSpecial;return spec;}
+    function parameterSpec(c,key){const base=R.get(c.type).params[key];if(!getRule(c).ranges[key])return base;const range={...defaults.ranges?.[key],...byType[c.type]?.ranges?.[key],...byId[c.id]?.ranges?.[key]};if(!base||base.choices||range.min<base.min||range.max>base.max)throw new Error('參數範圍超出模型：'+key);const spec={...base,...range};delete spec.controlMax;delete spec.controlSpecial;delete spec.controlStep;return spec;}
     function assertRanges(c){for(const key of Object.keys(getRule(c).ranges)){const spec=parameterSpec(c,key),value=c.params[key];if(!Number.isFinite(value)||value<spec.min||value>spec.max)throw new Error(c.label+'：'+paramLabel(c,key)+'超出活動設定範圍。');}}
     for(const entry of palette)assertRanges({id:'palette',type:entry.type,params:entry.params,label:entry.label});
     const mutable = (r,k,c={locked:false,editable:false}) => {

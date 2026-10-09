@@ -22,6 +22,7 @@
     'ac-wattmeter':{bounds:{left:-44,right:44,top:-43,bottom:57},name:'交流功率表',icon:'W',meter:true,ports:[{key:'a',x:-60,y:-20,label:'I+'},{key:'b',x:60,y:-20,label:'I−'},{key:'c',x:-60,y:40,label:'V+'},{key:'d',x:60,y:40,label:'V−'}],params:{range:number('量程','W',20,.001,1e6,1),resistance:number('電流線圈內阻','Ω',0,0,1e6,.1),inputResistance:number('電壓線圈內阻（0 為理想）','Ω',0,0,1e12,1000)}}
   };
   for(const type of ['ac-source','generator'])Object.assign(types[type].params.frequency,{controlMax:2,controlSpecial:50});
+  for(const key of ['primaryTurns','secondaryTurns'])Object.assign(types.transformer.params[key],{slider:true,controlStep:1});
   types['ac-source'].params.waveform.labels={sine:'正弦波',square:'方波',triangle:'三角波'};types.transformer.params.model.labels={ideal:'理想交流',coupled:'線性線圈'};types.spdt.params.closed.labels={b:'充電側',c:'放電側'};types.led.params.colour.labels={red:'紅色',green:'綠色'};
   const baseTypes=['battery','resistor','rheostat','switch','lamp','galvanometer','ammeter','voltmeter','wattmeter'];
   const supported=c=>!!types[c.type]||baseTypes.includes(c.type)&&!(c.type==='lamp'&&c.params.model!=='ideal');
@@ -41,6 +42,12 @@
   const inductorTurns=c=>Math.max(1,Math.round(10*Math.sqrt(c.params.inductance)));
   const transformerTurns=n=>Math.max(1,Math.round(n/10));
   function coil(count){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++)d+=`q0-16 ${half}-16t${half} 16`;return path(d,'#334155',Math.min(3,45/count));}
+  function winding(count,span=68,radius=24){
+    const pitch=Math.min(3.5,span/count),start=1.75-(count-1)*pitch/2,end=start+(count-.5)*pitch+6,entry=start-pitch/2,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25);let front='',back=`M${entry} ${radius}C${entry-5} ${radius} ${start-5} ${-radius} ${start} ${-radius}`;
+    for(let n=0;n<count;n++){const x=start+n*pitch;front+=n===count-1?`M${x} ${-radius}C${x+5} ${-radius} ${end-1} 0 ${end} 0`:`M${x} ${-radius}C${x+5} ${-radius} ${x+5+pitch/2} ${radius} ${x+pitch/2} ${radius}`;if(n<count-1)back+=`M${x+pitch/2} ${radius}C${x-5+pitch/2} ${radius} ${x-5+pitch} ${-radius} ${x+pitch} ${-radius}`;}
+    return {pitch,start,end,entry,width,outline,front,back};
+  }
+  const copper=(d,w)=>path(d,'#8d6135',w.outline)+path(d,'#d8b17e',w.width);
   const capacitorGap=c=>8+48/(1+c.params.capacitance/.00025);
   function plate(c,r,d,left){
     const known=Number.isFinite(r?.voltage),enabled=d.fields!==false&&known,sign=enabled&&Math.abs(r.voltage)>1e-8?(r.voltage>0?1:-1)*(left?1:-1):0,gap=capacitorGap(c),x=left?-gap/2:gap/2,colour=sign>0?'#c43f4c':sign<0?'#286cb7':'#748895',fill=sign>0?'#f7dddf':sign<0?'#dceafa':'#e3eaee',charge=known?Math.abs(c.params.capacitance*r.voltage):0,raw=charge/.000125;
@@ -77,19 +84,20 @@
     }
     if(c.type==='capacitor'){const gap=capacitorGap(c),left=-gap/2-1.5-28*.48,right=gap/2;return `<g data-capacitor-voltage="${Number.isFinite(r?.voltage)?r.voltage:''}" data-plate-gap="${gap}">${plate(c,r,d,true)}${plate(c,r,d,false)}<path data-capacitor-leads="true" d="M-60 0H${left} M60 0H${right}" fill="none" stroke="#7a8790" stroke-width="3" stroke-linecap="round"/></g>`;}
     if(c.type==='inductor'){
-      // Centre the turn endpoints, with a small offset for the visible cylindrical surface.
-      const count=inductorTurns(c),pitch=Math.min(3.5,68/count),start=1.75-(count-1)*pitch/2,end=start+(count-.5)*pitch+6,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25),entry=start-pitch/2;let front='',back=`M${entry} 24C${entry-5} 24 ${start-5}-24 ${start}-24`;
-      for(let n=0;n<count;n++){const x=start+n*pitch;front+=n===count-1?`M${x}-24C${x+5}-24 ${end-1} 0 ${end} 0`:`M${x}-24C${x+5}-24 ${x+5+pitch/2} 24 ${x+pitch/2} 24`;if(n<count-1)back+=`M${x+pitch/2} 24C${x-5+pitch/2} 24 ${x-5+pitch}-24 ${x+pitch}-24`;}
-      const leads=`M-60 0H${start-12}C${start-2} 0 ${entry+5} 24 ${entry} 24 M${end} 0H60`,wire=d=>path(d,'#8d6135',outline)+path(d,'#d8b17e',width);
-      return `<g data-inductor-turns="${count}" data-winding-span="${count*pitch}" data-winding-entry="${start}" data-winding-exit="${end}"><g data-inductor-back="true">${wire(back)}</g><path data-inductor-former="true" d="M-40-24H40C47-24 47 24 40 24H-40Z" fill="#e3edf2" stroke="#567185" stroke-width="1.7"/><path d="M-35-20H38" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/><ellipse data-inductor-end-face="true" cx="-40" rx="5.5" ry="24" fill="#bdcfd9" stroke="#567185" stroke-width="1.7"/><ellipse cx="-40" rx="2.8" ry="18" fill="#dbe7ed" stroke="#8ca5b5" stroke-width=".8"/><g data-inductor-front="true">${wire(front)}</g><g data-inductor-leads="true">${wire(leads)}</g></g>`;
+      const count=inductorTurns(c),w=winding(count),{pitch,start,end,entry}=w;
+      const leads=`M-60 0H${start-12}C${start-2} 0 ${entry+5} 24 ${entry} 24 M${end} 0H60`,wire=d=>copper(d,w);
+      return `<g data-inductor-turns="${count}" data-winding-span="${count*pitch}" data-winding-entry="${start}" data-winding-exit="${end}"><g data-inductor-back="true">${wire(w.back)}</g><path data-inductor-former="true" d="M-40-24H40C47-24 47 24 40 24H-40Z" fill="#e3edf2" stroke="#567185" stroke-width="1.7"/><path d="M-35-20H38" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/><ellipse data-inductor-end-face="true" cx="-40" rx="5.5" ry="24" fill="#bdcfd9" stroke="#567185" stroke-width="1.7"/><ellipse cx="-40" rx="2.8" ry="18" fill="#dbe7ed" stroke="#8ca5b5" stroke-width=".8"/><g data-inductor-front="true">${wire(w.front)}</g><g data-inductor-leads="true">${wire(leads)}</g></g>`;
     }
     if(c.type==='spdt')return path('M-60 0H-40 M40-24H60 M40 24H60')+caseBox(-43,-35,86,70,'#c8b396')+socket(-29,0)+socket(29,-24)+socket(29,24)+path(`M-29 0L29 ${p.closed==='b'?-24:24}`,'#ba8b40',7)+path(`M-29-2L29 ${p.closed==='b'?-26:22}`,'#f3d39a',2)+`<circle cx="1" cy="${p.closed==='b'?-12:12}" r="7" fill="#334e60" stroke="#203746"/>`+path('M-40 0H-29 M29-24H40 M29 24H40','#9a783e',3);
     if(c.type==='transformer'){
-      let core='<rect x="-53" y="-39" width="106" height="78" rx="3" fill="#94a4ae" stroke="#566e7e" stroke-width="2"/><rect x="-19" y="-20" width="38" height="40" rx="2" fill="#fff" stroke="#566e7e"/>';
-      for(let n=0;n<5;n++)core+=path(`M-48 ${-34+n*3}H48 M-48 ${22+n*3}H48`,'#c7d0d6',1);
-      for(const [x,nominal,side]of [[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']]){const count=transformerTurns(nominal),width=Math.min(3,38/count);core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><rect x="${x-15}" y="-27" width="30" height="54" rx="4" fill="#c49a62" stroke="#8d6135"/>`+Array.from({length:count},(_,n)=>{const y=-24+(n+.5)*48/count;return path(`M${x-13} ${y}H${x+13}`,'#9d6335',width)+path(`M${x-12} ${y-.3}H${x+12}`,'#edc38c',Math.min(.8,width*.4));}).join('')+'</g>';}
-
-      return path('M-76-26H-53 M-76 26H-53 M53-26H76 M53 26H76','#8b7762',3)+core+socket(-57,-26)+socket(-57,26)+socket(57,-26)+socket(57,26)+text('•',-66,-30,13)+text('•',66,-30,13)+text(d.values?'原 '+p.primaryTurns+'匝':'原',-37,49,11)+text(d.values?'副 '+p.secondaryTurns+'匝':'副',37,49,11);
+      const coils=[[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']].map(([x,nominal,side])=>({x,nominal,side,count:transformerTurns(nominal),w:winding(transformerTurns(nominal),44,21)}));
+      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90)">${copper(w.back,w)}</g>`).join('')+'<path d="M-50-36H56V42H-50Z M-16-17V23H22V-17Z" fill-rule="evenodd" fill="#718694" stroke="#566e7e"/><path data-transformer-core="true" d="M-53-39H53V39H-53Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#94a4ae" stroke="#566e7e" stroke-width="2"/>';
+      for(let n=0;n<5;n++)core+=path(`M-48 ${-35+n*2}H48 M-48 ${25+n*2}H48`,'#c7d0d6',1);
+      for(const {x,nominal,side,count,w}of coils){const direction=Math.sign(x),terminal=direction*76,socketX=direction*57,entryX=x+21;
+        const leads=`M${terminal}-26H${socketX}C${socketX-direction*6}-26 ${entryX} ${w.start-4} ${entryX} ${w.start} M${x} ${w.end}C${x} ${w.end+5} ${socketX-direction*6} 26 ${socketX} 26H${terminal}`;
+        core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><g data-transformer-front="true" transform="translate(${x} 0) rotate(90)">${copper(w.front,w)}</g><g data-transformer-leads="true">${copper(leads,w)}</g></g>`;
+      }
+      return core+socket(-57,-26)+socket(-57,26)+socket(57,-26)+socket(57,26)+text('•',-66,-30,13)+text('•',66,-30,13)+text(d.values?'原 '+p.primaryTurns+'匝':'原',-37,49,11)+text(d.values?'副 '+p.secondaryTurns+'匝':'副',37,49,11);
     }
     if(c.type==='led'){
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';

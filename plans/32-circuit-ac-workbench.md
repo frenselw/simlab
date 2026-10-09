@@ -346,3 +346,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 原 inductive 示例在非零電流時斷開單刀開關，沒有放電路徑，實測回報 inconsistent 並暫停；這是理想模型的約束診斷。改為可見供電／放電 SPDT：供電側保留原串聯 source／L／lamp 的參數與數值，放電側經原負載燈成閉路。切換保留電感電流、儲能依線阻及燈衰減；沒有改 solver、暗加電阻或清空能量。
 - Node驗證 LED兩視圖及反向並聯半週導通、端點及 off，電感切換電流連續、耗散、保存恢復續算及再供電；DC flow／component-flow／platform、AC／transient通過。AC source／ZIP focused **94 observations**，含真滑鼠點擊切換後不暫停；DC source／ZIP五 viewport的設定檢查 **40 observations** 通過，另有syntax／manifest check。LED及新供電／放電示例截圖已檢視，四包統一重建核對。
 - 證據：`output/ac-baseline/ac-led-settings-inductive.log`、`shared-preset-settings-dc.log`。原全站已知阻塞及外部 gate保持，舊匯入電路不自動重接。
+
+
+### RL 放電、變壓器繞線及雙匝數滑塊（2026-10-09）
+
+- 「通電自感 · 電流建立」沿用 inductive 的供電／放電 SPDT 接法；初始在放電側、零電流，切換至供電側才建立電流，斷電後經原負載燈衰減。保留直流源、1 H及原線阻／負載參數，切換不清儲能；solver與無通路診斷不改。
+- 電感及變壓器重用一份連續螺旋繞線 SVG 計算；變壓器分別沿兩個鐵芯柱繞製，後半圈在疊片環形鐵芯之後，前半圈及平滑接線可見。圈數比例、端子／同名端與物理模型保持，原電感幾何保持。
+- 原線圈沒滑塊是 inspector只接受主要參數；加入元件定義的 slider metadata，兩個匝數滑塊皆按模型全範圍1–2000顯示。原副預設 UI步距為1，解決原先偏好上限100及min=1／step=10導致終點不可達；快捷每10匝保持。活動範圍可覆蓋 UI步距，所有操作仍經profile驗證。
+- Node核對 RL通斷電連續／衰減、繞組前後層次、兩側控制及活動步距覆蓋；AC／transient解析、能量、codec與既有圖形檢查通過。AC source／ZIP focused **110 observations**，含原副兩滑塊真滑鼠拖至1及2000、真點擊 RL通斷不暫停；DC source／ZIP快捷回歸 **70 observations**及syntax／manifest check通過。變壓器、雙滑塊及RL放電截圖已檢視。
+- 四包統一重建核對來源；證據：`output/ac-baseline/ac-transformer-rl-controls.log`、`dc-transformer-controls-followup.log`。原全站及外部 gate保持。
