@@ -690,7 +690,7 @@
     const relayEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touches.size,relayElapsed=relayEligible?Math.max(0,(time-relayLastTime)/1000)*rate:0;relayLastTime=time;
     const acEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touchBlocked&&![...touches.values()].some(t=>t.central);
     if(transient&&acEligible&&!readOnly){acLag+=elapsed*timeRate;const progress=session.advance(acLag,{budget:10});acLag=Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=session.state.time;if(session.fault)paused=true;if(session.fault||time-lastACPaint>=100){lastACPaint=time;render(false);const reading=$('properties').querySelector('.reading-host'),c=selectedComponent();if(reading&&c)reading.innerHTML=componentReadings(c.id);}}
-    if(transient&&acEligible&&!readOnly)for(const c of current().components)if(c.type==='lamp'){const lamp=$('scene').querySelector('[data-lamp="'+c.id+'"]');if(lamp)lamp.outerHTML=V.body(c,analysis.components[c.id],current().display);}
+    if(transient&&acEligible&&!readOnly)for(const c of current().components)if(['lamp','capacitor'].includes(c.type)){const node=$('scene').querySelector('[data-component="'+c.id+'"] '+(c.type==='lamp'?'[data-lamp]':'[data-ac-apparatus]'));if(node)node.outerHTML=V.body(c,analysis.components[c.id],{...current().display,fields:labelOptions.fields??true});}
     if(transient&&!acEligible)acLag=0;
     if(!transient&&relayEligible&&relayStates.size){
       const progress=H.advanceFrame(relayStates,history.get(),analysis,relayElapsed,solve);analysis=progress.result;

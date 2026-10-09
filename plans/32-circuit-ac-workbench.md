@@ -256,3 +256,13 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - Node 覆蓋零、極小／極大、正負及未知量，要求卡片寬度固定且小於145px；瀏覽器核對實時寬度不變、數字在框內且不碰箭嘴。DC 標籤的排法不變。
 - AC source／ZIP focused **60 observations**、AC profile／codec／格式 Node、DC wire-current-label Node 及 `npm run check` 通過。實測卡寬 124.14px，2 Hz／50 Hz 各幀保持同寬；文字在框內且與箭嘴分開，截图已檢視。四包已由 builder 重建核對。
 - 日誌：`output/ac-baseline/ac-current-card-narrow-final.log`。原全站／Moodle／實機 gate 狀態保持。
+
+### 電容電荷與可變繞組（2026-10-09）
+
+- 工具箱及新元件的名稱改為「變壓器」。既有教師自訂 label 不批量改寫。
+- 實物電容改為兩塊平行、帶厚度與透視的金屬板；正紅、負藍，電荷組依 q=CU 等量異號，隨電壓反向交換。均勻網格與多子路徑集中成兩個 SVG charge paths，密集時允許重疊／壓縮，最多4096組/板保護繪圖資源；真實q與電路結果不裁剪。
+- 電容電荷與燈光同樣逐 RAF 更新；未知/關閉場不畫假電荷。場面板重用元件 renderer，電容方向跟隨畫布旋轉。普通「讀值」開關與質性的電荷示意分開。
+- 電感圈數依 L∝N² 的示意尺度調整；transformer 原、副圈數以同一10:1尺度跟隨实际匝數，繪圖標明实际N。兩視圖均更新，不修改 L/M/匝數求解或端子。
+- 新 Node 驗證電荷平衡、增減、反向顏色、C 的影響、未知及 field 關閉，以及 L/N 兩視圖動態繞組；browser 验證即時 RC charging 和權限，不以私有 SVG 數量做活動評分。
+- AC source／ZIP focused **32 observations** 及完整 **894 observations** 通過；DC source／ZIP focused **70 observations**、AC physics／profiles／codec Node、`npm run check` 通過。正負極板、電感與變壓器不同圈數、實際 RC charging 及 field 的 screenshot 已檢視。
+- 日誌：`output/ac-baseline/ac-reactive-art-focus.log`、`ac-reactive-art-browser.log`、`dc-reactive-art-followup.log`。四包已按最新來源重建逐檔核對；外部 gate 狀態不變。
