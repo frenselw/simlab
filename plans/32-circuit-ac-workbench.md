@@ -249,3 +249,10 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 完整 AC source／ZIP **854 observations** 通過（包含 desktop scale>150% 斷言）；最後再收緊三元件的上下空段，六 viewport source／ZIP focused **350 observations** 通過。Desktop default 180%／手機／LC／transformer／mutual 的截圖已逐一檢視；電容器內文字在倒轉排列仍保持正向。
 - Node 驗證所有 preset 的 body bounds 不重疊、有限導線的實際兩端等於接孔及外框寬度；AC physics／profiles／codec、`npm run check`、DC source／ZIP focused **70 observations** 通過。最後幾何再次比對 17 個預設的 params／端點／t=0.1 physics 完全一致。
 - 證據：`output/ac-baseline/ac-layout-before.json`、`ac-compact-final.log`、`ac-compact-controls.log`、`dc-compact-followup.log`。四包由统一 builder 重建核對；原全站與外部 gate 維持。
+
+### 電流卡收窄（2026-10-09）
+
+- 依使用者回饋，一般 AC 電流卡從約 178px 收至約 124px，依既有字體量度函數預留最長格式的固定文字欄及箭嘴空間，顯示字體不縮小。使用既有 CircuitMath 数值格式，極小／極大值緊湊科學記數，不另寫 formatter；mA 單位、瞬時數值及方向邏輯不變。
+- Node 覆蓋零、極小／極大、正負及未知量，要求卡片寬度固定且小於145px；瀏覽器核對實時寬度不變、數字在框內且不碰箭嘴。DC 標籤的排法不變。
+- AC source／ZIP focused **60 observations**、AC profile／codec／格式 Node、DC wire-current-label Node 及 `npm run check` 通過。實測卡寬 124.14px，2 Hz／50 Hz 各幀保持同寬；文字在框內且與箭嘴分開，截图已檢視。四包已由 builder 重建核對。
+- 日誌：`output/ac-baseline/ac-current-card-narrow-final.log`。原全站／Moodle／實機 gate 狀態保持。

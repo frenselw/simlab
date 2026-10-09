@@ -200,8 +200,8 @@
       for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],span=viewport?L.segmentSpan(a,b,{left:viewport.x,right:viewport.x+viewport.width,top:viewport.y,bottom:viewport.y+viewport.height}):[0,1];if(!span)continue;const length=Math.hypot(b.x-a.x,b.y-a.y)*(span[1]-span[0]),t=(span[0]+span[1])/2,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};if(length>longest){anchor=p;longest=length;}}
       if(!anchor||viewport&&longest*scale<12)continue;
       const current=result.wires[w.id]?.current,size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
-      const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?(value*1000).toPrecision(4)+' mA':'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
-      items.push({id:w.id,anchor,...(transient?{fixedWidth:size*10}:{}),paddingLeft:transient||Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
+      const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?Q.quantity(value*1000,'mA').text:'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
+      items.push({id:w.id,anchor,...(transient?{fixedWidth:L.measure('8.88e+888 mA',size)}:{}),paddingLeft:transient?28:Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
     const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);
     if(viewport&&options?.potentialDirections?.size&&placed.some(p=>p.crowded)){options.crowded=true;return [];}
