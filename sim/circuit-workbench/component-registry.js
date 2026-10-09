@@ -28,11 +28,13 @@
     if(!spec||spec.choices||![spec.min,spec.max,spec.step,c.params[key]].every(Number.isFinite))return null;
     const factor=key==='position'?100:spec.factor||1;
     return {key,label:c.type==='lamp'?(c.params.model==='thermal'?'熱態電阻':'電阻'):spec.label,
-      unit:spec.unit||'',factor,value:c.params[key],min:spec.min,max:spec.max,step:spec.step};
+      unit:spec.unit||'',factor,value:c.params[key],min:spec.min,max:spec.controlSpecial??spec.max,step:spec.step,...(spec.controlMax?{controlMax:spec.controlMax,controlSpecial:spec.controlSpecial}:{})};
   }
   function stepPrimaryParameter(c,direction) {
     const p=primaryParameter(c);if(!p||![1,-1].includes(direction))throw new Error('沒有可調的主參數');
-    return Math.max(p.min,Math.min(p.max,Number((p.value+direction*p.step).toPrecision(12))));
+    if(p.controlMax&&p.value>p.controlMax)return direction<0?p.controlMax:p.controlSpecial;
+    if(p.controlMax&&direction>0&&p.value>=p.controlMax)return p.controlSpecial;
+    return Math.max(p.min,Math.min(p.controlMax??p.max,Number((p.value+direction*p.step).toPrecision(12))));
   }
   function defaults(type) { return Object.fromEntries(Object.entries(get(type).params).map(([key, item]) => [key, item.value])); }
   const dualMeter=c=>['ammeter','voltmeter'].includes(c.type);

@@ -38,7 +38,9 @@
     edges.forEach((e,i)=>e.index=nodeKeys.length+i);
     const diff=(a,b)=>{const d=Array(n).fill(0);if(index.has(a))d[index.get(a)]++;if(index.has(b))d[index.get(b)]--;return d;};
     const dynamic=edges.filter(e=>['capacitor','inductor'].includes(e.kind)),period=sources.length?1/sources[0].c.params.frequency: (()=>{const c=dynamic.find(e=>e.C),l=dynamic.find(e=>e.L);return c&&l?AC.TAU*Math.sqrt(c.C*l.L):1;})();
-    let maxStep=Math.min(.02,period/128);for(const source of sources)maxStep=Math.min(maxStep,1/source.c.params.frequency/128);
+    // Algebraic circuits need waveform quadrature, not stored-energy error estimates.
+    const samples=dynamic.length?128:32;
+    let maxStep=Math.min(.02,period/samples);for(const source of sources)maxStep=Math.min(maxStep,1/source.c.params.frequency/samples);
     const cs=dynamic.filter(e=>e.C),ls=dynamic.filter(e=>e.L);if(cs.length&&ls.length)maxStep=Math.min(maxStep,AC.TAU*Math.sqrt(Math.min(...cs.map(e=>e.C))*Math.min(...ls.map(e=>e.L)))/128);
     const adjacency=new Map([...ports.keys()].map(p=>[p,[]]));for(const w of doc.wires.filter(w=>!w.resistance)){adjacency.get(w.from).push({to:w.to,id:w.id});adjacency.get(w.to).push({to:w.from,id:w.id});}
     // Compile ideal-wire cuts once. A cycle current is unidentifiable, never a chosen zero.
@@ -129,7 +131,7 @@
       finite(duration,0,1e9);const start=this.state.time,target=start+duration,clock=performance.now();let steps=0;
       while(this.state.time<target-EPS&&!this.fault){if(performance.now()-clock>budget)break;const c=this.compiled,breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,target-this.state.time,breakAt),atEvent=Math.abs(h-breakAt)<EPS,method=this.state.event?'be':'trap';
         if(h<1e-13){this.fault='numerical';break;}
-        const whole=one(c,this.state,h,method,atEvent),half=one(c,this.state,h/2,method,false),second=half.error?half:one(c,half.state,h/2,method,atEvent);
+        const half=one(c,this.state,h/2,method,false),second=half.error?half:one(c,half.state,h/2,method,atEvent),whole=c.dynamic.length?one(c,this.state,h,method,atEvent):second;
         if(whole.error||second.error){this.state.step=h/2;if(this.state.step<1e-12){this.fault=whole.error||second.error;break;}continue;}
         let error=0;for(const e of c.dynamic){const key=e.C?'v':'i',a=whole.state.dynamic[e.id][key],b=second.state.dynamic[e.id][key],old=this.state.dynamic[e.id][key];error=Math.max(error,Math.abs(a-b)/((e.C?1e-8:1e-11)+1e-5*Math.max(Math.abs(a),Math.abs(b),Math.abs(old))));}
         if(error>1){this.state.step=h*Math.max(.15,.8*error**(-1/(method==='be'?2:3)));continue;}

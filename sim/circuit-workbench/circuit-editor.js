@@ -55,8 +55,9 @@
   let cameraGesture=null,touchOrigin=null,touchBlocked=false,spacePan=false,spacePanUsed=false;
   let noticeTimer;
   const reducedMotion=matchMedia("(prefers-reduced-motion: reduce)");
-  let paused=transient||reducedMotion.matches,slowMotion=false,timeRate=transient?.01:1,actualRate=0,animationTime=0,lastTime=0,relayLastTime=performance.now(),lastACPaint=0;
+  let paused=transient||reducedMotion.matches,slowMotion=false,timeRate=1,actualRate=0,acLag=0,animationTime=0,lastTime=0,relayLastTime=performance.now(),lastACPaint=0;
   on(document,'visibilitychange',()=>{lastTime=0;relayLastTime=performance.now();});
+  on(document,'visibilitychange',()=>{lastTime=0;acLag=0;});
   on(reducedMotion,'change',()=>{if(reducedMotion.matches)paused=true;lastTime=0;relayLastTime=performance.now();render(false);});
   const current=()=>previewDoc||history.get(),world=(x,y)=>{const r=surface.getBoundingClientRect();return{x:camera.x+(x-r.left)/camera.scale,y:camera.y+(y-r.top)/camera.scale};};
   const screen=p=>({x:(p.x-camera.x)*camera.scale,y:(p.y-camera.y)*camera.scale}),snapGrid=v=>Math.round(v/20)*20;
@@ -264,11 +265,11 @@
         if (spec.choices) { const input = document.createElement("select");input.dataset.param=key; spec.choices.forEach((choice) => { const o = document.createElement("option"); o.value = String(choice); o.textContent = spec.labels?.[choice] ?? (c.type==='lamp'&&key === "model" ? choice === "ideal" ? "恆阻燈（理想化）" : "變阻燈（熱效應）" : c.type==='rheostat'&&key==='terminals'?choice+' 孔'+(choice===4?'（教學器材）':choice===3?'（分壓）':'（限流）'):c.type==='switch'&&key==='closed'?choice ? "閉合" : "斷開":String(choice)); input.append(o); }); input.selectedIndex = spec.choices.findIndex(choice=>choice===c.params[key]); input.disabled = !enabled; input.onchange = () => {const value=spec.choices[input.selectedIndex];const ok=change((doc) => {if(c.type==='rheostat'&&key==='terminals')M.setTerminals(doc,c.id,value);else doc.components.find((x) => x.id === c.id).params[key] = value; });if(ok&&c.type==='rheostat'&&key==='terminals')notify('已切換接線孔；隱去孔的導線拔開並留在畫布。');}; field(spec.label||(c.type==='lamp'&&key === "model" ? "燈泡模型" : c.type==='switch'&&key==='closed'?"開關狀態":key), input); }
         else {
           const factor = ['position','linearLoss'].includes(key) ? 100 : spec.factor||1;
-          const input = document.createElement("input"); input.type = "number"; input.value = c.params[key] * factor; input.min = spec.min * factor; input.max = spec.max * factor; input.step = "any"; input.disabled = !enabled; input.dataset.param = key; input.dataset.component = c.id; input.onchange = () => { const value = input.valueAsNumber / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; field(spec.unit?[spec.label+' · ',Q.unit(spec.unit)]:spec.label,input);
+          const input = document.createElement("input"); input.type = "number"; input.value = c.params[key] * factor; input.min = spec.min * factor; input.max = (spec.controlSpecial??spec.max) * factor; input.step = "any"; input.disabled = !enabled; input.dataset.param = key; input.dataset.component = c.id; input.onchange = () => { const value = input.valueAsNumber / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; field(spec.unit?[spec.label+' · ',Q.unit(spec.unit)]:spec.label,input);
           if (["voltage", "resistance", "position"].includes(key)||transient&&R.get(c.type).primaryParameter===key) {
             const range = document.createElement("input"),preferredMax=key==='position'?1:key==='voltage'?24:c.type==='battery'?10:100;
             range.type = "range"; range.min = spec.min * factor;
-            range.max = Math.min(spec.max,Math.max(preferredMax<=spec.min?spec.max:preferredMax,c.params[key])) * factor;
+            range.max = spec.controlMax??Math.min(spec.max,Math.max(preferredMax<=spec.min?spec.max:preferredMax,c.params[key])) * factor;
             range.step = spec.step * factor; range.value = c.params[key] * factor; range.disabled = !enabled; range.setAttribute("aria-label", spec.label + "滑塊");
             range.oninput = () => {
               if(!range.isConnected||!allow(history.get(),c,"params",key))return;
@@ -277,6 +278,7 @@
               input.value=range.value;previewDoc=candidate;analysis=solve(previewDoc);render(false);
               const result=prop.querySelector('.reading-host');if(result)result.innerHTML=componentReadings(c.id);
             };
+            if(spec.controlSpecial){const special=document.createElement('button');special.type='button';special.className='ac-frequency-special';special.textContent='50 Hz · 真實交流';special.setAttribute('aria-pressed',String(c.params[key]===spec.controlSpecial));special.disabled=!enabled;special.onclick=()=>change(doc=>{doc.components.find(x=>x.id===c.id).params[key]=spec.controlSpecial;});prop.append(special);}
             range.onchange = () => { if(!range.isConnected||!previewDoc)return;const value = Number(range.value) / factor; previewDoc = null; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; range.onpointercancel = cancel; prop.append(range);
           }
         }
@@ -654,7 +656,7 @@
     if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!options||typeof options!=='object'||Object.keys(options).some(k=>!['paused','rate'].includes(k)))return false;
     if(options.paused!==undefined&&(typeof options.paused!=='boolean'||!profile.simulation.play))return false;
     if(options.rate!==undefined&&(!Number.isFinite(options.rate)||options.rate<.0001||options.rate>1||!profile.simulation.rate))return false;
-    if(options.paused===false&&session.fault)return false;cancel();if(options.paused!==undefined)paused=options.paused;if(options.rate!==undefined){timeRate=options.rate;slowMotion=false;}lastTime=0;render(false);return true;
+    if(options.paused===false&&session.fault)return false;cancel();if(options.paused!==undefined)paused=options.paused;if(options.rate!==undefined){timeRate=options.rate;slowMotion=false;}lastTime=0;acLag=0;render(false);return true;
   }
   function advanceTime(seconds){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.step)return false;if(!Number.isFinite(seconds)||seconds<=0||seconds>10)throw new Error('單步時間需要大於零且不超過 10 s');cancel();paused=true;const progress=session.advance(seconds);analysis=progress.result;animationTime=session.state.time;render(false);return {...progress,result:controller.getAnalysis()};}
   function resetSimulation(){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.reset)return false;cancel();paused=true;acUI?.clear();analysis=session.reset();flowOffsets.clear();needleStates.clear();animationTime=0;render();notify('已回到初始條件；搭建電路保持。');return true;}
@@ -683,11 +685,13 @@
     getInteraction:()=>({pending:null,readOnly,destroyed,meterPreview:meterPreview?.id||null,wireCurrents:[...wireCurrents],potentialDirections:[...potentialDirections],dragging:cameraGesture?"camera":drag?.kind||null,selection:selection?M.clone(selection):null,camera:{...camera},panMode,wireMode,probeMode,spacePan,touchCount:touches.size,touchBlocked,snap:drag?.snap?.id||null,limited:!!drag?.limited,lastMessage}),cancel});
   if(transient){if(!root.CircuitACUI)throw new Error('缺少交流介面依賴');acUI=root.CircuitACUI.mount({host,refs,profile,controller});}
   render();function animate(time){if(destroyed)return;
-    const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(.05,rawElapsed)*rate;lastTime=time;
+    const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(transient?.25:.05,rawElapsed)*rate;lastTime=time;
     const active=!paused&&!document.hidden;if(active)animationTime+=elapsed;
     const relayEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touches.size,relayElapsed=relayEligible?Math.max(0,(time-relayLastTime)/1000)*rate:0;relayLastTime=time;
     const acEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touchBlocked&&![...touches.values()].some(t=>t.central);
-    if(transient&&acEligible&&!readOnly){const progress=session.advance(elapsed*timeRate,{budget:5});actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=session.state.time;if(session.fault)paused=true;if(session.fault||time-lastACPaint>=66){lastACPaint=time;render(false);const reading=$('properties').querySelector('.reading-host'),c=selectedComponent();if(reading&&c)reading.innerHTML=componentReadings(c.id);}}
+    if(transient&&acEligible&&!readOnly){acLag+=elapsed*timeRate;const progress=session.advance(acLag,{budget:10});acLag=Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=session.state.time;if(session.fault)paused=true;if(session.fault||time-lastACPaint>=100){lastACPaint=time;render(false);const reading=$('properties').querySelector('.reading-host'),c=selectedComponent();if(reading&&c)reading.innerHTML=componentReadings(c.id);}}
+    if(transient&&acEligible&&!readOnly)for(const c of current().components)if(c.type==='lamp'){const lamp=$('scene').querySelector('[data-lamp="'+c.id+'"]');if(lamp)lamp.outerHTML=V.body(c,analysis.components[c.id],current().display);}
+    if(transient&&!acEligible)acLag=0;
     if(!transient&&relayEligible&&relayStates.size){
       const progress=H.advanceFrame(relayStates,history.get(),analysis,relayElapsed,solve);analysis=progress.result;
       if(progress.switched){render(false);const c=selectedComponent(),reading=$('properties').querySelector('.reading-host');if(c&&reading)reading.innerHTML=componentReadings(c.id);else if(selectedWire()&&!$('properties').contains(document.activeElement))renderProperties();}

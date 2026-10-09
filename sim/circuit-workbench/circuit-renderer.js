@@ -29,7 +29,7 @@
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   function lampLight(c,result) {
     const ratedPower=c.params.ratedVoltage**2/c.params.resistance,measured=Object.hasOwn(result||{},'displayPower')?result.displayPower:result?.power,known=Number.isFinite(measured),power=known?Math.max(0,measured):null,ratio=known?power/ratedPower:0;
-    return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
+    return{known,power,ratedPower,ratio,brightness:Object.hasOwn(result||{},'displayPower')?1-Math.exp(-ratio):Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
   const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='transient'?result.hazards:S.hazards(doc,result);
@@ -200,8 +200,8 @@
       for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],span=viewport?L.segmentSpan(a,b,{left:viewport.x,right:viewport.x+viewport.width,top:viewport.y,bottom:viewport.y+viewport.height}):[0,1];if(!span)continue;const length=Math.hypot(b.x-a.x,b.y-a.y)*(span[1]-span[0]),t=(span[0]+span[1])/2,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};if(length>longest){anchor=p;longest=length;}}
       if(!anchor||viewport&&longest*scale<12)continue;
       const current=result.wires[w.id]?.current,size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
-      const quantity=Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
-      items.push({id:w.id,anchor,paddingLeft:Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
+      const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?(value*1000).toPrecision(4)+' mA':'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
+      items.push({id:w.id,anchor,...(transient?{fixedWidth:size*10}:{}),paddingLeft:transient||Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
     const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);
     if(viewport&&options?.potentialDirections?.size&&placed.some(p=>p.crowded)){options.crowded=true;return [];}
@@ -272,7 +272,7 @@
     placed.forEach(p=>{const b=p.box,row=p.rows[0],wire=row.kind==='wireCurrent',potential=row.kind==='potentialDirection',current=row.current;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}" pointer-events="none" ${wire?`data-wire-current-label="${p.id}" data-current="${Number.isFinite(current)?current:''}"`:potential?`data-potential-label="${row.componentId}"`:''}>${wire?'<title>'+esc('導線 '+p.id+'：'+(Number.isFinite(current)&&current!==0?(current<0?'B → A，':'A → B，'):'')+row.text)+'</title>':potential?'<title>'+esc(doc.components.find(c=>c.id===row.componentId).label+'：'+p.rows.map(r=>r.text).join('')+(row.from?'（'+row.from+' → '+row.to+'）':''))+'</title>':''}<rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".95" ${wire||potential?`stroke="${potential?'#d6b889':'#bfd1df'}" stroke-width="${1/scale}"`:''}/>`;
       if(wire&&Number.isFinite(current)&&current!==0)out+=`<path data-wire-current-arrow="${p.id}" data-direction="${current<0?-1:1}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${p.rows[0].angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#245b94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
       if(potential&&row.angle!==null)out+=`<path data-potential-direction="${row.componentId}" data-potential-from="${row.from}" data-potential-to="${row.to}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${row.angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#a45d0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-      p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:potential?`data-potential-value="${row.componentId}" fill="#815019"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs);});out+='</g>';});
+      p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:potential?`data-potential-value="${row.componentId}" fill="#815019"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs+(row.noWrap?' font-variant-numeric="tabular-nums"':''));});out+='</g>';});
     if(tiny){
       const meters=doc.components.filter(R.isMeter),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
       const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;

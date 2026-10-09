@@ -9,7 +9,8 @@
       for(const [id,r]of Object.entries(result.wires))values['wire:'+id]={u:r.voltage,i:r.current};
       if(!this.previous||next.time<=this.previous.time){this.previous=next;if(this.start===null)this.start=next.time;return;}
       const old=this.previous,h=next.time-old.time;let begin=old.time;
-      while(begin<next.time-1e-14){const at=Math.floor((begin+1e-12*this.width)/this.width),end=Math.min(next.time,(at+1)*this.width),duration=end-begin;if(duration<=0)break;
+      // Snap bin boundaries above float roundoff so an accepted step never loses its remainder.
+      while(begin<next.time-1e-14){const at=Math.floor(begin/this.width+1e-8),end=Math.min(next.time,(at+1)*this.width),duration=end-begin;if(duration<=0)break;
         let bin=this.bins.at(-1);if(!bin||bin.at!==at){bin={at,start:begin,end,values:{}};this.bins.push(bin);}bin.end=end;
         const x0=(begin-old.time)/h,x1=(end-old.time)/h;
         for(const [id,v]of Object.entries(values)){const before=old.values[id];if(!before||![before.u,before.i,v.u,v.i].every(Number.isFinite))continue;

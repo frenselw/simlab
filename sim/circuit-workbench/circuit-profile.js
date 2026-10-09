@@ -156,6 +156,7 @@
         }
         if (previous.type !== c.type) throw new Error('不能替換元件型別');
         for (const [op,changed] of [['move',previous.x!==c.x || previous.y!==c.y],['rotate',previous.angle!==c.angle || previous.mirrored!==c.mirrored],['label',previous.label!==c.label]]) if (changed && !allows(before,previous,op)) throw new Error('此操作未開放：' + {move:'搬動元件',rotate:'旋轉元件',label:'改名'}[op]);
+        for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.controlMax&&previous.params[key]!==c.params[key]&&c.params[key]>spec.controlMax&&c.params[key]!==spec.controlSpecial)throw new Error(spec.label+'只可設 0.1–2 Hz 或 50 Hz。');
         for (const k of Object.keys(c.params)) if (!same(previous.params[k],c.params[k]) && !allows(before,previous,k === 'closed' ? 'switch' : 'params',k)) throw new Error('參數未開放：' + paramLabel(c,k));
       }
       if (!wires && (!same(before.wires,doc.wires) || !same(before.junctions,doc.junctions))) throw new Error('活動不允許改接線');

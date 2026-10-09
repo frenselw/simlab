@@ -35,7 +35,7 @@
 
 | 元件／状态 | 方程／規格 | 单位／預設 |
 |---|---|---|
-| AC source | 正弦、對稱方波、對稱三角波；輸入有效值換算各波形峰值；可調初相位及內阻 | 6 V rms、50 Hz、0°；f 0.1–1000 Hz |
+| AC source | 正弦、對稱方波、對稱三角波；輸入有效值換算各波形峰值；可調初相位及內阻 | 6 V rms、1 Hz、0°；工作台 f 0.1–2 Hz 或 50 Hz，數值核心仍保留 0.1–1000 Hz |
 | Generator | θ 隨時間；Φ=BS cosθ 為單匝磁通量；e=NBSω sinθ；轉速同時影響振幅及頻率 | SI；原生 SVG，外界保持轉速 |
 | R／rheostat／wire | 沿用阻值及端子語義；幾何不是物理電阻 | Ω；不變更 DC schema |
 | Lamp | 恆阻燈，功率驅動亮度；不拿 DC 熱平衡當熱瞬態 | 額定參數沿用現有 |
@@ -80,7 +80,7 @@
 | 決策 | 規格 |
 |---|---|
 | 三區 | Header：title/presets/fullscreen；stage：電路／波形；panel：工具、參數、量測、外層插槽 |
-| 桌面 | ≥960 px；stage 左、panel 340–380 px 右；波形開合時 stage 內約 1/3 高 |
+| 桌面 | ≥760 px；stage 左、panel 252px 右（跟隨 DC）；波形開合時 stage 內約 1/3 高 |
 | Phone | 上 stage、下 bounded panel；電路／波形切換。共通控制沿用 DC 的位置與窄畫面排列；stage 保留至少 75px 畫布，短畫面讓獨立捲動 panel 讓出高度，按鈕仍為 44px |
 | Bounded shell | 100dvh，min-height:0；html/body 沒有競爭 scroll；panel overflow-y:auto/overscroll contain |
 | Fullscreen | 整個活動唯一 target/header、shared script；外層有 header 時內層 ui.header=false |
@@ -220,3 +220,15 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 燈光沿用已有平均功率顯示，新增實際求解驗證：3 V／6 V 對應不同亮度、功率約四倍；50 Hz 跨相位亮度穩定、1 Hz 過零／峰值亮度不同、零供電不亮。
 - 完整 AC source／ZIP **796 observations** 通過，包含十種元件的兩視圖、本體可信點選、時間不自行演進及各預設的既有操作／恢復／多 instance／gesture regression；實物與符號 contact sheets 已逐一檢視。
 - **25 circuit Node 檔**、`npm run check` 及 DC source／ZIP focused 快捷操作 **70 observations** 通過；四包已統一重建與來源逐檔核對。證據：`output/ac-baseline/ac-apparatus-browser.log`、`dc-apparatus-followup.log`，圖在 `output/playwright/circuit-ac/*-apparatus-{real,schematic}.png`。未改物理模型或文檔版本，全站／Moodle／實機 gate 狀態保持原記錄。
+
+### 低頻、真實時間及面板打磨（2026-10-09）
+
+- 使用者指定常用頻率 0.1–2 Hz、另設 50 Hz 真實交流。預設普通源 1 Hz、generator 2 Hz；頻率控制 metadata 統一滑塊、快捷步進及編輯 transition，非法 2–50 Hz 間值拒絕。原模型的 SI／離線數值範圍與已保存文件不做靜默改寫。
+- 工作台設定倍率固定 1；移除原自動 1/100 速。求解時間按前台真實 elapsed 推進，仍限制每幀計算預算及防止背景追算。數值算不及時仍不跳過物理時間步，不承諾任意龐大電路在所有裝置必定即時。
+- 燈泡每 RAF 更新，與较低頻的整體 label layout 分開；顯示保留 20 ms 平均功率，交流採連續亮度曲線，避免硬裁剪亮度的平頂。沒有改電路功率、儲能或燈絲熱模型；DC 顯示保留。
+- Panel 回到 DC 寬度／breakpoint；移除時間與實驗、預設講解及課堂探索。波形保留配置允許的單步及回到初始條件；教師工作台不提供慢播／倍率。
+- 交流 wire-current card 固定幅寬、固定 mA、預留箭嘴空間；過零或未知狀態亦不收縮。DC label 路徑保留。
+- 50 Hz 的無儲能電路改用每週期至少 32 步（每步兩個半步取樣），避免對沒有儲能歷史的電路重做完整一步的狀態誤差估計；含 C/L 仍保留原 128 步上限與自適應誤差控制。解析有效值、功率、能量及事件測試保持原容差。
+- 發現量測 bin 在浮點邊界會漏掉步進餘段；修正邊界捨入。修改前 120 次 50 Hz frame continuation 有 27 次 displayPower 未能確定，修正後全部穩定，沒有用零或上一個數字冒充未知。
+- 實際測量 source／ZIP 的 2 Hz／50 Hz：1.602–1.611 s 實際時間對應約 1.619 s 物理時間；頻率、動態燈光及固定 card widths 的 focused 28 observations 通過。完整 AC source／ZIP **828 observations**、25 個 circuit Node、DC source／ZIP focused **70 observations**、`npm run check` 及四包 source byte 檢查通過。實物／手機／電流卡截圖已檢視。最後只有註解及未使用時間面板 CSS 清理，已重新打包；沒有用早期 ZIP 的 hash 冒稱後來來源相同。
+- 日誌：`output/ac-baseline/ac-real-time-focus.log`、`ac-real-time-browser.log`、`ac-real-time-node-final.log`、`dc-real-time-followup.log`。固定 transformer 示例仍保持原 50 Hz 模板，舊 codec 不偷偷換成 1 Hz；正式活動／真 Moodle／實機 gate 仍按既有安排。

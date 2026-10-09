@@ -34,6 +34,7 @@
     for(const char of [...value]){if(current&&measure(current+char,size)>maxWidth){const space=current.lastIndexOf(' ');if(space>0){lines.push(current.slice(0,space).trimEnd());current=current.slice(space+1)+char;}else{lines.push(current.trimEnd());current=char.trimStart();}}else current+=char;}if(current)lines.push(current);return lines;
   }
   function rowsFor(lines,maxWidth){return lines.flatMap(line=>{
+    if(line.noWrap)return [line];
     if(line.tex){const parts=line.parts&&Q.measure(line.tex,line.size).width>maxWidth?line.parts:[line];return parts.map(part=>({...line,...part,parts:undefined}));}
     return wrap(line.text,line.size,maxWidth).map(text=>({...line,text}));
   }).map(row=>{let m;if(row.tex)m=Q.measure(row.tex,row.size);else{const width=measure(row.text,row.size);if(context)context.font=`${row.size}px system-ui,sans-serif`;const font=context?.measureText(row.text);m={width,ascent:font?.fontBoundingBoxAscent??row.size,descent:font?.fontBoundingBoxDescent??row.size*.25};}return{...row,width:m.width,ascent:Math.max(row.size,m.ascent),step:Math.max(row.size,m.ascent)+m.descent+4};});}
@@ -58,7 +59,7 @@
       const anchor=item.anchor&&toScreen(item.anchor),body=anchor?{left:anchor.x,right:anchor.x,top:anchor.y,bottom:anchor.y}:bodies.get(item.componentId||item.id);if(frame&&!intersects(body,frame))return;
       const center=centers.get(item.componentId||item.id);if(frame&&center&&(center.x<frame.left||center.x>frame.right||center.y<frame.top||center.y>frame.bottom))return;
       const rows=rowsFor(item.lines,Math.min(item.maxWidth||180,frame?frame.right-frame.left-8:220));if(!rows.length)return;
-      const width=Math.max(...rows.map(line=>line.width))+6+(item.paddingLeft||0),height=rows.reduce((n,line)=>n+line.step,0)+4,cx=(body.left+body.right)/2,cy=(body.top+body.bottom)/2,candidates=[];
+      const width=Math.max(item.fixedWidth||0,...rows.map(line=>line.width))+6+(item.paddingLeft||0),height=rows.reduce((n,line)=>n+line.step,0)+4,cx=(body.left+body.right)/2,cy=(body.top+body.bottom)/2,candidates=[];
       for(const gap of [6,16,30,48,72,104])for(const side of ['below','above','right','left'])for(const offset of [0,-.6,.6,-1,1]){
         let x=cx,y=cy;if(side==='below'||side==='above'){x+=offset*width;y=side==='below'?body.bottom+gap+height/2:body.top-gap-height/2;}else{x=side==='right'?body.right+gap+width/2:body.left-gap-width/2;y+=offset*height;}
         const box={left:x-width/2,right:x+width/2,top:y-height/2,bottom:y+height/2},slot=side+':'+gap+':'+offset,base=Math.hypot(x-cx,y-cy)+(['below','above','right','left'].indexOf(side))*2+Math.abs(offset)*4;
@@ -73,7 +74,7 @@
     for(const entry of work){
       let best=null;for(const candidate of entry.candidates){const penalty=collision(candidate.box),score=penalty+candidate.base;if(!best||score<best.score)best={...candidate,penalty,score};}
       if(best.penalty){const cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-entry.width/2,right:x+entry.width/2,top:y-entry.height/2,bottom:y+entry.height/2},penalty=collision(box),base=Math.hypot(dx,dy)+6,score=penalty+base;if(score<best.score)best={box,slot:'grid:'+dx+':'+dy,penalty,base,score};}}
-      if(best.penalty)for(const limit of [120,96,72,54,40]){if(limit>=entry.width-6)continue;
+      if(best.penalty&&!entry.item.fixedWidth)for(const limit of [120,96,72,54,40]){if(limit>=entry.width-6)continue;
         const rows=rowsFor(entry.item.lines,limit),width=Math.max(...rows.map(row=>row.width))+6+(entry.item.paddingLeft||0),height=rows.reduce((n,row)=>n+row.step,0)+4,cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;
         for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-width/2,right:x+width/2,top:y-height/2,bottom:y+height/2},penalty=collision(box),base=Math.hypot(dx,dy)+12+(rows.length-entry.rows.length)*8,score=penalty+base;if(score<best.score)best={box,rows,slot:'compact:'+limit+':'+dx+':'+dy,penalty,base,score};}
         if(!best.penalty)break;
