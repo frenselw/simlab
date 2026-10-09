@@ -392,3 +392,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 新pure scope測試已登記run-tests，涵蓋量測truth、隔離、未知、snap、長線與資源、非法／越權／數量／配置restore及有界峰值／事件；AC／transient／原profile及codec Node通過。AC source／ZIP完整 **1212 observations**通過，正式入口包含新scope cases；獨立新儀器focused **88 observations**，涵蓋mouse/pen/touch、兩種縮放、時間對齊、長線／彎線／Escape、讀值、只讀、相機、鍵盤、手機與短畫面。
 - 固定transformer/LC活動的工具配置、拒絕非法測點／通道及合法續作、DC+AC+多AC的工具／時間隔離及卸載均納入完整browser；T1–T3原生捲頁把手在儀器存在時保持。DC source／ZIP快捷回歸 **70 observations**、syntax／manifest及diff通過。桌面實際曲線、大框、390/320px及橫向截圖已檢視。
 - `circuit-scope-ui.js`已登記AC資產與兩入口，七份AC核心依賴及四個成品由統一builder重建核對。證據：`output/ac-baseline/ac-floating-full.log`、`ac-floating-scope.log`、`dc-scope-followup.log`。全站已知阻塞及真Moodle／實機gate仍按原記錄，正式AC題目沒有自行建立。
+
+
+### 波形儀器圖示、固定時間尺標及薄框（2026-10-09）
+
+- 電壓／電流工具加入原生SVG小型示波器圖案，沿用工具箱尺寸、拖取及鍵盤名稱；兩種曲線使用各自顏色。沒有增加圖片或外部依賴。
+- 移除滾動的絕對時間刻度，圖下方固定尺標由繪圖左端延伸至右端，全寬代表 `span`（例如1 s或2 s），只在時間量尺變更時更新；波形仍按權威模擬時間滾動。時間控制明示「時間窗」，所有圖仍同步。
+- 移除正負跳動的瞬時數字及其獨立22px列；未接探頭、未知量及超出量尺保留簡短圖內提示。框改1px邊線及淺色／白色操作區，圖區增加可用高度；44px按鈕、大框／角落resize／資料縮放／摺起及長量測線維持。
+- 探頭及Trace純模型測試、syntax／manifest check及diff通過；source／ZIP focused **100 observations**通過，新增實際Canvas字串檢查（只有縱軸刻度）、模擬时间前進而尺標穩定、時間縮放後所有尺標同步及薄框／44px命中範圍。桌面兩儀器、大框及320px手機截圖已檢視。
+- source／ZIP完整AC回歸 **1224 observations**通過，包含短畫面、既有物理／電表／元件操作、活動配置、快照續作、多instance、原生捲頁及全螢幕。四個成品已統一重建核對來源；證據：`output/ac-baseline/ac-scope-ruler.log`、`ac-scope-ruler-full.log`、`ac-scope-ruler-check.log`。此次只改AC可選儀器UI，物理解、DC共用控制及正式活動評分不變；全站既有阻塞及真Moodle／實機gate仍按原記錄。
