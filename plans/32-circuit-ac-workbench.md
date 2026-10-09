@@ -281,3 +281,10 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 平行板的可見gap按 C 反向變化，採壓縮幾何比例避免極端參數使器材穿出接孔。透視斜升從11減至5，plate右側中點 y=-3，引線精確接到動態right edge；孔ID及座標仍固定±60。
 - Node及browser覆蓋range設定、非法restore/load／命令、快捷上限、不同C板距與midpoint lead。AC source／ZIP focused **50** 及完整 **912 observations**、25 circuit Node、DC source／ZIP focused **70 observations**、check／diff 通過。1000／2000 μF 的板距及右引線截圖已檢視；四包已由 builder 重建逐檔核對。
 - 證據：`output/ac-baseline/ac-ranges-plates-focus.log`、`ac-ranges-plates-browser.log`、`circuit-ranges-node.log`、`dc-ranges-followup.log`。舊模型 range／格式、全站已知 blocker 及外部 gate 維持。
+
+### 電容引線與薄板更正（2026-10-09）
+
+- 使用者明確要求水平直線及右板「板面中央」，而非邊緣／後方中點。兩引線去除全部轉折；右線終點為 front-face 幾何中心，極板位置平移0.5使中心 y=0，導線放在極板繪圖之後，保持板面上的線可見。
+- 板側厚度從4降至1.5，outline略收細。板距／電荷／端子ID及±60座標、數值模型均保持。
+- 新斷言覆蓋水平無轉折、板面中心、前景繪圖及薄板；AC profile／codec／圖形 Node、source／ZIP focused **50 observations**、`npm run check` 通過。正負電荷、動態板距及新引線截圖已檢視；四包已統一重建逐檔核對。
+- 證據：`output/ac-baseline/ac-capacitor-straight-lead.log`。只改 AC 繪圖，既有電學及外部 gate 維持。
