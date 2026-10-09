@@ -304,3 +304,9 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 電容板寬由26收至22，透視斜升由5降至1，薄邊由1.5降至1.2；電荷网格跟隨板面。兩條引線仍為水平直線，右端仍接前板面中心；可變板距、正負電荷及固定端子不變。
 - AC Node、source／ZIP focused **56 observations**、`npm run check` 通過；已檢視少圈、多圈、正負極板及實際充電畫面。四包由統一 builder 重建及核對來源。僅修改器材繪圖及相應檢查，不改電學、文件或權限。
 - 證據：`output/ac-baseline/ac-smooth-reactive-art.log` 及 `output/playwright/circuit-ac/` 的 source／package reactive-art、inductor-few-turns、inductor-many-turns、capacitor-charging 截圖。全站已知阻塞及外部 gate 維持。
+
+
+### 密集繞組留白置中（2026-10-09）
+
+- 修正繞組以 count 而非 count−1 個圈距計算起點而偏左的問題；按圓筒可見面的透視作小幅位置補償，使密集繞組兩側露出的筒身更均衡。圈數、疏密尺度、平滑接出曲線、接孔及電學保持。
+- Node 與 source／ZIP 增加繞組置中斷言；AC focused **58 observations**、Node 及 syntax／manifest check 通過，密集繞組截圖已檢視。四包統一重建及核對來源。證據：`output/ac-baseline/ac-centred-winding.log`，原全站及外部 gate 保持。
