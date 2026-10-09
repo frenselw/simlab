@@ -41,9 +41,9 @@
   const inductorTurns=c=>Math.max(1,Math.round(10*Math.sqrt(c.params.inductance)));
   const transformerTurns=n=>Math.max(1,Math.round(n/10));
   function coil(count){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++)d+=`q0-16 ${half}-16t${half} 16`;return path(d,'#334155',Math.min(3,45/count));}
-  const capacitorGap=c=>2+4/(1+c.params.capacitance/.0005);
+  const capacitorGap=c=>8+48/(1+c.params.capacitance/.00025);
   function plate(c,r,d,left){
-    const known=Number.isFinite(r?.voltage),enabled=d.fields!==false&&known,sign=enabled&&Math.abs(r.voltage)>1e-8?(r.voltage>0?1:-1)*(left?1:-1):0,gap=capacitorGap(c),x=left?-gap/2-14:gap/2+14,colour=sign>0?'#c43f4c':sign<0?'#286cb7':'#748895',fill=sign>0?'#f7dddf':sign<0?'#dceafa':'#e3eaee',charge=known?Math.abs(c.params.capacitance*r.voltage):0,raw=charge/.000125;
+    const known=Number.isFinite(r?.voltage),enabled=d.fields!==false&&known,sign=enabled&&Math.abs(r.voltage)>1e-8?(r.voltage>0?1:-1)*(left?1:-1):0,gap=capacitorGap(c),x=left?-gap/2:gap/2,colour=sign>0?'#c43f4c':sign<0?'#286cb7':'#748895',fill=sign>0?'#f7dddf':sign<0?'#dceafa':'#e3eaee',charge=known?Math.abs(c.params.capacitance*r.voltage):0,raw=charge/.000125;
     // ponytail: compress very dense charge pictures, with at most 4096 groups per plate; q itself is never clipped.
     const wanted=raw<=192?raw:192+64*Math.log2(1+(raw-192)/64),rows=sign!==0?Math.min(1024,Math.ceil(wanted/4)):0,count=rows*4;
     // Equal-area radial samples remain uniform after projecting the circular plate.
@@ -75,7 +75,7 @@
       const theta=r?.phase??p.phase*Math.PI/180;
       return path('M-60 0H-46V31H-17 M17 31H46V0H60')+caseBox(-46,-40,92,80,'#e6edf1')+'<path d="M-35-29H-22V22H-35Z" fill="#c6766f" stroke="#935149"/><path d="M22-29H35V22H22Z" fill="#789cbc" stroke="#526e8b"/>'+text('N',-28,-13,11)+text('S',28,-13,11)+path('M-18-20H18 M-18 0H18 M-18 20H18','#becdd7',1)+`<g data-generator-angle="${theta}" transform="rotate(${theta*180/Math.PI})"><ellipse rx="15" ry="27" fill="#f7e5c744" stroke="#b47e42" stroke-width="3"/><path d="M0-27V27" stroke="#e1bc82" stroke-width="1"/></g>`+'<circle r="3" fill="#6a7e8a"/>'+path('M0 0H39V-12','#526779',3)+'<circle cx="39" cy="-14" r="4" fill="#344f64"/>'+socket(-17,31)+socket(17,31);
     }
-    if(c.type==='capacitor'){const gap=capacitorGap(c),left=-gap/2-15.5-28*.48,right=gap/2+14;return `<g data-capacitor-voltage="${Number.isFinite(r?.voltage)?r.voltage:''}" data-plate-gap="${gap}">${plate(c,r,d,true)}${plate(c,r,d,false)}<path data-capacitor-leads="true" d="M-60 0H${left} M60 0H${right}" fill="none" stroke="#7a8790" stroke-width="3" stroke-linecap="round"/></g>`;}
+    if(c.type==='capacitor'){const gap=capacitorGap(c),left=-gap/2-1.5-28*.48,right=gap/2;return `<g data-capacitor-voltage="${Number.isFinite(r?.voltage)?r.voltage:''}" data-plate-gap="${gap}">${plate(c,r,d,true)}${plate(c,r,d,false)}<path data-capacitor-leads="true" d="M-60 0H${left} M60 0H${right}" fill="none" stroke="#7a8790" stroke-width="3" stroke-linecap="round"/></g>`;}
     if(c.type==='inductor'){
       // Centre the turn endpoints, with a small offset for the visible cylindrical surface.
       const count=inductorTurns(c),pitch=Math.min(3.5,68/count),start=1.75-(count-1)*pitch/2,end=start+(count-.5)*pitch+6,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25),entry=start-pitch/2;let front='',back=`M${entry} 24C${entry-5} 24 ${start-5}-24 ${start}-24`;

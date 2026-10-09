@@ -330,3 +330,10 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 依使用者要求，圓板投影移除剪切斜度，兩塊板保持豎直；縮小 gap 公式至 2+4/(1+C/0.0005)，常用範圍只留約2.8–5.3世界單位的窄縫，仍隨 C 反向變化。圓板薄邊、正負電荷、直線引線及固定接孔保持。
 - 電荷與左引線交點同步使用豎直投影；Node 驗證窄縫、接點及電荷在圓面內，source／ZIP 增加實際投影無傾斜斷言。focused **64 observations**、AC Node 及 syntax／manifest check 通過，2000 μF及充電截圖已檢視；四包統一重建核對來源。證據：`output/ac-baseline/ac-upright-close-plates.log`。原電學、全站及外部 gate 保持。
+
+
+### 圓板投影重疊與分開（2026-10-09）
+
+- 使用者以近／遠參考圖澄清：接近時兩板的投影應部分重疊。移除為防止重疊而額外加入的兩個14單位半板寬，改以板中心距離控制位置；常用 C 下中心距離約13.3–42.3，接近時重疊、分開時有可見空隙。豎直圓板、薄邊、電荷及水平引線保持。
+- 幾何比例不改 C、q、儲能或權威文件；左引線交點及右板面中心同步更新。Node及browser新增近板重疊／遠板分離的斷言，使用實際圓板外框驗證，並檢視2000 μF／100 μF截圖。
+- AC source／ZIP focused **68 observations**、Node及syntax／manifest check通過，四包統一重建核對來源。證據：`output/ac-baseline/ac-overlapping-plates.log`，source／package capacitor-larger及capacitor-separated截圖。原全站及外部 gate保持。
