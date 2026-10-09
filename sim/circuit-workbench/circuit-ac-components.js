@@ -42,9 +42,9 @@
   const inductorTurns=c=>Math.max(1,Math.round(10*Math.sqrt(c.params.inductance)));
   const transformerTurns=n=>Math.max(1,Math.round(n/10));
   function coil(count){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++)d+=`q0-16 ${half}-16t${half} 16`;return path(d,'#334155',Math.min(3,45/count));}
-  function winding(count,span=68,radius=24){
-    const pitch=Math.min(3.5,span/count),start=1.75-(count-1)*pitch/2,end=start+(count-.5)*pitch+6,entry=start-pitch/2,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25);let front='',back=`M${entry} ${radius}C${entry-5} ${radius} ${start-5} ${-radius} ${start} ${-radius}`;
-    for(let n=0;n<count;n++){const x=start+n*pitch;front+=n===count-1?`M${x} ${-radius}C${x+5} ${-radius} ${end-1} 0 ${end} 0`:`M${x} ${-radius}C${x+5} ${-radius} ${x+5+pitch/2} ${radius} ${x+pitch/2} ${radius}`;if(n<count-1)back+=`M${x+pitch/2} ${radius}C${x-5+pitch/2} ${radius} ${x-5+pitch} ${-radius} ${x+pitch} ${-radius}`;}
+  function winding(count,span=68,radius=24,full=false){
+    const pitch=Math.min(3.5,span/count),start=1.75-(count-1)*pitch/2,end=full?start+count*pitch:start+(count-.5)*pitch+6,entry=start-pitch/2,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25);let front='',back=full?'':`M${entry} ${radius}C${entry-5} ${radius} ${start-5} ${-radius} ${start} ${-radius}`;
+    for(let n=0;n<count;n++){const x=start+n*pitch;front+=n===count-1&&!full?`M${x} ${-radius}C${x+5} ${-radius} ${end-1} 0 ${end} 0`:`M${x} ${-radius}C${x+5} ${-radius} ${x+5+pitch/2} ${radius} ${x+pitch/2} ${radius}`;if(n<count-1||full)back+=`M${x+pitch/2} ${radius}C${x-5+pitch/2} ${radius} ${x-5+pitch} ${-radius} ${x+pitch} ${-radius}`;}
     return {pitch,start,end,entry,width,outline,front,back};
   }
   const copper=(d,w)=>path(d,'#8d6135',w.outline)+path(d,'#d8b17e',w.width);
@@ -90,14 +90,14 @@
     }
     if(c.type==='spdt')return path('M-60 0H-40 M40-24H60 M40 24H60')+caseBox(-43,-35,86,70,'#c8b396')+socket(-29,0)+socket(29,-24)+socket(29,24)+path(`M-29 0L29 ${p.closed==='b'?-24:24}`,'#ba8b40',7)+path(`M-29-2L29 ${p.closed==='b'?-26:22}`,'#f3d39a',2)+`<circle cx="1" cy="${p.closed==='b'?-12:12}" r="7" fill="#334e60" stroke="#203746"/>`+path('M-40 0H-29 M29-24H40 M29 24H40','#9a783e',3);
     if(c.type==='transformer'){
-      const coils=[[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']].map(([x,nominal,side])=>({x,nominal,side,count:transformerTurns(nominal),w:winding(transformerTurns(nominal),44,21)}));
-      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90)">${copper(w.back,w)}</g>`).join('')+'<path d="M-50-36H56V42H-50Z M-16-17V23H22V-17Z" fill-rule="evenodd" fill="#718694" stroke="#566e7e"/><path data-transformer-core="true" d="M-53-39H53V39H-53Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#94a4ae" stroke="#566e7e" stroke-width="2"/>';
+      const coils=[[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']].map(([x,nominal,side])=>({x,nominal,side,count:transformerTurns(nominal),w:winding(transformerTurns(nominal),44,21,true)}));
+      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90) scale(1 ${Math.sign(x)})">${copper(w.back,w)}</g>`).join('')+'<path d="M-50-36H56V42H-50Z M-16-17V23H22V-17Z" fill-rule="evenodd" fill="#718694" stroke="#566e7e"/><path data-transformer-core="true" d="M-53-39H53V39H-53Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#94a4ae" stroke="#566e7e" stroke-width="2"/>';
       for(let n=0;n<5;n++)core+=path(`M-48 ${-35+n*2}H48 M-48 ${25+n*2}H48`,'#c7d0d6',1);
-      for(const {x,nominal,side,count,w}of coils){const direction=Math.sign(x),terminal=direction*76,socketX=direction*57,entryX=x+21;
-        const leads=`M${terminal}-26H${socketX}C${socketX-direction*6}-26 ${entryX} ${w.start-4} ${entryX} ${w.start} M${x} ${w.end}C${x} ${w.end+5} ${socketX-direction*6} 26 ${socketX} 26H${terminal}`;
-        core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><g data-transformer-front="true" transform="translate(${x} 0) rotate(90)">${copper(w.front,w)}</g><g data-transformer-leads="true">${copper(leads,w)}</g></g>`;
+      for(const {x,nominal,side,count,w}of coils){const direction=Math.sign(x),terminal=direction*76,entryX=x+direction*21;
+        const leads=`M${terminal}-26H${entryX+direction*8}C${entryX+direction*2}-26 ${entryX} ${w.start-4} ${entryX} ${w.start} M${entryX} ${w.end}C${entryX} ${w.end+4} ${entryX+direction*2} 26 ${entryX+direction*8} 26H${terminal}`;
+        core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><g data-transformer-front="true" transform="translate(${x} 0) rotate(90) scale(1 ${direction})">${copper(w.front,w)}</g><g data-transformer-leads="true">${copper(leads,w)}</g></g>`;
       }
-      return core+socket(-57,-26)+socket(-57,26)+socket(57,-26)+socket(57,26)+text('•',-66,-30,13)+text('•',66,-30,13)+text(d.values?'原 '+p.primaryTurns+'匝':'原',-37,49,11)+text(d.values?'副 '+p.secondaryTurns+'匝':'副',37,49,11);
+      return core+text('•',-66,-30,13)+text('•',66,-30,13)+text(d.values?'原 '+p.primaryTurns+'匝':'原',-37,49,11)+text(d.values?'副 '+p.secondaryTurns+'匝':'副',37,49,11);
     }
     if(c.type==='led'){
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';

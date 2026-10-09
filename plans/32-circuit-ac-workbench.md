@@ -355,3 +355,10 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 原線圈沒滑塊是 inspector只接受主要參數；加入元件定義的 slider metadata，兩個匝數滑塊皆按模型全範圍1–2000顯示。原副預設 UI步距為1，解決原先偏好上限100及min=1／step=10導致終點不可達；快捷每10匝保持。活動範圍可覆蓋 UI步距，所有操作仍經profile驗證。
 - Node核對 RL通斷電連續／衰減、繞組前後層次、兩側控制及活動步距覆蓋；AC／transient解析、能量、codec與既有圖形檢查通過。AC source／ZIP focused **110 observations**，含原副兩滑塊真滑鼠拖至1及2000、真點擊 RL通斷不暫停；DC source／ZIP快捷回歸 **70 observations**及syntax／manifest check通過。變壓器、雙滑塊及RL放電截圖已檢視。
 - 四包統一重建核對來源；證據：`output/ac-baseline/ac-transformer-rl-controls.log`、`dc-transformer-controls-followup.log`。原全站及外部 gate保持。
+
+
+### 變壓器外側出線及移除裝飾圓孔（2026-10-09）
+
+- 移除貼近鐵芯的四個裝飾 socket 圓形，保留共用 renderer 的四個實際接線端子及原座標。
+- 兩側繞組的可見半圈對稱朝外；變壓器末圈改為完整繞過鐵芯，後半圈回到外側再接出。四條引線只在鐵芯外側作短而平滑的轉接，切線接續繞組及水平接線端，不再横跨鐵芯正面／形成內部迴彎。電感仍使用原有半圈接出幾何，物理及符號不改。
+- Node驗證無装飾circle、外側方向及引線起點；browser使用實際出線 path bounding box核對不進入鐵芯正面，source／ZIP focused **112 observations** 通過，原副滑塊端點及RL切換回歸保持。syntax／manifest check通過，最後變壓器畫面已檢視。四包統一重建核對來源。證據：`output/ac-baseline/ac-transformer-terminal-layout.log`。原全站及外部 gate保持。
