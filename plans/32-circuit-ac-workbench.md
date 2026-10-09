@@ -318,3 +318,9 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 電荷改用等面積徑向取樣，再投影至圓板，均勻分佈且允許高密度重疊；原 q=CU、等量異號、反向、未知、顯示權限及資源上限保持。板距仍隨 C 變化。右水平引線接前圓板中央；左水平引線精確接後緣在 y=0 的交點，沒有懸空。
 - Node 增加圓板／薄邊、端點交線及電荷筆劃在圓面內的驗證；AC source／ZIP focused **60 observations**、Node 及 syntax／manifest check 通過。圓板正負電荷、板距及充電截圖已檢視，四包統一重建並核對來源。
 - 證據：`output/ac-baseline/ac-circular-capacitor.log` 及 source／package 的 reactive-art、capacitor-larger、capacitor-charging 截圖。符號模式、端子、文件／動態狀態、原全站及外部 gate 保持。
+
+
+### 電感左引線由下方繞入（2026-10-09）
+
+- 依使用者澄清，左引線先由端子中線平滑向下，再接筒身背面的半圈，由下方繞回第一圈上端；背面半圈隨筒身遮擋。右側末半圈及引線保持，不再左右同向從上方接出。圈數、置中、風格、端子及數值模型保持。
+- Node 驗證下方接點／背面半圈的連續路徑及繪圖層次，source／ZIP 驗證實際 SVG 引線向下的幾何；focused **62 observations**、AC Node 及 syntax／manifest check 通過。少圈／多圈畫面已檢視，四包統一重建核對。證據：`output/ac-baseline/ac-inductor-lower-entry.log`。原全站及外部 gate 保持。
