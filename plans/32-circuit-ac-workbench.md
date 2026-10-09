@@ -288,3 +288,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 板側厚度從4降至1.5，outline略收細。板距／電荷／端子ID及±60座標、數值模型均保持。
 - 新斷言覆蓋水平無轉折、板面中心、前景繪圖及薄板；AC profile／codec／圖形 Node、source／ZIP focused **50 observations**、`npm run check` 通過。正負電荷、動態板距及新引線截圖已檢視；四包已統一重建逐檔核對。
 - 證據：`output/ac-baseline/ac-capacitor-straight-lead.log`。只改 AC 繪圖，既有電學及外部 gate 維持。
+
+
+### 電感圓筒及連續引線（2026-10-09）
+
+- 依使用者提供的少圈／多圈參考圖，實物電感改為白色圓筒線架；繞線前、後半圈連續接合，後半圈被筒身遮擋。左引線水平進入後向上接繞組，右引線從繞組下端接至端子中線。少圈集中中央，多圈鋪滿筒身，線寬隨密度調整。
+- 沿用既有 L 對可見圈數關係、共用 renderer 及場面板，不改電感／線阻／初始電流、符號模式、端子 ID 或 ±60 接孔座標。器材命中 bounds 隨圓筒外框調整。
+- Node 覆蓋白色筒身、連續引線接點及稀疏／密集跨度；source／ZIP focused **56 observations** 通過，少圈／多圈截圖已檢視。四包由統一 builder 重建逐檔核對來源。
+- 證據：`output/ac-baseline/ac-inductor-former.log`、`output/playwright/circuit-ac/source-inductor-few-turns.png`、`source-inductor-many-turns.png`，以及對應 package 截圖。原全站已知阻塞及外部 gate 維持。
