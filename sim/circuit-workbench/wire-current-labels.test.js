@@ -52,3 +52,7 @@ coloured.display.reference='c1:a';assert.deepEqual(V.potentialRange(S.solve(colo
 coloured.components[0].params.voltage=0;assert.deepEqual(V.potentialRange(S.solve(coloured)),{low:0,high:0,max:1,known:true});
 assert.deepEqual(V.potentialRange({potentials:{a:null,b:null}}),{low:0,high:0,max:1,known:false});assert.deepEqual(V.potentialRange({potentials:{a:-3,b:6,c:null}}),{low:-3,high:6,max:6,known:true});
 console.log('Diagram labels: signed current, potential directions/colour range, four rotations, both views, zero/unknown, zoom/clearance/stability, independent colour and trusted profile defaults passed.');
+
+// DC uses the same compact arrow/text spacing as AC, while keeping its adaptive units and TeX.
+{const result=S.solve(d),labels=V.labels(d,result,1,{},null,{wireCurrents:new Set(['w1'])}),row=labels.find(p=>p.rows[0].kind==='wireCurrent'),q=require('./circuit-math').measure(row.rows[0].tex,row.rows[0].size);assert(Math.abs(row.box.right-row.box.left-(q.width+28+4))<1e-9);assert(row.rows[0].text.includes('mA'));assert(Math.abs(row.rows[0].x-q.width/2-row.box.left-30)<1e-9);}
+console.log('DC/AC shared compact current-card margins passed; DC automatic unit formatting retained');

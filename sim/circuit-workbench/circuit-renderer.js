@@ -201,7 +201,7 @@
       if(!anchor||viewport&&longest*scale<12)continue;
       const current=result.wires[w.id]?.current,size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
       const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?Q.quantity(value*1000,'mA').text:'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
-      items.push({id:w.id,anchor,...(transient?{fixedWidth:L.measure('8.88e+888 mA',size)}:{}),paddingLeft:transient?28:Number.isFinite(current)&&current!==0?32:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
+      items.push({id:w.id,anchor,...(transient?{fixedWidth:L.measure('8.88e+888 mA',size)}:{}),paddingX:4,paddingLeft:transient||Number.isFinite(current)&&current!==0?28:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
     const placed=L.layout(doc,items,scale,routes,viewport,details,options?.previous);
     if(viewport&&options?.potentialDirections?.size&&placed.some(p=>p.crowded)){options.crowded=true;return [];}

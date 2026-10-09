@@ -266,3 +266,10 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 新 Node 驗證電荷平衡、增減、反向顏色、C 的影響、未知及 field 關閉，以及 L/N 兩視圖動態繞組；browser 验證即時 RC charging 和權限，不以私有 SVG 數量做活動評分。
 - AC source／ZIP focused **32 observations** 及完整 **894 observations** 通過；DC source／ZIP focused **70 observations**、AC physics／profiles／codec Node、`npm run check` 通過。正負極板、電感與變壓器不同圈數、實際 RC charging 及 field 的 screenshot 已檢視。
 - 日誌：`output/ac-baseline/ac-reactive-art-focus.log`、`ac-reactive-art-browser.log`、`dc-reactive-art-followup.log`。四包已按最新來源重建逐檔核對；外部 gate 狀態不變。
+
+### DC／AC 共用緊湊電流標籤（2026-10-09）
+
+- 使用者要求共通介面改進也套用 DC。renderer 的 current card 共用 28px 箭嘴欄及 4px 水平內邊距，由相同 layout 路徑計算；不按 analysis 選兩套留白。
+- DC 自動單位／TeX 與適應文字寬度保留；AC 的固定欄及固定 mA 是時間變化所需的呈現策略。共同留白修改令 DC 非零 current card 比舊版收窄 6px，AC 亦按同一規則進一步收窄。
+- DC source／ZIP 的 **26 viewport/view cases**（1280／390／320px、兩視圖、可信標籤操作）、AC source／ZIP focused **60 observations**、DC label／AC profile Node 及 `npm run check` 通過。DC 的 arrow/text 間距及卡寬有專項斷言，自動單位、零與未知語義保持。
+- 日誌：`output/ac-baseline/shared-current-dc-browser.log`、`shared-current-ac-browser.log`。統一 builder 已更新四包並核對來源；外部 gate 狀態不變。
