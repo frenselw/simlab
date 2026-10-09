@@ -324,7 +324,8 @@
         else if(c.type==='rheostat'){
           const track=resistorTrack.filter(p=>p[0]<x),segment=resistorTrack.findIndex(p=>p[0]>=x),a=resistorTrack[Math.max(0,segment-1)],b=resistorTrack[segment],y=a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);
           points=schematic?[[-60,0],[60,0]]:[[-60,0],...track,[x,y],[x,38],[47,38],[47,0],[60,0]];
-        }else if(c.type==='switch')points=[[-60,0],[60,0]];
+        }else if(c.type==='led')points=schematic?[[-60,0],[60,0]]:[[-60,0],[-29,0],[-29,24],[-9,24],[-9,-6],[9,-6],[9,24],[29,24],[29,0],[60,0]];
+        else if(c.type==='switch')points=[[-60,0],[60,0]];
         else if(c.type==='galvanometer')points=schematic?[[-60,0],[-28,0],[-16,20],[16,20],[28,0],[60,0]]:[[-60,0],[-51,0],[-47,45],[47,45],[51,0],[60,0]];
         if(points)add('main','a','b',i,points);
       }

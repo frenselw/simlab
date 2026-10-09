@@ -337,3 +337,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 使用者以近／遠參考圖澄清：接近時兩板的投影應部分重疊。移除為防止重疊而額外加入的兩個14單位半板寬，改以板中心距離控制位置；常用 C 下中心距離約13.3–42.3，接近時重疊、分開時有可見空隙。豎直圓板、薄邊、電荷及水平引線保持。
 - 幾何比例不改 C、q、儲能或權威文件；左引線交點及右板面中心同步更新。Node及browser新增近板重疊／遠板分離的斷言，使用實際圓板外框驗證，並檢視2000 μF／100 μF截圖。
 - AC source／ZIP focused **68 observations**、Node及syntax／manifest check通過，四包統一重建核對來源。證據：`output/ac-baseline/ac-overlapping-plates.log`，source／package capacitor-larger及capacitor-separated截圖。原全站及外部 gate保持。
+
+
+### LED 電流動畫、示例設定及電感放電（2026-10-09）
+
+- LED 原先有求解電流及發光，但缺少 renderer 的元件導電動畫路徑。接上共用 componentFlowPaths：實物沿引脚與內部導體，符號沿支路；旋轉、正負方向、電子／常規電流及關閉共用既有邏輯，截止／未知不畫假電流。
+- DC／AC 教師以選單切换示例時保留 display、policy及新導線預設；舊電勢參考端點清除，導線總數至少容納預設已有線。正常 loadDocument／文件恢復仍使用文件自己的設定；profile驗證及學生權限保持。
+- 原 inductive 示例在非零電流時斷開單刀開關，沒有放電路徑，實測回報 inconsistent 並暫停；這是理想模型的約束診斷。改為可見供電／放電 SPDT：供電側保留原串聯 source／L／lamp 的參數與數值，放電側經原負載燈成閉路。切換保留電感電流、儲能依線阻及燈衰減；沒有改 solver、暗加電阻或清空能量。
+- Node驗證 LED兩視圖及反向並聯半週導通、端點及 off，電感切換電流連續、耗散、保存恢復續算及再供電；DC flow／component-flow／platform、AC／transient通過。AC source／ZIP focused **94 observations**，含真滑鼠點擊切換後不暫停；DC source／ZIP五 viewport的設定檢查 **40 observations** 通過，另有syntax／manifest check。LED及新供電／放電示例截圖已檢視，四包統一重建核對。
+- 證據：`output/ac-baseline/ac-led-settings-inductive.log`、`shared-preset-settings-dc.log`。原全站已知阻塞及外部 gate保持，舊匯入電路不自動重接。
