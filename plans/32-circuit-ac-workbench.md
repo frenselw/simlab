@@ -212,3 +212,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 波形開關放在交流量測面板；時間、波形及場／能量仍為 AC 額外工具。短畫面依可用高度分配畫布與 panel，不以隱藏共通操作或縮小觸控目標換取空間。
 - 完整 AC source／ZIP 回歸 **688 observations** 通過，新增共通 DOM 位置及可信旋轉／縮放／復原斷言。其後補上波形「返回電路」，避免 panel 收起時無法切回；最後六 viewport 的 source／ZIP focused 回歸 **348 observations** 通過，包含 panel 隱藏後返回及動態狀態不變。
 - `npm run check`、transient 解析測試及 AC profile／codec／合法恢復測試通過；四包已由統一 build 重建並逐檔核對。這次未改 DC 的 editor／template／CSS 或物理核心。證據：`output/ac-baseline/ac-toolbar-followup.log`、`ac-toolbar-final.log`；既有全站及外部 gate 狀態保持。
+
+### 交流元件實物外觀修正（2026-10-09）
+
+- 按使用者回饋，十種 AC 元件分開實物及符號繪圖：電源器材／正弦源、磁極轉子／發電機符號、無極性電容／平行板、繞線線圈／電感、雙擲器材／接點、鐵芯雙繞組／變壓器、LED 封裝／二極管，以及三種交流錶盤／儀表圓圈。
+- 不移動元件端子，不改 transient 方程或時間狀態。AC 器材本體按已有 bounds 計算可點選範圍，轉向後仍可選取；DC 元件的命中規則保留。
+- 燈光沿用已有平均功率顯示，新增實際求解驗證：3 V／6 V 對應不同亮度、功率約四倍；50 Hz 跨相位亮度穩定、1 Hz 過零／峰值亮度不同、零供電不亮。
+- 完整 AC source／ZIP **796 observations** 通過，包含十種元件的兩視圖、本體可信點選、時間不自行演進及各預設的既有操作／恢復／多 instance／gesture regression；實物與符號 contact sheets 已逐一檢視。
+- **25 circuit Node 檔**、`npm run check` 及 DC source／ZIP focused 快捷操作 **70 observations** 通過；四包已統一重建與來源逐檔核對。證據：`output/ac-baseline/ac-apparatus-browser.log`、`dc-apparatus-followup.log`，圖在 `output/playwright/circuit-ac/*-apparatus-{real,schematic}.png`。未改物理模型或文檔版本，全站／Moodle／實機 gate 狀態保持原記錄。

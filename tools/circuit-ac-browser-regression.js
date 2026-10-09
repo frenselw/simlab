@@ -40,6 +40,14 @@ async function main(){
    }
    if(process.argv.includes('--controls-smoke')){await H.closeServer(activeServer);activeServer=null;console.log(source+' AC common controls and layout passed');continue;}
    await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await load('/circuit-ac-workbench/index.html');
+   // Inspect and operate every redesigned apparatus in both views using the real hit surfaces.
+   await inside(`(()=>{const d=CircuitModel.empty('transient');Object.keys(CircuitAC.types).forEach((type,i)=>CircuitModel.add(d,type,140+(i%5)*220,150+Math.floor(i/5)*250));CircuitACWorkbench.loadDocument(d);})()`);await click('[data-circuit-id=panelToggle]');
+   const apparatus=await call('getDocument().components'),galleryState=await call('captureSession()');
+   for(const view of ['real','schematic']){await click('[data-circuit-id='+ (view==='real'?'realView':'schematicView')+']');const shapes=await inside(`Array.from(document.querySelectorAll('[data-circuit-id=scene] [data-ac-view="${view}"]')).map(e=>e.dataset.acApparatus)`);assert.equal(shapes.length,apparatus.length);checks++;
+    for(const c of apparatus){const p=await point('[data-hit="body:'+c.id+'"]',true);await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',buttons:0,clickCount:1});assert.equal(await call('getInteraction().selection.id'),c.id);assert.equal(await call('getAnalysis().time'),galleryState.physics.time);checks+=2;}
+    await screenshot(source+'-apparatus-'+view);
+   }
+   await click('[data-circuit-id=panelToggle]');
    for(const preset of Object.keys(require('../sim/circuit-workbench/circuit-ac-presets').names)){await inside(`CircuitACWorkbench.loadDocument(CircuitACPresets.create(${JSON.stringify(preset)}))`);await call('advanceTime(.01)');assert.equal(await call('getAnalysis().diagnostics.filter(d=>!["capacitor-rating"].includes(d.code)).length'),0,preset);assert.equal(await inside('document.querySelector("[data-circuit-id=preset]").value'),preset);checks+=2;}
    for(const preset of ['generator','transformer','coupled','mutual','lc','damped']){await inside(`CircuitACWorkbench.loadDocument(CircuitACPresets.create(${JSON.stringify(preset)}))`);await call('advanceTime(.1)');if(['lc','damped'].includes(preset)){await call('execute({type:"toggleSwitch",id:"c3"})');await call('advanceTime(.04)');}await screenshot(source+'-'+preset);}
    // Trusted palette placement: preview is not a document edit, release commits once.

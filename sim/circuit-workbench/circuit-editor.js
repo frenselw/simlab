@@ -137,7 +137,8 @@
   }
   function renderHits(d){const needed=new Set(),put=(key,...args)=>{needed.add(key);return target(key,...args);};
     d.components.forEach(c=>{const dual=R.dualMeter(c),size=d.display.view==='real'?R.meterBodyScale(c):1,w=(dual?(d.display.view==='real'?144:70):c.type==='relay'?150:c.type==='galvanometer'?102:c.type==='rheostat'?100:c.type==='wattmeter'?80:70)*size,h=(dual?(d.display.view==='real'?130:70):c.type==='relay'?108:c.type==="lamp"?106:c.type==='galvanometer'?97:c.type==='rheostat'?64:c.type==="wattmeter"?78:46)*size,angle=c.angle*Math.PI/180,center=dual&&d.display.view==='real'?{x:c.x+22*size*Math.sin(angle),y:c.y-22*size*Math.cos(angle)}:c.type==='relay'?{x:c.x-14*Math.sin(angle),y:c.y+14*Math.cos(angle)}:c;
-      put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(center),(c.angle%180?h:w)*camera.scale,(c.angle%180?w:h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
+      const acBounds=R.get(c.type).analysis==='transient'?R.bodyBounds(c):null;
+      put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:c.angle%180?h:w)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:c.angle%180?w:h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
       if(dual?camera.scale>=.7:camera.scale>=.55||probeMode||drag?.kind==="wireend")R.ports(c).forEach(p=>put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,"pan-y"));
     });
