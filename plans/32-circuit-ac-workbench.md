@@ -310,3 +310,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 修正繞組以 count 而非 count−1 個圈距計算起點而偏左的問題；按圓筒可見面的透視作小幅位置補償，使密集繞組兩側露出的筒身更均衡。圈數、疏密尺度、平滑接出曲線、接孔及電學保持。
 - Node 與 source／ZIP 增加繞組置中斷言；AC focused **58 observations**、Node 及 syntax／manifest check 通過，密集繞組截圖已檢視。四包統一重建及核對來源。證據：`output/ac-baseline/ac-centred-winding.log`，原全站及外部 gate 保持。
+
+
+### 圓板電容及明顯透視（2026-10-09）
+
+- 使用者澄清需要更大的透視斜度，並指定採 PASCO 類圓板器材外觀；取代原矩形極板為兩塊同角度斜投影的圓板，加薄金屬後緣，使用工作台既有金屬及正紅／負藍配色。圓板從相同 circle 幾何投影，不改電學面積或 C 參數語義。
+- 電荷改用等面積徑向取樣，再投影至圓板，均勻分佈且允許高密度重疊；原 q=CU、等量異號、反向、未知、顯示權限及資源上限保持。板距仍隨 C 變化。右水平引線接前圓板中央；左水平引線精確接後緣在 y=0 的交點，沒有懸空。
+- Node 增加圓板／薄邊、端點交線及電荷筆劃在圓面內的驗證；AC source／ZIP focused **60 observations**、Node 及 syntax／manifest check 通過。圓板正負電荷、板距及充電截圖已檢視，四包統一重建並核對來源。
+- 證據：`output/ac-baseline/ac-circular-capacitor.log` 及 source／package 的 reactive-art、capacitor-larger、capacitor-charging 截圖。符號模式、端子、文件／動態狀態、原全站及外部 gate 保持。
