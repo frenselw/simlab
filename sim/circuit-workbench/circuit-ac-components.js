@@ -1,8 +1,8 @@
 (function(root,factory){
   const node=typeof module==='object'&&module.exports;
-  const api=factory(node?require('./component-registry'):root.CircuitRegistry,node?require('./circuit-model'):root.CircuitModel);
+  const api=factory(node?require('./component-registry'):root.CircuitRegistry,node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-meter-motion'):root.CircuitMeterMotion);
   if(node)module.exports=api;else root.CircuitAC=api;
-})(globalThis,function(R,M){
+})(globalThis,function(R,M,N){
   'use strict';
   const TAU=2*Math.PI,ports=[{key:'a',x:-60,y:0,label:'a'},{key:'b',x:60,y:0,label:'b'}];
   const number=(label,unit,value,min,max,step,factor=1)=>({label,unit,value,min,max,step,factor});
@@ -17,9 +17,9 @@
     spdt:{bounds:{left:-45,right:45,top:-37,bottom:37},name:'單刀雙擲開關',icon:'S',ports:[{key:'a',x:-60,y:0,label:'共用'},{key:'b',x:60,y:-24,label:'充電側'},{key:'c',x:60,y:24,label:'放電側'}],params:{closed:choices('接通側','b',['b','c'])}},
     transformer:{name:'變壓器',icon:'T',ports:[{key:'a',x:-76,y:-26,label:'原線圈同名端'},{key:'b',x:-76,y:26,label:'原線圈'},{key:'c',x:76,y:-26,label:'副線圈同名端'},{key:'d',x:76,y:26,label:'副線圈'}],bounds:{left:-80,right:80,top:-48,bottom:58},primaryParameter:'secondaryTurns',params:{model:choices('模型','ideal',['ideal','coupled']),primaryTurns:number('原線圈匝數','',200,1,2000,10),secondaryTurns:number('副線圈匝數','',100,1,2000,10),inductance:number('原線圈電感','H',2,.001,100,.1),coupling:number('耦合係數','',.999,0,.9999,.001),primaryResistance:number('原線圈電阻','Ω',1,0,1e6,.1),secondaryResistance:number('副線圈電阻','Ω',.25,0,1e6,.1),initialPrimaryCurrent:signed('原線圈初始電流','A'),initialSecondaryCurrent:signed('副線圈初始電流','A')}},
     led:{bounds:{left:-31,right:31,top:-47,bottom:41},name:'發光二極管',icon:'LED',ports,params:{forwardVoltage:number('正向壓降','V',1.8,.1,10,.1),resistance:number('導通電阻','Ω',10,.01,1e6,1),colour:choices('顏色','red',['red','green'])}},
-    'ac-ammeter':{bounds:{left:-40,right:40,top:-43,bottom:57},name:'交流電流表',icon:'A',meter:true,ports,params:{range:number('量程','A',3,.001,1e6,.5),resistance:number('內阻','Ω',0,0,1e6,.1)}},
-    'ac-voltmeter':{bounds:{left:-40,right:40,top:-43,bottom:57},name:'交流電壓表',icon:'V',meter:true,ports,params:{range:number('量程','V',15,.001,1e6,1),resistance:number('輸入電阻（0 為理想）','Ω',0,0,1e12,1000)}},
-    'ac-wattmeter':{bounds:{left:-44,right:44,top:-43,bottom:57},name:'交流功率表',icon:'W',meter:true,ports:[{key:'a',x:-60,y:-20,label:'I+'},{key:'b',x:60,y:-20,label:'I−'},{key:'c',x:-60,y:40,label:'V+'},{key:'d',x:60,y:40,label:'V−'}],params:{range:number('量程','W',20,.001,1e6,1),resistance:number('電流線圈內阻','Ω',0,0,1e6,.1),inputResistance:number('電壓線圈內阻（0 為理想）','Ω',0,0,1e12,1000)}}
+    'ac-ammeter':{bounds:{left:-58,right:58,top:-60,bottom:80},name:'交流電流表',icon:'A',meter:true,ports,params:{range:number('量程','A',3,.001,1e6,.5),resistance:number('內阻','Ω',0,0,1e6,.1)}},
+    'ac-voltmeter':{bounds:{left:-58,right:58,top:-60,bottom:80},name:'交流電壓表',icon:'V',meter:true,ports,params:{range:number('量程','V',15,.001,1e6,1),resistance:number('輸入電阻（0 為理想）','Ω',0,0,1e12,1000)}},
+    'ac-wattmeter':{bounds:{left:-58,right:58,top:-60,bottom:80},name:'交流功率表',icon:'W',meter:true,ports:[{key:'a',x:-60,y:-20,label:'I+'},{key:'b',x:60,y:-20,label:'I−'},{key:'c',x:-60,y:40,label:'V+'},{key:'d',x:60,y:40,label:'V−'}],params:{range:number('量程','W',20,.001,1e6,1),resistance:number('電流線圈內阻','Ω',0,0,1e6,.1),inputResistance:number('電壓線圈內阻（0 為理想）','Ω',0,0,1e12,1000)}}
   };
   for(const type of ['ac-source','generator'])Object.assign(types[type].params.frequency,{controlMax:2,controlSpecial:50});
   for(const key of ['primaryTurns','secondaryTurns'])Object.assign(types.transformer.params[key],{slider:true,controlStep:1});
@@ -58,11 +58,12 @@
     return `<g data-capacitor-plate="${left?'a':'b'}" data-charge-count="${count}" data-charge-sign="${sign}" data-charge-colour="${colour}" data-charge-known="${known}" role="img" aria-label="${!known?'電荷未能確定':!enabled?'電荷示意已關閉':sign>0?'正圓極板，電荷量示意':sign<0?'負圓極板，電荷量示意':'近零電荷圓極板'}"><circle data-capacitor-disc="back" r="28" transform="matrix(.48 0 0 1 ${x-1.5} 0)" fill="#afbec7" stroke="${colour}" stroke-width="1.2"/><circle data-capacitor-disc="front" r="28" transform="matrix(.48 0 0 1 ${x} 0)" fill="${fill}" stroke="${colour}" stroke-width="1.2"/>${marks?path(marks,colour,.9):''}</g>`;
   }
   function meterFace(c,r,d){
-    const unit=R.get(c.type).icon,value=Number.isFinite(r?.reading)?Number(r.reading.toPrecision(4)):'—',signed=c.type==='ac-wattmeter',fraction=Number.isFinite(r?.reading)?Math.max(0,Math.min(1,signed?(r.reading/c.params.range+1)/2:r.reading/c.params.range)):null,angle=fraction===null?0:(-150+120*fraction)*Math.PI/180;
-    let face=path('M-23-1A26 26 0 0 1 23-1','#94a3b8',1)+text(unit+'~',0,-25,14)+text(signed?-c.params.range:0,-24,26,10)+text(c.params.range,24,26,10);
-    for(let n=0;n<=6;n++){const a=(-150+120*n/6)*Math.PI/180;face+=path(`M${Math.cos(a)*23} ${12+Math.sin(a)*23}L${Math.cos(a)*27} ${12+Math.sin(a)*27}`,'#64748b',1);}
-    if(d.values&&fraction!==null)face+=path(`M0 12L${Math.cos(angle)*24} ${12+Math.sin(angle)*24}`,'#dc2626',2);
-    return face+'<circle cy="12" r="2" fill="#334155"/>'+(d.values?text(value,0,46,12):'');
+    const signed=c.type==='ac-wattmeter',unit=R.get(c.type).icon,fraction=N.target(c,r)??(!r?0:null),minimum=signed?-1:0,a=N.point(c,minimum,43),b=N.point(c,1,43),value=Number.isFinite(r?.reading)?Number(r.reading.toPrecision(4)):'—';
+    let face=path(`M${a.x} ${a.y}A43 43 0 0 1 ${b.x} ${b.y}`,'#94a3b8',.8)+text(unit+'~',0,-37,17);
+    for(let n=signed?-30:0;n<=30;n++){const f=n/30,major=n%(signed?15:10)===0,p=N.point(c,f,43),q=N.point(c,f,major?36:40);face+=`<path data-meter-tick="${n}" data-fraction="${f}" d="M${p.x} ${p.y}L${q.x} ${q.y}" stroke="${n<0?'#9b6258':'#607487'}" stroke-width="${major?1.2:.7}"/>`;if(major){const label=N.point(c,f,29),value=Number((f*c.params.range).toPrecision(3)),size=Math.min(9,32/(String(value).length+1));face+=text(value,label.x,label.y+2.5,size);}}
+    if((!c.id||d.values)&&fraction!==null){const p=N.point(c,fraction);face+=`<path data-meter-needle="${c.id||'preview'}" data-reading="${Number.isFinite(r?.reading)?r.reading:''}" data-range="${c.params.range}" data-fraction="${fraction}" data-target-fraction="${fraction}" data-angle="${p.angle}" d="M0 ${p.cy}L${p.x} ${p.y}" fill="none" stroke="#c33b35" stroke-width="1.8" stroke-linecap="round"/>`;}
+    const status=r?.meterStatus==='unconnected'?'未接妥':r?.meterStatus==='collecting'?'收集量測中':r?.meterStatus==='unknown'?'讀值未能確定':r?.meterStatus==='overrange'?'超量程':'';
+    return `<g data-meter-dial="${c.id||'preview'}" data-divisions="30" data-negative-divisions="${signed?30:0}">${face}<circle cy="18" r="3.5" fill="#475569"/></g>`+(d.values?text(status||value,0,66,status?10:14):'');
   }
   function chargeMarks(r,d){return d.fields!==false&&d.values&&Math.abs(r?.voltage)>1e-8?text(r.voltage>0?'+':'−',-23,-31,15)+text(r.voltage>0?'−':'+',23,-31,15):'';}
   function symbol(c,r,d){
@@ -103,11 +104,11 @@
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';
       return path('M-60 0H-29V24H-9V-6 M9-6V24H29V0H60','#86969f',3)+(on?`<ellipse cy="-17" rx="28" ry="30" fill="${colour}" opacity=".2"/>`:'')+`<path d="M-16-4V-21a16 16 0 0 1 32 0V-4Z" fill="${on?colour:'#b5c1c9'}" stroke="${colour}" stroke-width="2"/><rect x="-20" y="-7" width="40" height="5" rx="2" fill="${colour}" stroke="#667e89"/><path d="M-8-28Q-10-25-10-18" fill="none" stroke="#fff" stroke-width="3" opacity=".8"/>`+text('A',-34,38,10)+text('K',34,38,10);
     }
-    if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-38 M38-20H60 M-60 40H-38 M38 40H60'):path('M-60 0H-38 M38 0H60'))+caseBox(-38,-41,76,96,'#cbdbe8')+'<rect x="-32" y="-35" width="64" height="67" rx="4" fill="#fffaf0" stroke="#8da1ae"/>'+`<g transform="rotate(${-(c.angle||0)})">${meterFace(c,r,d)}</g>`+(c.type==='ac-wattmeter'?socket(-38,-20)+socket(38,-20)+socket(-38,40)+socket(38,40):socket(-38,0)+socket(38,0));
+    if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-53 M53-20H60 M-60 40H-53 M53 40H60'):path('M-60 0H-53 M53 0H60'))+caseBox(-53,-57,106,134,'#cbdbe8')+'<rect x="-47" y="-51" width="94" height="94" rx="6" fill="#fffaf0" stroke="#8da1ae"/>'+`<g transform="rotate(${-(c.angle||0)})">${meterFace(c,r,d)}</g>`+(c.type==='ac-wattmeter'?socket(-53,-20)+socket(53,-20)+socket(-53,40)+socket(53,40):socket(-53,0)+socket(53,0));
     return '';
   }
   function render(c,r,d){return `<g data-ac-apparatus="${c.type}" data-ac-view="${d.view==='schematic'?'schematic':'real'}">${d.view==='schematic'?symbol(c,r,d):apparatus(c,r,d)}</g>`;}
   for(const [type,definition]of Object.entries(types))if(!Object.hasOwn(R.definitions,type))R.register(type,{...definition,analysis:'transient',render,dc(){throw new Error('此元件需要時間求解器');}});
   const palette=[{type:'ac-source'},{type:'generator'},{type:'battery'},{type:'resistor'},{type:'rheostat'},{type:'lamp',params:{model:'ideal'}},{type:'switch'},{type:'spdt'},{type:'capacitor'},{type:'inductor'},{type:'transformer'},{type:'led',key:'red-led',params:{colour:'red'},label:'紅色 LED'},{type:'led',key:'green-led',params:{colour:'green'},label:'綠色 LED'},{type:'ac-ammeter'},{type:'ac-voltmeter'},{type:'ac-wattmeter'},{type:'galvanometer'}];
-  return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap};
+  return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap,meterFace};
 });

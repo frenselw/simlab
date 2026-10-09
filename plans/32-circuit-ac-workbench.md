@@ -362,3 +362,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 移除貼近鐵芯的四個裝飾 socket 圓形，保留共用 renderer 的四個實際接線端子及原座標。
 - 兩側繞組的可見半圈對稱朝外；變壓器末圈改為完整繞過鐵芯，後半圈回到外側再接出。四條引線只在鐵芯外側作短而平滑的轉接，切線接續繞組及水平接線端，不再横跨鐵芯正面／形成內部迴彎。電感仍使用原有半圈接出幾何，物理及符號不改。
 - Node驗證無装飾circle、外側方向及引線起點；browser使用實際出線 path bounding box核對不進入鐵芯正面，source／ZIP focused **112 observations** 通過，原副滑塊端點及RL切換回歸保持。syntax／manifest check通過，最後變壓器畫面已檢視。四包統一重建核對來源。證據：`output/ac-baseline/ac-transformer-terminal-layout.log`。原全站及外部 gate保持。
+
+
+### AC 電表依 DC 技術細節整理（2026-10-09）
+
+- 參照 DC 計劃第938–941及1220節的機械針／未知值合約；AC A/V/W及AC工作台內的G/W重用同一解析欠阻尼模型，保留位置與速度、超越回擺、衰減及機械限位。原DC A/V算法／參數保持；每種表使用自己的零點、角度、支點及行程。指針不是數值答案，不進入權威快照。
+- 原AC表沒接上共用動畫，而且未接線狀態混為collecting。編譯時快取接線狀態，未接妥始終reading=null，機械針回零；資料未足明示collecting，未知／非法接孔不画假讀值。修正AC內G的單位由器材代號G誤作單位，回到SI的A、介面μA；雙量程缺共用／雙正孔、低量程格值亦與DC對齊。
+- 三種AC錶面放大及重新校準刻度，A/V30格、W正負各30格；數字依長度調整以避免擠壓。端子座標與電學保持，palette、命中bounds及手機預覽viewBox同步更新。放大錶盤與手機持續預覽重用同一針位，暫停／只讀凍結，減少動態直接定位。恢復新session清除舊机械速度。變壓器設計不改。
+- Node慣性測試 **24 cases**，含原DC16及AC/G8；meter/math **96 fixtures**、AC物理／codec／指針未知值／單位及transient解析驗證通過。source／ZIP AC focused **232 observations**，以真實RAF核對四種電表超越、回零、暫停、實際開啟的放大錶盤同步、手機觸控預覽、只讀、減少動態及320/390×500短畫面；canvas/dialog同步誤差0，實際SVG角誤差小於0.000002°（沿用DC 0.0001°幾何容差）。
+- 原DC source／ZIP指針回歸 **24 observations**及syntax／manifest check通過；已檢視未接針、大錶盤、手機及短畫面截圖。四包統一重建核對。證據：`output/ac-baseline/ac-meter-inertia.log`、`dc-meter-inertia-followup.log`。沒有把物理／量測誤差容差改鬆，原全站已知阻塞及外部 gate維持。

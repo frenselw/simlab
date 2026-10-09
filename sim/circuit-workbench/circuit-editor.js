@@ -67,6 +67,7 @@
   function selectedComponent(){return history.get().components.find(c=>c.id===selection?.id);}
   function emitChange(){for(const fn of listeners)try{fn(M.clone(history.get()));}catch(e){console.error("CircuitWorkbench onChange callback failed",e);}}
   const readableMeter=(d,c)=>c&&d.display.values&&R.isMeter(c);
+  const inspectableMeter=c=>!!c&&(R.dualMeter(c)||c.type==='galvanometer'||c.type.startsWith('ac-')&&R.isMeter(c));
   function rollbackDrag(){meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
@@ -201,7 +202,7 @@
     $("focusSelected").hidden=!actions;
     const canCopy=!!c&&profile.palette.some(e=>e.type===c.type&&profile.canAdd(e,d,readOnly));$("copySelected").hidden=!c||!teacher&&!canCopy;$("copySelected").disabled=!canCopy;
     $("detachFrom").hidden=!w||!wireAllowed();$("detachTo").hidden=!w||!wireAllowed();$("detachFrom").disabled=!!w&&!M.attached(history.get(),w,"from");$("detachTo").disabled=!!w&&!M.attached(history.get(),w,"to");["rotateSelected","rotateCounterSelected"].forEach(id=>{$(id).hidden=!c||!teacher&&!allow(d,c,"rotate");$(id).disabled=!!c&&!allow(d,c,"rotate");});
-    $('inspectMeter').hidden=!c||!R.dualMeter(c)&&c.type!=='galvanometer';$('straightenSelected').hidden=!w||!wireAllowed();
+    $('inspectMeter').hidden=!inspectableMeter(c);$('straightenSelected').hidden=!w||!wireAllowed();
     $('flipMeterSelected').hidden=!c||!R.dualMeter(c)||!teacher&&!allow(d,c,'rotate');$('flipMeterSelected').disabled=!!c&&!allow(d,c,'rotate');
     const deleteLabel=w?"刪除導線":c?"刪除元件":"拆開接點";$("deleteSelected").title=deleteLabel;$("deleteSelected").setAttribute("aria-label",deleteLabel);$("deleteSelected").disabled=c?!allow(d,c,"remove"):!wireAllowed();$("deleteSelected").hidden=!teacher&&$("deleteSelected").disabled;
     $("selectionTip").textContent=w?(drag?.limited?"線已拉盡":!M.attached(d,d.wires.find(x=>x.id===w.id),"from")&&!M.attached(d,d.wires.find(x=>x.id===w.id),"to")?"拿端點調整直線 · 拿線身搬動":"拿端點接線 · 拿線身彎曲"):c?c.label:"共接點";
@@ -225,14 +226,14 @@
   }
   function updateMeterNeedles(){
     for(const root of [$("scene"),$("preview"),$("meterDetail")])for(const needle of root.querySelectorAll('[data-meter-needle]')){
-      const state=needleStates.get(needle.dataset.meterNeedle);if(!state||state.target===null)continue;
-      const fraction=state.fraction,p=V.dialPoint(fraction,69);
-      needle.setAttribute('d',`M0 24L${p.x} ${p.y}`);needle.dataset.fraction=fraction;needle.dataset.angle=V.dialAngle(fraction);needle.dataset.targetFraction=state.target;
+      const state=needleStates.get(needle.dataset.meterNeedle);if(!state)continue;if(state.target===null){needle.setAttribute('visibility','hidden');continue;}needle.removeAttribute('visibility');
+      const fraction=state.fraction,p=N.point({type:state.type},fraction);
+      needle.setAttribute('d',`M0 ${p.cy}L${p.x} ${p.y}`);needle.dataset.fraction=fraction;needle.dataset.angle=p.angle;needle.dataset.targetFraction=state.target;
       needle.dataset.moving=String(fraction!==state.target||state.velocity!==0);
     }
   }
   function renderPreview(p,meter=null){const host=$("preview"),preview=host.querySelector("svg");host.hidden=false;host.dataset.mode=meter?"meter":"connection";host.setAttribute("aria-hidden",String(!meter));$("closePreview").hidden=!meter;host.querySelector("span").textContent=meter?"刻度預覽":"接線預覽";if(drag&&!drag.previewSide)drag.previewSide=drag.x-surface.getBoundingClientRect().left>surface.clientWidth/2?"left":"right";const side=drag?.previewSide||meterPreview?.side;host.style.left=side==="left"?"46px":"auto";host.style.right=side==="left"?"auto":"46px";
-    if(meter){preview.setAttribute("role","img");preview.setAttribute("aria-label",meter.label+"指針刻度");const d=current(),r=analysis.components[meter.id];preview.setAttribute("viewBox",R.dualMeter(meter)?"-78 -85 156 119":meter.type==='galvanometer'?'-50 -45 100 90':"-70 -55 140 110");preview.innerHTML=R.dualMeter(meter)?V.dualDial(meter,r,d.display.values):meter.type==='galvanometer'?V.galvanometerDial(meter,r,d.display.values):V.body({...meter,angle:0},r,{...d.display,view:"real"});}
+    if(meter){preview.setAttribute("role","img");preview.setAttribute("aria-label",meter.label+"指針刻度");const d=current(),r=analysis.components[meter.id];preview.setAttribute("viewBox",meter.type.startsWith('ac-')?'-72 -64 144 150':R.dualMeter(meter)?"-78 -85 156 119":meter.type==='galvanometer'?'-50 -45 100 90':"-70 -55 140 110");preview.innerHTML=R.dualMeter(meter)?V.dualDial(meter,r,d.display.values):meter.type==='galvanometer'?V.galvanometerDial(meter,r,d.display.values):V.body({...meter,angle:0},r,{...d.display,view:"real"});}
     else{preview.setAttribute("viewBox",`${p.x-70} ${p.y-55} 140 110`);preview.innerHTML=($("scene").innerHTML+$("ghostLayer").innerHTML).replace(/(id="|url\(#)([\w-]*wire-potential-[\w-]+)/g,'$1preview-$2');}
   }
   const actionIcons={'反接電源極性':'flip','整理線形':'wire'};
@@ -323,17 +324,17 @@
   }
   function relayReadings(c,r){return readings([['線圈兩端電壓',r.voltage,'V'],['線圈電流',r.current===null?null:r.current*1000,'mA'],['觸點支路電流',r.contactCurrent,'A'],['線圈功率',r.power,'W']])+'<p class="note">'+(r.contact===null?'銜鐵移動中 · 兩邊斷開':r.contact==='e'?'已吸合 · 接下觸點':'未吸合 · 接上觸點')+'</p>';}
   function acReadings(c,r){
-    const q=analysis.measurements?.[c.id],items=[['瞬時電壓',r.voltage,'V'],['瞬時電流（a → b）',r.current,'A']];
-    if(q?.status==='ready')items.push(['電壓有效值',q.voltageRms,'V'],['電流有效值',q.currentRms,'A'],[c.type==='transformer'?'原線圈平均輸入功率':'平均有功功率',q.averagePower,'W']);
+    const q=analysis.measurements?.[c.id],g=c.type==='galvanometer',items=[['瞬時電壓',r.voltage,'V'],['瞬時電流（a → b）',g&&Number.isFinite(r.current)?r.current*1e6:r.current,g?'μA':'A']];
+    if(q?.status==='ready'&&r.meterStatus!=='unconnected'&&r.meterStatus!=='missing-common')items.push(['電壓有效值',q.voltageRms,'V'],['電流有效值',q.currentRms,'A'],[c.type==='transformer'?'原線圈平均輸入功率':'平均有功功率',q.averagePower,'W']);
     if(c.type==='capacitor')items.push(['極板電荷',r.charge,'C'],['電場儲能',r.energy,'J']);
     if(c.type==='inductor')items.push(['磁場儲能',r.energy,'J']);
     if(c.type==='transformer'){items.push(['副線圈瞬時電壓',r.secondaryVoltage,'V'],['副線圈瞬時電流',r.secondaryCurrent,'A']);if(r.energy!==undefined)items.push(['耦合磁場儲能',r.energy,'J']);}
     if(c.type==='generator')items.push(['線圈角度',r.phase*180/Math.PI,'°'],['單匝磁通量',r.flux,'Wb'],['磁通鏈',r.fluxLinkage,'Wb'],['感應電動勢',r.sourceEmf,'V']);
-    if(r.unit)items.push(['儀表讀值',r.reading,r.unit]);
-    return readings(items)+(q?.status==='ready'?'<p class="note">量測窗 '+q.start.toFixed(4)+'–'+q.end.toFixed(4)+' s；資料來自時間積分。</p>':'<p class="note">量測窗收集中；瞬時值不是有效值。</p>');
+    if(r.unit)items.push(['儀表讀值',g&&Number.isFinite(r.reading)?r.reading*1e6:r.reading,g?'μA':r.unit]);
+    return readings(items)+(['unconnected','missing-common'].includes(r.meterStatus)?'<p class="note">電表未接妥；指針回零，尚無量測讀值。</p>':q?.status==='ready'?'<p class="note">量測窗 '+q.start.toFixed(4)+'–'+q.end.toFixed(4)+' s；資料來自時間積分。</p>':'<p class="note">量測窗收集中；瞬時值不是有效值。</p>');
   }
   function componentReadings(id) { const c = current().components.find((c) => c.id === id), r = analysis.components[id]; if (!c || !r) return ""; if(transient)return acReadings(c,r); if(c.type==='relay')return relayReadings(c,r); const isRheo=c.type==='rheostat',g=c.type==='galvanometer';const items = [[isRheo?'A–P 電壓':"兩端電壓", r.voltage, "V"], [c.type === "battery" ? "向外供出電流" : R.dualMeter(c)?'所接正極 → − 電流':isRheo?'A → P 電流':g?"+ → − 電流":"a → b 電流", c.type === "battery" && r.current !== null ? -c.params.polarity * r.current : g&&Number.isFinite(r.current)?r.current*1e6:r.current, g?'μA':"A"], [c.type === "battery" ? "端口輸出功率" : "吸收功率", c.type === "battery" ? r.delivered : r.power, "W"]]; if (c.type === "battery") items.push(["內阻發熱", r.internalPower, "W"], ["電源總供能", r.sourcePower, "W"]); if (c.type === "lamp") items.push(["工作電阻", r.resistance, "Ω"]);if(isRheo){items.push(['A–P 電阻',R.effectiveResistance(c),'Ω']);if(c.params.terminals>2)items.push(['P–B 電阻',c.params.resistance*(1-c.params.position),'Ω'],['A–B 電壓',analysis.voltage(id+':a',id+':c'),'V']);} if (r.unit) items.push(["儀表讀值", g&&Number.isFinite(r.reading)?r.reading*1e6:r.reading, g?'μA':r.unit]);if(R.dualMeter(c)||g)items.push([g?'滿偏電流':'目前量程',g?r.range*1e6:r.range,g?'μA':r.unit],['每小格',g?r.division*1e6:r.division,g?'μA':r.unit]);return readings(items); }
-  function inspectMeter(c=selectedComponent()){if(!c||!R.dualMeter(c)&&c.type!=='galvanometer')return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',factor=g?1e6:1,unit=g?'μA':r.unit;$('meterTitle').textContent=g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g?'-50 -45 100 90':'-78 -85 156 119'}" aria-label="${V.esc(c.label)}刻度">${g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([V.statusText(r)?V.statusText(r)+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();updateMeterNeedles();}
+  function inspectMeter(c=selectedComponent()){if(!inspectableMeter(c))return;meterPreview=null;$('preview').hidden=true;const r=analysis.components[c.id],g=c.type==='galvanometer',ac=c.type.startsWith('ac-'),factor=g?1e6:1,unit=g?'μA':r.unit,status=ac&&r.meterStatus==='unconnected'?'請接妥電表接孔':ac&&r.meterStatus==='collecting'?'收集量測中':V.statusText(r);$('meterTitle').textContent=ac?'交流電表刻度':g?'靈敏電流計刻度':'雙量程錶盤';$('meterDetail').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ac?'-52 -55 104 135':g?'-50 -45 100 90':'-78 -85 156 119'}" aria-label="${V.esc(c.label)}刻度">${ac?root.CircuitAC.meterFace(c,r,history.get().display):g?V.galvanometerDial(c,r,history.get().display.values):V.dualDial(c,r,history.get().display.values)}</svg><p>${rich([c.label+' · ',...(ac?['量程 ',Q.quantity(r.range,unit)]:g?['中心零，滿偏 ±',Q.quantity(r.range*factor,unit)]:r.activePort?['接 ',Q.quantity(r.range,r.unit),' 孔']:['未選單一量程'])])}<br>${rich([status?status+'；':'','每小格 ',Q.quantity(r.division*factor,unit),'；負刻度至 ',Q.quantity(r.minimum*factor,unit)])}</p>`;$('meterDialog').showModal();updateMeterNeedles();}
 
   function portName(id){const d=history.get(),[cid,key]=id.split(":"),c=d.components.find(c=>c.id===cid);if(c)return c.label+" "+R.ports(c).find(p=>p.key===key)?.label;return M.degree(d,id)>1?"共接點 "+cid:"懸空線端 "+cid;}
   function quickParameter(binding=selection){
@@ -604,7 +605,7 @@
   if(profile.ui.palette)for (const entry of profile.palette) {
     const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
     const sample={type,params:entry.params};
-    b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
+    b.innerHTML=`<span class="icon"><svg viewBox="${sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':sample.type.startsWith('ac-')&&R.isMeter(sample)?'-72 -64 144 150':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false})}</svg></span><span>${V.esc(entry.label)}</span>`;
     bindToolDrag(b,entry);
     on(b,'click',e=>{if(suppressedToolClick(b,e))return;if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
       const x=snapGrid(camera.x+surface.clientWidth/(2*camera.scale)),y=snapGrid(camera.y+surface.clientHeight/(2*camera.scale));let offset=0;
@@ -668,7 +669,7 @@
     getPlayback:()=>({paused,rate:timeRate*(slowMotion?.25:1),actualRate:paused?0:actualRate,readOnly,available:transient&&profile.ui.playback,permissions:{...profile.simulation}}),setPlayback,advanceTime,resetSimulation,
     setFieldDisplay(visible){if(destroyed||!transient||!profile.ui.field||typeof visible!=='boolean')return false;labelOptions.fields=visible;render(false);return true;},
     captureSession(){if(destroyed||!session)throw new Error('此編輯器沒有時間 session');return session.capture();},
-    restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();},
+    restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;needleStates.clear();analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();},
     setObservationChannels(channels){if(!acUI||!profile.ui.waveform)return false;return acUI.setChannels(channels);},
     check(){if(destroyed)throw new Error('編輯器已卸載');if(!profile.check)throw new Error('此活動沒有設定檢查');const doc=M.clone(history.get()),checked=profile.check(doc,solve(doc));if(typeof checked?.passed!=='boolean')throw new Error('檢查結果格式無效');return M.clone(checked);},
     fit(){if(destroyed)throw new Error('編輯器已卸載');cancel();autoFit=true;fit();render(false);},
@@ -699,7 +700,8 @@
       else if(progress.moved){for(const [id,state]of relayStates){const r=analysis.components[id],c=history.get().components.find(c=>c.id===id);r.position=state.position;const body=$('scene').querySelector('[data-relay="'+id+'"]');if(body)body.outerHTML=V.body(c,r,history.get().display);}}
     }
     V.advanceFlow(flowOffsets,current(),analysis,active?elapsed:0,flowContext());
-    if(N.advance(needleStates,active?elapsed:0))updateMeterNeedles();
+    if(transient&&acEligible&&!readOnly)N.sync(needleStates,current(),analysis,reducedMotion.matches);
+    if(N.advance(needleStates,active?elapsed:0)||transient&&acEligible&&!readOnly)updateMeterNeedles();
     // A captured grip may stay still between pointer events; its live circuit
     // must keep displaying the same RAF phase that the accumulator advances.
     if(!document.hidden&&!cameraGesture)$("flowLayer").innerHTML=V.flow(current(),analysis,routes,animationTime,camera.scale,flowOffsets,flowContext());
