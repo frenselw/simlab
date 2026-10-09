@@ -47,6 +47,19 @@ const editor = await CircuitEditor.mount(host, {
 
 開放 `move:true` 並保留接線權限時，也可拖元件本體，讓白色接孔靠近懸空導線端點接好；不需要活動另寫吸附程式。接孔高亮是暫態預覽，放手才將搬動及接線合成一筆變更。兩個接孔可同時接線，多線共接點整組接到同一孔；保留已接線並遵守有限長度。移開、取消或第二指導航不會留下新接線。`wires:false`、固定元件及只讀仍禁止這條接線途徑；程式 `move` 只搬動，明確接線繼續用 `attach`。兩個入口都需要本地 `circuit-snapping.js`，新活動的資產清單也要列入。
 
+### 指定可調數值範圍
+
+`components.byType`／`byId` 的 `ranges` 與操作權限分開；只限定數值，不自行開放原本固定的參數。範圍使用 SI，必須在元件模型的 min/max 內。`min`／`max` 必填，`step` 控制滑塊及快捷步進；數字輸入仍可接受範圍內任意合法數值。byId 可覆蓋 byType，未指定 step 時沿用上層。
+
+```js
+components:{byType:{
+  capacitor:{params:['capacitance'],ranges:{capacitance:{min:100e-6,max:2000e-6,step:10e-6}}},
+  inductor:{params:['inductance'],ranges:{inductance:{min:0.05,max:5,step:0.05}}}
+}}
+```
+
+UI、鍵盤／公開命令、初始文件、工具箱預設、載入和 session 恢復均使用同一範圍。超出設定時原子拒絕，不裁剪答案或改寫原檔。若工具箱的預設數值不在所設範圍內，作者須同時指定合法 `palette.params`。
+
 ### 指定工具箱及庫存
 
 開放 `ui.palette` 後，同一工具箱支援點選／鍵盤新增及滑鼠／觸控筆拖到畫布放置，毋須額外配置。手指保留點選及原生面板捲動。拖放預覽不修改文件或庫存；釋放沿用 `addComponent` 命令的白名單、固定款式參數、數量上限與初始 ID 保留規則，取消不通知作答。

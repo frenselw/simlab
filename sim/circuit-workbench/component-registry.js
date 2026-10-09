@@ -23,15 +23,15 @@
     wattmeter: { name: "電功率表", icon: "W", ports: [{ key: "a", x: -60, y: -20, label: "I+" }, { key: "b", x: 60, y: -20, label: "I−" }, { key: "c", x: -60, y: 40, label: "V+" }, { key: "d", x: 60, y: 40, label: "V−" }], params: { resistance: number("電流線圈內阻", "Ω", 0, 0, 10000, .1), inputResistance: number("電壓線圈電阻（0 表示理想）", "Ω", 0, 0, 1e12, 1000), range: number("量程", "W", 20, .001, 1e6, 1) } }
   };
   function get(type) { if (typeof type !== "string" || !Object.hasOwn(definitions, type)) throw new Error("不支援的元件類型"); return definitions[type]; }
-  function primaryParameter(c) {
-    const definition=get(c.type),key=definition.primaryParameter,spec=definition.params[key];
+  function primaryParameter(c,override) {
+    const definition=get(c.type),key=definition.primaryParameter,spec=override??definition.params[key];
     if(!spec||spec.choices||![spec.min,spec.max,spec.step,c.params[key]].every(Number.isFinite))return null;
     const factor=key==='position'?100:spec.factor||1;
     return {key,label:c.type==='lamp'?(c.params.model==='thermal'?'熱態電阻':'電阻'):spec.label,
       unit:spec.unit||'',factor,value:c.params[key],min:spec.min,max:spec.controlSpecial??spec.max,step:spec.step,...(spec.controlMax?{controlMax:spec.controlMax,controlSpecial:spec.controlSpecial}:{})};
   }
-  function stepPrimaryParameter(c,direction) {
-    const p=primaryParameter(c);if(!p||![1,-1].includes(direction))throw new Error('沒有可調的主參數');
+  function stepPrimaryParameter(c,direction,override) {
+    const p=primaryParameter(c,override);if(!p||![1,-1].includes(direction))throw new Error('沒有可調的主參數');
     if(p.controlMax&&p.value>p.controlMax)return direction<0?p.controlMax:p.controlSpecial;
     if(p.controlMax&&direction>0&&p.value>=p.controlMax)return p.controlSpecial;
     return Math.max(p.min,Math.min(p.controlMax??p.max,Number((p.value+direction*p.step).toPrecision(12))));

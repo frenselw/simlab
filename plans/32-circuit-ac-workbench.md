@@ -273,3 +273,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - DC 自動單位／TeX 與適應文字寬度保留；AC 的固定欄及固定 mA 是時間變化所需的呈現策略。共同留白修改令 DC 非零 current card 比舊版收窄 6px，AC 亦按同一規則進一步收窄。
 - DC source／ZIP 的 **26 viewport/view cases**（1280／390／320px、兩視圖、可信標籤操作）、AC source／ZIP focused **60 observations**、DC label／AC profile Node 及 `npm run check` 通過。DC 的 arrow/text 間距及卡寬有專項斷言，自動單位、零與未知語義保持。
 - 日誌：`output/ac-baseline/shared-current-dc-browser.log`、`shared-current-ac-browser.log`。統一 builder 已更新四包並核對來源；外部 gate 狀態不變。
+
+### C／L 範圍及電容板距（2026-10-09）
+
+- 使用者選定工作台 C 100–2000 μF、L 0.05–5 H；C 每10 μF、L 每0.05 H步進。共用 components.byType/byId.ranges（SI）限定 min/max/step，UI、快捷、命令、palette、匯入及restore同一驗證；不授予本來未開放的參數權限。舊文件超出此profile則拒絕，不靜默裁剪，核心模型range／格式不變。
+- 元件parameterSpec合併 byType/byId 範圍，quick controls與inspector使用同一份spec；個別活動可設另一range，限制也適用DC元件。
+- 平行板的可見gap按 C 反向變化，採壓縮幾何比例避免極端參數使器材穿出接孔。透視斜升從11減至5，plate右側中點 y=-3，引線精確接到動態right edge；孔ID及座標仍固定±60。
+- Node及browser覆蓋range設定、非法restore/load／命令、快捷上限、不同C板距與midpoint lead。AC source／ZIP focused **50** 及完整 **912 observations**、25 circuit Node、DC source／ZIP focused **70 observations**、check／diff 通過。1000／2000 μF 的板距及右引線截圖已檢視；四包已由 builder 重建逐檔核對。
+- 證據：`output/ac-baseline/ac-ranges-plates-focus.log`、`ac-ranges-plates-browser.log`、`circuit-ranges-node.log`、`dc-ranges-followup.log`。舊模型 range／格式、全站已知 blocker 及外部 gate 維持。

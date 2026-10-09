@@ -257,7 +257,8 @@
       $("selectionTitle").textContent = c.label;
       if(profile.ui.potentialDirections)checkbox('顯示此元件電勢方向',potentialDirections.has(c.id),v=>setDiagramDisplay('potentialDirections',c.id,v));
       const name = document.createElement("input"); name.type = "text"; name.value = c.label; name.maxLength = 40; name.disabled = !allow(d, c, "label"); name.onchange = () => change((doc) => { doc.components.find((x) => x.id === c.id).label = name.value; }); if(teacher||allow(d,c,"label"))field("名稱", name);
-      for (const [key, spec] of Object.entries(R.get(c.type).params)) {
+      for (const key of Object.keys(R.get(c.type).params)) {
+        const spec=profile.parameterSpec(c,key);
         if (key === "polarity") continue;
         if(c.type==='lamp'&&c.params.model==='ideal'&&['coldRatio','linearLoss'].includes(key))continue;
         const enabled = allow(d, c, key === "closed" ? "switch" : "params",key);
@@ -269,7 +270,7 @@
           if (["voltage", "resistance", "position"].includes(key)||transient&&R.get(c.type).primaryParameter===key) {
             const range = document.createElement("input"),preferredMax=key==='position'?1:key==='voltage'?24:c.type==='battery'?10:100;
             range.type = "range"; range.min = spec.min * factor;
-            range.max = spec.controlMax??Math.min(spec.max,Math.max(preferredMax<=spec.min?spec.max:preferredMax,c.params[key])) * factor;
+            range.max = (spec.controlMax??Math.min(spec.max,Math.max(preferredMax<=spec.min?spec.max:preferredMax,c.params[key]))) * factor;
             range.step = spec.step * factor; range.value = c.params[key] * factor; range.disabled = !enabled; range.setAttribute("aria-label", spec.label + "滑塊");
             range.oninput = () => {
               if(!range.isConnected||!allow(history.get(),c,"params",key))return;
@@ -338,7 +339,7 @@
   function quickParameter(binding=selection){
     if(!profile.ui.quickParameters||!binding)return null;
     const d=history.get(),c=d.components.find(c=>c.id===binding.id);if(!c)return null;
-    const p=R.primaryParameter(c);return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
+    const p=R.primaryParameter(c,profile.parameterSpec(c,R.get(c.type).primaryParameter));return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
   }
   function renderQuickParameters(){
     const controls=[$('quickValue'),$('quickMinus'),$('quickPlus')];
@@ -374,7 +375,7 @@
   $('quickValue').onchange=()=>{const data=quickParameter(quickBinding);if(data)setQuickParameter($('quickValue').valueAsNumber/data.p.factor);};
   $('quickValue').oninput=()=>{if($('quickValue').hasAttribute('aria-invalid'))$('canvasNotice').hidden=true;$('quickValue').removeAttribute('aria-invalid');};
   on($('quickValue'),'keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('quickValue').blur();}});
-  for(const [id,direction]of [['quickMinus',-1],['quickPlus',1]])$(id).onclick=()=>{const data=quickParameter(quickBinding);if(data)setQuickParameter(R.stepPrimaryParameter(data.c,direction));};
+  for(const [id,direction]of [['quickMinus',-1],['quickPlus',1]])$(id).onclick=()=>{const data=quickParameter(quickBinding);if(data)setQuickParameter(R.stepPrimaryParameter(data.c,direction,profile.parameterSpec(data.c,data.p.key)));};
   function connectionLabel(id){const [cid,key]=id.split(":"),c=current().components.find(c=>c.id===cid);if(!c||!R.dualMeter(c))return[portName(id)];
     return key==="b"?[c.label+" · 共用 − 孔"]:[c.label+" · +",Q.quantity(key==="c"?c.params.range/5:c.params.range,c.type==="ammeter"?"A":"V")," 孔"];}
   function rotate(id,direction=1){const c=history.get().components.find(c=>c.id===id);if(!c||!allow(history.get(),c,"rotate"))return;cancel();if(change(doc=>M.rotateComponent(doc,id,direction)))notify("元件已旋轉，所連導線已自動拉直。");}

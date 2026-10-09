@@ -12,7 +12,7 @@
   }
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
-  const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params'];
+  const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params', 'ranges'];
   const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback','waveform','field','energy','phase'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
@@ -25,7 +25,8 @@
   function rule(value = {}, type) {
     keys(value, ruleKeys, '元件權限');
     for (const [k,v] of Object.entries(value)) {
-      if (k === 'params') {
+      if(k==='ranges'){keys(v,Object.keys(v||{}),'參數範圍');for(const [key,bounds]of Object.entries(v)){keys(bounds,['min','max','step'],'參數範圍');if(![bounds.min,bounds.max].every(Number.isFinite)||bounds.min>bounds.max||bounds.step!==undefined&&(!Number.isFinite(bounds.step)||bounds.step<=0))throw new Error('參數範圍數值無效');const specs=(type?[R.get(type)]:Object.values(R.definitions)).map(d=>d.params[key]).filter(s=>s&&!s.choices);if(!specs.length||!specs.some(s=>bounds.min>=s.min&&bounds.max<=s.max))throw new Error('參數範圍超出模型：'+key);}}
+      else if (k === 'params') {
         if (v !== true && v !== false && (!Array.isArray(v) || new Set(v).size !== v.length || v.some(p => typeof p !== 'string' || (type ? !Object.hasOwn(R.get(type).params,p) : !Object.values(R.definitions).some(d=>Object.hasOwn(d.params,p)))))) throw new Error('可調參數設定無效');
       } else if (typeof v !== 'boolean') throw new Error('元件權限必須是布林值');
     }
@@ -78,7 +79,10 @@
       return {type:entry.type,key,label:entry.label || definition.name,params,limit};
     });
     if (config.check !== undefined && typeof config.check !== 'function') throw new Error('check 必須是本地函數');
-    const getRule = c => ({move:false,rotate:false,remove:false,label:false,switch:false,params:false,...defaults,...byType[c.type],...byId[c.id]});
+    const getRule = c => ({move:false,rotate:false,remove:false,label:false,switch:false,params:false,...defaults,...byType[c.type],...byId[c.id],ranges:{...defaults.ranges,...byType[c.type]?.ranges,...byId[c.id]?.ranges}});
+    function parameterSpec(c,key){const base=R.get(c.type).params[key];if(!getRule(c).ranges[key])return base;const range={...defaults.ranges?.[key],...byType[c.type]?.ranges?.[key],...byId[c.id]?.ranges?.[key]};if(!base||base.choices||range.min<base.min||range.max>base.max)throw new Error('參數範圍超出模型：'+key);const spec={...base,...range};delete spec.controlMax;delete spec.controlSpecial;return spec;}
+    function assertRanges(c){for(const key of Object.keys(getRule(c).ranges)){const spec=parameterSpec(c,key),value=c.params[key];if(!Number.isFinite(value)||value<spec.min||value>spec.max)throw new Error(c.label+'：'+paramLabel(c,key)+'超出活動設定範圍。');}}
+    for(const entry of palette)assertRanges({id:'palette',type:entry.type,params:entry.params,label:entry.label});
     const mutable = (r,k,c={locked:false,editable:false}) => {
       const declared=r.params===true||Array.isArray(r.params)&&r.params.includes(k);
       if(teacher)return declared||k==='closed'&&r.switch;
@@ -107,7 +111,7 @@
     const canSetWireResistance=(doc,readOnly=false)=>wireResistance&&wires&&!readOnly&&(doc.policy.mode==='free'||doc.policy.allowParams);
     function assertSnapshot(input) {
       const doc = M.validate(input);
-      assertModel(doc);
+      assertModel(doc);doc.components.forEach(assertRanges);
       if(doc.wires.some(w=>w.via.length>wirePointLimit))throw new Error('導線線形超出活動容量');
       if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
       if (teacher) return doc;
@@ -156,7 +160,7 @@
         }
         if (previous.type !== c.type) throw new Error('不能替換元件型別');
         for (const [op,changed] of [['move',previous.x!==c.x || previous.y!==c.y],['rotate',previous.angle!==c.angle || previous.mirrored!==c.mirrored],['label',previous.label!==c.label]]) if (changed && !allows(before,previous,op)) throw new Error('此操作未開放：' + {move:'搬動元件',rotate:'旋轉元件',label:'改名'}[op]);
-        for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.controlMax&&previous.params[key]!==c.params[key]&&c.params[key]>spec.controlMax&&c.params[key]!==spec.controlSpecial)throw new Error(spec.label+'只可設 0.1–2 Hz 或 50 Hz。');
+        for(const key of Object.keys(R.get(c.type).params))if(parameterSpec(c,key).controlMax&&previous.params[key]!==c.params[key]&&c.params[key]>parameterSpec(c,key).controlMax&&c.params[key]!==parameterSpec(c,key).controlSpecial)throw new Error(parameterSpec(c,key).label+'只可設 0.1–2 Hz 或 50 Hz。');
         for (const k of Object.keys(c.params)) if (!same(previous.params[k],c.params[k]) && !allows(before,previous,k === 'closed' ? 'switch' : 'params',k)) throw new Error('參數未開放：' + paramLabel(c,k));
       }
       if (!wires && (!same(before.wires,doc.wires) || !same(before.junctions,doc.junctions))) throw new Error('活動不允許改接線');
@@ -172,7 +176,7 @@
     assertSnapshot(initial);
     return Object.freeze({role,analysis,simulation:Object.freeze(simulation),observationChannels:observationChannels===null?null:freeze(M.clone(observationChannels)),panelContent:config.panelContent,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
       title:config.title || (teacher ? '電路工作台' : '電路活動'),subtitle:config.subtitle || '',
-      allows,canAdd,count,canSetWireResistance,prepare,wirePointLimit,assertSnapshot,assertTransition,check:config.check});
+      allows,canAdd,count,canSetWireResistance,parameterSpec,prepare,wirePointLimit,assertSnapshot,assertTransition,check:config.check});
   }
   return {compile};
 });
