@@ -96,7 +96,7 @@ const result = session.read();
 
 ## SCORM 接入與驗收
 
-兩示例各自的 `example-state.js` 只保存允許變動的參數及 physics，從 epoch 1 固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
+兩示例的 `example-state.js` codec version 2 使用緊湊佈局，舊 version 1 明確拒絕，避免恢復時默默移動固定元件。教師完整 document／session 保存仍保留原來幾何，沒有自動壓縮。它只保存允許變動的參數及 physics，從 epoch 1 固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
 
 正式活動須自己的 rubric、null 答案、definition/model/schema epochs、時序取樣與三種 byte gates；沿用 SimScorm/SimActivityFlow 全生命週期。Pending/review 凍結權威時間；解說 playback 另用副本。高風險評分仍需可信 server。不能直接將任意教師 session 塞入 4000 bytes 或把預設電路算成已作答。
 

@@ -240,3 +240,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 動態快照 restore、undo/redo checkpoint、單步及只讀仍依既有明確檢視／凍結合約暫停。
 - 完整 AC source／ZIP **846 observations** 通過；其後重設操作補上排程清零及先 reset 再清波形，最後 focused **52 observations** 驗證自動啟動、¼ 速、無倍率選單、暫停保留、運行中重設及 2/50 Hz 效果。DC source／ZIP focused **70 observations**、AC profile／codec Node 及 check 通過。
 - 日誌：`output/ac-baseline/ac-autoplay-browser.log`、`ac-autoplay-final.log`、`dc-autoplay-followup.log`。四包已按最新來源重建核對；原有全站與外部驗收狀態維持。
+
+### 預設電路的緊湊佈局（2026-10-09）
+
+- 依使用者要求，收緊全部非空 AC 預設的元件中心及導線外框，縮短單純串聯的空段，C/L 串聯使用转角、LC 以左側儲能／右側切換配置，變壓器與自感減少上下空白。沿用共用相機及自動適應；AC 自動放大上限由 120% 提高至 180%，DC 保留 120%。器材世界尺寸與工具不變，讓相同畫布能顯示較大的器材。
+- 17 個預設對照修改前：元件 ID／種類／params、導線 ID／from／to／resistance，以及 t=0.1 的完整 physics snapshot 均完全一致。只是初始幾何，沒有更改電學或既有匯入文件。
+- 固定嵌入示例的外層 codec 升至 version 2，拒絕舊固定模板，避免靜默重排；modelRevision、完整 document／session 格式不變。
+- 完整 AC source／ZIP **854 observations** 通過（包含 desktop scale>150% 斷言）；最後再收緊三元件的上下空段，六 viewport source／ZIP focused **350 observations** 通過。Desktop default 180%／手機／LC／transformer／mutual 的截圖已逐一檢視；電容器內文字在倒轉排列仍保持正向。
+- Node 驗證所有 preset 的 body bounds 不重疊、有限導線的實際兩端等於接孔及外框寬度；AC physics／profiles／codec、`npm run check`、DC source／ZIP focused **70 observations** 通過。最後幾何再次比對 17 個預設的 params／端點／t=0.1 physics 完全一致。
+- 證據：`output/ac-baseline/ac-layout-before.json`、`ac-compact-final.log`、`ac-compact-controls.log`、`dc-compact-followup.log`。四包由统一 builder 重建核對；原全站與外部 gate 維持。

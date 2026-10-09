@@ -7,27 +7,31 @@
     const add=(type,x,y,label,params={},angle=0)=>{const c=M.add(d,type,x,y,params);c.label=label;c.angle=angle;return c;};
     const link=(a,ap,b,bp,via=[])=>{const pa=a.id+':'+ap,pb=b.id+':'+bp,end=M.endpoints(d),points=G.rounded([end.get(pa),...via,end.get(pb)]),w=M.connect(d,pa,pb,points.slice(1,-1),'free');w.length=Math.max(600,Math.ceil(G.length(points))+100);return w;};
     if(name==='empty')return d;
-    const dc=['rc','rl','self','mutual','lc','damped'].includes(name),source=add(name==='generator'?'generator':dc?'battery':'ac-source',150,330,name==='generator'?'交流發電機':dc?'直流電源':'交流電源',{},90);
+    const dc=['rc','rl','self','mutual','lc','damped'].includes(name),source=add(name==='generator'?'generator':dc?'battery':'ac-source',180,260,name==='generator'?'交流發電機':dc?'直流電源':'交流電源',{},90);
     if(name==='mains')source.params.frequency=50;
     if(['lc','damped'].includes(name)){
-      const r=add('resistor',340,150,'充電電阻',{resistance:10}),sw=add('spdt',350,300,'充電／放電',{},180),c=add('capacitor',590,300,'電容器'),l=add('inductor',590,490,'電感線圈',{resistance:name==='lc'?0:1});
-      link(source,'a',r,'a',[{x:150,y:150}]);link(r,'b',sw,'b',[{x:430,y:150},{x:430,y:380},{x:270,y:380}]);link(sw,'a',c,'a');link(sw,'c',l,'a',[{x:250,y:276},{x:250,y:430},{x:510,y:430}]);link(c,'b',source,'b',[{x:740,y:300},{x:740,y:570},{x:150,y:570}]);link(l,'b',c,'b',[{x:740,y:490}]);return M.validate(d);
+      source.x=160;source.y=300;
+      const r=add('resistor',300,180,'充電電阻',{resistance:10}),sw=add('spdt',460,300,'充電／放電'),c=add('capacitor',280,300,'電容器',{},180),l=add('inductor',280,440,'電感線圈',{resistance:name==='lc'?0:1},180);
+      link(source,'a',r,'a',[{x:160,y:180}]);link(r,'b',sw,'b',[{x:560,y:180},{x:560,y:276}]);link(sw,'a',c,'a');link(sw,'c',l,'a',[{x:560,y:324},{x:560,y:440}]);link(c,'b',source,'b',[{x:200,y:300},{x:200,y:510},{x:160,y:510}]);link(l,'b',c,'b',[{x:200,y:440},{x:200,y:300}]);return M.validate(d);
     }
     if(['transformer','coupled','mutual'].includes(name)){
-      const t=add('transformer',490,300,'變壓器',{model:name==='transformer'?'ideal':'coupled'}),load=add('resistor',790,180,name==='mutual'?'副線圈限流電阻':'負載電阻',{resistance:name==='mutual'?100000:12}),meter=add(name==='mutual'?'galvanometer':'ac-ammeter',790,430,name==='mutual'?'感應電流計':'副線圈電流表',name==='mutual'?{range:.0005}:{range:1});
-      if(name==='mutual'){const sw=add('switch',300,150,'通斷開關',{closed:false}),r=add('resistor',300,270,'限流電阻',{resistance:12}),discharge=add('resistor',350,490,'放電電阻',{resistance:100});t.params.primaryResistance=12;t.params.secondaryResistance=1;link(source,'a',sw,'a',[{x:150,y:150}]);link(sw,'b',r,'a',[{x:400,y:150},{x:400,y:220},{x:240,y:220}]);link(r,'b',t,'a');link(t,'a',discharge,'a',[{x:390,y:274},{x:270,y:350},{x:270,y:490}]);link(discharge,'b',t,'b',[{x:450,y:490},{x:450,y:390}]);}
-      else link(source,'a',t,'a',[{x:150,y:160},{x:390,y:160}]);
-      link(t,'b',source,'b',[{x:390,y:590},{x:150,y:590}]);link(t,'c',load,'a',[{x:640,y:274},{x:640,y:180}]);link(load,'b',meter,'b',[{x:930,y:180},{x:930,y:430}]);link(meter,'a',t,'d',[{x:640,y:430},{x:640,y:326}]);return M.validate(d);
+      const mutual=name==='mutual',tx=mutual?500:430,sx=mutual?740:650,outer=mutual?850:760;
+      const t=add('transformer',tx,300,'變壓器',{model:name==='transformer'?'ideal':'coupled'}),load=add('resistor',sx,200,mutual?'副線圈限流電阻':'負載電阻',{resistance:mutual?100000:12}),meter=add(mutual?'galvanometer':'ac-ammeter',sx,410,mutual?'感應電流計':'副線圈電流表',mutual?{range:.0005}:{range:1});source.y=300;
+      if(mutual){const sw=add('switch',330,180,'通斷開關',{closed:false}),r=add('resistor',510,180,'限流電阻',{resistance:12}),discharge=add('resistor',330,450,'放電電阻',{resistance:100});t.params.primaryResistance=12;t.params.secondaryResistance=1;link(source,'a',sw,'a',[{x:180,y:180}]);link(sw,'b',r,'a');link(r,'b',t,'a',[{x:610,y:180},{x:610,y:230},{x:390,y:230},{x:390,y:274}]);link(t,'a',discharge,'a',[{x:390,y:274},{x:390,y:360},{x:250,y:360},{x:250,y:450}]);link(discharge,'b',t,'b',[{x:390,y:326}]);}
+      else link(source,'a',t,'a',[{x:180,y:180},{x:300,y:180},{x:300,y:274}]);
+      const primaryBus=mutual?390:300,bottom=mutual?510:450;
+      link(t,'b',source,'b',[{x:primaryBus,y:326},{x:primaryBus,y:bottom},{x:180,y:bottom}]);link(t,'c',load,'a',[{x:sx-110,y:274},{x:sx-110,y:200}]);link(load,'b',meter,'b',[{x:outer,y:200},{x:outer,y:410}]);link(meter,'a',t,'d',[{x:sx-110,y:410},{x:sx-110,y:326}]);return M.validate(d);
     }
     if(name==='self'){
-      const sw=add('switch',300,170,'通斷開關',{closed:false}),r=add('resistor',500,170,'限流電阻',{resistance:5}),l=add('inductor',600,310,'儲能線圈',{resistance:1}),lamp=add('lamp',600,490,'放電燈');
-      link(source,'a',sw,'a',[{x:150,y:170}]);link(sw,'b',r,'a');link(r,'b',l,'a',[{x:480,y:170},{x:480,y:310}]);link(r,'b',lamp,'a',[{x:450,y:170},{x:450,y:490}]);link(l,'b',lamp,'b',[{x:770,y:310},{x:770,y:490}]);link(lamp,'b',source,'b',[{x:770,y:590},{x:150,y:590}]);return M.validate(d);
+      source.y=300;
+      const sw=add('switch',330,180,'通斷開關',{closed:false}),r=add('resistor',510,180,'限流電阻',{resistance:5}),l=add('inductor',690,290,'儲能線圈',{resistance:1}),lamp=add('lamp',690,440,'放電燈');
+      link(source,'a',sw,'a',[{x:180,y:180}]);link(sw,'b',r,'a');link(r,'b',l,'a',[{x:600,y:180},{x:600,y:290}]);link(r,'b',lamp,'a',[{x:610,y:180},{x:610,y:440}]);link(l,'b',lamp,'b',[{x:790,y:290},{x:790,y:440}]);link(lamp,'b',source,'b',[{x:790,y:510},{x:180,y:510}]);return M.validate(d);
     }
-    const sw=add('switch',310,170,'開關',{closed:!dc}),load=add(name==='rc'?'resistor':'lamp',730,170,name==='rc'?'充電電阻':'負載燈',name==='rc'?{resistance:1000}:{resistance:12});link(source,'a',sw,'a',[{x:150,y:170}]);
-    if(['capacitive','inductive','rc','rl'].includes(name)){const type=['capacitive','rc'].includes(name)?'capacitor':'inductor',reactive=add(type,510,170,type==='capacitor'?'電容器':'電感線圈',name==='capacitive'?{capacitance:.00022}:name==='inductive'?{inductance:.1}:{});link(sw,'b',reactive,'a');link(reactive,'b',load,'a');}
+    const reactive=['capacitive','inductive','rc','rl'].includes(name),sw=add('switch',330,180,'開關',{closed:!dc}),load=add(name==='rc'?'resistor':'lamp',reactive?650:name==='led'?510:480,reactive?290:180,name==='rc'?'充電電阻':'負載燈',name==='rc'?{resistance:1000}:{resistance:12},reactive?90:0);source.y=reactive?290:name==='led'?330:260;link(source,'a',sw,'a',[{x:180,y:180}]);
+    if(reactive){const type=['capacitive','rc'].includes(name)?'capacitor':'inductor',device=add(type,510,180,type==='capacitor'?'電容器':'電感線圈',name==='capacitive'?{capacitance:.00022}:name==='inductive'?{inductance:.1}:{});link(sw,'b',device,'a');link(device,'b',load,'a',[{x:650,y:180}]);}
     else link(sw,'b',load,'a');
-    if(name==='led'){const red=add('led',730,310,'紅色 LED'),green=add('led',730,450,'綠色 LED',{colour:'green'},180);source.params.frequency=2;load.type='resistor';load.params=RDefaults('resistor');load.params.resistance=100;load.label='限流電阻';link(load,'b',red,'a',[{x:900,y:170},{x:900,y:250},{x:640,y:250},{x:640,y:310}]);link(red,'a',green,'b',[{x:640,y:450}]);link(red,'b',green,'a',[{x:870,y:310},{x:870,y:450}]);link(green,'a',source,'b',[{x:870,y:550},{x:150,y:550}]);}
-    else link(load,'b',source,'b',[{x:880,y:170},{x:880,y:550},{x:150,y:550}]);
+    if(name==='led'){const red=add('led',650,270,'紅色 LED'),green=add('led',650,410,'綠色 LED',{colour:'green'},180);source.params.frequency=2;load.type='resistor';load.params=RDefaults('resistor');load.params.resistance=100;load.label='限流電阻';link(load,'b',red,'a',[{x:570,y:270}]);link(red,'a',green,'b',[{x:570,y:270},{x:570,y:410}]);link(red,'b',green,'a',[{x:730,y:270},{x:730,y:410}]);link(green,'a',source,'b',[{x:730,y:480},{x:180,y:480}]);}
+    else link(load,'b',source,'b',reactive?[{x:650,y:400},{x:180,y:400}]:[{x:590,y:180},{x:590,y:350},{x:180,y:350}]);
     if(['square','triangle'].includes(name))source.params.waveform=name;
     return M.validate(d);
   }
