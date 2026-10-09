@@ -296,3 +296,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 沿用既有 L 對可見圈數關係、共用 renderer 及場面板，不改電感／線阻／初始電流、符號模式、端子 ID 或 ±60 接孔座標。器材命中 bounds 隨圓筒外框調整。
 - Node 覆蓋白色筒身、連續引線接點及稀疏／密集跨度；source／ZIP focused **56 observations** 通過，少圈／多圈截圖已檢視。四包由統一 builder 重建逐檔核對來源。
 - 證據：`output/ac-baseline/ac-inductor-former.log`、`output/playwright/circuit-ac/source-inductor-few-turns.png`、`source-inductor-many-turns.png`，以及對應 package 截圖。原全站已知阻塞及外部 gate 維持。
+
+
+### 極板透視及電感引線／風格更正（2026-10-09）
+
+- 使用者要求參考接線方法而非複製 PhET 外觀。電感改用本工作台既有的灰藍線架、銅色繞線及柔和邊線；減少繞線粗度，左引線與繞組以相同切線方向平滑接合，末半圈直接收至水平右引線，去除原先上下直角轉折。少圈中央／多圈鋪滿及 L 對圈數的示意關係保持。
+- 電容板寬由26收至22，透視斜升由5降至1，薄邊由1.5降至1.2；電荷网格跟隨板面。兩條引線仍為水平直線，右端仍接前板面中心；可變板距、正負電荷及固定端子不變。
+- AC Node、source／ZIP focused **56 observations**、`npm run check` 通過；已檢視少圈、多圈、正負極板及實際充電畫面。四包由統一 builder 重建及核對來源。僅修改器材繪圖及相應檢查，不改電學、文件或權限。
+- 證據：`output/ac-baseline/ac-smooth-reactive-art.log` 及 `output/playwright/circuit-ac/` 的 source／package reactive-art、inductor-few-turns、inductor-many-turns、capacitor-charging 截圖。全站已知阻塞及外部 gate 維持。
