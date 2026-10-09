@@ -371,3 +371,24 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 三種AC錶面放大及重新校準刻度，A/V30格、W正負各30格；數字依長度調整以避免擠壓。端子座標與電學保持，palette、命中bounds及手機預覽viewBox同步更新。放大錶盤與手機持續預覽重用同一針位，暫停／只讀凍結，減少動態直接定位。恢復新session清除舊机械速度。變壓器設計不改。
 - Node慣性測試 **24 cases**，含原DC16及AC/G8；meter/math **96 fixtures**、AC物理／codec／指針未知值／單位及transient解析驗證通過。source／ZIP AC focused **232 observations**，以真實RAF核對四種電表超越、回零、暫停、實際開啟的放大錶盤同步、手機觸控預覽、只讀、減少動態及320/390×500短畫面；canvas/dialog同步誤差0，實際SVG角誤差小於0.000002°（沿用DC 0.0001°幾何容差）。
 - 原DC source／ZIP指針回歸 **24 observations**及syntax／manifest check通過；已檢視未接針、大錶盤、手機及短畫面截圖。四包統一重建核對。證據：`output/ac-baseline/ac-meter-inertia.log`、`dc-meter-inertia-followup.log`。沒有把物理／量測誤差容差改鬆，原全站已知阻塞及外部 gate維持。
+
+
+### 可移動波形儀器與可延伸量測線：實作決定（2026-10-09，驗證待補）
+
+- 使用者要求參考PhET的電壓圖／電流圖工具，取代固定大波形區及控制板四通道／游標設定；預設無圖，取工具後才顯示，教師預設最多兩部，可信活動可配置0–4部並保持既有指定觀察通道。
+- 圖框以畫布內CSS位置定位，不隨電路縮放縮小，能拖到邊緣；量尺＋／−只改資料縱軸，大小按鈕及44px角落把手只改框尺寸，另可摺起／放大。時間軸初始按實驗選取後固定，同時觀察的圖用同一時間窗，沒有改物理頻率／播放倍率。
+- 電壓兩探頭讀同一電氣島內兩點差；電流探頭量測指定導線或支路，有號電流／不唯一量保留null。探頭線只作量測呈現，不加入求解器、不耗導線庫存、不套有限電路導線長度；探頭可拉遠、線身可拉出彎點，綁定後跟隨端子／導線。
+- 圖／探頭／線的手勢捕獲與電路編輯分開，取消還原UI，不寫電路文件或時間快照；兩側32px捲頁區保持。鍵盤可移圖、改框、移探頭／選擇合法測點。活動限制在UI及公開接口同樣驗證。
+- 公開觀察工具配置是獨立UI狀態，不自動持久化或冒充SCORM答案；captureSession仍只包含電路與物理。給外層取得／原子設定工具狀態的接口，指定通道限制、数量、失效ID及非法形狀需拒絕。正式評量／題目／Moodle gate仍N/A／另定。
+- 重用CircuitObservation及Routing的量測／位置／走線能力；原生Canvas/SVG/DOM，新增一個可選scope UI檔案，登記到AC依賴和測試入口。顯示緩衝按固定時間bin保留首／末／最小／最大資料，容量有界，未知處斷線；有效值／功率的物理積分不變。
+- 驗證：純模型的探頭讀值／隔離／不唯一／限制／峰值及工具狀態round-trip；source/ZIP真實mouse/pen/touch拖取、移圖框、resize、資料放縮、兩探頭電壓／導線電流、長線／彎線／取消、相機變動、只讀、多instance、320×500及原生捲動；既有DC／AC回歸與四包重建。
+
+
+### 可移動波形儀器：完成及驗證（2026-10-09）
+
+- 已用工具箱的電壓圖／電流圖取代常駐大圖、四下拉及游標選項。教師預設兩部，活動可配置0–4及指定元件通道；特殊charge/energy/flux能力仍供作者使用。兩種放大分開：量尺按鈕可在縱軸／時間切換，所有圖時間軸對齊；框可用44px角把手縮放，⤢開大框，雙擊標題摺起，窄畫面以摺起和大圖保持可用。
+- 非侵入兩點電壓／導線電流已接上同一物理解，探頭吸附端點／理想導線及電流支路，綁定後跟隨相機及幾何。量測線不耗库存／不套電路線長，線身可拉出彎點、雙擊拉直、Escape／cancel還原；所有操作不改電路／權威物理。圖框互相可置頂，超出資料量尺明示。
+- `getObservationTools/setObservationTools`提供獨立UI配置round-trip及原子驗證，`setObservationChannels`保留作者接口，數量及固定通道作用於UI與API。活動電壓探頭不得混合不同獲准通道，未知／跨島／不唯一電流不畫假零。顯示Trace保留取樣峰值、缺口及同時刻事件，RMS／功率積分不變。
+- 新pure scope測試已登記run-tests，涵蓋量測truth、隔離、未知、snap、長線與資源、非法／越權／數量／配置restore及有界峰值／事件；AC／transient／原profile及codec Node通過。AC source／ZIP完整 **1212 observations**通過，正式入口包含新scope cases；獨立新儀器focused **88 observations**，涵蓋mouse/pen/touch、兩種縮放、時間對齊、長線／彎線／Escape、讀值、只讀、相機、鍵盤、手機與短畫面。
+- 固定transformer/LC活動的工具配置、拒絕非法測點／通道及合法續作、DC+AC+多AC的工具／時間隔離及卸載均納入完整browser；T1–T3原生捲頁把手在儀器存在時保持。DC source／ZIP快捷回歸 **70 observations**、syntax／manifest及diff通過。桌面實際曲線、大框、390/320px及橫向截圖已檢視。
+- `circuit-scope-ui.js`已登記AC資產與兩入口，七份AC核心依賴及四個成品由統一builder重建核對。證據：`output/ac-baseline/ac-floating-full.log`、`ac-floating-scope.log`、`dc-scope-followup.log`。全站已知阻塞及真Moodle／實機gate仍按原記錄，正式AC題目沒有自行建立。

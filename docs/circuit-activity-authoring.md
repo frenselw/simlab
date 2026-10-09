@@ -212,3 +212,7 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 導線電阻使用 `wire-resistance.test.js` 與 `--wire-resistance-smoke`，核對單線／新線預設、求解壓降／功率、保存恢復與學生／只讀權限；執行範圍及物理界限見[計劃第 61 節](../plans/28-circuit-workbench.md#61-單條導線電阻與新線預設2026-10-06)。
 
 電流動畫的參考尺度與累積位移均為各 editor 的暫態，不寫入 v6 文件或作答。首次可解非零電流建立連通區尺度，調參時保持，新增／改接連通區或 loadDocument 時重設；preview 只使用尺度副本。微電流仍可見，但動畫快慢不是評分資料或精確電流比值。直接使用 renderer 時，可把同一 baseline Map 傳給 `flowReferences`／`advanceFlow`／`flow`，並在載入時清空；正式活動優先沿用 CircuitEditor.mount 的現有管理。精準檢查為 --flow-scale-smoke，參見[計劃第 62 節](../plans/28-circuit-workbench.md#62-同一電路調流時動畫速度改變2026-10-06)。
+
+### 波形工具數量及測點
+
+交流可配置 `observationLimit:0..4`（一般教師預設2），配合 `observationChannels:[{id,quantity}]` 限定觀察元件。UI、鍵盤選點及 `setObservationTools` 共用限制；電壓兩端必須是同一個已開放通道的 a/b，不接受任意混合兩個通道。`getObservationTools`／`setObservationTools` 只處理獨立UI版面及探頭配置，不改電路／物理快照；正式活動仍自行擁有觀測答案、版本及保存封套，見[小型波形儀器](circuit-ac-workbench.md#小型波形儀器)。

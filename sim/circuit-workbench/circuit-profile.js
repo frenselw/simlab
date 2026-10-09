@@ -33,7 +33,7 @@
     return M.clone(value);
   }
   function compile(config = {}) {
-    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix','analysis','simulation','observationChannels','panelContent'], '活動');
+    keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix','analysis','simulation','observationChannels','observationLimit','panelContent'], '活動');
     const analysis=config.analysis??'dc';if(!['dc','transient'].includes(analysis))throw new Error('不支援的分析種類');
     const wirePointLimit=config.wirePointLimit??M.limits.stroke;
     if(!Number.isInteger(wirePointLimit)||wirePointLimit<1||wirePointLimit>M.limits.stroke)throw new Error('導線線形容量無效');
@@ -61,6 +61,7 @@
     const simulation={play:ui.playback,step:ui.playback,rate:ui.playback,reset:teacher};keys(config.simulation||{},Object.keys(simulation),'時間控制');for(const [k,v]of Object.entries(config.simulation||{})){if(typeof v!=='boolean')throw new Error('時間權限必須為布林值');simulation[k]=v;}
     if(config.panelContent!==undefined&&config.panelContent?.nodeType!==1)throw new Error('活動面板需要 DOM element');
     const observationChannels=config.observationChannels??null;if(observationChannels!==null){if(!Array.isArray(observationChannels)||observationChannels.length>4)throw new Error('觀察通道設定無效');for(const c of observationChannels){keys(c,['id','quantity'],'觀察通道');if(!initial.components.some(x=>x.id===c.id)||!['voltage','current','charge','energy','flux'].includes(c.quantity))throw new Error('觀察通道設定無效');}if(new Set(observationChannels.map(c=>c.id+':'+c.quantity)).size!==observationChannels.length)throw new Error('觀察通道重複');}
+    const observationLimit=config.observationLimit??Math.max(2,observationChannels?.length||0);if(!Number.isInteger(observationLimit)||observationLimit<0||observationLimit>4)throw new Error('觀察儀器數量無效');
     if (!teacher && (ui.settings || ui.files || ui.presets)) throw new Error('教師設定、文件與範例只適用於教師工作台');
     if (!ui.header && ['presets','files','settings','help'].some(k=>ui[k])) throw new Error('不顯示頂欄時，須關閉範例、文件、設定及說明');
     const wires = config.wires !== false, undo = config.undo !== false, wireResistance=config.wireResistance??teacher;
@@ -174,7 +175,7 @@
     }
     // Validate the author configuration too; restrictions remain outside saved answers.
     assertSnapshot(initial);
-    return Object.freeze({role,analysis,simulation:Object.freeze(simulation),observationChannels:observationChannels===null?null:freeze(M.clone(observationChannels)),panelContent:config.panelContent,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
+    return Object.freeze({role,analysis,simulation:Object.freeze(simulation),observationLimit,observationChannels:observationChannels===null?null:freeze(M.clone(observationChannels)),panelContent:config.panelContent,initial:freeze(M.clone(initial)),ui:Object.freeze(ui),palette:freeze(palette),undo,wires,
       title:config.title || (teacher ? '電路工作台' : '電路活動'),subtitle:config.subtitle || '',
       allows,canAdd,count,canSetWireResistance,parameterSpec,prepare,wirePointLimit,assertSnapshot,assertTransition,check:config.check});
   }

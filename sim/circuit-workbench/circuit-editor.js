@@ -393,6 +393,7 @@
   on(document,"pointerdown",e=>{
     if(!owned(e)){if(activeHost===host)activeHost=null;return;}
     if(host.contains(e.target))activeHost=host;
+    if(e.target.closest('.ac-scopes,.ac-scope-dialog,.ac-scope-picker,.ac-scope-tool'))return;
     // Commit the old field before selection re-renders it or a touch is registered.
     if(surface.contains(e.target)&&!$("preview").contains(e.target)&&(document.activeElement===$('quickValue')||$("properties").contains(document.activeElement)))document.activeElement.blur();
     if(!$("preview").contains(e.target)){meterPreview=null;$("preview").hidden=true;}
@@ -670,6 +671,8 @@
     setFieldDisplay(visible){if(destroyed||!transient||!profile.ui.field||typeof visible!=='boolean')return false;labelOptions.fields=visible;render(false);return true;},
     captureSession(){if(destroyed||!session)throw new Error('此編輯器沒有時間 session');return session.capture();},
     restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;needleStates.clear();analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();},
+    getObservationTools(){return acUI?.getTools()||[];},
+    setObservationTools(tools){if(destroyed||!acUI||!profile.ui.waveform)return false;return acUI.setTools(tools);},
     setObservationChannels(channels){if(!acUI||!profile.ui.waveform)return false;return acUI.setChannels(channels);},
     check(){if(destroyed)throw new Error('編輯器已卸載');if(!profile.check)throw new Error('此活動沒有設定檢查');const doc=M.clone(history.get()),checked=profile.check(doc,solve(doc));if(typeof checked?.passed!=='boolean')throw new Error('檢查結果格式無效');return M.clone(checked);},
     fit(){if(destroyed)throw new Error('編輯器已卸載');cancel();autoFit=true;fit();render(false);},
@@ -685,7 +688,7 @@
       if(activeHost===host)activeHost=null;mounts.delete(host);
     },
     getInteraction:()=>({pending:null,readOnly,destroyed,meterPreview:meterPreview?.id||null,wireCurrents:[...wireCurrents],potentialDirections:[...potentialDirections],dragging:cameraGesture?"camera":drag?.kind||null,selection:selection?M.clone(selection):null,camera:{...camera},panMode,wireMode,probeMode,spacePan,touchCount:touches.size,touchBlocked,snap:drag?.snap?.id||null,limited:!!drag?.limited,lastMessage}),cancel});
-  if(transient){if(!root.CircuitACUI)throw new Error('缺少交流介面依賴');acUI=root.CircuitACUI.mount({host,refs,profile,controller});}
+  if(transient){if(!root.CircuitACUI)throw new Error('缺少交流介面依賴');acUI=root.CircuitACUI.mount({host,refs,profile,controller,viewDocument:current,routes:()=>routes});}
   render();function animate(time){if(destroyed)return;
     const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(transient?.25:.05,rawElapsed)*rate;lastTime=time;
     const active=!paused&&!document.hidden;if(active)animationTime+=elapsed;
@@ -704,6 +707,7 @@
     if(N.advance(needleStates,active?elapsed:0)||transient&&acEligible&&!readOnly)updateMeterNeedles();
     // A captured grip may stay still between pointer events; its live circuit
     // must keep displaying the same RAF phase that the accumulator advances.
+    if(transient&&!document.hidden)acUI?.animate();
     if(!document.hidden&&!cameraGesture)$("flowLayer").innerHTML=V.flow(current(),analysis,routes,animationTime,camera.scale,flowOffsets,flowContext());
     frame=requestAnimationFrame(animate);
   }frame=requestAnimationFrame(animate);

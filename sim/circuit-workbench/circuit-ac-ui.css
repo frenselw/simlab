@@ -1,20 +1,4 @@
-.circuit-editor.ac-editor .stage{overflow:visible}
-.ac-editor .stage .ac-waveform{display:none}
-.ac-editor .stage.graph-open{grid-template-rows:auto minmax(100px,1fr) minmax(170px,.5fr) auto}
-.ac-editor .stage.graph-open>.ac-waveform{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0;min-width:0;border-top:1px solid var(--color-border)}
-.ac-editor .stage.graph-view{grid-template-rows:auto minmax(0,1fr)}
-.ac-editor .stage.graph-view>.canvas-area,.ac-editor .stage.graph-view>.stage-bottom{display:none}
-.ac-editor .ac-plot-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px;font-size:.875rem;min-height:44px}
-.ac-editor .ac-plot-heading button{min-height:44px;padding:4px 8px}
-.ac-editor .ac-plot-area{min-width:0;min-height:0;position:relative;overflow:hidden;touch-action:pan-y}
-.ac-editor .ac-plot-area canvas{display:block;width:100%;height:100%;touch-action:pan-y}
-.ac-editor .ac-cursor{position:absolute;top:0;bottom:0;width:44px;min-height:0;background:transparent!important;border:0;transform:translateX(-50%);border-radius:0;touch-action:none}
-.ac-editor .ac-cursor::after{content:'';position:absolute;top:0;bottom:0;left:21px;border-left:1px dashed #60758c;pointer-events:none}
-.ac-editor .ac-cursor:focus-visible{outline:2px solid #2563eb}
-.ac-editor .ac-cursor-readings{font-size:.875rem;padding:2px 12px;min-height:24px}
 .ac-editor .panel input[type=range]{height:44px}
-.ac-editor .ac-channel-value{padding-left:7px;border-left:3px solid #245b9e;margin:10px 0;font-size:.875rem;line-height:1.7}
-.ac-editor .ac-channel-value strong,.ac-editor .ac-channel-value span{display:block;overflow-wrap:anywhere}
 .ac-editor .ac-energy-row{display:grid;grid-template-columns:1fr auto;gap:4px;font-size:.875rem;margin:8px 0}
 .ac-editor .ac-energy-row meter{grid-column:1/-1;width:100%;height:12px}
 .ac-editor .ac-energy p,.ac-editor .ac-field p{font-size:.875rem;line-height:1.6;margin:8px 0}
@@ -26,16 +10,10 @@
  .circuit-editor.ac-editor .stage{grid-template-rows:auto minmax(75px,1fr) auto}
  .circuit-editor.ac-editor .canvas-area{contain:size}
  .circuit-editor.ac-editor .panel{border-left:0;border-top:1px solid var(--color-border)}
- .ac-editor .stage.graph-open{grid-template-rows:auto minmax(100px,1fr) auto}
- .ac-editor .stage.graph-open>.canvas-area{display:none}
- .ac-editor .stage.graph-open>.ac-waveform{grid-row:2;min-height:0}
- .ac-editor .stage.graph-open>.stage-bottom{display:none}
- .ac-editor .ac-plot-heading button[aria-label="放大波形"]{display:none}
  .ac-editor.panel-hidden .workspace{grid-template-rows:minmax(0,1fr)}
 }
 @media(max-height:450px) and (min-width:560px){
  .circuit-editor.ac-editor .workspace{grid-template-columns:minmax(0,1fr) 230px;grid-template-rows:minmax(0,1fr)}
- .ac-editor .stage.graph-open{grid-template-rows:auto minmax(0,1fr);}
 }
 
 @media(max-width:559px) and (max-height:600px){
@@ -45,3 +23,35 @@
 }
 
 .ac-editor .panel .ac-frequency-special{min-height:44px;width:100%;font-size:.875rem}
+
+.ac-scopes{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden;clip-path:inset(0 32px)}
+.ac-scope-leads{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.ac-scope-lead-hit{fill:none;stroke:transparent;stroke-width:20;pointer-events:stroke;cursor:move;touch-action:none}
+.surface.wire-priority~.ac-scopes .ac-scope-lead-hit{pointer-events:none}
+.ac-scope-window{position:absolute;display:grid;grid-template-rows:44px minmax(0,1fr) 22px 44px;background:#edf3f8;border:2px solid #567185;border-radius:9px;box-shadow:0 2px 7px #20354d33;overflow:hidden;pointer-events:auto;min-width:0;touch-action:pan-y}
+.ac-scope-heading{display:flex;align-items:stretch;min-width:0;background:#dbe8f2}
+.ac-scope-heading button{min-width:44px;height:44px;border:0;border-radius:0;padding:0;background:transparent}
+.ac-scope-heading .ac-scope-title{flex:1;min-width:0;text-align:left;padding:0 8px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px;cursor:move;touch-action:none}
+.ac-scope-window canvas{width:100%;height:100%;min-width:0;min-height:0;display:block;background:#fff;touch-action:pan-y}
+.ac-scope-status{font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px}
+.ac-scope-footer{display:flex;align-items:center;min-width:0}
+.ac-scope-footer button{min-width:44px;width:44px;height:44px;padding:0;font-size:20px;border:0;border-radius:0;background:transparent}
+.ac-scope-range{flex:1;min-width:0;text-align:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-scope-resize{cursor:nwse-resize;touch-action:none}
+.ac-scope-window.collapsed{grid-template-rows:44px}
+.ac-scope-window.collapsed canvas,.ac-scope-window.collapsed .ac-scope-status,.ac-scope-window.collapsed .ac-scope-footer{display:none}
+.ac-scopes .ac-scope-probe{position:absolute;width:44px;height:44px;min-height:44px;padding:0;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;background:#ffffffd9;font-weight:700;pointer-events:auto;touch-action:none;cursor:grab}
+.ac-scopes .ac-scope-probe.snap{outline:3px dashed #2563eb;outline-offset:3px}
+.ac-scope-dialog{width:min(760px,calc(100vw - 24px));height:min(600px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);padding:4px;overflow:hidden}
+.ac-scope-dialog .ac-scope-window.expanded{position:relative;width:100%;height:100%;box-shadow:none}
+.ac-scope-dialog .ac-scope-title{cursor:default}
+.ac-scope-dialog .ac-scope-resize{visibility:hidden}
+.ac-scope-picker{width:min(400px,calc(100vw - 24px));padding:12px}
+.ac-scope-picker label{display:grid;gap:8px}
+.ac-scope-picker select{width:100%;min-height:44px}
+.ac-scope-tool{touch-action:pan-y}
+.ac-scope-ghost{position:fixed;transform:translate(-50%,-50%);pointer-events:none;z-index:100;background:#edf3f8;border:2px solid #567185;padding:10px;border-radius:8px}
+
+.ac-scope-footer .ac-scope-range{width:auto;flex:1;min-width:44px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.ac-scopes .ac-scope-probe{z-index:3}
