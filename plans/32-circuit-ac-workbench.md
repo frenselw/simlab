@@ -324,3 +324,9 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 依使用者澄清，左引線先由端子中線平滑向下，再接筒身背面的半圈，由下方繞回第一圈上端；背面半圈隨筒身遮擋。右側末半圈及引線保持，不再左右同向從上方接出。圈數、置中、風格、端子及數值模型保持。
 - Node 驗證下方接點／背面半圈的連續路徑及繪圖層次，source／ZIP 驗證實際 SVG 引線向下的幾何；focused **62 observations**、AC Node 及 syntax／manifest check 通過。少圈／多圈畫面已檢視，四包統一重建核對。證據：`output/ac-baseline/ac-inductor-lower-entry.log`。原全站及外部 gate 保持。
+
+
+### 豎直圓板及窄縫（2026-10-09）
+
+- 依使用者要求，圓板投影移除剪切斜度，兩塊板保持豎直；縮小 gap 公式至 2+4/(1+C/0.0005)，常用範圍只留約2.8–5.3世界單位的窄縫，仍隨 C 反向變化。圓板薄邊、正負電荷、直線引線及固定接孔保持。
+- 電荷與左引線交點同步使用豎直投影；Node 驗證窄縫、接點及電荷在圓面內，source／ZIP 增加實際投影無傾斜斷言。focused **64 observations**、AC Node 及 syntax／manifest check 通過，2000 μF及充電截圖已檢視；四包統一重建核對來源。證據：`output/ac-baseline/ac-upright-close-plates.log`。原電學、全站及外部 gate 保持。
