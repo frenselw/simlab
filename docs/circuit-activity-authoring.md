@@ -122,11 +122,11 @@ DC／AC 共用檢視器不提供「電路概覽」或元件／導線數目摘要
 
 `ui` 支援 `header`、`palette`、`inspector`、`readings`、`presets`、`files`、`settings`、`probe`、`viewToggle`、`help`、`wireList`、`status`、`quickParameters`、`wireCurrents`、`potentialDirections`、`playback`。學生預設開啟 header、inspector、外觀切換和快捷參數，其餘關閉；`settings/files/presets` 只允許教師角色。關閉的部分不掛載進 DOM、不進 Tab 焦點順序。元件名稱、電源電壓、電阻、功率、電流示意仍由初始 document 的 `display` 決定；`display.potential` 現在只控制電勢色彩，不再自動開啟方向標示，v6 檔仍原樣保存此布林值。色彩控制在同一面板區，只適用於開放教師 settings 的配置；學生活動仍由作者固定色彩。實物儀表統一指針式，舊檔 `display.meters` 僅保留相容資料；`ui.readings` 控制面板的額外物理讀值，並非畫布標籤。
 
-`ui.playback` 控制畫布上方暫停／繼續與 ¼ 速按鈕，教師預設 true、學生 false，可獨立於 settings 開放。只讀仍可控制觀察速度；播放狀態為 instance 暫態，不保存至答案、不觸發 onChange 或 undo。暫停凍結時間推進，仍可編輯並重算直流讀值；慢動作同步機械、電流及指針，不改元件參數。動態評量須依下節另定取樣與恢復規則。
+`ui.playback` 控制畫布上方暫停／繼續與 ¼ 速按鈕，教師預設 true、學生 false，可獨立於 settings 開放。DC只讀仍可控制觀察速度；AC只讀會暫停並拒絕播放／倍率／單步等時間操作，仍可移圖、縮放及讀錶。播放狀態為instance暫態，不保存至答案、不觸發 onChange 或 undo。暫停凍結時間推進，仍可編輯並重算直流讀值；慢動作同步機械、電流及指針，不改元件參數。動態評量須依下節另定取樣與恢復規則。
 
 `ui.status` 提供短路／過載或診斷的可存取提示，不佔工具列，也不顯示常態模型文字；設 false 可裁剪。畫布寬度至少 358 px 時，現有八個工具排成一行；極窄畫布換行，按鈕保持至少 44 px。
 
-`ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。控制面板沒有 `panelHelp` 或模型 footnote，不要依賴這些舊 DOM 目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
+`ui.help:true` 在頂欄顯示問號按鈕，桌面及手機使用同一入口；教師顯示完整操作／模型說明，學生顯示簡明接線／移圖說明。`ui.help:false` 移除按鈕與說明視窗。共用DC面板沒有舊 `panelHelp` 或常駐模型footnote；AC擴充有預設收起的場觀察及必要儲能說明，見[AC指引](circuit-ac-workbench.md)。不要依賴舊DOM目標。共用導航包含桌面空白處雙擊按住拖曳及放手恢復原工具，具體手勢見[課堂操作](circuit-workbench-core.md#課堂操作)。
 
 選取元件後，快捷區只顯示該元件獲准修改的主參數：電源電動勢、電阻／燈泡電阻或變阻器滑片位置。它不依賴 inspector；`ui:{inspector:false, quickParameters:true}` 可讓學生只調整指定參數，無須打開面板。仍須用 `components.byId` 等規則開放實際參數，固定參數及只讀不顯示可改控制；`ui.quickParameters:false` 完全移除此區。百分比以 0–100 顯示，`position` 仍保存 0–1。
 

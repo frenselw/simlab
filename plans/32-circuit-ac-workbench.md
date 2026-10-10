@@ -1,17 +1,51 @@
 # 交流電路工作台
 
-## 電流箭頭改紅色（2026-10-11）
+
+## 目前狀態與維護入口（2026-10-11）
+
+非評量AC教師工作台及兩個教學示例已實作；目前規格按程式基準 `4aba013` 核對，以下方Scope／模型／狀態契約及[AC作者與維護指引](../docs/circuit-ac-workbench.md)為準。本文逐次記錄保留當時版本及證據，不能把舊圖像、舊介面或歷史全套結果當作最新版契約。
+
+| 項目 | 現行決定 |
+|---|---|
+| 共用架構 | DC／AC同一editor／renderer／Math／接線及指針；`analysis:'transient'`選時間後端，沒有第二份操作框架 |
+| 教師介面 | 無電路概覽、實驗操作、內建單步／reset按鈕；空白檢視器收起，元件／導線設定、兩點量測及診斷保留；¼速在共用工具列 |
+| 預設與波形 | 四組14個主題＋空白；波形由源參數選正弦／方波／三角波；浮動儀器及探頭、軸拖動／鍵盤、圓點及有界歷史，沒有舊游標／固定波形區 |
+| 圖形與讀值 | 連續SVG發電機、固定範圍場線疏密、C/L歸零顯示、固定單位5Hz數字＋bar、數學字形、緊湊電表、上方變壓器匝數比及鐵芯內磁通 |
+| 方向配色 | 常規電流及靜態電流箭頭紅色，電子藍色；電勢方向／場線另有自己的語義，不全域取代藍色 |
+| 保存 | DC doc v6／AC doc v7，session version 1／modelRevision 1，技術示例codec v5；觀察與顯示非權威，正式ACrubric／SCORM另定 |
+| 驗證狀態 | 逐次Node及source／ZIP專項有證據；最近完整suite有既有2 Hz亮度fixture阻塞，後續專項未證明已消除；真Moodle／真手機T4未驗收 |
+
+維護先分清共用、時間模型、顯示及活動外層，按[精準驗證表](../docs/circuit-ac-workbench.md#精準驗證與維護)選必要項目。純文件修訂只核對來源、版本、指令與連結，不重跑物理／browser。核心改動交付時統一重建相應ZIP；目錄active不代表全部package-ready／Moodle-ready gate通過。
+
+## 近期決策與驗證記錄
+
+以下記錄只證明其日期／當時提交的實際範圍。被後續取代的方案與舊全套結果保留為歷史；目前功能或通過狀態不得由舊段落推定。
+
+
+### 指導文件對照整理（2026-10-11；程式基準4aba013）
+
+本輪只更新計劃、AC作者／維護指引、共用架構與作者說明。同步現行預設值、
+浮動儀器／無游標介面、移除概覽與實驗區、bar／符號／場／電表／變壓器規格，
+補10個AC依賴、模組責任、15個預設名稱、版本與精準測試入口；修正架構中
+「尚未有AC」及AC只讀播放說明。歷史驗證保留但不冒稱最新全套通過。
+
+實際文件檢查：50個本地連結／錨點（含入站引用）、10個runtime檔、測試檔／
+flag／npm腳本存在；JS示例語法、最小mount的生產profile及離線示例c2接點
+核對通過，diff通過。未修改runtime或重跑模擬／browser；既有2 Hz完整suite
+記錄及真Moodle／實機待驗收狀態沒有以文書整理宣告解除。
+
+### 電流箭頭改紅色（2026-10-11）
 
 與DC共用renderer修改：常規電流箭頭及靜態導線方向箭頭紅色，電子圓點保持
 藍色。決定與精準證據見[共用配色](28-circuit-workbench.md#共用電流方向配色2026-10-11)。
 
-## 共用檢視器移除概覽（2026-10-11）
+### 共用檢視器移除概覽（2026-10-11）
 
 DC／AC同時移除未選取時的「電路概覽」，在共用editor處理而非各自隱藏。
 保留選取物件的設定／讀值、兩點量測及實際診斷；空白區塊不佔位置。
 決定與48項source／獨立ZIP精準證據見[DC共用計劃](28-circuit-workbench.md#共用檢視器移除電路概覽2026-10-11)。
 
-## 變壓器鐵芯、匝數比與共同磁通（2026-10-11）
+### 變壓器鐵芯、匝數比與共同磁通（2026-10-11）
 
 - 鐵芯改為實心有厚度的疊片環形鐵芯，以頂面／右側／窗口內壁及細疊片邊線
   表示厚度，保留兩側連續繞組及所有端子座標。上方單獨顯示LaTeX原副匝數比
@@ -35,7 +69,7 @@ DC／AC同時移除未選取時的「電路概覽」，在共用editor處理而�
 各31／32個RAF樣本的磁通方向同步；桌面及320／390px可信tap／放大通過，截圖已
 目視確認。只跑相關項目，未重跑無關活動；本機證據非實機／Moodle驗收。
 
-## 精簡交流錶盤及整理示例（2026-10-11）
+### 精簡交流錶盤及整理示例（2026-10-11）
 
 依使用者要求對照 DC 電表：AC A／V／W 使用緊湊白色錶面及灰藍外殼，
 由106×134收至92×78；移除錶盤下方數字／未接妥狀態區。狀態仍在檢視器及
@@ -57,13 +91,13 @@ readout-math Node通過；`--meter-design-smoke` source／ZIP各58項，共116�
 放大錶盤及320px教學示例頂欄。已目視實物／符號對照DC、接線及320px錶盤
 截圖。未重跑整套測試；本機手機模擬不代表實機／Moodle驗收。
 
-## 移除實驗操作區塊（2026-10-11）
+### 移除實驗操作區塊（2026-10-11）
 
 依使用者要求移除 Control Panel 的「實驗操作」、單步及回到初始條件按鈕。
 刪除區塊建立及按鈕狀態更新；底層 API 保留。此決定取代下方歷史記錄的
 摺疊操作區配置。只核對受影響檔案的語法及差異，不重跑物理或全套測試。
 
-## 發電機bar及交流數學排版審核（2026-10-11）
+### 發電機bar及交流數學排版審核（2026-10-11）
 
 - 發電機θ用0–360°循環條，Φ、NΦ、e用中心零點的雙向bar；磁場B保持
   靜態數值。同時套用選取讀值，變壓器場觀察動態值亦一致。量尺依B、S、N、f
@@ -85,7 +119,7 @@ readout-math Node通過；`--meter-design-smoke` source／ZIP各58項，共116�
 字形、參數／示例保存時間、320px不溢出）。已目視桌面／320px發電機觀察
 及示波器截圖；未跑全套測試或無關活動。此為本機瀏覽器證據，非實機／Moodle證據。
 
-## 儲能首次歸零的電流／場同步（2026-10-10）
+### 儲能首次歸零的電流／場同步（2026-10-10）
 
 - 重現 RC、RL 首次顯示儲能0 J時，仍分別有約6.93 μA、19.71 μA及場線。
   增加共用電氣島可見性判斷：同島有C/L、所有可知儲能均已低於原顯示
@@ -114,7 +148,7 @@ snapshot及波形raw值不變。browser亦執行正常LC電場儲能0但磁能�
 `output/playwright/circuit-ac/source-{rc,rl}-first-zero-energy-sync.png`。
 全站既有2 Hz測試阻塞與真手機／Moodle gate維持歷史記錄。
 
-## 電容放電尾段同步歸零（2026-10-10；以下為舊電流觸發版本的證據）
+### 電容放電尾段同步歸零（2026-10-10；以下為舊電流觸發版本的證據）
 
 - 使用者重現導線顯示 0 mA 後仍有電容電場的時間差。電容顯示副本在電流
   已按完整窗顯示為零，且當刻／全窗電壓均低於參考電壓×10⁻⁴時，同步將
@@ -139,7 +173,7 @@ snapshot及波形raw值不變。browser亦執行正常LC電場儲能0但磁能�
 `output/playwright/circuit-ac/source-rc-first-zero-synchronized.png`。
 全站既有測試阻塞、真手機／Moodle gate維持歷史記錄。
 
-## 場觀察條形讀值與衰減顯示（2026-10-10）
+### 場觀察條形讀值與衰減顯示（2026-10-10）
 
 - 電容／電感場觀察及選取讀值改用條形指示：帶符號量以中心零點表示，儲能
   從零向右；固定工程單位、兩位小數及穩定量尺，播放時數字最多每秒五次，
@@ -169,7 +203,7 @@ U/I/q/E 為零。source／ZIP 場／bar **170** 項、scope **194** 項、DC共�
 及 `source-field-inductor-large.png`。未重跑已記錄的全站 2 Hz 燈泡阻塞；
 真手機／Moodle gate 維持未驗收。
 
-## 固定範圍的場線疏密（2026-10-10）
+### 固定範圍的場線疏密（2026-10-10）
 
 - 使用者指出前版場線組收密時整個場亦縮小；最新要求以固定場範圍為準。
   保持電容 y=±20、發電機極間 y=±16，以及電感內部 y=±16、外部 y=±45。
@@ -193,7 +227,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 `output/playwright/circuit-ac/source-field-coverage-comparison.svg` 及同名 PNG。
 全站既有 2 Hz 燈泡阻塞與真手機／Moodle gate 維持下方歷史記錄。
 
-## 固定場線組的動態間距（2026-10-10；已由固定範圍版取代）
+### 固定場線組的動態間距（2026-10-10；已由固定範圍版取代）
 
 - 使用者要求保持線數，以場線間距表示強弱。取代上一輪以 opacity 表示強弱
   的方式：電容固定五條、電感固定六條閉合線、發電機固定七條極間線；非零
@@ -219,7 +253,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 本輪只跑相關 gates；下方已記錄的全站 2 Hz 燈泡阻塞及真手機／Moodle gate
 狀態維持，沒有放寬斷言。
 
-## 電場／磁場觀察重設計（2026-10-10；以下為疏密改版前證據）
+### 電場／磁場觀察重設計（2026-10-10；以下為疏密改版前證據）
 
 - 修正 `.ac-field svg` 誤套數值 MathJax SVG 的寬高，圖形只用具名 diagram
   class；數值沿用共享量綱排版，以正常大小的讀值列呈現。
@@ -251,7 +285,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 測試失敗（最暗值／亮度階數未達原門檻；未改鬆斷言），記錄於
 `ac-field-npm-test-final.log`。真手機及 Moodle gate 未驗收。
 
-## 發電機圖形重設計（2026-10-10；基準 26ad63d）
+### 發電機圖形重設計（2026-10-10；基準 26ad63d）
 
 - 使用者批准將 SVG 預覽整合進工作台，要求 N／S 對齊。固定斜投影採
   `x=x₃+0.38z₃, y=−y₃+0.28z₃−8`，不以 x₃ 改變畫面高度；兩極
@@ -271,7 +305,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
   ¼速、參數預覽、符號／實物、場圖、元件旋轉及手機可信操作。重建四個電路包。
   真 Moodle／實機及全站既有阻塞另外記錄，不以本地證據代替。
 
-### 本次實作與驗證
+#### 本次實作與驗證
 
 - branch 由 4f7c039 fast-forward 至 GitHub 的 26ad63d，再實作本次圖形；
   最新 commit 的觀察峰值／能源顯示保留。
@@ -307,7 +341,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 | Slug／目標 | `circuit-ac-workbench`；中學交流、有效值、電容／電感、自感／互感、變壓器及 LC 振盪 |
 | 交付 | 非評量教師工作台、可配置核心、兩個無評分嵌入示例、standalone ZIP；正式 AC SCORM 題目及 rubric 另議 |
 | 教材 | 人教版高中選擇性必修第二冊，印刷頁 40–43、49–62、71–75；本地 Textbooks 原 PDF 已讀 |
-| 操作 | 自由取物、接線、調參、播放／暫停／單步、瞬時與窗內量測、游標、能量及場示意 |
+| 操作 | 自由取物、接線、調參、播放／暫停／¼速、瞬時與窗內量測、浮動波形／探頭、能量及場示意；單步／reset僅保留API |
 | 共用核心 | `CircuitEditor.mount`；不複製 DC editor。共用接線、拖放、吸附、權限、有限導線、實物／符號及 renderer |
 | 依賴 | 原生 HTML/CSS/JS/SVG/Canvas；沿用本地 MathJax、styles、fullscreen，不引入新 runtime library |
 | Assessment risk | N/A：本次沒有學生評分；後續活動需自己的 assessment risk／rubric／codec／SCORM manifest |
@@ -315,14 +349,14 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 
 ## Catalogue metadata
 
-`title:'交流電路工作台'`、`folder:'circuit-ac-workbench'`、`categories:['物理','電學']`、`description:'搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。'`、`tags:['交流','電路','電容','電感','變壓器','工作台']`。只在 source／package gates 通過後設 `status:'active'`。
+以 [`sim/config.js`](../sim/config.js)的實際條目為準：`title:'交流電路工作台'`、`folder:'circuit-ac-workbench'`、`categories:['Electricity']`、`description:'搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。'`、`tags:['physics','electricity','ac','capacitor','inductor','transformer','workbench']`、`status:'active'`。active為目錄入口狀態；發布驗收另依實際gate及版本證據判斷。
 
 ## Architecture and public interfaces
 
 - `analysis:'dc'|'transient'` 是可信 mount 配置，預設 dc。所有讀值、check、probe、renderer、hazards 路徑使用選定後端；DC 方程及預設不重寫。
 - v1–v6 繼續遷移至 v6／匯出 v6。AC v7 帶 `analysis:'transient'`、`modelRevision:1`；初始 C 電壓及 L 電流是元件參數，目前時間／狀態另存。
 - DC 拒絕 AC 文件。AC 顯式將支援的 v6 文件轉為 v7；不支援元件完整拒絕，不能自動刪除。無全域分析模式。
-- `getAnalysis()` 不推進時間。增加播放／暫停／倍率／單步／reset、`captureSession()`／`restoreSession()`、獨立分析訂閱與活動 panel 插槽。
+- `getAnalysis()` 不推進時間。提供播放／暫停／倍率及受權限控制的單步／reset API（不再有內建實驗操作區）、`captureSession()`／`restoreSession()`、獨立分析訂閱與活動 panel 插槽。
 - 時間求解器同時提供 instance session 與確定性離線 events/until 運算，兩者共用積分程式。
 - AC 配置覆蓋模型／款式／數量／參數／操作、播放及量測通道；UI、命令、鍵盤、匯入與 restore 共用驗證。
 - 保留近期 DC 改進：滑片數字即時更新、滑鼠／筆 palette／取線拖放、未接物件回 panel／垃圾桶、符號名稱。
@@ -330,19 +364,19 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 
 ## Physics or subject model
 
-| 元件／状态 | 方程／規格 | 单位／預設 |
+| 元件／狀態 | 方程／規格 | 單位／預設 |
 |---|---|---|
 | AC source | 正弦、對稱方波、對稱三角波；輸入有效值換算各波形峰值；可調初相位及內阻 | 6 V rms、1 Hz、0°；工作台 f 0.1–2 Hz 或 50 Hz，數值核心仍保留 0.1–1000 Hz |
 | Generator | θ 隨時間；Φ=BS cosθ 為單匝磁通量；e=NBSω sinθ；轉速同時影響振幅及頻率 | SI；原生 SVG，外界保持轉速 |
 | R／rheostat／wire | 沿用阻值及端子語義；幾何不是物理電阻 | Ω；不變更 DC schema |
 | Lamp | 恆阻燈，功率驅動亮度；不拿 DC 熱平衡當熱瞬態 | 額定參數沿用現有 |
-| Capacitor | i=C du/dt；q=Cu；E=½Cu²；狀態 u | 1000 μF，初始 u=0 |
-| Inductor | u=L di/dt+Ri；E=½Li²；狀態 i；R=0 支援理想 LC | 1 H，初始 i=0 |
+| Capacitor | i=C du/dt；q=Cu；W_C=½Cu²；狀態u；繪圖不是物理板距 | 0.02 F，初始u=0；教師常用0.01–0.2 F，數字欄最低0.0001 F |
+| Inductor | u=L di/dt+Ri；W_L=½Li²；狀態i；R=0支援理想LC | 1 H，初始i=0；教師常用0.5–10 H，數字欄最低0.05 H |
 | Switch／SPDT | 離散事件，SPDT 不能同時接通兩邊 | boolean／兩個接點選擇 |
-| Ideal transformer | 電壓比等於匝數比，電流反比，功率守恆；兩側隔離；純交流用途 | n1:n2=200:100 |
-| Coupled transformer | M=k√(L1L2)，L2=L1(n2/n1)²；兩側同組方程；k<1；線阻與漏耦合 | L1=2 H、k=.999、R1=1 Ω、R2=.25 Ω |
+| Ideal transformer | 電壓比等於匝數比、電流反比、功率守恆；隔離／純交流；交變磁通由U₁/N₁時間積分及零平均週期重建 | N₁:N₂=200:100；不計磁化電流／儲能 |
+| Coupled transformer | M=k√(L₁L₂)，L₂=L₁(N₂/N₁)²；k<1；共同磁通kL₁(I₁+N₂I₂/N₁)/N₁，漏磁圖省略 | L1=2 H、k=.999、R1=1 Ω、R2=.25 Ω |
 | LED | 正向壓降＋有限導通電阻，反向截止；反向並聯顯示方向 | 教學近似，沒有擊穿模型 |
-| AC A/V/W meters | 有效電流／有效電壓／平均有功功率，數字與指針讀同一統計 | 明示量測窗及資料不足 |
+| AC A/V/W meters | 有效電流／有效電壓／平均有功功率，數字與指針目標同一統計；A/V換孔不改RMS，W反接一組改功率符號 | 30格；W正負各30；正常不顯示窗起止，未接／收集中不假零 |
 | G meter | 有方向的瞬時電流，指針平滑只作呈現 | A，介面 μA |
 
 線性線圈不模擬飽和、磁滯及鐵損；不把效率直接乘電壓。互感斷電預設含可見放電支路。理想變壓器遇直流激勵明確停止並提示改模型。
@@ -351,7 +385,7 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 
 修正節點分析；平滑處梯形法，事件後短暫 backward Euler 再回梯形。自適應步長／step doubling，週期及自然變化尺度限步，波形跳變與操作事件為 breakpoint。拓撲編譯只在電氣變更時重建。初始條件明確，不把零初始瞬態當穩態。
 
-物理時間與 RAF 分開；單幀運算設 budget，忙時放慢時間而非跳步。未知／浮接／不唯一保留 null。矛盾理想源、帶電 C 理想短接、帶電流 L 無通路及数值失敗保留文件、凍結事件時間並診斷；不暗加電阻、清能量、裁剪電流。無損受迫共振可增長，不能用假耗散壓平。
+物理時間與 RAF 分開；單幀運算設 budget，忙時放慢時間而非跳步。未知／浮接／不唯一保留 null。矛盾理想源、帶電 C 理想短接、帶電流 L 無通路及數值失敗保留文件、凍結事件時間並診斷；不暗加電阻、清能量、裁剪電流。無損受迫共振可增長，不能用假耗散壓平。
 
 ### Editing and time transitions
 
@@ -368,17 +402,17 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 
 ### Measurement and visual observations
 
-每個積分步計算 ∫u²dt、∫i²dt、∫uidt，產生 RMS 與平均功率，不能由 RAF 抽樣。峰值/√2 只適用正弦。顯示時間窗、收集中；更改條件清統計。相位差限穩定正弦及明確參考頻率，不適用時保留曲線與游標。
+接受時間步的取樣積分∫u²dt、∫i²dt、∫uidt，產生RMS、平均功率及完整窗峰值，不能由RAF抽樣。峰值/√2只適用正弦。正常面板不顯示窗起止時間，資料不足標收集中；改條件／restore重新收集。相位運算保留在底層，沒有常駐相位或游標介面。
 
-最多四條波形：兩端 voltage、支路 current、C charge、C/L/coupled energy，共用時間軸、各自單位與軸比例；兩游標有鍵盤／數值替代。固定容量 ring buffer；繪圖抽樣不丟積分資料。場、電流及發電機角度同一物理時間；電子不穿過 C 介質。
+最多四部浮動儀器（教師預設兩部），依元件能力／可信通道選voltage、current、charge、energy或發電機flux；兩端電壓探頭須在同一電氣島。共用時間窗、各自單位與Y量尺；軸及探頭有方向鍵／Home／Enter替代，沒有兩游標。Trace保留1000秒／8192歷史格及1025顯示格，保留峰值／缺口，未收集區空白；UI配置與歷史不進session。變壓器coreFlux另為只讀觀察量，不自動新增flux波形通道。場、電流及發電機角度同一物理時間；電子不穿過C介質。
 
 ## Responsive layout contract
 
 | 決策 | 規格 |
 |---|---|
 | 三區 | Header：title/presets/fullscreen；stage：電路／波形；panel：工具、參數、量測、外層插槽 |
-| 桌面 | ≥760 px；stage 左、panel 252px 右（跟隨 DC）；波形開合時 stage 內約 1/3 高 |
-| Phone | 上 stage、下 bounded panel；電路／波形切換。共通控制沿用 DC 的位置與窄畫面排列；stage 保留至少 75px 畫布，短畫面讓獨立捲動 panel 讓出高度，按鈕仍為 44px |
+| 桌面 | ≥760 px；stage左、panel 252px右（短橫向230px）；波形為可移動小圖，不預留固定1/3區域 |
+| Phone | 上stage、下bounded panel；電路與浮動圖框共存，小圖可收起或開大圖。共通控制沿用 DC 的位置與窄畫面排列；stage 保留至少 75px 畫布，短畫面讓獨立捲動 panel 讓出高度，按鈕仍為 44px |
 | Bounded shell | 100dvh，min-height:0；html/body 沒有競爭 scroll；panel overflow-y:auto/overscroll contain |
 | Fullscreen | 整個活動唯一 target/header、shared script；外層有 header 時內層 ui.header=false |
 | 文字／按鈕 | Traditional Chinese、主控制 16px、圖形放大可讀、44px target；狀態亦有文字 |
@@ -386,13 +420,13 @@ float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後
 
 ## Navigation, submission and reset
 
-教師主題預設可獨立切換，明示載入新電路；reset simulation 保留搭建但回初始值。Standalone refresh fresh。check/submit/rubric/recorded lifecycle **N/A：非評量工作台**。活動插槽不提供分數；正式活動後續自己的計劃決定 blank／partial／check／review／pending。
+教師主題預設分組並可獨立切換，保留手動播放／顯示選項，載入新電路重建初始狀態；reset API保留搭建但回初始值，沒有內建reset按鈕。Standalone refresh fresh。check/submit/rubric/recorded lifecycle **N/A：非評量工作台**。活動插槽不提供分數；正式活動後續自己的計劃決定 blank／partial／check／review／pending。
 
 ## Diagrams, notation and assistance
 
-SI 內部數值，u/i/q 為有正負瞬時量，U/I 为 RMS，Φ 與 NΦ 分開。正方向端子 a→b；耦合線圈同名端明示，跨隔離任意 reference 的電壓未知。使用共享數學字型與格式。
+SI內部數值，方程u/i/q為有號瞬時量；UI的U/I依標籤指當刻量，有效值明示U_rms/I_rms。W_C/W_L為儲能，Φ與NΦ分開；變壓器N₁:N₂上方比例、coreFlux為共同磁通。正方向端子 a→b；耦合線圈同名端明示，跨隔離任意 reference 的電壓未知。使用共享數學字型與格式。
 
-接孔吸附沿用現有 24 CSS px、component snap 既有幾何；不是評分容差。手指 wire-end 精準接孔需放大預覽；粗元件搬動／按鈕／range 不需放大；波形游標以數值與 keyboard 避免遮蔽。不新增旋轉線圈自由 3D 手勢。
+接孔吸附沿用現有 24 CSS px、component snap 既有幾何；不是評分容差。手指 wire-end 精準接孔需放大預覽；粗元件搬動／按鈕／range 不需放大；波形探頭、圖框及軸操作提供keyboard替代，沒有舊游標控制。不新增旋轉線圈自由 3D 手勢。
 
 ## Touch gesture ownership contract
 
@@ -401,24 +435,24 @@ SI 內部數值，u/i/q 為有正負瞬時量，U/I 为 RMS，Φ 與 NΦ 分開�
 | component／wire end／wire body／rheostat | 現有 stable hit capture、none；操作 owns gesture，viewport fixed | 現有選取／方向鍵／commands |
 | palette／take wire | 滑鼠／筆 drag；touch click／panel pan-y | button click |
 | SPDT | local button hit、44px；event only一次 | Enter／Space |
-| graph cursors | local 44px capture none，其餘 graph pan-y | range／number／arrows |
+| 波形探頭／圖框／軸 | 44px命中及stable capture、操作面none；其餘canvas／框pan-y | 方向鍵、Home、Enter／雙擊合法測點 |
 | panel | panel only，兩端不串到 host | tab／原生 scroll |
 | left/right strips | 各≥32 CSS px，不被 graph 蓋住；native host pan-y | N/A |
 | blank stage outside manipulation | native enclosing owner | N/A |
 
-| Host | 实際 owner／strategy | Evidence |
+| Host | 實際owner／strategy | Evidence |
 |---|---|---|
-| T0 | bounded workbench；無 host range 時 N/A，不偽造捲動 | 待執行 |
-| T1 | scrollable outer window → iframe | 待執行 |
-| T2 | outer window → fixed wrapper → iframe | 待執行 |
-| T3 | bounded windows，overflowing owner element → iframe | 待執行 |
+| T0 | bounded workbench；無host range時N/A，不偽造捲動 | 歷史A2–A5有本機證據，最新未全矩陣重跑 |
+| T1 | scrollable outer window → iframe | 歷史A2–A5有本機證據，最新未全矩陣重跑 |
+| T2 | outer window → fixed wrapper → iframe | 歷史A2–A5有本機證據，最新未全矩陣重跑 |
+| T3 | bounded windows，overflowing owner element → iframe | 歷史A2–A5有本機證據，最新未全矩陣重跑 |
 | T4 | 真 Moodle 及真手機 owner 實測 | 待外部環境，不能用本地替代 |
 
-running/paused/preview/diagnostic/readonly，real/symbol、graph開／關／mobile graph view 均要 legal fixture，操作後記錄時間狀態及 scroll owner。所有 targets、strip兩方向、panel邊界、快速滑動、取消及 resize 依 production guide。
+running/paused/preview/diagnostic/readonly，real/symbol、儀器開／關／收起／放大 均要 legal fixture，操作後記錄時間狀態及 scroll owner。所有 targets、strip兩方向、panel邊界、快速滑動、取消及 resize 依 production guide。
 
 ## Scoring and tolerance
 
-Rubric/pass/分數／提交 **N/A：教師工具及無評分技術示例**。物理解析誤差≤0.5%（近零絕對電壓1e-6 V／電流1e-9 A）；理想 LC 100周期能量漂移≤0.5%；與未來評分容差分開。
+Rubric/pass/分數／提交 **N/A：教師工具及無評分教學示例**。物理解析誤差≤0.5%（近零絕對電壓1e-6 V／電流1e-9 A）；理想 LC 100周期能量漂移≤0.5%；與未來評分容差分開。
 
 ## Phase/state matrix
 
@@ -435,13 +469,13 @@ Rubric/pass/分數／提交 **N/A：教師工具及無評分技術示例**。物
 
 ## Persistence contract
 
-教師 document 256KiB 限制，manual import/export，無 localStorage 答案。Session envelope `{kind:'simlab-circuit-session',version:1,modelRevision:1,document,physics}`；physics exact keys 為 `time,step,sources,dynamic,work,dissipated,event`；sources 是 ID→目前弧度，dynamic 是支路 key→`{i,v}`（C u/i、L i/電感電壓、coupled winding i/u）。keys 與當前 doc 的元件完全一致；finite、range、數值及歷史相容、model revision、doc 及 profile 全驗證，原子 restore。preview／camera／DOM／particle／full ring buffer不保存；統計恢復後收集中。
+教師 document 256KiB 限制，manual import/export，無 localStorage 答案。Session envelope `{kind:'simlab-circuit-session',version:1,modelRevision:1,document,physics}`；physics exact keys 為 `time,step,sources,dynamic,work,dissipated,event`；sources 是 ID→目前弧度，dynamic 是支路 key→`{i,v}`（C u/i、L i/電感電壓、coupled winding i/u）。keys 與當前 doc 的元件完全一致；finite、range、數值及歷史相容、model revision、doc 及 profile 全驗證，原子 restore。preview／camera／DOM／particle／full ring buffer不保存；統計恢復後收集中；理想coreFlux觀察器亦重收集一個週期，耦合共同磁通從保存的線圈狀態重建。
 
 **未來 SCORM**：活動自己定definition/model epoch、精簡固定模板 codec、null answers、snapshot three byte gates與 rubric。動態時間評分用固定初始條件／事件／窗口重算。核心 session不是任意電路≤4000bytes承諾；兩技術示例量測 compact必要動態欄位以證明可做活動。Pending/review時間必須凍結；演示playback另用副本。
 
 ## Shared SCORM lifecycle
 
-N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimScorm／SimActivityFlow 全 outcome；D3/D4 是架構驗證 prototype，介面完善另議，不因 AC 改其題目或 rubric。
+N/A：AC工作台及兩個示例沒有已評分SCO或raw LMS handling。後續正式AC活動沿用SimScorm／SimActivityFlow全outcome；DC串聯／滑片評量已在自己的外層及rubric實作，AC不改其題目、分數或保存。
 
 ## Implementation stages
 
@@ -451,11 +485,13 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 | A1 時間核心 | R/C/L、SPDT、adaptive integration、events、energy、snapshot、離線運算，解析驗證通過 |
 | A2 交流工作台 | editor、AC meters、waveform、time、panel slot、bounded layout |
 | A3 變壓器 | ideal＋coupled、isolation、load、DC通斷互感 |
-| A4 教材預設 | 五組／空白可編輯預設；generator/LED/field/energy聯動 |
+| A4 教材預設 | 四組14主題＋空白，穩定key／清楚名稱；generator/LED/field/energy聯動 |
 | A5 嵌入／恢復 | fixed transformer params＋fixed LC SPDT兩個無分數示例；權限／合法續作／多instance／只讀 |
 | A6 發布 | 中央assets、AC standalone ZIP、三DC包重建、source/package、文檔及catalogue |
 
 ## Test plan and evidence
+
+下列勾選是已記錄階段的歷史執行證據，對應日期／基準及下面日誌；不表示最新版全套重新通過。最近專項及未完成gate以本文件開頭和[精準驗證指引](../docs/circuit-ac-workbench.md#精準驗證與維護)為準。
 
 - [x] RC/RL解析及switch連續性；R/RLC正弦、相位、三種RMS與平均功率。
 - [x] LC100周期能量；damped/critical/overdamped；離線與分段、不同幀率／倍率同t狀態一致。
@@ -469,7 +505,7 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 ## Implementation record
 
-尚未完成的驗收留空。基準及臨時證據保存在 ignored `output/ac-baseline/`；後續在此記錄實際版本、結果與限制，不以計劃冒稱完成。
+本節為2026-10-09至10的歷史實作與驗證；有些UI、預設及codec已由近期記錄取代。原始數字與舊描述保留以交代當時驗證，不當作目前規格。基準／log在ignored `output/ac-baseline/`，近期圖像／專項在 `output/playwright/circuit-ac/`；ignored檔案不保證其他機器存在，記錄須註明實際版本及限制。
 
 ### A0／A1 核心驗證（2026-10-09）
 

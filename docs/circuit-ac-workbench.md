@@ -2,11 +2,28 @@
 
 交流入口為 `sim/circuit-ac-workbench/index.html`；實作及驗收決策見[交流計劃](../plans/32-circuit-ac-workbench.md)。它與 DC 使用同一 `CircuitEditor`，但明確選用時間分析後端。工作台及兩個配置示例均不評分；正式 SCORM 題目、rubric 及活動 codec 另定。
 
+
+本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-11按程式基準 `4aba013`、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
+
+## 目前介面與共用邊界
+
+| 範圍 | 現行行為 |
+|---|---|
+| 共用 DC／AC | 同一 `CircuitEditor`、畫布、接線、吸附、指針、MathJax與renderer；常規電流箭頭紅色、電子藍色，靜態導線電流箭頭亦為紅色 |
+| Control Panel | 工具／選取設定／儲能／預設收起的場觀察；沒有「電路概覽」或「實驗操作」；空白檢視器收起，物件設定、兩點量測及實際診斷保留 |
+| 動態讀值 | C／L、發電機及變壓器使用固定工程單位的bar；有號量中央零位，儲能由零起；播放數字最多5Hz、暫停即時，bar跟隨當刻值 |
+| 交流電表 | 白色錶面、92×78灰藍外殼；沒有底部狀態區或A／B標記；功率表的電流／電壓端子用數學字形區分 |
+| 場與圖像 | 發電機連續SVG旋轉，場線固定範圍改疏密；電容只畫板間，電感閉合穿過線圈，變壓器主要畫鐵芯內共同磁通 |
+| 波形 | 可移動小儀器及探頭，軸拖動／鍵盤調量尺；沒有常駐游標、相位讀值或固定下方波形區 |
+| 時間與保存 | 單步／reset保留受權限控制的API，沒有內建按鈕；document、session、觀察工具及顯示副本分開，正式AC評分仍由活動另定 |
+
+修改共用外觀或操作時在共用檔案改一次，核對DC及AC；時間模型及本題教學內容分別留在AC後端及活動外層。不要為兩個入口複製renderer或editor。
+
 ## 開啟及部署
 
 Live Server 可直接開交流入口。`npm run package:circuit-platform` 統一重建 DC 工作台、AC 工作台及兩個 DC SCORM 活動，核對共用來源與每包依賴。AC standalone ZIP 上載 Moodle **File resource**，主檔 `circuit-ac-workbench/index.html`；它沒有 `imsmanifest.xml`，不能當成已評分 SCO。
 
-預設涵蓋交流／三種波形有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、充電後 LC、阻尼及空白畫布。共通操作沿用 DC 的位置：文件、設定及復原在頂欄；接線、手掌工具及播放在畫布上方；旋轉、複製、刪除與縮放在畫布底部。工具箱提供電壓圖／電流圖，可拖到畫布邊緣；預設不佔固定圖區。手機小圖可摺起或開啟大圖，控制面板仍獨立捲動。兩側捲頁區供 Moodle 外層捲動。
+預設涵蓋交流有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、充電後 LC、阻尼及空白畫布。共通操作沿用 DC 的位置：文件、設定及復原在頂欄；接線、手掌工具及播放在畫布上方；旋轉、複製、刪除與縮放在畫布底部。工具箱提供電壓圖／電流圖，可拖到畫布邊緣；預設不佔固定圖區。手機小圖可摺起或開啟大圖，控制面板仍獨立捲動。兩側捲頁區供 Moodle 外層捲動。
 
 教師工作台預設啟動、按真實時間播放，預設 1 Hz；常用頻率為 0.1–2 Hz，另有「50 Hz · 真實交流」按鈕及課堂預設。頻率變更保留當刻相位，不以慢播代替低頻。數值輸入、滑塊、快捷按鈕及編輯命令使用相同的控制限制。時間求解器仍保留原數值能力與舊文件相容性，沒有把舊檔中的其他頻率偷偷改寫。
 
@@ -16,7 +33,7 @@ Control Panel 寬度沿用 DC（桌面 252px、短橫向 230px），移除「時
 
 教師在 DC／AC 切換課堂示例時，保留顯示選項、操作模式及新導線設定；電勢參考端點屬於舊電路，會清除。導線總數若不足容納示例，提升至所需數目。教師開啟文件仍使用檔案內設定。
 
-「交流 · 電感與頻率」使用0.2 Hz電源、5 H線圈及12 Ω負載燈，比較頻率對電流的作用；「直流 · 通電自感與電流建立」使用直流源、5 H、0.1 Ω線阻及3 Ω燈，時間常數約1.61秒，初始零電流，切至供電側才逐漸建立。两者使用供電／放電切換，放電側保持線圈電流連續。自由搭建若把帶電流線圈完全斷路，仍保留模型診斷及暫停，不能把儲能清零。
+「交流電感：頻率與電流」使用0.2 Hz電源、5 H線圈及12 Ω負載燈，比較頻率對電流的作用；「通電自感：電流建立」使用直流源、5 H、0.1 Ω線阻及3 Ω燈，時間常數約1.61秒，初始零電流，切至供電側才逐漸建立。兩者使用供電／放電切換，放電側保持線圈電流連續。自由搭建若把帶電流線圈完全斷路，仍保留模型診斷及暫停，不能把儲能清零。
 
 ## 實物、符號及燈光
 
@@ -42,17 +59,41 @@ AC A／V／W 外殼兩側不畫額外螺絲／圓孔；保留短引線及編輯�
 
 交流A／V／W及共用靈敏電流計的數字與指針目標按量程顯示至每小格的十分之一，使用同一 `CircuitRegistry.meterDisplayReading`；小於半個顯示步長的正／負尾值顯示0，不保留負零。畫布標籤、實物／符號讀值、Control Panel、放大錶盤及指針目標共用這個精度，指針仍保留機械慣性。G是純電阻支路，顯示電流／有效值低於可辨讀尺度時，相應的電壓／功率尾值亦不顯示無意義的小數。未知量仍顯示未知，過量程狀態按原始讀值判斷。
 
-這是呈現精度，不是把求解結果裁剪為零；`getAnalysis()`、波形、能量及session保持原始數值。較小量程仍可顯示真正微小電流，不採全站固定電流門檻。理想變壓器的穩態讀數不再顯示時間積分的細微數值波動；線性變壓器剛通電的暫態仍保留，只有進入穩態後才要求數字穩定。DC雙量程A／V表保持原精度，共用G套用同一呈現规则。
+這是呈現精度，不是把求解結果裁剪為零；`getAnalysis()`、波形、能量及session保持原始數值。較小量程仍可顯示真正微小電流，不採全站固定電流門檻。理想變壓器的穩態讀數不再顯示時間積分的細微數值波動；線性變壓器剛通電的暫態仍保留，只有進入穩態後才要求數字穩定。DC雙量程A／V表保持原精度，共用G套用同一呈現規則。
 
 未接妥時指針機械回零，數值仍為 null；未接妥／收集量測中在檢視器及放大觀察說明顯示，不在器材下方設狀態區。未知讀值不畫假針位，隱藏讀值亦隱藏指針。交流錶面沿用 DC 的白色錶面及灰藍外殼，92×78，刻度字體依數字長度調整；AC A／V 每量程30小格，W為中心零、正負各30小格；A／V讀有效值，W讀平均有功功率，G保留有號瞬時電流且以 μA呈現。
 
 畫布、手機持續預覽及放大錶盤使用同一個指針狀態與刻度幾何；三種交流電表亦可選取後開啟放大刻度。接線狀態在拓撲編譯時快取；未接電表不因時間窗滿足而冒充已量測到零。
 
+交流電流表／電壓表兩孔不顯示A／B；接線選擇器以當前方向稱左／右或上／下接線端，端子ID及座標保持。有效值不受兩端互換影響；電流表仍串聯、電壓表仍並聯。功率表在實物／符號圖以數學字形顯示 I₊、I₋、V₊、V₋；電流端串聯、電壓端並聯，反接一組改功率符號，兩組同時反接讀值不變。交流單位及符號視圖也沿用MathJax獨立向量字形，觸控預覽及放大錶盤使用緊湊viewBox。
+
 ## 建立配置
 
-載入 `runtime-assets.json` 中的共用檔案及 `ac-runtime-assets.json` 中的七個交流檔案；HTML script 順序參考交流入口。兩者的 CSS 亦須載入。
+### 依賴與檔案責任
+
+完整來源以 [`runtime-assets.json`](../sim/circuit-workbench/runtime-assets.json)及 [`ac-runtime-assets.json`](../sim/circuit-workbench/ac-runtime-assets.json)為準；目前AC附加清單有10個檔案（9 JS＋1 CSS）。script順序跟隨[交流入口](../sim/circuit-ac-workbench/index.html)，共用與AC樣式均須載入，MathJax在本地包內。
+
+| AC檔案（位於 `sim/circuit-workbench/`） | 責任 |
+|---|---|
+| `circuit-ac-components.js` | 元件registry、參數、實物／符號、變壓器鐵芯與匝數比 |
+| `circuit-transient.js` | 權威時間積分、事件、動態狀態、session及原始分析 |
+| `circuit-observation.js` | RMS／峰值、有限波形歷史、探頭驗證及理想變壓器磁通觀察器 |
+| `circuit-ac-display.js` | 只讀顯示副本、儲能／衰減歸零、固定單位bar；不裁剪原始物理值 |
+| `circuit-field-graphics.js` | 電容／電感／變壓器場線與極性參考、發電機法線 |
+| `circuit-generator-graphics.js` | 剛性轉子連續投影、磁極、滑環／電刷及固定接線端 |
+| `circuit-ac-presets.js` | 預設key、分組名稱、電路模板及兩個技術示例配置 |
+| `circuit-scope-ui.js` | 浮動圖框、量尺、Canvas波形與探頭互動 |
+| `circuit-ac-ui.js`、`circuit-ac-ui.css` | AC儲能／場面板、放大觀察及版面 |
+
+共用操作在 `circuit-editor.js`／`circuit-editor-ui.js`；常規電流／電子及靜態箭頭在 `circuit-renderer.js`；數學符號與單位在 `circuit-math.js`。匯出／版本／權限沿用共用document及profile，題目／rubric／SCORM留在活動外層。
+
+### 最小配置
 
 ```js
+// 外層頁面提供有尺寸的宿主及唯一fullscreen入口。
+const host = document.getElementById('activityEditor');
+const questionElement = document.createElement('p');
+questionElement.textContent = '自行接線，改變頻率並比較電容器讀值。';
 const doc = CircuitModel.empty('transient');
 CircuitModel.add(doc, 'ac-source', 160, 260);
 CircuitModel.add(doc, 'capacitor', 460, 260);
@@ -79,7 +120,7 @@ const editor = await CircuitEditor.mount(host, {
 
 | API | 行為 |
 |---|---|
-| `getAnalysis()` | 目前已提交電路及物理時間的獨立讀值；不推進，preview 不作答 |
+| `getAnalysis()` | 目前已接受電路及物理時間的獨立讀值；不推進，preview 不作答 |
 | `onAnalysis(fn)` | 已接受物理取樣通知，與 `onChange` 分開；取消訂閱函數 |
 | `getPlayback()` | 暫停、設定倍率、實際倍率及控制權限；非存檔資料 |
 | `setPlayback({paused,rate})` | 受 play/rate 及只讀限制；慢播不修改 f |
@@ -90,11 +131,21 @@ const editor = await CircuitEditor.mount(host, {
 | `setObservationChannels(list)` | 以已開放元件通道配置小儀器，數量受 observationLimit 限制 |
 | `getObservationTools()` | 取得圖框、量尺、探頭及彎線的獨立 UI 配置，沒有整段波形 |
 | `setObservationTools(list)` | 原子設定合法觀察工具；失效ID、越權測點、數量及非法值完整拒絕 |
-| `setFieldDisplay(boolean)` | 只在 ui.field 開放時切换場；觀察操作不改答案 |
+| `setFieldDisplay(boolean)` | 只在 ui.field 開放時切換場；觀察操作不改答案 |
 
 開關、R、振幅、f 更新保留 C 電壓／L 電流；f 保留當刻相位。C/L、匝數、耦合、初始條件、元件增刪或改接線建立新實驗。純搬動、旋轉、線形、名稱及檢視不重設時間。拖動預覽用狀態副本，取消不得改主狀態。AC undo/redo 回到編輯事件對應的 document＋physics 並暫停。
 
 `setReadOnly(true)` 在 AC 同時暫停時間；播放、單步、reset、載入及 restore 均拒絕。仍可移圖、縮放、全螢幕與觀察。檢視／游標與普通面板捲動不自行推進或尋址時間；播放中的時間由 stepper 進行。背景頁面不追算離開的時間。
+
+### 版本與保存內容
+
+| 資料 | 目前版本／責任 |
+|---|---|
+| DC document | v6；DC入口不接受AC文件 |
+| AC document | v7，`analysis:'transient'`、`modelRevision:1`；支援的v6文件可顯式轉換，unsupported完整拒絕 |
+| 核心session | envelope version 1／modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
+| 技術示例codec | `example-state.js` version 5／model 1，固定模板重建；拒絕1–4，內部上限1500 bytes，仍不是任意教師電路的SCORM保存方案 |
+| 觀察及顯示 | RMS／峰值、`coreFlux`及其status/peak、圖框／探頭／bar量尺等由現有狀態重建或另存合法UI配置，不能當成權威答案 |
 
 Session version 1 的 physics 欄位：`time`、`step`（下一步建議）、`sources`（ID→目前弧度相位）、`dynamic`（支路 key→`{i,v}`，C 的 v／i 及 L 的 i／電感電壓）、`work`、`dissipated`、`event`（下一步 BE 起步）。模型 epoch 及 document v7 分開。來源相位、ID 與 dynamic keys 必須與文件完全吻合。導數歷史可補足平行電容等瞬間代數解的不唯一；不把未知歷史重設為零。
 
@@ -103,16 +154,17 @@ Session version 1 的 physics 欄位：`time`、`step`（下一步建議）、`s
 ## 離線運算及量測
 
 ```js
+const doc = CircuitACPresets.create('rc'); // c2為充電／放電開關
 const session = CircuitTransient.run(doc, {
-  events:[{time:0.1, command:{type:'toggleSwitch', id:'c3'}}],
-  until:0.2
+  events:[{time:0.1, command:{type:'toggleSwitch', id:'c2'}}],
+  until:1
 });
 const result = session.read();
 ```
 
 離線／live 共用積分器；events 為按時間排序的 setParam/toggleSwitch。會重設初始條件的參數變更不能混入同一事件表，須另開一次運算。數值／理想衝突停在事件，返回診斷，沒有暗加電阻、清儲能或裁剪電流。
 
-`components`／`wires` 的 voltage/current/power 為瞬時有方向量；`measurements[id]` 包括 collecting/unknown/ready、時間窗、voltageRms/currentRms/averagePower，以及同窗的currentPeak。元件／導線亦提供只讀currentPeak，變壓器另有secondaryCurrentPeak；資料未完整時為null。峰值從接受時間步的觀察取樣求得，不進權威快照。RMS 及有功功率來自時間積分，不是幀率抽樣，也不是所有波形峰值除 √2。儀表未知／收集中不顯示零。燈的顯示使用 20 ms 平均功率；交流過載依完整參考周期的平均功率，DC瞬態用短窗；耐壓依瞬時峰值。
+`components`／`wires` 的 voltage/current/power 為瞬時有方向量；`measurements[id]` 包括 collecting/unknown/ready、時間窗、voltageRms/currentRms/averagePower，以及同窗的currentPeak及voltagePeak。元件／導線亦提供只讀currentPeak/voltagePeak，變壓器另有secondaryCurrentPeak；資料未完整時為null。峰值從接受時間步的觀察取樣求得，不進權威快照。RMS 及有功功率來自時間積分，不是幀率抽樣，也不是所有波形峰值除 √2。儀表未知／收集中不顯示零。燈的顯示使用 20 ms 平均功率；交流過載依完整參考周期的平均功率，DC瞬態用短窗；耐壓依瞬時峰值。
 
 燈的功率到亮度換算由DC／時間模式共用：亮度係數為 `min(1, P / 額定功率)^0.6`，沿用原DC畫法；同一燈、相同顯示功率使用相同亮度。時間後端仍提供20 ms平均功率，DC後端提供穩態功率；未知顯示功率不回退至瞬時量冒充已完成量測。亮度係數是動畫映射，不是實測光度；過載提示與亮度上限分開，U／I／P的物理計算不改。
 
@@ -125,9 +177,10 @@ Control Panel 保留瞬時量、有效值及平均功率；正常讀值下不顯
 ## 物理界限
 
 - 理想變壓器支援交流匝數／功率關係；直流激勵明確拒絕。線性線圈以耦合電感及線阻支援互感，不含飽和、磁滯或鐵損。兩側電氣隔離，跨任意參考點電壓仍未知。
-- 發電機外界維持轉速；Φ為单匝、NΦ為磁通鏈，法線角 θ 與感應電動勢一致，不計機械減速。
+- 發電機外界維持轉速；Φ為單匝、NΦ為磁通鏈，法線角 θ 與感應電動勢一致，不計機械減速。
 - 燈是恆阻教學模型；LED 是正向壓降／有限導通電阻模型。沒有真實燈絲熱慣性、元件擊穿或接點火花。
 - 帶電 C 理想短接、非零 L 電流突然空斷及矛盾理想源沒有有限解；使用可見放電支路或有限阻抗。這些診斷文件仍可保存及修正。
+- 時間後端不支援DC機械繼電器或熱燈模型；DC繼電器近似不能替代線圈電氣瞬態。
 - DC 檔維持 v6；純 DC checks 不用來判斷 AC/時間效果。純導線 connected 檢查可以共用。
 
 ## SCORM 接入與驗收
@@ -142,9 +195,9 @@ Control Panel 保留瞬時量、有效值及平均功率；正常讀值下不顯
 
 電壓兩探頭量同一電氣島內兩點差，跨隔離兩側保留未知。電流探頭可落在導線任意位置，正向依導線A→B；不唯一循環電流不冒充零。量測線不屬於電路導線，沒有電阻／線長／庫存影響，可拉遠及拖線身增加彎點，雙擊線身拉直；每條最多32彎點，座標仍遵守畫布資源範圍。
 
-圖框大小與資料量尺分開：右下角44px透明把手可縮放框，右上邊角⤢開大圖；雙擊標題摺起。直接拖左側縱軸或下方橫軸調整各自量尺，不另設＋／−或模式選擇按鈕；所有儀器共用時間窗，時間縮放不改電源頻率。縱軸上下鍵、橫軸左右鍵亦可縮放，Home分別適應資料／重設時間窗。雙擊圖或Home按已收集資料適應縱軸；超出量尺明示。框停在畫面位置，移圖／縮放電路後，探頭和彎點跟隨其世界座標及绑定目標，線自動延伸。
+圖框大小與資料量尺分開：右下角44px透明把手可縮放框，右上邊角⤢開大圖；雙擊標題摺起。直接拖左側縱軸或下方橫軸調整各自量尺，不另設＋／−或模式選擇按鈕；所有儀器共用時間窗，時間縮放不改電源頻率。縱軸上下鍵、橫軸左右鍵亦可縮放，Home分別適應資料／重設時間窗。雙擊圖或Home按已收集資料適應縱軸；超出量尺明示。框停在畫面位置，移圖／縮放電路後，探頭和彎點跟隨其世界座標及綁定目標，線自動延伸。
 
-工具箱以小型示波器圖示區分電壓／電流工具。图下方尺標標出時間間隔，採1／2／5系列並不超過整個時間窗的一半；例如5秒時間窗以40%圖寬標2 s，1秒時間窗以半寬標0.5 s。波形滾動時尺標不變，拖動橫軸改量尺時才調整間隔及尺標寬度；整個時間窗可由橫軸工具提示及可存取名稱讀取。不顯示絕對時間刻度或跳動的瞬時數字，未接探頭／未知量／超出量尺仍有簡短提示。圖框只有16px標題及18px時間區，控制放在邊角而不佔一行；透明命中範圍仍為44px。探頭底色為約22%不透明度，绑定／懸停狀態同樣半透明。電流探頭可在開關、燈絲及其他已支援元件的內部導電路徑吸附；component target可帶0–1的fraction，隨移動／旋轉／視圖更新位置。
+工具箱以小型示波器圖示區分電壓／電流工具。圖下方尺標標出時間間隔，採1／2／5系列並不超過整個時間窗的一半；例如5秒時間窗以40%圖寬標2 s，1秒時間窗以半寬標0.5 s。波形滾動時尺標不變，拖動橫軸改量尺時才調整間隔及尺標寬度；整個時間窗可由橫軸工具提示及可存取名稱讀取。不顯示絕對時間刻度或跳動的瞬時數字，未接探頭／未知量／超出量尺仍有簡短提示。圖框只有16px標題及18px時間區，控制放在邊角而不佔一行；透明命中範圍仍為44px。探頭底色為約22%不透明度，綁定／懸停狀態同樣半透明。電流探頭可在開關、燈絲及其他已支援元件的內部導電路徑吸附；component target可帶0–1的fraction，隨移動／旋轉／視圖更新位置。
 
 波形末端的實心圓點代表當下瞬時讀值，距繪圖區右端14px；未知或超出縱軸範圍時不畫假圓點。時間窗包含右側的小段留白，尺標仍按完整繪圖寬度計算。
 
@@ -155,9 +208,7 @@ Control Panel 保留瞬時量、有效值及平均功率；正常讀值下不顯
 觀察工具不進電路JSON或captureSession；頁面刷新開始fresh。活動若要保存版面可自行保存getObservationTools結果，再用setObservationTools原子驗證，但須自行遵守4000-byte作答封套及活動版本契約，不假定全曲線可存入SCORM。工具格式包含id、kind、x/y、width/height、range、span、probes(position/target/bends)；元件特殊quantity另有channel.id。不同電路載入時移除舊測點；固定活動會按可信指定通道初始化。
 
 
-## 連續參數預覽及課堂預設
-
-### 電場與磁場觀察
+## 電場與磁場觀察
 
 操作面板的「電場與磁場」保留畫布場線開關；觀察區預設收起。展開後提供
 正常大小的讀值及場圖，「放大觀察」打開可捲動的原生視窗。視窗內可暫停／
@@ -228,13 +279,39 @@ Control Panel 保留瞬時量、有效值及平均功率；正常讀值下不顯
 主畫面和場圖共用局部 SVG 更新，無須每幀重建完整電路或增加新的 3D 手勢。
 新入口需先於 `circuit-ac-components.js` 載入此模組，並列入 runtime 資產清單。
 
+## 連續參數預覽
+
 播放中拖住滑塊時，權威session保持原狀，獨立副本按實際時間運算，波形、燈光及儲能預覽同步更新；連續輸入保留20 ms顯示功率積分，RMS窗仍因條件改變重新收集。放手才一次接受文件及副本的動態續作；Escape／取消／只讀還原原session及曲線，不發送學生作答變更或權威analysis事件。原先暫停時仍不自動播放。強烈過載在完整量測窗未足時可由20 ms功率的保守峰值界提示，正常正弦／方波／三角波不提前誤報；這是發熱提示，不是永久燒毀模型。
 
 時間模式的近零電流在數字及箭頭中以顯示精度處理，原始數值及波形不清零。DC保留既有微小電流呈現。微安電流計的小量程仍可保留真正可讀的微小電流。
 
-時間工作台的導線標籤、元件電流／有效值及箭頭共用 `CircuitRenderer.displayCurrent`：普通讀值以1 μA及所在電氣島已觀察峰值的十萬分之一兩者較大者作近零顯示門檻；同島若有電流計或G，門檻可縮小至其半個顯示步長。只在完整量測窗的currentPeak亦低於門檻時隱去尾值，不因當刻過零而暫時宣告振盪已結束；資料未足或分支峰值未知時保守保留當刻值，明顯的新電流亦不被舊觀察掩蓋。導線用自己的峰值，变壓器次級用自己的峰值，不借原線圈量測。未能確定的量保持未知，DC原數字與動畫保留。Control Panel中普通元件的顯示電流已歸零時，小於10⁻⁶ SI單位的相關U／P尾值不持續列出。
+## 數值顯示與衰減
+
+時間工作台的導線標籤、元件電流／有效值及箭頭共用 `CircuitRenderer.displayCurrent`：普通讀值以1 μA及所在電氣島已觀察峰值的十萬分之一兩者較大者作近零顯示門檻；同島若有電流計或G，門檻可縮小至其半個顯示步長。只在完整量測窗的currentPeak亦低於門檻時隱去尾值，不因當刻過零而暫時宣告振盪已結束；資料未足或分支峰值未知時保守保留當刻值，明顯的新電流亦不被舊觀察掩蓋。導線用自己的峰值，變壓器次級用自己的峰值，不借原線圈量測。未能確定的量保持未知，DC原數字與動畫保留。Control Panel中普通元件的顯示電流已歸零時，小於10⁻⁶ SI單位的相關U／P尾值不持續列出。
 
 電場／磁場儲能統一用 `CircuitRenderer.displayEnergy`，小於10⁻⁹ J顯示0；選取元件讀值、下方儲能區的數字及能量條、場示意能量和累計耗散共同使用，不再依賴當刻電流是否為零。正常LC能量交換仍會有某一類能量瞬時接近零；整體未衰減時不會把另一類能量抹掉。以上僅為顯示精度；原始analysis、波形信號、儲能、session及續算保留完整數值，不增加到時停止、清空儲能或不可逆鎖零規則。恢復後觀察窗重新收集。
+
+## 課堂預設與教學界限
+
+工作台預設名稱統一為「主題：觀察內容」，按交流基礎、電容與電感、變壓器與互感、振盪電路分組；空白電路獨立放前面。預設key、參數及電路接線不改，名稱不作狀態辨識的依據。教學示例標題分別為「變壓器：匝數與負載」及「LC：充電與振盪」。
+
+| 分組 | 穩定key | 現行顯示名稱 |
+|---|---|---|
+| 交流基礎 | `resistive` | 交流電阻：電壓、電流與有效值 |
+| 交流基礎 | `mains` | 50 Hz交流：燈泡亮度 |
+| 交流基礎 | `generator` | 交流發電機：轉動與感應電動勢 |
+| 交流基礎 | `led` | 交流方向：反向並聯LED |
+| 電容與電感 | `capacitive` | 交流電容：頻率與電流 |
+| 電容與電感 | `inductive` | 交流電感：頻率與電流 |
+| 電容與電感 | `rc` | 電容充放電：電流與儲能 |
+| 電容與電感 | `rl` | 通電自感：電流建立 |
+| 電容與電感 | `self` | 斷電自感：線圈放電 |
+| 變壓器與互感 | `transformer` | 理想變壓器：匝數與電壓 |
+| 變壓器與互感 | `coupled` | 非理想變壓器：耦合與線圈電阻 |
+| 變壓器與互感 | `mutual` | 互感：通斷電與感應電流 |
+| 振盪電路 | `lc` | LC振盪：電場與磁場儲能 |
+| 振盪電路 | `damped` | 阻尼振盪：電阻與能量耗散 |
+| 自由搭建 | `empty` | 空白電路 |
 
 方波／三角波與正弦同一電路，改交流源波形即可比較，不重複列在課堂選單；舊create('square'/'triangle')呼叫仍相容。50 Hz預設保留。RC使用充電／放電切換及20 Ω、6 V恆阻燈、0.1 F（時間常數2秒）；充電約6秒後切換，電源退出放電迴路，電容再次點亮燈，亮度隨實際功率逐漸減少。充電電流與放電電流方向相反，兩方向均能發光。電容交流仍用0.02 F、12 Ω及0.5 Hz，使頻率比較的電流與亮暗差異可見。斷電自感、互感、LED及RC/RL/LC的分支使用明確接點，不重疊繞線。
 
@@ -256,13 +333,10 @@ LC預設為0.02 F及5 H，理想週期約1.987秒；C與L始終保持串聯，�
 
 物理量標籤、有效值下標、線圈法線、預設說明的公式、示波器標題、時間尺、縱軸及交流錶盤以本地 MathJax 的獨立 SVG 字形排版；數字及單位直立、變數斜體。受控符號透過 CircuitMath 產生，使用者元件名稱仍以普通文字轉義顯示。bar 數字使用固定寬度字形，單位用數學 SVG，不會逐幀重新排版動態數字。
 
-小範圍改動使用 `node sim/circuit-workbench/readout-math.test.js` 及 `node tools/circuit-ac-browser-regression.js --readout-math-smoke`，只檢查這組讀值、符號及 source／ZIP、320px 版面；其餘物理／評分／接線測試按受影響範圍另選，無須每次完整重跑。
+讀值／符號改動的相關檢查見[精準驗證與維護](#精準驗證與維護)。
 
-交流電流表／電壓表兩孔不顯示A／B；接線選擇器以當前方向稱左／右或上／下接線端，端子ID及座標保持。有效值不受兩端互換影響；電流表仍串聯、電壓表仍並聯。功率表在實物／符號圖以數學字形顯示 I₊、I₋、V₊、V₋；電流端串聯、電壓端並聯，反接一組改功率符號，兩組同時反接讀值不變。交流單位及符號視圖也沿用MathJax獨立向量字形，觸控預覽及放大錶盤使用緊湊viewBox。
 
-工作台預設名稱統一為「主題：觀察內容」，按交流基礎、電容與電感、變壓器與互感、振盪電路分組；空白電路獨立放前面。預設key、參數及電路接線不改，名稱不作狀態辨識的依據。教學示例標題分別為「變壓器：匝數與負載」及「LC：充電與振盪」。
 
-電表／示例名稱小範圍驗證使用 `node sim/circuit-workbench/ac-meter-design.test.js`、`node sim/circuit-workbench/meter-motion.test.js`、`node sim/circuit-workbench/meters-and-math.test.js` 及 `node tools/circuit-ac-browser-regression.js --meter-design-smoke`；不因此重跑無關物理／評分測試。
 
 ## 變壓器鐵芯與磁通觀察
 
@@ -282,6 +356,32 @@ LC預設為0.02 F及5 H，理想週期約1.987秒；C與L始終保持串聯，�
 波形、計分、document及snapshot版本保持。畫布、場面板及放大圖在同一RAF按
 顯示投影更新，場線開關不影響比例或繞組。
 
-精準檢查：`node sim/circuit-workbench/transformer-design.test.js`、
-`node sim/circuit-workbench/scope.test.js`、共用Math／場圖Node，及
-`node tools/circuit-ac-browser-regression.js --transformer-design-smoke`。
+`getAnalysis().components[id]`可讀`coreFlux`及其status/peak；它不是document參數，也沒有自動新增變壓器`quantity:'flux'`波形通道。現有flux通道屬於發電機，通道能力仍以 `CircuitObservation.channels()`及profile驗證為準。
+
+驗證見[精準驗證與維護](#精準驗證與維護)。
+
+## 精準驗證與維護
+
+按實際改動選相關項目，通過後不因小改動反覆重跑全套。下表的Node檔案位於 `sim/circuit-workbench/`；browser以 `node tools/circuit-ac-browser-regression.js` 加下表flag執行（例如 `node tools/circuit-ac-browser-regression.js --field-smoke`），檢查source及解壓AC ZIP。
+
+| 改動 | Node檢查 | browser專項 |
+|---|---|---|
+| 發電機投影／端子 | `generator-graphics.test.js` | `--generator-smoke` |
+| C／L場線及歸零 | `field-graphics.test.js`、`ac-display.test.js`、`energy-sync.test.js` | `--field-smoke` |
+| bar／符號／數學排版 | `readout-math.test.js`、`meters-and-math.test.js` | `--readout-math-smoke` |
+| 電表／接口／預設名稱 | `ac-meter-design.test.js`、`meter-motion.test.js`、`meters-and-math.test.js` | `--meter-design-smoke` |
+| 變壓器／共同磁通 | `transformer-design.test.js`、`scope.test.js` | `--transformer-design-smoke` |
+| 波形／探頭／歷史 | `scope.test.js` | `--scope-smoke` |
+| 預設接線／切換 | `transient.test.js`、必要時`ac-platform.test.js` | `--preset-smoke` |
+| 共用箭頭／導線標示 | `component-flow.test.js`、`wire-current-labels.test.js` | 同時核對DC／AC及各自包，不只AC入口 |
+| 純文件 | 指令、路徑、清單、版本、連結及`git diff --check` | 不重跑模擬或browser |
+
+較大物理／權限／保存變更再選相鄰回歸；正式package-ready／Moodle-ready仍按[production guide](simulation-scorm-production-guide.md#verification-checklists)執行完整gate。`npm run test:circuit-ac`是廣泛回歸入口（transient、platform及整個AC browser），不是每次小修的預設。新增Node測試登記 `tools/run-tests.js`；新增browser專項接回既有完整入口，新增runtime檔更新資產清單。
+
+核心修改不會更新已部署ZIP。需要交付成品時執行 `npm run package:circuit-platform` 重建四包並核對來源／依賴；有共用改動時檢查DC及AC，活動題目／codec變更再核對其活動包。工作台ZIP屬File resource，正式評量包及Moodle／實機gate分別處理。
+
+### 已記錄證據與未完成gate
+
+最新逐次證據在[交流計劃](../plans/32-circuit-ac-workbench.md)：讀值／數學80、電表116、變壓器82項source／ZIP專項，以及共用概覽48、箭頭配色32項。這些是各次實際執行範圍，不能相加當作最新版完整測試數或宣稱全部用同一提交重跑。
+
+最近一次完整suite的歷史記錄仍有既有2 Hz燈泡亮度fixture阻塞（`--realtime-smoke`亦重現，基準26ad63d同樣失敗）；後續僅跑相關專項，未證明該阻塞已消除。本輪文件整理沒有重跑或改鬆該測試。真手機／真Moodle T4及正式AC評分活動仍未完成；目錄 `active` 代表入口可用，不等於所有gate綠燈。
