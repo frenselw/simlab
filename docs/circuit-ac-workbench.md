@@ -3,7 +3,7 @@
 交流入口為 `sim/circuit-ac-workbench/index.html`；實作及驗收決策見[交流計劃](../plans/32-circuit-ac-workbench.md)。它與 DC 使用同一 `CircuitEditor`，但明確選用時間分析後端。工作台及兩個配置示例均不評分；正式 SCORM 題目、rubric 及活動 codec 另定。
 
 
-本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-11按程式基準 `4aba013`、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
+本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-11按程式基準 `ba19ba5`、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
 
 ## 目前介面與共用邊界
 
@@ -381,6 +381,8 @@ LC預設為0.02 F及5 H，理想週期約1.987秒；C與L始終保持串聯，�
 核心修改不會更新已部署ZIP。需要交付成品時執行 `npm run package:circuit-platform` 重建四包並核對來源／依賴；有共用改動時檢查DC及AC，活動題目／codec變更再核對其活動包。工作台ZIP屬File resource，正式評量包及Moodle／實機gate分別處理。
 
 ### 已記錄證據與未完成gate
+
+2026-10-11兩位獨立完整審核及第三位匯總的發現、修正與最終批准，見[正式審核報告](circuit-ac-workbench-audit-2026-10-11.md)（runtime基準ba19ba5）。
 
 最新逐次證據在[交流計劃](../plans/32-circuit-ac-workbench.md)：讀值／數學80、電表116、變壓器82項source／ZIP專項，以及共用概覽48、箭頭配色32項。這些是各次實際執行範圍，不能相加當作最新版完整測試數或宣稱全部用同一提交重跑。
 

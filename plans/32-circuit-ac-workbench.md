@@ -3,7 +3,7 @@
 
 ## 目前狀態與維護入口（2026-10-11）
 
-非評量AC教師工作台及兩個教學示例已實作；目前規格按程式基準 `4aba013` 核對，以下方Scope／模型／狀態契約及[AC作者與維護指引](../docs/circuit-ac-workbench.md)為準。本文逐次記錄保留當時版本及證據，不能把舊圖像、舊介面或歷史全套結果當作最新版契約。
+非評量AC教師工作台及兩個教學示例已實作；目前規格按程式基準 `ba19ba5` 核對，以下方Scope／模型／狀態契約及[AC作者與維護指引](../docs/circuit-ac-workbench.md)為準。本文逐次記錄保留當時版本及證據，不能把舊圖像、舊介面或歷史全套結果當作最新版契約。
 
 | 項目 | 現行決定 |
 |---|---|
@@ -13,7 +13,7 @@
 | 圖形與讀值 | 連續SVG發電機、固定範圍場線疏密、C/L歸零顯示、固定單位5Hz數字＋bar、數學字形、緊湊電表、上方變壓器匝數比及鐵芯內磁通 |
 | 方向配色 | 常規電流及靜態電流箭頭紅色，電子藍色；電勢方向／場線另有自己的語義，不全域取代藍色 |
 | 保存 | DC doc v6／AC doc v7，session version 1／modelRevision 1，技術示例codec v5；觀察與顯示非權威，正式ACrubric／SCORM另定 |
-| 驗證狀態 | 逐次Node及source／ZIP專項有證據；最近完整suite有既有2 Hz亮度fixture阻塞，後續專項未證明已消除；真Moodle／真手機T4未驗收 |
+| 驗證狀態 | 逐次Node及source／ZIP專項有證據；2026-10-11兩位獨立reviewer批准ba19ba5、三個產品細節已修正、過時fixture按解析基準通過；未重跑完整矩陣，真Moodle／真手機T4未驗收 |
 
 維護先分清共用、時間模型、顯示及活動外層，按[精準驗證表](../docs/circuit-ac-workbench.md#精準驗證與維護)選必要項目。純文件修訂只核對來源、版本、指令與連結，不重跑物理／browser。核心改動交付時統一重建相應ZIP；目錄active不代表全部package-ready／Moodle-ready gate通過。
 
@@ -21,6 +21,22 @@
 
 以下記錄只證明其日期／當時提交的實際範圍。被後續取代的方案與舊全套結果保留為歷史；目前功能或通過狀態不得由舊段落推定。
 
+
+### 兩位獨立完整審核及匯總跟進（2026-10-11；修正ba19ba5）
+
+依使用者要求，兩位reviewer各自審核完整現有AC項目，第三位去重核實後跟進。
+修正Scope還原ID首次新增失敗、互感caption被接線遮擋、作者觀察通道缺能力
+驗證；更新兩處文案及舊browser的MathJax／場線契約。2 Hz燈泡逐幀數值與
+20 ms功率解析積分吻合，改用解析oracle取代受幀相位影響的最低值／階數；
+沒有改產品亮度映射或求解精度。兩位獨立複查後均明確APPROVED
+`ba19ba5993f1d0996a498766eca2b38b499098f8`，完整已審範圍無剩餘實據問題。
+
+精準證據：AC platform完整幾何／有限線路／240次切換續作、Scope能力及
+shared activity-core19組通過；主agent另核對DC core及syntax／manifest。
+source／ZIP realtime140、Scope206、reactive-art276及互感actualSVG桌面／
+320px布局21項通過，四包重建並核對runtime指紋。初輪未改模組證據沿用原
+版本，不重跑全站；真Moodle／真手機T4仍未驗收。詳細發現、兩位審核範圍、
+結案及證據界限見[正式審核報告](../docs/circuit-ac-workbench-audit-2026-10-11.md)。
 
 ### 指導文件對照整理（2026-10-11；程式基準4aba013）
 
