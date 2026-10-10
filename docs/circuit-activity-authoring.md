@@ -110,6 +110,8 @@ components:{
 
 ### 介面裁剪
 
+DC／AC 共用檢視器不提供「電路概覽」或元件／導線數目摘要。未選取物件且沒有量測／診斷內容時，整個空白檢視器收起；選取元件、導線或接點後仍顯示獲准的設定與讀值。兩點量測及實際電路診斷仍可顯示，不改接線或模型狀態。
+
 `ui.header` 預設 true，保留完整工作台頂欄。嵌入正式活動時設 false：editor 不掛頂欄、fullscreen button／controller 或 fullscreen target 標記，外層按 shared fullscreen contract 提供完整活動的唯一全螢幕入口。宿主不要自行加 fullscreen target 標記。復原／重做（若 `undo:true`）移至 stage 工具列，面板開關仍可使用；沒有頂欄入口的 `presets/files/settings/help` 須關閉，否則配置報錯。`probe`、外觀切換及其他 stage 控制可按原權限保留。
 
 例如 `ui:{header:false, palette:true, inspector:true}` 可嵌入指定工具箱；外層使用自己的 header、題目／導航及提交區。教師入口的預設不變；教師若採嵌入模式，須明確關閉上述四項頂欄功能。外層須給宿主可用高度，並驗證短 iframe／手機的末端控制可達，不能靠移除頂欄宣稱完成所有 SCORM 版面工作。
