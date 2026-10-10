@@ -19,3 +19,6 @@ for(const view of ['real','schematic']){const d=P.create('resistive');d.display.
 {const t=new O.Trace(.02);for(let n=0;n<=100000;n++)t.sample(n/1000,n===5001?100:Math.sin(n/100));assert(t.history.length<=8192);t.setSpan(100);assert(t.points()[0].time===0);assert(t.points().some(p=>p.value===100));assert(t.points().length<=4100);t.sample(101,null);t.setSpan(100);assert(t.points().some(p=>p.value===null));t.sample(.1,3);assert(t.history.every(b=>b.last.time<=.1));assert.deepEqual(t.points(),[{time:.1,value:3}]);}
 
 {const t=new O.Trace(2);for(let n=0;n<=1100;n++)t.sample(n,Math.sin(n));assert(t.history[0].last.time>=100);assert(t.history.length<=8192);t.setSpan(1000);assert(t.points()[0].time>=100);}
+
+// Peak observations retain pulse maxima and signs without changing RMS integration.
+{const t=new O.Tracker(1),sample=(time,i)=>t.sample({time,components:{c1:{voltage:2,current:i}},wires:{}});sample(0,0);sample(.25,3);sample(.5,-4);sample(.75,0);sample(1,0);assert.equal(t.measure('c1').currentPeak,4);sample(2,0);sample(2.1,0);assert.equal(t.measure('c1').currentPeak,0);assert.equal(t.measure('c1').currentRms,0);}

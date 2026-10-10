@@ -493,3 +493,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 已按RL示例通電6秒後切換放電、離線前進至40秒尾段重現：原始電流仍為正且小於10⁻⁹ A，導線卡片0 mA、元件電流／有效值0 A，無導線方向箭頭或流動粒子。波形signal仍等於原電流；選取／顯示不改captureSession。另驗證1 nA量程G下的實際100 pA電流不被隱去。
 - wire-current-labels新增權威數值不變、未知、小量程及DC精度回歸，既有flow30項、component-flow8組、標籤與AC平台／240次切換／transient解析均通過。source／解壓ZIP browser122 observations涵蓋RL尾值／面板無無意義極小數字／波形與session不變、同功率亮度、2／50 Hz實時；DC共用操作70通過。已檢視RL近零截圖。
 - 四包統一重建；syntax／manifest及diff通過，最後面板及browser改動另作node --check。證據：`output/ac-baseline/ac-decay-display-*.log`、`dc-decay-display-browser.log`。未重新驗證全站既有阻塞、真Moodle或實機gate。
+
+### 修正振盪近零判斷及補齊儲能顯示（2026-10-10）
+
+- 上一版按當刻電流裁定尾值，在可見振盪過零附近會暫時隱去，再於反向半週出現。觀察Tracker新增同窗currentPeak（由接受時間步求峰值，bin邊界保守保留）；Session讀取只讀元件／導線峰值，變壓器另有次級峰值。Renderer只在完整窗峰值及當刻值皆低於顯示門檻時隱去，資料未足或分支峰值不明時不先宣告結束；新電流可重新出現，不使用不可逆鎖零。RMS／平均功率积分和數值solver／步長控制不改，快照不保存觀察峰值。
+- 儲能區原先直接顯示原始E，未受選取元件的處理涵蓋；新增共用displayEnergy，低於10⁻⁹ J僅在顯示為0。選取元件電場／磁場儲能、獨立儲能區數字及條、場示意能量、累計耗散共用；不再以瞬時電流是否為0決定能源顯示。正常LC交換的瞬時零值保留，未知不冒充零，原始E／波形／state未清空。
+- Node驗證可見振盪內的微小瞬時值不被當作衰減完畢，衰減後跨正／負半週保持顯示零、原始總E仍為正且captureSession不變；另驗證觀察窗峰值／脈衝／過期。wire-current-labels、scope、AC平台／240次切換、transient解析、flow30項、component-flow8組、meter-motion25項通過。
+- source／解壓ZIP browser136 observations：衰減LC以公開單步連續取180點，首次整窗歸零後反向不再閃回；選取C／L及下方能量區數字0 J、條value=0，原始E>0、UI操作不改session；RL尾值、同功率亮度及2／50 Hz實時維持。波形browser194 observations通過，涵蓋探頭、軸、歷史、多工具及50 Hz兩圖真實時間。單次長流程超過工具5秒上限，改為12次單步一批，不放寬判定或時間預算。已檢視LC零能量截圖。
+- 四包統一重建；syntax／manifest及diff通過。證據：`output/ac-baseline/ac-cycle-display-*.log`。新增測試仍在既有總runner內；未重新驗證真Moodle／實機或全站既有阻塞，不改評分與物理模型版本。

@@ -199,7 +199,7 @@
       // ponytail: anchor one straight segment; add multiple anchors if dense diagrams need them.
       for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],span=viewport?L.segmentSpan(a,b,{left:viewport.x,right:viewport.x+viewport.width,top:viewport.y,bottom:viewport.y+viewport.height}):[0,1];if(!span)continue;const length=Math.hypot(b.x-a.x,b.y-a.y)*(span[1]-span[0]),t=(span[0]+span[1])/2,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};if(length>longest){anchor=p;longest=length;}}
       if(!anchor||viewport&&longest*scale<12)continue;
-      const current=displayCurrent(doc,result,w.from,result.wires[w.id]?.current,options?.currentReferences),size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
+      const current=displayCurrent(doc,result,w.from,result.wires[w.id]?.current,options?.currentReferences,result.wires[w.id]?.currentPeak),size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
       const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?Q.quantity(value*1000,'mA').text:'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
       items.push({id:w.id,anchor,...(transient?{fixedWidth:L.measure('8.88e+888 mA',size)}:{}),paddingX:4,paddingLeft:transient||Number.isFinite(current)&&current!==0?28:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
@@ -359,7 +359,7 @@
     return references;
   }
   const referenceAt=(references,result,endpoint)=>references.get(result.islandOf?.[endpoint]??endpoint);
-  function displayCurrent(doc,result,endpoint,current,references=null){
+  function displayCurrent(doc,result,endpoint,current,references=null,peak=undefined){
     if(doc.analysis!=='transient'||!Number.isFinite(current)||current===0)return current;
     const island=result.islandOf?.[endpoint]??endpoint;
     let threshold=Math.max(1e-6,(referenceAt(references||flowReferences(doc,result),result,endpoint)||0)*1e-5);
@@ -367,8 +367,11 @@
       const r=result.components[c.id],port=c.id+':'+(r?.activePort||'a');
       if((result.islandOf?.[port]??port)===island)threshold=Math.min(threshold,(r?.division??(r?.range??c.params.range)/(c.type==='galvanometer'?20:30))/20);
     }
-    return Math.abs(current)<threshold?0:current;
+    const ownerId=endpoint.split(':')[0],owner=result.components[ownerId],primary=owner?.activePort?ownerId+':'+owner.activePort:owner?.branches?.[0]?.from;
+    if(peak===undefined)peak=owner?.secondaryCurrent!==undefined&&/:[cd]$/.test(endpoint)?owner.secondaryCurrentPeak:!primary||primary===endpoint?owner?.currentPeak:null;
+    return Number.isFinite(peak)&&peak<threshold&&Math.abs(current)<threshold?0:current;
   }
+  const displayEnergy=value=>Number.isFinite(value)&&Math.abs(value)<1e-9?0:value;
   // Compressed relative speeds with a visible floor; never a physical drift
   // velocity or an exact current ratio. Display-only decay tails may also stay still.
   function flowSpeed(current,reference=4,transient=false){
@@ -378,11 +381,11 @@
     return 18+222/(1+2*Math.sqrt(scale/Math.abs(current)));
   }
   function advanceFlow(offsets,doc,result,dt,baselines=null){
-    const paths=[...doc.wires.map(w=>({id:w.id,from:w.from,current:result.wires[w.id]?.current})),...componentFlowPaths(doc,result)];
+    const paths=[...doc.wires.map(w=>({id:w.id,from:w.from,current:result.wires[w.id]?.current,peak:result.wires[w.id]?.currentPeak})),...componentFlowPaths(doc,result)];
     const ids=new Set(paths.map(p=>p.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
     if(doc.display.flow==='off')return;
     const references=flowReferences(doc,result,baselines),elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
-    for(const p of paths){const speed=flowSpeed(displayCurrent(doc,result,p.from,p.current,references),referenceAt(references,result,p.from));if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
+    for(const p of paths){const speed=flowSpeed(displayCurrent(doc,result,p.from,p.current,references,p.peak),referenceAt(references,result,p.from));if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
   }
   function flowParticles(points,phase,spacing,scale,electron,reverse,size,hidden=[]){
     let out='';const length=Routing.length(points);
@@ -397,7 +400,7 @@
   function flow(doc, result, routes, time, scale, offsets=null,baselines=null) {
     if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result,baselines);
     doc.wires.forEach((w) => {
-      const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(displayCurrent(doc,result,w.from,current,references),reference);if(!speed)return;
+      const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(displayCurrent(doc,result,w.from,current,references,result.wires[w.id]?.currentPeak),reference);if(!speed)return;
       const points=routes[w.id]||Routing.route(doc,w),reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
       out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
       out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
@@ -411,5 +414,5 @@
     }
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, displayCurrent, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour, potentialRange };
+  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, displayCurrent, displayEnergy, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour, potentialRange };
 });
