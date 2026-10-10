@@ -464,3 +464,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 按使用者要求，移除AC A／V／W實物外殼兩側的額外圓孔；共用socket繪圖仍供其他元件使用，實際接線孔由editor保留。端子、引線、物理、讀值及保存格式不變。
 - source／解壓ZIP元件及電表browser 246 observations通過，涵蓋指針回零／慣性／放大錶盤同步、接線量測及手機預覽。已檢視精簡電流表截圖；四包統一重建。證據：`output/ac-baseline/ac-meter-clean-case.log`、`ac-meter-clean-case-check.log`；外部Moodle及實機未重驗。
+
+### 統一DC／AC燈亮度及確認直流有效值（2026-10-10）
+
+- 依使用者要求，移除共用renderer內依displayPower另用指數式的分支；兩後端統一用原DC的 `min(1,P/額定功率)^0.6`。DC既有畫法不變；時間後端仍提供20 ms平均功率以呈現低頻亮暗及50 Hz穩定。同一燈、相同顯示功率得到相同亮度，不改U／I／P或儲能方程，未知功率仍保持未知。
+- 保留交流A／V表，不新增直流電表。穩定6 V／0.5 A直流及反接的Node驗證確認：有號瞬時量變號，總RMS大小仍為6 V／0.5 A。充放電時的窗RMS不等同當刻有號讀值，儀表仍為包含直流成分的教學有效值模型。
+- 新增跨後端0／0.6／3／6／9 V的同燈U／I／P與亮度一致驗證、未知顯示功率處理及直流反接RMS回歸，登記於既有AC平台suite。transient解析、AC平台與240次切換、DC core及112項teaching驗證通過。
+- source／解壓ZIP browser：同燈亮度比較、2 Hz及50 Hz實時84 observations；所有示例及儲能漸暗610；DC共用操作70。2 Hz亮暗測試只用已知功率幀，排除啟動收集時的假暗畫面；已檢視50 Hz截圖。充放電套用共同曲線後餘光下降較慢，延長觀察至足夠時間仍驗證單調漸暗與儲能耗散，不修改示例物理參數。
+- 四包統一重建、syntax／manifest及diff通過；證據為 `output/ac-baseline/ac-unified-lamp-*.log`、`dc-unified-lamp-*.log`。未重跑全站既有阻塞或真Moodle／實機gate；不增加評分、SCORM題目或其他儀表模式。

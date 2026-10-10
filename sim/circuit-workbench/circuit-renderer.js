@@ -29,7 +29,7 @@
   const statusText=r=>r?.meterStatus==='overrange'&&r.reading<0?'負向超量程 · 反接':({'unconnected':'接入 − 與一個正極孔','missing-common':'請接共用 − 孔','dual-positive':'兩個正極孔同時接線','unknown':'讀值未能確定','reverse':'反接','overrange':'超量程'}[r?.meterStatus]||'');
   function lampLight(c,result) {
     const ratedPower=c.params.ratedVoltage**2/c.params.resistance,measured=Object.hasOwn(result||{},'displayPower')?result.displayPower:result?.power,known=Number.isFinite(measured),power=known?Math.max(0,measured):null,ratio=known?power/ratedPower:0;
-    return{known,power,ratedPower,ratio,brightness:Object.hasOwn(result||{},'displayPower')?1-Math.exp(-ratio):Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
+    return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
   const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='transient'?result.hazards:S.hazards(doc,result);
