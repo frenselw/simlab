@@ -192,6 +192,7 @@
     labelOptions.exclusions=[...host.querySelectorAll('.scroll-strip, .canvas-notice:not([hidden])')].map(e=>{const r=e.getBoundingClientRect();return{left:camera.x+(r.left-surfaceRect.left)/camera.scale,right:camera.x+(r.right-surfaceRect.left)/camera.scale,top:camera.y+(r.top-surfaceRect.top)/camera.scale,bottom:camera.y+(r.bottom-surfaceRect.top)/camera.scale};});
     surface.style.backgroundSize=`${Math.max(16,20*camera.scale)}px ${Math.max(16,20*camera.scale)}px`;surface.style.backgroundPosition=`${-camera.x*camera.scale}px ${-camera.y*camera.scale}px`;
     const key=JSON.stringify([d.components.map(c=>[c.id,c.type,c.x,c.y,c.angle,c.mirrored,R.ports(c).map(p=>[p.id,p.x,p.y,p.dx,p.dy])]),d.junctions,d.wires]);if(key!==geometryKey){routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));geometryKey=key;}
+    labelOptions.currentReferences=V.flowReferences(d,analysis,flowContext());
     $("scene").innerHTML=V.scene(d,analysis,camera.scale,routes,selection?.id,wireMode,{x:camera.x,y:camera.y,width:surfaceRect.width/camera.scale,height:surfaceRect.height/camera.scale},labelOptions);$("flowLayer").innerHTML=V.flow(d,analysis,routes,animationTime,camera.scale,flowOffsets,flowContext());renderHits(d);renderGhost();
     $("zoomReadout").textContent=(camera.scale<.01?(camera.scale*100).toFixed(1):Math.round(camera.scale*100))+"%";
     $("fitView").setAttribute("aria-pressed",String(autoFit));
@@ -304,7 +305,7 @@
       else if(teacher)checkbox("此元件可調參數", c.editable, (v) => change((doc) => { doc.components.find((x) => x.id === c.id).editable = v; }));
 
     }else if(wire){
-      $("selectionTitle").textContent="導線 "+wire.id;prop.innerHTML=`<p class="note">A：${V.esc(portName(wire.from))}<br>B：${V.esc(portName(wire.to))}<br>目前長度 ${Math.round(G.length(routes[wire.id]))} / 上限 ${Math.round(wire.length)} 畫布單位</p>`+(profile.ui.readings?readings([["A → B 電流",analysis.wires[wire.id]?.current,"A"],["A 端相對電勢",analysis.wires[wire.id]?.potential,"V"],["B 端相對電勢",analysis.wires[wire.id]?.potentialTo,"V"],["A − B 電壓",analysis.wires[wire.id]?.voltage,"V"],["導線耗散功率",analysis.wires[wire.id]?.power,"W"]])+referenceNote(wire.from):'');
+      $("selectionTitle").textContent="導線 "+wire.id;prop.innerHTML=`<p class="note">A：${V.esc(portName(wire.from))}<br>B：${V.esc(portName(wire.to))}<br>目前長度 ${Math.round(G.length(routes[wire.id]))} / 上限 ${Math.round(wire.length)} 畫布單位</p>`+(profile.ui.readings?readings([["A → B 電流",V.displayCurrent(d,analysis,wire.from,analysis.wires[wire.id]?.current,labelOptions.currentReferences),"A"],["A 端相對電勢",analysis.wires[wire.id]?.potential,"V"],["B 端相對電勢",analysis.wires[wire.id]?.potentialTo,"V"],["A − B 電壓",analysis.wires[wire.id]?.voltage,"V"],["導線耗散功率",analysis.wires[wire.id]?.power,"W"]])+referenceNote(wire.from):'');
       if(analysis.wires[wire.id]?.cyclic)prop.insertAdjacentHTML("beforeend",'<p class="note">理想導線環路中，此段電流不能唯一確定。</p>');
       if(profile.ui.wireCurrents)checkbox('顯示此導線電流',wireCurrents.has(wire.id),v=>setDiagramDisplay('wireCurrents',wire.id,v));
       if(profile.canSetWireResistance(d,readOnly)){const input=document.createElement('input');input.type='number';input.min=0;input.max=M.limits.resistance;input.step='any';input.value=wire.resistance;input.dataset.param='wireResistance';input.onchange=()=>execute({type:'setWireResistance',id:wire.id,value:input.valueAsNumber});field(['導線電阻 · ',Q.unit('Ω')],input);prop.insertAdjacentHTML('beforeend','<p class="note">0 Ω 為理想導線；阻值不隨拖動或彎線改變。</p>');}
@@ -327,8 +328,11 @@
   }
   function relayReadings(c,r){return readings([['線圈兩端電壓',r.voltage,'V'],['線圈電流',r.current===null?null:r.current*1000,'mA'],['觸點支路電流',r.contactCurrent,'A'],['線圈功率',r.power,'W']])+'<p class="note">'+(r.contact===null?'銜鐵移動中 · 兩邊斷開':r.contact==='e'?'已吸合 · 接下觸點':'未吸合 · 接上觸點')+'</p>';}
   function acReadings(c,r){
-    let q=analysis.measurements?.[c.id];const g=c.type==='galvanometer',current=g||c.type==='ac-ammeter',voltage=c.type==='ac-voltmeter',power=c.type==='ac-wattmeter';
-    if(R.isMeter(c)){const show=value=>R.meterDisplayReading(c,r,value);r={...r,reading:show(r.reading),current:current?show(r.current):r.current,voltage:voltage?show(r.voltage):r.voltage};if(q)q={...q,currentRms:current?show(q.currentRms):q.currentRms,voltageRms:voltage?show(q.voltageRms):q.voltageRms,averagePower:power?show(q.averagePower):q.averagePower};}
+    const currentView=value=>V.displayCurrent(current(),analysis,c.id+':a',value,labelOptions.currentReferences);
+    if(!R.isMeter(c))r={...r,current:currentView(r.current),secondaryCurrent:c.type==='transformer'?V.displayCurrent(current(),analysis,c.id+':c',r.secondaryCurrent,labelOptions.currentReferences):r.secondaryCurrent};
+    let q=analysis.measurements?.[c.id];if(q&&!R.isMeter(c))q={...q,currentRms:currentView(q.currentRms)};const g=c.type==='galvanometer',measuresCurrent=g||c.type==='ac-ammeter',voltage=c.type==='ac-voltmeter',power=c.type==='ac-wattmeter';
+    if(!R.isMeter(c)){const small=value=>Number.isFinite(value)&&Math.abs(value)<1e-6?0:value;if(r.current===0){r.voltage=small(r.voltage);r.power=small(r.power);r.energy=small(r.energy);}if(q?.currentRms===0){q.voltageRms=small(q.voltageRms);q.averagePower=small(q.averagePower);}}
+    if(R.isMeter(c)){const show=value=>R.meterDisplayReading(c,r,value);r={...r,reading:show(r.reading),current:measuresCurrent?show(r.current):r.current,voltage:voltage?show(r.voltage):r.voltage};if(q)q={...q,currentRms:measuresCurrent?show(q.currentRms):q.currentRms,voltageRms:voltage?show(q.voltageRms):q.voltageRms,averagePower:power?show(q.averagePower):q.averagePower};}
     // G is resistive: below its current resolution, its corresponding U/P are also unreadable.
     if(g){if(r.current===0&&Number.isFinite(r.voltage))r.voltage=0;if(q?.status==='ready'&&q.currentRms===0){q.voltageRms=0;q.averagePower=0;}}
     const items=[['瞬時電壓',r.voltage,'V'],['瞬時電流（a → b）',g&&Number.isFinite(r.current)?r.current*1e6:r.current,g?'μA':'A']];

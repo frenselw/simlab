@@ -485,3 +485,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 理想變壓器穩態數字不再逐幀跳動；線性變壓器保留真實通電暫態，穩態測試先運算8秒，再觀察連續幀，不能把剛通電的正常变化強行凍結。互感通斷電脈衝仍顯著可見，之後低於量程精度時標籤、面板與指針目標為零。
 - meter-motion新增範圍／正負／負零／邊界對稱／未知／合法微小量程及原始數據不變驗證，共25項通過；AC平台及240次示例切換、transient解析、DC teaching112項通過。source／解壓ZIP browser270 observations包含理想與線性變壓器穩態數字、互感顯著脈衝／零尾值／Control Panel、機械慣性與放大錶盤同步；DC共用操作70通過。已檢視線性變壓器與G零位截圖。
 - 四包統一重建核對；syntax／manifest及diff通過，最後面板及browser新增行另以node --check核對。證據：`output/ac-baseline/ac-meter-display-*.log`、`dc-meter-display-*.log`。未重跑全站既有阻塞、真Moodle及實機gate。
+
+### 導線及元件衰減尾值的近零顯示（2026-10-10）
+
+- 使用者要求保留完整指數衰減求解，但不要無止境列出導線／元件電流的極小尾值。新增共用純顯示 `CircuitRenderer.displayCurrent`，沿用電氣島觀察峰值作動畫尺度，普通門檻為max(1 μA, 峰值×10⁻⁵)，同島電流計／G可按半個顯示步長降低門檻，以保留真正可讀的微小電流。導線卡片、元件瞬時／有效電流、變壓器次級電流及箭頭共同使用，未知不冒充零，DC原數字與動畫不變。
+- Control Panel只操作元件／量測的顯示副本：電流顯示為0時，低於10⁻⁶ SI單位的相關U／P／儲能尾值亦顯示0；不把正常非零電壓或已充電電容儲能一併清除。getAnalysis、waveform signal、模型儲能、captureSession及下一步運算維持原始數值，不加到時停止或清空條件。重用現有flow尺度及preview副本，沒有新增求解器狀態或持久化欄位。
+- 已按RL示例通電6秒後切換放電、離線前進至40秒尾段重現：原始電流仍為正且小於10⁻⁹ A，導線卡片0 mA、元件電流／有效值0 A，無導線方向箭頭或流動粒子。波形signal仍等於原電流；選取／顯示不改captureSession。另驗證1 nA量程G下的實際100 pA電流不被隱去。
+- wire-current-labels新增權威數值不變、未知、小量程及DC精度回歸，既有flow30項、component-flow8組、標籤與AC平台／240次切換／transient解析均通過。source／解壓ZIP browser122 observations涵蓋RL尾值／面板無無意義極小數字／波形與session不變、同功率亮度、2／50 Hz實時；DC共用操作70通過。已檢視RL近零截圖。
+- 四包統一重建；syntax／manifest及diff通過，最後面板及browser改動另作node --check。證據：`output/ac-baseline/ac-decay-display-*.log`、`dc-decay-display-browser.log`。未重新驗證全站既有阻塞、真Moodle或實機gate。
