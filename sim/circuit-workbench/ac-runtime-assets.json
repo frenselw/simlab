@@ -1,4 +1,7 @@
 [
+  "circuit-workbench/circuit-ac-display.js",
+  "circuit-workbench/circuit-field-graphics.js",
+  "circuit-workbench/circuit-generator-graphics.js",
   "circuit-workbench/circuit-ac-components.js",
   "circuit-workbench/circuit-observation.js",
   "circuit-workbench/circuit-transient.js",

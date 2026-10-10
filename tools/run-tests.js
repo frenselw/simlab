@@ -8,6 +8,12 @@ const root = path.resolve(__dirname, "..");
 const tests = [
   "sim/circuit-workbench/transient.test.js",
   "sim/circuit-workbench/ac-platform.test.js",
+  "sim/circuit-workbench/generator-graphics.test.js",
+  "sim/circuit-workbench/field-graphics.test.js",
+  "sim/circuit-workbench/ac-display.test.js",
+  "sim/circuit-workbench/readout-math.test.js",
+  "sim/circuit-workbench/ac-meter-design.test.js",
+  "sim/circuit-workbench/energy-sync.test.js",
   "sim/circuit-workbench/scope.test.js",
   "tools/circuit-ac-browser-regression.js",
   "sim/circuit-workbench/assessed-activities.test.js",

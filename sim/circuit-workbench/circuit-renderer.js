@@ -87,6 +87,7 @@
     if (display.values && v !== null && Math.abs(v) > c.params.range) out += text(0, -43, "超量程", 13, 'fill="#b91c1c"');
     return `<g data-meter-housing="${esc(c.id||'preview')}" transform="scale(${R.meterBodyScale(c)})">${shell}<g transform="rotate(${-(c.angle || 0)})">${out}</g></g>`;
   }
+  function displayComponent(doc,result,c,references=null){const r=result.components[c.id],project=R.get(c.type).displayResult;return typeof project==='function'?project(c,r,{doc,result,references}):r;}
   function body(c, result, display) {
     const schematic = display.view === "schematic", p = c.params; if(typeof R.get(c.type).render === "function") return R.get(c.type).render(c,result,display);
     const leads = '<path d="M-60 0H-35 M35 0H60" stroke="#475569" stroke-width="3" fill="none"/>';
@@ -190,7 +191,7 @@
       }
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
-      if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
+      if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:doc.display.projection?18:16}]});}
     });
     for(const w of doc.wires){
@@ -221,7 +222,7 @@
       const cy=Math.max(bounds.top+m.height/2+2,Math.min(bounds.bottom-m.height/2-2,c.y+lx*sin+ly*cos)),y=cy+(m.ascent-m.descent)/2;
       return{x,y,spec,size,box:{left:x-m.width/2-1,right:x+m.width/2+1,top:y-m.ascent-1,bottom:y+m.descent+1}};
     }
-    const dual=R.dualMeter(c),watt=c.type==='wattmeter',size=watt?14:11,spec=dual?portSpec(c,p):watt?{text:p.label,tex:(['a','b'].includes(p.key)?'I':'V')+'_{'+(['a','c'].includes(p.key)?'+':'-')+'}'}:{text:p.label},m=spec.tex?Q.measure(spec.tex,size):{width:L.measure(p.label,size),ascent:size,descent:2};
+    const dual=R.dualMeter(c),watt=['wattmeter','ac-wattmeter'].includes(c.type),size=watt?14:11,spec=dual?portSpec(c,p):watt?{text:p.label,tex:(['a','b'].includes(p.key)?'I':'V')+'_{'+(['a','c'].includes(p.key)?'+':'-')+'}'}:{text:p.label},m=spec.tex?Q.measure(spec.tex,size):{width:L.measure(p.label,size),ascent:size,descent:2};
     let x=p.x,y=p.y-(dual?8+(4+m.descent)/scale:(watt?15:12)/scale);
     if(dual){const bounds=view==='real'?R.meterHousingBounds(c):{left:c.x-35,right:c.x+35,top:c.y-35,bottom:c.y+35};
       if(p.dx<0)x=Math.min(x,bounds.left-(3+m.width/2)/scale);
@@ -240,7 +241,7 @@
     doc.components.forEach((c) => {
       const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=c.type==='relay'?'x="-78" y="-42" width="158" height="112"':R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
-      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true}:doc.display)}</g>`;
+      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, result.mode==='transient'?displayComponent(doc,result,c,labelOptions?.currentReferences):r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true}:doc.display)}</g>`;
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
@@ -258,7 +259,7 @@
     doc.components.forEach(c=>{const isMeter=R.isMeter(c)||c.type==='rheostat';
       R.ports(c).forEach((p) => {
         const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
-        if(isMeter&&!tiny&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7))){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;if(!R.dualMeter(c)||doc.display.view!=='real')out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`;out+=(a.spec.tex?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}
+        if(isMeter&&p.labelVisible!==false&&!tiny&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7))){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;if(!R.dualMeter(c)||doc.display.view!=='real')out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`;out+=(a.spec.tex?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}
       });
     });
     let effects=0;
@@ -359,8 +360,35 @@
     return references;
   }
   const referenceAt=(references,result,endpoint)=>references.get(result.islandOf?.[endpoint]??endpoint);
+  function storedEnergyInvisible(doc,result,endpoint){
+    if(doc.analysis!=='transient')return false;
+    const island=result.islandOf?.[endpoint];if(island===undefined)return false;
+    const belongs=c=>['a','b','c','d',result.components[c.id]?.activePort].some(k=>k&&result.islandOf[c.id+':'+k]===island);
+    let reactive=false;
+    for(const c of doc.components){
+      if(!belongs(c))continue;const r=result.components[c.id];
+      if(c.type==='transformer')return false; // A separate primary can supply energy.
+      if(!['capacitor','inductor'].includes(c.type))continue;
+      reactive=true;
+      if(!r||!Number.isFinite(r.current)||!Number.isFinite(r.voltage)||!Number.isFinite(r.energy)||displayEnergy(r.energy)!==0||!Number.isFinite(r.currentPeak)||!Number.isFinite(r.voltagePeak))return false;
+    }
+    if(!reactive)return false;
+    for(const c of doc.components){
+      if(!belongs(c))continue;const r=result.components[c.id];
+      if(['battery','ac-source','generator'].includes(c.type)){
+        if(!r||!Number.isFinite(r.current)||!Number.isFinite(r.voltage)||!Number.isFinite(r.currentPeak)||!Number.isFinite(r.voltagePeak))return false;
+        if(Math.max(Math.abs(r.current||0),r.currentPeak)>1e-9&&Math.max(Math.abs(r.voltage||0),Math.abs(r.sourceEmf||0),r.voltagePeak)>1e-6)return false;
+      }
+      if(['ammeter','ac-ammeter','galvanometer'].includes(c.type)){
+        const resolution=(r?.division??(r?.range??c.params.range)/(c.type==='galvanometer'?20:30))/20;
+        if(resolution<1e-6&&(!Number.isFinite(r?.currentPeak)||r.currentPeak>=resolution))return false;
+      }
+    }
+    return true;
+  }
   function displayCurrent(doc,result,endpoint,current,references=null,peak=undefined){
     if(doc.analysis!=='transient'||!Number.isFinite(current)||current===0)return current;
+    if(storedEnergyInvisible(doc,result,endpoint))return 0;
     const island=result.islandOf?.[endpoint]??endpoint;
     let threshold=Math.max(1e-6,(referenceAt(references||flowReferences(doc,result),result,endpoint)||0)*1e-5);
     for(const c of doc.components.filter(c=>['ammeter','ac-ammeter','galvanometer'].includes(c.type))){
@@ -414,5 +442,5 @@
     }
     return out;
   }
-  return { scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, displayCurrent, displayEnergy, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour, potentialRange };
+  return { storedEnergyInvisible,displayComponent,scene, labels, flow, advanceFlow, flowReferences, flowSpeed, flowSpacing, componentFlowPaths, componentFlowSpacing, body, displayCurrent, displayEnergy, dualDial, galvanometerDial, dialPoint, dialAngle, portLabel, lampLight, visualState, hazardLimits, statusText, text, format, esc, colour, potentialRange };
 });

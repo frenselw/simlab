@@ -9,8 +9,8 @@
   const clamp=(v,low=minimum,high=maximum)=>Math.max(low,Math.min(high,v));
   function scale(c){
     if(R.dualMeter(c))return {minimum,maximum,zeroAngle:R.meterScale.zeroAngle,sweep:R.meterScale.sweep,cy:24,radius:69};
-    if(['ac-ammeter','ac-voltmeter'].includes(c.type))return {minimum:-.02,maximum:1.02,zeroAngle:-150,sweep:120,cy:18,radius:40};
-    if(c.type==='ac-wattmeter')return {minimum:-1.02,maximum:1.02,zeroAngle:-90,sweep:60,cy:18,radius:40};
+    if(['ac-ammeter','ac-voltmeter'].includes(c.type))return {minimum:-.02,maximum:1.02,zeroAngle:-150,sweep:120,cy:16,radius:34};
+    if(c.type==='ac-wattmeter')return {minimum:-1.02,maximum:1.02,zeroAngle:-90,sweep:60,cy:16,radius:34};
     if(c.type==='galvanometer')return {minimum:-1.03,maximum:1.03,zeroAngle:-90,sweep:60,cy:25,radius:43};
     if(c.type==='wattmeter')return {minimum:-1,maximum:1,zeroAngle:-90,sweep:90,cy:9,radius:27};
     return null;

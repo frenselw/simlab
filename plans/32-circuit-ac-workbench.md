@@ -1,5 +1,267 @@
 # 交流電路工作台
 
+## 精簡交流錶盤及整理示例（2026-10-11）
+
+依使用者要求對照 DC 電表：AC A／V／W 使用緊湊白色錶面及灰藍外殼，
+由106×134收至92×78；移除錶盤下方數字／未接妥狀態區。狀態仍在檢視器及
+放大觀察說明顯示。刻度、單位、交流符號、符號視圖及功率表端子均用共用
+MathJax向量字形，沒有裝飾接孔；A／V兩個無極性接線孔不畫A／B標記。
+功率表保留I+/I−、V+/V−兩組（電流串聯、電壓並聯），只反接一組會改功率
+符號，兩組同時反接則讀值不變。端子ID／座標、求解、量測窗及snapshot不改；
+只更新視覺bounds、刻度幾何、預覽與放大viewBox，保留每量程30格及指針慣性。
+
+預設名稱統一為「主題：觀察內容」，選單分交流基礎、電容與電感、變壓器與互感、
+振盪電路，配置示例標題寫明教學內容；內部key及初始電路不變。本次不新增評分、
+依賴或保存欄位。精準驗證選AC錶盤／接線極性與RMS、DC符號字形、指針幾何
+Node，以及source／ZIP錶盤專項（實物／符號、旋轉、放大、可信手機觸控、預設名稱）。
+不重跑整套RC／RL、評分或手勢矩陣。完成後連同本聊天既有修改commit並push。
+
+實際驗證：AC meter design Node、指針25 cases、DC／共用Math字形96 fixtures及
+readout-math Node通過；`--meter-design-smoke` source／ZIP各58項，共116項通過，
+含有效值反接不變、功率反號、四向旋轉後physics不變、端子字形、可信手機tap／
+放大錶盤及320px教學示例頂欄。已目視實物／符號對照DC、接線及320px錶盤
+截圖。未重跑整套測試；本機手機模擬不代表實機／Moodle驗收。
+
+## 移除實驗操作區塊（2026-10-11）
+
+依使用者要求移除 Control Panel 的「實驗操作」、單步及回到初始條件按鈕。
+刪除區塊建立及按鈕狀態更新；底層 API 保留。此決定取代下方歷史記錄的
+摺疊操作區配置。只核對受影響檔案的語法及差異，不重跑物理或全套測試。
+
+## 發電機bar及交流數學排版審核（2026-10-11）
+
+- 發電機θ用0–360°循環條，Φ、NΦ、e用中心零點的雙向bar；磁場B保持
+  靜態數值。同時套用選取讀值，變壓器場觀察動態值亦一致。量尺依B、S、N、f
+  的理論峰值設定，數字固定單位及兩位小數、播放5Hz／暫停即時，物理時間不改。
+- 共用Math建立受控symbol／formula／label／prose接口，補θ、Φ、NΦ、e、
+  C/L/R/f、RMS、原副線圈下標、能量及法線。物理量斜體、數字／單位／
+  sin cos正體，法線用單位向量hat n；極名N/S、器材圖示及使用者元件名稱
+  保持普通標誌。bar數值維持tabular文字，單位轉MathJax，避免逐幀typeset數字。
+- 示波器標題／時間量尺／軸單位及刻度、參數與讀值標籤、場說明、預設說明
+  和配置示例保存時間統一排版；自包含向量字形可在Canvas重用。靜態幫助公式
+  明確受控，不將使用者名稱當TeX或HTML執行。零／未知、歸零規則不變。
+- 依使用者要求只跑精準測試：受影響Math／Readouts Node，以及新專用
+  readout-math source／ZIP檢查（發電機bar、相位同步、單位／符號、手機及
+  受影響scope／配置示例）。不重跑無關RC/RL、接線、評分或全套測試。
+
+實際驗證：`readout-math.test.js`、既有 `meters-and-math.test.js` 及
+`ac-display.test.js` 通過；專用 `--readout-math-smoke` source／ZIP 各40項、
+共80項通過（單步／暫停檢視器與場觀察同步、播放相位／讀值、正負bar、物理峰值量尺、固定單位、獨立向量
+字形、參數／示例保存時間、320px不溢出）。已目視桌面／320px發電機觀察
+及示波器截圖；未跑全套測試或無關活動。此為本機瀏覽器證據，非實機／Moodle證據。
+
+## 儲能首次歸零的電流／場同步（2026-10-10）
+
+- 重現 RC、RL 首次顯示儲能0 J時，仍分別有約6.93 μA、19.71 μA及場線。
+  增加共用電氣島可見性判斷：同島有C/L、所有可知儲能均已低於原顯示
+  門檻、觀察窗完整、無供電中的源、無跨島變壓器或仍可讀的小量程量測時，
+  同步將島內電流、場、分布電荷及器材讀值顯示為零。灰色極性參考保留。
+- 判斷限renderer純顯示，flow／導線讀值／元件／場圖／panel共用；不改
+  原始分析、積分、波形、scoring或snapshot，不持久化隱藏鎖，重新供電可恢復。
+- 單一元件顯示儲能0時，其場線／active極性標誌收起；電流則判斷同島
+  的能量與供電，避免把能量交換當成放電完成。
+- 正常LC某一種能量為零而另一種非零、充電起始、AC供電及小量程仍可讀
+  信號不強行抹掉。未知／未完整觀察不宣告已放完，DC照舊。
+- Node及source／ZIP測「首次電場／磁場儲能0 J」的當刻（RC/RL正負），
+  核對上一點有場、當刻電流／箭頭／場／電荷／active極性標誌一起歸零，
+  raw能量電流仍非零、capture不變，並驗證重新供電及LC能量交換例外。
+
+驗證：30個 circuit Node 測試檔通過；新增 energy-sync 測 RC/RL 正負極性、
+保存恢復續算、重新供電、LC交換、獨立電氣島、100 pA仍可讀量測及未知
+讀值不假零。source／ZIP **212** 項通過：RC總t=27.25s首次0 J，raw
+E≈9.60×10⁻¹⁰ J、I≈−6.93 μA；RL總t=24.5s首次0 J，raw
+E≈9.72×10⁻¹⁰ J、I≈19.71 μA。前一點場與電流仍可見，當刻全導線0 mA、
+無流動／方向箭頭，主圖／panel／大圖相關值零、場線收起、極性標誌灰色；
+snapshot及波形raw值不變。browser亦執行正常LC電場儲能0但磁能／電流
+非零的例外。scope **194** 項、DC共用操作 **70** 項及syntax／manifest／diff
+通過，四個 circuit ZIP與全站SCORM包重建核對。證據：
+`output/ac-baseline/ac-energy-sync-*.log`、`dc-energy-sync-regression.log`、
+`output/playwright/circuit-ac/source-{rc,rl}-first-zero-energy-sync.png`。
+全站既有2 Hz測試阻塞與真手機／Moodle gate維持歷史記錄。
+
+## 電容放電尾段同步歸零（2026-10-10；以下為舊電流觸發版本的證據）
+
+- 使用者重現導線顯示 0 mA 後仍有電容電場的時間差。電容顯示副本在電流
+  已按完整窗顯示為零，且當刻／全窗電壓均低於參考電壓×10⁻⁴時，同步將
+  U、q、電場與電場儲能顯示為零，不再另等 1 μV 門檻。參考電壓沿用 bar
+  的初始／電源量尺（最低 1 V），電流判斷與畫布使用同一 references。
+- 保留有明顯電壓的零電流電容、未知／未完成窗口、小量程儀表及正常振盪；
+  不持久化歸零、不停止積分，原始 state、波形、q/E 與續算保留。
+- 儲能區合計使用相同元件顯示副本，避免電場消失後仍列出尾值。
+  灰色極性參考標誌維持。充電或接線改變後可重新顯示，沒有單向隱藏鎖。
+- Node／source／ZIP 必須測試「首次顯示零電流」的當刻，而不只驗證40秒後；
+  前一刻仍有可見電流／場，首次歸零後場線／電荷／U/q/E同步，raw U>1 μV
+  且 raw I≠0、capture及合法續算不變。另保留零電流帶電與大阻值慢放電。
+
+驗證：29個 circuit Node 測試檔及新增顯示邊界測試通過；兩種放電極性都
+在首次電流顯示零時同步歸零，保存／恢復後執行合法續算並比對原始電壓。
+0.5 V電容經1 MΩ慢放電及6 V零電流帶電電容仍保留電場。source／ZIP
+場觀察 **186** 項通過：充電6秒後放電24秒（總t=30s）首次全部導線為
+0 mA，前一點t=29.875s場仍可見；當刻 raw U≈35.03 μV、I≈−1.751 μA
+仍非零，但主畫布／面板／大圖 U/q/E、場線與分布電荷都同步收起。快照
+保持不變，灰色極性參考保留。syntax／manifest／diff通過；四個 circuit ZIP
+重建核對。證據：`output/ac-baseline/ac-capacitor-sync-*.log`、
+`output/playwright/circuit-ac/source-rc-first-zero-synchronized.png`。
+全站既有測試阻塞、真手機／Moodle gate維持歷史記錄。
+
+## 場觀察條形讀值與衰減顯示（2026-10-10）
+
+- 電容／電感場觀察及選取讀值改用條形指示：帶符號量以中心零點表示，儲能
+  從零向右；固定工程單位、兩位小數及穩定量尺，播放時數字最多每秒五次，
+  bar 跟當刻值更新；暫停立即顯示當刻值。靜態 L 保留普通數字。
+- 統一純顯示副本供器材、場觀察及讀值使用。電流用既有完整觀察窗近零
+  判斷；電容電壓另用全窗 voltagePeak 與 1 μV 門檻，不以 I=0 判定電场為零。
+  observation tracker 增加只讀電壓峰值，不改物理積分／保存格式；未知不冒充零。
+  場線另在當刻 |I|<1 μA／|U|<1 μV 時收起，正常過零後可再出現；不將
+  瞬時過零當成衰減完畢，不改全窗近零判斷、原始值或總儲能。
+- 電荷符號／N、S 標誌獨立於場線開關。有場時按真實極性，場已不可見時
+  用灰色方向參考；分布電荷隨可見電壓歸零收起。場線／箭嘴不能讀原始尾值
+  繞過顯示副本；原始 analysis、波形、儲能、session 保留完整數值。
+- 新共用 AC display 模組列入 runtime／兩入口，bar 狀態限 editor 實例、不保存。
+  Node 驗證近零／振盪／小量程電流、零電流帶電電容、窗口峰值、量尺及單位、
+  RC實際τ=2s的解析衰減；source／ZIP驗證bar、反向、開關標誌、RC／RL尾段、
+  波形與快照不變、手機及既有場／發電機操作。
+
+驗證：29 個 circuit Node 測試檔通過；新 display 測試執行實際 RC 充電6秒後
+切換放電，2／6／10／20／40秒 U/I 與解析解一致（電壓誤差 <10⁻⁶ V）。
+RC 40秒原始 U≈1.175×10⁻⁸ V、I≈−5.876×10⁻¹⁰ A 仍保留，顯示副本
+U/I/q/E 為零。source／ZIP 場／bar **170** 項、scope **194** 項、DC共用操作
+**70** 項通過；包含 N/S／電荷不受開關影響、RC/RL尾段無場線／流動箭頭、
+近零後恢復、I=0帶電電容仍有場、快照與波形不變。已檢視桌面、手機及
+尾段截圖。syntax／manifest／diff 通過；四個 circuit ZIP 與全站 SCORM 包
+重建核對。證據：`output/ac-baseline/ac-field-bars-*.log`、
+`dc-field-bars-regression.log`，以及 `output/playwright/circuit-ac/*bars-tail.png`
+及 `source-field-inductor-large.png`。未重跑已記錄的全站 2 Hz 燈泡阻塞；
+真手機／Moodle gate 維持未驗收。
+
+## 固定範圍的場線疏密（2026-10-10）
+
+- 使用者指出前版場線組收密時整個場亦縮小；最新要求以固定場範圍為準。
+  保持電容 y=±20、發電機極間 y=±16，以及電感內部 y=±16、外部 y=±45。
+  強弱只改範圍內均勻場線間距；最外位置／器材尺寸不變。均勻間距與固定
+  範圍意味可見線數會隨疏密調整，取代前版的固定線數約束，不再聚束到中央。
+- 電容／發電機用整段等分，電感用相同外圍曲線包絡內的嵌套閉合線族。
+  間距按原相對場強分級，所有可見線色深與粗幼一致；零／未知隱藏，反向
+  只改方向。圖仍為定性相對場強，不改權威求解器、快照、依賴或評分。
+- 發電機預建足量 SVG 節點，B 改變時更新位置及可見狀態，不重新建轉子。
+  原相位、固定端子及遮擋層次維持；線圈旋轉不改極間場疏密。
+- Node 驗證弱／強场線包絡完全相同、均勻間距變小、電感不相交與入口、
+  零／未知／反向；source／ZIP 驗證實際 path bounding boxes 固定、主畫布
+  與觀察同步、播放時密度變化、B 更新、手機操作及對照 SVG／PNG。
+
+驗證：28 個 circuit Node 測試檔通過；固定範圍場觀察 source／ZIP **128** 項、
+發電機回歸 **72** 項通過；syntax／manifest 及 diff 通過。Node 對全組曲線
+取樣驗證相同包絡；browser 用實際 getBBox 比對，容許 10⁻⁴ SVG 單位的
+float32 捨入誤差。動態取樣由播放前開始，覆蓋初始弱場及後續密度級別。
+已檢視新的弱／強場 SVG／PNG；四個 circuit ZIP 統一重建核對。證據：
+`output/ac-baseline/ac-field-coverage-*.log`、
+`output/playwright/circuit-ac/source-field-coverage-comparison.svg` 及同名 PNG。
+全站既有 2 Hz 燈泡阻塞與真手機／Moodle gate 維持下方歷史記錄。
+
+## 固定場線組的動態間距（2026-10-10；已由固定範圍版取代）
+
+- 使用者要求保持線數，以場線間距表示強弱。取代上一輪以 opacity 表示強弱
+  的方式：電容固定五條、電感固定六條閉合線、發電機固定七條極間線；非零
+  已知場保持相同色深／線寬。零或未知場隱藏，反向只改箭頭／極性。
+- 採連續有界間距，強場收密、弱場拉開，不量化角度或跳換線數。電容按 U
+  表示相對電場（極板間距仍是定性畫法）；電感按 |I|√L 表示固定磁路的相對
+  磁場，發電機按設定 B。固定場線組為局部取樣，未畫線處不代表無場；不把
+  聚束圖當成完整截面場強分布或聲稱精確 SI 場強。
+- 電感外部與內部間距共同變化；仍穿過 x=±40 的筒身中央，路徑不相交，
+  內部保留固定較暗虛線表示遮擋。發電機保持 N→S 及僅極間場，更新 B
+  必須更新靜態場線座標與深度次序，線圈角度不改極間場強。
+- 範圍為繪圖／觀察層；評分、依賴、持久化、權威快照與求解器均無新欄位。
+  Node 驗證固定數量、間距單調／連續／有界、同強弱下色深相同、反向、
+  極間範圍及各強度閉合線不相交；source／ZIP 驗證主畫布和觀察同步、
+  播放時間距逐幀變化、同角度改 B 生效及既有手機／觀察操作。
+
+驗證：28 個 circuit Node 測試檔通過；間距／場觀察 source／ZIP **128** 項、
+發電機回歸 **72** 項通過，syntax／manifest 及 diff 檢查通過。四個 circuit
+成品由統一 builder 重建核對；比較 SVG／PNG 已輸出並檢視，電感閉合線
+在各強度下不相交，所有發電機場線及箭頭均留在相向兩極高度內。證據：
+`output/ac-baseline/ac-field-spacing-*.log`、
+`output/playwright/circuit-ac/source-field-spacing-comparison.svg` 及同名 PNG。
+本輪只跑相關 gates；下方已記錄的全站 2 Hz 燈泡阻塞及真手機／Moodle gate
+狀態維持，沒有放寬斷言。
+
+## 電場／磁場觀察重設計（2026-10-10；以下為疏密改版前證據）
+
+- 修正 `.ac-field svg` 誤套數值 MathJax SVG 的寬高，圖形只用具名 diagram
+  class；數值沿用共享量綱排版，以正常大小的讀值列呈現。
+- 畫布場線開關保留，面板的重複圖形／解釋改為預設收起的觀察區。按「放大
+  觀察」打開可關閉的原生 dialog；手機內容自然捲動，44px 關閉／播放控制。
+- 電容：依使用者最後要求，只畫兩板之間正→負的均勻電場，以五條等距平行
+  場線表示，不畫邊緣彎線。放大圖使用剖面，保留原圓極板、C 對應畫面間距
+  及 q=CU 的原始電荷模型；反向電壓同步反向。
+- 電感：如通電螺線管／條形磁鐵的六條閉合磁場線，左端穿入筒身中央；場線
+  不依可見繞線跨度提早折返。外部實線放在器材後方，內部用較暗虛線表示
+  遮擋。按右手規則判定 N／S，過零時減弱，反向時對調。Node 取樣檢查
+  閉合路徑不相交、入口及虛線；另列 `−(u−Ri)` 自感電動勢。
+- 發電機：只畫 N、S 極間的平行磁場；不畫外圍場線或外側磁極。保留線圈
+  法線及面積投影，永磁場方向固定 N→S，B=0 不畫場線；旋轉、磁通及
+  電動勢用同一 analysis。放大視窗桌面圖文並排、手機上下排列。
+- 場圖為定性方向／相對強弱示意；不把 lumped C／L 或 SVG 尺寸當成已求解的
+  三維場強。沒有新增物理狀態、時間、評分、快照或手勢；renderer／觀察層負責。
+- 新 field-graphics 共用模組列入 AC runtime／兩入口及 ZIP。Node 驗證正負／零／
+  未知、場線方向／閉合及數據不變；source／ZIP 驗證正常讀值尺寸、收起／展開、
+  dialog、320px 手機捲動、場線開關、可信操作和反向／逐幀同步。
+
+本輪驗證：28 個 circuit Node 測試檔通過；source／解壓 ZIP 場觀察 **88** 項、
+發電機 **72** 項通過。場圖包含極性反轉、零／未知場、左端中央入口、內部
+虛線、無電容邊緣線／發電機外圍線、solver 同步、數字尺寸、320px／390px
+原生 dialog 及可信觸控捲動，並檢視三種器材大圖與手機截圖。先前同輪的元件
+回歸 **270** 項及示波器 **194** 項亦通過。syntax／manifest 及 diff 檢查通過。
+證據：`output/ac-baseline/ac-field-gap-bore-*.log`、`ac-field-reactive.log`、
+`ac-field-scope.log`。全套 `npm test` 已重跑，仍在基準既有的 2 Hz 燈泡亮度
+測試失敗（最暗值／亮度階數未達原門檻；未改鬆斷言），記錄於
+`ac-field-npm-test-final.log`。真手機及 Moodle gate 未驗收。
+
+## 發電機圖形重設計（2026-10-10；基準 26ad63d）
+
+- 使用者批准將 SVG 預覽整合進工作台，要求 N／S 對齊。固定斜投影採
+  `x=x₃+0.38z₃, y=−y₃+0.28z₃−8`，不以 x₃ 改變畫面高度；兩極
+  尺寸／深度／高度完全相同，整件旋轉後亦沿同一軸對齊。
+- 元件沿用 bounds ±48／±42、a=(-60,0)、b=(60,0)。兩條固定導線分別
+  連接電刷／完整滑環；轉子是剛性圓角矩形繞組，少量可見匝數僅作示意。
+- 法線 `n=(cosθ,sinθ,0)` 採繞組 B→A 定向；可見旋轉與 source 的 a−b
+  電動勢同號。以兩個正／負半週的 `(v×B)·dl` 獨立積分校對端子方向。
+- `circuit-generator-graphics.js` 共用純幾何／SVG 與局部 DOM 更新；畫布和場
+  面板共用。新增檔案在兩個 AC HTML 入口先於 AC components 載入，列入
+  ac-runtime-assets 及 standalone assets。DC 及評分／快照契約不變。
+- 每個 RAF 讀當前權威 analysis.phase（參數預覽則讀既有獨立副本），不另推進
+  角度、不插入假時間。全場景仍按既有節流更新，只局部更新發電機繞組及場圖。
+  暫停／只讀／拖移凍結、¼速、重設及 restore 沿用既有 session。
+- 驗證決策：純幾何完整角度掃描、磁極實際投影對齊、有限值及匝間／引線連續；
+  production source／解壓 ZIP 檢查逐幀角度與 analysis 同步、固定端子、暫停、
+  ¼速、參數預覽、符號／實物、場圖、元件旋轉及手機可信操作。重建四個電路包。
+  真 Moodle／實機及全站既有阻塞另外記錄，不以本地證據代替。
+
+### 本次實作與驗證
+
+- branch 由 4f7c039 fast-forward 至 GitHub 的 26ad63d，再實作本次圖形；
+  最新 commit 的觀察峰值／能源顯示保留。
+- 最終 27 個 circuit Node 測試檔通過；新 geometry test 掃描 361 個角度，
+  驗證剛性、磁極對齊、連續匝間／引線、完整滑環、固定端子及兩半週端子相位。
+- source／解壓 AC ZIP 專項 72 observations 通過。1.1 秒取樣各 67 個 RAF
+  畫面，畫布／場圖角度均等於權威 analysis.phase，端子座標只有一組；暫停、
+  ¼速、restore、只讀、四方向旋轉、實物／符號、場開關、參數預覽／取消，以及
+  390×844／320×500 的可信觸控與排版通過。已檢視實際工作台截圖。
+- 課堂預設 source／ZIP 618 observations、DC 共用操作 70 observations 通過。
+  四個 circuit 包與 `package:all` 重建／逐檔驗證，`npm run check`、diff check 通過。
+- 總 runner 發現上一 commit 的舊 tiny-current fixture 只按瞬時值斷言歸零；
+  原始 26ad63d 在同一行失敗。測試改為先驗證觀察窗仍有峰值時保留呈現，再
+  前進完整 period 驗證隱去且原始電流仍非零，沒有放寬產品的整窗規則。
+- 修正後 `npm test` 在原有 2 Hz 燈亮度斷言停止：minimum 約 0.1068，
+  既有門檻要求 <0.08，兩位小數的亮度種類為 10、門檻要求至少 12。
+  原始 26ad63d 的 `--realtime-smoke` 同樣失敗；未修改燈光模型或降低門檻。
+  **總 suite 未全過，不宣稱全站綠燈或本次完成所有 package-ready gates。**
+- 證據：`output/ac-baseline/ac-generator-node-final.log`、
+  `ac-generator-browser-final.log`、`ac-generator-preset-browser.log`、
+  `ac-generator-dc-browser.log`、`ac-generator-npm-test-final.log`、
+  `ac-generator-head-browser.log`、`ac-generator-head-realtime.log`、
+  `ac-generator-package-all-final.log`、`ac-generator-check-final.log`。
+  真 Moodle／實機未重新驗證。
+
 2026-10-09：使用者批准 A0–A6 實作。沿用 `codex/circuit-platform-dc-scorm-plan`，基準 `f7912e2`。
 依 [共用產品規則](00-shared-platform-and-style.md)、[production guide](../docs/simulation-scorm-production-guide.md)、[活動作者指南](../docs/circuit-activity-authoring.md)及[架構說明](../docs/circuit-workbench-architecture-review.md)實作。本計劃由 [activity template](NEW-SIMULATION-PLAN-TEMPLATE.md)各決策節點填寫；共用契約不在此另訂例外。
 
