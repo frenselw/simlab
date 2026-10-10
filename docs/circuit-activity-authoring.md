@@ -53,12 +53,14 @@ const editor = await CircuitEditor.mount(host, {
 
 ```js
 components:{byType:{
-  capacitor:{params:['capacitance'],ranges:{capacitance:{min:100e-6,max:2000e-6,step:10e-6}}},
-  inductor:{params:['inductance'],ranges:{inductance:{min:0.05,max:5,step:0.05}}}
+    capacitor:{params:['capacitance'],ranges:{capacitance:{min:0.01,max:0.2,step:0.001}}},
+    inductor:{params:['inductance'],ranges:{inductance:{min:0.5,max:10,step:0.1}}}
 }}
 ```
 
 UI、鍵盤／公開命令、初始文件、工具箱預設、載入和 session 恢復均使用同一範圍。超出設定時原子拒絕，不裁剪答案或改寫原檔。若工具箱的預設數值不在所設範圍內，作者須同時指定合法 `palette.params`。
+
+教師工作台另外使用元件的 `sliderMin` 提供常用滑塊下限，數字欄仍遵守 profile 的完整 min/max；學生配置不採用這個常用下限。目前電容預設為 0.02 F，指定較小的活動範圍時須提供範圍內的電容工具箱預設。
 
 ### 指定工具箱及庫存
 

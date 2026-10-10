@@ -272,9 +272,10 @@
           const input = document.createElement("input"); input.type = "number"; input.value = c.params[key] * factor; input.min = spec.min * factor; input.max = (spec.controlSpecial??spec.max) * factor; input.step = "any"; input.disabled = !enabled; input.dataset.param = key; input.dataset.component = c.id; input.onchange = () => { const value = input.valueAsNumber / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; field(spec.unit?[spec.label+' · ',Q.unit(spec.unit)]:spec.label,input);
           if (["voltage", "resistance", "position"].includes(key)||transient&&(R.get(c.type).primaryParameter===key||spec.slider)) {
             const range = document.createElement("input"),preferredMax=key==='position'?1:key==='voltage'?24:c.type==='battery'?10:100;
-            range.type = "range"; range.min = spec.min * factor;
+            const commonMin=teacher&&spec.sliderMin<spec.max?Math.max(spec.min,spec.sliderMin):spec.min;
+            range.type = "range"; range.min = Math.min(c.params[key],commonMin) * factor;
             range.max = (spec.controlMax??(spec.slider?spec.max:Math.min(spec.max,Math.max(preferredMax<=spec.min?spec.max:preferredMax,c.params[key])))) * factor;
-            range.step = (spec.controlStep??spec.step) * factor; range.value = c.params[key] * factor; range.disabled = !enabled; range.setAttribute("aria-label", spec.label + "滑塊");
+            range.step = c.params[key]<commonMin?"any":(spec.controlStep??spec.step) * factor; range.value = c.params[key] * factor; range.disabled = !enabled; range.setAttribute("aria-label", spec.label + "滑塊");if(teacher&&spec.sliderMin)range.title="常用範圍 "+commonMin*factor+"–"+range.max+" "+spec.unit+"；較小數值可在數字欄設定。";
             range.oninput = () => {
               if(!range.isConnected||!allow(history.get(),c,"params",key))return;
               const candidate=M.clone(history.get());candidate.components.find(x=>x.id===c.id).params[key]=Number(range.value)/factor;

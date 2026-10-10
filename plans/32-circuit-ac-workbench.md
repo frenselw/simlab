@@ -438,3 +438,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 50 Hz帶兩圖驗證發現每次物理取樣都重複JSON複製電路文件；改用共用editor既有viewDocument唯讀視圖，對外onAnalysis仍提供獨立結果副本、權限及權威狀態合約保持。
 - scope Node驗證舊窗擴至20／100秒、反覆縮放、獨立預覽copy、100000取樣的容量／尖峰／未知缺口、1000秒到期及時間重設；transient物理回歸通過。source／ZIP browser **194 observations**通過：實際Canvas圓點與模型U/I及14px間距、未接探頭不留點、收集30秒後真拖動X軸反覆擴至約20秒而左側保持波形、既有mouse/pen/touch／手機／只讀／動態預覽，以及兩圖50 Hz實際時間倍率0.85–1.15範圍。
 - 已檢視圓點、20秒完整歷史及手機大框截圖；syntax／manifest及diff通過。四包統一重建核對，證據：`output/ac-baseline/ac-scope-current-history.log`、`ac-scope-current-history-check.log`。不改物理模型、評分或SCORM；既有全站及外部gate維持。
+
+### 擴大電容／電感的常用範圍（2026-10-10）
+
+- 依使用者確認，常用滑塊改為 C 0.01–0.2 F、L 0.5–10 H；電容預設0.02 F並直接以F顯示，步進0.001 F；電感預設1 H、步進0.1 H。教師數字欄仍接受C最低0.0001 F、L最低0.05 H，舊文件按實際SI值恢復，不偷偷改值。較小值會延伸滑塊下限並用連續步進，避免最大端點不可達。學生活動的自訂範圍仍完整生效，不套用教師常用下限。
+- 板距隨新範圍反比縮放，電荷組量改2.5 mC，保持CU、極性及均勻分佈語義，避免大C直接填滿圖形上限。電感繞線沿用既有L比例及動態線寬。物理方程與modelRevision不變。
+- RC改0.02 F／50 Ω，保留1秒時間常數；電容交流改0.02 F／12 Ω，維持可見頻率差異；LC改0.02 F／5 H及30 Ω充電支路，約2秒充電、週期約1.987秒。0.2 F配10 H可達約8.886秒週期，之前的小範圍限制記錄已由本段取代。示例仍保持合理放電路徑及連續切換。
+- 固定模板技術codec升至5，明確拒絕1–4，避免用新LC參數續算舊模板快照；教師完整document/session保留原參數與幾何。正式AC評分活動仍未新增。
+- transient解析測試包括最大C的RC時間常數、保存恢復續算及最大C/L的LC四分之一週期與能量；配置／codec／240次示例切換、scope Node均通過。source／ZIP browser：元件及真滑塊端點／舊值恢復246 observations、示例532、波形194；DC共用快捷操作70。已檢視0.2 F電容與LC示例截圖。syntax／manifest及diff通過；四包统一重建核對。證據：`output/ac-baseline/ac-expanded-ranges*.log`、`dc-expanded-ranges-followup.log`。全站既有阻塞、外部Moodle及實機gate維持原記錄，這些本地證據不代表外部通過。
