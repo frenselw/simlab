@@ -67,7 +67,7 @@
   </dialog>
 <dialog id="settingsDialog" aria-labelledby="settingsTitle"><div class="dialog-head"><div><h2 id="settingsTitle">工作台設定</h2><p class="note">即時套用；電路設定可復原及隨電路檔儲存。</p><p id="settingsNotice" class="settings-notice" role="status" aria-live="polite" hidden></p></div><button id="closeSettings" aria-label="關閉設定" title="關閉設定">×</button></div><div class="settings-grid">
 <section class="settings-section"><h3>顯示與教學</h3>        <label>方向示意<select id="flow"><option value="current">常規電流</option><option value="electron">導線中的電子</option><option value="off">關閉</option></select></label>
-        <p class="note">同一電路電流變小時，箭頭／電子會變慢；微小電流保留可見速度。動畫不代表真實漂移速度。</p>
+        <p class="note">紅色箭頭表示常規電流，藍色圓點表示反向移動的電子。同一電路電流變小時，箭頭／電子會變慢；微小電流保留可見速度。動畫不代表真實漂移速度。</p>
         <label class="check"><input type="checkbox" id="projection">投影字體</label>
 </section>
 <section class="settings-section"><h3>畫布標籤</h3>        <label class="check"><input type="checkbox" id="names" checked>顯示元件名稱</label><label class="check"><input type="checkbox" id="values" checked>顯示畫布讀值與參數</label>

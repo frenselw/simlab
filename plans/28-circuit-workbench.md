@@ -1,5 +1,17 @@
 # 電路工作台：設計與開發計劃
 
+## 共用電流方向配色（2026-10-11）
+
+依使用者要求，DC／AC在共用renderer將常規電流的移動箭頭及導線讀值靜態
+方向箭頭改為電容正極板相同的紅色（#c43f4c），電子保持藍色（#2563eb）。
+元件內部軌跡配色亦依current／electron模式一致；電勢方向、場線、導線本體、
+選取框及方向／速度／求解保持。設定說明同步記錄正電流／電子的顏色。
+
+精準證據：既有component-flow及wire-current-labels Node通過；臨時瀏覽器檢查
+DC／AC source及各自ZIP，current／electron兩模式共32項通過，核對實際
+computed stroke／fill及元件軌跡。未重跑無關全套測試，沒有新增低影響配色
+專用測試檔。
+
 ## 共用檢視器移除電路概覽（2026-10-11）
 
 依使用者要求，在共用 `circuit-editor-ui.js`／`circuit-editor.js` 移除未選取

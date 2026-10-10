@@ -4,6 +4,7 @@
   if (node) module.exports = api; else root.CircuitRenderer = api;
 })(globalThis, function (R, Routing, L, Q, S) {
   "use strict";
+  const flowColours={current:"#c43f4c",electron:"#2563eb"};
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function format(v,unit=''){return Number.isFinite(v)?Q.quantity(v,unit).text:'—';}
   const quantity=(x,y,v,u='',size=14,attrs='')=>Q.svg(x,y,Q.quantity(v,u),size,attrs);
@@ -272,7 +273,7 @@
       if(free||selection===w.id||wireMode){out+=`<circle data-cable-end="${w.id}:${key}" cx="${p.x}" cy="${p.y}" r="${7/scale}" fill="${free?"#fff":"#2563eb"}" stroke="${selection===w.id?"#2563eb":"#526f88"}" stroke-width="${2.5/scale}"/>`;if(selection===w.id)out+=text(p.x,p.y-13/scale,i?"B":"A",11/scale,'fill="#245b94"');}
     }));
     placed.forEach(p=>{const b=p.box,row=p.rows[0],wire=row.kind==='wireCurrent',potential=row.kind==='potentialDirection',current=row.current;out+=`<g data-label-block="${p.id}" data-label-slot="${p.slot}" data-label-crowded="${p.crowded}" pointer-events="none" ${wire?`data-wire-current-label="${p.id}" data-current="${Number.isFinite(current)?current:''}"`:potential?`data-potential-label="${row.componentId}"`:''}>${wire?'<title>'+esc('導線 '+p.id+'：'+(Number.isFinite(current)&&current!==0?(current<0?'B → A，':'A → B，'):'')+row.text)+'</title>':potential?'<title>'+esc(doc.components.find(c=>c.id===row.componentId).label+'：'+p.rows.map(r=>r.text).join('')+(row.from?'（'+row.from+' → '+row.to+'）':''))+'</title>':''}<rect data-label-box="${p.id}" x="${b.left}" y="${b.top}" width="${b.right-b.left}" height="${b.bottom-b.top}" rx="${4/scale}" fill="#fff" fill-opacity=".95" ${wire||potential?`stroke="${potential?'#d6b889':'#bfd1df'}" stroke-width="${1/scale}"`:''}/>`;
-      if(wire&&Number.isFinite(current)&&current!==0)out+=`<path data-wire-current-arrow="${p.id}" data-direction="${current<0?-1:1}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${p.rows[0].angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#245b94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if(wire&&Number.isFinite(current)&&current!==0)out+=`<path data-wire-current-arrow="${p.id}" data-direction="${current<0?-1:1}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${p.rows[0].angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="${flowColours.current}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
       if(potential&&row.angle!==null)out+=`<path data-potential-direction="${row.componentId}" data-potential-from="${row.from}" data-potential-to="${row.to}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${row.angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#a45d0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
       p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:potential?`data-potential-value="${row.componentId}" fill="#815019"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs+(row.noWrap?' font-variant-numeric="tabular-nums"':''));});out+='</g>';});
     if(tiny){
@@ -421,8 +422,8 @@
     for(let distance=modulo(phase,spacing)/scale;distance<length;distance+=spacing/scale){
       if(hidden.some(([a,b])=>distance>a&&distance<b))continue;
       const p=Routing.along(points,distance);if(!p)continue;const attrs=`data-flow-distance="${distance}"`;
-      if(electron)out+=`<circle ${attrs} cx="${p.x}" cy="${p.y}" r="${6*size}" fill="#2563eb"/><path d="M${p.x-3*size} ${p.y}h${6*size}" stroke="#fff" stroke-width="${1.5*size}"/>`;
-      else out+=`<path ${attrs} transform="translate(${p.x} ${p.y}) rotate(${p.angle+(reverse?180:0)})" d="M${-6*size} ${-4*size}L${2*size} 0L${-6*size} ${4*size}" stroke="#2563eb" stroke-width="${2*size}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if(electron)out+=`<circle ${attrs} cx="${p.x}" cy="${p.y}" r="${6*size}" fill="${flowColours.electron}"/><path d="M${p.x-3*size} ${p.y}h${6*size}" stroke="#fff" stroke-width="${1.5*size}"/>`;
+      else out+=`<path ${attrs} transform="translate(${p.x} ${p.y}) rotate(${p.angle+(reverse?180:0)})" d="M${-6*size} ${-4*size}L${2*size} 0L${-6*size} ${4*size}" stroke="${flowColours.current}" stroke-width="${2*size}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
     return out;
   }
@@ -438,7 +439,7 @@
     for(const p of componentFlowPaths(doc,result)){
       const reference=referenceAt(references,result,p.from),speed=flowSpeed(displayCurrent(doc,result,p.from,p.current,references),reference);if(!speed)continue;
       const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,.55);
-      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="#2563eb" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
+      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="${electron?flowColours.electron:flowColours.current}" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
       out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size,p.hidden)+'</g>';
     }
     return out;
