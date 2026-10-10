@@ -4,6 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const H=require('./position-time-browser-regression'),Packages=require('./package-circuit-platform');
 const {scopeCases}=require('./circuit-scope-browser-cases');
 const {generatorCases}=require('./circuit-generator-browser-cases');
+const {transformerCases}=require('./circuit-transformer-browser-cases');
 const {meterDesignCases}=require('./circuit-meter-design-browser-cases');
 const {readoutMathCases}=require('./circuit-readout-math-browser-cases');
 const {fieldCases}=require('./circuit-field-browser-cases');
@@ -24,6 +25,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--transformer-design-smoke')||!['--field-smoke','--generator-smoke','--realtime-smoke','--reactive-art-smoke','--scope-smoke','--preset-smoke','--readout-math-smoke','--meter-design-smoke'].some(flag=>process.argv.includes(flag))){await load('/circuit-ac-workbench/index.html');checks+=await transformerCases({inside,call,click,point,cdp,touch,screenshot,source,delay:H.delay});if(process.argv.includes('--transformer-design-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--meter-design-smoke')||!['--field-smoke','--generator-smoke','--realtime-smoke','--reactive-art-smoke','--scope-smoke','--preset-smoke','--readout-math-smoke'].some(flag=>process.argv.includes(flag))){await load('/circuit-ac-workbench/index.html');checks+=await meterDesignCases({inside,call,click,point,cdp,touch,screenshot,source,delay:H.delay,load});if(process.argv.includes('--meter-design-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--readout-math-smoke')||!['--field-smoke','--generator-smoke','--realtime-smoke','--reactive-art-smoke','--scope-smoke','--preset-smoke'].some(flag=>process.argv.includes(flag))){await load('/circuit-ac-workbench/index.html');checks+=await readoutMathCases({inside,call,click,point,cdp,screenshot,source,delay:H.delay,load});if(process.argv.includes('--readout-math-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--field-smoke')||!['--generator-smoke','--realtime-smoke','--reactive-art-smoke','--scope-smoke','--preset-smoke'].some(flag=>process.argv.includes(flag))){await load('/circuit-ac-workbench/index.html');checks+=await fieldCases({inside,call,click,point,cdp,touch,screenshot,source,delay:H.delay,out});if(process.argv.includes('--field-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

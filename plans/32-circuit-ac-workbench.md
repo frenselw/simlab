@@ -1,5 +1,29 @@
 # 交流電路工作台
 
+## 變壓器鐵芯、匝數比與共同磁通（2026-10-11）
+
+- 鐵芯改為實心有厚度的疊片環形鐵芯，以頂面／右側／窗口內壁及細疊片邊線
+  表示厚度，保留兩側連續繞組及所有端子座標。上方單獨顯示LaTeX原副匝數比
+  N₁:N₂（約分）；移除底部兩個匝數及共用label的裸副匝數，數值仍在參數欄。
+- 共同磁感線只在鐵芯的小範圍內閉合，2–4條等間距，隨磁通強弱改疏密，固定
+  範圍；線圈遮住的部分較暗虛線，箭頭隨磁通反向。未知／近零收起，場線開關
+  不影響比例或繞組。實物／符號、場面板／放大同一資料，播放按RAF更新。
+- 線性線圈共同磁通為 kL₁(I₁+N₂I₂/N₁)/N₁，忽略漏磁圖像但保留原模型。
+  理想變壓器沒有磁化電流狀態，從U₁/N₁的時間積分推導交變磁通，一個週期
+  收集後扣除平均積分值；不能由負載電流或瞬時電壓冒充磁通。觀察器每週期保留512個時間格
+  及少量邊界格，不加進權威snapshot；restore／改參數後重收集，未知不冒充零。
+  理想模式不顯示不存在的磁化儲能數字，並說明磁通為交變示意。
+- 不改solver、接線、波形、得分、依賴或snapshot版本。精準測試選變壓器幾何／
+  比例、電壓積分相位、空載、耦合抵銷／零、restore合法續作，以及source／ZIP
+  桌面／320px場示意與觸控。觀察器改動另跑scope Node；不跑無關活動全套。
+
+
+實際證據：transformer-design Node（電壓積分與相位、正弦／方波／三角波、
+空載、安匝抵銷、零／未知、比例／旋轉／開關及restore合法續作）、scope Node、
+既有場圖及共用Math96 fixtures通過。source／ZIP專項各41項、共82項通過，
+各31／32個RAF樣本的磁通方向同步；桌面及320／390px可信tap／放大通過，截圖已
+目視確認。只跑相關項目，未重跑無關活動；本機證據非實機／Moodle驗收。
+
 ## 精簡交流錶盤及整理示例（2026-10-11）
 
 依使用者要求對照 DC 電表：AC A／V／W 使用緊湊白色錶面及灰藍外殼，
@@ -464,7 +488,7 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - `npm run package:circuit-platform` 重建四包：DC teacher 29 檔、AC teacher 34 檔、兩 DC SCORM 各34檔。每包21共用檔及全體 runtime byte 與來源相同；AC 六個可選依賴另列，無核心副本。指紋在 `output/circuit-platform-build.json`。
 - AC catalogue 已通過本地 package-ready 並設 active；README／production guide／作者指南已更新四包維護流程。
-- AC ZIP 用 File resource、主檔 `circuit-ac-workbench/index.html`，没有 assessment manifest。正式 AC rubric／SCORM activities 依使用者安排另議；D3/D4 prototype 教學版面完善亦不是本次新增範圍。
+- AC ZIP 用 File resource、主檔 `circuit-ac-workbench/index.html`，沒有 assessment manifest。正式 AC rubric／SCORM activities 依使用者安排另議；D3/D4 prototype 教學版面完善亦不是本次新增範圍。
 - 真 Moodle／真手機 T4 未有環境，未標記 Moodle-ready。完整外部 fullscreen／native scroll、低風險正式活動的記分／續作／pending／review仍須各自驗收。
 - 此版按 A0/A1、A2–A5、A6 分階段提交並 push。最後 release verification 在 `output/ac-release-verification.json`：25個circuit Node、604個AC browser observations、四個套件、21共用及6個AC擴展檔案的SHA與source/ZIP逐檔byte核對；文檔提交不冒稱新的runtime執行。
 

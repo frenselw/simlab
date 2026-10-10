@@ -73,6 +73,7 @@
     const box=get(c.type).bounds|| (dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='relay'?{left:-74,right:76,top:-40,bottom:68}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65});
     const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
     const corners=[box.left,box.right].flatMap(x=>[box.top,box.bottom].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
+    const annotation=get(c.type).annotationBounds?.(c);if(annotation)corners.push({x:annotation.left,y:annotation.top},{x:annotation.right,y:annotation.bottom});
     return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
   }
   // Teaching approximation, calibrated to the specified rated operating point.

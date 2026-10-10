@@ -27,6 +27,28 @@
       return {status:'ready',start,end,window:this.window,currentPeak,voltagePeak,voltageRms:Math.sqrt(Math.max(0,sum.u2/sum.duration)),currentRms:Math.sqrt(Math.max(0,sum.i2/sum.duration)),averagePower:sum.p/sum.duration};
     }
   }
+  // Display-only AC flux primitive. A centred full-cycle window fixes the
+  // ideal transformer's unspecified DC flux offset without inventing load current.
+  class CoreFluxTracker {
+    constructor(period){this.window=period;this.width=period/512;this.records=new Map();}
+    sample(result){for(const [id,c]of Object.entries(result.components)){
+      if(c.coreVoltage===undefined)continue;const v=Number.isFinite(c.coreVoltage)?c.coreVoltage/c.coreTurns:null,t=result.time;
+      let r=this.records.get(id);if(!r||!Number.isFinite(v)||t<r.previous.time){r={previous:{time:t,v},start:t,primitive:0,bins:[]};this.records.set(id,r);continue;}
+      const old=r.previous;r.previous={time:t,v};if(!Number.isFinite(old.v)||t<=old.time){if(!Number.isFinite(old.v)){r.start=t;r.primitive=0;r.bins=[];}continue;}
+      const h=t-old.time;let begin=old.time;
+      while(begin<t-1e-14){const at=Math.floor(begin/this.width+1e-8),end=Math.min(t,(at+1)*this.width),dt=end-begin;if(dt<=0)break;
+        const u0=old.v+(v-old.v)*(begin-old.time)/h,u1=old.v+(v-old.v)*(end-old.time)/h,p0=r.primitive,p1=p0+dt*(u0+u1)/2;
+        let bin=r.bins.at(-1);if(!bin||bin.at!==at){bin={at,start:begin,end,area:0,min:p0,max:p0};r.bins.push(bin);}bin.end=end;bin.area+=dt*(p0+dt*(u0/2+(u1-u0)/6));bin.min=Math.min(bin.min,p0,p1);bin.max=Math.max(bin.max,p0,p1);
+        const z=-u0/(u1-u0);if(z>0&&z<1){const p=p0+dt*(u0*z+(u1-u0)*z*z/2);bin.min=Math.min(bin.min,p);bin.max=Math.max(bin.max,p);}
+        r.primitive=p1;begin=end;
+      }
+      while(r.bins[0]?.end<t-this.window-this.width)r.bins.shift();
+    }}
+    measure(id){const r=this.records.get(id);if(!r||!Number.isFinite(r.previous.v))return {status:'unknown',value:null,peak:null};const end=r.previous.time,start=end-this.window;if(start<r.start-1e-10)return {status:'collecting',value:null,peak:null};
+      let duration=0,area=0,min=Infinity,max=-Infinity;for(const b of r.bins){const overlap=Math.max(0,Math.min(end,b.end)-Math.max(start,b.start));if(!overlap)continue;duration+=overlap;area+=b.area*overlap/(b.end-b.start);min=Math.min(min,b.min);max=Math.max(max,b.max);}
+      if(duration<this.window*(1-1e-6))return {status:'unknown',value:null,peak:null};const centre=area/duration;return {status:'ready',value:r.primitive-centre,peak:Math.max(Math.abs(min-centre),Math.abs(max-centre))};
+    }
+  }
   function channels(doc){const options=[];for(const c of doc.components){options.push({key:c.id+':voltage',id:c.id,quantity:'voltage',label:c.label+' · 電壓',unit:'V'},{key:c.id+':current',id:c.id,quantity:'current',label:c.label+' · 電流',unit:'A'});if(c.type==='capacitor')options.push({key:c.id+':charge',id:c.id,quantity:'charge',label:c.label+' · 電荷',unit:'C'});if(['capacitor','inductor','transformer'].includes(c.type))options.push({key:c.id+':energy',id:c.id,quantity:'energy',label:c.label+' · 儲能',unit:'J'});if(c.type==='generator')options.push({key:c.id+':flux',id:c.id,quantity:'flux',label:c.label+' · 磁通量',unit:'Wb'});}return options;}
   class Buffer {
     constructor(limit=2048){this.limit=limit;this.points=[];}
@@ -94,5 +116,5 @@
     setSpan(span){const begin=this.time-span,old=this.points(),fine=this.width<=this.historyWidth,cutoff=old[0]?.time??Infinity,points=[...tracePoints(this.history,begin).filter(p=>!fine||p.time<cutoff),...(fine?old:[])];this.span=span;this.width=span/1024;this.bins=[];for(const p of points)if(p.time>=begin-this.width)tracePoint(this.bins,p,this.width);while(this.bins.length>1025)this.bins.shift();}
     copy(){const trace=new Trace(this.span);Object.assign(trace,{width:this.width,historyWidth:this.historyWidth,time:this.time,bins:M.clone(this.bins),history:M.clone(this.history)});return trace;}
   }
-  return {Tracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
+  return {Tracker,CoreFluxTracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
 });

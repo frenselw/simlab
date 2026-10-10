@@ -183,6 +183,7 @@
         else{const show=doc.display.quantities||{},parts=[],resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c);
           if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
           else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
+          else if(c.type==='transformer'){/* Ratio is displayed once, above the core. */}
           else if(R.get(c.type).analysis==='transient'){const primary=R.primaryParameter(c);if(primary)parts.push(Q.quantity(primary.value*primary.factor,primary.unit));else if(c.type==='spdt')parts.push({text:c.params.closed==='b'?'接充電側':'接放電側'});}
           else if(c.type==='relay')parts.push({text:r?.contact==='e'?'已吸合':r?.contact===null?'切換中':'未吸合'});
           else{if(c.type==='rheostat'?show.loadResistance===true:show.loadResistance!==false){if(c.type==='rheostat')lines.push({kind:'value',text:'最大電阻',size:valueSize});parts.push(Q.quantity(c.type==='rheostat'?c.params.resistance:resistance,'Ω'));}if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}

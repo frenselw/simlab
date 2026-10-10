@@ -16,7 +16,7 @@
     capacitor:{bounds:{left:-45,right:45,top:-41,bottom:40},name:'電容器',icon:'C',ports,primaryParameter:'capacitance',params:{capacitance:number('電容','F',.02,1e-6,.2,.001),initialVoltage:signed('初始電壓','V'),rating:number('耐壓值','V',25,.1,1e6,1)}},
     inductor:{bounds:{left:-47,right:47,top:-27,bottom:27},name:'電感線圈',icon:'L',ports,primaryParameter:'inductance',params:{inductance:number('自感系數','H',1,.001,100,.1),resistance:resistance(),initialCurrent:signed('初始電流','A')}},
     spdt:{bounds:{left:-45,right:45,top:-37,bottom:37},name:'單刀雙擲開關',icon:'S',ports:[{key:'a',x:-60,y:0,label:'共用'},{key:'b',x:60,y:-24,label:'充電側'},{key:'c',x:60,y:24,label:'放電側'}],params:{closed:choices('接通側','b',['b','c'])}},
-    transformer:{name:'變壓器',icon:'T',ports:[{key:'a',x:-76,y:-26,label:'原線圈同名端'},{key:'b',x:-76,y:26,label:'原線圈'},{key:'c',x:76,y:-26,label:'副線圈同名端'},{key:'d',x:76,y:26,label:'副線圈'}],bounds:{left:-80,right:80,top:-48,bottom:58},primaryParameter:'secondaryTurns',params:{model:choices('模型','ideal',['ideal','coupled']),primaryTurns:number('原線圈匝數','',200,1,2000,10),secondaryTurns:number('副線圈匝數','',100,1,2000,10),inductance:number('原線圈電感','H',2,.001,100,.1),coupling:number('耦合係數','',.999,0,.9999,.001),primaryResistance:number('原線圈電阻','Ω',1,0,1e6,.1),secondaryResistance:number('副線圈電阻','Ω',.25,0,1e6,.1),initialPrimaryCurrent:signed('原線圈初始電流','A'),initialSecondaryCurrent:signed('副線圈初始電流','A')}},
+    transformer:{name:'變壓器',icon:'T',ports:[{key:'a',x:-76,y:-26,label:'原線圈同名端'},{key:'b',x:-76,y:26,label:'原線圈'},{key:'c',x:76,y:-26,label:'副線圈同名端'},{key:'d',x:76,y:26,label:'副線圈'}],bounds:{left:-80,right:80,top:-48,bottom:42},primaryParameter:'secondaryTurns',params:{model:choices('模型','ideal',['ideal','coupled']),primaryTurns:number('原線圈匝數','',200,1,2000,10),secondaryTurns:number('副線圈匝數','',100,1,2000,10),inductance:number('原線圈電感','H',2,.001,100,.1),coupling:number('耦合係數','',.999,0,.9999,.001),primaryResistance:number('原線圈電阻','Ω',1,0,1e6,.1),secondaryResistance:number('副線圈電阻','Ω',.25,0,1e6,.1),initialPrimaryCurrent:signed('原線圈初始電流','A'),initialSecondaryCurrent:signed('副線圈初始電流','A')}},
     led:{bounds:{left:-31,right:31,top:-47,bottom:41},name:'發光二極管',icon:'LED',ports,params:{forwardVoltage:number('正向壓降','V',1.8,.1,10,.1),resistance:number('導通電阻','Ω',10,.01,1e6,1),colour:choices('顏色','red',['red','green'])}},
     'ac-ammeter':{bounds:{left:-49,right:49,top:-46,bottom:36},name:'交流電流表',icon:'A',meter:true,ports:meterPorts,params:{range:number('量程','A',3,.001,1e6,.5),resistance:number('內阻','Ω',0,0,1e6,.1)}},
     'ac-voltmeter':{bounds:{left:-49,right:49,top:-46,bottom:36},name:'交流電壓表',icon:'V',meter:true,ports:meterPorts,params:{range:number('量程','V',15,.001,1e6,1),resistance:number('輸入電阻（0 為理想）','Ω',0,0,1e12,1000)}},
@@ -50,6 +50,17 @@
     return {pitch,start,end,entry,width,outline,front,back};
   }
   const copper=(d,w)=>path(d,'#8d6135',w.outline)+path(d,'#d8b17e',w.width);
+  function transformerCaption(c,values=true){const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45;
+    return `<g data-transformer-ratio="true" transform="rotate(${-(c.angle||0)})">${text(values?'匝數比（原：副）':'原／副線圈',0,-edge-24,8.5)}${values?Q.svg(0,-edge-10,Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),13):''}</g>`;
+  }
+  types.transformer.annotationBounds=c=>{const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45,width=Math.max(80,Q.measure(Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns).tex,13).width)+6;return {left:c.x-width/2,right:c.x+width/2,top:c.y-edge-34,bottom:c.y-edge-8};};
+  const transformerFieldSlot=(c,r,d,schematic=false)=>'<g data-transformer-field-slot="'+(schematic?'schematic':'real')+'">'+(d.fields===false?'':Fields.transformer(c,r,schematic))+'</g>';
+  function transformerCore(){
+    let core='<g data-transformer-core="true"><path data-core-depth="top" d="M-53-39L-47-45H59L53-39Z" fill="#bcc9d2" stroke="#617685" stroke-width=".8"/><path data-core-depth="side" d="M53-39L59-45V33L53 39Z" fill="#586d7c" stroke="#475d6d" stroke-width=".8"/>';
+    for(let n=1;n<=3;n++){const z=n*1.5;core+=path(`M${-53+z} ${-39-z}H${53+z}V${39-z}`,'#758a99',.5);}
+    core+='<path data-core-face="true" d="M-49-39H49Q53-39 53-35V35Q53 39 49 39H-49Q-53 39-53 35V-35Q-53-39-49-39Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#899ca9" stroke="#526c7d" stroke-width="1.5"/><path data-core-window="true" d="M-19-20H-13V14L-19 20Z" fill="#596f7e"/><path d="M-19 20L-13 14H19V20Z" fill="#6b8190"/><path d="M-49-37H49 M-51-34V34 M-17-18H17V18" fill="none" stroke="#d9e2e8" stroke-width=".85" opacity=".65"/><path d="M-49 37H49 M51-34V34 M-19-20V20H19" fill="none" stroke="#627988" stroke-width=".7"/></g>';
+    return core;
+  }
   const capacitorGap=c=>8+48/(1+c.params.capacitance/.025);
   function plate(c,r,d,left){
     const known=Number.isFinite(r?.voltage),enabled=known,voltage=r?.fieldVoltage??r?.voltage,sign=enabled&&Math.abs(voltage)>1e-8?(voltage>0?1:-1)*(left?1:-1):0,gap=capacitorGap(c),x=left?-gap/2:gap/2,colour=sign>0?'#c43f4c':sign<0?'#286cb7':'#748895',fill=sign>0?'#f7dddf':sign<0?'#dceafa':'#e3eaee',charge=known?Math.abs(c.params.capacitance*r.voltage):0,raw=charge/.0025;
@@ -73,7 +84,7 @@
     if(c.type==='capacitor')return path('M-60 0H-9 M9 0H60 M-9-26V26 M9-26V26','#334155')+chargeMarks(r,d);
     if(c.type==='inductor')return `<g data-inductor-turns="${inductorTurns(c)}">${path('M-60 0H-34 M34 0H60')}${coil(inductorTurns(c))}${Fields.inductorPoles(c,r)}</g>`;
     if(c.type==='spdt')return path('M-60 0H-24 M28-24H60 M28 24H60')+path(`M-24 0L25 ${p.closed==='b'?-24:24}`,'#334155',3)+socket(-24,0)+socket(28,-24)+socket(28,24);
-    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns))}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns))}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18);
+    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns))}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns))}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18)+transformerFieldSlot(c,r,d,true)+transformerCaption(c,d.values);
     if(c.type==='led')return path('M-60 0H-22 M16 0H60')+`<path d="M-22-17L16 0L-22 17Z" fill="${Number.isFinite(r?.current)&&r.current>1e-6?(p.colour==='red'?'#dc5856':'#55a96b'):'none'}" stroke="#334155" stroke-width="2"/>`+path('M16-20V20 M6-23L19-36 M12-35L19-36L18-29 M20-17L33-30 M26-29L33-30L32-23','#334155',2);
     if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-23 M23-20H60 M-60 40H-20V22 M20 22V40H60'):lead)+'<circle r="30" fill="#fff" stroke="#334155" stroke-width="2"/>'+`<g transform="rotate(${-(c.angle||0)})">${Q.svg(0,6,{text:R.get(c.type).icon+'~',tex:Q.unit(R.get(c.type).icon).tex+'\\sim'},22)}</g>`;
     return lead+'<circle r="28" fill="#fff" stroke="#334155" stroke-width="2"/>'+path('M-19 0q9-18 19 0t19 0','#334155',2)+(c.type==='generator'?text('G',0,21,11):'');
@@ -93,13 +104,12 @@
     if(c.type==='spdt')return path('M-60 0H-40 M40-24H60 M40 24H60')+caseBox(-43,-35,86,70,'#c8b396')+socket(-29,0)+socket(29,-24)+socket(29,24)+path(`M-29 0L29 ${p.closed==='b'?-24:24}`,'#ba8b40',7)+path(`M-29-2L29 ${p.closed==='b'?-26:22}`,'#f3d39a',2)+`<circle cx="1" cy="${p.closed==='b'?-12:12}" r="7" fill="#334e60" stroke="#203746"/>`+path('M-40 0H-29 M29-24H40 M29 24H40','#9a783e',3);
     if(c.type==='transformer'){
       const coils=[[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']].map(([x,nominal,side])=>({x,nominal,side,count:transformerTurns(nominal),w:winding(transformerTurns(nominal),44,21,true)}));
-      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90) scale(1 ${Math.sign(x)})">${copper(w.back,w)}</g>`).join('')+'<path d="M-50-36H56V42H-50Z M-16-17V23H22V-17Z" fill-rule="evenodd" fill="#718694" stroke="#566e7e"/><path data-transformer-core="true" d="M-53-39H53V39H-53Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#94a4ae" stroke="#566e7e" stroke-width="2"/>';
-      for(let n=0;n<5;n++)core+=path(`M-48 ${-35+n*2}H48 M-48 ${25+n*2}H48`,'#c7d0d6',1);
+      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90) scale(1 ${Math.sign(x)})">${copper(w.back,w)}</g>`).join('')+transformerCore()+transformerFieldSlot(c,r,d);
       for(const {x,nominal,side,count,w}of coils){const direction=Math.sign(x),terminal=direction*76,entryX=x+direction*21;
         const leads=`M${terminal}-26H${entryX+direction*8}C${entryX+direction*2}-26 ${entryX} ${w.start-4} ${entryX} ${w.start} M${entryX} ${w.end}C${entryX} ${w.end+4} ${entryX+direction*2} 26 ${entryX+direction*8} 26H${terminal}`;
         core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><g data-transformer-front="true" transform="translate(${x} 0) rotate(90) scale(1 ${direction})">${copper(w.front,w)}</g><g data-transformer-leads="true">${copper(leads,w)}</g></g>`;
       }
-      return core+text('•',-66,-30,13)+text('•',66,-30,13)+text(d.values?'原 '+p.primaryTurns+'匝':'原',-37,49,11)+text(d.values?'副 '+p.secondaryTurns+'匝':'副',37,49,11);
+      return core+text('•',-66,-30,13)+text('•',66,-30,13)+transformerCaption(c,d.values);
     }
     if(c.type==='led'){
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';
@@ -110,6 +120,7 @@
   }
   function render(c,r,d){return `<g data-ac-apparatus="${c.type}" data-ac-view="${d.view==='schematic'?'schematic':'real'}">${d.view==='schematic'?symbol(c,r,d):apparatus(c,r,d)}</g>`;}
   for(const type of ['capacitor','inductor'])types[type].displayResult=Display.visual;
+  types.transformer.displayResult=Display.transformerVisual;
   for(const [type,definition]of Object.entries(types))if(!Object.hasOwn(R.definitions,type))R.register(type,{...definition,analysis:'transient',render,dc(){throw new Error('此元件需要時間求解器');}});
   const palette=[{type:'ac-source'},{type:'generator'},{type:'battery'},{type:'resistor'},{type:'rheostat'},{type:'lamp',params:{model:'ideal'}},{type:'switch'},{type:'spdt'},{type:'capacitor'},{type:'inductor'},{type:'transformer'},{type:'led',key:'red-led',params:{colour:'red'},label:'紅色 LED'},{type:'led',key:'green-led',params:{colour:'green'},label:'綠色 LED'},{type:'ac-ammeter'},{type:'ac-voltmeter'},{type:'ac-wattmeter'},{type:'galvanometer'}];
   return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap,meterFace};

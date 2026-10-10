@@ -11,6 +11,7 @@
   const energy=capacitorTail?0:V.displayEnergy(r.energy);
   return {...r,current,voltage,fieldCurrent:c.type==='inductor'&&energy===0||Number.isFinite(current)&&Math.abs(current)<1e-6?0:current,fieldVoltage:c.type==='capacitor'&&energy===0||Number.isFinite(voltage)&&Math.abs(voltage)<1e-6?0:voltage,charge:c.type==='capacitor'&&voltage===0?0:r.charge,energy,polarity:Math.sign(c.type==='capacitor'?r.voltage:r.current)||Math.sign(c.params[c.type==='capacitor'?'initialVoltage':'initialCurrent'])||1};
  }
+ function transformerVisual(c,r){if(!r)return r;const energy=V.displayEnergy(r.energy),quiet=c.params.model==='coupled'&&energy===0||Number.isFinite(r.coreFlux)&&Math.abs(r.coreFlux)<Math.max(1e-9,(r.coreFluxPeak||0)*1e-4);return {...r,energy,coreFlux:quiet?0:r.coreFlux};}
  function nice(value){const base=10**Math.floor(Math.log10(Math.max(value,1e-12)));return [1,2,5,10].find(n=>n*base>=value*(1-1e-12))*base;}
  const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  class Readouts {
@@ -20,8 +21,9 @@
    const id=c.id+':'+key,signature=JSON.stringify(c.params),voltage=voltageReference(c,doc),current=Math.max(.1,Math.abs(c.params.initialCurrent||0),Math.abs(result.current||0),result.currentPeak||0);
    const flux=Math.abs((c.params.field||0)*(c.params.area||0)),emf=flux*(c.params.turns||0)*2*Math.PI*(c.params.frequency||0),phase=key==='phase';
    if(phase&&Number.isFinite(value))value=((value%360)+360)%360;
-   const seed=phase?360:c.type==='generator'&&key==='flux'?flux:c.type==='generator'&&key==='fluxLinkage'?flux*c.params.turns:c.type==='generator'&&['sourceEmf','voltage','voltageRms'].includes(key)?emf:key==='charge'?c.params.capacitance*voltage:key==='energy'?c.type==='capacitor'?.5*c.params.capacitance*voltage**2:.5*c.params.inductance*current**2:key.toLowerCase().includes('current')?current:voltage;
+   const seed=c.type==='transformer'&&key==='coreFlux'?Math.max(result.coreFluxPeak||0,Math.abs(result.coreFlux||0),.001):phase?360:c.type==='generator'&&key==='flux'?flux:c.type==='generator'&&key==='fluxLinkage'?flux*c.params.turns:c.type==='generator'&&['sourceEmf','voltage','voltageRms'].includes(key)?emf:key==='charge'?c.params.capacitance*voltage:key==='energy'?c.type==='capacitor'?.5*c.params.capacitance*voltage**2:.5*c.params.inductance*current**2:key.toLowerCase().includes('current')?current:voltage;
    let s=this.states.get(id);if(s?.signature!==signature)s=null;if(!s){const range=phase?360:nice(Math.max(seed||.01,Math.abs(value||0),1e-9)),engineering=Q.engineering(range,unit);s={signature,range,...engineering,text:'',stamp:-Infinity};this.states.set(id,s);}
+   if(key==='coreFlux'&&Number.isFinite(result.coreFluxPeak)&&result.coreFluxPeak>s.range)s.range=nice(result.coreFluxPeak);
    if(Number.isFinite(value)&&Math.abs(value)>s.range)s.range=nice(Math.abs(value));
    const known=Number.isFinite(value),signed=!phase&&key!=='energy'&&!key.endsWith('Rms'),fraction=known?Math.min(1,Math.abs(value)/s.range):0,negative=known&&value<0;
    const format=n=>decimal.format(n*s.factor).replace(/^-0\.00$/,'0.00');
@@ -30,5 +32,5 @@
    return '<div class="ac-value-indicator" data-readout-bar="'+escape(key)+'" data-readout-known="'+known+'" data-readout-value="'+(known?value:'')+'"><span class="ac-bar-value">'+(!paused&&signed&&known?'大小 ':'')+s.text+' '+unitHtml+'</span><div class="ac-bar-track '+(signed?'signed':'unsigned')+'" role="meter" aria-label="'+escape(label||({current:'線圈電流',voltage:'電壓',charge:'電荷',energy:'儲能',selfEmf:'自感電動勢'}[key]||'讀值'))+'" aria-valuemin="'+(signed?-s.range:0)+'" aria-valuemax="'+s.range+'"'+(known?' aria-valuenow="'+value+'"':'')+' aria-valuetext="'+s.text+' '+s.unit+'"><span class="ac-bar-fill '+(negative?'negative':'positive')+'" style="left:'+start+'%;width:'+width+'%"></span></div><span class="ac-bar-scale">'+(signed?'−'+max+'　0　＋'+max:'0　→　'+max)+'</span></div>';
   }
  }
- return {visual,Readouts};
+ return {visual,transformerVisual,Readouts};
 });

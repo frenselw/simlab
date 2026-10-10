@@ -55,6 +55,15 @@
     return '<g pointer-events="none" data-capacitor-polarity="true" data-polarity-active="'+active+'">'+text(-gap/2-14,-33,d>0?'＋':'−',active?(d>0?'#c43f4c':'#286cb7'):'#8795a1',9)+text(gap/2+14,-33,d>0?'−':'＋',active?(d>0?'#286cb7':'#c43f4c'):'#8795a1',9)+'</g>';
   }
 
+  function transformer(c,r,schematic=false){
+    let flux=r?.coreFlux;if(c.params.model==='coupled'&&Number.isFinite(r?.energy)&&r.energy<1e-9)flux=0;if(Number.isFinite(flux)&&Math.abs(flux)<Math.max(1e-9,(r?.coreFluxPeak||0)*1e-4))flux=0;
+    const grid=density(flux,.004,1,3,-4.5,4.5),d=sign(flux);let paths='',arrows='';
+    for(const offset of grid.positions){const x=(schematic?6:36)+offset*(schematic?1/3:1),y=29+offset*(schematic?1/3:1),bend=schematic?2:5;
+      const path='M'+(-x+bend)+' '+(-y)+'H'+(x-bend)+'Q'+x+' '+(-y)+' '+x+' '+(-y+bend)+'V'+(y-bend)+'Q'+x+' '+y+' '+(x-bend)+' '+y+'H'+(-x+bend)+'Q'+(-x)+' '+y+' '+(-x)+' '+(y-bend)+'V'+(-y+bend)+'Q'+(-x)+' '+(-y)+' '+(-x+bend)+' '+(-y)+'Z';
+      paths+='<path data-field-line="core-closed" d="'+path+'" fill="none" stroke="'+hiddenMagnetic+'" stroke-width=".8" stroke-dasharray="2.2 1.5"/>';arrows+=arrow(d*4,-y,d,0,magnetic,2)+arrow(-d*4,y,-d,0,magnetic,2);
+    }
+    return group('transformer-core',flux,grid.strength,grid.spacing*(schematic?1/3:1),paths+arrows);
+  }
   function generatorOverlay(c,r,project){
     const t=Number.isFinite(r?.phase)?r.phase:c.params.phase*Math.PI/180,origin=project([0,0,0]),end=project([17*Math.cos(t),17*Math.sin(t),0]);
     const corner=(s,z)=>project([s*Math.sin(t),-s*Math.cos(t),z]);
@@ -67,7 +76,8 @@
     if(c.type==='capacitor')return !Number.isFinite(r?.voltage)?'電壓未能確定，暫不標示電場方向。':r.voltage===0?'電場示意收起；灰色＋／−只作極性參考。':(r.voltage>0?'左板帶正電、右板帶負電。':'右板帶正電、左板帶負電。')+'只顯示兩板之間的均勻電場，由正板指向負板；忽略邊緣效應。';
     if(c.type==='inductor')return !Number.isFinite(r?.current)?'電流未能確定，暫不標示磁場方向。':r.current===0?'磁場示意收起；灰色 N／S 只作方向參考。':(r.current>0?'線圈內部磁場向右，右端為 N 極。':'線圈內部磁場向左，左端為 N 極。')+'磁場如通電螺線管，外部場線返回另一端並穿過線圈中央，形成閉合路徑；內部較暗虛線表示被線圈遮擋的部分。電流反向時兩極對調；自感電動勢會阻礙電流的變化。';
     if(c.type==='generator')return c.params.field===0?'設定的磁場為零；在這個理想模型中，磁通及感應電動勢為零。':'只顯示 N、S 極之間的均勻磁場，方向固定由 N 指向 S。[[n]] 是線圈平面的法線；平行磁場時磁通大小最大，垂直時電動勢大小達峰值。';
-    return '原、副線圈共用磁路；磁通的變化產生感應電動勢。';
+    if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集一個週期的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+'虛線表示鐵芯內部及被繞組遮住的磁場，只畫鐵芯範圍，省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示零平均的交變磁通，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
+    return '';
   }
-  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,generatorOverlay,description};
+  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformer,generatorOverlay,description};
 });
