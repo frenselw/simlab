@@ -477,3 +477,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 移除選取元件後正常讀值下的「量測窗起止秒數；資料來自時間積分」文字；等待提示改為「收集量測中」，電表未接妥提示保留。瞬時量、有效值、平均功率、內部時間積分及公開分析資料均不變。
 - source／解壓ZIP browser 108 observations通過，包含0／3／6／9 V燈選取時的等待提示、完成後有效值保留與技術文字消失、同功率亮度及2／50 Hz實時呈現。驗證在離線前進後重新選取元件以刷新inspector，與使用者選取流程一致；已檢視Control Panel截圖。syntax／manifest及diff通過，四包統一重建；證據：`output/ac-baseline/ac-clean-readings.log`、`ac-clean-readings-check.log`。未重新驗證真Moodle或實機。
+
+### 電表顯示精度與衰減尾值（2026-10-10）
+
+- 原數字以四位有效數字顯示，會把數值積分波動及極小的衰減尾值持續列出，即使指針移動已不可辨。新增共用 `CircuitRegistry.meterDisplayReading`，AC A／V／W及共用G按每小格十分之一顯示，正負對稱取整、不留負零；指針目標、實物／符號數字、標籤／概覽及Control Panel共用同一精度。DC雙量程A／V原精度保留。
+- 不改solver、量測積分、公開analysis、波形、能量或session，不裁剪權威电流。小量程仍可量微小電流，未知不冒充零，過量程仍按原讀值判斷。G為純電阻支路，低於顯示電流尺度時，其相應U／P尾值也不列出無意義極小數字。
+- 理想變壓器穩態數字不再逐幀跳動；線性變壓器保留真實通電暫態，穩態測試先運算8秒，再觀察連續幀，不能把剛通電的正常变化強行凍結。互感通斷電脈衝仍顯著可見，之後低於量程精度時標籤、面板與指針目標為零。
+- meter-motion新增範圍／正負／負零／邊界對稱／未知／合法微小量程及原始數據不變驗證，共25項通過；AC平台及240次示例切換、transient解析、DC teaching112項通過。source／解壓ZIP browser270 observations包含理想與線性變壓器穩態數字、互感顯著脈衝／零尾值／Control Panel、機械慣性與放大錶盤同步；DC共用操作70通過。已檢視線性變壓器與G零位截圖。
+- 四包統一重建核對；syntax／manifest及diff通過，最後面板及browser新增行另以node --check核對。證據：`output/ac-baseline/ac-meter-display-*.log`、`dc-meter-display-*.log`。未重跑全站既有阻塞、真Moodle及實機gate。

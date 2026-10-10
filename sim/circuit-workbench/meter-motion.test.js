@@ -4,7 +4,19 @@ const M=require('./circuit-model'),R=require('./component-registry'),S=require('
 require('./circuit-ac-components');
 let cases=0;
 const test=(name,fn)=>{fn();cases++;};
-const close=(a,b,tolerance=1e-8)=>assert(Math.abs(a-b)<=tolerance,`${a} != ${b}`);
+test('range-based display precision hides unreadable tails without altering physics',()=>{
+  for(const type of ['ac-ammeter','ac-voltmeter','ac-wattmeter','galvanometer'])for(const range of [3,.00005]){
+    const c={type,params:{range}},r={reading:range/1000,range,meterStatus:'normal'},raw=r.reading;
+    assert.equal(R.meterDisplayReading(c,r),0);assert.equal(N.target(c,r),0);assert.equal(r.reading,raw);
+    r.reading=-raw;assert.equal(R.meterDisplayReading(c,r),0);assert(!Object.is(R.meterDisplayReading(c,r),-0));
+    for(const reading of [range*.5000001,range*.4999999]){r.reading=reading;close(R.meterDisplayReading(c,r),range/2);}
+    const step=range/(type==='galvanometer'?200:300);r.reading=step/2;const positive=R.meterDisplayReading(c,r);r.reading=-step/2;close(R.meterDisplayReading(c,r),-positive,1e-15);
+    r.reading=null;assert.equal(R.meterDisplayReading(c,r),null);
+  }
+  const c={type:'galvanometer',params:{range:5e-8}},r={reading:1e-9,range:5e-8};close(R.meterDisplayReading(c,r),1e-9,1e-15);
+  assert.equal(R.meterDisplayReading({type:'ammeter'}, {reading:1e-100}),1e-100);
+});
+function close(a,b,tolerance=1e-8){assert(Math.abs(a-b)<=tolerance,`${a} != ${b}`);}
 function setup(type='ammeter',range=3,analysis='dc'){const d=M.empty(analysis),c=M.add(d,type,200,200,{range}),states=new Map(),result={components:{[c.id]:{reading:null,range,meterStatus:'unconnected'}}};N.sync(states,d,result);return{d,c,states,result,state:states.get(c.id)};}
 function aim(f,reading,range=f.c.params.range){f.result.components[f.c.id]={reading,range,meterStatus:reading<0?'reverse':'normal'};N.sync(f.states,f.d,f.result);}
 function trace(f,seconds=2,fps=60){const out=[];for(let i=0;i<seconds*fps;i++){N.advance(f.states,1/fps);out.push(f.state.fraction);}return out;}

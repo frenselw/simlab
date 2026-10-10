@@ -47,7 +47,7 @@
     }
     out+=Q.svg(0,-32,Q.unit('μA'),10);
     if(!result||values&&(Number.isFinite(result.reading)||result.meterStatus==='unconnected')){
-      const f=Number.isFinite(result?.reading)?Math.max(-1.03,Math.min(1.03,result.reading/c.params.range)):0,p=point(f,43);
+      const f=Number.isFinite(result?.reading)?Math.max(-1.03,Math.min(1.03,R.meterDisplayReading(c,result)/c.params.range)):0,p=point(f,43);
       out+=`<path data-meter-needle="${esc(c.id)}" data-reading="${Number.isFinite(result?.reading)?result.reading:''}" data-range="${c.params.range}" data-fraction="${f}" data-angle="${-90+60*f}" d="M0 25L${p.x} ${p.y}" stroke="#c33b35" stroke-width="1.8" stroke-linecap="round"/>`;
     }
     return `<g data-meter-dial="${esc(c.id)}" data-zero-angle="-90" data-divisions="20" data-negative-divisions="20">${out}<circle cy="25" r="3" fill="#475569"/>${text(0,37,'G',12)}</g>`;
@@ -178,7 +178,7 @@
       const r=result.components[c.id],isMeter=R.isMeter(c),lines=[];
       if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':''),size:nameSize});
       if(doc.display.values){
-        if(isMeter)lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit),size:valueSize});
+        if(isMeter)lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit),size:valueSize});
         else{const show=doc.display.quantities||{},parts=[],resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c);
           if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
           else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
@@ -277,7 +277,7 @@
       const meters=doc.components.filter(R.isMeter),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
       const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
       out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-8)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
-      shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W',galvanometer:'G'}[c.type],q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?r.reading*1e6:r?.reading,c.type==='galvanometer'?'μA':r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
+      shown.forEach((c,i)=>{const r=result.components[c.id],symbol={ammeter:'A',voltmeter:'V',wattmeter:'W',galvanometer:'G'}[c.type],q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
       out+=text(x+width/2,bottom,labelOptions?.crowded?'標示較密 · 放大或逐個顯示':labelOptions?.potentialDirections?.size?'電勢方向'+(labelOptions?.wireCurrents?.size?'／電流':'')+'已開啟 · 放大查看':labelOptions?.wireCurrents?.size?'導線電流已開啟 · 放大查看':meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale,(labelOptions?.wireCurrents?.size?'data-wire-current-overview="true" ':'')+(labelOptions?.potentialDirections?.size?'data-potential-overview="true"':''))+`</g>`;
     }
     return out;
