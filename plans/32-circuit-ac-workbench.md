@@ -401,3 +401,21 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 移除正負跳動的瞬時數字及其獨立22px列；未接探頭、未知量及超出量尺保留簡短圖內提示。框改1px邊線及淺色／白色操作區，圖區增加可用高度；44px按鈕、大框／角落resize／資料縮放／摺起及長量測線維持。
 - 探頭及Trace純模型測試、syntax／manifest check及diff通過；source／ZIP focused **100 observations**通過，新增實際Canvas字串檢查（只有縱軸刻度）、模擬时间前進而尺標穩定、時間縮放後所有尺標同步及薄框／44px命中範圍。桌面兩儀器、大框及320px手機截圖已檢視。
 - source／ZIP完整AC回歸 **1224 observations**通過，包含短畫面、既有物理／電表／元件操作、活動配置、快照續作、多instance、原生捲頁及全螢幕。四個成品已統一重建核對來源；證據：`output/ac-baseline/ac-scope-ruler.log`、`ac-scope-ruler-full.log`、`ac-scope-ruler-check.log`。此次只改AC可選儀器UI，物理解、DC共用控制及正式活動評分不變；全站既有阻塞及真Moodle／實機gate仍按原記錄。
+
+
+### 軸拖動、連續預覽與課堂示例整理（2026-10-10，完成）
+
+- 使用者要求圖框上下極窄、無常駐量尺按鈕、兩軸均可mouse／touch直接拖縮放。移除footer列；標題16px、時間區18px，expand／close及resize放邊角，透明命中區保持44px。保留框／資料兩種縮放、Home／方向鍵、摺起及原生捲頁區。
+- 時間標尺改1/2/5系列、不大於半窗，5 s窗標2 s（40%寬），1 s窗標0.5 s（50%寬），隨range伸縮而不是隨模擬時刻跳動。圖框UI取消還原量尺與曲線；波形和實際頻率不改。
+- 電流探頭由Renderer既有導電路徑吸附至元件內部，component target可带fraction，完整驗證0–1，跟隨移動／旋轉／視圖。透明度約22%，selector覆蓋共用pressed／hover樣式，避免绑定又變不透明。
+- 共用slider改用AC獨立動態副本；主要session及權威analysis訂閱不在預覽中前進。副本保留20 ms視覺積分而RMS重新收集，播放中波形／光／發熱即時更新；放手一次接受文件及續作時間，取消完整還原。C/L改變仍屬重設實驗。DC保持靜態預覽／原操作。強烈過載可在完整量測窗未滿時用保守三種波形峰值界提前提示，正常額定三波形不得誤報。
+- 時間模式的flow新增顯示界（1 pA及電氣島觀察峰值的1e-5），極小電流不再被18px/s最低速度顯示；不改求解數值／波形，DC既有微／nano級電流維持。
+- 整理所有教師示例接線：分支明確junction、正交路由，純幾何驗證所有不同wire只可在共享endpoint相交，无長度重疊；self儲能線圈／燈改平行直立兩支路，互感／LED／RC/RL/LC沒有重疊回線。仍核對bounds、端子、線長及物理方向。
+- 方／三角波合併到既有源波形控制、舊create別名保留；交流電感0.2 Hz／5 H／12 Ω與直流RL 5 H／0.1 Ω／3 Ω分別呈現頻率效應及約1.61秒電流建立。電容交流2000 μF／120 Ω／0.5 Hz，RMS功率對應亮度在低／高頻約0.304／0.593；電感低／高頻約0.499／0.035。RC採有放電側的SPDT及約1秒時間常數。
+- self 5 H在供電後3秒斷電，燈有清楚反向电流與短暫亮光；互感用5 H／20 Ω放電及50 μA量程，驗證通／斷方向相反且脈衝>30%滿量程，直流穩定趨零。LC採2000 μF／5 H（T≈0.628秒），衰減線阻8 Ω。現有範圍不足1–2秒LC：1秒需例如C≈5066 μF或L≈12.7 H；2秒約20264 μF或50.7 H。維持使用者選定範圍，明示限制，不用改慢播冒充物理參數。
+- 固定LC技術示例模板已重排並改參數，外層codec升version 3，明確拒絕1／2；完整教師JSON/session及物理modelRevision不升版。正式SCORM題目仍另定。
+
+- 驗證：Node AC/platform／transient／scope／flow／component-flow及DC platform core通過。幾何測試對所有預設無額外交叉／重疊，並避開元件指定bounds或通用器材中央區；新增RC初始放電不供電、解析充放電及保存後合法續作，避免SPDT共用端接錯造成斜線及常供電。
+- 完整AC source／ZIP **1258 observations**通過；最後進一步收窄框、修正RC接線及補單指滑片／場示意後，最新 source／ZIP 儀器與連續預覽 **150 observations**、全示例兩視圖／RC/self續作／微小電流 **136 observations**通過。新preset cases也接入既有完整browser入口，沒有只放在臨時腳本。DC source／ZIP快捷參數、拖動／取消、history、權限與恢復 **70 observations**通過；syntax／manifest及diff通過。
+- 已檢視最新超薄圖框、半透明探頭、大框／390/320px、按住源滑塊發熱、所有預設，以及RC正確接線／self反向放電／極小電流無箭頭截圖。測試以可見的控制命中區操作；浮動量測線若覆蓋中央，選未被覆蓋部分驗證原生單指控制。所有四包由統一builder重新核對來源／依賴指紋。
+- 證據：`output/ac-baseline/ac-axis-preview-full.log`、`ac-axis-preview-final.log`、`ac-presets-final.log`、`dc-live-preview-followup.log`、`ac-axis-preview-check.log`。既有全站阻塞及真Moodle／實機gate仍分開記錄；正式AC SCORM题目沒有自行加入。

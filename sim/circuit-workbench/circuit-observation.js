@@ -1,4 +1,4 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-routing'):root.CircuitRouting);if(typeof module==='object'&&module.exports)module.exports=api;else root.CircuitObservation=api;})(globalThis,function(M,G){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-routing'):root.CircuitRouting,node?require('./circuit-renderer'):root.CircuitRenderer);if(typeof module==='object'&&module.exports)module.exports=api;else root.CircuitObservation=api;})(globalThis,function(M,G,V){
   'use strict';
   // ponytail: 512 time bins bound memory even for stiff circuits; more bins if meter accuracy requirements exceed 0.5%.
   class Tracker {
@@ -44,7 +44,7 @@
   function targetValid(target,kind,doc){
     if(target===null)return true;if(!strict(target,['kind','id','fraction'])||typeof target.id!=='string')return false;
     if(target.kind==='endpoint')return kind==='voltage'&&strict(target,['kind','id'])&&M.endpoints(doc).has(target.id);
-    if(target.kind==='component')return kind==='current'&&strict(target,['kind','id'])&&doc.components.some(c=>c.id===target.id);
+    if(target.kind==='component')return kind==='current'&&strict(target,['kind','id','fraction'])&&(target.fraction===undefined||number(target.fraction,0,1))&&doc.components.some(c=>c.id===target.id);
     return target.kind==='wire'&&number(target.fraction,0,1)&&doc.wires.some(w=>w.id===target.id&&(kind==='current'||w.resistance===0));
   }
   function permitted(tool,doc,allowed){
@@ -62,7 +62,7 @@
   function probePosition(probe,doc,routes={}){
     const t=probe.target;if(!t)return probe.position;
     if(t.kind==='endpoint')return M.endpoints(doc).get(t.id)||null;
-    if(t.kind==='component')return M.endpoints(doc).get(t.id+':a')||null;
+    if(t.kind==='component'){const path=componentPaths(doc).find(p=>p.component===t.id);return path&&t.fraction!==undefined?G.along(path.points,G.length(path.points)*t.fraction):M.endpoints(doc).get(t.id+':a')||null;}
     const w=doc.wires.find(w=>w.id===t.id);return w?G.along(routes[w.id]||G.route(doc,w),G.length(routes[w.id]||G.route(doc,w))*t.fraction):null;
   }
   function signal(tool,result,doc){
@@ -71,10 +71,12 @@
     if(tool.kind==='current'){const t=tool.probes[0].target,v=t.kind==='wire'?result.wires[t.id]?.current:result.components[t.id]?.current;return Number.isFinite(v)?v:null;}
     const node=p=>p.target.kind==='endpoint'?p.target.id:doc.wires.find(w=>w.id===p.target.id)?.from,[a,b]=tool.probes.map(node),u=result.potentials[a],v=result.potentials[b];return result.islandOf[a]!==undefined&&result.islandOf[a]===result.islandOf[b]&&Number.isFinite(u)&&Number.isFinite(v)?u-v:null;
   }
+  const componentPaths=doc=>V.componentFlowPaths(doc,{components:{}}).filter(p=>p.key==='main'||p.key==='contact');
+  function timeInterval(span){const half=span/2,base=10**Math.floor(Math.log10(half));return [5,2,1].find(n=>n*base<=half*(1+1e-12))*base;}
   function snapProbe(tool,index,at,doc,routes,scale,allowed){
     const candidates=[],ends=M.endpoints(doc);if(tool.kind==='voltage')for(const [id,p]of ends)candidates.push({target:{kind:'endpoint',id},position:p,distance:Math.hypot(at.x-p.x,at.y-p.y)});
     for(const w of doc.wires){if(tool.kind==='voltage'&&w.resistance)continue;const path=routes[w.id]||G.route(doc,w),p=G.nearest(path,at);if(!p)continue;let distance=0;for(let n=0;n<p.segment;n++)distance+=Math.hypot(path[n+1].x-path[n].x,path[n+1].y-path[n].y);distance+=Math.hypot(p.x-path[p.segment].x,p.y-path[p.segment].y);candidates.push({target:{kind:'wire',id:w.id,fraction:Math.max(0,Math.min(1,distance/Math.max(G.length(path),1e-9)))},position:p,distance:p.distance});}
-    if(tool.kind==='current')for(const c of doc.components){const p=ends.get(c.id+':a');candidates.push({target:{kind:'component',id:c.id},position:p,distance:Math.hypot(at.x-p.x,at.y-p.y)});}
+    if(tool.kind==='current')for(const c of doc.components){const path=componentPaths(doc).find(p=>p.component===c.id),p=path?G.nearest(path.points,at):ends.get(c.id+':a');let fraction;if(path){let distance=0;for(let n=0;n<p.segment;n++)distance+=Math.hypot(path.points[n+1].x-path.points[n].x,path.points[n+1].y-path.points[n].y);distance+=Math.hypot(p.x-path.points[p.segment].x,p.y-path.points[p.segment].y);fraction=Math.max(0,Math.min(1,distance/G.length(path.points)));}candidates.push({target:{kind:'component',id:c.id,...(fraction===undefined?{}:{fraction})},position:p,distance:p.distance??Math.hypot(at.x-p.x,at.y-p.y)});}
     return candidates.sort((a,b)=>a.distance-b.distance).find(c=>c.distance*scale<=24&&permitted({...tool,probes:tool.probes.map((p,i)=>i===index?{...p,target:c.target}:p)},doc,allowed))||null;
   }
   // ponytail: 1024 display bins retain sampled extrema and gaps, independently of RMS integration.
@@ -85,5 +87,5 @@
       while(this.bins.length>1025||this.bins[0]?.last.time<time-this.span-this.width)this.bins.shift();}
     points(){return this.bins.flatMap(b=>b.gap?[{time:b.first.time,value:null},{time:b.last.time,value:null}]:[...new Map([b.first,b.min,b.max,b.last].map(p=>[p.time+':'+p.value,p])).values()].sort((a,b)=>a.time-b.time));}
   }
-  return {Tracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,Trace};
+  return {Tracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
 });

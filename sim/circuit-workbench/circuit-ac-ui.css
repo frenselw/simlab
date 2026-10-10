@@ -28,24 +28,23 @@
 .ac-scope-leads{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
 .ac-scope-lead-hit{fill:none;stroke:transparent;stroke-width:20;pointer-events:stroke;cursor:move;touch-action:none}
 .surface.wire-priority~.ac-scopes .ac-scope-lead-hit{pointer-events:none}
-.ac-scope-window{position:absolute;display:grid;grid-template-rows:44px minmax(0,1fr) 44px;background:#fff;border:1px solid #567185;border-radius:9px;box-shadow:0 2px 7px #20354d33;overflow:hidden;pointer-events:auto;min-width:0;touch-action:pan-y}
-.ac-scope-heading{display:flex;align-items:stretch;min-width:0;background:#f6f9fc;border-bottom:1px solid #dbe3eb}
-.ac-scope-heading button{min-width:44px;height:44px;border:0;border-radius:0;padding:0;background:transparent}
-.ac-scope-heading .ac-scope-title{flex:1;min-width:0;text-align:left;padding:0 8px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px;cursor:move;touch-action:none}
+.ac-scope-window{position:absolute;display:grid;grid-template-rows:minmax(0,1fr);padding-top:16px;background:#fff;border:1px solid #567185;border-radius:7px;box-shadow:0 2px 7px #20354d33;overflow:hidden;pointer-events:auto;min-width:0;touch-action:pan-y}
+.ac-scope-heading{position:absolute;top:0;left:0;right:0;display:flex;height:16px;min-width:0;z-index:2;pointer-events:none}
+.ac-scope-heading button{line-height:14px;min-width:44px;width:44px;height:44px;border:0;border-radius:0;padding:2px 0 22px;background:transparent;font-size:13px;pointer-events:auto}
+.ac-scope-heading .ac-scope-title{flex:1;min-width:0;text-align:left;padding:2px 5px 22px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:11px;cursor:move;touch-action:none}
 .ac-scope-window canvas{width:100%;height:100%;min-width:0;min-height:0;display:block;background:#fff;touch-action:pan-y}
 .ac-scope-plot{position:relative;display:grid;grid-template-rows:minmax(0,1fr) 18px;min-height:0}
-.ac-scope-time-ruler{position:relative;margin:0 10px 0 42px;border-top:1px solid #71869a;text-align:center;font-size:11px;line-height:16px}
-.ac-scope-time-ruler::before,.ac-scope-time-ruler::after{content:"";position:absolute;top:-4px;height:7px;border-left:1px solid #71869a}
-.ac-scope-time-ruler::before{left:0}.ac-scope-time-ruler::after{right:0}
-.ac-scope-time-ruler span{position:relative;top:-8px;background:#fff;padding:0 5px}
+.ac-scope-time-ruler{position:relative;align-self:end;height:44px;min-height:44px;margin:0 10px 0 42px;padding:30px 0 0;border:0;border-radius:0;background:transparent;color:#52677c;text-align:left;font-size:11px;line-height:16px;cursor:ew-resize;touch-action:none}
+.ac-scope-time-bar{position:relative;display:block;border-top:1px solid #71869a;text-align:center}
+.ac-scope-time-bar::before,.ac-scope-time-bar::after{content:"";position:absolute;top:-4px;height:7px;border-left:1px solid #71869a}
+.ac-scope-time-bar::before{left:0}.ac-scope-time-bar::after{right:0}
+.ac-scope-time-bar>span{position:relative;top:-8px;background:#fff;padding:0 4px;white-space:nowrap}
+.ac-scope-y-axis{position:absolute;top:0;bottom:18px;left:0;width:44px;min-width:44px;padding:0;border:0;border-radius:0;background:transparent!important;cursor:ns-resize;touch-action:none}
 .ac-scope-status{position:absolute;top:0;left:42px;right:10px;font-size:11px;text-align:center;line-height:18px;background:#ffffffed;pointer-events:none}
-.ac-scope-footer{display:flex;align-items:center;min-width:0;background:#fff}
-.ac-scope-footer button{min-width:44px;width:44px;height:44px;padding:0;font-size:20px;border:0;border-radius:0;background:transparent}
-.ac-scope-range{flex:1;min-width:0;text-align:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ac-scope-resize{cursor:nwse-resize;touch-action:none}
-.ac-scope-window.collapsed{grid-template-rows:44px}
-.ac-scope-window.collapsed .ac-scope-plot,.ac-scope-window.collapsed .ac-scope-footer{display:none}
-.ac-scopes .ac-scope-probe{position:absolute;width:44px;height:44px;min-height:44px;padding:0;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;background:#ffffffd9;font-weight:700;pointer-events:auto;touch-action:none;cursor:grab}
+.ac-scope-window .ac-scope-resize{position:absolute;right:0;bottom:0;min-width:44px;width:44px;height:44px;padding:20px 0 0 20px;border:0;border-radius:0;background:transparent;cursor:nwse-resize;touch-action:none;z-index:2;font-size:14px}
+.ac-scope-window.collapsed{padding:0}
+.ac-scope-window.collapsed .ac-scope-plot,.ac-scope-window.collapsed .ac-scope-resize{display:none}
+.circuit-editor .ac-scopes .ac-scope-probe{position:absolute;width:44px;height:44px;min-height:44px;padding:0;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;background:#ffffff38;font-weight:700;pointer-events:auto;touch-action:none;cursor:grab}
 .ac-scopes .ac-scope-probe.snap{outline:3px dashed #2563eb;outline-offset:3px}
 .ac-scope-dialog{width:min(760px,calc(100vw - 24px));height:min(600px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);padding:4px;overflow:hidden}
 .ac-scope-dialog .ac-scope-window.expanded{position:relative;width:100%;height:100%;box-shadow:none}
@@ -58,6 +57,5 @@
 .circuit-editor .palette .ac-scope-tool svg{width:44px;height:34px;flex:none;pointer-events:none}
 .ac-scope-ghost{position:fixed;transform:translate(-50%,-50%);pointer-events:none;z-index:100;background:#edf3f8;border:2px solid #567185;padding:10px;border-radius:8px}
 
-.ac-scope-footer .ac-scope-range{width:auto;flex:1;min-width:44px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .ac-scopes .ac-scope-probe{z-index:3}

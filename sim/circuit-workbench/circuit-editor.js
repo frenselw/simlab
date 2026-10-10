@@ -42,12 +42,12 @@
   const surface=$("surface"),svg=$("circuitSvg"),hitLayer=$("hitLayer");
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const transient=profile.analysis==='transient',analysisListeners=new Set(),sessionHistory=new WeakMap();
-  let session=transient?new root.CircuitTransient.Session(history.get()):null,sessionDocument=history.get(),acUI=null,lastSessionChange=null;
+  let session=transient?new root.CircuitTransient.Session(history.get()):null,sessionDocument=history.get(),acUI=null,lastSessionChange=null,paramSession=null,unsubscribePreview=null;
   const forwardAnalysis=result=>{const {voltage,...data}=result;for(const fn of analysisListeners)try{fn(M.clone(data));}catch(e){console.error('CircuitEditor analysis callback failed',e);}};
   let unsubscribeAnalysis=session?.subscribe(forwardAnalysis);
   const wireCurrents=new Set(),potentialDirections=new Set(),labelOptions={previous:null,exclusions:[],idPrefix:prefix,wireCurrents,potentialDirections,fields:profile.ui.field},flowOffsets=new Map(),flowScales=new Map(),needleStates=new Map(),relayStates=new Map();
   const flowContext=()=>(drag||previewDoc)?new Map(flowScales):flowScales;
-  const solve=doc=>{if(transient){if(doc!==history.get())return JSON.stringify(doc)===JSON.stringify(history.get())?session.read():session.preview(doc);if(doc!==sessionDocument){lastSessionChange=session.update(doc);sessionDocument=doc;}return session.read();}H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
+  const solve=doc=>{if(transient){if(doc!==history.get()){if(paramSession&&doc===previewDoc)return paramSession.read();return JSON.stringify(doc)===JSON.stringify(history.get())?session.read():session.preview(doc);}if(doc!==sessionDocument){lastSessionChange=session.update(doc);sessionDocument=doc;}return session.read();}H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
   let analysis=solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
   let quickBinding=null,releasedMeta=null,blankMouseDown=null;
   const touches=new Map(),minScale=.001,maxScale=2.5;
@@ -68,7 +68,9 @@
   function emitChange(){for(const fn of listeners)try{fn(M.clone(history.get()));}catch(e){console.error("CircuitWorkbench onChange callback failed",e);}}
   const readableMeter=(d,c)=>c&&d.display.values&&R.isMeter(c);
   const inspectableMeter=c=>!!c&&(R.dualMeter(c)||c.type==='galvanometer'||c.type.startsWith('ac-')&&R.isMeter(c));
-  function rollbackDrag(){meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
+  function discardParamPreview(){unsubscribePreview?.();unsubscribePreview=null;paramSession?.destroy();paramSession=null;acLag=0;acUI?.endPreview(false);}
+  function previewParameter(doc){if(transient){if(!paramSession){paramSession=root.CircuitTransient.Session.restore(session.capture());unsubscribePreview=paramSession.subscribe(result=>acUI?.preview(result));}lastSessionChange=paramSession.update(doc,{continuous:true});}previewDoc=doc;analysis=solve(doc);if(paramSession)acUI?.preview(analysis);}
+  function rollbackDrag(){discardParamPreview();meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
     if(old)selection=old.selectionBefore;
@@ -99,10 +101,10 @@
     camera.x=anchor.x-(x-r.left)/camera.scale;camera.y=anchor.y-(y-r.top)/camera.scale;autoFit=false;
   }
   function change(fn,inspector=true){if(destroyed)throw new Error("編輯器已卸載");const beforeSelection=selection&&M.clone(selection);
-    try{const before=history.get();if(session)sessionHistory.set(before,session.capture());history.change(doc=>{fn(doc);profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
+    try{const before=history.get();if(session)sessionHistory.set(before,session.capture());history.change(doc=>{fn(doc);profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});if(paramSession&&previewDoc&&JSON.stringify(previewDoc)===JSON.stringify(history.get())){const next=paramSession;unsubscribePreview?.();unsubscribePreview=null;paramSession=null;acUI?.endPreview(true);replaceSession(next,true);}else if(paramSession)discardParamPreview();previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
       if(selection&&!M.endpoints(history.get()).has(selection.id)&&![...history.get().components,...history.get().junctions,...history.get().wires].some(x=>x.id===selection.id))selection=null;
       $("settingsNotice").hidden=true;if(autoFit)fit();render(inspector);if(before!==history.get())emitChange();if(transient&&lastSessionChange==='restarted')notify('已建立新實驗，回到 t = 0 及初始儲能條件。');lastSessionChange=null;return true;
-    }catch(e){selection=beforeSelection;previewDoc=null;analysis=solve(history.get());render(inspector);notify(e.message,true);return false;}
+    }catch(e){discardParamPreview();selection=beforeSelection;previewDoc=null;analysis=solve(history.get());render(inspector);notify(e.message,true);return false;}
   }
   function addComponent(doc,type,x,y,params){
     const c=M.add(doc,type,x,y,params);
@@ -277,11 +279,11 @@
               if(!range.isConnected||!allow(history.get(),c,"params",key))return;
               const candidate=M.clone(history.get());candidate.components.find(x=>x.id===c.id).params[key]=Number(range.value)/factor;
               try{profile.assertTransition(history.get(),candidate,readOnly);}catch(e){cancel();notify(e.message,true);return;}
-              input.value=range.value;previewDoc=candidate;analysis=solve(previewDoc);render(false);
+              input.value=range.value;previewParameter(candidate);render(false);
               const result=prop.querySelector('.reading-host');if(result)result.innerHTML=componentReadings(c.id);
             };
             if(spec.controlSpecial){const special=document.createElement('button');special.type='button';special.className='ac-frequency-special';special.textContent='50 Hz · 真實交流';special.setAttribute('aria-pressed',String(c.params[key]===spec.controlSpecial));special.disabled=!enabled;special.onclick=()=>change(doc=>{doc.components.find(x=>x.id===c.id).params[key]=spec.controlSpecial;});prop.append(special);}
-            range.onchange = () => { if(!range.isConnected||!previewDoc)return;const value = Number(range.value) / factor; previewDoc = null; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; range.onpointercancel = cancel; prop.append(range);
+            range.onchange = () => { if(!range.isConnected||!previewDoc)return;const value = Number(range.value) / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; range.onpointercancel = cancel; prop.append(range);
           }
         }
       }
@@ -473,10 +475,10 @@
     }else if(drag.kind==="wire"){drag.limited=!!M.bendWire(previewDoc,drag.id,drag.down,dx,dy,Math.max(100,110/camera.scale))?.limited;drag.focus=p;
       if(drag.wholeWire){const snapped=snapWholeWire(previewDoc,drag.id);if(snapped){previewDoc=snapped.doc;drag.snap=snapped.snap;drag.limited=false;}}
     }
-    try{profile.prepare(previewDoc);profile.assertTransition(history.get(),previewDoc,readOnly);}catch{previewDoc=null;return;}analysis=solve(previewDoc);if(drag.limited){$("canvasNotice").textContent="線已拉盡；移近元件，或用另一條線接長。";$("canvasNotice").hidden=false;}render(false);
+    try{profile.prepare(previewDoc);profile.assertTransition(history.get(),previewDoc,readOnly);}catch{previewDoc=null;return;}if(transient&&drag.kind==='slider')previewParameter(previewDoc);else analysis=solve(previewDoc);if(drag.limited){$("canvasNotice").textContent="線已拉盡；移近元件，或用另一條線接長。";$("canvasNotice").hidden=false;}render(false);
   });
   on(surface,"pointerup",e=>{
-    if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc,discardZone=discardZoneAt(done,e.clientX,e.clientY);drag=null;previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
+    if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc,discardZone=discardZoneAt(done,e.clientX,e.clientY);drag=null;if(!paramSession)previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
     // Footer reflow may move scene targets before the browser sends click.
     // Keep the original tap target rather than reselecting whatever moved under it.
     releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(selection):null;
@@ -488,6 +490,7 @@
       return;
     }
     if(preview&&done.moved&&change(doc=>Object.assign(doc,preview)))notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?done.kind==="body"?["元件已接線：",...connectionLabel(done.snap.id),"。"]:["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");
+    if(paramSession){discardParamPreview();previewDoc=null;analysis=solve(history.get());}
     render();
   });
   on(surface,"lostpointercapture",e=>{if(drag?.pointerId===e.pointerId||(cameraGesture?.ids.includes(e.pointerId)&&!surface.hasPointerCapture(e.pointerId)))cancel(true);});
@@ -654,7 +657,7 @@
       }
     });
   }
-  function replaceSession(next){unsubscribeAnalysis?.();session?.destroy();session=next;lastTime=0;acLag=0;sessionDocument=history.get();unsubscribeAnalysis=session.subscribe(forwardAnalysis);acUI?.clear();}
+  function replaceSession(next,preserveTrace=false){unsubscribeAnalysis?.();session?.destroy();session=next;lastTime=0;acLag=0;sessionDocument=history.get();unsubscribeAnalysis=session.subscribe(forwardAnalysis);if(!preserveTrace)acUI?.clear();}
   function setPlayback(options){
     if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!options||typeof options!=='object'||Object.keys(options).some(k=>!['paused','rate'].includes(k)))return false;
     if(options.paused!==undefined&&(typeof options.paused!=='boolean'||!profile.simulation.play))return false;
@@ -693,8 +696,8 @@
     const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(transient?.25:.05,rawElapsed)*rate;lastTime=time;
     const active=!paused&&!document.hidden;if(active)animationTime+=elapsed;
     const relayEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touches.size,relayElapsed=relayEligible?Math.max(0,(time-relayLastTime)/1000)*rate:0;relayLastTime=time;
-    const acEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touchBlocked&&![...touches.values()].some(t=>t.central);
-    if(transient&&acEligible&&!readOnly){acLag+=elapsed*timeRate;const progress=session.advance(acLag,{budget:10});acLag=Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=session.state.time;if(session.fault)paused=true;if(session.fault||time-lastACPaint>=100){lastACPaint=time;render(false);const reading=$('properties').querySelector('.reading-host'),c=selectedComponent();if(reading&&c)reading.innerHTML=componentReadings(c.id);}}
+    const acEligible=active&&(!drag||paramSession&&drag.kind==='slider')&&(!previewDoc||paramSession)&&!cameraGesture&&!touchBlocked&&(![...touches.values()].some(t=>t.central)||paramSession&&drag?.kind==='slider'&&touches.size===1);
+    if(transient&&acEligible&&!readOnly){acLag+=elapsed*timeRate;const live=paramSession||session,progress=live.advance(acLag,{budget:10});acLag=Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=live.state.time;if(live.fault&&!paramSession)paused=true;if(live.fault||time-lastACPaint>=100){lastACPaint=time;render(false);const reading=$('properties').querySelector('.reading-host'),c=selectedComponent();if(reading&&c)reading.innerHTML=componentReadings(c.id);}}
     if(transient&&acEligible&&!readOnly)for(const c of current().components)if(['lamp','capacitor'].includes(c.type)){const node=$('scene').querySelector('[data-component="'+c.id+'"] '+(c.type==='lamp'?'[data-lamp]':'[data-ac-apparatus]'));if(node)node.outerHTML=V.body(c,analysis.components[c.id],{...current().display,fields:labelOptions.fields??true});}
     if(transient&&!acEligible)acLag=0;
     if(!transient&&relayEligible&&relayStates.size){

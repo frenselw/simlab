@@ -326,6 +326,8 @@
           points=schematic?[[-60,0],[60,0]]:[[-60,0],...track,[x,y],[x,38],[47,38],[47,0],[60,0]];
         }else if(c.type==='led')points=schematic?[[-60,0],[60,0]]:[[-60,0],[-29,0],[-29,24],[-9,24],[-9,-6],[9,-6],[9,24],[29,24],[29,0],[60,0]];
         else if(c.type==='switch')points=[[-60,0],[60,0]];
+        else if(c.type==='spdt'){const end=c.params.closed;add('contact','a',end,current('a',end),[[-60,0],[-28,0],[28,end==='b'?-24:24],[60,end==='b'?-24:24]]);}
+        else if(['inductor','ac-source','generator'].includes(c.type))points=[[-60,0],[60,0]];
         else if(c.type==='galvanometer')points=schematic?[[-60,0],[-28,0],[-16,20],[16,20],[28,0],[60,0]]:[[-60,0],[-51,0],[-47,45],[47,45],[51,0],[60,0]];
         if(points)add('main','a','b',i,points);
       }
@@ -351,7 +353,7 @@
     if(baselines){
       // Island roots change when ideal wires gain resistance; endpoint membership does not.
       const members=new Map();for(const [endpoint,island]of Object.entries(result.islandOf||{})){if(!members.has(island))members.set(island,[]);members.get(island).push(endpoint);}
-      const live=new Set();for(const [island,endpoints]of members){const key=JSON.stringify(endpoints.sort());live.add(key);if(references.has(island)){if(!baselines.has(key))baselines.set(key,references.get(island));references.set(island,baselines.get(key));}}
+      const live=new Set();for(const [island,endpoints]of members){const key=JSON.stringify(endpoints.sort());live.add(key);if(references.has(island)){if(!baselines.has(key)||result.mode==='transient'&&references.get(island)>baselines.get(key))baselines.set(key,references.get(island));references.set(island,baselines.get(key));}}
       for(const key of baselines.keys())if(!live.has(key))baselines.delete(key);
     }
     return references;
@@ -359,9 +361,10 @@
   const referenceAt=(references,result,endpoint)=>references.get(result.islandOf?.[endpoint]??endpoint);
   // Compressed relative speeds with a visible floor; never a physical drift
   // velocity or an exact current ratio. Only genuine zero/unknown stays still.
-  function flowSpeed(current,reference=4){
+  function flowSpeed(current,reference=4,transient=false){
     if(!Number.isFinite(current)||current===0)return 0;
     const scale=Number.isFinite(reference)&&reference>0?reference:4;
+    if(transient&&Math.abs(current)<Math.max(1e-12,scale*1e-5))return 0;
     return 18+222/(1+2*Math.sqrt(scale/Math.abs(current)));
   }
   function advanceFlow(offsets,doc,result,dt,baselines=null){
@@ -369,7 +372,7 @@
     const ids=new Set(paths.map(p=>p.id));for(const id of offsets.keys())if(!ids.has(id))offsets.delete(id);
     if(doc.display.flow==='off')return;
     const references=flowReferences(doc,result,baselines),elapsed=Math.max(0,Math.min(.05,Number.isFinite(dt)?dt:0)),polarity=doc.display.flow==='electron'?-1:1;
-    for(const p of paths){const speed=flowSpeed(p.current,referenceAt(references,result,p.from));if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
+    for(const p of paths){const speed=flowSpeed(p.current,referenceAt(references,result,p.from),result.mode==='transient');if(speed)offsets.set(p.id,modulo((offsets.get(p.id)||0)+polarity*Math.sign(p.current)*speed*elapsed,flowSpacing));}
   }
   function flowParticles(points,phase,spacing,scale,electron,reverse,size,hidden=[]){
     let out='';const length=Routing.length(points);
@@ -384,14 +387,14 @@
   function flow(doc, result, routes, time, scale, offsets=null,baselines=null) {
     if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result,baselines);
     doc.wires.forEach((w) => {
-      const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(current,reference);if(!speed)return;
+      const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(current,reference,result.mode==='transient');if(!speed)return;
       const points=routes[w.id]||Routing.route(doc,w),reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
       out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
       out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
       out+='</g>';
     });
     for(const p of componentFlowPaths(doc,result)){
-      const reference=referenceAt(references,result,p.from),speed=flowSpeed(p.current,reference);if(!speed)continue;
+      const reference=referenceAt(references,result,p.from),speed=flowSpeed(p.current,reference,result.mode==='transient');if(!speed)continue;
       const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,.55);
       out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="#2563eb" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
       out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size,p.hidden)+'</g>';
