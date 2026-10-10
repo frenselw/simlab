@@ -451,3 +451,11 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 
 - 電流／電壓探頭圓面由44px改28px、邊線由3px改2px；半透明、標記及吸附提示保持，透明拖動命中區仍44×44px，不改測點、接線、物理或保存格式。
 - source／解壓ZIP的scope browser 194 observations通過，新增外觀28px／命中44px／中心對齊及半透明核對，既有滑鼠、筆、模擬觸控及鍵盤流程保持。已檢視雙儀器截圖；證據：`output/ac-baseline/ac-smaller-probes.log`。四包統一重建；外部Moodle與真手機未重新驗收。
+
+### 以燈觀察儲能釋放及LED調查（2026-10-10）
+
+- RC示例以20 Ω、6 V恆阻燈替換定值電阻，C改0.1 F，時間常數2秒。充電約6秒後切換，電源退出放電迴路；燈再次亮起並逐漸熄滅，電流方向反轉。開關接線與元件ID保持；教師保存的舊文件不改寫。
+- 自感示例保留原有可見放電燈及無交叉接線，改10 H／1 Ω線阻、3 Ω／3 V燈，合上約8秒後斷開，放電時間常數2.5秒，避免原先快速過載閃光。RL已有燈而保持原接法；理想LC仍無損，未把燈加入振盪支路。
+- Node解析與模型驗證通過：RC／RL／自感斷源後功率及儲能逐步下降、亮度由0.584／0.576／0.384逐步降至近零、無過載、方向與恢復續作正確；全部示例240次切換保持連續狀態。source／ZIP browser 610 observations核對實際SVG亮度序列、接線、滑鼠／模擬觸控切換及繼續播放；已檢視RC和自感亮燈截圖。syntax／manifest、diff及四包統一重建通過。
+- LED另以現有solver及廠商資料調查，未新增預設或改LED畫法：C 0.02 F、6 V，串220 Ω與預設LED可得到約18.3 mA逐漸下降；反接截止，殘餘電壓接近正向壓降，Node解析測試已登記。L 10 H、20 mA放电在1.8 V LED上僅約0.1秒，加220 Ω後約0.055秒，因此不能直接替換原燈而期待幾秒漸暗。現有LED外觀只有亮／熄；若日後新增LED示例須補漸暗、限流、方向及必要反向保護，模型仍無永久損坏。
+- 證據：`output/ac-baseline/ac-discharge-led-physics.log`、`ac-discharge-led-inductor.log`、`ac-discharge-lamps-node.log`、`ac-discharge-lamps-browser.log`、`ac-discharge-lamps-check.log`。LED參考來源及具體模型限制見[工作台文件](../docs/circuit-ac-workbench.md#led-放電的可行性)。未重跑全站既有阻塞或真Moodle／實機gate。
