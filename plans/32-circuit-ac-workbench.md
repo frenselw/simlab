@@ -459,3 +459,8 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - Node解析與模型驗證通過：RC／RL／自感斷源後功率及儲能逐步下降、亮度由0.584／0.576／0.384逐步降至近零、無過載、方向與恢復續作正確；全部示例240次切換保持連續狀態。source／ZIP browser 610 observations核對實際SVG亮度序列、接線、滑鼠／模擬觸控切換及繼續播放；已檢視RC和自感亮燈截圖。syntax／manifest、diff及四包統一重建通過。
 - LED另以現有solver及廠商資料調查，未新增預設或改LED畫法：C 0.02 F、6 V，串220 Ω與預設LED可得到約18.3 mA逐漸下降；反接截止，殘餘電壓接近正向壓降，Node解析測試已登記。L 10 H、20 mA放电在1.8 V LED上僅約0.1秒，加220 Ω後約0.055秒，因此不能直接替換原燈而期待幾秒漸暗。現有LED外觀只有亮／熄；若日後新增LED示例須補漸暗、限流、方向及必要反向保護，模型仍無永久損坏。
 - 證據：`output/ac-baseline/ac-discharge-led-physics.log`、`ac-discharge-led-inductor.log`、`ac-discharge-lamps-node.log`、`ac-discharge-lamps-browser.log`、`ac-discharge-lamps-check.log`。LED參考來源及具體模型限制見[工作台文件](../docs/circuit-ac-workbench.md#led-放電的可行性)。未重跑全站既有阻塞或真Moodle／實機gate。
+
+### 交流電表外殼精簡（2026-10-10）
+
+- 按使用者要求，移除AC A／V／W實物外殼兩側的額外圓孔；共用socket繪圖仍供其他元件使用，實際接線孔由editor保留。端子、引線、物理、讀值及保存格式不變。
+- source／解壓ZIP元件及電表browser 246 observations通過，涵蓋指針回零／慣性／放大錶盤同步、接線量測及手機預覽。已檢視精簡電流表截圖；四包統一重建。證據：`output/ac-baseline/ac-meter-clean-case.log`、`ac-meter-clean-case-check.log`；外部Moodle及實機未重驗。

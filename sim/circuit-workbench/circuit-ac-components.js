@@ -105,7 +105,7 @@
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';
       return path('M-60 0H-29V24H-9V-6 M9-6V24H29V0H60','#86969f',3)+(on?`<ellipse cy="-17" rx="28" ry="30" fill="${colour}" opacity=".2"/>`:'')+`<path d="M-16-4V-21a16 16 0 0 1 32 0V-4Z" fill="${on?colour:'#b5c1c9'}" stroke="${colour}" stroke-width="2"/><rect x="-20" y="-7" width="40" height="5" rx="2" fill="${colour}" stroke="#667e89"/><path d="M-8-28Q-10-25-10-18" fill="none" stroke="#fff" stroke-width="3" opacity=".8"/>`+text('A',-34,38,10)+text('K',34,38,10);
     }
-    if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-53 M53-20H60 M-60 40H-53 M53 40H60'):path('M-60 0H-53 M53 0H60'))+caseBox(-53,-57,106,134,'#cbdbe8')+'<rect x="-47" y="-51" width="94" height="94" rx="6" fill="#fffaf0" stroke="#8da1ae"/>'+`<g transform="rotate(${-(c.angle||0)})">${meterFace(c,r,d)}</g>`+(c.type==='ac-wattmeter'?socket(-53,-20)+socket(53,-20)+socket(-53,40)+socket(53,40):socket(-53,0)+socket(53,0));
+    if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-53 M53-20H60 M-60 40H-53 M53 40H60'):path('M-60 0H-53 M53 0H60'))+caseBox(-53,-57,106,134,'#cbdbe8')+'<rect x="-47" y="-51" width="94" height="94" rx="6" fill="#fffaf0" stroke="#8da1ae"/>'+`<g transform="rotate(${-(c.angle||0)})">${meterFace(c,r,d)}</g>`;
     return '';
   }
   function render(c,r,d){return `<g data-ac-apparatus="${c.type}" data-ac-view="${d.view==='schematic'?'schematic':'real'}">${d.view==='schematic'?symbol(c,r,d):apparatus(c,r,d)}</g>`;}
