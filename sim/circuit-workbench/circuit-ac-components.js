@@ -22,6 +22,7 @@
     'ac-voltmeter':{bounds:{left:-49,right:49,top:-46,bottom:36},name:'交流電壓表',icon:'V',meter:true,ports:meterPorts,params:{range:number('量程','V',15,.001,1e6,1),resistance:number('輸入電阻（0 為理想）','Ω',0,0,1e12,1000)}},
     'ac-wattmeter':{bounds:{left:-49,right:49,top:-46,bottom:36},name:'交流功率表',icon:'W',meter:true,ports:[{key:'a',x:-60,y:-20,label:'電流輸入端'},{key:'b',x:60,y:-20,label:'電流輸出端'},{key:'c',x:-60,y:40,label:'電壓正端'},{key:'d',x:60,y:40,label:'電壓負端'}],params:{range:number('量程','W',20,.001,1e6,1),resistance:number('電流線圈內阻','Ω',0,0,1e6,.1),inputResistance:number('電壓線圈內阻（0 為理想）','Ω',0,0,1e12,1000)}}
   };
+  for(const [type,quantities]of Object.entries({capacitor:['charge','energy'],inductor:['energy'],transformer:['energy'],generator:['flux']}))types[type].observationQuantities=quantities;
   for(const type of ['ac-source','generator'])Object.assign(types[type].params.frequency,{controlMax:2,controlSpecial:50});
   for(const key of ['primaryTurns','secondaryTurns'])Object.assign(types.transformer.params[key],{slider:true,controlStep:1});
   types['ac-source'].params.waveform.labels={sine:'正弦波',square:'方波',triangle:'三角波'};types.transformer.params.model.labels={ideal:'理想交流',coupled:'線性線圈'};types.spdt.params.closed.labels={b:'充電側',c:'放電側'};types.led.params.colour.labels={red:'紅色',green:'綠色'};

@@ -1,4 +1,4 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-routing'):root.CircuitRouting,node?require('./circuit-renderer'):root.CircuitRenderer);if(typeof module==='object'&&module.exports)module.exports=api;else root.CircuitObservation=api;})(globalThis,function(M,G,V){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-routing'):root.CircuitRouting,node?require('./circuit-renderer'):root.CircuitRenderer,node?require('./component-registry'):root.CircuitRegistry);if(typeof module==='object'&&module.exports)module.exports=api;else root.CircuitObservation=api;})(globalThis,function(M,G,V,R){
   'use strict';
   // ponytail: 512 time bins bound memory even for stiff circuits; more bins if meter accuracy requirements exceed 0.5%.
   class Tracker {
@@ -49,7 +49,7 @@
       if(duration<this.window*(1-1e-6))return {status:'unknown',value:null,peak:null};const centre=area/duration;return {status:'ready',value:r.primitive-centre,peak:Math.max(Math.abs(min-centre),Math.abs(max-centre))};
     }
   }
-  function channels(doc){const options=[];for(const c of doc.components){options.push({key:c.id+':voltage',id:c.id,quantity:'voltage',label:c.label+' · 電壓',unit:'V'},{key:c.id+':current',id:c.id,quantity:'current',label:c.label+' · 電流',unit:'A'});if(c.type==='capacitor')options.push({key:c.id+':charge',id:c.id,quantity:'charge',label:c.label+' · 電荷',unit:'C'});if(['capacitor','inductor','transformer'].includes(c.type))options.push({key:c.id+':energy',id:c.id,quantity:'energy',label:c.label+' · 儲能',unit:'J'});if(c.type==='generator')options.push({key:c.id+':flux',id:c.id,quantity:'flux',label:c.label+' · 磁通量',unit:'Wb'});}return options;}
+  function channels(doc){const names={voltage:['電壓','V'],current:['電流','A'],charge:['電荷','C'],energy:['儲能','J'],flux:['磁通量','Wb']};return doc.components.flatMap(c=>R.observationQuantities(c).map(quantity=>({key:c.id+':'+quantity,id:c.id,quantity,label:c.label+' · '+names[quantity][0],unit:names[quantity][1]})));}
   class Buffer {
     constructor(limit=2048){this.limit=limit;this.points=[];}
     sample(result){this.points.push({time:result.time,values:Object.fromEntries(Object.entries(result.components).map(([id,c])=>[id,{voltage:c.voltage,current:c.current,charge:c.charge,energy:c.energy,flux:c.flux}]))});if(this.points.length>this.limit)this.points.splice(0,this.points.length-this.limit);}
