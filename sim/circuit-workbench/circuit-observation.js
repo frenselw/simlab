@@ -79,13 +79,20 @@
     if(tool.kind==='current')for(const c of doc.components){const path=componentPaths(doc).find(p=>p.component===c.id),p=path?G.nearest(path.points,at):ends.get(c.id+':a');let fraction;if(path){let distance=0;for(let n=0;n<p.segment;n++)distance+=Math.hypot(path.points[n+1].x-path.points[n].x,path.points[n+1].y-path.points[n].y);distance+=Math.hypot(p.x-path.points[p.segment].x,p.y-path.points[p.segment].y);fraction=Math.max(0,Math.min(1,distance/G.length(path.points)));}candidates.push({target:{kind:'component',id:c.id,...(fraction===undefined?{}:{fraction})},position:p,distance:p.distance??Math.hypot(at.x-p.x,at.y-p.y)});}
     return candidates.sort((a,b)=>a.distance-b.distance).find(c=>c.distance*scale<=24&&permitted({...tool,probes:tool.probes.map((p,i)=>i===index?{...p,target:c.target}:p)},doc,allowed))||null;
   }
-  // ponytail: 1024 display bins retain sampled extrema and gaps, independently of RMS integration.
+  function tracePoint(bins,p,width){const at=Math.floor(p.time/width);let b=bins.at(-1);if(!b||b.at!==at){b={at,first:p,last:p,min:p,max:p,gap:p.value===null};bins.push(b);}else{b.last=p;b.gap||=p.value===null;if(p.value!==null){if(b.min.value===null||p.value<b.min.value)b.min=p;if(b.max.value===null||p.value>b.max.value)b.max=p;}}}
+  function tracePoints(bins,begin=-Infinity){return bins.filter(b=>b.last.time>=begin).flatMap(b=>b.gap?[{time:b.first.time,value:null},{time:b.last.time,value:null}]:[...new Map([b.first,b.min,b.max,b.last].map(p=>[p.time+':'+p.value,p])).values()].sort((a,b)=>a.time-b.time));}
+  // ponytail: 8192 history bins cover up to 1000 s; older detail is compacted with extrema/gaps, never used for physical integration.
   class Trace {
-    constructor(span){this.span=span;this.width=span/1024;this.bins=[];this.time=-Infinity;}
-    clear(){this.bins=[];this.time=-Infinity;}
-    sample(time,value){if(time<this.time-1e-10)this.clear();if(time===this.time&&this.bins.at(-1)?.last.value===(Number.isFinite(value)?value:null))return;this.time=time;const at=Math.floor(time/this.width),p={time,value:Number.isFinite(value)?value:null};let bin=this.bins.at(-1);if(!bin||bin.at!==at){bin={at,first:p,last:p,min:p,max:p,gap:p.value===null};this.bins.push(bin);}else{bin.last=p;bin.gap||=p.value===null;if(p.value!==null){if(bin.min.value===null||p.value<bin.min.value)bin.min=p;if(bin.max.value===null||p.value>bin.max.value)bin.max=p;}}
-      while(this.bins.length>1025||this.bins[0]?.last.time<time-this.span-this.width)this.bins.shift();}
-    points(){return this.bins.flatMap(b=>b.gap?[{time:b.first.time,value:null},{time:b.last.time,value:null}]:[...new Map([b.first,b.min,b.max,b.last].map(p=>[p.time+':'+p.value,p])).values()].sort((a,b)=>a.time-b.time));}
+    constructor(span){this.span=span;this.width=span/1024;this.bins=[];this.history=[];this.historyWidth=this.width;this.time=-Infinity;}
+    clear(){this.bins=[];this.history=[];this.historyWidth=this.width;this.time=-Infinity;}
+    sample(time,value){if(time<this.time-1e-10)this.clear();value=Number.isFinite(value)?value:null;if(time===this.time&&this.bins.at(-1)?.last.value===value)return;this.time=time;const p={time,value};tracePoint(this.bins,p,this.width);tracePoint(this.history,p,this.historyWidth);
+      while(this.bins.length>1025||this.bins[0]?.last.time<time-this.span-this.width)this.bins.shift();
+      while(this.history[0]?.last.time<time-1000)this.history.shift();
+      while(this.history.length>8192){const points=tracePoints(this.history);this.historyWidth*=2;this.history=[];for(const p of points)tracePoint(this.history,p,this.historyWidth);}
+    }
+    points(){return tracePoints(this.bins);}
+    setSpan(span){const begin=this.time-span,old=this.points(),fine=this.width<=this.historyWidth,cutoff=old[0]?.time??Infinity,points=[...tracePoints(this.history,begin).filter(p=>!fine||p.time<cutoff),...(fine?old:[])];this.span=span;this.width=span/1024;this.bins=[];for(const p of points)if(p.time>=begin-this.width)tracePoint(this.bins,p,this.width);while(this.bins.length>1025)this.bins.shift();}
+    copy(){const trace=new Trace(this.span);Object.assign(trace,{width:this.width,historyWidth:this.historyWidth,time:this.time,bins:M.clone(this.bins),history:M.clone(this.history)});return trace;}
   }
   return {Tracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
 });

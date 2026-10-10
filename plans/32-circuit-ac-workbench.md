@@ -429,3 +429,12 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - Node AC/platform及transient通過；新增 **240次**跨不同時刻、所有示例的反覆切換、储能連續及每次保存恢復後合法續作，允許浮點roundoff但不放寬物理驗證誤差。生產技術codec各phase的round-trip與byte gates通過。
 - source／解壓ZIP browser **532 observations**通過，含全部示例兩視圖、12個有開關示例的真滑鼠反覆切換、實際paused=false／無診斷／模擬時間前進，以及LC與衰減LC恢復後真觸控切换。时间前進等待遵守每幀運算預算，不要求較慢互感在固定90ms內完成特定物理時間。最新LC兩模式截圖已檢視。
 - 四成品由統一builder核對重建；syntax／manifest及diff通過。證據：`output/ac-baseline/ac-switch-node.log`、`ac-switch-presets.log`、`ac-switch-check.log`。自由搭建的理想空斷線圈等非法接法仍提供真實診斷，外部Moodle／實機及全站既有阻塞仍維持原記錄。
+
+
+### 目前讀值圓點及橫軸擴展保留歷史（2026-10-10）
+
+- 依使用者提供的PhET表達，在電壓／電流等波形末端畫實心圓點，直接讀當下物理解，距右邊界14px；未知／超出Y量尺不画假點。右側為小段未來留白，X軸全寬及時間間隔的比例仍一致，不把圖最右邊當作現在。
+- 原Trace只保留正在觀看的時間窗，拖大時已丟掉舊波形。新增獨立1000秒／8192bin有界歷史，滿額逐步壓縮、保留峰值與缺口；顯示仍最多1025bin。setSpan从歷史及較細的近期資料重畫，不因時間縮小再放大丟資料；預覽複製完整歷史，取消不改權威曲線。未收集區間以淡色及文字說明，不偽造過去資料。
+- 50 Hz帶兩圖驗證發現每次物理取樣都重複JSON複製電路文件；改用共用editor既有viewDocument唯讀視圖，對外onAnalysis仍提供獨立結果副本、權限及權威狀態合約保持。
+- scope Node驗證舊窗擴至20／100秒、反覆縮放、獨立預覽copy、100000取樣的容量／尖峰／未知缺口、1000秒到期及時間重設；transient物理回歸通過。source／ZIP browser **194 observations**通過：實際Canvas圓點與模型U/I及14px間距、未接探頭不留點、收集30秒後真拖動X軸反覆擴至約20秒而左側保持波形、既有mouse/pen/touch／手機／只讀／動態預覽，以及兩圖50 Hz實際時間倍率0.85–1.15範圍。
+- 已檢視圓點、20秒完整歷史及手機大框截圖；syntax／manifest及diff通過。四包統一重建核對，證據：`output/ac-baseline/ac-scope-current-history.log`、`ac-scope-current-history-check.log`。不改物理模型、評分或SCORM；既有全站及外部gate維持。
