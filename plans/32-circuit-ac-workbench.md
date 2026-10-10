@@ -472,3 +472,8 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 新增跨後端0／0.6／3／6／9 V的同燈U／I／P與亮度一致驗證、未知顯示功率處理及直流反接RMS回歸，登記於既有AC平台suite。transient解析、AC平台與240次切換、DC core及112項teaching驗證通過。
 - source／解壓ZIP browser：同燈亮度比較、2 Hz及50 Hz實時84 observations；所有示例及儲能漸暗610；DC共用操作70。2 Hz亮暗測試只用已知功率幀，排除啟動收集時的假暗畫面；已檢視50 Hz截圖。充放電套用共同曲線後餘光下降較慢，延長觀察至足夠時間仍驗證單調漸暗與儲能耗散，不修改示例物理參數。
 - 四包統一重建、syntax／manifest及diff通過；證據為 `output/ac-baseline/ac-unified-lamp-*.log`、`dc-unified-lamp-*.log`。未重跑全站既有阻塞或真Moodle／實機gate；不增加評分、SCORM題目或其他儀表模式。
+
+### 精簡Control Panel量測說明（2026-10-10）
+
+- 移除選取元件後正常讀值下的「量測窗起止秒數；資料來自時間積分」文字；等待提示改為「收集量測中」，電表未接妥提示保留。瞬時量、有效值、平均功率、內部時間積分及公開分析資料均不變。
+- source／解壓ZIP browser 108 observations通過，包含0／3／6／9 V燈選取時的等待提示、完成後有效值保留與技術文字消失、同功率亮度及2／50 Hz實時呈現。驗證在離線前進後重新選取元件以刷新inspector，與使用者選取流程一致；已檢視Control Panel截圖。syntax／manifest及diff通過，四包統一重建；證據：`output/ac-baseline/ac-clean-readings.log`、`ac-clean-readings-check.log`。未重新驗證真Moodle或實機。
