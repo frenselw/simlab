@@ -120,7 +120,7 @@ const result = session.read();
 
 ## SCORM 接入與驗收
 
-兩示例的 `example-state.js` codec version 3 使用緊湊佈局，舊 version 1／2 明確拒絕，避免恢復時默默移動固定元件。教師完整 document／session 保存仍保留原來幾何，沒有自動壓縮。它只保存允許變動的參數及 physics，從 epoch 1 固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
+兩示例的 `example-state.js` codec version 4 使用緊湊佈局，舊 version 1／2／3 明確拒絕，避免恢復時默默移動固定元件。教師完整 document／session 保存仍保留原來幾何，沒有自動壓縮。它只保存允許變動的參數及 physics，從目前版本的固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
 
 正式活動須自己的 rubric、null 答案、definition/model/schema epochs、時序取樣與三種 byte gates；沿用 SimScorm/SimActivityFlow 全生命週期。Pending/review 凍結權威時間；解說 playback 另用副本。高風險評分仍需可信 server。不能直接將任意教師 session 塞入 4000 bytes 或把預設電路算成已作答。
 
@@ -147,4 +147,4 @@ const result = session.read();
 
 方波／三角波與正弦同一電路，改交流源波形即可比較，不重複列在課堂選單；舊create('square'/'triangle')呼叫仍相容。50 Hz預設保留。RC使用充電／放電切換及1000 Ω、1000 μF（約1秒）；電容交流用2000 μF、120 Ω及0.5 Hz，使目前範圍內的亮暗差異可見。斷電自感、互感、LED及RC/RL/LC的分支使用明確接點，不重疊繞線。
 
-LC預設為2000 μF及5 H，理想週期約0.628秒；衰減版本線阻為8 Ω。現有常用範圍的最大週期就是約0.628秒，不能只靠調參取得1–2秒週期；若希望1秒，需例如5 H配約5066 μF或2000 μF配約12.7 H，2秒則需約20264 μF或50.7 H。此次維持已確認的C/L範圍；共用¼速只改觀看速度。互感預設改5 H、2 Ω原線阻、20 Ω放電電阻及50 μA量程，通／斷脈衝均能形成明顯反向偏轉。
+LC預設為2000 μF及5 H，理想週期約0.628秒；C與L始終保持串聯，開關切換經100 Ω電阻充電或LC振盪，來回切換不會把非零電感電流斷路。充電階段是RLC而不是獨立RC，約1秒接近6 V。衰減版本線阻為8 Ω。現有常用範圍的最大週期就是約0.628秒，不能只靠調參取得1–2秒週期；若希望1秒，需例如5 H配約5066 μF或2000 μF配約12.7 H，2秒則需約20264 μF或50.7 H。此次維持已確認的C/L範圍；共用¼速只改觀看速度。互感預設改5 H、2 Ω原線阻、20 Ω放電電阻及50 μA量程，通／斷脈衝均能形成明顯反向偏轉。

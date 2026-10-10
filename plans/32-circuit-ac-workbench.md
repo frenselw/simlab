@@ -419,3 +419,13 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - 完整AC source／ZIP **1258 observations**通過；最後進一步收窄框、修正RC接線及補單指滑片／場示意後，最新 source／ZIP 儀器與連續預覽 **150 observations**、全示例兩視圖／RC/self續作／微小電流 **136 observations**通過。新preset cases也接入既有完整browser入口，沒有只放在臨時腳本。DC source／ZIP快捷參數、拖動／取消、history、權限與恢復 **70 observations**通過；syntax／manifest及diff通過。
 - 已檢視最新超薄圖框、半透明探頭、大框／390/320px、按住源滑塊發熱、所有預設，以及RC正確接線／self反向放電／極小電流無箭頭截圖。測試以可見的控制命中區操作；浮動量測線若覆蓋中央，選未被覆蓋部分驗證原生單指控制。所有四包由統一builder重新核對來源／依賴指紋。
 - 證據：`output/ac-baseline/ac-axis-preview-full.log`、`ac-axis-preview-final.log`、`ac-presets-final.log`、`dc-live-preview-followup.log`、`ac-axis-preview-check.log`。既有全站阻塞及真Moodle／實機gate仍分開記錄；正式AC SCORM题目沒有自行加入。
+
+
+### 示例反覆切換不再暫停（2026-10-10）
+
+- 全部示例以不同運行時間反覆切換排查；問題集中於LC／衰減LC在振盪側切回充電時，原接法把非零電流的電感空斷。舊browser把此診斷當成預期結果，沒有驗收示例能正常來回操作；本次改成所有示例都必須持續播放／無診斷的明確回歸。
+- 只修改兩個LC示例：C/L始終串聯成閉路，SPDT選擇經原100 Ω電阻及直流源充電，或直接LC振盪。充電是RLC過程，原L/C及理想／衰減線阻保持，切換保存電容電壓與電感電流；沒有暗加電阻、清儲能或屏蔽求解器故障。外接線仍無交叉／重疊，元件中央區及端子／有限線長檢查通過。
+- 固定LC配置同用新模板，技術示例codec升至version 4、明確拒絕1／2／3；教師完整文件與session仍保存原電路，不自動改接，modelRevision保持1。C/L範圍沿用已確認值，本次沒有套用尚在討論的擴大範圍。
+- Node AC/platform及transient通過；新增 **240次**跨不同時刻、所有示例的反覆切換、储能連續及每次保存恢復後合法續作，允許浮點roundoff但不放寬物理驗證誤差。生產技術codec各phase的round-trip與byte gates通過。
+- source／解壓ZIP browser **532 observations**通過，含全部示例兩視圖、12個有開關示例的真滑鼠反覆切換、實際paused=false／無診斷／模擬時間前進，以及LC與衰減LC恢復後真觸控切换。时间前進等待遵守每幀運算預算，不要求較慢互感在固定90ms內完成特定物理時間。最新LC兩模式截圖已檢視。
+- 四成品由統一builder核對重建；syntax／manifest及diff通過。證據：`output/ac-baseline/ac-switch-node.log`、`ac-switch-presets.log`、`ac-switch-check.log`。自由搭建的理想空斷線圈等非法接法仍提供真實診斷，外部Moodle／實機及全站既有阻塞仍維持原記錄。
