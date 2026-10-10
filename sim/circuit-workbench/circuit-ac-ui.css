@@ -44,8 +44,9 @@
 .ac-scope-window .ac-scope-resize{position:absolute;right:0;bottom:0;min-width:44px;width:44px;height:44px;padding:20px 0 0 20px;border:0;border-radius:0;background:transparent;cursor:nwse-resize;touch-action:none;z-index:2;font-size:14px}
 .ac-scope-window.collapsed{padding:0}
 .ac-scope-window.collapsed .ac-scope-plot,.ac-scope-window.collapsed .ac-scope-resize{display:none}
-.circuit-editor .ac-scopes .ac-scope-probe{position:absolute;width:44px;height:44px;min-height:44px;padding:0;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;background:#ffffff38;font-weight:700;pointer-events:auto;touch-action:none;cursor:grab}
-.ac-scopes .ac-scope-probe.snap{outline:3px dashed #2563eb;outline-offset:3px}
+.circuit-editor .ac-scopes .ac-scope-probe{position:absolute;display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;transform:translate(-50%,-50%);border:0;border-radius:50%;background:transparent;font-weight:700;pointer-events:auto;touch-action:none;cursor:grab}
+.ac-scopes .ac-scope-probe-face{box-sizing:border-box;display:grid;place-items:center;width:28px;height:28px;border:2px solid currentColor;border-radius:50%;background:#ffffff38;font-size:13px;line-height:1;pointer-events:none}
+.ac-scopes .ac-scope-probe.snap .ac-scope-probe-face{outline:2px dashed #2563eb;outline-offset:2px}
 .ac-scope-dialog{width:min(760px,calc(100vw - 24px));height:min(600px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);padding:4px;overflow:hidden}
 .ac-scope-dialog .ac-scope-window.expanded{position:relative;width:100%;height:100%;box-shadow:none}
 .ac-scope-dialog .ac-scope-title{cursor:default}

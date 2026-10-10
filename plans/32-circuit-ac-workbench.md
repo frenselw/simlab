@@ -446,3 +446,8 @@ N/A：本次沒有已評分 SCO，不提供 raw LMS handling。後續沿用 SimS
 - RC改0.02 F／50 Ω，保留1秒時間常數；電容交流改0.02 F／12 Ω，維持可見頻率差異；LC改0.02 F／5 H及30 Ω充電支路，約2秒充電、週期約1.987秒。0.2 F配10 H可達約8.886秒週期，之前的小範圍限制記錄已由本段取代。示例仍保持合理放電路徑及連續切換。
 - 固定模板技術codec升至5，明確拒絕1–4，避免用新LC參數續算舊模板快照；教師完整document/session保留原參數與幾何。正式AC評分活動仍未新增。
 - transient解析測試包括最大C的RC時間常數、保存恢復續算及最大C/L的LC四分之一週期與能量；配置／codec／240次示例切換、scope Node均通過。source／ZIP browser：元件及真滑塊端點／舊值恢復246 observations、示例532、波形194；DC共用快捷操作70。已檢視0.2 F電容與LC示例截圖。syntax／manifest及diff通過；四包统一重建核對。證據：`output/ac-baseline/ac-expanded-ranges*.log`、`dc-expanded-ranges-followup.log`。全站既有阻塞、外部Moodle及實機gate維持原記錄，這些本地證據不代表外部通過。
+
+### 縮小波形儀器探頭（2026-10-10）
+
+- 電流／電壓探頭圓面由44px改28px、邊線由3px改2px；半透明、標記及吸附提示保持，透明拖動命中區仍44×44px，不改測點、接線、物理或保存格式。
+- source／解壓ZIP的scope browser 194 observations通過，新增外觀28px／命中44px／中心對齊及半透明核對，既有滑鼠、筆、模擬觸控及鍵盤流程保持。已檢視雙儀器截圖；證據：`output/ac-baseline/ac-smaller-probes.log`。四包統一重建；外部Moodle與真手機未重新驗收。

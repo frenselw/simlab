@@ -138,7 +138,7 @@ const result = session.read();
 
 歷史與顯示緩衝分開：保留最多1000秒、8192個歷史時間bin，容量滿時壓縮並保留首／末／極值及缺口；當前視窗仍限制1025個bin。縮放時間軸會從已保留歷史重畫，縮小後再放大亦不丟掉早前資料。探頭重新接測點或重設實驗才清資料；未收集的時間區間以淡色標示，不補造波形。這些曲線不加入權威session或SCORM答案，不影響有效值／功率積分。
 
-滑鼠／筆可拖取儀器，手指點取並保留工具箱捲動。標題方向鍵移框、角落把手方向鍵改大小；探頭方向鍵移動，Enter或雙擊選合法測點。Escape／pointercancel還原未提交UI拖動。只讀仍可觀察／移框，不改電路或已凍結物理時間。
+滑鼠／筆可拖取儀器，手指點取並保留工具箱捲動。探頭圓面直徑28px，外圈2px，保持半透明；透明拖動命中區仍為44×44px，正負／I標記及吸附提示保持。標題方向鍵移框、角落把手方向鍵改大小；探頭方向鍵移動，Enter或雙擊選合法測點。Escape／pointercancel還原未提交UI拖動。只讀仍可觀察／移框，不改電路或已凍結物理時間。
 
 觀察工具不進電路JSON或captureSession；頁面刷新開始fresh。活動若要保存版面可自行保存getObservationTools結果，再用setObservationTools原子驗證，但須自行遵守4000-byte作答封套及活動版本契約，不假定全曲線可存入SCORM。工具格式包含id、kind、x/y、width/height、range、span、probes(position/target/bends)；元件特殊quantity另有channel.id。不同電路載入時移除舊測點；固定活動會按可信指定通道初始化。
 
