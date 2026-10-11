@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 3，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 4，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 3／CW-03-R2及CW-06（2026-10-11）
+## 最近更新：Sites version 4／手機快捷調頻（2026-10-11）
+
+Runtime取自已推送分支提交 `bc286eacad09a1d55b224a3abe97111f40e45305`；修正播放重畫把footer普通觸控視作畫布手勢、因而停用快捷加減按鈕的問題。DC29個／AC38個資產逐byte及SHA-256一致，原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `bdc42496def1cf399d27c2db401b2e5eded668d5` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_0040d802cd5881918c89baae32a8b331` | `appgdep_6acb82642a388191a960d6aa109e2eba` |
+| AC | `053cfbd8f2fec184f5d8e5857e00c70bdca48871` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_c8188cbb4ee4819193168ad6f0027490` | `appgdep_6acb825761f48191abf20c691d13400c` |
+
+兩次原生發布均succeeded。本輪AC source／ZIP快捷觸控672項、DC共用快捷控制72項及3個直接相關Node套件通過；四包來源雜湊一致。部署目錄只做入口跳轉／掛載及桌面手機基本檢查；沒有重跑物理全套、CI、真手機或Moodle。證據在 `output/circuit-quick-response/`，archive為 `output/sites/circuit-dc-workbench-bc286ea.tar.gz`及`output/sites/circuit-ac-workbench-bc286ea.tar.gz`。
+
+## 前次更新：Sites version 3／CW-03-R2及CW-06（歷史記錄）
 
 Runtime取自分支 `codex/optimize-dc-ac-circuit-workbenches` 已推送提交 `6526c3598fe8684ba577bd1e5a47b9d9fa660625`。AC時間後端按獨立動態區塊檢查能量、補上並聯RLC快模式，並驗證及遷移舊v1／v2能量歷史；DC同步同一分支的29個共用資產，AC38個資產逐byte／SHA-256一致。網站發布版本與Session v2／modelRevision1／codec v6是不同版本。
 
@@ -51,7 +62,7 @@ Version 2 archive為 `output/sites/circuit-dc-workbench-8f0b371.tar.gz` 與 `out
 
 後續更新應重用表內project ID，透過Sites source helper打開對應來源庫、更新同一份SimLab資產，再推送、封裝、保存及部署相同來源版本；不要把兩站的identity或repository混用。checkout若遺失，從相同project ID恢復遠端source，不另建重複網站。短期repository credential只經helper stdin傳入，不保存到檔案、Git或本文件。
 
-每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 3記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
+每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 4記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
 
 ## 驗證界限
 
