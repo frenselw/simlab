@@ -199,7 +199,7 @@
           if(parts.length)lines.push({kind:'value',...(['switch','relay'].includes(c.type)?parts[0]:Q.join(parts)),size:valueSize});
         }
       }
-      if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a)),corners=[-70,70].flatMap(x=>[-56,56].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
+      if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a)),corners=[-90,90].flatMap(x=>[-64,64].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
