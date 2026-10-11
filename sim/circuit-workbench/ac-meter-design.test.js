@@ -11,4 +11,11 @@ for(const [type,options,expected]of [['ac-ammeter',{},.5],['ac-ammeter',{reverse
 }
 assert.equal(new Set(P.groups.flatMap(g=>g.keys)).size,Object.keys(P.names).length-1);assert.deepEqual(P.groups.flatMap(g=>g.keys),Object.keys(P.names).filter(k=>k!=='empty'));
 assert(Object.values(P.names).every(name=>name==='空白電路'||name.includes('：')));
-console.log('Compact AC meter vectors, fixed terminals, reversed RMS / signed power, and grouped preset names passed');
+// Screen-sized terminal labels must clear the actual housing at overview zooms and every rotation.
+for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(const scale of [.4,.55,1,1.8]){
+ const d=M.empty('transient'),c=M.add(d,'ac-wattmeter',300,320);c.angle=angle;
+ const body=view==='real'?R.bodyBounds(c):{left:c.x-31,right:c.x+31,top:c.y-31,bottom:c.y+31};
+ const labels=R.ports(c).map(p=>V.portLabel(c,p,scale,view).box),overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+ for(const [i,box]of labels.entries()){assert(!overlap(box,body),`${view}/${angle}/${scale}: terminal label overlaps case`);for(const other of labels.slice(i+1))assert(!overlap(box,other),'terminal labels remain distinct');}
+}
+console.log('Compact AC meter vectors, fixed terminals, reversed RMS / signed power, terminal clearance at four angles/zooms, and grouped preset names passed');

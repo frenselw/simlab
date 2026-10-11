@@ -5,11 +5,14 @@
 })(globalThis,function(M,R,S,AC,O){
   'use strict';
   const clone=M.clone,EPS=1e-12;
+  const MIN_STEP=1e-13;
+  const energySolutions=new WeakMap();
   const keys=(o,names)=>{if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).length!==names.length||names.some(k=>!Object.hasOwn(o,k)))throw new Error('動態快照欄位無效');};
   const finite=(x,min=-1e12,max=1e12)=>{if(!Number.isFinite(x)||x<min||x>max)throw new Error('動態快照數值無效');return x;};
   function union(ids){const p=new Map(ids.map(k=>[k,k]));const find=k=>{let r=k;while(p.get(r)!==r)r=p.get(r);while(k!==r){const n=p.get(k);p.set(k,r);k=n;}return r;};return {find,join(a,b){p.set(find(a),find(b));}};}
-  function signature(doc){return JSON.stringify({components:doc.components.map(c=>[c.id,c.type,c.params]),wires:doc.wires.map(w=>[w.id,w.from,w.to,w.resistance])});}
-  function structural(doc){return JSON.stringify({components:doc.components.map(c=>[c.id,c.type]),wires:doc.wires.map(w=>[w.id,w.from,w.to])});}
+  const byId=(a,b)=>a[0].localeCompare(b[0]);
+  function signature(doc){return JSON.stringify({components:doc.components.map(c=>[c.id,c.type,Object.entries(c.params).sort()]).sort(byId),wires:doc.wires.map(w=>[w.id,w.from,w.to,w.resistance]).sort(byId)});}
+  function structural(doc){return JSON.stringify({components:doc.components.map(c=>[c.id,c.type]).sort(byId),wires:doc.wires.map(w=>[w.id,w.from,w.to]).sort(byId)});}
   function compile(input){
     const doc=AC.toAC(input),ports=M.endpoints(doc),uf=union([...ports.keys()]);
     doc.wires.filter(w=>!w.resistance).forEach(w=>uf.join(w.from,w.to));
@@ -37,20 +40,83 @@
     const nodeKeys=nets.filter(k=>!references.includes(k)),index=new Map(nodeKeys.map((k,i)=>[k,i])),n=nodeKeys.length+edges.length;
     edges.forEach((e,i)=>e.index=nodeKeys.length+i);
     const diff=(a,b)=>{const d=Array(n).fill(0);if(index.has(a))d[index.get(a)]++;if(index.has(b))d[index.get(b)]--;return d;};
-    const dynamic=edges.filter(e=>['capacitor','inductor'].includes(e.kind)),period=sources.length?1/sources[0].c.params.frequency: (()=>{const c=dynamic.find(e=>e.C),l=dynamic.find(e=>e.L);return c&&l?AC.TAU*Math.sqrt(c.C*l.L):1;})();
+    const dynamic=edges.filter(e=>['capacitor','inductor'].includes(e.kind));
+    // Electrical islands stay isolated for voltage probes. Magnetic coupling also
+    // joins their measurement dependencies, without joining electrical references.
+    const domains=union(nets);for(const e of edges)domains.join(e.a,e.b);for(const t of transformers)domains.join(t.a,t.other.a);
+    const rootsOf=component=>[...new Set(R.localPorts(component).map(p=>domains.find(netOf[component.id+':'+p.key])))].sort();
+    const policies=new Map(),cache=new Map();
+    function policy(roots){
+      const key=JSON.stringify(roots);if(cache.has(key))return cache.get(key);
+      const includes=net=>roots.includes(domains.find(net)),members=doc.components.filter(c=>rootsOf(c).some(root=>roots.includes(root))),wires=doc.wires.filter(w=>includes(netOf[w.from])||includes(netOf[w.to]));
+      const cs=dynamic.filter(e=>e.C&&includes(e.a)),ls=dynamic.filter(e=>e.L&&includes(e.a)),natural=cs.length===1&&ls.length===1?AC.TAU*Math.sqrt(cs[0].C*ls[0].L):null;
+      const selected=O.measurementWindow(sources.filter(e=>includes(e.a)).map(e=>e.c.params.frequency),natural);selected.sourceCount=edges.filter(e=>e.kind==='source'&&includes(e.a)).length;
+      selected.key=JSON.stringify({components:members.map(c=>[c.id,c.type,Object.entries(c.params).sort()]).sort((a,b)=>a[0].localeCompare(b[0])),wires:wires.map(w=>[w.id,w.from,w.to,w.resistance]).sort((a,b)=>a[0].localeCompare(b[0])),window:selected.window,kind:selected.windowKind});cache.set(key,selected);return selected;
+    }
+    for(const component of doc.components){const p=policy(rootsOf(component));policies.set(component.id,p);if(component.type==='transformer')policies.set(component.id+'~secondary',p);}
+    for(const wire of doc.wires)policies.set('wire:'+wire.id,policy([...new Set([domains.find(netOf[wire.from]),domains.find(netOf[wire.to])])].sort()));
+    const selectedPolicies=[...policies.values()],windows=[...new Set(selectedPolicies.map(p=>p.window))],period=selectedPolicies.length&&selectedPolicies.every(p=>p.period!==null&&p.period===selectedPolicies[0].period)?selectedPolicies[0].period:null,samplingPeriod=windows.length?Math.min(...windows):1;
     // Algebraic circuits need waveform quadrature, not stored-energy error estimates.
     const samples=dynamic.length?128:32;
-    let maxStep=Math.min(.02,period/samples);for(const source of sources)maxStep=Math.min(maxStep,1/source.c.params.frequency/samples);
+    let maxStep=Math.min(.02,samplingPeriod/samples);for(const source of sources)maxStep=Math.min(maxStep,1/source.c.params.frequency/samples);
     const cs=dynamic.filter(e=>e.C),ls=dynamic.filter(e=>e.L);if(cs.length&&ls.length)maxStep=Math.min(maxStep,AC.TAU*Math.sqrt(Math.min(...cs.map(e=>e.C))*Math.min(...ls.map(e=>e.L)))/128);
     const adjacency=new Map([...ports.keys()].map(p=>[p,[]]));for(const w of doc.wires.filter(w=>!w.resistance)){adjacency.get(w.from).push({to:w.to,id:w.id});adjacency.get(w.to).push({to:w.from,id:w.id});}
     // Compile ideal-wire cuts once. A cycle current is unidentifiable, never a chosen zero.
-    const cuts=new Map();for(const w of doc.wires.filter(w=>!w.resistance)){const seen=new Set([w.from]),todo=[w.from];while(todo.length){const at=todo.pop();for(const e of adjacency.get(at))if(e.id!==w.id&&!seen.has(e.to)){seen.add(e.to);todo.push(e.to);}}if(seen.has(w.to)){cuts.set(w.id,null);continue;}const d=Array(n).fill(0);for(const e of edges){if(seen.has(e.pa))d[e.index]--;if(seen.has(e.pb))d[e.index]++;}cuts.set(w.id,d);}
+    const injections=new Map([...ports.keys()].map(p=>[p,{coeff:Array(n).fill(0)}])),netPorts=new Map(nets.map(net=>[net,[...ports.keys()].filter(p=>netOf[p]===net)]));for(const e of edges){injections.get(e.pa).coeff[e.index]++;injections.get(e.pb).coeff[e.index]--;}
+    const cuts=new Map();for(const w of doc.wires.filter(w=>!w.resistance)){const seen=new Set([w.from]),todo=[w.from];while(todo.length){const at=todo.pop();for(const e of adjacency.get(at))if(e.id!==w.id&&!seen.has(e.to)){seen.add(e.to);todo.push(e.to);}}if(seen.has(w.to)){cuts.set(w.id,null);continue;}cuts.set(w.id,S.cutExpressions(netPorts.get(netOf[w.from]),seen,n,p=>injections.get(p)));}
     const connections=Object.fromEntries(doc.components.filter(R.isMeter).map(c=>[c.id,Object.fromEntries(R.localPorts(c).map(p=>[p.key,M.degree(doc,c.id+':'+p.key)>0]))]));
     const invalidDC=transformers.some(e=>e.kind==='ideal-primary'&&edges.some(s=>s.c.type==='battery'&&[islands.find(e.a),islands.find(e.other.a)].includes(islands.find(s.a))));
-    return {doc,ports,netOf,islands,index,n,edges,dynamic,sources,period,maxStep,diff,cuts,invalidDC,references,connections};
+    const compiled={doc,ports,netOf,islands,index,n,edges,dynamic,sources,period,policies,maxStep,diff,cuts,invalidDC,references,connections};
+    const scales=dynamic.map(e=>{const resistance=passiveResistance(compiled,e),time=e.C?resistance>0?e.C*resistance:Infinity:e.L*Math.max(1e-9,e.other?1-e.c.params.coupling:1)/(resistance+e.resistance);e.startStep=Number.isFinite(time)&&time>0?time/16:Infinity;return e.startStep;});
+    compiled.initialStep=Math.min(maxStep/8,...scales);return compiled;
   }
-  function initial(c){const dynamic={};for(const e of c.dynamic){const p=e.c.params;dynamic[e.id]={i:e.C?0:e.c.type==='transformer'?(e.pa.endsWith(':a')?p.initialPrimaryCurrent:p.initialSecondaryCurrent):p.initialCurrent,v:e.C?p.initialVoltage:0};}return {time:0,step:c.maxStep/8,sources:Object.fromEntries(c.sources.map(e=>[e.c.id,AC.wrap(e.c.params.phase*Math.PI/180)])),dynamic,work:0,dissipated:0,event:true};}
+  // Driving-point resistance with independent sources suppressed. A remote
+  // high-impedance meter must not become a fictitious series resistance in L/R.
+  function passiveResistance(c,target){
+    const uf=union([...new Set(Object.values(c.netOf))]),resistors=[];
+    for(const e of c.edges){if(e===target)continue;
+      const short=e.kind==='capacitor'&&!target.C||['source','resistor','led'].includes(e.kind)&&e.resistance===0||e.kind==='inductor'&&target.C&&e.resistance===0;
+      if(short)uf.join(e.a,e.b);else if(e.resistance>0&&(['source','resistor','led'].includes(e.kind)||e.kind==='inductor'&&target.C))resistors.push(e);
+    }
+    const a=uf.find(target.a),b=uf.find(target.b);if(a===b)return 0;
+    const adjacency=new Map();for(const e of resistors){const x=uf.find(e.a),y=uf.find(e.b);if(x===y)continue;for(const [from,to]of [[x,y],[y,x]]){if(!adjacency.has(from))adjacency.set(from,[]);adjacency.get(from).push({to,g:1/e.resistance});}}
+    const seen=new Set([a]),pending=[a];while(pending.length)for(const e of adjacency.get(pending.pop())||[])if(!seen.has(e.to)){seen.add(e.to);pending.push(e.to);}if(!seen.has(b))return Infinity;
+    const nodes=[...seen].filter(x=>x!==a&&x!==b),index=new Map(nodes.map((x,i)=>[x,i])),matrix=nodes.map(()=>Array(nodes.length).fill(0)),rhs=nodes.map(()=>0);
+    for(const [x,i]of index)for(const {to,g}of adjacency.get(x)){matrix[i][i]+=g;if(index.has(to))matrix[i][index.get(to)]-=g;else if(to===a)rhs[i]+=g;}
+    const solution=S.linear(matrix,rhs);if(solution.error)return Infinity;
+    const current=(adjacency.get(a)||[]).reduce((sum,{to,g})=>sum+g*(1-(to===b?0:solution.x[index.get(to)])),0);return current>0?1/current:Infinity;
+  }
+  function initial(c){const dynamic={};for(const e of c.dynamic){const p=e.c.params;dynamic[e.id]={i:e.C?0:e.c.type==='transformer'?(e.pa.endsWith(':a')?p.initialPrimaryCurrent:p.initialSecondaryCurrent):p.initialCurrent,v:e.C?p.initialVoltage:0};}return {time:0,step:Math.max(MIN_STEP,c.initialStep),sources:Object.fromEntries(c.sources.map(e=>[e.c.id,AC.wrap(e.c.params.phase*Math.PI/180)])),dynamic,work:0,dissipated:0,event:true};}
+  function eventStep(c,result){
+    const active=new Set();
+    for(const e of c.dynamic){const b=result.components[e.c.id].branches.find(b=>b.from===e.pa&&b.to===e.pb),rate=e.C?b.current:Number.isFinite(b.voltage)&&Number.isFinite(b.current)?b.voltage-e.resistance*b.current:null;if(!Number.isFinite(rate)||rate!==0)active.add(c.policies.get(e.c.id).key);}
+    for(const e of c.sources)if(e.c.type==='generator'?e.c.params.field>0:e.c.params.voltage>0)active.add(c.policies.get(e.c.id).key);
+    // A passive equilibrium has no fast transition to resolve. Unrelated AC
+    // excitation cannot make its zero/current-balanced state unrepresentable.
+    return Math.min(c.maxStep/8,...c.dynamic.filter(e=>active.has(c.policies.get(e.c.id).key)).map(e=>e.startStep));
+  }
   function phaseAt(c,state,e,h){return AC.wrap(state.sources[e.c.id]+AC.TAU*e.c.params.frequency*h);}
+  function sourceSlope(c,state){
+    if(c.type==='battery')return 0;const p=c.params,angle=state.sources[c.id],omega=AC.TAU*p.frequency;
+    if(c.type==='generator')return p.turns*p.field*p.area*omega*omega*Math.cos(angle);
+    if(p.waveform==='square')return 0;
+    if(p.waveform==='triangle'){const right=AC.wrap(angle+1e-11);return 4*p.frequency*p.voltage*Math.sqrt(3)*(right<Math.PI/2||right>=3*Math.PI/2?1:-1);}
+    return p.voltage*Math.SQRT2*omega*Math.cos(angle);
+  }
+  function initialSolution(c,state){
+    const solution=solve(c,state);if(solution.error||!c.dynamic.length)return solution;
+    // Differentiate the algebraic constraints once. This identifies capacitor
+    // currents at an ideal voltage source without choosing arbitrary zero histories.
+    const size=c.n,byRow=new Map(c.edges.map(e=>[e.index,e])),matrix=solution.A.map(row=>[...row,...Array(size).fill(0)]),rhs=[...solution.b];
+    for(let i=0;i<size;i++){const row=Array(2*size).fill(0),e=byRow.get(i);let value=0;
+      if(e?.C){const d=c.diff(e.a,e.b);for(let j=0;j<size;j++)row[size+j]=d[j];row[e.index]=-1/e.C;}
+      else if(e?.kind==='inductor'){const d=c.diff(e.a,e.b);for(let j=0;j<size;j++)row[j]=d[j];row[e.index]-=e.resistance;row[size+e.index]-=e.L;if(e.other)row[size+e.other.index]-=e.mutual;}
+      else{for(let j=0;j<size;j++)row[size+j]=solution.A[i][j];if(e?.kind==='source')value=sourceSlope(e.c,state);}
+      matrix.push(row);rhs.push(value);
+    }
+    const consistent=S.linear(matrix,rhs);if(consistent.error)return solution;
+    const estimate=(d,constant=0)=>S.estimateLinear(consistent,d,constant,1e-10),identify=d=>S.reading(estimate(d));return {...consistent,A:solution.A,b:solution.b,estimate,identify};
+  }
   function solve(c,state,h=0,method='trap',left=false,history=false){
     if(c.invalidDC)return {error:'dc-transformer'};
     const active=new Map(c.edges.filter(e=>e.kind==='led').map(e=>[e.id,true]));let answer;
@@ -73,14 +139,14 @@
       }
       if(history){const extra=c.dynamic.length,total=c.n+extra;for(const row of A)row.push(...Array(extra).fill(0));for(const e of c.dynamic){const row=Array(total).fill(0);if(e.C){row[e.index]=1;b.push(state.dynamic[e.id].i);}else{const d=c.diff(e.a,e.b);for(let j=0;j<c.index.size;j++)row[j]=d[j];row[e.index]-=e.resistance;b.push(state.dynamic[e.id].v);}A.push(row);}}
       const s=S.linear(A,b);if(s.error)return s;
-      const identify=d=>{if(s.nullspace.some(v=>Math.abs(d.reduce((a,x,i)=>a+x*v[i],0))>1e-10*Math.max(1,...d.map(Math.abs))))return null;const value=d.reduce((a,x,i)=>a+x*s.x[i],0),noise=d.reduce((a,x,i)=>a+Math.abs(x)*s.roundoff[i],0);return Math.abs(value)<=noise?0:value;};
-      answer={...s,identify,A,b};let changed=false;
+      const estimate=(d,constant=0)=>S.estimateLinear(s,d,constant,1e-10),identify=d=>S.reading(estimate(d));
+      answer={...s,identify,estimate,A,b};let changed=false;
       for(const e of c.edges.filter(e=>e.kind==='led')){const v=identify(c.diff(e.a,e.b)),i=s.x[e.index],next=active.get(e.id)?i>0:v!==null&&v>e.c.params.forwardVoltage+1e-10;if(next!==active.get(e.id)){active.set(e.id,next);changed=true;}}
       if(!changed)return answer;
     }
     return {error:'convergence'};
   }
-  const errors={inconsistent:'理想電源、電容電壓或線圈電流條件互相矛盾；請加入明確的電阻／放電路徑或改接線。',numerical:'數值未得到可靠解，模擬已暫停。',convergence:'元件模型未能收斂，模擬已暫停。','dc-transformer':'理想交流變壓器不支援直流激勵；請改用線性線圈模型。',continuity:'儲能狀態無法唯一確定，模擬已暫停。'};
+  const errors={inconsistent:'理想電源、電容電壓或線圈電流條件互相矛盾；請加入明確的電阻／放電路徑或改接線。',numerical:'數值未得到可靠解，模擬已暫停。',convergence:'元件模型未能收斂，模擬已暫停。','dc-transformer':'理想交流變壓器不支援直流激勵；請改用線性線圈模型。',continuity:'儲能狀態無法唯一確定，模擬已暫停。','time-resolution':'暫態變化快過可可靠解析的時間尺度，模擬已暫停；請調整元件參數，放慢暫態。','energy-balance':'能量平衡未能達到可靠容差，模擬已暫停。'};
   function energy(c,state){let value=0;for(const e of c.dynamic)value+=e.C?.5*e.C*state.dynamic[e.id].v**2:.5*e.L*state.dynamic[e.id].i**2;for(const e of c.edges.filter(e=>e.other&&e.kind==='inductor'&&e.pa.endsWith(':a')))value+=e.mutual*state.dynamic[e.id].i*state.dynamic[e.other.id].i;return value;}
   function read(c,state,solution){
     const ident=solution.error?()=>null:solution.identify,voltage=(a,b)=>{if(!c.ports.has(a)||!c.ports.has(b)||c.islands.find(c.netOf[a])!==c.islands.find(c.netOf[b]))return null;return ident(c.diff(c.netOf[a],c.netOf[b]));};
@@ -105,56 +171,71 @@
       }
       components[component.id]=entry;
     }
-    for(const wire of c.doc.wires){const edge=branches.get(wire.id)?.[0],cut=c.cuts.get(wire.id);wires[wire.id]={...(edge||{}),current:wire.resistance?edge.current:cut?ident(cut):null,voltage:voltage(wire.from,wire.to),potential:potentials[wire.from],potentialTo:potentials[wire.to],resistance:wire.resistance,power:wire.resistance?edge.power:solution.error?null:0,cyclic:!wire.resistance&&!cut};}
+    for(const wire of c.doc.wires){const edge=branches.get(wire.id)?.[0],cut=c.cuts.get(wire.id);wires[wire.id]={...(edge||{}),current:wire.resistance?edge.current:cut&&!solution.error?S.reading(S.bestCut(cut,solution.estimate)):null,voltage:voltage(wire.from,wire.to),potential:potentials[wire.from],potentialTo:potentials[wire.to],resistance:wire.resistance,power:wire.resistance?edge.power:solution.error?null:0,cyclic:!wire.resistance&&!cut};}
     const hazardWires={},hazardComponents={};
     for(const component of c.doc.components){const r=components[component.id];if(component.type==='capacitor'&&Number.isFinite(r.voltage)&&Math.abs(r.voltage)>component.params.rating){hazardComponents[component.id]='overload';diagnostics.push({code:'capacitor-rating',component:component.id,message:component.label+'瞬時電壓超過耐壓值；本模型只提示，未模擬擊穿。'});}}
     const residual=solution.error?null:Math.max(0,...solution.b.map((b,i)=>Math.abs(solution.A[i].reduce((sum,x,j)=>sum+x*solution.x[j],0)-b)/Math.max(1,Math.abs(b))));
-    return {mode:'transient',time:state.time,period:c.period,components,wires,potentials,islandOf,references:c.references.map(net=>({island:c.islands.find(net),endpoint:[...c.ports.keys()].find(p=>c.netOf[p]===net),voltage:0})),diagnostics,residual,voltage,energy:energy(c,state),sourceWork:state.work,dissipatedEnergy:state.dissipated,hazards:{wires:hazardWires,components:hazardComponents,short:false,overload:!!Object.keys(hazardWires).length||!!Object.keys(hazardComponents).length}};
+    const result={mode:'transient',reliable:!solution.error,time:state.time,period:c.period,components,wires,potentials,islandOf,references:c.references.map(net=>({island:c.islands.find(net),endpoint:[...c.ports.keys()].find(p=>c.netOf[p]===net),voltage:0})),diagnostics,residual,voltage,energy:energy(c,state),sourceWork:solution.error?null:state.work,dissipatedEnergy:solution.error?null:state.dissipated,hazards:{wires:hazardWires,components:hazardComponents,short:false,overload:!!Object.keys(hazardWires).length||!!Object.keys(hazardComponents).length}};
+    if(!solution.error)energySolutions.set(result,{estimate:solution.estimate,emfs:solution.b});return result;
   }
   function derive(c,state,solution){const next=clone(state);for(const e of c.dynamic){const coeff=Array(c.n).fill(0);coeff[e.index]=1;const i=solution.identify(coeff),v=solution.identify(c.diff(e.a,e.b));if((e.C?v:i)===null)throw new Error('continuity');next.dynamic[e.id]={i:i??state.dynamic[e.id].i,v:e.C?v:v===null?state.dynamic[e.id].v:v-e.resistance*i};}return next;}
   function one(c,state,h,method,left){const s=solve(c,state,h,method,left);if(s.error)return {error:s.error};let next;try{next=derive(c,state,s);}catch(_){return {error:'continuity'};}next.time+=h;for(const e of c.sources)next.sources[e.c.id]=phaseAt(c,state,e,h);next.event=false;return {state:next,result:read(c,next,s)};}
-  function loss(c,result){return c.edges.reduce((sum,e)=>{const b=result.components[e.c.id]?.branches?.find(b=>b.from===e.pa&&b.to===e.pb)||result.wires[e.c.id];if(!Number.isFinite(b?.current))return sum;return sum+(e.kind==='led'?Math.max(0,b.power):e.resistance*b.current*b.current);},0);}
-  function supply(c,result){return c.edges.filter(e=>e.kind==='source').reduce((sum,e)=>sum+(result.components[e.c.id].sourcePower??0),0);}
-  function accumulate(c,old,next,h){next.state.work=old.sourceWork+h*(supply(c,old)+supply(c,next.result))/2;next.state.dissipated=old.dissipatedEnergy+h*(loss(c,old)+loss(c,next.result))/2;next.result.sourceWork=next.state.work;next.result.dissipatedEnergy=next.state.dissipated;}
+  function accumulate(c,old,next,h){
+    const branch=(result,e)=>result.components[e.c.id]?.branches?.find(b=>b.from===e.pa&&b.to===e.pb)||result.wires[e.c.id],before=energySolutions.get(old),after=energySolutions.get(next.result),power=Array(c.n).fill(0);let loss=0;
+    for(const e of c.edges){if(e.kind==='source')power[e.index]=-(before.emfs[e.index]+after.emfs[e.index])/2;
+      if(!e.resistance&&e.kind!=='led')continue;const a=branch(old,e),b=branch(next.result,e);if(!Number.isFinite(a?.current)||!Number.isFinite(b?.current))return Infinity;const i=(a.current+b.current)/2;
+      loss+=h*(e.resistance*i*i+(e.kind==='led'?e.c.params.forwardVoltage*Math.max(0,i):0));
+    }
+    // Total source work can be identifiable even when equal parallel ideal
+    // sources have individually ambiguous currents. Keep their weighted cut.
+    const p0=S.reading(before.estimate(power)),p1=S.reading(after.estimate(power));if(p0===null||p1===null)return Infinity;const work=h*(p0+p1)/2;
+    // Midpoint products match the trapezoidal companion equations. Endpoint
+    // squared-current powers would add a large fictitious loss across a fast step.
+    const defect=next.result.energy-old.energy+loss-work,scale=Math.max(old.energy,next.result.energy,Math.abs(work-loss)),tolerance=1e-14+1e-5*scale+256*Number.EPSILON*(Math.abs(work)+loss+scale);
+    next.state.work=old.sourceWork+work;next.state.dissipated=old.dissipatedEnergy+loss;next.result.sourceWork=next.state.work;next.result.dissipatedEnergy=next.state.dissipated;return Math.abs(defect)/tolerance;
+  }
+  function energyBalance(c,state){const initialEnergy=energy(c,initial(c)),stored=energy(c,state),residual=stored+state.dissipated-initialEnergy-state.work,tolerance=1e-10+1e-3*Math.max(initialEnergy,Math.abs(state.work),stored+state.dissipated);return {initial:initialEnergy,source:state.work,stored,dissipated:state.dissipated,residual,tolerance,status:Math.abs(residual)<=tolerance?'reliable':'unreliable'};}
   function breakpoint(c,state){let duration=Infinity;for(const e of c.sources){const p=e.c.params;if(e.c.type!=='ac-source'||p.waveform==='sine')continue;const shift=p.waveform==='triangle'?Math.PI/2:0,angle=state.sources[e.c.id],at=AC.wrap(angle-shift)%Math.PI,remaining=Math.PI-at;duration=Math.min(duration,(remaining<1e-9?Math.PI:remaining)/(AC.TAU*p.frequency));}return duration;}
   class Session {
-    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.Tracker(this.compiled.period);this.visualTracker=new O.Tracker(.02);this.coreTracker=new O.CoreFluxTracker(this.compiled.period);this.fault=null;this.project();this.tracker.sample(this.result);this.visualTracker.sample(this.result);this.coreTracker.sample(this.result);}
-    project(){const s=solve(this.compiled,this.state);this.fault=s.error||null;if(!s.error){try{this.state=derive(this.compiled,this.state,s);}catch(_){/* Initial open branches can have unknown derivatives, not unknown stored values. */}}this.result=read(this.compiled,this.state,s);return this.result;}
-    read(){this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.tracker.measure(c.id)]));
-      for(const c of this.doc.components){const r=this.result.components[c.id],q=this.result.measurements[c.id];r.currentPeak=q.status==='ready'?q.currentPeak:null;r.voltagePeak=q.status==='ready'?q.voltagePeak:null;if(c.type==='transformer'){if(c.params.model==='ideal'){const flux=this.coreTracker.measure(c.id);r.coreFlux=flux.value;r.coreFluxPeak=flux.peak;r.coreFluxStatus=flux.status;}const secondary=this.tracker.measure(c.id+'~secondary');r.secondaryCurrentPeak=secondary.status==='ready'?secondary.currentPeak:null;}if(c.type.startsWith('ac-')&&R.isMeter(c)){const connected=(c.type==='ac-wattmeter'?['a','b','c','d']:['a','b']).every(k=>this.compiled.connections[c.id][k]);r.reading=connected&&q.status==='ready'?c.type==='ac-ammeter'?q.currentRms:c.type==='ac-voltmeter'?q.voltageRms:q.averagePower:null;r.meterStatus=!connected?'unconnected':q.status==='ready'?Number.isFinite(r.reading)?Math.abs(r.reading)>r.range?'overrange':'normal':'unknown':q.status;}
-        if(c.type==='lamp'){const visual=this.visualTracker.measure(c.id),warning=this.compiled.sources.length?q:visual;r.displayPower=visual.status==='ready'?Math.max(0,visual.averagePower):null;// Before a full window, only strong overloads exceeding the three-waveform crest bound use short-window evidence.
-          if((warning.status==='ready'?warning.averagePower:visual.status==='ready'?visual.averagePower/3:null)>S.hazardLimits.lampRatio*c.params.ratedVoltage**2/c.params.resistance)this.result.hazards.components[c.id]='overload';else delete this.result.hazards.components[c.id];}
+    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.fault=null;this.project();this.tracker.sample(this.result);this.visualTracker.sample(this.result);this.coreTracker.sample(this.result);}
+    project({initialise=this.state.event,history=!this.state.event}={}){const s=initialise?initialSolution(this.compiled,this.state):solve(this.compiled,this.state,0,'trap',false,history);this.fault=s.error||null;if(!s.error){try{this.state=derive(this.compiled,this.state,s);}catch(_){/* Initial open branches can have unknown derivatives, not unknown stored values. */}}this.result=read(this.compiled,this.state,s);return this.result;}
+    read(){this.result.energyBalance=energyBalance(this.compiled,this.state);if(this.fault)this.result.energyBalance.status='unreliable';this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.fault?{...this.tracker.measure(c.id),status:'unknown',voltageRms:null,currentRms:null,averagePower:null,voltagePeak:null,currentPeak:null}:this.tracker.measure(c.id)]));
+      for(const c of this.doc.components){const r=this.result.components[c.id],q=this.result.measurements[c.id];r.currentPeak=q.status==='ready'?q.currentPeak:null;r.voltagePeak=q.status==='ready'?q.voltagePeak:null;if(c.type==='transformer'){if(c.params.model==='ideal'){const flux=this.coreTracker.measure(c.id),policy=this.compiled.policies.get(c.id);r.coreFluxWindow=policy.window;r.coreFluxWindowKind=policy.windowKind;r.coreFluxFrequencies=policy.frequencies;r.coreFlux=flux.value;r.coreFluxPeak=flux.peak;r.coreFluxStatus=flux.status;}const secondary=this.tracker.measure(c.id+'~secondary');r.secondaryCurrentPeak=!this.fault&&secondary.status==='ready'?secondary.currentPeak:null;}if(c.type.startsWith('ac-')&&R.isMeter(c)){const connected=(c.type==='ac-wattmeter'?['a','b','c','d']:['a','b']).every(k=>this.compiled.connections[c.id][k]);r.reading=connected&&q.status==='ready'?c.type==='ac-ammeter'?q.currentRms:c.type==='ac-voltmeter'?q.voltageRms:q.averagePower:null;r.meterStatus=!connected?'unconnected':q.status==='ready'?Number.isFinite(r.reading)?Math.abs(r.reading)>r.range?'overrange':'normal':'unknown':q.status;}
+        if(c.type==='lamp'){const visual=this.visualTracker.measure(c.id),warning=q.frequencies.length?q:visual;r.displayPower=visual.status==='ready'?Math.max(0,visual.averagePower):null;// Before a full window, only strong overloads exceeding the three-waveform crest bound use short-window evidence.
+          if(!this.fault&&(warning.status==='ready'?warning.averagePower:visual.status==='ready'&&q.sourceCount<=1?visual.averagePower/3:null)>S.hazardLimits.lampRatio*c.params.ratedVoltage**2/c.params.resistance)this.result.hazards.components[c.id]='overload';else delete this.result.hazards.components[c.id];}
       }
-      for(const w of this.doc.wires){const measured=this.tracker.measure('wire:'+w.id);this.result.wires[w.id].currentPeak=measured.status==='ready'?measured.currentPeak:null;const q=this.compiled.sources.length?measured:this.visualTracker.measure('wire:'+w.id);if(q.status==='ready'&&q.currentRms>S.hazardLimits.current)this.result.hazards.wires[w.id]='overload';else delete this.result.hazards.wires[w.id];}
+      for(const w of this.doc.wires){const measured=this.tracker.measure('wire:'+w.id);this.result.wires[w.id].currentPeak=!this.fault&&measured.status==='ready'?measured.currentPeak:null;const q=measured.frequencies.length?measured:this.visualTracker.measure('wire:'+w.id);if(!this.fault&&q.status==='ready'&&q.currentRms>S.hazardLimits.current)this.result.hazards.wires[w.id]='overload';else delete this.result.hazards.wires[w.id];}
       this.result.hazards.overload=!!Object.keys(this.result.hazards.wires).length||!!Object.keys(this.result.hazards.components).length;return this.result;
     }
     subscribe(fn){if(typeof fn!=='function')throw new TypeError('分析訂閱需要函數');this.listeners.add(fn);return()=>this.listeners.delete(fn);}
     emit(result){this.tracker.sample(result);this.visualTracker.sample(result);this.coreTracker.sample(result);for(const fn of this.listeners)fn(result);}
     advance(duration,{budget=Infinity}={}){
-      finite(duration,0,1e9);const start=this.state.time,target=start+duration,clock=performance.now();let steps=0;
-      while(this.state.time<target-EPS&&!this.fault){if(performance.now()-clock>budget)break;const c=this.compiled,breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,target-this.state.time,breakAt),atEvent=Math.abs(h-breakAt)<EPS,method=this.state.event?'be':'trap';
-        if(h<1e-13){this.fault='numerical';break;}
+      finite(duration,0,1e9);const start=this.state.time,target=start+duration,timeTolerance=Math.max(8*Number.EPSILON*Math.max(Math.abs(start),Math.abs(target)),Math.min(EPS,duration*1e-10)),clock=performance.now();let steps=0;if(duration>0&&target===start)this.fault='time-resolution';
+      while(this.state.time<target-timeTolerance&&!this.fault){if(performance.now()-clock>budget)break;const c=this.compiled,startStep=this.state.event?eventStep(c,this.result):Infinity;if(this.state.event&&c.initialStep<MIN_STEP&&startStep>=MIN_STEP)this.state.step=Math.max(this.state.step,startStep);const breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,startStep,target-this.state.time,breakAt),atEvent=Math.abs(h-breakAt)<Math.min(EPS,h*1e-8),method=this.state.event?'be':'trap';
+        if(h<MIN_STEP||this.state.time+h===this.state.time){this.fault='time-resolution';break;}
         const half=one(c,this.state,h/2,method,false),second=half.error?half:one(c,half.state,h/2,method,atEvent),whole=c.dynamic.length?one(c,this.state,h,method,atEvent):second;
         if(whole.error||second.error){this.state.step=h/2;if(this.state.step<1e-12){this.fault=whole.error||second.error;break;}continue;}
         let error=0;for(const e of c.dynamic){const key=e.C?'v':'i',a=whole.state.dynamic[e.id][key],b=second.state.dynamic[e.id][key],old=this.state.dynamic[e.id][key];error=Math.max(error,Math.abs(a-b)/((e.C?1e-8:1e-11)+1e-5*Math.max(Math.abs(a),Math.abs(b),Math.abs(old))));}
-        if(error>1){this.state.step=h*Math.max(.15,.8*error**(-1/(method==='be'?2:3)));continue;}
-        accumulate(c,this.result,half,h/2);accumulate(c,half.result,second,h/2);this.state=half.state;this.result=half.result;this.emit(half.result);this.state=second.state;this.result=second.result;this.emit(second.result);this.state.step=Math.min(c.maxStep,h*Math.min(2,error?.9*error**(-1/(method==='be'?2:3)):2));steps++;
+        const energyError=Math.max(accumulate(c,this.result,half,h/2),accumulate(c,half.result,second,h/2));error=Math.max(error,energyError);
+        if(error>1){this.state.step=h*Math.max(.15,.8*error**(-1/(method==='be'?2:3)));if(this.state.step<MIN_STEP){this.fault=energyError>1?'energy-balance':'time-resolution';break;}continue;}
+        if(energyBalance(c,second.state).status!=='reliable'){this.state.step=h/2;if(this.state.step<MIN_STEP){this.fault='energy-balance';break;}continue;}
+        this.state=half.state;this.result=half.result;this.emit(half.result);this.state=second.state;this.result=second.result;this.emit(second.result);this.state.step=Math.min(c.maxStep,h*Math.min(2,error?.9*error**(-1/(method==='be'?2:3)):2));steps++;
         if(atEvent){this.state.event=true;this.project();this.emit(this.result);}
       }
-      if(this.fault){this.result=read(this.compiled,this.state,{error:this.fault});this.emit(this.result);}
-      return {advanced:this.state.time-start,complete:Math.abs(this.state.time-target)<EPS,steps,result:this.read()};
+      if(this.fault){this.state.step=Math.max(MIN_STEP,this.state.step);this.result=read(this.compiled,this.state,{error:this.fault});this.emit(this.result);}
+      return {advanced:this.state.time-start,complete:!this.fault&&Math.abs(this.state.time-target)<=timeTolerance,steps,result:this.read()};
     }
     update(input,{continuous=false}={}){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc),resetKeys=['capacitance','inductance','primaryTurns','secondaryTurns','coupling','model','phase','initialVoltage','initialCurrent','initialPrimaryCurrent','initialSecondaryCurrent'];
       const reset=structural(before)!==structural(next.doc)||before.components.some(c=>{const n=next.doc.components.find(n=>n.id===c.id);return n&&resetKeys.some(k=>c.params[k]!==n.params[k]);});
-      this.compiled=next;this.doc=next.doc;if(reset)this.state=initial(next);else if(changed){this.state.event=true;this.state.step=Math.min(this.state.step,next.maxStep/8);}if(changed){this.tracker=new O.Tracker(next.period);this.coreTracker=new O.CoreFluxTracker(next.period);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return reset?'restarted':changed?'event':'geometry';
+      this.compiled=next;this.doc=next.doc;if(reset)this.state=initial(next);else if(changed){this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,next.initialStep));}if(changed){this.tracker=new O.GroupTracker(next.policies,reset||this.previewing?null:this.tracker);this.coreTracker=new O.CoreFluxTracker(next.policies,reset||this.previewing?null:this.coreTracker);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return reset?'restarted':changed?'event':'geometry';
     }
-    preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,coreTracker:this.coreTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}
-    reset(){this.state=initial(this.compiled);this.coreTracker=new O.CoreFluxTracker(this.compiled.period);this.tracker=new O.Tracker(this.compiled.period);this.visualTracker=new O.Tracker(.02);this.project();this.emit(this.result);return this.result;}
+    preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},previewing:true,doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,coreTracker:this.coreTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}
+    reset(){this.state=initial(this.compiled);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.project();this.emit(this.result);return this.result;}
     capture(){return {kind:'simlab-circuit-session',version:1,modelRevision:1,document:clone(this.doc),physics:clone(this.state)};}
     static restore(snapshot){keys(snapshot,['kind','version','modelRevision','document','physics']);if(snapshot.kind!=='simlab-circuit-session'||snapshot.version!==1||snapshot.modelRevision!==1||snapshot.document?.version!==7)throw new Error('動態快照版本無效');const s=new Session(snapshot.document),p=snapshot.physics;
       keys(p,['time','step','sources','dynamic','work','dissipated','event']);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.dissipated,0,Number.MAX_VALUE);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
-      s.state=clone(p);s.project();if(!s.fault)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of ['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
-      s.state=clone(p);const solution=solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,solution);s.tracker=new O.Tracker(s.compiled.period);s.visualTracker=new O.Tracker(.02);s.coreTracker=new O.CoreFluxTracker(s.compiled.period);s.coreTracker.sample(s.result);s.tracker.sample(s.result);s.visualTracker.sample(s.result);return s;
+      s.state=clone(p);s.project({initialise:false,history:false});if(!s.fault)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of p.event?[e.C?'v':'i']:['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
+      s.state=clone(p);if(p.event&&!s.fault&&eventStep(s.compiled,s.result)<MIN_STEP)s.fault='time-resolution';if(energyBalance(s.compiled,s.state).status!=='reliable')s.fault='energy-balance';const solution=p.event&&!s.fault?initialSolution(s.compiled,s.state):solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,s.fault?{error:s.fault}:solution);s.tracker=new O.GroupTracker(s.compiled.policies);s.visualTracker=new O.Tracker(.02);s.coreTracker=new O.CoreFluxTracker(s.compiled.policies);s.coreTracker.sample(s.result);s.tracker.sample(s.result);s.visualTracker.sample(s.result);return s;
     }
     destroy(){this.listeners.clear();}
   }

@@ -19,8 +19,10 @@ function fixture(type,{reverseCurrent=false,reverseVoltage=false}={}){
 async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,source,delay,load}){
  let checks=0;const types=['ac-ammeter','ac-voltmeter','ac-wattmeter'];
  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
- const gallery=M.empty('transient');for(const [i,type]of [...types,'wattmeter'].entries()){const c=M.add(gallery,type,150+i*230,280);c.label=type==='wattmeter'?'直流功率表（參考）':{'ac-ammeter':'交流電流表','ac-voltmeter':'交流電壓表','ac-wattmeter':'交流功率表'}[type];}
+ const gallery=M.empty('transient');for(const [i,type]of [...types,'galvanometer'].entries()){const c=M.add(gallery,type,150+i*230,280);c.label={'ac-ammeter':'交流電流表','ac-voltmeter':'交流電壓表','ac-wattmeter':'交流功率表',galvanometer:'靈敏電流計'}[type];}
  await call('loadDocument('+JSON.stringify(gallery)+')');await call('fit()');
+ async function headingClear(selector){return inside(`(()=>{const body=document.querySelector(${JSON.stringify(selector)}),window=body.querySelector('[data-meter-window]'),heading=body.querySelector('[data-meter-heading]')||body.querySelector('[data-meter-unit]'),w=window.getBoundingClientRect(),h=heading.getBoundingClientRect(),m=window.getScreenCTM(),s=Math.hypot(m.a,m.b),ticks=[...body.querySelectorAll('[data-meter-tick]')].map(e=>e.getBoundingClientRect());return {inside:h.left>=w.left+2*s&&h.right<=w.right-2*s&&h.top>=w.top+2*s&&h.bottom<=w.bottom-2*s,above:h.bottom<=Math.min(...ticks.map(t=>t.top))-2*s,ticksInside:ticks.every(t=>t.left>=w.left+.5*s&&t.right<=w.right-.5*s&&t.top>=w.top+.5*s&&t.bottom<=w.bottom-.5*s),plain:heading.querySelectorAll('text').length};})()`);}
+ async function terminalClear(){return inside(`(()=>{const body=document.querySelector('[data-component=c3] [data-meter-case]').getBoundingClientRect();return [...document.querySelectorAll('[data-port-label^="c3:"]')].every(e=>{const r=e.getBoundingClientRect();return r.right<body.left||r.left>body.right||r.bottom<body.top||r.top>body.bottom;});})()`);}
  const names=require('../sim/circuit-workbench/circuit-ac-presets').names;
  assert.deepEqual(await inside('[...document.querySelector("[data-circuit-id=preset]").options].filter(o=>o.value!=="custom").map(o=>[o.value,o.text])'),[['empty',names.empty],...Object.entries(names).filter(([key])=>key!=='empty')]);checks++;
  assert.deepEqual(await inside('[...document.querySelector("[data-circuit-id=preset]").querySelectorAll("optgroup")].map(g=>g.label)'),['交流基礎','電容與電感','變壓器與互感','振盪電路']);checks++;
@@ -31,8 +33,12 @@ async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,so
   assert.equal(shape.w,92);assert.equal(shape.h,78);assert.equal(shape.plain,0);assert(shape.unit&&shape.needle);assert.equal(shape.ports,type==='ac-wattmeter'?4:0);assert.equal(shape.ticks,type==='ac-wattmeter'?61:31);checks+=6;
  }
  assert.deepEqual(await inside(`[...document.querySelectorAll('[data-port-label^="c3:"]')].map(e=>e.dataset.tex)`),['I_{+}','I_{-}','V_{+}','V_{-}']);checks++;
+ for(const id of ['c1','c2','c3','c4']){await click('[data-hit="body:'+id+'"]',true);for(let n=0;n<4;n++){const result=await headingClear('[data-component='+id+']');assert(result.inside&&result.above&&result.ticksInside&&result.plain===0,JSON.stringify({id,rotation:n,result}));checks++;await click('[data-circuit-id=rotateSelected]');}}
+ for(let n=0;n<4;n++)await click('[data-camera=out]');assert(await terminalClear());checks++;await call('fit()');
+ assert(await inside('document.querySelector("[data-component=c4] [data-meter-symbol]").dataset.tex==="\\\\mathrm{G}"'));checks++;
  await screenshot(source+'-compact-ac-meters');await click('[data-circuit-id=schematicView]');
  assert(await inside('[...document.querySelectorAll("[data-circuit-id=scene] [data-ac-apparatus] [data-tex]")].filter(e=>e.dataset.tex.includes("sim")).length===3&&![...document.querySelectorAll("[data-circuit-id=scene] [data-ac-apparatus] text")].length'));checks++;
+ assert(await inside('document.querySelector("[data-component=c4] [data-meter-symbol]").dataset.tex==="\\\\mathrm{G}"&&!document.querySelector("[data-component=c4] text")'));checks++;
  await screenshot(source+'-compact-ac-meters-schematic');await click('[data-circuit-id=realView]');
  // A and V reversal must retain RMS; W reversal of one coil must invert power.
  for(const [type,options,expected]of [['ac-ammeter',{reverseCurrent:true},.5],['ac-voltmeter',{reverseVoltage:true},6],['ac-wattmeter',{},3],['ac-wattmeter',{reverseCurrent:true},-3],['ac-wattmeter',{reverseCurrent:true,reverseVoltage:true},3]]){
@@ -52,6 +58,14 @@ async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,so
   const bounds=await inside('(()=>{const d=document.querySelector("[data-circuit-id=meterDialog]"),r=d.getBoundingClientRect(),svg=d.querySelector("svg");return {open:d.open,left:r.left,right:r.right,top:r.top,bottom:r.bottom,box:svg.getAttribute("viewBox"),math:svg.querySelectorAll("[data-tex]").length};})()');
   assert(bounds.open&&bounds.left>=0&&bounds.right<=width+1&&bounds.top>=0&&bounds.bottom<=600+1);assert.equal(bounds.box,'-43 -40 86 62');assert(bounds.math>=6);assert.deepEqual(await call('captureSession()'),saved);checks+=4;
   await screenshot(source+'-compact-ac-meter-phone-'+width);await touch(await point('[data-circuit-id=closeMeter]'));assert.deepEqual(await call('captureSession()'),saved);checks++;
+ }
+ // The same G header is used in the canvas, held-touch preview and enlarged dial.
+ const gdoc=M.empty('transient');M.add(gdoc,'galvanometer',300,280);await call('loadDocument('+JSON.stringify(gdoc)+')');const gSaved=await call('captureSession()');
+ for(const width of [1280,390,320]){
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===1280?900:600,deviceScaleFactor:1,mobile:width<960});await call('fit()');await delay(60);
+  if(width===1280)await click('[data-hit="body:c1"]',true);else{let previewSeen=false;await touch(await point('[data-hit="body:c1"]',true),0,0,false,async()=>{if(await inside('!document.querySelector("[data-circuit-id=preview]").hidden')){const result=await headingClear('[data-circuit-id=preview]');assert(result.inside&&result.above&&result.plain===0);previewSeen=true;}});assert(previewSeen);checks++;}
+  await click('[data-circuit-id=inspectMeter]');const result=await headingClear('[data-circuit-id=meterDetail]');assert(result.inside&&result.above&&result.plain===0);assert(await inside('document.querySelector("[data-circuit-id=meterDetail] [data-meter-symbol]").dataset.tex==="\\\\mathrm{G}"'));assert.deepEqual(await call('captureSession()'),gSaved);checks+=3;
+  await screenshot(source+'-galvanometer-heading-'+width);await click('[data-circuit-id=closeMeter]');
  }
  await load('/circuit-ac-workbench/activity-examples.html','window','CircuitACExample');assert.deepEqual(await inside('[...document.querySelectorAll("[data-example]")].map(e=>e.textContent)'),['變壓器：匝數與負載','LC：充電與振盪']);assert(await inside('document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll("[data-example]")].every(e=>e.getBoundingClientRect().height>=44)'));checks+=2;
  console.log(source+' compact meter / terminal notation / preset design: '+checks+' checks');return checks;

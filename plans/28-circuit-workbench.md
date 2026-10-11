@@ -1,5 +1,51 @@
 # 電路工作台：設計與開發計劃
 
+## DC／AC 手機底部兩行工具列（2026-10-11；已套用）
+
+依使用者手機截圖，取消窄畫布選取元件後強制三行的規則。共用 editor 在
+480 px 以下保留兩行：快捷參數、順時針旋轉、刪除及「更多」在首行，
+取線與縮放在次行；較長參數時把旋轉／刪除一併放入「更多」，保留完整數字。
+逆時針旋轉、複製、定位與電表專用操作透過同一組既有命令開啟，使用原生
+dialog 顯示有文字的 44 px 按鈕，保留鍵盤、焦點返回及只讀／庫存權限。
+較寬畫布及無快捷參數時沿用直接操作列。DC／AC 共用 CSS、模板及行為。
+
+這是非評量介面修訂；assessment risk、rubric、phase／variant 與新增 snapshot
+欄位均 N/A。現有 document／session、依賴、模型、吸附與手勢語義保持。
+驗證使用既有 quick-controls Node／source／ZIP browser，補驗 AC 入口、320／
+360／384／390／480 px、長參數／電表、可信觸控更多操作與關閉、只讀及學生
+權限；檢查兩行高度、44 px 命中、無遮擋／水平溢出及首選拖動不被 reflow 中斷。
+重建四包，真手機及 Moodle gate 仍獨立；截圖採實際工作台。
+
+實際證據：quick-controls Node 6組、activity-core 19組及check通過；DC
+`--quick-controls-smoke` source／ZIP 72 observations，另各含80項兩行／更多
+檢查；AC `--quick-controls-smoke` source／ZIP 共160項通過。320／360／384／
+390／480 px 均為44 px兩行、底部105 px，較原三行153 px少48 px。
+可信觸控、Enter／Escape／焦點返回、只讀、學生參數權限與庫存、長數值及
+首選拖動保持。四包已重建；圖像及證據位於 `output/playwright/circuit-workbench/`
+及 `output/playwright/circuit-ac/`。DC browser曾遇DevTools換頁5秒逾時，
+補驗清理舊分頁並採30秒通訊等待後通過，沒有放寬版面／數值／權限斷言。
+
+## 課堂範例名稱與分組（2026-10-11；本輪）
+
+- 跟 AC 使用「主題：觀察內容」命名及原生分組選單；空白電路置頂，
+  其餘分電路基礎、電源與變阻器、電表與量測、電磁繼電器四組。
+  名稱及分組由 `presets.js` 擁有，UI 不另抄一份名稱。
+- 非評量教師工具：assessment risk／rubric／提交 phase 均 N/A。
+  沿用 v6 document、所有 preset key、初始接線及依賴；沒有新增可保存狀態。
+  原生 select 沿用既有鍵盤／觸控及手機頂欄，無新增拖動、吸附或局部預覽。
+- 驗證決定：既有 DC core（所有範例 encode/decode 及合法續作），
+  source／解壓 DC 包的所有選項載入、四組標籤與空白、桌面／320／390px
+  排版及可信選單輸入；AC 選單及嵌入學生版做相鄰 smoke。
+  本輪尚未宣稱正式 package-ready／Moodle-ready。
+
+實際證據：DC core（全部範例 round-trip／合法續作）及 activity-core 19 組通過；
+`npm run check`、`git diff --check` 及四包重建通過。臨時 browser runner 的
+source／解壓 DC 包在 1280／390／320px 各載入 14 選項，共 84 次，分組、
+初始元件、線數及無水平溢出通過；可信 mouse／touch 可觸及並聚焦選單。
+選項載入用 production change handler，macOS headless 的原生彈出選單鍵盤
+操作未驗證。AC source／ZIP 四組 15 選項及學生版不顯示範例的相鄰 smoke 通過。
+證據為 `output/playwright/circuit-design-review/evidence.json`；手機是本機模擬。
+
 ## 共用電流方向配色（2026-10-11）
 
 依使用者要求，DC／AC在共用renderer將常規電流的移動箭頭及導線讀值靜態

@@ -4,7 +4,19 @@
   if (node) module.exports = api; else root.CircuitPresets = api;
 })(globalThis, function (M, G) {
   "use strict";
-  const names = { series: "兩燈串聯", parallel: "兩燈並聯", mixed: "串並混聯", ohm: "全電路歐姆定律",limiting:'滑動變阻器 · 限流',divider:'滑動變阻器 · 分壓',gAmmeter:'G 表 · 並聯分流',gVoltmeter:'G 表 · 串聯分壓', meters: "A／V／W 表接線", bridge: "橋式電路", wiring: "固定元件接線", relay:"繼電器 · 兩燈切換",relayBell:"繼電器 · 電鈴式自斷",empty: "空白畫布" };
+  const names = {
+    series:'兩燈串聯：電流與電壓', parallel:'兩燈並聯：幹路與支路', mixed:'串並混聯：電流分配',
+    bridge:'電橋：平衡與橋中電流', wiring:'接線練習：固定元件',
+    ohm:'全電路歐姆定律：內阻與路端電壓', limiting:'滑動變阻器：限流接法', divider:'滑動變阻器：分壓接法',
+    meters:'電表接線：電流、電壓與功率', gAmmeter:'電流表改裝：並聯分流', gVoltmeter:'電壓表改裝：串聯分壓',
+    relay:'電磁繼電器：兩燈切換', relayBell:'電磁繼電器：電鈴式自斷', empty:'空白電路'
+  };
+  const groups = [
+    {label:'電路基礎',keys:['series','parallel','mixed','bridge','wiring']},
+    {label:'電源與變阻器',keys:['ohm','limiting','divider']},
+    {label:'電表與量測',keys:['meters','gAmmeter','gVoltmeter']},
+    {label:'電磁繼電器',keys:['relay','relayBell']}
+  ];
   function create(name) {
     const d = M.empty(); if (name === "empty") return d;
     function add(type, x, y, label, params = {}, angle = 0) { const c = M.add(d, type, x, y, params); c.label = label; c.angle = angle; return c; }
@@ -92,5 +104,5 @@
     if (name === "wiring") { d.wires = []; d.policy.mode = "wiring"; }
     return M.validate(d);
   }
-  return { names, create };
+  return { names, groups, create };
 });

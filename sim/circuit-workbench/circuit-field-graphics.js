@@ -55,12 +55,29 @@
     return '<g pointer-events="none" data-capacitor-polarity="true" data-polarity-active="'+active+'">'+text(-gap/2-14,-33,d>0?'＋':'−',active?(d>0?'#c43f4c':'#286cb7'):'#8795a1',9)+text(gap/2+14,-33,d>0?'−':'＋',active?(d>0?'#286cb7':'#c43f4c'):'#8795a1',9)+'</g>';
   }
 
-  function transformer(c,r,schematic=false){
+  function transformerWindings(c){
+    return [[-39,c.params.primaryTurns,'primary'],[39,c.params.secondaryTurns,'secondary']].map(([x,nominal,side])=>{
+      const count=Math.max(1,Math.round(nominal/10)),pitch=Math.min(3.5,48/count),start=-count*pitch/2,width=Math.min(2.05,pitch*.73);
+      return {x,radius:15,nominal,side,count,pitch,start,end:-start,width,outline:width+Math.min(.55,pitch*.22)};
+    });
+  }
+  function transformer(c,r,schematic=false,id='transformer-field'){
     let flux=r?.coreFlux;if(c.params.model==='coupled'&&Number.isFinite(r?.energy)&&r.energy<1e-9)flux=0;if(Number.isFinite(flux)&&Math.abs(flux)<Math.max(1e-9,(r?.coreFluxPeak||0)*1e-4))flux=0;
-    const grid=density(flux,.004,1,3,-4.5,4.5),d=sign(flux);let paths='',arrows='';
-    for(const offset of grid.positions){const x=(schematic?6:36)+offset*(schematic?1/3:1),y=29+offset*(schematic?1/3:1),bend=schematic?2:5;
+    const extent=schematic?4.5:3.5,grid=density(flux,.004,1,3,-extent,extent),d=sign(flux),colour='#087c82';let paths='',arrows='';
+    id=String(id).replace(/[^\w-]/g,'-');
+    if(!schematic){
+      const hidden=transformerWindings(c).map(w=>`<rect x="${w.x-w.radius-1}" y="${w.start-4}" width="${2*w.radius+2}" height="${w.end-w.start+8}"/>`).join('');
+      paths=`<defs><mask id="${id}-exposed" maskUnits="userSpaceOnUse" x="-60" y="-45" width="120" height="90"><rect x="-60" y="-45" width="120" height="90" fill="white"/><g fill="black">${hidden}</g></mask><clipPath id="${id}-hidden">${hidden}</clipPath></defs>`;
+    }
+    for(const [index,offset]of grid.positions.entries()){const x=(schematic?6:39)+offset*(schematic?1/3:1),y=(schematic?29:32)+offset*(schematic?1/3:1),bend=schematic?2:6;
       const path='M'+(-x+bend)+' '+(-y)+'H'+(x-bend)+'Q'+x+' '+(-y)+' '+x+' '+(-y+bend)+'V'+(y-bend)+'Q'+x+' '+y+' '+(x-bend)+' '+y+'H'+(-x+bend)+'Q'+(-x)+' '+y+' '+(-x)+' '+(y-bend)+'V'+(-y+bend)+'Q'+(-x)+' '+(-y)+' '+(-x+bend)+' '+(-y)+'Z';
-      paths+='<path data-field-line="core-closed" d="'+path+'" fill="none" stroke="'+hiddenMagnetic+'" stroke-width=".8" stroke-dasharray="2.2 1.5"/>';arrows+=arrow(d*4,-y,d,0,magnetic,2)+arrow(-d*4,y,-d,0,magnetic,2);
+      if(schematic)paths+='<path data-field-line="core-closed" d="'+path+'" fill="none" stroke="'+colour+'" stroke-width=".8" stroke-dasharray="2.2 1.5"/>';
+      else{
+        paths+=`<g mask="url(#${id}-exposed)">${line(path,'#f4ffff','core-halo',1.7)}${line(path,colour,'core-closed',.9)}</g>`;
+        paths+=`<g data-field-occluded="true" clip-path="url(#${id}-hidden)" stroke-dasharray="2.8 1.8">${line(path,'#f4ffff','core-hidden-halo',1.5)}${line(path,colour,'core-hidden',.8)}</g>`;
+      }
+      arrows+=arrow(d*4,-y,d,0,colour,schematic?2:2.8)+arrow(-d*4,y,-d,0,colour,schematic?2:2.8);
+      if(!schematic&&index===Math.floor(grid.positions.length/2))arrows+=arrow(x,7,0,d,colour,2.8)+arrow(-x,-7,0,-d,colour,2.8);
     }
     return group('transformer-core',flux,grid.strength,grid.spacing*(schematic?1/3:1),paths+arrows);
   }
@@ -76,8 +93,8 @@
     if(c.type==='capacitor')return !Number.isFinite(r?.voltage)?'電壓未能確定，暫不標示電場方向。':r.voltage===0?'電場示意收起；灰色＋／−只作極性參考。':(r.voltage>0?'左板帶正電、右板帶負電。':'右板帶正電、左板帶負電。')+'只顯示兩板之間的均勻電場，由正板指向負板；忽略邊緣效應。';
     if(c.type==='inductor')return !Number.isFinite(r?.current)?'電流未能確定，暫不標示磁場方向。':r.current===0?'磁場示意收起；灰色 N／S 只作方向參考。':(r.current>0?'線圈內部磁場向右，右端為 N 極。':'線圈內部磁場向左，左端為 N 極。')+'磁場如通電螺線管，外部場線返回另一端並穿過線圈中央，形成閉合路徑；內部較暗虛線表示被線圈遮擋的部分。電流反向時兩極對調；自感電動勢會阻礙電流的變化。';
     if(c.type==='generator')return c.params.field===0?'設定的磁場為零；在這個理想模型中，磁通及感應電動勢為零。':'只顯示 N、S 極之間的均勻磁場，方向固定由 N 指向 S。[[n]] 是線圈平面的法線；平行磁場時磁通大小最大，垂直時電動勢大小達峰值。';
-    if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集一個週期的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+'虛線表示鐵芯內部及被繞組遮住的磁場，只畫鐵芯範圍，省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示零平均的交變磁通，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
+    if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集完整觀察窗的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+(r.coreFluxFrequencies?.length>1?'磁通採用 '+r.coreFluxWindow+' s '+(r.coreFluxWindowKind==='common-cycle'?'共同週期':'指定時間窗（非共同週期）')+'。':'')+'銅線繞在鐵芯兩柱；青綠色實線及箭頭表示鐵芯內的磁通，虛線透視被繞組遮住的部分。省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示交變磁通，以觀察窗平均值作基準，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
     return '';
   }
-  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformer,generatorOverlay,description};
+  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformerWindings,transformer,generatorOverlay,description};
 });

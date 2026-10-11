@@ -4,6 +4,16 @@
   if (node) module.exports = api; else root.CircuitSolver = api;
 })(globalThis, function (R, M) {
   "use strict";
+  const reading=e=>e===null?null:Math.abs(e.value)<=e.noise?0:e.value;
+  function estimateLinear(solution,coeff,constant=0,tolerance=1e-8,x=solution.x){
+    if(solution.error||solution.nullspace.some(v=>Math.abs(coeff.reduce((sum,c,i)=>sum+c*v[i],0))>tolerance*Math.max(1,...coeff.map(Math.abs))))return null;
+    const value=coeff.reduce((sum,c,i)=>sum+c*x[i],0)+constant,noise=coeff.reduce((sum,c,i)=>sum+Math.abs(c)*solution.roundoff[i],0)+4*Number.EPSILON*(Math.abs(constant)+coeff.reduce((sum,c,i)=>sum+Math.abs(c*x[i]),0));
+    return {value,noise};
+  }
+  function cutExpressions(ports,seen,size,injection){
+    return [-1,1].map(sign=>{const coeff=Array(size).fill(0);let constant=0;for(const p of ports)if(seen.has(p)===(sign===-1)){const q=injection(p);for(let i=0;i<size;i++)coeff[i]+=sign*q.coeff[i];constant+=sign*(q.constant||0);}return {coeff,constant};});
+  }
+  function bestCut(expressions,estimate){return expressions.map(e=>estimate(e.coeff,e.constant)).filter(e=>e!==null).reduce((best,e)=>best===null||e.noise<best.noise?e:best,null);}
   function union(keys) {
     const parent = new Map(keys.map((x) => [x, x]));
     const find = (x) => { let p = x; while (parent.get(p) !== p) p = parent.get(p); while (parent.get(x) !== x) { const next = parent.get(x); parent.set(x, p); x = next; } return p; };
@@ -90,12 +100,8 @@
       if (!error) { const { A, b } = assemble(x); result = linear(A, b); if (result.error) error = result.error; }
       const estimate = (coeff, constant = 0) => {
         if (error) return null;
-        if (result.nullspace.some((v) => Math.abs(dot(coeff, v)) > 1e-8 * Math.max(1, ...coeff.map(Math.abs)))) return null;
-        const value=dot(coeff,x)+constant;
-        const noise=coeff.reduce((sum,c,i)=>sum+Math.abs(c)*result.roundoff[i],0)+4*Number.EPSILON*(Math.abs(constant)+coeff.reduce((sum,c,i)=>sum+Math.abs(c*x[i]),0));
-        return { value, noise };
+        return estimateLinear(result,coeff,constant,1e-8,x);
       };
-      const reading = (e) => e===null?null:Math.abs(e.value)<=e.noise?0:e.value;
       const ident = (coeff, constant = 0) => reading(estimate(coeff, constant));
       const solution = { ...g, x, error, n, diff, ident, estimate, reading, residual: error ? null : residual(x), iterations: iteration + 1 };
       solutions.set(g.key, solution);
@@ -153,17 +159,11 @@
       while (pending.length) { const p = pending.pop(); for (const e of adjacency.get(p)) if (e.id !== w.id && !seen.has(e.to)) { seen.add(e.to); pending.push(e.to); } }
       let current = null;
       if (!seen.has(w.to)) {
-        const s = injections.get(w.from).solution, cuts = [-1, 1].map(sign => {
-          const coeff = Array(s.n).fill(0); let constant = 0;
-          for (const p of netPorts.get(netOf[w.from])) if (seen.has(p) === (sign === -1)) {
-            const q = injections.get(p); for (let i = 0; i < s.n; i++) coeff[i] += sign * q.coeff[i]; constant += sign * q.constant;
-          }
-          return s.estimate(coeff, constant);
-        }).filter(e => e !== null);
+        const s = injections.get(w.from).solution, cuts = cutExpressions(netPorts.get(netOf[w.from]),seen,s.n,p=>injections.get(p));
         // Either side gives the same oriented current. Prefer the expression
         // with less cancellation, so a large parallel load cannot hide a
         // meter's real tiny current or make it depend on from/to storage.
-        current = s.reading(cuts.reduce((best, e) => best===null||e.noise<best.noise?e:best, null));
+        current = s.reading(bestCut(cuts,s.estimate));
       }
       const drop=voltage(w.from,w.to);
       wires[w.id] = { current, potential: potential(w.from), potentialTo:potential(w.to), voltage:drop, resistance:0, power:drop===0?0:null, cyclic: seen.has(w.to) };
@@ -186,5 +186,5 @@
     doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?Number.isFinite(r?.power)&&Math.max(0,r.power)/(c.params.ratedVoltage**2/c.params.resistance)>hazardLimits.lampRatio:false;if(hot&&!components[c.id])components[c.id]='overload';});
     return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
   }
-  return { solve, linear, hazards, hazardLimits };
+  return { solve, linear, estimateLinear, reading, cutExpressions, bestCut, hazards, hazardLimits };
 });

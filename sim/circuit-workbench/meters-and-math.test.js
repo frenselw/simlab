@@ -54,6 +54,10 @@ for(const type of ['galvanometer','wattmeter']){
   }
   assert(!V.body(c,{...rest,reading:null,meterStatus:'unknown'},d.display).includes('data-meter-needle'),'unknown result is not displayed as zero');
 }
+{const d=M.empty(),c=M.add(d,'galvanometer',300,320),r=S.solve(d).components[c.id];
+ for(const view of ['real','schematic']){const svg=V.body(c,r,{...d.display,view});assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);assert(svg.includes('data-tex="\\mathrm{G}"'));assert(!svg.includes('<text'),'the G uses the shared vector math font');}
+ const dial=V.galvanometerDial(c,r);assert(dial.includes('data-meter-heading="true"'));assert(dial.includes('data-meter-symbol="G"'));assert(dial.includes('data-meter-unit="true"'));
+}
 for(const state of ['unconnected','missing-common','dual-positive','unknown']){const c={id:'c1',type:'ammeter',params:R.defaults('ammeter')};const dial=V.dualDial(c,{reading:null,meterStatus:state});assert.equal(dial.includes('data-meter-needle='),['unconnected','missing-common'].includes(state));if(['unconnected','missing-common'].includes(state))assert(dial.includes('data-fraction="0"')); assert(!V.dualDial(c,{reading:.2,range:.6,activePort:'c'},false).includes('data-meter-needle='));}
 for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(const scale of [.55,1.2]){
   const d=M.empty(),c=M.add(d,'wattmeter',300,320);c.angle=angle;d.display.view=view;

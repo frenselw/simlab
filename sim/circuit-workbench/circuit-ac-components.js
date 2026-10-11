@@ -55,12 +55,29 @@
     return `<g data-transformer-ratio="true" transform="rotate(${-(c.angle||0)})">${text(values?'匝數比（原：副）':'原／副線圈',0,-edge-24,8.5)}${values?Q.svg(0,-edge-10,Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),13):''}</g>`;
   }
   types.transformer.annotationBounds=c=>{const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45,width=Math.max(80,Q.measure(Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns).tex,13).width)+6;return {left:c.x-width/2,right:c.x+width/2,top:c.y-edge-34,bottom:c.y-edge-8};};
-  const transformerFieldSlot=(c,r,d,schematic=false)=>'<g data-transformer-field-slot="'+(schematic?'schematic':'real')+'">'+(d.fields===false?'':Fields.transformer(c,r,schematic))+'</g>';
-  function transformerCore(){
-    let core='<g data-transformer-core="true"><path data-core-depth="top" d="M-53-39L-47-45H59L53-39Z" fill="#bcc9d2" stroke="#617685" stroke-width=".8"/><path data-core-depth="side" d="M53-39L59-45V33L53 39Z" fill="#586d7c" stroke="#475d6d" stroke-width=".8"/>';
-    for(let n=1;n<=3;n++){const z=n*1.5;core+=path(`M${-53+z} ${-39-z}H${53+z}V${39-z}`,'#758a99',.5);}
-    core+='<path data-core-face="true" d="M-49-39H49Q53-39 53-35V35Q53 39 49 39H-49Q-53 39-53 35V-35Q-53-39-49-39Z M-19-20V20H19V-20Z" fill-rule="evenodd" fill="#899ca9" stroke="#526c7d" stroke-width="1.5"/><path data-core-window="true" d="M-19-20H-13V14L-19 20Z" fill="#596f7e"/><path d="M-19 20L-13 14H19V20Z" fill="#6b8190"/><path d="M-49-37H49 M-51-34V34 M-17-18H17V18" fill="none" stroke="#d9e2e8" stroke-width=".85" opacity=".65"/><path d="M-49 37H49 M51-34V34 M-19-20V20H19" fill="none" stroke="#627988" stroke-width=".7"/></g>';
-    return core;
+  const transformerArtId=(c,d)=>((d.idPrefix||'')+'transformer-art-'+(c.id||'sample')).replace(/[^\w-]/g,'-');
+  const transformerFieldSlot=(c,r,d,schematic=false)=>{const id=transformerArtId(c,d);return `<g data-transformer-field-slot="${schematic?'schematic':'real'}" data-transformer-field-id="${id}">`+(d.fields===false?'':Fields.transformer(c,r,schematic,id))+'</g>';};
+  function transformerCore(id){
+    // Every lamination uses the same rounded outer contour and open inner window.
+    const ring='M-43-39H43Q50-39 50-32V32Q50 39 43 39H-43Q-50 39-50 32V-32Q-50-39-43-39Z M-24-25Q-28-25-28-21V21Q-28 25-24 25H24Q28 25 28 21V-21Q28-25 24-25Z';
+    let core='<g data-transformer-core="true"><g data-core-depth="laminations">';
+    for(let depth=6;depth>0;depth--)core+=`<path data-core-lamination="${depth}" d="${ring}" transform="translate(${depth*.55} ${-depth*.55})" fill-rule="evenodd" fill="${depth%2?'#68767d':'#a4afb5'}" stroke="#4d5c64" stroke-width=".25"/>`;
+    core+=`</g><path data-core-face="true" d="${ring}" fill-rule="evenodd" fill="url(#${id}-steel)" stroke="#4e5e68" stroke-width=".9"/>`;
+    return core+path('M-42-37.6H42Q48.6-37.6 48.6-31 M-48.6-30V30 M-24 26.2H24Q29.2 26.2 29.2 21','#dce2e5',.6)+path('M-43 37.6H43Q48.6 37.6 48.6 32V-30 M-29.2 21V-21Q-29.2-26.2-24-26.2H24','#566872',.55)+'</g>';
+  }
+  function transformerWinding(w){
+    const {x,radius,pitch,start,end,count}=w,direction=Math.sign(x),outer=x+direction*radius,inner=x-direction*radius,k=.55228475,depth=3.3,fmt=n=>Number(n.toFixed(5));let front='',back='';
+    const curve=(...points)=>points.map(p=>p.map(fmt).join(' ')).join(' ');
+    for(let n=0;n<count;n++){
+      const y=start+n*pitch;
+      front+=`M${fmt(outer)} ${fmt(y)}C`+curve([outer,y+k*depth+pitch/12],[x+direction*radius*k,y+depth+pitch/6],[x,y+depth+pitch/4])+'C'+curve([x-direction*radius*k,y+depth+pitch/3],[inner,y+k*depth+5*pitch/12],[inner,y+pitch/2]);
+      back+=`M${fmt(inner)} ${fmt(y+pitch/2)}C`+curve([inner,y-k*depth+7*pitch/12],[x-direction*radius*k,y-depth+2*pitch/3],[x,y-depth+3*pitch/4])+'C'+curve([x+direction*radius*k,y-depth+5*pitch/6],[outer,y-k*depth+11*pitch/12],[outer,y+pitch]);
+    }
+    const leads=`M${direction*76}-26H${outer+direction*8}Q${outer}-26 ${outer} ${start} M${outer} ${end}Q${outer} 26 ${outer+direction*8} 26H${direction*76}`;
+    return {...w,front,back,leads};
+  }
+  function transformerCopper(d,w,id,back=false){
+    return path(d,back?'#895431':'#80441f',w.outline)+path(d,back?'#ae7044':`url(#${id}-copper)`,w.width)+(back?'':`<g opacity=".68" transform="translate(-.12 -.24)">${path(d,'#ffe2ad',Math.min(.46,w.width*.25))}</g>`);
   }
   const capacitorGap=c=>8+48/(1+c.params.capacitance/.025);
   function plate(c,r,d,left){
@@ -73,7 +90,7 @@
   }
   function meterFace(c,r,d){
     const signed=c.type==='ac-wattmeter',unit=R.get(c.type).icon,fraction=N.target(c,r)??(!r?0:null),minimum=signed?-1:0,a=N.point(c,minimum,37),b=N.point(c,1,37);
-    let face=path(`M${a.x} ${a.y}A37 37 0 0 1 ${b.x} ${b.y}`,'#94a3b8',.8)+Q.svg(0,-30,{text:unit+'~',tex:Q.unit(unit).tex+'\\sim'},14);
+    let face=path(`M${a.x} ${a.y}A37 37 0 0 1 ${b.x} ${b.y}`,'#94a3b8',.8)+Q.svg(0,-26,{text:unit+'~',tex:Q.unit(unit).tex+'\\sim'},12,'data-meter-unit="true"');
     for(let n=signed?-30:0;n<=30;n++){const f=n/30,major=n%(signed?15:10)===0,p=N.point(c,f,37),q=N.point(c,f,major?31:34.5);face+=`<path data-meter-tick="${n}" data-fraction="${f}" d="M${p.x} ${p.y}L${q.x} ${q.y}" stroke="${n<0?'#9b6258':'#607487'}" stroke-width="${major?1.2:.7}"/>`;if(major){const label=N.point(c,f,24),value=Number((f*c.params.range).toPrecision(3)),size=Math.min(8.5,29/(String(value).length+1));face+=Q.svg(label.x,label.y+2.5,Q.quantity(value),size);}}
     if((!c.id||d.values)&&fraction!==null){const p=N.point(c,fraction);face+=`<path data-meter-needle="${c.id||'preview'}" data-reading="${Number.isFinite(r?.reading)?r.reading:''}" data-range="${c.params.range}" data-fraction="${fraction}" data-target-fraction="${fraction}" data-angle="${p.angle}" d="M0 ${p.cy}L${p.x} ${p.y}" fill="none" stroke="#c33b35" stroke-width="1.8" stroke-linecap="round"/>`;}
     return `<g data-meter-dial="${c.id||'preview'}" data-divisions="30" data-negative-divisions="${signed?30:0}">${face}<circle cy="16" r="3" fill="#475569"/></g>`;
@@ -104,19 +121,23 @@
     }
     if(c.type==='spdt')return path('M-60 0H-40 M40-24H60 M40 24H60')+caseBox(-43,-35,86,70,'#c8b396')+socket(-29,0)+socket(29,-24)+socket(29,24)+path(`M-29 0L29 ${p.closed==='b'?-24:24}`,'#ba8b40',7)+path(`M-29-2L29 ${p.closed==='b'?-26:22}`,'#f3d39a',2)+`<circle cx="1" cy="${p.closed==='b'?-12:12}" r="7" fill="#334e60" stroke="#203746"/>`+path('M-40 0H-29 M29-24H40 M29 24H40','#9a783e',3);
     if(c.type==='transformer'){
-      const coils=[[-37,p.primaryTurns,'primary'],[37,p.secondaryTurns,'secondary']].map(([x,nominal,side])=>({x,nominal,side,count:transformerTurns(nominal),w:winding(transformerTurns(nominal),44,21,true)}));
-      let core=coils.map(({x,w})=>`<g data-transformer-back="true" transform="translate(${x} 0) rotate(90) scale(1 ${Math.sign(x)})">${copper(w.back,w)}</g>`).join('')+transformerCore()+transformerFieldSlot(c,r,d);
-      for(const {x,nominal,side,count,w}of coils){const direction=Math.sign(x),terminal=direction*76,entryX=x+direction*21;
-        const leads=`M${terminal}-26H${entryX+direction*8}C${entryX+direction*2}-26 ${entryX} ${w.start-4} ${entryX} ${w.start} M${entryX} ${w.end}C${entryX} ${w.end+4} ${entryX+direction*2} 26 ${entryX+direction*8} 26H${terminal}`;
-        core+=`<g data-transformer-winding="${side}" data-nominal-turns="${nominal}" data-visible-turns="${count}"><g data-transformer-front="true" transform="translate(${x} 0) rotate(90) scale(1 ${direction})">${copper(w.front,w)}</g><g data-transformer-leads="true">${copper(leads,w)}</g></g>`;
+      const id=transformerArtId(c,d),coils=Fields.transformerWindings(c).map(transformerWinding);
+      let core=`<defs><linearGradient id="${id}-steel" x1="0" x2=".8" y1="0" y2="1"><stop stop-color="#b3bbbf"/><stop offset=".46" stop-color="#929ea5"/><stop offset="1" stop-color="#6e7d86"/></linearGradient><linearGradient id="${id}-copper" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#a86030"/><stop offset=".19" stop-color="#d09253"/><stop offset=".46" stop-color="#f1c27e"/><stop offset=".77" stop-color="#cd8b4a"/><stop offset="1" stop-color="#9d582c"/></linearGradient></defs>`;
+      core+=coils.map(w=>`<g data-transformer-back="${w.side}" opacity="1">${transformerCopper(w.back,w,id,true)}</g>`).join('')+transformerCore(id);
+      for(const w of coils){
+        core+=`<g data-transformer-winding="${w.side}" data-nominal-turns="${w.nominal}" data-visible-turns="${w.count}" opacity="1"><g data-transformer-front="true">${transformerCopper(w.front,w,id)}</g><g data-transformer-leads="true">${transformerCopper(w.leads,w,id)}</g></g>`;
       }
-      return core+text('•',-66,-30,13)+text('•',66,-30,13)+transformerCaption(c,d.values);
+      return core+transformerFieldSlot(c,r,d)+text('•',-66,-30,13)+text('•',66,-30,13)+transformerCaption(c,d.values);
     }
     if(c.type==='led'){
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';
       return path('M-60 0H-29V24H-9V-6 M9-6V24H29V0H60','#86969f',3)+(on?`<ellipse cy="-17" rx="28" ry="30" fill="${colour}" opacity=".2"/>`:'')+`<path d="M-16-4V-21a16 16 0 0 1 32 0V-4Z" fill="${on?colour:'#b5c1c9'}" stroke="${colour}" stroke-width="2"/><rect x="-20" y="-7" width="40" height="5" rx="2" fill="${colour}" stroke="#667e89"/><path d="M-8-28Q-10-25-10-18" fill="none" stroke="#fff" stroke-width="3" opacity=".8"/>`+text('A',-34,38,10)+text('K',34,38,10);
     }
-    if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-46 M46-20H60 M-60 40H-34V29 M34 29V40H60'):path('M-60 0H-46 M46 0H60'))+'<rect data-meter-case="true" x="-46" y="-43" width="92" height="78" rx="10" fill="#e8f0f6" stroke="#446482" stroke-width="2"/><rect x="-41" y="-38" width="82" height="67" rx="6" fill="#fff" stroke="#b2c2cf"/>'+`<g data-meter-face="${c.id}" transform="rotate(${-(c.angle||0)})">${meterFace(c,r,d)}</g>`;
+    if(R.get(c.type).meter){
+      // Keep the upright dial centred in the rotating window (local centre 0, -4.5).
+      const angle=(c.angle||0)*Math.PI/180,x=4.5*Math.round(Math.sin(angle)),y=4.5*(1-Math.round(Math.cos(angle)));
+      return (c.type==='ac-wattmeter'?path('M-60-20H-46 M46-20H60 M-60 40H-34V29 M34 29V40H60'):path('M-60 0H-46 M46 0H60'))+'<rect data-meter-case="true" x="-46" y="-43" width="92" height="78" rx="10" fill="#e8f0f6" stroke="#446482" stroke-width="2"/><rect data-meter-window="true" x="-41" y="-38" width="82" height="67" rx="6" fill="#fff" stroke="#b2c2cf"/>'+`<g data-meter-face="${c.id}" transform="rotate(${-(c.angle||0)}) translate(${x} ${y})">${meterFace(c,r,d)}</g>`;
+    }
     return '';
   }
   function render(c,r,d){return `<g data-ac-apparatus="${c.type}" data-ac-view="${d.view==='schematic'?'schematic':'real'}">${d.view==='schematic'?symbol(c,r,d):apparatus(c,r,d)}</g>`;}

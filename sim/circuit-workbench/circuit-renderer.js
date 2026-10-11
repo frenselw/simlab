@@ -41,17 +41,17 @@
   const dialPoint=(fraction,radius=80)=>{const angle=dialAngle(fraction)*Math.PI/180;return{x:radius*Math.cos(angle),y:24+radius*Math.sin(angle)};};
   function galvanometerDial(c,result,values=true){
     const point=(fraction,r)=>{const a=(-90+60*fraction)*Math.PI/180;return{x:r*Math.cos(a),y:25+r*Math.sin(a)};};
-    let out='<rect x="-45" y="-41" width="90" height="83" rx="6" fill="#fff" stroke="#b2c2cf"/>';
+    let out='<rect data-meter-window="true" x="-45" y="-41" width="90" height="83" rx="6" fill="#fff" stroke="#b2c2cf"/>';
     for(let n=-20;n<=20;n++){
       const a=point(n/20,51),b=point(n/20,n%5===0?44:48);out+=`<path data-meter-tick="${n}" data-fraction="${n/20}" d="M${a.x} ${a.y}L${b.x} ${b.y}" stroke="#607487" stroke-width="${n===0?1.8:1}"/>`;
       if(n%10===0){const p=point(n/20,35);out+=quantity(p.x,p.y+3,c.params.range*1e6*n/20,'',8);}
     }
-    out+=Q.svg(0,-32,Q.unit('μA'),10);
+    out+='<g data-meter-heading="true">'+Q.svg(-12,-29.4,{text:'G',tex:'\\mathrm{G}'},12,'data-meter-symbol="G"')+Q.svg(10,-31,Q.unit('μA'),10,'data-meter-unit="true"')+'</g>';
     if(!result||values&&(Number.isFinite(result.reading)||result.meterStatus==='unconnected')){
       const f=Number.isFinite(result?.reading)?Math.max(-1.03,Math.min(1.03,R.meterDisplayReading(c,result)/c.params.range)):0,p=point(f,43);
       out+=`<path data-meter-needle="${esc(c.id)}" data-reading="${Number.isFinite(result?.reading)?result.reading:''}" data-range="${c.params.range}" data-fraction="${f}" data-angle="${-90+60*f}" d="M0 25L${p.x} ${p.y}" stroke="#c33b35" stroke-width="1.8" stroke-linecap="round"/>`;
     }
-    return `<g data-meter-dial="${esc(c.id)}" data-zero-angle="-90" data-divisions="20" data-negative-divisions="20">${out}<circle cy="25" r="3" fill="#475569"/>${text(0,37,'G',12)}</g>`;
+    return `<g data-meter-dial="${esc(c.id)}" data-zero-angle="-90" data-divisions="20" data-negative-divisions="20">${out}<circle cy="25" r="3" fill="#475569"/></g>`;
   }
   function dualDial(c,result,values=true) {
     const ranges=R.meterRanges(c),unit=R.get(c.type).icon,low=result?.activePort==='c',high=result?.activePort==='a',range=result?.range??ranges.high,v=result?.reading;
@@ -109,7 +109,7 @@
       return `<g data-relay="${esc(c.id||'sample')}" data-position="${position}" data-contact="${result?.contact===null?'open':result?.contact||'d'}" data-coil-current="${Number.isFinite(result?.current)?result.current:''}">${out}</g>`;
     }
     if(c.type==='galvanometer'){
-      if(schematic)return '<path data-leads="galvanometer" d="M-60 0H-28 M28 0H60" stroke="#475569" stroke-width="3" fill="none"/><circle r="28" fill="#fff" stroke="#334155" stroke-width="2.5"/>'+`<g transform="rotate(${-(c.angle||0)})">${text(0,7,'G',24)}</g>`;
+      if(schematic)return '<path data-leads="galvanometer" d="M-60 0H-28 M28 0H60" stroke="#475569" stroke-width="3" fill="none"/><circle r="28" fill="#fff" stroke="#334155" stroke-width="2.5"/>'+`<g transform="rotate(${-(c.angle||0)})">${Q.svg(0,7,{text:'G',tex:'\\mathrm{G}'},24,'data-meter-symbol="G"')}</g>`;
       const face=galvanometerDial(c,result,display.values);
       return '<path d="M-60 0H-51 M51 0H60" stroke="#667b8e" stroke-width="4" fill="none"/>'+'<rect data-meter-case="true" x="-51" y="-48" width="102" height="97" rx="10" fill="#e8f0f6" stroke="#446482" stroke-width="2"/>'+`<g data-meter-face="${esc(c.id)}" transform="rotate(${-(c.angle||0)})">${face}</g>`;
     }
@@ -231,6 +231,13 @@
       if(p.dx>0)x=Math.max(x,bounds.right+(3+m.width/2)/scale);
       if(p.dy>0)y=Math.max(y,bounds.bottom+(3+m.ascent)/scale);
     }
+    if(c.type==='ac-wattmeter'){
+      const bounds=view==='real'?R.bodyBounds(c):{left:c.x-31,right:c.x+31,top:c.y-31,bottom:c.y+31};
+      if(p.dx<0)x=Math.min(x,bounds.left-(m.width/2+4)/scale);
+      if(p.dx>0)x=Math.max(x,bounds.right+(m.width/2+4)/scale);
+      if(p.dy<0)y=Math.min(y,bounds.top-(m.descent+4)/scale);
+      if(p.dy>0)y=Math.max(y,bounds.bottom+(m.ascent+4)/scale,p.y+(m.ascent+9)/scale);
+    }
     return{x,y,spec,size:size/scale,box:{left:x-(m.width/2+2)/scale,right:x+(m.width/2+2)/scale,top:y-(m.ascent+2)/scale,bottom:y+(m.descent+2)/scale}};
   }
   function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
@@ -243,7 +250,7 @@
     doc.components.forEach((c) => {
       const r = result.components[c.id];
       const size=R.meterBodyScale(c),box=c.type==='relay'?'x="-78" y="-42" width="158" height="112"':R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
-      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, result.mode==='transient'?displayComponent(doc,result,c,labelOptions?.currentReferences):r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true}:doc.display)}</g>`;
+      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, result.mode==='transient'?displayComponent(doc,result,c,labelOptions?.currentReferences):r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true,idPrefix:(labelOptions?.idPrefix||'')+'scene-'}:doc.display)}</g>`;
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {

@@ -13,11 +13,275 @@
 | 圖形與讀值 | 連續SVG發電機、固定範圍場線疏密、C/L歸零顯示、固定單位5Hz數字＋bar、數學字形、緊湊電表、上方變壓器匝數比及鐵芯內磁通 |
 | 方向配色 | 常規電流及靜態電流箭頭紅色，電子藍色；電勢方向／場線另有自己的語義，不全域取代藍色 |
 | 保存 | DC doc v6／AC doc v7，session version 1／modelRevision 1，技術示例codec v5；觀察與顯示非權威，正式ACrubric／SCORM另定 |
-| 驗證狀態 | 逐次Node及source／ZIP專項有證據；2026-10-11兩位獨立reviewer批准ba19ba5、三個產品細節已修正、過時fixture按解析基準通過；未重跑完整矩陣，真Moodle／真手機T4未驗收 |
+| 驗證狀態 | CW-01–04 已修正：13個受影響Node套件（含14組新回歸與1771項獨立公式）、source／ZIP audit 132、presets 618、scope 206 項通過；PhET歷史實測見下文。完整browser及ZIP宿主T3仍依歷史限制解讀；真Moodle／真手機T4未驗收 |
 
 維護先分清共用、時間模型、顯示及活動外層，按[精準驗證表](../docs/circuit-ac-workbench.md#精準驗證與維護)選必要項目。純文件修訂只核對來源、版本、指令與連結，不重跑物理／browser。核心改動交付時統一重建相應ZIP；目錄active不代表全部package-ready／Moodle-ready gate通過。
 
 ## 近期決策與驗證記錄
+
+### Main 審核報告 CW-01–04 核證及修正（2026-10-11；已修正）
+
+報告基準 a83747e3 與本分支 HEAD 相同；保留正在進行的視覺／手機工具列修改。
+完整 Session 已重現 CW-01 的 1 Hz／0.1 Hz 獨立 6 V 電路錯窗，以及 CW-04 的
+0／−6 pA 導線方向依賴。CW-03 普通電阻元件不容許 10 μΩ，但有限電阻導線
+容許；合法的 100 μF、6 V 無源放電實測初始 0.0018 J，累計耗散 878.906250 J，
+沒有 fault。CW-02 的 render 覆寫機制仍在，另以完整工作台驗證焦點草稿。
+
+修正決定：量測按獨立電路及磁耦合依賴分域；單頻用自身週期，多頻只有可核對
+且有界的共同週期才稱共同週期，其他情況採明示時間窗。峰值／平均功率／理想
+磁通使用同一域的政策，頻率或電路改變後重新收集相應觀察資料。
+快速暫態首步以實際被動網絡的 RC／L/R 時間尺度限制；功率積分配合求解步，
+以能量殘差參與接受／縮步及明確失效，禁止截斷耗散冒充守恆。
+設定數字保留未提交草稿，change／Enter 驗證提交，Escape／關閉放棄未提交輸入。
+導線 cut 共用 DC 的雙側低誤差選擇，保留 nullspace 與原誤差尺度。
+
+非評量教師工作台；assessment risk、rubric、SCORM phase／variant N/A。模型
+仍為線性 RLC／既有 LED，不新增權威保存欄位或依賴；document v7、session v1
+保持，新增量測窗與能量可靠性只作派生觀察。測試先重現再修復，登記新增
+獨立域／混頻／能量平衡／6 pA 回歸；包括元件重排、無關域增刪、頻率事件、
+source-free RC／RL、縮步收斂、restore 合法續作、過度僵硬明確失效、探頭一致性。
+執行受影響的 transient／reference／energy／scope／DC cut 與 UI 權限回歸，
+完整 source／ZIP 工作台設定草稿及物理觀察，重建四包；真手機／Moodle另計。
+
+最終實證：13個受影響Node套件全部通過；新增 `ac-audit-regressions.test.js`
+14組涵蓋分域／混頻／重排、磁通、獨立DC過載、快速RC／RL、收斂、事件、
+可靠性失效、並聯理想源、約束導數、波形轉角、被動平衡與6 pA。既有
+`ac-reference.test.js` 1771項、24組帶表正弦電路及容量／restore續作保持通過。
+
+合法10 μΩ導線放電的完整Session由 `878.906250 J` 改為約 `0.001800023 J`，
+相對初始0.0018 J的平衡誤差約0.00128%；沒有裁剪耗散。1 Hz／0.1 Hz兩域
+完成各自窗後約5.99803／5.99997 V；交換導線端序為+6／−6 pA。
+`--audit-smoke` source／ZIP共132項，含1280／390／320px播放中的一秒以上
+輸入草稿、刪除重打、Enter、Escape、關閉及錯誤輸入；DC `--settings-smoke`
+390px source／ZIP共8 observations通過。AC相鄰 `--preset-smoke` 618項及
+`--scope-smoke` 206項通過，確認全部範例、開關、波形、探頭、手勢與續作。
+check／diff通過；四包重建並逐檔核對依賴及來源。證據彙總與Node完整輸出在
+`output/ac-review/`，實際瀏覽器畫面在 `output/playwright/circuit-ac/`。
+這是本輪受影響範圍的驗證，不宣稱重跑完整站點、完整browser宿主矩陣或
+真手機／Moodle gate；原T3限制保留。
+
+### 共用手機底部工具列（2026-10-11）
+
+DC／AC 一併採用兩行排版及「更多」元件操作，實作決定與驗證證據集中於
+[DC／AC 共用計劃](28-circuit-workbench.md)。
+AC 沿用相同 CSS、快捷參數及命令；沒有修改瞬態模型、物理參數或 session。
+
+### 變壓器繞線與鐵芯比例修訂（2026-10-11；已套用）
+
+依使用者對灰色厚塊與繞線關係的回饋，擴大鐵芯內窗、收窄兩柱及上下橫軛，
+縮短疊片的透視深度；移除遮蓋鐵芯的整塊灰色線圈底座。銅線前半圈跨過柱面，
+後半圈由鐵芯遮擋，兩端露出同一根鐵柱，明確表示線圈繞住鐵芯。
+開啟磁場時銅線保持實色，鐵芯內的閉合磁路以實線／遮擋虛線表示，
+場線位置與較窄鐵芯一起調整。
+
+本輪只改非評量教師工作台的 SVG 呈現；assessment risk、rubric、phase／variant、
+權威 snapshot 新欄位均 N/A，無新依賴。四端子、匝數、電學模型與 v7／session v1
+保持。沿用 transformer Node 測試及 source／ZIP 精準 browser 流程，檢查連續繞線、
+磁路落在鐵芯內、四向標註、場線開關、1／2000 匝、320／390 px trusted touch
+觀察視窗及接線預覽；重建四包並檢視實際截圖，真手機及 Moodle gate 另計。
+
+`transformer-design.test.js`、`field-graphics.test.js`、`ac-platform.test.js`、
+`npm run check` 及 `git diff --check` 通過。
+`--transformer-design-smoke` source／ZIP 各 60 項，共 120 項通過，瀏覽器例外為空；
+包括對實際 SVG 磁路逐點抽樣，確認閉合路徑位於鐵芯內。播放時分別收集 27／32
+個正負磁通同步 RAF 樣本。四包已重建並逐檔核對來源；桌面實色、磁場放大圖、
+1／2000 匝及 320 px 放大畫面已目視確認。證據位於
+`output/playwright/circuit-ac/`，這是本輪精準驗證，不覆蓋先前記錄的完整 ZIP
+宿主 T3 未完成或真手機／Moodle gate。
+
+### AC 儀器數值及 PhET 對照驗證（2026-10-11；結果及限制）
+
+依使用者要求，核對 AC 工作台全部儀器、電源、R／C／L、開關、LED、
+發電機及兩種變壓器。既有 Node 與 source／ZIP browser 驗證之外，加入
+獨立解析式的同參數矩陣，並實際操作 PhET Circuit Construction Kit: AC；
+Faraday's Electromagnetic Lab 僅在模型及參數可對應時比較。
+先統一峰值／有效值、頻率、方向、初始條件、串聯內阻及量測窗口，
+每筆結果標明實測、解析核對或不具可比性，不把 PhET 當作無條件真值。
+
+本輪是非評量驗證；rubric／phase／snapshot 新增欄位均 N/A，無新 runtime
+依賴，現有 v7／session v1 契約保持。若發現程式錯誤，先加入能重現的
+測試再修正；新測試登記到既有 runner，保留原物理精度斷言。
+
+**PhET 實際操作與讀值。** 使用官方 Circuit Construction Kit: AC 1.0.23
+（About 顯示建置時間 2026-08-02 05:44:12 UTC），手動接線、設定參數並暫停讀表。
+正弦源為峰值 9 V、0.5 Hz，對應本工作台的有效值 `9/√2 = 6.363961 V`。
+下表電流是同相位的瞬時電流大小；PhET 使用非接觸電流表，本工作台使用
+求解／探頭的瞬時電流，不能直接拿本工作台 A 表的有效值比較。
+相位由 PhET 顯示的源電壓及下一步上升／下降方向估算，因此受 0.01 V
+讀值精度限制；PhET 表格電流精度為 0.01 A。PhET 內置的極小寄生電阻保留，
+本工作台採理想源與導線；沒有把所有內部數值設定宣稱為完全相同。
+
+| 電路（R／C／L） | PhET 源電壓／趨勢 | PhET 電流大小 | SimLab 同相位電流大小 |
+|---|---|---:|---:|
+| R = 10 Ω | 8.40 V | 0.84 A | 0.84000 A |
+| R = 16 Ω | 8.40 V | 0.53 A | 0.52500 A |
+| R = 40 Ω | 8.40 V | 0.21 A | 0.21000 A |
+| R = 10 Ω，C = 0.1 F | −1.87 V／下降 | 0.42 A | 0.42424 A |
+| R = 10 Ω，C = 0.1 F | −4.50 V／下降 | 0.63 A | 0.63387 A |
+| R = 10 Ω，L = 5 H | −6.98 V／上升 | 0.46 A | 0.45867 A |
+| R = 10 Ω，L = 5 H | −4.89 V／上升 | 0.48 A | 0.48330 A |
+| R = 10 Ω，C = 0.1 F，L = 5 H | −3.73 V／下降 | 0.25 A | 0.25417 A |
+| R = 10 Ω，C = 0.1 F，L = 5 H | −6.08 V／下降 | 0.08 A | 0.08687 A |
+
+前八筆在 PhET 半個末位顯示單位內相符；最後一筆相差 0.00687 A，不能
+宣稱兩者完全一致。該點獨立正弦穩態解析式為 0.0868613 A，SimLab 為
+0.0868720 A。檢視實際 1.0.23 公開發行檔，PhET 以每幀 1/60 秒更新源，
+C／L 使用梯形伴隨模型與自適應子步，再用子步末端電流作時間加權平均。
+另以獨立串聯 RLC 方程重現這套步進規則，後兩點分別得到 0.25075 A、
+0.08313 A，取兩位小數正好是 PhET 的 0.25 A、0.08 A。這是支持數值
+步進／讀值平均解釋的診斷重算，並非額外的瀏覽器實測；沒有為迎合 PhET
+最後一位而改動 SimLab 求解器。
+
+**獨立物理基準。** 新增並登記 `ac-reference.test.js`，1771 項檢查通過。
+24 組帶 A／V／W 的正弦電路包含 R／RC／RL／RLC、0.1／0.5／1／2／50 Hz、
+40 Ω 負載、5 H PhET 對照組及電表串聯內阻。預期值獨立使用
+`X = ωL − 1/(ωC)`、`I_rms = V_rms/√(R²+X²)`、`P = I_rms²R`，並逐相位
+核對帶符號瞬時電流及電流探頭；初始儲能按穩態解析式設定。
+24 組 A／V／W 的最大相對誤差為 0.16051%（50 Hz 純電阻平均功率）；
+這個上限只代表此矩陣，並非任意拓撲／參數的全域精度保證。
+
+| 儀器／模型 | 本輪核對及結果 |
+|---|---|
+| AC A／V／W | 有效值、實功率、相位差及串聯負載；獨立解析式通過。6.363961 V RMS、10 Ω、0.5 Hz 時，A = 0.636344 A、V = 6.363438 V、W = 4.049334 W，解析值分別為 0.636396 A、6.363961 V、4.05 W |
+| 電壓表負載 | 理想輸入及 100 Ω 有限輸入，包含 10 Ω 源內阻的分壓公式通過 |
+| 靈敏電流計 G | 100 Ω 內阻、正負半週及反接極性；瞬時帶符號電流通過 |
+| 浮動電壓／電流探頭 | 瞬時訊號、方向、跨隔離端未知值；既有 Scope 及新增電流解析式通過 |
+| C／L／開關 | RC／RL 指數響應、LC 能量、充放電方向、狀態連續性及保存後續作；新增與既有物理測試通過 |
+| 理想變壓器 | 匝數比 0.25／0.5／2 的電壓、兩側電流、負載功率及電氣隔離通過 |
+| 耦合變壓器 | 0.5／2／50 Hz、k = 0.8／0.99，按兩個複數阻抗方程核對兩側電流及負載功率通過 |
+| 發電機 | 0.5／1／2 Hz，B = 0.2 T、A = 0.02 m²、N = 200；法拉第定律、磁通及內阻分壓通過 |
+| 燈泡／LED／波形 | 既有正弦／方波／三角波有效值、功率、亮度、LED 導通方向及儲能放電測試通過；亮度是教學映射，沒有作實際燈具光度校準 |
+
+官方 Faraday's Electromagnetic Lab 的變壓器是可移動的分離線圈，匝數、
+面積及電源使用不同控制；發電機則是水輪驅動旋轉磁鐵。本工作台是理想／
+線性耦合變壓器與均勻磁場中的定速旋轉線圈，不能聲稱已作同參數數值對照。
+PhET CCK 此介面亦沒有本工作台的四端功率表或靈敏 G 對應物；這些項目
+以解析式和生產模型／顯示測試驗證。
+
+**已執行證據與入口。** 13 組既有 Node suite 全部 exit 0：transient、
+AC platform／display、energy sync、Scope、generator／field／transformer
+graphics、readout math、AC meter design、meters and math、meter motion、
+wire resistance。數值原始結果及手動讀值記錄在
+`output/ac-phet-verification/analytic-reference.log`、`node-checks.json`、
+`phet-observations.json`、`phet-step-diagnostic.json`；可重跑的獨立基準為
+`node sim/circuit-workbench/ac-reference.test.js --json`。
+
+完整 browser 的前幾輪暴露三項測試問題：field readout 把 dt 標題字形當
+dd 值取框；微小 C／L 電流已按現行零顯示契約隱藏箭頭，舊測試仍要求
+歷史峰值窗口期間畫箭頭；慢幀環境中穩態讀值取樣 1.2 秒不足 31 幀。
+分別改成實際 dt／dd 容器、同時保留原始電流／峰值與零顯示斷言，以及
+最多等 4 秒但仍要求超過 30 幀且數字唯一。沒有放寬物理精度或免除失敗項；
+中止輪次的未執行後段不記為通過。
+
+最後完整執行中，source 全段通過；ZIP 已通過變壓器、電表、場線、發電機、
+全部預設、探頭、2／50 Hz 時鐘／燈泡、A／V／W／G 指針及手機儀器操作，
+後段因 `CDP Runtime.evaluate` 超過 30 秒而中止。紀錄在
+`output/ac-phet-verification/browser-full-final.log`，不能引用舊的
+`output/playwright/circuit-ac/evidence.json` 當作本輪完整成功證據。
+
+從原測試逐字抽取 palette 操作以後的尾段，在新瀏覽器補驗，source 再次
+通過；接續 ZIP 在嵌入頁觸控遇到 `Input.dispatchTouchEvent` 逾時。
+再將 ZIP 單獨放入新瀏覽器，開關、還原、範例、DC／AC 共存及 T1／T2
+宿主觸控／全螢幕均通過，T3 期間 Chrome 停止回應，連偵錯 HTTP 頁面
+亦在 3 秒內無回覆，遂停止該輪專用測試進程。未確認卡住根因，T3 及其
+後續 fullscreen 降級項不能記為 ZIP 通過；沒有用增加逾時或略過斷言
+冒充完整 gate。保留 `completion-browser.log`、`completion-package-fresh.log`
+及 `run-completion-check.cjs` 作診斷。主入口現會附上失敗的 evaluation
+內容，且就緒輪詢遇到 CDP 傳輸逾時立即失敗，避免反覆吞掉通訊逾時。
+
+`npm run check`、修改後的 browser 腳本語法及 `git diff --check` 通過；
+四個 standalone ZIP 已重建。本輪沒有改動物理求解或儀器數值算法。
+結論限於已執行的數值及儀器檢查：沒有發現計算錯誤；完整 ZIP browser、
+真手機及真 Moodle 驗收仍不能標成通過。
+
+參考：[PhET CCK AC 1.0.23](https://phet.colorado.edu/sims/html/circuit-construction-kit-ac/1.0.23/circuit-construction-kit-ac_en.html)、
+[官方 ACVoltage 模型](https://github.com/phetsims/circuit-construction-kit-common/blob/main/js/model/ACVoltage.ts)、
+[官方暫態分析](https://github.com/phetsims/circuit-construction-kit-common/blob/main/js/model/analysis/LinearTransientAnalysis.ts)、
+[PhET Faraday 模擬](https://phet.colorado.edu/en/simulations/faradays-electromagnetic-lab)。
+main 分支連結供閱讀；版本特定的數值診斷依據是本輪保存的 1.0.23 發行檔。
+
+### AC 電表字標與 G 排版修正（2026-10-11）
+
+依使用者指出的邊框重疊，為 AC A／V／W 上方單位留出內框及刻度的間距；
+錶面保持直立，旋轉時其中心跟隨內框中心，避免 90／180 度時偏向邊框。
+功率表 I₊／I₋、V₊／V₋ 保留語義及接孔，縮小或旋轉後仍在外殼外側。
+共用靈敏電流計將底部普通 G 移到頂部標題列，與 μA 並排，實物／符號／
+觸控預覽／放大錶盤均使用共用 MathJax 向量字形。
+
+本輪是非評量顯示修正，assessment risk／rubric／phase／authoritative snapshot
+新增欄位均 N/A；DC v6、AC v7、session v1 及求解、端子、刻度、指針機械幾何
+保持。共用 G 同時改善 DC，沿用原拖動／吸附／全螢幕與手機手勢，無新依賴。
+精準驗證沿用既有 AC meter design、meters-and-math、meter-motion Node，
+及 source／ZIP `--meter-design-smoke`：四向旋轉、不同縮放、字形與外框／刻度
+不相交、功率表端子標記、G 共用視圖、320／390px 可信觸控及暫停 session。
+重建四包，記錄實際證據；不把本機手機模擬當真手機或 Moodle gate。
+
+已執行 AC meter design、meters-and-math（96 個 fixture）、meter-motion
+（25 項）、`npm run check` 及 `git diff --check`，全部通過。
+`--meter-design-smoke` source／ZIP 各 88 項，共 176 項通過，errors 為空；
+涵蓋 A／V／W／G 四向字標留白、縮小時功率表端子避讓、G 實物與符號字形、
+320／390px 可信觸控選取及持續預覽、放大錶盤、物理 session 不變。
+四個 standalone ZIP 已重建；桌面比較及 320px W／G 放大圖已目視確認。
+
+### 變壓器外觀第二版套用（2026-10-11；使用者已確認）
+
+以下為前版歷史記錄；繞組透明度及鐵芯比例已由上方最新修訂取代。
+
+使用者看圖後要求先套用，查看實際工作台效果。本輪將疊片圓角鐵芯、連續
+前後繞線及透視磁場整合至原 AC 圖形；畫布／側欄／放大視窗共用同一圖形。
+場線開關切換完整／透視繞組，方向與近零／未知沿用既有 `coreFlux`，
+不用預覽頁的正弦動畫。匝數代表圈數維持每 10 匝約一圈，上方比值沿用既有
+直立註記與避讓；端子和文件幾何不改。
+
+- Assessment risk、rubric、提交 phase：N/A，非評量教師工作台。
+  沿用 v7 document／session v1／modelRevision 1；無新增權威保存欄位或依賴。
+- 圖形的漸層與遮罩 ID 必須按 editor、畫布／場面板／放大視窗及元件分域，
+  不可令多 instance 或多個變壓器互相引用錯誤圖形。
+- 精準驗證：既有 transformer-design、AC platform 圖形／接線、field-graphics
+  及相關 Node；變壓器 source／ZIP browser 專項（磁通正負／零／未知、
+  匝數 1–2000、前後連續繞線、四向旋轉、場線開關、實物／符號、多 instance、
+  手機可信選取／放大）。測試加入現有已登記的入口，四包重建後檢查實際 ZIP。
+  沒有新增拖動類型，沿用原命中／吸附／手勢；真手機與 Moodle gate 仍獨立。
+
+本輪已執行 `transformer-design.test.js`、`field-graphics.test.js`、
+`ac-platform.test.js`、`npm run check` 及 `git diff --check`，全部通過。
+第一輪 `--transformer-design-smoke` 的 source／ZIP 共 110 項通過，
+兩邊各有 32 個 RAF 同步樣本，無瀏覽器例外；桌面、320／390px 放大圖已目視。
+四個 circuit standalone 包由同一入口重建，仍使用本地依賴。
+實際 AC 工作台已在本機開啟並切到變壓器放大觀察。
+
+追加可信場線開關及接線預覽檢查時，本機先後遇到 Chrome 啟動、DevTools
+請求、截圖逾時，以及半秒不足 12 幀。測試入口把通訊與同一瀏覽器的啟動
+等待上限放寬至約 30 秒，並明確關閉 CDP socket；同步取樣最多等待 4 秒，
+仍要求至少 12 幀、正負磁通及每幀畫布／面板與分析值一致，沒有放寬數值斷言。
+
+最後追加驗證已通過：source 59 項／15 幀、ZIP 59 項／12 幀，共 118 項，
+`output/playwright/circuit-ac/evidence.json` 的 errors 為空。
+320／390px 可信 touch 均成功開關放大觀察、拖動線端顯示接線預覽、
+驗證預覽內 SVG 引用，取消後權威 session 完整相同；多 editor／多變壓器及
+畫布／面板／對話框的漸層與遮罩亦無重複 ID。這仍是本機模擬證據，
+沒有把真手機或 Moodle gate 標成通過。
+
+以下為套用前的預覽記錄。
+
+### 變壓器外觀第二版預覽（2026-10-11；歷史提案）
+
+- 先製作獨立 HTML／SVG 預覽及圖片，放在 `output/playwright/circuit-design-review/`；
+  使用者看圖確認後才整合正式 renderer。此記錄是設計提案，不是已套用功能。
+- 鐵芯正面、內窗及厚度共用一致圓角輪廓；繞組分前／後半圈，兩側連續引線
+  從外側接既有四端子。預覽匝數以代表圈數展示，明示不等於逐匝實物模型。
+- 磁場觀察使用高對比青綠色閉合線及明確箭頭；被線圈遮住的鐵芯段以透視
+  虛線表示。固定範圍內疏密表示相對強弱，近零／未知收起；有關閉場線、
+  暫停及反向預覽。正弦時間只供設計示範，未接正式 physics。
+- 非評量設計稿：assessment risk、rubric、提交／保存 phase 及權威 snapshot
+  均 N/A；正式整合仍沿用既有 coreFlux 觀察量、v7／session v1，沒有新依賴。
+  本輪只驗證 SVG、正／負／零方向、桌面／手機及縮小圖可讀性，不宣稱 solver
+  或正式變壓器 browser 全套通過。沒有新增拖動／吸附手勢，原端子座標保留。
+
+預覽實際驗證：1320px 對照圖及 390／320px 版面已目視；兩種模式、正負磁通、
+過零收起及播放反向通過，手機模擬以可信 touch 操作，按鈕至少 44px、無水平
+溢出。方向箭頭落在磁感線上。證據／截圖及可操作 HTML 均在上述目錄，正式
+AC renderer／場圖／solver 沒有套用此提案，仍待使用者看圖確認。
 
 以下記錄只證明其日期／當時提交的實際範圍。被後續取代的方案與舊全套結果保留為歷史；目前功能或通過狀態不得由舊段落推定。
 

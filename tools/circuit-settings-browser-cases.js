@@ -8,7 +8,11 @@ async function settingsCases(h,mode,base){
     console.log(`${mode}: focused settings / icons ${width} × ${height}`);const mobile=width<600;
     await h.freshPage();h.setContext('window');await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});await h.send('Emulation.setTouchEmulationEnabled',{enabled:mobile,maxTouchPoints:2});await h.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();
     async function contact(p){if(mobile){await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:touchId++,radiusX:2,radiusY:2,force:1}]});await h.delay(15);await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await h.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});}await h.delay(30);}
-    const tap=async selector=>contact(await h.point(selector));
+    async function tap(selector){
+      const overflow=await h.inside(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return e?.closest('[data-circuit-id=selectionActions]')&&!e.hidden&&getComputedStyle(e).display==='none'?e.dataset.circuitId:null;})()`);
+      if(overflow){await contact(await h.point('[data-circuit-id=moreSelected]'));selector='[data-selection-action="'+overflow+'"]';}
+      await contact(await h.point(selector));
+    }
     const choose=(id,value)=>h.inside(`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     const evidence=(kind,data={})=>h.evidence.push({mode,width,height,settings:kind,...data});
     const body=()=>h.inside(`(()=>{const e=document.querySelector('[data-hit="body:c3"]'),r=e.getBoundingClientRect();for(const x of [.5,.2,.8])for(const y of [.5,.2,.8]){const p={x:r.left+r.width*x,y:r.top+r.height*y};if(document.elementFromPoint(p.x,p.y)===e)return p;}throw new Error('No exposed component body');})()`);
@@ -43,4 +47,26 @@ async function settingsCases(h,mode,base){
     await choose('preset','relayBell');assert.equal(await h.inside('document.getElementById("circuitStatus").textContent'),'');await h.screenshot(`${mode}-compact-top-toolbar-${width}.png`);
   }
 }
-module.exports={settingsCases};
+async function settingsDraftCases(h,source){
+  let checks=0;const control=id=>`[data-circuit-id="${id}"]`;
+  for(const width of [1280,390,320]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<600});await h.send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});
+    const tap=async selector=>width<600?h.touch(await h.point(selector),0,0):h.click(selector),key=async value=>{const code=value==='Enter'?13:value==='Escape'?27:8;for(const type of ['keyDown','keyUp'])await h.send('Input.dispatchKeyEvent',{type,key:value,code:value,windowsVirtualKeyCode:code});};
+    async function type(id,text){await tap(control(id));await h.inside(`document.querySelector('${control(id)}').select()`);await h.send('Input.insertText',{text});}
+    await h.call('loadDocument(CircuitACPresets.create("resistive"))');await h.call('setPlayback({paused:false})');await tap(control('settings'));
+    const initial=await h.call('getDocument()'),started=await h.call('getAnalysis().time');
+    await type('cableCount','3');await h.delay(350);assert.equal(await h.inside(`document.querySelector('${control('cableCount')}').value`),'3');await h.send('Input.insertText',{text:'0'});await h.delay(1150);
+    assert.equal(await h.inside(`document.querySelector('${control('cableCount')}').value`),'30');assert.equal((await h.call('getDocument()')).cables.count,initial.cables.count);assert(await h.call('getAnalysis().time')>started+.02);checks+=4;
+    await key('Enter');assert.equal((await h.call('getDocument()')).cables.count,30);checks++;
+    await type('cableResistance','1');await h.delay(1150);assert.equal(await h.inside(`document.querySelector('${control('cableResistance')}').value`),'1');assert.equal((await h.call('getDocument()')).cables.resistance,initial.cables.resistance);checks+=2;
+    await h.inside(`document.querySelector('${control('cableResistance')}').select()`);await key('Backspace');await h.delay(1150);assert.equal(await h.inside(`document.querySelector('${control('cableResistance')}').value`),'');checks++;
+    await h.send('Input.insertText',{text:'0.02'});await h.delay(1150);assert.equal(await h.inside(`document.querySelector('${control('cableResistance')}').valueAsNumber`),.02);await key('Escape');assert.equal((await h.call('getDocument()')).cables.resistance,initial.cables.resistance);checks+=2;
+    await tap(control('settings'));assert.equal(await h.inside(`document.querySelector('${control('cableResistance')}').valueAsNumber`),initial.cables.resistance);await type('cableResistance','0.01');await key('Enter');assert.equal((await h.call('getDocument()')).cables.resistance,.01);checks+=2;
+    await type('cableResistance','0.5');await h.delay(1150);await tap(control('closeSettings'));assert.equal((await h.call('getDocument()')).cables.resistance,.01);checks++;
+    await tap(control('settings'));await type('cableCount','1');await key('Enter');await h.delay(1150);assert.equal((await h.call('getDocument()')).cables.count,30);assert.equal(await h.inside(`document.querySelector('${control('cableCount')}').value`),'1');assert(await h.inside(`document.querySelector('${control('cableCount')}').getAttribute('aria-invalid')==='true'`));checks+=3;
+    if(width===390)await h.screenshot(source+'-settings-draft');await key('Escape');await h.call('setPlayback({paused:true})');
+    console.log(source+' AC settings drafts '+width+' px: slow typing, delete/retype, Enter, Escape, close and invalid draft passed');
+  }
+  return checks;
+}
+module.exports={settingsCases,settingsDraftCases};

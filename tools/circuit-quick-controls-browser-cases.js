@@ -19,7 +19,11 @@ async function quickControlsCases(h,mode,base){
     else await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
     await h.delay(65);
   }
-  const tap=async selector=>contact(await h.point(selector));
+  async function tap(selector){
+    const overflow=await h.inside(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return e?.closest('[data-circuit-id=selectionActions]')&&!e.hidden&&getComputedStyle(e).display==='none'?e.dataset.circuitId:null;})()`);
+    if(overflow){await contact(await h.point(control('moreSelected')));selector='[data-selection-action="'+overflow+'"]';}
+    await contact(await h.point(selector));
+  }
   async function body(id){return h.inside(`(()=>{const e=document.querySelector('[data-hit="body:${id}"]'),r=e.getBoundingClientRect();for(const x of [.5,.2,.8])for(const y of [.5,.2,.8]){const p={x:r.left+r.width*x,y:r.top+r.height*y};if(document.elementFromPoint(p.x,p.y)===e)return p;}throw new Error('No exposed body ${id}');})()`);}
   const select=async id=>{await contact(await body(id));assert.equal(await h.inside('CircuitWorkbench.getInteraction().selection?.id'),id);};
   async function enter(text){
@@ -104,8 +108,8 @@ async function quickControlsCases(h,mode,base){
       await select('c2');assert.equal((await h.doc()).components[1].params.closed,false);await select('c2');assert.equal((await h.doc()).components[1].params.closed,true);evidence('original-tap-target-retained');
     }
     const single=M.empty();M.add(single,'lamp',260,220);await h.load(single);await select('c1');
-    const grouped=await layout();if(width===390)assert(grouped.footer.height<110,'390 px lamp uses two rows');if(width===320)assert(grouped.footer.height<160,'320 px lamp uses three rows');
-    assert.equal(grouped.actions.length,5);
+    const grouped=await layout();if(width===390)assert(grouped.footer.height<110,'390 px lamp uses two rows');if(width===320)assert(grouped.footer.height<110,'320 px lamp uses two rows');
+    assert.equal(grouped.actions.length,width<480?3:5);
     assert.equal(await h.inside(`document.querySelector('${control('objectActions')}').querySelectorAll('button').length`),0,'inspector does not duplicate selected lamp actions');
     await tap(control('rotateSelected'));assert.equal((await h.doc()).components[0].angle,90);await tap(control('rotateCounterSelected'));assert.equal((await h.doc()).components[0].angle,0);
     await tap(control('copySelected'));const copied=await h.doc();assert.equal(copied.components.length,2);assert.equal(copied.components[1].params.resistance,12);assert.equal(copied.components[1].label,'白熾燈 副本');
@@ -113,7 +117,7 @@ async function quickControlsCases(h,mode,base){
     await tap(control('deleteSelected'));assert.equal((await h.doc()).components.length,1);await tap(control('undo'));assert.equal((await h.doc()).components.length,2);
     await h.load(single);await select('c1');await h.inside('CircuitWorkbench.setReadOnly(true)');const frozen=await h.save();await h.inside(`document.querySelector('${control('copySelected')}').onclick()`);assert.equal(await h.save(),frozen);await tap(control('focusSelected'));assert.equal(await h.save(),frozen);await layout();await h.inside('CircuitWorkbench.setReadOnly(false)');
     await enter('12.3456789');assert.equal(await value(),12.3456789);await layout();assert.equal(await h.inside(`document.querySelector('${control('quickReadout')} svg').dataset.math`),'12.3456789 Ω');
-    await enter('1000000');assert.equal(await value(),1000000);const wide=await layout();assert(await h.inside(`document.querySelector('.stage-bottom').classList.contains('has-wide-param')`));if(width<480)assert(wide.footer.height<160);evidence('wide-parameter',{value:1000000,exactDecimal:true,layout:wide});
+    await enter('1000000');assert.equal(await value(),1000000);const wide=await layout();assert(await h.inside(`document.querySelector('.stage-bottom').classList.contains('has-wide-param')`));if(width<480)assert(wide.footer.height<110);evidence('wide-parameter',{value:1000000,exactDecimal:true,layout:wide});
     const meter=M.empty();M.add(meter,'ammeter',260,220);await h.load(meter);await select('c1');const meterLayout=await layout();assert.equal(meterLayout.actions.length,7);await tap(control('inspectMeter'));assert(await h.inside(`document.querySelector('${control('meterDialog')}').open`));await tap(control('closeMeter'));await tap(control('flipMeterSelected'));assert((await h.doc()).components[0].mirrored);
     evidence('joined-direct-actions',{layout:grouped,meterLayout,rotate:true,copy:true,locate:true,deleteUndo:true,readOnly:true});
     if(width===390){
@@ -130,5 +134,40 @@ async function quickControlsCases(h,mode,base){
       await mount({role:'student',initialDocument:single,palette:[{type:'lamp',limit:2}],components:{default:{rotate:true,remove:true,params:['resistance']}},ui:{inspector:false}});await select('c1');await tap(control('copySelected'));assert.equal((await h.doc()).components.length,2);const atLimit=await h.save();assert(await h.inside(`document.querySelector('${control('copySelected')}').hidden`));await h.inside(`document.querySelector('${control('copySelected')}').onclick()`);assert.equal(await h.save(),atLimit);await tap(control('deleteSelected'));assert.equal((await h.doc()).components.length,1);await select('c1');assert(!await h.inside(`document.querySelector('${control('copySelected')}').hidden`));await tap(control('copySelected'));assert.equal((await h.doc()).components.length,2);evidence('student-copy-stock',{limit:2,inspectorDisabled:true});
     }
   }
+  await h.freshPage();h.setContext('window');await h.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await h.ready();
+  const checks=await compactFooterCases({...h,call:code=>h.inside('CircuitWorkbench.'+code),screenshot:name=>h.screenshot(name+'.png')},mode);
+  evidence('two-row-footer',{checks});
 }
-module.exports={quickControlsCases};
+// The same footer is used by DC and AC, including narrow native-dialog actions.
+async function compactFooterCases(h,source,transient=false){
+  let checks=0;
+  const control=id=>`[data-circuit-id="${id}"]`,tap=async selector=>h.touch(await h.point(selector),0,0);
+  const fixture=transient?require('../sim/circuit-workbench/circuit-ac-presets').create('resistive'):P.create('series');
+  const lamp=fixture.components.findLast(c=>c.type==='lamp');
+  async function layout(){
+    const result=await h.inside(`(()=>{const footer=document.querySelector('.stage-bottom'),r=footer.getBoundingClientRect(),controls=[...footer.querySelectorAll('button,input,output')].filter(e=>e.getBoundingClientRect().width>0),boxes=controls.map(e=>e.getBoundingClientRect());return {height:r.height,overflow:document.documentElement.scrollWidth-innerWidth,rows:getComputedStyle(footer).gridTemplateRows,targets:boxes.every(b=>b.width>=44&&b.height>=44&&b.left>=r.left&&b.right<=r.right+.1&&b.top>=r.top&&b.bottom<=r.bottom+.1),overlap:boxes.some((a,i)=>boxes.slice(i+1).some(b=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>.1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.1))};})()`);
+    assert.equal(result.rows,'44px 44px');assert(result.height<=105);assert(result.overflow<=1);assert(result.targets);assert(!result.overlap);checks+=5;return result;
+  }
+  for(const width of [320,360,384,390,480]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:700,deviceScaleFactor:1,mobile:true});await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+    await h.call('loadDocument('+JSON.stringify(fixture)+')');if(transient)await h.call('setPlayback({paused:true})');await h.delay(80);
+    if(await h.inside(`document.querySelector('${control('panelToggle')}').getAttribute('aria-expanded')==='true'`))await tap(control('panelToggle'));
+    await h.touch(await h.point('[data-hit="body:'+lamp.id+'"]',true),0,0);assert.equal((await h.call('getInteraction()')).selection.id,lamp.id);checks++;
+    const compact=await layout();
+    if(width===384)await h.screenshot(source+'-two-row-footer-'+(transient?'ac':'dc'));
+    if(width<480){
+      const before=await h.call('exportDocument()');await tap(control('moreSelected'));
+      assert(await h.inside(`(()=>{const d=document.querySelector('${control('selectionActionsDialog')}'),r=d.getBoundingClientRect();return d.open&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&d.scrollWidth<=d.clientWidth+1&&[...d.querySelectorAll('button')].every(b=>b.getBoundingClientRect().height>=44)&&!!d.querySelector('[data-selection-action=copySelected]');})()`));assert.equal(await h.call('exportDocument()'),before);checks+=2;
+      if(width===384)await h.screenshot(source+'-more-actions-'+(transient?'ac':'dc'));
+      await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.delay(40);
+      assert(await h.inside(`!document.querySelector('${control('selectionActionsDialog')}').open&&document.activeElement===document.querySelector('${control('moreSelected')}')`));assert.equal(await h.call('exportDocument()'),before);checks+=2;
+      await tap(control('moreSelected'));await tap('[data-selection-action="rotateCounterSelected"]');assert.equal((await h.call('getDocument()')).components.find(c=>c.id===lamp.id).angle,(lamp.angle+270)%360);checks++;
+      await tap(control('moreSelected'));await h.call('setReadOnly(true)');assert(await h.inside(`!document.querySelector('${control('selectionActionsDialog')}').open`));checks++;await h.call('setReadOnly(false)');
+    }
+    await h.call('execute({type:"setParam",id:'+JSON.stringify(lamp.id)+',key:"resistance",value:12.3456789})');await layout();
+    if(width===320){await h.screenshot(source+'-wide-footer-'+(transient?'ac':'dc'));await tap(control('moreSelected'));assert(await h.inside(`!!document.querySelector('[data-selection-action="deleteSelected"]')&&!!document.querySelector('[data-selection-action="rotateSelected"]')`));await tap(control('closeSelectionActions'));checks++;}
+    console.log(source+' '+(transient?'AC':'DC')+' two-row footer '+width+' px: '+compact.height+' px high');
+  }
+  return checks;
+}
+module.exports={quickControlsCases,compactFooterCases};
