@@ -54,7 +54,13 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
-### 手機不顯示示例說明（2026-10-11；已完成）
+### 徹底移除示例提示（2026-10-11）
+
+依使用者最新要求，AC／DC所有尺寸均不提供示例提示、展開入口或載入示例的說明通知。示例選單及電路載入保留；移除相關DOM、事件及CSS，而非只隱藏。教師非評量，assessment／rubric／SCORM N/A；模型、快照及依賴不改。只更新既有example-hint專項，核對source／ZIP桌面、手機的提示不存在、示例可切換及一般操作通知保留，重建四包並更新原Sites。
+
+`--example-hint-smoke` source／ZIP共90項針對性檢查通過，涵蓋1280／390／844 px、AC及DC空白／示例切換、提示不存在及一般操作通知保留。四包重建並核對來源雜湊；沒有重跑物理、完整CI、真手機或Moodle。證據在 `output/example-hint-removal/`。
+
+### 手機不顯示示例說明（2026-10-11；歷史記錄，已由徹底移除取代）
 
 手機直向（≤759 px）及窄橫向（≤959 px、≤450 px高）隱藏AC示例提示整塊，連收起入口亦不佔位；DC載入示例的操作說明通知亦隱藏。桌面保留現有提示及展開／收起。這是顯示修訂，assessment／rubric／SCORM N/A，物理、快照及依賴不改。只驗source／ZIP的手機直向／橫向、桌面及resize返回、DC示例通知和正常通知，更新既有hint案例而不重跑繞線／求解套件；更新原Sites。
 

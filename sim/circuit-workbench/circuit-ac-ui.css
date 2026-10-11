@@ -96,9 +96,3 @@
 .ac-editor .quantity-label{display:inline-flex;align-items:baseline;gap:.25em;flex-wrap:wrap}
 .ac-editor .ac-bar-value>.math-inline,.ac-editor .ac-bar-scale .math-inline{max-width:none}
 
-.circuit-editor .ac-example-hint{position:absolute;top:8px;left:8px;z-index:6;max-width:calc(100% - 16px);max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;touch-action:pan-y;background:#fffffff2;border:1px solid #bed3e1;border-radius:8px;color:#325d7b;font-size:13px;line-height:1.6}
-.circuit-editor .ac-example-hint[hidden]{display:none}
-.circuit-editor .ac-example-hint[open]{width:min(420px,calc(100% - 16px))}
-.circuit-editor .ac-example-hint summary{position:sticky;top:0;z-index:1;background:#fffffff2;min-height:44px;box-sizing:border-box;padding:10px 12px;cursor:pointer;touch-action:pan-y}
-.circuit-editor .ac-example-hint summary:focus-visible{outline:2px solid #2563eb;outline-offset:-3px}
-.circuit-editor .ac-example-hint p{margin:0;padding:0 12px 12px}

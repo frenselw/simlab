@@ -9,11 +9,8 @@
     const button=(text,fn,label=text)=>{const b=element('button','',text);b.type='button';b.setAttribute('aria-label',label);on(b,'click',fn);return b;};
     const quantity=(value,unit)=>Q.html(Q.quantity(unit==='J'?V.displayEnergy(value):value,unit));
     if(profile.ui.presets){const P=root.CircuitACPresets;refs.preset.replaceChildren(new Option(P.names.empty,'empty'),...P.groups.map(({label,keys})=>{const group=document.createElement('optgroup');group.label=label;group.append(...keys.map(key=>new Option(P.names[key],key)));return group;}));refs.preset.value='resistive';}
-    const exampleHint=element('details','ac-example-hint'),exampleSummary=element('summary','','示例提示 · 展開'),exampleText=element('p');exampleHint.append(exampleSummary,exampleText);exampleHint.hidden=true;if(profile.ui.presets)refs.surface.parentElement.append(exampleHint);
-    on(exampleHint,'toggle',()=>exampleSummary.textContent='示例提示 · '+(exampleHint.open?'收起':'展開'));on(exampleHint,'keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();exampleHint.open=false;exampleSummary.focus();}});
-    function showExampleHint(name,open=true){exampleText.innerHTML=root.CircuitACPresets.descriptionParts(name).map(p=>typeof p==='string'?V.esc(p):Q.html(p)).join('');exampleHint.hidden=false;exampleHint.open=open;exampleSummary.textContent='示例提示 · '+(open?'收起':'展開');}
     const notice=element('p','diagnostic ac-diagnostic');notice.setAttribute('role','status');refs.panel.prepend(notice);
-    function documentLoaded(doc){if(!profile.ui.presets)return;const value=JSON.stringify(doc),name=Object.keys(root.CircuitACPresets.names).find(name=>JSON.stringify(root.CircuitACPresets.create(name))===value);if(name){refs.preset.value=name;showExampleHint(name,false);}else{exampleHint.hidden=true;exampleHint.open=false;if(![...refs.preset.options].some(o=>o.value==='custom')){const option=new Option('自訂電路','custom');option.disabled=true;refs.preset.add(option);}refs.preset.value='custom';}}
+    function documentLoaded(doc){if(!profile.ui.presets)return;const value=JSON.stringify(doc),name=Object.keys(root.CircuitACPresets.names).find(name=>JSON.stringify(root.CircuitACPresets.create(name))===value);if(name){refs.preset.value=name;}else{if(![...refs.preset.options].some(o=>o.value==='custom')){const option=new Option('自訂電路','custom');option.disabled=true;refs.preset.add(option);}refs.preset.value='custom';}}
     const scope=profile.ui.waveform?root.CircuitScopeUI.mount({host,refs,profile,controller,viewDocument,routes,readouts,currentReferences}):null;
     let lastAnalysis=controller.getAnalysis(),energyScale=0,observed=null;
     const energyPanel=section('儲能與耗散'),fieldPanel=section('電場與磁場'),energyContent=element('div','ac-energy'),fieldCheck=document.createElement('input'),energyCheck=document.createElement('input');fieldCheck.type=energyCheck.type='checkbox';fieldCheck.checked=energyCheck.checked=true;
@@ -68,7 +65,7 @@
 
     const originalLoaded=documentLoaded;
     documentLoaded(controller.getDocument());render(lastAnalysis);
-    return {render,showExampleHint,preview:result=>scope?.preview(result),endPreview:commit=>scope?.endPreview(commit),animate,setChannels:channels=>scope?.setChannels(channels)??false,getTools:()=>scope?.getTools()||[],setTools:tools=>scope?.setTools(tools)??false,clear,documentLoaded(doc){readouts.clear();originalLoaded(doc);scope?.resetDocument();},destroy(){readouts.clear();abort.abort();if(fieldDialog.open)fieldDialog.close();fieldDialog.remove();exampleHint.remove();scope?.destroy();host.classList.remove('ac-editor');}};
+    return {render,preview:result=>scope?.preview(result),endPreview:commit=>scope?.endPreview(commit),animate,setChannels:channels=>scope?.setChannels(channels)??false,getTools:()=>scope?.getTools()||[],setTools:tools=>scope?.setTools(tools)??false,clear,documentLoaded(doc){readouts.clear();originalLoaded(doc);scope?.resetDocument();},destroy(){readouts.clear();abort.abort();if(fieldDialog.open)fieldDialog.close();fieldDialog.remove();scope?.destroy();host.classList.remove('ac-editor');}};
   }
   root.CircuitACUI={mount};
 })(window);

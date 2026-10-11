@@ -2,24 +2,30 @@
 const assert=require('node:assert/strict'),M=require('../sim/circuit-workbench/circuit-model'),P=require('../sim/circuit-workbench/circuit-ac-presets');
 const link=(d,a,b,ap='a',bp='a')=>M.connect(d,a.id+':'+ap,b.id+':'+bp);
 async function exampleHintCases(h,source){let checks=0;
- for(const [width,height] of [[1280,900],[390,844],[844,390]]){await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<960});await h.send('Emulation.setTouchEmulationEnabled',{enabled:width<960,maxTouchPoints:2});await h.call('setPlayback({paused:true})');await h.inside('(()=>{const select=document.querySelector("[data-circuit-id=preset]");select.value="capacitive";select.dispatchEvent(new Event("change",{bubbles:true}));})()');
-  assert(await h.inside('document.querySelector(".ac-example-hint").open'));assert(await h.inside('!/[感容]抗/.test(document.querySelector(".ac-example-hint").textContent)'));checks+=2;const saved=await h.call('captureSession()');assert(await h.inside('document.querySelector(".ac-example-hint").parentElement.classList.contains("canvas-area")'));checks++;await h.screenshot(source+'-example-hint-'+width);
-  if(width<960){assert(await h.inside('document.querySelector(".ac-example-hint").getClientRects().length===0'));assert.deepEqual(await h.call('captureSession()'),saved);checks+=2;continue;}
-  assert(await h.inside('document.querySelector(".ac-example-hint").getClientRects().length>0'));checks++;
-  const target=await h.point('.ac-example-hint summary');if(width<960)await h.touch(target);else await h.click('.ac-example-hint summary');assert(!await h.inside('document.querySelector(".ac-example-hint").open'));if(width<960)await h.touch(await h.point('.ac-example-hint summary'));else await h.click('.ac-example-hint summary');assert(await h.inside('document.querySelector(".ac-example-hint").open'));assert.deepEqual(await h.call('captureSession()'),saved);checks+=3;
-  const camera=await h.call('getInteraction().camera'),centre=await h.point('.ac-example-hint summary');await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',...centre,deltaX:0,deltaY:80});assert.deepEqual(await h.call('getInteraction().camera'),camera);checks++;
-  await h.inside('document.querySelector(".ac-example-hint summary").focus()');await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});assert(!await h.inside('document.querySelector(".ac-example-hint").open'));assert(await h.inside('!document.querySelector(".surface").classList.contains("quick-pan")'));checks+=2;
-  if(width<960)await h.touch(await h.point('.ac-example-hint summary'));else await h.click('.ac-example-hint summary');
-
-  await h.inside('document.querySelector(".ac-example-hint summary").focus()');await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});assert(!await h.inside('document.querySelector(".ac-example-hint").open'));assert(await h.inside('(()=>{const r=document.querySelector(".ac-example-hint summary").getBoundingClientRect();return r.height>=44&&r.left>=0&&r.right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth;})()'));checks+=2;
+ for(const [width,height] of [[1280,900],[390,844],[844,390]]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<960});await h.call('setPlayback({paused:true})');
+  for(const name of ['empty','capacitive']){
+   await h.inside(`(()=>{const s=document.querySelector('[data-circuit-id=preset]');s.value=${JSON.stringify(name)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+   assert.equal(await h.inside('document.querySelector("[data-circuit-id=preset]").value'),name);
+   const doc=await h.call('getDocument()');assert(name==='empty'?doc.components.length===0:doc.components.some(c=>c.type==='capacitor'));
+   assert(await h.inside('!document.querySelector(".ac-example-hint")&&!document.querySelector(".canvas-area").textContent.includes("示例提示")'));
+   assert(await h.inside('!document.body.textContent.includes("已載入範例，可取線、改接及量測。")'));checks+=4;
+  }
+  if(width!==844)await h.screenshot(source+'-example-hint-removed-'+width);
  }
- await h.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});assert(await h.inside('document.querySelector(".ac-example-hint").getClientRects().length>0'));checks++;
- // DC's brief preset instructions follow the same mobile policy; ordinary notices remain visible.
  await h.inside(`(async()=>{const host=document.createElement('div');host.id='hint-dc';host.style.cssText='position:fixed;inset:0;background:white;z-index:200';document.body.append(host);window.__hintDC=await CircuitEditor.mount(host,{role:'teacher',idPrefix:'hint-dc-'});})()`);
- for(const [width,height]of [[1280,900],[390,844],[844,390]]){await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<960});await h.inside(`(()=>{const s=document.querySelector('#hint-dc [data-circuit-id=preset]');s.value='series';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);assert.equal(await h.inside('document.querySelector("#hint-dc .canvas-notice[data-example-notice]").getClientRects().length>0'),width===1280);assert(await h.inside('!document.querySelector("#hint-dc .ac-example-hint")'));checks+=2;}
- await h.touch(await h.point('#hint-dc [data-hit="body:c1"]',true));assert(await h.inside('!document.querySelector("#hint-dc .canvas-notice").hasAttribute("data-example-notice")'));checks++;
- await h.inside(`__hintDC.execute({type:'addComponent',key:'resistor',x:200,y:200})`);await h.inside(`document.querySelector('#hint-dc [data-circuit-id=undo]').click()`);assert(await h.inside('document.querySelector("#hint-dc .canvas-notice:not([hidden])").getClientRects().length>0'));assert(await h.inside('!document.querySelector("#hint-dc .canvas-notice").hasAttribute("data-example-notice")'));checks+=2;
- await h.inside('__hintDC.destroy();document.getElementById("hint-dc").remove();delete window.__hintDC');console.log(source+' example hint visibility: '+checks+' checks passed');return checks;
+ for(const [width,height] of [[1280,900],[390,844],[844,390]]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<960});
+  for(const name of ['empty','series']){
+   await h.inside(`(()=>{const s=document.querySelector('#hint-dc [data-circuit-id=preset]');s.value=${JSON.stringify(name)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+   assert.equal(await h.inside('document.querySelector("#hint-dc [data-circuit-id=preset]").value'),name);
+   const doc=await h.inside('__hintDC.getDocument()');assert(name==='empty'?doc.components.length===0:doc.components.filter(c=>c.type==='lamp').length===2);
+   assert(await h.inside('!document.querySelector("#hint-dc .ac-example-hint")&&!document.querySelector("#hint-dc").textContent.includes("已載入範例，可取線、改接及量測。")'));checks+=3;
+  }
+  await h.inside(`__hintDC.execute({type:'addComponent',key:'resistor',x:200,y:200});document.querySelector('#hint-dc [data-circuit-id=undo]').click()`);
+  assert(await h.inside('document.querySelector("#hint-dc .canvas-notice:not([hidden])").getClientRects().length>0'));checks++;
+ }
+ await h.inside('__hintDC.destroy();document.getElementById("hint-dc").remove();delete window.__hintDC');console.log(source+' example hint removal: '+checks+' checks passed');return checks;
 }
 async function windingCases(h,source){let checks=await exampleHintCases(h,source);
  await h.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await h.send('Emulation.setTouchEmulationEnabled',{enabled:false});
