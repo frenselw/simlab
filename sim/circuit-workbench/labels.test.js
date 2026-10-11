@@ -19,7 +19,7 @@ for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(con
   neighbor.x+=60;neighbor.y-=20;verify(d,scale);const restored=D.decode(D.encode(d));M.add(restored,'switch',580,440);M.validate(restored);verify(restored,scale);
 }
 for(const width of [320,390,1028])for(const height of [360,600])for(const name of ['series','parallel','mixed','ohm','meters','bridge'])for(const view of ['real','schematic']){
-  const d=P.create(name);d.display.view=view;const points=[...d.components.flatMap(c=>[{x:c.x-90,y:c.y-90},{x:c.x+90,y:c.y+130}]),...d.wires.flatMap(w=>G.route(d,w))],x0=Math.min(...points.map(p=>p.x)),x1=Math.max(...points.map(p=>p.x)),y0=Math.min(...points.map(p=>p.y)),y1=Math.max(...points.map(p=>p.y)),scale=Math.min(1.2,(width-40)/(x1-x0),(height-40)/(y1-y0));
+  const d=P.create(name);d.display.fontSize='xs';d.display.view=view;const points=[...d.components.flatMap(c=>[{x:c.x-90,y:c.y-90},{x:c.x+90,y:c.y+130}]),...d.wires.flatMap(w=>G.route(d,w))],x0=Math.min(...points.map(p=>p.x)),x1=Math.max(...points.map(p=>p.x)),y0=Math.min(...points.map(p=>p.y)),y1=Math.max(...points.map(p=>p.y)),scale=Math.min(1.2,(width-40)/(x1-x0),(height-40)/(y1-y0));
   const viewport={x:(x0+x1)/2-width/(2*scale),y:(y0+y1)/2-height/(2*scale),width:width/scale,height:height/scale};verify(d,scale,viewport);
 }
 for(const names of [false,true])for(const values of [false,true]){

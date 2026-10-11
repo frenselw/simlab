@@ -1,8 +1,8 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting, node ? require("./circuit-label-layout.js") : root.CircuitLabelLayout, node ? require("./circuit-math.js") : root.CircuitMath, node ? require("./circuit-solver.js") : root.CircuitSolver);
+  const api = factory(node ? require("./component-registry.js") : root.CircuitRegistry, node ? require("./circuit-routing.js") : root.CircuitRouting, node ? require("./circuit-label-layout.js") : root.CircuitLabelLayout, node ? require("./circuit-math.js") : root.CircuitMath, node ? require("./circuit-solver.js") : root.CircuitSolver, node ? require("./circuit-model.js") : root.CircuitModel);
   if (node) module.exports = api; else root.CircuitRenderer = api;
-})(globalThis, function (R, Routing, L, Q, S) {
+})(globalThis, function (R, Routing, L, Q, S, M) {
   "use strict";
   const flowColours={current:"#c43f4c",electron:"#2563eb"};
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -182,7 +182,7 @@
   function labels(doc,result,scale=1,routes={},viewport=null,options=null){
     if(options)options.crowded=false;
     if(viewport&&scale<.4)return [];
-    const items=[],details=[...(options?.exclusions||[])],nameSize=doc.display.projection?18:14,valueSize=doc.display.projection?16:12;
+    const items=[],details=[...(options?.exclusions||[])],font=M.fontSizes[M.fontSize(doc.display)],nameSize=font.name,valueSize=font.value;
     doc.components.forEach(c=>{
       const r=result.components[c.id],isMeter=R.isMeter(c),estimated=doc.display.values&&r?.meterStatus==='collecting'&&Number.isFinite(r?.estimatedReading),lines=[];
       if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':'')+(estimated?' · 暫估':''),size:nameSize});
@@ -200,10 +200,10 @@
         }
       }
       if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a)),corners=[-90,90].flatMap(x=>[-64,64].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
-      if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
+      if(lines.length)items.push({id:c.id,lines,maxWidth:font.maxWidth});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
-      if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:doc.display.projection?18:16}]});}
+      if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:font.direction}]});}
     });
     for(const w of doc.wires){
       if(!options?.wireCurrents?.has(w.id))continue;
@@ -211,7 +211,7 @@
       // ponytail: anchor one straight segment; add multiple anchors if dense diagrams need them.
       for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],span=viewport?L.segmentSpan(a,b,{left:viewport.x,right:viewport.x+viewport.width,top:viewport.y,bottom:viewport.y+viewport.height}):[0,1];if(!span)continue;const length=Math.hypot(b.x-a.x,b.y-a.y)*(span[1]-span[0]),t=(span[0]+span[1])/2,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};if(length>longest){anchor=p;longest=length;}}
       if(!anchor||viewport&&longest*scale<12)continue;
-      const current=displayCurrent(doc,result,w.from,result.wires[w.id]?.current,options?.currentReferences,result.wires[w.id]?.currentPeak),size=doc.display.projection?16:14,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
+      const current=displayCurrent(doc,result,w.from,result.wires[w.id]?.current,options?.currentReferences,result.wires[w.id]?.currentPeak),size=font.wire,value=Math.abs(current),unit=value===0||value>=1?'A':value>=.001?'mA':'μA',factor=unit==='A'?1:unit==='mA'?1e3:1e6;
       const transient=doc.analysis==='transient',quantity=transient?{text:Number.isFinite(current)?Q.quantity(value*1000,'mA').text:'未能確定',noWrap:true}:Number.isFinite(current)?Q.quantity(value*factor,unit):{text:'未能確定'};
       items.push({id:w.id,anchor,...(transient?{fixedWidth:L.measure('8.88e+888 mA',size)}:{}),paddingX:4,paddingLeft:transient||Number.isFinite(current)&&current!==0?28:0,lines:[{kind:'wireCurrent',...quantity,size,current,angle:anchor.angle+(current<0?180:0)}]});
     }
@@ -293,11 +293,14 @@
       if(potential&&row.angle!==null)out+=`<path data-potential-direction="${row.componentId}" data-potential-from="${row.from}" data-potential-to="${row.to}" transform="translate(${b.left+17/scale} ${(b.top+b.bottom)/2}) rotate(${row.angle}) scale(${1/scale})" d="M-9 0H9 M3-5L9 0L3 5" fill="none" stroke="#a45d0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
       p.rows.forEach(row=>{const attrs=wire?`data-wire-current-value="${p.id}"`:potential?`data-potential-value="${row.componentId}" fill="#815019"`:`data-component-${row.kind==='name'?'label':'value'}="${p.id}"`;out+=row.tex?Q.svg(row.x,row.y,row,row.size/scale,attrs):text(row.x,row.y,row.text,row.size/scale,attrs+(row.noWrap?' font-variant-numeric="tabular-nums"':''));});out+='</g>';});
     if(tiny){
-      const meters=doc.components.filter(R.isMeter),shown=doc.display.values&&viewport.height*scale>=260?meters.slice(0,3):[],height=shown.length?56:30;
-      const x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
-      out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-8)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
-      shown.forEach((c,i)=>{const r=result.components[c.id],symbol=R.get(c.type).icon,q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit);out+=Q.svg(x+(i+.5)*width/shown.length,bottom-27/scale,{text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex},14/scale,`data-overview-readout="${c.id}"`);});
-      out+=text(x+width/2,bottom,labelOptions?.crowded?'標示較密 · 放大或逐個顯示':labelOptions?.potentialDirections?.size?'電勢方向'+(labelOptions?.wireCurrents?.size?'／電流':'')+'已開啟 · 放大查看':labelOptions?.wireCurrents?.size?'導線電流已開啟 · 放大查看':meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',14/scale,(labelOptions?.wireCurrents?.size?'data-wire-current-overview="true" ':'')+(labelOptions?.potentialDirections?.size?'data-potential-overview="true"':''))+`</g>`;
+      const font=M.fontSizes[M.fontSize(doc.display)],meters=doc.components.filter(R.isMeter),x=viewport.x+12/scale,bottom=viewport.y+viewport.height-10/scale,width=viewport.width-24/scale;
+      const specs=meters.slice(0,3).map(c=>{const r=result.components[c.id],symbol=R.get(c.type).icon,q=Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit);return {id:c.id,text:symbol+'：'+q.text,tex:'\\mathrm{'+symbol+'}:\\;'+q.tex};});
+      let shown=doc.display.values&&viewport.height*scale>=260?specs:[];
+      while(shown.length>1&&shown.some(q=>Q.measure(q.tex,font.value).width>width*scale/shown.length-12))shown=shown.slice(0,-1);
+      const message=labelOptions?.crowded?'標示較密 · 放大或逐個顯示':labelOptions?.potentialDirections?.size?'電勢方向'+(labelOptions?.wireCurrents?.size?'／電流':'')+'已開啟 · 放大查看':labelOptions?.wireCurrents?.size?'導線電流已開啟 · 放大查看':meters.length>3?'全圖概覽 · 放大查看各儀表':'全圖概覽 · 放大查看元件',lines=L.wrap(message,font.value,width*scale-16),lineHeight=font.value*1.4,height=lines.length*lineHeight+(shown.length?lineHeight+8:0)+12;
+      out+=`<g data-overview-caption="true"><rect x="${x-5/scale}" y="${bottom-(height-font.value*.3)/scale}" width="${width+10/scale}" height="${height/scale}" rx="${7/scale}" fill="#fff" fill-opacity=".95"/>`;
+      shown.forEach((q,i)=>{out+=Q.svg(x+(i+.5)*width/shown.length,bottom-(lines.length*lineHeight+8)/scale,q,font.value/scale,`data-overview-readout="${q.id}"`);});
+      lines.forEach((line,i)=>{out+=text(x+width/2,bottom-(lines.length-1-i)*lineHeight/scale,line,font.value/scale,(labelOptions?.wireCurrents?.size?'data-wire-current-overview="true" ':'')+(labelOptions?.potentialDirections?.size?'data-potential-overview="true"':''));});out+='</g>';
     }
     return out;
   }

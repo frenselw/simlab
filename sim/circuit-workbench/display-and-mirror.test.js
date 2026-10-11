@@ -60,4 +60,13 @@ for(const type of ['ammeter','voltmeter']){
   const d=M.empty(),c=M.add(d,'ammeter',300,200),w=M.addWire(d,364,326);assert(M.attach(d,w.id,'from',c.id+':a'));const port=R.ports(c).find(p=>p.key==='a');M.moveWireEnd(d,w.id,'to',{x:port.x+120,y:port.y});M.straightenWire(d,w.id);w.length=120;M.validate(d);const saved=D.encode(d);assert.throws(()=>M.flipMeter(d,c.id),/導線太短/);assert.equal(D.encode(d),saved,'failed mirror is atomic and preserves finite lengths');
   const bad=M.empty();M.add(bad,'lamp',0,0).mirrored=false;assert.throws(()=>M.validate(bad));assert.throws(()=>M.flipMeter(bad,'c1'));cases++;
 }
+// Five display levels survive files/history without changing physical state or student permissions.
+{const T=require('./circuit-transient'),AP=require('./circuit-ac-presets'),F=require('./circuit-profile');
+ const d=P.create('series'),before=S.solve(d).components;assert.equal(M.fontSize(d.display),'m');
+ for(const key of ['xs','s','m','l','xl']){d.display.fontSize=key;const restored=D.decode(D.encode(d));assert.equal(restored.display.fontSize,key);assert.deepEqual(S.solve(restored).components,before);const labels=V.labels(restored,S.solve(restored));assert(labels.some(p=>p.rows.some(r=>r.kind==='name'&&r.size>=14)));cases++;}
+ for(const invalid of [null,0,'medium','huge']){d.display.fontSize=invalid;assert.throws(()=>M.validate(d));}
+ delete d.display.fontSize;d.display.projection=true;const legacy=D.decode(D.encode(d));assert.equal(M.fontSize(legacy.display),'l');assert(!Object.hasOwn(legacy.display,'fontSize'));
+ const session=new T.Session(AP.create('resistive'));session.advance(.25);const physics=M.clone(session.state),doc=M.clone(session.doc);doc.display.fontSize='xl';session.update(doc);assert.deepEqual(session.state,physics);const restored=T.Session.restore(session.capture());assert.equal(restored.doc.display.fontSize,'xl');restored.advance(.01);assert(!restored.fault);
+ const student=F.compile({role:'student',initialDocument:P.create('series')});const bad=M.clone(student.initial);bad.display.fontSize='xl';assert.throws(()=>student.assertSnapshot(bad),/顯示設定/);cases++;
+}
 console.log(`Focused display + mirror: ${cases} cases passed; independent quantities, simple defaults, strict/legacy JSON, all A/V ranges/orientations, unchanged readings, finite cables, permissions, undo and restored continuation.`);

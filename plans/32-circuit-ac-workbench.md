@@ -54,6 +54,12 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
+### 五級畫布字體大小（2026-10-11）
+
+依使用者要求，以「字體大小」五級選單（很小／小／中／大／特大）取代投影字體勾選。預設中：名稱20px、讀值18px，較原14／12px大；各級亦調整導線電流及方向標籤。字級保持畫面像素大小，不跟隨zoom縮細。可復原、匯出／載入及切換示例保留；舊projection欄位僅作相容，無該選單用詞。fontSize為可選显示欄位，未新增者不改文件形狀、技術codec或活動固定顯示權限。非評量，assessment／rubric／SCORM N/A；只驗五級字形、布局、舊文件、往返、物理狀態不變及source／ZIP桌面手機，重建四包更新原Sites。
+
+display-and-mirror115及document-import8組通過；source／ZIP五級顯示專項258項通過（AC／DC ×1280／390px），驗字級實際畫面像素、保存／載入／復原／重做、舊projection與模擬狀態不變，特大手機概覽無溢出。labels及wire-current-labels相鄰幾何／導線讀數套件通過；舊72個清晰幾何fixture明確用很小字級，五級的實際顯示由本次browser專項核對。四包重建核對來源；證據在 `output/font-sizes/`。未驗完整CI、真手機或Moodle。
+
 ### 互感示例的清晰接線（2026-10-11）
 
 依使用者要求，原側供電支路放上方，放電電阻放中間獨立直支路，線圈與副側負載／電流計各佔清楚區域；導線僅在顯式接點相會，不交叉、重疊或穿過元件。只調位置及路徑，保留元件ID、參數與端子拓撲及合／斷時的感應方向。非評量，assessment／rubric／SCORM N/A。沿用preset幾何檢查及互感專項source／ZIP桌面、手機、通斷讀值，不擴大到無關測試；重建四包並更新原Sites。

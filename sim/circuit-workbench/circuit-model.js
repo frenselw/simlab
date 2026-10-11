@@ -7,6 +7,8 @@
   const limits = Object.freeze({ components: 80, junctions: 600, wires: 240, bends: 24, stroke: 96, bytes: 262144, coordinate: 10000, resistance: 1e6 });
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const quantityDefaults=Object.freeze({loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true});
+  const fontSizes=Object.freeze({xs:{label:'很小',name:14,value:12,wire:14,direction:16,maxWidth:180},s:{label:'小',name:16,value:14,wire:16,direction:18,maxWidth:210},m:{label:'中',name:20,value:18,wire:18,direction:20,maxWidth:260},l:{label:'大',name:24,value:22,wire:22,direction:24,maxWidth:310},xl:{label:'特大',name:28,value:26,wire:26,direction:28,maxWidth:360}});
+  const fontSize=display=>display.fontSize??(display.projection?'l':'m');
   const empty = (analysis='dc') => {if(!['dc','transient'].includes(analysis))throw new Error('不支援的分析種類');return { kind: "simlab-circuit", version: analysis==='dc'?6:7, ...(analysis==='transient'?{analysis,modelRevision:1}:{}), components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } };};
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
@@ -46,10 +48,11 @@
     });
     if(input.version>=3){object(input.cables,["count","length",...(input.version>=6?["resistance"]:[])]);if(Object.hasOwn(input.cables,'resistance'))numeric(input.cables.resistance,0,limits.resistance);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
     object(input.policy, ["mode", "allowRotate", "allowParams", "allowSwitch"]); choice(input.policy.mode, ["free", "wiring"]); ["allowRotate", "allowParams", "allowSwitch"].forEach((k) => bool(input.policy[k]));
-    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "quantities"]);
+    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "fontSize", "quantities"]);
     choice(input.display.view, ["real", "schematic"]); choice(input.display.flow, ["off", "current", "electron"]); choice(input.display.meters, ["digital", "analog"]);
     ["potential", "values", "projection"].forEach((k) => bool(input.display[k]));
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);
+    if(Object.hasOwn(input.display,'fontSize'))choice(input.display.fontSize,Object.keys(fontSizes));
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     const valid = clone(input);
@@ -207,5 +210,5 @@
       w.shape='free';
     }
   }
-  return { limits, quantityDefaults, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
+  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });

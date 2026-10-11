@@ -43,4 +43,26 @@ async function displayMirrorCases(h,mode,base,output){
   // already covers the feature's trustworthy interaction and saved state.
   await launch(320);await h.load(meterMathFixture('ammeter'));await body('c3');const bounds=await h.point('#flipMeterSelected');assert(bounds.width>=44&&bounds.height>=44);await tap('#flipMeterSelected');assert((await h.doc()).components[2].mirrored);assert.equal(await h.inside('document.documentElement.scrollWidth>innerWidth'),false);await h.screenshot(`${mode}-mirrored-meter-toolbar-320.png`);evidence('narrow-toolbar',{width:320,reachable:true});
 }
-module.exports={displayMirrorCases};
+async function fontSizeCases(h,source){let checks=0;
+ for(const mode of ['ac','dc'])for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});const prefix=mode==='dc'?'#font-dc ':'';
+  await h.inside(mode==='dc'?`(async()=>{const host=document.createElement('div');host.id='font-dc';host.style.cssText='position:fixed;inset:0;background:white;z-index:200';document.body.append(host);window.__fontEditor=await CircuitEditor.mount(host,{role:'teacher',idPrefix:'font-dc-'});})()`:'window.__fontEditor=CircuitACWorkbench');
+  await h.inside('__fontEditor.loadDocument('+ (mode==='ac'?"CircuitACPresets.create('resistive')":"CircuitPresets.create('series')")+')');if(mode==='ac')await h.inside('__fontEditor.setPlayback({paused:true});__fontEditor.advanceTime(.25)');
+  await h.click(prefix+'[data-circuit-id=settings]');assert.deepEqual(await h.inside(`[...document.querySelector('${prefix}[data-circuit-id=fontSize]').options].map(e=>e.textContent)`),['很小','小','中','大','特大']);assert.equal(await h.inside(`document.querySelector('${prefix}[data-circuit-id=fontSize]').value`),'m');assert(await h.inside(`!document.querySelector('${prefix}[data-circuit-id=settingsDialog]').textContent.includes('投影字體')`));checks+=3;
+  const physics=mode==='ac'?await h.inside('__fontEditor.captureSession().physics'):await h.inside('__fontEditor.getAnalysis().components');
+  for(const [key,nameSize,valueSize] of [['xs',14,12],['s',16,14],['m',20,18],['l',24,22],['xl',28,26]]){
+   await h.inside(`(()=>{const e=document.querySelector('${prefix}[data-circuit-id=fontSize]');e.value=${JSON.stringify(key)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+   assert.equal(await h.inside('__fontEditor.getDocument().display.fontSize'),key);
+   const a=await h.inside(`(()=>{const scope=document.querySelector(${JSON.stringify(mode==='dc'?'#font-dc':'.circuit-editor')}),scale=__fontEditor.getInteraction().camera.scale,labels=[...scope.querySelectorAll('[data-component-label]')],values=[...scope.querySelectorAll('[data-component-value]')];return{names:labels.map(e=>Number(e.getAttribute('font-size'))*scale),values:values.map(e=>Number(e.getAttribute('font-size'))*scale),overflow:document.documentElement.scrollWidth-innerWidth};})()`);
+   assert(a.names.length&&a.names.every(v=>Math.abs(v-nameSize)<.01));assert(a.values.length&&a.values.every(v=>Math.abs(v-valueSize)<.01));assert(a.overflow<=1);assert.deepEqual(mode==='ac'?await h.inside('__fontEditor.captureSession().physics'):await h.inside('__fontEditor.getAnalysis().components'),physics);checks+=5;
+  }
+  const saved=await h.inside('__fontEditor.exportDocument()');await h.click(prefix+'[data-circuit-id=closeSettings]');await h.screenshot(source+'-font-size-xl-'+mode+'-'+width);
+  await h.click(prefix+'[data-circuit-id=undo]');assert.equal(await h.inside('__fontEditor.getDocument().display.fontSize'),'l');await h.click(prefix+'[data-circuit-id=redo]');assert.equal(await h.inside('__fontEditor.exportDocument()'),saved);checks+=2;
+  await h.inside('__fontEditor.loadDocument('+JSON.stringify(saved)+')');assert.equal(await h.inside(`document.querySelector('${prefix}[data-circuit-id=fontSize]').value`),'xl');checks++;
+  await h.inside(`(()=>{const d=__fontEditor.getDocument();delete d.display.fontSize;d.display.projection=true;__fontEditor.loadDocument(d);})()`);assert.equal(await h.inside(`document.querySelector('${prefix}[data-circuit-id=fontSize]').value`),'l');checks++;
+  if(mode==='ac'&&width===390){await h.inside(`CircuitACWorkbench.loadDocument(CircuitACPresets.create('transformer'));document.querySelector('[data-circuit-id=settings]').click();const e=document.querySelector('[data-circuit-id=fontSize]');e.value='xl';e.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-circuit-id=closeSettings]').click();`);for(let i=0;i<10;i++)await h.click('[data-camera=out]');assert(await h.inside(`(()=>{const e=document.querySelector('[data-overview-caption]'),r=e.getBoundingClientRect(),s=document.querySelector('.surface').getBoundingClientRect();return r.left>=s.left&&r.right<=s.right+1&&r.bottom<=s.bottom+1&&!e.textContent.includes('undefined');})()`));checks++;await h.screenshot(source+'-font-size-xl-overview-390');}
+  if(mode==='dc')await h.inside('__fontEditor.destroy();document.getElementById("font-dc").remove()');await h.inside('delete window.__fontEditor');
+ }
+ console.log(source+' five font sizes: '+checks+' checks passed');return checks;
+}
+module.exports={displayMirrorCases,fontSizeCases};

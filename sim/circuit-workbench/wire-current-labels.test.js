@@ -33,7 +33,7 @@ for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(con
   for(const scale of [.4,.7,1,1.6]){
     const placed=V.labels(copy,result,scale,routes,null,options);assert(placed.every(p=>!p.crowded));assert.equal(placed.filter(p=>p.rows[0].kind==='potentialDirection').length,2);
     for(let i=0;i<placed.length;i++){const p=placed[i];for(const q of placed.slice(i+1))assert(!L.intersects(p.box,q.box));for(const c of copy.components)assert(!L.intersects(L.bodyBounds(c,view),p.box));for(const points of Object.values(routes))for(let j=1;j<points.length;j++)assert(!L.segmentHits(points[j-1],points[j],p.box));}
-    for(const p of placed.filter(p=>p.rows[0].kind==='potentialDirection')){const row=p.rows[0],ports=M.endpoints(copy),from=ports.get(row.from),to=ports.get(row.to);assert(result.potentials[row.to]>result.potentials[row.from]);assert.equal(row.angle,Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI);assert.equal(row.size,16);}
+    for(const p of placed.filter(p=>p.rows[0].kind==='potentialDirection')){const row=p.rows[0],ports=M.endpoints(copy),from=ports.get(row.from),to=ports.get(row.to);assert(result.potentials[row.to]>result.potentials[row.from]);assert.equal(row.angle,Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI);assert.equal(row.size,20);}
     const svg=V.scene(copy,result,scale,routes,null,false,null,options);assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);assert.equal((svg.match(/data-potential-direction=/g)||[]).length,2);assert(svg.includes('stroke="#a45d0b"'));assert.deepEqual(V.labels(copy,result,scale,routes,null,options),placed);
   }
 }
