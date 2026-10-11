@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 14，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 15，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 14／理想變壓器四電錶示例（2026-10-11）
+## 最近更新：Sites version 15／互感示例清晰接線（2026-10-11）
+
+Runtime取自已推送提交 `1dae93baae4fe1ebadcb226094c315c3cb9189e1`。互感示例重新布局：供電支路在上方，放電電阻在原側中間直支路，副側負載與電流計形成獨立矩形迴路；導線只在显式接點相會，沒有交叉／重疊或穿過元件。ID、端子拓撲、參數及通斷感應讀值保持。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `2a16a4bb1675db947e403e4306948de245da220e` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_2c792f4ac8bc81919ef2879a0b7cd2df` | `appgdep_6acba9779e1081918a5a01c0937962de` |
+| AC | `bf9c8f1c0f603924f6750faba43f5c67070760aa` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_710b7b12d5d081919926007b4b490602` | `appgdep_6acba96735f08191a7c59099c12e65dd` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。source／ZIP互感專項40項通過（1280／390px、實物／符號及通斷方向），ac-platform既有接線／間距及避讓檢查通過；修改前後拓撲及通斷讀值核對一致。四包重建並核對來源，未驗完整CI、真手機或Moodle。證據在 `output/mutual-layout/`，archive為 `output/sites/circuit-dc-workbench-mutual-layout-v15.tar.gz`及`output/sites/circuit-ac-workbench-mutual-layout-v15.tar.gz`。
+
+## 前次更新：Sites version 14／理想變壓器四電錶示例（歷史記錄）
 
 Runtime取自已推送提交 `cb29a791efdda28de5b59a0a7f9f1126b4cabe56`。教師理想變壓器示例在原／副側各設串聯交流電流表與並聯交流電壓表，左右對齊；線路寬度維持680單位，電壓支路有明確接點，沒有重疊接線。100／200／400副側匝數對應約3／6／12V，兩側電流可同時比較。技術學生示例保留原固定模板及codec。DC29個／AC38個資產逐byte及SHA-256一致。
 
