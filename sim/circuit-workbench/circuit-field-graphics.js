@@ -135,7 +135,7 @@
     r={...r,current:r?.fieldCurrent??r?.current,voltage:r?.fieldVoltage??r?.voltage};
     if(c.type==='capacitor')return !Number.isFinite(r?.voltage)?'電壓未能確定，暫不標示電場方向。':r.voltage===0?'電場示意收起；灰色＋／−只作極性參考。':(r.voltage>0?'左板帶正電、右板帶負電。':'右板帶正電、左板帶負電。')+'只顯示兩板之間的均勻電場，由正板指向負板；忽略邊緣效應。';
     if(c.type==='inductor')return !Number.isFinite(r?.current)?'電流未能確定，暫不標示磁場方向。':r.current===0?'磁場示意收起；灰色 N／S 只作方向參考。':(r.current>0?'線圈內部磁場向右，右端為 N 極。':'線圈內部磁場向左，左端為 N 極。')+'線圈內部磁感線密集、接近平行；兩端向外散開，外部較稀疏。圖只顯示附近的一小段空間，延伸到邊界的場線在此截去，並非磁感線在這裏終止。內部虛線表示被繞線遮擋的部分。電流反向時兩極對調；自感電動勢會阻礙電流的變化。';
-    if(c.type==='generator')return c.params.field===0?'設定的磁場為零；在這個理想模型中，磁通及感應電動勢為零。':'只顯示 N、S 極之間的均勻磁場，方向固定由 N 指向 S。[[n]] 是線圈平面的法線；平行磁場時磁通大小最大，垂直時電動勢大小達峰值。';
+    if(c.type==='generator')return c.params.field===0?'設定的磁場為零；在這個理想模型中，磁通量及感應電動勢為零。':'只顯示 [[poleN]]、[[poleS]] 極之間的均勻磁場 [[B]]，方向由 [[poleN]] 指向 [[poleS]]。[[n]] 是線圈平面的法線，[[theta]] 是法線與磁場的夾角。單匝磁通量 [[fluxFormula]]；法線平行磁場時，磁通量大小最大；法線垂直磁場時，感應電動勢 [[e]] 的大小達峰值。';
     if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集完整觀察窗的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+(r.coreFluxFrequencies?.length>1?'磁通採用 '+r.coreFluxWindow+' s '+(r.coreFluxWindowKind==='common-cycle'?'共同週期':'指定時間窗（非共同週期）')+'。':'')+'銅線繞在鐵芯兩柱；青綠色實線及箭頭表示鐵芯內的磁通，虛線透視被繞組遮住的部分。省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示交變磁通，以觀察窗平均值作基準，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
     return '';
   }

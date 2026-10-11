@@ -54,6 +54,12 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
+### 發電機磁通量用詞及說明排版（2026-10-11）
+
+依使用者要求，場的觀察面板及放大觀察改用「單匝磁通量 Φ」及「總磁通量 NΦ」，不用磁通鏈；說明中的磁極、法線、角度、磁場及磁通量公式沿用共用LaTeX向量字形。純文案／排版，assessment／rubric／SCORM N/A，物理值及快照不改。只更新既有readout-math專項的用詞及數學符號斷言，核對source／ZIP桌面及手機，重建四包並更新原Sites。
+
+readout-math Node套件及source／ZIP共134項針對性顯示檢查通過，包括面板、放大觀察、手機LaTeX字形及總磁通量仍使用原NΦ數值；四包已重建並核對來源。證據在 `output/generator-flux-copy/`；沒有重跑物理全套、CI、真手機或Moodle。
+
 ### 徹底移除示例提示（2026-10-11）
 
 依使用者最新要求，AC／DC所有尺寸均不提供示例提示、展開入口或載入示例的說明通知。示例選單及電路載入保留；移除相關DOM、事件及CSS，而非只隱藏。教師非評量，assessment／rubric／SCORM N/A；模型、快照及依賴不改。只更新既有example-hint專項，核對source／ZIP桌面、手機的提示不存在、示例可切換及一般操作通知保留，重建四包並更新原Sites。

@@ -30,7 +30,7 @@
     }
     function rows(c,r,analysis,doc){
       const current=(endpoint,value)=>V.displayCurrent(doc,analysis,endpoint,value);
-      if(c.type==='generator')return [['phase','角度 θ',r.phase*180/Math.PI,'°'],['field','磁場 B',c.params.field,'T'],['flux','單匝 Φ',r.flux,'Wb'],['fluxLinkage','磁通鏈 NΦ',r.fluxLinkage,'Wb'],['sourceEmf','電動勢 e',r.sourceEmf,'V']];
+      if(c.type==='generator')return [['phase','角度 θ',r.phase*180/Math.PI,'°'],['field','磁場 B',c.params.field,'T'],['flux','單匝磁通量',r.flux,'Wb'],['fluxLinkage','總磁通量',r.fluxLinkage,'Wb'],['sourceEmf','電動勢 e',r.sourceEmf,'V']];
       if(c.type==='capacitor')return [['voltage','電壓',r.voltage,'V'],['charge','電荷',r.charge,'C'],['energy','電場儲能',r.energy,'J']];
       if(c.type==='transformer'){const data=[['current','原線圈電流',current(c.id+':a',r.current),'A'],['secondaryCurrent','副線圈電流',current(c.id+':c',r.secondaryCurrent),'A'],['coreFlux','共同磁通',r.coreFlux,'Wb']];if(c.params.model==='coupled')data.push(['energy','耦合磁場儲能',r.energy,'J']);return data;}
       const shown=current(c.id+':a',r.current),data=[['current','線圈電流',shown,'A'],['energy','磁場儲能',r.energy,'J']];if(c.type==='transformer')data.push(['secondaryCurrent','副線圈電流',current(c.id+':c',r.secondaryCurrent),'A']);else {const emf=Number.isFinite(r.voltage)&&Number.isFinite(r.current)?-(r.voltage-c.params.resistance*r.current):null;data.unshift(['inductance','電感',c.params.inductance,'H']);data.push(['selfEmf','自感電動勢',shown===0&&Number.isFinite(emf)&&Math.abs(emf)<1e-6?0:emf,'V']);}return data;
