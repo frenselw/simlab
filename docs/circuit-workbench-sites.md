@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 11，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 12，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 11／徹底移除示例提示（2026-10-11）
+## 最近更新：Sites version 12／發電機磁通量及LaTeX說明（2026-10-11）
+
+Runtime取自已推送提交 `22a816e44a4d76e6653c6d0d69129e432c900034`。發電機檢視器、場觀察及放大觀察改用單匝磁通量Φ及總磁通量NΦ；說明中的N／S磁極、磁場、法線、角度及磁通量公式使用共用LaTeX向量字形。物理數值及快照不改。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `5abfe69d210a1228c81fc89e0c2b5432440d3f8b` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_ae5b0059fd5081918f39168e51fec277` | `appgdep_6acba3db88348191abb83d41d37d1839` |
+| AC | `7cf4f61f69d1cd4d6526be617a950da6df1586a3` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_94d4c165a96881918ec76f0edb89d390` | `appgdep_6acba3ee82d88191b7a62a955e7131f1` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。只執行readout-math Node套件及既有source／ZIP顯示專項134項，包括桌面面板、放大視窗、手機字形及總磁通量數值一致性。四包重建並核對來源；没有重跑物理全套、CI、真手機或Moodle。證據在 `output/generator-flux-copy/`，archive為 `output/sites/circuit-dc-workbench-generator-flux-v12.tar.gz`及`output/sites/circuit-ac-workbench-generator-flux-v12.tar.gz`。
+
+## 前次更新：Sites version 11／徹底移除示例提示（歷史記錄）
 
 Runtime取自已推送提交 `fd5283becc6c095ddd610aacad9b2800cc052de8`。AC／DC所有尺寸均移除示例提示、展開入口及載入示例的說明通知；移除相關DOM、事件及CSS，保留示例選單和一般操作通知。DC29個／AC38個資產逐byte及SHA-256一致。
 
