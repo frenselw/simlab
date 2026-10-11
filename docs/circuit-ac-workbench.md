@@ -27,6 +27,8 @@ Live Server 可直接開交流入口。`npm run package:circuit-platform` 統一
 
 教師工作台預設啟動、按真實時間播放，預設 1 Hz；常用頻率為 0.1–2 Hz，另有「50 Hz · 真實交流」按鈕及課堂預設。頻率變更保留當刻相位，不以慢播代替低頻。數值輸入、滑塊、快捷按鈕及編輯命令使用相同的控制限制。時間求解器仍保留原數值能力與舊文件相容性，沒有把舊檔中的其他頻率偷偷改寫。
 
+下方快捷「＋／−」使用原生點擊，在放手時改一次；播放更新不會因手指仍按住普通控制而停用按鈕。畫布拖動／雙指導航及取消中的手勢仍凍結快捷欄，避免改變佈局中斷拖動；數字欄有焦點時保留草稿，Enter或離開欄位才提交。
+
 Control Panel 寬度沿用 DC（桌面 252px、短橫向 230px），移除「時間與實驗」、「課堂探索」及「實驗操作」區塊；不顯示單步／回到初始條件按鈕，API 及活動面板插槽保留。教師工作台保留與 DC 共用的 ¼ 速慢動作按鈕，只移除 1/10、1/100 等倍率選單。手動暫停／播放狀態在切換預設或載入文件時保留；恢復動態快照及單步仍停在暫停狀態。其他活動仍可按 profile 限制倍率能力。
 
 交流導線電流卡按字體量度固定文字欄，約 122px 寬（一般模式，隨字體略變），保留箭嘴空間，以 mA 顯示（沿用共用數值格式，極值用緊湊科學記數）；過零、反向、未知量及科學記數都不伸縮卡片。DC／AC 共用緊湊箭嘴間距及內邊距；DC 保留自動 A／mA／μA 與適應文字的寬度，AC 則保留固定文字欄防止瞬時數值造成伸縮。
@@ -442,6 +444,7 @@ DC／AC 變阻器由 registry.rheostatWinding 產生同一份可見導線、滑�
 | 波形／探頭／歷史 | `scope.test.js` | `--scope-smoke` |
 | 預設接線／切換 | `transient.test.js`、必要時`ac-platform.test.js` | `--preset-smoke` |
 | 共用手機工具列 | `quick-controls.test.js`、`activity-core.test.js` | DC runner 及本 runner 的 `--quick-controls-smoke`，同時核對兩個入口及 ZIP |
+| 播放中快捷調頻觸控 | 同上及`ac-platform.test.js` | `--quick-response-smoke`（source／ZIP，320／390 px，可信按住跨重畫、取消、草稿、鍵盤、上下限及只讀） |
 | 共用箭頭／導線標示 | `component-flow.test.js`、`wire-current-labels.test.js` | 同時核對DC／AC及各自包，不只AC入口 |
 | 純文件 | 指令、路徑、清單、版本、連結及`git diff --check` | 不重跑模擬或browser |
 

@@ -36,6 +36,14 @@ v1固定資料包含0.24999／0.25／0.49999／0.5／0.99999／1 s，合法歷�
 
 10個相關Node套件通過（新12組R2回歸、原20組audit、獨立公式1771項）；source／ZIP完整工作台audit716項及scope206項通過，涵蓋桌面／390 px、能量數字、正常／失效／恢復及原子拒絕。Codec各phase／variant容量通過；最大compact session608／828 bytes，pending-envelope995／1047 bytes，低於1500界限。四包重建、來源與雜湊核對，check／diff通過。證據及圖片在 `output/ac-review-r2/`。Sites更新另記[部署文件](../docs/circuit-workbench-sites.md)；未宣稱完整CI、Moodle或真手機驗收。
 
+### 手機快捷調參點擊回應（2026-10-11；已完成）
+
+播放重畫不能把普通 footer 單指接觸當成畫布操作並停用原生按鈕。只在畫布拖動、導航、中央觸控及已取消的多指操作期間凍結快捷欄，保留原生 click／取消、鍵盤、參數上下限及 profile／只讀限制。不得改成 pointerdown 提交，避免滑走／取消仍改參數或一次點擊提交兩次。
+
+此輪是共用 editor 操作修正；assessment／rubric／SCORM phase N/A，物理、權威快照與依賴不改。先以可信 touchStart → 按住跨過重畫 → touchEnd 重現，再驗 source／解壓 ZIP，AC 播放／暫停、0.1／1.3 Hz、320／390 px、連續加減、取消、上下限、輸入草稿及畫布拖動取消；相鄰 DC footer、權限及活動回歸。完成後重建四包、推送分支及更新原 AC／DC Sites；實體手機與 Moodle 另計。
+
+基準在320 px播放、0.1 Hz及按住350 ms時重現按鈕disabled=true而模擬時間仍前進。修正只縮窄renderQuickParameters的手勢判定：畫布接觸／拖動／導航／touchBlocked仍凍結，普通footer接觸不停用。`--quick-response-smoke`來源／ZIP **672項**通過；DC `--quick-controls-smoke` **72項**，包括學生profile／只讀、拖動取消及兩行footer，亦通過。quick-controls **6組**、activity-core **19組**及ac-platform套件、check／語法／diff通過；四包已重建及核對當前runtime雜湊。圖片與證據在 `output/circuit-quick-response/`及`output/playwright/circuit-ac/*quick-response*`。沒有執行真手機、Moodle或完整CI。
+
 ### 螺線管磁感線參考圖修訂（2026-10-11；已完成）
 
 使用者提供螺線管場線圖，要求中央最密、兩端散開及外部較疏；有限顯示範圍不必把每條線閉合。取代舊「密集內部虛線＋獨立外部小閉環」：以有限長圓形電流環疊加的方向場產生連續磁感線，內部近乎平行，兩端彎曲外散，超出固定觀察框時截去；幾何只作教學示意，不作 B 值定量求解。場線穿過繞組的遮擋段留在前景透視虛線，外部實線疏開；同一圖用於畫布、面板及放大觀察。電流反向只反轉箭頭與 N／S，零／未知及關閉場圖仍抑制。

@@ -371,9 +371,10 @@
   }
   function renderQuickParameters(){
     const controls=[$('quickValue'),$('quickMinus'),$('quickPlus')];
-    // Selection is set on pointerdown. Keep the existing footer size until
-    // release so ResizeObserver cannot cancel a newly started component drag.
-    if(drag||cameraGesture||touches.size){controls.forEach(e=>e.disabled=true);return;}
+    // Freeze selection/layout during canvas gestures, not ordinary footer taps.
+    // Playback can repaint between touch down and the native click on release;
+    // disabling a pressed button here would discard that click.
+    if(drag||cameraGesture||touchBlocked||[...touches.values()].some(t=>t.central)){controls.forEach(e=>e.disabled=true);return;}
     const selected=selectedComponent();$('hint').parentElement.classList.toggle('has-meter',!!selected&&(R.dualMeter(selected)||selected.type==='galvanometer'));
     if(document.activeElement===$('quickValue')&&quickBinding?.id===selection?.id&&quickParameter(quickBinding))return;
     const data=quickParameter();$('quickParameters').hidden=!data;
