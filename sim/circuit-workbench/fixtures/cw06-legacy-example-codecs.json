@@ -1,0 +1,126 @@
+{
+  "sourceCommit": "dcfde3ce183d714b03ff4fcf0fd66db9f91080e2",
+  "method": "Original transient Session with current production example template adapter; v6 physics may also be stripped of v2 books to exercise the matching v5 migration.",
+  "cases": [
+    {
+      "name": "transformer",
+      "phase": "initial-continuation",
+      "codec": {
+        "version": 6,
+        "model": 1,
+        "example": "transformer",
+        "parameters": [
+          100,
+          12
+        ],
+        "physics": {
+          "time": 0.30000000000000004,
+          "step": 0.00015625000000996092,
+          "sources": {
+            "c1": 1.2461143228392757e-12
+          },
+          "dynamic": {},
+          "work": 0.22445892992419722,
+          "dissipated": 0.22445892992419722,
+          "event": false,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c2:c\",\"c2:c\",\"c2:d\"],[\"c3:a\",\"c3:a\",\"c3:b\"],[\"c4:a\",\"c4:a\",\"c4:b\"]]": {
+              "initial": 0,
+              "work": 0.22445892992419722,
+              "dissipated": 0.22445892992419722,
+              "throughput": 0.44891785984839416
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "lc",
+      "phase": "initial-continuation",
+      "codec": {
+        "version": 6,
+        "model": 1,
+        "example": "lc",
+        "parameters": [
+          "b"
+        ],
+        "physics": {
+          "time": 0.29999999999999993,
+          "step": 0.012086181182373479,
+          "sources": {},
+          "dynamic": {
+            "c4:a": {
+              "i": 0.14418268794076636,
+              "v": 1.506815265012385
+            },
+            "c5:a": {
+              "i": -0.14418268794076636,
+              "v": -0.16770409676462528
+            }
+          },
+          "work": 0.18081783173444224,
+          "dissipated": 0.10614129055113669,
+          "event": false,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:b\"],[\"c4:a\",\"c4:a\",\"c4:b\"],[\"c5:a\",\"c5:a\",\"c5:b\"]]": {
+              "initial": 0,
+              "work": 0.18081783173444224,
+              "dissipated": 0.10614129055113669,
+              "throughput": 0.2869591222855788
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "lc",
+      "phase": "free-oscillation",
+      "codec": {
+        "version": 6,
+        "model": 1,
+        "example": "lc",
+        "parameters": [
+          "c"
+        ],
+        "physics": {
+          "time": 0.32999999999999996,
+          "step": 0.0032085895855380464,
+          "sources": {},
+          "dynamic": {
+            "c4:a": {
+              "i": 0.13450597473207304,
+              "v": 1.715968890667728
+            },
+            "c5:a": {
+              "i": -0.13450597473207304,
+              "v": 1.715968890667728
+            }
+          },
+          "work": 0.18081783173444224,
+          "dissipated": 0.10614129055113669,
+          "event": false,
+          "energyOrigin": {
+            "work": 0.18081783173444224,
+            "dissipated": 0.10614129055113669
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:c\"],[\"c4:a\",\"c4:a\",\"c4:b\"],[\"c5:a\",\"c5:a\",\"c5:b\"]]": {
+              "initial": 0.07467654118330447,
+              "work": 0,
+              "dissipated": 0,
+              "throughput": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

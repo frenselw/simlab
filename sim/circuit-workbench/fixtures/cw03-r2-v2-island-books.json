@@ -1,0 +1,695 @@
+{
+  "sourceCommit": "dcfde3ce183d714b03ff4fcf0fd66db9f91080e2",
+  "method": "Original transient Session with current production document/registry adapter; all cases captured without a fault in that source.",
+  "cases": [
+    {
+      "name": "single-exchanging-block-with-dangling-capacitor",
+      "snapshot": {
+        "kind": "simlab-circuit-session",
+        "version": 2,
+        "modelRevision": 1,
+        "document": {
+          "kind": "simlab-circuit",
+          "version": 7,
+          "analysis": "transient",
+          "modelRevision": 1,
+          "components": [
+            {
+              "id": "c1",
+              "type": "ac-source",
+              "label": "交流電源",
+              "x": 100,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "voltage": 6,
+                "frequency": 1,
+                "phase": 0,
+                "resistance": 0,
+                "waveform": "sine"
+              }
+            },
+            {
+              "id": "c2",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 300,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.02,
+                "initialVoltage": 0,
+                "rating": 25
+              }
+            },
+            {
+              "id": "c3",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 500,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.2,
+                "initialVoltage": 24,
+                "rating": 25
+              }
+            }
+          ],
+          "junctions": [],
+          "wires": [
+            {
+              "id": "w1",
+              "from": "c1:a",
+              "to": "c2:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w2",
+              "from": "c1:b",
+              "to": "c2:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w3",
+              "from": "c1:b",
+              "to": "c3:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 720
+            }
+          ],
+          "cables": {
+            "count": 20,
+            "length": 600,
+            "resistance": 0
+          },
+          "policy": {
+            "mode": "free",
+            "allowRotate": false,
+            "allowParams": false,
+            "allowSwitch": true
+          },
+          "display": {
+            "view": "real",
+            "flow": "current",
+            "meters": "analog",
+            "potential": false,
+            "names": true,
+            "values": true,
+            "reference": null,
+            "projection": false,
+            "quantities": {
+              "loadResistance": false,
+              "loadPower": false,
+              "sourceResistance": false,
+              "rheostatResistance": true
+            }
+          }
+        },
+        "physics": {
+          "time": 0.49998999999999993,
+          "step": 0.00193312499999998,
+          "sources": {
+            "c1": 3.141529821736661
+          },
+          "dynamic": {
+            "c2:a": {
+              "i": -1.0663905605656685,
+              "v": 0.000533145952739582
+            },
+            "c3:a": {
+              "i": 0,
+              "v": 24
+            }
+          },
+          "work": 2.943441792860889e-9,
+          "dissipated": 0,
+          "event": false,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:b\"]]": {
+              "initial": 57.6,
+              "work": 2.943441792860889e-9,
+              "dissipated": 0,
+              "throughput": 1.4399457825827335
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "zero-history-two-blocks",
+      "snapshot": {
+        "kind": "simlab-circuit-session",
+        "version": 2,
+        "modelRevision": 1,
+        "document": {
+          "kind": "simlab-circuit",
+          "version": 7,
+          "analysis": "transient",
+          "modelRevision": 1,
+          "components": [
+            {
+              "id": "c1",
+              "type": "ac-source",
+              "label": "交流電源",
+              "x": 100,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "voltage": 6,
+                "frequency": 1,
+                "phase": 0,
+                "resistance": 0,
+                "waveform": "sine"
+              }
+            },
+            {
+              "id": "c2",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 300,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.02,
+                "initialVoltage": 0,
+                "rating": 25
+              }
+            },
+            {
+              "id": "c3",
+              "type": "ac-source",
+              "label": "交流電源",
+              "x": 500,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "voltage": 6,
+                "frequency": 0.5,
+                "phase": 0,
+                "resistance": 0,
+                "waveform": "sine"
+              }
+            },
+            {
+              "id": "c4",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 700,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.02,
+                "initialVoltage": 0,
+                "rating": 25
+              }
+            }
+          ],
+          "junctions": [],
+          "wires": [
+            {
+              "id": "w1",
+              "from": "c1:a",
+              "to": "c2:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w2",
+              "from": "c1:b",
+              "to": "c2:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w3",
+              "from": "c1:b",
+              "to": "c3:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 720
+            },
+            {
+              "id": "w4",
+              "from": "c3:a",
+              "to": "c4:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w5",
+              "from": "c3:b",
+              "to": "c4:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            }
+          ],
+          "cables": {
+            "count": 20,
+            "length": 600,
+            "resistance": 0
+          },
+          "policy": {
+            "mode": "free",
+            "allowRotate": false,
+            "allowParams": false,
+            "allowSwitch": true
+          },
+          "display": {
+            "view": "real",
+            "flow": "current",
+            "meters": "analog",
+            "potential": false,
+            "names": true,
+            "values": true,
+            "reference": null,
+            "projection": false,
+            "quantities": {
+              "loadResistance": false,
+              "loadPower": false,
+              "sourceResistance": false,
+              "rheostatResistance": true
+            }
+          }
+        },
+        "physics": {
+          "time": 0,
+          "step": 0.0009765625,
+          "sources": {
+            "c1": 0,
+            "c3": 0
+          },
+          "dynamic": {
+            "c2:a": {
+              "i": 1.066291905158008,
+              "v": 0
+            },
+            "c4:a": {
+              "i": 0.533145952579004,
+              "v": 0
+            }
+          },
+          "work": 0,
+          "dissipated": 0,
+          "event": true,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:b\"],[\"c4:a\",\"c4:a\",\"c4:b\"]]": {
+              "initial": 0,
+              "work": 0,
+              "dissipated": 0,
+              "throughput": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "two-exchanging-blocks-with-aggregate-history",
+      "snapshot": {
+        "kind": "simlab-circuit-session",
+        "version": 2,
+        "modelRevision": 1,
+        "document": {
+          "kind": "simlab-circuit",
+          "version": 7,
+          "analysis": "transient",
+          "modelRevision": 1,
+          "components": [
+            {
+              "id": "c1",
+              "type": "ac-source",
+              "label": "交流電源",
+              "x": 100,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "voltage": 6,
+                "frequency": 1,
+                "phase": 0,
+                "resistance": 0,
+                "waveform": "sine"
+              }
+            },
+            {
+              "id": "c2",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 300,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.02,
+                "initialVoltage": 0,
+                "rating": 25
+              }
+            },
+            {
+              "id": "c3",
+              "type": "ac-source",
+              "label": "交流電源",
+              "x": 500,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "voltage": 6,
+                "frequency": 0.5,
+                "phase": 0,
+                "resistance": 0,
+                "waveform": "sine"
+              }
+            },
+            {
+              "id": "c4",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 700,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.02,
+                "initialVoltage": 0,
+                "rating": 25
+              }
+            }
+          ],
+          "junctions": [],
+          "wires": [
+            {
+              "id": "w1",
+              "from": "c1:a",
+              "to": "c2:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w2",
+              "from": "c1:b",
+              "to": "c2:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w3",
+              "from": "c1:b",
+              "to": "c3:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 720
+            },
+            {
+              "id": "w4",
+              "from": "c3:a",
+              "to": "c4:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w5",
+              "from": "c3:b",
+              "to": "c4:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            }
+          ],
+          "cables": {
+            "count": 20,
+            "length": 600,
+            "resistance": 0
+          },
+          "policy": {
+            "mode": "free",
+            "allowRotate": false,
+            "allowParams": false,
+            "allowSwitch": true
+          },
+          "display": {
+            "view": "real",
+            "flow": "current",
+            "meters": "analog",
+            "potential": false,
+            "names": true,
+            "values": true,
+            "reference": null,
+            "projection": false,
+            "quantities": {
+              "loadResistance": false,
+              "loadPower": false,
+              "sourceResistance": false,
+              "rheostatResistance": true
+            }
+          }
+        },
+        "physics": {
+          "time": 0.2,
+          "step": 0.0005821485217835654,
+          "sources": {
+            "c1": 1.2566370614359137,
+            "c3": 0.6283185307179693
+          },
+          "dynamic": {
+            "c2:a": {
+              "i": 0.3294738576081726,
+              "v": 8.06998214356748
+            },
+            "c4:a": {
+              "i": 0.4313239094812936,
+              "v": 4.987523253329514
+            }
+          },
+          "work": 0.9000000001073137,
+          "dissipated": 0,
+          "event": false,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:b\"],[\"c4:a\",\"c4:a\",\"c4:b\"]]": {
+              "initial": 0,
+              "work": 0.9000000001073137,
+              "dissipated": 0,
+              "throughput": 0.9000000001073137
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "unreliable-loss-hidden-by-frozen-storage",
+      "snapshot": {
+        "kind": "simlab-circuit-session",
+        "version": 2,
+        "modelRevision": 1,
+        "document": {
+          "kind": "simlab-circuit",
+          "version": 7,
+          "analysis": "transient",
+          "modelRevision": 1,
+          "components": [
+            {
+              "id": "c1",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 100,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.0001,
+                "initialVoltage": 0.01,
+                "rating": 25
+              }
+            },
+            {
+              "id": "c2",
+              "type": "inductor",
+              "label": "電感線圈",
+              "x": 300,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "inductance": 10,
+                "resistance": 0,
+                "initialCurrent": 0
+              }
+            },
+            {
+              "id": "c3",
+              "type": "capacitor",
+              "label": "電容器",
+              "x": 500,
+              "y": 100,
+              "angle": 0,
+              "locked": false,
+              "editable": false,
+              "params": {
+                "capacitance": 0.2,
+                "initialVoltage": 24,
+                "rating": 25
+              }
+            }
+          ],
+          "junctions": [],
+          "wires": [
+            {
+              "id": "w1",
+              "from": "c1:a",
+              "to": "c2:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w2",
+              "from": "c1:b",
+              "to": "c2:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 600
+            },
+            {
+              "id": "w3",
+              "from": "c1:a",
+              "to": "c1:b",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0.00001,
+              "length": 600
+            },
+            {
+              "id": "w4",
+              "from": "c1:a",
+              "to": "c3:a",
+              "via": [],
+              "shape": "auto",
+              "resistance": 0,
+              "length": 720
+            }
+          ],
+          "cables": {
+            "count": 20,
+            "length": 600,
+            "resistance": 0
+          },
+          "policy": {
+            "mode": "free",
+            "allowRotate": false,
+            "allowParams": false,
+            "allowSwitch": true
+          },
+          "display": {
+            "view": "real",
+            "flow": "current",
+            "meters": "analog",
+            "potential": false,
+            "names": true,
+            "values": true,
+            "reference": null,
+            "projection": false,
+            "quantities": {
+              "loadResistance": false,
+              "loadPower": false,
+              "sourceResistance": false,
+              "rheostatResistance": true
+            }
+          }
+        },
+        "physics": {
+          "time": 0.001,
+          "step": 0.00008114032554636498,
+          "sources": {},
+          "dynamic": {
+            "c1:a": {
+              "i": -1.0618889093263718e-7,
+              "v": 1.06187890932565e-12
+            },
+            "c2:a": {
+              "i": 9.999999988835382e-13,
+              "v": 1.06187890932565e-12
+            },
+            "c3:a": {
+              "i": 0,
+              "v": 24
+            }
+          },
+          "work": 0,
+          "dissipated": 0.0002425486588329121,
+          "event": false,
+          "energyOrigin": {
+            "work": 0,
+            "dissipated": 0
+          },
+          "energyDomains": {
+            "[[\"c1:a\",\"c1:a\",\"c1:b\"],[\"c2:a\",\"c2:a\",\"c2:b\"],[\"c3:a\",\"c3:a\",\"c3:b\"],[\"w3\",\"c1:a\",\"c1:b\"]]": {
+              "initial": 57.600000005,
+              "work": 0,
+              "dissipated": 0.0002425486588329121,
+              "throughput": 0.0002425486588329121
+            }
+          }
+        }
+      }
+    }
+  ]
+}
