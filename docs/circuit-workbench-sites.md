@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 15，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 16，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 15／互感示例清晰接線（2026-10-11）
+## 最近更新：Sites version 16／五級畫布字體大小（2026-10-11）
+
+Runtime取自已推送提交 `42e1db5dff2804c533d0af30beb658cc367a509d`。DC／AC以五級字體大小選單取代投影字體：很小／小／中／大／特大，預設名稱20px、讀值18px。標籤及概覽隨所選字級顯示，概覽按寬度換行並減少同列儀表以避免重疊。選擇可保存及復原，fontSize為可選display欄位，舊projection及固定學生文件形狀保持相容。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `b47c49ab535b4e302268648d535efe6460a00b5b` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_4ef359bd3ef0819194f990b0338b5eb4` | `appgdep_6acbad61157081919661afd369b89c14` |
+| AC | `6d4a0efc6d9a410a75810585edd004b32f63dc07` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_deb43a70db3c8191842658822ea2bc9a` | `appgdep_6acbad6f9d008191b71d3049264976ac` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。source／ZIP字體專項258項通過（AC／DC ×1280／390px、五級畫面像素、保存／復原、舊檔及物理狀態不變、手機特大概覽），相關display／import／labels／wire-current-labels Node套件通過。舊72個幾何fixture明確以很小字級維持原清晰空間前提。四包重建核對來源，未驗完整CI、真手機或Moodle。證據在 `output/font-sizes/`，archive為 `output/sites/circuit-dc-workbench-font-sizes-v16.tar.gz`及`output/sites/circuit-ac-workbench-font-sizes-v16.tar.gz`。
+
+## 前次更新：Sites version 15／互感示例清晰接線（歷史記錄）
 
 Runtime取自已推送提交 `1dae93baae4fe1ebadcb226094c315c3cb9189e1`。互感示例重新布局：供電支路在上方，放電電阻在原側中間直支路，副側負載與電流計形成獨立矩形迴路；導線只在显式接點相會，沒有交叉／重疊或穿過元件。ID、端子拓撲、參數及通斷感應讀值保持。DC29個／AC38個資產逐byte及SHA-256一致。
 
