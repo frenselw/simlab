@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 10，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 11，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 10／CW-07、CW-08、CW-09（2026-10-11）
+## 最近更新：Sites version 11／徹底移除示例提示（2026-10-11）
+
+Runtime取自已推送提交 `fd5283becc6c095ddd610aacad9b2800cc052de8`。AC／DC所有尺寸均移除示例提示、展開入口及載入示例的說明通知；移除相關DOM、事件及CSS，保留示例選單和一般操作通知。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `8f700808228349310e55d049dafc60eea292296f` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_4d5f80c757d08191b08545df2347c4c6` | `appgdep_6acba2c0ea4c819185346530e292ab32` |
+| AC | `5e0a98e3257fa801b157e8dd47205b55421484d5` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_879ce517b20c8191a46535c4f72517e0` | `appgdep_6acba2d28f0c81919ccdcaf2c322cedd` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。只執行既有example-hint專項，source／ZIP共90項檢查通過，涵蓋桌面及手機直向／橫向、示例切換、提示不存在及一般通知保留。四包已重建及核對來源雜湊；沒有重跑物理、完整CI、真手機或Moodle。證據在 `output/example-hint-removal/`，archive為 `output/sites/circuit-dc-workbench-hint-removal-v11.tar.gz`及`output/sites/circuit-ac-workbench-hint-removal-v11.tar.gz`。
+
+## 前次更新：Sites version 10／CW-07、CW-08、CW-09（歷史記錄）
 
 Runtime取自已推送提交 `1f3ed016d7faf7344658f8ad7bca586715246fa8`。導線、端子、接點及探頭的只讀數值隨播放更新，保留輸入草稿及焦點；理想變壓器按實際繞組直流電壓診斷；量測按各信號的來源依賴選取週期，僅共用參考接點的獨立電路不再互相延長量測窗。DC29個／AC38個資產逐byte及SHA-256一致，原網址及擁有者私人存取保持。
 
