@@ -102,6 +102,7 @@
     node.dataset.generatorAngle=String(theta);node.dataset.generatorFields=String(fields);node.dataset.generatorFieldSpacing=String(fieldGrid(c.params.field).spacing);state.key=key;
   }
   const brushContacts=[project([0,-14,34]),project([0,-14,45])];
-  const leads='M-60 0H-43V30.5H'+brushContacts[0][0]+'V'+brushContacts[0][1]+' M60 0H43V35H'+brushContacts[1][0]+'V'+brushContacts[1][1];
+  const leadRail=30.5;
+  const leads='M-60 0H-43V'+leadRail+'H'+brushContacts[0][0]+'V'+brushContacts[0][1]+' M60 0H43V'+leadRail+'H'+brushContacts[1][0]+'V'+brushContacts[1][1];
   return {render,update,geometry,project,leads};
 });

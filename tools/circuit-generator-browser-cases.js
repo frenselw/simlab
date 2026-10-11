@@ -35,4 +35,14 @@ async function generatorCases({inside,call,click,point,cdp,touch,screenshot,sour
  console.log(source+' generator '+checks+' checks, '+live.length+' RAF poses; main/field phase follows solver, ports remain fixed');
  return checks;
 }
-module.exports={generatorCases};
+async function generatorLeadCases(h,source){let checks=0;
+ for(const width of [1280,390])for(const angle of [0,90,180,270]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<960});await h.call('setPlayback({paused:true})');await h.inside(`(()=>{const d=CircuitACPresets.create('generator');d.components.find(c=>c.type==='generator').angle=${angle};d.wires.forEach(w=>w.length=1200);CircuitACWorkbench.loadDocument(d);})()`);const id=await h.call('getDocument().components.find(c=>c.type==="generator").id');
+  const data=()=>h.inside(`(()=>{const body=document.querySelector('[data-component="${id}"]'),lead=body.querySelector('path[stroke="#667b8e"]'),matrix=lead.getScreenCTM(),routes=[...lead.getAttribute('d').matchAll(/M(-?[\\d.]+) 0H(-?[\\d.]+)V([\\d.]+)H([\\d.]+)V([\\d.]+)/g)].map(m=>m.slice(1).map(Number)),corners=routes.map(r=>new DOMPoint(r[1],r[2]).matrixTransform(matrix)),phase=+body.querySelector('[data-generator-model]').dataset.generatorAngle;return {routes,corners:corners.map(p=>({x:p.x,y:p.y})),path:lead.getAttribute('d'),phase,ports:[...document.querySelectorAll('[data-port^="${id}:"]')].map(p=>[p.getAttribute('cx'),p.getAttribute('cy')])};})()`);
+  const before=await data();assert.equal(before.ports.length,2);assert.equal(before.routes.length,2);assert.equal(before.routes[0][2],before.routes[1][2]);assert(Math.abs(before.corners[0][angle%180?'x':'y']-before.corners[1][angle%180?'x':'y'])<1e-5);checks+=4;
+  await h.call('advanceTime(.17)');const after=await data();assert.equal(after.path,before.path);assert.notEqual(after.phase,before.phase);assert.deepEqual(after.ports,before.ports);assert.equal(await h.call('getAnalysis().reliable'),true);checks+=4;
+  if(width===390&&angle===90){const p=await h.point('[data-hit="body:'+id+'"]',true);for(let n=0;n<4&&await h.call('getInteraction().camera.scale')<2.5;n++){await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',...p,deltaX:0,deltaY:-600});await h.delay(40);}await h.screenshot(source+'-generator-leads-390');}
+ }
+ console.log(source+' generator lead symmetry: '+checks+' checks passed');return checks;
+}
+module.exports={generatorCases,generatorLeadCases};

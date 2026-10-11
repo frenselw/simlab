@@ -3,6 +3,9 @@ const assert=require('node:assert/strict'),G=require('./circuit-generator-graphi
 const near=(a,b)=>assert(Math.abs(a-b)<1e-9,`${a} != ${b}`);
 const length=p=>Math.hypot(...p[0].map((x,i)=>x-p[1][i]));
 const initial=G.geometry(0),reference=new Map(initial.map(p=>[p.id,p])),poses=new Set();
+const leads=[...G.leads.matchAll(/M(-?[\d.]+) 0H(-?[\d.]+)V([\d.]+)H([\d.]+)V([\d.]+)/g)].map(m=>m.slice(1).map(Number));
+assert.equal(leads.length,2);near(leads[0][0],-leads[1][0]);near(leads[0][1],-leads[1][1]);near(leads[0][2],leads[1][2]);
+for(const [n,z]of [34,45].entries()){const contact=G.project([0,-14,z]);near(leads[n][3],contact[0]);near(leads[n][4],contact[1]);}
 for(let n=0;n<=360;n++){
  const theta=n*Math.PI/180,parts=G.geometry(theta),byId=new Map(parts.map(p=>[p.id,p]));
  for(const part of parts){for(const point of part.points){assert(point.every(Number.isFinite));const p=G.project(point);assert(p[0]>=-46&&p[0]<=46&&p[1]>=-40&&p[1]<=40,part.id);}if(part.local)near(length(part.points),length(reference.get(part.id).points));}

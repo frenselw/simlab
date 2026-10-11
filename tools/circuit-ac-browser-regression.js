@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip');
 const H=require('./position-time-browser-regression'),Packages=require('./package-circuit-platform');
 const {scopeCases}=require('./circuit-scope-browser-cases');
-const {generatorCases}=require('./circuit-generator-browser-cases');
+const {generatorCases,generatorLeadCases}=require('./circuit-generator-browser-cases');
 const {transformerCases}=require('./circuit-transformer-browser-cases');
 const {compactFooterCases}=require('./circuit-quick-controls-browser-cases');
 const {quickResponseCases}=require('./circuit-quick-response-browser-cases');
@@ -34,6 +34,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--generator-leads-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await generatorLeadCases({inside,call,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--generator-leads-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--scroll-grip-visibility-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await scrollGripVisibilityCases({inside,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--scroll-grip-visibility-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--inductor-density-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await inductorDensityCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--inductor-density-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--overview-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await overviewCases({inside,call,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--overview-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
