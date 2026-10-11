@@ -4,6 +4,13 @@
 
 ## 0. 文件狀態與現行規格關係
 
+### 2026-10-11 短手機畫面放大鏡修正
+
+- GitHub 與本地 extracted-package Chrome 均重現：390×500 畫面圖表區約 115 px 高，184×118 px 放大鏡加上下空位超出圖表區；此問題亦存在於 `a83747e` 的 main 檢查。
+- 手機視覺區最低高度改為 15.5rem，保留原有 44vh／44dvh 比例、放大鏡尺寸及角落定位。只改排版；評分、生成題目、答案 schema 及 SCORM 行為沿用原有實作。
+- `node tools/position-time-browser-regression.js` 已通過重新打包及解壓後的完整測試：1280 px 桌面、320 px、320×700／390×500 可信觸控、390×500 嵌入頁面、拖動／取消及控制面板底部可達、生成題目及保存草稿重載。原有邊界與可讀尺寸斷言保持，失敗訊息補上實際邊界數據。
+- `node tools/position-time-browser-regression.test.js`、`npm run check` 及 `git diff --check` 通過；此記錄不代表全倉庫 GitHub CI、真實手機或 Moodle 驗收通過。
+
 - 文件角色：第一代活動的基礎產品、教學、互動、評分及 SCORM 設計。
 - 實作狀態：核心活動已完成，並經多輪 mobile UI、互動、持久化、提交安全及 browser regression 修訂。
 - 現行題目版本：runtime 的新 blank attempt 使用 generator version 2 及 persistence schema version 2；新導航／留白流程目標使用 Plan 11 所述 draft schema v3。

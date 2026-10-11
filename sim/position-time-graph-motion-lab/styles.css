@@ -37,7 +37,7 @@
 
 .lab-shell {
   display: grid;
-  grid-template-rows: minmax(13rem, 44vh) minmax(0, 1fr);
+  grid-template-rows: minmax(var(--lab-upper-min-height, 13rem), 44vh) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -362,11 +362,16 @@
 
 @supports (height: 100dvh) {
   .lab-shell {
-    grid-template-rows: minmax(13rem, 44dvh) minmax(0, 1fr);
+    grid-template-rows: minmax(var(--lab-upper-min-height, 13rem), 44dvh) minmax(0, 1fr);
   }
 }
 
 @media (max-width: 819px) {
+  .lab-shell {
+    /* Keep the graph tall enough for the full touch magnifier and its insets. */
+    --lab-upper-min-height: 15.5rem;
+  }
+
   .compact-header {
     padding: 0.65rem 0.8rem;
   }

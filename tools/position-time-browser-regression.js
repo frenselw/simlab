@@ -895,7 +895,7 @@ async function runTouchViewport(cdp, baseUrl, activityPath, width, height) {
   assert.ok(previewStart.bounds.height >= 100, `${width}x${height} touch: magnifier keeps a readable crop height`);
   assert.equal(previewStart.hostPosition, "absolute", `${width}x${height} touch: magnifier is removed from normal graph layout`);
   assert.deepEqual(previewStart.pointerEvents, ["none", "none"], `${width}x${height} touch: magnifier cannot intercept the drag`);
-  assert.ok(previewStart.bounds.left >= previewStart.block.left - 1 && previewStart.bounds.right <= previewStart.block.right + 1 && previewStart.bounds.top >= previewStart.block.top - 1 && previewStart.bounds.bottom <= previewStart.block.bottom + 1, `${width}x${height} touch: magnifier is contained by the graph block rather than the road/stage`);
+  assert.ok(previewStart.bounds.left >= previewStart.block.left - 1 && previewStart.bounds.right <= previewStart.block.right + 1 && previewStart.bounds.top >= previewStart.block.top - 1 && previewStart.bounds.bottom <= previewStart.block.bottom + 1, `${width}x${height} touch: magnifier is contained by the graph block rather than the road/stage; preview=${JSON.stringify(previewStart.bounds)}, graph=${JSON.stringify(previewStart.block)}`);
   assert.equal(previewStart.block.height, graphDrag.block.height, `${width}x${height} touch: showing magnifier does not change graph-block layout height`);
   assert.equal(previewStart.block.scrollHeight, graphDrag.block.scrollHeight, `${width}x${height} touch: showing magnifier does not create graph-block overflow`);
   assert.equal(previewStart.upperScrollHeight, graphDrag.upperScrollHeight, `${width}x${height} touch: showing magnifier does not change fixed-stage scrollHeight`);
