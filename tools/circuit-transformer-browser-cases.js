@@ -59,4 +59,14 @@ async function transformerComparisonCases(h,source){let checks=0;
  }
  console.log(source+' transformer comparison meters: '+checks+' checks passed');return checks;
 }
-module.exports={transformerCases,transformerComparisonCases};
+async function mutualLayoutCases(h,source){let checks=0;
+ for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});await h.call('loadDocument('+JSON.stringify(P.create('mutual'))+')');await h.call('setPlayback({paused:true})');
+  for(const view of ['real','schematic']){await h.click('[data-circuit-id='+ (view==='real'?'realView':'schematicView')+']');assert(await h.inside('document.documentElement.scrollWidth<=innerWidth+1'));assert.equal((await h.call('getDocument()')).components.length,7);checks+=2;await h.screenshot(source+'-mutual-clean-layout-'+view+'-'+width);}
+  await h.click('[data-circuit-id=realView]');await h.click('[data-hit="body:c5"]',true);await h.call('advanceTime(.02)');const on=await h.call('getAnalysis()');assert(on.reliable);assert(Math.abs(on.components.c4.reading)>1e-5);checks+=2;
+  await h.call('advanceTime(8)');const steady=await h.call('getAnalysis()');assert(steady.reliable);assert(Math.abs(steady.components.c4.reading)<1e-7);checks+=2;
+  await h.click('[data-hit="body:c5"]',true);await h.call('advanceTime(.02)');const off=await h.call('getAnalysis()');assert(off.reliable);assert(on.components.c4.reading*off.components.c4.reading<0);checks+=2;await h.screenshot(source+'-mutual-switch-off-'+width);
+ }
+ console.log(source+' mutual layout and induction: '+checks+' checks passed');return checks;
+}
+module.exports={transformerCases,transformerComparisonCases,mutualLayoutCases};

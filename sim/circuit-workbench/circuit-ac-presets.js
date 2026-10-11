@@ -31,9 +31,18 @@
       return M.validate(d);
     }
     if(['transformer','coupled','mutual'].includes(name)){
-      const mutual=name==='mutual',tx=mutual?500:430,sx=mutual?740:650,outer=mutual?850:760;
-      const t=add('transformer',tx,300,'變壓器',{model:name==='transformer'?'ideal':'coupled'}),load=add('resistor',sx,200,mutual?'副線圈限流電阻':'負載電阻',{resistance:mutual?100000:12}),meter=add(mutual?'galvanometer':'ac-ammeter',sx,410,mutual?'感應電流計':'副線圈電流表',mutual?{range:.0005}:{range:1});source.y=300;
-      if(mutual){const sw=add('switch',330,180,'通斷開關',{closed:false}),r=add('resistor',510,140,'限流電阻',{resistance:12}),discharge=add('resistor',330,380,'放電電阻',{resistance:20}),top=joint(380,210),bottom=joint(380,460);t.params.inductance=5;t.params.primaryResistance=2;t.params.secondaryResistance=1;meter.params.range=.00005;link(source,'a',sw,'a',[{x:180,y:180}]);link(sw,'b',r,'a',[{x:390,y:140}]);link(r,'b',top,'p',[{x:610,y:140},{x:610,y:210}]);link(top,'p',t,'a',[{x:380,y:274}]);link(top,'p',discharge,'a',[{x:270,y:210}]);link(discharge,'b',bottom,'p',[{x:410,y:380},{x:410,y:460}]);link(t,'b',bottom,'p',[{x:380,y:326}]);link(source,'b',bottom,'p',[{x:180,y:460}]);}
+      const mutual=name==='mutual',tx=mutual?500:430,sx=mutual?660:650,outer=mutual?780:760;
+      const t=add('transformer',tx,300,'變壓器',{model:name==='transformer'?'ideal':'coupled'}),load=add('resistor',sx,mutual?140:200,mutual?'副線圈限流電阻':'負載電阻',{resistance:mutual?100000:12}),meter=add(mutual?'galvanometer':'ac-ammeter',sx,410,mutual?'感應電流計':'副線圈電流表',mutual?{range:.0005}:{range:1});source.y=300;
+      if(mutual){
+        source.x=100;
+        const sw=add('switch',160,140,'通斷開關',{closed:false}),r=add('resistor',300,140,'限流電阻',{resistance:12}),discharge=add('resistor',320,300,'放電電阻',{resistance:20},90),top=joint(420,220),bottom=joint(320,380);
+        t.params.inductance=5;t.params.primaryResistance=2;t.params.secondaryResistance=1;meter.params.range=.00005;meter.y=420;
+        link(source,'a',sw,'a',[{x:100,y:140}]);link(sw,'b',r,'a');link(r,'b',top,'p',[{x:420,y:140}]);
+        link(top,'p',t,'a',[{x:420,y:274}]);link(top,'p',discharge,'a',[{x:320,y:220}]);link(discharge,'b',bottom,'p');
+        link(t,'b',bottom,'p',[{x:420,y:326},{x:420,y:380}]);link(source,'b',bottom,'p',[{x:100,y:380}]);
+        link(t,'c',load,'a',[{x:600,y:274},{x:600,y:140}]);link(load,'b',meter,'b',[{x:780,y:140},{x:780,y:420}]);link(meter,'a',t,'d',[{x:600,y:420},{x:600,y:326}]);
+        return M.validate(d);
+      }
       else link(source,'a',t,'a',[{x:180,y:180},{x:300,y:180},{x:300,y:274}]);
       const primaryBus=mutual?390:300,bottom=mutual?510:450;
       if(!mutual)link(t,'b',source,'b',[{x:primaryBus,y:326},{x:primaryBus,y:bottom},{x:180,y:bottom}]);link(t,'c',load,'a',[{x:sx-110,y:274},{x:sx-110,y:200}]);link(load,'b',meter,'b',[{x:outer,y:200},{x:outer,y:410}]);link(meter,'a',t,'d',[{x:sx-110,y:410},{x:sx-110,y:326}]);return M.validate(d);
