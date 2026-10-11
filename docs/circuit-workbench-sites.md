@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 9，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 10，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 9／發電機引線對稱（2026-10-11）
+## 最近更新：Sites version 10／CW-07、CW-08、CW-09（2026-10-11）
+
+Runtime取自已推送提交 `1f3ed016d7faf7344658f8ad7bca586715246fa8`。導線、端子、接點及探頭的只讀數值隨播放更新，保留輸入草稿及焦點；理想變壓器按實際繞組直流電壓診斷；量測按各信號的來源依賴選取週期，僅共用參考接點的獨立電路不再互相延長量測窗。DC29個／AC38個資產逐byte及SHA-256一致，原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `583a3dd9e6444dccbac8602d76652754434d6b92` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_4037a35377c08191a8f6acf634085266` | `appgdep_6acba1803fb48191a58b5ab4c5faabb6` |
+| AC | `de37784e55f9e25384766631aef1fbb25c54c5d4` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_d3c13f0149cc81919573eb1ce5b3de47` | `appgdep_6acba18e5398819196a083383d5600e2` |
+
+兩次原生發布均succeeded。針對性Node重現及相鄰物理／恢復套件通過；完整工作台source／ZIP的桌面、手機124項檢查通過，包括即時正負讀数、失效後未知狀態、播放保留草稿、共同參考接點及零電源案例。四包已重建及核對runtime雜湊；沒有重跑完整CI、真手機或Moodle。證據在 `output/ac-dependency-audit/`，archive為 `output/sites/circuit-dc-workbench-dependency-audit-v10.tar.gz`及`output/sites/circuit-ac-workbench-dependency-audit-v10.tar.gz`。
+
+## 前次更新：Sites version 9／發電機引線對稱（歷史記錄）
 
 Runtime取自已推送提交 `4bd3280ebde9da6604ff5006275fa45d3a0ecfc6`。發電機兩條外引線折返高度統一30.5，消除直立時一邊貼近外殼的外觀；接孔、碳刷接點、轉子及物理模型保持。DC29個／AC38個資產逐byte／SHA-256一致，原網址及擁有者私人存取保持。
 
