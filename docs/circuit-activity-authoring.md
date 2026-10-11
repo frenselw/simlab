@@ -6,7 +6,7 @@
 
 ## 最快開始
 
-複製 `activity-examples.html` 作為新活動的外層，保留共用 CSS／scripts 的相對路徑，將最後的 `activity-examples.js` 改成自己的活動程式。若放在另一個活動資料夾，所有共用依賴改指向 `../circuit-workbench/`，並在該活動 manifest 列出。宿主需要明確高度，例如 `height:70dvh`；編輯器填滿宿主，不控制外層頁面捲動。
+複製 `activity-examples.html` 作為新活動的外層，保留共用 CSS／scripts 的相對路徑，將最後的 `activity-examples.js` 改成自己的活動程式。若放在另一個活動資料夾，所有共用依賴改指向 `../circuit-workbench/`，並在該活動 manifest 列出。宿主需要明確高度，例如 `height:70dvh`；編輯器填滿宿主，不控制外層頁面捲動。 左右捲頁把手在純滑鼠（hover＋fine pointer）環境隱藏；具有coarse pointer的觸控裝置保留32px原生pan-y區域，包括具觸控能力的混合裝置。判斷按輸入能力而非視窗寬度。
 
 ```js
 const config = CircuitActivityProfiles.create('two-lamps');

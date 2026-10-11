@@ -247,6 +247,8 @@
 .circuit-editor .scroll-strip.left{left:0;border-left:0;border-radius:0 9px 9px 0}
 .circuit-editor .scroll-strip.right{right:0;border-right:0;border-radius:9px 0 0 9px}
 .circuit-editor .scroll-strip svg{width:16px;height:40px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+@media(hover:hover) and (pointer:fine){.circuit-editor .scroll-strip{display:none}}
+@media(any-pointer:coarse){.circuit-editor .scroll-strip{display:flex}}
 .circuit-editor .math-inline{display:inline-block;overflow:visible;pointer-events:none;color:inherit}
 .circuit-editor .readings dd{font-family:inherit;font-size:1rem}
 .circuit-editor .panel input[type=number]{font-family:"STIX Two Math","Cambria Math","Latin Modern Math","Times New Roman",serif}/* A tapped analog meter stays readable after lift; only this card accepts input. */

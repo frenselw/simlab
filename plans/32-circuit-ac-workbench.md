@@ -19,6 +19,12 @@
 
 ## 近期決策與驗證記錄
 
+### 滑鼠桌面隱藏捲頁把手（2026-10-11；已完成）
+
+以輸入能力判斷：hover＋fine pointer的滑鼠環境隱藏左右scroll-strip；任何coarse pointer的觸控裝置（包括混合式電腦）保留，不能只按視窗寬度隱藏。隱藏把手亦不佔文字避讓區。顯示修訂，assessment／rubric／SCORM N/A，手勢、物理、保存及依賴不改。只驗AC/DC的滑鼠／觸控、寬窄視窗及能力切換，重建四包及發布原Sites；不重跑物理或手勢全套。
+
+`--scroll-grip-visibility-smoke` source／ZIP **80項**通過：AC/DC、1280／390 px、瀏覽器實際fine／coarse能力切換，純滑鼠不顯示、觸控保留32px／pan-y及文件不變。混合能力按CSS的any-pointer:coarse規則保留；Chromium的media override不能模擬primary fine同時any coarse，未冒充混合硬件實测。四包重建及runtime雜湊一致，證據在 `output/scroll-grip-visibility/`；没有重跑無關物理／手勢／CI或真手機／Moodle。
+
 ### 電感磁場按相對電流疏密（2026-10-11；已完成）
 
 取消13條內部場線下限；每個線圈以本次初始／已觀察最大電流作固定向上擴展的相對量尺，場線數近似正比於電流大小，弱場可只有1條，零／未知收起。小電流的新實驗自行校準；放電時不縮小量尺，不用無關線圈的峰值；新實驗／恢復重新校準，preview不污染正式量尺。外部返回線亦減少，保留既有方向、內密外疏及有限框場線幾何。
