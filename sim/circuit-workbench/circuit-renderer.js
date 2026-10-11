@@ -376,6 +376,13 @@
       // Island roots change when ideal wires gain resistance; endpoint membership does not.
       const members=new Map();for(const [endpoint,island]of Object.entries(result.islandOf||{})){if(!members.has(island))members.set(island,[]);members.get(island).push(endpoint);}
       const live=new Set();for(const [island,endpoints]of members){const key=JSON.stringify(endpoints.sort());live.add(key);if(references.has(island)){if(!baselines.has(key)||result.mode==='transient'&&references.get(island)>baselines.get(key))baselines.set(key,references.get(island));references.set(island,baselines.get(key));}}
+      // Each coil owns a display-only peak. Never shrink it during discharge or
+      // let a large current in another branch change this coil's field density.
+      for(const c of doc.components.filter(c=>c.type==='inductor')){
+        const key='field:'+c.id,signature=JSON.stringify([c.params.inductance,c.params.initialCurrent]),old=baselines.get(key),r=result.components[c.id];
+        const peak=Math.max(old?.signature===signature?old.peak:0,Math.abs(c.params.initialCurrent||0),Number.isFinite(r?.current)?Math.abs(r.current):0,Number.isFinite(r?.currentPeak)?r.currentPeak:0);
+        live.add(key);baselines.set(key,{signature,peak});references.set(key,peak);
+      }
       for(const key of baselines.keys())if(!live.has(key))baselines.delete(key);
     }
     return references;

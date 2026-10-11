@@ -38,3 +38,12 @@ for(const polarity of [1,-1]){
  assert(found,'both discharge polarities must reach the synchronized display cutoff');
 }
 console.log('AC display: signed bars, stable units/throttled numerals, polarity independent of fields, window-aware tails/zero crossings, charged capacitor at I=0 and actual 2 s RC decay passed');
+
+// A per-coil peak calibrates small starts but must not shrink during discharge.
+{const F=require('./circuit-field-graphics'),T=require('./circuit-transient'),M=require('./circuit-model');
+ for(const initial of [.5,.001]){const doc=M.empty('transient'),c=M.add(doc,'inductor',200,200,{inductance:1,resistance:0,initialCurrent:initial}),resistor=M.add(doc,'resistor',400,200,{resistance:2});M.connect(doc,c.id+':a',resistor.id+':a');M.connect(doc,c.id+':b',resistor.id+':b');const session=new T.Session(doc),baselines=new Map(),before=session.capture();
+  for(const [time,expected]of [[0,25],[.5*Math.log(2),13],[.5*Math.log(10),3],[.5*Math.log(100),1]]){session.advance(time-session.state.time);const raw=session.read(),refs=V.flowReferences(doc,raw,baselines),display=V.displayComponent(doc,raw,c,refs),f=F.inductor(c,display),count=(f.front.match(/data-field-line="inside"/g)||[]).length;assert(Math.abs(refs.get('field:'+c.id)-initial)<1e-12);if(display.fieldCurrent===0)assert.equal(count,0);else{assert(count>=1);assert(Math.abs(count-expected)<=1,'rounding a line count allows either side of a half-line boundary');}assert.equal(raw.reliable,true);}
+  const held=new Map(baselines),preview=M.clone(doc);preview.components[0].params.initialCurrent=10;const p=new T.Session(preview);V.flowReferences(preview,p.read(),new Map(baselines));assert.deepEqual(baselines,held,'preview cannot change the formal scale');assert.deepEqual(before,T.Session.restore(before).capture());
+  const other=M.add(doc,'inductor',700,200,{initialCurrent:1000});V.flowReferences(doc,session.read(),baselines);assert.equal(baselines.get('field:'+c.id).peak,initial,'unrelated coil cannot enlarge this scale');assert.equal(baselines.get('field:'+other.id).peak,1000);
+ }
+ console.log('Proportional magnetic density: approximately linear line counts, tiny initial calibration, decay/preview isolation and independent coils passed.');}

@@ -47,7 +47,8 @@
   let unsubscribeAnalysis=session?.subscribe(forwardAnalysis);
   const wireCurrents=new Set(),potentialDirections=new Set(),labelOptions={previous:null,exclusions:[],idPrefix:prefix,wireCurrents,potentialDirections,fields:profile.ui.field},flowOffsets=new Map(),flowScales=new Map(),needleStates=new Map(),relayStates=new Map();
   const flowContext=()=>(drag||previewDoc)?new Map(flowScales):flowScales;
-  const solve=doc=>{if(transient){if(doc!==history.get()){if(paramSession&&doc===previewDoc)return paramSession.read();return JSON.stringify(doc)===JSON.stringify(history.get())?session.read():session.preview(doc);}if(doc!==sessionDocument){lastSessionChange=session.update(doc);sessionDocument=doc;}return session.read();}H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
+  function clearFieldScales(){for(const key of flowScales.keys())if(key.startsWith("field:"))flowScales.delete(key);}
+  const solve=doc=>{if(transient){if(doc!==history.get()){if(paramSession&&doc===previewDoc)return paramSession.read();return JSON.stringify(doc)===JSON.stringify(history.get())?session.read():session.preview(doc);}if(doc!==sessionDocument){lastSessionChange=session.update(doc);if(lastSessionChange==='restarted')clearFieldScales();sessionDocument=doc;}return session.read();}H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
   let analysis=solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
   let quickBinding=null,releasedMeta=null,blankMouseDown=null;
   const settingsDrafts=new Map();
@@ -707,7 +708,7 @@
       }
     });
   }
-  function replaceSession(next,preserveTrace=false){unsubscribeAnalysis?.();session?.destroy();session=next;lastTime=0;acLag=0;sessionDocument=history.get();unsubscribeAnalysis=session.subscribe(forwardAnalysis);if(!preserveTrace)acUI?.clear();}
+  function replaceSession(next,preserveTrace=false){unsubscribeAnalysis?.();session?.destroy();session=next;lastTime=0;acLag=0;sessionDocument=history.get();unsubscribeAnalysis=session.subscribe(forwardAnalysis);if(!preserveTrace){clearFieldScales();acUI?.clear();}}
   function setPlayback(options){
     if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!options||typeof options!=='object'||Object.keys(options).some(k=>!['paused','rate'].includes(k)))return false;
     if(options.paused!==undefined&&(typeof options.paused!=='boolean'||!profile.simulation.play))return false;
@@ -715,7 +716,7 @@
     if(options.paused===false&&session.fault)return false;cancel();if(options.paused!==undefined)paused=options.paused;if(options.rate!==undefined){timeRate=options.rate;slowMotion=false;}lastTime=0;acLag=0;render(false);return true;
   }
   function advanceTime(seconds){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.step)return false;if(!Number.isFinite(seconds)||seconds<=0||seconds>10)throw new Error('單步時間需要大於零且不超過 10 s');cancel();paused=true;const progress=session.advance(seconds);analysis=progress.result;animationTime=session.state.time;render(false);return {...progress,result:controller.getAnalysis()};}
-  function resetSimulation(){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.reset)return false;cancel();lastTime=0;acLag=0;analysis=session.reset();acUI?.clear();flowOffsets.clear();needleStates.clear();animationTime=0;render();notify('已回到初始條件；搭建電路保持。');return true;}
+  function resetSimulation(){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.reset)return false;cancel();lastTime=0;acLag=0;analysis=session.reset();clearFieldScales();acUI?.clear();flowOffsets.clear();needleStates.clear();animationTime=0;render();notify('已回到初始條件；搭建電路保持。');return true;}
   const controller=Object.freeze({getDocument:()=>M.clone(history.get()),getAnalysis:()=>{const{voltage,...data}=solve(history.get());return M.clone(data);},voltage:(a,b)=>solve(history.get()).voltage(a,b),exportDocument:()=>D.encode(history.get()),loadDocument,execute,
     applyPolicy(policy){cancel();return change(doc=>doc.policy={...doc.policy,...policy});},onChange(fn){if(destroyed)throw new Error('編輯器已卸載');if(typeof fn!=="function")throw new TypeError("onChange requires a callback");listeners.add(fn);return()=>listeners.delete(fn);},
     setReadOnly(value=true){if(destroyed)throw new Error('編輯器已卸載');if(typeof value!=='boolean')throw new TypeError('只讀狀態必須是布林值');cancel();readOnly=value;if(transient)paused=true;host.dataset.readOnly=String(value);render();},

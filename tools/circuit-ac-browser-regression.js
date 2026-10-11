@@ -12,7 +12,7 @@ const {windingCases,exampleHintCases}=require('./circuit-winding-browser-cases')
 const {meterResponseCases}=require('./circuit-meter-response-browser-cases');
 const {meterDesignCases,overviewCases}=require('./circuit-meter-design-browser-cases');
 const {readoutMathCases}=require('./circuit-readout-math-browser-cases');
-const {fieldCases}=require('./circuit-field-browser-cases');
+const {fieldCases,inductorDensityCases}=require('./circuit-field-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-ac');
 async function browserPort(profile,chrome){
  for(let attempt=0;attempt<3;attempt++)try{return await H.devToolsPort(profile,chrome);}catch(error){if(attempt===2||error.message!=='Timed out waiting for Chrome DevToolsActivePort.')throw error;}
@@ -33,6 +33,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--inductor-density-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await inductorDensityCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--inductor-density-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--overview-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await overviewCases({inside,call,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--overview-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--example-hint-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await exampleHintCases({inside,call,click,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--quick-response-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await quickResponseCases({inside,call,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--quick-response-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

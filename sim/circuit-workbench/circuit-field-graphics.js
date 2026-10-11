@@ -69,17 +69,18 @@
     return {seed,points,clipped,path:fieldPath(points)+(clipped?'':'Z'),bore:fieldPath(bore)};
   }
   function solenoidGeometry(count){
-    if(!solenoidCache.has(count))solenoidCache.set(count,{spread:Array.from({length:count},(_,n)=>solenoidLine(-16+32*n/(count-1))),returns:[-22,-20,20,22].map(solenoidLine),content:new Map()});
+    if(!solenoidCache.has(count))solenoidCache.set(count,{spread:Array.from({length:count},(_,n)=>solenoidLine(count===1?0:-16+32*n/(count-1))),returns:(count>=17?[-22,-20,20,22]:count>=7?[-22,22]:[]).map(solenoidLine),content:new Map()});
     return solenoidCache.get(count);
   }
   function inductor(c,r){
-    const i=r?.fieldCurrent??r?.current,d=sign(i),field=Number.isFinite(i)?i*Math.sqrt(c.params.inductance):null,s=strength(field,.6),count=13+2*Math.round(6*s),pitch=32/(count-1),geometry=solenoidGeometry(count);
+    const i=r?.fieldCurrent??r?.current,d=sign(i),reference=r?.fieldCurrentReference>0?r.fieldCurrentReference:Math.abs(c.params.initialCurrent||0)||r?.currentPeak||.6/Math.sqrt(c.params.inductance),s=Number.isFinite(i)?Math.min(1,Math.abs(i)/reference):0,count=d?1+2*Math.round(12*s):0,pitch=count>1?32/(count-1):32,geometry=solenoidGeometry(count);
     if(!geometry.content.has(d)){
       let back='',front='';
       for(const [n,g]of geometry.spread.entries()){
+        const showArrow=count<5?n===Math.floor(count/2):n%4===2;
         back+=line(g.path,magnetic,'spread',.65).replace(' d=',` data-field-seed="${g.seed}" data-field-clipped="${g.clipped}" d=`);
-        front+='<g data-field-occluded="true" opacity=".85">'+line(g.bore,hiddenMagnetic,'inside',.8).replace(' d=',` data-field-seed="${g.seed}" d=`).replace('stroke-linecap=', 'stroke-dasharray="2.5 1.5" stroke-linecap=')+(n%4===2?arrow(d*3,g.seed,d,0,hiddenMagnetic,1.7):'')+'</g>';
-        if(n%4===2){const p=g.points.find(([x,y])=>x>52||x>0&&y>34||x>0&&y<-34),v=p&&solenoidDirection(...p);if(p)back+=arrow(...p,d*v[0],d*v[1],magnetic,1.9);}
+        front+='<g data-field-occluded="true" opacity=".85">'+line(g.bore,hiddenMagnetic,'inside',.8).replace(' d=',` data-field-seed="${g.seed}" d=`).replace('stroke-linecap=', 'stroke-dasharray="2.5 1.5" stroke-linecap=')+(showArrow?arrow(d*3,g.seed,d,0,hiddenMagnetic,1.7):'')+'</g>';
+        if(showArrow){const p=g.points.find(([x,y])=>x>52||x>0&&y>34||x>0&&y<-34),v=p&&solenoidDirection(...p);if(p)back+=arrow(...p,d*v[0],d*v[1],magnetic,1.9);}
       }
       for(const g of geometry.returns){back+=line(g.path,magnetic,'return',.65);const p=g.points[0],v=solenoidDirection(...p);back+=arrow(...p,d*v[0],d*v[1],magnetic,2);}
       geometry.content.set(d,{back,front});
