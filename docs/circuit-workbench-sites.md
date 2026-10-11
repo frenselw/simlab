@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 6，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 7，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 6／概覽儀表名稱（2026-10-11）
+## 最近更新：Sites version 7／電感場線相對密度（2026-10-11）
+
+Runtime取自已推送提交 `c382be373403b8547e3cf0cbea70b6c75d0efb92`。每個線圈以初始／已觀察峰值獨立校準，場線數近似正比於電流，取消13條下限；弱場保留中央線，外部回繞亦按比例減少。放電不縮量尺，細電流新實驗可自動校準，方向／歸零抑制及物理模型保持。DC29個／AC38個資產逐byte／SHA-256一致，原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `16b1026f59fbdcac5718a796db4456431977217d` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_9ae7ca33b40c8191ace277df2672dd24` | `appgdep_6acb8a66021c8191863cf33c93e4855c` |
+| AC | `41f17903d15002d8d99185092f762964076c0232` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_e441c8835bdc819197db0cc08355c0f3` | `appgdep_6acb8a7517a081918588c806cf0afc64` |
+
+兩次原生發布均succeeded。只執行3個直接相關Node套件及source／ZIP磁場密度208項；0.5 A／1 mA起步、放電比例、三處顯示一致、preview／獨立線圈及恢復通過。四包重建並核對runtime雜湊，沒有重跑完整CI／無關物理或真手機／Moodle。證據在 `output/inductor-field-density/`，archive為 `output/sites/circuit-dc-workbench-field-density-v7.tar.gz`及`output/sites/circuit-ac-workbench-field-density-v7.tar.gz`。
+
+## 前次更新：Sites version 6／概覽儀表名稱（歷史記錄）
 
 Runtime取自已推送提交 `83fb5c66617f721337fa689aee8ef026f929c787`。低縮放概覽改用registry儀表icon，補齊AC A/V/W名稱，避免undefined；元件文字收起規則及讀數不改。DC29個／AC38個資產逐byte及SHA-256一致，原網址及擁有者私人存取保持。
 
@@ -84,7 +95,7 @@ Version 2 archive為 `output/sites/circuit-dc-workbench-8f0b371.tar.gz` 與 `out
 
 後續更新應重用表內project ID，透過Sites source helper打開對應來源庫、更新同一份SimLab資產，再推送、封裝、保存及部署相同來源版本；不要把兩站的identity或repository混用。checkout若遺失，從相同project ID恢復遠端source，不另建重複網站。短期repository credential只經helper stdin傳入，不保存到檔案、Git或本文件。
 
-每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 6記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
+每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 7記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
 
 ## 驗證界限
 
