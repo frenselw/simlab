@@ -14,6 +14,7 @@ const {meterDesignCases,overviewCases}=require('./circuit-meter-design-browser-c
 const {readoutMathCases}=require('./circuit-readout-math-browser-cases');
 const {fieldCases,inductorDensityCases}=require('./circuit-field-browser-cases');
 const {scrollGripVisibilityCases,historyIconCases}=require('./circuit-canvas-browser-cases');
+const {reviewR3Cases}=require('./circuit-ac-review-r3-browser-cases');
 const {fontSizeCases}=require('./circuit-display-mirror-browser-cases');
 const {dependencyAuditCases}=require('./circuit-dependency-audit-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-ac');
@@ -36,6 +37,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--review-r3-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await reviewR3Cases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--font-size-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await fontSizeCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--mutual-layout-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await mutualLayoutCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--transformer-comparison-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await transformerComparisonCases({inside,call,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}

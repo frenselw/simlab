@@ -1,0 +1,20 @@
+'use strict';
+const assert=require('node:assert/strict'),F=require('../sim/circuit-workbench/ac-review-r3.test');
+async function reviewR3Cases(h,source){let checks=0;
+ const key=async name=>{await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:name,code:name,windowsVirtualKeyCode:name==='ArrowRight'?39:13});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:name,code:name,windowsVirtualKeyCode:name==='ArrowRight'?39:13});};
+ for(const width of [1280,390]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+  for(const time of [.125,.25,.375])for(const extra of [false,true])for(const input of ['number','slider']){
+   const f=F.capacitorChange(extra);await h.call('loadDocument('+JSON.stringify(f.d)+')');await h.call('setPlayback({paused:true})');await h.call('advanceTime('+time+')');const before=await h.call('captureSession()'),q=f.r?(await h.call('getAnalysis()')).measurements[f.r.id]:null;await h.click('[data-hit="body:'+f.c.id+'"]',true);
+   if(input==='number'){await h.click('[data-param=capacitance]');await h.inside('document.querySelector("[data-param=capacitance]").select()');await h.send('Input.insertText',{text:'0.03'});await h.click('[data-circuit-id=selectionTitle]');}
+   else for(let n=0;n<10;n++){await h.inside('document.querySelector("input[type=range][aria-label=電容滑塊]").focus()');await key('ArrowRight');}
+   const saved=await h.call('captureSession()'),a=await h.call('getAnalysis()');assert(a.reliable);assert(Math.abs(saved.document.components.find(c=>c.id===f.c.id).params.capacitance-.03)<1e-12);assert(Math.abs(saved.physics.sources[f.a.id])<1e-12);assert(Math.abs(a.components[f.c.id].voltage)<1e-12);assert.equal(saved.physics.time,extra?time:0);assert.equal(a.measurements[f.v.id].voltageStatus,'collecting');checks+=6;
+   if(extra){assert.equal(saved.physics.sources[f.b.id],before.physics.sources[f.b.id]);assert.deepEqual(a.measurements[f.r.id],q);checks+=2;}
+   await h.call('advanceTime(.02)');assert((await h.call('getAnalysis()')).reliable);checks++;if(extra&&time===.25&&input==='slider')await h.screenshot(source+'-r3-capacitor-local-restart-'+width);
+  }
+  for(const position of [0,.25,.5,.75,1]){const f=F.rheostat(position);await h.call('loadDocument('+JSON.stringify(f.d)+')');await h.call('advanceTime(2.25)');await h.click('[data-hit="body:'+f.r.id+'"]',true);const a=await h.call('getAnalysis()');assert(a.reliable);assert(Math.abs(a.measurements[f.r.id].averagePower-.36)<.001);assert(await h.inside('(()=>{const row=[...document.querySelectorAll(".reading-host dt")].find(e=>e.textContent.startsWith("元件總平均有功功率"));return row&&row.nextElementSibling.querySelector("[data-math]")?.dataset.math.includes("0.3598 W");})()'));checks+=3;if(position===0)await h.screenshot(source+'-r3-rheostat-total-power-'+width);}
+  for(const frequency of [null,1,Math.SQRT2]){const f=F.transformer(frequency);await h.call('loadDocument('+JSON.stringify(f.d)+')');await h.call('advanceTime(6)');await h.click('[data-hit="body:'+f.v.id+'"]',true);const a=await h.call('getAnalysis()'),q=a.measurements[f.v.id];assert(a.reliable);assert.equal(q.voltageWindow,1/.17);assert.equal(q.voltageStatus,'ready');assert(Math.abs(a.components[f.v.id].reading-3)<.003);assert.equal(a.components[f.v.id].meterStatus,'normal');checks+=5;if(frequency!==null){assert.equal(a.measurements[f.t.id].currentWindow,frequency===1?100:10);checks++;}if(frequency===Math.SQRT2)await h.screenshot(source+'-r3-transformer-voltage-window-'+width);}
+  for(const options of [{resistance:1},{model:'coupled'}]){const f=F.transformer(Math.SQRT2,options);await h.call('loadDocument('+JSON.stringify(f.d)+')');await h.call('advanceTime(.1)');const a=await h.call('getAnalysis()');assert(a.reliable);assert.equal(a.measurements[f.v.id].voltageWindow,10);assert.deepEqual(a.measurements[f.v.id].frequencies,[.17,Math.SQRT2]);checks+=3;}
+ }
+ console.log(source+' review R3 controls/readings: '+checks+' checks passed');return checks;
+}
+module.exports={reviewR3Cases};

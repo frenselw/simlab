@@ -11,12 +11,15 @@
   }
   // ponytail: 512 time bins bound memory even for stiff circuits; more bins if meter accuracy requirements exceed 0.5%.
   class Tracker {
-    constructor(period,ids=null){this.window=period;this.width=period/512;this.ids=ids;this.bins=[];this.previous=null;this.start=null;}
+    constructor(period,ids=null){this.window=period;this.width=period/512;this.ids=ids;this.bins=[];this.previous=null;this.start=null;this.starts={};}
+    copy(){const next=new Tracker(this.window,this.ids?new Set(this.ids):null);next.bins=M.clone(this.bins);next.previous=M.clone(this.previous);next.start=this.start;next.starts={...this.starts};return next;}
+    retain(ids){for(const id of Object.keys(this.starts))if(!ids.has(id))delete this.starts[id];for(const bin of this.bins)for(const id of Object.keys(bin.values))if(!ids.has(id))delete bin.values[id];if(this.previous)for(const id of Object.keys(this.previous.values))if(!ids.has(id))delete this.previous.values[id];}
     sample(result){
-      const values=Object.fromEntries(Object.entries(result.components).map(([id,r])=>[id,{u:r.sensedVoltage!==undefined?r.sensedVoltage:r.voltage,i:r.current}])),next={time:result.time,values};
+      const values=Object.fromEntries(Object.entries(result.components).map(([id,r])=>[id,{u:r.sensedVoltage!==undefined?r.sensedVoltage:r.voltage,i:r.current,...(r.measurementBranches?{p:r.measurementBranches.map(b=>({from:b.from,to:b.to,u:b.voltage,i:b.current}))}:{})}])),next={time:result.time,values};
       for(const [id,r]of Object.entries(result.components))if(r.secondaryVoltage!==undefined)values[id+'~secondary']={u:r.secondaryVoltage,i:r.secondaryCurrent};
       for(const [id,r]of Object.entries(result.wires))values['wire:'+id]={u:r.voltage,i:r.current};
       if(this.ids)for(const id of Object.keys(values))if(!this.ids.has(id))delete values[id];
+      for(const id of Object.keys(values))if(!Object.hasOwn(this.starts,id))this.starts[id]=next.time;
       if(!this.previous||next.time<=this.previous.time){this.previous=next;if(this.start===null)this.start=next.time;return;}
       const old=this.previous,h=next.time-old.time;let begin=old.time;
       // Snap bin boundaries above float roundoff so an accepted step never loses its remainder.
@@ -27,28 +30,30 @@
           const u=[before.u,v.u].every(Number.isFinite),i=[before.i,v.i].every(Number.isFinite),u0=u?before.u+(v.u-before.u)*x0:0,u1=u?before.u+(v.u-before.u)*x1:0,i0=i?before.i+(v.i-before.i)*x0:0,i1=i?before.i+(v.i-before.i)*x1:0,q=bin.values[id]||(bin.values[id]={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0,currentPeak:0,voltagePeak:0});
           if(u){q.voltagePeak=Math.max(q.voltagePeak,Math.abs(u0),Math.abs(u1));q.uDuration+=duration;q.u2+=duration*(u0*u0+u0*u1+u1*u1)/3;}
           if(i){q.currentPeak=Math.max(q.currentPeak,Math.abs(i0),Math.abs(i1));q.iDuration+=duration;q.i2+=duration*(i0*i0+i0*i1+i1*i1)/3;}
-          if(u&&i){q.pDuration+=duration;q.p+=duration*(2*u0*i0+u0*i1+u1*i0+2*u1*i1)/6;}
+          if(v.p){const p=before.p?.length===v.p.length?v.p.map((branch,index)=>{const old=before.p[index];if(old.from!==branch.from||old.to!==branch.to||![old.u,branch.u].every(Number.isFinite))return null;const a=old.u+(branch.u-old.u)*x0,b=old.u+(branch.u-old.u)*x1;if(a===0&&b===0)return 0;if(![old.i,branch.i].every(Number.isFinite))return null;const c=old.i+(branch.i-old.i)*x0,d=old.i+(branch.i-old.i)*x1;return (2*a*c+a*d+b*c+2*b*d)/6;}):[null];if(p.every(Number.isFinite)){q.pDuration+=duration;q.p+=duration*p.reduce((sum,v)=>sum+v,0);}}
+          else if(u&&i){q.pDuration+=duration;q.p+=duration*(2*u0*i0+u0*i1+u1*i0+2*u1*i1)/6;}
         }
         begin=end;
       }
       const threshold=next.time-this.window-this.width;while(this.bins[0]?.end<threshold)this.bins.shift();this.previous=next;
     }
-    measure(id){const end=this.previous?.time??0,start=end-this.window,collecting=this.start===null||start<this.start-1e-10;
+    measure(id){const end=this.previous?.time??0,start=end-this.window,origin=this.starts[id]??this.start,collecting=origin===null||start<origin-1e-10;
       const sum={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);for(const k of Object.keys(sum))sum[k]+=q[k]*factor;}
-      const latest=this.previous?.values[id],status=(duration,known)=>!known?'unknown':collecting?'collecting':duration>=this.window*(1-1e-6)?'ready':'collecting',voltageStatus=status(sum.uDuration,Number.isFinite(latest?.u)),currentStatus=status(sum.iDuration,Number.isFinite(latest?.i)),powerStatus=status(sum.pDuration,Number.isFinite(latest?.u)&&Number.isFinite(latest?.i)),states=[voltageStatus,currentStatus,powerStatus];
+      const latest=this.previous?.values[id],status=(duration,known)=>!known?'unknown':collecting?'collecting':duration>=this.window*(1-1e-6)?'ready':'collecting',voltageStatus=status(sum.uDuration,Number.isFinite(latest?.u)),currentStatus=status(sum.iDuration,Number.isFinite(latest?.i)),powerStatus=status(sum.pDuration,latest?.p?latest.p.every(b=>Number.isFinite(b.u)&&(b.u===0||Number.isFinite(b.i))):Number.isFinite(latest?.u)&&Number.isFinite(latest?.i)),states=[voltageStatus,currentStatus,powerStatus];
       // Startup estimates use only complete coverage of the elapsed window; a gap or
       // unknown channel must not masquerade as a measured zero or a complete cycle.
-      const elapsed=end-Math.max(this.start??end,start),covered=(duration,state)=>state==='collecting'&&elapsed>1e-12&&duration>=elapsed*(1-1e-6);
+      const elapsed=end-Math.max(origin??end,start),covered=(duration,state)=>state==='collecting'&&elapsed>1e-12&&duration>=elapsed*(1-1e-6);
       const provisionalVoltageRms=covered(sum.uDuration,voltageStatus)?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,provisionalCurrentRms=covered(sum.iDuration,currentStatus)?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,provisionalAveragePower=covered(sum.pDuration,powerStatus)?sum.p/sum.pDuration:null;
-      return {provisionalVoltageRms,provisionalCurrentRms,provisionalAveragePower,status:states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown',voltageStatus,currentStatus,powerStatus,start:Math.max(this.start??0,start),end,window:this.window,voltageDuration:sum.uDuration,currentDuration:sum.iDuration,powerDuration:sum.pDuration,currentPeak:currentStatus==='ready'?currentPeak:null,voltagePeak:voltageStatus==='ready'?voltagePeak:null,voltageRms:voltageStatus==='ready'?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,currentRms:currentStatus==='ready'?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,averagePower:powerStatus==='ready'?sum.p/sum.pDuration:null};
+      return {provisionalVoltageRms,provisionalCurrentRms,provisionalAveragePower,status:states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown',voltageStatus,currentStatus,powerStatus,start:Math.max(origin??0,start),end,window:this.window,voltageDuration:sum.uDuration,currentDuration:sum.iDuration,powerDuration:sum.pDuration,currentPeak:currentStatus==='ready'?currentPeak:null,voltagePeak:voltageStatus==='ready'?voltagePeak:null,voltageRms:voltageStatus==='ready'?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,currentRms:currentStatus==='ready'?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,averagePower:powerStatus==='ready'?sum.p/sum.pDuration:null};
     }
   }
   class GroupTracker {
-    constructor(policies,previous=null){
+    constructor(policies,previous=null,retainedIds=null){
       this.policies=policies;this.groups=new Map();
       for(const [id,policy]of policies)for(const p of new Set([policy,...Object.values(policy.quantities||{})])){let group=this.groups.get(p.key);if(!group){group={policy:p,ids:new Set()};this.groups.set(p.key,group);}group.ids.add(id);}
-      for(const [key,group]of this.groups){group.tracker=previous?.groups.get(key)?.tracker||new Tracker(group.policy.window,group.ids);group.tracker.ids=group.ids;}
+      for(const [key,group]of this.groups){group.tracker=previous?.groups.get(key)?.tracker||new Tracker(group.policy.window,group.ids);if(retainedIds)group.tracker.retain(retainedIds);group.tracker.ids=group.ids;}
     }
+    copy(){const next=Object.create(GroupTracker.prototype);next.policies=this.policies;next.groups=new Map([...this.groups].map(([key,g])=>[key,{policy:g.policy,ids:new Set(g.ids),tracker:g.tracker.copy()}]));return next;}
     sample(result){for(const group of this.groups.values())group.tracker.sample(result);}
     measure(id){const policy=this.policies.get(id);if(!policy)return {status:'unknown'};
       const result={...this.groups.get(policy.key).tracker.measure(id),windowKind:policy.windowKind,period:policy.period,frequencies:policy.frequencies,sourceCount:policy.sourceCount};
@@ -59,7 +64,7 @@
   // Display-only AC flux primitive. A centred full-cycle window fixes the
   // ideal transformer's unspecified DC flux offset without inventing load current.
   class CoreFluxTracker {
-    constructor(period,previous=null){this.policies=period instanceof Map?new Map([...period].map(([id,p])=>[id,p.quantities?.voltage||p])):null;this.window=this.policies?1:period;this.width=this.window/512;this.records=new Map();if(previous&&this.policies)for(const [id,r]of previous.records)if(this.policies.get(id)?.key===previous.policies?.get(id)?.key)this.records.set(id,M.clone(r));}
+    constructor(period,previous=null,retainedIds=null){this.policies=period instanceof Map?new Map([...period].map(([id,p])=>[id,p.quantities?.voltage||p])):null;this.window=this.policies?1:period;this.width=this.window/512;this.records=new Map();if(previous&&this.policies)for(const [id,r]of previous.records)if((!retainedIds||retainedIds.has(id))&&this.policies.get(id)?.key===previous.policies?.get(id)?.key)this.records.set(id,M.clone(r));}
     sample(result){for(const [id,c]of Object.entries(result.components)){
       if(c.coreVoltage===undefined)continue;const v=Number.isFinite(c.coreVoltage)?c.coreVoltage/c.coreTurns:null,t=result.time;
       const window=this.policies?.get(id)?.window||this.window,width=window/512;

@@ -74,7 +74,7 @@
   const readableMeter=(d,c)=>c&&d.display.values&&R.isMeter(c);
   const inspectableMeter=c=>!!c&&(R.dualMeter(c)||c.type==='galvanometer'||c.type.startsWith('ac-')&&R.isMeter(c));
   function discardParamPreview(){unsubscribePreview?.();unsubscribePreview=null;paramSession?.destroy();paramSession=null;acLag=0;acUI?.endPreview(false);}
-  function previewParameter(doc){if(transient){if(!paramSession){paramSession=root.CircuitTransient.Session.restore(session.capture());unsubscribePreview=paramSession.subscribe(result=>acUI?.preview(result));}lastSessionChange=paramSession.update(doc,{continuous:true});}previewDoc=doc;analysis=solve(doc);if(paramSession)acUI?.preview(analysis);}
+  function previewParameter(doc){if(transient){if(!paramSession){paramSession=session.fork();unsubscribePreview=paramSession.subscribe(result=>acUI?.preview(result));}lastSessionChange=paramSession.update(doc,{continuous:true});}previewDoc=doc;analysis=solve(doc);if(paramSession)acUI?.preview(analysis);}
   function rollbackDrag(){discardParamPreview();meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
@@ -356,7 +356,7 @@
     r={...r,energy:V.displayEnergy(r.energy)};
     const items=[['瞬時電壓',r.voltage,'V'],['瞬時電流（a → b）',g&&Number.isFinite(r.current)?r.current*1e6:r.current,g?'μA':'A']];
     const distinctWindows=q&&new Set([q.voltageWindow,q.currentWindow,q.powerWindow].filter(Number.isFinite)).size>1,windowNote=distinctWindows?'<p class="note">'+rich(['各項按相關電源分別收集：電壓 ',Q.quantity(q.voltageWindow,'s'),'、電流 ',Q.quantity(q.currentWindow,'s'),'、功率 ',Q.quantity(q.powerWindow,'s'),'。'])+'</p>':q&&q.windowKind!=='cycle'?'<p class="note">'+rich([q.windowKind==='common-cycle'?'量測採共同週期：':q.windowKind==='natural'?'量測採自由振盪參考窗：':'量測採時間窗：',Q.quantity(q.window,'s'),q.windowKind==='time'&&q.frequencies?.length>1?'；多頻率信號，這個時間窗不是共同週期。':'。'])+'</p>':'';
-    if(q&&r.meterStatus!=='unconnected'&&r.meterStatus!=='missing-common'){if(q.voltageStatus==='ready')items.push(['電壓有效值',q.voltageRms,'V']);if(q.currentStatus==='ready')items.push(['電流有效值',q.currentRms,'A']);if(q.powerStatus==='ready')items.push([c.type==='transformer'?'原線圈平均輸入功率':'平均有功功率',q.averagePower,'W']);}
+    if(q&&r.meterStatus!=='unconnected'&&r.meterStatus!=='missing-common'){if(q.voltageStatus==='ready')items.push(['電壓有效值',q.voltageRms,'V']);if(q.currentStatus==='ready')items.push(['電流有效值',q.currentRms,'A']);if(q.powerStatus==='ready')items.push([c.type==='transformer'?'原線圈平均輸入功率':c.type==='rheostat'?'元件總平均有功功率':'平均有功功率',q.averagePower,'W']);}
     if(c.type==='capacitor')items.push(['極板電荷',r.charge,'C'],['電場儲能',r.energy,'J']);
     if(c.type==='inductor')items.push(['磁場儲能',r.energy,'J']);
     if(c.type==='transformer'){items.push(['副線圈瞬時電壓',r.secondaryVoltage,'V'],['副線圈瞬時電流',r.secondaryCurrent,'A']);items.push(['共同磁通',r.coreFlux,'Wb']);if(c.params.model==='coupled'&&r.energy!==undefined)items.push(['耦合磁場儲能',r.energy,'J']);}

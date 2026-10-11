@@ -54,6 +54,12 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
+### CW-10／CW-11／CW-09-R1複核（2026-10-12）
+
+先以完整Session重現：直接理想源／C在非零相位改C且有獨立AC時停機；四孔變阻器A-B接法的平均功率只計第一段；理想變壓器副側已受原側理想源約束，仍混入副側負載電源頻率。修正範圍：重啟整個受影響區塊的源相位、儲能、量測及能量帳；只對變阻器積分全部支路功率，保留變壓器／功率表語義；沿理想比例及極性約束推導電壓來源，非理想依賴保留。非評量，assessment／rubric／SCORM N/A，既有doc／Session／codec格式及依賴不改。精準驗證三個原始案例、三個變更時刻及數字／滑塊、五個滑片位置、A-P及分壓負載、理想／有限內阻／耦合模型，並檢查未受影響歷史與保存續作；source／ZIP專項後重建四包，更新原Sites。
+
+三項原始案例已用完整Session確認及修正。新增ac-review-r3與原ac-dependency-audit、transient、ac-audit-regressions、ac-energy-r2及scope通過；數字／滑塊的source／ZIP桌面／手機專項536項通過。滑塊改用隔離的Session記憶體副本，保留未受影響觀察歷史，預覽不修改原狀態。四包重建核對來源；證據在 `output/ac-review-r3/`。未驗完整CI、真手機或Moodle。
+
 ### 五級畫布字體大小（2026-10-11）
 
 依使用者要求，以「字體大小」五級選單（很小／小／中／大／特大）取代投影字體勾選。預設中：名稱20px、讀值18px，較原14／12px大；各級亦調整導線電流及方向標籤。字級保持畫面像素大小，不跟隨zoom縮細。可復原、匯出／載入及切換示例保留；舊projection欄位僅作相容，無該選單用詞。fontSize為可選显示欄位，未新增者不改文件形狀、技術codec或活動固定顯示權限。非評量，assessment／rubric／SCORM N/A；只驗五級字形、布局、舊文件、往返、物理狀態不變及source／ZIP桌面手機，重建四包更新原Sites。
