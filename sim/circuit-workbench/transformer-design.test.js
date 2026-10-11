@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),{XMLValidator}=require('fast-xml-pars
 const close=(a,b,tol=2e-6)=>assert(Math.abs(a-b)<tol,`${a} != ${b}`);
 // The field observes U/N, including an unloaded ideal transformer (I=0).
 for(const unloaded of [false,true]){
- const d=P.create('transformer');if(unloaded){d.components=d.components.filter(c=>['ac-source','transformer'].includes(c.type));const ids=new Set(d.components.map(c=>c.id));d.wires=d.wires.filter(w=>ids.has(w.from.split(':')[0])&&ids.has(w.to.split(':')[0]));}
+ const d=P.create('transformer',{comparisonMeters:!unloaded});if(unloaded){d.components=d.components.filter(c=>['ac-source','transformer'].includes(c.type));const ids=new Set(d.components.map(c=>c.id));d.wires=d.wires.filter(w=>ids.has(w.from.split(':')[0])&&ids.has(w.to.split(':')[0]));}
  const s=new T.Session(d),c=d.components.find(c=>c.type==='transformer'),peak=6*Math.SQRT2/(2*Math.PI*c.params.primaryTurns);assert.equal(s.read().components[c.id].coreFlux,null);
  for(const t of [1.125,1.25,1.5,1.75,2]){s.advance(t-s.state.time);const r=s.read().components[c.id];assert.equal(r.coreFluxStatus,'ready');close(r.coreFlux,-peak*Math.cos(2*Math.PI*t),peak*.001);if(unloaded)close(r.current,0,1e-10);const shown=V.displayComponent(s.doc,s.read(),c);if(t===1.25||t===1.75)assert.equal(shown.coreFlux,0);}
  assert(s.coreTracker.records.get(c.id).bins.length<=515);const saved=s.capture(),restored=T.Session.restore(saved);assert.deepEqual(restored.capture(),saved);assert.equal(restored.read().components[c.id].coreFlux,null);restored.advance(1.125);close(restored.read().components[c.id].coreFlux,-peak*Math.cos(2*Math.PI*restored.state.time),peak*.001);assert.deepEqual(s.capture(),saved);

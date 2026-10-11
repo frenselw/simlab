@@ -32,7 +32,7 @@ async function transformerCases({inside,call,click,point,cdp,touch,screenshot,so
  await call('advanceTime(1.125)');assert((await field()).visible==='1');checks++;
  for(const turns of [1,2000]){await call('execute({type:"setParam",id:"c2",key:"primaryTurns",value:'+turns+'})');await call('execute({type:"setParam",id:"c2",key:"secondaryTurns",value:'+turns+'})');await call('advanceTime(1.125)');assert(await resources());assert(await inside('[...document.querySelectorAll("[data-component=c2] [data-transformer-winding]")].every(e=>Number(e.dataset.visibleTurns)==='+require('../sim/circuit-workbench/circuit-ac-components').transformerTurns(turns)+')'));assert(await inside('(()=>{const body=document.querySelector("[data-component=c2] [data-ac-apparatus=transformer]"),leads=[...body.querySelectorAll("[data-transformer-leads] path")].map(p=>p.getBBox());return leads.every(b=>b.x>=53||b.x+b.width<=-53);})()'));checks+=3;await screenshot(source+'-transformer-turns-'+turns);}
  // Empty secondary must not erase the ideal transformer's core flux.
- const empty=P.create('transformer');empty.components=empty.components.filter(c=>['ac-source','transformer'].includes(c.type));const ids=new Set(empty.components.map(c=>c.id));empty.wires=empty.wires.filter(w=>ids.has(w.from.split(':')[0])&&ids.has(w.to.split(':')[0]));
+ const empty=P.create('transformer',{comparisonMeters:false});empty.components=empty.components.filter(c=>['ac-source','transformer'].includes(c.type));const ids=new Set(empty.components.map(c=>c.id));empty.wires=empty.wires.filter(w=>ids.has(w.from.split(':')[0])&&ids.has(w.to.split(':')[0]));
  await call('loadDocument('+JSON.stringify(empty)+')');await call('advanceTime(1.125)');await click('[data-hit="body:c2"]',true);f=await field();assert.equal(f.current,0);assert(f.visible==='1'&&Math.abs(f.flux)>.001);checks+=2;
  await call('execute({type:"setParam",id:"c1",key:"voltage",value:0})');await call('advanceTime(1.125)');f=await field();assert.equal(f.flux,0);assert.equal(f.visible,'0');assert.equal(f.panelSign,0);checks+=3;
  await call('loadDocument('+JSON.stringify(P.create('coupled'))+')');await call('advanceTime(1.125)');await click('[data-hit="body:c2"]',true);f=await field();assert.equal(f.sign,Math.sign(f.flux));assert(f.visible==='1');checks+=2;
@@ -46,4 +46,17 @@ async function transformerCases({inside,call,click,point,cdp,touch,screenshot,so
  }
  console.log(source+' transformer core/ratio/flux checks: '+checks+'; '+live.length+' synchronized RAF samples');return checks;
 }
-module.exports={transformerCases};
+async function transformerComparisonCases(h,source){let checks=0;
+ for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});await h.call('loadDocument('+JSON.stringify(P.create('transformer'))+')');await h.call('setPlayback({paused:true})');
+  const doc=await h.call('getDocument()'),t=doc.components.find(c=>c.type==='transformer'),load=doc.components.find(c=>c.label==='負載電阻'),meters=doc.components.filter(c=>['ac-ammeter','ac-voltmeter'].includes(c.type));assert.equal(meters.length,4);assert.equal(doc.wires.filter(w=>w.from.split(':')[0]===t.id||w.to.split(':')[0]===t.id).length,4);checks+=2;
+  for(const turns of width===1280?[100,200,400]:[100,400]){
+   await h.call('execute({type:"setParam",id:'+JSON.stringify(t.id)+',key:"secondaryTurns",value:'+turns+'})');await h.call('advanceTime(1.25)');const a=await h.call('getAnalysis()'),v=6*turns/200,current=v/12;assert(a.reliable);checks++;
+   for(const c of meters){const expected=c.label==='原線圈電壓表'?6:c.label==='副線圈電壓表'?v:c.label==='副線圈電流表'?current:current*turns/200;assert(Math.abs(a.components[c.id].reading-expected)<Math.max(.002,expected*.001));assert.equal(a.components[c.id].meterStatus,'normal');checks+=2;}
+   if(turns===100){assert(await h.inside('document.documentElement.scrollWidth<=innerWidth+1'));checks++;await h.screenshot(source+'-transformer-four-meters-'+width);}
+  }
+  if(width===1280){await h.call('execute({type:"setParam",id:'+JSON.stringify(load.id)+',key:"resistance",value:24})');await h.call('advanceTime(1.25)');const a=await h.call('getAnalysis()');for(const c of meters){const expected=c.label==='原線圈電壓表'?6:c.label==='副線圈電壓表'?12:c.label==='副線圈電流表'?.5:1;assert(Math.abs(a.components[c.id].reading-expected)<expected*.001);checks++;}}
+ }
+ console.log(source+' transformer comparison meters: '+checks+' checks passed');return checks;
+}
+module.exports={transformerCases,transformerComparisonCases};

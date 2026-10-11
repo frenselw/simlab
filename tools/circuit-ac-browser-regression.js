@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const H=require('./position-time-browser-regression'),Packages=require('./package-circuit-platform');
 const {scopeCases}=require('./circuit-scope-browser-cases');
 const {generatorCases,generatorLeadCases}=require('./circuit-generator-browser-cases');
-const {transformerCases}=require('./circuit-transformer-browser-cases');
+const {transformerCases,transformerComparisonCases}=require('./circuit-transformer-browser-cases');
 const {compactFooterCases}=require('./circuit-quick-controls-browser-cases');
 const {quickResponseCases}=require('./circuit-quick-response-browser-cases');
 const {auditCases}=require('./circuit-ac-audit-browser-cases');
@@ -35,6 +35,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--transformer-comparison-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await transformerComparisonCases({inside,call,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--history-icons-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await historyIconCases({inside,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--dependency-audit-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await dependencyAuditCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--dependency-audit-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--generator-leads-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await generatorLeadCases({inside,call,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--generator-leads-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

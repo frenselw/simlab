@@ -54,6 +54,12 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
+### 理想變壓器示例的兩側量測（2026-10-11）
+
+教師示例原／副側各放交流電壓表及電流表，左右相同位置、清楚命名；電流表串聯，電壓表跨繞組並聯，理想儀表不改負載。預設6V、200:100匝及12Ω，副側100／200／400匝展示降壓／等壓／升壓及相應電流，調負載則電壓保持、電流改變。技術學生示例保留原模板及codec相容性。非評量，assessment／rubric／SCORM N/A；只驗量測接法、三種匝數及負載、source／ZIP桌面／手機布局，重建四包更新原Sites。
+
+最終source／ZIP示例專項110項通過，100／200／400匝及24Ω負載的四錶值符合解析關係；1280／390px布局通過。ac-platform既有preset接線／間距及技術codec往返、transformer-design核心場套件通過。四包重建並核對來源；證據在 `output/transformer-comparison/`。未驗完整CI、真手機或Moodle。
+
 ### 復原／重做共用圖示（2026-10-11）
 
 依使用者要求，以共用24×24 SVG圓弧箭頭取代字元↶／↷，復原／重做互為鏡像；沿用工具列圖示線寬、置中及44px按鈕。純外觀，assessment／rubric／SCORM N/A，操作及快照不改。只核對AC／DC桌面及手機圖示置中、enabled／disabled狀態及一次復原／重做，source／ZIP重建後更新原Sites。
