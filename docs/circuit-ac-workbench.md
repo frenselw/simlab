@@ -3,7 +3,7 @@
 交流入口為 `sim/circuit-ac-workbench/index.html`；實作及驗收決策見[交流計劃](../plans/32-circuit-ac-workbench.md)。它與 DC 使用同一 `CircuitEditor`，但明確選用時間分析後端。工作台及兩個配置示例均不評分；正式 SCORM 題目、rubric 及活動 codec 另定。
 
 
-本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-11按程式基準 `ba19ba5`、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
+本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-11按本分支程式、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
 
 ## 目前介面與共用邊界
 
@@ -145,11 +145,11 @@ const editor = await CircuitEditor.mount(host, {
 |---|---|
 | DC document | v6；DC入口不接受AC文件 |
 | AC document | v7，`analysis:'transient'`、`modelRevision:1`；支援的v6文件可顯式轉換，unsupported完整拒絕 |
-| 核心session | envelope version 1／modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
-| 技術示例codec | `example-state.js` version 5／model 1，固定模板重建；拒絕1–4，內部上限1500 bytes，仍不是任意教師電路的SCORM保存方案 |
+| 核心session | envelope version 2／modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
+| 技術示例codec | `example-state.js` version 6／model 1（相容 v5），固定模板重建；拒絕1–4，內部上限1500 bytes，仍不是任意教師電路的SCORM保存方案 |
 | 觀察及顯示 | RMS／峰值、`coreFlux`及其status/peak、圖框／探頭／bar量尺等由現有狀態重建或另存合法UI配置，不能當成權威答案 |
 
-Session version 1 的 physics 欄位：`time`、`step`（下一步建議）、`sources`（ID→目前弧度相位）、`dynamic`（支路 key→`{i,v}`，C 的 v／i 及 L 的 i／電感電壓）、`work`、`dissipated`、`event`（下一步 BE 起步）。模型 epoch 及 document v7 分開。來源相位、ID 與 dynamic keys 必須與文件完全吻合。導數歷史可補足平行電容等瞬間代數解的不唯一；不把未知歷史重設為零。
+Session version 2 的 physics 欄位：`time`、`step`（下一步建議）、`sources`（ID→目前弧度相位）、`dynamic`（支路 key→`{i,v}`，C 的 v／i 及 L 的 i／電感電壓）、`work`、`dissipated`、`event`（下一步 BE 起步）、`energyOrigin`（分域事件基準的總供能／耗散）及 `energyDomains`（依編譯支路鍵列出的每域 initial／work／dissipated／throughput）。throughput 是累計絕對能量流與耗散，只作本域誤差尺度；有號 work 仍是淨供能。模型 epoch 及 document v7 分開。來源相位、ID 與 dynamic keys 必須與文件完全吻合。導數歷史可補足平行電容等瞬間代數解的不唯一；不把未知歷史重設為零。
 
 教師「儲存電路檔」匯出設計及初始條件，不是保存目前瞬間。兩配置示例提供記憶體保存／恢復瞬間按鈕，重新整理清空；活動作者可使用 session API 保存自己的必要答案。
 
@@ -168,7 +168,7 @@ const result = session.read();
 
 `components`／`wires` 的 voltage/current/power 為瞬時有方向量；`measurements[id]` 包括 collecting/unknown/ready、時間窗、voltageRms/currentRms/averagePower，以及同窗的currentPeak及voltagePeak。元件／導線亦提供只讀currentPeak/voltagePeak，變壓器另有secondaryCurrentPeak；資料未完整時為null。峰值從接受時間步的觀察取樣求得，不進權威快照。RMS 及有功功率來自時間積分，不是幀率抽樣，也不是所有波形峰值除 √2。儀表未知／收集中不顯示零。燈的顯示使用 20 ms 平均功率；交流過載依該電路完整觀察窗的平均功率，DC瞬態用短窗；耐壓依瞬時峰值。
 
-量測按電氣島及磁耦合的依賴分域；理想電壓探頭不把兩個電氣島接通，
+量測按電氣島及磁耦合的依賴分域；只有理想變壓器或非零互感才合併原副側。k＝0 時兩側各按自己的端子建立政策，副側電源不改原側量測窗；理想電壓探頭不把兩個電氣島接通，
 跨域功率量測的觀察窗則考慮其所有訊號來源。單頻域使用自己的 `1/f`。
 多頻域以可核對的六位小數頻率整數格求共同週期，且最多100秒；不能確認
 有界共同週期時使用明示的10秒時間窗，不冒稱最慢電源的週期就是共同週期。
@@ -188,12 +188,12 @@ const result = session.read();
 
 Control Panel 保留瞬時量、有效值及平均功率；單頻正常讀值保持簡潔。共同週期、
 自由振盪參考窗及指定時間窗會標明其時長，混頻指定時間窗亦註明它不是共同週期。
-資料未足時顯示「收集量測中」，不把局部資料標成完整有效值；電表未接妥的提示保留。
+電壓、電流及功率分別記錄 `voltageStatus/currentStatus/powerStatus`、有效積分秒數及讀值。資料未足時顯示「收集量測中」；未知量另註明未能唯一確定，保留其他已確定讀數。相同理想源並聯不強分電流，也不丟失已知電壓 RMS；sourceEmf 直接按波形及相位計算。電表未接妥的提示保留。
 
 ### 快速暫態與能量可靠性
 
 初始化及電氣事件後的首步會估計被動驅動點電阻對應的 RC／L/R 時間尺度，
-包含有限電阻導線及耦合線圈的保守尺度。這是起步提示，步末狀態差及局部
+包含有限電阻導線、多個串／並聯 C／L 及耦合線圈的保守尺度。C 網絡以各 C 的倒數和取得保守有效電容，尋路時其他串聯 C 視為可導通；L 網絡以最小 L／同域 L 數取得保守尺度，開路尋不到電阻路徑時另檢查其他 L 導通的情況。這不是完整特徵值分析，後續誤差與能量檢查仍是可靠性判準。這是起步提示，步末狀態差及局部
 能量殘差仍共同決定接受／縮步；不能只因步末都接近零便跨過快速放電。
 沒有激勵與狀態變化的被動平衡不會因未被激發的快速模式而誤停；無關AC島
 不能改變這項判斷。起步亦會微分代數約束，補齊理想源直接接C等可確定的
@@ -204,14 +204,14 @@ Control Panel 保留瞬時量、有效值及平均功率；單頻正常讀值保
 `初始儲能 + 供能 = 剩餘儲能 + 耗散`。相同理想電源並聯時，個別電流可能
 未知，但可識別的總供能仍按完整線性表達式計算。
 
-`energyBalance` 是派生觀察，列出初始、供能、剩餘儲能、耗散、殘差及容差；
-全程平衡容差為 `1e-10 J + 0.1% × max(初始儲能, |供能|, 剩餘儲能+耗散)`。
+`energyBalance` 是派生觀察，包含各實際能量交換域的 `domains` 及總量摘要；各域獨立累計供能、儲能、耗散及殘差，只有電氣連通、理想變壓器或非零互感才合併。所有域均須通過；總儲能不能放寬其他域。
+各域全程平衡容差為 `1e-14 J + 0.1% × max(本域初始儲能, 本域累計絕對能量流與耗散, |本域淨供能|, 本域剩餘儲能+耗散)`，另加浮點誤差預算。累計絕對能量流可處理理想源在 C／L 完整週期中供能與收能相抵的情況。
 局部接受另用更嚴格的 `1e-14 J + 1e-5 × 局部能量尺度` 加浮點誤差預算。
 小於可靠時間解析度或無法滿足平衡時回報 `time-resolution/energy-balance`，
 `reliable:false`，供能／耗散讀值為null，介面明示暫停及未能可靠確定；
 舊完整窗讀值亦會標成unknown，不能沿用正常電表狀態冒充當前可靠結果。
 不截斷耗散值，不把數值損失冒充物理耗散。原始已接受狀態保留供修復／續作。
-session v1的權威欄位沒有新增；舊快照若累計能量超出容差，restore會明確失效。
+session v2 保存每域能量帳及事件基準；開關令域分裂／合併時以已接受狀態重新建立受影響域的基準；無關域的能量帳及總供能／耗散歷史保留。v1 單域快照可遷移；多域舊快照若只有非零總供能／耗散，無法可靠分配歷史，restore 明確拒絕並要求開始新實驗。v1 多域零歷史只在每域初始平衡成立時接受。所有版本均檢查帳總和及各域平衡，超出容差明確失效。
 
 理想導線用與DC共用的雙側cut及誤差估計，轉成相同方向後選較低消去誤差的
 表達式。交換from/to只反轉符號，不用提高全域歸零門檻掩蓋微小支路電流。
@@ -229,7 +229,7 @@ session v1的權威欄位沒有新增；舊快照若累計能量超出容差，r
 
 ## SCORM 接入與驗收
 
-兩示例的 `example-state.js` codec version 5 使用目前的固定佈局及 LC 參數，舊 version 1／2／3／4 明確拒絕，避免恢復時默默替換固定元件或物理條件。教師完整 document／session 保存仍保留原來幾何及參數，沒有自動壓縮或改值。它只保存允許變動的參數及 physics，從目前版本的固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
+兩示例的 `example-state.js` codec version 6（相容 version 5）使用目前的固定佈局及 LC 參數，舊 version 1／2／3／4 明確拒絕，避免恢復時默默替換固定元件或物理條件。教師完整 document／session 保存仍保留原來幾何及參數，沒有自動壓縮或改值。它只保存允許變動的參數及 physics，從目前版本的固定模板重建接線；這是外層 codec，不在通用 solver 內。它不評分。容量測試使用真正共享 makeSnapshot 及 pending 封套形狀，不代表已建立評分活動或通過 Moodle。
 
 正式活動須自己的 rubric、null 答案、definition/model/schema epochs、時序取樣與三種 byte gates；沿用 SimScorm/SimActivityFlow 全生命週期。Pending/review 凍結權威時間；解說 playback 另用副本。高風險評分仍需可信 server。不能直接將任意教師 session 塞入 4000 bytes 或把預設電路算成已作答。
 

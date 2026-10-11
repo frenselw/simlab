@@ -23,18 +23,20 @@
       while(begin<next.time-1e-14){const at=Math.floor(begin/this.width+1e-8),end=Math.min(next.time,(at+1)*this.width),duration=end-begin;if(duration<=0)break;
         let bin=this.bins.at(-1);if(!bin||bin.at!==at){bin={at,start:begin,end,values:{}};this.bins.push(bin);}bin.end=end;
         const x0=(begin-old.time)/h,x1=(end-old.time)/h;
-        for(const [id,v]of Object.entries(values)){const before=old.values[id];if(!before||![before.u,before.i,v.u,v.i].every(Number.isFinite))continue;
-          const u0=before.u+(v.u-before.u)*x0,u1=before.u+(v.u-before.u)*x1,i0=before.i+(v.i-before.i)*x0,i1=before.i+(v.i-before.i)*x1,q=bin.values[id]||(bin.values[id]={duration:0,u2:0,i2:0,p:0,currentPeak:0,voltagePeak:0});
-          q.currentPeak=Math.max(q.currentPeak,Math.abs(i0),Math.abs(i1));q.voltagePeak=Math.max(q.voltagePeak,Math.abs(u0),Math.abs(u1));q.duration+=duration;q.u2+=duration*(u0*u0+u0*u1+u1*u1)/3;q.i2+=duration*(i0*i0+i0*i1+i1*i1)/3;q.p+=duration*(2*u0*i0+u0*i1+u1*i0+2*u1*i1)/6;
+        for(const [id,v]of Object.entries(values)){const before=old.values[id];if(!before)continue;
+          const u=[before.u,v.u].every(Number.isFinite),i=[before.i,v.i].every(Number.isFinite),u0=u?before.u+(v.u-before.u)*x0:0,u1=u?before.u+(v.u-before.u)*x1:0,i0=i?before.i+(v.i-before.i)*x0:0,i1=i?before.i+(v.i-before.i)*x1:0,q=bin.values[id]||(bin.values[id]={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0,currentPeak:0,voltagePeak:0});
+          if(u){q.voltagePeak=Math.max(q.voltagePeak,Math.abs(u0),Math.abs(u1));q.uDuration+=duration;q.u2+=duration*(u0*u0+u0*u1+u1*u1)/3;}
+          if(i){q.currentPeak=Math.max(q.currentPeak,Math.abs(i0),Math.abs(i1));q.iDuration+=duration;q.i2+=duration*(i0*i0+i0*i1+i1*i1)/3;}
+          if(u&&i){q.pDuration+=duration;q.p+=duration*(2*u0*i0+u0*i1+u1*i0+2*u1*i1)/6;}
         }
         begin=end;
       }
       const threshold=next.time-this.window-this.width;while(this.bins[0]?.end<threshold)this.bins.shift();this.previous=next;
     }
-    measure(id){const end=this.previous?.time??0,start=end-this.window;if(this.start===null||start<this.start-1e-10)return {status:'collecting',start:Math.max(0,start),end,window:this.window};
-      const sum={duration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);for(const k of Object.keys(sum))sum[k]+=q[k]*factor;}
-      if(sum.duration<this.window*(1-1e-6))return {status:'unknown',start,end,window:this.window};
-      return {status:'ready',start,end,window:this.window,currentPeak,voltagePeak,voltageRms:Math.sqrt(Math.max(0,sum.u2/sum.duration)),currentRms:Math.sqrt(Math.max(0,sum.i2/sum.duration)),averagePower:sum.p/sum.duration};
+    measure(id){const end=this.previous?.time??0,start=end-this.window,collecting=this.start===null||start<this.start-1e-10;
+      const sum={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);for(const k of Object.keys(sum))sum[k]+=q[k]*factor;}
+      const latest=this.previous?.values[id],status=(duration,known)=>!known?'unknown':collecting?'collecting':duration>=this.window*(1-1e-6)?'ready':'collecting',voltageStatus=status(sum.uDuration,Number.isFinite(latest?.u)),currentStatus=status(sum.iDuration,Number.isFinite(latest?.i)),powerStatus=status(sum.pDuration,Number.isFinite(latest?.u)&&Number.isFinite(latest?.i)),states=[voltageStatus,currentStatus,powerStatus];
+      return {status:states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown',voltageStatus,currentStatus,powerStatus,start:Math.max(this.start??0,start),end,window:this.window,voltageDuration:sum.uDuration,currentDuration:sum.iDuration,powerDuration:sum.pDuration,currentPeak:currentStatus==='ready'?currentPeak:null,voltagePeak:voltageStatus==='ready'?voltagePeak:null,voltageRms:voltageStatus==='ready'?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,currentRms:currentStatus==='ready'?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,averagePower:powerStatus==='ready'?sum.p/sum.pDuration:null};
     }
   }
   class GroupTracker {

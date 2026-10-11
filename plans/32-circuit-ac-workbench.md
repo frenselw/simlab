@@ -3,7 +3,7 @@
 
 ## 目前狀態與維護入口（2026-10-11）
 
-非評量AC教師工作台及兩個教學示例已實作；目前規格按程式基準 `ba19ba5` 核對，以下方Scope／模型／狀態契約及[AC作者與維護指引](../docs/circuit-ac-workbench.md)為準。本文逐次記錄保留當時版本及證據，不能把舊圖像、舊介面或歷史全套結果當作最新版契約。
+非評量AC教師工作台及兩個教學示例已實作；目前規格以本分支程式、下方Scope／模型／狀態契約及[AC作者與維護指引](../docs/circuit-ac-workbench.md)為準。本文逐次記錄保留當時版本及證據，不能把舊圖像、舊介面或歷史全套結果當作最新版契約。
 
 | 項目 | 現行決定 |
 |---|---|
@@ -12,12 +12,24 @@
 | 預設與波形 | 四組14個主題＋空白；波形由源參數選正弦／方波／三角波；浮動儀器及探頭、軸拖動／鍵盤、圓點及有界歷史，沒有舊游標／固定波形區 |
 | 圖形與讀值 | 連續SVG發電機、固定範圍場線疏密、C/L歸零顯示、固定單位5Hz數字＋bar、數學字形、緊湊電表、上方變壓器匝數比及鐵芯內磁通 |
 | 方向配色 | 常規電流及靜態電流箭頭紅色，電子藍色；電勢方向／場線另有自己的語義，不全域取代藍色 |
-| 保存 | DC doc v6／AC doc v7，session version 1／modelRevision 1，技術示例codec v5；觀察與顯示非權威，正式ACrubric／SCORM另定 |
-| 驗證狀態 | CW-01–04 已修正：13個受影響Node套件（含14組新回歸與1771項獨立公式）、source／ZIP audit 132、presets 618、scope 206 項通過；PhET歷史實測見下文。完整browser及ZIP宿主T3仍依歷史限制解讀；真Moodle／真手機T4未驗收 |
+| 保存 | DC doc v6／AC doc v7，session version 2／modelRevision 1，技術示例codec v6（相容 v5）；觀察與顯示非權威，正式ACrubric／SCORM另定 |
+| 驗證狀態 | CW-01–04 及 CW-03-R1／CW-01-R1／CW-05 已修正：13個受影響Node套件（含20組audit回歸與1771項獨立公式）、source／ZIP audit 244、scope 206項通過；presets 618及PhET歷史實測見下文。完整browser及ZIP宿主T3仍依歷史限制解讀；真Moodle／真手機T4未驗收 |
 
 維護先分清共用、時間模型、顯示及活動外層，按[精準驗證表](../docs/circuit-ac-workbench.md#精準驗證與維護)選必要項目。純文件修訂只核對來源、版本、指令與連結，不重跑物理／browser。核心改動交付時統一重建相應ZIP；目錄active不代表全部package-ready／Moodle-ready gate通過。
 
 ## 近期決策與驗證記錄
+
+### 分支複核 CW-03-R1／CW-01-R1／CW-05（2026-10-11；已修正）
+
+基準 1837039 的三項均以正式模型及完整 Session 重現：串聯 200 μF、各 0.01 V、10 μΩ 導線放電，新增未接線 0.2 F／24 V 電容後耗散由約 20 nJ 變成 509.188 μJ；零互感副側改變原側週期；相同並聯理想源的已知端電壓亦因電流不唯一而丟失 RMS。
+
+決定：能量按電氣連通及非零磁耦合的實際交換域各自檢查，首步包含多 C／L 的保守時間尺度；k＝0 的原副側分別建立政策；U／I／P 分別保存有效積分時間及狀態，理想電源 EMF 直接取模型。教師工作台 assessment／rubric／SCORM N/A，不新增模型依賴。Session v2 保存分域能量帳及事件基準，v1 單域歷史可遷移；多域的非零舊總供能／耗散無法唯一分配時明示歷史不可核證，不能冒充可靠。技術示例 codec 隨之版本化。
+
+驗證先重現後修復：無關電容增刪／電壓／次序、多 C／L 波形及能量收斂、零／非零耦合兩側窗、部分量測、完整 source／ZIP 介面、v2 保存恢復續作／損壞帳／v1 相容及容量；執行相鄰 transient／reference／platform／energy／scope／顯示回歸，重建四包。真手機及 Moodle 另計。
+
+最終結果：無關電容為未加入／0／1／24 V 時，兩個串聯 C 在一個時間常數後均約 0.01/e V，完成放電約 20.00027 nJ；額外儲能不能放寬此域的局部或累計容差。串／並聯 C、L 的解析衰減、縮步收斂、無關開關不清除既有域能量帳、v2 round-trip／續作及錯誤歷史拒絕均通過。k＝0 原側保持 1/0.17≈5.882 s、自身週期 ready 及約 6 V；非零互感仍合併依賴。並聯理想源在 2.25 s 電壓 RMS 約 5.99805 V、EMF 約 8.48528 V，個別電流與功率保留 null；桌面／390 px 介面保留電壓並明示未知量，不再無限顯示收集中。已重新變成可確定的量，若尚未累積足夠有效樣本，獨立標示 collecting。
+
+13個受影響 Node 套件通過，audit 共20組、reference 1771項；source／ZIP audit 244項及 scope 206項通過。技術示例 codec v5 正向遷移、v6 相容續作及各 phase／variant 的共享 draft/review/pending 容量測試通過；最大 compact session 551／672 bytes，低於1500 bytes界限。四包重建，逐檔核對來源／依賴及雜湊。check／diff 通過；證據在 `output/ac-review-r1/`，手機讀值圖在 `output/playwright/circuit-ac/*partial-source-readings*`。此輪不宣稱完整 GitHub CI、完整 browser 宿主矩陣、真手機或 Moodle gate 通過。
 
 ### Main 審核報告 CW-01–04 核證及修正（2026-10-11；已修正）
 
