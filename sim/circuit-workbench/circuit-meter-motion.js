@@ -18,8 +18,8 @@
   function point(c,fraction,radius){const spec=scale(c),angle=spec.zeroAngle+spec.sweep*fraction,a=angle*Math.PI/180,r=radius??spec.radius;return {x:r*Math.cos(a),y:spec.cy+r*Math.sin(a),cy:spec.cy,angle};}
   function target(c,result){
     const spec=scale(c);if(!spec)return null;
-    const value=R.meterDisplayReading(c,result);
-    if(value!==null)return clamp(value/(result.range??c.params.range),spec.minimum,spec.maximum);
+    const value=c.type.startsWith('ac-')?result?.reading??(result?.meterStatus==='collecting'?result?.estimatedReading:null):R.meterDisplayReading(c,result);
+    if(Number.isFinite(value))return clamp(value/(result.range??c.params.range),spec.minimum,spec.maximum);
     return ['unconnected','missing-common','collecting'].includes(result?.meterStatus)?0:null;
   }
   function sync(states,doc,result,instant=false){

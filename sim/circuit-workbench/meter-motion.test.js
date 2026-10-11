@@ -4,11 +4,11 @@ const M=require('./circuit-model'),R=require('./component-registry'),S=require('
 require('./circuit-ac-components');
 let cases=0;
 const test=(name,fn)=>{fn();cases++;};
-test('range-based display precision hides unreadable tails without altering physics',()=>{
+test('AC small signals stay visible while G retains dial resolution without altering physics',()=>{
   for(const type of ['ac-ammeter','ac-voltmeter','ac-wattmeter','galvanometer'])for(const range of [3,.00005]){
     const c={type,params:{range}},r={reading:range/1000,range,meterStatus:'normal'},raw=r.reading;
-    assert.equal(R.meterDisplayReading(c,r),0);assert.equal(N.target(c,r),0);assert.equal(r.reading,raw);
-    r.reading=-raw;assert.equal(R.meterDisplayReading(c,r),0);assert(!Object.is(R.meterDisplayReading(c,r),-0));
+    close(R.meterDisplayReading(c,r),type==='galvanometer'?0:raw,1e-15);close(N.target(c,r),type==='galvanometer'?0:raw/range);assert.equal(r.reading,raw);
+    r.reading=-raw;close(R.meterDisplayReading(c,r),type==='galvanometer'?0:-raw,1e-15);assert(!Object.is(R.meterDisplayReading(c,r),-0));
     for(const reading of [range*.5000001,range*.4999999]){r.reading=reading;close(R.meterDisplayReading(c,r),range/2);}
     const step=range/(type==='galvanometer'?200:300);r.reading=step/2;const positive=R.meterDisplayReading(c,r);r.reading=-step/2;close(R.meterDisplayReading(c,r),-positive,1e-15);
     r.reading=null;assert.equal(R.meterDisplayReading(c,r),null);

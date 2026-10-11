@@ -8,6 +8,7 @@ const {transformerCases}=require('./circuit-transformer-browser-cases');
 const {compactFooterCases}=require('./circuit-quick-controls-browser-cases');
 const {auditCases}=require('./circuit-ac-audit-browser-cases');
 const {windingCases}=require('./circuit-winding-browser-cases');
+const {meterResponseCases}=require('./circuit-meter-response-browser-cases');
 const {meterDesignCases}=require('./circuit-meter-design-browser-cases');
 const {readoutMathCases}=require('./circuit-readout-math-browser-cases');
 const {fieldCases}=require('./circuit-field-browser-cases');
@@ -31,6 +32,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--meter-response-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await meterResponseCases({inside,call,click,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--meter-response-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--winding-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await windingCases({inside,call,click,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--winding-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--audit-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await auditCases({inside,call,click,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--audit-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--quick-controls-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await compactFooterCases({inside,call,send:(...args)=>cdp.send(...args),point,touch,screenshot,delay:H.delay},source,true);if(process.argv.includes('--quick-controls-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

@@ -61,11 +61,11 @@ AC A／V／W 外殼兩側不畫額外螺絲／圓孔；保留短引線及編輯�
 
 AC A／V／W 上方單位縮為 12px，與內框及刻度保持間距；錶面保持直立，旋轉時跟隨內框中心。共用靈敏電流計的 G 與 μA 並排置於刻度上方，G 在實物、符號、持續觸控預覽及放大錶盤均使用 MathJax 向量字形，DC 亦共用此排版。
 
-交流A／V／W及共用靈敏電流計的數字與指針目標按量程顯示至每小格的十分之一，使用同一 `CircuitRegistry.meterDisplayReading`；小於半個顯示步長的正／負尾值顯示0，不保留負零。畫布標籤、實物／符號讀值、Control Panel、放大錶盤及指針目標共用這個精度，指針仍保留機械慣性。G是純電阻支路，顯示電流／有效值低於可辨讀尺度時，相應的電壓／功率尾值亦不顯示無意義的小數。未知量仍顯示未知，過量程狀態按原始讀值判斷。
+交流 A／V／W 的一般數字讀值仍按量程顯示至每小格的十分之一；小於一個顯示步長的非零訊號改以三位有效數字保留，避免細電流／電壓被抹成零。數字由 `CircuitRegistry.meterDisplayReading` 共用，指針則按原始讀值除以量程的真實比例移動，保留機械慣性，不放大微小訊號。共用 G 保留原每小格十分之一的精度；其小於半步長的電流尾值顯示 0，相應純電阻 U／P 亦按原規則抑制。不保留負零；未知仍未知，完整窗的過量程狀態按原始正式讀值判斷。
 
-這是呈現精度，不是把求解結果裁剪為零；`getAnalysis()`、波形、能量及session保持原始數值。較小量程仍可顯示真正微小電流，不採全站固定電流門檻。理想變壓器的穩態讀數不再顯示時間積分的細微數值波動；線性變壓器剛通電的暫態仍保留，只有進入穩態後才要求數字穩定。DC雙量程A／V表保持原精度，共用G套用同一呈現規則。
+這是呈現精度，不是把求解結果裁剪為零；`getAnalysis()`、波形、能量及session保持原始數值。較小量程仍可顯示真正微小電流，不採全站固定電流門檻。理想變壓器的穩態讀數不再顯示時間積分的細微數值波動；線性變壓器剛通電的暫態仍保留，只有進入穩態後才要求數字穩定。DC雙量程A／V表保持原精度，共用 G 保留原呈現規則。
 
-未接妥時指針機械回零，數值仍為 null；未接妥／收集量測中在檢視器及放大觀察說明顯示，不在器材下方設狀態區。未知讀值不畫假針位，隱藏讀值亦隱藏指針。交流錶面沿用 DC 的白色錶面及灰藍外殼，92×78，刻度字體依數字長度調整；AC A／V 每量程30小格，W為中心零、正負各30小格；A／V讀有效值，W讀平均有功功率，G保留有號瞬時電流且以 μA呈現。
+未接妥時指針機械回零，數值仍為 null；未接妥在檢視器及放大觀察說明顯示；收集中若有有效暫估，畫布名稱旁標「暫估」（隱藏名稱時仍保留此標記），檢視器及放大錶盤顯示已收集／所需秒數。未知讀值不畫假針位，隱藏讀值亦隱藏指針。交流錶面沿用 DC 的白色錶面及灰藍外殼，92×78，刻度字體依數字長度調整；AC A／V 每量程30小格，W為中心零、正負各30小格；A／V讀有效值，W讀平均有功功率，G保留有號瞬時電流且以 μA呈現。
 
 畫布、手機持續預覽及放大錶盤使用同一個指針狀態與刻度幾何；三種交流電表亦可選取後開啟放大刻度。接線狀態在拓撲編譯時快取；未接電表不因時間窗滿足而冒充已量測到零。
 
@@ -168,7 +168,7 @@ const result = session.read();
 
 離線／live 共用積分器；events 為按時間排序的 setParam/toggleSwitch。會重設初始條件的參數變更不能混入同一事件表，須另開一次運算。數值／理想衝突停在事件，返回診斷，沒有暗加電阻、清儲能或裁剪電流。
 
-`components`／`wires` 的 voltage/current/power 為瞬時有方向量；`measurements[id]` 包括 collecting/unknown/ready、時間窗、voltageRms/currentRms/averagePower，以及同窗的currentPeak及voltagePeak。元件／導線亦提供只讀currentPeak/voltagePeak，變壓器另有secondaryCurrentPeak；資料未完整時為null。峰值從接受時間步的觀察取樣求得，不進權威快照。RMS 及有功功率來自時間積分，不是幀率抽樣，也不是所有波形峰值除 √2。儀表未知／收集中不顯示零。燈的顯示使用 20 ms 平均功率；交流過載依該電路完整觀察窗的平均功率，DC瞬態用短窗；耐壓依瞬時峰值。
+`components`／`wires` 的 voltage/current/power 為瞬時有方向量；`measurements[id]` 包括 collecting/unknown/ready、時間窗、voltageRms/currentRms/averagePower，以及同窗的currentPeak及voltagePeak。元件／導線亦提供只讀currentPeak/voltagePeak，變壓器另有secondaryCurrentPeak；資料未完整時為null。峰值從接受時間步的觀察取樣求得，不進權威快照。RMS 及有功功率來自時間積分，不是幀率抽樣，也不是所有波形峰值除 √2。儀表未知不顯示零；收集中僅以清楚標記的有效暫估回應。燈的顯示使用 20 ms 平均功率；交流過載依該電路完整觀察窗的平均功率，DC瞬態用短窗；耐壓依瞬時峰值。
 
 量測按電氣島及磁耦合的依賴分域；只有理想變壓器或非零互感才合併原副側。k＝0 時兩側各按自己的端子建立政策，副側電源不改原側量測窗；理想電壓探頭不把兩個電氣島接通，
 跨域功率量測的觀察窗則考慮其所有訊號來源。單頻域使用自己的 `1/f`。
@@ -190,7 +190,9 @@ const result = session.read();
 
 Control Panel 保留瞬時量、有效值及平均功率；單頻正常讀值保持簡潔。共同週期、
 自由振盪參考窗及指定時間窗會標明其時長，混頻指定時間窗亦註明它不是共同週期。
-電壓、電流及功率分別記錄 `voltageStatus/currentStatus/powerStatus`、有效積分秒數及讀值。資料未足時顯示「收集量測中」；未知量另註明未能唯一確定，保留其他已確定讀數。相同理想源並聯不強分電流，也不丟失已知電壓 RMS；sourceEmf 直接按波形及相位計算。電表未接妥的提示保留。
+電壓、電流及功率分別記錄 `voltageStatus/currentStatus/powerStatus`、有效積分秒數及讀值。資料未足時顯示收集完整窗的進度；未知量另註明未能唯一確定，保留其他已確定讀數。相同理想源並聯不強分電流，也不丟失已知電壓 RMS；sourceEmf 直接按波形及相位計算。電表未接妥的提示保留。
+
+低頻啟動的 `measurements[id].provisionalVoltageRms/provisionalCurrentRms/provisionalAveragePower` 使用已取得時間段的同一積分，不預測尚未出現的波形。每個量須有連續、完整的有效樣本覆蓋才提供暫估；未知或缺段為 null。AC A／V／W 連接妥當且對應通道 collecting 時提供 `components[id].estimatedReading`，其 `reading` 仍為 null；完整窗後只提供正式 `reading` 並清除暫估。錯誤時全部暫估清除，頻率／接線／恢復重新收集沿用既有政策。所有暫估均為衍生資料，不進 session、評分、過載、儲能或物理步長判斷。畫布與指針／預覽使用暫估，介面明示「暫估」並說明數字仍可能變動；不能把它解讀為完整週期 RMS 或穩態預測。首次取得有效時間段即可回應，¼速仍按其實際模擬時間取得資料。
 
 ### 快速暫態與能量可靠性
 
@@ -430,6 +432,7 @@ DC／AC 變阻器由 registry.rheostatWinding 產生同一份可見導線、滑�
 | 發電機投影／端子 | `generator-graphics.test.js` | `--generator-smoke` |
 | C／L場線及歸零 | `field-graphics.test.js`、`ac-display.test.js`、`energy-sync.test.js` | `--field-smoke` |
 | bar／符號／數學排版 | `readout-math.test.js`、`meters-and-math.test.js` | `--readout-math-smoke` |
+| 低頻電表啟動／微小讀數／暫估 | `ac-meter-response.test.js`、`meter-motion.test.js`、`ac-audit-regressions.test.js` | `--meter-response-smoke`（source／ZIP，桌面／手機，正常／¼速及正式窗切換） |
 | 電表／接口／預設名稱 | `ac-meter-design.test.js`、`meter-motion.test.js`、`meters-and-math.test.js` | `--meter-design-smoke` |
 | 變壓器／共同磁通 | `transformer-design.test.js`、`scope.test.js` | `--transformer-design-smoke` |
 | 波形／探頭／歷史 | `scope.test.js` | `--scope-smoke` |

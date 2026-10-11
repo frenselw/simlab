@@ -47,11 +47,12 @@
   }
   const meterScale=Object.freeze({divisions:30,negativeDivisions:10,minimumFraction:-1/3,zeroAngle:-120,sweep:90,stopMargin:.02});
   function meterRanges(c){return {high:c.params.range,low:c.params.range/5,divisions:meterScale.divisions,negativeDivisions:meterScale.negativeDivisions};}
-  function meterDisplayReading(c,result,value=result?.reading){
+  function meterDisplayReading(c,result,value=result?.reading??(result?.meterStatus==='collecting'?result?.estimatedReading:null)){
     if(!Number.isFinite(value))return null;
     if(!c.type.startsWith('ac-')&&c.type!=='galvanometer')return value;
-    // Display one tenth of a dial division; retain the full solver reading.
+    // Keep the dial-based precision for normal values, but retain small AC signals.
     const step=(result?.division??(result?.range??c.params.range)/(c.type==='galvanometer'?20:30))/10;
+    if(c.type.startsWith('ac-')&&Math.abs(value)>0&&Math.abs(value)<step)return Number(value.toPrecision(3));
     return Math.sign(value)*Math.round(Math.abs(value)/step)*step||0;
   }
   function localPorts(component,legacy=false){

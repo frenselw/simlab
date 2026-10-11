@@ -184,8 +184,9 @@
     if(viewport&&scale<.4)return [];
     const items=[],details=[...(options?.exclusions||[])],nameSize=doc.display.projection?18:14,valueSize=doc.display.projection?16:12;
     doc.components.forEach(c=>{
-      const r=result.components[c.id],isMeter=R.isMeter(c),lines=[];
-      if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':''),size:nameSize});
+      const r=result.components[c.id],isMeter=R.isMeter(c),estimated=doc.display.values&&r?.meterStatus==='collecting'&&Number.isFinite(r?.estimatedReading),lines=[];
+      if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':'')+(estimated?' · 暫估':''),size:nameSize});
+      if(estimated&&doc.display.names===false)lines.push({kind:'note',text:'暫估',size:valueSize});
       if(doc.display.values){
         if(isMeter)lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit),size:valueSize});
         else{const show=doc.display.quantities||{},parts=[],resistance=c.type==='lamp'&&c.params.model==='thermal'?r?.resistance:r?.resistance??R.effectiveResistance(c);
