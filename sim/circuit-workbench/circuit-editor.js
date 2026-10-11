@@ -422,7 +422,7 @@
   on(document,"pointerdown",e=>{
     if(!owned(e)){if(activeHost===host)activeHost=null;return;}
     if(host.contains(e.target))activeHost=host;
-    if(e.target.closest('.ac-scopes,.ac-scope-dialog,.ac-scope-picker,.ac-scope-tool'))return;
+    if(e.target.closest('.ac-scopes,.ac-scope-dialog,.ac-scope-picker,.ac-scope-tool,.ac-example-hint'))return;
     // Commit the old field before selection re-renders it or a touch is registered.
     if(surface.contains(e.target)&&!$("preview").contains(e.target)&&(document.activeElement===$('quickValue')||$("properties").contains(document.activeElement)))document.activeElement.blur();
     if(!$("preview").contains(e.target)){meterPreview=null;$("preview").hidden=true;}
@@ -463,7 +463,7 @@
   }
   on(surface,"pointerdown",e=>{
     releasedMeta=null;blankMouseDown=null;
-    if($("preview").contains(e.target))return;
+    if($("preview").contains(e.target)||e.target.closest(".ac-example-hint"))return;
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
     if(panMode||quick){startPan(e,quick);return;}
@@ -522,7 +522,7 @@
   });
   on(surface,"lostpointercapture",e=>{if(drag?.pointerId===e.pointerId||(cameraGesture?.ids.includes(e.pointerId)&&!surface.hasPointerCapture(e.pointerId)))cancel(true);});
   on(window,"blur",()=>{spacePan=false;spacePanUsed=false;cancel();touches.clear();touchOrigin=null;touchBlocked=false;render(false);});
-  on(surface,"wheel",e=>{e.preventDefault();if(drag||touches.size)return;
+  on(surface,"wheel",e=>{if(e.target.closest(".ac-example-hint"))return;e.preventDefault();if(drag||touches.size)return;
     const unit=e.deltaMode===1?16:e.deltaMode===2?surface.clientHeight:1,dx=e.deltaX*unit,dy=e.deltaY*unit,pan=(panMode||spacePan)&&!e.ctrlKey;
     if(pan?!dx&&!dy:!dy)return;
     meterPreview=null;if(spacePan)spacePanUsed=true;
@@ -533,7 +533,7 @@
   },{passive:false});
   on(surface,"auxclick",e=>{if(e.button===1)e.preventDefault();});
   on(surface,"click",e=>{
-    if($("preview").contains(e.target))return;
+    if($("preview").contains(e.target)||e.target.closest(".ac-example-hint"))return;
     const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
     if(suppressClick&&e.detail)return;if(panMode)return;
     if(meta){if(probeMode&&["port","junction","wireend"].includes(meta.kind)){probePort(meta.kind==="junction"?meta.id+":p":meta.kind==="wireend"?history.get().wires.find(w=>w.id===meta.id)[meta.end]:meta.id);return;}
@@ -586,7 +586,7 @@
   $("detachFrom").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"from");};$("detachTo").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"to");};
   $("deleteSelected").onclick=()=>{const id=selection?.id;if(!id||selection.kind==="port")return;cancel();change(doc=>M.remove(doc,id));notify("已刪除；刪線歸還庫存，復原可還原。");};$("rotateSelected").onclick=()=>{if(selectedComponent())rotate(selection.id);};$("rotateCounterSelected").onclick=()=>{if(selectedComponent())rotate(selection.id,-1);};$("undo").onclick=()=>undo();$("redo").onclick=()=>undo(true);
   function loadDocument(doc){if(destroyed)throw new Error("編輯器已卸載");if(readOnly)throw new Error("目前為只讀，不能載入電路");const imported=D.importDocument(doc),valid=profile.assertSnapshot(transient?root.CircuitAC.toAC(imported.document):imported.document);cancel();const before=history.get();history.replace(valid);discardSettingsDrafts();if(transient){replaceSession(new root.CircuitTransient.Session(valid));if(session.fault)paused=true;}wireCurrents.clear();potentialDirections.clear();labelOptions.previous=null;flowOffsets.clear();flowScales.clear();needleStates.clear();relayStates.clear();analysis=solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();acUI?.documentLoaded(valid);if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
-  $("preset").onchange=()=>{const next=P.create($("preset").value);if(teacher){const previous=history.get();next.display=M.clone(previous.display);next.display.reference=null;next.policy=M.clone(previous.policy);next.cables={...previous.cables,count:Math.max(previous.cables.count,next.wires.length)};}loadDocument(next);notify(transient&&P.descriptionParts?P.descriptionParts($("preset").value):"已載入範例，可取線、改接及量測。");};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
+  $("preset").onchange=()=>{const name=$("preset").value,next=P.create(name);if(teacher){const previous=history.get();next.display=M.clone(previous.display);next.display.reference=null;next.policy=M.clone(previous.policy);next.cables={...previous.cables,count:Math.max(previous.cables.count,next.wires.length)};}loadDocument(next);if(transient){$("preset").value=name;acUI?.showExampleHint(name);}else notify("已載入範例，可取線、改接及量測。");};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
   ["flow","potential","names","values","projection"].forEach(id=>$(id).onchange=()=>change(doc=>doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value));$("pause").onclick=()=>{if(transient){setPlayback({paused:!paused});return;}paused=!paused;lastTime=0;relayLastTime=performance.now();render(false);};$("slowMotion").onclick=()=>{if(transient&&(readOnly||!profile.simulation.rate))return;slowMotion=!slowMotion;lastTime=0;acLag=0;relayLastTime=performance.now();render(false);};
   Object.keys(M.quantityDefaults).filter(id=>$(id)).forEach(id=>$(id).onchange=()=>change(doc=>doc.display.quantities[id]=$(id).checked));
   $("mode").onchange=()=>{const value=$("mode").value;cancel();change(doc=>doc.policy.mode=value);};["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).onchange=()=>{const value=$(id).checked;cancel();change(doc=>doc.policy[id]=value);});
@@ -614,7 +614,7 @@
   $("help").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
   function toolDropPoint(e){
     const at=document.elementFromPoint(e.clientX,e.clientY);
-    if(!at||!surface.contains(at)||at.closest('.scroll-strip,.preview,.canvas-notice'))return null;
+    if(!at||!surface.contains(at)||at.closest('.scroll-strip,.preview,.canvas-notice,.ac-example-hint'))return null;
     const p=world(e.clientX,e.clientY),x=snapGrid(p.x),y=snapGrid(p.y);
     return Math.abs(x)<=M.limits.coordinate&&Math.abs(y)<=M.limits.coordinate?{x,y}:null;
   }

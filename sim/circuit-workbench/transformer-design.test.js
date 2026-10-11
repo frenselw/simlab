@@ -30,7 +30,7 @@ for(const turns of [1,200,2000]){
  assert.equal(fronts.length,2);assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);
  for(let side=0;side<2;side++){
   const front=fronts[side],back=backs[side],lead=leads[side],sign=side?1:-1;
-  assert.equal(front.length,Math.max(1,Math.round(turns/10)));assert.equal(back.length,front.length);
+  assert.equal(front.length,(turns===1?1:turns===200?6:16));assert.equal(back.length,front.length);
   assert.deepEqual(lead[0].slice(0,2),[sign*76,-26]);assert.equal(lead[1].at(-1),sign*76);
   assert.deepEqual(lead[0].slice(-2),front[0].slice(0,2));assert.deepEqual(back.at(-1).slice(-2),lead[1].slice(0,2));
   for(let n=0;n<front.length;n++){assert.deepEqual(front[n].slice(-2),back[n].slice(0,2));if(n+1<front.length)assert.deepEqual(back[n].slice(-2),front[n+1].slice(0,2));}
@@ -40,7 +40,9 @@ for(const turns of [1,200,2000]){
 // Scene, observation panels and separate editors may display the same component id.
 {const render=(idPrefix,fields=true)=>V.body(c,{coreFlux:.005},{view:'real',values:true,fields,idPrefix}),joined=['first-scene-','first-panel-','first-dialog-','second-scene-'].map(p=>render(p)).join('');
  const ids=[...joined.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length);for(const ref of joined.matchAll(/url\(#([^\)]+)\)/g))assert(ids.includes(ref[1]),'every gradient and mask resolves within its render');
- const shown=render('sample-'),solid=render('sample-',false);assert(shown.includes('data-visible-turns="20" opacity="1"'));assert(solid.includes('data-visible-turns="20" opacity="1"'));assert(shown.includes('data-field-occluded="true"'));assert(!solid.includes('data-field-kind="transformer-core"'));assert(shown.indexOf('data-transformer-field-slot')>shown.lastIndexOf('data-transformer-leads'));
+ const shown=render('sample-'),solid=render('sample-',false);assert(shown.includes('data-visible-turns="6" opacity="1"'));assert(solid.includes('data-visible-turns="6" opacity="1"'));assert(shown.includes('data-field-occluded="true"'));assert(!solid.includes('data-field-kind="transformer-core"'));assert(shown.indexOf('data-transformer-field-slot')>shown.lastIndexOf('data-transformer-leads'));
  const rings=[...shown.matchAll(/data-core-(?:lamination="\d+"|face="true") d="([^"]+)"/g)].map(m=>m[1]);assert.equal(rings.length,7);assert.equal(new Set(rings).size,1,'laminations and face share identical corners and inner window');
 }
 console.log('Transformer: voltage-integral flux, unloaded field, MMF cancellation, continuous sparse/dense windings, scoped SVG resources, ratio/rotation, field toggle and restore continuation passed');
+
+for(const nominal of [1,100,200,500,1000,2000])for(const w of F.transformerWindings({params:{primaryTurns:nominal,secondaryTurns:nominal}})){assert.equal(w.width,2.05);assert.equal(w.outline,2.6);assert(w.count<=16);if(nominal===2000){assert.equal(w.count,16);assert.equal(w.end-w.start,48);}}

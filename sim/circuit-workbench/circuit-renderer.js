@@ -127,6 +127,13 @@
       if (schematic) return `<path data-leads="battery" d="M-60 0H-12 M12 0H60" ${metal}/><path d="M${-12*p.polarity}-26V26 M${12*p.polarity}-13V13" stroke="#334155" stroke-width="3"/>` + text(-25*p.polarity,-30,"+",14) + text(25*p.polarity,-30,"−",14);
       return `<path data-leads="battery" d="M-60 0H-37 M37 0H60" ${metal}/><g transform="scale(${p.polarity} 1)"><rect x="-39" y="-14" width="78" height="28" rx="6" fill="#a9b9c5" stroke="#607487" stroke-width="1.5"/><rect x="-33" y="-21" width="66" height="42" rx="7" fill="#486d83" stroke="#334e62" stroke-width="2"/><path d="M-24-20V20" stroke="#efbc68" stroke-width="14"/><path d="M-15-15H24" stroke="#7995a6" stroke-width="2" stroke-linecap="round"/></g>` + text(8,7,"DC",14,'fill="#fff" font-weight="600"') + text(-47*p.polarity,-15,"+",14) + text(47*p.polarity,-15,"−",14);
     }
+    if(c.type==='rheostat'&&!schematic){
+      const multi=(p.terminals??2)>2,w=R.rheostatWinding(c),[x,y]=w.contact,bar=multi?-34:38;
+      let out=multi?'<rect x="-47" y="-24" width="94" height="65" rx="8" fill="#efe6d0" stroke="#a2977d" stroke-width="2"/>':'<rect x="-36" y="-17" width="72" height="34" rx="8" fill="#ece2ca" stroke="#9e9278" stroke-width="2"/>';
+      out+=`<path d="M-30 ${w.base}H30" stroke="#fff6df" stroke-width="24" stroke-linecap="round"/><path data-rheostat-winding="true" d="${localPath(w.points)}" fill="none" stroke="#9e6c4f" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      out+=`<path data-leads="rheostat" d="M${multi?-68:-60} ${w.base}H-30 ${multi?'M30 20H68 M-68-34H30'+(p.terminals===4?' M30-34H68':''):'M60 0H47V38H-30'}" ${metal}/><path d="M-30 ${bar}H30" stroke="#a7bac5" stroke-width="7" stroke-linecap="round"/><path data-rheostat-contact="true" d="M${x} ${bar}V${y}" stroke="#397cab" stroke-width="3"/><circle cx="${x}" cy="${y}" r="2.2" fill="#397cab"/><rect data-rheostat-slider="true" x="${x-8}" y="${bar-7}" width="16" height="14" rx="4" fill="#397cab" stroke="#23577e" stroke-width="1.5"/>`;
+      return out;
+    }
     if(c.type==='rheostat'&&(p.terminals??2)>2){
       const x=-30+p.position*60,extra=p.terminals===4?'M30-34H68':'';
       if(schematic)return `<path data-leads="rheostat" d="M-68 20H-34 M34 20H68 M-68-34H${x}V6 ${extra}" ${metal}/><rect x="-34" y="7" width="68" height="26" fill="#fff" stroke="#334155" stroke-width="2.5"/><path d="M${x-5} 1L${x} 6L${x+5} 1" fill="none" stroke="#334155" stroke-width="2.5"/><path d="M-30-34H30" stroke="#92a9b9" stroke-width="5"/><rect data-rheostat-slider="true" x="${x-8}" y="-41" width="16" height="14" rx="3" fill="#397cab"/>`;
@@ -191,6 +198,7 @@
           if(parts.length)lines.push({kind:'value',...(['switch','relay'].includes(c.type)?parts[0]:Q.join(parts)),size:valueSize});
         }
       }
+      if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a)),corners=[-70,70].flatMap(x=>[-56,56].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
       if(lines.length)items.push({id:c.id,lines,maxWidth:doc.display.projection?230:180});
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
@@ -306,6 +314,10 @@
         const points=local.map(([px,py])=>({x:c.x+px*cos-py*sin,y:c.y+px*sin+py*cos}));
         const path={id:'component:'+c.id+':'+key,component:c.id,key,from:prefix+from,to:prefix+to,current:value,points};if(Routing.length(points)>1e-8)paths.push(path);return path;
       };
+      const custom=R.get(c.type).flowPaths?.(c,result.components[c.id],doc.display.view);
+      if(custom){for(const item of custom){const p=add(item.key,item.from,item.to,item.current,item.points);let at=0,part=[],visible=[];p.hidden=[];
+        for(let n=1;n<item.points.length;n++){const a=item.points[n-1],b=item.points[n],length=Math.hypot(b[0]-a[0],b[1]-a[1]);if(b[2]){if(part.length){visible.push(part);part=[];}const last=p.hidden.at(-1);if(last&&Math.abs(last[1]-at)<1e-8)last[1]+=length;else p.hidden.push([at,at+length]);}else{if(!part.length)part.push(p.points[n-1]);part.push(p.points[n]);}at+=length;}if(part.length)visible.push(part);p.track=visible.map(Routing.path).join(' ');p.size=.38;
+      }continue;}
       if(R.dualMeter(c)){
         const high=i,low=current('c','b'),ports=R.localPorts(c),a=ports.find(p=>p.key==='a'),b=ports.find(p=>p.key==='b');
         add('high','a','coil',high,schematic?[[a.x,66],[a.x,39],[Math.sign(a.x)*20,39],[Math.sign(a.x)*20,27],[Math.sign(a.x)*16,24],[0,24]]:[[a.x,66],[a.x,34],[0,34]]);
@@ -313,9 +325,9 @@
         add('common','coil','b',sum(high,low),schematic?[[0,24],[Math.sign(b.x)*16,24],[Math.sign(b.x)*20,27],[Math.sign(b.x)*20,39],[b.x,39],[b.x,66]]:[[0,34],[b.x,34],[b.x,66]]);
       }else if(c.type==='rheostat'&&(c.params.terminals??2)>2){
         const right=current('b','c'),bar=c.params.terminals===4?current('b','d'):0;
-        add('resistance-a','a','contact',i,[[-68,20],[x,20]]);
-        add('resistance-c','contact','c',right,[[x,20],[68,20]]);
-        add('slider','contact','slider',sum(i,Number.isFinite(right)?-right:null),[[x,20],[x,-34]]);
+        const coil=schematic?{left:[[-30,20],[x,20]],right:[[x,20],[30,20]],contact:[x,20]}:R.rheostatWinding(c);add('resistance-a','a','contact',i,[[-68,20],[-30,20],...coil.left]);
+        add('resistance-c','contact','c',right,[...coil.right,[30,20],[68,20]]);
+        add('slider','contact','slider',sum(i,Number.isFinite(right)?-right:null),[coil.contact,[x,-34]]);
         add('bar-left','b','slider',sum(Number.isFinite(i)?-i:null,right,bar),[[-68,-34],[x,-34]]);
         if(c.params.terminals===4)add('bar-right','slider','d',bar,[[x,-34],[68,-34]]);
       }else if(c.type==='wattmeter'){
@@ -332,8 +344,7 @@
         else if(c.type==='battery')points=schematic?[[-60,0],[60,0]]:[[-60,0],[-37,0],[-29,-10],[29,-10],[37,0],[60,0]];
         else if(c.type==='resistor')points=schematic?[[-60,0],[60,0]]:[[-60,0],...resistorTrack,[60,0]];
         else if(c.type==='rheostat'){
-          const track=resistorTrack.filter(p=>p[0]<x),segment=resistorTrack.findIndex(p=>p[0]>=x),a=resistorTrack[Math.max(0,segment-1)],b=resistorTrack[segment],y=a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);
-          points=schematic?[[-60,0],[60,0]]:[[-60,0],...track,[x,y],[x,38],[47,38],[47,0],[60,0]];
+          const coil=R.rheostatWinding(c);points=schematic?[[-60,0],[60,0]]:[[-60,0],...coil.left,coil.contact,[x,38],[47,38],[47,0],[60,0]];
         }else if(c.type==='led')points=schematic?[[-60,0],[60,0]]:[[-60,0],[-29,0],[-29,24],[-9,24],[-9,-6],[9,-6],[9,24],[29,24],[29,0],[60,0]];
         else if(c.type==='switch')points=[[-60,0],[60,0]];
         else if(c.type==='spdt'){const end=c.params.closed;add('contact','a',end,current('a',end),[[-60,0],[-28,0],[28,end==='b'?-24:24],[60,end==='b'?-24:24]]);}
@@ -445,8 +456,8 @@
     });
     for(const p of componentFlowPaths(doc,result)){
       const reference=referenceAt(references,result,p.from),speed=flowSpeed(displayCurrent(doc,result,p.from,p.current,references),reference);if(!speed)continue;
-      const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,.55);
-      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="${electron?flowColours.electron:flowColours.current}" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
+      const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,p.size??.55);
+      out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-route="true" d="${Routing.path(p.points)}" fill="none" stroke="none"/><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="${electron?flowColours.electron:flowColours.current}" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
       out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size,p.hidden)+'</g>';
     }
     return out;

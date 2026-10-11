@@ -34,15 +34,18 @@
     return '<g data-plate-gap="'+gap+'">'+plates+f.front+text(0,51,'極板剖面 · 兩板間均勻電場')+'</g>';
   }
   function inductor(c,r){
-    const i=r?.fieldCurrent??r?.current,d=sign(i),field=Number.isFinite(i)?i*Math.sqrt(c.params.inductance):null,s=strength(field,.6),pairs=3+Math.round(4*s),pitch=32/(2*pairs-1);
+    const i=r?.fieldCurrent??r?.current,d=sign(i),field=Number.isFinite(i)?i*Math.sqrt(c.params.inductance):null,s=strength(field,.6),count=12+Math.round(12*s),pitch=32/(count-1),pairs=2+Math.round(s);
     let back='',front='';
+    // Dense, nearly parallel bore lines. Only selected return loops are shown in
+    // the projected exterior, where the field spreads through a much larger area.
+    const bore=y=>{const a=.97*y+.12*Math.sin(y*.35),b=.97*y+.10*Math.sin(y*.35+.3);return `M-40 ${y}C-16 ${a} 16 ${b} 40 ${y}`;};
+    for(let n=0;n<count;n++){const y=-16+n*pitch,body=bore(y),middle=.25*y+.375*((.97*y+.12*Math.sin(y*.35))+(.97*y+.10*Math.sin(y*.35+.3)));
+      front+='<g data-field-occluded="true" opacity=".65">'+line(body,hiddenMagnetic,'inside',.75).replace('stroke-linecap=', 'stroke-dasharray="2.5 2" stroke-linecap=')+(n%3===1?arrow(d*3,middle,d,0,hiddenMagnetic,1.7):'')+'</g>';
+    }
     for(const side of [-1,1])for(let n=0;n<pairs;n++){
-      // Enter the physical bore at x=-40, rather than the first visible turn.
-      // Nested return paths stay behind the former and never cross each other.
-      const t=n/(pairs-1),y=side*(n+.5)*pitch,outer=side*(45-18*t),x0=-40,x1=40,edge=74-19*t;
-      const path='M'+x0+' '+y+'H'+x1+'C'+edge+' '+y+' '+edge+' '+outer+' '+x1+' '+outer+'H'+x0+'C'+(-edge)+' '+outer+' '+(-edge)+' '+y+' '+x0+' '+y+'Z';
-      back+=line(path,magnetic,'closed',.7)+arrow(-d*2,outer,-d,0,magnetic,2.4);
-      front+='<g data-field-occluded="true" opacity=".65"><path data-field-line="inside" d="M'+x0+' '+y+'H'+x1+'" fill="none" stroke="'+hiddenMagnetic+'" stroke-width=".75" stroke-dasharray="2.5 2"/>'+arrow(d*3,y,d,0,hiddenMagnetic,2)+'</g>';
+      const t=n===0?0:n===pairs-1?1:side>0?.42:.63,y=side*(2+13*t),outer=side*(48-17*t),right=74-18*t-(side<0?1.5:0),left=72-17*t+(side<0?1.5:0),bow=outer+side*(7+3*t);
+      const path=bore(y)+`C${right} ${y} ${right} ${outer} 40 ${outer}C30 ${outer} 25 ${.25*outer+.75*bow} 0 ${.25*outer+.75*bow}C-25 ${.25*outer+.75*bow} -30 ${outer} -40 ${outer}C${-left} ${outer} ${-left} ${y} -40 ${y}Z`;
+      back+=line(path,magnetic,'closed',.6)+arrow(-d*2,.25*outer+.75*bow,-d,0,magnetic,2);
     }
     return {back:group('magnetic',i,s,pitch,back),front:group('magnetic',i,s,pitch,front),markers:inductorPoles(c,r)};
   }
@@ -55,10 +58,11 @@
     return '<g pointer-events="none" data-capacitor-polarity="true" data-polarity-active="'+active+'">'+text(-gap/2-14,-33,d>0?'＋':'−',active?(d>0?'#c43f4c':'#286cb7'):'#8795a1',9)+text(gap/2+14,-33,d>0?'−':'＋',active?(d>0?'#286cb7':'#c43f4c'):'#8795a1',9)+'</g>';
   }
 
+  const transformerTurns=n=>Math.max(1,Math.ceil(16*Math.sqrt(n/2000)));
   function transformerWindings(c){
     return [[-39,c.params.primaryTurns,'primary'],[39,c.params.secondaryTurns,'secondary']].map(([x,nominal,side])=>{
-      const count=Math.max(1,Math.round(nominal/10)),pitch=Math.min(3.5,48/count),start=-count*pitch/2,width=Math.min(2.05,pitch*.73);
-      return {x,radius:15,nominal,side,count,pitch,start,end:-start,width,outline:width+Math.min(.55,pitch*.22)};
+      const count=transformerTurns(nominal),pitch=Math.min(3.5,48/count),start=-count*pitch/2,width=2.05;
+      return {x,radius:15,nominal,side,count,pitch,start,end:-start,width,outline:2.6};
     });
   }
   function transformer(c,r,schematic=false,id='transformer-field'){
@@ -91,10 +95,10 @@
   function description(c,r){
     r={...r,current:r?.fieldCurrent??r?.current,voltage:r?.fieldVoltage??r?.voltage};
     if(c.type==='capacitor')return !Number.isFinite(r?.voltage)?'電壓未能確定，暫不標示電場方向。':r.voltage===0?'電場示意收起；灰色＋／−只作極性參考。':(r.voltage>0?'左板帶正電、右板帶負電。':'右板帶正電、左板帶負電。')+'只顯示兩板之間的均勻電場，由正板指向負板；忽略邊緣效應。';
-    if(c.type==='inductor')return !Number.isFinite(r?.current)?'電流未能確定，暫不標示磁場方向。':r.current===0?'磁場示意收起；灰色 N／S 只作方向參考。':(r.current>0?'線圈內部磁場向右，右端為 N 極。':'線圈內部磁場向左，左端為 N 極。')+'磁場如通電螺線管，外部場線返回另一端並穿過線圈中央，形成閉合路徑；內部較暗虛線表示被線圈遮擋的部分。電流反向時兩極對調；自感電動勢會阻礙電流的變化。';
+    if(c.type==='inductor')return !Number.isFinite(r?.current)?'電流未能確定，暫不標示磁場方向。':r.current===0?'磁場示意收起；灰色 N／S 只作方向參考。':(r.current>0?'線圈內部磁場向右，右端為 N 極。':'線圈內部磁場向左，左端為 N 極。')+'磁場如通電螺線管，內部場線較密，外部較疏並彎曲返回另一端。只畫部分外部回路；內部虛線表示被繞線遮擋的部分。電流反向時兩極對調；自感電動勢會阻礙電流的變化。';
     if(c.type==='generator')return c.params.field===0?'設定的磁場為零；在這個理想模型中，磁通及感應電動勢為零。':'只顯示 N、S 極之間的均勻磁場，方向固定由 N 指向 S。[[n]] 是線圈平面的法線；平行磁場時磁通大小最大，垂直時電動勢大小達峰值。';
     if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集完整觀察窗的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+(r.coreFluxFrequencies?.length>1?'磁通採用 '+r.coreFluxWindow+' s '+(r.coreFluxWindowKind==='common-cycle'?'共同週期':'指定時間窗（非共同週期）')+'。':'')+'銅線繞在鐵芯兩柱；青綠色實線及箭頭表示鐵芯內的磁通，虛線透視被繞組遮住的部分。省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示交變磁通，以觀察窗平均值作基準，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
     return '';
   }
-  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformerWindings,transformer,generatorOverlay,description};
+  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformerTurns,transformerWindings,transformer,generatorOverlay,description};
 });

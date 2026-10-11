@@ -9,8 +9,11 @@
     const button=(text,fn,label=text)=>{const b=element('button','',text);b.type='button';b.setAttribute('aria-label',label);on(b,'click',fn);return b;};
     const quantity=(value,unit)=>Q.html(Q.quantity(unit==='J'?V.displayEnergy(value):value,unit));
     if(profile.ui.presets){const P=root.CircuitACPresets;refs.preset.replaceChildren(new Option(P.names.empty,'empty'),...P.groups.map(({label,keys})=>{const group=document.createElement('optgroup');group.label=label;group.append(...keys.map(key=>new Option(P.names[key],key)));return group;}));refs.preset.value='resistive';}
+    const exampleHint=element('details','ac-example-hint'),exampleSummary=element('summary','','示例提示 · 展開'),exampleText=element('p');exampleHint.append(exampleSummary,exampleText);exampleHint.hidden=true;if(profile.ui.presets)refs.surface.parentElement.append(exampleHint);
+    on(exampleHint,'toggle',()=>exampleSummary.textContent='示例提示 · '+(exampleHint.open?'收起':'展開'));on(exampleHint,'keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();exampleHint.open=false;exampleSummary.focus();}});
+    function showExampleHint(name,open=true){exampleText.innerHTML=root.CircuitACPresets.descriptionParts(name).map(p=>typeof p==='string'?V.esc(p):Q.html(p)).join('');exampleHint.hidden=false;exampleHint.open=open;exampleSummary.textContent='示例提示 · '+(open?'收起':'展開');}
     const notice=element('p','diagnostic ac-diagnostic');notice.setAttribute('role','status');refs.panel.prepend(notice);
-    function documentLoaded(doc){if(!profile.ui.presets)return;const value=JSON.stringify(doc),name=Object.keys(root.CircuitACPresets.names).find(name=>JSON.stringify(root.CircuitACPresets.create(name))===value);if(name)refs.preset.value=name;else{if(![...refs.preset.options].some(o=>o.value==='custom')){const option=new Option('自訂電路','custom');option.disabled=true;refs.preset.add(option);}refs.preset.value='custom';}}
+    function documentLoaded(doc){if(!profile.ui.presets)return;const value=JSON.stringify(doc),name=Object.keys(root.CircuitACPresets.names).find(name=>JSON.stringify(root.CircuitACPresets.create(name))===value);if(name){refs.preset.value=name;showExampleHint(name,false);}else{exampleHint.hidden=true;exampleHint.open=false;if(![...refs.preset.options].some(o=>o.value==='custom')){const option=new Option('自訂電路','custom');option.disabled=true;refs.preset.add(option);}refs.preset.value='custom';}}
     const scope=profile.ui.waveform?root.CircuitScopeUI.mount({host,refs,profile,controller,viewDocument,routes,readouts,currentReferences}):null;
     let lastAnalysis=controller.getAnalysis(),energyScale=0,observed=null;
     const energyPanel=section('儲能與耗散'),fieldPanel=section('電場與磁場'),energyContent=element('div','ac-energy'),fieldCheck=document.createElement('input'),energyCheck=document.createElement('input');fieldCheck.type=energyCheck.type='checkbox';fieldCheck.checked=energyCheck.checked=true;
@@ -25,7 +28,7 @@
     function plot(c,r,fresh,idPrefix){
       if(c.type==='capacitor')return {box:'-72 -56 144 116',back:'',body:'',overlay:F.capacitorSection(r,root.CircuitAC.capacitorGap(c))};
       if(c.type==='generator')return {box:'-65 -49 130 100',back:'',body:fresh?G.render({...c,angle:0},r,true):'',overlay:F.generatorOverlay(c,r,G.project)};
-      if(c.type==='inductor'){const f=F.inductor(c,r);return {box:'-80 -56 160 112',back:f.back,body:fresh?V.body({...c,angle:0},r,{view:'real',values:false,fields:false}):'',overlay:f.front+f.markers+'<text x="0" y="-49" text-anchor="middle" font-size="8" fill="#52677c">內部虛線表示被線圈遮擋的磁場</text>'};}
+      if(c.type==='inductor'){const f=F.inductor(c,r);return {box:'-80 -68 160 128',back:f.back,body:fresh?V.body({...c,angle:0},r,{view:'real',values:false,fields:false}):'',overlay:f.front+f.markers+'<text x="0" y="-60" text-anchor="middle" font-size="8" fill="#52677c">內部虛線表示被線圈遮擋的磁場</text>'};}
       return {box:'-85 -83 170 130',back:'',body:fresh?V.body({...c,angle:0},r,{view:'real',values:true,fields:true,idPrefix}):'',overlay:''};
     }
     function rows(c,r,analysis,doc){
@@ -63,8 +66,8 @@
     function animate(analysis=lastAnalysis){lastAnalysis=analysis;scope?.render();if(observed){const {c,doc}=observed,r=analysis.components[c.id];if(r){if(fieldDetails.open)drawField(panelView,c,r,analysis,doc);if(fieldDialog.open)drawField(largeView,c,r,analysis,doc);}}const playback=controller.getPlayback();fieldPlay.disabled=playback.readOnly||!profile.simulation.play;fieldPlay.textContent=playback.paused?'繼續模擬':'暫停模擬';}
 
     const originalLoaded=documentLoaded;
-    render(lastAnalysis);
-    return {render,preview:result=>scope?.preview(result),endPreview:commit=>scope?.endPreview(commit),animate,setChannels:channels=>scope?.setChannels(channels)??false,getTools:()=>scope?.getTools()||[],setTools:tools=>scope?.setTools(tools)??false,clear,documentLoaded(doc){readouts.clear();originalLoaded(doc);scope?.resetDocument();},destroy(){readouts.clear();abort.abort();if(fieldDialog.open)fieldDialog.close();fieldDialog.remove();scope?.destroy();host.classList.remove('ac-editor');}};
+    documentLoaded(controller.getDocument());render(lastAnalysis);
+    return {render,showExampleHint,preview:result=>scope?.preview(result),endPreview:commit=>scope?.endPreview(commit),animate,setChannels:channels=>scope?.setChannels(channels)??false,getTools:()=>scope?.getTools()||[],setTools:tools=>scope?.setTools(tools)??false,clear,documentLoaded(doc){readouts.clear();originalLoaded(doc);scope?.resetDocument();},destroy(){readouts.clear();abort.abort();if(fieldDialog.open)fieldDialog.close();fieldDialog.remove();exampleHint.remove();scope?.destroy();host.classList.remove('ac-editor');}};
   }
   root.CircuitACUI={mount};
 })(window);

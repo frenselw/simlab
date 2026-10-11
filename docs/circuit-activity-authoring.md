@@ -207,7 +207,7 @@ D3／D4 已有兩個正式 consumer：[兩燈串聯計劃](../plans/30-circuit-d
 
 快捷參數另有 `quick-controls.test.js` 和 browser runner 的 `--quick-controls-smoke`；針對參數權限、加減／輸入、單步復原、保存恢復後續調整、手機對齊及拖動穩定，也核對自動 ID 前綴的 label 關係和離開輸入欄時提交原元件。實際證據見[計劃第 50 節](../plans/28-circuit-workbench.md#50-對齊操作列與快捷參數2026-10-04)。
 
-微電流動畫使用 `flow.test.js`／`component-flow.test.js` 及 `--micro-flow-smoke`；元件本體接線使用 `component-snapping.test.js` 及 `--component-snap-smoke`。按改動選擇必要檢查及相鄰權限／恢復案例，無需每次重跑完整教材和其他活動。具體已執行結果見[工作台計劃](../plans/28-circuit-workbench.md)，區分歷史審核、後續改動和未驗證平台。
+繞線動畫另用 `winding-flow.test.js` 及 AC `--winding-smoke`，涵蓋電感／變壓器與共用 DC／AC 變阻器的實際導線、獨立支路、背面遮擋及反向；物理值及滑片權限保持。微電流動畫使用 `flow.test.js`／`component-flow.test.js` 及 `--micro-flow-smoke`；元件本體接線使用 `component-snapping.test.js` 及 `--component-snap-smoke`。按改動選擇必要檢查及相鄰權限／恢復案例，無需每次重跑完整教材和其他活動。具體已執行結果見[工作台計劃](../plans/28-circuit-workbench.md)，區分歷史審核、後續改動和未驗證平台。
 
 A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電阻升為 v6。v1–v4 匯入會先驗證舊幾何，再遷移相連線形。新活動使用 CircuitModel.empty()，不要把版本號硬編碼為 v4／v5。
 

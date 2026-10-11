@@ -8,7 +8,7 @@ assert(Q.symbol('n').tex.includes('hat'));assert(Q.symbol('Urms').tex.includes('
 assert(Q.labelHtml('<img onerror=alert(1)>').includes('&lt;img'));assert.throws(()=>Q.symbol('\\href'));
 for(const unit of ['mWb','μWb','nA','kV','ms','°'])assert(Q.html(Q.unit(unit)).includes('<path'));
 assert(Q.prose('[[fluxFormula]]；0.1 F').includes('data-tex="\\Phi=BS\\cos\\theta"'));
-assert(P.descriptionParts('generator').some(p=>p.tex===Q.symbol('emfFormula').tex));
+assert(!/感抗|容抗|磁滯|鐵損/.test(Object.values(P.descriptions).join('')));assert(P.descriptionParts('capacitive').some(p=>p.tex===Q.symbol('C').tex));
 assert(P.descriptionParts('transformer').some(p=>p.tex===Q.symbol('transformerRatio').tex));
 // Generator scales use the physical peak, retain their units and do not clip the phase at 200°.
 const g=M.add(M.empty('transient'),'generator',0,0,{field:.2,area:.02,turns:300,frequency:1}),bars=new D.Readouts();

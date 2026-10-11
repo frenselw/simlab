@@ -43,14 +43,44 @@
   const caseBox=(x,y,w,h,fill='#d9e6ef')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="#567185" stroke-width="2"/><path d="M${x+7} ${y+4}H${x+w-7}" stroke="#ffffff" stroke-width="2" opacity=".75"/>`;
   // Visible turns are schematic: fixed magnetic geometry gives L proportional to N squared.
   const inductorTurns=c=>Math.max(1,Math.round(10*Math.sqrt(c.params.inductance)));
-  const transformerTurns=n=>Math.max(1,Math.round(n/10));
-  function coil(count){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++)d+=`q0-16 ${half}-16t${half} 16`;return path(d,'#334155',Math.min(3,45/count));}
+  const transformerTurns=Fields.transformerTurns;
+  function coil(count,width=Math.min(3,45/count)){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++)d+=`q0-16 ${half}-16t${half} 16`;return path(d,'#334155',width);}
   function winding(count,span=68,radius=24,full=false){
     const pitch=Math.min(3.5,span/count),start=1.75-(count-1)*pitch/2,end=full?start+count*pitch:start+(count-.5)*pitch+6,entry=start-pitch/2,width=Math.min(2.1,pitch*.65),outline=width+Math.min(.65,pitch*.25);let front='',back=full?'':`M${entry} ${radius}C${entry-5} ${radius} ${start-5} ${-radius} ${start} ${-radius}`;
     for(let n=0;n<count;n++){const x=start+n*pitch;front+=n===count-1&&!full?`M${x} ${-radius}C${x+5} ${-radius} ${end-1} 0 ${end} 0`:`M${x} ${-radius}C${x+5} ${-radius} ${x+5+pitch/2} ${radius} ${x+pitch/2} ${radius}`;if(n<count-1||full)back+=`M${x+pitch/2} ${radius}C${x-5+pitch/2} ${radius} ${x-5+pitch} ${-radius} ${x+pitch} ${-radius}`;}
     return {pitch,start,end,entry,width,outline,front,back};
   }
   const copper=(d,w)=>path(d,'#8d6135',w.outline)+path(d,'#d8b17e',w.width);
+  function trace(d,hidden=false){
+    const tokens=d.match(/[MCLHVQ]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi)||[],points=[];let at=0,x=0,y=0;
+    const put=(a,b)=>{points.push([a,b,hidden]);x=a;y=b;};
+    while(at<tokens.length){const command=tokens[at++],read=()=>Number(tokens[at++]);if(command==='M'||command==='L')put(read(),read());else if(command==='H')put(read(),y);else if(command==='V')put(x,read());else if(command==='C'||command==='Q'){const start=[x,y],a=[read(),read()],b=[read(),read()],end=command==='C'?[read(),read()]:b;
+      for(let n=1;n<=24;n++){const t=n/24,u=1-t;put(...start.map((v,k)=>command==='C'?u*u*u*v+3*u*u*t*a[k]+3*u*t*t*b[k]+t*t*t*end[k]:u*u*v+2*u*t*a[k]+t*t*end[k]));}
+    }else throw new Error('Unsupported winding path command');}
+    return points;
+  }
+  const pieces=d=>d.match(/M[^M]+/g)||[];
+  const shownTurn=(n,count)=>count<=8||Array.from({length:8},(_,i)=>Math.round(i*(count-1)/7)).includes(n);
+  function symbolCoil(count){let d='M-34 0';const half=34/count;for(let n=0;n<count;n++){const x=-34+2*n*half;d+=`Q${x} -16 ${x+half} -16Q${x+2*half} -16 ${x+2*half} 0`;}return trace(d);}
+  function makeFlowPaths(c,r,view){
+    const schematic=view==='schematic',current=r?.current??null;
+    if(c.type==='inductor'){
+      if(schematic)return [{key:'main',from:'a',to:'b',current,points:[[-60,0],...symbolCoil(inductorTurns(c)),[60,0]]}];
+      const count=inductorTurns(c),w=winding(count),front=pieces(w.front),back=pieces(w.back),leads=`M-60 0H${w.start-12}C${w.start-2} 0 ${w.entry+5} 24 ${w.entry} 24`,points=[...trace(leads),...trace(back[0],true)];
+      for(let n=0;n<count;n++){points.push(...trace(front[n],!shownTurn(n,count)));if(n<count-1)points.push(...trace(back[n+1],true));}points.push(...trace(`M${w.end} 0H60`));return [{key:'main',from:'a',to:'b',current,points}];
+    }
+    return Fields.transformerWindings(c).map(w=>{
+      const primary=w.side==='primary',value=primary?current:r?.secondaryCurrent??null,from=primary?'a':'c',to=primary?'b':'d';
+      if(schematic){const points=symbolCoil(w.count).map(([x,y])=>primary?[y-32,-x]:[32-y,x]);if(primary)points.reverse();return {key:w.side,from,to,current:value,points:primary?[[-76,-26],[-76,-34],[-32,-34],...points,[-32,34],[-76,34],[-76,26]]:[[76,-26],[76,-34],[32,-34],...points,[32,34],[76,34],[76,26]]};}
+      const art=transformerWinding(w),front=pieces(art.front),back=pieces(art.back),leads=pieces(art.leads),points=trace(leads[0]);for(let n=0;n<w.count;n++){points.push(...trace(front[n],!shownTurn(n,w.count)),...trace(back[n],true));}points.push(...trace(leads[1]));return {key:w.side,from,to,current:value,points};
+    });
+  }
+  const flowGeometryCache=new Map();
+  function flowPaths(c,r,view){
+    const key=JSON.stringify([c.type,c.params.inductance,c.params.primaryTurns,c.params.secondaryTurns,view]);let geometry=flowGeometryCache.get(key);
+    if(!geometry){geometry=makeFlowPaths(c,null,view);flowGeometryCache.set(key,geometry);if(flowGeometryCache.size>64)flowGeometryCache.delete(flowGeometryCache.keys().next().value);}
+    return geometry.map(p=>({...p,current:p.key==='secondary'?r?.secondaryCurrent??null:r?.current??null}));
+  }
   function transformerCaption(c,values=true){const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45;
     return `<g data-transformer-ratio="true" transform="rotate(${-(c.angle||0)})">${text(values?'匝數比（原：副）':'原／副線圈',0,-edge-24,8.5)}${values?Q.svg(0,-edge-10,Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),13):''}</g>`;
   }
@@ -102,7 +132,7 @@
     if(c.type==='capacitor')return path('M-60 0H-9 M9 0H60 M-9-26V26 M9-26V26','#334155')+chargeMarks(r,d);
     if(c.type==='inductor')return `<g data-inductor-turns="${inductorTurns(c)}">${path('M-60 0H-34 M34 0H60')}${coil(inductorTurns(c))}${Fields.inductorPoles(c,r)}</g>`;
     if(c.type==='spdt')return path('M-60 0H-24 M28-24H60 M28 24H60')+path(`M-24 0L25 ${p.closed==='b'?-24:24}`,'#334155',3)+socket(-24,0)+socket(28,-24)+socket(28,24);
-    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns))}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns))}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18)+transformerFieldSlot(c,r,d,true)+transformerCaption(c,d.values);
+    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns),2.4)}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns),2.4)}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18)+transformerFieldSlot(c,r,d,true)+transformerCaption(c,d.values);
     if(c.type==='led')return path('M-60 0H-22 M16 0H60')+`<path d="M-22-17L16 0L-22 17Z" fill="${Number.isFinite(r?.current)&&r.current>1e-6?(p.colour==='red'?'#dc5856':'#55a96b'):'none'}" stroke="#334155" stroke-width="2"/>`+path('M16-20V20 M6-23L19-36 M12-35L19-36L18-29 M20-17L33-30 M26-29L33-30L32-23','#334155',2);
     if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-23 M23-20H60 M-60 40H-20V22 M20 22V40H60'):lead)+'<circle r="30" fill="#fff" stroke="#334155" stroke-width="2"/>'+`<g transform="rotate(${-(c.angle||0)})">${Q.svg(0,6,{text:R.get(c.type).icon+'~',tex:Q.unit(R.get(c.type).icon).tex+'\\sim'},22)}</g>`;
     return lead+'<circle r="28" fill="#fff" stroke="#334155" stroke-width="2"/>'+path('M-19 0q9-18 19 0t19 0','#334155',2)+(c.type==='generator'?text('G',0,21,11):'');
@@ -141,9 +171,10 @@
     return '';
   }
   function render(c,r,d){return `<g data-ac-apparatus="${c.type}" data-ac-view="${d.view==='schematic'?'schematic':'real'}">${d.view==='schematic'?symbol(c,r,d):apparatus(c,r,d)}</g>`;}
+  for(const type of ['inductor','transformer'])types[type].flowPaths=flowPaths;
   for(const type of ['capacitor','inductor'])types[type].displayResult=Display.visual;
   types.transformer.displayResult=Display.transformerVisual;
   for(const [type,definition]of Object.entries(types))if(!Object.hasOwn(R.definitions,type))R.register(type,{...definition,analysis:'transient',render,dc(){throw new Error('此元件需要時間求解器');}});
   const palette=[{type:'ac-source'},{type:'generator'},{type:'battery'},{type:'resistor'},{type:'rheostat'},{type:'lamp',params:{model:'ideal'}},{type:'switch'},{type:'spdt'},{type:'capacitor'},{type:'inductor'},{type:'transformer'},{type:'led',key:'red-led',params:{colour:'red'},label:'紅色 LED'},{type:'led',key:'green-led',params:{colour:'green'},label:'綠色 LED'},{type:'ac-ammeter'},{type:'ac-voltmeter'},{type:'ac-wattmeter'},{type:'galvanometer'}];
-  return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap,meterFace};
+  return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap,meterFace,transformerTurns,flowPaths};
 });

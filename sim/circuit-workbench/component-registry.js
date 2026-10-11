@@ -94,6 +94,12 @@
     const dTdV = (2 * voltage / resistance) / (4 * k * temperature ** 3+h + voltage ** 2 * slope / resistance ** 2);
     return { current: voltage / resistance, conductance: 1 / resistance - voltage * slope * dTdV / resistance ** 2, resistance, temperature };
   }
+  const rheostatGeometryCache=new Map();
+  function rheostatWinding(c){
+    const key=c.params.position+':'+((c.params.terminals??2)>2);if(rheostatGeometryCache.has(key))return rheostatGeometryCache.get(key);
+    const t=c.params.position,base=(c.params.terminals??2)>2?20:0,at=[...new Set([...Array.from({length:257},(_,n)=>n/256),t])].sort((a,b)=>a-b),points=at.map(f=>[-30+60*f,base-12*Math.sin(16*Math.PI*f)]),split=at.indexOf(t);
+    const result={points,left:points.slice(0,split+1),right:points.slice(split),contact:points[split],base};rheostatGeometryCache.set(key,result);if(rheostatGeometryCache.size>32)rheostatGeometryCache.delete(rheostatGeometryCache.keys().next().value);return result;
+  }
   function effectiveResistance(c) { return c.type === "rheostat" ? c.params.resistance * c.params.position : c.params.resistance; }
   // Device hooks are trusted local code. JSON imports carry parameters only.
   const resistive = (resistance, from="a", to="b") => ({ from, to, kind: resistance===0 ? "branch" : "resistor", resistance });
@@ -109,5 +115,5 @@
   function dc(c,state) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c,state); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   const observationQuantities=c=>['voltage','current',...(get(c.type).observationQuantities||[])];
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, observationQuantities, primaryParameter, stepPrimaryParameter, localPorts, ports, portsForVersion:(c,version)=>ports(c,version<4?true:version===4?'v4':false), bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges,meterDisplayReading, lampAt, thermal, effectiveResistance, dc, register };
+  return { definitions, get, defaults, observationQuantities, primaryParameter, stepPrimaryParameter, localPorts, ports, portsForVersion:(c,version)=>ports(c,version<4?true:version===4?'v4':false), bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges,meterDisplayReading, lampAt, thermal, rheostatWinding, effectiveResistance, dc, register };
 });
