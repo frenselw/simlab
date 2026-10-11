@@ -19,6 +19,12 @@
 
 ## 近期決策與驗證記錄
 
+### 低縮放概覽儀表名稱（2026-10-11；已完成）
+
+使用者35%概覽出現「undefined：0.19 A」。概覽只硬編碼DC的A/V/W/G，漏了AC儀表type；改用registry的儀表icon。純顯示修訂，assessment／rubric／SCORM N/A，低縮放收起元件文字、讀數／求解／保存及依賴不改。只核對概覽的AC A/V/W及DC A/V/W/G、值隱藏／未知與放大還原；source／ZIP桌面及手機低縮放專項，不重跑物理／手勢全套，更新兩個原Sites。
+
+`--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
+
 ### 手機不顯示示例說明（2026-10-11；已完成）
 
 手機直向（≤759 px）及窄橫向（≤959 px、≤450 px高）隱藏AC示例提示整塊，連收起入口亦不佔位；DC載入示例的操作說明通知亦隱藏。桌面保留現有提示及展開／收起。這是顯示修訂，assessment／rubric／SCORM N/A，物理、快照及依賴不改。只驗source／ZIP的手機直向／橫向、桌面及resize返回、DC示例通知和正常通知，更新既有hint案例而不重跑繞線／求解套件；更新原Sites。

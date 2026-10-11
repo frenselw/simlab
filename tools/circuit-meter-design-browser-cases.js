@@ -70,4 +70,16 @@ async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,so
  await load('/circuit-ac-workbench/activity-examples.html','window','CircuitACExample');assert.deepEqual(await inside('[...document.querySelectorAll("[data-example]")].map(e=>e.textContent)'),['變壓器：匝數與負載','LC：充電與振盪']);assert(await inside('document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll("[data-example]")].every(e=>e.getBoundingClientRect().height>=44)'));checks+=2;
  console.log(source+' compact meter / terminal notation / preset design: '+checks+' checks');return checks;
 }
-module.exports={fixture,meterDesignCases};
+async function overviewCases(h,source){let checks=0;
+ for(const width of [390,1280])for(const [type,symbol]of [['ac-ammeter','A'],['ac-voltmeter','V'],['ac-wattmeter','W']]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<960});await h.call('setPlayback({paused:true})');const d=fixture(type),meter=d.components.find(c=>c.type===type);await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('advanceTime(2.1)');await h.call('fit()');const saved=await h.call('captureSession()');
+  for(let n=0;n<5&&await h.call('getInteraction().camera.scale')>=.4;n++){await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',...await h.point('.surface'),deltaX:0,deltaY:600});await h.delay(40);}
+  const low=await h.inside(`(()=>{const e=document.querySelector('[data-overview-readout="${meter.id}"]');return {math:e?.dataset.math,tex:e?.dataset.tex,labels:document.querySelectorAll('[data-component-label]').length,caption:!!document.querySelector('[data-overview-caption]')};})()`);
+  assert(low.caption);assert(low.math?.startsWith(symbol+'：'),JSON.stringify(low));assert(!low.math.includes('undefined'));assert(low.tex.startsWith('\\mathrm{'+symbol+'}'));assert.equal(low.labels,0);assert.deepEqual(await h.call('captureSession()'),saved);checks+=6;
+  if(width===390&&type==='ac-ammeter')await h.screenshot(source+'-overview-meter-390');
+  for(let n=0;n<5&&await h.call('getInteraction().camera.scale')<.6;n++){await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',...await h.point('.surface'),deltaX:0,deltaY:-600});await h.delay(40);}
+  assert(await h.inside('!document.querySelector("[data-overview-caption]")'));assert(await h.inside('document.querySelectorAll("[data-component-label]").length>0'));assert.deepEqual(await h.call('captureSession()'),saved);checks+=3;
+ }
+ console.log(source+' low-zoom meter overview: '+checks+' checks passed');return checks;
+}
+module.exports={fixture,meterDesignCases,overviewCases};
