@@ -54,6 +54,12 @@ CW-07為只讀數值更新遺漏；以固定reading-host容納導線／端子／
 
 `--overview-smoke`來源／ZIP共108項通過（AC A/V/W ×390／1280 px ×縮小／放大），原meters-and-math套件96 fixtures通過；縮放前後權威Session不變。四包已重建並核對當前runtime雜湊，圖片與證據在 `output/overview-meter-labels/`。本輪沒有重跑完整CI／物理套件或真手機／Moodle。
 
+### 復原／重做共用圖示（2026-10-11）
+
+依使用者要求，以共用24×24 SVG圓弧箭頭取代字元↶／↷，復原／重做互為鏡像；沿用工具列圖示線寬、置中及44px按鈕。純外觀，assessment／rubric／SCORM N/A，操作及快照不改。只核對AC／DC桌面及手機圖示置中、enabled／disabled狀態及一次復原／重做，source／ZIP重建後更新原Sites。
+
+`--history-icons-smoke` source／ZIP共56項通過（AC／DC ×1280／390 px），SVG中心與按鈕中心一致、兩方向圓弧尺寸一致，停用狀態及實際復原／重做文件一致。四包重建並核對來源；沒有重跑物理、完整CI、真手機或Moodle。證據在 `output/history-icons/`。
+
 ### 發電機磁通量用詞及說明排版（2026-10-11）
 
 依使用者要求，場的觀察面板及放大觀察改用「單匝磁通量 Φ」及「總磁通量 NΦ」，不用磁通鏈；說明中的磁極、法線、角度、磁場及磁通量公式沿用共用LaTeX向量字形。純文案／排版，assessment／rubric／SCORM N/A，物理值及快照不改。只更新既有readout-math專項的用詞及數學符號斷言，核對source／ZIP桌面及手機，重建四包並更新原Sites。

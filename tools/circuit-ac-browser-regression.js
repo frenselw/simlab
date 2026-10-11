@@ -13,7 +13,7 @@ const {meterResponseCases}=require('./circuit-meter-response-browser-cases');
 const {meterDesignCases,overviewCases}=require('./circuit-meter-design-browser-cases');
 const {readoutMathCases}=require('./circuit-readout-math-browser-cases');
 const {fieldCases,inductorDensityCases}=require('./circuit-field-browser-cases');
-const {scrollGripVisibilityCases}=require('./circuit-canvas-browser-cases');
+const {scrollGripVisibilityCases,historyIconCases}=require('./circuit-canvas-browser-cases');
 const {dependencyAuditCases}=require('./circuit-dependency-audit-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-ac');
 async function browserPort(profile,chrome){
@@ -35,6 +35,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--history-icons-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await historyIconCases({inside,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--dependency-audit-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await dependencyAuditCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--dependency-audit-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--generator-leads-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await generatorLeadCases({inside,call,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--generator-leads-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--scroll-grip-visibility-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await scrollGripVisibilityCases({inside,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--scroll-grip-visibility-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

@@ -48,4 +48,21 @@ async function scrollGripVisibilityCases(h,source){let checks=0;
  }
  await h.send('Emulation.setEmulatedMedia',{features:[]});console.log(source+' scroll-grip visibility '+checks+' checks passed');return checks;
 }
-module.exports={canvasLayoutCases,scrollGripVisibilityCases};
+async function historyIconCases(h,source){let checks=0;
+ for(const mode of ['ac','dc'])for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});
+  const prefix=mode==='dc'?'#history-dc ':'';
+  await h.inside(mode==='dc'?`(async()=>{const host=document.createElement('div');host.id='history-dc';host.style.cssText='position:fixed;inset:0;background:white;z-index:200';document.body.append(host);window.__historyEditor=await CircuitEditor.mount(host,{role:'teacher',idPrefix:'history-dc-'});})()`:'window.__historyEditor=CircuitACWorkbench');
+  await h.inside('__historyEditor.loadDocument('+ (mode==='ac'?"CircuitACPresets.create('empty')":"CircuitModel.empty()")+')');
+  const before=await h.inside('__historyEditor.getDocument()');
+  const rects=await h.inside(`[...document.querySelectorAll('${prefix}[data-circuit-id=undo],${prefix}[data-circuit-id=redo]')].map(e=>{const r=e.getBoundingClientRect(),svg=e.querySelector('svg'),q=svg.getBoundingClientRect(),b=svg.getBBox();return{label:e.getAttribute('aria-label'),disabled:e.disabled,width:r.width,height:r.height,cx:q.x+q.width/2-r.x-r.width/2,cy:q.y+q.height/2-r.y-r.height/2,glyphWidth:b.width,glyphHeight:b.height,text:e.textContent};})`);
+  assert.deepEqual(rects.map(r=>r.label),['復原','重做']);assert(rects.every(r=>r.width>=44&&r.height>=44&&Math.abs(r.cx)<.1&&Math.abs(r.cy)<.1&&r.glyphWidth>=18&&r.glyphHeight>=18&&r.text===''),JSON.stringify(rects));assert(rects[1].disabled);checks+=3;
+  await h.inside("__historyEditor.execute({type:'addComponent',key:'resistor',x:200,y:200})");const changed=await h.inside('__historyEditor.getDocument()');assert.notDeepEqual(changed,before);checks++;
+  const clip=await h.inside(`(()=>{const a=document.querySelector('${prefix}[data-circuit-id=undo]').getBoundingClientRect(),b=document.querySelector('${prefix}[data-circuit-id=redo]').getBoundingClientRect();return {x:a.x,y:a.y,width:b.right-a.x,height:a.height,scale:1};})()`);await h.screenshot(source+'-history-icons-'+mode+'-'+width,clip);
+  await h.click(prefix+'[data-circuit-id=undo]');assert.deepEqual(await h.inside('__historyEditor.getDocument()'),before);assert(await h.inside(`!document.querySelector('${prefix}[data-circuit-id=redo]').disabled`));checks+=2;
+  await h.click(prefix+'[data-circuit-id=redo]');assert.deepEqual(await h.inside('__historyEditor.getDocument()'),changed);checks++;
+  if(mode==='dc')await h.inside('__historyEditor.destroy();document.getElementById("history-dc").remove()');await h.inside('delete window.__historyEditor');
+ }
+ console.log(source+' history icons: '+checks+' checks passed');return checks;
+}
+module.exports={canvasLayoutCases,scrollGripVisibilityCases,historyIconCases};

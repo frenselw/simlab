@@ -6,7 +6,7 @@
     <div class="brand"><h1>電路工作台 <span class="badge">直流</span></h1><p>搭建・量測・探索</p></div>
     <nav class="header-actions" aria-label="電路文件及操作">
       <select id="preset" aria-label="課堂範例"></select>
-      <button id="undo" title="復原（Ctrl/⌘ Z）" aria-label="復原">↶</button><button id="redo" title="重做（Ctrl/⌘ Shift Z）" aria-label="重做">↷</button>
+      <button id="undo" class="icon-button" title="復原（Ctrl/⌘ Z）" aria-label="復原"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-rotate-ccw"/></svg></button><button id="redo" class="icon-button" title="重做（Ctrl/⌘ Shift Z）" aria-label="重做"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-rotate-cw"/></svg></button>
       <button id="settings" class="icon-button" title="設定" aria-label="設定" aria-controls="settingsDialog" aria-expanded="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-settings"/></svg></button><button id="save" class="icon-button" title="儲存電路檔" aria-label="儲存電路檔" ><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-save"/></svg></button><button id="open" class="icon-button" title="開啟電路檔" aria-label="開啟電路檔" ><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-open"/></svg></button><button id="help" class="icon-button" title="操作說明與模型" aria-label="操作說明與模型" ><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-help"/></svg></button>
     </nav>
   </header>

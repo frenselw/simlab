@@ -3,7 +3,6 @@
 .circuit-editor.embedded-editor{grid-template-rows:minmax(0,1fr)}
 .circuit-editor .embedded-actions{display:flex;gap:6px;flex-wrap:wrap}
 .circuit-editor .embedded-actions button{min-width:44px;padding:0 10px}
-.circuit-editor .embedded-actions [data-circuit-id="undo"],.circuit-editor .embedded-actions [data-circuit-id="redo"]{font-size:1.6rem}
 .circuit-editor .sim-header{display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;padding-right:4.2rem;background:#fff;min-height:72px}
 .circuit-editor .brand{flex-shrink:0}
 .circuit-editor .brand h1{font-size:1.3rem;letter-spacing:.02em}
@@ -11,7 +10,7 @@
 .circuit-editor .badge{display:inline-block;white-space:nowrap;font-size:.7rem;vertical-align:middle;background:#edf3f8;border-radius:4px;padding:3px 6px;color:#52677c}
 .circuit-editor .header-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .circuit-editor .header-actions button{padding:0 12px}
-.circuit-editor .header-actions [data-circuit-id="undo"],.circuit-editor .header-actions [data-circuit-id="redo"]{font-size:1.6rem;width:44px;padding:0}
+.circuit-editor .header-actions [data-circuit-id="undo"],.circuit-editor .header-actions [data-circuit-id="redo"]{width:44px;padding:0}
 .circuit-editor .header-actions select{max-width:185px}
 .circuit-editor .workspace{display:grid;grid-template-columns:minmax(0,1fr) 252px;min-height:0}
 .circuit-editor .stage{min-height:0;min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff;overflow:hidden;touch-action:pan-y}
@@ -119,7 +118,6 @@
 .circuit-editor .header-actions{gap:4px;flex:1}
 .circuit-editor .header-actions select{width:135px;font-size:.875rem;padding-left:7px}
 .circuit-editor .header-actions button{font-size:.875rem;padding:0 8px}
-.circuit-editor .header-actions [data-circuit-id="undo"],.circuit-editor .header-actions [data-circuit-id="redo"]{font-size:1.4rem}
 .circuit-editor .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(112px,31%)}
 .circuit-editor .panel{border-left:0;border-top:1px solid #dbe3eb}
 .circuit-editor .palette{grid-template-columns:repeat(3,minmax(0,1fr))}
