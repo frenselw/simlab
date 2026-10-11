@@ -23,7 +23,7 @@
 
 手機直向（≤759 px）及窄橫向（≤959 px、≤450 px高）隱藏AC示例提示整塊，連收起入口亦不佔位；DC載入示例的操作說明通知亦隱藏。桌面保留現有提示及展開／收起。這是顯示修訂，assessment／rubric／SCORM N/A，物理、快照及依賴不改。只驗source／ZIP的手機直向／橫向、桌面及resize返回、DC示例通知和正常通知，更新既有hint案例而不重跑繞線／求解套件；更新原Sites。
 
-`--example-hint-smoke` source／ZIP的62項相關顯示檢查通過；桌面44px展開／收起與鍵盤、手機整塊無佔位、resize返回及DC一般通知保留。四包已重建，當前runtime雜湊一致；證據在 `output/mobile-example-hints/`。未重跑求解／繞線／CI或真手機／Moodle。
+`--example-hint-smoke` source／ZIP的64項相關顯示檢查通過；桌面44px展開／收起與鍵盤、手機整塊無佔位、resize返回及DC一般通知保留。四包已重建，當前runtime雜湊一致；證據在 `output/mobile-example-hints/`。未重跑求解／繞線／CI或真手機／Moodle。
 
 ### 能量複核 CW-03-R2／CW-06（2026-10-11；已修正）
 
