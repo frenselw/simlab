@@ -85,10 +85,10 @@
     if(old)suppressClick=true;
   }
   function releaseTouches(ids){for(const id of ids)if(surface.hasPointerCapture(id))surface.releasePointerCapture(id);}
-  function cancel(deferRender=false){if(destroyed)return;relayLastTime=performance.now();releasedMeta=null;const old=cameraGesture;cameraGesture=null;rollbackDrag();labelOptions.previous=null;
+  function cancel(deferRender=false,inspector=true){if(destroyed)return;relayLastTime=performance.now();releasedMeta=null;const old=cameraGesture;cameraGesture=null;rollbackDrag();labelOptions.previous=null;
     if(old){Object.assign(camera,old.base);autoFit=old.autoFitBefore;selection=old.selectionBefore;releaseTouches(old.ids.filter(id=>!touches.has(id)));}
     if(touches.size){touchBlocked=true;suppressClick=true;}
-    if(deferRender===true)later(()=>render());else render();
+    if(deferRender===true)later(()=>render(inspector));else render(inspector);
   }
   function touchPair(){const [a,b]=[...touches.values()];return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,distance:Math.max(24,Math.hypot(a.x-b.x,a.y-b.y))};}
   function startCameraGesture(){const live={...camera},liveFit=autoFit;rollbackDrag();Object.assign(camera,live);autoFit=liveFit;
@@ -226,7 +226,7 @@
         const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=componentReadings(component.id);
       }
     }
-    if(!inspector&&transient){const c=selectedComponent(),reading=$('properties').querySelector('.reading-host');if(c&&reading)reading.innerHTML=componentReadings(c.id);}
+    if(!inspector){const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=selectionReadings();}
     renderQuickParameters();
     if($('selectionActionsDialog').open&&(selection?.id!==$('selectionActionsDialog').dataset.selection||getComputedStyle($('moreSelected')).display==='none'))$('selectionActionsDialog').close();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
@@ -266,6 +266,14 @@
     if(typeof visible!=='boolean'||id!==undefined&&!items.some(item=>item.id===id)){notify(name+'顯示設定無效。',true);return false;}
     cancel();for(const item of items)if(id===undefined||item.id===id){if(visible)ids.add(item.id);else ids.delete(item.id);}render();return true;
   }
+  function selectionReadings(){
+    const d=current(),c=selectedComponent(),wire=selectedWire(),probe=probeResult?readings([["第一點 − 第二點",analysis.voltage(probeResult.from,probeResult.to),"V"]]):'';
+    if(c)return componentReadings(c.id);
+    if(wire){const r=analysis.wires[wire.id];return readings([["A → B 電流",V.displayCurrent(d,analysis,wire.from,r?.current,labelOptions.currentReferences,r?.currentPeak),"A"],["A 端相對電勢",r?.potential,"V"],["B 端相對電勢",r?.potentialTo,"V"],["A − B 電壓",r?.voltage,"V"],["導線耗散功率",r?.power,"W"]])+referenceNote(wire.from)+(r?.cyclic?'<p class="note">理想導線環路中，此段電流不能唯一確定。</p>':'')+(analysis.reliable===false?'<p class="diagnostic">讀數未能可靠確定，模擬已暫停。</p>':'');}
+    if(selection?.kind==='port'||selection?.kind==='junction'){const endpoint=selection.kind==='junction'?selection.id+':p':selection.id;return readings([["相對電勢",analysis.potentials[endpoint],"V"]])+referenceNote(endpoint)+probe;}
+    return probe;
+  }
+  function readingHost(){return '<div class="reading-host">'+selectionReadings()+'</div>';}
   function renderProperties(){const d=history.get(),c=selectedComponent(),wire=selectedWire(),prop=$("properties");prop.replaceChildren();$("objectActions").replaceChildren();
     if (c) {
       $("selectionTitle").textContent = c.label;
@@ -315,8 +323,7 @@
       else if(teacher)checkbox("此元件可調參數", c.editable, (v) => change((doc) => { doc.components.find((x) => x.id === c.id).editable = v; }));
 
     }else if(wire){
-      $("selectionTitle").textContent="導線 "+wire.id;prop.innerHTML=`<p class="note">A：${V.esc(portName(wire.from))}<br>B：${V.esc(portName(wire.to))}<br>目前長度 ${Math.round(G.length(routes[wire.id]))} / 上限 ${Math.round(wire.length)} 畫布單位</p>`+(profile.ui.readings?readings([["A → B 電流",V.displayCurrent(d,analysis,wire.from,analysis.wires[wire.id]?.current,labelOptions.currentReferences,analysis.wires[wire.id]?.currentPeak),"A"],["A 端相對電勢",analysis.wires[wire.id]?.potential,"V"],["B 端相對電勢",analysis.wires[wire.id]?.potentialTo,"V"],["A − B 電壓",analysis.wires[wire.id]?.voltage,"V"],["導線耗散功率",analysis.wires[wire.id]?.power,"W"]])+referenceNote(wire.from):'');
-      if(analysis.wires[wire.id]?.cyclic)prop.insertAdjacentHTML("beforeend",'<p class="note">理想導線環路中，此段電流不能唯一確定。</p>');
+      $("selectionTitle").textContent="導線 "+wire.id;prop.innerHTML=`<p class="note">A：${V.esc(portName(wire.from))}<br>B：${V.esc(portName(wire.to))}<br>目前長度 ${Math.round(G.length(routes[wire.id]))} / 上限 ${Math.round(wire.length)} 畫布單位</p>`+(profile.ui.readings?readingHost():'');
       if(profile.ui.wireCurrents)checkbox('顯示此導線電流',wireCurrents.has(wire.id),v=>setDiagramDisplay('wireCurrents',wire.id,v));
       if(profile.canSetWireResistance(d,readOnly)){const input=document.createElement('input');input.type='number';input.min=0;input.max=M.limits.resistance;input.step='any';input.value=wire.resistance;input.dataset.param='wireResistance';input.onchange=()=>execute({type:'setWireResistance',id:wire.id,value:input.valueAsNumber});field(['導線電阻 · ',Q.unit('Ω')],input);prop.insertAdjacentHTML('beforeend','<p class="note">0 Ω 為理想導線；阻值不隨拖動或彎線改變。</p>');}
       else if(d.display.values)prop.insertAdjacentHTML('beforeend',readings([['導線電阻',wire.resistance,'Ω']]));
@@ -330,9 +337,9 @@
       if(wireAllowed())prop.insertAdjacentHTML('beforeend','<p class="note connection-legend">接合接頭：接好　分離接頭：拔開</p>');
       button("整理線形",()=>tidy(wire.id),!wireAllowed());
     }else if(selection?.kind==="port"||selection?.kind==="junction"){
-      const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readings([["相對電勢",analysis.potentials[endpoint],"V"]])+referenceNote(endpoint);if(probeResult)prop.innerHTML+=readings([["第一點 − 第二點",probeResult.voltage,"V"]]);}if(profile.ui.probe)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
+      const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readingHost();}if(profile.ui.probe)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
       d.wires.filter(w=>w.from===endpoint||w.to===endpoint).forEach(w=>button("選導線 "+w.id,()=>{selection={kind:"wire",id:w.id};render();}));
-    }else{$("selectionTitle").textContent=profile.ui.readings&&probeResult?"兩點量測":analysis.diagnostics.length?"電路提示":"";if(profile.ui.readings&&probeResult)prop.innerHTML=readings([["第一點 − 第二點",probeResult.voltage,"V"]]);}
+    }else{$("selectionTitle").textContent=profile.ui.readings&&probeResult?"兩點量測":analysis.diagnostics.length?"電路提示":"";if(profile.ui.readings&&probeResult)prop.innerHTML=readingHost();}
     for(const diagnostic of analysis.diagnostics){const p=document.createElement("p");p.className="diagnostic";p.textContent=diagnostic.message;prop.append(p);}
     $("selectionTitle").closest('.inspector')?.toggleAttribute('hidden',!profile.ui.inspector||!prop.childElementCount&&!$("objectActions").childElementCount);
     const list=$("wireList");list.replaceChildren();d.wires.forEach(w=>{const row=document.createElement("div");row.className="wire-row";const b=document.createElement("button");b.textContent=w.id+" · "+portName(w.from)+" → "+portName(w.to);b.onclick=()=>{selection={kind:"wire",id:w.id};render();focusPoint(G.along(routes[w.id],G.length(routes[w.id])/2));};const del=document.createElement("button");del.className="delete";del.textContent="×";del.setAttribute("aria-label","刪除導線 "+w.id);del.onclick=()=>{cancel();change(doc=>M.remove(doc,w.id));};row.append(b);if(wireAllowed())row.append(del);list.append(row);});
@@ -349,7 +356,7 @@
     if(g){if(r.current===0&&Number.isFinite(r.voltage))r.voltage=0;if(q?.status==='ready'&&q.currentRms===0){q.voltageRms=0;q.averagePower=0;}}
     r={...r,energy:V.displayEnergy(r.energy)};
     const items=[['瞬時電壓',r.voltage,'V'],['瞬時電流（a → b）',g&&Number.isFinite(r.current)?r.current*1e6:r.current,g?'μA':'A']];
-    const windowNote=q&&q.windowKind!=='cycle'?'<p class="note">'+rich([q.windowKind==='common-cycle'?'量測採共同週期：':q.windowKind==='natural'?'量測採自由振盪參考窗：':'量測採時間窗：',Q.quantity(q.window,'s'),q.windowKind==='time'&&q.frequencies?.length>1?'；多頻率信號，這個時間窗不是共同週期。':'。'])+'</p>':'';
+    const distinctWindows=q&&new Set([q.voltageWindow,q.currentWindow,q.powerWindow].filter(Number.isFinite)).size>1,windowNote=distinctWindows?'<p class="note">'+rich(['各項按相關電源分別收集：電壓 ',Q.quantity(q.voltageWindow,'s'),'、電流 ',Q.quantity(q.currentWindow,'s'),'、功率 ',Q.quantity(q.powerWindow,'s'),'。'])+'</p>':q&&q.windowKind!=='cycle'?'<p class="note">'+rich([q.windowKind==='common-cycle'?'量測採共同週期：':q.windowKind==='natural'?'量測採自由振盪參考窗：':'量測採時間窗：',Q.quantity(q.window,'s'),q.windowKind==='time'&&q.frequencies?.length>1?'；多頻率信號，這個時間窗不是共同週期。':'。'])+'</p>':'';
     if(q&&r.meterStatus!=='unconnected'&&r.meterStatus!=='missing-common'){if(q.voltageStatus==='ready')items.push(['電壓有效值',q.voltageRms,'V']);if(q.currentStatus==='ready')items.push(['電流有效值',q.currentRms,'A']);if(q.powerStatus==='ready')items.push([c.type==='transformer'?'原線圈平均輸入功率':'平均有功功率',q.averagePower,'W']);}
     if(c.type==='capacitor')items.push(['極板電荷',r.charge,'C'],['電場儲能',r.energy,'J']);
     if(c.type==='inductor')items.push(['磁場儲能',r.energy,'J']);
@@ -713,9 +720,9 @@
     if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!options||typeof options!=='object'||Object.keys(options).some(k=>!['paused','rate'].includes(k)))return false;
     if(options.paused!==undefined&&(typeof options.paused!=='boolean'||!profile.simulation.play))return false;
     if(options.rate!==undefined&&(!Number.isFinite(options.rate)||options.rate<.0001||options.rate>1||!profile.simulation.rate))return false;
-    if(options.paused===false&&session.fault)return false;cancel();if(options.paused!==undefined)paused=options.paused;if(options.rate!==undefined){timeRate=options.rate;slowMotion=false;}lastTime=0;acLag=0;render(false);return true;
+    if(options.paused===false&&session.fault)return false;cancel(false,!!(drag||previewDoc||cameraGesture));if(options.paused!==undefined)paused=options.paused;if(options.rate!==undefined){timeRate=options.rate;slowMotion=false;}lastTime=0;acLag=0;render(false);return true;
   }
-  function advanceTime(seconds){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.step)return false;if(!Number.isFinite(seconds)||seconds<=0||seconds>10)throw new Error('單步時間需要大於零且不超過 10 s');cancel();paused=true;const progress=session.advance(seconds);analysis=progress.result;animationTime=session.state.time;render(false);return {...progress,result:controller.getAnalysis()};}
+  function advanceTime(seconds){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.step)return false;if(!Number.isFinite(seconds)||seconds<=0||seconds>10)throw new Error('單步時間需要大於零且不超過 10 s');cancel(false,!!(drag||previewDoc||cameraGesture));paused=true;const progress=session.advance(seconds);analysis=progress.result;animationTime=session.state.time;render(false);return {...progress,result:controller.getAnalysis()};}
   function resetSimulation(){if(destroyed)throw new Error('編輯器已卸載');if(!session||readOnly||!profile.simulation.reset)return false;cancel();lastTime=0;acLag=0;analysis=session.reset();clearFieldScales();acUI?.clear();flowOffsets.clear();needleStates.clear();animationTime=0;render();notify('已回到初始條件；搭建電路保持。');return true;}
   const controller=Object.freeze({getDocument:()=>M.clone(history.get()),getAnalysis:()=>{const{voltage,...data}=solve(history.get());return M.clone(data);},voltage:(a,b)=>solve(history.get()).voltage(a,b),exportDocument:()=>D.encode(history.get()),loadDocument,execute,
     applyPolicy(policy){cancel();return change(doc=>doc.policy={...doc.policy,...policy});},onChange(fn){if(destroyed)throw new Error('編輯器已卸載');if(typeof fn!=="function")throw new TypeError("onChange requires a callback");listeners.add(fn);return()=>listeners.delete(fn);},

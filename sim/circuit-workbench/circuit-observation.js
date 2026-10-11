@@ -46,16 +46,20 @@
   class GroupTracker {
     constructor(policies,previous=null){
       this.policies=policies;this.groups=new Map();
-      for(const [id,policy]of policies){let group=this.groups.get(policy.key);if(!group){group={policy,ids:new Set()};this.groups.set(policy.key,group);}group.ids.add(id);}
-      for(const [key,group]of this.groups)group.tracker=previous?.groups.get(key)?.tracker||new Tracker(group.policy.window,group.ids);
+      for(const [id,policy]of policies)for(const p of new Set([policy,...Object.values(policy.quantities||{})])){let group=this.groups.get(p.key);if(!group){group={policy:p,ids:new Set()};this.groups.set(p.key,group);}group.ids.add(id);}
+      for(const [key,group]of this.groups){group.tracker=previous?.groups.get(key)?.tracker||new Tracker(group.policy.window,group.ids);group.tracker.ids=group.ids;}
     }
     sample(result){for(const group of this.groups.values())group.tracker.sample(result);}
-    measure(id){const policy=this.policies.get(id);return policy?{...this.groups.get(policy.key).tracker.measure(id),windowKind:policy.windowKind,period:policy.period,frequencies:policy.frequencies,sourceCount:policy.sourceCount}:{status:'unknown'};}
+    measure(id){const policy=this.policies.get(id);if(!policy)return {status:'unknown'};
+      const result={...this.groups.get(policy.key).tracker.measure(id),windowKind:policy.windowKind,period:policy.period,frequencies:policy.frequencies,sourceCount:policy.sourceCount};
+      for(const [quantity,p]of Object.entries(policy.quantities||{})){const q=this.groups.get(p.key).tracker.measure(id),fields=quantity==='voltage'?['voltageStatus','voltageRms','provisionalVoltageRms','voltageDuration','voltagePeak']:quantity==='current'?['currentStatus','currentRms','provisionalCurrentRms','currentDuration','currentPeak']:['powerStatus','averagePower','provisionalAveragePower','powerDuration'];for(const field of fields)result[field]=q[field];result[quantity+'Window']=p.window;result[quantity+'WindowKind']=p.windowKind;}
+      const states=[result.voltageStatus,result.currentStatus,result.powerStatus];result.status=states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown';return result;
+    }
   }
   // Display-only AC flux primitive. A centred full-cycle window fixes the
   // ideal transformer's unspecified DC flux offset without inventing load current.
   class CoreFluxTracker {
-    constructor(period,previous=null){this.policies=period instanceof Map?period:null;this.window=this.policies?1:period;this.width=this.window/512;this.records=new Map();if(previous&&this.policies)for(const [id,r]of previous.records)if(this.policies.get(id)?.key===previous.policies?.get(id)?.key)this.records.set(id,M.clone(r));}
+    constructor(period,previous=null){this.policies=period instanceof Map?new Map([...period].map(([id,p])=>[id,p.quantities?.voltage||p])):null;this.window=this.policies?1:period;this.width=this.window/512;this.records=new Map();if(previous&&this.policies)for(const [id,r]of previous.records)if(this.policies.get(id)?.key===previous.policies?.get(id)?.key)this.records.set(id,M.clone(r));}
     sample(result){for(const [id,c]of Object.entries(result.components)){
       if(c.coreVoltage===undefined)continue;const v=Number.isFinite(c.coreVoltage)?c.coreVoltage/c.coreTurns:null,t=result.time;
       const window=this.policies?.get(id)?.window||this.window,width=window/512;

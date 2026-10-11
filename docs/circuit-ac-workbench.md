@@ -429,6 +429,18 @@ DC／AC 變阻器由 registry.rheostatWinding 產生同一份可見導線、滑�
 
 驗證見[精準驗證與維護](#精準驗證與維護)。
 
+## CW-07／08／09量測依賴及增量讀數
+
+元件、導線、端子、接點及兩點探頭的只讀讀數均使用reading-host增量更新；播放／單步／失效會刷新數值或未知，保留導線電阻輸入、接線選項DOM及焦點。單步／播放切換若沒有待取消的畫布手勢，不重建屬性面板。
+
+量測依賴按電氣區塊及割點路徑建立，只有一個共同參考點的閉合電路保持各自週期；真正磁耦合加入相關區塊。電壓採量測兩端路徑（理想電壓約束優先），電流採所屬支路／導線切面的區塊，功率取两者聯集。GroupTracker分別使用voltage/current/power的政策；voltageWindow/currentWindow/powerWindow說明各自量測窗，CoreFluxTracker取繞組電壓政策。這些都是衍生資料，不進權威snapshot。
+
+新增／刪除無關共同參考子電路時，若已有交流區塊未受影響，保留它的時間、源相位、儲能狀態、量測及能量帳；受影響儲能部分重新初始化，原有未改參數的振盪源繼續相位。源參數或量測依賴變更的記錄重新收集。載入文件仍是新實驗；沒有可保留的交流區塊時沿用整體重新初始化。
+
+理想變壓器的直流保護以直流等效解判斷繞組兩端非零直流電壓，排除零EMF、共同參考及無激勵的懸空支路。C在此查核開路、L保留線阻、交流源平均EMF為0；真正電池激勵仍報dc-transformer，物理／數值失效亦保留診斷。
+
+本項精準回歸是ac-dependency-audit.test.js及 --dependency-audit-smoke；原工作台source／ZIP驗證讀數正負、播放／單步、草稿／焦點及數值失效（測試適配器觸發真實time-resolution guard）。沒有實機或Moodle證據。
+
 ## 精準驗證與維護
 
 按實際改動選相關項目，通過後不因小改動反覆重跑全套。下表的Node檔案位於 `sim/circuit-workbench/`；browser以 `node tools/circuit-ac-browser-regression.js` 加下表flag執行（例如 `node tools/circuit-ac-browser-regression.js --field-smoke`），檢查source及解壓AC ZIP。
