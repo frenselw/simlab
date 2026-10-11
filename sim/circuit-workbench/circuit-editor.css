@@ -173,6 +173,9 @@
 .circuit-editor .context-actions [data-circuit-id="deleteSelected"].trash-open{background:#ffd9dd;border-color:#bd2c3b}
 .circuit-editor .panel.discard-active{outline:2px solid #bd2c3b;outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){.circuit-editor .trash-lid{transition:none}}
+@media(max-width:759px),(max-width:959px) and (max-height:450px){
+  .circuit-editor .ac-example-hint,.circuit-editor .canvas-notice[data-example-notice]{display:none}
+}
 .circuit-editor .connection-options label{margin:0}
 .circuit-editor .connection-options .note{margin:8px 0 0}
 .circuit-editor .palette svg{width:44px;height:38px}
