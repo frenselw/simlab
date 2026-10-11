@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 13，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 14，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 13／共用復原及重做圖示（2026-10-11）
+## 最近更新：Sites version 14／理想變壓器四電錶示例（2026-10-11）
+
+Runtime取自已推送提交 `cb29a791efdda28de5b59a0a7f9f1126b4cabe56`。教師理想變壓器示例在原／副側各設串聯交流電流表與並聯交流電壓表，左右對齊；線路寬度維持680單位，電壓支路有明確接點，沒有重疊接線。100／200／400副側匝數對應約3／6／12V，兩側電流可同時比較。技術學生示例保留原固定模板及codec。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `a518a7f4e83c9710ee25537b8f0179c924f6e9c5` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_b1766535ff888191b488d742a65c673a` | `appgdep_6acba78b9a588191915d0a3bba681cd9` |
+| AC | `bed9ed0d9214be268bd4931a401fe03a43275132` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_6a5ec2509960819180922cfccd5dc851` | `appgdep_6acba7792cb08191ac4c12892bcf0063` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。source／ZIP示例专項110項通過，包括三種匝數、24Ω負載及桌面／手機；ac-platform既有接線／間距／codec恢復及transformer-design套件通過。四包已重建及核對來源，未驗完整CI、真手機或Moodle。證據在 `output/transformer-comparison/`，archive為 `output/sites/circuit-dc-workbench-transformer-comparison-v14.tar.gz`及`output/sites/circuit-ac-workbench-transformer-comparison-v14.tar.gz`。
+
+## 前次更新：Sites version 13／共用復原及重做圖示（歷史記錄）
 
 Runtime取自已推送提交 `b302f84e31748985f7cce791724ce7443eaa397b`。DC／AC以置中的24×24 SVG圓弧箭頭取代字元復原／重做，互為鏡像，沿用共用線寬及44px操作目標；清除舊字元字級。原操作及快照不改。DC29個／AC38個資產逐byte及SHA-256一致。
 
