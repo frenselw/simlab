@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 8，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 9，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 8／滑鼠桌面捲頁把手（2026-10-11）
+## 最近更新：Sites version 9／發電機引線對稱（2026-10-11）
+
+Runtime取自已推送提交 `4bd3280ebde9da6604ff5006275fa45d3a0ecfc6`。發電機兩條外引線折返高度統一30.5，消除直立時一邊貼近外殼的外觀；接孔、碳刷接點、轉子及物理模型保持。DC29個／AC38個資產逐byte／SHA-256一致，原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `0cf3c8360fe2d0fad99f6a92f772a0191c9acc05` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_9f3defd24a0081919d5ce07b7e973e03` | `appgdep_6acb902c7f348191963422515e72fa0a` |
+| AC | `e5bf51ca914cf3c26fe41aee12b0ed4aa80cd76a` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_3c47e4a03a048191b84f6d6eda277937` | `appgdep_6acb901cb6d88191be9a1f27df6b39ba` |
+
+兩次原生發布均succeeded；只驗generator-graphics原套件361姿態及引線斷言、source／ZIP引線專項128項（四向、桌面／手機及相位前後），四包已重建且runtime雜湊一致。沒有重跑其他物理套件、CI、真手機或Moodle。證據在 `output/generator-lead-symmetry/`，archive為 `output/sites/circuit-dc-workbench-generator-leads-v9.tar.gz`及`output/sites/circuit-ac-workbench-generator-leads-v9.tar.gz`。
+
+## 前次更新：Sites version 8／滑鼠桌面捲頁把手（歷史記錄）
 
 Runtime取自已推送提交 `37f7b8f22be7453eedb56c04747ee8808a21674c`。hover＋fine pointer的純滑鼠環境隱藏左右把手，coarse pointer觸控能力保留32px／pan-y；隱藏把手不再佔文字避讓區。DC29個／AC38個資產逐byte／SHA-256一致，原網址及擁有者私人存取保持。
 
@@ -106,7 +117,7 @@ Version 2 archive為 `output/sites/circuit-dc-workbench-8f0b371.tar.gz` 與 `out
 
 後續更新應重用表內project ID，透過Sites source helper打開對應來源庫、更新同一份SimLab資產，再推送、封裝、保存及部署相同來源版本；不要把兩站的identity或repository混用。checkout若遺失，從相同project ID恢復遠端source，不另建重複網站。短期repository credential只經helper stdin傳入，不保存到檔案、Git或本文件。
 
-每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 8記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
+每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 9記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
 
 ## 驗證界限
 
