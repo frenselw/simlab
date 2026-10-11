@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 12，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-11兩個standalone工作台已更新至Sites version 13，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 12／發電機磁通量及LaTeX說明（2026-10-11）
+## 最近更新：Sites version 13／共用復原及重做圖示（2026-10-11）
+
+Runtime取自已推送提交 `b302f84e31748985f7cce791724ce7443eaa397b`。DC／AC以置中的24×24 SVG圓弧箭頭取代字元復原／重做，互為鏡像，沿用共用線寬及44px操作目標；清除舊字元字級。原操作及快照不改。DC29個／AC38個資產逐byte及SHA-256一致。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `83549afeed560bbbbc74bdbbf2657409bf219faa` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_4b30cb1b2ec08191a5e9a19342ffbb57` | `appgdep_6acba550889081918b54dec155b86f0b` |
+| AC | `e45456e141f75f78c5e396d8a4ab77496b15bef9` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_c53d26e8dc108191aec9ef09eba12879` | `appgdep_6acba55f847c8191a6c7718880ba7928` |
+
+兩次原生發布均succeeded；原網址與擁有者私人存取保持。source／ZIP圖示專項56項通過（AC／DC ×1280／390 px），核對圖示中心、停用狀態及實際復原／重做文件一致。四包重建並核對來源，沒有重跑物理、完整CI、真手機或Moodle。證據在 `output/history-icons/`，archive為 `output/sites/circuit-dc-workbench-history-icons-v13.tar.gz`及`output/sites/circuit-ac-workbench-history-icons-v13.tar.gz`。
+
+## 前次更新：Sites version 12／發電機磁通量及LaTeX說明（歷史記錄）
 
 Runtime取自已推送提交 `22a816e44a4d76e6653c6d0d69129e432c900034`。發電機檢視器、場觀察及放大觀察改用單匝磁通量Φ及總磁通量NΦ；說明中的N／S磁極、磁場、法線、角度及磁通量公式使用共用LaTeX向量字形。物理數值及快照不改。DC29個／AC38個資產逐byte及SHA-256一致。
 
