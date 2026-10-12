@@ -1,13 +1,36 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 18，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 19，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 18／電橋電流表 0.6 A 接孔（2026-10-12）
+## 最近更新：Sites version 19／CW-12／13／14及清楚的變壓器比值（2026-10-12）
+
+Runtime取自已推送提交 `1dbd68bde327d39ec31eb673885349f6c28adf13`：保護先驗
+現行狀態，拒絕不相容候選而不清除儲能；故障／正常區塊分開初始化；依
+可行區間共同限幅及逐源核證，支援反向多源。變壓器移除細小副標題，改用
+共用screen-size標籤只顯示一行N₁:N₂比值並避讓。DC29個／AC38個資產與
+Git提交逐byte及SHA-256一致；原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `3cca59604fc179b328cb1efe0f78410ba6106c7b` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_38077c22f6508191a32f1d6fdfba0ccf` | `appgdep_6acc8723aedc8191af9b2b321dcc46d8` |
+| AC | `e9e2767877572f1d262c6dc2b63fca2069cca7cf` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_a7efa62541e48191869b88d1ac902496` | `appgdep_6acc8738eb348191b4f2875f5013302a` |
+
+兩次原生發布succeeded，get_site確認version 19。14份相關Node suites、
+保護source／ZIP browser456 checks、變壓器126 checks、check及四包重建
+通過；具體範圍見[交流計劃](../plans/32-circuit-ac-workbench.md)。兩站部署
+目錄1280／390px掛載、根跳轉及query／hash、可信視圖切換及無水平溢出
+通過。未執行完整CI、實機手機或Moodle；非線性保護有界搜尋不能視作一般
+可行性證明。最新部署核對檔在 `output/sites/runtime-verification.json`及
+`output/sites/browser-verification.json`。官方helper生成的archive為
+`output/sites/circuit-dc-workbench-1dbd68b-v19.tar.gz`及
+`output/sites/circuit-ac-workbench-1dbd68b-v19.tar.gz`。
+
+## 前次更新：Sites version 18／電橋電流表 0.6 A 接孔（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `905956354c79fe1900ce8b0cd13d4f3d25883707`；橋中電流表
 改接既有0.6 A小量程正接孔，保留原有雙量程器材、電流及負接孔。DC29個／
