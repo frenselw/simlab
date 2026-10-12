@@ -1,13 +1,48 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 22，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+兩個standalone工作台已更新至Sites version 23，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 22／實測回饋保護及保存容量（2026-10-12）
+## 最近更新：Sites version 23／斜臂電橋、可見拆線及讀值更新
+
+Runtime取自已推送提交 `02e5086f389429c36dc5422507f75a010d484fba`，CW-20
+提交 `13521fe`。電橋四臂315/45/45/315°，保留兩孔變阻器與0.6 A量程；
+中央接線避開3 A孔。拆開全部移開並分開自由線端，保留元件/另一端/線長
+及一次復原。AC全部元件同用彩色讀值條，RMS無負區、錶讀值按儀表參考，
+極小可測值保留科學記數。條形RAF更新既有DOM，數字/全圖最多5Hz；
+變壓器密度/方向未改時保留遮罩/路徑，只更新強度。不是60fps保證。
+
+CW-20真正時間重啟時重排正常/限流來源，保留倍率並重建檢查時刻；
+時間連續的區塊維持原排程、跳掣維持鎖定。嚴格v5恢復驗證不放寬。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `395f22c4ab914fb55837558a7be34b7ab65bae21` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_6b2bbe6a83f881919ed8cf4e9c0a5223` | `appgdep_6acd11618acc8191a0427a43d953b755` |
+| AC | `ba39c596d1f8312850e3b151710aa67a1c430c69` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_a58c40823a5881919aec4c0a645294e3` | `appgdep_6acd114b69fc819182636db23e9247a2` |
+
+兩次原生部署succeeded；get_site確認version23／active及只有owner。DC29／
+AC38資產與runtime提交逐byte及SHA-256一致。部署目錄桌面／手機的入口、
+HTTP200、query/hash、可信視圖、電橋變阻器及無例外檢查通過。
+
+AC/DC source/ZIP桌面/可信觸控24組，新增線端>=15CSS px分開及菱形截圖；
+layout、有限長度、重新接線、復原、編碼、十二次連續轉錶及120版面通過。
+CW-20核心54種即時保存/恢復/續作及原保護/能量/CW-17 25組通過。
+CW-20與容量的native儲存/開啟完成/續作合共756 checks；讀值條180、變壓器
+場126、工程單位134 checks通過。條形實際約13–18次/秒，跟隨rendered
+frames且無重建節點，數字約5Hz；原10Hz設計限制已移除，繪圖仍限制整體
+幀率，不能稱已達穩定60fps。check/manifest及四包重建通過，未驗完整CI、
+全套browser、真手機/Moodle。詳見[DC計劃](../plans/28-circuit-workbench.md)
+及[AC計劃](../plans/32-circuit-ac-workbench.md)。
+
+官方helperarchive為 `output/sites/circuit-dc-workbench-02e5086-v23.tar.gz`
+及`output/sites/circuit-ac-workbench-02e5086-v23.tar.gz`；核對檔仍為
+`output/sites/runtime-verification.json`及`output/sites/browser-verification.json`。
+
+## 前次更新：Sites version 22／實測回饋保護及保存容量（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `38d3c365630950deda802290dd03567226a1eed5`。移除AC
 前瞻搜尋，按已接受的RMS／平均端口功率固定時序回饋，逐步降壓及慢恢復；
