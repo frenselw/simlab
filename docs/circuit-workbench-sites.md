@@ -1,13 +1,38 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 19，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 20，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 19／CW-12／13／14及清楚的變壓器比值（2026-10-12）
+## 最近更新：Sites version 20／CW-15／16混頻窗及繞組投影（2026-10-12）
+
+Runtime取自已推送提交 `3c5640a77c9d434357eb908556dca9f82261d1f1`。保護與
+量測採相同完整共同週期；非週期採10秒窗及持續複核，核心接受的完整物理
+積分作失效保底。方波／三角波轉角分段積分，完整窗超4096步不縮短窗。
+子電路按branch ID投影，零耦合不引入副繞組，非零互感／理想ratio保留
+必要兩側及端接；副側電流與儲能不清零。DC29個／AC38個資產與該Git提交
+逐byte及SHA-256一致。原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `7ba70ad4b38b3b70865f28fd63b73880c1a44ca1` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_319fbb9cc5308191904ac29f0c220483` | `appgdep_6acca57ad1808191a475982bafde929b` |
+| AC | `8c43afbd76d127ba79fccd9aa3f2e1eb4232cfb4` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_4e664b5d6bac8191b1e5d8b6706c90b3` | `appgdep_6acca58b7bc48191949fcbc4dec47427` |
+
+兩次原生部署succeeded，get_site確認version 20。10份相關Node suites、
+CW-15／16 source／ZIP188 checks、既有保護456 checks、check／manifest及
+四包重建通過，範圍見[交流計劃](../plans/32-circuit-ac-workbench.md)。兩站
+部署目錄桌面／手機掛載、跳轉／query／hash、視圖及無溢出檢查通過；最新
+核對檔在 `output/sites/runtime-verification.json`及
+`output/sites/browser-verification.json`。官方helper生成archive為
+`output/sites/circuit-dc-workbench-3c5640a-v20.tar.gz`及
+`output/sites/circuit-ac-workbench-3c5640a-v20.tar.gz`。未驗完整CI、真手機／
+Moodle；有界前向預測不能保證任意非週期負載永不超限，無可靠維持上限時
+鎖定並保留真實讀值與儲能，不宣稱normal。
+
+## 前次更新：Sites version 19／CW-12／13／14及清楚的變壓器比值（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `1dbd68bde327d39ec31eb673885349f6c28adf13`：保護先驗
 現行狀態，拒絕不相容候選而不清除儲能；故障／正常區塊分開初始化；依
