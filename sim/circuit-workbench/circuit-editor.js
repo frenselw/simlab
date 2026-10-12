@@ -49,7 +49,7 @@
   const flowContext=()=>(drag||previewDoc)?new Map(flowScales):flowScales;
   function clearFieldScales(){for(const key of flowScales.keys())if(key.startsWith("field:"))flowScales.delete(key);}
   const solve=doc=>{if(transient){if(doc!==history.get()){if(paramSession&&doc===previewDoc)return paramSession.read();return JSON.stringify(doc)===JSON.stringify(history.get())?session.read():session.preview(doc);}if(doc!==sessionDocument){lastSessionChange=session.update(doc);if(lastSessionChange==='restarted')clearFieldScales();sessionDocument=doc;}return session.read();}H.sync(relayStates,history.get());return S.solve(doc,relayStates);};
-  let analysis=solve(history.get()),routes={},geometryKey="",selection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
+  let analysis=solve(history.get()),routes={},geometryKey="",selection=null,selectedConnection=null,drag=null,previewDoc=null,meterPreview=null,panMode=false,wireMode=false,probeMode=false,probeFirst=null,probeResult=null,autoFit=true,lastMessage="",suppressClick=false;
   let quickBinding=null,releasedMeta=null,blankMouseDown=null;
   const settingsDrafts=new Map();
   function syncSetting(id,value){const input=$(id);if(document.activeElement!==input&&!settingsDrafts.has(id))input.value=value;}
@@ -78,7 +78,7 @@
   function rollbackDrag(){discardParamPreview();meterPreview=null;const old=drag;drag=null;previewDoc=null;analysis=solve(history.get());$("preview").hidden=true;
     if(old?.kind==="wireend"||old?.kind==="body"||old?.wholeWire||old?.discardNoticed)$("canvasNotice").hidden=true;
     if(old?.kind==="pan"){Object.assign(camera,old.base);autoFit=old.autoFitBefore;}
-    if(old)selection=old.selectionBefore;
+    if(old){selection=old.selectionBefore;selectedConnection=old.connectionBefore??null;}
     if(old?.kind==='palette')old.target.suppressedToolPointers.add(old.pointerId);
     // Active touches keep their original capture until lift or an explicit transfer.
     if(old?.target.hasPointerCapture?.(old.pointerId)&&!touches.has(old.pointerId))old.target.releasePointerCapture(old.pointerId);
@@ -147,15 +147,19 @@
   function renderHits(d){const needed=new Set(),put=(key,...args)=>{needed.add(key);return target(key,...args);};
     d.components.forEach(c=>{const dual=R.dualMeter(c),size=d.display.view==='real'?R.meterBodyScale(c):1,w=(dual?(d.display.view==='real'?144:70):c.type==='relay'?150:c.type==='galvanometer'?102:c.type==='rheostat'?100:c.type==='wattmeter'?80:70)*size,h=(dual?(d.display.view==='real'?130:70):c.type==='relay'?108:c.type==="lamp"?106:c.type==='galvanometer'?97:c.type==='rheostat'?64:c.type==="wattmeter"?78:46)*size,angle=c.angle*Math.PI/180,center=dual&&d.display.view==='real'?{x:c.x+22*size*Math.sin(angle),y:c.y-22*size*Math.cos(angle)}:c.type==='relay'?{x:c.x-14*Math.sin(angle),y:c.y+14*Math.cos(angle)}:c;
       const acBounds=R.get(c.type).analysis==='transient'?R.bodyBounds(c):null;
-      put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:c.angle%180?h:w)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:c.angle%180?w:h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
+      put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
+      targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
-      if(dual?camera.scale>=.7:camera.scale>=.55||probeMode||drag?.kind==="wireend")R.ports(c).forEach(p=>put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,"pan-y"));
+      R.ports(c).filter(p=>(dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
     });
     d.junctions.filter(j=>M.degree(d,j.id+":p")>1).forEach(j=>put("junction:"+j.id,{kind:"junction",id:j.id,label:"共接點，點選量測或拖動"},screen(j)));
     d.wires.forEach(w=>{const points=G.simplify(routes[w.id],1.2/camera.scale);
       points.slice(1).forEach((p,i)=>{const a=screen(points[i]),b=screen(p),n=put("wire:"+w.id+":"+i,{kind:"wire",id:w.id,segment:i,point:{x:(points[i].x+p.x)/2,y:(points[i].y+p.y)/2},label:"導線 "+w.id+"，拿線身搬動或彎曲"},{x:(a.x+b.x)/2,y:(a.y+b.y)/2},Math.hypot(b.x-a.x,b.y-a.y)+6,18);n.style.transform+=` rotate(${Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI}deg)`;n.classList.toggle("selected",selection?.id===w.id);});
       const ends=M.endpoints(d);["from","to"].forEach((end,i)=>{if(!M.attached(d,w,end)||selection?.id===w.id||wireMode){const n=put("wireend:"+w.id+":"+end,{kind:"wireend",id:w.id,end,endpoint:w[end],label:`導線 ${w.id} ${i?"B":"A"}端，${M.attached(d,w,end)?"拉走可拔開":"拖到端子或其他線端接好"}`},screen(ends.get(w[end])));n.classList.toggle("selected",selection?.id===w.id);}});
     });
+    const connection=selectedConnection&&M.endpoints(d).get(selectedConnection),count=connection?M.degree(d,selectedConnection):0;
+    for(const t of targets.values()){t.classList.toggle('connection-selected',!!connection&&t.meta.id===selectedConnection||!!connection&&t.meta.endpoint===selectedConnection);t.classList.toggle('connection-wire',!!connection&&t.meta.kind==='wire'&&d.wires.some(w=>w.id===t.meta.id&&(w.from===selectedConnection||w.to===selectedConnection)));}
+    if(connection&&count&&screen(connection).x>=0&&screen(connection).x<=surface.clientWidth&&screen(connection).y>=0&&screen(connection).y<=surface.clientHeight&&wireAllowed()&&!probeMode&&!drag&&!cameraGesture){const p=screen(connection),icon=put('detachConnection',{kind:'detachConnection',id:selectedConnection,label:'拆開全部 · '+count+' 個線端'},{x:Math.max(24,Math.min(surface.clientWidth-24,p.x+38)),y:Math.max(24,Math.min(surface.clientHeight-24,p.y-38))},44,44,'manipulation');icon.title=icon.meta.label;icon.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#'+prefix+'icon-detach"/></svg><small>'+count+'</small>';}
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
   function canDiscard(grip,doc=grip?.baseDoc){
@@ -496,11 +500,18 @@
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
     if(panMode||quick){startPan(e,quick);return;}
-    const t=e.target.closest(".hit"),meta=t?.meta,d=history.get();
+    const t=e.target.closest(".hit"),d=history.get();let meta=t?.meta,tapMeta=meta;
+    if(meta?.kind==='wireend'&&M.attached(d,d.wires.find(w=>w.id===meta.id),meta.end)&&!selectedWire()){const endpoint=d.wires.find(w=>w.id===meta.id)[meta.end],component=d.components.find(c=>c.id===endpoint.split(':')[0]);meta=tapMeta={kind:component?'port':'junction',id:component?endpoint:endpoint.split(':')[0]};}
+    const owner=meta&&['body','port','slider'].includes(meta.kind)&&d.components.find(c=>c.id===meta.id.split(':')[0]);
+    if(owner&&camera.scale<(R.dualMeter(owner)?.7:.55)){
+      const p=world(e.clientX,e.clientY),features=['body:'+owner.id,'slider:'+owner.id,...R.ports(owner).map(p=>'port:'+p.id)].map(key=>targets.get(key)).filter(Boolean);
+      features.sort((a,b)=>{const distance=t=>{const r=t.getBoundingClientRect(),q=world(r.left+r.width/2,r.top+r.height/2);return Math.hypot(q.x-p.x,q.y-p.y);};return distance(a)-distance(b);});if(features[0])meta=tapMeta=features[0].meta;
+    }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
-    if(!meta||meta.kind==="port")return;if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
+    if(!meta||meta.kind==='detachConnection')return;
+    if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
-    const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,moved:false,snap:null,limited:false};
+    const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,tapMeta,connectionBefore:selectedConnection,moved:false,snap:null,limited:false};
     if(readOnly)drag.kind="meterread";
     if(meta.kind==="wire"){const w=d.wires.find(w=>w.id===meta.id);drag.wholeWire=!M.attached(d,w,"from")&&!M.attached(d,w,"to");}
     if(meta.kind==="wireend")drag.start=M.endpoints(d).get(d.wires.find(w=>w.id===meta.id)[meta.end]);t.setPointerCapture(e.pointerId);render();
@@ -512,7 +523,7 @@
   });
   on(surface,"pointermove",e=>{
     if(touchBlocked||!drag||e.pointerId!==drag.pointerId)return;drag.lastX=e.clientX;drag.lastY=e.clientY;const p=world(e.clientX,e.clientY);drag.moved||=Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6;
-    if(drag.kind==="pan"){autoFit=false;camera.x=drag.base.x-(e.clientX-drag.x)/camera.scale;camera.y=drag.base.y-(e.clientY-drag.y)/camera.scale;render(false);return;}if(!drag.moved)return;
+    if(drag.kind==="pan"){autoFit=false;camera.x=drag.base.x-(e.clientX-drag.x)/camera.scale;camera.y=drag.base.y-(e.clientY-drag.y)/camera.scale;render(false);return;}if(!drag.moved)return;selectedConnection=null;
     if(drag.kind==="meterread"){render(false);return;}
     drag.discardZone=discardZoneAt(drag,e.clientX,e.clientY);drag.discard=drag.discardZone&&canDiscard(drag)?drag.discardZone:null;
     if(drag.discardZone){drag.snap=null;drag.limited=false;renderGhost();return;}
@@ -537,7 +548,7 @@
     if(!drag||e.pointerId!==drag.pointerId)return;const done=drag,preview=previewDoc,discardZone=discardZoneAt(done,e.clientX,e.clientY);drag=null;if(!paramSession)previewDoc=null;const c=history.get().components.find(c=>c.id===done.id);meterPreview=done.pointerType==="touch"&&["body","meterread"].includes(done.kind)&&!done.moved&&readableMeter(history.get(),c)?{id:c.id,side:done.previewSide}:null;$("preview").hidden=true;suppressClick=done.moved||done.quick;
     // Footer reflow may move scene targets before the browser sends click.
     // Keep the original tap target rather than reselecting whatever moved under it.
-    releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(selection):null;
+    releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(done.tapMeta||selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
     if(discardZone){
       $('canvasNotice').hidden=true;analysis=solve(history.get());
@@ -565,8 +576,11 @@
     if($("preview").contains(e.target))return;
     const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
     if(suppressClick&&e.detail)return;if(panMode)return;
+    if(meta?.kind==='detachConnection'){const endpoint=meta.id;cancel();if(!wireAllowed())return;change(doc=>M.detachConnection(doc,endpoint));selectedConnection=null;selection=null;render();notify('已拆開全部線端，導線留在畫布；復原可還原整組接線。');return;}
+    const endpoint=meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null;
+    selectedConnection=!probeMode&&endpoint&&M.attached(history.get(),{from:endpoint},'from')?endpoint:null;
     if(meta){if(probeMode&&["port","junction","wireend"].includes(meta.kind)){probePort(meta.kind==="junction"?meta.id+":p":meta.kind==="wireend"?history.get().wires.find(w=>w.id===meta.id)[meta.end]:meta.id);return;}
-      selection={...meta};if(meta.kind==="body"&&["switch","spdt"].includes(selectedComponent()?.type)&&allow(history.get(),selectedComponent(),"switch"))change(doc=>{const c=doc.components.find(c=>c.id===meta.id);c.params.closed=c.type==='spdt'?(c.params.closed==='b'?'c':'b'):!c.params.closed;});else render();
+      if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};if(meta.kind==="body"&&["switch","spdt"].includes(selectedComponent()?.type)&&allow(history.get(),selectedComponent(),"switch"))change(doc=>{const c=doc.components.find(c=>c.id===meta.id);c.params.closed=c.type==='spdt'?(c.params.closed==='b'?'c':'b'):!c.params.closed;});else render();
     }else{selection=null;render();}
   });
   function undo(redo=false){if(readOnly||!profile.undo)return false;cancel();if(session)sessionHistory.set(history.get(),session.capture());const changed=redo?history.redo():history.undo();if(changed&&session){const saved=sessionHistory.get(history.get());if(saved)replaceSession(root.CircuitTransient.Session.restore(saved));else replaceSession(new root.CircuitTransient.Session(history.get()));paused=true;}selection=null;analysis=solve(history.get());if(changed&&autoFit)fit();render();if(changed)emitChange();notify(redo?"已重做。":"已復原。");return changed;}
@@ -614,7 +628,7 @@
   $('flipMeterSelected').onclick=()=>{if(selectedComponent())flipMeter(selection.id);};
   $("detachFrom").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"from");};$("detachTo").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"to");};
   $("deleteSelected").onclick=()=>{const id=selection?.id;if(!id||selection.kind==="port")return;cancel();change(doc=>M.remove(doc,id));notify("已刪除；刪線歸還庫存，復原可還原。");};$("rotateSelected").onclick=()=>{if(selectedComponent())rotate(selection.id);};$("rotateCounterSelected").onclick=()=>{if(selectedComponent())rotate(selection.id,-1);};$("undo").onclick=()=>undo();$("redo").onclick=()=>undo(true);
-  function loadDocument(doc){if(destroyed)throw new Error("編輯器已卸載");if(readOnly)throw new Error("目前為只讀，不能載入電路");if(D.bytes(typeof doc==='string'?doc:JSON.stringify(doc))>M.limits.bytes)throw new Error('電路檔超出 256 KiB 限制');const data=typeof doc==='string'?JSON.parse(doc):doc;if(data?.kind==='simlab-circuit-session'){controller.restoreSession(data);return false;}const imported=D.importDocument(data),valid=profile.assertSnapshot(transient?root.CircuitAC.toAC(imported.document):imported.document);cancel();const before=history.get();history.replace(valid);discardSettingsDrafts();if(transient){replaceSession(new root.CircuitTransient.Session(valid));if(session.fault)paused=true;}wireCurrents.clear();potentialDirections.clear();labelOptions.previous=null;flowOffsets.clear();flowScales.clear();needleStates.clear();relayStates.clear();analysis=solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();acUI?.documentLoaded(valid);if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
+  function loadDocument(doc){if(destroyed)throw new Error("編輯器已卸載");if(readOnly)throw new Error("目前為只讀，不能載入電路");if(D.bytes(typeof doc==='string'?doc:JSON.stringify(doc))>M.limits.bytes)throw new Error('電路檔超出 256 KiB 限制');const data=typeof doc==='string'?JSON.parse(doc):doc;if(data?.kind==='simlab-circuit-session'){controller.restoreSession(data);return false;}const imported=D.importDocument(data),valid=profile.assertSnapshot(transient?root.CircuitAC.toAC(imported.document):imported.document);cancel();const before=history.get();history.replace(valid);discardSettingsDrafts();if(transient){replaceSession(new root.CircuitTransient.Session(valid));if(session.fault)paused=true;}wireCurrents.clear();potentialDirections.clear();labelOptions.previous=null;flowOffsets.clear();flowScales.clear();needleStates.clear();relayStates.clear();analysis=solve(history.get());selection=null;selectedConnection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();acUI?.documentLoaded(valid);if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
   $("preset").onchange=()=>{const name=$("preset").value,next=P.create(name);if(teacher){const previous=history.get();next.display=M.clone(previous.display);next.display.reference=null;next.policy=M.clone(previous.policy);next.cables={...previous.cables,count:Math.max(previous.cables.count,next.wires.length)};}loadDocument(next);$("preset").value=name;};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
   $("fontSize").onchange=()=>change(doc=>{doc.display.fontSize=$("fontSize").value;doc.display.projection=false;});
   ["flow","potential","names","values"].forEach(id=>$(id).onchange=()=>change(doc=>doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value));$("pause").onclick=()=>{if(transient){setPlayback({paused:!paused});return;}paused=!paused;lastTime=0;relayLastTime=performance.now();render(false);};$("slowMotion").onclick=()=>{if(transient&&(readOnly||!profile.simulation.rate))return;slowMotion=!slowMotion;lastTime=0;acLag=0;relayLastTime=performance.now();render(false);};
@@ -715,6 +729,7 @@
         case 'addWire': {const w=addWire(doc,command.x??camera.x+surface.clientWidth/(2*camera.scale),command.y??camera.y+surface.clientHeight/(2*camera.scale));selection={kind:'wire',id:w.id};break;}
         case 'attach': if(!M.attach(doc,command.id,command.end,command.target))throw new Error('導線太短，不能接到該端點');break;
         case 'detach': M.detach(doc,command.id,command.end);break;
+        case 'detachConnection': if(!wireAllowed())throw Error('目前不能拆線');M.detachConnection(doc,command.id);break;
         case 'straighten': M.straightenWire(doc,command.id);break;
         case 'setWireResistance': if(!profile.canSetWireResistance(doc,readOnly))throw new Error('導線電阻已固定');M.setWireResistance(doc,command.id,command.value);break;
         case 'remove': M.remove(doc,command.id);break;
@@ -750,7 +765,7 @@
     resetSourceProtection(id){if(destroyed||!session||readOnly)return false;const c=history.get().components.find(c=>c.id===id);if(c?.type!=='ac-source'||!allow(history.get(),c,'params','protectionEnabled'))return false;cancel();if(!session.resetProtection(id))return false;analysis=session.read();lastTime=0;acLag=0;render();emitChange();return true;},
     setFieldDisplay(visible){if(destroyed||!transient||!profile.ui.field||typeof visible!=='boolean')return false;labelOptions.fields=visible;render(false);return true;},
     captureSession(){if(destroyed||!session)throw new Error('此編輯器沒有時間 session');return session.capture();},
-    restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;needleStates.clear();analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();},
+    restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;needleStates.clear();analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();if(snapshot.version===3)notify("舊快照未保存保護積分歷史；已保留物理狀態與鎖定，完整窗前保守恢復輸出。");},
     getObservationTools(){return acUI?.getTools()||[];},
     setObservationTools(tools){if(destroyed||!acUI||!profile.ui.waveform)return false;return acUI.setTools(tools);},
     setObservationChannels(channels){if(!acUI||!profile.ui.waveform)return false;return acUI.setChannels(channels);},
@@ -767,7 +782,7 @@
       host.replaceChildren();restoreHost();
       if(activeHost===host)activeHost=null;mounts.delete(host);
     },
-    getInteraction:()=>({pending:null,readOnly,destroyed,meterPreview:meterPreview?.id||null,wireCurrents:[...wireCurrents],potentialDirections:[...potentialDirections],dragging:cameraGesture?"camera":drag?.kind||null,selection:selection?M.clone(selection):null,camera:{...camera},panMode,wireMode,probeMode,spacePan,touchCount:touches.size,touchBlocked,snap:drag?.snap?.id||null,limited:!!drag?.limited,lastMessage}),cancel});
+    getInteraction:()=>({pending:null,readOnly,destroyed,meterPreview:meterPreview?.id||null,wireCurrents:[...wireCurrents],potentialDirections:[...potentialDirections],dragging:cameraGesture?"camera":drag?.kind||null,selection:selection?M.clone(selection):null,selectedConnection,camera:{...camera},panMode,wireMode,probeMode,spacePan,touchCount:touches.size,touchBlocked,snap:drag?.snap?.id||null,limited:!!drag?.limited,lastMessage}),cancel});
   if(transient){if(!root.CircuitACUI)throw new Error('缺少交流介面依賴');acUI=root.CircuitACUI.mount({host,refs,profile,controller,viewDocument:current,routes:()=>routes,readouts:reactiveReadouts,currentReferences:()=>labelOptions.currentReferences});}
   render();function animate(time){if(destroyed)return;
     const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(transient?.25:.05,rawElapsed)*rate;lastTime=time;

@@ -14,7 +14,7 @@ for(const [type,params,mirrored]of [
   R.ports(c).forEach((p,i)=>{const j={id:"j"+(i+1),x:p.x+200+i*30,y:p.y+180-i*30};d.junctions.push(j);const w=M.connect(d,p.id,j.id+":p",[{x:p.x+60,y:p.y+120},{x:j.x-30,y:j.y+70}],i%2?"smooth":"free");w.length=1200;});
   const unrelated=M.addWire(d,900,500);unrelated.shape="smooth";unrelated.via=[{x:900,y:560}];
   const untouched=M.clone(unrelated),nodes=M.clone(d.junctions),ids=topology(d),readings=S.solve(M.validate(d)).components;
-  for(const angle of [90,180,270,0]){
+  for(const angle of [45,90,135,180,225,270,315,0]){
     M.rotateComponent(d,c.id);assert.equal(d.components[0].angle,angle);assert.deepEqual(topology(d),ids);assert.deepEqual(d.junctions,nodes);assert.deepEqual(d.wires.find(w=>w.id===unrelated.id),untouched);
     d.wires.filter(w=>w.id!==unrelated.id).forEach(w=>straight(d,w));M.validate(d);assert.deepEqual(S.solve(d).components,readings);
   }
@@ -22,7 +22,7 @@ for(const [type,params,mirrored]of [
 
 for(const type of ["ammeter","voltmeter"])test(type+" signed reading and range",()=>{
   const d=meterMathFixture(type,"c",-.1),before=S.solve(d).components.c3,ids=topology(d),unrelated=M.clone(d.wires.filter(w=>![w.from,w.to].some(p=>p.startsWith("c3:"))));
-  for(let i=0;i<4;i++){M.rotateComponent(d,"c3");assert.deepEqual(S.solve(M.validate(d)).components.c3,before);assert.deepEqual(topology(d),ids);for(const w of unrelated)assert.deepEqual(d.wires.find(v=>v.id===w.id),w);}
+  for(let i=0;i<8;i++){M.rotateComponent(d,"c3");assert.deepEqual(S.solve(M.validate(d)).components.c3,before);assert.deepEqual(topology(d),ids);for(const w of unrelated)assert.deepEqual(d.wires.find(v=>v.id===w.id),w);}
 });
 
 test("same component endpoints and shared junction",()=>{
@@ -48,20 +48,20 @@ test("too-short cable refuses the entire rotation atomically",()=>{
 });
 
 test("rotation permissions and no-wire rotation",()=>{
-  const d=M.empty(),c=M.add(d,"lamp",0,0);c.locked=true;const locked=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id));assert.equal(D.encode(d),locked);c.locked=false;d.policy.mode="wiring";assert.throws(()=>M.rotateComponent(d,c.id));d.policy.allowRotate=true;M.rotateComponent(d,c.id);assert.equal(d.components[0].angle,90);assert.throws(()=>M.rotateComponent(d,"missing"));
+  const d=M.empty(),c=M.add(d,"lamp",0,0);c.locked=true;const locked=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id));assert.equal(D.encode(d),locked);c.locked=false;d.policy.mode="wiring";assert.throws(()=>M.rotateComponent(d,c.id));d.policy.allowRotate=true;M.rotateComponent(d,c.id);assert.equal(d.components[0].angle,45);assert.throws(()=>M.rotateComponent(d,"missing"));
 });
 
 test("single undo restores angle and curves; restored files can continue",()=>{
   const d=meterMathFixture("voltmeter"),h=M.history(d),before=D.encode(h.get());h.change(next=>M.rotateComponent(next,"c3"));const after=D.encode(h.get());assert(h.undo());assert.equal(D.encode(h.get()),before);assert.equal(h.canUndo(),false);assert(h.redo());assert.equal(D.encode(h.get()),after);
-  const restored=D.decode(after);M.rotateComponent(restored,"c3");assert.equal(restored.components[2].angle,180);const w=restored.wires.find(w=>w.from==="c3:a");const route=G.route(restored,w);M.bendWire(restored,w.id,G.along(route,G.length(route)/2),0,40);assert(w.via.length>0);M.validate(restored);
+  const restored=D.decode(after);M.rotateComponent(restored,"c3");assert.equal(restored.components[2].angle,90);const w=restored.wires.find(w=>w.from==="c3:a");const route=G.route(restored,w);M.bendWire(restored,w.id,G.along(route,G.length(route)/2),0,40);assert(w.via.length>0);M.validate(restored);
 });
 test("counterclockwise shares atomic straightening, history and permissions",()=>{
   for(const type of ["lamp","ammeter","rheostat"]){
     const d=M.empty(),c=M.add(d,type,300,260),p=R.ports(c)[0];d.junctions.push({id:"j1",x:500,y:460});M.connect(d,p.id,"j1:p",[{x:400,y:400}],"free");
     const h=M.history(d),before=D.encode(d),readings=S.solve(d).components;
-    for(const angle of [270,180,90,0]){h.change(next=>M.rotateComponent(next,c.id,-1));assert.equal(h.get().components[0].angle,angle);straight(h.get(),h.get().wires[0]);assert.deepEqual(S.solve(h.get()).components,readings);}
-    for(let n=0;n<4;n++)h.undo();assert.equal(D.encode(h.get()),before);h.redo();assert.equal(h.get().components[0].angle,270);
-    const restored=D.decode(D.encode(h.get()));M.rotateComponent(restored,c.id,-1);assert.equal(restored.components[0].angle,180);M.validate(restored);
+    for(const angle of [315,270,225,180,135,90,45,0]){h.change(next=>M.rotateComponent(next,c.id,-1));assert.equal(h.get().components[0].angle,angle);straight(h.get(),h.get().wires[0]);assert.deepEqual(S.solve(h.get()).components,readings);}
+    for(let n=0;n<8;n++)h.undo();assert.equal(D.encode(h.get()),before);h.redo();assert.equal(h.get().components[0].angle,315);
+    const restored=D.decode(D.encode(h.get()));M.rotateComponent(restored,c.id,-1);assert.equal(restored.components[0].angle,270);M.validate(restored);
     restored.components[0].locked=true;const locked=D.encode(restored);assert.throws(()=>M.rotateComponent(restored,c.id,-1));assert.equal(D.encode(restored),locked);
   }
   const d=M.empty(),c=M.add(d,"battery",0,0);d.junctions.push({id:"j1",x:-220,y:0});const w=M.connect(d,c.id+":a","j1:p",[],"free");w.length=180;const before=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id,-1),/導線太短/);assert.equal(D.encode(d),before);

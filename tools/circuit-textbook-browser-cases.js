@@ -47,7 +47,7 @@ async function textbookCases(h,mode,base){
     await tap('[data-add="'+type+'"]');const c=(await doc()).components.at(-1);ids[name]=c.id;
     await drag('[data-hit="body:'+c.id+'"]',{x,y});
     // Drag already selects the component; tapping a switch would open it.
-    for(let n=0;n<angle/90;n++)await tap('#rotateSelected');
+    for(let n=0;n<angle/45;n++)await tap('#rotateSelected');
     if(resistance!==null)await number('[data-param="resistance"]',resistance);
   }
   await inside(`(()=>{const e=document.getElementById('cableLength');e.value='1200';e.onchange();})()`);

@@ -40,8 +40,9 @@
   const dualMeter=c=>['ammeter','voltmeter'].includes(c.type);
   const isMeter=c=>dualMeter(c)||['galvanometer','wattmeter'].includes(c.type)||get(c.type).meter===true;
   const meterBodyScale=c=>dualMeter(c)?.85:c.type==='wattmeter'?.9:1;
+  function rotation(angle){const values=[1,Math.SQRT1_2,0,-Math.SQRT1_2,-1,-Math.SQRT1_2,0,Math.SQRT1_2],n=angle/45;return {cos:values[n],sin:values[(n+6)%8]};}
   function meterHousingBounds(c) {
-    const s=meterBodyScale(c),a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a));
+    const s=meterBodyScale(c),{cos,sin}=rotation(c.angle);
     const corners=[-78*s,78*s].flatMap(x=>[-86*s,64*s].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
     return{left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
   }
@@ -61,7 +62,7 @@
     return legacy!==true&&dualMeter(component)&&component.mirrored?local.map(p=>({...p,x:-p.x,dx:-(p.dx??Math.sign(p.x))})):local;
   }
   function ports(component, legacy=false) {
-    const angle = component.angle * Math.PI / 180, cos = Math.round(Math.cos(angle)), sin = Math.round(Math.sin(angle));
+    const {cos,sin}=rotation(component.angle);
     const terminals=component.params.terminals??2;
     const local=localPorts(component,legacy);
     return local.map((p) => {
@@ -72,7 +73,7 @@
   }
   function bodyBounds(c) {
     const box=get(c.type).bounds|| (dualMeter(c)?{left:-78,right:78,top:-86,bottom:78}:c.type==='relay'?{left:-74,right:76,top:-40,bottom:68}:c.type==='rheostat'?{left:-76,right:76,top:-46,bottom:55}:c.type==='galvanometer'?{left:-63,right:63,top:-55,bottom:52}:{left:-52,right:52,top:-52,bottom:65});
-    const angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
+    const {cos,sin}=rotation(c.angle);
     const corners=[box.left,box.right].flatMap(x=>[box.top,box.bottom].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));
     const annotation=get(c.type).annotationBounds?.(c);if(annotation)corners.push({x:annotation.left,y:annotation.top},{x:annotation.right,y:annotation.bottom});
     return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};
@@ -116,5 +117,5 @@
   function dc(c,state) { const descriptor=get(c.type), keys=descriptor.ports.map(p=>p.key), result=descriptor.dc(c,state); for(const b of result){if(!keys.includes(b.from)||!keys.includes(b.to)||b.from===b.to||!["branch","resistor","nonlinear"].includes(b.kind))throw new Error("元件模型端子或類型無效");if(b.kind==="nonlinear"&&typeof b.law!=="function")throw new Error("缺少非線性模型");}return result; }
   const observationQuantities=c=>['voltage','current',...(get(c.type).observationQuantities||[])];
   function register(type, definition) { if(typeof type!=="string"||!/^[a-z][a-z0-9-]{0,39}$/.test(type)||Object.hasOwn(definitions,type)||!definition||typeof definition.dc!=="function"||!Array.isArray(definition.ports)||!definition.ports.length||new Set(definition.ports.map(p=>p.key)).size!==definition.ports.length)throw new Error("無效或重複的元件定義"); definitions[type]=definition; }
-  return { definitions, get, defaults, observationQuantities, primaryParameter, stepPrimaryParameter, localPorts, ports, portsForVersion:(c,version)=>ports(c,version<4?true:version===4?'v4':false), bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges,meterDisplayReading, lampAt, thermal, rheostatWinding, effectiveResistance, dc, register };
+  return { rotation, definitions, get, defaults, observationQuantities, primaryParameter, stepPrimaryParameter, localPorts, ports, portsForVersion:(c,version)=>ports(c,version<4?true:version===4?'v4':false), bodyBounds, meterHousingBounds, legacyPorts:c=>ports(c,true), dualMeter, isMeter, meterBodyScale, meterScale, meterRanges,meterDisplayReading, lampAt, thermal, rheostatWinding, effectiveResistance, dc, register };
 });

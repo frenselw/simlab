@@ -8,14 +8,14 @@ for(const current of [.001,.01,.1,.25,.5,1,3,10,1000,1e6]){const speed=V.flowSpe
 assert(Number.isFinite(V.flowSpeed(1e300))&&V.flowSpeed(1e300)<=240);
 for(const current of [0,null,undefined,NaN,Infinity,-Infinity]){assert.equal(V.flowSpeed(current),0);cases++;}
 const d=P.create('parallel');d.components[3].params.resistance=60;d.display.flow='current';
-const initial=D.encode(d),result=S.solve(d),routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));near(result.wires.w3.current,.5);near(result.wires.w4.current,.1);
+const initial=D.encode(d),result=S.solve(d),routes=Object.fromEntries(d.wires.map(w=>[w.id,G.route(d,w)]));near(result.wires.w3.current,.5);near(result.wires.w6.current,.1);
 for(const view of ['real','schematic'])for(const flow of ['current','electron']){
   d.display.view=view;d.display.flow=flow;const offsets=new Map(),direction=flow==='current'?1:-1;
   for(let frame=0;frame<240;frame++){
     const before=new Map(offsets);V.advanceFlow(offsets,d,result,1/60);
     for(const w of d.wires){near(signedStep(before.get(w.id)||0,offsets.get(w.id)),direction*Math.sign(result.wires[w.id].current)*wireSpeed(d,result,w.id)/60);assert(offsets.get(w.id)>=0&&offsets.get(w.id)<V.flowSpacing);}
   }
-  const snapshot=new Map(offsets),svg=V.flow(d,result,routes,999,1,offsets);assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);assert.equal((svg.match(/data-flow-wire=/g)||[]).length,7);
+  const snapshot=new Map(offsets),svg=V.flow(d,result,routes,999,1,offsets);assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);assert.equal((svg.match(/data-flow-wire=/g)||[]).length,d.wires.length);
   assert(svg.includes('data-current="0.5"'));assert(svg.includes('data-direction="'+direction+'"'));assert(svg.includes(flow==='electron'?'<circle':'rotate('));
   // Rendering, pausing and changing parameters retain particle positions.
   V.flow(d,result,routes,10000,.65,offsets);assert.deepEqual(offsets,snapshot);V.advanceFlow(offsets,d,result,0);assert.deepEqual(offsets,snapshot);
@@ -35,7 +35,7 @@ for(const view of ['real','schematic'])for(const flow of ['current','electron'])
   const unknown=M.empty(),source=M.add(unknown,'battery',150,180),short=M.connect(unknown,source.id+':a',source.id+':b',[],'free'),good=M.add(unknown,'battery',450,180),load=M.add(unknown,'resistor',650,320,{resistance:12});M.connect(unknown,good.id+':a',load.id+':a',[],'free');M.connect(unknown,load.id+':b',good.id+':b',[],'free');const solved=S.solve(unknown);assert.equal(solved.wires[short.id].current,null);V.advanceFlow(offsets,unknown,solved,.05);assert(!offsets.has(short.id));assert(V.flow(unknown,solved,{},1,1,offsets).includes('data-flow-wire="w2"'));assert(!V.flow(unknown,solved,{},1,1,offsets).includes('data-flow-wire="w1"'));cases++;
 }
 {
-  const restored=D.decode(initial);assert.equal(D.encode(restored),initial);restored.components[3].params.resistance=30;M.validate(restored);const continued=S.solve(restored);near(continued.wires.w4.current,.2);assert(wireSpeed(restored,continued,'w4')>wireSpeed(d,result,'w4'));assert(!D.encode(restored).includes('phase'));cases++;
+  const restored=D.decode(initial);assert.equal(D.encode(restored),initial);restored.components[3].params.resistance=30;M.validate(restored);const continued=S.solve(restored);near(continued.wires.w6.current,.2);assert(wireSpeed(restored,continued,'w6')>wireSpeed(d,result,'w6'));assert(!D.encode(restored).includes('phase'));cases++;
 }
 // A removed menu entry must also be absent from the preset API.
 assert(!Object.hasOwn(P.names,'lampCurve'));assert.throws(()=>P.create('lampCurve'),/未知的範例/);assert(P.create('divider').components.some(c=>c.type==='rheostat'));cases++;

@@ -49,7 +49,7 @@ async function activityCases(h,mode,base) {
     await tap('[data-add="lamp"]');await tap('[data-add="lamp"]');assert(await h.inside('document.querySelector("[data-add=lamp]").disabled'));assert.equal((await doc()).components.length,2);
     assert.equal(await h.inside('CircuitActivity.execute({type:"addComponent",key:"voltmeter",x:600,y:300})'),false);assert.equal(await h.inside('CircuitActivity.execute({type:"addComponent",key:"lamp",x:600,y:300})'),false);
     await tap('[data-add="battery"]');await tap('[data-add="switch"]');assert.equal((await doc()).components.length,4);
-    await h.inside('CircuitActivity.execute({type:"move",id:"c1",x:260,y:220});CircuitActivity.execute({type:"rotate",id:"c1"})');assert.equal((await doc()).components[0].angle,90);await h.screenshot(`${mode}-activity-toolbox-${width}.png`);
+    await h.inside('CircuitActivity.execute({type:"move",id:"c1",x:260,y:220});CircuitActivity.execute({type:"rotate",id:"c1"})');assert.equal((await doc()).components[0].angle,45);await h.screenshot(`${mode}-activity-toolbox-${width}.png`);
     evidence('limited-toolbox',{onlyThreeTypes:true,stockEnforced:true,addMoveRotate:true});
     await choose('fixed');const fixed=await save(),fixedPoint=await h.point('[data-hit="body:c3"]');await contact(fixedPoint,{x:fixedPoint.x-35,y:fixedPoint.y+20});assert.equal(await save(),fixed);assert(!(await h.inside('CircuitActivity.check().passed')));await tap(control('quickWire'));assert.equal((await doc()).wires.length,1);evidence('fixed-parts',{partsStayFixed:true,wiringAllowed:true});
     await choose('slider');await h.inside('CircuitActivity.execute({type:"setParam",id:"c4",key:"position",value:.25})');assert.equal((await doc()).components[3].params.position,.25);

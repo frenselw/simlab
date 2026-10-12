@@ -199,9 +199,9 @@
           if(parts.length)lines.push({kind:'value',...(['switch','relay'].includes(c.type)?parts[0]:Q.join(parts)),size:valueSize});
         }
       }
-      if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a)),corners=[-90,90].flatMap(x=>[-64,64].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
+      if(doc.analysis==='transient'&&doc.display.view!=='schematic'&&c.type==='inductor'&&options?.fields!==false){const {cos,sin}=R.rotation(c.angle),corners=[-90,90].flatMap(x=>[-64,64].map(y=>({x:c.x+x*cos-y*sin,y:c.y+x*sin+y*cos})));details.push({left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))});}
       if(lines.length)items.push({id:c.id,lines,maxWidth:font.maxWidth});
-      if(c.type==='transformer'&&doc.display.values){const edge=c.angle%180?61:45;items.push({id:'ratio-'+c.id,componentId:c.id,anchor:{x:c.x,y:Math.max(c.y-edge-50/scale,viewport?viewport.y+5/scale:-Infinity)},lines:[{kind:'transformerRatio',componentId:c.id,...Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),size:valueSize}],maxWidth:font.maxWidth});}
+      if(c.type==='transformer'&&doc.display.values){const edge=c.y-R.bodyBounds(c).top;items.push({id:'ratio-'+c.id,componentId:c.id,anchor:{x:c.x,y:Math.max(c.y-edge-50/scale,viewport?viewport.y+5/scale:-Infinity)},lines:[{kind:'transformerRatio',componentId:c.id,...Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),size:valueSize}],maxWidth:font.maxWidth});}
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:font.direction}]});}
@@ -228,7 +228,7 @@
       // small zooms, constrain each label to its column (or the rotated strip).
       const local=R.localPorts(c).find(port=>port.key===p.key),columnWidth=Math.min(42,2*(78*R.meterBodyScale(c)-Math.abs(local.x)-2));
       const size=Math.min(16/scale,(c.angle%180?25:columnWidth)/widthRatio,25/(metrics.height/16)),m=Q.measure(spec.tex,size),bounds=R.meterHousingBounds(c);
-      const a=c.angle*Math.PI/180,cos=Math.round(Math.cos(a)),sin=Math.round(Math.sin(a));
+      const {cos,sin}=R.rotation(c.angle);
       const lx=local.x,ly=40;
       const x=Math.max(bounds.left+m.width/2+2,Math.min(bounds.right-m.width/2-2,c.x+lx*cos-ly*sin));
       const cy=Math.max(bounds.top+m.height/2+2,Math.min(bounds.bottom-m.height/2-2,c.y+lx*sin+ly*cos)),y=cy+(m.ascent-m.descent)/2;
@@ -314,7 +314,7 @@
       const branches=result.components[c.id]?.branches||[],prefix=c.id+':',x=-30+60*(c.params.position??.5);
       const current=(a,b)=>branches.find(e=>e.from===prefix+a&&e.to===prefix+b)?.current??null;
       const sum=(...values)=>values.every(Number.isFinite)?values.reduce((s,v)=>s+v,0):null;
-      const i=current('a','b'),angle=c.angle*Math.PI/180,cos=Math.round(Math.cos(angle)),sin=Math.round(Math.sin(angle));
+      const i=current('a','b'),{cos,sin}=R.rotation(c.angle);
       const add=(key,from,to,value,local)=>{
         const points=local.map(([px,py])=>({x:c.x+px*cos-py*sin,y:c.y+px*sin+py*cos}));
         const path={id:'component:'+c.id+':'+key,component:c.id,key,from:prefix+from,to:prefix+to,current:value,points};if(Routing.length(points)>1e-8)paths.push(path);return path;

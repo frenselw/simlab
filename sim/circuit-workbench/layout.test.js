@@ -11,7 +11,7 @@ function segmentCross(a,b,c,d){const ux=b.x-a.x,uy=b.y-a.y,vx=d.x-c.x,vy=d.y-c.y
  if(Math.abs(det)<1e-9){if(Math.abs((c.x-a.x)*uy-(c.y-a.y)*ux)>1e-7)return null;const axis=Math.abs(ux)>Math.abs(uy)?'x':'y',lo=Math.max(Math.min(a[axis],b[axis]),Math.min(c[axis],d[axis])),hi=Math.min(Math.max(a[axis],b[axis]),Math.max(c[axis],d[axis]));return hi-lo>1e-6?{overlap:true}:null;}
  const t=((c.x-a.x)*vy-(c.y-a.y)*vx)/det,u=((c.x-a.x)*uy-(c.y-a.y)*ux)/det;return t>=-1e-8&&t<=1+1e-8&&u>=-1e-8&&u<=1+1e-8?{x:a.x+t*ux,y:a.y+t*uy}:null;
 }
-function outsideMeter(d,w,c){const p=G.route(d,w),total=G.length(p),box=R.bodyBounds(c);for(let distance=0;distance<=total;distance+=2){const q=G.along(p,distance);
+function outsideMeter(d,w,c){const p=G.route(d,w),total=G.length(p),box=R.bodyBounds({...c,angle:0,x:0,y:0}),{cos,sin}=R.rotation(c.angle);for(let distance=0;distance<=total;distance+=2){const world=G.along(p,distance),q={x:(world.x-c.x)*cos+(world.y-c.y)*sin,y:-(world.x-c.x)*sin+(world.y-c.y)*cos};
  if(distance<=24&&w.from.startsWith(c.id+':')||total-distance<=24&&w.to.startsWith(c.id+':'))continue;
  assert(!(q.x>box.left+.1&&q.x<box.right-.1&&q.y>box.top+.1&&q.y<box.bottom-.1),`${c.type} ${c.angle} ${c.id} cable ${w.id} enters the rotated housing at ${distance}/${total}: ${JSON.stringify(q)}`);
 }}
@@ -76,14 +76,14 @@ for(const closed of [[true,true],[true,false],[false,true],[false,false]]){
 const ohmExample=P.create('ohm');ohmExample.components.find(c=>c.type==='ammeter').params.resistance=1;const ohmResult=S.solve(ohmExample);near(ohmResult.components.c2.reading,6/13,'Ohm example includes the ammeter burden');near(ohmResult.components.c4.reading,ohmResult.voltage('c1:a','c1:b'),'terminal voltmeter measures the source terminals with finite A resistance');near(ohmResult.components.c4.reading,66/13,'terminal voltage includes all external drops');
 for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic']){
  const f=dualFixture(type,port),baseResult=S.solve(f.d);f.d.display.view=view;const original=M.clone(f.d);let rotations=0;
- for(const angle of [90,180,270,0]){const before=M.clone(f.d),c=f.d.components.find(c=>c.id===f.meter.id);c.angle=angle;assert(M.reconcile(f.d,before),`${type} ${port} turns to ${angle}`);M.validate(f.d);
+ for(const angle of [45,90,135,180,225,270,315,0]){const before=M.clone(f.d),c=f.d.components.find(c=>c.id===f.meter.id);c.angle=angle;assert(M.reconcile(f.d,before),`${type} ${port} turns to ${angle}`);M.validate(f.d);
   for(const w of f.d.wires){outsideMeter(f.d,w,c);const p=G.route(f.d,w),key=w.from.startsWith(c.id+':')?'from':w.to.startsWith(c.id+':')?'to':null;if(!key){assert.deepEqual(w,before.wires.find(v=>v.id===w.id),'rotation cannot rearrange unrelated cables');continue;}
    const src=key==='from'?p:[...p].reverse(),terminal=R.ports(c).find(p=>p.id===w[key]),next=G.along(src,6);near(next.x,terminal.x+terminal.dx*6,'socket lead x');near(next.y,terminal.y+terminal.dy*6,'socket lead y');
   }
   near(S.solve(f.d).components[c.id].reading,baseResult.components[c.id].reading,'socket rotation keeps signed reading/range');assert.deepEqual(D.decode(D.encode(f.d)),f.d);
   for(const meters of ['digital','analog']){const svg=V.scene({...f.d,display:{...f.d.display,meters}},S.solve(f.d));assert.equal(XMLValidator.validate('<svg>'+svg+'</svg>'),true);const lastBody=Math.max(...f.d.components.map(c=>svg.indexOf(`data-component="${c.id}"`)));for(const w of f.d.wires){assert(svg.indexOf(`data-wire="${w.id}"`)>lastBody,'entire cable stays above every housing');assert(svg.includes(`d="${G.path(G.route(f.d,w))}"`),'foreground cable follows the actual endpoint route');}}
   rotations++;
- }assert.equal(rotations,4);assert.deepEqual(f.d.wires.map(w=>[w.from,w.to,w.length]),original.wires.map(w=>[w.from,w.to,w.length]));
+ }assert.equal(rotations,8);assert.deepEqual(f.d.wires.map(w=>[w.from,w.to,w.length]),original.wires.map(w=>[w.from,w.to,w.length]));
 }
 const tautMeter=dualFixture('ammeter').d,tautWire=tautMeter.wires[1];tautWire.length=G.length(G.route(tautMeter,tautWire));const tautHistory=M.history(tautMeter),tautBefore=D.encode(tautHistory.get());assert.throws(()=>tautHistory.change(d=>{const before=M.clone(d);d.components[2].angle=90;if(!M.reconcile(d,before))throw Error('finite connector reach');}));assert.equal(D.encode(tautHistory.get()),tautBefore,'a short cable refuses a turn atomically');
 const translated=dualFixture('ammeter').d,translationBefore=M.clone(translated);translated.components[2].x+=240;translated.components[2].y+=20;assert(M.reconcile(translated,translationBefore),'normal meter movement retains its original deformation');

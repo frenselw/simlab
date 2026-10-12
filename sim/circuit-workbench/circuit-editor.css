@@ -34,6 +34,8 @@
 .circuit-editor .hit.port,.circuit-editor .hit.junction,.circuit-editor .hit.bend{width:44px;height:44px;border-radius:50%;z-index:4}
 .circuit-editor .hit.port.snap{background:#93c5fd55!important;outline:2px solid #2563eb}
 .circuit-editor .hit.body{z-index:0}
+.circuit-editor .hit.body.overview{z-index:3}
+.circuit-editor .hit.port.overview{z-index:2}
 .circuit-editor .hit.wire{touch-action:pan-y;z-index:1;min-width:12px;min-height:12px;border-radius:0}
 .circuit-editor .hit.bend{border:1px dashed #2563eb;background:#fff8!important;width:44px;height:44px}
 .circuit-editor .hit.bend::after{content:"";width:8px;height:8px;background:#2563eb;position:absolute;top:17px;left:17px}
@@ -197,6 +199,10 @@
 .circuit-editor .hit.wireend{z-index:6;border-radius:50%;cursor:grab;touch-action:none}
 .circuit-editor .hit.wireend.snap,.circuit-editor .hit.junction.snap{outline:2px solid #2563eb;background:#93c5fd44!important}
 .circuit-editor .hit.port{cursor:default}
+.circuit-editor .hit.connection-selected{outline:2px solid #2563eb;background:#93c5fd44!important}
+.circuit-editor .hit.wire.connection-wire{background:#93c5fd22!important}
+.circuit-editor .hit.detachConnection{z-index:12;border:1px solid #b5c9db;background:#fff!important;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
+.circuit-editor .hit.detachConnection small{position:absolute;right:3px;bottom:1px;font-size:10px;color:#325d7b}
 .circuit-editor .surface.grabbing,.circuit-editor .surface.grabbing .hit{cursor:grabbing}
 .circuit-editor .hand-tool{display:flex;align-items:center;justify-content:center;gap:6px}
 .circuit-editor .hand-tool svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}

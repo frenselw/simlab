@@ -111,7 +111,7 @@ async function quickControlsCases(h,mode,base){
     const grouped=await layout();if(width===390)assert(grouped.footer.height<110,'390 px lamp uses two rows');if(width===320)assert(grouped.footer.height<110,'320 px lamp uses two rows');
     assert.equal(grouped.actions.length,width<480?3:5);
     assert.equal(await h.inside(`document.querySelector('${control('objectActions')}').querySelectorAll('button').length`),0,'inspector does not duplicate selected lamp actions');
-    await tap(control('rotateSelected'));assert.equal((await h.doc()).components[0].angle,90);await tap(control('rotateCounterSelected'));assert.equal((await h.doc()).components[0].angle,0);
+    await tap(control('rotateSelected'));assert.equal((await h.doc()).components[0].angle,45);await tap(control('rotateCounterSelected'));assert.equal((await h.doc()).components[0].angle,0);
     await tap(control('copySelected'));const copied=await h.doc();assert.equal(copied.components.length,2);assert.equal(copied.components[1].params.resistance,12);assert.equal(copied.components[1].label,'白熾燈 副本');
     await tap(control('focusSelected'));assert((await h.inside('CircuitWorkbench.getInteraction().camera.scale'))>=1);await layout();
     await tap(control('deleteSelected'));assert.equal((await h.doc()).components.length,1);await tap(control('undo'));assert.equal((await h.doc()).components.length,2);
@@ -161,7 +161,7 @@ async function compactFooterCases(h,source,transient=false){
       if(width===384)await h.screenshot(source+'-more-actions-'+(transient?'ac':'dc'));
       await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.delay(40);
       assert(await h.inside(`!document.querySelector('${control('selectionActionsDialog')}').open&&document.activeElement===document.querySelector('${control('moreSelected')}')`));assert.equal(await h.call('exportDocument()'),before);checks+=2;
-      await tap(control('moreSelected'));await tap('[data-selection-action="rotateCounterSelected"]');assert.equal((await h.call('getDocument()')).components.find(c=>c.id===lamp.id).angle,(lamp.angle+270)%360);checks++;
+      await tap(control('moreSelected'));await tap('[data-selection-action="rotateCounterSelected"]');assert.equal((await h.call('getDocument()')).components.find(c=>c.id===lamp.id).angle,(lamp.angle+315)%360);checks++;
       await tap(control('moreSelected'));await h.call('setReadOnly(true)');assert(await h.inside(`!document.querySelector('${control('selectionActionsDialog')}').open`));checks++;await h.call('setReadOnly(false)');
     }
     await h.call('execute({type:"setParam",id:'+JSON.stringify(lamp.id)+',key:"resistance",value:12.3456789})');await layout();

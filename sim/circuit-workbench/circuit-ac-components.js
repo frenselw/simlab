@@ -166,7 +166,7 @@
     }
     if(R.get(c.type).meter){
       // Keep the upright dial centred in the rotating window (local centre 0, -4.5).
-      const angle=(c.angle||0)*Math.PI/180,x=4.5*Math.round(Math.sin(angle)),y=4.5*(1-Math.round(Math.cos(angle)));
+      const {cos,sin}=R.rotation(c.angle||0),x=4.5*sin,y=4.5*(1-cos);
       return (c.type==='ac-wattmeter'?path('M-60-20H-46 M46-20H60 M-60 40H-34V29 M34 29V40H60'):path('M-60 0H-46 M46 0H60'))+'<rect data-meter-case="true" x="-46" y="-43" width="92" height="78" rx="10" fill="#e8f0f6" stroke="#446482" stroke-width="2"/><rect data-meter-window="true" x="-41" y="-38" width="82" height="67" rx="6" fill="#fff" stroke="#b2c2cf"/>'+`<g data-meter-face="${c.id}" transform="rotate(${-(c.angle||0)}) translate(${x} ${y})">${meterFace(c,r,d)}</g>`;
     }
     return '';

@@ -31,8 +31,8 @@
     return reduced;
   }
   function smooth(points) {
-    if (points.length < 3) return points.map(clean);
-    const out = [clean(points[0])];
+    if (points.length < 3) return points.map(p=>({x:p.x,y:p.y}));
+    const out = [{x:points[0].x,y:points[0].y}];
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i], b = points[i + 1], before = points[i - 1] || a, after = points[i + 2] || b;
       const length = Math.hypot(b.x - a.x, b.y - a.y);
@@ -42,7 +42,7 @@
       const steps = Math.max(2, Math.min(40, Math.ceil(length / 5)));
       for (let j = 1; j <= steps; j++) { const t = j / steps, u = 1 - t; out.push(clean({x:u**3*a.x + 3*u*u*t*c.x + 3*u*t*t*d.x + t**3*b.x,y:u**3*a.y + 3*u*u*t*c.y + 3*u*t*t*d.y + t**3*b.y})); }
     }
-    return compact(out);
+    out[out.length-1]={x:points.at(-1).x,y:points.at(-1).y};return compact(out);
   }
   function finishStroke(points, shape = "smooth", tolerance = 2.5) {
     const src = compact(points); if (src.length < 2) return { shape, via: [] };
@@ -204,6 +204,8 @@
     // A moving meter changes only its connector tail; keep the far cable as drawn.
     let result=deform(points,fixA?points[0]:a,fixB?points.at(-1):b,budget);if(!result)return null;
     function tail(src,port,c){const box=R.bodyBounds(c),region={left:c.x-200,right:c.x+200,top:c.y-200,bottom:c.y+200},inside=p=>p.x>=region.left-1e-7&&p.x<=region.right+1e-7&&p.y>=region.top-1e-7&&p.y<=region.bottom+1e-7;
+      // Nearby endpoints have no distant cable to freeze across successive turns.
+      if(inside(src.at(-1))){const p=route(doc,{...wire,from:port.id,to:port.id===a.id?b.id:a.id,shape:'auto',via:[]},{rotatedMeters:true});return p.length?rounded(p,12):null;}
       let join=1;while(join<src.length-1&&inside(src[join]))join++;
       // An existing bend may reenter the new housing; replace through its exit.
       for(let i=join;i<src.length-1;i++)if(src[i].x>box.left&&src[i].x<box.right&&src[i].y>box.top&&src[i].y<box.bottom)join=i+1;
@@ -228,11 +230,15 @@
   }
   function route(doc, wire, options={}) {
     const ends = M.endpoints(doc), a = ends.get(wire.from), b = ends.get(wire.to); if (!a || !b) return [];
-    if (wire.shape && wire.shape !== "auto") { const points = compact([clean(a), ...wire.via, clean(b)]); return wire.shape === "smooth" ? smooth(points) : points; }
+    if (wire.shape && wire.shape !== "auto") { const points = compact([{x:a.x,y:a.y}, ...wire.via, {x:b.x,y:b.y}]); return wire.shape === "smooth" ? smooth(points) : points; }
     const lead=options.rotatedMeters?32:20;
-    const start = { x: a.x + a.dx * lead, y: a.y + a.dy * lead }, end = { x: b.x + b.dx * lead, y: b.y + b.dy * lead };
+    function exit(p){const c=doc.components.find(c=>c.id===p.id?.split(':')[0]);let distance=lead;
+      if(c&&c.angle%90){const box=R.bodyBounds(c),tx=p.dx?((p.dx>0?box.right+8:box.left-8)-p.x)/p.dx:Infinity,ty=p.dy?((p.dy>0?box.bottom+8:box.top-8)-p.y)/p.dy:Infinity;distance=Math.max(lead,Math.min(tx,ty));}
+      return {x:p.x+p.dx*distance,y:p.y+p.dy*distance};
+    }
+    const start=exit(a),end=exit(b);
     if(options.region&&[start,end].some(p=>p.x<options.region.left||p.x>options.region.right||p.y<options.region.top||p.y>options.region.bottom))return [];
-    if (wire.via.length) return orthogonal([a, start, ...wire.via, end, b]);
+    if (wire.via.length) return compact([a,...orthogonal([start,...wire.via,end]),b]);
     const bounds = { left: Math.min(start.x,end.x)-160, right: Math.max(start.x,end.x)+160, top: Math.min(start.y,end.y)-160, bottom: Math.max(start.y,end.y)+160 };
     const modernMeter=c=>doc.version>=4&&R.dualMeter(c);
     const obstacles = options.rotatedMeters?doc.components.map(R.bodyBounds).filter(o=>o.right>bounds.left&&o.left<bounds.right&&o.bottom>bounds.top&&o.top<bounds.bottom):doc.components.filter(c => modernMeter(c)?c.x+90>bounds.left&&c.x-90<bounds.right&&c.y+100>bounds.top&&c.y-100<bounds.bottom:c.x+60>bounds.left&&c.x-60<bounds.right&&c.y+80>bounds.top&&c.y-60<bounds.bottom).map((c) => modernMeter(c)?({left:c.x-78,right:c.x+78,top:c.y-86,bottom:c.y+78}):({ left: c.x - 52, right: c.x + 52, top: c.y - 52, bottom: c.y + 65 }));

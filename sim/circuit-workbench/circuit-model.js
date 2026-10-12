@@ -26,7 +26,7 @@
     input.components.forEach((c) => {
       object(c, ["id", "type", "label", "x", "y", "angle", "locked", "editable", "params", "mirrored"]); id(c.id);
       if (typeof c.label !== "string" || c.label.length > 40) throw new Error("元件名稱過長或無效");
-      numeric(c.x, -limits.coordinate, limits.coordinate); numeric(c.y, -limits.coordinate, limits.coordinate); choice(c.angle, [0, 90, 180, 270]); bool(c.locked); bool(c.editable);
+      numeric(c.x, -limits.coordinate, limits.coordinate); numeric(c.y, -limits.coordinate, limits.coordinate); choice(c.angle, [0, 45, 90, 135, 180, 225, 270, 315]); bool(c.locked); bool(c.editable);
       const definition=R.get(c.type);if(input.version<7&&definition.analysis==='transient')throw new Error('交流元件需要 v7 電路文件');
       const specs = definition.params; object(c.params, Object.keys(specs));
       if(Object.hasOwn(c,'mirrored')){if(!R.dualMeter(c))throw new Error('只有 A／V 電錶可左右換接孔');bool(c.mirrored);if(input.version<4&&c.mirrored)throw new Error('舊版電錶不支援左右換接孔');}
@@ -101,6 +101,12 @@
   function setWireResistance(doc,id,value){numeric(value,0,limits.resistance);const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");w.resistance=value;}
   function pose(doc,w,points){if(!points)return false;const fitted=G.fitLength(points,w.length);if(!fitted)return false;w.shape="free";w.via=(fitted.length>limits.stroke+2?G.resample(fitted,10):fitted).slice(1,-1).map(p=>({x:p.x,y:p.y}));return true;}
   function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
+  function detachConnection(doc,endpoint){
+    if(!endpoints(doc).has(endpoint))throw new Error('接點不存在');
+    const ends=doc.wires.flatMap(w=>['from','to'].filter(key=>w[key]===endpoint).map(key=>[w.id,key]));
+    for(const [id,key]of ends)detach(doc,id,key,false);cleanup(doc);
+    return ends;
+  }
   function translateWire(doc,id,dx,dy){
     const w=doc.wires.find(w=>w.id===id);if(!w||attached(doc,w,"from")||attached(doc,w,"to"))throw new Error("接好的一端會固定；請拖自由端或線身");
     const path=G.route(doc,w),wantedX=dx,wantedY=dy;
@@ -174,7 +180,7 @@
     const c=doc.components.find(c=>c.id===id);
     if(!c||!permission(doc,c,"rotate"))throw new Error("這個元件不能旋轉");
     const next=clone(doc),rotated=next.components.find(c=>c.id===id);
-    rotated.angle=(rotated.angle+90*direction+360)%360;
+    rotated.angle=(rotated.angle+45*direction+360)%360;
     const ports=new Set(R.ports(rotated).map(p=>p.id)),ends=endpoints(next);
     for(const w of next.wires)if(ports.has(w.from)||ports.has(w.to)){
       straightenWire(next,w.id);
@@ -212,5 +218,5 @@
       w.shape='free';
     }
   }
-  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
+  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });

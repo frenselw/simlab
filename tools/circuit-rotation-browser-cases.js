@@ -6,7 +6,7 @@ async function rotationCases(h,mode,base){
   for(const width of [1280,390]){
     await h.freshPage();h.setContext("window");await h.send("Emulation.setDeviceMetricsOverride",{width,height:width===390?844:800,deviceScaleFactor:1,mobile:width===390});await h.send("Emulation.setTouchEmulationEnabled",{enabled:width===390,maxTouchPoints:2});await h.send("Page.navigate",{url:base+"/circuit-workbench/index.html"});await h.ready();
     const tap=async selector=>width===390?h.touch(await h.point(selector),0,0):h.click(selector);
-    async function body(id){const p=await h.inside(`(()=>{const e=document.querySelector('[data-hit="body:${id}"]'),r=e.getBoundingClientRect();for(const [fx,fy]of [[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.1,.1],[.9,.1],[.1,.9],[.9,.9]]){const x=r.left+r.width*fx,y=r.top+r.height*fy;if(document.elementFromPoint(x,y)===e)return{x,y};}return null;})()`);assert(p,"fixture has an exposed component body");if(width===390)await h.touch(p,0,0);else{await h.send("Input.dispatchMouseEvent",{type:"mousePressed",...p,button:"left",buttons:1,clickCount:1});await h.send("Input.dispatchMouseEvent",{type:"mouseReleased",...p,button:"left",buttons:0,clickCount:1});}assert.equal((await h.inside("CircuitWorkbench.getInteraction()")).selection.id,id);}
+    async function body(id){const p=await h.inside(`(()=>{const e=document.querySelector('[data-hit="body:${id}"]'),r=e.getBoundingClientRect(),center={x:r.left+r.width/2,y:r.top+r.height/2},hit=document.elementFromPoint(center.x,center.y)?.closest('.hit');if(hit?.meta?.id?.split(':')[0]===${JSON.stringify(id)})return center;for(const [fx,fy]of [[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.1,.1],[.9,.1],[.1,.9],[.9,.9]]){const x=r.left+r.width*fx,y=r.top+r.height*fy;if(document.elementFromPoint(x,y)===e)return{x,y};}return null;})()`);assert(p,"fixture has an exposed component body");if(width===390)await h.touch(p,0,0);else{await h.send("Input.dispatchMouseEvent",{type:"mousePressed",...p,button:"left",buttons:1,clickCount:1});await h.send("Input.dispatchMouseEvent",{type:"mouseReleased",...p,button:"left",buttons:0,clickCount:1});}assert.equal((await h.inside("CircuitWorkbench.getInteraction()")).selection.id,id);}
     async function verify(before,id,angle){
       const after=await h.doc(),ports=new Set(R.ports(before.components.find(c=>c.id===id)).map(p=>p.id));assert.equal(after.components.find(c=>c.id===id).angle,angle);assert.deepEqual(topology(after),topology(before));
       const attached=after.wires.filter(w=>ports.has(w.from)||ports.has(w.to));attached.forEach(w=>{assert.equal(w.shape,"free");assert.deepEqual(w.via,[]);});for(const w of before.wires.filter(w=>!ports.has(w.from)&&!ports.has(w.to)))assert.deepEqual(after.wires.find(v=>v.id===w.id),w);
@@ -16,15 +16,15 @@ async function rotationCases(h,mode,base){
     }
     for(const type of ["ammeter","rheostat"]){
       const d=type==="ammeter"?meterMathFixture("ammeter","c",.1):P.create("divider"),id=d.components.find(c=>c.type===type).id;await h.load(d);await body(id);const before=await h.doc(),original=await h.save(),analysis=await h.inside("CircuitWorkbench.getAnalysis()"),steps=[];
-      await h.inside("window.__rotateClicks=[];document.addEventListener('click',window.__rotateWatch||(window.__rotateWatch=e=>{const b=e.target.closest('button');if(b?.id==='rotateSelected'||b?.dataset.action==='旋轉 90°')__rotateClicks.push({trusted:e.isTrusted,action:b.id||b.dataset.action});}),true)");
-      for(const [i,angle]of [90,180,270,0].entries()){
+      await h.inside("window.__rotateClicks=[];document.addEventListener('click',window.__rotateWatch||(window.__rotateWatch=e=>{const b=e.target.closest('button');if(b?.id==='rotateSelected'||b?.dataset.action==='旋轉 45°')__rotateClicks.push({trusted:e.isTrusted,action:b.id||b.dataset.action});}),true)");
+      for(const [i,angle]of [45,90,135,180,225,270,315,0].entries()){
         if(i%2===0)await tap("#rotateSelected");
         else if(width===1280)await h.key("r","KeyR",82);
-        else{if(await h.inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap("#panelToggle");await tap('[data-action="旋轉 90°"]');await tap("#panelToggle");}
+        else{if(await h.inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap("#panelToggle");await tap('[data-action="旋轉 45°"]');await tap("#panelToggle");}
         const svg=await verify(before,id,angle);assert.deepEqual(await h.inside("CircuitWorkbench.getAnalysis()"),analysis);steps.push({angle,svg});
       }
-      const rotated=await h.save();for(let i=0;i<4;i++)await tap("#undo");assert.equal(await h.save(),original,"one undo per rotation also restores its curves");for(let i=0;i<4;i++)await tap("#redo");assert.equal(await h.save(),rotated);
-      await h.load(rotated);await body(id);await tap("#rotateSelected");await verify(before,id,90);assert.deepEqual(await h.inside("CircuitWorkbench.getAnalysis()"),analysis);
+      const rotated=await h.save();for(let i=0;i<8;i++)await tap("#undo");assert.equal(await h.save(),original,"one undo per rotation also restores its curves");for(let i=0;i<8;i++)await tap("#redo");assert.equal(await h.save(),rotated);
+      await h.load(rotated);await body(id);await tap("#rotateSelected");await verify(before,id,45);assert.deepEqual(await h.inside("CircuitWorkbench.getAnalysis()"),analysis);
       const events=await h.inside("__rotateClicks");assert(events.length>=3&&events.every(e=>e.trusted));assert.equal(await h.inside("document.documentElement.scrollWidth-innerWidth"),0);if(width===390)await h.screenshot(`${mode}-${type}-rotation-straight-390.png`);
       h.evidence.push({mode,width,rotationStraight:type,steps,unchangedReadings:true,unrelatedCablesFixed:true,oneStepUndo:true,productionRestoreContinuation:true,trustedEvents:events});
     }
