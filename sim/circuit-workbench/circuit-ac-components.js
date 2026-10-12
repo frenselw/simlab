@@ -86,10 +86,6 @@
     if(!geometry){geometry=makeFlowPaths(c,null,view);flowGeometryCache.set(key,geometry);if(flowGeometryCache.size>64)flowGeometryCache.delete(flowGeometryCache.keys().next().value);}
     return geometry.map(p=>({...p,current:p.key==='secondary'?r?.secondaryCurrent??null:r?.current??null}));
   }
-  function transformerCaption(c,values=true){const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45;
-    return `<g data-transformer-ratio="true" transform="rotate(${-(c.angle||0)})">${text(values?'匝數比（原：副）':'原／副線圈',0,-edge-24,8.5)}${values?Q.svg(0,-edge-10,Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),13):''}</g>`;
-  }
-  types.transformer.annotationBounds=c=>{const angle=(c.angle||0)*Math.PI/180,edge=Math.abs(Math.sin(angle))*61+Math.abs(Math.cos(angle))*45,width=Math.max(80,Q.measure(Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns).tex,13).width)+6;return {left:c.x-width/2,right:c.x+width/2,top:c.y-edge-34,bottom:c.y-edge-8};};
   const transformerArtId=(c,d)=>((d.idPrefix||'')+'transformer-art-'+(c.id||'sample')).replace(/[^\w-]/g,'-');
   const transformerFieldSlot=(c,r,d,schematic=false)=>{const id=transformerArtId(c,d);return `<g data-transformer-field-slot="${schematic?'schematic':'real'}" data-transformer-field-id="${id}">`+(d.fields===false?'':Fields.transformer(c,r,schematic,id))+'</g>';};
   function transformerCore(id){
@@ -137,7 +133,7 @@
     if(c.type==='capacitor')return path('M-60 0H-9 M9 0H60 M-9-26V26 M9-26V26','#334155')+chargeMarks(r,d);
     if(c.type==='inductor')return `<g data-inductor-turns="${inductorTurns(c)}">${path('M-60 0H-34 M34 0H60')}${coil(inductorTurns(c))}${Fields.inductorPoles(c,r)}</g>`;
     if(c.type==='spdt')return path('M-60 0H-24 M28-24H60 M28 24H60')+path(`M-24 0L25 ${p.closed==='b'?-24:24}`,'#334155',3)+socket(-24,0)+socket(28,-24)+socket(28,24);
-    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns),2.4)}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns),2.4)}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18)+transformerFieldSlot(c,r,d,true)+transformerCaption(c,d.values);
+    if(c.type==='transformer')return path('M-76-26V-34H-32 M-76 26V34H-32 M76-26V-34H32 M76 26V34H32')+`<g data-transformer-winding="primary" data-nominal-turns="${p.primaryTurns}" data-visible-turns="${transformerTurns(p.primaryTurns)}" transform="translate(-32 0) rotate(-90)">${coil(transformerTurns(p.primaryTurns),2.4)}</g><g data-transformer-winding="secondary" data-nominal-turns="${p.secondaryTurns}" data-visible-turns="${transformerTurns(p.secondaryTurns)}" transform="translate(32 0) rotate(90)">${coil(transformerTurns(p.secondaryTurns),2.4)}</g>`+path('M-6-32V32 M6-32V32','#334155',2)+text('•',-43,-34,18)+text('•',43,-34,18)+transformerFieldSlot(c,r,d,true);
     if(c.type==='led')return path('M-60 0H-22 M16 0H60')+`<path d="M-22-17L16 0L-22 17Z" fill="${Number.isFinite(r?.current)&&r.current>1e-6?(p.colour==='red'?'#dc5856':'#55a96b'):'none'}" stroke="#334155" stroke-width="2"/>`+path('M16-20V20 M6-23L19-36 M12-35L19-36L18-29 M20-17L33-30 M26-29L33-30L32-23','#334155',2);
     if(R.get(c.type).meter)return (c.type==='ac-wattmeter'?path('M-60-20H-23 M23-20H60 M-60 40H-20V22 M20 22V40H60'):lead)+'<circle r="30" fill="#fff" stroke="#334155" stroke-width="2"/>'+`<g transform="rotate(${-(c.angle||0)})">${Q.svg(0,6,{text:R.get(c.type).icon+'~',tex:Q.unit(R.get(c.type).icon).tex+'\\sim'},22)}</g>`;
     return lead+'<circle r="28" fill="#fff" stroke="#334155" stroke-width="2"/>'+path('M-19 0q9-18 19 0t19 0','#334155',2)+(c.type==='generator'?text('G',0,21,11):'');
@@ -162,7 +158,7 @@
       for(const w of coils){
         core+=`<g data-transformer-winding="${w.side}" data-nominal-turns="${w.nominal}" data-visible-turns="${w.count}" opacity="1"><g data-transformer-front="true">${transformerCopper(w.front,w,id)}</g><g data-transformer-leads="true">${transformerCopper(w.leads,w,id)}</g></g>`;
       }
-      return core+transformerFieldSlot(c,r,d)+text('•',-66,-30,13)+text('•',66,-30,13)+transformerCaption(c,d.values);
+      return core+transformerFieldSlot(c,r,d)+text('•',-66,-30,13)+text('•',66,-30,13);
     }
     if(c.type==='led'){
       const on=Number.isFinite(r?.current)&&r.current>1e-6,colour=p.colour==='red'?'#dc5856':'#55a96b';

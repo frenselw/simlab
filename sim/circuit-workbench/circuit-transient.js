@@ -6,6 +6,7 @@
   'use strict';
   const clone=M.clone,EPS=1e-12;
   const MIN_STEP=1e-13;
+  const resetKeys=['capacitance','inductance','primaryTurns','secondaryTurns','coupling','model','phase','initialVoltage','initialCurrent','initialPrimaryCurrent','initialSecondaryCurrent'];
   const energySolutions=new WeakMap();
   const keys=(o,names)=>{if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).length!==names.length||names.some(k=>!Object.hasOwn(o,k)))throw new Error('動態快照欄位無效');};
   const finite=(x,min=-1e12,max=1e12)=>{if(!Number.isFinite(x)||x<min||x>max)throw new Error('動態快照數值無效');return x;};
@@ -154,11 +155,13 @@
     if(previous)for(const [key,q]of Object.entries(previous))if(!c.energyDomains.has(key)){origin.work+=q.work;origin.dissipated+=q.dissipated;}
     state.energyOrigin=origin;state.energyDomains=Object.fromEntries([...c.energyDomains].map(([key,edges])=>[key,previous?.[key]||{initial:energy(c,state,edges),work:0,dissipated:0,throughput:0}]));
   }
-  function retainUnaffected(before,next,old){
+  function retainUnaffected(before,next,old,preserveSources=new Set()){
     const same=(id,quantity=null)=>{const a=before.policies.get(id),b=next.policies.get(id);return !!a&&!!b&&(quantity?a.quantities?.[quantity]?.key===b.quantities?.[quantity]?.key:a.key===b.key);};
-    if(!next.sources.some(e=>same(e.c.id)&&next.policies.get(e.c.id).closed))return null;
+    if(!preserveSources.size&&!next.sources.some(e=>same(e.c.id)&&next.policies.get(e.c.id).closed))return null;
     const owner=e=>e.wire?'wire:'+e.id:e.c.type==='transformer'&&e.pa.endsWith(':c')?e.c.id+'~secondary':e.c.id,state=initial(next);state.time=old.time;
     const stableEdges=new Set();for(const members of next.signals.energyDomains.values())if(members.every(e=>same(owner(e),'current')))for(const e of members)stableEdges.add(e.id);
+    // A fault preserves its old/new dependency blocks, not the whole canvas.
+    for(const id of preserveSources)for(const compiled of [before,next]){const source=compiled.sources.find(e=>e.c.id===id);if(source)for(const e of compiled.signals.energyDomains.get(compiled.signals.groupOf(source))){const old=before.doc.components.find(c=>c.id===e.c.id),current=next.doc.components.find(c=>c.id===e.c.id);if(old&&current&&resetKeys.some(key=>old.params[key]!==current.params[key]))continue;stableEdges.add(e.id);}}
     // Restart excitation and storage together; an unchanged source parameter
     // does not make its old phase compatible with a reset capacitor.
     for(const e of next.sources)if(stableEdges.has(e.id)&&old.sources[e.c.id]!==undefined)state.sources[e.c.id]=old.sources[e.c.id];
@@ -242,34 +245,51 @@
     doc.components=doc.components.filter(c=>ids.has(c.id));doc.wires=doc.wires.filter(w=>[w.from,w.to].every(p=>ids.has(p.split(':')[0])||doc.junctions.some(j=>p===j.id+':p')));doc.display.reference=null;
     const own=compile(doc);c.protectionCircuits.set(e.id,own);return own;
   }
-  function transientDemand(c,state,e){
+  function transientDemand(c,state,ids,full){
     if(!c.dynamic.length||c.edges.some(e=>e.kind==='led')||c.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine'))return ()=>null;
-    const off=clone(state),on=clone(state),mid=clone(state),a={},b={};off.protection[e.c.id].scale=0;on.protection[e.c.id].scale=1;mid.protection[e.c.id].scale=.5;
-    const zero=forecastDemand(c,off,a),full=forecastDemand(c,on,b),half=forecastDemand(c,mid);if(!zero||!full||!half)return ()=>false;
-    const coefficients={i:[0,0,0],p:[0,0,0]},count=a[e.c.id].length;
-    for(let n=0;n<count;n++){const [i,v]=a[e.c.id][n],[j,w]=b[e.c.id][n],di=j-i,dv=w-v;
-      coefficients.i[0]+=i*i/count;coefficients.i[1]+=2*i*di/count;coefficients.i[2]+=di*di/count;
-      coefficients.p[0]-=v*i/count;coefficients.p[1]-=(v*di+dv*i)/count;coefficients.p[2]-=dv*di/count;
-    }
-    const p0=zero[e.c.id].averagePower,p1=full[e.c.id].averagePower,pm=half[e.c.id].averagePower,p2=2*(p1+p0-2*pm);coefficients.p=[p0,p1-p0-p2,p2];
-    return scale=>({currentRms:1.001*Math.sqrt(Math.max(0,coefficients.i[0]+scale*coefficients.i[1]+scale*scale*coefficients.i[2])),averagePower:coefficients.p[0]+scale*coefficients.p[1]+scale*scale*coefficients.p[2]});
+    const predict=scale=>{const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;return forecastDemand(c,trial)||false;},cache=new Map([[1,full]]);
+    const zero=predict(0),half=predict(.5);cache.set(0,zero);cache.set(.5,half);
+    // An incompatible voltage trial does not invalidate the accepted output.
+    if(!zero||!full||!half)return scale=>{if(!cache.has(scale))cache.set(scale,predict(scale));return cache.get(scale);};
+    const coefficients=Object.fromEntries(ids.map(id=>{const values=key=>[zero[id][key],half[id][key],full[id][key]],quadratic=([a,m,b])=>[a,4*m-3*a-b,2*(a+b-2*m)];return [id,{i:quadratic(values('currentRms').map(x=>x*x)),p:quadratic(values('averagePower'))}];}));
+    return scale=>Object.fromEntries(ids.map(id=>{const q=coefficients[id],value=a=>a[0]+scale*a[1]+scale*scale*a[2];return [id,{currentRms:1.001*Math.sqrt(Math.max(0,value(q.i))),averagePower:value(q.p)}];}));
+  }
+  function protectionScale(sources,demand,fits,linear){
+    const samples=[0,.5,1].map(demand),points=[0,1];
+    if(linear&&samples.every(q=>q.periodic&&q.transient!==false)){
+      for(const source of sources)for(const kind of ['periodic','transient'])if(samples.every(q=>q[kind]))for(const key of ['currentRms','averagePower']){
+        const [x,m,y]=samples.map(q=>key==='currentRms'?q[kind][source.c.id][key]**2:q[kind][source.c.id][key]),limit=key==='currentRms'?source.c.params.maxCurrent**2:source.c.params.maxPower;
+        const a=2*(x+y-2*m),b=4*m-3*x-y,c=x-limit,norm=Math.max(Math.abs(a),Math.abs(b),Math.abs(c),1e-300),disc=b*b-4*a*c;
+        const roots=Math.abs(a)<1e-12*norm?Math.abs(b)>1e-12*norm?[-c/b]:[]:disc>=-1e-12*norm*norm?[(-b-Math.sqrt(Math.max(0,disc)))/(2*a),(-b+Math.sqrt(Math.max(0,disc)))/(2*a)]:[];
+        points.push(...roots.filter(x=>x>0&&x<1));
+      }
+    }else for(let n=1;n<64;n++)points.push(n/64);
+    points.sort((a,b)=>a-b);
+    for(let n=points.length-1;n>=0;n--){const high=points[n];if(fits(demand(high)))return high;if(!n)continue;
+      let low=(points[n-1]+high)/2,upper=high;if(!fits(demand(low)))continue;
+      // Refine only a discovered feasible segment; no global monotonicity claim.
+      for(let i=0;i<24;i++){const mid=(low+upper)/2;if(fits(demand(mid)))low=mid;else upper=mid;}return low;
+    }return null;
   }
   function applyProtection(c,state,selected=null){
     syncProtection(c,state);if(!state.protection)return;
-    const shorts=shortedSources(c),enabled=c.sources.filter(e=>state.protection[e.c.id]&&(!selected||selected.has(e.c.id))),trip=(e,reason)=>Object.assign(state.protection[e.c.id],{status:'tripped',scale:0,reason,reviewAt:null});
-    for(const e of enabled){const q=state.protection[e.c.id];if(shorts.has(e.c.id))trip(e,'short-circuit');else if(q.status!=='tripped')Object.assign(q,{status:'normal',scale:1,reason:null,reviewAt:null});}
-    const fits=(e,d)=>d&&d.currentRms<=e.c.params.maxCurrent*(1+1e-9)&&d.averagePower<=e.c.params.maxPower*(1+1e-9);
-    for(let pass=0;pass<8;pass++){
-      let changed=false;for(const e of enabled){const q=state.protection[e.c.id];if(q.status==='tripped')continue;
-        const own=protectionCircuit(c,e),transient=transientDemand(own,state,e),evaluate=()=>{const periodic=periodicDemand(own,state)?.[e.c.id],next=transient(q.scale);return next===false?null:periodic&&{currentRms:Math.max(periodic.currentRms,next?.currentRms||0),averagePower:Math.max(periodic.averagePower,next?.averagePower||0)};};
-        const demand=evaluate();if(fits(e,demand))continue;
-        const high=q.scale;q.scale=0;const zero=evaluate();if(!fits(e,zero)){trip(e,'unresolved');changed=true;continue;}
-        let low=0,upper=high;for(let i=0;i<24;i++){q.scale=(low+upper)/2;const trial=evaluate();if(fits(e,trial))low=q.scale;else upper=q.scale;}
-        q.scale=low;q.status='limited';changed=true;
-      }if(!changed)break;
+    const shorts=shortedSources(c),enabled=c.sources.filter(e=>state.protection[e.c.id]),handled=new Set(),trip=(e,reason)=>Object.assign(state.protection[e.c.id],{status:'tripped',scale:0,reason,reviewAt:null});
+    for(const e of enabled)if(shorts.has(e.c.id))trip(e,'short-circuit');
+    for(const e of enabled){if(handled.has(e.c.id)||stopped(state,e.c)||selected&&!selected.has(e.c.id))continue;
+      const own=protectionCircuit(c,e),sources=own.sources.filter(e=>state.protection[e.c.id]&&!stopped(state,e.c)),ids=sources.map(e=>e.c.id),linear=!own.edges.some(e=>e.kind==='led')&&!own.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');ids.forEach(id=>handled.add(id));
+      const physical=trial=>({periodic:periodicDemand(own,trial),transient:linear&&own.dynamic.length?forecastDemand(own,trial)||false:null});
+      const fits=d=>d.periodic&&d.transient!==false&&sources.every(e=>[d.periodic,d.transient].filter(Boolean).every(values=>{const q=values[e.c.id];return q&&q.currentRms<=e.c.params.maxCurrent*(1+1e-9)&&q.averagePower<=e.c.params.maxPower*(1+1e-9);}));
+      const current=physical(state),nominal=clone(state);for(const id of ids)nominal.protection[id].scale=1;
+      const full=ids.every(id=>state.protection[id].scale===1)?current:physical(nominal);let scale=null;
+      if(fits(full))scale=1;
+      else if(!fits(current)||full.periodic&&full.transient!==false){
+        const transient=transientDemand(own,state,ids,full.transient),demand=value=>{const trial=clone(state);for(const id of ids)trial.protection[id].scale=value;return {periodic:periodicDemand(own,trial),transient:transient(value)};};
+        scale=protectionScale(sources,demand,fits,linear);
+        if(scale!==null){const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;if(!fits(physical(trial)))scale=null;}
+      }
+      if(scale===null&&!fits(current)){sources.forEach(e=>trip(e,'unresolved'));continue;}
+      for(const source of sources){const q=state.protection[source.c.id];if(scale!==null)q.scale=scale;q.status=q.scale<1?'limited':'normal';q.reason=null;q.reviewAt=q.status==='limited'&&own.dynamic.length?state.time+1/source.c.params.frequency:null;}
     }
-    for(const e of enabled){const q=state.protection[e.c.id];if(q.status!=='tripped'&&!fits(e,periodicDemand(protectionCircuit(c,e),state)?.[e.c.id]))trip(e,'unresolved');}
-    for(const e of enabled){const q=state.protection[e.c.id];q.reviewAt=q.status==='limited'&&protectionCircuit(c,e).dynamic.length?state.time+1/e.c.params.frequency:null;}
   }
   function eventStep(c,result){
     const active=new Set();
@@ -470,9 +490,9 @@
       this.reviewProtection(timeTolerance);
       return {advanced:this.state.time-start,complete:!this.fault&&Math.abs(this.state.time-target)<=timeTolerance,steps,result:this.read()};
     }
-    update(input,{continuous=false}={}){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc),resetKeys=['capacitance','inductance','primaryTurns','secondaryTurns','coupling','model','phase','initialVoltage','initialCurrent','initialPrimaryCurrent','initialSecondaryCurrent'];
-      const shorts=shortedSources(next),protectionEvent=next.sources.some(e=>e.c.params.protectionEnabled&&shorts.has(e.c.id))||Object.values(this.state.protection||{}).some(q=>q.status==='tripped');const reset=structural(before)!==structural(next.doc)&&!protectionEvent||before.components.some(c=>{const n=next.doc.components.find(n=>n.id===c.id);return n&&resetKeys.some(k=>c.params[k]!==n.params[k]);});
-      const energyChanged=JSON.stringify([...this.compiled.energyDomains.keys()].sort())!==JSON.stringify([...next.energyDomains.keys()].sort()),retained=reset&&!this.previewing?retainUnaffected(this.compiled,next,this.state):null,resetHistory=reset&&!retained;const oldProtection=this.state.protection;this.compiled=next;this.doc=next.doc;if(reset)this.state=retained?.state||initial(next);else if(changed){if(protectionEvent){const fresh=initial(next);this.state.dynamic=Object.fromEntries(Object.keys(fresh.dynamic).map(id=>[id,this.state.dynamic[id]||fresh.dynamic[id]]));this.state.sources=Object.fromEntries(Object.keys(fresh.sources).map(id=>[id,this.state.sources[id]??fresh.sources[id]]));}this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,next.initialStep));if(energyChanged)rebaseEnergy(next,this.state,true);}syncProtection(next,this.state,oldProtection);if(changed){this.tracker=new O.GroupTracker(next.policies,resetHistory||this.previewing?null:this.tracker,retained?.ids);this.coreTracker=new O.CoreFluxTracker(next.policies,resetHistory||this.previewing?null:this.coreTracker,retained?.ids);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return resetHistory?'restarted':changed?'event':'geometry';
+    update(input,{continuous=false}={}){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc);
+      const shorts=shortedSources(next),preserveSources=new Set(next.sources.filter(e=>e.c.params.protectionEnabled&&(shorts.has(e.c.id)||this.state.protection?.[e.c.id]?.status==='tripped')).map(e=>e.c.id)),parametersReset=before.components.some(c=>{const n=next.doc.components.find(n=>n.id===c.id);return n&&resetKeys.some(k=>c.params[k]!==n.params[k]);}),reset=structural(before)!==structural(next.doc)||parametersReset;
+      const energyChanged=JSON.stringify([...this.compiled.energyDomains.keys()].sort())!==JSON.stringify([...next.energyDomains.keys()].sort()),retained=reset&&!this.previewing?retainUnaffected(this.compiled,next,this.state,preserveSources):null,resetHistory=reset&&!retained;const oldProtection=this.state.protection;this.compiled=next;this.doc=next.doc;if(reset)this.state=retained?.state||initial(next);else if(changed){this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,next.initialStep));if(energyChanged)rebaseEnergy(next,this.state,true);}syncProtection(next,this.state,oldProtection);if(changed){this.tracker=new O.GroupTracker(next.policies,resetHistory||this.previewing?null:this.tracker,retained?.ids);this.coreTracker=new O.CoreFluxTracker(next.policies,resetHistory||this.previewing?null:this.coreTracker,retained?.ids);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return resetHistory?'restarted':changed?'event':'geometry';
     }
     fork(){const next=new Session(this.doc);next.state=clone(this.state);next.tracker=this.tracker.copy();next.visualTracker=this.visualTracker.copy();next.coreTracker=new O.CoreFluxTracker(this.compiled.policies,this.coreTracker);next.project();return next;}
     preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},previewing:true,doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,coreTracker:this.coreTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}

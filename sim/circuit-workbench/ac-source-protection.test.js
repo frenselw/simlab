@@ -6,6 +6,31 @@ function load(params={},resistance=12,type='resistor',extra={}){
  M.connect(d,s.id+':a',r.id+':a');M.connect(d,s.id+':b',r.id+':b');return {d,s,r};
 }
 function resume(s){const saved=s.capture(),r=T.decodeSession(T.encodeSession(saved));assert.deepEqual(r.capture(),saved);r.advance(.005);assert.equal(r.fault,null);return r;}
+// CW-12: enabling protection cannot turn incompatible trial amplitudes into a live fault.
+for(const at of [0,.125,.25,.375,.5]){
+ const f=load({protectionEnabled:false,maxCurrent:1,maxPower:6},0,'capacitor',{capacitance:.02}),s=new T.Session(f.d);s.advance(at);const old=s.capture();f.s.params.protectionEnabled=true;s.update(f.d);
+ assert.equal(s.fault,null);assert.equal(s.state.protection[f.s.id].status,'normal');close(s.state.time,old.physics.time,1e-12);close(s.state.sources[f.s.id],old.physics.sources[f.s.id],1e-12);close(s.state.dynamic[f.r.id+':a'].v,old.physics.dynamic[f.r.id+':a'].v,1e-10);close(s.state.work,old.physics.work,1e-10);
+ s.advance(1.125);assert.equal(s.fault,null);assert.equal(s.state.protection[f.s.id].status,'normal');close(s.read().measurements[f.s.id].currentRms,2*Math.PI*.02*6,.001);close(s.read().measurements[f.s.id].averagePower,0,.001);assert.equal(s.read().energyBalance.status,'reliable');resume(s);
+}
+// CW-13: an unrelated latch must not preserve incompatible excitation in a changed block.
+for(const status of ['none','normal','tripped']){
+ const f=load({protectionEnabled:false}),d=f.d;let other,short;
+ if(status!=='none'){other=M.add(d,'ac-source',100,400,{protectionEnabled:true});const r=M.add(d,'resistor',300,400);M.connect(d,other.id+':a',r.id+':a');M.connect(d,other.id+':b',r.id+':b');if(status==='tripped')short=M.connect(d,other.id+':a',other.id+':b');}
+ const s=new T.Session(d);s.advance(.25);const latch=other&&M.clone(s.state.protection[other.id]),phase=other&&s.state.sources[other.id],c=M.add(d,'capacitor',500,100,{capacitance:.02});M.connect(d,f.s.id+':a',c.id+':a');M.connect(d,f.s.id+':b',c.id+':b');s.update(d);
+ assert.equal(s.fault,null,status);close(s.state.sources[f.s.id],0,1e-12);close(s.state.dynamic[c.id+':a'].v,0,1e-12);assert.equal(s.read().measurements[f.s.id].status,'collecting');if(other){assert.deepEqual(s.state.protection[other.id],latch);close(s.state.sources[other.id],phase,1e-12);}
+ s.advance(.125);assert.equal(s.fault,null);resume(s);
+ if(short){d.wires=d.wires.filter(w=>w.id!==short.id);s.update(d);assert.equal(s.state.protection[other.id].status,'tripped');const voltage=s.state.dynamic[c.id+':a'].v;s.resetProtection(other.id);assert.equal(s.state.protection[other.id].status,'normal');close(s.state.dynamic[c.id+':a'].v,voltage,1e-10);resume(s);}
+}
+// CW-14: feasible intervals need not include zero; protected peers share the bounds.
+{const f=load({protectionEnabled:false}),c=M.add(f.d,'capacitor',500,100,{capacitance:.02}),other=M.add(f.d,'ac-source',100,400,{protectionEnabled:true}),coil=M.add(f.d,'inductor',300,400,{inductance:1,resistance:0,initialCurrent:2});for(const p of ['a','b']){M.connect(f.d,f.s.id+':'+p,c.id+':'+p);M.connect(f.d,other.id+':'+p,coil.id+':'+p);}M.connect(f.d,other.id+':a',other.id+':b');const s=new T.Session(f.d);s.advance(.25);const current=s.state.dynamic[coil.id+':a'].i,phase=s.state.sources[other.id];c.params.capacitance=.04;s.update(f.d);assert.equal(s.fault,null);close(s.state.sources[f.s.id],0,1e-12);close(s.state.dynamic[c.id+':a'].v,0,1e-12);close(s.state.dynamic[coil.id+':a'].i,current,1e-10);close(s.state.sources[other.id],phase,1e-12);assert.equal(s.state.protection[other.id].status,'tripped');resume(s);}
+for(const [voltage,phase,protectedPeer,expected]of [[4,0,false,5],[.4,180,false,.6],[.4,60,false,.2+Math.sqrt(.88)],[10,0,false,null],[4,90,false,null],[4,0,true,1.5]]){
+ const d=M.empty('transient'),a=M.add(d,'ac-source',100,100,{protectionEnabled:true,maxCurrent:1,maxPower:6}),b=M.add(d,'ac-source',300,100,{voltage,phase,protectionEnabled:protectedPeer,maxCurrent:.5,maxPower:6}),r=M.add(d,'resistor',500,100,{resistance:1});M.connect(d,a.id+':b',b.id+':b');M.connect(d,a.id+':a',r.id+':a');M.connect(d,b.id+':a',r.id+':b');const s=new T.Session(d);
+ assert.equal(s.fault,null);assert.equal(s.state.protection[a.id].status,expected===null?'tripped':'limited');if(expected!==null){close(s.state.protection[a.id].scale*6,expected,1e-7);s.advance(1.125);const q=s.read().measurements[a.id];assert(q.currentRms<=1.001&&-q.averagePower<=6.01);if(protectedPeer){assert.notEqual(s.state.protection[b.id].status,'tripped');assert(s.read().measurements[b.id].currentRms<=.501);}}resume(s);
+}
+{const d=M.empty('transient'),a=M.add(d,'ac-source',100,100,{protectionEnabled:true,maxCurrent:1,maxPower:6}),b=M.add(d,'ac-source',300,100,{voltage:4,phase:180,protectionEnabled:true,maxCurrent:1,maxPower:6}),r=M.add(d,'resistor',500,100,{resistance:1});M.connect(d,a.id+':b',b.id+':b');M.connect(d,a.id+':a',r.id+':a');M.connect(d,b.id+':a',r.id+':b');const s=new T.Session(d);assert.equal(s.state.protection[a.id].status,'limited');assert.equal(s.state.protection[b.id].status,'limited');close(s.state.protection[a.id].scale,.1,1e-7);s.advance(1.125);assert(s.read().measurements[a.id].currentRms<=1.001);resume(s);}
+for(const [voltage,opposing,current,power,expected]of [[1000,400,.001,6,400.001],[6,4,.1,.01,2+Math.sqrt(4.01)]]){
+ const d=M.empty('transient'),a=M.add(d,'ac-source',100,100,{voltage,protectionEnabled:true,maxCurrent:current,maxPower:power}),b=M.add(d,'ac-source',300,100,{voltage:opposing}),r=M.add(d,'resistor',500,100,{resistance:1});M.connect(d,a.id+':b',b.id+':b');M.connect(d,a.id+':a',r.id+':a');M.connect(d,b.id+':a',r.id+':b');const s=new T.Session(d);assert.equal(s.state.protection[a.id].status,'limited');close(s.state.protection[a.id].scale*voltage,expected,1e-6);s.advance(1.125);assert.equal(s.fault,null);const q=s.read().measurements[a.id];assert(q.currentRms<=current*1.001&&-q.averagePower<=power*1.001);resume(s);
+}
 for(const turns of [100,200,400]){
  const d=P.create('transformer');d.components[1].params.secondaryTurns=turns;const s=new T.Session(d),scale=turns===400?.5:1;
  close(s.state.protection.c1.scale,scale,1e-7);s.advance(1.125);assert.equal(s.fault,null);const a=s.read();
