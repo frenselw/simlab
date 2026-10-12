@@ -11,10 +11,11 @@
   }
   // ponytail: 512 time bins bound memory even for stiff circuits; more bins if meter accuracy requirements exceed 0.5%.
   class Tracker {
-    constructor(period,ids=null){this.window=period;this.width=period/512;this.ids=ids;this.bins=[];this.previous=null;this.start=null;this.starts={};}
+    constructor(period,ids=null){this.window=period;this.width=period/512;this.ids=ids;this.bins=[];this.previous=null;this.start=null;this.starts={};this.measurements=new Map();}
     copy(){const next=new Tracker(this.window,this.ids?new Set(this.ids):null);next.bins=M.clone(this.bins);next.previous=M.clone(this.previous);next.start=this.start;next.starts={...this.starts};return next;}
-    retain(ids){for(const id of Object.keys(this.starts))if(!ids.has(id))delete this.starts[id];for(const bin of this.bins)for(const id of Object.keys(bin.values))if(!ids.has(id))delete bin.values[id];if(this.previous)for(const id of Object.keys(this.previous.values))if(!ids.has(id))delete this.previous.values[id];}
+    retain(ids){this.measurements.clear();for(const id of Object.keys(this.starts))if(!ids.has(id))delete this.starts[id];for(const bin of this.bins)for(const id of Object.keys(bin.values))if(!ids.has(id))delete bin.values[id];if(this.previous)for(const id of Object.keys(this.previous.values))if(!ids.has(id))delete this.previous.values[id];}
     sample(result){
+      this.measurements.clear();
       const values=Object.fromEntries(Object.entries(result.components).map(([id,r])=>[id,{u:r.sensedVoltage!==undefined?r.sensedVoltage:r.voltage,i:r.current,...(r.measurementBranches?{p:r.measurementBranches.map(b=>({from:b.from,to:b.to,u:b.voltage,i:b.current}))}:{})}])),next={time:result.time,values};
       for(const [id,r]of Object.entries(result.components))if(r.secondaryVoltage!==undefined)values[id+'~secondary']={u:r.secondaryVoltage,i:r.secondaryCurrent};
       for(const [id,r]of Object.entries(result.wires))values['wire:'+id]={u:r.voltage,i:r.current};
@@ -37,14 +38,14 @@
       }
       const threshold=next.time-this.window-this.width;while(this.bins[0]?.end<threshold)this.bins.shift();this.previous=next;
     }
-    measure(id){const end=this.previous?.time??0,start=end-this.window,origin=this.starts[id]??this.start,collecting=origin===null||start<origin-1e-10;
+    measure(id){if(this.measurements.has(id))return {...this.measurements.get(id)};const end=this.previous?.time??0,start=end-this.window,origin=this.starts[id]??this.start,collecting=origin===null||start<origin-1e-10;
       const sum={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);for(const k of Object.keys(sum))sum[k]+=q[k]*factor;}
       const latest=this.previous?.values[id],status=(duration,known)=>!known?'unknown':collecting?'collecting':duration>=this.window*(1-1e-6)?'ready':'collecting',voltageStatus=status(sum.uDuration,Number.isFinite(latest?.u)),currentStatus=status(sum.iDuration,Number.isFinite(latest?.i)),powerStatus=status(sum.pDuration,latest?.p?latest.p.every(b=>Number.isFinite(b.u)&&(b.u===0||Number.isFinite(b.i))):Number.isFinite(latest?.u)&&Number.isFinite(latest?.i)),states=[voltageStatus,currentStatus,powerStatus];
       // Startup estimates use only complete coverage of the elapsed window; a gap or
       // unknown channel must not masquerade as a measured zero or a complete cycle.
       const elapsed=end-Math.max(origin??end,start),covered=(duration,state)=>state==='collecting'&&elapsed>1e-12&&duration>=elapsed*(1-1e-6);
       const provisionalVoltageRms=covered(sum.uDuration,voltageStatus)?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,provisionalCurrentRms=covered(sum.iDuration,currentStatus)?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,provisionalAveragePower=covered(sum.pDuration,powerStatus)?sum.p/sum.pDuration:null;
-      return {provisionalVoltageRms,provisionalCurrentRms,provisionalAveragePower,status:states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown',voltageStatus,currentStatus,powerStatus,start:Math.max(origin??0,start),end,window:this.window,voltageDuration:sum.uDuration,currentDuration:sum.iDuration,powerDuration:sum.pDuration,currentPeak:currentStatus==='ready'?currentPeak:null,voltagePeak:voltageStatus==='ready'?voltagePeak:null,voltageRms:voltageStatus==='ready'?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,currentRms:currentStatus==='ready'?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,averagePower:powerStatus==='ready'?sum.p/sum.pDuration:null};
+      const result={provisionalVoltageRms,provisionalCurrentRms,provisionalAveragePower,status:states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown',voltageStatus,currentStatus,powerStatus,start:Math.max(origin??0,start),end,window:this.window,voltageDuration:sum.uDuration,currentDuration:sum.iDuration,powerDuration:sum.pDuration,currentPeak:currentStatus==='ready'?currentPeak:null,voltagePeak:voltageStatus==='ready'?voltagePeak:null,voltageRms:voltageStatus==='ready'?Math.sqrt(Math.max(0,sum.u2/sum.uDuration)):null,currentRms:currentStatus==='ready'?Math.sqrt(Math.max(0,sum.i2/sum.iDuration)):null,averagePower:powerStatus==='ready'?sum.p/sum.pDuration:null};if(Object.hasOwn(this.previous?.values||{},id))this.measurements.set(id,result);return {...result};
     }
   }
   class GroupTracker {

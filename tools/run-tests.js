@@ -9,6 +9,8 @@ const tests = [
   "sim/circuit-workbench/transient.test.js",
   "sim/circuit-workbench/ac-source-protection.test.js",
   "sim/circuit-workbench/protection-continuation.test.js",
+  "sim/circuit-workbench/protection-budget.test.js",
+  "sim/circuit-workbench/session-capacity.test.js",
   "sim/circuit-workbench/connection.test.js",
   "tools/circuit-connections-browser-regression.js",
   "sim/circuit-workbench/ac-audit-regressions.test.js",

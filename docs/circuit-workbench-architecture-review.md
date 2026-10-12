@@ -71,7 +71,7 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 - `series` 是單支路元件的拓撲檢查，`connected` 只驗證必要共接，三點滑片效果亦有取樣界限；複雜題目可用自訂 check 配合相同求解器。它們不是適用於所有電路的評分 rubric。
 - 目前沒有「在求解中存在、卻看不見又能吸附」的隱藏元件模式。未提供的元件不在工具箱，預置文件只包含本題要顯示的元件；特殊隱藏模型需由活動明確設計，不能只把圖形藏起來。
 - 新穩態元件仍可透過 registry 自訂端子／支路及 render 本體，工具箱依配置建立。內部流動路徑和某些儀表說明仍採內建型別分派；新元件要補適合自己的顯示。2026-10-07 已新增繼電器的有限機械延時：instance relay Map 控制先斷後通，由既有 DC solver 求解當前拓撲；五孔線圈與 SPDT 觸點保持隔離。這不包含線圈電感／反電動勢或接點彈跳；電容／電感電氣瞬態已在AC時間後端另有步進、能量及session；時間後端目前不支援該DC機械繼電器，不能把此近似當作完整線圈瞬態模型。
-- 教師 JSON 的 256 KiB 上限不是 SCORM 1.2 的 ≤4000 bytes 作答方案。正式活動須定題目版本、精簡快照、round-trip、部分分與合法續作，依 [production guide](simulation-scorm-production-guide.md) 接入 SimScorm／SimActivityFlow。前端限制不是高風險評分的信任邊界。
+- 純電路JSON的256 KiB（教師AC保護session另用8 MiB，見[交流工作台](circuit-ac-workbench.md)）不是 SCORM 1.2 的 ≤4000 bytes 作答方案。正式活動須定題目版本、精簡快照、round-trip、部分分與合法續作，依 [production guide](simulation-scorm-production-guide.md) 接入 SimScorm／SimActivityFlow。前端限制不是高風險評分的信任邊界。
 
 ## 驗證
 

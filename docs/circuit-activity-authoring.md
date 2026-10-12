@@ -193,7 +193,7 @@ editor.execute({type:'setParam', id:'c4', key:'position', value:.75});
 
 同頁可掛載多個 editor；ID 自動加 instance 前綴，CSS 只作用於 `.circuit-editor`，指標與鍵盤事件歸所屬宿主管理。只有教師 bootstrap 使用空前綴來保留既有工作台 DOM 介面；其他外層應使用 controller 而非猜固定 DOM ID。原 `window.CircuitWorkbench` API 保留，現在指向教師 editor controller。
 
-正式活動應在恢復／review 之前載入已驗證快照，再設只讀。通用 JSON 最多 256 KiB，不能直接塞進 SCORM 1.2 的 ≤4000 bytes suspend_data；各活動須另定題目版本、必要答案欄位及壓縮編碼，依 [production guide](simulation-scorm-production-guide.md) 驗證 blank／partial／pending／recorded 的 round-trip 和合法續作。活動配置來自可信本地程式，不跟學生檔案匯入；前端限制不是高風險評分的信任邊界。
+正式活動應在恢復／review 之前載入已驗證快照，再設只讀。純電路JSON最多256 KiB；教師AC保護session另用8 MiB（見[交流工作台](circuit-ac-workbench.md)），兩者均不能直接塞進 SCORM 1.2 的 ≤4000 bytes suspend_data；各活動須另定題目版本、必要答案欄位及壓縮編碼，依 [production guide](simulation-scorm-production-guide.md) 驗證 blank／partial／pending／recorded 的 round-trip 和合法續作。活動配置來自可信本地程式，不跟學生檔案匯入；前端限制不是高風險評分的信任邊界。
 
 ## 共用核心的維護與發布
 

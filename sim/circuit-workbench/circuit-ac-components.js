@@ -35,6 +35,7 @@
   const baseTypes=['battery','resistor','rheostat','switch','lamp','galvanometer','ammeter','voltmeter','wattmeter'];
   const supported=c=>!!types[c.type]||baseTypes.includes(c.type)&&!(c.type==='lamp'&&c.params.model!=='ideal');
   const wrap=phase=>{const value=((phase%TAU)+TAU)%TAU;return value<1e-12||TAU-value<1e-12?0:Math.abs(value-Math.PI)<1e-12?Math.PI:value;};
+  const sourceResistance=c=>c.type==='ac-source'&&c.params.protectionEnabled?Math.max(.05,c.params.resistance):c.params.resistance;
   function source(c,theta,left=false){
     if(c.type==='battery')return c.params.voltage*c.params.polarity;
     const p=c.params;if(c.type==='generator')return p.turns*p.field*p.area*TAU*p.frequency*Math.sin(theta);
@@ -177,5 +178,5 @@
   types.transformer.displayResult=Display.transformerVisual;
   for(const [type,definition]of Object.entries(types))if(!Object.hasOwn(R.definitions,type))R.register(type,{...definition,analysis:'transient',render,dc(){throw new Error('此元件需要時間求解器');}});
   const palette=[{type:'ac-source'},{type:'generator'},{type:'battery'},{type:'resistor'},{type:'rheostat'},{type:'lamp',params:{model:'ideal'}},{type:'switch'},{type:'spdt'},{type:'capacitor'},{type:'inductor'},{type:'transformer'},{type:'led',key:'red-led',params:{colour:'red'},label:'紅色 LED'},{type:'led',key:'green-led',params:{colour:'green'},label:'綠色 LED'},{type:'ac-ammeter'},{type:'ac-voltmeter'},{type:'ac-wattmeter'},{type:'galvanometer'}];
-  return {types,palette,supported,toAC,source,wrap,TAU,capacitorGap,meterFace,transformerTurns,flowPaths};
+  return {types,palette,supported,toAC,source,sourceResistance,wrap,TAU,capacitorGap,meterFace,transformerTurns,flowPaths};
 });

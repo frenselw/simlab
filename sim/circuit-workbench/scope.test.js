@@ -25,3 +25,6 @@ for(const view of ['real','schematic']){const d=P.create('resistive');d.display.
 
 // Peak observations retain pulse maxima and signs without changing RMS integration.
 {const t=new O.Tracker(1),sample=(time,i)=>t.sample({time,components:{c1:{voltage:2,current:i}},wires:{}});sample(0,0);sample(.25,3);sample(.5,-4);sample(.75,0);sample(1,0);assert.equal(t.measure('c1').currentPeak,4);sample(2,0);sample(2.1,0);assert.equal(t.measure('c1').currentPeak,0);assert.equal(t.measure('c1').currentRms,0);}
+
+// Repeated UI reads reuse physical integrals; callers and copied trackers cannot mutate them.
+{const t=new O.Tracker(1),sample=(time,i)=>t.sample({time,components:{x:{voltage:2,current:i}},wires:{}});sample(0,1);sample(1,1);const a=t.measure('x');a.currentRms=99;assert.equal(t.measure('x').currentRms,1);const c=t.copy();sample(2,2);assert(t.measure('x').currentRms>1);assert.equal(c.measure('x').currentRms,1);t.retain(new Set());assert.equal(t.measure('x').currentStatus,'unknown');}
