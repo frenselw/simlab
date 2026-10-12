@@ -221,29 +221,55 @@
   // accepted storage, phase, energy books or the observation trackers.
   function protectionWindow(c){return c.sources.map(e=>c.policies.get(e.c.id).quantities.power).reduce((a,b)=>a.window>=b.window?a:b);}
   function protectionCadence(c){const policy=protectionWindow(c),nonSine=c.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');return c.dynamic.length||nonSine||c.edges.some(e=>e.kind==='led')||policy.period===null?Math.min(policy.window,...c.sources.map(e=>1/e.c.params.frequency),1):null;}
-  function forecastDemand(c,state){
+  function protectionHistories(c,previous=null,observation=null,retained=null){
+    const histories=new Map();
+    for(const e of c.sources)if(e.c.params.protectionEnabled){const id=e.c.id,policy=protectionWindow(protectionCircuit(c,e)),old=(!retained||retained.has(id))&&previous?.get(id),observed=observation?.groups.get(policy.key)?.tracker;
+      const tracker=old?.window===policy.window?old:observed?.window===policy.window?observed.copy():new O.Tracker(policy.window,new Set([id]));tracker.retain(new Set([id]));tracker.ids=new Set([id]);histories.set(id,tracker);
+    }return histories;
+  }
+  function captureProtectionHistory(histories){return Object.fromEntries([...histories].map(([id,t])=>[id,{start:t.starts[id]??t.start,previous:t.previous?{time:t.previous.time,...t.previous.values[id]}:null,bins:t.bins.map(b=>{const q=b.values[id];return [b.start,b.end,q.iDuration,q.pDuration,q.i2,q.p];})}]));}
+  function restoreProtectionHistory(histories,data,time,result){
+    keys(data,[...histories.keys()]);
+    for(const [id,t]of histories){const h=data[id];keys(h,['start','previous','bins']);finite(h.start,0,time);keys(h.previous,['time','u','i']);if(h.previous.time!==time)throw Error('保護歷史時間不符');
+      for(const k of ['u','i']){const x=h.previous[k],r=result.components[id][k==='u'?'voltage':'current'];if(x!==null)finite(x);if(Number.isFinite(r)!==Number.isFinite(x)||Number.isFinite(r)&&Math.abs(r-x)>1e-6*Math.max(1,Math.abs(r),Math.abs(x)))throw Error('保護歷史端點不符');}
+      if(!Array.isArray(h.bins)||h.bins.length>514)throw Error('保護歷史容量無效');let end=null;
+      t.bins=h.bins.map(b=>{if(!Array.isArray(b)||b.length!==6)throw Error('保護歷史積分無效');b.forEach(x=>finite(x,-Number.MAX_VALUE,Number.MAX_VALUE));const [a,z,di,dp,i2,p]=b,dt=z-a;
+        if(!(dt>0)||a<Math.max(h.start,time-t.window-t.width)-t.width-1e-10||z>time+EPS||end!==null&&Math.abs(a-end)>1e-10||di<0||dp<0||di>dt*(1+1e-6)||dp>dt*(1+1e-6)||i2<0||di===0&&i2!==0||dp===0&&p!==0)throw Error('保護歷史覆蓋無效');end=z;
+        return {at:Math.floor(a/t.width+1e-8),start:a,end:z,values:{[id]:{uDuration:0,iDuration:di,pDuration:dp,u2:0,i2,p,currentPeak:0,voltagePeak:0}}};
+      });
+      if(end!==null&&Math.abs(end-time)>1e-10||time>h.start+EPS&&!h.bins.length||h.bins.length&&h.bins[0][0]>Math.max(h.start,time-t.window)+t.width)throw Error('保護歷史缺少覆蓋');
+      t.start=h.start;t.starts={[id]:h.start};t.previous={time,values:{[id]:{u:h.previous.u,i:h.previous.i}}};
+    }
+  }
+  function forecastDemand(c,state,histories=null){
     const period=protectionWindow(c).window,steps=Math.max(256,Math.ceil(period/c.maxStep)),baseStep=period/steps,totals=Object.fromEntries(c.sources.map(e=>[e.c.id,{square:0,power:0}]));let predicted=clone(state),elapsed=0,count=0;
+    const horizon=period+(protectionCadence(c)??0);
+    const rolling=new Map(c.sources.map(e=>[e.c.id,histories?.get(e.c.id)?.copy()||new O.Tracker(period,new Set([e.c.id]))]));
     // shortcut: bound forecast work for mixed/stiff waveforms; use a spectral nonlinear backend if those circuits need support.
-    if(steps>4096)return null;
+    if(steps*horizon/period>4096)return null;
+    const windows=Object.fromEntries(c.sources.map(e=>[e.c.id,[]]));
     const start=initialSolution(c,predicted);if(start.error)return null;try{predicted=derive(c,predicted,start);}catch{return null;}
-    let previous=read(c,predicted,start);
+    let previous=read(c,predicted,start);for(const t of rolling.values())t.sample(previous);
     const books=c.sources.map(e=>{const members=c.energyDomains.get(c.energyDomainOf.get(e.id));return {e,members,initial:energy(c,state,members),loss:0,isolated:members.filter(e=>e.kind==='source'&&!stopped(state,e.c)).length===1};});
-    while(elapsed<period-Math.max(EPS,period*1e-12)){
-      if(++count>4096)return null;const corner=breakpoint(c,predicted),h=Math.min(baseStep,corner,period-elapsed),left=Math.abs(h-corner)<Math.min(EPS,h*1e-8);if(h<MIN_STEP)return null;
+    while(elapsed<horizon-Math.max(EPS,horizon*1e-12)){
+      if(++count>4096)return null;const corner=breakpoint(c,predicted),h=Math.min(baseStep,corner,horizon-elapsed,elapsed<period-EPS?period-elapsed:Infinity),left=Math.abs(h-corner)<Math.min(EPS,h*1e-8);if(h<MIN_STEP)return null;
       const stages=c.dynamic.length?null:[-1,1].map(sign=>one(c,predicted,h*(.5+sign/(2*Math.sqrt(3))),'be',false));if(stages?.some(s=>s.error))return null;
       const sample=one(c,predicted,h,c.dynamic.length?'trap':'be',left);if(sample.error)return null;predicted=sample.state;elapsed+=h;
+      for(const t of rolling.values())t.sample(sample.result);
       for(const e of c.sources){const r=sample.result.components[e.c.id],old=previous.components[e.c.id];if(!Number.isFinite(r.current)||!Number.isFinite(r.delivered))return null;
         const points=c.dynamic.length?[-1,1].map(sign=>{const t=.5+sign/(2*Math.sqrt(3));return [old.current+t*(r.current-old.current),old.voltage+t*(r.voltage-old.voltage)];}):stages.map(s=>{const r=s.result.components[e.c.id];return [r.current,r.voltage];});
-        for(const [i,v]of points){totals[e.c.id].square+=i*i*h/period/points.length;totals[e.c.id].power-=v*i*h/period/points.length;}
+        if(elapsed<=period+EPS)for(const [i,v]of points){totals[e.c.id].square+=i*i*h/period/points.length;totals[e.c.id].power-=v*i*h/period/points.length;}
+        const measured=rolling.get(e.c.id).measure(e.c.id);if(measured.currentStatus==='ready'&&measured.powerStatus==='ready')windows[e.c.id].push({currentRms:measured.currentRms,averagePower:-measured.averagePower});
       }
-      for(const book of books)if(book.isolated)for(const edge of book.members.filter(edge=>edge.kind!=='source')){const branch=result=>result.components[edge.c.id]?.branches.find(r=>r.from===edge.pa&&r.to===edge.pb)||result.wires[edge.c.id],r=branch(sample.result),old=branch(previous),square=c.dynamic.length?(old.current**2+old.current*r.current+r.current**2)/3:r.current**2;book.loss+=(edge.kind==='led'?Math.max(0,r.power):edge.resistance*square)*h;}
+      for(const book of books)if(elapsed<=period+EPS&&book.isolated)for(const edge of book.members.filter(edge=>edge.kind!=='source')){const branch=result=>result.components[edge.c.id]?.branches.find(r=>r.from===edge.pa&&r.to===edge.pb)||result.wires[edge.c.id],r=branch(sample.result),old=branch(previous),square=c.dynamic.length?(old.current**2+old.current*r.current+r.current**2)/3:r.current**2;book.loss+=(edge.kind==='led'?Math.max(0,r.power):edge.resistance*square)*h;}
+      if(Math.abs(elapsed-period)<EPS)for(const book of books)book.final=energy(c,predicted,book.members);
       previous=sample.result;
-      if(left){const right=initialSolution(c,predicted);if(right.error)return null;try{predicted=derive(c,predicted,right);}catch{return null;}previous=read(c,predicted,right);}
+      if(left){const right=initialSolution(c,predicted);if(right.error)return null;try{predicted=derive(c,predicted,right);}catch{return null;}previous=read(c,predicted,right);for(const t of rolling.values())t.sample(previous);}
     }
     // Use physical energy/loss for a singly driven domain; quadrature alone
     // must not invent active power in a lossless reactive load.
-    for(const book of books)if(book.isolated)totals[book.e.c.id].power=(energy(c,predicted,book.members)-book.initial+book.loss)/period;
-    return Object.fromEntries(Object.entries(totals).map(([id,q])=>[id,{currentRms:Math.sqrt(q.square),averagePower:q.power}]));
+    for(const book of books)if(book.isolated)totals[book.e.c.id].power=(book.final-book.initial+book.loss)/period;
+    return Object.fromEntries(Object.entries(totals).map(([id,q])=>{const constraints=[{currentRms:Math.sqrt(q.square),averagePower:q.power},...windows[id]];return [id,{currentRms:Math.max(...constraints.map(q=>q.currentRms)),averagePower:Math.max(...constraints.map(q=>q.averagePower)),constraints}];}));
   }
   function protectionCircuit(c,e){
     c.protectionCircuits??=new Map();if(c.protectionCircuits.has(e.id))return c.protectionCircuits.get(e.id);
@@ -255,20 +281,20 @@
     if(own.edges.length!==members.length||members.some(e=>!own.edges.some(b=>b.id===e.id&&b.kind===e.kind&&b.resistance===e.resistance&&b.L===e.L&&b.C===e.C))||ports.some(a=>ports.some(b=>(c.netOf[a]===c.netOf[b])!==(own.netOf[a]===own.netOf[b]))))throw new Error('保護子電路支路或接點不等效');
     c.protectionCircuits.set(e.id,own);return own;
   }
-  function transientDemand(c,state,ids,full){
-    if(!c.dynamic.length||c.edges.some(e=>e.kind==='led')||c.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine'))return ()=>null;
-    const predict=scale=>{const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;return forecastDemand(c,trial)||false;},cache=new Map([[1,full]]);
+  function transientDemand(c,state,ids,full,histories){
+    if(c.edges.some(e=>e.kind==='led')||!c.dynamic.length&&c.sources.every(e=>e.c.type!=='ac-source'||e.c.params.waveform==='sine'))return ()=>null;
+    const predict=scale=>{const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;return forecastDemand(c,trial,histories)||false;},cache=new Map([[1,full]]);
     const zero=predict(0),half=predict(.5);cache.set(0,zero);cache.set(.5,half);
     // An incompatible voltage trial does not invalidate the accepted output.
     if(!zero||!full||!half)return scale=>{if(!cache.has(scale))cache.set(scale,predict(scale));return cache.get(scale);};
-    const coefficients=Object.fromEntries(ids.map(id=>{const values=key=>[zero[id][key],half[id][key],full[id][key]],quadratic=([a,m,b])=>[a,4*m-3*a-b,2*(a+b-2*m)];return [id,{i:quadratic(values('currentRms').map(x=>x*x)),p:quadratic(values('averagePower'))}];}));
-    return scale=>Object.fromEntries(ids.map(id=>{const q=coefficients[id],value=a=>a[0]+scale*a[1]+scale*scale*a[2];return [id,{currentRms:1.001*Math.sqrt(Math.max(0,value(q.i))),averagePower:value(q.p)}];}));
+    const coefficients=Object.fromEntries(ids.map(id=>[id,full[id].constraints.map((_,n)=>{const values=key=>[zero,half,full].map(q=>q[id].constraints[n][key]),quadratic=([a,m,b])=>[a,4*m-3*a-b,2*(a+b-2*m)];return {i:quadratic(values('currentRms').map(x=>x*x)),p:quadratic(values('averagePower'))};})]));
+    return scale=>Object.fromEntries(ids.map(id=>{const value=a=>a[0]+scale*a[1]+scale*scale*a[2],constraints=coefficients[id].map(q=>({currentRms:(c.dynamic.length?1.001:1)*Math.sqrt(Math.max(0,value(q.i))),averagePower:value(q.p)}));return [id,{currentRms:Math.max(...constraints.map(q=>q.currentRms)),averagePower:Math.max(...constraints.map(q=>q.averagePower)),constraints}];}));
   }
   function protectionScale(sources,demand,fits,linear){
     const samples=[0,.5,1].map(demand),points=[0,1];
     if(linear&&samples.every(q=>q.periodic&&q.transient!==false)){
-      for(const source of sources)for(const kind of ['periodic','transient'])if(samples.every(q=>q[kind]))for(const key of ['currentRms','averagePower']){
-        const [x,m,y]=samples.map(q=>key==='currentRms'?q[kind][source.c.id][key]**2:q[kind][source.c.id][key]),limit=key==='currentRms'?source.c.params.maxCurrent**2:source.c.params.maxPower;
+      for(const source of sources)for(const kind of ['periodic','transient'])if(samples.every(q=>q[kind]))for(let n=0;n<(samples[0][kind][source.c.id].constraints?.length||1);n++)for(const key of ['currentRms','averagePower']){
+        const [x,m,y]=samples.map(q=>{const values=q[kind][source.c.id],v=(values.constraints?.[n]||values)[key];return key==='currentRms'?v**2:v;}),limit=key==='currentRms'?source.c.params.maxCurrent**2:source.c.params.maxPower;
         const a=2*(x+y-2*m),b=4*m-3*x-y,c=x-limit,norm=Math.max(Math.abs(a),Math.abs(b),Math.abs(c),1e-300),disc=b*b-4*a*c;
         const roots=Math.abs(a)<1e-12*norm?Math.abs(b)>1e-12*norm?[-c/b]:[]:disc>=-1e-12*norm*norm?[(-b-Math.sqrt(Math.max(0,disc)))/(2*a),(-b+Math.sqrt(Math.max(0,disc)))/(2*a)]:[];
         points.push(...roots.filter(x=>x>0&&x<1));
@@ -281,24 +307,26 @@
       for(let i=0;i<24;i++){const mid=(low+upper)/2;if(fits(demand(mid)))low=mid;else upper=mid;}return low;
     }return null;
   }
-  function applyProtection(c,state,selected=null){
+  function applyProtection(c,state,selected=null,histories=null){
     syncProtection(c,state);if(!state.protection)return;
     const shorts=shortedSources(c),enabled=c.sources.filter(e=>state.protection[e.c.id]),handled=new Set(),trip=(e,reason)=>Object.assign(state.protection[e.c.id],{status:'tripped',scale:0,reason,reviewAt:null});
     for(const e of enabled)if(shorts.has(e.c.id))trip(e,'short-circuit');
     for(const e of enabled){if(handled.has(e.c.id)||stopped(state,e.c)||selected&&!selected.has(e.c.id))continue;
       const own=protectionCircuit(c,e),sources=own.sources.filter(e=>state.protection[e.c.id]&&!stopped(state,e.c)),ids=sources.map(e=>e.c.id),linear=!own.edges.some(e=>e.kind==='led'),sinusoidal=!own.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');ids.forEach(id=>handled.add(id));
-      const physical=trial=>({periodic:sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial),transient:linear&&sinusoidal&&own.dynamic.length?forecastDemand(own,trial)||false:null});
+      const physical=trial=>({periodic:sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial,histories),transient:linear&&sinusoidal&&own.dynamic.length?forecastDemand(own,trial,histories)||false:null});
       const fits=d=>d.periodic&&d.transient!==false&&sources.every(e=>[d.periodic,d.transient].filter(Boolean).every(values=>{const q=values[e.c.id];return q&&q.currentRms<=e.c.params.maxCurrent*(1+1e-9)&&q.averagePower<=e.c.params.maxPower*(1+1e-9);}));
       const current=physical(state),nominal=clone(state);for(const id of ids)nominal.protection[id].scale=1;
       const full=ids.every(id=>state.protection[id].scale===1)?current:physical(nominal);let scale=null;
-      if(fits(full))scale=1;
+      const recovering=ids.some(id=>state.protection[id].scale<1),collecting=ids.some(id=>{const h=histories?.get(id);return h&&h.start>0&&state.time-h.start<h.window-1e-10;});
+      if(fits(full)&&!(recovering&&collecting))scale=1;
       else if(!fits(current)||full.periodic&&full.transient!==false){
-        const transient=transientDemand(own,state,ids,full.transient),periodic=new Map([[1,full.periodic]]),demand=value=>{if(!periodic.has(value)){const trial=clone(state);for(const id of ids)trial.protection[id].scale=value;periodic.set(value,sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial));}return {periodic:periodic.get(value),transient:transient(value)};};
+        const transient=transientDemand(own,state,ids,sinusoidal?full.transient:full.periodic,histories),periodic=new Map([[1,full.periodic]]),demand=value=>{if(linear&&!sinusoidal)return {periodic:transient(value),transient:null};if(!periodic.has(value)){const trial=clone(state);for(const id of ids)trial.protection[id].scale=value;periodic.set(value,sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial,histories));}return {periodic:periodic.get(value),transient:transient(value)};};
         scale=protectionScale(sources,demand,fits,linear);
         if(scale!==null){const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;if(!fits(physical(trial)))scale=null;}
       }
       if(scale===null&&!fits(current)){sources.forEach(e=>trip(e,'unresolved'));continue;}
-      const cadence=protectionCadence(own);for(const source of sources){const q=state.protection[source.c.id];if(scale!==null)q.scale=scale;q.status=q.scale<1?'limited':'normal';q.reason=null;q.reviewAt=cadence===null?null:state.time+cadence;}
+      if(collecting&&recovering&&scale!==null&&scale>Math.min(...ids.map(id=>state.protection[id].scale)))scale=Math.min(...ids.map(id=>state.protection[id].scale));
+      const cadence=protectionCadence(own);for(const source of sources){const q=state.protection[source.c.id];if(scale!==null)q.scale=scale;q.status=q.scale<1?'limited':'normal';q.reason=null;q.reviewAt=cadence===null?null:(q.reviewAt!==null&&Math.abs(q.reviewAt-state.time)<EPS?q.reviewAt:state.time)+cadence;}
     }
   }
   function eventStep(c,result){
@@ -459,11 +487,11 @@
   }
   function breakpoint(c,state){let duration=Infinity;for(const e of c.sources){const p=e.c.params;if(e.c.type!=='ac-source'||p.waveform==='sine')continue;const shift=p.waveform==='triangle'?Math.PI/2:0,angle=state.sources[e.c.id],at=AC.wrap(angle-shift)%Math.PI,remaining=Math.PI-at;duration=Math.min(duration,(remaining<1e-9?Math.PI:remaining)/(AC.TAU*p.frequency));}return duration;}
   class Session {
-    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.fault=null;this.project();this.tracker.sample(this.result);this.visualTracker.sample(this.result);this.coreTracker.sample(this.result);}
+    constructor(doc){this.compiled=compile(doc);this.doc=this.compiled.doc;this.state=initial(this.compiled);this.listeners=new Set();this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.protectionHistory=protectionHistories(this.compiled);this.fault=null;this.project();this.tracker.sample(this.result);this.visualTracker.sample(this.result);this.coreTracker.sample(this.result);for(const h of this.protectionHistory.values())h.sample(this.result);}
     project({initialise=this.state.event,history=!this.state.event}={}){
       if(!this.restoring&&this.protectionCompiled!==this.compiled){
         const previous=this.protectionCompiled,selected=this.protectionSelection||(previous?new Set(this.compiled.sources.filter(e=>previous.policies.get(e.c.id)?.key!==this.compiled.policies.get(e.c.id)?.key).map(e=>e.c.id)):null);
-        applyProtection(this.compiled,this.state,selected);delete this.protectionSelection;this.protectionCompiled=this.compiled;
+        applyProtection(this.compiled,this.state,selected,this.protectionHistory);delete this.protectionSelection;this.protectionCompiled=this.compiled;
       }
       const s=initialise?initialSolution(this.compiled,this.state):solve(this.compiled,this.state,0,'trap',false,history);this.fault=s.error||null;
       if(!s.error){try{this.state=derive(this.compiled,this.state,s);}catch(_){/* Initial open branches can have unknown derivatives, not unknown stored values. */}}
@@ -472,10 +500,10 @@
     reviewProtection(tolerance,checkMeasured=false){
       const due=new Set(Object.entries(this.state.protection||{}).filter(([,q])=>q.reviewAt!==null&&q.reviewAt<=this.state.time+tolerance).map(([id])=>id));
       // Accepted physical integrals are a backstop for changing relative phases.
-      if(!this.fault&&(checkMeasured||due.size))for(const e of this.compiled.sources){const q=this.state.protection?.[e.c.id];if(!q||q.status==='tripped')continue;const measured=this.tracker.measure(e.c.id);
+      if(!this.fault&&checkMeasured)for(const e of this.compiled.sources){const q=this.state.protection?.[e.c.id];if(!q||q.status==='tripped')continue;const measured=this.protectionHistory.get(e.c.id)?.measure(e.c.id);if(!measured)continue;
         if(measured.currentStatus==='ready'&&measured.currentRms>e.c.params.maxCurrent*1.001||measured.powerStatus==='ready'&&-measured.averagePower>e.c.params.maxPower*1.001){Object.assign(q,{status:'tripped',scale:0,reason:'unresolved',reviewAt:null});due.add(e.c.id);}
       }
-      if(!this.fault&&due.size){this.protectionSelection=due;this.protectionCompiled=null;this.state.event=true;this.project();this.emit(this.result);}
+      if(!this.fault&&due.size){this.protectionSelection=due;this.protectionCompiled=null;this.state.event=true;this.project();this.emit(this.result);return true;}return false;
     }
     read(){this.result.energyBalance=energyBalance(this.compiled,this.state);if(this.fault)this.result.energyBalance.status='unreliable';this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.fault?{...this.tracker.measure(c.id),status:'unknown',voltageStatus:'unknown',currentStatus:'unknown',powerStatus:'unknown',provisionalVoltageRms:null,provisionalCurrentRms:null,provisionalAveragePower:null,voltageRms:null,currentRms:null,averagePower:null,voltagePeak:null,currentPeak:null}:this.tracker.measure(c.id)]));
       for(const c of this.doc.components){const r=this.result.components[c.id],q=this.result.measurements[c.id];r.currentPeak=q.currentStatus==='ready'?q.currentPeak:null;r.voltagePeak=q.voltageStatus==='ready'?q.voltagePeak:null;if(c.type==='transformer'){if(c.params.model==='ideal'){const flux=this.coreTracker.measure(c.id),policy=this.compiled.policies.get(c.id).quantities?.voltage||this.compiled.policies.get(c.id);r.coreFluxWindow=policy.window;r.coreFluxWindowKind=policy.windowKind;r.coreFluxFrequencies=policy.frequencies;r.coreFlux=flux.value;r.coreFluxPeak=flux.peak;r.coreFluxStatus=flux.status;}const secondary=this.tracker.measure(c.id+'~secondary');r.secondaryCurrentPeak=!this.fault&&secondary.currentStatus==='ready'?secondary.currentPeak:null;}if(c.type.startsWith('ac-')&&R.isMeter(c)){const connected=(c.type==='ac-wattmeter'?['a','b','c','d']:['a','b']).every(k=>this.compiled.connections[c.id][k]);const status=c.type==='ac-ammeter'?q.currentStatus:c.type==='ac-voltmeter'?q.voltageStatus:q.powerStatus;r.reading=connected&&status==='ready'?c.type==='ac-ammeter'?q.currentRms:c.type==='ac-voltmeter'?q.voltageRms:q.averagePower:null;r.estimatedReading=connected&&status==='collecting'?c.type==='ac-ammeter'?q.provisionalCurrentRms:c.type==='ac-voltmeter'?q.provisionalVoltageRms:q.provisionalAveragePower:null;r.meterStatus=!connected?'unconnected':status==='ready'?Number.isFinite(r.reading)?Math.abs(r.reading)>r.range?'overrange':'normal':'unknown':status;}
@@ -486,10 +514,10 @@
       this.result.hazards.overload=!!Object.keys(this.result.hazards.wires).length||!!Object.keys(this.result.hazards.components).length;return this.result;
     }
     subscribe(fn){if(typeof fn!=='function')throw new TypeError('分析訂閱需要函數');this.listeners.add(fn);return()=>this.listeners.delete(fn);}
-    emit(result){this.tracker.sample(result);this.visualTracker.sample(result);this.coreTracker.sample(result);for(const fn of this.listeners)fn(result);}
+    emit(result){for(const h of this.protectionHistory.values())h.sample(result);this.tracker.sample(result);this.visualTracker.sample(result);this.coreTracker.sample(result);for(const fn of this.listeners)fn(result);}
     advance(duration,{budget=Infinity}={}){
       finite(duration,0,1e9);const start=this.state.time,target=start+duration,timeTolerance=Math.max(8*Number.EPSILON*Math.max(Math.abs(start),Math.abs(target)),Math.min(EPS,duration*1e-10)),clock=performance.now();let steps=0;if(duration>0&&target===start)this.fault='time-resolution';
-      while(this.state.time<target-timeTolerance&&!this.fault){if(performance.now()-clock>budget)break;this.reviewProtection(timeTolerance);if(this.fault)break;const reviewAt=Math.min(Infinity,...Object.values(this.state.protection||{}).map(q=>q.reviewAt??Infinity));const c=this.compiled,startStep=this.state.event?eventStep(c,this.result):Infinity;if(this.state.event&&c.initialStep<MIN_STEP&&startStep>=MIN_STEP)this.state.step=Math.max(this.state.step,startStep);const breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,startStep,target-this.state.time,breakAt,reviewAt-this.state.time),atEvent=Math.abs(h-breakAt)<Math.min(EPS,h*1e-8),method=this.state.event?'be':'trap';
+      while(this.state.time<target-timeTolerance&&!this.fault){if(performance.now()-clock>budget)break;this.reviewProtection(EPS);if(this.fault)break;const reviewAt=Math.min(Infinity,...Object.values(this.state.protection||{}).map(q=>q.reviewAt??Infinity));const c=this.compiled,startStep=this.state.event?eventStep(c,this.result):Infinity;if(this.state.event&&c.initialStep<MIN_STEP&&startStep>=MIN_STEP)this.state.step=Math.max(this.state.step,startStep);const breakAt=breakpoint(c,this.state),h=Math.min(this.state.step,c.maxStep,startStep,target-this.state.time,breakAt,reviewAt-this.state.time),atEvent=Math.abs(h-breakAt)<Math.min(EPS,h*1e-8),method=this.state.event?'be':'trap';
         if(h<MIN_STEP||this.state.time+h===this.state.time){this.fault='time-resolution';break;}
         const half=one(c,this.state,h/2,method,false),second=half.error?half:one(c,half.state,h/2,method,atEvent),whole=c.dynamic.length?one(c,this.state,h,method,atEvent):second;
         if(whole.error||second.error){this.state.step=h/2;if(this.state.step<1e-12){this.fault=whole.error||second.error;break;}continue;}
@@ -497,19 +525,19 @@
         const energyError=Math.max(accumulate(c,this.result,half,h/2),accumulate(c,half.result,second,h/2));error=Math.max(error,energyError);
         if(error>1){this.state.step=h*Math.max(.15,.8*error**(-1/(method==='be'?2:3)));if(this.state.step<MIN_STEP){this.fault=energyError>1?'energy-balance':'time-resolution';break;}continue;}
         if(energyBalance(c,second.state).status!=='reliable'){this.state.step=h/2;if(this.state.step<MIN_STEP){this.fault='energy-balance';break;}continue;}
-        this.state=half.state;this.result=half.result;this.emit(half.result);this.state=second.state;this.result=second.result;this.emit(second.result);this.state.step=Math.min(c.maxStep,h*Math.min(2,error?.9*error**(-1/(method==='be'?2:3)):2));steps++;
+        this.state=half.state;this.result=half.result;this.emit(half.result);const changed=this.reviewProtection(EPS,true);if(this.fault)break;if(changed){steps++;continue;}this.state=second.state;this.result=second.result;this.emit(second.result);this.reviewProtection(EPS,true);if(this.fault)break;this.state.step=Math.min(c.maxStep,h*Math.min(2,error?.9*error**(-1/(method==='be'?2:3)):2));steps++;
         if(atEvent){this.state.event=true;this.project();this.emit(this.result);}
       }
       if(this.fault){this.state.step=Math.max(MIN_STEP,this.state.step);this.result=read(this.compiled,this.state,{error:this.fault});this.emit(this.result);}
-      this.reviewProtection(timeTolerance,true);
+      this.reviewProtection(EPS);
       return {advanced:this.state.time-start,complete:!this.fault&&Math.abs(this.state.time-target)<=timeTolerance,steps,result:this.read()};
     }
     update(input,{continuous=false}={}){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc);
       const shorts=shortedSources(next),preserveSources=new Set(next.sources.filter(e=>e.c.params.protectionEnabled&&(shorts.has(e.c.id)||this.state.protection?.[e.c.id]?.status==='tripped')).map(e=>e.c.id)),parametersReset=before.components.some(c=>{const n=next.doc.components.find(n=>n.id===c.id);return n&&resetKeys.some(k=>c.params[k]!==n.params[k]);}),reset=structural(before)!==structural(next.doc)||parametersReset;
-      const energyChanged=JSON.stringify([...this.compiled.energyDomains.keys()].sort())!==JSON.stringify([...next.energyDomains.keys()].sort()),retained=reset&&!this.previewing?retainUnaffected(this.compiled,next,this.state,preserveSources):null,resetHistory=reset&&!retained;const oldProtection=this.state.protection;this.compiled=next;this.doc=next.doc;if(reset)this.state=retained?.state||initial(next);else if(changed){this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,next.initialStep));if(energyChanged)rebaseEnergy(next,this.state,true);}syncProtection(next,this.state,oldProtection);if(changed){this.tracker=new O.GroupTracker(next.policies,resetHistory||this.previewing?null:this.tracker,retained?.ids);this.coreTracker=new O.CoreFluxTracker(next.policies,resetHistory||this.previewing?null:this.coreTracker,retained?.ids);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}this.project();if(changed)this.emit(this.result);return resetHistory?'restarted':changed?'event':'geometry';
+      const energyChanged=JSON.stringify([...this.compiled.energyDomains.keys()].sort())!==JSON.stringify([...next.energyDomains.keys()].sort()),retained=reset&&!this.previewing?retainUnaffected(this.compiled,next,this.state,preserveSources):null,resetHistory=reset&&!retained;const oldProtection=this.state.protection;this.compiled=next;this.doc=next.doc;if(reset)this.state=retained?.state||initial(next);else if(changed){this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,next.initialStep));if(energyChanged)rebaseEnergy(next,this.state,true);}syncProtection(next,this.state,oldProtection);if(changed){this.tracker=new O.GroupTracker(next.policies,resetHistory||this.previewing?null:this.tracker,retained?.ids);this.coreTracker=new O.CoreFluxTracker(next.policies,resetHistory||this.previewing?null:this.coreTracker,retained?.ids);if(reset||!continuous)this.visualTracker=new O.Tracker(.02);}if(changed)this.protectionHistory=protectionHistories(next,resetHistory||this.previewing?null:this.protectionHistory,this.tracker,retained?.ids);this.project();if(changed)this.emit(this.result);return resetHistory?'restarted':changed?'event':'geometry';
     }
-    fork(){const next=new Session(this.doc);next.state=clone(this.state);next.tracker=this.tracker.copy();next.visualTracker=this.visualTracker.copy();next.coreTracker=new O.CoreFluxTracker(this.compiled.policies,this.coreTracker);next.project();return next;}
-    preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},previewing:true,doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,coreTracker:this.coreTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}
+    fork(){const next=new Session(this.doc);next.state=clone(this.state);next.tracker=this.tracker.copy();next.visualTracker=this.visualTracker.copy();next.coreTracker=new O.CoreFluxTracker(this.compiled.policies,this.coreTracker);next.protectionHistory=new Map([...this.protectionHistory].map(([id,h])=>[id,h.copy()]));next.project();return next;}
+    preview(doc){const s=Object.create(Session.prototype);Object.assign(s,{compiled:{...this.compiled},previewing:true,protectionHistory:new Map([...this.protectionHistory].map(([id,h])=>[id,h.copy()])),doc:this.doc,state:clone(this.state),listeners:new Set(),tracker:this.tracker,visualTracker:this.visualTracker,coreTracker:this.coreTracker,fault:this.fault,result:{...this.result,components:clone(this.result.components),wires:clone(this.result.wires)}});s.update(doc);return s.read();}
     resetProtection(id){
       const q=this.state.protection?.[id];if(q?.status!=='tripped')return false;this.protectionSelection=new Set([id]);this.protectionCompiled=null;
       Object.assign(q,{status:'normal',scale:1,reason:null,reviewAt:null});this.state.event=true;this.state.step=Math.max(MIN_STEP,Math.min(this.state.step,this.compiled.initialStep));
@@ -517,15 +545,16 @@
       this.tracker=new O.GroupTracker(this.compiled.policies,this.tracker,retained);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies,this.coreTracker,retained);this.visualTracker.retain(retained);
       this.project();this.emit(this.result);return true;
     }
-    reset(){this.protectionCompiled=null;this.state=initial(this.compiled);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.project();this.emit(this.result);return this.result;}
-    capture(){return {kind:'simlab-circuit-session',version:this.state.protection?3:2,modelRevision:1,document:clone(this.doc),physics:clone(this.state)};}
-    static restore(snapshot){keys(snapshot,['kind','version','modelRevision','document','physics']);if(snapshot.kind!=='simlab-circuit-session'||![1,2,3].includes(snapshot.version)||snapshot.modelRevision!==1||snapshot.document?.version!==7)throw new Error('動態快照版本無效');const s=new Session(snapshot.document),p=snapshot.physics;
-      keys(p,['time','step','sources','dynamic','work','dissipated','event',...(snapshot.version>=2?['energyDomains','energyOrigin']:[]),...(snapshot.version===3?['protection']:[])]);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.dissipated,0,Number.MAX_VALUE);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
-      const legacy= snapshot.version===1;const accepted=clone(p);if(snapshot.version===3){keys(p.protection,Object.keys(s.state.protection||{}));if(!Object.keys(p.protection).length)throw new Error('保護快照不可為空');for(const q of Object.values(p.protection)){keys(q,['status','scale','reason','reviewAt']);finite(q.scale,0,1);if(q.reviewAt!==null){finite(q.reviewAt,p.time,1e9);if(!['normal','limited'].includes(q.status))throw new Error('保護複核時間無效');}if(!['normal','limited','tripped'].includes(q.status)||q.status==='normal'&&(q.scale!==1||q.reason!==null)||q.status==='limited'&&(q.scale>=1||q.reason!==null)||q.status==='tripped'&&(q.scale!==0||!['short-circuit','unresolved'].includes(q.reason)))throw new Error('保護快照狀態無效');}}else if(s.state.protection)throw new Error('啟用保護的快照缺少保護狀態');
+    reset(){this.protectionCompiled=null;this.state=initial(this.compiled);this.protectionHistory=protectionHistories(this.compiled);this.coreTracker=new O.CoreFluxTracker(this.compiled.policies);this.tracker=new O.GroupTracker(this.compiled.policies);this.visualTracker=new O.Tracker(.02);this.project();this.emit(this.result);return this.result;}
+    capture(){return {kind:'simlab-circuit-session',version:this.state.protection?4:2,modelRevision:1,document:clone(this.doc),physics:clone(this.state),...(this.state.protection?{protectionHistory:captureProtectionHistory(this.protectionHistory)}:{})};}
+    static restore(snapshot){keys(snapshot,['kind','version','modelRevision','document','physics',...(snapshot.version===4?['protectionHistory']:[])]);if(snapshot.kind!=='simlab-circuit-session'||![1,2,3,4].includes(snapshot.version)||snapshot.modelRevision!==1||snapshot.document?.version!==7)throw new Error('動態快照版本無效');const s=new Session(snapshot.document),p=snapshot.physics;
+      keys(p,['time','step','sources','dynamic','work','dissipated','event',...(snapshot.version>=2?['energyDomains','energyOrigin']:[]),...(snapshot.version>=3?['protection']:[])]);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.dissipated,0,Number.MAX_VALUE);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
+      const legacy= snapshot.version===1;const accepted=clone(p);if(snapshot.version>=3){keys(p.protection,Object.keys(s.state.protection||{}));if(!Object.keys(p.protection).length)throw new Error('保護快照不可為空');for(const q of Object.values(p.protection)){keys(q,['status','scale','reason','reviewAt']);finite(q.scale,0,1);if(q.reviewAt!==null){finite(q.reviewAt,p.time,1e9);if(!['normal','limited'].includes(q.status))throw new Error('保護複核時間無效');}if(!['normal','limited','tripped'].includes(q.status)||q.status==='normal'&&(q.scale!==1||q.reason!==null)||q.status==='limited'&&(q.scale>=1||q.reason!==null)||q.status==='tripped'&&(q.scale!==0||!['short-circuit','unresolved'].includes(q.reason)))throw new Error('保護快照狀態無效');}}else if(s.state.protection)throw new Error('啟用保護的快照缺少保護狀態');
       if(legacy){migrateV1(s.compiled,accepted);validateV1Derivative(s.compiled,p);}
       else{keys(p.energyOrigin,['work','dissipated']);finite(p.energyOrigin.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.energyOrigin.dissipated,0,Number.MAX_VALUE);if(!sameKeys(p.energyDomains,s.compiled.energyDomains.keys()))keys(p.energyDomains,[...s.compiled.legacyEnergyDomains.keys()]);for(const q of Object.values(p.energyDomains)){keys(q,['initial','work','dissipated','throughput']);finite(q.initial,0,Number.MAX_VALUE);finite(q.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(q.dissipated,0,Number.MAX_VALUE);finite(q.throughput,0,Number.MAX_VALUE);}migrateV2Domains(s.compiled,accepted);}
       s.state=clone(accepted);s.restoring=true;s.project({initialise:false,history:false});delete s.restoring;if(!s.fault)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of p.event?[e.C?'v':'i']:['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
       s.state=clone(accepted);if(p.event&&!s.fault&&eventStep(s.compiled,s.result)<MIN_STEP)s.fault='time-resolution';if(energyBalance(s.compiled,s.state).status!=='reliable')s.fault='energy-balance';const solution=p.event&&!s.fault?initialSolution(s.compiled,s.state):solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,s.fault?{error:s.fault}:solution);s.tracker=new O.GroupTracker(s.compiled.policies);s.visualTracker=new O.Tracker(.02);s.coreTracker=new O.CoreFluxTracker(s.compiled.policies);s.coreTracker.sample(s.result);s.tracker.sample(s.result);s.visualTracker.sample(s.result);
+      s.protectionHistory=protectionHistories(s.compiled);if(snapshot.version===4)restoreProtectionHistory(s.protectionHistory,snapshot.protectionHistory,p.time,s.result);else for(const h of s.protectionHistory.values())h.sample(s.result);
       for(const e of s.compiled.sources){const q=s.state.protection?.[e.c.id];if(!q||q.status==='tripped')continue;const cadence=protectionCadence(protectionCircuit(s.compiled,e));if(cadence!==null&&(q.reviewAt===null||q.reviewAt>s.state.time+cadence+EPS))q.reviewAt=s.state.time;}
       s.reviewProtection(0,true);return s;
     }

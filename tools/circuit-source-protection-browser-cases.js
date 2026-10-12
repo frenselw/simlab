@@ -65,4 +65,19 @@ async function mixedProtectionCases(h,source){let checks=0;
  }
  console.log(source+' CW-15/16 production protection: '+checks+' checks passed');return checks;
 }
-module.exports={sourceProtectionCases,mixedProtectionCases};
+async function protectionContinuationCases(h,source){let checks=0;
+ for(const width of [1280,390])for(const model of ['rl','coupled-1','coupled-.5']){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});await h.send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});
+  let d;if(model==='rl'){d=M.empty('transient');const a=M.add(d,'ac-source',100,100,{protectionEnabled:true}),l=M.add(d,'inductor',300,100,{inductance:1,resistance:1});for(const p of ['a','b'])M.connect(d,a.id+':'+p,l.id+':'+p);}else{d=P.create('coupled');d.components.find(c=>c.type==='transformer').params.inductance=model==='coupled-1'?1:.5;}
+  await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('setPlayback({paused:true})');
+  await h.inside(`window.__cw17Unsubscribe?.();window.__cw17Tracker=new CircuitObservation.Tracker(1,new Set(['c1']));__cw17Tracker.sample(CircuitACWorkbench.getAnalysis());window.__cw17Max=0;window.__cw17Events=[];window.__cw17Unsubscribe=CircuitACWorkbench.onAnalysis(r=>{__cw17Tracker.sample(r);const m=__cw17Tracker.measure('c1');if(m.currentStatus==='ready')__cw17Max=Math.max(__cw17Max,m.currentRms);const q=r.components.c1.protection;if(__cw17Events.at(-1)?.scale!==q.scale)__cw17Events.push({time:r.time,...q});});`);
+  await h.call('advanceTime(.9)');await h.inside('window.__cw17SavedTracker=__cw17Tracker.copy()');const saved=await h.call('captureSession()');assert.equal(saved.version,4);assert(saved.protectionHistory.c1.bins.length>0);checks+=2;
+  await h.call('advanceTime(2.1)');const continuous=await h.call('captureSession()');assert.equal(await h.call('getAnalysis().diagnostics.length'),0);assert(await h.inside('__cw17Max<=1.001'));checks+=2;
+  await h.inside('__cw17Tracker=__cw17SavedTracker.copy();__cw17Max=0');await h.call('restoreSession('+JSON.stringify(saved)+')');assert.deepEqual(await h.call('captureSession()'),saved);checks++;
+  const pause='[data-circuit-id=pause]',tap=async()=>width<600?h.touch(await h.point(pause)):h.click(pause);await tap();await h.delay(350);await tap();const paused=await h.call('captureSession()');await h.delay(150);assert.deepEqual(await h.call('captureSession()'),paused);checks++;
+  await tap();for(let n=0;n<600&&await h.call('getAnalysis().time')<3;n++){assert.equal(await h.call('getPlayback().paused'),false);await h.delay(50);}await tap();const playback=await h.call('captureSession()');assert(playback.physics.time>=3);assert.notEqual(playback.physics.protection.c1.status,'tripped');assert.equal(await h.call('getAnalysis().diagnostics.length'),0);assert(await h.inside('__cw17Max<=1.001'));assert.equal(playback.physics.protection.c1.status,continuous.physics.protection.c1.status);checks+=5;
+  await h.inside('__cw17Unsubscribe();');await h.screenshot(source+'-cw17-'+model+'-'+width);
+ }
+ return checks;
+}
+module.exports={sourceProtectionCases,mixedProtectionCases,protectionContinuationCases};

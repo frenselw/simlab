@@ -119,6 +119,8 @@ AC A／V／W 上方單位縮為 12px，與內框及刻度保持間距；錶面�
 
 交流電流表／電壓表兩孔不顯示A／B；接線選擇器以當前方向稱左／右或上／下接線端，端子ID及座標保持。有效值不受兩端互換影響；電流表仍串聯、電壓表仍並聯。功率表在實物／符號圖以數學字形顯示 I₊、I₋、V₊、V₋，標記隨縮放及旋轉留在外殼外側；電流端串聯、電壓端並聯，反接一組改功率符號，兩組同時反接讀值不變。交流單位及符號視圖也沿用MathJax獨立向量字形，觸控預覽及放大錶盤使用緊湊viewBox。
 
+CW-17（2026-10-12）：限流恢復預測涵蓋既有接受歷史加上候選輸出形成的滾動窗，預測至一個完整窗加下一次複核間隔，確保下一輪仍可維持既有安全輸出。線性候選的每一個滾動窗分別建立電流平方／平均功率的二次可行區間，不能對最大值假設全域單調。每個接受內部半步都執行保底及到期複核，外層advance分段／budget／播放幀率不決定保底時機。無可靠完整預測仍維持unresolved診斷，不撤掉保底、放寬容差或加入放電支路。
+
 ## 建立配置
 
 ### 依賴與檔案責任
@@ -195,15 +197,15 @@ const editor = await CircuitEditor.mount(host, {
 |---|---|
 | DC document | v6；DC入口不接受AC文件 |
 | AC document | v7，`analysis:'transient'`、`modelRevision:1`；支援的v6文件可顯式轉換，unsupported完整拒絕 |
-| 核心session | 無保護為version 2，啟用保護為version 3，modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
+| 核心session | 無保護為version 2，啟用保護為version 4，modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
 | 技術示例codec | `example-state.js` version 6／model 1（相容 v5），固定模板重建；拒絕1–4，內部上限1500 bytes，仍不是任意教師電路的SCORM保存方案 |
 | 觀察及顯示 | RMS／峰值、`coreFlux`及其status/peak、圖框／探頭／bar量尺等由現有狀態重建或另存合法UI配置，不能當成權威答案 |
 
 Session version 2 的 physics 欄位：`time`、`step`（下一步建議）、`sources`（ID→目前弧度相位）、`dynamic`（支路 key→`{i,v}`，C 的 v／i 及 L 的 i／電感電壓）、`work`、`dissipated`、`event`（下一步 BE 起步）、`energyOrigin`（分域事件基準的總供能／耗散）及 `energyDomains`（依編譯支路鍵列出的每域 initial／work／dissipated／throughput）。throughput 是累計絕對能量流與耗散，只作本域誤差尺度；有號 work 仍是淨供能。模型 epoch 及 document v7 分開。來源相位、ID 與 dynamic keys 必須與文件完全吻合。導數歷史可補足平行電容等瞬間代數解的不唯一；不把未知歷史重設為零。
 
-AC doc v7的protectionEnabled／maxCurrent／maxPower為可選欄位，缺省補false／1 A／6 W。session v3另保存physics.protection逐源status（normal／limited／tripped）、scale（0–1）、reason（null／short-circuit／unresolved）及reviewAt（需要持續檢查的normal／limited下一複核時間，其餘null），嚴格檢查欄位、值及來源ID。舊v3缺少必要排程或延到不合理的遠期時，恢復後立即補驗；不改時間、相位及儲能。相容既有v1／v2未啟用保護的session；固定學生codec保持v6。
+AC doc v7的protectionEnabled／maxCurrent／maxPower為可選欄位，缺省補false／1 A／6 W。session v4另保存physics.protection逐源status（normal／limited／tripped）、scale（0–1）、reason（null／short-circuit／unresolved）及reviewAt（需要持續檢查的normal／limited下一複核時間，其餘null），嚴格檢查欄位、值及來源ID。舊v3缺少必要排程或延到不合理的遠期時，恢復後立即補驗；不改時間、相位及儲能。相容既有v1／v2未啟用保護的session；固定學生codec保持v6。session v4另以protectionHistory保存逐源最近完整窗的有界積分及最後電壓／電流樣本（最多514個時間bin）；只有影響保護決策的電流平方／功率／覆蓋資料是權威狀態，顯示波形及指針仍不保存。恢復嚴格驗證來源ID、時間、連續覆蓋、容量、積分及物理端點；新快照缺少歷史必須拒絕。舊v3缺少歷史時明示從恢復瞬間重建，未收集新完整窗前不提高限流倍率，原有鎖定保持。
 
-教師「儲存電路檔」在有啟用保護時匯出session v3，可經「開啟」恢復同一瞬間及停機鎖定並暫停；encodeSession／decodeSession與captureSession／restoreSession共用權威狀態及256 KiB上限。其餘電路仍匯出設計／初始條件。匯出固定模板及exportDocument仍為純document。兩配置示例提供記憶體保存／恢復瞬間按鈕，重新整理清空；活動作者可使用 session API 保存自己的必要答案。
+教師「儲存電路檔」在有啟用保護時匯出session v4，可經「開啟」恢復同一瞬間及停機鎖定並暫停；encodeSession／decodeSession與captureSession／restoreSession共用權威狀態及256 KiB上限。其餘電路仍匯出設計／初始條件。匯出固定模板及exportDocument仍為純document。兩配置示例提供記憶體保存／恢復瞬間按鈕，重新整理清空；活動作者可使用 session API 保存自己的必要答案。
 
 ## 離線運算及量測
 
