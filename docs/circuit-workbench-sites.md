@@ -1,13 +1,33 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 17，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 18，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 17／課堂示例、電橋變阻器與 AC 保護（2026-10-12）
+## 最近更新：Sites version 18／電橋電流表 0.6 A 接孔（2026-10-12）
+
+Runtime取自已推送提交 `905956354c79fe1900ce8b0cd13d4f3d25883707`；橋中電流表
+改接既有0.6 A小量程正接孔，保留原有雙量程器材、電流及負接孔。DC29個／
+AC38個資產均與Git提交逐byte及SHA-256一致。原網址及擁有者私人存取保持。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `3b522f125c0baf8300b393b8dbfe326c55b1d524` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_9f1052e150588191b87abd13d60089a3` | `appgdep_6acc6c5362ac8191a9b90bdf4bcae303` |
+| AC | `d86df2e8d82406637c34504a0b3c24d32378e154` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_fa99d1d5a73881918b4ec21c91299427` | `appgdep_6acc6c6256b48191b2d29eb315e647a3` |
+
+兩次原生部署succeeded，get_site確認version 18。layout／core／labels通過；
+來源／ZIP的32項bridge-slider觀察核對0.6 A接孔、實際指針、可信滑片及恢復。
+兩站部署目錄1280／390px掛載／跳轉／視圖／無溢出與DC量程檢查通過，四包
+重建；未驗完整CI、實機手機或Moodle。最新同步及部署目錄證據仍在
+`output/sites/runtime-verification.json`、`output/sites/browser-verification.json`。
+官方helper以Git Bash及Windows tar相容設定建立
+`output/sites/circuit-dc-workbench-9059563-v18.tar.gz`及
+`output/sites/circuit-ac-workbench-9059563-v18.tar.gz`。
+
+## 前次更新：Sites version 17／課堂示例、電橋變阻器與 AC 保護（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `1611de96b70002619064e26afa1213baa2daaf54`，包含 DC
 並聯的總開關及兩個支路開關、混聯幹路燈泡、新增 A／V 接線示例、菱形電橋
