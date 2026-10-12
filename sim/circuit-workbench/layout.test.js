@@ -27,8 +27,8 @@ for(const name of ['series','parallel','mixed','ammeter','voltmeter','ohm','mete
   const total=G.length(p);
   for(let distance=0;distance<=total;distance+=2){const q=G.along(p,distance);for(const c of d.components){
    if(distance<=24&&w.from.startsWith(c.id+':')||total-distance<=24&&w.to.startsWith(c.id+':'))continue;
-   const box=R.dualMeter(c)||c.type==='wattmeter'?R.meterHousingBounds(c):R.bodyBounds(c);
-   assert(!(q.x>box.left+.1&&q.x<box.right-.1&&q.y>box.top+.1&&q.y<box.bottom-.1),`${name} ${w.id} crosses ${c.label} at ${JSON.stringify(q)}`);
+   const local={...c,x:0,y:0,angle:0},box=R.dualMeter(c)||c.type==='wattmeter'?R.meterHousingBounds(local):R.bodyBounds(local),{cos,sin}=R.rotation(c.angle),at={x:(q.x-c.x)*cos+(q.y-c.y)*sin,y:-(q.x-c.x)*sin+(q.y-c.y)*cos};
+   assert(!(at.x>box.left+.1&&at.x<box.right-.1&&at.y>box.top+.1&&at.y<box.bottom-.1),`${name} ${w.id} crosses ${c.label} at ${JSON.stringify(q)}`);
   }}
  }
 }
@@ -63,7 +63,7 @@ for(const closed of [[true,true],[true,false],[false,true],[false,false]]){
  const d=D.decode(D.encode(P.create('bridge'))),[top,bottom,left,right]=d.junctions,meter=d.components.find(R.dualMeter);
  assert.equal(top.x,bottom.x);assert.equal(left.y,right.y);assert(top.y<left.y&&bottom.y>left.y&&left.x<top.x&&right.x>top.x,'bridge has four diamond vertices');
  const rheostat=d.components.find(c=>c.type==='rheostat');assert.equal(d.components.filter(c=>c.type==='resistor').length,3);assert.equal(rheostat.params.terminals,2);assert.deepEqual(R.ports(rheostat).map(p=>p.key),['a','b']);near(R.effectiveResistance(rheostat),20,'bridge starts with a 20 ohm effective resistance');
- near(S.solve(d).components[meter.id].reading,0,'diamond starts balanced');const currents=[];
+ assert.deepEqual(d.components.filter(c=>['resistor','rheostat'].includes(c.type)).map(c=>c.angle),[315,45,45,315]);for(const w of d.wires.slice(1,9).filter(w=>!w.from.startsWith('c1:')&&!w.to.startsWith('c1:'))){const points=G.route(d,w),a=points[0],b=points.at(-1);near(Math.abs(a.x-b.x),Math.abs(a.y-b.y),'straight 45 degree bridge arm');assert(points.length===2);}near(S.solve(d).components[meter.id].reading,0,'diamond starts balanced');const currents=[];
  assert.equal(S.solve(d).components[meter.id].activePort,'c');near(S.solve(d).components[meter.id].range,.6,'bridge uses the 0.6 A socket');
  for(const position of [.25,.75,.5]){rheostat.params.position=position;const restored=D.decode(D.encode(M.validate(d)));currents.push(S.solve(restored).components[meter.id].reading);assert.equal(restored.components.find(c=>c.type==='rheostat').params.position,position,'slider position survives production round trip');}
  assert(currents[0]*currents[1]<0&&Math.abs(currents[0])>.01&&Math.abs(currents[1])>.01,'slider movement to either side reverses bridge current');near(currents[2],0,'returning the slider restores balance');

@@ -115,13 +115,13 @@
       link(w,'c','j3','p',[{x:300,y:220}]);link(w,'d','j4','p',[{x:640,y:220}]);
       link(v,'a','j1','p',[{x:932,y:520},{x:880,y:520},{x:880,y:280}]);link(v,'b','j2','p',[{x:1028,y:600},{x:780,y:600}]);
     } else if (name === "bridge") {
-      battery.x=80;battery.y=406;
-      const r1=add('resistor',390,256,'R₁',{resistance:10}),r2=add('resistor',690,256,'R₂',{resistance:20}),r3=add('resistor',390,556,'R₃',{resistance:10}),r4=add('rheostat',690,556,'R₄',{resistance:40,position:.5,terminals:2}),a=add('ammeter',540,340,'橋中電流');a.mirrored=true;
-      d.junctions.push({id:'j1',x:540,y:106},{id:'j2',x:540,y:706},{id:'j3',x:240,y:406},{id:'j4',x:840,y:406});
-      link(battery,'a','j1','p',[{x:80,y:106}]);link('j1','p',r1,'b');link('j1','p',r2,'a');
-      link(r1,'a','j3','p');link('j3','p',r3,'a');link(r2,'b','j4','p');link('j4','p',r4,'b',[{x:790,y:556}]);
-      link(r3,'b','j2','p');link(r4,'a','j2','p',[{x:590,y:556}]);link('j2','p',battery,'b',[{x:80,y:706}]);
-      link('j3','p',a,'c',[{x:440,y:406},{x:440,y:446},{x:540,y:446}]);link(a,'b','j4','p',[{x:588,y:446},{x:640,y:446},{x:640,y:406}]);
+      battery.x=20;battery.y=406;
+      const r1=add('resistor',350,216,'R₁',{resistance:10},315),r2=add('resistor',730,216,'R₂',{resistance:20},45),r3=add('resistor',350,596,'R₃',{resistance:10},45),r4=add('rheostat',730,596,'R₄',{resistance:40,position:.5,terminals:2},315),a=add('ammeter',540,340,'橋中電流');a.mirrored=true;
+      d.junctions.push({id:'j1',x:540,y:26},{id:'j2',x:540,y:786},{id:'j3',x:160,y:406},{id:'j4',x:920,y:406});
+      link(battery,'a','j1','p',[{x:20,y:26}]);link('j1','p',r1,'b');link('j1','p',r2,'a');
+      link(r1,'a','j3','p');link('j3','p',r3,'a');link(r2,'b','j4','p');link('j4','p',r4,'b');
+      link(r3,'b','j2','p');link(r4,'a','j2','p');link('j2','p',battery,'b',[{x:20,y:786}]);
+      link('j3','p',a,'c',[{x:440,y:406},{x:440,y:462},{x:540,y:462}]);link(a,'b','j4','p',[{x:588,y:462},{x:640,y:462},{x:640,y:406}]);
     } else throw new Error("未知的範例");
     if (name === "series") {
       const paths = [[{x:200,y:219},{x:235,y:181},{x:280,y:178}],[],[{x:629,y:181},{x:650,y:217}],[{x:652,y:415},{x:620,y:440},{x:250,y:440},{x:200,y:415}]];

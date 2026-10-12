@@ -211,3 +211,9 @@ A/V 錶面的接線教學／診斷文字已移除，下方空白殼身縮短；�
 2026-10-04 的微電流自適應與重複示例移除見[第 52 節](../plans/28-circuit-workbench.md#52-微電流動畫自適應及移除重複示例2026-10-04)。課堂選單不再提供「燈泡伏安特性」；分壓示例及可自行加入的熱效應燈保留，舊燈參數文件仍可載入及繼續操作。
 
 導線電阻的來源／解壓包精準檢查為 `node sim/circuit-workbench/wire-resistance.test.js` 及 `node tools/circuit-workbench-browser-regression.js --wire-resistance-smoke`。模型 API 為 `CircuitModel.setWireResistance(doc,id,value)`，互動命令為 `setWireResistance`；程式 `splitWire` 按切割前弧長分配原電阻，保持總電阻，不採新線預設。
+
+拆開全部會把各自由線端移開，普通縮放以約32 CSS px為目標，保留線長
+及另一端；多線接孔扇形分開，共接點依各線方向分開。線已拉盡則選擇
+可達位置，不增加線長或移動元件。一次復原/保存/重新接合保留既有契約。
+電橋預設的R₁/R₂/R₃/R₄為315/45/45/315°，兩孔滑動變阻器及0.6 A孔
+不變；中央線避開未使用的3 A接孔，畫布四頂點形成菱形。

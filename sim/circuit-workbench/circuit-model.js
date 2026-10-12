@@ -101,10 +101,18 @@
   function setWireResistance(doc,id,value){numeric(value,0,limits.resistance);const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");w.resistance=value;}
   function pose(doc,w,points){if(!points)return false;const fitted=G.fitLength(points,w.length);if(!fitted)return false;w.shape="free";w.via=(fitted.length>limits.stroke+2?G.resample(fitted,10):fitted).slice(1,-1).map(p=>({x:p.x,y:p.y}));return true;}
   function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
-  function detachConnection(doc,endpoint){
-    if(!endpoints(doc).has(endpoint))throw new Error('接點不存在');
+  function detachConnection(doc,endpoint,distance=32){
+    const origin=endpoints(doc).get(endpoint);if(!origin)throw new Error('接點不存在');numeric(distance,.1,limits.coordinate*2);
     const ends=doc.wires.flatMap(w=>['from','to'].filter(key=>w[key]===endpoint).map(key=>[w.id,key]));
-    for(const [id,key]of ends)detach(doc,id,key,false);cleanup(doc);
+    for(const [id,key]of ends)detach(doc,id,key,false);
+    const placed=[],port=!!(origin.dx||origin.dy);
+    for(const [id,key]of ends){const w=doc.wires.find(w=>w.id===id),points=G.route(doc,w),path=key==='from'?points:[...points].reverse(),near=path.find(p=>Math.hypot(p.x-origin.x,p.y-origin.y)>1e-6)||{x:origin.x+1,y:origin.y},angle=port?Math.atan2(origin.dy,origin.dx):Math.atan2(near.y-origin.y,near.x-origin.x),anchor=endpoints(doc).get(w[key==='from'?'to':'from']),radius=Math.min(distance,w.length/3),spacing=Math.min(radius/2,radius*Math.PI/(ends.length+1));let best=null;
+      // Fan loose ends apart without stretching the cable or moving its other end.
+      for(let n=0;n<24;n++){const turn=port?(n%2?1:-1)*Math.ceil(n/2)*Math.PI/24:n*Math.PI/12,theta=angle+turn,p={x:Math.max(-limits.coordinate,Math.min(limits.coordinate,origin.x+radius*Math.cos(theta))),y:Math.max(-limits.coordinate,Math.min(limits.coordinate,origin.y+radius*Math.sin(theta)))},length=Math.hypot(p.x-anchor.x,p.y-anchor.y),f=Math.min(1,w.length/(length||1)),q={x:anchor.x+(p.x-anchor.x)*f,y:anchor.y+(p.y-anchor.y)*f},clearance=Math.min(Math.hypot(q.x-origin.x,q.y-origin.y),...placed.map(p=>Math.hypot(q.x-p.x,q.y-p.y)));
+        if(!best||clearance>best.clearance)best={...q,clearance};if(clearance>=spacing)break;
+      }
+      moveWireEnd(doc,id,key,best);const e=endpoints(doc);pose(doc,w,G.deform(points,e.get(w.from),e.get(w.to),w.length));placed.push(e.get(w[key]));
+    }cleanup(doc);
     return ends;
   }
   function translateWire(doc,id,dx,dy){

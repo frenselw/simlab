@@ -124,6 +124,12 @@
     }
     return group('transformer-core',flux,grid.strength,grid.spacing*(schematic?1/3:1),paths+arrows);
   }
+  function updateTransformer(slot,c,r,schematic=false,id='transformer-field'){
+    const html=transformer(c,r,schematic,id),strength=html.match(/data-field-strength="([^"]*)"/)[1],geometry=html.replace(/data-field-strength="[^"]*"/,'');
+    // Line density is discrete; preserve the mask/paths while only strength changes.
+    if(slot._transformerGeometry!==geometry){slot.innerHTML=html;slot._transformerGeometry=geometry;}
+    else slot.querySelector('[data-field-kind="transformer-core"]').dataset.fieldStrength=strength;
+  }
   function generatorOverlay(c,r,project){
     const t=Number.isFinite(r?.phase)?r.phase:c.params.phase*Math.PI/180,origin=project([0,0,0]),end=project([17*Math.cos(t),17*Math.sin(t),0]);
     const corner=(s,z)=>project([s*Math.sin(t),-s*Math.cos(t),z]);
@@ -139,5 +145,5 @@
     if(c.type==='transformer'){const state=!Number.isFinite(r?.coreFlux)?'正在收集完整觀察窗的交變磁通，暫不畫方向。':Math.abs(r.coreFlux)<1e-9?'當刻共同磁通接近零，磁感線收起。':'共同磁通沿鐵芯閉合，穿過原、副線圈；交變磁通在兩側產生感應電動勢。';return state+(r.coreFluxFrequencies?.length>1?'磁通採用 '+r.coreFluxWindow+' s '+(r.coreFluxWindowKind==='common-cycle'?'共同週期':'指定時間窗（非共同週期）')+'。':'')+'銅線繞在鐵芯兩柱；青綠色實線及箭頭表示鐵芯內的磁通，虛線透視被繞組遮住的部分。省略外部漏磁。'+(c.params.model==='ideal'?'理想模型以繞組電壓積分顯示交變磁通，以觀察窗平均值作基準，不計磁化電流及磁化儲能。':'磁通計入兩個線圈的共同作用，原、副電流的磁化作用可以抵銷。');}
     return '';
   }
-  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformerTurns,transformerWindings,transformer,generatorOverlay,description};
+  return {density,capacitor,capacitorSection,capacitorPoles,inductor,inductorPoles,transformerTurns,transformerWindings,transformer,updateTransformer,generatorOverlay,description};
 });

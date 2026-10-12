@@ -47,3 +47,5 @@ console.log('AC display: signed bars, stable units/throttled numerals, polarity 
   const other=M.add(doc,'inductor',700,200,{initialCurrent:1000});V.flowReferences(doc,session.read(),baselines);assert.equal(baselines.get('field:'+c.id).peak,initial,'unrelated coil cannot enlarge this scale');assert.equal(baselines.get('field:'+other.id).peak,1000);
  }
  console.log('Proportional magnetic density: approximately linear line counts, tiny initial calibration, decay/preview isolation and independent coils passed.');}
+
+{const c=M.component(M.empty('transient'),'ac-ammeter',0,0),b=new D.Readouts(),html=b.html(c,'meterReadingRms',3e-12,'A',{preserveTiny:true,result:{range:1},paused:true});assert(!html.includes('≈0')&&html.includes('unsigned')&&html.includes('aria-valuemax="1"'),'a measured tiny signal remains readable in its own instrument range');}

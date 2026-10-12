@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),P=require('../sim/circuit-workbench/circuit-ac-presets');
+async function readoutAnimationCases(h,source){let checks=0;
+ for(const width of [1280,390]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});
+  for(const preset of ['coupled','self','rc']){const doc=P.create(preset);await h.call('loadDocument('+JSON.stringify(doc)+')');await h.call('setPlayback({paused:true})');await h.call('advanceTime(1.25)');
+   for(const c of doc.components){const before=await h.call('captureSession()');await h.click('[data-hit="body:'+c.id+'"]',true);assert(await h.inside('document.querySelectorAll(".reading-host [data-readout-bar]").length>=2'));assert(await h.inside('(()=>{const root=document.querySelector(".reading-host"),bars=[...root.querySelectorAll("[data-readout-bar]")];return new Set(bars.map(b=>b.dataset.readoutBar)).size===bars.length&&bars.every(b=>b.querySelector("[role=meter]")&&b.querySelector(".ac-bar-fill"));})()'));if(['ac-ammeter','ac-voltmeter'].includes(c.type))assert.equal(await h.inside('document.querySelector(".reading-host [data-readout-bar=meterReadingRms] [role=meter]").getAttribute("aria-valuemin")'),'0');const saved=await h.call('captureSession()');if(!['switch','spdt'].includes(c.type))assert.deepEqual(saved,before);await h.delay(20);assert.deepEqual(await h.call('captureSession()'),saved);checks+=3;}
+  }
+  await h.call('loadDocument('+JSON.stringify(P.create('transformer'))+')');await h.call('setPlayback({paused:true})');await h.call('advanceTime(1.25)');await h.click('[data-hit="body:c2"]',true);await h.call('setPlayback({paused:false})');
+  // Compare with the former 10 Hz cap, while requiring updates on actual rendered frames.
+  const stats=await h.inside(`new Promise(resolve=>{const node=document.querySelector('.reading-host [data-readout-bar=current]'),fill=node.querySelector('.ac-bar-fill'),start=performance.now();let frames=0,changes=0,replaced=0,numbers=0,lastWidth=fill.style.width,lastText=node.querySelector('.ac-bar-value').textContent;function tick(t){const current=document.querySelector('.reading-host [data-readout-bar=current]');frames++;if(current!==node)replaced++;if(fill.style.width!==lastWidth){changes++;lastWidth=fill.style.width;}const text=node.querySelector('.ac-bar-value').textContent;if(text!==lastText){numbers++;lastText=text;}if(t-start<1500)requestAnimationFrame(tick);else resolve({frames,changes,replaced,numbers,seconds:(t-start)/1000});}requestAnimationFrame(tick);})`);
+  await h.call('setPlayback({paused:true})');assert.equal(stats.replaced,0,'RAF and periodic paint preserve the existing bar');assert(stats.changes/stats.seconds>10,JSON.stringify(stats));assert(stats.changes>=stats.frames*.7,JSON.stringify(stats));assert(stats.numbers<=14,JSON.stringify(stats));checks+=4;
+  const saved=await h.call('captureSession()'),value=await h.inside('document.querySelector(".reading-host [data-readout-bar=current]").dataset.readoutValue');await h.delay(150);assert.deepEqual(await h.call('captureSession()'),saved);assert.equal(await h.inside('document.querySelector(".reading-host [data-readout-bar=current]").dataset.readoutValue'),value);checks+=2;
+  await h.screenshot(source+'-readout-animation-'+width);console.log(source+' readout RAF',width,JSON.stringify(stats));
+ }
+ return checks;
+}
+module.exports={readoutAnimationCases};
