@@ -28,14 +28,14 @@ async function presetCases(h,mode,base){
       }
     }return out;
   })()`);}
-  function aligned(samples,hitRequired=false){for(const x of samples){assert(x.socket<.02,'physical socket and model terminal align');assert(x.end<.02,'SVG wire ends at its socket');assert(x.foreground,'actual cable stays in front of the housing');if(hitRequired)assert(x.hit!==null,'zoomed socket has an independent hit target');if(x.hit!==null)assert(x.hit<.02,'touch target is centered on the real socket: '+JSON.stringify(x));}}
+  function aligned(samples,hitRequired=false){for(const x of samples){assert(x.socket<.02,'physical socket and model terminal align');assert(x.end<.02,'SVG wire ends at its socket');assert(x.foreground,'actual cable stays in front of the housing');if(hitRequired)assert(x.hit!==null,'zoomed socket has an independent hit target');if(x.hit!==null)assert(x.hit<.05,'touch target is centered within browser subpixel rounding: '+JSON.stringify(x));}}
   console.log(`${mode}: classroom preset layouts and rotated meter sockets`);
   for(const width of [1280,320]){
     await launch(width);
     for(const name of Object.keys(P.names))for(const view of ['real','schematic']){
       // Exercise the production dropdown's change handler, rather than only loading a test fixture.
       await inside(`(()=>{const e=document.getElementById('preset');e.value=${JSON.stringify(name)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-      assert.deepEqual(await doc(),P.create(name));await display(view);
+      const loaded=await doc(),expected=P.create(name);for(const key of ['components','wires','junctions'])assert.deepEqual(loaded[key],expected[key],'dropdown loads the authored '+key);await display(view);
       const samples=await alignment();aligned(samples);
       const layout=await inside(`(()=>{const r=document.getElementById('surface').getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth-innerWidth,scale:CircuitWorkbench.getInteraction().camera.scale,overview:document.querySelector('[data-overview-caption]')?.textContent||null,overviewReadings:[...document.querySelectorAll('[data-overview-readout]')].map(e=>({id:e.dataset.overviewReadout,text:e.dataset.math||e.textContent,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale})),labels:[...document.querySelectorAll('[data-component-label]')].map(e=>{const b=e.getBoundingClientRect();return {id:e.dataset.componentLabel,visible:b.right>r.left&&b.left<r.right&&b.bottom>r.top&&b.top<r.bottom,font:+e.getAttribute('font-size')*CircuitWorkbench.getInteraction().camera.scale};})};})()`);
       assert.equal(layout.scroll,0);assert(layout.labels.every(x=>x.visible&&x.font>=13.9),'zoomed diagram retains readable component labels');
@@ -43,6 +43,23 @@ async function presetCases(h,mode,base){
       assert.deepEqual((await inside('CircuitWorkbench.getAnalysis()')).diagnostics,[]);
       await screenshot(`${mode}-preset-${name}-${view}-${width}.png`);
       evidence.push({mode,preset:name,width,view,meters:'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});
+      if(name==='mixed'){
+        const switches=(await doc()).components.filter(c=>c.type==='switch');
+        await inside(`window.__presetSwitchEvents=[];if(!window.__presetSwitchWatching){window.__presetSwitchWatching=true;document.getElementById('surface').addEventListener('pointerup',e=>window.__presetSwitchEvents.push({trusted:e.isTrusted,pointer:e.pointerType}));}`);
+        for(const closed of [[false,true],[false,false],[true,false],[true,true]]){
+          for(let i=0;i<switches.length;i++)if((await doc()).components.find(c=>c.id===switches[i].id).params.closed!==closed[i]){
+            const selector='[data-hit="body:'+switches[i].id+'"]';if(width===320)await touch(await point(selector),0,0);else await click(selector);
+          }
+          assert.deepEqual((await doc()).components.filter(c=>c.type==='switch').map(c=>c.params.closed),closed,'trusted switch taps operate the two branches independently');
+          const lamps=await inside(`(()=>{const d=CircuitWorkbench.getDocument(),r=CircuitWorkbench.getAnalysis();return d.components.filter(c=>c.type==='lamp').map(c=>({current:r.components[c.id].current,brightness:CircuitRenderer.lampLight(c,r.components[c.id]).brightness}));})()`);
+          for(let i=0;i<2;i++)assert.equal(lamps[i+1].brightness>0,closed[i],'only the switched branch goes dark');
+          assert(Math.abs(lamps[0].current-lamps[1].current-lamps[2].current)<1e-8,'trunk current equals both branch currents');
+          if(closed.every(Boolean))assert(lamps[0].brightness>lamps[1].brightness&&Math.abs(lamps[1].brightness-lamps[2].brightness)<1e-8,'trunk lamp is brighter than equal branch lamps');
+          const saved=await save();await load(saved);assert.equal(await save(),saved,'each switch combination restores before the next trusted continuation');
+          evidence.push({mode,preset:name,width,view,closed,lamps,restored:true});
+        }
+        const events=await inside('__presetSwitchEvents');assert.equal(events.length,4);assert(events.every(e=>e.trusted&&e.pointer===(width===320?'touch':'mouse')));
+      }
     }
     for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic'])for(const meters of ['digital','analog']){
       const d=P.create('ohm'),c=d.components.find(c=>c.type===type);

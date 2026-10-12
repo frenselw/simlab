@@ -15,16 +15,56 @@ function outsideMeter(d,w,c){const p=G.route(d,w),total=G.length(p),box=R.bodyBo
  if(distance<=24&&w.from.startsWith(c.id+':')||total-distance<=24&&w.to.startsWith(c.id+':'))continue;
  assert(!(q.x>box.left+.1&&q.x<box.right-.1&&q.y>box.top+.1&&q.y<box.bottom-.1),`${c.type} ${c.angle} ${c.id} cable ${w.id} enters the rotated housing at ${distance}/${total}: ${JSON.stringify(q)}`);
 }}
-for(const name of ['series','parallel','mixed','ohm','meters','bridge','limiting','divider','gAmmeter','gVoltmeter']){const d=P.create(name),routes=d.wires.map(w=>G.route(d,w)),ends=M.endpoints(d);let crossings=0;
+for(const name of ['series','parallel','mixed','ammeter','voltmeter','ohm','meters','bridge','limiting','divider','gAmmeter','gVoltmeter']){const d=P.create(name),routes=d.wires.map(w=>G.route(d,w)),ends=M.endpoints(d);
  assert.deepEqual(D.decode(D.encode(d)),d,'every authored example survives production encoding');assert.deepEqual(S.solve(d).diagnostics,[],'every example has a reliable solution');
  for(let i=0;i<routes.length;i++){const p=routes[i],w=d.wires[i];assert(G.length(p)<=w.length+.05);for(const key of ['x','y']){near(p[0][key],ends.get(w.from)[key],'prepared from '+key);near(p.at(-1)[key],ends.get(w.to)[key],'prepared to '+key);}
   for(let a=1;a<p.length;a++)for(let b=a+2;b<p.length;b++)assert(!segmentCross(p[a-1],p[a],p[b-1],p[b]),`${name} ${w.id} has a self crossing`);
   for(let j=i+1;j<routes.length;j++)for(let a=1;a<p.length;a++)for(let b=1;b<routes[j].length;b++){const q=segmentCross(p[a-1],p[a],routes[j][b-1],routes[j][b]);if(!q)continue;assert(!q.overlap,`${name} duplicates a bus segment`);
    const shared=[w.from,w.to].filter(id=>[d.wires[j].from,d.wires[j].to].includes(id));if(shared.some(id=>Math.hypot(q.x-ends.get(id).x,q.y-ends.get(id).y)<1e-5))continue;
-   assert(name==='meters'&&Math.hypot(q.x-600,q.y-260)<1e-5,`${name} has an unnecessary crossing at ${JSON.stringify(q)}`);crossings++;
+   assert.fail(`${name} has an unnecessary crossing at ${JSON.stringify(q)}`);
   }
   d.components.filter(R.dualMeter).forEach(c=>outsideMeter(d,w,c));
- }assert.equal(crossings,name==='meters'?1:0,'only the clearly separated wattmeter sense lead crosses');
+  const total=G.length(p);
+  for(let distance=0;distance<=total;distance+=2){const q=G.along(p,distance);for(const c of d.components){
+   if(distance<=24&&w.from.startsWith(c.id+':')||total-distance<=24&&w.to.startsWith(c.id+':'))continue;
+   const box=R.dualMeter(c)||c.type==='wattmeter'?R.meterHousingBounds(c):R.bodyBounds(c);
+   assert(!(q.x>box.left+.1&&q.x<box.right-.1&&q.y>box.top+.1&&q.y<box.bottom-.1),`${name} ${w.id} crosses ${c.label} at ${JSON.stringify(q)}`);
+  }}
+ }
+}
+assert(P.groups.find(g=>g.label==='電路基礎').keys.includes('ammeter'));
+assert(P.groups.find(g=>g.label==='電路基礎').keys.includes('voltmeter'));
+for(const name of ['ammeter','voltmeter']){
+ const d=D.decode(D.encode(P.create(name))),meter=d.components.find(c=>c.type===name),lamp=d.components.find(c=>c.type==='lamp'),sw=d.components.find(c=>c.type==='switch'),result=S.solve(d);
+ near(result.components[meter.id].reading,name==='ammeter'?.5:6,`${name} correct signed reading`);
+ near(result.components[lamp.id].power,3,`${name} leaves the lamp powered`);
+ if(name==='ammeter'){
+  meter.params.resistance=2;near(S.solve(d).components[meter.id].reading,6/14,'series ammeter burden');
+ }else{
+  meter.params.resistance=12;near(S.solve(d).components[meter.id].reading,6,'parallel voltmeter keeps the load voltage');near(S.solve(d).components[lamp.id].power,3,'voltmeter forms an independent parallel branch');
+ }
+ sw.params.closed=false;const off=S.solve(M.validate(d));near(off.components[meter.id].reading,0,'restored example can open the switch');near(off.components[lamp.id].power,0,'open switch turns the lamp off');
+}
+for(const closed of [[true,true],[true,false],[false,true],[false,false]]){
+ const d=D.decode(D.encode(P.create('mixed'))),lamps=d.components.filter(c=>c.type==='lamp'),switches=d.components.filter(c=>c.type==='switch');
+ assert.equal(lamps.length,3);assert.equal(switches.length,2);assert(!d.components.some(c=>c.type==='resistor'));
+ switches.forEach((c,i)=>c.params.closed=closed[i]);const result=S.solve(M.validate(d)),active=closed.filter(Boolean).length,current=active?6/(12+12/active):0;
+ near(result.components[lamps[0].id].current,current,'trunk current equals the sum of the active branches');
+ lamps.slice(1).forEach((c,i)=>{near(result.components[c.id].current,closed[i]?current/active:0,'each switch only disconnects its own branch');near(result.components[c.id].power,closed[i]?12*(current/active)**2:0,'isolated lamp loses its power');});
+ const lights=lamps.map(c=>V.lampLight(c,result.components[c.id]).brightness);
+ if(active===2){assert(lights[0]>lights[1]);near(lights[1],lights[2],'identical parallel lamps have equal brightness');}
+ else if(active===1)near(lights[0],lights[closed[0]?1:2],'one remaining branch is in series with the trunk');
+ else assert.deepEqual(lights,[0,0,0]);
+}
+{
+ const d=D.decode(D.encode(P.create('bridge'))),[top,bottom,left,right]=d.junctions,meter=d.components.find(R.dualMeter);
+ assert.equal(top.x,bottom.x);assert.equal(left.y,right.y);assert(top.y<left.y&&bottom.y>left.y&&left.x<top.x&&right.x>top.x,'bridge has four diamond vertices');
+ near(S.solve(d).components[meter.id].reading,0,'diamond starts balanced');d.components.find(c=>c.label==='R₁').params.resistance=20;assert(Math.abs(S.solve(M.validate(d)).components[meter.id].reading)>.01,'restored diamond can demonstrate imbalance');
+}
+{
+ const d=P.create('meters'),result=S.solve(d),w=d.components.find(c=>c.type==='wattmeter'),lamp=d.components.find(c=>c.type==='lamp'),a=d.components.find(c=>c.type==='ammeter'),v=d.components.find(c=>c.type==='voltmeter');
+ near(result.components[w.id].reading,result.components[lamp.id].power,'supply-side ideal wattmeter reads lamp power');near(result.components[a.id].reading,.5,'series current');near(result.components[v.id].reading,6,'voltmeter measures the lamp');
+ w.params.resistance=2;const burden=S.solve(d);near(burden.components[w.id].reading,burden.components[lamp.id].power+burden.components[w.id].current**2*2,'supply-side sensing includes added current-coil dissipation');
 }
 const ohmExample=P.create('ohm');ohmExample.components.find(c=>c.type==='ammeter').params.resistance=1;const ohmResult=S.solve(ohmExample);near(ohmResult.components.c2.reading,6/13,'Ohm example includes the ammeter burden');near(ohmResult.components.c4.reading,ohmResult.voltage('c1:a','c1:b'),'terminal voltmeter measures the source terminals with finite A resistance');near(ohmResult.components.c4.reading,66/13,'terminal voltage includes all external drops');
 for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic']){
@@ -45,8 +85,8 @@ for(const name of ['ohm','meters','bridge'])for(const id of P.create(name).compo
  const d=P.create(name),c=d.components.find(c=>c.id===id),ids=d.wires.map(w=>[w.from,w.to,w.length]),reading=S.solve(d).components[id].reading;
  for(let n=0;n<12;n++){const before=M.clone(d);c.angle=(c.angle+90)%360;assert(M.reconcile(d,before),`${name} ${id} continuous turn ${n}`);M.validate(d);d.wires.forEach(w=>outsideMeter(d,w,c));assert.deepEqual(d.wires.map(w=>[w.from,w.to,w.length]),ids);near(S.solve(d).components[id].reading,reading,'repeated rotation preserves the reading');}
 }
-const farDoc=P.create('meters'),farMeter=farDoc.components.find(c=>c.type==='ammeter'),farWire=farDoc.wires[4],farPoints=G.route(farDoc,farWire).filter(p=>Math.max(Math.abs(p.x-farMeter.x),Math.abs(p.y-farMeter.y))>240);
+const farDoc=P.create('meters'),farMeter=farDoc.components.find(c=>c.type==='ammeter'),farWire=farDoc.wires.find(w=>w.to===farMeter.id+':a'),farPoints=G.route(farDoc,farWire).filter(p=>Math.max(Math.abs(p.x-farMeter.x),Math.abs(p.y-farMeter.y))>240);
 for(let n=0;n<12;n++){const before=M.clone(farDoc);farMeter.angle=(farMeter.angle+90)%360;assert(M.reconcile(farDoc,before));const p=G.route(farDoc,farWire);farPoints.forEach(q=>assert(G.nearest(p,q).distance<.05,'rotation preserves the distant cable shape'));}
 for(const type of ['ammeter','voltmeter']){const d=M.empty(),c=M.add(d,type,260,300),w=M.connect(d,c.id+':a',c.id+':b',[],'free');for(let n=0;n<4;n++){const before=M.clone(d);c.angle=(c.angle+90)%360;assert(M.reconcile(d,before),'a cable joining two sockets on the same meter rotates');M.validate(d);outsideMeter(d,w,c);}}
-for(const view of ['real','schematic'])for(const values of [true,false]){const d=P.create('meters');Object.assign(d.display,{view,values});const saved=D.encode(d),result=S.solve(d),viewport={x:0,y:0,width:256/.22,height:360/.22};const small=V.scene(d,result,.22,{},null,false,viewport);assert.equal(XMLValidator.validate('<svg>'+small+'</svg>'),true);assert(small.includes('data-overview-caption'));assert(!small.includes('data-component-label'));assert.equal((small.match(/data-overview-readout=/g)||[]).length,values?3:0);assert.equal(D.encode(d),saved,'overview stays out of the authoritative circuit');const enlarged=V.scene(d,result,.5,{},null,false,viewport);assert(!enlarged.includes('data-overview-caption'));assert.equal((enlarged.match(/data-component-label=/g)||[]).length,d.components.length,'zoom restores all component labels');}
-console.log('Classroom diagrams: authored round corners, no duplicate buses/self crossings, one separated W sense crossing, true terminal voltage, four-direction socket exits, finite reach and original topology passed.');
+for(const view of ['real','schematic'])for(const values of [true,false]){const d=P.create('meters');Object.assign(d.display,{view,values});const saved=D.encode(d),result=S.solve(d),viewport={x:0,y:0,width:320/.22,height:360/.22};const small=V.scene(d,result,.22,{},null,false,viewport);assert.equal(XMLValidator.validate('<svg>'+small+'</svg>'),true);assert(small.includes('data-overview-caption'));assert(!small.includes('data-component-label'));assert.equal((small.match(/data-overview-readout=/g)||[]).length,values?3:0);assert.equal(D.encode(d),saved,'overview stays out of the authoritative circuit');const enlarged=V.scene(d,result,.5,{},null,false,viewport);assert(!enlarged.includes('data-overview-caption'));assert.equal((enlarged.match(/data-component-label=/g)||[]).length,d.components.length,'zoom restores all component labels');}
+console.log('Classroom diagrams: no wire/body crossings or duplicate buses, independent branch switches and lamp brightness, series A/parallel V, diamond bridge, supply-side W, restore/continuation, rotated sockets and finite reach passed.');

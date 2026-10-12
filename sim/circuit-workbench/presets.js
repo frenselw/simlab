@@ -6,13 +6,14 @@
   "use strict";
   const names = {
     series:'兩燈串聯：電流與電壓', parallel:'兩燈並聯：幹路與支路', mixed:'串並混聯：電流分配',
+    ammeter:'電流表接線：串聯量電流', voltmeter:'電壓表接線：並聯量電壓',
     bridge:'電橋：平衡與橋中電流', wiring:'接線練習：固定元件',
     ohm:'全電路歐姆定律：內阻與路端電壓', limiting:'滑動變阻器：限流接法', divider:'滑動變阻器：分壓接法',
     meters:'電表接線：電流、電壓與功率', gAmmeter:'電流表改裝：並聯分流', gVoltmeter:'電壓表改裝：串聯分壓',
     relay:'電磁繼電器：兩燈切換', relayBell:'電磁繼電器：電鈴式自斷', empty:'空白電路'
   };
   const groups = [
-    {label:'電路基礎',keys:['series','parallel','mixed','bridge','wiring']},
+    {label:'電路基礎',keys:['series','parallel','mixed','ammeter','voltmeter','bridge','wiring']},
     {label:'電源與變阻器',keys:['ohm','limiting','divider']},
     {label:'電表與量測',keys:['meters','gAmmeter','gVoltmeter']},
     {label:'電磁繼電器',keys:['relay','relayBell']}
@@ -57,45 +58,68 @@
         }else{link(series,'b',g,'a',[{x:520,y:140},{x:520,y:240}]);link(g,'b',battery,'b',[{x:780,y:240},{x:780,y:540},{x:160,y:540}]);}
       }else{
         battery.params.voltage=6;
-        const r=add('rheostat',360,150,'滑動變阻器',{resistance:20,position:.5}),l=add('lamp',620,150,'負載燈泡',{}),a=add('ammeter',650,430,'電流表'),v=add('voltmeter',900,350,'電壓表');
-        d.junctions.push({id:'j1',x:480,y:580});
-        link(battery,'a',r,'a',[{x:160,y:170}]);link(r,'b',l,'a',[{x:260,y:116},{x:260,y:80},{x:540,y:80},{x:540,y:150}]);
-        link(l,'b',a,'c',[{x:780,y:150},{x:780,y:560},{x:650,y:560}]);link(a,'b','j1','p',[{x:586,y:580}]);link('j1','p',battery,'b',[{x:160,y:580}]);
-        if(name!=='limiting')link(r,'c','j1','p',[{x:480,y:170}]);
-        link(v,name==='limiting'?'a':'c',l,'a',[{x:900,y:450},{x:1040,y:450},{x:1040,y:100},{x:560,y:100}]);link(v,'b','j1','p',[{x:836,y:620},{x:480,y:620}]);
+        const r=add('rheostat',360,200,'滑動變阻器',{resistance:20,position:.5}),l=add('lamp',640,220,'負載燈泡'),a=add('ammeter',680,460,'電流表'),v=add('voltmeter',900,380,'電壓表');
+        d.junctions.push({id:'j1',x:480,y:600});
+        link(battery,'a',r,'a',[{x:160,y:220}]);link(r,'b',l,'a',[{x:240,y:166},{x:240,y:100},{x:520,y:100},{x:520,y:220}]);
+        link(l,'b',a,'c',[{x:820,y:220},{x:820,y:600},{x:680,y:600}]);link(a,'b','j1','p',[{x:632,y:600}]);link('j1','p',battery,'b',[{x:160,y:600}]);
+        if(name!=='limiting')link(r,'c','j1','p',[{x:480,y:220}]);
+        link(v,name==='limiting'?'a':'c',l,'a',[{x:name==='limiting'?948:900,y:640},{x:1040,y:640},{x:1040,y:140},{x:580,y:140}]);link(v,'b','j1','p',[{x:852,y:700},{x:480,y:700}]);
       }
-      d.wires.forEach(w=>w.length=Math.max(600,Math.min(1200,Math.ceil(G.length(G.route(d,w)))+160)));
+      d.wires.forEach(w=>w.length=Math.max(600,Math.ceil(G.length(G.route(d,w)))+160));
       return M.validate(d);
     }
     if (["series", "wiring"].includes(name)) {
       battery.x=200;
       const s = add("switch", 350, 180, "開關"), l1 = add("lamp", 530, 180, "燈泡 1"), l2 = add("lamp", 650, 320, "燈泡 2", {}, 90);
       link(battery, "a", s, "a", [{ x: 200, y: 180 }]); link(s, "b", l1, "a"); link(l1, "b", l2, "a", [{ x: 650, y: 180 }]); link(l2, "b", battery, "b", [{ x: 650, y: 440 }, { x: 200, y: 440 }]);
-    } else if (["parallel", "mixed"].includes(name)) {
-      const s = add(name === "mixed" ? "resistor" : "switch", 340, 180, name === "mixed" ? "串聯電阻" : "開關"), l1 = add("lamp", 560, 240, "燈泡 1"), l2 = add("lamp", 560, 420, "燈泡 2");
+    } else if (name === "mixed") {
+      battery.x=160;battery.y=400;
+      const trunk=add('lamp',340,280,'幹路燈泡'),s1=add('switch',620,160,'支路開關 1'),s2=add('switch',620,400,'支路開關 2'),l1=add('lamp',820,160,'支路燈泡 1'),l2=add('lamp',820,400,'支路燈泡 2');
+      d.junctions.push({id:'j1',x:480,y:280},{id:'j2',x:980,y:280},{id:'j3',x:980,y:400});
+      link(battery,'a',trunk,'a',[{x:160,y:280}]);link(trunk,'b','j1','p');
+      link('j1','p',s1,'a',[{x:480,y:160}]);link(s1,'b',l1,'a');link(l1,'b','j2','p',[{x:980,y:160}]);
+      link('j1','p',s2,'a',[{x:480,y:400}]);link(s2,'b',l2,'a');link(l2,'b','j3','p');link('j2','p','j3','p');link('j3','p',battery,'b',[{x:980,y:560},{x:160,y:560}]);
+    } else if (name === "parallel") {
+      const s = add("switch", 340, 180, "開關"), l1 = add("lamp", 560, 240, "燈泡 1"), l2 = add("lamp", 560, 420, "燈泡 2");
       d.junctions.push({id:'j1',x:440,y:240},{id:'j2',x:700,y:420});
       link(battery,'a',s,'a',[{x:180,y:180}]);link(s,'b','j1','p',[{x:440,y:180}]);link('j1','p',l1,'a');link('j1','p',l2,'a',[{x:440,y:420}]);
       link(l1,'b','j2','p',[{x:700,y:240}]);link(l2,'b','j2','p');link('j2','p',battery,'b',[{x:700,y:540},{x:180,y:540}]);
+    } else if (name === "ammeter" || name === "voltmeter") {
+      battery.x=160;battery.y=340;
+      const s=add('switch',330,180,'開關'),l=add('lamp',640,180,'負載燈泡');
+      link(battery,'a',s,'a',[{x:160,y:180}]);
+      if(name==='ammeter'){
+        const a=add('ammeter',440,420,'串聯電流表');
+        link(s,'b',l,'a');link(l,'b',a,'a',[{x:780,y:180},{x:780,y:580},{x:488,y:580}]);link(a,'b',battery,'b',[{x:392,y:580},{x:160,y:580}]);
+      }else{
+        const v=add('voltmeter',640,380,'並聯電壓表');v.mirrored=true;
+        d.junctions.push({id:'j1',x:480,y:180},{id:'j2',x:780,y:180},{id:'j3',x:780,y:560});
+        link(s,'b','j1','p');link('j1','p',l,'a');link(l,'b','j2','p');link('j2','p','j3','p');link('j3','p',battery,'b',[{x:780,y:600},{x:160,y:600}]);
+        link(v,'a','j1','p',[{x:592,y:520},{x:480,y:520}]);link(v,'b','j3','p',[{x:688,y:560}]);
+      }
     } else if (name === "ohm") {
-      const a=add('ammeter',650,460,'電流表'),r=add('rheostat',800,320,'變阻器',{resistance:20,position:.5,terminals:2},90),v=add('voltmeter',400,300,'路端電壓');
-      d.junctions.push({id:'j1',x:620,y:100});
-      link(battery,'a','j1','p',[{x:180,y:100}]);link('j1','p',r,'a',[{x:800,y:100}]);link(r,'b',a,'a',[{x:800,y:620},{x:714,y:620}]);
-      link(a,'b',battery,'b',[{x:586,y:620},{x:180,y:620}]);link(v,'a','j1','p',[{x:464,y:430},{x:540,y:430},{x:540,y:150},{x:620,y:150}]);
-      link(v,'b',battery,'b',[{x:336,y:450},{x:260,y:450},{x:260,y:380}]);
+      battery.x=160;battery.y=330;
+      const a=add('ammeter',620,410,'電流表'),r=add('rheostat',620,180,'變阻器',{resistance:20,position:.5,terminals:2}),v=add('voltmeter',350,330,'路端電壓');
+      d.junctions.push({id:'j1',x:350,y:180});
+      link(battery,'a','j1','p',[{x:160,y:180}]);link('j1','p',r,'a');link(r,'b',a,'a',[{x:800,y:180},{x:800,y:560},{x:668,y:560}]);
+      link(a,'b',battery,'b',[{x:572,y:560},{x:160,y:560}]);link(v,'a','j1','p',[{x:398,y:430},{x:460,y:430},{x:460,y:230},{x:350,y:230}]);
+      link(v,'b',battery,'b',[{x:302,y:470},{x:240,y:470},{x:240,y:390}]);
     } else if (name === "meters") {
       battery.y=360;
-      const a=add('ammeter',380,500,'電流表'),w=add('wattmeter',500,140,'電功率表'),l=add('lamp',780,360,'負載燈泡',{},90),v=add('voltmeter',990,460,'電壓表');
-      d.junctions.push({id:'j1',x:780,y:260},{id:'j2',x:780,y:500});
-      link(battery,'a',w,'a',[{x:180,y:120}]);link(w,'b','j1','p',[{x:780,y:120}]);link('j1','p',l,'a');link(l,'b','j2','p');
-      link('j2','p',a,'a',[{x:780,y:640},{x:444,y:640}]);link(a,'b',battery,'b',[{x:316,y:640},{x:180,y:640}]);
-      link(w,'c','j1','p',[{x:400,y:180},{x:400,y:260}]);link(w,'d','j2','p',[{x:600,y:180},{x:600,y:500}]);
-      link(v,'a','j1','p',[{x:1054,y:580},{x:1120,y:580},{x:1120,y:260}]);link(v,'b','j2','p',[{x:926,y:580},{x:860,y:580},{x:860,y:500}]);
+      const a=add('ammeter',380,500,'電流表'),w=add('wattmeter',500,180,'電功率表'),l=add('lamp',780,360,'負載燈泡',{},90),v=add('voltmeter',980,430,'電壓表');v.mirrored=true;
+      d.junctions.push({id:'j1',x:780,y:280},{id:'j2',x:780,y:560},{id:'j3',x:300,y:160},{id:'j4',x:640,y:560});
+      link(battery,'a','j3','p',[{x:180,y:160}]);link('j3','p',w,'a');link(w,'b','j1','p',[{x:780,y:160}]);link('j1','p',l,'a');link(l,'b','j2','p');
+      link('j2','p','j4','p');link('j4','p',a,'a',[{x:640,y:640},{x:428,y:640}]);link(a,'b',battery,'b',[{x:332,y:640},{x:180,y:640}]);
+      link(w,'c','j3','p',[{x:300,y:220}]);link(w,'d','j4','p',[{x:640,y:220}]);
+      link(v,'a','j1','p',[{x:932,y:520},{x:880,y:520},{x:880,y:280}]);link(v,'b','j2','p',[{x:1028,y:600},{x:780,y:600}]);
     } else if (name === "bridge") {
-      battery.x=80;battery.y=370;
-      const r1=add('resistor',380,160,'R₁',{resistance:10}),r2=add('resistor',620,160,'R₂',{resistance:20}),r3=add('resistor',380,620,'R₃',{resistance:10}),r4=add('resistor',620,620,'R₄',{resistance:20}),a=add('ammeter',500,360,'橋中電流',{},270);
-      link(battery,'a',r1,'a',[{x:80,y:160}]);link(r1,'a',r3,'a',[{x:320,y:240},{x:260,y:240},{x:260,y:620}]);link(r1,'b',r2,'a');link(r3,'b',r4,'a');
-      link(r2,'b',r4,'b',[{x:780,y:160},{x:780,y:620}]);link(r4,'b',battery,'b',[{x:680,y:800},{x:80,y:800}]);
-      link(a,'a',r1,'b',[{x:700,y:296},{x:700,y:200},{x:440,y:200}]);link(a,'b',r3,'b',[{x:700,y:424},{x:700,y:570},{x:440,y:570}]);
+      battery.x=80;battery.y=406;
+      const r1=add('resistor',390,256,'R₁',{resistance:10}),r2=add('resistor',690,256,'R₂',{resistance:20}),r3=add('resistor',390,556,'R₃',{resistance:10}),r4=add('resistor',690,556,'R₄',{resistance:20}),a=add('ammeter',540,340,'橋中電流');a.mirrored=true;
+      d.junctions.push({id:'j1',x:540,y:106},{id:'j2',x:540,y:706},{id:'j3',x:240,y:406},{id:'j4',x:840,y:406});
+      link(battery,'a','j1','p',[{x:80,y:106}]);link('j1','p',r1,'b');link('j1','p',r2,'a');
+      link(r1,'a','j3','p');link('j3','p',r3,'a');link(r2,'b','j4','p');link('j4','p',r4,'b');
+      link(r3,'b','j2','p');link(r4,'a','j2','p');link('j2','p',battery,'b',[{x:80,y:706}]);
+      link('j3','p',a,'a',[{x:440,y:406},{x:440,y:446},{x:492,y:446}]);link(a,'b','j4','p',[{x:588,y:446},{x:640,y:446},{x:640,y:406}]);
     } else throw new Error("未知的範例");
     if (name === "series") {
       const paths = [[{x:200,y:219},{x:235,y:181},{x:280,y:178}],[],[{x:629,y:181},{x:650,y:217}],[{x:652,y:415},{x:620,y:440},{x:250,y:440},{x:200,y:415}]];

@@ -24,8 +24,8 @@ const reversedCurrentCoil = P.create("meters");
 reversedCurrentCoil.wires.forEach(wire => { for (const key of ["from", "to"]) if (["c3:a", "c3:b"].includes(wire[key])) wire[key] = wire[key] === "c3:a" ? "c3:b" : "c3:a"; });
 near(S.solve(reversedCurrentCoil).components.c3.reading, -3, "reversed W current coil");
 const loadedW = P.create("meters"); Object.assign(loadedW.components[2].params, {resistance: 1, inputResistance: 12}); out = S.solve(loadedW);
-near(out.components.c3.current, 6 / 7, "finite W series and parallel loading"); near(out.components.c3.sensedVoltage, 36 / 7, "loaded W sensed voltage");
-near(out.components.c3.reading, 216 / 49, "W reading includes sensed circuit current"); near(out.components.c3.power, 144 / 49, "W own power is both coils, not its reading");
+near(out.components.c3.current, 6 / 13, "finite W current coil in series with the load"); near(out.components.c3.sensedVoltage, 6, "supply-side W sensed voltage");
+near(out.components.c3.reading, 36 / 13, "W reading includes current-coil loss"); near(out.components.c3.power, 3 + 36 / 169, "W own power is both coils, not its reading");
 near(Object.values(out.components).reduce((s, r) => s + r.power, 0), 0, "finite W energy balance");
 const sources = M.empty(); M.add(sources, "battery", 0, 0, {voltage: 6, resistance: 2}); M.add(sources, "battery", 0, 200, {voltage: 3, resistance: 1}); M.add(sources, "resistor", 300, 0);
 for (const id of ["c2", "c3"]) for (const port of ["a", "b"]) M.connect(sources, "c1:" + port, id + ":" + port);
@@ -39,7 +39,7 @@ other.params.voltage = 8; out = S.solve(f.d); assert(out.diagnostics.some((d) =>
 // Wire cycles don't invent a current direction.
 f = simple(); f.d.junctions.push({ id: "j1", x: 80, y: 0 }, { id: "j2", x: 100, y: 80 }); M.connect(f.d, "c1:a", "j1:p"); M.connect(f.d, "j1:p", "j2:p"); M.connect(f.d, "j2:p", "c1:a"); out = S.solve(f.d); assert.equal(out.wires.w3.current, null); near(out.wires.w1.current, .5, "wire bridge remains known");
 // Unequal bridge checked independently with node-equation analytical solution.
-const bridge = P.create("bridge"); bridge.components[3].params.resistance = 30; out = S.solve(bridge); const left = 1 / (1 / 10 + 1 / 30), right = 1 / (1 / 20 + 1 / 20); near(out.components.c6.current, 6 * left / (left + right) / 10 - 6 * right / (left + right) / 20, "unbalanced bridge");
+const bridge = P.create("bridge"); bridge.components[3].params.resistance = 30; out = S.solve(bridge); const upper = 1 / (1 / 10 + 1 / 20), lower = 1 / (1 / 30 + 1 / 20); near(out.components.c6.current, 6 * upper / (upper + lower) / 10 - 6 * lower / (upper + lower) / 30, "unbalanced diamond bridge");
 // Finite voltmeter changes loading; ideal meter does not.
 f = simple(); const v = M.add(f.d, "voltmeter", 0, 300, { resistance: 12 }); M.connect(f.d, v.id + ":a", f.r.id + ":a"); M.connect(f.d, v.id + ":b", f.r.id + ":b"); out = S.solve(f.d); near(out.components[f.b.id].current, -1, "finite V loading"); v.params.resistance = 0; near(S.solve(f.d).components[f.b.id].current, -.5, "ideal V loading");
 f.b.params.polarity = -1; v.params.range = 3; out = S.solve(f.d); near(out.components[v.id].reading, -6, "reverse voltmeter reading"); assert(V.statusText(out.components[v.id]).includes("超量程"));
