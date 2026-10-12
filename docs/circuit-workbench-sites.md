@@ -1,13 +1,41 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 20，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 21，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 20／CW-15／16混頻窗及繞組投影（2026-10-12）
+## 最近更新：Sites version 21／45°、連接位及 CW-17（2026-10-12）
+
+Runtime取自已推送提交 `c155c6bbdebaf871563e4dbb7bf723f150a99a96`；介面
+提交為 `19e84c7`。共用核心支援八方向旋轉、原有網格及接孔吸附；單擊
+接孔／共接點提供拆開全部，拖動依相關導線選取搬元件／整組或拔單端。
+保護恢復涵蓋接受歷史及過渡滾動窗，每個接受內部半步檢查保底；session
+v4保存有界保護積分歷史，保留相位／儲能及停機診斷。DC29個／AC38個
+資產與Git提交逐byte／SHA-256一致；原網址與擁有者私人存取不變。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `0ff50a3a2db97139591129118041567d63892820` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_c6c2f3bd5e3881919f91f795c484cb24` | `appgdep_6accbd50b5cc81918f44c4f33ff51f68` |
+| AC | `a5ceedff03426e91a6500606000aa2348a96a3e7` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_562a31f03244819198ca58b43f67ecc2` | `appgdep_6accbd66f1988191978f7b760c91b598` |
+
+兩次原生部署succeeded，get_site確認version21／active及只有owner存取。
+AC／DC source／ZIP桌面／可信觸控24組互動含低於50%縮放、八方向、拆線／
+搬動、取消、唯讀／量測及保存續作；原旋轉12 observations、設定40亦
+通過。CW-17核心25組續作及途中完整窗檢查、實際播放／暫停／恢復132
+checks通過，既有保護456及CW-15／16 188 checks仍通過。相關Node suites、
+check／manifest及四包重建通過；詳細範圍見[DC計劃](../plans/28-circuit-workbench.md)
+及[AC計劃](../plans/32-circuit-ac-workbench.md)。同步完成後兩站部署目錄的
+桌面／手機入口、HTTP200、query/hash、可信視圖及無例外檢查通過。
+官方helper產物為 `output/sites/circuit-dc-workbench-c155c6b-v21.tar.gz`及
+`output/sites/circuit-ac-workbench-c155c6b-v21.tar.gz`，核對檔仍在
+`output/sites/runtime-verification.json`及`output/sites/browser-verification.json`。
+未驗完整CI／全套browser／真手機／Moodle；舊v3無權威保護歷史，恢復時
+明示並在新完整窗前保守恢復限流輸出，沒有虛構歷史。
+
+## 前次更新：Sites version 20／CW-15／16混頻窗及繞組投影（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `3c5640a77c9d434357eb908556dca9f82261d1f1`。保護與
 量測採相同完整共同週期；非週期採10秒窗及持續複核，核心接受的完整物理
