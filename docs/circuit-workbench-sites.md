@@ -1,13 +1,44 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-12兩個standalone工作台已更新至Sites version 21，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 22，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 21／45°、連接位及 CW-17（2026-10-12）
+## 最近更新：Sites version 22／實測回饋保護及保存容量（2026-10-12）
+
+Runtime取自已推送提交 `38d3c365630950deda802290dd03567226a1eed5`。移除AC
+前瞻搜尋，按已接受的RMS／平均端口功率固定時序回饋，逐步降壓及慢恢復；
+保護源有明示的至少0.05 Ω實際內阻，納入物理方程及耗散。允許短暫超限
+及調節延遲，真正短路鎖定及儲能／能量核證保留。保護session v5/model2
+保存完整控制歷史，舊v3/v4驗證後遷移；緊湊JSON及教師8 MiB保存／開啟
+限額一致，純文件及學生codec不變。45°及連接位操作保留。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `361c027abce8c4ee63638a3a1ece2180aaef71c0` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_8c2656aa79748191be064ae9feee0f3f` | `appgdep_6accef17cf3c8191abd902d0d0180423` |
+| AC | `5534b9eba5dd531691160486a9f32a49ae29beb5` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_b5dafc7fc6f881919bdede2e4a4b75f1` | `appgdep_6accef04069c8191a4c59e4fa0b8b40b` |
+
+兩次原生部署均succeeded；get_site確認version22、active及只有owner存取，
+原網址及私人權限不變。DC29／AC38資產逐byte及SHA-256與提交一致；
+部署目錄桌面／手機HTTP200、跳轉query/hash、可信視圖及無例外檢查通過。
+
+正式模組的回饋／能量／依賴／保存遷移、25組分段及保存續作通過；1–4組
+各狀態36核心往返及80來源容量通過。完整source/ZIP保護UI456、混頻／
+零耦合188、實際播放續作132、變壓器四錶110、native儲存開啟續作390、
+效能96 checks通過；AC/DC八方向與接點24組桌面／可信觸控通過。check及
+四包重建通過。效能量測advance最高約44ms，未觀察到>=100ms長任務，
+仍有50–94ms繪圖任務，並非所有主執行緒工作嚴格10ms。完整npm test的
+sandbox Chrome啟動中止，改用已授權聚焦browser及相關正式模組核證，
+未宣稱完整CI、全套browser、真手機或Moodle通過。詳見[交流計劃](../plans/32-circuit-ac-workbench.md)。
+
+官方helper產物為 `output/sites/circuit-dc-workbench-38d3c36-v22.tar.gz`及
+`output/sites/circuit-ac-workbench-38d3c36-v22.tar.gz`；核對檔為
+`output/sites/runtime-verification.json`及`output/sites/browser-verification.json`。
+
+## 前次更新：Sites version 21／45°、連接位及 CW-17（2026-10-12；歷史記錄）
 
 Runtime取自已推送提交 `c155c6bbdebaf871563e4dbb7bf723f150a99a96`；介面
 提交為 `19e84c7`。共用核心支援八方向旋轉、原有網格及接孔吸附；單擊
