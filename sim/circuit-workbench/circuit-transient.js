@@ -67,13 +67,13 @@
     function anchors(pa,pb,dependencies){const own=members(dependencies);return [pa,pb].map(p=>[...new Set(own.flatMap(e=>[e.pa,e.pb]).filter(q=>netOf[q]===netOf[p]))].sort());}
     return {...groups,groupOf,unionSets,voltage,wire,members,anchors};
   }
-  function compile(input){
+  function compile(input,branchIds=null){
     const doc=AC.toAC(input),ports=M.endpoints(doc),uf=union([...ports.keys()]);
     doc.wires.filter(w=>!w.resistance).forEach(w=>uf.join(w.from,w.to));
     const netOf=Object.fromEntries([...ports.keys()].map(p=>[p,uf.find(p)])),nets=[...new Set(Object.values(netOf))],islands=union(nets),edges=[],sources=[],transformers=[];
-    const add=(c,from,to,kind,resistance=0,extra={})=>{const pa=extra.wire?from:c.id+':'+from,pb=extra.wire?to:c.id+':'+to,e={id:extra.wire?c.id:c.id+':'+from,c,pa,pb,a:netOf[pa],b:netOf[pb],kind,resistance,...extra};edges.push(e);islands.join(e.a,e.b);return e;};
+    const add=(c,from,to,kind,resistance=0,extra={})=>{const pa=extra.wire?from:c.id+':'+from,pb=extra.wire?to:c.id+':'+to,e={id:extra.wire?c.id:c.id+':'+from,c,pa,pb,a:netOf[pa],b:netOf[pb],kind,resistance,...extra};if(branchIds&&!branchIds.has(e.id))return null;edges.push(e);islands.join(e.a,e.b);return e;};
     for(const c of doc.components){const p=c.params;
-      if(['battery','ac-source','generator'].includes(c.type)){const regulated=c.type==='ac-source'&&p.protectionEnabled,e=add(c,'a','b','source',regulated?0:p.resistance,regulated?{internalResistance:p.resistance}:{});if(c.type!=='battery')sources.push(e);}
+      if(['battery','ac-source','generator'].includes(c.type)){const regulated=c.type==='ac-source'&&p.protectionEnabled,e=add(c,'a','b','source',regulated?0:p.resistance,regulated?{internalResistance:p.resistance}:{});if(c.type!=='battery'&&e)sources.push(e);}
       else if(c.type==='capacitor')add(c,'a','b','capacitor',0,{C:p.capacitance});
       else if(c.type==='inductor')add(c,'a','b','inductor',p.resistance,{L:p.inductance});
       else if(c.type==='spdt')add(c,'a',p.closed,'resistor');
@@ -81,7 +81,8 @@
         const ratio=p.primaryTurns/p.secondaryTurns,L1=p.inductance,L2=L1/ratio**2,mutual=p.coupling*Math.sqrt(L1*L2);
         const a=add(c,'a','b',p.model==='ideal'?'ideal-primary':'inductor',p.model==='ideal'?0:p.primaryResistance,{L:L1});
         const b=add(c,'c','d',p.model==='ideal'?'ideal-secondary':'inductor',p.model==='ideal'?0:p.secondaryResistance,{L:L2});
-        a.other=b;b.other=a;a.mutual=b.mutual=mutual;a.ratio=b.ratio=ratio;transformers.push(a);
+        if(a&&b){a.other=b;b.other=a;a.mutual=b.mutual=mutual;a.ratio=b.ratio=ratio;transformers.push(a);}
+        else if((a||b)&&(p.model==='ideal'||mutual!==0))throw new Error('保護子電路缺少耦合繞組');
       }else if(c.type==='led')add(c,'a','b','led',p.resistance);
       else if(c.type==='ac-ammeter')add(c,'a','b','resistor',p.resistance);
       else if(c.type==='ac-voltmeter'){if(p.resistance>0)add(c,'a','b','resistor',p.resistance);}
@@ -218,21 +219,26 @@
   }
   // Non-sine/nonlinear loads use a private time-domain forecast. It never edits
   // accepted storage, phase, energy books or the observation trackers.
-  function forecastDemand(c,state,samples=null){
-    const period=Math.max(...c.sources.filter(e=>!stopped(state,e.c)).map(e=>1/e.c.params.frequency),.02),steps=Math.max(256,Math.ceil(period/c.maxStep)),h=period/steps,totals=Object.fromEntries(c.sources.map(e=>[e.c.id,{square:0,power:0}]));let predicted=clone(state);
+  function protectionWindow(c){return c.sources.map(e=>c.policies.get(e.c.id).quantities.power).reduce((a,b)=>a.window>=b.window?a:b);}
+  function protectionCadence(c){const policy=protectionWindow(c),nonSine=c.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');return c.dynamic.length||nonSine||c.edges.some(e=>e.kind==='led')||policy.period===null?Math.min(policy.window,...c.sources.map(e=>1/e.c.params.frequency),1):null;}
+  function forecastDemand(c,state){
+    const period=protectionWindow(c).window,steps=Math.max(256,Math.ceil(period/c.maxStep)),baseStep=period/steps,totals=Object.fromEntries(c.sources.map(e=>[e.c.id,{square:0,power:0}]));let predicted=clone(state),elapsed=0,count=0;
     // shortcut: bound forecast work for mixed/stiff waveforms; use a spectral nonlinear backend if those circuits need support.
     if(steps>4096)return null;
     const start=initialSolution(c,predicted);if(start.error)return null;try{predicted=derive(c,predicted,start);}catch{return null;}
     let previous=read(c,predicted,start);
     const books=c.sources.map(e=>{const members=c.energyDomains.get(c.energyDomainOf.get(e.id));return {e,members,initial:energy(c,state,members),loss:0,isolated:members.filter(e=>e.kind==='source'&&!stopped(state,e.c)).length===1};});
-    for(let n=0;n<steps;n++){
-      const sample=one(c,predicted,h,c.dynamic.length?'trap':'be',false);if(sample.error)return null;predicted=sample.state;
+    while(elapsed<period-Math.max(EPS,period*1e-12)){
+      if(++count>4096)return null;const corner=breakpoint(c,predicted),h=Math.min(baseStep,corner,period-elapsed),left=Math.abs(h-corner)<Math.min(EPS,h*1e-8);if(h<MIN_STEP)return null;
+      const stages=c.dynamic.length?null:[-1,1].map(sign=>one(c,predicted,h*(.5+sign/(2*Math.sqrt(3))),'be',false));if(stages?.some(s=>s.error))return null;
+      const sample=one(c,predicted,h,c.dynamic.length?'trap':'be',left);if(sample.error)return null;predicted=sample.state;elapsed+=h;
       for(const e of c.sources){const r=sample.result.components[e.c.id],old=previous.components[e.c.id];if(!Number.isFinite(r.current)||!Number.isFinite(r.delivered))return null;
-        const points=c.dynamic.length?[-1,1].map(sign=>{const t=.5+sign/(2*Math.sqrt(3));return [old.current+t*(r.current-old.current),old.voltage+t*(r.voltage-old.voltage)];}):[[r.current,r.voltage]];
-        for(const [i,v]of points){totals[e.c.id].square+=i*i/steps/points.length;totals[e.c.id].power-=v*i/steps/points.length;if(samples)(samples[e.c.id]??=[]).push([i,v]);}
+        const points=c.dynamic.length?[-1,1].map(sign=>{const t=.5+sign/(2*Math.sqrt(3));return [old.current+t*(r.current-old.current),old.voltage+t*(r.voltage-old.voltage)];}):stages.map(s=>{const r=s.result.components[e.c.id];return [r.current,r.voltage];});
+        for(const [i,v]of points){totals[e.c.id].square+=i*i*h/period/points.length;totals[e.c.id].power-=v*i*h/period/points.length;}
       }
       for(const book of books)if(book.isolated)for(const edge of book.members.filter(edge=>edge.kind!=='source')){const branch=result=>result.components[edge.c.id]?.branches.find(r=>r.from===edge.pa&&r.to===edge.pb)||result.wires[edge.c.id],r=branch(sample.result),old=branch(previous),square=c.dynamic.length?(old.current**2+old.current*r.current+r.current**2)/3:r.current**2;book.loss+=(edge.kind==='led'?Math.max(0,r.power):edge.resistance*square)*h;}
       previous=sample.result;
+      if(left){const right=initialSolution(c,predicted);if(right.error)return null;try{predicted=derive(c,predicted,right);}catch{return null;}previous=read(c,predicted,right);}
     }
     // Use physical energy/loss for a singly driven domain; quadrature alone
     // must not invent active power in a lossless reactive load.
@@ -241,9 +247,13 @@
   }
   function protectionCircuit(c,e){
     c.protectionCircuits??=new Map();if(c.protectionCircuits.has(e.id))return c.protectionCircuits.get(e.id);
-    const members=c.signals.energyDomains.get(c.signals.groupOf(e)),ids=new Set(members.filter(e=>!e.wire).map(e=>e.c.id)),doc=clone(c.doc);
-    doc.components=doc.components.filter(c=>ids.has(c.id));doc.wires=doc.wires.filter(w=>[w.from,w.to].every(p=>ids.has(p.split(':')[0])||doc.junctions.some(j=>p===j.id+':p')));doc.display.reference=null;
-    const own=compile(doc);c.protectionCircuits.set(e.id,own);return own;
+    const members=c.signals.energyDomains.get(c.signals.groupOf(e)),branchIds=new Set(members.map(e=>e.id)),doc=clone(c.doc);
+    // A port can be a common junction without its component being a power dependency.
+    doc.wires=doc.wires.filter(w=>!w.resistance||branchIds.has(w.id));const ids=new Set([...members.filter(e=>!e.wire).map(e=>e.c.id),...doc.wires.flatMap(w=>[w.from,w.to].map(p=>p.split(':')[0]))]);doc.components=doc.components.filter(c=>ids.has(c.id));doc.display.reference=null;
+    // Retain the selected branches, not every winding of their component IDs.
+    const own=compile(doc,branchIds),ports=[...new Set(members.flatMap(e=>[e.pa,e.pb]))];
+    if(own.edges.length!==members.length||members.some(e=>!own.edges.some(b=>b.id===e.id&&b.kind===e.kind&&b.resistance===e.resistance&&b.L===e.L&&b.C===e.C))||ports.some(a=>ports.some(b=>(c.netOf[a]===c.netOf[b])!==(own.netOf[a]===own.netOf[b]))))throw new Error('保護子電路支路或接點不等效');
+    c.protectionCircuits.set(e.id,own);return own;
   }
   function transientDemand(c,state,ids,full){
     if(!c.dynamic.length||c.edges.some(e=>e.kind==='led')||c.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine'))return ()=>null;
@@ -276,19 +286,19 @@
     const shorts=shortedSources(c),enabled=c.sources.filter(e=>state.protection[e.c.id]),handled=new Set(),trip=(e,reason)=>Object.assign(state.protection[e.c.id],{status:'tripped',scale:0,reason,reviewAt:null});
     for(const e of enabled)if(shorts.has(e.c.id))trip(e,'short-circuit');
     for(const e of enabled){if(handled.has(e.c.id)||stopped(state,e.c)||selected&&!selected.has(e.c.id))continue;
-      const own=protectionCircuit(c,e),sources=own.sources.filter(e=>state.protection[e.c.id]&&!stopped(state,e.c)),ids=sources.map(e=>e.c.id),linear=!own.edges.some(e=>e.kind==='led')&&!own.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');ids.forEach(id=>handled.add(id));
-      const physical=trial=>({periodic:periodicDemand(own,trial),transient:linear&&own.dynamic.length?forecastDemand(own,trial)||false:null});
+      const own=protectionCircuit(c,e),sources=own.sources.filter(e=>state.protection[e.c.id]&&!stopped(state,e.c)),ids=sources.map(e=>e.c.id),linear=!own.edges.some(e=>e.kind==='led'),sinusoidal=!own.sources.some(e=>e.c.type==='ac-source'&&e.c.params.waveform!=='sine');ids.forEach(id=>handled.add(id));
+      const physical=trial=>({periodic:sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial),transient:linear&&sinusoidal&&own.dynamic.length?forecastDemand(own,trial)||false:null});
       const fits=d=>d.periodic&&d.transient!==false&&sources.every(e=>[d.periodic,d.transient].filter(Boolean).every(values=>{const q=values[e.c.id];return q&&q.currentRms<=e.c.params.maxCurrent*(1+1e-9)&&q.averagePower<=e.c.params.maxPower*(1+1e-9);}));
       const current=physical(state),nominal=clone(state);for(const id of ids)nominal.protection[id].scale=1;
       const full=ids.every(id=>state.protection[id].scale===1)?current:physical(nominal);let scale=null;
       if(fits(full))scale=1;
       else if(!fits(current)||full.periodic&&full.transient!==false){
-        const transient=transientDemand(own,state,ids,full.transient),demand=value=>{const trial=clone(state);for(const id of ids)trial.protection[id].scale=value;return {periodic:periodicDemand(own,trial),transient:transient(value)};};
+        const transient=transientDemand(own,state,ids,full.transient),periodic=new Map([[1,full.periodic]]),demand=value=>{if(!periodic.has(value)){const trial=clone(state);for(const id of ids)trial.protection[id].scale=value;periodic.set(value,sinusoidal&&protectionWindow(own).period!==null?periodicDemand(own,trial):forecastDemand(own,trial));}return {periodic:periodic.get(value),transient:transient(value)};};
         scale=protectionScale(sources,demand,fits,linear);
         if(scale!==null){const trial=clone(state);for(const id of ids)trial.protection[id].scale=scale;if(!fits(physical(trial)))scale=null;}
       }
       if(scale===null&&!fits(current)){sources.forEach(e=>trip(e,'unresolved'));continue;}
-      for(const source of sources){const q=state.protection[source.c.id];if(scale!==null)q.scale=scale;q.status=q.scale<1?'limited':'normal';q.reason=null;q.reviewAt=q.status==='limited'&&own.dynamic.length?state.time+1/source.c.params.frequency:null;}
+      const cadence=protectionCadence(own);for(const source of sources){const q=state.protection[source.c.id];if(scale!==null)q.scale=scale;q.status=q.scale<1?'limited':'normal';q.reason=null;q.reviewAt=cadence===null?null:state.time+cadence;}
     }
   }
   function eventStep(c,result){
@@ -459,8 +469,12 @@
       if(!s.error){try{this.state=derive(this.compiled,this.state,s);}catch(_){/* Initial open branches can have unknown derivatives, not unknown stored values. */}}
       this.result=read(this.compiled,this.state,s);return this.result;
     }
-    reviewProtection(tolerance){
+    reviewProtection(tolerance,checkMeasured=false){
       const due=new Set(Object.entries(this.state.protection||{}).filter(([,q])=>q.reviewAt!==null&&q.reviewAt<=this.state.time+tolerance).map(([id])=>id));
+      // Accepted physical integrals are a backstop for changing relative phases.
+      if(!this.fault&&(checkMeasured||due.size))for(const e of this.compiled.sources){const q=this.state.protection?.[e.c.id];if(!q||q.status==='tripped')continue;const measured=this.tracker.measure(e.c.id);
+        if(measured.currentStatus==='ready'&&measured.currentRms>e.c.params.maxCurrent*1.001||measured.powerStatus==='ready'&&-measured.averagePower>e.c.params.maxPower*1.001){Object.assign(q,{status:'tripped',scale:0,reason:'unresolved',reviewAt:null});due.add(e.c.id);}
+      }
       if(!this.fault&&due.size){this.protectionSelection=due;this.protectionCompiled=null;this.state.event=true;this.project();this.emit(this.result);}
     }
     read(){this.result.energyBalance=energyBalance(this.compiled,this.state);if(this.fault)this.result.energyBalance.status='unreliable';this.result.measurements=Object.fromEntries(this.doc.components.map(c=>[c.id,this.fault?{...this.tracker.measure(c.id),status:'unknown',voltageStatus:'unknown',currentStatus:'unknown',powerStatus:'unknown',provisionalVoltageRms:null,provisionalCurrentRms:null,provisionalAveragePower:null,voltageRms:null,currentRms:null,averagePower:null,voltagePeak:null,currentPeak:null}:this.tracker.measure(c.id)]));
@@ -487,7 +501,7 @@
         if(atEvent){this.state.event=true;this.project();this.emit(this.result);}
       }
       if(this.fault){this.state.step=Math.max(MIN_STEP,this.state.step);this.result=read(this.compiled,this.state,{error:this.fault});this.emit(this.result);}
-      this.reviewProtection(timeTolerance);
+      this.reviewProtection(timeTolerance,true);
       return {advanced:this.state.time-start,complete:!this.fault&&Math.abs(this.state.time-target)<=timeTolerance,steps,result:this.read()};
     }
     update(input,{continuous=false}={}){const before=this.doc,doc=AC.toAC(input),changed=signature(before)!==signature(doc);if(!changed&&before.display.reference===doc.display.reference){this.doc=doc;this.compiled.doc=doc;return 'geometry';}const next=compile(doc);
@@ -507,11 +521,13 @@
     capture(){return {kind:'simlab-circuit-session',version:this.state.protection?3:2,modelRevision:1,document:clone(this.doc),physics:clone(this.state)};}
     static restore(snapshot){keys(snapshot,['kind','version','modelRevision','document','physics']);if(snapshot.kind!=='simlab-circuit-session'||![1,2,3].includes(snapshot.version)||snapshot.modelRevision!==1||snapshot.document?.version!==7)throw new Error('動態快照版本無效');const s=new Session(snapshot.document),p=snapshot.physics;
       keys(p,['time','step','sources','dynamic','work','dissipated','event',...(snapshot.version>=2?['energyDomains','energyOrigin']:[]),...(snapshot.version===3?['protection']:[])]);finite(p.time,0,1e9);finite(p.step,1e-13,1);finite(p.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.dissipated,0,Number.MAX_VALUE);if(typeof p.event!=='boolean')throw new Error('事件旗標無效');keys(p.sources,Object.keys(s.state.sources));for(const x of Object.values(p.sources))finite(x,0,AC.TAU);keys(p.dynamic,Object.keys(s.state.dynamic));for(const x of Object.values(p.dynamic)){keys(x,['i','v']);finite(x.i);finite(x.v);}
-      const legacy= snapshot.version===1;const accepted=clone(p);if(snapshot.version===3){keys(p.protection,Object.keys(s.state.protection||{}));if(!Object.keys(p.protection).length)throw new Error('保護快照不可為空');for(const q of Object.values(p.protection)){keys(q,['status','scale','reason','reviewAt']);finite(q.scale,0,1);if(q.reviewAt!==null){finite(q.reviewAt,p.time,1e9);if(q.status!=='limited')throw new Error('保護複核時間無效');}if(!['normal','limited','tripped'].includes(q.status)||q.status==='normal'&&(q.scale!==1||q.reason!==null)||q.status==='limited'&&(q.scale>=1||q.reason!==null)||q.status==='tripped'&&(q.scale!==0||!['short-circuit','unresolved'].includes(q.reason)))throw new Error('保護快照狀態無效');}}else if(s.state.protection)throw new Error('啟用保護的快照缺少保護狀態');
+      const legacy= snapshot.version===1;const accepted=clone(p);if(snapshot.version===3){keys(p.protection,Object.keys(s.state.protection||{}));if(!Object.keys(p.protection).length)throw new Error('保護快照不可為空');for(const q of Object.values(p.protection)){keys(q,['status','scale','reason','reviewAt']);finite(q.scale,0,1);if(q.reviewAt!==null){finite(q.reviewAt,p.time,1e9);if(!['normal','limited'].includes(q.status))throw new Error('保護複核時間無效');}if(!['normal','limited','tripped'].includes(q.status)||q.status==='normal'&&(q.scale!==1||q.reason!==null)||q.status==='limited'&&(q.scale>=1||q.reason!==null)||q.status==='tripped'&&(q.scale!==0||!['short-circuit','unresolved'].includes(q.reason)))throw new Error('保護快照狀態無效');}}else if(s.state.protection)throw new Error('啟用保護的快照缺少保護狀態');
       if(legacy){migrateV1(s.compiled,accepted);validateV1Derivative(s.compiled,p);}
       else{keys(p.energyOrigin,['work','dissipated']);finite(p.energyOrigin.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(p.energyOrigin.dissipated,0,Number.MAX_VALUE);if(!sameKeys(p.energyDomains,s.compiled.energyDomains.keys()))keys(p.energyDomains,[...s.compiled.legacyEnergyDomains.keys()]);for(const q of Object.values(p.energyDomains)){keys(q,['initial','work','dissipated','throughput']);finite(q.initial,0,Number.MAX_VALUE);finite(q.work,-Number.MAX_VALUE,Number.MAX_VALUE);finite(q.dissipated,0,Number.MAX_VALUE);finite(q.throughput,0,Number.MAX_VALUE);}migrateV2Domains(s.compiled,accepted);}
       s.state=clone(accepted);s.restoring=true;s.project({initialise:false,history:false});delete s.restoring;if(!s.fault)for(const e of s.compiled.dynamic){const a=s.state.dynamic[e.id],b=p.dynamic[e.id];for(const key of p.event?[e.C?'v':'i']:['i','v'])if(Math.abs(a[key]-b[key])>1e-6*Math.max(1,Math.abs(a[key]),Math.abs(b[key])))throw new Error('動態快照不符合電路約束');}
-      s.state=clone(accepted);if(p.event&&!s.fault&&eventStep(s.compiled,s.result)<MIN_STEP)s.fault='time-resolution';if(energyBalance(s.compiled,s.state).status!=='reliable')s.fault='energy-balance';const solution=p.event&&!s.fault?initialSolution(s.compiled,s.state):solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,s.fault?{error:s.fault}:solution);s.tracker=new O.GroupTracker(s.compiled.policies);s.visualTracker=new O.Tracker(.02);s.coreTracker=new O.CoreFluxTracker(s.compiled.policies);s.coreTracker.sample(s.result);s.tracker.sample(s.result);s.visualTracker.sample(s.result);return s;
+      s.state=clone(accepted);if(p.event&&!s.fault&&eventStep(s.compiled,s.result)<MIN_STEP)s.fault='time-resolution';if(energyBalance(s.compiled,s.state).status!=='reliable')s.fault='energy-balance';const solution=p.event&&!s.fault?initialSolution(s.compiled,s.state):solve(s.compiled,s.state,0,'trap',false,!s.fault&&!p.event);if(solution.error&&!s.fault)throw new Error('動態快照不符合電路歷史約束');s.result=read(s.compiled,s.state,s.fault?{error:s.fault}:solution);s.tracker=new O.GroupTracker(s.compiled.policies);s.visualTracker=new O.Tracker(.02);s.coreTracker=new O.CoreFluxTracker(s.compiled.policies);s.coreTracker.sample(s.result);s.tracker.sample(s.result);s.visualTracker.sample(s.result);
+      for(const e of s.compiled.sources){const q=s.state.protection?.[e.c.id];if(!q||q.status==='tripped')continue;const cadence=protectionCadence(protectionCircuit(s.compiled,e));if(cadence!==null&&(q.reviewAt===null||q.reviewAt>s.state.time+cadence+EPS))q.reviewAt=s.state.time;}
+      s.reviewProtection(0,true);return s;
     }
     destroy(){this.listeners.clear();}
   }

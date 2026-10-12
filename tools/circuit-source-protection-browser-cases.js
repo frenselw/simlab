@@ -44,4 +44,25 @@ async function sourceProtectionCases(h,source){let checks=0;
  }
  console.log(source+' source protection UI: '+checks+' checks passed');return checks;
 }
-module.exports={sourceProtectionCases};
+async function mixedProtectionCases(h,source){let checks=0;
+ for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+  async function enable(){await h.click('[data-hit="body:c1"]',true);if(!await h.inside('document.querySelector("[data-source-protection]").open')){await h.inside('document.querySelector("[data-source-protection]>summary").scrollIntoView({block:"center"})');await h.touch(await h.point('[data-source-protection]>summary'));}await h.inside('document.querySelector("[data-param=protectionEnabled]").scrollIntoView({block:"center"})');await h.touch(await h.point('[data-param=protectionEnabled]'));}
+  for(const waveform of ['square','triangle','sine']){
+   const d=M.empty('transient'),a=M.add(d,'ac-source',140,280,{waveform,maxCurrent:.6}),b=M.add(d,'ac-source',420,280,{waveform,frequency:1.2}),r=M.add(d,'resistor',280,160);a.angle=b.angle=90;a.label='受保護電源';b.label='另一電源';M.connect(d,a.id+':b',b.id+':b');M.connect(d,a.id+':a',r.id+':a',[{x:140,y:160}]);M.connect(d,b.id+':a',r.id+':b',[{x:420,y:160}]);
+   await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('setPlayback({paused:true})');await h.call('advanceTime(.37)');const before=await h.call('captureSession()');await enable();const after=await h.call('captureSession()');assert.equal(after.physics.time,before.physics.time);assert.equal(after.physics.sources.c1,before.physics.sources.c1);assert.equal(after.physics.protection.c1.status,'limited');checks+=3;
+   await h.call('advanceTime(5.2)');const measured=await h.call('getAnalysis().measurements.c1');assert.equal(measured.currentWindow,5);assert(measured.currentRms<=.6006);assert.equal(await h.call('getAnalysis().diagnostics.length'),0);checks+=3;await h.screenshot(source+'-mixed-protected-'+waveform+'-'+width);
+   const saved=await h.call('captureSession()');await h.call('restoreSession('+JSON.stringify(saved)+')');assert.deepEqual(await h.call('captureSession()'),saved);await h.call('advanceTime(5.2)');assert(await h.call('getAnalysis().measurements.c1.currentRms')<=.6006);assert.equal(await h.call('getAnalysis().components.c1.protection.status'),'limited');checks+=3;
+  }
+  for(const initial of [0,1]){
+   const d=M.empty('transient'),a=M.add(d,'ac-source',140,280),t=M.add(d,'transformer',420,280,{model:'coupled',coupling:0,initialSecondaryCurrent:initial}),r=M.add(d,'resistor',700,280,{resistance:12});a.angle=r.angle=90;M.connect(d,a.id+':a',t.id+':a',[{x:140,y:180},{x:344,y:180}]);M.connect(d,a.id+':b',t.id+':b',[{x:140,y:380},{x:344,y:380}]);M.connect(d,t.id+':c',r.id+':a',[{x:560,y:254},{x:560,y:180},{x:700,y:180}]);M.connect(d,t.id+':d',r.id+':b',[{x:560,y:306},{x:560,y:380},{x:700,y:380}]);
+   await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('setPlayback({paused:true})');const before=await h.call('captureSession()');await enable();const after=await h.call('captureSession()');assert.equal(after.physics.dynamic['c2:c'].i,before.physics.dynamic['c2:c'].i);assert.equal(after.physics.protection.c1.status,'normal');assert(after.physics.protection.c1.reviewAt>0);checks+=3;
+   await h.call('advanceTime(.1)');const partial=await h.call('captureSession()');assert(Math.abs(partial.physics.dynamic['c2:c'].i-initial*Math.exp(-2.45))<.0001);assert.equal(await h.call('getAnalysis().diagnostics.length'),0);checks+=2;
+   await h.call('advanceTime(1)');assert.equal(await h.call('getAnalysis().components.c1.protection.status'),'normal');const rms=await h.call('getAnalysis().measurements.c1.currentRms');assert(Math.abs(rms-.718)<.001);checks+=2;await h.screenshot(source+'-uncoupled-protected-'+initial+'-'+width);
+   const saved=await h.call('captureSession()');await h.call('restoreSession('+JSON.stringify(saved)+')');assert.deepEqual(await h.call('captureSession()'),saved);await h.call('advanceTime(.1)');assert.equal(await h.call('getAnalysis().diagnostics.length'),0);checks+=2;
+  }
+  assert(await h.inside('__trusted.some(e=>e.trusted&&e.pointer==="touch")'));assert(await h.inside('document.documentElement.scrollWidth<=innerWidth+1'));checks+=2;
+ }
+ console.log(source+' CW-15/16 production protection: '+checks+' checks passed');return checks;
+}
+module.exports={sourceProtectionCases,mixedProtectionCases};
