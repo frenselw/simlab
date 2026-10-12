@@ -1,13 +1,24 @@
 # DC／AC工作台的獨立Sites部署
 
-兩個standalone工作台已更新至Sites version 23，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+兩個standalone工作台已更新至Sites version 24，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 23／斜臂電橋、可見拆線及讀值更新
+## 最近更新：Sites version 24／CW-21、CW-22儀表讀值（2026-10-13）
+
+Runtime取自已推送提交 `beb53f4c4d8bfd41cf21193a22b4f55a8f800903`。G面板電流及參考量程統一SI A，末層轉工程單位，避免零／未知及大量程的雙重µ前綴例外；微小非零值保留，機械刻度精度不改。功率表瞬時電壓改用sensedVoltage，明示V₊−V₋，有效值同用電壓端；端子字形沿用LaTeX。求解、實測回饋保護及session格式不改。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `8416779886a8b397fe23944efa06f6a4d4f3df54` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_5ad11356226881918295acf21aacccac` | `appgdep_6acd6fdd55888191b6221d28b7de0b78` |
+| AC | `153453b6fcfe9f55fd613476b81df7b5aed5349a` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_75b3accd69488191a89bcc3f987ed6c5` | `appgdep_6acd6fedd94c819198619558f1034c2b` |
+
+兩次原生發布均succeeded，get_site_version確認version24及上述來源；擁有者私人存取保持。DC29／AC38資產與runtime提交逐byte及SHA-256一致。正式工作台與解壓ZIP的1280／390px專項320項通過，另16項只核對可見讀值與截圖；包括未接線／零／未知、±0.1／±10／±1000µA、原生量程修改、播放／暫停及功率表反接。新增核心、readout-math及meters-and-math套件通過；四包重建核對來源。證據在 `output/ac-instrument-review-2026-10-13/`；未驗完整CI、真手機或Moodle。
+
+## 前次更新：Sites version 23／斜臂電橋、可見拆線及讀值更新
 
 Runtime取自已推送提交 `02e5086f389429c36dc5422507f75a010d484fba`，CW-20
 提交 `13521fe`。電橋四臂315/45/45/315°，保留兩孔變阻器與0.6 A量程；
