@@ -507,6 +507,8 @@ DC／AC 變阻器由 registry.rheostatWinding 產生同一份可見導線、滑�
 
 ## 精準驗證與維護
 
+CW-21／22（2026-10-13）：靈敏電流計面板的電流、RMS及錶讀值一律傳SI A，參考量程亦為A，由Readouts最後轉工程單位；不再先乘10⁶再對µA加前綴。面板保留微小非零電流，機械刻度的既有精度保持。功率表「電壓端瞬時電壓（V₊−V₋）」使用sensedVoltage，與同端子的有效值一致；I₊−I₋的線圈壓降不再混稱量測電壓。只改呈現，求解、保護、保存不改。
+
 按實際改動選相關項目，通過後不因小改動反覆重跑全套。下表的Node檔案位於 `sim/circuit-workbench/`；browser以 `node tools/circuit-ac-browser-regression.js` 加下表flag執行（例如 `node tools/circuit-ac-browser-regression.js --field-smoke`），檢查source及解壓AC ZIP。
 
 | 改動 | Node檢查 | browser專項 |
@@ -516,6 +518,7 @@ DC／AC 變阻器由 registry.rheostatWinding 產生同一份可見導線、滑�
 | 發電機投影／端子 | `generator-graphics.test.js` | `--generator-smoke` |
 | C／L場線及歸零 | `field-graphics.test.js`、`ac-display.test.js`、`energy-sync.test.js` | `--field-smoke` |
 | bar／符號／數學排版 | `readout-math.test.js`、`meters-and-math.test.js` | `--readout-math-smoke` |
+| CW-21／22靈敏電流計單位／功率表端子 | `ac-instrument-readouts.test.js`、`readout-math.test.js`、`meters-and-math.test.js` | `--instrument-readouts-smoke`；可見讀值／截圖補驗 `--instrument-readouts-visual-smoke` |
 | 低頻電表啟動／微小讀數／暫估 | `ac-meter-response.test.js`、`meter-motion.test.js`、`ac-audit-regressions.test.js` | `--meter-response-smoke`（source／ZIP，桌面／手機，正常／¼速及正式窗切換） |
 | 電表／接口／預設名稱 | `ac-meter-design.test.js`、`meter-motion.test.js`、`meters-and-math.test.js` | `--meter-design-smoke` |
 | 變壓器／共同磁通 | `transformer-design.test.js`、`scope.test.js` | `--transformer-design-smoke` |

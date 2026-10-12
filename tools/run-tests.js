@@ -23,6 +23,7 @@ const tests = [
   "sim/circuit-workbench/field-graphics.test.js",
   "sim/circuit-workbench/ac-display.test.js",
   "sim/circuit-workbench/readout-math.test.js",
+  "sim/circuit-workbench/ac-instrument-readouts.test.js",
   "sim/circuit-workbench/ac-meter-design.test.js",
   "sim/circuit-workbench/ac-meter-response.test.js",
   "sim/circuit-workbench/ac-reference.test.js",
