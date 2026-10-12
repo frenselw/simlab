@@ -1,13 +1,37 @@
 # DC／AC工作台的獨立Sites部署
 
-2026-10-11兩個standalone工作台已更新至Sites version 16，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+2026-10-12兩個standalone工作台已更新至Sites version 17，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 16／五級畫布字體大小（2026-10-11）
+## 最近更新：Sites version 17／課堂示例、電橋變阻器與 AC 保護（2026-10-12）
+
+Runtime取自已推送提交 `1611de96b70002619064e26afa1213baa2daaf54`，包含 DC
+並聯的總開關及兩個支路開關、混聯幹路燈泡、新增 A／V 接線示例、菱形電橋
+及 R₄ 兩孔滑動變阻器，以及此版本以前已提交的共用與 AC 更新（含可選電源
+保護）。兩站同步完整資產清單，DC29個／AC38個資產與該 Git 提交逐byte及
+SHA-256一致；Windows工作區換行另核對文字等價，部署使用提交的原始位元組。
+
+| 工作台 | 已推送Sites source commit | saved version | deployment |
+|---|---|---|---|
+| DC | `2bd8238a625764a2fa8961056beef35a0585703c` | `appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_a57d1d3e30f08191a40ca50be971398e` | `appgdep_6acc69b28d588191ae05ab38fd6c5205` |
+| AC | `fb95d09291aaa544ed9e3fb016d8e3e9aaea4479` | `appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_8e7a32701aa08191bd2b821f0ee024d1` | `appgdep_6acc69a3053c819186415f339572afb6` |
+
+兩次原生發布均succeeded，get_site確認version 17及原網址／擁有者私人存取。
+部署目錄1280／390px檢查HTTP200、根入口跳轉及query／hash、實際掛載、可信
+滑鼠切換實物／符號、無水平溢出及電橋新變阻器起始平衡通過。物理／可信滑片
+與支路開關的source／ZIP證據沿用本輪工作台計劃，沒有重跑完整CI、真手機或
+Moodle。證據在 `output/sites/runtime-verification.json`、
+`output/sites/browser-verification.json`；封裝先改用Git Bash，並以
+`TAR_OPTIONS=--force-local`避免GNU tar把Windows磁碟代號當作遠端主機。
+Archive為 `output/sites/circuit-dc-workbench-1611de9-v17.tar.gz`及
+`output/sites/circuit-ac-workbench-1611de9-v17.tar.gz`，均由官方Sites helper
+按已推送的各站source建立；網站身份及存取設定保持。
+
+## 前次更新：Sites version 16／五級畫布字體大小（2026-10-11；歷史記錄）
 
 Runtime取自已推送提交 `42e1db5dff2804c533d0af30beb658cc367a509d`。DC／AC以五級字體大小選單取代投影字體：很小／小／中／大／特大，預設名稱20px、讀值18px。標籤及概覽隨所選字級顯示，概覽按寬度換行並減少同列儀表以避免重疊。選擇可保存及復原，fontSize為可選display欄位，舊projection及固定學生文件形狀保持相容。DC29個／AC38個資產逐byte及SHA-256一致。
 
@@ -194,7 +218,7 @@ Version 2 archive為 `output/sites/circuit-dc-workbench-8f0b371.tar.gz` 與 `out
 
 後續更新應重用表內project ID，透過Sites source helper打開對應來源庫、更新同一份SimLab資產，再推送、封裝、保存及部署相同來源版本；不要把兩站的identity或repository混用。checkout若遺失，從相同project ID恢復遠端source，不另建重複網站。短期repository credential只經helper stdin傳入，不保存到檔案、Git或本文件。
 
-每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方version 9記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
+每站使用 `static.directory: "dist"`。初次部署archive保存在 `output/sites/circuit-dc-workbench.tar.gz` 及 `output/sites/circuit-ac-workbench.tar.gz`；最新archive見上方最近更新記錄。每次均由Sites helper按已推送source建立。repository根目錄既有的Site配置屬於另一個Site，不作這兩站的身份。
 
 ## 驗證界限
 
