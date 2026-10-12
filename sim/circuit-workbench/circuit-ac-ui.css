@@ -95,3 +95,10 @@
 
 .ac-editor .quantity-label{display:inline-flex;align-items:baseline;gap:.25em;flex-wrap:wrap}
 .ac-editor .ac-bar-value>.math-inline,.ac-editor .ac-bar-scale .math-inline{max-width:none}
+.ac-source-protection { margin-block: .5rem; }
+.ac-source-protection > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.ac-source-protection > summary::before { content: '▸'; margin-right: .4rem; }
+.ac-source-protection[open] > summary::before { content: '▾'; }
+.ac-source-protection > label { display: grid; gap: .25rem; margin-block: .5rem; }
+.ac-source-protection input[type=checkbox] { width: 44px; height: 44px; }
+.ac-source-protection > button { min-height: 44px; }

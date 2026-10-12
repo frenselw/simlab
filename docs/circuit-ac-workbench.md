@@ -41,7 +41,15 @@ DC／AC設定的「字體大小」有很小／小／中／大／特大五級，�
 
 互感教師示例的供電支路放上方，放電電阻在原側中間獨立直支路，副側限流電阻與電流計形成清楚矩形迴路；只在顯式接點接合，沒有導線交叉或重疊。接線拓撲及參數沿用原示例，合／斷電的感應方向保持。
 
-理想變壓器教師示例在原、副側各放一個串聯交流電流表及跨繞組交流電壓表，左右對齊。預設6 V、200:100匝及12 Ω負載；副側100／200／400匝分別約3／6／12 V，可同時比較兩側電流。技術學生示例仍保留原固定模板，舊codec可繼續恢復。
+理想變壓器教師示例在原、副側各放一個串聯交流電流表及跨繞組交流電壓表，左右對齊。理想及非理想變壓器教師示例預設6 V、最大1 A、最大平均輸出6 W的保護電源。200匝原側、12 Ω負載及100／200／400匝副側分別得到約3／6／6 V；最後一組原側降至3 V、原側1 A，仍符合匝數比。技術學生示例仍保留原固定理想電源模板，舊codec可繼續恢復。
+
+### 可選交流電源保護
+
+選取交流電源後，「進階：電源保護」預設收起。「啟用電源保護」預設false，關閉時保留原理想EMF／內阻模型；啟用後電壓欄為正常供电的端電壓目標，調節器補償內阻壓降，而內阻耗散仍納入能量帳。maxCurrent按有效值、maxPower按平均端口輸出有功功率，並非VA或瞬時功率峰值。其他教師預設、DC電源及發電機不啟用此模型。
+
+正常供電使用目標波幅；限流／限功率降低源波幅並重新求解全部支路，沒有裁剪電錶、波形、功率或燈光。線性正弦電路按同一支路方程求RMS相量，分頻率累加平均平方及有功功率；有儲能時再用獨立下一週期時間預測限制暫態。非正弦／LED使用時間預測；線性暫態按三個源波幅求電流／功率二次式，電流預測保留0.1%數值餘量，單源域用實際儲能變化及電阻耗散核對有功功率。預測只在隔離副本計算，不讀電錶狀態、不推進正式時間或改寫儲能。參數／負載事件即時重評估；有儲能的限流源每個自身週期重評估，避免提早恢復令上一個已預測週期的RMS超限。
+
+明確零阻抗短路（包括理想變壓器反映的繞組短路）使該源開路、停止供能並鎖定；其他獨立電路繼續。移除故障仍停機；只有元件設定內的「重設保護」重新嘗試。停機／排除短路不清除C電壓或L電流，有路徑便繼續放電，沒有路徑仍保留原模型診斷。無法唯一預測、理想源衝突或超出4096步的預測同樣停機並說明需檢查；不暗加電阻、不假定未知為零。這是有界的教學電源模型，沒有溫度、風扇或自動重啟。
 
 教師在 DC／AC 切換課堂示例時，保留顯示選項、操作模式及新導線設定；電勢參考端點屬於舊電路，會清除。導線總數若不足容納示例，提升至所需數目。教師開啟文件仍使用檔案內設定。
 
@@ -159,13 +167,15 @@ const editor = await CircuitEditor.mount(host, {
 |---|---|
 | DC document | v6；DC入口不接受AC文件 |
 | AC document | v7，`analysis:'transient'`、`modelRevision:1`；支援的v6文件可顯式轉換，unsupported完整拒絕 |
-| 核心session | envelope version 2／modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
+| 核心session | 無保護為version 2，啟用保護為version 3，modelRevision 1；document＋權威physics，沒有UI／波形歷史／指針／顯示截斷 |
 | 技術示例codec | `example-state.js` version 6／model 1（相容 v5），固定模板重建；拒絕1–4，內部上限1500 bytes，仍不是任意教師電路的SCORM保存方案 |
 | 觀察及顯示 | RMS／峰值、`coreFlux`及其status/peak、圖框／探頭／bar量尺等由現有狀態重建或另存合法UI配置，不能當成權威答案 |
 
 Session version 2 的 physics 欄位：`time`、`step`（下一步建議）、`sources`（ID→目前弧度相位）、`dynamic`（支路 key→`{i,v}`，C 的 v／i 及 L 的 i／電感電壓）、`work`、`dissipated`、`event`（下一步 BE 起步）、`energyOrigin`（分域事件基準的總供能／耗散）及 `energyDomains`（依編譯支路鍵列出的每域 initial／work／dissipated／throughput）。throughput 是累計絕對能量流與耗散，只作本域誤差尺度；有號 work 仍是淨供能。模型 epoch 及 document v7 分開。來源相位、ID 與 dynamic keys 必須與文件完全吻合。導數歷史可補足平行電容等瞬間代數解的不唯一；不把未知歷史重設為零。
 
-教師「儲存電路檔」匯出設計及初始條件，不是保存目前瞬間。兩配置示例提供記憶體保存／恢復瞬間按鈕，重新整理清空；活動作者可使用 session API 保存自己的必要答案。
+AC doc v7的protectionEnabled／maxCurrent／maxPower為可選欄位，缺省補false／1 A／6 W。session v3另保存physics.protection逐源status（normal／limited／tripped）、scale（0–1）、reason（null／short-circuit／unresolved）及reviewAt（限流儲能源下一複核時間，其餘null），嚴格檢查欄位、值及來源ID。相容既有v1／v2未啟用保護的session；固定學生codec保持v6。
+
+教師「儲存電路檔」在有啟用保護時匯出session v3，可經「開啟」恢復同一瞬間及停機鎖定並暫停；encodeSession／decodeSession與captureSession／restoreSession共用權威狀態及256 KiB上限。其餘電路仍匯出設計／初始條件。匯出固定模板及exportDocument仍為純document。兩配置示例提供記憶體保存／恢復瞬間按鈕，重新整理清空；活動作者可使用 session API 保存自己的必要答案。
 
 ## 離線運算及量測
 

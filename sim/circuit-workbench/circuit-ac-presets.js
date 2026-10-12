@@ -18,6 +18,7 @@
       const r=add('resistor',300,180,'充電電阻',{resistance:30}),sw=add('spdt',460,180,'充電／振盪'),c=add('capacitor',300,300,'電容器',{capacitance:.02},90),l=add('inductor',520,360,'電感線圈',{inductance:5,resistance:name==='lc'?0:8},270),bus=joint(520,450);
       link(source,'a',r,'a',[{x:160,y:180}]);link(r,'b',sw,'b',[{x:360,y:100},{x:520,y:100}]);link(sw,'a',c,'a',[{x:400,y:240}]);link(c,'b',l,'b',[{x:400,y:360},{x:400,y:300}]);link(l,'a',bus,'p');link(sw,'c',bus,'p',[{x:650,y:204},{x:650,y:450}]);link(source,'b',bus,'p',[{x:160,y:450}]);return M.validate(d);
     }
+    if(name==='coupled'||name==='transformer'&&comparisonMeters)Object.assign(source.params,{protectionEnabled:true,maxCurrent:1,maxPower:6});
     if(name==='transformer'&&comparisonMeters){
       source.x=120;source.y=320;
       const t=add('transformer',460,320,'變壓器',{model:'ideal'}),load=add('resistor',800,320,'負載電阻',{resistance:12},90),si=add('ac-ammeter',640,120,'副線圈電流表',{range:1}),pi=add('ac-ammeter',280,120,'原線圈電流表',{range:2}),pv=add('ac-voltmeter',280,270,'原線圈電壓表',{range:15}),sv=add('ac-voltmeter',640,270,'副線圈電壓表',{range:30});

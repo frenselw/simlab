@@ -17,6 +17,7 @@ const {scrollGripVisibilityCases,historyIconCases}=require('./circuit-canvas-bro
 const {reviewR3Cases}=require('./circuit-ac-review-r3-browser-cases');
 const {fontSizeCases}=require('./circuit-display-mirror-browser-cases');
 const {dependencyAuditCases}=require('./circuit-dependency-audit-browser-cases');
+const {sourceProtectionCases}=require('./circuit-source-protection-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-ac');
 async function browserPort(profile,chrome){
  for(let attempt=0;attempt<3;attempt++)try{return await H.devToolsPort(profile,chrome);}catch(error){if(attempt===2||error.message!=='Timed out waiting for Chrome DevToolsActivePort.')throw error;}
@@ -40,6 +41,7 @@ async function main(){
    if(process.argv.includes('--review-r3-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await reviewR3Cases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--font-size-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await fontSizeCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--mutual-layout-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await mutualLayoutCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
+   if(process.argv.includes('--source-protection-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await sourceProtectionCases({inside,call,click,point,touch,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--source-protection-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--transformer-comparison-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await transformerComparisonCases({inside,call,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--history-icons-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await historyIconCases({inside,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--dependency-audit-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await dependencyAuditCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--dependency-audit-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}

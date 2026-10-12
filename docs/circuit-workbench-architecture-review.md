@@ -56,7 +56,7 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 | 責任 | 擁有者／邊界 |
 |---|---|
 | 操作／配置 | 同一 `CircuitEditor`及profile選`dc`或`transient`；接線、相機、權限、只讀及卸載共用 |
-| 時間模型 | `CircuitTransient.Session`擁有積分、事件及權威physics；核心session version 2（分域能量帳）／modelRevision 1，AC doc v7；舊 snapshot 遷移按 [AC 指引](circuit-ac-workbench.md#時間與動態狀態) |
+| 時間模型 | `CircuitTransient.Session`擁有積分、事件及權威physics；無保護session v2、啟用交流電源保護為v3（逐源限制／停機及複核時間），modelRevision 1、AC doc v7；舊 snapshot 遷移按 [AC 指引](circuit-ac-workbench.md#時間與動態狀態) |
 | 量測／歷史 | `CircuitObservation`按接受時間步求RMS／峰值／磁通觀察，波形及觀察配置有界，非權威physics |
 | 顯示 | 共用renderer／Math處理電流、標籤及字形；AC display、場圖、連續發電機及scope/UI模組處理時間模式呈現 |
 | 活動 | 預設及無評分例子在AC presets／outer scripts；題目、rubric、codec及SCORM仍由正式活動自己的外層擁有 |

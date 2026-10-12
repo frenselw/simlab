@@ -31,6 +31,7 @@
       const specs = definition.params; object(c.params, Object.keys(specs));
       if(Object.hasOwn(c,'mirrored')){if(!R.dualMeter(c))throw new Error('只有 A／V 電錶可左右換接孔');bool(c.mirrored);if(input.version<4&&c.mirrored)throw new Error('舊版電錶不支援左右換接孔');}
       for (const [k, spec] of Object.entries(specs)) {
+        if(spec.optional&&!Object.hasOwn(c.params,k))continue;
         if(!Object.hasOwn(c.params,k)&&((c.type==='rheostat'&&k==='terminals')||(c.type==='lamp'&&['coldRatio','linearLoss'].includes(k))))continue;
         if(spec.choices)choice(c.params[k],spec.choices);else numeric(c.params[k],spec.min,spec.max);
       }
@@ -56,6 +57,7 @@
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     const valid = clone(input);
+    valid.components.forEach(c=>{for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.optional&&!Object.hasOwn(c.params,key))c.params[key]=spec.value;});
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
     if(!Object.hasOwn(valid.display,'quantities'))valid.display.quantities=Object.fromEntries(Object.keys(quantityDefaults).map(k=>[k,true]));

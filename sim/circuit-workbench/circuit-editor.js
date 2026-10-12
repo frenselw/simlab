@@ -225,7 +225,7 @@
         const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=componentReadings(component.id);
       }
     }
-    if(!inspector){const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=selectionReadings();}
+    if(!inspector){const reading=$('properties').querySelector('.reading-host');if(reading)reading.innerHTML=selectionReadings();renderProtectionStatus();}
     renderQuickParameters();
     if($('selectionActionsDialog').open&&(selection?.id!==$('selectionActionsDialog').dataset.selection||getComputedStyle($('moreSelected')).display==='none'))$('selectionActionsDialog').close();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
@@ -257,7 +257,7 @@
   function readings(values){return '<dl class="readings">'+values.map(([name,value,unit])=>`<dt>${transient?Q.labelHtml(name):V.esc(name)}</dt><dd>${Q.html(Q.quantity(value,unit))}</dd>`).join("")+"</dl>";}
   function referenceText(endpoint){const island=analysis.islandOf[endpoint],requested=history.get().display.reference,reference=requested&&analysis.islandOf[requested]===island?requested:analysis.references.find(r=>r.island===island)?.endpoint;return reference?'以「'+portName(reference)+'」為 0 V 參考':'0 V 參考未能確定';}
   const referenceNote=endpoint=>'<p class="note potential-reference" data-reference-for="'+V.esc(endpoint)+'">'+V.esc(referenceText(endpoint))+'。</p>';
-  function field(label,element){const l=document.createElement("label"),caption=document.createElement('span');caption.innerHTML=rich(label);l.append(caption,element);$("properties").append(l);}
+  function field(label,element,parent=$("properties")){const l=document.createElement("label"),caption=document.createElement('span');caption.innerHTML=rich(label);l.append(caption,element);parent.append(l);}
   function checkbox(label,checked,fn){const l=document.createElement("label");l.className="check";const i=document.createElement("input");i.type="checkbox";i.checked=checked;i.onchange=()=>fn(i.checked);l.append(i,document.createTextNode(label));$("properties").append(l);}
   function setDiagramDisplay(kind,id,visible){
     const wire=kind==='wireCurrents',items=history.get()[wire?'wires':'components'],ids=wire?wireCurrents:potentialDirections,name=wire?'導線電流':'電勢方向';
@@ -273,14 +273,26 @@
     return probe;
   }
   function readingHost(){return '<div class="reading-host">'+selectionReadings()+'</div>';}
-  function renderProperties(){const d=history.get(),c=selectedComponent(),wire=selectedWire(),prop=$("properties");prop.replaceChildren();$("objectActions").replaceChildren();
+  function renderProtectionStatus(){
+    const status=$('properties').querySelector('[data-protection-status]');if(!status)return;const q=analysis.components[status.dataset.protectionStatus]?.protection,reset=$('properties').querySelector('[data-protection-reset]');
+    status.textContent=!q?'保護關閉':q.status==='normal'?'正常供電':q.status==='limited'?'限流／限功率 · 輸出波幅 '+(100*q.scale).toFixed(1)+'%':q.reason==='short-circuit'?'保護停機 · 短路，請排除故障後重設。':'保護停機 · 無法可靠限制輸出，請檢查電源衝突或儲能放電路徑後重設。';
+    if(reset)reset.hidden=q?.status!=='tripped';
+  }
+  function renderProperties(){const d=history.get(),c=selectedComponent(),wire=selectedWire(),prop=$("properties"),previous=prop.querySelector('[data-source-protection]'),protectionOpen=previous&&previous.dataset.sourceProtection===c?.id&&previous.open;prop.replaceChildren();$("objectActions").replaceChildren();
     if (c) {
       $("selectionTitle").textContent = c.label;
       if(profile.ui.potentialDirections)checkbox('顯示此元件電勢方向',potentialDirections.has(c.id),v=>setDiagramDisplay('potentialDirections',c.id,v));
       const name = document.createElement("input"); name.type = "text"; name.value = c.label; name.maxLength = 40; name.disabled = !allow(d, c, "label"); name.onchange = () => change((doc) => { doc.components.find((x) => x.id === c.id).label = name.value; }); if(teacher||allow(d,c,"label"))field("名稱", name);
+      let protection;
+      if(c.type==='ac-source'&&(teacher||allow(d,c,'params','protectionEnabled'))){
+        protection=document.createElement('details');protection.className='ac-source-protection';protection.dataset.sourceProtection=c.id;protection.open=!!protectionOpen;
+        const summary=document.createElement('summary');summary.textContent='進階：電源保護';protection.append(summary);
+        const toggle=document.createElement('input');toggle.type='checkbox';toggle.dataset.param='protectionEnabled';toggle.checked=c.params.protectionEnabled;toggle.disabled=!allow(d,c,'params','protectionEnabled');toggle.onchange=()=>change(doc=>{doc.components.find(x=>x.id===c.id).params.protectionEnabled=toggle.checked;});field('啟用電源保護',toggle,protection);
+      }
       for (const key of Object.keys(R.get(c.type).params)) {
-        const spec=profile.parameterSpec(c,key);
+        const spec={...profile.parameterSpec(c,key),...(c.type==='ac-source'&&key==='voltage'&&c.params.protectionEnabled?{label:'目標電壓（有效值）'}:{})};
         if (key === "polarity") continue;
+        if(c.type==='ac-source'&&['protectionEnabled','maxCurrent','maxPower'].includes(key))continue;
         if(c.type==='lamp'&&c.params.model==='ideal'&&['coldRatio','linearLoss'].includes(key))continue;
         const enabled = allow(d, c, key === "closed" ? "switch" : "params",key);
         if(!teacher&&!enabled)continue;
@@ -305,6 +317,12 @@
             range.onchange = () => { if(!range.isConnected||!previewDoc)return;const value = Number(range.value) / factor; change((doc) => { doc.components.find((x) => x.id === c.id).params[key] = value; }); }; range.onpointercancel = cancel; prop.append(range);
           }
         }
+      }
+      if(protection){
+        if(c.params.protectionEnabled)for(const key of ['maxCurrent','maxPower']){const spec=profile.parameterSpec(c,key),input=document.createElement('input');input.type='number';input.value=c.params[key];input.min=spec.min;input.max=spec.max;input.step='any';input.dataset.param=key;input.disabled=!allow(d,c,'params',key);input.onchange=()=>change(doc=>{doc.components.find(x=>x.id===c.id).params[key]=input.valueAsNumber;});field([spec.label+' · ',Q.unit(spec.unit)],input,protection);}
+        const status=document.createElement('p');status.dataset.protectionStatus=c.id;status.className='note';protection.append(status);
+        const reset=button('重設保護',()=>controller.resetSourceProtection(c.id),!allow(d,c,'params','protectionEnabled'),false,protection);reset.dataset.protectionReset=c.id;
+        const note=document.createElement('p');note.className='note';note.textContent='設定電壓為正常供電的目標；保護會降低輸出波幅。電流上限按有效值，功率上限按平均有功功率。';protection.append(note);prop.append(protection);renderProtectionStatus();
       }
       if(c.type==='lamp'&&(teacher||allow(d,c,'params','resistance'))){
         const input=document.createElement('input');input.type='number';input.step='any';input.min='.00000001';input.value=c.params.ratedVoltage**2/c.params.resistance;input.dataset.param='ratedPower';input.disabled=!allow(d,c,'params','resistance');input.onchange=()=>change(doc=>{if(!Number.isFinite(input.valueAsNumber)||input.valueAsNumber<=0)throw new Error('額定功率必須大於零');doc.components.find(x=>x.id===c.id).params.resistance=c.params.ratedVoltage**2/input.valueAsNumber;});field(['額定功率 · ',Q.unit('W')],input);
@@ -596,7 +614,7 @@
   $('flipMeterSelected').onclick=()=>{if(selectedComponent())flipMeter(selection.id);};
   $("detachFrom").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"from");};$("detachTo").onclick=()=>{const w=selectedWire();if(w)unplug(w.id,"to");};
   $("deleteSelected").onclick=()=>{const id=selection?.id;if(!id||selection.kind==="port")return;cancel();change(doc=>M.remove(doc,id));notify("已刪除；刪線歸還庫存，復原可還原。");};$("rotateSelected").onclick=()=>{if(selectedComponent())rotate(selection.id);};$("rotateCounterSelected").onclick=()=>{if(selectedComponent())rotate(selection.id,-1);};$("undo").onclick=()=>undo();$("redo").onclick=()=>undo(true);
-  function loadDocument(doc){if(destroyed)throw new Error("編輯器已卸載");if(readOnly)throw new Error("目前為只讀，不能載入電路");const imported=D.importDocument(doc),valid=profile.assertSnapshot(transient?root.CircuitAC.toAC(imported.document):imported.document);cancel();const before=history.get();history.replace(valid);discardSettingsDrafts();if(transient){replaceSession(new root.CircuitTransient.Session(valid));if(session.fault)paused=true;}wireCurrents.clear();potentialDirections.clear();labelOptions.previous=null;flowOffsets.clear();flowScales.clear();needleStates.clear();relayStates.clear();analysis=solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();acUI?.documentLoaded(valid);if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
+  function loadDocument(doc){if(destroyed)throw new Error("編輯器已卸載");if(readOnly)throw new Error("目前為只讀，不能載入電路");if(D.bytes(typeof doc==='string'?doc:JSON.stringify(doc))>M.limits.bytes)throw new Error('電路檔超出 256 KiB 限制');const data=typeof doc==='string'?JSON.parse(doc):doc;if(data?.kind==='simlab-circuit-session'){controller.restoreSession(data);return false;}const imported=D.importDocument(data),valid=profile.assertSnapshot(transient?root.CircuitAC.toAC(imported.document):imported.document);cancel();const before=history.get();history.replace(valid);discardSettingsDrafts();if(transient){replaceSession(new root.CircuitTransient.Session(valid));if(session.fault)paused=true;}wireCurrents.clear();potentialDirections.clear();labelOptions.previous=null;flowOffsets.clear();flowScales.clear();needleStates.clear();relayStates.clear();analysis=solve(history.get());selection=null;wireMode=false;probeFirst=null;probeResult=null;autoFit=true;fit();render();acUI?.documentLoaded(valid);if(before!==history.get())emitChange();if(imported.removedMeasurements)notify("已載入電路；舊檔的數據記錄不再提供，沒有載入。原檔保持不變。");return imported.removedMeasurements;}
   $("preset").onchange=()=>{const name=$("preset").value,next=P.create(name);if(teacher){const previous=history.get();next.display=M.clone(previous.display);next.display.reference=null;next.policy=M.clone(previous.policy);next.cables={...previous.cables,count:Math.max(previous.cables.count,next.wires.length)};}loadDocument(next);$("preset").value=name;};$("realView").onclick=()=>change(doc=>doc.display.view="real");$("schematicView").onclick=()=>change(doc=>doc.display.view="schematic");
   $("fontSize").onchange=()=>change(doc=>{doc.display.fontSize=$("fontSize").value;doc.display.projection=false;});
   ["flow","potential","names","values"].forEach(id=>$(id).onchange=()=>change(doc=>doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value));$("pause").onclick=()=>{if(transient){setPlayback({paused:!paused});return;}paused=!paused;lastTime=0;relayLastTime=performance.now();render(false);};$("slowMotion").onclick=()=>{if(transient&&(readOnly||!profile.simulation.rate))return;slowMotion=!slowMotion;lastTime=0;acLag=0;relayLastTime=performance.now();render(false);};
@@ -612,7 +630,7 @@
   $("clearAll").onclick=()=>{cancel();selection=null;change(doc=>{if(doc.policy.mode!=="free")throw new Error("固定模式可用「只移除導線」重新接線。");const cables=doc.cables;Object.keys(doc).forEach(key=>delete doc[key]);Object.assign(doc,M.empty(profile.analysis),{cables});});};
   $("clearWires").onclick=()=>{cancel();change(doc=>{doc.wires=[];doc.junctions=[];if(doc.display.reference&&!M.endpoints(doc).has(doc.display.reference))doc.display.reference=null;});};$("autoRoute").onclick=()=>tidy();
   function download(text, name, type) { const url = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-  $("save").onclick = () => { try { download(D.encode(history.get()), "電路工作台.json", "application/json"); notify("已匯出電路檔，可用「開啟」繼續編輯。"); } catch (e) { notify(e.message, true); } };
+  $("save").onclick = () => { try { download(session?.state.protection?root.CircuitTransient.encodeSession(session.capture()):D.encode(history.get()), "電路工作台.json", "application/json"); notify("已匯出電路檔，可用「開啟」繼續編輯。"); } catch (e) { notify(e.message, true); } };
   $("saveTemplate").onclick = () => { try { download(D.encode(D.template(history.get())), "固定元件接線模板.json", "application/json"); } catch (e) { notify(e.message, true); } };
   $("open").onclick = () => $("fileInput").click();
   $("fileInput").onchange = async () => { const file = $("fileInput").files[0]; $("fileInput").value = ""; if (!file) return; try { if (file.size > M.limits.bytes) throw new Error("電路檔超出 256 KiB 限制"); const retired=loadDocument(await file.text()); if(!retired)notify("已開啟電路檔；按復原可返回原電路。"); } catch (e) { notify(e.message, true); } };
@@ -729,6 +747,7 @@
     setReadOnly(value=true){if(destroyed)throw new Error('編輯器已卸載');if(typeof value!=='boolean')throw new TypeError('只讀狀態必須是布林值');cancel();readOnly=value;if(transient)paused=true;host.dataset.readOnly=String(value);render();},
     onAnalysis(fn){if(destroyed)throw new Error('編輯器已卸載');if(!transient||typeof fn!=='function')throw new Error('分析訂閱需要時間模型及函數');analysisListeners.add(fn);return()=>analysisListeners.delete(fn);},
     getPlayback:()=>({paused,rate:timeRate*(slowMotion?.25:1),actualRate:paused?0:actualRate,readOnly,available:transient&&profile.ui.playback,permissions:{...profile.simulation}}),setPlayback,advanceTime,resetSimulation,
+    resetSourceProtection(id){if(destroyed||!session||readOnly)return false;const c=history.get().components.find(c=>c.id===id);if(c?.type!=='ac-source'||!allow(history.get(),c,'params','protectionEnabled'))return false;cancel();if(!session.resetProtection(id))return false;analysis=session.read();lastTime=0;acLag=0;render();emitChange();return true;},
     setFieldDisplay(visible){if(destroyed||!transient||!profile.ui.field||typeof visible!=='boolean')return false;labelOptions.fields=visible;render(false);return true;},
     captureSession(){if(destroyed||!session)throw new Error('此編輯器沒有時間 session');return session.capture();},
     restoreSession(snapshot){if(destroyed||!session||readOnly)throw new Error('目前不能恢復時間 session');const next=root.CircuitTransient.Session.restore(snapshot);profile.assertSnapshot(next.doc);cancel();sessionHistory.set(history.get(),session.capture());history.replace(next.doc);replaceSession(next);paused=true;needleStates.clear();analysis=solve(history.get());selection=null;autoFit=true;fit();render();emitChange();},

@@ -12,12 +12,28 @@
 | 預設與波形 | 四組14個主題＋空白；波形由源參數選正弦／方波／三角波；浮動儀器及探頭、軸拖動／鍵盤、圓點及有界歷史，沒有舊游標／固定波形區 |
 | 圖形與讀值 | 連續SVG發電機、固定範圍場線疏密、C/L歸零顯示、固定單位5Hz數字＋bar、數學字形、緊湊電表、上方變壓器匝數比及鐵芯內磁通 |
 | 方向配色 | 常規電流及靜態電流箭頭紅色，電子藍色；電勢方向／場線另有自己的語義，不全域取代藍色 |
-| 保存 | DC doc v6／AC doc v7，session version 2／modelRevision 1，技術示例codec v6（相容 v5）；觀察與顯示非權威，正式ACrubric／SCORM另定 |
+| 保存 | DC doc v6／AC doc v7，無保護session v2、啟用保護session v3／modelRevision 1，技術示例codec v6（相容 v5）；觀察與顯示非權威，正式ACrubric／SCORM另定 |
 | 驗證狀態 | CW-03-R2／CW-06已修正：10個相關Node套件、716項source／ZIP audit及206項scope通過（詳見最新記錄）。CW-01–04及R1歷史：13個受影響Node套件（含20組audit回歸與1771項獨立公式）、source／ZIP audit 244、scope 206項通過；presets 618及PhET歷史實測見下文。完整browser及ZIP宿主T3仍依歷史限制解讀；真Moodle／真手機T4未驗收 |
 
 維護先分清共用、時間模型、顯示及活動外層，按[精準驗證表](../docs/circuit-ac-workbench.md#精準驗證與維護)選必要項目。純文件修訂只核對來源、版本、指令與連結，不重跑物理／browser。核心改動交付時統一重建相應ZIP；目錄active不代表全部package-ready／Moodle-ready gate通過。
 
 ## 近期決策與驗證記錄
+
+### 可選交流電源保護（2026-10-12；已完成精準驗證）
+
+範圍僅 AC source 及教師理想／非理想變壓器預設；DC、發電機及固定學生模板維持原模型。非評量工作台，assessment risk、rubric、submission、SCORM N/A。沿用既有共用UI／求解器／資產，無外部依賴；進階設定預設收起，最大電流按RMS、最大輸出功率按平均端口有功功率。正常／限制可自動互轉，短路停機鎖定至本元件手動重設。保護降低源波幅後重解，停機源開路而不清除C/L儲能，缺乏續流路徑仍診斷。
+
+權威schema：AC doc v7可選參數 protectionEnabled / maxCurrent / maxPower，缺省補 false / 1 A / 6 W；有啟用保護的session v3保存逐源status / scale / reason / reviewAt，無保護維持v2，相容v1／v2。相位、C/L及分域能量仍由原schema保存，量測／波形不作保護輸入。參數及接線編輯保留既有停機鎖定；重設只影響所選電源。
+
+狀態矩陣：關閉→理想源；正常→目標電壓；限流／限功率→降低波幅；短路→源開路；移除故障→仍停機；手動重設→重評估。每一狀態做document及session round-trip、恢復後合法續作，另驗無效保護參數／狀態。兩教師預設6 V／1 A／6 W，200:100／200／400及12 Ω驗四錶3／6／6 V，原側6／6／3 V與0.125／0.5／1 A。另驗純無功負載、低頻、瞬時功率峰值、單源隔離、放電及其他預設回歸。UI驗桌面／320及390 px手機、trusted touch展開／輸入／重設、權限／只讀；source與解壓ZIP一致。共用核心交付重建四包；不把本地證據當真Moodle／真手機驗收。
+
+實作採支路相量＋獨立時間預測，內阻在保護模式由理想調節器補償但耗散仍入帳；預測失效／超出4096步則明示停機。儲能暫態以完整下一週期估計，限制中每一自身週期重評估，保存reviewAt以保持恢復續作。未新增runtime檔案或依賴，指引集中在[可選交流電源保護](../docs/circuit-ac-workbench.md#可選交流電源保護)。
+
+`ac-source-protection`專項通過：三組四錶讀數、0.1／1／50 Hz、平均功率而非峰值／VA、三種波形、短路反映／單源隔離／手動重設、有限內阻調節與能量、C/L保留及放電、暫態限流自動恢復、舊檔／每狀態JSON及session往返、其他AC預設及固定codec。相鄰transient、transformer-design、scope、energy-r2及review-r3／audit／dependency-audit套件通過。source／ZIP `--source-protection-smoke` **132項**、`--transformer-comparison-smoke` **110項**通過；320／390／1280 px、trusted touch／原生鍵盤／只讀／載入v3涵蓋，320 px圖已目視。證據為 `output/playwright/circuit-ac/*source-protection*.png` 及兩個精準browser入口。
+
+`ac-platform.test.js`的既有固定字寬<145px斷言失敗，已以修改前HEAD的隔離副本重現；其前面的預設續作、固定codec及容量測試通過。本輪未宣稱完整CI、真手機或真Moodle通過。其他並行DC示例修改不屬此保護功能的驗證範圍。
+
+最終DC `core.test.js`回歸通過（含7299個導線軌跡幀及各量程／匯入）；`npm run package:circuit-platform`四包重建通過，每包21個共用檔及所有宣告資產與來源一致，指紋存於 `output/circuit-platform-build.json`。新Node專項已登記 `tools/run-tests.js`，browser專項已納入既有AC runner。
 
 ### 複核CW-07／08／09（2026-10-11；已完成）
 
