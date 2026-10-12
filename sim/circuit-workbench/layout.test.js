@@ -62,7 +62,10 @@ for(const closed of [[true,true],[true,false],[false,true],[false,false]]){
 {
  const d=D.decode(D.encode(P.create('bridge'))),[top,bottom,left,right]=d.junctions,meter=d.components.find(R.dualMeter);
  assert.equal(top.x,bottom.x);assert.equal(left.y,right.y);assert(top.y<left.y&&bottom.y>left.y&&left.x<top.x&&right.x>top.x,'bridge has four diamond vertices');
- near(S.solve(d).components[meter.id].reading,0,'diamond starts balanced');d.components.find(c=>c.label==='R₁').params.resistance=20;assert(Math.abs(S.solve(M.validate(d)).components[meter.id].reading)>.01,'restored diamond can demonstrate imbalance');
+ const rheostat=d.components.find(c=>c.type==='rheostat');assert.equal(d.components.filter(c=>c.type==='resistor').length,3);assert.equal(rheostat.params.terminals,2);assert.deepEqual(R.ports(rheostat).map(p=>p.key),['a','b']);near(R.effectiveResistance(rheostat),20,'bridge starts with a 20 ohm effective resistance');
+ near(S.solve(d).components[meter.id].reading,0,'diamond starts balanced');const currents=[];
+ for(const position of [.25,.75,.5]){rheostat.params.position=position;const restored=D.decode(D.encode(M.validate(d)));currents.push(S.solve(restored).components[meter.id].reading);assert.equal(restored.components.find(c=>c.type==='rheostat').params.position,position,'slider position survives production round trip');}
+ assert(currents[0]*currents[1]<0&&Math.abs(currents[0])>.01&&Math.abs(currents[1])>.01,'slider movement to either side reverses bridge current');near(currents[2],0,'returning the slider restores balance');
 }
 {
  const d=P.create('meters'),result=S.solve(d),w=d.components.find(c=>c.type==='wattmeter'),lamp=d.components.find(c=>c.type==='lamp'),a=d.components.find(c=>c.type==='ammeter'),v=d.components.find(c=>c.type==='voltmeter');

@@ -5,6 +5,7 @@ const M=require('../sim/circuit-workbench/circuit-model'),P=require('../sim/circ
 async function presetCases(h,mode,base){
   const {inside,send,click,point,load,save,doc,touch,delay,screenshot,freshPage,ready,evidence}=h;
   const branchOnly=process.argv.includes('--branch-switches-only');
+  const bridgeOnly=process.argv.includes('--bridge-slider-only');
   async function launch(width){
     await freshPage();h.setContext('window');
     await send('Emulation.setDeviceMetricsOverride',{width,height:width===320?620:800,deviceScaleFactor:1,mobile:width===320});
@@ -33,7 +34,7 @@ async function presetCases(h,mode,base){
   console.log(`${mode}: classroom preset layouts and rotated meter sockets`);
   for(const width of [1280,320]){
     await launch(width);
-    for(const name of branchOnly?['parallel','mixed']:Object.keys(P.names))for(const view of ['real','schematic']){
+    for(const name of branchOnly?['parallel','mixed']:bridgeOnly?['bridge']:Object.keys(P.names))for(const view of ['real','schematic']){
       // Exercise the production dropdown's change handler, rather than only loading a test fixture.
       await inside(`(()=>{const e=document.getElementById('preset');e.value=${JSON.stringify(name)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       const loaded=await doc(),expected=P.create(name);for(const key of ['components','wires','junctions'])assert.deepEqual(loaded[key],expected[key],'dropdown loads the authored '+key);await display(view);
@@ -44,6 +45,28 @@ async function presetCases(h,mode,base){
       assert.deepEqual((await inside('CircuitWorkbench.getAnalysis()')).diagnostics,[]);
       await screenshot(`${mode}-preset-${name}-${view}-${width}.png`);
       evidence.push({mode,preset:name,width,view,meters:'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});
+      if(name==='bridge'){
+        const rheostat=(await doc()).components.find(c=>c.type==='rheostat'),currents=[];assert.equal(rheostat.params.terminals,2);
+        assert(Math.abs(await inside('CircuitWorkbench.getAnalysis().components.c6.reading'))<1e-8,'bridge starts balanced');
+        await inside(`window.__bridgeSliderEvents=[];if(!window.__bridgeSliderWatching){window.__bridgeSliderWatching=true;for(const type of ['pointerdown','pointermove','pointerup'])document.getElementById('surface').addEventListener(type,e=>window.__bridgeSliderEvents.push({type,trusted:e.isTrusted,pointer:e.pointerType}));}`);
+        for(const position of [.75,.25,.5]){
+          const body='[data-hit="body:'+rheostat.id+'"]';if(width===320)await touch(await point(body),0,0);else await click(body);
+          if(await inside('getComputedStyle(document.getElementById("focusSelected")).display!=="none"'))await click('#focusSelected');
+          else{await click('#moreSelected');await click('[data-selection-action="focusSelected"]');}
+          const start=await point('[data-hit="slider:'+rheostat.id+'"]'),scale=await inside('CircuitWorkbench.getInteraction().camera.scale'),previous=(await doc()).components.find(c=>c.id===rheostat.id).params.position,dx=(position-previous)*60*scale;
+          if(width===320)await touch(start,dx,0);else{
+            await send('Input.dispatchMouseEvent',{type:'mousePressed',...start,button:'left',buttons:1,clickCount:1});
+            for(let n=1;n<=6;n++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+dx*n/6,y:start.y,button:'left',buttons:1});
+            await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:start.x+dx,y:start.y,button:'left',buttons:0,clickCount:1});
+          }
+          assert(Math.abs((await doc()).components.find(c=>c.id===rheostat.id).params.position-position)<.011,'trusted slider drag reaches the intended position');
+          const current=await inside('CircuitWorkbench.getAnalysis().components.c6.reading');currents.push(current);
+          const saved=await save();await load(saved);assert.equal(await save(),saved,'two-hole bridge slider restores before a legal continuation');
+          evidence.push({mode,preset:name,width,view,position,current,bridgeSlider:true,restored:true});
+        }
+        assert(currents[0]*currents[1]<0&&Math.abs(currents[2])<1e-8,'slider reverses the current and can restore balance');
+        const events=await inside('__bridgeSliderEvents');assert(events.some(e=>e.type==='pointermove'));assert(events.every(e=>e.trusted&&e.pointer===(width===320?'touch':'mouse')));
+      }
       if(name==='mixed'){
         assert(!(await doc()).components.some(c=>c.type==='switch'),'mixed branches have no switches');
         const lights=await inside(`(()=>{const d=CircuitWorkbench.getDocument(),r=CircuitWorkbench.getAnalysis();return d.components.filter(c=>c.type==='lamp').map(c=>CircuitRenderer.lampLight(c,r.components[c.id]).brightness);})()`);
@@ -70,7 +93,7 @@ async function presetCases(h,mode,base){
         evidence.push({mode,preset:name,width,view,masterSwitchTurnsBothOff:true,restored:true});
       }
     }
-    if(branchOnly)continue;
+    if(branchOnly||bridgeOnly)continue;
     for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic'])for(const meters of ['digital','analog']){
       const d=P.create('ohm'),c=d.components.find(c=>c.type===type);
       if(port==='c'){const before=M.clone(d);for(const w of d.wires)for(const key of ['from','to'])if(w[key]===c.id+':a')w[key]=c.id+':c';assert(M.reconcile(d,before));}

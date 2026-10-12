@@ -116,11 +116,11 @@
       link(v,'a','j1','p',[{x:932,y:520},{x:880,y:520},{x:880,y:280}]);link(v,'b','j2','p',[{x:1028,y:600},{x:780,y:600}]);
     } else if (name === "bridge") {
       battery.x=80;battery.y=406;
-      const r1=add('resistor',390,256,'R₁',{resistance:10}),r2=add('resistor',690,256,'R₂',{resistance:20}),r3=add('resistor',390,556,'R₃',{resistance:10}),r4=add('resistor',690,556,'R₄',{resistance:20}),a=add('ammeter',540,340,'橋中電流');a.mirrored=true;
+      const r1=add('resistor',390,256,'R₁',{resistance:10}),r2=add('resistor',690,256,'R₂',{resistance:20}),r3=add('resistor',390,556,'R₃',{resistance:10}),r4=add('rheostat',690,556,'R₄',{resistance:40,position:.5,terminals:2}),a=add('ammeter',540,340,'橋中電流');a.mirrored=true;
       d.junctions.push({id:'j1',x:540,y:106},{id:'j2',x:540,y:706},{id:'j3',x:240,y:406},{id:'j4',x:840,y:406});
       link(battery,'a','j1','p',[{x:80,y:106}]);link('j1','p',r1,'b');link('j1','p',r2,'a');
-      link(r1,'a','j3','p');link('j3','p',r3,'a');link(r2,'b','j4','p');link('j4','p',r4,'b');
-      link(r3,'b','j2','p');link(r4,'a','j2','p');link('j2','p',battery,'b',[{x:80,y:706}]);
+      link(r1,'a','j3','p');link('j3','p',r3,'a');link(r2,'b','j4','p');link('j4','p',r4,'b',[{x:790,y:556}]);
+      link(r3,'b','j2','p');link(r4,'a','j2','p',[{x:590,y:556}]);link('j2','p',battery,'b',[{x:80,y:706}]);
       link('j3','p',a,'a',[{x:440,y:406},{x:440,y:446},{x:492,y:446}]);link(a,'b','j4','p',[{x:588,y:446},{x:640,y:446},{x:640,y:406}]);
     } else throw new Error("未知的範例");
     if (name === "series") {
