@@ -74,16 +74,18 @@
       link(battery, "a", s, "a", [{ x: 200, y: 180 }]); link(s, "b", l1, "a"); link(l1, "b", l2, "a", [{ x: 650, y: 180 }]); link(l2, "b", battery, "b", [{ x: 650, y: 440 }, { x: 200, y: 440 }]);
     } else if (name === "mixed") {
       battery.x=160;battery.y=400;
-      const trunk=add('lamp',340,280,'幹路燈泡'),s1=add('switch',620,160,'支路開關 1'),s2=add('switch',620,400,'支路開關 2'),l1=add('lamp',820,160,'支路燈泡 1'),l2=add('lamp',820,400,'支路燈泡 2');
-      d.junctions.push({id:'j1',x:480,y:280},{id:'j2',x:980,y:280},{id:'j3',x:980,y:400});
+      const trunk=add('lamp',340,280,'幹路燈泡'),l1=add('lamp',620,160,'支路燈泡 1'),l2=add('lamp',620,400,'支路燈泡 2');
+      d.junctions.push({id:'j1',x:480,y:280},{id:'j2',x:780,y:280},{id:'j3',x:780,y:400});
       link(battery,'a',trunk,'a',[{x:160,y:280}]);link(trunk,'b','j1','p');
+      link('j1','p',l1,'a',[{x:480,y:160}]);link(l1,'b','j2','p',[{x:780,y:160}]);
+      link('j1','p',l2,'a',[{x:480,y:400}]);link(l2,'b','j3','p');link('j2','p','j3','p');link('j3','p',battery,'b',[{x:780,y:560},{x:160,y:560}]);
+    } else if (name === "parallel") {
+      battery.x=160;battery.y=400;
+      const s=add('switch',340,280,'總開關'),l1=add('lamp',820,160,'支路燈泡 1'),l2=add('lamp',820,400,'支路燈泡 2'),s1=add('switch',620,160,'支路開關 1'),s2=add('switch',620,400,'支路開關 2');
+      d.junctions.push({id:'j1',x:480,y:280},{id:'j2',x:980,y:280},{id:'j3',x:980,y:400});
+      link(battery,'a',s,'a',[{x:160,y:280}]);link(s,'b','j1','p');
       link('j1','p',s1,'a',[{x:480,y:160}]);link(s1,'b',l1,'a');link(l1,'b','j2','p',[{x:980,y:160}]);
       link('j1','p',s2,'a',[{x:480,y:400}]);link(s2,'b',l2,'a');link(l2,'b','j3','p');link('j2','p','j3','p');link('j3','p',battery,'b',[{x:980,y:560},{x:160,y:560}]);
-    } else if (name === "parallel") {
-      const s = add("switch", 340, 180, "開關"), l1 = add("lamp", 560, 240, "燈泡 1"), l2 = add("lamp", 560, 420, "燈泡 2");
-      d.junctions.push({id:'j1',x:440,y:240},{id:'j2',x:700,y:420});
-      link(battery,'a',s,'a',[{x:180,y:180}]);link(s,'b','j1','p',[{x:440,y:180}]);link('j1','p',l1,'a');link('j1','p',l2,'a',[{x:440,y:420}]);
-      link(l1,'b','j2','p',[{x:700,y:240}]);link(l2,'b','j2','p');link('j2','p',battery,'b',[{x:700,y:540},{x:180,y:540}]);
     } else if (name === "ammeter" || name === "voltmeter") {
       battery.x=160;battery.y=340;
       const s=add('switch',330,180,'開關'),l=add('lamp',640,180,'負載燈泡');

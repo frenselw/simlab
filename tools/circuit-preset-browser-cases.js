@@ -4,6 +4,7 @@ const M=require('../sim/circuit-workbench/circuit-model'),P=require('../sim/circ
 
 async function presetCases(h,mode,base){
   const {inside,send,click,point,load,save,doc,touch,delay,screenshot,freshPage,ready,evidence}=h;
+  const branchOnly=process.argv.includes('--branch-switches-only');
   async function launch(width){
     await freshPage();h.setContext('window');
     await send('Emulation.setDeviceMetricsOverride',{width,height:width===320?620:800,deviceScaleFactor:1,mobile:width===320});
@@ -32,7 +33,7 @@ async function presetCases(h,mode,base){
   console.log(`${mode}: classroom preset layouts and rotated meter sockets`);
   for(const width of [1280,320]){
     await launch(width);
-    for(const name of Object.keys(P.names))for(const view of ['real','schematic']){
+    for(const name of branchOnly?['parallel','mixed']:Object.keys(P.names))for(const view of ['real','schematic']){
       // Exercise the production dropdown's change handler, rather than only loading a test fixture.
       await inside(`(()=>{const e=document.getElementById('preset');e.value=${JSON.stringify(name)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       const loaded=await doc(),expected=P.create(name);for(const key of ['components','wires','junctions'])assert.deepEqual(loaded[key],expected[key],'dropdown loads the authored '+key);await display(view);
@@ -44,23 +45,32 @@ async function presetCases(h,mode,base){
       await screenshot(`${mode}-preset-${name}-${view}-${width}.png`);
       evidence.push({mode,preset:name,width,view,meters:'analog',dropdownChangeSignal:true,layout,socketsAligned:samples});
       if(name==='mixed'){
-        const switches=(await doc()).components.filter(c=>c.type==='switch');
+        assert(!(await doc()).components.some(c=>c.type==='switch'),'mixed branches have no switches');
+        const lights=await inside(`(()=>{const d=CircuitWorkbench.getDocument(),r=CircuitWorkbench.getAnalysis();return d.components.filter(c=>c.type==='lamp').map(c=>CircuitRenderer.lampLight(c,r.components[c.id]).brightness);})()`);
+        assert.equal(lights.length,3);assert(lights[0]>lights[1]&&Math.abs(lights[1]-lights[2])<1e-8,'mixed trunk remains brighter than its two identical branch lamps');
+      }
+      if(name==='parallel'){
+        const switches=(await doc()).components.filter(c=>c.type==='switch').slice(1);
         await inside(`window.__presetSwitchEvents=[];if(!window.__presetSwitchWatching){window.__presetSwitchWatching=true;document.getElementById('surface').addEventListener('pointerup',e=>window.__presetSwitchEvents.push({trusted:e.isTrusted,pointer:e.pointerType}));}`);
         for(const closed of [[false,true],[false,false],[true,false],[true,true]]){
           for(let i=0;i<switches.length;i++)if((await doc()).components.find(c=>c.id===switches[i].id).params.closed!==closed[i]){
             const selector='[data-hit="body:'+switches[i].id+'"]';if(width===320)await touch(await point(selector),0,0);else await click(selector);
           }
-          assert.deepEqual((await doc()).components.filter(c=>c.type==='switch').map(c=>c.params.closed),closed,'trusted switch taps operate the two branches independently');
+          assert.deepEqual((await doc()).components.filter(c=>c.type==='switch').slice(1).map(c=>c.params.closed),closed,'trusted switch taps operate the two branches independently');
           const lamps=await inside(`(()=>{const d=CircuitWorkbench.getDocument(),r=CircuitWorkbench.getAnalysis();return d.components.filter(c=>c.type==='lamp').map(c=>({current:r.components[c.id].current,brightness:CircuitRenderer.lampLight(c,r.components[c.id]).brightness}));})()`);
-          for(let i=0;i<2;i++)assert.equal(lamps[i+1].brightness>0,closed[i],'only the switched branch goes dark');
-          assert(Math.abs(lamps[0].current-lamps[1].current-lamps[2].current)<1e-8,'trunk current equals both branch currents');
-          if(closed.every(Boolean))assert(lamps[0].brightness>lamps[1].brightness&&Math.abs(lamps[1].brightness-lamps[2].brightness)<1e-8,'trunk lamp is brighter than equal branch lamps');
+          for(let i=0;i<2;i++){assert.equal(lamps[i].brightness>0,closed[i],'only the switched branch goes dark');assert(Math.abs(lamps[i].current-(closed[i]?.5:0))<1e-8,'the other parallel branch retains its current');}
           const saved=await save();await load(saved);assert.equal(await save(),saved,'each switch combination restores before the next trusted continuation');
           evidence.push({mode,preset:name,width,view,closed,lamps,restored:true});
         }
         const events=await inside('__presetSwitchEvents');assert.equal(events.length,4);assert(events.every(e=>e.trusted&&e.pointer===(width===320?'touch':'mouse')));
+        const saved=await save(),master=(await doc()).components.find(c=>c.type==='switch'),selector='[data-hit="body:'+master.id+'"]';if(width===320)await touch(await point(selector),0,0);else await click(selector);
+        assert.equal((await doc()).components.find(c=>c.id===master.id).params.closed,false,'trusted master switch tap opens the trunk');
+        assert(await inside(`(()=>{const d=CircuitWorkbench.getDocument(),r=CircuitWorkbench.getAnalysis();return d.components.filter(c=>c.type==='lamp').every(c=>r.components[c.id].power===0);})()`),'master switch turns both lamps off');
+        await load(saved);assert.equal(await save(),saved);
+        evidence.push({mode,preset:name,width,view,masterSwitchTurnsBothOff:true,restored:true});
       }
     }
+    if(branchOnly)continue;
     for(const type of ['ammeter','voltmeter'])for(const port of ['a','c'])for(const view of ['real','schematic'])for(const meters of ['digital','analog']){
       const d=P.create('ohm'),c=d.components.find(c=>c.type===type);
       if(port==='c'){const before=M.clone(d);for(const w of d.wires)for(const key of ['from','to'])if(w[key]===c.id+':a')w[key]=c.id+':c';assert(M.reconcile(d,before));}

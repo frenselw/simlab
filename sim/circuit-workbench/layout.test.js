@@ -46,15 +46,18 @@ for(const name of ['ammeter','voltmeter']){
  sw.params.closed=false;const off=S.solve(M.validate(d));near(off.components[meter.id].reading,0,'restored example can open the switch');near(off.components[lamp.id].power,0,'open switch turns the lamp off');
 }
 for(const closed of [[true,true],[true,false],[false,true],[false,false]]){
- const d=D.decode(D.encode(P.create('mixed'))),lamps=d.components.filter(c=>c.type==='lamp'),switches=d.components.filter(c=>c.type==='switch');
- assert.equal(lamps.length,3);assert.equal(switches.length,2);assert(!d.components.some(c=>c.type==='resistor'));
- switches.forEach((c,i)=>c.params.closed=closed[i]);const result=S.solve(M.validate(d)),active=closed.filter(Boolean).length,current=active?6/(12+12/active):0;
- near(result.components[lamps[0].id].current,current,'trunk current equals the sum of the active branches');
- lamps.slice(1).forEach((c,i)=>{near(result.components[c.id].current,closed[i]?current/active:0,'each switch only disconnects its own branch');near(result.components[c.id].power,closed[i]?12*(current/active)**2:0,'isolated lamp loses its power');});
- const lights=lamps.map(c=>V.lampLight(c,result.components[c.id]).brightness);
- if(active===2){assert(lights[0]>lights[1]);near(lights[1],lights[2],'identical parallel lamps have equal brightness');}
- else if(active===1)near(lights[0],lights[closed[0]?1:2],'one remaining branch is in series with the trunk');
- else assert.deepEqual(lights,[0,0,0]);
+ const d=D.decode(D.encode(P.create('parallel'))),lamps=d.components.filter(c=>c.type==='lamp'),[master,...switches]=d.components.filter(c=>c.type==='switch');
+ assert.equal(lamps.length,2);assert.equal(switches.length,2);
+ switches.forEach((c,i)=>c.params.closed=closed[i]);const result=S.solve(M.validate(d));
+ near(result.components[master.id].current,closed.filter(Boolean).length*.5,'trunk current equals the sum of the active branches');
+ lamps.forEach((c,i)=>{near(result.components[c.id].current,closed[i]?.5:0,'each switch only disconnects its own branch');near(result.components[c.id].power,closed[i]?3:0,'the other parallel lamp retains its power');});
+ master.params.closed=false;const off=S.solve(M.validate(d));lamps.forEach(c=>near(off.components[c.id].power,0,'master switch turns both lamps off'));
+}
+{
+ const d=D.decode(D.encode(P.create('mixed'))),lamps=d.components.filter(c=>c.type==='lamp'),result=S.solve(d);
+ assert.equal(lamps.length,3);assert(!d.components.some(c=>['switch','resistor'].includes(c.type)),'mixed example has lamps and no branch switches');
+ near(result.components[lamps[0].id].current,1/3,'mixed trunk current');lamps.slice(1).forEach(c=>near(result.components[c.id].current,1/6,'mixed branch current'));
+ const lights=lamps.map(c=>V.lampLight(c,result.components[c.id]).brightness);assert(lights[0]>lights[1]);near(lights[1],lights[2],'identical mixed branch lamps have equal brightness');
 }
 {
  const d=D.decode(D.encode(P.create('bridge'))),[top,bottom,left,right]=d.junctions,meter=d.components.find(R.dualMeter);
