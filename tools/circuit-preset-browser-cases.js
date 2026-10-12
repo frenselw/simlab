@@ -48,6 +48,9 @@ async function presetCases(h,mode,base){
       if(name==='bridge'){
         const rheostat=(await doc()).components.find(c=>c.type==='rheostat'),currents=[];assert.equal(rheostat.params.terminals,2);
         assert(Math.abs(await inside('CircuitWorkbench.getAnalysis().components.c6.reading'))<1e-8,'bridge starts balanced');
+        assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c6.range'),.6,'bridge uses the 0.6 A range');
+        assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c6.activePort'),'c','bridge positive lead uses the small-range socket');
+        if(view==='real')assert.equal(await inside('Number(document.querySelector(\'[data-meter-dial="c6"] [data-meter-needle]\').dataset.range)'),.6,'visible needle uses the small-range calibration');
         await inside(`window.__bridgeSliderEvents=[];if(!window.__bridgeSliderWatching){window.__bridgeSliderWatching=true;for(const type of ['pointerdown','pointermove','pointerup'])document.getElementById('surface').addEventListener(type,e=>window.__bridgeSliderEvents.push({type,trusted:e.isTrusted,pointer:e.pointerType}));}`);
         for(const position of [.75,.25,.5]){
           const body='[data-hit="body:'+rheostat.id+'"]';if(width===320)await touch(await point(body),0,0);else await click(body);

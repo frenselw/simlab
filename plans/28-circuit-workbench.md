@@ -1,5 +1,18 @@
 # 電路工作台：設計與開發計劃
 
+## 電橋電流表改接 0.6 A（2026-10-12）
+
+依使用者要求，橋中電流表改接既有 0.6 A 小量程正接孔 `c`，負接孔仍為
+`b`；保留原有 3／0.6 A 雙量程器材，不另改電流或器材校準。正端導線向
+中央接孔進入，維持元件避讓及無交叉。非評量示例，快照及依賴沿用。
+驗證決定：既有 layout／core／labels、bridge-slider source／ZIP 的量程
+與實際指針、可信滑片及恢復續作；重建四包、commit／push及同步兩個Sites。
+
+實際證據：layout／core／labels及120個標籤版面通過；
+`--preset-smoke --bridge-slider-only` 來源／ZIP、1280／320px、實物／符號
+共32 observations通過，核對activePort為c、量程及實際指針為0.6 A、滑片
+正反向及恢復續作。最新證據仍在 `output/playwright/circuit-workbench/`。
+
 ## 電橋兩孔滑動變阻器（2026-10-12）
 
 依使用者要求，把電橋 R₄ 換成兩孔滑動變阻器，最大電阻 40 Ω、滑片起始
