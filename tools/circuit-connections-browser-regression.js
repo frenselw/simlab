@@ -33,6 +33,11 @@ async function main(){fs.mkdirSync(output,{recursive:true});const packages=Packa
  const saved=await call('exportDocument()');await call('loadDocument('+JSON.stringify(saved)+')');assert.equal(await call('exportDocument()'),saved);assert.equal(await inside('document.documentElement.scrollWidth-innerWidth'),0);assert((await inside('__connectionsTrusted')).every(Boolean));evidence.push({source,ac,width,eightAngles:true,restore:true,trusted:true});}
  await cdp.send('Page.navigate',{url:'about:blank'});await H.delay(100);server.closeAllConnections();await H.closeServer(server);server=null;}
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,'evidence.json'),JSON.stringify({generatedAt:new Date().toISOString(),evidence},null,2));console.log(`AC/DC connection + eight-angle source/ZIP browser checks passed: ${evidence.length} cases, desktop and trusted touch.`);
- }finally{if(cdp)cdp.close();await H.stopChrome(chrome);if(server){server.closeAllConnections();await H.closeServer(server);}H.validateOwnedDirectory(profile,fs.realpathSync(os.tmpdir()),/^simlab-connection-/);fs.rmSync(profile,{recursive:true,force:true});}
+ }finally{
+  try{await H.stopChrome(chrome,cdp);}finally{cdp?.close();}
+  if(server){server.closeAllConnections();await H.closeServer(server);}
+  const exactProfile=H.validateOwnedDirectory(profile,fs.realpathSync(os.tmpdir()),/^simlab-connection-/,'Chrome profile');
+  fs.rmSync(exactProfile,{recursive:true,force:false,maxRetries:3,retryDelay:100});
+ }
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
