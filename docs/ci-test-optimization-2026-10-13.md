@@ -1,6 +1,6 @@
 # 點按等待的初步校準
 
-此為 P4 候選的校準歷程；正式 touch helper 已有未提交候選，Linux 全量驗收尚未完成。
+此為 P4 的校準歷程；手勢候選已有完整 Linux 成功證據，最新共用渲染修正的 Linux 全量驗收仍待完成。
 下列「尚未採用」描述是當時狀態，最新進度見文末，不能取代 P2 全量。
 忽略的 runner 位於 output/ci-tests/tap-experiment.js；保留原斷言、drag、
 sample 與 cancel 路徑，只有無位移／無採樣／非取消的普通 tap 改為 native
@@ -194,3 +194,15 @@ browser assertion。正在同版本／本機环境重複已修復的 budget 專�
 原 80ms／100ms 不變；log 為 output/ci-tests/ac-empty-scope-budget-repeat.log。
 此共用 runtime 修正獨立提交，固定 Linux 全量會重新驗證其全部消費者。
 並行上限仍四片，八片方案尚待使用者選擇。
+
+共用渲染修正已提交為 a1c7b51，固定 Linux run 38479817006 正在執行。
+203 個 Node 入口及五個 checks 的報告與不可變 plan 已核對通過；四個
+browser job 尚未結束，不能宣稱完整成功或採用該輪的成功耗時。
+
+空 scope 回歸另補強為先確認頁面在前景，再明確等待三個 RAF，避免
+背景頁面沒有執行動畫卻因固定 100ms 等待而誤判成功。隔離載入 f9f78ae
+舊 scope 的 source 在三幀內讀取 surface 三次，原零讀取斷言正確失敗；
+目前修正版 source／ZIP 的 32 個控制 checks 全部通過。證據為
+output/ci-tests/ac-old-scope-visible-regression.log 及
+output/ci-tests/ac-visible-scope-regression.log。此 fixture 補強屬於後續
+測試修正，未納入 a1c7b51 的 GitHub 驗收結果，亦未放寬性能預算。
