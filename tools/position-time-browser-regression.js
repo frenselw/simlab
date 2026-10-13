@@ -180,7 +180,7 @@ function listenServer(server) {
 async function devToolsPort(profileDirectory, chrome) {
   const activePortFile = path.join(profileDirectory, "DevToolsActivePort");
   for (let attempt = 0; attempt < 600; attempt += 1) {
-    if (chrome.exitCode !== null) throw new Error(`Chrome exited before CDP became ready (exit ${chrome.exitCode}).`);
+    if (chrome.exitCode != null || chrome.signalCode != null) throw new Error(`Chrome exited before CDP became ready (exit ${chrome.exitCode}, signal ${chrome.signalCode || 'none'}).`);
     try {
       const [port] = fs.readFileSync(activePortFile, "utf8").trim().split(/\r?\n/);
       if (Number(port) > 0) return Number(port);

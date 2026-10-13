@@ -64,3 +64,9 @@ P1 固定 Ubuntu 24.04／Node 22.23.3。官方 Chrome for Testing catalogue 沒�
 - AC scope 專項：閒置本機、source＋ZIP，208 個觀察通過，保留 50Hz 速度下限及完整 snapshot 凍結斷言。先前與重 Node 基準同時執行的一輪，ZIP 最後速度檢查失敗；首次失敗留存為負載差異證據，不當作首次穩定通過。
 
 P1 推送後需檢查固定 Linux／Chrome／Node 的完整執行與 artifacts；完整成功仍是 P3 切換條件。P2 可以在診斷及自檢達標後繼續，不以尚未完成的新 CI run 宣稱全量通過。
+
+## P1 首輪 GitHub 驗證及修正
+
+[run 38387558907](https://github.com/frenselw/simlab/actions/runs/38387558907)，bee8e0c：首次固定版 Chrome 啟動被 Ubuntu AppArmor 的 user namespace 限制阻止，browser 失敗均留有 per-entry log／report。新增只針對下載 binary 的 AppArmor profile，保持 Chromium sandbox，並在測試前以 15 秒有界 about:blank 啟動檢查提早揭露環境故障。實作依 [Chromium 官方指引](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md)，未關閉全系統限制。
+
+Node 的剩餘失敗同樣是 dangling-lead 重新投影的動態 i 差 5.6e-17，原先只修復了 restore-continuation 的比較；此次將同一 machine-epsilon helper 用於該 dynamic 比較，time／phase／measurements 等仍精確相等。瀏覽器啟動遇 SIGTRAP 會立即報错，避免已終止程序仍等待 30 秒及反覆嘗試。

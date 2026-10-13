@@ -46,6 +46,10 @@ jobs:
         run: xvfb-run -a node tools/ci-environment.js
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify sandboxed Chrome startup
+        run: bash tools/setup-ci-chrome.sh
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
       - run: npm run check
         if: matrix.shard == 1
       - run: xvfb-run -a npm test -- --suite=registered --shard=${{ matrix.shard }}/4
@@ -91,6 +95,10 @@ jobs:
       - run: npm ci
       - name: Record and verify environment
         run: xvfb-run -a node tools/ci-environment.js
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify sandboxed Chrome startup
+        run: bash tools/setup-ci-chrome.sh
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
       - run: xvfb-run -a npm test -- --suite=extra

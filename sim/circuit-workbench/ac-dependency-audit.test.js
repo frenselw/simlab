@@ -22,7 +22,7 @@ if(require.main===module){
   s.advance(.25);const before=s.capture(),lamp=d.components.find(c=>c.type==='lamp'),cap=d.components.find(c=>c.type==='capacitor'),power=s.read().components[lamp.id].displayPower,measurements=s.read().measurements[lamp.id];
   const moved=M.clone(d);moved.components.find(c=>c.id===lamp.id).x+=20;assert.equal(s.update(moved),'geometry');assert.deepEqual(s.capture().physics,before.physics);
   const connected=M.clone(moved);assert(M.attach(connected,w.id,'from','c2:a'));assert.equal(s.update(connected),'event');
-  assert.equal(s.state.time,before.physics.time);assert.deepEqual(s.state.sources,before.physics.sources);assert.deepEqual(s.state.dynamic,before.physics.dynamic);assert.deepEqual(s.read().measurements[lamp.id],measurements);
+  assert.equal(s.state.time,before.physics.time);assert.deepEqual(s.state.sources,before.physics.sources);assertContinuation({dynamic:s.state.dynamic},{dynamic:before.physics.dynamic});assert.deepEqual(s.read().measurements[lamp.id],measurements);
   assert.equal(s.read().components[lamp.id].displayPower,power);assert(V.lampLight(lamp,s.read().components[lamp.id]).brightness>0);if(cap)assert(s.read().components[cap.id].charge>0);
   const restored=T.Session.restore(s.capture());s.advance(.025);restored.advance(.025);assertContinuation(restored.state,s.state);assert.equal(s.fault,null);
   // A genuine disconnection still restarts this sole affected circuit.

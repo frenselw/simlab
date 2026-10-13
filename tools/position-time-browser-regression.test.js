@@ -34,6 +34,7 @@ try {
     fs.readFileSync=function(file,...args){if(file===portFile&&lateReads++<240){const error=new Error('Chrome is still starting');error.code='ENOENT';throw error;}return originalRead.call(fs,file,...args);};
     assert.equal(await devToolsPort(portFixture,{exitCode:null}),12345,'a slow Chrome launch can become ready beyond the former startup limit');
     await assert.rejects(devToolsPort(portFixture,{exitCode:1}),/Chrome exited before CDP became ready/,'an exited browser still fails immediately');
+    await assert.rejects(devToolsPort(portFixture,{exitCode:null,signalCode:'SIGTRAP'}),/signal SIGTRAP/,'a fatal sandbox signal fails immediately instead of waiting for a missing port');
   } finally {global.setTimeout=originalTimeout;}
 } finally {fs.readFileSync=originalRead;const safe=validateOwnedDirectory(portFixture,os.tmpdir(),/^simlab-devtools-test-[A-Za-z0-9]+$/,'startup test fixture');fs.rmSync(safe,{recursive:true,force:false});}
 const fakePackageRoot = path.resolve(path.sep, "extracted-package");
