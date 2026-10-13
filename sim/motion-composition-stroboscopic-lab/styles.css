@@ -89,3 +89,4 @@ var { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times 
   .time-nav { display: grid; grid-template-columns: 1fr 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+.compact-parking .tray-ball { width:20px; height:20px; }

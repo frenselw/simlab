@@ -273,6 +273,7 @@ Each job uses its own checkout; the final `check` succeeds only when every shard
 and the browser job pass. `npm test` still runs the full suite locally;
 `npm test -- --shard=1/4` runs one CI shard. Every registered test runs exactly once.
 CI wraps these shards in Xvfb so native window fullscreen checks have a display.
+Both jobs install CJK fonts so browser geometry checks measure rendered Chinese text.
 Local checks do not replace validation in a real
 Moodle student attempt; see the production guide for both acceptance checklists.
 
