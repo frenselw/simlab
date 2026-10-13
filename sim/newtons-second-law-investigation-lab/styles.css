@@ -127,3 +127,8 @@ legend { padding: 0; font-weight: 600; line-height: 1.5; }
   .newton-app.no-scene { grid-template-columns:1fr; grid-template-rows:auto 0 minmax(0,1fr); }
   .newton-app.no-scene .control-panel { grid-column:1; grid-row:3; }
 }
+
+@media (max-width:479px) and (max-height:450px) {
+  .sim-header { padding:.15rem .7rem; }
+  #experimentNav button { line-height:1.25; }
+}

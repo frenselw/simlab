@@ -141,8 +141,8 @@ async function visualMatrix(cdp,base,label) {
     await viewport(cdp,width,height);await navigate(cdp,base,{fixture:durableDraft(filled())});
     for(const [phase,sel] of [["collect",'[data-phase="collect"]'],["plot",'[data-phase="plot"]'],["conclude",'[data-phase="conclude"]'],["check","#checkButton"]]) {
       await click(cdp,sel);
-      const r=await call(cdp,`const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {phase:w.__newtonApp.getMode(),width:w.innerWidth,height:w.innerHeight,overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.clientHeight,stage:s.clientHeight,smallTargets:[...d.querySelectorAll('button')].filter(e=>e.getClientRects().length && e.getBoundingClientRect().height<43.9).map(e=>e.id||e.textContent)};`);
-      assert.equal(r.phase,phase);assert.ok(r.overflow<=1 && r.range<=1,`${label} ${width}x${height}: no competing scroll ${JSON.stringify(r)}`);assert.ok(r.panel>=70,`${width}x${height}: controls remain reachable`);assert.deepEqual(r.smallTargets,[]);
+      const r=await call(cdp,`const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {phase:w.__newtonApp.getMode(),width:w.innerWidth,height:w.innerHeight,overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,header:d.querySelector('.sim-header').getBoundingClientRect().height,panel:p.clientHeight,stage:s.clientHeight,smallTargets:[...d.querySelectorAll('button')].filter(e=>e.getClientRects().length && e.getBoundingClientRect().height<43.9).map(e=>e.id||e.textContent)};`);
+      assert.equal(r.phase,phase);assert.ok(r.overflow<=1 && r.range<=1,`${label} ${width}x${height}: no competing scroll ${JSON.stringify(r)}`);assert.ok(r.panel>=70,`${width}x${height}: controls remain reachable ${JSON.stringify(r)}`);assert.deepEqual(r.smallTargets,[]);
       if(phase==="plot" || phase==="collect") {assert.ok(r.stage>=165,JSON.stringify(r));if([320,390,1280].includes(width)) await screenshot(cdp,`${label}-${phase}-${width}x${height}`);}
       evidence.push(r);
     }

@@ -481,3 +481,8 @@ points的array索引是與本組records的語意對應；追加、刪行必須�
 - Repository gates：`npm run check`、完整`npm test`、`npm run package:all`及工作區`git diff --check`通過。完整Newton矩陣在最後符號欄加闊前執行；該最後調整由上述source／package `--experience`重驗，之後再執行check及全部打包。日誌為`output/newton-coordinate-progress-check.log`、`output/newton-coordinate-progress-npm-test.log`及`output/newton-coordinate-progress-package-all.log`。
 - 最新Newton SCORM ZIP共16個檔案、49,122 bytes，根manifest及runtime均與目前source逐檔binary一致。SHA-256：`47c84412be356671c3827c974831a7d1f2771d553a225114008efcee5dc2e935`。所有活動的ZIP亦已重新產生並由打包驗證器通過。
 - 真實Moodle及實體手機仍未作本輪驗收；以上為本機Chrome/CDP、實際解壓套件及模擬LMS證據。
+
+### 2026-10-13：短螢幕操作面板
+
+- 全螢幕按鈕加入 header 後，320×400 的固定 166px 畫布把操作面板擠至約 58px。窄短螢幕改為較小 header 留白及較緊湊的情境導覽行高，保留 166px 畫布供座標放大鏡使用；無場景階段保留原有全高面板。
+- `node tools/newtons-second-law-browser-regression.js --short` 通過 source／ZIP 各 36 項 phase×viewport 及 320×400 短 iframe 觸控矩陣。保留至少 70px 面板、165px 畫布、44px 按鈕、可讀座標放大鏡、無溢出及合法續作檢查；紀錄為 `output/playwright/newtons-second-law/short-report.json`。

@@ -56,7 +56,8 @@ const tests = [
   "sim/circuit-workbench/quick-controls.test.js",
   "sim/circuit-workbench/relay.test.js",
   "sim/circuit-workbench/review-regressions.test.js",
-  "tools/circuit-workbench-browser-regression.js",
+  {file: "tools/circuit-workbench-browser-regression.js", args: ["--entry=source"]},
+  {file: "tools/circuit-workbench-browser-regression.js", args: ["--entry=package"]},
   "tools/circuit-platform-browser-regression.js",
   "sim/newtons-third-law-fullscreen-test/generator.test.js",
   "sim/newtons-third-law-fullscreen-test/model.test.js",
@@ -213,10 +214,23 @@ const tests = [
   "tools/mobile-touch-scroll.test.js",
   "sim/shared/touch-scroll.test.js",
   "sim/shared/scorm.test.js",
-  "sim/shared/activity-flow.test.js"
+  "sim/shared/activity-flow.test.js",
+  "tools/run-tests.test.js"
 ];
 
-for (const test of tests) {
-  const result = spawnSync(process.execPath, [path.join(root, test)], { stdio: "inherit" });
+function selectTests(files, shard) {
+  if (!shard) return files;
+  const match = /^--shard=(\d+)\/(\d+)$/.exec(shard);
+  if (!match) throw new Error('Expected --shard=index/count');
+  const index = Number(match[1]), count = Number(match[2]);
+  if (!Number.isSafeInteger(index) || !Number.isSafeInteger(count) || index < 1 || index > count || count > files.length) throw new Error('Invalid test shard');
+  return files.filter((_, position) => position % count === index - 1);
+}
+
+if (require.main === module) for (const test of selectTests(tests, process.argv[2])) {
+  const file = typeof test === 'string' ? test : test.file;
+  const result = spawnSync(process.execPath, [path.join(root, file), ...(test.args || [])], { stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status || 1);
 }
+
+module.exports = {tests, selectTests};

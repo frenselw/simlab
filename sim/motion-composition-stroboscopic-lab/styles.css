@@ -78,6 +78,8 @@ var { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Times 
 }
 @media (max-height: 480px) and (max-width: 699px) { .composition-app { grid-template-rows: auto minmax(9.5rem,42dvh) minmax(0,1fr); }.heading h1 { font-size: 1.1rem; }.sim-header { padding: .35rem .75rem; } }
 @media (max-height: 300px) and (max-width: 699px) {
+  .sim-header { padding:.125rem .75rem; }
+  .question-nav { margin-top:.125rem; }
   .composition-app { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
   .sim-header { grid-column: 1 / -1; }
   .stage { border-right: 1px solid var(--color-border); border-bottom: 0; }

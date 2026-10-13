@@ -15,6 +15,10 @@ async function reviewCases(h,mode,base,{zeroOnly=false,followupOnly=false,bounda
   const tap=async selector=>contact(await h.point(selector));
   async function mount(config){await h.inside(`(async()=>{CircuitWorkbench.destroy();window.CircuitWorkbench=await CircuitEditor.mount(document.getElementById('app'),${JSON.stringify(config)});})()`);await h.delay(90);}
   async function openPanel(){if(await h.inside(`document.querySelector('${control('panelToggle')}').getAttribute('aria-expanded')==='false'`))await tap(control('panelToggle'));}
+  async function action(id){
+    if(await h.inside(`document.querySelector('${control(id)}').getClientRects().length>0`))await tap(control(id));
+    else{await tap(control('moreSelected'));await tap('[data-selection-action="'+id+'"]');}
+  }
   // CDP on this headless macOS browser does not operate the native select popup.
   // Exercise the actual DOM select/change handler; pointer actions below stay trusted.
   async function choice(key,direction){const selector=`${control('properties')} select[data-param="${key}"]`;await h.point(selector);await h.inside(`(()=>{const input=document.querySelector(${JSON.stringify(selector)});input.selectedIndex+=${direction==='ArrowUp'?-1:1};input.dispatchEvent(new Event('change',{bubbles:true}));})()`);await h.delay(40);}
@@ -25,6 +29,7 @@ async function reviewCases(h,mode,base,{zeroOnly=false,followupOnly=false,bounda
   }
   async function balancedZero(){
     await h.load(P.create('bridge'));assert.equal(await h.inside('CircuitWorkbench.getAnalysis().components.c6.reading'),0);
+    await selectedBody('c6');await action('focusSelected');
     assert(await h.inside(`Boolean(document.querySelector('[data-label-block="c6"] [data-component-value="c6"][data-math="0 A"]'))`));
     assert(!await h.inside(`document.querySelector('[data-label-block="c6"]').innerHTML.includes('e-17')`));evidence('balanced-meter-zero',{renderedZero:true});
   }
@@ -54,7 +59,7 @@ async function reviewCases(h,mode,base,{zeroOnly=false,followupOnly=false,bounda
     Object.assign(d.junctions.find(j=>j.id+':p'===w.to),{x:860.01,y:200});w.via=[];
     await mount({role:'teacher',initialDocument:d});const before=await h.save(),p=await h.point('[data-hit="wire:w1:0"]');await contact(p,{x:p.x,y:p.y+30});
     assert.equal(await h.save(),before);assert.equal(await h.inside('CircuitWorkbench.getInteraction().dragging'),null);
-    const rotated=M.clone(d);M.moveWireEnd(rotated,w.id,'to',{x:800,y:265});await h.load(rotated);const saved=await h.save();
+    const rotated=M.clone(d);M.moveWireEnd(rotated,w.id,'to',{x:800,y:-60});await h.load(rotated);const saved=await h.save();
     assert.equal(await h.inside(`CircuitWorkbench.execute({type:'rotate',id:'c1'})`),false);assert.equal(await h.save(),saved);
     M.moveWireEnd(rotated,w.id,'to',{x:760,y:200});await h.load(rotated);const q=await h.point('[data-hit="wire:w1:0"]');await contact(q,{x:q.x,y:q.y+30});
     assert((await h.doc()).wires[0].via.length>0);evidence('near-limit-cable-bend',{trusted:true,importSafe:true,rotationAtomic:true,continuedBend:true});
@@ -155,7 +160,9 @@ async function reviewCases(h,mode,base,{zeroOnly=false,followupOnly=false,bounda
     await mount({role:'teacher',initialDocument:M.empty()});await tap(control('quickWire'));d=await h.doc();assert.equal(await h.inside(`document.querySelector('${control('quickWire')} span').textContent`),'19/20');
     const ends=await h.inside(`(()=>{const d=CircuitWorkbench.getDocument(),e=CircuitModel.endpoints(d);return [e.get(d.wires[0].from),e.get(d.wires[0].to)];})()`),p=await h.point('[data-hit="wireend:w1:from"]');await contact(p,{x:p.x+30,y:p.y+15});
     const moved=await h.inside(`(()=>{const d=CircuitWorkbench.getDocument(),e=CircuitModel.endpoints(d);return [e.get(d.wires[0].from),e.get(d.wires[0].to)];})()`);assert.deepEqual(moved[1],ends[1]);assert(Math.hypot(moved[0].x-ends[0].x,moved[0].y-ends[0].y)>1);evidence('current-cable-contract',{stock20:true,farEndFixed:true,trusted:true});
-    const long=M.empty();M.add(long,'lamp',300,220).label='燈'.repeat(40);await mount({role:'teacher',initialDocument:long});await selectedBody('c1');await openPanel();await tap('[data-action="複製元件"]');assert.equal((await h.doc()).components.length,2);assert((await h.doc()).components.every(c=>c.label.length<=40));evidence('maximum-length-name-copy');
+    const long=M.empty();M.add(long,'lamp',300,220).label='燈'.repeat(40);await mount({role:'teacher',initialDocument:long});await selectedBody('c1');await openPanel();
+    await action('copySelected');
+    assert.equal((await h.doc()).components.length,2);assert((await h.doc()).components.every(c=>c.label.length<=40));evidence('maximum-length-name-copy');
     await tinyWireDirection();await registryCommand();await nearLimitBend();await finiteMeterNull();await boundedSlider();await tidyLimit();await sliderBoundary();await balancedZero();
     await h.screenshot(`${mode}-audit-${width}.png`);
   }

@@ -267,10 +267,11 @@ the fixes and their executed coverage. Local browser passes establish evidence
 for the recorded cases; real-phone Moodle acceptance remains a separate gate.
 
 The [Quality workflow](.github/workflows/quality.yml) runs syntax/manifest checks,
-the full test suite and package verification alongside a separate job for the
-additional browser checks on pushes and pull requests. Each job uses its own
-checkout; the final `check` succeeds only when both jobs pass. This keeps all
-existing checks while avoiding one shared timeout for the growing test suite.
+the full test suite across four parallel shards and package verification alongside
+a separate job for the additional browser checks on pushes and pull requests.
+Each job uses its own checkout; the final `check` succeeds only when every shard
+and the browser job pass. `npm test` still runs the full suite locally;
+`npm test -- --shard=1/4` runs one CI shard. Every registered test runs exactly once.
 Local checks do not replace validation in a real
 Moodle student attempt; see the production guide for both acceptance checklists.
 

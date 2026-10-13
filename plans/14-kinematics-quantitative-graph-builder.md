@@ -26,6 +26,12 @@
 - 本文件是 implementation blueprint。任何改變題目範圍、學習目標、控制點語意、題庫、
   評分、容差、phase、snapshot schema、手勢責任或 SCORM 行為的修訂，必須先更新本文件。
 
+### 2026-10-13：CI 窄畫面覆核
+
+- 全螢幕 header 加入後，160×250 CSS viewport 的長標題擠壓操作區；只在小於 200px 的緊湊模式使用 14px 標題及較緊行高，保留完整標題。
+- 正常手機的畫布與控制面板高度比較改為保留三列 44px 觸控區，取代全螢幕 header 加入前的固定 160px 假設；畫布與圖域間距仍不得超過 12px。
+- 完整定量圖像 source／實際 ZIP trusted-touch runner 通過，包含縮放／鍵盤等價 viewport、控制點、字級、手勢、還原及生命周期檢查；此證據不代表真實 Moodle／實體手機驗收。
+
 ### 0.1 已確認的 simulation 題目
 
 本活動處理：

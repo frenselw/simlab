@@ -40,7 +40,9 @@
     const compact = width < 260 || height < 210;
     presentation = presentation && !compact;
     const sideSpace = compact ? 92 : presentation ? 220 : 148, verticalSpace = compact ? 100 : presentation ? 148 : 88;
-    const size = Math.max(40, Math.min(width - sideSpace, height - verticalSpace));
+    let size = Math.max(40, Math.min(width - sideSpace, height - verticalSpace));
+    // Two 44px parking rows, a 1px bottom gap and the 8px plot top must fit.
+    if (compact) size = Math.min(size, Math.max(1, height - 97));
     const left = compact ? (width - size) / 2 : (presentation ? 64 : 46) + (width - sideSpace - size) / 2, top = compact ? 8 : presentation ? 76 : 34;
     const trays = compact ? [0,1,2,3].map(i => ({ x: width / 2 + (i % 2 ? 22 : -22), y: height - (i < 2 ? 67 : 23) })) :
       [0,1,2,3].map(i => ({ x: left + size + (presentation ? 70 : 44), y: Math.max(presentation ? 82 : 54, height / 2 - (presentation ? 96 : 66)) + i * (presentation ? 64 : 44) }));
@@ -51,7 +53,8 @@
   function resolve(p, l, type = "mouse", held = null) {
     const raw = world(p, l);
     if (raw[0] < -400 || raw[0] > 3600 || raw[1] < -3600 || raw[1] > 400) return null;
-    const candidate = raw.map(v => Math.round(v / GRID) * GRID), touch = type === "touch", enter = touch ? 10 : 6, exit = touch ? 14 : 9, improvement = touch ? 2 : 1;
+    const candidate = raw.map(v => Math.round(v / GRID) * GRID), touch = type === "touch", enter = touch ? 10 : 6, exit = touch ? 14 : 9;
+    const improvement = Math.min(touch ? 2 : 1, l.size * GRID / 4000 / 2);
     const distance = point => { const q = pixel(point, l); return Math.hypot(q.x - p.x, q.y - p.y); };
     let snap = distance(candidate) <= enter ? candidate : null;
     if (held && distance(held) <= exit && (!snap || distance(held) - distance(snap) < improvement)) snap = held;

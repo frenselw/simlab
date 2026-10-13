@@ -12,7 +12,7 @@ for(let index=0;index<4;index++){
   for(const axis of [0,1])assert.deepEqual(M.gaps(index,axis),M.CASES[index][axis?'ay':'ax']===0?[800,800,800,800]:[200,600,1000,1400]);
 }
 assert.deepEqual(M.expected(0).at(-1),M.expected(3).at(-1));assert.notDeepEqual(M.gaps(0,0),M.gaps(3,0));
-for(const [w,h] of [[320,209.9],[320,210],[390,210.1],[390,239.9],[390,240],[390,252],[1280,800],[160,138.59375],[320,168]]){
+for(const [w,h] of [[320,209.9],[320,210],[390,210.1],[390,239.9],[390,240],[390,252],[1280,800],[160,129],[160,138.59375],[320,168]]){
   const l=M.layout(w,h);
   assert.equal(l.trays.length,4);
   for(const tray of l.trays)assert.ok(tray.x-22>=24&&tray.x+22<=w-24&&tray.y-22>=0&&tray.y+22<=h,'all four targets fit outside the scroll strips');
@@ -23,6 +23,7 @@ for(const [w,h] of [[320,209.9],[320,210],[390,210.1],[390,239.9],[390,240],[390
   for(const p of reference.flat()){const pixel=M.pixel(p,l),back=M.world(pixel,l);assert.ok(back.every((v,i)=>Math.abs(v-p[i])<1e-9));}
   const a=M.pixel([200,0],l),b=M.pixel([0,-200],l),o=M.pixel([0,0],l);assert.ok(Math.abs((a.x-o.x)-(b.y-o.y))<1e-9);
   for(const type of ['touch','mouse','pen'])for(const p of [[200,-200],[2000,-1200],[0,0],[-400,400]])assert.deepEqual(M.resolve(M.pixel(p,l),l,type).point,p);
+  for(const type of ['touch','mouse','pen'])assert.deepEqual(M.resolve(M.pixel([1600,0],l),l,type,[1800,0]).point,[1600,0],'an exact adjacent grid point releases the previous snap even on a tiny plot');
   assert.equal(M.resolve({x:l.left-1,y:l.top},l),null);
 }
 assert.equal(M.validPoint([NaN,0]),false);assert.equal(M.validPoint([Infinity,0]),false);assert.equal(M.validPoint([0.5,0]),false);assert.equal(M.validPoint([3601,0]),false);

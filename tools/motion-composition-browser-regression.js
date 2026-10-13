@@ -269,7 +269,8 @@ async function zoomReflow(cdp,base,label){
   assert.equal(geometry.docRange,0);assert.equal(geometry.docOverflow,0);assert.ok(geometry.panelOverflow<=1);assert.ok(geometry.panel[1]>=0&&geometry.panel[1]+geometry.panel[3]<=225.1&&geometry.panel[3]>=65);
   await click(cdp,'#checkButton',embedded);await rect(cdp,'#submitButton',embedded,true);
   const bounds=await call(cdp,"const r=d.getElementById('submitButton').getBoundingClientRect(),p=d.getElementById('controlPanel').getBoundingClientRect();return {button:r.toJSON(),panel:p.toJSON(),viewport:[w.innerWidth,w.innerHeight],font:w.getComputedStyle(d.getElementById('submitButton')).fontSize};",embedded);
-  assert.ok(bounds.button.top>=bounds.panel.top&&bounds.button.bottom<=bounds.panel.bottom&&bounds.button.bottom<=225);assert.ok(bounds.button.height>=44);assert.ok(Number.parseFloat(bounds.font)>=16);
+  // Native scrolling rounds offsets while font layout keeps fractional CSS pixels.
+  assert.ok(bounds.button.top>=bounds.panel.top-.5&&bounds.button.bottom<=bounds.panel.bottom+.5&&bounds.button.bottom<=225.5,JSON.stringify(bounds));assert.ok(bounds.button.height>=44);assert.ok(Number.parseFloat(bounds.font)>=16);
   await screenshot(cdp,`${label}-zoom-reflow-${embedded?'iframe':'standalone'}-check`);await click(cdp,'#submitButton',embedded);assert.equal(await mode(cdp,embedded),'review');await click(cdp,'#referenceButton',embedded);assert.equal((await call(cdp,'return w.__motionComposition.getSelection();',embedded)).reference,true);
   await screenshot(cdp,`${label}-zoom-reflow-${embedded?'iframe':'standalone'}-review`);report.push({embedded,geometry,submitBounds:bounds,submitted:true,reference:true});
  }

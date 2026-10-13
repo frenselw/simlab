@@ -7,7 +7,11 @@ on:
 jobs:
   suite:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,8 +19,10 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run check
-      - run: npm test
+        if: matrix.shard == 1
+      - run: npm test -- --shard=${{ matrix.shard }}/4
       - run: npm run package:all
+        if: matrix.shard == 1
 
   browser:
     runs-on: ubuntu-latest

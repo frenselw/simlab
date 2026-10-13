@@ -5,8 +5,12 @@ async function wireInspectorCases(h,mode,base){
   async function tapAt(p){if(width<600){await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:touchId++,radiusX:2,radiusY:2,force:1}]});await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await h.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});}await h.delay(60);}
   const tap=async selector=>tapAt(await h.point(selector));
   async function selectWire(id){
-    const p=await h.inside(`(()=>{for(const e of document.querySelectorAll('[data-hit^="wire:${id}:"]')){const r=e.getBoundingClientRect();for(const f of [.5,.25,.75]){const x=r.left+r.width*f,y=r.top+r.height/2;if(document.elementFromPoint(x,y)===e)return{x,y};}}throw Error('No exposed wire ${id}');})()`);
-    await tapAt(p);assert.equal(await h.inside('CircuitWorkbench.getInteraction().selection.id'),id);
+    if(width<600&&await h.inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="true"'))await tap('#panelToggle');
+    const p=await h.inside(`(()=>{for(const e of document.querySelectorAll('[data-hit^="wire:${id}:"]')){const r=e.getBoundingClientRect();for(const f of [.5,.25,.75]){const x=r.left+r.width*f,y=r.top+r.height/2;if(document.elementFromPoint(x,y)===e)return{x,y};}}return null;})()`);
+    if(p)await tapAt(p);
+    else{if(await h.inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap('#panelToggle');if(!await h.inside('document.getElementById("wireList").parentElement.open'))await tap('details.panel-section summary');await tap('#wireList .wire-row:nth-child('+Number(id.slice(1))+') button:first-child');}
+    assert.equal(await h.inside('CircuitWorkbench.getInteraction().selection.id'),id);
+    if(await h.inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await tap('#panelToggle');
   }
   const reference=()=>h.inside('document.querySelector("#properties .potential-reference").textContent');
   const reading=label=>h.inside(`(()=>{const dt=[...document.querySelectorAll('#properties dt')].find(e=>e.textContent===${JSON.stringify(label)});return dt.nextElementSibling.querySelector('[data-math]').dataset.math;})()`);

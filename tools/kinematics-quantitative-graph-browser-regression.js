@@ -30,7 +30,7 @@ async function assertDragPreview(cdp, label) {
     }
     await evaluate(cdp, `document.getElementById('activity').contentWindow.document.querySelectorAll('#graphButtons button')[0].click()`);
     const before = await inspect();
-    assert.ok(before.gap <= 12 && before.controlsHeight > 160, `${label}: ${width}px reserves bounded controls height while leaving only a bounded stage gap`);
+    assert.ok(before.gap <= 12 && before.controlsHeight >= 3*44, `${label}: ${width}px retains three touch-target rows below the fullscreen header, with a bounded stage gap: ${JSON.stringify(before)}`);
     assert.ok(before.hit.w >= 48 && before.hit.h >= 48 && before.marker.radius === 4, `${label}: ${width}px keeps a 48px hit target with an unset r=4 marker`);
     const framePoint = await evaluate(cdp, `(() => { const f=document.getElementById('activity'),r=f.getBoundingClientRect(),h=f.contentWindow.document.querySelector('.point-hit').getBoundingClientRect(); return {x:r.left+h.left+h.width/2,y:r.top+h.top+h.height/2}; })()`);
     const expectedCorner = `is-${before.point.y < before.mount.y ? "bottom" : "top"}-${before.point.x < before.mount.x ? "right" : "left"}`;

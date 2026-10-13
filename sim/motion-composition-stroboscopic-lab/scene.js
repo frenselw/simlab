@@ -86,7 +86,7 @@
     out += '</g>';
     if(answer[selected]){
       const q=point(answer[selected],l),p=l.compact?{x:l.left+l.size+10,y:Math.min(l.top+l.size-10.5,Math.max(origin.y+25.5,q.y+4))}:labelPosition(q,l,obstacles,segments);
-      const narrow=l.compact&&l.width-p.x<50,x=narrow?l.width-4:p.x;
+      const narrow=l.compact&&(l.width<200||l.width-p.x<50),x=narrow?l.width-2:p.x;
       const index=`<tspan baseline-shift="sub" font-size="${large?16:11}">${time}</tspan>`;
       const text=narrow?`<tspan font-family="sans-serif">所選</tspan><tspan x="${x}" dy="18"> P${index}</tspan>`:`${l.compact?'<tspan font-family="sans-serif">所選 </tspan>':''}P${index}`;
       out+=`<text data-point-label="${time}" x="${x}" y="${p.y}" text-anchor="${narrow?'end':'start'}" ${font} font-size="${textSize}" fill="${options.reference?'#166534':ANSWER}">${text}</text>`;

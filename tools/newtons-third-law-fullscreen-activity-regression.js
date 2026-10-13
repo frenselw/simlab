@@ -128,8 +128,10 @@ async function visualMatrix(cdp,base,label){
  const results=[];
  for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[768,900],[1024,768],[1280,900],[740,360],[320,400]]){
   await viewport(cdp,width,height);await navigate(cdp,base);
-  const r=await call(cdp,"const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,panel:p.clientHeight,stage:s.clientHeight};");
-  assert.ok(r.overflow<=1&&r.range<=1,`${label} ${width}x${height} bounded document ${JSON.stringify(r)}`);assert.ok(r.panel>=65);assert.ok(r.stage>=195);
+  const r=await call(cdp,"const p=d.getElementById('controlPanel'),s=d.getElementById('stage');return {overflow:d.documentElement.scrollWidth-w.innerWidth,range:Math.max(d.documentElement.scrollHeight,d.body.scrollHeight)-w.innerHeight,header:d.querySelector('.sim-header').getBoundingClientRect().height,panel:p.clientHeight,stage:s.clientHeight};");
+  assert.ok(r.overflow<=1&&r.range<=1,`${label} ${width}x${height} bounded document ${JSON.stringify(r)}`);assert.ok(r.panel>=65);
+  if(width<480&&height<=450){assert.equal(r.panel,96);assert.ok(Math.abs(r.header+r.stage+r.panel-height)<=2,'short stage fills the space above the fixed panel');}
+  else assert.ok(r.stage>=195);
   for(let family=0;family<5;family++){
    await click(cdp,`[data-question="${family}"]`);assert.equal((await state(cdp)).question,family);
    const bounds=await call(cdp,"return [...d.querySelectorAll('#questionNav button')].map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height];});");assert.ok(bounds.every(([w,h])=>w>=32&&h>=44));

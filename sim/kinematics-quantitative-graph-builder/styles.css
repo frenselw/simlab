@@ -37,6 +37,7 @@ button, input { font: inherit; } button { min-height: 44px; border: 1px solid #9
 .graph-app.is-compact .page-header { padding: .3rem .6rem; }
 .graph-app.is-compact .page-header h1 { font-size: 1rem; }
 .graph-app.is-compact .page-header p { display: none; }
+@media (max-width:199px) { .graph-app.is-compact .page-header h1 { font-size:.875rem; line-height:1.2; } }
 @media (max-width: 819px) { .page-header { grid-template-columns: minmax(0, 1fr); align-items: start; column-gap: 0; }.page-header h1, .page-header p, .progress { grid-column: 1; }.page-header h1 { grid-row: 1; }.page-header p { grid-row: 2; }.progress { grid-row: 3; justify-content: flex-start; margin-top: .3rem; gap: .2rem; }.progress li button { padding-right: .5rem; padding-left: .5rem; } }
 @media (max-height: 420px) { .page-header { padding: .3rem .6rem; }.page-header h1 { font-size: 1rem; }.page-header p { display: none; } }
 @media (min-width: 820px) { .graph-app { grid-template-columns: clamp(18rem, 24vw, 25rem) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }.page-header { padding: .8rem 1rem; }.controls-panel { grid-column: 1; grid-row: 2; padding: .8rem; border-right: 1px solid #cbd5e1; }.stage-region { grid-column: 2; grid-row: 2; border-bottom: 0; } }
