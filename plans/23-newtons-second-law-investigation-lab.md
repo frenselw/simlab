@@ -1,5 +1,7 @@
 # 牛頓第二定律：公平測試與數據作圖實驗室
 
+> **2026-10-13 CI 字體補修：** 320×400 的緊湊座標預覽改以 Arial／sans-serif 顯示數字，維持原有 16px／18px 字級、2× 放大及座標／單位分欄。Windows Chrome 強制 Noto Sans TC／Noto Serif TC 的聚焦檢查重現舊版數字字框超出下邊界；修正後 source／ZIP 的 24 次 touch／pen 預覽及 4 組進度流程通過，正常 `--experience` 的全版面及同一流程亦通過。保留原有可讀性／分隔／舞台邊界斷言，失敗診斷新增實際文字字框與字體資料；本機字體重現不等於已驗證 Linux、真實 Moodle 或手機。
+
 > **本輪短播放器補修：** 480px 闊／320px 高等短橫向畫面採 stage／panel 左右排列，避免舞台最小高度把 controls 擠出 viewport；保留字體與 touch target 尺寸，並核對最後控制可達。Summary/check 沒有舞台的頁面維持全高 panel。實際適用斷點及結果見[驗證記錄](../docs/mobile-scroll-repair-verification-2026-10-01.md)。
 
 > **2026-10-01 手機滾動修復：** 已把空白／側帶交回 native，保留資料點、超出範圍點、force slider、preview 及取消交接。collect、三組 plot、conclude、check、submitted、pending 已驗；conclude／check 的正式版面沒有舞台，明列舞台手勢 N/A，仍驗面板。

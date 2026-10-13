@@ -426,7 +426,9 @@ async function interactionChecks(cdp,base,label) {
 }
 async function previewReadout(cdp,embedded=false) {
   return call(cdp,`const m=d.getElementById('magnifier'),v=d.getElementById('magnifierSvg'),c=d.getElementById('previewCoordinates'),r=c.getBoundingClientRect(),mr=m.getBoundingClientRect(),s=d.getElementById('stage').getBoundingClientRect(),vb=v.viewBox.baseVal,p=v.querySelector('.data-point.selected');
-    return {visible:!m.hidden,values:[...c.querySelectorAll('strong')].map(e=>e.textContent),units:[...c.querySelectorAll('small')].map(e=>e.textContent),symbols:[...c.querySelectorAll('.preview-coordinate>span')].map(e=>e.textContent),
+    const bounds=e=>{const b=e.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};};
+    const textBounds=[...c.querySelectorAll('.preview-coordinate>*')].map(e=>{const range=d.createRange();range.selectNodeContents(e);const style=w.getComputedStyle(e);return {text:e.textContent,...bounds(range),font:style.fontFamily,size:style.fontSize,lineHeight:style.lineHeight};});
+    return {visible:!m.hidden,values:[...c.querySelectorAll('strong')].map(e=>e.textContent),units:[...c.querySelectorAll('small')].map(e=>e.textContent),symbols:[...c.querySelectorAll('.preview-coordinate>span')].map(e=>e.textContent),bounds:{magnifier:bounds(m),coordinates:bounds(c),text:textBounds},
       readable:[...c.querySelectorAll('.preview-coordinate>*')].every(e=>{const range=d.createRange();range.selectNodeContents(e);const b=range.getBoundingClientRect();return b.left>=r.left-.5&&b.right<=r.right+.5&&b.top>=mr.top+2&&b.bottom<=mr.bottom-2;}),
       separated:[...c.children].every(row=>{const boxes=[...row.children].map(e=>{const range=d.createRange();range.selectNodeContents(e);return range.getBoundingClientRect();});return boxes.slice(1).every((b,i)=>b.left>=boxes[i].right+1);}),
       insideStage:mr.left>=s.left&&mr.right<=s.right&&mr.top>=s.top&&mr.bottom<=s.bottom,clippedLabels:v.querySelectorAll('text').length,scale:v.clientWidth/vb.width,

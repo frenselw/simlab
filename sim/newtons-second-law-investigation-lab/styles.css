@@ -47,7 +47,7 @@ sub { font-size: .7em; font-style: normal; }
 .preview-readout { align-self: center; min-width: 0; padding: 3px 6px; color: #173c68; }
 .preview-title { font-size: 12px; line-height: 14px; color: #526276; margin-bottom: 2px; }
 .preview-coordinate { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: baseline; gap: 3px; line-height: 22px; white-space: nowrap; font-size: 14px; }
-.preview-coordinate strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.preview-coordinate strong { font-family: Arial, sans-serif; font-size: 18px; font-variant-numeric: tabular-nums; }
 .preview-coordinate small { font-size: 12px; color: #526276; }
 .magnifier.compact .preview-readout { padding-block: 2px; }
 .magnifier.compact .preview-title { font-size: 11px; line-height: 11px; margin-bottom: 1px; }
