@@ -33,7 +33,7 @@ async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,so
   assert.equal(shape.w,92);assert.equal(shape.h,78);assert.equal(shape.plain,0);assert(shape.unit&&shape.needle);assert.equal(shape.ports,type==='ac-wattmeter'?4:0);assert.equal(shape.ticks,type==='ac-wattmeter'?61:31);checks+=6;
  }
  assert.deepEqual(await inside(`[...document.querySelectorAll('[data-port-label^="c3:"]')].map(e=>e.dataset.tex)`),['I_{+}','I_{-}','V_{+}','V_{-}']);checks++;
- for(const id of ['c1','c2','c3','c4']){await click('[data-hit="body:'+id+'"]',true);for(let n=0;n<4;n++){const result=await headingClear('[data-component='+id+']');assert(result.inside&&result.above&&result.ticksInside&&result.plain===0,JSON.stringify({id,rotation:n,result}));checks++;await click('[data-circuit-id=rotateSelected]');}}
+ for(const id of ['c1','c2','c3','c4']){await click('[data-hit="body:'+id+'"]',true);for(let n=0;n<8;n++){const result=await headingClear('[data-component='+id+']');assert(result.inside&&result.above&&result.ticksInside&&result.plain===0,JSON.stringify({id,rotation:n,result}));checks++;await click('[data-circuit-id=rotateSelected]');}}
  for(let n=0;n<4;n++)await click('[data-camera=out]');assert(await terminalClear());checks++;await call('fit()');
  assert(await inside('document.querySelector("[data-component=c4] [data-meter-symbol]").dataset.tex==="\\\\mathrm{G}"'));checks++;
  await screenshot(source+'-compact-ac-meters');await click('[data-circuit-id=schematicView]');
@@ -47,7 +47,7 @@ async function meterDesignCases({inside,call,click,point,cdp,touch,screenshot,so
  await call('loadDocument('+JSON.stringify(fixture('ac-wattmeter'))+')');await call('advanceTime(1.1)');await click('[data-hit="body:c2"]',true);
  assert(await inside('document.querySelector(".reading-host").textContent.includes("電流端")&&[...document.querySelectorAll(".reading-host [data-tex]")].some(e=>e.dataset.tex==="I_{+}")'));checks++;
  const beforeRotation=await call('captureSession()');
- for(let i=0;i<4;i++){await click('[data-circuit-id=rotateSelected]');assert.equal(await call('getAnalysis().time'),beforeRotation.physics.time);assert(await inside(`document.querySelectorAll('[data-port-label^="c2:"] [data-mml-node=msub]').length===4`));checks+=2;}
+ for(let i=0;i<8;i++){await click('[data-circuit-id=rotateSelected]');assert.equal(await call('getAnalysis().time'),beforeRotation.physics.time);assert(await inside(`document.querySelectorAll('[data-port-label^="c2:"] [data-mml-node=msub]').length===4`));checks+=2;}
  const saved=await call('captureSession()');assert.equal(saved.document.components[1].angle,beforeRotation.document.components[1].angle);assert.deepEqual(saved.physics,beforeRotation.physics);checks+=2;
  await screenshot(source+'-compact-ac-wattmeter-connected');
  // Trusted phone taps still select the compact body and open a readable dial.

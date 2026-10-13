@@ -56,11 +56,11 @@ async function presetCases(h,mode,base){
           const body='[data-hit="body:'+rheostat.id+'"]';if(width===320)await touch(await point(body),0,0);else await click(body);
           if(await inside('getComputedStyle(document.getElementById("focusSelected")).display!=="none"'))await click('#focusSelected');
           else{await click('#moreSelected');await click('[data-selection-action="focusSelected"]');}
-          const start=await point('[data-hit="slider:'+rheostat.id+'"]'),scale=await inside('CircuitWorkbench.getInteraction().camera.scale'),previous=(await doc()).components.find(c=>c.id===rheostat.id).params.position,dx=(position-previous)*60*scale;
-          if(width===320)await touch(start,dx,0);else{
+          const start=await point('[data-hit="slider:'+rheostat.id+'"]'),scale=await inside('CircuitWorkbench.getInteraction().camera.scale'),currentRheostat=(await doc()).components.find(c=>c.id===rheostat.id),distance=(position-currentRheostat.params.position)*60*scale,angle=currentRheostat.angle*Math.PI/180,dx=distance*Math.cos(angle),dy=distance*Math.sin(angle);
+          if(width===320)await touch(start,dx,dy);else{
             await send('Input.dispatchMouseEvent',{type:'mousePressed',...start,button:'left',buttons:1,clickCount:1});
-            for(let n=1;n<=6;n++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+dx*n/6,y:start.y,button:'left',buttons:1});
-            await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:start.x+dx,y:start.y,button:'left',buttons:0,clickCount:1});
+            for(let n=1;n<=6;n++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+dx*n/6,y:start.y+dy*n/6,button:'left',buttons:1});
+            await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:start.x+dx,y:start.y+dy,button:'left',buttons:0,clickCount:1});
           }
           assert(Math.abs((await doc()).components.find(c=>c.id===rheostat.id).params.position-position)<.011,'trusted slider drag reaches the intended position');
           const current=await inside('CircuitWorkbench.getAnalysis().components.c6.reading');currents.push(current);
@@ -105,7 +105,7 @@ async function presetCases(h,mode,base){
       if(await inside('!document.getElementById("focusSelected").hidden'))await click('#focusSelected');
       const original=await save(),readings=await inside('CircuitWorkbench.getAnalysis()'),ids=(await doc()).wires.map(w=>[w.from,w.to,w.length]);
       await inside(`window.__rotationEvents=[];if(!window.__rotationWatching){__rotationWatching=true;document.getElementById('rotateSelected').addEventListener('click',e=>__rotationEvents.push({type:e.type,trusted:e.isTrusted}));}`);
-      for(const angle of [90,180,270,0]){
+      for(const angle of [45,90,135,180,225,270,315,0]){
         if(width===320)await touch(await point('#rotateSelected'),0,0);else await click('#rotateSelected');
         await delay(20);const after=await doc();assert.equal(after.components.find(v=>v.id===c.id).angle,angle,'trusted rotation completes');
         assert.deepEqual(after.wires.map(w=>[w.from,w.to,w.length]),ids,'rotation preserves terminal IDs and finite cable lengths');
@@ -119,10 +119,10 @@ async function presetCases(h,mode,base){
         if(view==='real'&&meters==='analog'&&port==='a'&&[90,270].includes(angle))await screenshot(`${mode}-rotated-${type}-${angle}-${width}.png`);
         evidence.push({mode,meterRotation:true,type,port,width,view,meters,angle,terminalIdsFixed:true,readingsFixed:true,socketsAligned:samples});
       }
-      const rotated=await save();for(let n=0;n<4;n++)await click('#undo');assert.equal(await save(),original,'four rotations are exactly four undo transactions');
-      for(let n=0;n<4;n++)await click('#redo');assert.equal(await save(),rotated,'redo restores the actual connector paths');
+      const rotated=await save();for(let n=0;n<8;n++)await click('#undo');assert.equal(await save(),original,'eight rotations are exactly eight undo transactions');
+      for(let n=0;n<8;n++)await click('#redo');assert.equal(await save(),rotated,'redo restores the actual connector paths');
       await touch(await point('#quickWire'),0,0);assert.equal((await doc()).wires.length,d.wires.length+1);await click('#undo');assert.equal(await save(),rotated,'normal cable editing works after rotation');
-      const events=await inside('__rotationEvents');assert.equal(events.length,4);assert(events.every(e=>e.trusted),'all four rotate actions use native mouse/touch');
+      const events=await inside('__rotationEvents');assert.equal(events.length,8);assert(events.every(e=>e.trusted),'all eight rotate actions use native mouse/touch');
     }
   }
 }
