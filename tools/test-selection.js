@@ -4,6 +4,7 @@ const {entryInfo} = require('./test-runner');
 const {XMLParser} = require('fast-xml-parser');
 const baseline = require('../docs/ci-test-baseline-2026-10-13.json');
 const owners = new Map(baseline.entries.map(e => [e.file, e.owner]));
+const evidenceDocs = new Set(['docs/ci-test-baseline-2026-10-13.md','docs/ci-test-split-2026-10-13.md','docs/ci-test-optimization-2026-10-13.md']);
 const circuitScopes = new Set(['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust']);
 const circuitInputs = new Set(baseline.entries.filter(e => e.owner === 'circuit-family')
   .flatMap(e => [e.file, ...e.caseModules.map(m => 'tools/' + m + '.js')]));
@@ -69,7 +70,7 @@ function selectAffected(tests, paths, {trustedEmpty = false, forceFullReason = n
   if (!paths.length) return trustedEmpty ? {mode:'fast', entries:fast, reasons:['Qualified unchanged main commit'], packages:[], paths} :
     full('Empty range has no qualified main success');
   const isPolicy = p => p === 'AGENTS.md' || p === 'plans/00-shared-platform-and-style.md' ||
-    p === 'plans/34-ci-test-improvement-plan.md' || p === 'docs/simulation-scorm-production-guide.md' || /^docs\/ci-/.test(p);
+    p === 'plans/34-ci-test-improvement-plan.md' || p === 'docs/simulation-scorm-production-guide.md' || (/^docs\/ci-/.test(p) && !evidenceDocs.has(p));
   const isDoc = p => p === 'README.md' || /^(plans|docs)\/.*\.md$/.test(p);
   if (paths.every(p => isDoc(p) && !isPolicy(p))) return {mode:'docs', entries:[], reasons:['Only ordinary documentation changed'], packages:[], paths};
   try { assets ||= assetOwners(); } catch (e) { return full('Could not validate asset consumers: ' + e.message); }

@@ -349,7 +349,9 @@ P3 已切換 Quality 的 affected 選擇，新增獨立 Quality Full（手動精
 
 直線運動 unload 清理已先告知使用者並獨立提交 fd2e3d0，物理、評分及操作未改；本機完整 real-browser 和兩輪 GitHub 全量均通過。本批另外修正舊 phone smoke 的 CSS 隱藏按鈕 fixture 及選單操作，原等待的 source／ZIP 已通過，模擬未改。
 
-P4 候選校準見 [量測記錄](../docs/ci-test-optimization-2026-10-13.md)。普通點按的 phone／rotation 校準通過，fullscreen 額外 native-event 探針未通過，保留首次證據及原時序。保守候選已整理成未提交的正式 helper 改動：頂層普通手勢改用狀態等待，sample／cancel／iframe／fullscreen 保留原等待。Source／ZIP 全部 74 個 case／mode 區塊本機通過（含完整中斷矩陣），另有 phone 定向重複；Linux 提速驗收及正式採用尚未完成。Shared-core 15–25 分鐘目標仍未達標。
+P4 校準見 [量測記錄](../docs/ci-test-optimization-2026-10-13.md)。普通點按的 phone／rotation 校準通過，fullscreen 額外 native-event 探針未通過，保留首次證據及原時序。保守候選已提交為 6a5d395：頂層普通手勢改用狀態等待，sample／cancel／iframe／fullscreen 保留原等待。Source／ZIP 全部 74 個 case／mode 區塊本機通過（含完整中斷矩陣），另有 phone 定向重複。
+
+固定 Linux run 38463646905 完整成功，234 入口＋五個 checks、九份報告及 receipt 的 SHA／plan／job 身份已核對。從 run 建立至最後 job 結束 41 分 51 秒、156.98 runner 分鐘；main 基準同口徑 43 分 55 秒、174.88 runner 分鐘。ZIP editing 減少 32.5%；四片測試 2156.85／2198.40／2187.39／1985.35 秒。已依成功報告準備新權重，重新分片的估算約 35.4–35.6 分鐘，仍須下一輪實際驗證。全平台 shared 改動須完整回歸，15–25 分鐘目標尚未達標，不能以估算或全量 45 分鐘目標達標代替。正式採用及剩餘限制驗收未完成。
 
 ## 15. 獨立審核記錄
 

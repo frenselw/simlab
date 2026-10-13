@@ -113,3 +113,42 @@ P3 shared／unknown 全量演練完成並核對後，已滿足 P4 開始條件�
 本批將正式候選提交至開發分支供固定 Linux 全量驗證：DC 一般手勢採
 狀態等待，原採樣／取消／宿主時序不變；AC 只增加 RMS 探針耗時診斷，
 原預算及斷言不變。候選尚未合併 main，不以本機成功宣稱 Linux 提速完成。
+
+後續盤點發現 selector 的 `docs/ci-*` 政策分類也包含三份純證據 Markdown，
+使單純更新耗時／失敗記錄觸發全量。候選改為明列這三份記錄走文件層；
+機器讀取的 baseline JSON、未知 CI 文件、正式計劃及生產契約仍保守全量。
+混合程式改動和未驗證 main base 仍全量；selector、baseline／rerun 及 plan
+自檢通過。此改動在本機準備，待現有 run 38463646905 完成後才與實測
+分片權重一併提交，避免取消正在量測的首次完整 P4 run。
+
+量測期間 GitHub 的 jobs endpoint 連續回傳 HTTP 502，CLI watcher 因而退出；
+run endpoint 隨後確認相同 38463646905 仍在執行，沒有重啟 CI。共用 API
+client 原本會立即退出，候選對唯讀 GET 的 502／503／504 保留首次診斷並
+重試一次，第二次仍失敗即報錯。403、無效資料及 gate assertion 保持失敗。
+此為已觀察到的服務故障處理，不增加產品 assertion 的重跑綠燈機制。
+
+P4 run 38463646905 的第一份 browser-4 報告已核對通過：ZIP editing
+從 main 同環境的 1236.355 秒降至 835.127 秒，減少約 32.5%；完整 AC
+1097.596 秒（原 1045.434 秒），另外兩個活動入口亦成功。Node／Chrome、
+Ubuntu image 20261004.327.1、CJK 字體指紋與 main 對照相同。
+這是單入口實測，整體 wall time／runner 用量仍待其他三片及完整 gate；
+證據為 output/ci-tests/p4-first-browser-report。
+
+## 首輪 P4 固定 Linux 完整结果
+
+run 38463646905（6a5d395）完成 234 個正式入口及五個 checks，全部成功。
+九份報告、完整 job／entry 集合、receipt、SHA／plan／policy 均已核對。
+證據為 output/ci-tests/p4-linux-final，含 run-metadata、verified-summary、
+duration-analysis 及依完整成功入口產生的 proposed-test-durations.json。
+
+統一按 run createdAt 至最後 job completedAt 計算：P4 2511 秒
+（41 分 51 秒）、156.98 runner 分鐘；main 基準 2635 秒（43 分 55 秒）、
+174.88 runner 分鐘。總等待減少 4.7%，runner 用量減少 10.2%。
+四片純測試合計由 9855.21 秒降至 8527.99 秒，減少約 13.5%；
+等待改善比純測試小，需同時記錄 setup／上傳／gate 的服務耗時。
+
+全部 234 個權重依此成功 run 更新。使用同一 LPT 分配器的估算為
+2125.84／2138.24／2135.38／2128.52 秒，較當輪最慢 2198.40 秒約減少
+一分鐘；這是編排估算，尚未當作新 CI 成功耗時。
+本批另包含純證據文檔分類及已觀察到的 API 伺服器故障重試修正；
+下一次固定 Linux 全量會核對整批候選，模擬 runtime 沒有修改。
