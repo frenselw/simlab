@@ -1,7 +1,7 @@
 # SimLab 測試與 GitHub CI 改善計劃
 
 日期：2026-10-13。
-狀態：P0–P2 完成；P3 切換與實際演練進行中，P4 尚待交接。
+狀態：P0–P3 完成；P4 已開始，Linux 提速及最終時間驗收待完成。
 規劃分支：codex/improve-ci-testing。
 盤點基準：a8be3a5dc738421ea5824cb83dff597263434cfe。
 
@@ -343,11 +343,13 @@ P2 先在幾個代表改動上比較選擇結果：文件、單活動、電路�
 
 P2 本機 DC 四個群組的 source／ZIP 共 74 區塊通過；GitHub run 38423093499（7685a24）亦完成 233 正式入口、五個 checks、74 個區塊及 aggregate／check，全數成功。原有 216 入口有去向；P1／P2 sim runtime 完全一致，固定 Ubuntu image、Node、Chrome 及 CJK 字體指紋一致，完整覆蓋及同環境對照已達標。整體 48 分 50 秒，仍未達 45 分鐘目標；新的分配採此成功 run 的實測權重。
 
-P3 已切換 Quality 的 affected 選擇，新增獨立 Quality Full（手動精確 ref、每日 03:30 Macau），保持同一正式 executor／清單及不同 check／full-check。原始 plan 的重跑恢复、未知／未驗證 main base 全量退回、各 job 最新結果、實際 workflow revision、summary、格式比較範圍及操作文件均有自檢。當前 main 尚無同政策合格 receipt，首輪日常仍應全量退回；手動／schedule 只有部署至 default branch 後才生效，不能以 YAML 解析宣稱已完成觸發演練。P3 的代表性實際演練與 P4 均未完成。
+P3 已切換 Quality 的 affected 選擇，新增獨立 Quality Full（手動精確 ref、每日 03:30 Macau），保持同一正式 executor／清單及不同 check／full-check。原始 plan 的重跑恢復、未知／未驗證 main base 全量退回、各 job 最新結果、實際 workflow revision、summary、格式比較範圍及操作文件均有自檢。33ebdd2 的 main push run 38450529982 完整成功，合格 receipt 已核對；獨立手動 Full run 38450808884 亦完整成功，分別耗時 43 分 56 秒及 44 分 36 秒。Workflow 已部署 default branch，實際 schedule 事件尚未觀察到，不能以 YAML 解析宣稱排程已執行。
+
+代表性 CI 演練全部成功：文件 run 38457469392、68 秒；單活動 run 38457469887、5 分 4 秒；共享核心 run 38457468861、44 分 34 秒；未知路徑 run 38457468272、44 分 37 秒。後兩者完整 234 入口及五個 checks 的實際 job、報告、receipt 與不可變 plan 均已核對；四份 plan 的比較基底均為已核對的 main 33ebdd2。日常 check、獨立 full-check、代表選跑及未知全量演練滿足 P3 → P4 交接。
 
 直線運動 unload 清理已先告知使用者並獨立提交 fd2e3d0，物理、評分及操作未改；本機完整 real-browser 和兩輪 GitHub 全量均通過。本批另外修正舊 phone smoke 的 CSS 隱藏按鈕 fixture 及選單操作，原等待的 source／ZIP 已通過，模擬未改。
 
-P4 候選校準見 [初步記錄](../docs/ci-test-optimization-2026-10-13.md)。普通點按在 phone／rotation 通過，但 fullscreen 的額外 native-event 探針未通過；首次失敗資料保留，正式 touch helper 未修改，不把這些 focused 成功當作 P4 完成。
+P4 候選校準見 [量測記錄](../docs/ci-test-optimization-2026-10-13.md)。普通點按的 phone／rotation 校準通過，fullscreen 額外 native-event 探針未通過，保留首次證據及原時序。保守候選已整理成未提交的正式 helper 改動：頂層普通手勢改用狀態等待，sample／cancel／iframe／fullscreen 保留原等待。Source／ZIP 全部 74 個 case／mode 區塊本機通過（含完整中斷矩陣），另有 phone 定向重複；Linux 提速驗收及正式採用尚未完成。Shared-core 15–25 分鐘目標仍未達標。
 
 ## 15. 獨立審核記錄
 

@@ -70,7 +70,7 @@ browser 各最多四片，按基準成功耗時分配；每片只執行不可變
 完整成功、case／mode 集合及環境對照已完成，允許啟用 P3 日常選跑與獨立 full-check。
 時間尚未達標，P4 仍待量測及優化；人工、真手機及真 Moodle 驗收仍按生產指南。
 
-## P3 首輪實際結果（尚未完成）
+## P3 首輪歷史失敗
 
 bbab7fe 的 run 38434350961 已實際選擇 full，原因是 main 尚無同政策合格成功
 基準。Plan、全部 202 Node 入口及五個 checks 成功，SHA／workflow revision／
@@ -104,3 +104,43 @@ takeRecords queue 的 long task 都保留。失敗預算檢查前保存當時畫
 完成 run 的 API job 時間比較：P1 等待 3513 秒、180.35 runner 分鐘；P2 等待
 2930 秒、181.65 runner 分鐘。等待減少 16.6%，用量增加約 0.7%。P2 的 browser
 setup 約 25–37 秒，上傳及結束約 5–8 秒，主要成本仍在案例執行。
+
+## 已驗證版本與實際啟用
+
+33ebdd2 的 [run 38443342666](https://github.com/frenselw/simlab/actions/runs/38443342666)
+完整成功，九個來源報告／receipt 核對 234 個正式入口及五個 checks，全部 passed。
+整體 18:01:05–18:45:26 UTC，44 分 21 秒，達到首輪全量 45 分鐘目標。
+此成功不抹除 bbab7fe 首次 113ms 失敗，也不能證明其發生階段。
+
+main 已由 a8be3a5 正常 fast-forward 至相同 33ebdd2 並推送，沒有合併暫存
+CSS fixture 或後續未提交診斷。正式 main push run 38450529982 和指定精確
+33ebdd2 的 Quality Full workflow_dispatch run 38450808884 分開執行中；
+完成後才會查證合格 main receipt 及 independent full-check。每日 03:30 Macau
+workflow 已存在 default branch，實際 schedule 事件仍須另記錄。
+
+四個單提交演練分支已於獨立 managed worktree 準備，本機 diff 及 selector 核對
+文件 docs、單活動 affected（203 Node＋該活動 browser）、shared／unknown full。
+其參考 base 為 33ebdd2，尚未推送；需先取得該 SHA 正式 main 成功來源。
+Fixture 只改 README、兩個 CSS 註解或未知文字檔，驗證後清理，不能合併 main。
+
+main push run 38450529982 與獨立 full-check run 38450808884 其後全數成功，
+分別耗時 43 分 56 秒及 44 分 36 秒。正式 main receipt 的 repository、workflow ID、
+push event、main ref、精確 SHA、同政策 hash 14910dc5…、plan hash 及九份完整
+報告已核對合格；independent Full 自己完成完整 gates，未借用日常結果。
+
+四個 probe 已推送：docs run 38457469392 僅 docs job（links＋diff format），
+不需 browser 的 matrix 正確 skipped，aggregate／check 成功，總耗時 68 秒。
+activity run 38457469887 選擇全部 203 Node、該活動一個完整 browser 入口及
+該套件 checks，沒有選其他活動；全部成功，總耗時 5 分 4 秒。
+shared run 38457468861、unknown run 38457468272 的真實 plan 均為 full／234
+入口／兩類打包，正在完成。四份 plan 的基底來源均為已查證的 main 33ebdd2。
+這是初輪代表樣本，長期 median／P95 仍按正常開發二十次觀察累積。
+
+兩個全量 probe 其後全部成功：shared run 38457468861 耗時 2674 秒
+（44 分 34 秒）、181.82 runner 分鐘；unknown run 38457468272 耗時
+2677 秒（44 分 37 秒）、180.63 runner 分鐘。各自九份報告覆蓋 234 個
+正式入口及五個 checks，plan hash、tested SHA、policy、實際 job ID 與
+receipt 均已核對。證據保留於 output/ci-tests/p3-probe-shared-final 及
+p3-probe-unknown-final，含 authoritative run metadata 與 verified-summary.json。
+至此 P3 的四類實際演練、日常 check 與独立 full-check 完成，允許開始 P4。
+Shared-core 15–25 分鐘仍未達標；排程 workflow 已部署，尚無實際 schedule 事件證據。

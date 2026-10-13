@@ -140,7 +140,18 @@ async function main() {
     async function until(expression) { for(let i=0;i<100;i++){if(await inside(expression))return;await delay(30);}throw new Error('Condition timed out: '+expression); }
     async function dragMouse(selector, dx, dy) { const p = await point(selector,true); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", buttons: 1, clickCount: 1 }); for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x + dx * i / 6, y: p.y + dy * i / 6, button: "left", buttons: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x + dx, y: p.y + dy, button: "left", buttons: 0, clickCount: 1 }); }
     let nextTouchId = 100;
-    async function touch(p, dx, dy, sample, cancel = false) { const id = nextTouchId++, points = (i) => [{ x: p.x + dx * i / 8, y: p.y + dy * i / 8, id, radiusX: 2, radiusY: 2, force: 1 }]; await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(0) }); await delay(25); if (sample) await sample(); for (let i = 1; i <= 8; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(i) }); await delay(22); if (sample) await sample(); } await cdp.send("Input.dispatchTouchEvent", { type: cancel ? "touchCancel" : "touchEnd", touchPoints: [] }); for (const t of [30, 120, 400]) { await delay(t); if (sample) await sample(); } }
+    async function touch(p, dx, dy, sample, cancel = false) {
+      // Keep calibrated timing for sampled/cancelled gestures and host/fullscreen inputs.
+      if(!sample&&!cancel&&context==='window'&&await inside('(()=>{const e=document.elementFromPoint('+p.x+','+p.y+');return Boolean(e&&!e.closest("#fullscreenButton"));})()')){
+        const id=nextTouchId++,points=i=>[{x:p.x+dx*i/8,y:p.y+dy*i/8,id,radiusX:2,radiusY:2,force:1}];
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points(0)});await delay(25);
+        if(dx||dy)for(let i=1;i<=8;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:points(i)});await delay(22);}
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await until('(()=>{const s=CircuitWorkbench.getInteraction();return !s.dragging&&!s.touchCount&&!s.touchBlocked;})()');
+        await inside('document.fonts.ready');await inside('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');return;
+      }
+      const id = nextTouchId++, points = (i) => [{ x: p.x + dx * i / 8, y: p.y + dy * i / 8, id, radiusX: 2, radiusY: 2, force: 1 }]; await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(0) }); await delay(25); if (sample) await sample(); for (let i = 1; i <= 8; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(i) }); await delay(22); if (sample) await sample(); } await cdp.send("Input.dispatchTouchEvent", { type: cancel ? "touchCancel" : "touchEnd", touchPoints: [] }); for (const t of [30, 120, 400]) { await delay(t); if (sample) await sample(); }
+    }
     async function touchStroke(points, sample, cancel=false) {
       const id=nextTouchId++, contact=async p=>[{...await scenePoint(p),id,radiusX:2,radiusY:2,force:1}];
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:await contact(points[0])});await delay(25);if(sample)await sample();
