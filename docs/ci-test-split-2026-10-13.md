@@ -69,3 +69,38 @@ P2 的 GitHub 執行仍跑完整登記聯集，只輸出 selector 的 shadow pla
 browser 各最多四片，按基準成功耗時分配；每片只執行不可變 plan 指定的入口。
 完整成功、case／mode 集合及環境對照已完成，允許啟用 P3 日常選跑與獨立 full-check。
 時間尚未達標，P4 仍待量測及優化；人工、真手機及真 Moodle 驗收仍按生產指南。
+
+## P3 首輪實際結果（尚未完成）
+
+bbab7fe 的 run 38434350961 已實際選擇 full，原因是 main 尚無同政策合格成功
+基準。Plan、全部 202 Node 入口及五個 checks 成功，SHA／workflow revision／
+plan hash 已從 artifacts 核對。Browser-4 的 package editing 成功；AC browser
+在 ZIP、390px、L=1 的 protection budget 發現 113ms long task，超過原 100ms
+上限；integration maxAdvance 約 25.2ms、可信輸入延遲約 25.3–52.5ms。
+首次 report／log／畫面保留於 output/ci-tests/p3-first-failure-report 及
+p3-first-failure-evidence。其他獨立入口繼續執行，未用重跑或放寬斷言掩蓋此失敗。
+原因尚待分類，P3 不宣稱完成，不部署至 main。
+
+該 run 其後已完成：其他三個 browser 分片全部成功；aggregate／check 正確失敗，
+沒有用其他成功結果掩蓋 AC 的失敗。九份最終報告與 gate log 保留於
+output/ci-tests/p3-complete-reports 及 p3-failed-gate.log。
+
+測試碼另發現性能 observer 一直覆蓋到測試專用 captureSession／getAnalysis
+診斷，混入了非播放／輸入工作。候選修正先 drain takeRecords 再停止觀察，
+保留所有已完成的 live-window long task，然後才做 snapshot 凍結及診斷。
+80ms integration／100ms input／100ms long-task 上限及物理斷言不變。
+新增自檢證明：測試專用 150ms snapshot 不再污染窗口，而 live-window 113ms
+仍被拒絕。這只證明測量邊界正確，尚未證明原 CI 113ms 的歸因；嚴格瀏覽器
+專項排在本機校準程序結束後執行，避免本機競爭負載。
+
+覆核補回原有暫停後 150ms 背景觀察：第一個 snapshot 前 drain／disconnect，
+讀完 snapshot 後重新觀察 paused-background 150ms，再 drain／disconnect 才讀
+第二個 snapshot。兩個實際觀察窗口與 snapshot 耗時分別記錄；暫停後真正
+113ms 工作亦由自檢確認會失敗，已由 callback delivered 的 long task 和尚在
+takeRecords queue 的 long task 都保留。失敗預算檢查前保存當時畫面。
+開發分支將在固定 Linux 重跑完整候選，而本機校準及安靜專項維持原排隊；
+兩者分開記錄，不能以候選通過反推原 113ms 的發生階段。
+
+完成 run 的 API job 時間比較：P1 等待 3513 秒、180.35 runner 分鐘；P2 等待
+2930 秒、181.65 runner 分鐘。等待減少 16.6%，用量增加約 0.7%。P2 的 browser
+setup 約 25–37 秒，上傳及結束約 5–8 秒，主要成本仍在案例執行。

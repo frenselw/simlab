@@ -229,7 +229,8 @@ const registeredTests = [
   "tools/ci-github.test.js",
   "tools/ci-prepare.test.js",
   "tools/ci-job.test.js",
-  "tools/ci-finish.test.js"
+  "tools/ci-finish.test.js",
+  "tools/circuit-protection-budget-browser-cases.test.js"
 ];
 
 const extraBrowserTests = [

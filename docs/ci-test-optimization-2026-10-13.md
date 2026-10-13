@@ -37,3 +37,18 @@ trusted touch click，沒有預期的 touch pointerdown／pointerup；增加頁�
 ready 或前後 RAF 均未解決。失敗 ledger、actual JSON 與截圖保留於
 output/ci-tests/tap-hosts-calibration、-v2、-v3、-v4、-root-only 各目錄。
 候選尚未採用；不能以 phone／rotation 的成功宣稱 fullscreen 校準通過。
+
+## 保守的手勢狀態等待候選
+
+output/ci-tests/gesture-experiment.js 只在頂層、非 fullscreen 的一般控制，且沒有
+sample／cancel 回調時改用狀態等待。Tap 不送零位移 move；drag 保留原 25ms
+touch-down 及八次 22ms 移動。TouchEnd 後等待 dragging、touchCount、touchBlocked
+清除，再等待字體及兩個 RAF；iframe／fullscreen／採樣／取消沿用原完整時間。
+只改忽略的編譯副本，正式 helper 尚未採用。
+
+此候選的 source／ZIP phone smoke 和完整 hosts 四區塊通過，保留原 viewport、
+pan、scroll ownership、fullscreen blocked／unsupported、模型／歷史斷言。
+證據為 output/ci-tests/gesture-calibration-phone/phone-usability.json 及
+gesture-calibration-hosts/coverage.json。完整 editing／instruments、Linux 與重複
+驗證仍待完成。獨立 header 最小診斷記錄了完整可信事件，完整宿主前序的探針
+仍未定位；保留原時序以避免把未校準範圍納入提速。
