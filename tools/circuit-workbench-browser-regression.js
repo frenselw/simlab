@@ -33,7 +33,10 @@ const {wireInspectorCases}=require("./circuit-wire-inspector-browser-cases");
 const {wireResistanceCases}=require("./circuit-wire-resistance-browser-cases");
 const {wireCurrentCases}=require('./circuit-wire-current-browser-cases');
 const {settingsCases}=require('./circuit-settings-browser-cases');
-const root = path.resolve(__dirname, ".."), output = path.join(root, "output/playwright/circuit-workbench");
+const {parseCircuitSelection,createCoverage}=require('./circuit-test-groups');
+const root = path.resolve(__dirname, "..");
+const output = path.resolve(process.env.SIMLAB_BROWSER_OUTPUT || path.join(root, "output/playwright/circuit-workbench",
+  process.argv.find(a=>a.startsWith('--group=')) ? process.argv.find(a=>a.startsWith('--group=')).slice(8)+'-'+(process.argv.find(a=>a.startsWith('--entry='))?.slice(8)||'both') : '.'));
 function fixture() { const d = M.empty(); M.add(d, "battery", 180, 220); M.add(d, "resistor", 340, 220); return d; }
 function hostedServer(directory) {
   const server = createServer(directory), normal = server.listeners("request")[0]; server.removeAllListeners("request");
@@ -45,8 +48,8 @@ function hostedServer(directory) {
   }); return server;
 }
 async function main() {
-  const entryFlag=process.argv.find(arg=>arg.startsWith('--entry='));
-  if(entryFlag&&!['--entry=source','--entry=package'].includes(entryFlag))throw new Error('Expected --entry=source or --entry=package');
+  const {groupFlag,group,fullRun,entryFlag}=parseCircuitSelection(process.argv.slice(2));
+  if(groupFlag)process.argv.splice(process.argv.indexOf(groupFlag),1);
   // Entry selection partitions the full matrix; it is not a focused smoke filter.
   if(entryFlag)process.argv.splice(process.argv.indexOf(entryFlag),1);
   const layoutOnly=process.argv.includes('--layout-smoke');
@@ -85,6 +88,10 @@ async function main() {
   const settingsOnly=process.argv.includes('--settings-smoke');
   const textbookOnly=process.argv.includes('--textbook-smoke')||process.argv.includes('--textbook-ui-smoke');
   let server, chrome, cdp, profile, extracted; const temp = fs.realpathSync(os.tmpdir()), evidence = [], errors = []; fs.mkdirSync(output, { recursive: true });
+  const coverage=fullRun?createCoverage(group,entryFlag?[entryFlag.slice(8)]:['source','package'],output):null;
+  const beginCase=(mode,id)=>coverage?coverage.begin(mode,id):true;
+  const endCase=(mode,id)=>coverage?.end(mode,id);
+  const runCase=(mode,id,fn)=>coverage?coverage.run(mode,id,fn):fn();
   try {
     if(!process.argv.includes('--textbook-report')){extracted = fs.mkdtempSync(path.join(temp, "simlab-circuit-package-")); new AdmZip(build()).extractAllTo(extracted);}
     profile = fs.mkdtempSync(path.join(temp, "simlab-circuit-chrome-"));
@@ -230,7 +237,7 @@ async function main() {
     for(const [mode,directory]of [['source',path.join(root,'sim')],['package',extracted]].filter(([mode])=>!entryFlag||entryFlag==='--entry='+mode)){
       console.log(`${mode}: physical cable mouse flows`);server=hostedServer(directory);await listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
       await freshPage();context='window';await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();await delay(100);
-      assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c1.current'),-.25);await screenshot(`${mode}-physical-cables.png`);
+      if(beginCase(mode,'startup')){assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c1.current'),-.25);await screenshot(`${mode}-physical-cables.png`);endCase(mode,'startup');}
       if(wireCurrentOnly){await wireCurrentCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
     if(wireResistanceOnly){await wireResistanceCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
       if(helpOnly){await helpCases(cameraHarness,mode,base);await closeServer(server);server=null;continue;}
@@ -279,7 +286,7 @@ async function main() {
       if(mathOnly){await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);if(!labelsOnly&&!layoutOnly){await closeServer(server);server=null;continue;}}
       if(labelsOnly){await labelCases(cameraHarness,mode,base);if(!layoutOnly){await closeServer(server);server=null;continue;}await presetCases(cameraHarness,mode,base);}
       if(layoutOnly){await canvasLayoutCases(cameraHarness,mode,base);await cameraCases(cameraHarness,mode,base);}
-      if(!process.argv.includes('--interruption-smoke')&&!layoutOnly&&!continuationOnly){
+      if(!process.argv.includes('--interruption-smoke')&&!layoutOnly&&!continuationOnly&&beginCase(mode,'inline-editing')){
       await reviewCases(cameraHarness,mode,base);await freshPage();context='window';await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();
       await click('#schematicView');assert.equal((await doc()).display.view,'schematic');await click('#realView');await click('[data-hit="body:c2"]');assert.equal(await inside('CircuitWorkbench.getAnalysis().components.c1.current'),0);await click('[data-hit="body:c2"]');
       await load(fixture());await inside('window.__changes=[];window.__off=CircuitWorkbench.onChange(d=>__changes.push(d))');
@@ -322,11 +329,37 @@ async function main() {
       const touched=await save();await touch(await point(await wireTarget('w1')),0,-20);assert.notEqual(await save(),touched);await click('#undo');assert.equal(await save(),touched);assert((await inside('__events')).some(e=>e.type==='pointerup'&&e.trusted&&e.pointer==='touch'));await screenshot(`${mode}-phone-cables.png`);
       await click('#pan');const panDoc=await save(),panCamera=await inside('CircuitWorkbench.getInteraction().camera');await touch(await point('#surface'),40,-40);assert.notDeepEqual(await inside('CircuitWorkbench.getInteraction().camera'),panCamera);assert.equal(await save(),panDoc);await click('#pan');await click('[data-camera=fit]');
       const fullDoc=await save();await touch(await point('#fullscreenButton'),0,0);await until('document.fullscreenElement?.id==="app"');assert.equal(await save(),fullDoc);await inside('document.exitFullscreen()');await until('!document.fullscreenElement && document.getElementById("fullscreenButton").getAttribute("aria-pressed")==="false"');evidence.push({mode,trustedPhysicalTouch:true,panning:true,phoneFullscreen:true});
-      await cameraCases(cameraHarness,mode,base);await presetCases(cameraHarness,mode,base);await labelCases(cameraHarness,mode,base);await meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href);await meterSnappingCases(cameraHarness,mode,base);await cableHandlingCases(cameraHarness,mode,base);await feedbackCases(cameraHarness,mode,base);await flowCases(cameraHarness,mode,base);await flowScaleCases(cameraHarness,mode,base);await flowDragCases(cameraHarness,mode,base);await wireInspectorCases(cameraHarness,mode,base);await wireResistanceCases(cameraHarness,mode,base);await wireCurrentCases(cameraHarness,mode,base);await helpCases(cameraHarness,mode,base);await microFlowCases(cameraHarness,mode,base);await componentFlowCases(cameraHarness,mode,base);await quickControlsCases(cameraHarness,mode,base);await relayCases(cameraHarness,mode,base);await componentSnappingCases(cameraHarness,mode,base);await activityCases(cameraHarness,mode,base);await foundationCases(cameraHarness,mode,base,output);await textbookCases(cameraHarness,mode,base);await refinements(mode,base);await bendTrajectories(mode,base);
+      endCase(mode,'inline-editing');
+      }
+      if(!process.argv.includes('--interruption-smoke')&&!layoutOnly&&!continuationOnly){
+        await runCase(mode,'camera',()=>cameraCases(cameraHarness,mode,base));
+        await runCase(mode,'presets',()=>presetCases(cameraHarness,mode,base));
+        await runCase(mode,'labels',()=>labelCases(cameraHarness,mode,base));
+        await runCase(mode,'meterMath',()=>meterMathCases(cameraHarness,mode,base,require('node:url').pathToFileURL(path.join(directory,'circuit-workbench/index.html')).href));
+        await runCase(mode,'meterSnapping',()=>meterSnappingCases(cameraHarness,mode,base));
+        await runCase(mode,'cableHandling',()=>cableHandlingCases(cameraHarness,mode,base));
+        await runCase(mode,'feedback',()=>feedbackCases(cameraHarness,mode,base));
+        await runCase(mode,'flow',()=>flowCases(cameraHarness,mode,base));
+        await runCase(mode,'flowScale',()=>flowScaleCases(cameraHarness,mode,base));
+        await runCase(mode,'flowDrag',()=>flowDragCases(cameraHarness,mode,base));
+        await runCase(mode,'wireInspector',()=>wireInspectorCases(cameraHarness,mode,base));
+        await runCase(mode,'wireResistance',()=>wireResistanceCases(cameraHarness,mode,base));
+        await runCase(mode,'wireCurrent',()=>wireCurrentCases(cameraHarness,mode,base));
+        await runCase(mode,'help',()=>helpCases(cameraHarness,mode,base));
+        await runCase(mode,'microFlow',()=>microFlowCases(cameraHarness,mode,base));
+        await runCase(mode,'componentFlow',()=>componentFlowCases(cameraHarness,mode,base));
+        await runCase(mode,'quickControls',()=>quickControlsCases(cameraHarness,mode,base));
+        await runCase(mode,'relay',()=>relayCases(cameraHarness,mode,base));
+        await runCase(mode,'componentSnapping',()=>componentSnappingCases(cameraHarness,mode,base));
+        await runCase(mode,'activity',()=>activityCases(cameraHarness,mode,base));
+        await runCase(mode,'foundation',()=>foundationCases(cameraHarness,mode,base,output));
+        await runCase(mode,'textbook',()=>textbookCases(cameraHarness,mode,base));
+        await runCase(mode,'refinements',()=>refinements(mode,base));
+        await runCase(mode,'bends',()=>bendTrajectories(mode,base));
       }
       await freshPage();context='window';await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html'});await ready();
       console.log(`${mode}: interruption rollback matrix`);
-      if(!layoutOnly){
+      if(!layoutOnly&&beginCase(mode,'interruptions')){
       for(const operation of ['body','wireend','anchored-end','junction','slider','wire','free-wire','overlap-wire','pan'])for(const abort of ['cancel','outside-second-touch','lost-capture','blur-signal','resize']){
         const onlyCase=process.argv.find(arg=>arg.startsWith('--interrupt-case='))?.split('=')[1];if(onlyCase&&onlyCase!==operation+':'+abort)continue;
         const targetSelector=await setupOperation(operation);await click('[data-camera=in]'); // Freeze automatic overview fitting during cancellation checks.
@@ -342,8 +375,10 @@ async function main() {
         else{const selectorNow=['wire','free-wire'].includes(operation)?await wireTarget('w1'):targetSelector;await touch(await point(selectorNow),15,10);const resumed=await save();if(resumed===before){const failure={mode,operation,abort,selectorNow,before,resumed,interaction:await inside('CircuitWorkbench.getInteraction()'),trace:await inside('__interruptTrace')};fs.writeFileSync(path.join(output,`${mode}-interruption-failure.json`),JSON.stringify(failure,null,2));await screenshot(`${mode}-interruption-failure.png`);}assert.notEqual(resumed,before,`${operation} edits after ${abort}`);await click('#undo');assert.equal(await save(),before,'one legal resumed gesture is one undo');}
         evidence.push({mode,operation,abort,rolledBack:true,continued:true});
       }
+      endCase(mode,'interruptions');
       }
       if(process.argv.includes('--interruption-smoke')){await closeServer(server);server=null;continue;}
+      if(beginCase(mode,'host-ownership')){
       console.log(`${mode}: T1–T3 ownership and native scrolling`);
       for(const host of ['T1','T2','T3']){
         await freshPage();await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});context=host==='T2'?'window.document.getElementById("wrapper").contentWindow.document.getElementById("activity").contentWindow':'window.document.getElementById("activity").contentWindow';await cdp.send('Page.navigate',{url:base+'/__circuit-host?case='+host});await ready();await delay(100);
@@ -377,8 +412,32 @@ async function main() {
         await load(fixture());await reset();await hostedCameraCases(cameraHarness,mode,host,metrics);
         await touch(await point('.scroll-strip.left'),0,0);await delay(100);await load(fixture());await reset();if(await inside('document.getElementById("panelToggle").getAttribute("aria-expanded")==="false"'))await click('#panelToggle');await inside('document.getElementById("panel").scrollTop=100');const samples=[];await touch(await point('#panel'),0,-50,async()=>samples.push(await metrics()));assert(samples.at(-1).panel>samples[0].panel);await inside('document.getElementById("panel").scrollTop=1e6');await touch(await point('#panel'),0,-50,async()=>samples.push(await metrics()));await inside('document.getElementById("panel").scrollTop=0');await touch(await point('#panel'),0,50,async()=>samples.push(await metrics()));for(const s of samples){assert.equal(s.owner,200,'panel boundary containment');assert.equal(s.activity,0);assert.equal(s.wrapper,0);}evidence.push({mode,host,panel:true,samples});
       }
+      endCase(mode,'host-ownership');
+      }
+      if(beginCase(mode,'fullscreen-policy')){
       context='window.document.getElementById("activity").contentWindow';await cdp.send('Page.navigate',{url:base+'/__circuit-host?case=T1&blocked=1'});await ready();await evaluate(cdp,'scrollTo(0,200)');const blocked=await save();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="blocked"');assert.equal(await save(),blocked);evidence.push({mode,fullscreenBlocked:true});
-      context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});if(process.argv.length===2||continuationOnly)await teachingCases(cameraHarness,mode,base,output);if(process.argv.length===2){await discardCases(cameraHarness,mode,base);await paletteDragCases(cameraHarness,mode,base);await wireGripCases(cameraHarness,mode,base);await needleCases(cameraHarness,mode,base);await displayMirrorCases(cameraHarness,mode,base,output);await rotationCases(cameraHarness,mode,base);await settingsCases(cameraHarness,mode,base);}await closeServer(server);server=null;
+      context='window';await cdp.send('Page.navigate',{url:base+'/circuit-workbench/index.html?unsupported=1'});await ready();await touch(await point('#fullscreenButton'),0,0);await until('document.getElementById("fullscreenStatus").dataset.fullscreenError==="unsupported"');assert.equal(await inside('document.documentElement.scrollHeight-innerHeight'),0);evidence.push({mode,fullscreenUnsupported:true});endCase(mode,'fullscreen-policy');
+      }
+      if(fullRun||continuationOnly)await runCase(mode,'teaching',()=>teachingCases(cameraHarness,mode,base,output));
+      if(fullRun){
+        await runCase(mode,'discard',()=>discardCases(cameraHarness,mode,base));
+        await runCase(mode,'paletteDrag',()=>paletteDragCases(cameraHarness,mode,base));
+        await runCase(mode,'wireGrip',()=>wireGripCases(cameraHarness,mode,base));
+        await runCase(mode,'needle',()=>needleCases(cameraHarness,mode,base));
+        await runCase(mode,'displayMirror',()=>displayMirrorCases(cameraHarness,mode,base,output));
+        await runCase(mode,'rotation',()=>rotationCases(cameraHarness,mode,base));
+        await runCase(mode,'settings',()=>settingsCases(cameraHarness,mode,base));
+      }
+      await closeServer(server);server=null;
+    }
+    if(coverage){
+      coverage.finish();
+      if(group){
+        assert.deepEqual(errors,[],'no runtime exceptions');
+        fs.writeFileSync(path.join(output,'evidence.json'),JSON.stringify({group,coverage:coverage.entries,browser:await cdp.send('Browser.getVersion'),evidence},null,2));
+        console.log('DC '+group+' group passed: '+coverage.entries.length+' complete case/mode entries. Evidence: '+output);
+        return;
+      }
     }
     const bendOnly=process.argv.includes('--bend-smoke');
     if(reviewOnly||reviewZeroOnly||reviewFollowupOnly||reviewBoundaryOnly){assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,reviewBoundaryOnly?'audit-boundary.json':reviewFollowupOnly?'audit-followup.json':reviewZeroOnly?'audit-zero.json':'audit.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(`Audit regressions passed on source + ZIP: ${evidence.length} focused observations.`);return;}
@@ -412,7 +471,7 @@ async function main() {
       console.log(`Textbook browser verification passed on source + ZIP: ${evidence.length} observations, production files, rendered sockets and trusted representative construction. Evidence: ${output}/${filename}`);return;
     }
     assert.deepEqual(errors,[],'no runtime exceptions');fs.writeFileSync(path.join(output,flowOnly?'flow-motion.json':feedbackOnly?(process.argv.includes('--terminal-marks-only')?'meter-terminals.json':'feedback.json'):handlingOnly?'cable-handling.json':snappingOnly?'meter-snapping.json':mathOnly?(layoutOnly?'meters-math-and-layout.json':'meters-math.json'):labelsOnly?(layoutOnly?'canvas-and-labels.json':'adaptive-labels.json'):layoutOnly?'canvas-layouts.json':process.argv.includes('--preset-smoke')?'preset-layouts.json':process.argv.includes('--interruption-smoke')?'interruptions.json':process.argv.includes('--gesture-smoke')?'camera-gestures.json':bendOnly?'cable-trajectories.json':process.argv.includes('--refinement-smoke')?'refinements.json':process.argv.includes('--phone-smoke')?'phone-usability.json':'evidence.json'),JSON.stringify({generatedAt:new Date().toISOString(),filters:process.argv.slice(2),browser:await cdp.send('Browser.getVersion'),evidence},null,2));console.log(flowOnly ? `Current-linked flow passed on source + ZIP: actual electron/arrow SVG motion, speed ratios, continuous pause/current/reversal, zero/unknown suppression, reduced motion and production restore/continuation. Evidence: ${output}/flow-motion.json` : feedbackOnly && process.argv.includes('--terminal-marks-only') ? `Meter terminal marks passed on source + ZIP: actual in-case labels, legible phone zoom levels, four rotations and both views. Evidence: ${output}/meter-terminals.json` : feedbackOnly ? `Circuit feedback passed on source + ZIP: persistent trusted meter previews, rotated TeX terminal marks, visible power/hazards and shortest-wire history/continuation. Evidence: ${output}/feedback.json` : handlingOnly ? `Cable handling passed on source + ZIP: foreground smaller meters, trusted whole-body A/B pickup, transient nearest snap, finite shape/history, restore/continuation and selective touch previews. Evidence: ${output}/cable-handling.json` : snappingOnly ? `Meter snapping passed on source + ZIP: actual sockets at low/default zoom, three holes and rotations, trusted mouse/touch, exact endpoint/range, preview and history. Evidence: ${output}/meter-snapping.json` : mathOnly ? `Signed meters and LaTeX passed on source + ZIP: actual offset zero/negative ticks, trusted range change/reversal, vector glyphs and file launch with all HTTP(S) blocked${layoutOnly ? ", plus labels/preset/canvas/camera/host regression" : ""}. Evidence: ${output}/${layoutOnly ? "meters-math-and-layout.json" : "meters-math.json"}` : labelsOnly ? `Adaptive labels passed on source + ZIP; actual SVG text/wire/body clearance, trusted movement/rotation, independent controls and restoration${layoutOnly ? ", plus preset/camera/full-width/host regression" : ""}. Evidence: ${output}/${layoutOnly ? "canvas-and-labels.json" : "adaptive-labels.json"}` : layoutOnly ? `Full-width canvas passed on source + ZIP: narrow layouts, trusted edge editing, two-finger/desktop camera, fullscreen and T1–T3 native corner-grip scrolling. Evidence: ${output}/canvas-layouts.json` : process.argv.includes('--preset-smoke') ? `Classroom presets and physical socket rotation passed on source + ZIP. Evidence: ${output}/preset-layouts.json` : process.argv.includes('--interruption-smoke') ? `Circuit interruption rollback and continuation passed on source + ZIP. Evidence: ${output}/interruptions.json` : process.argv.includes('--gesture-smoke') ? `Camera gestures passed on source + ZIP; trusted two-finger pan/pinch, transition, cancellation, desktop shortcuts and preserved circuit/history. Evidence: ${output}/camera-gestures.json` : bendOnly ? `Continuous cable trajectories passed: source + ZIP, original + inward U, eight directions and inward pull, trusted mouse/touch frames, fixed ends/readings, reach, undo and cancellation. Evidence: ${output}/cable-trajectories.json` : process.argv.includes('--refinement-smoke') ? `Circuit refinements passed: source + ZIP, trusted overlap cable bending and three-socket range changes, accurate dual scales, 320/1280px and both views. Evidence: ${output}/refinements.json` : process.argv.includes('--phone-smoke') ? `Circuit phone usability passed: source + ZIP, 320px overview body tap, selected cable controls, focus, hand pan and fixed stock. Evidence: ${output}/phone-usability.json` : `Circuit physical cables passed: finite inventory/arc length, 0/1/2 connected ends, real common ends, trusted mouse/touch, two-finger camera and desktop shortcuts, continuous inward/outward bending, 9 full-view layouts, 90 interruption continuations and T1–T3 ownership. Evidence: ${output}`);
-  } finally {
+  } catch(error){coverage?.fail(error);throw error;} finally {
     if (chrome) await stopChrome(chrome, cdp); cdp?.close(); if (server) await closeServer(server);
     for (const [dir, regex] of [[profile, /^simlab-circuit-chrome-[A-Za-z0-9]+$/], [extracted, /^simlab-circuit-package-[A-Za-z0-9]+$/]]) if (dir && fs.existsSync(dir)) { validateOwnedDirectory(dir, temp, regex, "circuit browser test"); fs.rmSync(dir, { recursive: true, force: false, maxRetries:3, retryDelay:100 }); }
   }

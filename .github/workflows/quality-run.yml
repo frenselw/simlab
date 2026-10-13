@@ -1,0 +1,177 @@
+name: Quality execution
+on:
+  workflow_call:
+    inputs:
+      full:
+        type: boolean
+        default: true
+      shadow:
+        type: boolean
+        default: false
+      ref:
+        type: string
+        default: ''
+permissions:
+  contents: read
+  actions: read
+env:
+  SIMLAB_EXPECTED_NODE: '22.23.3'
+  SIMLAB_EXPECTED_CHROME: '154.0.8037.92'
+  SIMLAB_TEST_REPORT: output/ci-tests/report.json
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tested_sha: ${{ steps.plan.outputs.tested_sha }}
+      worker_matrix: ${{ steps.plan.outputs.worker_matrix }}
+      browser_matrix: ${{ steps.plan.outputs.browser_matrix }}
+      has_browser: ${{ steps.plan.outputs.has_browser }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/ci-setup
+      - name: Create or recover immutable plan
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FULL: ${{ inputs.full }}
+          SHADOW: ${{ inputs.shadow }}
+        run: |
+          args=()
+          if [ "$FULL" = true ]; then args+=(--full); fi
+          if [ "$SHADOW" = true ]; then args+=(--shadow); fi
+          node tools/ci-prepare.js "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.plan_reused != 'true'
+        with:
+          name: quality-plan-${{ github.run_id }}
+          path: output/ci-tests/plan.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve shadow selection
+        if: inputs.shadow && github.run_attempt == 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-shadow-${{ github.run_id }}
+          path: output/ci-tests/shadow-plan.json
+          if-no-files-found: error
+          retention-days: 14
+  worker:
+    name: ${{ matrix.key }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.worker_matrix) }}
+    env:
+      SIMLAB_JOB_KEY: ${{ matrix.key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: ./.github/actions/ci-setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: quality-plan-${{ github.run_id }}
+          path: output/ci-tests
+      - name: Run immutable planned tests
+        run: node tools/ci-job.js
+      - name: Preserve job report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.key }}
+          path: output/ci-tests/report.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.key }}
+          path: |
+            output/ci-tests/
+            output/circuit-platform-build.json
+          retention-days: 14
+  browser:
+    name: ${{ matrix.key }}
+    needs: plan
+    if: needs.plan.outputs.has_browser == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.browser_matrix) }}
+    env:
+      SIMLAB_JOB_KEY: ${{ matrix.key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: ./.github/actions/ci-setup
+        with:
+          browser: 'true'
+      - uses: actions/download-artifact@v4
+        with:
+          name: quality-plan-${{ github.run_id }}
+          path: output/ci-tests
+      - name: Run immutable planned tests
+        run: xvfb-run -a node tools/ci-job.js
+      - name: Preserve job report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.key }}
+          path: output/ci-tests/report.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.key }}
+          path: |
+            output/ci-tests/
+            output/playwright/
+            output/circuit-platform-build.json
+          retention-days: 14
+  aggregate:
+    if: always()
+    needs: [plan, worker, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require valid plan
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+        run: test "$PLAN_RESULT" = success
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: quality-plan-${{ github.run_id }}
+          path: output/ci-tests
+      - name: Verify every expected job and entry
+        run: node tools/ci-finish.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quality-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/ci-tests/receipt.json
+          if-no-files-found: error
+          retention-days: 14

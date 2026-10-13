@@ -4,6 +4,8 @@
   "scripts": {
     "check": "node tools/check.js",
     "test": "node tools/run-tests.js",
+    "test:fast": "node tools/run-tests.js --kind=node",
+    "test:affected": "node tools/run-tests.js --affected",
     "test:browser:position-time": "node tools/position-time-browser-regression.js",
     "test:browser:linear-motion": "node tools/linear-motion-browser-regression.js",
     "test:browser:driving": "node tools/kinematics-driving-browser-regression.js",

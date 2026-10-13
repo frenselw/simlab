@@ -1,0 +1,127 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
+const {createHash}=require('node:crypto');
+const {buildPlan,digest}=require('./ci-plan');
+const {parseNameStatus,selectAffected,commit}=require('./test-selection');
+const {client}=require('./ci-github');
+const root=path.resolve(__dirname,'..');
+function git(args,directory=root){
+ const r=spawnSync('git',args,{cwd:directory,encoding:'utf8'});
+ if(r.status!==0)throw Error('CI Git operation failed: '+r.stderr);return r.stdout.trim();
+}
+function diff(directory,base,head){
+ const r=spawnSync('git',['diff','--name-status','-z','--find-renames',base,head,'--'],{cwd:directory,encoding:'utf8'});
+ if(r.status!==0)throw Error('CI Git diff failed: '+r.stderr);return parseNameStatus(r.stdout);
+}
+function policyHash(directory=root){
+ const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
+ const files=[...walk(path.join(directory,'tools')),...walk(path.join(directory,'.github')),
+  ...walk(path.join(directory,'sim')).filter(f=>f.endsWith('.test.js')),
+  ...['package.json','package-lock.json','docs/ci-test-baseline-2026-10-13.json'].map(f=>path.join(directory,f))].sort();
+ const h=createHash('sha256');for(const f of files)h.update(path.relative(directory,f)).update(fs.readFileSync(f));return h.digest('hex');
+}
+function validateMainReceipt(run,receipt,{repository,workflowId,policy}){
+ return run.repository?.full_name===repository&&run.workflow_id===workflowId&&run.event==='push'&&run.head_branch==='main'&&
+  run.conclusion==='success'&&receipt.status==='passed'&&receipt.repository===repository&&receipt.workflowId===workflowId&&
+  receipt.event==='push'&&receipt.branch==='main'&&receipt.sha===run.head_sha&&receipt.policyHash===policy&&
+  receipt.complete===true&&Array.isArray(receipt.sources)&&receipt.sources.length>0;
+}
+async function qualifiedMain(api,{repository,policy,sha,directory=root}){
+ const workflow=await api.json('actions/workflows/quality.yml');
+ const runs=await api.pages('actions/workflows/'+workflow.id+'/runs?branch=main&event=push&status=success','workflow_runs');
+ for(const run of runs){
+  const ancestry=spawnSync('git',['merge-base','--is-ancestor',run.head_sha,sha],{cwd:directory});
+  if(ancestry.status!==0)continue;
+  const artifacts=await api.pages('actions/runs/'+run.id+'/artifacts','artifacts');
+  const receiptArtifact=artifacts.filter(a=>!a.expired&&a.name.startsWith('quality-receipt-'+run.id+'-')).sort((a,b)=>b.id-a.id)[0];
+  if(!receiptArtifact)continue;
+  const receipt=await api.artifactJSON(receiptArtifact,'receipt.json');
+  if(validateMainReceipt({...run,repository:{full_name:repository}},receipt,{repository,workflowId:workflow.id,policy})){
+   return {sha:run.head_sha,runId:run.id,artifactId:receiptArtifact.id,workflowId:workflow.id};
+  }
+ }
+ return null;
+}
+function eventComparison({event,payload,sha,ref,baseline,directory=root}){
+ const comparison={event,testedSHA:sha,baseSHA:null,headSHA:sha,paths:[],forceFullReason:null,baseline};
+ try{
+  if(event==='pull_request'){
+   if(!/^refs\/pull\/\d+\/merge$/.test(ref))throw Error('PR verification requires the merge ref');
+   const base=commit(directory,payload.pull_request.base.sha),head=commit(directory,payload.pull_request.head.sha);
+   const parents=git(['rev-list','--parents','-n','1',sha],directory).split(' ');
+   if(parents.length!==3||parents[1]!==base||parents[2]!==head)throw Error('Checkout does not match the PR merge candidate');
+   const ancestor=git(['merge-base',base,head],directory);
+   comparison.baseSHA=base;comparison.headSHA=head;
+   comparison.paths=[...new Set([...diff(directory,ancestor,head),...diff(directory,base,sha)])];
+  }else if(event==='push'){
+   const before=payload.before;
+   const main=ref==='refs/heads/main';
+   const base=main?(baseline?.sha||before):git(['merge-base','origin/main',sha],directory);
+   if(!base||/^0+$/.test(base))throw Error('No usable pushed baseline');
+   comparison.baseSHA=commit(directory,base);
+   comparison.paths=diff(directory,comparison.baseSHA,sha);
+   if(before&&!/^0+$/.test(before)){
+    const resolved=commit(directory,before);
+    const ancestry=spawnSync('git',['merge-base','--is-ancestor',resolved,sha],{cwd:directory});
+    if(ancestry.status!==0)throw Error('Force-push baseline is not an ancestor');
+    comparison.paths=[...new Set([...comparison.paths,...diff(directory,resolved,sha)])];
+   }
+  }else throw Error('Unsupported daily event: '+event);
+  if(!baseline)comparison.forceFullReason='No qualified successful main baseline';
+ }catch(e){
+  if(event==='pull_request')throw e;
+  comparison.forceFullReason=e.message;
+ }
+ return comparison;
+}
+async function prepare({full=false,directory=root,env=process.env,api=null}={}){
+ const {tests}=require('./run-tests');
+ const sha=commit(directory,'HEAD'),policy=policyHash(directory);
+ const payload=env.GITHUB_EVENT_PATH?JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH,'utf8')):{};
+ if(!full&&sha!==env.GITHUB_SHA)throw Error('Tested checkout differs from the event SHA');
+ let baseline=null,queryError=null;
+ if(!full)try{baseline=await qualifiedMain(api||client(),{repository:env.GITHUB_REPOSITORY,policy,sha,directory});}catch(e){queryError=e.message;}
+ const comparison=full?{event:env.GITHUB_EVENT_NAME,testedSHA:sha,paths:[]}:
+  eventComparison({event:env.GITHUB_EVENT_NAME,payload,sha,ref:env.GITHUB_REF,baseline,directory});
+ if(queryError)comparison.forceFullReason='Main evidence query failed: '+queryError;
+ const selection=full?null:selectAffected(tests,comparison.paths,{trustedEmpty:baseline?.sha===sha,forceFullReason:comparison.forceFullReason});
+ const timingFile=path.join(root,'tools/test-durations.json');
+ const durations=fs.existsSync(timingFile)?JSON.parse(fs.readFileSync(timingFile,'utf8')).seconds:{};
+ const plan=buildPlan({tests,selection,runId:env.GITHUB_RUN_ID,sha,policyHash:policy,comparison,durations});
+ plan.repository=env.GITHUB_REPOSITORY;plan.workflow=env.GITHUB_WORKFLOW;
+ plan.event=env.GITHUB_EVENT_NAME;plan.branch=env.GITHUB_REF_NAME;
+ delete plan.hash;plan.hash=digest(plan);
+ return plan;
+}
+async function main(){
+ const full=process.argv.includes('--full');
+ let plan,reused=false;
+ if(Number(process.env.GITHUB_RUN_ATTEMPT||'1')>1){
+  const api=client(),artifacts=await api.pages('actions/runs/'+process.env.GITHUB_RUN_ID+'/artifacts','artifacts');
+  const original=artifacts.find(a=>a.name==='quality-plan-'+process.env.GITHUB_RUN_ID&&!a.expired);
+  if(!original)throw Error('Original immutable plan is missing; start a new full verification run');
+  plan=await api.artifactJSON(original,'plan.json');
+  const {hash,...data}=plan;
+  if(hash!==digest(data)||plan.sha!==commit(root,'HEAD')||plan.policyHash!==policyHash())throw Error('Original plan no longer matches this checkout/policy');
+  reused=true;
+ }else plan=await prepare({full});
+ fs.mkdirSync(path.join(root,'output/ci-tests'),{recursive:true});
+ if(process.argv.includes('--shadow')&&!reused){
+  const shadow=await prepare();
+  fs.writeFileSync(path.join(root,'output/ci-tests/shadow-plan.json'),JSON.stringify(shadow,null,2)+'\n');
+ }
+ fs.writeFileSync(path.join(root,'output/ci-tests/plan.json'),JSON.stringify(plan,null,2)+'\n');
+ const outputs={
+  tested_sha:plan.sha,
+  worker_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind!=='browser').map(j=>({key:j.key}))),
+  node_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind==='node').map(j=>({key:j.key}))),
+  browser_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind==='browser').map(j=>({key:j.key}))),
+  has_node:String(plan.jobs.some(j=>j.kind==='node')),has_browser:String(plan.jobs.some(j=>j.kind==='browser')),
+  has_checks:String(plan.jobs.some(j=>j.kind==='checks')),has_docs:String(plan.jobs.some(j=>j.kind==='docs')),
+  plan_reused:String(reused)
+ };
+ if(process.env.GITHUB_OUTPUT)fs.appendFileSync(process.env.GITHUB_OUTPUT,Object.entries(outputs).map(([k,v])=>k+'='+v).join('\n')+'\n');
+ console.log(JSON.stringify({scope:plan.scope,sha:plan.sha,jobs:plan.jobs.map(j=>({key:j.key,entries:j.expected.length})),reasons:plan.reasons},null,2));
+}
+if(require.main===module)main().catch(e=>{console.error(e.stack);process.exitCode=1;});
+module.exports={prepare,eventComparison,validateMainReceipt,policyHash,diff};

@@ -74,3 +74,5 @@ Node 的剩餘失敗同樣是 dangling-lead 重新投影的動態 i 差 5.6e-17�
 [run 38390520505](https://github.com/frenselw/simlab/actions/runs/38390520505)，63bdade：AppArmor 設定及版本核對成功，啟動檢查因生成腳本時誤加一個「＋」網址參數而 exit 13。已改用明確 Bash 參數陣列。這次未執行正式測試，不當作通過；錯誤在啟動檢查的 log 直接定位。
 
 [run 38393137514](https://github.com/frenselw/simlab/actions/runs/38393137514)，243cf75：四個完整 suite 分片全部成功，extra browser 只有 linear-motion 及 mobile-touch 因原直線運動的 unload Permissions Policy 訊息失敗。已先告知使用者，獨立移除直線運動的無效 unload RAF 清理及閒置 frameId；六個 Node 檢查和完整 linear-motion real-browser regression 通過（含慢 LMS commit、手機輸入、草稿恢復與合法續作、所有提交結果及未提交解答隔離）。未放寬 diagnostics gate，未增加活動-local pagehide／pageshow。
+
+[run 38401477675](https://github.com/frenselw/simlab/actions/runs/38401477675)，fd2e3d0：四個 suite、extra browser、語法／manifest、SCORM 及電路平台打包全部成功。下載並核對五份 report，218 個入口全部 passed，SHA／環境可追溯。此為 P1 完整成功基準；P2 的分組及旁路比較見 [分組驗證記錄](ci-test-split-2026-10-13.md)。

@@ -1,7 +1,7 @@
 # SimLab 測試與 GitHub CI 改善計劃
 
 日期：2026-10-13。
-狀態：使用者已批准按交接條件連續實作，P0／P1 執行中。
+狀態：使用者已批准按交接條件連續實作；P0／P1 完成，P2 待 GitHub 完整驗證。
 規劃分支：codex/improve-ci-testing。
 盤點基準：a8be3a5dc738421ea5824cb83dff597263434cfe。
 
@@ -339,7 +339,13 @@ P2 先在幾個代表改動上比較選擇結果：文件、單活動、電路�
 - [x] 使用者審閱並批准按交接條件連續實作。
 - [ ] P0–P4 實施及逐批驗收。
 
-實施證據見 [P0／P1 基準盤點](../docs/ci-test-baseline-2026-10-13.md)及其機讀清單。P0 已完成；P1 實作、本機 193 Node 入口、source／ZIP scope 208 觀察、兩類打包及語法／manifest 驗證通過，固定 GitHub 環境的全量仍須驗證。P2 按交接條件繼續，P3 尚未啟用。
+實施證據見 [P0／P1 基準盤點](../docs/ci-test-baseline-2026-10-13.md)及 [P2 分組驗證](../docs/ci-test-split-2026-10-13.md)。P0 已完成；P1 固定 Ubuntu／Node／Chrome 的完整 GitHub run 38401477675（fd2e3d0）全部成功，218 個正式入口、語法／manifest 及兩類打包均通過。先前啟動與 unload 失敗及修復證據保留，未放寬 diagnostics gate。
+
+P2 本機 DC editing、instruments、interruptions、hosts 的 source／ZIP 全部通過，37 個原 case block × 兩個 mode 共 74 個完成區塊。runner 核對原 216 清單的其餘 214 個入口仍在；目前 233 入口（202 Node、31 browser），新增工具自檢另計。選擇器及 Git 事件／不可變 plan／結果彙總自檢通過。GitHub 的新分組全量與 shadow plan 尚待推送驗證；P3 尚未啟用。
+
+直線運動 runtime 的 unload 清理修正已先告知使用者並獨立提交 fd2e3d0，物理、評分及操作未改；本機完整 real-browser 和 GitHub 全量均已通過。除此之外，本批只改測試、CI 工具及文件。
+
+按耗時分配、GitHub 證據讀取及跨 attempt 最新結果 gate 已接上 P2 完整 workflow，自檢通過，真實 CI 演練待驗證。日常仍全跑並保存選擇器 shadow plan；P3 切換仍要求固定 Linux 的完整結果及覆蓋對照。P4 等待與速度優化尚未執行。
 
 ## 15. 獨立審核記錄
 

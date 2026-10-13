@@ -28,11 +28,12 @@ function main(args) {
     }
     return console.log('Tracked checkout unchanged.');
   }
-  if (args.length) throw new Error('Unknown environment option');
-  const browser = findBrowser();
-  if (!browser) throw new Error('Configured Chrome executable is missing');
-  const version = output(browser, ['--version']);
-  const fonts = process.platform === 'linux' ? output('fc-match', ['-f', '%{family}|%{file}', 'sans-serif:lang=zh-tw']) : null;
+  const nodeOnly=args.length===1&&args[0]==='--node-only';
+  if (args.length&&!nodeOnly) throw new Error('Unknown environment option');
+  const browser = nodeOnly?null:findBrowser();
+  if (!nodeOnly&&!browser) throw new Error('Configured Chrome executable is missing');
+  const version = browser?output(browser, ['--version']):'';
+  const fonts = !nodeOnly&&process.platform === 'linux' ? output('fc-match', ['-f', '%{family}|%{file}', 'sans-serif:lang=zh-tw']) : null;
   const report = {
     node: process.versions.node, chrome: version.match(/\d+\.\d+\.\d+\.\d+/)?.[0],
     chromePath: browser, chromeVersionText: version, platform: process.platform, arch: process.arch,
@@ -46,7 +47,7 @@ function main(args) {
   const target = path.resolve(process.env.SIMLAB_ENVIRONMENT_REPORT || 'output/ci-tests/environment.json');
   fs.mkdirSync(path.dirname(target), {recursive: true});
   fs.writeFileSync(target, JSON.stringify(report, null, 2) + '\n');
-  validateVersions(report, {node: process.env.SIMLAB_EXPECTED_NODE, chrome: process.env.SIMLAB_EXPECTED_CHROME});
+  validateVersions(report, {node: process.env.SIMLAB_EXPECTED_NODE, chrome: nodeOnly?null:process.env.SIMLAB_EXPECTED_CHROME});
   if (process.env.GITHUB_ACTIONS === 'true' && trackedDiff(root)) throw new Error('Tracked checkout must be clean before validation');
   console.log(JSON.stringify(report, null, 2));
 }

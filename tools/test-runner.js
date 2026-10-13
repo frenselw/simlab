@@ -8,7 +8,8 @@ const {createHash} = require('node:crypto');
 function entryInfo(test) {
   const file = typeof test === 'string' ? test : test.file;
   const args = typeof test === 'string' ? [] : test.args || [];
-  return {id: [file, ...args].join(' '), file, args, kind: file.endsWith('.test.js') ? 'node' : 'browser'};
+  return {id: typeof test==='object'&&test.id ? test.id : [file, ...args].join(' '), file, args,
+    kind: typeof test==='object'&&test.kind ? test.kind : file.endsWith('.test.js') ? 'node' : 'browser'};
 }
 
 function summary(report) {
@@ -18,6 +19,15 @@ function summary(report) {
     ...report.entries.map(e => '| ' + e.id + ' | ' + e.status + ' | ' + (e.durationMs / 1000).toFixed(2) + ' |'),
     '', 'Result: ' + report.status + '. Expected: ' + report.expected.length + '.',
     ...report.errors.map(e => 'Error: ' + e), ''].join('\n');
+}
+
+function validateInventory(tests,root) {
+  const entries=tests.map(entryInfo),files=new Set(entries.map(e=>e.file));
+  if(new Set(entries.map(e=>e.id)).size!==entries.length)throw Error('Duplicate registered test identity');
+  for(const e of entries)if(!fs.existsSync(path.resolve(root,e.file)))throw Error('Registered test does not exist: '+e.file);
+  const walk=directory=>fs.readdirSync(directory,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(directory,e.name)):
+    e.name.endsWith('.test.js')?[path.relative(root,path.join(directory,e.name)).replaceAll('\\','/')]:[]);
+  for(const file of ['sim','tools'].flatMap(d=>walk(path.join(root,d))))if(!files.has(file))throw Error('Unregistered test: '+file);
 }
 
 function trackedDiff(root) {
@@ -79,7 +89,7 @@ async function runTests(tests, options = {}) {
   const report = {schemaVersion: 1, runId: process.env.GITHUB_RUN_ID || 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT || '1', jobKey: process.env.SIMLAB_JOB_KEY || 'local',
     sha: git.status === 0 ? git.stdout.trim() : 'fixture', event: process.env.GITHUB_EVENT_NAME || 'local',
-    environment, worktreeDirty: git.status === 0 ? !!trackedDiff(root) : null,
+    environment, worktreeDirty: git.status === 0 ? !!trackedDiff(root) : null,ciPlanHash:options.ciPlanHash||null,
     planHash: createHash('sha256').update(JSON.stringify(entries)).digest('hex'),
     expected: entries.map(e => e.id), entries: entries.map(e => ({...e, status: 'pending', durationMs: 0})),
     errors: [], status: 'running', startedAt: new Date().toISOString()};
@@ -102,7 +112,7 @@ async function runTests(tests, options = {}) {
       if (options.output !== false) console.log('\n[' + (i + 1) + '/' + entries.length + '] ' + entries[i].id);
       report.entries[i] = {...report.entries[i], status: 'running'};
       await write();
-      const timeoutMs = options.timeoutMs || (entries[i].kind === 'node' ? 120000 : 3600000);
+      const timeoutMs = options.timeoutMs || (entries[i].kind === 'browser' ? 3600000 : 120000);
       report.entries[i] = await executeEntry(entries[i], {root, directory, timeoutMs, output: options.output});
       await write();
       if (report.entries[i].status === 'cancelled') break;
@@ -126,4 +136,4 @@ async function runTests(tests, options = {}) {
   return report;
 }
 
-module.exports = {entryInfo, runTests, summary, trackedDiff};
+module.exports = {entryInfo, runTests, summary, trackedDiff,validateInventory};

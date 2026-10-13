@@ -1,131 +1,27 @@
 name: Quality
-
 on:
   push:
   pull_request:
-
 permissions:
   contents: read
-
+  actions: read
 concurrency:
   group: quality-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  SIMLAB_EXPECTED_NODE: '22.23.3'
-  SIMLAB_EXPECTED_CHROME: '154.0.8037.92'
-  SIMLAB_TEST_REPORT: output/ci-tests/report.json
-
 jobs:
-  suite:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 70
-    env:
-      SIMLAB_JOB_KEY: suite-${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22.23.3'
-          cache: npm
-      - uses: browser-actions/setup-chrome@v2
-        id: chrome
-        with:
-          chrome-version: '154.0.8037.92'
-      - name: Install CJK browser fonts
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk
-      - run: npm ci
-        id: install
-      - name: Record and verify environment
-        run: xvfb-run -a node tools/ci-environment.js
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - name: Verify sandboxed Chrome startup
-        run: bash tools/setup-ci-chrome.sh
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - run: npm run check
-        if: matrix.shard == 1
-      - run: xvfb-run -a npm test -- --suite=registered --shard=${{ matrix.shard }}/4
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - name: Verify all package types
-        if: ${{ !cancelled() && matrix.shard == 1 && steps.install.outcome == 'success' }}
-        run: |
-          npm run package:all
-          npm run package:circuit-platform
-          node tools/ci-environment.js --check-clean
-      - name: Preserve timing, logs and browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-${{ github.run_id }}-${{ github.run_attempt }}-suite-${{ matrix.shard }}
-          path: |
-            output/ci-tests/
-            output/playwright/
-            output/circuit-platform-build.json
-          retention-days: 14
-          if-no-files-found: error
-
-  browser:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      SIMLAB_JOB_KEY: browser-extra
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22.23.3'
-          cache: npm
-      - uses: browser-actions/setup-chrome@v2
-        id: chrome
-        with:
-          chrome-version: '154.0.8037.92'
-      - name: Install CJK browser fonts
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk
-      - run: npm ci
-      - name: Record and verify environment
-        run: xvfb-run -a node tools/ci-environment.js
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - name: Verify sandboxed Chrome startup
-        run: bash tools/setup-ci-chrome.sh
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - run: xvfb-run -a npm test -- --suite=extra
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-      - name: Preserve timing, logs and browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-${{ github.run_id }}-${{ github.run_attempt }}-browser-extra
-          path: |
-            output/ci-tests/
-            output/playwright/
-          retention-days: 14
-          if-no-files-found: error
-
-  # Preserve the existing required check: both parallel jobs must succeed.
+  verification:
+    uses: ./.github/workflows/quality-run.yml
+    with:
+      # P2 preserves full coverage while recording selection decisions.
+      full: true
+      shadow: true
   check:
-    if: ${{ always() }}
-    needs: [suite, browser]
+    if: always()
+    needs: verification
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every quality job to pass
+      - name: Require complete verification
         env:
-          SUITE_RESULT: ${{ needs.suite.result }}
-          BROWSER_RESULT: ${{ needs.browser.result }}
-        run: |
-          test "$SUITE_RESULT" = "success"
-          test "$BROWSER_RESULT" = "success"
+          RESULT: ${{ needs.verification.result }}
+        run: test "$RESULT" = success

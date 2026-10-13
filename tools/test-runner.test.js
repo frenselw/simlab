@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
-const {runTests, entryInfo} = require('./test-runner');
+const {runTests, entryInfo,validateInventory} = require('./test-runner');
 
 async function main() {
   const parent = path.resolve(__dirname, '../output/ci-tests');
@@ -39,6 +39,10 @@ async function main() {
       entryInfo({file: 'a.js', args: ['--entry=package']}).id);
     await assert.rejects(runTests([], {root, reportPath}), /nonempty/);
     await assert.rejects(runTests(['pass.js', 'pass.js'], {root, reportPath}), /unique/);
+    fs.mkdirSync(path.join(root,'sim'));fs.mkdirSync(path.join(root,'tools'));
+    fs.writeFileSync(path.join(root,'sim/unregistered.test.js'),'');
+    assert.throws(()=>validateInventory(['pass.js'],root),/Unregistered test/);
+    validateInventory(['pass.js','sim/unregistered.test.js'],root);
   } finally {
     assert.equal(path.dirname(root), parent);
     assert(path.basename(root).startsWith('runner-fixture-'));

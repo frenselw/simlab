@@ -10,10 +10,16 @@ for (const count of [1, 2, 4]) {
   assert.deepEqual([...assigned].sort(), tests.map(test => JSON.stringify(test)).sort());
   assert(Math.max(...shards.map(shard => shard.length)) - Math.min(...shards.map(shard => shard.length)) <= 1);
 }
-assert.deepEqual(tests.filter(test => typeof test !== 'string'), [
-  {file: 'tools/circuit-workbench-browser-regression.js', args: ['--entry=source']},
-  {file: 'tools/circuit-workbench-browser-regression.js', args: ['--entry=package']}
-], 'the full source and full ZIP matrices each run once');
+const {groups}=require('./circuit-test-groups');
+const {entryInfo}=require('./test-runner');
+const baseline=require('../docs/ci-test-baseline-2026-10-13.json');
+const currentIds=new Set(tests.map(t=>entryInfo(t).id));
+for(const entry of baseline.entries.filter(e=>e.file!=='tools/circuit-workbench-browser-regression.js')){
+  assert(currentIds.has(entry.id),'original full-CI entry must remain registered: '+entry.id);
+}
+assert.deepEqual(tests.filter(test => typeof test !== 'string'),
+  groups.flatMap(group=>['source','package'].map(mode=>({file:'tools/circuit-workbench-browser-regression.js',args:['--entry='+mode,'--group='+group]}))),
+  'every full source/ZIP group runs exactly once');
 for (const invalid of ['--shard=0/4', '--shard=5/4', '--shard=1/0', '--shard=1/99999', '--shard=1.5/4', '--shard=foo', '--unknown']) assert.throws(() => selectTests(tests, invalid));
 assert.deepEqual(plannedTests(parseOptions(['--suite=registered'])), registeredTests);
 assert.deepEqual(plannedTests(parseOptions(['--suite=extra'])), extraBrowserTests);
@@ -21,4 +27,8 @@ assert.equal(extraBrowserTests.length, 6, 'all six former workflow-only browser 
 assert(plannedTests(parseOptions(['--kind=node'])).every(t => (typeof t === 'string' ? t : t.file).endsWith('.test.js')));
 assert.equal(plannedTests(parseOptions(['--suite=extra', '--kind=browser'])).length, 6);
 for (const args of [['--wat'], ['--suite=wat'], ['--kind=wat'], ['--list', '--list']]) assert.throws(() => parseOptions(args));
+assert.throws(()=>parseOptions(['--base=HEAD']),/both/);
+assert.equal(parseOptions(['--base=HEAD^','--head=HEAD','--plan']).plan,true);
+assert.throws(()=>parseOptions(['--base=HEAD^','--head=HEAD','--kind=node']),/cannot be combined/);
+assert.throws(()=>parseOptions(['--affected']),/requires/);
 console.log('Test shards preserve every registered check exactly once.');
