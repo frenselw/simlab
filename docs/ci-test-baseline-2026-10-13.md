@@ -69,4 +69,6 @@ P1 推送後需檢查固定 Linux／Chrome／Node 的完整執行與 artifacts�
 
 [run 38387558907](https://github.com/frenselw/simlab/actions/runs/38387558907)，bee8e0c：首次固定版 Chrome 啟動被 Ubuntu AppArmor 的 user namespace 限制阻止，browser 失敗均留有 per-entry log／report。新增只針對下載 binary 的 AppArmor profile，保持 Chromium sandbox，並在測試前以 15 秒有界 about:blank 啟動檢查提早揭露環境故障。實作依 [Chromium 官方指引](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md)，未關閉全系統限制。
 
-Node 的剩餘失敗同樣是 dangling-lead 重新投影的動態 i 差 5.6e-17，原先只修復了 restore-continuation 的比較；此次將同一 machine-epsilon helper 用於該 dynamic 比較，time／phase／measurements 等仍精確相等。瀏覽器啟動遇 SIGTRAP 會立即報错，避免已終止程序仍等待 30 秒及反覆嘗試。
+Node 的剩餘失敗同樣是 dangling-lead 重新投影的動態 i 差 5.6e-17，原先只修復了 restore-continuation 的比較；此次將同一 machine-epsilon helper 用於該 dynamic 比較，time／phase／measurements 等仍精確相等。瀏覽器啟動遇 SIGTRAP 會立即報錯，避免已終止程序仍等待 30 秒及反覆嘗試。
+
+[run 38390520505](https://github.com/frenselw/simlab/actions/runs/38390520505)，63bdade：AppArmor 設定及版本核對成功，啟動檢查因生成腳本時誤加一個「＋」網址參數而 exit 13。已改用明確 Bash 參數陣列。這次未執行正式測試，不當作通過；錯誤在啟動檢查的 log 直接定位。

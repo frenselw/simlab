@@ -11,4 +11,5 @@ printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile simlab-ci-chrome "%s"
 sudo apparmor_parser -r /etc/apparmor.d/simlab-ci-chrome
 
 mkdir -p output/ci-tests
-timeout 15s "$ci_chrome" --headless=new --no-first-run --dump-dom about:blank +  >output/ci-tests/chrome-startup.html 2>output/ci-tests/chrome-startup.log
+ci_probe_args=(--headless=new --no-first-run --dump-dom about:blank)
+timeout 15s "$ci_chrome" "${ci_probe_args[@]}" >output/ci-tests/chrome-startup.html 2>output/ci-tests/chrome-startup.log
