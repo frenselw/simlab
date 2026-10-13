@@ -152,3 +152,45 @@ duration-analysis 及依完整成功入口產生的 proposed-test-durations.json
 一分鐘；這是編排估算，尚未當作新 CI 成功耗時。
 本批另包含純證據文檔分類及已觀察到的 API 伺服器故障重試修正；
 下一次固定 Linux 全量會核對整批候選，模擬 runtime 沒有修改。
+
+首輪 P4 的四份 browser evidence 亦已下載，八份實際 coverage ledger
+恰好完成 source／ZIP 共 74 個唯一 case／mode，全部 passed；ID 集合
+與 P2 的實際完整 ledger 相同，無缺失或重複。證據保留於
+output/ci-tests/p4-ledger-evidence，核對結果為
+output/ci-tests/p4-linux-final/circuit-ledger-verification.json。
+
+## 權重版首次失敗及共用渲染修正候選
+
+f9f78ae 的 run 38469620322 正確失敗：browser-1 的 AC ZIP、390px、L=2
+在實際播放／輸入窗口出現 100ms long task；integration 24.7ms、可信輸入
+約 33–36ms，snapshot 約 0.3ms、RMS 探針最多 0.5ms。其餘入口及三片
+browser 成功，aggregate／check 保留紅燈。首次報告、log 及 evidence 保留於
+output/ci-tests/p4-weighted-first-failure、p4-weighted-first-failure.log 及
+p4-weighted-first-failure-evidence，未以重跑消除首次 assertion。
+
+本機未改 runtime 的隔離 timeline 重現 100ms；取消／控制的重複重繪
+修正單獨仍有 120ms，未據此宣稱修好。後續讀取診斷及 stack 定位到
+空的 scope UI 每幀及在主場景重繪後讀取 surface，強制 layout 約 8–15ms。
+在修改前已告知使用者：候選把互動取消狀態與立即重繪分開，暫停及
+pan／probe／pickWire 完成後重繪一次；空儀器清單保留 stock／lastDraw
+更新，跳過無用的文件／尺寸查詢。有儀器時沿用原繪製路徑。
+物理、評分及保存沒有修改；共用 DC／AC 的操作與渲染須重新驗證。
+
+原 source／ZIP budget 加新增控制／空 scope 檢查合共 128 assertions
+通過，原 80ms／100ms 上限不變；integration 最大 34.1ms、可信輸入
+最大 63.6ms、long task 最大 88ms。實際控制重繪及文件／權威 physics
+快照檢查通過；已有儀器的 scope smoke source／ZIP 208 assertions 通過。
+控制、AC 平台及電路評量／保存 Node 檢查通過；完整中斷矩陣及固定 Linux
+尚待驗證。本機 log 為 ac-empty-scope-budget、ac-scope-after-empty-guard
+及 dc-interruptions-after-single-paint；候選尚未提交或合併 main。
+
+其後 DC interruptions source／ZIP 的九種操作乘五種中斷共 90 情境
+全部通過，AC live drag/playback source／ZIP 共 724 focused checks 通過。
+已有 scope 工具的 208 checks 保持成功，空 scope 的幾何讀取亦有實際
+browser assertion。正在同版本／本機环境重複已修復的 budget 專項，
+不是對原 f9f78ae assertion 做重跑綠燈；Linux 完整驗收仍未完成。
+
+相同候選第二輪原 budget 加控制 checks source／ZIP 再次 128 全數通過，
+原 80ms／100ms 不變；log 為 output/ci-tests/ac-empty-scope-budget-repeat.log。
+此共用 runtime 修正獨立提交，固定 Linux 全量會重新驗證其全部消費者。
+並行上限仍四片，八片方案尚待使用者選擇。

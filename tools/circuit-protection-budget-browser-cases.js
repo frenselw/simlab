@@ -45,4 +45,26 @@ async function sessionCapacityCases(h,source){let checks=0;const directory=path.
  }
  console.log(source+' capacity export/native-open/continuation:',checks,'checks');return checks;
 }
-module.exports={protectionBudgetCases,sessionCapacityCases};
+async function controlRepaintCases(h,source){
+ await h.send('Emulation.setDeviceMetricsOverride',{width:1280,height:844,deviceScaleFactor:1,mobile:false});
+ await h.send('Emulation.setTouchEmulationEnabled',{enabled:false});await h.call('setPlayback({paused:true})');
+ await h.inside('document.fonts.ready');await h.inside('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
+ const documentBefore=await h.call('exportDocument()'),physicsBefore=(await h.call('captureSession()')).physics;let checks=0;
+ assert.equal((await h.call('getObservationTools()')).length,0);
+ await h.inside('(()=>{const e=document.querySelector("[data-circuit-id=surface]");window.__emptyScopeRects=0;e.__controlRectBase=e.getBoundingClientRect;e.getBoundingClientRect=function(...args){__emptyScopeRects++;return this.__controlRectBase.apply(this,args);};return null;})()');
+ try{await h.delay(100);assert.equal(await h.inside('__emptyScopeRects'),0,'an empty scope does not read surface geometry on animation frames');checks++;}
+ finally{await h.inside('(()=>{const e=document.querySelector("[data-circuit-id=surface]");delete e.getBoundingClientRect;delete e.__controlRectBase;})()');}
+ await h.inside('window.__controlSceneBase=CircuitRenderer.scene;window.__controlScenePaints=0;CircuitRenderer.scene=function(...args){__controlScenePaints++;return __controlSceneBase.apply(this,args);};');
+ try{
+  await h.call('setPlayback({paused:true})');assert.equal(await h.inside('__controlScenePaints'),1,'playback changes repaint once after cancelling interaction');checks++;
+  for(const [button,flag]of [['pan','panMode'],['probe','probeMode'],['pickWire','wireMode']])for(const expected of [true,false]){
+   const before=await h.inside('__controlScenePaints');await h.click('[data-circuit-id='+button+']');
+   assert.equal(await h.inside('__controlScenePaints'),before+1,button+' native click repaints once');
+   assert.equal((await h.call('getInteraction()'))[flag],expected,button+' retains its toggle');checks+=2;
+  }
+  assert.equal(await h.call('exportDocument()'),documentBefore);assert.deepEqual((await h.call('captureSession()')).physics,physicsBefore);checks+=2;
+ }catch(error){await h.screenshot(source+'-control-repaint-failure');throw error;}
+ finally{await h.inside('CircuitRenderer.scene=__controlSceneBase;delete window.__controlSceneBase;');}
+ console.log(source+' single control repaint:',checks,'checks passed');return checks;
+}
+module.exports={protectionBudgetCases,sessionCapacityCases,controlRepaintCases};
