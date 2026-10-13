@@ -206,3 +206,27 @@ browser job 尚未結束，不能宣稱完整成功或採用該輪的成功耗�
 output/ci-tests/ac-old-scope-visible-regression.log 及
 output/ci-tests/ac-visible-scope-regression.log。此 fixture 補強屬於後續
 測試修正，未納入 a1c7b51 的 GitHub 驗收結果，亦未放寬性能預算。
+
+## 共用渲染修正的首次 Linux 完整結果
+
+a1c7b51 的 run 38479817006 首次執行完整成功。234 正式入口加五個
+checks、九份報告與最終 receipt 的 SHA、不可變 plan、policy、actual job
+身份均已核對。證據為 output/ci-tests/p4-render-fix-final；四份 browser
+evidence 保留於 output/ci-tests/p4-render-fix-evidence。八份實際 ledger
+共 74 個唯一 source／ZIP case／mode，全部 passed，ID 集合與 P2 相同。
+
+完整 AC source／ZIP 共 8202 checks 成功，包含原有 12 個性能預算窗口
+及 32 個控制重繪 checks。最大 integration 18.5ms、可信輸入 46.4ms、
+long task 55ms；原 80／100ms 上限不變。此為修正後新版本的首次結果，
+不覆蓋 f9f78ae 的失敗。核對摘要為 render-and-ledger-verification.json。
+
+按 run createdAt 至最後 job completedAt，實測 2251 秒（37 分 31 秒）、
+151.28 runner 分鐘。Main 基準同口徑 2635 秒、174.88 runner 分鐘，
+等待減少 14.6%、runner 用量減少 13.5%。四片純測試分別為
+2004.58／2147.53／2173.07／2157.31 秒，合計 8482.49 秒。
+此結果符合首輪全量不超過 45 分鐘，仍未達 shared 15–25 分鐘目標。
+保持四片；八片估算仍非實測，使用者尚未接受提高上限或剩餘時間限制。
+
+本機前景／三 RAF fixture 補強已提交為 3814eb4，其 Linux 驗收尚待
+後續 run，不能把 a1c7b51 的成功當作該修正已驗收。P4 尚未合併 main，
+實際 schedule 事件亦仍未觀察到。

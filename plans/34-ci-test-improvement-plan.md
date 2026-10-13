@@ -1,7 +1,7 @@
 # SimLab 測試與 GitHub CI 改善計劃
 
 日期：2026-10-13。
-狀態：P0–P3 完成；P4 已開始，Linux 提速及最終時間驗收待完成。
+狀態：P0–P3 完成；P4 渲染修正已通過 Linux 全量，後續測試補強及最終時間驗收待完成。
 規劃分支：codex/improve-ci-testing。
 盤點基準：a8be3a5dc738421ea5824cb83dff597263434cfe。
 
@@ -356,6 +356,10 @@ P4 校準見 [量測記錄](../docs/ci-test-optimization-2026-10-13.md)。普通
 權重版 f9f78ae 的 run 38469620322 在 AC ZIP／390px／L=2 的實際播放窗口出現 100ms long task，aggregate／check 正確失敗，首次證據保留。已先告知使用者後準備共用渲染修正：取消互動與重繪分開，控制操作完成後只重繪一次；空 scope 不再每幀讀取 surface 尺寸，有儀器時保留原路徑。物理、評分、保存及原性能上限不變。本機 source／ZIP 128 預算及控制 checks 兩輪通過；已有 scope 的 208 checks、AC live editing／rollback 724 checks、DC 中斷／合法續作 90 情境及相鄰 Node 檢查成功。固定 Linux 完整驗收仍待完成。
 
 四片／八片的量測試算已交使用者選擇；31 browser 入口及總測試量相同，八片最慢純測試估算約 18.3 分鐘，增加前置工作用量。原計劃四片仍生效，尚未提高並行上限，也未把剩餘時間限制當作已接受。
+
+渲染修正 a1c7b51 的 run 38479817006 首次完整成功：234 正式入口及五個 checks、九份報告、最終 gate／receipt 的 SHA、plan、policy 與 job 身份均已核對；八份實際 ledger 的 74 個唯一 source／ZIP case／mode 全部成功，ID 集合與 P2 相同。原 AC 12 個預算窗口成功，最大 integration 18.5ms、可信輸入 46.4ms、long task 55ms，80／100ms 上限不變；32 個控制重繪 checks 亦成功。
+
+該輪實測 2251 秒（37 分 31 秒）、151.28 runner 分鐘；main 同口徑基準為 2635 秒、174.88 runner 分鐘，分別減少 14.6% 及 13.5%。四片純 browser 工作合計 8482.49 秒，最慢一片 2173.07 秒；此結果達到首輪全量 45 分鐘目標，仍未達共享核心 15–25 分鐘目標。後續前景／三 RAF 的 fixture 補強尚須其自身 GitHub 驗收；P4 未標完成，亦未合併 main。
 
 ## 15. 獨立審核記錄
 
