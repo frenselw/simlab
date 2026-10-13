@@ -26,7 +26,6 @@
   let trustedReview = true;
   let retryMode = "none";
   let lastMotionSegment = null;
-  let frameId = 0;
   let activeWindowIndex = null;
   let instantDemoStartedAt = null;
   let instantDemoPaused = false;
@@ -689,7 +688,7 @@
       }
     }
     else if (state?.phase === "instant" && !locked && !reducedMotion && !instantDemoPaused) draw();
-    frameId = requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
   }
   function renderLiveReadouts(announceBoundary) {
     elements.positionReadout.textContent = `${Model.format3(displayedPositionAt())} m`;
@@ -1042,6 +1041,5 @@
     } catch (error) { locked = true; showTechnical("未能安全載入或產生本次題目，活動已鎖定。", false); console.warn(error); }
   } else if (startupView.mode === "pending") { locked = true; retryMode = "pending"; showTechnical("上次提交仍待確認；答案已凍結，請重試同一份提交。", true); }
   else { locked = true; showTechnical("未能讀取 Moodle 嘗試資料，活動已鎖定。", false); }
-  frameId = requestAnimationFrame(animate);
-  window.addEventListener("unload", () => cancelAnimationFrame(frameId), { once: true });
+  requestAnimationFrame(animate);
 })();

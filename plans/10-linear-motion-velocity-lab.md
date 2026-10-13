@@ -1490,6 +1490,8 @@ check and treat `### Error` output as failure even if the process exits zero.
 
 ## Out of scope
 
+2026-10-13 相容性修正：固定 Chrome for Testing 揭露 unload 事件註冊的 Permissions Policy 錯誤。移除只用來取消 RAF 的 unload listener；文件離開時由瀏覽器管理 RAF，沿用共用 SCORM 生命周期，不新增活動-local pagehide／pageshow。物理、評分及操作未改。此修正的實際驗證記於 CI 改善基準文件。
+
 - reverse motion or signed negative velocity;
 - distinguishing distance from displacement during reversal;
 - learner-authored velocity functions;
