@@ -25,6 +25,7 @@ function validateReport(plan,job,report){
  assert.equal(String(report.environment.runId),String(plan.runId),'Environment run mismatch');
  assert.equal(String(report.environment.attempt),String(report.attempt),'Environment attempt mismatch');
  assert.equal(report.environment.jobKey,job.key,'Environment job mismatch');
+ if(plan.workflowSHA)assert.equal(report.environment.workflowSHA,plan.workflowSHA,'Executed workflow revision mismatch');
  if(job.kind==='browser'){
   assert.equal(report.environment.chrome,plan.environment.chrome,'Chrome environment mismatch');
   assert.match(report.environment.fontSha256||'',/^[a-f0-9]{64}$/,'Missing CJK font fingerprint');

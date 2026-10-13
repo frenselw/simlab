@@ -1,0 +1,34 @@
+name: Quality Full
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact commit, tag or branch to verify completely
+        default: main
+        required: true
+        type: string
+  schedule:
+    - cron: '30 19 * * *'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: quality-full-${{ github.event_name }}-${{ inputs.ref || 'main' }}
+  cancel-in-progress: false
+jobs:
+  verification:
+    uses: ./.github/workflows/quality-run.yml
+    with:
+      full: true
+      shadow: false
+      ref: ${{ inputs.ref || 'main' }}
+  full-check:
+    if: always()
+    needs: verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require complete full verification
+        env:
+          RESULT: ${{ needs.verification.result }}
+        run: test "$RESULT" = success

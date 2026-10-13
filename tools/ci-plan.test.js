@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {tests}=require('./run-tests'),{info,selectAffected}=require('./test-selection');
-const {buildPlan,distribute}=require('./ci-plan');
+const {buildPlan,distribute,planSummary}=require('./ci-plan');
 const full=buildPlan({tests,runId:'1',sha:'sha',policyHash:'policy'});
 const actual=full.jobs.filter(j=>['node','browser'].includes(j.kind)).flatMap(j=>j.entries.map(e=>e.id)).sort();
 assert.deepEqual(actual,tests.map(t=>info(t).id).sort());
@@ -9,6 +9,7 @@ assert.equal(new Set(actual).size,actual.length);
 assert(full.jobs.filter(j=>j.kind==='browser').length<=4);
 assert(full.jobs.find(j=>j.key==='checks').expected.includes('syntax-and-manifests'));
 assert(full.jobs.find(j=>j.key==='checks').expected.includes('circuit-platform-packages'));
+assert.deepEqual(full.jobs.find(j=>j.key==='checks').expected,['syntax-and-manifests','diff-format','tracked-checkout','all-scorm-packages','circuit-platform-packages']);
 const docs=buildPlan({tests,runId:'1',sha:'sha',policyHash:'policy',selection:selectAffected(tests,['README.md'])});
 assert.deepEqual(docs.jobs.map(j=>j.key),['docs']);
 assert.deepEqual(docs.jobs[0].expected,['documentation-links','diff-format']);
@@ -17,4 +18,7 @@ const sample=Array.from({length:8},(_,i)=>({id:String(i),file:'a.js',args:[],kin
 const balanced=distribute(sample,4,Object.fromEntries(sample.map((e,i)=>[e.id,[100,90,80,70,40,30,20,10][i]])));
 assert(balanced.every(b=>b.seconds===110),'duration balancing distributes expensive work rather than equal file counts');
 assert.deepEqual(distribute([],4),[]);
+const summary=planSummary(full);
+assert(summary.includes(full.hash)&&summary.includes(full.sha)&&summary.includes('Scope: full'));
+for(const job of full.jobs)assert(summary.includes('| '+job.key+' | '+job.expected.length+' |'));
 console.log('Immutable CI plans preserve all entries, package/static gates and duration-balanced browser limits.');

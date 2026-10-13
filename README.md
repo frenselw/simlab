@@ -266,16 +266,31 @@ and [main integration record](docs/mobile-scroll-main-merge-2026-10-02.md) docum
 the fixes and their executed coverage. Local browser passes establish evidence
 for the recorded cases; real-phone Moodle acceptance remains a separate gate.
 
-The [Quality workflow](.github/workflows/quality.yml) runs syntax/manifest checks,
-the full test suite across four parallel shards and package verification alongside
-a separate job for the additional browser checks on pushes and pull requests.
-Each job uses its own checkout; the final `check` succeeds only when every shard
-and the browser job pass. `npm test` still runs the full suite locally;
-`npm test -- --shard=1/4` runs one CI shard. Every registered test runs exactly once.
-CI wraps these shards in Xvfb so native window fullscreen checks have a display.
-Both jobs install CJK fonts so browser geometry checks measure rendered Chinese text.
-Local checks do not replace validation in a real
-Moodle student attempt; see the production guide for both acceptance checklists.
+The [Quality workflow](.github/workflows/quality.yml) uses one immutable plan for
+all registered tests, syntax/manifest checks and both package types. Node and
+browser work each use up to four jobs balanced by recorded successful durations.
+The final `check` verifies every expected job and entry; missing, failed or
+cancelled work cannot produce a green result. Browser jobs use pinned Chrome,
+CJK fonts and Xvfb. Daily runs select affected work conservatively; a missing
+qualified main baseline or unknown change falls back to full coverage.
+The independent [Quality Full workflow](.github/workflows/quality-full.yml)
+always executes the complete suite and both package types. Once deployed to main,
+it runs daily at 03:30 Macau time and can verify an exact ref manually.
+
+```text
+npm run test:fast
+npm run test:affected -- --base=<sha> --head=<sha>
+npm test -- --base=<sha> --head=<sha> --plan
+npm test
+```
+
+`npm test` always means the complete registered suite. `--shard=1/4` remains
+available for an explicit subset. A local base/head comparison describes only
+that range; it does not establish GitHub PR or main baseline verification.
+Each execution writes an incremental report and logs under `output/ci-tests/`.
+See the production guide's [CI gates](docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)
+and the [rollout plan](plans/34-ci-test-improvement-plan.md) for selection, rerun,
+release and rollback rules. Real-phone and Moodle acceptance remain separate.
 
 On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.
 

@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const {createHash}=require('node:crypto');
-const {buildPlan,digest}=require('./ci-plan');
+const {buildPlan,digest,planSummary}=require('./ci-plan');
 const {parseNameStatus,selectAffected,commit}=require('./test-selection');
 const {client}=require('./ci-github');
 const root=path.resolve(__dirname,'..');
@@ -36,7 +36,7 @@ async function qualifiedMain(api,{repository,policy,sha,directory=root}){
   const receiptArtifact=artifacts.filter(a=>!a.expired&&a.name.startsWith('quality-receipt-'+run.id+'-')).sort((a,b)=>b.id-a.id)[0];
   if(!receiptArtifact)continue;
   const receipt=await api.artifactJSON(receiptArtifact,'receipt.json');
-  if(validateMainReceipt({...run,repository:{full_name:repository}},receipt,{repository,workflowId:workflow.id,policy})){
+  if(validateMainReceipt(run,receipt,{repository,workflowId:workflow.id,policy})){
    return {sha:run.head_sha,runId:run.id,artifactId:receiptArtifact.id,workflowId:workflow.id};
   }
  }
@@ -68,6 +68,7 @@ function eventComparison({event,payload,sha,ref,baseline,directory=root}){
    }
   }else throw Error('Unsupported daily event: '+event);
   if(!baseline)comparison.forceFullReason='No qualified successful main baseline';
+  else if(baseline.sha!==comparison.baseSHA)comparison.forceFullReason='Comparison base has no successful main evidence at that SHA';
  }catch(e){
   if(event==='pull_request')throw e;
   comparison.forceFullReason=e.message;
@@ -81,7 +82,7 @@ async function prepare({full=false,directory=root,env=process.env,api=null}={}){
  if(!full&&sha!==env.GITHUB_SHA)throw Error('Tested checkout differs from the event SHA');
  let baseline=null,queryError=null;
  if(!full)try{baseline=await qualifiedMain(api||client(),{repository:env.GITHUB_REPOSITORY,policy,sha,directory});}catch(e){queryError=e.message;}
- const comparison=full?{event:env.GITHUB_EVENT_NAME,testedSHA:sha,paths:[]}:
+ const comparison=full?fullComparison({event:env.GITHUB_EVENT_NAME,payload,sha,directory}):
   eventComparison({event:env.GITHUB_EVENT_NAME,payload,sha,ref:env.GITHUB_REF,baseline,directory});
  if(queryError)comparison.forceFullReason='Main evidence query failed: '+queryError;
  const selection=full?null:selectAffected(tests,comparison.paths,{trustedEmpty:baseline?.sha===sha,forceFullReason:comparison.forceFullReason});
@@ -89,20 +90,42 @@ async function prepare({full=false,directory=root,env=process.env,api=null}={}){
  const durations=fs.existsSync(timingFile)?JSON.parse(fs.readFileSync(timingFile,'utf8')).seconds:{};
  const plan=buildPlan({tests,selection,runId:env.GITHUB_RUN_ID,sha,policyHash:policy,comparison,durations});
  plan.repository=env.GITHUB_REPOSITORY;plan.workflow=env.GITHUB_WORKFLOW;
+ plan.workflowSHA=env.GITHUB_WORKFLOW_SHA||null;plan.workflowRef=env.GITHUB_WORKFLOW_REF||null;
  plan.event=env.GITHUB_EVENT_NAME;plan.branch=env.GITHUB_REF_NAME;
  delete plan.hash;plan.hash=digest(plan);
  return plan;
 }
+function fullComparison({event,payload={},sha,directory=root}){
+ let base=null,method='root commit';
+ try{
+  const ancestor=git(['merge-base','origin/main',sha],directory);
+  if(ancestor!==sha){base=ancestor;method='cumulative merge-base to origin/main';}
+ }catch{}
+ if(!base&&payload.before&&!/^0+$/.test(payload.before))try{
+  const before=commit(directory,payload.before);
+  if(spawnSync('git',['merge-base','--is-ancestor',before,sha],{cwd:directory}).status===0){base=before;method='event before to tested SHA';}
+ }catch{}
+ if(!base)try{base=git(['rev-parse',sha+'^'],directory);method='parent to tested SHA';}catch{}
+ return {event,testedSHA:sha,baseSHA:base,headSHA:sha,paths:[],method};
+}
+async function recoverPlan(api,{runId,sha,policy}){
+ const artifacts=await api.pages('actions/runs/'+runId+'/artifacts','artifacts');
+ const originals=artifacts.filter(a=>a.name==='quality-plan-'+runId&&!a.expired);
+ if(originals.length!==1)throw Error('Original immutable plan is missing or duplicated; start a new full verification run');
+ const plan=await api.artifactJSON(originals[0],'plan.json');
+ const {hash,...data}=plan;
+ if(hash!==digest(data)||String(plan.runId)!==String(runId)||plan.sha!==sha||plan.policyHash!==policy){
+  throw Error('Original plan no longer matches this run/checkout/policy');
+ }
+ return plan;
+}
 async function main(){
+ const args=process.argv.slice(2);
+ if(new Set(args).size!==args.length||args.some(a=>!['--full','--shadow'].includes(a)))throw Error('Unknown or duplicate CI planning option');
  const full=process.argv.includes('--full');
  let plan,reused=false;
  if(Number(process.env.GITHUB_RUN_ATTEMPT||'1')>1){
-  const api=client(),artifacts=await api.pages('actions/runs/'+process.env.GITHUB_RUN_ID+'/artifacts','artifacts');
-  const original=artifacts.find(a=>a.name==='quality-plan-'+process.env.GITHUB_RUN_ID&&!a.expired);
-  if(!original)throw Error('Original immutable plan is missing; start a new full verification run');
-  plan=await api.artifactJSON(original,'plan.json');
-  const {hash,...data}=plan;
-  if(hash!==digest(data)||plan.sha!==commit(root,'HEAD')||plan.policyHash!==policyHash())throw Error('Original plan no longer matches this checkout/policy');
+  plan=await recoverPlan(client(),{runId:process.env.GITHUB_RUN_ID,sha:commit(root,'HEAD'),policy:policyHash()});
   reused=true;
  }else plan=await prepare({full});
  fs.mkdirSync(path.join(root,'output/ci-tests'),{recursive:true});
@@ -114,14 +137,13 @@ async function main(){
  const outputs={
   tested_sha:plan.sha,
   worker_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind!=='browser').map(j=>({key:j.key}))),
-  node_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind==='node').map(j=>({key:j.key}))),
   browser_matrix:JSON.stringify(plan.jobs.filter(j=>j.kind==='browser').map(j=>({key:j.key}))),
-  has_node:String(plan.jobs.some(j=>j.kind==='node')),has_browser:String(plan.jobs.some(j=>j.kind==='browser')),
-  has_checks:String(plan.jobs.some(j=>j.kind==='checks')),has_docs:String(plan.jobs.some(j=>j.kind==='docs')),
+  has_browser:String(plan.jobs.some(j=>j.kind==='browser')),
   plan_reused:String(reused)
  };
  if(process.env.GITHUB_OUTPUT)fs.appendFileSync(process.env.GITHUB_OUTPUT,Object.entries(outputs).map(([k,v])=>k+'='+v).join('\n')+'\n');
+ if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,planSummary(plan));
  console.log(JSON.stringify({scope:plan.scope,sha:plan.sha,jobs:plan.jobs.map(j=>({key:j.key,entries:j.expected.length})),reasons:plan.reasons},null,2));
 }
 if(require.main===module)main().catch(e=>{console.error(e.stack);process.exitCode=1;});
-module.exports={prepare,eventComparison,validateMainReceipt,policyHash,diff};
+module.exports={prepare,eventComparison,validateMainReceipt,policyHash,diff,recoverPlan,fullComparison};

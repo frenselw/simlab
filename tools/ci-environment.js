@@ -41,6 +41,7 @@ function main(args) {
     image: process.env.ImageOS || null, imageVersion: process.env.ImageVersion || null,
     display: process.env.DISPLAY || null,
     sha: output('git', ['rev-parse', 'HEAD']), runId: process.env.GITHUB_RUN_ID || 'local',
+    workflowSHA: process.env.GITHUB_WORKFLOW_SHA || null, workflowRef: process.env.GITHUB_WORKFLOW_REF || null,
     attempt: process.env.GITHUB_RUN_ATTEMPT || '1', jobKey: process.env.SIMLAB_JOB_KEY || 'local',
     fonts, fontSha256: fonts ? createHash('sha256').update(fs.readFileSync(fonts.slice(fonts.indexOf('|')+1))).digest('hex') : null
   };

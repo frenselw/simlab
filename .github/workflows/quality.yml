@@ -12,9 +12,8 @@ jobs:
   verification:
     uses: ./.github/workflows/quality-run.yml
     with:
-      # P2 preserves full coverage while recording selection decisions.
-      full: true
-      shadow: true
+      full: false
+      shadow: false
   check:
     if: always()
     needs: verification

@@ -53,7 +53,19 @@ P2 將這些工具接上完整 Quality gate，尚待真實 workflow 演練，不
 
 ## 下一個交接
 
+7685a24 的 [P2 run 38423093499](https://github.com/frenselw/simlab/actions/runs/38423093499)
+已完成 plan、checks 和四個 Node job，202 個 Node 入口及五個靜態／打包 checks 全部成功。
+已下載核對 SHA、plan hash、預期／完成 ID 和 passed 狀態；Node 測試時間為
+106／58／114／91 秒。從 plan job 開始至最後 Node job 結束約 153 秒，包含其前置安裝及上傳。
+其後四個 browser、aggregate 及 check 全部成功。下載的九份報告完成 233 個
+正式入口及五個靜態／打包 checks；八份 DC coverage 完成清單恰好覆蓋 74 區塊，
+無缺失／重複。Receipt 的 SHA、plan hash 與九個來源相符。
+P1／P2 的 sim runtime 檔案完全一致，browser 的 Ubuntu image 20261004.327.1、
+Node／Chrome／CJK 字體指紋一致，滿足同應用版本／環境對照。
+整個 run 從 15:33:31 至 16:22:21 UTC，共 48 分 50 秒；四片測試約
+37.6／47.2／46.6／39.1 分鐘。較 P1 約 58 分鐘改善，仍未達全量 45 分鐘目標。
+
 P2 的 GitHub 執行仍跑完整登記聯集，只輸出 selector 的 shadow plan。Node 與
 browser 各最多四片，按基準成功耗時分配；每片只執行不可變 plan 指定的入口。
-完整成功、case／mode 集合及環境對照完成後，才啟用 P3 日常選跑與獨立 full-check。
+完整成功、case／mode 集合及環境對照已完成，允許啟用 P3 日常選跑與獨立 full-check。
 時間尚未達標，P4 仍待量測及優化；人工、真手機及真 Moodle 驗收仍按生產指南。

@@ -1,6 +1,14 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 const {client}=require('./ci-github'),{digest}=require('./ci-plan'),{validateResults}=require('./ci-results');
+function resultSummary(receipt){
+ return ['## Verified result','',
+  'Passed scope: '+receipt.scope+' · tested SHA: `'+receipt.sha+'`',
+  'Plan: `'+receipt.planHash+'` · policy: `'+receipt.policyHash+'`',
+  '', '| Job | Latest attempt used | Job ID | Artifact ID |','|---|---:|---:|---:|',
+  ...receipt.sources.map(s=>'| '+s.jobKey+' | '+s.attempt+' | '+s.jobId+' | '+s.artifactId+' |'),
+  '', 'These sources belong to the same run. Other failed runs and deployment gates remain separate.',''].join('\n');
+}
 async function collect(api,plan,attempt){
  const executions=[];
  for(let a=1;a<=attempt;a++){
@@ -34,9 +42,11 @@ async function main(){
  const result=validateResults(plan,reports,executions);
  const run=await api.json('actions/runs/'+plan.runId);
  const receipt={...result,repository:plan.repository,workflowId:run.workflow_id,event:plan.event,branch:plan.branch,
+  workflowSHA:plan.workflowSHA,workflowRef:plan.workflowRef,
   policyHash:plan.policyHash,complete:true,completedAt:new Date().toISOString()};
  fs.writeFileSync(path.resolve('output/ci-tests/receipt.json'),JSON.stringify(receipt,null,2)+'\n');
+ if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,resultSummary(receipt));
  console.log(JSON.stringify(receipt,null,2));
 }
 if(require.main===module)main().catch(e=>{console.error(e.stack);process.exitCode=1;});
-module.exports={collect};
+module.exports={collect,resultSummary};

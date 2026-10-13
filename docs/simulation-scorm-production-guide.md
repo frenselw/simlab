@@ -875,6 +875,56 @@ supported modes change. A documentation-only change needs link and diff checks;
 do not report earlier runtime evidence as newly executed. This change-based
 verification does not waive outstanding deployment gates.
 
+### CI gates and maintenance commands
+
+`npm run test:fast` runs all registered non-browser tests. For a committed local
+range, `npm run test:affected -- --base=<sha> --head=<sha>` runs the conservative
+affected selection; add `--plan` to inspect it without executing tests. The
+checkout must match head. This explicit local range is separate from GitHub's
+cumulative branch/main and actual PR merge-candidate strategy. `npm test` with
+no selection remains the full registered suite, including all six former
+workflow-only browser commands and both source/package circuit groups.
+
+Quality uses the P3 affected rollout after the P2 complete coverage comparison;
+see the [rollout evidence](ci-test-split-2026-10-13.md). A daily `check` verifies
+only the plan's recorded scope. Unknown
+paths, missing dependency mappings, invalid Git comparisons or unavailable main
+evidence cannot become an empty successful selection. Invalid PR merge candidates
+fail rather than substitute a head-only checkout.
+An inherited main/PR base that has not passed under the same policy forces full
+coverage even when the branch's own changes are documentation-only.
+
+The independent Quality Full `full-check` always runs syntax/manifest checks,
+all registered tests, all SCORM packages and the standalone circuit platform,
+recorded-range diff formatting and tracked-checkout guards. It does not depend
+on a daily check having run. After deployment to the default branch it runs each
+day at 03:30 Macau time; manually choose an exact ref in Actions or run
+`gh workflow run quality-full.yml --ref main -f ref=<sha>`. The plan resolves the
+ref to a SHA once and every worker checks out that SHA. Record the tested SHA
+and actual workflow revision separately when verifying another ref.
+
+The final `check` requires the immutable plan's exact job/entry set at its tested
+SHA, policy and recorded environment. A missing, cancelled or failed required
+job/artifact fails the gate. Each job checks tracked files before and after tests
+and internal package builds; generated asset/manifest changes must be committed
+before that SHA can pass. SCORM and standalone circuit builds are separate gates.
+
+Reports, per-entry logs, environment and browser evidence are retained for 14
+days in Actions artifacts. Use a report's file/args to reproduce one failure;
+successful isolated diagnosis cannot replace other failed entries. GitHub partial
+reruns reuse the original plan and each job's latest actual execution in the same
+run. They cannot use an older success after a newer failure or combine successful
+pieces of failed attempts. An unexplained assertion failure followed by success
+still fails stability verification; a recorded prerequisite failure before tests
+may receive a bounded diagnostic rerun.
+
+Daily checks and formal automated full coverage do not replace the full activity
+matrix, mobile-scroll host/phase/mode checks, real devices or real Moodle. Release
+evidence must match the actual tested SHA and rebuilt packages. If selection is
+suspected to miss coverage, set Quality's `full: true` and retain the reports and
+assertions while repairing the mapping; do not disable Quality or alter branch
+protection to bypass a failure.
+
 ### Package-ready checks
 
 - Complete the plan: scope/risk, catalogue entry, scoring/tolerances, phase matrix,

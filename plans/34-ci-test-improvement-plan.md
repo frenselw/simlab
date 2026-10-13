@@ -1,7 +1,7 @@
 # SimLab 測試與 GitHub CI 改善計劃
 
 日期：2026-10-13。
-狀態：使用者已批准按交接條件連續實作；P0／P1 完成，P2 待 GitHub 完整驗證。
+狀態：P0–P2 完成；P3 切換與實際演練進行中，P4 尚待交接。
 規劃分支：codex/improve-ci-testing。
 盤點基準：a8be3a5dc738421ea5824cb83dff597263434cfe。
 
@@ -109,7 +109,7 @@ PR 合併候選不同，仍須執行其選中回歸。先避免過時 run、純�
 
 full-check 是獨立可用的完整 gate，必須要求 npm run check（JS 語法及 manifest 語義）、npm test 的完整聯集、npm run package:all、npm run package:circuit-platform、已記錄比較範圍的 git diff --check、打包前後 tracked diff 及覆蓋完成清單全部成功。它不能假設同 SHA 的日常 check 已執行這些工作。套用第 5.1 節相同的結果聚合規則：必跑項被跳過、取消、缺少或部分完成都不能成功。
 
-建議在澳門時間每日 03:30 對 main 執行；GitHub cron 用 UTC，對應前一日 19:30。這是未實施的 workflow 建議，本輪不建立任何排程。GitHub 排程有延遲可能，不把它當作準時通知。
+建議在澳門時間每日 03:30 對 main 執行；GitHub cron 用 UTC，對應前一日 19:30。P3 的 workflow 已加入此排程，部署到 default branch 後才會生效。GitHub 排程有延遲可能，不把它當作準時通知。
 
 第一版每日執行，先取得連續穩定性資料；是否在完全相同 SHA、環境及測試政策且已有完整成功證據時略過，留待數據支持後另作小改動。沒有成功紀錄、上次失敗或環境更新時不能略過。
 
@@ -341,11 +341,13 @@ P2 先在幾個代表改動上比較選擇結果：文件、單活動、電路�
 
 實施證據見 [P0／P1 基準盤點](../docs/ci-test-baseline-2026-10-13.md)及 [P2 分組驗證](../docs/ci-test-split-2026-10-13.md)。P0 已完成；P1 固定 Ubuntu／Node／Chrome 的完整 GitHub run 38401477675（fd2e3d0）全部成功，218 個正式入口、語法／manifest 及兩類打包均通過。先前啟動與 unload 失敗及修復證據保留，未放寬 diagnostics gate。
 
-P2 本機 DC editing、instruments、interruptions、hosts 的 source／ZIP 全部通過，37 個原 case block × 兩個 mode 共 74 個完成區塊。runner 核對原 216 清單的其餘 214 個入口仍在；目前 233 入口（202 Node、31 browser），新增工具自檢另計。選擇器及 Git 事件／不可變 plan／結果彙總自檢通過。GitHub 的新分組全量與 shadow plan 尚待推送驗證；P3 尚未啟用。
+P2 本機 DC 四個群組的 source／ZIP 共 74 區塊通過；GitHub run 38423093499（7685a24）亦完成 233 正式入口、五個 checks、74 個區塊及 aggregate／check，全數成功。原有 216 入口有去向；P1／P2 sim runtime 完全一致，固定 Ubuntu image、Node、Chrome 及 CJK 字體指紋一致，完整覆蓋及同環境對照已達標。整體 48 分 50 秒，仍未達 45 分鐘目標；新的分配採此成功 run 的實測權重。
 
-直線運動 runtime 的 unload 清理修正已先告知使用者並獨立提交 fd2e3d0，物理、評分及操作未改；本機完整 real-browser 和 GitHub 全量均已通過。除此之外，本批只改測試、CI 工具及文件。
+P3 已切換 Quality 的 affected 選擇，新增獨立 Quality Full（手動精確 ref、每日 03:30 Macau），保持同一正式 executor／清單及不同 check／full-check。原始 plan 的重跑恢复、未知／未驗證 main base 全量退回、各 job 最新結果、實際 workflow revision、summary、格式比較範圍及操作文件均有自檢。當前 main 尚無同政策合格 receipt，首輪日常仍應全量退回；手動／schedule 只有部署至 default branch 後才生效，不能以 YAML 解析宣稱已完成觸發演練。P3 的代表性實際演練與 P4 均未完成。
 
-按耗時分配、GitHub 證據讀取及跨 attempt 最新結果 gate 已接上 P2 完整 workflow，自檢通過，真實 CI 演練待驗證。日常仍全跑並保存選擇器 shadow plan；P3 切換仍要求固定 Linux 的完整結果及覆蓋對照。P4 等待與速度優化尚未執行。
+直線運動 unload 清理已先告知使用者並獨立提交 fd2e3d0，物理、評分及操作未改；本機完整 real-browser 和兩輪 GitHub 全量均通過。本批另外修正舊 phone smoke 的 CSS 隱藏按鈕 fixture 及選單操作，原等待的 source／ZIP 已通過，模擬未改。
+
+P4 候選校準見 [初步記錄](../docs/ci-test-optimization-2026-10-13.md)。普通點按在 phone／rotation 通過，但 fullscreen 的額外 native-event 探針未通過；首次失敗資料保留，正式 touch helper 未修改，不把這些 focused 成功當作 P4 完成。
 
 ## 15. 獨立審核記錄
 

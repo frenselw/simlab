@@ -3,6 +3,17 @@ const {createHash}=require('node:crypto');
 const {info}=require('./test-selection');
 const environment={runner:'ubuntu-24.04',node:'22.23.3',chrome:'154.0.8037.92'};
 function digest(value){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
+function planSummary(plan){
+ const comparison=plan.comparison||{};
+ return ['## Planned verification','',
+  'Scope: '+plan.scope+' · tested SHA: `'+plan.sha+'` · run '+plan.runId,
+  'Workflow revision: `'+(plan.workflowSHA||'not recorded')+'`',
+  'Base: `'+(comparison.baseSHA||'full / unavailable')+'` · head: `'+(comparison.headSHA||plan.sha)+'`',
+  '',...plan.reasons.map(reason=>'- '+reason.replaceAll('\n',' ')),
+  '', '| Job | Required entries | Estimated seconds |','|---|---:|---:|',
+  ...plan.jobs.map(j=>'| '+j.key+' | '+j.expected.length+' | '+(j.estimatedSeconds===undefined?'not measured':Math.round(j.estimatedSeconds))+' |'),
+  '', 'Results must match plan `'+plan.hash+'`; this selection is not release or real-device acceptance.',''].join('\n');
+}
 function estimatedSeconds(entry){
  const group=entry.args.find(a=>a.startsWith('--group='))?.slice(8);
  if(group)return {editing:1200,instruments:1200,interruptions:240,hosts:360}[group];
@@ -47,4 +58,4 @@ function buildPlan({tests,selection,runId,sha,policyHash,comparison={},durations
  plan.hash=digest(plan);
  return plan;
 }
-module.exports={environment,digest,distribute,buildPlan};
+module.exports={environment,digest,distribute,buildPlan,planSummary};

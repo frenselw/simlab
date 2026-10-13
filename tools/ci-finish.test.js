@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {collect}=require('./ci-finish');
+const {collect,resultSummary}=require('./ci-finish');
 async function main(){
  const plan={runId:'10',jobs:[{key:'node-1'},{key:'browser-1'}]};
  const api={
@@ -16,6 +16,8 @@ async function main(){
  assert.equal(evidence.reports[1].artifactId,2);
  await assert.rejects(collect({...api,artifactJSON:async()=>({attempt:99})},plan,2),/identity/);
  await assert.rejects(collect({...api,pages:async()=>[]},plan,2),/Missing execution/);
+ const summary=resultSummary({scope:'affected',sha:'tested',planHash:'immutable',policyHash:'policy',sources:[{jobKey:'node-1',attempt:1,jobId:11,artifactId:21},{jobKey:'browser-1',attempt:2,jobId:12,artifactId:22}]});
+ assert(summary.includes('Passed scope: affected')&&summary.includes('| browser-1 | 2 | 12 | 22 |'));
  console.log('CI collection preserves partial-rerun lineage and rejects absent or forged report identities.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
