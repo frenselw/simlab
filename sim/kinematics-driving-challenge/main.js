@@ -57,6 +57,7 @@
   let checkpointXtView = { width: 220, height: 150, dpr: 1 };
   let checkpointVtView = { width: 220, height: 150, dpr: 1 };
   let liveLast = "";
+  let liveNoticeUntil = 0;
 
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function currentLevel() {
@@ -73,7 +74,7 @@
     if (!text || text === liveLast) return;
     liveLast = text;
     elements.liveRegion.textContent = "";
-    requestAnimationFrame(() => { elements.liveRegion.textContent = text; });
+    requestAnimationFrame(() => { if (liveLast === text) elements.liveRegion.textContent = text; });
   }
   function focusHeading(element) {
     requestAnimationFrame(() => {
@@ -1011,7 +1012,7 @@
         : Visuals.graphShapeLabel(graphSamples(), activeGraphMode());
     if (elements.graphAlternative.textContent !== graphAlternative) {
       elements.graphAlternative.textContent = graphAlternative;
-      if (running) announce(`圖像：${graphAlternative}`);
+      if (running && performance.now() >= liveNoticeUntil) announce(`圖像：${graphAlternative}`);
     }
   }
   function fillRoadStrip(points, topOffset, bottomOffset, fillStyle) {
@@ -1300,7 +1301,10 @@
     button.addEventListener("pointercancel", (event) => {
       const interrupted = activePedal === kind && activePointer === event.pointerId;
       releasePedal(kind, event.pointerId);
-      if (interrupted) announce("操作中斷；踏板已安全回到空檔。");
+      if (interrupted) {
+        liveNoticeUntil = performance.now() + 1500;
+        announce("操作中斷；踏板已安全回到空檔。");
+      }
     });
   }
   wirePedal(elements.throttleButton, "throttle");

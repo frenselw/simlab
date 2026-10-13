@@ -703,17 +703,20 @@ async function smoke(cdp, baseUrl, activityPath, label) {
     const details = await evaluate(cdp, `(() => ({events:window.__cancelEvents,live:document.getElementById('liveRegion').textContent,control:document.getElementById('controlState').textContent,stage:document.getElementById('stageStatus').textContent,startDisabled:document.getElementById('startButton').disabled,pauseDisabled:document.getElementById('pauseButton').disabled,throttleDisabled:document.getElementById('throttleButton').disabled}))()`);
     throw new Error(`${error.message}: ${JSON.stringify(details)}`);
   }
+  await delay(250);
   const cancelled = await evaluate(cdp, `(() => ({
     events:window.__cancelEvents,
     control:document.getElementById('controlState').textContent,
     live:document.getElementById('liveRegion').textContent,
-    pressed:document.getElementById('throttleButton').getAttribute('aria-pressed')
+    pressed:document.getElementById('throttleButton').getAttribute('aria-pressed'),
+    pauseDisabled:document.getElementById('pauseButton').disabled
   }))()`);
   assert(cancelled.events.some((event) => event.type === "pointercancel" && event.trusted && event.pointerType === "touch"),
     `${label}: pedal receives a trusted pointercancel`);
   assert.equal(cancelled.control, "目前：空檔", `${label}: cancelled pedal returns to neutral`);
   assert.equal(cancelled.pressed, "false", `${label}: cancelled pedal clears pressed state`);
   assert.match(cancelled.live, /操作中斷；踏板已安全回到空檔。/, `${label}: cancellation gives explicit safety feedback`);
+  assert.equal(cancelled.pauseDisabled, false, `${label}: cancellation feedback survives graph updates while the run continues`);
   await evaluate(cdp, "document.getElementById('pauseButton').click()");
   return `${label} launch, layout, trusted hold and cancellation passed`;
 }

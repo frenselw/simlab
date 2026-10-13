@@ -20,6 +20,12 @@
   - `plans/10-linear-motion-velocity-lab.md`
 - 本文件一旦獲批，實作、評分、snapshot schema、測試及 packaging 均以本文件為基準；任何改變物理意義、關卡、評分或持久化契約的修訂，必須先更新本文件。
 
+### 2026-10-13 觸控取消提示的優先次序
+
+- Ubuntu CI 重現：踏板收到可信 `pointercancel` 並回到空檔，但下一幀的自動圖像描述覆蓋了「操作中斷」提示。取消提示保留 1.5 秒後才允許自動圖像播報；較早排程的播報只在仍是最新文字時寫入 live region。
+- 新增來源／ZIP 瀏覽器檢查：取消提示在 250 毫秒後仍可讀、踏板維持空檔／未按下、試車繼續運行。物理輸入、評分及 snapshot schema 沿用現行契約；UI 輔助提示期限是暫態，不存入答案。
+- accessibility、UI lifecycle、scoring、persistence 及 `node tools/kinematics-driving-browser-regression.js` 的完整開發版／ZIP 回歸已通過；GitHub 全套 CI 及真機／Moodle 接受度仍需獨立確認。
+
 ## 1. 目的與定位
 
 建立一個手機優先的分關駕駛遊戲，讓學生用「按住／放開」油門及煞車控制一架沿一維道路前進的車，在不同路段製造：
