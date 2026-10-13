@@ -19,6 +19,7 @@ const {scrollGripVisibilityCases,historyIconCases}=require('./circuit-canvas-bro
 const {reviewR3Cases}=require('./circuit-ac-review-r3-browser-cases');
 const {fontSizeCases}=require('./circuit-display-mirror-browser-cases');
 const {dependencyAuditCases}=require('./circuit-dependency-audit-browser-cases');
+const {dragPlaybackCases}=require('./circuit-drag-playback-browser-cases');
 const {sourceProtectionCases,mixedProtectionCases,protectionContinuationCases}=require('./circuit-source-protection-browser-cases');
 const {protectionBudgetCases,sessionCapacityCases}=require('./circuit-protection-budget-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-ac');
@@ -48,6 +49,7 @@ async function main(){
   async function screenshot(name,clip=null){const result=await cdp.send('Page.captureScreenshot',{format:'png',...(clip?{clip}:{})});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));}
   for(const [source,directory]of [['source',path.join(root,'sim')],['package',extracted]]){
    activeServer=server(directory);await H.listenServer(activeServer);
+   if(process.argv.includes('--drag-playback-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await dragPlaybackCases({inside,call,click,point,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--drag-playback-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--instrument-readouts-smoke')||process.argv.includes('--instrument-readouts-visual-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await instrumentReadoutCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source,process.argv.includes('--instrument-readouts-visual-smoke'));await H.closeServer(activeServer);activeServer=null;continue;}
    if(process.argv.includes('--readout-animation-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await load('/circuit-ac-workbench/index.html');checks+=await readoutAnimationCases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},source);if(process.argv.includes('--readout-animation-smoke')){await H.closeServer(activeServer);activeServer=null;continue;}}
    if(process.argv.includes('--review-r3-smoke')){await load('/circuit-ac-workbench/index.html');checks+=await reviewR3Cases({inside,call,click,send:(...args)=>cdp.send(...args),screenshot},source);await H.closeServer(activeServer);activeServer=null;continue;}
