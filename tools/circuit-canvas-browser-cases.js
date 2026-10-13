@@ -35,16 +35,21 @@ async function canvasLayoutCases(h,mode,base){
 async function scrollGripVisibilityCases(h,source){let checks=0;
  for(const mode of ['ac','dc']){
   const host=mode==='ac'?'#app':'#grip-dc',api=mode==='ac'?'CircuitACWorkbench':'__gripDC';
-  if(mode==='dc')await h.inside(`(async()=>{const host=document.createElement('div');host.id='grip-dc';host.style.cssText='position:fixed;inset:0;background:white;z-index:200';document.body.append(host);window.__gripDC=await CircuitEditor.mount(host,{role:'teacher',initialDocument:CircuitPresets.create('series'),idPrefix:'grip-dc-'});})()`);
-  const saved=await h.inside(api+'.exportDocument()');
-  for(const width of [1280,390])for(const input of ['mouse','touch']){
-   await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<960});await h.send('Emulation.setTouchEmulationEnabled',{enabled:input!=='mouse',maxTouchPoints:2});
-   await h.delay(40);
-   const result=await h.inside(`(()=>{const fine=matchMedia('(hover:hover) and (pointer:fine)').matches,coarse=matchMedia('(any-pointer:coarse)').matches,strips=[...document.querySelectorAll('${host} .scroll-strip')].map(e=>{const r=e.getBoundingClientRect();return {visible:e.getClientRects().length>0,width:r.width,height:r.height,touch:getComputedStyle(e).touchAction};});return {fine,coarse,strips};})()`);
-   assert.equal(result.fine,input!=='touch',JSON.stringify({input,result}));assert.equal(result.coarse,input!=='mouse');assert.equal(result.strips.length,2);assert(result.strips.every(s=>s.visible===(input!=='mouse')&&(!s.visible||s.width>=32&&s.height>=44&&s.touch==='pan-y')));assert.equal(await h.inside(api+'.exportDocument()'),saved);checks+=5;
-   if(mode==='ac'&&(width===1280&&input==='mouse'||width===390&&input==='touch'))await h.screenshot(source+'-scroll-grips-'+input+'-'+width);
+  for(const width of [1280,390]){
+   // Disabling touch restores the host's hardware (possibly none), not the launch override.
+   await h.freshPage();
+   if(mode==='dc')await h.inside(`(async()=>{const host=document.createElement('div');host.id='grip-dc';host.style.cssText='position:fixed;inset:0;background:white;z-index:200';document.body.append(host);window.__gripDC=await CircuitEditor.mount(host,{role:'teacher',initialDocument:CircuitPresets.create('series'),idPrefix:'grip-dc-'});})()`);
+   const saved=await h.inside(api+'.exportDocument()');
+   await h.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<960});
+   for(const input of ['mouse','touch']){
+    if(input==='touch')await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+    await h.delay(40);
+    const result=await h.inside(`(()=>{const fine=matchMedia('(hover:hover) and (pointer:fine)').matches,coarse=matchMedia('(any-pointer:coarse)').matches,strips=[...document.querySelectorAll('${host} .scroll-strip')].map(e=>{const r=e.getBoundingClientRect();return {visible:e.getClientRects().length>0,width:r.width,height:r.height,touch:getComputedStyle(e).touchAction};});return {fine,coarse,strips};})()`);
+    assert.equal(result.fine,input!=='touch',JSON.stringify({input,result}));assert.equal(result.coarse,input!=='mouse');assert.equal(result.strips.length,2);assert(result.strips.every(s=>s.visible===(input!=='mouse')&&(!s.visible||s.width>=32&&s.height>=44&&s.touch==='pan-y')));assert.equal(await h.inside(api+'.exportDocument()'),saved);checks+=5;
+    if(mode==='ac'&&(width===1280&&input==='mouse'||width===390&&input==='touch'))await h.screenshot(source+'-scroll-grips-'+input+'-'+width);
+   }
+   if(mode==='dc')await h.inside('__gripDC.destroy();document.getElementById("grip-dc").remove();delete window.__gripDC');
   }
-  if(mode==='dc')await h.inside('__gripDC.destroy();document.getElementById("grip-dc").remove();delete window.__gripDC');
  }
  await h.send('Emulation.setEmulatedMedia',{features:[]});console.log(source+' scroll-grip visibility '+checks+' checks passed');return checks;
 }
