@@ -40,7 +40,7 @@ function buildPlan({tests,selection,runId,sha,policyHash,comparison={},durations
   jobs.push({key:'docs',kind:'docs',expected,entries:expected.map(id=>({id,file:'tools/ci-check-item.js',args:['--operation='+id],kind:'docs'}))});
  }
  else{
-  for(const kind of ['node','browser'])distribute(selected.filter(e=>e.kind===kind),4,durations).forEach((bucket,index)=>{
+  for(const kind of ['node','browser'])distribute(selected.filter(e=>e.kind===kind),kind==='browser'?8:4,durations).forEach((bucket,index)=>{
    jobs.push({key:kind+'-'+(index+1),kind,entries:bucket.entries,expected:bucket.entries.map(e=>e.id),estimatedSeconds:bucket.seconds});
   });
   const packages=selection?.packages??'all';
