@@ -1261,7 +1261,7 @@ async function main() {
     validateOwnedProfile(profileDirectory, tempRoot);
     chrome = spawn(browser, ["--headless=new", "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0", `--user-data-dir=${profileDirectory}`, "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
     chrome.stderr.on("data", (chunk) => { browserErrors = `${browserErrors}${chunk}`.slice(-5000); });
-    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 12000, "Chrome DevTools startup");
+    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 35000, "Chrome DevTools startup");
     const { body: target } = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" });
     cdp = new CdpClient(target.webSocketDebuggerUrl);
     await cdp.send("Page.enable");

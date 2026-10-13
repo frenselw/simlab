@@ -27,6 +27,14 @@ try {
   assert.equal(await devToolsPort(portFixture,{exitCode:null}),12345);assert.equal(reads,2,'transient Windows lock retries the same port file');
   fs.readFileSync=function(file,...args){if(file===portFile){const error=new Error('permission');error.code='EACCES';throw error;}return originalRead.call(fs,file,...args);};
   await assert.rejects(devToolsPort(portFixture,{exitCode:null}),error=>error.code==='EACCES');
+  const originalTimeout=global.setTimeout;
+  try {
+    let lateReads=0;
+    global.setTimeout=callback=>{queueMicrotask(callback);return 0;};
+    fs.readFileSync=function(file,...args){if(file===portFile&&lateReads++<240){const error=new Error('Chrome is still starting');error.code='ENOENT';throw error;}return originalRead.call(fs,file,...args);};
+    assert.equal(await devToolsPort(portFixture,{exitCode:null}),12345,'a slow Chrome launch can become ready beyond the former startup limit');
+    await assert.rejects(devToolsPort(portFixture,{exitCode:1}),/Chrome exited before CDP became ready/,'an exited browser still fails immediately');
+  } finally {global.setTimeout=originalTimeout;}
 } finally {fs.readFileSync=originalRead;const safe=validateOwnedDirectory(portFixture,os.tmpdir(),/^simlab-devtools-test-[A-Za-z0-9]+$/,'startup test fixture');fs.rmSync(safe,{recursive:true,force:false});}
 const fakePackageRoot = path.resolve(path.sep, "extracted-package");
 const launchPath = path.join(fakePackageRoot, "position-time-graph-motion-lab", "index.html");

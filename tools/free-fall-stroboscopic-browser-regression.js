@@ -2137,7 +2137,7 @@ async function main() {
       `--user-data-dir=${profileDirectory}`, "--no-first-run", "--no-default-browser-check",
       "--disable-background-networking", "--disable-component-update", "--disable-sync", "about:blank"];
     chrome = spawn(browser, args, { stdio: ["ignore", "ignore", "pipe"] });
-    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 12000, "Chrome startup");
+    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 35000, "Chrome startup");
     const { response, body } = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" });
     if (!response.ok) throw new Error(`Could not create Chrome target (${response.status}).`);
     cdp = new CdpClient(body.webSocketDebuggerUrl);

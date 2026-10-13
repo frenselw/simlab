@@ -179,7 +179,7 @@ function listenServer(server) {
 
 async function devToolsPort(profileDirectory, chrome) {
   const activePortFile = path.join(profileDirectory, "DevToolsActivePort");
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
     if (chrome.exitCode !== null) throw new Error(`Chrome exited before CDP became ready (exit ${chrome.exitCode}).`);
     try {
       const [port] = fs.readFileSync(activePortFile, "utf8").trim().split(/\r?\n/);
@@ -1712,7 +1712,7 @@ async function main() {
       reject(new Error(`Could not spawn Chrome: ${error.message}`));
     }));
     chrome.stderr.on("data", (chunk) => { browserErrors = `${browserErrors}${chunk}`.slice(-4000); });
-    const port = await Promise.race([withTimeout(devToolsPort(profileDirectory, chrome), 12000, "Chrome DevTools startup"), spawnFailure]);
+    const port = await Promise.race([withTimeout(devToolsPort(profileDirectory, chrome), 35000, "Chrome DevTools startup"), spawnFailure]);
     const { response: targetResponse, body: target } = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" });
     if (!targetResponse.ok) throw new Error(`Could not create Chrome target (${targetResponse.status}).`);
     cdp = new CdpClient(target.webSocketDebuggerUrl);

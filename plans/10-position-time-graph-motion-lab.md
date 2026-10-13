@@ -4,6 +4,12 @@
 
 ## 0. 文件狀態與現行規格關係
 
+### 2026-10-13 雙車速度標籤間距及 CI 維護
+
+- Windows Chrome 在 320×700 與 390×500 嵌入畫面重現第五題速度標籤遮住車身。雙車 A 車身頂部由 SVG y=76 調至 82，速度標籤基線由 72 調至 74，為字型的上伸／下伸及文字外框保留空隙；第三題的速度箭頭保持 y=66／19。位置、速度、評分及答案 schema 沿用現行規格。
+- 重新打包／解壓後的完整位置—時間瀏覽器回歸通過：1280 px、320 px、320×700／390×500 可信觸控、390×500 嵌入頁面、拖動／取消、放大鏡及草稿重載。手機跑道截圖已檢視；證據在 `output/playwright/position-time-ci-road.png`。
+- production-wiring 測試同步現行 fullscreen header 屬性及手機 15.5rem 最低舞台高度；production-wiring、scoring、persistence 與瀏覽器 helper 測試通過。GitHub 全套 CI、真機／Moodle 驗收另行記錄，不以本機結果代替。
+
 ### 2026-10-11 短手機畫面放大鏡修正
 
 - GitHub 與本地 extracted-package Chrome 均重現：390×500 畫面圖表區約 115 px 高，184×118 px 放大鏡加上下空位超出圖表區；此問題亦存在於 `a83747e` 的 main 檢查。

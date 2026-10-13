@@ -23,7 +23,7 @@ assert.doesNotMatch(html, /role="tablist" aria-label="同一情境的三種運�
 assert.match(html, /id="stageRegion"[^>]*class="stage-region"/);
 assert.match(html, /id="controlsPanel"[^>]*class="controls-panel"/);
 assert.match(html, /id="progress"[^>]*aria-label="關卡快速導覽"/);
-assert.match(html, /<header class="sim-header graph-page-header">/);
+assert.match(html, /<header class="sim-header graph-page-header"[^>]*>/);
 assert.ok(html.indexOf('<header') < html.indexOf('id="controlsPanel"'),
   "the full-width header precedes the scrolling controls panel");
 assert.equal((html.match(/data-progress="(?:practice|uniform|accelerating|decelerating|composite|review)"[^>]*><button type="button">/g) || []).length, 6);

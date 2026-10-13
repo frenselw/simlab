@@ -230,11 +230,12 @@ assert.match(indexSource, /id="replayButton"[^>]*>回到 0 s<\/button>/, "time r
 assert.match(indexSource, /<section id="playbackSection" class="panel-section">[\s\S]*播放及讀圖/, "playback controls have a dedicated section for final-review visibility");
 assert.match(indexSource, /<div id="dataSection">[\s\S]*即時數據[\s\S]*id="dataGrid"/, "live data has a dedicated wrapper for final-review visibility");
 assert.match(indexSource, /id="taskKicker"[^>]*>活動指引<\/span>/, "task card has a dedicated visual kicker");
-assert.match(indexSource, /id="labUpperScroll"[\s\S]*<header class="sim-header compact-header">[\s\S]*<section class="sim-stage lab-stage"/, "mobile upper scroller owns the header and complete stage as one region");
+assert.match(indexSource, /id="labUpperScroll"[\s\S]*<header class="sim-header compact-header"[^>]*>[\s\S]*<section class="sim-stage lab-stage"/, "mobile upper scroller owns the header and complete stage as one region");
 assert.match(indexSource, /<div id="roadTouchPreviewHost" class="diagram-magnifier-host road-magnifier-host" aria-hidden="true" hidden><\/div>/, "road touch magnifier uses an overlay outside the source road SVG");
 assert.match(indexSource, /<div id="graphTouchPreviewHost" class="diagram-magnifier-host graph-magnifier-host" aria-hidden="true" hidden><\/div>/, "graph touch magnifier uses an overlay outside the source graph SVG");
-assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44vh\) minmax\(0, 1fr\)/s, "mobile shell reserves the remaining viewport height for the control panel");
-assert.match(stylesSource, /@supports \(height: 100dvh\)[\s\S]*\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(13rem, 44dvh\) minmax\(0, 1fr\)/s, "mobile shell follows the dynamic viewport height when supported");
+assert.match(stylesSource, /\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(var\(--lab-upper-min-height, 13rem\), 44vh\) minmax\(0, 1fr\)/s, "mobile shell reserves the remaining viewport height for the control panel");
+assert.match(stylesSource, /@supports \(height: 100dvh\)[\s\S]*\.lab-shell\s*\{[^}]*grid-template-rows:\s*minmax\(var\(--lab-upper-min-height, 13rem\), 44dvh\) minmax\(0, 1fr\)/s, "mobile shell follows the dynamic viewport height when supported");
+assert.match(stylesSource, /--lab-upper-min-height:\s*15\.5rem/, "short phone stages retain enough room for the touch magnifier");
 assert.match(stylesSource, /\.lab-stage\s*\{[^}]*align-content:\s*start/s, "mobile stage rows do not stretch into blank space");
 assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*overflow:\s*hidden/s, "mobile visual region is fixed instead of becoming a scroll container");
 assert.match(stylesSource, /\.lab-upper-scroll\s*\{[^}]*touch-action:\s*pan-y/s, "blank visual-region swipes remain available to the embedding page");
@@ -637,7 +638,7 @@ assert.equal(document.getElementById("graphLayer").innerHTML.includes("t*"), fal
 assert.ok(document.getElementById("dataGrid").innerHTML.includes('<span class="math"><var>t</var></span> ='), "mission 5 live data labels the specified meeting time t without a star");
 const missionFiveRoad = document.getElementById("roadLayer").innerHTML;
 assert.ok(missionFiveRoad.includes('data-road-car="A"') && missionFiveRoad.includes('data-road-car="B"'), "mission 5 renders both labelled cars in separate road groups");
-assert.ok(missionFiveRoad.includes('transform="translate(') && missionFiveRoad.includes(' 76)') && missionFiveRoad.includes(' 29)'), "mission 5 assigns A and B to distinct visible vertical lanes");
+assert.ok(missionFiveRoad.includes('transform="translate(') && missionFiveRoad.includes(' 82)') && missionFiveRoad.includes(' 29)'), "mission 5 assigns A and B to distinct visible vertical lanes with label clearance");
 assert.ok(missionFiveRoad.includes('data-drag="car:B"') && missionFiveRoad.includes('data-drag="velocity:B"'), "mission 5 keeps both B car and velocity directly draggable");
 assert.equal(missionFiveRoad.includes('data-drag="car:A"'), false, "mission 5 keeps authoritative A car read-only");
 const missionFiveB = one('[data-drag="car:B"]');

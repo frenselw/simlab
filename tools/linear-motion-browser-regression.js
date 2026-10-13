@@ -713,7 +713,7 @@ async function main() {
     chrome = spawn(browser, args, { stdio: ["ignore", "ignore", "pipe"] });
     const spawnFailure = new Promise((_, reject) => chrome.once("error", (error) => reject(new Error(`Could not spawn Chrome: ${error.message}`))));
     chrome.stderr.on("data", (chunk) => { browserErrors = `${browserErrors}${chunk}`.slice(-4000); });
-    const port = await Promise.race([withTimeout(devToolsPort(profileDirectory, chrome), 12000, "Chrome DevTools startup"), spawnFailure]);
+    const port = await Promise.race([withTimeout(devToolsPort(profileDirectory, chrome), 35000, "Chrome DevTools startup"), spawnFailure]);
     const { response, body: target } = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" });
     if (!response.ok) throw new Error(`Could not create Chrome target (${response.status}).`);
     cdp = new CdpClient(target.webSocketDebuggerUrl, WebSocket, 45000);

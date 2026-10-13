@@ -532,20 +532,20 @@
   function carSvg(car, index, carCount) {
     const position = S.positionAt(car.motion, ui.time);
     const x = roadX(clamp(position, -20, 20));
-    const carTop = carCount > 1 ? (index === 0 ? 76 : 29) : 70;
+    const carTop = carCount > 1 ? (index === 0 ? 82 : 29) : 70;
     const y = carTop + 15;
     const canDrag = car.draggable && settingsEditable();
     const arrowLength = car.motion.v * 48;
     const endpoint = x + arrowLength;
     const arrowY = carCount > 1
-      ? (car.velocitySymbolOnly ? carTop - 10 : (index === 0 ? 66 : 24))
+      ? (car.velocitySymbolOnly ? (index === 0 ? 66 : 19) : (index === 0 ? 66 : 24))
       : 54;
     const direction = Math.sign(arrowLength);
     const zeroLabelOnLeft = direction === 0 && x > ROAD.right - 150;
     const magnitudeLabelX = direction === 0
       ? x + (zeroLabelOnLeft ? -38 : 38)
       : endpoint + (direction < 0 ? -14 : 14);
-    const magnitudeLabelY = carCount > 1 ? (index === 0 ? 72 : 22) : 60;
+    const magnitudeLabelY = carCount > 1 ? (index === 0 ? 74 : 22) : 60;
     const magnitudeAnchor = direction < 0 || zeroLabelOnLeft ? "end" : "start";
     const magnitudeText = car.motion.incomplete ? "|v|=? m/s" : `|v|=${Math.abs(car.motion.v).toFixed(1)} m/s`;
     const velocityLabelClass = car.velocitySymbolOnly ? "velocity-symbol-label" : "velocity-magnitude-label";

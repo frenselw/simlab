@@ -1801,7 +1801,7 @@ async function main() {
     if (process.platform !== "win32" && typeof process.getuid === "function" && process.getuid() === 0) args.unshift("--no-sandbox");
     chrome = spawn(browser, args, { stdio: ["ignore", "ignore", "pipe"] });
     chrome.stderr.on("data", (chunk) => { browserErrors = `${browserErrors}${chunk}`.slice(-4000); });
-    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 12000, "Chrome DevTools startup");
+    const port = await withTimeout(devToolsPort(profileDirectory, chrome), 35000, "Chrome DevTools startup");
     const { response, body: target } = await fetchJson(
       `http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`,
       { method: "PUT" }

@@ -117,9 +117,9 @@ test('accepted near-limit wires bend safely and impossible rotations stay atomic
   const far=d.junctions.find(j=>j.id+':p'===w.to);Object.assign(far,{x:860.01,y:200});w.via=[];M.validate(d);
   const saved=D.encode(d),restored=D.decode(saved);assert(M.bendWire(restored,w.id,{x:560,y:200},0,30).limited);assert.equal(D.encode(restored),saved);
   M.moveWireEnd(restored,w.id,'to',{x:760,y:200});assert(!M.bendWire(restored,w.id,{x:510,y:200},0,30).limited);assert(restored.wires[0].via.length>0);M.validate(restored);
-  M.moveWireEnd(d,w.id,'to',{x:800,y:265});const before=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id,1),/導線太短/);assert.equal(D.encode(d),before);
+  M.moveWireEnd(d,w.id,'to',{x:800,y:-60});const before=D.encode(d);assert.throws(()=>M.rotateComponent(d,c.id,1),/導線太短/);assert.equal(D.encode(d),before);
   const h=M.history(d);assert.throws(()=>h.change(next=>M.rotateComponent(next,c.id,1)));assert.equal(h.canUndo(),false);assert.equal(D.encode(h.get()),before);
-  M.moveWireEnd(d,w.id,'to',{x:799,y:260});M.rotateComponent(d,c.id,1);assert.equal(d.components[0].angle,90);
+  M.moveWireEnd(d,w.id,'to',{x:799,y:260});M.rotateComponent(d,c.id,1);assert.equal(d.components[0].angle,45);
   assert.equal(G.route(d,d.wires[0]).length,2);M.bendWire(d,w.id,{x:500,y:260},0,30);M.validate(d);
 });
 test('linear and thermal DC behavior survives the changed branch representation',()=>{

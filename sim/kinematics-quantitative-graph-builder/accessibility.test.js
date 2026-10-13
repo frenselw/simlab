@@ -12,7 +12,7 @@ assert.doesNotMatch(main, /const (?:minus|plus) =/, "practice and formal control
 assert.doesNotMatch(html, /−／＋/, "practice instructions do not mention removed controls");
 assert.match(css, /min-width: 6rem/, "number input has a readable minimum width");
 assert.match(css, /appearance: textfield/, "native spinners cannot cover the number");
-assert.match(html, /<header class="sim-header page-header">/, "title uses the shared full-width header");
+assert.match(html, /<header class="sim-header page-header"[^>]*>/, "title uses the shared full-width header");
 assert.ok(html.indexOf('<header') < html.indexOf('class="controls-panel"'), "header precedes the panel");
 assert.match(main, /ResizeObserver\(recomputeLayout\)\.observe\(el\.stageRegion\)/, "graph fits stage changes caused by title wrapping"); assert.match(main, /N\.quantity\(/, "visible quantities use the semantic no-wrap renderer"); assert.match(css, /aspect-ratio: 740 \/ 500/, "graph board preserves SVG aspect ratio"); assert.doesNotMatch(css, /\.point-hit\[aria-selected="true"\]::after\s*\{[^}]*?(?:border|content)/, "selected point has no duplicate HTML ring"); assert.match(main, /N\.text\(graph\.feedback/, "result feedback uses the safe notation token renderer"); assert.doesNotMatch(main, /Paper \$\{state\.pid\}|Mission \$\{/, "learner-visible task labels avoid internal paper IDs");
 console.log("Quantitative graph accessibility contract tests passed");

@@ -2815,7 +2815,7 @@ async function main() {
     const artifactUrl = `http://127.0.0.1:${artifactServer.address().port}`;
     const args = ["--headless=new", "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--disable-background-networking", "about:blank"];
     chrome = spawn(browser, args, { stdio: ["ignore", "ignore", "pipe"] });
-    const port = await withTimeout(devToolsPort(profile, chrome), 12000, "Chrome startup");
+    const port = await withTimeout(devToolsPort(profile, chrome), 35000, "Chrome startup");
     const { body: target } = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" });
     cdp = new CdpClient(target.webSocketDebuggerUrl);
     cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
