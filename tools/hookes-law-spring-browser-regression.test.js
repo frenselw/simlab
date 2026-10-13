@@ -16,7 +16,8 @@ const browser = fs.readFileSync(path.join(__dirname, "hookes-law-spring-browser-
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
 const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "quality.yml"), "utf8");
 assert.equal(packageJson.scripts["test:browser:hookes-law"], "node tools/hookes-law-spring-browser-regression.js", "package script runs the full Hooke browser regression");
-assert.match(workflow, /npm run test:browser:hookes-law/, "Quality workflow runs the full Hooke browser regression");
+assert(require('./run-tests').extraBrowserTests.includes('tools/hookes-law-spring-browser-regression.js'));
+assert.match(workflow, /npm test -- --suite=extra/, "Quality workflow runs the full registered browser suite");
 assert.match(browser, /Input\.dispatchTouchEvent/);
 assert.match(browser, /isTrusted/);
 assert.match(browser, /sourceTouch/);

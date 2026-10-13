@@ -1,0 +1,2446 @@
+{
+  "schemaVersion": 1,
+  "sha": "a8be3a5dc738421ea5824cb83dff597263434cfe",
+  "entries": [
+    {
+      "id": "sim/circuit-workbench/transient.test.js",
+      "file": "sim/circuit-workbench/transient.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-source-protection.test.js",
+      "file": "sim/circuit-workbench/ac-source-protection.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/protection-continuation.test.js",
+      "file": "sim/circuit-workbench/protection-continuation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/protection-restart.test.js",
+      "file": "sim/circuit-workbench/protection-restart.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/protection-budget.test.js",
+      "file": "sim/circuit-workbench/protection-budget.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/session-capacity.test.js",
+      "file": "sim/circuit-workbench/session-capacity.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/connection.test.js",
+      "file": "sim/circuit-workbench/connection.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/circuit-connections-browser-regression.js",
+      "file": "tools/circuit-connections-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--headless",
+        "--no-first-run",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/circuit-workbench/ac-audit-regressions.test.js",
+      "file": "sim/circuit-workbench/ac-audit-regressions.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-dependency-audit.test.js",
+      "file": "sim/circuit-workbench/ac-dependency-audit.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-review-r3.test.js",
+      "file": "sim/circuit-workbench/ac-review-r3.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-energy-r2.test.js",
+      "file": "sim/circuit-workbench/ac-energy-r2.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-platform.test.js",
+      "file": "sim/circuit-workbench/ac-platform.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/generator-graphics.test.js",
+      "file": "sim/circuit-workbench/generator-graphics.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/field-graphics.test.js",
+      "file": "sim/circuit-workbench/field-graphics.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-display.test.js",
+      "file": "sim/circuit-workbench/ac-display.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/readout-math.test.js",
+      "file": "sim/circuit-workbench/readout-math.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-instrument-readouts.test.js",
+      "file": "sim/circuit-workbench/ac-instrument-readouts.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-meter-design.test.js",
+      "file": "sim/circuit-workbench/ac-meter-design.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-meter-response.test.js",
+      "file": "sim/circuit-workbench/ac-meter-response.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/ac-reference.test.js",
+      "file": "sim/circuit-workbench/ac-reference.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": [
+        "--json"
+      ]
+    },
+    {
+      "id": "sim/circuit-workbench/transformer-design.test.js",
+      "file": "sim/circuit-workbench/transformer-design.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/energy-sync.test.js",
+      "file": "sim/circuit-workbench/energy-sync.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/scope.test.js",
+      "file": "sim/circuit-workbench/scope.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/circuit-ac-browser-regression.js",
+      "file": "tools/circuit-ac-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [
+        "circuit-scope-browser-cases",
+        "circuit-generator-browser-cases",
+        "circuit-transformer-browser-cases",
+        "circuit-quick-controls-browser-cases",
+        "circuit-quick-response-browser-cases",
+        "circuit-ac-audit-browser-cases",
+        "circuit-winding-browser-cases",
+        "circuit-meter-response-browser-cases",
+        "circuit-meter-design-browser-cases",
+        "circuit-readout-math-browser-cases",
+        "circuit-readout-animation-browser-cases",
+        "circuit-instrument-readouts-browser-cases",
+        "circuit-field-browser-cases",
+        "circuit-canvas-browser-cases",
+        "circuit-ac-review-r3-browser-cases",
+        "circuit-display-mirror-browser-cases",
+        "circuit-dependency-audit-browser-cases",
+        "circuit-drag-playback-browser-cases",
+        "circuit-source-protection-browser-cases",
+        "circuit-protection-budget-browser-cases"
+      ],
+      "flags": [
+        "--audit-smoke",
+        "--blink-settings",
+        "--controls-smoke",
+        "--dependency-audit-smoke",
+        "--disable-background-networking",
+        "--drag-playback-smoke",
+        "--example-hint-smoke",
+        "--field-smoke",
+        "--font-size-smoke",
+        "--generator-leads-smoke",
+        "--generator-smoke",
+        "--headless",
+        "--history-icons-smoke",
+        "--inductor-density-smoke",
+        "--instrument-readouts-smoke",
+        "--instrument-readouts-visual-smoke",
+        "--meter-design-smoke",
+        "--meter-response-smoke",
+        "--mixed-protection-smoke",
+        "--mutual-layout-smoke",
+        "--no-first-run",
+        "--overview-smoke",
+        "--preset-smoke",
+        "--protection-budget-smoke",
+        "--protection-continuation-smoke",
+        "--quick-controls-smoke",
+        "--quick-response-smoke",
+        "--reactive-art-smoke",
+        "--readout-animation-smoke",
+        "--readout-math-smoke",
+        "--realtime-smoke",
+        "--remote-debugging-port",
+        "--review-r3-smoke",
+        "--scope-smoke",
+        "--scroll-grip-visibility-smoke",
+        "--session-capacity-smoke",
+        "--source-protection-smoke",
+        "--transformer-comparison-smoke",
+        "--transformer-design-smoke",
+        "--user-data-dir",
+        "--winding-smoke"
+      ]
+    },
+    {
+      "id": "sim/circuit-workbench/assessed-activities.test.js",
+      "file": "sim/circuit-workbench/assessed-activities.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/circuit-assessed-browser-regression.js",
+      "file": "tools/circuit-assessed-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--headless",
+        "--no-first-run",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/circuit-workbench/core.test.js",
+      "file": "sim/circuit-workbench/core.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/wire-resistance.test.js",
+      "file": "sim/circuit-workbench/wire-resistance.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/wire-current-labels.test.js",
+      "file": "sim/circuit-workbench/wire-current-labels.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/cable-grip.test.js",
+      "file": "sim/circuit-workbench/cable-grip.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/rotation.test.js",
+      "file": "sim/circuit-workbench/rotation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/meter-motion.test.js",
+      "file": "sim/circuit-workbench/meter-motion.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/display-and-mirror.test.js",
+      "file": "sim/circuit-workbench/display-and-mirror.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/layout.test.js",
+      "file": "sim/circuit-workbench/layout.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/labels.test.js",
+      "file": "sim/circuit-workbench/labels.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/meters-and-math.test.js",
+      "file": "sim/circuit-workbench/meters-and-math.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/feedback.test.js",
+      "file": "sim/circuit-workbench/feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/flow.test.js",
+      "file": "sim/circuit-workbench/flow.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/component-flow.test.js",
+      "file": "sim/circuit-workbench/component-flow.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/winding-flow.test.js",
+      "file": "sim/circuit-workbench/winding-flow.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/textbook.test.js",
+      "file": "sim/circuit-workbench/textbook.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/teaching.test.js",
+      "file": "sim/circuit-workbench/teaching.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/document-import.test.js",
+      "file": "sim/circuit-workbench/document-import.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/activity-core.test.js",
+      "file": "sim/circuit-workbench/activity-core.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/platform-core.test.js",
+      "file": "sim/circuit-workbench/platform-core.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/component-snapping.test.js",
+      "file": "sim/circuit-workbench/component-snapping.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/quick-controls.test.js",
+      "file": "sim/circuit-workbench/quick-controls.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/relay.test.js",
+      "file": "sim/circuit-workbench/relay.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/circuit-workbench/review-regressions.test.js",
+      "file": "sim/circuit-workbench/review-regressions.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "circuit-workbench",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/circuit-workbench-browser-regression.js --entry=source",
+      "file": "tools/circuit-workbench-browser-regression.js",
+      "args": [
+        "--entry=source"
+      ],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [
+        "circuit-camera-browser-cases",
+        "circuit-preset-browser-cases",
+        "circuit-canvas-browser-cases",
+        "circuit-label-browser-cases",
+        "circuit-meters-math-browser-cases",
+        "circuit-meter-snapping-browser-cases",
+        "circuit-cable-handling-browser-cases",
+        "circuit-feedback-browser-cases",
+        "circuit-flow-browser-cases",
+        "circuit-component-flow-browser-cases",
+        "circuit-foundation-browser-cases",
+        "circuit-activity-browser-cases",
+        "circuit-platform-browser-cases",
+        "circuit-component-snapping-browser-cases",
+        "circuit-relay-browser-cases",
+        "circuit-quick-controls-browser-cases",
+        "circuit-review-browser-cases",
+        "circuit-textbook-browser-cases",
+        "circuit-teaching-browser-cases",
+        "circuit-palette-drag-browser-cases",
+        "circuit-discard-browser-cases",
+        "circuit-wire-grip-browser-cases",
+        "circuit-needle-browser-cases",
+        "circuit-display-mirror-browser-cases",
+        "circuit-rotation-browser-cases",
+        "circuit-help-browser-cases",
+        "circuit-wire-inspector-browser-cases",
+        "circuit-wire-resistance-browser-cases",
+        "circuit-wire-current-browser-cases",
+        "circuit-settings-browser-cases"
+      ],
+      "flags": [
+        "--activity-core-smoke",
+        "--bend-smoke",
+        "--component-flow-smoke",
+        "--component-snap-smoke",
+        "--continuation-smoke",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--discard-drag-smoke",
+        "--display-mirror-smoke",
+        "--entry",
+        "--feedback-smoke",
+        "--flow-drag-smoke",
+        "--flow-scale-smoke",
+        "--flow-smoke",
+        "--foundation-smoke",
+        "--gesture-smoke",
+        "--handling-smoke",
+        "--headless",
+        "--help-smoke",
+        "--interrupt-case",
+        "--interruption-smoke",
+        "--labels-smoke",
+        "--layout-smoke",
+        "--meter-snapping-smoke",
+        "--meters-math-smoke",
+        "--micro-flow-smoke",
+        "--needle-smoke",
+        "--no-first-run",
+        "--palette-drag-smoke",
+        "--phone-smoke",
+        "--platform-core-smoke",
+        "--preset-smoke",
+        "--quick-controls-smoke",
+        "--refinement-smoke",
+        "--relay-smoke",
+        "--remote-debugging-port",
+        "--review-followup-smoke",
+        "--review-slider-boundary-smoke",
+        "--review-smoke",
+        "--review-zero-smoke",
+        "--rotation-smoke",
+        "--settings-smoke",
+        "--settings-width",
+        "--teaching-smoke",
+        "--terminal-marks-only",
+        "--textbook-report",
+        "--textbook-smoke",
+        "--textbook-ui-smoke",
+        "--user-data-dir",
+        "--wire-current-smoke",
+        "--wire-grip-smoke",
+        "--wire-inspector-smoke",
+        "--wire-resistance-smoke"
+      ]
+    },
+    {
+      "id": "tools/circuit-workbench-browser-regression.js --entry=package",
+      "file": "tools/circuit-workbench-browser-regression.js",
+      "args": [
+        "--entry=package"
+      ],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [
+        "circuit-camera-browser-cases",
+        "circuit-preset-browser-cases",
+        "circuit-canvas-browser-cases",
+        "circuit-label-browser-cases",
+        "circuit-meters-math-browser-cases",
+        "circuit-meter-snapping-browser-cases",
+        "circuit-cable-handling-browser-cases",
+        "circuit-feedback-browser-cases",
+        "circuit-flow-browser-cases",
+        "circuit-component-flow-browser-cases",
+        "circuit-foundation-browser-cases",
+        "circuit-activity-browser-cases",
+        "circuit-platform-browser-cases",
+        "circuit-component-snapping-browser-cases",
+        "circuit-relay-browser-cases",
+        "circuit-quick-controls-browser-cases",
+        "circuit-review-browser-cases",
+        "circuit-textbook-browser-cases",
+        "circuit-teaching-browser-cases",
+        "circuit-palette-drag-browser-cases",
+        "circuit-discard-browser-cases",
+        "circuit-wire-grip-browser-cases",
+        "circuit-needle-browser-cases",
+        "circuit-display-mirror-browser-cases",
+        "circuit-rotation-browser-cases",
+        "circuit-help-browser-cases",
+        "circuit-wire-inspector-browser-cases",
+        "circuit-wire-resistance-browser-cases",
+        "circuit-wire-current-browser-cases",
+        "circuit-settings-browser-cases"
+      ],
+      "flags": [
+        "--activity-core-smoke",
+        "--bend-smoke",
+        "--component-flow-smoke",
+        "--component-snap-smoke",
+        "--continuation-smoke",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--discard-drag-smoke",
+        "--display-mirror-smoke",
+        "--entry",
+        "--feedback-smoke",
+        "--flow-drag-smoke",
+        "--flow-scale-smoke",
+        "--flow-smoke",
+        "--foundation-smoke",
+        "--gesture-smoke",
+        "--handling-smoke",
+        "--headless",
+        "--help-smoke",
+        "--interrupt-case",
+        "--interruption-smoke",
+        "--labels-smoke",
+        "--layout-smoke",
+        "--meter-snapping-smoke",
+        "--meters-math-smoke",
+        "--micro-flow-smoke",
+        "--needle-smoke",
+        "--no-first-run",
+        "--palette-drag-smoke",
+        "--phone-smoke",
+        "--platform-core-smoke",
+        "--preset-smoke",
+        "--quick-controls-smoke",
+        "--refinement-smoke",
+        "--relay-smoke",
+        "--remote-debugging-port",
+        "--review-followup-smoke",
+        "--review-slider-boundary-smoke",
+        "--review-smoke",
+        "--review-zero-smoke",
+        "--rotation-smoke",
+        "--settings-smoke",
+        "--settings-width",
+        "--teaching-smoke",
+        "--terminal-marks-only",
+        "--textbook-report",
+        "--textbook-smoke",
+        "--textbook-ui-smoke",
+        "--user-data-dir",
+        "--wire-current-smoke",
+        "--wire-grip-smoke",
+        "--wire-inspector-smoke",
+        "--wire-resistance-smoke"
+      ]
+    },
+    {
+      "id": "tools/circuit-platform-browser-regression.js",
+      "file": "tools/circuit-platform-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "circuit-family",
+      "caseModules": [],
+      "flags": [
+        "--platform-core-smoke"
+      ]
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/generator.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/model.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/scoring.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/scene.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/scene.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/feedback.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/persistence.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-fullscreen-test/lifecycle.test.js",
+      "file": "sim/newtons-third-law-fullscreen-test/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/shared/fullscreen.test.js",
+      "file": "sim/shared/fullscreen.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "shared",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/scorm-fullscreen-browser-regression.js",
+      "file": "tools/scorm-fullscreen-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "shared-fullscreen",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir",
+        "--window-size"
+      ]
+    },
+    {
+      "id": "tools/fullscreen-rollout-browser-regression.js",
+      "file": "tools/fullscreen-rollout-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "shared-fullscreen",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headed",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir",
+        "--window-size"
+      ]
+    },
+    {
+      "id": "tools/newtons-third-law-fullscreen-activity-regression.js",
+      "file": "tools/newtons-third-law-fullscreen-activity-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "newtons-third-law-fullscreen-test",
+      "caseModules": [],
+      "flags": [
+        "--assistance",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--edges",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--review",
+        "--smoke",
+        "--touch",
+        "--usability",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/mobile-scroll-browser-regression.test.js",
+      "file": "tools/mobile-scroll-browser-regression.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "tools",
+      "caseModules": [],
+      "flags": [
+        "--profiles",
+        "--slugs"
+      ]
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/hit-geometry.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/hit-geometry.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/model.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/animation.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/animation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/scoring.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/feedback.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/persistence.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/lifecycle.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/motion-composition-stroboscopic-lab/scene.test.js",
+      "file": "sim/motion-composition-stroboscopic-lab/scene.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/motion-composition-browser-regression.js",
+      "file": "tools/motion-composition-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "motion-composition-stroboscopic-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--feedback-scroll-only",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--smoke",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/generator.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/model.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/scoring.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/scene.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/scene.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/feedback.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/persistence.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-third-law-reaction-force-lab/lifecycle.test.js",
+      "file": "sim/newtons-third-law-reaction-force-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/newtons-third-law-browser-regression.js",
+      "file": "tools/newtons-third-law-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "newtons-third-law-reaction-force-lab",
+      "caseModules": [],
+      "flags": [
+        "--assistance",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--edges",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--review",
+        "--smoke",
+        "--touch",
+        "--usability",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/model.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/fitting.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/fitting.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/interpretation.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/interpretation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/scoring.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/graph.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/graph.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/persistence.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/newtons-second-law-investigation-lab/lifecycle.test.js",
+      "file": "sim/newtons-second-law-investigation-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/newtons-second-law-browser-regression.js",
+      "file": "tools/newtons-second-law-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "newtons-second-law-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--experience",
+        "--headless",
+        "--interaction",
+        "--interpretation",
+        "--motion",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--settings",
+        "--short",
+        "--smoke",
+        "--touch",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/generator.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/model.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/scene.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/scene.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/scoring.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/persistence.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-advanced-diagram-lab/lifecycle.test.js",
+      "file": "sim/force-equilibrium-advanced-diagram-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/force-equilibrium-advanced-browser-regression.js",
+      "file": "tools/force-equilibrium-advanced-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "force-equilibrium-advanced-diagram-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--smoke",
+        "--springs",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/force-equilibrium-diagram-lab/generator.test.js",
+      "file": "sim/force-equilibrium-diagram-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-diagram-lab/model.test.js",
+      "file": "sim/force-equilibrium-diagram-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-diagram-lab/scoring.test.js",
+      "file": "sim/force-equilibrium-diagram-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-diagram-lab/persistence.test.js",
+      "file": "sim/force-equilibrium-diagram-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-equilibrium-diagram-lab/lifecycle.test.js",
+      "file": "sim/force-equilibrium-diagram-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/force-equilibrium-browser-regression.js",
+      "file": "tools/force-equilibrium-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "force-equilibrium-diagram-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--smoke",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/fbd-horizontal-block/scoring.test.js",
+      "file": "sim/fbd-horizontal-block/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "fbd-horizontal-block",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/plane-mirror-pencil-ray-diagram/scoring.test.js",
+      "file": "sim/plane-mirror-pencil-ray-diagram/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "plane-mirror-pencil-ray-diagram",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/plane-mirror-pencil-ray-diagram/draft-save.test.js",
+      "file": "sim/plane-mirror-pencil-ray-diagram/draft-save.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "plane-mirror-pencil-ray-diagram",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/displacement-distance-map-journey/scoring.test.js",
+      "file": "sim/displacement-distance-map-journey/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "displacement-distance-map-journey",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/displacement-distance-map-journey/route-coverage.test.js",
+      "file": "sim/displacement-distance-map-journey/route-coverage.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "displacement-distance-map-journey",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/displacement-distance-map-journey/map-persistence.test.js",
+      "file": "sim/displacement-distance-map-journey/map-persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "displacement-distance-map-journey",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/inertial-reference-frame-road-observer/scoring.test.js",
+      "file": "sim/inertial-reference-frame-road-observer/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "inertial-reference-frame-road-observer",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/inertial-reference-frame-road-observer/animation.test.js",
+      "file": "sim/inertial-reference-frame-road-observer/animation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "inertial-reference-frame-road-observer",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/scoring.test.js",
+      "file": "sim/position-time-graph-motion-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/generator.test.js",
+      "file": "sim/position-time-graph-motion-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/persistence.test.js",
+      "file": "sim/position-time-graph-motion-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/lifecycle.test.js",
+      "file": "sim/position-time-graph-motion-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/ui-runtime.test.js",
+      "file": "sim/position-time-graph-motion-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/production-wiring.test.js",
+      "file": "sim/position-time-graph-motion-lab/production-wiring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": [
+        "--color-accent",
+        "--lab-upper-min-height"
+      ]
+    },
+    {
+      "id": "sim/position-time-graph-motion-lab/pending-final.test.js",
+      "file": "sim/position-time-graph-motion-lab/pending-final.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/position-time-browser-regression.test.js",
+      "file": "tools/position-time-browser-regression.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/motion-model.test.js",
+      "file": "sim/linear-motion-velocity-lab/motion-model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/scene-visuals.test.js",
+      "file": "sim/linear-motion-velocity-lab/scene-visuals.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/scoring.test.js",
+      "file": "sim/linear-motion-velocity-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/persistence.test.js",
+      "file": "sim/linear-motion-velocity-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/accessibility.test.js",
+      "file": "sim/linear-motion-velocity-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": [
+        "--color-accent",
+        "--color-border-light"
+      ]
+    },
+    {
+      "id": "sim/linear-motion-velocity-lab/ui-runtime.test.js",
+      "file": "sim/linear-motion-velocity-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/driving-model.test.js",
+      "file": "sim/kinematics-driving-challenge/driving-model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/level-definitions.test.js",
+      "file": "sim/kinematics-driving-challenge/level-definitions.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/scoring.test.js",
+      "file": "sim/kinematics-driving-challenge/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/persistence.test.js",
+      "file": "sim/kinematics-driving-challenge/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/scene-visuals.test.js",
+      "file": "sim/kinematics-driving-challenge/scene-visuals.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/ui-runtime.test.js",
+      "file": "sim/kinematics-driving-challenge/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-driving-challenge/accessibility.test.js",
+      "file": "sim/kinematics-driving-challenge/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/task-definitions.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/task-definitions.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/notation.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/notation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/graph-model.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/graph-model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/graph-analysis.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/graph-analysis.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/scoring.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/persistence.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/ui-runtime.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-qualitative-graph-sketching/accessibility.test.js",
+      "file": "sim/kinematics-qualitative-graph-sketching/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/kinematics-qualitative-graph-browser-regression.js",
+      "file": "tools/kinematics-qualitative-graph-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "kinematics-qualitative-graph-sketching",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--headless",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/question-definitions.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/question-definitions.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/notation.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/notation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/graph-model.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/graph-model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/scoring.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/persistence.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/ui-runtime.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/kinematics-quantitative-graph-builder/accessibility.test.js",
+      "file": "sim/kinematics-quantitative-graph-builder/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/kinematics-quantitative-graph-browser-regression.js",
+      "file": "tools/kinematics-quantitative-graph-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "kinematics-quantitative-graph-builder",
+      "caseModules": [],
+      "flags": [
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/model.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/animation.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/animation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/scoring.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/persistence.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/persistence-matrix.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/persistence-matrix.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/ui-runtime.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/lifecycle.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/free-fall-stroboscopic-measurement-lab/accessibility.test.js",
+      "file": "sim/free-fall-stroboscopic-measurement-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/free-fall-stroboscopic-browser-regression.js",
+      "file": "tools/free-fall-stroboscopic-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "free-fall-stroboscopic-measurement-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/generator.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/model.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/scoring.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/persistence.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/lifecycle.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/ui-runtime.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/centre-of-mass-investigation-lab/accessibility.test.js",
+      "file": "sim/centre-of-mass-investigation-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/generator.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/model.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/animation.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/animation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/scoring.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/persistence.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/lifecycle.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/accessibility.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/ui-runtime.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/delayed-feedback.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/delayed-feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/touch-contract.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/touch-contract.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/hookes-law-spring-investigation-lab/pending-final.test.js",
+      "file": "sim/hookes-law-spring-investigation-lab/pending-final.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/hookes-law-spring-browser-regression.test.js",
+      "file": "tools/hookes-law-spring-browser-regression.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--suite"
+      ]
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/generator.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/physics.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/physics.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/measurement.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/measurement.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/graph-analysis.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/graph-analysis.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/scoring.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/persistence.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/lifecycle.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/delayed-feedback.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/delayed-feedback.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/accessibility.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--header-track",
+        "--math-font"
+      ]
+    },
+    {
+      "id": "sim/static-kinetic-friction-investigation-lab/production-wiring.test.js",
+      "file": "sim/static-kinetic-friction-investigation-lab/production-wiring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/static-kinetic-friction-browser-regression.js",
+      "file": "tools/static-kinetic-friction-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "static-kinetic-friction-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--parity",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "sim/force-composition-construction-lab/generator.test.js",
+      "file": "sim/force-composition-construction-lab/generator.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/notation.test.js",
+      "file": "sim/force-composition-construction-lab/notation.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/model.test.js",
+      "file": "sim/force-composition-construction-lab/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/scoring.test.js",
+      "file": "sim/force-composition-construction-lab/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/persistence.test.js",
+      "file": "sim/force-composition-construction-lab/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/lifecycle.test.js",
+      "file": "sim/force-composition-construction-lab/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/ui-runtime.test.js",
+      "file": "sim/force-composition-construction-lab/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-composition-construction-lab/accessibility.test.js",
+      "file": "sim/force-composition-construction-lab/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/force-composition-browser-regression.test.js",
+      "file": "tools/force-composition-browser-regression.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": [
+        "--suite"
+      ]
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/model.test.js",
+      "file": "sim/force-orthogonal-decomposition/model.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/scoring.test.js",
+      "file": "sim/force-orthogonal-decomposition/scoring.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/persistence.test.js",
+      "file": "sim/force-orthogonal-decomposition/persistence.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/lifecycle.test.js",
+      "file": "sim/force-orthogonal-decomposition/lifecycle.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/ui-runtime.test.js",
+      "file": "sim/force-orthogonal-decomposition/ui-runtime.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/force-orthogonal-decomposition/accessibility.test.js",
+      "file": "sim/force-orthogonal-decomposition/accessibility.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "force-orthogonal-decomposition",
+      "caseModules": [],
+      "flags": [
+        "--diagram-scale",
+        "--math-font",
+        "--scene-label-font-size"
+      ]
+    },
+    {
+      "id": "tools/force-orthogonal-decomposition-browser-regression.test.js",
+      "file": "tools/force-orthogonal-decomposition-browser-regression.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "tools",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/centre-of-mass-browser-regression.js",
+      "file": "tools/centre-of-mass-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "centre-of-mass-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--candidate-color",
+        "--disable-background-networking",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/mobile-touch-scroll.test.js",
+      "file": "tools/mobile-touch-scroll.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "tools",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/shared/touch-scroll.test.js",
+      "file": "sim/shared/touch-scroll.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "shared",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/shared/scorm.test.js",
+      "file": "sim/shared/scorm.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "shared",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "sim/shared/activity-flow.test.js",
+      "file": "sim/shared/activity-flow.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "shared",
+      "caseModules": [],
+      "flags": []
+    },
+    {
+      "id": "tools/run-tests.test.js",
+      "file": "tools/run-tests.test.js",
+      "args": [],
+      "kind": "node",
+      "owner": "tools",
+      "caseModules": [],
+      "flags": [
+        "--entry",
+        "--kind",
+        "--list",
+        "--shard",
+        "--suite",
+        "--unknown",
+        "--wat"
+      ]
+    },
+    {
+      "id": "tools/position-time-browser-regression.js",
+      "file": "tools/position-time-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "position-time-graph-motion-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--metrics-recording-only",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--no-sandbox",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/linear-motion-browser-regression.js",
+      "file": "tools/linear-motion-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "linear-motion-velocity-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--metrics-recording-only",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--no-sandbox",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/mobile-touch-browser-regression.js",
+      "file": "tools/mobile-touch-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "shared-touch",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--headless",
+        "--metrics-recording-only",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--no-sandbox",
+        "--only",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/kinematics-driving-browser-regression.js",
+      "file": "tools/kinematics-driving-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "kinematics-driving-challenge",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--headless",
+        "--no-first-run",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/hookes-law-spring-browser-regression.js",
+      "file": "tools/hookes-law-spring-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "hookes-law-spring-investigation-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--no-sandbox",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    },
+    {
+      "id": "tools/force-composition-browser-regression.js",
+      "file": "tools/force-composition-browser-regression.js",
+      "args": [],
+      "kind": "browser",
+      "owner": "force-composition-construction-lab",
+      "caseModules": [],
+      "flags": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--headless",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--preview-focus-x",
+        "--preview-focus-y",
+        "--remote-debugging-address",
+        "--remote-debugging-port",
+        "--user-data-dir"
+      ]
+    }
+  ]
+}

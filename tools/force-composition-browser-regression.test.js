@@ -12,7 +12,8 @@ const main = fs.readFileSync(path.join(__dirname, "..", "sim", "force-compositio
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
 const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "quality.yml"), "utf8");
 assert.equal(packageJson.scripts["test:browser:force-composition"], "node tools/force-composition-browser-regression.js");
-assert.match(workflow, /npm run test:browser:force-composition/);
+assert(require('./run-tests').extraBrowserTests.includes('tools/force-composition-browser-regression.js'));
+assert.match(workflow, /npm test -- --suite=extra/, 'Quality runs the registered extra browser suite');
 assert.match(browser, /Input\.dispatchTouchEvent/);
 assert.match(browser, /isTrusted/);
 assert.match(browser, /pointerType === "touch"/);

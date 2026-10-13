@@ -2,10 +2,10 @@
 "use strict";
 
 const path = require("path");
-const { spawnSync } = require("child_process");
+const {entryInfo, runTests} = require("./test-runner");
 
 const root = path.resolve(__dirname, "..");
-const tests = [
+const registeredTests = [
   "sim/circuit-workbench/transient.test.js",
   "sim/circuit-workbench/ac-source-protection.test.js",
   "sim/circuit-workbench/protection-continuation.test.js",
@@ -215,8 +215,20 @@ const tests = [
   "sim/shared/touch-scroll.test.js",
   "sim/shared/scorm.test.js",
   "sim/shared/activity-flow.test.js",
-  "tools/run-tests.test.js"
+  "tools/run-tests.test.js",
+  "tools/test-runner.test.js",
+  "tools/ci-environment.test.js"
 ];
+
+const extraBrowserTests = [
+  "tools/position-time-browser-regression.js",
+  "tools/linear-motion-browser-regression.js",
+  "tools/mobile-touch-browser-regression.js",
+  "tools/kinematics-driving-browser-regression.js",
+  "tools/hookes-law-spring-browser-regression.js",
+  "tools/force-composition-browser-regression.js"
+];
+const tests = [...registeredTests, ...extraBrowserTests];
 
 function selectTests(files, shard) {
   if (!shard) return files;
@@ -227,10 +239,34 @@ function selectTests(files, shard) {
   return files.filter((_, position) => position % count === index - 1);
 }
 
-if (require.main === module) for (const test of selectTests(tests, process.argv[2])) {
-  const file = typeof test === 'string' ? test : test.file;
-  const result = spawnSync(process.execPath, [path.join(root, file), ...(test.args || [])], { stdio: "inherit" });
-  if (result.status !== 0) process.exit(result.status || 1);
+function parseOptions(args) {
+  const options = {suite: 'all', kind: null, shard: null, list: false, reportPath: null};
+  const seen = new Set();
+  for (const arg of args) {
+    const key = arg.split('=')[0];
+    if (seen.has(key)) throw new Error('Duplicate option: ' + key);
+    seen.add(key);
+    if (arg === '--list') options.list = true;
+    else if (/^--suite=(all|registered|extra)$/.test(arg)) options.suite = arg.split('=')[1];
+    else if (/^--kind=(node|browser)$/.test(arg)) options.kind = arg.split('=')[1];
+    else if (arg.startsWith('--shard=')) options.shard = arg;
+    else if (arg.startsWith('--report=') && arg.length > 9) options.reportPath = arg.slice(9);
+    else throw new Error('Unknown test option: ' + arg);
+  }
+  return options;
 }
 
-module.exports = {tests, selectTests};
+function plannedTests(options) {
+  let selected = options.suite === 'registered' ? registeredTests : options.suite === 'extra' ? extraBrowserTests : tests;
+  if (options.kind) selected = selected.filter(t => entryInfo(t).kind === options.kind);
+  return selectTests(selected, options.shard);
+}
+
+async function main(args = process.argv.slice(2)) {
+  const options = parseOptions(args), selected = plannedTests(options);
+  if (options.list) return console.log(JSON.stringify(selected.map(entryInfo), null, 2));
+  const report = await runTests(selected, {root, reportPath: options.reportPath});
+  process.exitCode = report.status === 'passed' ? 0 : 1;
+}
+if (require.main === module) main().catch(e => {console.error(e.stack); process.exitCode = 1;});
+module.exports = {tests, registeredTests, extraBrowserTests, selectTests, parseOptions, plannedTests};
