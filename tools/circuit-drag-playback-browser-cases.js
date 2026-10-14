@@ -3,6 +3,46 @@ const assert=require('node:assert/strict');
 
 async function dragPlaybackCases(h,source){
  let checks=0;
+ // Drive the mounted editor with repeated RAF timestamps, including a real exhausted budget.
+ const timing=await h.inside(`(async()=>{
+  const raf=window.requestAnimationFrame,cancel=window.cancelAnimationFrame,advance=CircuitTransient.Session.prototype.advance;
+  const pending=new Map(),host=document.createElement('div'),runs=[];let nextId=-1,controller;
+  host.style.cssText='position:fixed;left:-10000px;width:800px;height:600px';document.body.append(host);
+  window.requestAnimationFrame=fn=>{const id=nextId--;pending.set(id,fn);return id;};
+  window.cancelAnimationFrame=id=>pending.delete(id);
+  const tick=time=>{const callbacks=[...pending.values()];pending.clear();for(const fn of callbacks)fn(time);};
+  try{
+   for(const exhaustBudget of [false,true]){
+    const calls=[];let exhausted=false;
+    CircuitTransient.Session.prototype.advance=function(duration,options){
+     const force=exhaustBudget&&!exhausted&&duration>0;if(force)exhausted=true;
+     // Only the deliberate exhausted-budget frame depends on wall-clock timing.
+     const result=advance.call(this,duration,{...options,budget:force?0:Infinity});
+     calls.push({duration,advanced:result.advanced,complete:result.complete,forced:force});return result;
+    };
+    controller=await CircuitEditor.mount(host,{role:'teacher',analysis:'transient',initialDocument:CircuitACPresets.create('resistive'),palette:[],idPrefix:'timing-'});
+    controller.setPlayback({paused:false,rate:1});tick(1000);
+    const duplicates=[];for(let i=1;i<=12;i++){
+     const time=1000+i*1000/60;tick(time);const before=controller.getAnalysis();tick(time);
+     const after=controller.getAnalysis();duplicates.push({before:before.time,after:after.time,reliable:after.reliable,diagnostics:after.diagnostics,paused:controller.getPlayback().paused});
+    }
+    const snapshot=controller.captureSession(),restored=CircuitTransient.decodeSession(CircuitTransient.encodeSession(snapshot));
+    const continued=restored.advance(.02);
+    runs.push({exhaustBudget,calls,duplicates,time:snapshot.physics.time,restoredTime:restored.state.time,restoredReliable:continued.result.reliable});
+    controller.destroy();controller=null;pending.clear();
+   }
+   return runs;
+  }finally{
+   controller?.destroy();host.remove();CircuitTransient.Session.prototype.advance=advance;
+   window.requestAnimationFrame=raf;window.cancelAnimationFrame=cancel;
+  }
+ })()`);
+ for(const run of timing){
+  assert(run.calls.some(c=>c.complete&&c.duration-c.advanced>0),'fixture reaches a completed floating-point remainder');checks++;
+  for(const frame of run.duplicates){assert.equal(frame.reliable,true);assert.deepEqual(frame.diagnostics,[]);assert.equal(frame.paused,false);if(!run.exhaustBudget)assert.equal(frame.after,frame.before);checks+=run.exhaustBudget?3:4;}
+  assert(Math.abs(run.time-.2)<1e-12);assert(Math.abs(run.restoredTime-.22)<1e-12);assert.equal(run.restoredReliable,true);checks+=3;
+  if(run.exhaustBudget){const index=run.calls.findIndex(c=>c.forced),call=run.calls[index];assert(index>=0);assert.equal(call.complete,false);assert(call.advanced>=0&&call.advanced<call.duration);assert.equal(run.calls[index+1].duration,call.duration-call.advanced);assert(run.calls[index+1].advanced>0);checks+=5;}
+ }
  const sample=()=>h.inside(`(()=>{const a=CircuitACWorkbench.getAnalysis(),i=CircuitACWorkbench.getInteraction(),scene=document.querySelector('[data-circuit-id=scene]');return {time:a.time,reliable:a.reliable,document:CircuitACWorkbench.exportDocument(),interaction:i,changes:window.__dragChanges,brightness:+scene.querySelector('[data-lamp]')?.dataset.brightness,powerKnown:scene.querySelector('[data-lamp]')?.dataset.powerKnown,charges:[...scene.querySelectorAll('[data-charge-count]')].map(e=>+e.dataset.chargeCount),charge:a.components.c4?.charge,trusted:window.__dragInputs};})()`);
  async function setup(name='resistive',paused=false){
   await h.call('setReadOnly(false)');await h.call('setPlayback({paused:true})');

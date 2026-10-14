@@ -1,5 +1,36 @@
 # 交流電路工作台
 
+## 播放完成後的浮點時間餘數（2026-10-14）
+
+正常播放完成後，`duration - advanced` 可能留下浮點餘數；下一幀時間相同時，
+這個餘數可誤觸 `time-resolution`。只在 `CircuitEditor` 的播放累積器按正式
+`advance().complete` 清除已完成請求；預算不足的未完成請求保留待算時間。
+不修改求解器的最小步長、真正快速暫態／無法表示時間的診斷或保存格式。
+教師非評量修正，assessment risk／rubric／SCORM attempt 為 N/A；沒有新
+依賴或權威狀態，正常／重複幀、未完成／續算、暫停／恢復沿用既有 session。
+
+驗證決定：在已登記的 `circuit-drag-playback-browser-cases.js` 加入正式
+`CircuitEditor.mount` 的可控 RAF 回歸，涵蓋正常完成的餘數、重複時間戳、
+真實 `budget: 0` 未完成後的續算，以及生產 encode/decode/restore 續作。
+用同一 AC browser 入口驗 source／解壓 ZIP，再跑相鄰 transient／audit／
+保護／保存及核心回歸、`check:tests`、syntax／manifest，重建共用四包。
+測試入口及 helper ownership 沿用 `tools/test-registry.js`；提交後記錄
+`9ccc42f..HEAD` 的 affected selection preview。真手機／Moodle／Sites 發布
+另計；實際證據於完成後補記。
+
+執行證據：新增正式 mounted-editor 回歸在修正前因可靠狀態變 false 而失敗；
+修正後 `node tools/circuit-ac-browser-regression.js --drag-playback-smoke`
+最終 source／ZIP 各459項、合共918項通過，含可控重複時間戳、已完成餘數、
+真實零預算未完成續算、session encode/decode/restore 及原有1280／390px
+可信滑鼠／觸控拖動、暫停、唯讀及滑塊。可控幀的非耗盡預算呼叫解除牆鐘
+時限，避免 CI 負載影響本回歸；日常播放的10ms預算沒有改動。
+transient、AC audit20組、AC dependency audit及DC core全部通過；真正極快
+RC及無法表示時間仍觸發既有診斷。`check:tests` 通過（235入口、204 node、
+31 browser、48 helpers、2 manual），syntax／manifest及diff檢查通過。
+四包已重建，逐檔／共用資產核對一致；證據於
+`output/circuit-platform-build.json` 及 `output/playwright/circuit-ac/*live-drag*`。
+未跑全倉庫完整CI、真手機或Moodle，未發布Sites。
+
 ## 拖動期間持續運行及接線預覽（2026-10-13）
 
 元件／導線幾何、移圖、縮放及接孔吸附預覽不暫停播放。預覽用已接受電路的
