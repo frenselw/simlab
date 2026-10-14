@@ -373,4 +373,3 @@ function validateRegistry({entries=tests,helperEntries=helpers,manualEntries=man
 
 if(require.main===module)console.log(JSON.stringify(validateRegistry(),null,2));
 module.exports={tests,registeredTests,extraBrowserTests,helpers,manualBrowserTests,assetLists,info,validateRegistry};
-
