@@ -17,8 +17,8 @@ const currentIds=new Set(tests.map(t=>entryInfo(t).id));
 for(const entry of baseline.entries.filter(e=>e.file!=='tools/circuit-workbench-browser-regression.js')){
   assert(currentIds.has(entry.id),'original full-CI entry must remain registered: '+entry.id);
 }
-assert.deepEqual(tests.filter(test => typeof test !== 'string'),
-  groups.flatMap(group=>['source','package'].map(mode=>({file:'tools/circuit-workbench-browser-regression.js',args:['--entry='+mode,'--group='+group]}))),
+assert.deepEqual(tests.filter(test => (typeof test==='string'?test:test.file)==='tools/circuit-workbench-browser-regression.js'),
+  groups.flatMap(group=>['source','package'].map(mode=>({file:'tools/circuit-workbench-browser-regression.js',kind:'browser',scope:'circuit-family',args:['--entry='+mode,'--group='+group]}))),
   'every full source/ZIP group runs exactly once');
 for (const invalid of ['--shard=0/4', '--shard=5/4', '--shard=1/0', '--shard=1/99999', '--shard=1.5/4', '--shard=foo', '--unknown']) assert.throws(() => selectTests(tests, invalid));
 assert.deepEqual(plannedTests(parseOptions(['--suite=registered'])), registeredTests);

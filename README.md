@@ -267,8 +267,9 @@ the fixes and their executed coverage. Local browser passes establish evidence
 for the recorded cases; real-phone Moodle acceptance remains a separate gate.
 
 The [Quality workflow](.github/workflows/quality.yml) uses one immutable plan for
-all registered tests, syntax/manifest checks and both package types. Node and
-browser work each use up to four jobs balanced by recorded successful durations.
+the selected tests, syntax/manifest checks and required package types.
+Node work uses up to four jobs and browser work up to eight, balanced by recorded
+successful durations.
 The final `check` verifies every expected job and entry; missing, failed or
 cancelled work cannot produce a green result. Browser jobs use pinned Chrome,
 CJK fonts and Xvfb. Daily runs select affected work conservatively; a missing
@@ -278,6 +279,7 @@ always executes the complete suite and both package types. Once deployed to main
 it runs daily at 03:30 Macau time and can verify an exact ref manually.
 
 ```text
+npm run check:tests
 npm run test:fast
 npm run test:affected -- --base=<sha> --head=<sha>
 npm test -- --base=<sha> --head=<sha> --plan
@@ -288,6 +290,12 @@ npm test
 available for an explicit subset. A local base/head comparison describes only
 that range; it does not establish GitHub PR or main baseline verification.
 Each execution writes an incremental report and logs under `output/ci-tests/`.
+The current [test registry](tools/test-registry.js) owns executable entries,
+browser scopes, helper consumers and separate manual browser gates.
+`check:tests` validates registration without launching a browser; it also runs
+before local selection and GitHub planning/workers. Missing conventional Node
+or browser tests fail instead of silently disappearing from CI. The historical
+baseline JSON remains measurement evidence, not a registration file.
 See the production guide's [CI gates](docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)
 and the [rollout plan](plans/34-ci-test-improvement-plan.md) for selection, rerun,
 release and rollback rules. Real-phone and Moodle acceptance remain separate.
@@ -311,7 +319,12 @@ circuit activities reuse the existing editor and physics core through configurat
 
 When adding an activity, register its catalogue metadata in `sim/config.js`,
 list every runtime dependency in `sim/manifests/<activity-folder>.xml`, and add
-new tests to `tools/run-tests.js`. Define persisted phases and snapshot schemas
+new tests and browser ownership to `tools/test-registry.js`. Follow the
+[registration procedure](docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations),
+run `npm run check:tests`, and record a committed `--plan` selection preview in
+the activity plan. Adding registry/catalogue entries initially selects full CI;
+later activity-only edits can use a qualified main baseline for affected tests.
+Define persisted phases and snapshot schemas
 in the activity plan before implementing draft or review restoration.
 For non-assessment workbenches, follow the production guide's
 [scope and shared-core contract](docs/simulation-scorm-production-guide.md#scope-and-shared-cores);

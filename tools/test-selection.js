@@ -1,13 +1,10 @@
 'use strict';
 const fs = require('node:fs'), path = require('node:path'), {spawnSync} = require('node:child_process');
-const {entryInfo} = require('./test-runner');
+const {info,tests:registered,helpers,assetLists} = require('./test-registry');
 const {XMLParser} = require('fast-xml-parser');
-const baseline = require('../docs/ci-test-baseline-2026-10-13.json');
-const owners = new Map(baseline.entries.map(e => [e.file, e.owner]));
 const evidenceDocs = new Set(['docs/ci-test-baseline-2026-10-13.md','docs/ci-test-split-2026-10-13.md','docs/ci-test-optimization-2026-10-13.md']);
 const circuitScopes = new Set(['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust']);
-const circuitInputs = new Set(baseline.entries.filter(e => e.owner === 'circuit-family')
-  .flatMap(e => [e.file, ...e.caseModules.map(m => 'tools/' + m + '.js')]));
+const circuitInputs = new Set([...registered.map(info).filter(e=>e.scope==='circuit-family'),...helpers.filter(e=>e.scope==='circuit-family')].map(e=>e.file));
 
 function assetOwners(root = path.resolve(__dirname,'..')) {
   const result = new Map(), add = (file, scope) => {
@@ -22,18 +19,13 @@ function assetOwners(root = path.resolve(__dirname,'..')) {
       for (const file of [].concat(resource.file || [])) add(file['@_href'],path.basename(name,'.xml'));
     }
   }
-  for (const scope of ['circuit-workbench','circuit-ac-workbench']) {
-    const source = JSON.parse(fs.readFileSync(path.join(root,'sim',scope,'assets.json'),'utf8'));
+  for (const {scope,file} of assetLists) {
+    const source = JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
     for (const file of source.files) add(file,scope);
   }
   return result;
 }
 
-function info(test) {
-  const entry = entryInfo(test);
-  entry.scope = entry.file.startsWith('sim/') ? entry.file.split('/')[1] : owners.get(entry.file) || 'tools';
-  return entry;
-}
 function parseNameStatus(text) {
   const tokens = text.split('\0');
   if (tokens.pop() !== '') throw new Error('Git diff must be NUL terminated');
@@ -87,7 +79,7 @@ function selectAffected(tests, paths, {trustedEmpty = false, forceFullReason = n
     if (isDoc(p) && !isPolicy(p)) continue;
     if (isPolicy(p) || p.startsWith('.github/') || p.startsWith('sim/shared/') || p.startsWith('sim/vendor/') ||
       /^package(?:-lock)?\.json$/.test(p) || p === 'sim/config.js' ||
-      /^tools\/(?:run-tests|test-runner|test-selection|ci-|package-|position-time-browser-regression)/.test(p)) return full('Shared policy, infrastructure or dependency changed: ' + p);
+      /^tools\/(?:run-tests|test-runner|test-selection|test-registry|ci-|package-|position-time-browser-regression)/.test(p)) return full('Shared policy, infrastructure or dependency changed: ' + p);
     if (p.startsWith('sim/')) {
       const parts = p.split('/');
       const scope = parts[1] === 'manifests' ? path.posix.basename(p, '.xml') : parts[1];
@@ -105,6 +97,11 @@ function selectAffected(tests, paths, {trustedEmpty = false, forceFullReason = n
       addScope('circuit-family');
       reasons.push(p + ' -> all circuit consumers');
       continue;
+    }
+    const helper=helpers.find(e=>e.file===p);
+    if(helper){
+      if(helper.scope.startsWith('shared-')||!addScope(helper.scope))return full('Shared or unmapped browser helper: '+p);
+      reasons.push(p+' -> '+helper.scope);continue;
     }
     const exact = browser.filter(e => e.file === p || e.file === p.replace(/\.test\.js$/,'.js'));
     if (exact.length) {

@@ -185,7 +185,26 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 - [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
 - [ ] Shared fullscreen button enters/exits with trusted click/tap on source and extracted SCORM, synchronizes external exits, remains reachable in review/pending, preserves answers/SCORM state, and visibly handles unsupported/denied requests; header text/navigation stay unobstructed.
 - [ ] Every phase/mode's applicable gesture rows pass with trusted input on **source and extracted SCORM** in T0–T3; record every owner's metrics, move/release samples, visual blank/overlay geometry, panel boundaries and unchanged learner work. Missing or failed acceptance cases fail the runner.
-- [ ] Every new test is registered in `tools/run-tests.js`; runtime dependencies are in the manifest and metadata in `sim/config.js`.
+- [ ] Every new test and browser owner is registered in `tools/test-registry.js`; runtime dependencies are in the manifest or registered standalone asset list, and metadata is in `sim/config.js`.
+
+### Test registration and CI selection evidence
+
+Follow the production guide's [registration procedure](../docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations); record this activity's decisions and actual evidence here.
+
+| Item | Activity decision / executed evidence |
+|---|---|
+| Runtime resource declaration | Manifest path, or standalone asset list and its `assetLists` registry entry; shared/cross-activity consumers |
+| Logical test entries | Paths and kind; `sim/<slug>/*.test.js` inherits the directory scope |
+| Browser entries / owner | Exact `file`, `kind`, `scope`, arguments and source/package coverage; circuit/shared ownership if applicable |
+| Case helpers | Files and importing driver/helper in `helpers`; shared helper scope if used across activities |
+| Separate manual gates | `manualBrowserTests` entries, scope, reason and required execution evidence; N/A if none |
+| Registration check | `npm run check:tests` command, result and evidence path |
+| CI selection preview | Committed base/head SHA, `--plan` result, selected browser entries/packages and any full-fallback reason |
+| Actual GitHub verification | Tested SHA, run link, scope and outcome; initial registry/catalogue change requires full verification |
+
+- [ ] Registration validation passes; every new formal entry/helper is accounted for, and any separate manual gate has a reason.
+- [ ] The committed selection preview includes the owning browser suite and all asset consumers, or records the expected full scope for registry/catalogue/shared changes.
+- [ ] Required source/package scenarios were executed; CI selection evidence does not replace real-phone or Moodle acceptance.
 
 ## Package-ready checklist
 

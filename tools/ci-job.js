@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
-const {digest}=require('./ci-plan'),{runTests,validateInventory}=require('./test-runner');
+const {digest}=require('./ci-plan'),{runTests}=require('./test-runner');
 const {commit}=require('./test-selection');
 const root=path.resolve(__dirname,'..');
 function validatePlan(plan){
@@ -10,7 +10,7 @@ function validatePlan(plan){
  if(String(plan.runId)!==String(process.env.GITHUB_RUN_ID))throw Error('Plan belongs to another workflow run');
 }
 async function main(){
- validateInventory(require('./run-tests').tests,root);
+ require('./test-registry').validateRegistry();
  const planPath=path.resolve(process.env.SIMLAB_CI_PLAN||'output/ci-tests/plan.json');
  const plan=JSON.parse(fs.readFileSync(planPath,'utf8'));validatePlan(plan);
  const key=process.env.SIMLAB_JOB_KEY,job=plan.jobs.find(j=>j.key===key);

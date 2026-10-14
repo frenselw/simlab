@@ -7,6 +7,7 @@ const { spawnSync } = require("child_process");
 const { XMLParser, XMLValidator } = require("fast-xml-parser");
 
 const root = path.resolve(__dirname, "..");
+require('./test-registry').validateRegistry();
 
 function filesBelow(directory, suffix) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

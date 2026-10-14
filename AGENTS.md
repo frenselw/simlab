@@ -57,8 +57,11 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
   Every saveable phase/variant needs a production encode/decode/restore round-trip
   and one executed legal continuation; validate invalid states separately from
   legal unanswered work. Technical failures must not claim confirmed results.
-- Add new tests to `tools/run-tests.js`, all runtime dependencies to the activity
-  manifest, and deployable activities to `sim/config.js` with `title`, `folder`,
+- Add new tests and browser ownership to `tools/test-registry.js`; follow the
+  production guide's [registration procedure](docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations)
+  and record `check:tests` / committed selection-preview evidence in the activity plan.
+  Add all runtime dependencies to the activity manifest and deployable activities
+  to `sim/config.js` with `title`, `folder`,
   `categories`, `description`, `tags`, and `status`.
 - Use the production guide's separate package-ready and Moodle-ready gates.
   Report actual evidence; local browser checks do not establish real Moodle or

@@ -54,7 +54,8 @@ Follow this order when creating an assessed student activity from scratch:
    SCORM lifecycle outcomes, and test plan before building the UI.
 4. Implement the activity with the shared styles, SCORM runtime, and activity
    flow; keep scoring and persistence logic independently testable.
-5. Register the activity in `sim/config.js`, its manifest, and the test runner.
+5. Register the activity in `sim/config.js`, its manifest, and the
+   [test registry](#test-registration-for-new-simulations); verify its CI selection.
 6. Complete the [Package-ready checks](#package-ready-checks), including the
    built-package browser smoke test.
 7. Complete the [Moodle-ready checks](#moodle-ready-checks) in a real Moodle
@@ -102,7 +103,8 @@ Also update:
   `categories`, `description`, `tags`, and `status`; `folder` must match the
   directory/manifest slug and only deployable activities may be `active`;
 - `sim/manifests/<slug>.xml` with every runtime file, including shared helpers;
-- `tools/run-tests.js` with every new test file.
+- `tools/test-registry.js` with every new test and its browser ownership; follow
+  [test registration](#test-registration-for-new-simulations).
 
 Use `sim/shared/styles.css`, `sim/shared/scorm.js`, and
 `sim/shared/activity-flow.js`. Do not copy their logic into an activity and do
@@ -877,6 +879,11 @@ verification does not waive outstanding deployment gates.
 
 ### CI gates and maintenance commands
 
+`npm run check:tests` validates the current test registry without launching tests
+or a browser. The same validation runs before `npm run check`, local test
+selection, GitHub plan creation and each CI worker. A missing registration fails
+even a documentation-only plan; a full run cannot silently omit the missing test.
+
 `npm run test:fast` runs all registered non-browser tests. For a committed local
 range, `npm run test:affected -- --base=<sha> --head=<sha>` runs the conservative
 affected selection; add `--plan` to inspect it without executing tests. The
@@ -918,6 +925,74 @@ pieces of failed attempts. An unexplained assertion failure followed by success
 still fails stability verification; a recorded prerequisite failure before tests
 may receive a bounded diagnostic rerun.
 
+### Test registration for new simulations
+
+`tools/test-registry.js` is the current source of test entries, browser ownership,
+helper consumers, standalone asset lists and explicitly separate manual browser
+gates. `tools/run-tests.js` executes this registry; do not maintain a second list
+there or edit `docs/ci-test-baseline-2026-10-13.json` to register new work. That
+JSON is historical measurement evidence, not the live ownership configuration.
+Registration is part of making the simulation; CI reads and validates it, but
+does not create entries or infer a browser test's subject from its filename.
+
+For every new simulation or new test:
+
+1. Declare every runtime dependency in `sim/manifests/<slug>.xml`. Manifests are
+   read automatically to derive reverse asset consumers. A standalone tool
+   instead adds its `{scope: '<slug>', file: 'sim/<slug>/assets.json'}` to the
+   registry's `assetLists`; its JSON `files` paths are relative to `sim/`.
+   Catalogue metadata remains in `sim/config.js`.
+2. Add each executable test to `registeredTests` in the registry. A
+   `sim/<slug>/*.test.js` entry may be a path string: its default kind is `node`
+   and scope is the directory slug. For browser drivers, explicitly record
+   `file`, `kind: 'browser'`, `scope` and any `args`, for example:
+
+   ```js
+   {file: 'tools/new-lab-browser-regression.js', kind: 'browser', scope: 'new-lab'}
+   ```
+
+   A new activity uses its exact directory/manifest slug. Circuit consumers use
+   `circuit-family`; shared browser suites use a `shared-` scope and trigger full
+   coverage when changed. Variants that use separate runner invocations require
+   distinct argument entries. A driver may execute source/package modes within
+   one entry; record its executed coverage without adding duplicate invocations.
+   New tests belong in `registeredTests`;
+   the six legacy `extraBrowserTests` remain for command compatibility.
+3. Name logical tests `*.test.js`, browser drivers `*-browser-regression.js`
+   (the existing `*-activity-regression.js` is also recognised), and case helpers
+   `*-browser-cases.js`. Declare each helper in `helpers` with `file`, `scope`
+   and `consumers`: the driver or other case helper that imports it. The checker
+   verifies the literal relative CommonJS import and a path to a registered
+   browser driver. A helper used across activity scopes uses a `shared-` scope,
+   so changes require full coverage. Helpers are not separate executable tests.
+4. A browser deployment matrix kept outside daily CI must appear in
+   `manualBrowserTests` with `file`, `scope` and a non-empty `reason`. This list
+   does not waive the production source/package/browser or Moodle/phone gates.
+   The existing mobile-scroll host/phase runner and orthogonal-decomposition
+   Git Bash matrix remain separate deployment checks. Do not move an existing
+   formal CI test to this list merely to reduce runtime.
+5. Run `npm run check:tests`. It rejects missing files, duplicate identities or
+   classifications, invalid/missing scopes, missing helper registrations or
+   consumers and unexplained manual exclusions. It scans both `sim/` and
+   `tools/` for the naming conventions above, including browser `.js`/`.sh`
+   drivers, plus file paths in npm `test:browser:*` commands. Use these names
+   for new tests; arbitrarily named files without an npm browser command are
+   not automatically discovered.
+6. After committing, inspect `npm run test:affected -- --base=<main-sha>
+   --head=HEAD --plan`. Record the range, selected scope, browser entries and
+   packages in the activity plan. Runtime changes must include the owning
+   browser suite and every reverse asset consumer. Registry, catalogue, shared
+   core or dependency changes deliberately select full coverage; adding a new
+   simulation normally needs an initial full verification. After an approved
+   main baseline exists under that policy, later activity-only edits can select
+   the affected scope. Keep the required source and extracted-package evidence.
+
+Unknown assets, unverified baselines or missing browser coverage still fall back
+to full regression. A registry validation error instead fails before selection;
+do not treat fallback as proof that an unregistered test was executed. Node work
+uses up to four jobs and browser work up to eight, with no empty jobs. The
+independent `full-check` and real-phone/Moodle gates remain unchanged.
+
 Daily checks and formal automated full coverage do not replace the full activity
 matrix, mobile-scroll host/phase/mode checks, real devices or real Moodle. Release
 evidence must match the actual tested SHA and rebuilt packages. If selection is
@@ -953,7 +1028,9 @@ protection to bypass a failure.
   fresh attempt from Moodle. Local tests do not establish real Moodle readiness.
 - Run changed-file syntax checks and the repository gates: `npm run check`,
   `npm test`, `npm run package:all`, and `git diff --check <base>...HEAD`
-  (normally `origin/main...HEAD`). All new tests must be in `tools/run-tests.js`.
+  (normally `origin/main...HEAD`). Run `npm run check:tests`; all new tests and
+  browser owners must be in `tools/test-registry.js`, with the selected CI scope
+  recorded under [test registration](#test-registration-for-new-simulations).
 - Check the [ZIP and manifest contract](#scorm-package-rules), including runtime
   references omitted from both manifest and ZIP. Launch the built/extracted
   artifact for browser smoke; source-only evidence is insufficient.

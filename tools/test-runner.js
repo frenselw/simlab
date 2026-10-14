@@ -21,13 +21,18 @@ function summary(report) {
     ...report.errors.map(e => 'Error: ' + e), ''].join('\n');
 }
 
-function validateInventory(tests,root) {
+function validateInventory(tests,root,excluded=[]) {
   const entries=tests.map(entryInfo),files=new Set(entries.map(e=>e.file));
   if(new Set(entries.map(e=>e.id)).size!==entries.length)throw Error('Duplicate registered test identity');
   for(const e of entries)if(!fs.existsSync(path.resolve(root,e.file)))throw Error('Registered test does not exist: '+e.file);
   const walk=directory=>fs.readdirSync(directory,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(directory,e.name)):
-    e.name.endsWith('.test.js')?[path.relative(root,path.join(directory,e.name)).replaceAll('\\','/')]:[]);
-  for(const file of ['sim','tools'].flatMap(d=>walk(path.join(root,d))))if(!files.has(file))throw Error('Unregistered test: '+file);
+    /(?:\.test\.js|-(?:browser-(?:regression|cases|test)|activity-regression)\.(?:js|sh))$/.test(e.name)?[path.relative(root,path.join(directory,e.name)).replaceAll('\\','/')]:[]);
+  const discovered=['sim','tools'].flatMap(d=>walk(path.join(root,d)));
+  const packageFile=path.join(root,'package.json');
+  if(fs.existsSync(packageFile))for(const [name,command] of Object.entries(JSON.parse(fs.readFileSync(packageFile,'utf8')).scripts||{})){
+    if(name.startsWith('test:browser:'))discovered.push(...[...command.matchAll(/(?:sim|tools)\/[\w./-]+\.(?:js|sh)\b/g)].map(m=>m[0]));
+  }
+  for(const file of discovered)if(!files.has(file)&&!excluded.includes(file))throw Error('Unregistered test: '+file);
 }
 
 function trackedDiff(root) {

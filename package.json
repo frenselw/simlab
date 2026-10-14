@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "check": "node tools/check.js",
+    "check:tests": "node tools/test-registry.js",
     "test": "node tools/run-tests.js",
     "test:fast": "node tools/run-tests.js --kind=node",
     "test:affected": "node tools/run-tests.js --affected",

@@ -77,6 +77,7 @@ function eventComparison({event,payload,sha,ref,baseline,directory=root}){
 }
 async function prepare({full=false,directory=root,env=process.env,api=null}={}){
  const {tests}=require('./run-tests');
+ require('./test-registry').validateRegistry();
  const sha=commit(directory,'HEAD'),policy=policyHash(directory);
  const payload=env.GITHUB_EVENT_PATH?JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH,'utf8')):{};
  if(!full&&sha!==env.GITHUB_SHA)throw Error('Tested checkout differs from the event SHA');
