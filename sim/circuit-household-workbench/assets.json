@@ -29,6 +29,8 @@
     "circuit-household-workbench/index.html",
     "circuit-household-workbench/styles.css",
     "circuit-household-workbench/main.js",
+    "circuit-household-workbench/concept.js",
+    "circuit-household-workbench/concept.css",
     "circuit-household-workbench/presets.js",
     "circuit-household-workbench/persistence.js",
     "circuit-household-workbench/assets.json"

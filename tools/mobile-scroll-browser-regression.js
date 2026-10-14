@@ -37,7 +37,7 @@ if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrol
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
-  return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
+  return args.phases==='all' ? A.profiles(slug) : slug==='circuit-household-workbench' ? [A.profiles(slug).find(p=>p.id==='initial')] : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
 if(args.profiles){
   const available=new Set(catalogue.flatMap(sim=>selectedProfiles(sim.folder).map(profile=>profile.id)));
@@ -375,6 +375,10 @@ async function main() {
         entry.gestures.push({...test,point,before,after,samples,...(trace?{trace}:{}),issues});
       }
       if(args['panel-sequence'])for(const surface of ['text','button','cancel','after-cancel']){
+        if(surface==='button'&&spec.noPanelButtonReason){
+          if(await childEval('[...document.querySelector('+JSON.stringify(panelSelector)+').querySelectorAll("button")].some(b=>b.getClientRects().length)'))throw Error('Panel-button exemption no longer matches the visible UI');
+          entry.gestures.push({case:'panel-button',notApplicable:spec.noPanelButtonReason,issues:[]});continue;
+        }
         await prepare('panel','middle');
         const point=['text','button'].includes(surface)?await panelContentPoint(surface):await blankPoint('panel','up');
         if(point.unavailable)throw new Error('Panel interruption point is unavailable');
@@ -427,7 +431,8 @@ async function main() {
 if(require.main===module)main().catch(error=>{report.errors.push(error.message);console.error(error.stack);process.exitCode=1;}).finally(async()=>{
   try{await H.stopChrome(chrome,null);}catch(error){console.error(error.message);process.exitCode=1;}cdp?.close();
   if(server)await H.closeServer(server);
-  if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
+  // Windows Chrome children may release profile handles after the parent exits.
+  if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:10,retryDelay:300});}
   for(const dir of packageRoots){H.validateOwnedDirectory(dir,fs.realpathSync(os.tmpdir()),/^simlab-scroll-audit-package-[A-Za-z0-9]+$/,'audit package');fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
   report.status=process.exitCode?'failed':report.completed?'passed':'incomplete';persistReport();
 });

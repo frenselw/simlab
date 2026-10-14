@@ -21,6 +21,7 @@
     ['H18','I 類與 II 類','II 類基本絕緣失效仍有補充絕緣；改成整體失效才建立外殼故障支路。']
   ].map(([id,title,description])=>({id,title,description}));
   function create(id='H01',variant='grouped'){
+    if(id==='concept')return concept();
     if(id!=='blank'&&!experiments.some(e=>e.id===id))throw new Error('未知家庭示例');
     const doc=M.empty('household-rms');doc.cables.count=240;doc.cables.length=1200;
     if(id==='blank')return doc;
@@ -66,6 +67,10 @@
     if(id==='H17')doc.wires.find(w=>w.to===load.id+':a').resistance=2;
     if(id==='H18'){Object.assign(load.params,{insulation:'II',fault:'basic',earth:false});load.label='II 類：補充絕緣仍完整';doc.wires=doc.wires.filter(w=>w.to!==load.id+':e');}
     return M.validate(doc);
+  }
+  function concept(){
+    const d=create('H02'),lamp=d.components.filter(c=>c.type==='hh-appliance')[1];lamp.label='電燈';Object.assign(lamp.params,{ratedPower:60,insulation:'II'});d.wires=d.wires.filter(w=>w.to!==lamp.id+':e');
+    const line=d.wires.find(w=>w.to===lamp.id+':a'),sw=M.add(d,'switch',1300,330,{closed:true});sw.label='電燈開關';line.to=sw.id+':a';Object.assign(M.connect(d,sw.id+':b',lamp.id+':a'),{role:'L',rating:6});return M.validate(d);
   }
   return {experiments,create};
 });

@@ -614,3 +614,15 @@ TEST限流支路：R=230/0.06 Ω，從L輸入跨到N輸出；以真實差流觸�
 - `tools/mobile-scroll-operations.js` 以合法冷態部分接線 fixture 補家庭owned body、port、free end、attached end與wire body／bend完成及取消，量每次移動與放手的host／document／panel／time，線端必須有預覽且釋放清除。這些共用目標在initial正式狀態執行；其它state仍獨立跑blank／strip／panel，read-only另由browser owner驗證凍結與拒絕變更。
 - H4 standalone runner接入已完成資產宣告、真ZIP入口與資源／ZIP指紋；T0宿主與 source／package entry 分開指定。registered shared-touch helper沿用原owner與consumer，沒有另設虛構SCORM manifest。
 - H6 不在本輪，rubric／評分／attempt為N/A；真手機及真Moodle未驗，維持未勾選。新增registry／catalogue／selection本輪採full，不把單一家庭browser取代family回歸。
+
+## 使用者試看後的教學介面修訂（2026-10-14）
+
+使用者指出初版像專業器材搭建工具、畫面分成太多塊，要求參照家居接線圖，以中學生概念為主，且一個畫面只保留最重要的內容。此指示取代本計劃原先把完整工具箱／全屋四分路放在預設畫面的安排；物理核心、十八示例、儲存邊界及既有驗證要求保留。
+
+- 預設只畫市電→電能表→總開關，以及三線、一個插座和一盞燈；水壺以簡單圖形表示接在插座上的家電。
+- 一次選 L／N／E 一條線，只給短解釋；點插座才放大三孔、保險絲及外殼；地線故障示範只在放大的地線主題出現。沒有曲線、額定值、kW／kWh摘要、MCB／RCCB工具箱或繪線模式擠在學生主畫面。
+- 燈開關設在 L；簡化模型的燈與插座並聯。選線、放大與全螢幕不改權威狀態；燈開關與漏電仍由同一正式 session 求解。漏電後的斷電不是固定動畫。
+- 頁首「⋯」進教師工具；原 H01–H18、自由搭建及配置／實驗文件功能繼續可用。兩個入口共用一個 editor，回到概念圖前保留未保存變更確認。
+- browser owner 的概念圖、教師工具與入口切換共 source／ZIP 90 案已通過；四種概念狀態（家居、插座、地線、漏電後）加入 T0–T3 runner，T2 source 320×500 開發檢查已通過。說明區只有文字的家居／插座狀態，面板按鈕手勢記為不適用，且 runner 會核對真的沒有可見按鈕；其餘文字、邊界、取消及快滑照跑。
+
+前面舊介面的全量／手勢報告不作新版成品證據；舊 CI 已取消。新版需在最終提交重新重建 source／ZIP 與 Full gate。真手機、真 Moodle 及 H6 仍未完成。

@@ -6,9 +6,16 @@
 `output/circuit-household-workbench-standalone.zip`。Moodle 使用 File resource。
 完整範圍、具名教學曲線、數值基準及驗收見[實施計劃](../plans/33-circuit-household-workbench.md)。
 
+預設是中學生概念圖：只畫市電、電能表、總開關、L／N／E、一個插座及一盞燈。
+選線只改觀察；點插座才放大三孔、插頭保險絲與金屬外殼，選地線才提供漏電示範。
+燈的開關、漏電及保護使用同一個 editor session 的正式電路，沒有第二套假讀值。
+`CircuitHouseholdPresets.create('concept')` 是完整合法的簡化並聯回路；
+`concept.js`／`concept.css` 擁有學生概念圖。頁首「⋯」才進教師搭建工具，H01–H18 保留於此。
+返回概念圖會按原有未保存變更確認流程載入標準回路；刷新從標準冷態開始。
+
 沿用[共用 editor API](circuit-activity-authoring.md)，掛載設定為
-`analysis:'household-rms'`，初始文件由 `CircuitHouseholdPresets.create('H01')`
-或 `CircuitModel.empty('household-rms')` 建立。載入可選的
+`analysis:'household-rms'`，預設文件由 `CircuitHouseholdPresets.create('concept')`
+建立；作者也可用 `create('H01')` 或 `CircuitModel.empty('household-rms')`。載入可選的
 `household-runtime-assets.json` 依賴；不要載入 AC transient 後端。
 家庭頁的 `assets.json` 已列齊共用核心、家庭模組及外層檔案。
 
