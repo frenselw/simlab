@@ -394,3 +394,7 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 此輪八組 browser 實際混用 GitHub image `20261004.327.1`／`20261012.334.1`；Node `22.23.3`、Chrome `154.0.8037.92`、OS／架構及 CJK 字體 SHA-256 完全一致。兩個 image build 標籤均保留在 receipt 來源紀錄，證實修正已處理實際 rollout。原失敗 runs 保留原狀，未拼接不同 run 的測試結果。正式 receipt／plan／13 份報告另存於 `output/ci-tests/env-rollout-final/`；兩個 committed selection-preview 分別在 `env-rollout-selection.json`／`hidden-legend-selection.json`，均選出 full／240 tests。
 
 本紀錄只補充 CI 證據；真手機／Moodle／T4 驗收維持前述狀態。
+
+### 市電電纜左端立體感修正（2026-10-15）
+
+依使用者畫面標註，將市電電纜左端的平直切邊改為橢圓弧面，外皮採上下明暗漸層及弧形尾緣高光。工具箱與畫布共用此 SVG；端口、導線、模擬及存檔不變。語法、既有示例／元件渲染測試及 diff 格式檢查通過，已檢視放大圖與 665×604 工作台截圖（`output/playwright/circuit-household/mains-cylinder-detail.png`／`mains-cylinder-workbench.png`）。本次局部外觀修正未重跑完整 CI，前述正式 receipt 對應原提交。
